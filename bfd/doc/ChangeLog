@@ -1,3 +1,25 @@
+Mon Jun 14 12:07:07 1993  david d `zoo' zuhn  (zoo at rtl.cygnus.com)
+
+	* Makefile.in (install-info): remove parentdir cruft, 
+
+Wed Jun  9 16:00:32 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* Makefile.in (mostlyclean): Remove chew.o.
+
+Tue May 25 14:46:58 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* Makefile.in (libbfd.h): Use elfcode.h, not elf32.c.
+
+Mon May 24 15:50:07 1993  Ken Raeburn  (raeburn@cygnus.com)
+
+	* chew.c (compile): Add a couple of missing casts.
+
+Wed May 12 14:45:14 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* Makefile.in (CC_FOR_BUILD): New variable, define to be $(CC).
+	(chew.o, $(MKDOC)): Build using CC_FOR_BUILD rather than CC, since
+	it must run on the build machine.
+
 Tue Apr  6 22:38:10 1993  John Gilmore  (gnu@cygnus.com)
 
 	* Makefile.in (chew):  Don't compile from .c to executable in a

@@ -51,10 +51,17 @@ struct hp300hpux_header_extension
 };
 #define EXTERNAL_EXTENSION_HEADER_SIZE (16*4)
 
-#define OMAGIC 0x106
-#define NMAGIC 0x107
-#define ZMAGIC 0x10B
-#define SHAREMAGIC 0x108
+/* hpux separates object files (0x106) and impure executables (0x107)  */
+/* but the bfd code does not distinguish between them. Since we want to*/
+/* read hpux .o files, we add an special define and use it below in    */
+/* offset and address calculations.                                    */
+
+#define HPUX_DOT_O_MAGIC 0x106
+#define OMAGIC 0x107       /* object file or impure executable.  */
+#define NMAGIC 0x108       /* Code indicating pure executable.   */
+#define ZMAGIC 0x10B       /* demand-paged executable.           */
+
+#define N_HEADER_IN_TEXT(x) 0
 
 #if 0 /* libaout.h only uses the lower 8 bits */
 #define HP98x6_ID 0x20A
@@ -65,14 +72,19 @@ struct hp300hpux_header_extension
 
 #define N_BADMAG(x) ((_N_BADMAG (x)) || (_N_BADMACH (x)))
 
+#define N_DATADDR(x) \
+    ((N_MAGIC(x)==OMAGIC || N_MAGIC(x)==HPUX_DOT_O_MAGIC) ? \
+        (N_TXTADDR(x)+N_TXTSIZE(x)) \
+     :  (N_SEGSIZE(x) + ((N_TXTADDR(x)+N_TXTSIZE(x)-1) & ~(N_SEGSIZE(x)-1))))
+
 #define _N_BADMACH(x)                                                   \
 (((N_MACHTYPE (x)) != HP9000S200_ID) &&                                 \
  ((N_MACHTYPE (x)) != HP98x6_ID))
 
-#define _N_BADMAG(x)	  (N_MAGIC(x) != OMAGIC		\
+#define _N_BADMAG(x)	  (N_MAGIC(x) != HPUX_DOT_O_MAGIC \
+                        && N_MAGIC(x) != OMAGIC		\
 			&& N_MAGIC(x) != NMAGIC		\
-  			&& N_MAGIC(x) != ZMAGIC         \
-                        && N_MAGIC(x) != SHAREMAGIC)
+  			&& N_MAGIC(x) != ZMAGIC )
 
 #undef _N_HDROFF
 #define _N_HDROFF(x) (SEGMENT_SIZE - (sizeof (struct exec)))

@@ -59,10 +59,6 @@ i386_skip_prologue PARAMS ((int));
 #define SAVED_PC_AFTER_CALL(frame) \
   (read_memory_integer (read_register (SP_REGNUM), 4))
 
-/* Address of end of stack space.  */
-
-#define STACK_END_ADDR 0x80000000
-
 /* Stack grows downward.  */
 
 #define INNER_THAN <
@@ -229,7 +225,7 @@ i386_skip_prologue PARAMS ((int));
 /* Return number of args passed to a frame.
    Can return -1, meaning no way to tell.  */
 
-#define FRAME_NUM_ARGS(numargs, fi) (numargs) = i386_frame_num_args(fi)
+#define FRAME_NUM_ARGS(numargs, fi) (numargs) = -1
 
 #ifdef __STDC__		/* Forward decl's for prototypes */
 struct frame_info;

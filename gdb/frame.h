@@ -20,46 +20,68 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #if !defined (FRAME_H)
 #define FRAME_H 1
 
-/* FRAME is the type of the identifier of a specific stack frame.  It
-   is a pointer to the frame cache item corresponding to this frame.
-   Please note that frame id's are *not* constant over calls to the
-   inferior.  Use frame addresses, which are.
-  
-   FRAME_ADDR is the type of the address of a specific frame.  I
-   cannot imagine a case in which this would not be CORE_ADDR, so
-   maybe it's silly to give it it's own type.  Life's rough.
-  
-   FRAME_FP is a macro which converts from a frame identifier into a
-   frame_address.
-  
-   FRAME_INFO_ID is a macro which "converts" from a frame info pointer
-   to a frame id.  This is here in case I or someone else decides to
-   change the FRAME type again.
-  
-   This file and blockframe.c are the only places which are allowed to
-   use the equivalence between FRAME and struct frame_info *.  EXCEPTION:
-   value.h uses CORE_ADDR instead of FRAME_ADDR because the compiler
-   will accept that in the absence of this file.
-   FIXME:  Prototypes in other files make use of the equivalence between
-           "FRAME" and "struct frame_info *" and the equivalence between
-	   CORE_ADDR and FRAME_ADDR.  */
+/* A FRAME identifies a specific stack frame.  It is not constant over
+   calls to the inferior (frame addresses are, see below).
 
+   This is implemented as a "struct frame_info *".  This file and
+   blockframe.c are the only places which are allowed to use the
+   equivalence between FRAME and struct frame_info *.  Exception:
+   Prototypes in other files use "struct frame_info *" because this
+   file might not be included.
+
+   The distinction between a FRAME and a "struct frame_info *" is made
+   with the idea of maybe someday changing a FRAME to be something else,
+   but seems to me that a "struct frame_info *" is fully general (since
+   any necessarily fields can be added; changing the meaning of existing
+   fields is not helped by the FRAME distinction), and this distinction
+   merely creates unnecessary hair.  -kingdon, 18 May 93.  */
 typedef struct frame_info *FRAME;
-typedef CORE_ADDR	FRAME_ADDR;
-#define FRAME_FP(fr)	((fr)->frame)
+
+/* Convert from a "struct frame_info *" into a FRAME.  */
 #define FRAME_INFO_ID(f)	(f)
 
-/* Caching structure for stack frames.  This is also the structure
-   used for extended info about stack frames.  May add more to this
-   structure as it becomes necessary.
-  
-   Note that the first entry in the cache will always refer to the
-   innermost executing frame.  This value is set in wait_for_inferior.  */
+/* Convert from a FRAME into a "struct frame_info *".  */
+extern struct frame_info *
+get_frame_info PARAMS ((FRAME));
+
+/* Type of the address of a frame.  It is widely assumed (at least in
+   prototypes in headers which might not include this header) that
+   this is the same as CORE_ADDR, and no one can think of a case in
+   which it wouldn't be, so it might be best to remove this typedef.  */
+typedef CORE_ADDR	FRAME_ADDR;
+
+/* Convert from a FRAME into a frame address.  Except in the
+   machine-dependent *FRAME* macros, a frame address has no defined
+   meaning other than as a magic cookie which identifies a frame over
+   calls to the inferior.  The only known exception is inferior.h
+   (PC_IN_CALL_DUMMY) [ON_STACK]; see comments there.  You cannot
+   assume that a frame address contains enough information to
+   reconstruct the frame; if you want more than just to identify the
+   frame (e.g. be able to fetch variables relative to that frame),
+   then save the whole struct frame_info (and the next struct
+   frame_info, since the latter is used for fetching variables on some
+   machines).  */
+
+#define FRAME_FP(fr)	((fr)->frame)
+
+/* We keep a cache of stack frames, each of which is a "struct
+   frame_info".  The innermost one gets allocated (in
+   wait_for_inferior) each time the inferior stops; current_frame
+   points to it.  Additional frames get allocated (in
+   get_prev_frame_info) as needed, and are chained through the next
+   and prev fields.  Any time that the frame cache becomes invalid
+   (most notably when we execute something, but also if we change how
+   we interpret the frames (e.g. "set heuristic-fence-post" in
+   mips-tdep.c, or anything which reads new symbols)), we should call
+   reinit_frame_cache.  */
 
 struct frame_info
   {
-    /* Nominal address of the frame described.  */
+    /* Nominal address of the frame described.  See comments at FRAME_FP
+       about what this means outside the *FRAME* macros; in the *FRAME*
+       macros, it can mean whatever makes most sense for this machine.  */
     FRAME_ADDR frame;
+
     /* Address at which execution is occurring in this frame.
        For the innermost frame, it's the current pc.
        For other frames, it is a pc saved in the next frame.  */
@@ -75,20 +97,17 @@ struct frame_info
        set this to prevent us from trying to print it like a normal frame.  */
     int signal_handler_caller;
 
-    /* The frame called by the frame we are describing, or 0.  On the
-       innermost frame it is (FRAME_ADDR)0 and various parts of GDB
-       check for this.  Is this any different from checking ->next ==
-       0 (framelessness?).  It's possible it would make more sense to
-       change this to mean the bottom of this frame (read_register
-       (SP_REGNUM) in the innermost frame).  */
-    FRAME_ADDR next_frame;
-
     /* Anything extra for this structure that may have been defined
        in the machine depedent files. */
 #ifdef EXTRA_FRAME_INFO
     EXTRA_FRAME_INFO
 #endif
-    /* Pointers to the next and previous frame_info's in this stack.  */
+
+    /* We should probably also store a "struct frame_saved_regs" here.
+       This is already done by some machines (e.g. config/m88k/tm-m88k.h)
+       but there is no reason it couldn't be general.  */
+
+    /* Pointers to the next and previous frame_info's in the frame cache.  */
     FRAME next, prev;
   };
 
@@ -96,8 +115,14 @@ struct frame_info
 
 struct frame_saved_regs
   {
-    /* For each register, address of where it was saved on entry to the frame,
-       or zero if it was not saved on entry to this frame.  */
+
+    /* For each register, address of where it was saved on entry to
+       the frame, or zero if it was not saved on entry to this frame.
+       This includes special registers such as pc and fp saved in
+       special ways in the stack frame.  The SP_REGNUM is even more
+       special, the address here is the sp for the next frame, not the
+       address where the sp was saved.  */
+
     CORE_ADDR regs[NUM_REGS];
   };
 
@@ -152,9 +177,6 @@ extern FRAME selected_frame;
    or -1 for frame specified by address with no defined level.  */
 
 extern int selected_frame_level;
-
-extern struct frame_info *
-get_frame_info PARAMS ((FRAME));
 
 extern struct frame_info *
 get_prev_frame_info PARAMS ((FRAME));

@@ -27,13 +27,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include <sys/ptrace.h>
 
-#ifdef FIVE_ARG_PTRACE
-
-/* Deal with HPUX 8.0 braindamage.  */
-#define ptrace(a,b,c,d) ptrace(a,b,c,d,0)
-
-#endif
-
 #ifndef PT_ATTACH
 #define PT_ATTACH PTRACE_ATTACH
 #endif
@@ -52,14 +45,15 @@ call_ptrace (request, pid, addr, data)
      PTRACE_ARG3_TYPE addr;
      int data;
 {
-  return ptrace (request, pid, addr, data);
+  return ptrace (request, pid, addr, data, 0);
 }
 
-#ifdef DEBUG_PTRACE
-/* For the rest of the file, use an extra level of indirection */
-/* This lets us breakpoint usefully on call_ptrace. */
+/* Use an extra level of indirection for ptrace calls.
+   This lets us breakpoint usefully on call_ptrace.   It also
+   allows us to pass an extra argument to ptrace without
+   using an ANSI-C specific macro.  */
+
 #define ptrace call_ptrace
-#endif
 
 void
 kill_inferior ()
@@ -103,8 +97,6 @@ detach (signal)
 #endif /* ATTACH_DETACH */
 
 
-
-#if !defined (FETCH_INFERIOR_REGISTERS)
 
 /* KERNEL_U_ADDR is the amount to subtract from u.u_ar0
    to get the offset in the core file of the register values.  */
@@ -163,11 +155,6 @@ void _initialize_kernel_u_addr ()
     - KERNEL_U_ADDR
 #endif
 
-/* Registers we shouldn't try to fetch.  */
-#if !defined (CANNOT_FETCH_REGISTER)
-#define CANNOT_FETCH_REGISTER(regno) 0
-#endif
-
 /* Fetch one register.  */
 
 static void
@@ -176,18 +163,10 @@ fetch_register (regno)
 {
   register unsigned int regaddr;
   char buf[MAX_REGISTER_RAW_SIZE];
-  char mess[128];				/* For messages */
   register int i;
 
   /* Offset of registers within the u area.  */
   unsigned int offset;
-
-  if (CANNOT_FETCH_REGISTER (regno))
-    {
-      bzero (buf, REGISTER_RAW_SIZE (regno));	/* Supply zeroes */
-      supply_register (regno, buf);
-      return;
-    }
 
   offset = U_REGS_OFFSET;
 
@@ -200,17 +179,21 @@ fetch_register (regno)
       regaddr += sizeof (int);
       if (errno != 0)
 	{
-	  sprintf (mess, "reading register %s (#%d)", reg_names[regno], regno);
-	  perror_with_name (mess);
+	  /* Warning, not error, in case we are attached; sometimes the
+	     kernel doesn't let us at the registers.  */
+	  char *err = safe_strerror (errno);
+	  char *msg = alloca (strlen (err) + 128);
+	  sprintf (msg, "reading register %s: %s", reg_names[regno], err);
+	  warning (msg);
+	  goto error_exit;
 	}
     }
   supply_register (regno, buf);
+ error_exit:;
 }
 
-#endif /* !defined (FETCH_INFERIOR_REGISTERS).  */
 /* Fetch all registers, or just one, from the child process.  */
 
-#ifndef FETCH_INFERIOR_REGISTERS
 void
 fetch_inferior_registers (regno)
      int regno;
@@ -222,11 +205,6 @@ fetch_inferior_registers (regno)
     fetch_register (regno);
 }
 
-/* Registers we shouldn't try to store.  */
-#if !defined (CANNOT_STORE_REGISTER)
-#define CANNOT_STORE_REGISTER(regno) 0
-#endif
-
 /* Store our register values back into the inferior.
    If REGNO is -1, do this for all registers.
    Otherwise, REGNO specifies which register (so we can save time).  */
@@ -236,7 +214,6 @@ store_inferior_registers (regno)
      int regno;
 {
   register unsigned int regaddr;
-  char buf[80];
   extern char registers[];
   register int i;
 
@@ -252,8 +229,10 @@ store_inferior_registers (regno)
 		  *(int *) &registers[REGISTER_BYTE (regno) + i]);
 	  if (errno != 0)
 	    {
-	      sprintf (buf, "writing register number %d(%d)", regno, i);
-	      perror_with_name (buf);
+	      char *err = safe_strerror (errno);
+	      char *msg = alloca (strlen (err) + 128);
+	      sprintf (msg, "writing register %s: %s", reg_names[regno], err);
+	      warning (msg);
 	    }
 	  regaddr += sizeof(int);
 	}
@@ -264,31 +243,19 @@ store_inferior_registers (regno)
 	{
 	  if (CANNOT_STORE_REGISTER (regno))
 	    continue;
-	  regaddr = register_addr (regno, offset);
-	  for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof(int))
-	    {
-	      errno = 0;
-	      ptrace (PT_WUREGS, inferior_pid, (PTRACE_ARG3_TYPE) regaddr,
-		      *(int *) &registers[REGISTER_BYTE (regno) + i]);
-	      if (errno != 0)
-		{
-		  sprintf (buf, "writing register number %d(%d)", regno, i);
-		  perror_with_name (buf);
-		}
-	      regaddr += sizeof(int);
-	    }
+	  store_inferior_registers (regno);
 	}
     }
   return;
 }
-#endif /* !defined(FETCH_INFERIOR_REGISTERS) */
 
-/* Resume execution of the inferior process.
+/* Resume execution of process PID.
    If STEP is nonzero, single-step it.
    If SIGNAL is nonzero, give it that signal.  */
 
 void
-child_resume (step, signal)
+child_resume (pid, step, signal)
+     int pid;
      int step;
      int signal;
 {
@@ -299,9 +266,9 @@ child_resume (step, signal)
      written a new PC value to the child.)  */
 
   if (step)
-    ptrace (PT_STEP, inferior_pid, (PTRACE_ARG3_TYPE) 1, signal);
+    ptrace (PT_STEP, pid, (PTRACE_ARG3_TYPE) 1, signal);
   else
-    ptrace (PT_CONTINUE, inferior_pid, (PTRACE_ARG3_TYPE) 1, signal);
+    ptrace (PT_CONTINUE, pid, (PTRACE_ARG3_TYPE) 1, signal);
 
   if (errno)
     perror_with_name ("ptrace");

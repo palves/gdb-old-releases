@@ -43,6 +43,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	  CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
 	  goto record_it;
 
+	case N_BSS:
 	case N_BSS | N_EXT:
 	case N_NBBSS | N_EXT:
         case N_SETV | N_EXT:		/* FIXME, is this in BSS? */
@@ -108,30 +109,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		past_first_source_file = 1;
 	      last_o_file_start = CUR_SYMBOL_VALUE;
 	    }
+	  else
+	    goto record_it;
 #endif /* DBXREAD_ONLY */
 	  continue;
 
 	case N_DATA:
-#ifdef DBXREAD_ONLY
 	  CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
-	  SET_NAMESTRING ();
-	  /* Check for __DYNAMIC, which is used by Sun shared libraries. 
-	     Record it even if it's local, not global, so we can find it.
-	     FIXME:  this might want to check for _DYNAMIC and the current
-		     symbol_leading_char.  */
-	  if (namestring[8] == 'C' && STREQ ("__DYNAMIC", namestring))
-	    goto record_it;
-
-	  /* Same with virtual function tables, both global and static.  */
-	  {
-	    char *tempstring = namestring;
-	    if (tempstring[0] == bfd_get_symbol_leading_char (objfile->obfd))
-	      tempstring++;
-	    if (VTBL_PREFIX_P ((tempstring)))
-	      goto record_it;
-	  }
-#endif /* DBXREAD_ONLY */
-	  continue;
+	  goto record_it;
 
 	case N_UNDF | N_EXT:
 #ifdef DBXREAD_ONLY
@@ -175,7 +160,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	    /* Lots of symbol types we can just ignore.  */
 
 	case N_ABS:
-	case N_BSS:
 	case N_NBDATA:
 	case N_NBBSS:
 	  continue;
@@ -203,11 +187,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	   */
 
 	case N_SO: {
-	  unsigned long valu = CUR_SYMBOL_VALUE;
+	  unsigned long valu;
 	  static int prev_so_symnum = -10;
 	  static int first_so_symnum;
 	  char *p;
-	  
+
+	  valu = CUR_SYMBOL_VALUE + ANOFFSET (section_offsets, SECT_OFF_TEXT);
+
 	  past_first_source_file = 1;
 
 	  if (prev_so_symnum != symnum - 1)
@@ -230,8 +216,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	  /* End the current partial symtab and start a new one */
 
 	  SET_NAMESTRING();
-
-	  valu += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 
 	  /* Some compilers (including gcc) emit a pair of initial N_SOs.
 	     The first one is a directory name; the second the file name.
@@ -323,16 +307,54 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	case N_ROSYM:		/* Read-only data seg var -- static.  */
 	case N_NBSTS:           /* Gould nobase.  */
 	case N_NBLCS:           /* symbols.  */
+	case N_FUN:
+	case N_GSYM:		/* Global (extern) variable; can be
+				   data or bss (sigh FIXME).  */
+
+	/* Following may probably be ignored; I'll leave them here
+	   for now (until I do Pascal and Modula 2 extensions).  */
+
+	case N_PC:		/* I may or may not need this; I
+				   suspect not.  */
+	case N_M2C:		/* I suspect that I can ignore this here. */
+	case N_SCOPE:		/* Same.   */
 
 	  SET_NAMESTRING();
 
 	  p = (char *) strchr (namestring, ':');
+	  if (!p)
+	    continue;		/* Not a debugging symbol.   */
 
-	  /* Skip if there is no :.  */
-	  if (!p) continue;
+
+
+	  /* Main processing section for debugging symbols which
+	     the initial read through the symbol tables needs to worry
+	     about.  If we reach this point, the symbol which we are
+	     considering is definitely one we are interested in.
+	     p must also contain the (valid) index into the namestring
+	     which indicates the debugging type symbol.  */
 
 	  switch (p[1])
 	    {
+	    case 'S':
+	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
+	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
+					VAR_NAMESPACE, LOC_STATIC,
+					objfile->static_psymbols,
+					CUR_SYMBOL_VALUE,
+					psymtab_language, objfile);
+	      continue;
+	    case 'G':
+	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
+	      /* The addresses in these entries are reported to be
+		 wrong.  See the code that reads 'G's for symtabs. */
+	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
+					VAR_NAMESPACE, LOC_STATIC,
+					objfile->global_psymbols,
+					CUR_SYMBOL_VALUE,
+					psymtab_language, objfile);
+	      continue;
+
 	    case 'T':
 	      if (p != namestring)	/* a name is there, not just :T... */
 		{
@@ -369,9 +391,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		 "enum {a, b} c;" in C, but fortunately those are
 		 rare.  There is no way for GDB to find those from the
 		 enum type without spending too much time on it.  Thus
-		 to solve this problem, the compiler needs to put out separate
-		 constant symbols ('c' N_LSYMS) for enum constants in
-		 enums without names, or put out a dummy type.  */
+		 to solve this problem, the compiler needs to put out the
+		 enum in a nameless type.  GCC2 does this.  */
 
 	      /* We are looking for something of the form
 		 <name> ":" ("t" | "T") [<number> "="] "e"
@@ -427,73 +448,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	      /* Constant, e.g. from "const" in Pascal.  */
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_CONST,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE,
-				   psymtab_language, objfile);
-	      continue;
-	    default:
-	      /* Skip if the thing following the : is
-	         not a letter (which indicates declaration of a local
-	         variable, which we aren't interested in).  */
-	      continue;
-	    }
-
-	case N_FUN:
-	case N_GSYM:		/* Global (extern) variable; can be
-				   data or bss (sigh FIXME).  */
-
-	/* Following may probably be ignored; I'll leave them here
-	   for now (until I do Pascal and Modula 2 extensions).  */
-
-	case N_PC:		/* I may or may not need this; I
-				   suspect not.  */
-	case N_M2C:		/* I suspect that I can ignore this here. */
-	case N_SCOPE:		/* Same.   */
-
-	  SET_NAMESTRING();
-
-	  p = (char *) strchr (namestring, ':');
-	  if (!p)
-	    continue;		/* Not a debugging symbol.   */
-
-
-
-	  /* Main processing section for debugging symbols which
-	     the initial read through the symbol tables needs to worry
-	     about.  If we reach this point, the symbol which we are
-	     considering is definitely one we are interested in.
-	     p must also contain the (valid) index into the namestring
-	     which indicates the debugging type symbol.  */
-
-	  switch (p[1])
-	    {
-	    case 'c':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_CONST,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE,
-				   psymtab_language, objfile);
-	      continue;
-	    case 'S':
-	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
-	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
-					VAR_NAMESPACE, LOC_STATIC,
-					objfile->static_psymbols,
-					CUR_SYMBOL_VALUE,
-					psymtab_language, objfile);
-	      continue;
-	    case 'G':
-	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
-	      /* The addresses in these entries are reported to be
-		 wrong.  See the code that reads 'G's for symtabs. */
-	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
-					VAR_NAMESPACE, LOC_STATIC,
-					objfile->global_psymbols,
-					CUR_SYMBOL_VALUE,
-					psymtab_language, objfile);
-	      continue;
-
-	    case 't':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_TYPEDEF,
 				   objfile->static_psymbols, CUR_SYMBOL_VALUE,
 				   psymtab_language, objfile);
 	      continue;

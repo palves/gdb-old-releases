@@ -38,14 +38,13 @@ static unsigned char break_insn[] = BREAKPOINT;
 
 static unsigned char check_break_insn_size[BREAKPOINT_MAX] = BREAKPOINT;
 
-/* Insert a breakpoint on machines that don't have any better breakpoint
+/* Insert a breakpoint on targets that don't have any better breakpoint
    support.  We read the contents of the target location and stash it,
    then overwrite it with a breakpoint instruction.  ADDR is the target
    location in the target machine.  CONTENTS_CACHE is a pointer to 
    memory allocated for saving the target contents.  It is guaranteed
-   by the caller to be long enough to save sizeof BREAKPOINT bytes.
-   FIXME: This size is target_arch dependent and should be available in
-   the target_arch transfer vector, if we ever have one...  */
+   by the caller to be long enough to save sizeof BREAKPOINT bytes (this
+   is accomplished via BREAKPOINT_MAX).  */
 
 int
 memory_insert_breakpoint (addr, contents_cache)
@@ -71,6 +70,9 @@ memory_remove_breakpoint (addr, contents_cache)
   return target_write_memory (addr, contents_cache, sizeof break_insn);
 }
 
+
+/* FIXME: This is a hack and should depend on the debugging target.
+   See comment in breakpoint.c where this is used.  */
 
 int memory_breakpoint_size = sizeof (break_insn);
 

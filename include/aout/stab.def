@@ -36,11 +36,7 @@ __define_stab (N_FNAME, 0x22, "FNAME")
 
 /* Function name or text-segment variable for C.  Value is its address.
    Desc is supposedly starting line number, but GCC doesn't set it
-   and DBX seems not to miss it.
-   N_FUN entries can now contain an argument type list after the function's
-   return type, with a ';' preceding each argument type.  An argument type
-   of 0 means "...".  Also, function prototypes (as opposed to definitions)
-   are described as N_FUN with a 'P' type after the name ("printf:P1;"etc).  */
+   and DBX seems not to miss it.  */
 __define_stab (N_FUN, 0x24, "FUN")
 
 /* Data-segment variable with internal linkage.  Value is its address.
@@ -193,8 +189,8 @@ __define_stab (N_BCOMM, 0xe2, "BCOMM")
    (and it should match the N_BCOMM).  */
 __define_stab (N_ECOMM, 0xe4, "ECOMM")
 
-/* End common (local name): value is address.
-   I'm not sure how this is used.  */
+/* Member of a common block; value is offset within the common block.
+   This should occur within a BCOMM/ECOMM pair.  */
 __define_stab (N_ECOML, 0xe8, "ECOML")
 
 /* Solaris2: Pascal "with" statement: type,,0,0,offset */

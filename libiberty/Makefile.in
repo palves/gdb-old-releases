@@ -128,18 +128,11 @@ INSTALL_DEST = libdir
 install: install_to_$(INSTALL_DEST)
 
 install_to_libdir: all
-	-parent=`echo $(libdir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi
 	$(INSTALL_DATA) $(TARGETLIB) $(libdir)/$(TARGETLIB).n
 	( cd $(libdir) ; $(RANLIB) $(libdir)/$(TARGETLIB).n )
 	mv -f $(libdir)/$(TARGETLIB).n $(libdir)/$(TARGETLIB)
 
 install_to_tooldir: all
-	-parent=`echo $(tooldir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(tooldir) ] ; then true ; else mkdir $(tooldir) ; fi
-	-if [ -d $(tooldir)/lib ] ; then true ; else mkdir $(tooldir)/lib ; fi
 	$(INSTALL_DATA) $(TARGETLIB) $(tooldir)/lib/$(TARGETLIB).n
 	( cd $(tooldir) ; $(RANLIB) $(tooldir)/lib/$(TARGETLIB).n )
 	mv -f $(tooldir)/lib/$(TARGETLIB).n $(tooldir)/lib/$(TARGETLIB)
@@ -216,14 +209,14 @@ $(RULE2): $(REQUIRED_OFILES) $(HOST_OFILES)
 
 etags tags: TAGS
 
-TAGS: $(CFILES)
-	etags $(HFILES) $(CFILES)
+TAGS: $(CFILES) $(HFILES)
+	etags `for i in $(HFILES) $(CFILES); do echo $(srcdir)/$$i ; done`
 
-# Create a standalone demangler if so desired ("make demangle").
-
-demangle: ${srcdir}/cplus-dem.c
-	$(CC) -o $@ -DMAIN $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) \
-	  `echo ${srcdir}/cplus-dem.c | sed 's,^\./,,'`
+# The standalone demangler (c++filt) has been moved to binutils.
+demangle:
+	@echo "The standalone demangler, now named c++filt, is now"
+	@echo "a part of binutils."
+	@false
 
 ls:
 	@echo Makefile $(HFILES) $(CFILES)

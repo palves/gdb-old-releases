@@ -37,7 +37,7 @@ static bfd_arch_info_type arch_info_struct[] =
   N(68030,"m68k:68030",false),
   N(68040,"m68k:68040",false),
   N(68070,"m68k:68070",false),
-  0
+  { 0 },
 }
 ;
 

@@ -62,10 +62,10 @@ char *zalloc PARAMS ((bfd_size_type size));
 /* These routines allocate and free things on the BFD's obstack.  Note
    that realloc can never occur in place.  */
 
-PTR	bfd_alloc PARAMS ((bfd *abfd, bfd_size_type size));
-PTR	bfd_zalloc PARAMS ((bfd *abfd, bfd_size_type size));
-PTR	bfd_realloc PARAMS ((bfd *abfd, PTR orig, bfd_size_type new));
-void	bfd_alloc_grow PARAMS ((bfd *abfd, PTR thing, bfd_size_type size));
+PTR	bfd_alloc PARAMS ((bfd *abfd, size_t size));
+PTR	bfd_zalloc PARAMS ((bfd *abfd, size_t size));
+PTR	bfd_realloc PARAMS ((bfd *abfd, PTR orig, size_t new));
+void	bfd_alloc_grow PARAMS ((bfd *abfd, PTR thing, size_t size));
 PTR	bfd_alloc_finish PARAMS ((bfd *abfd));
 PTR	bfd_alloc_by_size_t PARAMS ((bfd *abfd, size_t wanted));
 

@@ -126,7 +126,11 @@ OFILES = crt0.o hello.o salib.o sparc-stub.o
 # sparclite target program), you will need to fix this file to use the
 # sparclite gcc and gas, and then do `make all'.
 
+.PHONY: all info install install-info
 all:
+info:
+install:
+install-info:
 
 progs:	aload hello
 

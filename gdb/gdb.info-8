@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb: (gdb).                   The GNU debugger.
+* Gdb::                         The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.9.
+Source-Level Debugger' for GDB Version 4.10.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
 Foundation, Inc.
@@ -18,19 +18,15 @@ preserved on all copies.
 
    Permission is granted to copy and distribute modified versions of
 this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
 
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the Free Software
-Foundation instead of in the original English.
+versions.
 
 
-File: gdb.info,  Node: Index,  Prev: Copying,  Up: Top
+File: gdb.info,  Node: Index,  Prev: Installing GDB,  Up: Top
 
 Index
 *****
@@ -46,6 +42,8 @@ Index
 * .os68gdbinit:                         Command Files.
 * .vxgdbinit:                           Command Files.
 * /proc:                                Process Information.
+* 386:                                  Remote Serial.
+* 680x0:                                Remote Serial.
 * @:                                    Arrays.
 * # in Modula-2:                        GDB/M2.
 * $$:                                   Value History.
@@ -56,6 +54,9 @@ Index
 * breakpoint subroutine, remote:        Stub Contents.
 * heuristic-fence-post (MIPS):          MIPS Stack.
 * remotedebug, MIPS protocol:           MIPS Remote.
+* retransmit-timeout, MIPS protocol:    MIPS Remote.
+* timeout, MIPS protocol:               MIPS Remote.
+* vi style command editing:             Readline Vi Mode.
 * .gdbinit:                             Command Files.
 * COFF versus C++:                      Cplus expressions.
 * ECOFF and C++:                        Cplus expressions.
@@ -93,6 +94,7 @@ Index
 * bug criteria:                         Bug Criteria.
 * bug reports:                          Bug Reporting.
 * bugs in GDB:                          GDB Bugs.
+* c:                                    Continuing and Stepping.
 * C and C++:                            C.
 * C and C++ checks:                     C Checks.
 * C and C++ constants:                  C Operators.
@@ -122,8 +124,8 @@ Index
 * colon, doubled as scope operator:     M2 Scope.
 * colon-colon:                          Variables.
 * colon-colon:                          M2 Scope.
-* command files:                        Hooks.
 * command files:                        Command Files.
+* command files:                        Hooks.
 * command line editing:                 Editing.
 * commands:                             Break Commands.
 * commands for C++:                     Debugging C plus plus.
@@ -137,7 +139,6 @@ Index
 * confirmation:                         Messages/Warnings.
 * connect (to STDBUG):                  ST2000 Remote.
 * continue:                             Continuing and Stepping.
-* continue COUNT:                       Conditions.
 * continuing:                           Continuing and Stepping.
 * controlling terminal:                 Input/Output.
 * convenience variables:                Convenience Vars.
@@ -184,6 +185,7 @@ Index
 * EBMON:                                Comms (EB29K).
 * echo:                                 Output.
 * editing:                              Editing.
+* editing-mode:                         Readline Init Syntax.
 * emacs:                                Emacs.
 * enable:                               Disabling.
 * enable breakpoints:                   Disabling.
@@ -193,6 +195,7 @@ Index
 * entering numbers:                     Numbers.
 * environment (of your program):        Environment.
 * error on valid input:                 Bug Criteria.
+* event designators:                    Event Designators.
 * examining data:                       Data.
 * examining memory:                     Memory.
 * exception handlers:                   Frame Info.
@@ -200,6 +203,7 @@ Index
 * exec-file:                            Files.
 * executable file:                      Files.
 * exiting GDB:                          Quitting GDB.
+* expansion:                            History Interaction.
 * expressions:                          Expressions.
 * expressions in C or C++:              C.
 * expressions in C++:                   Cplus expressions.
@@ -207,6 +211,7 @@ Index
 * f:                                    Selection.
 * fatal signal:                         Bug Criteria.
 * fatal signals:                        Signals.
+* fg:                                   Continuing and Stepping.
 * file:                                 Files.
 * finish:                               Continuing and Stepping.
 * flinching:                            Messages/Warnings.
@@ -218,13 +223,14 @@ Index
 * format options:                       Print Settings.
 * formatted output:                     Output Formats.
 * forward-search:                       Search.
-* frame:                                Frames.
 * frame:                                Selection.
+* frame:                                Frames.
 * frame number:                         Frames.
 * frame pointer:                        Frames.
 * frameless execution:                  Frames.
 * g++:                                  C.
 * GDB reference card:                   Formatting Documentation.
+* gdbserver:                            Server.
 * getDebugChar:                         Bootstrapping.
 * GNU C++:                              C.
 * h:                                    Help.
@@ -244,9 +250,10 @@ Index
 * history substitution:                 History.
 * Hitachi SH download:                  Files.
 * Hitachi SH simulator:                 Simulator.
+* horizontal-scroll-mode:               Readline Init Syntax.
 * i:                                    Help.
 * i/o:                                  Input/Output.
-* i36-stub.c:                           Remote Serial.
+* i386-stub.c:                          Remote Serial.
 * i960:                                 i960-Nindy Remote.
 * ignore:                               Conditions.
 * ignore count (of breakpoint):         Conditions.
@@ -283,8 +290,8 @@ Index
 * info share:                           Files.
 * info sharedlibrary:                   Files.
 * info signals:                         Signals.
-* info source:                          Symbols.
 * info source:                          Show.
+* info source:                          Symbols.
 * info sources:                         Symbols.
 * info stack:                           Backtrace.
 * info target:                          Files.
@@ -304,6 +311,8 @@ Index
 * inspect:                              Data.
 * installation:                         Installing GDB.
 * instructions, assembly:               Machine Code.
+* Intel:                                Remote Serial.
+* interaction, readline:                Readline Interaction.
 * internal GDB breakpoints:             Set Breaks.
 * interrupt:                            Quitting GDB.
 * interrupting remote programs:         Debug Session.
@@ -320,13 +329,14 @@ Index
 * load:                                 Files.
 * log file for EB29K:                   Remote Log.
 * lost output:                          Break Commands.
-* m68-stub.c:                           Remote Serial.
+* m68k-stub.c:                          Remote Serial.
 * machine instructions:                 Machine Code.
 * maint info breakpoints:               Set Breaks.
 * maint print psymbols:                 Symbols.
 * maint print symbols:                  Symbols.
 * make:                                 Shell Commands.
 * mapped:                               Files.
+* mark-modified-lines:                  Readline Init Syntax.
 * member functions:                     Cplus expressions.
 * memory tracing:                       Breakpoints.
 * memory, viewing as typed object:      Expressions.
@@ -342,6 +352,7 @@ Index
 * Modula-2 defaults:                    M2 Defaults.
 * Modula-2 operators:                   M2 Operators.
 * Modula-2, deviations from:            Deviations.
+* Motorola 680x0:                       Remote Serial.
 * multiple targets:                     Active Targets.
 * n:                                    Continuing and Stepping.
 * names of symbols:                     Symbols.
@@ -367,6 +378,7 @@ Index
 * path:                                 Environment.
 * pauses in output:                     Screen Size.
 * pipes:                                Starting.
+* prefer-visible-bell:                  Readline Init Syntax.
 * print:                                Data.
 * print settings:                       Print Settings.
 * printf:                               Output.
@@ -394,6 +406,7 @@ Index
 * registers:                            Registers.
 * regular expression:                   Set Breaks.
 * reloading symbols:                    Messages/Warnings.
+* remote connection without stubs:      Server.
 * remote debugging:                     Remote.
 * remote programs, interrupting:        Debug Session.
 * remote serial debugging summary:      Debug Session.
@@ -427,6 +440,7 @@ Index
 * serial connections, debugging:        Protocol.
 * serial device, Hitachi micros:        Hitachi Remote.
 * serial line speed, Hitachi micros:    Hitachi Remote.
+* serial line, target remote:           Debug Session.
 * serial protocol, GDB remote:          Protocol.
 * set addressprint:                     Renamed Commands.
 * set args:                             Arguments.
@@ -463,16 +477,19 @@ Index
 * set print object:                     Print Settings.
 * set print pretty:                     Print Settings.
 * set print sevenbit-strings:           Print Settings.
+* set print symbol-filename:            Print Settings.
 * set print union:                      Print Settings.
 * set print vtbl:                       Print Settings.
 * set prompt:                           Prompt.
 * set radix:                            Numbers.
 * set remotedebug:                      Protocol.
+* set retransmit-timeout:               MIPS Remote.
 * set rstack_high_address:              Registers.
 * set screen-height:                    Renamed Commands.
 * set screen-width:                     Renamed Commands.
 * set sevenbit-strings:                 Renamed Commands.
 * set symbol-reloading:                 Messages/Warnings.
+* set timeout:                          MIPS Remote.
 * set unionprint:                       Renamed Commands.
 * set variable:                         Assignment.
 * set verbose:                          Messages/Warnings.
@@ -522,15 +539,18 @@ Index
 * show print object:                    Print Settings.
 * show print pretty:                    Print Settings.
 * show print sevenbit-strings:          Print Settings.
+* show print symbol-filename:           Print Settings.
 * show print union:                     Print Settings.
 * show print vtbl:                      Print Settings.
 * show prompt:                          Prompt.
 * show radix:                           Numbers.
 * show remotedebug:                     Protocol.
+* show retransmit-timeout:              MIPS Remote.
 * show rstack_high_address:             Registers.
 * show screen-height:                   Renamed Commands.
 * show screen-width:                    Renamed Commands.
 * show sevenbit-strings:                Renamed Commands.
+* show timeout:                         MIPS Remote.
 * show unionprint:                      Renamed Commands.
 * show user:                            Define.
 * show values:                          Value History.
@@ -587,8 +607,10 @@ Index
 * target udi:                           Target Commands.
 * target vxworks:                       Target Commands.
 * tbreak:                               Set Breaks.
+* TCP port, target remote:              Debug Session.
 * terminal:                             Input/Output.
 * this:                                 Cplus expressions.
+* toggle-editing-mode:                  Readline Vi Mode.
 * tty:                                  Input/Output.
 * type casting memory:                  Expressions.
 * type checking:                        Checks.

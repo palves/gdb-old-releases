@@ -18,10 +18,5 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#ifdef HOST_64_BIT
 #define ARCH_SIZE 64
 #include "aoutx.h"
-#else
-/* Prevent "empty translation unit" warnings from the idiots at X3J11. */
-static char ansi_c_idiots = 69;
-#endif

@@ -56,8 +56,13 @@ read_memory PARAMS ((CORE_ADDR memaddr, char *myaddr, int len));
 
 /* Read an integer from debugged memory, given address and number of bytes.  */
 
-extern long
+extern LONGEST
 read_memory_integer PARAMS ((CORE_ADDR memaddr, int len));
+
+/* Read an unsigned integer from debugged memory, given address and number of bytes.  */
+
+extern unsigned LONGEST
+read_memory_unsigned_integer PARAMS ((CORE_ADDR memaddr, int len));
 
 /* If this is prototyped, need to deal with void* vs. char*.  */
 

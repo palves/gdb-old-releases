@@ -88,8 +88,10 @@ install:
 
 tilde-test: tilde.c
 	$(CC) $(CFLAGS) -o tilde-test -DTEST tilde.c
-clean:
+mostlyclean clean:
 	$(RM) *.o *.a
+distclean realclean: clean
+	rm -f Makefile config.status
 
 # with the gnu make, this is done automatically.
 

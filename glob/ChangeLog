@@ -1,3 +1,7 @@
+Fri Jul  2 18:23:40 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Add {mostly,dist,real}clean targets.
+
 Wed Mar 24 02:07:53 1993  david d `zoo' zuhn  (zoo at poseidon.cygnus.com)
 
 	* Makefile.in: add installcheck & dvi targets

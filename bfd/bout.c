@@ -385,34 +385,34 @@ DEFUN (callj_callback, (abfd, reloc_entry,  data, srcidx,dstidx,
 #define ALIGNER 10
 #define ALIGNDONE 11
 static reloc_howto_type howto_reloc_callj =
-HOWTO(CALLJ, 0, 2, 24, true, 0, true, true, 0,"callj", true, 0x00ffffff, 0x00ffffff,false);
+HOWTO(CALLJ, 0, 2, 24, true, 0, complain_overflow_signed, 0,"callj", true, 0x00ffffff, 0x00ffffff,false);
 static  reloc_howto_type howto_reloc_abs32 =
-HOWTO(ABS32, 0, 2, 32, false, 0, true, true,0,"abs32", true, 0xffffffff,0xffffffff,false);
+HOWTO(ABS32, 0, 2, 32, false, 0, complain_overflow_bitfield,0,"abs32", true, 0xffffffff,0xffffffff,false);
 static reloc_howto_type howto_reloc_pcrel24 =
-HOWTO(PCREL24, 0, 2, 24, true, 0, true, true,0,"pcrel24", true, 0x00ffffff,0x00ffffff,false);
+HOWTO(PCREL24, 0, 2, 24, true, 0, complain_overflow_signed,0,"pcrel24", true, 0x00ffffff,0x00ffffff,false);
 
 static reloc_howto_type howto_reloc_pcrel13 =
-HOWTO(PCREL13, 0, 2, 13, true, 0, true, true,0,"pcrel13", true, 0x00001fff,0x00001fff,false);
+HOWTO(PCREL13, 0, 2, 13, true, 0, complain_overflow_signed,0,"pcrel13", true, 0x00001fff,0x00001fff,false);
 
 
 static reloc_howto_type howto_reloc_abs32codeshrunk = 
-HOWTO(ABS32CODE_SHRUNK, 0, 2, 24, true, 0, true, true, 0,"callx->callj", true, 0x00ffffff, 0x00ffffff,false);
+HOWTO(ABS32CODE_SHRUNK, 0, 2, 24, true, 0, complain_overflow_signed, 0,"callx->callj", true, 0x00ffffff, 0x00ffffff,false);
 
 static  reloc_howto_type howto_reloc_abs32code =
-HOWTO(ABS32CODE, 0, 2, 32, false, 0, true, true,0,"callx", true, 0xffffffff,0xffffffff,false);
+HOWTO(ABS32CODE, 0, 2, 32, false, 0, complain_overflow_bitfield,0,"callx", true, 0xffffffff,0xffffffff,false);
 
 static reloc_howto_type howto_align_table[] = {
-  HOWTO (ALIGNER, 0, 0x1, 0, false, 0, false, false, 0, "align16", false, 0, 0, false),
-  HOWTO (ALIGNER, 0, 0x3, 0, false, 0, false, false, 0, "align32", false, 0, 0, false),
-  HOWTO (ALIGNER, 0, 0x7, 0, false, 0, false, false, 0, "align64", false, 0, 0, false),
-  HOWTO (ALIGNER, 0, 0xf, 0, false, 0, false, false, 0, "align128", false, 0, 0, false),
+  HOWTO (ALIGNER, 0, 0x1, 0, false, 0, complain_overflow_dont, 0, "align16", false, 0, 0, false),
+  HOWTO (ALIGNER, 0, 0x3, 0, false, 0, complain_overflow_dont, 0, "align32", false, 0, 0, false),
+  HOWTO (ALIGNER, 0, 0x7, 0, false, 0, complain_overflow_dont, 0, "align64", false, 0, 0, false),
+  HOWTO (ALIGNER, 0, 0xf, 0, false, 0, complain_overflow_dont, 0, "align128", false, 0, 0, false),
 };
 
 static reloc_howto_type howto_done_align_table[] = {
-  HOWTO (ALIGNDONE, 0x1, 0x1, 0, false, 0, false, false, 0, "donealign16", false, 0, 0, false),
-  HOWTO (ALIGNDONE, 0x3, 0x3, 0, false, 0, false, false, 0, "donealign32", false, 0, 0, false),
-  HOWTO (ALIGNDONE, 0x7, 0x7, 0, false, 0, false, false, 0, "donealign64", false, 0, 0, false),
-  HOWTO (ALIGNDONE, 0xf, 0xf, 0, false, 0, false, false, 0, "donealign128", false, 0, 0, false),
+  HOWTO (ALIGNDONE, 0x1, 0x1, 0, false, 0, complain_overflow_dont, 0, "donealign16", false, 0, 0, false),
+  HOWTO (ALIGNDONE, 0x3, 0x3, 0, false, 0, complain_overflow_dont, 0, "donealign32", false, 0, 0, false),
+  HOWTO (ALIGNDONE, 0x7, 0x7, 0, false, 0, complain_overflow_dont, 0, "donealign64", false, 0, 0, false),
+  HOWTO (ALIGNDONE, 0xf, 0xf, 0, false, 0, complain_overflow_dont, 0, "donealign128", false, 0, 0, false),
 };
 
 static reloc_howto_type *
@@ -1284,7 +1284,7 @@ DEFUN(b_out_get_relocated_section_contents,(in_abfd,
 #define	aout_32_openr_next_archived_file	bfd_generic_openr_next_archived_file
 #define	aout_32_generic_stat_arch_elt	bfd_generic_stat_arch_elt
 #define	aout_32_slurp_armap		bfd_slurp_bsd_armap
-#define	aout_32_slurp_extended_name_table	bfd_true
+#define	aout_32_slurp_extended_name_table	_bfd_slurp_extended_name_table
 #define	aout_32_write_armap		bsd_write_armap
 #define	aout_32_truncate_arname		bfd_bsd_truncate_arname
 

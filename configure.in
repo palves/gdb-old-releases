@@ -29,10 +29,10 @@ host_libs="mmalloc libiberty opcodes bfd readline tcl tk tclX"
 # these tools are built for the host environment
 #
 host_tools="byacc flex bison binutils ld gas gcc gdb make patch
-	    send-pr gprof gdbtest tgas etc expect deja-gnu dejagnu sim
+	    prms send-pr gprof gdbtest tgas etc expect dejagnu sim
             m4 autoconf ispell grep diff rcs cvs fileutils shellutils
 	    textutils wdiff find emacs uudecode hello tar gzip indent
-	    recode package2 package"
+	    recode release"
 
 
 # these libraries are built for the target environment, and are built after
@@ -60,8 +60,9 @@ target_tools="groff"
 
 # directories to be built in the native environment only
 #
-native_only="autoconf cvs diff emacs fileutils find grep groff ispell m4
-             rcs sed shellutils textutils wdiff"
+native_only="autoconf cvs emacs fileutils find grep groff gzip hello indent
+             ispell m4 rcs recode sed shellutils tar textutils tk uudecode wdiff 
+	     gprof"
 
 # directories to be built in a cross environment only
 #
@@ -79,6 +80,7 @@ srcname="gnu development package"
 # per-host:
 
 case "${host}" in
+  alpha-dec-osf*)         host_makefile_frag=config/mh-alphaosf ;;
   m68k-apollo-sysv*)      host_makefile_frag=config/mh-apollo68 ;;
   m68k-apollo-bsd*)       host_makefile_frag=config/mh-a68bsd ;;
   m88k-motorola-sysv*)    host_makefile_frag=config/mh-delta88;;
@@ -86,6 +88,7 @@ case "${host}" in
   mips-dec-ultrix*)       host_makefile_frag=config/mh-decstation ;;
   mips-sgi-irix4*)        host_makefile_frag=config/mh-irix4 ;;
   mips-sgi-irix3*)        host_makefile_frag=config/mh-sysv ;;
+  mips-*-sysv*)		  host_makefile_frag=config/mh-riscos ;;
   i[34]86-ncr-sysv4*)     host_makefile_frag=config/mh-ncr3000 ;;
   i[34]86-*-sco*)         host_makefile_frag=config/mh-sco ;;
   i[34]86-*-isc*)	  host_makefile_frag=config/mh-sysv ;;
@@ -96,8 +99,10 @@ case "${host}" in
   *-ibm-aix*)             host_makefile_frag=config/mh-aix ;;
   *-bull-bosx*)           host_makefile_frag=config/mh-aix ;;
   *-sun-solaris2*)        host_makefile_frag=config/mh-solaris ;;
+  m68k-sun-*)		  host_makefile_frag=config/mh-sun3 ;;
   *-sun-*)		  host_makefile_frag=config/mh-sun ;;
   *-hp-hpux)              host_makefile_frag=config/mh-hpux ;;
+  *-*-lynxos*)	  	  host_makefile_frag=config/mh-lynxos ;;
   *-*-sysv4*)             host_makefile_frag=config/mh-sysv4 ;;
   *-*-sysv*)              host_makefile_frag=config/mh-sysv ;;
 esac
@@ -145,36 +150,61 @@ fi
 # exist yet.
 
 case "${host}" in
+  alpha-dec-osf1)
+    configdirs=`echo ${configdirs} | sed -e 's/gdb//'`
+    ;;
   i[34]86-*-go32)
     configdirs=`echo ${configdirs} | sed -e 's/tcl//;s/expect//;s/deja-gnu//'`
-    configdirs=`echo ${configdirs} | sed -e 's/make//;s/texinfo//'`
+    configdirs=`echo ${configdirs} | sed -e 's/make//;s/texinfo//;s/bison//'`
     configdirs=`echo ${configdirs} | sed -e 's/patch//;s/flex//;s/byacc//'`
     configdirs=`echo ${configdirs} | sed -e 's/send-pr//;s/gprof//'`
-    configdirs=`echo ${configdirs} | sed -e 's/uudecode//'`
+    configdirs=`echo ${configdirs} | sed -e 's/uudecode//;s/dejagnu//'`
+    configdirs=`echo ${configdirs} | sed -e 's/diff//'`
     ;;
 esac
 
 case "${target}" in
-  rs6000-*-*)
+  alpha-dec-osf1)
     configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
-    ;;
-  hppa*-*-osf)
-# Do configure ld/binutils/gas for this case.
-    ;;
-  hppa*-*-*)
-    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
-    ;;
-  *-*-solaris2*)
-    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/gas//'`
-    ;;
-  *-*-vms)
-    configdirs=`echo ${configdirs} | sed -e 's/bfd//;s/ld//;s/binutils//'`
-    ;;
-  h8300-*-*)
+    configdirs=`echo ${configdirs} | sed -e 's/gdb//;s/emacs//;s/fileutils//'`
+    configdirs=`echo ${configdirs} | sed -e 's/grep//;s/libg++//'`
+    ;;	
+  h8300*-*-*)
     configdirs=`echo ${configdirs} | sed -e 's/libg++//'`
     ;;
   h8500-*-*)
     configdirs=`echo ${configdirs} | sed -e 's/libg++//'`
+    ;;
+  hppa*-*-osf)
+    # Do configure ld/binutils/gas for this case.
+    ;;
+  hppa*-*-*)
+    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
+    ;;
+  i[34]86-*-go32)
+    # add the go32 support tools to the list
+    configdirs=`echo go32 ${configdirs}`
+    ;;
+  rs6000-*-*)
+    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//;s/gprof//'`
+    ;;
+  mips-*-*)
+    configdirs=`echo ${configdirs} | sed -e 's/gprof//'`
+    ;;
+  sh-*-*)
+    configdirs=`echo gprof ${configdirs}`
+    ;;
+  i[34]86-*-sco*)
+    configdirs=`echo ${configdirs} | sed -e 's/gprof//'`
+    ;;
+  *-*-solaris2*)
+    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/gas//'`
+    ;;
+  *-*-sysv4*)
+    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
+    ;;
+  *-*-vms)
+    configdirs=`echo ${configdirs} | sed -e 's/bfd//;s/ld//;s/binutils//'`
     ;;
 esac
 

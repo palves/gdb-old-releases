@@ -472,43 +472,20 @@ smash_to_method_type (type, domain, to_type, args)
   TYPE_CODE (type) = TYPE_CODE_METHOD;
 }
 
-/* Return a typename for a struct/union/enum type
-   without the tag qualifier.  If the type has a NULL name,
-   NULL is returned.  */
+/* Return a typename for a struct/union/enum type without "struct ",
+   "union ", or "enum ".  If the type has a NULL name, return NULL.  */
 
 char *
 type_name_no_tag (type)
      register const struct type *type;
 {
-  register char *name;
+  if (TYPE_TAG_NAME (type) != NULL)
+    return TYPE_TAG_NAME (type);
 
-  if ((name = TYPE_NAME (type)) != NULL)
-    {
-      switch (TYPE_CODE (type))
-	{
-	  case TYPE_CODE_STRUCT:
-	    if(!strncmp (name, "struct ", 7))
-	      {
-		name += 7;
-	      }
-	    break;
-	  case TYPE_CODE_UNION:
-	    if(!strncmp (name, "union ", 6))
-	      {
-		name += 6;
-	      }
-	    break;
-	  case TYPE_CODE_ENUM:
-	    if(!strncmp (name, "enum ", 5))
-	      {
-		name += 5;
-	      }
-	    break;
-	  default:		/* To avoid -Wall warnings */
-	    break;
-	}
-    }
-  return (name);
+  /* Is there code which expects this to return the name if there is no
+     tag name?  My guess is that this is mainly used for C++ in cases where
+     the two will always be the same.  */
+  return TYPE_NAME (type);
 }
 
 /* Lookup a primitive type named NAME. 
@@ -772,13 +749,19 @@ lookup_struct_elt_type (type, name, noerr)
   return (struct type *)-1;	/* For lint */
 }
 
-/* This function is really horrible, but to avoid it, there would need
-   to be more filling in of forward references.  */
+/* If possible, make the vptr_fieldno and vptr_basetype fields of TYPE
+   valid.  Callers should be aware that in some cases (for example,
+   the type or one of its baseclasses is a stub type and we are
+   debugging a .o file), this function will not be able to find the virtual
+   function table pointer, and vptr_fieldno will remain -1 and vptr_basetype
+   will remain NULL.  */
 
 void
 fill_in_vptr_fieldno (type)
      struct type *type;
 {
+  check_stub_type (type);
+
   if (TYPE_VPTR_FIELDNO (type) < 0)
     {
       int i;

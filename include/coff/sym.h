@@ -10,7 +10,6 @@
  * | maintained in the copy.                                   |
  * |-----------------------------------------------------------|
  */
-/* $Header: /rel/cvsfiles/devo/include/coff/sym.h,v 1.3 1992/04/14 22:21:15 gnu Exp $ */
 #ifndef _SYM_H
 #define _SYM_H
 

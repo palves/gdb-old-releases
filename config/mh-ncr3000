@@ -13,9 +13,5 @@ CFLAGS =
 SYSV = -DSYSV -DSVR4
 RANLIB = true
 
-# The /usr/ucb/install program is incompatible (complains about unknown
-# group staff).  Use good old cp...
-INSTALL = cp
-
 # The l flag generates a warning from the SVR4 archiver, remove it.
 AR_FLAGS = cq

@@ -338,7 +338,7 @@ extern struct type *builtin_type_np1_vector;
 	(read_memory_integer ((FRAME)->frame + 8, 4))
 
 #define FRAME_ARGS_ADDRESS(fi) \
-	((fi)->next_frame ? \
+	((fi)->next ? \
 	 read_memory_integer ((fi)->frame + 12, 4) : \
 	 read_register (AP_REGNUM))
 

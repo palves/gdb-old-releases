@@ -135,6 +135,7 @@ of a file.
 .    bfd_target_ecoff_flavour,
 .    bfd_target_elf_flavour,
 .    bfd_target_ieee_flavour,
+.    bfd_target_nlm_flavour,
 .    bfd_target_oasys_flavour,
 .    bfd_target_tekhex_flavour,
 .    bfd_target_srec_flavour,
@@ -261,6 +262,10 @@ Symbols and relocations
 .                                      struct symbol_cache_entry *,
 .                                      bfd_print_symbol_type));
 .#define bfd_print_symbol(b,p,s,e) BFD_SEND(b, _bfd_print_symbol, (b,p,s,e))
+.  void          (*_bfd_get_symbol_info) PARAMS ((bfd *,
+.                                      struct symbol_cache_entry *,
+.                                      symbol_info *));
+.#define bfd_get_symbol_info(b,p,e) BFD_SEND(b, _bfd_get_symbol_info, (b,p,e))
 
 .  alent *    (*_get_lineno) PARAMS ((bfd *, struct symbol_cache_entry *));
 .
@@ -323,21 +328,24 @@ in this structure.
 #if MINIMIZE && defined(DEFAULT_VECTOR) && !defined(SELECT_VECS)
 #ifdef TRAD_CORE
 #define SELECT_VECS &DEFAULT_VECTOR,&trad_core_vec
-#else
+#endif
 #ifdef SCO_CORE
 #define SELECT_VECS &DEFAULT_VECTOR,&sco_core_vec
-#else
+#endif
 #ifdef AIX386_CORE
 #define SELECT_VECS &DEFAULT_VECTOR,&aix386_core_vec
-#else
+#endif
+#ifdef HPUX_CORE
+#define SELECT_VECS &DEFAULT_VECTOR,&hpux_core_vec
+#endif
+#ifndef SELECT_VECS
 #define SELECT_VECS &DEFAULT_VECTOR
-#endif
-#endif
 #endif
 #endif
 
 /* All known xvecs.  They are listed a second time below, since
    we can't intermix extern's and initializers.  */
+extern bfd_target i386lynx_vec;
 extern bfd_target ecoff_little_vec;
 extern bfd_target ecoff_big_vec;
 extern bfd_target aout_mips_little_vec;
@@ -352,14 +360,27 @@ extern bfd_target b_out_vec_little_host;
 extern bfd_target b_out_vec_big_host;
 extern bfd_target icoff_little_vec;
 extern bfd_target icoff_big_vec;
-extern bfd_target elf32_sparc_vec;
-extern bfd_target elf32_i386_vec;
-extern bfd_target elf32_m68k_vec;
-extern bfd_target elf32_i860_vec;
+extern bfd_target bfd_elf32_sparc_vec;
+extern bfd_target bfd_elf32_i386_vec;
+extern bfd_target bfd_elf32_m68k_vec;
+extern bfd_target bfd_elf32_i860_vec;
+extern bfd_target bfd_elf32_m88k_vec;
+extern bfd_target bfd_elf32_bigmips_vec;
+extern bfd_target bfd_elf32_littlemips_vec;
+extern bfd_target bfd_elf32_big_generic_vec;
+extern bfd_target bfd_elf32_little_generic_vec;
+extern bfd_target bfd_elf64_big_generic_vec;
+extern bfd_target bfd_elf64_little_generic_vec;
+extern bfd_target nlm32_i386_vec;
+extern bfd_target nlm32_big_generic_vec;
+extern bfd_target nlm32_little_generic_vec;
+extern bfd_target nlm64_big_generic_vec;
+extern bfd_target nlm64_little_generic_vec;
 extern bfd_target ieee_vec;
 extern bfd_target oasys_vec;
 extern bfd_target m88kbcs_vec;
 extern bfd_target m68kcoff_vec;
+extern bfd_target m68kcoffun_vec;
 extern bfd_target i386coff_vec;
 extern bfd_target i386aout_vec;
 extern bfd_target i386linux_vec;
@@ -367,12 +388,14 @@ extern bfd_target a29kcoff_big_vec;
 extern bfd_target trad_core_vec;
 extern bfd_target sco_core_vec;
 extern bfd_target aix386_core_vec;
+extern bfd_target hpux_core_vec;
 extern bfd_target rs6000coff_vec;
 extern bfd_target h8300coff_vec;
 extern bfd_target h8500coff_vec;
 extern bfd_target z8kcoff_vec;
 extern bfd_target we32kcoff_vec;
 extern bfd_target shcoff_vec;
+extern bfd_target hp300hpux_vec;
 
 #if defined (HOST_HPPAHPUX) || defined (HOST_HPPABSD)
 extern bfd_target hppa_vec;
@@ -381,7 +404,6 @@ extern bfd_target hppa_vec;
 #ifdef DEFAULT_VECTOR
 extern bfd_target DEFAULT_VECTOR;
 #endif
-
 
 bfd_target *target_vector[] = {
 
@@ -397,6 +419,7 @@ bfd_target *target_vector[] = {
 
 	&i386coff_vec,
 	&i386aout_vec,
+	&i386lynx_vec,
 	&ecoff_little_vec,
 	&ecoff_big_vec,
 	&aout_mips_little_vec,
@@ -411,7 +434,7 @@ bfd_target *target_vector[] = {
 	&oasys_vec,
 #endif
 	&sunos_big_vec,
-#ifdef HOST_64_BIT
+#ifdef BFD64
 	&demo_64_vec,	/* Only compiled if host has long-long support */
 #endif
 	&h8300coff_vec,
@@ -422,19 +445,35 @@ bfd_target *target_vector[] = {
 /*	&tekhex_vec,*/
 	&icoff_little_vec,
 	&icoff_big_vec,
-	&elf32_sparc_vec,
-	&elf32_i386_vec,
-	&elf32_m68k_vec,
-	&elf32_i860_vec,
+	&bfd_elf32_sparc_vec,
+	&bfd_elf32_i386_vec,
+	&bfd_elf32_m68k_vec,
+	&bfd_elf32_i860_vec,
+	&bfd_elf32_m88k_vec,
+	&bfd_elf32_littlemips_vec,
+	&bfd_elf32_bigmips_vec,
+	&bfd_elf32_little_generic_vec,
+	&bfd_elf32_big_generic_vec,
+	&nlm32_i386_vec,
+	&nlm32_little_generic_vec,
+	&nlm32_big_generic_vec,
+#ifdef BFD64
+	&bfd_elf64_little_generic_vec,
+	&bfd_elf64_big_generic_vec,
+	&nlm64_little_generic_vec,
+	&nlm64_big_generic_vec,
+#endif
 	&a_out_adobe_vec,
 	&b_out_vec_little_host,
 	&b_out_vec_big_host,
 	&m68kcoff_vec,
+	&m68kcoffun_vec,
 	&a29kcoff_big_vec,
 	&rs6000coff_vec,
 #if defined (HOST_HPPAHPUX) || defined (HOST_HPPABSD)
         &hppa_vec,
 #endif
+	&hp300hpux_vec,
 	&we32kcoff_vec,
 
 #ifdef	TRAD_CORE
@@ -444,7 +483,10 @@ bfd_target *target_vector[] = {
 	&sco_core_vec,
 #endif
 #ifdef AIX386_CORE
-  &aix386_core_vec,
+	&aix386_core_vec,
+#endif
+#ifdef HPUX_CORE
+	&hpux_core_vec,
 #endif
 
 #endif /* not SELECT_VECS */

@@ -15,12 +15,18 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include "ansidecl.h"
 #include "opcode/sparc.h"
 #include "dis-asm.h"
 #include <string.h>
 
+/* Sign-extend a value which is N bits long.  */
+#define	SEX(value, bits) \
+	((((int)(value)) << ((8 * sizeof (int)) - bits))	\
+			 >> ((8 * sizeof (int)) - bits) )
+
 static  char *reg_names[] =
- { "g0", "g1", "g2", "g3", "g4", "g5", "g6", "g7",	
+{ "g0", "g1", "g2", "g3", "g4", "g5", "g6", "g7",	
   "o0", "o1", "o2", "o3", "o4", "o5", "sp", "o7",	
   "l0", "l1", "l2", "l3", "l4", "l5", "l6", "l7",	
   "i0", "i1", "i2", "i3", "i4", "i5", "fp", "i7",	
@@ -28,9 +34,11 @@ static  char *reg_names[] =
   "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",	
   "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
   "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
-  "y", "psr", "wim", "tbr", "pc", "npc", "fpsr", "cpsr" };
+  "y", "psr", "wim", "tbr", "pc", "npc", "fpsr", "cpsr"
+};
 
 #define	freg_names	(&reg_names[4 * 8])
+
 
 /* FIXME--need to deal with byte order (probably using masking and
    shifting rather than bitfields is easiest).  */
@@ -68,9 +76,8 @@ union sparc_insn
 	unsigned int op2:3;
 	unsigned int DISP22:22;
 #define	disp22	branch.DISP22
-      } branch;
-
 #define	imm22	disp22
+      } branch;
     struct
       {
 	unsigned int anop:2;
@@ -97,7 +104,8 @@ is_delayed_branch (insn)
 }
 
 static int opcodes_sorted = 0;
-extern void qsort ();
+/* extern void qsort (); */
+static int compare_opcodes ();
 
 /* Print one instruction from MEMADDR on STREAM.
 
@@ -118,7 +126,6 @@ print_insn_sparc (memaddr, info)
 
   if (!opcodes_sorted)
     {
-      static int compare_opcodes ();
       qsort ((char *) sparc_opcodes, NUMOPCODES,
 	     sizeof (sparc_opcodes[0]), compare_opcodes);
       opcodes_sorted = 1;
@@ -134,6 +141,11 @@ print_insn_sparc (memaddr, info)
       }
   }
 
+  info->insn_info_valid = 1;			/* We do return this info */
+  info->insn_type = dis_nonbranch;		/* Assume non branch insn */
+  info->branch_delay_insns = 0;			/* Assume no delay */
+  info->target = 0;				/* Assume no target known */
+
   for (i = 0; i < NUMOPCODES; ++i)
     {
       CONST struct sparc_opcode *opcode = &sparc_opcodes[i];
@@ -148,6 +160,9 @@ print_insn_sparc (memaddr, info)
 	     field of the opcode table.  */
 	  int found_plus = 0;
 	  
+	  /* Nonzero means we have an annulled branch.  */
+	  int is_annulled = 0;
+
 	  /* Do we have an `add' or `or' instruction where rs1 is the same
 	     as rsd, and which has the i bit set?  */
 	  if ((opcode->match == 0x80102000 || opcode->match == 0x80002000)
@@ -176,6 +191,7 @@ print_insn_sparc (memaddr, info)
 		    switch (*s) {
 		    case 'a':
 		      (*info->fprintf_func) (stream, "a");
+		      is_annulled = 1;
 		      ++s;
 		      continue;
 
@@ -215,25 +231,33 @@ print_insn_sparc (memaddr, info)
 		    break;
 #undef	reg
 
-#define	freg(n)	(*info->fprintf_func) (stream, "%%%s", freg_names[n])
+#define	freg(n)		(*info->fprintf_func) (stream, "%%%s", freg_names[n])
+#define	fregx(n)	(*info->fprintf_func) (stream, "%%%s", freg_names[((n) & ~1) | (((n) & 1) << 5)])
 		  case 'e':
+		    freg (insn.rs1);
+		    break;
 		  case 'v':	/* double/even */
 		  case 'V':	/* quad/multiple of 4 */
-		    freg (insn.rs1);
+		    fregx (insn.rs1);
 		    break;
 
 		  case 'f':
+		    freg (insn.rs2);
+		    break;
 		  case 'B':	/* double/even */
 		  case 'R':	/* quad/multiple of 4 */
-		    freg (insn.rs2);
+		    fregx (insn.rs2);
 		    break;
 
 		  case 'g':
-		  case 'H':	/* double/even */
-		  case 'J':	/* quad/multiple of 4 */
 		    freg (insn.rd);
 		    break;
+		  case 'H':	/* double/even */
+		  case 'J':	/* quad/multiple of 4 */
+		    fregx (insn.rd);
+		    break;
 #undef	freg
+#undef	fregx
 
 #define	creg(n)	(*info->fprintf_func) (stream, "%%c%u", (unsigned int) (n))
 		  case 'b':
@@ -251,14 +275,14 @@ print_insn_sparc (memaddr, info)
 
 		  case 'h':
 		    (*info->fprintf_func) (stream, "%%hi(%#x)",
-					   (int) insn.imm22 << 10);
+					   0xFFFFFFFF & (int) insn.imm22 << 10);
 		    break;
 
 		  case 'i':
 		    {
 		      /* We cannot trust the compiler to sign-extend
 			 when extracting the bitfield, hence the shifts.  */
-		      int imm = ((int) insn.imm13 << 19) >> 19;
+		      int imm = SEX (insn.imm13, 13);
 
 		      /* Check to see whether we have a 1+i, and take
 			 note of that fact.
@@ -287,25 +311,18 @@ print_insn_sparc (memaddr, info)
 		    break;
 		    
 		  case 'L':
-		    (*info->print_address_func)
-		     ((bfd_vma) memaddr + insn.disp30 * 4,
-		      info);
+		    info->target = memaddr + insn.disp30 * 4;
+		    (*info->print_address_func) (info->target, info);
+		    break;
+
+		  case 'n':
+		    (*info->fprintf_func)
+		      (stream, "%#x", (SEX (insn.disp22, 22)));
 		    break;
 
 		  case 'l':
-		    if ((insn.code >> 22) == 0)
-		      /* Special case for `unimp'.  Don't try to turn
-			 it's operand into a function offset.  */
-		      (*info->fprintf_func)
-			(stream, "%#x",
-			 (int) (((int) insn.disp22 << 10) >> 10));
-		    else
-		      /* We cannot trust the compiler to sign-extend
-			 when extracting the bitfield, hence the shifts.  */
-		      (*info->print_address_func)
-			((bfd_vma) (memaddr
-				    + (((int) insn.disp22 << 10) >> 10) * 4),
-			 info);
+		    info->target = memaddr + (SEX (insn.disp22, 22)) * 4;
+		    (*info->print_address_func) (info->target, info);
 		    break;
 
 		  case 'A':
@@ -389,20 +406,34 @@ print_insn_sparc (memaddr, info)
 		      && prev_insn.rd == insn.rs1)
 		    {
 		      (*info->fprintf_func) (stream, "\t! ");
-		      /* We cannot trust the compiler to sign-extend
-			 when extracting the bitfield, hence the shifts.  */
-		      (*info->print_address_func)
-			(((int) prev_insn.imm22 << 10)
-			 | (insn.imm13 << 19) >> 19,
-			 info);
+		      info->target = 
+			(0xFFFFFFFF & (int) prev_insn.imm22 << 10)
+			| SEX (insn.imm13, 13);
+		      (*info->print_address_func) (info->target, info);
+		      info->insn_type = dis_dref;
+		      info->data_size = 4;  /* FIXME!!! */
 		    }
 		}
+	    }
+
+	  if (opcode->flags & (F_UNBR|F_CONDBR|F_JSR))
+	    {
+		/* FIXME -- check is_annulled flag */
+	      if (opcode->flags & F_UNBR)
+		info->insn_type = dis_branch;
+	      if (opcode->flags & F_CONDBR)
+		info->insn_type = dis_condbranch;
+	      if (opcode->flags & F_JSR)
+		info->insn_type = dis_jsr;
+	      if (opcode->flags & F_DELAYED)
+		info->branch_delay_insns = 1;
 	    }
 
 	  return sizeof (insn);
 	}
     }
 
+  info->insn_type = dis_noninsn;	/* Mark as non-valid instruction */
   (*info->fprintf_func) (stream, "%#8x", insn.code);
   return sizeof (insn);
 }

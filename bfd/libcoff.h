@@ -92,6 +92,8 @@ extern unsigned int coff_get_reloc_upper_bound PARAMS ((bfd *, sec_ptr));
 extern asymbol *coff_make_empty_symbol PARAMS ((bfd *));
 extern void coff_print_symbol PARAMS ((bfd *, PTR filep, asymbol *,
 				       bfd_print_symbol_type how));
+extern void coff_get_symbol_info PARAMS ((bfd *, asymbol *,
+					  symbol_info *ret));
 extern asymbol *coff_bfd_make_debug_symbol PARAMS ((bfd *, PTR,
 						    unsigned long));
 extern boolean coff_find_nearest_line PARAMS ((bfd *,

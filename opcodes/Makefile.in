@@ -53,9 +53,9 @@ BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
 
-INCDIR = $(srcdir)/../include 
+INCDIR = $(srcdir)/../include
 BFDDIR = $(srcdir)/../bfd
-CSEARCH = -I. -I$(srcdir) -I$(INCDIR) -I$(BFDDIR)
+CSEARCH = -I. -I$(srcdir) -I../bfd -I$(INCDIR) -I$(BFDDIR)
 DEP = mkdep
 
 
@@ -63,10 +63,12 @@ TARGETLIB = libopcodes.a
 
 # To circumvent a Sun make VPATH bug, each file listed here
 # should also have a foo.o: foo.c line further along in this file.
-DIS_LIBS = i386-dis.o z8k-dis.o m68k-dis.o mips-dis.o h8500-dis.o dis-buf.o \
-	sparc-dis.o a29k-dis.o i960-dis.o alpha-dis.o sh-dis.o
 
-OFILES = $(DIS_LIBS) sparc-opc.o m68881-ext.o
+DIS_LIBS = i386-dis.o z8k-dis.o m68k-dis.o mips-dis.o h8500-dis.o \
+	h8300-dis.o dis-buf.o sparc-dis.o a29k-dis.o i960-dis.o \
+	alpha-dis.o sh-dis.o hppa-dis.o m88k-dis.o
+
+OFILES = $(DIS_LIBS) sparc-opc.o mips-opc.o m68881-ext.o
 #### host and target dependent Makefile fragments come in here.
 ###
 
@@ -112,20 +114,24 @@ $(TARGETLIB): $(OFILES)
 	 $(AR) $(AR_FLAGS) $(TARGETLIB) $(OFILES)
 	 $(RANLIB) $(TARGETLIB)
 
-# Circumvent Sun Make bug with VPATH.
-a29k-dis.o: a29k-dis.c
-dis-buf.o: dis-buf.c
-h8500-dis.o: h8500-dis.c
-i386-dis.o: i386-dis.c
-i960-dis.o: i960-dis.c
-m68881-ext.o: m68881-ext.c
-m68k-dis.o: m68k-dis.c
-mips-dis.o: mips-dis.c
-sparc-dis.o: sparc-dis.c
-sparc-opc.o: sparc-opc.c
-z8k-dis.o: z8k-dis.c
-sh-dis.o: sh-dis.c
-alpha-dis.o: alpha-dis.c
+a29k-dis.o: a29k-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/a29k.h
+dis-buf.o: dis-buf.c $(INCDIR)/dis-asm.h
+h8500-dis.o: h8500-dis.c h8500-opc.h $(INCDIR)/dis-asm.h
+h8300-dis.o: h8300-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/h8300.h
+i386-dis.o: i386-dis.c $(INCDIR)/dis-asm.h
+i960-dis.o: i960-dis.c $(INCDIR)/dis-asm.h
+m68881-ext.o: m68881-ext.c $(INCDIR)/ieee-float.h
+m68k-dis.o: m68k-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/ieee-float.h \
+	$(INCDIR)/opcode/m68k.h
+mips-dis.o: mips-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/mips.h
+mips-opc.o: mips-opc.c $(INCDIR)/opcode/mips.h
+sparc-dis.o: sparc-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/sparc.h
+sparc-opc.o: sparc-opc.c $(INCDIR)/opcode/sparc.h
+z8k-dis.o: z8k-dis.c z8k-opc.h $(INCDIR)/dis-asm.h
+sh-dis.o: sh-dis.c sh-opc.h $(INCDIR)/dis-asm.h
+alpha-dis.o: alpha-dis.c alpha-opc.h $(INCDIR)/dis-asm.h
+hppa-dis.o: hppa-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/hppa.h
+m88k-dis.o: m88k-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/m88k.h
 
 tags etags: TAGS
 
@@ -165,9 +171,6 @@ roll:
 force:
 
 install:
-	-parent=`echo $(libdir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi
 	$(INSTALL_DATA) $(TARGETLIB) $(libdir)/libopcodes.a
 	$(RANLIB) $(libdir)/libopcodes.a
 

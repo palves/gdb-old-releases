@@ -46,16 +46,9 @@ print_base PARAMS ((int, int, disassemble_info*));
 static unsigned char *
 print_indexed PARAMS ((int, unsigned char *, bfd_vma, disassemble_info *));
 
-static unsigned char *
+static int
 print_insn_arg PARAMS ((char *, unsigned char *, unsigned char *, bfd_vma,
 			disassemble_info *));
-
-/* Sign-extend an (unsigned char). */
-#if __STDC__ == 1
-#define COERCE_SIGNED_CHAR(ch) ((signed char)(ch))
-#else
-#define COERCE_SIGNED_CHAR(ch) ((int)(((ch) ^ 0x80) & 0xFF) - 128)
-#endif
 
 CONST char * CONST fpcr_names[] = {
   "", "fpiar", "fpsr", "fpiar/fpsr", "fpcr",
@@ -65,24 +58,27 @@ static char *reg_names[] = {
   "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "a0",
   "a1", "a2", "a3", "a4", "a5", "fp", "sp", "ps", "pc"};
 
-/* Define accessors for 68K's 1, 2, and 4-byte signed quantities.
-   The _SHIFT values move the quantity to the high order end of an
-   `int' value, so it will sign-extend.  Probably a few more casts
-   are needed to make it compile without warnings on finicky systems.  */
-#define	BITS_PER_BYTE	8
-#define	WORD_SHIFT (BITS_PER_BYTE * ((sizeof (int)) - 2))
-#define	LONG_SHIFT (BITS_PER_BYTE * ((sizeof (int)) - 4))
+/* Sign-extend an (unsigned char). */
+#if __STDC__ == 1
+#define COERCE_SIGNED_CHAR(ch) ((signed char)(ch))
+#else
+#define COERCE_SIGNED_CHAR(ch) ((int)(((ch) ^ 0x80) & 0xFF) - 128)
+#endif
 
+/* Get a 1 byte signed integer.  */
 #define NEXTBYTE(p)  (p += 2, FETCH_DATA (info, p), COERCE_SIGNED_CHAR(p[-1]))
 
+/* Get a 2 byte signed integer.  */
+#define COERCE16(x) ((int) (((x) ^ 0x8000) - 0x8000))
 #define NEXTWORD(p)  \
   (p += 2, FETCH_DATA (info, p), \
-   (((int)((p[-2] << 8) + p[-1])) << WORD_SHIFT) >> WORD_SHIFT)
+   COERCE16 ((p[-2] << 8) + p[-1]))
 
+/* Get a 4 byte signed integer.  */
+#define COERCE32(x) ((int) (((x) ^ 0x80000000) - 0x80000000))
 #define NEXTLONG(p)  \
   (p += 4, FETCH_DATA (info, p), \
-   (((int)((((((p[-4] << 8) + p[-3]) << 8) + p[-2]) << 8) + p[-1])) \
-				   << LONG_SHIFT) >> LONG_SHIFT)
+   (COERCE32 ((((((p[-4] << 8) + p[-3]) << 8) + p[-2]) << 8) + p[-1])))
 
 /* NEXTSINGLE and NEXTDOUBLE handle alignment problems, but not
  * byte-swapping or other float format differences.  FIXME! */
@@ -161,14 +157,20 @@ fetch_data (info, addr)
   return 1;
 }
 
-static void
-m68k_opcode_error(info, code, place)
+/* This function is used to print to the bit-bucket. */
+static int
+#ifdef __STDC__
+dummy_printer (FILE * file, const char * format, ...)
+#else
+dummy_printer (file) FILE *file;
+#endif
+ { return 0; }
+
+void
+dummy_print_address (vma, info)
+     bfd_vma vma;
      struct disassemble_info *info;
-     int code, place;
 {
-  (*info->fprintf_func)(info->stream,
-			"<internal error in opcode table: \"%c%c\">",
-			code, place);
 }
 
 /* Print the m68k instruction at address MEMADDR in debugged memory,
@@ -181,11 +183,15 @@ print_insn_m68k (memaddr, info)
 {
   register int i;
   register unsigned char *p;
+  unsigned char *save_p;
   register char *d;
   register unsigned long bestmask;
   int best;
   struct private priv;
   bfd_byte *buffer = priv.the_buffer;
+  fprintf_ftype save_printer = info->fprintf_func;
+  void (*save_print_address) PARAMS((bfd_vma, struct disassemble_info*))
+    = info->print_address_func;
 
   info->private_data = (PTR) &priv;
   priv.max_fetched = priv.the_buffer;
@@ -234,23 +240,21 @@ print_insn_m68k (memaddr, info)
 	}
     }
 
-  /* Handle undefined instructions.  */
   if (best < 0)
-    {
-      (*info->fprintf_func) (info->stream, "0%o",
-			     (buffer[0] << 8) + buffer[1]);
-      return 2;
-    }
-
-  (*info->fprintf_func) (info->stream, "%s", m68k_opcodes[best].name);
+    goto invalid;
 
   /* Point at first word of argument data,
      and at descriptor for first argument.  */
   p = buffer + 2;
   
-  /* Why do this this way? -MelloN */
+  /* Figure out how long the fixed-size portion of the instruction is.
+     The only place this is stored in the opcode table is
+     in the arguments--look for arguments which specify fields in the 2nd
+     or 3rd words of the instruction.  */
   for (d = m68k_opcodes[best].args; *d; d += 2)
     {
+      /* I don't think it is necessary to be checking d[0] here; I suspect
+	 all this could be moved to the case statement below.  */
       if (d[0] == '#')
 	{
 	  if (d[1] == 'l' && p - buffer < 6)
@@ -258,41 +262,105 @@ print_insn_m68k (memaddr, info)
 	  else if (p - buffer < 4 && d[1] != 'C' && d[1] != '8' )
 	    p = buffer + 4;
 	}
-      if (d[1] >= '1' && d[1] <= '3' && p - buffer < 4)
-	p = buffer + 4;
-      if (d[1] >= '4' && d[1] <= '6' && p - buffer < 6)
-	p = buffer + 6;
       if ((d[0] == 'L' || d[0] == 'l') && d[1] == 'w' && p - buffer < 4)
 	p = buffer + 4;
+      switch (d[1])
+	{
+	case '1':
+	case '2':
+	case '3':
+	case '7':
+	case '8':
+	case '9':
+	  if (p - buffer < 4)
+	    p = buffer + 4;
+	  break;
+	case '4':
+	case '5':
+	case '6':
+	  if (p - buffer < 6)
+	    p = buffer + 6;
+	  break;
+	default:
+	  break;
+	}
     }
+  /* pflusha is an exception; it takes no arguments but is two words long.  */
+  if (buffer[0] == 0xf0 && buffer[1] == 0 && buffer[2] == 0x24 &&
+      buffer[3] == 0)
+    p = buffer + 4;
   
   FETCH_DATA (info, p);
   
   d = m68k_opcodes[best].args;
+
+  /* We can the operands twice.  The first time we don't print anything,
+     but look for errors. */
+
+  save_p = p;
+  info->print_address_func = dummy_print_address;
+  info->fprintf_func = (fprintf_ftype)dummy_printer;
+  for ( ; *d; d += 2)
+    {
+      int eaten = print_insn_arg (d, buffer, p, memaddr + p - buffer, info);
+      if (eaten >= 0)
+	p += eaten;
+      else if (eaten == -1)
+	goto invalid;
+      else
+	{
+	  (*info->fprintf_func)(info->stream,
+				"<internal error in opcode table: %s %s>\n",
+				m68k_opcodes[best].name,
+				m68k_opcodes[best].args);
+	  goto invalid;
+	}
+
+    }
+  p = save_p;
+  info->fprintf_func = save_printer;
+  info->print_address_func = save_print_address;
+
+  d = m68k_opcodes[best].args;
+
+  (*info->fprintf_func) (info->stream, "%s", m68k_opcodes[best].name);
 
   if (*d)
     (*info->fprintf_func) (info->stream, " ");
 
   while (*d)
     {
-      p = print_insn_arg (d, buffer, p, memaddr + p - buffer, info);
+      p += print_insn_arg (d, buffer, p, memaddr + p - buffer, info);
       d += 2;
       if (*d && *(d - 2) != 'I' && *d != 'k')
 	(*info->fprintf_func) (info->stream, ",");
     }
   return p - buffer;
+
+ invalid:
+  /* Handle undefined instructions.  */
+  info->fprintf_func = save_printer;
+  info->print_address_func = save_print_address;
+  (*info->fprintf_func) (info->stream, "0%o",
+			 (buffer[0] << 8) + buffer[1]);
+  return 2;
 }
 
-static unsigned char *
-print_insn_arg (d, buffer, p, addr, info)
+/* Returns number of bytes "eaten" by the operand, or
+   return -1 if an invalid operand was found, or -2 if
+   an opcode tabe error was found. */
+
+static int
+print_insn_arg (d, buffer, p0, addr, info)
      char *d;
      unsigned char *buffer;
-     register unsigned char *p;
+     unsigned char *p0;
      bfd_vma addr;		/* PC for this arg to be relative to */
      disassemble_info *info;
 {
   register int val = 0;
   register int place = d[1];
+  register unsigned char *p = p0;
   int regno;
   register CONST char *regname;
   register unsigned char *p1;
@@ -345,7 +413,11 @@ print_insn_arg (d, buffer, p, addr, info)
 	     {"tc",  0x003}, {"itt0",0x004}, {"itt1", 0x005},
              {"dtt0",0x006}, {"dtt1",0x007},
 	     {"usp", 0x800}, {"vbr", 0x801}, {"caar", 0x802},
-	     {"msp", 0x803}, {"isp", 0x804}, {"mmusr",0x805},
+	     {"msp", 0x803}, {"isp", 0x804},
+
+	     /* Should we be calling this psr like we do in case 'Y'?  */
+	     {"mmusr",0x805},
+
              {"urp", 0x806}, {"srp", 0x807}};
 
 	val = fetch_arg (buffer, place, 12, info);
@@ -442,7 +514,7 @@ print_insn_arg (d, buffer, p, addr, info)
 	  (*info->fprintf_func) (info->stream, "{#%d}", val);
 	}
       else
-	m68k_opcode_error (info, *d, place);
+	return -2;
       break;
 
     case '#':
@@ -463,7 +535,7 @@ print_insn_arg (d, buffer, p, addr, info)
       else if (place == 'l')
 	val = NEXTLONG (p1);
       else
-	m68k_opcode_error (info, *d, place);
+	return -2;
       (*info->fprintf_func) (info->stream, "#%d", val);
       break;
 
@@ -492,7 +564,7 @@ print_insn_arg (d, buffer, p, addr, info)
 	    val = NEXTWORD (p);
 	}
       else
-	m68k_opcode_error (info, *d, place);
+	return -2;
 
       (*info->print_address_func) (addr + val, info);
       break;
@@ -530,6 +602,7 @@ print_insn_arg (d, buffer, p, addr, info)
     case '/':
     case '&':
     case '`':
+    case '|':
 
       if (place == 'd')
 	{
@@ -635,7 +708,7 @@ print_insn_arg (d, buffer, p, addr, info)
 		  break;
 
 		default:
-		  m68k_opcode_error (info, *d, place);
+		  return -1;
 	      }
 	      if ( flt_p )	/* Print a float? */
 		(*info->fprintf_func) (info->stream, "#%g", flval);
@@ -644,9 +717,7 @@ print_insn_arg (d, buffer, p, addr, info)
 	      break;
 
 	    default:
-	      (*info->fprintf_func) (info->stream,
-				     "<invalid address mode 0%o>",
-				     (unsigned) val);
+	      return -1;
 	    }
 	}
       break;
@@ -728,14 +799,78 @@ print_insn_arg (d, buffer, p, addr, info)
 		}
 	  }
 	else
-	  goto de_fault;
+	  return -2;
       break;
 
-    default:  de_fault:
-      m68k_opcode_error (info, *d, ' ');
+    case 'X':
+      place = '8';
+    case 'Y':
+    case 'Z':
+    case 'W':
+    case '3':
+    case 'P':
+      {
+	int val = fetch_arg (buffer, place, 5, info);
+	char *name = 0;
+	switch (val)
+	  {
+	  case 2: name = "tt0"; break;
+	  case 3: name = "tt1"; break;
+	  case 0x10: name = "tc"; break;
+	  case 0x11: name = "drp"; break;
+	  case 0x12: name = "srp"; break;
+	  case 0x13: name = "crp"; break;
+	  case 0x14: name = "cal"; break;
+	  case 0x15: name = "val"; break;
+	  case 0x16: name = "scc"; break;
+	  case 0x17: name = "ac"; break;
+ 	  case 0x18: name = "psr"; break;
+	  case 0x19: name = "pcsr"; break;
+	  case 0x1c:
+	  case 0x1d:
+	    {
+	      int break_reg = ((buffer[3] >> 2) & 7);
+	      (*info->fprintf_func)
+		(info->stream, val == 0x1c ? "bad%d" : "bac%d",
+		 break_reg);
+	    }
+	    break;
+	  default:
+	    (*info->fprintf_func) (info->stream, "<mmu register %d>", val);
+	  }
+	if (name)
+	  (*info->fprintf_func) (info->stream, name);
+      }
+      break;
+
+    case 'f':
+      {
+	int fc = fetch_arg (buffer, place, 5, info);
+	if (fc == 1)
+	  (*info->fprintf_func) (info->stream, "dfc");
+	else if (fc == 0)
+	  (*info->fprintf_func) (info->stream, "sfc");
+	else
+	  (*info->fprintf_func) (info->stream, "<function code %d>", fc);
+      }
+      break;
+
+    case 'V':
+      (*info->fprintf_func) (info->stream, "val");
+      break;
+
+    case 't':
+      {
+	int level = fetch_arg (buffer, place, 3, info);
+	(*info->fprintf_func) (info->stream, "%d", level);
+      }
+      break;
+
+    default:
+      return -2;
     }
 
-  return (unsigned char *) p;
+  return p - p0;
 }
 
 /* Fetch BITS bits from a position in the instruction specified by CODE.

@@ -38,7 +38,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <signal.h>
 
 #include <sys/user.h>		/* After a.out.h  */
+#if 0
+/* file.h is included by std-host.h.  So we better not try to include it
+   twice; on some systems (dpx2) it is not protected against multiple
+   inclusion.  I have checked that all the hosts which use this file
+   include sys/file.h in the hosts file.  */
 #include <sys/file.h>
+#endif
 
 #include <errno.h>
 
@@ -74,6 +80,12 @@ trad_unix_core_file_p (abfd)
   int val;
   struct user u;
 
+#ifdef TRAD_CORE_USER_OFFSET
+  /* If defined, this macro is the file position of the user struct.  */
+  if (bfd_seek (abfd, TRAD_CORE_USER_OFFSET, SEEK_SET) == 0)
+    return 0;
+#endif
+    
   val = bfd_read ((void *)&u, 1, sizeof u, abfd);
   if (val != sizeof u)
     {
@@ -110,7 +122,12 @@ trad_unix_core_file_p (abfd)
 	bfd_error = file_truncated;
 	return 0;
       }
-    if (NBPG * (UPAGES + u.u_dsize + u.u_ssize) < statbuf.st_size)
+    if (NBPG * (UPAGES + u.u_dsize + u.u_ssize)
+#ifdef TRAD_CORE_EXTRA_SIZE_ALLOWED
+	/* Some systems write the file too big.  */
+	+ TRAD_CORE_EXTRA_SIZE_ALLOWED
+#endif
+	< statbuf.st_size)
       {
 	/* The file is too big.  Maybe it's not a core file
 	   or we otherwise have bad values for u_dsize and u_ssize).  */
@@ -193,7 +210,11 @@ trad_unix_core_file_p (abfd)
   core_regsec (abfd)->vma = 0 - (int) u.u_ar0;
 
   core_datasec (abfd)->filepos = NBPG * UPAGES;
+#ifdef TRAD_CORE_STACK_FILEPOS
+  core_stacksec (abfd)->filepos = TRAD_CORE_STACK_FILEPOS;
+#else
   core_stacksec (abfd)->filepos = (NBPG * UPAGES) + NBPG * u.u_dsize;
+#endif
   core_regsec (abfd)->filepos = 0; /* Register segment is the upage */
 
   /* Align to word at least */
@@ -272,6 +293,9 @@ trad_unix_core_file_matches_executable_p  (core_bfd, exec_bfd)
 #define	trad_unix_print_symbol			(void (*) PARAMS	\
 	((bfd *, PTR, struct symbol_cache_entry  *,			\
 	bfd_print_symbol_type))) bfd_false
+#define	trad_unix_get_symbol_info		(void (*) PARAMS	\
+	((bfd *, struct symbol_cache_entry  *,			\
+	symbol_info *))) bfd_false
 #define	trad_unix_get_lineno			(alent * (*) PARAMS	\
 	((bfd *, struct symbol_cache_entry *))) bfd_nullvoidptr
 #define	trad_unix_set_arch_mach			(boolean (*) PARAMS	\

@@ -167,6 +167,7 @@ CONST char *string)
 }
 
 
+#if 0 /* not used currently */
 /* This routine is provided two arch_infos and returns whether
    they'd be compatible */
 
@@ -179,23 +180,25 @@ DEFUN(compatible,(a,b),
    return NULL;
   return a;
 }
-
+#endif
 
 static bfd_arch_info_type arch_info_struct[] = 
 { 
-  16,				/* 16 bits in a word */
-  24,				/* 24 bits in an address */
-  8,				/* 8 bits in a byte */
-  bfd_arch_h8500,
-  0,				/* only 1 machine */
-  "H8/500",			/* arch_name  */
-  "H8/500",			/* printable name */
-  1,
-  true,				/* the default machine */
-  bfd_default_compatible,
-  scan_mach,
-  0,
-  0,
+  {
+    16,				/* 16 bits in a word */
+    24,				/* 24 bits in an address */
+    8,				/* 8 bits in a byte */
+    bfd_arch_h8500,
+    0,				/* only 1 machine */
+    "H8/500",			/* arch_name  */
+    "H8/500",			/* printable name */
+    1,
+    true,			/* the default machine */
+    bfd_default_compatible,
+    scan_mach,
+    0,
+    0,
+  },
 };
 
 

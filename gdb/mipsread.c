@@ -45,9 +45,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    This module can read all four of the known byte-order combinations,
    on any type of host.  */
 
-#define	TM_FILE_OVERRIDE
 #include "defs.h"
-#include "mips/tm-mips.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "gdbcore.h"
@@ -58,10 +56,27 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "stabsread.h"
 #include "complaints.h"
 
+/* These are needed if the tm.h file does not contain the necessary
+   mips specific definitions.  */
+
+#ifndef MIPS_EFI_SYMBOL_NAME
+#define MIPS_EFI_SYMBOL_NAME "__GDB_EFI_INFO__"
+#include "coff/sym.h"
+#include "coff/symconst.h"
+typedef struct mips_extra_func_info {
+        long    numargs;
+        PDR     pdr;
+} *mips_extra_func_info_t;
+#ifndef RA_REGNUM
+#define RA_REGNUM 0
+#endif
+#ifndef FP0_REGNUM
+#define FP0_REGNUM 0
+#endif
+#endif
+
 #ifdef USG
 #include <sys/types.h>
-#define L_SET 0
-#define L_INCR 1
 #endif
 
 #include <sys/param.h>
@@ -80,9 +95,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* FIXME: coff/internal.h and aout/aout64.h both define N_ABS.  We
    want the definition from aout/aout64.h.  */
 #undef	N_ABS
-/* FIXME: coff/mips.h and aout/aout64.h both define ZMAGIC.  We don't
-   use it.  */
-#undef	ZMAGIC
 
 #include "libaout.h"		/* Private BFD a.out information.  */
 #include "aout/aout64.h"
@@ -333,6 +345,7 @@ static void
 mipscoff_new_init (ignore)
      struct objfile *ignore;
 {
+  sigtramp_address = 0;
   stabsread_new_init ();
   buildsym_new_init ();
 }
@@ -354,8 +367,10 @@ mipscoff_symfile_read (objfile, section_offsets, mainline)
      struct section_offsets *section_offsets;
      int mainline;
 {
+  struct cleanup * back_to;
+
   init_minimal_symbol_collection ();
-  make_cleanup (discard_minimal_symbols, 0);
+  back_to = make_cleanup (discard_minimal_symbols, 0);
 
   /* Now that the executable file is positioned at symbol table,
      process it and define symbols accordingly.  */
@@ -366,6 +381,8 @@ mipscoff_symfile_read (objfile, section_offsets, mainline)
      minimal symbols for this objfile. */
 
   install_minimal_symbols (objfile);
+
+  do_cleanups (back_to);
 }
 
 /* Perform any local cleanups required when we are done with a particular
@@ -658,33 +675,6 @@ free_pending (f_idx)
 
 #endif
 
-static char *
-prepend_tag_kind (tag_name, type_code)
-     char *tag_name;
-     enum type_code type_code;
-{
-  char *prefix;
-  char *result;
-  switch (type_code)
-    {
-    case TYPE_CODE_ENUM:
-      prefix = "enum ";
-      break;
-    case TYPE_CODE_STRUCT:
-      prefix = "struct ";
-      break;
-    case TYPE_CODE_UNION:
-      prefix = "union ";
-      break;
-    default:
-      prefix = "";
-    }
-
-  result = (char *) obstack_alloc (&current_objfile->symbol_obstack,
-				   strlen (prefix) + strlen (tag_name) + 1);
-  sprintf (result, "%s%s", prefix, tag_name);
-  return result;
-}
 
 
 /* Parsing Routines proper. */
@@ -740,7 +730,17 @@ parse_symbol (sh, ax, ext_sh, bigend)
       class = LOC_STATIC;
       b = top_stack->cur_block;
       s = new_symbol (name);
-      SYMBOL_VALUE_ADDRESS (s) = (CORE_ADDR) sh->value;
+      if (sh->sc == scCommon)
+	{
+	  /* It is a FORTRAN common block.  At least for SGI Fortran the
+	     address is not in the symbol; we need to fix it later in
+	     scan_file_globals.  */
+	  int bucket = hashname (SYMBOL_NAME (s));
+	  SYMBOL_VALUE_CHAIN (s) = global_sym_chain[bucket];
+	  global_sym_chain[bucket] = s;
+	}
+      else
+	SYMBOL_VALUE_ADDRESS (s) = (CORE_ADDR) sh->value;
       goto data;
 
     case stLocal:		/* local variable, goes into current block */
@@ -780,14 +780,27 @@ parse_symbol (sh, ax, ext_sh, bigend)
       s = new_symbol (name);
 
       SYMBOL_NAMESPACE (s) = VAR_NAMESPACE;
-      if (sh->sc == scRegister)
+      switch (sh->sc)
 	{
-	  SYMBOL_CLASS (s) = LOC_REGPARM;
+	case scRegister:
+	  /* Pass by value in register.  */
+	  SYMBOL_CLASS(s) = LOC_REGPARM;
 	  if (sh->value > 31)
-	    sh->value += FP0_REGNUM - 32;
+	    sh->value += FP0_REGNUM-32;
+	  break;
+	case scVar:
+	  /* Pass by reference on stack.  */
+	  SYMBOL_CLASS(s) = LOC_REF_ARG;
+	  break;
+	case scVarRegister:
+	  /* Pass by reference in register.  */
+	  SYMBOL_CLASS(s) = LOC_REGPARM_ADDR;
+	  break;
+	default:
+	  /* Pass by value on stack.  */
+	  SYMBOL_CLASS(s) = LOC_ARG;
+	  break;
 	}
-      else
-	SYMBOL_CLASS (s) = LOC_ARG;
       SYMBOL_VALUE (s) = sh->value;
       SYMBOL_TYPE (s) = parse_type (ax + sh->index, 0, bigend);
       add_symbol (s, top_stack->cur_block);
@@ -808,8 +821,14 @@ parse_symbol (sh, ax, ext_sh, bigend)
       add_symbol (s, top_stack->cur_block);
       break;
 
+    case stStaticProc:
+      /* I believe this is used only for file-local functions.
+	 The comment in symconst.h ("load time only static procs") isn't
+	 particularly clear on this point.  */
+      prim_record_minimal_symbol (name, sh->value, mst_file_text);
+      /* FALLTHROUGH */
+
     case stProc:		/* Procedure, usually goes into global block */
-    case stStaticProc:		/* Static procedure, goes into current block */
       s = new_symbol (name);
       SYMBOL_NAMESPACE (s) = VAR_NAMESPACE;
       SYMBOL_CLASS (s) = LOC_BLOCK;
@@ -886,7 +905,7 @@ parse_symbol (sh, ax, ext_sh, bigend)
 	goto structured_common;
 
     case stBlock:		/* Either a lexical block, or some type */
-	if (sh->sc != scInfo)
+	if (sh->sc != scInfo && sh->sc != scCommon)
 	  goto case_stBlock_code;	/* Lexical block */
 
 	type_code = TYPE_CODE_UNDEF;	/* We have a type.  */
@@ -913,11 +932,12 @@ parse_symbol (sh, ax, ext_sh, bigend)
 
 	    ecoff_swap_sym_in (cur_bfd, ext_tsym, &tsym);
 
-	    if (tsym.st == stEnd)
-	      break;
-
-	    if (tsym.st == stMember)
+	    switch (tsym.st)
 	      {
+	      case stEnd:
+		goto end_of_fields;
+
+	      case stMember:
 		if (nfields == 0 && type_code == TYPE_CODE_UNDEF)
 		  /* If the type of the member is Nil (or Void),
 		     without qualifiers, assume the tag is an
@@ -936,29 +956,52 @@ parse_symbol (sh, ax, ext_sh, bigend)
 		nfields++;
 		if (tsym.value > max_value)
 		  max_value = tsym.value;
+		break;
+
+#if 0
+		/* This does not fix the bug which it intended to fix,
+		   and makes GDB hang when reading its own symbol table on
+		   the SGI, when compiled with the SGI compiler.  */
+	      case stTypedef:
+	      case stConstant:
+	      case stStaticProc:
+		complain (&block_member_complaint, tsym.st);
+		/* These are said to show up in cfront-generated programs.
+		   Apparently processing them like the following prevents
+		   core dumps.  */
+		/* FALLTHROUGH */
+#endif
+
+	      case stBlock:
+	      case stUnion:
+	      case stEnum:
+	      case stStruct:
+	      case stParsed:
+		{
+#if 0
+		  /* This is a no-op; is it trying to tell us something
+		     we should be checking?  */
+		  if (tsym.sc == scVariant);	/*UNIMPLEMENTED*/
+#endif
+		  if (tsym.index != 0)
+		    {
+		      /* This is something like a struct within a
+			 struct.  Skip over the fields of the inner
+			 struct.  The -1 is because the for loop will
+			 increment ext_tsym.  */
+		      ext_tsym = (ecoff_data (cur_bfd)->external_sym
+				  + cur_fdr->isymBase
+				  + tsym.index
+				  - 1);
+		    }
+		}
+		break;
+
+	      default:
+		complain (&block_member_complaint, tsym.st);
 	      }
-	    else if (tsym.st == stBlock
-		     || tsym.st == stUnion
-		     || tsym.st == stEnum
-		     || tsym.st == stStruct
-		     || tsym.st == stParsed)
-	      {
-		if (tsym.sc == scVariant);	/*UNIMPLEMENTED*/
-		if (tsym.index != 0)
-		  {
-		    /* This is something like a struct within a
-		       struct.  Skip over the fields of the inner
-		       struct.  The -1 is because the for loop will
-		       increment ext_tsym.  */
-		    ext_tsym = (ecoff_data (cur_bfd)->external_sym
-				+ cur_fdr->isymBase
-				+ tsym.index
-				- 1);
-		  }
-	      }
-	    else
-	      complain (&block_member_complaint, tsym.st);
 	  }
+      end_of_fields:;
 
 	/* In an stBlock, there is no way to distinguish structs,
 	   unions, and enums at this point.  This is a bug in the
@@ -1004,14 +1047,22 @@ parse_symbol (sh, ax, ext_sh, bigend)
 	if (pend != (struct mips_pending *) NULL)
 	  t = pend->t;
 	else
-	  t = new_type (prepend_tag_kind (name, type_code));
+	  t = new_type (NULL);
 
+	TYPE_TAG_NAME (t) = obconcat (&current_objfile->symbol_obstack,
+				      "", "", name);
 	TYPE_CODE (t) = type_code;
 	TYPE_LENGTH (t) = sh->value;
 	TYPE_NFIELDS (t) = nfields;
 	TYPE_FIELDS (t) = f = ((struct field *)
 			       TYPE_ALLOC (t,
 					   nfields * sizeof (struct field)));
+	/* Handle opaque struct definitions.  */
+	if (TYPE_NFIELDS (t) == 0)
+	  {
+	    TYPE_FLAGS (t) |= TYPE_FLAG_STUB;
+	    SYMBOL_NAMESPACE (s) = VAR_NAMESPACE;
+	  }
 
 	if (type_code == TYPE_CODE_ENUM)
 	  {
@@ -1074,7 +1125,7 @@ parse_symbol (sh, ax, ext_sh, bigend)
       break;
 
     case stEnd:		/* end (of anything) */
-      if (sh->sc == scInfo)
+      if (sh->sc == scInfo || sh->sc == scCommon)
 	{
 	  /* Finished with type */
 	  top_stack->cur_type = 0;
@@ -1156,6 +1207,43 @@ parse_symbol (sh, ax, ext_sh, bigend)
       add_symbol (s, top_stack->cur_block);
       SYMBOL_TYPE (s) = parse_type (ax + sh->index, 0, bigend);
       sh->value = (long) SYMBOL_TYPE (s);
+      if (TYPE_TAG_NAME (SYMBOL_TYPE (s)) != NULL
+          && STREQ (TYPE_TAG_NAME (SYMBOL_TYPE (s)), "<undefined>"))
+	{
+	  /* mips cc puts out a stTypedef for opaque struct definitions.  */
+          TYPE_FLAGS (SYMBOL_TYPE (s)) |= TYPE_FLAG_STUB;
+	}
+      /* Incomplete definitions of structs should not get a name.  */
+      if (TYPE_NAME (SYMBOL_TYPE (s)) == NULL
+	  && (TYPE_NFIELDS (SYMBOL_TYPE (s)) != 0
+              || (TYPE_CODE (SYMBOL_TYPE (s)) != TYPE_CODE_STRUCT
+		  && TYPE_CODE (SYMBOL_TYPE (s)) != TYPE_CODE_UNION)))
+	{
+	  if (TYPE_CODE (SYMBOL_TYPE (s)) == TYPE_CODE_PTR
+	      || TYPE_CODE (SYMBOL_TYPE (s)) == TYPE_CODE_FUNC)
+	    {
+	      /* If we are giving a name to a type such as "pointer to
+		 foo" or "function returning foo", we better not set
+		 the TYPE_NAME.  If the program contains "typedef char
+		 *caddr_t;", we don't want all variables of type char
+		 * to print as caddr_t.  This is not just a
+		 consequence of GDB's type management; CC and GCC (at
+		 least through version 2.4) both output variables of
+		 either type char * or caddr_t with the type
+		 refering to the stTypedef symbol for caddr_t.  If a future
+		 compiler cleans this up it GDB is not ready for it
+		 yet, but if it becomes ready we somehow need to
+		 disable this check (without breaking the PCC/GCC2.4
+		 case).
+
+		 Sigh.
+
+		 Fortunately, this check seems not to be necessary
+		 for anything except pointers or functions.  */
+	    }
+	  else
+	    TYPE_NAME (SYMBOL_TYPE (s)) = SYMBOL_NAME (s);
+	}
       break;
 
     case stFile:		/* file name */
@@ -1242,7 +1330,6 @@ parse_type (ax, bs, bigend)
   if (map_bt[t->bt])
     {
       tp = *map_bt[t->bt];
-      fmt = "%s";
     }
   else
     {
@@ -1252,27 +1339,21 @@ parse_type (ax, bs, bigend)
 	{
 	case btAdr:
 	  tp = lookup_pointer_type (builtin_type_void);
-	  fmt = "%s";
 	  break;
 	case btStruct:
 	  type_code = TYPE_CODE_STRUCT;
-	  fmt = "struct %s";
 	  break;
 	case btUnion:
 	  type_code = TYPE_CODE_UNION;
-	  fmt = "union %s";
 	  break;
 	case btEnum:
 	  type_code = TYPE_CODE_ENUM;
-	  fmt = "enum %s";
 	  break;
 	case btRange:
 	  type_code = TYPE_CODE_RANGE;
-	  fmt = "%s";
 	  break;
 	case btSet:
 	  type_code = TYPE_CODE_SET;
-	  fmt = "set %s";
 	  break;
 	case btTypedef:
 	default:
@@ -1306,24 +1387,53 @@ parse_type (ax, bs, bigend)
   /* All these types really point to some (common) MIPS type
      definition, and only the type-qualifiers fully identify
      them.  We'll make the same effort at sharing. */
-  if (t->bt == btIndirect ||
-      t->bt == btStruct ||
+  if (t->bt == btStruct ||
       t->bt == btUnion ||
       t->bt == btEnum ||
-      t->bt == btTypedef ||
-      t->bt == btRange ||
+
+      /* btSet (I think) implies that the name is a tag name, not a typedef
+	 name.  This apparently is a MIPS extension for C sets.  */
       t->bt == btSet)
     {
-      char name[256], *pn;
+      char *name;
 
       /* Try to cross reference this type */
-      ax += cross_ref (ax, &tp, type_code, &pn, bigend);
+      ax += cross_ref (ax, &tp, type_code, &name, bigend);
       /* reading .o file ? */
       if (tp == (struct type *) NULL)
 	tp = init_type (type_code, 0, 0, (char *) NULL,
 			(struct objfile *) NULL);
-      /* SOMEONE OUGHT TO FIX DBXREAD TO DROP "STRUCT" */
-      sprintf (name, fmt, pn);
+
+      /* Usually, TYPE_CODE(tp) is already type_code.  The main
+	 exception is if we guessed wrong re struct/union/enum. */
+      if (TYPE_CODE (tp) != type_code)
+	{
+	  complain (&bad_tag_guess_complaint, name);
+	  TYPE_CODE (tp) = type_code;
+	}
+      /* Do not set the tag name if it is a compiler generated tag name
+	  (.Fxx or .xxfake) for unnamed struct/union/enums.  */
+      if (name[0] == '.')
+	TYPE_TAG_NAME (tp) = NULL;
+      else if (TYPE_TAG_NAME (tp) == NULL || !STREQ (TYPE_TAG_NAME (tp), name))
+	TYPE_TAG_NAME (tp) = obsavestring (name, strlen (name),
+					   &current_objfile->type_obstack);
+    }
+
+  /* All these types really point to some (common) MIPS type
+     definition, and only the type-qualifiers fully identify
+     them.  We'll make the same effort at sharing. */
+  if (t->bt == btIndirect ||
+      t->bt == btRange)
+    {
+      char *name;
+
+      /* Try to cross reference this type */
+      ax += cross_ref (ax, &tp, type_code, &name, bigend);
+      /* reading .o file ? */
+      if (tp == (struct type *) NULL)
+	tp = init_type (type_code, 0, 0, (char *) NULL,
+			(struct objfile *) NULL);
 
       /* Usually, TYPE_CODE(tp) is already type_code.  The main
 	 exception is if we guessed wrong re struct/union/enum. */
@@ -1486,12 +1596,16 @@ upgrade_type (tpp, tq, ax, bigend)
    images that have been partially stripped (ld -x) have been deprived
    of local symbols, and we have to cope with them here.  FIRST_OFF is
    the offset of the first procedure for this FDR; we adjust the
-   address by this amount, but I don't know why.  */
+   address by this amount, but I don't know why.  SEARCH_SYMTAB is the symtab
+   to look for the function which contains the MIPS_EFI_SYMBOL_NAME symbol
+   in question, or NULL to use top_stack->cur_block.  */
+
+static void parse_procedure PARAMS ((PDR *, struct symtab *, unsigned long));
 
 static void
-parse_procedure (pr, have_stabs, first_off)
+parse_procedure (pr, search_symtab, first_off)
      PDR *pr;
-     int have_stabs;
+     struct symtab *search_symtab;
      unsigned long first_off;
 {
   struct symbol *s, *i;
@@ -1532,8 +1646,12 @@ parse_procedure (pr, have_stabs, first_off)
       sh_name = ecoff_data (cur_bfd)->ss + cur_fdr->issBase + sh.iss;
     }
 
-  if (have_stabs)
+  if (search_symtab != NULL)
     {
+#if 0
+      /* This loses both in the case mentioned (want a static, find a global),
+	 but also if we are looking up a non-mangled name which happens to
+	 match the name of a mangled function.  */
       /* We have to save the cur_fdr across the call to lookup_symbol.
 	 If the pdr is for a static function and if a global function with
 	 the same name exists, lookup_symbol will eventually read in the symtab
@@ -1541,6 +1659,13 @@ parse_procedure (pr, have_stabs, first_off)
       FDR *save_cur_fdr = cur_fdr;
       s = lookup_symbol (sh_name, NULL, VAR_NAMESPACE, 0, NULL);
       cur_fdr = save_cur_fdr;
+#else
+      s = mylookup_symbol
+	(sh_name,
+	 BLOCKVECTOR_BLOCK (BLOCKVECTOR (search_symtab), STATIC_BLOCK),
+	 VAR_NAMESPACE,
+	 LOC_BLOCK);
+#endif
     }
   else
     s = mylookup_symbol (sh_name, top_stack->cur_block,
@@ -2086,7 +2211,7 @@ parse_partial_symbols (objfile, section_offsets)
 		case stStruct:
 		case stEnum:
 		case stBlock:	/* { }, str, un, enum*/
-		  if (sh.sc == scInfo)
+		  if (sh.sc == scInfo || sh.sc == scCommon)
 		    {
 		      ADD_PSYMBOL_TO_LIST (name, strlen (name),
 					   STRUCT_NAMESPACE, LOC_TYPEDEF,
@@ -2509,7 +2634,7 @@ psymtab_to_symtab_1 (pst, filename)
 	      first_off = pr.adr;
 	      first_pdr = 0;
 	    }
-	  parse_procedure (&pr, 1, first_off);
+	  parse_procedure (&pr, st, first_off);
 	}
     }
   else
@@ -2721,6 +2846,13 @@ cross_ref (ax, tpp, type_code, pname, bigend)
       /* Careful, we might be looking at .o files */
       if (sh.iss == 0)
 	*pname = "<undefined>";
+      else if (rn->rfd == 0xfff && rn->index == 0)
+	/* For structs, unions and enums, rn->rfd is 0xfff and the index
+	   is a relative symbol number for the type, but an index of 0
+	   seems to mean that we don't know.  This is said to fix a problem
+	   with "info func opendir" on an SGI showing
+	   "struct BSDopendir.c *BSDopendir();".  */
+	*pname = "<unknown>";
       else
 	*pname = ecoff_data (cur_bfd)->ss + fh->issBase + sh.iss;
 
@@ -2772,7 +2904,7 @@ mylookup_symbol (name, block, namespace, class)
       if (SYMBOL_NAME (sym)[0] == inc
 	  && SYMBOL_NAMESPACE (sym) == namespace
 	  && SYMBOL_CLASS (sym) == class
-	  && STREQ (SYMBOL_NAME (sym), name))
+	  && strcmp (SYMBOL_NAME (sym), name) == 0)
 	return sym;
       bot++;
     }
@@ -3136,18 +3268,19 @@ fixup_sigtramp ()
 
   sigtramp_address = -1;
 
-  /* We know it is sold as sigvec */
+  /* We have to handle the following cases here:
+     a) The Mips library has a sigtramp label within sigvec.
+     b) Irix has a _sigtramp which we want to use, but it also has sigvec.  */
   s = lookup_symbol ("sigvec", 0, VAR_NAMESPACE, 0, NULL);
-
-  /* Most programs do not play with signals */
-  if (s == 0)
-    s = lookup_symbol ("_sigtramp", 0, VAR_NAMESPACE, 0, NULL);
-  else
+  if (s != 0)
     {
       b0 = SYMBOL_BLOCK_VALUE (s);
-
-      /* A label of sigvec, to be more precise */
       s = lookup_symbol ("sigtramp", b0, VAR_NAMESPACE, 0, NULL);
+    }
+  if (s == 0)
+    {
+      /* No sigvec or no sigtramp inside sigvec, try _sigtramp.  */
+      s = lookup_symbol ("_sigtramp", 0, VAR_NAMESPACE, 0, NULL);
     }
 
   /* But maybe this program uses its own version of sigvec */
@@ -3206,6 +3339,7 @@ fixup_sigtramp ()
     e->pdr.fregmask = -1;
     e->pdr.fregoffset = -(7 * sizeof (int));
     e->pdr.isym = (long) s;
+    e->pdr.adr = sigtramp_address;
 
     current_objfile = st->objfile;	/* Keep new_symbol happy */
     s = new_symbol (MIPS_EFI_SYMBOL_NAME);

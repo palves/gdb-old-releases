@@ -36,6 +36,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "complaints.h"
 #include "demangle.h"
 
+#include <ctype.h>
+
 /* Ask stabsread.h to define the vars it normally declares `extern'.  */
 #define	EXTERN	/**/
 #include "stabsread.h"		/* Our own declarations */
@@ -65,8 +67,9 @@ struct field_info
 static struct type *
 dbx_alloc_type PARAMS ((int [2], struct objfile *));
 
-static void
-read_huge_number PARAMS ((char **, int, long *, int *));
+static long read_huge_number PARAMS ((char **, int, int *));
+
+static struct type *error_type PARAMS ((char **));
 
 static void
 patch_block_stabs PARAMS ((struct pending *, struct pending_stabs *,
@@ -74,6 +77,9 @@ patch_block_stabs PARAMS ((struct pending *, struct pending_stabs *,
 
 static void
 fix_common_block PARAMS ((struct symbol *, int));
+
+static int
+read_type_number PARAMS ((char **, int *));
 
 static struct type *
 read_range_type PARAMS ((char **, int [2], struct objfile *));
@@ -122,7 +128,7 @@ read_array_type PARAMS ((char **, struct type *, struct objfile *));
 static struct type **
 read_args PARAMS ((char **, int, struct objfile *));
 
-static void
+static int
 read_cpp_abbrev PARAMS ((struct field_info *, char **, struct type *,
 			 struct objfile *));
 
@@ -138,6 +144,11 @@ static const char vb_name[] =   { '_','v','b',CPLUS_MARKER,'\0' };
 #define BELIEVE_PCC_PROMOTION 0
 #endif
 
+#if 0
+/* I think this can go away, all current uses have been removed.
+   GCC emits a few crazy types which can only be distinguished by the
+   name (complex, long long on some machines), but I'd say fix GCC.  */
+
 /* During some calls to read_type (and thus to read_range_type), this
    contains the name of the type being defined.  Range types are only
    used in C as basic types.  We use the name to distinguish the otherwise
@@ -145,6 +156,7 @@ static const char vb_name[] =   { '_','v','b',CPLUS_MARKER,'\0' };
    FIXME, this should disappear with better type management.  */
 
 static char *long_kludge_name;
+#endif
 
 #if 0
 struct complaint dbx_class_complaint =
@@ -205,6 +217,9 @@ static int undef_types_length;
   } while (0)
 
 
+/* This is used by other symbol readers besides stabs, so for cleanliness
+   should probably be in buildsym.c.  */
+
 int
 hashname (name)
      char *name;
@@ -256,8 +271,13 @@ dbx_lookup_type (typenums)
     return 0;
 
   if (filenum < 0 || filenum >= n_this_object_header_files)
-    error ("Invalid symbol data: type number (%d,%d) out of range at symtab pos %d.",
-	   filenum, index, symnum);
+    {
+      static struct complaint msg = {"\
+Invalid symbol data: type number (%d,%d) out of range at symtab pos %d.",
+				0, 0};
+      complain (&msg, filenum, index, symnum);
+      goto error_return;
+    }
 
   if (filenum == 0)
     {
@@ -303,7 +323,16 @@ dbx_lookup_type (typenums)
 
       if (real_filenum >= n_header_files)
 	{
-	  abort ();
+	  struct type *temp_type;
+	  struct type **temp_type_p;
+
+	  warning ("GDB internal error: bad real_filenum");
+
+	error_return:
+	  temp_type = init_type (TYPE_CODE_ERROR, 0, 0, NULL, NULL);
+	  temp_type_p = (struct type **) xmalloc (sizeof (struct type *));
+	  *temp_type_p = temp_type;
+	  return temp_type_p;
 	}
 
       f = &header_files[real_filenum];
@@ -431,24 +460,31 @@ patch_block_stabs (symbols, stabs, objfile)
    or perhaps read a pair (FILENUM, TYPENUM) in parentheses.
    Just a single number N is equivalent to (0,N).
    Return the two numbers by storing them in the vector TYPENUMS.
-   TYPENUMS will then be used as an argument to dbx_lookup_type.  */
+   TYPENUMS will then be used as an argument to dbx_lookup_type.
 
-void
+   Returns 0 for success, -1 for error.  */
+
+static int
 read_type_number (pp, typenums)
      register char **pp;
      register int *typenums;
 {
+  int nbits;
   if (**pp == '(')
     {
       (*pp)++;
-      typenums[0] = read_number (pp, ',');
-      typenums[1] = read_number (pp, ')');
+      typenums[0] = read_huge_number (pp, ',', &nbits);
+      if (nbits != 0) return -1;
+      typenums[1] = read_huge_number (pp, ')', &nbits);
+      if (nbits != 0) return -1;
     }
   else
     {
       typenums[0] = 0;
-      typenums[1] = read_number (pp, 0);
+      typenums[1] = read_huge_number (pp, 0, &nbits);
+      if (nbits != 0) return -1;
     }
+  return 0;
 }
 
 
@@ -474,7 +510,6 @@ define_symbol (valu, string, desc, type, objfile)
   int deftype;
   int synonym = 0;
   register int i;
-  struct type *temptype;
 
   /* We would like to eliminate nameless symbols, but keep their types.
      E.g. stab entry ":t10=*2" should produce a type 10, which is a pointer
@@ -534,7 +569,7 @@ define_symbol (valu, string, desc, type, objfile)
 	    goto normal;
 
 	  default:
-	    complain (unrecognized_cplus_name_complaint, string);
+	    complain (&unrecognized_cplus_name_complaint, string);
 	    goto normal;		/* Do *something* with it */
 	}
     }
@@ -567,30 +602,55 @@ define_symbol (valu, string, desc, type, objfile)
   p++;
 
   /* Determine the type of name being defined.  */
+#if 0
+  /* Getting GDB to correctly skip the symbol on an undefined symbol
+     descriptor and not ever dump core is a very dodgy proposition if
+     we do things this way.  I say the acorn RISC machine can just
+     fix their compiler.  */
   /* The Acorn RISC machine's compiler can put out locals that don't
      start with "234=" or "(3,4)=", so assume anything other than the
      deftypes we know how to handle is a local.  */
   if (!strchr ("cfFGpPrStTvVXCR", *p))
+#else
+  if (isdigit (*p) || *p == '(' || *p == '-')
+#endif
     deftype = 'l';
   else
     deftype = *p++;
 
-  /* c is a special case, not followed by a type-number.
-     SYMBOL:c=iVALUE for an integer constant symbol.
-     SYMBOL:c=rVALUE for a floating constant symbol.
-     SYMBOL:c=eTYPE,INTVALUE for an enum constant symbol.
-        e.g. "b:c=e6,0" for "const b = blob1"
-	(where type 6 is defined by "blobs:t6=eblob1:0,blob2:1,;").  */
-  if (deftype == 'c')
+  switch (deftype)
     {
-      if (*p++ != '=')
-	error ("Invalid symbol data at symtab pos %d.", symnum);
+    case 'c':
+      /* c is a special case, not followed by a type-number.
+	 SYMBOL:c=iVALUE for an integer constant symbol.
+	 SYMBOL:c=rVALUE for a floating constant symbol.
+	 SYMBOL:c=eTYPE,INTVALUE for an enum constant symbol.
+	 e.g. "b:c=e6,0" for "const b = blob1"
+	 (where type 6 is defined by "blobs:t6=eblob1:0,blob2:1,;").  */
+      if (*p != '=')
+	{
+	  SYMBOL_CLASS (sym) = LOC_CONST;
+	  SYMBOL_TYPE (sym) = error_type (&p);
+	  SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+	  add_symbol_to_list (sym, &file_symbols);
+	  return sym;
+	}
+      ++p;
       switch (*p++)
 	{
 	case 'r':
 	  {
 	    double d = atof (p);
 	    char *dbl_valu;
+
+	    /* FIXME: lookup_fundamental_type is a hack.  We should be
+	       creating a type especially for the type of float constants.
+	       Problem is, what type should it be?  We currently have to
+	       read this in host floating point format, but what type
+	       represents a host format "double"?
+
+	       Also, what should the name of this type be?  Should we
+	       be using 'S' constants (see stabs.texinfo) instead?  */
 
 	    SYMBOL_TYPE (sym) = lookup_fundamental_type (objfile,
 							 FT_DBL_PREC_FLOAT);
@@ -606,89 +666,71 @@ define_symbol (valu, string, desc, type, objfile)
 	  break;
 	case 'i':
 	  {
-	    SYMBOL_TYPE (sym) = lookup_fundamental_type (objfile,
-							 FT_INTEGER);
+	    /* Defining integer constants this way is kind of silly,
+	       since 'e' constants allows the compiler to give not
+	       only the value, but the type as well.  C has at least
+	       int, long, unsigned int, and long long as constant
+	       types; other languages probably should have at least
+	       unsigned as well as signed constants.  */
+
+	    /* We just need one int constant type for all objfiles.
+	       It doesn't depend on languages or anything (arguably its
+	       name should be a language-specific name for a type of
+	       that size, but I'm inclined to say that if the compiler
+	       wants a nice name for the type, it can use 'e').  */
+	    static struct type *int_const_type;
+
+	    /* Yes, this is as long as a *host* int.  That is because we
+	       use atoi.  */
+	    if (int_const_type == NULL)
+	      int_const_type =
+		init_type (TYPE_CODE_INT,
+			   sizeof (int) * HOST_CHAR_BIT / TARGET_CHAR_BIT, 0,
+			   "integer constant",
+			   (struct objfile *)NULL);
+	    SYMBOL_TYPE (sym) = int_const_type;
 	    SYMBOL_VALUE (sym) = atoi (p);
 	    SYMBOL_CLASS (sym) = LOC_CONST;
 	  }
 	  break;
 	case 'e':
-	  /* SYMBOL:c=eTYPE,INTVALUE for an enum constant symbol.
+	  /* SYMBOL:c=eTYPE,INTVALUE for a constant symbol whose value
+	     can be represented as integral.
 	     e.g. "b:c=e6,0" for "const b = blob1"
 	     (where type 6 is defined by "blobs:t6=eblob1:0,blob2:1,;").  */
 	  {
-	    int typenums[2];
-	    
-	    read_type_number (&p, typenums);
-	    if (*p++ != ',')
-	      error ("Invalid symbol data: no comma in enum const symbol");
-	    
-	    SYMBOL_TYPE (sym) = *dbx_lookup_type (typenums);
-	    SYMBOL_VALUE (sym) = atoi (p);
 	    SYMBOL_CLASS (sym) = LOC_CONST;
+	    SYMBOL_TYPE (sym) = read_type (&p, objfile);
+
+	    if (*p != ',')
+	      {
+		SYMBOL_TYPE (sym) = error_type (&p);
+		break;
+	      }
+	    ++p;
+
+	    /* If the value is too big to fit in an int (perhaps because
+	       it is unsigned), or something like that, we silently get
+	       a bogus value.  The type and everything else about it is
+	       correct.  Ideally, we should be using whatever we have
+	       available for parsing unsigned and long long values,
+	       however.  */
+	    SYMBOL_VALUE (sym) = atoi (p);
 	  }
 	  break;
 	default:
 	  {
-	    static struct complaint msg =
-	      {"Unrecognized constant type", 0, 0};
-	    complain (&msg);
 	    SYMBOL_CLASS (sym) = LOC_CONST;
-	    /* This gives a second complaint, which is probably OK.
-	       We do want the skip to the end of symbol behavior (to
-	       deal with continuation).  */
 	    SYMBOL_TYPE (sym) = error_type (&p);
 	  }
 	}
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       add_symbol_to_list (sym, &file_symbols);
       return sym;
-    }
 
-  /* Now usually comes a number that says which data type,
-     and possibly more stuff to define the type
-     (all of which is handled by read_type)  */
-
-  if (deftype == 'p' && *p == 'F')
-    /* pF is a two-letter code that means a function parameter in Fortran.
-       The type-number specifies the type of the return value.
-       Translate it into a pointer-to-function type.  */
-    {
-      p++;
-      SYMBOL_TYPE (sym)
-	= lookup_pointer_type (lookup_function_type (read_type (&p, objfile)));
-    }
-  else
-    {
-      /* The symbol class letter is followed by a type (typically the
-	 type of the symbol, or its return-type, or etc).  Read it.  */
-
-      synonym = *p == 't';
-
-      if (synonym)
-	{
-	  p++;
-	  type_synonym_name = obsavestring (SYMBOL_NAME (sym),
-					    strlen (SYMBOL_NAME (sym)),
-					    &objfile -> symbol_obstack);
-	}
-
-      /* Here we save the name of the symbol for read_range_type, which
-	 ends up reading in the basic types.  In stabs, unfortunately there
-	 is no distinction between "int" and "long" types except their
-	 names.  Until we work out a saner type policy (eliminating most
-	 builtin types and using the names specified in the files), we
-	 save away the name so that far away from here in read_range_type,
-	 we can examine it to decide between "int" and "long".  FIXME.  */
-      long_kludge_name = SYMBOL_NAME (sym);
-
-      SYMBOL_TYPE (sym) = read_type (&p, objfile);
-    }
-
-  switch (deftype)
-    {
     case 'C':
       /* The name of a caught exception.  */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_LABEL;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       SYMBOL_VALUE_ADDRESS (sym) = valu;
@@ -697,6 +739,7 @@ define_symbol (valu, string, desc, type, objfile)
 
     case 'f':
       /* A static function definition.  */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_BLOCK;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       add_symbol_to_list (sym, &file_symbols);
@@ -739,6 +782,7 @@ define_symbol (valu, string, desc, type, objfile)
 
     case 'F':
       /* A global function definition.  */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_BLOCK;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       add_symbol_to_list (sym, &global_symbols);
@@ -749,6 +793,7 @@ define_symbol (valu, string, desc, type, objfile)
 	 value is not correct.  It is necessary to search for the
 	 corresponding linker definition to find the value.
 	 These definitions appear at the end of the namelist.  */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       i = hashname (SYMBOL_NAME (sym));
       SYMBOL_VALUE_CHAIN (sym) = global_sym_chain[i];
       global_sym_chain[i] = sym;
@@ -761,6 +806,7 @@ define_symbol (valu, string, desc, type, objfile)
 	 when there is no code letter in the dbx data.
 	 Dbx data never actually contains 'l'.  */
     case 'l':
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_LOCAL;
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
@@ -768,11 +814,25 @@ define_symbol (valu, string, desc, type, objfile)
       break;
 
     case 'p':
+      if (*p == 'F')
+	/* pF is a two-letter code that means a function parameter in Fortran.
+	   The type-number specifies the type of the return value.
+	   Translate it into a pointer-to-function type.  */
+	{
+	  p++;
+	  SYMBOL_TYPE (sym)
+	    = lookup_pointer_type
+	      (lookup_function_type (read_type (&p, objfile)));
+	}
+      else
+	SYMBOL_TYPE (sym) = read_type (&p, objfile);
+
       /* Normally this is a parameter, a LOC_ARG.  On the i960, it
 	 can also be a LOC_LOCAL_ARG depending on symbol type.  */
 #ifndef DBX_PARM_SYMBOL_CLASS
 #define	DBX_PARM_SYMBOL_CLASS(type)	LOC_ARG
 #endif
+
       SYMBOL_CLASS (sym) = DBX_PARM_SYMBOL_CLASS (type);
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
@@ -786,73 +846,97 @@ define_symbol (valu, string, desc, type, objfile)
       if (processing_gcc_compilation || BELIEVE_PCC_PROMOTION)
 	break;
 
+#if !BELIEVE_PCC_PROMOTION
+      {
+	/* This is the signed type which arguments get promoted to.  */
+	static struct type *pcc_promotion_type;
+	/* This is the unsigned type which arguments get promoted to.  */
+	static struct type *pcc_unsigned_promotion_type;
+
+	/* Call it "int" because this is mainly C lossage.  */
+	if (pcc_promotion_type == NULL)
+	  pcc_promotion_type =
+	    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+		       0, "int", NULL);
+
+	if (pcc_unsigned_promotion_type == NULL)
+	  pcc_unsigned_promotion_type =
+	    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+		       TYPE_FLAG_UNSIGNED, "unsigned int", NULL);
+
 #if defined(BELIEVE_PCC_PROMOTION_TYPE)
-      /* This macro is defined on machines (e.g. sparc) where
-	 we should believe the type of a PCC 'short' argument,
-	 but shouldn't believe the address (the address is
-	 the address of the corresponding int).  Note that
-	 this is only different from the BELIEVE_PCC_PROMOTION
-	 case on big-endian machines.
-
-	 My guess is that this correction, as opposed to changing
-	 the parameter to an 'int' (as done below, for PCC
-	 on most machines), is the right thing to do
-	 on all machines, but I don't want to risk breaking
-	 something that already works.  On most PCC machines,
-	 the sparc problem doesn't come up because the calling
-	 function has to zero the top bytes (not knowing whether
-	 the called function wants an int or a short), so there
-	 is no practical difference between an int and a short
-	 (except perhaps what happens when the GDB user types
-	 "print short_arg = 0x10000;"). 
-
-	 Hacked for SunOS 4.1 by gnu@cygnus.com.  In 4.1, the compiler
-	 actually produces the correct address (we don't need to fix it
-	 up).  I made this code adapt so that it will offset the symbol
-	 if it was pointing at an int-aligned location and not
-	 otherwise.  This way you can use the same gdb for 4.0.x and
-	 4.1 systems.
-
-	If the parameter is shorter than an int, and is integral
-	(e.g. char, short, or unsigned equivalent), and is claimed to
-	be passed on an integer boundary, don't believe it!  Offset the
-	parameter's address to the tail-end of that integer.  */
-
-      temptype = lookup_fundamental_type (objfile, FT_INTEGER);
-      if (TYPE_LENGTH (SYMBOL_TYPE (sym)) < TYPE_LENGTH (temptype)
-	  && TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_INT
-	  && 0 == SYMBOL_VALUE (sym) % TYPE_LENGTH (temptype))
-	{
-	  SYMBOL_VALUE (sym) += TYPE_LENGTH (temptype)
-			      - TYPE_LENGTH (SYMBOL_TYPE (sym));
-	}
-      break;
-
+	/* This macro is defined on machines (e.g. sparc) where
+	   we should believe the type of a PCC 'short' argument,
+	   but shouldn't believe the address (the address is
+	   the address of the corresponding int).  Note that
+	   this is only different from the BELIEVE_PCC_PROMOTION
+	   case on big-endian machines.
+	   
+	   My guess is that this correction, as opposed to changing
+	   the parameter to an 'int' (as done below, for PCC
+	   on most machines), is the right thing to do
+	   on all machines, but I don't want to risk breaking
+	   something that already works.  On most PCC machines,
+	   the sparc problem doesn't come up because the calling
+	   function has to zero the top bytes (not knowing whether
+	   the called function wants an int or a short), so there
+	   is no practical difference between an int and a short
+	   (except perhaps what happens when the GDB user types
+	   "print short_arg = 0x10000;"). 
+	   
+	   Hacked for SunOS 4.1 by gnu@cygnus.com.  In 4.1, the compiler
+	   actually produces the correct address (we don't need to fix it
+	   up).  I made this code adapt so that it will offset the symbol
+	   if it was pointing at an int-aligned location and not
+	   otherwise.  This way you can use the same gdb for 4.0.x and
+	   4.1 systems.
+	   
+	   If the parameter is shorter than an int, and is integral
+	   (e.g. char, short, or unsigned equivalent), and is claimed to
+	   be passed on an integer boundary, don't believe it!  Offset the
+	   parameter's address to the tail-end of that integer.  */
+	
+	if (TYPE_LENGTH (SYMBOL_TYPE (sym)) < TYPE_LENGTH (pcc_promotion_type)
+	    && TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_INT
+	    && 0 == SYMBOL_VALUE (sym) % TYPE_LENGTH (pcc_promotion_type))
+	  {
+	    SYMBOL_VALUE (sym) += TYPE_LENGTH (pcc_promotion_type)
+	      - TYPE_LENGTH (SYMBOL_TYPE (sym));
+	  }
+	break;
+	
 #else /* no BELIEVE_PCC_PROMOTION_TYPE.  */
 
-      /* If PCC says a parameter is a short or a char,
-	 it is really an int.  */
-      temptype = lookup_fundamental_type (objfile, FT_INTEGER);
-      if (TYPE_LENGTH (SYMBOL_TYPE (sym)) < TYPE_LENGTH (temptype)
-	  && TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_INT)
-	{
-	  SYMBOL_TYPE (sym) = TYPE_UNSIGNED (SYMBOL_TYPE (sym))
-	    ? lookup_fundamental_type (objfile, FT_UNSIGNED_INTEGER)
-	      : temptype;
-      }
-      break;
+	/* If PCC says a parameter is a short or a char,
+	   it is really an int.  */
+	if (TYPE_LENGTH (SYMBOL_TYPE (sym)) < TYPE_LENGTH (pcc_promotion_type)
+	    && TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_INT)
+	  {
+	    SYMBOL_TYPE (sym) =
+	      TYPE_UNSIGNED (SYMBOL_TYPE (sym))
+		? pcc_unsigned_promotion_type
+		: pcc_promotion_type;
+	  }
+	break;
 
 #endif /* no BELIEVE_PCC_PROMOTION_TYPE.  */
+      }
+#endif /* !BELIEVE_PCC_PROMOTION.  */
 
-    case 'R':
     case 'P':
       /* acc seems to use P to delare the prototypes of functions that
          are referenced by this file.  gdb is not prepared to deal
          with this extra information.  FIXME, it ought to.  */
       if (type == N_FUN)
-	goto process_prototype_types;
+	{
+	  read_type (&p, objfile);
+	  goto process_prototype_types;
+	}
+      /*FALLTHROUGH*/
 
+    case 'R':
       /* Parameter which is in a register.  */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_REGPARM;
       SYMBOL_VALUE (sym) = STAB_REG_TO_REGNUM (valu);
       if (SYMBOL_VALUE (sym) >= NUM_REGS)
@@ -866,6 +950,7 @@ define_symbol (valu, string, desc, type, objfile)
 
     case 'r':
       /* Register variable (either global or local).  */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_REGISTER;
       SYMBOL_VALUE (sym) = STAB_REG_TO_REGNUM (valu);
       if (SYMBOL_VALUE (sym) >= NUM_REGS)
@@ -906,6 +991,7 @@ define_symbol (valu, string, desc, type, objfile)
 
     case 'S':
       /* Static symbol at top level of file */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_STATIC;
       SYMBOL_VALUE_ADDRESS (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
@@ -913,6 +999,19 @@ define_symbol (valu, string, desc, type, objfile)
       break;
 
     case 't':
+#if 0
+      /* See comment where long_kludge_name is declared.  */
+      /* Here we save the name of the symbol for read_range_type, which
+	 ends up reading in the basic types.  In stabs, unfortunately there
+	 is no distinction between "int" and "long" types except their
+	 names.  Until we work out a saner type policy (eliminating most
+	 builtin types and using the names specified in the files), we
+	 save away the name so that far away from here in read_range_type,
+	 we can examine it to decide between "int" and "long".  FIXME.  */
+      long_kludge_name = SYMBOL_NAME (sym);
+#endif
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
+
       /* For a nameless type, we don't want a create a symbol, thus we
 	 did not use `sym'. Return without further processing. */
       if (nameless) return NULL;
@@ -921,25 +1020,67 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       /* C++ vagaries: we may have a type which is derived from
-	a base type which did not have its name defined when the
-	derived class was output.  We fill in the derived class's
-	base part member's name here in that case.  */
+	 a base type which did not have its name defined when the
+	 derived class was output.  We fill in the derived class's
+	 base part member's name here in that case.  */
       if (TYPE_NAME (SYMBOL_TYPE (sym)) != NULL)
-        if ((TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_STRUCT
-		 || TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_UNION)
-		&& TYPE_N_BASECLASSES (SYMBOL_TYPE (sym)))
-	 {
-	   int j;
-	   for (j = TYPE_N_BASECLASSES (SYMBOL_TYPE (sym)) - 1; j >= 0; j--)
-	     if (TYPE_BASECLASS_NAME (SYMBOL_TYPE (sym), j) == 0)
-	       TYPE_BASECLASS_NAME (SYMBOL_TYPE (sym), j) =
-		 type_name_no_tag (TYPE_BASECLASS (SYMBOL_TYPE (sym), j));
-	 }
+	if ((TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_STRUCT
+	     || TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_UNION)
+	    && TYPE_N_BASECLASSES (SYMBOL_TYPE (sym)))
+	  {
+	    int j;
+	    for (j = TYPE_N_BASECLASSES (SYMBOL_TYPE (sym)) - 1; j >= 0; j--)
+	      if (TYPE_BASECLASS_NAME (SYMBOL_TYPE (sym), j) == 0)
+		TYPE_BASECLASS_NAME (SYMBOL_TYPE (sym), j) =
+		  type_name_no_tag (TYPE_BASECLASS (SYMBOL_TYPE (sym), j));
+	  }
+
+      if (TYPE_NAME (SYMBOL_TYPE (sym)) == NULL)
+	{
+	  if (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_PTR
+	      || TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_FUNC)
+	    {
+	      /* If we are giving a name to a type such as "pointer to
+		 foo" or "function returning foo", we better not set
+		 the TYPE_NAME.  If the program contains "typedef char
+		 *caddr_t;", we don't want all variables of type char
+		 * to print as caddr_t.  This is not just a
+		 consequence of GDB's type management; PCC and GCC (at
+		 least through version 2.4) both output variables of
+		 either type char * or caddr_t with the type number
+		 defined in the 't' symbol for caddr_t.  If a future
+		 compiler cleans this up it GDB is not ready for it
+		 yet, but if it becomes ready we somehow need to
+		 disable this check (without breaking the PCC/GCC2.4
+		 case).
+
+		 Sigh.
+
+		 Fortunately, this check seems not to be necessary
+		 for anything except pointers or functions.  */
+	    }
+	  else
+	    TYPE_NAME (SYMBOL_TYPE (sym)) = SYMBOL_NAME (sym);
+	}
 
       add_symbol_to_list (sym, &file_symbols);
       break;
 
     case 'T':
+      /* Struct, union, or enum tag.  For GNU C++, this can be be followed
+	 by 't' which means we are typedef'ing it as well.  */
+      synonym = *p == 't';
+
+      if (synonym)
+	{
+	  p++;
+	  type_synonym_name = obsavestring (SYMBOL_NAME (sym),
+					    strlen (SYMBOL_NAME (sym)),
+					    &objfile -> symbol_obstack);
+	}
+
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
+
       /* For a nameless type, we don't want a create a symbol, thus we
 	 did not use `sym'. Return without further processing. */
       if (nameless) return NULL;
@@ -947,14 +1088,9 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_CLASS (sym) = LOC_TYPEDEF;
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = STRUCT_NAMESPACE;
-      if (TYPE_NAME (SYMBOL_TYPE (sym)) == 0)
-	TYPE_NAME (SYMBOL_TYPE (sym))
-	  = obconcat (&objfile -> type_obstack, "",
-		      (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_ENUM
-		       ? "enum "
-		       : (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_STRUCT
-			  ? "struct " : "union ")),
-		      SYMBOL_NAME (sym));
+      if (TYPE_TAG_NAME (SYMBOL_TYPE (sym)) == 0)
+	TYPE_TAG_NAME (SYMBOL_TYPE (sym))
+	  = obconcat (&objfile -> type_obstack, "", "", SYMBOL_NAME (sym));
       add_symbol_to_list (sym, &file_symbols);
 
       if (synonym)
@@ -966,12 +1102,16 @@ define_symbol (valu, string, desc, type, objfile)
 	  SYMBOL_CLASS (typedef_sym) = LOC_TYPEDEF;
 	  SYMBOL_VALUE (typedef_sym) = valu;
 	  SYMBOL_NAMESPACE (typedef_sym) = VAR_NAMESPACE;
+	  if (TYPE_NAME (SYMBOL_TYPE (sym)) == 0)
+	    TYPE_NAME (SYMBOL_TYPE (sym))
+	      = obconcat (&objfile -> type_obstack, "", "", SYMBOL_NAME (sym));
 	  add_symbol_to_list (typedef_sym, &file_symbols);
 	}
       break;
 
     case 'V':
       /* Static symbol of local scope */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_STATIC;
       SYMBOL_VALUE_ADDRESS (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
@@ -980,6 +1120,7 @@ define_symbol (valu, string, desc, type, objfile)
 
     case 'v':
       /* Reference parameter */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_REF_ARG;
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
@@ -991,6 +1132,7 @@ define_symbol (valu, string, desc, type, objfile)
 	 Sun claims ("dbx and dbxtool interfaces", 2nd ed)
 	 that Pascal uses it too, but when I tried it Pascal used
 	 "x:3" (local symbol) instead.  */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_LOCAL;
       SYMBOL_VALUE (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
@@ -998,7 +1140,12 @@ define_symbol (valu, string, desc, type, objfile)
       break;
 
     default:
-      error ("Invalid symbol data: unknown symbol-type code `%c' at symtab pos %d.", deftype, symnum);
+      SYMBOL_TYPE (sym) = error_type (&p);
+      SYMBOL_CLASS (sym) = LOC_CONST;
+      SYMBOL_VALUE (sym) = 0;
+      SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+      add_symbol_to_list (sym, &file_symbols);
+      break;
     }
 
   /* When passing structures to a function, some systems sometimes pass
@@ -1050,7 +1197,7 @@ define_symbol (valu, string, desc, type, objfile)
    can define new types and new syntaxes, and old versions of the
    debugger will be able to read the new symbol tables.  */
 
-struct type *
+static struct type *
 error_type (pp)
      char **pp;
 {
@@ -1077,13 +1224,11 @@ error_type (pp)
 }
 
 
-/* Read a dbx type reference or definition;
-   return the type that is meant.
-   This can be just a number, in which case it references
-   a type already defined and placed in type_vector.
-   Or the number can be followed by an =, in which case
-   it means to define a new type according to the text that
-   follows the =.  */
+/* Read type information or a type definition; return the type.  Even
+   though this routine accepts either type information or a type
+   definition, the distinction is relevant--some parts of stabsread.c
+   assume that type information starts with a digit, '-', or '(' in
+   deciding whether to call read_type.  */
 
 struct type *
 read_type (pp, objfile)
@@ -1102,7 +1247,8 @@ read_type (pp, objfile)
   if ((**pp >= '0' && **pp <= '9')
       || **pp == '(')
     {
-      read_type_number (pp, typenums);
+      if (read_type_number (pp, typenums) != 0)
+	return error_type (pp);
       
       /* Type is not being defined here.  Either it already exists,
 	 or this is a forward reference to it.  dbx_alloc_type handles
@@ -1111,22 +1257,31 @@ read_type (pp, objfile)
 	return dbx_alloc_type (typenums, objfile);
 
       /* Type is being defined here.  */
-#if 0 /* Callers aren't prepared for a NULL result!  FIXME -- metin!  */
-      {
-	struct type *tt;
+      /* Skip the '='.  */
+      ++(*pp);
 
-	/* if such a type already exists, this is an unnecessary duplication
-	   of the stab string, which is common in (RS/6000) xlc generated
-	   objects.  In that case, simply return NULL and let the caller take
-	   care of it. */
-
-	tt = *dbx_lookup_type (typenums);
-	if (tt && tt->length && tt->code)
-	  return NULL;
-      }
-#endif
-
-      *pp += 2;
+      while (**pp == '@')
+	{
+	  char *p = *pp + 1;
+	  /* It might be a type attribute or a member type.  */
+	  if (isdigit (*p) || *p ==  '(' || *p == '-')
+	    /* Member type.  */
+	    break;
+	  else
+	    {
+	      /* Type attributes; skip to the semicolon.  */
+	      while (*p != ';' && *p != '\0')
+		++p;
+	      *pp = p;
+	      if (*p == '\0')
+		return error_type (pp);
+	      else
+		/* Skip the semicolon.  */
+		++*pp;
+	    }
+	}
+      /* Skip the type descriptor, we get it below with (*pp)[-1].  */
+      ++(*pp);
     }
   else
     {
@@ -1162,15 +1317,12 @@ read_type (pp, objfile)
 	    {
 	    case 's':
 	      code = TYPE_CODE_STRUCT;
-	      prefix = "struct ";
 	      break;
 	    case 'u':
 	      code = TYPE_CODE_UNION;
-	      prefix = "union ";
 	      break;
 	    case 'e':
 	      code = TYPE_CODE_ENUM;
-	      prefix = "enum ";
 	      break;
 	    default:
 	      return error_type (pp);
@@ -1178,17 +1330,8 @@ read_type (pp, objfile)
 	  
 	  to = type_name = (char *)
 	    obstack_alloc (&objfile -> type_obstack,
-			   (strlen (prefix) +
-			    ((char *) strchr (*pp, ':') - (*pp)) + 1));
+			   (((char *) strchr (*pp, ':') - (*pp)) + 1));
 	
-	  /* Copy the prefix.  */
-	  from = prefix;
-	  while ((*to++ = *from++) != '\0')
-	    ;
-	  to--; 
-	
-	  type_name_only = to;
-
 	  /* Copy the name.  */
 	  from = *pp + 1;
 	  while ((*to++ = *from++) != ':')
@@ -1197,23 +1340,6 @@ read_type (pp, objfile)
 	  
 	  /* Set the pointer ahead of the name which we just read.  */
 	  *pp = from;
-	
-#if 0
-	  /* The following hack is clearly wrong, because it doesn't
-	     check whether we are in a baseclass.  I tried to reproduce
-	     the case that it is trying to fix, but I couldn't get
-	     g++ to put out a cross reference to a basetype.  Perhaps
-	     it doesn't do it anymore.  */
-	  /* Note: for C++, the cross reference may be to a base type which
-	     has not yet been seen.  In this case, we skip to the comma,
-	     which will mark the end of the base class name.  (The ':'
-	     at the end of the base class name will be skipped as well.)
-	     But sometimes (ie. when the cross ref is the last thing on
-	     the line) there will be no ','.  */
-	  from = (char *) strchr (*pp, ',');
-	  if (from)
-	    *pp = from;
-#endif /* 0 */
 	}
 
 	/* Now check to see whether the type has already been declared.  */
@@ -1231,7 +1357,7 @@ read_type (pp, objfile)
 	      if (SYMBOL_CLASS (sym) == LOC_TYPEDEF
 		  && SYMBOL_NAMESPACE (sym) == STRUCT_NAMESPACE
 		  && (TYPE_CODE (SYMBOL_TYPE (sym)) == code)
-		  && STREQ (SYMBOL_NAME (sym), type_name_only))
+		  && STREQ (SYMBOL_NAME (sym), type_name))
 		{
 		  obstack_free (&objfile -> type_obstack, type_name);
 		  type = SYMBOL_TYPE (sym);
@@ -1246,7 +1372,7 @@ read_type (pp, objfile)
 	   type.  */
 	type = dbx_alloc_type (typenums, objfile);
 	TYPE_CODE (type) = code;
-	TYPE_NAME (type) = type_name;
+	TYPE_TAG_NAME (type) = type_name;
 	INIT_CPLUS_SPECIFIC(type);
 	TYPE_FLAGS (type) |= TYPE_FLAG_STUB;
 
@@ -1266,13 +1392,28 @@ read_type (pp, objfile)
     case '8':
     case '9':
     case '(':
+
+      /* The type is being defined to another type.  When we support
+	 Ada (and arguably for C, so "whatis foo" can give "size_t",
+	 "wchar_t", or whatever it was declared as) we'll need to
+	 allocate a distinct type here rather than returning the
+	 existing one.  GCC is currently (deliberately) incapable of
+	 putting out the debugging information to do that, however.  */
+
       (*pp)--;
-      read_type_number (pp, xtypenums);
-      type = *dbx_lookup_type (xtypenums);
-      if (type == 0)
-	type = lookup_fundamental_type (objfile, FT_VOID);
+      if (read_type_number (pp, xtypenums) != 0)
+	return error_type (pp);
+      if (typenums[0] == xtypenums[0] && typenums[1] == xtypenums[1])
+	/* It's being defined as itself.  That means it is "void".  */
+	type = init_type (TYPE_CODE_VOID, 0, 0, NULL, objfile);
+      else
+	type = *dbx_lookup_type (xtypenums);
       if (typenums[0] != -1)
 	*dbx_lookup_type (typenums) = type;
+      /* This can happen if we had '-' followed by a garbage character,
+	 for example.  */
+      if (type == NULL)
+	return error_type (pp);
       break;
 
     /* In the following types, we must be sure to overwrite any existing
@@ -1344,9 +1485,11 @@ read_type (pp, objfile)
 	  struct type *return_type;
 	  struct type **args;
 
-	  if (*(*pp)++ != ',')
-	    error ("invalid member type data format, at symtab pos %d.",
-		   symnum);
+	  if (**pp != ',')
+	    /* Invalid member type data format.  */
+	    return error_type (pp);
+	  else
+	    ++(*pp);
 
 	  return_type = read_type (pp, objfile);
 	  args = read_args (pp, ';', objfile);
@@ -1376,7 +1519,8 @@ read_type (pp, objfile)
     case 'e':				/* Enumeration type */
       type = dbx_alloc_type (typenums, objfile);
       type = read_enum_type (pp, type, objfile);
-      *dbx_lookup_type (typenums) = type;
+      if (typenums[0] != -1)
+	*dbx_lookup_type (typenums) = type;
       break;
 
     case 's':				/* Struct type */
@@ -1415,7 +1559,10 @@ read_type (pp, objfile)
     }
 
   if (type == 0)
-    abort ();
+    {
+      warning ("GDB internal error, type is NULL in stabsread.c\n");
+      return error_type (pp);
+    }
 
   return type;
 }
@@ -1425,53 +1572,146 @@ read_type (pp, objfile)
 
 static struct type *
 rs6000_builtin_type (typenum)
-  int typenum;
+     int typenum;
 {
-  /* default types are defined in dbxstclass.h. */
-  switch (-typenum) {
-  case 1: 
-    return lookup_fundamental_type (current_objfile, FT_INTEGER);
-  case 2: 
-    return lookup_fundamental_type (current_objfile, FT_CHAR);
-  case 3: 
-    return lookup_fundamental_type (current_objfile, FT_SHORT);
-  case 4: 
-    return lookup_fundamental_type (current_objfile, FT_LONG);
-  case 5: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_CHAR);
-  case 6: 
-    return lookup_fundamental_type (current_objfile, FT_SIGNED_CHAR);
-  case 7: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_SHORT);
-  case 8: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_INTEGER);
-  case 9: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_INTEGER);
-  case 10: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_LONG);
-  case 11: 
-    return lookup_fundamental_type (current_objfile, FT_VOID);
-  case 12: 
-    return lookup_fundamental_type (current_objfile, FT_FLOAT);
-  case 13: 
-    return lookup_fundamental_type (current_objfile, FT_DBL_PREC_FLOAT);
-  case 14: 
-    return lookup_fundamental_type (current_objfile, FT_EXT_PREC_FLOAT);
-  case 15: 
-    /* requires a builtin `integer' */
-    return lookup_fundamental_type (current_objfile, FT_INTEGER);
-  case 16: 
-    return lookup_fundamental_type (current_objfile, FT_BOOLEAN);
-  case 17: 
-    /* requires builtin `short real' */
-    return lookup_fundamental_type (current_objfile, FT_FLOAT);
-  case 18: 
-    /* requires builtin `real' */
-    return lookup_fundamental_type (current_objfile, FT_FLOAT);
-  default:
-    complain (rs6000_builtin_complaint, typenum);
-    return NULL;
-  }
+  /* We recognize types numbered from -NUMBER_RECOGNIZED to -1.  */
+#define NUMBER_RECOGNIZED 30
+  /* This includes an empty slot for type number -0.  */
+  static struct type *negative_types[NUMBER_RECOGNIZED + 1];
+  struct type *rettype;
+
+  if (typenum >= 0 || typenum < -NUMBER_RECOGNIZED)
+    {
+      complain (&rs6000_builtin_complaint, typenum);
+      return builtin_type_error;
+    }
+  if (negative_types[-typenum] != NULL)
+    return negative_types[-typenum];
+
+#if TARGET_CHAR_BIT != 8
+  #error This code wrong for TARGET_CHAR_BIT not 8
+  /* These definitions all assume that TARGET_CHAR_BIT is 8.  I think
+     that if that ever becomes not true, the correct fix will be to
+     make the size in the struct type to be in bits, not in units of
+     TARGET_CHAR_BIT.  */
+#endif
+
+  switch (-typenum)
+    {
+    case 1:
+      /* The size of this and all the other types are fixed, defined
+	 by the debugging format.  If there is a type called "int" which
+	 is other than 32 bits, then it should use a new negative type
+	 number (or avoid negative type numbers for that case).
+	 See stabs.texinfo.  */
+      rettype = init_type (TYPE_CODE_INT, 4, 0, "int", NULL);
+      break;
+    case 2:
+      rettype = init_type (TYPE_CODE_INT, 1, 0, "char", NULL);
+      break;
+    case 3:
+      rettype = init_type (TYPE_CODE_INT, 2, 0, "short", NULL);
+      break;
+    case 4:
+      rettype = init_type (TYPE_CODE_INT, 4, 0, "long", NULL);
+      break;
+    case 5:
+      rettype = init_type (TYPE_CODE_INT, 1, TYPE_FLAG_UNSIGNED,
+			   "unsigned char", NULL);
+      break;
+    case 6:
+      rettype = init_type (TYPE_CODE_INT, 1, 0, "signed char", NULL);
+      break;
+    case 7:
+      rettype = init_type (TYPE_CODE_INT, 2, TYPE_FLAG_UNSIGNED,
+			   "unsigned short", NULL);
+      break;
+    case 8:
+      rettype = init_type (TYPE_CODE_INT, 4, TYPE_FLAG_UNSIGNED,
+			   "unsigned int", NULL);
+      break;
+    case 9:
+      rettype = init_type (TYPE_CODE_INT, 4, TYPE_FLAG_UNSIGNED,
+			   "unsigned", NULL);
+    case 10:
+      rettype = init_type (TYPE_CODE_INT, 4, TYPE_FLAG_UNSIGNED,
+			   "unsigned long", NULL);
+      break;
+    case 11:
+      rettype = init_type (TYPE_CODE_VOID, 0, 0, "void", NULL);
+      break;
+    case 12:
+      /* IEEE single precision (32 bit).  */
+      rettype = init_type (TYPE_CODE_FLT, 4, 0, "float", NULL);
+      break;
+    case 13:
+      /* IEEE double precision (64 bit).  */
+      rettype = init_type (TYPE_CODE_FLT, 8, 0, "double", NULL);
+      break;
+    case 14:
+      /* This is an IEEE double on the RS/6000, and different machines with
+	 different sizes for "long double" should use different negative
+	 type numbers.  See stabs.texinfo.  */
+      rettype = init_type (TYPE_CODE_FLT, 8, 0, "long double", NULL);
+      break;
+    case 15:
+      rettype = init_type (TYPE_CODE_INT, 4, 0, "integer", NULL);
+      break;
+    case 16:
+      rettype = init_type (TYPE_CODE_BOOL, 4, 0, "boolean", NULL);
+      break;
+    case 17:
+      rettype = init_type (TYPE_CODE_FLT, 4, 0, "short real", NULL);
+      break;
+    case 18:
+      rettype = init_type (TYPE_CODE_FLT, 8, 0, "real", NULL);
+      break;
+    case 19:
+      rettype = init_type (TYPE_CODE_ERROR, 0, 0, "stringptr", NULL);
+      break;
+    case 20:
+      rettype = init_type (TYPE_CODE_CHAR, 1, TYPE_FLAG_UNSIGNED,
+			   "character", NULL);
+      break;
+    case 21:
+      rettype = init_type (TYPE_CODE_BOOL, 1, TYPE_FLAG_UNSIGNED,
+			   "logical*1", NULL);
+      break;
+    case 22:
+      rettype = init_type (TYPE_CODE_BOOL, 2, TYPE_FLAG_UNSIGNED,
+			   "logical*2", NULL);
+      break;
+    case 23:
+      rettype = init_type (TYPE_CODE_BOOL, 4, TYPE_FLAG_UNSIGNED,
+			   "logical*4", NULL);
+      break;
+    case 24:
+      rettype = init_type (TYPE_CODE_BOOL, 4, TYPE_FLAG_UNSIGNED,
+			   "logical", NULL);
+      break;
+    case 25:
+      /* Complex type consisting of two IEEE single precision values.  */
+      rettype = init_type (TYPE_CODE_ERROR, 8, 0, "complex", NULL);
+      break;
+    case 26:
+      /* Complex type consisting of two IEEE double precision values.  */
+      rettype = init_type (TYPE_CODE_ERROR, 16, 0, "double complex", NULL);
+      break;
+    case 27:
+      rettype = init_type (TYPE_CODE_INT, 1, 0, "integer*1", NULL);
+      break;
+    case 28:
+      rettype = init_type (TYPE_CODE_INT, 2, 0, "integer*2", NULL);
+      break;
+    case 29:
+      rettype = init_type (TYPE_CODE_INT, 4, 0, "integer*4", NULL);
+      break;
+    case 30:
+      rettype = init_type (TYPE_CODE_CHAR, 2, 0, "wchar", NULL);
+      break;
+    }
+  negative_types[-typenum] = rettype;
+  return rettype;
 }
 
 /* This page contains subroutines of read_type.  */
@@ -1491,7 +1731,9 @@ rs6000_builtin_type (typenum)
 
    For the case of overloaded operators, the format is op$::*.funcs, where
    $ is the CPLUS_MARKER (usually '$'), `*' holds the place for an operator
-   name (such as `+=') and `.' marks the end of the operator name.  */
+   name (such as `+=') and `.' marks the end of the operator name.
+
+   Returns 1 for success, 0 for failure.  */
 
 static int
 read_member_functions (fip, pp, type, objfile)
@@ -1671,6 +1913,8 @@ read_member_functions (fip, pp, type, objfile)
 	  switch (*(*pp)++)
 	    {
 	      case '*':
+	      {
+		int nbits;
 	        /* virtual member function, followed by index.
 		   The sign bit is set to distinguish pointers-to-methods
 		   from virtual function indicies.  Since the array is
@@ -1679,7 +1923,9 @@ read_member_functions (fip, pp, type, objfile)
 		   the sign bit out, and usable as a valid index into
 		   the array.  Remove the sign bit here.  */
 	        new_sublist -> fn_field.voffset =
-		  (0x7fffffff & read_number (pp, ';')) + 2;
+		  (0x7fffffff & read_huge_number (pp, ';', &nbits)) + 2;
+		if (nbits != 0)
+		  return 0;
 	      
 		STABS_CONTINUE (pp);
 		if (**pp == ';' || **pp == '\0')
@@ -1712,7 +1958,7 @@ read_member_functions (fip, pp, type, objfile)
 		      }
 		  }
 		break;
-	      
+	      }
 	      case '?':
 		/* static member function.  */
 		new_sublist -> fn_field.voffset = VOFFSET_STATIC;
@@ -1777,9 +2023,11 @@ read_member_functions (fip, pp, type, objfile)
 }
 
 /* Special GNU C++ name.
-   FIXME:  Still need to properly handle parse error conditions. */
 
-static void
+   Returns 1 for success, 0 for failure.  "failure" means that we can't
+   keep parsing and it's time for error_type().  */
+
+static int
 read_cpp_abbrev (fip, pp, type, objfile)
      struct field_info *fip;
      char **pp;
@@ -1840,23 +2088,33 @@ read_cpp_abbrev (fip, pp, type, objfile)
       if (p[-1] != ':')
 	{
 	  complain (&invalid_cpp_abbrev_complaint, *pp);
+	  return 0;
 	}
       fip->list->field.type = read_type (pp, objfile);
-      (*pp)++;			/* Skip the comma.  */
-      fip->list->field.bitpos = read_number (pp, ';');
+      if (**pp == ',')
+	(*pp)++;			/* Skip the comma.  */
+      else
+	return 0;
+
+      {
+	int nbits;
+	fip->list->field.bitpos = read_huge_number (pp, ';', &nbits);
+	if (nbits != 0)
+	  return 0;
+      }
       /* This field is unpacked.  */
       fip->list->field.bitsize = 0;
       fip->list->visibility = VISIBILITY_PRIVATE;
     }
-  else if (*p == '_')
-    {
-      /* GNU C++ anonymous type.  */
-      complain (&stabs_general_complaint, "g++ anonymous type $_ not handled");
-    }
   else
     {
       complain (&invalid_cpp_abbrev_complaint, *pp);
+      /* We have no idea what syntax an unrecognized abbrev would have, so
+	 better return 0.  If we returned 1, we would need to at least advance
+	 *pp to avoid an infinite loop.  */
+      return 0;
     }
+  return 1;
 }
 
 static void
@@ -1931,11 +2189,24 @@ read_one_struct_field (fip, pp, p, type, objfile)
       complain (&stabs_general_complaint, "bad structure-type format");
       return;
     }
-  
+
   (*pp)++;			/* Skip the comma.  */
-  fip -> list -> field.bitpos = read_number (pp, ',');
-  fip -> list -> field.bitsize = read_number (pp, ';');
-  
+
+  {
+    int nbits;
+    fip -> list -> field.bitpos = read_huge_number (pp, ',', &nbits);
+    if (nbits != 0)
+      {
+	complain (&stabs_general_complaint, "bad structure-type format");
+	return;
+      }
+    fip -> list -> field.bitsize = read_huge_number (pp, ';', &nbits);
+    if (nbits != 0)
+      {
+	complain (&stabs_general_complaint, "bad structure-type format");
+	return;
+      }
+  }
 #if 0
   /* FIXME-tiemann: Can't the compiler put out something which
      lets us distinguish these? (or maybe just not put out anything
@@ -1977,10 +2248,10 @@ read_one_struct_field (fip, pp, p, type, objfile)
 	  fip -> list -> field.bitsize = 0;
 	}
       if ((fip -> list -> field.bitsize 
-	   == 8 * TYPE_LENGTH (fip -> list -> field.type)
+	   == TARGET_CHAR_BIT * TYPE_LENGTH (fip -> list -> field.type)
 	   || (TYPE_CODE (fip -> list -> field.type) == TYPE_CODE_ENUM
 	       && (fip -> list -> field.bitsize
-		   == 8 * TYPE_LENGTH (lookup_fundamental_type (objfile, FT_INTEGER)))
+		   == TARGET_INT_BIT)
 	       )
 	   )
 	  &&
@@ -2007,7 +2278,9 @@ read_one_struct_field (fip, pp, p, type, objfile)
 	'/1'	(VISIBILITY_PROTECTED)
 	'/2'	(VISIBILITY_PUBLIC)
 
-   or nothing, for C style fields with public visibility. */
+   or nothing, for C style fields with public visibility.
+
+   Returns 1 for success, 0 for failure.  */
        
 static int
 read_struct_fields (fip, pp, type, objfile)
@@ -2039,9 +2312,14 @@ read_struct_fields (fip, pp, type, objfile)
 
       /* Get the field name.  */
       p = *pp;
-      if (*p == CPLUS_MARKER)
+      /* If is starts with CPLUS_MARKER it is a special abbreviation, unless
+	 the CPLUS_MARKER is followed by an underscore, in which case it is
+	 just the name of an anonymous type, which we should handle like any
+	 other type name.  */
+      if (*p == CPLUS_MARKER && p[1] != '_')
 	{
-	  read_cpp_abbrev (fip, pp, type, objfile);
+	  if (!read_cpp_abbrev (fip, pp, type, objfile))
+	    return 0;
 	  continue;
 	}
 
@@ -2050,10 +2328,12 @@ read_struct_fields (fip, pp, type, objfile)
 	 functions are delimited by a pair of ':'s.  When we hit the member
 	 functions (if any), terminate scan loop and return. */
 
-      while (*p != ':') 
+      while (*p != ':' && *p != '\0') 
 	{
 	  p++;
 	}
+      if (*p == '\0')
+	return 0;
 
       /* Check to see if we have hit the member functions yet.  */
       if (p[1] == ':')
@@ -2092,7 +2372,8 @@ read_struct_fields (fip, pp, type, objfile)
 	Visibility specifiers (2) _______________________________| |  |
 	Offset in bits from start of class ________________________|  |
 	Type number of base class ____________________________________|
- */
+
+  Return 1 for success, 0 for (error-type-inducing) failure.  */
 
 static int
 read_baseclasses (fip, pp, type, objfile)
@@ -2115,7 +2396,12 @@ read_baseclasses (fip, pp, type, objfile)
     }
 
   ALLOCATE_CPLUS_STRUCT_TYPE (type);
-  TYPE_N_BASECLASSES (type) = read_number (pp, ',');
+  {
+    int nbits;
+    TYPE_N_BASECLASSES (type) = read_huge_number (pp, ',', &nbits);
+    if (nbits != 0)
+      return 0;
+  }
 
 #if 0
   /* Some stupid compilers have trouble with the following, so break
@@ -2169,20 +2455,30 @@ read_baseclasses (fip, pp, type, objfile)
 	    return 0;
 	}
 
-      /* The remaining value is the bit offset of the portion of the object
-	 corresponding to this baseclass.  Always zero in the absence of
-	 multiple inheritance.  */
+      {
+	int nbits;
+	
+	/* The remaining value is the bit offset of the portion of the object
+	   corresponding to this baseclass.  Always zero in the absence of
+	   multiple inheritance.  */
 
-      new -> field.bitpos = read_number (pp, ',');
+	new -> field.bitpos = read_huge_number (pp, ',', &nbits);
+	if (nbits != 0)
+	  return 0;
+      }
 
-      /* The last piece of baseclass information is the type of the base
-	 class.  Read it, and remember it's type name as this field's name. */
+      /* The last piece of baseclass information is the type of the
+	 base class.  Read it, and remember it's type name as this
+	 field's name. */
 
       new -> field.type = read_type (pp, objfile);
       new -> field.name = type_name_no_tag (new -> field.type);
 
       /* skip trailing ';' and bump count of number of fields seen */
-      (*pp)++;
+      if (**pp == ';')
+	(*pp)++;
+      else
+	return 0;
     }
   return 1;
 }
@@ -2262,7 +2558,7 @@ read_tilde_fields (fip, pp, type, objfile)
 		    }
 		}
 	      /* Virtual function table field not found.  */
-	      complain (vtbl_notfound_complaint, TYPE_NAME (type));
+	      complain (&vtbl_notfound_complaint, TYPE_NAME (type));
 	      return 0;
 	    }
 	  else
@@ -2417,7 +2713,12 @@ read_struct_type (pp, type, objfile)
 
   /* First comes the total size in bytes.  */
 
-  TYPE_LENGTH (type) = read_number (pp, 0);
+  {
+    int nbits;
+    TYPE_LENGTH (type) = read_huge_number (pp, 0, &nbits);
+    if (nbits != 0)
+      return error_type (pp);
+  }
 
   /* Now read the baseclasses, if any, read the regular C struct or C++
      class member fields, attach the fields to the type, read the C++
@@ -2453,6 +2754,7 @@ read_array_type (pp, type, objfile)
   struct type *index_type, *element_type, *range_type;
   int lower, upper;
   int adjustable = 0;
+  int nbits;
 
   /* Format of an array type:
      "ar<index type>;lower;upper;<array_contents_type>".  Put code in
@@ -2472,14 +2774,18 @@ read_array_type (pp, type, objfile)
       (*pp)++;
       adjustable = 1;
     }
-  lower = read_number (pp, ';');
+  lower = read_huge_number (pp, ';', &nbits);
+  if (nbits != 0)
+    return error_type (pp);
 
   if (!(**pp >= '0' && **pp <= '9'))
     {
       (*pp)++;
       adjustable = 1;
     }
-  upper = read_number (pp, ';');
+  upper = read_huge_number (pp, ';', &nbits);
+  if (nbits != 0)
+    return error_type (pp);
   
   element_type = read_type (pp, objfile);
 
@@ -2541,12 +2847,15 @@ read_enum_type (pp, type, objfile)
      A semicolon or comma instead of a NAME means the end.  */
   while (**pp && **pp != ';' && **pp != ',')
     {
+      int nbits;
       STABS_CONTINUE (pp);
       p = *pp;
       while (*p != ':') p++;
       name = obsavestring (*pp, p - *pp, &objfile -> symbol_obstack);
       *pp = p + 1;
-      n = read_number (pp, ',');
+      n = read_huge_number (pp, ',', &nbits);
+      if (nbits != 0)
+	return error_type (pp);
 
       sym = (struct symbol *)
 	obstack_alloc (&objfile -> symbol_obstack, sizeof (struct symbol));
@@ -2631,6 +2940,7 @@ read_sun_builtin_type (pp, typenums, objfile)
      int typenums[2];
      struct objfile *objfile;
 {
+  int type_bits;
   int nbits;
   int signed_type;
 
@@ -2659,22 +2969,29 @@ read_sun_builtin_type (pp, typenums, objfile)
      by this type, except that unsigned short is 4 instead of 2.
      Since this information is redundant with the third number,
      we will ignore it.  */
-  read_number (pp, ';');
+  read_huge_number (pp, ';', &nbits);
+  if (nbits != 0)
+    return error_type (pp);
 
   /* The second number is always 0, so ignore it too. */
-  read_number (pp, ';');
+  read_huge_number (pp, ';', &nbits);
+  if (nbits != 0)
+    return error_type (pp);
 
   /* The third number is the number of bits for this type. */
-  nbits = read_number (pp, 0);
+  type_bits = read_huge_number (pp, 0, &nbits);
+  if (nbits != 0)
+    return error_type (pp);
 
+#if 0
   /* FIXME.  Here we should just be able to make a type of the right
      number of bits and signedness.  FIXME.  */
 
-  if (nbits == TARGET_LONG_LONG_BIT)
+  if (type_bits == TARGET_LONG_LONG_BIT)
     return (lookup_fundamental_type (objfile,
 		 signed_type? FT_LONG_LONG: FT_UNSIGNED_LONG_LONG));
   
-  if (nbits == TARGET_INT_BIT)
+  if (type_bits == TARGET_INT_BIT)
     {
       /* FIXME -- the only way to distinguish `int' from `long'
 	 is to look at its name!  */
@@ -2697,18 +3014,24 @@ read_sun_builtin_type (pp, typenums, objfile)
 	}
     }
     
-  if (nbits == TARGET_SHORT_BIT)
+  if (type_bits == TARGET_SHORT_BIT)
     return (lookup_fundamental_type (objfile,
 		 signed_type? FT_SHORT: FT_UNSIGNED_SHORT));
   
-  if (nbits == TARGET_CHAR_BIT)
+  if (type_bits == TARGET_CHAR_BIT)
     return (lookup_fundamental_type (objfile,
 		 signed_type? FT_CHAR: FT_UNSIGNED_CHAR));
   
-  if (nbits == 0)
+  if (type_bits == 0)
     return lookup_fundamental_type (objfile, FT_VOID);
   
   return error_type (pp);
+#else
+  return init_type (type_bits == 0 ? TYPE_CODE_VOID : TYPE_CODE_INT,
+		    type_bits / TARGET_CHAR_BIT,
+		    signed_type ? 0 : TYPE_FLAG_UNSIGNED, (char *)NULL,
+		    objfile);
+#endif
 }
 
 static struct type *
@@ -2717,28 +3040,28 @@ read_sun_floating_type (pp, typenums, objfile)
      int typenums[2];
      struct objfile *objfile;
 {
+  int nbits;
+  int details;
   int nbytes;
 
   /* The first number has more details about the type, for example
-     FN_COMPLEX.  See the sun stab.h.  */
-  read_number (pp, ';');
-
-  /* The second number is the number of bytes occupied by this type */
-  nbytes = read_number (pp, ';');
-
-  if (**pp != 0)
+     FN_COMPLEX.  */
+  details = read_huge_number (pp, ';', &nbits);
+  if (nbits != 0)
     return error_type (pp);
 
-  if (nbytes == TARGET_FLOAT_BIT / TARGET_CHAR_BIT)
-    return lookup_fundamental_type (objfile, FT_FLOAT);
+  /* The second number is the number of bytes occupied by this type */
+  nbytes = read_huge_number (pp, ';', &nbits);
+  if (nbits != 0)
+    return error_type (pp);
 
-  if (nbytes == TARGET_DOUBLE_BIT / TARGET_CHAR_BIT)
-    return lookup_fundamental_type (objfile, FT_DBL_PREC_FLOAT);
+  if (details == NF_COMPLEX || details == NF_COMPLEX16
+      || details == NF_COMPLEX32)
+    /* This is a type we can't handle, but we do know the size.
+       We also will be able to give it a name.  */
+    return init_type (TYPE_CODE_ERROR, nbytes, 0, NULL, objfile);
 
-  if (nbytes == TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT)
-    return lookup_fundamental_type (objfile, FT_EXT_PREC_FLOAT);
-
-  return error_type (pp);
+  return init_type (TYPE_CODE_FLT, nbytes, 0, NULL, objfile);
 }
 
 /* Read a number from the string pointed to by *PP.
@@ -2748,16 +3071,15 @@ read_sun_floating_type (pp, typenums, objfile)
    and that character is skipped if it does match.
    If END is zero, *PP is left pointing to that character.
 
-   If the number fits in a long, set *VALUE and set *BITS to 0.
-   If not, set *BITS to be the number of bits in the number.
+   If the number fits in a long, set *BITS to 0 and return the value.
+   If not, set *BITS to be the number of bits in the number and return 0.
 
-   If encounter garbage, set *BITS to -1.  */
+   If encounter garbage, set *BITS to -1 and return 0.  */
 
-static void
-read_huge_number (pp, end, valu, bits)
+static long
+read_huge_number (pp, end, bits)
      char **pp;
      int end;
-     long *valu;
      int *bits;
 {
   char *p = *pp;
@@ -2784,7 +3106,7 @@ read_huge_number (pp, end, valu, bits)
     }
 
   upper_limit = LONG_MAX / radix;
-  while ((c = *p++) >= '0' && c <= ('0' + radix))
+  while ((c = *p++) >= '0' && c < ('0' + radix))
     {
       if (n <= upper_limit)
 	{
@@ -2847,11 +3169,12 @@ read_huge_number (pp, end, valu, bits)
     }
   else
     {
-      if (valu)
-	*valu = n * sign;
       if (bits)
 	*bits = 0;
+      return n * sign;
     }
+  /* It's *BITS which has the interesting information.  */
+  return 0;
 }
 
 static struct type *
@@ -2869,7 +3192,10 @@ read_range_type (pp, typenums, objfile)
 
   /* First comes a type we are a subrange of.
      In C it is usually 0, 1 or the type being defined.  */
-  read_type_number (pp, rangenums);
+  /* FIXME: according to stabs.texinfo and AIX doc, this can be a type-id
+     not just a type number.  */
+  if (read_type_number (pp, rangenums) != 0)
+    return error_type (pp);
   self_subrange = (rangenums[0] == typenums[0] &&
 		   rangenums[1] == typenums[1]);
 
@@ -2879,8 +3205,8 @@ read_range_type (pp, typenums, objfile)
 
   /* The remaining two operands are usually lower and upper bounds
      of the range.  But in some special cases they mean something else.  */
-  read_huge_number (pp, ';', &n2, &n2bits);
-  read_huge_number (pp, ';', &n3, &n3bits);
+  n2 = read_huge_number (pp, ';', &n2bits);
+  n3 = read_huge_number (pp, ';', &n3bits);
 
   if (n2bits == -1 || n3bits == -1)
     return error_type (pp);
@@ -2907,20 +3233,11 @@ read_range_type (pp, typenums, objfile)
 	  nbits = n2bits;
 	}
 
-      /* Check for "long long".  */
-      if (got_signed && nbits == TARGET_LONG_LONG_BIT)
-	return (lookup_fundamental_type (objfile, FT_LONG_LONG));
-      if (got_unsigned && nbits == TARGET_LONG_LONG_BIT)
-	return (lookup_fundamental_type (objfile, FT_UNSIGNED_LONG_LONG));
-
       if (got_signed || got_unsigned)
 	{
-	  result_type = alloc_type (objfile);
-	  TYPE_LENGTH (result_type) = nbits / TARGET_CHAR_BIT;
-	  TYPE_CODE (result_type) = TYPE_CODE_INT;
-	  if (got_unsigned)
-	    TYPE_FLAGS (result_type) |= TYPE_FLAG_UNSIGNED;
-	  return result_type;
+	  return init_type (TYPE_CODE_INT, nbits / TARGET_CHAR_BIT,
+			    got_unsigned ? TYPE_FLAG_UNSIGNED : 0, NULL,
+			    objfile);
 	}
       else
 	return error_type (pp);
@@ -2928,91 +3245,73 @@ read_range_type (pp, typenums, objfile)
 
   /* A type defined as a subrange of itself, with bounds both 0, is void.  */
   if (self_subrange && n2 == 0 && n3 == 0)
-    return (lookup_fundamental_type (objfile, FT_VOID));
+    return init_type (TYPE_CODE_VOID, 0, 0, NULL, objfile);
 
   /* If n3 is zero and n2 is not, we want a floating type,
      and n2 is the width in bytes.
 
      Fortran programs appear to use this for complex types also,
      and they give no way to distinguish between double and single-complex!
-     We don't have complex types, so we would lose on all fortran files!
-     So return type `double' for all of those.  It won't work right
+
+     GDB does not have complex types.
+
+     Just return the complex as a float of that size.  It won't work right
      for the complex values, but at least it makes the file loadable.
 
      FIXME, we may be able to distinguish these by their names. FIXME.  */
 
   if (n3 == 0 && n2 > 0)
     {
-      if (n2 == sizeof (float))
-	return (lookup_fundamental_type (objfile, FT_FLOAT));
-      return (lookup_fundamental_type (objfile, FT_DBL_PREC_FLOAT));
+      return init_type (TYPE_CODE_FLT, n2, 0, NULL, objfile);
     }
 
   /* If the upper bound is -1, it must really be an unsigned int.  */
 
   else if (n2 == 0 && n3 == -1)
     {
-      /* FIXME -- the only way to distinguish `unsigned int' from `unsigned
-         long' is to look at its name!  */
-      if (
-       long_kludge_name && ((long_kludge_name[0] == 'u' /* unsigned */ &&
-       			     long_kludge_name[9] == 'l' /* long */)
-			 || (long_kludge_name[0] == 'l' /* long unsigned */)))
-	return (lookup_fundamental_type (objfile, FT_UNSIGNED_LONG));
-      else
-	return (lookup_fundamental_type (objfile, FT_UNSIGNED_INTEGER));
+      /* It is unsigned int or unsigned long.  */
+      /* GCC sometimes uses this for long long too.  We could
+	 distinguish it by the name, but we don't.  */
+      return init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+			TYPE_FLAG_UNSIGNED, NULL, objfile);
     }
 
   /* Special case: char is defined (Who knows why) as a subrange of
      itself with range 0-127.  */
   else if (self_subrange && n2 == 0 && n3 == 127)
-    return (lookup_fundamental_type (objfile, FT_CHAR));
+    return init_type (TYPE_CODE_INT, 1, 0, NULL, objfile);
 
-  /* Assumptions made here: Subrange of self is equivalent to subrange
-     of int.  FIXME:  Host and target type-sizes assumed the same.  */
-  /* FIXME:  This is the *only* place in GDB that depends on comparing
-     some type to a builtin type with ==.  Fix it! */
-  else if (n2 == 0
-	   && (self_subrange ||
-	       *dbx_lookup_type (rangenums) == lookup_fundamental_type (objfile, FT_INTEGER)))
+  /* We used to do this only for subrange of self or subrange of int.  */
+  else if (n2 == 0)
     {
-      /* an unsigned type */
-#ifdef CC_HAS_LONG_LONG
-      if (n3 == - sizeof (long long))
-	return (lookup_fundamental_type (objfile, FT_UNSIGNED_LONG_LONG));
-#endif
-      /* FIXME -- the only way to distinguish `unsigned int' from `unsigned
-	 long' is to look at its name!  */
-      if (n3 == (unsigned long)~0L &&
-       long_kludge_name && ((long_kludge_name[0] == 'u' /* unsigned */ &&
-       			     long_kludge_name[9] == 'l' /* long */)
-			 || (long_kludge_name[0] == 'l' /* long unsigned */)))
-	return (lookup_fundamental_type (objfile, FT_UNSIGNED_LONG));
-      if (n3 == (unsigned int)~0L)
-	return (lookup_fundamental_type (objfile, FT_UNSIGNED_INTEGER));
-      if (n3 == (unsigned short)~0L)
-	return (lookup_fundamental_type (objfile, FT_UNSIGNED_SHORT));
-      if (n3 == (unsigned char)~0L)
-	return (lookup_fundamental_type (objfile, FT_UNSIGNED_CHAR));
+      if (n3 < 0)
+	/* n3 actually gives the size.  */
+	return init_type (TYPE_CODE_INT, - n3, TYPE_FLAG_UNSIGNED,
+			  NULL, objfile);
+      if (n3 == 0xff)
+	return init_type (TYPE_CODE_INT, 1, TYPE_FLAG_UNSIGNED, NULL, objfile);
+      if (n3 == 0xffff)
+	return init_type (TYPE_CODE_INT, 2, TYPE_FLAG_UNSIGNED, NULL, objfile);
+
+      /* -1 is used for the upper bound of (4 byte) "unsigned int" and
+	 "unsigned long", and we already checked for that,
+	 so don't need to test for it here.  */
     }
-#ifdef CC_HAS_LONG_LONG
-  else if (n3 == 0 && n2 == -sizeof (long long))
-    return (lookup_fundamental_type (objfile, FT_LONG_LONG));
-#endif  
+  /* I think this is for Convex "long long".  Since I don't know whether
+     Convex sets self_subrange, I also accept that particular size regardless
+     of self_subrange.  */
+  else if (n3 == 0 && n2 < 0
+	   && (self_subrange
+	       || n2 == - TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT))
+    return init_type (TYPE_CODE_INT, - n2, 0, NULL, objfile);
   else if (n2 == -n3 -1)
     {
-      /* a signed type */
-      /* FIXME -- the only way to distinguish `int' from `long' is to look
-	 at its name!  */
-      if ((n3 ==(long)(((unsigned long)1 << (8 * sizeof (long)  - 1)) - 1)) &&
-       long_kludge_name && long_kludge_name[0] == 'l' /* long */)
-	 return (lookup_fundamental_type (objfile, FT_LONG));
-      if (n3 == (long)(((unsigned long)1 << (8 * sizeof (int)   - 1)) - 1))
-	return (lookup_fundamental_type (objfile, FT_INTEGER));
-      if (n3 ==        (               1 << (8 * sizeof (short) - 1)) - 1)
-	return (lookup_fundamental_type (objfile, FT_SHORT));
-      if (n3 ==        (               1 << (8 * sizeof (char)  - 1)) - 1)
-	return (lookup_fundamental_type (objfile, FT_SIGNED_CHAR));
+      if (n3 == 0x7f)
+	return init_type (TYPE_CODE_INT, 1, 0, NULL, objfile);
+      if (n3 == 0x7fff)
+	return init_type (TYPE_CODE_INT, 2, 0, NULL, objfile);
+      if (n3 == 0x7fffffff)
+	return init_type (TYPE_CODE_INT, 4, 0, NULL, objfile);
     }
 
   /* We have a real range type on our hands.  Allocate space and
@@ -3027,56 +3326,21 @@ read_range_type (pp, typenums, objfile)
   index_type = *dbx_lookup_type (rangenums);
   if (index_type == NULL)
     {
+      /* Does this actually ever happen?  Is that why we are worrying
+         about dealing with it rather than just calling error_type?  */
+
+      static struct type *range_type_index;
+
       complain (&range_type_base_complaint, rangenums[1]);
-      index_type = lookup_fundamental_type (objfile, FT_INTEGER);
+      if (range_type_index == NULL)
+	range_type_index =
+	  init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+		     0, "range type index type", NULL);
+      index_type = range_type_index;
     }
 
   result_type = create_range_type ((struct type *) NULL, index_type, n2, n3);
   return (result_type);
-}
-
-/* Read a number from the string pointed to by *PP.
-   The value of *PP is advanced over the number.
-   If END is nonzero, the character that ends the
-   number must match END, or an error happens;
-   and that character is skipped if it does match.
-   If END is zero, *PP is left pointing to that character.  */
-
-long
-read_number (pp, end)
-     char **pp;
-     int end;
-{
-  register char *p = *pp;
-  register long n = 0;
-  register int c;
-  int sign = 1;
-
-  /* Handle an optional leading minus sign.  */
-
-  if (*p == '-')
-    {
-      sign = -1;
-      p++;
-    }
-
-  /* Read the digits, as far as they go.  */
-
-  while ((c = *p++) >= '0' && c <= '9')
-    {
-      n *= 10;
-      n += c - '0';
-    }
-  if (end)
-    {
-      if (c && c != end)
-	error ("Invalid symbol data: invalid character \\%03o at symbol pos %d.", c, symnum);
-    }
-  else
-    --p;
-
-  *pp = p;
-  return n * sign;
 }
 
 /* Read in an argument list.  This is a list of types, separated by commas
@@ -3189,15 +3453,14 @@ cleanup_undefined_types ()
 		struct pending *ppt;
 		int i;
 		/* Name of the type, without "struct" or "union" */
-		char *typename = TYPE_NAME (*type);
+		char *typename = TYPE_TAG_NAME (*type);
 
-		if (!strncmp (typename, "struct ", 7))
-		  typename += 7;
-		if (!strncmp (typename, "union ", 6))
-		  typename += 6;
-		if (!strncmp (typename, "enum ", 5))
-		  typename += 5;
-
+		if (typename == NULL)
+		  {
+		    static struct complaint msg = {"need a type name", 0, 0};
+		    complain (&msg);
+		    break;
+		  }
 		for (ppt = file_symbols; ppt; ppt = ppt->next)
 		  {
 		    for (i = 0; i < ppt->nsyms; i++)
@@ -3241,9 +3504,13 @@ cleanup_undefined_types ()
 	  }
 	  break;
 
-	  default:
-	  badtype:
-	  error ("GDB internal error.  cleanup_undefined_types with bad type %d.", TYPE_CODE (*type));
+	default:
+	badtype:
+	  {
+	    static struct complaint msg = {"\
+GDB internal error.  cleanup_undefined_types with bad type %d.", 0, 0};
+	    complain (&msg, TYPE_CODE (*type));
+	  }
 	  break;
 	}
     }

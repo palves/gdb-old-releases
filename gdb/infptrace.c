@@ -41,6 +41,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if !defined (PT_KILL)
 #define PT_KILL 8
+#endif
+
+#if !defined (PT_STEP)
 #define PT_STEP 9
 #define PT_CONTINUE 7
 #define PT_READ_U 3
@@ -49,7 +52,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	PT_READ_D 2
 #define PT_WRITE_I 4
 #define PT_WRITE_D 5
-#endif /* No PT_KILL.  */
+#endif /* No PT_STEP.  */
 
 #ifndef PT_ATTACH
 #define PT_ATTACH PTRACE_ATTACH
@@ -62,7 +65,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef	NO_SYS_FILE
 #include <sys/file.h>
 #endif
+#if 0
+/* Don't think this is used anymore.  On the sequent (not sure whether it's
+   dynix or ptx or both), it is included unconditionally by sys/user.h and
+   not protected against multiple inclusion.  */
 #include <sys/stat.h>
+#endif
 
 #if !defined (FETCH_INFERIOR_REGISTERS)
 #include <sys/user.h>		/* Probably need to poke the user structure */
@@ -114,7 +122,8 @@ kill_inferior ()
    If SIGNAL is nonzero, give it that signal.  */
 
 void
-child_resume (step, signal)
+child_resume (pid, step, signal)
+     int pid;
      int step;
      int signal;
 {
@@ -130,9 +139,9 @@ child_resume (step, signal)
      instructions), so we don't have to worry about that here.  */
 
   if (step)
-    ptrace (PT_STEP,     inferior_pid, (PTRACE_ARG3_TYPE) 1, signal);
+    ptrace (PT_STEP,     pid, (PTRACE_ARG3_TYPE) 1, signal);
   else
-    ptrace (PT_CONTINUE, inferior_pid, (PTRACE_ARG3_TYPE) 1, signal);
+    ptrace (PT_CONTINUE, pid, (PTRACE_ARG3_TYPE) 1, signal);
 
   if (errno)
     perror_with_name ("ptrace");
@@ -189,28 +198,6 @@ _initialize_kernel_u_addr ()
     fatal ("Unable to get kernel u area address.");
 }
 #endif /* KERNEL_U_ADDR_BSD.  */
-
-#if defined (KERNEL_U_ADDR_HPUX)
-/* Get kernel_u_addr using HPUX-style nlist().  */
-CORE_ADDR kernel_u_addr;
-
-struct hpnlist {      
-        char *          n_name;
-        long            n_value;  
-        unsigned char   n_type;   
-        unsigned char   n_length;  
-        short           n_almod;   
-        short           n_unused;
-};
-static struct hpnlist nl[] = {{ "_u", -1, }, { (char *) 0, }};
-
-/* read the value of the u area from the hp-ux kernel */
-void _initialize_kernel_u_addr ()
-{
-    nlist ("/hp-ux", &nl);
-    kernel_u_addr = nl[0].n_value;
-}
-#endif /* KERNEL_U_ADDR_HPUX.  */
 
 #if !defined (offsetof)
 #define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)

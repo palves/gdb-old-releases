@@ -21,7 +21,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Steve Chamberlain
    sac@cygnus.com */
 
-#include "bfd.h"
+#include "../../bfd/bfd.h"
 #include "sysdep.h"
 
 int

@@ -55,6 +55,8 @@ DESCRIPTION
 static boolean
 bfd_cache_delete PARAMS ((bfd *));
 
+/* Number of bfds on the chain.  All such bfds have their file open;
+   if it closed, they get snipd()d from the chain.  */
 
 static int open_files;
 
@@ -162,22 +164,16 @@ DEFUN(insert,(x,y),
 }
 
 
-/*
-INTERNAL_FUNCTION
-	bfd_cache_init
-
-SYNOPSIS
-	void  bfd_cache_init (bfd *);
-
-DESCRIPTION
-	Initialize a BFD by putting it on the cache LRU.
-*/
+/* Initialize a BFD by putting it on the cache LRU.  */
 
 void
 DEFUN(bfd_cache_init,(abfd),
       bfd *abfd)
 {
+  if (open_files >= BFD_CACHE_MAX_OPEN)
+    close_one ();
   cache_sentinel = insert(abfd, cache_sentinel);
+  ++open_files;
 }
 
 
@@ -257,7 +253,6 @@ DEFUN(bfd_open_file, (abfd),
   }
 
   if (abfd->iostream) {
-    open_files++;
     bfd_cache_init (abfd);
   }
 

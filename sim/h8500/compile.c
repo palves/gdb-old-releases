@@ -45,7 +45,7 @@ int debug;
 #define LABEL_REFN(X,N) &&X##_L##N
 #define ENDDISPATCH while (0);
 #define fastref void *
-#define LABEL_DEC(X,Y)
+
 #define DEFAULT ;
 #define INLINE __inline__
 #else
@@ -57,10 +57,10 @@ int debug;
 #define LABEL_REFN(X,N) X
 #define ENDDISPATCH
 #define fastref int
-#define LABEL_DEC(X,Y) #define X Y
 
 
-#define INLINE 
+
+#define INLINE
 #define STORE_REG_B 	1
 #define STORE_REG_W 	2
 #define STORE_INC_B 	3
@@ -110,7 +110,6 @@ int debug;
 
 #define h8500_table h8500_compile_table
 #include "../opcodes/h8500-opc.h"
-#include "../endian.h"
 
 #include "inst.h"
 
@@ -151,13 +150,8 @@ static unsigned char *(regptr[R_LAST][3]);
 static unsigned char *(segregptr[R_LAST][3]);
 static cpu_state_type cpu;
 
-#ifdef BIG_ENDIAN_HOST
-#define LOW 1
-#define HIGH 0
-#else
-#define LOW 0
-#define HIGH 1
-#endif
+int LOW;
+int HIGH;
 
 /* routines for getting and storing args */
 #define elval(struct, lit) \
@@ -292,15 +286,13 @@ fastref exec_dispatch[100];
 static int
 get_now ()
 {
-  struct tms b;
-  times (&b);
-  return b.tms_utime + b.tms_stime;
+  return time ((char *) 0);
 }
 
 static int
 now_persec ()
 {
-  return HZ;
+  return 1;
 }
 
 static void
@@ -382,6 +374,7 @@ gotimm (ptr, val)
   ptr->type = eas.s.ea_imm.j[0];
   ptr->literal = val;
 }
+
 static void
 indoff (ptr)
      ea_type *ptr;
@@ -407,25 +400,26 @@ thinkabout_shifts (d, bytesized)
       d->srcb.type = eas.s.ea_imm.s.srcbword;
       d->srcb.literal = 8;
     }
-  {
-    /* got a word shift, fake up second arg */
-    d->srcb.type = eas.s.ea_imm.s.srcbword;
-    d->srcb.literal = 16;
-  }
+  else
+    {
+      /* got a word shift, fake up second arg */
+      d->srcb.type = eas.s.ea_imm.s.srcbword;
+      d->srcb.literal = 16;
+    }
 }
 
-/* Calculate the number of cycles required to run this 
+/* Calculate the number of cycles required to run this
    instruction
 */
 static void
-compcycles(dst, opcode)
-decoded_inst *dst;
-h8500_opcode_info *opcode;
+compcycles (dst, opcode)
+     decoded_inst *dst;
+     h8500_opcode_info *opcode;
 {
   int cycles = 0;
-  /* Guess for the time being - 1 cycle for the first two bytes in the 
-     opcode - to fecth the operand, and 3 cycles for all the rest of 
-     the bytes, since they mean that there is probably an operand to 
+  /* Guess for the time being - 1 cycle for the first two bytes in the
+     opcode - to fecth the operand, and 3 cycles for all the rest of
+     the bytes, since they mean that there is probably an operand to
      fetch */
 
   switch (opcode->length)
@@ -441,6 +435,75 @@ h8500_opcode_info *opcode;
 
   dst->cycles = cycles;
 }
+
+static void
+translate (ptr, from, to)
+     ea_type *ptr;
+     fastref from;
+     fastref to;
+{
+  if (ptr->reg.wptr == &cpu.regs[7].s[LOW]
+      && ptr->type == from)
+    {
+      ptr->type = to;
+    }
+}
+
+static
+void
+fix_incdecs (dst)
+     decoded_inst *dst;
+{
+  if (dst->dst.type == eas.s.ea_inc.s.dstbyte
+      && (dst->srca.type == eas.s.ea_inc.s.srcabyte
+	  || dst->srcb.type == eas.s.ea_inc.s.srcbbyte))
+    {
+      dst->dst.type = eas.s.ea_disp.s.dstbyte;
+    }
+
+  if (dst->dst.type == eas.s.ea_inc.s.dstword
+      && (dst->srca.type == eas.s.ea_inc.s.srcaword
+	  || dst->srcb.type == eas.s.ea_inc.s.srcbword))
+    {
+      dst->dst.type = eas.s.ea_disp.s.dstword;
+    }
+
+  if (dst->dst.type == eas.s.ea_dec.s.dstbyte
+      || dst->dst.type == eas.s.ea_dec.s.dstword)
+    {
+      if (dst->srca.type == eas.s.ea_dec.s.srcabyte)
+	{
+	  dst->srca.type = eas.s.ea_disp.s.srcabyte;
+	}
+      else if (dst->srca.type == eas.s.ea_dec.s.srcaword)
+	{
+	  dst->srca.type = eas.s.ea_disp.s.srcaword;
+	}
+      else if (dst->srcb.type == eas.s.ea_dec.s.srcbbyte)
+	{
+	  dst->srcb.type = eas.s.ea_disp.s.srcbbyte;
+	}
+      else if (dst->srcb.type == eas.s.ea_dec.s.srcbword)
+	{
+	  dst->srcb.type = eas.s.ea_disp.s.srcbword;
+	}
+    }
+
+
+  /* Turn a byte ops from the sp into word ops */
+  translate (&dst->dst, eas.s.ea_dec.s.dstbyte, eas.s.ea_dec.s.dstword);
+  translate (&dst->dst, eas.s.ea_inc.s.dstbyte, eas.s.ea_inc.s.dstword);
+
+  translate (&dst->srca, eas.s.ea_dec.s.srcabyte, eas.s.ea_dec.s.srcaword);
+  translate (&dst->srca, eas.s.ea_inc.s.srcabyte, eas.s.ea_inc.s.srcaword);
+
+  translate (&dst->srcb, eas.s.ea_dec.s.srcbbyte, eas.s.ea_dec.s.srcbword);
+  translate (&dst->srcb, eas.s.ea_inc.s.srcbbyte, eas.s.ea_inc.s.srcbword);
+
+
+}
+
+
 static void
 find (pc, buffer, dst)
      int pc;
@@ -451,7 +514,7 @@ find (pc, buffer, dst)
   int i;
   int idx;
   int hadimm = 0;
-
+  dst->srca.reg.rptr = 0;
 
   /* Run down the table to find the one which matches */
   for (opcode = h8500_table; opcode->name; opcode++)
@@ -642,13 +705,13 @@ find (pc, buffer, dst)
 	  switch (opcode->arg_type[i])
 	    {
 	    default:
-	      abort();
+	      abort ();
 
 	    case FP:
 	      gotreg (p, 6, idx);
 	      break;
 	    case RNIND:
-	      disp =0;
+	      disp = 0;
 	    case RNIND_D16:
 	    case RNIND_D8:
 	      gotind (p, disp, rn, idx);
@@ -750,46 +813,28 @@ find (pc, buffer, dst)
 	   make sure that if the same ea is there twice, only one of the
 	   ops is auto inc/dec */
 
+	  fix_incdecs (dst);
 
-	  if (dst->dst.type == eas.s.ea_inc.s.dstbyte
-	      && (dst->srca.type == eas.s.ea_inc.s.srcabyte
-		  || dst->srcb.type == eas.s.ea_inc.s.srcbbyte))
-	    {
-	      dst->dst.type = eas.s.ea_disp.s.dstbyte;
-	    }
-
-	  if (dst->dst.type == eas.s.ea_inc.s.dstword
-	      && (dst->srca.type == eas.s.ea_inc.s.srcaword
-		  || dst->srcb.type == eas.s.ea_inc.s.srcbword))
-	    {
-	      dst->dst.type = eas.s.ea_disp.s.dstword;
-	    }
-
-	  if (dst->dst.type == eas.s.ea_dec.s.dstbyte
-	      || dst->dst.type == eas.s.ea_dec.s.dstword)
-	    {
-	      if (dst->srca.type == eas.s.ea_dec.s.srcabyte)
-		{
-		  dst->srca.type = eas.s.ea_disp.s.srcabyte;
-		}
-	      else if (dst->srca.type == eas.s.ea_dec.s.srcaword)
-		{
-		  dst->srca.type = eas.s.ea_disp.s.srcaword;
-		}
-	      else if (dst->srcb.type == eas.s.ea_dec.s.srcbbyte)
-		{
-		  dst->srcb.type = eas.s.ea_disp.s.srcbbyte;
-		}
-	      else if (dst->srcb.type == eas.s.ea_dec.s.srcbword)
-		{
-		  dst->srcb.type = eas.s.ea_disp.s.srcbword;
-		}
-	    }
 
 	  /* Some special cases */
 	  if (dst->opcode == exec_dispatch[O_PJSR]
-	      || dst->opcode == exec_dispatch[O_JSR])
+	      || dst->opcode == exec_dispatch[O_PJMP])
 	    {
+	      /* Both the @abs:24 and @rn turn into a disp word,
+		 chose the right a mode since  @abs:24 is 4 bytes
+		 long */
+
+	      if (opcode->length == 4)
+		{
+		  dst->srca.type = eas.s.ea_lval24.s.srcabyte;
+		}
+	      else
+		{
+		  dst->srca.type = eas.s.ea_reg.s.srcalong;
+		}
+
+	      dst->srca.r2.rptr = &cpu.regs[R_HARD_0];
+
 	      /* For [P]JSR, keep return address precomputed */
 	      dst->srcb.literal = pc + opcode->length;
 	      dst->srcb.type = eas.s.ea_imm.s.srcbword;
@@ -806,7 +851,7 @@ find (pc, buffer, dst)
 		{
 		  dst->dst.type = eas.s.ea_reg.s.dstword;
 		}
-		  dst->dst.reg.bptr = regptr[rd][JWORD];
+	      dst->dst.reg.bptr = regptr[rd][JWORD];
 	    }
 	  if (dst->opcode == exec_dispatch[O_DIVXU])
 	    {
@@ -823,17 +868,19 @@ find (pc, buffer, dst)
 
 	    }
 
-	  if (dst->opcode == exec_dispatch[O_LDM]) {
-	    /* Turn of the stack ref */
-	    dst->srca.type = eas.s.ea_nop.s.srcabyte;
-	  }
-	  if (dst->opcode == exec_dispatch[O_STM]) {
-	    /* Turn of the stack ref */
-	    dst->srcb.type = eas.s.ea_nop.s.srcbbyte;
-	  }
+	  if (dst->opcode == exec_dispatch[O_LDM])
+	    {
+	      /* Turn of the stack ref */
+	      dst->srca.type = eas.s.ea_nop.s.srcabyte;
+	    }
+	  if (dst->opcode == exec_dispatch[O_STM])
+	    {
+	      /* Turn of the stack ref */
+	      dst->srcb.type = eas.s.ea_nop.s.srcbbyte;
+	    }
 
 
-	      /* extends read one size and write another */
+	  /* extends read one size and write another */
 	  if (dst->opcode == exec_dispatch[O_EXTS]
 	      || dst->opcode == exec_dispatch[O_EXTU])
 	    {
@@ -850,13 +897,13 @@ find (pc, buffer, dst)
 	  /* For a branch, turn off one level of indirection */
 	  if (opcode->src1 == 'B')
 	    {
-	      indoff (&dst->srca);
+	      indoff (&dst->srca, 0);
 	    }
 
 	}
       dst->next_pc = pc + opcode->length;
 
-      compcycles(dst, opcode);
+      compcycles (dst, opcode);
 
       return;
 
@@ -902,6 +949,20 @@ baddefault (x)
   printf ("bad default %d\n", x);
 }
 
+static int fetch_l (arg)
+     ea_type *arg;
+{
+  int l, r;
+
+  int h = *(arg->reg.wptr);
+  r = (union rtype *) (arg->reg.wptr) - &cpu.regs[0];
+  r++;
+
+  l = cpu.regs[r].s[LOW];
+  return (h << 16) | l;
+
+}
+
 #define FETCH(dst, arg, n)  \
 { \
  int r; unsigned char*lval; \
@@ -929,7 +990,7 @@ baddefault (x)
  dst = *((arg).reg.wptr); \
  break; \
  LABELN(FETCH_REG_L,n): \
- dst = (*((arg).reg.wptr) << 16) | (*((arg).reg.wptr + 2)); \
+ dst = fetch_l(&(arg));\
  break; \
  LABELN(FETCH_INC_B,n): \
  lval = elval ((arg), 0); \
@@ -942,15 +1003,15 @@ baddefault (x)
  (*(((arg).reg.wptr))) += 2; \
  break; \
  LABELN(FETCH_DEC_B, n): \
+ (*(arg).reg.wptr)--; \
  lval = elval ((arg), 0); \
  r = byteat (lval); \
- (*(arg).reg.wptr)--; \
  dst = r; \
  break; \
  LABELN(FETCH_DEC_W, n): \
+ (*((arg).reg.wptr)) -= 2; \
  lval = elval ((arg), 0); \
  r = wordat (lval); \
- (*((arg).reg.wptr)) -= 2; \
  dst = r; \
  break; \
  LABELN(FETCH_DISP_B,n): \
@@ -999,11 +1060,19 @@ init_pointers ()
 	  if (littleendian.u.high)
 	    {
 	      /* big endian host */
+
+
+	      LOW = 1;
+	      HIGH = 0;
+
 	      regptr[i][0] = ((unsigned char *) (cpu.regs + i)) + 3;
 	      regptr[i][1] = ((unsigned char *) (cpu.regs + i)) + 2;
 	    }
 	  else
 	    {
+	      LOW = 0;
+	      HIGH = 1;
+
 	      regptr[i][0] = (unsigned char *) &(cpu.regs[i]);
 	      regptr[i][1] = (unsigned char *) (&(cpu.regs[i]));
 	    }
@@ -1059,7 +1128,7 @@ init_pointers ()
   cpu.regs[R7].s[LOW] = sp;			\
   setwordat (p, x);				\
 }						\
-						 
+
 #define POPWORD(d)				\
 {						\
   int spx= cpu.regs[R7].s[LOW];			\
@@ -1108,8 +1177,8 @@ sim_resume (step)
   int pc;
   int C, Z, V, N;
   int cycles = 0;
-  int insts  = 0;
-  int tick_start = get_now();
+  int insts = 0;
+  int tick_start = get_now ();
   void (*prev) ();
 
   if (!init1)
@@ -1327,7 +1396,7 @@ sim_resume (step)
 
       FETCH (arga, code->srca, 0);
       FETCH (argb, code->srcb, 1);
-      
+
 #ifdef DEBUG
       if (debug)
 	{
@@ -1337,7 +1406,7 @@ sim_resume (step)
 #endif
 
       cycles += code->cycles;
-      insts ++;
+      insts++;
       DISPATCH (code->opcode)
       {
       LABEL (O_RECOMPILE):
@@ -1355,7 +1424,7 @@ sim_resume (step)
 	arga += C;
       LABEL (O_SUB):
       LABEL (O_SUBS):
-	arga = - arga;
+	arga = -arga;
       LABEL (O_ADD):
       LABEL (O_ADDS):
 	res = arga + argb;
@@ -1375,7 +1444,7 @@ sim_resume (step)
 	arga &= 0xf;
 	bit = (argb & (1 << arga));
 	res = argb & ~(1 << arga);
-      goto bitop;
+	goto bitop;
 
 
       LABEL (O_BRA):
@@ -1466,7 +1535,7 @@ sim_resume (step)
 	arga = 1 << (arga & 0xf);
 	bit = argb & arga;
 	res = argb | arga;
-      goto bitop;
+	goto bitop;
 	break;
 
       LABEL (O_PJMP):
@@ -1474,14 +1543,14 @@ sim_resume (step)
 	goto next;
 
       LABEL (O_UNLK):
-      {
-	int t;
-	SET_NORMREG (R7, GET_NORMREG (R6));
-	POPWORD (t);
-	  SET_NORMREG (R6,t);
-	pc = code->next_pc;
-	goto next;
-      }
+	{
+	  int t;
+	  SET_NORMREG (R7, GET_NORMREG (R6));
+	  POPWORD (t);
+	  SET_NORMREG (R6, t);
+	  pc = code->next_pc;
+	  goto next;
+	}
 
       LABEL (O_RTS):
 	{
@@ -1507,7 +1576,7 @@ sim_resume (step)
       LABEL (O_PJSR):
 	PUSHWORD (argb & 0xffff);
 	PUSHWORD (argb >> 16);
-	pc = arga;
+	pc = (arga & 0xffffff);
 	goto next;
 
       LABEL (O_BSR):
@@ -1517,9 +1586,9 @@ sim_resume (step)
 	goto next;
 
       LABEL (O_BTST):
-	Z = (((argb >> (arga & 0xf)) &  1)== 0);
-      pc = code->next_pc;
-      goto next;
+	Z = (((argb >> (arga & 0xf)) & 1) == 0);
+	pc = code->next_pc;
+	goto next;
 
       LABEL (O_CLR):
 	res = 0;
@@ -1532,29 +1601,32 @@ sim_resume (step)
 
       LABEL (O_DADD):
 	res = arga + argb + C;
-      if (res > 99) {
-	res -= 100;
-	C = 1;
-      }
-      else {
-	C = 0;
-      }
-      Z = Z && (res == 0);
-      break;
-      
+	if (res > 99)
+	  {
+	    res -= 100;
+	    C = 1;
+	  }
+	else
+	  {
+	    C = 0;
+	  }
+	Z = Z && (res == 0);
+	break;
+
 
       LABEL (O_DSUB):
-	res = argb  - arga - C;
-      if (res < 0)
-	{
-	  res += 100;
-	  C = 1;
-	}
-      else {
-	C = 0;
-      }
-      Z = Z && (res == 0);
-      break;
+	res = argb - arga - C;
+	if (res < 0)
+	  {
+	    res += 100;
+	    C = 1;
+	  }
+	else
+	  {
+	    C = 0;
+	  }
+	Z = Z && (res == 0);
+	break;
 
       LABEL (O_EXTS):
 	res = SEXTCHAR (arga);
@@ -1570,23 +1642,24 @@ sim_resume (step)
 	break;
 
       LABEL (O_LDM):
-        
-       for (tmp = 0; tmp < 7; tmp++)
-	 {
-	   if (argb & (1<<tmp)) {
-	     POPWORD (cpu.regs[tmp].s[LOW]);
-	   }
-	 }
+
+	for (tmp = 0; tmp < 7; tmp++)
+	  {
+	    if (argb & (1 << tmp))
+	      {
+		POPWORD (cpu.regs[tmp].s[LOW]);
+	      }
+	  }
 	if (argb & 0x80)
-		POPWORD (tmp); /* dummy ready for sp */
-      goto nextpc;
-      break;
+	  POPWORD (tmp);	/* dummy ready for sp */
+	goto nextpc;
+	break;
 
       LABEL (O_LINK):
 	PUSHWORD (cpu.regs[R6].s[LOW]);
 	cpu.regs[R6].s[LOW] = cpu.regs[R7].s[LOW];
 	cpu.regs[R7].s[LOW] += argb;
-      goto nextpc;
+	goto nextpc;
 
       LABEL (O_STC):
       LABEL (O_LDC):
@@ -1637,7 +1710,7 @@ sim_resume (step)
 	{
 	scb_f:
 	  res = arga - 1;
-	  code->srcb.reg.wptr[0] = res;
+	  code->srca.reg.wptr[0] = res;
 	  if (res != -1)
 	    {
 	      pc = argb;
@@ -1767,7 +1840,7 @@ sim_resume (step)
       LABEL (O_STM):
 	for (tmp = 7; tmp >= 0; tmp--)
 	  {
-	    if (arga & (1<<tmp))
+	    if (arga & (1 << tmp))
 	      {
 		PUSHWORD (cpu.regs[tmp].s[LOW]);
 	      }
@@ -1890,7 +1963,7 @@ sim_resume (step)
 	Z = 1;
 	V = 0;
 	C = 0;
-        pc = code->next_pc;
+	pc = code->next_pc;
 	break;
       condtrue:
 	pc = arga;
@@ -1902,61 +1975,69 @@ sim_resume (step)
       {
 	unsigned char *lval;
 
-	LABEL (STORE_CRB):
+      LABEL (STORE_CRB):
 	(*(code->dst.reg.segptr)) = cpu.memory + (res << 16);
 	break;
 
-	LABEL (STORE_NOP):
+      LABEL (STORE_NOP):
 	break;
 
-	LABEL (STORE_REG_B):
+      LABEL (STORE_REG_B):
 	(*(code->dst.reg.bptr)) = res;
 	break;
 
-	LABEL (STORE_REG_W):
+      LABEL (STORE_REG_W):
 	(*(code->dst.reg.wptr)) = res;
 	break;
 
-	LABEL (STORE_REG_L):
-	(*(code->dst.reg.wptr)) = res >> 16;
-	(*(code->dst.reg.wptr + 2)) = res & 0xffff;
+      LABEL (STORE_REG_L):
+	{
+	  int l, r;
+
+	  r = (union rtype *) (code->dst.reg.wptr) - &cpu.regs[0];
+	  r++;
+	  *(code->dst.reg.wptr) = res >> 16;
+	  cpu.regs[r].s[LOW] = res & 0xffff;
+
+	}
+
 	break;
 
-	LABEL (STORE_DISP_W):
+      LABEL (STORE_DISP_W):
 	lval = displval (code->dst);
 	setwordat (lval, res);
 	break;
 
-	LABEL (STORE_DISP_B):
+      LABEL (STORE_DISP_B):
 	lval = displval (code->dst);
 	setbyteat (lval, res);
 	break;
 
-	LABEL (STORE_INC_B):
+      LABEL (STORE_INC_B):
 	lval = elval (code->dst, 0);
 	setbyteat (lval, res);
 	(*(code->dst.reg.wptr))++;
 	break;
 
-	LABEL (STORE_INC_W):
+      LABEL (STORE_INC_W):
 	lval = elval (code->dst, 0);
 	setwordat (lval, res);
 	(*(code->dst.reg.wptr)) += 2;
 	break;
 
-	LABEL (STORE_DEC_B):
+      LABEL (STORE_DEC_B):
 	(*(code->dst.reg.wptr))--;
 	lval = elval (code->dst, 0);
 	setbyteat (lval, res);
 	break;
 
-	LABEL (STORE_CRW):
+      LABEL (STORE_CRW):
 	/* Make an up to date sr from the flag state */
 	cpu.regs[R_SR].s[LOW] = res;
 	GETSR ();
 	break;
 
-	LABEL (STORE_DEC_W):
+      LABEL (STORE_DEC_W):
 	(*(code->dst.reg.wptr)) -= 2;
 	lval = elval (code->dst, 0);
 	setwordat (lval, res);
@@ -1972,7 +2053,7 @@ sim_resume (step)
 
     }
   while (!cpu.exception);
-  cpu.ticks += get_now() - tick_start;
+  cpu.ticks += get_now () - tick_start;
   cpu.cycles += cycles;
   cpu.insts += insts;
   cpu.regs[R_PC].s[LOW] = pc;
@@ -2052,8 +2133,8 @@ sim_store_register (rn, value)
   switch (rn)
     {
     case PC_REGNUM:
-      seg = R_CP;
-      reg = R_PC;
+      seg = 0;
+      reg = PC_REGNUM;
       break;
     case SEG_C_REGNUM:
     case SEG_D_REGNUM:
@@ -2085,10 +2166,10 @@ sim_store_register (rn, value)
       return;
     case INST_REGNUM:
       cpu.insts = value;
-     return;
+      return;
     case TICK_REGNUM:
       cpu.ticks = value;
-     return;
+      return;
     }
 
   if (seg)
@@ -2155,7 +2236,7 @@ sim_fetch_register (rn, buf)
       buf[2] = cpu.insts >> 8;
       buf[3] = cpu.insts >> 0;
       break;
-      
+
     }
 }
 
@@ -2198,6 +2279,7 @@ sim_stop_signal ()
 
 sim_set_pc (n)
 {
+  sim_store_register (SEG_C_REGNUM, n >> 16);
   sim_store_register (PC_REGNUM, n);
 }
 
@@ -2215,17 +2297,16 @@ sim_csize (n)
 
 
 
-sim_info()
+sim_info ()
 {
   double timetaken = (double) cpu.ticks / (double) now_persec ();
   double virttime = cpu.cycles / 10.0e6;
 
-  printf("\n\ninstructions executed  %10d\n", cpu.insts);
-  printf("cycles (v approximate) %10d\n", cpu.cycles);
-  printf("real time taken        %10.4f\n", timetaken);
-  printf("virtual time taked     %10.4f\n", virttime);
-  printf("simulation ratio       %10.4f\n", virttime/timetaken);
-  printf("compiles               %10d\n", cpu.compiles);
-  printf("cache size             %10d\n", cpu.csize);
+  printf ("\n\ninstructions executed  %10d\n", cpu.insts);
+  printf ("cycles (v approximate) %10d\n", cpu.cycles);
+  printf ("real time taken        %10.4f\n", timetaken);
+  printf ("virtual time taked     %10.4f\n", virttime);
+  printf ("simulation ratio       %10.4f\n", virttime / timetaken);
+  printf ("compiles               %10d\n", cpu.compiles);
+  printf ("cache size             %10d\n", cpu.csize);
 }
-

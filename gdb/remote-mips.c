@@ -22,6 +22,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "inferior.h"
 #include "bfd.h"
+#include "symfile.h"
 #include "wait.h"
 #include "gdbcmd.h"
 #include "gdbcore.h"
@@ -70,7 +71,7 @@ static void
 mips_detach PARAMS ((char *args, int from_tty));
 
 static void
-mips_resume PARAMS ((int step, int siggnal));
+mips_resume PARAMS ((int pid, int step, int siggnal));
 
 static int
 mips_wait PARAMS ((WAITTYPE *status));
@@ -573,7 +574,7 @@ mips_send_packet (s, get_ack)
 	      hdr[HDR_LENGTH] = '\0';
 	      trlr[TRLR_LENGTH] = '\0';
 	      printf_filtered ("Got ack %d \"%s%s\"\n",
-			       HDR_GET_SEQ (hdr), hdr, trlr);
+			       HDR_GET_SEQ (hdr), hdr + 1, trlr);
 	    }
 
 	  /* If this ack is for the current packet, we're done.  */
@@ -804,7 +805,6 @@ mips_request (cmd, addr, data, perr)
 
   if (sscanf (buff, "0x%x %c 0x%x 0x%x",
 	      &rpid, &rcmd, &rerrflg, &rresponse) != 4
-      || rpid != 0
       || (cmd != '\0' && rcmd != cmd))
     error ("Bad response from remote board");
 
@@ -855,7 +855,9 @@ mips_initialize ()
   mips_receive_wait = 3;
 
   tries = 0;
-  while (catch_errors (mips_receive_packet, buff, (char *) NULL) == 0)
+  while (catch_errors (mips_receive_packet, buff, (char *) NULL,
+		       RETURN_MASK_ALL)
+	 == 0)
     {
       char cc;
 
@@ -955,8 +957,8 @@ mips_detach (args, from_tty)
    from the board.  */
 
 static void
-mips_resume (step, siggnal)
-     int step, siggnal;
+mips_resume (pid, step, siggnal)
+     int pid, step, siggnal;
 {
   if (siggnal)
     error ("Can't send signals to a remote system.  Try `handle %d ignore'.",
@@ -1059,10 +1061,14 @@ mips_fetch_registers (regno)
   if (err)
     error ("Can't read register %d: %s", regno, safe_strerror (errno));
 
-  /* We got the number the register holds, but gdb expects to see a
-     value in the target byte ordering.  */
-  SWAP_TARGET_AND_HOST (val, sizeof (REGISTER_TYPE));
-  supply_register (regno, (char *) &val);
+  {
+    char buf[MAX_REGISTER_RAW_SIZE];
+
+    /* We got the number the register holds, but gdb expects to see a
+       value in the target byte ordering.  */
+    store_unsigned_integer (buf, REGISTER_RAW_SIZE (regno), val);
+    supply_register (regno, buf);
+  }
 }
 
 /* Prepare to store registers.  The MIPS protocol can store individual
@@ -1155,7 +1161,7 @@ mips_xfer_memory (memaddr, myaddr, len, write, ignore)
   /* Round ending address up; get number of longwords that makes.  */
   register int count = (((memaddr + len) - addr) + 3) / 4;
   /* Allocate buffer of that many longwords.  */
-  register unsigned int *buffer = (unsigned int *) alloca (count * 4);
+  register char *buffer = alloca (count * 4);
 
   if (write)
     {
@@ -1163,14 +1169,15 @@ mips_xfer_memory (memaddr, myaddr, len, write, ignore)
       if (addr != memaddr || len < 4)
 	{
 	  /* Need part of initial word -- fetch it.  */
-	  buffer[0] = mips_fetch_word (addr);
-	  SWAP_TARGET_AND_HOST (buffer, 4);
+	  store_unsigned_integer (&buffer[0], 4, mips_fetch_word (addr));
 	}
 
-      if (count > 1)		/* FIXME, avoid if even boundary */
+      if (count > 1)
 	{
-	  buffer[count - 1] = mips_fetch_word (addr + (count - 1) * 4);
-	  SWAP_TARGET_AND_HOST (buffer + (count - 1) * 4, 4);
+	  /* Need part of last word -- fetch it.  FIXME: we do this even
+	     if we don't need it.  */
+	  store_unsigned_integer (&buffer[(count - 1) * 4], 4,
+				  mips_fetch_word (addr + (count - 1) * 4));
 	}
 
       /* Copy data to be written over corresponding part of buffer */
@@ -1181,8 +1188,8 @@ mips_xfer_memory (memaddr, myaddr, len, write, ignore)
 
       for (i = 0; i < count; i++, addr += 4)
 	{
-	  SWAP_TARGET_AND_HOST (buffer + i, 4);
-	  mips_store_word (addr, buffer[i]);
+	  mips_store_word (addr, extract_unsigned_integer (&buffer[i*4], 4));
+	  /* FIXME: Do we want a QUIT here?  */
 	}
     }
   else
@@ -1190,13 +1197,12 @@ mips_xfer_memory (memaddr, myaddr, len, write, ignore)
       /* Read all the longwords */
       for (i = 0; i < count; i++, addr += 4)
 	{
-	  buffer[i] = mips_fetch_word (addr);
-	  SWAP_TARGET_AND_HOST (buffer + i, 4);
+	  store_unsigned_integer (&buffer[i*4], 4, mips_fetch_word (addr));
 	  QUIT;
 	}
 
       /* Copy appropriate bytes out of the buffer.  */
-      memcpy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
+      memcpy (myaddr, buffer + (memaddr & 3), len);
     }
   return len;
 }
@@ -1230,74 +1236,6 @@ mips_kill ()
       target_mourn_inferior ();
     }
 #endif
-}
-
-/* Load an executable onto the board.  */
-
-static void
-mips_load (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  bfd *abfd;
-  asection *s;
-  int err;
-  CORE_ADDR text;
-
-  abfd = bfd_openr (args, 0);
-  if (abfd == (bfd *) NULL)
-    error ("Unable to open file %s", args);
-
-  if (bfd_check_format (abfd, bfd_object) == 0)
-    error ("%s: Not an object file", args);
-
-  text = UINT_MAX;
-  for (s = abfd->sections; s != (asection *) NULL; s = s->next)
-    {
-      if ((s->flags & SEC_LOAD) != 0)
-	{
-	  bfd_size_type size;
-
-	  size = bfd_get_section_size_before_reloc (s);
-	  if (size > 0)
-	    {
-	      char *buffer;
-	      struct cleanup *old_chain;
-	      bfd_vma vma;
-
-	      buffer = xmalloc (size);
-	      old_chain = make_cleanup (free, buffer);
-
-	      vma = bfd_get_section_vma (abfd, s);
-	      printf_filtered ("Loading section %s, size 0x%x vma 0x%x\n",
-			       bfd_get_section_name (abfd, s), size, vma);
-	      bfd_get_section_contents (abfd, s, buffer, 0, size);
-	      mips_xfer_memory (vma, buffer, size, 1, &mips_ops);
-
-	      do_cleanups (old_chain);
-
-	      if ((bfd_get_section_flags (abfd, s) & SEC_CODE) != 0
-		  && vma < text)
-		text = vma;
-	    }
-	}
-    }
-
-  mips_request ('R', (unsigned int) mips_map_regno (PC_REGNUM),
-		(unsigned int) abfd->start_address,
-		&err);
-  if (err)
-    error ("Can't write PC register: %s", safe_strerror (errno));
-
-  bfd_close (abfd);
-
-  /* FIXME: Should we call symbol_file_add here?  The local variable
-     text exists just for this call.  Making the call seems to confuse
-     gdb if more than one file is loaded in.  Perhaps passing MAINLINE
-     as 1 would fix this, but it's not clear that that is correct
-     either since it is possible to load several files onto the board.
-
-     symbol_file_add (args, from_tty, text, 0, 0, 0);  */
 }
 
 /* Start running on the target board.  */
@@ -1361,7 +1299,7 @@ Specify the serial device it is connected to (e.g., /dev/ttya).",  /* to_doc */
   NULL,				/* to_terminal_ours */
   NULL,				/* to_terminal_info */
   mips_kill,			/* to_kill */
-  mips_load,			/* to_load */
+  generic_load,			/* to_load */
   NULL,				/* to_lookup_symbol */
   mips_create_inferior,		/* to_create_inferior */
   mips_mourn_inferior,		/* to_mourn_inferior */
@@ -1383,6 +1321,21 @@ void
 _initialize_remote_mips ()
 {
   add_target (&mips_ops);
+
+  add_show_from_set (
+    add_set_cmd ("timeout", no_class, var_zinteger,
+		 (char *) &mips_receive_wait,
+		 "Set timeout in seconds for remote MIPS serial I/O.",
+		 &setlist),
+	&showlist);
+
+  add_show_from_set (
+    add_set_cmd ("retransmit-timeout", no_class, var_zinteger,
+		 (char *) &mips_retransmit_wait,
+	 "Set retransmit timeout in seconds for remote MIPS serial I/O.\n\
+This is the number of seconds to wait for an acknowledgement to a packet\n\
+before resending the packet.", &setlist),
+	&showlist);
 
   add_show_from_set (
     add_set_cmd ("remotedebug", no_class, var_zinteger, (char *) &mips_debug,

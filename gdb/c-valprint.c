@@ -113,10 +113,6 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	  if (eltlen == 1 && TYPE_CODE (elttype) == TYPE_CODE_INT
 	      && (format == 0 || format == 's'))
 	    {
-	      if (addressprint && format != 's')
-		{
-		  fprintf_filtered (stream, "0x%x ", address);
-		}
 	      LA_PRINT_STRING (stream, valaddr, len, 0);
 	      i = len;
 	    }
@@ -141,8 +137,8 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	  break;
 	}
       /* Array of unspecified length: treat like pointer to first elt.  */
-      valaddr = (char *) &address;
-      /* FALL THROUGH */
+      addr = address;
+      goto print_unpacked_pointer;
 
     case TYPE_CODE_PTR:
       if (format && format != 's')
@@ -163,6 +159,7 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       else
 	{
 	  addr = unpack_pointer (type, valaddr);
+	print_unpacked_pointer:
 	  elttype = TYPE_TARGET_TYPE (type);
 
 	  if (TYPE_CODE (elttype) == TYPE_CODE_FUNC)
@@ -322,6 +319,10 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       /* Try to print what function it points to, and its address.  */
       print_address_demangle (address, stream, demangle);
       break;
+
+    case TYPE_CODE_BOOL:
+      /* Do something at least vaguely reasonable, for example if the
+	 language is set wrong.  */
 
     case TYPE_CODE_INT:
       format = format ? format : output_format;

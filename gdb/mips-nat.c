@@ -149,14 +149,15 @@ get_longjmp_target(pc)
      CORE_ADDR *pc;
 {
   CORE_ADDR jb_addr;
+  char buf[TARGET_PTR_BIT / TARGET_CHAR_BIT];
 
-  jb_addr = read_register(A0_REGNUM);
+  jb_addr = read_register (A0_REGNUM);
 
-  if (target_read_memory(jb_addr + JB_PC * JB_ELEMENT_SIZE, pc,
-			 sizeof(CORE_ADDR)))
+  if (target_read_memory (jb_addr + JB_PC * JB_ELEMENT_SIZE, buf,
+			  TARGET_PTR_BIT / TARGET_CHAR_BIT))
     return 0;
 
-  SWAP_TARGET_AND_HOST(pc, sizeof(CORE_ADDR));
+  *pc = extract_address (buf, TARGET_PTR_BIT / TARGET_CHAR_BIT);
 
   return 1;
 }
@@ -193,7 +194,11 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
      core file without a upage, reg_ptr will be zero and this is all a big
      NOP.  */
   if (reg_ptr > core_reg_size)
+#ifdef KERNEL_U_ADDR
     reg_ptr -= KERNEL_U_ADDR;
+#else
+    error ("Old mips core file can't be processed on this machine.");
+#endif
 
   for (regno = 0; regno < NUM_REGS; regno++)
     {

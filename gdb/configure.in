@@ -1,7 +1,6 @@
 configdirs="doc testsuite"
 srcname="GDB"
 srctrigger=main.c
-gdb_serial_driver=ser-unix.c
 
 # per-host:
 
@@ -26,6 +25,8 @@ case "${host}" in
 
 a29k-*-*)		gdb_host=ultra3 ;;
 
+alpha-*-osf*)		gdb_host=alpha-osf1 ;;
+
 arm-*-*)		gdb_host=arm ;;
 
 c[12]-*-*)		gdb_host=convex ;;
@@ -34,13 +35,14 @@ hppa*-hp-bsd*)		gdb_host=hppabsd ;;
 hppa*-hp-hpux*)		gdb_host=hppahpux ;;
 
 i[34]86-ncr-*)		gdb_host=ncr3000 ;;
-i[34]86-sequent-*)	gdb_host=symmetry ;;
+i[34]86-sequent-bsd*)	gdb_host=symmetry ;; #dynix
+i[34]86-sequent-sysv*)	gdb_host=ptx ;;
 
+i[34]86-*-aix*)		gdb_host=i386aix ;;
 i[34]86-*-bsd*)		gdb_host=i386bsd ;;
-i[34]86-*-go32)		gdb_host=go32
-			gdb_serial_driver=ser-go32.c
-			;;
+i[34]86-*-go32)		gdb_host=go32 ;;
 i[34]86-*-linux)	gdb_host=linux ;;
+i[34]86-*-lynx*)	gdb_host=i386lynx ;;
 i[34]86-*-mach)		gdb_host=i386mach ;;
 i[34]86-*-sco3.2v4*)	gdb_host=i386sco4 ;;
 i[34]86-*-sco*)		gdb_host=i386sco ;;
@@ -49,6 +51,7 @@ i[34]86-*-sunos*)	gdb_host=sun386 ;;
 i[34]86-*-sysv3.2)	gdb_host=i386v32 ;;
 i[34]86-*-sysv4*)	gdb_host=i386v4 ;;
 i[34]86-*-sysv*)	gdb_host=i386v ;;
+i[34]86-*-isc*)		gdb_host=i386v32 ;;
 
 m680[01]0-sun-sunos3*)	gdb_host=sun2os3 ;;
 m680[01]0-sun-sunos4*)	gdb_host=sun2os4 ;;
@@ -58,10 +61,12 @@ m68*-altos-*)		gdb_host=altos ;;
 m68*-apollo*-sysv*)	gdb_host=apollo68v ;;
 m68*-apollo*-bsd*)	gdb_host=apollo68b ;;
 m68*-att-*)		gdb_host=3b1 ;;
+m68*-bull*-sysv*)	gdb_host=dpx2 ;;
 m68*-cbm-sysv4*)	gdb_host=amix ;;
 m68*-hp-bsd*)		gdb_host=hp300bsd ;;
 m68*-hp-hpux*)		gdb_host=hp300hpux ;;
 m68*-isi-*)		gdb_host=isi ;;
+m68*-motorola-*)	gdb_host=delta68 ;;
 m68*-sony-*)		gdb_host=news ;;
 m68*-sun-sunos3*)	gdb_host=sun3os3 ;;
 m68*-sun-sunos4*)	gdb_host=sun3os4 ;;
@@ -74,7 +79,9 @@ mips-dec-*)		gdb_host=decstation ;;
 mips-little-*)		gdb_host=littlemips ;;
 mips-sgi-irix3)		gdb_host=irix3 ;;
 mips-sgi-irix4*)	gdb_host=irix4 ;;
-mips-sony-*)		gdb_host=bigmips ;;
+mips-sony-*)		gdb_host=news-mips ;;
+mips-*-sysv*)		gdb_host=riscos ;;
+mips-*-riscos*)		gdb_host=riscos ;;
 
 none-*-*)		gdb_host=none ;;
 
@@ -126,6 +133,9 @@ m68*)			gdb_target_cpu=m68k ;;
 np1)			gdb_target_cpu=gould ;;
 pn)			gdb_target_cpu=gould ;;
 pyramid)		gdb_target_cpu=pyr ;;
+sparclite)		gdb_target_cpu=sparc
+			configdirs="${configdirs} sparclite"
+			;;
 sparc*)			gdb_target_cpu=sparc ;;
 *)			gdb_target_cpu=$target_cpu ;;
 
@@ -150,6 +160,7 @@ c1-*-*)			gdb_target=convex ;;
 c2-*-*)			gdb_target=convex ;;
 
 h8300-*-*)		gdb_target=h8300hms ;;
+h8300h-*-*)		gdb_target=h8300hms gdb_target_cpu=h8300 ;;
 h8500-*-*)		gdb_target=h8500hms ;;
 
 sh-*-*)			gdb_target=sh ;;
@@ -164,14 +175,20 @@ i[34]86-*-aout)		gdb_target=i386aout ;;
 i[34]86-*-coff)		gdb_target=i386v ;;
 i[34]86-*-elf)		gdb_target=i386v ;;
 
+i[34]86-*-aix*)		gdb_target=i386aix ;;
 i[34]86-*-bsd*)		gdb_target=i386bsd ;;
 i[34]86-*-go32)		gdb_target=i386aout ;;
+i[34]86-*-lynx*)	gdb_target=i386lynx
+			configdirs="${configdirs} gdbserver"
+			;;
 i[34]86-*-solaris*)	gdb_target=i386sol2 ;;
 i[34]86-*-sunos*)	gdb_target=sun386 ;;
 i[34]86-*-sysv4*)	gdb_target=i386v4 ;;
 i[34]86-*-sco*)		gdb_target=i386v ;;
 i[34]86-*-sysv*)	gdb_target=i386v ;;
-i[34]86-*-linux)	gdb_target=linux ;;
+i[34]86-*-linux*)	gdb_target=linux ;;
+i[34]86-*-isc*)		gdb_target=i386v ;;
+i[34]86-*-netware*)	gdb_target=i386nw ;;
 
 i960-*-bout)		gdb_target=vxworks960 ;;
 i960-*-coff)		gdb_target=nindy960 ;;
@@ -187,6 +204,7 @@ m68000-*-sunos3*)	gdb_target=sun2os3 ;;
 m68000-*-sunos4*)	gdb_target=sun2os4 ;;
 
 m68*-cbm-sysv4*)	gdb_target=amix ;;
+m68*-bull-sysv*)	gdb_target=dpx2 ;;
 m68*-hp-bsd*)		gdb_target=hp300bsd ;;
 m68*-hp-hpux*)		gdb_target=hp300hpux ;;
 
@@ -194,9 +212,14 @@ m68*-altos-*)		gdb_target=altos ;;
 m68*-att-*)		gdb_target=3b1 ;;
 m68*-ericsson-*)	gdb_target=es1800 ;;
 m68*-isi-*)		gdb_target=isi ;;
+m68*-motorola-*)	gdb_target=delta68 ;;
 m68*-netx-*)		gdb_target=vxworks68 ;;
 m68*-sony-*)		gdb_target=news ;;
 m68*-tandem-*)		gdb_target=st2000 ;;
+
+m68*-rom68k-*)          gdb_target=monitor ;;
+m68*-*bug-*)            gdb_target=monitor ;;
+m68*-monitor-*)         gdb_target=monitor ;;
 
 m68*-*-aout)		gdb_target=m68k-fp ;;
 m68*-*-coff)		gdb_target=m68k-fp ;;
@@ -211,10 +234,13 @@ m88k-*-*)		gdb_target=m88k ;;
 
 mips-big-*)		gdb_target=bigmips ;;
 mips-dec-*)		gdb_target=decstation ;;
-mips-idt-ecoff)		gdb_target=idt ;;
+mips-idt-ecoffl*)	gdb_target=idtl ;;
+mips-idt-ecoff*)	gdb_target=idt ;;
 mips-little-*)		gdb_target=littlemips ;;
 mips-sgi-*)		gdb_target=irix3 ;;
 mips-sony-*)		gdb_target=bigmips ;;
+mips-*-sysv*)		gdb_target=bigmips ;;
+mips-*-riscos*)		gdb_target=bigmips ;;
 
 none-*-*)		gdb_target=none ;;
 
@@ -234,7 +260,7 @@ sparc-*-coff)		gdb_target=sparc-em ;;
 sparc-*-elf)		gdb_target=sparc-em ;;
 sparc-*-solaris2*)	gdb_target=sun4sol2 ;;
 sparc-*-sunos4*)	gdb_target=sun4os4 ;;
-sparc-*-vxworks*)	gdb_target=sparc-em ;;
+sparc-*-vxworks*)	gdb_target=vxsparc ;;
 sparc-*-*)		gdb_target=sun4os4 ;;
 sparclite*-*-*)		gdb_target=sparclite ;;
 
@@ -273,7 +299,6 @@ target_makefile_frag=config/${gdb_target_cpu}/${gdb_target}.mt
 files=
 links=
 rm -f xm.h
-rm -f ser-hardwire.c
 if [ "${hostfile}" != "" ]; then
 	if [ -f ${srcdir}/config/${hostfile} ]; then
 		files="${files} config/${hostfile}"
@@ -281,9 +306,6 @@ if [ "${hostfile}" != "" ]; then
 		files="${files} config/${gdb_host_cpu}/${hostfile}"
 	fi
 	links="${links} xm.h"
-
-	files="${files} ${gdb_serial_driver}"
-	links="${links} ser-hardwire.c"
 fi
 rm -f tm.h
 if [ "${targetfile}" != "" ]; then
@@ -309,17 +331,13 @@ else
 	links="${links} nm.h"
 fi
 
-if [ ${target_cpu} = "sparclite" ]; then
-	configdirs="${configdirs} sparclite"
-fi
-
 # post-target:
 
 case ${srcdir} in
   .)
     ;;
   *)
-    grep -s "source ${srcdir}/.gdbinit" .gdbinit 2>/dev/null || \
+    grep "source ${srcdir}/.gdbinit" .gdbinit >/dev/null 2>/dev/null || \
       echo "source ${srcdir}/.gdbinit" >> .gdbinit
 esac
 
@@ -328,5 +346,3 @@ if [ "${nativefile}" = "" ] ; then
 		< Makefile > Makefile.tem
 	mv -f Makefile.tem Makefile
 fi
-
-cat ${srcdir}/alldeps.mak ${srcdir}/depend >>Makefile

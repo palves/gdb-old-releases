@@ -31,37 +31,40 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 extern bfd_error_vector_type bfd_error_vector;
 
 static reloc_howto_type r_imm8 =
-HOWTO (R_H8500_IMM8, 0, 1, 8, false, 0, true,
-       true, 0, "r_imm8", true, 0x000000ff, 0x000000ff, false);
+HOWTO (R_H8500_IMM8, 0, 1, 8, false, 0,
+       complain_overflow_bitfield, 0, "r_imm8", true, 0x000000ff, 0x000000ff, false);
 
 static reloc_howto_type r_imm16 =
-HOWTO (R_H8500_IMM16, 0, 1, 16, false, 0, true,
-       true, 0, "r_imm16", true, 0x0000ffff, 0x0000ffff, false);
+HOWTO (R_H8500_IMM16, 0, 1, 16, false, 0,
+       complain_overflow_bitfield, 0, "r_imm16", true, 0x0000ffff, 0x0000ffff, false);
 
 static reloc_howto_type r_imm24 =
-HOWTO (R_H8500_IMM24, 0, 1, 24, false, 0, true,
-       true, 0, "r_imm24", true, 0x00ffffff, 0x00ffffff, false);
+HOWTO (R_H8500_IMM24, 0, 1, 24, false, 0,
+       complain_overflow_bitfield, 0, "r_imm24", true, 0x00ffffff, 0x00ffffff, false);
 
 static reloc_howto_type r_imm32 =
-HOWTO (R_H8500_IMM32, 0, 1, 32, false, 0, true,
-       true, 0, "r_imm32", true, 0xffffffff, 0xffffffff, false);
+HOWTO (R_H8500_IMM32, 0, 1, 32, false, 0,
+       complain_overflow_bitfield, 0, "r_imm32", true, 0xffffffff, 0xffffffff, false);
 
 
 static reloc_howto_type r_high8 =
-HOWTO (R_H8500_HIGH8, 0, 1, 8, false, 0, true,
-       true, 0, "r_high8", true, 0x000000ff, 0x000000ff, false);
+HOWTO (R_H8500_HIGH8, 0, 1, 8, false, 0,
+       complain_overflow_bitfield, 0, "r_high8", true, 0x000000ff, 0x000000ff, false);
 
 static reloc_howto_type r_low16 =
-HOWTO (R_H8500_LOW16, 0, 1, 16, false, 0, true,
-       true, 0, "r_low16", true, 0x0000ffff, 0x0000ffff, false);
+HOWTO (R_H8500_LOW16, 0, 1, 16, false, 0,
+       complain_overflow_bitfield, 0, "r_low16", true, 0x0000ffff, 0x0000ffff, false);
 
 static reloc_howto_type r_pcrel8 =
-HOWTO (R_H8500_PCREL8, 0, 1, 8, true, 0, true, true, 0, "r_pcrel8", true, 0, 0, true);
+HOWTO (R_H8500_PCREL8, 0, 1, 8, true, 0, complain_overflow_signed, 0, "r_pcrel8", true, 0, 0, true);
 
 
 static reloc_howto_type r_pcrel16 =
-HOWTO (R_H8500_PCREL16, 0, 1, 16, true, 0, true, true, 0, "r_pcrel16", true, 0, 0, true);
+HOWTO (R_H8500_PCREL16, 0, 1, 16, true, 0, complain_overflow_signed, 0, "r_pcrel16", true, 0, 0, true);
 
+static reloc_howto_type r_high16 =
+HOWTO (R_H8500_HIGH16, 0, 1, 8, false, 0,
+       complain_overflow_bitfield, 0, "r_high16", true, 0x000ffff, 0x0000ffff, false);
 
 
 /* Turn a howto into a reloc number */
@@ -92,13 +95,13 @@ coff_h8500_select_reloc (howto)
    */
 
 static void
-DEFUN (rtype2howto, (internal, dst),
-       arelent * internal AND
-       struct internal_reloc *dst)
+rtype2howto(internal, dst)
+     arelent * internal;
+     struct internal_reloc *dst;
 {
   switch (dst->r_type)
     {
-      default:
+    default:
       printf ("BAD 0x%x\n", dst->r_type);
     case R_H8500_IMM8:
       internal->howto = &r_imm8;
@@ -121,6 +124,9 @@ DEFUN (rtype2howto, (internal, dst),
     case R_H8500_HIGH8:
       internal->howto = &r_high8;
       break;
+    case R_H8500_HIGH16:
+      internal->howto = &r_high16;
+      break;
     case R_H8500_LOW16:
       internal->howto = &r_low16;
       break;
@@ -140,13 +146,12 @@ DEFUN (rtype2howto, (internal, dst),
 #define RELOC_PROCESSING(relent,reloc,symbols,abfd,section) \
  reloc_processing(relent, reloc, symbols, abfd, section)
 
-static void 
-DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
-       arelent * relent AND
-       struct internal_reloc *reloc AND
-       asymbol ** symbols AND
-       bfd * abfd AND
-       asection * section)
+static void reloc_processing (relent, reloc, symbols, abfd, section)
+     arelent * relent;
+     struct internal_reloc *reloc;
+     asymbol ** symbols;
+     bfd * abfd;
+     asection * section;
 {
   relent->address = reloc->r_vaddr;
   rtype2howto (relent, reloc);
@@ -174,7 +179,7 @@ extra_case (in_abfd, seclet, reloc, data, src_ptr, dst_ptr)
      unsigned int *src_ptr;
      unsigned int *dst_ptr;
 {
-bfd_byte *d = data+*dst_ptr;
+  bfd_byte *d = data+*dst_ptr;
   switch (reloc->howto->type)
     {
     case R_H8500_IMM8:
@@ -209,24 +214,33 @@ bfd_byte *d = data+*dst_ptr;
       (*dst_ptr) += 2;
       (*src_ptr) += 2;
       break;
+      
+    case R_H8500_HIGH16:
+      bfd_put_16 (in_abfd,
+		  bfd_coff_reloc16_get_value (reloc, seclet)>>16 ,
+		  d);
+
+      (*dst_ptr) += 2;
+      (*src_ptr) += 2;
+      break;
 
     case R_H8500_IMM24:
-     {
-       int v = bfd_coff_reloc16_get_value(reloc, seclet);
-       int o = bfd_get_32(in_abfd, data+ *dst_ptr -1);
-       v = (v & 0x00ffffff) | (o & 0xff00000);
-       bfd_put_32 (in_abfd, v, data  + *dst_ptr -1);
-       (*dst_ptr) +=3;
-       (*src_ptr)+=3;;
-     }
+      {
+	int v = bfd_coff_reloc16_get_value(reloc, seclet);
+	int o = bfd_get_32(in_abfd, data+ *dst_ptr -1);
+	v = (v & 0x00ffffff) | (o & 0xff00000);
+	bfd_put_32 (in_abfd, v, data  + *dst_ptr -1);
+	(*dst_ptr) +=3;
+	(*src_ptr)+=3;;
+      }
       break;
     case R_H8500_IMM32:
-     {
-       int v = bfd_coff_reloc16_get_value(reloc, seclet);
-       bfd_put_32 (in_abfd, v, data  + *dst_ptr);
-       (*dst_ptr) +=4;
-       (*src_ptr)+=4;;
-     }
+      {
+	int v = bfd_coff_reloc16_get_value(reloc, seclet);
+	bfd_put_32 (in_abfd, v, data  + *dst_ptr);
+	(*dst_ptr) +=4;
+	(*src_ptr)+=4;;
+      }
       break;
 
 
@@ -234,9 +248,9 @@ bfd_byte *d = data+*dst_ptr;
       {
 	bfd_vma dst = bfd_coff_reloc16_get_value (reloc, seclet);
 	bfd_vma dot = seclet->offset
-	+ *dst_ptr
-	+ seclet->u.indirect.section->output_section->vma;
-	int gap = dst - dot - 1;/* -1 since were in the odd byte of the
+	  + *dst_ptr
+	    + seclet->u.indirect.section->output_section->vma;
+	int gap = dst - dot - 1; /* -1 since were in the odd byte of the
 				    word and the pc's been incremented */
 
 	if (gap > 128 || gap < -128)
@@ -252,9 +266,9 @@ bfd_byte *d = data+*dst_ptr;
       {
 	bfd_vma dst = bfd_coff_reloc16_get_value (reloc, seclet);
 	bfd_vma dot = seclet->offset
-	+ *dst_ptr
-	+ seclet->u.indirect.section->output_section->vma;
-	int gap = dst - dot - 1;/* -1 since were in the odd byte of the
+	  + *dst_ptr
+	    + seclet->u.indirect.section->output_section->vma;
+	int gap = dst - dot - 1; /* -1 since were in the odd byte of the
 				    word and the pc's been incremented */
 
 	if (gap > 32767 || gap < -32768)

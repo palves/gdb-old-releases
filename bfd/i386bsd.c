@@ -20,16 +20,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* This data should be correct for the format used under all the various
    BSD ports for 386 machines.  */
 
-#define	N_HEADER_IN_TEXT(x)	0
 #define	BYTES_IN_WORD	4
 #define	ARCH	32
 
-#define	N_TXTOFF(x)	(N_MAGIC(x) == ZMAGIC ? 0x1000 : 0x20)
-#define	N_TXTADDR(x)	0
+/* ZMAGIC files never have the header in the text.  */
+#define	N_HEADER_IN_TEXT(x)	0
 
-#define	N_TXTSIZE(x)	((x).a_text)
+/* ZMAGIC files start at address 0.  This does not apply to QMAGIC.  */
+#define TEXT_START_ADDR 0
+
 #define	PAGE_SIZE	4096
 #define	SEGMENT_SIZE	PAGE_SIZE
+
 #define	DEFAULT_ARCH	bfd_arch_i386
 #define MACHTYPE_OK(mtype) ((mtype) == M_386 || (mtype) == M_UNKNOWN)
 

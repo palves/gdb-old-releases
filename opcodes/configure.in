@@ -12,7 +12,6 @@ srcname="opcodes"
 
 # Set up to make a link between the host's include file and "sysdep.h".
 files="../bfd/hosts/${my_host}.h"
-
 links="sysdep.h"
 
 if [ ! -f ${srcdir}/${files} ] ; then

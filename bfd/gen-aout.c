@@ -20,9 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "/usr/include/a.out.h"
 #include <stdio.h>
 
-/* Stuffed value of "ABCD" in a long, followed by a 0. */
-long int str[2] = { 0x41424344, 0x0 };
-
 int
 main (argc, argv)
      int argc; char** argv;
@@ -46,10 +43,7 @@ main (argc, argv)
       exit (-1);
   }
 
-  if (strcmp ((char *)&str[0], "ABCD") == 0)
-    printf("#define TARGET_IS_BIG_ENDIAN_P\n");
-  else
-    printf("#define TARGET_IS_LITTLE_ENDIAN_P\n");
+  printf("pagesize = %d\n", getpagesize());
 
 #ifdef N_TXTOFF
   page_size = N_TXTOFF(my_exec);

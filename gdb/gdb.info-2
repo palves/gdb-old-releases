@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb: (gdb).                   The GNU debugger.
+* Gdb::                         The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.9.
+Source-Level Debugger' for GDB Version 4.10.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
 Foundation, Inc.
@@ -18,16 +18,12 @@ preserved on all copies.
 
    Permission is granted to copy and distribute modified versions of
 this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
 
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the Free Software
-Foundation instead of in the original English.
+versions.
 
 
 File: gdb.info,  Node: Attach,  Next: Kill Process,  Prev: Input/Output,  Up: Running
@@ -45,9 +41,10 @@ Debugging an already-running process
      `attach' will not repeat if you press RET a second time after
      executing the command.
 
-   To use `attach', you must be debugging in an environment which
-supports processes.  You must also have permission to send the process a
-signal, and it must have the same effective user ID as the GDB process.
+   To use `attach', your program must be running in an environment
+which supports processes; for example, `attach' does not work for
+programs on bare-board targets that lack an operating system.  You must
+also have permission to send the process a signal.
 
    When using `attach', you should first use the `file' command to
 specify the program running in the process and load its symbol table.
@@ -336,8 +333,9 @@ variables.
           Where the breakpoint is in the source for your program, as a
           file and line number.
 
-     Breakpoint commands, if any, are listed after the line for the
-     corresponding breakpoint.
+     If a breakpoint is conditional, `info break' shows the condition on
+     the line following the affected breakpoint; breakpoint commands,
+     if any, are listed after that.
 
      `info break' with a breakpoint number N as argument lists only
      that breakpoint.  The convenience variable `$_' and the default
@@ -646,28 +644,19 @@ N, the breakpoint will not stop the next N times it is reached.
      To make the breakpoint stop the next time it is reached, specify a
      count of zero.
 
-`continue COUNT'
-`c COUNT'
-`fg COUNT'
-     Continue execution of your program, setting the ignore count of the
-     breakpoint where your program stopped to COUNT minus one.  Thus,
-     your program will not stop at this breakpoint until the COUNT'th
-     time it is reached.
+     When you use `continue' to resume execution of your program from a
+     breakpoint, you can specify an ignore count directly as an
+     argument to `continue', rather than using `ignore'.  *Note
+     Continuing and stepping: Continuing and Stepping.
 
-     An argument to this command is meaningful only when your program
-     stopped due to a breakpoint.  At other times, the argument to
-     `continue' is ignored.
+     If a breakpoint has a positive ignore count and a condition, the
+     condition is not checked.  Once the ignore count reaches zero, the
+     condition will be checked.
 
-     The synonym `fg' is provided purely for convenience, and has
-     exactly the same behavior as other forms of the command.
-
-   If a breakpoint has a positive ignore count and a condition, the
-condition is not checked.  Once the ignore count reaches zero, the
-condition will be checked.
-
-   You could achieve the effect of the ignore count with a condition
-such as `$foo-- <= 0' using a debugger convenience variable that is
-decremented each time.  *Note Convenience variables: Convenience Vars.
+     You could achieve the effect of the ignore count with a condition
+     such as `$foo-- <= 0' using a debugger convenience variable that
+     is decremented each time.  *Note Convenience variables:
+     Convenience Vars.
 
 
 File: gdb.info,  Node: Break Commands,  Next: Breakpoint Menus,  Prev: Conditions,  Up: Breakpoints
@@ -713,9 +702,9 @@ then continue.  If none of the remaining commands print anything, you
 will see no sign that the breakpoint was reached.  `silent' is
 meaningful only at the beginning of a breakpoint command list.
 
-   The commands `echo' and `output' that allow you to print precisely
-controlled output are often useful in silent breakpoints.  *Note
-Commands for controlled output: Output.
+   The commands `echo', `output', and `printf' allow you to print
+precisely controlled output, and are often useful in silent
+breakpoints.  *Note Commands for controlled output: Output.
 
    For example, here is how you could use breakpoint commands to print
 the value of `x' at entry to `foo' whenever `x' is positive.
@@ -723,9 +712,7 @@ the value of `x' at entry to `foo' whenever `x' is positive.
      break foo if x>0
      commands
      silent
-     echo x is\040
-     output x
-     echo \n
+     printf "x is %d\n",x
      cont
      end
 
@@ -744,24 +731,9 @@ that no output is produced.  Here is an example:
      cont
      end
 
-   One deficiency in the operation of automatically continuing
-breakpoints under Unix appears when your program uses raw mode for the
-terminal.  GDB switches back to its own terminal modes (not raw) before
-executing commands, and then must switch back to raw mode when your
-program is continued.  This causes any pending terminal input to be
-lost.
-
-   Under Unix, you can get around this problem by writing actions into
-the breakpoint condition rather than in commands.  For example,
-
-     condition 5  (x = y + 4), 0
-
-specifies a condition expression (*note Expressions: Expressions.) that
-will change `x' as needed, then always have the value zero so your
-program will not stop.  No input is lost here, because GDB evaluates
-break conditions without changing the terminal modes.  When you want to
-have nontrivial conditions for performing the side effects, the
-operators `&&', `||' and `?...:' may be useful.
+   Previous versions of GDB (4.9 and earlier) would flush pending input
+when executing breakpoint commands, if your program used raw mode for
+the terminal.  This is no longer true.
 
 
 File: gdb.info,  Node: Breakpoint Menus,  Next: Error in Breakpoints,  Prev: Break Commands,  Up: Breakpoints
@@ -800,7 +772,8 @@ particular definitions of that function name:
      Breakpoint 2 at 0xb344: file String.cc, line 875.
      Breakpoint 3 at 0xafcc: file String.cc, line 846.
      Multiple breakpoints were set.
-     Use the "delete" command to delete unwanted breakpoints.
+     Use the "delete" command to delete unwanted
+      breakpoints.
      (gdb)
 
 
@@ -842,18 +815,28 @@ program may stop even sooner, due to a breakpoint or to a signal.  (If
 due to a signal, you may want to use `handle', or use `signal 0' to
 resume execution.  *Note Signals: Signals.)
 
-`continue [IGNORE-COUNT]'
+`continue [COUNT]'
+`c [COUNT]'
+`fg [COUNT]'
      Resume program execution, at the address where your program last
      stopped; any breakpoints set at that address are bypassed.  The
-     optional argument IGNORE-COUNT allows you to specify a further
-     number of times to ignore a breakpoint at this location; its
-     effect is like that of `ignore' (*note Break conditions:
-     Conditions.).
+     optional argument COUNT means to set the ignore count of a
+     breakpoint which you are stopped at to COUNT - 1, just like the
+     `ignore' command (*note Break conditions: Conditions.).  This
+     means that the program does not stop at that breakpoint until the
+     COUNTth time it is hit.
 
-     To resume execution at a different place, you can use `return'
-     (*note Returning from a function: Returning.) to go back to the
-     calling function; or `jump' (*note Continuing at a different
-     address: Jumping.) to go to an arbitrary location in your program.
+     The argument COUNT is meaningful only when your program stopped
+     due to a breakpoint.  At other times, the argument to `continue'
+     is ignored.
+
+     The synonyms `c' and `fg' are provided purely for convenience, and
+     have exactly the same behavior as `continue'.
+
+   To resume execution at a different place, you can use `return'
+(*note Returning from a function: Returning.) to go back to the calling
+function; or `jump' (*note Continuing at a different address: Jumping.)
+to go to an arbitrary location in your program.
 
    A typical technique for using stepping is to set a breakpoint (*note
 Breakpoints; watchpoints; and exceptions: Breakpoints.) at the
@@ -869,8 +852,8 @@ variables that are interesting, until you see the problem happen.
 
           *Warning:* If you use the `step' command while control is
           within a function that was compiled without debugging
-          information, execution will proceed until control reaches
-          another function.
+          information, execution proceeds until control reaches a
+          function that does have debugging information.
 
 `step COUNT'
      Continue running as in `step', but do so COUNT times.  If a

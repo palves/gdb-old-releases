@@ -1,3 +1,29 @@
+Sun Jul 18 21:43:59 1993  Jim Kingdon  (kingdon@rtl.cygnus.com)
+
+	* i386.h: Recognize I386PTXMAGIC.
+
+Fri Jul 16 09:54:35 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* mips.h (MIPS_AOUT_{OZ}MAGIC): Renamed from {OZ}MAGIC.
+
+Thu Jul 15 12:23:55 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* m88k.h (union external_auxent): Move x_fcn back inside x_fcnary.
+	({GET,PUT}_FCN_{LNNOPTR,ENDNDX}): Adjust accordingly.
+
+Sun Jul 11 18:00:18 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* m68k.h: Define MC68KBCSMAGIC.
+
+Thu Jun 10 11:46:28 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* mips.h (_INIT, STYP_MIPS_INIT): Define (used on Irix4).
+	(STYP_OTHER_LOAD): Define as STYP_MIPS_INIT.
+
+Wed Jun  9 15:09:09 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* mips.h (OMAGIC): Define.
+
 Mon Apr 26 18:04:47 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
 
 	* internal.h, sh.h: Support for SH.

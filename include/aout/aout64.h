@@ -26,19 +26,46 @@ struct external_exec
 #define OMAGIC 0x1001		/* Code indicating object file  */
 #define ZMAGIC 0x1002		/* Code indicating demand-paged executable.  */
 #define NMAGIC 0x1003		/* Code indicating pure executable.  */
-#else
-#define OMAGIC 0407		/* ...object file or impure executable.  */
-#define NMAGIC 0410		/* Code indicating pure executable.  */
-#define ZMAGIC 0413		/* Code indicating demand-paged executable.  */
-#endif
+
+/* There is no 64-bit QMAGIC as far as I know.  */
 
 #define N_BADMAG(x)	  (N_MAGIC(x) != OMAGIC		\
 			&& N_MAGIC(x) != NMAGIC		\
   			&& N_MAGIC(x) != ZMAGIC)
+#else
+#define OMAGIC 0407		/* ...object file or impure executable.  */
+#define NMAGIC 0410		/* Code indicating pure executable.  */
+#define ZMAGIC 0413		/* Code indicating demand-paged executable.  */
+
+/* This indicates a demand-paged executable with the header in the text.
+   As far as I know it is only used by 386BSD and/or BSDI.  */
+#define QMAGIC 0314
+#define N_BADMAG(x)	  (N_MAGIC(x) != OMAGIC		\
+			&& N_MAGIC(x) != NMAGIC		\
+  			&& N_MAGIC(x) != ZMAGIC \
+		        && N_MAGIC(x) != QMAGIC)
 #endif
+
+#endif
+
+#ifdef QMAGIC
+#define N_IS_QMAGIC(x) (N_MAGIC (x) == QMAGIC)
+#else
+#define N_IS_QMAGIC(x) (0)
+#endif
+
+/* The difference between PAGE_SIZE and N_SEGSIZE is that PAGE_SIZE is
+   the the finest granularity at which you can page something, thus it
+   controls the padding (if any) before the text segment of a ZMAGIC
+   file.  N_SEGSIZE is the resolution at which things can be marked as
+   read-only versus read/write, so it controls the padding between the
+   text segment and the data segment (in memory; on disk the padding
+   between them is PAGE_SIZE).  PAGE_SIZE and N_SEGSIZE are the same
+   for most machines, but different for sun3.  */
 
 /* By default, segment size is constant.  But some machines override this
    to be a function of the a.out header (e.g. machine type).  */
+
 #ifndef	N_SEGSIZE
 #define	N_SEGSIZE(x)	SEGMENT_SIZE
 #endif
@@ -74,19 +101,30 @@ struct external_exec
     (Do this in the appropriate bfd target file.)
     (The default is a heuristic that will break if people try changing
     the entry point, perhaps with the ld -e flag.)
+
+    * QMAGIC is always like a ZMAGIC for which N_HEADER_IN_TEXT is true,
+    and for which the starting address is PAGE_SIZE (or should this be
+    SEGMENT_SIZE?) (TEXT_START_ADDR only applies to ZMAGIC, not to QMAGIC).
     */
 
+/* This macro is only relevant for ZMAGIC files; QMAGIC always has the header
+   in the text.  */
 #ifndef N_HEADER_IN_TEXT
 #define N_HEADER_IN_TEXT(x) (((x).a_entry & (PAGE_SIZE-1)) >= EXEC_BYTES_SIZE)
 #endif
 
+/* Sun shared libraries, not linux.  This macro is only relevant for ZMAGIC
+   files.  */
 #ifndef N_SHARED_LIB
 #define N_SHARED_LIB(x) ((x).a_entry < TEXT_START_ADDR)
 #endif
 
 #ifndef N_TXTADDR
 #define N_TXTADDR(x) \
-    (N_MAGIC(x) != ZMAGIC ? 0 :	/* object file or NMAGIC */\
+    (/* The address of a QMAGIC file is always one page in, */ \
+     /* with the header in the text.  */ \
+     N_IS_QMAGIC (x) ? PAGE_SIZE + EXEC_BYTES_SIZE : \
+     N_MAGIC(x) != ZMAGIC ? 0 :	/* object file or NMAGIC */\
      N_SHARED_LIB(x) ? 0 :	\
      N_HEADER_IN_TEXT(x)  ?	\
 	    TEXT_START_ADDR + EXEC_BYTES_SIZE :	/* no padding */\
@@ -97,7 +135,8 @@ struct external_exec
 /* Offset in an a.out of the start of the text section. */
 #ifndef N_TXTOFF
 #define N_TXTOFF(x)	\
-    (N_MAGIC(x) != ZMAGIC ? EXEC_BYTES_SIZE : /* object file or NMAGIC */\
+    (/* For {O,N,Q}MAGIC, no padding.  */ \
+     N_MAGIC(x) != ZMAGIC ? EXEC_BYTES_SIZE : \
      N_SHARED_LIB(x) ? 0 : \
      N_HEADER_IN_TEXT(x) ?	\
 	    EXEC_BYTES_SIZE :			/* no padding */\
@@ -111,7 +150,9 @@ struct external_exec
    exec header to be part of the text segment.)  */
 #ifndef N_TXTSIZE
 #define	N_TXTSIZE(x) \
-    ((N_MAGIC(x) != ZMAGIC || N_SHARED_LIB(x)) ? (x).a_text : \
+    (/* For QMAGIC, we don't consider the header part of the text section.  */\
+     N_IS_QMAGIC (x) ? (x).a_text - EXEC_BYTES_SIZE : \
+     (N_MAGIC(x) != ZMAGIC || N_SHARED_LIB(x)) ? (x).a_text : \
      N_HEADER_IN_TEXT(x)  ?	\
 	    (x).a_text - EXEC_BYTES_SIZE:	/* no padding */\
 	    (x).a_text				/* a page of padding */\
@@ -131,9 +172,17 @@ struct external_exec
 
 /* Offsets of the various portions of the file after the text segment.  */
 
+/* For {N,Q,Z}MAGIC, there is padding to make the data segment start
+   on a page boundary.  Most of the time the a_text field (and thus
+   N_TXTSIZE) already contains this padding.  But if it doesn't (I
+   think maybe this happens on BSDI and/or 386BSD), then add it.  */
+
 #ifndef N_DATOFF
-#define N_DATOFF(x)	( N_TXTOFF(x) + N_TXTSIZE(x) )
+#define N_DATOFF(x) \
+ (N_MAGIC(x) == OMAGIC ? N_TXTOFF(x) + N_TXTSIZE(x) : \
+  PAGE_SIZE + ((N_TXTOFF(x) + N_TXTSIZE(x) - 1) & ~(PAGE_SIZE - 1)))
 #endif
+
 #ifndef N_TRELOFF
 #define N_TRELOFF(x)	( N_DATOFF(x) + (x).a_data )
 #endif

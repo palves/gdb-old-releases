@@ -26,34 +26,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "value.h"
 #include "gdbcmd.h"
 #include "language.h"
-
-#ifdef USG
-#include <sys/types.h>
-#endif
-
-#include <sys/param.h>
-#include <signal.h>
-#include <sys/ioctl.h>
-
 #include "gdbcore.h"
 #include "symfile.h"
 #include "objfiles.h"
 
-#ifndef	MIPSMAGIC
-#ifdef MIPSEL
-#define MIPSMAGIC	MIPSELMAGIC
-#else
-#define MIPSMAGIC	MIPSEBMAGIC
-#endif
-#endif
+#include "opcode/mips.h"
 
 #define VM_MIN_ADDRESS (unsigned)0x400000
-
-#include <sys/user.h>		/* After a.out.h  */
-#include <sys/file.h>
-#include <sys/stat.h>
-
 
+static int mips_in_lenient_prologue PARAMS ((CORE_ADDR, CORE_ADDR));
+
 /* Some MIPS boards don't support floating point, so we permit the
    user to turn it off.  */
 int mips_fpu = 1;
@@ -95,9 +77,11 @@ read_next_frame_reg(fi, regno)
      immediately below the frame and we get the saved registers from there.
      If the stack layout for sigtramp changes we might have to change these
      constants and the companion fixup_sigtramp in mipsread.c  */
+#ifndef SIGFRAME_BASE
 #define SIGFRAME_BASE		0x12c	/* sizeof(sigcontext) */
 #define SIGFRAME_PC_OFF		(-SIGFRAME_BASE + 2 * 4)
 #define SIGFRAME_REGSAVE_OFF	(-SIGFRAME_BASE + 3 * 4)
+#endif
   for (; fi; fi = fi->next)
       if (in_sigtramp(fi->pc, 0)) {
 	  int offset;
@@ -155,12 +139,25 @@ heuristic_proc_start(pc)
 	       decstation).  22apr93 rich@cygnus.com.  */
 	    if (!stop_soon_quietly)
 	      {
+		static int blurb_printed = 0;
+
 		if (fence == VM_MIN_ADDRESS)
 		  warning("Hit beginning of text section without finding");
 		else
 		  warning("Hit heuristic-fence-post without finding");
 		
-		warning("enclosing function for pc 0x%x", pc);
+		warning("enclosing function for address 0x%x", pc);
+		if (!blurb_printed)
+		  {
+		    printf_filtered ("\
+This warning occurs if you are debugging a function without any symbols\n\
+(for example, in a stripped executable).  In that case, you may wish to\n\
+increase the size of the search with the `set heuristic-fence-post' command.\n\
+\n\
+Otherwise, you told GDB there was a function where there isn't one, or\n\
+(more likely) you have encountered a bug in GDB.\n");
+		    blurb_printed = 1;
+		  }
 	      }
 
 	    return 0; 
@@ -198,12 +195,14 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
   restart:
     frame_size = 0;
     for (cur_pc = start_pc; cur_pc < limit_pc; cur_pc += 4) {
+        char buf[4];
 	unsigned long word;
 	int status;
 
-	status = read_memory_nobpt (cur_pc, (char *)&word, 4); 
-	if (status) memory_error (status, cur_pc); 
-	SWAP_TARGET_AND_HOST (&word, sizeof (word));
+	status = read_memory_nobpt (cur_pc, buf, 4); 
+	if (status) memory_error (status, cur_pc);
+	word = extract_unsigned_integer (buf, 4);
+
 	if ((word & 0xFFFF0000) == 0x27bd0000) /* addiu $sp,$sp,-i */
 	    frame_size += (-word) & 0xFFFF;
 	else if ((word & 0xFFFF0000) == 0x23bd0000) /* addu $sp,$sp,-i */
@@ -300,8 +299,9 @@ find_proc_desc(pc, next_frame)
 	  if (PROC_LOW_ADDR(&link->info) <= pc
 	      && PROC_HIGH_ADDR(&link->info) > pc)
 	      return &link->info;
+
       proc_desc =
-	  heuristic_proc_desc(heuristic_proc_start(pc), pc, next_frame);
+	heuristic_proc_desc (heuristic_proc_start (pc), pc, next_frame);
     }
   return proc_desc;
 }
@@ -333,14 +333,14 @@ init_extra_frame_info(fci)
 {
   extern struct obstack frame_cache_obstack;
   /* Use proc_desc calculated in frame_chain */
-  mips_extra_func_info_t proc_desc = fci->next ? cached_proc_desc :
-      find_proc_desc(fci->pc, fci->next);
+  mips_extra_func_info_t proc_desc =
+    fci->next ? cached_proc_desc : find_proc_desc(fci->pc, fci->next);
 
   fci->saved_regs = (struct frame_saved_regs*)
     obstack_alloc (&frame_cache_obstack, sizeof(struct frame_saved_regs));
-  bzero(fci->saved_regs, sizeof(struct frame_saved_regs));
+  memset (fci->saved_regs, 0, sizeof (struct frame_saved_regs));
   fci->proc_desc =
-      proc_desc == &temp_proc_desc ? 0 : proc_desc;
+    proc_desc == &temp_proc_desc ? 0 : proc_desc;
   if (proc_desc)
     {
       int ireg;
@@ -351,38 +351,67 @@ init_extra_frame_info(fci)
 
       /* Fixup frame-pointer - only needed for top frame */
       /* This may not be quite right, if proc has a real frame register */
-      if (fci->pc == PROC_LOW_ADDR(proc_desc))
+      if (fci->pc == PROC_LOW_ADDR(proc_desc) && !PROC_DESC_IS_DUMMY(proc_desc))
 	fci->frame = read_register (SP_REGNUM);
       else
 	fci->frame = READ_FRAME_REG(fci, PROC_FRAME_REG(proc_desc))
 		      + PROC_FRAME_OFFSET(proc_desc);
 
+      /* If this is the innermost frame, and we are still in the
+	 prologue (loosely defined), then the registers may not have
+	 been saved yet.  */
+      if (fci->next == NULL
+          && !PROC_DESC_IS_DUMMY(proc_desc)
+	  && mips_in_lenient_prologue (PROC_LOW_ADDR (proc_desc), fci->pc))
+	{
+	  /* Can't just say that the registers are not saved, because they
+	     might get clobbered halfway through the prologue.
+	     heuristic_proc_desc already has the right code to figure out
+	     exactly what has been saved, so use it.  As far as I know we
+	     could be doing this (as we do on the 68k, for example)
+	     regardless of whether we are in the prologue; I'm leaving in
+	     the check for being in the prologue only out of conservatism
+	     (I'm not sure whether heuristic_proc_desc handles all cases,
+	     for example).
+
+	     This stuff is ugly (and getting uglier by the minute).  Probably
+	     the best way to clean it up is to ignore the proc_desc's from
+	     the symbols altogher, and get all the information we need by
+	     examining the prologue (provided we can make the prologue
+	     examining code good enough to get all the cases...).  */
+	  proc_desc =
+	    heuristic_proc_desc (PROC_LOW_ADDR (proc_desc),
+				 fci->pc,
+				 fci->next);
+	}
+
       if (proc_desc == &temp_proc_desc)
-	  *fci->saved_regs = temp_saved_regs;
+	*fci->saved_regs = temp_saved_regs;
       else
-      {
+	{
 	  /* find which general-purpose registers were saved */
 	  reg_position = fci->frame + PROC_REG_OFFSET(proc_desc);
 	  mask = kernel_trap ? 0xFFFFFFFF : PROC_REG_MASK(proc_desc);
 	  for (ireg= 31; mask; --ireg, mask <<= 1)
-	      if (mask & 0x80000000)
+	    if (mask & 0x80000000)
 	      {
-		  fci->saved_regs->regs[ireg] = reg_position;
-		  reg_position -= 4;
+		fci->saved_regs->regs[ireg] = reg_position;
+		reg_position -= 4;
 	      }
 	  /* find which floating-point registers were saved */
 	  reg_position = fci->frame + PROC_FREG_OFFSET(proc_desc);
-	  /* The freg_offset points to where the first *double* register is saved.
-	   * So skip to the high-order word. */
+
+	  /* The freg_offset points to where the first *double* register
+	     is saved.  So skip to the high-order word. */
 	  reg_position += 4;
 	  mask = kernel_trap ? 0xFFFFFFFF : PROC_FREG_MASK(proc_desc);
 	  for (ireg = 31; mask; --ireg, mask <<= 1)
-	      if (mask & 0x80000000)
+	    if (mask & 0x80000000)
 	      {
-		  fci->saved_regs->regs[FP0_REGNUM+ireg] = reg_position;
-		  reg_position -= 4;
+		fci->saved_regs->regs[FP0_REGNUM+ireg] = reg_position;
+		reg_position -= 4;
 	      }
-      }
+	}
 
       /* hack: if argument regs are saved, guess these contain args */
       if ((PROC_REG_MASK(proc_desc) & 0xF0) == 0) fci->num_args = -1;
@@ -612,7 +641,7 @@ static void
 mips_print_register (regnum, all)
      int regnum, all;
 {
-      unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE * 2]; /* *2 for doubles */
+      unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE];
       REGISTER_TYPE val;
 
       /* Get the data in raw format.  */
@@ -625,9 +654,15 @@ mips_print_register (regnum, all)
       /* If an even floating pointer register, also print as double. */
       if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM+32
 	  && !((regnum-FP0_REGNUM) & 1)) {
-	  read_relative_register_raw_bytes (regnum+1, raw_buffer+4);
+	  char dbuffer[MAX_REGISTER_RAW_SIZE]; 
+
+	  read_relative_register_raw_bytes (regnum, dbuffer);
+	  read_relative_register_raw_bytes (regnum+1, dbuffer+4);
+#ifdef REGISTER_CONVERT_TO_TYPE
+          REGISTER_CONVERT_TO_TYPE(regnum, builtin_type_double, dbuffer);
+#endif
 	  printf_filtered ("(d%d: ", regnum-FP0_REGNUM);
-	  val_print (builtin_type_double, raw_buffer, 0,
+	  val_print (builtin_type_double, dbuffer, 0,
 		     stdout, 0, 1, 0, Val_pretty_default);
 	  printf_filtered ("); ");
       }
@@ -650,8 +685,9 @@ mips_print_register (regnum, all)
 	{
 	  long val;
 
-	  bcopy (raw_buffer, &val, sizeof (long));
-	  SWAP_TARGET_AND_HOST ((char *)&val, sizeof (long));
+	  val = extract_signed_integer (raw_buffer,
+					REGISTER_RAW_SIZE (regnum));
+
 	  if (val == 0)
 	    printf_filtered ("0");
 	  else if (all)
@@ -702,45 +738,33 @@ mips_frame_num_args(fip)
 #endif
 	return -1;
 }
-
 
-/* Bad floats: Returns 0 if P points to a valid IEEE floating point number,
-   1 if P points to a denormalized number or a NaN. LEN says whether this is
-   a single-precision or double-precision float */
-#define SINGLE_EXP_BITS  8
-#define DOUBLE_EXP_BITS 11
-int
-isa_NAN(p, len)
-     int *p, len;
+/* Does this instruction involve use of a delay slot?  */
+static int
+is_delayed (insn)
+     unsigned long insn;
 {
-  int exponent;
-  if (len == 4)
-    {
-      exponent = *p;
-      exponent = exponent << 1 >> (32 - SINGLE_EXP_BITS - 1);
-      return ((exponent == -1) || (! exponent && *p));
-    }
-  else if (len == 8)
-    {
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-      exponent = *p;
-#else
-      exponent = *(p+1);
-#endif
-      exponent = exponent << 1 >> (32 - DOUBLE_EXP_BITS - 1);
-      return ((exponent == -1) || (! exponent && *p * *(p+1)));
-    }
-  else return 1;
+  int i;
+  for (i = 0; i < NUMOPCODES; ++i)
+    if (mips_opcodes[i].pinfo != INSN_MACRO
+	&& (insn & mips_opcodes[i].mask) == mips_opcodes[i].match)
+      break;
+  return i < NUMOPCODES && (mips_opcodes[i].pinfo & ANY_DELAY);
 }
-
-/* To skip prologues, I use this predicate.  Returns either PC
-   itself if the code at PC does not look like a function prologue;
-   otherwise returns an address that (if we're lucky) follows
-   the prologue. */
+
+/* To skip prologues, I use this predicate.  Returns either PC itself
+   if the code at PC does not look like a function prologue; otherwise
+   returns an address that (if we're lucky) follows the prologue.  If
+   LENIENT, then we must skip everything which is involved in setting
+   up the frame (it's OK to skip more, just so long as we don't skip
+   anything which might clobber the registers which are being saved.
+   We must skip more in the case where part of the prologue is in the
+   delay slot of a non-prologue instruction).  */
 
 CORE_ADDR
-mips_skip_prologue(pc)
+mips_skip_prologue (pc, lenient)
      CORE_ADDR pc;
+     int lenient;
 {
     struct symbol *f;
     struct block *b;
@@ -751,8 +775,19 @@ mips_skip_prologue(pc)
     /* Skip the typical prologue instructions. These are the stack adjustment
        instruction and the instructions that save registers on the stack
        or in the gcc frame.  */
-    for (offset = 0; offset < 100; offset += 4) {
-	inst = read_memory_integer(pc + offset, 4);
+    for (offset = 0; offset < 100; offset += 4)
+      {
+	char buf[4];
+	int status;
+
+	status = read_memory_nobpt (pc + offset, buf, 4);
+	if (status)
+	  memory_error (status, pc + offset);
+	inst = extract_unsigned_integer (buf, 4);
+
+	if (lenient && is_delayed (inst))
+	  continue;
+
 	if ((inst & 0xffff0000) == 0x27bd0000)	/* addiu $sp,$sp,offset */
 	    seen_sp_adjust = 1;
 	else if ((inst & 0xFFE00000) == 0xAFA00000 && (inst & 0x001F0000))
@@ -764,6 +799,8 @@ mips_skip_prologue(pc)
 						/* sx reg,n($s8) */
 	    continue;				/* reg != $zero */
 	else if (inst == 0x03A0F021)		/* move $s8,$sp */
+	    continue;
+	else if ((inst & 0xFF9F07FF) == 0x00800021) /* move reg,$a0-$a3 */
 	    continue;
 	else
 	    break;
@@ -800,6 +837,56 @@ mips_skip_prologue(pc)
 #endif
 }
 
+/* Is address PC in the prologue (loosely defined) for function at
+   STARTADDR?  */
+
+static int
+mips_in_lenient_prologue (startaddr, pc)
+     CORE_ADDR startaddr;
+     CORE_ADDR pc;
+{
+  CORE_ADDR end_prologue = mips_skip_prologue (startaddr, 1);
+  return pc >= startaddr && pc < end_prologue;
+}
+
+/* Given a return value in `regbuf' with a type `valtype', 
+   extract and copy its value into `valbuf'.  */
+void
+mips_extract_return_value (valtype, regbuf, valbuf)
+    struct type *valtype;
+    char regbuf[REGISTER_BYTES];
+    char *valbuf;
+{
+  int regnum;
+  
+  regnum = TYPE_CODE (valtype) == TYPE_CODE_FLT && mips_fpu ? FP0_REGNUM : 2;
+
+  memcpy (valbuf, regbuf + REGISTER_BYTE (regnum), TYPE_LENGTH (valtype));
+#ifdef REGISTER_CONVERT_TO_TYPE
+  REGISTER_CONVERT_TO_TYPE(regnum, valtype, valbuf);
+#endif
+}
+
+/* Given a return value in `regbuf' with a type `valtype', 
+   write it's value into the appropriate register.  */
+void
+mips_store_return_value (valtype, valbuf)
+    struct type *valtype;
+    char *valbuf;
+{
+  int regnum;
+  char raw_buffer[MAX_REGISTER_RAW_SIZE];
+  
+  regnum = TYPE_CODE (valtype) == TYPE_CODE_FLT && mips_fpu ? FP0_REGNUM : 2;
+  memcpy(raw_buffer, valbuf, TYPE_LENGTH (valtype));
+
+#ifdef REGISTER_CONVERT_FROM_TYPE
+  REGISTER_CONVERT_FROM_TYPE(regnum, valtype, raw_buffer);
+#endif
+
+  write_register_bytes(REGISTER_BYTE (regnum), raw_buffer, TYPE_LENGTH (valtype));
+}
+
 /* Let the user turn off floating point and set the fence post for
    heuristic_proc_start.  */
 
@@ -817,8 +904,11 @@ or dealing with return values.", &setlist),
   add_show_from_set
     (add_set_cmd ("heuristic-fence-post", class_support, var_uinteger,
 		  (char *) &heuristic_fence_post,
-		  "Set the distance searched for the start of a function.\n\
-Set number of bytes to be searched backward to find the beginning of a\n\
-function without symbols.", &setlist),
+		  "\
+Set the distance searched for the start of a function.\n\
+If you are debugging a stripped executable, GDB needs to search through the\n\
+program for the start of a function.  This command sets the distance of the\n\
+search.  The only need to set it is when debugging a stripped executable.",
+		  &setlist),
      &showlist);
 }

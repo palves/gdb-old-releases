@@ -213,14 +213,14 @@ DEFUN(bfd_coff_reloc16_relax_section,(abfd, i, symbols),
 }
 
 bfd_byte *
-DEFUN(bfd_coff_reloc16_get_relocated_section_contents,(in_abfd,
-						       seclet,
-						       data,
-						       relocateable),
-      bfd *in_abfd AND
-      bfd_seclet_type *seclet AND
-      bfd_byte *data AND
-      boolean relocateable)
+  bfd_coff_reloc16_get_relocated_section_contents(in_abfd,
+						  seclet,
+						  data,
+						  relocateable)
+ bfd *in_abfd;
+ bfd_seclet_type *seclet;
+ bfd_byte *data;
+ boolean relocateable;
 {
   /* Get enough memory to hold the stuff */
   bfd *input_bfd = seclet->u.indirect.section->owner;
@@ -401,6 +401,12 @@ DEFUN(bfd_coff_reloc16_get_relocated_section_contents,(in_abfd,
 		     data+dst_address);
 	  dst_address+=2;
 	  src_address+=2;
+	  break;
+	case R_RELLONG:
+	  bfd_put_32(in_abfd, bfd_coff_reloc16_get_value(reloc,seclet),
+		     data+dst_address);
+	  dst_address+=4;
+	  src_address+=4;
 	  break;
         default:
 	  bfd_coff_reloc16_extra_cases (in_abfd, seclet, reloc, data,

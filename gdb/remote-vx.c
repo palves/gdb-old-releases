@@ -27,6 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "symtab.h"
 #include "complaints.h"
+#include "gdbcmd.h"
 
 #include <string.h>
 #include <errno.h>
@@ -385,11 +386,7 @@ vx_read_register (regno)
   
   ptrace_in.pid = inferior_pid;
   ptrace_out.info.more_data = (caddr_t) &out_data;
-#ifndef I80960
-  out_data.len   = 18 * REGISTER_RAW_SIZE (0);		/* FIXME m68k hack */
-#else
-  out_data.len = (16 + 16 + 3) * REGISTER_RAW_SIZE (0);
-#endif
+  out_data.len   = VX_NUM_REGS * REGISTER_RAW_SIZE (0);
   out_data.bytes = (caddr_t) registers;
   
   status = net_ptrace_clnt_call (PTRACE_GETREGS, &ptrace_in, &ptrace_out);
@@ -401,50 +398,17 @@ vx_read_register (regno)
       perror_with_name ("net_ptrace_clnt_call(PTRACE_GETREGS)");
     }
   
-#ifdef I80960
-
-  {
+#ifdef VX_SIZE_FPREGS
     /* If the target has floating point registers, fetch them.
        Otherwise, zero the floating point register values in
        registers[] for good measure, even though we might not
        need to.  */
-    /* @@ Can't use this -- the rdb library for the 960 target
-       doesn't support setting or retrieving FP regs.  KR  */
-#if 0
-    struct fp_status inferior_fp_registers;
-
-    if (target_has_fp)
-      {
-	ptrace_in.pid = inferior_pid;
-	ptrace_out.info.more_data = (caddr_t) &inferior_fp_registers;
-	status = net_ptrace_clnt_call (PTRACE_GETFPREGS,
-				       &ptrace_in, &ptrace_out);
-	if (status)
-	  error (rpcerr);
-	if (ptrace_out.status == -1)
-	  {
-	    errno = ptrace_out.errno;
-	    perror_with_name ("net_ptrace_clnt_call(PTRACE_GETFPREGS)");
-	  }
-
-	bcopy (&inferior_fp_registers, &registers[REGISTER_BYTE (FP0_REGNUM)],
-	       REGISTER_RAW_SIZE (FP0_REGNUM) * 4);
-      }
-    else
-      {
-	bzero ((char *) &registers[REGISTER_BYTE (FP0_REGNUM)],
-	       REGISTER_RAW_SIZE (FP0_REGNUM) * 4);
-      }
-#endif
-  }
-#else  /* not 960, thus must be 68000:  FIXME!  */
 
   if (target_has_fp)
     {
       ptrace_in.pid = inferior_pid;
       ptrace_out.info.more_data = (caddr_t) &out_data;
-      out_data.len   =  8 * REGISTER_RAW_SIZE (FP0_REGNUM)	/* FIXME */
-		     + (3 * sizeof (REGISTER_TYPE));
+      out_data.len   =  VX_SIZE_FPREGS;
       out_data.bytes = (caddr_t) &registers[REGISTER_BYTE (FP0_REGNUM)];
   
       status = net_ptrace_clnt_call (PTRACE_GETFPREGS, &ptrace_in, &ptrace_out);
@@ -458,12 +422,9 @@ vx_read_register (regno)
     }
   else
     {
-      bzero (&registers[REGISTER_BYTE (FP0_REGNUM)],
-      	     8 * REGISTER_RAW_SIZE (FP0_REGNUM));
-      bzero (&registers[REGISTER_BYTE (FPC_REGNUM)],
-	     3 * sizeof (REGISTER_TYPE));
+      bzero (&registers[REGISTER_BYTE (FP0_REGNUM)], VX_SIZE_FPREGS);
     }
-#endif  /* various architectures */
+#endif /* VX_SIZE_FPREGS */
 }
 
 /* Prepare to store registers.  Since we will store all of them,
@@ -502,15 +463,7 @@ vx_write_register (regno)
 
   in_data.bytes = registers;
 
-#ifdef I80960
-
-  in_data.len = (16 + 16 + 3) * sizeof (REGISTER_TYPE);
-
-#else  /* not 960 -- assume m68k -- FIXME */
-
-  in_data.len = 18 * sizeof (REGISTER_TYPE);
-
-#endif  /* Different register sets */
+  in_data.len = VX_NUM_REGS * sizeof (REGISTER_TYPE);
 
   /* XXX change second param to be a proc number */
   status = net_ptrace_clnt_call (PTRACE_SETREGS, &ptrace_in, &ptrace_out);
@@ -522,6 +475,7 @@ vx_write_register (regno)
       perror_with_name ("net_ptrace_clnt_call(PTRACE_SETREGS)");
     }
 
+#ifdef VX_SIZE_FPREGS
   /* Store floating point registers if the target has them.  */
 
   if (target_has_fp)
@@ -531,18 +485,8 @@ vx_write_register (regno)
       ptrace_in.info.more_data = (caddr_t) &in_data;
 
 
-#ifdef I80960
-#if 0 /* @@ Not supported by target.  */
       in_data.bytes = &registers[REGISTER_BYTE (FP0_REGNUM)];
-      in_data.len = 4 * REGISTER_RAW_SIZE (FP0_REGNUM);
-#endif
-#else  /* not 960 -- assume m68k -- FIXME */
-
-      in_data.bytes = &registers[REGISTER_BYTE (FP0_REGNUM)];
-      in_data.len = (8 * REGISTER_RAW_SIZE (FP0_REGNUM)
-                      + (3 * sizeof (REGISTER_TYPE)));
-
-#endif  /* Different register sets */
+      in_data.len = VX_SIZE_FPREGS;
 
       status = net_ptrace_clnt_call (PTRACE_SETFPREGS, &ptrace_in, &ptrace_out);
       if (status)
@@ -553,6 +497,7 @@ vx_write_register (regno)
 	  perror_with_name ("net_ptrace_clnt_call(PTRACE_SETFPREGS)");
 	}
     }
+#endif  /* VX_SIZE_FPREGS */
 }
 
 /* Copy LEN bytes to or from remote inferior's memory starting at MEMADDR
@@ -633,7 +578,8 @@ vx_run_files_info ()
 }
 
 static void
-vx_resume (step, siggnal)
+vx_resume (pid, step, siggnal)
+     int pid;
      int step;
      int siggnal;
 {
@@ -647,7 +593,7 @@ vx_resume (step, siggnal)
   bzero ((char *) &ptrace_in, sizeof (ptrace_in));
   bzero ((char *) &ptrace_out, sizeof (ptrace_out));
 
-  ptrace_in.pid = inferior_pid;
+  ptrace_in.pid = pid;
   ptrace_in.addr = 1;	/* Target side insists on this, or it panics.  */
 
   /* XXX change second param to be a proc number */
@@ -1087,8 +1033,9 @@ vx_open (args, from_tty)
     {
       if (*bootFile) {
 	printf_filtered ("\t%s: ", bootFile);
-	if (catch_errors (symbol_stub, bootFile,
-		"Error while reading symbols from boot file:\n"))
+	if (catch_errors
+	    (symbol_stub, bootFile,
+	     "Error while reading symbols from boot file:\n", RETURN_MASK_ALL))
 	  puts_filtered ("ok\n");
       } else if (from_tty)
 	printf ("VxWorks kernel symbols not loaded.\n");
@@ -1124,7 +1071,8 @@ vx_open (args, from_tty)
       /* Botches, FIXME:
 	 (1)  Searches the PATH, not the source path.
 	 (2)  data and bss are assumed to be at the usual offsets from text.  */
-      catch_errors (add_symbol_stub, (char *)pLoadFile, (char *)0);
+      catch_errors (add_symbol_stub, (char *)pLoadFile, (char *)0,
+		    RETURN_MASK_ALL);
 #endif
     }
   printf_filtered ("Done.\n");
@@ -1363,6 +1311,14 @@ struct target_ops vx_run_ops = {
 void
 _initialize_vx ()
 {
-  add_target (&vx_ops);
+  
+ add_show_from_set
+    (add_set_cmd ("vxworks-timeout", class_support, var_uinteger,
+		  (char *) &rpcTimeout.tv_sec,
+		  "Set seconds to wait for rpc calls to return.\n\
+Set the number of seconds to wait for rpc calls to return.", &setlist),
+     &showlist);
+
+   add_target (&vx_ops);
   add_target (&vx_run_ops);
 }

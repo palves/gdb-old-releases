@@ -102,18 +102,22 @@ NINDY ROM monitor at the other end of the line.
 
 #include "frame.h"
 #include "inferior.h"
+#include "bfd.h"
+#include "symfile.h"
 #include "target.h"
 #include "gdbcore.h"
 #include "command.h"
-#include "bfd.h"
 #include "ieee-float.h"
 
 #include "wait.h"
 #include <sys/ioctl.h>
 #include <sys/file.h>
 #include <ctype.h>
+#include "serial.h"
+#if 0
 #include "nindy-share/ttycntl.h"
 #include "nindy-share/demux.h"
+#endif
 #include "nindy-share/env.h"
 #include "nindy-share/stop.h"
 
@@ -121,11 +125,9 @@ extern int unlink();
 extern char *getenv();
 extern char *mktemp();
 
-extern char *coffstrip();
 extern void generic_mourn_inferior ();
 
 extern struct target_ops nindy_ops;
-extern jmp_buf to_top_level;
 extern FILE *instream;
 extern struct ext_format ext_format_i960;	/* i960-tdep.c */
 
@@ -140,7 +142,9 @@ char *nindy_ttyname;	/* name of tty to talk to nindy on, or null */
 #define TRUE	1
 #define FALSE	0
 
-int nindy_fd = 0;	/* Descriptor for I/O to NINDY  */
+/* From nindy-share/nindy.c.  */
+extern serial_t nindy_serial;
+
 static int have_regs = 0;	/* 1 iff regs read since i960 last halted */
 static int regs_changed = 0;	/* 1 iff regs were modified since last read */
 
@@ -158,55 +162,15 @@ nindy_fetch_registers PARAMS ((int));
 static void
 nindy_store_registers PARAMS ((int));
 
-/* FIXME, we can probably use the normal terminal_inferior stuff here.
-   We have to do terminal_inferior and then set up the passthrough
-   settings initially.  Thereafter, terminal_ours and terminal_inferior
-   will automatically swap the settings around for us.  */
-
-/* Restore TTY to normal operation */
-
-static TTY_STRUCT orig_tty;	/* TTY attributes before entering passthrough */
-
-static void
-restore_tty()
-{
-	ioctl( 0, TIOCSETN, &orig_tty );
-}
-
-
-/* Recover from ^Z or ^C while remote process is running */
-
-static void (*old_ctrlc)();    /* Signal handlers before entering passthrough */
-
-#ifdef SIGTSTP
-static void (*old_ctrlz)();
-#endif
-
-static
-#ifdef USG
-void
-#endif
-cleanup()
-{
-	restore_tty();
-	signal(SIGINT, old_ctrlc);
-#ifdef SIGTSTP
-	signal(SIGTSTP, old_ctrlz);
-#endif
-	error("\n\nYou may need to reset the 80960 and/or reload your program.\n");
-}
-
-/* Clean up anything that needs cleaning when losing control.  */
-
 static char *savename;
 
 static void
 nindy_close (quitting)
      int quitting;
 {
-  if (nindy_fd)
-    close (nindy_fd);
-  nindy_fd = 0;
+  if (nindy_serial != NULL)
+    SERIAL_CLOSE (nindy_serial);
+  nindy_serial = NULL;
 
   if (savename)
     free (savename);
@@ -230,25 +194,24 @@ nindy_open (name, from_tty)
   
   nindy_close (0);
 
-	have_regs = regs_changed = 0;
-	dcache_init();
+  have_regs = regs_changed = 0;
+  dcache_init();
 
-	/* Allow user to interrupt the following -- we could hang if
-	 * there's no NINDY at the other end of the remote tty.
-	 */
-	immediate_quit++;
-	nindy_fd = ninConnect( name, baud_rate? baud_rate: "9600",
-			nindy_initial_brk, !from_tty, nindy_old_protocol );
-	immediate_quit--;
+  /* Allow user to interrupt the following -- we could hang if there's
+     no NINDY at the other end of the remote tty.  */
+  immediate_quit++;
+  ninConnect(name, baud_rate ? baud_rate : "9600",
+	     nindy_initial_brk, !from_tty, nindy_old_protocol);
+  immediate_quit--;
 
-	if ( nindy_fd < 0 ){
-		nindy_fd = 0;
-		error( "Can't open tty '%s'", name );
-	}
+  if (nindy_serial == NULL)
+    {
+      perror_with_name (name);
+    }
 
-        savename = savestring (name, strlen (name));
-	push_target (&nindy_ops);
-	target_fetch_registers(-1);
+  savename = savestring (name, strlen (name));
+  push_target (&nindy_ops);
+  target_fetch_registers(-1);
 }
 
 /* User-initiated quit of nindy operations.  */
@@ -272,57 +235,8 @@ nindy_files_info ()
          nindy_initial_brk? " with initial break": "");
 }
 
-/******************************************************************************
- * remote_load:
- *	Download an object file to the remote system by invoking the "comm960"
- *	utility.  We look for "comm960" in $G960BIN, $G960BASE/bin, and
- *	DEFAULT_BASE/bin/HOST/bin where
- *		DEFAULT_BASE is defined in env.h, and
- *		HOST must be defined on the compiler invocation line.
- ******************************************************************************/
-
-static void
-nindy_load( filename, from_tty )
-    char *filename;
-    int from_tty;
-{
-  asection *s;
-  /* Can't do unix style forking on a VMS system, so we'll use bfd to do
-     all the work for us 
-     */
-
-  bfd *file = bfd_openr(filename,0);
-  if (!file) 
-  {
-    perror_with_name(filename);
-    return;
-  }
-  
-  if (!bfd_check_format(file, bfd_object)) 
-  {
-    error("can't prove it's an object file\n");
-    return;
-  }
-  
-  for ( s = file->sections; s; s=s->next) 
-  {
-    if (s->flags & SEC_LOAD) 
-    {
-      char *buffer = xmalloc(s->_raw_size);
-      bfd_get_section_contents(file, s, buffer, 0, s->_raw_size);
-      printf("Loading section %s, size %x vma %x\n",
-	     s->name, 
-	     s->_raw_size,
-	     s->vma);
-      ninMemPut(s->vma, buffer, s->_raw_size);
-      free(buffer);
-    }
-  }
-  bfd_close(file);
-}
-
-/* Return the number of characters in the buffer before the first DLE character.
- */
+/* Return the number of characters in the buffer before
+   the first DLE character.  */
 
 static
 int
@@ -343,8 +257,8 @@ non_dle( buf, n )
 /* Tell the remote machine to resume.  */
 
 void
-nindy_resume (step, siggnal)
-     int step, siggnal;
+nindy_resume (pid, step, siggnal)
+     int pid, step, siggnal;
 {
 	if (siggnal != 0 && siggnal != stop_signal)
 	  error ("Can't send signals to remote NINDY targets.");
@@ -356,6 +270,27 @@ nindy_resume (step, siggnal)
 	}
 	have_regs = 0;
 	ninGo( step );
+}
+
+/* FIXME, we can probably use the normal terminal_inferior stuff here.
+   We have to do terminal_inferior and then set up the passthrough
+   settings initially.  Thereafter, terminal_ours and terminal_inferior
+   will automatically swap the settings around for us.  */
+
+struct clean_up_tty_args {
+  serial_ttystate state;
+  serial_t serial;
+};
+
+static void
+clean_up_tty (ptrarg)
+     PTR ptrarg;
+{
+  struct clean_up_tty_args *args = (struct clean_up_tty_args *) ptrarg;
+  SERIAL_SET_TTY_STATE (args->serial, args->state);
+  free (args->state);
+  warning ("\n\n\
+You may need to reset the 80960 and/or reload your program.\n");
 }
 
 /* Wait until the remote machine stops. While waiting, operate in passthrough
@@ -369,107 +304,120 @@ static int
 nindy_wait( status )
     WAITTYPE *status;
 {
-	DEMUX_DECL;	/* OS-dependent data needed by DEMUX... macros */
-	char buf[500];	/* FIXME, what is "500" here? */
-	int i, n;
-	unsigned char stop_exit;
-	unsigned char stop_code;
-	TTY_STRUCT tty;
-	long ip_value, fp_value, sp_value;	/* Reg values from stop */
+  fd_set fds;
+  char buf[500];	/* FIXME, what is "500" here? */
+  int i, n;
+  unsigned char stop_exit;
+  unsigned char stop_code;
+  struct clean_up_tty_args tty_args;
+  struct cleanup *old_cleanups;
+  long ip_value, fp_value, sp_value;	/* Reg values from stop */
 
+  WSETEXIT( (*status), 0 );
 
-	WSETEXIT( (*status), 0 );
+  /* OPERATE IN PASSTHROUGH MODE UNTIL NINDY SENDS A DLE CHARACTER */
 
-	/* OPERATE IN PASSTHROUGH MODE UNTIL NINDY SENDS A DLE CHARACTER */
+  /* Save current tty attributes, and restore them when done.  */
+  tty_args.serial = SERIAL_FDOPEN (0);
+  tty_args.state = SERIAL_GET_TTY_STATE (tty_args.serial);
+  old_cleanups = make_cleanup (clean_up_tty, &tty_args);
 
-	/* Save current tty attributes, set up signals to restore them.
-	 */
-	ioctl( 0, TIOCGETP, &orig_tty );
-	old_ctrlc = signal( SIGINT, cleanup );
-#ifdef SIGTSTP
-	old_ctrlz = signal( SIGTSTP, cleanup );
-#endif
+  /* Pass input from keyboard to NINDY as it arrives.  NINDY will interpret
+     <CR> and perform echo.  */
+  /* This used to set CBREAK and clear ECHO and CRMOD.  I hope this is close
+     enough.  */
+  SERIAL_RAW (tty_args.serial);
 
-	/* Pass input from keyboard to NINDY as it arrives.
-	 * NINDY will interpret <CR> and perform echo.
-	 */
-	tty = orig_tty;
-	TTY_NINDYTERM( tty );
-	ioctl( 0, TIOCSETN, &tty );
+  while (1)
+    {
+      /* Wait for input on either the remote port or stdin.  */
+      FD_ZERO (&fds);
+      FD_SET (0, &fds);
+      FD_SET (nindy_serial->fd, &fds);
+      if (select (nindy_serial->fd + 1, &fds, 0, 0, 0) <= 0)
+	continue;
 
-	while ( 1 ){
-		/* Go to sleep until there's something for us on either
-		 * the remote port or stdin.
-		 */
-
-		DEMUX_WAIT( nindy_fd );
-
-		/* Pass input through to correct place */
-
-		n = DEMUX_READ( 0, buf, sizeof(buf) );
-		if ( n ){				/* Input on stdin */
-			write( nindy_fd, buf, n );
-		}
-
-		n = DEMUX_READ( nindy_fd, buf, sizeof(buf) );
-		if ( n ){				/* Input on remote */
-			/* Write out any characters in buffer preceding DLE */
-			i = non_dle( buf, n );
-			if ( i > 0 ){
-				write( 1, buf, i );
-			}
-
-			if ( i != n ){
-				/* There *was* a DLE in the buffer */
-				stop_exit = ninStopWhy( &stop_code,
-					&ip_value, &fp_value, &sp_value);
-				if ( !stop_exit && (stop_code==STOP_SRQ) ){
-					immediate_quit++;
-					ninSrq();
-					immediate_quit--;
-				} else {
-					/* Get out of loop */
-					supply_register (IP_REGNUM, 
-							 (char *)&ip_value);
-					supply_register (FP_REGNUM, 
-							 (char *)&fp_value);
-					supply_register (SP_REGNUM, 
-							 (char *)&sp_value);
-					break;
-				}
-			}
-		}
+      /* Pass input through to correct place */
+      if (FD_ISSET (0, &fds))
+	{
+	  /* Input on stdin */
+	  n = read (0, buf, sizeof (buf));
+	  if (n)
+	    {
+	      SERIAL_WRITE (nindy_serial, buf, n );
+	    }
 	}
 
-	signal( SIGINT, old_ctrlc );
-#ifdef SIGTSTP
-	signal( SIGTSTP, old_ctrlz );
-#endif
-	restore_tty();
-
-	if ( stop_exit ){			/* User program exited */
-		WSETEXIT( (*status), stop_code );
-	} else {				/* Fault or trace */
-		switch (stop_code){
-		case STOP_GDB_BPT:
-		case TRACE_STEP:
-			/* Make it look like a VAX trace trap */
-			stop_code = SIGTRAP;
-			break;
-		default:
-			/* The target is not running Unix, and its
-			   faults/traces do not map nicely into Unix signals.
-			   Make sure they do not get confused with Unix signals
-			   by numbering them with values higher than the highest
-			   legal Unix signal.  code in i960_print_fault(),
-			   called via PRINT_RANDOM_SIGNAL, will interpret the
-			   value.  */
-			stop_code += NSIG;
-			break;
+      if (FD_ISSET (nindy_serial->fd, &fds))
+	{
+	  /* Input on remote */
+	  n = read (nindy_serial->fd, buf, sizeof (buf));
+	  if (n)
+	    {
+	      /* Write out any characters in buffer preceding DLE */
+	      i = non_dle( buf, n );
+	      if ( i > 0 )
+		{
+		  write (1, buf, i);
 		}
-		WSETSTOP( (*status), stop_code );
+
+	      if (i != n)
+		{
+		  /* There *was* a DLE in the buffer */
+		  stop_exit = ninStopWhy(&stop_code,
+					 &ip_value, &fp_value, &sp_value);
+		  if (!stop_exit && (stop_code == STOP_SRQ))
+		    {
+		      immediate_quit++;
+		      ninSrq();
+		      immediate_quit--;
+		    }
+		  else
+		    {
+		      /* Get out of loop */
+		      supply_register (IP_REGNUM, 
+				       (char *)&ip_value);
+		      supply_register (FP_REGNUM, 
+				       (char *)&fp_value);
+		      supply_register (SP_REGNUM, 
+				       (char *)&sp_value);
+		      break;
+		    }
+		}
+	    }
 	}
-	return inferior_pid;
+    }
+
+  do_cleanups (old_cleanups);
+
+  if (stop_exit)
+    {
+      /* User program exited */
+      WSETEXIT ((*status), stop_code);
+    }
+  else
+    {
+      /* Fault or trace */
+      switch (stop_code)
+	{
+	case STOP_GDB_BPT:
+	case TRACE_STEP:
+	  /* Breakpoint or single stepping.  */
+	  stop_code = SIGTRAP;
+	  break;
+	default:
+	  /* The target is not running Unix, and its faults/traces do
+	     not map nicely into Unix signals.  Make sure they do not
+	     get confused with Unix signals by numbering them with
+	     values higher than the highest legal Unix signal.  code
+	     in i960_print_fault(), called via PRINT_RANDOM_SIGNAL,
+	     will interpret the value.  */
+	  stop_code += NSIG;
+	  break;
+	}
+      WSETSTOP ((*status), stop_code);
+    }
+  return inferior_pid;
 }
 
 /* Read the remote registers into the block REGS.  */
@@ -496,11 +444,11 @@ nindy_fetch_registers(regno)
   ninRegsGet( (char *) &nindy_regs );
   immediate_quit--;
 
-  bcopy (nindy_regs.local_regs, &registers[REGISTER_BYTE (R0_REGNUM)], 16*4);
-  bcopy (nindy_regs.global_regs, &registers[REGISTER_BYTE (G0_REGNUM)], 16*4);
-  bcopy (nindy_regs.pcw_acw, &registers[REGISTER_BYTE (PCW_REGNUM)], 2*4);
-  bcopy (nindy_regs.ip, &registers[REGISTER_BYTE (IP_REGNUM)], 1*4);
-  bcopy (nindy_regs.tcw, &registers[REGISTER_BYTE (TCW_REGNUM)], 1*4);
+  memcpy (&registers[REGISTER_BYTE (R0_REGNUM)], nindy_regs.local_regs, 16*4);
+  memcpy (&registers[REGISTER_BYTE (G0_REGNUM)], nindy_regs.global_regs, 16*4);
+  memcpy (&registers[REGISTER_BYTE (PCW_REGNUM)], nindy_regs.pcw_acw, 2*4);
+  memcpy (&registers[REGISTER_BYTE (IP_REGNUM)], nindy_regs.ip, 1*4);
+  memcpy (&registers[REGISTER_BYTE (TCW_REGNUM)], nindy_regs.tcw, 1*4);
   for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 4; regnum++) {
     dub = unpack_double (builtin_type_double,
 			 &nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)],
@@ -528,11 +476,11 @@ nindy_store_registers(regno)
   int regnum, inv;
   double dub;
 
-  bcopy (&registers[REGISTER_BYTE (R0_REGNUM)], nindy_regs.local_regs,  16*4);
-  bcopy (&registers[REGISTER_BYTE (G0_REGNUM)], nindy_regs.global_regs, 16*4);
-  bcopy (&registers[REGISTER_BYTE (PCW_REGNUM)], nindy_regs.pcw_acw,     2*4);
-  bcopy (&registers[REGISTER_BYTE (IP_REGNUM)], nindy_regs.ip,           1*4);
-  bcopy (&registers[REGISTER_BYTE (TCW_REGNUM)], nindy_regs.tcw,         1*4);
+  memcpy (nindy_regs.local_regs, &registers[REGISTER_BYTE (R0_REGNUM)], 16*4);
+  memcpy (nindy_regs.global_regs, &registers[REGISTER_BYTE (G0_REGNUM)], 16*4);
+  memcpy (nindy_regs.pcw_acw, &registers[REGISTER_BYTE (PCW_REGNUM)], 2*4);
+  memcpy (nindy_regs.ip, &registers[REGISTER_BYTE (IP_REGNUM)], 1*4);
+  memcpy (nindy_regs.tcw, &registers[REGISTER_BYTE (TCW_REGNUM)], 1*4);
   /* Float regs.  Only works on IEEE_FLOAT hosts.  FIXME!  */
   for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 4; regnum++) {
     ieee_extended_to_double (&ext_format_i960,
@@ -543,8 +491,7 @@ nindy_store_registers(regno)
        This mostly works but not quite.  */
     dub = unpack_double (builtin_type_double, (char *)&dub, &inv);
     /* dub now in target byte order */
-    bcopy ((char *)&dub, &nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)],
-	8);
+    memcpy (&nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)], &dub, 8);
   }
 
   immediate_quit++;
@@ -615,7 +562,7 @@ nindy_xfer_inferior_memory(memaddr, myaddr, len, write, target)
 
       /* Copy data to be written over corresponding part of buffer */
 
-      bcopy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
+      memcpy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
 
       /* Write the entire buffer.  */
 
@@ -640,7 +587,7 @@ nindy_xfer_inferior_memory(memaddr, myaddr, len, write, target)
 	}
 
       /* Copy appropriate bytes out of the buffer.  */
-      bcopy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
+      memcpy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
     }
   return len;
 }
@@ -858,13 +805,15 @@ reset_command(args, from_tty)
      char *args;
      int from_tty;
 {
-	if ( !nindy_fd ){
-	    error( "No target system to reset -- use 'target nindy' command.");
-	}
-	if ( query("Really reset the target system?",0,0) ){
-		send_break( nindy_fd );
-		tty_flush( nindy_fd );
-	}
+  if (nindy_serial == NULL)
+    {
+      error( "No target system to reset -- use 'target nindy' command.");
+    }
+  if ( query("Really reset the target system?",0,0) )
+    {
+      SERIAL_SEND_BREAK (nindy_serial);
+      tty_flush (nindy_serial);
+    }
 }
 
 void
@@ -889,6 +838,23 @@ nindy_mourn_inferior ()
   generic_mourn_inferior ();	/* Do all the proper things now */
 }
 
+/* Pass the args the way catch_errors wants them.  */
+static int
+nindy_open_stub (arg)
+     char *arg;
+{
+  nindy_open (arg, 1);
+  return 1;
+}
+
+static int
+load_stub (arg)
+     char *arg;
+{
+  target_load (arg, 1);
+  return 1;
+}
+
 /* This routine is run as a hook, just before the main command loop is
    entered.  If gdb is configured for the i960, but has not had its
    nindy target specified yet, this will loop prompting the user to do so.
@@ -903,7 +869,6 @@ nindy_before_main_loop ()
   char ttyname[100];
   char *p, *p2;
 
-  setjmp(to_top_level);
   while (current_target != &nindy_ops) { /* remote tty not specified yet */
 	if ( instream == stdin ){
 		printf("\nAttach /dev/ttyNN -- specify NN, or \"quit\" to quit:  ");
@@ -926,13 +891,16 @@ nindy_before_main_loop ()
 		exit(1);
 	}
 
-	nindy_open( p, 1 );
-
-	/* Now that we have a tty open for talking to the remote machine,
-	   download the executable file if one was specified.  */
-	if ( !setjmp(to_top_level) && exec_bfd ) {
-	      target_load (bfd_get_filename (exec_bfd), 1);
-	}
+	if (catch_errors (nindy_open_stub, p, "", RETURN_MASK_ALL))
+	  {
+	    /* Now that we have a tty open for talking to the remote machine,
+	       download the executable file if one was specified.  */
+	    if (exec_bfd)
+	      {
+		catch_errors (load_stub, bfd_get_filename (exec_bfd), "",
+			      RETURN_MASK_ALL);
+	      }
+	  }
   }
 }
 
@@ -956,7 +924,7 @@ specified when you started GDB.",
 	0, 0, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0,	/* Terminal crud */
 	nindy_kill,
-	nindy_load,
+	generic_load,
 	0, /* lookup_symbol */
 	nindy_create_inferior,
 	nindy_mourn_inferior,

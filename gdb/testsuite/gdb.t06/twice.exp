@@ -1,0 +1,30 @@
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+gdb_reinitialize_dir $srcdir/$subdir
+set binfile $objdir/$subdir/twice
+
+if ![file exists $binfile] then {
+    warning "$binfile does not exist; tests suppressed"
+} else {
+    gdb_load $binfile
+    if [runto main] then {
+
+	# Test that GDB can still detect whether we have line numbers
+	# even if we're executing code in an include file.
+
+	# The bug was fixed by
+	#Tue Jun 29 11:02:58 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+	#
+	#	* infrun.c (wait_for_inferior): Use find_pc_line not
+	#	find_pc_symtab to check whether there is line number
+	#	information.
+
+	gdb_test "step" "nothing \(\) at"
+    }
+}
+return 0

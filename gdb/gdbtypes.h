@@ -77,13 +77,24 @@ enum type_code
   TYPE_CODE_ENUM,		/* Enumeration type */
   TYPE_CODE_FUNC,		/* Function type */
   TYPE_CODE_INT,		/* Integer type */
-  TYPE_CODE_FLT,		/* Floating type */
-  TYPE_CODE_VOID,		/* Void type (values zero length) */
+
+  /* Floating type.  This is *NOT* a complex type.  Complex types, when
+     we have them, will have their own type code (or TYPE_CODE_ERROR if
+     we can parse a complex type but not manipulate it).  There are parts
+     of GDB which bogusly assume that TYPE_CODE_FLT can mean complex.  */
+  TYPE_CODE_FLT,
+
+  /* Void type (values zero length; the length field is ignored).  */
+  TYPE_CODE_VOID,
+
   TYPE_CODE_SET,		/* Pascal sets */
   TYPE_CODE_RANGE,		/* Range (integers within spec'd bounds) */
   TYPE_CODE_STRING,		/* String types, distinct from array of char */
   TYPE_CODE_BITSTRING,		/* String of bits, distinct from bool array */
-  TYPE_CODE_ERROR,              /* Unknown type */
+
+  /* Unknown type.  The length field is valid if we were able to
+     deduce that much about the type, or 0 if we don't even know that.  */
+  TYPE_CODE_ERROR,
 
   /* C++ */
   TYPE_CODE_MEMBER,		/* Member type */
@@ -126,12 +137,25 @@ struct type
   enum type_code code;
 
   /* Name of this type, or NULL if none.
+
      This is used for printing only, except by poorly designed C++ code.
-     Type names specified as input are defined by symbols.  */
+     For looking up a name, look for a symbol in the VAR_NAMESPACE.  */
 
   char *name;
 
-  /* Length in bytes of storage for a value of this type */
+  /* Tag name for this type, or NULL if none.  This means that the
+     name of the type consists of a keyword followed by the tag name.
+     Which keyword is determined by the type code ("struct" for
+     TYPE_CODE_STRUCT, etc.).  As far as I know C/C++ are the only languages
+     with this feature.
+
+     This is used for printing only, except by poorly designed C++ code.
+     For looking up a name, look for a symbol in the STRUCT_NAMESPACE.  */
+
+  char *tag_name;
+
+  /* Length, in units of TARGET_CHAR_BIT bits,
+     of storage for a value of this type */
 
   unsigned length;
 
@@ -231,8 +255,7 @@ struct type
     } *fields;
 
   /* For types with virtual functions, VPTR_BASETYPE is the base class which
-     defined the virtual function table pointer.  VPTR_FIELDNO is
-     the field number of that pointer in the structure.
+     defined the virtual function table pointer.  
 
      For types that are pointer to member types, VPTR_BASETYPE
      is the type that this pointer is a member of.
@@ -240,6 +263,13 @@ struct type
      Unused otherwise.  */
 
   struct type *vptr_basetype;
+
+  /* Field number of the virtual function table pointer in
+     VPTR_BASETYPE.  If -1, we were unable to find the virtual
+     function table pointer in initial symbol reading, and
+     fill_in_vptr_fieldno should be called to find it if possible.
+
+     Unused if this type does not have virtual functions.  */
 
   int vptr_fieldno;
 
@@ -268,7 +298,10 @@ struct type
 
 struct cplus_struct_type
 {
-  /* Number of base classes this type derives from. */
+  /* Number of base classes this type derives from.  The baseclasses are
+     stored in the first N_BASECLASSES fields (i.e. the `fields' field of
+     the struct type).  I think only the `type' field of such a field has
+     any meaning.  */
 
   short n_baseclasses;
 
@@ -333,7 +366,16 @@ struct cplus_struct_type
       struct fn_field
 	{
 
-	  /* The name after it has been processed */
+	  /* If is_stub is clear, this is the mangled name which we can
+	     look up to find the address of the method (FIXME: it would
+	     be cleaner to have a pointer to the struct symbol here
+	     instead).  */
+
+	  /* If is_stub is set, this is the portion of the mangled
+	     name which specifies the arguments.  For example, "ii",
+	     if there are two int arguments, or "" if there are no
+	     arguments.  See gdb_mangle_name for the conversion from this
+	     format to the one used if is_stub is clear.  */
 
 	  char *physname;
 
@@ -341,7 +383,9 @@ struct cplus_struct_type
 
 	  struct type *type;
 
-	  /* The argument list */
+	  /* The argument list.  Only valid if is_stub is clear.  Contains
+	     the type of each argument, including `this', and ending with
+	     a NULL pointer after the last argument.  */
 
 	  struct type **args;
 
@@ -356,7 +400,12 @@ struct cplus_struct_type
 	  unsigned int is_volatile : 1;
 	  unsigned int is_private : 1;
 	  unsigned int is_protected : 1;
+
+	  /* A stub method only has some fields valid (but they are enough
+	     to reconstruct the rest of the fields).  */
 	  unsigned int is_stub : 1;
+
+	  /* Unused.  */
 	  unsigned int dummy : 3;
 
 	  /* Index into that baseclass's virtual function table,
@@ -387,6 +436,7 @@ allocate_cplus_struct_type PARAMS ((struct type *));
   (TYPE_CPLUS_SPECIFIC(type) != &cplus_struct_default)
 
 #define TYPE_NAME(thistype) (thistype)->name
+#define TYPE_TAG_NAME(type) ((type)->tag_name)
 #define TYPE_TARGET_TYPE(thistype) (thistype)->target_type
 #define TYPE_POINTER_TYPE(thistype) (thistype)->pointer_type
 #define TYPE_REFERENCE_TYPE(thistype) (thistype)->reference_type
@@ -621,9 +671,6 @@ gdb_mangle_name PARAMS ((struct type *, int, int));
 
 extern struct type *
 builtin_type PARAMS ((char **));
-
-extern struct type *
-error_type PARAMS ((char **));
 
 extern struct type *
 lookup_typename PARAMS ((char *, struct block *, int));

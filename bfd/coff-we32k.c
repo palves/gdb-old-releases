@@ -35,7 +35,7 @@ static reloc_howto_type howto_table[] =
     {3},
     {4},
     {5},
-  HOWTO(R_DIR32,	       0,  2, 	32, false, 0, true,true,0,"dir32",	true, 0xffffffff,0xffffffff, false),
+  HOWTO(R_DIR32,	       0,  2, 	32, false, 0,complain_overflow_bitfield, 0, "dir32",	true, 0xffffffff,0xffffffff, false),
     {7},
     {010},
     {011},
@@ -44,12 +44,12 @@ static reloc_howto_type howto_table[] =
     {014},
     {015},
     {016},
-  HOWTO(R_RELBYTE,	       0,  0,  	8,  false, 0, true,  true,0,"8",	true, 0x000000ff,0x000000ff, false),
-  HOWTO(R_RELWORD,	       0,  1, 	16, false, 0, true,  true,0,"16",	true, 0x0000ffff,0x0000ffff, false),
-  HOWTO(R_RELLONG,	       0,  2, 	32, false, 0, true,  true,0,"32",	true, 0xffffffff,0xffffffff, false),
-  HOWTO(R_PCRBYTE,	       0,  0, 	8,  true,  0, false, true,0,"DISP8",    true, 0x000000ff,0x000000ff, false),
-  HOWTO(R_PCRWORD,	       0,  1, 	16, true,  0, false, true,0,"DISP16",   true, 0x0000ffff,0x0000ffff, false),
-  HOWTO(R_PCRLONG,	       0,  2, 	32, true,  0, false, true,0,"DISP32",   true, 0xffffffff,0xffffffff, false),
+  HOWTO(R_RELBYTE,	       0,  0,  	8,  false, 0, complain_overflow_bitfield, 0, "8",	true, 0x000000ff,0x000000ff, false),
+  HOWTO(R_RELWORD,	       0,  1, 	16, false, 0, complain_overflow_bitfield, 0, "16",	true, 0x0000ffff,0x0000ffff, false),
+  HOWTO(R_RELLONG,	       0,  2, 	32, false, 0, complain_overflow_bitfield, 0, "32",	true, 0xffffffff,0xffffffff, false),
+  HOWTO(R_PCRBYTE,	       0,  0, 	8,  true,  0, complain_overflow_signed, 0, "DISP8",    true, 0x000000ff,0x000000ff, false),
+  HOWTO(R_PCRWORD,	       0,  1, 	16, true,  0, complain_overflow_signed, 0, "DISP16",   true, 0x0000ffff,0x0000ffff, false),
+  HOWTO(R_PCRLONG,	       0,  2, 	32, true,  0, complain_overflow_signed, 0, "DISP32",   true, 0xffffffff,0xffffffff, false),
 };
 
 /* Turn a howto into a reloc  nunmber */

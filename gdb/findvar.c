@@ -26,6 +26,148 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "target.h"
 
+/* Basic byte-swapping routines.  GDB has needed these for a long time...
+   All extract a target-format integer at ADDR which is LEN bytes long.  */
+
+#if TARGET_CHAR_BIT != 8 || HOST_CHAR_BIT != 8
+  /* 8 bit characters are a pretty safe assumption these days, so we
+     assume it throughout all these swapping routines.  If we had to deal with
+     9 bit characters, we would need to make len be in bits and would have
+     to re-write these routines...  */
+  you lose
+#endif
+
+LONGEST
+extract_signed_integer (addr, len)
+     PTR addr;
+     int len;
+{
+  LONGEST retval;
+  unsigned char *p;
+  unsigned char *startaddr = (unsigned char *)addr;
+  unsigned char *endaddr = startaddr + len;
+
+  if (len > sizeof (LONGEST))
+    error ("\
+That operation is not available on integers of more than %d bytes.",
+	   sizeof (LONGEST));
+
+  /* Start at the most significant end of the integer, and work towards
+     the least significant.  */
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+  p = startaddr;
+#else
+  p = endaddr - 1;
+#endif
+  /* Do the sign extension once at the start.  */
+  retval = (*p ^ 0x80) - 0x80;
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+  for (++p; p < endaddr; ++p)
+#else
+  for (--p; p >= startaddr; --p)
+#endif
+    {
+      retval = (retval << 8) | *p;
+    }
+  return retval;
+}
+
+unsigned LONGEST
+extract_unsigned_integer (addr, len)
+     PTR addr;
+     int len;
+{
+  unsigned LONGEST retval;
+  unsigned char *p;
+  unsigned char *startaddr = (unsigned char *)addr;
+  unsigned char *endaddr = startaddr + len;
+
+  if (len > sizeof (unsigned LONGEST))
+    error ("\
+That operation is not available on integers of more than %d bytes.",
+	   sizeof (unsigned LONGEST));
+
+  /* Start at the most significant end of the integer, and work towards
+     the least significant.  */
+  retval = 0;
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+  for (p = startaddr; p < endaddr; ++p)
+#else
+  for (p = endaddr - 1; p >= startaddr; --p)
+#endif
+    {
+      retval = (retval << 8) | *p;
+    }
+  return retval;
+}
+
+CORE_ADDR
+extract_address (addr, len)
+     PTR addr;
+     int len;
+{
+  /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
+     whether we want this to be true eventually.  */
+  return extract_unsigned_integer (addr, len);
+}
+
+void
+store_signed_integer (addr, len, val)
+     PTR addr;
+     int len;
+     LONGEST val;
+{
+  unsigned char *p;
+  unsigned char *startaddr = (unsigned char *)addr;
+  unsigned char *endaddr = startaddr + len;
+
+  /* Start at the least significant end of the integer, and work towards
+     the most significant.  */
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+  for (p = endaddr - 1; p >= startaddr; --p)
+#else
+  for (p = startaddr; p < endaddr; ++p)
+#endif
+    {
+      *p = val & 0xff;
+      val >>= 8;
+    }
+}
+
+void
+store_unsigned_integer (addr, len, val)
+     PTR addr;
+     int len;
+     unsigned LONGEST val;
+{
+  unsigned char *p;
+  unsigned char *startaddr = (unsigned char *)addr;
+  unsigned char *endaddr = startaddr + len;
+
+  /* Start at the least significant end of the integer, and work towards
+     the most significant.  */
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+  for (p = endaddr - 1; p >= startaddr; --p)
+#else
+  for (p = startaddr; p < endaddr; ++p)
+#endif
+    {
+      *p = val & 0xff;
+      val >>= 8;
+    }
+}
+
+void
+store_address (addr, len, val)
+     PTR addr;
+     int len;
+     CORE_ADDR val;
+{
+  /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
+     whether we want this to be true eventually.  */
+  store_unsigned_integer (addr, len, (LONGEST)val);
+}
+
 #if !defined (GET_SAVED_REGISTER)
 
 /* Return the address in which frame FRAME's value of register REGNUM
@@ -101,11 +243,11 @@ find_saved_register (frame, regnum)
   return addr;
 }
 
-/* Find register number REGNUM relative to FRAME and put its
-   (raw) contents in *RAW_BUFFER.  Set *OPTIMIZED if the variable
-   was optimized out (and thus can't be fetched).  Set *LVAL to
-   lval_memory, lval_register, or not_lval, depending on whether the
-   value was fetched from memory, from a register, or in a strange
+/* Find register number REGNUM relative to FRAME and put its (raw,
+   target format) contents in *RAW_BUFFER.  Set *OPTIMIZED if the
+   variable was optimized out (and thus can't be fetched).  Set *LVAL
+   to lval_memory, lval_register, or not_lval, depending on whether
+   the value was fetched from memory, from a register, or in a strange
    and non-modifiable way (e.g. a frame pointer which was calculated
    rather than fetched).  Set *ADDRP to the address, either in memory
    on as a REGISTER_BYTE offset into the registers array.
@@ -115,6 +257,7 @@ find_saved_register (frame, regnum)
    your own.
 
    The argument RAW_BUFFER must point to aligned memory.  */
+
 void
 get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
      char *raw_buffer;
@@ -136,7 +279,10 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
       if (regnum == SP_REGNUM)
 	{
 	  if (raw_buffer != NULL)
-	    *(CORE_ADDR *)raw_buffer = addr;
+	    {
+	      /* Put it back in target format.  */
+	      store_address (raw_buffer, REGISTER_RAW_SIZE (regnum), addr);
+	    }
 	  if (addrp != NULL)
 	    *addrp = 0;
 	  return;
@@ -171,8 +317,9 @@ read_relative_register_raw_bytes (regnum, myaddr)
   int optim;
   if (regnum == FP_REGNUM && selected_frame)
     {
-      memcpy (myaddr, &FRAME_FP(selected_frame), REGISTER_RAW_SIZE(FP_REGNUM));
-      SWAP_TARGET_AND_HOST (myaddr, REGISTER_RAW_SIZE(FP_REGNUM)); /* in target order */
+      /* Put it back in target format.  */
+      store_address (myaddr, REGISTER_RAW_SIZE(FP_REGNUM),
+		     FRAME_FP(selected_frame));
       return 0;
     }
 
@@ -295,36 +442,18 @@ write_register_bytes (regbyte, myaddr, len)
   target_store_registers (-1);
 }
 
-/* Return the contents of register REGNO, regarding it as an integer.  */
-/* FIXME, this loses when the REGISTER_VIRTUAL (REGNO) is true.  Also,
-   why is the return type CORE_ADDR rather than some integer type?  */
+/* Return the raw contents of register REGNO, regarding it as an integer.  */
+/* This probably should be returning LONGEST rather than CORE_ADDR.  */
 
 CORE_ADDR
 read_register (regno)
      int regno;
 {
-  unsigned short sval;
-  unsigned long lval;
-
   if (!register_valid[regno])
     target_fetch_registers (regno);
 
-  switch (REGISTER_RAW_SIZE(regno))
-    {
-    case sizeof (unsigned char):
-      return registers[REGISTER_BYTE (regno)];
-    case sizeof (sval):
-      memcpy (&sval, &registers[REGISTER_BYTE (regno)], sizeof (sval));
-      SWAP_TARGET_AND_HOST (&sval, sizeof (sval));
-      return sval;
-    case sizeof (lval):
-      memcpy (&lval, &registers[REGISTER_BYTE (regno)], sizeof (lval));
-      SWAP_TARGET_AND_HOST (&lval, sizeof (lval));
-      return lval;
-    default:
-      error ("Can't handle register size of %d for register %d\n",
-	     REGISTER_RAW_SIZE(regno), regno);
-    }
+  return extract_address (&registers[REGISTER_BYTE (regno)],
+			  REGISTER_RAW_SIZE(regno));
 }
 
 /* Registers we shouldn't try to store.  */
@@ -332,42 +461,39 @@ read_register (regno)
 #define CANNOT_STORE_REGISTER(regno) 0
 #endif
 
-/* Store VALUE in the register number REGNO, regarded as an integer.  */
-/* FIXME, this loses when REGISTER_VIRTUAL (REGNO) is true.  Also, 
-   shouldn't the val arg be a LONGEST or something?  */
+/* Store VALUE, into the raw contents of register number REGNO.  */
+/* FIXME: The val arg should probably be a LONGEST.  */
 
 void
 write_register (regno, val)
      int regno, val;
 {
-  unsigned short sval;
-  unsigned long lval;
+  PTR buf;
+  int size;
 
   /* On the sparc, writing %g0 is a no-op, so we don't even want to change
      the registers array if something writes to this register.  */
   if (CANNOT_STORE_REGISTER (regno))
     return;
 
+  size = REGISTER_RAW_SIZE(regno);
+  buf = alloca (size);
+  store_signed_integer (buf, size, (LONGEST) val);
+
+  /* If we have a valid copy of the register, and new value == old value,
+     then don't bother doing the actual store. */
+
+  if (register_valid [regno]) 
+    {
+      if (memcmp (&registers[REGISTER_BYTE (regno)], buf, size) == 0)
+	return;
+    }
+  
   target_prepare_to_store ();
 
-  register_valid [regno] = 1;
+  memcpy (&registers[REGISTER_BYTE (regno)], buf, size);
 
-  switch (REGISTER_RAW_SIZE(regno))
-    {
-    case sizeof (unsigned char):
-      registers[REGISTER_BYTE (regno)] = val;
-      break;
-    case sizeof (sval):
-      sval = val;
-      SWAP_TARGET_AND_HOST (&sval, sizeof (sval));
-      memcpy (&registers[REGISTER_BYTE (regno)], &sval, sizeof (sval));
-      break;
-    case sizeof (lval):
-      lval = val;
-      SWAP_TARGET_AND_HOST (&lval, sizeof (lval));
-      memcpy (&registers[REGISTER_BYTE (regno)], &lval, sizeof (lval));
-      break;
-    }
+  register_valid [regno] = 1;
 
   target_store_registers (regno);
 }
@@ -417,15 +543,15 @@ read_var_value (var, frame)
   switch (SYMBOL_CLASS (var))
     {
     case LOC_CONST:
-      memcpy (VALUE_CONTENTS_RAW (v), &SYMBOL_VALUE (var), len);
-      SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (v), len);
+      /* Put the constant back in target format.  */
+      store_signed_integer (VALUE_CONTENTS_RAW (v), len,
+			    (LONGEST) SYMBOL_VALUE (var));
       VALUE_LVAL (v) = not_lval;
       return v;
 
     case LOC_LABEL:
-      addr = SYMBOL_VALUE_ADDRESS (var);
-      memcpy (VALUE_CONTENTS_RAW (v), &addr, len);
-      SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (v), len);
+      /* Put the constant back in target format.  */
+      store_address (VALUE_CONTENTS_RAW (v), len, SYMBOL_VALUE_ADDRESS (var));
       VALUE_LVAL (v) = not_lval;
       return v;
 
@@ -623,10 +749,8 @@ value_from_register (type, regnum, frame)
 	  if (lval == lval_register)
 	    reg_stor++;
 	  else
-	    {
-	      mem_stor++;
-	      first_addr = addr;
-	    }
+	    mem_stor++;
+	  first_addr = addr;
 	  last_addr = addr;
 
 	  get_saved_register (value_bytes + 2,
@@ -658,14 +782,14 @@ value_from_register (type, regnum, frame)
 				frame,
 				local_regnum,
 				&lval);
+
+	    if (regnum == local_regnum)
+	      first_addr = addr;
 	    if (lval == lval_register)
 	      reg_stor++;
 	    else
 	      {
 		mem_stor++;
-
-		if (regnum == local_regnum)
-		  first_addr = addr;
 	      
 		mem_tracking =
 		  (mem_tracking
@@ -707,6 +831,11 @@ value_from_register (type, regnum, frame)
       /* Copy into the contents section of the value.  */
       memcpy (VALUE_CONTENTS_RAW (v), value_bytes, len);
 
+      /* Finally do any conversion necessary when extracting this
+         type from more than one register.  */
+#ifdef REGISTER_CONVERT_TO_TYPE
+      REGISTER_CONVERT_TO_TYPE(regnum, type, VALUE_CONTENTS_RAW(v));
+#endif
       return v;
     }
 

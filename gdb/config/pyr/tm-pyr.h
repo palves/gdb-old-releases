@@ -284,12 +284,17 @@ extern unsigned int last_frame_offset;
 	CORE_ADDR frame_cfp;	\
 	CORE_ADDR frame_window_addr;
 
+/* The bottom field is misnamed, since it might imply that memory from
+   bottom to frame contains this frame.  That need not be true if
+   stack frames are allocated in different segments (e.g. some on a
+   stack, some on a heap in the data segment).  */
+
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fci)  \
 do {								\
   (fci)->frame_window_addr = (fci)->frame;			\
   (fci)->bottom =						\
 	  ((fci)->next ?					\
-	   ((fci)->frame == (fci)->next_frame ?			\
+	   ((fci)->frame == (fci)->next->frame ?			\
 	    (fci)->next->bottom : (fci)->next->frame) :		\
 	   read_register (SP_REGNUM));				\
   (fci)->frame_cfp =						\

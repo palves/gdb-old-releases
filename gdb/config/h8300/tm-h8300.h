@@ -19,17 +19,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Contributed by Steve Chamberlain sac@cygnus.com */
 
+extern int h8300hmode;
 
-#define UNSIGNED_SHORT(X) ((X) & 0xffff)
-
+#define BINWORD (h8300hmode?4:2)
 
 #define EXTRA_FRAME_INFO 	\
 	struct frame_saved_regs *fsr;	\
 	CORE_ADDR from_pc; \
 	CORE_ADDR args_pointer;\
         CORE_ADDR locals_pointer ;
-
-
 
 /* Zero the frame_saved_regs pointer when the frame is initialized,
    so that FRAME_FIND_SAVED_REGS () will know to allocate and
@@ -42,15 +40,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 extern void init_extra_frame_info ();
 
-
 #define IEEE_FLOAT
 /* Define the bit, byte, and word ordering of the machine.  */
 #define TARGET_BYTE_ORDER BIG_ENDIAN
 #undef TARGET_INT_BIT
-#define TARGET_INT_BIT 16
+#define TARGET_INT_BIT  16
+#undef TARGET_LONG_BIT
+#define TARGET_LONG_BIT  32
 #undef TARGET_PTR_BIT
-#define TARGET_PTR_BIT 16
-
+#define TARGET_PTR_BIT  (h8300hmode ? 32:16)
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -60,10 +58,8 @@ extern void init_extra_frame_info ();
 /* Advance PC across any function entry prologue instructions
    to reach some "real" code.  */
 
-
 #define SKIP_PROLOGUE(ip)   {(ip) = h8300_skip_prologue(ip);}
 extern CORE_ADDR h8300_skip_prologue ();
-
 
 /* Immediately after a function call, return the saved pc.
    Can't always go through the frames for this because on some machines
@@ -71,28 +67,24 @@ extern CORE_ADDR h8300_skip_prologue ();
    some instructions.  */
 
 #define SAVED_PC_AFTER_CALL(frame) \
-UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
+  read_memory_unsigned_integer (read_register (SP_REGNUM), BINWORD)
 
 /* Stack grows downward.  */
 
 #define INNER_THAN <
 
-
-#define BREAKPOINT {0x53, 0x00}
-
+#define BREAKPOINT {0x7A, 0xFF}
 
 /* If your kernel resets the pc after the trap happens you may need to
    define this before including this file.  */
 
-
 #define DECR_PC_AFTER_BREAK 0
-
 
 /* Nonzero if instruction at PC is a return instruction.  */
 /* Allow any of the return instructions, including a trapv and a return
    from interupt.  */
 
-#define ABOUT_TO_RETURN(pc) ((read_memory_integer (pc, 2) & ~0x3) == 0x4e74)
+#define ABOUT_TO_RETURN(pc) ((read_memory_unsigned_integer (pc, 2) & ~0x3) == 0x4e74)
 
 /* Return 1 if P points to an invalid floating point value.  */
 
@@ -103,53 +95,54 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
 #define REGISTER_TYPE  unsigned short
 
 /*#  define NUM_REGS 20 /* 20 for fake HW support */
-#  define NUM_REGS 11
-#  define REGISTER_BYTES (NUM_REGS*2)
-
+#define NUM_REGS 13  
+#define REGISTER_BYTES (NUM_REGS * 4)
 
 /* Index within `registers' of the first byte of the space for
    register N.  */
 
-#define REGISTER_BYTE(N)  ((N) * 2)
+#define REGISTER_BYTE(N)  ((N) * 4)
 
 /* Number of bytes of storage in the actual machine representation
    for register N.  On the H8/300, all regs are 2 bytes.  */
 
-#define REGISTER_RAW_SIZE(N) 2
+#define REGISTER_RAW_SIZE(N) (h8300hmode ? 4 : 2)
 
 /* Number of bytes of storage in the program's representation
-   for register N.  On the H8/300, all regs are 2 bytes.  */
+   for register N.  */
 
-#define REGISTER_VIRTUAL_SIZE(N) 2
+#define REGISTER_VIRTUAL_SIZE(N) (h8300hmode ? 4 : 2)
 
 /* Largest value REGISTER_RAW_SIZE can have.  */
 
-#define MAX_REGISTER_RAW_SIZE 2
+#define MAX_REGISTER_RAW_SIZE 4
 
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 
-#define MAX_REGISTER_VIRTUAL_SIZE 2
+#define MAX_REGISTER_VIRTUAL_SIZE 4
 
 /* Nonzero if register N requires conversion
    from raw format to virtual format.  */
 
-#define REGISTER_CONVERTIBLE(N) 1
+#define REGISTER_CONVERTIBLE(N) 0
 
 /* Convert data from raw format for register REGNUM
    to virtual format for register REGNUM.  */
 
-/*#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)  */
+#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
+{ memcpy((TO), (FROM),  REGISTER_RAW_SIZE (REGNUM)); }
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
-/*#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)  */
+#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
+{ memcpy((TO), (FROM),  REGISTER_RAW_SIZE (REGNUM)); }
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
-#define REGISTER_VIRTUAL_TYPE(N)  builtin_type_unsigned_short
-
+#define REGISTER_VIRTUAL_TYPE(N) \
+(h8300hmode ? builtin_type_unsigned_long : builtin_type_unsigned_short)
 
 /* Initializer for an array of names of registers.
    Entries beyond the first NUM_REGS are ignored.  */
@@ -161,7 +154,7 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
    "ocra","ocrb","tcr","tocr","icra"} 
 #else
 #define REGISTER_NAMES \
-  {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "ccr","pc","cycles"}
+  {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "ccr","pc","cycles","tick","inst"}
 #endif
 
 /* Register numbers of various important registers.
@@ -170,7 +163,6 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
    and some are "phony" register numbers which are too large
    to be actual register numbers as far as the user is concerned
    but do serve to get the desired values when passed to read_register.  */
-
 
 #define FP_REGNUM 6		/* Contains address of executing stack frame */
 #define SP_REGNUM 7		/* Contains address of top of stack */
@@ -186,23 +178,23 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,
    into VALBUF.  */
+/* FIXME: Won't work with both h8/300's.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
   bcopy ((char *)(REGBUF), VALBUF, TYPE_LENGTH(TYPE))
 
-
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  Assumes floats are passed
    in d0/d1.  */
-
+/* FIXME: Won't work with both h8/300's.  */
 
 #define STORE_RETURN_VALUE(TYPE,VALBUF) \
   write_register_bytes (0, VALBUF, TYPE_LENGTH (TYPE))
 
-
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
    as a CORE_ADDR (or an expression that can be used as one).  */
+/* FIXME: Won't work with both h8/300's.  */
 
 #define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(CORE_ADDR *)(REGBUF))
 
@@ -241,8 +233,8 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
    SAVED FP   <-FP POINTS HERE
    LOCALS0
    LOCALS1    <-SP POINTS HERE
-   
    */
+
 #define FRAME_SAVED_PC(FRAME) frame_saved_pc(FRAME)
 
 #define FRAME_ARGS_ADDRESS(fi) frame_args_address(fi)
@@ -256,7 +248,6 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
    now that the C compiler delays popping them.  */
 
 #define FRAME_NUM_ARGS(val,fi) (val = -1)
-
 
 /* Return number of bytes at start of arglist that are not really args.  */
 
@@ -283,12 +274,6 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
 #define SHORT_INT_MAX 32767
 #define SHORT_INT_MIN -32768
 
-
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
-{ memcpy((TO), (FROM),  2); }
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-{ memcpy((TO), (FROM),  2); }
-
 #define	BEFORE_MAIN_LOOP_HOOK	\
   hms_before_main_loop();
 
@@ -297,9 +282,6 @@ typedef unsigned short INSN_WORD;
 #define ADDR_BITS_REMOVE(addr) ((addr) & 0xffff)
 #define ADDR_BITS_SET(addr) (((addr)))
 
-#define read_memory_short(x)  (read_memory_integer(x,2) & 0xffff)
 #define DONT_USE_REMOTE
 
-
 #define	PRINT_REGISTER_HOOK(regno) print_register_hook(regno)
-

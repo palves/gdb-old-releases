@@ -34,17 +34,25 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #ifdef HOST_HPPABSD
 
-/* Defining MAXCOMLEN avoids bringing in several (7 or 8) otherwise
-   useless include files which tend to clutter up the namespace.  
-
-   BSD uses a completely different scheme for object file identification.
+/* BSD uses a completely different scheme for object file identification.
    so for now, define _PA_RISC_ID to accept any random value for a model
    number.  */
+
 #include <a.out.h>
-#define MAXCOMLEN 16
+
+/* Not a very swift place to put it, but that's where the BSD port
+   puts them.  */
+#include "/hpux/usr/include/sys/core.h"
+#ifndef _PA_RISC_ID
 #define _PA_RISC_ID(__m_num) 1
+#endif
 
 #endif /* HOST_HPPABSD */
+
+/* Defining MAXCOMLEN avoids bringing in several (7 or 8) otherwise
+   useless include files which tend to clutter up the namespace.  */
+
+#define MAXCOMLEN 16
 
 #define BYTES_IN_WORD 4
 
@@ -97,24 +105,6 @@ struct hppa_data_struct {
    macro is only ever applied to an asymbol */
 #define hppa_symbol(asymbol) ((hppa_symbol_type *)(&(asymbol)->the_bfd))
 
-
-/* These are stored in the bfd's tdata */
-
-struct hppa_core_struct 
-{
-  int sig;
-  char cmd[MAXCOMLEN + 1];
-  asection *data_section;
-  asection *stack_section;
-  asection *reg_section;
-};
-
-#define core_hdr(bfd) ((bfd)->tdata.hppa_core_data)
-#define core_signal(bfd) (core_hdr(bfd)->sig)
-#define core_command(bfd) (core_hdr(bfd)->cmd)
-#define core_datasec(bfd) (core_hdr(bfd)->data_section)
-#define core_stacksec(bfd) (core_hdr(bfd)->stack_section)
-#define core_regsec(bfd) (core_hdr(bfd)->reg_section)
 
 /* HP PA-RISC relocation types */
 

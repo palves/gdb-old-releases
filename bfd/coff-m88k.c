@@ -71,12 +71,12 @@ DEFUN(howto_hvrt16,(abfd, reloc_entry, symbol_in, data,
 
 static reloc_howto_type howto_table[] = 
 {
-  HOWTO(R_PCR16L,02,1,16,true, 0,false,true,0,"PCR16L",false,0x0000ffff,0x0000ffff,true),
-  HOWTO(R_PCR26L,02,2,16,true, 0,false,true,0,"PCR26L",false,0x03ffffff,0x03ffffff,true),
-  HOWTO(R_VRT16, 00,1,16,false,0,false,true,0,"VRT16", false,0x0000ffff,0x0000ffff,true),
-  HOWTO(R_HVRT16,16,1,16,false,0,false,true,howto_hvrt16,"HVRT16",false,0x0000ffff,0x0000ffff,true),
-  HOWTO(R_LVRT16,00,1,16,false,0,false,true,0,"LVRT16",false,0x0000ffff,0x0000ffff,true),
-  HOWTO(R_VRT32, 00,2,32,false,0,false,true,0,"VRT32", false,0xffffffff,0xffffffff,true),
+  HOWTO(R_PCR16L,02,1,16,true, 0,complain_overflow_signed, 0, "PCR16L",false,0x0000ffff,0x0000ffff,true),
+  HOWTO(R_PCR26L,02,2,26,true, 0,complain_overflow_signed, 0, "PCR26L",false,0x03ffffff,0x03ffffff,true),
+  HOWTO(R_VRT16, 00,1,16,false,0,complain_overflow_bitfield, 0, "VRT16", false,0x0000ffff,0x0000ffff,true),
+  HOWTO(R_HVRT16,16,1,16,false,0,complain_overflow_dont,howto_hvrt16,"HVRT16",false,0x0000ffff,0x0000ffff,true),
+  HOWTO(R_LVRT16,00,1,16,false,0,complain_overflow_dont, 0, "LVRT16",false,0x0000ffff,0x0000ffff,true),
+  HOWTO(R_VRT32, 00,2,32,false,0,complain_overflow_bitfield, 0, "VRT32", false,0xffffffff,0xffffffff,true),
 };
 
 

@@ -168,8 +168,7 @@ value_fetch_lazy PARAMS ((value val));
 /* If ARG is an enum, convert it to an integer.  */
 
 #define COERCE_ENUM(arg)    \
-{ if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_REF)			\
-    arg = value_ind (arg);						\
+{ COERCE_REF (arg); \
   if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ENUM)			\
     arg = value_cast (builtin_type_unsigned_int, arg);			\
 }
@@ -467,7 +466,7 @@ get_saved_register PARAMS ((char *raw_buffer, int *optimized,
 			    int regnum, enum lval_type *lval));
 
 extern void
-modify_field PARAMS ((char *addr, int fieldval, int bitpos, int bitsize));
+modify_field PARAMS ((char *addr, LONGEST fieldval, int bitpos, int bitsize));
 
 extern void
 type_print PARAMS ((struct type *type, char *varstring, FILE *stream,

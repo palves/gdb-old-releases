@@ -31,8 +31,8 @@
 #define	yypgo	chill_pgo
 #define	yyact	chill_act
 #define	yyexca	chill_exca
-#define yyerrflag chill_errflag
-#define yynerrs	chill_nerrs
+#define	yyerrflag chill_errflag
+#define	yynerrs	chill_nerrs
 #define	yyps	chill_ps
 #define	yypv	chill_pv
 #define	yys	chill_s
@@ -43,8 +43,8 @@
 #define	yy_yyv	chill_yyv
 #define	yyval	chill_val
 #define	yylloc	chill_lloc
-#define yyreds	chill_reds		/* With YYDEBUG defined */
-#define yytoks	chill_toks		/* With YYDEBUG defined */
+#define	yyreds	chill_reds		/* With YYDEBUG defined */
+#define	yytoks	chill_toks		/* With YYDEBUG defined */
 
 #ifndef YYDEBUG
 #define	YYDEBUG	0		/* Default to no yydebug support */

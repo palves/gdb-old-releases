@@ -216,7 +216,8 @@ print_insn_sh(memaddr, info)
       if (op->name[0] == 'j'
 	  || (op->name[0] == 'b' && (op->name[1] == 'r' 
 				     || op->name[1] == 's'))
-	  || (op->name[0] == 'r' && op->name[1] == 't'))
+	  || (op->name[0] == 'r' && op->name[1] == 't')
+	  || (op->name[0] == 'b' && op->name[2] == '.'))
 	{
 	  fprintf(stream,"\t(slot ");  print_insn_sh(memaddr +2, info);
 	  fprintf(stream,")");

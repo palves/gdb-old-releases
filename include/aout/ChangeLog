@@ -1,6 +1,35 @@
+Sun Jul 18 21:41:47 1993  Jim Kingdon  (kingdon@rtl.cygnus.com)
+
+	* dynix3.h: New, for symmetry running dynix.
+
+Thu Jul  8 12:52:22 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* aout64.h (N_BADMAG): Recognize QMAGIC.
+	N_TXTOFF, N_TXTADDR, N_TXTSIZE: Special code for QMAGIC.
+	N_DATOFF: Pad text size if we need to.
+
+Fri Jun 18 19:19:38 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stab.def (N_ECOML): Fix comment.
+
+Mon May 31 09:21:30 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stab.def: Remove Solaris information on N_FUN stabstring grammar;
+	I've transferred it to gdb/doc/stabs.texinfo, where it belongs.
+
+Mon May 10 05:48:43 1993  Ken Raeburn  (raeburn@kr-pc.cygnus.com)
+
+	* hp300hpux.h: Patch from Glenn Engel for linker problem and
+	compatibility fix:
+	(OMAGIC, NMAGIC): New definitions.
+	(SHAREMAGIC): Deleted.
+	(HPUX_DOT_O_MAGIC): New macro.
+	(_N_BADMAG): Adjusted.
+	(N_HEADER_IN_TEXT, N_DATADDR): New macros.
+
 Thu Apr 29 12:07:37 1993  Ken Raeburn  (raeburn@deneb.cygnus.com)
 
-	* hp300hpux.h: New file.
+	* hp300hpux.h: New file from Glenn Engel, glenne@lsid.hp.com.
 
 Tue Apr 27 05:51:04 1993  Ken Raeburn  (raeburn@kr-pc.cygnus.com)
 

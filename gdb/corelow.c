@@ -160,11 +160,12 @@ core_open (filename, from_tty)
 
     /* Add symbols and section mappings for any shared libraries */
 #ifdef SOLIB_ADD
-    catch_errors (solib_add_stub, (char *)from_tty, (char *)0);
+    catch_errors (solib_add_stub, (char *)from_tty, (char *)0,
+		  RETURN_MASK_ALL);
 #endif
 
     /* Now, set up the frame cache, and print the top of stack */
-    set_current_frame (create_new_frame (read_register (FP_REGNUM),
+    set_current_frame (create_new_frame (read_fp (),
 					 read_pc ()));
     select_frame (get_current_frame (), 0);
     print_stack_frame (selected_frame, selected_frame_level, 1);
@@ -244,6 +245,16 @@ core_files_info (t)
   print_section_info (t, core_bfd);
 }
 
+/* If mourn is being called in all the right places, this could be say
+   `gdb internal error' (since generic_mourn calls mark_breakpoints_out).  */
+
+static int
+ignore (addr, contents)
+     CORE_ADDR addr;
+     char *contents;
+{
+}
+
 struct target_ops core_ops = {
 	"core", "Local core dump file",
 	"Use a core file as a target.  Specify the filename of the core file.",
@@ -252,7 +263,7 @@ struct target_ops core_ops = {
 	get_core_registers, 
 	0, 0, /* store_regs, prepare_to_store */
 	xfer_memory, core_files_info,
-	0, 0, /* core_insert_breakpoint, core_remove_breakpoint, */
+	ignore, ignore, /* core_insert_breakpoint, core_remove_breakpoint, */
 	0, 0, 0, 0, 0, /* terminal stuff */
 	0, 0, 0, /* kill, load, lookup sym */
 	find_default_create_inferior, 0, /* mourn_inferior */

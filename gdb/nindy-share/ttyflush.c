@@ -1,55 +1,48 @@
-/*****************************************************************************
- * Copyright 1990, 1992 Free Software Foundation, Inc.
- *
- * This code was donated by Intel Corp.
- *
- * Intel hereby grants you permission to copy, modify, and 
- * distribute this software and its documentation.  Intel grants
- * this permission provided that the above copyright notice 
- * appears in all copies and that both the copyright notice and
- * this permission notice appear in supporting documentation.  In
- * addition, Intel grants this permission provided that you
- * prominently mark as not part of the original any modifications
- * made to this software or documentation, and that the name of 
- * Intel Corporation not be used in advertising or publicity 
- * pertaining to distribution of the software or the documentation 
- * without specific, written prior permission.  
- *
- * Intel Corporation does not warrant, guarantee or make any 
- * representations regarding the use of, or the results of the use
- * of, the software and documentation in terms of correctness, 
- * accuracy, reliability, currentness, or otherwise; and you rely
- * on the software, documentation and results solely at your own risk.
- *****************************************************************************/
+/* This file is part of GDB.
 
-static char rcsid[] =
-	"Id: ttyflush.c,v 1.1.1.1 1991/03/28 16:21:03 rich Exp $";
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+/* This started out life as code shared between the nindy monitor and
+   GDB.  For various reasons, this is no longer true.  Eventually, it
+   probably should be merged into remote-nindy.c.  */
 
 #include <stdio.h>
-#include <fcntl.h>	/* Needed on Sys V */
-#include "ttycntl.h"
+#include "defs.h"
+#include "serial.h"
 
-/******************************************************************************
- * tty_flush:
- *
- *	This routine puts the specified tty into a quiescent state by flushing
- *	all pending input and output.
- *
- *	The tty is assumed to be connected to an i960 board containing a
- *	a NINDY ROM;  since the 960 may be generating output, we wait until
- *	at least one second goes by without anything new arriving.
- ******************************************************************************/
+/* Flush all pending input and output for SERIAL, wait for a second, and
+   then if there is a character pending, discard it and flush again.  */
 
-tty_flush( fd )
-    int fd;	/* File descriptor of tty line */
+int
+tty_flush (serial)
+     serial_t serial;
 {
-	int n;	/* Number of characters of pending input */
-	char c;	/* Next character of input (discarded) */
-
-	do {
-		TTY_FLUSH( fd );
-		sleep(1);
-		n = 1;
-		TTY_NBREAD( fd, n, &c );	/* Non-blocking read */
-	} while ( n > 0 );
+  while (1)
+    {
+      SERIAL_FLUSH_INPUT (serial);
+      SERIAL_FLUSH_OUTPUT (serial);
+      sleep(1);
+      switch (SERIAL_READCHAR (serial, 0))
+	{
+	case SERIAL_TIMEOUT:
+	case SERIAL_ERROR:
+	case SERIAL_EOF:
+	  return 0;
+	default:
+	  /* We read something.  Eeek.  Try again.  */
+	  break;
+	}
+    }
 }

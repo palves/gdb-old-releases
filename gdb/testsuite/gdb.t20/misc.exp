@@ -1,0 +1,137 @@
+# Copyright (C) 1992 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# This file was written by Fred Fish. (fnf@cygnus.com)
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+#
+# Deduce language of main()
+#
+
+proc deduce_language_of_main {} {
+    global prompt
+
+    # See what language gdb thinks main() is, prior to reading full symbols.
+    # I think this fails for COFF targets.
+    setup_xfail "a29k-*-udi"
+    send "show language\n"
+    expect {
+	-re ".* source language is \"auto; currently c\+\+\".*$prompt $" {
+	    pass "deduced language is C++, before full symbols"
+	}
+	-re ".*$prompt $" {
+	    fail "source language not correct for C++ (psymtabs only)"
+	    return
+	}
+	timeout {
+	    fail "can't show language (timeout)"
+	    return
+	}
+    }
+
+    # Cause gdb to read full symbols for main.
+
+    send "break main\n"
+    expect {
+	-re "Breakpoint .* file .*$prompt $" {}
+	-re ".*$prompt $" {
+	    fail "breakpoint at main"
+	    return
+	}
+	timeout {
+	    fail "breakpoint at main (timeout)"
+	    return
+	}
+    }
+
+    send "run\n"
+    expect {
+	-re "Starting program: .*Breakpoint .* main .*$prompt $" {}
+	-re ".*$prompt $" {
+	    fail "run to main"
+	    return
+	}
+	timeout {
+	    fail "run to main (timeout)"
+	    return
+	}
+    }
+
+    # See if our idea of the language has changed.
+
+    send "show language\n"
+    expect {
+	-re ".* source language is \"auto; currently c\+\+\".*$prompt $" {
+	    pass "deduced language is C++, after full symbols"
+	}
+	-re ".*$prompt $" {
+	    fail "source language not correct for C++ (full symbols)"
+	    return
+	}
+	timeout {
+	    fail "can't show language (timeout)"
+	    return
+	}
+    }
+}
+
+proc do_tests {} {
+    global prms_id
+    global bug_id
+    global subdir
+    global objdir
+    global srcdir
+    global binfile
+    global prompt
+
+    set prms_id 0
+    set bug_id 0
+
+    # Start with a fresh gdb.
+
+    gdb_exit
+    gdb_start
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $objdir/$subdir/$binfile
+
+    deduce_language_of_main
+
+    if [istarget "a29k-*-udi"] then {
+	# FIXME: If PR 2415 is fixed, this is not needed.
+	gdb_target_udi
+    }
+}
+
+# Check to see if we have an executable to test.  If not, then either we
+# haven't tried to compile one, or the compilation failed for some reason.
+# In either case, just notify the user and skip the tests in this file.
+
+set binfile "gdbme"
+set srcfile $binfile.cc
+
+if ![file exists $objdir/$subdir/$binfile] then {
+    if $all_flag then {
+	warning "$binfile does not exist; tests suppressed."
+    }
+} else {
+    do_tests
+}

@@ -81,19 +81,7 @@ extern struct op_info op_info_table[];
 typedef union
 {
   unsigned short int word;
-  struct
-  {
-    unsigned char byte[2];
-  }
-  bytes;
-#ifdef BIG_ENDIAN_HOST
-  struct
-    {
-      unsigned char msb;
-      unsigned char lsb;
-    }
-  b;
-#endif
+
 }
 
 borw_type;

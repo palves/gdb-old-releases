@@ -45,9 +45,10 @@ docdir = $(datadir)/doc
 
 SHELL = /bin/sh
 
-INSTALL = cp
+INSTALL = $${srcroot}/install.sh -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
+INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
 
 AS = as
 AR = ar
@@ -58,8 +59,8 @@ CXX = gcc
 CXXFLAGS = -g -O
 RANLIB = ranlib
 NM = nm
+MUNCH_NM = $(NM)
 GZIP = gzip
-COMPRESS = compress
 
 BISON = bison -y
 LEX = `if [ -f $${rootme}/flex/flex ] ; \
@@ -69,6 +70,10 @@ LEX = `if [ -f $${rootme}/flex/flex ] ; \
 MAKEINFO = `if [ -f $${rootme}/texinfo/makeinfo/makeinfo ] ; \
 	then echo $${rootme}/texinfo/makeinfo/makeinfo ; \
 	else echo makeinfo ; fi`
+# This just becomes part of the MAKEINFO definition passed down to
+# sub-makes.  It lets flags be given on the command line while still
+# using the makeinfo from the object tree.
+MAKEINFOFLAGS =
 
 EXPECT = `if [ -f $${rootme}/expect/expect ] ; \
 	then echo $${rootme}/expect/expect ; \
@@ -91,7 +96,11 @@ SUBDIRS = "this is set via configure, don't edit this"
 OTHERS = 
 
 ALL = all.normal
-INSTALL_TARGET = install.all
+INSTALL_TARGET = install-dirs \
+	$(INSTALL_MODULES) \
+	$(INSTALL_TARGET_MODULES) \
+	$(INSTALL_X11_MODULES) \
+	install-gcc
 
 CC_FOR_TARGET = ` \
   if [ -f $${rootme}/gcc/Makefile ] ; then \
@@ -190,14 +199,15 @@ BASE_FLAGS_TO_PASS = \
 	"CXX_FOR_BUILD=$(CXX_FOR_BUILD)" \
 	"CXXFLAGS=$(CXXFLAGS)" \
 	"CXX_FOR_TARGET=$(CXX_FOR_TARGET)" \
-	'GCC_FOR_TARGET=$$(CC_FOR_TARGET)' \
+	"GCC_FOR_TARGET=$(CC_FOR_TARGET)" \
 	"INSTALL=$(INSTALL)" \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
+	"INSTALL_XFORM=$(INSTALL_XFORM)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"LEX=$(LEX)" \
-	"LOADLIBES=$(LOADLIBES)" \
-	"MAKEINFO=$(MAKEINFO)" \
+	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
+	"MUNCH_NM=$(MUNCH_NM)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
 	"PRMS=$(PRMS)" \
 	"RANLIB_FOR_TARGET=$(RANLIB_FOR_TARGET)" \
@@ -249,11 +259,19 @@ TARGET_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_TARGET_FLAGS)
 # unfortunately needs the native compiler and the target ar and
 # ranlib.
 # If any variables are added here, they must be added to do-*, below.
+# The HOST_* variables are a special case, which are used for the gcc
+# cross-building scheme.
+HOST_CC = $(CC_FOR_BUILD)
+HOST_PREFIX = 
+HOST_PREFIX_1 = loser-
 EXTRA_GCC_FLAGS = \
 	'AR=$$(AR_FOR_TARGET)' \
 	'AS=$(AS)' \
 	'CC=$(CC)' \
 	'CXX=$(CXX)' \
+	'HOST_CC=$(CC_FOR_BUILD)' \
+	'HOST_PREFIX=$(HOST_PREFIX)' \
+	'HOST_PREFIX_1=$(HOST_PREFIX_1)' \
 	'NM=$(NM)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)' \
 	'XTRAFLAGS='
@@ -293,6 +311,7 @@ ALL_MODULES = \
 	all-prms \
 	all-rcs \
 	all-readline \
+	all-release \
 	all-recode \
 	all-sed \
 	all-send-pr \
@@ -451,7 +470,7 @@ INSTALL_TARGET_MODULES = \
 TARGET_LIBS = libg++ | newlib | xiberty
 
 # The first rule in the file had better be this one.  Don't put any above it.
-all: $(ALL)
+all: all.normal
 .PHONY: all
 
 # The target built for a native build.
@@ -461,25 +480,6 @@ all.normal: \
 	$(ALL_TARGET_MODULES) \
 	$(ALL_X11_MODULES) \
 	all-gcc
-
-# The target built for a cross build.
-.PHONY: all.cross
-all.cross: \
-	all-bfd \
-	all-binutils \
-	all-byacc \
-	all-dejagnu \
-	all-flex \
-	all-gas \
-	all-gcc \
-	all-gdb \
-	all-ld \
-	all-libiberty \
-	all-mmalloc \
-	all-opcodes \
-	all-readline \
-	all-sim \
-	$(ALL_TARGET_MODULES)
 
 # Do a target for all the subdirectories.  A ``make do-X'' will do a
 # ``make X'' in all subdirectories (because, in general, there is a
@@ -539,12 +539,11 @@ info: do-info
 installcheck: do-installcheck
 dvi: do-dvi
 
-install-info: install-info-dirs do-install-info dir.info
+install-info: do-install-info dir.info
+	srcroot=`cd $(srcdir); pwd`; export srcroot; \
 	if [ -f dir.info ] ; then \
 	  $(INSTALL_DATA) dir.info $(infodir)/dir.info ; \
 	else true ; fi
-
-do-install-info: install-info-dirs
 
 local-clean:
 	-rm -f *.a TEMP errs core *.o *~ \#* TAGS *.E
@@ -567,11 +566,18 @@ check: $(CHECK_MODULES) \
 
 # Installation targets.
 
-.PHONY: install uninstall
+.PHONY: install uninstall vault-install
 install: $(INSTALL_TARGET) 
 
 uninstall:
 	@echo "the uninstall target is not supported in this tree"
+
+vault-install:
+	@if [ -f ./release/vault-install ] ; then \
+	  ./release/vault-install $(host_alias) $(target_alias) ; \
+	else \
+	  true ; \
+	fi
 
 .PHONY: install.all
 install.all: install-no-fixedincludes
@@ -583,15 +589,15 @@ install.all: install-no-fixedincludes
 		true ; \
 	fi
 
-# install-no-fixedincludes is used because Cygnus can not distributed
+# install-no-fixedincludes is used because Cygnus can not distribute
 # the fixed header files.
 .PHONY: install-no-fixedincludes
 install-no-fixedincludes: \
 	install-dirs \
-	gcc-no-fixedincludes \
 	$(INSTALL_MODULES) \
 	$(INSTALL_TARGET_MODULES) \
-	$(INSTALL_X11_MODULES)
+	$(INSTALL_X11_MODULES) \
+	gcc-no-fixedincludes 
 
 # Install the gcc headers files, but not the fixed include files,
 # which Cygnus is not allowed to distribute.  This rule is very
@@ -602,8 +608,9 @@ gcc-no-fixedincludes:
 	  rm -rf gcc/tmp-include; \
 	  mv gcc/include gcc/tmp-include 2>/dev/null; \
 	  mkdir gcc/include; \
-	  touch gcc/stmp-fixincludes; \
-	  rm -f gcc/stmp-headers; \
+	  cp $(srcdir)/gcc/gsyslimits.h gcc/include/syslimits.h; \
+	  touch gcc/stmp-fixinc; \
+	  rm -f gcc/stmp-headers gcc/stmp-int-hdrs; \
 	  rootme=`pwd`; export rootme; \
 	  srcroot=`cd $(srcdir); pwd` ; export srcroot; \
 	  (cd ./gcc; \
@@ -611,25 +618,6 @@ gcc-no-fixedincludes:
 	  rm -rf gcc/include; \
 	  mv gcc/tmp-include gcc/include 2>/dev/null; \
 	else true; fi
-
-.PHONY: install.cross
-install.cross: \
-	install-dirs \
-        install-binutils \
-	install-byacc \
-	install-dejagnu \
-	install-etc \
-	install-flex \
-	install-gas \
-	install-gcc \
-	install-gdb \
-        install-glob \
-        install-ld \
-	install-libiberty \
-	install-mmalloc \
-	install-opcodes \
-	install-readline \
-	$(INSTALL_TARGET_MODULES)
 
 # This rule is used to build the modules which use FLAGS_TO_PASS.  To
 # build a target all-X means to cd to X and make all.
@@ -794,8 +782,8 @@ all-dejagnu:
 all-diff: all-libiberty
 all-emacs:
 all-etc:
-all-expect: all-tcl
-all-fileutils:
+all-expect: all-tcl all-tk
+all-fileutils: all-libiberty
 all-find:
 all-flex: all-libiberty all-byacc
 all-gas: all-libiberty all-opcodes all-bfd
@@ -816,7 +804,7 @@ all-m4: all-libiberty
 all-make: all-libiberty
 all-mmalloc:
 all-newlib: all-binutils all-gas all-gcc
-all-opcodes:
+all-opcodes: all-bfd
 all-patch:
 all-prms:
 all-rcs:
@@ -849,7 +837,7 @@ MAKEDIRS= \
 install-dirs:
 	@for i in $(MAKEDIRS) ; do \
 		echo Making $$i... ; \
-		parent=`echo $$i|sed -e 's@/[^/]*$$@@'`; \
+		parent=`echo $$i | sed -e 's@/[^/]*$$@@' | sed -e 's@^$$@/@'`; \
 		if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi ; \
 		if [ ! -d $$i ] ; then \
 			if mkdir $$i ; then \
@@ -862,12 +850,6 @@ install-dirs:
 		fi ; \
 	done
 
-.PHONY: install-info-dirs 
-install-info-dirs:
-	if [ -d $(prefix) ] ; then true ; else mkdir $(prefix) ; fi
-	-parent=`echo $(infodir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
 
 dir.info: do-install-info
 	if [ -f $(srcdir)/texinfo/gen-info-dir ] ; then \
@@ -900,32 +882,42 @@ ls:
 
 # with the gnu make, this is done automatically.
 
-Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+Makefile: Makefile.in configure.in $(host_makefile_frag) $(target_makefile_frag)
 	$(SHELL) ./config.status
 
 #
-# Build GDB distributions that contain BFD, Include, Libiberty, Readline, etc
+# Support for building net releases
 
+# Files in devo used in any net release.
+# ChangeLog omitted because it may refer to files which are not in this
+# distribution (perhaps it would be better to include it anyway).
 DEVO_SUPPORT= README Makefile.in configure configure.in \
-	config.guess config.sub config move-if-change
+	config.guess config.sub config move-if-change \
+	COPYING COPYING.LIB install.sh
+
+# Files in devo/etc used in any net release.
+# ChangeLog omitted because it may refer to files which are not in this
+# distribution (perhaps it would be better to include it anyway).
 ETC_SUPPORT= Makefile.in cfg-paper.texi configure.in configure.man \
-	configure.texi
+	configure.texi standards.texi make-stds.texi
+
 GDB_SUPPORT_DIRS= bfd include libiberty mmalloc opcodes readline glob sim
 GDB_SUPPORT_FILES= $(GDB_SUPPORT_DIRS)
 
-.PHONY: setup-dirs-gdb gdb.tar.Z make-gdb.tar.Z
+.PHONY: setup-dirs-gdb gdb.tar.gz make-gdb.tar.gz
 setup-dirs-gdb:
+	rm -rf `find . -name CVS -print` no-such-file
 	./configure sun4
 	$(MAKE) clean
 	./configure -rm sun4
 	chmod og=u `find etc $(DEVO_SUPPORT) $(GDB_SUPPORT_FILES) -print`
 
-gdb.tar.Z: setup-dirs-gdb
+gdb.tar.gz: setup-dirs-gdb
 	(cd gdb; $(MAKE) -f Makefile.in make-proto-gdb.dir BISON="byacc")
 	(cd gdb; $(MAKE) -f Makefile.in make-proto-testsuite.dir)
-	$(MAKE) $(MFLAGS) -f Makefile.in make-gdb.tar.Z
+	$(MAKE) $(MFLAGS) -f Makefile.in make-gdb.tar.gz
 
-make-gdb.tar.Z: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/texinfo.tex
+make-gdb.tar.gz: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/texinfo.tex
 	rm -rf proto-toplev; mkdir proto-toplev
 	ln -s ../gdb/proto-gdb.dir proto-toplev/gdb
 	(cd proto-toplev; for i in $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS); do \
@@ -943,6 +935,12 @@ make-gdb.tar.Z: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/texinfo.tex
 	rm                          proto-toplev/readline/COPYING
 	ln proto-toplev/gdb/COPYING proto-toplev/readline/COPYING
 
+	# Change the bug reporting address in configure to bug-gdb
+	rm proto-toplev/configure
+	sed -e 's/configure@cygnus.com/bug-gdb@prep.ai.mit.edu/' \
+	    <configure >proto-toplev/configure
+	chmod a+x proto-toplev/configure
+
 	# Take out texinfo and glob from configurable dirs
 	rm proto-toplev/configure.in
 	sed -e '/^host_tools=/s/texinfo //' \
@@ -959,14 +957,14 @@ make-gdb.tar.Z: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/texinfo.tex
 
 	mkdir proto-toplev/texinfo
 	ln -s ../../texinfo/texinfo.tex proto-toplev/texinfo/
+	ln -s ../../texinfo/gpl.texinfo proto-toplev/texinfo/
 	ln -s ../../texinfo/tex3patch   proto-toplev/texinfo/
 	chmod og=u `find proto-toplev -print`
 	(VER=`sed <gdb/Makefile.in -n 's/VERSION = //p'`; \
-		ln -s proto-toplev gdb-$$VER; \
-		echo "==> Making gdb-$$VER.tar.Z"; \
-		tar cfh - gdb-$$VER | $(COMPRESS) -v >gdb-$$VER.tar.Z; \
-		echo "==> Making gdb-$$VER.tar.z"; \
-		tar cfh - gdb-$$VER | $(GZIP) -v -9 >gdb-$$VER.tar.z)
+		echo "==> Making gdb-$$VER.tar.gz"; \
+		rm -f gdb-$$VER; ln -s proto-toplev gdb-$$VER; \
+		tar cfh - gdb-$$VER \
+		| $(GZIP) -v -9 >gdb-$$VER.tar.gz)
 
 	# Make the testsuite archive separately.
 	ln -s ../../gdb/proto-testsuite.dir/testsuite proto-toplev/gdb/testsuite
@@ -978,60 +976,56 @@ make-gdb.tar.Z: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/texinfo.tex
 	ln proto-toplev/gdb/COPYING proto-toplev/gdb/testsuite/COPYING
 	chmod og=u `find proto-toplev/gdb/testsuite -print`
 	(VER=`sed <gdb/Makefile.in -n 's/VERSION = //p'`; \
-		echo "==> Making gdb-$$VER-testsuite.tar.Z"; \
+		echo "==> Making gdb-$$VER-testsuite.tar.gz"; \
 		tar cfh - gdb-$$VER/configure gdb-$$VER/config.guess \
 			gdb-$$VER/config.sub gdb-$$VER/move-if-change \
-			gdb-$$VER/gdb/testsuite | \
-			$(COMPRESS) -v >gdb-$$VER-testsuite.tar.Z; \
-		echo "==> Making gdb-$$VER-testsuite.tar.z"; \
-		tar cfh - gdb-$$VER/configure gdb-$$VER/config.guess \
-			gdb-$$VER/config.sub gdb-$$VER/move-if-change \
-			gdb-$$VER/gdb/testsuite | \
-			$(GZIP) -v -9 >gdb-$$VER-testsuite.tar.z)
+			gdb-$$VER/gdb/testsuite \
+			| $(GZIP) -v -9 >gdb-$$VER-testsuite.tar.gz)
 
 # When you use `make setup-dirs' or `make taz' you should always redefine
 # this macro.
 SUPPORT_FILES = list-of-support-files-for-tool-in-question
-# Directories that might want `make proto-dir' run.
-PROTODIRS= gdb
+# Directories that might want `make diststuff' run.
+DISTSTUFFDIRS= ld gprof gdb libg++
 
-.PHONY: setup-dirs taz
-setup-dirs:
+.PHONY: taz
+
+taz: $(DEVO_SUPPORT) $(SUPPORT_FILES) texinfo/texinfo.tex texinfo/gpl.texinfo
 	./configure sun4
-	$(MAKE) clean
-	./configure -rm sun4
-	chmod og=u `find etc $(DEVO_SUPPORT) $(SUPPORT_FILES) -print`
-	for d in .. $(PROTODIRS) ; do \
-	  if [ $$d != ".." ] && [ -d $$d ]; then \
-	    (cd $$d ; $(MAKE) -f Makefile.in proto-dir) ; \
-	  else true ; fi ; \
-	done
-
-taz: $(DEVO_SUPPORT) $(SUPPORT_FILES) texinfo/texinfo.tex
-	rm -rf proto-toplev; mkdir proto-toplev
-	for d in .. $(PROTODIRS) ; do \
-	  if [ $$d != .. ]; then \
-	    if [ -d $$d ]; then \
+	# Make links, and run "make diststuff" when needed.
+	# The `echo' for setting `p' is to convert all whitespace to spaces.
+	# Then the `case' further below should tell whether $$d is in
+	# DISTSTUFFDIRS.
+	rm -rf proto-toplev ; mkdir proto-toplev
+	set -e ; dirs="$(TOOL) $(DEVO_SUPPORT) $(SUPPORT_FILES)" ; \
+	p=" `echo $(DISTSTUFFDIRS)` " ; \
+	for d in $$dirs ; do \
+	  if [ -d $$d ]; then \
+	    case " $$p " in \
+	    *" $$d "*)	\
+		echo making diststuff in $$d ; \
+		(cd $$d ; $(MAKE) diststuff) || exit 1  ;; \
+	    esac ; \
+	    if [ -d $$d/proto-$$d.dir ]; then \
 	      ln -s ../$$d/proto-$$d.dir proto-toplev/$$d ; \
-	    else true ; fi ; \
-	  else true ; fi ; \
+	    else \
+	      ln -s ../$$d proto-toplev/$$d ; \
+	    fi ; \
+	  else ln -s ../$$d proto-toplev/$$d ; fi ; \
 	done
-	(cd proto-toplev; for i in $(TOOL) $(DEVO_SUPPORT) $(SUPPORT_FILES); do \
-		if [ ! -d $$i ]; then ln -s ../$$i . ; else true ; fi ; \
-	done)
+	$(MAKE) distclean
+	#
 	mkdir proto-toplev/etc
 	(cd proto-toplev/etc; for i in $(ETC_SUPPORT); do \
 		ln -s ../../etc/$$i . ; \
 	done)
-	# Put only one copy (four hard links) of COPYING in the tar file.
-	## FIX ME LATER
-
+	#
 	# Take out texinfo and glob from configurable dirs
 	rm proto-toplev/configure.in
 	sed -e '/^host_tools=/s/texinfo //' \
 	    -e '/^host_libs=/s/glob //' \
 	    <configure.in >proto-toplev/configure.in
-
+	#
 	# Take out texinfo from a few places; make simple BISON=bison line.
 	rm proto-toplev/Makefile.in
 	sed -e '/^all\.normal: /s/\all-texinfo //' \
@@ -1039,29 +1033,41 @@ taz: $(DEVO_SUPPORT) $(SUPPORT_FILES) texinfo/texinfo.tex
 	    -e '/^BISON = /,/^$$/d' \
 	    -e '/^# BISON:/s/.*/BISON = bison -y/' \
 	<Makefile.in >proto-toplev/Makefile.in
-
+	#
 	mkdir proto-toplev/texinfo
 	ln -s ../../texinfo/texinfo.tex proto-toplev/texinfo/
+	ln -s ../../texinfo/gpl.texinfo proto-toplev/texinfo/
 	ln -s ../../texinfo/tex3patch   proto-toplev/texinfo/
-	chmod og=u `find proto-toplev -print`
-	(VER=`sed <$(TOOL)/Makefile.in -n 's/VERSION *= *//p'`; \
-		echo "==> Making $(TOOL)-$$VER.tar.z"; \
-		ln -s proto-toplev $(TOOL)-$$VER; \
+	chmod og=u `find . -print`
+	(VER=`sed <$(TOOL)/Makefile.in -n 's/^VERSION *= *//p'`; \
+		echo "==> Making $(TOOL)-$$VER.tar.gz"; \
+		rm -f $(TOOL)-$$VER; ln -s proto-toplev $(TOOL)-$$VER; \
 		tar cfh - $(TOOL)-$$VER \
-		| $(GZIP) -v >$(TOOL)-$$VER.tar.z)
+		| $(GZIP) -v -9 >$(TOOL)-$$VER.tar.gz)
 
+TEXINFO_SUPPORT= texinfo/texinfo.tex texinfo/gpl.texinfo
+DIST_SUPPORT= $(DEVO_SUPPORT) $(TEXINFO_SUPPORT)
+
+.PHONY: gas.tar.gz
 GAS_SUPPORT_DIRS= bfd include libiberty opcodes
-
-.PHONY: gas.tar.z
-gas.tar.z: $(DEVO_SUPPORT) $(GAS_SUPPORT_DIRS) gas texinfo/texinfo.tex
-	$(MAKE) -f Makefile.in setup-dirs SUPPORT_FILES="$(GAS_SUPPORT_DIRS)"
+gas.tar.gz: $(DIST_SUPPORT) $(GAS_SUPPORT_DIRS) gas
 	$(MAKE) -f Makefile.in taz SUPPORT_FILES="$(GAS_SUPPORT_DIRS)" TOOL=gas
 
-.PHONY: gas+binutils.tar.z
-GASB_SUPPORT_DIRS= $(GAS_SUPPORT_DIRS) binutils ld
-gas+binutils.tar.z: $(DEVO_SUPPORT) $(GASB_SUPPORT_DIRS) gas texinfo/texinfo.tex
-	$(MAKE) -f Makefile.in setup-dirs SUPPORT_FILES="$(GASB_SUPPORT_DIRS)"
+# The FSF "binutils" release includes gprof and ld.
+.PHONY: binutils.tar.gz
+BINUTILS_SUPPORT_DIRS= bfd include libiberty opcodes ld gprof
+binutils.tar.gz: $(DIST_SUPPORT) $(BINUTILS_SUPPORT_DIRS) binutils
+	$(MAKE) -f Makefile.in taz SUPPORT_FILES="$(BINUTILS_SUPPORT_DIRS)" TOOL=binutils
+
+.PHONY: gas+binutils.tar.gz
+GASB_SUPPORT_DIRS= $(GAS_SUPPORT_DIRS) binutils ld gprof
+gas+binutils.tar.gz: $(DIST_SUPPORT) $(GASB_SUPPORT_DIRS) gas
 	$(MAKE) -f Makefile.in taz SUPPORT_FILES="$(GASB_SUPPORT_DIRS)" TOOL=gas
+
+.PHONY: libg++.tar.gz
+LIBGXX_SUPPORT_DIRS=include libiberty xiberty
+libg++.tar.gz: $(DIST_SUPPORT) libg++
+	$(MAKE) -f Makefile.in taz SUPPORT_FILES="$(LIBGXX_SUPPORT_DIRS)" TOOL=libg++
 
 .NOEXPORT:
 MAKEOVERRIDES=

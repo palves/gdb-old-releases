@@ -158,11 +158,6 @@ exec_file_command (args, from_tty)
 	error ("Can't find the file sections in `%s': %s", 
 		exec_bfd->filename, bfd_errmsg (bfd_error));
 
-      /* bfd is not yet able to figure out the section layout for some file
-	 formats, keep it from realigning the sections.  */
-      if (write_files)
-	exec_bfd->output_has_begun = true;
-
 #ifdef NEED_TEXT_START_END
       /* This is a KLUDGE (FIXME) because a few places in a few ports
 	 (29K springs to mind) need this info for now.  */
@@ -410,6 +405,16 @@ set_section_command (args, from_tty)
   error ("Section %s not found", secprint);
 }
 
+/* If mourn is being called in all the right places, this could be say
+   `gdb internal error' (since generic_mourn calls mark_breakpoints_out).  */
+
+static int
+ignore (addr, contents)
+     CORE_ADDR addr;
+     char *contents;
+{
+}
+
 struct target_ops exec_ops = {
 	"exec", "Local exec file",
 	"Use an executable file as a target.\n\
@@ -419,7 +424,7 @@ Specify the filename of the executable file.",
 	0, 0, /* fetch_registers, store_registers, */
 	0, /* prepare_to_store, */
 	xfer_memory, exec_files_info,
-	0, 0, /* insert_breakpoint, remove_breakpoint, */
+	ignore, ignore, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0, /* terminal stuff */
 	0, 0, /* kill, load */
 	0, /* lookup sym */
@@ -436,20 +441,23 @@ Specify the filename of the executable file.",
 void
 _initialize_exec()
 {
+  struct cmd_list_element *c;
 
-  add_com ("file", class_files, file_command,
-	   "Use FILE as program to be debugged.\n\
+  c = add_cmd ("file", class_files, file_command,
+	       "Use FILE as program to be debugged.\n\
 It is read for its symbols, for getting the contents of pure memory,\n\
 and it is the program executed when you use the `run' command.\n\
 If FILE cannot be found as specified, your execution directory path\n\
 ($PATH) is searched for a command of that name.\n\
-No arg means to have no executable file and no symbols.");
+No arg means to have no executable file and no symbols.", &cmdlist);
+  c->completer = filename_completer;
 
-  add_com ("exec-file", class_files, exec_file_command,
+  c = add_cmd ("exec-file", class_files, exec_file_command,
 	   "Use FILE as program for getting contents of pure memory.\n\
 If FILE cannot be found as specified, your execution directory path\n\
 is searched for a command of that name.\n\
-No arg means have no executable file.");
+No arg means have no executable file.", &cmdlist);
+  c->completer = filename_completer;
 
   add_com ("section", class_files, set_section_command,
    "Change the base address of section SECTION of the exec file to ADDR.\n\

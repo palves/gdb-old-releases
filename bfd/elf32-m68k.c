@@ -22,10 +22,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "libbfd.h"
 #include "libelf.h"
 
-#define elf_bfd_reloc_type_lookup	bfd_default_reloc_type_lookup
-#define elf_info_to_howto		elf_no_info_to_howto
+#define bfd_elf32_bfd_reloc_type_lookup	bfd_default_reloc_type_lookup
+#define elf_info_to_howto		bfd_elf32_no_info_to_howto
 
-#define TARGET_BIG_SYM	elf32_m68k_vec
+#define TARGET_BIG_SYM	bfd_elf32_m68k_vec
 #define TARGET_BIG_NAME	"elf32-m68k"
 #define ELF_ARCH	bfd_arch_m68k
 

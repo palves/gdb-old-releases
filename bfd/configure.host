@@ -17,7 +17,7 @@ case "${host}" in
 # Note that these entries cannot be fully alphabetical.  Don't try.
 # The order of matching is critical when multiple lines could match.
 
-alpha-*-*)		my_host=alphaosf ;;
+alpha-*-*)		my_host=alphaosf ; host64=true ;;
 a29k-*-*)		my_host=ultra3 ;;
 
 hppa*-hp-hpux)		my_host=hppahpux ;;
@@ -25,8 +25,10 @@ hppa*-hp-bsd)		my_host=hppabsd ;;
 hppa*-hp-osf)		my_host=hppaosf ;;
 
 i[34]86-*-bsd)		my_host=i386bsd ;;
+i[34]86-*-lynx*)	my_host=i386lynx ;;
 i[34]86-ncr*-sysv4*)	my_host=ncr3000 ;;
 i[34]86-*-go32)		my_host=go32 ;;
+i[34]86-esix-sysv3*)	my_host=esix ;;
 i[34]86-*-sysv4*)	my_host=i386v4 ;;
 i[34]86-*-sysv*)	my_host=i386v ;;
 i[34]86-*-solaris*)	my_host=i386v ;;
@@ -34,6 +36,7 @@ i[34]86-*-sco*)		my_host=i386v ;;
 i[34]86-*-mach*)	my_host=i386mach ;;
 i[34]86-*-msdos*)	my_host=dose ;;
 i[34]86-*-linux)	my_host=i386linux ;;
+i[34]86-*-lynxos*)	my_host=i386lynx ;;
 i[34]86-*-isc*)		my_host=i386isc ;;
 i[34]86-*-aix*)		my_host=i386aix ;;
 
@@ -43,15 +46,20 @@ mips-dec-bsd*)          my_host=mipsbsd ;;
 mips-dec-*)		my_host=decstation ;;
 mips-sgi-irix3*)	my_host=irix3 ;;
 mips-sgi-irix4*)	my_host=irix4 ;;
+mips-*-sysv*)		my_host=riscos ;;
+mips-*-riscos*)		my_host=riscos ;;
 
+m68*-apollo*-sysv*)	my_host=apollov68 ;;
+m68*-apollo*-bsd*)	my_host=apollo68 ;;
+m68*-bull*-sysv*)	my_host=dpx2 ;;
+m68*-convergent-sysv*)	my_host=miniframe ;;
 m68*-cbm-amigados)	my_host=amigados ;;
 m68*-cbm-sysv4*)	my_host=amix ;;
 m68*-hp-hpux)		my_host=hp300 ;;
 m68*-hp-bsd)		my_host=hp300bsd ;;
+m68*-motorola-sysv*)	my_host=delta68 ;;
 m68*-sony-*)		my_host=news ;;
 m68*-sun-*)		my_host=sun3 ;;
-m68*-apollo*-sysv*)	my_host=apollov68 ;;
-m68*-apollo*-bsd*)	my_host=apollo68 ;;
 
 m88k-motorola-*)	my_host=delta88 ;;
 m88k-harris-*)		my_host=harris ;;

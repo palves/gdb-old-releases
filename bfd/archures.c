@@ -95,6 +95,8 @@ DESCRIPTION
 .  bfd_arch_m88k,      {* Motorola 88xxx *}
 .  bfd_arch_pyramid,   {* Pyramid Technology *}
 .  bfd_arch_h8300,     {* Hitachi H8/300 *}
+.#define bfd_mach_h8300   1
+.#define bfd_mach_h8300h  2
 .  bfd_arch_rs6000,    {* IBM RS/6000 *}
 .  bfd_arch_hppa,      {* HP PA RISC *}
 .  bfd_arch_z8k,       {* Zilog Z8000 *}
@@ -255,7 +257,7 @@ DESCRIPTION
 
 bfd_arch_info_type bfd_default_arch_struct =
 {
-    32,32,8,bfd_arch_unknown,0,"unknown","unknown",1,true,
+    32,32,8,bfd_arch_unknown,0,"unknown","unknown",2,true,
     bfd_default_compatible,
     bfd_default_scan, 
     0,

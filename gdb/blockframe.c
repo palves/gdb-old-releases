@@ -133,9 +133,8 @@ create_new_frame (addr, pc)
   fci->next = (struct frame_info *) 0;
   fci->prev = (struct frame_info *) 0;
   fci->frame = addr;
-  fci->next_frame = 0;		/* Since arbitrary */
   fci->pc = pc;
-  fci->signal_handler_caller = 0;
+  fci->signal_handler_caller = IN_SIGTRAMP (fci->pc, (char *)NULL);
 
 #ifdef INIT_EXTRA_FRAME_INFO
   INIT_EXTRA_FRAME_INFO (0, fci);
@@ -188,8 +187,7 @@ reinit_frame_cache ()
   FRAME fr = current_frame;
   flush_cached_frames ();
   if (fr)
-    set_current_frame ( create_new_frame (read_register (FP_REGNUM),
-					  read_pc ()));
+    set_current_frame ( create_new_frame (read_fp (), read_pc ()));
 }
 
 /* Return a structure containing various interesting information
@@ -333,7 +331,6 @@ get_prev_frame_info (next_frame)
   prev->next = next_frame;
   prev->prev = (struct frame_info *) 0;
   prev->frame = address;
-  prev->next_frame = prev->next ? prev->next->frame : 0;
   prev->signal_handler_caller = 0;
 
 /* This change should not be needed, FIXME!  We should
@@ -357,7 +354,7 @@ get_prev_frame_info (next_frame)
    INIT_EXTRA_FRAME_INFO.  Suggested scheme:
 
    SETUP_INNERMOST_FRAME()
-     Default version is just create_new_frame (read_register (FP_REGNUM),
+     Default version is just create_new_frame (read_fp ()),
      read_pc ()).  Machines with extra frame info would do that (or the
      local equivalent) and then set the extra fields.
    SETUP_ARBITRARY_FRAME(argc, argv)
@@ -384,6 +381,9 @@ get_prev_frame_info (next_frame)
      FRAME_SAVED_PC may use that queue to figure out it's value
      (see tm-sparc.h).  We want the pc saved in the inferior frame. */
   INIT_FRAME_PC(fromleaf, prev);
+
+  if (IN_SIGTRAMP (prev->pc, (char *)NULL))
+    prev->signal_handler_caller = 1;
 
   return prev;
 }
@@ -422,7 +422,7 @@ get_frame_block (frame)
   fi = get_frame_info (frame);
 
   pc = fi->pc;
-  if (fi->next_frame != 0)
+  if (fi->next != 0)
     /* We are not in the innermost frame.  We need to subtract one to
        get the correct block, in case the call instruction was the
        last instruction of the block.  If there are any machines on
@@ -578,18 +578,23 @@ clear_pc_function_cache()
   cache_pc_function_name = (char *)0;
 }
 
-/* Finds the "function" (text symbol) that is smaller than PC
-   but greatest of all of the potential text symbols.  Sets
-   *NAME and/or *ADDRESS conditionally if that pointer is non-zero.
-   Returns 0 if it couldn't find anything, 1 if it did.  On a zero
-   return, *NAME and *ADDRESS are always set to zero.  On a 1 return,
-   *NAME and *ADDRESS contain real information.  */
+/* Finds the "function" (text symbol) that is smaller than PC but
+   greatest of all of the potential text symbols.  Sets *NAME and/or
+   *ADDRESS conditionally if that pointer is non-null.  If ENDADDR is
+   non-null, then set *ENDADDR to be the end of the function
+   (exclusive), but passing ENDADDR as non-null means that the
+   function might cause symbols to be read.  This function either
+   succeeds or fails (not halfway succeeds).  If it succeeds, it sets
+   *NAME, *ADDRESS, and *ENDADDR to real information and returns 1.
+   If it fails, it sets *NAME, *ADDRESS, and *ENDADDR to zero
+   and returns 0.  */
 
 int
-find_pc_partial_function (pc, name, address)
+find_pc_partial_function (pc, name, address, endaddr)
      CORE_ADDR pc;
      char **name;
      CORE_ADDR *address;
+     CORE_ADDR *endaddr;
 {
   struct partial_symtab *pst;
   struct symbol *f;
@@ -597,17 +602,28 @@ find_pc_partial_function (pc, name, address)
   struct partial_symbol *psb;
 
   if (pc >= cache_pc_function_low && pc < cache_pc_function_high)
+    goto return_cached_value;
+
+  /* If sigtramp is in the u area, it counts as a function (especially
+     important for step_1).  */
+#if defined SIGTRAMP_START
+  if (IN_SIGTRAMP (pc, (char *)NULL))
     {
-	if (address)
-	    *address = cache_pc_function_low;
-	if (name)
-	    *name = cache_pc_function_name;
-	return 1;
+      cache_pc_function_low = SIGTRAMP_START;
+      cache_pc_function_high = SIGTRAMP_END;
+      cache_pc_function_name = "<sigtramp>";
+
+      goto return_cached_value;
     }
+#endif
 
   pst = find_pc_psymtab (pc);
   if (pst)
     {
+      /* Need to read the symbols to get a good value for the end address.  */
+      if (endaddr != NULL && !pst->readin)
+	PSYMTAB_TO_SYMTAB (pst);
+
       if (pst->readin)
 	{
 	  /* The information we want has already been read in.
@@ -618,21 +634,19 @@ find_pc_partial_function (pc, name, address)
 	    {
 	    return_error:
 	      /* No available symbol.  */
-	      if (name != 0)
+	      if (name != NULL)
 		*name = 0;
-	      if (address != 0)
+	      if (address != NULL)
 		*address = 0;
+	      if (endaddr != NULL)
+		*endaddr = 0;
 	      return 0;
 	    }
 
 	  cache_pc_function_low = BLOCK_START (SYMBOL_BLOCK_VALUE (f));
 	  cache_pc_function_high = BLOCK_END (SYMBOL_BLOCK_VALUE (f));
 	  cache_pc_function_name = SYMBOL_NAME (f);
-	  if (name)
-	    *name = cache_pc_function_name;
-	  if (address)
-	    *address = cache_pc_function_low;
-	  return 1;
+	  goto return_cached_value;
 	}
 
       /* Get the information from a combination of the pst
@@ -654,6 +668,7 @@ find_pc_partial_function (pc, name, address)
 	    *address = SYMBOL_VALUE_ADDRESS (psb);
 	  if (name)
 	    *name = SYMBOL_NAME (psb);
+	  /* endaddr non-NULL can't happen here.  */
 	  return 1;
 	}
     }
@@ -665,24 +680,48 @@ find_pc_partial_function (pc, name, address)
 	goto return_error;
     }
 
-  {
-    if (msymbol -> type == mst_text)
-      cache_pc_function_low = SYMBOL_VALUE_ADDRESS (msymbol);
-    else
-      /* It is a transfer table for Sun shared libraries.  */
-      cache_pc_function_low = pc - FUNCTION_START_OFFSET;
-  }
+  /* I believe the purpose of this check is to make sure that anything
+     beyond the end of the text segment does not appear as part of the
+     last function of the text segment.  It assumes that there is something
+     other than a mst_text symbol after the text segment.  It is broken in
+     various cases, so anything relying on this behavior (there might be
+     some places) should be using find_pc_section or some such instead.  */
+  if (msymbol -> type == mst_text)
+    cache_pc_function_low = SYMBOL_VALUE_ADDRESS (msymbol);
+  else
+    /* It is a transfer table for Sun shared libraries.  */
+    cache_pc_function_low = pc - FUNCTION_START_OFFSET;
   cache_pc_function_name = SYMBOL_NAME (msymbol);
-  /* FIXME:  Deal with bumping into end of minimal symbols for a given
-     objfile, and what about testing for mst_text again? */
+
   if (SYMBOL_NAME (msymbol + 1) != NULL)
+    /* This might be part of a different segment, which might be a bad
+       idea.  Perhaps we should be using the smaller of this address or the
+       endaddr from find_pc_section.  */
     cache_pc_function_high = SYMBOL_VALUE_ADDRESS (msymbol + 1);
   else
-    cache_pc_function_high = cache_pc_function_low + 1;
+    {
+      /* We got the start address from the last msymbol in the objfile.
+	 So the end address is the end of the section.  */
+      struct obj_section *sec;
+
+      sec = find_pc_section (pc);
+      if (sec == NULL)
+	{
+	  /* Don't know if this can happen but if it does, then just say
+	     that the function is 1 byte long.  */
+	  cache_pc_function_high = cache_pc_function_low + 1;
+	}
+      else
+	cache_pc_function_high = sec->endaddr;
+    }
+
+ return_cached_value:
   if (address)
     *address = cache_pc_function_low;
   if (name)
     *name = cache_pc_function_name;
+  if (endaddr)
+    *endaddr = cache_pc_function_high;
   return 1;
 }
 

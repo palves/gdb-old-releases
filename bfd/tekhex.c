@@ -215,7 +215,7 @@ Disassembly of section D00000000:
 */
 
 static void
-DEFUN_VOID (tekhex_init)
+tekhex_init ()
 {
   unsigned int i;
   static boolean inited = false;
@@ -300,8 +300,8 @@ typedef struct tekhex_data_struct
 #define enda(x) (x->vma + x->size)
 
 static bfd_vma
-DEFUN (getvalue, (srcp),
-       char **srcp)
+getvalue (srcp)
+     char **srcp;
 {
   char *src = *srcp;
   bfd_vma value = 0;
@@ -318,9 +318,9 @@ DEFUN (getvalue, (srcp),
 }
 
 static unsigned int
-DEFUN (getsym, (dstp, srcp),
-       char *dstp AND
-       char **srcp)
+getsym (dstp, srcp)
+     char *dstp;
+     char **srcp;
 {
   char *src = *srcp;
   unsigned int i;
@@ -336,9 +336,9 @@ DEFUN (getsym, (dstp, srcp),
 }
 
 struct data_struct *
-DEFUN (find_chunk, (abfd, vma),
-       bfd * abfd AND
-       bfd_vma vma)
+find_chunk (abfd, vma)
+     bfd *abfd;
+     bfd_vma vma;
 {
   struct data_struct *d = abfd->tdata.tekhex_data->data;
 
@@ -365,26 +365,26 @@ DEFUN (find_chunk, (abfd, vma),
   return d;
 }
 
-DEFUN (insert_byte, (abfd, value, addr),
-       bfd * abfd AND
-       int value AND
-       bfd_vma addr)
+static void
+insert_byte (abfd, value, addr)
+     bfd *abfd;
+     int value;
+     bfd_vma addr;
 {
   /* Find the chunk that this byte needs and put it in */
   struct data_struct *d = find_chunk (abfd, addr);
 
   d->chunk_data[addr & CHUNK_MASK] = value;
   d->chunk_init[addr & CHUNK_MASK] = 1;
-
 }
 
 /* The first pass is to find the names of all the sections, and see
   how big the data is */
 static void
-DEFUN (first_phase, (abfd, type, src),
-       bfd * abfd AND
-       char type AND
-       char *src)
+first_phase (abfd, type, src)
+     bfd *abfd;
+     char type;
+     char *src;
 {
   asection *section = &bfd_abs_section;
   int len;
@@ -468,9 +468,9 @@ DEFUN (first_phase, (abfd, type, src),
    record.  */
 
 static void
-DEFUN (pass_over, (abfd, func),
-       bfd * abfd AND
-       void (*func) PARAMS ((bfd *, char, char *)))
+ pass_over (abfd, func)
+     bfd *abfd;
+     void (*func) ();
 {
   unsigned int chars_on_line;
   boolean eof = false;
@@ -513,9 +513,10 @@ DEFUN (pass_over, (abfd, func),
 }
 
 unsigned int
-DEFUN (tekhex_get_symtab, (abfd, table),
-       bfd * abfd AND
-       asymbol ** table)
+tekhex_get_symtab (abfd, table)
+     bfd *abfd;
+     asymbol **table;
+
 {
   tekhex_symbol_type *p = abfd->tdata.tekhex_data->symbols;
   unsigned int c = bfd_get_symcount (abfd);
@@ -531,16 +532,16 @@ DEFUN (tekhex_get_symtab, (abfd, table),
 }
 
 unsigned int
-DEFUN (tekhex_get_symtab_upper_bound, (abfd),
-       bfd * abfd)
+tekhex_get_symtab_upper_bound (abfd)
+     bfd *abfd;
 {
   return (abfd->symcount + 1) * (sizeof (struct tekhex_asymbol_struct *));
 
 }
 
 static boolean
-DEFUN (tekhex_mkobject, (abfd),
-       bfd * abfd)
+tekhex_mkobject (abfd)
+     bfd *abfd;
 {
   tdata_type *tdata = (tdata_type *) bfd_alloc (abfd, sizeof (tdata_type));
 
@@ -558,8 +559,8 @@ DEFUN (tekhex_mkobject, (abfd),
   for a percent sign and some hex digits */
 
 static bfd_target *
-DEFUN (tekhex_object_p, (abfd),
-       bfd * abfd)
+tekhex_object_p (abfd)
+     bfd *abfd;
 {
   char b[4];
   asection *section;
@@ -579,15 +580,13 @@ DEFUN (tekhex_object_p, (abfd),
 }
 
 static boolean
-DEFUN (move_section_contents, (abfd, section, locationp, offset, count,
-			       get),
-
-       bfd * abfd AND
-       asection * section AND
-       PTR locationp AND
-       file_ptr offset AND
-       bfd_size_type count AND
-       boolean get)
+move_section_contents (abfd, section, locationp, offset, count, get)
+     bfd *abfd;
+     asection *section;
+     PTR locationp;
+     file_ptr offset;
+     bfd_size_type count;
+     boolean get;
 {
   bfd_vma addr;
   char *location = (char *) locationp;
@@ -629,12 +628,12 @@ DEFUN (move_section_contents, (abfd, section, locationp, offset, count,
 
 }
 static boolean
-DEFUN (tekhex_get_section_contents, (abfd, section, locationp, offset, count),
-       bfd * abfd AND
-       asection * section AND
-       PTR locationp AND
-       file_ptr offset AND
-       bfd_size_type count)
+tekhex_get_section_contents (abfd, section, locationp, offset, count)
+     bfd *abfd;
+     asection *section;
+     PTR locationp;
+     file_ptr offset;
+     bfd_size_type count;
 {
   if (section->flags & (SEC_LOAD | SEC_ALLOC))
     {
@@ -646,10 +645,10 @@ DEFUN (tekhex_get_section_contents, (abfd, section, locationp, offset, count),
 }
 
 boolean
-DEFUN (tekhex_set_arch_mach, (abfd, arch, machine),
-       bfd * abfd AND
-       enum bfd_architecture arch AND
-       unsigned long machine)
+tekhex_set_arch_mach (abfd, arch, machine)
+     bfd *abfd;
+     enum bfd_architecture arch;
+     unsigned long machine;
 {
   return bfd_default_set_arch_mach (abfd, arch, machine);
 }
@@ -658,12 +657,12 @@ DEFUN (tekhex_set_arch_mach, (abfd, arch, machine),
     */
 
 static boolean
-DEFUN (tekhex_set_section_contents, (abfd, section, locationp, offset, bytes_to_do),
-       bfd * abfd AND
-       sec_ptr section AND
-       PTR locationp AND
-       file_ptr offset AND
-       bfd_size_type bytes_to_do)
+tekhex_set_section_contents (abfd, section, locationp, offset, bytes_to_do)
+     bfd *abfd;
+     sec_ptr section;
+     PTR locationp;
+     file_ptr offset;
+     bfd_size_type bytes_to_do;
 {
 
   if (abfd->output_has_begun == false)
@@ -695,9 +694,9 @@ DEFUN (tekhex_set_section_contents, (abfd, section, locationp, offset, bytes_to_
 }
 
 static void
-DEFUN (writevalue, (dst, value),
-       char **dst AND
-       bfd_vma value)
+writevalue (dst, value)
+     char **dst;
+     bfd_vma value;
 {
   char *p = *dst;
   int len;
@@ -725,9 +724,9 @@ DEFUN (writevalue, (dst, value),
 }
 
 static void
-DEFUN (writesym, (dst, sym),
-       char **dst AND
-       CONST char *sym)
+writesym (dst, sym)
+     char **dst;
+     CONST char *sym;
 {
   char *p = *dst;
   int len = (sym ? strlen (sym) : 0);
@@ -760,11 +759,11 @@ DEFUN (writesym, (dst, sym),
 }
 
 static void
-DEFUN (out, (abfd, type, start, end),
-       bfd * abfd AND
-       char type AND
-       char *start AND
-       char *end)
+out (abfd, type, start, end)
+     bfd *abfd;
+     char type;
+     char *start;
+     char *end;
 {
   int sum = 0;
   char *s;
@@ -790,8 +789,8 @@ DEFUN (out, (abfd, type, start, end),
 }
 
 static boolean
-DEFUN (tekhex_write_object_contents, (abfd),
-       bfd * abfd)
+tekhex_write_object_contents (abfd)
+     bfd *abfd;
 {
   int bytes_written;
   char buffer[100];
@@ -905,16 +904,17 @@ DEFUN (tekhex_write_object_contents, (abfd),
 }
 
 static int
-DEFUN (tekhex_sizeof_headers, (abfd, exec),
-       bfd * abfd AND
-       boolean exec)
+  tekhex_sizeof_headers (abfd, exec)
+     bfd *abfd;
+     boolean exec;
+
 {
   return 0;
 }
 
 static asymbol *
-DEFUN (tekhex_make_empty_symbol, (abfd),
-       bfd * abfd)
+tekhex_make_empty_symbol (abfd)
+     bfd *abfd;
 {
   tekhex_symbol_type *new =
   (tekhex_symbol_type *) bfd_zalloc (abfd, sizeof (struct tekhex_symbol_struct));
@@ -925,11 +925,20 @@ DEFUN (tekhex_make_empty_symbol, (abfd),
 }
 
 static void
-DEFUN (tekhex_print_symbol, (ignore_abfd, filep, symbol, how),
-       bfd * ignore_abfd AND
-       PTR filep AND
-       asymbol * symbol AND
-       bfd_print_symbol_type how)
+tekhex_get_symbol_info (ignore_abfd, symbol, ret)
+     bfd *ignore_abfd;
+     asymbol *symbol;
+     symbol_info *ret;
+{
+  bfd_symbol_info (symbol, ret);
+}
+
+static void
+tekhex_print_symbol (ignore_abfd, filep, symbol, how)
+     bfd *ignore_abfd;
+     PTR filep;
+     asymbol *symbol;
+     bfd_print_symbol_type how;
 {
   FILE *file = (FILE *) filep;
 
@@ -940,23 +949,7 @@ DEFUN (tekhex_print_symbol, (ignore_abfd, filep, symbol, how),
       break;
     case bfd_print_symbol_more:
       break;
-    case bfd_print_symbol_nm:
-      {
-	int section_code = bfd_decode_symclass (symbol);
 
-	if (section_code == 'U')
-	  fprintf (file, "        ");
-	fprintf_vma (file, symbol->value + symbol->section->vma);
-	if (section_code == '?')
-	  {
-	    fprintf (file, " ?");
-	  }
-	else
-	  fprintf (file, " %c", section_code);
-	if (symbol->name)
-	  fprintf (file, " %s", symbol->name);
-      }
-      break;
     case bfd_print_symbol_all:
       {
 	CONST char *section_name = symbol->section->name;
@@ -1015,11 +1008,11 @@ bfd_target tekhex_vec =
   16,				/* ar_max_namelen */
   1,				/* minimum alignment */
   _do_getb64, _do_getb_signed_64, _do_putb64,
-    _do_getb32, _do_getb_signed_32,   _do_putb32,
-    _do_getb16, _do_getb_signed_16, _do_putb16,	/* data */
+  _do_getb32, _do_getb_signed_32, _do_putb32,
+  _do_getb16, _do_getb_signed_16, _do_putb16,	/* data */
   _do_getb64, _do_getb_signed_64, _do_putb64,
-    _do_getb32, _do_getb_signed_32,   _do_putb32,
-    _do_getb16, _do_getb_signed_16, _do_putb16,	/* hdrs */
+  _do_getb32, _do_getb_signed_32, _do_putb32,
+  _do_getb16, _do_getb_signed_16, _do_putb16,	/* hdrs */
 
   {
     _bfd_dummy_target,

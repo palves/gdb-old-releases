@@ -451,7 +451,7 @@ DEFUN(styp_to_sec_flags, (abfd, hdr),
   return(sec_flags);
 }
 
-#define	get_index(symbol)	((int) (symbol)->udata)
+#define	get_index(symbol)	((long) (symbol)->udata)
 
 /*
 INTERNAL_DEFINITION
@@ -806,9 +806,9 @@ DEFUN(coff_mkobject_hook,(abfd, filehdr, aouthdr),
    at linking together COFF files for different architectures.  */
 
 static boolean
-DEFUN (coff_set_arch_mach_hook, (abfd, filehdr),
-       bfd *abfd AND
-       PTR filehdr)
+coff_set_arch_mach_hook(abfd, filehdr)
+     bfd *abfd;
+     PTR filehdr;
 {
   long machine;
   enum bfd_architecture arch;
@@ -818,9 +818,9 @@ DEFUN (coff_set_arch_mach_hook, (abfd, filehdr),
   switch (internal_f->f_magic) {
 #ifdef I386MAGIC
   case I386MAGIC:
-#ifdef I386AIXMAGIC
+  case I386PTXMAGIC:
   case I386AIXMAGIC:		/* Danbury PS/2 AIX C Compiler */
-#endif
+  case I386LYNXMAGIC:
     arch = bfd_arch_i386;
     machine = 0;
     break;
@@ -837,6 +837,7 @@ DEFUN (coff_set_arch_mach_hook, (abfd, filehdr),
 #ifdef MC68MAGIC
   case MC68MAGIC:
   case M68MAGIC:
+  case MC68KBCSMAGIC:
     arch = bfd_arch_m68k;
     machine = 68020;
     break;
@@ -915,7 +916,16 @@ DEFUN (coff_set_arch_mach_hook, (abfd, filehdr),
 #ifdef H8300MAGIC
   case H8300MAGIC:
     arch = bfd_arch_h8300;
-    machine = 0;
+    machine = bfd_mach_h8300;
+    /* !! FIXME this probably isn't the right place for this */
+    abfd->flags |= BFD_IS_RELAXABLE;
+    break;
+#endif
+
+#ifdef H8300HMAGIC
+  case H8300HMAGIC:
+    arch = bfd_arch_h8300;
+    machine = bfd_mach_h8300h;
     /* !! FIXME this probably isn't the right place for this */
     abfd->flags |= BFD_IS_RELAXABLE;
     break;
@@ -1120,8 +1130,15 @@ DEFUN(coff_set_flags,(abfd, magicp, flagsp),
 #endif
 #ifdef H8300MAGIC
     case bfd_arch_h8300:
-      *magicp = H8300MAGIC;
-      return true;
+    switch (bfd_get_mach (abfd)) 
+      {
+      case bfd_mach_h8300:
+	*magicp = H8300MAGIC;
+	return true;
+      case bfd_mach_h8300h:
+	*magicp = H8300HMAGIC;
+	return true;
+      }
       break;
 #endif
 
@@ -1857,7 +1874,7 @@ DEFUN(coff_slurp_symbol_table,(abfd),
       /*
 	We use the native name field to point to the cached field
 	*/
-      src->u.syment._n._n_n._n_zeroes = (int) dst;
+      src->u.syment._n._n_n._n_zeroes = (long) dst;
       dst->symbol.section = coff_section_from_bfd_index(abfd,
 							src->u.syment.n_scnum);
       dst->symbol.flags = 0;
@@ -2062,8 +2079,9 @@ SUBSUBSECTION
 
 #ifndef CALC_ADDEND
 #define CALC_ADDEND(abfd, ptr, reloc, cache_ptr) 	\
-	    if (ptr && bfd_asymbol_bfd(ptr) == abfd		\
-		&& ((ptr->flags & BSF_OLD_COMMON)== 0))	\
+	    if (ptr && bfd_asymbol_bfd(ptr) == abfd	\
+		&& !bfd_is_com_section(ptr->section)	\
+		&& !(ptr->flags & BSF_OLD_COMMON))	\
 	    {						\
 		cache_ptr->addend = -(ptr->section->vma + ptr->value);	\
 	    }						\
@@ -2234,6 +2252,7 @@ dummy_reloc16_extra_cases (abfd, seclet, reloc, data, src_ptr, dst_ptr)
      unsigned int *src_ptr;
      unsigned int *dst_ptr;
 {
+  printf("%s\n", reloc->howto->name);
   abort ();
 }
 #endif

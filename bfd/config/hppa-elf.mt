@@ -1,1 +1,1 @@
-TDEFINES = -DDEFAULT_VECTOR=elf_big_vec
+TDEFAULTS = -DDEFAULT_VECTOR=bfd_elf32_hppa_vec

@@ -42,7 +42,8 @@ extern int mips_fpu;
 /* Advance PC across any function entry prologue instructions
    to reach some "real" code.  */
 
-#define SKIP_PROLOGUE(pc)	pc = mips_skip_prologue(pc)
+#define SKIP_PROLOGUE(pc)	pc = mips_skip_prologue (pc, 0)
+extern CORE_ADDR mips_skip_prologue PARAMS ((CORE_ADDR addr, int lenient));
 
 /* Immediately after a function call, return the saved pc.
    Can't always go through the frames for this because on some machines
@@ -54,10 +55,6 @@ extern int mips_fpu;
 /* Are we currently handling a signal */
 
 #define IN_SIGTRAMP(pc, name)	in_sigtramp(pc, name)
-
-/* Address of end of stack space.  */
-
-#define STACK_END_ADDR (0x7ffff000)
 
 /* Stack grows downward.  */
 
@@ -80,9 +77,9 @@ extern int mips_fpu;
 
 #define ABOUT_TO_RETURN(pc) (read_memory_integer (pc, 4) == 0x3e00008)
 
-/* Return 1 if P points to an invalid floating point value. */
+/* This is taken care of in print_floating [IEEE_FLOAT].  */
 
-#define INVALID_FLOAT(p,l)	isa_NAN(p,l)
+#define INVALID_FLOAT(p,l) 0
 
 /* Say how long (all) registers are.  */
 
@@ -159,11 +156,11 @@ extern int mips_fpu;
 
 /* Largest value REGISTER_RAW_SIZE can have.  */
 
-#define MAX_REGISTER_RAW_SIZE 4
+#define MAX_REGISTER_RAW_SIZE 8
 
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 
-#define MAX_REGISTER_VIRTUAL_SIZE 4
+#define MAX_REGISTER_VIRTUAL_SIZE 8
 
 /* Nonzero if register N requires conversion
    from raw format to virtual format.  */
@@ -189,6 +186,29 @@ extern int mips_fpu;
 	(((N) >= FP0_REGNUM && (N) < FP0_REGNUM+32)  \
 	 ? builtin_type_float : builtin_type_int) \
 
+#if HOST_BYTE_ORDER == BIG_ENDIAN
+/* All mips targets store doubles in a register pair with the least
+   significant register in the lower numbered register.
+   If the host is big endian, double register values need conversion between
+   memory and register formats.  */
+
+#define REGISTER_CONVERT_TO_TYPE(n, type, buffer)			\
+  do {if ((n) >= FP0_REGNUM && (n) < FP0_REGNUM + 32 && 		\
+	  TYPE_CODE(type) == TYPE_CODE_FLT && TYPE_LENGTH(type) == 8) { \
+        char __temp[4];							\
+	memcpy (__temp, ((char *)(buffer))+4, 4);			\
+	memcpy (((char *)(buffer))+4, (buffer), 4); 			\
+	memcpy (((char *)(buffer)), __temp, 4); }} while (0)
+
+#define REGISTER_CONVERT_FROM_TYPE(n, type, buffer)			\
+  do {if ((n) >= FP0_REGNUM && (n) < FP0_REGNUM + 32 &&			\
+	  TYPE_CODE(type) == TYPE_CODE_FLT && TYPE_LENGTH(type) == 8) { \
+        char __temp[4];							\
+	memcpy (__temp, ((char *)(buffer))+4, 4);			\
+	memcpy (((char *)(buffer))+4, (buffer), 4); 			\
+	memcpy (((char *)(buffer)), __temp, 4); }} while (0)
+#endif
+
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function. */
 
@@ -200,13 +220,13 @@ extern int mips_fpu;
    into VALBUF.  XXX floats */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy (REGBUF + REGISTER_BYTE ((TYPE_CODE (TYPE) == TYPE_CODE_FLT && mips_fpu) ? FP0_REGNUM : 2), VALBUF, TYPE_LENGTH (TYPE))
+  mips_extract_return_value(TYPE, REGBUF, VALBUF)
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
 
 #define STORE_RETURN_VALUE(TYPE,VALBUF) \
-  write_register_bytes (REGISTER_BYTE ((TYPE_CODE (TYPE) == TYPE_CODE_FLT && mips_fpu) ? FP0_REGNUM : 2), VALBUF, TYPE_LENGTH (TYPE))
+  mips_store_return_value(TYPE, VALBUF)
 
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
@@ -309,6 +329,32 @@ extern int mips_fpu;
 /* Insert the specified number of args and function address
    into a call sequence of the above form stored at DUMMYNAME.  */
 
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+/* For big endian mips machines the loading of FP values depends on whether
+   they are single or double precision. */
+#define FIX_CALL_DUMMY(dummyname, start_sp, fun, nargs, args, rettype, gcc_p) \
+  do {									\
+    ((int*)(dummyname))[11] |= ((unsigned long)(fun)) >> 16;		\
+    ((int*)(dummyname))[12] |= (unsigned short)(fun);			\
+    if (! mips_fpu) {							\
+      ((int *) (dummyname))[3] = 0; ((int *) (dummyname))[4] = 0;	\
+      ((int *) (dummyname))[5] = 0; ((int *) (dummyname))[6] = 0;	\
+    } else {								\
+      if (nargs > 0 &&							\
+	  TYPE_CODE(VALUE_TYPE(args[0])) == TYPE_CODE_FLT &&		\
+	  TYPE_LENGTH(VALUE_TYPE(args[0])) == 8) {			\
+	((int *) (dummyname))[3] = MK_OP(061,SP_REGNUM,12,4);		\
+	((int *) (dummyname))[4] = MK_OP(061,SP_REGNUM,13,0);		\
+      }									\
+      if (nargs > 1 &&							\
+	  TYPE_CODE(VALUE_TYPE(args[1])) == TYPE_CODE_FLT &&		\
+	  TYPE_LENGTH(VALUE_TYPE(args[1])) == 8) {			\
+	((int *) (dummyname))[5] = MK_OP(061,SP_REGNUM,14,12);		\
+	((int *) (dummyname))[6] = MK_OP(061,SP_REGNUM,15,8);		\
+      }									\
+    }									\
+  } while (0)
+#else
 #define FIX_CALL_DUMMY(dummyname, start_sp, fun, nargs,	args, rettype, gcc_p)\
   do \
     { \
@@ -323,6 +369,7 @@ extern int mips_fpu;
 	} \
     } \
   while (0)
+#endif
 
 /* There's a mess in stack frame creation.  See comments in blockframe.c
    near reference to INIT_FRAME_PC_FIRST.  */

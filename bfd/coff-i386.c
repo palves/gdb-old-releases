@@ -86,7 +86,7 @@ coff_i386_reloc (abfd, reloc_entry, symbol, data, input_section, output_bfd)
   if (diff != 0)
     {
       reloc_howto_type *howto = reloc_entry->howto;
-      char *addr = (char *) data + reloc_entry->address;
+      unsigned char *addr = (unsigned char *) data + reloc_entry->address;
 
       switch (howto->size)
 	{
@@ -134,11 +134,10 @@ static reloc_howto_type howto_table[] =
   HOWTO (R_DIR32,               /* type */                                 
 	 0,	                /* rightshift */                           
 	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
-	 32,	                /* bitsize (obsolete) */                   
+	 32,	                /* bitsize */                   
 	 false,	                /* pc_relative */                          
 	 0,	                /* bitpos */                               
-	 true,	                /* absolute (obsolete) */                  
-	 true,	                /* complain_on_overflow */                 
+	 complain_overflow_bitfield, /* complain_on_overflow */
 	 coff_i386_reloc,       /* special_function */                     
 	 "dir32",               /* name */                                 
 	 true,	                /* partial_inplace */                      
@@ -156,11 +155,10 @@ static reloc_howto_type howto_table[] =
   HOWTO (R_RELBYTE,		/* type */                                 
 	 0,			/* rightshift */                           
 	 0,			/* size (0 = byte, 1 = short, 2 = long) */ 
-	 8,			/* bitsize (obsolete) */                   
+	 8,			/* bitsize */                   
 	 false,			/* pc_relative */                          
 	 0,			/* bitpos */                               
-	 true,			/* absolute (obsolete) */                  
-	 true,			/* complain_on_overflow */                 
+	 complain_overflow_bitfield, /* complain_on_overflow */
 	 coff_i386_reloc,	/* special_function */                     
 	 "8",			/* name */                                 
 	 true,			/* partial_inplace */                      
@@ -170,11 +168,10 @@ static reloc_howto_type howto_table[] =
   HOWTO (R_RELWORD,		/* type */                                 
 	 0,			/* rightshift */                           
 	 1,			/* size (0 = byte, 1 = short, 2 = long) */ 
-	 16,			/* bitsize (obsolete) */                   
+	 16,			/* bitsize */                   
 	 false,			/* pc_relative */                          
 	 0,			/* bitpos */                               
-	 true,			/* absolute (obsolete) */                  
-	 true,			/* complain_on_overflow */                 
+	 complain_overflow_bitfield, /* complain_on_overflow */
 	 coff_i386_reloc,	/* special_function */                     
 	 "16",			/* name */                                 
 	 true,			/* partial_inplace */                      
@@ -184,11 +181,10 @@ static reloc_howto_type howto_table[] =
   HOWTO (R_RELLONG,		/* type */                                 
 	 0,			/* rightshift */                           
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */ 
-	 32,			/* bitsize (obsolete) */                   
+	 32,			/* bitsize */                   
 	 false,			/* pc_relative */                          
 	 0,			/* bitpos */                               
-	 true,			/* absolute (obsolete) */                  
-	 true,			/* complain_on_overflow */                 
+	 complain_overflow_bitfield, /* complain_on_overflow */
 	 coff_i386_reloc,	/* special_function */                     
 	 "32",			/* name */                                 
 	 true,			/* partial_inplace */                      
@@ -198,11 +194,10 @@ static reloc_howto_type howto_table[] =
   HOWTO (R_PCRBYTE,		/* type */                                 
 	 0,			/* rightshift */                           
 	 0,			/* size (0 = byte, 1 = short, 2 = long) */ 
-	 8,			/* bitsize (obsolete) */                   
+	 8,			/* bitsize */                   
 	 true,			/* pc_relative */                          
 	 0,			/* bitpos */                               
-	 false,			/* absolute (obsolete) */                  
-	 true,			/* complain_on_overflow */                 
+	 complain_overflow_signed, /* complain_on_overflow */
 	 coff_i386_reloc,	/* special_function */                     
 	 "DISP8",		/* name */                                 
 	 true,			/* partial_inplace */                      
@@ -212,11 +207,10 @@ static reloc_howto_type howto_table[] =
   HOWTO (R_PCRWORD,		/* type */                                 
 	 0,			/* rightshift */                           
 	 1,			/* size (0 = byte, 1 = short, 2 = long) */ 
-	 16,			/* bitsize (obsolete) */                   
+	 16,			/* bitsize */                   
 	 true,			/* pc_relative */                          
 	 0,			/* bitpos */                               
-	 false,			/* absolute (obsolete) */                  
-	 true,			/* complain_on_overflow */                 
+	 complain_overflow_signed, /* complain_on_overflow */
 	 coff_i386_reloc,	/* special_function */                     
 	 "DISP16",		/* name */                                 
 	 true,			/* partial_inplace */                      
@@ -226,11 +220,10 @@ static reloc_howto_type howto_table[] =
   HOWTO (R_PCRLONG,		/* type */                                 
 	 0,			/* rightshift */                           
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */ 
-	 32,			/* bitsize (obsolete) */                   
+	 32,			/* bitsize */                   
 	 true,			/* pc_relative */                          
 	 0,			/* bitpos */                               
-	 false,			/* absolute (obsolete) */                  
-	 true,			/* complain_on_overflow */                 
+	 complain_overflow_signed, /* complain_on_overflow */
 	 coff_i386_reloc,	/* special_function */                     
 	 "DISP32",		/* name */                                 
 	 true,			/* partial_inplace */                      

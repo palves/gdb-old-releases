@@ -25,12 +25,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    has PC/NFS, so it can access the same executables that gdb can,
    over the net in real time.  */
 
-#define	 TM_FILE_OVERRIDE
 #include "defs.h"
 #include <string.h>
-#include "a29k/tm-a29k.h"
 
 #include "inferior.h"
+#include "bfd.h"
+#include "symfile.h"
 #include "wait.h"
 #include "value.h"
 #include <ctype.h>
@@ -198,7 +198,7 @@ get_hex_regs (n, regno)
       val = 0;
       for (j = 0; j < 8; j++)
 	val = (val << 4) + get_hex_digit (j == 0);
-      supply_register (regno++, &val);
+      supply_register (regno++, (char *) &val);
     }
 }
 
@@ -479,8 +479,8 @@ eb_detach (from_tty)
 /* Tell the remote machine to resume.  */
 
 void
-eb_resume (step, sig)
-     int step, sig;
+eb_resume (pid, step, sig)
+     int pid, step, sig;
 {
   if (step)
     {
@@ -717,10 +717,10 @@ eb_fetch_registers ()
   /* There doesn't seem to be any way to get these.  */
   {
     int val = -1;
-    supply_register (FPE_REGNUM, &val);
-    supply_register (INTE_REGNUM, &val);
-    supply_register (FPS_REGNUM, &val);
-    supply_register (EXO_REGNUM, &val);
+    supply_register (FPE_REGNUM, (char *) &val);
+    supply_register (INTE_REGNUM, (char *) &val);
+    supply_register (FPS_REGNUM, (char *) &val);
+    supply_register (EXO_REGNUM, (char *) &val);
   }
 
   write (eb_desc, "dw gr1,gr1\n", 11);
@@ -984,7 +984,7 @@ executable as it exists on the remote computer.  For example,\n\
 	0, 0,	/* Breakpoints */
 	0, 0, 0, 0, 0,	/* Terminal handling */
 	eb_kill,
-	0,	/* load */
+	generic_load,	/* load */
 	0, /* lookup_symbol */
 	eb_create_inferior,
 	eb_mourn_inferior,

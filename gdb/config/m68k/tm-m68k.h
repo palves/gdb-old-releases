@@ -65,6 +65,11 @@ read_memory_integer (read_register (SP_REGNUM), 4)
 #define BREAKPOINT {0x4e, (0x40 | BPT_VECTOR)}
 #endif
 
+/* We always use vector 1 for the "remote" target.  This is hardcoded in
+   m68k-stub.c.  */
+#define REMOTE_BPT_VECTOR 1
+#define REMOTE_BREAKPOINT {0x4e, (0x40 | REMOTE_BPT_VECTOR)}
+
 /* If your kernel resets the pc after the trap happens you may need to
    define this before including this file.  */
 
@@ -293,10 +298,15 @@ extern const struct ext_format ext_format_68881;
    In the case of the 68000, the frame's nominal address
    is the address of a 4-byte word containing the calling frame's address.  */
 
+/* If we are chaining from sigtramp, then manufacture a sigtramp frame
+   (which isn't really on the stack.  I'm not sure this is right for anything
+   but BSD4.3 on an hp300.  */
 #define FRAME_CHAIN(thisframe)  \
-  (!inside_entry_file ((thisframe)->pc) ? \
-   read_memory_integer ((thisframe)->frame, 4) :\
-   0)
+  (thisframe->signal_handler_caller \
+   ? thisframe->frame \
+   : (!inside_entry_file ((thisframe)->pc) \
+      ? read_memory_integer ((thisframe)->frame, 4) \
+      : 0))
 
 /* Define other aspects of the stack frame.  */
 
@@ -304,9 +314,31 @@ extern const struct ext_format ext_format_68881;
    by FI does not have a frame on the stack associated with it.  If it
    does not, FRAMELESS is set to 1, else 0.  */
 #define FRAMELESS_FUNCTION_INVOCATION(FI, FRAMELESS) \
-  (FRAMELESS) = frameless_look_for_prologue(FI)
+  do { \
+    if ((FI)->signal_handler_caller) \
+      (FRAMELESS) = 0; \
+    else \
+      (FRAMELESS) = frameless_look_for_prologue(FI); \
+  } while (0)
 
-#define FRAME_SAVED_PC(FRAME) (read_memory_integer ((FRAME)->frame + 4, 4))
+/* This was determined by experimentation on hp300 BSD 4.3.  Perhaps
+   it corresponds to some offset in /usr/include/sys/user.h or
+   something like that.  Using some system include file would
+   have the advantage of probably being more robust in the face
+   of OS upgrades, but the disadvantage of being wrong for
+   cross-debugging.  */
+
+#define SIG_PC_FP_OFFSET 530
+
+#define FRAME_SAVED_PC(FRAME) \
+  (((FRAME)->signal_handler_caller \
+    ? ((FRAME)->next \
+       ? read_memory_integer ((FRAME)->next->frame + SIG_PC_FP_OFFSET, 4) \
+       : read_memory_integer (read_register (SP_REGNUM) \
+			      + SIG_PC_FP_OFFSET - 8, 4) \
+       ) \
+    : read_memory_integer ((FRAME)->frame + 4, 4)) \
+   )
 
 #define FRAME_ARGS_ADDRESS(fi) ((fi)->frame)
 
@@ -332,132 +364,11 @@ extern const struct ext_format ext_format_68881;
    the address we return for it IS the sp for the next frame.  */
 
 #if !defined (FRAME_FIND_SAVED_REGS)
-#if defined (HAVE_68881)
-#define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs)		\
-{ register int regnum;							\
-  register int regmask;							\
-  register CORE_ADDR next_addr;						\
-  register CORE_ADDR pc;						\
-  int nextinsn;								\
-  bzero (&frame_saved_regs, sizeof frame_saved_regs);			\
-  if ((frame_info)->pc >= (frame_info)->frame - CALL_DUMMY_LENGTH - FP_REGNUM*4 - 8*12 - 4 \
-      && (frame_info)->pc <= (frame_info)->frame)				\
-    { next_addr = (frame_info)->frame;					\
-      pc = (frame_info)->frame - CALL_DUMMY_LENGTH - FP_REGNUM * 4 - 8*12 - 4; }\
-  else   								\
-    { pc = get_pc_function_start ((frame_info)->pc); 			\
-      /* Verify we have a link a6 instruction next;			\
-	 if not we lose.  If we win, find the address above the saved   \
-	 regs using the amount of storage from the link instruction.  */\
-      if (044016 == read_memory_integer (pc, 2))			\
-	next_addr = (frame_info)->frame + read_memory_integer (pc += 2, 4), pc+=4; \
-      else if (047126 == read_memory_integer (pc, 2))			\
-	next_addr = (frame_info)->frame + read_memory_integer (pc += 2, 2), pc+=2; \
-      else goto lose;							\
-      /* If have an addal #-n, sp next, adjust next_addr.  */		\
-      if ((0177777 & read_memory_integer (pc, 2)) == 0157774)		\
-	next_addr += read_memory_integer (pc += 2, 4), pc += 4;		\
-    }									\
-  /* next should be a moveml to (sp) or -(sp) or a movl r,-(sp) */	\
-  regmask = read_memory_integer (pc + 2, 2);				\
-  /* But before that can come an fmovem.  Check for it.  */		\
-  nextinsn = 0xffff & read_memory_integer (pc, 2);			\
-  if (0xf227 == nextinsn						\
-      && (regmask & 0xff00) == 0xe000)					\
-    { pc += 4; /* Regmask's low bit is for register fp7, the first pushed */ \
-      for (regnum = FP0_REGNUM + 7; regnum >= FP0_REGNUM; regnum--, regmask >>= 1)		\
-	if (regmask & 1)						\
-          (frame_saved_regs).regs[regnum] = (next_addr -= 12);		\
-      regmask = read_memory_integer (pc + 2, 2); }			\
-  if (0044327 == read_memory_integer (pc, 2))				\
-    { pc += 4; /* Regmask's low bit is for register 0, the first written */ \
-      for (regnum = 0; regnum < 16; regnum++, regmask >>= 1)		\
-	if (regmask & 1)						\
-          (frame_saved_regs).regs[regnum] = (next_addr += 4) - 4; }	\
-  else if (0044347 == read_memory_integer (pc, 2))			\
-    { pc += 4; /* Regmask's low bit is for register 15, the first pushed */ \
-      for (regnum = 15; regnum >= 0; regnum--, regmask >>= 1)		\
-	if (regmask & 1)						\
-          (frame_saved_regs).regs[regnum] = (next_addr -= 4); }		\
-  else if (0x2f00 == (0xfff0 & read_memory_integer (pc, 2)))		\
-    { regnum = 0xf & read_memory_integer (pc, 2); pc += 2;		\
-      (frame_saved_regs).regs[regnum] = (next_addr -= 4); }		\
-  /* fmovemx to index of sp may follow.  */				\
-  regmask = read_memory_integer (pc + 2, 2);				\
-  nextinsn = 0xffff & read_memory_integer (pc, 2);			\
-  if (0xf236 == nextinsn						\
-      && (regmask & 0xff00) == 0xf000)					\
-    { pc += 10; /* Regmask's low bit is for register fp0, the first written */ \
-      for (regnum = FP0_REGNUM + 7; regnum >= FP0_REGNUM; regnum--, regmask >>= 1)		\
-	if (regmask & 1)						\
-          (frame_saved_regs).regs[regnum] = (next_addr += 12) - 12;	\
-      regmask = read_memory_integer (pc + 2, 2); }			\
-  /* clrw -(sp); movw ccr,-(sp) may follow.  */				\
-  if (0x426742e7 == read_memory_integer (pc, 4))			\
-    (frame_saved_regs).regs[PS_REGNUM] = (next_addr -= 4);		\
-  lose: ;								\
-  (frame_saved_regs).regs[SP_REGNUM] = (frame_info)->frame + 8;		\
-  (frame_saved_regs).regs[FP_REGNUM] = (frame_info)->frame;		\
-  (frame_saved_regs).regs[PC_REGNUM] = (frame_info)->frame + 4;		\
-}
-#else /* no 68881.  */
-#define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs)		\
-{ register int regnum;							\
-  register int regmask;							\
-  register CORE_ADDR next_addr;						\
-  register CORE_ADDR pc;						\
-  bzero (&frame_saved_regs, sizeof frame_saved_regs);			\
-  if ((frame_info)->pc >= (frame_info)->frame - CALL_DUMMY_LENGTH - FP_REGNUM*4 - 4 \
-      && (frame_info)->pc <= (frame_info)->frame)				\
-    { next_addr = (frame_info)->frame;					\
-      pc = (frame_info)->frame - CALL_DUMMY_LENGTH - FP_REGNUM * 4 - 4; }\
-  else   								\
-    { pc = get_pc_function_start ((frame_info)->pc); 			\
-      /* Verify we have a link a6 instruction next;			\
-	 if not we lose.  If we win, find the address above the saved   \
-	 regs using the amount of storage from the link instruction.  */\
-      if (044016 == read_memory_integer (pc, 2))			\
-	next_addr = (frame_info)->frame + read_memory_integer (pc += 2, 4), pc+=4; \
-      else if (047126 == read_memory_integer (pc, 2))			\
-	next_addr = (frame_info)->frame + read_memory_integer (pc += 2, 2), pc+=2; \
-      else goto lose;							\
-      /* If have an addal #-n, sp next, adjust next_addr.  */		\
-      if ((0177777 & read_memory_integer (pc, 2)) == 0157774)		\
-	next_addr += read_memory_integer (pc += 2, 4), pc += 4;		\
-    }									\
-  /* next should be a moveml to (sp) or -(sp) or a movl r,-(sp) */	\
-  regmask = read_memory_integer (pc + 2, 2);				\
-  if (0044327 == read_memory_integer (pc, 2))				\
-    { pc += 4; /* Regmask's low bit is for register 0, the first written */ \
-      for (regnum = 0; regnum < 16; regnum++, regmask >>= 1)		\
-	if (regmask & 1)						\
-          (frame_saved_regs).regs[regnum] = (next_addr += 4) - 4; }	\
-  else if (0044347 == read_memory_integer (pc, 2))			\
-    { pc += 4; /* Regmask's low bit is for register 15, the first pushed */ \
-      for (regnum = 15; regnum >= 0; regnum--, regmask >>= 1)		\
-	if (regmask & 1)						\
-          (frame_saved_regs).regs[regnum] = (next_addr -= 4); }		\
-  else if (0x2f00 == (0xfff0 & read_memory_integer (pc, 2)))		\
-    { regnum = 0xf & read_memory_integer (pc, 2); pc += 2;		\
-      (frame_saved_regs).regs[regnum] = (next_addr -= 4); }		\
-  /* clrw -(sp); movw ccr,-(sp) may follow.  */				\
-  if (0x426742e7 == read_memory_integer (pc, 4))			\
-    (frame_saved_regs).regs[PS_REGNUM] = (next_addr -= 4);		\
-  lose: ;								\
-  (frame_saved_regs).regs[SP_REGNUM] = (frame_info)->frame + 8;		\
-  (frame_saved_regs).regs[FP_REGNUM] = (frame_info)->frame;		\
-  (frame_saved_regs).regs[PC_REGNUM] = (frame_info)->frame + 4;		\
-}
-#endif /* no 68881.  */
+#define FRAME_FIND_SAVED_REGS(fi,fsr) m68k_find_saved_regs ((fi), &(fsr))
 #endif /* no FIND_FRAME_SAVED_REGS.  */
 
 
-/* Things needed for making the inferior call functions.
-   It seems like every m68k based machine has almost identical definitions
-   in the individual machine's configuration files.  Most other cpu types
-   (mips, i386, etc) have routines in their *-tdep.c files to handle this
-   for most configurations.  The m68k family should be able to do this as
-   well.  These macros can still be overridden when necessary.  */
+/* Things needed for making the inferior call functions.  */
 
 /* The CALL_DUMMY macro is the sequence of instructions, as disassembled
    by gdb itself:

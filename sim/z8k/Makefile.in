@@ -17,12 +17,15 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 srcdir = .
+srcroot = $(srcdir)/../../
 
 prefix = /usr/local
 
+program_transform_name =
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 libdir = $(exec_prefix)/lib
+tooldir = $(libdir)/$(target_alias)
 
 datadir = $(prefix)/lib
 mandir = $(prefix)/man
@@ -42,9 +45,11 @@ docdir = $(srcdir)/doc
 
 SHELL = /bin/sh
 
-INSTALL = install -c
+INSTALL = $${srcroot}/install.sh -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
+INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
+INSTALL_XFORM1= $(INSTALL_XFORM) -b=.1
 
 AR = ar
 AR_FLAGS = rc
@@ -54,7 +59,7 @@ MAKEINFO = makeinfo
 RANLIB = ranlib
 
 INCDIR = -I. -I$(srcdir)/../../include  -I$(srcdir)/../../bfd
-CSEARCH = -I. -I$(srcdir) $(INCDIR)
+CSEARCH = -I. -I$(srcdir)/../bfd -I$(INCDIR)  -I../../bfd
 DEP = mkdep
 
 
@@ -68,7 +73,7 @@ OFILES = iface.o mem.o comped1.o comped3.o comped2.o support.o  quick.o compedb3
 support.o:support.c inlines.h
 
 run:$(OFILES) run.o
-	$(CC) -o run run.o $(OFILES) ../../bfd/libbfd.a ../../libiberty/libiberty.a  ../../opcodes/libopcodes.a
+	$(CC) $(CFLAGS) -o run run.o $(OFILES) ../../bfd/libbfd.a ../../libiberty/libiberty.a  ../../opcodes/libopcodes.a
 
 comped1.o:comped1.c tc-gen1.h 
 	$(CC) -c -g -o comped1.o $(INCDIR) $(srcdir)/comped1.c	
@@ -165,16 +170,17 @@ RECONFIG = config.status
 #
 force:
 
+# Copy the files into directories where they will be run.
 install:
-	-parent=`echo $(bindir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(bindir) ] ; then true ; else mkdir $(bindir) ; fi
-	-parent=`echo $(man1dir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(man1dir) ] ; then true ; else mkdir $(man1dir) ; fi
-	-n=`t='$(program_transform_name)'; echo run | sed -e "" $$t`; \
-	$(INSTALL_PROGRAM) run $(bindir)/$$n; \
-	$(M_INSTALL)
+	srcroot=`cd $(srcroot); pwd`; export srcroot; \
+	$(INSTALL_XFORM) run $(bindir)/run ;  \
+	n=`t='$(program_transform_name)'; echo run | sed -e "" $$t`; \
+	if [ -d $(tooldir) ] ; then \
+	  if [ -d $(tooldir)/bin ] ; then true ; else mkdir $(tooldir)/bin ; fi; \
+	  rm -f $(tooldir)/bin/run;  \
+	  ln $(bindir)/$$n $(tooldir)/bin/run \
+	   || $(INSTALL_PROGRAM) run $(tooldir)/bin/run; \
+	else true; fi
 
 
 

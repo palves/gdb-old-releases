@@ -1,6 +1,6 @@
 \input texinfo
 @setfilename gdbint.info
-@c $Id: gdbint.texinfo,v 1.65 1993/04/29 07:08:06 fnf Exp $
+@c $Id: gdbint.texinfo,v 1.70 1993/07/29 18:21:12 kingdon Exp $
 
 @ifinfo
 @format
@@ -42,7 +42,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.65 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.70 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -198,7 +198,7 @@ Good luck!
 @chapter Debugging GDB with itself
 If gdb is limping on your machine, this is the preferred way to get it
 fully functional.  Be warned that in some ancient Unix systems, like
-Ultrix 4.0, a program can't be running in one process while it is being
+Ultrix 4.2, a program can't be running in one process while it is being
 debugged in another.  Rather than typing the command @code{@w{./gdb
 ./gdb}}, which works on Suns and such, you can copy @file{gdb} to
 @file{gdb2} and then type @code{@w{./gdb ./gdb2}}.
@@ -2006,8 +2006,6 @@ inflow.c
 inflow.c
 @item TIOCNOTTY
 inflow.c
-@item TM_FILE_OVERRIDE
-defs.h
 @item T_ARG
 coffread.c
 @item T_VOID
@@ -2436,9 +2434,6 @@ remote-mm.c
 remote-adapt.c
 @item NO_SINGLE_STEP
 infptrace.c
-@item NO_TYPEDEFS
-xcoffread.c--This causes types not to be read, to save memory and speed
-things up.
 @item NPC_REGNUM
 infcmd.c
 @item NS32K_SVC_IMMED_OPERANDS
@@ -2573,12 +2568,25 @@ defs.h
 defs.h
 @item TARGET_PTR_BIT
 defs.h
+@item TARGET_READ_PC
+@item TARGET_WRITE_PC
+@item TARGET_READ_SP
+@item TARGET_WRITE_SP
+@item TARGET_READ_FP
+@item TARGET_WRITE_FP
+These change the behavior of @code{read_pc}, @code{write_pc},
+@code{read_sp}, @code{write_sp}, @code{read_fp} and @code{write_fp}.
+For most targets, these may be left undefined.  GDB will call the
+read and write register functions with the relevant @code{_REGNUM} argument.
+
+These macros are useful when a target keeps one of these registers in a
+hard to get at place;  for example, part in a segment register and part
+in an ordinary register.
+
 @item TARGET_SHORT_BIT
 defs.h
 @item TDESC
 infrun.c
-@item TM_FILE_OVERRIDE
-defs.h
 @item T_ARG
 coffread.c
 @item T_VOID
@@ -2730,17 +2738,9 @@ is so old that it has never been converted to use BFD.  Now that's old!
 The IBM RS/6000 running AIX uses an object file format called xcoff.
 The COFF sections, symbols, and line numbers are used, but debugging
 symbols are dbx-style stabs whose strings are located in the
-@samp{.debug} section (rather than the string table).  Files are
-indicated with a @samp{C_FILE} symbol (.file) which is analogous to
-@samp{N_SO}; include files are delimited with @samp{C_BINCL} (.bi) and
-@samp{C_EINCL} (.ei) which correspond to @samp{N_SOL} rather than Sun's
-@samp{N_BINCL} (that is, they don't nest and there is no equivalent to
-N_EXCL).  The values of the @samp{C_BINCL} and @samp{C_EINCL} symbols
-are offsets into the executable file which point to the beginning and
-the end of the portion of the linetable which correspond to this include
-file (warning: C_EINCL is inclusive not exclusive like most end of
-something pointers).  Other differences from standard stabs include the
-use of negative type numbers for builtin types.
+@samp{.debug} section (rather than the string table).  For more
+information, @xref{Top,,,stabs,The Stabs Debugging Format}, and search
+for XCOFF.
 
 The shared library scheme has a nice clean interface for figuring out
 what shared libraries are in use, but the catch is that everything which

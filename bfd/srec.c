@@ -707,7 +707,7 @@ DEFUN(srec_write_terminator,(abfd, tdata),
       
 static void
 srec_write_symbols(abfd)
-bfd *abfd;
+     bfd *abfd;
 {
   char buffer[MAXCHUNK];
   /* Dump out the symbols of a bfd */
@@ -733,7 +733,7 @@ bfd *abfd;
       if (len > 3 && s->name[len-2] == '.') 
       {
 	int l;
-	sprintf(buffer, "$$ %s\n\r", s->name);
+	sprintf(buffer, "$$ %s\r\n", s->name);
 	l = strlen(buffer);
 	bfd_write(buffer, l, 1, abfd);
       }
@@ -747,7 +747,13 @@ bfd *abfd;
 	/* Just dump out non debug symbols */
 
 	int l;
-	sprintf(buffer,"  %s $%x\n\r", s->name, s->value + s->section->lma);
+	char buf2[40], *p;
+
+	sprintf_vma (buf2, s->value + s->section->lma);
+	p = buf2;
+	while (p[0] == '0' && p[1] != 0)
+	  p++;
+	sprintf (buffer, "  %s $%s\r\n", s->name, p);
 	l = strlen(buffer);
 	bfd_write(buffer, l, 1,abfd);
       }
@@ -841,6 +847,15 @@ DEFUN(srec_get_symtab, (abfd, alocation),
 }
 
 void 
+DEFUN(srec_get_symbol_info,(ignore_abfd, symbol, ret),
+      bfd *ignore_abfd AND
+      asymbol *symbol AND
+      symbol_info *ret)
+{
+  bfd_symbol_info (symbol, ret);
+}
+
+void 
 DEFUN(srec_print_symbol,(ignore_abfd, afile, symbol, how),
       bfd *ignore_abfd AND
       PTR afile AND
@@ -854,7 +869,6 @@ DEFUN(srec_print_symbol,(ignore_abfd, afile, symbol, how),
     fprintf (file, "%s", symbol->name);
     break;
    default:
-   case bfd_print_symbol_nm:
     bfd_print_symbol_vandf ((PTR) file, symbol);
     fprintf (file, " %-5s %s",
 	     symbol->section->name,

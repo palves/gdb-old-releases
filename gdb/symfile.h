@@ -212,6 +212,9 @@ obconcat PARAMS ((struct obstack *obstackp, const char *, const char *,
 extern struct partial_symtab *
 allocate_psymtab PARAMS ((char *, struct objfile *));
 
+/* Remote targets may wish to use this as their load function.  */
+extern void generic_load PARAMS ((char *name, int from_tty));
+
 /* From dwarfread.c */
 
 extern void

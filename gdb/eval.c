@@ -373,6 +373,20 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
 	  if (op == STRUCTOP_STRUCT)
 	    {
+	      /* If v is a variable in a register, and the user types
+		 v.method (), this will produce an error, because v has
+		 no address.
+
+		 A possible way around this would be to allocate a
+		 copy of the variable on the stack, copy in the
+		 contents, call the function, and copy out the
+		 contents.  I.e. convert this from call by reference
+		 to call by copy-return (or whatever it's called).
+		 However, this does not work because it is not the
+		 same: the method being called could stash a copy of
+		 the address, and then future uses through that address
+		 (after the method returns) would be expected to
+		 use the variable itself, not some copy of it.  */
 	      arg2 = evaluate_subexp_for_address (exp, pos, noside);
 	    }
 	  else
@@ -987,10 +1001,22 @@ evaluate_subexp (expect_type, exp, pos, noside)
       (*pos) += 1;
       return value_of_this (1);
 
+    case OP_TYPE:
+      error ("Attempt to use a type name as an expression");
+
     default:
-      /* This can happen at least in the case where the user types
-	 "print int".  */
-      error ("Invalid expression");
+      /* Removing this case and compiling with gcc -Wall reveals that
+	 a lot of cases are hitting this case.  Some of these should
+	 probably be removed from expression.h (e.g. do we need a BINOP_SCOPE
+	 and an OP_SCOPE?); others are legitimate expressions which are
+	 (apparently) not fully implemented.
+
+	 If there are any cases landing here which mean a user error,
+	 then they should be separate cases, with more descriptive
+	 error messages.  */
+
+      error ("\
+GDB does not (yet) know how to evaluated that kind of expression");
     }
 
  nosideret:

@@ -136,7 +136,7 @@ extern int yyerrflag;
 YYSTYPE yylval, yyval;
 # define YYERRCODE 256
 
-# line 943 "./c-exp.y"
+# line 947 "./c-exp.y"
 
 
 /* Take care of parsing a number (anything that starts with a digit).
@@ -383,6 +383,8 @@ yylex ()
 	  if (namelen > 2)
 	    {
 	      lexptr = tokstart + namelen;
+	      if (lexptr[-1] != '\'')
+		error ("Unmatched single quote.");
 	      namelen -= 2;
 	      tokstart++;
 	      goto tryname;
@@ -444,9 +446,14 @@ yylex ()
 
 	for (;; ++p)
 	  {
+	    /* This test includes !hex because 'e' is a valid hex digit
+	       and thus does not indicate a floating point number when
+	       the radix is hex.  */
 	    if (!hex && !got_e && (*p == 'e' || *p == 'E'))
 	      got_dot = got_e = 1;
-	    else if (!hex && !got_dot && *p == '.')
+	    /* This test does not include !hex, because a '.' always indicates
+	       a decimal floating point number regardless of the radix.  */
+	    else if (!got_dot && *p == '.')
 	      got_dot = 1;
 	    else if (got_e && (p[-1] == 'e' || p[-1] == 'E')
 		     && (*p == '-' || *p == '+'))
@@ -668,7 +675,8 @@ yylex ()
 				 { CPLUS_MARKER, 't', 'h', 'i', 's', '\0' };
 
 	  if (lookup_symbol (this_name, expression_context_block,
-			     VAR_NAMESPACE, 0, NULL))
+			     VAR_NAMESPACE, (int *) NULL,
+			     (struct symtab **) NULL))
 	    return THIS;
 	}
       break;
@@ -705,8 +713,8 @@ yylex ()
     sym = lookup_symbol (tmp, expression_context_block,
 			 VAR_NAMESPACE,
 			 current_language->la_language == language_cplus
-			 ? &is_a_field_of_this : NULL,
-			 NULL);
+			 ? &is_a_field_of_this : (int *) NULL,
+			 (struct symtab **) NULL);
     if ((sym && SYMBOL_CLASS (sym) == LOC_BLOCK) ||
         lookup_partial_symtab (tmp))
       {
@@ -716,7 +724,73 @@ yylex ()
       }
     if (sym && SYMBOL_CLASS (sym) == LOC_TYPEDEF)
         {
-	  yylval.tsym.type = SYMBOL_TYPE (sym);
+	  char *p;
+	  char *namestart;
+	  struct symbol *best_sym;
+
+	  /* Look ahead to detect nested types.  This probably should be
+	     done in the grammar, but trying seemed to introduce a lot
+	     of shift/reduce and reduce/reduce conflicts.  It's possible
+	     that it could be done, though.  Or perhaps a non-grammar, but
+	     less ad hoc, approach would work well.  */
+
+	  /* Since we do not currently have any way of distinguishing
+	     a nested type from a non-nested one (the stabs don't tell
+	     us whether a type is nested), we just ignore the
+	     containing type.  */
+
+	  p = lexptr;
+	  best_sym = sym;
+	  while (1)
+	    {
+	      /* Skip whitespace.  */
+	      while (*p == ' ' || *p == '\t' || *p == '\n')
+		++p;
+	      if (*p == ':' && p[1] == ':')
+		{
+		  /* Skip the `::'.  */
+		  p += 2;
+		  /* Skip whitespace.  */
+		  while (*p == ' ' || *p == '\t' || *p == '\n')
+		    ++p;
+		  namestart = p;
+		  while (*p == '_' || *p == '$' || (*p >= '0' && *p <= '9')
+			 || (*p >= 'a' && *p <= 'z')
+			 || (*p >= 'A' && *p <= 'Z'))
+		    ++p;
+		  if (p != namestart)
+		    {
+		      struct symbol *cur_sym;
+		      /* As big as the whole rest of the expression, which is
+			 at least big enough.  */
+		      char *tmp = alloca (strlen (namestart));
+
+		      memcpy (tmp, namestart, p - namestart);
+		      tmp[p - namestart] = '\0';
+		      cur_sym = lookup_symbol (tmp, expression_context_block,
+					       VAR_NAMESPACE, (int *) NULL,
+					       (struct symtab **) NULL);
+		      if (cur_sym)
+			{
+			  if (SYMBOL_CLASS (cur_sym) == LOC_TYPEDEF)
+			    {
+			      best_sym = cur_sym;
+			      lexptr = p;
+			    }
+			  else
+			    break;
+			}
+		      else
+			break;
+		    }
+		  else
+		    break;
+		}
+	      else
+		break;
+	    }
+
+	  yylval.tsym.type = SYMBOL_TYPE (best_sym);
 	  return TYPENAME;
         }
     if ((yylval.tsym.type = lookup_primitive_typename (tmp)) != 0)
@@ -1892,16 +1966,18 @@ case 67:
 # line 547 "./c-exp.y"
 { struct symbol *tem
 			    = lookup_symbol (copy_name (yypvt[-0].sval), yypvt[-2].bval,
-					     VAR_NAMESPACE, 0, NULL);
+					     VAR_NAMESPACE, (int *) NULL,
+					     (struct symtab **) NULL);
 			  if (!tem || SYMBOL_CLASS (tem) != LOC_BLOCK)
 			    error ("No function \"%s\" in specified context.",
 				   copy_name (yypvt[-0].sval));
 			  yyval.bval = SYMBOL_BLOCK_VALUE (tem); } break;
 case 68:
-# line 557 "./c-exp.y"
+# line 558 "./c-exp.y"
 { struct symbol *sym;
 			  sym = lookup_symbol (copy_name (yypvt[-0].sval), yypvt[-2].bval,
-					       VAR_NAMESPACE, 0, NULL);
+					       VAR_NAMESPACE, (int *) NULL,
+					       (struct symtab **) NULL);
 			  if (sym == 0)
 			    error ("No symbol \"%s\" in specified context.",
 				   copy_name (yypvt[-0].sval));
@@ -1910,7 +1986,7 @@ case 68:
 			  write_exp_elt_sym (sym);
 			  write_exp_elt_opcode (OP_VAR_VALUE); } break;
 case 69:
-# line 570 "./c-exp.y"
+# line 572 "./c-exp.y"
 {
 			  struct type *type = yypvt[-2].tval;
 			  if (TYPE_CODE (type) != TYPE_CODE_STRUCT
@@ -1924,7 +2000,7 @@ case 69:
 			  write_exp_elt_opcode (OP_SCOPE);
 			} break;
 case 70:
-# line 583 "./c-exp.y"
+# line 585 "./c-exp.y"
 {
 			  struct type *type = yypvt[-3].tval;
 			  struct stoken tmp_token;
@@ -1948,14 +2024,16 @@ case 70:
 			  write_exp_elt_opcode (OP_SCOPE);
 			} break;
 case 72:
-# line 609 "./c-exp.y"
+# line 611 "./c-exp.y"
 {
 			  char *name = copy_name (yypvt[-0].sval);
 			  struct symbol *sym;
 			  struct minimal_symbol *msymbol;
 
 			  sym =
-			    lookup_symbol (name, 0, VAR_NAMESPACE, 0, NULL);
+			    lookup_symbol (name, (const struct block *) NULL,
+					   VAR_NAMESPACE, (int *) NULL,
+					   (struct symtab **) NULL);
 			  if (sym)
 			    {
 			      write_exp_elt_opcode (OP_VAR_VALUE);
@@ -1989,7 +2067,7 @@ case 72:
 			      error ("No symbol \"%s\" in current context.", name);
 			} break;
 case 73:
-# line 651 "./c-exp.y"
+# line 655 "./c-exp.y"
 { struct symbol *sym = yypvt[-0].ssym.sym;
 
 			  if (sym)
@@ -2075,7 +2153,7 @@ case 73:
 			    }
 			} break;
 case 75:
-# line 740 "./c-exp.y"
+# line 744 "./c-exp.y"
 {
 		  /* This is where the interesting stuff happens.  */
 		  int done = 0;
@@ -2117,185 +2195,185 @@ case 75:
 		  yyval.tval = follow_type;
 		} break;
 case 76:
-# line 783 "./c-exp.y"
+# line 787 "./c-exp.y"
 { push_type (tp_pointer); yyval.voidval = 0; } break;
 case 77:
-# line 785 "./c-exp.y"
+# line 789 "./c-exp.y"
 { push_type (tp_pointer); yyval.voidval = yypvt[-0].voidval; } break;
 case 78:
-# line 787 "./c-exp.y"
+# line 791 "./c-exp.y"
 { push_type (tp_reference); yyval.voidval = 0; } break;
 case 79:
-# line 789 "./c-exp.y"
+# line 793 "./c-exp.y"
 { push_type (tp_reference); yyval.voidval = yypvt[-0].voidval; } break;
 case 81:
-# line 794 "./c-exp.y"
+# line 798 "./c-exp.y"
 { yyval.voidval = yypvt[-1].voidval; } break;
 case 82:
-# line 796 "./c-exp.y"
+# line 800 "./c-exp.y"
 {
 			  push_type_int (yypvt[-0].lval);
 			  push_type (tp_array);
 			} break;
 case 83:
-# line 801 "./c-exp.y"
+# line 805 "./c-exp.y"
 {
 			  push_type_int (yypvt[-0].lval);
 			  push_type (tp_array);
 			  yyval.voidval = 0;
 			} break;
 case 84:
-# line 807 "./c-exp.y"
+# line 811 "./c-exp.y"
 { push_type (tp_function); } break;
 case 85:
-# line 809 "./c-exp.y"
+# line 813 "./c-exp.y"
 { push_type (tp_function); } break;
 case 86:
-# line 813 "./c-exp.y"
+# line 817 "./c-exp.y"
 { yyval.lval = -1; } break;
 case 87:
-# line 815 "./c-exp.y"
+# line 819 "./c-exp.y"
 { yyval.lval = yypvt[-1].typed_val.val; } break;
 case 88:
-# line 819 "./c-exp.y"
+# line 823 "./c-exp.y"
 { yyval.voidval = 0; } break;
 case 89:
-# line 821 "./c-exp.y"
+# line 825 "./c-exp.y"
 { free ((PTR)yypvt[-1].tvec); yyval.voidval = 0; } break;
 case 91:
-# line 826 "./c-exp.y"
+# line 830 "./c-exp.y"
 { yyval.tval = lookup_member_type (builtin_type_int, yypvt[-2].tval); } break;
 case 92:
-# line 828 "./c-exp.y"
+# line 832 "./c-exp.y"
 { yyval.tval = lookup_member_type (yypvt[-5].tval, yypvt[-3].tval); } break;
 case 93:
-# line 830 "./c-exp.y"
+# line 834 "./c-exp.y"
 { yyval.tval = lookup_member_type
 			    (lookup_function_type (yypvt[-7].tval), yypvt[-5].tval); } break;
 case 94:
-# line 833 "./c-exp.y"
+# line 837 "./c-exp.y"
 { yyval.tval = lookup_member_type
 			    (lookup_function_type (yypvt[-8].tval), yypvt[-6].tval);
 			  free ((PTR)yypvt[-1].tvec); } break;
 case 95:
-# line 840 "./c-exp.y"
+# line 844 "./c-exp.y"
 { yyval.tval = yypvt[-0].tsym.type; } break;
 case 96:
-# line 842 "./c-exp.y"
+# line 846 "./c-exp.y"
 { yyval.tval = builtin_type_int; } break;
 case 97:
-# line 844 "./c-exp.y"
-{ yyval.tval = builtin_type_long; } break;
-case 98:
-# line 846 "./c-exp.y"
-{ yyval.tval = builtin_type_short; } break;
-case 99:
 # line 848 "./c-exp.y"
 { yyval.tval = builtin_type_long; } break;
-case 100:
+case 98:
 # line 850 "./c-exp.y"
+{ yyval.tval = builtin_type_short; } break;
+case 99:
+# line 852 "./c-exp.y"
+{ yyval.tval = builtin_type_long; } break;
+case 100:
+# line 854 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long; } break;
 case 101:
-# line 852 "./c-exp.y"
+# line 856 "./c-exp.y"
 { yyval.tval = builtin_type_long_long; } break;
 case 102:
-# line 854 "./c-exp.y"
+# line 858 "./c-exp.y"
 { yyval.tval = builtin_type_long_long; } break;
 case 103:
-# line 856 "./c-exp.y"
+# line 860 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long_long; } break;
 case 104:
-# line 858 "./c-exp.y"
+# line 862 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long_long; } break;
 case 105:
-# line 860 "./c-exp.y"
+# line 864 "./c-exp.y"
 { yyval.tval = builtin_type_short; } break;
 case 106:
-# line 862 "./c-exp.y"
+# line 866 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_short; } break;
 case 107:
-# line 864 "./c-exp.y"
+# line 868 "./c-exp.y"
 { yyval.tval = lookup_struct (copy_name (yypvt[-0].sval),
 					      expression_context_block); } break;
 case 108:
-# line 867 "./c-exp.y"
+# line 871 "./c-exp.y"
 { yyval.tval = lookup_struct (copy_name (yypvt[-0].sval),
 					      expression_context_block); } break;
 case 109:
-# line 870 "./c-exp.y"
+# line 874 "./c-exp.y"
 { yyval.tval = lookup_union (copy_name (yypvt[-0].sval),
 					     expression_context_block); } break;
 case 110:
-# line 873 "./c-exp.y"
+# line 877 "./c-exp.y"
 { yyval.tval = lookup_enum (copy_name (yypvt[-0].sval),
 					    expression_context_block); } break;
 case 111:
-# line 876 "./c-exp.y"
+# line 880 "./c-exp.y"
 { yyval.tval = lookup_unsigned_typename (TYPE_NAME(yypvt[-0].tsym.type)); } break;
 case 112:
-# line 878 "./c-exp.y"
+# line 882 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_int; } break;
 case 113:
-# line 880 "./c-exp.y"
+# line 884 "./c-exp.y"
 { yyval.tval = lookup_signed_typename (TYPE_NAME(yypvt[-0].tsym.type)); } break;
 case 114:
-# line 882 "./c-exp.y"
+# line 886 "./c-exp.y"
 { yyval.tval = builtin_type_int; } break;
 case 115:
-# line 884 "./c-exp.y"
+# line 888 "./c-exp.y"
 { yyval.tval = lookup_template_type(copy_name(yypvt[-3].sval), yypvt[-1].tval,
 						    expression_context_block);
 			} break;
 case 116:
-# line 888 "./c-exp.y"
+# line 892 "./c-exp.y"
 { yyval.tval = yypvt[-0].tval; } break;
 case 117:
-# line 889 "./c-exp.y"
+# line 893 "./c-exp.y"
 { yyval.tval = yypvt[-0].tval; } break;
 case 119:
-# line 894 "./c-exp.y"
+# line 898 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "int";
 		  yyval.tsym.stoken.length = 3;
 		  yyval.tsym.type = builtin_type_int;
 		} break;
 case 120:
-# line 900 "./c-exp.y"
+# line 904 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "long";
 		  yyval.tsym.stoken.length = 4;
 		  yyval.tsym.type = builtin_type_long;
 		} break;
 case 121:
-# line 906 "./c-exp.y"
+# line 910 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "short";
 		  yyval.tsym.stoken.length = 5;
 		  yyval.tsym.type = builtin_type_short;
 		} break;
 case 122:
-# line 915 "./c-exp.y"
+# line 919 "./c-exp.y"
 { yyval.tvec = (struct type **) xmalloc (sizeof (struct type *) * 2);
 		  yyval.ivec[0] = 1;	/* Number of types in vector */
 		  yyval.tvec[1] = yypvt[-0].tval;
 		} break;
 case 123:
-# line 920 "./c-exp.y"
+# line 924 "./c-exp.y"
 { int len = sizeof (struct type *) * (++(yypvt[-2].ivec[0]) + 1);
 		  yyval.tvec = (struct type **) xrealloc ((char *) yypvt[-2].tvec, len);
 		  yyval.tvec[yyval.ivec[0]] = yypvt[-0].tval;
 		} break;
 case 124:
-# line 926 "./c-exp.y"
+# line 930 "./c-exp.y"
 { yyval.sval = yypvt[-0].ssym.stoken; } break;
 case 125:
-# line 927 "./c-exp.y"
+# line 931 "./c-exp.y"
 { yyval.sval = yypvt[-0].ssym.stoken; } break;
 case 126:
-# line 928 "./c-exp.y"
+# line 932 "./c-exp.y"
 { yyval.sval = yypvt[-0].tsym.stoken; } break;
 case 127:
-# line 929 "./c-exp.y"
+# line 933 "./c-exp.y"
 { yyval.sval = yypvt[-0].ssym.stoken; } break;
 	}
 	goto yystack;		/* reset registers in driver code */

@@ -29,7 +29,7 @@
 #define INSIM
 #include"opcode/h8300.h"
 
-#define MAXSAME 14
+#define MAXSAME 140
 
 #define PTWO 256
 static struct h8_opcode *h8_opcodes_sorted[PTWO][MAXSAME];
@@ -93,7 +93,7 @@ init ()
       int n1 = 0;
       int n2 = 0;
       int j;
-
+#if 0
       for (j = 0; p->data.nib[j] != E; j++)
 	{
 	  if ((int) p->data.nib[j] == ABS16ORREL8SRC)
@@ -103,6 +103,8 @@ init ()
 	  if ((int) p->data.nib[j] == ABS16OR8DST)
 	    p->data.nib[j] = ABS16DST;
 	}
+#endif
+
       if ((int) p->data.nib[0] < 16)
 	{
 	  n1 = (int) p->data.nib[0];
@@ -147,8 +149,69 @@ init ()
     }
 }
 
-/* either fetch srca&srcb or store dst */
+/* decode the lvalues, creating a pointer in real space to object - 
+ remember if the thing has to be swapped out of where it is */
 
+
+int swap[2];
+
+lval(p)
+     struct h8_opcode *p;
+{
+  int i;
+
+  for (i= 0; p->data.nib[i] != E; i++)
+    {
+      int x = p->data.nib[i];
+      int size;
+int op;  
+      op = (x & DST) ? 1 : 0;
+      
+	switch (x&SIZE)
+	  {
+	  case L_32:
+	    size = 32;
+	    break;
+	  case L_16:
+	    size = 16;
+	    break;
+	  case L_8:
+	    size = 8;
+	    break;
+	  default:
+	    size = 1234;
+	  }
+  
+      if (x & REG) 
+	{
+	  printf("ir%d = GET_LVAL_%d_REG(%d);\n", op, size, i);
+	}
+else     if (x &IMM)
+  {
+    printf("/* Imm has no lvalue */\n");
+  }
+
+    }
+
+
+
+}
+
+void
+decode (p, fetch, size)
+     struct h8_opcode *p;
+     int fetch;
+     int size;
+{
+  if (fetch)
+    {
+      lval(p);
+    }
+  
+}
+
+
+#if 0     
 void
 decode (p, fetch, size)
      struct h8_opcode *p;
@@ -158,61 +221,98 @@ decode (p, fetch, size)
   int i;
   char *ss = size == 8 ? "BYTE" : "WORD";
 
+
   for (i = 0; p->data.nib[i] != E; i++)
     {
-      switch (p->data.nib[i])
-	{
-	case RS8:
-	  if (fetch)
-	    printf ("srca = %s;\n", breg[i]);
-	  break;
-	case RS16 | B30:
-	case RS16 | B31:
-	case RS16:
-	  if (fetch)
-	    printf ("srca = %s;\n", wreg[i]);
-	  break;
-	case RD8:
-	  if (fetch)
-	    printf ("srcb = %s;\n", breg[i]);
-	  else
-	    printf ("%s = dst;\n", breg[i]);
-	  break;
-	case RD16 | B30:
-	case RD16 | B31:
-	case RD16:
-	  if (fetch)
-	    printf ("srcb = %s;\n", wreg[i]);
-	  else
-	    printf ("%s =dst;\n", wreg[i]);
-	  break;
-	case IMM8:
-	  if (fetch)
-	    printf ("srca = b1;\n");
-	  break;
-	case RSINC:
-	case RSINC | B30:
-	case RSINC | B31:
+      int      x = p->data.nib[i];
+      char **r;
+      char *srcname = (x & DST) ?"opdst":"opsrc";
 
+      if (x & REG)      
+	{
+	  printf("
+	}
+      
+      /* 
+      switch (x & SIZE)
+	{
+	case L_8:
+	  r = breg;
+	  break;
+	case L_16:
+	  r = wreg;
+	  break;
+	case L_32:
+	  r = lreg;
+	  break;
+	}
+      if (x & REG) 
+	{
+	  
+      if (x & SRC)
+	{
+	  if (fetch)
+	    printf ("srca = %s;\n", r[i]);
+	}
+      
+else      if (x & DST)
+	{
+	  if (fetch)
+	    printf("srcb = %s;\n",r[i]);
+	  else 
+	    printf("%s = dst;\n", r[i]);
+	}
+else abort();
+    }
+      
+    else if (x & IMM)
+      {
+	if (fetch) 
+	  {
+	    
+swtich (x & SIZE)
+{
+case IMM3:
+  printf ("srca = %s;\n", imm3[i]);
+  break;
+  
+case IMM8:	
+
+	    printf ("srca = b1;\n");
+	    break;
+case IMM16:
+	    printf ("srca =( pc[1]);\n");
+	  break;
+	    
+	  }
+
+}
+
+}
+
+else if ( x & INC)
+{
 	  if (fetch)
 	    {
 	      printf ("srca = %s_MEM(%s);\n", ss, wreg[i]);
 	      printf ("%s+=%d;\n", wreg[i], size / 8);
 	    }
-	  break;
-	case RSIND:
-	case RSIND | B30:
-	case RSIND | B31:
-	  if (fetch)
+	  
+	}
+
+else if (x & IND)
+
+{
+if (x & SRC)
+{	  if (fetch)
 	    {
 	      printf ("lval = %s;\n", wreg[i]);
 	      printf ("srca = %s_MEM(lval);\n", ss);
 	    }
-	  break;
+	}
 
-	case RDIND:
-	case RDIND | B30:
-	case RDIND | B31:
+else if (x & DST) 
+{
 	  if (fetch)
 	    {
 	      printf ("lval = %s;\n", wreg[i]);
@@ -222,34 +322,32 @@ decode (p, fetch, size)
 	    {
 	      printf ("SET_%s_MEM(lval,dst);\n", ss);
 	    }
-	  break;
+	}
 
-	case MEMIND:
+}
+
+else if (x &MEMIND)
+{
+  
 	  if (fetch)
 	    {
 	      printf ("lval = pc[1];\n");
 	    }
-	  break;
-	case RDDEC:
-	case RDDEC | B30:
-	case RDDEC | B31:
+	}
+
+else if (x & DEC) 
+{
 	  if (!fetch)
 	    {
 	      printf ("%s -=%d;\n", wreg[i], size / 8);
 	      printf ("SET_%s_MEM(%s, dst);\n", ss, wreg[i]);
 	    }
-	  break;
-	case IMM3:
-	case IMM3 | B31:
-	case IMM3 | B30:
+	}
 
-	  if (fetch)
-	    printf ("srca = %s;\n", imm3[i]);
-	  break;
-	case IMM16:
-	  if (fetch)
-	    printf ("srca =( pc[1]);\n");
-	  break;
+else if (x & ABS)
+{
+  if ( x & SRC) 
+    {
 	case ABS8SRC:
 	  if (fetch)
 	    {
@@ -329,6 +427,7 @@ decode (p, fetch, size)
 	}
     }
 }
+#endif
 
 static void
 esleep ()

@@ -24,15 +24,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "wait.h"
 #include "gdbcore.h"
-#include "terminal.h"		/* For #ifdef TIOCGPGRP and new_tty */
 
 #include <signal.h>
 
 static void
 child_prepare_to_store PARAMS ((void));
 
+#ifndef CHILD_WAIT
 static int
 child_wait PARAMS ((int *));
+#endif /* CHILD_WAIT */
 
 static void
 child_open PARAMS ((char *, int));
@@ -66,6 +67,8 @@ extern char **environ;
 /* Forward declaration */
 extern struct target_ops child_ops;
 
+#ifndef CHILD_WAIT
+
 /* Wait for child to do something.  Return pid of child, or -1 in case
    of error; store status through argument pointer STATUS.  */
 
@@ -74,26 +77,31 @@ child_wait (status)
      int *status;
 {
   int pid;
+  int save_errno;
 
   do {
     if (attach_flag)
       set_sigint_trap();	/* Causes SIGINT to be passed on to the
 				   attached process. */
     pid = wait (status);
+    save_errno = errno;
 
     if (attach_flag)
       clear_sigint_trap();
 
-    if (pid == -1)		/* No more children to wait for */
+    if (pid == -1)
       {
-	fprintf (stderr, "Child process unexpectedly missing.\n");
+	if (save_errno == EINTR)
+	  continue;
+	fprintf (stderr, "Child process unexpectedly missing: %s.\n",
+		 safe_strerror (save_errno));
 	*status = 42;	/* Claim it exited with signal 42 */
         return -1;
       }
   } while (pid != inferior_pid); /* Some other child died or stopped */
   return pid;
 }
-
+#endif /* CHILD_WAIT */
 
 /* Attach to process PID, then initialize for debugging it.  */
 
@@ -121,9 +129,9 @@ child_attach (args, from_tty)
       exec_file = (char *) get_exec_file (0);
 
       if (exec_file)
-	printf ("Attaching program `%s', pid %d\n", exec_file, pid);
+	printf ("Attaching to program `%s', %s\n", exec_file, target_pid_to_str (pid));
       else
-	printf ("Attaching pid %d\n", pid);
+	printf ("Attaching to %s\n", target_pid_to_str (pid));
 
       fflush (stdout);
     }
@@ -156,8 +164,8 @@ child_detach (args, from_tty)
       char *exec_file = get_exec_file (0);
       if (exec_file == 0)
 	exec_file = "";
-      printf ("Detaching program: %s pid %d\n",
-	      exec_file, inferior_pid);
+      printf ("Detaching from program: %s %s\n", exec_file,
+	      target_pid_to_str (inferior_pid));
       fflush (stdout);
     }
   if (args)
@@ -191,8 +199,8 @@ static void
 child_files_info (ignore)
      struct target_ops *ignore;
 {
-  printf ("\tUsing the running image of %s process %d.\n",
-	  attach_flag? "attached": "child", inferior_pid);
+  printf ("\tUsing the running image of %s %s.\n",
+	  attach_flag? "attached": "child", target_pid_to_str (inferior_pid));
 }
 
 /* ARGSUSED */

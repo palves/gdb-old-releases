@@ -32,7 +32,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 #include "obstack.h"
-#define obstack_chunk_alloc bfd_xmalloc
+#define obstack_chunk_alloc bfd_xmalloc_by_size_t
 #define obstack_chunk_free free
 
 /* Functions for writing to ieee files in the strange way that the
@@ -360,27 +360,27 @@ typedef struct
 
 static 
 reloc_howto_type abs32_howto 
- = HOWTO(1,0,2,32,false,0,false,true,0,"abs32",true,0xffffffff, 0xffffffff,false);
+ = HOWTO(1,0,2,32,false,0,complain_overflow_bitfield,0,"abs32",true,0xffffffff, 0xffffffff,false);
 static
 reloc_howto_type abs16_howto 
- = HOWTO(1,0,1,16,false,0,false,true,0,"abs16",true,0x0000ffff, 0x0000ffff,false);
+ = HOWTO(1,0,1,16,false,0,complain_overflow_bitfield,0,"abs16",true,0x0000ffff, 0x0000ffff,false);
 
 static
 reloc_howto_type abs8_howto 
- = HOWTO(1,0,0,8,false,0,false,true,0,"abs8",true,0x000000ff, 0x000000ff,false);
+ = HOWTO(1,0,0,8,false,0,complain_overflow_bitfield,0,"abs8",true,0x000000ff, 0x000000ff,false);
 
 static 
 reloc_howto_type rel32_howto 
- = HOWTO(1,0,2,32,true,0,false,true,0,"rel32",true,0xffffffff,
+ = HOWTO(1,0,2,32,true,0,complain_overflow_signed,0,"rel32",true,0xffffffff,
 	 0xffffffff,false);
 
 static
 reloc_howto_type rel16_howto 
- = HOWTO(1,0,1,16,true,0,false,true,0,"rel16",true,0x0000ffff, 0x0000ffff,false);
+ = HOWTO(1,0,1,16,true,0,complain_overflow_signed,0,"rel16",true,0x0000ffff, 0x0000ffff,false);
 
 static
 reloc_howto_type rel8_howto 
- = HOWTO(1,0,0,8,true,0,false,true,0,"rel8",true,0x000000ff, 0x000000ff,false);
+ = HOWTO(1,0,0,8,true,0,complain_overflow_signed,0,"rel8",true,0x000000ff, 0x000000ff,false);
 
 
 static ieee_symbol_index_type NOSYMBOL = {  0, 0};
@@ -1004,7 +1004,7 @@ DEFUN(ieee_archive_p,(abfd),
   boolean loop;
 
   unsigned int i;
-uint8e_type buffer[512];
+  unsigned char buffer[512];
   struct obstack ob;
   file_ptr buffer_offset = 0;
   ieee_ar_data_type *save = abfd->tdata.ieee_ar_data;
@@ -1122,8 +1122,9 @@ DEFUN(ieee_object_p,(abfd),
   char *processor;
   unsigned int part;
   ieee_data_type *ieee;
-  uint8e_type buffer[300];
+  unsigned char buffer[300];
   ieee_data_type *save = IEEE_DATA(abfd);
+
   abfd->tdata.ieee_data = 0;
   ieee_mkobject(abfd);
   
@@ -1198,7 +1199,7 @@ DEFUN(ieee_object_p,(abfd),
    quickly. We can work out how big the file is from the trailer
    record */
 
-  IEEE_DATA(abfd)->h.first_byte = (uint8e_type *) bfd_alloc(ieee->h.abfd, ieee->w.r.me_record
+  IEEE_DATA(abfd)->h.first_byte = (unsigned char *) bfd_alloc(ieee->h.abfd, ieee->w.r.me_record
 					    + 50);
   bfd_seek(abfd, (file_ptr) 0, SEEK_SET);
   bfd_read((PTR)(IEEE_DATA(abfd)->h.first_byte), 1,   ieee->w.r.me_record+50,  abfd);
@@ -1211,6 +1212,18 @@ abfd->tdata.ieee_data = save;
   return (bfd_target *)NULL;
 }
 
+void 
+DEFUN(ieee_get_symbol_info,(ignore_abfd, symbol, ret),
+      bfd *ignore_abfd AND
+      asymbol *symbol AND
+      symbol_info *ret)
+{
+  bfd_symbol_info (symbol, ret);
+  if (symbol->name[0] == ' ')
+    ret->name = "* empty table entry ";
+  if (!symbol->section)
+    ret->type = (symbol->flags & BSF_LOCAL) ? 'a' : 'A';
+}
 
 void 
 DEFUN(ieee_print_symbol,(ignore_abfd, afile,  symbol, how),
@@ -1232,7 +1245,6 @@ DEFUN(ieee_print_symbol,(ignore_abfd, afile,  symbol, how),
 #endif
     BFD_FAIL();
     break;
-  case bfd_print_symbol_nm:
   case bfd_print_symbol_all:
       {
 	CONST char *section_name = symbol->section == (asection *)NULL ?
@@ -1261,7 +1273,7 @@ static void
 DEFUN(do_one,(ieee, current_map, location_ptr,s),
       ieee_data_type *ieee AND
       ieee_per_section_type *current_map AND
-      uint8e_type *location_ptr AND
+      unsigned char *location_ptr AND
       asection *s)
 {
   switch (this_byte(&(ieee->h)))  
@@ -1522,7 +1534,7 @@ DEFUN(ieee_slurp_section_data,(abfd),
 		 */
 
 	      unsigned int iterations ;
-	      uint8e_type *start ;
+	      unsigned char *start ;
 	      next_byte(&(ieee->h));
 	      iterations = must_parse_int(&(ieee->h));
 	      start =  ieee->h.input_p;
@@ -1780,7 +1792,7 @@ DEFUN(do_with_relocs,(abfd, s),
 
 	if ((PTR)stream == (PTR)NULL) {
 	  /* Outputting a section without data, fill it up */
-	  stream = (uint8e_type *)(bfd_alloc(abfd, s->_raw_size));
+	  stream = (unsigned char *)(bfd_alloc(abfd, s->_raw_size));
 	  memset((PTR)stream, 0, s->_raw_size);
 	}
 	while (current_byte_index < s->_raw_size) {

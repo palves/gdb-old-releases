@@ -5,64 +5,64 @@
 /* **** */
 
 typedef struct oasys_archive_header {
-  uint32_type  version;
+  unsigned int  version;
   char create_date[12];
   char revision_date[12];
-  uint32_type mod_count;
-  uint32_type mod_tbl_offset;
-  uint32_type sym_tbl_size;
-  uint32_type sym_count;
-  uint32_type sym_tbl_offset;
-  uint32_type xref_count;
-  uint32_type xref_lst_offset;
+  unsigned int mod_count;
+  file_ptr mod_tbl_offset;
+  unsigned int sym_tbl_size;
+  unsigned int sym_count;
+  file_ptr sym_tbl_offset;
+  unsigned int xref_count;
+  file_ptr xref_lst_offset;
 } oasys_archive_header_type;
 
 typedef struct oasys_extarchive_header {
-  char version[4];
-  char create_date[12];
-  char revision_date[12];
-  char mod_count[4];
-  char mod_tbl_offset[4];
-  char sym_tbl_size[4];
-  char sym_count[4];
-  char sym_tbl_offset[4];
-  char xref_count[4];
-  char xref_lst_offset[4];
+  bfd_byte version[4];
+  bfd_byte create_date[12];
+  bfd_byte revision_date[12];
+  bfd_byte mod_count[4];
+  bfd_byte mod_tbl_offset[4];
+  bfd_byte sym_tbl_size[4];
+  bfd_byte sym_count[4];
+  bfd_byte sym_tbl_offset[4];
+  bfd_byte xref_count[4];
+  bfd_byte xref_lst_offset[4];
 } oasys_extarchive_header_type;
 
 typedef struct oasys_module_table {
-  int32_type mod_number;
+  int mod_number;
   char mod_date[12];
-  int32_type mod_size;
-  int32_type dep_count;
-  int32_type depee_count;
-  int32_type file_offset;
-  int32_type sect_count;
+  unsigned int mod_size;
+  unsigned int dep_count;
+  unsigned int depee_count;
+  file_ptr file_offset;
+  unsigned int sect_count;
   char *module_name;
-  uint32_type module_name_size;
+  unsigned int module_name_size;
 } oasys_module_table_type;
 
 
 typedef struct oasys_extmodule_table_a {
-  char mod_number[4];
-  char mod_date[12];
-  char mod_size[4];
-  char dep_count[4];
-  char depee_count[4];
-  char sect_count[4];
-  char file_offset[4];
-  char mod_name[32];
+  bfd_byte mod_number[4];
+  bfd_byte mod_date[12];
+  bfd_byte mod_size[4];
+  bfd_byte dep_count[4];
+  bfd_byte depee_count[4];
+  bfd_byte sect_count[4];
+  bfd_byte file_offset[4];
+  bfd_byte mod_name[32];
 } oasys_extmodule_table_type_a_type;
 
 typedef struct oasys_extmodule_table_b {
-  char mod_number[4];
-  char mod_date[12];
-  char mod_size[4];
-  char dep_count[4];
-  char depee_count[4];
-  char sect_count[4];
-  char file_offset[4];
-  char mod_name_length[4];
+  bfd_byte mod_number[4];
+  bfd_byte mod_date[12];
+  bfd_byte mod_size[4];
+  bfd_byte dep_count[4];
+  bfd_byte depee_count[4];
+  bfd_byte sect_count[4];
+  bfd_byte file_offset[4];
+  bfd_byte mod_name_length[4];
 } oasys_extmodule_table_type_b_type;
 
 
@@ -83,39 +83,38 @@ typedef enum oasys_record {
   
 
 typedef struct oasys_record_header {
-  uint8_type length;
-  int8_type check_sum;
-  int8_type type;
-  int8_type fill;
+  unsigned char length;
+  unsigned char check_sum;
+  unsigned char type;
+  unsigned char fill;
 } oasys_record_header_type;
 
 typedef struct oasys_data_record {
   oasys_record_header_type header;
-  uint8e_type relb;
-  uint8e_type addr[4];
+  unsigned char relb;
+  bfd_byte addr[4];
   /* maximum total size of data record is 255 bytes */
-  uint8e_type data[246];
+  bfd_byte data[246];
 } oasys_data_record_type;
 
 typedef struct oasys_header_record {
   oasys_record_header_type header;
-  int8_type version_number;
-  int8_type rev_number;
+  unsigned char version_number;
+  unsigned char rev_number;
   char module_name[26-6];
   char description[64-26];
 } oasys_header_record_type;
 
 #define OASYS_VERSION_NUMBER 0
 #define OASYS_REV_NUMBER 0
+
 typedef struct oasys_symbol_record {
   oasys_record_header_type header;
-  int8e_type relb;
-  int8e_type value[4];
-  int8e_type refno[2];
+  unsigned char relb;
+  bfd_byte value[4];
+  bfd_byte refno[2];
   char name[64];
 } oasys_symbol_record_type;
-
-typedef int8e_type relocation_byte;
 
 #define RELOCATION_PCREL_BIT 0x80
 #define RELOCATION_32BIT_BIT 0x40
@@ -128,18 +127,18 @@ typedef int8e_type relocation_byte;
 
 typedef struct oasys_section_record {
   oasys_record_header_type header;
-  uint8e_type relb;
-  int8_type value[4];
-  int8_type vma[4];
-  int8_type fill[3];
+  unsigned char relb;
+  bfd_byte value[4];
+  bfd_byte vma[4];
+  bfd_byte fill[3];
 } oasys_section_record_type;
 
 typedef struct oasys_end_record {
   oasys_record_header_type header;
-  uint8e_type relb;
-  int8e_type entry[4];
-  int8e_type fill[2];
-  int8e_type zero;
+  unsigned char relb;
+  bfd_byte entry[4];
+  bfd_byte fill[2];
+  bfd_byte zero;
 } oasys_end_record_type;
 
 typedef union oasys_record_union {
@@ -149,5 +148,5 @@ typedef union oasys_record_union {
   oasys_symbol_record_type symbol;
   oasys_header_record_type first;
   oasys_end_record_type end;
-  uint8e_type pad[256];
+  bfd_byte pad[256];
 } oasys_record_union_type;

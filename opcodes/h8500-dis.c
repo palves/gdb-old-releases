@@ -50,7 +50,7 @@ fetch_data (info, addr)
      bfd_byte *addr;
 {
   int status;
-  struct private *priv = (struct private *)info->private_data;
+  struct private *priv = (struct private *) info->private_data;
   bfd_vma start = priv->insn_start + (priv->max_fetched - priv->the_buffer);
 
   status = (*info->read_memory_func) (start,
@@ -72,7 +72,7 @@ static char *crname[] =
 
 int
 print_insn_h8500 (addr, info)
-     unsigned long addr;
+     bfd_vma addr;
      disassemble_info *info;
 {
   h8500_opcode_info *opcode;
@@ -82,7 +82,7 @@ print_insn_h8500 (addr, info)
   struct private priv;
   bfd_byte *buffer = priv.the_buffer;
 
-  info->private_data = (PTR) &priv;
+  info->private_data = (PTR) & priv;
   priv.max_fetched = priv.the_buffer;
   priv.insn_start = addr;
   if (setjmp (priv.bailout) != 0)
@@ -292,11 +292,11 @@ print_insn_h8500 (addr, info)
 		  {
 		    if (imm & (1 << i))
 		      {
+			func (stream, "r%d", i);
 			if (nc)
 			  func (stream, ",");
-			nc += 1;
+			nc = 1;
 		      }
-		    func (stream, "r%d", i);
 		  }
 		func (stream, ")");
 	      }

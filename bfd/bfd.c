@@ -152,11 +152,12 @@ CODE_FRAGMENT
 .      struct srec_data_struct *srec_data;
 .      struct tekhex_data_struct *tekhex_data;
 .      struct elf_obj_tdata *elf_obj_data;
+.      struct nlm_obj_tdata *nlm_obj_data;
 .      struct bout_data_struct *bout_data;
 .      struct sun_core_struct *sun_core_data;
 .      struct trad_core_struct *trad_core_data;
 .      struct hppa_data_struct *hppa_data;
-.      struct hppa_core_struct *hppa_core_data;
+.      struct hpux_core_struct *hpux_core_data;
 .      struct sgi_core_struct *sgi_core_data;
 .      PTR any;
 .      } tdata;
@@ -227,10 +228,11 @@ DEFUN(bfd_nonrepresentable_section,(abfd, name),
          CONST  bfd * CONST abfd AND
          CONST  char * CONST name)
 {
-  printf("bfd error writing file %s, format %s can't represent section %s\n",
-         abfd->filename, 
-         abfd->xvec->name,
-         name);
+  fprintf(stderr,
+	  "bfd error writing file %s, format %s can't represent section %s\n",
+	  abfd->filename, 
+	  abfd->xvec->name,
+	  name);
   exit(1);
 }
 
@@ -242,8 +244,8 @@ DEFUN(bfd_undefined_symbol,(relent, seclet),
       CONST  struct bfd_seclet *seclet)
 {
   asymbol *symbol = *(relent->sym_ptr_ptr);
-  printf("bfd error relocating, symbol %s is undefined\n",
-         symbol->name);
+  fprintf(stderr, "bfd error relocating, symbol %s is undefined\n",
+	  symbol->name);
   exit(1);
 }
 /*ARGSUSED*/
@@ -253,7 +255,7 @@ DEFUN(bfd_reloc_value_truncated,(relent, seclet),
          CONST  arelent *relent AND
       struct bfd_seclet *seclet)
 {
-  printf("bfd error relocating, value truncated\n");
+  fprintf(stderr, "bfd error relocating, value truncated\n");
   exit(1);
 }
 /*ARGSUSED*/
@@ -263,7 +265,7 @@ DEFUN(bfd_reloc_is_dangerous,(relent, seclet),
       CONST  arelent *relent AND
      CONST  struct bfd_seclet *seclet)
 {
-  printf("bfd error relocating, dangerous\n");
+  fprintf(stderr, "bfd error relocating, dangerous\n");
   exit(1);
 }
 
@@ -293,15 +295,15 @@ bfd_errmsg (error_tag)
   return bfd_errmsgs [(int)error_tag];
 }
 
-
-void bfd_default_error_trap(error_tag)
-bfd_ec error_tag;
+void
+DEFUN (bfd_default_error_trap, (error_tag),
+       bfd_ec error_tag)
 {
-  printf("bfd assert fail (%s)\n", bfd_errmsg(error_tag));
+  fprintf(stderr, "bfd assert fail (%s)\n", bfd_errmsg(error_tag));
 }
 
-void (*bfd_error_trap)() = bfd_default_error_trap;
-void (*bfd_error_nonrepresentabltrap)() = bfd_default_error_trap;
+void (*bfd_error_trap) PARAMS ((bfd_ec)) = bfd_default_error_trap;
+void (*bfd_error_nonrepresentabltrap) PARAMS ((bfd_ec)) = bfd_default_error_trap;
 
 void
 DEFUN(bfd_perror,(message),
@@ -464,7 +466,7 @@ bfd_assert(file, line)
 char *file;
 int line;
 {
-  printf("bfd assertion fail %s:%d\n",file,line);
+  fprintf(stderr, "bfd assertion fail %s:%d\n",file,line);
 }
 
 

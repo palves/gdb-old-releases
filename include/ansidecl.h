@@ -89,9 +89,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* LINTLIBRARY */
 
 
-#if defined (__STDC__) || defined (_AIX)
-/* All known AIX compilers implement these things (but don't always define
-   __STDC__).  */
+#if defined (__STDC__) || defined (_AIX) || (defined (__mips) && defined (_SYSTYPE_SVR4))
+/* All known AIX compilers implement these things (but don't always
+   define __STDC__).  The RISC/OS MIPS compiler defines these things
+   in SVR4 mode, but does not define __STDC__.  */
 
 #define	PTR		void *
 #define	PTRCONST	void *CONST
@@ -120,7 +121,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	AND		;
 #define	NOARGS
 #define	CONST
+#ifndef const /* some systems define it in header files for non-ansi mode */
 #define	const
+#endif
 #define	VOLATILE
 #define	SIGNED
 #define	DOTS

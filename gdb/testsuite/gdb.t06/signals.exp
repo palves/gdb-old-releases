@@ -1,0 +1,168 @@
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+gdb_reinitialize_dir $srcdir/$subdir
+set binfile $objdir/$subdir/signals
+
+proc signal_tests_1 {} {
+    global prompt
+    if [runto main] then {
+	gdb_test "next" "signal \(SIGUSR1" \
+		"next over signal \(SIGALRM, handler\)"
+	gdb_test "next" "alarm \(" \
+		"next over signal \(SIGUSR1, handler\)"
+	gdb_test "next" "\+\+count" \
+		"next over alarm (1)"
+	# An alarm has been signaled, give the signal time to get delivered.
+	exec sleep 2
+
+	send "next\n"
+	expect {
+	    -re "alarm \(.*$prompt $" { pass "next to 2nd alarm (1)" }
+	    -re "Program exited with code.*$prompt $" {
+		# There is a bug in the UnixWare kernel, and very likely other
+		# SVR4's as well.  If it steps when a signal is pending, it
+		# does a continue instead.  I don't know whether there is a
+		# workaround.  If this is found to work on an SVR4 system
+		# that is not an i346/i486 system, change the pattern to
+		# "i*86-*-sysv4*".  If this is found to work on an i*86/SVR4
+		# system that is not UnixWare, then change the pattern to
+		# "i*86-univel-sysv4*".  Note that solaris doesn't have sysv4
+		# in it's triplet.
+		setup_xfail "*-*-sysv4*"
+		fail "'next' behaved as 'continue' (known SVR4 bug)"
+		return 0
+	    }
+	    timeout { fail "next to 2nd alarm (1); (timeout)" }
+	    eof { fail "next to 2nd alarm (1); (eof)" }
+	}
+
+	gdb_test "break handler" "Breakpoint \[0-9\]* at"
+	gdb_test "next" "\+\+count" "next to 2nd ++count"
+	# An alarm has been signaled, give the signal time to get delivered.
+	exec sleep 2
+
+	send "next\n"
+	expect {
+	    -re "Breakpoint.*handler.*$prompt $" { pass "next" }
+	    -re "Program received signal SIGEMT.*$prompt $" {
+		# Don't know why it gets this signal, or whether GDB
+		# could do anything about it.
+		setup_xfail "m68*-*-sunos*"
+		fail "next"
+		gdb_test "signal 0" "Breakpoint.*handler"
+	    }
+	    timeout { fail "(timeout)" }
+	    eof { fail "(eof)" }
+	}
+
+	send "backtrace\n"
+	expect {
+	    -re "#0.*handler.*#1.*#2.*main.*$prompt $" { pass "backtrace" }
+	    -re "#0.*handler.*#1.*sigtramp.*$prompt $" {
+		# Haven't investigated
+		setup_xfail "m68*-*-sunos*"
+		fail "backtrace"
+	    }
+	    timeout { fail "(timeout)" }
+	    eof { fail "(eof)" }
+	}
+
+	gdb_test "break func1" "Breakpoint \[0-9\]* at"
+	gdb_test "break func2" "Breakpoint \[0-9\]* at"
+	gdb_test "continue" "Breakpoint.*func1"
+	gdb_test "signal SIGUSR1" "Breakpoint.*handler"
+
+	# Will tend to wrongly require an extra continue.
+
+	# The problem here is that the breakpoint at func1 will be
+	# inserted, and when the system finishes with the signal
+	# handler it will try to execute there.  For GDB to try to
+	# remember that it was going to step over a breakpoint when a
+	# signal happened, distinguish this case from the case where
+	# func1 is called from the signal handler, etc., seems
+	# exceedingly difficult.  So don't expect this to get fixed
+	# anytime soon.
+
+	setup_xfail "*-*-*"
+	gdb_test "continue" "Breakpoint.*func2"
+
+	# FIXME: This "continue" should be sent only if the above was
+	# indeed a FAIL
+	gdb_test "continue" "Breakpoint.*func2"
+
+	exec sleep 2
+
+        # GDB yanks out the breakpoints to step over the breakpoint it
+        # stopped at, which means the breakpoint at handler is yanked.
+	# But if NO_SINGLE_STEP, we won't get another chance to reinsert
+	# them (at least not with procfs, where we tell the kernel not
+	# to tell gdb about `pass' signals).  So the fix would appear to
+	# be to just yank that one breakpoint when we step over it.
+
+	setup_xfail "sparc-*-*"
+	setup_xfail "rs6000-*-*"
+	gdb_test "continue" "Breakpoint.*handler"
+
+	# If the expected failure happened, we have already exited.
+	# Otherwise a continue will return from the handler to func2.
+	# GDB now has `forgotten' that it intended to step over the
+	# breakpoint at func2 and will stop at func2.
+	setup_xfail "*-*-*"
+	gdb_test "continue" "Program exited with code 010"
+    }
+}
+
+if ![file exists $binfile] then {
+    warning "$binfile does not exist; tests suppressed"
+} else {
+    gdb_load $binfile
+    signal_tests_1
+    if [runto main] then {
+	gdb_test "break handler if 0" "Breakpoint \[0-9\]* at"
+	gdb_test "set \\\$handler_breakpoint_number = \\\$bpnum" ""
+
+	# Get to the point where a signal is waiting to be delivered
+	gdb_test "next" "signal \(SIGUSR1"
+	gdb_test "next" "alarm \("
+	gdb_test "next" "\+\+count"
+	# Give the signal time to get delivered
+	exec sleep 2
+
+	# Now call a function.  When GDB tries to run the stack dummy,
+	# it will hit the breakpoint at handler.  Provided it doesn't
+	# lose its cool, this is not a problem, it just has to note
+	# that the breakpoint condition is false and keep going.
+
+	gdb_test "p func1 ()" "^p func1 \(\)\r\n.\[0-9\]* = void"
+
+	# Make sure the count got incremented.
+
+	# Haven't investigated this xfail
+	setup_xfail "rs6000-*-*"
+	gdb_test "p count" "= 2"
+	if [istarget "rs6000-*-*"] { return 0 }
+
+	gdb_test "condition \\\$handler_breakpoint_number" "now unconditional"
+	gdb_test "next" "alarm \("
+	gdb_test "next" "\+\+count"
+	exec sleep 2
+
+	# This time we stop when GDB tries to run the stack dummy.
+	# So it is OK that we do not print the return value from the function.
+	gdb_test "p func1 ()" \
+"Breakpoint \[0-9\]*, handler.*\
+The program being debugged stopped while in a function called from GDB"
+	# But we should be able to backtrace...
+	gdb_test "bt" "#0.*handler.*#1.*#2.*main"
+	# ...and continue...
+	gdb_test "continue" "Continuing"
+	# ...and then count should have been incremented
+	gdb_test "p count" "= 5"
+    }
+}
+return 0

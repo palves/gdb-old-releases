@@ -24,7 +24,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "wait.h"
 #include "gdbcore.h"
-#include "terminal.h"		/* For #ifdef TIOCGPGRP and new_tty */
+#include "serial.h" /* For job_control.  */
+#include "terminal.h"		/* For new_tty */
 
 #include <signal.h>
 
@@ -80,8 +81,11 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
   shell_file = getenv ("SHELL");
   if (shell_file == NULL)
     shell_file = default_shell_file;
-  
-  len = 5 + strlen (exec_file) + 1 + strlen (allargs) + 1 + /*slop*/ 10;
+
+  /* Multiplying the length of exec_file by 4 is to account for the fact
+     that it may expand when quoted; it is a worst-case number based on
+     every character being '.  */
+  len = 5 + 4 * strlen (exec_file) + 1 + strlen (allargs) + 1 + /*slop*/ 12;
   /* If desired, concat something onto the front of ALLARGS.
      SHELL_COMMAND is the result.  */
 #ifdef SHELL_COMMAND_CONCAT
@@ -92,7 +96,61 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
   shell_command[0] = '\0';
 #endif
   strcat (shell_command, "exec ");
-  strcat (shell_command, exec_file);
+
+  /* Now add exec_file, quoting as necessary.  */
+  {
+    char *p;
+    int need_to_quote;
+
+    /* Quoting in this style is said to work with all shells.  But csh
+       on IRIX 4.0.1 can't deal with it.  So we only quote it if we need
+       to.  */
+    p = exec_file;
+    while (1)
+      {
+	switch (*p)
+	  {
+	  case '\'':
+	  case '"':
+	  case '(':
+	  case ')':
+	  case '$':
+	  case '&':
+	  case ';':
+	  case '<':
+	  case '>':
+	  case ' ':
+	  case '\n':
+	  case '\t':
+	    need_to_quote = 1;
+	    goto end_scan;
+
+	  case '\0':
+	    need_to_quote = 0;
+	    goto end_scan;
+
+	  default:
+	    break;
+	  }
+	++p;
+      }
+  end_scan:
+    if (need_to_quote)
+      {
+	strcat (shell_command, "'");
+	for (p = exec_file; *p != '\0'; ++p)
+	  {
+	    if (*p == '\'')
+	      strcat (shell_command, "'\\''");
+	    else
+	      strncat (shell_command, p, 1);
+	  }
+	strcat (shell_command, "'");
+      }
+    else
+      strcat (shell_command, exec_file);
+  }
+
   strcat (shell_command, " ");
   strcat (shell_command, allargs);
 
@@ -133,20 +191,10 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
       if (debug_fork) 
 	sleep (debug_fork);
 
-#ifdef TIOCGPGRP
       /* Run inferior in a separate process group.  */
-#ifdef NEED_POSIX_SETPGID
-      debug_setpgrp = setpgid (0, 0);
-#else
-#if defined(USG) && !defined(SETPGRP_ARGS)
-      debug_setpgrp = setpgrp ();
-#else
-      debug_setpgrp = setpgrp (getpid (), getpid ());
-#endif /* USG */
-#endif /* NEED_POSIX_SETPGID */
+      debug_setpgrp = gdb_setpgid ();
       if (debug_setpgrp == -1)
 	 perror("setpgrp failed in child");
-#endif /* TIOCGPGRP */
 
 #ifdef SET_STACK_LIMIT_HUGE
       /* Reset the stack limit back to what it was.  */
@@ -193,6 +241,8 @@ fork_inferior (exec_file, allargs, env, traceme_fun, init_trace_fun)
   /* Now that we have a child process, make it our target, and
      initialize anything target-vector-specific that needs initializing.  */
   (*init_trace_fun)(pid);
+
+  init_thread_list();
 
 #ifdef CREATE_INFERIOR_HOOK
   CREATE_INFERIOR_HOOK (pid);

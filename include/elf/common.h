@@ -77,8 +77,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define EM_88K		5		/* Motorola m88k family */
 #define EM_860		7		/* Intel 80860 */
 #define EM_MIPS		8		/* MIPS R3000 */
-/* Has this one been officially allocated?  */
 #define EM_HPPA		9		/* HP PA-RISC */
+
 
 /* Values for e_version */
 
@@ -178,9 +178,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* relocation info handling macros */
 
-#define ELF_R_SYM(i)	((i)>>8)
-#define ELF_R_TYPE(i)	((unsigned char)(i))
-#define ELF_R_INFO(s,t)	(((s)<<8)+(unsigned char)(t))
+#define ELF32_R_SYM(i)		((i)>>8)
+#define ELF32_R_TYPE(i)		((unsigned char)(i))
+#define ELF32_R_INFO(s,t)	(((s)<<8)+(unsigned char)(t))
+
+#define ELF64_R_SYM(i)		((i)>>32)
+#define ELF64_R_TYPE(i)		((Elf64_Word)(i))
+#define ELF64_R_INFO(s,t)	(((Elf64_Xword)(s)<<32)+(Elf64_Xword)(t))
 
 /* Dynamic section tags */
 

@@ -45,7 +45,24 @@ here.  */
 #include "ansidecl.h"
 #include "obstack.h"
 
-#define BFD_VERSION "2.1"
+#define BFD_VERSION "2.2"
+
+#define BFD_ARCH_SIZE @WORDSIZE@
+
+#if BFD_ARCH_SIZE >= 64
+#define BFD64
+#endif
+
+#ifndef INLINE
+#if __GNUC__ >= 2
+#define INLINE __inline__
+#else
+#define INLINE
+#endif
+#endif
+
+/* 64-bit type definition (if any) from bfd's sysdep.h goes here */
+
 
 /* forward declaration */
 typedef struct _bfd bfd;
@@ -74,19 +91,40 @@ typedef enum bfd_boolean {false, true} boolean;
 /* typedef off_t	file_ptr; */
 typedef long int file_ptr;
 
-/* Support for different sizes of target format ints and addresses.
-   If the host implements--and wants BFD to use--64-bit values, it
-   defines HOST_64_BIT (in BFD and in every program that calls it --
-   since this affects declarations in bfd.h).  */
+/* Support for different sizes of target format ints and addresses.  If the
+   host implements 64-bit values, it defines HOST_64_BIT to be the appropriate
+   type.  Otherwise, this code will fall back on gcc's "long long" type if gcc
+   is being used.  HOST_64_BIT must be defined in such a way as to be a valid
+   type name by itself or with "unsigned" prefixed.  It should be a signed
+   type by itself.
 
-#ifdef	HOST_64_BIT
+   If neither is the case, then compilation will fail if 64-bit targets are
+   requested.  If you don't request any 64-bit targets, you should be safe. */
+
+#ifdef	BFD64
+
+#if defined (__GNUC__) && !defined (HOST_64_BIT)
+#define HOST_64_BIT long long
+typedef HOST_64_BIT int64_type;
+typedef unsigned HOST_64_BIT uint64_type;
+#endif
+
+#if !defined (uint64_type) && defined (__GNUC__)
+#define uint64_type unsigned long long
+#define int64_type long long
+#define uint64_typeLOW(x) (unsigned long)(((x) & 0xffffffff))
+#define uint64_typeHIGH(x) (unsigned long)(((x) >> 32) & 0xffffffff)
+#endif
+
 typedef unsigned HOST_64_BIT bfd_vma;
 typedef HOST_64_BIT bfd_signed_vma;
 typedef unsigned HOST_64_BIT bfd_size_type;
 typedef unsigned HOST_64_BIT symvalue;
 #define fprintf_vma(s,x) \
 		fprintf(s,"%08x%08x", uint64_typeHIGH(x), uint64_typeLOW(x))
-#else /* not HOST_64_BIT.  */
+#define sprintf_vma(s,x) \
+		sprintf(s,"%08x%08x", uint64_typeHIGH(x), uint64_typeLOW(x))
+#else /* not BFD64  */
 
 /* Represent a target address.  Also used as a generic unsigned type
    which is guaranteed to be big enough to hold any arithmetic types
@@ -104,7 +142,8 @@ typedef unsigned long bfd_size_type;
 
 /* Print a bfd_vma x on stream s.  */
 #define fprintf_vma(s,x) fprintf(s, "%08lx", x)
-#endif /* not HOST_64_BIT.  */
+#define sprintf_vma(s,x) sprintf(s, "%08lx", x)
+#endif /* not BFD64  */
 #define printf_vma(x) fprintf_vma(stdout,x)
 
 typedef unsigned int flagword;	/* 32 bits of flags */
@@ -259,23 +298,49 @@ typedef enum bfd_print_symbol
 { 
   bfd_print_symbol_name,
   bfd_print_symbol_more,
-  bfd_print_symbol_all,
-  bfd_print_symbol_nm	/* Pretty format suitable for nm program. */
+  bfd_print_symbol_all
 } bfd_print_symbol_type;
     
 
+/* Information about a symbol that nm needs.  */
+
+typedef struct _symbol_info
+{
+  symvalue value;
+  char type;                   /*  */
+  CONST char *name;            /* Symbol name.  */
+  char stab_other;             /* Unused. */
+  short stab_desc;             /* Info for N_TYPE.  */
+  CONST char *stab_name;
+} symbol_info;
 
 /* The code that implements targets can initialize a jump table with this
    macro.  It must name all its routines the same way (a prefix plus
    the standard routine suffix), or it must #define the routines that
    are not so named, before calling JUMP_TABLE in the initializer.  */
 
-/* Semi-portable string concatenation in cpp */
+/* Semi-portable string concatenation in cpp.
+   The CAT4 hack is to avoid a problem with some strict ANSI C preprocessors.
+   The problem is, "32_" is not a valid preprocessing token, and we don't
+   want extra underscores (e.g., "nlm_32_").  The XCAT2 macro will cause the
+   inner CAT macros to be evaluated first, producing still-valid pp-tokens.
+   Then the final concatenation can be done.  (Sigh.)  */
 #ifndef CAT
+#ifdef SABER
+#define CAT(a,b)	a##b
+#define CAT3(a,b,c)	a##b##c
+#define CAT4(a,b,c,d)	a##b##c##d
+#else
 #ifdef __STDC__
 #define CAT(a,b) a##b
+#define CAT3(a,b,c) a##b##c
+#define XCAT2(a,b)	CAT(a,b)
+#define CAT4(a,b,c,d)	XCAT2(CAT(a,b),CAT(c,d))
 #else
 #define CAT(a,b) a/**/b
+#define CAT3(a,b,c) a/**/b/**/c
+#define CAT4(a,b,c,d)	a/**/b/**/c/**/d
+#endif
 #endif
 #endif
 
@@ -287,7 +352,7 @@ CAT(NAME,_slurp_armap),\
 CAT(NAME,_slurp_extended_name_table),\
 CAT(NAME,_truncate_arname),\
 CAT(NAME,_write_armap),\
-CAT(NAME,_close_and_cleanup),	\
+CAT(NAME,_close_and_cleanup),\
 CAT(NAME,_set_section_contents),\
 CAT(NAME,_get_section_contents),\
 CAT(NAME,_new_section_hook),\
@@ -297,6 +362,7 @@ CAT(NAME,_get_reloc_upper_bound),\
 CAT(NAME,_canonicalize_reloc),\
 CAT(NAME,_make_empty_symbol),\
 CAT(NAME,_print_symbol),\
+CAT(NAME,_get_symbol_info),\
 CAT(NAME,_get_lineno),\
 CAT(NAME,_set_arch_mach),\
 CAT(NAME,_openr_next_archived_file),\

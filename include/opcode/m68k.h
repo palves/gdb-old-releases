@@ -1371,6 +1371,11 @@ struct m68k_opcode m68k_opcodes[] =
 {"fsincosb",	two(0xF000, 0x5830),	two(0xF1C0, 0xFC78),	"Ii;bF3F7", mfloat },
 {"fsincosd",	two(0xF000, 0x5430),	two(0xF1C0, 0xFC78),	"Ii;FF3F7", mfloat },
 {"fsincosl",	two(0xF000, 0x4030),	two(0xF1C0, 0xFC78),	"Ii;lF3F7", mfloat },
+
+/* GCC has trouble initializing such a large structure -- it's exponential or
+   something in the size.  So break it in half.  */
+BREAK_UP_BIG_DECL
+
 {"fsincosp",	two(0xF000, 0x4C30),	two(0xF1C0, 0xFC78),	"Ii;pF3F7", mfloat },
 {"fsincoss",	two(0xF000, 0x4430),	two(0xF1C0, 0xFC78),	"Ii;fF3F7", mfloat },
 {"fsincosw",	two(0xF000, 0x5030),	two(0xF1C0, 0xFC78),	"Ii;wF3F7", mfloat },
@@ -1631,10 +1636,6 @@ struct m68k_opcode m68k_opcodes[] =
 {"fjule",	one(0xF08D),		one(0xF1FF),		"IdBc", mfloat },
 {"fjult",	one(0xF08C),		one(0xF1FF),		"IdBc", mfloat },
 {"fjun",	one(0xF088),		one(0xF1FF),		"IdBc", mfloat },
-
-/* GCC has trouble initializing such a large structure -- it's exponential or
-   something in the size.  So break it in half.  */
-BREAK_UP_BIG_DECL
 
 /* float stuff ends here */
 {"illegal",	one(0045374),		one(0177777),		"",     m68000up },

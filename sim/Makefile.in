@@ -19,8 +19,9 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 srcdir = .
-
+srcroot = $(srcdir)/..
 prefix = /usr/local
+program_transform_name =
 
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
@@ -44,9 +45,12 @@ docdir = doc
 
 SHELL = /bin/sh
 
-INSTALL = install -c
+INSTALL = $${srcroot}/../install.sh -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
+INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
+INSTALL_XFORM1 = $(INSTALL_XFORM) -b=.1
+
 
 AR = ar
 AR_FLAGS = rc
@@ -54,6 +58,8 @@ CFLAGS = -g
 BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
+
+MAKEOVERRIDES=
 
 INCDIR = $(srcdir)/../include
 CSEARCH = -I. -I$(srcdir) -I$(INCDIR)
@@ -87,24 +93,27 @@ FLAGS_TO_PASS = \
 STAGESTUFF = $(TARGETLIB) $(OFILES)
 
 
-all:	endian.h $(ALL)
+all:	$(ALL)
 	
 clean:  $(CLEAN)
-	rm -f endian e.h endian.h
 
 install: $(DO_INSTALL)
 
+mostlyclean: clean
+
+distclean realclean: clean
+	rm -f Makefile config.status
+
 info:
 install-info:
+dvi:
 
-### build endian.h via a temporary so that interrupted builds will not
-### leave an incomplete endian.h lying around.
-endian.h: endian
-	./endian > e.h
-	mv -f e.h endian.h
+### 
+### 
 
-endian: $(srcdir)/endian.c
-	$(CC) $(CFLAGS) -o endian $(srcdir)/endian.c
+.PHONY: check installcheck
+check:
+installcheck:
 
 ### none
 
@@ -128,6 +137,7 @@ all-z8k: force
 install-z8k: force
 	if [ -f ./z8k/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		  srcroot=`cd $(srcdir); pwd`; export srcroot; \
 		( cd ./z8k ; $(MAKE) $(FLAGS_TO_PASS) install) ; \
 	else \
 		true ; \
@@ -155,6 +165,7 @@ all-h8300: force
 install-h8300: force
 	if [ -f ./h8300/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		  srcroot=`cd $(srcdir); pwd`; export srcroot; \
 		( cd ./h8300 ; $(MAKE) $(FLAGS_TO_PASS) install) ; \
 	else \
 		true ; \
@@ -183,6 +194,7 @@ all-h8500: force
 install-h8500: force
 	if [ -f ./h8500/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		  srcroot=`cd $(srcdir); pwd`; export srcroot; \
 		( cd ./h8500 ; $(MAKE) $(FLAGS_TO_PASS) install) ; \
 	else \
 		true ; \

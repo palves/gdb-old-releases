@@ -546,7 +546,8 @@ block	:	BLOCKNAME
 block	:	block COLONCOLON name
 			{ struct symbol *tem
 			    = lookup_symbol (copy_name ($3), $1,
-					     VAR_NAMESPACE, 0, NULL);
+					     VAR_NAMESPACE, (int *) NULL,
+					     (struct symtab **) NULL);
 			  if (!tem || SYMBOL_CLASS (tem) != LOC_BLOCK)
 			    error ("No function \"%s\" in specified context.",
 				   copy_name ($3));
@@ -556,7 +557,8 @@ block	:	block COLONCOLON name
 variable:	block COLONCOLON name
 			{ struct symbol *sym;
 			  sym = lookup_symbol (copy_name ($3), $1,
-					       VAR_NAMESPACE, 0, NULL);
+					       VAR_NAMESPACE, (int *) NULL,
+					       (struct symtab **) NULL);
 			  if (sym == 0)
 			    error ("No symbol \"%s\" in specified context.",
 				   copy_name ($3));
@@ -612,7 +614,9 @@ variable:	qualified_name
 			  struct minimal_symbol *msymbol;
 
 			  sym =
-			    lookup_symbol (name, 0, VAR_NAMESPACE, 0, NULL);
+			    lookup_symbol (name, (const struct block *) NULL,
+					   VAR_NAMESPACE, (int *) NULL,
+					   (struct symtab **) NULL);
 			  if (sym)
 			    {
 			      write_exp_elt_opcode (OP_VAR_VALUE);
@@ -1186,6 +1190,8 @@ yylex ()
 	  if (namelen > 2)
 	    {
 	      lexptr = tokstart + namelen;
+	      if (lexptr[-1] != '\'')
+		error ("Unmatched single quote.");
 	      namelen -= 2;
 	      tokstart++;
 	      goto tryname;
@@ -1247,9 +1253,14 @@ yylex ()
 
 	for (;; ++p)
 	  {
+	    /* This test includes !hex because 'e' is a valid hex digit
+	       and thus does not indicate a floating point number when
+	       the radix is hex.  */
 	    if (!hex && !got_e && (*p == 'e' || *p == 'E'))
 	      got_dot = got_e = 1;
-	    else if (!hex && !got_dot && *p == '.')
+	    /* This test does not include !hex, because a '.' always indicates
+	       a decimal floating point number regardless of the radix.  */
+	    else if (!got_dot && *p == '.')
 	      got_dot = 1;
 	    else if (got_e && (p[-1] == 'e' || p[-1] == 'E')
 		     && (*p == '-' || *p == '+'))
@@ -1471,7 +1482,8 @@ yylex ()
 				 { CPLUS_MARKER, 't', 'h', 'i', 's', '\0' };
 
 	  if (lookup_symbol (this_name, expression_context_block,
-			     VAR_NAMESPACE, 0, NULL))
+			     VAR_NAMESPACE, (int *) NULL,
+			     (struct symtab **) NULL))
 	    return THIS;
 	}
       break;
@@ -1508,8 +1520,8 @@ yylex ()
     sym = lookup_symbol (tmp, expression_context_block,
 			 VAR_NAMESPACE,
 			 current_language->la_language == language_cplus
-			 ? &is_a_field_of_this : NULL,
-			 NULL);
+			 ? &is_a_field_of_this : (int *) NULL,
+			 (struct symtab **) NULL);
     if ((sym && SYMBOL_CLASS (sym) == LOC_BLOCK) ||
         lookup_partial_symtab (tmp))
       {
@@ -1519,7 +1531,73 @@ yylex ()
       }
     if (sym && SYMBOL_CLASS (sym) == LOC_TYPEDEF)
         {
-	  yylval.tsym.type = SYMBOL_TYPE (sym);
+	  char *p;
+	  char *namestart;
+	  struct symbol *best_sym;
+
+	  /* Look ahead to detect nested types.  This probably should be
+	     done in the grammar, but trying seemed to introduce a lot
+	     of shift/reduce and reduce/reduce conflicts.  It's possible
+	     that it could be done, though.  Or perhaps a non-grammar, but
+	     less ad hoc, approach would work well.  */
+
+	  /* Since we do not currently have any way of distinguishing
+	     a nested type from a non-nested one (the stabs don't tell
+	     us whether a type is nested), we just ignore the
+	     containing type.  */
+
+	  p = lexptr;
+	  best_sym = sym;
+	  while (1)
+	    {
+	      /* Skip whitespace.  */
+	      while (*p == ' ' || *p == '\t' || *p == '\n')
+		++p;
+	      if (*p == ':' && p[1] == ':')
+		{
+		  /* Skip the `::'.  */
+		  p += 2;
+		  /* Skip whitespace.  */
+		  while (*p == ' ' || *p == '\t' || *p == '\n')
+		    ++p;
+		  namestart = p;
+		  while (*p == '_' || *p == '$' || (*p >= '0' && *p <= '9')
+			 || (*p >= 'a' && *p <= 'z')
+			 || (*p >= 'A' && *p <= 'Z'))
+		    ++p;
+		  if (p != namestart)
+		    {
+		      struct symbol *cur_sym;
+		      /* As big as the whole rest of the expression, which is
+			 at least big enough.  */
+		      char *tmp = alloca (strlen (namestart));
+
+		      memcpy (tmp, namestart, p - namestart);
+		      tmp[p - namestart] = '\0';
+		      cur_sym = lookup_symbol (tmp, expression_context_block,
+					       VAR_NAMESPACE, (int *) NULL,
+					       (struct symtab **) NULL);
+		      if (cur_sym)
+			{
+			  if (SYMBOL_CLASS (cur_sym) == LOC_TYPEDEF)
+			    {
+			      best_sym = cur_sym;
+			      lexptr = p;
+			    }
+			  else
+			    break;
+			}
+		      else
+			break;
+		    }
+		  else
+		    break;
+		}
+	      else
+		break;
+	    }
+
+	  yylval.tsym.type = SYMBOL_TYPE (best_sym);
 	  return TYPENAME;
         }
     if ((yylval.tsym.type = lookup_primitive_typename (tmp)) != 0)

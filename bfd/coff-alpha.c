@@ -116,6 +116,9 @@ static char *ecoff_type_to_string PARAMS ((bfd *abfd, union aux_ext *aux_ptr,
 static void ecoff_print_symbol PARAMS ((bfd *abfd, PTR filep,
 					asymbol *symbol,
 					bfd_print_symbol_type how));
+static void ecoff_get_symbol_info PARAMS ((bfd *abfd,
+					   asymbol *symbol,
+					   symbol_info *ret));
 static void ecoff_swap_reloc_in PARAMS ((bfd *abfd, RELOC *ext,
 					 struct internal_reloc *intern));
 static unsigned int ecoff_swap_reloc_out PARAMS ((bfd *abfd, PTR src,
@@ -1266,6 +1269,17 @@ ecoff_type_to_string (abfd, aux_ptr, indx, bigendian)
   return buffer2;
 }
 
+/* Return information about ECOFF symbol SYMBOL in RET.  */
+
+static void
+ecoff_get_symbol_info (ignore_abfd, symbol, ret)
+     bfd *ignore_abfd;		/* Ignored.  */
+     asymbol *symbol;
+     symbol_info *ret;
+{
+  bfd_symbol_info (symbol, ret);
+}
+
 /* Print information about an ECOFF symbol.  */
 
 static void
@@ -1304,17 +1318,6 @@ ecoff_print_symbol (abfd, filep, symbol, how)
 		   (unsigned) ecoff_ext.asym.st,
 		   (unsigned) ecoff_ext.asym.sc);
 	}
-      break;
-    case bfd_print_symbol_nm:
-      {
-	CONST char *section_name = symbol->section->name;
-
-	bfd_print_symbol_vandf ((PTR) file, symbol);
-	fprintf (file, " %-5s %s %s",
-		 section_name,
-		 ecoffsymbol (symbol)->local ? "l" : "e",
-		 symbol->name);
-      }
       break;
     case bfd_print_symbol_all:
       /* Print out the symbols in a reasonable way */
@@ -1807,11 +1810,10 @@ static reloc_howto_type ecoff_howto_table[] =
   HOWTO (ECOFF_R_IGNORE,	/* type */
 	 0,			/* rightshift */
 	 0,			/* size (0 = byte, 1 = short, 2 = long) */
-	 8,			/* bitsize (obsolete) */
+	 8,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
-	 false,			/* absolute (obsolete) */
-	 false,			/* complain_on_overflow */
+	 complain_overflow_dont,	/* complain_on_overflow */
 	 0,			/* special_function */
 	 "IGNORE",		/* name */
 	 false,			/* partial_inplace */
@@ -1823,11 +1825,10 @@ static reloc_howto_type ecoff_howto_table[] =
   HOWTO (ECOFF_R_REFHALF,	/* type */
 	 0,			/* rightshift */
 	 1,			/* size (0 = byte, 1 = short, 2 = long) */
-	 16,			/* bitsize (obsolete) */
+	 16,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
-	 false,			/* absolute (obsolete) */
-	 true,			/* complain_on_overflow */
+	 complain_overflow_bitfield,	/* complain_on_overflow */
 	 ecoff_generic_reloc,	/* special_function */
 	 "REFHALF",		/* name */
 	 true,			/* partial_inplace */
@@ -1839,11 +1840,10 @@ static reloc_howto_type ecoff_howto_table[] =
   HOWTO (ECOFF_R_REFWORD,	/* type */
 	 0,			/* rightshift */
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 32,			/* bitsize (obsolete) */
+	 32,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
-	 false,			/* absolute (obsolete) */
-	 true,			/* complain_on_overflow */
+	 complain_overflow_bitfield,	/* complain_on_overflow */
 	 ecoff_generic_reloc,	/* special_function */
 	 "REFWORD",		/* name */
 	 true,			/* partial_inplace */
@@ -1855,11 +1855,10 @@ static reloc_howto_type ecoff_howto_table[] =
   HOWTO (ECOFF_R_JMPADDR,	/* type */
 	 2,			/* rightshift */
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 32,			/* bitsize (obsolete) */
+	 26,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
-	 false,			/* absolute (obsolete) */
-	 true,			/* complain_on_overflow */
+	 complain_overflow_bitfield,	/* complain_on_overflow */
 	 ecoff_generic_reloc,	/* special_function */
 	 "JMPADDR",		/* name */
 	 true,			/* partial_inplace */
@@ -1872,11 +1871,10 @@ static reloc_howto_type ecoff_howto_table[] =
   HOWTO (ECOFF_R_REFHI,		/* type */
 	 16,			/* rightshift */
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 32,			/* bitsize (obsolete) */
+	 32,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
-	 false,			/* absolute (obsolete) */
-	 true,			/* complain_on_overflow */
+	 complain_overflow_bitfield,	/* complain_on_overflow */
 	 ecoff_refhi_reloc,	/* special_function */
 	 "REFHI",		/* name */
 	 true,			/* partial_inplace */
@@ -1888,11 +1886,10 @@ static reloc_howto_type ecoff_howto_table[] =
   HOWTO (ECOFF_R_REFLO,		/* type */
 	 0,			/* rightshift */
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 32,			/* bitsize (obsolete) */
+	 16,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
-	 false,			/* absolute (obsolete) */
-	 true,			/* complain_on_overflow */
+	 complain_overflow_dont,	/* complain_on_overflow */
 	 ecoff_reflo_reloc,	/* special_function */
 	 "REFLO",		/* name */
 	 true,			/* partial_inplace */
@@ -1905,11 +1902,10 @@ static reloc_howto_type ecoff_howto_table[] =
   HOWTO (ECOFF_R_GPREL,		/* type */
 	 0,			/* rightshift */
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 32,			/* bitsize (obsolete) */
+	 16,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
-	 false,			/* absolute (obsolete) */
-	 true,			/* complain_on_overflow */
+	 complain_overflow_signed,	/* complain_on_overflow */
 	 ecoff_gprel_reloc,	/* special_function */
 	 "GPREL",		/* name */
 	 true,			/* partial_inplace */
@@ -1922,11 +1918,10 @@ static reloc_howto_type ecoff_howto_table[] =
   HOWTO (ECOFF_R_LITERAL,	/* type */
 	 0,			/* rightshift */
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 32,			/* bitsize (obsolete) */
+	 16,			/* bitsize */
 	 false,			/* pc_relative */
 	 0,			/* bitpos */
-	 false,			/* absolute (obsolete) */
-	 true,			/* complain_on_overflow */
+	 complain_overflow_signed,	/* complain_on_overflow */
 	 ecoff_gprel_reloc,	/* special_function */
 	 "LITERAL",		/* name */
 	 true,			/* partial_inplace */

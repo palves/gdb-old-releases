@@ -1,7 +1,20 @@
+Mon Jun 21 13:13:43 1993  Ken Raeburn  (raeburn@poseidon.cygnus.com)
+
+	* internal.h: Combined 32- and 64-bit versions of all structures
+	except *_Internal_Dyn.  This will simply the assembler interface,
+	and some bfd code.
+
+Tue May 25 02:00:16 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* external.h, internal.h, common.h: Added 64-bit versions of some
+	structures and macros.  Renamed old versions to put "32" in the
+	name.  Some are unchanged.
+
 Thu Apr 29 12:12:20 1993  Ken Raeburn  (raeburn@deneb.cygnus.com)
 
 	* common.h (EM_HPPA, NT_VERSION, STN_UNDEF, DT_*): New macros.
 	* external.h (Elf_External_Dyn): New type.
+
 	* internal.h (Elf_Intenral_Shdr): New field `size'.
 	(Elf_Internal_Dyn): New type.
 

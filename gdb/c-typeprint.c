@@ -455,7 +455,6 @@ c_type_print_base (type, stream, show, level)
      int show;
      int level;
 {
-  char *name;
   register int i;
   register int len;
   register int lastval;
@@ -472,9 +471,13 @@ c_type_print_base (type, stream, show, level)
     }
 
   /* When SHOW is zero or less, and there is a valid type name, then always
-     just print the type name directly from the type. */
+     just print the type name directly from the type.  */
+  /* If we have "typedef struct foo {. . .} bar;" do we want to print it
+     as "struct foo" or as "bar"?  Pick the latter, because C++ folk tend
+     to expect things like "class5 *foo" rather than "struct class5 *foo".  */
 
-  if ((show <= 0) && (TYPE_NAME (type) != NULL))
+  if (show <= 0
+      && TYPE_NAME (type) != NULL)
     {
       fputs_filtered (TYPE_NAME (type), stream);
       return;
@@ -492,22 +495,34 @@ c_type_print_base (type, stream, show, level)
       break;
 
     case TYPE_CODE_STRUCT:
-      fprintf_filtered (stream,
-			HAVE_CPLUS_STRUCT (type) ? "class " : "struct ");
+      if (HAVE_CPLUS_STRUCT (type))
+	{
+	  fprintf_filtered (stream, "class ");
+	}
+      else
+	{
+	  fprintf_filtered (stream, "struct ");
+	}
       goto struct_union;
 
     case TYPE_CODE_UNION:
       fprintf_filtered (stream, "union ");
+
     struct_union:
-      if ((name = type_name_no_tag (type)) != NULL)
+      if (TYPE_TAG_NAME (type) != NULL)
 	{
-	  fputs_filtered (name, stream);
-	  fputs_filtered (" ", stream);
-	  wrap_here ("    ");
+	  fputs_filtered (TYPE_TAG_NAME (type), stream);
+	  if (show > 0)
+	    fputs_filtered (" ", stream);
 	}
+      wrap_here ("    ");
       if (show < 0)
-	fprintf_filtered (stream, "{...}");
-      else
+	{
+	  /* If we just printed a tag name, no need to print anything else.  */
+	  if (TYPE_TAG_NAME (type) == NULL)
+	    fprintf_filtered (stream, "{...}");
+	}
+      else if (show > 0)
 	{
 	  check_stub_type (type);
 	  
@@ -606,6 +621,7 @@ c_type_print_base (type, stream, show, level)
 	      struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
 	      int j, len2 = TYPE_FN_FIELDLIST_LENGTH (type, i);
 	      char *method_name = TYPE_FN_FIELDLIST_NAME (type, i);
+	      char *name = type_name_no_tag (type);
 	      int is_constructor = name && STREQ(method_name, name);
 	      for (j = 0; j < len2; j++)
 		{
@@ -692,15 +708,21 @@ c_type_print_base (type, stream, show, level)
 
     case TYPE_CODE_ENUM:
       fprintf_filtered (stream, "enum ");
-      if ((name = type_name_no_tag (type)) != NULL)
+      if (TYPE_TAG_NAME (type) != NULL)
 	{
-	  fputs_filtered (name, stream);
-	  fputs_filtered (" ", stream);
+	  fputs_filtered (TYPE_TAG_NAME (type), stream);
+	  if (show > 0)
+	    fputs_filtered (" ", stream);
 	}
+
       wrap_here ("    ");
       if (show < 0)
-	fprintf_filtered (stream, "{...}");
-      else
+	{
+	  /* If we just printed a tag name, no need to print anything else.  */
+	  if (TYPE_TAG_NAME (type) == NULL)
+	    fprintf_filtered (stream, "{...}");
+	}
+      else if (show > 0)
 	{
 	  fprintf_filtered (stream, "{");
 	  len = TYPE_NFIELDS (type);
@@ -750,7 +772,10 @@ c_type_print_base (type, stream, show, level)
 	}
       else
 	{
-	  error ("Invalid type code (%d) in symbol table.", TYPE_CODE (type));
+	  /* At least for dump_symtab, it is important that this not be
+	     an error ().  */
+	  fprintf_filtered (stream, "<invalid type code %d>",
+			    TYPE_CODE (type));
 	}
       break;
     }

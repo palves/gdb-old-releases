@@ -121,10 +121,10 @@ char *
 DEFUN(zalloc,(size),
       bfd_size_type size)
 {
-  char *ptr = (char *) malloc ((int)size);
+  char *ptr = (char *) malloc ((size_t)size);
 
   if ((ptr != NULL) && (size != 0))
-   memset(ptr,0, size);
+   memset(ptr,0, (size_t) size);
 
   return ptr;
 }
@@ -153,13 +153,31 @@ DEFUN(PTR bfd_xmalloc,(size),
   static CONST char no_memory_message[] = "Virtual memory exhausted!\n";
   PTR ptr;
   if (size == 0) size = 1;
-  ptr = (PTR)malloc(size);
+  ptr = (PTR)malloc((size_t) size);
   if (!ptr)
     {
       write (2, no_memory_message, sizeof(no_memory_message)-1);
       exit (-1);
     }
   return ptr;
+}
+
+/*
+INTERNAL_FUNCTION
+	bfd_xmalloc_by_size_t
+
+SYNOPSIS
+	PTR bfd_xmalloc_by_size_t ( size_t size);
+
+DESCRIPTION
+	Like malloc, but exit if no more memory.
+	Uses size_t, so it's suitable for use as obstack_chunk_alloc.
+ */
+PTR
+DEFUN(bfd_xmalloc_by_size_t, (size),
+      size_t size)
+{
+  return bfd_xmalloc ((bfd_size_type) size);
 }
 
 /* Some IO code */
@@ -221,7 +239,7 @@ SYNOPSIS
 
 DESCRIPTION
 	Writes a 4 byte integer to the outputing bfd, in big endian
-	mode regardless of what else is going on.  This is usefull in
+	mode regardless of what else is going on.  This is useful in
 	archives.
 
 */
@@ -349,7 +367,7 @@ DEFUN(bfd_add_to_string_table,(table, new_string, table_length, free_ptr),
        take it next time */
     space_length = (string_length < DEFAULT_STRING_SPACE_SIZE ?
                     DEFAULT_STRING_SPACE_SIZE : string_length+1);
-    base = zalloc (space_length);
+    base = zalloc ((bfd_size_type) space_length);
 
     if (base == NULL) {
       bfd_error = no_memory;
@@ -510,8 +528,9 @@ DESCRIPTION
 /* Sign extension to bfd_signed_vma.  */
 #define COERCE16(x) ((bfd_signed_vma) (((x) ^ 0x8000) - 0x8000))
 #define COERCE32(x) ((bfd_signed_vma) (((x) ^ 0x80000000) - 0x80000000))
+#define EIGHT_GAZILLION (((HOST_64_BIT)0x80000000) << 32)
 #define COERCE64(x) ((bfd_signed_vma)\
-		     (((x) ^ 0x8000000000000000) - 0x8000000000000000))
+		     (((x) ^ EIGHT_GAZILLION) - EIGHT_GAZILLION))
 
 bfd_vma
 DEFUN(_do_getb16,(addr),
@@ -593,7 +612,7 @@ bfd_vma
 DEFUN(_do_getb64,(addr),
       register bfd_byte *addr)
 {
-#ifdef HOST_64_BIT
+#ifdef BFD64
   bfd_vma low, high;
 
   high= ((((((((addr[0]) << 8) |
@@ -619,7 +638,7 @@ DEFUN(_do_getl64,(addr),
       register bfd_byte *addr)
 {
 
-#ifdef HOST_64_BIT
+#ifdef BFD64
   bfd_vma low, high;
   high= (((((((addr[7] << 8) |
               addr[6]) << 8) |
@@ -643,7 +662,7 @@ bfd_signed_vma
 DEFUN(_do_getb_signed_64,(addr),
       register bfd_byte *addr)
 {
-#ifdef HOST_64_BIT
+#ifdef BFD64
   bfd_vma low, high;
 
   high= ((((((((addr[0]) << 8) |
@@ -669,7 +688,7 @@ DEFUN(_do_getl_signed_64,(addr),
       register bfd_byte *addr)
 {
 
-#ifdef HOST_64_BIT
+#ifdef BFD64
   bfd_vma low, high;
   high= (((((((addr[7] << 8) |
               addr[6]) << 8) |
@@ -715,7 +734,7 @@ DEFUN(_do_putb64,(data, addr),
         bfd_vma data AND
         register bfd_byte *addr)
 {
-#ifdef HOST_64_BIT
+#ifdef BFD64
   addr[0] = (bfd_byte)(data >> (7*8));
   addr[1] = (bfd_byte)(data >> (6*8));
   addr[2] = (bfd_byte)(data >> (5*8));
@@ -735,7 +754,7 @@ DEFUN(_do_putl64,(data, addr),
       bfd_vma data AND
       register bfd_byte *addr)
 {
-#ifdef HOST_64_BIT
+#ifdef BFD64
   addr[7] = (bfd_byte)(data >> (7*8));
   addr[6] = (bfd_byte)(data >> (6*8));
   addr[5] = (bfd_byte)(data >> (5*8));
@@ -800,13 +819,14 @@ DESCRIPTION
 	arg of 1025 would return 11.
 
 SYNOPSIS
-	bfd_vma bfd_log2(bfd_vma x);
+	unsigned int bfd_log2(bfd_vma x);
 */
 
-bfd_vma bfd_log2(x)
-bfd_vma x;
+unsigned
+bfd_log2(x)
+     bfd_vma x;
 {
-  bfd_vma  result = 0;
+  unsigned result = 0;
   while ( (bfd_vma)(1<< result) < x)
     result++;
   return result;

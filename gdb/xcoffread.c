@@ -53,12 +53,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "libcoff.h"		/* FIXME, internal data from BFD */
 #include "coff/rs6000.h"	/* FIXME, raw file-format guts of xcoff */
 
-
-/* Define this if you want gdb to ignore typdef stabs. This was needed for
-   one of Transarc, to reduce the size of the symbol table. Types won't be
-   recognized, but tag names will be. */
-
-/* #define	NO_TYPEDEFS  1 */
+/* For interface with stabsread.c.  */
+#include "aout/stab_gnu.h"
 
 /* Simplified internal version of coff symbol table information */
 
@@ -187,6 +183,9 @@ xcoff_symfile_offsets PARAMS ((struct objfile *, CORE_ADDR));
 
 static int
 init_lineno PARAMS ((bfd *, file_ptr, int));
+
+static void
+free_linetab PARAMS ((void));
 
 static void
 find_linenos PARAMS ((bfd *, sec_ptr, PTR));
@@ -416,7 +415,7 @@ struct coff_symbol *cs;
       /* This can happen with old versions of GCC.
 	 GCC 2.3.3-930426 does not exhibit this on a test case which
 	 a user said produced the message for him.  */
-      struct complaint msg = {"Nested C_BINCL symbols", 0, 0};
+      static struct complaint msg = {"Nested C_BINCL symbols", 0, 0};
       complain (&msg);
     }
   ++inclDepth;
@@ -450,7 +449,7 @@ struct coff_symbol *cs;
 
   if (inclDepth == 0)
     {
-      struct complaint msg = {"Mismatched C_BINCL/C_EINCL pair", 0, 0};
+      static struct complaint msg = {"Mismatched C_BINCL/C_EINCL pair", 0, 0};
       complain (&msg);
     }
 
@@ -1161,14 +1160,16 @@ read_xcoff_symtab (objfile, nsyms)
 	    case XMC_PR :			/* a `.text' csect.	*/
 	      {
 
-		/* A program csect is seen.
-		 
-		   We have to allocate one symbol table for each program csect. Normally
-		   gdb prefers one symtab for each compilation unit (CU). In case of AIX, one
-		   CU might include more than one prog csect, and they don't have to be
-		   adjacent in terms of the space they occupy in memory. Thus, one single
-		   CU might get fragmented in the memory and gdb's file start and end address
-		   approach does not work!  */
+		/* A program csect is seen.  We have to allocate one
+		   symbol table for each program csect.  Normally gdb
+		   prefers one symtab for each source file.  In case
+		   of AIX, one source file might include more than one
+		   [PR] csect, and they don't have to be adjacent in
+		   terms of the space they occupy in memory. Thus, one
+		   single source file might get fragmented in the
+		   memory and gdb's file start and end address
+		   approach does not work!  GCC (and I think xlc) seem
+		   to put all the code in the unnamed program csect.  */
 
 		if (last_csect_name) {
 
@@ -1189,7 +1190,9 @@ read_xcoff_symtab (objfile, nsyms)
 			      textsec->target_index);
 		  end_stabs ();
 		  start_stabs ();
-		  start_symtab ((char *)NULL, (char *)NULL, (CORE_ADDR)0);
+		  /* Give all csects for this source file the same
+		     name.  */
+		  start_symtab (filestring, (char *)NULL, (CORE_ADDR)0);
 		}
 
 		/* If this is the very first csect seen, basically `__start'. */
@@ -1595,116 +1598,10 @@ process_xcoff_symbol (cs, objfile)
 
     case C_DECL:      			/* a type decleration?? */
 
-#if defined(NO_TYPEDEFS)
-	qq =  (char*) strchr (name, ':');
-	if (!qq)			/* skip if there is no ':' */
-	  return NULL;
-
-	nameless = (qq == name);
-
-	struct_and_type_combined = (qq[1] == 'T' && qq[2] == 't');
-	pp = qq + (struct_and_type_combined ? 3 : 2);
-
-
-	/* To handle GNU C++ typename abbreviation, we need to be able to fill
-	   in a type's name as soon as space for that type is allocated. */
-
-	if (struct_and_type_combined && name != qq) {
-
-	   int typenums[2];
-	   struct type *tmp_type;
-	   char *tmp_pp = pp;
-
-	   read_type_number (&tmp_pp, typenums);
-	   tmp_type = dbx_alloc_type (typenums, objfile);
-
-	   if (tmp_type && !TYPE_NAME (tmp_type) && !nameless)
-	     TYPE_NAME (tmp_type) = SYMBOL_NAME (sym) =
-				obsavestring (name, qq-name,
-					      &objfile->symbol_obstack);
-	}
-	ttype = SYMBOL_TYPE (sym) = read_type (&pp, objfile);
-
-	/* if there is no name for this typedef, you don't have to keep its
-	   symbol, since nobody could ask for it. Otherwise, build a symbol
-	   and add it into symbol_list. */
-
-	if (nameless)
-	  return;
-
-	/* Transarc wants to eliminate type definitions from the symbol table.
-	   Limited debugging capabilities, but faster symbol table processing
-	   and less memory usage. Note that tag definitions (starting with
-	   'T') will remain intact. */
-
-	if (qq[1] != 'T' && (!TYPE_NAME (ttype) || *(TYPE_NAME (ttype)) == '\0')) {
-
-	  if (SYMBOL_NAME (sym))
-	      TYPE_NAME (ttype) = SYMBOL_NAME (sym);
-	  else
-	      TYPE_NAME (ttype) = obsavestring (name, qq-name);
-
-	  return;
-	}
-
-	/* read_type() will return null if type (or tag) definition was
-	   unnnecessarily duplicated. Also, if the symbol doesn't have a name,
-	   there is no need to keep it in symbol table. */
-	/* The above argument no longer valid. read_type() never returns NULL. */
-
-	if (!ttype)
-	  return NULL;
-
-	/* if there is no name for this typedef, you don't have to keep its
-	   symbol, since nobody could ask for it. Otherwise, build a symbol
-	   and add it into symbol_list. */
-
-	if (qq[1] == 'T')
-	    SYMBOL_NAMESPACE (sym) = STRUCT_NAMESPACE;
-	else if (qq[1] == 't')
-	    SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
-	else {
-	    warning ("Unrecognized stab string.\n");
-	    return NULL;
-	}
-
-	SYMBOL_CLASS (sym) = LOC_TYPEDEF;
-	if (!SYMBOL_NAME (sym))
-	    SYMBOL_NAME (sym) = obsavestring (name, qq-name);
-
-	SYMBOL_DUP (sym, sym2);
-	add_symbol_to_list 
-	     (sym2, within_function ? &local_symbols : &file_symbols);
-
-	/* For a combination of struct and type, add one more symbol
-	   for the type. */
-
-	if (struct_and_type_combined) {
-	    SYMBOL_DUP (sym, sym2);
-	    SYMBOL_NAMESPACE (sym2) = VAR_NAMESPACE;
-	    add_symbol_to_list 
-	       (sym2, within_function ? &local_symbols : &file_symbols);
-	}
-
-	/*  assign a name to the type node. */
-
-	if (!TYPE_NAME (ttype) || *(TYPE_NAME (ttype)) == '\0') {
-	  if (struct_and_type_combined)
-	    TYPE_NAME (ttype) = SYMBOL_NAME (sym);
-	  else if  (qq[1] == 'T')		/* struct namespace */
-	    TYPE_NAME (ttype) = concat (
-		TYPE_CODE (ttype) == TYPE_CODE_UNION ? "union " :
-		TYPE_CODE (ttype) == TYPE_CODE_STRUCT? "struct " : "enum ",
-		SYMBOL_NAME (sym), NULL);
-	}
-	break;
-
-#else /* !NO_TYPEDEFS */
       sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
       if (sym != NULL)
 	SYMBOL_SECTION (sym) = cs->c_secnum;
       return sym;
-#endif
 
     case C_GSYM:
       add_stab_to_list (name, &global_stabs);
@@ -1742,16 +1639,12 @@ process_xcoff_symbol (cs, objfile)
 	return sym;
 
     case C_LSYM:
-	if (*name == ':' || (pp = (char *) strchr (name, ':')) == NULL)
-	  return NULL;
-	SYMBOL_NAME (sym) = obsavestring (name, pp-name, &objfile -> symbol_obstack);
-	SYMBOL_CLASS (sym) = LOC_LOCAL;
-	pp += 1;
-	SYMBOL_TYPE (sym) = read_type (&pp, objfile);
-        SYMBOL_SECTION (sym) = cs->c_secnum;
-	SYMBOL_DUP (sym, sym2);
-	add_symbol_to_list (sym2, &local_symbols);
-	break;
+      sym = define_symbol (cs->c_value, cs->c_name, 0, N_LSYM, objfile);
+      if (sym != NULL)
+	{
+	  SYMBOL_SECTION (sym) = cs->c_secnum;
+	}
+      return sym;
 
     case C_AUTO:
       SYMBOL_CLASS (sym) = LOC_LOCAL;
@@ -1816,7 +1709,7 @@ read_symbol (symbol, symno)
 {
   if (symno < 0 || symno >= symtbl_num_syms)
     {
-      struct complaint msg =
+      static struct complaint msg =
 	{"Invalid symbol offset", 0, 0};
       complain (&msg);
       symbol->n_value = 0;
@@ -1927,6 +1820,8 @@ init_lineno (abfd, offset, size)
 {
   int val;
 
+  free_linetab ();
+
   if (bfd_seek(abfd, offset, L_SET) < 0)
     return -1;
 
@@ -1938,8 +1833,15 @@ init_lineno (abfd, offset, size)
 
   linetab_offset = offset;
   linetab_size = size;
-  make_cleanup (free, linetab);	/* Be sure it gets de-allocated. */
   return 0;
+}
+
+static void
+free_linetab ()
+{
+  if (linetab)
+    free (linetab);
+  linetab = NULL;
 }
 
 /* dbx allows the text of a symbol name to be continued into the
@@ -2106,6 +2008,7 @@ xcoff_symfile_read (objfile, section_offset, mainline)
   bfd *abfd;
   struct coff_symfile_info *info;
   char *name;
+  struct cleanup *back_to = make_cleanup (null_cleanup, 0);
 
   info = (struct coff_symfile_info *) objfile -> sym_private;
   symfile_bfd = abfd = objfile->obfd;
@@ -2125,6 +2028,7 @@ xcoff_symfile_read (objfile, section_offset, mainline)
       && info->max_lineno_offset > info->min_lineno_offset) {
 
     /* only read in the line # table if one exists */
+    make_cleanup (free_linetab, 0);
     val = init_lineno(abfd, info->min_lineno_offset,
 	(int) (info->max_lineno_offset - info->min_lineno_offset));
 
@@ -2176,6 +2080,8 @@ xcoff_symfile_read (objfile, section_offset, mainline)
      minimal symbols for this objfile. */
 
   install_minimal_symbols (objfile);
+
+  do_cleanups (back_to);
 }
 
 /* XCOFF-specific parsing routine for section offsets.  */

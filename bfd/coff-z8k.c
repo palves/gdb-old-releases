@@ -33,23 +33,27 @@ extern bfd_error_vector_type bfd_error_vector;
 
 
 static reloc_howto_type r_imm32 =
-HOWTO (R_IMM32, 0, 1, 32, false, 0, true,
-       true, 0, "r_imm32", true, 0xffffffff, 0xffffffff, false);
+HOWTO (R_IMM32, 0, 1, 32, false, 0,
+       complain_overflow_bitfield, 0, "r_imm32", true, 0xffffffff,
+       0xffffffff, false);
 
 static reloc_howto_type r_imm4l =
-HOWTO (R_IMM4L, 0, 1, 4, false, 0, true,
-       true, 0, "r_imm4l", true, 0xf, 0xf, false);
+HOWTO (R_IMM4L, 0, 1, 4, false, 0,
+       complain_overflow_bitfield, 0, "r_imm4l", true, 0xf, 0xf, false);
 
 static reloc_howto_type r_da =
-HOWTO (R_IMM16, 0, 1, 16, false, 0, true,
-       true, 0, "r_da", true, 0x0000ffff, 0x0000ffff, false);
+HOWTO (R_IMM16, 0, 1, 16, false, 0,
+       complain_overflow_bitfield, 0, "r_da", true, 0x0000ffff, 0x0000ffff,
+       false);
 
 static reloc_howto_type r_imm8 =
-HOWTO (R_IMM8, 0, 1, 8, false, 0, true,
-       true,0, "r_imm8", true, 0x000000ff, 0x000000ff, false);
+HOWTO (R_IMM8, 0, 1, 8, false, 0,
+       complain_overflow_bitfield, 0, "r_imm8", true, 0x000000ff, 0x000000ff,
+       false);
 
 static reloc_howto_type r_jr =
-HOWTO (R_JR, 0, 1, 8, true, 0, true, true, 0, "r_jr", true, 0, 0, true);
+HOWTO (R_JR, 0, 1, 8, true, 0, complain_overflow_signed, 0,
+       "r_jr", true, 0, 0, true);
 
 /* Turn a howto into a reloc number */
 

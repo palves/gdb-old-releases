@@ -29,6 +29,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbtypes.h"
 #include "expression.h"
 #include "language.h"
+#include "serial.h" /* For job_control.  */
 
 #include "getopt.h"
 
@@ -78,13 +79,13 @@ static void
 quit_command PARAMS ((char *, int));
 
 static void
-initialize_main PARAMS ((void));
+init_main PARAMS ((void));
 
 static void
-initialize_history PARAMS ((void));
+init_history PARAMS ((void));
 
 static void
-initialize_cmd_lists PARAMS ((void));
+init_cmd_lists PARAMS ((void));
 
 static void
 float_handler PARAMS ((int));
@@ -178,6 +179,14 @@ static int inhibit_gdbinit = 0;
 
 extern char *version;
 
+/* Canonical host name as a string. */
+
+extern char *host_canonical;
+
+/* Canonical target name as a string. */
+
+extern char *target_canonical;
+
 /* Message to be printed before the error message, when an error occurs.  */
 
 extern char *error_pre_print;
@@ -187,10 +196,6 @@ extern char *error_pre_print;
 extern char *warning_pre_print;
 
 extern char lang_frame_mismatch_warn[];		/* language.c */
-
-/* Whether GDB's stdin is on a terminal.  */
-
-extern int gdb_has_a_terminal;			/* inflow.c */
 
 /* Flag for whether we want all the "from_tty" gubbish printed.  */
 
@@ -291,7 +296,6 @@ static char dirbuf[1024];
 
 void (*window_hook) PARAMS ((FILE *, char *));
 
-extern int frame_file_full_name;
 extern int mapped_symbol_files;
 extern int readnow_symbol_files;
 
@@ -330,33 +334,67 @@ static void stop_sig PARAMS ((int));
 #define sigsetmask(n)
 #endif
 
-/* This is how `error' returns to command level.  */
+/* Where to go for return_to_top_level (RETURN_ERROR).  */
+static jmp_buf error_return;
+/* Where to go for return_to_top_level (RETURN_QUIT).  */
+static jmp_buf quit_return;
 
-jmp_buf to_top_level;
+/* Temporary variable for SET_TOP_LEVEL.  */
+static int top_level_val;
+
+/* Do a setjmp on error_return and quit_return.  catch_errors is
+   generally a cleaner way to do this, but main() would look pretty
+   ugly if it had to use catch_errors each time.  */
+
+#define SET_TOP_LEVEL() \
+  (((top_level_val = setjmp (error_return)) \
+    ? (PTR) 0 : (PTR) memcpy (quit_return, error_return, sizeof (jmp_buf))) \
+   , top_level_val)
+
+/* Return for reason REASON.  This generally gets back to the command
+   loop, but can be caught via catch_errors.  */
 
 NORETURN void
-return_to_top_level ()
+return_to_top_level (reason)
+     enum return_reason reason;
 {
   quit_flag = 0;
   immediate_quit = 0;
+
+  /* Perhaps it would be cleaner to do this via the cleanup chain (not sure
+     I can think of a reason why that is vital, though).  */
   bpstat_clear_actions(stop_bpstat);	/* Clear queued breakpoint commands */
+
   disable_current_display ();
   do_cleanups (ALL_CLEANUPS);
-  (NORETURN void) longjmp (to_top_level, 1);
+  (NORETURN void) longjmp
+    (reason == RETURN_ERROR ? error_return : quit_return, 1);
 }
 
-/* Call FUNC with arg ARGS, catching any errors.
-   If there is no error, return the value returned by FUNC.
-   If there is an error, print ERRSTRING, print the specific error message,
-		         then return zero.  */
+/* Call FUNC with arg ARGS, catching any errors.  If there is no
+   error, return the value returned by FUNC.  If there is an error,
+   print ERRSTRING, print the specific error message, then return
+   zero.
+
+   MASK specifies what to catch; it is normally set to
+   RETURN_MASK_ALL, if for no other reason than that the code which
+   calls catch_errors might not be set up to deal with a quit which
+   isn't caught.  But if the code can deal with it, it generally
+   should be RETURN_MASK_ERROR, unless for some reason it is more
+   useful to abort only the portion of the operation inside the
+   catch_errors.  Note that quit should return to the command line
+   fairly quickly, even if some further processing is being done.  */
 
 int
-catch_errors (func, args, errstring)
+catch_errors (func, args, errstring, mask)
      int (*func) PARAMS ((char *));
-     char *args;
+     PTR args;
      char *errstring;
+     return_mask mask;
 {
-  jmp_buf saved;
+  jmp_buf saved_error;
+  jmp_buf saved_quit;
+  jmp_buf tmp_jmp;
   int val;
   struct cleanup *saved_cleanup_chain;
   char *saved_error_pre_print;
@@ -364,18 +402,30 @@ catch_errors (func, args, errstring)
   saved_cleanup_chain = save_cleanups ();
   saved_error_pre_print = error_pre_print;
 
-  memcpy ((char *)saved, (char *)to_top_level, sizeof (jmp_buf));
+  if (mask & RETURN_MASK_ERROR)
+    memcpy ((char *)saved_error, (char *)error_return, sizeof (jmp_buf));
+  if (mask & RETURN_MASK_QUIT)
+    memcpy (saved_quit, quit_return, sizeof (jmp_buf));
   error_pre_print = errstring;
 
-  if (setjmp (to_top_level) == 0)
-    val = (*func) (args);
+  if (setjmp (tmp_jmp) == 0)
+    {
+      if (mask & RETURN_MASK_ERROR)
+	memcpy (error_return, tmp_jmp, sizeof (jmp_buf));
+      if (mask & RETURN_MASK_QUIT)
+	memcpy (quit_return, tmp_jmp, sizeof (jmp_buf));
+      val = (*func) (args);
+    }
   else
     val = 0;
 
   restore_cleanups (saved_cleanup_chain);
 
   error_pre_print = saved_error_pre_print;
-  memcpy ((char *)to_top_level, (char *)saved, sizeof (jmp_buf));
+  if (mask & RETURN_MASK_ERROR)
+    memcpy (error_return, saved_error, sizeof (jmp_buf));
+  if (mask & RETURN_MASK_QUIT)
+    memcpy (quit_return, saved_quit, sizeof (jmp_buf));
   return val;
 }
 
@@ -385,7 +435,8 @@ static void
 disconnect (signo)
 int signo;
 {
-  catch_errors (quit_cover, NULL, "Could not kill inferior process");
+  catch_errors (quit_cover, NULL,
+		"Could not kill the program being debugged", RETURN_MASK_ALL);
   signal (SIGHUP, SIG_DFL);
   kill (getpid (), SIGHUP);
 }
@@ -442,14 +493,18 @@ main (argc, argv)
   char *cdarg = NULL;
   char *ttyarg = NULL;
 
-  /* Pointers to all arguments of +command option.  */
+  /* These are static so that we can take their address in an initializer.  */
+  static int print_help;
+  static int print_version;
+
+  /* Pointers to all arguments of --command option.  */
   char **cmdarg;
   /* Allocated size of cmdarg.  */
   int cmdsize;
   /* Number of elements of cmdarg used.  */
   int ncmd;
 
-  /* Indices of all arguments of +directory option.  */
+  /* Indices of all arguments of --directory option.  */
   char **dirarg;
   /* Allocated size.  */
   int dirsize;
@@ -471,7 +526,7 @@ main (argc, argv)
 #endif
 
   /* If error() is called from initialization code, just exit */
-  if (setjmp (to_top_level)) {
+  if (SET_TOP_LEVEL ()) {
     exit(1);
   }
 
@@ -506,7 +561,6 @@ main (argc, argv)
   /* Parse arguments and options.  */
   {
     int c;
-    static int print_help;
     /* When var field is 0, use flag field to record the equivalent
        short option (or arbitrary numbers starting at 10 for those
        with no equivalent).  */
@@ -534,6 +588,7 @@ main (argc, argv)
 	{"core", required_argument, 0, 'c'},
 	{"c", required_argument, 0, 'c'},
 	{"command", required_argument, 0, 'x'},
+	{"version", no_argument, &print_version, 1},
 	{"x", required_argument, 0, 'x'},
 	{"directory", required_argument, 0, 'd'},
 	{"cd", required_argument, 0, 11},
@@ -619,42 +674,6 @@ main (argc, argv)
 	  }
       }
 
-    if (print_help)
-      {
-	print_gdb_version(stderr);
-	fputs ("\n\
-This is the GNU debugger.  Usage:\n\
-    gdb [options] [executable-file [core-file or process-id]]\n\
-Options:\n\
-  -help             Print this message.\n\
-  -quiet            Do not print version number on startup.\n\
-  -fullname         Output information used by emacs-GDB interface.\n\
-  -epoch            Output information used by epoch emacs-GDB interface.\n\
-  -batch            Exit after processing options.\n\
-  -nx               Do not read .gdbinit file.\n\
-  -tty=TTY          Use TTY for input/output by the program being debugged.\n\
-  -cd=DIR           Change current directory to DIR.\n\
-  -directory=DIR    Search for source files in DIR.\n\
-  -command=FILE     Execute GDB commands from FILE.\n\
-  -symbols=SYMFILE  Read symbols from SYMFILE.\n\
-  -exec=EXECFILE    Use EXECFILE as the executable.\n\
-  -se=FILE          Use FILE as symbol file and executable file.\n\
-  -core=COREFILE    Analyze the core dump COREFILE.\n\
-  -b BAUDRATE       Set serial port baud rate used for remote debugging.\n\
-  -mapped           Use mapped symbol files if supported on this system.\n\
-  -readnow          Fully read symbol files on first access.\n\
-", stderr);
-#ifdef ADDITIONAL_OPTION_HELP
-	fputs (ADDITIONAL_OPTION_HELP, stderr);
-#endif
-	fputs ("\n\
-For more information, type \"help\" from within GDB, or consult the\n\
-GDB manual (available as on-line info or a printed manual).\n", stderr);
-	/* Exiting after printing this message seems like
-	   the most useful thing to do.  */
-	exit (0);
-      }
-    
     /* OK, that's all the options.  The other arguments are filenames.  */
     count = 0;
     for (; optind < argc; optind++)
@@ -679,11 +698,65 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 
   /* Run the init function of each source file */
 
-  initialize_cmd_lists ();	/* This needs to be done first */
+  init_cmd_lists ();	/* This needs to be done first */
   initialize_all_files ();
-  initialize_main ();		/* But that omits this file!  Do it now */
+  init_main ();		/* But that omits this file!  Do it now */
   init_signals ();
 
+  /* Do these (and anything which might call wrap_here or *_filtered)
+     after initialize_all_files.  */
+  if (print_version)
+    {
+      print_gdb_version (stdout);
+      wrap_here ("");
+      printf_filtered ("\n");
+      exit (0);
+    }
+
+  if (print_help)
+    {
+      /* --version is intentionally not documented here, because we
+	 are printing the version here, and the help is long enough
+	 already.  */
+
+      print_gdb_version (stdout);
+      /* Make sure the output gets printed.  */
+      wrap_here ("");
+      printf_filtered ("\n");
+
+      /* But don't use *_filtered here.  We don't want to prompt for continue
+	 no matter how small the screen or how much we're going to print.  */
+      fputs ("\
+This is the GNU debugger.  Usage:\n\
+    gdb [options] [executable-file [core-file or process-id]]\n\
+Options:\n\
+  --help             Print this message.\n\
+  --quiet            Do not print version number on startup.\n\
+  --fullname         Output information used by emacs-GDB interface.\n\
+  --epoch            Output information used by epoch emacs-GDB interface.\n\
+  --batch            Exit after processing options.\n\
+  --nx               Do not read .gdbinit file.\n\
+  --tty=TTY          Use TTY for input/output by the program being debugged.\n\
+  --cd=DIR           Change current directory to DIR.\n\
+  --directory=DIR    Search for source files in DIR.\n\
+  --command=FILE     Execute GDB commands from FILE.\n\
+  --symbols=SYMFILE  Read symbols from SYMFILE.\n\
+  --exec=EXECFILE    Use EXECFILE as the executable.\n\
+  --se=FILE          Use FILE as symbol file and executable file.\n\
+  --core=COREFILE    Analyze the core dump COREFILE.\n\
+  -b BAUDRATE        Set serial port baud rate used for remote debugging.\n\
+  --mapped           Use mapped symbol files if supported on this system.\n\
+  --readnow          Fully read symbol files on first access.\n\
+", stdout);
+#ifdef ADDITIONAL_OPTION_HELP
+      fputs (ADDITIONAL_OPTION_HELP, stdout);
+#endif
+      fputs ("\n\
+For more information, type \"help\" from within GDB, or consult the\n\
+GDB manual (available as on-line info or a printed manual).\n", stdout);
+      exit (0);
+    }
+    
   if (!quiet)
     {
       /* Print all the junk at the top, with trailing "..." if we are about
@@ -720,7 +793,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
       strcat (homeinit, gdbinit);
       if (!inhibit_gdbinit && access (homeinit, R_OK) == 0)
 	{
-	  if (!setjmp (to_top_level))
+	  if (!SET_TOP_LEVEL ())
 	    source_command (homeinit, 0);
 	}
       do_cleanups (ALL_CLEANUPS);
@@ -741,7 +814,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
   /* Now perform all the actions indicated by the arguments.  */
   if (cdarg != NULL)
     {
-      if (!setjmp (to_top_level))
+      if (!SET_TOP_LEVEL ())
 	{
 	  cd_command (cdarg, 0);
 	  init_source_path ();
@@ -750,7 +823,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
   do_cleanups (ALL_CLEANUPS);
 
   for (i = 0; i < ndir; i++)
-    if (!setjmp (to_top_level))
+    if (!SET_TOP_LEVEL ())
       directory_command (dirarg[i], 0);
   free ((PTR)dirarg);
   do_cleanups (ALL_CLEANUPS);
@@ -761,7 +834,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
     {
       /* The exec file and the symbol-file are the same.  If we can't open
 	 it, better only print one error message.  */
-      if (!setjmp (to_top_level))
+      if (!SET_TOP_LEVEL ())
 	{
 	  exec_file_command (execarg, !batch);
 	  symbol_file_command (symarg, 0);
@@ -770,10 +843,10 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
   else
     {
       if (execarg != NULL)
-	if (!setjmp (to_top_level))
+	if (!SET_TOP_LEVEL ())
 	  exec_file_command (execarg, !batch);
       if (symarg != NULL)
-	if (!setjmp (to_top_level))
+	if (!SET_TOP_LEVEL ())
 	  symbol_file_command (symarg, 0);
     }
   do_cleanups (ALL_CLEANUPS);
@@ -787,14 +860,14 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
   warning_pre_print = "\nwarning: ";
 
   if (corearg != NULL)
-    if (!setjmp (to_top_level))
+    if (!SET_TOP_LEVEL ())
       core_file_command (corearg, !batch);
-    else if (isdigit (corearg[0]) && !setjmp (to_top_level))
+    else if (isdigit (corearg[0]) && !SET_TOP_LEVEL ())
       attach_command (corearg, !batch);
   do_cleanups (ALL_CLEANUPS);
 
   if (ttyarg != NULL)
-    if (!setjmp (to_top_level))
+    if (!SET_TOP_LEVEL ())
       tty_command (ttyarg, !batch);
   do_cleanups (ALL_CLEANUPS);
 
@@ -813,14 +886,14 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
       || memcmp ((char *) &homebuf, (char *) &cwdbuf, sizeof (struct stat)))
     if (!inhibit_gdbinit && access (gdbinit, R_OK) == 0)
       {
-	if (!setjmp (to_top_level))
+	if (!SET_TOP_LEVEL ())
 	  source_command (gdbinit, 0);
       }
   do_cleanups (ALL_CLEANUPS);
 
   for (i = 0; i < ncmd; i++)
     {
-      if (!setjmp (to_top_level))
+      if (!SET_TOP_LEVEL ())
 	{
 	  if (cmdarg[i][0] == '-' && cmdarg[i][1] == '\0')
 	    read_command_file (stdin);
@@ -832,7 +905,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
   free ((PTR)cmdarg);
 
   /* Read in the old history after all the command files have been read. */
-  initialize_history();
+  init_history();
 
   if (batch)
     {
@@ -851,7 +924,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 
   while (1)
     {
-      if (!setjmp (to_top_level))
+      if (!SET_TOP_LEVEL ())
 	{
 	  do_cleanups (ALL_CLEANUPS);		/* Do complete cleanup */
 	  command_loop ();
@@ -1068,6 +1141,17 @@ static int write_history_p;
 static int history_size;
 static char *history_filename;
 
+/* readline uses the word breaks for two things:
+   (1) In figuring out where to point the TEXT parameter to the
+   rl_completion_entry_function.  Since we don't use TEXT for much,
+   it doesn't matter a lot what the word breaks are for this purpose, but
+   it does affect how much stuff M-? lists.
+   (2) If one of the matches contains a word break character, readline
+   will quote it.  That's why we switch between
+   gdb_completer_word_break_characters and
+   gdb_completer_command_word_break_characters.  I'm not sure when
+   we need this behavior (perhaps for funky characters in C++ symbols?).  */
+
 /* Variables which are necessary for fancy command line editing.  */
 char *gdb_completer_word_break_characters =
   " \t\n!@#$%^&*()+=|~`}{[]\"';:?/>.<,-";
@@ -1092,16 +1176,120 @@ char *gdb_completer_quote_characters =
    but don't want to complete on anything else either.  */
 /* ARGSUSED */
 char **
-noop_completer (text)
+noop_completer (text, prefix)
      char *text;
+     char *prefix;
 {
   return NULL;
 }
 
-/* Generate symbol names one by one for the completer.  Each time we are
-   called return another potential completion to the caller.
+/* Complete on filenames.  */
+char **
+filename_completer (text, word)
+     char *text;
+     char *word;
+{
+  /* From readline.  */
+  extern char *filename_completion_function ();
+  int subsequent_name;
+  char **return_val;
+  int return_val_used;
+  int return_val_alloced;
 
-   TEXT is what we expect the symbol to start with.
+  return_val_used = 0;
+  /* Small for testing.  */
+  return_val_alloced = 1;
+  return_val = (char **) xmalloc (return_val_alloced * sizeof (char *));
+
+  subsequent_name = 0;
+  while (1)
+    {
+      char *p;
+      p = filename_completion_function (text, subsequent_name);
+      if (return_val_used >= return_val_alloced)
+	{
+	  return_val_alloced *= 2;
+	  return_val =
+	    (char **) xrealloc (return_val,
+				return_val_alloced * sizeof (char *));
+	}
+      if (p == NULL)
+	{
+	  return_val[return_val_used++] = p;
+	  break;
+	}
+      /* Like emacs, don't complete on old versions.  Especially useful
+	 in the "source" command.  */
+      if (p[strlen (p) - 1] == '~')
+	continue;
+
+      {
+	char *q;
+	if (word == text)
+	  /* Return exactly p.  */
+	  return_val[return_val_used++] = p;
+	else if (word > text)
+	  {
+	    /* Return some portion of p.  */
+	    q = xmalloc (strlen (p) + 5);
+	    strcpy (q, p + (word - text));
+	    return_val[return_val_used++] = q;
+	    free (p);
+	  }
+	else
+	  {
+	    /* Return some of TEXT plus p.  */
+	    q = xmalloc (strlen (p) + (text - word) + 5);
+	    strncpy (q, word, text - word);
+	    q[text - word] = '\0';
+	    strcat (q, p);
+	    return_val[return_val_used++] = q;
+	    free (p);
+	  }
+      }
+      subsequent_name = 1;
+    }
+#if 0
+  /* There is no way to do this just long enough to affect quote inserting
+     without also affecting the next completion.  This should be fixed in
+     readline.  FIXME.  */
+  /* Insure that readline does the right thing
+     with respect to inserting quotes.  */
+  rl_completer_word_break_characters = "";
+#endif
+  return return_val;
+}
+
+/* Here are some useful test cases for completion.  FIXME: These should
+   be put in the test suite.  They should be tested with both M-? and TAB.
+
+   "show output-" "radix"
+   "show output" "-radix"
+   "p" ambiguous (commands starting with p--path, print, printf, etc.)
+   "p "  ambiguous (all symbols)
+   "info t foo" no completions
+   "info t " no completions
+   "info t" ambiguous ("info target", "info terminal", etc.)
+   "info ajksdlfk" no completions
+   "info ajksdlfk " no completions
+   "info" " "
+   "info " ambiguous (all info commands)
+   "p \"a" no completions (string constant)
+   "p 'a" ambiguous (all symbols starting with a)
+   "p b-a" ambiguous (all symbols starting with a)
+   "p b-" ambiguous (all symbols)
+   "file Make" "file" (word break hard to screw up here)
+   "file ../gdb.stabs/wi" "erd" (needs to not break word at slash)
+   */
+
+/* Generate completions one by one for the completer.  Each time we are
+   called return another potential completion to the caller.  The function
+   is misnamed; it just completes on commands or passes the buck to the
+   command's completer function; the stuff specific to symbol completion
+   is in make_symbol_completion_list.
+
+   TEXT is readline's idea of the "word" we are looking at; we don't really
+   like readline's ideas about word breaking so we ignore it.
 
    MATCHES is the number of matches that have currently been collected from
    calling this completion function.  When zero, then we need to initialize,
@@ -1114,7 +1302,7 @@ noop_completer (text)
    RL_LINE_BUFFER is available to be looked at; it contains the entire text
    of the line.  RL_POINT is the offset in that line of the cursor.  You
    should pretend that the line ends at RL_POINT. */
-   
+
 static char *
 symbol_completion_function (text, matches)
      char *text;
@@ -1124,6 +1312,8 @@ symbol_completion_function (text, matches)
   static int index;				/* Next cached completion */
   char *output = NULL;
   char *tmp_command, *p;
+  /* Pointer within tmp_command which corresponds to text.  */
+  char *word;
   struct cmd_list_element *c, *result_list;
   extern char *rl_line_buffer;
   extern int rl_point;
@@ -1148,7 +1338,7 @@ symbol_completion_function (text, matches)
 	 (as opposed to strings supplied by the individual command completer
 	 functions, which can be any string) then we will switch to the
 	 special word break set for command strings, which leaves out the
-	 '-' character used in some commands. */
+	 '-' character used in some commands.  */
 
       rl_completer_word_break_characters =
 	  gdb_completer_word_break_characters;
@@ -1156,9 +1346,13 @@ symbol_completion_function (text, matches)
       /* Decide whether to complete on a list of gdb commands or on symbols. */
       tmp_command = (char *) alloca (rl_point + 1);
       p = tmp_command;
-      
+
       strncpy (tmp_command, rl_line_buffer, rl_point);
       tmp_command[rl_point] = '\0';
+      /* Since text always contains some number of characters leading up
+	 to rl_point, we can find the equivalent position in tmp_command
+	 by subtracting that many characters from the end of tmp_command.  */
+      word = tmp_command + rl_point - strlen (text);
 
       if (rl_point == 0)
 	{
@@ -1180,80 +1374,117 @@ symbol_completion_function (text, matches)
 
       if (!c)
 	{
-	  /* He's typed something unrecognizable.  Sigh.  */
+	  /* It is an unrecognized command.  So there are no
+	     possible completions.  */
 	  list = NULL;
 	}
       else if (c == (struct cmd_list_element *) -1)
 	{
-	  /* If we didn't recognize everything up to the thing that
-	     needs completing, and we don't know what command it is
-	     yet, we are in trouble. */
+	  char *q;
 
-	  if (p + strlen(text) != tmp_command + rl_point)
+	  /* lookup_cmd_1 advances p up to the first ambiguous thing, but
+	     doesn't advance over that thing itself.  Do so now.  */
+	  q = p;
+	  while (*q && (isalnum (*q) || *q == '-' || *q == '_'))
+	    ++q;
+	  if (q != tmp_command + rl_point)
 	    {
-	      /* This really should not produce an error.  Better would
-		 be to pretend to hit RETURN here; this would produce a
-		 response like "Ambiguous command: foo, foobar, etc",
-		 and leave the line available for re-entry with ^P.
-		 Instead, this error blows away the user's typed input
-		 without any way to get it back.  */
-	      error ("  Unrecognized command.");
-	    }
-	  
-	  /* He's typed something ambiguous.  This is easier.  */
-	  if (result_list)
-	    {
-	      list = complete_on_cmdlist (*result_list->prefixlist, text);
+	      /* There is something beyond the ambiguous
+		 command, so there are no possible completions.  For
+		 example, "info t " or "info t foo" does not complete
+		 to anything, because "info t" can be "info target" or
+		 "info terminal".  */
+	      list = NULL;
 	    }
 	  else
 	    {
-	      list = complete_on_cmdlist (cmdlist, text);
-	    }
-	  rl_completer_word_break_characters =
-	      gdb_completer_command_word_break_characters;
-	}
-      else
-	{
-	  /* If we've gotten this far, gdb has recognized a full
-	     command.  There are several possibilities:
-
-	     1) We need to complete on the command.
-	     2) We need to complete on the possibilities coming after
-	     the command.
-	     2) We need to complete the text of what comes after the
-	     command.   */
-
-	  if (!*p && *text)
-	    {
-	      /* Always (might be longer versions of thie command).  */
-	      list = complete_on_cmdlist (result_list, text);
-	      rl_completer_word_break_characters =
-		  gdb_completer_command_word_break_characters;
-	    }
-	  else if (!*p && !*text)
-	    {
-	      if (c->prefixlist)
+	      /* We're trying to complete on the command which was ambiguous.
+		 This we can deal with.  */
+	      if (result_list)
 		{
-		  list = complete_on_cmdlist (*c->prefixlist, "");
-		  rl_completer_word_break_characters =
-		      gdb_completer_command_word_break_characters;
+		  list = complete_on_cmdlist (*result_list->prefixlist, p,
+					      word);
 		}
 	      else
 		{
-		  list = (*c->completer) ("");
+		  list = complete_on_cmdlist (cmdlist, p, word);
+		}
+	      /* Insure that readline does the right thing with respect to
+		 inserting quotes.  */
+	      rl_completer_word_break_characters =
+		gdb_completer_command_word_break_characters;
+	    }
+	}
+      else
+	{
+	  /* We've recognized a full command.  */
+
+	  if (p == tmp_command + rl_point)
+	    {
+	      /* There is no non-whitespace in the line beyond the command.  */
+
+	      if (p[-1] == ' ' || p[-1] == '\t')
+		{
+		  /* The command is followed by whitespace; we need to complete
+		     on whatever comes after command.  */
+		  if (c->prefixlist)
+		    {
+		      /* It is a prefix command; what comes after it is
+			 a subcommand (e.g. "info ").  */
+		      list = complete_on_cmdlist (*c->prefixlist, p, word);
+
+		      /* Insure that readline does the right thing
+			 with respect to inserting quotes.  */
+		      rl_completer_word_break_characters =
+			gdb_completer_command_word_break_characters;
+		    }
+		  else
+		    {
+		      /* It is a normal command; what comes after it is
+			 completed by the command's completer function.  */
+		      list = (*c->completer) (p, word);
+		    }
+		}
+	      else
+		{
+		  /* The command is not followed by whitespace; we need to
+		     complete on the command itself.  e.g. "p" which is a
+		     command itself but also can complete to "print", "ptype"
+		     etc.  */
+		  char *q;
+
+		  /* Find the command we are completing on.  */
+		  q = p;
+		  while (q > tmp_command)
+		    {
+		      if (isalnum (q[-1]) || q[-1] == '-' || q[-1] == '_')
+			--q;
+		      else
+			break;
+		    }
+
+		  list = complete_on_cmdlist (result_list, q, word);
+
+		  /* Insure that readline does the right thing
+		     with respect to inserting quotes.  */
+		  rl_completer_word_break_characters =
+		    gdb_completer_command_word_break_characters;
 		}
 	    }
 	  else
 	    {
+	      /* There is non-whitespace beyond the command.  */
+
 	      if (c->prefixlist && !c->allow_unknown)
 		{
-		  /* Something like "info adsfkdj".  But error() is not the
-		     proper response; just return no completions instead. */
+		  /* It is an unrecognized subcommand of a prefix command,
+		     e.g. "info adsfkdj".  */
 		  list = NULL;
 		}
 	      else
 		{
-		  list = (*c->completer) (text);
+		  /* It is a normal command.  */
+		  list = (*c->completer) (p, word);
 		}
 	    }
 	}
@@ -1273,6 +1504,16 @@ symbol_completion_function (text, matches)
 	  index++;
 	}
     }
+
+#if 0
+  /* Can't do this because readline hasn't yet checked the word breaks
+     for figuring out whether to insert a quote.  */
+  if (output == NULL)
+    /* Make sure the word break characters are set back to normal for the
+       next time that readline tries to complete something.  */
+    rl_completer_word_break_characters =
+      gdb_completer_word_break_characters;
+#endif
 
   return (output);
 }
@@ -1407,7 +1648,8 @@ command_line_input (prrompt, repeat)
      since it should not wait until the user types a newline.  */
   immediate_quit++;
 #ifdef STOP_SIGNAL
-  signal (STOP_SIGNAL, stop_sig);
+  if (job_control)
+    signal (STOP_SIGNAL, stop_sig);
 #endif
 
   while (1)
@@ -1454,7 +1696,8 @@ command_line_input (prrompt, repeat)
   }
 
 #ifdef STOP_SIGNAL
-  signal (SIGTSTP, SIG_DFL);
+  if (job_control)
+    signal (STOP_SIGNAL, SIG_DFL);
 #endif
   immediate_quit--;
 
@@ -1893,8 +2136,14 @@ print_gdb_version (stream)
   FILE *stream;
 {
   fprintf_filtered (stream, "\
-GDB %s, Copyright 1993 Free Software Foundation, Inc.",
-	  version);
+GDB %s (%s", version, host_canonical);
+
+  if (strcmp(host_canonical, target_canonical))
+    fprintf_filtered (stream, " --target %s", target_canonical);
+
+  fprintf_filtered (stream, "), ");
+  wrap_here("");
+  fprintf_filtered (stream, "Copyright 1993 Free Software Foundation, Inc.");
 }
 
 /* ARGSUSED */
@@ -1926,15 +2175,20 @@ quit_command (args, from_tty)
 {
   if (inferior_pid != 0 && target_has_execution)
     {
-      if (query ("The program is running.  Quit anyway? "))
+      if (attach_flag)
 	{
-	  if (attach_flag)
+	  if (query ("The program is running.  Quit anyway (and detach it)? "))
 	    target_detach (args, from_tty);
 	  else
-	    target_kill ();
+	    error ("Not confirmed.");
 	}
       else
-	error ("Not confirmed.");
+	{
+	  if (query ("The program is running.  Quit anyway (and kill it)? "))
+	    target_kill ();
+	  else
+	    error ("Not confirmed.");
+	}
     }
   /* Save the history information if it is appropriate to do so.  */
   if (write_history_p && history_filename)
@@ -1948,7 +2202,7 @@ quit_command (args, from_tty)
 int
 input_from_terminal_p ()
 {
-  return gdb_has_a_terminal && (instream == stdin) & caution;
+  return gdb_has_a_terminal () && (instream == stdin) & caution;
 }
 
 /* ARGSUSED */
@@ -2261,7 +2515,7 @@ batch_mode ()
 
 
 static void
-initialize_cmd_lists ()
+init_cmd_lists ()
 {
   cmdlist = NULL;
   infolist = NULL;
@@ -2293,7 +2547,7 @@ initialize_cmd_lists ()
  */
 
 static void
-initialize_history()
+init_history()
 {
   char *tmpenv;
 
@@ -2318,7 +2572,7 @@ initialize_history()
 }
 
 static void
-initialize_main ()
+init_main ()
 {
   struct cmd_list_element *c;
   
@@ -2370,10 +2624,11 @@ The commands below can be used to select other frames by number or address.",
 
   add_com ("pwd", class_files, pwd_command,
 	   "Print working directory.  This is used for your program as well.");
-  add_com ("cd", class_files, cd_command,
+  c = add_cmd ("cd", class_files, cd_command,
 	   "Set working directory to DIR for debugger and program being debugged.\n\
 The change does not take effect for the program being debugged\n\
-until the next time it is started.");
+until the next time it is started.", &cmdlist);
+  c->completer = filename_completer;
 
   add_show_from_set
     (add_set_cmd ("prompt", class_support, var_string, (char *)&prompt,
@@ -2401,17 +2656,18 @@ Use the \"document\" command to give documentation for the new command.\n\
 Commands defined in this way do not take arguments.");
 
 #ifdef __STDC__
-  add_com ("source", class_support, source_command,
+  c = add_cmd ("source", class_support, source_command,
 	   "Read commands from a file named FILE.\n\
 Note that the file \"" GDBINIT_FILENAME "\" is read automatically in this way\n\
-when gdb is started.");
+when gdb is started.", &cmdlist);
 #else
   /* Punt file name, we can't help it easily.  */
-  add_com ("source", class_support, source_command,
+  c = add_cmd ("source", class_support, source_command,
 	   "Read commands from a file named FILE.\n\
 Note that the file \".gdbinit\" is read automatically in this way\n\
-when gdb is started.");
+when gdb is started.", &cmdlist);
 #endif
+  c->completer = filename_completer;
 
   add_com ("quit", class_support, quit_command, "Exit gdb.");
   add_com ("help", class_support, help_command, "Print list of commands.");

@@ -46,7 +46,7 @@ get_now ()
 static int
 now_persec ()
 {
-  return HZ;
+  return 50;
 }
 
 
@@ -265,7 +265,8 @@ get_word_mem_da (context, addr)
      sim_state_type *context;
      int addr;
 {
-  return ((context)->memory[(addr) >> 1]);
+  return (get_byte_mem_da(context, addr) << 8) | (get_byte_mem_da(context,addr+1));
+
 }
 
 #undef get_word_reg

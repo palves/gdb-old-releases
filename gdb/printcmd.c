@@ -19,6 +19,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include <string.h>
+#include <varargs.h>
 #include "frame.h"
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -30,12 +31,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "breakpoint.h"
 #include "demangle.h"
-
-/* These are just for containing_function_bounds.  It might be better
-   to move containing_function_bounds to blockframe.c or thereabouts.  */
-#include "bfd.h"
-#include "symfile.h"
-#include "objfiles.h"
 
 extern int asm_demangle;	/* Whether to demangle syms in asm printouts */
 extern int addressprint;	/* Whether to print hex addresses in HLL " */
@@ -72,6 +67,10 @@ static value last_examine_value;
    printed as `0x1234 <symbol+offset>'.  */
 
 static unsigned int max_symbolic_offset = UINT_MAX;
+
+/* Append the source filename and linenumber of the symbol when
+   printing a symbolic value as `<symbol at filename:linenum>' if set.  */
+static int print_symbol_filename = 0;
 
 /* Number of auto-display expression currently being displayed.
    So that we can disable it if we get an error or a signal within it.
@@ -122,9 +121,6 @@ disable_display_command PARAMS ((char *, int));
 
 static void
 disassemble_command PARAMS ((char *, int));
-
-static int
-containing_function_bounds PARAMS ((CORE_ADDR, CORE_ADDR *, CORE_ADDR *));
 
 static void
 printf_command PARAMS ((char *, int));
@@ -309,7 +305,12 @@ print_formatted (val, format, size)
       break;
 
     case 'i':
-      wrap_here ("");	/* Force output out, print_insn not using _filtered */
+      /* The old comment says
+	 "Force output out, print_insn not using _filtered".
+	 I'm not completely sure what that means, I suspect most print_insn
+	 now do use _filtered, so I guess it's obsolete.  */
+      /* We often wrap here if there are long symbolic names.  */
+      wrap_here ("    ");
       next_address = VALUE_ADDRESS (val)
 	+ print_insn (VALUE_ADDRESS (val), stdout);
       break;
@@ -346,39 +347,25 @@ print_scalar_formatted (valaddr, type, format, size, stream)
   LONGEST val_long;
   int len = TYPE_LENGTH (type);
 
-  if (size == 'g' && sizeof (LONGEST) < 8
-      && format == 'x')
+  if (len > sizeof (LONGEST)
+      && (format == 't'
+	  || format == 'c'
+	  || format == 'o'
+	  || format == 'u'
+	  || format == 'd'
+	  || format == 'x'))
     {
-      /* ok, we're going to have to get fancy here.  Assumption: a
-         long is four bytes.  FIXME.  */
-      unsigned long v1, v2;
-
-      v1 = unpack_long (builtin_type_long, valaddr);
-      v2 = unpack_long (builtin_type_long, valaddr + 4);
-
-#if TARGET_BYTE_ORDER == LITTLE_ENDIAN
-      /* Swap the two for printing */
-      {
-        unsigned long tmp;
-
-        tmp = v1;
-        v1 = v2;
-        v2 = tmp;
-      }
-#endif
-  
-      switch (format)
-	{
-	case 'x':
-	  fprintf_filtered (stream, local_hex_format_custom("08x%08"), v1, v2);
-	  break;
-	default:
-	  error ("Output size \"g\" unimplemented for format \"%c\".",
-		 format);
-	}
+      /* We can't print it normally, but we can print it in hex.
+         Printing it in the wrong radix is more useful than saying
+	 "use /x, you dummy".  */
+      /* FIXME:  we could also do octal or binary if that was the
+	 desired format.  */
+      /* FIXME:  we should be using the size field to give us a minimum
+	 field width to print.  */
+      val_print_type_code_int (type, valaddr, stream);
       return;
     }
-      
+
   val_long = unpack_long (type, valaddr);
 
   /* If value is unsigned, truncate it in case negative.  */
@@ -577,9 +564,18 @@ print_address_symbolic (addr, stream, do_demangle, leadin)
   fputs_filtered ("<", stream);
   fputs_filtered (name, stream);
   if (addr != name_location)
-    fprintf_filtered (stream, "+%d>", (int)(addr - name_location));
-  else
-    fputs_filtered (">", stream);
+    fprintf_filtered (stream, "+%u", (unsigned int)(addr - name_location));
+
+  /* Append source filename and line number if desired.  */
+  if (symbol && print_symbol_filename)
+    {
+      struct symtab_and_line sal;
+
+      sal = find_pc_line (addr, 0);
+      if (sal.symtab)
+	fprintf_filtered (stream, " at %s:%d", sal.symtab->filename, sal.line);
+    }
+  fputs_filtered (">", stream);
 }
 
 /* Print address ADDR symbolically on STREAM.
@@ -1607,6 +1603,98 @@ print_frame_nameless_args (fi, start, num, first, stream)
     }
 }
 
+/* Make makeva* work on an __INT_VARARGS_H machine.  */
+
+#if defined (__INT_VARARGS_H)
+/* This is used on an 88k.  Not sure whether it is used by anything else.  */
+#define MAKEVA_END(list) \
+  va_list retval; \
+  retval.__va_arg = 0; \
+  retval.__va_stk = (int *) (list)->arg_bytes; \
+  retval.__va_reg = (int *) (list)->arg_bytes; \
+  return retval;
+#endif
+
+/* This is an interface which allows to us make a va_list.  */
+typedef struct {
+  unsigned int nargs;
+  unsigned int max_arg_size;
+
+  /* Current position in bytes.  */
+  unsigned int argindex;
+
+#ifdef MAKEVA_EXTRA_INFO
+  /* For host dependent information.  */
+  MAKEVA_EXTRA_INFO
+#endif
+
+  /* Some systems (mips, pa) would like this to be aligned, and it never
+     will hurt.  */
+  union
+    {
+      char arg_bytes[1];
+      double force_double_align;
+      LONGEST force_long_align;
+    } aligner;
+} makeva_list;
+
+/* Tell the caller how many bytes to allocate for a makeva_list with NARGS
+   arguments and whose largest argument is MAX_ARG_SIZE bytes.  This
+   way the caller can use alloca, malloc, or some other allocator.  */
+unsigned int
+makeva_size (nargs, max_arg_size)
+     unsigned int nargs;
+     unsigned int max_arg_size;
+{
+  return sizeof (makeva_list) + nargs * max_arg_size;
+}
+
+/* Start working on LIST with NARGS arguments and whose largest
+   argument is MAX_ARG_SIZE bytes.  */
+void
+makeva_start (list, nargs, max_arg_size)
+     makeva_list *list;
+     unsigned int nargs;
+     unsigned int max_arg_size;
+{
+  list->nargs = nargs;
+  list->max_arg_size = max_arg_size;
+#if defined (MAKEVA_START)
+  MAKEVA_START (list);
+#else
+  list->argindex = 0;
+#endif
+}
+
+/* Add ARG to LIST.  */
+void
+makeva_arg (list, argaddr, argsize)
+     makeva_list *list;
+     PTR argaddr;
+     unsigned int argsize;
+{
+#if defined (MAKEVA_ARG)
+  MAKEVA_ARG (list, argaddr, argsize);
+#else
+  memcpy (&list->aligner.arg_bytes[list->argindex], argaddr, argsize);
+  list->argindex += argsize;
+#endif
+}
+
+/* From LIST, for which makeva_arg has been called for each arg,
+   return a va_list containing the args.  */
+va_list
+makeva_end (list)
+     makeva_list *list;
+{
+#if defined (MAKEVA_END)
+  MAKEVA_END (list);
+#else
+  /* This works if a va_list is just a pointer to the arguments.  */
+  return (va_list) list->aligner.arg_bytes;
+#endif
+}
+
 /* ARGSUSED */
 static void
 printf_command (arg, from_tty)
@@ -1619,7 +1707,7 @@ printf_command (arg, from_tty)
   value *val_args;
   int nargs = 0;
   int allocated_args = 20;
-  char *arg_bytes;
+  va_list args_to_vprintf;
 
   val_args = (value *) xmalloc (allocated_args * sizeof (value));
 
@@ -1694,10 +1782,10 @@ printf_command (arg, from_tty)
     enum argclass {int_arg, string_arg, double_arg, long_long_arg};
     enum argclass *argclass;
     int nargs_wanted;
-    int argindex;
     int lcount;
     int i;
- 
+    makeva_list *args_makeva;
+
     argclass = (enum argclass *) alloca (strlen (s) * sizeof *argclass);
     nargs_wanted = 0;
     f = string;
@@ -1753,12 +1841,13 @@ printf_command (arg, from_tty)
  
     if (nargs != nargs_wanted)
       error ("Wrong number of arguments for specified format-string");
- 
+
     /* Now lay out an argument-list containing the arguments
        as doubles, integers and C pointers.  */
- 
-    arg_bytes = (char *) alloca (sizeof (double) * nargs);
-    argindex = 0;
+
+    args_makeva = (makeva_list *)
+      alloca (makeva_size (nargs, sizeof (double)));
+    makeva_start (args_makeva, nargs, sizeof (double));
     for (i = 0; i < nargs; i++)
       {
 	if (argclass[i] == string_arg)
@@ -1784,81 +1873,40 @@ printf_command (arg, from_tty)
 	    str[j] = 0;
  
 	    /* Pass address of internal copy as the arg to vprintf.  */
-	    *((int *) &arg_bytes[argindex]) = (int) str;
-	    argindex += sizeof (int);
+	    makeva_arg (args_makeva, &str, sizeof (str));
 	  }
 	else if (VALUE_TYPE (val_args[i])->code == TYPE_CODE_FLT)
 	  {
-	    *((double *) &arg_bytes[argindex]) = value_as_double (val_args[i]);
-	    argindex += sizeof (double);
+	    double val = value_as_double (val_args[i]);
+	    makeva_arg (args_makeva, &val, sizeof (val));
 	  }
 	else
 #ifdef CC_HAS_LONG_LONG
 	  if (argclass[i] == long_long_arg)
 	    {
-	      *(LONGEST *) &arg_bytes[argindex] = value_as_long (val_args[i]);
-	      argindex += sizeof (LONGEST);
+	      long long val = value_as_long (val_args[i]);
+	      makeva_arg (args_makeva, &val, sizeof (val));
 	    }
 	  else
 #endif
 	    {
-	      *((long *) &arg_bytes[argindex]) = value_as_long (val_args[i]);
-	      argindex += sizeof (long);
+	      long val = value_as_long (val_args[i]);
+	      makeva_arg (args_makeva, &val, sizeof (val));
 	    }
       }
+    args_to_vprintf = makeva_end (args_makeva);
   }
 
-  /* There is not a standard way to make a va_list, so we need
-     to do various things for different systems.  */
-#if defined (__INT_VARARGS_H)
-  {
-    va_list list;
+  /* FIXME: We should be using vprintf_filtered, but as long as it has an
+     arbitrary limit that is unacceptable.  Correct fix is for vprintf_filtered
+     to scan down the format string so it knows how big a buffer it needs.
 
-    list.__va_arg = 0;
-    list.__va_stk = (int *) arg_bytes;
-    list.__va_reg = (int *) arg_bytes;
-    vprintf (string, list);
-  }
-#else /* No __INT_VARARGS_H.  */
-  vprintf (string, arg_bytes);
-#endif /* No __INT_VARARGS_H.  */
+     But for now, just force out any pending output, so at least the output
+     appears in the correct order.  */
+  wrap_here ((char *)NULL);
+  vprintf (string, args_to_vprintf);
 }
 
-/* Helper function for asdump_command.  Finds the bounds of a function
-   for a specified section of text.  PC is an address within the
-   function which you want bounds for; *LOW and *HIGH are set to the
-   beginning (inclusive) and end (exclusive) of the function.  This
-   function returns 1 on success and 0 on failure.  */
-
-static int
-containing_function_bounds (pc, low, high)
-     CORE_ADDR pc, *low, *high;
-{
-  CORE_ADDR scan;
-  CORE_ADDR limit;
-  struct obj_section *sec;
-
-  if (!find_pc_partial_function (pc, 0, low))
-    return 0;
-
-  sec = find_pc_section (pc);
-  if (sec == NULL)
-    return 0;
-  limit = sec->endaddr;
-  
-  scan = *low;
-  while (scan < limit)
-    {
-      ++scan;
-      if (!find_pc_partial_function (scan, 0, high))
-	return 0;
-      if (*low != *high)
-	return 1;
-    }
-  *high = limit;
-  return 1;
-}
-
 /* Dump a specified section of assembly code.  With no command line
    arguments, this command will dump the assembly code for the
    function surrounding the pc value in the selected frame.  With one
@@ -1873,24 +1921,26 @@ disassemble_command (arg, from_tty)
      int from_tty;
 {
   CORE_ADDR low, high;
+  char *name;
   CORE_ADDR pc;
   char *space_index;
 
+  name = NULL;
   if (!arg)
     {
       if (!selected_frame)
 	error ("No frame selected.\n");
 
       pc = get_frame_pc (selected_frame);
-      if (!containing_function_bounds (pc, &low, &high))
-	error ("No function contains pc specified by selected frame.\n");
+      if (find_pc_partial_function (pc, &name, &low, &high) == 0)
+	error ("No function contains program counter for selected frame.\n");
     }
   else if (!(space_index = (char *) strchr (arg, ' ')))
     {
       /* One argument.  */
       pc = parse_and_eval_address (arg);
-      if (!containing_function_bounds (pc, &low, &high))
-	error ("No function contains specified pc.\n");
+      if (find_pc_partial_function (pc, &name, &low, &high) == 0)
+	error ("No function contains specified address.\n");
     }
   else
     {
@@ -1901,10 +1951,8 @@ disassemble_command (arg, from_tty)
     }
 
   printf_filtered ("Dump of assembler code ");
-  if (!space_index)
+  if (name != NULL)
     {
-      char *name;
-      find_pc_partial_function (pc, &name, 0);
       printf_filtered ("for function %s:\n", name);
     }
   else
@@ -2017,7 +2065,7 @@ You can see these environment settings with the \"show\" command.",
 
   /* "call" is the same as "set", but handy for dbx users to call fns. */
   add_com ("call", class_vars, call_command,
-	   "Call a function in the inferior process.\n\
+	   "Call a function in the program.\n\
 The argument is the function name and arguments, in the notation of the\n\
 current working language.  The result is printed and saved in the value\n\
 history, if it is not void.");
@@ -2063,6 +2111,12 @@ environment, the value is printed in its own window.");
       add_set_cmd ("max-symbolic-offset", no_class, var_uinteger,
 		   (char *)&max_symbolic_offset,
 	"Set the largest offset that will be printed in <symbol+1234> form.",
+		   &setprintlist),
+      &showprintlist);
+  add_show_from_set (
+      add_set_cmd ("symbol-filename", no_class, var_boolean,
+		   (char *)&print_symbol_filename,
+	"Set printing of source filename and line number with <symbol>.",
 		   &setprintlist),
       &showprintlist);
 }

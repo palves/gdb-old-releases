@@ -832,13 +832,12 @@ DEFUN(coff_write_symbols,(abfd),
   else {
     /* We would normally not write anything here, but we'll write
        out 4 so that any stupid coff reader which tries to read
-       the string table even when there isn't one won't croak.
-       */
+       the string table even when there isn't one won't croak.  */
+    unsigned int size = 4;
+    bfd_byte buffer[4];
 
-    uint32e_type size = 4;
-    size =  size;
-    bfd_write((PTR)&size, 1, sizeof(size), abfd);
-
+    bfd_h_put_32 (abfd, size, buffer);
+    bfd_write((PTR) buffer, 1, sizeof (buffer), abfd);
   }
 }
 
@@ -1174,12 +1173,12 @@ bfd            *abfd)
 	      }
 
 	    internal_ptr->u.syment._n._n_n._n_offset =
-	     (int) (string_table - 4 +
+	     (long) (string_table - 4 +
 		    (internal_ptr+1)->u.auxent.x_file.x_n.x_offset);
 	  }
 	else {
 	    /* ordinary short filename, put into memory anyway */
-	    internal_ptr->u.syment._n._n_n._n_offset = (int)
+	    internal_ptr->u.syment._n._n_n._n_offset = (long)
 	     copy_name(abfd, (internal_ptr+1)->u.auxent.x_file.x_fname,
 		       FILNMLEN);
 	  }
@@ -1204,7 +1203,7 @@ bfd            *abfd)
 	      }			/* on error */
 	    memset(newstring, 0, i);
 	    strncpy(newstring, internal_ptr->u.syment._n._n_name, i-1);
-	    internal_ptr->u.syment._n._n_n._n_offset =  (int) newstring;
+	    internal_ptr->u.syment._n._n_n._n_offset =  (long int) newstring;
 	    internal_ptr->u.syment._n._n_n._n_zeroes = 0;
 	  }
 	else if (!bfd_coff_symname_in_debug(abfd, &internal_ptr->u.syment)) {
@@ -1212,7 +1211,7 @@ bfd            *abfd)
 	    if (string_table == NULL) {
 		string_table = build_string_table(abfd);
 	      }
-	    internal_ptr->u.syment._n._n_n._n_offset = (int)
+	    internal_ptr->u.syment._n._n_n._n_offset = (long int)
 	     (string_table - 4 + internal_ptr->u.syment._n._n_n._n_offset);
 	  }
 	else {
@@ -1220,7 +1219,7 @@ bfd            *abfd)
 	    if (debug_section == NULL) {
 		debug_section = build_debug_section(abfd);
 	      }
-	    internal_ptr->u.syment._n._n_n._n_offset = (int)
+	    internal_ptr->u.syment._n._n_n._n_offset = (long int)
 	     (debug_section + internal_ptr->u.syment._n._n_n._n_offset);
 	  }
       }
@@ -1284,6 +1283,15 @@ coff_bfd_make_debug_symbol (abfd, ptr, sz)
   return &new->symbol;
 }
 
+void
+coff_get_symbol_info (abfd, symbol, ret)
+     bfd *abfd;
+     asymbol *symbol;
+     symbol_info *ret;
+{
+  bfd_symbol_info (symbol, ret);
+}
+
 /* Print out information about COFF symbol.  */
 
 void
@@ -1305,15 +1313,6 @@ coff_print_symbol (abfd, filep, symbol, how)
       fprintf (file, "coff %s %s",
 	       coffsymbol(symbol)->native ? "n" : "g",
 	       coffsymbol(symbol)->lineno ? "l" : " ");
-      break;
-
-    case bfd_print_symbol_nm:
-      bfd_print_symbol_vandf ((PTR) file, symbol);
-      fprintf (file, " %-5s %s %s %s",
-	       symbol->section->name,
-	       coffsymbol(symbol)->native ? "n" : "g",
-	       coffsymbol(symbol)->lineno ? "l" : " ",
-	       symbol->name);
       break;
 
     case bfd_print_symbol_all:

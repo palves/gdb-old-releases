@@ -218,8 +218,10 @@ enum exp_opcode
    They differ only in the error message given in case the value is
    not suitable or the structure component specified is not found.
 
-   The length of the string follows in the next exp_element,
-   (after the string), followed by another STRUCTOP_... code.  */
+   The length of the string follows the opcode, followed by
+   BYTES_TO_EXP_ELEM(length) elements containing the data of the
+   string, followed by the length again and the opcode again.  */
+
   STRUCTOP_STRUCT,
   STRUCTOP_PTR,
 
@@ -245,6 +247,8 @@ union exp_element
   struct symbol *symbol;
   LONGEST longconst;
   double doubleconst;
+  /* Really sizeof (union exp_element) characters (or less for the last
+     element of a string).  */
   char string;
   struct type *type;
   struct internalvar *internalvar;

@@ -90,12 +90,15 @@ clean-info:
 install-info:
 dvi:
 installcheck:
-check:
+
+check: test1.c
+#	$(CC) -g $(srcdir)/test1.c libmmalloc.a
+# This loses for Canadian cross (building mmalloc with a cross-compiler).
+# There is probably some dejagnu-ish solution (such as what we are doing
+# for gdb, perhaps).
+#	./a.out
 
 install:	all
-		-parent=`echo $(libdir)|sed -e 's@/[^/]*$$@@'`; \
-		if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-		-if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi
 		$(INSTALL_DATA) $(TARGETLIB) $(libdir)/$(TARGETLIB).n
 		$(RANLIB) $(libdir)/$(TARGETLIB).n
 		mv -f $(libdir)/$(TARGETLIB).n $(libdir)/$(TARGETLIB)
@@ -152,17 +155,17 @@ de-stage4:	force
 etags tags:	TAGS
 
 TAGS:		$(CFILES)
-		etags $(HFILES) $(CFILES)
+	etags `for i in $(HFILES) $(CFILES); do echo $(srcdir)/$$i ; done`
 
 ls:
 		@echo Makefile $(HFILES) $(CFILES)
 
 # Need to deal with profiled libraries, too.
 
-clean:
+mostlyclean clean:
 		rm -f *.a *.o core errs *~ \#* TAGS *.E a.out errors 
 
-distclean:	clean 
+distclean realclean:	clean 
 		rm -f config.status
 		rm -f Makefile depend
 

@@ -33,16 +33,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* FIXME In the future, we should fold all other breakpoint-like things into
    here.  This includes:
 
-   1) single-step (for machines where we have to simulate single stepping),
-   2) step-resume (for 'next'ing over subroutine calls),
-   3) call-dummy (the breakpoint at the end of a subroutine stub that gdb
-      uses to call functions in the target).
+   * call-dummy (the breakpoint at the end of a subroutine stub that gdb
+      uses to call functions in the target) (definately). 
 
-   I definately agree with (2) and (3); I'm not as sure about (1)
-   (it is a low-level thing, perhaps the best thing is that it looks
-   as much as possible like a single-step to wait_for_inferior)
-   -kingdon, 8 Apr 93.
-*/
+   * single-step (for machines where we have to simulate single stepping)
+      (probably, though perhaps it is better for it to look as much as
+      possible like a single-step to wait_for_inferior).  */
 
 enum bptype {
   bp_breakpoint,		/* Normal breakpoint */
@@ -50,7 +46,11 @@ enum bptype {
   bp_finish,			/* used by finish command */
   bp_watchpoint,		/* Watchpoint */
   bp_longjmp,			/* secret breakpoint to find longjmp() */
-  bp_longjmp_resume		/* secret breakpoint to escape longjmp() */
+  bp_longjmp_resume,		/* secret breakpoint to escape longjmp() */
+
+  /* Used by wait_for_inferior for stepping over subroutine calls, for
+     stepping over signal handlers, and for skipping prologues.  */
+  bp_step_resume
 };
 
 /* States of enablement of breakpoint. */
@@ -84,14 +84,20 @@ struct breakpoint
   enum bpdisp disposition;
   /* Number assigned to distinguish breakpoints.  */
   int number;
+
   /* Address to break at, or NULL if not a breakpoint.  */
   CORE_ADDR address;
-  /* Line number of this address.  Redundant.  Only matters if address
-     is non-NULL.  */
+
+  /* Line number of this address.  Only matters if address is
+     non-NULL.  */
+
   int line_number;
-  /* Symtab of file of this address.  Redundant.  Only matters if address
-     is non-NULL.  */
-  struct symtab *symtab;
+
+  /* Source file name of this address.  Only matters if address is
+     non-NULL.  */
+
+  char *source_file;
+
   /* Non-zero means a silent breakpoint (don't print frame info
      if we stop here). */
   unsigned char silent;
@@ -155,9 +161,11 @@ extern bpstat bpstat_copy PARAMS ((bpstat));
    breakpoint (if we hit a breakpoint).  */
 /* FIXME:  prototypes uses equivalence between FRAME_ADDR and CORE_ADDR */
 extern bpstat bpstat_stop_status PARAMS ((CORE_ADDR *, CORE_ADDR));
+
+/* This bpstat_what stuff tells wait_for_inferior what to do with a
+   breakpoint (a challenging task).  */
 
-/* Return values from bpstat_what.  */
-enum bpstat_what {
+enum bpstat_what_main_action {
   /* Perform various other tests; that is, this bpstat does not
      say to perform any action (e.g. failed watchpoint and nothing
      else).  */
@@ -176,7 +184,9 @@ enum bpstat_what {
   BPSTAT_WHAT_STOP_NOISY,
 
   /* Remove breakpoints, single step once, then put them back in and
-     go back to what we were doing.  */
+     go back to what we were doing.  It's possible that this should be
+     removed from the main_action and put into a separate field, to more
+     cleanly handle BPSTAT_WHAT_CLEAR_LONGJMP_RESUME_SINGLE.  */
   BPSTAT_WHAT_SINGLE,
 
   /* Set longjmp_resume breakpoint, remove all other breakpoints,
@@ -196,9 +206,18 @@ enum bpstat_what {
   BPSTAT_WHAT_LAST
 };
 
-/* Tell what to do about this bpstat.  */
-enum bpstat_what bpstat_what PARAMS ((bpstat));
+struct bpstat_what {
+  enum bpstat_what_main_action main_action : 4;
 
+  /* Did we hit the step resume breakpoint?  This is separate from the
+     main_action to allow for it to be combined with any of the main
+     actions.  */
+  unsigned int step_resume : 1;
+};
+
+/* Tell what to do about this bpstat.  */
+struct bpstat_what bpstat_what PARAMS ((bpstat));
+
 /* Find the bpstat associated with a breakpoint.  NULL otherwise. */
 bpstat bpstat_find_breakpoint PARAMS ((bpstat, struct breakpoint *));
 
@@ -225,7 +244,9 @@ extern int bpstat_print PARAMS ((bpstat));
    Return 0 if passed a bpstat which does not indicate any breakpoints.  */
 extern int bpstat_num PARAMS ((bpstat *));
 
-/* Perform actions associated with having stopped at *BSP.  */
+/* Perform actions associated with having stopped at *BSP.  Actually, we just
+   use this for breakpoint commands.  Perhaps other actions will go here
+   later, but this is executed at a late time (from the command loop).  */
 extern void bpstat_do_actions PARAMS ((bpstat *));
 
 /* Modify BS so that the actions will not be performed.  */

@@ -19,8 +19,6 @@ License along with libiberty; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
-/* This is for g++ 1.95.03 (November 13 version).  */
-
 /* This file exports two functions; cplus_mangle_opname and cplus_demangle.
 
    This file imports xmalloc and xrealloc, which are like malloc and
@@ -34,9 +32,10 @@ Cambridge, MA 02139, USA.  */
 #include <string.h>
 #include <stdio.h>
 
-extern char *xmalloc ();
-extern char *xrealloc ();
-extern char *strstr ();
+extern char *xmalloc PARAMS((long));
+extern char *xrealloc PARAMS((PTR, long));
+extern char *strstr PARAMS ((const char *, const char *));
+extern void free PARAMS((PTR));
 
 /* In order to allow a single demangler executable to demangle strings
    using various common values of CPLUS_MARKER, as well as any specific
@@ -93,82 +92,82 @@ static CONST struct optable
   CONST char *out;
   int flags;
 } optable[] = {
-  "nw",		  " new",	DMGL_ANSI,	/* new (1.92,	 ansi) */
-  "dl",		  " delete",	DMGL_ANSI,	/* new (1.92,	 ansi) */
-  "new",	  " new",	0,		/* old (1.91,	 and 1.x) */
-  "delete",	  " delete",	0,		/* old (1.91,	 and 1.x) */
-  "as",		  "=",		DMGL_ANSI,	/* ansi */
-  "ne",		  "!=",		DMGL_ANSI,	/* old, ansi */
-  "eq",		  "==",		DMGL_ANSI,	/* old,	ansi */
-  "ge",		  ">=",		DMGL_ANSI,	/* old,	ansi */
-  "gt",		  ">",		DMGL_ANSI,	/* old,	ansi */
-  "le",		  "<=",		DMGL_ANSI,	/* old,	ansi */
-  "lt",		  "<",		DMGL_ANSI,	/* old,	ansi */
-  "plus",	  "+",		0,		/* old */
-  "pl",		  "+",		DMGL_ANSI,	/* ansi */
-  "apl",	  "+=",		DMGL_ANSI,	/* ansi */
-  "minus",	  "-",		0,		/* old */
-  "mi",		  "-",		DMGL_ANSI,	/* ansi */
-  "ami",	  "-=",		DMGL_ANSI,	/* ansi */
-  "mult",	  "*",		0,		/* old */
-  "ml",		  "*",		DMGL_ANSI,	/* ansi */
-  "amu",	  "*=",		DMGL_ANSI,	/* ansi (ARM/Lucid) */
-  "aml",	  "*=",		DMGL_ANSI,	/* ansi (GNU/g++) */
-  "convert",	  "+",		0,		/* old (unary +) */
-  "negate",	  "-",		0,		/* old (unary -) */
-  "trunc_mod",	  "%",		0,		/* old */
-  "md",		  "%",		DMGL_ANSI,	/* ansi */
-  "amd",	  "%=",		DMGL_ANSI,	/* ansi */
-  "trunc_div",	  "/",		0,		/* old */
-  "dv",		  "/",		DMGL_ANSI,	/* ansi */
-  "adv",	  "/=",		DMGL_ANSI,	/* ansi */
-  "truth_andif",  "&&",		0,		/* old */
-  "aa",		  "&&",		DMGL_ANSI,	/* ansi */
-  "truth_orif",	  "||",		0,		/* old */
-  "oo",		  "||",		DMGL_ANSI,	/* ansi */
-  "truth_not",	  "!",		0,		/* old */
-  "nt",		  "!",		DMGL_ANSI,	/* ansi */
-  "postincrement","++",		0,		/* old */
-  "pp",		  "++",		DMGL_ANSI,	/* ansi */
-  "postdecrement","--",		0,		/* old */
-  "mm",		  "--",		DMGL_ANSI,	/* ansi */
-  "bit_ior",	  "|",		0,		/* old */
-  "or",		  "|",		DMGL_ANSI,	/* ansi */
-  "aor",	  "|=",		DMGL_ANSI,	/* ansi */
-  "bit_xor",	  "^",		0,		/* old */
-  "er",		  "^",		DMGL_ANSI,	/* ansi */
-  "aer",	  "^=",		DMGL_ANSI,	/* ansi */
-  "bit_and",	  "&",		0,		/* old */
-  "ad",		  "&",		DMGL_ANSI,	/* ansi */
-  "aad",	  "&=",		DMGL_ANSI,	/* ansi */
-  "bit_not",	  "~",		0,		/* old */
-  "co",		  "~",		DMGL_ANSI,	/* ansi */
-  "call",	  "()",		0,		/* old */
-  "cl",		  "()",		DMGL_ANSI,	/* ansi */
-  "alshift",	  "<<",		0,		/* old */
-  "ls",		  "<<",		DMGL_ANSI,	/* ansi */
-  "als",	  "<<=",	DMGL_ANSI,	/* ansi */
-  "arshift",	  ">>",		0,		/* old */
-  "rs",		  ">>",		DMGL_ANSI,	/* ansi */
-  "ars",	  ">>=",	DMGL_ANSI,	/* ansi */
-  "component",	  "->",		0,		/* old */
-  "pt",		  "->",		DMGL_ANSI,	/* ansi; Lucid C++ form */
-  "rf",		  "->",		DMGL_ANSI,	/* ansi; ARM/GNU form */
-  "indirect",	  "*",		0,		/* old */
-  "method_call",  "->()",	0,		/* old */
-  "addr",	  "&",		0,		/* old (unary &) */
-  "array",	  "[]",		0,		/* old */
-  "vc",		  "[]",		DMGL_ANSI,	/* ansi */
-  "compound",	  ", ",		0,		/* old */
-  "cm",		  ", ",		DMGL_ANSI,	/* ansi */
-  "cond",	  "?:",		0,		/* old */
-  "cn",		  "?:",		DMGL_ANSI,	/* psuedo-ansi */
-  "max",	  ">?",		0,		/* old */
-  "mx",		  ">?",		DMGL_ANSI,	/* psuedo-ansi */
-  "min",	  "<?",		0,		/* old */
-  "mn",		  "<?",		DMGL_ANSI,	/* psuedo-ansi */
-  "nop",	  "",		0,		/* old (for operator=) */
-  "rm",		  "->*",	DMGL_ANSI,	/* ansi */
+  {"nw",	  " new",	DMGL_ANSI},	/* new (1.92,	 ansi) */
+  {"dl",	  " delete",	DMGL_ANSI},	/* new (1.92,	 ansi) */
+  {"new",	  " new",	0},		/* old (1.91,	 and 1.x) */
+  {"delete",	  " delete",	0},		/* old (1.91,	 and 1.x) */
+  {"as",	  "=",		DMGL_ANSI},	/* ansi */
+  {"ne",	  "!=",		DMGL_ANSI},	/* old, ansi */
+  {"eq",	  "==",		DMGL_ANSI},	/* old,	ansi */
+  {"ge",	  ">=",		DMGL_ANSI},	/* old,	ansi */
+  {"gt",	  ">",		DMGL_ANSI},	/* old,	ansi */
+  {"le",	  "<=",		DMGL_ANSI},	/* old,	ansi */
+  {"lt",	  "<",		DMGL_ANSI},	/* old,	ansi */
+  {"plus",	  "+",		0},		/* old */
+  {"pl",	  "+",		DMGL_ANSI},	/* ansi */
+  {"apl",	  "+=",		DMGL_ANSI},	/* ansi */
+  {"minus",	  "-",		0},		/* old */
+  {"mi",	  "-",		DMGL_ANSI},	/* ansi */
+  {"ami",	  "-=",		DMGL_ANSI},	/* ansi */
+  {"mult",	  "*",		0},		/* old */
+  {"ml",	  "*",		DMGL_ANSI},	/* ansi */
+  {"amu",	  "*=",		DMGL_ANSI},	/* ansi (ARM/Lucid) */
+  {"aml",	  "*=",		DMGL_ANSI},	/* ansi (GNU/g++) */
+  {"convert",	  "+",		0},		/* old (unary +) */
+  {"negate",	  "-",		0},		/* old (unary -) */
+  {"trunc_mod",	  "%",		0},		/* old */
+  {"md",	  "%",		DMGL_ANSI},	/* ansi */
+  {"amd",	  "%=",		DMGL_ANSI},	/* ansi */
+  {"trunc_div",	  "/",		0},		/* old */
+  {"dv",	  "/",		DMGL_ANSI},	/* ansi */
+  {"adv",	  "/=",		DMGL_ANSI},	/* ansi */
+  {"truth_andif", "&&",		0},		/* old */
+  {"aa",	  "&&",		DMGL_ANSI},	/* ansi */
+  {"truth_orif",  "||",		0},		/* old */
+  {"oo",	  "||",		DMGL_ANSI},	/* ansi */
+  {"truth_not",	  "!",		0},		/* old */
+  {"nt",	  "!",		DMGL_ANSI},	/* ansi */
+  {"postincrement","++",	0},		/* old */
+  {"pp",	  "++",		DMGL_ANSI},	/* ansi */
+  {"postdecrement","--",	0},		/* old */
+  {"mm",	  "--",		DMGL_ANSI},	/* ansi */
+  {"bit_ior",	  "|",		0},		/* old */
+  {"or",	  "|",		DMGL_ANSI},	/* ansi */
+  {"aor",	  "|=",		DMGL_ANSI},	/* ansi */
+  {"bit_xor",	  "^",		0},		/* old */
+  {"er",	  "^",		DMGL_ANSI},	/* ansi */
+  {"aer",	  "^=",		DMGL_ANSI},	/* ansi */
+  {"bit_and",	  "&",		0},		/* old */
+  {"ad",	  "&",		DMGL_ANSI},	/* ansi */
+  {"aad",	  "&=",		DMGL_ANSI},	/* ansi */
+  {"bit_not",	  "~",		0},		/* old */
+  {"co",	  "~",		DMGL_ANSI},	/* ansi */
+  {"call",	  "()",		0},		/* old */
+  {"cl",	  "()",		DMGL_ANSI},	/* ansi */
+  {"alshift",	  "<<",		0},		/* old */
+  {"ls",	  "<<",		DMGL_ANSI},	/* ansi */
+  {"als",	  "<<=",	DMGL_ANSI},	/* ansi */
+  {"arshift",	  ">>",		0},		/* old */
+  {"rs",	  ">>",		DMGL_ANSI},	/* ansi */
+  {"ars",	  ">>=",	DMGL_ANSI},	/* ansi */
+  {"component",	  "->",		0},		/* old */
+  {"pt",	  "->",		DMGL_ANSI},	/* ansi; Lucid C++ form */
+  {"rf",	  "->",		DMGL_ANSI},	/* ansi; ARM/GNU form */
+  {"indirect",	  "*",		0},		/* old */
+  {"method_call",  "->()",	0},		/* old */
+  {"addr",	  "&",		0},		/* old (unary &) */
+  {"array",	  "[]",		0},		/* old */
+  {"vc",	  "[]",		DMGL_ANSI},	/* ansi */
+  {"compound",	  ", ",		0},		/* old */
+  {"cm",	  ", ",		DMGL_ANSI},	/* ansi */
+  {"cond",	  "?:",		0},		/* old */
+  {"cn",	  "?:",		DMGL_ANSI},	/* psuedo-ansi */
+  {"max",	  ">?",		0},		/* old */
+  {"mx",	  ">?",		DMGL_ANSI},	/* psuedo-ansi */
+  {"min",	  "<?",		0},		/* old */
+  {"mn",	  "<?",		DMGL_ANSI},	/* psuedo-ansi */
+  {"nop",	  "",		0},		/* old (for operator=) */
+  {"rm",	  "->*",	DMGL_ANSI}	/* ansi */
 };
 
 
@@ -294,14 +293,11 @@ consume_count (type)
 {
     int count = 0;
 
-    if (isdigit (**type))
+    while (isdigit (**type))
       {
-	do
-	  {
-	    count *= 10;
-	    count += **type - '0';
-	    (*type)++;
-	  } while (isdigit (**type));
+	count *= 10;
+	count += **type - '0';
+	(*type)++;
       }
     return (count);
 }
@@ -423,7 +419,6 @@ mop_up (work, declp, success)
      string *declp;
      int success;
 {
-  int i;
   char *demangled = NULL;
 
   /* Discard the remembered types, if any. */
@@ -571,7 +566,7 @@ demangle_signature (work, mangled, declp)
 	    break;
 	  
 	  case 't':
-	    /* Template */
+	    /* G++ Template */
 	    success = demangle_template (work, mangled, declp);
 	    func_done = 1;
 	    break;
@@ -878,6 +873,71 @@ demangle_template (work, mangled, declp)
   return (success);
 }
 
+static int
+arm_pt (work, mangled, n, anchor, args)
+     struct work_stuff *work;
+     CONST char *mangled;
+     int n;
+     CONST char **anchor, **args;
+{
+  /* ARM template? */
+  if (ARM_DEMANGLING && (*anchor = strstr(mangled, "__pt__")))
+    {
+	int len;
+        *args = *anchor + 6;
+	len = consume_count (args);
+        if (*args + len == mangled + n && **args == '_')
+	  {
+	    ++*args;
+	    return 1;
+	  }
+    }
+  return 0;
+}
+
+static int
+demangle_class_name (work, mangled, declp)
+     struct work_stuff *work;
+     CONST char **mangled;
+     string *declp;
+{
+  int n;
+  int success = 0;
+
+  n = consume_count (mangled);
+  if (strlen (*mangled) >= n)
+    {
+      CONST char *p;
+      CONST char *args;
+      CONST char *e = *mangled + n;
+      /* ARM template? */
+      if (arm_pt (work, *mangled, n, &p, &args))
+	{
+	  string arg;
+	  string_init (&arg);
+	  string_appendn (declp, *mangled, p - *mangled);
+	  string_append (declp, "<");
+	  /* should do error checking here */
+	  while (args < e) {
+	    string_clear (&arg);
+	    do_type (work, &args, &arg);
+	    string_appends (declp, &arg);
+	    string_append (declp, ",");
+	  }
+	  string_delete (&arg);
+	  --declp->p;
+	  string_append (declp, ">");
+        }
+      else
+	{
+	  string_appendn (declp, *mangled, n);
+        }
+      *mangled += n;
+      success = 1;
+    }
+  return (success);
+}
+
 /*
 
 LOCAL FUNCTION
@@ -919,15 +979,15 @@ demangle_class (work, mangled, declp)
      CONST char **mangled;
      string *declp;
 {
-  int n;
   int success = 0;
+  string class_name;
 
-  n = consume_count (mangled);
-  if (strlen (*mangled) >= n)
+  string_init (&class_name);
+  if (demangle_class_name (work, mangled, &class_name))
     {
       if (work -> constructor || work -> destructor)
 	{
-	  string_prependn (declp, *mangled, n);
+	  string_prepends (declp, &class_name);
 	  if (work -> destructor)
 	    {
 	      string_prepend (declp, "~");
@@ -935,10 +995,10 @@ demangle_class (work, mangled, declp)
 	  work -> constructor = work -> destructor = 0;
 	}
       string_prepend (declp, "::");
-      string_prependn (declp, *mangled, n);
-      *mangled += n;
+      string_prepends (declp, &class_name);
       success = 1;
     }
+  string_delete (&class_name);
   return (success);
 }
 
@@ -1022,6 +1082,18 @@ demangle_prefix (work, mangled, declp)
   else if ((scan == *mangled) &&
 	   (isdigit (scan[2]) || (scan[2] == 'Q') || (scan[2] == 't')))
     {
+      /* The ARM says nothing about the mangling of local variables.
+	 But cfront mangles local variables by prepending __<nesting_level>
+	 to them. As an extension to ARM demangling we handle this case.  */
+      if ((LUCID_DEMANGLING || ARM_DEMANGLING) && isdigit (scan[2]))
+	{
+	  *mangled = scan + 2;
+	  consume_count (mangled);
+	  string_append (declp, *mangled);
+	  *mangled += strlen (*mangled);
+	  return (1);
+	}
+
       /* A GNU style constructor starts with "__[0-9Qt]. */
       work -> constructor = 1;
       *mangled = scan + 2;
@@ -1203,9 +1275,8 @@ arm_special (work, mangled, declp)
      string *declp;
 {
   int n;
-  int i;
   int success = 1;
-  CONST char *p;
+  CONST char *scan;
 
   if (strncmp (*mangled, ARM_VTABLE_STRING, ARM_VTABLE_STRLEN) == 0)
     {
@@ -1213,6 +1284,20 @@ arm_special (work, mangled, declp)
          and create the decl.  Note that we consume the entire mangled
 	 input string, which means that demangle_signature has no work
 	 to do. */
+      scan = *mangled + ARM_VTABLE_STRLEN;
+      while (*scan != '\0')        /* first check it can be demangled */
+        {
+          n = consume_count (&scan);
+          if (n==0)
+	    {
+	      return (0);           /* no good */
+	    }
+          scan += n;
+          if (scan[0] == '_' && scan[1] == '_')
+	    {
+	      scan += 2;
+	    }
+        }
       (*mangled) += ARM_VTABLE_STRLEN;
       while (**mangled != '\0')
 	{
@@ -1615,7 +1700,6 @@ demangle_fund_type (work, mangled, result)
 {
   int done = 0;
   int success = 1;
-  int n;
 
   /* First pick off any type qualifiers.  There can be more than one. */
 
@@ -1731,15 +1815,11 @@ demangle_fund_type (work, mangled, result)
       case '7':
       case '8':
       case '9':
-	n = consume_count (mangled);
-	if (strlen (*mangled) < n)
-	  {
-	    success = 0;
-	    break;
-	  }
 	APPEND_BLANK (result);
-	string_appendn (result, *mangled, n);
-	*mangled += n;
+	if (!demangle_class_name (work, mangled, result)) {
+	  --result->p;
+	  success = 0;
+	}
 	break;
       default:
 	success = 0;
@@ -2310,7 +2390,7 @@ xmalloc (size)
 
 char *
 xrealloc (oldmem, size)
-    char * oldmem;
+    PTR oldmem;
     long size;
 {
   char * newmem;
@@ -2323,31 +2403,62 @@ xrealloc (oldmem, size)
   return (newmem);
 }
 
+#include "getopt.h"
+
+static char *program_name;
+extern char *program_version;
+
+static void
+usage (stream, status)
+     FILE *stream;
+     int status;
+{    
+  fprintf (stream, "\
+Usage: %s [-_] [-s {gnu,lucid,arm}] [--strip-underscores]\n\
+       [--format={gnu,lucid,arm}] [--help] [--version] [arg...]\n",
+	   program_name);
+  exit (status);
+}
+
 #define MBUF_SIZE 512
 char mbuffer[MBUF_SIZE];
 
+/* Defined in the automatically-generated ../binutils/underscore.c. */
+extern int prepends_underscore;
+
 int strip_underscore = 0;
 
+static struct option long_options[] = {
+  {"strip-underscores", no_argument, 0, '_'},
+  {"format", required_argument, 0, 's'},
+  {"help", no_argument, 0, 'h'},
+  {"version", no_argument, 0, 'v'},
+  {0, no_argument, 0, 0}
+};
+
+int
 main (argc, argv)
-  int argc;
-  char **argv;
+     int argc;
+     char **argv;
 {
   char *result;
   int c;
-  extern char *optarg;
-  extern int optind;
 
-  while ((c = getopt (argc, argv, "_s:?")) != EOF)
+  program_name = argv[0];
+  strip_underscore = prepends_underscore;
+
+  while ((c = getopt_long (argc, argv, "_s:", long_options, (int *) 0)) != EOF)
     {
       switch (c)
 	{
 	  case '?':
-	    fprintf (stderr, "usage: demangle [-_] [-s style] [arg1 [arg2]] ...\n");
-	    fprintf (stderr, "style = { gnu, lucid, arm }\n");
-	    fprintf (stderr, "-_ = strip initial underscore from indentifiers.\n");
-	    fprintf (stderr, "reads args from stdin if none supplied\n");
-	    exit (0);
+	    usage (stderr, 1);
 	    break;
+	  case 'h':
+	    usage (stdout, 0);
+	  case 'v':
+	    printf ("GNU %s version %s\n", program_name, program_version);
+	    exit (0);
 	  case '_':
 	    strip_underscore = 1;
 	    break;
@@ -2366,12 +2477,14 @@ main (argc, argv)
 	      }
 	    else
 	      {
-		fprintf (stderr, "unknown demangling style `%s'\n", optarg);
+		fprintf (stderr, "%s: unknown demangling style `%s'\n",
+			 program_name, optarg);
 		exit (1);
 	      }
 	    break;
 	}
     }
+
   if (optind < argc)
     {
       for ( ; optind < argc; optind++)
@@ -2381,7 +2494,6 @@ main (argc, argv)
     }
   else
     {
-      int c;
       for (;;)
 	{
 	  int i = 0;

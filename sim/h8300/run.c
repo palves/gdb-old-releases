@@ -22,9 +22,9 @@
 #include "sysdep.h"
 
 int
-main(ac,av)
-int ac;
-char **av;
+main (ac, av)
+     int ac;
+     char **av;
 {
   bfd *abfd;
   bfd_vma start_address;
@@ -34,45 +34,51 @@ char **av;
   int trace = 0;
   char *name = "";
   for (i = 1; i < ac; i++)
-  {
-    if (strcmp(av[i],"-v") == 0) 
     {
-      verbose = 1;
-    }
-    else if (strcmp(av[i],"-t") == 0) 
-    {
-      trace = 1;
-    }
-
-    else 
-    {
-      name = av[i];
-    }
-  }
-  if (verbose)
-  {
-    printf("run %s\n", name);
-  }
-  abfd = bfd_openr(name,"coff-h8300");
-  if (abfd) {
+      if (strcmp(av[i],"-v") == 0)
+	verbose++;
       
-    if (bfd_check_format(abfd, bfd_object)) 
-    {
-
-      for (s = abfd->sections; s; s=s->next) 
-      {
-	char *buffer = malloc(bfd_section_size(abfd,s));
-	bfd_get_section_contents(abfd, s, buffer, 0, bfd_section_size(abfd,s));
-	sim_write(s->vma, buffer, bfd_section_size(abfd,s));
-      }
-
-      start_address = bfd_get_start_address(abfd);
-      sim_store_register(
-			 9,start_address);
-      sim_resume(0,0);
-      return 0;
+      else if (strcmp(av[i],"-t") == 0) 
+	{
+	  trace = 1;
+	}
+      else if (strcmp(av[i],"-c") == 0) 
+	{
+	  sim_csize(atoi(av[i+1]));
+	  i++;
+	}
+      else if (strcmp(av[i],"-h") == 0) 
+	set_h8300h ();
+      else 
+	name = av[i];
     }
-  }
+
+  if (verbose)
+    printf ("run %s\n", name);
+
+  abfd = bfd_openr (name, "coff-h8300");
+  if (abfd) 
+    {
+      if (bfd_check_format(abfd, bfd_object)) 
+	{
+	  if (abfd->arch_info->mach == bfd_mach_h8300h)
+	    set_h8300h ();
+
+	  for (s = abfd->sections; s; s=s->next) 
+	    {
+	      char *buffer = malloc(bfd_section_size(abfd,s));
+	      bfd_get_section_contents(abfd, s, buffer, 0, bfd_section_size(abfd,s));
+	      sim_write(s->vma, buffer, bfd_section_size(abfd,s));
+	    }
+
+	  start_address = bfd_get_start_address(abfd);
+	  sim_store_register(9,start_address);
+	  sim_resume(0,0);
+	  if (verbose)
+	    sim_info (verbose);
+	  return 0;
+	}
+    }
 
   return 1;
 }

@@ -351,10 +351,23 @@ mod_path (dirname, which_path)
 
       /* Unless it's a variable, check existence.  */
       if (name[0] != '$') {
+	/* These are warnings, not errors, since we don't want a
+	   non-existent directory in a .gdbinit file to stop processing
+	   of the .gdbinit file.
+
+	   Whether they get added to the path is more debatable.  Current
+	   answer is yes, in case the user wants to go make the directory
+	   or whatever.  If the directory continues to not exist/not be
+	   a directory/etc, then having them in the path should be
+	   harmless.  */
 	if (stat (name, &st) < 0)
-	  perror_with_name (name);
-	if ((st.st_mode & S_IFMT) != S_IFDIR)
-	  error ("%s is not a directory.", name);
+	  {
+	    int save_errno = errno;
+	    fprintf (stderr, "Warning: ");
+	    print_sys_errmsg (name, save_errno);
+	  }
+	else if ((st.st_mode & S_IFMT) != S_IFDIR)
+	  warning ("%s is not a directory.", name);
       }
 
     append:
@@ -778,21 +791,23 @@ get_filename_and_charpos (s, fullname)
    Return 1 if successful, 0 if could not find the file.  */
 
 int
-identify_source_line (s, line, mid_statement)
+identify_source_line (s, line, mid_statement, pc)
      struct symtab *s;
      int line;
      int mid_statement;
+     CORE_ADDR pc;
 {
   if (s->line_charpos == 0)
     get_filename_and_charpos (s, (char **)NULL);
   if (s->fullname == 0)
     return 0;
-  if (line >= s->nlines) 
-   return 0;
+  if (line > s->nlines)
+    /* Don't index off the end of the line_charpos array.  */
+    return 0;
   printf ("\032\032%s:%d:%d:%s:0x%x\n", s->fullname,
 	  line, s->line_charpos[line - 1],
 	  mid_statement ? "middle" : "beg",
-	  get_frame_pc (get_current_frame()));
+	  pc);
   current_source_line = line;
   first_line_listed = line;
   last_line_listed = line;
@@ -946,7 +961,7 @@ list_command (arg, from_tty)
     dummy_beg = 1;
   else
     {
-      sals = decode_line_1 (&arg1, 0, 0, 0);
+      sals = decode_line_1 (&arg1, 0, 0, 0, 0);
 
       if (! sals.nelts) return;  /*  C++  */
       if (sals.nelts > 1)
@@ -978,9 +993,9 @@ list_command (arg, from_tty)
       else
 	{
 	  if (dummy_beg)
-	    sals_end = decode_line_1 (&arg1, 0, 0, 0);
+	    sals_end = decode_line_1 (&arg1, 0, 0, 0, 0);
 	  else
-	    sals_end = decode_line_1 (&arg1, 0, sal.symtab, sal.line);
+	    sals_end = decode_line_1 (&arg1, 0, sal.symtab, sal.line, 0);
 	  if (sals_end.nelts == 0) 
 	    return;
 	  if (sals_end.nelts > 1)
@@ -1082,10 +1097,7 @@ line_info (arg, from_tty)
     {
       sals = decode_line_spec_1 (arg, 0);
       
-      /* If this command is repeated with RET,
-	 turn it into the no-arg variant.  */
-      if (from_tty)
-	*arg = 0;
+      dont_repeat ();
     }
 
   /* C++  More than one line may have been specified, as when the user
@@ -1095,31 +1107,66 @@ line_info (arg, from_tty)
       sal = sals.sals[i];
       
       if (sal.symtab == 0)
-	error ("No source file specified.");
-
-      if (sal.line > 0
+	{
+	  printf_filtered ("No line number information available");
+	  if (sal.pc != 0)
+	    {
+	      /* This is useful for "info line *0x7f34".  If we can't tell the
+		 user about a source line, at least let them have the symbolic
+		 address.  */
+	      printf_filtered (" for address ");
+	      wrap_here ("  ");
+	      print_address (sal.pc, stdout);
+	    }
+	  else
+	    printf_filtered (".");
+	  printf_filtered ("\n");
+	}
+      else if (sal.line > 0
 	  && find_line_pc_range (sal.symtab, sal.line, &start_pc, &end_pc))
 	{
 	  if (start_pc == end_pc)
-	    printf_filtered ("Line %d of \"%s\" is at pc %s but contains no code.\n",
-			     sal.line, sal.symtab->filename, local_hex_string(start_pc));
+	    {
+	      printf_filtered ("Line %d of \"%s\"",
+			       sal.line, sal.symtab->filename);
+	      wrap_here ("  ");
+	      printf_filtered (" is at address ");
+	      print_address (start_pc, stdout);
+	      wrap_here ("  ");
+	      printf_filtered (" but contains no code.\n");
+	    }
 	  else
 	    {
-	      printf_filtered ("Line %d of \"%s\" starts at pc %s",
-			       sal.line, sal.symtab->filename, 
-			       local_hex_string(start_pc));
-	      printf_filtered (" and ends at %s.\n",
-			       local_hex_string(end_pc));
+	      printf_filtered ("Line %d of \"%s\"",
+			       sal.line, sal.symtab->filename);
+	      wrap_here ("  ");
+	      printf_filtered (" starts at address ");
+	      print_address (start_pc, stdout);
+	      wrap_here ("  ");
+	      printf_filtered (" and ends at ");
+	      print_address (end_pc, stdout);
+	      printf_filtered (".\n");
 	    }
+
 	  /* x/i should display this line's code.  */
 	  set_next_address (start_pc);
+
 	  /* Repeating "info line" should do the following line.  */
 	  last_line_listed = sal.line + 1;
+
+	  /* If this is the only line, show the source code.  If it could
+	     not find the file, don't do anything special.  */
+	  if (frame_file_full_name && sals.nelts == 1)
+	    identify_source_line (sal.symtab, sal.line, 0, start_pc);
 	}
       else
+	/* Is there any case in which we get here, and have an address
+	   which the user would want to see?  If we have debugging symbols
+	   and no line numbers?  */
 	printf_filtered ("Line number %d is out of range for \"%s\".\n",
 			 sal.line, sal.symtab->filename);
     }
+  free (sals.sals);
 }
 
 /* Commands to search the source file for a regexp.  */
@@ -1278,15 +1325,18 @@ reverse_search_command (regex, from_tty)
 void
 _initialize_source ()
 {
+  struct cmd_list_element *c;
   current_source_symtab = 0;
   init_source_path ();
 
-  add_com ("directory", class_files, directory_command,
+  c = add_cmd ("directory", class_files, directory_command,
 	   "Add directory DIR to beginning of search path for source files.\n\
 Forget cached info on source file locations and line positions.\n\
 DIR can also be $cwd for the current working directory, or $cdir for the\n\
 directory in which the source file was compiled into object code.\n\
-With no argument, reset the search path to $cdir:$cwd, the default.");
+With no argument, reset the search path to $cdir:$cwd, the default.",
+	       &cmdlist);
+  c->completer = filename_completer;
 
   add_cmd ("directories", no_class, show_directories,
 	   "Current search path for finding source files.\n\

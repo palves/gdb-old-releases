@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb: (gdb).                   The GNU debugger.
+* Gdb::                         The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.9.
+Source-Level Debugger' for GDB Version 4.10.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
 Foundation, Inc.
@@ -18,16 +18,12 @@ preserved on all copies.
 
    Permission is granted to copy and distribute modified versions of
 this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
 
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the Free Software
-Foundation instead of in the original English.
+versions.
 
 
 File: gdb.info,  Node: Altering,  Next: GDB Files,  Prev: Symbols,  Up: Top
@@ -426,7 +422,7 @@ useful.
      when FILENAME has been dynamically loaded (by some other means)
      into the program that is running.  ADDRESS should be the memory
      address at which the file has been loaded; GDB cannot figure this
-     out for itself.
+     out for itself.  You can specify ADDRESS as an expression.
 
      The symbol table of the file FILENAME is added to the symbol table
      originally read with the `symbol-file' command.  You can use the
@@ -490,7 +486,7 @@ problem occurs; or you can ask GDB to print more messages, to see how
 many times the problems occur, with the `set complaints' command (*note
 Optional warnings and messages: Messages/Warnings.).
 
-   The messages currently printed, and their meanings, are:
+   The messages currently printed, and their meanings, include:
 
 `inner block not inside outer block in SYMBOL'
      The symbol information shows where symbol scopes begin and end
@@ -775,6 +771,10 @@ In general terms, the scheme looks like this:
      that implement the GDB remote serial protocol.  The file
      containing these subroutines is called  a "debugging stub".
 
+     On certain remote targets, you can use an auxiliary program
+     `gdbserver' instead of linking a stub into your program.  *Note
+     Using the `gdbserver' program: Server, for details.
+
    The debugging stub is specific to the architecture of the remote
 machine; for example, use `sparc-stub.c' to debug programs on SPARC
 boards.
@@ -799,6 +799,8 @@ added stubs.
 * Bootstrapping::       What you must do for the stub
 * Debug Session::       Putting it all together
 * Protocol::            Outline of the communication protocol
+
+* Server::		Using the `gdbserver' program
 
 
 File: gdb.info,  Node: Stub Contents,  Next: Bootstrapping,  Up: Remote Serial
@@ -836,7 +838,7 @@ subroutines:
      the only way for GDB to get control.  For instance, if your target
      machine has some sort of interrupt button, you won't need to call
      this; pressing the interrupt button will transfer control to
-     `handle_exception'--in efect, to GDB.  On some machines, simply
+     `handle_exception'--in effect, to GDB.  On some machines, simply
      receiving characters on the serial port may also trigger a trap;
      again, in that situation, you don't need to call `breakpoint' from
      your own program--simply running `target remote' from the host GDB
@@ -869,6 +871,27 @@ these special low-level subroutines:
      different name is used to allow you to distinguish the two if you
      wish.
 
+`void exceptionHandler (int EXCEPTION_NUMBER, void *EXCEPTION_ADDRESS)'
+     Write this function to install EXCEPTION_ADDRESS in the exception
+     handling tables.  You need to do this because the stub does not
+     have any way of knowing what the exception handling tables on your
+     target system are like (for example, the processor's table might
+     be in ROM, containing entries which point to a table in RAM).
+     eXCEPTION_NUMBER is the exception number which should be changed;
+     its meaning is architecture-dependent (for example, different
+     numbers might represent divide by zero, misaligned access, etc).
+     When this exception occurs, control should be transferred directly
+     to EXCEPTION_ADDRESS, and the processor state (stack, registers,
+     etc.) should be just as it is when a processor exception occurs.
+     So if you want to use a jump instruction to reach
+     EXCEPTION_ADDRESS, it should be a simple jump, not a jump to
+     subroutine.
+
+     For the 386, EXCEPTION_ADDRESS should be installed as an interrupt
+     gate so that interrupts are masked while the handler runs.  The
+     SPARC and 68k stubs are able to mask interrupts themself without
+     help from `exceptionHandler'.
+
 `void flush_i_cache()'
      Write this subroutine to flush the instruction cache, if any, on
      your target machine.  If there is no instruction cache, this
@@ -899,37 +922,56 @@ Putting it all together
    In summary, when your program is ready to debug, you must follow
 these steps.
 
-  1. Make sure you have the supporting low-level routines:
+  1. Make sure you have the supporting low-level routines (*note
+     Bootstrapping::.):
           `getDebugChar', `putDebugChar',
-          `flush_i_cache', `memset'.
+          `flush_i_cache', `memset', `exceptionHandler'.
 
   2. Insert these lines near the top of your program:
 
           set_debug_traps();
           breakpoint();
 
-  3. Compile and link together: your program, the GDB debugging stub for
+  3. For the 680x0 stub only, you need to provide a variable called
+     `exceptionHook'.  Normally you just use
+
+          void (*exceptionHook)() = 0;
+
+     but if before calling `set_debug_traps', you set it to point to a
+     function in your program, that function is called when `GDB'
+     continues after stopping on a trap (for example, bus error).  The
+     function indicated by `exceptionHook' is called with one
+     parameter: an `int' which is the exception number.
+
+  4. Compile and link together: your program, the GDB debugging stub for
      your target architecture, and the supporting subroutines.
 
-  4. Make sure you have a serial connection between your target machine
+  5. Make sure you have a serial connection between your target machine
      and the GDB host, and identify the serial port used for this on
      the host.
 
-  5. Download your program to your target machine (or get it there by
+  6. Download your program to your target machine (or get it there by
      whatever means the manufacturer provides), and start it.
 
-  6. To start remote debugging, run GDB on the host machine, and specify
+  7. To start remote debugging, run GDB on the host machine, and specify
      as an executable file the program that is running in the remote
      machine.  This tells GDB how to find your program's symbols and
      the contents of its pure text.
 
      Then establish communication using the `target remote' command.
-     Its argument is the name of the device you're using to control the
-     target machine.  For example:
+     Its argument specifies how to communicate with the target
+     machine--either via a devicename attached to a direct serial line,
+     or a TCP port (usually to a terminal server which in turn has a
+     serial line to the target).  For example, to use a serial line
+     connected to the device named `/dev/ttyb':
 
           target remote /dev/ttyb
 
-     if the serial line is connected to the device named `/dev/ttyb'.
+     To use a TCP connection, use an argument of the form `HOST:port'.
+     For example, to connect to port 2828 on a terminal server named
+     `manyfarms':
+
+          target remote manyfarms:2828
 
    Now you can use all the usual commands to examine and change data
 and to step and continue the remote program.
@@ -951,7 +993,7 @@ decide you want to try again later, you can use `target remote' again
 to connect once more.)  If you type `n', GDB goes back to waiting.
 
 
-File: gdb.info,  Node: Protocol,  Prev: Debug Session,  Up: Remote Serial
+File: gdb.info,  Node: Protocol,  Next: Server,  Prev: Debug Session,  Up: Remote Serial
 
 Outline of the communication protocol
 -------------------------------------
@@ -1031,6 +1073,91 @@ stream.  `set remotedebug off' turns it off, and `show remotedebug'
 will show you its current state.
 
 
+File: gdb.info,  Node: Server,  Prev: Protocol,  Up: Remote Serial
+
+Using the `gdbserver' program
+-----------------------------
+
+   `gdbserver' is a control program for Unix-like systems, which allows
+you to connect your program with a remote GDB via `target remote'--but
+without linking in the usual debugging stub.
+
+   `gdbserver' is not a complete replacement for the debugging stubs,
+because it requires essentially the same operating-system facilities
+that GDB itself does.  In fact, a system that can run `gdbserver' to
+connect to a remote GDB could also run GDBN locally!  `gdbserver' is
+sometimes useful nevertheless, because it is a much smaller program
+than GDB itself.  It is also easier to port than all of GDBN, so you
+may be able to get started more quickly on a new system by using
+`gdbserver'.
+
+   GDB and `gdbserver' communicate via either a serial line or a TCP
+connection, using the standard GDB remote serial protocol.
+
+*On the target,*
+     you need to have a copy of the program you want to debug.
+     `gdbserver' does not need your program's symbol table, so you can
+     strip the program if necessary to save space.  GDB on the host
+     system does all the symbol handling.
+
+     To use the server, you must tell it how to communicate with {No
+     Value For "GDB"}; the name of your program; and the arguments for
+     your program.  The syntax is:
+
+          target> gdbserver COMM PROGRAM [ ARGS ... ]
+
+     COMM is either a device name (to use a serial line) or a TCP
+     hostname and portnumber.  For example, to debug emacs with the
+     argument `foo.txt' and communicate with GDB over the serial port
+     `/dev/com1':
+
+          target> gdbserver /dev/com1 emacs foo.txt
+
+     `gdbserver' waits passively for the host GDB to communicate with
+     it.
+
+     To use a TCP connection instead of a serial line:
+
+          target> gdbserver host:2345 emacs foo.txt
+
+     The only difference from the previous example is the first
+     argument, specifying that you are communicating with the host GDB
+     via TCP.  The `host:2345' argument means that `gdbserver' is to
+     expect a TCP connection from machine `host' to local TCP port 2345.
+     (Currently, the `host' part is ignored.)  You can choose any number
+     you want for the port number as long as it does not conflict with
+     any TCP ports already in use on the target system.(1) You must use
+     the same port number with the host GDB `target remote' command.
+
+*On the host,*
+     you need an unstripped copy of your program, since GDB needs
+     symbols and debugging information.  Start up GDB as usual, using
+     the name of the local copy of your program as the first argument.
+     (You may also need the `--baud' option if the serial line is
+     running at anything other than 9600 bps.) After that, use `target
+     remote' to establish communications with `gdbserver'.  Its
+     argument is either a device name (usually a serial device, like
+     `/dev/ttyb'), or a TCP port descriptof in the form `HOST:PORT'.
+     For example:
+
+          (gdb) target remote /dev/ttyb
+
+     communicates with the server via serial line `/dev/ttyb', and
+
+          (gdb) target remote the-target:2345
+
+     communicates via a TCP connection to port 2345 on host
+     `the-target'.  For TCP connections, you must start up `gdbserver'
+     prior to using the `target remote' command.  Otherwise you may get
+     an error whose text depends on the host system, but which usually
+     looks something like `Connection refused'.
+
+   ---------- Footnotes ----------
+
+   (1)  If you choose a port number that conflicts with another
+service, `gdbserver' prints an error message and exits.
+
+
 File: gdb.info,  Node: i960-Nindy Remote,  Next: UDI29K Remote,  Prev: Remote Serial,  Up: Remote
 
 GDB with a remote i960 (Nindy)
@@ -1071,182 +1198,4 @@ identifies the serial port you want to use.  You can, if you choose,
 simply start up with no Nindy connection by responding to the prompt
 with an empty line.  If you do this and later wish to attach to Nindy,
 use `target' (*note Commands for managing targets: Target Commands.).
-
-
-File: gdb.info,  Node: Nindy Options,  Next: Nindy Reset,  Prev: Nindy Startup,  Up: i960-Nindy Remote
-
-Options for Nindy
------------------
-
-   These are the startup options for beginning your GDB session with a
-Nindy-960 board attached:
-
-`-r PORT'
-     Specify the serial port name of a serial interface to be used to
-     connect to the target system.  This option is only available when
-     GDB is configured for the Intel 960 target architecture.  You may
-     specify PORT as any of: a full pathname (e.g. `-r /dev/ttya'), a
-     device name in `/dev' (e.g. `-r ttya'), or simply the unique
-     suffix for a specific `tty' (e.g. `-r a').
-
-`-O'
-     (An uppercase letter "O", not a zero.)  Specify that GDB should use
-     the "old" Nindy monitor protocol to connect to the target system.
-     This option is only available when GDB is configured for the Intel
-     960 target architecture.
-
-          *Warning:* if you specify `-O', but are actually trying to
-          connect to a target system that expects the newer protocol,
-          the connection fails, appearing to be a speed mismatch.  GDB
-          repeatedly attempts to reconnect at several different line
-          speeds.  You can abort this process with an interrupt.
-
-`-brk'
-     Specify that GDB should first send a `BREAK' signal to the target
-     system, in an attempt to reset it, before connecting to a Nindy
-     target.
-
-          *Warning:* Many target systems do not have the hardware that
-          this requires; it only works with a few boards.
-
-   The standard `-b' option controls the line speed used on the serial
-port.
-
-
-File: gdb.info,  Node: Nindy Reset,  Prev: Nindy Options,  Up: i960-Nindy Remote
-
-Nindy reset command
--------------------
-
-`reset'
-     For a Nindy target, this command sends a "break" to the remote
-     target system; this is only useful if the target has been equipped
-     with a circuit to perform a hard reset (or some other interesting
-     action) when a break is detected.
-
-
-File: gdb.info,  Node: UDI29K Remote,  Next: EB29K Remote,  Prev: i960-Nindy Remote,  Up: Remote
-
-GDB and the UDI protocol for AMD29K
------------------------------------
-
-   GDB supports AMD's UDI ("Universal Debugger Interface") protocol for
-debugging the a29k processor family.  To use this configuration with
-AMD targets running the MiniMON monitor, you need the program `MONTIP',
-available from AMD at no charge.  You can also use GDB with the UDI
-conformant a29k simulator program `ISSTIP', also available from AMD.
-
-`target udi KEYWORD'
-     Select the UDI interface to a remote a29k board or simulator, where
-     KEYWORD is an entry in the AMD configuration file `udi_soc'.  This
-     file contains keyword entries which specify parameters used to
-     connect to a29k targets.  If the `udi_soc' file is not in your
-     working directory, you must set the environment variable `UDICONF'
-     to its pathname.
-
-
-File: gdb.info,  Node: EB29K Remote,  Next: VxWorks Remote,  Prev: UDI29K Remote,  Up: Remote
-
-GDB with a remote EB29K
------------------------
-
-   To use GDB from a Unix system to run programs on AMD's EB29K board
-in a PC, you must first connect a serial cable between the PC and a
-serial port on the Unix system.  In the following, we assume you've
-hooked the cable between the PC's `COM1' port and `/dev/ttya' on the
-Unix system.
-
-* Menu:
-
-* Comms (EB29K)::               Communications setup
-* gdb-EB29K::                   EB29K cross-debugging
-* Remote Log::                  Remote log
-
-
-File: gdb.info,  Node: Comms (EB29K),  Next: gdb-EB29K,  Up: EB29K Remote
-
-Communications setup
---------------------
-
-   The next step is to set up the PC's port, by doing something like
-this in DOS on the PC:
-
-     C:\> MODE com1:9600,n,8,1,none
-
-This example--run on an MS DOS 4.0 system--sets the PC port to 9600
-bps, no parity, eight data bits, one stop bit, and no "retry" action;
-you must match the communications parameters when establishing the Unix
-end of the connection as well.
-
-   To give control of the PC to the Unix side of the serial line, type
-the following at the DOS console:
-
-     C:\> CTTY com1
-
-(Later, if you wish to return control to the DOS console, you can use
-the command `CTTY con'--but you must send it over the device that had
-control, in our example over the `COM1' serial line).
-
-   From the Unix host, use a communications program such as `tip' or
-`cu' to communicate with the PC; for example,
-
-     cu -s 9600 -l /dev/ttya
-
-The `cu' options shown specify, respectively, the linespeed and the
-serial port to use.  If you use `tip' instead, your command line may
-look something like the following:
-
-     tip -9600 /dev/ttya
-
-Your system may require a different name where we show `/dev/ttya' as
-the argument to `tip'.  The communications parameters, including which
-port to use, are associated with the `tip' argument in the "remote"
-descriptions file--normally the system table `/etc/remote'.
-
-   Using the `tip' or `cu' connection, change the DOS working directory
-to the directory containing a copy of your 29K program, then start the
-PC program `EBMON' (an EB29K control program supplied with your board
-by AMD).  You should see an initial display from `EBMON' similar to the
-one that follows, ending with the `EBMON' prompt `#'--
-
-     C:\> G:
-     
-     G:\> CD \usr\joe\work29k
-     
-     G:\USR\JOE\WORK29K> EBMON
-     Am29000 PC Coprocessor Board Monitor, version 3.0-18
-     Copyright 1990 Advanced Micro Devices, Inc.
-     Written by Gibbons and Associates, Inc.
-     
-     Enter '?' or 'H' for help
-     
-     PC Coprocessor Type   = EB29K
-     I/O Base              = 0x208
-     Memory Base           = 0xd0000
-     
-     Data Memory Size      = 2048KB
-     Available I-RAM Range = 0x8000 to 0x1fffff
-     Available D-RAM Range = 0x80002000 to 0x801fffff
-     
-     PageSize              = 0x400
-     Register Stack Size   = 0x800
-     Memory Stack Size     = 0x1800
-     
-     CPU PRL               = 0x3
-     Am29027 Available     = No
-     Byte Write Available  = Yes
-     
-     # ~.
-
-   Then exit the `cu' or `tip' program (done in the example by typing
-`~.' at the `EBMON' prompt).  `EBMON' will keep running, ready for GDB
-to take over.
-
-   For this example, we've assumed what is probably the most convenient
-way to make sure the same 29K program is on both the PC and the Unix
-system: a PC/NFS connection that establishes "drive `G:'" on the PC as
-a file system on the Unix host.  If you do not have PC/NFS or something
-similar connecting the two systems, you must arrange some other
-way--perhaps floppy-disk transfer--of getting the 29K program from the
-Unix system to the PC; GDB will *not* download it over the serial line.
 

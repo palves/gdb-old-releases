@@ -164,7 +164,8 @@ boolean
 _bfd_generic_mkarchive (abfd)
      bfd *abfd;
 {
-  abfd->tdata.aout_ar_data = (struct artdata *)bfd_zalloc(abfd, sizeof (struct artdata));
+  abfd->tdata.aout_ar_data = (struct artdata *)bfd_zalloc(abfd,
+							  sizeof (struct artdata));
 
   if (bfd_ardata (abfd) == NULL) {
       bfd_error = no_memory;
@@ -452,9 +453,9 @@ snarf_ar_hdr (abfd)
 */
 
 bfd *
-get_elt_at_filepos (archive, filepos)
-     bfd *archive;
-     file_ptr filepos;
+DEFUN (get_elt_at_filepos, (archive, filepos),
+       bfd *archive AND
+       file_ptr filepos)
 {
   struct areltdata *new_areldata;
   bfd *n_nfd;
@@ -616,8 +617,8 @@ bfd_generic_archive_p (abfd)
 
 /* Returns false on error, true otherwise */
 static boolean
-do_slurp_bsd_armap (abfd)
-     bfd *abfd;
+DEFUN (do_slurp_bsd_armap, (abfd),
+       bfd *abfd)
 {
   struct areltdata *mapdata;
   unsigned int counter = 0;
@@ -677,8 +678,8 @@ do_slurp_bsd_armap (abfd)
 
 /* Returns false on error, true otherwise */
 static boolean
-do_slurp_coff_armap (abfd)
-     bfd *abfd;
+DEFUN (do_slurp_coff_armap, (abfd),
+       bfd *abfd)
 {
   struct areltdata *mapdata;
   int *raw_armap, *rawptr;
@@ -689,7 +690,7 @@ do_slurp_coff_armap (abfd)
   carsym *carsyms;
   unsigned int nsymz; /* Number of symbols in armap. */
 
-  bfd_vma (*swap)();
+  bfd_vma (*swap) PARAMS ((bfd_byte*));
   char int_buf[sizeof(long)];
   unsigned int carsym_size, ptrsize, i;
   
@@ -1000,9 +1001,9 @@ DEFUN(normalize,(file),
 }
 
 #else
-static
-CONST char *normalize(file)
-CONST char *file;
+static CONST char *
+DEFUN (normalize, (file),
+       CONST char *file)
 {
   CONST char *    filename = strrchr(file, '/');
 
@@ -1023,10 +1024,10 @@ CONST char *file;
    A successful return may still involve a zero-length tablen!
    */
 boolean
-bfd_construct_extended_name_table (abfd, tabloc, tablen)
-     bfd *abfd;
-     char **tabloc;
-     unsigned int *tablen;
+DEFUN (bfd_construct_extended_name_table, (abfd, tabloc, tablen),
+       bfd *abfd AND
+       char **tabloc AND
+       unsigned int *tablen)
 {
   unsigned int maxname = abfd->xvec->ar_max_namelen;
   unsigned int total_namelen = 0;
@@ -1533,7 +1534,7 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
   for (i = 0; i < sizeof (struct ar_hdr); i++)
    if (((char *)(&hdr))[i] == '\0') (((char *)(&hdr))[i]) = ' ';
   bfd_write ((char *)&hdr, 1, sizeof (struct ar_hdr), arch);
-  bfd_h_put_32(arch, ranlibsize, (PTR)&temp);
+  bfd_h_put_32(arch, (bfd_vma) ranlibsize, (PTR)&temp);
   bfd_write (&temp, 1, sizeof (temp), arch);
   
   for (count = 0; count < orl_count; count++) {

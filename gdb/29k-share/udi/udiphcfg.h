@@ -1,19 +1,33 @@
-/* This file just picks the correct udiphxxx.h depending on the host */
-/* The two hosts that are now defined are SUN and MSDOS */
+/* This file just picks the correct udiphxxx.h depending on the host.
+   The two hosts that are now defined are UNIX and MSDOS.
 
-/* The way this now works, all machines other than DOS are considered to
-   be Sun-like.  This is known to work for HP700's.  If this doesn't work
-   for some host, create an alternative udiphXXX.h file.  
+   Copyright 1993 Free Software Foundation, Inc.
 
-   This scheme for determining which file to include is *ugly* and should be
-   fixed at some later date.  -- zoo - 930106
-*/
+   This file is part of GDB.
 
-#ifdef MSDOS
-#define CONFIG_INCLUDED
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+/*
+ * For the moment, we will default to BSD_IPC; this might change if/when
+ * another type of IPC (Mach? SysV?) is implemented.
+ */
+
+#ifdef DOS_IPC
 #include "udiphdos.h"
+#else
+/*#ifdef BSD_IPC */
+#include "udiphunix.h"
 #endif
 
-#ifndef CONFIG_INCLUDED
-#include "udiphsun.h"
-#endif

@@ -122,7 +122,16 @@ put_byte_reg (context, reg, val)
      int reg;
      int val;
 {
-  context->regs[reg & 0x7].bytes.byte[reg >> 3] = val;
+  int old = context->regs[reg & 0x7].word;
+  if (reg & 0x8)
+    {
+      old = old & 0xff00 | (val & 0xff);
+    }
+  else
+    {
+      old = old & 0x00ff | (val << 8);
+    }
+  context->regs[reg & 0x7].word = old;      
 }
 
 INLINE
@@ -131,7 +140,10 @@ get_byte_reg (context, reg)
      sim_state_type *context;
      int reg;
 {
-  return (context->regs[reg & 0x7].bytes.byte[reg >> 3]);
+  if (reg & 0x8)
+    return  context->regs[reg & 0x7].word & 0xff;
+  else
+    return  (context->regs[reg & 0x7].word >> 8) & 0xff;
 }
 
 INLINE
@@ -146,7 +158,8 @@ put_word_mem_da (context, addr, value)
       context->exception = SIM_BAD_ALIGN;
       addr &= ~1;
     }
-  *((unsigned short *) ((char *) ((context)->memory) + (addr))) = value;
+  put_byte_mem_da(context, addr, value>>8);
+  put_byte_mem_da(context, addr+1, value);
 }
 
 INLINE unsigned char
@@ -166,8 +179,13 @@ put_byte_mem_da (context, addr, value)
   ((unsigned char *) (context->memory))[addr] = value;
 }
 
+#if 0
 #define get_word_mem_da(context,addr)\
  *((unsigned short*)((char*)((context)->memory)+(addr)))
+
+#else
+#define get_word_mem_da(context,addr) (get_byte_mem_da(context, addr) << 8) | (get_byte_mem_da(context,addr+1))
+#endif
 
 #define get_word_reg(context,reg) (context)->regs[reg].word
 
@@ -177,8 +195,8 @@ get_long_mem_da (context, addr)
      sim_state_type *context;
      int addr;
 {
-  USItype lsw = context->memory[(addr >> 1) + 1];
-  USItype msw = context->memory[addr >> 1];
+  USItype lsw = get_word_mem_da(context,addr+2);
+  USItype msw =  get_word_mem_da(context, addr);
 
   return (msw << 16) + lsw;
 }
@@ -190,8 +208,8 @@ put_long_mem_da (context, addr, value)
      int addr;
      int value;
 {
-  context->memory[addr >> 1] = value >> 16;
-  context->memory[(addr >> 1) + 1] = value;
+  put_word_mem_da(context,addr, value>>16);
+  put_word_mem_da(context,addr+2, value);
 }
 
 INLINE

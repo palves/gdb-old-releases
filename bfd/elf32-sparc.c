@@ -61,30 +61,30 @@ static CONST char *CONST reloc_type_names[] =
 
 static reloc_howto_type elf_sparc_howto_table[] = 
 {
-  HOWTO(R_SPARC_NONE,   0,0, 0,false,0,false,false, 0,"R_SPARC_NONE",   false,0,0x00000000,false),
-  HOWTO(R_SPARC_8,      0,0, 8,false,0,true,  true, 0,"R_SPARC_8",      false,0,0x000000ff,false),
-  HOWTO(R_SPARC_16,     0,1,16,false,0,true,  true, 0,"R_SPARC_16",     false,0,0x0000ffff,false),
-  HOWTO(R_SPARC_32,     0,2,32,false,0,true,  true, 0,"R_SPARC_32",     false,0,0xffffffff,false),
-  HOWTO(R_SPARC_DISP8,  0,0, 8,true, 0,false, true, 0,"R_SPARC_DISP8",  false,0,0x000000ff,false),
-  HOWTO(R_SPARC_DISP16, 0,1,16,true, 0,false, true, 0,"R_SPARC_DISP16", false,0,0x0000ffff,false),
-  HOWTO(R_SPARC_DISP32, 0,2,32,true, 0,false, true, 0,"R_SPARC_DISP32", false,0,0x00ffffff,false),
-  HOWTO(R_SPARC_WDISP30,2,2,30,true, 0,false, true, 0,"R_SPARC_WDISP30",false,0,0x3fffffff,false),
-  HOWTO(R_SPARC_WDISP22,2,2,22,true, 0,false, true, 0,"R_SPARC_WDISP22",false,0,0x003fffff,false),
-  HOWTO(R_SPARC_HI22,  10,2,22,false,0,true, false, 0,"R_SPARC_HI22",   false,0,0x003fffff,false),
-  HOWTO(R_SPARC_22,     0,2,22,false,0,true,  true, 0,"R_SPARC_22",     false,0,0x003fffff,false),
-  HOWTO(R_SPARC_13,     0,1,13,false,0,true,  true, 0,"R_SPARC_13",     false,0,0x00001fff,false),
-  HOWTO(R_SPARC_LO10,   0,1,10,false,0,true, false, 0,"R_SPARC_LO10",   false,0,0x000003ff,false),
-  HOWTO(R_SPARC_GOT10,  0,1,10,false,0,false, true, 0,"R_SPARC_GOT10",  false,0,0x000003ff,false),
-  HOWTO(R_SPARC_GOT13,  0,1,13,false,0,false, true, 0,"R_SPARC_GOT13",  false,0,0x00001fff,false),
-  HOWTO(R_SPARC_GOT22, 10,2,22,false,0,false, true, 0,"R_SPARC_GOT22",  false,0,0x003fffff,false),
-  HOWTO(R_SPARC_PC10,   0,1,10,false,0,true,  true, 0,"R_SPARC_PC10",   false,0,0x000003ff,false),
-  HOWTO(R_SPARC_PC22,   0,2,22,false,0,true,  true, 0,"R_SPARC_PC22",   false,0,0x003fffff,false),
-  HOWTO(R_SPARC_WPLT30, 0,0,00,false,0,false,false, 0,"R_SPARC_WPLT30", false,0,0x00000000,false),
-  HOWTO(R_SPARC_COPY,   0,0,00,false,0,false,false, 0,"R_SPARC_COPY",   false,0,0x00000000,false),
-  HOWTO(R_SPARC_GLOB_DAT,0,0,00,false,0,false,false,0,"R_SPARC_GLOB_DAT",false,0,0x00000000,false),
-  HOWTO(R_SPARC_JMP_SLOT,0,0,00,false,0,false,false,0,"R_SPARC_JMP_SLOT",false,0,0x00000000,false),
-  HOWTO(R_SPARC_RELATIVE,0,0,00,false,0,false,false,0,"R_SPARC_RELATIVE",false,0,0x00000000,false),
-  HOWTO(R_SPARC_UA32,    0,0,00,false,0,false,false,0,"R_SPARC_UA32",    false,0,0x00000000,false),
+  HOWTO(R_SPARC_NONE,   0,0, 0,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_NONE",   false,0,0x00000000,true),
+  HOWTO(R_SPARC_8,      0,0, 8,false,0,  complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_8",      false,0,0x000000ff,true),
+  HOWTO(R_SPARC_16,     0,1,16,false,0,  complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_16",     false,0,0x0000ffff,true),
+  HOWTO(R_SPARC_32,     0,2,32,false,0,  complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_32",     false,0,0xffffffff,true),
+  HOWTO(R_SPARC_DISP8,  0,0, 8,true, 0, complain_overflow_signed, bfd_elf_generic_reloc,"R_SPARC_DISP8",  false,0,0x000000ff,true),
+  HOWTO(R_SPARC_DISP16, 0,1,16,true, 0, complain_overflow_signed, bfd_elf_generic_reloc,"R_SPARC_DISP16", false,0,0x0000ffff,true),
+  HOWTO(R_SPARC_DISP32, 0,2,32,true, 0, complain_overflow_signed, bfd_elf_generic_reloc,"R_SPARC_DISP32", false,0,0x00ffffff,true),
+  HOWTO(R_SPARC_WDISP30,2,2,30,true, 0, complain_overflow_signed, bfd_elf_generic_reloc,"R_SPARC_WDISP30",false,0,0x3fffffff,true),
+  HOWTO(R_SPARC_WDISP22,2,2,22,true, 0,complain_overflow_signed, bfd_elf_generic_reloc,"R_SPARC_WDISP22",false,0,0x003fffff,true),
+  HOWTO(R_SPARC_HI22,  10,2,22,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_HI22",   false,0,0x003fffff,true),
+  HOWTO(R_SPARC_22,     0,2,22,false,0, complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_22",     false,0,0x003fffff,true),
+  HOWTO(R_SPARC_13,     0,2,13,false,0,  complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_13",     false,0,0x00001fff,true),
+  HOWTO(R_SPARC_LO10,   0,2,10,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_LO10",   false,0,0x000003ff,true),
+  HOWTO(R_SPARC_GOT10,  0,2,10,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_GOT10",  false,0,0x000003ff,true),
+  HOWTO(R_SPARC_GOT13,  0,2,13,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_GOT13",  false,0,0x00001fff,true),
+  HOWTO(R_SPARC_GOT22, 10,2,22,false,0,complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_GOT22",  false,0,0x003fffff,true),
+  HOWTO(R_SPARC_PC10,   0,2,10,false,0,  complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_PC10",   false,0,0x000003ff,true),
+  HOWTO(R_SPARC_PC22,   0,2,22,false,0,  complain_overflow_bitfield, bfd_elf_generic_reloc,"R_SPARC_PC22",   false,0,0x003fffff,true),
+  HOWTO(R_SPARC_WPLT30, 0,0,00,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_WPLT30", false,0,0x00000000,true),
+  HOWTO(R_SPARC_COPY,   0,0,00,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_COPY",   false,0,0x00000000,true),
+  HOWTO(R_SPARC_GLOB_DAT,0,0,00,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_GLOB_DAT",false,0,0x00000000,true),
+  HOWTO(R_SPARC_JMP_SLOT,0,0,00,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_JMP_SLOT",false,0,0x00000000,true),
+  HOWTO(R_SPARC_RELATIVE,0,0,00,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_RELATIVE",false,0,0x00000000,true),
+  HOWTO(R_SPARC_UA32,    0,0,00,false,0,complain_overflow_dont, bfd_elf_generic_reloc,"R_SPARC_UA32",    false,0,0x00000000,true),
 };
 
 struct elf_reloc_map {
@@ -116,11 +116,12 @@ static CONST struct elf_reloc_map sparc_reloc_map[] =
   { BFD_RELOC_SPARC_GLOB_DAT, R_SPARC_GLOB_DAT },
   { BFD_RELOC_SPARC_JMP_SLOT, R_SPARC_JMP_SLOT },
   { BFD_RELOC_SPARC_RELATIVE, R_SPARC_RELATIVE },
+  { BFD_RELOC_SPARC_WDISP22, R_SPARC_WDISP22 },
   /*  { BFD_RELOC_SPARC_UA32, R_SPARC_UA32 }, not used?? */
 };
 
 static CONST struct reloc_howto_struct *
-DEFUN (elf_bfd_reloc_type_lookup, (abfd, code),
+DEFUN (bfd_elf32_bfd_reloc_type_lookup, (abfd, code),
        bfd *abfd AND
        bfd_reloc_code_real_type code)
 {
@@ -137,14 +138,15 @@ static void
 DEFUN (elf_info_to_howto, (abfd, cache_ptr, dst),
        bfd *abfd AND
        arelent *cache_ptr AND
-       Elf_Internal_Rela *dst)
+       Elf32_Internal_Rela *dst)
 {
-  BFD_ASSERT (ELF_R_TYPE(dst->r_info) < (unsigned int) R_SPARC_max);
-  cache_ptr->howto = &elf_sparc_howto_table[ELF_R_TYPE(dst->r_info)];
+  BFD_ASSERT (ELF32_R_TYPE(dst->r_info) < (unsigned int) R_SPARC_max);
+  cache_ptr->howto = &elf_sparc_howto_table[ELF32_R_TYPE(dst->r_info)];
 }
 
-#define TARGET_BIG_SYM	elf32_sparc_vec
+#define TARGET_BIG_SYM	bfd_elf32_sparc_vec
 #define TARGET_BIG_NAME	"elf32-sparc"
 #define ELF_ARCH	bfd_arch_sparc
+#define ELF_MAXPAGESIZE 0x10000
 
 #include "elf32-target.h"

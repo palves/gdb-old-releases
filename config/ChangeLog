@@ -1,3 +1,21 @@
+Tue Jul  6 11:27:33 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* mh-alphaosf: New file.
+
+Thu Jul  1 15:49:33 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* mh-riscos: New file.
+
+Mon Jun 14 12:03:18 1993  david d `zoo' zuhn  (zoo at rtl.cygnus.com)
+
+	* mh-aix, mh-aix386, mh-decstation, mh-delta88, mh-hpux, mh-irix4,
+	mh-ncr3000, mh-solaris, mh-sysv, mh-sysv4: remove INSTALL=cp line,
+	now that we're using install.sh globally
+
+Fri Jun  4 16:09:34 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* mh-sysv4 (INSTALL): Use cp, not /usr/ucb/install.
+
 Thu Apr  8 11:21:52 1993  Ian Lance Taylor  (ian@cygnus.com)
 
 	* mt-a29k, mt-ebmon29k, mt-os68k, mt-ose68000, mt-ose68k,

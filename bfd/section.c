@@ -764,7 +764,7 @@ DEFUN(bfd_set_section_contents,(abfd, section, location, offset, count),
         return(false);
       }
 
-  if (offset < 0 || count < 0)
+  if (offset < 0)
     {
     bad_val:
       bfd_error = bad_value;
@@ -775,6 +775,24 @@ DEFUN(bfd_set_section_contents,(abfd, section, location, offset, count),
       || count > sz
       || offset + count > sz)
     goto bad_val;
+
+  switch (abfd->direction)
+    {
+      case read_direction:
+      case no_direction:
+	bfd_error = invalid_operation;
+	return false;
+
+      case write_direction:
+	break;
+
+      case both_direction:
+	/* File is opened for update. `output_has_begun' some time ago when
+	   the file was created.  Do not recompute sections sizes or alignments
+	   in _bfd_set_section_content.  */
+	abfd->output_has_begun = true;
+	break;
+    }
 
   if (BFD_SEND (abfd, _bfd_set_section_contents,
                 (abfd, section, location, offset, count))) 
@@ -825,7 +843,7 @@ DEFUN(bfd_get_section_contents,(abfd, section, location, offset, count),
       return true;
     }
 
-  if (offset < 0 || count < 0)
+  if (offset < 0)
     {
     bad_val:
       bfd_error = bad_value;

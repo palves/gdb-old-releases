@@ -94,7 +94,8 @@ execute_user_command PARAMS ((struct cmd_list_element *, char *));
 extern void
 execute_command PARAMS ((char *, int));
 
-extern char **
-noop_completer PARAMS ((char *));
+extern char **noop_completer PARAMS ((char *, char *));
+
+extern char **filename_completer PARAMS ((char *, char *));
 
 #endif	/* !defined (GDBCMD_H) */

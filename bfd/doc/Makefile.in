@@ -55,11 +55,13 @@ TEXI2DVI = texi2dvi
 RANLIB = ranlib
 CFLAGS = -g
 
+CC_FOR_BUILD = $(CC)
+
 #### Host, target, and site specific Makefile fragments come in here.
 ###
 
 .c.o:
-	$(CC) $(CFLAGS) -c $(H_CFLAGS) -I.. -I$(srcdir)/.. -I$(srcdir)/../../include $<
+	$(CC) -c -I.. -I$(srcdir)/.. -I$(srcdir)/../../include $(H_CFLAGS) $(CFLAGS) $<
 
 # main GDB source directory
 
@@ -114,9 +116,6 @@ info: bfd.info
 dvi: bfd.dvi
 
 install-info: info
-	-parent=`echo $(infodir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
 	for i in *.info* ; do \
 		$(INSTALL_DATA) $$i $(infodir)/$$i ; \
 	done
@@ -124,12 +123,16 @@ install-info: info
 docs: $(MKDOC) protos bfd.info bfd.dvi bfd.ps
 
 $(MKDOC): chew.o
-	$(CC) $(CFLAGS) -o $(MKDOC) $(H_CFLAGS) chew.o $(LOADLIBES)
+	$(CC_FOR_BUILD) -o $(MKDOC) chew.o $(LOADLIBES) $(LDFLAGS)
 
 chew.o: chew.c
-	$(CC) $(CFLAGS) -c $(H_CFLAGS) -I.. -I$(srcdir)/.. -I$(srcdir)/../../include $(srcdir)/chew.c
+	$(CC_FOR_BUILD) -c -I.. -I$(srcdir)/.. -I$(srcdir)/../../include $(H_CFLAGS) $(CFLAGS) $(srcdir)/chew.c
 
 protos: libbfd.h libcoff.h bfd.h
+
+
+# We can't replace these rules with an implicit rule, because
+# makes without VPATH support couldn't find the .h files in `..'.
 
 aoutx.texi: $(MKDOC) $(srcdir)/../aoutx.h $(srcdir)/doc.str
 	$(MKDOC) -f $(srcdir)/doc.str <$(srcdir)/../aoutx.h >aoutx.texi
@@ -190,7 +193,7 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(srcdir)/../cpu-h8300.c	\
 	$(srcdir)/../cpu-i960.c		\
 	$(srcdir)/../archures.c		\
-	$(srcdir)/../elf32.c		\
+	$(srcdir)/../elfcode.h		\
 	$(MKDOC)
 	cat $(srcdir)/../libbfd-in.h >libbfd.h 
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../init.c >>libbfd.h
@@ -202,7 +205,8 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cpu-h8300.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cpu-i960.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../archures.c >>libbfd.h
-	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../elf32.c >>libbfd.h
+	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../elf.c >>libbfd.h
+	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../elfcode.h >>libbfd.h
 
 libcoff.h: $(srcdir)/../libcoff-in.h	\
 	$(srcdir)/../coffcode.h \
@@ -245,7 +249,7 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 clean-info: clean
 
 mostlyclean:
-	rm -rf *.log *.ps *~* *.dvi *# $(MKDOC)
+	rm -rf *.log *.ps *~* *.dvi *# $(MKDOC) *.o
 
 clean: mostlyclean
 	rm -rf $(STAGESTUFF)
@@ -257,16 +261,16 @@ distclean: clean
 realclean: clean
 	rm -f Makefile config.status
 
-bfd.info: $(DOCFILES) bfd.texinfo
-	$(MAKEINFO) -o bfd.info $(srcdir)/bfd.texinfo
+bfd.info: $(DOCFILES) bfdsumm.texi bfd.texinfo
+	$(MAKEINFO) -I$(srcdir) -o bfd.info $(srcdir)/bfd.texinfo
 
-bfd.dvi: $(DOCFILES) bfd.texinfo
+bfd.dvi: $(DOCFILES) bfdsumm.texi bfd.texinfo
 	$(TEXI2DVI) $(srcdir)/bfd.texinfo
 
 bfd.ps: bfd.dvi
 	dvips bfd -o
-	
-quickdoc: $(DOCFILES) bfd.texinfo
+
+quickdoc: $(DOCFILES) bfdsumm.texi bfd.texinfo
 	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex bfd.texinfo
 
 stage1: force

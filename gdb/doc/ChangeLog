@@ -1,3 +1,259 @@
+Fri Jul 30 18:26:21 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Procedures): Improve stuff on nested functions.
+
+Thu Jul 29 15:10:58 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* remote.texi: (MIPS Remote) clearer doc for set/show timeout,
+	retransmit-timeout
+
+Thu Jul 29 13:16:09 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdbint.texinfo: Update statement about `some ancient Unix
+	systems, like Ultrix 4.0' to Ultrix 4.2.
+
+Wed Jul 28 15:26:53 1993  Roland H. Pesch  (pesch@el_bosque.cygnus.com)
+
+	* h8-cfg.texi, all-cfg.texi: new flag GDBSERVER
+
+	* Makefile.in: depend on remote.texi rather than gdbinv-s.texi
+
+	* remote.texi: (Server) New node on gdbserver.  (Remote Serial,
+	ST2000 Remote, MIPS Remote): mention `host:port' syntax for TCP.
+
+	* remote.texi: new name for former gdbinv-s.texi
+
+	* gdb.texinfo: use remote.texi rather than gdbinv-s.texi
+
+Wed Jul 28 08:26:24 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* gdbinv-s.texi: Documented timeout and retransmit-timeout
+	variables for MIPS remote debugging protocol.
+
+Mon Jul 26 13:00:09 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Negative Type Numbers): FORTRAN LOGICAL fix.
+
+Tue Jul 20 16:30:41 1993  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* Makefile.in (refcard.dvi): Use srcdir where necessary.
+
+Mon Jul 19 12:02:50 1993  Roland H. Pesch  (pesch@cygnus.com)
+
+	* gdb.texinfo: repair conditional bugs in text markup
+
+Fri Jul 16 18:57:50 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo, all-cfg.texi, h8-cfg.texi: introduce MOD2 switch
+	to select Modula-2 material.
+
+Thu Jul 15 13:15:01 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo: Cleanups regarding statics.
+
+	* gdbinv-s.texi (Bootstrapping): Document exceptionHandler.
+	(Debug Session): Mention exceptionHandler.  Add xref to Bootstrapping.
+
+Mon Jul 12 13:37:02 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo: N_MAIN is sometimes used for C.
+
+Fri Jul  9 09:47:02 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdbint.texinfo (Host, Target Conditionals): Remove TM_FILE_OVERRIDE.
+
+Tue Jul  6 12:41:28 1993  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo (Target Conditionals): Remove NO_TYPEDEFS,
+	removed from the code by Kingdon. 
+
+Tue Jul  6 12:24:34 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.texinfo (Break Commands): Remove stuff about flushing terminal
+	input when evaluating breakpoint conditions; the bug has been fixed.
+
+	* gdb.texinfo (Continuing and Stepping): Argument to "continue"
+	sets the ignore count to N-1, not to N.
+
+Thu Jul  1 14:57:42 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* refcard.tex (\hoffset): correct longstanding error to match
+	  intended offset; avoids cutting off edge on some printers
+
+Wed Jun 30 18:23:06 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Parameters): Say that order of stabs is significant.
+
+Fri Jun 25 21:34:52 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Common Blocks): Say what Sun FORTRAN does.
+
+Fri Jun 25 16:15:10 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* Makefile.in: (REFEDITS) new var to control whether PS or CM
+	fonts and whether US or A4 paper for GDB refcard; (refcard.dvi)
+	collect sed edits if any, apply to refcard before formatting;
+	(refcard.ps) stop implying PS fonts if PS output requested;
+	(lrefcard.ps) delete extra target for variant PS fonts
+
+	* refcard.tex: parametrize papersize dependent info, collect
+	  in easily replaced spot
+
+	* a4rc.sed: new file, edits to refcard for A4 paper
+
+Fri Jun 25 14:21:46 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Negative Type Numbers): Type -16 is 4 bytes.
+
+Wed Jun 23 15:02:50 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Negative Type Numbers): Minor character cleanups.
+
+Tue Jun 22 16:31:52 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo: Express disapproval of 'D' symbol descriptor
+	politely rather than rudely.
+
+Mon Jun 21 12:31:01 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* snapshots.readme: Tell people to always report missing files.
+
+Fri Jun 18 19:42:09 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo: Document common blocks.
+
+Fri Jun 18 12:12:57 1993  Fred Fish  (fnf@cygnus.com)
+
+	* stabs.texinfo:  Add some basic info about stabs-in-elf.
+
+Fri Jun 18 13:57:09 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Top): Minor cleanup.
+
+Mon Jun 14 16:16:51 1993  david d `zoo' zuhn  (zoo at rtl.cygnus.com)
+
+	* Makefile.in (install-info): remove parentdir support
+
+Tue Jun 15 18:11:39 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo (Copying): delete this node and references to it;
+	RMS says this manual need not carry GPL. (passim): Improvements
+	from last round at FSF, largely due to Ian Taylor review, and
+	minor formatting improvements.
+
+	* gdbinv-s.texi (passim): Improvements from last round at FSF,
+	largely due to Ian Taylor review. (Debug Session): minor edits to
+	new text.
+
+Sun Jun 13 12:52:39 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* Makefile.in (realclean): Remove info and dvi files too.
+
+Sat Jun 12 16:09:22 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* {all,h8}-config.texi: Rename to *-cfg.texi for 14 char filenames.
+	* Makefile.in: Change accordingly.  gdb-config.texi -> gdb-cfg.texi.
+	* gdb.texinfo: Change accordingly.
+
+	* stabs.texinfo: Clean up N_{L,R}BRAC.  Discuss what addresses of
+	N_{L,R}BRAC,N_SLINE are relative to.
+
+Fri Jun 11 15:15:55 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* Makefile.in (GDBvn.texi): Update atomically.
+
+Wed Jun  9 10:58:16 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* gdbinv-s.texi (Debug Session): Document exceptionHook.
+
+Tue Jun  8 13:42:04 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* gdb.texinfo (Print Settings): Move all stuff relating to symbolic
+	addresses together.  Also motivate the set print symbol-filename
+	command and suggest other solutions.
+
+Tue Jun  1 22:46:43 1993  Fred Fish  (fnf@cygnus.com)
+
+	* gdb.texinfo (set print elements):  Note that the number of
+	elements is set to unlimited by "set print elements 0".
+
+Mon May 31 08:06:55 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stabs.texinfo (Builtin Type Descriptors): Try to clarify what
+	NF_LDOUBLE means.
+	(Stab Types): Include Solaris stab types.
+	(Procedures): Document Solaris extensions.
+
+Thu May 27 06:20:42 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.texinfo:  Add `set print symbol-filename' doc.
+
+Wed May 26 00:26:42 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Arrays): Talk about type definition vs. type
+	information.
+
+	* stabs.texinfo (Builtin Type Descriptors): Talk about omitting
+	the trailing semicolon.
+
+Tue May 25 14:49:42 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Line Numbers, Source Files): Re-write these two nodes
+	and merge in other parts of the document addressing these subjects.
+	gdbint.texinfo (XCOFF): Remove info which is now in stabs.texinfo.
+
+	* stabs.texinfo (Subranges, Arrays): Try to explain about the semicolon
+	at the end of a range type.
+
+	* stabs.texinfo (Subranges): "A offset" and "T offset" are not
+	AIX extensions.
+
+Mon May 24 11:09:06 1993  Fred Fish  (fnf@cygnus.com)
+
+	* snapshots.readme:  Clarify when obvious and non-obvious bugs
+	should be reported.
+
+Mon May 24 09:00:33 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Stabs Format):  Misc fixes.
+
+Sat May 22 10:40:56 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Constants):  Allow an `e' constant to be non-enum.
+	(Traditional builtin types): Document convex convention for long long.
+	(Negative builtin types): Discuss type names, and misc fixes.
+
+Fri May 21 11:20:31 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Builtin Type Descriptors): Document the floating
+	point types used with @samp{R} type descriptor.
+	(Symbol Descriptors): Describe how to handle conflict between
+	different meanings of @samp{P} symbol descriptor.
+
+Thu May 20 13:35:10 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo: Remove node Quick Reference and put its children
+	directly under the main menu.
+
+	* stabs.texinfo: Many more changes to bring it into line with
+	AIX documentation and reality.  I think it now has all the
+	information from the AIX documentation, except that I burned
+	out when I got to variant records (Pascal and Modula-2) and
+	all the COBOL types.  Oh well, we can add them later when we're
+	worrying more about those languages.
+
+	* stabs.texinfo (Automatic variables): Talk about what it means
+	to omit the symbol descriptor.
+
+Tue May 18 17:59:18 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Parameters): Add "(sometimes)" when describing
+	gcc2 behavior with promoted args.
+
+Fri May 14 21:35:29 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo: include readline appendices in info version of manual
+
 Fri May  7 11:56:18 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
 
 	* gdbinv-s.texi (Remote Serial): describe new ^C behavior in
@@ -359,3 +615,10 @@ Thu Dec  5 22:46:12 1991  K. Richard Pixley  (rich at rtl.cygnus.com)
 	  and shift gpl to v2.  Added ChangeLog if it didn't exist. docdir
 	  and mandir now keyed off datadir by default.
 
+
+Local Variables:
+mode: indented-text
+left-margin: 8
+fill-column: 74
+version-control: never
+End:

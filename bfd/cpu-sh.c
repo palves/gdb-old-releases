@@ -36,6 +36,7 @@ CONST char *string)
 }
 
 
+#if 0
 /* This routine is provided two arch_infos and returns whether
    they'd be compatible */
 
@@ -48,23 +49,25 @@ DEFUN(compatible,(a,b),
    return NULL;
   return a;
 }
-
+#endif
 
 static bfd_arch_info_type arch_info_struct[] = 
 { 
-  32,				/* 32 bits in a word */
-  32,				/* 32 bits in an address */
-  8,				/* 8 bits in a byte */
-  bfd_arch_sh,
-  0,				/* only 1 machine */
-  "SH",				/* arch_name  */
-  "SH",				/* printable name */
-  1,
-  true,				/* the default machine */
-  bfd_default_compatible,
-  scan_mach,
-  0,
-  0,
+  {
+    32,				/* 32 bits in a word */
+    32,				/* 32 bits in an address */
+    8,				/* 8 bits in a byte */
+    bfd_arch_sh,
+    0,				/* only 1 machine */
+    "SH",			/* arch_name  */
+    "SH",			/* printable name */
+    1,
+    true,			/* the default machine */
+    bfd_default_compatible,
+    scan_mach,
+    0,
+    0,
+  },
 };
 
 

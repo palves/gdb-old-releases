@@ -1,5 +1,4 @@
 CC = cc -Wf,-XNg1000
-INSTALL = cp
 
 # for X11, since the native DECwindows include files are really broken when
 # it comes to function prototypes.  

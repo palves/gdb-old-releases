@@ -1,6 +1,33 @@
 		What has changed since GDB-3.5?
 		(Organized release by release)
 
+*** Changes in GDB-4.10:
+
+ * User visible changes:
+
+Remote debugging using the GDB-specific (`target remote') protocol now
+supports the `load' command.  This is only useful if you have some
+other way of getting the stub to the target system, and you can put it
+somewhere in memory where it won't get clobbered by the download.
+
+Filename completion now works.
+
+When run under emacs mode, the "info line" command now causes the
+arrow to point to the line specified.  Also, "info line" prints
+addresses in symbolic form (as well as hex).
+
+All vxworks based targets now support a user settable option, called
+vxworks-timeout.  This option represents the number of seconds gdb
+should wait for responses to rpc's.  You might want to use this if
+your vxworks target is, perhaps, a slow software simulator or happens
+to be on the far side of a thin network line.
+
+ * DEC alpha support
+
+This release contains support for using a DEC alpha as a GDB host for
+cross debugging.  Native alpha debugging is not supported yet.
+
+
 *** Changes in GDB-4.9:
 
  * Testsuite

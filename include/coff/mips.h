@@ -53,7 +53,8 @@ typedef struct external_aouthdr
 
 #define AOUTSZ (sizeof(AOUTHDR))
 
-#define ZMAGIC          0413    /* demand load format, eg normal ld output */
+#define MIPS_AOUT_OMAGIC 0407	/* not demand paged (ld -N).  */
+#define MIPS_AOUT_ZMAGIC 0413	/* demand load format, eg normal ld output */
 
 /********************** SECTION HEADER **********************/
 
@@ -85,6 +86,7 @@ struct external_scnhdr {
 #define _LIT4	".lit4"
 #define _LIT8	".lit8"
 #define _LIB	".lib"
+#define _INIT	".init"
 
 #define DEFAULT_DATA_SECTION_ALIGNMENT 4
 #define DEFAULT_BSS_SECTION_ALIGNMENT 4
@@ -98,9 +100,8 @@ struct external_scnhdr {
 #define STYP_SBSS 0x400
 #define STYP_LIT8 0x8000000
 #define STYP_LIT4 0x10000000
-
-/* I don't know when this is used.  */
-#define STYP_OTHER_LOAD 0x80000000
+#define STYP_MIPS_INIT 0x80000000
+#define STYP_OTHER_LOAD STYP_MIPS_INIT
 
 /********************** RELOCATION DIRECTIVES **********************/
 

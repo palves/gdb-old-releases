@@ -436,7 +436,7 @@ set_internalvar_component (var, offset, bitpos, bitsize, newval)
 #endif
 
   if (bitsize)
-    modify_field (addr, (int) value_as_long (newval),
+    modify_field (addr, value_as_long (newval),
 		  bitpos, bitsize);
   else
     memcpy (addr, VALUE_CONTENTS (newval), TYPE_LENGTH (VALUE_TYPE (newval)));
@@ -605,132 +605,22 @@ unpack_long (type, valaddr)
 	  error ("Unexpected type of floating point number.");
 	}
     }
-  else if (code == TYPE_CODE_INT && nosign)
+  else if ((code == TYPE_CODE_INT || code == TYPE_CODE_CHAR) && nosign)
     {
-      if (len == sizeof (char))
-	{
-	  unsigned char retval = * (unsigned char *) valaddr;
-	  /* SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned char)); */
-	  return retval;
-	}
-
-      if (len == sizeof (short))
-	{
-	  unsigned short retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-
-      if (len == sizeof (int))
-	{
-	  unsigned int retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-
-      if (len == sizeof (long))
-	{
-	  unsigned long retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-#ifdef CC_HAS_LONG_LONG
-      if (len == sizeof (long long))
-	{
-	  unsigned long long retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-#endif
-      else
-	{
-	  error ("That operation is not possible on an integer of that size.");
-	}
+      return extract_unsigned_integer (valaddr, len);
     }
-  else if (code == TYPE_CODE_INT)
+  else if (code == TYPE_CODE_INT || code == TYPE_CODE_CHAR)
     {
-      if (len == sizeof (char))
-	{
-	  SIGNED char retval;	/* plain chars might be unsigned on host */
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-
-      if (len == sizeof (short))
-	{
-	  short retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-
-      if (len == sizeof (int))
-	{
-	  int retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-
-      if (len == sizeof (long))
-	{
-	  long retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-
-#ifdef CC_HAS_LONG_LONG
-      if (len == sizeof (long long))
-	{
-	  long long retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-#endif
-      else
-	{
-	  error ("That operation is not possible on an integer of that size.");
-	}
+      return extract_signed_integer (valaddr, len);
     }
   /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
      whether we want this to be true eventually.  */
   else if (code == TYPE_CODE_PTR || code == TYPE_CODE_REF)
     {
-      if (len == sizeof(long))
-      {
-	unsigned long retval;
-	memcpy (&retval, valaddr, sizeof(retval));
-	SWAP_TARGET_AND_HOST (&retval, sizeof(retval));
-	return retval;
-      }
-      else if (len == sizeof(short))
-      {
-	unsigned short retval;
-	memcpy (&retval, valaddr, len);
-	SWAP_TARGET_AND_HOST (&retval, len);
-	return retval;
-      }
-#ifdef CC_HAS_LONG_LONG
-      else if (len == sizeof(long long))
-      {
-	unsigned long long retval;
-	memcpy (&retval, valaddr, len);
-	SWAP_TARGET_AND_HOST (&retval, len);
-	return retval;
-      }
-#endif
+      return extract_address (valaddr, len);
     }
   else if (code == TYPE_CODE_MEMBER)
     error ("not implemented: member types in unpack_long");
-  else if (code == TYPE_CODE_CHAR)
-    return *(unsigned char *)valaddr;
 
   error ("Value not integer or pointer.");
   return 0; 	/* For lint -- never reached */
@@ -809,34 +699,9 @@ unpack_pointer (type, valaddr)
      struct type *type;
      char *valaddr;
 {
-#if 0
-  /* The user should be able to use an int (e.g. 0x7892) in contexts
-     where a pointer is expected.  So this doesn't do enough.  */
-  register enum type_code code = TYPE_CODE (type);
-  register int len = TYPE_LENGTH (type);
-
-  if (code == TYPE_CODE_PTR
-      || code == TYPE_CODE_REF)
-    {
-      if (len == sizeof (CORE_ADDR))
-	{
-	  CORE_ADDR retval;
-	  memcpy (&retval, valaddr, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
-      error ("Unrecognized pointer size.");
-    }
-  else if (code == TYPE_CODE_MEMBER)
-    error ("not implemented: member types in unpack_pointer");
-
-  error ("Value is not a pointer.");
-  return 0; 	/* For lint -- never reached */
-#else
   /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
      whether we want this to be true eventually.  */
   return unpack_long (type, valaddr);
-#endif
 }
 
 /* Given a value ARG1 (offset by OFFSET bytes)
@@ -1126,6 +991,56 @@ value_from_vtable_info (arg, type)
   return value_headof (arg, 0, type);
 }
 
+/* Return true if the INDEXth field of TYPE is a virtual baseclass
+   pointer which is for the base class whose type is BASECLASS.  */
+
+static int
+vb_match (type, index, basetype)
+     struct type *type;
+     int index;
+     struct type *basetype;
+{
+  struct type *fieldtype;
+  struct type *fieldtype_target_type;
+  char *name = TYPE_FIELD_NAME (type, index);
+  char *field_class_name = NULL;
+
+  if (*name != '_')
+    return 0;
+  /* gcc 2.4 uses _vb$.  */
+  if (name[1] == 'v' && name[2] == 'b' && name[3] == CPLUS_MARKER)
+    field_class_name = name + 4;
+  /* gcc 2.5 will use __vb_.  */
+  if (name[1] == '_' && name[2] == 'v' && name[3] == 'b' && name[4] == '_')
+    field_class_name = name + 5;
+
+  if (field_class_name == NULL)
+    /* This field is not a virtual base class pointer.  */
+    return 0;
+
+  /* It's a virtual baseclass pointer, now we just need to find out whether
+     it is for this baseclass.  */
+  fieldtype = TYPE_FIELD_TYPE (type, index);
+  if (fieldtype == NULL
+      || TYPE_CODE (fieldtype) != TYPE_CODE_PTR)
+    /* "Can't happen".  */
+    return 0;
+
+  /* What we check for is that either the types are equal (needed for
+     nameless types) or have the same name.  This is ugly, and a more
+     elegant solution should be devised (which would probably just push
+     the ugliness into symbol reading unless we change the stabs format).  */
+  if (TYPE_TARGET_TYPE (fieldtype) == basetype)
+    return 1;
+
+  if (TYPE_NAME (basetype) != NULL
+      && TYPE_NAME (TYPE_TARGET_TYPE (fieldtype)) != NULL
+      && STREQ (TYPE_NAME (basetype),
+		TYPE_NAME (TYPE_TARGET_TYPE (fieldtype))))
+    return 1;
+  return 0;
+}
+
 /* Compute the offset of the baseclass which is
    the INDEXth baseclass of class TYPE, for a value ARG,
    wih extra offset of OFFSET.
@@ -1148,15 +1063,12 @@ baseclass_offset (type, index, arg, offset)
       /* Must hunt for the pointer to this virtual baseclass.  */
       register int i, len = TYPE_NFIELDS (type);
       register int n_baseclasses = TYPE_N_BASECLASSES (type);
-      char *vbase_name, *type_name = type_name_no_tag (basetype);
 
-      vbase_name = (char *)alloca (strlen (type_name) + 8);
-      sprintf (vbase_name, "_vb%c%s", CPLUS_MARKER, type_name);
       /* First look for the virtual baseclass pointer
 	 in the fields.  */
       for (i = n_baseclasses; i < len; i++)
 	{
-	  if (STREQ (vbase_name, TYPE_FIELD_NAME (type, i)))
+	  if (vb_match (type, i, basetype))
 	    {
 	      CORE_ADDR addr
 		= unpack_pointer (TYPE_FIELD_TYPE (type, i),
@@ -1216,15 +1128,12 @@ baseclass_addr (type, index, valaddr, valuep, errp)
       /* Must hunt for the pointer to this virtual baseclass.  */
       register int i, len = TYPE_NFIELDS (type);
       register int n_baseclasses = TYPE_N_BASECLASSES (type);
-      char *vbase_name, *type_name = type_name_no_tag (basetype);
 
-      vbase_name = (char *)alloca (strlen (type_name) + 8);
-      sprintf (vbase_name, "_vb%c%s", CPLUS_MARKER, type_name);
       /* First look for the virtual baseclass pointer
 	 in the fields.  */
       for (i = n_baseclasses; i < len; i++)
 	{
-	  if (STREQ (vbase_name, TYPE_FIELD_NAME (type, i)))
+	  if (vb_match (type, i, basetype))
 	    {
 	      value val = allocate_value (basetype);
 	      CORE_ADDR addr;
@@ -1305,8 +1214,7 @@ unpack_field_as_long (type, valaddr, fieldno)
   int bitsize = TYPE_FIELD_BITSIZE (type, fieldno);
   int lsbcount;
 
-  memcpy (&val, valaddr + bitpos / 8, sizeof (val));
-  SWAP_TARGET_AND_HOST (&val, sizeof (val));
+  val = extract_unsigned_integer (valaddr + bitpos / 8, sizeof (val));
 
   /* Extract bits.  See comment above. */
 
@@ -1343,34 +1251,36 @@ unpack_field_as_long (type, valaddr, fieldno)
 void
 modify_field (addr, fieldval, bitpos, bitsize)
      char *addr;
-     int fieldval;
+     LONGEST fieldval;
      int bitpos, bitsize;
 {
-  long oword;
+  LONGEST oword;
 
   /* Reject values too big to fit in the field in question,
      otherwise adjoining fields may be corrupted.  */
   if (bitsize < (8 * sizeof (fieldval))
       && 0 != (fieldval & ~((1<<bitsize)-1)))
-    error ("Value %d does not fit in %d bits.", fieldval, bitsize);
-  
-  memcpy (&oword, addr, sizeof oword);
-  SWAP_TARGET_AND_HOST (&oword, sizeof oword);		/* To host format */
+    {
+      /* FIXME: would like to include fieldval in the message, but
+	 we don't have a sprintf_longest.  */
+      error ("Value does not fit in %d bits.", bitsize);
+    }
+
+  oword = extract_signed_integer (addr, sizeof oword);
 
   /* Shifting for bit field depends on endianness of the target machine.  */
 #if BITS_BIG_ENDIAN
   bitpos = sizeof (oword) * 8 - bitpos - bitsize;
 #endif
 
-  /* Mask out old value, while avoiding shifts >= longword size */
+  /* Mask out old value, while avoiding shifts >= size of oword */
   if (bitsize < 8 * sizeof (oword))
-    oword &= ~(((((unsigned long)1) << bitsize) - 1) << bitpos);
+    oword &= ~(((((unsigned LONGEST)1) << bitsize) - 1) << bitpos);
   else
-    oword &= ~((-1) << bitpos);
+    oword &= ~((~(unsigned LONGEST)0) << bitpos);
   oword |= fieldval << bitpos;
 
-  SWAP_TARGET_AND_HOST (&oword, sizeof oword);		/* To target format */
-  memcpy (addr, &oword, sizeof oword);
+  store_signed_integer (addr, sizeof oword, oword);
 }
 
 /* Convert C numbers into newly allocated values */
@@ -1384,32 +1294,25 @@ value_from_longest (type, num)
   register enum type_code code = TYPE_CODE (type);
   register int len = TYPE_LENGTH (type);
 
-  /* FIXME, we assume that pointers have the same form and byte order as
-     integers, and that all pointers have the same form.  */
-  if (code == TYPE_CODE_INT  || code == TYPE_CODE_ENUM || 
-      code == TYPE_CODE_CHAR || code == TYPE_CODE_PTR ||
-      code == TYPE_CODE_REF  || code == TYPE_CODE_BOOL)
+  switch (code)
     {
-      if (len == sizeof (char))
-	* (char *) VALUE_CONTENTS_RAW (val) = num;
-      else if (len == sizeof (short))
-	* (short *) VALUE_CONTENTS_RAW (val) = num;
-      else if (len == sizeof (int))
-	* (int *) VALUE_CONTENTS_RAW (val) = num;
-      else if (len == sizeof (long))
-	* (long *) VALUE_CONTENTS_RAW (val) = num;
-      else if (len == sizeof (LONGEST))
-	* (LONGEST *) VALUE_CONTENTS_RAW (val) = num;
-      else
-	error ("Integer type encountered with unexpected data length.");
+    case TYPE_CODE_INT:
+    case TYPE_CODE_CHAR:
+    case TYPE_CODE_ENUM:
+    case TYPE_CODE_BOOL:
+      store_signed_integer (VALUE_CONTENTS_RAW (val), len, num);
+      break;
+      
+    case TYPE_CODE_REF:
+    case TYPE_CODE_PTR:
+      /* This assumes that all pointers of a given length
+	 have the same form.  */
+      store_address (VALUE_CONTENTS_RAW (val), len, (CORE_ADDR) num);
+      break;
+
+    default:
+      error ("Unexpected type encountered for integer constant.");
     }
-  else
-    error ("Unexpected type encountered for integer constant.");
-
-  /* num was in host byte order.  So now put the value's contents
-     into target byte order.  */
-  SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (val), len);
-
   return val;
 }
 

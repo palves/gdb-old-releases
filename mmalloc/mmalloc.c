@@ -258,7 +258,12 @@ mmalloc (md, size)
 		  mdp -> morecore (mdp, 0) == ADDRESS(block + lastblocks) &&
 		  (morecore (mdp, (blocks - lastblocks) * BLOCKSIZE)) != NULL)
 		{
-		  mdp -> heapinfo[block].free.size = blocks;
+		  /* Which block we are extending (the `final free
+		     block' referred to above) might have changed, if
+		     it got combined with a freed info table.  */
+		  block = mdp -> heapinfo[0].free.prev;
+
+		  mdp -> heapinfo[block].free.size += (blocks - lastblocks);
 		  mdp -> heapstats.bytes_free +=
 		      (blocks - lastblocks) * BLOCKSIZE;
 		  continue;

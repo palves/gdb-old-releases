@@ -109,8 +109,19 @@ struct cmd_list_element
        otherwise wouldn't.  */
     char abbrev_flag;
 
-    /* Completion routine for this command.  */
-    char ** (*completer) PARAMS ((char *text));
+    /* Completion routine for this command.  TEXT is the text beyond
+       what was matched for the command itself (leading whitespace is
+       skipped).  It stops where we are supposed to stop completing
+       (rl_point) and is '\0' terminated.
+
+       Return value is a malloc'd vector of pointers to possible completions
+       terminated with NULL.  If there are no completions, returning a pointer
+       to a NULL would work but returning NULL itself is also valid.
+       WORD points in the same buffer as TEXT, and completions should be
+       returned relative to this position.  For example, suppose TEXT is "foo"
+       and we want to complete to "foobar".  If WORD is "oo", return
+       "oobar"; if WORD is "baz/foo", return "baz/foobar".  */
+    char ** (*completer) PARAMS ((char *text, char *word));
 
     /* Type of "set" or "show" command (or SET_NOT_SET if not "set"
        or "show").  */
@@ -176,8 +187,8 @@ add_info PARAMS ((char *, void (*fun) (char *, int), char *));
 extern void
 add_info_alias PARAMS ((char *, char *, int));
 
-extern char **
-complete_on_cmdlist PARAMS ((struct cmd_list_element *, char *));
+extern char **complete_on_cmdlist PARAMS ((struct cmd_list_element *,
+					   char *, char *));
 
 extern void
 delete_cmd PARAMS ((char *, struct cmd_list_element **));

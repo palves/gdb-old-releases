@@ -1,4 +1,4 @@
-/*** coff information for Hitachi H8/300 */
+/*** coff information for Hitachi H8/300 and H8/300-H */
 
 /********************** FILE HEADER **********************/
 
@@ -15,9 +15,11 @@ struct external_filehdr {
 
 
 #define	H8300MAGIC	0x8300
+#define	H8300HMAGIC	0x8301
 
 
 #define H8300BADMAG(x) (((x).f_magic!=H8300MAGIC))
+#define H8300HBADMAG(x) (((x).f_magic!=H8300HMAGIC))
 
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)

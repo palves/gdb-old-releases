@@ -124,7 +124,7 @@ typedef enum
 #define RS	39
 #define SP	40
 typedef enum { AC_BAD, AC_EI, AC_RI, AC_D, AC_,AC_ERR, AC_X,AC_B, AC_EE,AC_RR,AC_IE,
- AC_RE,AC_E, AC_I, AC_ER,AC_IRR, AC_IR, AC_RER, AC_ERE,AC_EIE, } addr_class_type; 
+ AC_RE,AC_E, AC_I, AC_ER,AC_IRR, AC_IR, AC_RER, AC_ERE,AC_EIE } addr_class_type; 
 typedef struct {
 	short int idx;
 	char flags,src1,src2,dst;
@@ -1623,7 +1623,7 @@ h8500_opcode_info h8500_table[]
 {9,'a','E','!','!',O_TST|O_WORD,"tst.w",1,{RNIND_D8,0},3,	{{0xe8,0xf8,RN },{0x00,0x00,DISP8 },{0x16,0xff, }}},
 {10,'a','E','!','!',O_TST|O_BYTE,"tst.b",1,{RNIND_D16,0},4,	{{0xf0,0xf8,RN },{0x00,0x00,DISP16 },{0x00,0x00, },{0x16,0xff, }}},
 {24,'a','E','D','D',O_SUB|O_WORD,"sub.w",2,{RNIND_D16,RD},4,	{{0xf8,0xf8,RN },{0x00,0x00,DISP16 },{0x00,0x00, },{0x30,0xf8,RD }}},
-{16,'m','D','!','D',O_SWAP|O_BYTE,"swap.b",1,{RD,0},2,	{{0xa0,0xf8,RD },{0x10,0xff, }}},
+{16,'m','D','!','D',O_SWAP|O_WORD,"swap.b",1,{RD,0},2,	{{0xa0,0xf8,RD },{0x10,0xff, }}},
 {14,'s','E','!','E',O_TAS|O_BYTE,"tas.b",1,{RN,0},2,	{{0xa0,0xf8,RN },{0x17,0xff, }}},
 {24,'a','E','D','D',O_SUB|O_WORD,"sub.w",2,{RN,RD},2,	{{0xa8,0xf8,RN },{0x30,0xf8,RD }}},
 {18,'a','E','D','D',O_SUBX|O_WORD,"subx.w",2,{RN,RD},2,	{{0xa8,0xf8,RN },{0xb0,0xf8,RD }}},

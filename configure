@@ -20,7 +20,7 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 # Please email any bugs, comments, and/or additions to this file to:
-# configure@cygnus.com
+# bug-gdb@prep.ai.mit.edu
 
 # This file was written by K. Richard Pixley.
 
@@ -85,8 +85,12 @@ subdirs=
 target_alias=
 target_makefile_frag=
 undefinedargs=
-version="$Revision: 1.155 $"
+version="$Revision: 1.165 $"
 x11=default
+
+### we might need to use some other shell than /bin/sh for running subshells
+#
+config_shell=${CONFIG_SHELL-}
 
 NO_EDIT="This file was generated automatically by configure.  Do not edit."
 
@@ -111,13 +115,13 @@ case "${progname}" in
         ;;
 esac
 
-for arg in $*;
+for arg in $*
 do
         # handle things that might have args following as separate words
         if [ -n "${next_prefix}" ] ; then prefix=${arg} ; prefixoption="-prefix=${prefix}" ; next_prefix=
         elif [ -n "${next_exec_prefix}" ] ; then
                 exec_prefix=${arg}
-                exec_prefixoption="-exec_prefix=${exec_prefix}"
+                exec_prefixoption="-exec-prefix=${exec_prefix}"
                 next_exec_prefix=
         elif [ -n "${next_site}" ] ; then site=${arg} ; site_option=-site=${site} ; next_site=
         # remove any possible trailing slash from srcdir.  See note below.
@@ -323,11 +327,9 @@ case "${fatal}" in
                 echo '***' Can only configure for one host and one target at a time.  1>&2
                 fatal=yes
         elif [ -z "${host_alias}" -a -z "${undefs}" ] ; then
-                echo '- You did not tell me what kind of host system you want to configure.
-- I will attempt to guess the kind of system this is.' 1>&2
                 guesssys=`echo ${progname} | sed 's/configure$/config.guess/'`
                 if tmp_alias=`${guesssys}` ; then
-                        echo "- Looks like this is a ${tmp_alias}" 1>&2
+                        echo "Configuring for a ${tmp_alias} host." 1>&2
                         host_alias=${tmp_alias}
 			case "${target_alias}" in
 			"") target_alias=${tmp_alias} ;;
@@ -335,7 +337,7 @@ case "${fatal}" in
 			esac
 			arguments="--host=${host_alias} ${arguments}"
                 else
-                        echo '- Failed to guess the system type.  You need to tell me.' 1>&2
+                        echo 'Config.guess failed to determine the host type.  You need to specify one.' 1>&2
                         fatal=yes
                 fi
         else
@@ -772,18 +774,6 @@ EOF
                 echo site_makefile_frag = ${invsubdir}${site_makefile_frag} >>${Makefile}
             fi 
 
-            # fixme: this shouldn't be in configure.
-            # Define macro CROSS_COMPILE in compilation if this is a cross-compiler.
-            case "${host_alias}" in
-              "${target_alias}")
-                      echo "ALL=all.internal" >> ${Makefile}
-                      ;;
-              *)
-                      echo "CROSS=-DCROSS_COMPILE" >> ${Makefile}
-                      echo "ALL=all.cross" >> ${Makefile}
-                      ;;
-            esac
-
             # reset prefix, exec_prefix, srcdir, SUBDIRS, NONSUBDIRS,
             # remove any form feeds.
             if [ -z "${subdirs}" ]; then
@@ -806,7 +796,7 @@ EOF
             # final copy now in ${Makefile}
 
         else
-           echo "No Makefile.in found in ${srcdir}, unable to configure" 1>&2
+           echo "No Makefile.in found in ${srcdir}/${subdir}, unable to configure" 1>&2
         fi
 
         rm -f ${subdir}/Makefile.tem
@@ -906,21 +896,26 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
 ### check for guested configure, otherwise fix possibly relative progname
                         if [ -f ${newsrcdir}/configure ] ; then
                                 recprog=${newsrcdir}/configure
-                        else
+                        elif [ -f ${newsrcdir}/configure.in ] ; then
                                 case "${progname}" in
                                 /*)     recprog=${progname} ;;
                                 *)      recprog=../${progname} ;;
                                 esac
+			else
+				eval echo No configuration information in ${configdir} ${redirect}
+				recprog=
                         fi
 
 ### The recursion line is here.
-                        if eval ${recprog} ${verbose} --host=${host_alias} --target=${target_alias} \
-                                ${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
-                                ${srcdiroption} ${program_prefixoption} ${program_suffixoption} ${program_transform_nameoption} ${site_option} ${withoptions} ${withoutoptions} ${removing} ${redirect} ; then
-                                true
-                        else
-                                exit 1
-                        fi
+			if [ ! -z "${recprog}" ] ; then
+	                        if eval ${config_shell} ${recprog} ${verbose} --host=${host_alias} --target=${target_alias} \
+        	                        ${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
+                	                ${srcdiroption} ${program_prefixoption} ${program_suffixoption} ${program_transform_nameoption} ${site_option} ${withoptions} ${withoutoptions} ${removing} ${redirect} ; then
+	                                true
+        	                else
+                	                exit 1
+                        	fi
+			fi
 
                         cd ${POPDIR}
                 fi

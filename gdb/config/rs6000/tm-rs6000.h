@@ -31,7 +31,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define BELIEVE_PCC_PROMOTION 1
 
 /* return true if a given `pc' value is in `call dummy' function. */
-
+/* FIXME: This just checks for the end of the stack, which is broken
+   for things like stepping through gcc nested function stubs.  */
 #define	PC_IN_CALL_DUMMY(STOP_PC, STOP_SP, STOP_FRAME_ADDR)	\
 	(STOP_SP < STOP_PC && STOP_PC < STACK_END_ADDR)
 
@@ -121,7 +122,6 @@ function_frame_info PARAMS ((CORE_ADDR, struct aix_framedata *));
    if ((W)==0x57c && breakpoints_inserted) {	\
      mark_breakpoints_out ();		\
      insert_breakpoints ();		\
-     insert_step_breakpoint ();		\
    }					\
    resume (0, 0);			\
    continue;				\

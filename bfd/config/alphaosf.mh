@@ -1,1 +1,3 @@
 HDEFINES=-DHOST_64_BIT="long "
+CFLAGS=-non_shared -g
+

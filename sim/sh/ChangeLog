@@ -1,3 +1,24 @@
+Mon Aug  2 14:13:22 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* interp.c (get_now): Use time system call.
+	* Makefile.in: install correctly.
+
+Tue Jul  6 10:30:46 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* run.c (main), interp.c (sim_set_timeout): Remove timeout
+	functionality.
+
+Thu Jun 24 13:29:57 1993  david d `zoo' zuhn  (zoo at rtl.cygnus.com)
+
+	* Makefile.in: don't run indent everytime; also add a space in the
+	includes 
+
+Thu Jun 17 18:30:42 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	* gencode.c: Fix some opcodes.
+	* interp.c: Support for profiling and portability fixes.
+	* run.c (main): Get profiling args.
+
 Wed May  5 13:17:22 1993  Steve Chamberlain  (sac@cygnus.com)
 
 	* gencode.c (tab): Lint for sgi compiler

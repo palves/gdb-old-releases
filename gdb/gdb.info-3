@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb: (gdb).                   The GNU debugger.
+* Gdb::                         The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.9.
+Source-Level Debugger' for GDB Version 4.10.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
 Foundation, Inc.
@@ -18,16 +18,12 @@ preserved on all copies.
 
    Permission is granted to copy and distribute modified versions of
 this manual under the conditions for verbatim copying, provided also
-that the section entitled "GNU General Public License" is included
-exactly as in the original, and provided that the entire resulting
-derived work is distributed under the terms of a permission notice
-identical to this one.
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
 
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
-versions, except that the section entitled "GNU General Public License"
-may be included in a translation approved by the Free Software
-Foundation instead of in the original English.
+versions.
 
 
 File: gdb.info,  Node: Selection,  Next: Frame Info,  Prev: Backtrace,  Up: Stack
@@ -937,6 +933,39 @@ These settings are useful for debugging programs in any language:
 `show print address'
      Show whether or not addresses are to be printed.
 
+   When GDB prints a symbolic address, it normally prints the closest
+earlier symbol plus an offset.  If that symbol does not uniquely
+identify the address (for example, it is a name whose scope is a single
+source file), you may need to disambiguate.  One way to do this is with
+`info line', for example `info line *0x4537'.  Alternately, you can set
+GDB to print the source file and line number when it prints a symbolic
+address:
+
+`set print symbol-filename on'
+     Tell GDB to print the source file name and line number of a symbol
+     in the symbolic form of an address.
+
+`set print symbol-filename off'
+     Do not print source file name and line number of a symbol.  This
+     is the default.
+
+`show print symbol-filename'
+     Show whether or not GDB will print the source file name and line
+     number of a symbol in the symbolic form of an address.
+
+   Also, you may wish to see the symbolic form only if the address being
+printed is reasonably close to the closest earlier symbol:
+
+`set print max-symbolic-offset MAX-OFFSET'
+     Tell GDB to only display the symbolic form of an address if the
+     offset between the closest earlier symbol and the address is less
+     than MAX-OFFSET.  The default is 0, which means to always print the
+     symbolic form of an address, if any symbol precedes it.
+
+`show print max-symbolic-offset'
+     Ask how large the maximum offset is that GDB will print in a
+     symbolic address.
+
 `set print array'
 `set print array on'
      GDB will pretty-print arrays.  This format is more convenient to
@@ -953,6 +982,8 @@ These settings are useful for debugging programs in any language:
      If GDB is printing a large array, it will stop printing after it
      has printed the number of elements set by the `set print elements'
      command.  This limit also applies to the display of strings.
+     Setting the number of elements to zero means that the printing is
+     unlimited.
 
 `show print elements'
      Display the number of elements of a large array that GDB will print
@@ -1030,16 +1061,6 @@ These settings are useful for debugging programs in any language:
      and with `set print union off' in effect it would print
 
           $1 = {it = Tree, form = {...}}
-
-`set print max-symbolic-offset MAXOFF'
-     Tell GDB to only display the symbolic form of an address if the
-     offset between the closest earlier symbol and the address is less
-     than MAXOFF.  The default is 0, which means to always print the
-     symbolic form of an address, if any symbol precedes it.
-
-`show print max-symbolic-offset'
-     Ask how large the maximum offset is that GDB will print in a
-     symbolic address.
 
 These settings are of interest when debugging C++ programs:
 

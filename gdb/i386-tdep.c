@@ -115,42 +115,48 @@ codestream_read (buf, count)
 static void
 i386_follow_jump ()
 {
-  int long_delta;
-  short short_delta;
-  char byte_delta;
+  unsigned char buf[4];
+  long delta;
+
   int data16;
-  int pos;
-  
+  CORE_ADDR pos;
+
   pos = codestream_tell ();
-  
+
   data16 = 0;
   if (codestream_peek () == 0x66)
     {
       codestream_get ();
       data16 = 1;
     }
-  
+
   switch (codestream_get ())
     {
     case 0xe9:
       /* relative jump: if data16 == 0, disp32, else disp16 */
       if (data16)
 	{
-	  codestream_read ((unsigned char *)&short_delta, 2);
+	  codestream_read (buf, 2);
+	  delta = extract_signed_integer (buf, 2);
 
 	  /* include size of jmp inst (including the 0x66 prefix).  */
-	  pos += short_delta + 4; 
+	  pos += delta + 4; 
 	}
       else
 	{
-	  codestream_read ((unsigned char *)&long_delta, 4);
-	  pos += long_delta + 5;
+	  codestream_read (buf, 4);
+	  delta = extract_signed_integer (buf, 4);
+
+	  pos += delta + 5;
 	}
       break;
     case 0xeb:
       /* relative jump, disp8 (ignore data16) */
-      codestream_read ((unsigned char *)&byte_delta, 1);
-      pos += byte_delta + 2;
+      codestream_read (buf, 1);
+      /* Sign-extend it.  */
+      delta = extract_signed_integer (buf, 1);
+
+      pos += delta + 2;
       break;
     }
   codestream_seek (pos);
@@ -169,13 +175,13 @@ i386_get_frame_setup (pc)
      int pc;
 {
   unsigned char op;
-  
+
   codestream_seek (pc);
-  
+
   i386_follow_jump ();
-  
+
   op = codestream_get ();
-  
+
   if (op == 0x58)		/* popl %eax */
     {
       /*
@@ -202,11 +208,11 @@ i386_get_frame_setup (pc)
 	pos += 3;
       else if (memcmp (buf, proto2, 4) == 0)
 	pos += 4;
-      
+
       codestream_seek (pos);
       op = codestream_get (); /* update next opcode */
     }
-  
+
   if (op == 0x55)		/* pushl %ebp */
     {			
       /* check for movl %esp, %ebp - can be written two ways */
@@ -249,8 +255,8 @@ i386_get_frame_setup (pc)
 	}
       else if (op == 0x81)
 	{
-	  /* subl with 32 bit immed */
-	  int locals;
+	  char buf[4];
+	  /* Maybe it is subl with 32 bit immedediate.  */
 	  codestream_get();
 	  if (codestream_get () != 0xec)
 	    /* Some instruction starting with 0x81 other than subl.  */
@@ -258,10 +264,9 @@ i386_get_frame_setup (pc)
 	      codestream_seek (codestream_tell () - 2);
 	      return 0;
 	    }
-	  /* subl with 32 bit immediate */
-	  codestream_read ((unsigned char *)&locals, 4);
-	  SWAP_TARGET_AND_HOST (&locals, 4);
-	  return (locals);
+	  /* It is subl with 32 bit immediate.  */
+	  codestream_read ((unsigned char *)buf, 4);
+	  return extract_signed_integer (buf, 4);
 	}
       else
 	{
@@ -270,12 +275,11 @@ i386_get_frame_setup (pc)
     }
   else if (op == 0xc8)
     {
+      char buf[2];
       /* enter instruction: arg is 16 bit unsigned immed */
-      unsigned short slocals;
-      codestream_read ((unsigned char *)&slocals, 2);
-      SWAP_TARGET_AND_HOST (&slocals, 2);
+      codestream_read ((unsigned char *)buf, 2);
       codestream_get (); /* flush final byte of enter instruction */
-      return (slocals);
+      return extract_unsigned_integer (buf, 2);
     }
   return (-1);
 }
@@ -527,25 +531,65 @@ int
 get_longjmp_target(pc)
      CORE_ADDR *pc;
 {
+  char buf[TARGET_PTR_BIT / TARGET_CHAR_BIT];
   CORE_ADDR sp, jb_addr;
 
-  sp = read_register(SP_REGNUM);
+  sp = read_register (SP_REGNUM);
 
-  if (target_read_memory(sp + SP_ARG0, /* Offset of first arg on stack */
-			 (char *) &jb_addr,
-			 sizeof(CORE_ADDR)))
+  if (target_read_memory (sp + SP_ARG0, /* Offset of first arg on stack */
+			  buf,
+			  TARGET_PTR_BIT / TARGET_CHAR_BIT))
     return 0;
 
+  jb_addr = extract_address (buf, TARGET_PTR_BIT / TARGET_CHAR_BIT);
 
-  SWAP_TARGET_AND_HOST(&jb_addr, sizeof(CORE_ADDR));
-
-  if (target_read_memory(jb_addr + JB_PC * JB_ELEMENT_SIZE, (char *) pc,
-			 sizeof(CORE_ADDR)))
+  if (target_read_memory (jb_addr + JB_PC * JB_ELEMENT_SIZE, buf,
+			  TARGET_PTR_BIT / TARGET_CHAR_BIT))
     return 0;
 
-  SWAP_TARGET_AND_HOST(pc, sizeof(CORE_ADDR));
+  *pc = extract_address (buf, TARGET_PTR_BIT / TARGET_CHAR_BIT);
 
   return 1;
 }
 
 #endif /* GET_LONGJMP_TARGET */
+
+#ifdef I386_AIX_TARGET
+/* On AIX, floating point values are returned in floating point registers.  */
+
+void
+i386_extract_return_value(type, regbuf, valbuf)
+     struct type *type;
+     char regbuf[REGISTER_BYTES];
+     char *valbuf;
+{
+  if (TYPE_CODE_FLT == TYPE_CODE(type))
+    {
+      extern struct ext_format ext_format_i387;
+      double d;
+      /* 387 %st(0), gcc uses this */
+      ieee_extended_to_double (&ext_format_i387,
+			       &regbuf[REGISTER_BYTE(FP0_REGNUM)],
+			       &d);
+      switch (TYPE_LENGTH(type))
+	{
+	case 4:			/* float */
+	  {
+	    float f = (float) d;
+	    memcpy (valbuf, &f, 4); 
+	    break;
+	  }
+	case 8:			/* double */
+	  memcpy (valbuf, &d, 8);
+	  break;
+	default:
+	  error("Unknown floating point size");
+	  break;
+	}
+    }
+  else
+    { 
+      memcpy (valbuf, regbuf, TYPE_LENGTH (type)); 
+    }
+}
+#endif /* I386_AIX_TARGET */

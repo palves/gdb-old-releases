@@ -140,13 +140,13 @@ union external_auxent {
 	char  x_size[4];	/* str/union/array size */
       } x_lnsz;
     } x_misc;
-    struct {			/* if ISFCN, tag, or .bb */
-      char x_lnnoptr[4];	/* ptr to fcn line # */
-      char x_endndx[4];		/* entry ndx past block end */
-    } x_fcn;
     
     /* 12 */
     union {
+      struct {			/* if ISFCN, tag, or .bb */
+	char x_lnnoptr[4];	/* ptr to fcn line # */
+	char x_endndx[4];		/* entry ndx past block end */
+      } x_fcn;
       struct {			/* if ISARY, up to 4 dimen. */
 	char x_dimen[E_DIMNUM][2];
       } x_ary;
@@ -177,10 +177,10 @@ union external_auxent {
 
 };
 
-#define GET_FCN_LNNOPTR(abfd, ext) bfd_h_get_32(abfd, (bfd_byte *)ext->x_sym.x_fcn.x_lnnoptr)
-#define GET_FCN_ENDNDX(abfd, ext) bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_fcn.x_endndx)
-#define PUT_FCN_LNNOPTR(abfd, in, ext)  bfd_h_put_32(abfd,  in, (bfd_byte *) ext->x_sym.x_fcn.x_lnnoptr)
-#define PUT_FCN_ENDNDX(abfd, in, ext) bfd_h_put_32(abfd, in, (bfd_byte *)   ext->x_sym.x_fcn.x_endndx)
+#define GET_FCN_LNNOPTR(abfd, ext) bfd_h_get_32(abfd, (bfd_byte *)ext->x_sym.x_fcnary.x_fcn.x_lnnoptr)
+#define GET_FCN_ENDNDX(abfd, ext) bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_fcn.x_endndx)
+#define PUT_FCN_LNNOPTR(abfd, in, ext)  bfd_h_put_32(abfd,  in, (bfd_byte *) ext->x_sym.x_fcnary.x_fcn.x_lnnoptr)
+#define PUT_FCN_ENDNDX(abfd, in, ext) bfd_h_put_32(abfd, in, (bfd_byte *)   ext->x_sym.x_fcnary.x_fcn.x_endndx)
 #define GET_LNSZ_SIZE(abfd, ext) bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_misc.x_lnsz.x_size)
 #define GET_LNSZ_LNNO(abfd, ext) bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_misc.x_lnsz.x_lnno)
 #define PUT_LNSZ_LNNO(abfd, in, ext) bfd_h_put_32(abfd, in, (bfd_byte *) ext->x_sym.x_misc.x_lnsz.x_lnno)

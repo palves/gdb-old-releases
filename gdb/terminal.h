@@ -35,11 +35,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TIOCSETP TCSETAF
 #define TERMINAL struct termio
 
-#ifdef NO_JOB_CONTROL
-# undef TIOCGPGRP
-# undef TIOCGPGRP
-#endif
-
 #else /* no termio */
 
 #include <fcntl.h>

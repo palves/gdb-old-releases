@@ -98,14 +98,15 @@ DEFUN (optcall_callback, (abfd, reloc_entry, symbol_in, data,
 }
 
 static reloc_howto_type howto_rellong =
-  { (unsigned int) R_RELLONG, 0, 2, 32,false, 0, true, true,
-      0,"rellong", true, 0xffffffff, 0xffffffff};
+  { (unsigned int) R_RELLONG, 0, 2, 32,false, 0,
+      complain_overflow_bitfield, 0,"rellong", true, 0xffffffff,
+      0xffffffff};
 static reloc_howto_type howto_iprmed =
-  {  R_IPRMED, 0, 2, 24,true,0, true, true,0,"iprmed ", true,
-       0x00ffffff, 0x00ffffff};
+  {  R_IPRMED, 0, 2, 24,true,0, complain_overflow_signed,0,
+       "iprmed ", true, 0x00ffffff, 0x00ffffff};
 static reloc_howto_type howto_optcall =
-  {  R_OPTCALL, 0,2,24,true,0, true, true, optcall_callback,
-       "optcall", true, 0x00ffffff, 0x00ffffff};
+  {  R_OPTCALL, 0,2,24,true,0, complain_overflow_signed,
+       optcall_callback, "optcall", true, 0x00ffffff, 0x00ffffff};
 
 static reloc_howto_type *
 DEFUN (coff_i960_reloc_type_lookup, (abfd, code),

@@ -327,11 +327,11 @@ size_name (x)
 void
 emit (string, a1, a2, a3, a4, a5)
      char *string;
-     int a1;
-     int a2;
-     int a3;
-     int a4;
-     int a5;
+     char* a1;
+     char* a2;
+     char* a3;
+     char* a4;
+     char* a5;
 {
   int indent_inc = 0;
   int indent_dec = 0;
@@ -1073,7 +1073,7 @@ rotate (p, through_carry, size, left)
 }
 
 static void
-div (p)
+adiv (p)
      opcode_entry_type *p;
 {
   emit ("if (op_src==0)\n");
@@ -1346,7 +1346,7 @@ info_docode (p)
 
     case OPC_div:
     case OPC_divl:
-      div (p);
+      adiv (p);
       break;
     case OPC_mult:
     case OPC_multl:

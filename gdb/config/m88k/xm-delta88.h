@@ -27,11 +27,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/param.h>
 #include <sys/time.h>
 
+/* Required by <sys/ptrace.h>.  */
+#include <sys/siginfo.h>
+
 #define HAVE_TERMIO
 
 /*#define USIZE 2048*/
-#define NBPG NBPC
-#define UPAGES USIZE
+/*#define NBPG NBPC*/
+/* Might be defined in <sys/param.h>.  I suspect this define was a relic
+   from before when BFD did core files.  */
+/* #define UPAGES USIZE */
 
 /* This is the amount to subtract from u.u_ar0
    to get the offset in the core file of the register values.  */
@@ -41,4 +46,3 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    the ptrace_user offsets are sufficient and KERNEL_U_ADDRESS can be 0 */
 
 #define KERNEL_U_ADDR 0
-

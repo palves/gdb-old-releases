@@ -59,11 +59,12 @@ ieee_extended_to_double (ext_format, from, to)
     if (ufrom[EXPBYTE_H] & SIGNMASK)	/* If negative... */
       dto = -dto;			/* ...negate.  */
   }
-  *to = dto;
+  memcpy (to, &dto, sizeof (dto));
 }
 
 /* The converse: convert the double *FROM to an extended float
-   and store where TO points.  */
+   and store where TO points.  Neither FROM nor TO have any alignment
+   restrictions.  */
 
 void
 double_to_ieee_extended (ext_format, from, to)
@@ -71,11 +72,12 @@ double_to_ieee_extended (ext_format, from, to)
      double *from;
      char *to;
 {
-  double dfrom = *from;
+  double dfrom;
   unsigned long twolongs[2];
   unsigned long mant0, mant1, exponent;
   unsigned char tobytes[8];
 
+  memcpy (&dfrom, from, sizeof (dfrom));
   memset (to, 0, TOTALSIZE);
   if (dfrom == 0)
     return;			/* Result is zero */

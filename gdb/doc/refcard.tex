@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%% gdb-refcard.tex %%%%%%%%%%%%%%%%
 
 %This file is TeX source for a reference card describing GDB, the GNU debugger.
-%$Id: refcard.tex,v 1.97 1992/11/30 09:45:42 zoo Exp $
+%$Id: refcard.tex,v 1.99 1993/07/01 21:59:02 pesch Exp $
 %Copyright (C) 1991, 1992 Free Software Foundation, Inc.
 %Permission is granted to make and distribute verbatim copies of
 %this reference provided the copyright notices and permission notices
@@ -54,18 +54,33 @@
 %
 {%
 \def\$#1${{#1}}%   Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.97 $}%
+\xdef\manvers{\$Revision: 1.99 $}%
 }%
 %-------------------- Three column format -----------------------
 
 %%%% --- To disable three column format, comment out this entire section
 
-% Three-column format for landscape printing on 8.5x11 paper
+% Three-column format for landscape printing
+
+\newdimen\fullhsize
+\newdimen\secskip \newdimen\itmwid \newdimen\dfnwid 
+\newdimen\lskip                                     % used in \def\sec
+%-------- Papersize defs:
+% Dimensions for landscape printing on 8.5x11in ("US letter") paper
 
 % We want output .25 inch *from paper edge*; i.e. -.75in from TeX default
-\hoffset=-0.8in \voffset=-0.75in
-\newdimen\fullhsize
+\hoffset=-0.75in \voffset=-0.75in
 \fullhsize=10.5in \hsize=3.3in
+\vsize=8in
+
+% Units for \sec definition
+\secskip=1pc % space between refcard secs
+\itmwid=1.1in  % width of halign col 1
+\dfnwid=2.1in  % width of halign col 2
+\lskip=2pt     % extra skip between \sec entries
+%-------- end papersize defs
+
+
 \def\fulline{\hbox to \fullhsize}
 \let\lcr=L \newbox\leftcolumn\newbox\centercolumn
 \output={\if L\lcr
@@ -120,7 +135,6 @@
 %-------------------- end font defs ---------------------------------
 
 %
-\vsize=8in
 \hyphenpenalty=5000\tolerance=2000\raggedright\raggedbottom
 \normalbaselineskip=9pt\baselineskip=9pt
 %
@@ -132,16 +146,17 @@
 \def\opt#1{{\brm[{\rm #1}]}}
 \def\xtra#1{\noalign{\smallskip{\tt#1}}}
 %
-\long\def\sec#1;#2\endsec{\vskip 1pc
+% dimensions secskip, itmwid, dfnwid, lskip from refpaper input file
+\long\def\sec#1;#2\endsec{\vskip \secskip
 \halign{%
 %COL 1 (of halign):
-\vtop{\hsize=1.1in\tt
-##\par\vskip 2pt }\hfil
+\vtop{\hsize=\itmwid\tt
+##\par\vskip \lskip }\hfil
 %COL 2 (of halign):
-&\vtop{\hsize=2.1in\hangafter=1\hangindent=0.5em
-\rm ##\par\vskip 2pt}\cr
+&\vtop{\hsize=\dfnwid\hangafter=1\hangindent=0.5em
+\rm ##\par\vskip \lskip}\cr
 %Tail of \long\def fills in halign body with \sec args:
-\noalign{{\bbf #1}\vskip 2pt}
+\noalign{{\bbf #1}\vskip \lskip}
 #2
 }
 }
@@ -494,8 +509,8 @@ show dir&show current source path\cr
 \cr
 list&show next ten lines of source\cr
 list -&show previous ten lines\cr
-list {\it lines}&display source centered around {\it lines}, 
-specified as one of:\cr
+list {\it lines}&display source surrounding {\it lines}, 
+specified as:\cr
 \quad{\opt{\it file\tt:}\it num}&line number \opt{in named file}\cr
 \quad{\opt{\it file\tt:}\it function}&beginning of function \opt{in
 named file}\cr

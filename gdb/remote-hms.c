@@ -638,8 +638,8 @@ hms_detach (args, from_tty)
 /* Tell the remote machine to resume.  */
 
 void
-hms_resume (step, sig)
-     int step, sig;
+hms_resume (pid, step, sig)
+     int pid, step, sig;
 {
   dcache_flush ();
 
@@ -1110,7 +1110,7 @@ hms_files_info ()
 #ifdef __GO32__
     printf_filtered ("\tAttached to DOS asynctsr and running program %s\n", file);
 #else
-    printf_filtered ("\tAttached to %s at %d baud and running program %s\n", file);
+    printf_filtered ("\tAttached to %s at %d baud and running program %s\n", dev_name, baudrate, file);
 #endif
   printf_filtered ("\ton an H8/300 processor.\n");
 }
@@ -1215,7 +1215,6 @@ hms_before_main_loop ()
   char ttyname[100];
   char *p, *p2;
   extern FILE *instream;
-  extern jmp_buf to_top_level;
 
   push_target (&hms_ops);
 }

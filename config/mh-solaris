@@ -2,7 +2,6 @@
 
 SYSV = -DSYSV
 RANLIB = true
-INSTALL = cp
 CFLAGS = -g 
 # if you're using Sun's C compiler, add -xs to the CFLAGS line
 

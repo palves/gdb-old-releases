@@ -30,9 +30,13 @@ struct external_filehdr {
 
 
 #define	I386MAGIC	0x14c
+#define I386PTXMAGIC	0x154
 #define I386AIXMAGIC	0x175
-#define I386BADMAG(x) (((x).f_magic!=I386MAGIC) && (x).f_magic!=I386AIXMAGIC)
-
+#define I386LYNXMAGIC	0415
+#define I386BADMAG(x) (((x).f_magic != I386MAGIC) \
+		       && (x).f_magic != I386AIXMAGIC \
+		       && (x).f_magic != I386PTXMAGIC \
+		       && (x).f_magic != I386LYNXMAGIC)
 
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)

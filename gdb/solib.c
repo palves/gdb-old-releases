@@ -259,6 +259,17 @@ solib_map_sections (so)
 
 #ifndef SVR4_SHARED_LIBS
 
+/* In GDB 4.9 this routine was a real performance hog.  According to
+   some gprof data which mtranle@paris.IntelliCorp.COM (Minh Tran-Le)
+   sent, almost all the time spend in solib_add (up to 20 minutes with
+   35 shared libraries) was spent here, with 5/6 in
+   lookup_minimal_symbol and 1/6 in read_memory.
+
+   To fix this, we moved the call to special_symbol_handling out of the
+   loop in solib_add, so this only gets called once, rather than once
+   for every shared library, and also removed the call to lookup_minimal_symbol
+   in this routine.  */
+
 static void
 solib_add_common_symbols (rtc_symp, objfile)
     struct rtc_symb *rtc_symp;
@@ -298,10 +309,16 @@ solib_add_common_symbols (rtc_symp, objfile)
 	      name++;
 	    }
 
+#if 0
+	  /* I think this is unnecessary, GDB can probably deal with
+	     duplicate minimal symbols, more or less.  And the duplication
+	     which used to happen because this was called for each shared
+	     library is gone now that we are just called once.  */
 	  /* FIXME:  Do we really want to exclude symbols which happen
 	     to match symbols for other locations in the inferior's
 	     address space, even when they are in different linkage units? */
 	  if (lookup_minimal_symbol (name, (struct objfile *) NULL) == NULL)
+#endif
 	    {
 	      name = obsavestring (name, strlen (name),
 				   &objfile -> symbol_obstack);
@@ -374,7 +391,8 @@ bfd_lookup_symbol (abfd, symname)
 	  sym = *symbol_table++;
 	  if (STREQ (sym -> name, symname))
 	    {
-	      symaddr = sym -> value;
+	      /* Bfd symbols are section relative. */
+	      symaddr = sym -> value + sym -> section -> vma;
 	      break;
 	    }
 	}
@@ -738,6 +756,10 @@ solib_add (arg_string, from_tty, target)
      struct target_ops *target;
 {	
   register struct so_list *so = NULL;   	/* link map state variable */
+
+  /* Last shared library that we read.  */
+  struct so_list *so_last = NULL;
+
   char *re_err;
   int count;
   int old;
@@ -765,9 +787,10 @@ solib_add (arg_string, from_tty, target)
 	    }
 	  else if (catch_errors
 		   (symbol_add_stub, (char *) so,
-		    "Error while reading shared library symbols:\n"))
+		    "Error while reading shared library symbols:\n",
+		    RETURN_MASK_ALL))
 	    {
-	      special_symbol_handling (so);
+	      so_last = so;
 	      so -> symbols_loaded = 1;
 	    }
 	}
@@ -795,14 +818,14 @@ solib_add (arg_string, from_tty, target)
 	    {
 	      old = target -> to_sections_end - target -> to_sections;
 	      target -> to_sections = (struct section_table *)
-		realloc ((char *)target -> to_sections,
+		xrealloc ((char *)target -> to_sections,
 			 (sizeof (struct section_table)) * (count + old));
 	    }
 	  else
 	    {
 	      old = 0;
 	      target -> to_sections = (struct section_table *)
-		malloc ((sizeof (struct section_table)) * count);
+		xmalloc ((sizeof (struct section_table)) * count);
 	    }
 	  target -> to_sections_end = target -> to_sections + (count + old);
 	  
@@ -820,6 +843,19 @@ solib_add (arg_string, from_tty, target)
 	    }
 	}
     }
+
+  /* Calling this once at the end means that we put all the minimal
+     symbols for commons into the objfile for the last shared library.
+     Since they are in common, this should not be a problem.  If we
+     delete the objfile with the minimal symbols, we can put all the
+     symbols into a new objfile (and will on the next call to solib_add).
+
+     An alternate approach would be to create an objfile just for
+     common minsyms, thus not needing any objfile argument to
+     solib_add_common_symbols.  */
+
+  if (so_last)
+    special_symbol_handling (so_last);
 }
 
 /*
@@ -1197,12 +1233,17 @@ FIXME
 void 
 solib_create_inferior_hook()
 {
-  
+  /* If we are using the BKPT_AT_SYMBOL code, then we don't need the base
+     yet.  In fact, in the case of a SunOS4 executable being run on
+     Solaris, we can't get it yet.  find_solib will get it when it needs
+     it.  */
+#if !(defined (SVR4_SHARED_LIBS) && defined (BKPT_AT_SYMBOL))
   if ((debug_base = locate_base ()) == 0)
     {
       /* Can't find the symbol or the executable is statically linked. */
       return;
     }
+#endif
 
   if (!enable_break ())
     {
@@ -1220,7 +1261,7 @@ solib_create_inferior_hook()
   stop_signal = 0;
   do
     {
-      target_resume (0, stop_signal);
+      target_resume (inferior_pid, 0, stop_signal);
       wait_for_inferior ();
     }
   while (stop_signal != SIGTRAP);

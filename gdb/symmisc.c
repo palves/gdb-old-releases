@@ -204,6 +204,11 @@ dump_msymbols (objfile, outfile)
   char ms_type;
   
   fprintf_filtered (outfile, "\nObject file %s:\n\n", objfile -> name);
+  if (objfile -> minimal_symbol_count == 0)
+    {
+      fprintf_filtered (outfile, "No minimal symbols found.\n");
+      return;
+    }
   for (index = 0, msymbol = objfile -> msymbols;
        SYMBOL_NAME (msymbol) != NULL; msymbol++, index++)
     {
@@ -213,16 +218,25 @@ dump_msymbols (objfile, outfile)
 	    ms_type = 'u';
 	    break;
 	  case mst_text:
-	    ms_type = 't';
+	    ms_type = 'T';
 	    break;
 	  case mst_data:
-	    ms_type = 'd';
+	    ms_type = 'D';
 	    break;
 	  case mst_bss:
-	    ms_type = 'b';
+	    ms_type = 'B';
 	    break;
 	  case mst_abs:
-	    ms_type = 'a';
+	    ms_type = 'A';
+	    break;
+	  case mst_file_text:
+	    ms_type = 't';
+	    break;
+	  case mst_file_data:
+	    ms_type = 'd';
+	    break;
+	  case mst_file_bss:
+	    ms_type = 'b';
 	    break;
 	  default:
 	    ms_type = '?';

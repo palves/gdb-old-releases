@@ -30,8 +30,8 @@
 #define	yypgo	m2_pgo
 #define	yyact	m2_act
 #define	yyexca	m2_exca
-#define yyerrflag m2_errflag
-#define yynerrs	m2_nerrs
+#define	yyerrflag m2_errflag
+#define	yynerrs	m2_nerrs
 #define	yyps	m2_ps
 #define	yypv	m2_pv
 #define	yys	m2_s
@@ -42,8 +42,8 @@
 #define	yy_yyv	m2_yyv
 #define	yyval	m2_val
 #define	yylloc	m2_lloc
-#define yyreds	m2_reds		/* With YYDEBUG defined */
-#define yytoks	m2_toks		/* With YYDEBUG defined */
+#define	yyreds	m2_reds		/* With YYDEBUG defined */
+#define	yytoks	m2_toks		/* With YYDEBUG defined */
 
 #ifndef YYDEBUG
 #define	YYDEBUG	0		/* Default to no yydebug support */

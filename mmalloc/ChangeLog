@@ -1,3 +1,22 @@
+Fri Jul 16 15:27:08 1993  Jim Kingdon  (kingdon@rtl.cygnus.com)
+
+	* test1.c: New file which tests for bug fixed below.
+	* Makefile.in (check): Put in commands to run it (but commented out
+	because it won't work for Canadian cross).
+
+	* mmalloc.c (mmalloc): When extending a free block at the end of the
+	heap, check whether which block is at the end changed.
+
+	* Makefile.in (TAGS): make work when srcdir != objdir.
+
+Thu Jul 15 07:56:47 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* attach.c, detach.c: Include <sys/types.h> before <fcntl.h>.
+
+Wed Jun 30 11:00:53 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Add mostlyclean and realclean targets.
+
 Wed Mar 24 01:58:12 1993  david d `zoo' zuhn  (zoo at poseidon.cygnus.com)
 
 	* Makefile.in: add dvi and installcheck targets

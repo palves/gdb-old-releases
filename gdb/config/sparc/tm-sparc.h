@@ -47,6 +47,31 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* OK, I've added code to dbxread.c to deal with this case.  */
 #define BELIEVE_PCC_PROMOTION_TYPE
 
+/* For acc, there's no need to correct LBRAC entries by guessing how
+   they should work.  In fact, this is harmful because the LBRAC
+   entries now all appear at the end of the function, not intermixed
+   with the SLINE entries.  n_opt_found detects acc for Solaris binaries;
+   function_stab_type detects acc for SunOS4 binaries.
+
+   For binary from SunOS4 /bin/cc, need to correct LBRAC's.
+
+   For gcc, like acc, don't correct.  */
+
+#define	SUN_FIXED_LBRAC_BUG \
+  (n_opt_found \
+   || function_stab_type == N_STSYM \
+   || function_stab_type == N_GSYM \
+   || processing_gcc_compilation)
+
+/* Do variables in the debug stabs occur after the N_LBRAC or before it?
+   acc: after, gcc: before, SunOS4 /bin/cc: before.  */
+
+#define VARIABLES_INSIDE_BLOCK(desc, gcc_p) \
+  (!(gcc_p) \
+   && (n_opt_found \
+       || function_stab_type == N_STSYM \
+       || function_stab_type == N_GSYM))
+
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
 
@@ -162,7 +187,15 @@ extern CORE_ADDR sparc_pc_adjust();
 #define	CPS_REGNUM 71		/* Coprocessor status register */
 
 /* Total amount of space needed to store our copies of the machine's
-   register state, the array `registers'.  */
+   register state, the array `registers'.  On the sparc, `registers'
+   contains the ins and locals, even though they are saved on the
+   stack rather than with the other registers, and this causes hair
+   and confusion in places like pop_frame.  It probably would be
+   better to remove the ins and locals from `registers', make sure
+   that get_saved_register can get them from the stack (even in the
+   innermost frame), and make this the way to access them.  For the
+   frame pointer we would do that via TARGET_READ_FP.  */
+
 #define REGISTER_BYTES (32*4+32*4+8*4)
 
 /* Index within `registers' of the first byte of the space for
@@ -182,8 +215,6 @@ extern CORE_ADDR sparc_pc_adjust();
 
 #define REGISTER_IN_WINDOW_P(regnum)	\
   ((regnum) >= 8 && (regnum) < 32)
-
-
 
 /* Number of bytes of storage in the actual machine representation
    for register N.  */
@@ -216,13 +247,13 @@ extern CORE_ADDR sparc_pc_adjust();
    to virtual format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO) \
-{ memcpy ((TO), (FROM), 4); }
+{ memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM)); }
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
 #define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)	\
-{ memcpy ((TO), (FROM), 4); }
+{ memcpy ((TO), (FROM), REGISTER_RAW_SIZE (REGNUM)); }
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -310,13 +341,18 @@ sparc_extract_struct_value_address PARAMS ((char [REGISTER_BYTES]));
    If there is a frame below this one, and the frame pointers are
    identical, it's a leaf frame and the bottoms are the same also.
 
-   Otherwise the bottom of this frame is the top of the next frame.  */
+   Otherwise the bottom of this frame is the top of the next frame.
+
+   The bottom field is misnamed, since it might imply that memory from
+   bottom to frame contains this frame.  That need not be true if
+   stack frames are allocated in different segments (e.g. some on a
+   stack, some on a heap in the data segment).  */
 
 #define EXTRA_FRAME_INFO	FRAME_ADDR bottom;
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fci)  \
   (fci)->bottom =					\
    ((fci)->next ?					\
-    ((fci)->frame == (fci)->next_frame ?		\
+    ((fci)->frame == (fci)->next->frame ?		\
      (fci)->next->bottom : (fci)->next->frame) :	\
     read_register (SP_REGNUM));
 
@@ -557,10 +593,10 @@ extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
 #define	PRINT_REGISTER_HOOK(regno)	\
   if (((regno) >= FP0_REGNUM)		\
    && ((regno) <  FP0_REGNUM + 32)	\
-   && (0 == (regno & 1))) {		\
+   && (0 == ((regno) & 1))) {		\
     char doublereg[8];		/* two float regs */	\
-    if (!read_relative_register_raw_bytes (i  , doublereg  )	\
-     && !read_relative_register_raw_bytes (i+1, doublereg+4)) {	\
+    if (!read_relative_register_raw_bytes ((regno)  , doublereg  )	\
+     && !read_relative_register_raw_bytes ((regno)+1, doublereg+4)) {	\
       printf("\t");			\
       print_floating (doublereg, builtin_type_double, stdout);	\
     }					\

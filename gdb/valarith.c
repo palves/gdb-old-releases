@@ -601,8 +601,9 @@ value_binop (arg1, arg2, op)
 	    }
 	  
 	  val = allocate_value (builtin_type_chill_bool);
-	  SWAP_TARGET_AND_HOST (&v, sizeof (v));
-	  *(LONGEST *) VALUE_CONTENTS_RAW (val) = v;
+	  store_signed_integer (VALUE_CONTENTS_RAW (val),
+				TYPE_LENGTH (VALUE_TYPE (val)),
+				v);
       }
   else
     /* Integral operations here.  */
@@ -702,8 +703,9 @@ value_binop (arg1, arg2, op)
 	    }
 
 	  val = allocate_value (BUILTIN_TYPE_UNSIGNED_LONGEST);
-	  SWAP_TARGET_AND_HOST (&v, sizeof (v));
-	  *(unsigned LONGEST *) VALUE_CONTENTS_RAW (val) = v;
+	  store_unsigned_integer (VALUE_CONTENTS_RAW (val),
+				  TYPE_LENGTH (VALUE_TYPE (val)),
+				  v);
 	}
       else
 	{
@@ -799,8 +801,9 @@ value_binop (arg1, arg2, op)
 	    }
 	  
 	  val = allocate_value (BUILTIN_TYPE_LONGEST);
-	  SWAP_TARGET_AND_HOST (&v, sizeof (v));
-	  *(LONGEST *) VALUE_CONTENTS_RAW (val) = v;
+	  store_signed_integer (VALUE_CONTENTS_RAW (val),
+				TYPE_LENGTH (VALUE_TYPE (val)),
+				v);
 	}
     }
 

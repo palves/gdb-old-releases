@@ -1,0 +1,14 @@
+srcdir = .
+
+all: wierd.o
+
+#### host, target, and site specific Makefile frags come in here.
+
+clean mostlyclean:
+	-rm -f *.o ${PROGS} *~ core tmp.c tmp.s wierd.s
+
+distclean realclean: clean
+	-rm -f Makefile config.status
+
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+	$(SHELL) ./config.status

@@ -62,10 +62,10 @@ char *zalloc PARAMS ((bfd_size_type size));
 /* These routines allocate and free things on the BFD's obstack.  Note
    that realloc can never occur in place.  */
 
-PTR	bfd_alloc PARAMS ((bfd *abfd, bfd_size_type size));
-PTR	bfd_zalloc PARAMS ((bfd *abfd, bfd_size_type size));
-PTR	bfd_realloc PARAMS ((bfd *abfd, PTR orig, bfd_size_type new));
-void	bfd_alloc_grow PARAMS ((bfd *abfd, PTR thing, bfd_size_type size));
+PTR	bfd_alloc PARAMS ((bfd *abfd, size_t size));
+PTR	bfd_zalloc PARAMS ((bfd *abfd, size_t size));
+PTR	bfd_realloc PARAMS ((bfd *abfd, PTR orig, size_t new));
+void	bfd_alloc_grow PARAMS ((bfd *abfd, PTR thing, size_t size));
 PTR	bfd_alloc_finish PARAMS ((bfd *abfd));
 PTR	bfd_alloc_by_size_t PARAMS ((bfd *abfd, size_t wanted));
 
@@ -204,10 +204,13 @@ bfd_check_init PARAMS ((void));
 PTR  
 bfd_xmalloc PARAMS (( bfd_size_type size));
 
+PTR 
+bfd_xmalloc_by_size_t  PARAMS (( size_t size));
+
 void 
 bfd_write_bigendian_4byte_int PARAMS ((bfd *abfd,  int i));
 
-bfd_vma 
+unsigned int 
 bfd_log2 PARAMS ((bfd_vma x));
 
 #define BFD_CACHE_MAX_OPEN 10
@@ -217,9 +220,6 @@ extern bfd *bfd_last_cache;
     ((x)==bfd_last_cache? \
       (FILE*)(bfd_last_cache->iostream): \
        bfd_cache_lookup_worker(x))
-void  
-bfd_cache_init  PARAMS ((bfd *));
-
 boolean 
 bfd_cache_close  PARAMS ((bfd *));
 

@@ -40,7 +40,7 @@ typedef unsigned int CORE_ADDR;
 #define STREQ(a,b) (*(a) == *(b) ? !strcmp ((a), (b)) : 0)
 #define STREQN(a,b,c) (*(a) == *(b) ? !strncmp ((a), (b), (c)) : 0)
 
-/* The character C++ uses to build identifiers that must be unique from
+/* The character GNU C++ uses to build identifiers that must be unique from
    the program's identifiers (such as $this and $$vptr).  */
 #define CPLUS_MARKER '$'	/* May be overridden to '.' for SysV */
 
@@ -163,7 +163,7 @@ extern char *
 safe_strsignal PARAMS ((int));
 
 extern void
-init_malloc PARAMS ((PTR));
+init_malloc PARAMS ((void *));
 
 extern void
 request_quit PARAMS ((int));
@@ -294,9 +294,6 @@ batch_mode PARAMS ((void));
 
 extern int
 input_from_terminal_p PARAMS ((void));
-
-extern int
-catch_errors PARAMS ((int (*) (char *), char *, char *));
 
 /* From printcmd.c */
 
@@ -438,7 +435,7 @@ enum val_prettyprint
 #endif
 
 #if !defined (INT_MAX)
-#define	INT_MAX (UINT_MAX >> 1)			/* 0x7FFFFFFF for 32-bits */
+#define	INT_MAX ((int)(UINT_MAX >> 1))		/* 0x7FFFFFFF for 32-bits */
 #endif
 
 #if !defined (INT_MIN)
@@ -626,8 +623,25 @@ exit PARAMS ((int));			/* 4.10.4.3 */
 extern NORETURN void			/* Does not return to the caller.  */
 nomem PARAMS ((long));
 
+/* Reasons for calling return_to_top_level.  */
+enum return_reason {
+  /* User interrupt.  */
+  RETURN_QUIT,
+
+  /* Any other error.  */
+  RETURN_ERROR
+};
+
+#define RETURN_MASK_QUIT (1 << (int)RETURN_QUIT)
+#define RETURN_MASK_ERROR (1 << (int)RETURN_ERROR)
+#define RETURN_MASK_ALL (RETURN_MASK_QUIT | RETURN_MASK_ERROR)
+typedef int return_mask;
+
 extern NORETURN void			/* Does not return to the caller.  */
-return_to_top_level PARAMS ((void));
+return_to_top_level PARAMS ((enum return_reason));
+
+extern int catch_errors PARAMS ((int (*) (char *), void *, char *,
+				 return_mask));
 
 extern void
 warning_setup PARAMS ((void));
@@ -725,10 +739,10 @@ qsort PARAMS ((void *base, size_t nmemb,		/* 4.10.5.2 */
 #ifndef	MEM_FNS_DECLARED	/* Some non-ANSI use void *, not char *.  */
 extern PTR
 memcpy PARAMS ((void *, const void *, size_t));		/* 4.11.2.1 */
-#endif
 
 extern int
 memcmp PARAMS ((const void *, const void *, size_t));	/* 4.11.4.1 */
+#endif
 
 extern char *
 strchr PARAMS ((const char *, int));			/* 4.11.5.2 */
@@ -776,18 +790,12 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 #define LITTLE_ENDIAN 1234
 #endif
 
-/* Target-system-dependent parameters for GDB.
-
-   The standard thing is to include defs.h.  However, files that are
-   specific to a particular target can define TM_FILE_OVERRIDE before
-   including defs.h, then can include any particular tm-file they desire.  */
+/* Target-system-dependent parameters for GDB. */
 
 /* Target machine definition.  This will be a symlink to one of the
    tm-*.h files, built by the `configure' script.  */
 
-#ifndef TM_FILE_OVERRIDE
 #include "tm.h"
-#endif
 
 /* The bit byte-order has to do just with numbering of bits in
    debugging symbols and such.  Conceptually, it's quite separate
@@ -803,7 +811,10 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 #endif /* Little endian.  */
 #endif /* BITS_BIG_ENDIAN not defined.  */
 
-/* Swap LEN bytes at BUFFER between target and host byte-order.  */
+/* Swap LEN bytes at BUFFER between target and host byte-order.  This is
+   the wrong way to do byte-swapping because it assumes that you have a way
+   to have a host variable of exactly the right size.
+   extract_* are the right way.  */
 #if TARGET_BYTE_ORDER == HOST_BYTE_ORDER
 #define SWAP_TARGET_AND_HOST(buffer,len)
 #else /* Target and host byte order differ.  */
@@ -821,6 +832,15 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
   }
 #endif /* Target and host byte order differ.  */
 
+/* In findvar.c.  */
+LONGEST extract_signed_integer PARAMS ((void *, int));
+unsigned LONGEST extract_unsigned_integer PARAMS ((void *, int));
+CORE_ADDR extract_address PARAMS ((void *, int));
+
+void store_signed_integer PARAMS ((void *, int, LONGEST));
+void store_unsigned_integer PARAMS ((void *, int, unsigned LONGEST));
+void store_address PARAMS ((void *, int, CORE_ADDR));
+
 /* On some machines there are bits in addresses which are not really
    part of the address, but are used by the kernel, the hardware, etc.
    for special purposes.  ADDR_BITS_REMOVE takes out any such bits

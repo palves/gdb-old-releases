@@ -1,3 +1,79 @@
+Mon Aug  2 16:37:14 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* coff/i386.h:  Add Lynx magic number.
+
+Mon Aug  2 14:45:29 1993  John Gilmore  (gnu@cygnus.com)
+
+	* dis-asm.h:  Move enum outside of struct defn to avoid warnings.
+
+Mon Aug  2 08:49:30 1993  Stu Grossman  (grossman at cygnus.com)
+
+	* wait.h (WEXITSTATUS, WSTOPSIG): Mask down to 8 bits.  This is
+	for systems that store stuff into the high 16 bits of a wait
+	status.
+
+Fri Jul 30 18:38:02 1993  John Gilmore  (gnu@cygnus.com)
+
+	* dis-asm.h:  Add new fields insn_info_valid, branch_delay_insns, 
+	data_size, insn_type, target, target2.  These are used to return
+	information from the instruction decoders back to the calling
+	program.  Add comments, make more readable.
+
+Mon Jul 19 22:14:14 1993  Fred Fish  (fnf@deneb.cygnus.com)
+
+	* nlm:  New directory containing NLM/NetWare includes.
+
+Thu Jul 15 12:10:04 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* dis-asm.h (struct disassemble_info): New field application_data.
+
+Thu Jul 15 12:41:15 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* dis-asm.h: Added declaration of print_insn_m88k.
+
+Thu Jul  8 09:05:26 1993  Doug Evans  (dje@canuck.cygnus.com)
+
+	* opcode/h8300.h: Lots of little fixes for the h8/300h.
+
+Fri Jul  2 10:31:59 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* ansidecl.h: Use ANSI macros if __mips and _SYSTYPE_SVR4 are
+	defined, since RISC/OS cc handles ANSI declarations in SVR4 mode
+	but does not define __STDC__.
+
+Sun Jun 20 18:27:52 1993  Ken Raeburn  (raeburn@poseidon.cygnus.com)
+
+	* dis-asm.h: Don't need to include ansidecl.h any more.
+
+Fri Jun 18 03:22:10 1993  John Gilmore  (gnu@cygnus.com)
+
+	* oasys.h:  Eliminate "int8_type", "int16_type", "int32_type", and
+	their variants.  These changes are coordinated with corresponding
+	changes in ../bfd/oasys.c.
+
+Wed Jun 16 10:43:08 1993  Fred Fish  (fnf@cygnus.com)
+
+	* bfd.h:  Note that it has been removed.
+
+Tue Jun  8 12:16:03 1993  Steve Chamberlain  (sac@phydeaux.cygnus.com)
+
+	 Support for H8/300-H
+	* dis-asm.h (print_insn_h8300, print_insn_h8300h): Declare it.
+	* coff/h8300.h: New magic number.
+	* coff/internal.h: New relocations.
+	* opcode/h8300.h: Lots of new opcodes.
+
+Tue Jun  1 07:35:03 1993  Ken Raeburn  (raeburn@kr-pc.cygnus.com)
+
+	* ansidecl.h (const): Don't define it if it's already defined.
+
+Thu May 27 18:19:51 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* dis-asm.h (print_insn_hppa): Declare it.
+
+	* bfd.h: Moved to bfd directory.  Small stub here includes it
+	without requiring "-I../bfd".
+
 Thu Apr 29 12:06:13 1993  Ken Raeburn  (raeburn@deneb.cygnus.com)
 
 	* bfd.h: Updated with BSF_FUNCTION.

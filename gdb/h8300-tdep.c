@@ -26,6 +26,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "obstack.h"
 #include "symtab.h"
+#include <dis-asm.h>
+#include "gdbcmd.h"
+#include "gdbtypes.h"
+
 #undef NUM_REGS
 #define NUM_REGS 11
 
@@ -47,29 +51,29 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define IS_SUB2_SP(x) (x==0x1b87)
 #define IS_MOVK_R5(x) (x==0x7905)
 #define IS_SUB_R5SP(x) (x==0x1957)
-CORE_ADDR examine_prologue ();
+
+static CORE_ADDR examine_prologue ();
 
 void frame_find_saved_regs ();
 CORE_ADDR 
 h8300_skip_prologue (start_pc)
      CORE_ADDR start_pc;
-
 {
   short int w;
 
-  w = read_memory_short (start_pc);
+  w = read_memory_unsigned_integer (start_pc, 2);
   /* Skip past all push insns */
   while (IS_PUSH_FP (w))
     {
       start_pc += 2;
-      w = read_memory_short (start_pc);
+      w = read_memory_unsigned_integer (start_pc, 2);
     }
 
   /* Skip past a move to FP */
   if (IS_MOVE_FP (w))
     {
       start_pc += 2;
-      w = read_memory_short (start_pc);
+      w = read_memory_unsigned_integer (start_pc, 2);
     }
 
   /* Skip the stack adjust */
@@ -77,21 +81,20 @@ h8300_skip_prologue (start_pc)
   if (IS_MOVK_R5 (w))
     {
       start_pc += 2;
-      w = read_memory_short (start_pc);
+      w = read_memory_unsigned_integer (start_pc, 2);
     }
   if (IS_SUB_R5SP (w))
     {
       start_pc += 2;
-      w = read_memory_short (start_pc);
+      w = read_memory_unsigned_integer (start_pc, 2);
     }
   while (IS_SUB2_SP (w))
     {
       start_pc += 2;
-      w = read_memory_short (start_pc);
+      w = read_memory_unsigned_integer (start_pc, 2);
     }
 
   return start_pc;
-
 }
 
 int
@@ -99,11 +102,12 @@ print_insn (memaddr, stream)
      CORE_ADDR memaddr;
      FILE *stream;
 {
-  /* Nothing is bigger than 8 bytes */
-  char data[8];
-
-  read_memory (memaddr, data, sizeof (data));
-  return print_insn_h8300 (memaddr, data, stream);
+  disassemble_info info;
+  GDB_INIT_DISASSEMBLE_INFO(info, stream);
+  if (h8300hmode)
+    return print_insn_h8300h (memaddr, &info);
+  else
+    return print_insn_h8300 (memaddr, &info);
 }
 
 /* Given a GDB frame, determine the address of the calling function's frame.
@@ -117,7 +121,6 @@ FRAME_ADDR
 FRAME_CHAIN (thisframe)
      FRAME thisframe;
 {
-
   frame_find_saved_regs (thisframe, (struct frame_saved_regs *) 0);
   return thisframe->fsr->regs[SP_REGNUM];
 }
@@ -179,12 +182,13 @@ CORE_ADDR
 NEXT_PROLOGUE_INSN (addr, lim, pword1)
      CORE_ADDR addr;
      CORE_ADDR lim;
-     short *pword1;
+     INSN_WORD *pword1;
 {
+  char buf[2];
   if (addr < lim + 8)
     {
-      read_memory (addr, pword1, sizeof (*pword1));
-      SWAP_TARGET_AND_HOST (pword1, sizeof (short));
+      read_memory (addr, buf, 2);
+      *pword1 = extract_signed_integer (buf, 2);
 
       return addr + 2;
     }
@@ -212,14 +216,13 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
   int r;
   int i;
   int have_fp = 0;
-
   register int src;
   register struct pic_prologue_code *pcode;
   INSN_WORD insn_word;
   int size, offset;
-  unsigned int reg_save_depth = 2; /* Number of things pushed onto
-				      stack, starts at 2, 'cause the
-				      PC is already there */
+  /* Number of things pushed onto stack, starts at 2/4, 'cause the
+     PC is already there */
+  unsigned int reg_save_depth = h8300hmode ? 4 : 2;
 
   unsigned int auto_depth = 0;	/* Number of bytes of autos */
 
@@ -234,7 +237,7 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
     {
       after_prolog_fp = read_register (SP_REGNUM);
     }
-  if (ip == 0 || ip & ~0xffff)
+  if (ip == 0 || ip & (h8300hmode ? ~0xffff : ~0xffff))
     return 0;
 
   next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn_word);
@@ -280,7 +283,6 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
 
 	  next_ip = NEXT_PROLOGUE_INSN (next_ip, limit, &insn_word);
 	  auto_depth += insn_word;
-
 	}
     }
   /* Work out which regs are stored where */
@@ -297,14 +299,14 @@ examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
   /* Locals are always reffed based from the fp */
   fi->locals_pointer = after_prolog_fp;
   /* The PC is at a known place */
-  fi->from_pc = read_memory_short (after_prolog_fp + 2);
+  fi->from_pc = read_memory_unsigned_integer (after_prolog_fp + 2, BINWORD);
 
   /* Rememeber any others too */
   in_frame[PC_REGNUM] = 0;
 
   if (have_fp)
     /* We keep the old FP in the SP spot */
-    fsr->regs[SP_REGNUM] = (read_memory_short (fsr->regs[6]));
+    fsr->regs[SP_REGNUM] = read_memory_unsigned_integer (fsr->regs[6], BINWORD);
   else
     fsr->regs[SP_REGNUM] = after_prolog_fp + auto_depth;
 
@@ -320,7 +322,6 @@ init_extra_frame_info (fromleaf, fi)
   fi->args_pointer = 0;		/* Unknown */
   fi->locals_pointer = 0;	/* Unknown */
   fi->from_pc = 0;
-
 }
 
 /* Return the saved PC from this frame.
@@ -331,7 +332,6 @@ init_extra_frame_info (fromleaf, fi)
 CORE_ADDR
 frame_saved_pc (frame)
      FRAME frame;
-
 {
   return frame->from_pc;
 }
@@ -384,16 +384,56 @@ h8300_pop_frame ()
     {
       if (fsr.regs[regnum])
 	{
-	  write_register (regnum, read_memory_short (fsr.regs[regnum]));
+	  write_register (regnum, read_memory_integer(fsr.regs[regnum]), BINWORD);
 	}
 
       flush_cached_frames ();
       set_current_frame (create_new_frame (read_register (FP_REGNUM),
 					   read_pc ()));
-
     }
-
 }
+
+
+struct cmd_list_element *setmemorylist;
+
+static void
+h8300_command(args, from_tty)
+{
+  extern int h8300hmode;
+  h8300hmode = 0;
+}
+
+static void
+h8300h_command(args, from_tty)
+{
+  extern int h8300hmode;
+  h8300hmode = 1;
+}
+
+static void 
+set_machine (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  printf ("\"set machine\" must be followed by h8300 or h8300h.\n");
+  help_list (setmemorylist, "set memory ", -1, stdout);
+}
+
+void
+_initialize_h8300m ()
+{
+  add_prefix_cmd ("machine", no_class, set_machine,
+		  "set the machine type", &setmemorylist, "set machine ", 0,
+		  &setlist);
+
+  add_cmd ("h8300", class_support, h8300_command,
+	   "Set machine to be H8/300.", &setmemorylist);
+
+  add_cmd ("h8300h", class_support, h8300h_command,
+	   "Set machine to be H8/300H.", &setmemorylist);
+}
+
+
 
 void
 print_register_hook (regno)
@@ -441,3 +481,4 @@ print_register_hook (regno)
 	printf ("<= ");
     }
 }
+

@@ -466,12 +466,19 @@ struct internal_reloc
 #define R_GETPA		(0x1e)
 #define R_TAGWORD	(0x1f)
 #define R_JUMPTARG	0x20	/* strange 29k 00xx00xx reloc */
-#define R_MOVB1    0x41		/* Special h8 16bit or 8 bit reloc for  mov.b */
-#define R_MOVB2    0x42		/* Special h8 opcode for 8bit which could
-							      be 16 */
-#define R_JMP1     0x43		/* Special h8 16bit jmp which could be pcrel */
-#define R_JMP2 0x44		/* a branch which used to be a jmp */
-#define R_RELLONG_NEG  0x45
+
+
+#define R_MOVB1    	0x41	/* Special h8 16bit or 8 bit reloc for mov.b 	*/
+#define R_MOVB2 	0x42	/* Special h8 opcode for 8bit which could be 16 */
+#define R_JMP1     	0x43	/* Special h8 16bit jmp which could be pcrel 	*/
+#define R_JMP2 		0x44	/* a branch which used to be a jmp 		*/
+#define R_RELLONG_NEG  	0x45
+
+#define R_JMPL1     	0x46	/* Special h8 24bit jmp which could be pcrel 	*/
+#define R_JMPL_B8	0x47	/* a 8 bit pcrel which used to be a jmp  */
+
+#define R_MOVLB1    	0x48	/* Special h8 24bit or 8 bit reloc for mov.b 	*/
+#define R_MOVLB2 	0x49	/* Special h8 opcode for 8bit which could be 24 */
 
 /* Z8k modes */
 #define R_IMM16   0x01		/* 16 bit abs */
@@ -497,7 +504,7 @@ struct internal_reloc
 #define R_H8500_LOW16 	7		/* low 16 bits of 24 bit immediate */
 #define R_H8500_IMM24	6		/* 24 bit immediate */
 #define R_H8500_IMM32   8               /* 32 bit immediate */
-
+#define R_H8500_HIGH16  9		/* high 16 bits of 32 bit immediate */
 
 /* SH modes */
 

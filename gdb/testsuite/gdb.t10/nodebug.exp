@@ -1,0 +1,49 @@
+# Test that things still (sort of) work when compiled without -g.
+# In gdb.t10 because it is related to symbol-reading, and so are the crossload
+# tests.
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+gdb_reinitialize_dir $srcdir/$subdir
+set binfile $objdir/$subdir/nodebug
+
+if ![file exists $binfile] then {
+    warning "$binfile does not exist; tests suppressed"
+} else {
+    gdb_load $binfile
+    # Expect to find global/local symbols in each of text/data/bss.
+    # gdb_test "maint print msymbols /dev/tty" "\[ \]+T\[ \]+$hex top" \
+    #	"find minimal symbol 'top' in global text"
+    # The xfails for sysv4 and solaris will be fixed in 4.11
+    # setup_xfail "*-*-sysv4*" "*-*-solaris2*"
+    # gdb_test "maint print msymbols /dev/tty" "\[ \]+t\[ \]+$hex middle" \
+    #	"find minimal symbol 'middle' in local text"
+    # gdb_test "maint print msymbols /dev/tty" "\[ \]+D\[ \]+$hex dataglobal" \
+    #	"find minimal symbol 'dataglobal' in global initialized data"
+    # setup_xfail "*-*-sysv4*" "*-*-solaris2*"
+    # gdb_test "maint print msymbols /dev/tty" "\[ \]+d\[ \]+$hex datalocal" \
+    #	"find minimal symbol 'datalocal' in local initialized data"
+    # setup_xfail "*-*-sysv4*" "*-*-solaris2*"
+    # gdb_test "maint print msymbols /dev/tty" "\[ \]+B\[ \]+$hex bssglobal" \
+    #	"find minimal symbol 'bssglobal' in global uninitialized data"
+    # setup_xfail "*-*-sysv4*" "*-*-solaris2*"
+    # gdb_test "maint print msymbols /dev/tty" "\[ \]+b\[ \]+$hex bsslocal" \
+    #	"find minimal symbol 'bsslocal' in local uninitialized data"
+    if [runto inner] then {
+	setup_xfail "*-*-sysv4*" "*-*-solaris2*"
+	gdb_test "backtrace" "#0.*inner.*#1.*middle.*#2.*top.*#3.*main"
+	# Or if that doesn't work, at least hope for the external symbols
+	gdb_test "backtrace" "#0.*inner.*#1.*#2.*top.*#3.*main"
+	# Now, try that we can give names of file-local symbols which happen
+	# to be unique, and have it still work
+	setup_xfail "*-*-sysv4*" "*-*-solaris2*"
+	if [runto middle] then {
+	    gdb_test "backtrace" "#0.*middle.*#1.*top.*#2.*main"
+	}
+    }
+}

@@ -25,6 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "symtab.h"
 #include "command.h"
+#include "gdbcmd.h"
 #include "bfd.h"
 #include "target.h"
 #include "gdbcore.h"
@@ -208,50 +209,35 @@ write_memory (memaddr, myaddr, len)
 
 /* Read an integer from debugged memory, given address and number of bytes.  */
 
-long
+LONGEST
 read_memory_integer (memaddr, len)
      CORE_ADDR memaddr;
      int len;
 {
-  char cbuf;
-  short sbuf;
-  int ibuf;
-  long lbuf;
+  char buf[sizeof (LONGEST)];
 
-  if (len == sizeof (char))
-    {
-      read_memory (memaddr, &cbuf, len);
-      return cbuf;
-    }
-  if (len == sizeof (short))
-    {
-      read_memory (memaddr, (char *)&sbuf, len);
-      SWAP_TARGET_AND_HOST (&sbuf, sizeof (short));
-      return sbuf;
-    }
-  if (len == sizeof (int))
-    {
-      read_memory (memaddr, (char *)&ibuf, len);
-      SWAP_TARGET_AND_HOST (&ibuf, sizeof (int));
-      return ibuf;
-    }
-  if (len == sizeof (lbuf))
-    {
-      read_memory (memaddr, (char *)&lbuf, len);
-      SWAP_TARGET_AND_HOST (&lbuf, sizeof (lbuf));
-      return lbuf;
-    }
-  error ("Cannot handle integers of %d bytes.", len);
-  return -1;	/* for lint */
+  read_memory (memaddr, buf, len);
+  return extract_signed_integer (buf, len);
+}
+
+unsigned LONGEST
+read_memory_unsigned_integer (memaddr, len)
+     CORE_ADDR memaddr;
+     int len;
+{
+  char buf[sizeof (unsigned LONGEST)];
+
+  read_memory (memaddr, buf, len);
+  return extract_unsigned_integer (buf, len);
 }
 
 void
 _initialize_core()
 {
-
-  add_com ("core-file", class_files, core_file_command,
-	   "Use FILE as core dump for examining memory and registers.\n\
+  struct cmd_list_element *c;
+  c = add_cmd ("core-file", class_files, core_file_command,
+	       "Use FILE as core dump for examining memory and registers.\n\
 No arg means have no core file.  This command has been superseded by the\n\
-`target core' and `detach' commands.");
-
+`target core' and `detach' commands.", &cmdlist);
+  c->completer = filename_completer;
 }

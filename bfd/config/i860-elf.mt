@@ -1,2 +1,2 @@
 # Target:  Intel 860 using ELF.
-TDEFAULTS = -DDEFAULT_VECTOR=elf32_i860_vec
+TDEFAULTS = -DDEFAULT_VECTOR=bfd_elf32_i860_vec

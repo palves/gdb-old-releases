@@ -299,6 +299,9 @@ static CONST struct aout_backend_data MY(backend_data) = {
 #ifndef MY_print_symbol
 #define MY_print_symbol NAME(aout,print_symbol)
 #endif
+#ifndef MY_get_symbol_info
+#define MY_get_symbol_info NAME(aout,get_symbol_info)
+#endif
 #ifndef MY_get_lineno
 #define MY_get_lineno NAME(aout,get_lineno)
 #endif
@@ -362,7 +365,7 @@ bfd_target MY(vec) =
   MY_symbol_leading_char,
   AR_PAD_CHAR,			/* ar_pad_char */
   15,				/* ar_max_namelen */
-  1,				/* minimum alignment */
+  3,				/* minimum alignment */
 #ifdef TARGET_IS_BIG_ENDIAN_P
   _do_getb64, _do_getb_signed_64, _do_putb64,
      _do_getb32, _do_getb_signed_32, _do_putb32,
@@ -402,6 +405,7 @@ bfd_target MY(vec) =
   MY_canonicalize_reloc,
   MY_make_empty_symbol,
   MY_print_symbol,
+  MY_get_symbol_info,
   MY_get_lineno,
   MY_set_arch_mach,
   MY_openr_next_archived_file,

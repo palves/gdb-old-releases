@@ -377,7 +377,7 @@ init_frame_info (innermost_frame, fci)
   if (innermost_frame)
     fci->frame = read_register (GR1_REGNUM);
   else
-    fci->frame = fci->next_frame + fci->next->rsize;
+    fci->frame = fci->next->frame + fci->next->rsize;
   
 #if CALL_DUMMY_LOCATION == ON_STACK
   This wont work;
@@ -504,7 +504,8 @@ frame_locals_address (fi)
    if actual_mem_addr is non-NULL, store there the address that it
    was fetched from (or if from a register the offset within
    registers).  Set *LVAL to lval_memory or lval_register, depending
-   on where it came from.  */
+   on where it came from.  The contents written into MYADDR are in
+   target format.  */
 void
 read_register_stack (memaddr, myaddr, actual_mem_addr, lval)
      CORE_ADDR memaddr;
@@ -518,12 +519,16 @@ read_register_stack (memaddr, myaddr, actual_mem_addr, lval)
   /* If we don't do this 'info register' stops in the middle. */
   if (memaddr >= rstack_high_address) 
     {
-      int val = -1;			/* a bogus value */
+      /* a bogus value */
+      static char val[] = {~0, ~0, ~0, ~0};
       /* It's in a local register, but off the end of the stack.  */
       int regnum = (memaddr - rsp) / 4 + LR0_REGNUM;
       if (myaddr != NULL)
-	*(int*)myaddr = val;		/* Provide bogusness */
-      supply_register(regnum, (char *)&val);	/* More bogusness */
+	{
+	  /* Provide bogusness */
+	  memcpy (myaddr, val, 4);
+	}
+      supply_register(regnum, val);	/* More bogusness */
       if (lval != NULL)
 	*lval = lval_register;
       if (actual_mem_addr != NULL)
@@ -550,7 +555,7 @@ read_register_stack (memaddr, myaddr, actual_mem_addr, lval)
     {
       /* It's in the memory portion of the register stack.  */
       if (myaddr != NULL) 
-	   read_memory (memaddr, myaddr, 4);
+	read_memory (memaddr, myaddr, 4);
       if (lval != NULL)
 	*lval = lval_memory;
       if (actual_mem_addr != NULL)
@@ -565,10 +570,9 @@ read_register_stack_integer (memaddr, len)
      CORE_ADDR memaddr;
      int len;
 {
-  long buf;
-  read_register_stack (memaddr, &buf, NULL, NULL);
-  SWAP_TARGET_AND_HOST (&buf, 4);
-  return buf;
+  char buf[4];
+  read_register_stack (memaddr, buf, NULL, NULL);
+  return extract_signed_integer (buf, 4);
 }
 
 /* Copy 4 bytes from GDB memory at MYADDR into inferior memory
@@ -641,7 +645,9 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lvalp)
   if (regnum == RSP_REGNUM)
     {
       if (raw_buffer != NULL)
-	*(CORE_ADDR *)raw_buffer = fi->frame;
+	{
+	  store_address (raw_buffer, REGISTER_RAW_SIZE (regnum), fi->frame);
+	}
       if (lvalp != NULL)
 	*lvalp = not_lval;
       return;
@@ -649,7 +655,9 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lvalp)
   else if (regnum == PC_REGNUM)
     {
       if (raw_buffer != NULL)
-	*(CORE_ADDR *)raw_buffer = fi->pc;
+	{
+	  store_address (raw_buffer, REGISTER_RAW_SIZE (regnum), fi->pc);
+	}
 
       /* Not sure we have to do this.  */
       if (lvalp != NULL)
@@ -662,9 +670,12 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lvalp)
       if (raw_buffer != NULL)
 	{
 	  if (fi->next != NULL)
-	    *(CORE_ADDR *)raw_buffer = fi->next->saved_msp;
+	    {
+	      store_address (raw_buffer, REGISTER_RAW_SIZE (regnum),
+			     fi->next->saved_msp);
+	    }
 	  else
-	    *(CORE_ADDR *)raw_buffer = read_register (MSP_REGNUM);
+	    read_register_gen (MSP_REGNUM, raw_buffer);
 	}
       /* The value may have been computed, not fetched.  */
       if (lvalp != NULL)
@@ -676,7 +687,7 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lvalp)
       /* These registers are not saved over procedure calls,
 	 so just print out the current values.  */
       if (raw_buffer != NULL)
-	*(CORE_ADDR *)raw_buffer = read_register (regnum);
+	read_register_gen (regnum, raw_buffer);
       if (lvalp != NULL)
 	*lvalp = lval_register;
       if (addrp != NULL)

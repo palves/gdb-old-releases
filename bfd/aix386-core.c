@@ -81,7 +81,7 @@ DEFUN(aix386_core_file_p,(abfd),
 {
   int i,n;
   unsigned char longbuf[4];	/* Raw bytes of various header fields */
-  int core_size = CORHDRSIZ;
+  int core_size = sizeof (struct corehdr);
   struct corehdr *core;
   struct mergem {
     struct trad_core_struct coredata;
@@ -270,6 +270,9 @@ DEFUN(aix386_core_file_matches_executable_p, (core_bfd, exec_bfd),
 #define	aix386_print_symbol			(PROTO (void, (*),	\
 	(bfd *, PTR, struct symbol_cache_entry  *,			\
 	 bfd_print_symbol_type))) bfd_false
+#define	aix386_get_symbol_info			(PROTO (void, (*),	\
+	(bfd *, struct symbol_cache_entry  *,			\
+	 symbol_info *))) bfd_false
 #define	aix386_get_lineno			(PROTO (alent *, (*),	\
 	(bfd *, struct symbol_cache_entry *))) bfd_nullvoidptr
 #define	aix386_set_arch_mach			(PROTO (boolean, (*),	\
@@ -301,7 +304,7 @@ swap_abort()
   abort(); /* This way doesn't require any declaration for ANSI to fuck up */
 }
 #define	NO_GET	((PROTO(bfd_vma, (*), (         bfd_byte *))) swap_abort )
-#define NO_GETS ((PROTO(bfd_signed_vma (*), (   bfd_byte *))) swap_abort )
+#define NO_GETS ((PROTO(bfd_signed_vma, (*), (  bfd_byte *))) swap_abort )
 #define	NO_PUT	((PROTO(void,    (*), (bfd_vma, bfd_byte *))) swap_abort )
 
 bfd_target aix386_core_vec =

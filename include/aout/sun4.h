@@ -24,6 +24,10 @@
    expected text address.  These kludges have gotta go!
    For linked files, should reflect reality if we know it.  */
 
+/* This differs from the version in aout64.h (which we override by defining
+   it here) only for NMAGIC (we return TEXT_START_ADDR+EXEC_BYTES_SIZE;
+   they return 0).  */
+
 #define N_TXTADDR(x) \
     (N_MAGIC(x)==OMAGIC? 0 \
      : (N_MAGIC(x) == ZMAGIC && (x).a_entry < TEXT_START_ADDR)? 0 \

@@ -29,6 +29,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "aout/stab_gnu.h"
 #include "aout/ar.h"
 
+/* This is needed to reject a NewsOS file, e.g. in
+   gdb/testsuite/gdb.t10/crossload.exp.  */
+#define MACHTYPE_OK(mtype) ((mtype) == M_68010 || (mtype) == M_68020 \
+			    || (mtype) == M_SPARC)
+
 /*
 The file @code{aoutf1.h} contains the code for BFD's
 a.out back end. Control over the generated back end is given by these
@@ -90,6 +95,7 @@ DEFUN(NAME(sunos,set_arch_mach), (abfd, machtype),
     break;
     
   case M_386:
+  case M_386_DYNIX:
     arch = bfd_arch_i386;
     machine = 0;
     break;
@@ -172,9 +178,21 @@ DEFUN(NAME(aout,sunos4_write_object_contents),
     
   choose_reloc_size(abfd);
 
+#if 0
   /* Some tools want this to be 0, some tools want this to be one.
      Today, it seems that 0 is the most important setting (PR1927) */
   N_SET_FLAGS (*execp, 0x0);
+#else
+
+  /* Fri Jun 11 14:23:31 PDT 1993
+     FIXME 
+     Today's optimal setting is 1.  This is a pain, since it
+     reopens 1927.  This should be readdressed by creating a new
+     target for each each supported, giving perhaps sun3/m68k
+     and sun4/sparc a.out formats.
+     */
+  N_SET_FLAGS (*execp, 1);
+#endif
     
   WRITE_HEADERS(abfd, execp);
 

@@ -22,7 +22,13 @@ struct external_filehdr {
 #define	M68MAGIC	0210
 #define	M68TVMAGIC	0211
 
+/* this is the magic of the Bull dpx/2 */
+#define MC68KBCSMAGIC	0526
+
 #define OMAGIC M68MAGIC
+
+/* This intentionally does not include MC68KBCSMAGIC; it only includes
+   magic numbers which imply that names do not have underscores.  */
 #define M68KBADMAG(x) (((x).f_magic!=MC68MAGIC) && ((x).f_magic!=MC68KWRMAGIC) && ((x).f_magic!=MC68TVMAGIC) && \
   ((x).f_magic!=MC68KROMAGIC) && ((x).f_magic!=MC68KPGMAGIC) && ((x).f_magic!=M68MAGIC) && ((x).f_magic!=M68TVMAGIC) )
 

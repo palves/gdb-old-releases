@@ -10,7 +10,6 @@
  * | maintained in the copy.                                   |
  * |-----------------------------------------------------------|
  */
-/* $Header: /rel/cvsfiles/devo/include/coff/symconst.h,v 1.6 1992/08/27 22:12:38 brendan Exp $ */
 
 /* (C) Copyright 1984 by Third Eye Software, Inc.
  *

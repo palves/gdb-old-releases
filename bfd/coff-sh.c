@@ -31,8 +31,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 extern bfd_error_vector_type bfd_error_vector;
 
 static reloc_howto_type r_imm32 =
-HOWTO (R_SH_IMM32, 0, 1, 32, false, 0, true,
-       true, 0, "r_imm32", true, 0xffffffff, 0xffffffff, false);
+HOWTO (R_SH_IMM32, 0,2, 32, false, 0,
+       complain_overflow_bitfield, 0, "r_imm32", false, 0x0, 0xffffffff,
+       false);
 
 
 
@@ -70,8 +71,8 @@ DEFUN (rtype2howto, (internal, dst),
 {
   switch (dst->r_type)
     {
-      default:
-      printf ("BAD 0x%x\n", dst->r_type);
+    default:
+      fprintf (stderr, "BAD 0x%x\n", dst->r_type);
     case R_SH_IMM32:
       internal->howto = &r_imm32;
       break;
@@ -125,7 +126,6 @@ extra_case (in_abfd, seclet, reloc, data, src_ptr, dst_ptr)
      unsigned int *src_ptr;
      unsigned int *dst_ptr;
 {
-  bfd_byte *d = data+*dst_ptr;
   switch (reloc->howto->type)
     {
     case R_SH_IMM32:
@@ -167,7 +167,7 @@ bfd_target shcoff_vec =
   '_',				/* leading symbol underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  3,				/* minimum section alignment */
+  2,				/* minimum section alignment */
 _do_getb64, _do_getb_signed_64, _do_putb64,
      _do_getb32, _do_getb_signed_32, _do_putb32,
      _do_getb16, _do_getb_signed_16, _do_putb16, /* data */

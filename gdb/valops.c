@@ -26,6 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "target.h"
 #include "demangle.h"
+#include "language.h"
 
 #include <errno.h>
 
@@ -331,7 +332,7 @@ value_assign (toval, fromval)
 	  int v;		/* FIXME, this won't work for large bitfields */
 	  read_memory (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
 		       (char *) &v, sizeof v);
-	  modify_field ((char *) &v, (int) value_as_long (fromval),
+	  modify_field ((char *) &v, value_as_long (fromval),
 			VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
 	  write_memory (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
 			(char *)&v, sizeof v);
@@ -351,7 +352,7 @@ value_assign (toval, fromval)
 
 	  read_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
 			       (char *) &v, sizeof v);
-	  modify_field ((char *) &v, (int) value_as_long (fromval),
+	  modify_field ((char *) &v, value_as_long (fromval),
 			VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
 	  write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
 				(char *) &v, sizeof v);
@@ -360,8 +361,19 @@ value_assign (toval, fromval)
 	write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
 			      raw_buffer, use_buffer);
       else
-	write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-			      VALUE_CONTENTS (fromval), TYPE_LENGTH (type));
+        {
+	  /* Do any conversion necessary when storing this type to more
+	     than one register.  */
+#ifdef REGISTER_CONVERT_FROM_TYPE
+	  memcpy (raw_buffer, VALUE_CONTENTS (fromval), TYPE_LENGTH (type));
+	  REGISTER_CONVERT_FROM_TYPE(VALUE_REGNO (toval), type, raw_buffer);
+	  write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
+				raw_buffer, TYPE_LENGTH (type));
+#else
+	  write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
+			        VALUE_CONTENTS (fromval), TYPE_LENGTH (type));
+#endif
+	}
       break;
 
     case lval_reg_frame_relative:
@@ -403,7 +415,7 @@ value_assign (toval, fromval)
 	/* Modify what needs to be modified.  */
 	if (VALUE_BITSIZE (toval))
 	  modify_field (buffer + byte_offset,
-			(int) value_as_long (fromval),
+			value_as_long (fromval),
 			VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
 	else if (use_buffer)
 	  memcpy (buffer + byte_offset, raw_buffer, use_buffer);
@@ -615,18 +627,19 @@ value_ind (arg1)
 /* Push one word (the size of object that a register holds).  */
 
 CORE_ADDR
-push_word (sp, buffer)
+push_word (sp, word)
      CORE_ADDR sp;
-     REGISTER_TYPE buffer;
+     REGISTER_TYPE word;
 {
   register int len = sizeof (REGISTER_TYPE);
+  char buffer[MAX_REGISTER_RAW_SIZE];
 
-  SWAP_TARGET_AND_HOST (&buffer, len);
+  store_unsigned_integer (buffer, len, word);
 #if 1 INNER_THAN 2
   sp -= len;
-  write_memory (sp, (char *)&buffer, len);
+  write_memory (sp, buffer, len);
 #else /* stack grows upward */
-  write_memory (sp, (char *)&buffer, len);
+  write_memory (sp, buffer, len);
   sp += len;
 #endif /* stack grows upward */
 
@@ -681,7 +694,15 @@ value_arg_coerce (arg)
 {
   register struct type *type;
 
-  COERCE_ENUM (arg);
+  /* FIXME: We should coerce this according to the prototype (if we have
+     one).  Right now we do a little bit of this in typecmp(), but that
+     doesn't always get called.  For example, if passing a ref to a function
+     without a prototype, we probably should de-reference it.  Currently
+     we don't.  */
+
+  if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ENUM)
+    arg = value_cast (builtin_type_unsigned_int, arg);
+
 #if 1	/* FIXME:  This is only a temporary patch.  -fnf */
   if (VALUE_REPEATED (arg)
       || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY)
@@ -816,7 +837,7 @@ call_function_by_hand (function, nargs, args)
      they are saved on the stack in the inferior.  */
   PUSH_DUMMY_FRAME;
 
-  old_sp = sp = read_register (SP_REGNUM);
+  old_sp = sp = read_sp ();
 
 #if 1 INNER_THAN 2		/* Stack grows down */
   sp -= sizeof dummy;
@@ -842,9 +863,9 @@ call_function_by_hand (function, nargs, args)
 
   /* Create a call sequence customized for this function
      and the number of arguments for it.  */
-  memcpy (dummy1, dummy, sizeof dummy);
   for (i = 0; i < sizeof dummy / sizeof (REGISTER_TYPE); i++)
-    SWAP_TARGET_AND_HOST (&dummy1[i], sizeof (REGISTER_TYPE));
+    store_unsigned_integer (&dummy1[i], sizeof (REGISTER_TYPE),
+			    (unsigned LONGEST)dummy[i]);
 
 #ifdef GDB_TARGET_IS_HPPA
   real_pc = FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, args,
@@ -988,17 +1009,43 @@ call_function_by_hand (function, nargs, args)
   /* Write the stack pointer.  This is here because the statements above
      might fool with it.  On SPARC, this write also stores the register
      window into the right place in the new stack frame, which otherwise
-     wouldn't happen.  (See write_inferior_registers in sparc-xdep.c.)  */
-  write_register (SP_REGNUM, sp);
+     wouldn't happen.  (See store_inferior_registers in sparc-nat.c.)  */
+  write_sp (sp);
 
   /* Figure out the value returned by the function.  */
   {
     char retbuf[REGISTER_BYTES];
+    char *name;
+    struct symbol *symbol;
+
+    name = NULL;
+    symbol = find_pc_function (funaddr);
+    if (symbol)
+      {
+	name = SYMBOL_SOURCE_NAME (symbol);
+      }
+    else
+      {
+	/* Try the minimal symbols.  */
+	struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (funaddr);
+
+	if (msymbol)
+	  {
+	    name = SYMBOL_SOURCE_NAME (msymbol);
+	  }
+      }
+    if (name == NULL)
+      {
+	char format[80];
+	sprintf (format, "at %s", local_hex_format ());
+	name = alloca (80);
+	sprintf (name, format, funaddr);
+      }
 
     /* Execute the stack dummy routine, calling FUNCTION.
        When it is done, discard the empty frame
        after storing the contents of all regs into retbuf.  */
-    run_stack_dummy (real_pc + CALL_DUMMY_START_OFFSET, retbuf);
+    run_stack_dummy (name, real_pc + CALL_DUMMY_START_OFFSET, retbuf);
 
     do_cleanups (old_chain);
 
@@ -1114,8 +1161,11 @@ value_string (ptr, len)
   return (val);
 }
 
-/* Compare two argument lists and return the position in which they differ,
-   or zero if equal.
+/* See if we can pass arguments in T2 to a function which takes arguments
+   of types T1.  Both t1 and t2 are NULL-terminated vectors.  If some
+   arguments need coercion of some sort, then the coerced values are written
+   into T2.  Return value is 0 if the arguments could be matched, or the
+   position at which they differ if not.
 
    STATICP is nonzero if the T1 argument list came from a
    static member function.
@@ -1147,8 +1197,22 @@ typecmp (staticp, t1, t2)
       if (! t2[i])
 	return i+1;
       if (TYPE_CODE (t1[i]) == TYPE_CODE_REF
-	  && TYPE_TARGET_TYPE (t1[i]) == VALUE_TYPE (t2[i]))
+	  /* We should be doing hairy argument matching, as below.  */
+	  && (TYPE_CODE (TYPE_TARGET_TYPE (t1[i]))
+	      == TYPE_CODE (VALUE_TYPE (t2[i]))))
+	{
+	  t2[i] = value_addr (t2[i]);
+	  continue;
+	}
+
+      if (TYPE_CODE (t1[i]) == TYPE_CODE_PTR
+	  && TYPE_CODE (VALUE_TYPE (t2[i])) == TYPE_CODE_ARRAY)
+	/* Array to pointer is a `trivial conversion' according to the ARM.  */
 	continue;
+
+      /* We should be doing much hairier argument matching (see section 13.2
+	 of the ARM), but as a quick kludge, just check for the same type
+	 code.  */
       if (TYPE_CODE (t1[i]) != TYPE_CODE (VALUE_TYPE (t2[i])))
 	return i+1;
     }

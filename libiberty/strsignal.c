@@ -18,7 +18,13 @@ License along with libiberty; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
+#include <ansidecl.h>
+
 #include "config.h"
+
+#ifdef LOSING_SYS_SIGLIST
+#define sys_siglist no_such_symbol
+#endif
 
 #include <stdio.h>
 #include <signal.h>
@@ -36,6 +42,11 @@ extern void *memset (void *s, int c, size_t n);			/* 4.11.6.1 */
 extern char *malloc ();		/* Standard memory allocater */
 extern char *memset ();
 #endif	/* __STDC__ */
+
+#ifdef LOSING_SYS_SIGLIST
+#undef sys_siglist
+#endif
+
 
 #ifndef NULL
 #  ifdef __STDC__

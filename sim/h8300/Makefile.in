@@ -17,12 +17,16 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 srcdir = .
+srcroot = $(srcdir)/../../
+
 
 prefix = /usr/local
 
+program_transform_name =
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 libdir = $(exec_prefix)/lib
+tooldir = $(libdir)/$(target_alias)
 
 datadir = $(prefix)/lib
 mandir = $(prefix)/man
@@ -42,9 +46,13 @@ docdir = $(srcdir)/doc
 
 SHELL = /bin/sh
 
-INSTALL = install -c
+
+
+INSTALL = $${srcroot}/install.sh -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
+INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
+INSTALL_XFORM1= $(INSTALL_XFORM) -b=.1
 
 AR = ar
 AR_FLAGS = qc
@@ -54,34 +62,19 @@ MAKEINFO = makeinfo
 RANLIB = ranlib
 
 INCDIR = $(srcdir)/../../include 
-CSEARCH = -I. -I$(srcdir) -I$(INCDIR) -I$(srcdir)/../../bfd
+CSEARCH = -I. -I$(srcdir) -I$(INCDIR) -I$(srcdir)/../../bfd -I../../bfd
 DEP = mkdep
 
 #### host, target, and site specific Makefile frags come in here.
 
-all:	run 
-
-run:	code.o run.o perifs.o
-	$(CC) -o run code.o perifs.o run.o ../../bfd/libbfd.a ../../libiberty/libiberty.a
- 
-code.c:p1.c p2.c p3.c
-	cat $(VPATH)/p1.c p2.c $(VPATH)/p3.c  >code.c
+all:	run
 
 
-p2.c:writecode
-	./writecode >p2.c
+run:	compile.o run.o
+	$(CC) -o run compile.o  run.o ../../bfd/libbfd.a ../../libiberty/libiberty.a
 
-
-writecode:writecode.c
-	$(CC) -o writecode -g $(CSEARCH)  $(srcdir)/writecode.c 
-
-run.o: run.c
-perifs.o: perifs.c
-
-clean:
-	rm -f *.o p2.c run
-
-install:
+compile.o:compile.c
+run.o:run.c 
 
 #### host and target dependent Makefile fragments come in here.
 ###
@@ -115,27 +108,52 @@ install-info:
 # HDEPFILES comes from the host config; TDEPFILES from the target config.
 
 
+
+tags etags: TAGS
+
+TAGS: force
+	etags $(INCDIR)/*.h $(srcdir)/*.h $(srcdir)/*.c
+
+clean:
+	rm -f *.[oa] *~ core *.E *.p *.ip aout-params.h gen-aout
+
+clobber realclean: clean
+	rm -f libbfd.a TAGS
+
 # Mark everything as depending on config.status, since the timestamp on
 # sysdep.h might actually move backwards if we reconfig and relink it
 # to a different hosts/h-xxx.h file.  This will force a recompile anyway.
 RECONFIG = config.status
 
 
+
+# This target should be invoked before building a new release.
+# 'VERSION' file must be present and contain a string of the form "x.y"
+#
+roll:
+	@V=`cat VERSION`		; \
+	MAJ=`sed 's/\..*//' VERSION`	; \
+	MIN=`sed 's/.*\.//' VERSION`	; \
+	V=$$MAJ.`expr $$MIN + 1`	; \
+	rm -f VERSION			; \
+	echo $$V >VERSION		; \
+	echo Version $$V
+
 # Dummy target to force execution of dependent targets.
 #
 force:
 
+# Copy the files into directories where they will be run.
 install:
-	-parent=`echo $(bindir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(bindir) ] ; then true ; else mkdir $(bindir) ; fi
-	-parent=`echo $(man1dir)|sed -e 's@/[^/]*$$@@'`; \
-	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-	-if [ -d $(man1dir) ] ; then true ; else mkdir $(man1dir) ; fi
-	-n=`t='$(program_transform_name)'; echo run | sed -e "" $$t`; \
-	$(INSTALL_PROGRAM) run $(bindir)/$$n; \
-	$(M_INSTALL)
-
+	srcroot=`cd $(srcroot); pwd`; export srcroot; \
+	$(INSTALL_XFORM) run $(bindir)/run ;  \
+	n=`t='$(program_transform_name)'; echo run | sed -e "" $$t`; \
+	if [ -d $(tooldir) ] ; then \
+	  if [ -d $(tooldir)/bin ] ; then true ; else mkdir $(tooldir)/bin ; fi; \
+	  rm -f $(tooldir)/bin/run;  \
+	  ln $(bindir)/$$n $(tooldir)/bin/run \
+	   || $(INSTALL_PROGRAM) run $(tooldir)/bin/run; \
+	else true; fi
 
 
 Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)

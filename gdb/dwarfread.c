@@ -24,7 +24,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 FIXME: Figure out how to get the frame pointer register number in the
 execution environment of the target.  Remove R_FP kludge
 
-FIXME: Add generation of dependencies list to partial symtab code.
+FIXME: Do we need to generate dependencies in partial symtabs?
+(Perhaps we don't need to).
 
 FIXME: Resolve minor differences between what information we put in the
 partial symbol table and what dbxread puts in.  For example, we don't yet
@@ -495,7 +496,7 @@ dwarf_psymtab_to_symtab PARAMS ((struct partial_symtab *));
 static void
 psymtab_to_symtab_1 PARAMS ((struct partial_symtab *));
 
-static struct symtab *
+static void
 read_ofile_symtab PARAMS ((struct partial_symtab *));
 
 static void
@@ -1025,7 +1026,6 @@ struct_type (dip, thisdie, enddie, objfile)
   struct nextfield *new;
   int nfields = 0;
   int n;
-  char *tpart1;
   struct dieinfo mbr;
   char *nextdie;
 #if !BITS_BIG_ENDIAN
@@ -1042,20 +1042,16 @@ struct_type (dip, thisdie, enddie, objfile)
     {
       case TAG_class_type:
         TYPE_CODE (type) = TYPE_CODE_CLASS;
-	tpart1 = "class";
 	break;
       case TAG_structure_type:
         TYPE_CODE (type) = TYPE_CODE_STRUCT;
-	tpart1 = "struct";
 	break;
       case TAG_union_type:
 	TYPE_CODE (type) = TYPE_CODE_UNION;
-	tpart1 = "union";
 	break;
       default:
 	/* Should never happen */
 	TYPE_CODE (type) = TYPE_CODE_UNDEF;
-	tpart1 = "???";
 	complain (&missing_tag, DIE_ID, DIE_NAME);
 	break;
     }
@@ -1066,8 +1062,8 @@ struct_type (dip, thisdie, enddie, objfile)
       && *dip -> at_name != '~'
       && *dip -> at_name != '.')
     {
-      TYPE_NAME (type) = obconcat (&objfile -> type_obstack,
-				   tpart1, " ", dip -> at_name);
+      TYPE_TAG_NAME (type) = obconcat (&objfile -> type_obstack,
+				       "", "", dip -> at_name);
     }
   /* Use whatever size is known.  Zero is a valid size.  We might however
      wish to check has_at_byte_size to make sure that some byte size was
@@ -1755,8 +1751,8 @@ enum_type (dip, objfile)
       && *dip -> at_name != '~'
       && *dip -> at_name != '.')
     {
-      TYPE_NAME (type) = obconcat (&objfile -> type_obstack, "enum",
-				   " ", dip -> at_name);
+      TYPE_TAG_NAME (type) = obconcat (&objfile -> type_obstack,
+				       "", "", dip -> at_name);
     }
   if (dip -> at_byte_size != 0)
     {
@@ -2300,19 +2296,18 @@ LOCAL FUNCTION
 
 SYNOPSIS
 
-	static struct symtab *read_ofile_symtab (struct partial_symtab *pst)
+	static void read_ofile_symtab (struct partial_symtab *pst)
 
 DESCRIPTION
 
 	When expanding a partial symbol table entry to a full symbol table
 	entry, this is the function that gets called to read in the symbols
-	for the compilation unit.
-
-	Returns a pointer to the newly constructed symtab (which is now
-	the new first one on the objfile's symtab list).
+	for the compilation unit.  A pointer to the newly constructed symtab,
+	which is now the new first one on the objfile's symtab list, is
+	stashed in the partial symbol table entry.
  */
 
-static struct symtab *
+static void
 read_ofile_symtab (pst)
      struct partial_symtab *pst;
 {
@@ -2372,7 +2367,7 @@ read_ofile_symtab (pst)
   process_dies (dbbase, dbbase + dbsize, pst -> objfile);
   do_cleanups (back_to);
   current_objfile = NULL;
-  return (pst -> objfile -> symtabs);
+  pst -> symtab = pst -> objfile -> symtabs;
 }
 
 /*
@@ -2432,7 +2427,7 @@ psymtab_to_symtab_1 (pst)
 	    {
 	      buildsym_init ();
 	      old_chain = make_cleanup (really_free_pendings, 0);
-	      pst -> symtab = read_ofile_symtab (pst);
+	      read_ofile_symtab (pst);
 	      if (info_verbose)
 		{
 		  printf_filtered ("%d DIE's, sorting...", diecount);

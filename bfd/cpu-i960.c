@@ -87,7 +87,7 @@ DEFUN(scan_960_mach, (ap, string),
    machine which would be compatible with both and returns a pointer
    to its info structure */
 
-CONST bfd_arch_info_type *
+static CONST bfd_arch_info_type *
 DEFUN(compatible,(a,b),
       CONST bfd_arch_info_type *a AND
       CONST bfd_arch_info_type *b)

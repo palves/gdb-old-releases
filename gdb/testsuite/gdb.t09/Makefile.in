@@ -1,0 +1,33 @@
+#### host, target, and site specific Makefile frags come in here.
+
+srcdir = .
+CFLAGS = -g
+
+.PHONY: all clean mostlyclean distclean realclean
+
+all: gdbme corefile
+
+gdbme: gdbme.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o gdbme gdbme.o $(LIBS)
+
+gdbme.o: gdbme.c
+
+# Create a core file named "corefile" rather than just "core", to
+# avoid problems with sys admin types that like to regularly prune all
+# files named "core" from the system.
+# bsd 386 systems append the name of the program to the corefile name.
+
+corefile: gdbme
+	-rm -f core
+	-./gdbme >/dev/null 2>&1 || true
+	-if [ -f core ]; then mv core corefile; else true; fi
+	-if [ -f core.gdbme ]; then mv core.gdbme corefile; else true; fi
+
+clean mostlyclean:
+	-rm -f *.o gdbme *.diff *~ *.bad core core.gdbme corefile foo
+
+distclean realclean: clean
+	-rm -f Makefile config.status
+
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+	$(SHELL) ./config.status

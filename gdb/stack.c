@@ -130,6 +130,25 @@ print_stack_frame (frame, level, source)
   print_frame_info (fi, level, source, 1);
 }
 
+struct print_args_args {
+  struct symbol *func;
+  struct frame_info *fi;
+};
+
+static int print_args_stub PARAMS ((char *));
+
+/* Pass the args the way catch_errors wants them.  */
+static int
+print_args_stub (args)
+     char *args;
+{
+  int numargs;
+  struct print_args_args *p = (struct print_args_args *)args;
+  FRAME_NUM_ARGS (numargs, (p->fi));
+  print_frame_args (p->func, p->fi, numargs, stdout);
+  return 0;
+}
+
 void
 print_frame_info (fi, level, source, args)
      struct frame_info *fi;
@@ -142,8 +161,29 @@ print_frame_info (fi, level, source, args)
   register char *funname = 0;
   enum language funlang = language_unknown;
   int numargs;
+  char buf[MAX_REGISTER_RAW_SIZE];
+  CORE_ADDR sp;
 
-  if (PC_IN_CALL_DUMMY (fi->pc, read_register (SP_REGNUM), fi->frame))
+  /* Get the value of SP_REGNUM relative to the frame.  */
+  get_saved_register (buf, (int *)NULL, (CORE_ADDR *)NULL,
+		      FRAME_INFO_ID (fi), SP_REGNUM, (enum lval_type *)NULL);
+  sp = extract_address (buf, REGISTER_RAW_SIZE (SP_REGNUM));
+
+  /* This is not a perfect test, because if a function alloca's some
+     memory, puts some code there, and then jumps into it, then the test
+     will succeed even though there is no call dummy.  A better
+     solution would be to keep track of where the call dummies are.
+     Probably the best way to do that is by setting a breakpoint.c
+     breakpoint at the end of the call dummy (wanted anyway, to clean
+     up wait_for_inferior).  Then we know that the sizeof (CALL_DUMMY)
+     (or some such) bytes before that breakpoint are a call dummy.
+     Only problem I see with this approach is figuring out to get rid
+     of the breakpoint whenever the call dummy vanishes (e.g.
+     return_command, or longjmp out of the called function), which we
+     probably can solve (it's very similar to figuring out when a
+     watchpoint on a local variable goes out of scope if it is being
+     watched via something like a 386 debug register).  */
+  if (PC_IN_CALL_DUMMY (fi->pc, sp, fi->frame))
     {
       /* Do this regardless of SOURCE because we don't have any source
 	 to list for this frame.  */
@@ -162,7 +202,7 @@ print_frame_info (fi, level, source, args)
       return;
     }
 
-  sal = find_pc_line (fi->pc, fi->next_frame);
+  sal = find_pc_line (fi->pc, fi->next != NULL);
   func = find_pc_function (fi->pc);
   if (func)
     {
@@ -172,13 +212,15 @@ print_frame_info (fi, level, source, args)
 	 is compiled with debugging symbols, and the "foo.o" symbol
 	 that is supposed to tell us where the file with debugging symbols
 	 ends has been truncated by ar because it is longer than 15
-	 characters).
+	 characters).  This also occurs if the user uses asm() to create
+	 a function but not stabs for it (in a file compiled -g).
 
 	 So look in the minimal symbol tables as well, and if it comes
 	 up with a larger address for the function use that instead.
 	 I don't think this can ever cause any problems; there shouldn't
-	 be any minimal symbols in the middle of a function.
-	 FIXME:  (Not necessarily true.  What about text labels) */
+	 be any minimal symbols in the middle of a function; if this is
+	 ever changed many parts of GDB will need to be changed (and we'll
+	 create a find_pc_minimal_function or some such).  */
 
       struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
       if (msymbol != NULL
@@ -223,8 +265,10 @@ print_frame_info (fi, level, source, args)
       fputs_filtered (" (", stdout);
       if (args)
 	{
-	  FRAME_NUM_ARGS (numargs, fi);
-	  print_frame_args (func, fi, numargs, stdout);
+	  struct print_args_args args;
+	  args.fi = fi;
+	  args.func = func;
+	  catch_errors (print_args_stub, (char *)&args, "", RETURN_MASK_ERROR);
 	}
       printf_filtered (")");
       if (sal.symtab && sal.symtab->filename)
@@ -250,7 +294,8 @@ print_frame_info (fi, level, source, args)
       int done = 0;
       int mid_statement = source < 0 && fi->pc != sal.pc;
       if (frame_file_full_name)
-	done = identify_source_line (sal.symtab, sal.line, mid_statement);
+	done = identify_source_line (sal.symtab, sal.line, mid_statement,
+				     fi->pc);
       if (!done)
 	{
 	  if (addressprint && mid_statement)
@@ -388,14 +433,14 @@ frame_info (addr_exp, from_tty)
   enum language funlang = language_unknown;
 
   if (!target_has_stack)
-    error ("No inferior or core file.");
+    error ("No stack.");
 
   frame = parse_frame_specification (addr_exp);
   if (!frame)
     error ("Invalid frame specified.");
 
   fi = get_frame_info (frame);
-  sal = find_pc_line (fi->pc, fi->next_frame);
+  sal = find_pc_line (fi->pc, fi->next != NULL);
   func = get_frame_function (frame);
   s = find_pc_symtab(fi->pc);
   if (func)
@@ -453,12 +498,13 @@ frame_info (addr_exp, from_tty)
   if (calling_frame)
     printf_filtered (" called by frame at %s", 
 		     local_hex_string(FRAME_FP (calling_frame)));
-  if (fi->next_frame && calling_frame)
+  if (fi->next && calling_frame)
     puts_filtered (",");
   wrap_here ("   ");
-  if (fi->next_frame)
-    printf_filtered (" caller of frame at %s", local_hex_string(fi->next_frame));
-  if (fi->next_frame || calling_frame)
+  if (fi->next)
+    printf_filtered (" caller of frame at %s",
+		     local_hex_string (fi->next->frame));
+  if (fi->next || calling_frame)
     puts_filtered ("\n");
   if (s)
      printf_filtered(" source language %s.\n", language_str(s->language));

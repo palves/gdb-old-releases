@@ -313,7 +313,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	(read_memory_integer ((frame)->frame + 8, 4))
 
 #define FRAME_ARGS_ADDRESS(fi) \
-	((fi)->next_frame ? \
+	((fi)->next ? \
 	 read_memory_integer ((fi)->frame + 12, 4) : \
 	 read_register (AP_REGNUM))
 

@@ -242,8 +242,6 @@ extract_17 (word)
 		      (word & 0x1) << 16, 17) << 2;
 }
 
-static int use_unwind = 0;
-
 /* Lookup the unwind (stack backtrace) info for the given PC.  We search all
    of the objfiles seeking the unwind table entry for this PC.  Each objfile
    contains a sorted list of struct unwind_table_entry.  Since we do a binary
@@ -296,6 +294,77 @@ find_unwind_entry(pc)
   return NULL;
 }
 
+/* Called when no unwind descriptor was found for PC.  Returns 1 if it
+   appears that PC is in a linker stub.  */
+static int pc_in_linker_stub PARAMS ((CORE_ADDR));
+
+static int
+pc_in_linker_stub (pc)
+     CORE_ADDR pc;
+{
+  int found_magic_instruction = 0;
+  int i;
+  char buf[4];
+
+  /* If unable to read memory, assume pc is not in a linker stub.  */
+  if (target_read_memory (pc, buf, 4) != 0)
+    return 0;
+
+  /* We are looking for something like
+
+     ; $$dyncall jams RP into this special spot in the frame (RP')
+     ; before calling the "call stub"
+     ldw     -18(sp),rp
+
+     ldsid   (rp),r1         ; Get space associated with RP into r1
+     mtsp    r1,sp           ; Move it into space register 0
+     be,n    0(sr0),rp)      ; back to your regularly scheduled program
+     */
+
+  /* Maximum known linker stub size is 4 instructions.  Search forward
+     from the given PC, then backward.  */
+  for (i = 0; i < 4; i++)
+    {
+      /* If we hit something with an unwind, stop searching this direction.  */
+
+      if (find_unwind_entry (pc + i * 4) != 0)
+	break;
+
+      /* Check for ldsid (rp),r1 which is the magic instruction for a 
+	 return from a cross-space function call.  */
+      if (read_memory_integer (pc + i * 4, 4) == 0x004010a1)
+	{
+	  found_magic_instruction = 1;
+	  break;
+	}
+      /* Add code to handle long call/branch and argument relocation stubs
+	 here.  */
+    }
+
+  if (found_magic_instruction != 0)
+    return 1;
+
+  /* Now look backward.  */
+  for (i = 0; i < 4; i++)
+    {
+      /* If we hit something with an unwind, stop searching this direction.  */
+
+      if (find_unwind_entry (pc - i * 4) != 0)
+	break;
+
+      /* Check for ldsid (rp),r1 which is the magic instruction for a 
+	 return from a cross-space function call.  */
+      if (read_memory_integer (pc - i * 4, 4) == 0x004010a1)
+	{
+	  found_magic_instruction = 1;
+	  break;
+	}
+      /* Add code to handle long call/branch and argument relocation stubs
+	 here.  */
+    }
+  return found_magic_instruction;
+}
+
 static int
 find_return_regnum(pc)
      CORE_ADDR pc;
@@ -313,35 +382,54 @@ find_return_regnum(pc)
   return RP_REGNUM;
 }
 
+/* Return size of frame, or -1 if we should use a frame pointer.  */
 int
 find_proc_framesize(pc)
      CORE_ADDR pc;
 {
   struct unwind_table_entry *u;
 
-  if (!use_unwind)
-    return -1;
-
   u = find_unwind_entry (pc);
 
   if (!u)
+    {
+      if (pc_in_linker_stub (pc))
+	/* Linker stubs have a zero size frame.  */
+	return 0;
+      else
+	return -1;
+    }
+
+  if (u->Save_SP)
+    /* If this bit is set, it means there is a frame pointer and we should
+       use it.  */
     return -1;
 
   return u->Total_frame_size << 3;
 }
 
-int
-rp_saved(pc)
+/* Return offset from sp at which rp is saved, or 0 if not saved.  */
+static int rp_saved PARAMS ((CORE_ADDR));
+
+static int
+rp_saved (pc)
+     CORE_ADDR pc;
 {
   struct unwind_table_entry *u;
 
   u = find_unwind_entry (pc);
 
   if (!u)
-    return 0;
+    {
+      if (pc_in_linker_stub (pc))
+	/* This is the so-called RP'.  */
+	return -24;
+      else
+	return 0;
+    }
 
   if (u->Save_RP)
-    return 1;
+    return -20;
   else
     return 0;
 }
@@ -350,20 +438,14 @@ int
 frameless_function_invocation (frame)
      FRAME frame;
 {
+  struct unwind_table_entry *u;
 
-  if (use_unwind)
-    {
-      struct unwind_table_entry *u;
+  u = find_unwind_entry (frame->pc);
 
-      u = find_unwind_entry (frame->pc);
-
-      if (u == 0)
-	return 0;
-
-      return (u->Total_frame_size == 0);
-    }
-  else
+  if (u == 0)
     return frameless_look_for_prologue (frame);
+
+  return (u->Total_frame_size == 0);
 }
 
 CORE_ADDR
@@ -391,10 +473,15 @@ frame_saved_pc (frame)
 
       return read_register (ret_regnum) & ~0x3;
     }
-  else if (rp_saved (pc))
-    return read_memory_integer (frame->frame - 20, 4) & ~0x3;
   else
-    return read_register (RP_REGNUM) & ~0x3;
+    {
+      int rp_offset = rp_saved (pc);
+
+      if (rp_offset == 0)
+	return read_register (RP_REGNUM) & ~0x3;
+      else
+	return read_memory_integer (frame->frame + rp_offset, 4) & ~0x3;
+    }
 }
 
 /* We need to correct the PC and the FP for the outermost frame when we are
@@ -453,33 +540,38 @@ frame_chain_valid (chain, thisframe)
      FRAME_ADDR chain;
      FRAME thisframe;
 {
-  struct minimal_symbol *msym;
+  struct minimal_symbol *msym_us;
+  struct minimal_symbol *msym_start;
+  struct unwind_table_entry *u;
 
   if (!chain)
     return 0;
 
-  if (use_unwind)
-    {
+  u = find_unwind_entry (thisframe->pc);
 
-      struct unwind_table_entry *u;
+  /* We can't just check that the same of msym_us is "_start", because
+     someone idiotically decided that they were going to make a Ltext_end
+     symbol with the same address.  This Ltext_end symbol is totally
+     indistinguishable (as nearly as I can tell) from the symbol for a function
+     which is (legitimately, since it is in the user's namespace)
+     named Ltext_end, so we can't just ignore it.  */
+  msym_us = lookup_minimal_symbol_by_pc (FRAME_SAVED_PC (thisframe));
+  msym_start = lookup_minimal_symbol ("_start", NULL);
+  if (msym_us
+      && msym_start
+      && SYMBOL_VALUE_ADDRESS (msym_us) == SYMBOL_VALUE_ADDRESS (msym_start))
+    return 0;
 
-      u = find_unwind_entry (thisframe->pc);
+  if (u == NULL)
+    return 1;
 
-      if (u && (u->Save_SP || u->Total_frame_size))
-	return 1;
-      else
-	return 0;
-    }
-  else
-    {
-      msym = lookup_minimal_symbol_by_pc (FRAME_SAVED_PC (thisframe));
+  if (u->Save_SP || u->Total_frame_size)
+    return 1;
 
-      if (msym
-	  && (strcmp (SYMBOL_NAME (msym), "_start") == 0))
-	return 0;
-      else
-	return 1;
-    }
+  if (pc_in_linker_stub (thisframe->pc))
+    return 1;
+
+  return 0;
 }
 
 /*
@@ -692,7 +784,7 @@ hppa_push_arguments (nargs, args, sp, struct_return, struct_addr)
 	cum = (cum + alignment) & -alignment;
       offset[i] = -cum;
     }
-  sp += min ((cum + 7) & -8, 16);
+  sp += max ((cum + 7) & -8, 16);
 
   for (i = 0; i < nargs; i++)
     write_memory (sp + offset[i], VALUE_CONTENTS (args[i]),
@@ -725,6 +817,7 @@ hppa_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
 {
   CORE_ADDR dyncall_addr, sr4export_addr;
   struct minimal_symbol *msymbol;
+  int flags = read_register (FLAGS_REGNUM);
 
   msymbol = lookup_minimal_symbol ("$$dyncall", (struct objfile *) NULL);
   if (msymbol == NULL)
@@ -745,7 +838,45 @@ hppa_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
 
   write_register (22, pc);
 
-  return dyncall_addr;
+  /* If we are in a syscall, then we should call the stack dummy
+     directly.  $$dyncall is not needed as the kernel sets up the
+     space id registers properly based on the value in %r31.  In
+     fact calling $$dyncall will not work because the value in %r22
+     will be clobbered on the syscall exit path.  */
+  if (flags & 2)
+    return pc;
+  else
+    return dyncall_addr;
+
+}
+
+/* Get the PC from %r31 if currently in a syscall.  Also mask out privilege
+   bits.  */
+CORE_ADDR
+target_read_pc ()
+{
+  int flags = read_register (FLAGS_REGNUM);
+
+  if (flags & 2)
+    return read_register (31) & ~0x3;
+  return read_register (PC_REGNUM) & ~0x3;
+}
+
+/* Write out the PC.  If currently in a syscall, then also write the new
+   PC value into %r31.  */
+void
+target_write_pc (v)
+     CORE_ADDR v;
+{
+  int flags = read_register (FLAGS_REGNUM);
+
+  /* If in a syscall, then set %r31.  Also make sure to get the 
+     privilege bits set correctly.  */
+  if (flags & 2)
+    write_register (31, (long) (v | 0x3));
+
+  write_register (PC_REGNUM, (long) v);
+  write_register (NPC_REGNUM, (long) v + 4);
 }
 
 /* return the alignment of a type in bytes. Structures have the maximum
@@ -897,11 +1028,12 @@ CORE_ADDR
 skip_prologue(pc)
      CORE_ADDR pc;
 {
-  int inst;
+  char buf[4];
+  unsigned long inst;
   int status;
 
-  status = target_read_memory (pc, (char *)&inst, 4);
-  SWAP_TARGET_AND_HOST (&inst, sizeof (inst));
+  status = target_read_memory (pc, buf, 4);
+  inst = extract_unsigned_integer (buf, 4);
   if (status != 0)
     return pc;
 
@@ -919,6 +1051,8 @@ skip_prologue(pc)
 
   return pc;
 }
+
+#ifdef MAINTENANCE_CMDS
 
 static void
 unwind_command (exp, from_tty)
@@ -952,12 +1086,11 @@ unwind_command (exp, from_tty)
 }
 
 void
-_initialize_hppah_tdep ()
+_initialize_hppa_tdep ()
 {
-  add_com ("unwind", class_obscure, unwind_command, "Print unwind info\n");
-  add_show_from_set
-    (add_set_cmd ("use_unwind", class_obscure, var_boolean,
-		  (char *)&use_unwind,
-		  "Set the usage of unwind info", &setlist),
-     &showlist);
+  add_cmd ("unwind", class_maintenance, unwind_command,
+	   "Print unwind table entry at given address.",
+	   &maintenanceprintlist);
 }
+
+#endif /* MAINTENANCE_CMDS */

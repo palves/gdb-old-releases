@@ -64,7 +64,7 @@ fetch_data (info, nibble)
      struct disassemble_info *info;
      int nibble;
 {
-  char mybuf[20];
+  unsigned char mybuf[20];
   int status;
   instr_data_s *priv = (instr_data_s *)info->private_data;
   bfd_vma start = priv->insn_start + priv->max_fetched / 2;
@@ -83,7 +83,7 @@ fetch_data (info, nibble)
 
   {
     int i;
-    char *p = mybuf + priv->max_fetched / 2;
+    unsigned char *p = mybuf + priv->max_fetched / 2;
     
     for (i = priv->max_fetched; i < nibble;)
       {
@@ -133,7 +133,7 @@ static void unparse_instr PARAMS ((instr_data_s *));
 
 static int
 print_insn_z8k (addr, info, is_segmented)
-     unsigned long addr;
+     bfd_vma addr;
      disassemble_info *info;
      int is_segmented;
 {
@@ -164,14 +164,14 @@ print_insn_z8k (addr, info, is_segmented)
 }
 
 print_insn_z8001 (addr, info)
-     unsigned long addr;
+     bfd_vma addr;
      disassemble_info *info;
 {
   return print_insn_z8k (addr, info, 1);
 }
 
 print_insn_z8002 (addr, info)
-     unsigned long addr;
+     bfd_vma addr;
      disassemble_info *info;
 {
   return print_insn_z8k (addr, info, 0);

@@ -347,7 +347,11 @@ read_memory_nobpt (memaddr, myaddr, len)
   struct breakpoint *b;
 
   if (memory_breakpoint_size < 0)
-    /* No breakpoints on this machine.  */
+    /* No breakpoints on this machine.  FIXME: This should be
+       dependent on the debugging target.  Probably want
+       target_insert_breakpoint to return a size, saying how many
+       bytes of the shadow contents are used, or perhaps have
+       something like target_xfer_shadow.  */
     return target_read_memory (memaddr, myaddr, len);
   
   ALL_BREAKPOINTS (b)
@@ -815,7 +819,7 @@ bpstat_alloc (b, cbs)
    still on the stack, I guess this needs to be machine-specific (e.g.
    a29k) but I think
 
-      read_register (FP_REGNUM) INNER_THAN watchpoint_frame->frame
+      read_fp () INNER_THAN watchpoint_frame->frame
 
    would generally work.
 
@@ -824,7 +828,7 @@ bpstat_alloc (b, cbs)
    watchpoint is relative to (another machine-specific thing, usually
 
       FRAMELESS_FUNCTION_INVOCATION (get_current_frame(), fromleaf)
-      read_register (FP_REGNUM) == wp_frame->frame
+      read_fp () == wp_frame->frame
       && !fromleaf
 
    ), *then* it could do a
@@ -852,7 +856,7 @@ within_scope (valid_block)
   static CORE_ADDR callee_func_start;
   static CORE_ADDR callee_prologue_end;
   
-  find_pc_partial_function (fi->pc, (PTR)NULL, &func_start);
+  find_pc_partial_function (fi->pc, (PTR)NULL, &func_start, (CORE_ADDR *)NULL);
   func_start += FUNCTION_START_OFFSET;
   if (fi->pc == func_start)
     {
@@ -1058,7 +1062,8 @@ bpstat_stop_status (pc, frame_address)
 	    "Error evaluating expression for watchpoint %d\n";
 	  char message[sizeof (message1) + 30 /* slop */];
 	  sprintf (message, message1, b->number);
-	  switch (catch_errors (watchpoint_check, (char *) bs, message))
+	  switch (catch_errors (watchpoint_check, (char *) bs, message,
+				RETURN_MASK_ALL))
 	    {
 	    case WP_DISABLED:
 	      /* We've already printed what needs to be printed.  */
@@ -1104,7 +1109,8 @@ bpstat_stop_status (pc, frame_address)
 	      select_frame (get_current_frame (), 0);
 	      value_is_zero
 		= catch_errors (breakpoint_cond_eval, (char *)(b->cond),
-				"Error in testing breakpoint condition:\n");
+				"Error in testing breakpoint condition:\n",
+				RETURN_MASK_ALL);
 				/* FIXME-someday, should give breakpoint # */
 	      free_all_values ();
 	    }
@@ -1165,14 +1171,14 @@ bpstat_stop_status (pc, frame_address)
 }
 
 /* Tell what to do about this bpstat.  */
-enum bpstat_what
+struct bpstat_what
 bpstat_what (bs)
      bpstat bs;
 {
   /* Classify each bpstat as one of the following.  */
   enum class {
-    /* There was a watchpoint, but we're not stopping.  */
-    wp_nostop = 0,
+    /* This bpstat element has no effect on the main_action.  */
+    no_effect = 0,
 
     /* There was a watchpoint, stop but don't print.  */
     wp_silent,
@@ -1215,13 +1221,13 @@ bpstat_what (bs)
 #define err BPSTAT_WHAT_STOP_NOISY
 
   /* Given an old action and a class, come up with a new action.  */
-  static const enum bpstat_what
+  static const enum bpstat_what_main_action
     table[(int)class_last][(int)BPSTAT_WHAT_LAST] =
       {
 	/*                              old action */
 	/*       keep_c  stop_s  stop_n  single  setlr   clrlr   clrlrs */
 
-/*wp_nostop*/	{keep_c, stop_s, stop_n, single, setlr , clrlr , clrlrs},
+/*no_effect*/	{keep_c, stop_s, stop_n, single, setlr , clrlr , clrlrs},
 /*wp_silent*/	{stop_s, stop_s, stop_n, stop_s, stop_s, stop_s, stop_s},
 /*wp_noisy*/    {stop_n, stop_n, stop_n, stop_n, stop_n, stop_n, stop_n},
 /*bp_nostop*/	{single, stop_s, stop_n, single, setlr , clrlrs, clrlrs},
@@ -1238,7 +1244,8 @@ bpstat_what (bs)
 #undef clrlr
 #undef clrlrs
 #undef err
-  enum bpstat_what current_action = BPSTAT_WHAT_KEEP_CHECKING;
+  enum bpstat_what_main_action current_action = BPSTAT_WHAT_KEEP_CHECKING;
+  int found_step_resume = 0;
 
   for (; bs != NULL; bs = bs->next)
     {
@@ -1271,7 +1278,9 @@ bpstat_what (bs)
 		bs_class = wp_silent;
 	    }
 	  else
-	    bs_class = wp_nostop;
+	    /* There was a watchpoint, but we're not stopping.  This requires
+	       no further action.  */
+	    bs_class = no_effect;
 	  break;
 	case bp_longjmp:
 	  bs_class = long_jump;
@@ -1279,10 +1288,34 @@ bpstat_what (bs)
 	case bp_longjmp_resume:
 	  bs_class = long_resume;
 	  break;
+	case bp_step_resume:
+#if 0
+	  /* Need to temporarily disable this until we can fix the bug
+	     with nexting over a breakpoint with ->stop clear causing
+	     an infinite loop.  For now, treat the breakpoint as having
+	     been hit even if the frame is wrong.  */
+	  if (bs->stop)
+	    {
+#endif
+	      found_step_resume = 1;
+	      /* We don't handle this via the main_action.  */
+	      bs_class = no_effect;
+#if 0
+	    }
+	  else
+	    /* It is for the wrong frame.  */
+	    bs_class = bp_nostop;
+#endif
+	  break;
 	}
       current_action = table[(int)bs_class][(int)current_action];
     }
-  return current_action;
+  {
+    struct bpstat_what retval;
+    retval.main_action = current_action;
+    retval.step_resume = found_step_resume;
+    return retval;
+  }
 }
 
 /* Nonzero if we should step constantly (e.g. watchpoints on machines
@@ -1319,12 +1352,6 @@ breakpoint_1 (bnum, allflag)
   static char bpenables[] = "ny";
   char wrap_indent[80];
 
-  if (!breakpoint_chain)
-    {
-      printf_filtered ("No breakpoints or watchpoints.\n");
-      return;
-    }
-  
   ALL_BREAKPOINTS (b)
     if (bnum == -1
 	|| bnum == b->number)
@@ -1361,7 +1388,7 @@ breakpoint_1 (bnum, allflag)
 	      printf_filtered ("%s ", local_hex_string_custom(b->address, "08"));
 
 	    last_addr = b->address;
-	    if (b->symtab)
+	    if (b->source_file)
 	      {
 		sym = find_pc_function (b->address);
 		if (sym)
@@ -1371,7 +1398,7 @@ breakpoint_1 (bnum, allflag)
 		    wrap_here (wrap_indent);
 		    fputs_filtered (" at ", stdout);
 		  }
-		fputs_filtered (b->symtab->filename, stdout);
+		fputs_filtered (b->source_file, stdout);
 		printf_filtered (":%d", b->line_number);
 	      }
 	    else
@@ -1401,9 +1428,13 @@ breakpoint_1 (bnum, allflag)
 	    }
       }
 
-  if (!found_a_breakpoint
-      && bnum != -1)
-    printf_filtered ("No breakpoint or watchpoint number %d.\n", bnum);
+  if (!found_a_breakpoint)
+    {
+      if (bnum == -1)
+        printf_filtered ("No breakpoints or watchpoints.\n");
+      else
+        printf_filtered ("No breakpoint or watchpoint number %d.\n", bnum);
+    }
   else
     /* Compare against (CORE_ADDR)-1 in case some compiler decides
        that a comparison of an unsigned with -1 is always false.  */
@@ -1528,7 +1559,11 @@ set_raw_breakpoint (sal)
   b = (struct breakpoint *) xmalloc (sizeof (struct breakpoint));
   memset (b, 0, sizeof (*b));
   b->address = sal.pc;
-  b->symtab = sal.symtab;
+  if (sal.symtab == NULL)
+    b->source_file = NULL;
+  else
+    b->source_file = savestring (sal.symtab->filename,
+				 strlen (sal.symtab->filename));
   b->line_number = sal.line;
   b->enable = enabled;
   b->next = 0;
@@ -1698,9 +1733,9 @@ mention (b)
     case bp_breakpoint:
       printf_filtered ("Breakpoint %d at %s", b->number,
 		       local_hex_string(b->address));
-      if (b->symtab)
+      if (b->source_file)
 	printf_filtered (": file %s, line %d.",
-			 b->symtab->filename, b->line_number);
+			 b->source_file, b->line_number);
       break;
     case bp_until:
     case bp_finish:
@@ -1769,6 +1804,9 @@ break_command_1 (arg, tempflag, from_tty)
      of the address part.  */
   char *addr_start = NULL;
   char *addr_end;
+  struct cleanup *old_chain;
+  struct cleanup *canonical_strings_chain;
+  char **canonical = (char **)NULL;
   
   int i;
 
@@ -1808,15 +1846,29 @@ break_command_1 (arg, tempflag, from_tty)
 	  && (!current_source_symtab
 	      || (arg && (*arg == '+' || *arg == '-'))))
 	sals = decode_line_1 (&arg, 1, default_breakpoint_symtab,
-			      default_breakpoint_line);
+			      default_breakpoint_line, &canonical);
       else
-	sals = decode_line_1 (&arg, 1, (struct symtab *)NULL, 0);
+	sals = decode_line_1 (&arg, 1, (struct symtab *)NULL, 0, &canonical);
 
       addr_end = arg;
     }
   
   if (! sals.nelts) 
     return;
+
+  /* Make sure that all storage allocated in decode_line_1 gets freed in case
+     the following `for' loop errors out.  */
+  old_chain = make_cleanup (free, sals.sals);
+  if (canonical != (char **)NULL)
+    {
+      make_cleanup (free, canonical);
+      canonical_strings_chain = make_cleanup (null_cleanup, 0);
+      for (i = 0; i < sals.nelts; i++)
+	{
+	  if (canonical[i] != NULL)
+	    make_cleanup (free, canonical[i]);
+	}
+    }
 
   /* Resolve all line numbers to PC's, and verify that conditions
      can be parsed, before setting any breakpoints.  */
@@ -1839,6 +1891,10 @@ break_command_1 (arg, tempflag, from_tty)
 	}
     }
 
+  /* Remove the canonical strings from the cleanup, they are needed below.  */
+  if (canonical != (char **)NULL)
+    discard_cleanups (canonical_strings_chain);
+
   /* Now set all the breakpoints.  */
   for (i = 0; i < sals.nelts; i++)
     {
@@ -1853,11 +1909,11 @@ break_command_1 (arg, tempflag, from_tty)
       b->type = bp_breakpoint;
       b->cond = cond;
 
-      /* FIXME: We should add the filename if this is a static function
-	 and probably if it is a line number (the line numbers could
-	 have changed when we re-read symbols; possibly better to disable
-	 the breakpoint in that case).  */
-      if (addr_start)
+      /* If a canonical line spec is needed use that instead of the
+	 command string.  */
+      if (canonical != (char **)NULL && canonical[i] != NULL)
+	b->addr_string = canonical[i];
+      else if (addr_start)
 	b->addr_string = savestring (addr_start, addr_end - addr_start);
       if (cond_start)
 	b->cond_string = savestring (cond_start, cond_end - cond_start);
@@ -1873,7 +1929,7 @@ break_command_1 (arg, tempflag, from_tty)
       printf ("Multiple breakpoints were set.\n");
       printf ("Use the \"delete\" command to delete unwanted breakpoints.\n");
     }
-  free ((PTR)sals.sals);
+  do_cleanups (old_chain);
 }
 
 /* Helper function for break_command_1 and disassemble_command.  */
@@ -1973,9 +2029,9 @@ until_break_command (arg, from_tty)
   
   if (default_breakpoint_valid)
     sals = decode_line_1 (&arg, 1, default_breakpoint_symtab,
-			  default_breakpoint_line);
+			  default_breakpoint_line, (char ***)NULL);
   else
-    sals = decode_line_1 (&arg, 1, (struct symtab *)NULL, 0);
+    sals = decode_line_1 (&arg, 1, (struct symtab *)NULL, 0, (char ***)NULL);
   
   if (sals.nelts != 1)
     error ("Couldn't get information on specified line.");
@@ -2251,7 +2307,7 @@ catch_command_1 (arg, tempflag, from_tty)
   else
     {
       /* Grab selected catch clauses.  */
-      error ("catch NAME not implemeneted");
+      error ("catch NAME not implemented");
 #if 0
       /* This isn't used; I don't know what it was for.  */
       sals = map_catch_names (arg, catch_breakpoint);
@@ -2293,10 +2349,7 @@ catch_command_1 (arg, tempflag, from_tty)
       b->enable = enabled;
       b->disposition = tempflag ? delete : donttouch;
 
-      printf ("Breakpoint %d at %s", b->number, local_hex_string(b->address));
-      if (b->symtab)
-	printf (": file %s, line %d.", b->symtab->filename, b->line_number);
-      printf ("\n");
+      mention (b);
     }
 
   if (sals.nelts > 1)
@@ -2377,8 +2430,12 @@ clear_command (arg, from_tty)
       sal = sals.sals[i];
       found = (struct breakpoint *) 0;
       while (breakpoint_chain
-	     && (sal.pc ? breakpoint_chain->address == sal.pc
-		 : (breakpoint_chain->symtab == sal.symtab
+	     && (sal.pc
+		 ? breakpoint_chain->address == sal.pc
+		 : (breakpoint_chain->source_file != NULL
+		    && sal.symtab != NULL
+		    && STREQ (breakpoint_chain->source_file,
+			      sal.symtab->filename)
 		    && breakpoint_chain->line_number == sal.line)))
 	{
 	  b1 = breakpoint_chain;
@@ -2390,8 +2447,11 @@ clear_command (arg, from_tty)
       ALL_BREAKPOINTS (b)
 	while (b->next
 	       && b->next->type != bp_watchpoint
-	       && (sal.pc ? b->next->address == sal.pc
-		   : (b->next->symtab == sal.symtab
+	       && (sal.pc
+		   ? b->next->address == sal.pc
+		   : (b->next->source_file != NULL
+		      && sal.symtab != NULL
+		      && STREQ (b->next->source_file, sal.symtab->filename)
 		      && b->next->line_number == sal.line)))
 	  {
 	    b1 = b->next;
@@ -2444,7 +2504,7 @@ delete_breakpoint (bpt)
   register bpstat bs;
 
   if (bpt->inserted)
-      target_remove_breakpoint(bpt->address, bpt->shadow_contents);
+    target_remove_breakpoint(bpt->address, bpt->shadow_contents);
 
   if (breakpoint_chain == bpt)
     breakpoint_chain = bpt->next;
@@ -2457,16 +2517,36 @@ delete_breakpoint (bpt)
       }
 
   check_duplicates (bpt->address);
+  /* If this breakpoint was inserted, and there is another breakpoint
+     at the same address, we need to insert the other breakpoint.  */
+  if (bpt->inserted)
+    {
+      ALL_BREAKPOINTS (b)
+	if (b->address == bpt->address && !b->duplicate)
+	  {
+	    int val;
+	    val = target_insert_breakpoint (b->address, b->shadow_contents);
+	    if (val != 0)
+	      {
+		fprintf (stderr, "Cannot insert breakpoint %d:\n", b->number);
+		memory_error (val, b->address);	/* which bombs us out */
+	      }
+	    else
+	      b->inserted = 1;
+	  }
+    }
 
   free_command_lines (&bpt->commands);
   if (bpt->cond)
-    free ((PTR)bpt->cond);
+    free (bpt->cond);
   if (bpt->cond_string != NULL)
-    free ((PTR)bpt->cond_string);
+    free (bpt->cond_string);
   if (bpt->addr_string != NULL)
-    free ((PTR)bpt->addr_string);
+    free (bpt->addr_string);
   if (bpt->exp_string != NULL)
-    free ((PTR)bpt->exp_string);
+    free (bpt->exp_string);
+  if (bpt->source_file != NULL)
+    free (bpt->source_file);
 
   if (xgdb_verbose && bpt->type == bp_breakpoint)
     printf ("breakpoint #%d deleted\n", bpt->number);
@@ -2529,25 +2609,45 @@ breakpoint_re_set_one (bint)
       b->enable = disabled;
 
       s = b->addr_string;
-      sals = decode_line_1 (&s, 1, (struct symtab *)NULL, 0);
+      sals = decode_line_1 (&s, 1, (struct symtab *)NULL, 0, (char ***)NULL);
       for (i = 0; i < sals.nelts; i++)
 	{
 	  resolve_sal_pc (&sals.sals[i]);
-	  if (b->symtab != sals.sals[i].symtab
-	      || b->line_number != sals.sals[i].line
-	      || b->address != sals.sals[i].pc)
+
+	  /* Reparse conditions, they might contain references to the
+	     old symtab.  */
+	  if (b->cond_string != NULL)
 	    {
-	      b->symtab = sals.sals[i].symtab;
+	      s = b->cond_string;
+	      if (b->cond)
+		free ((PTR)b->cond);
+	      b->cond = parse_exp_1 (&s, block_for_pc (sals.sals[i].pc), 0);
+	    }
+
+	  /* We need to re-set the breakpoint if the address changes...*/
+	  if (b->address != sals.sals[i].pc
+	      /* ...or new and old breakpoints both have source files, and
+		 the source file name or the line number changes...  */
+	      || (b->source_file != NULL
+		  && sals.sals[i].symtab != NULL
+		  && (!STREQ (b->source_file, sals.sals[i].symtab->filename)
+		      || b->line_number != sals.sals[i].line)
+		  )
+	      /* ...or we switch between having a source file and not having
+		 one.  */
+	      || ((b->source_file == NULL) != (sals.sals[i].symtab == NULL))
+	      )
+	    {
+	      if (b->source_file != NULL)
+		free (b->source_file);
+	      if (sals.sals[i].symtab == NULL)
+		b->source_file = NULL;
+	      else
+		b->source_file =
+		  savestring (sals.sals[i].symtab->filename,
+			      strlen (sals.sals[i].symtab->filename));
 	      b->line_number = sals.sals[i].line;
 	      b->address = sals.sals[i].pc;
-
-	      if (b->cond_string != NULL)
-		{
-		  s = b->cond_string;
-		  if (b->cond)
-		    free ((PTR)b->cond);
-		  b->cond = parse_exp_1 (&s, block_for_pc (sals.sals[i].pc), 0);
-		}
 	  
 	      check_duplicates (b->address);
 
@@ -2609,7 +2709,8 @@ breakpoint_re_set ()
   ALL_BREAKPOINTS_SAFE (b, temp)
     {
       sprintf (message, message1, b->number);	/* Format possible error msg */
-      catch_errors (breakpoint_re_set_one, (char *) b, message);
+      catch_errors (breakpoint_re_set_one, (char *) b, message,
+		    RETURN_MASK_ALL);
     }
 
   create_longjmp_breakpoint("longjmp");
@@ -2875,9 +2976,11 @@ decode_line_spec_1 (string, funfirstline)
     error ("Empty line specification.");
   if (default_breakpoint_valid)
     sals = decode_line_1 (&string, funfirstline,
-			  default_breakpoint_symtab, default_breakpoint_line);
+			  default_breakpoint_symtab, default_breakpoint_line,
+			  (char ***)NULL);
   else
-    sals = decode_line_1 (&string, funfirstline, (struct symtab *)NULL, 0);
+    sals = decode_line_1 (&string, funfirstline,
+			  (struct symtab *)NULL, 0, (char ***)NULL);
   if (*string)
     error ("Junk at end of line specification: %s", string);
   return sals;

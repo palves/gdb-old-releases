@@ -1,29 +1,22 @@
-/*****************************************************************************
- *  Copyright 1990, 1992 Free Software Foundation, Inc.
- *
- *   This code was donated by Intel Corp.
- *
- * Intel hereby grants you permission to copy, modify, and 
- * distribute this software and its documentation.  Intel grants
- * this permission provided that the above copyright notice 
- * appears in all copies and that both the copyright notice and
- * this permission notice appear in supporting documentation.  In
- * addition, Intel grants this permission provided that you
- * prominently mark as not part of the original any modifications
- * made to this software or documentation, and that the name of 
- * Intel Corporation not be used in advertising or publicity 
- * pertaining to distribution of the software or the documentation 
- * without specific, written prior permission.  
- *
- * Intel Corporation does not warrant, guarantee or make any 
- * representations regarding the use of, or the results of the use
- * of, the software and documentation in terms of correctness, 
- * accuracy, reliability, currentness, or otherwise; and you rely
- * on the software, documentation and results solely at your own risk.
- *****************************************************************************/
+/* This file is part of GDB.
 
-static char rcsid[] =
-	"Id: Onindy.c,v 1.1.1.1 1991/03/28 16:20:43 rich Exp $";
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+/* This started out life as code shared between the nindy monitor and
+   GDB.  For various reasons, this is no longer true.  Eventually, it
+   probably should be merged into remote-nindy.c.  */
 
 /******************************************************************************
  *
@@ -36,47 +29,37 @@ static char rcsid[] =
  * conflict with the current version.  The old versions are kept only for
  * backward compatibility, and well disappear in a future release.
  *
- ******************************************************************************/
+ **************************************************************************/
+
+/* Having these in a separate file from nindy.c is really ugly, and should
+   be merged with nindy.c.  */
 
 #include <stdio.h>
+#if 0
 #include <sys/ioctl.h>
 #include <sys/types.h>	/* Needed by file.h on Sys V */
 #include <sys/file.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>	/* Needed on Sys V */
-#include "defs.h" /* needed for xmalloc */
 #include "ttycntl.h"
+#endif
+#include "defs.h"
+#include "serial.h"
+
 #include "block_io.h"
 #include "wait.h"
 #include "env.h"
 
+/* Number of bytes that we send to nindy.  I believe this is defined by
+   the protocol (it does not agree with REGISTER_BYTES).  */
+#define OLD_NINDY_REGISTER_BYTES ((36*4) + (4*8))
 
-#ifdef USG
-#	include <unistd.h>
-#	include "sysv.h"
-#else	/* BSD */
-#	include "string.h"
-#endif
+extern int quiet;	/* 1 => stifle unnecessary messages */
 
-#ifndef TRUE
-#define TRUE	1
-#endif
+/* tty connected to 960/NINDY board.  */
+extern serial_t nindy_serial;
 
-#ifndef FALSE
-#define FALSE	0
-#endif
-
-#ifndef ERROR
-#define ERROR	-1
-#endif
-
-#define NINDY_REGISTER_BYTES ((36*4) + (4*8))
-
-extern void free ();
-
-static int quiet;	/* TRUE => stifle unnecessary messages */
-static int nindy_fd;	/* File descriptor of tty connected to 960/NINDY board*/
 static OninStrGet();
 
 		/****************************
@@ -189,79 +172,6 @@ say( fmt, arg1, arg2 )
 		fflush( stdout );
 	}
 }
-
-/******************************************************************************
- * exists:
- *	Creates a full pathname by concatenating up to three name components
- *	onto a specified base name; optionally looks up the base name as a
- *	runtime environment variable;  and checks to see if the file or
- *	directory specified by the pathname actually exists.
- *
- *	Returns:  the full pathname if it exists, NULL otherwise.
- *		(returned pathname is in malloc'd memory and must be freed
- *		by caller).
- *****************************************************************************/
-static
-char *
-exists( base, c1, c2, c3, env )
-    char *base;		/* Base directory of path */
-    char *c1, *c2, *c3;	/* Components (subdirectories and/or file name) to be
-			 *	appended onto the base directory name.  One or
-			 *	more may be omitted by passing NULL pointers.
-			 */
-    int env;		/* If 1, '*base' is the name of an environment variable
-			 *	to be examined for the base directory name;
-			 *	otherwise, '*base' is the actual name of the
-			 *	base directory.
-			 */
-{
-	struct stat buf;/* For call to 'stat' -- never examined */
-	char *path;	/* Pointer to full pathname (malloc'd memory) */
-	int len;	/* Length of full pathname (incl. terminator) */
-	extern char *getenv();
-
-
-	if ( env ){
-		base = getenv( base );
-		if ( base == NULL ){
-			return NULL;
-		}
-	}
-
-	len = strlen(base) + 4;
-			/* +4 for terminator and "/" before each component */
-	if ( c1 != NULL ){
-		len += strlen(c1);
-	}
-	if ( c2 != NULL ){
-		len += strlen(c2);
-	}
-	if ( c3 != NULL ){
-		len += strlen(c3);
-	}
-
-	path = xmalloc( len );
-
-	strcpy( path, base );
-	if ( c1 != NULL ){
-		strcat( path, "/" );
-		strcat( path, c1 );
-		if ( c2 != NULL ){
-			strcat( path, "/" );
-			strcat( path, c2 );
-			if ( c3 != NULL ){
-				strcat( path, "/" );
-				strcat( path, c3 );
-			}
-		}
-	}
-
-	if ( stat(path,&buf) != 0 ){
-		free( path );
-		path = NULL;
-	}
-	return path;
-}
 
 		/*****************************
 		 *                           *
@@ -269,21 +179,14 @@ exists( base, c1, c2, c3, env )
 		 *                           *
 		 *****************************/
 
-/******************************************************************************
- * readchar:
- *	Wait for a character to come in on the NINDY tty, and return it.
- ******************************************************************************/
-static
+/* Read a single character from the remote end.  */
+
+static int
 readchar()
 {
-	unsigned char c;
-
-	while (read(nindy_fd,&c,1) != 1){
-		;
-	}
-	return c;
+  /* FIXME: Do we really want to be reading without a timeout?  */
+  return SERIAL_READCHAR (nindy_serial, -1);
 }
-
 
 /******************************************************************************
  * getpkt:
@@ -302,12 +205,14 @@ getpkt (buf)
 	while (1){
 		csum = 0;
 		bp = buf;
+		/* FIXME: check for error from readchar ().  */
 		while ( (c = readchar()) != '#' ){
 			*bp++ = c;
 			csum += c;
 		}
 		*bp = 0;
 
+		/* FIXME: check for error from readchar ().  */
 		recv = fromhex(readchar()) << 4;
 		recv |= fromhex(readchar());
 		if ( csum == recv ){
@@ -317,10 +222,10 @@ getpkt (buf)
 		fprintf(stderr,
 			"Bad checksum (recv=0x%02x; calc=0x%02x); retrying\r\n",
 								recv, csum );
-		write (nindy_fd, "-", 1);
+		SERIAL_WRITE (nindy_serial, "-", 1);
 	}
 
-	write (nindy_fd, "+", 1);
+	SERIAL_WRITE (nindy_serial, "+", 1);
 }
 
 
@@ -349,22 +254,25 @@ putpkt( cmd )
 
 	/* Send checksummed message over and over until we get a positive ack
 	 */
-	resend = TRUE;
+	resend = 1;
 	do {
-		if ( resend ){
-			write( nindy_fd, "\020", 1 );
-			write( nindy_fd, cmd, strlen(cmd) );
-			write( nindy_fd, checksum, strlen(checksum) );
+		if ( resend ) {
+		  SERIAL_WRITE ( nindy_serial, "\020", 1 );
+		  SERIAL_WRITE( nindy_serial, cmd, strlen(cmd) );
+		  SERIAL_WRITE( nindy_serial, checksum, strlen(checksum) );
 		}
-		if  ( read( nindy_fd, &ack, 1 ) != 1 ){
-			fprintf(stderr,"oink\n");
-		}
+		/* FIXME: do we really want to be reading without timeout?  */
+		ack = SERIAL_READCHAR (nindy_serial, -1);
+		if (ack < 0)
+		  {
+		    fprintf (stderr, "error reading from serial port\n");
+		  }
 		if ( ack == '-' ){
 			fprintf( stderr, "Remote NAK, resending\r\n" );
-			resend = TRUE;
+			resend = 1;
 		} else if ( ack != '+' ){
 			fprintf( stderr, "Bad ACK, ignored: <%c>\r\n", ack );
-			resend = FALSE;
+			resend = 0;
 		}
 	} while ( ack != '+' );
 }
@@ -383,9 +291,9 @@ send( buf, ack_required )
     char *buf;		/* Message to be sent to NINDY; replaced by
 			 *	NINDY's response.
 			 */
-    int ack_required;	/* TRUE means NINDY's response MUST be either "X00" (no
+    int ack_required;	/* 1 means NINDY's response MUST be either "X00" (no
 			 *	error) or an error code "Xnn".
-			 * FALSE means the it's OK as long as it doesn't
+			 * 0 means the it's OK as long as it doesn't
 			 *	begin with "Xnn".
 			 */
 {
@@ -428,154 +336,6 @@ send( buf, ack_required )
 	}
 }
 
-		/************************
-		 *                      *
-		 *  BAUD RATE ROUTINES  *
-		 *                      *
-		 ************************/
-
-/* Table of baudrates known to be acceptable to NINDY.  Each baud rate
- * appears both as character string and as a Unix baud rate constant.
- */
-struct baudrate {
-	char *string;
-	int rate;
-};
-
-static struct baudrate baudtab[] = {
-	 "1200", B1200,
-	 "2400", B2400,
-	 "4800", B4800,
-	 "9600", B9600,
-	"19200", B19200,
-	"38400", B38400,
-	NULL,    0		/* End of table */
-};
- 
-
-/******************************************************************************
- * parse_baudrate:
- *	Look up the passed baud rate in the baudrate table.  If found, change
- *	our internal record of the current baud rate, but don't do anything
- *	about the tty just now.
- *
- *	Return pointer to baudrate structure on success, NULL on failure.
- ******************************************************************************/
-static
-struct baudrate *
-parse_baudrate(s)
-    char *s;	/* Desired baud rate, as an ASCII (decimal) string */
-{
-	int i;
-
-	for ( i=0; baudtab[i].string != NULL; i++ ){
-		if ( !strcmp(baudtab[i].string,s) ){
-			return &baudtab[i];
-		}
-	}
-	return NULL;
-}
-
-/******************************************************************************
- * try_baudrate:
- *	Try speaking to NINDY via the specified file descriptor at the
- *	specified baudrate.  Assume success it we can send an empty command
- *	with a bogus checksum and receive a NAK (response of '-') back within
- *	one second.
- *
- *	Return 1 on success, 0 on failure.
- ******************************************************************************/
-
-static int saw_alarm;
-
-static void
-alarm_handler()
-{
-	saw_alarm = 1;
-}
-
-static int
-try_baudrate( fd, brp )
-    int fd;
-    struct baudrate *brp;
-{
-	TTY_STRUCT tty;
-	char c;
-	int n;
-	void (*old_alarm)();    /* Save alarm signal handler here on entry */
-	
-
-	/* Set specified baud rate and flush all pending input */
-	ioctl( fd, TIOCGETP, &tty );
-	TTY_REMOTE( tty, brp->rate );
-	ioctl( fd, TIOCSETP, &tty );
-	tty_flush( fd );
-
-	/* Send bogus command */
-	write( fd, "\020#00", 4 );
-
-	/* Wait until reponse comes back or one second passes */
-	old_alarm = signal( SIGALRM,alarm_handler );
-	saw_alarm = 0;
-	alarm(1);
-	do {
-		n = 1;
-		TTY_NBREAD(fd,n,&c);
-	} while ( n<=0 && !saw_alarm );
-
-	/* Turn off alarm */
-	alarm(0);
-	signal( SIGALRM,old_alarm );
-
-	/* Did we get a '-' back ? */
-	if ( (n > 0) && (c == '-') ){
-		return 1;
-	}
-	return 0;
-}
-
-/******************************************************************************
- * autobaud:
- *	Get NINDY talking over the specified file descriptor at the specified
- *	baud rate.  First see if NINDY's already talking at 'baudrate'.  If
- *	not, run through all the legal baudrates in 'baudtab' until one works,
- *	and then tell NINDY to talk at 'baudrate' instead.
- ******************************************************************************/
-static
-autobaud( fd, brp )
-    int fd;
-    struct baudrate *brp;
-{
-	int i;
-	TTY_STRUCT tty;
-
-
-	say("NINDY at wrong baud rate? Trying to autobaud...\n");
-	i = 0;
-	while ( 1 ){
-		say( "\r%s...   ", baudtab[i].string );
-		if ( try_baudrate(fd,&baudtab[i]) ){
-			break;
-		}
-		if ( baudtab[++i].string == NULL ){
-			/* End of table -- wraparound */
-			i = 0;
-			say("\nAutobaud failed. Trying again...\n");
-		}
-	}
-
-	/* Found NINDY's current baud rate;  now change it.
-	 */
-	say("Changing NINDY baudrate to %s\n", brp->string);
-	OninBaud( brp->string );
-
-	/* Change our baud rate back to rate to which we just set NINDY.
-	 */
-	ioctl( fd, TIOCGETP, &tty );
-	TTY_REMOTE( tty, brp->rate );
-	ioctl( fd, TIOCSETP, &tty );
-}
-
 		/**********************************
 		 *				  *
 		 *   NINDY INTERFACE ROUTINES	  *
@@ -583,34 +343,6 @@ autobaud( fd, brp )
 		 * ninConnect *MUST* be the first *
 		 * one of these routines called.  *
 		 **********************************/
-
-
-/******************************************************************************
- * ninBaud:
- *	Ask NINDY to change the baud rate on its serial port.
- *	Assumes we know the baud rate at which NINDY's currently talking.
- ******************************************************************************/
-OninBaud( baudrate )
-    char *baudrate;	/* Desired baud rate, as a string of ASCII decimal
-			 * digits.
-			 */
-{
-	char buf[100];		/* Message buffer	*/
-	char *p;		/* Pointer into buffer	*/
-	unsigned char csum;	/* Calculated checksum	*/
-
-	tty_flush( nindy_fd );
-
-	/* Can't use putpkt() because after the baudrate change
-	 * NINDY's ack/nak will look like gibberish.
-	 */
-	for ( p=baudrate, csum=020+'z'; *p; p++ ){
-		csum += *p;
-	}
-	sprintf( buf, "\020z%s#%02x", baudrate, csum );
-	write( nindy_fd, buf, strlen(buf) );
-}
-
 
 /******************************************************************************
  * ninBptDel:
@@ -629,7 +361,7 @@ OninBptDel( addr, data )
 	} else {
 		sprintf( buf, "b%c%x", data ? '1' : '0', addr );
 	}
-	return send( buf, FALSE );
+	return send( buf, 0 );
 }
 
 
@@ -645,153 +377,8 @@ OninBptSet( addr, data )
 	char buf[100];
 
 	sprintf( buf, "B%c%x", data ? '1' : '0', addr );
-	return send( buf, FALSE );
+	return send( buf, 0 );
 }
-
-
-/******************************************************************************
- * ninConnect:
- *	Open the specified tty.  Get communications working at the specified
- *	Flush any pending I/O on the tty.
- *
- *	Return the file descriptor, or -1 on failure.
- ******************************************************************************/
-int
-OninConnect( name, baudrate, brk, silent )
-    char *name;		/* "/dev/ttyXX" to be opened			*/
-    char *baudrate;/* baud rate: a string of ascii decimal digits (eg,"9600")*/
-    int brk;		/* 1 => send break to tty first thing after opening it*/
-    int silent;		/* 1 => stifle unnecessary messages when talking to 
-			 *	this tty.
-			 */
-{
-	int i;
-	char *p;
-	struct baudrate *brp;
-
-	/* We will try each of the following paths when trying to open the tty
-	 */
-	static char *prefix[] = { "", "/dev/", "/dev/tty", NULL };
-
-	quiet = silent;		/* Make global to this file */
-
-	for ( i=0; prefix[i] != NULL; i++ ){
-		p = xmalloc(strlen(prefix[i]) + strlen(name) + 1 );
-		strcpy( p, prefix[i] );
-		strcat( p, name );
-		nindy_fd = open(p,O_RDWR);
-		if ( nindy_fd >= 0 ){
-#ifdef TIOCEXCL
-			/* Exclusive use mode (hp9000 does not support it) */
-			ioctl(nindy_fd,TIOCEXCL,NULL);
-#endif
-			if ( brk ){
-				send_break( nindy_fd );
-			}
-
-			brp = parse_baudrate( baudrate );
-			if ( brp == NULL ){
-				say("Illegal baudrate %s ignored; using 9600\n",
-								baudrate);
-				brp = parse_baudrate( "9600" );
-			}
-
-			if ( !try_baudrate(nindy_fd,brp) ){
-				autobaud(nindy_fd,brp);
-			}
-			tty_flush( nindy_fd );
-			say( "Connected to %s\n", p );
-			free(p);
-			break;
-		}
-		free(p);
-	}
-	return nindy_fd;
-}
-
-
-
-/******************************************************************************
- * ninDownload:
- *	Ask NINDY to start up it's COFF downloader. Invoke 'sx' to perform
- *	the XMODEM download from the host end.
- *
- *	Return 1 on success, 0 on failure.
- ******************************************************************************/
-
-#define XMODEM	"sx"	/* Name of xmodem transfer utility	*/
-
-int
-OninDownload( fn, quiet )
-    char *fn;		/* Stripped copy of object file			*/
-    int quiet;
-{
-	char *p;	/* Pointer to full pathname of sx utility	*/
-	int success;	/* Return value					*/
-	int pid;	/* Process ID of xmodem transfer utility	*/
-	WAITTYPE w;	/* xmodem transfer completion status		*/
-	char buf[200];
-
-
-	/* Make sure the xmodem utility is findable.  This must be done before
-	 * we start up the NINDY end of the download (NINDY will hang if we
-	 * don't complete the download).
-	 */
-	if ( ((p = exists("G960BIN",XMODEM,NULL,NULL,1)) == NULL)
-	&&   ((p = exists("G960BASE","bin",XMODEM, NULL,1)) == NULL)
-#ifdef HOST
-	&&   ((p = exists(DEFAULT_BASE,HOST,"bin",XMODEM,0)) == NULL)
-#endif
-								      ){
-
-		fprintf(stderr,"Can't find '%s' download utility\n",XMODEM);
-		fprintf(stderr,"Check env variables G960BIN and G960BASE\n");
-		return 0;
-	}
-
-	if ( !quiet ){
-		printf( "Downloading %s\n", fn );
-	}
-
-	/* Reset NINDY,  wait until "reset-complete" ack,
-	 * and start up the NINDY end of the download.
-	 */
-	OninReset();
-	putpkt( "D" );
-
-	/* Invoke x-modem transfer, a separate process.  DON'T
-	 * use system() to do this -- under system V Unix, the
-	 * redirection of stdin/stdout causes the nindy tty to
-	 * lose all the transmission parameters we've set up.
-	 */
-	success = 0;
-
-	pid = fork();
-	if ( pid == -1 ){
-		perror( "Can't fork process:" );
-
-	} else if ( pid == 0 ){		/* CHILD */
-		dup2( nindy_fd, 0 );	/* Redirect stdin */
-		dup2( nindy_fd, 1 );	/* Redirect stout */
-		if ( quiet ){
-			execl( p, p, "-q", fn, (char*)0 );
-		} else {
-			execl( p, p, fn, (char*)0 );
-		}
-		/* Don't get here unless execl fails */
-		sprintf( buf, "Can't exec %s", p );
-		perror( buf );
-
-	} else {			/* PARENT */
-		if ( wait(&w) == -1 ){
-			perror( "Wait failed" );
-		} else if (WIFEXITED(w) && (WEXITSTATUS(w) == 0)){
-			success = 1;
-		}
-	}
-	return success;
-}
-
 
 /******************************************************************************
  * ninGdbExit:
@@ -802,7 +389,6 @@ OninGdbExit()
 {
         putpkt( "E" );
 }
-
 
 /******************************************************************************
  * ninGo:
@@ -825,14 +411,18 @@ OninMemGet(ninaddr, hostaddr, len)
      char *hostaddr;	/* Destination address, in our memory space	*/
      int len;		/* Number of bytes to read			*/
 {
-	char buf[2*BUFSIZE+20];	/* Buffer: hex in, binary out		*/
+  /* How much do we send at a time?  */
+#define OLD_NINDY_MEMBYTES 1024
+	/* Buffer: hex in, binary out		*/
+	char buf[2*OLD_NINDY_MEMBYTES+20];
+
 	int cnt;		/* Number of bytes in next transfer	*/
 
-	for ( ; len > 0; len -= BUFSIZE ){
-		cnt = len > BUFSIZE ? BUFSIZE : len;
+	for ( ; len > 0; len -= OLD_NINDY_MEMBYTES ){
+		cnt = len > OLD_NINDY_MEMBYTES ? OLD_NINDY_MEMBYTES : len;
 
 		sprintf( buf, "m%x,%x", ninaddr, cnt );
-		send( buf, FALSE );
+		send( buf, 0 );
 		hexbin( cnt, buf, hostaddr );
 
 		ninaddr += cnt;
@@ -850,18 +440,18 @@ OninMemPut( destaddr, srcaddr, len )
      char *srcaddr;	/* Source address, in our memory space		*/
      int len;		/* Number of bytes to write			*/
 {
-	char buf[2*BUFSIZE+20];	/* Buffer: binary in, hex out		*/
+	char buf[2*OLD_NINDY_MEMBYTES+20];	/* Buffer: binary in, hex out		*/
 	char *p;		/* Pointer into buffer			*/
 	int cnt;		/* Number of bytes in next transfer	*/
 
-	for ( ; len > 0; len -= BUFSIZE ){
-		cnt = len > BUFSIZE ? BUFSIZE : len;
+	for ( ; len > 0; len -= OLD_NINDY_MEMBYTES ){
+		cnt = len > OLD_NINDY_MEMBYTES ? OLD_NINDY_MEMBYTES : len;
 
 		sprintf( buf, "M%x,", destaddr );
 		p = buf + strlen(buf);
 		binhex( cnt, srcaddr, p );
 		*(p+(2*cnt)) = '\0';
-		send( buf, TRUE );
+		send( buf, 1 );
 
 		srcaddr += cnt;
 		destaddr += cnt;
@@ -887,7 +477,7 @@ OninRegGet( regname )
 	long val;
 
 	sprintf( buf, "u%s", regname );
-	send( buf, FALSE );
+	send( buf, 0 );
 	hexbin( 4, buf, (char *)&val );
 	return byte_order(val);
 }
@@ -909,7 +499,7 @@ OninRegPut( regname, val )
 	char buf[200];
 
 	sprintf( buf, "U%s,%08x", regname, byte_order(val) );
-	send( buf, TRUE );
+	send( buf, 1 );
 }
 
 /******************************************************************************
@@ -933,11 +523,11 @@ OninRegPut( regname, val )
 OninRegsGet( regp )
     char *regp;		/* Where to place the register dump */
 {
-	char buf[(2*NINDY_REGISTER_BYTES)+10];   /* Registers in ASCII hex */
+	char buf[(2*OLD_NINDY_REGISTER_BYTES)+10];   /* Registers in ASCII hex */
 
 	strcpy( buf, "r" );
-	send( buf, FALSE );
-	hexbin( NINDY_REGISTER_BYTES, buf, regp );
+	send( buf, 0 );
+	hexbin( OLD_NINDY_REGISTER_BYTES, buf, regp );
 }
 
 /******************************************************************************
@@ -953,13 +543,13 @@ OninRegsGet( regp )
 OninRegsPut( regp )
     char *regp;		/* Pointer to desired values of registers */
 {
-	char buf[(2*NINDY_REGISTER_BYTES)+10];   /* Registers in ASCII hex */
+	char buf[(2*OLD_NINDY_REGISTER_BYTES)+10];   /* Registers in ASCII hex */
 
 	buf[0] = 'R';
-	binhex( NINDY_REGISTER_BYTES, regp, buf+1 );
-	buf[ (2*NINDY_REGISTER_BYTES)+1 ] = '\0';
+	binhex( OLD_NINDY_REGISTER_BYTES, regp, buf+1 );
+	buf[ (2*OLD_NINDY_REGISTER_BYTES)+1 ] = '\0';
 
-	send( buf, TRUE );
+	send( buf, 1 );
 }
 
 
@@ -971,6 +561,7 @@ OninReset()
 {
 
 	putpkt( "X" );
+	/* FIXME: check for error from readchar ().  */
 	while ( readchar() != '+' ){
 		;
 	}
@@ -987,6 +578,7 @@ OninReset()
  ******************************************************************************/
 OninSrq()
 {
+  /* FIXME: Imposes arbitrary limits on lengths of pathnames and such.  */
 	char buf[BUFSIZE];
 	int retcode;
 	unsigned char srqnum;
@@ -999,7 +591,7 @@ OninSrq()
 	/* Get srq number and arguments
 	 */
 	strcpy( buf, "!" );
-	send( buf, FALSE );
+	send( buf, 0 );
 	hexbin( 1, buf, (char *)&srqnum );
 
 	/* Set up array of pointers the each of the individual
@@ -1056,14 +648,14 @@ OninSrq()
 		retcode = write(arg[0],buf,arg[2]);
 		break;
 	default:
-		retcode = ERROR;
+		retcode = -1;
 		break;
 	}
 
 	/* Tell NINDY to continue
 	 */
 	sprintf( buf, "e%x", retcode );
-	send( buf, TRUE );
+	send( buf, 1 );
 }
 
 
@@ -1092,7 +684,7 @@ OninStopWhy( whyp, ipp, fpp, spp )
 	char stop_exit;
 
 	strcpy( buf, "?" );
-	send( buf, FALSE );
+	send( buf, 0 );
 	hexbin( 1, buf, &stop_exit );
 	hexbin( 1, buf+2, whyp );
 	hexbin( 4, buf+4, ipp );
@@ -1113,15 +705,19 @@ OninStrGet( ninaddr, hostaddr )
 				 *	be copied.
 				 */
 {
+  /* FIXME: seems to be an arbitrary limit on the length of the string.  */
 	char buf[BUFSIZE];	/* String as 2 ASCII hex digits per byte */
 	int numchars;		/* Length of string in bytes.		*/
 
 	sprintf( buf, "\"%x", ninaddr );
-	send( buf, FALSE );
+	send( buf, 0 );
 	numchars = strlen(buf)/2;
 	hexbin( numchars, buf, hostaddr );
 	hostaddr[numchars] = '\0';
 }
+
+#if 0
+/* never used.  */
 
 /******************************************************************************
  * ninVersion:
@@ -1136,10 +732,12 @@ int
 OninVersion( p )
      char *p;		/* Where to place version string */
 {
+  /* FIXME: this is an arbitrary limit on the length of version string.  */
 	char buf[BUFSIZE];
 
 	strcpy( buf, "v" );
-	send( buf, FALSE );
+	send( buf, 0 );
 	strcpy( p, buf );
 	return strlen( buf );
 }
+#endif

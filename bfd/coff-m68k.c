@@ -26,24 +26,32 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
- reloc_howto_type m68kcoff_howto_table[] = 
+#ifdef ONLY_DECLARE_RELOCS
+extern reloc_howto_type m68kcoff_howto_table[];
+#else
+reloc_howto_type m68kcoff_howto_table[] = 
 {
-  HOWTO(R_RELBYTE,	       0,  0,  	8,  false, 0, true,  true,0,"8",	true, 0x000000ff,0x000000ff, false),
-  HOWTO(R_RELWORD,	       0,  1, 	16, false, 0, true,  true,0,"16",	true, 0x0000ffff,0x0000ffff, false),
-  HOWTO(R_RELLONG,	       0,  2, 	32, false, 0, true,  true,0,"32",	true, 0xffffffff,0xffffffff, false),
-  HOWTO(R_PCRBYTE,	       0,  0, 	8,  true,  0, false, true,0,"DISP8",    true, 0x000000ff,0x000000ff, false),
-  HOWTO(R_PCRWORD,	       0,  1, 	16, true,  0, false, true,0,"DISP16",   true, 0x0000ffff,0x0000ffff, false),
-  HOWTO(R_PCRLONG,	       0,  2, 	32, true,  0, false, true,0,"DISP32",   true, 0xffffffff,0xffffffff, false),
-  HOWTO(R_RELLONG_NEG,	       0,  -2, 	32, false, 0, true,  true,0,"-32",	true, 0xffffffff,0xffffffff, false),
+  HOWTO(R_RELBYTE,	       0,  0,  	8,  false, 0, complain_overflow_bitfield, 0, "8",	true, 0x000000ff,0x000000ff, false),
+  HOWTO(R_RELWORD,	       0,  1, 	16, false, 0, complain_overflow_bitfield, 0, "16",	true, 0x0000ffff,0x0000ffff, false),
+  HOWTO(R_RELLONG,	       0,  2, 	32, false, 0, complain_overflow_bitfield, 0, "32",	true, 0xffffffff,0xffffffff, false),
+  HOWTO(R_PCRBYTE,	       0,  0, 	8,  true,  0, complain_overflow_signed, 0, "DISP8",    true, 0x000000ff,0x000000ff, false),
+  HOWTO(R_PCRWORD,	       0,  1, 	16, true,  0, complain_overflow_signed, 0, "DISP16",   true, 0x0000ffff,0x0000ffff, false),
+  HOWTO(R_PCRLONG,	       0,  2, 	32, true,  0, complain_overflow_signed, 0, "DISP32",   true, 0xffffffff,0xffffffff, false),
+  HOWTO(R_RELLONG_NEG,	       0,  -2, 	32, false, 0, complain_overflow_bitfield, 0, "-32",	true, 0xffffffff,0xffffffff, false),
 };
+#endif /* not ONLY_DECLARE_RELOCS */
 
+#ifndef BADMAG
+#define BADMAG(x) M68KBADMAG(x)
+#endif
+#define M68 1		/* Customize coffcode.h */
 
 /* Turn a howto into a reloc number */
 
-
-#define BADMAG(x) M68KBADMAG(x)
-#define M68 1		/* Customize coffcode.h */
-
+#ifdef ONLY_DECLARE_RELOCS
+extern void m68k_rtype2howto PARAMS ((arelent *internal, int relocentry));
+extern int m68k_howto2rtype PARAMS ((CONST struct reloc_howto_struct *));
+#else
 void
 m68k_rtype2howto(internal, relocentry)
      arelent *internal;
@@ -60,9 +68,10 @@ m68k_rtype2howto(internal, relocentry)
    case R_RELLONG_NEG:	internal->howto = m68kcoff_howto_table + 6; break;
   }
 }
-           
-static int m68k_howto2rtype(internal)
-struct reloc_howto_struct *internal;
+
+int 
+m68k_howto2rtype (internal)
+     CONST struct reloc_howto_struct *internal;
 {
   if (internal->pc_relative) 
   {
@@ -84,16 +93,28 @@ struct reloc_howto_struct *internal;
   }
   return R_RELLONG;    
 }
+#endif /* not ONLY_DECLARE_RELOCS */
 
-#define RTYPE2HOWTO(internal, relocentry) m68k_rtype2howto(internal, (relocentry)->r_type)
+#define RTYPE2HOWTO(internal, relocentry) \
+  m68k_rtype2howto(internal, (relocentry)->r_type)
 
-#define SELECT_RELOC(external, internal) external = m68k_howto2rtype(internal);
+#define SELECT_RELOC(external, internal) \
+  external = m68k_howto2rtype(internal);
+
 #include "coffcode.h"
 
-
-bfd_target m68kcoff_vec =
+bfd_target 
+#ifdef TARGET_SYM
+  TARGET_SYM =
+#else
+  m68kcoff_vec =
+#endif
 {
+#ifdef TARGET_NAME
+  TARGET_NAME,
+#else
   "coff-m68k",			/* name */
+#endif
   bfd_target_coff_flavour,
   true,				/* data byte order is big */
   true,				/* header byte order is big */
@@ -103,7 +124,11 @@ bfd_target m68kcoff_vec =
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+#ifdef NAMES_HAVE_UNDERSCORE
+  '_',
+#else
   0,				/* leading underscore */
+#endif
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
   1,				/* minimum section alignment */

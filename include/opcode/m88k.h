@@ -107,14 +107,14 @@
  */
 
 struct IR_FIELDS {
-		    unsigned long   op:OP,
+		    unsigned        op:OP,
 				    dest: DEST,
 				    src1: SOURCE1,
 				    src2: SOURCE2;
 			      int   ltncy,
 				    extime,
 				    wb_pri;     /* writeback priority     */
-		    unsigned short  imm_flags:2,/* immediate size         */
+		    unsigned        imm_flags:2,/* immediate size         */
 				    rs1_used:1, /* register source 1 used */
 				    rs2_used:1, /* register source 2 used */
 				    rsd_used:1, /* register source/dest. used */
@@ -378,7 +378,7 @@ typedef struct {
 	      int  ltncy,   /* latency (max number of clocks needed to execute) */
 		  extime,   /* execution time (min number of clocks needed to execute) */
 		  wb_pri;   /* writeback slot priority */
-   unsigned long   op:OP,   /* simulator version of opcode */
+   unsigned         op:OP,   /* simulator version of opcode */
 	     imm_flags:2,   /* 10,16 or 26 bit immediate flags */
 	      rs1_used:1,   /* register source 1 used */
 	      rs2_used:1,   /* register source 2 used */
@@ -480,8 +480,8 @@ static INSTAB  instructions[] =
  0xf4006600,"subu.ci  ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,SUBU,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4006500,"subu.co  ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,SUBU,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4006700,"subu.cio ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,SUBU,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
- 0xf4006900,"divu     ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {32,32,PINT,DIVU,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
- 0xf4006d00,"mul      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,4,PINT,MUL,      0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
+ 0xf4006800,"divu     ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {32,32,PINT,DIVU,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
+ 0xf4006c00,"mul      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,4,PINT,MUL,      0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4007000,"add      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,ADD ,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4007200,"add.ci   ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,ADD ,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4007100,"add.co   ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,ADD ,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
@@ -490,8 +490,8 @@ static INSTAB  instructions[] =
  0xf4007600,"sub.ci   ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,SUB ,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4007500,"sub.co   ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,SUB ,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4007700,"sub.cio  ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,SUB ,        0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
- 0xf4007900,"div      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {32,32,PINT,DIV ,      0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
- 0xf4007d00,"cmp      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,CMP,         0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
+ 0xf4007800,"div      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {32,32,PINT,DIV ,      0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
+ 0xf4007c00,"cmp      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,CMP,         0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
 
  0x60000000,"addu     ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,ADDU,   i16bit,1,0,1,0,0,0,0,0,0,0,0}   ,NULL,
  0x64000000,"subu     ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,SUBU,   i16bit,1,0,1,0,0,0,0,0,0,0,0}   ,NULL,

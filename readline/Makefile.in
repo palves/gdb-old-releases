@@ -146,42 +146,28 @@ readline.tar.Z:	readline.tar
 		compress -f readline.tar
 
 install:
-		-parent=`echo $(libdir)|sed -e 's@/[^/]*$$@@'`; \
-		if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-		-if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi
 		$(INSTALL_DATA) libreadline.a $(libdir)/libreadline.a
 		$(RANLIB) $(libdir)/libreadline.a
-		-parent=`echo $(includedir)|sed -e 's@/[^/]*$$@@'`; \
-		if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-		-if [ -d $(includedir) ] ; then true ; else mkdir $(includedir) ; fi
-		-if [ -d $(includedir)/readline ] ; then true ; else mkdir $(includedir)/readline ; fi
 		$(INSTALL_DATA) $(srcdir)/readline.h $(includedir)/readline/readline.h
 		$(INSTALL_DATA) $(srcdir)/keymaps.h $(includedir)/readline/keymaps.h
 		$(INSTALL_DATA) $(srcdir)/chardefs.h $(includedir)/readline/chardefs.h
 
 install-info: info
-#		-parent=`echo $(infodir)|sed -e 's@/[^/]*$$@@'`; \
-#		if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-#		-if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
 #		for i in *.info* ; do \
 #			$(INSTALL_DATA) $$i $(infodir)/$$i ; \
 #		done
 
 includes:
-		-parent=`echo $(includedir)|sed -e 's@/[^/]*$$@@'`; \
-		if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
-		-if [ -d $(includedir) ] ; then true ; else mkdir $(includedir) ; fi
-		-if [ ! -r $(includedir)/readline ]; then\
-		 mkdir $(includedir)/readline;\
-		 chmod a+r $(includedir)/readline;\
-		fi
 		$(INSTALL_FILE) $(srcdir)/readline.h $(includedir)/readline/readline.h
 		$(INSTALL_FILE) $(srcdir)/keymaps.h $(includedir)/readline/keymaps.h
 		$(INSTALL_FILE) $(srcdir)/chardefs.h $(includedir)/readline/chardefs.h
 
-clean:
+clean mostlyclean:
 		rm -f $(STAGESTUFF) *.a *.log *.cp *.tp *.vr *.fn
 		rm -f *.aux *.pg *.toc
+
+distclean realclean: clean
+	rm -f Makefile config.status sysdep.h
 
 $(DESTDIR)/libreadline.a: libreadline.a
 

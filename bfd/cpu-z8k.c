@@ -23,6 +23,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "libbfd.h"
 
 
+#if 0 /* not used currently */
 /* 
 Relocations for the Z8K
 
@@ -150,6 +151,7 @@ DEFUN(local_bfd_reloc_type_lookup,(arch, code),
     return (reloc_howto_type *)NULL;
   }
 }
+#endif
 
 int bfd_default_scan_num_mach();
 

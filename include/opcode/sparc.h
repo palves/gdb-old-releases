@@ -21,16 +21,12 @@ along with GAS or GDB; see the file COPYING.	If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.	*/
 
 /* The SPARC opcode table (and other related data) is defined in
-   the BFD library in opc-sparc.c.  If you change anything here, make
+   the opcodes library in sparc-opc.c.  If you change anything here, make
    sure you fix up that file, and vice versa.  */
 
  /* FIXME-someday: perhaps the ,a's and such should be embedded in the
     instruction's name rather than the args.  This would make gas faster, pinsn
     slower, but would mess up some macros a bit.  xoxorich. */
-
-#if !defined(__STDC__) && !defined(const)
-#define const
-#endif
 
 #define sparc_architecture	bfd_sparc_architecture
 #define architecture_pname	bfd_sparc_architecture_pname
@@ -46,7 +42,7 @@ enum sparc_architecture {
 	v6 = 0,
 	v7,
 	v8,
-	sparclite,
+	sparclite
 };
 
 extern const char *architecture_pname[];
@@ -65,6 +61,9 @@ struct sparc_opcode {
 
 #define	F_DELAYED	1	/* Delayed branch */
 #define	F_ALIAS		2	/* Alias for a "real" instruction */
+#define	F_UNBR		4	/* Unconditional branch */
+#define	F_CONDBR	8	/* Conditional branch */
+#define	F_JSR		16	/* Subroutine call */
 
 /*
 

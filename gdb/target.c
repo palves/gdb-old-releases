@@ -469,15 +469,15 @@ target_read_string (memaddr, myaddr, len)
   return origlen;
 }
 
-/* Move memory to or from the targets.  Iterate until all of it has
-   been moved, if necessary.  The top target gets priority; anything
-   it doesn't want, is offered to the next one down, etc.  Note the
-   business with curlen:  if an early target says "no, but I have a
-   boundary overlapping this xfer" then we shorten what we offer to
-   the subsequent targets so the early guy will get a chance at the
-   tail before the subsequent ones do. 
+/* Read LEN bytes of target memory at address MEMADDR, placing the results in
+   GDB's memory at MYADDR.  Returns either 0 for success or an errno value
+   if any error occurs.
 
-   Result is 0 or errno value.  */
+   If an error occurs, no guarantee is made about the contents of the data at
+   MYADDR.  In particular, the caller should not depend upon partial reads
+   filling the buffer with good data.  There is no way for the caller to know
+   how much good data might have been transfered anyway.  Callers that can
+   deal with partial reads should call target_read_memory_partial. */
 
 int
 target_read_memory (memaddr, myaddr, len)
@@ -486,6 +486,48 @@ target_read_memory (memaddr, myaddr, len)
      int len;
 {
   return target_xfer_memory (memaddr, myaddr, len, 0);
+}
+
+/* Read LEN bytes of target memory at address MEMADDR, placing the results
+   in GDB's memory at MYADDR.  Returns a count of the bytes actually read,
+   and optionally an errno value in the location pointed to by ERRNOPTR
+   if ERRNOPTR is non-null. */
+
+int
+target_read_memory_partial (memaddr, myaddr, len, errnoptr)
+     CORE_ADDR memaddr;
+     char *myaddr;
+     int len;
+     int *errnoptr;
+{
+  int nread;	/* Number of bytes actually read. */
+  int errcode;	/* Error from last read. */
+
+  /* First try a complete read. */
+  errcode = target_xfer_memory (memaddr, myaddr, len, 0);
+  if (errcode == 0)
+    {
+      /* Got it all. */
+      nread = len;
+    }
+  else
+    {
+      /* Loop, reading one byte at a time until we get as much as we can. */
+      for (errcode = 0, nread = 0; len > 0 && errcode == 0; nread++, len--)
+	{
+	  errcode = target_xfer_memory (memaddr++, myaddr++, 1, 0);
+	}
+      /* If an error, the last read was unsuccessful, so adjust count. */
+      if (errcode != 0)
+	{
+	  nread--;
+	}
+    }
+  if (errnoptr != NULL)
+    {
+      *errnoptr = errcode;
+    }
+  return (nread);
 }
 
 int
@@ -497,6 +539,16 @@ target_write_memory (memaddr, myaddr, len)
   return target_xfer_memory (memaddr, myaddr, len, 1);
 }
  
+/* Move memory to or from the targets.  Iterate until all of it has
+   been moved, if necessary.  The top target gets priority; anything
+   it doesn't want, is offered to the next one down, etc.  Note the
+   business with curlen:  if an early target says "no, but I have a
+   boundary overlapping this xfer" then we shorten what we offer to
+   the subsequent targets so the early guy will get a chance at the
+   tail before the subsequent ones do. 
+
+   Result is 0 or errno value.  */
+
 int
 target_xfer_memory (memaddr, myaddr, len, write)
      CORE_ADDR memaddr;
@@ -599,6 +651,20 @@ target_preopen (from_tty)
     }
 }
 
+/* Detach a target after doing deferred register stores.  */
+
+void
+target_detach (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  /* Handle any optimized stores to the inferior.  */
+#ifdef DO_DEFERRED_STORES
+  DO_DEFERRED_STORES;
+#endif
+  (current_target->to_detach) (args, from_tty);
+}
+
 /* Look through the list of possible targets for a target that can
    execute a run or attach command without any other data.  This is
    used to locate the default process stratum.
@@ -684,6 +750,20 @@ find_core_target ()
   return(count == 1 ? runable : NULL);
 }
   
+/* Convert a normal process ID to a string.  Returns the string in a static
+   buffer.  */
+
+char *
+normal_pid_to_str (pid)
+     int pid;
+{
+  static char buf[30];
+
+  sprintf (buf, "process %d", pid);
+
+  return buf;
+}
+
 static char targ_desc[] = 
     "Names of targets and files being debugged.\n\
 Shows the entire stack of targets currently in use (including the exec-file,\n\

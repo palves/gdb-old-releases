@@ -25,7 +25,7 @@ static const template i386_optab[] = {
 { "mov", 2, 0x88, _, DW|Modrm, Reg, Reg|Mem, 0 },
 { "mov", 2, 0xb0, _, ShortFormW, Imm, Reg, 0 },
 { "mov", 2, 0xc6, _,  W|Modrm,  Imm, Reg|Mem, 0 },
-{ "mov", 2, 0x8c, _, D|Modrm,  SReg3|SReg2, Reg16|Mem16, 0 },
+{ "mov", 2, 0x8c, _, D|Modrm,  SReg3|SReg2, Reg16|Mem, 0 },
 /* move to/from control debug registers */
 { "mov", 2, 0x0f20, _, D|Modrm, Control, Reg32, 0},
 { "mov", 2, 0x0f21, _, D|Modrm, Debug, Reg32, 0},

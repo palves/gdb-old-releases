@@ -22,9 +22,8 @@
 %You are forbidden to forbid anyone else to use, share and improve
 %what you give them.   Help stamp out software-hoarding!
 
-\def\texinfoversion{2.107}
+\def\texinfoversion{2.112}
 \message{Loading texinfo package [Version \texinfoversion]:}
-\message{}
 
 % Print the version number if in a .fmt file.
 \everyjob{\message{[Texinfo version \texinfoversion]}\message{}}
@@ -55,7 +54,7 @@
 \newlinechar = `^^J
 
 % Ignore a token.
-% 
+%
 \def\gobble#1{}
 
 \hyphenation{ap-pen-dix}
@@ -73,9 +72,9 @@
 % since that produces some useless output on the terminal.
 %
 \def\gloggingall{\begingroup \globaldefs = 1 \loggingall \endgroup}%
-\def\loggingall{\tracingcommands2 \tracingstats2 
-   \tracingpages1 \tracingoutput1 \tracinglostchars1 
-   \tracingmacros2 \tracingparagraphs1 \tracingrestores1 
+\def\loggingall{\tracingcommands2 \tracingstats2
+   \tracingpages1 \tracingoutput1 \tracinglostchars1
+   \tracingmacros2 \tracingparagraphs1 \tracingrestores1
    \showboxbreadth\maxdimen\showboxdepth\maxdimen
 }%
 
@@ -139,7 +138,7 @@
                  \nointerlineskip
                  \vbox{\line{\ewbot\hfill\ewbot}}
 	}}
-  \advancepageno 
+  \advancepageno
   \ifnum\outputpenalty>-20000 \else\dosupereject\fi}
 %
 % Do @cropmarks to get crop marks
@@ -225,7 +224,7 @@
 % here.)  But this means we cannot call \removeactivespaces as part of
 % \argremovec{,omment}, since @c uses \parsearg, and thus the argument
 % that \parsearg gets might well have any character at all in it.
-% 
+%
 \def\removeactivespaces#1{%
   \begingroup
     \ignoreactivespaces
@@ -235,7 +234,7 @@
 }
 
 % Change the active space to expand to nothing.
-% 
+%
 \begingroup
   \obeyspaces
   \gdef\ignoreactivespaces{\obeyspaces\let =\empty}
@@ -283,25 +282,27 @@
 }
 
 % There is an environment #1, but it hasn't been started.  Give an error.
-% 
+%
 \def\unmatchedenderror#1{%
   \errhelp = \EMsimple
   \errmessage{This `@end #1' doesn't have a matching `@#1'}%
 }
 
 % Define the control sequence \E#1 to give an unmatched @end error.
-% 
+%
 \def\defineunmatchedend#1{%
   \expandafter\def\csname E#1\endcsname{\unmatchedenderror{#1}}%
 }
 
 
-% Single-spacing is done by various environments.
-
+% Single-spacing is done by various environments (specifically, in
+% \nonfillstart and \quotations).
 \newskip\singlespaceskip \singlespaceskip = \baselineskip
 \def\singlespace{%
-{\advance \baselineskip by -\singlespaceskip
-\kern \baselineskip}%
+% Why was this kern here?  It messes up equalizing space above and below
+% environments.  --karl, 6may93
+%{\advance \baselineskip by -\singlespaceskip
+%\kern \baselineskip}%
 \baselineskip=\singlespaceskip
 }
 
@@ -346,7 +347,7 @@
 % max (\topskip - \ht (first item), 0).  If that height is large,
 % therefore, no glue is inserted, and the space between the headline and
 % the text is small, which looks bad.
-% 
+%
 \def\group{\begingroup
   \ifnum\catcode13=\active \else
     \errhelp = \groupinvalidhelp
@@ -356,8 +357,8 @@
   % The \vtop we start below produces a box with normal height and large
   % depth; thus, TeX puts \baselineskip glue before it, and (when the
   % next line of text is done) \lineskip glue after it.  (See p.82 of
-  % the TeXbook.)  But the next line of text also gets us \parskip glue.
-  % Final result: space below is slightly more than space above.
+  % the TeXbook.)  Thus, space below is not quite equal to space
+  % above.  But it's pretty close.
   \def\Egroup{%
     \egroup           % End the \vtop.
     \endgroup         % End the \group.
@@ -372,6 +373,22 @@
     % Hence this just inserts a strut at the beginning of each line.
     \everypar = {\strut}%
     %
+    % Since we have a strut on every line, we don't need any of TeX's
+    % normal interline spacing.
+    \offinterlineskip
+    %
+    % OK, but now we have to do something about blank
+    % lines in the input in @example-like environments, which normally
+    % just turn into \lisppar, which will insert no space now that we've
+    % turned off the interline space.  Simplest is to make them be an
+    % empty paragraph.
+    \ifx\par\lisppar
+      \edef\par{\leavevmode \par}%
+      %
+      % Reset ^^M's definition to new definition of \par.
+      \obeylines
+    \fi
+    %
     % We do @comment here in case we are called inside an environment,
     % such as @example, where each end-of-line in the input causes an
     % end-of-line in the output.  We don't want the end-of-line after
@@ -383,7 +400,7 @@
 %
 % TeX puts in an \escapechar (i.e., `@') at the beginning of the help
 % message, so this ends up printing `@group can only ...'.
-% 
+%
 \newhelp\groupinvalidhelp{%
 group can only be used in environments such as @example,^^J%
 where each line of input produces a line of output.}
@@ -414,13 +431,13 @@ where each line of input produces a line of output.}
   \allowbreak
   \nointerlineskip
   \vtop to #1\mil{\vfil}%
-  % 
+  %
   % TeX does not even consider page breaks if a penalty added to the
   % main vertical list is 10000 or more.  But in order to see if the
   % empty box we just added fits on the page, we must make it consider
   % page breaks.  On the other hand, we don't want to actually break the
   % page after the empty box.  So we use a penalty of 9999.
-  % 
+  %
   % There is an extremely small chance that TeX will actually break the
   % page at this \penalty, if there are no other feasible breakpoints in
   % sight.  (If the user is using lots of big @group commands, which
@@ -534,8 +551,8 @@ where each line of input produces a line of output.}
 
 % Used in nested conditionals, where we have to parse the Texinfo source
 % and so want to turn off most commands, in case they are used
-% incorrectly.  
-% 
+% incorrectly.
+%
 \def\ignoremorecommands{%
   \let\defcv = \relax
   \let\deffn = \relax
@@ -570,17 +587,17 @@ where each line of input produces a line of output.}
 }
 
 % Ignore @ignore ... @end ignore.
-% 
+%
 \def\ignore{\doignore{ignore}}
 
 % Also ignore @ifinfo, @menu, and @direntry text.
-% 
+%
 \def\ifinfo{\doignore{ifinfo}}
 \def\menu{\doignore{menu}}
 \def\direntry{\doignore{direntry}}
 
 % Ignore text until a line `@end #1'.
-% 
+%
 \def\doignore#1{\begingroup
   % Don't complain about control sequences we have declared \outer.
   \ignoresections
@@ -596,7 +613,7 @@ where each line of input produces a line of output.}
 }
 
 % What we do to finish off ignored text.
-% 
+%
 \def\enddoignore{\endgroup\ignorespaces}%
 
 \newif\ifwarnedobs\warnedobsfalse
@@ -625,7 +642,7 @@ where each line of input produces a line of output.}
 
 % Ignore text, except that we keep track of conditional commands for
 % purposes of nesting, up to an `@end #1' command.
-% 
+%
 \def\nestedignore#1{%
   \obstexwarn
   % We must actually expand the ignored text to look for the @end
@@ -633,7 +650,7 @@ where each line of input produces a line of output.}
   % text into a \vbox and then do nothing with the result.  To minimize
   % the change of memory overflow, we follow the approach outlined on
   % page 401 of the TeXbook: make the current font be a dummy font.
-  % 
+  %
   \setbox0 = \vbox\bgroup
     % Don't complain about control sequences we have declared \outer.
     \ignoresections
@@ -650,7 +667,7 @@ where each line of input produces a line of output.}
     % We can't do anything about stray @-signs, unfortunately;
     % they'll produce `undefined control sequence' errors.
     \ignoremorecommands
-    % 
+    %
     % Set the current font to be \nullfont, a TeX primitive, and define
     % all the font commands to also use \nullfont.  We don't use
     % dummy.tfm, as suggested in the TeXbook, because not all sites
@@ -662,6 +679,11 @@ where each line of input produces a line of output.}
     \let\tenrm = \nullfont  \let\tenit = \nullfont  \let\tensl = \nullfont
     \let\tenbf = \nullfont  \let\tentt = \nullfont  \let\smallcaps = \nullfont
     \let\tensf = \nullfont
+    % Similarly for index fonts (mostly for their use in
+    % smallexample)
+    \let\indrm = \nullfont  \let\indit = \nullfont  \let\indsl = \nullfont
+    \let\indbf = \nullfont  \let\indtt = \nullfont  \let\indsc = \nullfont
+    \let\indsf = \nullfont
     %
     % Don't complain when characters are missing from the fonts.
     \tracinglostchars = 0
@@ -681,7 +703,7 @@ where each line of input produces a line of output.}
 
 % @set VAR sets the variable VAR to an empty value.
 % @set VAR REST-OF-LINE sets VAR to the value REST-OF-LINE.
-% 
+%
 % Since we want to separate VAR from REST-OF-LINE (which might be
 % empty), we can't just use \parsearg; we have to insert a space of our
 % own to delimit the rest of the line, and then take it out again if we
@@ -711,7 +733,7 @@ where each line of input produces a line of output.}
 
 % @ifset VAR ... @end ifset reads the `...' iff VAR has been defined
 % with @set.
-% 
+%
 \def\ifset{\parsearg\ifsetxxx}
 \def\ifsetxxx #1{%
   \expandafter\ifx\csname SET#1\endcsname\relax
@@ -726,7 +748,7 @@ where each line of input produces a line of output.}
 
 % @ifclear VAR ... @end ifclear reads the `...' iff VAR has never been
 % defined with @set, or has been undefined with @clear.
-% 
+%
 \def\ifclear{\parsearg\ifclearxxx}
 \def\ifclearxxx #1{%
   \expandafter\ifx\csname SET#1\endcsname\relax
@@ -741,7 +763,7 @@ where each line of input produces a line of output.}
 
 % @iftex always succeeds; we read the text following, through @end
 % iftex).  But `@end iftex' should be valid only after an @iftex.
-% 
+%
 \def\iftex{\conditionalsucceed{iftex}}
 \defineunmatchedend{iftex}
 
@@ -751,7 +773,7 @@ where each line of input produces a line of output.}
 % define \Eiftex to redefine itself to be its previous value.  (We can't
 % just define it to fail again with an ``unmatched end'' error, since
 % the @ifset might be nested.)
-% 
+%
 \def\conditionalsucceed#1{%
   \edef\temp{%
     % Remember the current value of \E#1.
@@ -769,7 +791,7 @@ where each line of input produces a line of output.}
 \def\nece#1{\expandafter\noexpand\csname#1\endcsname}
 
 % @asis just yields its argument.  Used with @table, for example.
-% 
+%
 \def\asis#1{#1}
 
 % @math means output in math mode.
@@ -778,10 +800,10 @@ where each line of input produces a line of output.}
 % we read the toc file back, the $'s will be normal characters (as they
 % should be, according to the definition of Texinfo).  So we must use a
 % control sequence to switch into and out of math mode.
-% 
+%
 % This isn't quite enough for @math to work properly in indices, but it
 % seems unlikely it will ever be needed there.
-% 
+%
 \let\implicitmath = $
 \def\math#1{\implicitmath #1\implicitmath}
 
@@ -808,7 +830,7 @@ where each line of input produces a line of output.}
 \let\lastnode=\relax}
 
 \let\refill=\relax
-  
+
 % @setfilename is done at the beginning of every texinfo file.
 % So open here the files we need to have open while reading the input.
 % This makes it possible to make a .fmt file for texinfo.
@@ -851,7 +873,7 @@ where each line of input produces a line of output.}
 % Instead of cmb10, you many want to use cmbx10.
 % cmbx10 is a prettier font on its own, but cmb10
 % looks better when embedded in a line with cmr10.
-\font\textbf=cmb10 scaled \mainmagstep 
+\font\textbf=cmb10 scaled \mainmagstep
 \font\textit=cmti10 scaled \mainmagstep
 \font\textsl=cmsl10 scaled \mainmagstep
 \font\textsf=cmss10 scaled \mainmagstep
@@ -865,7 +887,7 @@ where each line of input produces a line of output.}
 \def\df{\let\tentt=\deftt \let\tenbf = \defbf \bf}
 
 % Fonts for indices and small examples.
-% We actually use the slanted font rather than the italic, 
+% We actually use the slanted font rather than the italic,
 % because texinfo normally uses the slanted fonts for that.
 % Do not make many font distinctions in general in the index, since they
 % aren't very useful.
@@ -921,7 +943,7 @@ where each line of input produces a line of output.}
 \font\ssectt=cmtt12 scaled \magstephalf
 \font\ssecsf=cmss12 scaled \magstephalf
 \font\ssecbf=cmbx12 scaled \magstephalf
-\font\ssecsc=cmcsc10 scaled \magstep1 
+\font\ssecsc=cmcsc10 scaled \magstep1
 \font\sseci=cmmi12 scaled \magstephalf
 \font\ssecsy=cmsy10 scaled \magstep1
 % The smallcaps and symbol fonts should actually be scaled \magstep1.5,
@@ -936,7 +958,7 @@ where each line of input produces a line of output.}
 % texinfo doesn't allow for producing subscripts and superscripts, we
 % don't bother to reset \scriptfont and \scriptscriptfont (which would
 % also require loading a lot more fonts).
-% 
+%
 \def\resetmathfonts{%
   \textfont0 = \tenrm \textfont1 = \teni \textfont2 = \tensy
   \textfont\itfam = \tenit \textfont\slfam = \tensl \textfont\bffam = \tenbf
@@ -949,14 +971,14 @@ where each line of input produces a line of output.}
 % in math mode, where it is the current \fam that is relevant in most
 % cases, not the current.  Plain TeX does, for example,
 % \def\bf{\fam=\bffam \tenbf}  By redefining \tenbf, we obviate the need
-% to redefine \bf itself.  
+% to redefine \bf itself.
 \def\textfonts{%
   \let\tenrm=\textrm \let\tenit=\textit \let\tensl=\textsl
   \let\tenbf=\textbf \let\tentt=\texttt \let\smallcaps=\textsc
   \let\tensf=\textsf \let\teni=\texti \let\tensy=\textsy
   \resetmathfonts}
 \def\chapfonts{%
-  \let\tenrm=\chaprm \let\tenit=\chapit \let\tensl=\chapsl 
+  \let\tenrm=\chaprm \let\tenit=\chapit \let\tensl=\chapsl
   \let\tenbf=\chapbf \let\tentt=\chaptt \let\smallcaps=\chapsc
   \let\tensf=\chapsf \let\teni=\chapi \let\tensy=\chapsy
   \resetmathfonts}
@@ -977,7 +999,7 @@ where each line of input produces a line of output.}
   \resetmathfonts}
 
 % Set up the default fonts, so we can use them for creating boxes.
-% 
+%
 \textfonts
 
 % Count depth in font-changes, for error checks
@@ -1008,7 +1030,7 @@ where each line of input produces a line of output.}
 % We can't just use \exhyphenpenalty, because that only has effect at
 % the end of a paragraph.  Restore normal hyphenation at the end of the
 % group within which \nohyphenation is presumably called.
-% 
+%
 \def\nohyphenation{\hyphenchar\font = -1  \aftergroup\restorehyphenation}
 \def\restorehyphenation{\hyphenchar\font = `- }
 
@@ -1039,7 +1061,7 @@ where each line of input produces a line of output.}
     %
     % Turn off hyphenation.
     \nohyphenation
-    % 
+    %
     \rawbackslash
     \frenchspacing
     #1%
@@ -1067,7 +1089,7 @@ where each line of input produces a line of output.}
 
 %\let\exp=\tclose  %Was temporary
 
-% @kbd is like @code, except that if the argument is just one @key command, 
+% @kbd is like @code, except that if the argument is just one @key command,
 % then @kbd has no effect.
 
 \def\xkey{\key}
@@ -1079,12 +1101,12 @@ where each line of input produces a line of output.}
 % Typeset a dimension, e.g., `in' or `pt'.  The only reason for the
 % argument is to make the input look right: @dmn{pt} instead of
 % @dmn{}pt.
-% 
+%
 \def\dmn#1{\thinspace #1}
 
 \def\kbd#1{\def\look{#1}\expandafter\kbdfoo\look??\par}
 
-\def\l#1{{\li #1}\null}		% 
+\def\l#1{{\li #1}\null}		%
 
 \def\r#1{{\rm #1}}		% roman font
 % Use of \lowercase was suggested.
@@ -1135,7 +1157,7 @@ where each line of input produces a line of output.}
    \def\author{\parsearg\authorzzz}%
    \def\authorzzz##1{\ifseenauthor\else\vskip 0pt plus 1filll\seenauthortrue\fi
       {\authorfont \leftline{##1}}}%
-   %  
+   %
    % Most title ``pages'' are actually two pages long, with space
    % at the top of the second.  We don't want the ragged left on the second.
    \let\oldpage = \page
@@ -1360,8 +1382,9 @@ July\or August\or September\or October\or November\or December\fi
   \nobreak % This prevents a break before @itemx.
   %
   % Be sure we are not still in the middle of a paragraph.
-  \parskip=0in
+  {\parskip = 0in
   \par
+  }%
   %
   % If the item text does not fit in the space we have, put it on a line
   % by itself, and do not allow a page break either before or after that
@@ -1369,7 +1392,23 @@ July\or August\or September\or October\or November\or December\fi
   % command is, e.g., @kindex, the whatsit would get put into the
   % horizontal list on a line by itself, resulting in extra blank space.
   \ifdim \wd0>\itemmax
-    \setbox0=\hbox{\hskip \leftskip \hskip -\tableindent \unhbox0}\box0
+    %
+    % Make this a paragraph so we get the \parskip glue and wrapping,
+    % but leave it ragged-right.
+    \begingroup
+      \advance\leftskip by-\tableindent
+      \advance\hsize by\tableindent
+      \advance\rightskip by0pt plus1fil
+      \leavevmode\unhbox0\par
+    \endgroup
+    %
+    % We're going to be starting a paragraph, but we don't want the
+    % \parskip glue -- logically it's part of the @item we just started.
+    \nobreak \vskip-\parskip
+    %
+    % Stop a page break at the \parskip glue coming up.  Unfortunately
+    % we can't prevent a possible page break at the following
+    % \baselineskip glue.
     \nobreak
   \else
     % The item text fits into the space.  Start a paragraph, so that the
@@ -1377,7 +1416,7 @@ July\or August\or September\or October\or November\or December\fi
     % text will be indented by \tableindent, we make the item text be in
     % a zero-width box.
     \noindent
-    \rlap{\hskip -\tableindent\box0}%
+    \rlap{\hskip -\tableindent\box0}\ignorespaces%
   \fi
   \endgroup
 }
@@ -1401,14 +1440,14 @@ July\or August\or September\or October\or November\or December\fi
 {\obeylines\obeyspaces%
 \gdef\ftablex #1^^M{%
 \tabley\fnitemindex#1        \endtabley
-\def\Eftable{\endgraf\endgroup\afterenvbreak}%
+\def\Eftable{\endgraf\afterenvbreak\endgroup}%
 \let\Etable=\relax}}
 
 \def\vtable{\begingroup\inENV\obeylines\obeyspaces\vtablex}
 {\obeylines\obeyspaces%
 \gdef\vtablex #1^^M{%
 \tabley\vritemindex#1        \endtabley
-\def\Evtable{\endgraf\endgroup\afterenvbreak}%
+\def\Evtable{\endgraf\afterenvbreak\endgroup}%
 \let\Etable=\relax}}
 
 \def\dontindex #1{}
@@ -1435,7 +1474,7 @@ July\or August\or September\or October\or November\or December\fi
 \parindent = 0pt
 \parskip = \smallskipamount
 \ifdim \parskip=0pt \parskip=2pt \fi%
-\def\Etable{\endgraf\endgroup\afterenvbreak}%
+\def\Etable{\endgraf\afterenvbreak\endgroup}%
 \let\item = \internalBitem %
 \let\itemx = \internalBitemx %
 \let\kitem = \internalBkitem %
@@ -1464,7 +1503,7 @@ July\or August\or September\or October\or November\or December\fi
 \parindent = 0pt %
 \parskip = \smallskipamount %
 \ifdim \parskip=0pt \parskip=2pt \fi%
-\def#2{\endgraf\endgroup\afterenvbreak}%
+\def#2{\endgraf\afterenvbreak\endgroup}%
 \def\itemcontents{#1}%
 \let\item=\itemizeitem}
 
@@ -1475,13 +1514,13 @@ July\or August\or September\or October\or November\or December\fi
 
 % \splitoff TOKENS\endmark defines \first to be the first token in
 % TOKENS, and \rest to be the remainder.
-% 
+%
 \def\splitoff#1#2\endmark{\def\first{#1}\def\rest{#2}}%
 
 % Allow an optional argument of an uppercase letter, lowercase letter,
 % or number, to specify the first label in the enumerated list.  No
 % argument is the same as `1'.
-% 
+%
 \def\enumerate{\parsearg\enumeratezzz}
 \def\enumeratezzz #1{\enumeratey #1  \endenumeratey}
 \def\enumeratey #1 #2\endenumeratey{%
@@ -1503,11 +1542,11 @@ July\or August\or September\or October\or November\or December\fi
     % An ``uppercase letter'' is one whose \lccode is both nonzero, and
     %   not equal to itself.
     % Otherwise, we assume it's a number.
-    % 
+    %
     % We need the \relax at the end of the \ifnum lines to stop TeX from
     % continuing to look for a <number>.
-    % 
-    \ifnum\lccode\expandafter`\thearg=0\relax 
+    %
+    \ifnum\lccode\expandafter`\thearg=0\relax
       \numericenumerate % a number (we hope)
     \else
       % It's a letter.
@@ -1525,7 +1564,7 @@ July\or August\or September\or October\or November\or December\fi
 
 % An @enumerate whose labels are integers.  The starting integer is
 % given in \thearg.
-% 
+%
 \def\numericenumerate{%
   \itemno = \thearg
   \startenumeration{\the\itemno}%
@@ -1560,7 +1599,7 @@ July\or August\or September\or October\or November\or December\fi
 % Call itemizey, adding a period to the first argument and supplying the
 % common last two arguments.  Also subtract one from the initial value in
 % \itemno, since @item increments \itemno.
-% 
+%
 \def\startenumeration#1{%
   \advance\itemno by -1
   \itemizey{#1.}\Eenumerate\flushcr
@@ -1568,7 +1607,7 @@ July\or August\or September\or October\or November\or December\fi
 
 % @alphaenumerate and @capsenumerate are abbreviations for giving an arg
 % to @enumerate.
-% 
+%
 \def\alphaenumerate{\enumerate{a}}
 \def\capsenumerate{\enumerate{A}}
 \def\Ealphaenumerate{\Eenumerate}
@@ -1784,7 +1823,7 @@ July\or August\or September\or October\or November\or December\fi
 %  \secondary {subtopic}{pagelist}
 %     for each subtopic.
 
-% Define the user-accessible indexing commands 
+% Define the user-accessible indexing commands
 % @findex, @vindex, @kindex, @cindex.
 
 \def\findex {\fnindex}
@@ -1831,7 +1870,7 @@ July\or August\or September\or October\or November\or December\fi
   %
   % See if the index file exists and is nonempty.
   \openin 1 \jobname.#1s
-  \ifeof 1 
+  \ifeof 1
     % \enddoublecolumns gets confused if there is no text in the index,
     % and it loses the chapter title and the aux file entries for the
     % index.  The easiest way to prevent this problem is to make sure
@@ -1870,7 +1909,7 @@ July\or August\or September\or October\or November\or December\fi
 % This typesets a paragraph consisting of #1, dot leaders, and then #2
 % flush to the right margin.  It is used for index and table of contents
 % entries.  The paragraph is indented by \leftskip.
-% 
+%
 \def\entry #1#2{\begingroup
   %
   % Start a new paragraph if necessary, so our assignments below can't
@@ -1891,7 +1930,7 @@ July\or August\or September\or October\or November\or December\fi
   % dots pretty far over on the line.  Unfortunately, a large
   % indentation looks wrong when the entry text itself is broken across
   % lines.  So we use a small indentation and put up with long leaders.
-  % 
+  %
   % \hangafter is reset to 1 (which is the value we want) at the start
   % of each paragraph, so we need not do anything with that.
   \hangindent=2em
@@ -1906,17 +1945,22 @@ July\or August\or September\or October\or November\or December\fi
   %
   % Insert the text of the index entry.  TeX will do line-breaking on it.
   #1%
-  %
-  % If we must, put the page number on a line of its own, and fill out
-  % this line with blank space.  (The \hfil is overwhelmed with the
-  % fill leaders glue in \indexdotfill if the page number does fit.)
-  \hfil\penalty50
-  \null\nobreak\indexdotfill % Have leaders before the page number.
-  %
-  % The `\ ' here is removed by the implicit \unskip that TeX does as
-  % part of (the primitive) \par.  Without it, a spurious underfull
-  % \hbox ensues.
-  \ #2% The page number ends the paragraph.
+  % If there are no page numbers, don't output a line of dots.
+  \def\tempa{#2}
+  \def\tempb{}
+  \ifx\tempa\tempb\ \else
+    %
+    % If we must, put the page number on a line of its own, and fill out
+    % this line with blank space.  (The \hfil is overwhelmed with the
+    % fill leaders glue in \indexdotfill if the page number does fit.)
+    \hfil\penalty50
+    \null\nobreak\indexdotfill % Have leaders before the page number.
+    %
+    % The `\ ' here is removed by the implicit \unskip that TeX does as
+    % part of (the primitive) \par.  Without it, a spurious underfull
+    % \hbox ensues.
+    \ #2% The page number ends the paragraph.
+  \fi%
   \par
 \endgroup}
 
@@ -1956,17 +2000,17 @@ July\or August\or September\or October\or November\or December\fi
   % format, but then we repeat the same computation.  Repeating a couple
   % of assignments once per index is clearly meaningless for the
   % execution time, so we may as well do it once.
-  % 
+  %
   % First we halve the line length, less a little for the gutter between
   % the columns.  We compute the gutter based on the line length, so it
   % changes automatically with the paper format.  The magic constant
   % below is chosen so that the gutter has the same value (well, +- <
   % 1pt) as it did when we hard-coded it.
-  % 
+  %
   % We put the result in a separate register, \doublecolumhsize, so we
   % can restore it in \pagesofar, after \hsize itself has (potentially)
   % been clobbered.
-  % 
+  %
   \doublecolumnhsize = \hsize
     \advance\doublecolumnhsize by -.04154\hsize
     \divide\doublecolumnhsize by 2
@@ -2181,7 +2225,7 @@ July\or August\or September\or October\or November\or December\fi
 \gdef\thischaptername{#1}%
 \xdef\thischapter{Appendix \appendixletter: \noexpand\thischaptername}%
 {\chapternofonts%
-\edef\temp{{\realbackslash chapentry 
+\edef\temp{{\realbackslash chapentry
   {#1}{Appendix \appendixletter}{\noexpand\folio}}}%
 \escapechar=`\\%
 \write \contentsfile \temp  %
@@ -2201,8 +2245,8 @@ July\or August\or September\or October\or November\or December\fi
 % argument to \message.  Therefore, if #1 contained @-commands, TeX
 % expanded them.  For example, in `@unnumbered The @cite{Book}', TeX
 % expanded @cite (which turns out to cause errors because \cite is meant
-% to be executed, not expanded).  
-% 
+% to be executed, not expanded).
+%
 % Anyway, we don't want the fully-expanded definition of @cite to appear
 % as a result of the \message, we just want `@cite' itself.  We use
 % \the<toks register> to achieve this: TeX expands \the<toks> only once,
@@ -2489,7 +2533,7 @@ July\or August\or September\or October\or November\or December\fi
 \let\paragraphindent=\comment
 
 % Section fonts are the base font at magstep2, which produces
-% a size a bit more than 14 points in the default situation.	
+% a size a bit more than 14 points in the default situation.
 
 \def\secheading #1#2#3{\secheadingi {#2.#3\enspace #1}}
 \def\plainsecheading #1{\secheadingi {#1}}
@@ -2501,7 +2545,7 @@ July\or August\or September\or October\or November\or December\fi
 \ifdim \parskip<10pt \kern 10pt\kern -\parskip\fi \penalty 10000 }
 
 
-% Subsection fonts are the base font at magstep1, 
+% Subsection fonts are the base font at magstep1,
 % which produces a size of 12 points.
 
 \def\subsecheading #1#2#3#4{\subsecheadingi {#2.#3.#4\enspace #1}}
@@ -2536,7 +2580,7 @@ July\or August\or September\or October\or November\or December\fi
    \ifnum \pageno>0
       \pageno = -1		% Request roman numbered pages.
    \fi
-   % Don't need to put `Contents' or `Short Contents' in the headline. 
+   % Don't need to put `Contents' or `Short Contents' in the headline.
    % It is abundantly clear what they are.
    \unnumbchapmacro{#1}\def\thischapter{}%
    \begingroup   		% Set up to handle contents files properly.
@@ -2545,7 +2589,7 @@ July\or August\or September\or October\or November\or December\fi
       \advance\hsize by -\contentsrightmargin % Don't use the full line length.
 }
 
-  
+
 % Normal (long) toc.
 \outer\def\contents{%
    \startcontents{Table of Contents}%
@@ -2632,10 +2676,10 @@ July\or August\or September\or October\or November\or December\fi
 % This parameter controls the indentation of the various levels.
 \newdimen\tocindent \tocindent = 3pc
 
-% Now for the actual typesetting. In all these, #1 is the text and #2 is the 
+% Now for the actual typesetting. In all these, #1 is the text and #2 is the
 % page number.
 %
-% If the toc has to be broken over pages, we would want to be at chapters 
+% If the toc has to be broken over pages, we would want to be at chapters
 % if at all possible; hence the \penalty.
 \def\dochapentry#1#2{%
    \penalty-300 \vskip\baselineskip
@@ -2665,7 +2709,7 @@ July\or August\or September\or October\or November\or December\fi
 % the index entries, but we want to suppress hyphenation here.  (We
 % can't do that in the \entry macro, since index entries might consist
 % of hyphenated-identifiers-that-do-not-fit-on-a-line-and-nothing-else.)
-% 
+%
 \def\tocentry#1#2{\begingroup
   \hyphenpenalty = 10000
   \entry{#1}{#2}%
@@ -2685,7 +2729,7 @@ July\or August\or September\or October\or November\or December\fi
 
 \message{environments,}
 
-% Since these characters are used in examples, it should be an even number of 
+% Since these characters are used in examples, it should be an even number of
 % \tt widths. Each \tt character is 1en, so two makes it 1em.
 % Furthermore, these definitions must come after we define our fonts.
 \newbox\dblarrowbox    \newbox\longdblarrowbox
@@ -2768,16 +2812,16 @@ July\or August\or September\or October\or November\or December\fi
 % Amount to narrow the margins by for @lisp.
 \newskip\lispnarrowing \lispnarrowing=0.4in
 
-% This is the definition that ^M gets inside @lisp
-% phr: changed space to \null, to avoid overfull hbox problems.
-{\obeyspaces%
-\gdef\lisppar{\null\endgraf}}
+% This is the definition that ^^M gets inside @lisp, @example, and other
+% such environments.  \null is better than a space, since it doesn't
+% have any width.
+\def\lisppar{\null\endgraf}
 
 % Make each space character in the input produce a normal interword
 % space in the output.  Don't allow a line break at this space, as this
 % is used only in environments like @example, where each line of input
 % should produce a line of output anyway.
-% 
+%
 {\obeyspaces %
 \gdef\sepspaces{\obeyspaces\let =\tie}}
 
@@ -2789,7 +2833,11 @@ July\or August\or September\or October\or November\or December\fi
 % This space is always present above and below environments.
 \newskip\envskipamount \envskipamount = 0pt
 
-% Make spacing and below environment symmetrical.
+% Make spacing and below environment symmetrical.  We use \parskip here
+% to help in doing that, since in @example-like environments \parskip
+% is reset to zero; thus the \afterenvbreak inserts no space -- but the
+% start of the next paragraph will insert \parskip
+%
 \def\aboveenvbreak{{\advance\envskipamount by \parskip
 \endgraf \ifdim\lastskip<\envskipamount
 \removelastskip \penalty-50 \vskip\envskipamount \fi}}
@@ -2824,7 +2872,7 @@ July\or August\or September\or October\or November\or December\fi
 \begingroup
 	\lskip=\leftskip \rskip=\rightskip
 	\leftskip=0pt\rightskip=0pt %we want these *outside*.
-	\cartinner=\hsize \advance\cartinner by-\lskip 
+	\cartinner=\hsize \advance\cartinner by-\lskip
 		 	  \advance\cartinner by-\rskip
 	\cartouter=\hsize
 	\advance\cartouter by 18pt % allow for 3pt kerns on either
@@ -2857,7 +2905,7 @@ July\or August\or September\or October\or November\or December\fi
 		\cartbot
 	\egroup
 \endgroup
-}}	
+}}
 
 
 % This macro is called at the beginning of all the @example variants,
@@ -2867,7 +2915,7 @@ July\or August\or September\or October\or November\or December\fi
   \inENV % This group ends at the end of the body
   \hfuzz = 12pt % Don't be fussy
   \sepspaces % Make spaces be word-separators rather than space tokens.
-  \singlespace % single space lines
+  \singlespace
   \let\par = \lisppar % don't ignore blank lines
   \obeylines % each line of input is a line of output
   \parskip = 0pt
@@ -2883,32 +2931,40 @@ July\or August\or September\or October\or November\or December\fi
   \fi
 }
 
-\def\Elisp{\endgroup\afterenvbreak}%
+% To ending an @example-like environment, we first end the paragraph
+% (via \afterenvbreak's vertical glue), and then the group.  That way we
+% keep the zero \parskip that the environments set -- \parskip glue
+% will be inserted at the beginning of the next paragraph in the
+% document, after the environment.
+%
+\def\nonfillfinish{\afterenvbreak\endgroup}%
 
+% This macro is
 \def\lisp{\begingroup
   \nonfillstart
-  \def\Elisp{\endgroup\afterenvbreak}%
+  \let\Elisp = \nonfillfinish
   \tt
-  \rawbackslash % output the \ character from the current font
+  \rawbackslash % have \ input char produce \ char from current font
   \gobble
 }
 
 % Define the \E... control sequence only if we are inside the
 % environment, so the error checking in \end will work.
-% 
+%
 % We must call \lisp last in the definition, since it reads the
 % return following the @example (or whatever) command.
 %
-\def\example{\begingroup \def\Eexample{\Elisp\endgroup}\lisp}
-\def\smallexample{\begingroup \def\Esmallexample{\Elisp\endgroup}\lisp}
+\def\example{\begingroup \def\Eexample{\nonfillfinish\endgroup}\lisp}
+\def\smallexample{\begingroup \def\Esmallexample{\nonfillfinish\endgroup}\lisp}
+\def\smalllisp{\begingroup \def\Esmalllisp{\nonfillfinish\endgroup}\lisp}
 
-% Macro for 9 pt. examples, necessary to print with 5" lines.  From
-% Pavel@xerox.  This is not used for @smallexamples unless the
-% @smallbook command is given.
+% @smallexample and @smalllisp.  This is not used unless the @smallbook
+% command is given.  Originally contributed by Pavel@xerox.
 %
 \def\smalllispx{\begingroup
   \nonfillstart
-  \def\Esmalllisp{\endgroup\afterenvbreak}%
+  \let\Esmalllisp = \nonfillfinish
+  \let\Esmallexample = \nonfillfinish
   %
   % Smaller interline space and fonts for small examples.
   \baselineskip 10pt
@@ -2921,7 +2977,7 @@ July\or August\or September\or October\or November\or December\fi
 %
 \def\display{\begingroup
   \nonfillstart
-  \def\Edisplay{\endgroup\afterenvbreak}%
+  \let\Edisplay = \nonfillfinish
   \gobble
 }
 
@@ -2930,7 +2986,7 @@ July\or August\or September\or October\or November\or December\fi
 \def\format{\begingroup
   \let\nonarrowing = t
   \nonfillstart
-  \def\Eformat{\endgroup\afterenvbreak}
+  \let\Eformat = \nonfillfinish
   \gobble
 }
 
@@ -2939,13 +2995,13 @@ July\or August\or September\or October\or November\or December\fi
 \def\flushleft{\begingroup
   \let\nonarrowing = t
   \nonfillstart
-  \def\Eflushleft{\endgroup\afterenvbreak}%
+  \let\Eflushleft = \nonfillfinish
   \gobble
 }
 \def\flushright{\begingroup
   \let\nonarrowing = t
   \nonfillstart
-  \def\Eflushright{\endgroup\afterenvbreak}%
+  \let\Eflushright = \nonfillfinish
   \advance\leftskip by 0pt plus 1fill
   \gobble}
 
@@ -2957,7 +3013,7 @@ July\or August\or September\or October\or November\or December\fi
 \aboveenvbreak}%
 \singlespace
 \parindent=0pt
-\def\Equotation{\par\endgroup\afterenvbreak}%
+\let\Equotation = \nonfillfinish
 % @cartouche defines \nonarrowing to inhibit narrowing
 % at next level down.
 \ifx\nonarrowing\relax
@@ -3044,7 +3100,7 @@ July\or August\or September\or October\or November\or December\fi
 \advance \hsize by -\dimen2 \advance \hsize by -\dimen3
 \rlap{\rightline{{\rm #2}\hskip \deftypemargin}}}%
 % Make all lines underfull and no complaints:
-\tolerance=10000 \hbadness=10000    
+\tolerance=10000 \hbadness=10000
 \advance\leftskip by -\defbodyindent
 \exdentamount=\defbodyindent
 {\df #1}\enskip        % Generate function name
@@ -3066,7 +3122,7 @@ July\or August\or September\or October\or November\or December\fi
 \advance\leftskip by \defbodyindent \advance \rightskip by \defbodyindent
 \exdentamount=\defbodyindent
 \begingroup %
-\catcode 61=\active %
+\catcode 61=\active % 61 is `='
 \obeylines\activeparens\spacesplit#3}
 
 \def\defmethparsebody #1#2#3#4 {\begingroup\inENV %
@@ -3109,55 +3165,54 @@ July\or August\or September\or October\or November\or December\fi
 \catcode 61=\active %
 \obeylines\spacesplit#3}
 
-\def\defvrparsebody #1#2#3#4 {\begingroup\inENV %
-\medbreak %
-% Define the end token that this defining construct specifies
-% so that it will exit this group.
-\def#1{\endgraf\endgroup\medbreak}%
-\def#2##1 {\begingroup\obeylines\spacesplit{#3{##1}}}%
-\parindent=0in
-\advance\leftskip by \defbodyindent \advance \rightskip by \defbodyindent
-\exdentamount=\defbodyindent
-\begingroup\obeylines\spacesplit{#3{#4}}}
+% This is used for \def{tp,vr}parsebody.  It could probably be used for
+% some of the others, too, with some judicious conditionals.
+% 
+\def\parsebodycommon#1#2#3{%
+  \begingroup\inENV %
+  \medbreak %
+  % Define the end token that this defining construct specifies
+  % so that it will exit this group.
+  \def#1{\endgraf\endgroup\medbreak}%
+  \def#2##1 {\begingroup\obeylines\spacesplit{#3{##1}}}%
+  \parindent=0in
+  \advance\leftskip by \defbodyindent \advance \rightskip by \defbodyindent
+  \exdentamount=\defbodyindent
+  \begingroup\obeylines
+}
 
-% This seems to work right in all cases.
-\let\deftpparsebody=\defvrparsebody
-% This fails to work.  When given `@deftp {Data Type} foo_t',
-% it thinks the type name is just `f'.
-%%% This is the same as all the others except for the last line.  We need
-%%% to parse the arguments differently for @deftp, since the ``attributes''
-%%% there are optional.
-%%% 
-%%\def\deftpparsebody #1#2#3#4 {\begingroup\inENV %
-%%\medbreak %
-%%% Define the end token that this defining construct specifies
-%%% so that it will exit this group.
-%%\def#1{\endgraf\endgroup\medbreak}%
-%%\def#2##1 {\begingroup\obeylines\spacesplit{#3{##1}}}%
-%%\parindent=0in
-%%\advance\leftskip by \defbodyindent \advance \rightskip by \defbodyindent
-%%\exdentamount=\defbodyindent
-%%\begingroup\obeylines\parsetpheaderline{#3{#4}}}
+\def\defvrparsebody#1#2#3#4 {%
+  \parsebodycommon{#1}{#2}{#3}%
+  \spacesplit{#3{#4}}%
+}
 
-%%{\obeylines %
-%%  % Parse the type name and any attributes (field names, etc.).
-%%  % #1 is the beginning of the macro call that will produce the output,
-%%  %   i.e., \deftpheader{CLASS}; this is passed from \deftpparsebody.
-%%  % #2 is the type name, e.g., `struct termios'.
-%%  % #3 is the (possibly empty) attribute list.
-%%  % 
-%%  \gdef\parsetpheaderline#1#2#3^^M{%
-%%    \endgroup % Started in \deftpparsebody.
-%%    %
-%%    % If the attribute list is in fact empty, there will be no space after
-%%    % #2; so we can't put a space in our TeX parameter list.  But if it
-%%    % isn't empty, then #3 will begin with an unwanted space.
-%%    \def\theargs{\ignorespaces #3}%
-%%    %
-%%    % Call the macro to produce the output.
-%%    #1{#2}\theargs %
-%%  }%
-%%}
+% This loses on `@deftp {Data Type} {struct termios}' -- it thinks the
+% type is just `struct', because we lose the braces in `{struct
+% termios}' when \spacesplit reads its undelimited argument.  Sigh.
+% \let\deftpparsebody=\defvrparsebody
+%
+% So, to get around this, we put \empty in with the type name.  That
+% way, TeX won't find exactly `{...}' as an undelimited argument, and
+% won't strip off the braces.
+%
+\def\deftpparsebody #1#2#3#4 {%
+  \parsebodycommon{#1}{#2}{#3}%
+  \spacesplit{\parsetpheaderline{#3{#4}}}\empty
+}
+
+% Fine, but then we have to eventually remove the \empty *and* the
+% braces (if any).  That's what this does, putting the result in \tptemp.
+% 
+\def\removeemptybraces\empty#1\relax{\def\tptemp{#1}}%
+
+% After \spacesplit has done its work, this is called -- #1 is the final
+% thing to call, #2 the type name (which starts with \empty), and #3
+% (which might be empty) the arguments.
+% 
+\def\parsetpheaderline#1#2#3{%
+  \removeemptybraces#2\relax
+  #1{\tptemp}{#3}%
+}%
 
 \def\defopvarparsebody #1#2#3#4#5 {\begingroup\inENV %
 \medbreak %
@@ -3257,7 +3312,10 @@ July\or August\or September\or October\or November\or December\fi
 % #1 is the classification, #2 the data type, #3 the name, #4 the args.
 \def\deftypefnheaderx #1#2#3 #4\relax{%
 \doind {fn}{\code{#3}}% Make entry in function index
-\begingroup\defname {\code{#2} #3}{#1}%
+\begingroup
+\normalparens % notably, turn off `&' magic, which prevents
+%               at least some C++ text from working
+\defname {\code{#2} #3}{#1}%
 \deftypefunargs {#4}\endgroup %
 \catcode 61=\other % Turn off change made in \defparsebody
 }
@@ -3455,7 +3513,7 @@ July\or August\or September\or October\or November\or December\fi
 % cross-reference, #3 the printed node name, #4 the name of the Info
 % file, #5 the name of the printed manual.  All but the node name can be
 % omitted.
-% 
+%
 \def\pxref#1{see \xrefX[#1,,,,,,,]}
 \def\xref#1{See \xrefX[#1,,,,,,,]}
 \def\ref#1{\xrefX[#1,,,,,,,]}
@@ -3532,7 +3590,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 
 % Use TeX 3.0's \inputlineno to get the line number, for better error
 % messages, but if we're using an old version of TeX, don't do anything.
-% 
+%
 \ifx\inputlineno\thisisundefined
   \let\linenumber = \empty % Non-3.0.
 \else
@@ -3667,7 +3725,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 
 % Don't bother with the trickery in plain.tex to not require the
 % footnote text as a parameter.  Our footnotes don't need to be so general.
-% 
+%
 \long\gdef\footnotezzz#1{\insert\footins{%
   % We want to typeset this text as a normal paragraph, even if the
   % footnote reference occurs in (for example) a display environment.
@@ -3698,15 +3756,15 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 % Set the baselineskip to #1, and the lineskip and strut size
 % correspondingly.  There is no deep meaning behind these magic numbers
 % used as factors; they just match (closely enough) what Knuth defined.
-% 
-\def\lineskipfactor{.1}
-\def\strutheightpercent{.71}
-\def\strutdepthpercent{.29}
+%
+\def\lineskipfactor{.08333}
+\def\strutheightpercent{.70833}
+\def\strutdepthpercent {.29167}
 %
 \def\setleading#1{%
-  \baselineskip = #1\relax
-  \normalbaselineskip = \baselineskip
-  \lineskip = \lineskipfactor\baselineskip
+  \normalbaselineskip = #1\relax
+  \normallineskip = \lineskipfactor\normalbaselineskip
+  \normalbaselines
   \setbox\strutbox =\hbox{%
     \vrule width0pt height\strutheightpercent\baselineskip
                     depth \strutdepthpercent \baselineskip
@@ -3718,7 +3776,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 % change spans more than two lines of output.  To handle that, we would
 % have adopt a much more difficult approach (putting marks into the main
 % vertical list for the beginning and end of each change).
-% 
+%
 \def\|{%
   % \vadjust can only be used in horizontal mode.
   \leavevmode
@@ -3745,7 +3803,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 % For a final copy, take out the rectangles
 % that mark overfull boxes (in case you have decided
 % that the text looks ok even though it passes the margin).
-% 
+%
 \def\finalout{\overfullrule=0pt}
 
 
@@ -3782,7 +3840,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 % using an old version of TeX, don't do anything.  We want the amount of
 % stretch added to depend on the line length, hence the dependence on
 % \hsize.  This makes it come to about 9pt for the 8.5x11 format.
-% 
+%
 \ifx\emergencystretch\thisisundefined
   % Allow us to assign to \emergencystretch anyway.
   \def\emergencystretch{\dimen0}%
@@ -3863,7 +3921,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 % otherwise.  Since all the Computer Modern typewriter fonts have zero
 % interword stretch (and shrink), and it is reasonable to expect all
 % typewriter fonts to have this, we can check that font parameter.
-% 
+%
 \def\ifusingtt#1#2{\ifdim \fontdimen3\the\font=0pt #1\else #2\fi}
 
 % Turn off all special characters except @
@@ -3941,16 +3999,16 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \catcode`\\=\active
 
 % If a .fmt file is being used, we don't want the `\input texinfo' to show up.
-% That is what \eatinput is for; after that, the `\' should revert to printing 
+% That is what \eatinput is for; after that, the `\' should revert to printing
 % a backslash.
 %
 @gdef@eatinput input texinfo{@fixbackslash}
 @global@let\ = @eatinput
 
 % On the other hand, perhaps the file did not have a `\input texinfo'. Then
-% the first `\{ in the file would cause an error. This macro tries to fix 
+% the first `\{ in the file would cause an error. This macro tries to fix
 % that, assuming it is called before the first `\' could plausibly occur.
-% 
+%
 @gdef@fixbackslash{@ifx\@eatinput @let\ = @normalbackslash @fi}
 
 %% These look ok in all fonts, so just make them not special.  The @rm below

@@ -9,7 +9,7 @@
 @ifinfo
 @format
 START-INFO-DIR-ENTRY
-* configure: (configure).        Cygnus configure.
+* configure::                   Cygnus configure.
 END-INFO-DIR-ENTRY
 @end format
 @end ifinfo

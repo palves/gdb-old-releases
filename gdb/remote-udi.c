@@ -27,12 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
  - Originally written by Daniel Mann at AMD for MiniMON and gdb 3.91.6.
  - David Wood (wood@lab.ultra.nyu.edu) at New York University adapted this
 	file to gdb 3.95.  I was unable to get this working on sun3os4
-	with termio, only with sgtty.  Because we are only attempting to
-	use this module to debug our kernel, which is already loaded when
-	gdb is started up, I did not code up the file downloading facilities.  
-	As a result this module has only the stubs to download files. 
-	You should get tagged at compile time if you need to make any 
-	changes/additions.
+	with termio, only with sgtty.
  - Daniel Mann at AMD took the 3.95 adaptions above and replaced
    	MiniMON interface with UDI-p interface.	  */
  
@@ -57,7 +52,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 static int kiodebug;
 extern int stop_soon_quietly;           /* for wait_for_inferior */
 extern struct value *call_function_by_hand();
-static void udi_resume PARAMS ((int step, int sig));
+static void udi_resume PARAMS ((int pid, int step, int sig));
 static void udi_fetch_registers PARAMS ((int regno));
 static void udi_load PARAMS ((char *args, int from_tty));
 static void fetch_register PARAMS ((int regno));
@@ -129,22 +124,6 @@ typedef	struct 	bkpt_entry_str
 #define		BKPT_TABLE_SIZE 40
 static bkpt_entry_t	bkpt_table[BKPT_TABLE_SIZE];
 extern	char	dfe_errmsg[];		/* error string */
-
-/* Called when SIGALRM signal sent due to alarm() timeout.  */
-#ifndef HAVE_TERMIO
-
-volatile int n_alarms;
-
-static void
-udi_timer ()
-{
-#if 0
-  if (kiodebug)
-    printf ("udi_timer called\n");
-#endif
-  n_alarms++;
-}
-#endif	/* HAVE_TERMIO */
 
 /* malloc'd name of the program on the remote system.  */
 static char *prog_name = NULL;
@@ -255,19 +234,6 @@ udi_open (name, from_tty)
     error("UDIConnect() failed: %s\n", dfe_errmsg);
 
   push_target (&udi_ops);
-
-#ifndef HAVE_TERMIO
-#ifndef NO_SIGINTERRUPT
-  /* Cause SIGALRM's to make reads fail with EINTR instead of resuming
-     the read.  */
-  if (siginterrupt (SIGALRM, 1) != 0)
-    error ("udi_open: siginterrupt() %s", safe_strerror(errno));
-#endif
-
-  /* Set up read timeout timer.  */
-  if ((void (*)) signal (SIGALRM, udi_timer) == (void (*)) -1)
-    error ("udi_open: signal() %s", safe_strerror(errno));
-#endif
 
 #if defined (LOG_FILE)
   log_file = fopen (LOG_FILE, "w");
@@ -437,8 +403,8 @@ udi_detach (args,from_tty)
 ** Tell the remote machine to resume.  */
 
 static void
-udi_resume (step, sig)
-     int step, sig;
+udi_resume (pid, step, sig)
+     int pid, step, sig;
 {
   UDIError tip_error;
   UDIUInt32 Steps = 1;
@@ -1518,7 +1484,25 @@ int   QuietMode = 0;		/* used for debugging */
 static struct target_ops udi_ops = {
         "udi",
 	"Remote UDI connected TIP",
-	"Remote debug an AMD 29k using UDI socket connection to TIP process",
+	"Remote debug an AMD 29k using UDI socket connection to TIP process.\n\
+Arguments are\n\
+`configuration-id AF_INET hostname port-number'\n\
+    To connect via the network, where hostname and port-number specify the\n\
+    host and port where you can connect via UDI.\n\
+    configuration-id is unused.\n\
+\n\
+`configuration-id AF_UNIX socket-name tip-program'\n\
+    To connect using a local connection to the \"tip.exe\" program which is\n\
+    supplied by AMD.  If socket-name specifies an AF_UNIX socket then the\n\
+    tip program must already be started; connect to it using that socket.\n\
+    If not, start up tip-program, which should be the name of the tip\n\
+    program.  If appropriate, the PATH environment variable is searched.\n\
+    configuration-id is unused.\n\
+\n\
+`configuration-id'\n\
+    Look up the configuration in ./udi_soc or /etc/udi_soc, which\n\
+    are files containing lines in the above formats.  configuration-id is\n\
+    used to pick which line of the file to use.",
         udi_open,
 	udi_close,
         udi_attach,

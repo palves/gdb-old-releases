@@ -212,17 +212,18 @@ mips_fix_hi16_s (abfd,reloc_entry,symbol,data,input_section,output_bfd)
 }
 
 static reloc_howto_type mips_howto_table_ext[] = {
-  {MIPS_RELOC_32,      0, 2, 32, false, 0, true,  true, 0,
+  {MIPS_RELOC_32,      0, 2, 32, false, 0,  complain_overflow_bitfield, 0,
 	"32",       false, 0, 0xffffffff, false},
-  {MIPS_RELOC_JMP,     2, 2, 26, false, 0, false, true, 0,
+  {MIPS_RELOC_JMP,     2, 2, 26, false, 0, complain_overflow_bitfield, 0,
 	"MIPS_JMP", false, 0, 0x03ffffff, false},
-  {MIPS_RELOC_WDISP16, 2, 1, 16, true,  0, false, true, 0,
+  {MIPS_RELOC_WDISP16, 2, 1, 16, true,  0, complain_overflow_signed, 0,
 	"WDISP16",  false, 0, 0x0000ffff, false},
-  {MIPS_RELOC_HI16,   16, 1, 16, false, 0, false, true, 0,
+  {MIPS_RELOC_HI16,   16, 1, 16, false, 0, complain_overflow_bitfield, 0,
 	"HI16",     false, 0, 0x0000ffff, false},
-  {MIPS_RELOC_HI16_S, 16, 1, 16, false, 0, false, true, mips_fix_hi16_s,
-	"HI16_S",   false, 0, 0x0000ffff, false},
-  {MIPS_RELOC_LO16,    0, 1, 16, false, 0, false, true, 0,
+  {MIPS_RELOC_HI16_S, 16, 1, 16, false, 0, complain_overflow_bitfield,
+        mips_fix_hi16_s,
+        "HI16_S",   false, 0, 0x0000ffff, false},
+  {MIPS_RELOC_LO16,    0, 1, 16, false, 0, complain_overflow_bitfield, 0,
 	"LO16",     false, 0, 0x0000ffff, false},
 };
 
@@ -357,6 +358,7 @@ bfd_target aout_mips_little_vec =
   MY_canonicalize_reloc,
   MY_make_empty_symbol,
   MY_print_symbol,
+  MY_get_symbol_info,
   MY_get_lineno,
   MY_set_arch_mach,
   MY_openr_next_archived_file,
@@ -418,6 +420,7 @@ bfd_target aout_mips_big_vec =
   MY_canonicalize_reloc,
   MY_make_empty_symbol,
   MY_print_symbol,
+  MY_get_symbol_info,
   MY_get_lineno,
   MY_set_arch_mach,
   MY_openr_next_archived_file,

@@ -21,11 +21,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "serial.h"
 #include <sys/dos.h>
 
-#define SIGNATURE 0x4154
-#define VERSION 1
-#define OFFSET 0x104
-
-#define peek(a,b) (*(unsigned short *)(0xe0000000 + (a)*16 + (b)))
+/* This is unused for now.  We just return a placeholder. */
+struct go32_ttystate
+{
+  int bogus;
+};
 
 typedef struct {
   short jmp_op;
@@ -37,6 +37,33 @@ typedef struct {
   short putp;
   short iov;
 } ASYNC_STRUCT;
+
+static int go32_open PARAMS ((serial_t scb, const char *name));
+static void go32_raw PARAMS ((serial_t scb));
+static int wait_for PARAMS ((serial_t scb, int timeout));
+static int go32_readchar PARAMS ((serial_t scb, int timeout));
+static int rate_to_code PARAMS ((int rate));
+static int go32_setbaudrate PARAMS ((serial_t scb, int rate));
+static int go32_write PARAMS ((serial_t scb, const char *str, int len));
+static void go32_restore PARAMS ((serial_t scb));
+static void go32_close PARAMS ((serial_t scb));
+static serial_ttystate go32_get_tty_state PARAMS ((serial_t scb));
+static int go32_set_tty_state PARAMS ((serial_t scb, serial_ttystate state));
+static int strncasecmp PARAMS ((const char *str1, const char *str2, int len));
+static char *aptr PARAMS ((short p));
+static ASYNC_STRUCT *getivec PARAMS ((int which));
+static int dos_async_init PARAMS ((int port));
+static void dos_async_tx PARAMS ((const char c));
+static int dos_async_ready PARAMS (());
+static int dos_async_rx PARAMS (());
+static int dosasync_read PARAMS ((int fd, char *buf, int len, int timeout));
+static int dosasync_write PARAMS ((int fd, const char *buf, int len));
+
+#define SIGNATURE 0x4154
+#define VERSION 1
+#define OFFSET 0x104
+
+#define peek(a,b) (*(unsigned short *)(0xe0000000 + (a)*16 + (b)))
 
 static ASYNC_STRUCT *async;
 static int iov;
@@ -51,7 +78,7 @@ static int iov;
 
 static int
 strncasecmp(str1, str2, len)
-     char *str1, *str2;
+     const char *str1, *str2;
      register int len;
 {
   unsigned char c1, c2;
@@ -116,13 +143,12 @@ dos_async_init(port)
 
   if (!async)
     {
-      error("GDB can not connect to asynctsr program, check that it is installed\n\
+      error("GDB cannot connect to asynctsr program, check that it is installed\n\
 and that serial I/O is not being redirected (perhaps by NFS)\n\n\
 example configuration:\n\
-C> mode com2:9600,n,8,1,p\n\
-C> asynctsr 2\n\
-C> gdb \n");
-
+C> mode com%d:9600,n,8,1,p\n\
+C> asynctsr %d\n\
+C> gdb \n", port, port);
     }
 
   iov = async->iov;
@@ -240,6 +266,13 @@ go32_open (scb, name)
   return 0;
 }
 
+static int
+go32_noop (scb)
+     serial_t scb;
+{
+  return 0;
+}
+
 static void
 go32_raw (scb)
      serial_t scb;
@@ -260,10 +293,61 @@ go32_readchar (scb, timeout)
     return SERIAL_TIMEOUT;
 }
 
+/* go32_{get set}_tty_state() are both dummys to fill out the function
+   vector.  Someday, they may do something real... */
+
+static serial_ttystate
+go32_get_tty_state(scb)
+     serial_t scb;
+{
+  struct go32_ttystate *state;
+
+  state = (struct go32_ttystate *)xmalloc(sizeof *state);
+
+  return (serial_ttystate)state;
+}
+
+static int
+go32_set_tty_state(scb, ttystate)
+     serial_t scb;
+     serial_ttystate ttystate;
+{
+  struct go32_ttystate *state;
+
+  return 0;
+}
+
+static int
+go32_noflush_set_tty_state (scb, new_ttystate, old_ttystate)
+     serial_t scb;
+     serial_ttystate new_ttystate;
+     serial_ttystate old_ttystate;
+{
+  return 0;
+}
+
+static void
+go32_print_tty_state (scb, ttystate)
+     serial_t scb;
+     serial_ttystate ttystate;
+{
+  /* Nothing to print.  */
+  return;
+}
+
 static int
 go32_setbaudrate (scb, rate)
      serial_t scb;
      int rate;
+{
+  return 0;
+}
+
+static int
+go32_set_process_group (scb, ttystate, group)
+     serial_t scb;
+     serial_ttystate ttystate;
+     int group;
 {
   return 0;
 }
@@ -280,12 +364,7 @@ go32_write (scb, str, len)
 }
 
 static void
-go32_close ()
-{
-}
-
-static void
-go32_restore (scb)
+go32_close (scb)
      serial_t scb;
 {
 }
@@ -298,12 +377,27 @@ static struct serial_ops go32_ops =
   go32_close,
   go32_readchar,
   go32_write,
+  go32_noop, /* flush output */
+  go32_noop, /* flush input */
+  go32_noop, /* send break -- currently used only for nindy */
   go32_raw,
-  go32_restore,
-  go32_setbaudrate
+  go32_get_tty_state,
+  go32_set_tty_state,
+  go32_print_tty_state,
+  go32_noflush_set_tty_state,
+  go32_setbaudrate,
+  go32_set_process_group
 };
+
+/* There is never job control on go32.  */
+int
+gdb_setpgid ()
+{
+  return 0;
+}
 
 _initialize_ser_go32 ()
 {
+  job_control = 0;
   serial_add_interface (&go32_ops);
 }

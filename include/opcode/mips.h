@@ -1,25 +1,23 @@
-/* Mips opcde list for GDB, the GNU debugger.
-   Copyright 1989, 1992 Free Software Foundation, Inc.
-   Contributed by Nobuyuki Hikichi(hikichi@sra.junet)
-   Made to work for little-endian machines, and debugged
-   by Per Bothner (bothner@cs.wisc.edu).
-   Many fixes contributed by Frank Yellin (fy@lucid.com).
+/* mips.h.  Mips opcode list for GDB, the GNU debugger.
+   Copyright 1993 Free Software Foundation, Inc.
+   Contributed by Ralph Campbell and OSF
+   Commented and modified by Ian Lance Taylor, Cygnus Support
 
-This file is part of GDB.
+This file is part of GDB, GAS, and the GNU binutils.
 
-GDB is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+GDB, GAS, and the GNU binutils are free software; you can redistribute
+them and/or modify them under the terms of the GNU General Public
+License as published by the Free Software Foundation; either version
+1, or (at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GDB, GAS, and the GNU binutils are distributed in the hope that they
+will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this file; see the file COPYING.  If not, write to the Free
+Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* These are bit masks and shift counts to use to access the various
    fields of an instruction.  To retrieve the X field of an
@@ -44,9 +42,13 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    The floating point 'r' format uses OP, FMT, FT, FS, FD and FUNCT.
 
    A breakpoint instruction uses OP, CODE and SPEC (10 bits of the
-   breakpoint instruction are not defined; Kane says the
-   breakpoint-code code field in BREAK is 20 bits; yet MIPS assemblers
-   and debuggers only use ten bits).  */
+   breakpoint instruction are not defined; Kane says the breakpoint
+   code field in BREAK is 20 bits; yet MIPS assemblers and debuggers
+   only use ten bits).
+
+   The syscall instruction uses SYSCALL.
+
+   The general coprocessor instructions use COPZ.  */
 
 #define OP_MASK_OP		0x3f
 #define OP_SH_OP		26
@@ -64,12 +66,16 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define OP_SH_RD		11
 #define OP_MASK_FS		0x1f
 #define OP_SH_FS		11
+#define OP_MASK_SYSCALL		0xfffff
+#define OP_SH_SYSCALL		6
 #define OP_MASK_SHAMT		0x1f
 #define OP_SH_SHAMT		6
 #define OP_MASK_FD		0x1f
 #define OP_SH_FD		6
 #define OP_MASK_TARGET		0x3ffffff
 #define OP_SH_TARGET		0
+#define OP_MASK_COPZ		0x1ffffff
+#define OP_SH_COPZ		0
 #define OP_MASK_IMMEDIATE	0xffff
 #define OP_SH_IMMEDIATE		0
 #define OP_MASK_DELTA		0xffff
@@ -79,288 +85,298 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define OP_MASK_SPEC		0x3f
 #define OP_SH_SPEC		0
 
+/* This structure holds information for a particular instruction.  */
+
 struct mips_opcode
 {
-  char *name;
-  unsigned long opcode;
+  /* The name of the instruction.  */
+  const char *name;
+  /* A string describing the arguments for this instruction.  */
+  const char *args;
+  /* The basic opcode for the instruction.  When assembling, this
+     opcode is modified by the arguments to produce the actual opcode
+     that is used.  */
   unsigned long match;
-  char *args;
-  int bdelay; /* Nonzero if delayed branch.  */
+  /* If pinfo is not INSN_MACRO, then this is a bit mask for the
+     relevant portions of the opcode when disassembling.  If the
+     actual opcode anded with the match field equals the opcode field,
+     then we have found the correct instruction.  If pinfo is
+     INSN_MACRO, then this field is the macro identifier.  */
+  unsigned long mask;
+  /* For a macro, this is INSN_MACRO.  Otherwise, it is a collection
+     of bits describing the instruction, notably any relevant hazard
+     information.  */
+  unsigned long pinfo;
 };
 
-/* args format;
+/* These are the characters which may appears in the args field of an
+   instruction.  They appear in the order in which the fields appear
+   when the instruction is used.  Commas and parentheses in the args
+   string are ignored when assembling, and written into the output
+   when disassembling.
 
-   "s" rs: source register specifier
-   "t" rt: target register
-   "i" unsigned immediate
-   "j" signed immediate
-   "a" target address
-   "b" branch target address
-   "c" branch condition
-   "d" rd: destination register specifier
-   "h" shamt: shift amount
-   "f" funct: function field
-   "B" breakpoint code
+   Each of these characters corresponds to a mask field defined above.
 
-  for fpu
-   "S" fs source 1 register
-   "T" ft source 2 register
-   "D" distination register
+   "<" 5 bit shift amount (OP_*_SHAMT)
+   "a" 26 bit target address (OP_*_TARGET)
+   "b" 5 bit base register (OP_*_RS)
+   "c" 10 bit breakpoint code (OP_*_CODE)
+   "d" 5 bit destination register specifier (OP_*_RD)
+   "i" 16 bit unsigned immediate (OP_*_IMMEDIATE)
+   "j" 16 bit signed immediate (OP_*_DELTA)
+   "o" 16 bit signed offset (OP_*_DELTA)
+   "p" 16 bit PC relative branch target address (OP_*_DELTA)
+   "r" 5 bit same register used as both source and target (OP_*_RS)
+   "s" 5 bit source register specifier (OP_*_RS)
+   "t" 5 bit target register (OP_*_RT)
+   "u" 16 bit upper 16 bits of address (OP_*_IMMEDIATE)
+   "v" 5 bit same register used as both source and destination (OP_*_RS)
+   "w" 5 bit same register used as both target and destination (OP_*_RT)
+   "C" 25 bit coprocessor function code (OP_*_COPZ)
+   "B" 20 bit syscall function code (OP_*_SYSCALL)
+
+   Floating point instructions:
+   "D" 5 bit destination register (OP_*_FD)
+   "S" 5 bit fs source 1 register (OP_*_FS)
+   "T" 5 bit ft source 2 register (OP_*_FT)
+   "V" 5 bit same register used as floating source and destination (OP_*_FS)
+   "W" 5 bit same register used as floating target and destination (OP_*_FT)
+
+   Coprocessor instructions:
+   "E" 5 bit target register (OP_*_RT)
+   "G" 5 bit destination register (OP_*_RD)
+
+   Macro instructions:
+   "I" 32 bit immediate
+   "F" 64 bit floating point constant
 */
 
-#define one(x) ((unsigned)(x) << OP_SH_OP)
-#define op_func(x, y) (one(x) | y)
-#define op_cond(x, y) (one(x) | (y << OP_SH_RT))
-#define op_rs_func(x, y, z) (one(x) | (y << OP_SH_RS) | z)
-#define op_rs_b11(x, y, z) (one(x) | (y << OP_SH_FMT) | z)
-#define op_o16(x, y) (one(x) | (y << OP_SH_RT))
-#define op_bc(x, y, z) (one(x) | (y << OP_SH_RS) | (z << OP_SH_RT))
+/* These are the bits which may be set in the pinfo field of an
+   instructions, if it is not equal to INSN_MACRO.  */
 
-struct mips_opcode mips_opcodes[] = 
-{
-/* These first opcodes are special cases of the ones in the comments */
-  {"nop",	0,		0xffffffff,	     /*sll*/	"", 0},
-  {"li",	op_bc(9,0,0),	op_bc(0x3f,31,0),    /*addiu*/	"t,j", 0},
-  {"li",	op_bc(13,0,0),  op_bc(0x3f,31,0),    /*ori*/    "t,i", 0},
-  {"move",	op_func(0, 33),	op_cond(0x3f,31)|0x7ff,/*addu*/	"d,s", 0},
-  {"b",		one(4),		0xffff0000,	     /*beq*/	"b", 1},
-  {"b",   op_cond (1, 1), op_cond(0x3f, 0x1f)|(0x1f << OP_SH_RS), /*bgez*/   "b", 1},
-  {"bal", op_cond (1, 17),op_cond(0x3f, 0x1f)|(0x1f << OP_SH_RS), /*bgezal*/ "b", 1},
+/* Modifies the general purpose register in OP_*_RD.  */
+#define INSN_WRITE_GPR_D            0x00000001
+/* Modifies the general purpose register in OP_*_RS (FIXME: not used).  */
+#define INSN_WRITE_GPR_S            0x00000002
+/* Modifies the general purpose register in OP_*_RT.  */
+#define INSN_WRITE_GPR_T            0x00000004
+/* Modifies general purpose register 31.  */
+#define INSN_WRITE_GPR_31           0x00000008
+/* Modifies the floating point register in OP_*_FD.  */
+#define INSN_WRITE_FPR_D            0x00000010
+/* Modifies the floating point register in OP_*_FS (FIXME: not used).  */
+#define INSN_WRITE_FPR_S            0x00000020
+/* Modifies the floating point register in OP_*_FT.  */
+#define INSN_WRITE_FPR_T            0x00000040
+/* Reads the general purpose register in OP_*_RD (FIXME: not used).  */
+#define INSN_READ_GPR_D             0x00000080
+/* Reads the general purpose register in OP_*_RS.  */
+#define INSN_READ_GPR_S             0x00000100
+/* Reads the general purpose register in OP_*_RT.  */
+#define INSN_READ_GPR_T             0x00000200
+/* Reads general purpose register 31 (FIXME: not used).  */
+#define INSN_READ_GPR_31            0x00000400
+/* Reads the floating point register in OP_*_FD (FIXME: not used).  */
+#define INSN_READ_FPR_D             0x00000800
+/* Reads the floating point register in OP_*_FS.  */
+#define INSN_READ_FPR_S             0x00001000
+/* Reads the floating point register in OP_*_FT.  */
+#define INSN_READ_FPR_T             0x00002000
+/* Modifies coprocessor condition code.  */
+#define INSN_WRITE_COND_CODE        0x00004000
+/* Reads coprocessor condition code.  */
+#define INSN_READ_COND_CODE         0x00008000
+/* TLB operation.  */
+#define INSN_TLB                    0x00010000
+/* RFE (return from exception) instruction.  */
+#define INSN_RFE                    0x00020000
+/* Reads coprocessor register other than floating point register.  */
+#define INSN_COP                    0x00040000
+/* Instruction destination requires load delay.  */
+#define INSN_LOAD_DELAY             0x00080000
+/* Instruction has unconditional branch delay slot.  */
+#define INSN_UNCOND_BRANCH_DELAY    0x00100000
+/* Instruction has conditional branch delay slot.  */
+#define INSN_COND_BRANCH_DELAY      0x00200000
+/* Writes coprocessor register, requiring delay.  */
+#define INSN_COPROC_DELAY           0x00400000
+/* Reads the HI register.  */
+#define INSN_READ_HI		    0x00800000
+/* Reads the LO register.  */
+#define INSN_READ_LO		    0x01000000
+/* Modifies the HI register.  */
+#define INSN_WRITE_HI		    0x02000000
+/* Modifies the LO register.  */
+#define INSN_WRITE_LO		    0x04000000
+/* Takes a trap (FIXME: why is this interesting?).  */
+#define INSN_TRAP                   0x08000000
+/* R4000 instruction.  */
+#define INSN_R4000	            0x80000000
 
-  {"sll",	op_func(0, 0),	op_func(0x3f, 0x3f),		"d,t,h", 0},
-  {"srl",	op_func(0, 2),	op_func(0x3f, 0x3f),		"d,t,h", 0},
-  {"sra",	op_func(0, 3),	op_func(0x3f, 0x3f),		"d,t,h", 0},
-  {"sllv",	op_func(0, 4),	op_func(0x3f, 0x7ff),		"d,t,s", 0},
-  {"srlv",	op_func(0, 6),	op_func(0x3f, 0x7ff),		"d,t,s", 0},
-  {"srav",	op_func(0, 7),	op_func(0x3f, 0x7ff),		"d,t,s", 0},
-  {"jr",	op_func(0, 8),	op_func(0x3f, 0x1fffff),	"s", 1},
-  {"jalr",	op_func(0, 9),	op_func(0x3f, 0x1f07ff),	"d,s", 1},
-  {"syscall",	op_func(0, 12),	op_func(0x3f, 0x3f),		"", 0},
-  {"break",	op_func(0, 13),	op_func(0x3f, 0x3f),		"B", 0},
-  {"mfhi",      op_func(0, 16), op_func(0x3f, 0x03ff07ff),      "d", 0},
-  {"mthi",      op_func(0, 17), op_func(0x3f, 0x1fffff),        "s", 0},
-  {"mflo",      op_func(0, 18), op_func(0x3f, 0x03ff07ff),      "d", 0},
-  {"mtlo",      op_func(0, 19), op_func(0x3f, 0x1fffff),        "s", 0},
-  {"mult",	op_func(0, 24),	op_func(0x3f, 0xffff),		"s,t", 0},
-  {"multu",	op_func(0, 25),	op_func(0x3f, 0xffff),		"s,t", 0},
-  {"div",	op_func(0, 26),	op_func(0x3f, 0xffff),		"s,t", 0},
-  {"divu",	op_func(0, 27),	op_func(0x3f, 0xffff),		"s,t", 0},
-  {"add",	op_func(0, 32),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"addu",	op_func(0, 33),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"sub",	op_func(0, 34),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"subu",	op_func(0, 35),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"and",	op_func(0, 36),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"or",	op_func(0, 37),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"xor",	op_func(0, 38),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"nor",	op_func(0, 39),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"slt",	op_func(0, 42),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
-  {"sltu",	op_func(0, 43),	op_func(0x3f, 0x7ff),		"d,s,t", 0},
+/* Instruction is actually a macro.  It should be ignored by the
+   disassembler, and requires special treatment by the assembler.  */
+#define INSN_MACRO                  0xffffffff
 
-  {"bltz",	op_cond (1, 0),	op_cond(0x3f, 0x1f),		"s,b", 1},
-  {"bgez",	op_cond (1, 1),	op_cond(0x3f, 0x1f),		"s,b", 1},
-  {"bltzal",	op_cond (1, 16),op_cond(0x3f, 0x1f),		"s,b", 1},
-  {"bgezal",	op_cond (1, 17),op_cond(0x3f, 0x1f),		"s,b", 1},
-
-
-  {"j",		one(2),		one(0x3f),			"a", 1},
-  {"jal",	one(3),		one(0x3f),			"a", 1},
-  {"beq",	one(4),		one(0x3f),			"s,t,b", 1},
-  {"bne",	one(5),		one(0x3f),			"s,t,b", 1},
-  {"blez",	one(6),		one(0x3f) | 0x1f0000,		"s,b", 1},
-  {"bgtz",	one(7),		one(0x3f) | 0x1f0000,		"s,b", 1},
-  {"addi",	one(8),		one(0x3f),			"t,s,j", 0},
-  {"addiu",	one(9),		one(0x3f),			"t,s,j", 0},
-  {"slti",	one(10),	one(0x3f),			"t,s,j", 0},
-  {"sltiu",	one(11),	one(0x3f),			"t,s,j", 0},
-  {"andi",	one(12),	one(0x3f),			"t,s,i", 0},
-  {"ori",	one(13),	one(0x3f),			"t,s,i", 0},
-  {"xori",	one(14),	one(0x3f),			"t,s,i", 0},
-	/* rs field is don't care field? */
-  {"lui",	one(15),	one(0x3f),			"t,i", 0},
-
-/* Coprocessor 0 instructions */
-/* `S' is not quite right for 2nd operand -- should be coproc reg, not
-   float reg.*/
-  {"mfc0",	op_rs_b11 (16, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"cfc0",	op_rs_b11 (16, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"mtc0",	op_rs_b11 (16, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"ctc0",	op_rs_b11 (16, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-
-  {"bc0f",	op_o16(16, 0x100),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc0f",	op_o16(16, 0x180),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc0t",	op_o16(16, 0x101),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc0t",	op_o16(16, 0x181),	op_o16(0x3f, 0x3ff),	"b", 1},
-
-  {"tlbr",	op_rs_func(16, 0x10, 1), ~0, "", 0},
-  {"tlbwi",	op_rs_func(16, 0x10, 2), ~0, "", 0},
-  {"tlbwr",	op_rs_func(16, 0x10, 6), ~0, "", 0},
-  {"tlbp",	op_rs_func(16, 0x10, 8), ~0, "", 0},
-  {"rfe",	op_rs_func(16, 0x10, 16), ~0, "", 0},
-
-  {"mfc1",	op_rs_b11 (17, 0, 0),	op_rs_b11(0x3f, 0x1f, 0),"t,S", 0},
-  {"cfc1",	op_rs_b11 (17, 2, 0),	op_rs_b11(0x3f, 0x1f, 0),"t,S", 0},
-  {"mtc1",	op_rs_b11 (17, 4, 0),	op_rs_b11(0x3f, 0x1f, 0),"t,S", 0},
-  {"ctc1",	op_rs_b11 (17, 6, 0),	op_rs_b11(0x3f, 0x1f, 0),"t,S", 0},
-
-  {"bc1f",	op_o16(17, 0x100),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc1f",	op_o16(17, 0x180),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc1t",	op_o16(17, 0x101),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc1t",	op_o16(17, 0x181),	op_o16(0x3f, 0x3ff),	"b", 1},
-
-/* fpu instruction */
-  {"add.s",	op_rs_func(17, 0x10, 0),
-			op_rs_func(0x3f, 0x1f, 0x3f),	"D,S,T", 0},
-  {"add.d",	op_rs_func(17, 0x11, 0),
-			op_rs_func(0x3f, 0x1f, 0x3f),	"D,S,T", 0},
-  {"sub.s",	op_rs_func(17, 0x10, 1),
-			op_rs_func(0x3f, 0x1f, 0x3f),	"D,S,T", 0},
-  {"sub.d",	op_rs_func(17, 0x11, 1),
-			op_rs_func(0x3f, 0x1f, 0x3f),	"D,S,T", 0},
-  {"mul.s",	op_rs_func(17, 0x10, 2),
-			op_rs_func(0x3f, 0x1f, 0x3f),	"D,S,T", 0},
-  {"mul.d",	op_rs_func(17, 0x11, 2),
-			op_rs_func(0x3f, 0x1f, 0x3f),	"D,S,T", 0},
-  {"div.s",	op_rs_func(17, 0x10, 3),
-			op_rs_func(0x3f, 0x1f, 0x3f),	"D,S,T", 0},
-  {"div.d",	op_rs_func(17, 0x11, 3),
-			op_rs_func(0x3f, 0x1f, 0x3f),	"D,S,T", 0},
-  {"abs.s",	op_rs_func(17, 0x10, 5),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"abs.d",	op_rs_func(17, 0x11, 5),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"mov.s",	op_rs_func(17, 0x10, 6),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"mov.d",	op_rs_func(17, 0x11, 6),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"neg.s",	op_rs_func(17, 0x10, 7),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"neg.d",	op_rs_func(17, 0x11, 7),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"cvt.s.s",	op_rs_func(17, 0x10, 32),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"cvt.s.d",	op_rs_func(17, 0x11, 32),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"cvt.s.w",	op_rs_func(17, 0x14, 32),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"cvt.d.s",	op_rs_func(17, 0x10, 33),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"cvt.d.d",	op_rs_func(17, 0x11, 33),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"cvt.d.w",	op_rs_func(17, 0x14, 33),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"cvt.w.s",	op_rs_func(17, 0x10, 36),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"cvt.w.d",	op_rs_func(17, 0x11, 36),
-			op_rs_func(0x3f, 0x1f, 0x1f003f),	"D,S", 0},
-  {"c.f.s",	op_rs_func(17, 0x10, 48),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.f.d",	op_rs_func(17, 0x11, 48),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.un.s",	op_rs_func(17, 0x10, 49),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.un.d",	op_rs_func(17, 0x11, 49),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.eq.s",	op_rs_func(17, 0x10, 50),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.eq.d",	op_rs_func(17, 0x11, 50),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ueq.s",	op_rs_func(17, 0x10, 51),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ueq.d",	op_rs_func(17, 0x11, 51),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.olt.s",	op_rs_func(17, 0x10, 52),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.olt.d",	op_rs_func(17, 0x11, 52),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ult.s",	op_rs_func(17, 0x10, 53),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ult.d",	op_rs_func(17, 0x11, 53),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ole.s",	op_rs_func(17, 0x10, 54),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ole.d",	op_rs_func(17, 0x11, 54),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ule.s",	op_rs_func(17, 0x10, 55),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ule.d",	op_rs_func(17, 0x11, 55),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.sf.s",	op_rs_func(17, 0x10, 56),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.sf.d",	op_rs_func(17, 0x11, 56),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ngle.s",	op_rs_func(17, 0x10, 57),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ngle.d",	op_rs_func(17, 0x11, 57),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.seq.s",	op_rs_func(17, 0x10, 58),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.seq.d",	op_rs_func(17, 0x11, 58),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ngl.s",	op_rs_func(17, 0x10, 59),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ngl.d",	op_rs_func(17, 0x11, 59),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.lt.s",	op_rs_func(17, 0x10, 60),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.lt.d",	op_rs_func(17, 0x11, 60),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.nge.s",	op_rs_func(17, 0x10, 61),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.nge.d",	op_rs_func(17, 0x11, 61),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.le.s",	op_rs_func(17, 0x10, 62),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.le.d",	op_rs_func(17, 0x11, 62),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ngt.s",	op_rs_func(17, 0x10, 63),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-  {"c.ngt.d",	op_rs_func(17, 0x11, 63),
-			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
-
-/* Coprocessor 2 instruction */
-/* `S' is not quite right for 2nd operand -- should be coproc reg, not
-   float reg.*/
-  {"mfc2",	op_rs_b11 (18, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"cfc2",	op_rs_b11 (18, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"mtc2",	op_rs_b11 (18, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"ctc2",	op_rs_b11 (18, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"bc2f",	op_o16(18, 0x100),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc2f",	op_o16(18, 0x180),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc2f",	op_o16(18, 0x101),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc2t",	op_o16(18, 0x181),	op_o16(0x3f, 0x3ff),	"b", 1},
-
-/* Coprocessor 3 instruction */
-/* `S' is not quite right for 2nd operand -- should be coproc reg, not
-   float reg.*/
-  {"mfc3",	op_rs_b11 (19, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"cfc3",	op_rs_b11 (19, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"mtc3",	op_rs_b11 (19, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"ctc3",	op_rs_b11 (19, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
-  {"bc3f",	op_o16(19, 0x100),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc3f",	op_o16(19, 0x180),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc3t",	op_o16(19, 0x101),	op_o16(0x3f, 0x3ff),	"b", 1},
-  {"bc3t",	op_o16(19, 0x181),	op_o16(0x3f, 0x3ff),	"b", 1},
-
-  {"lb",	one(32),	one(0x3f),		"t,j(s)", 0},
-  {"lh",	one(33),	one(0x3f),		"t,j(s)", 0},
-  {"lwl",	one(34),	one(0x3f),		"t,j(s)", 0},
-  {"lw",	one(35),	one(0x3f),		"t,j(s)", 0},
-  {"lbu",	one(36),	one(0x3f),		"t,j(s)", 0},
-  {"lhu",	one(37),	one(0x3f),		"t,j(s)", 0},
-  {"lwr",	one(38),	one(0x3f),		"t,j(s)", 0},
-  {"sb",	one(40),	one(0x3f),		"t,j(s)", 0},
-  {"sh",	one(41),	one(0x3f),		"t,j(s)", 0},
-  {"swl",	one(42),	one(0x3f),		"t,j(s)", 0},
-  {"swr",       one(46),        one(0x3f),              "t,j(s)", 0},
-  {"sw",	one(43),	one(0x3f),		"t,j(s)", 0},
-  {"lwc0",	one(48),	one(0x3f),		"t,j(s)", 0},
-/* for fpu */
-  {"lwc1",	one(49),	one(0x3f),		"T,j(s)", 0},
-  {"lwc2",	one(50),	one(0x3f),		"t,j(s)", 0},
-  {"lwc3",	one(51),	one(0x3f),		"t,j(s)", 0},
-  {"swc0",	one(56),	one(0x3f),		"t,j(s)", 0},
-/* for fpu */
-  {"swc1",	one(57),	one(0x3f),		"T,j(s)", 0},
-  {"swc2",	one(58),	one(0x3f),		"t,j(s)", 0},
-  {"swc3",	one(59),	one(0x3f),		"t,j(s)", 0},
+/* This is a list of macro expanded instructions.
+ *
+ * _I appended means immediate
+ * _A appended means address
+ * _AB appended means address with base register
+ * _D appended means floating point constant
+ */
+enum {
+    M_ABS,
+    M_ABSU,
+    M_ADD_I,
+    M_ADDU_I,
+    M_AND_I,
+    M_BEQ_I,
+    M_BGE,
+    M_BGE_I,
+    M_BGEU,
+    M_BGEU_I,
+    M_BGT,
+    M_BGT_I,
+    M_BGTU,
+    M_BGTU_I,
+    M_BLE,
+    M_BLE_I,
+    M_BLEU,
+    M_BLEU_I,
+    M_BLT,
+    M_BLT_I,
+    M_BLTU,
+    M_BLTU_I,
+    M_BNE_I,
+    M_DIV_3,
+    M_DIV_3I,
+    M_DIVU_3,
+    M_DIVU_3I,
+    M_L_DOB,
+    M_L_DAB,
+    M_LA,
+    M_LA_AB,
+    M_LB_A,
+    M_LB_AB,
+    M_LBU_A,
+    M_LBU_AB,
+    M_LD_A,
+    M_LD_OB,
+    M_LD_AB,
+    M_LH_A,
+    M_LH_AB,
+    M_LHU_A,
+    M_LHU_AB,
+    M_LI,
+    M_LI_D,
+    M_LI_DD,
+    M_LS_A,
+    M_LW_A,
+    M_LW_AB,
+    M_LWC0_A,
+    M_LWC0_AB,
+    M_LWC1_A,
+    M_LWC1_AB,
+    M_LWC2_A,
+    M_LWC2_AB,
+    M_LWC3_A,
+    M_LWC3_AB,
+    M_LWL_A,
+    M_LWL_AB,
+    M_LWR_A,
+    M_LWR_AB,
+    M_MUL,
+    M_MUL_I, 
+    M_MULO,
+    M_MULO_I, 
+    M_MULOU,
+    M_MULOU_I, 
+    M_NOR_I,
+    M_OR_I,
+    M_REM_3,
+    M_REM_3I,
+    M_REMU_3,
+    M_REMU_3I,
+    M_ROL,
+    M_ROL_I,
+    M_ROR,
+    M_ROR_I,
+    M_S_DA,
+    M_S_DOB,
+    M_S_DAB,
+    M_S_S,
+    M_SD_A,
+    M_SD_OB,
+    M_SD_AB,
+    M_SEQ,
+    M_SEQ_I,
+    M_SGE,
+    M_SGE_I,
+    M_SGEU,
+    M_SGEU_I,
+    M_SGT,
+    M_SGT_I,
+    M_SGTU,
+    M_SGTU_I,
+    M_SLE,
+    M_SLE_I,
+    M_SLEU,
+    M_SLEU_I,
+    M_SLT_I,
+    M_SLTU_I,
+    M_SNE,
+    M_SNE_I,
+    M_SB_A,
+    M_SB_AB,
+    M_SH_A,
+    M_SH_AB,
+    M_SW_A,
+    M_SW_AB,
+    M_SWC0_A,
+    M_SWC0_AB,
+    M_SWC1_A,
+    M_SWC1_AB,
+    M_SWC2_A,
+    M_SWC2_AB,
+    M_SWC3_A,
+    M_SWC3_AB,
+    M_SWL_A,
+    M_SWL_AB,
+    M_SWR_A,
+    M_SWR_AB,
+    M_SUB_I,
+    M_SUBU_I,
+    M_TRUNCWD,
+    M_TRUNCWS,
+    M_ULH,
+    M_ULH_A,
+    M_ULHU,
+    M_ULHU_A,
+    M_ULW,
+    M_ULW_A,
+    M_USH,
+    M_USH_A,
+    M_USW,
+    M_USW_A,
+    M_XOR_I
 };
+
+/* True if this instruction may require a delay slot.  */
+#define ANY_DELAY (INSN_LOAD_DELAY | INSN_UNCOND_BRANCH_DELAY \
+		   | INSN_COND_BRANCH_DELAY | INSN_COPROC_DELAY \
+		   | INSN_READ_HI | INSN_READ_LO \
+		   | INSN_READ_COND_CODE | INSN_WRITE_COND_CODE)
+
+/* The order of overloaded instructions matters.  Label arguments and
+   register arguments look the same. Instructions that can have either
+   for arguments must apear in the correct order in this table for the
+   assembler to pick the right one. In other words, entries with
+   immediate operands must apear after the same instruction with
+   registers.
+
+   Many instructions are short hand for other instructions (i.e., The
+   jal <register> instruction is short for jalr <register>).  */
+
+extern const struct mips_opcode mips_opcodes[];
+extern const int bfd_mips_num_opcodes;
+#define NUMOPCODES bfd_mips_num_opcodes

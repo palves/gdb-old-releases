@@ -2,6 +2,16 @@
 
 #define MSIZE (8*64*1024)
 #define CSIZE 1000
+
+
+union rtype 
+    {
+      unsigned long l;
+      unsigned short s[2];
+      unsigned char *c;
+    };
+
+
 /* Local register names */
 typedef enum
 {
@@ -32,6 +42,8 @@ typedef struct
       unsigned short *wptr;
       unsigned long *lptr;
       unsigned char **segptr;
+      union rtype *rptr;
+      
     }
   reg;
   int literal;
@@ -39,6 +51,7 @@ typedef struct
     {
       unsigned char **segreg;
       unsigned short *wptr;
+      union rtype *rptr;
     }
   r2;
 }
@@ -65,17 +78,12 @@ typedef struct
 decoded_inst;
 
 
+
 typedef struct
 {
   int exception;
-
-  union
-    {
-      unsigned long l;
-      unsigned short s[2];
-      unsigned char *c;
-    }
-  regs[20];
+  union rtype   regs[20];
+  
 
 
   unsigned char *memory;

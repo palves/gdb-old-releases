@@ -170,7 +170,9 @@ CODE_FRAGMENT
 .	   application may not alter it. *}
 .  CONST char *name;
 .
-.	{* The value of the symbol.*}
+.	{* The value of the symbol.  This really should be a union of a
+.          numeric value with a pointer, since some flags indicate that
+.          a pointer to another symbol is stored here.  *}
 .  symvalue value;
 .
 .	{* Attributes of a symbol: *}
@@ -185,20 +187,9 @@ CODE_FRAGMENT
 .	   value is the offset into the section of the data. *}
 .#define BSF_GLOBAL	0x02
 .
-.	{* Obsolete; should be deleted? *}
-.#define BSF_IMPORT	0x04
-.
 .	{* The symbol has global scope, and is exported. The value is
 .	   the offset into the section of the data. *}
-.#define BSF_EXPORT	0x08
-.
-.	{* The symbol is undefined. <<extern>> in <<C>>. The value has
-.	   no meaning.  Obsolete; should be deleted? *}
-.#define BSF_UNDEFINED_OBS 0x10	
-.
-.	{* The symbol is common, initialized to zero; default in
-.	   <<C>>. The value is the size of the object in bytes. *}
-.#define BSF_FORT_COMM_OBS	0x20	
+.#define BSF_EXPORT	0x04
 .
 .	{* A normal C symbol would be one of:
 .	   <<BSF_LOCAL>>, <<BSF_FORT_COMM>>,  <<BSF_UNDEFINED>> or
@@ -206,27 +197,27 @@ CODE_FRAGMENT
 .
 .	{* The symbol is a debugging record. The value has an arbitary
 .	   meaning. *}
-.#define BSF_DEBUGGING	0x40
+.#define BSF_DEBUGGING	0x08
 .
 .	{* The symbol denotes a function entry point.  Used in ELF,
 .	   perhaps others someday.  *}
-.#define BSF_FUNCTION    0x080
+.#define BSF_FUNCTION    0x10
 .
 .	{* Used by the linker. *}
-.#define BSF_KEEP        0x10000
-.#define BSF_KEEP_G      0x80000
+.#define BSF_KEEP        0x20
+.#define BSF_KEEP_G      0x40
 .
-.	{* Unused; should be deleted? *}
-.#define BSF_WEAK        0x100000
-.#define BSF_CTOR        0x200000 
+.	{* A weak global symbol, overridable without warnings by
+.	   a regular global symbol of the same name.  *}
+.#define BSF_WEAK        0x80
 .
 .       {* This symbol was created to point to a section, e.g. ELF's
 .	   STT_SECTION symbols.  *}
-.#define BSF_SECTION_SYM 0x400000 
+.#define BSF_SECTION_SYM 0x100
 .
 .	{* The symbol used to be a common symbol, but now it is
 .	   allocated. *}
-.#define BSF_OLD_COMMON  0x800000  
+.#define BSF_OLD_COMMON  0x200
 .
 .	{* The default value for common data. *}
 .#define BFD_FORT_COMM_DEFAULT_VALUE 0
@@ -237,25 +228,25 @@ CODE_FRAGMENT
 .	   declared and not at the end of a section.  This bit is set
 .  	   by the target BFD part to convey this information. *}
 .
-.#define BSF_NOT_AT_END    0x40000
+.#define BSF_NOT_AT_END    0x400
 .
 .	{* Signal that the symbol is the label of constructor section. *}
-.#define BSF_CONSTRUCTOR   0x1000000
+.#define BSF_CONSTRUCTOR   0x800
 .
 .	{* Signal that the symbol is a warning symbol. If the symbol
 .	   is a warning symbol, then the value field (I know this is
 .	   tacky) will point to the asymbol which when referenced will
 .	   cause the warning. *}
-.#define BSF_WARNING       0x2000000
+.#define BSF_WARNING       0x1000
 .
 .	{* Signal that the symbol is indirect. The value of the symbol
 .	   is a pointer to an undefined asymbol which contains the
 .	   name to use instead. *}
-.#define BSF_INDIRECT      0x4000000
+.#define BSF_INDIRECT      0x2000
 .
 .	{* BSF_FILE marks symbols that contain a file name.  This is used
 .	   for ELF STT_FILE symbols.  *}
-.#define BSF_FILE          0x08000000
+.#define BSF_FILE          0x4000
 .
 .  flagword flags;
 .
@@ -371,10 +362,9 @@ asymbol *symbol)
       {
 	fprintf_vma(file, symbol->value);
       }
-  fprintf(file," %c%c%c%c%c%c%c%c",
+  fprintf(file," %c%c%c%c%c%c%c",
 	  (type & BSF_LOCAL)  ? 'l':' ',
 	  (type & BSF_GLOBAL) ? 'g' : ' ',
-	  (type & BSF_IMPORT) ? 'i' : ' ',
 	  (type & BSF_EXPORT) ? 'e' : ' ',
 	  (type & BSF_CONSTRUCTOR) ? 'C' : ' ',
 	  (type & BSF_WARNING) ? 'W' : ' ',
@@ -414,13 +404,55 @@ DESCRIPTION
 .        BFD_SEND (abfd, _bfd_make_debug_symbol, (abfd, ptr, size))
 */
 
+struct section_to_type
+{
+  CONST char *section;
+  char type;
+};
+
+/* Map COFF section names to POSIX/BSD single-character symbol types.
+   This table is probably incomplete.  It is sorted for convenience of
+   adding entries.  Since it is so short, a linear search is used.  */
+static CONST struct section_to_type stt[] = {
+  {"*DEBUG*", 'N'},
+  {".bss", 'b'},
+  {".data", 'd'},
+  {".sbss", 's'},		/* Small BSS (uninitialized data) */
+  {".scommon", 'c'},		/* Small common */
+  {".sdata", 'g'},		/* Small initialized data */
+  {".text", 't'},
+  {0, 0}
+};
+
+/* Return the single-character symbol type corresponding to
+   COFF section S, or '?' for an unknown COFF section.  */
+
+static char
+coff_section_type (s)
+     char *s;
+{
+  CONST struct section_to_type *t;
+
+  for (t = &stt[0]; t->section; t++)
+    if (!strcmp (s, t->section))
+      return t->type;
+  return '?';
+}
+
+#ifndef islower
+#define islower(c) ((c) >= 'a' && (c) <= 'z')
+#endif
+#ifndef toupper
+#define toupper(c) (islower(c) ? ((c) & ~0x20) : (c))
+#endif
+
 /*
 FUNCTION
 	bfd_decode_symclass
 
 DESCRIPTION
-	Return a lower-case character corresponding to the symbol
-	class of symbol.
+	Return a character corresponding to the symbol
+	class of symbol, or '?' for an unknown class.
 
 SYNOPSIS
 	int bfd_decode_symclass(asymbol *symbol);
@@ -429,23 +461,26 @@ int
 DEFUN(bfd_decode_symclass,(symbol),
 asymbol *symbol)
 {
-  flagword flags = symbol->flags;
-  
-  if (bfd_is_com_section (symbol->section)) return 'C';
-  if (symbol->section == &bfd_und_section) return 'U';
-  if (symbol->section == &bfd_ind_section) return 'I';
-   if ( flags & (BSF_GLOBAL|BSF_LOCAL) ) {
-     if ( symbol->section == &bfd_abs_section)
-      return (flags & BSF_GLOBAL) ? 'A' : 'a';
-     else if ( !strcmp(symbol->section->name, ".text") )
-       return (flags & BSF_GLOBAL) ? 'T' : 't';
-     else if ( !strcmp(symbol->section->name, ".data") )
-       return (flags & BSF_GLOBAL) ? 'D' : 'd';
-     else if ( !strcmp(symbol->section->name, ".bss") )
-       return (flags & BSF_GLOBAL) ? 'B' : 'b';
-     else
-       return (flags & BSF_GLOBAL) ? 'O' : 'o';
-    }
+  char c;
+
+  if (bfd_is_com_section (symbol->section))
+    return 'C';
+  if (symbol->section == &bfd_und_section)
+    return 'U';
+  if (symbol->section == &bfd_ind_section)
+    return 'I';
+  if (!(symbol->flags & (BSF_GLOBAL|BSF_LOCAL)))
+    return '?';
+
+  if (symbol->section == &bfd_abs_section)
+    c = 'a';
+  else if (symbol->section)
+    c = coff_section_type (symbol->section->name);
+  else
+    return '?';
+  if (symbol->flags & BSF_GLOBAL)
+    c = toupper (c);
+  return c;
 
   /* We don't have to handle these cases just yet, but we will soon:
      N_SETV: 'v'; 
@@ -455,10 +490,33 @@ asymbol *symbol)
      N_SETB: 's';
      N_INDR: 'i';
      */
- 
-  return '?';
 }
 
+/*
+FUNCTION
+	bfd_symbol_info
+
+DESCRIPTION
+	Fill in the basic info about symbol that nm needs.
+	Additional info may be added by the back-ends after
+	calling this function.
+
+SYNOPSIS
+	void bfd_symbol_info(asymbol *symbol, symbol_info *ret);
+*/
+
+void
+DEFUN(bfd_symbol_info,(symbol, ret),
+      asymbol *symbol AND
+      symbol_info *ret)
+{
+  ret->type = bfd_decode_symclass (symbol);
+  if (ret->type != 'U')
+    ret->value = symbol->value+symbol->section->vma;
+  else
+    ret->value = 0;
+  ret->name = symbol->name;
+}
 
 void
 bfd_symbol_is_absolute()

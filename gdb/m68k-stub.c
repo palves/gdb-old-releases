@@ -146,6 +146,15 @@ enum regnames {D0,D1,D2,D3,D4,D5,D6,D7,
                FPCONTROL,FPSTATUS,FPIADDR
               };
 
+
+/* We keep a whole frame cache here.  "Why?", I hear you cry, "doesn't
+   GDB handle that sort of thing?"  Well, yes, I believe the only
+   reason for this cache is to save and restore floating point state
+   (fsave/frestore).  A cleaner way to do this would be to make the
+ fsave data part of the registers which GDB deals with like any
+   other registers.  This should not be a performance problem if the
+   ability to read individual registers is added to the protocol.  */
+
 typedef struct FrameStruct
 {
     struct FrameStruct  *previous;
