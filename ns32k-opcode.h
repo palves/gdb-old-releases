@@ -211,8 +211,8 @@ notstrs[] =
   { "movfl",	14,24,	0x1b3e,	"1F2L" },
   { "movlf",	14,24,	0x163e,	"1L2F" },
   { "movmb",	14,24,	0x00ce,	"1D2D3d" },
-  { "movmw",	14,24,	0x00de,	"1D2D3d" },
-  { "movmd",	14,24,	0x00fe,	"1D2D3d" },
+  { "movmw",	14,24,	0x01ce,	"1D2D3d" },
+  { "movmd",	14,24,	0x03ce,	"1D2D3d" },
   { "movqb",	 7,16,	0x5c,	"2B1q" },
   { "movqw",	 7,16,	0x5d,	"2B1q" },
   { "movqd",	 7,16,	0x5f,	"2B1q" },
@@ -281,7 +281,7 @@ notstrs[] =
   { "sbitiw",	14,24,	0x1d4e,	"1W2A" },
   { "sbitid",	14,24,	0x1f4e,	"1D2A" },
   { "setcfg",	15,24,	0x0b0e,	"5D1q" },
-  { "sfsr",	14,24,	0x673e,	"5D1D" },
+  { "sfsr",	14,24,	0x373e,	"5D1D" },
   { "skpsb",	16,16,	0x0c0e,	"1i" },
   { "skpsw",	16,16,	0x0d0e,	"1i" },
   { "skpsd",	16,16,	0x0f0e, "1i" },
@@ -301,7 +301,7 @@ notstrs[] =
   { "subpb",	14,24,	0x2c4e,	"1B2B" },
   { "subpw",	14,24,	0x2d4e,	"1W2W" },
   { "subpd",	14,24,	0x2f4e,	"1D2D" },
-#ifndef NS32K_SVC_IMMED_OPERANDS
+#ifdef NS32K_SVC_IMMED_OPERANDS
   { "svc",	 8,8,	0xe2,	"2i1i" }, /* not really, but unix uses it */
 #else
   { "svc",	 8,8,	0xe2,	"" }, /* not really, but unix uses it */

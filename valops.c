@@ -3,19 +3,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
@@ -91,6 +91,10 @@ value_cast (type, arg2)
   else if (VALUE_LVAL (arg2) == lval_memory)
     {
       return value_at_lazy (type, VALUE_ADDRESS (arg2) + VALUE_OFFSET (arg2));
+    }
+  else if (code1 == TYPE_CODE_VOID)
+    {
+      return value_zero (builtin_type_void, not_lval);
     }
   else
     {
@@ -397,7 +401,8 @@ value_of_variable (var)
 }
 
 /* Given a value which is an array, return a value which is
-   a pointer to its first element.  */
+   a pointer to its first (actually, zeroth) element. 
+   FIXME, this should be subtracting the array's lower bound. */
 
 value
 value_coerce_array (arg1)
@@ -419,6 +424,7 @@ value_coerce_array (arg1)
 
   /* Get the type of the result.  */
   type = lookup_pointer_type (type);
+  /* FIXME, this assumes that pointers are the same size as longs!!! */
   val = value_from_long (builtin_type_long,
 		       (LONGEST) (VALUE_ADDRESS (arg1) + VALUE_OFFSET (arg1)));
   VALUE_TYPE (val) = type;

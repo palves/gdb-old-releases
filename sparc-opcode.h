@@ -3,19 +3,19 @@
 
 This file is part of GAS, the GNU Assembler, and GDB, the GNU disassembler.
 
-GAS/GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GAS/GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GAS or GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if !defined(__STDC__) && !defined(const)
 #define const
@@ -458,27 +458,29 @@ static struct sparc_opcode sparc_opcodes[] =
 #endif
 
 /* Define all the conditions, all the branches, all the traps.  */
-cond (bvc,	tvc,  0xF, 0),
-cond (bvs,	tvs,  0x7, 0),
-cond (bpos,	tpos, 0xE, 0),
-cond (bneg,	tneg, 0x6, 0),
-cond (bcc,	tcc,  0xD, 0),
-cond (bcs,	tcs,  0x5, 0),
-cond (blu,	tlu,  0x5, F_ALIAS), 	/* for cs */
-cond (bgeu,	tgeu, 0xD, F_ALIAS),	/* for cc */
-cond (bgu,	tgu,  0xC, 0),
-cond (bleu,	tleu, 0x4, 0),
-cond (bge,	tge,  0xB, 0),
-cond (bl,	tl,   0x3, 0),
-cond (bg,	tg,   0xA, 0),
-cond (ble,	tle,  0x2, 0),
-cond (be,	te,   0x1, 0),
-cond (bz,	tz,   0x1, F_ALIAS),	/* for e */
-cond (bne,	tne,  0x9, 0),
-cond (bnz,	tnz,  0x9, F_ALIAS),	/* for ne */
-cond (b,	t,    0x8, 0),
-cond (ba,	ta,   0x8, F_ALIAS),	/* for nothing */
-cond (bn,	tn,   0x0, 0),
+/* Use no extra spaces or tabs around the first two args, since cpp
+   will include them in the printed strings.  */
+cond (bvc,tvc,   0xF, 0),
+cond (bvs,tvs,   0x7, 0),
+cond (bpos,tpos, 0xE, 0),
+cond (bneg,tneg, 0x6, 0),
+cond (bcc,tcc,   0xD, 0),
+cond (bcs,tcs,   0x5, 0),
+cond (blu,tlu,   0x5, F_ALIAS), /* for cs */
+cond (bgeu,tgeu, 0xD, F_ALIAS), /* for cc */
+cond (bgu,tgu,   0xC, 0),
+cond (bleu,tleu, 0x4, 0),
+cond (bge,tge,   0xB, 0),
+cond (bl,tl,     0x3, 0),
+cond (bg,tg,     0xA, 0),
+cond (ble,tle,   0x2, 0),
+cond (be,te,     0x1, 0),
+cond (bz,tz,     0x1, F_ALIAS), /* for e */
+cond (bne,tne,   0x9, 0),
+cond (bnz,tnz,   0x9, F_ALIAS), /* for ne */
+cond (b,t,       0x8, 0),
+cond (ba,ta,     0x8, F_ALIAS), /* for nothing */
+cond (bn,tn,     0x0, 0),
 
 #undef cond
 #undef br

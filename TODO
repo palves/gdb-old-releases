@@ -23,17 +23,20 @@ Speed up single stepping by avoiding extraneous ptrace calls.
 Speed up single stepping by not inserting and removing breakpoints
 each time the inferior starts and stops.
 
-Speed up watchpoints by not single-stepping them, but do something
-faster like single-line execution.
+Breakpoints should not be inserted and deleted all the time.  Only the
+one(s) there should be removed when we have to step over one.  Support
+breakpoints that don't have to be removed to step over them.
 
-Update gdb.texinfo to include doc on the directory structure and 
+Speed up watchpoints by not single-stepping them, but do something
+faster like single-line execution.  Speed them up tremendously on
+machines that have watchpoint registers.
+
+Update gdb-int.texinfo to include doc on the directory structure and 
 the various tricks of building gdb.
 
 Do a tutorial in gdb.texinfo on how to do simple things in gdb.
 E.g. how to set a breakpoint that just prints something and continues.
 How to break on aborts.  Etc.
-
-Do a "new features" section for release 4.
 
 Provide "voodoo" debugging of core files.  This creates a zombie
 process as a child of the debugger, and loads it up with the data,
@@ -47,21 +50,18 @@ if you print the struct, but it gets 0 if you try to deref it.
 
 Persistent command history: A feature where you could save off a list
 of the commands you did, so you can edit it into something that will bring
-the target to the same place every time you source it.  Sun wants it.
+the target to the same place every time you source it.
 This would also be useful for automated fast watchpointing; if you go
 past the place where it watchpoints, you just start it over again and
 do it more carefully.
 
-Deal with the Sun ptrace bug that loses the registers if the stack is
-paged out.
+Deal with the SunOS 4.0 and 4.1.1 ptrace bug that loses the registers if
+the stack is paged out.
 
 Finish the C++ exception handling stub routines.  Lint points them out
 as unused statics functions.
 
-"i source" only shows you info about files that it can read.  When it
-can't read a file and complains, you can't see any info about it, like
-where it was compiled.  Perhaps "i source" should take an argument
-like that of "list".
+Perhaps "i source" should take an argument like that of "list".
 
 See if coredep.c's fetch_core_registers can be used on more machines.
 E.g. MIPS (mips-xdep.c).
@@ -74,18 +74,16 @@ is also IEEE.  Death on a vax.
 
 Test cross-debugging Unix-to-Unix.
 
-Check the RAPP remote protocol.  What is it?  It's in Makefile.dist
+Check the RAPP remote protocol.  What is it?  It's in Makefile.in
 and one ChangeLog entry.
 
 Set up interface between GDB and INFO so that you can hop into interactive
 INFO and back out again.  When running under Emacs, should use Emacs
 info, else fork the info program.  Installation of GDB should install
 its texinfo files into the info tree automagically, including the readline
-texinfo files..
+texinfo files.
 
-Improve backtrace output to avoid line wraps.  Prettify it.
-
-"help address" ought to find the "help set addressprint" entry.
+"help address" ought to find the "help set print address" entry.
 
 Remove the VTBL internal guts from printouts of C++ structs, unless
 vtblprint is set.
@@ -114,8 +112,6 @@ actually caused it to die.
 Hitting ^Z to an inferior doesn't work right, it takes several continues
 to make it actually go.
 
-"i fun" doesn't show misc function vector symbols.
-
 "x/10i" should shorten the long name, if any, on subsequent lines.
 
 Check through the code for FIXME comments and fix them.  dbxread.c,
@@ -125,7 +121,7 @@ blockframe.c, and plenty more.
 to get to that spot by accident.  E.g. "n" over execute_command which has
 an error.
 
-Watchpoints seem not entirely reliable.
+Watchpoints seem not entirely reliable, though they haven't failed me recently.
 
 "set zeroprint off", don't bother printing members of structs which are entirely
 zero.  Useful for those big structs with few useful members.
@@ -156,15 +152,10 @@ help completion, help history should work.
 Symbol completion doesn't handle e.g. W::f.  (symtab.c,
 make_symbol_completion_list).
 
-AMD version: ^C should do ^Ak to stop ebmon.
-
 Check that we can handle stack trace through varargs AND alloca in same
 function, on 29K.
 
 wait_for_inferior loops forever if wait() gives it an error.
-
-"i frame" arg formatting sucks.  Should wrap lines.
-"bt" arg formatting needs the same treatment .
 
 "i frame" shows wrong "arglist at" location, doesn't show where the args
 should be found, only their actual values.
@@ -175,8 +166,6 @@ fns, e.g. enable_command in gdb.
 'ptype yylval' ==> "union YYSTYPE { ..... }".  However, it is not a
 union YYSTYPE, but is simply a YYSTYPE, which is a typedef for an
 unnamed union.
-
-"show all" should work.
 
 There should be a way for "set" commands to validate the new setting
 before it takes effect.
@@ -208,7 +197,7 @@ Eliminate separate declarations of registers[] everywhere.
 Line numbers are off in some spots.  In proceed() at 1st "oneproc = 1",
 it seems to run that statement, but it doesn't actually.
 
-Perhaps the tdep and xdep files, and the tm and xm files, into a config
+Perhaps move the tdep and xdep files, and the tm and xm files, into a config
 subdirectory.  If not, at least straighten out their names so that
 they all start with the machine name.
 
@@ -224,13 +213,6 @@ We should be able to write to executables that aren't running.
 
 We should be able to write to random files at hex offsets like adb.
 
-Tiemann:  It is very painful to look at fp registers that hold
-double precision values.  GDB is happy to show them to you as single
-precision, but you cannot look at them as doubles.  Perhaps casting
-should be changed to make this work; or maybe a new "set" option that
-sets the default fp precision to single, double, or quad.  This is not
-urgent, but would be nice to get into GDB 4.0.
-
 Make "target xxx" command interruptible.
 
 Handle add_file with separate text, data, and bss addresses.  Maybe
@@ -240,25 +222,12 @@ Handle free_named_symtab to cope with multiply-loaded object files
 in a dynamic linking environment.  Should remember the last copy loaded,
 but not get too snowed if it finds references to the older copy.
 
-Implement have_memory, have_stack, have_registers, have_execution.
-Memory:  core, exec, child, vxworks even without child.
-stack:   core, child, vxworks with child
-registers:  core, child, vxworks with child
-execution:  child, vxworks with child.
-
 The original BFD core dump reading routine would itself coredump when fed
 a garbage file as a core file.  Does the current one?
 
-Breakpoints should not be inserted and deleted all the time.  Only the
-one(s) there should be removed when we have to step over one.  Support
-breakpoints that don't have to be removed to step over them.
-
-Stop reading stop_registers!
-
 Generalize and Standardize the RPC interface to a target program,
-improve it beyond the "ptrace" interface, and see if it can become a standard
-for remote debugging.  Is WRS interested in donating their target-end
-code?
+improve it beyond the "ptrace" interface, and see if it can become a
+standard for remote debugging.
 
 Remove all references to:
 	text_offset
@@ -273,21 +242,12 @@ When quitting with a running program, if a core file was previously
 examined, you get "Couldn't read float regs from core file"...if 
 indeed it can't.  generic_mourn_inferior...
 
-...
-
 Check signal argument to remote proceed's and error if set.
-
-Handle floating point registers in core files under BFD.  Currently
-they are punted.
 
 Sort help and info output.
 
 Re-organize help categories into things that tend to fit on a screen
 and hang together.
-
-When trying to print source lines but you can't find the file,
-print the file name and line number, and leave it selected anyway
-so "i source" will show it.
 
 renote-nindy.c handles interrupts poorly; it error()s out of badly
 chosen places, e.g. leaving current_frame zero, which causes core dumps
@@ -316,10 +276,45 @@ struct with a field name that matches the superclass name.  This can
 happen when the struct was defined before the superclass (before the
 name became a typedef).
 
-For "float point[15];":
+Handling of "&" address-of operator needs some serious overhaul
+for ANSI C and consistency on arrays and functions.
+  For "float point[15];":
 ptype &point[4]   ==> Attempt to take address of non-lvalue.
 p     &point[4]   ==> Dereferences point[4] rather than giving you point+4.
+  For "char *malloc();":
+ptype malloc	  ==> "char *()";  should be same as
+ptype &malloc     ==> "char *(*)()"
+call printf ("%x\n", malloc)   ==> wierd value, should be same as
+call printf ("%x\n", &malloc)  ==> correct value
 
-Fix symbol reading in the presence of interrupts.  It currently leaves a
-cleanup to blow away the entire symbol table when a QUIT occurs.
+Fix dbxread.c symbol reading in the presence of interrupts.  It currently
+leaves a cleanup to blow away the entire symbol table when a QUIT occurs.
+
+Mipsread.c reads include files depth-first, because the dependencies
+in the psymtabs are way too inclusive (it seems to me).  Figure out what
+really depends on what, to avoid recursing 20 or 30 times while reading
+real symtabs.
+
+value_add() should be subtracting the lower bound of arrays, if known,
+and possibly checking against the upper bound for error reporting.
+
+mipsread.c symbol table allocation and deallocation should be checked.
+My suspicion is that it's full of memory leaks.
+
+SunOS should have a target_lookup_symbol() for common'd things allocated
+by the shared library linker ld.so.
+
+When listing source lines, check for a preceding \n, to verify that
+the file hasn't changed out from under us.
+
+When listing source lines, eat leading whitespace corresponding to the
+line-number prefix we print.  This avoids long lines wrapping.
+
+mipsread.c needs to check for old symtabs and psymtabs for the same
+files, the way it happens for dbxread.c and coffread.c, for VxWorks
+incremental symbol table reloading.
+
+When attached to a non-child process, ^C or other signals are not
+propagated to the child.  Do this in the GDB signal handler, using 
+target_kill().  AMD version: ^C should do ^Ak to stop ebmon.
 

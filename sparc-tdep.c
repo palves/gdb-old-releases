@@ -5,19 +5,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
@@ -29,18 +29,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "ieee-float.h"
 
-#include <sys/param.h>
-#include <sys/dir.h>
-#include <sys/user.h>
-#include <signal.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-
 #include <sys/ptrace.h>
-
-#include <sys/file.h>
-#include <sys/stat.h>
-#include <sys/core.h>
 
 #include "gdbcore.h"
 
@@ -69,9 +58,16 @@ static binsn_quantum break_mem[3];
 
 int one_stepped;
 
+/* single_step() is called just before we want to resume the inferior,
+   if we want to single-step it but there is no hardware or kernel single-step
+   support (as on all SPARCs).  We find all the possible targets of the
+   coming instruction and breakpoint them.
+
+   single_step is also called just after the inferior stops.  If we had
+   set up a simulated single-step, we undo our damage.  */
+
 void
-single_step (signal)
-     int signal;
+single_step ()
 {
   branch_type br, isannulled();
   CORE_ADDR pc;
@@ -107,8 +103,7 @@ single_step (signal)
 	  target_insert_breakpoint (target, break_mem[2]);
 	}
 
-      /* Let it go */
-      ptrace (7, inferior_pid, 1, signal);
+      /* We are ready to let it go */
       one_stepped = 1;
       return;
     }

@@ -3,19 +3,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include <string.h>
@@ -1352,7 +1352,8 @@ unpack_field_as_long (type, valaddr, fieldno)
   val = val >> (bitpos % 8);
 #endif
 
-  val &= (1 << bitsize) - 1;
+  if (bitsize < 8 * sizeof (val))
+    val &= (((unsigned long)1) << bitsize) - 1;
   return val;
 }
 
@@ -1369,9 +1370,10 @@ modify_field (addr, fieldval, bitpos, bitsize)
 {
   long oword;
 
-  /* Reject values too big to fit in the field in question.
-     Otherwise adjoining fields may be corrupted.  */
-  if (fieldval & ~((1<<bitsize)-1))
+  /* Reject values too big to fit in the field in question,
+     otherwise adjoining fields may be corrupted.  */
+  if ((0 != fieldval & ~((1<<bitsize)-1))
+   && bitsize < 8 * sizeof (fieldval))
     error ("Value %d does not fit in %d bits.", fieldval, bitsize);
   
   bcopy (addr, &oword, sizeof oword);
@@ -1382,7 +1384,11 @@ modify_field (addr, fieldval, bitpos, bitsize)
   bitpos = sizeof (oword) * 8 - bitpos - bitsize;
 #endif
 
-  oword &= ~(((1 << bitsize) - 1) << bitpos);
+  /* Mask out old value, while avoiding shifts >= longword size */
+  if (bitsize < 8 * sizeof (oword))
+    oword &= ~(((((unsigned long)1) << bitsize) - 1) << bitpos);
+  else
+    oword &= ~((-1) << bitpos);
   oword |= fieldval << bitpos;
 
   SWAP_TARGET_AND_HOST (&oword, sizeof oword);		/* To target format */

@@ -2,19 +2,19 @@
    Copyright (C) 1989 Free Software Foundation, Inc.
    written by James Clark (jjc@jclark.uucp)
    
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 1, or (at your option)
-   any later version.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* This is for g++ 1.36.1 (November 6 version). It will probably
    require changes for any other version.
@@ -94,7 +94,7 @@ extern char *cplus_demangle ();
    as long as we're including defs.h.  */
 extern void *xmalloc (int);
 extern void *xrealloc (char *, int);
-extern void free (char *);
+extern void free (void *);
 #else
 extern char *xmalloc ();
 extern char *xrealloc ();
@@ -105,7 +105,7 @@ static char **typevec = 0;
 static int ntypes = 0;
 static int typevec_size = 0;
 
-const static struct {
+const static struct optable {
   const char *in;
   const char *out;
 } optable[] = {
@@ -150,7 +150,7 @@ const static struct {
 
 /* Beware: these aren't '\0' terminated. */
 
-typedef struct {
+typedef struct string {
   char *b;			/* pointer to start of string */
   char *p;			/* pointer after last character */
   char *e;			/* pointer after end of allocated space */

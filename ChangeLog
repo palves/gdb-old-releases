@@ -1,3 +1,326 @@
+Wed Jul 31 16:46:21 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* GDB-3.98 release.
+
+	* TODO, Projects, WHATS.NEW, README:  Update for gdb-3.98.
+	* Makefile.in (gdb-all.texinfo):  Avoid touching file if M4 dies.
+
+Wed Jul 31 16:35:58 1991  Roland H. Pesch  (pesch at cygint.cygnus.com)
+
+	* doc/gdb.texinfo: last changes for release.
+	Minor typo and formatting fixes; incorporated most fixes remaining from
+	filed mail commenting on earlier drafts.
+
+	Added warnings: pipes don't work in run command;
+	        conditions are converse of assertions;
+	      	step over fn without debug info goes to next fn;
+		vars may have "wrong" values near fn entrance, exit
+
+	Added example from Kingston on printing repeated nonadjacent values
+
+	Added explicit mention that in Emacs gdb mode C-c and C-z are like
+	shell mode for signals
+
+	Renamed "Stepping and Continuing" to "Continuing and Stepping" so it
+	doesn't sound so much like its parent "Stopping and Continuing"; also
+	moved entries on continue to top of section, so they don't get lost.
+
+	Improved installation directions in appendix, added manual formatting
+	instructions 
+
+Tue Jul 30 17:26:39 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* configure.in:  Remove xm.h and tm.h even if we aren't linking
+	new ones, so "./configure sun4; ./configure none" does the right
+	thing.  Assume that alldeps.mak and depend are already built in
+	srcdir, and avoid running "make" (particularly "make depend",
+	which involves "gcc") from inside configure.  Build Makefile
+	directly rather than building Makefile.conf first.
+	* configure:  Regenerate with above changes.
+	* Makefile.in:  Use $(BISON) to find bison.  Roll VERSION
+	to 3.98.  Revise gdb.tar.Z procedure to produce a file
+	called gdb-$(VERSION).tar.Z but which unpacks into a
+	directory called "gdb".  Move non-source files out of
+	$(SFILES_SUBDIR).  Pretty up alldeps.mak with comments.
+	(depend):  Don't try to do "gcc expread.y".
+	(expread.o):  Update dependencies by hand.
+
+Mon Jul 29 15:21:09 1991  Roland H. Pesch  (pesch at cygint.cygnus.com)
+
+	* doc/gdb.texinfo:
+	Fixed a variety of small typos that prevented info from formatting
+	cleanly; altered too-long heading for GPL Appendix, as discussed
+	w/RMS; Changed date on cover to July 91.
+
+Fri Jul 26 13:20:02 1991  Roland H. Pesch  (pesch at cygint.cygnus.com)
+
+	* doc/gdb.texinfo:
+	(1) Applied some fixes due to comments from Larry Breed (easier ones
+	through chapsec 5.2)
+	(2) Eliminated use of @footnote---had my doubts about it anyways, and
+	it's broken in latest texinfo
+	(3) Introduced *some* use of [] for optional arguments, where
+	explanation is not simpler by listing cmd w arg and cmd w/out arg
+	separately.  Still not using @deffn.
+	(4) Dropped in GPL-2.  NOTE: one of GPL-2 or texinfo is broken; a
+	couple of headings are too long.  Need patches to texinfo or revision
+	to GPL-2.
+
+	* Partial update to README (which still needs work for this
+	release!): (1) use of configure corrected for new script, 
+                   (2) "make gdb.dvi" and "make gdb.info" mentioned.
+
+Wed Jul 24 06:44:02 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* symtab.c (lookup_symbol):  Don't complain right off about
+	no debug symbols; use the misc function vector first.
+	(list_symbols):  Use misc function vector to find symbols
+	that don't have debug info, and print them.
+	(find_pc_symtab):  Temporarily avoid fatal() when psymtab
+	PC range doesn't match symtab PC range, as it does on the 
+	MIPS because our symtab reading isn't perfect.
+
+	* dbxread.c (dbx_symfile_read):  Make warning about
+	"no debug symbols" slightly nicer.
+
+	* source.c (select_source_symtab):  If "main" symbol exists,
+	but decode_line_spec can't find line info, don't just return
+	a zero; try other source symtabs or give an error.
+
+	* mipsread.c (parse_partial_symbols):  Sort the psymtabs by
+	their low addresses first, then rip through fixing high addrs.
+
+	* ns32k-opcode.h (sfsr):  Bugfix from Rune Nerg}rd,
+	<runene@ifi.uio.no>.
+	(NS32K_SVC_IMMED_OPERANDS):  Reverse the #ifndef.
+
+Tue Jul 23 18:52:43 1991  Roland H. Pesch  (pesch at cygint.cygnus.com)
+
+	* Minor, mostly mechanical, cleanup of doc subdir for clean 
+	makeinfo'ing and TeXing; also ensured gdb-all.texinfo (post-m4) 
+	and gdb.info (post- texinfo2 makeinfo) generated for distribution.
+
+Sun Jul 21 03:54:52 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	Mostly MIPS and general symbol-reading fixups.
+
+	* doc/gdbint.texinfo:  Add documentation on symbol-reading
+	interface.
+
+	* mipsread.c:  Remove kludges around #include "ecoff.h".
+	Remove redefinitions of a_magic, etc, no longer used.
+	(parse_symbol, ):  Convert "Internal:" printfs to complain()ts.
+	Fix global overview comments to match symfile.c protocol.
+	(mipscoff_new_init):  Eliminate cur_hdr if we have one.
+	(mipscoff_symfile_read):  Eliminate unused code.  Avoid
+	sorting all the symtabs, when all we have read here is psymtabs.
+	The symtabs are sorted as they are created anyway.  Tell
+	condense_misc_bunches whether we're mainline.
+	(psymtab_to_symtab_1):  Pass filename when recursing, to make
+	stack trace more informative.
+	(parse_partial_symbols):  Assume cur_hdr as argument.
+	(read_mips_symtab):  Don't clobber cur_hdr, so it can be freed.
+	Pass cur_hdr implicitly to parse_partial_symbols.  Avoid checking
+	the TYPE_NAME of char *, since that's done in symfile.c.
+	(free_numargs, parse_symbol, add_symbol, add_block,
+	shrink_linetable):  Declare these fns void. 
+	(upgrade_type):  Convert tree of if's to switch.  Clean up
+	bogus "off == 0" handling with a complaint.  Avoid setting
+	field bitpos and bitsize of array with lower and upper bounds.
+	Check specified bitsize of elements against their actual type's
+	bitsize, and complain if different.  Complain about unknown 
+	type qualifiers.
+	(parse_fdr):  Don't assume sizeof(char *) == sizeof (struct *).
+	(psymtab_to_symtab_1):  Print names of subsidiary files that
+	are being read in.  FIXME, we read far too many files.  This code
+	is not the problem, the problem is in parse_fdr where the psymtabs
+	are set up.
+	(cross_ref):  Result should indicate that we used one aux entry
+	normally, or two if we encountered a "next" entry.  This used
+	to leave the caller pointing at the wrong aux entry.
+	(add_symbol):  If overflowed cur_block, reallocate it larger,
+	chase all pointers to it, and complain(), rather than clobber memory.
+	(shrink_block):  Use xrealloc rather than xmalloc-and-copy.
+	(new_field):  Only allocate one field initially, not two.
+	Pull ++ out of macro argument.  Simplify.
+	(_initialize_mipsread):  Avoid initialization of importd
+	global_psymbols and static_psymbols. 
+
+	* symfile.c (psymtab_to_symtab):  Depend on XXX_psymtab_to_symtab
+	to properly set pst->symtab; avoid searching for it.
+	(symfile_fns):  Improve comments, add a FIXME.
+	* dbxread.c:  Update comments to reflect symfile protocol.
+	(read_ofile_symtab, end_symtab):  Return the symtab.
+	(psymtab_to_symtab_1):  Set pst->symtab.
+
+	* coffread.c (coff_symfile_read):  tell condense_misc_bunches
+	whether we're mainline.
+
+	* symfile.h (sym_fns):  Remove unused sym_discard member.
+	* coffread.c, mipsread.c, dbxread.c:  Remove XXX_symfile_discard.
+
+	* mtrace.c (mtrace):  Take effect if mallwatch is set, even if
+	the environment variable is not.
+	* infcmd.c (finish_command):  Use filtered printfs.
+	* cplus-dem.c:  Add struct tags to a few unnamed structs.
+	* valops.c (value_coerce_array):  Improve comments.
+	* valprint.c (type_print_varspec_suffix):  Print array size only
+	if greater than zero.
+	* m88k-tdep.c:  Shift some lines left by one space, that had
+	apparently been trashed at some point.
+	* TODO:  More things to do, a few got done.
+
+Thu Jul 18 22:46:05 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* symtab.h (LOC_EXTERNAL):  Eliminate in favor of LOC_STATIC.
+	(ldsymoff, ldsymlen, globals_offset, statics_offset): Improve
+	comments.
+	* dbxread.c (read_dbx_symtab):  LOC_EXTERNAL -> LOC_STATIC.
+	* expread.y, findvar.c, symmisc.c:  Ditto.
+	* printcmd.c (address_info):  Update printed forms of LOC_
+	symbols.  Elim LOC_EXTERNAL.  
+	(print_frame_args):  Keep track of param stack offsets before
+	re-looking up to find the local register param is kept in.
+
+	* mipsread.c:  Use <symconst.h> and <sym.h> rather than <syms.h>.
+	Further integration of mipsread into gdb.  Eliminate unused
+	routines, duplicate declarations.  Handle static symbols in 
+	psymtabs as well as external symbols.  When reading symtabs,
+	insert symbols into the correct block (global, static, or a local
+	block).
+	(read_mips_symtab, parse_partial_symbols):  Don't pass useless
+	"incremental" arg.
+	(mipscoff_symfile_read):  Don't call select_source_symtab.
+	(parse_symbol):  Use SYMBOL_VALUE_ADDRESS where appropriate,
+	rather than SYMBOL_VALUE.
+	(parse_external):  Comment clobbering of top_stack.
+	(parse_partial_symbols):  Update comments.  Allocate and parse
+	static symbols as well as external symbols.  FIXME, enum values
+	are not handled in this pass, but should be.  Inline new_psymbol.
+	Use SYMBOL_VALUE_ADDRESS.
+	(psymtab_to_symtab_1):  Read symbols into global static block
+	by default (until enter some function's local block context).
+	(sort_blocks):  Clean up STATIC_BLOCK as well as GLOBAL_BLOCK.
+	(destroy_all_symtabs, new_psymbol):  Eliminate, unused.
+
+	* source.c (select_source_symtab):  Select a source symtab
+	from either the symtabs or, failing that, the psymtabs.
+	(list_command):  Update error message.
+	(forward_search_command, reverse_search_command):  Use getc, not
+	fgetc, for speed.  FIXME, add comment about buffers that die if
+	overrun by long line.
+
+	* values.c (unpack_field_as_long, modify_field):  Avoid shifting
+	by an entire word, which is not portable, if we have a 32-bit
+	field.  (Code in dbxread.c already turns such bitfields, if
+	aligned, into ordinary ints, but fixing this will help for other
+	symbol formats and for future changes.)
+	* core.c (core_open):  Handle ANSI const brain death.
+	* utils.c (vprintf):  Fix varargs typo.
+
+Sun Jul 14 00:42:53 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* findvar.c (find_var_value):  Handle &function better.
+	* TODO:  Document work needed on &fn and &array.
+	* printcmd.c (print_address_symbolic):  New arg is the prefix
+	to print if a name is printed.
+	(print_address_demangle):  Honor "set print address" now.
+	Use new arg above to improve spacing of output.
+	* valprint.c (val_print):  When printing function pointers,
+	print symbolic form too.
+	* breakpoint.c (breakpoint_1):  Use new print_address_symbolic.
+
+Mon Jul  8 19:02:46 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* core.c (memory_error):  Reword error msg to mislead less.
+
+	* mips-pinsn.c (print_insn_arg 'd'):  Print $ with reg name.
+
+	* mipsread.c (read_mips_symtab, read_the_mips_symtab,
+	parse_partial_symbols): Use newer BFD internals (external_filehdr
+	and external_aouthdr), byte-swap the fields that we care about
+	before using them, and make the file header data local to
+	read_the_mips_symtab rather than global.
+
+Sat Jul  6 01:34:15 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* ns32k-opcode.h (movmw, movmd):  Fix opcodes.  Bug fix
+	from Rune Nerg}rd <runene@ifi.uio.no> on 5 Jul 1991.
+
+	* main.c (command_line_input):  Flush stdout and stderr
+	before every call to readline.  This reportedly fixes a bug
+	that comes up in Sys V running emacs-gdb and/or xxgdb,
+	when stdin/out are pipes or sockets.
+
+Thu Jul  4 14:47:06 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* configure.in, Makefile.in:  Avoid rebuilding "depend" as much.
+	Avoid declaring Makefile dependencies, because GNU Make stupidly
+	tries to update it if we do.
+
+	* coffread.c:  Revise for minor changes to bfd internal coff
+	indexes.
+
+	* configure:  If -template= is given a relative path, make it 
+	absolute before recurring in subdirectories.
+
+	* configure, configure.in, Makefile.in:  Install "configure" script
+	as replacement for config.gdb.
+	* config.gdb, Makefile.dist, Makefile.sdir:  Remove
+	* README:  Update for configure, mostly.  FIXME.
+
+	* Add dec3100 as equivalent to littlemips.  Indicate in all host &
+	target config files that they are for the host.  When the lines
+	get copied into the Makefile, this makes it more obvious what's
+	up.
+
+Mon Jun 24 23:49:07 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	* sparc-opcode.h (trap opcodes):  Avoid leading spaces or
+	tabs, which end up in the disassembler output inadvertently.
+
+Wed May 29 23:01:03 1991  John Gilmore  (gnu at cygint.cygnus.com)
+
+	Make it compile cleanly in an ANSI GCC2 environment.
+
+	* blockframe.c:  <stdio.h>
+	* cplus-dem.c:  free takes a void *, ifdef __STDC__
+	* dbxread.c (read_huge_number):  avoid gcc2 bug hoisting calc of
+	LONG_MAX/radix.
+	* defs.h (alloca):  Avoid doing anything if alloca already def'd.
+	* stddef.h, stdlib.h:  Remove these files.
+	* symtab.c:  Avoid declaring qsort, close.
+	* symfile.c:  Avoid declaring close.
+	* utils.c (vprintf):  Declare "ap" arg as proper va_alist.	
+	* sparc-tdep.c:  Avoid including lots of Sun-host-specific files.
+
+	Assorted other changes.
+	* dbxread.c:  include "libaout.h", not "liba.out.h".
+	* printcmd.c (print_frame_args):  Set recurse properly for
+	indentation of struct and array parameters.
+	* valops.c (value_cast):  Allow cast to void.
+	* infrun.c (resume):  If NO_SINGLE_STEP, call machine dependent
+	single_step() in a target-independent fashion.
+	* sparc-tdep.c (single_step):  Don't call ptrace ourselves, just
+	set up to be ready to continue.  This makes us target independent.
+	* infptrace.c (child_resume):  Remove call to single_step; now
+	can single step a SPARC target of any kind.
+
+Wed May 22 18:18:24 1991  Roland H. Pesch  (pesch at fowanton.cygnus.com)
+
+	* Makefile.dist, doc/gdb.texinfo, doc/*-m4.texinfo: split up GDB
+	docn into separate sections---basically chapters, plus two loose
+	pieces that can be configured to go in different places.  This
+	allows GNU m4 to preprocess the manual without coredumping.
+
+	* Makefile.dist: tell TeX where to find texinfo.
+
+Mon May 20 12:15:04 1991  Roland H. Pesch  (pesch at fowanton.cygnus.com)
+
+	* Makefile.dist, doc/gdb.texinfo: respectively create, and use,
+	the new target "rdl-apps.texinfo" which captures the Makefile
+	variable that records where to find the Readline libraries.
+
 Sun May 19 05:36:59 1991  John Gilmore  (gnu at cygint.cygnus.com)
 
 	* tahoe-pinsn.c:  #include "tahoe-opcode.h", not "opcode.h".

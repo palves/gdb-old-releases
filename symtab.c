@@ -3,19 +3,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
@@ -37,8 +37,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <string.h>
 #include <sys/stat.h>
 
-extern int close ();
-extern void qsort ();
 extern char *getenv ();
 
 extern char *cplus_demangle ();
@@ -1006,6 +1004,8 @@ lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
       if (ind != -1)
 	{
 	  s = find_pc_symtab (misc_function_vector[ind].address);
+	  /* If S is zero, there are no debug symbols for this file.
+	     Skip this stuff and check for matching static symbols below. */
 	  if (s)
 	    {
 	      bv = BLOCKVECTOR (s);
@@ -1383,7 +1383,8 @@ find_pc_symtab (pc)
     {
       ps = find_pc_psymtab (pc);
       if (ps && ps->readin)
-	fatal ("Internal error: pc in read in psymtab, but not in symtab.");
+	printf_filtered (
+	  "(Internal error: pc in read in psymtab, but not in symtab.)\n");
 
       if (ps)
 	s = PSYMTAB_TO_SYMTAB (ps);
@@ -2083,8 +2084,6 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
 
       if (s == 0 && default_symtab == 0)
 	{
-	  if (symtab_list == 0 && partial_symtab_list == 0)
-	    error (no_symtab_msg);
 	  select_source_symtab (0);
 	  default_symtab = current_source_symtab;
 	  default_line = current_source_line;
@@ -2190,9 +2189,6 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
 	error ("Line number not known for symbol \"%s\"", copy);
     }
 
-  if (symtab_list == 0 && partial_symtab_list == 0)
-    error (no_symtab_msg);
-
   if ((i = lookup_misc_func (copy)) >= 0)
     {
       val.symtab = 0;
@@ -2205,6 +2201,9 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
       values.nelts = 1;
       return values;
     }
+
+  if (symtab_list == 0 && partial_symtab_list == 0 && misc_function_count == 0)
+    error (no_symtab_msg);
 
   error ("Function %s not defined.", copy);
   return values;	/* for lint */
@@ -2234,7 +2233,6 @@ decode_line_2 (sym_arr, nelts, funfirstline)
      int nelts;
      int funfirstline;
 {
-  char *getenv();
   struct symtabs_and_lines values, return_values;
   register CORE_ADDR pc;
   char *args, *arg1, *command_line_input ();
@@ -2464,6 +2462,13 @@ list_symbols (regexp, class, bpt)
   static char *classnames[]
     = {"variable", "function", "type", "method"};
   int found_in_file = 0;
+  int found_misc = 0;
+  static enum misc_function_type types[]
+    = {mf_data, mf_text, mf_abs, mf_unknown};
+  static enum misc_function_type types2[]
+    = {mf_bss,  mf_text, mf_abs, mf_unknown};
+  enum misc_function_type ourtype = types[class];
+  enum misc_function_type ourtype2 = types2[class];
 
   if (regexp)
     if (0 != (val = re_comp (regexp)))
@@ -2507,7 +2512,7 @@ list_symbols (regexp, class, bpt)
 		 load the file and go on to the next one */
 	      if ((regexp == 0 || re_exec (SYMBOL_NAME (psym)))
 		  && ((class == 0 && SYMBOL_CLASS (psym) != LOC_TYPEDEF
-		       && SYMBOL_CLASS (psym) != LOC_BLOCK)
+				  && SYMBOL_CLASS (psym) != LOC_BLOCK)
 		      || (class == 1 && SYMBOL_CLASS (psym) == LOC_BLOCK)
 		      || (class == 2 && SYMBOL_CLASS (psym) == LOC_TYPEDEF)
 		      || (class == 3 && SYMBOL_CLASS (psym) == LOC_BLOCK)))
@@ -2520,20 +2525,23 @@ list_symbols (regexp, class, bpt)
 	}
     }
 
-  /* Here, *if* the class is correct (function only, right now), we
-     search through the misc function vector for symbols that
+  /* Here, we search through the misc function vector for functions that
      match, and call find_pc_symtab on them to force their symbols to
      be read.  The symbol will then be found during the scan of symtabs
-     below.  */
+     below.  If find_pc_symtab fails, set found_misc so that we will
+     rescan to print any matching symbols without debug info.  */
 
-  if (class == 1)
-    {
-      for (i = 0; i < misc_function_count; i++)
-	if (regexp == 0 || re_exec (misc_function_vector[i].name))
-	  {
-	    (void) find_pc_symtab (misc_function_vector[i].address);
-	  }
+  if (class == 1) {
+    for (i = 0; i < misc_function_count; i++) {
+      if (misc_function_vector[i].type != ourtype
+       && misc_function_vector[i].type != ourtype2)
+	continue;
+      if (regexp == 0 || re_exec (misc_function_vector[i].name)) {
+	  if (0 == find_pc_symtab (misc_function_vector[i].address))
+	    found_misc = 1;
+      }
     }
+  }
 
   /* Printout here so as to get after the "Reading in symbols"
      messages which will be generated above.  */
@@ -2566,7 +2574,7 @@ list_symbols (regexp, class, bpt)
 		sym = BLOCK_SYM (b, j);
 		if ((regexp == 0 || re_exec (SYMBOL_NAME (sym)))
 		    && ((class == 0 && SYMBOL_CLASS (sym) != LOC_TYPEDEF
-			 && SYMBOL_CLASS (sym) != LOC_BLOCK)
+				    && SYMBOL_CLASS (sym) != LOC_BLOCK)
 			|| (class == 1 && SYMBOL_CLASS (sym) == LOC_BLOCK)
 			|| (class == 2 && SYMBOL_CLASS (sym) == LOC_TYPEDEF)
 			|| (class == 3 && SYMBOL_CLASS (sym) == LOC_BLOCK)))
@@ -2625,6 +2633,36 @@ list_symbols (regexp, class, bpt)
 	  }
       prev_bv = bv;
     }
+
+
+  /* If there are no eyes, avoid all contact.  I mean, if there are
+     no debug symbols, then print directly from the misc_function_vector.  */
+
+  if (found_misc || class != 1) {
+    found_in_file = 0;
+    for (i = 0; i < misc_function_count; i++) {
+      if (misc_function_vector[i].type != ourtype
+       && misc_function_vector[i].type != ourtype2)
+	continue;
+      if (regexp == 0 || re_exec (misc_function_vector[i].name)) {
+	/* Functions:  Look up by address. */
+	if (class == 1)
+	  if (0 != find_pc_symtab (misc_function_vector[i].address))
+	    continue;
+	/* Variables/Absolutes:  Look up by name */
+	if (0 != lookup_symbol (misc_function_vector[i].name, 
+		(struct block *)0, VAR_NAMESPACE, 0, (struct symtab **)0))
+	  continue;
+	if (!found_in_file) {
+	  printf_filtered ("\nNon-debugging symbols:\n");
+	  found_in_file = 1;
+	}
+	printf_filtered ("	%08x  %s\n",
+	      misc_function_vector[i].address,
+	      misc_function_vector[i].name);
+      }
+    }
+  }
 }
 
 static void

@@ -3,19 +3,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +30,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 
 extern int asm_demangle;	/* Whether to demangle syms in asm printouts */
+extern int addressprint;	/* Whether to print hex addresses in HLL " */
 
 extern struct block *get_current_block ();
 
@@ -446,16 +447,18 @@ set_next_address (addr)
 		   value_from_long (builtin_type_int, (LONGEST) addr));
 }
 
-/* Optionally print address ADDR symbolically as <SYMBOL+OFFSET> on STREAM.
+/* Optionally print address ADDR symbolically as <SYMBOL+OFFSET> on STREAM,
+   after LEADIN.  Print nothing if no symbolic name is found nearby.
    DO_DEMANGLE controls whether to print a symbol in its native "raw" form,
    or to interpret it as a possible C++ name and convert it back to source
    form. */
 
 void
-print_address_symbolic (addr, stream, do_demangle)
+print_address_symbolic (addr, stream, do_demangle, leadin)
      CORE_ADDR addr;
      FILE *stream;
      int do_demangle;
+     char *leadin;
 {
   int name_location;
   register int i = find_pc_misc_function (addr);
@@ -465,7 +468,8 @@ print_address_symbolic (addr, stream, do_demangle)
   if (i < 0)
     return;
 
-  fputs_filtered (" <", stream);
+  fputs_filtered (leadin, stream);
+  fputs_filtered ("<", stream);
   if (do_demangle)
     fputs_demangled (misc_function_vector[i].name, stream, 1);
   else
@@ -487,11 +491,13 @@ print_address (addr, stream)
      FILE *stream;
 {
   fprintf_filtered (stream, "0x%x", addr);
-  print_address_symbolic (addr, stream, asm_demangle);
+  print_address_symbolic (addr, stream, asm_demangle, " ");
 }
 
 /* Print address ADDR symbolically on STREAM.  Parameter DEMANGLE
-   controls whether to print the symbolic name "raw" or demangled.  */
+   controls whether to print the symbolic name "raw" or demangled.
+   Global setting "addressprint" controls whether to print hex address
+   or not.  */
 
 void
 print_address_demangle (addr, stream, do_demangle)
@@ -499,10 +505,15 @@ print_address_demangle (addr, stream, do_demangle)
      FILE *stream;
      int do_demangle;
 {
-  fprintf_filtered (stream, "0x%x", addr);
-  print_address_symbolic (addr, stream, do_demangle);
+  if (addr == 0) {
+    fprintf_filtered (stream, "0");
+  } else if (addressprint) {
+    fprintf_filtered (stream, "0x%x", addr);
+    print_address_symbolic (addr, stream, do_demangle, " ");
+  } else {
+    print_address_symbolic (addr, stream, do_demangle, "");
+  }
 }
-
 
 
 /* Examine data at address ADDR in format FMT.
@@ -775,7 +786,7 @@ address_info (exp, from_tty)
 	  break;
 
       if (i < misc_function_count)
-	printf ("Symbol \"%s\" is at 0x%x in a file compiled without -g.\n",
+	printf ("Symbol \"%s\" is at 0x%x in a file compiled without debugging.\n",
 		exp, misc_function_vector[i].address);
       else
 	error ("No symbol \"%s\" in current context.", exp);
@@ -801,7 +812,7 @@ address_info (exp, from_tty)
       break;
 
     case LOC_STATIC:
-      printf ("static at address 0x%x", SYMBOL_VALUE_ADDRESS (sym));
+      printf ("static storage at address 0x%x", SYMBOL_VALUE_ADDRESS (sym));
       break;
 
     case LOC_REGPARM:
@@ -831,11 +842,6 @@ address_info (exp, from_tty)
     case LOC_BLOCK:
       printf ("a function at address 0x%x",
 	      BLOCK_START (SYMBOL_BLOCK_VALUE (sym)));
-      break;
-
-    case LOC_EXTERNAL:
-      printf ("an external symbol at address 0x%x",
-	      SYMBOL_VALUE_ADDRESS (sym));
       break;
 
     default:
@@ -1482,22 +1488,10 @@ print_frame_args (func, fi, num, stream)
       QUIT;
       sym = BLOCK_SYM (b, i);
 
-      if (SYMBOL_CLASS (sym) != LOC_REGPARM
-	  && SYMBOL_CLASS (sym) != LOC_ARG
-	  && SYMBOL_CLASS (sym) != LOC_LOCAL_ARG
-	  && SYMBOL_CLASS (sym) != LOC_REF_ARG)
-	continue;
-
-      /* We have to re-look-up the symbol because arguments often have
-	 two entries (one a parameter, one a register or local), and the one
-	 we want is the non-parm, which lookup_symbol will find for
-	 us.  After this, sym could be any SYMBOL_CLASS...  */
-      sym = lookup_symbol (SYMBOL_NAME (sym),
-		    b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
+      /* Keep track of the highest stack argument offset seen, and
+	 skip over any kinds of symbols we don't care about.  */
 
       switch (SYMBOL_CLASS (sym)) {
-
-      /* Keep track of the highest stack argument offset seen */
       case LOC_ARG:
       case LOC_REF_ARG:
 	{
@@ -1520,10 +1514,23 @@ print_frame_args (func, fi, num, stream)
 	  args_printed += (arg_size + sizeof (int) - 1) / sizeof (int);
 	}
 
-      /* Other types of symbols don't need to be kept track of.  */
-      default:
+      /* We care about types of symbols, but don't need to keep track of
+	 stack offsets in them.  */
+      case LOC_REGPARM:
+      case LOC_LOCAL_ARG:
 	break;
+
+      /* Other types of symbols we just skip over.  */
+      default:
+	continue;
       }
+
+      /* We have to re-look-up the symbol because arguments often have
+	 two entries (one a parameter, one a register or local), and the one
+	 we want is the non-parm, which lookup_symbol will find for
+	 us.  After this, sym could be any SYMBOL_CLASS...  */
+      sym = lookup_symbol (SYMBOL_NAME (sym),
+		    b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
 
       /* Print the current arg.  */
       if (! first)
@@ -1534,11 +1541,13 @@ print_frame_args (func, fi, num, stream)
 
       /* Avoid value_print because it will deref ref parameters.  We just
 	 want to print their addresses.  Print ??? for args whose address
-	 we do not know.  */
+	 we do not know.  We pass 2 as "recurse" to val_print because our
+	 standard indentation here is 4 spaces, and val_print indents
+	 2 for each recurse.  */
       val = read_var_value (sym, FRAME_INFO_ID (fi));
       if (val)
         val_print (VALUE_TYPE (val), VALUE_CONTENTS (val), VALUE_ADDRESS (val),
-		   stream, 0, 0, 0, Val_no_prettyprint);
+		   stream, 0, 0, 2, Val_no_prettyprint);
       else
 	fputs_filtered ("???", stream);
       first = 0;

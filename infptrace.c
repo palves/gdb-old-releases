@@ -3,19 +3,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
@@ -106,19 +106,16 @@ child_resume (step, signal)
      int signal;
 {
   errno = 0;
-  /* An address of (int *)1 tells it to continue from where it was. 
+
+  /* An address of (int *)1 tells ptrace to continue from where it was. 
      (If GDB wanted it to start some other way, we have already written
      a new PC value to the child.)  */
+
   if (step)
-    {
-#if defined (NO_SINGLE_STEP)
-      single_step (signal);
-#else /* Have single step.  */
-      ptrace (PT_STEP, inferior_pid, (int *)1, signal);
-#endif /* Have single step.  */
-    }
+    ptrace (PT_STEP, inferior_pid, (int *)1, signal);
   else
     ptrace (PT_CONTINUE, inferior_pid, (int *)1, signal);
+
   if (errno)
     perror_with_name ("ptrace");
 }

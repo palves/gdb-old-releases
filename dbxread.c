@@ -3,40 +3,33 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
-
-/* Symbol read-in occurs in two phases:
-   1.  A scan (read_dbx_symtab()) of the entire executable, whose sole
-       purpose is to make a list of symbols (partial symbol table)
-       which will cause symbols
-       to be read in if referenced.  This scan happens when the
-       "symbol-file" command is given (symbol_file_command()).
-   1a. The "add-file" command.  Similar to #1.
-   2.  Full read-in of symbols.  (dbx_psymtab_to_symtab()).  This happens
-       when a symbol in a file for which symbols have not yet been
-       read in is referenced.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* There used to be some PROFILE_TYPES code in this file which counted
-   the number of occurances of various symbols.  I'd suggest instead:
-     nm -ap foo | awk 'print $5' | sort | uniq -c
-   to print how many of each n_type, or something like
-     nm -ap foo | awk '$5 == "LSYM" {print $6 $7 $8 $9 $10 $11}' | \
-     awk 'BEGIN {FS=":"}
-     {print substr($2,1,1)}' | sort | uniq -c
-   to print the number of each kind of symbol descriptor (i.e. the letter
-   after ':').  */
+/* This module provides three functions: dbx_symfile_init,
+   which initializes to read a symbol file; dbx_new_init, which 
+   discards existing cached information when all symbols are being
+   discarded; and dbx_symfile_read, which reads a symbol table
+   from a file.
+
+   dbx_symfile_read only does the minimum work necessary for letting the
+   user "name" things symbolically; it does not read the entire symtab.
+   Instead, it reads the external and static symbols and puts them in partial
+   symbol tables.  When more extensive information is requested of a
+   file, the corresponding partial symbol table is mutated into a full
+   fledged symbol table by going back and reading the symbols
+   for real.  dbx_psymtab_to_symtab() is the function that does this */
 
 #include <stdio.h>
 #include <string.h>
@@ -121,7 +114,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "target.h"
 #include "gdbcore.h"		/* for bfd stuff */
-#include "liba.out.h"	 	/* FIXME Secret internal BFD stuff for a.out */
+#include "libaout.h"	 	/* FIXME Secret internal BFD stuff for a.out */
 #include "symfile.h"
 
 struct dbx_symfile_info {
@@ -161,7 +154,7 @@ static void fix_common_block ();
 static void add_undefined_type ();
 static void cleanup_undefined_types ();
 static void scan_file_globals ();
-static void read_ofile_symtab ();
+static struct symtab *read_ofile_symtab ();
 static void dbx_psymtab_to_symtab ();
 
 /* C++ */
@@ -1104,7 +1097,7 @@ start_subfile (name, dirname)
 
    END_ADDR is the address of the end of the file's text.  */
 
-static void
+static struct symtab *
 end_symtab (end_addr)
      CORE_ADDR end_addr;
 {
@@ -1140,7 +1133,7 @@ end_symtab (end_addr)
   current_subfile->line_vector_index = line_vector_index;
 
   /* Now create the symtab objects proper, one for each subfile.  */
-  /* (The main file is one of them.)  */
+  /* (The main file is the last one on the chain.)  */
 
   for (subfile = subfiles; subfile; subfile = nextsub)
     {
@@ -1188,6 +1181,8 @@ end_symtab (end_addr)
   line_vector = 0;
   line_vector_length = -1;
   last_source_file = 0;
+
+  return symtab;
 }
 
 /* Handle the N_BINCL and N_EINCL symbol types
@@ -1325,30 +1320,11 @@ dbx_symfile_read (sf, addr, mainline)
   free (info);
   sf->sym_private = 0;		/* Zap pointer to our (now gone) info struct */
 
-  /* Call to select_source_symtab used to be here; it was using too
-     much time.  I'll make sure that list_sources can handle the lack
-     of current_source_symtab */
-
-  if (!partial_symtab_list)
-    printf_filtered ("\n(no debugging symbols found)...");
-}
-
-/* Discard any information we have cached during the reading of a
-   single symbol file.  This should not toss global information
-   from previous symbol files that have been read.  E.g. we might
-   be discarding info from reading a shared library, and should not
-   throw away the info from the main file.  */
-
-void
-dbx_symfile_discard ()
-{
-
-  /* Empty the hash table of global syms looking for values.  */
-  bzero (global_sym_chain, sizeof global_sym_chain);
-
-  free_pendings = 0;
-  file_symbols = 0;
-  global_symbols = 0;
+  if (!partial_symtab_list) {
+    wrap_here ("");
+    printf_filtered ("(no debugging symbols found)...");
+    wrap_here ("");
+  }
 }
 
 /* Initialize anything that needs initializing when a completely new
@@ -1358,10 +1334,15 @@ dbx_symfile_discard ()
 void
 dbx_new_init ()
 {
-  dbx_symfile_discard ();
+  /* Empty the hash table of global syms looking for values.  */
+  bzero (global_sym_chain, sizeof global_sym_chain);
+
+  free_pendings = 0;
+  file_symbols = 0;
+  global_symbols = 0;
+
   /* Don't put these on the cleanup chain; they need to stick around
-     until the next call to symbol_file_command.  *Then* we'll free
-     them. */
+     until the next call to dbx_new_init.  *Then* we'll free them. */
   if (symfile_string_table)
     {
       free (symfile_string_table);
@@ -1423,7 +1404,7 @@ dbx_symfile_init (sf)
   val = myread (desc, size_temp, sizeof (long));
   if (val < 0)
       perror_with_name (name);
-  info->stringtab_size = bfd_h_getlong (sym_bfd, size_temp);
+  info->stringtab_size = bfd_h_get_32 (sym_bfd, size_temp);
   
   if (info->stringtab_size >= 0 && info->stringtab_size < statbuf.st_size)
     {
@@ -1485,11 +1466,11 @@ fill_symbuf ()
 
 #define SWAP_SYMBOL(symp) \
   { \
-    (symp)->n_un.n_strx = bfd_h_getlong(symfile_bfd,			\
+    (symp)->n_un.n_strx = bfd_h_get_32(symfile_bfd,			\
 				(unsigned char *)&(symp)->n_un.n_strx);	\
-    (symp)->n_desc = bfd_h_getshort (symfile_bfd,			\
+    (symp)->n_desc = bfd_h_get_16 (symfile_bfd,			\
 				(unsigned char *)&(symp)->n_desc);  	\
-    (symp)->n_value = bfd_h_getlong (symfile_bfd,			\
+    (symp)->n_value = bfd_h_get_32 (symfile_bfd,			\
 				(unsigned char *)&(symp)->n_value); 	\
   }
 
@@ -2200,8 +2181,10 @@ read_dbx_symtab (symfile_name, addr,
 	      continue;
 	    case 'G':
 	      bufp->n_value += addr;		/* Relocate */
+	      /* The addresses in these entries are reported to be
+		 wrong.  See the code that reads 'G's for symtabs. */
 	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_EXTERNAL,
+				   VAR_NAMESPACE, LOC_STATIC,
 				   global_psymbols, bufp->n_value);
 	      continue;
 
@@ -2580,11 +2563,12 @@ psymtab_to_symtab_1 (pst, desc, stringtab, stringtab_size, sym_offset)
 
       /* Read in this files symbols */
       lseek (desc, sym_offset, L_SET);
-      read_ofile_symtab (desc, stringtab, stringtab_size,
-			 pst->ldsymoff,
-			 pst->ldsymlen, pst->textlow,
-			 pst->texthigh - pst->textlow, pst->addr);
-      sort_symtab_syms (symtab_list); /* At beginning since just added */
+      pst->symtab =
+	read_ofile_symtab (desc, stringtab, stringtab_size,
+			   pst->ldsymoff,
+			   pst->ldsymlen, pst->textlow,
+			   pst->texthigh - pst->textlow, pst->addr);
+      sort_symtab_syms (pst->symtab);
 
       do_cleanups (old_chain);
     }
@@ -2661,7 +2645,7 @@ dbx_psymtab_to_symtab (pst)
 	  val = myread (desc, &st_temp, sizeof st_temp);
 	  if (val < 0)
 	      perror_with_name (pst->symfile_name);
-	  stsize = bfd_h_getlong (sym_bfd, (unsigned char *)&st_temp);
+	  stsize = bfd_h_get_32 (sym_bfd, (unsigned char *)&st_temp);
 	  if (fstat (desc, &statbuf) < 0)
 	    perror_with_name (pst->symfile_name);
 	  
@@ -2788,7 +2772,7 @@ process_symbol_pair (type1, desc1, value1, name1,
   /* No need to check PCC_SOL_BROKEN, on the assumption that such
      broken PCC's don't put out N_SO pairs.  */
   if (last_source_file)
-    end_symtab (value2);
+    (void)end_symtab (value2);
   start_symtab (name2, name1, value2);
 }
 
@@ -2807,7 +2791,7 @@ process_symbol_pair (type1, desc1, value1, name1,
  * OFFSET is a relocation offset which gets added to each symbol
  */
 
-static void
+static struct symtab *
 read_ofile_symtab (desc, stringtab, stringtab_size, sym_offset,
 		   sym_size, text_offset, text_size, offset)
      int desc;
@@ -2953,7 +2937,8 @@ read_ofile_symtab (desc, stringtab, stringtab_size, sym_offset,
 	     section. */
 	  ;
     }
-  end_symtab (text_offset + text_size);
+
+  return end_symtab (text_offset + text_size);
 }
 
 static int
@@ -3180,7 +3165,7 @@ process_one_symbol (type, desc, valu, name)
 	}
 #endif
       if (last_source_file)
-	end_symtab (valu);
+	(void)end_symtab (valu);
       start_symtab (name, NULL, valu);
       break;
 
@@ -4986,6 +4971,7 @@ read_huge_number (pp, end, valu, bits)
   char overflow = 0;
   int nbits = 0;
   int c;
+  long upper_limit;
   
   if (*p == '-')
     {
@@ -5001,9 +4987,10 @@ read_huge_number (pp, end, valu, bits)
       p++;
     }
 
+  upper_limit = LONG_MAX / radix;
   while ((c = *p++) >= '0' && c <= ('0' + radix))
     {
-      if (n <= LONG_MAX / radix)
+      if (n <= upper_limit)
 	{
 	  n *= radix;
 	  n += c - '0';		/* FIXME this overflows anyway */
@@ -5392,16 +5379,13 @@ fix_common_block (sym, valu)
 /* Register our willingness to decode symbols for SunOS and a.out and
    b.out files handled by BFD... */
 static struct sym_fns sunos_sym_fns = {"sunOs", 6,
-              dbx_new_init, dbx_symfile_init,
-              dbx_symfile_read, dbx_symfile_discard};
+              dbx_new_init, dbx_symfile_init, dbx_symfile_read};
 
 static struct sym_fns aout_sym_fns = {"a.out", 5,
-              dbx_new_init, dbx_symfile_init,
-              dbx_symfile_read, dbx_symfile_discard};
+              dbx_new_init, dbx_symfile_init, dbx_symfile_read};
 
 static struct sym_fns bout_sym_fns = {"b.out", 5,
-              dbx_new_init, dbx_symfile_init,
-              dbx_symfile_read, dbx_symfile_discard};
+              dbx_new_init, dbx_symfile_init, dbx_symfile_read};
 
 void
 _initialize_dbxread ()
@@ -5414,6 +5398,4 @@ _initialize_dbxread ()
   undef_types_length = 0;
   undef_types = (struct type **) xmalloc (undef_types_allocated *
 					  sizeof (struct type *));
-
-  dbx_new_init ();
 }

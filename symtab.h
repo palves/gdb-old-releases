@@ -3,19 +3,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if !defined (SYMTAB_H)
 #define SYMTAB_H 1
@@ -403,11 +403,6 @@ enum address_class
   LOC_LABEL,		/* Value is address SYMBOL_VALUE_ADDRESS in the code */
   LOC_BLOCK,		/* Value is address SYMBOL_VALUE_BLOCK of a
 			   `struct block'.  Function names have this class. */
-  LOC_EXTERNAL,		/* Value is at address SYMBOL_VALUE_ADDRESS not in
-			   this compilation.
-			   This is used only in psymtabs; in symtabs
-			   LOC_STATIC is used instead (since in that case
-			   we take the time to find the address).  */
   LOC_CONST_BYTES,	/* Value is a constant byte-sequence pointed to by
 			   SYMBOL_VALUE_ADDRESS, in target byte order.  */
   LOC_LOCAL_ARG,	/* Value is arg at spec'd offset in stack frame.
@@ -442,7 +437,7 @@ struct symbol
 				   LOC_REF_ARG, LOC_REGPARM, LOC_LOCAL */
       struct block *block;      /* for LOC_BLOCK */
       char *bytes;		/* for LOC_CONST_BYTES */
-      CORE_ADDR address;	/* for LOC_STATIC, LOC_LABEL, LOC_EXTERNAL */
+      CORE_ADDR address;	/* for LOC_STATIC, LOC_LABEL */
       struct symbol *chain;	/* for opaque typedef struct chain */
     }
   value;
@@ -588,14 +583,23 @@ struct partial_symtab
      file.  */
   CORE_ADDR addr;
 
-  /* Offset within loader symbol table of first local symbol for this
-     file and length (in bytes) of the section of the symbol table
+  /* Information that lets *read_symtab (below) locate the part of the
+     symbol table that this psymtab corresponds to.  This information
+     is private to the format-dependent symbol reading routines.
+
+     For dbxread: Offset within file symbol table of first local symbol for
+     this file, and length (in bytes) of the section of the symbol table
      devoted to this file's symbols (actually, the section bracketed
-     may contain more than just this files symbols
-     If ldsymlen is 0, the only reason for this things existence is
+     may contain more than just this file's symbols).
+     If ldsymlen is 0, the only reason for this thing's existence is
      the dependency list below.  Nothing else will happen when it is
-     read in.  */
+     read in.
+
+     For mipsread:  ldsymoff is the index of the FDR that this psymtab
+     represents; ldsymlen points to the symbol table header HDRR from
+     the symbol file that the psymtab was created from.  */
   int ldsymoff, ldsymlen;
+
   /* Range of text addresses covered by this file; texthigh is the
      beginning of the next section. */
   CORE_ADDR textlow, texthigh;
@@ -608,14 +612,15 @@ struct partial_symtab
   /* Global symbol list.  This list will be sorted after readin to
      improve access.  Binary search will be the usual method of
      finding a symbol within it. globals_offset is an integer offset
-     within ps_globals */
+     within global_psymbols[].  */
   int globals_offset, n_global_syms;
   /* Static symbol list.  This list will *not* be sorted after readin;
      to find a symbol in it, exhaustive search must be used.  This is
      reasonable because searches through this list will eventually
      lead to either the read in of a files symbols for real (assumed
      to take a *lot* of time; check) or an error (and we don't care
-     how long errors take). */
+     how long errors take).  This is an offset and size within
+     static_psymbols[].  */
   int statics_offset, n_static_syms;
   /* Pointer to symtab eventually allocated for this source file, 0 if
      !readin or if we haven't looked for the symtab after it was readin.  */

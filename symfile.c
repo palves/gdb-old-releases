@@ -4,19 +4,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
@@ -40,7 +40,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 extern int info_verbose;
 
-extern int close ();
 extern void qsort ();
 extern char *getenv ();
 
@@ -54,7 +53,10 @@ static void clear_symtab_users_once();
 struct sym_fns *symtab_fns = NULL;
 
 /* Saves the sym_fns of the current symbol table, so we can call
-   the right sym_discard function when we free it.  */
+   the right XXX_new_init function when we free it.  FIXME.  This
+   should be extended to calling the new_init function for each
+   existing symtab or psymtab, since the main symbol file and 
+   subsequent added symbol files can have different types.  */
 
 static struct sym_fns *symfile_fns;
 
@@ -365,15 +367,7 @@ psymtab_to_symtab (pst)
       (*pst->read_symtab) (pst);
     }
 
-  /* Search through list for correct name. */
-  for (result = symtab_list; result; result = result->next)
-    if (!strcmp (result->filename, pst->filename))
-      {
-	pst->symtab = result;		/* Remember where it was.  */
-	return result;
-      }
-
-  return 0;
+  return pst->symtab;
 }
 
 /* Process a symbol file, as either the main file or as a dynamically

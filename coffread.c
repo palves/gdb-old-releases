@@ -6,19 +6,19 @@
 
 This file is part of GDB.
 
-GDB is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GDB is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GDB; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
@@ -38,6 +38,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <obstack.h>
 #include <string.h>
 
+#include "internalcoff.h"	/* Internal format of COFF symbols in BFD */
 #include "libcoff.h"		/* FIXME secret internal data from BFD */
 
 static void add_symbol_to_list ();
@@ -69,18 +70,6 @@ extern void free_all_psymtabs ();
    dbx-in-coff file.  */
 
 #define SDB_TYPE(type) (BTYPE(type) | (type & N_TMASK))
-
-/* external routines from the BFD library -- undocumented interface used
-   by GDB to read symbols.  Move to libcoff.h.  FIXME-SOMEDAY!  */
-extern void bfd_coff_swap_sym_in (/* symfile_bfd, &sym */);
-extern void bfd_coff_swap_aux_in (/* symfile_bfd, &aux, type, sclass */);
-extern void bfd_coff_swap_lineno_in (/* symfile_bfd, &lineno */);
-extern void bfd_coff_swap_scnhdr_in (/* bfd, scnhdr_ext, scnhdr_int */);
-
-extern void bfd_coff_swap_sym (/* symfile_bfd, &sym */);
-extern void bfd_coff_swap_aux (/* symfile_bfd, &aux, type, sclass */);
-extern void bfd_coff_swap_lineno (/* symfile_bfd, &lineno */);
-
 
 /* Name of source file whose symbol data we are now processing.
    This comes from a symbol named ".file".  */
@@ -767,17 +756,11 @@ coff_symfile_read (sf, addr, mainline)
 
   /* Go over the misc symbol bunches and install them in vector.  */
 
-  condense_misc_bunches (0);
+  condense_misc_bunches (!mainline);
 
   /* Make a default for file to list.  */
 
   select_source_symtab (0);	/* FIXME, this might be too slow, see dbxread */
-}
-
-void
-coff_symfile_discard ()
-{
-  /* There seems to be nothing to do here.  */
 }
 
 void
@@ -1231,7 +1214,7 @@ init_stringtab (chan, offset)
     return -1;
 
   val = myread (chan, (char *)lengthbuf, sizeof lengthbuf);
-  length = bfd_h_getlong (symfile_bfd, lengthbuf);
+  length = bfd_h_get_32 (symfile_bfd, lengthbuf);
 
   /* If no string table is needed, then the file may end immediately
      after the symbols.  Just return with `stringtab' set to null. */
@@ -1682,7 +1665,7 @@ decode_type (cs, c_type, aux)
 
 	  /* Define an array type.  */
 	  /* auxent refers to array, not base type */
-	  if (aux->x_sym.x_tagndx == 0)
+	  if (aux->x_sym.x_tagndx.l == 0)
 	    cs->c_nsyms = 1;
 
 	  /* shift the indices down */
@@ -1707,7 +1690,7 @@ decode_type (cs, c_type, aux)
     }
 
   /* Reference to existing type */
-  if (cs->c_nsyms > 1 && aux->x_sym.x_tagndx != 0)
+  if (cs->c_nsyms > 1 && aux->x_sym.x_tagndx.l != 0)
     {
       type = coff_alloc_type (aux->x_sym.x_tagndx);
       return type;
@@ -1726,7 +1709,7 @@ decode_function_type (cs, c_type, aux)
      unsigned int c_type;
      register union internal_auxent *aux;
 {
-  if (aux->x_sym.x_tagndx == 0)
+  if (aux->x_sym.x_tagndx.l == 0)
     cs->c_nsyms = 1;	/* auxent refers to function, not base type */
 
   return decode_type (cs, DECREF (c_type), aux);
@@ -2044,8 +2027,7 @@ static struct sym_fns coff_sym_fns =
 #else /* not TDESC */
     "coff", 4,
 #endif /* not TDESC */
-    coff_new_init, coff_symfile_init,
-    coff_symfile_read, coff_symfile_discard
+    coff_new_init, coff_symfile_init, coff_symfile_read,
 };
 
 void
