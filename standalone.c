@@ -19,7 +19,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include <sys/ioctl.h>
-#include <signal.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -31,6 +30,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "param.h"
+#include "signals.h"
 #include "symtab.h"
 #include "frame.h"
 #include "inferior.h"

@@ -2,6 +2,8 @@ BEGIN	{
 	  FS="\"";
 	  print "/* Do not modify this file; it is created automatically";
 	  print "   by copying.awk.  */";
+	  print "#include \"defs.h\""
+	  print "#include \"command.h\""
 	  print "extern int immediate_quit;";
 	  print "static void";
 	  print "copying_info ()";

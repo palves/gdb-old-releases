@@ -138,11 +138,12 @@ rl_discard_keymap (map)
 /*								    */
 /* **************************************************************** */
 
+static void memory_error_and_abort ();
+
 static char *
 xmalloc (bytes)
      int bytes;
 {
-  static memory_error_and_abort ();
   char *temp = (char *)malloc (bytes);
 
   if (!temp)
@@ -155,7 +156,6 @@ xrealloc (pointer, bytes)
      char *pointer;
      int bytes;
 {
-  static memory_error_and_abort ();
   char *temp = (char *)realloc (pointer, bytes);
 
   if (!temp)
@@ -163,7 +163,7 @@ xrealloc (pointer, bytes)
   return (temp);
 }
 
-static
+static void
 memory_error_and_abort ()
 {
   fprintf (stderr, "readline: Out of virtual memory!\n");

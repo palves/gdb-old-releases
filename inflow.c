@@ -22,6 +22,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "param.h"
 #include "frame.h"
 #include "inferior.h"
+#include "command.h"
+#include "signals.h"
+#include "terminal.h"
+#include "target.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -35,29 +39,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/dir.h>
 #include <signal.h>
 
-#ifdef HAVE_TERMIO
-#include <termio.h>
-#undef TIOCGETP
-#define TIOCGETP TCGETA
-#undef TIOCSETN
-#define TIOCSETN TCSETA
-#undef TIOCSETP
-#define TIOCSETP TCSETAF
-#define TERMINAL struct termio
-#else
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <sgtty.h>
-#define TERMINAL struct sgttyb
-#endif
-
-#ifdef SET_STACK_LIMIT_HUGE
-#include <sys/time.h>
-#include <sys/resource.h>
-extern int original_stack_limit;
-#endif /* SET_STACK_LIMIT_HUGE */
-
 extern int errno;
+
+extern struct target_ops child_ops;
 
 /* Nonzero if we are debugging an attached outside process
    rather than an inferior.  */
@@ -92,8 +76,8 @@ static int lmode_ours;
 static int pgrp_inferior;
 static int pgrp_ours;
 #else
-static int (*sigint_ours) ();
-static int (*sigquit_ours) ();
+static void (*sigint_ours) ();
+static void (*sigquit_ours) ();
 #endif /* TIOCGPGRP */
 
 /* Copy of inferior_io_terminal when inferior was last started.  */
@@ -111,9 +95,6 @@ static int terminal_is_ours;
 void
 terminal_init_inferior ()
 {
-  if (remote_debugging)
-    return;
-
   sg_inferior = sg_ours;
   tflags_inferior = tflags_ours;
 
@@ -142,10 +123,7 @@ terminal_init_inferior ()
 void
 terminal_inferior ()
 {
-  if (remote_debugging)
-    return;
-
-  if (terminal_is_ours)   /*  && inferior_thisrun_terminal == 0) */
+  if (terminal_is_ours && inferior_thisrun_terminal == 0)
     {
       fcntl (0, F_SETFL, tflags_inferior);
       fcntl (0, F_SETFL, tflags_inferior);
@@ -164,8 +142,8 @@ terminal_inferior ()
 #ifdef TIOCGPGRP
       ioctl (0, TIOCSPGRP, &pgrp_inferior);
 #else
-      sigint_ours = (int (*) ()) signal (SIGINT, SIG_IGN);
-      sigquit_ours = (int (*) ()) signal (SIGQUIT, SIG_IGN);
+      sigint_ours = (void (*) ()) signal (SIGINT, SIG_IGN);
+      sigquit_ours = (void (*) ()) signal (SIGQUIT, SIG_IGN);
 #endif /* TIOCGPGRP */
     }
   terminal_is_ours = 0;
@@ -182,9 +160,6 @@ terminal_inferior ()
 void
 terminal_ours_for_output ()
 {
-  if (remote_debugging)
-    return;
-
   terminal_ours_1 (1);
 }
 
@@ -195,9 +170,6 @@ terminal_ours_for_output ()
 void
 terminal_ours ()
 {
-  if (remote_debugging)
-    return;
-
   terminal_ours_1 (0);
 }
 
@@ -207,15 +179,23 @@ terminal_ours_1 (output_only)
 {
 #ifdef TIOCGPGRP
   /* Ignore this signal since it will happen when we try to set the pgrp.  */
-  int (*osigttou) ();
+  void (*osigttou) ();
 #endif /* TIOCGPGRP */
 
-  if (!terminal_is_ours)  /*   && inferior_thisrun_terminal == 0)  */
+  /* The check for inferior_thisrun_terminal had been commented out
+     when the call to ioctl (TIOCNOTTY) was commented out.
+     Checking inferior_thisrun_terminal is necessary so that
+     if GDB is running in the background, it won't block trying
+     to do the ioctl()'s below.  */
+  if (inferior_thisrun_terminal != 0)
+    return;
+
+  if (!terminal_is_ours)
     {
       terminal_is_ours = 1;
 
 #ifdef TIOCGPGRP
-      osigttou = (int (*) ()) signal (SIGTTOU, SIG_IGN);
+      osigttou = (void (*) ()) signal (SIGTTOU, SIG_IGN);
 
       ioctl (0, TIOCGPGRP, &pgrp_inferior);
       ioctl (0, TIOCSPGRP, &pgrp_ours);
@@ -271,16 +251,21 @@ terminal_ours_1 (output_only)
 #endif /* not HAVE_TERMIO */
 }
 
-static void
-term_status_command ()
+/* ARGSUSED */
+void
+term_info (arg, from_tty)
+     char *arg;
+     int from_tty;
+{
+  target_terminal_info (arg, from_tty);
+}
+
+void
+child_terminal_info (args, from_tty)
+     char *args;
+     int from_tty;
 {
   register int i;
-
-  if (remote_debugging)
-    {
-      printf_filtered ("No terminal status when remote debugging.\n");
-      return;
-    }
 
   printf_filtered ("Inferior's terminal status (currently saved by GDB):\n");
 
@@ -304,30 +289,39 @@ term_status_command ()
 
 #if defined(TIOCGETC) && !defined(TIOCGETC_BROKEN)
   printf_filtered ("tchars: ");
-  for (i = 0; i < sizeof (struct tchars); i++)
+  for (i = 0; i < (int)sizeof (struct tchars); i++)
     printf_filtered ("0x%x ", ((char *)&tc_inferior)[i]);
   printf_filtered ("\n");
 #endif
 
 #ifdef TIOCGLTC
   printf_filtered ("ltchars: ");
-  for (i = 0; i < sizeof (struct ltchars); i++)
+  for (i = 0; i < (int)sizeof (struct ltchars); i++)
     printf_filtered ("0x%x ", ((char *)&ltc_inferior)[i]);
   printf_filtered ("\n");
-  ioctl (0, TIOCSLTC, &ltc_ours);
 #endif
   
 #ifdef TIOCLGET
-  printf_filtered ("lmode:  %x\n", lmode_inferior);
+  printf_filtered ("lmode:  0x%x\n", lmode_inferior);
 #endif
 }
 
-static void
+/* NEW_TTY is called in new child processes under Unix, which will
+   become debugger target processes.
+   If the TTYNAME argument is non-null, we switch to that tty for further
+   input and output.  In either case, we remember the setup.  */
+
+void
 new_tty (ttyname)
      char *ttyname;
 {
   register int tty;
-  register int fd;
+
+  /* Save the name for later, for determining whether we and the child
+     are sharing a tty.  */
+  inferior_thisrun_terminal = ttyname;
+  if (ttyname == 0)
+    return;
 
 #ifdef TIOCNOTTY
   /* Disconnect the child process from our controlling terminal.  */
@@ -343,7 +337,10 @@ new_tty (ttyname)
 
   tty = open(ttyname, O_RDWR);
   if (tty == -1)
-    _exit(1);
+    {
+      print_sys_errmsg (ttyname, errno);
+      _exit(1);
+    }
 
   /* Avoid use of dup2; doesn't exist on all systems.  */
   if (tty != 0)
@@ -356,121 +353,53 @@ new_tty (ttyname)
     close(tty);
 }
 
-/* Start an inferior process and returns its pid.
-   ALLARGS is a string containing shell command to run the program.
-   ENV is the environment vector to pass.  */
-
-#ifndef SHELL_FILE
-#define SHELL_FILE "/bin/sh"
-#endif
-
-int
-create_inferior (allargs, env)
-     char *allargs;
-     char **env;
-{
-  int pid;
-  char *shell_command;
-  extern int sys_nerr;
-  extern char *sys_errlist[];
-  extern int errno;
-
-  /* If desired, concat something onto the front of ALLARGS.
-     SHELL_COMMAND is the result.  */
-#ifdef SHELL_COMMAND_CONCAT
-  shell_command = (char *) alloca (strlen (SHELL_COMMAND_CONCAT) + strlen (allargs) + 1);
-  strcpy (shell_command, SHELL_COMMAND_CONCAT);
-  strcat (shell_command, allargs);
-#else
-  shell_command = allargs;
-#endif
-
-  /* exec is said to fail if the executable is open.  */
-  close_exec_file ();
-
-#if defined(USG) && !defined(HAVE_VFORK)
-  pid = fork ();
-#else
-  pid = vfork ();
-#endif
-
-  if (pid < 0)
-    perror_with_name ("vfork");
-
-  if (pid == 0)
-    {
-#ifdef TIOCGPGRP
-      /* Run inferior in a separate process group.  */
-      setpgrp (getpid (), getpid ());
-#endif /* TIOCGPGRP */
-
-#ifdef SET_STACK_LIMIT_HUGE
-      /* Reset the stack limit back to what it was.  */
-      {
-	struct rlimit rlim;
-
-	getrlimit (RLIMIT_STACK, &rlim);
-	rlim.rlim_cur = original_stack_limit;
-	setrlimit (RLIMIT_STACK, &rlim);
-      }
-#endif /* SET_STACK_LIMIT_HUGE */
-
-
-      inferior_thisrun_terminal = inferior_io_terminal;
-      if (inferior_io_terminal != 0)
-	new_tty (inferior_io_terminal);
-
-/* It seems that changing the signal handlers for the inferior after
-   a vfork also changes them for the superior.  See comments in
-   initialize_signals for how we get the right signal handlers
-   for the inferior.  */
-/* Not needed on Sun, at least, and loses there
-   because it clobbers the superior.  */
-/*???      signal (SIGQUIT, SIG_DFL);
-      signal (SIGINT, SIG_DFL);  */
-
-      call_ptrace (0);
-      execle (SHELL_FILE, "sh", "-c", shell_command, 0, env);
-
-      fprintf (stderr, "Cannot exec %s: %s.\n", SHELL_FILE,
-	       errno < sys_nerr ? sys_errlist[errno] : "unknown error");
-      fflush (stderr);
-      _exit (0177);
-    }
-
-#ifdef CREATE_INFERIOR_HOOK
-  CREATE_INFERIOR_HOOK (pid);
-#endif  
-  return pid;
-}
-
 /* Kill the inferior process.  Make us have no inferior.  */
 
+/* ARGSUSED */
 static void
-kill_command ()
+kill_command (arg, from_tty)
+     char *arg;
+     int from_tty;
 {
-  if (remote_debugging)
-    return;
   if (inferior_pid == 0)
     error ("The program is not being run.");
   if (!query ("Kill the inferior process? "))
     error ("Not confirmed.");
-  kill_inferior ();
+  target_kill (arg, from_tty);
 }
 
+/* The inferior process has died.  Long live the inferior!  */
+
 void
-inferior_died ()
+generic_mourn_inferior ()
 {
   inferior_pid = 0;
   attach_flag = 0;
   mark_breakpoints_out ();
+  registers_changed ();
+
+#ifdef CLEAR_DEFERRED_STORES
+  /* Delete any pending stores to the inferior... */
+  CLEAR_DEFERRED_STORES;
+#endif
+
   select_frame ((FRAME) 0, -1);
   reopen_exec_file ();
-  if (have_core_file_p ())
+  if (target_has_stack)
     set_current_frame ( create_new_frame (read_register (FP_REGNUM),
 					  read_pc ()));
   else
     set_current_frame (0);
+  /* It is confusing to the user for ignore counts to stick around
+     from previous runs of the inferior.  So clear them.  */
+  breakpoint_clear_ignore_counts ();
+}
+
+void
+child_mourn_inferior ()
+{
+  unpush_target (&child_ops);
+  generic_mourn_inferior ();
 }
 
 #if 0 
@@ -478,8 +407,11 @@ inferior_died ()
    3.2) <sys/user.h> also includes <sys/time.h> which leads to errors
    (since on this system at least sys/time.h is not protected against
    multiple inclusion).  */
+/* ARGSUSED */
 static void
-try_writing_regs_command ()
+try_writing_regs_command (arg, from_tty)
+     char *arg;
+     int from_tty;
 {
   register int i;
   register int value;
@@ -513,8 +445,8 @@ try_writing_regs_command ()
 void
 _initialize_inflow ()
 {
-  add_com ("term-status", class_obscure, term_status_command,
-	   "Print info on inferior's saved terminal status.");
+  add_info ("terminal", term_info,
+	   "Print inferior's saved terminal status.");
 
 #if 0
   add_com ("try-writing-regs", class_obscure, try_writing_regs_command,

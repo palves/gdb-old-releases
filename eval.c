@@ -22,6 +22,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "value.h"
 #include "expression.h"
+#include "target.h"
+
+#define	NULL_TYPE	((struct type *)0)
 
 
 /* Parse the string EXP as a C expression, evaluate it,
@@ -53,7 +56,7 @@ parse_and_eval_address_1 (expptr)
   register struct cleanup *old_chain
     = make_cleanup (free_current_contents, &expr);
 
-  addr = value_as_long (evaluate_expression (expr));
+  addr = (CORE_ADDR) value_as_long (evaluate_expression (expr));
   do_cleanups (old_chain);
   return addr;
 }
@@ -120,7 +123,7 @@ evaluate_expression (exp)
      struct expression *exp;
 {
   int pc = 0;
-  return evaluate_subexp (0, exp, &pc, EVAL_NORMAL);
+  return evaluate_subexp (NULL_TYPE, exp, &pc, EVAL_NORMAL);
 }
 
 /* Evaluate an expression, avoiding all memory references
@@ -131,7 +134,7 @@ evaluate_type (exp)
      struct expression *exp;
 {
   int pc = 0;
-  return evaluate_subexp (0, exp, &pc, EVAL_AVOID_SIDE_EFFECTS);
+  return evaluate_subexp (NULL_TYPE, exp, &pc, EVAL_AVOID_SIDE_EFFECTS);
 }
 
 static value
@@ -185,11 +188,16 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	    case LOC_LABEL:
 	    case LOC_CONST_BYTES:
 	      lv = not_lval;
+	      break;
+
 	    case LOC_REGISTER:
 	    case LOC_REGPARM:
 	      lv = lval_register;
+	      break;
+
 	    default:
 	      lv = lval_memory;
+	      break;
 	    }
 
 	  return value_zero (SYMBOL_TYPE (sym), lv);
@@ -219,16 +227,16 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
     case TERNOP_COND:
       /* Skip third and second args to evaluate the first one.  */
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (value_zerop (arg1))
 	{
-	  evaluate_subexp (0, exp, pos, EVAL_SKIP);
-	  return evaluate_subexp (0, exp, pos, noside);
+	  evaluate_subexp (NULL_TYPE, exp, pos, EVAL_SKIP);
+	  return evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	}
       else
 	{
-	  arg2 = evaluate_subexp (0, exp, pos, noside);
-	  evaluate_subexp (0, exp, pos, EVAL_SKIP);
+	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
+	  evaluate_subexp (NULL_TYPE, exp, pos, EVAL_SKIP);
 	  return arg2;
 	}
 
@@ -238,7 +246,6 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (op == STRUCTOP_MEMBER || op == STRUCTOP_MPTR)
 	{
 	  int fnptr;
-	  int tem2;
 
 	  nargs = (int) exp->elts[pc + 1].longconst + 1;
 	  /* First, evaluate the structure into arg2 */
@@ -253,7 +260,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	    }
 	  else
 	    {
-	      arg2 = evaluate_subexp (0, exp, pos, noside);
+	      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	    }
 
 	  /* If the function is a virtual function, then the
@@ -262,7 +269,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	     it is just along for the ride: call the function
 	     directly.  */
 
-	  arg1 = evaluate_subexp (0, exp, pos, noside);
+	  arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 
 	  fnptr = (int) value_as_long (arg1);
 	  if (fnptr < 128)
@@ -327,7 +334,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	    }
 	  else
 	    {
-	      arg2 = evaluate_subexp (0, exp, pos, noside);
+	      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	    }
 	  /* Now, say which argument to start evaluating from */
 	  tem = 2;
@@ -348,13 +355,21 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (op == STRUCTOP_STRUCT || op == STRUCTOP_PTR)
 	{
 	  int static_memfuncp;
+	  value temp = arg2;
 
 	  argvec[1] = arg2;
 	  argvec[0] =
-	    value_struct_elt (arg2, argvec+1, &exp->elts[pc2 + 1].string,
+	    value_struct_elt (&temp, argvec+1, &exp->elts[pc2 + 1].string,
 			      &static_memfuncp,
 			      op == STRUCTOP_STRUCT
 			      ? "structure" : "structure pointer");
+	  if (VALUE_OFFSET (temp))
+	    {
+	      arg2 = value_from_long (builtin_type_long,
+				      value_as_long (arg2)+VALUE_OFFSET (temp));
+	      VALUE_TYPE (arg2) = lookup_pointer_type (VALUE_TYPE (temp));
+	      argvec[1] = arg2;
+	    }
 	  if (static_memfuncp)
 	    {
 	      argvec[1] = argvec[0];
@@ -387,13 +402,13 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  else
 	    error ("Expression of type other than \"Function returning ...\" used as function");
 	}
-      return call_function (argvec[0], nargs, argvec + 1);
+      return target_call_function (argvec[0], nargs, argvec + 1);
 
     case STRUCTOP_STRUCT:
       tem = strlen (&exp->elts[pc + 1].string);
       (*pos) += 2 + ((tem + sizeof (union exp_element))
 		     / sizeof (union exp_element));
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
@@ -401,13 +416,16 @@ evaluate_subexp (expect_type, exp, pos, noside)
 						   &exp->elts[pc + 1].string),
 			   lval_memory);
       else
-	return value_struct_elt (arg1, 0, &exp->elts[pc + 1].string, 0,
-				 "structure");
+	{
+	  value temp = arg1;
+	  return value_struct_elt (&temp, (value *)0, &exp->elts[pc + 1].string,
+				   (int *) 0, "structure");
+	}
 
     case STRUCTOP_PTR:
       tem = strlen (&exp->elts[pc + 1].string);
       (*pos) += 2 + (tem + sizeof (union exp_element)) / sizeof (union exp_element);
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
@@ -416,12 +434,15 @@ evaluate_subexp (expect_type, exp, pos, noside)
 						   &exp->elts[pc + 1].string),
 			   lval_memory);
       else
-	return value_struct_elt (arg1, 0, &exp->elts[pc + 1].string, 0,
-				 "structure pointer");
+	{
+	  value temp = arg1;
+	  return value_struct_elt (&temp, (value *)0, &exp->elts[pc + 1].string,
+				   (int *) 0, "structure pointer");
+	}
 
     case STRUCTOP_MEMBER:
       arg1 = evaluate_subexp_for_address (exp, pos, noside);
-      arg2 = evaluate_subexp (0, exp, pos, noside);
+      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       /* Now, convert these values to an address.  */
@@ -438,8 +459,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
       return value_ind (arg3);
 
     case STRUCTOP_MPTR:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
-      arg2 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
+      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       /* Now, convert these values to an address.  */
@@ -454,7 +475,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       return value_ind (arg3);
 
     case BINOP_ASSIGN:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       arg2 = evaluate_subexp (VALUE_TYPE (arg1), exp, pos, noside);
       if (noside == EVAL_SKIP || noside == EVAL_AVOID_SIDE_EFFECTS)
 	return arg1;
@@ -465,7 +486,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
     case BINOP_ASSIGN_MODIFY:
       (*pos) += 2;
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       arg2 = evaluate_subexp (VALUE_TYPE (arg1), exp, pos, noside);
       if (noside == EVAL_SKIP || noside == EVAL_AVOID_SIDE_EFFECTS)
 	return arg1;
@@ -508,8 +529,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
     case BINOP_LOGAND:
     case BINOP_LOGIOR:
     case BINOP_LOGXOR:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
-      arg2 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
+      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (binop_user_defined_p (op, arg1, arg2))
@@ -536,59 +557,59 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_subscript (arg1, arg2);
       
     case BINOP_AND:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	{
-	  arg2 = evaluate_subexp (0, exp, pos, noside);
+	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	  goto nosideret;
 	}
       
       oldpos = *pos;
-      arg2 = evaluate_subexp (0, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
+      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
       *pos = oldpos;
       
       if (binop_user_defined_p (op, arg1, arg2)) 
 	{
-	  arg2 = evaluate_subexp (0, exp, pos, noside);
+	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	  return value_x_binop (arg1, arg2, op, 0);
 	}
       else
 	{
 	  tem = value_zerop (arg1);
-	  arg2 = evaluate_subexp (0, exp, pos,
+	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos,
 				  (tem ? EVAL_SKIP : noside));
 	  return value_from_long (builtin_type_int,
 				  (LONGEST) (!tem && !value_zerop (arg2)));
 	}
 
     case BINOP_OR:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	{
-	  arg2 = evaluate_subexp (0, exp, pos, noside);
+	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	  goto nosideret;
 	}
       
       oldpos = *pos;
-      arg2 = evaluate_subexp (0, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
+      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
       *pos = oldpos;
       
       if (binop_user_defined_p (op, arg1, arg2)) 
 	{
-	  arg2 = evaluate_subexp (0, exp, pos, noside);
+	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	  return value_x_binop (arg1, arg2, op, 0);
 	}
       else
 	{
 	  tem = value_zerop (arg1);
-	  arg2 = evaluate_subexp (0, exp, pos,
+	  arg2 = evaluate_subexp (NULL_TYPE, exp, pos,
 				  (!tem ? EVAL_SKIP : noside));
 	  return value_from_long (builtin_type_int,
 				  (LONGEST) (!tem || !value_zerop (arg2)));
 	}
 
     case BINOP_EQUAL:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       arg2 = evaluate_subexp (VALUE_TYPE (arg1), exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
@@ -603,7 +624,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
 
     case BINOP_NOTEQUAL:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       arg2 = evaluate_subexp (VALUE_TYPE (arg1), exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
@@ -618,7 +639,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
 
     case BINOP_LESS:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       arg2 = evaluate_subexp (VALUE_TYPE (arg1), exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
@@ -633,7 +654,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
 
     case BINOP_GTR:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       arg2 = evaluate_subexp (VALUE_TYPE (arg1), exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
@@ -648,7 +669,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
 
     case BINOP_GEQ:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       arg2 = evaluate_subexp (VALUE_TYPE (arg1), exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
@@ -663,7 +684,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
 
     case BINOP_LEQ:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       arg2 = evaluate_subexp (VALUE_TYPE (arg1), exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
@@ -678,8 +699,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
 
     case BINOP_REPEAT:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
-      arg2 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
+      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_INT)
@@ -691,11 +712,11 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_repeat (arg1, (int) value_as_long (arg2));
 
     case BINOP_COMMA:
-      evaluate_subexp (0, exp, pos, noside);
-      return evaluate_subexp (0, exp, pos, noside);
+      evaluate_subexp (NULL_TYPE, exp, pos, noside);
+      return evaluate_subexp (NULL_TYPE, exp, pos, noside);
 
     case UNOP_NEG:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (unop_user_defined_p (op, arg1))
@@ -704,7 +725,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_neg (arg1);
 
     case UNOP_LOGNOT:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (unop_user_defined_p (op, arg1))
@@ -713,7 +734,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_lognot (arg1);
 
     case UNOP_ZEROP:
-      arg1 = evaluate_subexp (0, exp, pos, noside);
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (unop_user_defined_p (op, arg1))
@@ -755,8 +776,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  if (op == OP_SCOPE)
 	    {
 	      char *name = &exp->elts[pc+3].string;
-	      int tem = strlen (name);
-	      (*pos) += 2 + (tem + sizeof (union exp_element)) / sizeof (union exp_element);
+	      int temm = strlen (name);
+	      (*pos) += 2 + (temm + sizeof (union exp_element)) / sizeof (union exp_element);
 	    }
 	  else
 	    evaluate_subexp (expect_type, exp, pos, EVAL_SKIP);
@@ -766,9 +787,9 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (op == OP_SCOPE)
 	{
 	  char *name = &exp->elts[pc+3].string;
-	  int tem = strlen (name);
+	  int temm = strlen (name);
 	  struct type *domain = exp->elts[pc+2].type;
-	  (*pos) += 2 + (tem + sizeof (union exp_element)) / sizeof (union exp_element);
+	  (*pos) += 2 + (temm + sizeof (union exp_element)) / sizeof (union exp_element);
 	  arg1 = value_struct_elt_for_address (domain, expect_type, name);
 	  if (arg1)
 	    return arg1;
@@ -780,7 +801,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
     case UNOP_SIZEOF:
       if (noside == EVAL_SKIP)
 	{
-	  evaluate_subexp (0, exp, pos, EVAL_SKIP);
+	  evaluate_subexp (NULL_TYPE, exp, pos, EVAL_SKIP);
 	  goto nosideret;
 	}
       return evaluate_subexp_for_sizeof (exp, pos);
@@ -800,7 +821,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	return value_zero (exp->elts[pc + 1].type, lval_memory);
       else
-	return value_at (exp->elts[pc + 1].type,
+	return value_at_lazy (exp->elts[pc + 1].type,
 			 (CORE_ADDR) value_as_long (arg1));
 
     case UNOP_PREINCREMENT:
@@ -900,12 +921,12 @@ evaluate_subexp_for_address (exp, pos, noside)
     {
     case UNOP_IND:
       (*pos)++;
-      return evaluate_subexp (0, exp, pos, noside);
+      return evaluate_subexp (NULL_TYPE, exp, pos, noside);
 
     case UNOP_MEMVAL:
       (*pos) += 3;
       return value_cast (lookup_pointer_type (exp->elts[pc + 1].type),
-			 evaluate_subexp (0, exp, pos, noside));
+			 evaluate_subexp (NULL_TYPE, exp, pos, noside));
 
     case OP_VAR_VALUE:
       (*pos) += 3;
@@ -931,14 +952,14 @@ evaluate_subexp_for_address (exp, pos, noside)
     default:
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	{
-	  value x = evaluate_subexp (0, exp, pos, noside);
+	  value x = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 	  if (VALUE_LVAL (x) == lval_memory)
 	    return value_zero (TYPE_POINTER_TYPE (VALUE_TYPE (x)),
 			       not_lval);
 	  else
 	    error ("Attempt to take address of non-lval");
 	}
-      return value_addr (evaluate_subexp (0, exp, pos, noside));
+      return value_addr (evaluate_subexp (NULL_TYPE, exp, pos, noside));
     }
 }
 
@@ -970,9 +991,9 @@ evaluate_subexp_with_coercion (exp, pos, noside)
 	  return value_cast (lookup_pointer_type (TYPE_TARGET_TYPE (SYMBOL_TYPE (exp->elts[pc + 1].symbol))),
 			     val);
 	}
+      default:
+	return evaluate_subexp (NULL_TYPE, exp, pos, noside);
     }
-
-  return evaluate_subexp (0, exp, pos, noside);
 }
 
 /* Evaluate a subexpression of EXP, at index *POS,
@@ -999,7 +1020,7 @@ evaluate_subexp_for_sizeof (exp, pos)
 	 create a value unnecessarily.  */
     case UNOP_IND:
       (*pos)++;
-      val = evaluate_subexp (0, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
+      val = evaluate_subexp (NULL_TYPE, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
       return value_from_long (builtin_type_int, (LONGEST)
 		      TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (val))));
 
@@ -1014,7 +1035,7 @@ evaluate_subexp_for_sizeof (exp, pos)
 	 (LONGEST) TYPE_LENGTH (SYMBOL_TYPE (exp->elts[pc + 1].symbol)));
 
     default:
-      val = evaluate_subexp (0, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
+      val = evaluate_subexp (NULL_TYPE, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
       return value_from_long (builtin_type_int,
 			      (LONGEST) TYPE_LENGTH (VALUE_TYPE (val)));
     }

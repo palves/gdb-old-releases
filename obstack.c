@@ -13,13 +13,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
-
-
-In other words, you are welcome to use, share and improve this program.
-You are forbidden to forbid anyone else to use, share and improve
-what you give them.   Help stamp out software-hoarding!  */
-
+Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "obstack.h"
 
@@ -69,22 +63,28 @@ _obstack_begin (h, size, alignment, chunkfun, freefun)
   if (alignment == 0)
     alignment = DEFAULT_ALIGNMENT;
   if (size == 0)
-    /* Default size is what GNU malloc can fit in a 4096-byte block.
-       Pick a number small enough that when rounded up to DEFAULT_ROUNDING
-       it is still smaller than 4096 - 4.  */
+    /* Default size is what GNU malloc can fit in a 4096-byte block.  */
     {
-      int extra = 4;
-      if (extra < DEFAULT_ROUNDING)
-	extra = DEFAULT_ROUNDING;
+      /* 12 is sizeof (mhead) and 4 is EXTRA from GNU malloc.
+	 Use the values for range checking, because if range checking is off,
+	 the extra bytes won't be missed terribly, but if range checking is on
+	 and we used a larger request, a whole extra 4096 bytes would be
+	 allocated.
+
+	 These number are irrelevant to the new GNU malloc.  I suspect it is
+	 less sensitive to the size of the request.  */
+      int extra = ((((12 + DEFAULT_ROUNDING - 1) & ~(DEFAULT_ROUNDING - 1))
+		    + 4 + DEFAULT_ROUNDING - 1)
+		   & ~(DEFAULT_ROUNDING - 1));
       size = 4096 - extra;
     }
 
-  h->chunkfun = (struct _obstack_chunk * (*)()) chunkfun;
+  h->chunkfun = chunkfun;
   h->freefun = freefun;
   h->chunk_size = size;
   h->alignment_mask = alignment - 1;
 
-  chunk	= h->chunk = (*h->chunkfun) (h->chunk_size);
+  chunk	= h->chunk = (struct _obstack_chunk *)(*h->chunkfun) (h->chunk_size);
   h->next_free = h->object_base = chunk->contents;
   h->chunk_limit = chunk->limit
    = (char *) chunk + h->chunk_size;
@@ -95,9 +95,12 @@ _obstack_begin (h, size, alignment, chunkfun, freefun)
    on the assumption that LENGTH bytes need to be added
    to the current object, or a new object of length LENGTH allocated.
    Copies any partial object from the end of the old chunk
-   to the beginning of the new one.  */
+   to the beginning of the new one.  
 
-void
+   The function must be "int" so it can be used in non-ANSI C
+   compilers in a : expression.  */
+
+int
 _obstack_newchunk (h, length)
      struct obstack *h;
      int length;
@@ -107,24 +110,37 @@ _obstack_newchunk (h, length)
   register long	new_size;
   register int obj_size = h->next_free - h->object_base;
   register int i;
+  int already;
 
   /* Compute size for new chunk.  */
-  new_size = (obj_size + length) << 1;
+  new_size = (obj_size + length) + (obj_size >> 3) + 100;
   if (new_size < h->chunk_size)
     new_size = h->chunk_size;
 
   /* Allocate and initialize the new chunk.  */
-  new_chunk = h->chunk = (*h->chunkfun) (new_size);
+  new_chunk = h->chunk = (struct _obstack_chunk *)(*h->chunkfun) (new_size);
   new_chunk->prev = old_chunk;
   new_chunk->limit = h->chunk_limit = (char *) new_chunk + new_size;
 
   /* Move the existing object to the new chunk.
-     Word at a time is fast and is safe because these
-     structures are aligned at least that much.  */
-  for (i = (obj_size + sizeof (COPYING_UNIT) - 1) / sizeof (COPYING_UNIT) - 1;
-       i >= 0; i--)
-    ((COPYING_UNIT *)new_chunk->contents)[i]
-      = ((COPYING_UNIT *)h->object_base)[i];
+     Word at a time is fast and is safe if the object
+     is sufficiently aligned.  */
+  if (h->alignment_mask + 1 >= DEFAULT_ALIGNMENT)
+    {
+      for (i = obj_size / sizeof (COPYING_UNIT) - 1;
+	   i >= 0; i--)
+	((COPYING_UNIT *)new_chunk->contents)[i]
+	  = ((COPYING_UNIT *)h->object_base)[i];
+      /* We used to copy the odd few remaining bytes as one extra COPYING_UNIT,
+	 but that can cross a page boundary on a machine
+	 which does not do strict alignment for COPYING_UNITS.  */
+      already = obj_size / sizeof (COPYING_UNIT) * sizeof (COPYING_UNIT);
+    }
+  else
+    already = 0;
+  /* Copy remaining bytes one by one.  */
+  for (i = already; i < obj_size; i++)
+    new_chunk->contents[i] = h->object_base[i];
 
   h->object_base = new_chunk->contents;
   h->next_free = h->object_base + obj_size;
@@ -154,11 +170,12 @@ _obstack_allocated_p (h, obj)
 /* Free objects in obstack H, including OBJ and everything allocate
    more recently than OBJ.  If OBJ is zero, free everything in H.  */
 
-void
 #ifdef __STDC__
 #undef obstack_free
+void
 obstack_free (struct obstack *h, POINTER obj)
 #else
+int
 _obstack_free (h, obj)
      struct obstack *h;
      POINTER obj;
@@ -168,10 +185,13 @@ _obstack_free (h, obj)
   register struct _obstack_chunk*  plp;	/* point to previous chunk if any */
 
   lp = (h)->chunk;
-  while (lp != 0 && ((POINTER)lp > obj || (POINTER)(lp)->limit < obj))
+  /* We use >= because there cannot be an object at the beginning of a chunk.
+     But there can be an empty object at that address
+     at the end of another chunk.  */
+  while (lp != 0 && ((POINTER)lp >= obj || (POINTER)(lp)->limit < obj))
     {
       plp = lp -> prev;
-      (*h->freefun) (lp);
+      (*h->freefun) ((POINTER) lp);
       lp = plp;
     }
   if (lp)
@@ -188,7 +208,7 @@ _obstack_free (h, obj)
 /* Let same .o link with output of gcc and other compilers.  */
 
 #ifdef __STDC__
-void
+int
 _obstack_free (h, obj)
      struct obstack *h;
      POINTER obj;
@@ -197,7 +217,7 @@ _obstack_free (h, obj)
 }
 #endif
 
-#if 0
+/* #if 0 */
 /* These are now turned off because the applications do not use it
    and it uses bcopy via obstack_grow, which causes trouble on sysV.  */
 
@@ -310,4 +330,4 @@ POINTER (obstack_copy0) (obstack, pointer, length)
 
 #endif /* __STDC__ */
 
-#endif /* 0 */
+/* #endif 0 */

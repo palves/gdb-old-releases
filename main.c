@@ -1,5 +1,5 @@
 /* Top level for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1988, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1988, 1989, 1990 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -18,18 +18,31 @@ along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
+int fclose ();
 #include "defs.h"
-#include "command.h"
+#include "gdbcmd.h"
 #include "param.h"
+#include "symtab.h"
+#include "inferior.h"
+#include "signals.h"
+#include "target.h"
+#include "breakpoint.h"
+
+#include <getopt.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+
+/* readline defines this.  */
+#undef savestring
 
 #ifdef USG
 #include <sys/types.h>
 #include <unistd.h>
 #endif
 
+#include <string.h>
 #include <sys/file.h>
 #include <setjmp.h>
-#include <signal.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 
@@ -41,20 +54,30 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 int original_stack_limit;
 #endif
 
+
 /* If this definition isn't overridden by the header files, assume
    that isatty and fileno exist on this system.  */
 #ifndef ISATTY
 #define ISATTY(FP)	(isatty (fileno (FP)))
 #endif
 
-extern void free ();
+/* Initialization file name for gdb.  This is overridden in some configs.  */
+
+#ifndef	GDBINIT_FILENAME
+#define	GDBINIT_FILENAME	".gdbinit"
+#endif
+char gdbinit[] = GDBINIT_FILENAME;
 
 /* Version number of GDB, as a string.  */
 
 extern char *version;
 
+/* Flag for whether we want all the "from_tty" gubbish printed.  */
+
+int caution = 1;			/* Default is yes, sigh. */
+
 /*
- * Declare all cmd_list_element's
+ * Define all cmd_list_element's
  */
 
 /* Chain containing all defined commands.  */
@@ -85,9 +108,15 @@ struct cmd_list_element *enablebreaklist;
 
 struct cmd_list_element *setlist;
 
+/* Chain containing all defined show subcommands.  */
+struct cmd_list_element *showlist;
+
 /* Chain containing all defined \"set history\".  */
 
 struct cmd_list_element *sethistlist;
+
+/* Chain containing all defined \"show history\".  */
+struct cmd_list_element *showhistlist;
 
 /* Chain containing all defined \"unset history\".  */
 
@@ -104,10 +133,6 @@ char *current_directory;
 /* The directory name is actually stored here (usually).  */
 static char dirbuf[MAXPATHLEN];
 
-/* The number of lines on a page, and the number of spaces
-   in a line.  */
-int linesize, pagesize;
-
 /* Nonzero if we should refrain from using an X window.  */
 
 int inhibit_windows = 0;
@@ -119,18 +144,35 @@ int inhibit_windows = 0;
 void (*window_hook) ();
 
 extern int frame_file_full_name;
+int epoch_interface;
 int xgdb_verbose;
 
+/* The external commands we call... */
+extern void init_source_path ();
+extern void directory_command ();
+extern void exec_file_command ();
+extern void symbol_file_command ();
+extern void core_file_command ();
+extern void tty_command ();
+
+extern void help_list ();
+extern void initialize_all_files ();
+extern void init_malloc ();
+
+/* Forward declarations for this file */
 void free_command_lines ();
 char *gdb_readline ();
 char *command_line_input ();
 static void initialize_main ();
 static void initialize_cmd_lists ();
+static void init_signals ();
+static void quit_command ();
 void command_loop ();
 static void source_command ();
 static void print_gdb_version ();
 static void float_handler ();
 static void cd_command ();
+static void read_command_file ();
 
 char *getenv ();
 
@@ -141,8 +183,12 @@ static char *prompt;
    allocated for it so far.  */
 
 char *line;
-int linesize;
+int linesize = 100;
 
+/* Baud rate specified for talking to serial target systems.  Default
+   is left as a zero pointer, so targets can choose their own defaults.  */
+
+char *baud_rate;
 
 /* Signal to catch ^Z typed while reading a command: SIGTSTP or SIGCONT.  */
 
@@ -161,7 +207,7 @@ return_to_top_level ()
 {
   quit_flag = 0;
   immediate_quit = 0;
-  clear_breakpoint_commands ();
+  bpstat_clear_actions(stop_bpstat);	/* Clear queued breakpoint commands */
   clear_momentary_breakpoints ();
   disable_current_display ();
   do_cleanups (0);
@@ -174,9 +220,9 @@ return_to_top_level ()
     (which is in addition to the specific error message already printed).  */
 
 int
-catch_errors (func, arg, errstring)
+catch_errors (func, args, errstring)
      int (*func) ();
-     int arg;
+     int args;
      char *errstring;
 {
   jmp_buf saved;
@@ -188,7 +234,7 @@ catch_errors (func, arg, errstring)
   bcopy (to_top_level, saved, sizeof (jmp_buf));
 
   if (setjmp (to_top_level) == 0)
-    val = (*func) (arg);
+    val = (*func) (args);
   else
     {
       fprintf (stderr, "%s\n", errstring);
@@ -212,32 +258,64 @@ disconnect ()
 }
 
 /* Clean up on error during a "source" command (or execution of a
-   user-defined command).
-   Close the file opened by the command
-   and restore the previous input stream.  */
+   user-defined command).  */
 
 static void
 source_cleanup (stream)
      FILE *stream;
 {
-  /* Instream may be 0; set to it when executing user-defined command. */
-  if (instream)
-    fclose (instream);
+  /* Restore the previous input stream.  */
   instream = stream;
 }
 
+/* Read commands from STREAM.  */
+static void
+read_command_file (stream)
+     FILE *stream;
+{
+  struct cleanup *cleanups;
+
+  cleanups = make_cleanup (source_cleanup, instream);
+  instream = stream;
+  command_loop ();
+  do_cleanups (cleanups);
+}
 
 int
-main (argc, argv, envp)
+main (argc, argv)
      int argc;
      char **argv;
-     char **envp;
 {
   int count;
-  int inhibit_gdbinit = 0;
-  int quiet = 0;
-  int batch = 0;
+  static int inhibit_gdbinit = 0;
+  static int quiet = 0;
+  static int batch = 0;
+
+  /* Pointers to various arguments from command line.  */
+  char *symarg = NULL;
+  char *execarg = NULL;
+  char *corearg = NULL;
+  char *cdarg = NULL;
+  char *ttyarg = NULL;
+
+  /* Pointers to all arguments of +command option.  */
+  char **cmdarg;
+  /* Allocated size of cmdarg.  */
+  int cmdsize;
+  /* Number of elements of cmdarg used.  */
+  int ncmd;
+
+  /* Indices of all arguments of +directory option.  */
+  char **dirarg;
+  /* Allocated size.  */
+  int dirsize;
+  /* Number of elements used.  */
+  int ndir;
+  
   register int i;
+
+  /* This needs to happen before the first use of malloc.  */
+  init_malloc ();
 
 #if defined (ALIGN_STACK_ON_STARTUP)
   i = (int) &count & 0x3;
@@ -245,9 +323,16 @@ main (argc, argv, envp)
     alloca (4 - i);
 #endif
 
+  cmdsize = 1;
+  cmdarg = (char **) xmalloc (cmdsize * sizeof (*cmdarg));
+  ncmd = 0;
+  dirsize = 1;
+  dirarg = (char **) xmalloc (dirsize * sizeof (*dirarg));
+  ndir = 0;
+
   quit_flag = 0;
-  linesize = 100;
   line = (char *) xmalloc (linesize);
+  line[0] = '\0';		/* Terminate saved (now empty) cmd line */
   instream = stdin;
 
   getwd (dirbuf);
@@ -266,26 +351,112 @@ main (argc, argv, envp)
   }
 #endif /* SET_STACK_LIMIT_HUGE */
 
-  /* Look for flag arguments.  */
+  /* Parse arguments and options.  */
+  {
+    int c;
+    static int print_help;
+    /* When var field is 0, use flag field to record the equivalent
+       short option (or arbitrary numbers starting at 10 for those
+       with no equivalent).  */
+    static struct option long_options[] =
+      {
+	{"quiet", 0, &quiet, 1},
+	{"nx", 0, &inhibit_gdbinit, 1},
+	{"batch", 0, &batch, 1},
+	{"epoch", 0, &epoch_interface, 1},
+	{"fullname", 0, &frame_file_full_name, 1},
+	{"help", 0, &print_help, 1},
+	{"se", 1, 0, 10},
+	{"symbols", 1, 0, 's'},
+	{"s", 1, 0, 's'},
+	{"exec", 1, 0, 'e'},
+	{"core", 1, 0, 'c'},
+	{"c", 1, 0, 'c'},
+	{"command", 1, 0, 'x'},
+	{"x", 1, 0, 'x'},
+	{"directory", 1, 0, 'd'},
+	{"cd", 1, 0, 11},
+	{"tty", 1, 0, 't'},
+	{"b", 1, 0, 'b'},
+/* Allow machine descriptions to add more options... */
+#ifdef ADDITIONAL_OPTIONS
+	ADDITIONAL_OPTIONS
+#endif
+      };
 
-  for (i = 1; i < argc; i++)
-    {
-      if (!strcmp (argv[i], "-q") || !strcmp (argv[i], "-quiet"))
-	quiet = 1;
-      else if (!strcmp (argv[i], "-nx"))
-	inhibit_gdbinit = 1;
-      else if (!strcmp (argv[i], "-nw"))
-	inhibit_windows = 1;
-      else if (!strcmp (argv[i], "-batch"))
-	batch = 1, quiet = 1;
-      else if (!strcmp (argv[i], "-fullname"))
-	frame_file_full_name = 1;
-      else if (!strcmp (argv[i], "-xgdb_verbose"))
-	xgdb_verbose = 1;
-      /* -help: print a summary of command line switches.  */
-      else if (!strcmp (argv[i], "-help"))
-	{
-	  fputs ("\
+    while (1)
+      {
+	c = getopt_long_only (argc, argv, "",
+			      long_options, &option_index);
+	if (c == EOF)
+	  break;
+
+	/* Long option that takes an argument.  */
+	if (c == 0 && long_options[option_index].flag == 0)
+	  c = long_options[option_index].val;
+
+	switch (c)
+	  {
+	  case 0:
+	    /* Long option that just sets a flag.  */
+	    break;
+	  case 10:
+	    symarg = optarg;
+	    execarg = optarg;
+	    break;
+	  case 11:
+	    cdarg = optarg;
+	    break;
+	  case 's':
+	    symarg = optarg;
+	    break;
+	  case 'e':
+	    execarg = optarg;
+	    break;
+	  case 'c':
+	    corearg = optarg;
+	    break;
+	  case 'x':
+	    cmdarg[ncmd++] = optarg;
+	    if (ncmd >= cmdsize)
+	      {
+		cmdsize *= 2;
+		cmdarg = (char **) xrealloc ((char *)cmdarg,
+					     cmdsize * sizeof (*cmdarg));
+	      }
+	    break;
+	  case 'd':
+	    dirarg[ndir++] = optarg;
+	    if (ndir >= dirsize)
+	      {
+		dirsize *= 2;
+		dirarg = (char **) xrealloc ((char *)dirarg,
+					     dirsize * sizeof (*dirarg));
+	      }
+	    break;
+	  case 't':
+	    ttyarg = optarg;
+	    break;
+	  case 'q':
+	    quiet = 1;
+	    break;
+	  case 'b':
+	    baud_rate = optarg;
+	    break;
+#ifdef ADDITIONAL_OPTION_CASES
+	  ADDITIONAL_OPTION_CASES
+#endif
+	  case '?':
+	    fprintf (stderr,
+		     "Use `%s +help' for a complete list of options.\n",
+		     argv[0]);
+	    exit (1);
+	  }
+
+      }
+    if (print_help)
+      {
+	fputs ("\
 This is GDB, the GNU debugger.  Use the command\n\
     gdb [options] [executable [core-file]]\n\
 to enter the debugger.\n\
@@ -294,126 +465,118 @@ Options available are:\n\
   -help             Print this message.\n\
   -quiet            Do not print version number on startup.\n\
   -fullname         Output information used by emacs-GDB interface.\n\
+  -epoch            Output information used by epoch emacs-GDB interface.\n\
   -batch            Exit after processing options.\n\
   -nx               Do not read .gdbinit file.\n\
-  -tty TTY          Use TTY for input/output by the program being debugged.\n\
-  -cd DIR           Change current directory to DIR.\n\
-  -directory DIR    Search for source files in DIR.\n\
-  -command FILE     Execute GDB commands from FILE.\n\
-  -symbols SYMFILE  Read symbols from SYMFILE.\n\
-  -exec EXECFILE    Use EXECFILE as the executable.\n\
-  -se FILE          Use FILE as symbol file and executable file.\n\
-  -core COREFILE    Analyze the core dump COREFILE.\n\
-\n\
+  -tty=TTY          Use TTY for input/output by the program being debugged.\n\
+  -cd=DIR           Change current directory to DIR.\n\
+  -directory=DIR    Search for source files in DIR.\n\
+  -command=FILE     Execute GDB commands from FILE.\n\
+  -symbols=SYMFILE  Read symbols from SYMFILE.\n\
+  -exec=EXECFILE    Use EXECFILE as the executable.\n\
+  -se=FILE          Use FILE as symbol file and executable file.\n\
+  -core=COREFILE    Analyze the core dump COREFILE.\n\
+  -b BAUDRATE       Set serial port baud rate used for remote debugging\n\
+", stderr);
+#ifdef ADDITIONAL_OPTION_HELP
+	fputs (ADDITIONAL_OPTION_HELP, stderr);
+#endif
+	fputs ("\n\
 For more information, type \"help\" from within GDB, or consult the\n\
 GDB manual (available as on-line info or a printed manual).\n", stderr);
-	  /* Exiting after printing this message seems like
-	     the most useful thing to do.  */
-	  exit (0);
+	/* Exiting after printing this message seems like
+	   the most useful thing to do.  */
+	exit (0);
+      }
+    
+    /* OK, that's all the options.  The other arguments are filenames.  */
+    count = 0;
+    for (; optind < argc; optind++)
+      switch (++count)
+	{
+	case 1:
+	  symarg = argv[optind];
+	  execarg = argv[optind];
+	  break;
+	case 2:
+	  corearg = argv[optind];
+	  break;
+	case 3:
+	  fprintf (stderr,
+		   "Excess command line arguments ignored. (%s%s)\n",
+		   argv[optind], (optind == argc - 1) ? "" : " ...");
+	  break;
 	}
-      else if (argv[i][0] == '-')
-	/* Other options take arguments, so don't confuse an
-	   argument with an option.  */
-	i++;
-    }
+    if (batch)
+      quiet = 1;
+  }
 
   /* Run the init function of each source file */
 
   initialize_cmd_lists ();	/* This needs to be done first */
   initialize_all_files ();
   initialize_main ();		/* But that omits this file!  Do it now */
-  initialize_signals ();
+  init_signals ();
 
   if (!quiet)
-    print_gdb_version ();
-
-  /* Process the command line arguments.  */
-
-  count = 0;
-  for (i = 1; i < argc; i++)
     {
-      register char *arg = argv[i];
-      /* Args starting with - say what to do with the following arg
-	 as a filename.  */
-      if (arg[0] == '-')
+      /* Print all the junk in one place, with a blank line after it
+	 to separate it from important stuff like "no such file".  
+ 	 Also, we skip most of the noise, like Emacs, if started with
+	 a file name rather than with no arguments.  */
+      if (execarg == 0) {
+	print_gdb_version (1);
+	printf ("Type \"help\" for a list of commands.\n\n");
+      }
+    }
+
+  /* Now perform all the actions indicated by the arguments.  */
+  if (cdarg != NULL)
+    {
+      if (!setjmp (to_top_level))
 	{
-	  extern void exec_file_command (), symbol_file_command ();
-	  extern void core_file_command (), directory_command ();
-	  extern void tty_command ();
-
-	  if (!strcmp (arg, "-q") || !strcmp (arg, "-nx")
-	      || !strcmp (arg, "-quiet") || !strcmp (arg, "-batch")
-	      || !strcmp (arg, "-fullname") || !strcmp (arg, "-nw")
-	      || !strcmp (arg, "-xgdb_verbose")
-	      || !strcmp (arg, "-help"))
-	    /* Already processed above */
-	    continue;
-
-	  if (++i == argc)
-	    fprintf (stderr, "No argument follows \"%s\".\n", arg);
-	  if (!setjmp (to_top_level))
-	    {
-	      /* -s foo: get syms from foo.  -e foo: execute foo.
-		 -se foo: do both with foo.  -c foo: use foo as core dump.  */
-	      if (!strcmp (arg, "-se"))
-		{
-		  exec_file_command (argv[i], !batch);
-		  symbol_file_command (argv[i], !batch);
-		}
-	      else if (!strcmp (arg, "-s") || !strcmp (arg, "-symbols"))
-		symbol_file_command (argv[i], !batch);
-	      else if (!strcmp (arg, "-e") || !strcmp (arg, "-exec"))
-		exec_file_command (argv[i], !batch);
-	      else if (!strcmp (arg, "-c") || !strcmp (arg, "-core"))
-		core_file_command (argv[i], !batch);
-	      /* -x foo: execute commands from foo.  */
-	      else if (!strcmp (arg, "-x") || !strcmp (arg, "-command")
-		       || !strcmp (arg, "-commands"))
-		source_command (argv[i]);
-	      /* -d foo: add directory `foo' to source-file directory
-		         search-list */
-	      else if (!strcmp (arg, "-d") || !strcmp (arg, "-dir")
-		       || !strcmp (arg, "-directory"))
-		directory_command (argv[i], 0);
-	      /* -cd FOO: specify current directory as FOO.
-		 GDB remembers the precise string FOO as the dirname.  */
-	      else if (!strcmp (arg, "-cd"))
-		{
-		  cd_command (argv[i], 0);
-		  init_source_path ();
-		}
-	      /* -t /def/ttyp1: use /dev/ttyp1 for inferior I/O.  */
-	      else if (!strcmp (arg, "-t") || !strcmp (arg, "-tty"))
-		tty_command (argv[i], 0);
-
-	      else
-		error ("Unknown command-line switch: \"%s\"\n", arg);
-	    }
-	}
-      else
-	{
-	  /* Args not thus accounted for
-	     are treated as, first, the symbol/executable file
-	     and, second, the core dump file.  */
-	  count++;
-	  if (!setjmp (to_top_level))
-	    switch (count)
-	      {
-	      case 1:
-		exec_file_command (arg, !batch);
-		symbol_file_command (arg, !batch);
-		break;
-
-	      case 2:
-		core_file_command (arg, !batch);
-		break;
-
-	      case 3:
-		fprintf (stderr, "Excess command line args ignored. (%s%s)\n",
-			 arg, (i == argc - 1) ? "" : " ...");
-	      }
+	  cd_command (cdarg, 0);
+	  init_source_path ();
 	}
     }
+  for (i = 0; i < ndir; i++)
+    if (!setjmp (to_top_level))
+      directory_command (dirarg[i], 0);
+  free (dirarg);
+  if (execarg != NULL
+      && symarg != NULL
+      && strcmp (execarg, symarg) == 0)
+    {
+      /* The exec file and the symbol-file are the same.  If we can't open
+	 it, better only print one error message.  */
+      if (!setjmp (to_top_level))
+	{
+	  exec_file_command (execarg, !batch);
+	  symbol_file_command (symarg, !batch);
+	}
+    }
+  else
+    {
+      if (execarg != NULL)
+	if (!setjmp (to_top_level))
+	  exec_file_command (execarg, !batch);
+      if (symarg != NULL)
+	if (!setjmp (to_top_level))
+	  symbol_file_command (symarg, !batch);
+    }
+  if (corearg != NULL)
+    if (!setjmp (to_top_level))
+      core_file_command (corearg, !batch);
+    else if (!setjmp (to_top_level))
+      attach_command (corearg, !batch);
+
+  if (ttyarg != NULL)
+    if (!setjmp (to_top_level))
+      tty_command (ttyarg, !batch);
+
+#ifdef ADDITIONAL_OPTION_HANDLER
+  ADDITIONAL_OPTION_HANDLER;
+#endif
 
   {
     struct stat homebuf, cwdbuf;
@@ -423,23 +586,25 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
     homedir = getenv ("HOME");
     if (homedir)
       {
-	homeinit = (char *) alloca (strlen (getenv ("HOME")) + 10);
+	homeinit = (char *) alloca (strlen (getenv ("HOME")) +
+				    strlen (gdbinit) + 10);
 	strcpy (homeinit, getenv ("HOME"));
-	strcat (homeinit, "/.gdbinit");
+	strcat (homeinit, "/");
+	strcat (homeinit, gdbinit);
 	if (!inhibit_gdbinit && access (homeinit, R_OK) == 0)
 	  if (!setjmp (to_top_level))
-	    source_command (homeinit);
+	    source_command (homeinit, 0);
 
 	/* Do stats; no need to do them elsewhere since we'll only
 	   need them if homedir is set.  Make sure that they are
-	   zero in case one of them fails (guarantees that they
-	   won't match if either exits).  */
+	   zero in case one of them fails (this guarantees that they
+	   won't match if either exists).  */
 	
 	bzero (&homebuf, sizeof (struct stat));
 	bzero (&cwdbuf, sizeof (struct stat));
 	
 	stat (homeinit, &homebuf);
-	stat ("./.gdbinit", &cwdbuf); /* We'll only need this if
+	stat (gdbinit, &cwdbuf); /* We'll only need this if
 					 homedir was set.  */
       }
     
@@ -450,31 +615,45 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 	|| bcmp ((char *) &homebuf,
 		 (char *) &cwdbuf,
 		 sizeof (struct stat)))
-      if (!inhibit_gdbinit && access (".gdbinit", R_OK) == 0)
+      if (!inhibit_gdbinit && access (gdbinit, R_OK) == 0)
 	if (!setjmp (to_top_level))
-	  source_command (".gdbinit");
+	  source_command (gdbinit, 0);
   }
+
+  for (i = 0; i < ncmd; i++)
+    if (!setjmp (to_top_level))
+      {
+	if (cmdarg[i][0] == '-' && cmdarg[i][1] == '\0')
+	  read_command_file (stdin);
+	else
+	  source_command (cmdarg[i], !batch);
+      }
+  free (cmdarg);
 
   if (batch)
     {
-#if 0
-      fatal ("Attempt to read commands from stdin in batch mode.");
-#endif
       /* We have hit the end of the batch file.  */
       exit (0);
     }
 
-  if (!quiet)
-    printf ("Type \"help\" for a list of commands.\n");
+  /* Do any host- or target-specific hacks.  This is used for i960 targets
+     to force the user to set a nindy target and spec its parameters.  */
+
+#ifdef BEFORE_MAIN_LOOP_HOOK
+  BEFORE_MAIN_LOOP_HOOK;
+#endif
 
   /* The command loop.  */
 
   while (1)
     {
       if (!setjmp (to_top_level))
-	command_loop ();
-      clearerr (stdin);		/* Don't get hung if C-d is typed.  */
+	{
+	  command_loop ();
+          quit_command ((char *)0, instream == stdin);
+	}
     }
+  /* No exit -- exit is through quit_command.  */
 }
 
 /* Execute the line P as a command.
@@ -489,20 +668,27 @@ execute_command (p, from_tty)
   register struct command_line *cmdlines;
 
   free_all_values ();
+
+  /* This can happen when command_line_input hits end of file.  */
+  if (p == NULL)
+      return;
+  
   while (*p == ' ' || *p == '\t') p++;
   if (*p)
     {
+      char *arg;
+      
       c = lookup_cmd (&p, cmdlist, "", 0, 1);
-      if (c->function == 0)
-	error ("That is not a command, just a help topic.");
-      else if (c->class == (int) class_user)
+      /* Pass null arg rather than an empty one.  */
+      arg = *p ? p : 0;
+      if (c->class == class_user)
 	{
 	  struct cleanup *old_chain;
 	  
 	  if (*p)
 	    error ("User-defined commands cannot take arguments.");
-	  cmdlines = (struct command_line *) c->function;
-	  if (cmdlines == (struct command_line *) 0)
+	  cmdlines = c->user_commands;
+	  if (cmdlines == 0)
 	    /* Null command */
 	    return;
 
@@ -517,23 +703,30 @@ execute_command (p, from_tty)
 	    }
 	  do_cleanups (old_chain);
 	}
+      else if (c->type == set_cmd || c->type == show_cmd)
+	do_setshow_command (arg, from_tty & caution, c);
+      else if (c->function == NO_FUNCTION)
+	error ("That is not a command, just a help topic.");
       else
-	/* Pass null arg rather than an empty one.  */
-	(*c->function) (*p ? p : 0, from_tty);
+	(*c->function) (arg, from_tty & caution);
     }
 }
 
+/* ARGSUSED */
 static void
-do_nothing ()
+do_nothing (foo)
+     int foo;
 {
 }
 
 /* Read commands from `instream' and execute them
-   until end of file.  */
+   until end of file or error reading instream.  */
 void
 command_loop ()
 {
   struct cleanup *old_chain;
+  char *command;
+
   while (!feof (instream))
     {
       if (window_hook && instream == stdin)
@@ -543,11 +736,13 @@ command_loop ()
       if (instream == stdin && ISATTY (stdin))
 	reinitialize_more_filter ();
       old_chain = make_cleanup (do_nothing, 0);
-      execute_command (command_line_input (instream == stdin ? prompt : 0,
-				      instream == stdin),
-		       instream == stdin);
+      command = command_line_input (instream == stdin ? prompt : 0,
+				      instream == stdin);
+      if (command == 0)
+	return;
+      execute_command (command, instream == stdin);
       /* Do any commands attached to breakpoint we stopped at.  */
-      do_breakpoint_commands ();
+      bpstat_do_actions (&stop_bpstat);
       do_cleanups (old_chain);
     }
 }
@@ -566,14 +761,17 @@ dont_repeat ()
 
 /* Read a line from the stream "instream" without command line editing.
 
-   It prints PROMPT once at the start.
+   It prints PRROMPT once at the start.
 
    If RETURN_RESULT is set it allocates
    space for whatever the user types and returns the result.
-   If not, it just discards what the user types.  */
+   If not, it just discards what the user types and returns a garbage
+   non-NULL value.
+
+   No matter what return_result is, a NULL return means end of file.  */
 char *
-gdb_readline (prompt, return_result)
-     char *prompt;
+gdb_readline (prrompt, return_result)
+     char *prrompt;
      int return_result;
 {
   int c;
@@ -581,9 +779,9 @@ gdb_readline (prompt, return_result)
   int input_index = 0;
   int result_size = 80;
 
-  if (prompt)
+  if (prrompt)
     {
-      printf (prompt);
+      printf (prrompt);
       fflush (stdout);
     }
   
@@ -592,8 +790,10 @@ gdb_readline (prompt, return_result)
 
   while (1)
     {
-      c = fgetc (instream);
-      if (c == -1 || c == '\n')
+      /* Read from stdin if we are executing a user defined command.
+	 This is the right thing for prompt_for_continue, at least.  */
+      c = fgetc (instream ? instream : stdin);
+      if (c == EOF || c == '\n')
 	break;
       if (return_result)
 	{
@@ -605,13 +805,22 @@ gdb_readline (prompt, return_result)
 	    }
 	}
     }
+
+  if (c == EOF)
+    {
+      if (return_result)
+	free (result);
+      return NULL;
+    }
+
   if (return_result)
     {
       result[input_index++] = '\0';
       return result;
     }
   else
-    return (char *) 0;
+    /* Return any old non-NULL pointer.  */
+    return (char *) "non-NULL";
 }
 
 /* Declaration for fancy readline with command line editing.  */
@@ -632,18 +841,29 @@ char *gdb_completer_word_break_characters =
 
 /* Functions that are used as part of the fancy command line editing.  */
 
+/* This can be used for functions which don't want to complete on symbols
+   but don't want to complete on anything else either.  */
+/* ARGSUSED */
+char **
+noop_completer (text)
+     char *text;
+{
+  return NULL;
+}
+
 /* Generate symbol names one by one for the completer.  If STATE is
    zero, then we need to initialize, otherwise the initialization has
    already taken place.  TEXT is what we expect the symbol to start
    with.  RL_LINE_BUFFER is available to be looked at; it contains the
    entire text of the line.  RL_POINT is the offset in that line of
-   the cursor.  You should pretend that the line ends at RL_POINT.  */
+   the cursor.  You should pretend that the line ends at RL_POINT.
+   The result is NULL if there are no more completions, else a char
+   string which is a possible completion.  */
 char *
 symbol_completion_function (text, state)
      char *text;
      int state;
 {
-  char **make_symbol_completion_list ();
   static char **list = (char **)NULL;
   static int index;
   char *output;
@@ -688,8 +908,24 @@ symbol_completion_function (text, state)
 	list = (char **) 0;
       else if (c == (struct cmd_list_element *) -1)
 	{
-	  if (p + strlen(text) != tmp_command + rl_point)
-	    error ("Unrecognized command.");
+	  /* If we didn't recognize everything up to the thing that
+	     needs completing, and we don't know what command it is
+	     yet, we are in trouble.  Part of the trouble might be
+	     that the list of delimiters used by readline includes
+	     '-', which we use in commands.  Check for this.  */
+	  if (p + strlen(text) != tmp_command + rl_point) {
+	    if (tmp_command[rl_point - strlen(text) - 1] == '-')
+	      text = p;
+	    else {
+	      /* This really should not produce an error.  Better would
+		 be to pretend to hit RETURN here; this would produce a
+		 response like "Ambiguous command: foo, foobar, etc",
+		 and leave the line available for re-entry with ^P.  Instead,
+		 this error blows away the user's typed input without
+		 any way to get it back.  */
+	      error ("  Unrecognized command.");
+	    }
+	  }
 	  
 	  /* He's typed something ambiguous.  This is easier.  */
 	  if (result_list)
@@ -716,18 +952,25 @@ symbol_completion_function (text, state)
 	      if (c->prefixlist)
 		list = complete_on_cmdlist (*c->prefixlist, "");
 	      else
-		list = make_symbol_completion_list ("");
+		list = (*c->completer) ("");
 	    }
 	  else
 	    {
 	      if (c->prefixlist && !c->allow_unknown)
 		{
+#if 0
+		  /* Something like "info adsfkdj".  But error() is not
+		     the proper response; just return no completions
+		     instead.  */
 		  *p = '\0';
 		  error ("\"%s\" command requires a subcommand.",
 			 tmp_command);
+#else
+		  list = NULL;
+#endif
 		}
 	      else
-		list = make_symbol_completion_list (text);
+		list = (*c->completer) (text);
 	    }
 	}
     }
@@ -814,7 +1057,8 @@ catch_termination (sig)
 #endif
 
 /* Initialize signal handlers. */
-initialize_signals ()
+static void
+init_signals ()
 {
   extern void request_quit ();
 #if 0
@@ -846,6 +1090,8 @@ initialize_signals ()
    The buffer is made bigger as necessary.
    Returns the address of the start of the line.
 
+   NULL is returned for end of file.
+
    *If* the instream == stdin & stdin is a terminal, the line read
    is copied into the file line saver (global var char *line,
    length linesize) so that it can be duplicated.
@@ -854,17 +1100,19 @@ initialize_signals ()
    simple input as the user has requested.  */
 
 char *
-command_line_input (prompt, repeat)
-     char *prompt;
+command_line_input (prrompt, repeat)
+     char *prrompt;
      int repeat;
 {
   static char *linebuffer = 0;
   static int linelength = 0;
   register char *p;
-  register char *p1, *rl;
-  char *local_prompt = prompt;
+  char *p1;
+  char *rl;
+  char *local_prompt = prrompt;
   register int c;
   char *nline;
+  char got_eof = 0;
 
   if (linebuffer == 0)
     {
@@ -890,7 +1138,11 @@ command_line_input (prompt, repeat)
       else
 	rl = gdb_readline (local_prompt, 1);
 
-      if (!rl || rl == (char *) EOF) break;
+      if (!rl || rl == (char *) EOF)
+	{
+	  got_eof = 1;
+	  break;
+	}
       if (strlen(rl) + 1 + (p - linebuffer) > linelength)
 	{
 	  linelength = strlen(rl) + 1 + (p - linebuffer);
@@ -918,6 +1170,9 @@ command_line_input (prompt, repeat)
 #endif
   immediate_quit--;
 
+  if (got_eof)
+    return NULL;
+
   /* Do history expansion if that is wished.  */
   if (history_expansion_p && instream == stdin
       && ISATTY (instream))
@@ -936,7 +1191,7 @@ command_line_input (prompt, repeat)
 	  if (expanded < 0)
 	    {
 	      free (history_value);
-	      return command_line_input (prompt, repeat);
+	      return command_line_input (prrompt, repeat);
 	    }
 	  if (strlen (history_value) > linelength)
 	    {
@@ -970,16 +1225,42 @@ command_line_input (prompt, repeat)
       && ISATTY (stdin) && *linebuffer)
     add_history (linebuffer);
 
-  /* If line is a comment, clear it out.  */
-  /* Note:  comments are added to the command history.
-     This is useful when you type a command, and then realize
-     you don't want to execute it quite yet.  You can comment out the
-     command and then later fetch it from the value history and
-     remove the '#'.  */
+  /* Note: lines consisting soley of comments are added to the command
+     history.  This is useful when you type a command, and then
+     realize you don't want to execute it quite yet.  You can comment
+     out the command and then later fetch it from the value history
+     and remove the '#'.  The kill ring is probably better, but some
+     people are in the habit of commenting things out.  */
   p1 = linebuffer;
-  while ((c = *p1) == ' ' || c == '\t') p1++;
-  if (c == '#')
-    *linebuffer = 0;
+  while ((c = *p1++) != '\0')
+    {
+      if (c == '"')
+	while ((c = *p1++) != '"')
+	  {
+	    /* Make sure an escaped '"' doesn't make us think the string
+	       is ended.  */
+	    if (c == '\\')
+	      parse_escape (&p1);
+	    if (c == '\0')
+	      break;
+	  }
+      else if (c == '\'')
+	while ((c = *p1++) != '\'')
+	  {
+	    /* Make sure an escaped '\'' doesn't make us think the string
+	       is ended.  */
+	    if (c == '\\')
+	      parse_escape (&p1);
+	    if (c == '\0')
+	      break;
+	  }
+      else if (c == '#')
+	{
+	  /* Found a comment.  */
+	  p1[-1] = '\0';
+	  break;
+	}
+    }
 
   /* Save into global buffer if appropriate.  */
   if (repeat)
@@ -1012,6 +1293,10 @@ read_command_lines ()
     {
       dont_repeat ();
       p = command_line_input (0, instream == stdin);
+      if (p == NULL)
+	/* Treat end of file like "end".  */
+	break;
+      
       /* Remove leading and trailing blanks.  */
       while (*p == ' ' || *p == '\t') p++;
       p1 = p + strlen (p);
@@ -1092,11 +1377,25 @@ add_info_alias (name, oldname, abbrev_flag)
 /* The "info" command is defined as a prefix, with allow_unknown = 0.
    Therefore, its own definition is called only for "info" with no args.  */
 
+/* ARGSUSED */
 static void
-info_command ()
+info_command (arg, from_tty)
+     char *arg;
+     int from_tty;
 {
   printf ("\"info\" must be followed by the name of an info command.\n");
   help_list (infolist, "info ", -1, stdout);
+}
+
+/* The "show" command with no arguments shows all the settings.  */
+
+/* ARGSUSED */
+static void
+show_command (arg, from_tty)
+     char *arg;
+     int from_tty;
+{
+  cmd_show_list (showlist, from_tty, "");
 }
 
 /* Add an element to the list of commands.  */
@@ -1104,7 +1403,7 @@ info_command ()
 void
 add_com (name, class, fun, doc)
      char *name;
-     int class;
+     enum command_class class;
      void (*fun) ();
      char *doc;
 {
@@ -1117,7 +1416,7 @@ void
 add_com_alias (name, oldname, class, abbrev_flag)
      char *name;
      char *oldname;
-     int class;
+     enum command_class class;
      int abbrev_flag;
 {
   add_alias_cmd (name, oldname, class, abbrev_flag, &cmdlist);
@@ -1165,15 +1464,16 @@ define_command (comname, from_tty)
      int from_tty;
 {
   register struct command_line *cmds;
-  register struct cmd_list_element *c;
+  register struct cmd_list_element *c, *newc;
   char *tem = comname;
+  extern void not_just_help_class_command ();
 
   validate_comname (comname);
 
   c = lookup_cmd (&tem, cmdlist, "", -1, 1);
   if (c)
     {
-      if (c->class == (int) class_user || c->class == (int) class_alias)
+      if (c->class == class_user || c->class == class_alias)
 	tem = "Redefine command \"%s\"? ";
       else
 	tem = "Really redefine built-in command \"%s\"? ";
@@ -1191,12 +1491,13 @@ End with a line saying just \"end\".\n", comname);
 
   cmds = read_command_lines ();
 
-  if (c && c->class == (int) class_user)
-    free_command_lines (&c->function);
+  if (c && c->class == class_user)
+    free_command_lines (&c->user_commands);
 
-  add_com (comname, class_user, cmds,
-	   (c && c->class == (int) class_user)
-	   ? c->doc : savestring ("User-defined.", 13));
+  newc = add_cmd (comname, class_user, not_just_help_class_command,
+	   (c && c->class == class_user)
+	   ? c->doc : savestring ("User-defined.", 13), &cmdlist);
+  newc->user_commands = cmds;
 }
 
 static void
@@ -1212,7 +1513,7 @@ document_command (comname, from_tty)
 
   c = lookup_cmd (&tem, cmdlist, "", 0, 1);
 
-  if (c->class != (int) class_user)
+  if (c->class != class_user)
     error ("Command \"%s\" is built-in.", comname);
 
   if (from_tty)
@@ -1245,20 +1546,25 @@ End with a line saying just \"end\".\n", comname);
 }
 
 static void
-print_gdb_version ()
+print_gdb_version (shout)
+     int shout;
 {
-  printf ("GDB %s, Copyright (C) 1989 Free Software Foundation, Inc.\n\
+  printf ("GDB %s, Copyright (C) 1991 Free Software Foundation, Inc.\n",
+	  version);
+  if (shout)
+    printf ("\
 There is ABSOLUTELY NO WARRANTY for GDB; type \"info warranty\" for details.\n\
 GDB is free software and you are welcome to distribute copies of it\n\
- under certain conditions; type \"info copying\" to see the conditions.\n",
-	  version);
+ under certain conditions; type \"info copying\" to see the conditions.\n");
 }
 
 static void
-version_info ()
+version_info (args, from_tty)
+     char *args;
+     int from_tty;
 {
   immediate_quit++;
-  print_gdb_version ();
+  print_gdb_version (0);
   immediate_quit--;
 }
 
@@ -1270,58 +1576,17 @@ print_prompt ()
   printf ("%s", prompt);
   fflush (stdout);
 }
-
-/* Command to specify a prompt string instead of "(gdb) ".  */
-
-static void
-set_prompt_command (text)
-     char *text;
-{
-  char *p, *q;
-  register int c;
-  char *new;
-
-  if (text == 0)
-    error_no_arg ("string to which to set prompt");
-
-  new = (char *) xmalloc (strlen (text) + 2);
-  p = text; q = new;
-  while (c = *p++)
-    {
-      if (c == '\\')
-	{
-	  /* \ at end of argument is used after spaces
-	     so they won't be lost.  */
-	  if (*p == 0)
-	    break;
-	  c = parse_escape (&p);
-	  if (c == 0)
-	    break; /* C loses */
-	  else if (c > 0)
-	    *q++ = c;
-	}
-      else
-	*q++ = c;
-    }
-  if (*(p - 1) != '\\')
-    *q++ = ' ';
-  *q++ = '\0';
-  new = (char *) xrealloc (new, q - new);
-  free (prompt);
-  prompt = new;
-}
 
 static void
-quit_command ()
+quit_command (args, from_tty)
+     char *args;
+     int from_tty;
 {
   if (have_inferior_p ())
     {
       if (query ("The program is running.  Quit anyway? "))
 	{
-	  /* Prevent any warning message from reopen_exec_file, in case
-	     we have a core file that's inconsistent with the exec file.  */
-	  exec_file_command (0, 0);
-	  kill_inferior ();
+	  target_kill (args, from_tty);
 	}
       else
 	error ("Not confirmed.");
@@ -1335,15 +1600,15 @@ quit_command ()
 int
 input_from_terminal_p ()
 {
-  return instream == stdin;
+  return (instream == stdin) & caution;
 }
 
 static void
-pwd_command (arg, from_tty)
-     char *arg;
+pwd_command (args, from_tty)
+     char *args;
      int from_tty;
 {
-  if (arg) error ("The \"pwd\" command does not take an argument: %s", arg);
+  if (args) error ("The \"pwd\" command does not take an argument: %s", args);
   getwd (dirbuf);
 
   if (strcmp (dirbuf, current_directory))
@@ -1414,17 +1679,17 @@ cd_command (dir, from_tty)
 }
 
 static void
-source_command (arg, from_tty)
-     char *arg;
+source_command (args, from_tty)
+     char *args;
      int from_tty;
 {
   FILE *stream;
   struct cleanup *cleanups;
-  char *file = arg;
+  char *file = args;
 
   if (file == 0)
     /* Let source without arguments read .gdbinit.  */
-    file = ".gdbinit";
+    file = gdbinit;
 
   file = tilde_expand (file);
   make_cleanup (free, file);
@@ -1433,18 +1698,18 @@ source_command (arg, from_tty)
   if (stream == 0)
     perror_with_name (file);
 
-  cleanups = make_cleanup (source_cleanup, instream);
+  cleanups = make_cleanup (fclose, stream);
 
-  instream = stream;
-
-  command_loop ();
+  read_command_file (stream);
 
   do_cleanups (cleanups);
 }
 
+/* ARGSUSED */
 static void
-echo_command (text)
+echo_command (text, from_tty)
      char *text;
+     int from_tty;
 {
   char *p = text;
   register int c;
@@ -1468,8 +1733,11 @@ echo_command (text)
       }
 }
 
+/* ARGSUSED */
 static void
-dump_me_command ()
+dump_me_command (args, from_tty)
+     char *args;
+     int from_tty;
 {
   if (query ("Should GDB dump core? "))
     {
@@ -1478,48 +1746,13 @@ dump_me_command ()
     }
 }
 
-int
-parse_binary_operation (caller, arg)
-     char *caller, *arg;
-{
-  int length;
-
-  if (!arg || !*arg)
-    return 1;
-
-  length = strlen (arg);
-
-  while (arg[length - 1] == ' ' || arg[length - 1] == '\t')
-    length--;
-
-  if (!strncmp (arg, "on", length)
-      || !strncmp (arg, "1", length)
-      || !strncmp (arg, "yes", length))
-    return 1;
-  else
-    if (!strncmp (arg, "off", length)
-	|| !strncmp (arg, "0", length)
-	|| !strncmp (arg, "no", length))
-      return 0;
-    else
-      error ("\"%s\" not given a binary valued argument.", caller);
-}
-
 /* Functions to manipulate command line editing control variables.  */
-
-static void
-set_editing (arg, from_tty)
-     char *arg;
-     int from_tty;
-{
-  command_editing_p = parse_binary_operation ("set command-editing", arg);
-}
 
 /* Number of commands to print in each call to editing_info.  */
 #define Hist_print 10
 static void
-editing_info (arg, from_tty)
-     char *arg;
+editing_info (args, from_tty)
+     char *args;
      int from_tty;
 {
   /* Index for history commands.  Relative to history_base.  */
@@ -1539,6 +1772,8 @@ editing_info (arg, from_tty)
   } *history_get();
   extern int history_base;
 
+#if 0
+  /* This is all reported by individual "show" commands.  */
   printf_filtered ("Interactive command editing is %s.\n",
 	  command_editing_p ? "on" : "off");
 
@@ -1550,6 +1785,7 @@ editing_info (arg, from_tty)
 	  history_size);
   printf_filtered ("The name of the history record is \"%s\".\n\n",
 	  history_filename ? history_filename : "");
+#endif /* 0 */
 
   /* Print out some of the commands from the command history.  */
   /* First determine the length of the history list.  */
@@ -1563,14 +1799,14 @@ editing_info (arg, from_tty)
 	}
     }
 
-  if (arg)
+  if (args)
     {
-      if (arg[0] == '+' && arg[1] == '\0')
+      if (args[0] == '+' && args[1] == '\0')
 	/* "info editing +" should print from the stored position.  */
 	;
       else
 	/* "info editing <exp>" should print around command number <exp>.  */
-	num = (parse_and_eval_address (arg) - history_base) - Hist_print / 2;
+	num = (parse_and_eval_address (args) - history_base) - Hist_print / 2;
     }
   /* "info editing" means print the last Hist_print commands.  */
   else
@@ -1590,10 +1826,13 @@ editing_info (arg, from_tty)
 	num = 0;
     }
 
+#if 0
+  /* No need for a header now that "info editing" only prints one thing.  */
   if (num == hist_len - Hist_print)
     printf_filtered ("The list of the last %d commands is:\n\n", Hist_print);
   else
     printf_filtered ("Some of the stored commands are:\n\n");
+#endif /* 0 */
 
   for (offset = num; offset < num + Hist_print && offset < hist_len; offset++)
     {
@@ -1608,32 +1847,29 @@ editing_info (arg, from_tty)
   /* If the user repeats this command with return, it should do what
      "info editing +" does.  This is unnecessary if arg is null,
      because "info editing +" is not useful after "info editing".  */
-  if (from_tty && arg)
+  if (from_tty && args)
     {
-      arg[0] = '+';
-      arg[1] = '\0';
+      args[0] = '+';
+      args[1] = '\0';
     }
 }
 
+/* Called by do_setshow_command.  */
 static void
-set_history_expansion (arg, from_tty)
-     char *arg;
+set_history_size_command (args, from_tty, c)
+     char *args;
      int from_tty;
+     struct cmd_list_element *c;
 {
-  history_expansion_p = parse_binary_operation ("set history expansion", arg);
+  if (history_size == UINT_MAX)
+    unstifle_history ();
+  else
+    stifle_history (history_size);
 }
 
 static void
-set_history_write (arg, from_tty)
-     char *arg;
-     int from_tty;
-{
-  write_history_p = parse_binary_operation ("set history write", arg);
-}
-
-static void
-set_history (arg, from_tty)
-     char *arg;
+set_history (args, from_tty)
+     char *args;
      int from_tty;
 {
   printf ("\"set history\" must be followed by the name of a history subcommand.\n");
@@ -1641,69 +1877,52 @@ set_history (arg, from_tty)
 }
 
 static void
-set_history_size (arg, from_tty)
-     char *arg;
+show_history (args, from_tty)
+     char *args;
      int from_tty;
 {
-  if (!*arg)
-    error_no_arg ("set history size");
-
-  history_size = atoi (arg);
+  cmd_show_list (showhistlist, from_tty);
 }
 
-static void
-set_history_filename (arg, from_tty)
-     char *arg;
+int info_verbose = 0;		/* Default verbose msgs off */
+
+/* Called by do_setshow_command.  An elaborate joke.  */
+static void 
+set_verbose (args, from_tty, c)
+     char *args;
      int from_tty;
+     struct cmd_list_element *c;
 {
-  int i;
-
-  if (!arg)
-    error_no_arg ("history file name");
+  char *cmdname = "verbose";
+  struct cmd_list_element *showcmd;
   
-  arg = tilde_expand (arg);
-  make_cleanup (free, arg);
+  showcmd = lookup_cmd_1 (&cmdname, showlist, NULL, 1);
 
-  i = strlen (arg) - 1;
-  
-  free (history_filename);
-  
-  while (i > 0 && (arg[i] == ' ' || arg[i] == '\t'))
-    i--;
-
-  if (!*arg)
-    history_filename = (char *) 0;
+  if (info_verbose)
+    {
+      c->doc = "Set verbose printing of informational messages.";
+      showcmd->doc = "Show verbose printing of informational messages.";
+    }
   else
-    history_filename = savestring (arg, i + 1);
-  history_filename[i] = '\0';
-}
-
-int info_verbose;
-
-static void
-set_verbose_command (arg, from_tty)
-     char *arg;
-     int from_tty;
-{
-  info_verbose = parse_binary_operation ("set verbose", arg);
-}
-
-static void
-verbose_info (arg, from_tty)
-     char *arg;
-     int from_tty;
-{
-  if (arg)
-    error ("\"info verbose\" does not take any arguments.\n");
-  
-  printf ("Verbose printing of information is %s.\n",
-	  info_verbose ? "on" : "off");
+    {
+      c->doc = "Set verbosity.";
+      showcmd->doc = "Show verbosity.";
+    }
 }
 
 static void
 float_handler ()
 {
-  error ("Invalid floating value encountered or computed.");
+  /* This message is based on ANSI C, section 4.7.  Note that integer
+     divide by zero causes this, so "float" is a misnomer.  */
+  error ("Erroneous arithmetic operation.");
+}
+
+/* Return whether we are running a batch file or from terminal.  */
+int
+batch_mode ()
+{
+  return !(instream == stdin && ISATTY (stdin));
 }
 
 
@@ -1717,22 +1936,24 @@ initialize_cmd_lists ()
   deletelist = (struct cmd_list_element *) 0;
   enablebreaklist = (struct cmd_list_element *) 0;
   setlist = (struct cmd_list_element *) 0;
+  showlist = NULL;
   sethistlist = (struct cmd_list_element *) 0;
+  showhistlist = NULL;
   unsethistlist = (struct cmd_list_element *) 0;
 }
 
 static void
 initialize_main ()
 {
-  char *tmpenv;
-  /* Command line editing externals.  */
-  extern int (*rl_completion_entry_function)();
-  extern char *rl_completer_word_break_characters;
+  struct cmd_list_element *c;
   
-  /* Set default verbose mode on.  */
-  info_verbose = 1;
-
+  char *tmpenv;
+  
+#ifdef DEFAULT_PROMPT
+  prompt = savestring (DEFAULT_PROMPT, strlen(DEFAULT_PROMPT));
+#else
   prompt = savestring ("(gdb) ", 6);
+#endif
 
   /* Set the important stuff up for command editing.  */
   command_editing_p = 1;
@@ -1759,21 +1980,22 @@ initialize_main ()
   /* Setup important stuff for command line editing.  */
   rl_completion_entry_function = (int (*)()) symbol_completion_function;
   rl_completer_word_break_characters = gdb_completer_word_break_characters;
+  rl_readline_name = "gdb";
 
   /* Define the classes of commands.
      They will appear in the help list in the reverse of this order.  */
 
-  add_cmd ("obscure", class_obscure, 0, "Obscure features.", &cmdlist);
-  add_cmd ("alias", class_alias, 0, "Aliases of other commands.", &cmdlist);
-  add_cmd ("user", class_user, 0, "User-defined commands.\n\
+  add_cmd ("obscure", class_obscure, NO_FUNCTION, "Obscure features.", &cmdlist);
+  add_cmd ("aliases", class_alias, NO_FUNCTION, "Aliases of other commands.", &cmdlist);
+  add_cmd ("user-defined", class_user, NO_FUNCTION, "User-defined commands.\n\
 The commands in this class are those defined by the user.\n\
 Use the \"define\" command to define a command.", &cmdlist);
-  add_cmd ("support", class_support, 0, "Support facilities.", &cmdlist);
-  add_cmd ("status", class_info, 0, "Status inquiries.", &cmdlist);
-  add_cmd ("files", class_files, 0, "Specifying and examining files.", &cmdlist);
-  add_cmd ("breakpoints", class_breakpoint, 0, "Making program stop at certain points.", &cmdlist);
-  add_cmd ("data", class_vars, 0, "Examining data.", &cmdlist);
-  add_cmd ("stack", class_stack, 0, "Examining the stack.\n\
+  add_cmd ("support", class_support, NO_FUNCTION, "Support facilities.", &cmdlist);
+  add_cmd ("status", class_info, NO_FUNCTION, "Status inquiries.", &cmdlist);
+  add_cmd ("files", class_files, NO_FUNCTION, "Specifying and examining files.", &cmdlist);
+  add_cmd ("breakpoints", class_breakpoint, NO_FUNCTION, "Making program stop at certain points.", &cmdlist);
+  add_cmd ("data", class_vars, NO_FUNCTION, "Examining data.", &cmdlist);
+  add_cmd ("stack", class_stack, NO_FUNCTION, "Examining the stack.\n\
 The stack is made up of stack frames.  Gdb assigns numbers to stack frames\n\
 counting from zero for the innermost (currently executing) frame.\n\n\
 At any time gdb identifies one frame as the \"selected\" frame.\n\
@@ -1781,7 +2003,7 @@ Variable lookups are done with respect to the selected frame.\n\
 When the program being debugged stops, gdb selects the innermost frame.\n\
 The commands below can be used to select other frames by number or address.",
 	   &cmdlist);
-  add_cmd ("running", class_run, 0, "Running the program.", &cmdlist);
+  add_cmd ("running", class_run, NO_FUNCTION, "Running the program.", &cmdlist);
 
   add_com ("pwd", class_files, pwd_command,
 	   "Print working directory.  This is used for your program as well.");
@@ -1790,9 +2012,12 @@ The commands below can be used to select other frames by number or address.",
 The change does not take effect for the program being debugged\n\
 until the next time it is started.");
 
-  add_cmd ("prompt", class_support, set_prompt_command,
-	   "Change gdb's prompt from the default of \"(gdb)\"",
-	   &setlist);
+  add_show_from_set
+    (add_set_cmd ("prompt", class_support, var_string, (char *)&prompt,
+	   "Set gdb's prompt",
+	   &setlist),
+     &showlist);
+  
   add_com ("echo", class_support, echo_command,
 	   "Print a constant string.  Give string as argument.\n\
 C escape sequences may be used in the argument.\n\
@@ -1812,54 +2037,92 @@ End with a line of just \"end\".\n\
 Use the \"document\" command to give documentation for the new command.\n\
 Commands defined in this way do not take arguments.");
 
+#ifdef __STDC__
+  add_com ("source", class_support, source_command,
+	   "Read commands from a file named FILE.\n\
+Note that the file \"" GDBINIT_FILENAME "\" is read automatically in this way\n\
+when gdb is started.");
+#else
+  /* Punt file name, we can't help it easily.  */
   add_com ("source", class_support, source_command,
 	   "Read commands from a file named FILE.\n\
 Note that the file \".gdbinit\" is read automatically in this way\n\
 when gdb is started.");
+#endif
+
   add_com ("quit", class_support, quit_command, "Exit gdb.");
   add_com ("help", class_support, help_command, "Print list of commands.");
   add_com_alias ("q", "quit", class_support, 1);
   add_com_alias ("h", "help", class_support, 1);
 
-  add_cmd ("verbose", class_support, set_verbose_command,
-	   "Change the number of informational messages gdb prints.",
-	   &setlist);
-  add_info ("verbose", verbose_info,
-	    "Status of gdb's verbose printing option.\n");
 
+  c = add_set_cmd ("verbose", class_support, var_boolean, (char *)&info_verbose,
+		   "Set ",
+		   &setlist),
+  add_show_from_set (c, &showlist);
+  c->function = set_verbose;
+  set_verbose (NULL, 0, c);
+  
   add_com ("dump-me", class_obscure, dump_me_command,
 	   "Get fatal error; make debugger dump its core.");
 
-  add_cmd ("editing", class_support, set_editing,
-	   "Enable or disable command line editing.\n\
+  add_show_from_set
+    (add_set_cmd ("editing", class_support, var_boolean, (char *)&command_editing_p,
+	   "Set command line editing.\n\
 Use \"on\" to enable to enable the editing, and \"off\" to disable it.\n\
-Without an argument, command line editing is enabled.", &setlist);
+Without an argument, command line editing is enabled.", &setlist),
+     &showlist);
 
   add_prefix_cmd ("history", class_support, set_history,
 		  "Generic command for setting command history parameters.",
 		  &sethistlist, "set history ", 0, &setlist);
+  add_prefix_cmd ("history", class_support, show_history,
+		  "Generic command for showing command history parameters.",
+		  &showhistlist, "show history ", 0, &showlist);
 
-  add_cmd ("expansion", no_class, set_history_expansion,
-	   "Enable or disable history expansion on command input.\n\
-Without an argument, history expansion is enabled.", &sethistlist);
+  add_show_from_set
+    (add_set_cmd ("expansion", no_class, var_boolean, (char *)&history_expansion_p,
+	   "Set history expansion on command input.\n\
+Without an argument, history expansion is enabled.", &sethistlist),
+     &showhistlist);
 
-  add_cmd ("write", no_class, set_history_write,
-	   "Enable or disable saving of the history record on exit.\n\
+  add_show_from_set
+    (add_set_cmd ("write", no_class, var_boolean, (char *)&write_history_p,
+	   "Set saving of the history record on exit.\n\
 Use \"on\" to enable to enable the saving, and \"off\" to disable it.\n\
-Without an argument, saving is enabled.", &sethistlist);
+Without an argument, saving is enabled.", &sethistlist),
+     &showhistlist);
 
-  add_cmd ("size", no_class, set_history_size,
-	   "Set the size of the command history, \n\
+  c = add_set_cmd ("size", no_class, var_uinteger, (char *)&history_size,
+		   "Set the size of the command history, \n\
 ie. the number of previous commands to keep a record of.", &sethistlist);
+  add_show_from_set (c, &showhistlist);
+  c->function = set_history_size_command;
 
-  add_cmd ("filename", no_class, set_history_filename,
+  add_show_from_set
+    (add_set_cmd ("filename", no_class, var_filename, (char *)&history_filename,
 	   "Set the filename in which to record the command history\n\
- (the list of previous commands of which a record is kept).", &sethistlist);
+ (the list of previous commands of which a record is kept).", &sethistlist),
+     &showhistlist);
+
+  add_show_from_set
+    (add_set_cmd ("caution", class_support, var_boolean,
+		  (char *)&caution,
+	   "Set expected caution of user.\n\
+If on (the default), more warnings are printed, and the user is asked whether\n\
+they really want to do various major commands.", &setlist),
+     &showlist);
 
   add_prefix_cmd ("info", class_info, info_command,
 		  "Generic command for printing status.",
 		  &infolist, "info ", 0, &cmdlist);
   add_com_alias ("i", "info", class_info, 1);
+
+  add_prefix_cmd ("show", class_info, show_command,
+		  "Generic command for showing things set with \"set\".",
+		  &showlist, "show ", 0, &cmdlist);
+  /* Another way to get at the same thing.  */
+  add_info ("set", show_command, "Show all GDB settings.");
 
   add_info ("editing", editing_info, "Status of command editor.");
 

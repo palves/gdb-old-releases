@@ -1,37 +1,21 @@
-Thu Feb  8 01:04:00 1990  Jim Kingdon  (kingdon at pogo.ai.mit.edu)
+Sun Mar 11 04:32:03 1990  Brian Fox  (bfox at gnuwest.fsf.org)
 
-	* Makefile (the *other* libreadline.a): Uncomment out ranlib line.
+	* Signals are now supposedly handled inside of SYSV compilation.
 
-Thu Feb  1 17:50:22 1990  Jim Kingdon  (kingdon at pogo.ai.mit.edu)
+Wed Jan 17 19:24:09 1990  Brian Fox  (bfox at sbphy.ucsb.edu)
 
-	* Makefile (libreadline.a): Uncomment out ranlib line.
+	* history.c: history_expand (); fixed overwriting memory error,
+	added needed argument to call to get_history_event ().
 
-Sun Nov 26 16:29:11 1989  Jim Kingdon  (kingdon at hobbes.ai.mit.edu)
+Thu Jan 11 10:54:04 1990  Brian Fox  (bfox at sbphy.ucsb.edu)
 
-	* readline.c (rl_deprep_terminal): Only restore local_mode_flags
-	if they had been set.
+	* readline.c, readline.h: added rl_show_star to control the
+	display of an asterisk on modified history lines.
 
-Thu Oct 19 17:18:40 1989  Jim Kingdon  (kingdon at hobbes.ai.mit.edu)
+Thu Jan  4 10:38:05 1990  Brian Fox  (bfox at sbphy.ucsb.edu)
 
-	* Move vi_doing_insert from vi_mode.c to readline.c
-
-	* readline.c: Move compare_strings before its use.
-	Remove declarations.
-
-	* readline.c: Move defining_kbd_macro above rl_dispatch.
-	(rl_dispatch): Remove "extern int defining_kbd_macro".
-
-Mon Oct 16 11:56:03 1989  Jim Kingdon  (kingdon at hobbes.ai.mit.edu)
-
-	* readline.c (rl_set_signals): Remove unnecessary "static int
-	rl_signal_handler()".
-
-Sat Sep 30 14:51:56 1989  Jim Kingdon  (kingdon at hobbes.ai.mit.edu)
-
-	* readline.c (rl_initialize): Change parsing_conditionalized_out
-	to static.
-	(rl_dispatch): Change defining_kbd_macro to static.
-	(rl_newline): Change vi_doing_insert to static.
+	* readline.c: start_insert ().  Only use IC if we don't have an im
+	capability.
 
 Fri Sep  8 09:00:45 1989  Brian Fox  (bfox at aurel)
 

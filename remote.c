@@ -1,5 +1,5 @@
 /* Memory-access and commands for inferior process, for GDB.
-   Copyright (C)  1988, 1989 Free Software Foundation, Inc.
+   Copyright (C)  1988, 1989, 1990  Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -67,11 +67,12 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 */
 
 #include <stdio.h>
+#include <string.h>
 #include "defs.h"
 #include "param.h"
 #include "frame.h"
 #include "inferior.h"
-
+#include "target.h"
 #include "wait.h"
 
 #ifdef USG
@@ -96,6 +97,14 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sgtty.h>
 #define TERMINAL struct sgttyb
 #endif
+
+extern int memory_insert_breakpoint ();
+extern int memory_remove_breakpoint ();
+extern void add_file_addr_command ();
+extern struct value *call_function_by_hand();
+extern void start_remote ();
+
+extern struct target_ops remote_ops;	/* Forward decl */
 
 static int kiodebug;
 static int timeout = 5;
@@ -135,6 +144,13 @@ remote_timer ()
 }
 #endif
 
+/* Initialize remote connection */
+
+void
+remote_start()
+{
+}
+
 /* Open a connection to a remote debugger.
    NAME is the filename used for communication.  */
 
@@ -145,10 +161,14 @@ remote_open (name, from_tty)
 {
   TERMINAL sg;
 
+  if (name == 0)
+    error (
+"To open a remote debug connection, you need to specify what serial\n\
+device is attached to the remote system (e.g. /dev/ttya).");
+
   if (remote_desc >= 0)
     close (remote_desc);
 
-  remote_debugging = 0;
 #if 0
   dcache_init ();
 #endif
@@ -169,7 +189,8 @@ remote_open (name, from_tty)
 
   if (from_tty)
     printf ("Remote debugging using %s\n", name);
-  remote_debugging = 1;
+  push_target (&remote_ops);	/* Switch to using remote target now */
+  start_remote ();		/* Initialize gdb process mechanisms */
 
 #ifndef HAVE_TERMIO
 #ifndef NO_SIGINTERRUPT
@@ -186,15 +207,21 @@ remote_open (name, from_tty)
   putpkt ("?");			/* initiate a query from remote machine */
 }
 
-/* Close the open connection to the remote debugger.
+/* remote_detach()
+   takes a program previously attached to and detaches it.
+   We better not have left any breakpoints
+   in the program or it'll die when it hits one.
+   Close the open connection to the remote debugger.
    Use this when you want to detach and do something else
    with your gdb.  */
-void
-remote_close (from_tty)
+
+static void
+remote_detach (args, from_tty)
+     char *args;
      int from_tty;
 {
-  if (!remote_debugging)
-    error ("Can't close remote connection: not debugging remotely.");
+  if (args)
+    error ("Argument given to \"detach\" when remotely debugging.");
   
   close (remote_desc);		/* This should never be called if
 				   there isn't something valid in
@@ -206,9 +233,9 @@ remote_close (from_tty)
   if (from_tty)
     printf ("Ending remote debugging\n");
 
-  remote_debugging = 0;
+  inferior_pid = 0;
 }
- 
+
 /* Convert hex digit A to a number.  */
 
 static int
@@ -221,6 +248,7 @@ fromhex (a)
     return a - 'a' + 10;
   else
     error ("Reply contains invalid hex digit");
+  return -1;
 }
 
 /* Convert number NIB to a hex digit.  */
@@ -237,9 +265,9 @@ tohex (nib)
 
 /* Tell the remote machine to resume.  */
 
-int
-remote_resume (step, signal)
-     int step, signal;
+void
+remote_resume (step, siggnal)
+     int step, siggnal;
 {
   char buf[PBUFSIZ];
 
@@ -272,19 +300,21 @@ remote_wait (status)
 
 /* Read the remote registers into the block REGS.  */
 
-void
-remote_fetch_registers (regs)
-     char *regs;
+int
+remote_fetch_registers (regno)
+     int regno;
 {
   char buf[PBUFSIZ];
   int i;
   char *p;
+  char regs[REGISTER_BYTES];
 
   sprintf (buf, "g");
   remote_send (buf);
 
-  /* Reply describes registers byte by byte,
-     each byte encoded as two hex characters.  */
+  /* Reply describes registers byte by byte, each byte encoded as two
+     hex characters.  Suck them all up, then supply them to the
+     register cacheing/storage mechanism.  */
 
   p = buf;
   for (i = 0; i < REGISTER_BYTES; i++)
@@ -294,13 +324,26 @@ remote_fetch_registers (regs)
       regs[i] = fromhex (p[0]) * 16 + fromhex (p[1]);
       p += 2;
     }
+  for (i = 0; i < NUM_REGS; i++)
+    supply_register (i, &regs[REGISTER_BYTE(i)]);
+  return 0;
 }
 
-/* Store the remote registers from the contents of the block REGS.  */
+/* Prepare to store registers.  Since we send them all, we have to
+   read out the ones we don't want to change first.  */
 
-void
-remote_store_registers (regs)
-     char *regs;
+void 
+remote_prepare_to_store ()
+{
+  remote_fetch_registers (-1);
+}
+
+/* Store the remote registers from the contents of the block REGISTERS. 
+   FIXME, eventually just store one register if that's all that is needed.  */
+
+int
+remote_store_registers (regno)
+     int regno;
 {
   char buf[PBUFSIZ];
   int i;
@@ -314,12 +357,13 @@ remote_store_registers (regs)
   p = buf + 1;
   for (i = 0; i < REGISTER_BYTES; i++)
     {
-      *p++ = tohex ((regs[i] >> 4) & 0xf);
-      *p++ = tohex (regs[i] & 0xf);
+      *p++ = tohex ((registers[i] >> 4) & 0xf);
+      *p++ = tohex (registers[i] & 0xf);
     }
   *p = '\0';
 
   remote_send (buf);
+  return 0;
 }
 
 #if 0
@@ -354,18 +398,7 @@ remote_store_word (addr, word)
 {
   dcache_poke (addr, word);
 }
-#else /* not 0 */
-void remote_fetch_word (addr)
-     CORE_ADDR addr;
-{
-  error ("Internal error: remote_fetch_word is obsolete.\n");
-}
-void remote_store_word (addr)
-     CORE_ADDR addr;
-{
-  error ("Internal error: remote_store_word is obsolete.\n");
-}
-#endif /* not 0 */
+#endif /* 0 */
 
 /* Write memory data directly to the remote machine.
    This does not inform the data cache; the data cache uses this.
@@ -437,14 +470,18 @@ remote_read_bytes (memaddr, myaddr, len)
     }
 }
 
-/* Read LEN bytes from inferior memory at MEMADDR.  Put the result
-   at debugger address MYADDR.  Returns errno value.  */
+/* Read or write LEN bytes from inferior memory at MEMADDR, transferring
+   to or from debugger address MYADDR.  Write to inferior if WRITE is
+   nonzero.  Returns length of data written or read; 0 for error.  */
+
 int
-remote_read_inferior_memory(memaddr, myaddr, len)
+remote_xfer_inferior_memory(memaddr, myaddr, len, write)
      CORE_ADDR memaddr;
      char *myaddr;
      int len;
+     int write;
 {
+  int origlen = len;
   int xfersize;
   while (len > 0)
     {
@@ -453,37 +490,21 @@ remote_read_inferior_memory(memaddr, myaddr, len)
       else
 	xfersize = len;
 
-      remote_read_bytes (memaddr, myaddr, xfersize);
+      if (write)
+        remote_write_bytes(memaddr, myaddr, xfersize);
+      else
+	remote_read_bytes (memaddr, myaddr, xfersize);
       memaddr += xfersize;
       myaddr  += xfersize;
       len     -= xfersize;
     }
-  return 0; /* no error */
+  return origlen; /* no error possible */
 }
 
-/* Copy LEN bytes of data from debugger memory at MYADDR
-   to inferior's memory at MEMADDR.  Returns errno value.  */
-int
-remote_write_inferior_memory (memaddr, myaddr, len)
-     CORE_ADDR memaddr;
-     char *myaddr;
-     int len;
+void
+remote_files_info ()
 {
-  int xfersize;
-  while (len > 0)
-    {
-      if (len > MAXBUFBYTES)
-	xfersize = MAXBUFBYTES;
-      else
-	xfersize = len;
-      
-      remote_write_bytes(memaddr, myaddr, xfersize);
-      
-      memaddr += xfersize;
-      myaddr  += xfersize;
-      len     -= xfersize;
-    }
-  return 0; /* no error */
+  printf ("remote files info missing here.  FIXME.\n");
 }
 
 /*
@@ -533,7 +554,7 @@ static void
 remote_send (buf)
      char *buf;
 {
-  int i;
+
   putpkt (buf);
   getpkt (buf);
 
@@ -551,7 +572,6 @@ putpkt (buf)
   int i;
   unsigned char csum = 0;
   char buf2[500];
-  char buf3[1];
   int cnt = strlen (buf);
   char ch;
   char *p;
@@ -599,7 +619,6 @@ getpkt (buf)
   unsigned char csum;
   int c;
   unsigned char c1, c2;
-  extern kiodebug;
 
   /* allow immediate quit while reading from device, it could be hung */
   immediate_quit++;
@@ -791,3 +810,29 @@ dcache_init ()
     insque (db, &dcache_free);
 }
 #endif /* 0 */
+
+/* Define the target subroutine names */
+
+struct target_ops remote_ops = {
+	"remote", "Remote serial target in gdb-specific protocol",
+	remote_open, remote_detach, remote_resume, remote_wait,
+	remote_fetch_registers, remote_store_registers,
+	remote_prepare_to_store, 0, 0, /* conv_from, conv_to */
+	remote_xfer_inferior_memory, remote_files_info,
+	0, 0, /* insert_breakpoint, remove_breakpoint, */
+	0, 0, 0, 0, 0,	/* Terminal crud */
+	0, /* kill */
+	add_file_addr_command,
+	call_function_by_hand,
+	0, /* lookup_symbol */
+	0, 0, /* create_inferior FIXME, mourn_inferior FIXME */
+	0, /* next */
+	1, 1, 1, 1, 1,	/* all mem, mem, stack, regs, exec */
+	OPS_MAGIC,		/* Always the last thing */
+};
+
+void
+_initialize_remote ()
+{
+  add_target (&remote_ops);
+}

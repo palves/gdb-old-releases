@@ -74,7 +74,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	   itself.  Hmmm.  One would hope that the stack pointer would
 	   also change.  If it doesn't, somebody send me a note, and
 	   I'll work out a more general theory.
-	   randy@wheaties.ai.mit.edu).  This is true (albeit slipperly
+	   bug-gdb@prep.ai.mit.edu).  This is true (albeit slipperly
 	   so) on all machines I'm aware of:
 
 	      m68k:	Call changes stack pointer.  Regular jumps don't.
@@ -117,12 +117,19 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    
 
 #include <stdio.h>
+#include <string.h>
 #include "defs.h"
 #include "param.h"
 #include "symtab.h"
 #include "frame.h"
 #include "inferior.h"
+#include "breakpoint.h"
 #include "wait.h"
+#include "gdbcore.h"
+#include "signame.h"
+#include "command.h"
+#include "terminal.h"		/* For #ifdef TIOCGPGRP and new_tty */
+#include "target.h"
 
 #include <signal.h>
 
@@ -133,11 +140,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/file.h>
 #endif
 
-#ifdef UMAX_PTRACE
-#include <aouthdr.h>
-#include <sys/param.h>
-#include <sys/ptrace.h>
-#endif /* UMAX_PTRACE */
+#ifdef SET_STACK_LIMIT_HUGE
+extern int original_stack_limit;
+#endif /* SET_STACK_LIMIT_HUGE */
 
 /* Required by <sys/user.h>.  */
 #include <sys/types.h>
@@ -148,8 +153,15 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Needed by IN_SIGTRAMP on some machines (e.g. vax).  */
 #include <sys/user.h>
 
-extern char *sys_siglist[];
 extern int errno;
+extern char *getenv ();
+
+extern struct target_ops child_ops;	/* In inftarg.c */
+
+/* Copy of inferior_io_terminal when inferior was last started.  */
+
+extern char *inferior_thisrun_terminal;
+
 
 /* Sigtramp is a routine that the kernel calls (which then calls the
    signal handler).  On most machines it is a library routine that
@@ -174,34 +186,28 @@ static char signal_print[NSIG];
 static char signal_program[NSIG];
 
 /* Nonzero if breakpoints are now inserted in the inferior.  */
+/* Nonstatic for initialization during xxx_create_inferior. FIXME. */
 
-static int breakpoints_inserted;
+/*static*/ int breakpoints_inserted;
 
 /* Function inferior was in as of last step command.  */
 
 static struct symbol *step_start_function;
 
-/* This is the sequence of bytes we insert for a breakpoint.  */
-
-static char break_insn[] = BREAKPOINT;
-
 /* Nonzero => address for special breakpoint for resuming stepping.  */
 
 static CORE_ADDR step_resume_break_address;
 
-/* Original contents of the byte where the special breakpoint is.  */
+/* Pointer to orig contents of the byte where the special breakpoint is.  */
 
-static char step_resume_break_shadow[sizeof break_insn];
+static char step_resume_break_shadow[BREAKPOINT_MAX];
 
 /* Nonzero means the special breakpoint is a duplicate
    so it has not itself been inserted.  */
 
 static int step_resume_break_duplicate;
 
-/* Nonzero if we are expecting a trace trap and should proceed from it.
-   2 means expecting 2 trace traps and should continue both times.
-   That occurs when we tell sh to exec the program: we will get
-   a trap after the exec of sh and a second when the program is exec'd.  */
+/* Nonzero if we are expecting a trace trap and should proceed from it.  */
 
 static int trap_expected;
 
@@ -216,9 +222,12 @@ static int trap_expected_after_continue;
 
 int stop_after_trap;
 
-/* Nonzero means expecting a trace trap due to attaching to a process.  */
+/* Nonzero means expecting a trap and caller will handle it themselves.
+   It is used after attach, due to attaching to a process;
+   when running in the shell before the child program has been exec'd;
+   and when running some kinds of remote stuff (FIXME?).  */
 
-int stop_after_attach;
+int stop_soon_quietly;
 
 /* Nonzero if pc has been changed by the debugger
    since the inferior stopped.  */
@@ -229,17 +238,15 @@ int pc_changed;
 
 int remote_debugging;
 
-/* Save register contents here when about to pop a stack dummy frame.  */
+/* Save register contents here when about to pop a stack dummy frame.
+   Thus this contains the return value from the called function (assuming
+   values are returned in a register).  */
 
 char stop_registers[REGISTER_BYTES];
 
 /* Nonzero if program stopped due to error trying to insert breakpoints.  */
 
 static int breakpoints_failed;
-
-/* Nonzero if inferior is in sh before our program got exec'd.  */
-
-static int running_in_shell;
 
 /* Nonzero after stop if current stack frame should be printed.  */
 
@@ -252,7 +259,8 @@ extern void single_step ();	/* Same. */
 
 static void insert_step_breakpoint ();
 static void remove_step_breakpoint ();
-static void wait_for_inferior ();
+/*static*/ void wait_for_inferior ();
+void init_wait_for_inferior ();
 static void normal_stop ();
 
 
@@ -269,16 +277,17 @@ clear_proceed_status ()
   step_over_calls = -1;
   step_resume_break_address = 0;
   stop_after_trap = 0;
-  stop_after_attach = 0;
+  stop_soon_quietly = 0;
+  breakpoint_proceeded = 1;	/* We're about to proceed... */
 
-  /* Discard any remaining commands left by breakpoint we had stopped at.  */
-  clear_breakpoint_commands ();
+  /* Discard any remaining commands or status from previous stop.  */
+  bpstat_clear (&stop_bpstat);
 }
 
 /* Basic routine for continuing the program in various fashions.
 
    ADDR is the address to resume at, or -1 for resume where stopped.
-   SIGNAL is the signal to give it, or 0 for none,
+   SIGGNAL is the signal to give it, or 0 for none,
      or -1 for act according to how it stopped.
    STEP is nonzero if should trap after one instruction.
      -1 means return after that and print nothing.
@@ -288,9 +297,9 @@ clear_proceed_status ()
    You should call clear_proceed_status before calling proceed.  */
 
 void
-proceed (addr, signal, step)
+proceed (addr, siggnal, step)
      CORE_ADDR addr;
-     int signal;
+     int siggnal;
      int step;
 {
   int oneproc = 0;
@@ -314,6 +323,9 @@ proceed (addr, signal, step)
       write_register (PC_REGNUM, addr);
 #ifdef NPC_REGNUM
       write_register (NPC_REGNUM, addr + 4);
+#ifdef NNPC_REGNUM
+      write_register (NNPC_REGNUM, addr + 8);
+#endif
 #endif
     }
 
@@ -344,17 +356,22 @@ The same program may be running in another process.");
     }
 
   /* Install inferior's terminal modes.  */
-  terminal_inferior ();
+  target_terminal_inferior ();
 
-  if (signal >= 0)
-    stop_signal = signal;
+  if (siggnal >= 0)
+    stop_signal = siggnal;
   /* If this signal should not be seen by program,
      give it zero.  Used for debugging signals.  */
   else if (stop_signal < NSIG && !signal_program[stop_signal])
     stop_signal= 0;
 
+  /* Handle any optimized stores to the inferior NOW...  */
+#ifdef DO_DEFERRED_STORES
+  DO_DEFERRED_STORES;
+#endif
+
   /* Resume inferior.  */
-  resume (oneproc || step, stop_signal);
+  target_resume (oneproc || step || bpstat_should_step (), stop_signal);
 
   /* Wait for it to stop (if not standalone)
      and in any case decode why it stopped, and act accordingly.  */
@@ -363,6 +380,9 @@ The same program may be running in another process.");
   normal_stop ();
 }
 
+#if 0
+/* This might be useful (not sure), but isn't currently used.  See also
+   write_pc().  */
 /* Writing the inferior pc as a register calls this function
    to inform infrun that the pc has been set in the debugger.  */
 
@@ -373,52 +393,197 @@ writing_pc (val)
   stop_pc = val;
   pc_changed = 1;
 }
+#endif
 
-/* Start an inferior process for the first time.
-   Actually it was started by the fork that created it,
-   but it will have stopped one instruction after execing sh.
-   Here we must get it up to actual execution of the real program.  */
+/* Record the pc and sp of the program the last time it stopped.
+   These are just used internally by wait_for_inferior, but need
+   to be preserved over calls to it and cleared when the inferior
+   is started.  */
+static CORE_ADDR prev_pc;
+static CORE_ADDR prev_sp;
+static CORE_ADDR prev_func_start;
+static char *prev_func_name;
+
+/* Start an inferior Unix child process and sets inferior_pid to its pid.
+   EXEC_FILE is the file to run.
+   ALLARGS is a string containing the arguments to the program.
+   ENV is the environment vector to pass.  Errors reported with error().  */
+
+#ifndef SHELL_FILE
+#define SHELL_FILE "/bin/sh"
+#endif
 
 void
-start_inferior ()
+child_create_inferior (exec_file, allargs, env)
+     char *exec_file;
+     char *allargs;
+     char **env;
 {
+  int pid;
+  char *shell_command;
+  extern int sys_nerr;
+  extern char *sys_errlist[];
+  extern int errno;
+  char *shell_file;
+  static char default_shell_file[] = SHELL_FILE;
+  int len;
+  int pending_execs;
+  /* Set debug_fork then attach to the child while it sleeps, to debug. */
+  static int debug_fork = 0;
+  /* This is set to the result of setpgrp, which if vforked, will be visible
+     to you in the parent process.  It's only used by humans for debugging.  */
+  static int debug_setpgrp = 657473;
+
+  /* The user might want tilde-expansion, and in general probably wants
+     the program to behave the same way as if run from
+     his/her favorite shell.  So we let the shell run it for us.
+     FIXME, this should probably search the local environment (as
+     modified by the setenv command), not the env gdb inherited.  */
+  shell_file = getenv ("SHELL");
+  if (shell_file == NULL)
+    shell_file = default_shell_file;
+  
+  len = 5 + strlen (exec_file) + 1 + strlen (allargs) + 1 + /*slop*/ 10;
+  /* If desired, concat something onto the front of ALLARGS.
+     SHELL_COMMAND is the result.  */
+#ifdef SHELL_COMMAND_CONCAT
+  shell_command = (char *) alloca (strlen (SHELL_COMMAND_CONCAT) + len);
+  strcpy (shell_command, SHELL_COMMAND_CONCAT);
+#else
+  shell_command = (char *) alloca (len);
+  shell_command[0] = '\0';
+#endif
+  strcat (shell_command, "exec ");
+  strcat (shell_command, exec_file);
+  strcat (shell_command, " ");
+  strcat (shell_command, allargs);
+
+  /* exec is said to fail if the executable is open.  */
+  close_exec_file ();
+
+#if defined(USG) && !defined(HAVE_VFORK)
+  pid = fork ();
+#else
+  if (debug_fork)
+    pid = fork ();
+  else
+    pid = vfork ();
+#endif
+
+  if (pid < 0)
+    perror_with_name ("vfork");
+
+  if (pid == 0)
+    {
+      if (debug_fork) 
+	sleep (debug_fork);
+
+#ifdef TIOCGPGRP
+      /* Run inferior in a separate process group.  */
+      debug_setpgrp = setpgrp (getpid (), getpid ());
+      if (0 != debug_setpgrp)
+	 perror("setpgrp failed in child");
+#endif /* TIOCGPGRP */
+
+#ifdef SET_STACK_LIMIT_HUGE
+      /* Reset the stack limit back to what it was.  */
+      {
+	struct rlimit rlim;
+
+	getrlimit (RLIMIT_STACK, &rlim);
+	rlim.rlim_cur = original_stack_limit;
+	setrlimit (RLIMIT_STACK, &rlim);
+      }
+#endif /* SET_STACK_LIMIT_HUGE */
+
+      /* Tell the terminal handling subsystem what tty we plan to run on;
+	 it will now switch to that one if non-null.  */
+
+      new_tty (inferior_io_terminal);
+
+      /* Changing the signal handlers for the inferior after
+	 a vfork can also change them for the superior, so we don't mess
+	 with signals here.  See comments in
+	 initialize_signals for how we get the right signal handlers
+	 for the inferior.  */
+
+      call_ptrace (0, 0, 0, 0);		/* "Trace me, Dr. Memory!" */
+      execle (shell_file, shell_file, "-c", shell_command, (char *)0, env);
+
+      fprintf (stderr, "Cannot exec %s: %s.\n", shell_file,
+	       errno < sys_nerr ? sys_errlist[errno] : "unknown error");
+      fflush (stderr);
+      _exit (0177);
+    }
+
+  /* Now that we have a child process, make it our target.  */
+  push_target (&child_ops);
+
+#ifdef CREATE_INFERIOR_HOOK
+  CREATE_INFERIOR_HOOK (pid);
+#endif  
+
+/* The process was started by the fork that created it,
+   but it will have stopped one instruction after execing the shell.
+   Here we must get it up to actual execution of the real program.  */
+
+  inferior_pid = pid;		/* Needed for wait_for_inferior stuff below */
+
+  clear_proceed_status ();
+
+#if defined (START_INFERIOR_HOOK)
+  START_INFERIOR_HOOK ();
+#endif
+
   /* We will get a trace trap after one instruction.
      Continue it automatically.  Eventually (after shell does an exec)
      it will get another trace trap.  Then insert breakpoints and continue.  */
 
 #ifdef START_INFERIOR_TRAPS_EXPECTED
-  trap_expected = START_INFERIOR_TRAPS_EXPECTED;
+  pending_execs = START_INFERIOR_TRAPS_EXPECTED;
 #else
-  trap_expected = 2;
+  pending_execs = 2;
 #endif
 
-  running_in_shell = 0;		/* Set to 1 at first SIGTRAP, 0 at second.  */
-  trap_expected_after_continue = 0;
-  breakpoints_inserted = 0;
-  mark_breakpoints_out ();
+  init_wait_for_inferior ();
 
   /* Set up the "saved terminal modes" of the inferior
      based on what modes we are starting it with.  */
-  terminal_init_inferior ();
+  target_terminal_init ();
 
   /* Install inferior's terminal modes.  */
-  terminal_inferior ();
+  target_terminal_inferior ();
 
-  if (remote_debugging)
+  while (1)
     {
-      trap_expected = 0;
-      fetch_inferior_registers();
-      set_current_frame (create_new_frame (read_register (FP_REGNUM),
-					   read_pc ()));
-      stop_frame_address = FRAME_FP (get_current_frame());
-      inferior_pid = 3;
-      if (insert_breakpoints())
-	fatal("Can't insert breakpoints");
-      breakpoints_inserted = 1;
-      proceed(-1, -1, 0);
+      stop_soon_quietly = 1;	/* Make wait_for_inferior be quiet */
+      wait_for_inferior ();
+      if (stop_signal != SIGTRAP)
+	{
+	  /* Let shell child handle its own signals in its own way */
+	  /* FIXME, what if child has exit()ed?  Must exit loop somehow */
+	  target_resume (0, stop_signal);
+	}
+      else
+	{
+	  /* We handle SIGTRAP, however; it means child did an exec.  */
+	  if (0 == --pending_execs)
+	    break;
+	  target_resume (0, 0);		/* Just make it go on */
+	}
     }
-  else
+  stop_soon_quietly = 0;
+
+  /* Should this perhaps just be a "proceed" call?  FIXME */
+  insert_step_breakpoint ();
+  breakpoints_failed = insert_breakpoints ();
+  if (!breakpoints_failed)
     {
+      breakpoints_inserted = 1;
+      target_terminal_inferior();
+      /* Start the child program going on its first instruction, single-
+	 stepping if we need to.  */
+      target_resume (bpstat_should_step (), 0);
       wait_for_inferior ();
       normal_stop ();
     }
@@ -429,38 +594,81 @@ start_inferior ()
 void
 start_remote ()
 {
+  init_wait_for_inferior ();
   clear_proceed_status ();
-  running_in_shell = 0;
+  stop_soon_quietly = 1;
   trap_expected = 0;
-  inferior_pid = 3;
-  breakpoints_inserted = 0;
-  mark_breakpoints_out ();
-  wait_for_inferior ();
-  normal_stop();
 }
 
-#ifdef ATTACH_DETACH
+/* Initialize static vars when a new inferior begins.  */
+
+void
+init_wait_for_inferior ()
+{
+  /* These are meaningless until the first time through wait_for_inferior.  */
+  prev_pc = 0;
+  prev_sp = 0;
+  prev_func_start = 0;
+  prev_func_name = NULL;
+
+  trap_expected_after_continue = 0;
+  breakpoints_inserted = 0;
+  mark_breakpoints_out ();
+}
+
 
 /* Attach to process PID, then initialize for debugging it
    and wait for the trace-trap that results from attaching.  */
 
 void
-attach_program (pid)
-     int pid;
+child_open (args, from_tty)
+     char *args;
+     int from_tty;
 {
+  char *exec_file;
+  int pid;
+
+  dont_repeat();
+
+  if (!args)
+    error_no_arg ("process-id to attach");
+
+#ifndef ATTACH_DETACH
+  error ("Can't attach to a process on this machine.");
+#else
+  pid = atoi (args);
+
+  if (inferior_pid)
+    {
+      if (query ("A program is being debugged already.  Kill it? "))
+	target_kill ((char *)0, from_tty);
+      else
+	error ("Inferior not killed.");
+    }
+
+  exec_file = (char *) get_exec_file (1);
+
+  if (from_tty)
+    {
+      printf ("Attaching program: %s pid %d\n",
+	      exec_file, pid);
+      fflush (stdout);
+    }
+
   attach (pid);
   inferior_pid = pid;
+  push_target (&child_ops);
 
   mark_breakpoints_out ();
-  terminal_init_inferior ();
+  target_terminal_init ();
   clear_proceed_status ();
-  stop_after_attach = 1;
+  stop_soon_quietly = 1;
   /*proceed (-1, 0, -2);*/
-  terminal_inferior ();
+  target_terminal_inferior ();
   wait_for_inferior ();
   normal_stop ();
+#endif  /* ATTACH_DETACH */
 }
-#endif /* ATTACH_DETACH */
 
 /* Wait for control to return from inferior to debugger.
    If inferior gets a signal, we may decide to start it up again
@@ -468,59 +676,51 @@ attach_program (pid)
    When this function actually returns it means the inferior
    should be left stopped and GDB should read more commands.  */
 
-static void
+void
 wait_for_inferior ()
 {
-  register int pid;
   WAITTYPE w;
-  CORE_ADDR pc;
-  int tem;
   int another_trap;
   int random_signal;
-  CORE_ADDR stop_sp, prev_sp;
-  CORE_ADDR prev_func_start, stop_func_start;
-  char *prev_func_name, *stop_func_name;
+  CORE_ADDR stop_sp;
+  CORE_ADDR stop_func_start;
+  char *stop_func_name;
   CORE_ADDR prologue_pc;
   int stop_step_resume_break;
-  CORE_ADDR step_resume_break_sp;
-  int newmisc;
-  int newfun_pc;
   struct symtab_and_line sal;
-  int prev_pc;
-  extern CORE_ADDR text_end;
   int remove_breakpoints_on_following_step = 0;
 
+#if 0
+  /* This no longer works now that read_register is lazy;
+     it might try to ptrace when the process is not stopped.  */
   prev_pc = read_pc ();
   (void) find_pc_partial_function (prev_pc, &prev_func_name,
 				   &prev_func_start);
   prev_func_start += FUNCTION_START_OFFSET;
   prev_sp = read_register (SP_REGNUM);
+#endif /* 0 */
 
   while (1)
     {
       /* Clean up saved state that will become invalid.  */
       pc_changed = 0;
       flush_cached_frames ();
+      registers_changed ();
 
-      if (remote_debugging)
-	remote_wait (&w);
-      else
-	{
-	  pid = wait (&w);
-	  if (pid != inferior_pid)
-	    continue;
-	}
+      target_wait (&w);
 
       /* See if the process still exists; clean up if it doesn't.  */
       if (WIFEXITED (w))
 	{
-	  terminal_ours_for_output ();
-	  if (WRETCODE (w))
-	    printf ("\nProgram exited with code 0%o.\n", WRETCODE (w));
+	  target_terminal_ours_for_output ();
+	  if (WEXITSTATUS (w))
+	    printf ("\nProgram exited with code 0%o.\n", 
+		     (unsigned int)WEXITSTATUS (w));
 	  else
-	    printf ("\nProgram exited normally.\n");
+	    if (!batch_mode())
+	      printf ("\nProgram exited normally.\n");
 	  fflush (stdout);
-	  inferior_died ();
+	  target_mourn_inferior ();
 #ifdef NO_SINGLE_STEP
 	  one_stepped = 0;
 #endif
@@ -529,10 +729,10 @@ wait_for_inferior ()
 	}
       else if (!WIFSTOPPED (w))
 	{
-	  kill_inferior ();
+	  target_kill ((char *)0, 0);
 	  stop_print_frame = 0;
 	  stop_signal = WTERMSIG (w);
-	  terminal_ours_for_output ();
+	  target_terminal_ours_for_output ();
 	  printf ("\nProgram terminated with signal %d, %s\n",
 		  stop_signal,
 		  stop_signal < NSIG
@@ -551,7 +751,6 @@ wait_for_inferior ()
 	single_step (0);	/* This actually cleans up the ss */
 #endif /* NO_SINGLE_STEP */
       
-      fetch_inferior_registers ();
       stop_pc = read_pc ();
       set_current_frame ( create_new_frame (read_register (FP_REGNUM),
 					    read_pc ()));
@@ -566,7 +765,7 @@ wait_for_inferior ()
 				       &stop_func_start);
       stop_func_start += FUNCTION_START_OFFSET;
       another_trap = 0;
-      stop_breakpoint = 0;
+      bpstat_clear (&stop_bpstat);
       stop_step = 0;
       stop_stack_dummy = 0;
       stop_print_frame = 1;
@@ -596,20 +795,26 @@ wait_for_inferior ()
 	  || (breakpoints_inserted &&
 	      (stop_signal == SIGILL
 	       || stop_signal == SIGEMT))
-	  || stop_after_attach)
+	  || stop_soon_quietly)
 	{
 	  if (stop_signal == SIGTRAP && stop_after_trap)
 	    {
 	      stop_print_frame = 0;
 	      break;
 	    }
-	  if (stop_after_attach)
+	  if (stop_soon_quietly)
 	    break;
+
 	  /* Don't even think about breakpoints
-	     if still running the shell that will exec the program
-	     or if just proceeded over a breakpoint.  */
-	  if (stop_signal == SIGTRAP && trap_expected)
-	    stop_breakpoint = 0;
+	     if just proceeded over a breakpoint.
+
+	     However, if we are trying to proceed over a breakpoint
+	     and end up in sigtramp, then step_resume_break_address
+	     will be set and we should check whether we've hit the
+	     step breakpoint.  */
+	  if (stop_signal == SIGTRAP && trap_expected
+	      && step_resume_break_address == NULL)
+	    bpstat_clear (&stop_bpstat);
 	  else
 	    {
 	      /* See if there is a breakpoint at the current PC.  */
@@ -639,45 +844,32 @@ wait_for_inferior ()
 		    }
 		  else
 		    {
-		      stop_breakpoint =
-			breakpoint_stop_status (stop_pc, stop_frame_address);
+		      stop_bpstat =
+			bpstat_stop_status (&stop_pc, stop_frame_address);
 		      /* Following in case break condition called a
 			 function.  */
 		      stop_print_frame = 1;
-		      if (stop_breakpoint && DECR_PC_AFTER_BREAK)
-			{
-			  stop_pc -= DECR_PC_AFTER_BREAK;
-			  write_register (PC_REGNUM, stop_pc);
-#ifdef NPC_REGNUM
-			  write_register (NPC_REGNUM, stop_pc + 4);
-#endif
-			  pc_changed = 0;
-			}
 		    }
 		}
 	    }
 	  
 	  if (stop_signal == SIGTRAP)
 	    random_signal
-	      = !(stop_breakpoint || trap_expected
+	      = !(bpstat_explains_signal (stop_bpstat)
+		  || trap_expected
 		  || stop_step_resume_break
-#ifndef CANNOT_EXECUTE_STACK
-		  || (stop_sp INNER_THAN stop_pc
-		      && stop_pc INNER_THAN stop_frame_address)
-#else
-		  || stop_pc == text_end - 2
-#endif
+		  || PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address)
 		  || (step_range_end && !step_resume_break_address));
 	  else
 	    {
 	      random_signal
-		= !(stop_breakpoint
+		= !(bpstat_explains_signal (stop_bpstat)
 		    || stop_step_resume_break
-#ifdef sony_news
+		    /* End of a stack dummy.  Some systems (e.g. Sony
+		       news) give another signal besides SIGTRAP,
+		       so check here as well as above.  */
 		    || (stop_sp INNER_THAN stop_pc
 			&& stop_pc INNER_THAN stop_frame_address)
-#endif
-		    
 		    );
 	      if (!random_signal)
 		stop_signal = SIGTRAP;
@@ -689,8 +881,7 @@ wait_for_inferior ()
       /* For the program's own signals, act according to
 	 the signal handling tables.  */
       
-      if (random_signal
-	  && !(running_in_shell && stop_signal == SIGSEGV))
+      if (random_signal)
 	{
 	  /* Signal not for debugging purposes.  */
 	  int printed = 0;
@@ -701,12 +892,16 @@ wait_for_inferior ()
 	      || signal_print[stop_signal])
 	    {
 	      printed = 1;
-	      terminal_ours_for_output ();
+	      target_terminal_ours_for_output ();
+#ifdef PRINT_RANDOM_SIGNAL
+	      PRINT_RANDOM_SIGNAL (stop_signal);
+#else
 	      printf ("\nProgram received signal %d, %s\n",
 		      stop_signal,
 		      stop_signal < NSIG
 		      ? sys_siglist[stop_signal]
 		      : "(undocumented)");
+#endif /* PRINT_RANDOM_SIGNAL */
 	      fflush (stdout);
 	    }
 	  if (stop_signal >= NSIG
@@ -715,31 +910,18 @@ wait_for_inferior ()
 	  /* If not going to stop, give terminal back
 	     if we took it away.  */
 	  else if (printed)
-	    terminal_inferior ();
+	    target_terminal_inferior ();
 	}
       
       /* Handle cases caused by hitting a breakpoint.  */
       
       if (!random_signal
-	  && (stop_breakpoint || stop_step_resume_break))
+	  && (bpstat_explains_signal (stop_bpstat) || stop_step_resume_break))
 	{
 	  /* Does a breakpoint want us to stop?  */
-	  if (stop_breakpoint && stop_breakpoint != -1
-	      && stop_breakpoint != -0x1000001)
+	  if (bpstat_stop (stop_bpstat))
 	    {
-	      /* 0x1000000 is set in stop_breakpoint as returned by
-		 breakpoint_stop_status to indicate a silent
-		 breakpoint.  */
-	      if ((stop_breakpoint > 0 ? stop_breakpoint :
-		   -stop_breakpoint)
-		  & 0x1000000)
-		{
-		  stop_print_frame = 0;
-		  if (stop_breakpoint > 0)
-		    stop_breakpoint -= 0x1000000;
-		  else
-		    stop_breakpoint += 0x1000000;
-		}
+	      stop_print_frame = bpstat_should_print (stop_bpstat);
 	      break;
 	    }
 	  /* But if we have hit the step-resumption breakpoint,
@@ -765,6 +947,11 @@ wait_for_inferior ()
 	    {
 	      remove_step_breakpoint ();
 	      step_resume_break_address = 0;
+
+	      /* If were waiting for a trap, hitting the step_resume_break
+		 doesn't count as getting it.  */
+	      if (trap_expected)
+		another_trap = 1;
 	    }
 	  /* Otherwise, must remove breakpoints and single-step
 	     to get us past the one we hit.  */
@@ -785,12 +972,7 @@ wait_for_inferior ()
       
       /* If this is the breakpoint at the end of a stack dummy,
 	 just stop silently.  */
-#ifndef CANNOT_EXECUTE_STACK
-      if (stop_sp INNER_THAN stop_pc
-	  && stop_pc INNER_THAN stop_frame_address)
-#else
-	if (stop_pc == text_end - 2)
-#endif
+      if (PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address))
 	  {
 	    stop_print_frame = 0;
 	    stop_stack_dummy = 1;
@@ -819,6 +1001,11 @@ wait_for_inferior ()
 		    && (stop_sp INNER_THAN prev_sp
 			|| stop_frame_address != step_frame_address)))
 	{
+#if 0
+	  /* When "next"ing through a function,
+	     This causes an extra stop at the end.
+	     Is there any reason for this?
+	     It's confusing to the user.  */
 	  /* Don't step through the return from a function
 	     unless that is the first instruction stepped through.  */
 	  if (ABOUT_TO_RETURN (stop_pc))
@@ -826,6 +1013,7 @@ wait_for_inferior ()
 	      stop_step = 1;
 	      break;
 	    }
+#endif
 	}
       
       /* We stepped out of the stepping range.  See if that was due
@@ -850,7 +1038,6 @@ wait_for_inferior ()
 	      step_resume_break_address = prev_pc;
 	      step_resume_break_duplicate =
 		breakpoint_here_p (step_resume_break_address);
-	      step_resume_break_sp = stop_sp;
 	      if (breakpoints_inserted)
 		insert_step_breakpoint ();
 	      /* Make sure that the stepping range gets us past
@@ -874,10 +1061,10 @@ wait_for_inferior ()
 		  /* A subroutine call has happened.  */
 		  /* Set a special breakpoint after the return */
 		  step_resume_break_address =
-		    SAVED_PC_AFTER_CALL (get_current_frame ());
+		    ADDR_BITS_REMOVE
+		      (SAVED_PC_AFTER_CALL (get_current_frame ()));
 		  step_resume_break_duplicate
 		    = breakpoint_here_p (step_resume_break_address);
-		  step_resume_break_sp = stop_sp;
 		  if (breakpoints_inserted)
 		    insert_step_breakpoint ();
 		}
@@ -911,7 +1098,6 @@ wait_for_inferior ()
 		    /* Put the step-breakpoint there and go until there. */
 		    {
 		      step_resume_break_address = stop_func_start;
-		      step_resume_break_sp = stop_sp;
 		      
 		      step_resume_break_duplicate
 			= breakpoint_here_p (step_resume_break_address);
@@ -944,6 +1130,28 @@ wait_for_inferior ()
 	    }
 	}
 
+      else if (trap_expected
+	       && IN_SIGTRAMP (stop_pc, stop_func_name)
+	       && !IN_SIGTRAMP (prev_pc, prev_func_name))
+	{
+	  /* What has happened here is that we have just stepped the inferior
+	     with a signal (because it is a signal which shouldn't make
+	     us stop), thus stepping into sigtramp.
+
+	     So we need to set a step_resume_break_address breakpoint
+	     and continue until we hit it, and then step.  */
+	  step_resume_break_address = prev_pc;
+	  /* Always 1, I think, but it's probably easier to have
+	     the step_resume_break as usual rather than trying to
+	     re-use the breakpoint which is already there.  */
+	  step_resume_break_duplicate =
+	    breakpoint_here_p (step_resume_break_address);
+	  if (breakpoints_inserted)
+	    insert_step_breakpoint ();
+	  remove_breakpoints_on_following_step = 1;
+	  another_trap = 1;
+	}
+
       /* Save the pc before execution, to compare with pc after stop.  */
       prev_pc = read_pc ();	/* Might have been DECR_AFTER_BREAK */
       prev_func_start = stop_func_start; /* Ok, since if DECR_PC_AFTER
@@ -957,39 +1165,29 @@ wait_for_inferior ()
       /* If we did not do break;, it means we should keep
 	 running the inferior and not return to debugger.  */
 
-      /* If trap_expected is 2, it means continue once more
-	 and insert breakpoints at the next trap.
-	 If trap_expected is 1 and the signal was SIGSEGV, it means
-	 the shell is doing some memory allocation--just resume it
-	 with SIGSEGV.
-	 Otherwise insert breakpoints now, and possibly single step.  */
-
-      if (trap_expected > 1)
+      if (trap_expected && stop_signal != SIGTRAP)
 	{
-	  trap_expected--;
-	  running_in_shell = 1;
-	  resume (0, 0);
-	}
-      else if (running_in_shell && stop_signal == SIGSEGV)
-	{
-	  resume (0, SIGSEGV);
-	}
-      else if (trap_expected && stop_signal != SIGTRAP)
-	{
-	  /* We took a signal which we are supposed to pass through to
-	     the inferior and we haven't yet gotten our trap.  Simply
-	     continue.  */
-	  resume ((step_range_end && !step_resume_break_address)
-		  || trap_expected,
+	  /* We took a signal (which we are supposed to pass through to
+	     the inferior, else we'd have done a break above) and we
+	     haven't yet gotten our trap.  Simply continue.  */
+	  target_resume ((step_range_end && !step_resume_break_address)
+		  || (trap_expected && !step_resume_break_address)
+		  || bpstat_should_step (),
 		  stop_signal);
 	}
       else
 	{
-	  /* Here, we are not awaiting another exec to get
-	     the program we really want to debug.
+	  /* Either the trap was not expected, but we are continuing
+	     anyway (the user asked that this signal be passed to the
+	     child)
+	       -- or --
+	     The signal was SIGTRAP, e.g. it was our signal, but we
+	     decided we should resume from it.
+
+	     We're going to run this baby now!
+
 	     Insert breakpoints now, unless we are trying
 	     to one-proceed past a breakpoint.  */
-	  running_in_shell = 0;
 	  /* If we've just finished a special step resume and we don't
 	     want to hit a breakpoint, pull em out.  */
 	  if (!step_resume_break_address &&
@@ -999,7 +1197,8 @@ wait_for_inferior ()
 	      remove_breakpoints ();
 	      breakpoints_inserted = 0;
 	    }
-	  else if (!breakpoints_inserted && !another_trap)
+	  else if (!breakpoints_inserted &&
+		   (step_resume_break_address != NULL || !another_trap))
 	    {
 	      insert_step_breakpoint ();
 	      breakpoints_failed = insert_breakpoints ();
@@ -1013,18 +1212,45 @@ wait_for_inferior ()
 	  if (stop_signal == SIGTRAP)
 	    stop_signal = 0;
 
-	  resume ((step_range_end && !step_resume_break_address)
-		  || trap_expected,
+#ifdef SHIFT_INST_REGS
+	  /* I'm not sure when this following segment applies.  I do know, now,
+	     that we shouldn't rewrite the regs when we were stopped by a
+	     random signal from the inferior process.  */
+
+          if (!stop_breakpoint && (stop_signal != SIGCLD) 
+              && !stopped_by_random_signal)
+            {
+            CORE_ADDR pc_contents = read_register (PC_REGNUM);
+            CORE_ADDR npc_contents = read_register (NPC_REGNUM);
+            if (pc_contents != npc_contents)
+              {
+              write_register (NNPC_REGNUM, npc_contents);
+              write_register (NPC_REGNUM, pc_contents);
+	      }
+            }
+#endif /* SHIFT_INST_REGS */
+
+	  target_resume ((step_range_end && !step_resume_break_address)
+		  || (trap_expected && !step_resume_break_address)
+		  || bpstat_should_step (),
 		  stop_signal);
 	}
+    }
+  if (inferior_pid != 0)
+    {
+      /* Assuming the inferior still exists, set these up for next
+	 time, just like we did above if we didn't break out of the
+	 loop.  */
+      prev_pc = read_pc ();
+      prev_func_start = stop_func_start;
+      prev_func_name = stop_func_name;
+      prev_sp = stop_sp;
     }
 }
 
 /* Here to return control to GDB when the inferior stops for real.
    Print appropriate messages, remove breakpoints, give terminal our modes.
 
-   RUNNING_IN_SHELL nonzero means the shell got a signal before
-   exec'ing the program we wanted to run.
    STOP_PRINT_FRAME nonzero means print the executing frame
    (pc, function, args, file, line number and line text).
    BREAKPOINTS_FAILED nonzero means stop was due to error
@@ -1041,7 +1267,7 @@ normal_stop ()
   
   if (breakpoints_failed)
     {
-      terminal_ours_for_output ();
+      target_terminal_ours_for_output ();
       print_sys_errmsg ("ptrace", breakpoints_failed);
       printf ("Stopped; cannot insert breakpoints.\n\
 The same program may be running in another process.\n");
@@ -1053,7 +1279,7 @@ The same program may be running in another process.\n");
   if (inferior_pid && breakpoints_inserted)
     if (remove_breakpoints ())
       {
-	terminal_ours_for_output ();
+	target_terminal_ours_for_output ();
 	printf ("Cannot remove breakpoints because program is no longer writable.\n\
 It must be running in another process.\n\
 Further execution is probably impossible.\n");
@@ -1064,7 +1290,7 @@ Further execution is probably impossible.\n");
   /* Delete the breakpoint we stopped at, if it wants to be deleted.
      Delete any breakpoint that is to be deleted at the next stop.  */
 
-  breakpoint_auto_delete (stop_breakpoint);
+  breakpoint_auto_delete (stop_bpstat);
 
   /* If an auto-display called a function and that got a signal,
      delete that auto-display to avoid an infinite recursion.  */
@@ -1075,38 +1301,7 @@ Further execution is probably impossible.\n");
   if (step_multi && stop_step)
     return;
 
-  terminal_ours ();
-
-  if (running_in_shell)
-    {
-      if (stop_signal == SIGSEGV)
-	{
-	  char *exec_file = (char *) get_exec_file (1);
-
-	  if (access (exec_file, X_OK) != 0)
-	    printf ("The file \"%s\" is not executable.\n", exec_file);
-	  else
-	    /* I don't think we should ever get here.
-	       wait_for_inferior now ignores SIGSEGV's which happen in
-	       the shell (since the Bourne shell (/bin/sh) has some
-	       rather, er, uh, *unorthodox* memory management
-	       involving catching SIGSEGV).  */
-	    printf ("\
-You have just encountered a bug in \"sh\".  GDB starts your program\n\
-by running \"sh\" with a command to exec your program.\n\
-This is so that \"sh\" will process wildcards and I/O redirection.\n\
-This time, \"sh\" crashed.\n\
-\n\
-One known bug in \"sh\" bites when the environment takes up a lot of space.\n\
-Try \"info env\" to see the environment; then use \"delete env\" to kill\n\
-some variables whose values are large; then do \"run\" again.\n\
-\n\
-If that works, you might want to put those \"delete env\" commands\n\
-into a \".gdbinit\" file in this directory so they will happen every time.\n");
-	}
-      /* Don't confuse user with his program's symbols on sh's data.  */
-      stop_print_frame = 0;
-    }
+  target_terminal_ours ();
 
   if (inferior_pid == 0)
     return;
@@ -1119,11 +1314,13 @@ into a \".gdbinit\" file in this directory so they will happen every time.\n");
 
       if (stop_print_frame)
 	{
-	  if (stop_breakpoint > 0)
-	    printf ("\nBpt %d, ", stop_breakpoint);
-	  print_sel_frame (stop_step
-			   && step_frame_address == stop_frame_address
-			   && step_start_function == find_pc_function (stop_pc));
+	  int source_only = bpstat_print (stop_bpstat);
+	  print_sel_frame
+	    (source_only
+	     || (stop_step
+		 && step_frame_address == stop_frame_address
+		 && step_start_function == find_pc_function (stop_pc)));
+
 	  /* Display the auto-display expressions.  */
 	  do_displays ();
 	}
@@ -1131,6 +1328,8 @@ into a \".gdbinit\" file in this directory so they will happen every time.\n");
 
   /* Save the function value return registers
      We might be about to restore their previous contents.  */
+     /* FIXME!  This takes forever on a serial link and is almost always
+	useless!!!  -- gnu@cygnus@wrs  */
   read_register_bytes (0, stop_registers, REGISTER_BYTES);
 
   if (stop_stack_dummy)
@@ -1147,22 +1346,39 @@ static void
 insert_step_breakpoint ()
 {
   if (step_resume_break_address && !step_resume_break_duplicate)
-    {
-      read_memory (step_resume_break_address,
-		   step_resume_break_shadow, sizeof break_insn);
-      write_memory (step_resume_break_address,
-		    break_insn, sizeof break_insn);
-    }
+    target_insert_breakpoint (step_resume_break_address,
+			      step_resume_break_shadow);
 }
 
 static void
 remove_step_breakpoint ()
 {
   if (step_resume_break_address && !step_resume_break_duplicate)
-    write_memory (step_resume_break_address, step_resume_break_shadow,
-		  sizeof break_insn);
+    target_remove_breakpoint (step_resume_break_address,
+			      step_resume_break_shadow);
 }
 
+static void
+sig_print_header ()
+{
+  printf_filtered ("Signal\t\tStop\tPrint\tPass to program\tDescription\n");
+}
+
+static void
+sig_print_info (number)
+     int number;
+{
+  char *abbrev = sig_abbrev(number);
+  if (abbrev == NULL)
+    printf_filtered ("%d\t\t", number);
+  else
+    printf_filtered ("SIG%s (%d)\t", abbrev, number);
+  printf_filtered ("%s\t", signal_stop[number] ? "Yes" : "No");
+  printf_filtered ("%s\t", signal_print[number] ? "Yes" : "No");
+  printf_filtered ("%s\t\t", signal_program[number] ? "Yes" : "No");
+  printf_filtered ("%s\n", sys_siglist[number]);
+}
+
 /* Specify how various signals in the inferior should be handled.  */
 
 static void
@@ -1173,6 +1389,7 @@ handle_command (args, from_tty)
   register char *p = args;
   int signum = 0;
   register int digits, wordlen;
+  char *nextarg;
 
   if (!args)
     error_no_arg ("signal to handle");
@@ -1180,28 +1397,49 @@ handle_command (args, from_tty)
   while (*p)
     {
       /* Find the end of the next word in the args.  */
-      for (wordlen = 0; p[wordlen] && p[wordlen] != ' ' && p[wordlen] != '\t';
+      for (wordlen = 0;
+	   p[wordlen] && p[wordlen] != ' ' && p[wordlen] != '\t';
 	   wordlen++);
+      /* Set nextarg to the start of the word after the one we just
+	 found, and null-terminate this one.  */
+      if (p[wordlen] == '\0')
+	nextarg = p + wordlen;
+      else
+	{
+	  p[wordlen] = '\0';
+	  nextarg = p + wordlen + 1;
+	}
+      
+
       for (digits = 0; p[digits] >= '0' && p[digits] <= '9'; digits++);
 
-      /* If it is all digits, it is signal number to operate on.  */
-      if (digits == wordlen)
+      if (signum == 0)
 	{
-	  signum = atoi (p);
-	  if (signum <= 0 || signum >= NSIG)
+	  /* It is the first argument--must be the signal to operate on.  */
+	  if (digits == wordlen)
 	    {
-	      p[wordlen] = '\0';
-	      error ("Invalid signal %s given as argument to \"handle\".", p);
+	      /* Numeric.  */
+	      signum = atoi (p);
+	      if (signum <= 0 || signum >= NSIG)
+		{
+		  p[wordlen] = '\0';
+		  error ("Invalid signal %s given as argument to \"handle\".", p);
+		}
 	    }
+	  else
+	    {
+	      /* Symbolic.  */
+	      signum = sig_number (p);
+	      if (signum == -1)
+		error ("No such signal \"%s\"", p);
+	    }
+
 	  if (signum == SIGTRAP || signum == SIGINT)
 	    {
-	      if (!query ("Signal %d is used by the debugger.\nAre you sure you want to change it? ", signum))
+	      if (!query ("SIG%s is used by the debugger.\nAre you sure you want to change it? ", sig_abbrev (signum)))
 		error ("Not confirmed.");
 	    }
 	}
-      else if (signum == 0)
-	error ("First argument is not a signal number.");
-
       /* Else, if already got a signal number, look for flag words
 	 saying what to do for it.  */
       else if (!strncmp (p, "stop", wordlen))
@@ -1229,24 +1467,19 @@ handle_command (args, from_tty)
       /* Not a number and not a recognized flag word => complain.  */
       else
 	{
-	  p[wordlen] = 0;
 	  error ("Unrecognized flag word: \"%s\".", p);
 	}
 
       /* Find start of next word.  */
-      p += wordlen;
+      p = nextarg;
       while (*p == ' ' || *p == '\t') p++;
     }
 
   if (from_tty)
     {
       /* Show the results.  */
-      printf ("Number\tStop\tPrint\tPass to program\tDescription\n");
-      printf ("%d\t", signum);
-      printf ("%s\t", signal_stop[signum] ? "Yes" : "No");
-      printf ("%s\t", signal_print[signum] ? "Yes" : "No");
-      printf ("%s\t\t", signal_program[signum] ? "Yes" : "No");
-      printf ("%s\n", sys_siglist[signum]);
+      sig_print_header ();
+      sig_print_info (signum);
     }
 }
 
@@ -1257,18 +1490,21 @@ signals_info (signum_exp)
      char *signum_exp;
 {
   register int i;
-  printf_filtered ("Number\tStop\tPrint\tPass to program\tDescription\n");
+  sig_print_header ();
 
   if (signum_exp)
     {
-      i = parse_and_eval_address (signum_exp);
-      if (i >= NSIG || i < 0)
-	error ("Signal number out of bounds.");
-      printf_filtered ("%d\t", i);
-      printf_filtered ("%s\t", signal_stop[i] ? "Yes" : "No");
-      printf_filtered ("%s\t", signal_print[i] ? "Yes" : "No");
-      printf_filtered ("%s\t\t", signal_program[i] ? "Yes" : "No");
-      printf_filtered ("%s\n", sys_siglist[i]);
+      /* First see if this is a symbol name.  */
+      i = sig_number (signum_exp);
+      if (i == -1)
+	{
+	  /* Nope, maybe it's an address which evaluates to a signal
+	     number.  */
+	  i = parse_and_eval_address (signum_exp);
+	  if (i >= NSIG || i < 0)
+	    error ("Signal number out of bounds.");
+	}
+      sig_print_info (i);
       return;
     }
 
@@ -1277,11 +1513,7 @@ signals_info (signum_exp)
     {
       QUIT;
 
-      printf_filtered ("%d\t", i);
-      printf_filtered ("%s\t", signal_stop[i] ? "Yes" : "No");
-      printf_filtered ("%s\t", signal_print[i] ? "Yes" : "No");
-      printf_filtered ("%s\t\t", signal_program[i] ? "Yes" : "No");
-      printf_filtered ("%s\n", sys_siglist[i]);
+      sig_print_info (i);
     }
 
   printf_filtered ("\nUse the \"handle\" command to change these tables.\n");
@@ -1290,8 +1522,6 @@ signals_info (signum_exp)
 /* Save all of the information associated with the inferior<==>gdb
    connection.  INF_STATUS is a pointer to a "struct inferior_status"
    (defined in inferior.h).  */
-
-struct command_line *get_breakpoint_commands ();
 
 void
 save_inferior_status (inf_status, restore_stack_info)
@@ -1302,7 +1532,6 @@ save_inferior_status (inf_status, restore_stack_info)
   inf_status->stop_signal = stop_signal;
   inf_status->stop_pc = stop_pc;
   inf_status->stop_frame_address = stop_frame_address;
-  inf_status->stop_breakpoint = stop_breakpoint;
   inf_status->stop_step = stop_step;
   inf_status->stop_stack_dummy = stop_stack_dummy;
   inf_status->stopped_by_random_signal = stopped_by_random_signal;
@@ -1313,8 +1542,13 @@ save_inferior_status (inf_status, restore_stack_info)
   inf_status->step_over_calls = step_over_calls;
   inf_status->step_resume_break_address = step_resume_break_address;
   inf_status->stop_after_trap = stop_after_trap;
-  inf_status->stop_after_attach = stop_after_attach;
-  inf_status->breakpoint_commands = get_breakpoint_commands ();
+  inf_status->stop_soon_quietly = stop_soon_quietly;
+  /* Save original bpstat chain here; replace it with copy of chain. 
+     If caller's caller is walking the chain, they'll be happier if we
+     hand them back the original chain when restore_i_s is called.  */
+  inf_status->stop_bpstat = stop_bpstat;
+  stop_bpstat = bpstat_copy (stop_bpstat);
+  inf_status->breakpoint_proceeded = breakpoint_proceeded;
   inf_status->restore_stack_info = restore_stack_info;
   
   bcopy (stop_registers, inf_status->stop_registers, REGISTER_BYTES);
@@ -1335,7 +1569,6 @@ restore_inferior_status (inf_status)
   stop_signal = inf_status->stop_signal;
   stop_pc = inf_status->stop_pc;
   stop_frame_address = inf_status->stop_frame_address;
-  stop_breakpoint = inf_status->stop_breakpoint;
   stop_step = inf_status->stop_step;
   stop_stack_dummy = inf_status->stop_stack_dummy;
   stopped_by_random_signal = inf_status->stopped_by_random_signal;
@@ -1346,8 +1579,10 @@ restore_inferior_status (inf_status)
   step_over_calls = inf_status->step_over_calls;
   step_resume_break_address = inf_status->step_resume_break_address;
   stop_after_trap = inf_status->stop_after_trap;
-  stop_after_attach = inf_status->stop_after_attach;
-  set_breakpoint_commands (inf_status->breakpoint_commands);
+  stop_soon_quietly = inf_status->stop_soon_quietly;
+  bpstat_clear (&stop_bpstat);
+  stop_bpstat = inf_status->stop_bpstat;
+  breakpoint_proceeded = inf_status->breakpoint_proceeded;
 
   bcopy (inf_status->stop_registers, stop_registers, REGISTER_BYTES);
 
@@ -1362,6 +1597,7 @@ restore_inferior_status (inf_status)
 	  FRAME_FP (fid) != inf_status->selected_frame_address ||
 	  level != 0)
 	{
+#if 0
 	  /* I'm not sure this error message is a good idea.  I have
 	     only seen it occur after "Can't continue previously
 	     requested operation" (we get called from do_cleanups), in
@@ -1370,13 +1606,13 @@ restore_inferior_status (inf_status)
 	     user really care if we can't restore the previously
 	     selected frame?  */
 	  fprintf (stderr, "Unable to restore previously selected frame.\n");
+#endif
 	  select_frame (get_current_frame (), 0);
 	  return;
 	}
       
       select_frame (fid, inf_status->selected_level);
     }
-  return;
 }
 
 

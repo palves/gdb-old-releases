@@ -1,5 +1,6 @@
 /* vi_mode.c -- A vi emulation mode for Bash.
-   Mostly written by Jeff Sparkes (jeff1@????).
+
+   Derived from code written by Jeff Sparkes (jeff1@????).
  */
 
 
@@ -12,6 +13,9 @@
 /* Last string searched for from `/' or `?'. */
 static char *vi_last_search = (char *)NULL;
 static int vi_histpos;
+
+/* Non-zero means enter insertion mode. */
+int vi_doing_insert = 0;
 
 /* *** UNCLEAN *** */
 /* Command keys which do movement for xxx_to commands. */
@@ -28,7 +32,7 @@ static vi_replace_count = 0;
 rl_vi_yank_arg (count)
      int count;
 {
-  rl_yank_nth_arg (count);
+  rl_yank_nth_arg (count, 0);
 }
 
 /* Search again for the last thing searched for. */
@@ -51,7 +55,7 @@ rl_vi_search_again (ignore, key)
 rl_vi_search (count, key)
      int count, key;
 {
-  int dir, c;
+  int dir, c, save_pos;
   char *p;
 
   switch (key)
@@ -71,24 +75,33 @@ rl_vi_search (count, key)
 
   vi_histpos = where_history ();
   maybe_save_line ();
+  save_pos = rl_point;
 
   /* Reuse the line input buffer to read the search string. */
   the_line[0] = 0;
   rl_end = rl_point = 0;
-  p = (char *)alloca (2 + rl_prompt ? strlen (rl_prompt) : 0);
+  p = (char *)alloca (2 + (rl_prompt ? strlen (rl_prompt) : 0));
 
   sprintf (p, "%s%c", rl_prompt ? rl_prompt : "", key);
 
-  rl_message (p);
+  rl_message (p, 0, 0);
 
-  while (c = rl_read_key (in_stream))
+  while (c = rl_read_key ())
     {
       switch (c)
 	{
-	case CTRL('W'):
-	case CTRL('U'):
 	case CTRL('H'):
 	case RUBOUT:
+	  if (rl_point == 0)
+	    {
+	      maybe_unsave_line ();
+	      rl_clear_message ();
+	      rl_point = save_pos;
+	      return;
+	    }
+
+	case CTRL('W'):
+	case CTRL('U'):
 	  rl_dispatch (c, keymap);
 	  break;
 
@@ -161,10 +174,16 @@ rl_vi_complete (ignore, key)
 {
   if (!whitespace (the_line[rl_point]))
     {
-      rl_vi_end_word (1, 'E');
+      if (!whitespace (the_line[rl_point + 1]))
+	rl_vi_end_word (1, 'E');
       rl_point++;
     }
-  rl_complete_internal ('*');
+
+  if (key == '*')
+    rl_complete_internal ('*');
+  else
+    rl_complete (0, key);
+
   rl_vi_insertion_mode ();
 }
 
@@ -358,6 +377,11 @@ rl_vi_movement_mode ()
     rl_backward (1);
 
   keymap = vi_movement_keymap;
+  vi_done_inserting ();
+}
+
+vi_done_inserting ()
+{
   if (vi_doing_insert)
     {
       rl_end_undo_group ();
@@ -389,7 +413,7 @@ rl_vi_change_case (ignore1, ignore2)
   if (c)
     {
       rl_begin_undo_group ();
-      rl_delete (1);
+      rl_delete (1, c);
       rl_insert (1, c);
       rl_end_undo_group ();
       rl_vi_check ();
@@ -423,12 +447,14 @@ rl_vi_column (count)
 }
 
 int
-rl_vi_domove ()
+rl_vi_domove (key, nextkey)
+     int key, *nextkey;
 {
   int c, save;
 
   rl_mark = rl_point;
-  c = rl_read_key (in_stream);
+  c = rl_read_key ();
+  *nextkey = c;
 
   if (!member (c, vi_motion))
     {
@@ -437,6 +463,13 @@ rl_vi_domove ()
 	  save = rl_numeric_arg;
 	  rl_digit_loop1 ();
 	  rl_numeric_arg *= save;
+	}
+      else if ((key == 'd' && c == 'd') ||
+	       (key == 'c' && c == 'c'))
+	{
+	  rl_mark = rl_end;
+	  rl_beg_of_line ();
+	  return (0);
 	}
       else
 	return (-1);
@@ -465,7 +498,7 @@ rl_digit_loop1 ()
 
   while (1)
     {
-      rl_message ("(arg: %d) ", arg_sign * rl_numeric_arg);
+      rl_message ("(arg: %d) ", arg_sign * rl_numeric_arg, 0);
       key = c = rl_read_key ();
 
       if (keymap[c].type == ISFUNC &&
@@ -494,14 +527,19 @@ rl_digit_loop1 ()
 rl_vi_delete_to (count, key)
      int count, key;
 {
+  int c;
+
   if (uppercase_p (key))
     rl_stuff_char ('$');
 
-  if (rl_vi_domove ())
+  if (rl_vi_domove (key, &c))
     {
       ding ();
       return;
     }
+
+  if ((c != '|') && (c != 'h') && rl_mark < rl_end)
+    rl_mark++;
 
   rl_kill_text (rl_point, rl_mark);
 }
@@ -509,14 +547,19 @@ rl_vi_delete_to (count, key)
 rl_vi_change_to (count, key)
      int count, key;
 {
+  int c;
+
   if (uppercase_p (key))
     rl_stuff_char ('$');
 
-  if (rl_vi_domove ())
+  if (rl_vi_domove (key, &c))
     {
       ding ();
       return;
     }
+
+  if ((c != '|') && (c != 'h') && rl_mark < rl_end)
+    rl_mark++;
 
   rl_begin_undo_group ();
   vi_doing_insert = 1;
@@ -527,12 +570,12 @@ rl_vi_change_to (count, key)
 rl_vi_yank_to (count, key)
      int count, key;
 {
-  int save = rl_point;
+  int c, save = rl_point;
 
   if (uppercase_p (key))
     rl_stuff_char ('$');
 
-  if (rl_vi_domove ())
+  if (rl_vi_domove (key, &c))
     {
       ding ();
       return;
@@ -549,12 +592,12 @@ rl_vi_delete (count)
 {
   if (rl_point >= rl_end - 1)
     {
-      rl_delete (count);
+      rl_delete (count, 0);
       if (rl_point > 0)
 	rl_backward (1);
     }
   else
-    rl_delete (count);
+    rl_delete (count, 0);
 }
 
 /* Turn the current line into a comment in shell history.  A ksh function */
@@ -756,7 +799,7 @@ rl_vi_change_char ()
 
     default:
       rl_begin_undo_group ();
-      rl_delete (1);
+      rl_delete (1, c);
       rl_insert (1, c);
       rl_end_undo_group ();
       break;
@@ -775,7 +818,7 @@ rl_vi_subst (count, key)
       rl_kill_line (1);
     }
   else
-    rl_delete (1);
+    rl_delete (1, key);
 
   rl_vi_insertion_mode ();
 }
@@ -798,7 +841,7 @@ rl_vi_overstrike (count, key)
 
       if (rl_point < rl_end)
 	{
-	  rl_delete (1);
+	  rl_delete (1, key);
 	  rl_insert (1, key);
 	}
       else
@@ -853,4 +896,30 @@ rl_vi_replace ()
   vi_replace_map[RETURN].function = rl_newline;
   vi_replace_map[NEWLINE].function = rl_newline;
   keymap = vi_replace_map;
+}
+
+/*
+ * Try to complete the word we are standing on or the word that ends with
+ * the previous character. A space matches everything.
+ * Word delimiters are space and ;.
+ */
+rl_vi_possible_completions()
+{
+  int save_pos = rl_point;
+
+  if (!index (" ;", the_line[rl_point]))
+    {
+      while (!index(" ;", the_line[++rl_point]))
+	;
+    }
+  else if (the_line[rl_point-1] == ';')
+    {
+      ding ();
+      return (0);
+    }
+
+  rl_possible_completions ();
+  rl_point = save_pos;
+
+  return (0);
 }

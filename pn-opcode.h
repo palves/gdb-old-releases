@@ -1,4 +1,4 @@
-/* Print PN instructions for GDB, the GNU debugger.
+/* Print GOULD PN (PowerNode) instructions for GDB, the GNU debugger.
    Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
 
 This file is part of GDB.

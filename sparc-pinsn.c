@@ -23,6 +23,12 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "param.h"
 #include "symtab.h"
 #include "sparc-opcode.h"
+#include "gdbcore.h"
+#include "string.h"
+#include "target.h"
+
+extern void qsort ();
+
 
 extern char *reg_names[];
 #define	freg_names	(&reg_names[4 * 8])
@@ -81,9 +87,8 @@ is_delayed_branch (insn)
     {
       const struct sparc_opcode *opcode = &sparc_opcodes[i];
       if ((opcode->match & insn.code) == opcode->match
-	  && (opcode->lose & insn.code) == 0
-	  && (opcode->delayed))
-	return 1;
+	  && (opcode->lose & insn.code) == 0)
+	return (opcode->flags & F_DELAYED);
     }
   return 0;
 }
@@ -130,12 +135,12 @@ print_insn (memaddr, stream)
 	      && insn.rs1 == insn.rd)
 	    imm_added_to_rs1 = 1;
 
-	  if (index (opcode->args, 'S') != 0)
+	  if (strchr (opcode->args, 'S') != 0)
 	    /* Reject the special case for `set'.
 	       The real `sethi' will match.  */
 	    continue;
 	  if (insn.rs1 != insn.rd
-	      && index (opcode->args, 'r') != 0)
+	      && strchr (opcode->args, 'r') != 0)
 	      /* Can't do simple format if source and dest are different.  */
 	      continue;
 
@@ -315,8 +320,8 @@ print_insn (memaddr, stream)
 	      union sparc_insn prev_insn;
 	      int errcode;
 
-	      errcode = read_memory (memaddr - 4,
-				     &prev_insn, sizeof (prev_insn));
+	      errcode = target_read_memory (memaddr - 4,
+				     (char *)&prev_insn, sizeof (prev_insn));
 
 	      if (errcode == 0)
 		{
@@ -330,8 +335,8 @@ print_insn (memaddr, stream)
 		     */
 
 		  if (is_delayed_branch (prev_insn))
-		    errcode = read_memory (memaddr - 8,
-					   &prev_insn, sizeof (prev_insn));
+		    errcode = target_read_memory
+		      (memaddr - 8, (char *)&prev_insn, sizeof (prev_insn));
 		}
 
 	      /* If there was a problem reading memory, then assume
@@ -376,7 +381,7 @@ compare_opcodes (a, b)
      wrong with the opcode table.  */
   if (match0 & lose0)
     {
-      fprintf (stderr, "Internal error:  bad sparc-opcode.h: \"%s\", %#.8x, %#.8x\n",
+      fprintf (stderr, "Internal error:  bad sparc-opcode.h: \"%s\", %#.8lx, %#.8lx\n",
 	       op0->name, match0, lose0);
       op0->lose &= ~op0->match;
       lose0 = op0->lose;
@@ -384,7 +389,7 @@ compare_opcodes (a, b)
 
   if (match1 & lose1)
     {
-      fprintf (stderr, "Internal error: bad sparc-opcode.h: \"%s\", %#.8x, %#.8x\n",
+      fprintf (stderr, "Internal error: bad sparc-opcode.h: \"%s\", %#.8lx, %#.8lx\n",
 	       op1->name, match1, lose1);
       op1->lose &= ~op1->match;
       lose1 = op1->lose;
@@ -414,6 +419,16 @@ compare_opcodes (a, b)
 
   /* They are functionally equal.  So as long as the opcode table is
      valid, we can put whichever one first we want, on aesthetic grounds.  */
+
+  /* Our first aesthetic ground is that aliases defer to real insns.  */
+  {
+    int alias_diff = (op0->flags & F_ALIAS) - (op1->flags & F_ALIAS);
+    if (alias_diff != 0)
+      /* Put the one that isn't an alias first.  */
+      return alias_diff;
+  }
+
+  /* Fewer arguments are preferred.  */
   {
     int length_diff = strlen (op0->args) - strlen (op1->args);
     if (length_diff != 0)
@@ -423,8 +438,8 @@ compare_opcodes (a, b)
 
   /* Put 1+i before i+1.  */
   {
-    char *p0 = (char *) index(op0->args, '+');
-    char *p1 = (char *) index(op1->args, '+');
+    char *p0 = (char *) strchr(op0->args, '+');
+    char *p1 = (char *) strchr(op1->args, '+');
 
     if (p0 && p1)
       {

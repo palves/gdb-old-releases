@@ -22,7 +22,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "param.h"
 #include "symtab.h"
-#include "opcode.h"
+#include "pyr-opcode.h"
+#include "gdbcore.h"
 
 
 /*  A couple of functions used for debugging frame-handling on

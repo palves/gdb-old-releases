@@ -187,5 +187,14 @@ struct expression
   union exp_element elts[1];
 };
 
+/* From expread.y.  */
 struct expression *parse_c_expression ();
 struct expression *parse_c_1 ();
+
+/* The innermost context required by the stack and register variables
+   we've encountered so far.  To use this, set it to NULL, then call
+   parse_c_<whatever>, then look at it.  */
+extern struct block *innermost_block;
+
+/* From expprint.c.  */
+void print_expression ();

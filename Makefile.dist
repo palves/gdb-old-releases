@@ -1,183 +1,233 @@
-/* This file should be run through the C preprocessor by config.gdb
-   to produce the Makefile.  */
+##Copyright (C) 1989-1991 Free Software Foundation, Inc.
 
-/* Define this to xgdb if you want to compile xgdb as well as gdb.  */
+# This file is part of GDB.
+
+# GDB is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 1, or (at your option)
+# any later version.
+
+# GDB is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with GDB; see the file COPYING.  If not, write to
+# the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+
+# Define this to xgdb if you want to compile xgdb as well as gdb.
 XGDB=
-/* Place to install binaries.  */
+# Place to install binaries. 
 bindir=/usr/local/bin
-/* Place to install X binaries.  */
+# Place to install X binaries.
 xbindir=$(bindir)
 
-/* System V: If you compile gdb with a compiler which uses the coff
-   encapsulation feature (this is a function of the compiler used, NOT
-   of the m-?.h file selected by config.gdb), you must make sure that
-   the GNU nm is the one that is used by munch.  */
+# System V: If you compile gdb with a compiler which uses the coff
+# encapsulation feature (this is a function of the compiler used, NOT
+# of the m-?.h file selected by config.gdb), you must make sure that
+# the GNU nm is the one that is used by munch.
 
-/* If you are compiling with GCC, make sure that either 1) You use the
- -traditional flag, or 2) You have the fixed include files where GCC
- can reach them.  Otherwise the ioctl calls in inflow.c and readline.c 
- will be incorrectly compiled.  The "fixincludes" script in the gcc
- distribution will fix your include files up. */
-/* CC=gcc -traditional */
-CC=cc
+# If you are compiling with GCC, make sure that either 1) You use the
+# -traditional flag, or 2) You have the fixed include files where GCC
+# can reach them.  Otherwise the ioctl calls in inflow.c and readline.c 
+# will be incorrectly compiled.  The "fixincludes" script in the gcc
+# distribution will fix your include files up.
+#CC=cc
+#CC=gcc -traditional
+GCC=gcc
 
-/* It is also possible that you will need to add -I/usr/include/sys to the
- CFLAGS section if your system doesn't have fcntl.h in /usr/include (which 
- is where it should be according to Posix).  */
+VPATH=$(srcdir)
 
-YACC=bison -y -v
-/* YACC=yacc */
+# Comment out (or perhaps edit) these lines if you want to avoid support for
+# remote debugging (to save space, or if it doesn't compile on your host).
+REMOTE_OBS = remote-eb.o remote-vx.o remote-nindy.o \
+    xdr_ld.o xdr_ptrace.o xdr_rdb.o xdr_regs.o \
+    nindy.o Onindy.o coffstrip.o ttybreak.o ttyflush.o
+
+# It is also possible that you will need to add -I/usr/include/sys to the
+# CFLAGS section if your system doesn't have fcntl.h in /usr/include (which 
+# is where it should be according to Posix).
+
+YACC=bison -y
+# YACC=yacc
 SHELL=/bin/sh
 MAKE=make
 
-/* Set this up with gcc if you have gnu ld and the loader will print out
- line numbers for undefinded refs.  */
-/* CC-LD=gcc -static */
+# Set this up with gcc if you have gnu ld and the loader will print out
+# line numbers for undefinded refs.
+#CC-LD=gcc -static
 CC-LD=${CC}
 
-/* If you are using the GNU C library, uncomment the following line.  */
-/* HAVE_VPRINTF_DEFINE = -DHAVE_VPRINTF */
+# define this to be "gmalloc.o" if you want to use the gnu malloc routine
+# (useful for debugging memory allocation problems in gdb).  To use your
+# system malloc, uncomment the following two lines.
+#GNU_MALLOC =
+#MALLOC_CFLAGS = -DNO_MALLOC_CHECK
+GNU_MALLOC = gmalloc.o mcheck.o
+MALLOC_CFLAGS =
 
-/* -I. for "#include <obstack.h>".  Possibly regex.h also. */
- 
-/* M_CFLAGS, if defined, has system-dependent CFLAGS.  */
-#if !defined(M_CFLAGS)
-#define M_CFLAGS
-#endif
+# Where is the "include" directory?  Traditionally ../include or ./include
+INCLUDE_DIR =  ${srcdir}/../include
+INCLUDE_DEP = $$(INCLUDE_DIR)
 
-/* CFLAGS for both GDB and readline.  */
-GLOBAL_CFLAGS = -g M_CFLAGS
-CFLAGS = -I. ${HAVE_VPRINTF_DEFINE} ${GLOBAL_CFLAGS}
-/* None of the things in CFLAGS will do any harm, and on some systems
-   (e.g. SunOS4) it is important to use the M_CFLAGS.  */
+# Where is the BFD library?  Traditionally ../bfd or ./bfd
+BFD_DIR =  ${srcdir}/../bfd
+BFD_DEP = $$(BFD_DIR)
+
+# {X,T}M_CFLAGS, if defined, has system-dependent CFLAGS.
+# CFLAGS for both GDB and readline.
+GLOBAL_CFLAGS = -g ${TM_CFLAGS} ${XM_CFLAGS} \
+  -I${srcdir} -I$(INCLUDE_DIR) -I${srcdir}/vx-share
+#PROFILE_CFLAGS = -pg
+# -I. for "#include <obstack.h>".  Possibly regex.h also.
+CFLAGS = -I. ${HAVE_VPRINTF_DEFINE} ${GLOBAL_CFLAGS} \
+  ${PROFILE_CFLAGS} ${MALLOC_CFLAGS}
+# None of the things in CFLAGS will do any harm, and on some systems
+#  (e.g. SunOS4) it is important to use the M_CFLAGS.
 LDFLAGS = $(CFLAGS)
 
-/*
- define this to be "obstack.o" if you don't have the obstack library installed
- you must at the same time define OBSTACK1 as "obstack.o" 
- so that the dependencies work right.  Similarly with REGEX and "regex.o".
- You must define REGEX and REGEX1 on USG machines.
- If your sysyem is missing alloca(), or, more likely, it's there but
- it doesn't work, define ALLOCA & ALLOCA1 */
+# define this to be "obstack.o" if you don't have the obstack library installed
+# so that the dependencies work right.  
 OBSTACK = obstack.o
-OBSTACK1 = obstack.o
 
-#ifdef M_REGEX
-REGEX = M_REGEX
-REGEX1 = M_REGEX
-#else
-REGEX = 
-REGEX1 = 
-#endif
+# Requires GNU getopt_long features.
+GETOPT = getopt.o getopt1.o
+# Where is the getopt directory?  Traditionally ../getopt or ./getopt
+GETOPT_DIR =  ${srcdir}/../getopt
+GETOPT_DEP = $$(GETOPT_DIR)
 
-#ifdef M_ALLOCA
-ALLOCA = M_ALLOCA
-ALLOCA1 = M_ALLOCA
-#else
-ALLOCA = 
-ALLOCA1 =
-#endif
-
-/*
- define this to be "malloc.o" if you want to use the gnu malloc routine
- (useful for debugging memory allocation problems in gdb).  Otherwise, leave
- it blank. */
-/* GNU_MALLOC = */
-GNU_MALLOC = malloc.o
-
-/* Flags to be used in compiling malloc.o
- Specify range checking for storage allocation. */
-/* MALLOC_FLAGS = ${CFLAGS} */
-MALLOC_FLAGS = ${CFLAGS} -Drcheck -Dbotch=fatal_dump_core -DMSTATS
-
-/*  Define SYSV if compiling on a system V or HP machine.  */
-#ifdef M_SYSV
-SYSV_DEFINE = -DSYSV
-#else
-SYSV_DEFINE =
-#endif
-
-/* MUNCH_DEFINE should be -DSYSV if have System V-style nm,
-   or null if have BSD-style nm.  */ 
-#ifdef M_BSD_NM
-MUNCH_DEFINE = 
-#else
-MUNCH_DEFINE = ${SYSV_DEFINE}
-#endif
-
-/* Flags that describe where you can find the termcap library.
- You may need to make other arrangements for USG. */
+# Flags that describe where you can find the termcap library.
+# You may need to make other arrangements for USG.
 TERMCAP = -ltermcap
 
-/* M_CLIBS, if defined, has system-dependent libs
- For example, -lPW for System V to get alloca().  */
-#ifndef M_CLIBS
-#define M_CLIBS
-#endif
-CLIBS = ${ADD_FILES} ${TERMCAP} M_CLIBS
+# You must define REGEX and REGEX1 on USG machines.
+# If your sysyem is missing alloca(), or, more likely, it's there but
+# it doesn't work, define ALLOCA & ALLOCA1
 
-ADD_FILES = ${OBSTACK} ${REGEX} ${ALLOCA} ${GNU_MALLOC}
-ADD_DEPS = ${OBSTACK1} ${REGEX1} ${ALLOCA1} ${GNU_MALLOC}
+# {X,T}M_CLIBS, if defined, has system-dependent libs
+# For example, -lPW for System V to get alloca().
+# FIXME STOPGAP FOR BFD LIBRARY: BFD stuff
+CLIBS = ${TERMCAP} $(XM_CLIBS) ${TM_CLIBS} ${BFD_DIR}/libbfd.a
+CDEPS = ${XM_CDEPS} ${TM_CDEPS} ${BFD_DIR}/libbfd.a
 
-SFILES = blockframe.c breakpoint.c dbxread.c coffread.c command.c core.c \
+ADD_FILES = ${OBSTACK} ${REGEX} ${ALLOCA} ${GNU_MALLOC} ${GETOPT}
+ADD_DEPS = ${OBSTACK} ${REGEX1} ${ALLOCA1} ${GNU_MALLOC} ${GETOPT}
+
+VERSION = 3.93
+DIST=gdb-$(VERSION)
+
+LINT=/usr/5bin/lint
+LINTFLAGS=
+
+# Source files in the main directory.
+# Files which are included via a tconfig/* or xconfig/* file 
+# should *not* be specified here; they're in "ALLDEPFILES".
+SFILES_MAINDIR = \
+	 blockframe.c breakpoint.c command.c core.c \
 	 environ.c eval.c expprint.c findvar.c infcmd.c inflow.c infrun.c \
-	 kdb-start.c main.c printcmd.c \
-	 remote.c source.c stack.c standalone.c stuff.c symmisc.c symtab.c \
-	 utils.c valarith.c valops.c valprint.c values.c version.c expread.y \
-	 xgdb.c
+	 main.c printcmd.c \
+	 remote.c source.c stack.c symmisc.c symtab.c symfile.c \
+	 utils.c valarith.c valops.c valprint.c values.c expread.y \
+	 signame.c cplus-dem.c mem-break.c target.c inftarg.c \
+	 dbxread.c coffread.c \
+	 remote-vx.c remote-nindy.c \
 
-DEPFILES = umax-dep.c gould-dep.c default-dep.c sun3-dep.c \
-	   sparc-dep.c hp9k320-dep.c hp300bsd-dep.c news-dep.c i386-dep.c \
-	   symmetry-dep.c convex-dep.c altos-dep.c isi-dep.c pyr-dep.c
+# Source files in subdirectories (which will be handled separately by
+#  'make gdb.tar.Z').
+# Files which are included via a tconfig/* or xconfig/* file 
+# should *not* be specified here; they're in "ALLDEPFILES".
+SFILES_SUBDIR = \
+	 ${srcdir}/vx-share/xdr_ld.c ${srcdir}/vx-share/xdr_ptrace.c \
+	 ${srcdir}/vx-share/xdr_rdb.c ${srcdir}/vx-share/xdr_regs.c \
+	 ${srcdir}/vx-share/dbgRpcLib.h \
+	 ${srcdir}/vx-share/ptrace.h \
+	 ${srcdir}/vx-share/reg.h \
+	 ${srcdir}/vx-share/vxTypes.h \
+	 ${srcdir}/vx-share/vxWorks.h \
+	 ${srcdir}/vx-share/wait.h \
+	 ${srcdir}/vx-share/xdr_ld.h \
+	 ${srcdir}/vx-share/xdr_ptrace.h \
+	 ${srcdir}/vx-share/xdr_rdb.h \
+	 ${srcdir}/vx-share/xdr_regs.h \
+	 ${srcdir}/nindy-share/Makefile \
+	 ${srcdir}/nindy-share/VERSION \
+	 ${srcdir}/nindy-share/nindy.c \
+	 ${srcdir}/nindy-share/Onindy.c \
+	 ${srcdir}/nindy-share/coffstrip.c \
+	 ${srcdir}/nindy-share/ttybreak.c \
+	 ${srcdir}/nindy-share/ttyflush.c \
+	 ${srcdir}/nindy-share/b.out.h \
+	 ${srcdir}/nindy-share/block_io.h \
+	 ${srcdir}/nindy-share/coff.h \
+	 ${srcdir}/nindy-share/demux.h \
+	 ${srcdir}/nindy-share/env.h \
+	 ${srcdir}/nindy-share/stop.h \
+	 ${srcdir}/nindy-share/ttycntl.h
 
-PINSNS = gld-pinsn.c i386-pinsn.c sparc-pinsn.c vax-pinsn.c m68k-pinsn.c \
-	 ns32k-pinsn.c convex-pinsn.c pyr-pinsn.c
+# All source files that go into linking GDB, except config-specified files.
+SFILES = $(SFILES_MAINDIR) $(SFILES_SUBDIR)
 
-HFILES = command.h defs.h environ.h expression.h frame.h getpagesize.h \
-	 inferior.h symseg.h symtab.h value.h wait.h \
-	 a.out.encap.h a.out.gnu.h stab.gnu.h 
+# Any additional files specified on these lines should also be added to
+# the OTHERS = definition below, so they go in the tar files.
+SFILES_STAND = $(SFILES) standalone.c
+SFILES_KGDB  = $(SFILES) stuff.c kdb-start.c
+SFILES_XGDB  = $(SFILES) xgdb.c
 
-OPCODES = m68k-opcode.h pn-opcode.h sparc-opcode.h npl-opcode.h vax-opcode.h \
-	  ns32k-opcode.h convex-opcode.h pyr-opcode.h
+HFILES=	breakpoint.h command.h defs.h environ.h \
+	expression.h frame.h gdbcmd.h gdbcore.h \
+	getpagesize.h inferior.h param-no-tm.h param.h \
+	signals.h signame.h symfile.h symtab.h \
+	target.h tdesc.h terminal.h tm-68k.h tm-sunos.h \
+	value.h
 
-MFILES = m-hp9k320.h m-hp300bsd.h m-i386.h m-i386gas.h \
-  m-i386-sv32.h m-i386g-sv32.h m-isi.h m-merlin.h \
-  m-altos.h m-news.h m-newsos3.h m-npl.h m-pn.h \
-  m-sparc.h m-sun2.h m-sun3.h m-sun2os4.h \
-  m-sun3os4.h m-sun4os4.h m-umax.h m-vax.h m-symmetry.h m-convex.h \
-  m-pyr.h
-
-/* This list of files really shouldn't be in this makefile, but I can't think
-   of any good way to get the readline makefile to tell us what files
-   to put in our tarfile.  */
-READLINE = readline.c history.c funmap.c \
-  emacs_keymap.c vi_keymap.c vi_mode.c keymaps.c \
-  readline.h history.h keymaps.h chardefs.h \
-  inc-readline.texinfo inc-history.texinfo \
-  readline.texinfo history.texinfo \
-  Makefile ChangeLog
+OPCODES = pn-opcode.h np1-opcode.h sparc-opcode.h vax-opcode.h m68k-opcode.h \
+	  ns32k-opcode.h convex-opcode.h pyr-opcode.h mips-opcode.h \
+	  am29k-opcode.h
 
 REMOTE_EXAMPLES = remote-sa.m68k.shar remote-multi.shar
 
-POSSLIBS = obstack.h obstack.c regex.c regex.h malloc.c alloca.c
+MALLOCSRC = gmalloc.c mcheck.c ansidecl.h stdlib.h gmalloc.h stddef.h
+GETOPTSRC = $(GETOPT_DIR)/getopt.c $(GETOPT_DIR)/getopt1.c
+
+POSSLIBS_MAINDIR = obstack.h obstack.c regex.c regex.h alloca.c \
+	$(MALLOCSRC)
+POSSLIBS = $(POSSLIBS_MAINDIR) $(GETOPTSRC)
 
 TESTS = testbpt.c testfun.c testrec.c testreg.c testregs.c
 
-OTHERS = Makefile.dist createtags munch config.gdb ChangeLog README TAGS \
-	 gdb.texinfo .gdbinit COPYING expread.tab.c stab.def \
-	 XGDB-README copying.c Projects Convex.notes copying.awk hp-include
+# tdesc-lib cannot be named simply tdesc, because if if it were GNU make
+# would try to make it from tdesc.c.
+# tdesc-lib removed from the list due to Motorola copyrights...gnu@cygnus.com
+OTHERS = Makefile.dist depend alldeps.mak Makefile.srcdir \
+	 createtags munch config.gdb config.status \
+         ChangeLog ChangeLog-3.x \
+         README TODO TAGS WHATS.NEW \
+	 gdb.texinfo gdb-int.texinfo gdbrc.tex threecol.tex \
+	.gdbinit COPYING expread.tab.c stab.def \
+	 XGDB-README copying.c Projects Convex.notes copying.awk \
+	 saber.suppress standalone.c stuff.c kdb-start.c xgdb.c \
+	 hp-include # tests
 
-TAGFILES = ${SFILES} ${DEPFILES} ${PINSNS} ${HFILES} ${OPCODES} ${MFILES} \
-	   ${POSSLIBS} 
-TARFILES = ${TAGFILES} ${OTHERS} ${REMOTE_EXAMPLES}
+DEPFILES= ${TDEPFILES} ${XDEPFILES}
+
+SOURCES=$(SFILES) $(ALLDEPFILES)
+TAGFILES = $(SOURCES) ${HFILES} ${OPCODES} ${ALLPARAM} ${POSSLIBS} 
+TAGFILES_MAINDIR = $(SFILES_MAINDIR) $(ALLDEPFILES) \
+             ${HFILES} ${OPCODES} ${ALLPARAM} ${POSSLIBS_MAINDIR} 
+TARFILES = ${TAGFILES_MAINDIR} ${OTHERS} ${REMOTE_EXAMPLES}
 
 OBS = main.o blockframe.o breakpoint.o findvar.o stack.o source.o \
     values.o eval.o valops.o valarith.o valprint.o printcmd.o \
-    symtab.o symmisc.o coffread.o dbxread.o infcmd.o infrun.o remote.o \
-    command.o utils.o expread.o expprint.o pinsn.o environ.o version.o \
-    copying.o ${READLINEOBS}
+    symtab.o symfile.o symmisc.o infcmd.o infrun.o remote.o \
+    command.o utils.o expread.o expprint.o environ.o version.o \
+    copying.o $(DEPFILES) signame.o cplus-dem.o mem-break.o target.o \
+    inftarg.o $(REMOTE_OBS) \
+    dbxread.o coffread.o # mipsread.o
 
-TSOBS = core.o inflow.o dep.o
+RAPP_OBS = rgdb.o rudp.o rserial.o serial.o udp.o $(XDEPFILES)
+
+TSOBS = core.o inflow.o
 
 NTSOBS = standalone.o
 
@@ -186,19 +236,12 @@ TSSTART = /lib/crt0.o
 NTSSTART = kdb-start.o
 
 RL_LIB = readline/libreadline.a
+RL_LIB_DEP = $(RL_LIB)
 
-/* Do some fancy trickery to produce a line like
-   -DM_MAKEDEFINE="-DM_SYSV -DM_BSD_NM".
-*/
-MD=M_MAKEDEFINE
-
-/* Avoid funny things that Sun's make throws in for us. */
-/* TARGET_ARCH is supposed to get around it putting in the machine type.
-   If the "things" up there really is plural, we'll need to do something
-   else as well.  */
-/*.c.o:
-	${CC} -c ${CFLAGS} $< */
-TARGET_ARCH=
+# Prevent Sun make from putting in the machine type.  Setting
+# TARGET_ARCH to nothing works for SunOS 3, 4.0, but not for 4.1.
+.c.o:
+	${CC} -c ${CFLAGS} $<
 
 all: gdb $(XGDB)
 
@@ -209,163 +252,268 @@ install: gdb $(XGDB)
 		cp xgdb $(xbindir)/xgdb.new; \
 		mv $(xbindir)/xgdb.new $(xbindir)xgdb; \
 	fi
+	$(M_INSTALL)
 
-gdb : $(OBS) $(TSOBS) ${ADD_DEPS} ${RL_LIB}
-	rm -f init.c
-	./munch ${MUNCH_DEFINE} $(OBS) $(TSOBS) > init.c
-	${CC-LD} $(LDFLAGS) -o gdb init.c $(OBS) $(TSOBS) ${RL_LIB} $(CLIBS)
+init.c: $(srcdir)/munch $(MUNCH_DEFINE) $(OBS) $(TSOBS)
+	$(srcdir)/munch ${MUNCH_DEFINE} $(OBS) $(TSOBS) > init.c
 
-/* This is useful when debugging GDB, because Unix doesn't let you run GDB
-   on itself without copying the executable.  So "make gdb1" will make
-   gdb and put a copy in gdb1, and you can run it with "gdb gdb1".  */
-gdb1 : gdb
+gdb: $(OBS) $(TSOBS) ${ADD_DEPS} ${RL_LIB_DEP} ${CDEPS} init.o
+	${CC-LD} $(LDFLAGS) -o gdb init.o $(OBS) $(TSOBS) $(ADD_FILES) \
+	${RL_LIB} $(CLIBS)
+
+saber_gdb: $(SFILES) $(GETOPTSRC) $(DEPFILES) copying.c obstack.c version.c
+	#setopt load_flags $(CFLAGS)
+	#load ./init.c $(SFILES)
+	#unload ${srcdir}/expread.y
+	#load ${srcdir}/expread.tab.c readline/libreadline.a
+	#load copying.c version.c
+	#load obstack.c $(GETOPTSRC)
+	#load `echo " "$(DEPFILES) | sed -e 's/\.o/.c/g' -e 's, , ../,g'`
+	#load ${BFD_DIR}/libbfd.a -ltermcap 
+	##void mcheck(a) void (*a)(); { }
+
+
+
+# This is useful when debugging GDB, because some Unix's don't let you run GDB
+# on itself without copying the executable.  So "make gdb1" will make
+# gdb and put a copy in gdb1, and you can run it with "gdb gdb1".
+# Removing gdb1 before the copy is the right thing if gdb1 is open
+# in another process.
+gdb1: gdb
+	rm -f gdb1
 	cp gdb gdb1
 
-Makefile : Makefile.dist
-	cp Makefile.dist tmp.c
-	$(CC) -E >Makefile tmp.c $(MD) "-DM_MAKEDEFINE=$(MD)"
-	-rm tmp.c
-/* This did not work-- -Usparc became "-Usparc" became "-Usparc.
-   Or something like that.  */
-/*	$(CC) -E >Makefile tmp.c $(MD) "-DM_MAKEDEFINE=\"$(MD)\"" */
+# This is a remote stub which runs under unix and starts up an
+# inferior process.  This is at least useful for debugging GDB's
+# remote support.
+rapp: $(RAPP_OBS)
+	rm -f rapp_init.c
+	${srcdir}/munch ${RAPP_OBS} > rapp_init.c
+	${CC-LD} $(LDFLAGS) -o $@ rapp_init.c $(RAPP_OBS)
+	
+Makefiles= Makefile.srcdir $(M_MAKEFILE) \
+	${srcdir}/alldeps.mak ${srcdir}/Makefile.dist
 
-xgdb : $(OBS) $(TSOBS) xgdb.o ${ADD_DEPS} ${RL_LIB}
+MAKE_MAKEFILE= echo "M_MAKEFILE=$(M_MAKEFILE)" | \
+	cat - ${Makefiles} ${srcdir}/depend >Makefile
+
+Makefile: $(Makefiles)
+	$(MAKE_MAKEFILE)
+
+alldeps.mak: ${srcdir}/tconfig ${srcdir}/xconfig
+	rm -f alldeps.tmp allparam.tmp allconfig.tmp
+	for i in `ls -d ${srcdir}/tconfig/*[0-9A-Za-z] \
+          ${srcdir}/xconfig/*[0-9A-Za-z] | grep -v RCS` ; do \
+	  echo $$i >>allconfig.tmp; \
+	  awk <$$i ' \
+	    $$1 == "TDEPFILES=" || $$1 == "XDEPFILES=" { \
+	      for (i = 2; i <= NF; i++) \
+	        print $$i >> "alldeps.tmp" ; \
+            } \
+	    $$1 == "TM_FILE=" || $$1 == "XM_FILE=" { \
+	      print $$2 >> "allparam.tmp" }' ; \
+	done
+	sort <alldeps.tmp | uniq | \
+	  sed -e 's/arm-convert.o/arm-convert.s/' | \
+	  sed -e 's/\.o/.c/' | \
+	  awk 'BEGIN {printf "ALLDEPFILES="} \
+	    NR == 0 {printf $$0;} \
+	    NR != 0 {printf "\\\n" $$0} \
+	    END {printf "\n\n"}' >>alldeps.mak;
+	sort <allparam.tmp | uniq | awk 'BEGIN {printf "ALLPARAM="} \
+	    NR == 0 {printf $$0;} \
+	    NR != 0 {printf "\\\n" $$0} \
+	    END {printf "\n\n"}' >>alldeps.mak;
+	sort <allconfig.tmp | uniq | awk 'BEGIN {printf "ALLCONFIG="} \
+	    NR == 0 {printf $$0;} \
+	    NR != 0 {printf "\\\n" $$0} \
+	    END {printf "\n\n"}' >>alldeps.mak;
+	rm -f alldeps.tmp allparam.tmp allconfig.tmp
+	
+# The sed script makes everything which depends on {x,t}m.h depend on
+# config.status as well, in case someone reconfigures gdb out from
+# under an already compiled gdb.
+depend: $(SOURCES) Makefile.dist
+	@echo Ignore errors about non-existent system-supplied include files
+	@echo for systems other than the one you are using.
+	@echo "If xm.h and tm.h don't exist, the error messages saying so"
+	@echo can safely be ignored.
+	@echo Also ignore parse errors in valops.c, and any errors in
+	@echo arm-convert.s.
+	-$(GCC) -MM $(CFLAGS) -I$(BFD_DIR) \
+	    `ls $(SOURCES) | sort -u` >depend.tmp
+	<depend.tmp sed -e 's/ [xt]m.h/& config.status/g'  \
+	  -e 's; vx-share/; $${srcdir}/vx-share/;g'  \
+	  -e 's; nindy-share/; $${srcdir}/nindy-share/;g'  \
+	  -e 's; $(INCLUDE_DIR)/; $(INCLUDE_DEP)/;g'  \
+	  -e 's; [a-z0-9./]*bfd/; $(BFD_DEP)/;g'  \
+	  -e 's; [a-z0-9./]*getopt/; $(GETOPT_DEP)/;g'  \
+	  -e 's; \./; $${srcdir}/;g'  \
+	  >depend
+	$(MAKE_MAKEFILE)
+	rm depend.tmp
+
+config.status:
+	@echo "You must configure gdb.  Look at the README file for details."
+	@false
+
+# These are not generated by "make depend" because they only are there
+# for some machines.
+tm-isi.h tm-sun3.h tm-news.h tm-hp300bsd.h tm-altos.h : tm-68k.h
+tm-hp300hpux.h tm-sun2.h tm-3b1.h : tm-68k.h
+xm-news1000.h : xm-news.h
+xm-i386-sv32.h : xm-i386.h
+tm-i386gas.h: tm-i386.h
+xm-sun4os4.h : xm-sparc.h
+tm-sun4os4.h : tm-sparc.h
+
+# Some systems (e.g. Decstation) have malloc in the X11 library.  
+# Therefore $(ADD_FILES) must be before -lX11.
+xgdb : $(OBS) $(TSOBS) xgdb.o ${ADD_DEPS} ${RL_LIB_DEP}
 	rm -f init.c
-	./munch ${MUNCH_DEFINE} $(OBS) $(TSOBS) xgdb.o > init.c
+	$(srcdir)/munch ${MUNCH_DEFINE} $(OBS) $(TSOBS) xgdb.o > init.c
 	$(CC-LD) $(LDFLAGS) -o xgdb init.c $(OBS) $(TSOBS) xgdb.o \
-	-lXaw -lXmu -lXt -lX11 ${RL_LIB} $(CLIBS)
+	$(ADD_FILES) -lXaw -lXmu -lXt -lX11 ${RL_LIB} $(CLIBS)
 
-/* Old (pre R3) xgdb comp.
-	$(CC-LD) $(LDFLAGS) -o xgdb init.c $(OBS) $(TSOBS) xgdb.o \
-	-lXaw -lXt -lX11 $(CLIBS) */
+# Old (pre R3) xgdb comp.
+#	$(CC-LD) $(LDFLAGS) -o xgdb init.c $(OBS) $(TSOBS) xgdb.o \
+#	$(ADD_FILES) -lXaw -lXt -lX11 $(CLIBS)
 
-kdb : $(NTSSTART) $(OBS) $(NTSOBS) ${ADD_DEPS} ${RL_LIB}
+kdb : $(NTSSTART) $(OBS) $(NTSOBS) ${ADD_DEPS} ${RL_LIB_DEP}
 	rm -f init.c
-	./munch ${MUNCH_DEFINE} $(OBS) $(NTSOBS) > init.c
+	$(srcdir)/munch ${MUNCH_DEFINE} $(OBS) $(NTSOBS) > init.c
 	$(CC) $(LDFLAGS) -c init.c $(CLIBS) 
-	ld -o kdb $(NTSSTART) $(OBS) $(NTSOBS) init.o ${RL_LIB} -lc $(CLIBS)
+	ld -o kdb $(NTSSTART) $(OBS) $(NTSOBS) init.o $(ADD_FILES) \
+	${RL_LIB} -lc $(CLIBS)
 
-/* If it can figure out the appropriate order, createtags will make sure
- that the proper m-*, *-dep, *-pinsn, and *-opcode files come first
- in the tags list.  It will attempt to do the same for dbxread.c and 
- coffread.c.  This makes using M-. on machine dependent routines much 
- easier.  */
-
+# Put the proper machine-specific files first.
+# createtags will edit the .o in DEPFILES into .c
 TAGS: ${TAGFILES}
-	createtags ${TAGFILES}
+	$(srcdir)/createtags $(TM_FILE) ${XM_FILE} $(DEPFILES) ${TAGFILES}
 tags: TAGS
 
-gdb.tar: ${TARFILES}
-	rm -f gdb.tar
-	mkdir dist-gdb
-	cd dist-gdb ; for i in ${TARFILES} ; do ln -s ../$$i . ; done
-	mkdir dist-gdb/readline
-	cd dist-gdb/readline ; for i in ${READLINE} ; do ln -s ../../readline/$$i . ; done
-	tar chf gdb.tar dist-gdb
-	rm -rf dist-gdb
-
-/* Remove gdb.tar.Z so stupid compress doesn't ask whether we want to
-   overwrite it.  compress -f is not what we want, because we do want
-   to know if compress would not make it smaller.  */
-gdb.tar.Z: gdb.tar
-	if [ -f gdb.tar.Z ]; then rm -f gdb.tar.Z; else true; fi
-	compress gdb.tar
+# FIXME: Get alldeps.mak up to date, config.gdb none, THEN make gdb.tar.Z!
+gdb.tar.Z: ${TARFILES}
+	rm -f gdb.tar; rm -rf $(DIST)
+	cd readline ; make readline.tar
+	mkdir $(DIST)
+	cd $(DIST) ; for i in ${TARFILES} ; do ln -s ../$$i . ; done
+	mkdir $(DIST)/readline
+	cd $(DIST)/readline ; tar xf ../../readline/readline.tar
+	mkdir $(DIST)/xconfig ${DIST}/tconfig
+	cd $(DIST)/tconfig ; \
+	  for i in $(ALLCONFIG) ; do ln -s ../../$$i ../$$i ; done
+	mkdir $(DIST)/vx-share $(DIST)/nindy-share
+	cd $(DIST)/tconfig ; \
+	  for i in $(SFILES_SUBDIR) ; do ln -s ../../$$i ../$$i ; done
+	tar chf - $(DIST) | compress >gdb.tar.Z
+	rm -rf $(DIST)
 
 clean:
-	rm -f ${OBS} ${TSOBS} ${NTSOBS} ${OBSTACK} ${REGEX} ${GNU_MALLOC}
-	rm -f init.c init.o
+	rm -f ${OBS} ${TSOBS} ${NTSOBS} ${ADD_FILES}
+	rm -f init.c init.o version.c
 	rm -f xgdb.o xgdb
 	rm -f gdb core gdb.tar gdb.tar.Z make.log
 	rm -f gdb[0-9]
 	cd readline ; make clean
 
 distclean: clean expread.tab.c TAGS
-	rm -f dep.c opcode.h param.h pinsn.c config.status
+	rm -f tm.h xm.h config.status
 	rm -f y.output yacc.acts yacc.tmp
 	rm -f ${TESTS} Makefile
 
 realclean: clean
 	rm -f expread.tab.c TAGS
-	rm -f dep.c opcode.h param.h pinsn.c config.status
+	rm -f tm.h xm.h config.status
 	rm -f Makefile
 
-xgdb.o : defs.h param.h symtab.h frame.h
+gdb.dvi : gdb.texinfo
+	tex gdb.texinfo
+	texindex gdb.??
+	tex gdb.texinfo
 
-/* Make copying.c from COPYING */
+# Make copying.c from COPYING
 copying.c : COPYING copying.awk
 	awk -f copying.awk < COPYING > copying.c
 
-expread.tab.c : expread.y
-	@echo 'Expect 4 shift/reduce conflict.'
-	${YACC} expread.y
-	mv y.tab.c expread.tab.c
+version.c : Makefile.dist
+	echo 'char *version = "$(VERSION)";' >version.c
 
-expread.o : expread.tab.c defs.h param.h symtab.h frame.h expression.h
-	$(CC) -c ${CFLAGS} expread.tab.c
+${srcdir}/expread.tab.c : $(srcdir)/expread.y
+	@echo 'Expect 4 shift/reduce conflict.'
+	${YACC} $(srcdir)/expread.y
+	mv y.tab.c ${srcdir}/expread.tab.c
+
+expread.o : ${srcdir}/expread.tab.c defs.h param.h symtab.h \
+            frame.h expression.h
+	$(CC) -c ${CFLAGS} `echo ${srcdir}/expread.tab.c | sed 's,^\./,,'`
 	mv expread.tab.o expread.o
 
+# dbxread, coffread, mipsread have dependencies on BFD header files.
+dbxread.o: ${srcdir}/dbxread.c
+	${CC} -c ${CFLAGS} -I$(BFD_DIR) ${srcdir}/dbxread.c
+
+coffread.o: ${srcdir}/coffread.c
+	${CC} -c ${CFLAGS} -I$(BFD_DIR) ${srcdir}/coffread.c
+
+mipsread.o: ${srcdir}/mipsread.c
+	${CC} -c ${CFLAGS} -I$(BFD_DIR) ${srcdir}/mipsread.c
+
+# Drag in the files that are in another directory.
+
+getopt1.o: $(GETOPT_DIR)/getopt1.c
+	${CC} -c ${CFLAGS} $(GETOPT_DIR)/getopt1.c
+
+getopt.o: $(GETOPT_DIR)/getopt.c
+	${CC} -c ${CFLAGS} $(GETOPT_DIR)/getopt.c
+
+xdr_ld.o: ${srcdir}/vx-share/xdr_ld.c
+	${CC} -c ${CFLAGS} ${srcdir}/vx-share/xdr_ld.c
+
+xdr_ptrace.o: ${srcdir}/vx-share/xdr_ptrace.c
+	${CC} -c ${CFLAGS} ${srcdir}/vx-share/xdr_ptrace.c
+
+xdr_rdb.o: ${srcdir}/vx-share/xdr_rdb.c
+	${CC} -c ${CFLAGS} ${srcdir}/vx-share/xdr_rdb.c
+
+xdr_regs.o: ${srcdir}/vx-share/xdr_regs.c
+	${CC} -c ${CFLAGS} ${srcdir}/vx-share/xdr_regs.c
+
+nindy.o: ${srcdir}/nindy-share/nindy.c
+	${CC} -c ${CFLAGS} ${srcdir}/nindy-share/nindy.c
+
+Onindy.o: ${srcdir}/nindy-share/Onindy.c
+	${CC} -c ${CFLAGS} ${srcdir}/nindy-share/Onindy.c
+
+coffstrip.o: ${srcdir}/nindy-share/coffstrip.c
+	${CC} -c ${CFLAGS} ${srcdir}/nindy-share/coffstrip.c
+
+ttybreak.o: ${srcdir}/nindy-share/ttybreak.c
+	${CC} -c ${CFLAGS} ${srcdir}/nindy-share/ttybreak.c
+
+ttyflush.o: ${srcdir}/nindy-share/ttyflush.c
+	${CC} -c ${CFLAGS} ${srcdir}/nindy-share/ttyflush.c
+
+tdesc-lib/libdc.o : force_update
+	cd tdesc-lib ; ${MAKE} "SYSV_DEFINE=${SYSV_DEFINE}"
+
+# In LOCAL_INCLUDES, -I${srcdir} is right if srcdir is an absolute path,
+# and -I../${srcdir} is right if it is relative (e.g. ".."), so search both.
 readline/libreadline.a : force_update
-	cd readline ; ${MAKE} "SYSV=${SYSV_DEFINE}" \
+	cd readline ; ${MAKE} "SYSV=${SYSV_DEFINE}"\
+		"VPATH=${srcdir}/readline:../${srcdir}/readline"\
+		"LOCAL_INCLUDES=-I../ -I${srcdir}/ -I../${srcdir}/"\
 		"DEBUG_FLAGS=${GLOBAL_CFLAGS}" "CC=${CC}" libreadline.a
+
+lint: $(SFILES)
+	$(LINT) -I. -I$(srcdir) $(LINTFLAGS) $(SFILES)
+
+gdb.cxref: $(SFILES)
+	cxref -I. $(SFILES) >gdb.cxref
 
 force_update :
 
-/* Only useful if you are using the gnu malloc routines.  */
-malloc.o : malloc.c
-	${CC} -c ${MALLOC_FLAGS} malloc.c
-
-/* dep.o depends on config.status in case someone reconfigures gdb out
- from under an already compiled gdb.  */
-dep.o : dep.c config.status defs.h param.h frame.h inferior.h obstack.h \
-	a.out.encap.h
-
-/* pinsn.o depends on config.status in case someone reconfigures gdb out
- from under an already compiled gdb.  */
-pinsn.o : pinsn.c config.status defs.h param.h symtab.h obstack.h symseg.h \
-	  frame.h opcode.h
-
-/* The rest of this is a standard dependencies list (hand edited output of
-   cpp -M).  It does not include dependencies of .o files on .c files. */
-/* All files which depend on config.status also depend on param.h in case
-   someone reconfigures gdb out from under an already compiled gdb.  */
-blockframe.o : defs.h param.h config.status symtab.h obstack.h symseg.h frame.h 
-breakpoint.o : defs.h param.h config.status symtab.h obstack.h symseg.h frame.h
-coffread.o : defs.h param.h config.status 
-command.o : command.h defs.h
-core.o : defs.h  param.h config.status a.out.encap.h
-dbxread.o : param.h config.status defs.h symtab.h obstack.h symseg.h a.out.encap.h \
-	    stab.gnu.h
-environ.o : environ.h 
-eval.o : defs.h  param.h config.status symtab.h obstack.h symseg.h value.h expression.h 
-expprint.o : defs.h symtab.h obstack.h symseg.h param.h config.status expression.h
-findvar.o : defs.h param.h config.status symtab.h obstack.h symseg.h frame.h value.h 
-infcmd.o : defs.h  param.h config.status symtab.h obstack.h symseg.h frame.h inferior.h \
-	   environ.h value.h
-inflow.o : defs.h  param.h config.status frame.h inferior.h
-infrun.o : defs.h  param.h config.status symtab.h obstack.h symseg.h frame.h inferior.h \
-	   wait.h
-kdb-start.o : defs.h param.h config.status 
-main.o : defs.h  command.h param.h config.status
-malloc.o :  getpagesize.h
-obstack.o : obstack.h 
-printcmd.o :  defs.h param.h config.status frame.h symtab.h obstack.h symseg.h value.h \
-	      expression.h 
-regex.o : regex.h 
-remote.o : defs.h  param.h config.status frame.h inferior.h wait.h
-source.o : defs.h  symtab.h obstack.h symseg.h param.h config.status
-stack.o :  defs.h param.h config.status symtab.h obstack.h symseg.h frame.h 
-standalone.o : defs.h param.h config.status symtab.h obstack.h symseg.h frame.h \
-	       inferior.h wait.h 
-symmisc.o : defs.h symtab.h obstack.h symseg.h obstack.h 
-symtab.o : defs.h  symtab.h obstack.h symseg.h param.h config.status  obstack.h
-utils.o : defs.h  param.h config.status 
-valarith.o : defs.h param.h config.status symtab.h obstack.h symseg.h value.h expression.h 
-valops.o :  defs.h param.h config.status symtab.h obstack.h symseg.h value.h frame.h \
-	    inferior.h
-valprint.o :  defs.h param.h config.status symtab.h obstack.h symseg.h value.h 
-values.o :  defs.h param.h config.status symtab.h obstack.h symseg.h value.h 
-
-robotussin.h : getpagesize.h   
-symtab.h : obstack.h symseg.h 
-a.out.encap.h : a.out.gnu.h
-
+# When used with GDB, the demangler should never look for leading underscores
+# because GDB strips them off during symbol read-in.  Thus -Dnounderscore.
+cplus-dem.o : cplus-dem.c
+	${CC} -c -Dnounderscore `echo ${srcdir}/cplus-dem.c | sed 's,^\./,,'`

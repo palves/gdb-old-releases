@@ -21,20 +21,25 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "symtab.h"
 #include "param.h"
+#include "command.h"
+#include "frame.h"
 
 #ifdef USG
 #include <sys/types.h>
-#include <fcntl.h>
 #endif
 
+#include <string.h>
 #include <sys/param.h>
 #include <sys/stat.h>
-#include <sys/file.h>
+#include <fcntl.h>
+#include "gdbcore.h"
+
+extern void set_next_address ();
 
 /* Path of directories to search for source files.
    Same format as the PATH environment variable's value.  */
 
-static char *source_path;
+char *source_path;
 
 /* Symtab of default file for listing lines of.  */
 
@@ -54,14 +59,12 @@ static int last_line_listed;
 static int first_line_listed;
 
 
-struct symtab *psymtab_to_symtab ();
-
 /* Set the source file default for the "list" command, specifying a
-   symtab.  Sigh.  Behaivior specification: If it is called with a
+   symtab.  Sigh.  Behavior specification: If it is called with a
    non-zero argument, that is the symtab to select.  If it is not,
    first lookup "main"; if it exists, use the symtab and line it
    defines.  If not, take the last symtab in the symtab_list (if it
-   exists) or the last symtab in the psytab_list (if *it* exists).  If
+   exists) or the last symtab in the psymtab_list (if *it* exists).  If
    none of this works, report an error.   */
 
 void
@@ -70,7 +73,8 @@ select_source_symtab (s)
 {
   struct symtabs_and_lines sals;
   struct symtab_and_line sal;
-  struct partial_symtab *ps, *cs_pst;
+  struct partial_symtab *ps;
+  struct partial_symtab *cs_pst = 0;
   
   if (s)
     {
@@ -81,13 +85,13 @@ select_source_symtab (s)
 
   /* Make the default place to list be the function `main'
      if one exists.  */
-  if (lookup_symbol ("main", 0, VAR_NAMESPACE, 0))
+  if (lookup_symbol ("main", 0, VAR_NAMESPACE, 0, NULL))
     {
       sals = decode_line_spec ("main", 1);
       sal = sals.sals[0];
       free (sals.sals);
       current_source_symtab = sal.symtab;
-      current_source_line = max (sal.line - 9, 1);
+      current_source_line = max (sal.line - (lines_to_list () - 1), 1);
       return;
     }
   
@@ -121,7 +125,7 @@ select_source_symtab (s)
 	if (cs_pst->readin)
 	  fatal ("Internal: select_source_symtab: readin pst found and no symtabs.");
 	else
-	  current_source_symtab = psymtab_to_symtab (cs_pst);
+	  current_source_symtab = PSYMTAB_TO_SYMTAB (cs_pst);
       else
 	current_source_symtab = 0;
       current_source_line = 1;
@@ -134,36 +138,54 @@ directories_info ()
   printf ("Source directories searched: %s\n", source_path);
 }
 
-void
-init_source_path ()
+/* Forget what we learned about line positions in source files,
+   and which directories contain them;
+   must check again now since files may be found in
+   a different directory now.  */
+
+static void
+forget_cached_source_info ()
 {
   register struct symtab *s;
 
-  source_path = savestring (current_directory, strlen (current_directory));
-
-  /* Forget what we learned about line positions in source files;
-     must check again now since files may be found in
-     a different directory now.  */
   for (s = symtab_list; s; s = s->next)
-    if (s->line_charpos != 0)
-      {
-	free (s->line_charpos);
-	s->line_charpos = 0;
-      }
+    {
+      if (s->line_charpos != 0)
+	{
+	  free (s->line_charpos);
+	  s->line_charpos = 0;
+	}
+      if (s->fullname != 0)
+	{
+	  free (s->fullname);
+	  s->fullname = 0;
+	}
+    }
 }
 
+void
+init_source_path ()
+{
+  source_path = savestring ("", 0);
+  forget_cached_source_info ();
+}
+
+/* Reset path (if empty argument), or add one or more directories to
+   the front of the source path.  */
+ 
 void
 directory_command (dirname, from_tty)
      char *dirname;
      int from_tty;
 {
   char *old = source_path;
+  int prefix = 0;
 
   dont_repeat ();
 
   if (dirname == 0)
     {
-      if (query ("Reinitialize source path to %s? ", current_directory))
+      if (query ("Reinitialize source path to empty? ", ""))
 	{
 	  init_source_path ();
 	  free (old);
@@ -256,9 +278,12 @@ directory_command (dirname, from_tty)
 		if (!strncmp (p, name, len)
 		    && (p[len] == '\0' || p[len] == ':'))
 		  {
-		    if (from_tty)
-		      printf ("\"%s\" is already in the source path.\n", name);
-		    break;
+		    /* Found it in the search path, remove old copy */
+		    if (p > source_path)
+		      p--;			/* Back over leading colon */
+		    if (prefix > p - source_path)
+		      goto skip_dup;	/* Same dir twice in one cmd */
+		    strcpy (p, &p[len+1]);	/* Copy from next \0 or  : */
 		  }
 		p = index (p, ':');
 		if (p != 0)
@@ -268,23 +293,75 @@ directory_command (dirname, from_tty)
 	      }
 	    if (p == 0)
 	      {
-		source_path = concat (old, ":", name);
+		/* If we have already tacked on a name(s) in this command,			   be sure they stay on the front as we tack on some more.  */
+		if (prefix)
+		  {
+		    char *temp, c;
+
+		    c = old[prefix];
+		    old[prefix] = '\0';
+		    temp = concat (old, ":", name);
+		    old[prefix] = c;
+		    source_path = concat (temp, "", &old[prefix]);
+		    prefix = strlen (temp);
+		    free (temp);
+		  }
+		else
+		  {
+		    source_path = concat (name, (old[0]? ":" : old), old);
+		    prefix = strlen (name);
+		  }
 		free (old);
 		old = source_path;
 	      }
 	  }
+      skip_dup: ;
 	} while (*dirname != '\0');
       if (from_tty)
 	directories_info ();
+      forget_cached_source_info ();
     }
 }
+
+
+static void
+source_info ()
+{
+  register struct symtab *s = current_source_symtab;
+
+  if (!s)
+    {
+      printf("No current source file.\n");
+      return;
+    }
+  printf ("Current source file is %s\n", s->filename);
+  if (s->dirname)
+    printf ("Originally compiled in %s\n", s->dirname);
+  if (s->fullname)
+    printf ("Located in %s\n", s->fullname);
+  if (s->nlines)
+    printf ("Contains %d lines\n", s->nlines);
+
+  switch (s->language) {
+  case language_c:
+    printf("Written in the C language.\n");
+  /* Add more cases here when -Wswitch complains... */
+  case language_unknown:
+    break;
+  }
+}
+
+
 
 /* Open a file named STRING, searching path PATH (dir names sep by colons)
    using mode MODE and protection bits PROT in the calls to open.
    If TRY_CWD_FIRST, try to open ./STRING before searching PATH.
    (ie pretend the first element of PATH is ".")
    If FILENAMED_OPENED is non-null, set it to a newly allocated string naming
-   the actual file opened (this string will always start with a "/"
+   the actual file opened (this string will always start with a "/".  We
+   have to take special pains to avoid doubling the "/" between the directory
+   and the file, sigh!  Emacs gets confuzzed by this when we print the
+   source file name!!! 
 
    If a file is found, return the descriptor.
    Otherwise, return -1, with errno set for the last name we tried to open.  */
@@ -332,7 +409,10 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
 
       strncpy (filename, p, len);
       filename[len] = 0;
-      strcat (filename, "/");
+      /* Beware the // my son, the Emacs barfs, the botch that catch... */
+      while (len > 1 && filename[len-1] == '/')
+	filename[--len] = 0;
+      strcat (filename+len, "/");
       strcat (filename, string);
 
       fd = open (filename, mode, prot);
@@ -347,11 +427,54 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
       *filename_opened = savestring (filename, strlen (filename));
     else
       {
-	*filename_opened = concat (current_directory, "/", filename);
+	/* Beware the // my son, the Emacs barfs, the botch that catch... */
+	   
+	*filename_opened = concat (current_directory, 
+	   '/' == current_directory[strlen(current_directory)-1]? "": "/",
+				   filename);
       }
 
   return fd;
 }
+
+/* Open a source file given a symtab S.  Returns a file descriptor
+   or negative number for error.  */
+int
+open_source_file (s)
+     struct symtab *s;
+{
+  char *path = source_path;
+  int result;
+
+  /* Quick way out if we already know its full name */
+  if (s->fullname) 
+    {
+      result = open (s->fullname, O_RDONLY);
+      if (result >= 0)
+        return result;
+      /* Didn't work -- free old one, try again. */
+      free (s->fullname);
+      s->fullname = NULL;
+    }
+
+  if (s->dirname != NULL)
+    {
+      /* Add the directory in which the file was compiled at the end of
+	 the path.  */
+      path = (char *)
+	     alloca (strlen (source_path) + 1 + strlen (s->dirname) + 1);
+      strcpy (path, source_path);
+      strcat (path, ":");
+      strcat (path, s->dirname);
+    }
+  if (path[0] == '\0')		/* Still no path and no dir where compiled */
+    {
+      path = current_directory;	/* Let files be found in current dir */
+    }
+
+  return openp (path, 0, s->filename, O_RDONLY, 0, &s->fullname);
+}
+
 
 /* Create and initialize the table S->line_charpos that records
    the positions of the lines in the source file, which is assumed
@@ -368,14 +491,18 @@ find_source_lines (s, desc)
   int nlines = 0;
   int lines_allocated = 1000;
   int *line_charpos = (int *) xmalloc (lines_allocated * sizeof (int));
-  extern int exec_mtime;
 
   if (fstat (desc, &st) < 0)
     perror_with_name (s->filename);
-  if (get_exec_file (0) != 0 && exec_mtime < st.st_mtime)
+  if (exec_bfd && bfd_get_mtime(exec_bfd) < st.st_mtime)
     printf ("Source file is more recent than executable.\n");
 
+#if defined (BROKEN_LARGE_ALLOCA)
+  data = (char *) xmalloc (st.st_size);
+  make_cleanup (free, data);
+#else
   data = (char *) alloca (st.st_size);
+#endif
   if (myread (desc, data, st.st_size) < 0)
     perror_with_name (s->filename);
   end = data + st.st_size;
@@ -445,14 +572,13 @@ source_charpos_line (s, chr)
    or to 0 if the file is not found.  */
 
 int
-get_filename_and_charpos (s, line, fullname)
+get_filename_and_charpos (s, fullname)
      struct symtab *s;
-     int line;
      char **fullname;
 {
   register int desc, linenums_changed = 0;
   
-  desc = openp (source_path, 0, s->filename, O_RDONLY, 0, &s->fullname);
+  desc = open_source_file (s);
   if (desc < 0)
     {
       if (fullname)
@@ -483,7 +609,7 @@ identify_source_line (s, line, mid_statement)
      int mid_statement;
 {
   if (s->line_charpos == 0)
-    get_filename_and_charpos (s, line, 0);
+    get_filename_and_charpos (s, (char **)NULL);
   if (s->fullname == 0)
     return 0;
   printf ("\032\032%s:%d:%d:%s:0x%x\n", s->fullname,
@@ -511,7 +637,7 @@ print_source_lines (s, line, stopline, noerror)
   register FILE *stream;
   int nlines = stopline - line;
 
-  desc = openp (source_path, 0, s->filename, O_RDONLY, 0, &s->fullname);
+  desc = open_source_file (s);
   if (desc < 0)
     {
       extern int errno;
@@ -615,7 +741,7 @@ list_command (arg, from_tty)
       if (current_source_symtab == 0)
 	error ("No default source file yet.  Do \"help list\".");
       print_source_lines (current_source_symtab, current_source_line,
-			  current_source_line + 10, 0);
+			  current_source_line + lines_to_list (), 0);
       return;
     }
 
@@ -625,7 +751,7 @@ list_command (arg, from_tty)
       if (current_source_symtab == 0)
 	error ("No default source file yet.  Do \"help list\".");
       print_source_lines (current_source_symtab,
-			  max (first_line_listed - 10, 1),
+			  max (first_line_listed - lines_to_list (), 1),
 			  first_line_listed, 0);
       return;
     }
@@ -731,15 +857,20 @@ list_command (arg, from_tty)
   if (dummy_beg && sal_end.symtab == 0)
     error ("No default source file yet.  Do \"help list\".");
   if (dummy_beg)
-    print_source_lines (sal_end.symtab, max (sal_end.line - 9, 1),
+    print_source_lines (sal_end.symtab,
+			max (sal_end.line - (lines_to_list () - 1), 1),
 			sal_end.line + 1, 0);
   else if (sal.symtab == 0)
     error ("No default source file yet.  Do \"help list\".");
   else if (no_end)
-    print_source_lines (sal.symtab, max (sal.line - 5, 1), sal.line + 5, 0);
+    print_source_lines (sal.symtab,
+			max (sal.line - (lines_to_list () / 2), 1),
+			sal.line + 5, 0);
   else
     print_source_lines (sal.symtab, sal.line,
-			dummy_end ? sal.line + 10 : sal_end.line + 1,
+			(dummy_end
+			 ? sal.line + lines_to_list ()
+			 : sal_end.line + 1),
 			0);
 }
 
@@ -752,7 +883,7 @@ line_info (arg, from_tty)
 {
   struct symtabs_and_lines sals;
   struct symtab_and_line sal;
-  int start_pc, end_pc;
+  CORE_ADDR start_pc, end_pc;
   int i;
 
   if (arg == 0)
@@ -808,6 +939,7 @@ line_info (arg, from_tty)
 static void
 forward_search_command (regex, from_tty)
      char *regex;
+     int from_tty;
 {
   register int c;
   register int desc;
@@ -824,8 +956,7 @@ forward_search_command (regex, from_tty)
 
   /* Search from last_line_listed+1 in current_source_symtab */
 
-  desc = openp (source_path, 0, current_source_symtab->filename,
-		O_RDONLY, 0, &current_source_symtab->fullname);
+  desc = open_source_file (current_source_symtab);
   if (desc < 0)
     perror_with_name (current_source_symtab->filename);
 
@@ -865,7 +996,7 @@ forward_search_command (regex, from_tty)
 	fclose (stream);
 	print_source_lines (current_source_symtab,
 			   line, line+1, 0);
-	current_source_line = max (line - 5, 1);
+	current_source_line = max (line - lines_to_list () / 2, 1);
 	return;
       }
     line++;
@@ -878,6 +1009,7 @@ forward_search_command (regex, from_tty)
 static void
 reverse_search_command (regex, from_tty)
      char *regex;
+     int from_tty;
 {
   register int c;
   register int desc;
@@ -894,8 +1026,7 @@ reverse_search_command (regex, from_tty)
 
   /* Search from last_line_listed-1 in current_source_symtab */
 
-  desc = openp (source_path, 0, current_source_symtab->filename,
-		O_RDONLY, 0, &current_source_symtab->fullname);
+  desc = open_source_file (current_source_symtab);
   if (desc < 0)
     perror_with_name (current_source_symtab->filename);
 
@@ -916,7 +1047,7 @@ reverse_search_command (regex, from_tty)
 
   stream = fdopen (desc, "r");
   clearerr (stream);
-  while (1)
+  while (line > 1)
     {
       char buf[4096];		/* Should be reasonable??? */
       register char *p = buf;
@@ -936,7 +1067,7 @@ reverse_search_command (regex, from_tty)
 	  fclose (stream);
 	  print_source_lines (current_source_symtab,
 			      line, line+1, 0);
-	  current_source_line = max (line - 5, 1);
+	  current_source_line = max (line - lines_to_list () / 2, 1);
 	  return;
 	}
       line--;
@@ -959,12 +1090,16 @@ _initialize_source ()
   init_source_path ();
 
   add_com ("directory", class_files, directory_command,
-	   "Add directory DIR to end of search path for source files.\n\
-With no argument, reset the search path to just the working directory\n\
-and forget cached info on line positions in source files.");
+	   "Add directory DIR to beginning of search path for source files.\n\
+With no argument, reset the search path to empty, allowing files to be\n\
+found where they were compiled (or, failing that, in the current directory);\n\
+and forget cached info on source file locations and line positions.");
 
   add_info ("directories", directories_info,
 	    "Current search path for finding source files.");
+
+  add_info ("source", source_info,
+	    "Information about the current source file.");
 
   add_info ("line", line_info,
 	    "Core addresses of the code for a source line.\n\
@@ -998,5 +1133,6 @@ Lines can be specified in these ways:\n\
   FILE:FUNCTION, to distinguish among like-named static functions.\n\
   *ADDRESS, to list around the line containing that address.\n\
 With two args if one is empty it stands for ten lines away from the other arg.");
+  add_com_alias ("l", "list", class_files, 0);
 }
 

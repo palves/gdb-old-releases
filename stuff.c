@@ -24,6 +24,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
+#include <varargs.h>
 
 extern char *sys_errlist[];
 extern int errno;
@@ -158,10 +159,17 @@ find_symbol (sym_name, symbol_table, length, strings)
     err ("Data symbol %s not found in %s\n", sym_name, file);
 }
 
-err (msg, a1, a2, a3)
-     char *msg;
-     int a1, a2, a3;
+/* VARARGS */
+void
+err (va_alist)
+     va_dcl
 {
-  fprintf (stderr, msg, a1, a2, a3);
+  va_list args;
+  char *string;
+
+  va_start (args);
+  string = va_arg (args, char *);
+  vfprintf (stderr, string, args);
+  va_end (args);
   exit (-1);
 }

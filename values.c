@@ -18,10 +18,14 @@ along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
+#include <string.h>
 #include "defs.h"
 #include "param.h"
 #include "symtab.h"
 #include "value.h"
+#include "gdbcore.h"
+#include "frame.h"
+#include "command.h"
 
 /* The value-history records all the values printed
    by print commands during this session.  Each chunk
@@ -58,6 +62,8 @@ allocate_value (type)
 {
   register value val;
 
+  check_stub_type (type);
+
   val = (value) xmalloc (sizeof (struct value) + TYPE_LENGTH (type));
   VALUE_NEXT (val) = all_values;
   all_values = val;
@@ -71,6 +77,8 @@ allocate_value (type)
   VALUE_REPEATED (val) = 0;
   VALUE_REPETITIONS (val) = 0;
   VALUE_REGNO (val) = -1;
+  VALUE_LAZY (val) = 0;
+  VALUE_OPTIMIZED_OUT (val) = 0;
   return val;
 }
 
@@ -97,6 +105,8 @@ allocate_repeat_value (type, count)
   VALUE_REPEATED (val) = 1;
   VALUE_REPETITIONS (val) = count;
   VALUE_REGNO (val) = -1;
+  VALUE_LAZY (val) = 0;
+  VALUE_OPTIMIZED_OUT (val) = 0;
   return val;
 }
 
@@ -111,7 +121,7 @@ free_all_values ()
   for (val = all_values; val; val = next)
     {
       next = VALUE_NEXT (val);
-      free (val);
+      value_free (val);
     }
 
   all_values = 0;
@@ -162,9 +172,13 @@ value_copy (arg)
   VALUE_BITPOS (val) = VALUE_BITPOS (arg);
   VALUE_BITSIZE (val) = VALUE_BITSIZE (arg);
   VALUE_REGNO (val) = VALUE_REGNO (arg);
-  bcopy (VALUE_CONTENTS (arg), VALUE_CONTENTS (val),
-	 TYPE_LENGTH (VALUE_TYPE (arg))
-	 * (VALUE_REPEATED (arg) ? VALUE_REPETITIONS (arg) : 1));
+  VALUE_LAZY (val) = VALUE_LAZY (arg);
+  if (!VALUE_LAZY (val))
+    {
+      bcopy (VALUE_CONTENTS_RAW (arg), VALUE_CONTENTS_RAW (val),
+	     TYPE_LENGTH (VALUE_TYPE (arg))
+	     * (VALUE_REPEATED (arg) ? VALUE_REPETITIONS (arg) : 1));
+    }
   return val;
 }
 
@@ -362,6 +376,8 @@ value_of_internalvar (var)
 #endif 
 
   val = value_copy (var->value);
+  if (VALUE_LAZY (val))
+    value_fetch_lazy (val);
   VALUE_LVAL (val) = lval_internalvar;
   VALUE_INTERNALVAR (val) = var;
   return val;
@@ -442,10 +458,13 @@ convenience_info ()
 #endif
       if (!varseen)
 	{
+#if 0
+	  /* Useless noise.  */
 	  printf ("Debugger convenience variables:\n\n");
+#endif
 	  varseen = 1;
 	}
-      printf ("$%s: ", var->name);
+      printf ("$%s = ", var->name);
       value_print (var->value, stdout, 0, Val_pretty_default);
       printf ("\n");
     }
@@ -464,6 +483,11 @@ LONGEST
 value_as_long (val)
      register value val;
 {
+  /* This coerces arrays and functions, which is necessary (e.g.
+     in disassemble_command).  It also dereferences references, which
+     I suspect is the most logical thing to do.  */
+  if (TYPE_CODE (VALUE_TYPE (val)) != TYPE_CODE_ENUM)
+    COERCE_ARRAY (val);
   return unpack_long (VALUE_TYPE (val), VALUE_CONTENTS (val));
 }
 
@@ -480,10 +504,11 @@ value_as_double (val)
   return foo;
 }
 
-/* Unpack raw data (copied from debugee) at VALADDR
+/* Unpack raw data (copied from debugee, target byte order) at VALADDR
    as a long, or as a double, assuming the raw data is described
    by type TYPE.  Knows how to convert different sizes of values
-   and can convert between fixed and floating point.
+   and can convert between fixed and floating point.  Return value
+   in host byte order.
 
    C++: It is assumed that the front-end has taken care of
    all matters concerning pointers to members.  A pointer
@@ -504,53 +529,117 @@ unpack_long (type, valaddr)
   if (code == TYPE_CODE_FLT)
     {
       if (len == sizeof (float))
-	return * (float *) valaddr;
+	{
+	  float retval = * (float *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (float));
+	  return retval;
+	}
 
       if (len == sizeof (double))
-	return * (double *) valaddr;
+	{
+	  double retval = * (double *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (double));
+	  return retval;
+	}
+      else
+	{
+	  error ("Unexpected type of floating point number.");
+	}
     }
   else if (code == TYPE_CODE_INT && nosign)
     {
       if (len == sizeof (char))
-	return * (unsigned char *) valaddr;
+	{
+	  unsigned char retval = * (unsigned char *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned char));
+	  return retval;
+	}
 
       if (len == sizeof (short))
-	return * (unsigned short *) valaddr;
+	{
+	  unsigned short retval = * (unsigned short *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned short));
+	  return retval;
+	}
 
       if (len == sizeof (int))
-	return * (unsigned int *) valaddr;
+	{
+	  unsigned int retval = * (unsigned int *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned int));
+	  return retval;
+	}
 
       if (len == sizeof (long))
-	return * (unsigned long *) valaddr;
+	{
+	  unsigned long retval = * (unsigned long *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned long));
+	  return retval;
+	}
 #ifdef LONG_LONG
       if (len == sizeof (long long))
-	return * (unsigned long long *) valaddr;
+	{
+	  unsigned long long retval = * (unsigned long long *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (unsigned long long));
+	  return retval;
+	}
 #endif
+      else
+	{
+	  error ("That operation is not possible on an integer of that size.");
+	}
     }
   else if (code == TYPE_CODE_INT)
     {
       if (len == sizeof (char))
-	return * (char *) valaddr;
+	{
+	  char retval = * (char *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (char));
+	  return retval;
+	}
 
       if (len == sizeof (short))
-	return * (short *) valaddr;
+	{
+	  short retval = * (short *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (short));
+	  return retval;
+	}
 
       if (len == sizeof (int))
-	return * (int *) valaddr;
+	{
+	  int retval = * (int *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (int));
+	  return retval;
+	}
 
       if (len == sizeof (long))
-	return * (long *) valaddr;
+	{
+	  long retval = * (long *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (long));
+	  return retval;
+	}
 
 #ifdef LONG_LONG
       if (len == sizeof (long long))
-	return * (long long *) valaddr;
+	{
+	  long long retval = * (long long *) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (long long));
+	  return retval;
+	}
 #endif
+      else
+	{
+	  error ("That operation is not possible on an integer of that size.");
+	}
     }
   else if (code == TYPE_CODE_PTR
 	   || code == TYPE_CODE_REF)
     {
       if (len == sizeof (char *))
-	return (CORE_ADDR) * (char **) valaddr;
+	{
+	  CORE_ADDR retval = (CORE_ADDR) * (char **) valaddr;
+	  SWAP_TARGET_AND_HOST (&retval, sizeof (CORE_ADDR));
+	  return retval;
+	}
     }
   else if (code == TYPE_CODE_MEMBER)
     error ("not implemented: member types in unpack_long");
@@ -638,6 +727,56 @@ unpack_double (type, valaddr, invp)
   return (double) 0;		/* To silence compiler warning.  */
 }
 
+/* Given a value ARG1 (offset by OFFSET bytes)
+   of a struct or union type ARG_TYPE,
+   extract and return the value of one of its fields.
+   FIELDNO says which field.
+
+   For C++, must also be able to return values from static fields */
+
+value
+value_primitive_field (arg1, offset, fieldno, arg_type)
+     register value arg1;
+     int offset;
+     register int fieldno;
+     register struct type *arg_type;
+{
+  register value v;
+  register struct type *type;
+
+  check_stub_type (arg_type);
+  type = TYPE_FIELD_TYPE (arg_type, fieldno);
+
+  /* Handle packed fields */
+
+  offset += TYPE_FIELD_BITPOS (arg_type, fieldno) / 8;
+  if (TYPE_FIELD_BITSIZE (arg_type, fieldno))
+    {
+      v = value_from_long (type,
+			   unpack_field_as_long (arg_type,
+						 VALUE_CONTENTS (arg1),
+						 fieldno));
+      VALUE_BITPOS (v) = TYPE_FIELD_BITPOS (arg_type, fieldno) % 8;
+      VALUE_BITSIZE (v) = TYPE_FIELD_BITSIZE (arg_type, fieldno);
+    }
+  else
+    {
+      v = allocate_value (type);
+      if (VALUE_LAZY (arg1))
+	VALUE_LAZY (v) = 1;
+      else
+	bcopy (VALUE_CONTENTS_RAW (arg1) + offset,
+	       VALUE_CONTENTS_RAW (v),
+	       TYPE_LENGTH (type));
+    }
+  VALUE_LVAL (v) = VALUE_LVAL (arg1);
+  if (VALUE_LVAL (arg1) == lval_internalvar)
+    VALUE_LVAL (v) = lval_internalvar_component;
+  VALUE_ADDRESS (v) = VALUE_ADDRESS (arg1);
+  VALUE_OFFSET (v) = offset + VALUE_OFFSET (arg1);
+  return v;
+}
+
 /* Given a value ARG1 of a struct or union type,
    extract and return the value of one of its fields.
    FIELDNO says which field.
@@ -649,41 +788,14 @@ value_field (arg1, fieldno)
      register value arg1;
      register int fieldno;
 {
-  register value v;
-  register struct type *type = TYPE_FIELD_TYPE (VALUE_TYPE (arg1), fieldno);
-  register int offset;
-
-  /* Handle packed fields */
-
-  offset = TYPE_FIELD_BITPOS (VALUE_TYPE (arg1), fieldno) / 8;
-  if (TYPE_FIELD_BITSIZE (VALUE_TYPE (arg1), fieldno))
-    {
-      v = value_from_long (type,
-			   unpack_field_as_long (VALUE_TYPE (arg1),
-						 VALUE_CONTENTS (arg1),
-						 fieldno));
-      VALUE_BITPOS (v) = TYPE_FIELD_BITPOS (VALUE_TYPE (arg1), fieldno) % 8;
-      VALUE_BITSIZE (v) = TYPE_FIELD_BITSIZE (VALUE_TYPE (arg1), fieldno);
-    }
-  else
-    {
-      v = allocate_value (type);
-      bcopy (VALUE_CONTENTS (arg1) + offset,
-	     VALUE_CONTENTS (v),
-	     TYPE_LENGTH (type));
-    }
-  VALUE_LVAL (v) = VALUE_LVAL (arg1);
-  if (VALUE_LVAL (arg1) == lval_internalvar)
-    VALUE_LVAL (v) = lval_internalvar_component;
-  VALUE_ADDRESS (v) = VALUE_ADDRESS (arg1);
-  VALUE_OFFSET (v) = offset + VALUE_OFFSET (arg1);
-  return v;
+  return value_primitive_field (arg1, 0, fieldno, VALUE_TYPE (arg1));
 }
 
 value
 value_fn_field (arg1, fieldno, subfieldno)
      register value arg1;
      register int fieldno;
+     int subfieldno;
 {
   register value v;
   struct fn_field *f = TYPE_FN_FIELDLIST1 (VALUE_TYPE (arg1), fieldno);
@@ -691,7 +803,7 @@ value_fn_field (arg1, fieldno, subfieldno)
   struct symbol *sym;
 
   sym = lookup_symbol (TYPE_FN_FIELD_PHYSNAME (f, subfieldno),
-		       0, VAR_NAMESPACE, 0);
+		       0, VAR_NAMESPACE, 0, NULL);
   if (! sym) error ("Internal error: could not find physical method named %s",
 		    TYPE_FN_FIELD_PHYSNAME (f, subfieldno));
   
@@ -703,46 +815,58 @@ value_fn_field (arg1, fieldno, subfieldno)
 
 /* Return a virtual function as a value.
    ARG1 is the object which provides the virtual function
-   table pointer.
+   table pointer.  ARG1 is side-effected in calling this function.
    F is the list of member functions which contains the desired virtual
    function.
-   J is an index into F which provides the desired virtual function.
-   TYPE is the basetype which first provides the virtual function table.  */
+   J is an index into F which provides the desired virtual function.  */
 value
-value_virtual_fn_field (arg1, f, j, type)
+value_virtual_fn_field (arg1, f, j)
      value arg1;
      struct fn_field *f;
      int j;
-     struct type *type;
 {
   /* First, get the virtual function table pointer.  That comes
      with a strange type, so cast it to type `pointer to long' (which
      should serve just fine as a function type).  Then, index into
      the table, and convert final value to appropriate function type.  */
-  value vfn, vtbl;
+  value entry, vfn, vtbl;
   value vi = value_from_long (builtin_type_int, 
 			      (LONGEST) TYPE_FN_FIELD_VOFFSET (f, j));
-  VALUE_TYPE (arg1) = TYPE_VPTR_BASETYPE (type);
+  struct type *context = lookup_pointer_type (TYPE_FN_FIELD_FCONTEXT (f, j));
+  if (TYPE_TARGET_TYPE (context) != VALUE_TYPE (arg1))
+    arg1 = value_ind (value_cast (context, value_addr (arg1)));
+
+  context = VALUE_TYPE (arg1);
 
   /* This type may have been defined before its virtual function table
      was.  If so, fill in the virtual function table entry for the
      type now.  */
-  if (TYPE_VPTR_FIELDNO (type) < 0)
-    TYPE_VPTR_FIELDNO (type)
-      = fill_in_vptr_fieldno (type);
+  if (TYPE_VPTR_FIELDNO (context) < 0)
+    TYPE_VPTR_FIELDNO (context)
+      = fill_in_vptr_fieldno (context);
 
   /* The virtual function table is now an array of structures
      which have the form { int16 offset, delta; void *pfn; }.  */
-  vtbl = value_ind (value_field (arg1, TYPE_VPTR_FIELDNO (type)));
+  vtbl = value_ind (value_field (arg1, TYPE_VPTR_FIELDNO (context)));
 
   /* Index into the virtual function table.  This is hard-coded because
      looking up a field is not cheap, and it may be important to save
      time, e.g. if the user has set a conditional breakpoint calling
      a virtual function.  */
-  vfn = value_field (value_subscript (vtbl, vi), 2);
+  entry = value_subscript (vtbl, vi);
 
+  /* Move the `this' pointer according to the virtual function table.  */
+  VALUE_OFFSET (arg1) += value_as_long (value_field (entry, 0));
+  if (! VALUE_LAZY (arg1))
+    {
+      VALUE_LAZY (arg1) = 1;
+      value_fetch_lazy (arg1);
+    }
+
+  vfn = value_field (entry, 2);
   /* Reinstantiate the function pointer with the correct type.  */
   VALUE_TYPE (vfn) = lookup_pointer_type (TYPE_FN_FIELD_TYPE (f, j));
+
   return vfn;
 }
 
@@ -761,6 +885,7 @@ value_static_field (type, fieldname, fieldno)
 {
   register value v;
   struct symbol *sym;
+  char *phys_name;
 
   if (fieldno < 0)
     {
@@ -769,7 +894,7 @@ value_static_field (type, fieldname, fieldno)
       while (t)
 	{
 	  int i;
-	  for (i = TYPE_NFIELDS (t) - 1; i >= 0; i--)
+	  for (i = TYPE_NFIELDS (t) - 1; i >= TYPE_N_BASECLASSES (t); i--)
 	    if (! strcmp (TYPE_FIELD_NAME (t, i), fieldname))
 	      {
 		if (TYPE_FIELD_STATIC (t, i))
@@ -780,41 +905,193 @@ value_static_field (type, fieldname, fieldno)
 		else
 		  error ("field `%s' is not static");
 	      }
-	  t = TYPE_BASECLASSES (t) ? TYPE_BASECLASS (t, 1) : 0;
+	  /* FIXME: this does not recursively check multiple baseclasses.  */
+	  t = TYPE_N_BASECLASSES (t) ? TYPE_BASECLASS (t, 0) : 0;
 	}
 
       t = type;
 
       if (destructor_name_p (fieldname, t))
-	error ("use `info method' command to print out value of destructor");
+	error ("Cannot get value of destructor");
 
       while (t)
 	{
-	  int i, j;
+	  int i;
 
 	  for (i = TYPE_NFN_FIELDS (t) - 1; i >= 0; i--)
 	    {
 	      if (! strcmp (TYPE_FN_FIELDLIST_NAME (t, i), fieldname))
 		{
-		  error ("use `info method' command to print value of method \"%s\"", fieldname);
+		  error ("Cannot get value of method \"%s\"", fieldname);
 		}
 	    }
-	  t = TYPE_BASECLASSES (t) ? TYPE_BASECLASS (t, 1) : 0;
+	  t = TYPE_N_BASECLASSES (t) ? TYPE_BASECLASS (t, 0) : 0;
 	}
       error("there is no field named %s", fieldname);
     }
 
  found:
-
-  sym = lookup_symbol (TYPE_FIELD_STATIC_PHYSNAME (type, fieldno),
-		       0, VAR_NAMESPACE, 0);
-  if (! sym) error ("Internal error: could not find physical static variable named %s", TYPE_FIELD_BITSIZE (type, fieldno));
+  phys_name = TYPE_FIELD_STATIC_PHYSNAME (type, fieldno);
+  sym = lookup_symbol (phys_name, 0, VAR_NAMESPACE, 0, NULL);
+  if (! sym) error ("Internal error: could not find physical static variable named %s", phys_name);
 
   type = TYPE_FIELD_TYPE (type, fieldno);
   v = value_at (type, (CORE_ADDR)SYMBOL_BLOCK_VALUE (sym));
   return v;
 }
 
+/* Compute the address of the baseclass which is
+   the INDEXth baseclass of TYPE.  The TYPE base
+   of the object is at VALADDR.  */
+
+char *
+baseclass_addr (type, index, valaddr, valuep)
+     struct type *type;
+     int index;
+     char *valaddr;
+     value *valuep;
+{
+  struct type *basetype = TYPE_BASECLASS (type, index);
+
+  if (BASETYPE_VIA_VIRTUAL (type, index))
+    {
+      /* Must hunt for the pointer to this virtual baseclass.  */
+      register int i, len = TYPE_NFIELDS (type);
+      register int n_baseclasses = TYPE_N_BASECLASSES (type);
+      char *vbase_name, *type_name = type_name_no_tag (basetype);
+
+      if (TYPE_MAIN_VARIANT (basetype))
+	basetype = TYPE_MAIN_VARIANT (basetype);
+
+      vbase_name = (char *)alloca (strlen (type_name) + 8);
+      sprintf (vbase_name, "_vb$%s", type_name);
+      /* First look for the virtual baseclass pointer
+	 in the fields.  */
+      for (i = n_baseclasses; i < len; i++)
+	{
+	  if (! strcmp (vbase_name, TYPE_FIELD_NAME (type, i)))
+	    {
+	      value v = value_at (basetype,
+				  unpack_long (TYPE_FIELD_TYPE (type, i),
+					       valaddr + (TYPE_FIELD_BITPOS (type, i) / 8)));
+	      if (valuep)
+		*valuep = v;
+	      return (char *) VALUE_CONTENTS (v);
+	    }
+	}
+      /* Not in the fields, so try looking through the baseclasses.  */
+      for (i = index+1; i < n_baseclasses; i++)
+	{
+	  char *baddr;
+
+	  baddr = baseclass_addr (type, i, valaddr, valuep);
+	  if (baddr)
+	    return baddr;
+	}
+      /* Not found.  */
+      if (valuep)
+	*valuep = 0;
+      return 0;
+    }
+
+  /* Baseclass is easily computed.  */
+  if (valuep)
+    *valuep = 0;
+  return valaddr + TYPE_BASECLASS_BITPOS (type, index) / 8;
+}
+
+/* Ugly hack to convert method stubs into method types.
+
+   He ain't kiddin'.  This demangles the name of the method into a string
+   including argument types, parses out each argument type, generates
+   a string casting a zero to that type, evaluates the string, and stuffs
+   the resulting type into an argtype vector!!!  Then it knows the type
+   of the whole function (including argument types for overloading),
+   which info used to be in the stab's but was removed to hack back
+   the space required for them.  */
+void
+check_stub_method (type, i, j)
+     struct type *type;
+     int i, j;
+{
+  extern char *gdb_mangle_typename (), *strchr ();
+  struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
+  char *inner_name = gdb_mangle_typename (type);
+  char *mangled_name
+    = (char *)xmalloc (strlen (TYPE_FN_FIELDLIST_NAME (type, i))
+		       + strlen (inner_name)
+		       + strlen (TYPE_FN_FIELD_PHYSNAME (f, j))
+		       + 1);
+  char *demangled_name, *cplus_demangle ();
+  char *argtypetext, *p;
+  int depth = 0, argcount = 1;
+  struct type **argtypes;
+
+  strcpy (mangled_name, TYPE_FN_FIELDLIST_NAME (type, i));
+  strcat (mangled_name, inner_name);
+  strcat (mangled_name, TYPE_FN_FIELD_PHYSNAME (f, j));
+  demangled_name = cplus_demangle (mangled_name, 0);
+
+  /* Now, read in the parameters that define this type.  */
+  argtypetext = strchr (demangled_name, '(') + 1;
+  p = argtypetext;
+  while (*p)
+    {
+      if (*p == '(')
+	depth += 1;
+      else if (*p == ')')
+	depth -= 1;
+      else if (*p == ',' && depth == 0)
+	argcount += 1;
+
+      p += 1;
+    }
+  /* We need one more slot for the void [...] or NULL [end of arglist] */
+  argtypes = (struct type **)xmalloc ((argcount+1) * sizeof (struct type *));
+  p = argtypetext;
+  argtypes[0] = lookup_pointer_type (type);
+  argcount = 1;
+
+  if (*p != ')')			/* () means no args, skip while */
+    {
+      while (*p)
+	{
+	  if (*p == '(')
+	    depth += 1;
+	  else if (*p == ')')
+	    depth -= 1;
+
+	  if (depth <= 0 && (*p == ',' || *p == ')'))
+	    {
+	      char *tmp = (char *)alloca (p - argtypetext + 4);
+	      value val;
+	      tmp[0] = '(';
+	      bcopy (argtypetext, tmp+1, p - argtypetext);
+	      tmp[p-argtypetext+1] = ')';
+	      tmp[p-argtypetext+2] = '0';
+	      tmp[p-argtypetext+3] = '\0';
+	      val = parse_and_eval (tmp);
+	      argtypes[argcount] = VALUE_TYPE (val);
+	      argcount += 1;
+	      argtypetext = p + 1;
+	    }
+	  p += 1;
+	}
+    }
+
+  if (p[-2] != '.')			/* ... */
+    argtypes[argcount] = builtin_type_void;	/* Ellist terminator */
+  else
+    argtypes[argcount] = NULL;		/* List terminator */
+
+  free (demangled_name);
+  smash_to_method_type (TYPE_FN_FIELD_TYPE (f, j), type,
+			TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)),
+			argtypes);
+  TYPE_FN_FIELD_PHYSNAME (f, j) = mangled_name;
+  TYPE_FLAGS (TYPE_FN_FIELD_TYPE (f, j)) &= ~TYPE_FLAG_STUB;
+}
+
 long
 unpack_field_as_long (type, valaddr, fieldno)
      struct type *type;
@@ -826,6 +1103,7 @@ unpack_field_as_long (type, valaddr, fieldno)
   int bitsize = TYPE_FIELD_BITSIZE (type, fieldno);
 
   bcopy (valaddr + bitpos / 8, &val, sizeof val);
+  SWAP_TARGET_AND_HOST (&val, sizeof val);
 
   /* Extracting bits depends on endianness of the machine.  */
 #ifdef BITS_BIG_ENDIAN
@@ -877,22 +1155,26 @@ value_from_long (type, num)
   if (code == TYPE_CODE_INT || code == TYPE_CODE_ENUM)
     {
       if (len == sizeof (char))
-	* (char *) VALUE_CONTENTS (val) = num;
+	* (char *) VALUE_CONTENTS_RAW (val) = num;
       else if (len == sizeof (short))
-	* (short *) VALUE_CONTENTS (val) = num;
+	* (short *) VALUE_CONTENTS_RAW (val) = num;
       else if (len == sizeof (int))
-	* (int *) VALUE_CONTENTS (val) = num;
+	* (int *) VALUE_CONTENTS_RAW (val) = num;
       else if (len == sizeof (long))
-	* (long *) VALUE_CONTENTS (val) = num;
+	* (long *) VALUE_CONTENTS_RAW (val) = num;
 #ifdef LONG_LONG
       else if (len == sizeof (long long))
-	* (long long *) VALUE_CONTENTS (val) = num;
+	* (long long *) VALUE_CONTENTS_RAW (val) = num;
 #endif
       else
 	error ("Integer type encountered with unexpected data length.");
     }
   else
     error ("Unexpected type encountered for integer constant.");
+
+  /* num was in host byte order.  So now put the value's contents
+     into target byte order.  */
+  SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (val), len);
 
   return val;
 }
@@ -909,14 +1191,18 @@ value_from_double (type, num)
   if (code == TYPE_CODE_FLT)
     {
       if (len == sizeof (float))
-	* (float *) VALUE_CONTENTS (val) = num;
+	* (float *) VALUE_CONTENTS_RAW (val) = num;
       else if (len == sizeof (double))
-	* (double *) VALUE_CONTENTS (val) = num;
+	* (double *) VALUE_CONTENTS_RAW (val) = num;
       else
 	error ("Floating type encountered with unexpected data length.");
     }
   else
     error ("Unexpected type encountered for floating constant.");
+
+  /* num was in host byte order.  So now put the value's contents
+     into target byte order.  */
+  SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (val), len);
 
   return val;
 }
@@ -940,43 +1226,62 @@ value_being_returned (valtype, retbuf, struct_return)
      register struct type *valtype;
      char retbuf[REGISTER_BYTES];
      int struct_return;
+     /*ARGSUSED*/
 {
   register value val;
 
+#if defined (EXTRACT_STRUCT_VALUE_ADDRESS)
+  /* If this is not defined, just use EXTRACT_RETURN_VALUE instead.  */
   if (struct_return)
     return value_at (valtype, EXTRACT_STRUCT_VALUE_ADDRESS (retbuf));
+#endif
 
   val = allocate_value (valtype);
-  EXTRACT_RETURN_VALUE (valtype, retbuf, VALUE_CONTENTS (val));
+  EXTRACT_RETURN_VALUE (valtype, retbuf, VALUE_CONTENTS_RAW (val));
 
   return val;
 }
+
+/* Should we use EXTRACT_STRUCT_VALUE_ADDRESS instead of
+   EXTRACT_RETURN_VALUE?  GCC_P is true if compiled with gcc
+   and TYPE is the type (which is known to be struct, union or array).
+
+   On most machines, the struct convention is used unless we are
+   using gcc and the type is of a special size.  */
+#if !defined (USE_STRUCT_CONVENTION)
+#define USE_STRUCT_CONVENTION(gcc_p, type)\
+  (!((gcc_p) && (TYPE_LENGTH (value_type) == 1                \
+		 || TYPE_LENGTH (value_type) == 2             \
+	         || TYPE_LENGTH (value_type) == 4             \
+		 || TYPE_LENGTH (value_type) == 8             \
+		 )                                            \
+     ))
+#endif
 
 /* Return true if the function specified is using the structure returning
    convention on this machine to return arguments, or 0 if it is using
    the value returning convention.  FUNCTION is the value representing
    the function, FUNCADDR is the address of the function, and VALUE_TYPE
-   is the type returned by the function */
-
-struct block *block_for_pc ();
+   is the type returned by the function.  GCC_P is nonzero if compiled
+   with GCC.  */
 
 int
-using_struct_return (function, funcaddr, value_type)
+using_struct_return (function, funcaddr, value_type, gcc_p)
      value function;
      CORE_ADDR funcaddr;
      struct type *value_type;
+     int gcc_p;
+     /*ARGSUSED*/
 {
   register enum type_code code = TYPE_CODE (value_type);
+
+  if (code == TYPE_CODE_ERROR)
+    error ("Function return type unknown.");
 
   if (code == TYPE_CODE_STRUCT ||
       code == TYPE_CODE_UNION ||
       code == TYPE_CODE_ARRAY)
-    {
-      struct block *b = block_for_pc (funcaddr);
-
-      if (!(BLOCK_GCC_COMPILED (b) && TYPE_LENGTH (value_type) < 8))
-	return 1;
-    }
+    return USE_STRUCT_CONVENTION (gcc_p, value_type);
 
   return 0;
 }
@@ -990,9 +1295,11 @@ set_return_value (val)
      value val;
 {
   register enum type_code code = TYPE_CODE (VALUE_TYPE (val));
-  char regbuf[REGISTER_BYTES];
   double dbuf;
   LONGEST lbuf;
+
+  if (code == TYPE_CODE_ERROR)
+    error ("Function return type unknown.");
 
   if (code == TYPE_CODE_STRUCT
       || code == TYPE_CODE_UNION)
@@ -1002,12 +1309,12 @@ set_return_value (val)
     {
       dbuf = value_as_double (val);
 
-      STORE_RETURN_VALUE (VALUE_TYPE (val), &dbuf);
+      STORE_RETURN_VALUE (VALUE_TYPE (val), (char *)&dbuf);
     }
   else
     {
       lbuf = value_as_long (val);
-      STORE_RETURN_VALUE (VALUE_TYPE (val), &lbuf);
+      STORE_RETURN_VALUE (VALUE_TYPE (val), (char *)&lbuf);
     }
 }
 
@@ -1018,11 +1325,11 @@ _initialize_values ()
 	    "Debugger convenience (\"$foo\") variables.\n\
 These variables are created when you assign them values;\n\
 thus, \"print $foo=1\" gives \"$foo\" the value 1.  Values may be any type.\n\n\
-A few convenience variables are given values automatically GDB:\n\
+A few convenience variables are given values automatically:\n\
 \"$_\"holds the last address examined with \"x\" or \"info lines\",\n\
 \"$__\" holds the contents of the last address examined with \"x\".");
 
   add_info ("values", value_history_info,
-	    "Elements of value history (around item number IDX, or last ten).");
-  add_info_alias ("history", value_history_info, 0);
+	    "Elements of value history around item number IDX (or last ten).");
+  add_info_alias ("history", "values", 0);
 }

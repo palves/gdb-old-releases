@@ -45,7 +45,7 @@ lose
 #endif static
 #endif emacs
 
-#ifdef X3J11
+#ifdef __STDC__
 typedef void	*pointer;		/* generic pointer type */
 #else
 typedef char	*pointer;		/* generic pointer type */

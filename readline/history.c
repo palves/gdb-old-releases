@@ -226,7 +226,7 @@ history_search (string, direction)
 
   /* Take care of trivial cases first. */
 
-  if (!history_length || (i == history_length) && !reverse)
+  if (!history_length || ((i == history_length) && !reverse))
     return (-1);
 
   if (reverse && (i == history_length))
@@ -808,12 +808,12 @@ history_expand (string, output)
 
 	  if (member (cc, ":$*%^"))
 	    {
-	      char fake_s[2];
+	      char fake_s[3];
 	      int fake_i = 0;
 	      i++;
 	      fake_s[0] = fake_s[1] = history_expansion_char;
 	      fake_s[2] = '\0';
-	      event = get_history_event (fake_s, &fake_i);
+	      event = get_history_event (fake_s, &fake_i, 0);
 	    }
 	  else
 	    {
@@ -1093,8 +1093,15 @@ get_history_word_specifier (spec, from, caller_index)
   /* `*' matches all of the arguments, but not the command. */
   if (spec[i] == '*')
     {
+      char *star_result;
+
       *caller_index = i + 1;
-      return (history_arg_extract (1, '$', from));
+      star_result = history_arg_extract (1, '$', from);
+
+      if (!star_result)
+	star_result = savestring ("");
+
+      return (star_result);
     }
 
   /* `$' is last arg. */
@@ -1165,7 +1172,9 @@ get_history_word_specifier (spec, from, caller_index)
 }
 
 /* Extract the args specified, starting at FIRST, and ending at LAST.
-   The args are taken from STRING. */
+   The args are taken from STRING.  If either FIRST or LAST is < 0,
+   then make that arg count from the right (subtract from the number of
+   tokens, so that FIRST = -1 means the next to last token on the line. */
 char *
 history_arg_extract (first, last, string)
      int first, last;
@@ -1182,6 +1191,12 @@ history_arg_extract (first, last, string)
 
   for (len = 0; list[len]; len++);
 
+  if (last < 0)
+    last = len + last - 1;
+
+  if (first < 0)
+    first = len + first - 1;
+
   if (last == '$')
     last = len - 1;
 
@@ -1192,24 +1207,25 @@ history_arg_extract (first, last, string)
 
   if (first > len || last > len)
     result = ((char *)NULL);
-  else {
-    for (i = first; i < last; i++)
-      {
-	int l = strlen (list[i]);
+  else
+    {
+      for (i = first; i < last; i++)
+	{
+	  int l = strlen (list[i]);
 
-	if (!result)
-	  result = (char *)xmalloc ((size = (2 + l)));
-	else
-	  result = (char *)xrealloc (result, (size += (2 + l)));
-	strcpy (result + offset, list[i]);
-	offset += l;
-	if (i + 1 < last)
-	  {
-	    strcpy (result + offset, " ");
-	    offset++;
-	  }
-      }
-  }
+	  if (!result)
+	    result = (char *)xmalloc ((size = (2 + l)));
+	  else
+	    result = (char *)xrealloc (result, (size += (2 + l)));
+	  strcpy (result + offset, list[i]);
+	  offset += l;
+	  if (i + 1 < last)
+	    {
+	      strcpy (result + offset, " ");
+	      offset++;
+	    }
+	}
+    }
 
   for (i = 0; i < len; i++)
     free (list[i]);
@@ -1345,11 +1361,12 @@ history_tokenize (string)
 /*								    */
 /* **************************************************************** */
 
+static void memory_error_and_abort ();
+
 static char *
 xmalloc (bytes)
      int bytes;
 {
-  static memory_error_and_abort ();
   char *temp = (char *)malloc (bytes);
 
   if (!temp)
@@ -1362,7 +1379,6 @@ xrealloc (pointer, bytes)
      char *pointer;
      int bytes;
 {
-  static memory_error_and_abort ();
   char *temp = (char *)realloc (pointer, bytes);
 
   if (!temp)
@@ -1370,7 +1386,7 @@ xrealloc (pointer, bytes)
   return (temp);
 }
 
-static
+static void
 memory_error_and_abort ()
 {
   fprintf (stderr, "history: Out of virtual memory!\n");

@@ -33,8 +33,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "frame.h"
 #include "expression.h"
-
-#include <a.out.h>
+#include "value.h"
+#include "command.h"
 
 static struct expression *expout;
 static int expout_size;
@@ -54,6 +54,7 @@ static void start_arglist ();
 static int end_arglist ();
 static void free_funcalls ();
 static char *copy_name ();
+static int parse_number ();
 
 /* If this is nonzero, this block is used as the lexical context
    for symbol names.  */
@@ -90,6 +91,19 @@ struct stoken
     int length;
   };
 
+struct ttype
+  {
+    struct stoken stoken;
+    struct type *type;
+  };
+
+struct symtoken
+  {
+    struct stoken stoken;
+    struct symbol *sym;
+    int is_a_field_of_this;
+  };
+
 /* For parsing of complicated types.
    An array should be preceded in the list by the size of the array.  */
 enum type_pieces
@@ -116,6 +130,8 @@ static enum type_pieces pop_type ();
     struct symbol *sym;
     struct type *tval;
     struct stoken sval;
+    struct ttype tsym;
+    struct symtoken ssym;
     int voidval;
     struct block *bval;
     enum exp_opcode opcode;
@@ -148,10 +164,22 @@ static enum type_pieces pop_type ();
    Contexts where this distinction is not important can use the
    nonterminal "name", which matches either NAME or TYPENAME.  */
 
-%token <sval> NAME TYPENAME BLOCKNAME STRING
-%type <sval> name name_not_typename typename
+%token <sval> STRING
+%token <ssym> NAME BLOCKNAME
+%token <tsym> TYPENAME
+%type <sval> name
+%type <ssym> name_not_typename
+%type <tsym> typename
+
+/* A NAME_OR_INT is a symbol which is not known in the symbol table,
+   but which would parse as a valid number in the current input radix.
+   E.g. "c" when input_radix==16.  Depending on the parse, it will be
+   turned into a name or into a number.  NAME_OR_UINT ditto.  */
+
+%token <ssym> NAME_OR_INT NAME_OR_UINT
 
 %token STRUCT UNION ENUM SIZEOF UNSIGNED COLONCOLON
+%token ERROR
 
 /* Special type cases, put in to allow the parser to distinguish different
    legal basetypes.  */
@@ -398,6 +426,19 @@ exp	:	INT
 			  write_exp_elt_opcode (OP_LONG); }
 	;
 
+exp	:	NAME_OR_INT
+			{ YYSTYPE val;
+			  parse_number ($1.stoken.ptr, $1.stoken.length, 0, &val);
+			  write_exp_elt_opcode (OP_LONG);
+			  if (val.lval == (int) val.lval ||
+			      val.lval == (unsigned int) val.lval)
+			    write_exp_elt_type (builtin_type_int);
+			  else
+			    write_exp_elt_type (BUILTIN_TYPE_LONGEST);
+			  write_exp_elt_longcst (val.lval);
+			  write_exp_elt_opcode (OP_LONG); }
+	;
+
 exp	:	UINT
 			{
 			  write_exp_elt_opcode (OP_LONG);
@@ -406,6 +447,19 @@ exp	:	UINT
 			  else
 			    write_exp_elt_type (BUILTIN_TYPE_UNSIGNED_LONGEST);
 			  write_exp_elt_longcst ((LONGEST) $1);
+			  write_exp_elt_opcode (OP_LONG);
+			}
+	;
+
+exp	:	NAME_OR_UINT
+			{ YYSTYPE val;
+			  parse_number ($1.stoken.ptr, $1.stoken.length, 0, &val);
+			  write_exp_elt_opcode (OP_LONG);
+			  if (val.ulval == (unsigned int) val.ulval)
+			    write_exp_elt_type (builtin_type_unsigned_int);
+			  else
+			    write_exp_elt_type (BUILTIN_TYPE_UNSIGNED_LONGEST);
+			  write_exp_elt_longcst ((LONGEST)val.ulval);
 			  write_exp_elt_opcode (OP_LONG);
 			}
 	;
@@ -468,28 +522,25 @@ exp	:	THIS
 
 block	:	BLOCKNAME
 			{
-			  struct symtab *tem = lookup_symtab (copy_name ($1));
-			  struct symbol *sym;
-			  
-			  if (tem)
-			    $$ = BLOCKVECTOR_BLOCK (BLOCKVECTOR (tem), 1);
+			  if ($1.sym != 0)
+			      $$ = SYMBOL_BLOCK_VALUE ($1.sym);
 			  else
 			    {
-			      sym = lookup_symbol (copy_name ($1),
-						   expression_context_block,
-						   VAR_NAMESPACE, 0);
-			      if (sym && SYMBOL_CLASS (sym) == LOC_BLOCK)
-				$$ = SYMBOL_BLOCK_VALUE (sym);
+			      struct symtab *tem =
+				  lookup_symtab (copy_name ($1.stoken));
+			      if (tem)
+				$$ = BLOCKVECTOR_BLOCK (BLOCKVECTOR (tem), 1);
 			      else
 				error ("No file or function \"%s\".",
-				       copy_name ($1));
+				       copy_name ($1.stoken));
 			    }
 			}
 	;
 
 block	:	block COLONCOLON name
 			{ struct symbol *tem
-			    = lookup_symbol (copy_name ($3), $1, VAR_NAMESPACE, 0);
+			    = lookup_symbol (copy_name ($3), $1,
+					     VAR_NAMESPACE, 0, NULL);
 			  if (!tem || SYMBOL_CLASS (tem) != LOC_BLOCK)
 			    error ("No function \"%s\" in specified context.",
 				   copy_name ($3));
@@ -498,7 +549,8 @@ block	:	block COLONCOLON name
 
 variable:	block COLONCOLON name
 			{ struct symbol *sym;
-			  sym = lookup_symbol (copy_name ($3), $1, VAR_NAMESPACE, 0);
+			  sym = lookup_symbol (copy_name ($3), $1,
+					       VAR_NAMESPACE, 0, NULL);
 			  if (sym == 0)
 			    error ("No symbol \"%s\" in specified context.",
 				   copy_name ($3));
@@ -526,7 +578,8 @@ variable:	typebase COLONCOLON name
 			  struct symbol *sym;
 			  int i;
 
-			  sym = lookup_symbol (name, 0, VAR_NAMESPACE, 0);
+			  sym =
+			    lookup_symbol (name, 0, VAR_NAMESPACE, 0, NULL);
 			  if (sym)
 			    {
 			      write_exp_elt_opcode (OP_VAR_VALUE);
@@ -541,7 +594,6 @@ variable:	typebase COLONCOLON name
 			  if (i < misc_function_count)
 			    {
 			      enum misc_function_type mft =
-				(enum misc_function_type)
 				  misc_function_vector[i].type;
 			      
 			      write_exp_elt_opcode (OP_LONG);
@@ -560,20 +612,15 @@ variable:	typebase COLONCOLON name
 			  else
 			    if (symtab_list == 0
 				&& partial_symtab_list == 0)
-			      error ("No symbol table is loaded.  Use the \"symbol-file\" command.");
+			      error ("No symbol table is loaded.  Use the \"file\" command.");
 			    else
 			      error ("No symbol \"%s\" in current context.", name);
 			}
 	;
 
 variable:	name_not_typename
-			{ struct symbol *sym;
-			  int is_a_field_of_this;
+			{ struct symbol *sym = $1.sym;
 
-			  sym = lookup_symbol (copy_name ($1),
-					       expression_context_block,
-					       VAR_NAMESPACE,
-					       &is_a_field_of_this);
 			  if (sym)
 			    {
 			      switch (sym->class)
@@ -590,7 +637,7 @@ variable:	name_not_typename
 			      write_exp_elt_sym (sym);
 			      write_exp_elt_opcode (OP_VAR_VALUE);
 			    }
-			  else if (is_a_field_of_this)
+			  else if ($1.is_a_field_of_this)
 			    {
 			      /* C++: it hangs off of `this'.  Must
 			         not inadvertently convert from a method call
@@ -601,13 +648,13 @@ variable:	name_not_typename
 			      write_exp_elt_opcode (OP_THIS);
 			      write_exp_elt_opcode (OP_THIS);
 			      write_exp_elt_opcode (STRUCTOP_PTR);
-			      write_exp_string ($1);
+			      write_exp_string ($1.stoken);
 			      write_exp_elt_opcode (STRUCTOP_PTR);
 			    }
 			  else
 			    {
 			      register int i;
-			      register char *arg = copy_name ($1);
+			      register char *arg = copy_name ($1.stoken);
 
 			      for (i = 0; i < misc_function_count; i++)
 				if (!strcmp (misc_function_vector[i].name, arg))
@@ -616,7 +663,6 @@ variable:	name_not_typename
 			      if (i < misc_function_count)
 				{
 				  enum misc_function_type mft =
-				    (enum misc_function_type)
 				      misc_function_vector[i].type;
 				  
 				  write_exp_elt_opcode (OP_LONG);
@@ -634,10 +680,10 @@ variable:	name_not_typename
 				}
 			      else if (symtab_list == 0
 				       && partial_symtab_list == 0)
-				error ("No symbol table is loaded.  Use the \"symbol-file\" command.");
+				error ("No symbol table is loaded.  Use the \"file\" command.");
 			      else
 				error ("No symbol \"%s\" in current context.",
-				       copy_name ($1));
+				       copy_name ($1.stoken));
 			    }
 			}
 	;
@@ -731,8 +777,7 @@ type	:	ptype
 
 typebase
 	:	TYPENAME
-			{ $$ = lookup_typename (copy_name ($1),
-						expression_context_block, 0); }
+			{ $$ = $1.type; }
 	|	INT_KEYWORD
 			{ $$ = builtin_type_int; }
 	|	LONG
@@ -757,12 +802,11 @@ typebase
 			{ $$ = lookup_enum (copy_name ($2),
 					    expression_context_block); }
 	|	UNSIGNED typename
-			{ $$ = lookup_unsigned_typename (copy_name ($2)); }
+			{ $$ = lookup_unsigned_typename (TYPE_NAME($2.type)); }
 	|	UNSIGNED
 			{ $$ = builtin_type_unsigned_int; }
 	|	SIGNED typename
-			{ $$ = lookup_typename (copy_name ($2),
-						expression_context_block, 0); }
+			{ $$ = $2.type; }
 	|	SIGNED
 			{ $$ = builtin_type_int; }
 	;
@@ -770,18 +814,21 @@ typebase
 typename:	TYPENAME
 	|	INT_KEYWORD
 		{
-		  $$.ptr = "int";
-		  $$.length = 3;
+		  $$.stoken.ptr = "int";
+		  $$.stoken.length = 3;
+		  $$.type = builtin_type_int;
 		}
 	|	LONG
 		{
-		  $$.ptr = "long";
-		  $$.length = 4;
+		  $$.stoken.ptr = "long";
+		  $$.stoken.length = 4;
+		  $$.type = builtin_type_long;
 		}
 	|	SHORT
 		{
-		  $$.ptr = "short";
-		  $$.length = 5;
+		  $$.stoken.ptr = "short";
+		  $$.stoken.length = 5;
+		  $$.type = builtin_type_short;
 		}
 	;
 
@@ -798,13 +845,17 @@ nonempty_typelist
 		}
 	;
 
-name	:	NAME
-	|	BLOCKNAME
-	|	TYPENAME
+name	:	NAME { $$ = $1.stoken; }
+	|	BLOCKNAME { $$ = $1.stoken; }
+	|	TYPENAME { $$ = $1.stoken; }
+	|	NAME_OR_INT  { $$ = $1.stoken; }
+	|	NAME_OR_UINT  { $$ = $1.stoken; }
 	;
 
 name_not_typename :	NAME
 	|	BLOCKNAME
+	|	NAME_OR_INT
+	|	NAME_OR_UINT
 	;
 
 %%
@@ -996,80 +1047,90 @@ static int comma_terminates;
 /*** Needs some error checking for the float case ***/
 
 static int
-parse_number (olen)
-     int olen;
+parse_number (p, len, parsed_float, putithere)
+     register char *p;
+     register int len;
+     int parsed_float;
+     YYSTYPE *putithere;
 {
-  register char *p = lexptr;
   register LONGEST n = 0;
+  register int i;
   register int c;
-  register int base = 10;
-  register int len = olen;
-  char *err_copy;
+  register int base = input_radix;
   int unsigned_p = 0;
 
   extern double atof ();
 
-  for (c = 0; c < len; c++)
-    if (p[c] == '.')
-      {
-	/* It's a float since it contains a point.  */
-	yylval.dval = atof (p);
-	lexptr += len;
-	return FLOAT;
-      }
-
-  if (len >= 3 && (!strncmp (p, "0x", 2) || !strncmp (p, "0X", 2)))
+  if (parsed_float)
     {
-      p += 2;
-      base = 16;
-      len -= 2;
+      /* It's a float since it contains a point or an exponent.  */
+      putithere->dval = atof (p);
+      return FLOAT;
     }
-  else if (*p == '0')
-    base = 8;
+
+  /* Handle base-switching prefixes 0x, 0t, 0d, 0 */
+  if (p[0] == '0')
+    switch (p[1])
+      {
+      case 'x':
+      case 'X':
+	if (len >= 3)
+	  {
+	    p += 2;
+	    base = 16;
+	    len -= 2;
+	  }
+	break;
+
+      case 't':
+      case 'T':
+      case 'd':
+      case 'D':
+	if (len >= 3)
+	  {
+	    p += 2;
+	    base = 10;
+	    len -= 2;
+	  }
+	break;
+
+      default:
+	base = 8;
+	break;
+      }
 
   while (len-- > 0)
     {
       c = *p++;
-      if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+      if (c >= 'A' && c <= 'Z')
+	c += 'a' - 'A';
       if (c != 'l' && c != 'u')
 	n *= base;
       if (c >= '0' && c <= '9')
-	n += c - '0';
+	n += i = c - '0';
       else
 	{
-	  if (base == 16 && c >= 'a' && c <= 'f')
-	    n += c - 'a' + 10;
+	  if (base > 10 && c >= 'a' && c <= 'f')
+	    n += i = c - 'a' + 10;
 	  else if (len == 0 && c == 'l')
 	    ;
 	  else if (len == 0 && c == 'u')
 	    unsigned_p = 1;
-	  else if (base == 10 && len != 0 && (c == 'e' || c == 'E'))
-	    {
-	      /* Scientific notation, where we are unlucky enough not
-		 to have a '.' in the string.  */
-	      yylval.dval = atof (lexptr);
-	      lexptr += olen;
-	      return FLOAT;
-	    }
 	  else
-	    {
-	      err_copy = (char *) alloca (olen + 1);
-	      bcopy (lexptr, err_copy, olen);
-	      err_copy[olen] = 0;
-	      error ("Invalid number \"%s\".", err_copy);
-	    }
+	    return ERROR;	/* Char not a digit */
 	}
+      if (i >= base)
+	return ERROR;		/* Invalid digit in this base */
     }
 
-  lexptr = p;
   if (unsigned_p)
     {
-      yylval.ulval = n;
+      putithere->ulval = n;
       return UINT;
     }
   else
     {
-      yylval.lval = n;
+      putithere->lval = n;
       return INT;
     }
 }
@@ -1141,7 +1202,7 @@ yylex ()
 {
   register int c;
   register int namelen;
-  register int i;
+  register unsigned i;
   register char *tokstart;
 
  retry:
@@ -1207,8 +1268,67 @@ yylex ()
 
     case '.':
       /* Might be a floating point number.  */
-      if (lexptr[1] >= '0' && lexptr[1] <= '9')
-	break;			/* Falls into number code.  */
+      if (lexptr[1] < '0' || lexptr[1] > '9')
+	goto symbol;		/* Nope, must be a symbol. */
+      /* FALL THRU into number case.  */
+
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+      {
+	/* It's a number.  */
+	int got_dot = 0, got_e = 0, toktype;
+	register char *p = tokstart;
+	int hex = input_radix > 10;
+
+	if (c == '0' && (p[1] == 'x' || p[1] == 'X'))
+	  {
+	    p += 2;
+	    hex = 1;
+	  }
+	else if (c == '0' && (p[1]=='t' || p[1]=='T' || p[1]=='d' || p[1]=='D'))
+	  {
+	    p += 2;
+	    hex = 0;
+	  }
+
+	for (;; ++p)
+	  {
+	    if (!hex && !got_e && (*p == 'e' || *p == 'E'))
+	      got_dot = got_e = 1;
+	    else if (!hex && !got_dot && *p == '.')
+	      got_dot = 1;
+	    else if (got_e && (p[-1] == 'e' || p[-1] == 'E')
+		     && (*p == '-' || *p == '+'))
+	      /* This is the sign of the exponent, not the end of the
+		 number.  */
+	      continue;
+	    /* We will take any letters or digits.  parse_number will
+	       complain if past the radix, or if L or U are not final.  */
+	    else if ((*p < '0' || *p > '9')
+		     && ((*p < 'a' || *p > 'z')
+				  && (*p < 'A' || *p > 'Z')))
+	      break;
+	  }
+	toktype = parse_number (tokstart, p - tokstart, got_dot|got_e, &yylval);
+        if (toktype == ERROR)
+	  {
+	    char *err_copy = (char *) alloca (p - tokstart + 1);
+
+	    bcopy (tokstart, err_copy, p - tokstart);
+	    err_copy[p - tokstart] = 0;
+	    error ("Invalid number \"%s\".", err_copy);
+	  }
+	lexptr = p;
+	return toktype;
+      }
 
     case '+':
     case '-':
@@ -1230,6 +1350,7 @@ yylex ()
     case '=':
     case '{':
     case '}':
+    symbol:
       lexptr++;
       return c;
 
@@ -1249,36 +1370,6 @@ yylex ()
       yylval.sval.length = namelen - 1;
       lexptr += namelen + 1;
       return STRING;
-    }
-
-  /* Is it a number?  */
-  /* Note:  We have already dealt with the case of the token '.'.
-     See case '.' above.  */
-  if ((c >= '0' && c <= '9') || c == '.')
-    {
-      /* It's a number.  */
-      int got_dot = 0, got_e = 0;
-      register char *p = tokstart;
-      int hex = c == '0' && (p[1] == 'x' || p[1] == 'X');
-      if (hex)
-	p += 2;
-      for (;; ++p)
-	{
-	  if (!hex && !got_e && (*p == 'e' || *p == 'E'))
-	    got_dot = got_e = 1;
-	  else if (!hex && !got_dot && *p == '.')
-	    got_dot = 1;
-	  else if (got_e && (p[-1] == 'e' || p[-1] == 'E')
-		   && (*p == '-' || *p == '+'))
-	    /* This is the sign of the exponent, not the end of the
-	       number.  */
-	    continue;
-	  else if (*p < '0' || *p > '9'
-		   && (!hex || ((*p < 'a' || *p > 'f')
-				&& (*p < 'A' || *p > 'F'))))
-	    break;
-	}
-      return parse_number (p - tokstart);
     }
 
   if (!(c == '_' || c == '$'
@@ -1382,10 +1473,15 @@ yylex ()
 	return ENUM;
       if (!strncmp (tokstart, "long", 4))
 	return LONG;
-      if (!strncmp (tokstart, "this", 4)
-	  && lookup_symbol ("$this", expression_context_block,
-			    VAR_NAMESPACE, 0))
-	return THIS;
+      if (!strncmp (tokstart, "this", 4))
+	{
+	  static const char this_name[] =
+				 { CPLUS_MARKER, 't', 'h', 'i', 's', '\0' };
+
+	  if (lookup_symbol (this_name, expression_context_block,
+			     VAR_NAMESPACE, 0, NULL))
+	    return THIS;
+	}
       break;
     case 3:
       if (!strncmp (tokstart, "int", 3))
@@ -1402,7 +1498,7 @@ yylex ()
 
   if (*tokstart == '$')
     {
-      yylval.ivar = (struct internalvar *) lookup_internalvar (copy_name (yylval.sval) + 1);
+      yylval.ivar =  lookup_internalvar (copy_name (yylval.sval) + 1);
       return VARIABLE;
     }
 
@@ -1414,21 +1510,59 @@ yylex ()
   {
     char *tmp = copy_name (yylval.sval);
     struct symbol *sym;
+    int is_a_field_of_this = 0;
+    int hextype;
 
-    if (lookup_partial_symtab (tmp))
-      return BLOCKNAME;
     sym = lookup_symbol (tmp, expression_context_block,
-			 VAR_NAMESPACE, 0);
-    if (sym && SYMBOL_CLASS (sym) == LOC_BLOCK)
-      return BLOCKNAME;
-    if (lookup_typename (copy_name (yylval.sval), expression_context_block, 1))
-      return TYPENAME;
+			 VAR_NAMESPACE, &is_a_field_of_this, NULL);
+    if ((sym && SYMBOL_CLASS (sym) == LOC_BLOCK) ||
+        lookup_partial_symtab (tmp))
+      {
+	yylval.ssym.sym = sym;
+	yylval.ssym.is_a_field_of_this = is_a_field_of_this;
+	return BLOCKNAME;
+      }
+    if (sym && SYMBOL_CLASS (sym) == LOC_TYPEDEF)
+        {
+	  yylval.tsym.type = SYMBOL_TYPE (sym);
+	  return TYPENAME;
+        }
+    if ((yylval.tsym.type = lookup_primitive_typename (tmp)) != 0)
+	return TYPENAME;
+
+    /* Input names that aren't symbols but ARE valid hex numbers,
+       when the input radix permits them, can be names or numbers
+       depending on the parse.  Note we support radixes > 16 here.  */
+    if (!sym && 
+        ((tokstart[0] >= 'a' && tokstart[0] < 'a' + input_radix - 10) ||
+         (tokstart[0] >= 'A' && tokstart[0] < 'A' + input_radix - 10)))
+      {
+ 	YYSTYPE newlval;	/* Its value is ignored.  */
+	hextype = parse_number (tokstart, namelen, 0, &newlval);
+	if (hextype == INT)
+	  {
+	    yylval.ssym.sym = sym;
+	    yylval.ssym.is_a_field_of_this = is_a_field_of_this;
+	    return NAME_OR_INT;
+	  }
+	if (hextype == UINT)
+	  {
+	    yylval.ssym.sym = sym;
+	    yylval.ssym.is_a_field_of_this = is_a_field_of_this;
+	    return NAME_OR_UINT;
+	  }
+      }
+
+    /* Any other kind of symbol */
+    yylval.ssym.sym = sym;
+    yylval.ssym.is_a_field_of_this = is_a_field_of_this;
     return NAME;
   }
 }
 
 static void
-yyerror ()
+yyerror (msg)
+     char *msg;
 {
   error ("Invalid syntax in expression.");
 }
@@ -1681,6 +1815,7 @@ struct expression *
 parse_c_1 (stringptr, block, comma)
      char **stringptr;
      struct block *block;
+     int comma;
 {
   struct cleanup *old_chain;
 
@@ -1707,7 +1842,7 @@ parse_c_1 (stringptr, block, comma)
 	     + expout_size * sizeof (union exp_element));
   make_cleanup (free_current_contents, &expout);
   if (yyparse ())
-    yyerror ();
+    yyerror (NULL);
   discard_cleanups (old_chain);
   expout->nelts = expout_ptr;
   expout = (struct expression *)

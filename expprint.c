@@ -108,9 +108,9 @@ print_subexp (exp, pos, stream, prec)
      FILE *stream;
      enum precedence prec;
 {
-  register int tem;
+  register unsigned tem;
   register int pc;
-  int nargs;
+  unsigned nargs;
   register char *op_str;
   int assign_modify = 0;
   enum exp_opcode opcode;

@@ -19,9 +19,9 @@
    along with Readline; see the file COPYING.  If not, write to the Free
    Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA. */
 
-#ifndef FILE
+#ifndef BUFSIZ
 #include <stdio.h>
-#endif /* FILE */
+#endif /* BUFSIZ */
 
 #include "readline.h"
 
@@ -453,7 +453,7 @@ KEYMAP_ENTRY_ARRAY emacs_ctlx_keymap = {
   { ISFUNC, (Function *)0x0 },		/* o */
   { ISFUNC, (Function *)0x0 },		/* p */
   { ISFUNC, (Function *)0x0 },		/* q */
-  { ISFUNC, rl_re_read_init_file },	/* r */
+  { ISFUNC, (Function *)0x0 },		/* r */
   { ISFUNC, (Function *)0x0 },		/* s */
   { ISFUNC, (Function *)0x0 },		/* t */
   { ISFUNC, (Function *)0x0 },		/* u */

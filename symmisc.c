@@ -19,7 +19,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 #include "defs.h"
+#include "param.h"
 #include "symtab.h"
+#include "breakpoint.h"
+#include "command.h"
 
 #include <stdio.h>
 #include <obstack.h>
@@ -41,7 +44,9 @@ free_all_symtabs ()
   clear_value_history ();
   clear_displays ();
   clear_internalvars ();
-  clear_breakpoints ();
+#if defined (CLEAR_SOLIB)
+  CLEAR_SOLIB ();
+#endif
   set_default_breakpoint (0, 0, 0, 0);
 
   current_source_symtab = 0;
@@ -59,6 +64,7 @@ free_all_symtabs ()
     free (misc_function_vector);
   misc_function_count = 0;
   misc_function_vector = 0;
+  clear_pc_function_cache();
 }
 
 /* Free a struct block <- B and all the symbols defined in that block.  */
@@ -91,7 +97,6 @@ free_symtab (s)
 {
   register int i, n;
   register struct blockvector *bv;
-  register struct type *type;
   register struct typevector *tv;
 
   switch (s->free_code)
@@ -131,252 +136,89 @@ free_symtab (s)
 
   if (s->line_charpos)
     free (s->line_charpos);
-  free (s->filename);
   free (s);
 }
-
-/* Convert a raw symbol-segment to a struct symtab,
-   and relocate its internal pointers so that it is valid.  */
 
-/* This is how to relocate one pointer, given a name for it.
-   Works independent of the type of object pointed to.  */
-#define RELOCATE(slot) (slot ? (* (char **) &slot += relocation) : 0)
+/* If a symtab for filename NAME is found, free it along
+   with any dependent breakpoints, displays, etc.
+   Used when loading new versions of object modules with the "add-file"
+   command.
+   
+   FIXME.  I think this is not the right way to do this.  It needs further`
+   investigation, though.  -- gnu@cygnus  */
 
-/* This is the inverse of RELOCATE.  We use it when storing
-   a core address into a slot that has yet to be relocated.  */
-#define UNRELOCATE(slot) (slot ? (* (char **) &slot -= relocation) : 0)
-
-/* During the process of relocation, this holds the amount to relocate by
-   (the address of the file's symtab data, in core in the debugger).  */
-static int relocation;
-
-#define CORE_RELOCATE(slot) \
-  ((slot) += (((slot) < data_start) ? text_relocation		\
-	      : ((slot) < bss_start) ? data_relocation : bss_relocation))
-
-#define TEXT_RELOCATE(slot)  ((slot) += text_relocation)
-
-/* Relocation amounts for addresses in the program's core image.  */
-static int text_relocation, data_relocation, bss_relocation;
-
-/* Boundaries that divide program core addresses into text, data and bss;
-   used to determine which relocation amount to use.  */
-static int data_start, bss_start;
-
-static void relocate_typevector ();
-static void relocate_blockvector ();
-static void relocate_type ();
-static void relocate_block ();
-static void relocate_symbol ();
-static void relocate_source ();
-
-/* Relocate a file's symseg so that all the pointers are valid C pointers.
-   Value is a `struct symtab'; but it is not suitable for direct
-   insertion into the `symtab_list' because it describes several files.  */
-
-static struct symtab *
-relocate_symtab (root)
-     struct symbol_root *root;
-{
-  struct symtab *sp = (struct symtab *) xmalloc (sizeof (struct symtab));
-  bzero (sp, sizeof (struct symtab));
-
-  relocation = (int) root;
-  text_relocation = root->textrel;
-  data_relocation = root->datarel;
-  bss_relocation = root->bssrel;
-  data_start = root->databeg;
-  bss_start = root->bssbeg;
-
-  sp->filename = root->filename;
-  sp->ldsymoff = root->ldsymoff;
-  sp->language = root->language;
-  sp->compilation = root->compilation;
-  sp->version = root->version;
-  sp->blockvector = root->blockvector;
-  sp->typevector = root->typevector;
-
-  RELOCATE (TYPEVECTOR (sp));
-  RELOCATE (BLOCKVECTOR (sp));
-  RELOCATE (sp->version);
-  RELOCATE (sp->compilation);
-  RELOCATE (sp->filename);
-
-  relocate_typevector (TYPEVECTOR (sp));
-  relocate_blockvector (BLOCKVECTOR (sp));
-
-  return sp;
-}
-
-static void
-relocate_blockvector (blp)
-     register struct blockvector *blp;
-{
-  register int nblocks = BLOCKVECTOR_NBLOCKS (blp);
-  register int i;
-  for (i = 0; i < nblocks; i++)
-    RELOCATE (BLOCKVECTOR_BLOCK (blp, i));
-  for (i = 0; i < nblocks; i++)
-    relocate_block (BLOCKVECTOR_BLOCK (blp, i));
-}
-
-static void
-relocate_block (bp)
-     register struct block *bp;
-{
-  register int nsyms = BLOCK_NSYMS (bp);
-  register int i;
-
-  TEXT_RELOCATE (BLOCK_START (bp));
-  TEXT_RELOCATE (BLOCK_END (bp));
-
-  /* These two should not be recursively processed.
-     The superblock need not be because all blocks are
-     processed from relocate_blockvector.
-     The function need not be because it will be processed
-     under the block which is its scope.  */
-  RELOCATE (BLOCK_SUPERBLOCK (bp));
-  RELOCATE (BLOCK_FUNCTION (bp));
-
-  for (i = 0; i < nsyms; i++)
-    RELOCATE (BLOCK_SYM (bp, i));
-
-  for (i = 0; i < nsyms; i++)
-    relocate_symbol (BLOCK_SYM (bp, i));
-}
-
-static void
-relocate_symbol (sp)
-     register struct symbol *sp;
-{
-  RELOCATE (SYMBOL_NAME (sp));
-  if (SYMBOL_CLASS (sp) == LOC_BLOCK)
-    {
-      RELOCATE (SYMBOL_BLOCK_VALUE (sp));
-      /* We can assume the block that belongs to this symbol
-	 is not relocated yet, since it comes after
-	 the block that contains this symbol.  */
-      BLOCK_FUNCTION (SYMBOL_BLOCK_VALUE (sp)) = sp;
-      UNRELOCATE (BLOCK_FUNCTION (SYMBOL_BLOCK_VALUE (sp)));
-    }
-  else if (SYMBOL_CLASS (sp) == LOC_STATIC)
-    CORE_RELOCATE (SYMBOL_VALUE (sp));
-  else if (SYMBOL_CLASS (sp) == LOC_LABEL)
-    TEXT_RELOCATE (SYMBOL_VALUE (sp));
-  RELOCATE (SYMBOL_TYPE (sp));
-}
-
-static void
-relocate_typevector (tv)
-     struct typevector *tv;
-{
-  register int ntypes = TYPEVECTOR_NTYPES (tv);
-  register int i;
-
-  for (i = 0; i < ntypes; i++)
-    RELOCATE (TYPEVECTOR_TYPE (tv, i));
-  for (i = 0; i < ntypes; i++)
-    relocate_type (TYPEVECTOR_TYPE (tv, i));
-}
-
-/* We cannot come up with an a priori spanning tree
-   for the network of types, since types can be used
-   for many symbols and also as components of other types.
-   Therefore, we need to be able to mark types that we
-   already have relocated (or are already in the middle of relocating)
-   as in a garbage collector.  */
-
-static void
-relocate_type (tp)
-     register struct type *tp;
-{
-  register int nfields = TYPE_NFIELDS (tp);
-  register int i;
-
-  RELOCATE (TYPE_NAME (tp));
-  RELOCATE (TYPE_TARGET_TYPE (tp));
-  RELOCATE (TYPE_FIELDS (tp));
-  RELOCATE (TYPE_POINTER_TYPE (tp));
-
-  for (i = 0; i < nfields; i++)
-    {
-      RELOCATE (TYPE_FIELD_TYPE (tp, i));
-      RELOCATE (TYPE_FIELD_NAME (tp, i));
-    }
-}
-
-static void
-relocate_sourcevector (svp)
-     register struct sourcevector *svp;
-{
-  register int nfiles = svp->length;
-  register int i;
-  for (i = 0; i < nfiles; i++)
-    RELOCATE (svp->source[i]);
-  for (i = 0; i < nfiles; i++)
-    relocate_source (svp->source[i]);
-}
-
-static void
-relocate_source (sp)
-     register struct source *sp;
-{
-  register int nitems = sp->contents.nitems;
-  register int i;
-
-  RELOCATE (sp->name);
-  for (i = 0; i < nitems; i++)
-    TEXT_RELOCATE (sp->contents.item[i].pc);
-}
-
-/* Read symsegs from file named NAME open on DESC,
-   make symtabs from them, and return a chain of them.
-   These symtabs are not suitable for direct use in `symtab_list'
-   because each one describes a single object file, perhaps many source files.
-   `symbol_file_command' takes each of these, makes many real symtabs
-   from it, and then frees it.
-
-   We assume DESC is prepositioned at the end of the string table,
-   just before the symsegs if there are any.  */
-
-struct symtab *
-read_symsegs (desc, name)
-     int desc;
+void
+free_named_symtab (name)
      char *name;
 {
-  struct symbol_root root;
-  register char *data;
-  register struct symtab *sp, *sp1, *chain = 0;
-  register int len;
+  register struct symtab *s;
+  register struct symtab *prev;
+  struct blockvector *bv;
 
-  while (1)
+#if 0	/* FIXME */
+  /* Look for a symtab with the specified name.
+     We can't use lookup_symtab () for this, since it 
+     might generate a recursive call to psymtab_to_symtab ().  */
+
+  for (s = symtab_list; s; s = s->next)
     {
-      len = myread (desc, &root, sizeof root);
-      if (len == 0 || root.format == 0)
+      if (!strcmp (name, s->filename))
 	break;
-      /* format 1 was ok for the original gdb, but since the size of the
-	 type structure changed when C++ support was added, it can no
-	 longer be used.  Accept only format 2. */
-      if (root.format != 2 ||
-	  root.length < sizeof root)
-	error ("\nInvalid symbol segment format code");
-      data = (char *) xmalloc (root.length);
-      bcopy (&root, data, sizeof root);
-      len = myread (desc, data + sizeof root,
-		    root.length - sizeof root);
-      sp = relocate_symtab (data);
-      RELOCATE (((struct symbol_root *)data)->sourcevector);
-      relocate_sourcevector (((struct symbol_root *)data)->sourcevector);
-      sp->next = chain;
-      chain = sp;
-      sp->linetable = (struct linetable *) ((struct symbol_root *)data)->sourcevector;
+      prev = s;
     }
 
-  return chain;
+  if (s)
+    {
+      if (s == symtab_list)
+	symtab_list = s->next;
+      else
+	prev->next = s->next;
+
+      /* For now, delete all breakpoints, displays, etc., whether or
+	 not they depend on the symtab being freed.  This should be
+	 changed so that only those data structures affected are deleted.  */
+
+      /* But don't delete anything if the symtab is empty.
+	 This test is necessary due to a bug in "dbxread.c" that
+	 causes empty symtabs to be created for N_SO symbols that
+	 contain the pathname of the object file.  (This problem
+	 has been fixed in GDB 3.9x).  */
+
+      bv = BLOCKLIST (s);
+      if (BLOCKLIST_NBLOCKS (bv) > 2
+	  || BLOCK_NSYMS (BLOCKVECTOR_BLOCK (bv, 0))
+	  || BLOCK_NSYMS (BLOCKVECTOR_BLOCK (bv, 1)))
+	{
+	  /* Took the following line out because GDB ends up printing it
+	     many times when a given module is loaded, because each module
+	     contains many symtabs.  */
+	  /*
+	  printf ("Clearing breakpoints and resetting debugger state.\n");
+	  */
+
+	  clear_value_history ();
+	  clear_displays ();
+	  clear_internalvars ();
+	  clear_breakpoints ();
+	  set_default_breakpoint (0, 0, 0, 0);
+	  current_source_symtab = 0;
+	}
+
+      free_symtab (s);
+    }
+  else
+    /* It is still possible that some breakpoints will be affected
+       even though no symtab was found, since the file might have
+       been compiled without debugging, and hence not be associated
+       with a symtab.  In order to handle this correctly, we would need
+       to keep a list of text address ranges for undebuggable files.
+       For now, we do nothing, since this is a fairly obscure case.  */
+    ;
+#endif  /* FIXME */
 }
+
 
 static int block_depth ();
-void print_spaces ();
 static void print_symbol ();
 
 void
@@ -386,7 +228,7 @@ print_symtabs (filename)
   FILE *outfile;
   register struct symtab *s;
   register int i, j;
-  int len, line, blen;
+  int len, blen;
   register struct linetable *l;
   struct blockvector *bv;
   register struct block *b;
@@ -457,7 +299,7 @@ print_symbol (symbol, depth, outfile)
   if (SYMBOL_NAMESPACE (symbol) == LABEL_NAMESPACE)
     {
       fprintf (outfile, "label %s at 0x%x\n", SYMBOL_NAME (symbol),
-	       SYMBOL_VALUE (symbol));
+	       SYMBOL_VALUE_ADDRESS (symbol));
       return;
     }
   if (SYMBOL_NAMESPACE (symbol) == STRUCT_NAMESPACE)
@@ -494,56 +336,65 @@ print_symbol (symbol, depth, outfile)
       switch (SYMBOL_CLASS (symbol))
 	{
 	case LOC_CONST:
-	  fprintf (outfile, "const %d (0x%x),",
+	  fprintf (outfile, "const %ld (0x%lx),",
 		   SYMBOL_VALUE (symbol), SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_CONST_BYTES:
-	  fprintf (outfile, "const %d hex bytes:",
+	  fprintf (outfile, "const %u hex bytes:",
 		   TYPE_LENGTH (SYMBOL_TYPE (symbol)));
 	  {
-	    int i;
+	    unsigned i;
 	    for (i = 0; i < TYPE_LENGTH (SYMBOL_TYPE (symbol)); i++)
-	      fprintf (outfile, " %2x", SYMBOL_VALUE_BYTES (symbol) [i]);
+	      fprintf (outfile, " %2x",
+			 (unsigned)SYMBOL_VALUE_BYTES (symbol) [i]);
 	    fprintf (outfile, ",");
 	  }
 	  break;
 
 	case LOC_STATIC:
-	  fprintf (outfile, "static at 0x%x,", SYMBOL_VALUE (symbol));
+	  fprintf (outfile, "static at 0x%x,", SYMBOL_VALUE_ADDRESS (symbol));
 	  break;
 
 	case LOC_REGISTER:
-	  fprintf (outfile, "register %d,", SYMBOL_VALUE (symbol));
+	  fprintf (outfile, "register %ld,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_ARG:
-	  fprintf (outfile, "arg at 0x%x,", SYMBOL_VALUE (symbol));
+	  fprintf (outfile, "arg at 0x%lx,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_REF_ARG:
-	  fprintf (outfile, "reference arg at 0x%x,", SYMBOL_VALUE (symbol));
+	  fprintf (outfile, "reference arg at 0x%lx,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_REGPARM:
-	  fprintf (outfile, "parameter register %d,", SYMBOL_VALUE (symbol));
+	  fprintf (outfile, "parameter register %ld,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_LOCAL:
-	  fprintf (outfile, "local at 0x%x,", SYMBOL_VALUE (symbol));
+	  fprintf (outfile, "local at 0x%lx,", SYMBOL_VALUE (symbol));
 	  break;
 
 	case LOC_TYPEDEF:
 	  break;
 
 	case LOC_LABEL:
-	  fprintf (outfile, "label at 0x%x", SYMBOL_VALUE (symbol));
+	  fprintf (outfile, "label at 0x%lx", SYMBOL_VALUE_ADDRESS (symbol));
 	  break;
 
 	case LOC_BLOCK:
 	  fprintf (outfile, "block (object 0x%x) starting at 0x%x,",
-		   SYMBOL_VALUE (symbol),
+		   SYMBOL_BLOCK_VALUE (symbol),
 		   BLOCK_START (SYMBOL_BLOCK_VALUE (symbol)));
+	  break;
+
+	case LOC_EXTERNAL:
+	  fprintf (outfile, "external at 0x%x", SYMBOL_VALUE_ADDRESS (symbol));
+	  break;
+
+        default:
+	  fprintf (outfile, "botched symbol class %x", SYMBOL_CLASS (symbol));
 	  break;
 	}
     }

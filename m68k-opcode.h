@@ -305,9 +305,9 @@ struct m68k_opcode m68k_opcodes[] =
 
 {"bkpt",	one(0044110),		one(0177770),		"Qs"},
 {"bra",		one(0060000),		one(0177400),		"Bg"},
-{"bras",	one(0060000),		one(0177400),		"Bg"},
+{"bras",	one(0060000),		one(0177400),		"Bw"},
 {"bsr",		one(0060400),		one(0177400),		"Bg"},
-{"bsrs",	one(0060400),		one(0177400),		"Bg"},
+{"bsrs",	one(0060400),		one(0177400),		"Bw"},
 
 {"callm",	one(0003300),		one(0177700),		"#b!s"},
 {"cas2l",	two(0007374, 0),	two(0177777, 0107070),	"D3D6D2D5R1R4"}, /* JF FOO this is really a 3 word ins */

@@ -22,7 +22,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "param.h"
 #include "symtab.h"
-#include "opcode.h"
+#include "vax-opcode.h"
 
 /* Vax instructions are never longer than this.  */
 #define MAXLEN 62

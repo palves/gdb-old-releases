@@ -7,12 +7,12 @@
 # Here is a rule for making .o files from .c files that doesn't force
 # the type of the machine (like -sun3) into the flags.
 .c.o:
-	$(CC) -c $(CFLAGS) $(LOCAL_INCLUDES) $(CPPFLAGS) $*.c
+	$(CC) -c $(CFLAGS) $(LOCAL_INCLUDES) $(CPPFLAGS) $(READLINE_DEFINES) $<
 
 # Destination installation directory.  The libraries are copied to DESTDIR
 # when you do a `make install', and the header files to INCDIR/readline/*.h.
-DESTDIR = /usr/gnu/lib
-INCDIR = /usr/gnu/include
+DESTDIR = /usr/local/lib
+INCDIR = /usr/local/include
 
 # Define TYPES as -DVOID_SIGHANDLER if your operating system uses
 # a return type of "void" for signal handlers.
@@ -27,13 +27,13 @@ TYPES = -DVOID_SIGHANDLER
 # Xenix compilation requires -ldir -lx
 #LOCAL_LIBS = -ldir -lx
 
-# Comment this out if you don't think that anyone will ever desire
+# Comment out "-DVI_MODE" if you don't think that anyone will ever desire
 # the vi line editing mode and features.
-READLINE_DEFINES = -DVI_MODE
+READLINE_DEFINES = $(TYPES) -DVI_MODE
 
 DEBUG_FLAGS = -g
 LDFLAGS = $(DEBUG_FLAGS) 
-CFLAGS = $(DEBUG_FLAGS) $(TYPE) $(SYSV) -I.
+CFLAGS = $(DEBUG_FLAGS) $(SYSV) -I.
 
 # A good alternative is gcc -traditional.
 #CC = gcc -traditional
@@ -46,7 +46,7 @@ CP = cp
 LOCAL_INCLUDES = -I../
 
 CSOURCES = readline.c history.c funmap.c keymaps.c vi_mode.c \
-	   emacs_keymap.c vi_keymap.c keymaps.c
+	   emacs_keymap.c vi_keymap.c
 
 HSOURCES = readline.h chardefs.h history.h keymaps.h
 SOURCES  = $(CSOURCES) $(HSOURCES)
@@ -65,23 +65,12 @@ all: libreadline.a
 libreadline.a:	readline.o history.o funmap.o keymaps.o
 		$(RM) -f libreadline.a
 		$(AR) clq libreadline.a readline.o history.o funmap.o keymaps.o
-		if [ -f $(RANLIB) ]; then $(RANLIB) libreadline.a; fi
+		-if [ -f $(RANLIB) ]; then $(RANLIB) libreadline.a; fi
 
 readline.o:	readline.h chardefs.h  keymaps.h history.h readline.c vi_mode.c
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(READLINE_DEFINES) \
-		$(LOCAL_INCLUDES) $*.c
-
 history.o:	history.c history.h
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(READLINE_DEFINES) \
-		$(LOCAL_INCLUDES) $*.c
-
 funmap.o:	readline.h
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(READLINE_DEFINES) \
-		$(LOCAL_INCLUDES) $*.c
-
 keymaps.o:	emacs_keymap.c vi_keymap.c keymaps.h chardefs.h keymaps.c
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) $(READLINE_DEFINES) \
-		 $(LOCAL_INCLUDES) $*.c
 
 libtest:	libreadline.a libtest.c
 		$(CC) -o libtest $(CFLAGS) $(CPPFLAGS) -L. libtest.c -lreadline -ltermcap

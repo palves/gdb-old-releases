@@ -22,8 +22,15 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "param.h"
 #include "symtab.h"
 #include "frame.h"
+#include "gdbcore.h"
+#include "value.h"		/* for read_register */
+#include "target.h"		/* for target_has_stack */
 
+/* Required by INIT_EXTRA_FRAME_INFO on 88k.  */
+#include <setjmp.h>
 #include <obstack.h>
+
+CORE_ADDR read_pc ();		/* In infcmd.c */
 
 /* Start and end of object file containing the entry point.
    STARTUP_FILE_END is the first address of the next file.
@@ -36,7 +43,11 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 CORE_ADDR startup_file_start;
 CORE_ADDR startup_file_end;
 
-/* Is ADDR outside the startup file?  */
+/* Is ADDR outside the startup file?  Note that if your machine
+   has a way to detect the bottom of the stack, there is no need
+   to call this function from FRAME_CHAIN_VALID; the reason for
+   doing so is that some machines have no way of detecting bottom
+   of stack.  */
 int
 outside_startup_file (addr)
      CORE_ADDR addr;
@@ -47,9 +58,6 @@ outside_startup_file (addr)
 /* Address of innermost stack frame (contents of FP register) */
 
 static FRAME current_frame;
-
-struct block *block_for_pc ();
-CORE_ADDR get_pc_function_start ();
 
 /*
  * Cache for frame addresses already read by gdb.  Valid only while
@@ -157,27 +165,36 @@ get_frame_info (frame)
    frame_info for the frame, and FRAMELESS should be set to nonzero
    if it represents a frameless function invocation.  */
 
-/* Many machines which allow frameless functions can detect them using
-   this macro.  Such machines should define FRAMELESS_FUNCTION_INVOCATION
-   to just call this macro.  */
-#define FRAMELESS_LOOK_FOR_PROLOGUE(FI, FRAMELESS) \
-{      	       	       	       	       	       	       	       	       	 \
-  CORE_ADDR func_start, after_prologue;			                 \
-  func_start = (get_pc_function_start ((FI)->pc) +	                 \
-		FUNCTION_START_OFFSET);			                 \
-  if (func_start)                                                        \
-    {									 \
-      after_prologue = func_start;					 \
-      SKIP_PROLOGUE (after_prologue);					 \
-      (FRAMELESS) = (after_prologue == func_start);			 \
-    }									 \
-  else									 \
-    /* If we can't find the start of the function, we don't really */    \
-    /* know whether the function is frameless, but we should be	   */    \
-    /* able to get a reasonable (i.e. best we can do under the	   */    \
-    /* circumstances) backtrace by saying that it isn't.  */	         \
-    (FRAMELESS) = 0;							 \
+/* Return nonzero if the function for this frame has a prologue.  Many
+   machines can define FRAMELESS_FUNCTION_INVOCATION to just call this
+   function.  */
+
+int
+frameless_look_for_prologue (frame)
+     FRAME frame;
+{
+  CORE_ADDR func_start, after_prologue;
+  func_start = (get_pc_function_start (frame->pc) +
+		FUNCTION_START_OFFSET);
+  if (func_start)
+    {
+      after_prologue = func_start;
+      SKIP_PROLOGUE (after_prologue);
+      return after_prologue == func_start;
+    }
+  else
+    /* If we can't find the start of the function, we don't really
+       know whether the function is frameless, but we should be able
+       to get a reasonable (i.e. best we can do under the
+       circumstances) backtrace by saying that it isn't.  */
+    return 0;
 }
+
+#if !defined (INIT_FRAME_PC)
+#define INIT_FRAME_PC(fromleaf, prev) \
+  prev->pc = (fromleaf ? SAVED_PC_AFTER_CALL (prev->next) : \
+	      prev->next ? FRAME_SAVED_PC (prev->next) : read_pc ());
+#endif
 
 /* Return a structure containing various interesting information
    about the frame that called NEXT_FRAME.  Returns NULL
@@ -199,10 +216,7 @@ get_prev_frame_info (next_frame)
     {
       if (!current_frame)
 	{
-	  if (!have_inferior_p () && !have_core_file_p ())
-	    fatal ("get_prev_frame_info: Called before cache primed.  \"Shouldn't happen.\"");
-	  else
-	    error ("No inferior or core file.");
+	  error ("You haven't set up a process's stack to examine.");
 	}
 
       return current_frame;
@@ -247,8 +261,6 @@ get_prev_frame_info (next_frame)
       address = FRAME_CHAIN (next_frame);
       if (!FRAME_CHAIN_VALID (address, next_frame))
 	return 0;
-      /* If this frame is a leaf, this will be superceeded by the
-	 code below.  */
       address = FRAME_CHAIN_COMBINE (address, next_frame);
     }
 
@@ -270,8 +282,7 @@ get_prev_frame_info (next_frame)
   /* This entry is in the frame queue now, which is good since
      FRAME_SAVED_PC may use that queue to figure out it's value
      (see m-sparc.h).  We want the pc saved in the inferior frame. */
-  prev->pc = (fromleaf ? SAVED_PC_AFTER_CALL (next_frame) :
-	      next_frame ? FRAME_SAVED_PC (next_frame) : read_pc ());
+  INIT_FRAME_PC(fromleaf, prev);
 
   return prev;
 }
@@ -285,6 +296,7 @@ get_frame_pc (frame)
   return fi->pc;
 }
 
+#if defined (FRAME_FIND_SAVED_REGS)
 /* Find the addresses in which registers are saved in FRAME.  */
 
 void
@@ -294,6 +306,7 @@ get_frame_saved_regs (frame_info_addr, saved_regs_addr)
 {
   FRAME_FIND_SAVED_REGS (frame_info_addr, *saved_regs_addr);
 }
+#endif
 
 /* Return the innermost lexical block in execution
    in a specified stack frame.  The frame address is assumed valid.  */
@@ -353,49 +366,28 @@ get_frame_function (frame)
   return block_function (bl);
 }
 
-/* Return the innermost lexical block containing the specified pc value,
-   or 0 if there is none.  */
+/* Return the blockvector immediately containing the innermost lexical block
+   containing the specified pc value, or 0 if there is none.
+   PINDEX is a pointer to the index value of the block.  If PINDEX
+   is NULL, we don't pass this information back to the caller.  */
 
-extern struct symtab *psymtab_to_symtab ();
-
-struct block *
-block_for_pc (pc)
+struct blockvector *
+blockvector_for_pc (pc, pindex)
      register CORE_ADDR pc;
+     int *pindex;
 {
   register struct block *b;
   register int bot, top, half;
   register struct symtab *s;
-  register struct partial_symtab *ps;
   struct blockvector *bl;
 
   /* First search all symtabs for one whose file contains our pc */
-
-  for (s = symtab_list; s; s = s->next)
-    {
-      bl = BLOCKVECTOR (s);
-      b = BLOCKVECTOR_BLOCK (bl, 0);
-      if (BLOCK_START (b) <= pc
-	  && BLOCK_END (b) > pc)
-	break;
-    }
-
-  if (s == 0)
-    for (ps = partial_symtab_list; ps; ps = ps->next)
-      {
-	if (ps->textlow <= pc
-	    && ps->texthigh > pc)
-	  {
-	    if (ps->readin)
-	      fatal ("Internal error: pc found in readin psymtab and not in any symtab.");
-	    s = psymtab_to_symtab (ps);
-	    bl = BLOCKVECTOR (s);
-	    b = BLOCKVECTOR_BLOCK (bl, 0);
-	    break;
-	  }
-      }
-
+  s = find_pc_symtab (pc);
   if (s == 0)
     return 0;
+
+  bl = BLOCKVECTOR (s);
+  b = BLOCKVECTOR_BLOCK (bl, 0);
 
   /* Then search that symtab for the smallest block that wins.  */
   /* Use binary search to find the last block that starts before PC.  */
@@ -419,10 +411,30 @@ block_for_pc (pc)
     {
       b = BLOCKVECTOR_BLOCK (bl, bot);
       if (BLOCK_END (b) > pc)
-	return b;
+	{
+	  if (pindex)
+	    *pindex = bot;
+	  return bl;
+	}
       bot--;
     }
 
+  return 0;
+}
+
+/* Return the innermost lexical block containing the specified pc value,
+   or 0 if there is none.  */
+
+struct block *
+block_for_pc (pc)
+     register CORE_ADDR pc;
+{
+  register struct blockvector *bl;
+  int index;
+
+  bl = blockvector_for_pc (pc, &index);
+  if (bl)
+    return BLOCKVECTOR_BLOCK (bl, index);
   return 0;
 }
 
@@ -439,6 +451,23 @@ find_pc_function (pc)
   return block_function (b);
 }
 
+/* These variables are used to cache the most recent result
+ * of find_pc_partial_function. */
+
+static CORE_ADDR cache_pc_function_low = 0;
+static CORE_ADDR cache_pc_function_high = 0;
+static char *cache_pc_function_name = 0;
+
+/* Clear cache, e.g. when symbol table is discarded. */
+
+void
+clear_pc_function_cache()
+{
+  cache_pc_function_low = 0;
+  cache_pc_function_high = 0;
+  cache_pc_function_name = (char *)0;
+}
+
 /* Finds the "function" (text symbol) that is smaller than PC
    but greatest of all of the potential text symbols.  Sets
    *NAME and/or *ADDRESS conditionally if that pointer is non-zero.
@@ -452,11 +481,21 @@ find_pc_partial_function (pc, name, address)
      char **name;
      CORE_ADDR *address;
 {
-  struct partial_symtab *pst = find_pc_psymtab (pc);
+  struct partial_symtab *pst;
   struct symbol *f;
   int miscfunc;
   struct partial_symbol *psb;
 
+  if (pc >= cache_pc_function_low && pc < cache_pc_function_high)
+    {
+	if (address)
+	    *address = cache_pc_function_low;
+	if (name)
+	    *name = cache_pc_function_name;
+	return 1;
+    }
+
+  pst = find_pc_psymtab (pc);
   if (pst)
     {
       if (pst->readin)
@@ -468,7 +507,7 @@ find_pc_partial_function (pc, name, address)
 	  if (!f)
 	    {
 	    return_error:
-	      /* No availible symbol.  */
+	      /* No available symbol.  */
 	      if (name != 0)
 		*name = 0;
 	      if (address != 0)
@@ -476,10 +515,13 @@ find_pc_partial_function (pc, name, address)
 	      return 0;
 	    }
 
+	  cache_pc_function_low = BLOCK_START (SYMBOL_BLOCK_VALUE (f));
+	  cache_pc_function_high = BLOCK_END (SYMBOL_BLOCK_VALUE (f));
+	  cache_pc_function_name = SYMBOL_NAME (f);
 	  if (name)
-	    *name = SYMBOL_NAME (f);
+	    *name = cache_pc_function_name;
 	  if (address)
-	    *address = BLOCK_START (SYMBOL_BLOCK_VALUE (f));
+	    *address = cache_pc_function_low;
 	  return 1;
 	}
 
@@ -493,21 +535,14 @@ find_pc_partial_function (pc, name, address)
 	{
 	  goto return_error;
 	}
-      if (!psb
-	  || (miscfunc != -1
-	      && (SYMBOL_VALUE(psb)
-		  < misc_function_vector[miscfunc].address)))
+      if (psb
+	  && (miscfunc == -1
+	      || (SYMBOL_VALUE_ADDRESS (psb)
+		  >= misc_function_vector[miscfunc].address)))
 	{
+	  /* This case isn't being cached currently. */
 	  if (address)
-	    *address = misc_function_vector[miscfunc].address;
-	  if (name)
-	    *name = misc_function_vector[miscfunc].name;
-	  return 1;
-	}
-      else
-	{
-	  if (address)
-	    *address = SYMBOL_VALUE (psb);
+	    *address = SYMBOL_VALUE_ADDRESS (psb);
 	  if (name)
 	    *name = SYMBOL_NAME (psb);
 	  return 1;
@@ -519,12 +554,25 @@ find_pc_partial_function (pc, name, address)
       miscfunc = find_pc_misc_function (pc);
       if (miscfunc == -1)
 	goto return_error;
-      if (address)
-	*address = misc_function_vector[miscfunc].address;
-      if (name)
-	*name = misc_function_vector[miscfunc].name;
-      return 1;
     }
+
+  {
+    if (misc_function_vector[miscfunc].type == mf_text)
+      cache_pc_function_low = misc_function_vector[miscfunc].address;
+    else
+      /* It is a transfer table for Sun shared libraries.  */
+      cache_pc_function_low = pc - FUNCTION_START_OFFSET;
+  }
+  cache_pc_function_name = misc_function_vector[miscfunc].name;
+  if (miscfunc < misc_function_count && 1 /* FIXME mf_text again? */ )
+    cache_pc_function_high = misc_function_vector[miscfunc+1].address;
+  else
+    cache_pc_function_high = cache_pc_function_low + 1;
+  if (address)
+    *address = cache_pc_function_low;
+  if (name)
+    *name = cache_pc_function_name;
+  return 1;
 }
 
 /* Find the misc function whose address is the largest
@@ -538,7 +586,6 @@ find_pc_misc_function (pc)
   register int lo = 0;
   register int hi = misc_function_count-1;
   register int new;
-  register int distance;
 
   /* Note that the last thing in the vector is always _etext.  */
   /* Actually, "end", now that non-functions
@@ -560,10 +607,9 @@ find_pc_misc_function (pc)
      "pc >= misc_function_vector[hi].address".  */
   do {
     new = (lo + hi) >> 1;
-    distance = misc_function_vector[new].address - pc;
-    if (distance == 0)
+    if (misc_function_vector[new].address == pc)
       return new;		/* an exact match */
-    else if (distance > 0)
+    else if (misc_function_vector[new].address > pc)
       hi = new;
     else
       lo = new;

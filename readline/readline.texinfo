@@ -132,6 +132,10 @@ the line when you are done with it.  The declaration in ANSI C is
 @example
 @code{char *readline (char *@var{prompt});}
 @end example
+or, preferably,
+@example
+@code{#include <readline/readline.h>}
+@end example
 
 So, one might say
 @example
@@ -154,6 +158,8 @@ line away in a @dfn{history} list of such lines.
 @code{add_history (line)};
 @end example
 
+If you use @code{add_history ()}, you should also
+@code{#include <readline/history.h>}
 For full details on the GNU History Library, see the associated manual.
 
 It is polite to avoid saving empty lines on the history list, since
@@ -161,6 +167,9 @@ no one has a burning need to reuse a blank line.  Here is a function
 which usefully replaces the standard @code{gets ()} library function:
 
 @example
+#include <readline/readline.h>
+#include <readline/history.h>
+
 /* A static variable for holding the line. */
 static char *my_gets_line = (char *)NULL;
 

@@ -19,9 +19,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "param.h"
-#include "symtab.h"
 #include "value.h"
 #include "expression.h"
+#include "target.h"
+#include <string.h>
 
 
 value value_x_binop ();
@@ -75,25 +76,34 @@ value_sub (arg1, arg2)
   COERCE_ARRAY (arg1);
   COERCE_ARRAY (arg2);
 
-  if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_PTR
-      && 
-      TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_INT)
+  if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_PTR)
     {
-      val = value_from_long (builtin_type_long,
-			     value_as_long (arg1)
-			     - TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1))) * value_as_long (arg2));
-      VALUE_TYPE (val) = VALUE_TYPE (arg1);
-      return val;
-    }
-
-  if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_PTR
-      && 
-      VALUE_TYPE (arg1) == VALUE_TYPE (arg2))
-    {
-      val = value_from_long (builtin_type_long,
-			     (value_as_long (arg1) - value_as_long (arg2))
-			     / TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1))));
-      return val;
+      if (TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_INT)
+	{
+	  /* pointer - integer.  */
+	  val = value_from_long
+	    (builtin_type_long,
+	     value_as_long (arg1)
+	     - (TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)))
+		* value_as_long (arg2)));
+	  VALUE_TYPE (val) = VALUE_TYPE (arg1);
+	  return val;
+	}
+      else if (VALUE_TYPE (arg1) == VALUE_TYPE (arg2))
+	{
+	  /* pointer to <type x> - pointer to <type x>.  */
+	  val = value_from_long
+	    (builtin_type_long,
+	     (value_as_long (arg1) - value_as_long (arg2))
+	     / TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1))));
+	  return val;
+	}
+      else
+	{
+	  error ("\
+First argument of `-' is a pointer and second argument is neither\n\
+an integer nor a pointer of the same type.");
+	}
     }
 
   return value_binop (arg1, arg2, BINOP_SUB);
@@ -130,23 +140,24 @@ value_subscripted_rvalue (array, idx)
   if (TYPE_CODE (elt_type) == TYPE_CODE_FLT) 
     {
       if (elt_size == sizeof (float))
-	v = value_from_double (elt_type, (double) *(float *)
-			       (VALUE_CONTENTS (array) + elt_offs));
+	{
+	  float f = *(float *) (VALUE_CONTENTS (array) + elt_offs);
+	  SWAP_TARGET_AND_HOST (&f, sizeof(f));
+	  v = value_from_double (elt_type, (double) f);
+	}
       else
-	v = value_from_double (elt_type, *(double *)
-			       (VALUE_CONTENTS (array) + elt_offs));
+	{
+	  double f = *(double *) (VALUE_CONTENTS (array) + elt_offs);
+	  SWAP_TARGET_AND_HOST (&f, sizeof (f));
+	  v = value_from_double (elt_type, f);
+	}
     }
   else
     {
-      int offs;
-      union {int i; char c;} test;
-      test.i = 1;
-      if (test.c == 1)
-	offs = 0;
-      else
-	offs = sizeof (LONGEST) - elt_size;
-      v = value_from_long (elt_type, *(LONGEST *)
-			   (VALUE_CONTENTS (array) + elt_offs - offs));
+      v = allocate_value (elt_type);
+      bcopy (VALUE_CONTENTS (array) + elt_offs,
+	     VALUE_CONTENTS_RAW (v),
+	     TYPE_LENGTH (elt_type));
     }
 
   if (VALUE_LVAL (array) == lval_internalvar)
@@ -205,7 +216,7 @@ int unop_user_defined_p (op, arg1)
 value
 value_x_binop (arg1, arg2, op, otherop)
      value arg1, arg2;
-     int op, otherop;
+     enum exp_opcode op, otherop;
 {
   value * argvec;
   char *ptr;
@@ -219,7 +230,7 @@ value_x_binop (arg1, arg2, op, otherop)
      arg vector and find the right function to call it with.  */
 
   if (TYPE_CODE (VALUE_TYPE (arg1)) != TYPE_CODE_STRUCT)
-    error ("friend functions not implemented yet");
+    error ("Can't do that binary op on that type");  /* FIXME be explicit */
 
   argvec = (value *) alloca (sizeof (value) * 4);
   argvec[1] = value_addr (arg1);
@@ -227,8 +238,8 @@ value_x_binop (arg1, arg2, op, otherop)
   argvec[3] = 0;
 
   /* make the right function name up */  
-  strcpy(tstr, "operator __");
-  ptr = tstr+9;
+  strcpy(tstr, "operator__");
+  ptr = tstr+8;
   switch (op)
     {
     case BINOP_ADD:	strcpy(ptr,"+"); break;
@@ -271,7 +282,7 @@ value_x_binop (arg1, arg2, op, otherop)
     default:
       error ("Invalid binary operation specified.");
     }
-  argvec[0] = value_struct_elt (arg1, argvec+1, tstr, &static_memfuncp, "structure");
+  argvec[0] = value_struct_elt (&arg1, argvec+1, tstr, &static_memfuncp, "structure");
   if (argvec[0])
     {
       if (static_memfuncp)
@@ -279,9 +290,12 @@ value_x_binop (arg1, arg2, op, otherop)
 	  argvec[1] = argvec[0];
 	  argvec++;
 	}
-      return call_function (argvec[0], 2 - static_memfuncp, argvec + 1);
+      return target_call_function (argvec[0], 2 - static_memfuncp, argvec + 1);
     }
   error ("member function %s not found", tstr);
+#ifdef lint
+  return target_call_function (argvec[0], 2 - static_memfuncp, argvec + 1);
+#endif
 }
 
 /* We know that arg1 is a structure, so try to find a unary user
@@ -293,7 +307,7 @@ value_x_binop (arg1, arg2, op, otherop)
 value
 value_x_unop (arg1, op)
      value arg1;
-     int op;
+     enum exp_opcode op;
 {
   value * argvec;
   char *ptr;
@@ -306,15 +320,15 @@ value_x_unop (arg1, op)
      arg vector and find the right function to call it with.  */
 
   if (TYPE_CODE (VALUE_TYPE (arg1)) != TYPE_CODE_STRUCT)
-    error ("friend functions not implemented yet");
+    error ("Can't do that unary op on that type");  /* FIXME be explicit */
 
   argvec = (value *) alloca (sizeof (value) * 3);
   argvec[1] = value_addr (arg1);
   argvec[2] = 0;
 
   /* make the right function name up */  
-  strcpy(tstr,"operator __");
-  ptr = tstr+9;
+  strcpy(tstr,"operator__");
+  ptr = tstr+8;
   switch (op)
     {
     case UNOP_PREINCREMENT:	strcpy(ptr,"++"); break;
@@ -327,7 +341,7 @@ value_x_unop (arg1, op)
     default:
       error ("Invalid binary operation specified.");
     }
-  argvec[0] = value_struct_elt (arg1, argvec+1, tstr, static_memfuncp, "structure");
+  argvec[0] = value_struct_elt (&arg1, argvec+1, tstr, &static_memfuncp, "structure");
   if (argvec[0])
     {
       if (static_memfuncp)
@@ -335,7 +349,7 @@ value_x_unop (arg1, op)
 	  argvec[1] = argvec[0];
 	  argvec++;
 	}
-      return call_function (argvec[0], 1 - static_memfuncp, argvec + 1);
+      return target_call_function (argvec[0], 1 - static_memfuncp, argvec + 1);
     }
   error ("member function %s not found", tstr);
 }
@@ -393,7 +407,8 @@ value_binop (arg1, arg2, op)
 	}
 
       val = allocate_value (builtin_type_double);
-      *(double *) VALUE_CONTENTS (val) = v;
+      SWAP_TARGET_AND_HOST (&v, sizeof (v));
+      *(double *) VALUE_CONTENTS_RAW (val) = v;
     }
   else
     /* Integral operations here.  */
@@ -471,7 +486,8 @@ value_binop (arg1, arg2, op)
 	    }
 
 	  val = allocate_value (BUILTIN_TYPE_UNSIGNED_LONGEST);
-	  *(unsigned LONGEST *) VALUE_CONTENTS (val) = v;
+	  SWAP_TARGET_AND_HOST (&v, sizeof (v));
+	  *(unsigned LONGEST *) VALUE_CONTENTS_RAW (val) = v;
 	}
       else
 	{
@@ -542,7 +558,8 @@ value_binop (arg1, arg2, op)
 	    }
 	  
 	  val = allocate_value (BUILTIN_TYPE_LONGEST);
-	  *(LONGEST *) VALUE_CONTENTS (val) = v;
+	  SWAP_TARGET_AND_HOST (&v, sizeof (v));
+	  *(LONGEST *) VALUE_CONTENTS_RAW (val) = v;
 	}
     }
 
@@ -633,13 +650,22 @@ value_less (arg1, arg2)
   code2 = TYPE_CODE (VALUE_TYPE (arg2));
 
   if (code1 == TYPE_CODE_INT && code2 == TYPE_CODE_INT)
-    return value_as_long (arg1) < value_as_long (arg2);
+    {
+      if (TYPE_UNSIGNED (VALUE_TYPE (arg1))
+       || TYPE_UNSIGNED (VALUE_TYPE (arg2)))
+	return (unsigned)value_as_long (arg1) < (unsigned)value_as_long (arg2);
+      else
+	return value_as_long (arg1) < value_as_long (arg2);
+    }
   else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT)
 	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT))
     return value_as_double (arg1) < value_as_double (arg2);
   else if ((code1 == TYPE_CODE_PTR || code1 == TYPE_CODE_INT)
 	   && (code2 == TYPE_CODE_PTR || code2 == TYPE_CODE_INT))
-    return (char *) value_as_long (arg1) < (char *) value_as_long (arg2);
+    {
+      /* FIXME, this assumes that host and target char *'s are the same! */
+      return (char *) value_as_long (arg1) < (char *) value_as_long (arg2);
+    }
   else
     error ("Invalid type combination in ordering comparison.");
 }

@@ -77,9 +77,9 @@ KEYMAP_ENTRY_ARRAY vi_movement_keymap = {
   { ISFUNC, (Function *)0x0 },		/* ( */
   { ISFUNC, (Function *)0x0 },		/* ) */
   { ISFUNC, rl_vi_complete },		/* * */
-  { ISFUNC, rl_get_previous_history},	/* + */
+  { ISFUNC, rl_get_next_history},	/* + */
   { ISFUNC, rl_vi_char_search },	/* , */
-  { ISFUNC, rl_get_next_history },	/* - */
+  { ISFUNC, rl_get_previous_history },	/* - */
   { ISFUNC, (Function *)0x0 },		/* . */
   { ISFUNC, rl_vi_search },		/* / */
 
@@ -188,7 +188,7 @@ KEYMAP_ENTRY_ARRAY vi_insertion_keymap = {
   { ISFUNC, rl_insert },		/* Control-e */
   { ISFUNC, rl_insert },		/* Control-f */
   { ISFUNC, rl_insert },		/* Control-g */
-  { ISFUNC, rl_insert },		/* Control-h */
+  { ISFUNC, rl_rubout },		/* Control-h */
   { ISFUNC, rl_complete },		/* Control-i */
   { ISFUNC, rl_newline },		/* Control-j */
   { ISFUNC, rl_insert },		/* Control-k */

@@ -1,5 +1,7 @@
 /* Do not modify this file; it is created automatically
    by copying.awk.  */
+#include "defs.h"
+#include "command.h"
 extern int immediate_quit;
 static void
 copying_info ()

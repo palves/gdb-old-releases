@@ -34,11 +34,6 @@ static char *xmalloc (), *xrealloc ();
 
 FUNMAP **funmap = (FUNMAP **)NULL;
 static int funmap_size = 0;
-
-static int just_testing_ar_tmp = 0;
-static int just_testing_ar_tmp_2 = 5;
-int foo_testing_ar;
-
 static int funmap_entry = 0;
 
 static FUNMAP default_funmap[] = {
@@ -183,11 +178,12 @@ char *possible_meta_prefixes[] = {
 /*								    */
 /* **************************************************************** */
 
+static void memory_error_and_abort ();
+
 static char *
 xmalloc (bytes)
      int bytes;
 {
-  static memory_error_and_abort ();
   char *temp = (char *)malloc (bytes);
 
   if (!temp)
@@ -200,7 +196,6 @@ xrealloc (pointer, bytes)
      char *pointer;
      int bytes;
 {
-  static memory_error_and_abort ();
   char *temp = (char *)realloc (pointer, bytes);
 
   if (!temp)
@@ -208,7 +203,7 @@ xrealloc (pointer, bytes)
   return (temp);
 }
 
-static
+static void
 memory_error_and_abort ()
 {
   fprintf (stderr, "history: Out of virtual memory!\n");

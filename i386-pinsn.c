@@ -632,6 +632,7 @@ static unsigned char *codep;
 static int mod;
 static int rm;
 static int reg;
+static void oappend ();
 
 static char *names32[]={
   "%eax","%ecx","%edx","%ebx", "%esp","%ebp","%esi","%edi",
@@ -894,7 +895,9 @@ static int dflag;
 static int aflag;		
 
 static char op1out[100], op2out[100], op3out[100];
+static int op_address[3], op_ad, op_index[3];
 static int start_pc;
+extern void fputs_filtered ();
 
 /*
  * disassemble the first instruction in 'inbuf'.  You have to make
@@ -909,10 +912,10 @@ static int start_pc;
  *   100 bytes is certainly enough, unless symbol printing is added later
  * The function returns the length of this instruction in bytes.
  */
-i386dis (pc, inbuf, outbuf)
+i386dis (pc, inbuf, stream)
      int pc;
      unsigned char *inbuf;
-     char *outbuf;
+     FILE *stream;
 {
   struct dis386 *dp;
   char *p;
@@ -925,6 +928,8 @@ i386dis (pc, inbuf, outbuf)
   op1out[0] = 0;
   op2out[0] = 0;
   op3out[0] = 0;
+
+  op_index[0] = op_index[1] = op_index[2] = -1;
   
   start_pc = pc;
   start_codep = inbuf;
@@ -950,8 +955,7 @@ i386dis (pc, inbuf, outbuf)
       && ((*codep < 0xd8) || (*codep > 0xdf)))
     {
       /* fwait not followed by floating point instruction */
-      oappend ("fwait");
-      strcpy (outbuf, obuf);
+      fputs_filtered ("fwait", stream);
       return (1);
     }
   
@@ -989,14 +993,17 @@ i386dis (pc, inbuf, outbuf)
       putop (dp->name);
       
       obufp = op1out;
+      op_ad = 2;
       if (dp->op1)
 	(*dp->op1)(dp->bytemode1);
       
       obufp = op2out;
+      op_ad = 1;
       if (dp->op2)
 	(*dp->op2)(dp->bytemode2);
       
       obufp = op3out;
+      op_ad = 0;
       if (dp->op3)
 	(*dp->op3)(dp->bytemode3);
     }
@@ -1005,6 +1012,7 @@ i386dis (pc, inbuf, outbuf)
   for (i = strlen (obuf); i < 6; i++)
     oappend (" ");
   oappend (" ");
+  fputs_filtered (obuf, stream);
   
   /* enter instruction is printed with operands in the
    * same order as the intel book; everything else
@@ -1015,6 +1023,9 @@ i386dis (pc, inbuf, outbuf)
       first = op1out;
       second = op2out;
       third = op3out;
+      op_ad = op_index[0];
+      op_index[0] = op_index[2];
+      op_index[2] = op_ad;
     }
   else
     {
@@ -1025,23 +1036,31 @@ i386dis (pc, inbuf, outbuf)
   needcomma = 0;
   if (*first)
     {
-      oappend (first);
+      if (op_index[0] != -1)
+	print_address (op_address[op_index[0]], stream);
+      else
+	fputs_filtered (first, stream);
       needcomma = 1;
     }
   if (*second)
     {
       if (needcomma)
-	oappend (",");
-      oappend (second);
+	fputs_filtered (",", stream);
+      if (op_index[1] != -1)
+	print_address (op_address[op_index[1]], stream);
+      else
+	fputs_filtered (second, stream);
       needcomma = 1;
     }
   if (*third)
     {
       if (needcomma)
-	oappend (",");
-      oappend (third);
+	fputs_filtered (",", stream);
+      if (op_index[2] != -1)
+	print_address (op_address[op_index[2]], stream);
+      else
+	fputs_filtered (third, stream);
     }
-  strcpy (outbuf, obuf);
   return (codep - inbuf);
 }
 
@@ -1358,6 +1377,7 @@ putop (template)
   *obufp = 0;
 }
 
+static void
 oappend (s)
 char *s;
 {
@@ -1548,6 +1568,13 @@ get16 ()
   return (x);
 }
 
+set_op (op)
+int op;
+{
+  op_index[op_ad] = op_ad;
+  op_address[op_ad] = op;
+}
+
 OP_REG (code)
 {
   char *s;
@@ -1656,12 +1683,12 @@ OP_J (bytemode)
 	}
       break;
     default:
-      oappend ("<internal disassembelr error>");
+      oappend ("<internal disassembler error>");
       return;
     }
-  
-  sprintf (scratchbuf, "0x%x",
-	   (start_pc + codep - start_codep + disp) & mask);
+  disp = (start_pc + codep - start_codep + disp) & mask;
+  set_op (disp);
+  sprintf (scratchbuf, "0x%x", disp);
   oappend (scratchbuf);
 }
 
@@ -1701,8 +1728,9 @@ OP_DIR (size)
       else
 	offset = (short)get16 ();
       
-      sprintf (scratchbuf, "0x%x",
-	       start_pc + codep - start_codep + offset);
+      offset = start_pc + codep - start_codep + offset;
+      set_op (offset);
+      sprintf (scratchbuf, "0x%x", offset);
       oappend (scratchbuf);
       break;
     default:
@@ -1790,6 +1818,7 @@ OP_rm (bytemode)
 #include "symtab.h"
 #include "frame.h"
 #include "inferior.h"
+#include "gdbcore.h"
 
 #define MAXLEN 20
 print_insn (memaddr, stream)
@@ -1797,16 +1826,9 @@ print_insn (memaddr, stream)
      FILE *stream;
 {
   unsigned char buffer[MAXLEN];
-  /* should be expanded if disassembler prints symbol names */
-  char outbuf[100];
-  int n;
   
   read_memory (memaddr, buffer, MAXLEN);
   
-  n = i386dis ((int)memaddr, buffer, outbuf);
-  
-  fputs (outbuf, stream);
-  
-  return (n);
+  return (i386dis ((int)memaddr, buffer, stream));
 }
 

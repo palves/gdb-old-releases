@@ -138,6 +138,15 @@ extern Function *rl_tilde_expander;
    before readline_internal () prints the first prompt. */
 extern Function *rl_startup_hook;
 
+/* If non-zero, then this is the address of a function to call when
+   completing on a directory name.  The function is called with
+   the address of a string (the current directory name) as an arg. */
+extern Function *rl_symbolic_link_hook;
+
+/* Non-zero means that modified history lines are preceded
+   with an asterisk. */
+extern int rl_show_star;
+
 /* **************************************************************** */
 /*								    */
 /*			Well Published Functions		    */

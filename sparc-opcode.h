@@ -30,9 +30,11 @@ struct sparc_opcode
     unsigned long int match;	/* Bits that must be set.  */
     unsigned long int lose;	/* Bits that must not be set.  */
     const char *args;
-    /* Nonzero if this is a delayed branch instruction.  */
-    char delayed;
+    char flags;
 };
+
+#define	F_DELAYED	1	/* Delayed branch */
+#define	F_ALIAS		2	/* Alias for a "real" instruction */
 
 /*
    All sparc opcodes are 32 bits, except for the `set' instruction (really
@@ -174,11 +176,11 @@ static struct sparc_opcode sparc_opcodes[] =
 { "st",		0xc1202000, 0x00d80000, "g,[1+i]", 0 },
 { "st",		0xc1202000, 0x00d80000, "g,[i+1]", 0 },
 { "st",		0xc1200000, 0x00d82000, "g,[1+2]", 0 },
-{ "st",		0xc1100000, 0x00c0201f, "F,[1]", 0 }, /* st d,[rs1+%g0] */
-{ "st",	        0xc1102000, 0x00c01fff, "F,[1]", 0 }, /* st d,[rs1+0] */
-{ "st",		0xc1102000, 0x00c00000, "F,[1+i]", 0 },
-{ "st",		0xc1102000, 0x00c00000, "F,[i+1]", 0 },
-{ "st",		0xc1100000, 0x00c02000, "F,[1+2]", 0 },
+{ "st",		0xc1280000, 0x00c0d01f, "F,[1]", 0 }, /* st d,[rs1+%g0] */
+{ "st",		0xc1282000, 0x00c0dfff, "F,[1]", 0 }, /* st d,[rs1+0] */
+{ "st",		0xc1282000, 0x00c0d000, "F,[1+i]", 0 },
+{ "st",		0xc1282000, 0x00c0d000, "F,[i+1]", 0 },
+{ "st",		0xc1280000, 0x00c0d000, "F,[1+2]", 0 },
 { "st",		0xc1a00000, 0x0058201f, "D,[1]", 0 }, /* st d,[rs1+%g0] */
 { "st",		0xc1a02000, 0x00581fff, "D,[1]", 0 }, /* st d,[rs1+0] */
 { "st",		0xc1a02000, 0x00580000, "D,[1+i]", 0 },
@@ -248,20 +250,22 @@ static struct sparc_opcode sparc_opcodes[] =
 { "restore",    0x81e82000, 0x7e14dfff, "", 0 }, /* restore %g0,0,%g0 */
 { "restore",	0x81e82000, 0x00000000, "1,i,d", 0 },
 { "restore",	0x81e80000, 0x00000000, "1,2,d", 0 },
-{ "rett",       0x81c82000, 0x40300000, "1+i", 1 },
-{ "rett",       0x81c82000, 0x40300000, "i+1", 1 },
-{ "rett",	0x81c80000, 0x40302000, "1+2", 1 },
+{ "rett",       0x81c82000, 0x40300000, "1+i", F_DELAYED },
+{ "rett",       0x81c82000, 0x40300000, "i+1", F_DELAYED },
+{ "rett",	0x81c80000, 0x40302000, "1+2", F_DELAYED },
+{ "rett",	0x81c82000, 0x40301fff, "1", F_DELAYED}, /* rett X,0 */
+{ "rett",	0x81c80000, 0x4030201f, "1", F_DELAYED}, /* rett X,%g0 */
 { "save",       0x81e02000, 0x40180000, "1,i,d", 0 },
 { "save",	0x81e00000, 0x40180000, "1,2,d", 0 },
 
-{ "ret",	0x81c7e008, 0x00001ff7, "", 1 }, /* jmpl %i7+8,%g0 */
-{ "retl",       0x81c3e008, 0x00001ff7, "", 1 }, /* jmpl %o7+8,%g0 */
+{ "ret",	0x81c7e008, 0x00001ff7, "", F_DELAYED }, /* jmpl %i7+8,%g0 */
+{ "retl",       0x81c3e008, 0x00001ff7, "", F_DELAYED }, /* jmpl %o7+8,%g0 */
 
-{ "jmpl",       0x81c00000, 0x4038201f, "1,d", 1 }, /* jmpl rs1+%g0,d */
-{ "jmpl",	0x81c02000, 0x4037c000, "i,d", 1 }, /* jmpl %g0+i,d */
-{ "jmpl",	0x81c02000, 0x40380000, "1+i,d", 1 },
-{ "jmpl",	0x81c02000, 0x40380000, "i+1,d", 1 },
-{ "jmpl",	0x81c00000, 0x40382000, "1+2,d", 1 },
+{ "jmpl",       0x81c00000, 0x4038201f, "1,d", F_DELAYED }, /* jmpl rs1+%g0,d */
+{ "jmpl",	0x81c02000, 0x4037c000, "i,d", F_DELAYED }, /* jmpl %g0+i,d */
+{ "jmpl",	0x81c02000, 0x40380000, "1+i,d", F_DELAYED },
+{ "jmpl",	0x81c02000, 0x40380000, "i+1,d", F_DELAYED },
+{ "jmpl",	0x81c00000, 0x40382000, "1+2,d", F_DELAYED },
 { "wr",         0x81982000, 0x40600000, "1,i,t", 0 },
 { "wr",         0x81980000, 0x40600000, "1,2,t", 0 },
 { "wr",         0x81902000, 0x40680000, "1,i,w", 0 },
@@ -286,11 +290,25 @@ static struct sparc_opcode sparc_opcodes[] =
 { "mulscc",     0x81202000, 0x40d80000, "1,i,d", 0 },
 { "mulscc",	0x81200000, 0x40d80000, "1,2,d", 0 },
 
-{ "clr",        0x80100000, 0x4e87e01f, "d", 0 }, /* or %g0,%g0,d */
-{ "clr",        0x80102000, 0x41efdfff, "d", 0 }, /* or %g0,0,d   */
+{ "clr",        0x80100000, 0x4e87e01f, "d", F_ALIAS }, /* or %g0,%g0,d */
+{ "clr",        0x80102000, 0x41efdfff, "d", F_ALIAS }, /* or %g0,0,d   */
+{ "clr",	0xc0200000, 0x3fd8001f, "[1]", F_ALIAS }, /* st %g0,[rs1+%g0] */
+{ "clr",	0xc0202000, 0x3fd81fff, "[1]", F_ALIAS }, /* st %g0,[rs1+0] */
+{ "clr",	0xc0202000, 0x3fd80000, "[1+i]", F_ALIAS },
+{ "clr",	0xc0202000, 0x3fd80000, "[i+1]", F_ALIAS },
+{ "clr",	0xc0200000, 0x3fd80000, "[1+2]", F_ALIAS },
+
+{ "clrb",       0xc0280000, 0x3fd0001f, "[1]", F_ALIAS },/* stb %g0,[rs1+%g0] */
+{ "clrb",	0xc0282000, 0x3fd00000, "[1+i]", F_ALIAS },
+{ "clrb",	0xc0282000, 0x3fd00000, "[i+1]", F_ALIAS },
+{ "clrb",	0xc0280000, 0x3fd00000, "[1+2]", F_ALIAS },
+
+{ "clrh",       0xc0300000, 0x3fc8001f, "[1]", F_ALIAS },/* sth %g0,[rs1+%g0] */
+{ "clrh",	0xc0300000, 0x3fc80000, "[1+2]", F_ALIAS },
+{ "clrh",	0xc0302000, 0x3fc80000, "[1+i]", F_ALIAS },
+{ "clrh",	0xc0302000, 0x3fc80000, "[i+1]", F_ALIAS },
 
 { "orncc",      0x80b02000, 0x04048000, "1,i,d", 0 },
-{ "orncc",      0x80b02000, 0x04048000, "i,1,d", 0 },
 { "orncc",	0x80b00000, 0x04048000, "1,2,d", 0 },
 
 { "tst",        0x80900000, 0x7f6fe000, "2", 0 }, /* orcc %g0, rs2, %g0 */
@@ -301,35 +319,44 @@ static struct sparc_opcode sparc_opcodes[] =
 { "orcc",	0x80902000, 0x41680000, "i,1,d", 0 },
 { "orcc",	0x80900000, 0x41680000, "1,2,d", 0 },
 { "orn",        0x80302000, 0x41c80000, "1,i,d", 0 },
-{ "orn",	0x80302000, 0x41c80000, "i,1,d", 0 },
 { "orn",	0x80300000, 0x41c80000, "1,2,d", 0 },
 
-{ "mov",        0x81800000, 0x4078201f, "1,y", 0 }, /* wr rs1,%g0,%y */
-{ "mov",        0x81802000, 0x40781fff, "1,y", 0 }, /* wr rs1,0,%y */
-{ "mov",        0x81400000, 0x40b80000, "y,d", 0 }, /* rd %y,d */
-{ "mov",        0x81980000, 0x4060201f, "1,t", 0 }, /* wr rs1,%g0,%tbr */
-{ "mov",        0x81982000, 0x40601fff, "1,t", 0 }, /* wr rs1,0,%tbr */
-{ "mov",        0x81580000, 0x40a00000, "t,d", 0 }, /* rd %tbr,d */
-{ "mov",        0x81900000, 0x4068201f, "1,w", 0 }, /* wr rs1,%g0,%wim */
-{ "mov",        0x81902000, 0x40681fff, "1,w", 0 }, /* wr rs1,0,%wim */
-{ "mov",        0x81500000, 0x40a80000, "w,d", 0 }, /* rd %wim,d */
-{ "mov",        0x81880000, 0x4070201f, "1,p", 0 }, /* wr rs1,%g0,%psr */
-{ "mov",        0x81882000, 0x40701fff, "1,p", 0 }, /* wr rs1,0,%psr */
-{ "mov",        0x81480000, 0x40b00000, "p,d", 0 }, /* rd %psr,d */
+{ "mov",        0x81800000, 0x4078201f, "1,y", F_ALIAS }, /* wr rs1,%g0,%y */
+{ "mov",        0x81802000, 0x40781fff, "1,y", F_ALIAS }, /* wr rs1,0,%y */
+{ "mov",        0x81802000, 0x40780000, "i,y", F_ALIAS },
+{ "mov",        0x81400000, 0x40b80000, "y,d", F_ALIAS }, /* rd %y,d */
+{ "mov",        0x81980000, 0x4060201f, "1,t", F_ALIAS }, /* wr rs1,%g0,%tbr */
+{ "mov",        0x81982000, 0x40601fff, "1,t", F_ALIAS }, /* wr rs1,0,%tbr */
+{ "mov",        0x81982000, 0x40600000, "i,t", F_ALIAS },
+{ "mov",        0x81580000, 0x40a00000, "t,d", F_ALIAS }, /* rd %tbr,d */
+{ "mov",        0x81900000, 0x4068201f, "1,w", F_ALIAS }, /* wr rs1,%g0,%wim */
+{ "mov",        0x81902000, 0x40681fff, "1,w", F_ALIAS }, /* wr rs1,0,%wim */
+{ "mov",        0x81902000, 0x40680000, "i,w", F_ALIAS },
+{ "mov",        0x81500000, 0x40a80000, "w,d", F_ALIAS }, /* rd %wim,d */
+{ "mov",        0x81880000, 0x4070201f, "1,p", F_ALIAS }, /* wr rs1,%g0,%psr */
+{ "mov",        0x81882000, 0x40701fff, "1,p", F_ALIAS }, /* wr rs1,0,%psr */
+{ "mov",        0x81882000, 0x40700000, "i,p", F_ALIAS },
+{ "mov",        0x81480000, 0x40b00000, "p,d", F_ALIAS }, /* rd %psr,d */
 
 { "mov",        0x80102000, 0x41efc000, "i,d", 0 }, /* or %g0,i,d   */
 { "mov",        0x80100000, 0x41efe000, "2,d", 0 }, /* or %g0,rs2,d */
+{ "mov",        0x80102000, 0x41e81fff, "1,d", 0 }, /* or rs1,0,d */
+{ "mov",        0x80100000, 0x41e8201f, "1,d", 0 }, /* or rs1,%g0,d   */
 
 { "or",	        0x80102000, 0x40800000, "1,i,d", 0 },
 { "or",		0x80102000, 0x40800000, "i,1,d", 0 },
 { "or",		0x80100000, 0x40800000, "1,2,d", 0 },
 
+{ "bset",	0x80102000, 0x40800000, "i,r", F_ALIAS },/* or rd,i,rd */
+{ "bset",	0x80100000, 0x40800000, "2,r", F_ALIAS },/* or rd,rs2,rd */
+
 { "andncc",     0x80a82000, 0x41500000, "1,i,d", 0 },
-{ "andncc",	0x80a82000, 0x41500000, "i,1,d", 0 },
 { "andncc",	0x80a80000, 0x41500000, "1,2,d", 0 },
 { "andn",       0x80282000, 0x41d00000, "1,i,d", 0 },
-{ "andn",	0x80282000, 0x41d00000, "i,1,d", 0 },
 { "andn",	0x80280000, 0x41d00000, "1,2,d", 0 },
+
+{ "bclr",	0x80282000, 0x41d00000, "i,r", F_ALIAS },/* andn rd,i,rd */
+{ "bclr",	0x80280000, 0x41d00000, "2,r", F_ALIAS },/* andn rd,rs2,rd */
 
 { "cmp",        0x80a02000, 0x7d580000, "1,i", 0 },     /* subcc rs1,i,%g0 */
 { "cmp",	0x80a00000, 0x7d580000, "1,2", 0 },     /* subcc rs1,rs2,%g0 */
@@ -350,7 +377,16 @@ static struct sparc_opcode sparc_opcodes[] =
 { "and",	0x80082000, 0x41f00000, "i,1,d", 0 },
 { "and",	0x80080000, 0x41f00000, "1,2,d", 0 },
 
-{ "inc",	0x80002001, 0x00001ffe, "r", 0 },       /* add rs1,1,rsd */
+{ "inc",	0x80002001, 0x41f81ffe, "r", F_ALIAS },	/* add rs1,1,rsd */
+{ "inccc",	0x80802001, 0x41781ffe, "r", F_ALIAS },	/* addcc rd,1,rd */
+{ "dec",        0x80202001, 0x41d81ffe, "r", F_ALIAS },	/* sub rd,1,rd */
+{ "deccc",	0x80a02001, 0x41581ffe, "r", F_ALIAS },	/* subcc rd,1,rd */
+
+{ "btst",	0x80882000, 0x41700000, "i,1", F_ALIAS },/* andcc rs1,i,%g0 */
+{ "btst",	0x80880000, 0x41700000, "1,2", F_ALIAS },/* andcc rs1,rs2,%0 */
+
+{ "neg",	0x80200000, 0x41d80000, "r", F_ALIAS }, /* sub %0,rd,rd */
+{ "neg",	0x80200000, 0x41d80000, "2,d", F_ALIAS }, /* sub %0,rs2,rd */
 
 { "addxcc",     0x80c02000, 0x41380000, "1,i,d", 0 },
 { "addxcc",     0x80c02000, 0x41380000, "i,1,d", 0 },
@@ -365,54 +401,61 @@ static struct sparc_opcode sparc_opcodes[] =
 { "add",	0x80002000, 0x41f80000, "i,1,d", 0 },
 { "add",	0x80000000, 0x41f80000, "1,2,d", 0 },
 
-{ "call",       0x9fc00000, 0x4038201f, "1", 1 }, /* jmpl rs1+%g0, %o7 */
-{ "call",	0x9fc00000, 0x4038201f, "1,#", 1 },
-{ "call",	0x40000000, 0x80000000, "L", 1 },
-{ "call",	0x40000000, 0x80000000, "L,#", 1 },
+{ "call",       0x9fc00000, 0x4038201f, "1", F_DELAYED }, /* jmpl rs1+%g0, %o7 */
+{ "call",	0x9fc00000, 0x4038201f, "1,#", F_DELAYED },
+{ "call",	0x40000000, 0x80000000, "L", F_DELAYED },
+{ "call",	0x40000000, 0x80000000, "L,#", F_DELAYED },
 
-{ "bvc",        0x3e800000, 0xc1400000, ",al", 1 },
-{ "bvc",	0x1e800000, 0xc1400000, "l", 1 },
-{ "bvs",	0x2e800000, 0xc1400000, ",al", 1 },
-{ "bvs",	0x0e800000, 0xc1400000, "l", 1 },
-{ "bpos",	0x3c800000, 0xc1400000, ",al", 1 },
-{ "bpos",	0x1c800000, 0xc1400000, "l", 1 },
-{ "bneg",	0x2c800000, 0xc1400000, ",al", 1 },
-{ "bneg",	0x0c800000, 0xc1400000, "l", 1 },
-{ "bcc",	0x3a800000, 0xc1400000, ",al", 1 },
-{ "bcc",	0x1a800000, 0xc1400000, "l", 1 },
-{ "bcs",	0x2a800000, 0xc1400000, ",al", 1 },
-{ "bcs",	0x0a800000, 0xc1400000, "l", 1 },
-{ "blu",	0x2a800000, 0xc1400000, ",al", 1 },
-{ "blu",	0x0a800000, 0xc1400000, "l", 1 }, /* same as bcs */
-{ "bgeu",	0x3a800000, 0xc1400000, ",al", 1 },
-{ "bgeu",	0x1a800000, 0xc1400000, "l", 1 }, /* same as bcc */
-{ "bgu",	0x38800000, 0xc1400000, ",al", 1 },
-{ "bgu",	0x18800000, 0xc1400000, "l", 1 },
-{ "bleu",	0x28800000, 0xc1400000, ",al", 1 },
-{ "bleu",	0x08800000, 0xc1400000, "l", 1 },
-{ "bge",	0x36800000, 0xc1400000, ",al", 1 },
-{ "bge",	0x16800000, 0xc1400000, "l", 1 },
-{ "bl",		0x26800000, 0xc1400000, ",al", 1 },
-{ "bl",		0x06800000, 0xc1400000, "l", 1 },
-{ "bg",		0x34800000, 0xc1400000, ",al", 1 },
-{ "bg",		0x14800000, 0xc1400000, "l", 1 },
-{ "ble",	0x24800000, 0xc1400000, ",al", 1 },
-{ "ble",	0x04800000, 0xc1400000, "l", 1 },
-{ "be",		0x22800000, 0xc1400000, ",al", 1 },
-{ "be",		0x02800000, 0xc1400000, "l", 1 },
-{ "bne",	0x32800000, 0xc1400000, ",al", 1 },
-{ "bne",	0x12800000, 0xc1400000, "l", 1 },
-{ "b",		0x30800000, 0xc1400000, ",al", 1 },
-{ "b",		0x10800000, 0xc1400000, "l", 1 },
-{ "ba",		0x30800000, 0xc1400000, ",al", 1 },
-{ "ba",		0x10800000, 0xc1400000, "l", 1 },
-{ "bn", 	0x20800000, 0xc1400000, ",al", 1 },
-{ "bn",		0x00800000, 0xc1400000, "l", 1 },
+{ "bvc",        0x3e800000, 0xc1400000, ",al", F_DELAYED },
+{ "bvc",	0x1e800000, 0xc1400000, "l", F_DELAYED },
+{ "bvs",	0x2e800000, 0xc1400000, ",al", F_DELAYED },
+{ "bvs",	0x0e800000, 0xc1400000, "l", F_DELAYED },
+{ "bpos",	0x3c800000, 0xc1400000, ",al", F_DELAYED },
+{ "bpos",	0x1c800000, 0xc1400000, "l", F_DELAYED },
+{ "bneg",	0x2c800000, 0xc1400000, ",al", F_DELAYED },
+{ "bneg",	0x0c800000, 0xc1400000, "l", F_DELAYED },
+{ "bcc",	0x3a800000, 0xc1400000, ",al", F_DELAYED },
+{ "bcc",	0x1a800000, 0xc1400000, "l", F_DELAYED },
+{ "bcs",	0x2a800000, 0xc1400000, ",al", F_DELAYED },
+{ "bcs",	0x0a800000, 0xc1400000, "l", F_DELAYED },
+{ "blu",	0x2a800000, 0xc1400000, ",al", F_DELAYED },
+{ "blu",	0x0a800000, 0xc1400000, "l", F_DELAYED|F_ALIAS }, /* bcs */
+{ "bgeu",	0x3a800000, 0xc1400000, ",al", F_DELAYED },
+{ "bgeu",	0x1a800000, 0xc1400000, "l", F_DELAYED|F_ALIAS }, /* bcc */
+{ "bgu",	0x38800000, 0xc1400000, ",al", F_DELAYED },
+{ "bgu",	0x18800000, 0xc1400000, "l", F_DELAYED },
+{ "bleu",	0x28800000, 0xc1400000, ",al", F_DELAYED },
+{ "bleu",	0x08800000, 0xc1400000, "l", F_DELAYED },
+{ "bge",	0x36800000, 0xc1400000, ",al", F_DELAYED },
+{ "bge",	0x16800000, 0xc1400000, "l", F_DELAYED },
+{ "bl",		0x26800000, 0xc1400000, ",al", F_DELAYED },
+{ "bl",		0x06800000, 0xc1400000, "l", F_DELAYED },
+{ "bg",		0x34800000, 0xc1400000, ",al", F_DELAYED },
+{ "bg",		0x14800000, 0xc1400000, "l", F_DELAYED },
+{ "ble",	0x24800000, 0xc1400000, ",al", F_DELAYED },
+{ "ble",	0x04800000, 0xc1400000, "l", F_DELAYED },
+{ "be",		0x22800000, 0xc1400000, ",al", F_DELAYED },
+{ "be",		0x02800000, 0xc1400000, "l", F_DELAYED },
+{ "bz",		0x22800000, 0xc1400000, ",al", F_DELAYED|F_ALIAS }, /* be */
+{ "bz",		0x02800000, 0xc1400000, "l", F_DELAYED|F_ALIAS },
+{ "bne",	0x32800000, 0xc1400000, ",al", F_DELAYED },
+{ "bne",	0x12800000, 0xc1400000, "l", F_DELAYED },
+{ "bnz",	0x32800000, 0xc1400000, ",al", F_DELAYED|F_ALIAS }, /* bne */
+{ "bnz",	0x12800000, 0xc1400000, "l", F_DELAYED|F_ALIAS },
+{ "b",		0x30800000, 0xc1400000, ",al", F_DELAYED },
+{ "b",		0x10800000, 0xc1400000, "l", F_DELAYED },
+{ "ba",		0x30800000, 0xc1400000, ",al", F_DELAYED|F_ALIAS }, /* b */
+{ "ba",		0x10800000, 0xc1400000, "l", F_DELAYED|F_ALIAS },
+{ "bn", 	0x20800000, 0xc1400000, ",al", F_DELAYED },
+{ "bn",		0x00800000, 0xc1400000, "l", F_DELAYED },
 
-{ "jmp",        0x81c00000, 0x7e38201f, "1", 1 }, /* jmpl rs1+%g0,%g0 */
-{ "jmp",        0x81c02000, 0x7e3fc000, "i", 1 }, /* jmpl %g0+i,%g0 */
+{ "jmp",        0x81c00000, 0x7e38201f, "1", F_DELAYED }, /* jmpl rs1+%g0,%g0 */
+{ "jmp",        0x81c02000, 0x7e3fc000, "i", F_DELAYED }, /* jmpl %g0+i,%g0 */
+{ "jmp",        0x81c00000, 0x7e382000, "1+2", F_DELAYED }, /* jmpl rs1+rs2,%g0 */
+{ "jmp",        0x81c02000, 0x7e380000, "1+i", F_DELAYED }, /* jmpl rs1+i,%g0 */
+{ "jmp",        0x81c02000, 0x7e380000, "i+1", F_DELAYED }, /* jmpl i+rs1,%g0 */
 
-{ "nop",	0x01000000, 0xfe3fffff, "", 0 }, /* sethi 0, %g0 */
+{ "nop",	0x01000000, 0xfeffffff, "", 0 }, /* sethi 0, %g0 */
 
 { "set",        0x01000000, 0xc0c00000, "Sh,d", 0 },
 
@@ -431,10 +474,18 @@ static struct sparc_opcode sparc_opcodes[] =
 { "tpos",	0x9dd02000, 0x40280000, "1+i", 0 },
 { "tpos",	0x9dd00000, 0x40282000, "1+2", 0 },
 { "tpos",       0x9dd00000, 0x4028201f, "1", 0 }, /* tpos rs1+%g0 */
+
 { "tcc",        0x9bd02000, 0x402fc000, "i", 0 }, /* tcc %g0+i */
 { "tcc",	0x9bd02000, 0x40280000, "1+i", 0 },
 { "tcc",	0x9bd00000, 0x40282000, "1+2", 0 },
 { "tcc",        0x9bd00000, 0x4028201f, "1", 0 }, /* tcc rs1+%g0 */
+
+/* Same as tcc.  */
+{ "tlu",        0x9bd02000, 0x402fc000, "i", F_ALIAS }, /* tcc %g0+i */
+{ "tlu",	0x9bd02000, 0x40280000, "1+i", F_ALIAS },
+{ "tlu",	0x9bd00000, 0x40282000, "1+2", F_ALIAS },
+{ "tlu",        0x9bd00000, 0x4028201f, "1", F_ALIAS }, /* tcc rs1+%g0 */
+
 { "tgu",	0x99d02000, 0x402fc000, "i", 0 }, /* tgu %g0+i */
 { "tgu",	0x99d02000, 0x40280000, "1+i", 0 },
 { "tgu",	0x99d00000, 0x40282000, "1+2", 0 },
@@ -451,6 +502,13 @@ static struct sparc_opcode sparc_opcodes[] =
 { "tne",	0x93d02000, 0x40280000, "1+i", 0 },
 { "tne",	0x93d00000, 0x40282000, "1+2", 0 },
 { "tne",        0x93d00000, 0x4028201f, "1", 0 }, /* tne rs1+%g0 */
+
+/* Same as tne.  */
+{ "tnz",        0x93d02000, 0x402fc000, "i", F_ALIAS }, /* tne %g0+i */
+{ "tnz",	0x93d02000, 0x40280000, "1+i", F_ALIAS },
+{ "tnz",	0x93d00000, 0x40282000, "1+2", F_ALIAS },
+{ "tnz",        0x93d00000, 0x4028201f, "1", F_ALIAS }, /* tne rs1+%g0 */
+
 { "tleu",       0x8bd02000, 0x502fc000, "i", 0 }, /* tleu %g0+i */
 { "tleu",	0x8bd02000, 0x50280000, "1+i", 0 },
 { "tleu",	0x8bd00000, 0x50282000, "1+2", 0 },
@@ -459,6 +517,13 @@ static struct sparc_opcode sparc_opcodes[] =
 { "ta",		0x91d02000, 0x402d0000, "1+i", 0 },
 { "ta",		0x91d00000, 0x40282000, "1+2", 0 },
 { "ta",         0x91d00000, 0x4028201f, "1", 0 }, /* ta rs1+%g0 */
+
+/* Same as ta.  */
+{ "t",	        0x91d02000, 0x402fc000, "i", F_ALIAS }, /* ta %g0+i */
+{ "t",		0x91d02000, 0x402d0000, "1+i", F_ALIAS },
+{ "t",		0x91d00000, 0x40282000, "1+2", F_ALIAS },
+{ "t",          0x91d00000, 0x4028201f, "1", F_ALIAS }, /* ta rs1+%g0 */
+
 { "tvs",	0x8fd02000, 0x502fc000, "i", 0 }, /* tvs %g0+i */
 { "tvs",	0x8fd02000, 0x50280000, "1+i", 0 },
 { "tvs",	0x8fd00000, 0x50282000, "1+2", 0 },
@@ -471,6 +536,13 @@ static struct sparc_opcode sparc_opcodes[] =
 { "tcs",	0x8bd02000, 0x50280000, "1+i", 0 },
 { "tcs",	0x8bd00000, 0x50282000, "1+2", 0 },
 { "tcs",	0x8bd00000, 0x5028201f, "1", 0 }, /* tcs rs1+%g0 */
+
+/* Same as tcs.  */
+{ "tgeu",       0x8bd02000, 0x502fc000, "i", F_ALIAS }, /* tcs %g0+i */
+{ "tgeu",	0x8bd02000, 0x50280000, "1+i", F_ALIAS },
+{ "tgeu",	0x8bd00000, 0x50282000, "1+2", F_ALIAS },
+{ "tgeu",	0x8bd00000, 0x5028201f, "1", F_ALIAS }, /* tcs rs1+%g0 */
+
 { "tl",		0x87d02000, 0x502fc000, "i", 0 }, /* tl %g0+i */
 { "tl",		0x87d02000, 0x50280000, "1+i", 0 },
 { "tl",		0x87d00000, 0x50282000, "1+2", 0 },
@@ -483,6 +555,13 @@ static struct sparc_opcode sparc_opcodes[] =
 { "te",		0x83d02000, 0x50280000, "1+i", 0 },
 { "te",		0x83d00000, 0x50282000, "1+2", 0 },
 { "te",         0x83d00000, 0x5028201f, "1", 0 }, /* te rs1+%g0 */
+
+/* Same as te.  */
+{ "tz",	        0x83d02000, 0x502fc000, "i", F_ALIAS }, /* te %g0+i */
+{ "tz",		0x83d02000, 0x50280000, "1+i", F_ALIAS },
+{ "tz",		0x83d00000, 0x50282000, "1+2", F_ALIAS },
+{ "tz",         0x83d00000, 0x5028201f, "1", F_ALIAS }, /* te rs1+%g0 */
+
 { "tn",		0x81d02000, 0x502fc000, "i", 0 }, /* tn %g0+i */
 { "tn",	        0x81d02000, 0x50280000, "1+i", 0 },
 { "tn",		0x81d00000, 0x50282000, "1+2", 0 },
@@ -511,74 +590,82 @@ static struct sparc_opcode sparc_opcodes[] =
 { "xor",	0x80182000, 0x41e00000, "1,i,d", 0 },
 { "xor",	0x80182000, 0x41e00000, "i,1,d", 0 },
 
+{ "not",        0x80380000, 0x41c00000, "r", F_ALIAS }, /* xnor rd,%0,rd */
+{ "not",        0x80380000, 0x41c00000, "1,d", F_ALIAS }, /* xnor rs1,%0,rd */
+
+{ "btog",	0x80180000, 0x41e02000, "2,r", F_ALIAS }, /* xor rd,rs2,rd */
+{ "btog",	0x80182000, 0x41e00000, "i,r", F_ALIAS }, /* xor rd,i,rd */
+
 { "fpop1",      0x81a00000, 0x40580000, "[1+2],d", 0 },
 { "fpop2",      0x81a80000, 0x40500000, "[1+2],d", 0 },
 
-{ "fb",         0x31800000, 0xc0400000, ",al", 1 },
-{ "fb",         0x11800000, 0xc0400000, "l", 1 },
-{ "fba",        0x31800000, 0xc0400000, ",al", 1 },
-{ "fba",        0x11800000, 0xc0400000, "l", 1 },
-{ "fbn",        0x21800000, 0xc0400000, ",al", 1 },
-{ "fbn",        0x01800000, 0xc0400000, "l", 1 },
-{ "fbu",        0x2f800000, 0xc0400000, ",al", 1 },
-{ "fbu",        0x0f800000, 0xc0400000, "l", 1 },
-{ "fbg",        0x2d800000, 0xc0400000, ",al", 1 },
-{ "fbg",        0x0d800000, 0xc0400000, "l", 1 },
-{ "fbug",       0x2b800000, 0xc0400000, ",al", 1 },
-{ "fbug",       0x0b800000, 0xc0400000, "l", 1 },
-{ "fbl",        0x29800000, 0xc0400000, ",al", 1 },
-{ "fbl",        0x09800000, 0xc0400000, "l", 1 },
-{ "fbul",       0x27800000, 0xc0400000, ",al", 1 },
-{ "fbul",       0x07800000, 0xc0400000, "l", 1 },
-{ "fblg",       0x25800000, 0xc0400000, ",al", 1 },
-{ "fblg",       0x05800000, 0xc0400000, "l", 1 },
-{ "fbne",       0x23800000, 0xc0400000, ",al", 1 },
-{ "fbne",       0x03800000, 0xc0400000, "l", 1 },
-{ "fbe",        0x33800000, 0xc0400000, ",al", 1 },
-{ "fbe",        0x13800000, 0xc0400000, "l", 1 },
-{ "fbue",       0x35800000, 0xc0400000, ",al", 1 },
-{ "fbue",       0x15800000, 0xc0400000, "l", 1 },
-{ "fbge",       0x37800000, 0xc0400000, ",al", 1 },
-{ "fbge",       0x17800000, 0xc0400000, "l", 1 },
-{ "fbuge",      0x39800000, 0xc0400000, ",al", 1 },
-{ "fbuge",      0x19800000, 0xc0400000, "l", 1 },
-{ "fble",       0x3b800000, 0xc0400000, ",al", 1 },
-{ "fble",       0x1b800000, 0xc0400000, "l", 1 },
-{ "fbule",      0x3d800000, 0xc0400000, ",al", 1 },
-{ "fbule",      0x1d800000, 0xc0400000, "l", 1 },
-{ "fbo",        0x3f800000, 0xc0400000, ",al", 1 },
-{ "fbo",        0x1f800000, 0xc0400000, "l", 1 },
+{ "fb",         0x31800000, 0xc0400000, ",al", F_DELAYED },
+{ "fb",         0x11800000, 0xc0400000, "l", F_DELAYED },
+{ "fba",        0x31800000, 0xc0400000, ",al", F_DELAYED|F_ALIAS },
+{ "fba",        0x11800000, 0xc0400000, "l", F_DELAYED|F_ALIAS },
+{ "fbn",        0x21800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbn",        0x01800000, 0xc0400000, "l", F_DELAYED },
+{ "fbu",        0x2f800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbu",        0x0f800000, 0xc0400000, "l", F_DELAYED },
+{ "fbg",        0x2d800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbg",        0x0d800000, 0xc0400000, "l", F_DELAYED },
+{ "fbug",       0x2b800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbug",       0x0b800000, 0xc0400000, "l", F_DELAYED },
+{ "fbl",        0x29800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbl",        0x09800000, 0xc0400000, "l", F_DELAYED },
+{ "fbul",       0x27800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbul",       0x07800000, 0xc0400000, "l", F_DELAYED },
+{ "fblg",       0x25800000, 0xc0400000, ",al", F_DELAYED },
+{ "fblg",       0x05800000, 0xc0400000, "l", F_DELAYED },
+{ "fbne",       0x23800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbne",       0x03800000, 0xc0400000, "l", F_DELAYED },
+{ "fbe",        0x33800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbe",        0x13800000, 0xc0400000, "l", F_DELAYED },
+{ "fbue",       0x35800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbue",       0x15800000, 0xc0400000, "l", F_DELAYED },
+{ "fbge",       0x37800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbge",       0x17800000, 0xc0400000, "l", F_DELAYED },
+{ "fbuge",      0x39800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbuge",      0x19800000, 0xc0400000, "l", F_DELAYED },
+{ "fble",       0x3b800000, 0xc0400000, ",al", F_DELAYED },
+{ "fble",       0x1b800000, 0xc0400000, "l", F_DELAYED },
+{ "fbule",      0x3d800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbule",      0x1d800000, 0xc0400000, "l", F_DELAYED },
+{ "fbo",        0x3f800000, 0xc0400000, ",al", F_DELAYED },
+{ "fbo",        0x1f800000, 0xc0400000, "l", F_DELAYED },
 
-{ "cba",        0x31c00000, 0xce000000, ",al", 1 },
-{ "cba",        0x11c00000, 0xce000000, "l", 1 },
-{ "cbn",        0x21c00000, 0xde000000, ",al", 1 },
-{ "cbn",        0x01c00000, 0xde000000, "l", 1 },
-{ "cb3",        0x2fc00000, 0xc0000000, ",al", 1 },
-{ "cb3",        0x0fc00000, 0xc0000000, "l", 1 },
-{ "cb2",        0x2dc00000, 0xc0000000, ",al", 1 },
-{ "cb2",        0x0dc00000, 0xc0000000, "l", 1 },
-{ "cb23",       0x2bc00000, 0xc0000000, ",al", 1 },
-{ "cb23",       0x0bc00000, 0xc0000000, "l", 1 },
-{ "cb1",        0x29c00000, 0xc0000000, ",al", 1 },
-{ "cb1",        0x09c00000, 0xc0000000, "l", 1 },
-{ "cb13",       0x27c00000, 0xc0000000, ",al", 1 },
-{ "cb13",       0x07c00000, 0xc0000000, "l", 1 },
-{ "cb12",       0x25c00000, 0xc0000000, ",al", 1 },
-{ "cb12",       0x05c00000, 0xc0000000, "l", 1 },
-{ "cb123",      0x23c00000, 0xc0000000, ",al", 1 },
-{ "cb123",      0x03c00000, 0xc0000000, "l", 1 },
-{ "cb0",        0x33c00000, 0xc0000000, ",al", 1 },
-{ "cb0",        0x13c00000, 0xc0000000, "l", 1 },
-{ "cb03",       0x35c00000, 0xc0000000, ",al", 1 },
-{ "cb03",       0x15c00000, 0xc0000000, "l", 1 },
-{ "cb02",       0x37c00000, 0xc0000000, ",al", 1 },
-{ "cb02",       0x17c00000, 0xc0000000, "l", 1 },
-{ "cb023",      0x39c00000, 0xc0000000, ",al", 1 },
-{ "cb023",      0x19c00000, 0xc0000000, "l", 1 },
-{ "cb013",      0x3dc00000, 0xc0000000, ",al", 1 },
-{ "cb013",      0x1dc00000, 0xc0000000, "l", 1 },
-{ "cb012",      0x3fc00000, 0xc0000000, ",al", 1 },
-{ "cb012",      0x1fc00000, 0xc0000000, "l", 1 },
+{ "cba",        0x31c00000, 0xce000000, ",al", F_DELAYED },
+{ "cba",        0x11c00000, 0xce000000, "l", F_DELAYED },
+{ "cbn",        0x21c00000, 0xde000000, ",al", F_DELAYED },
+{ "cbn",        0x01c00000, 0xde000000, "l", F_DELAYED },
+{ "cb3",        0x2fc00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb3",        0x0fc00000, 0xc0000000, "l", F_DELAYED },
+{ "cb2",        0x2dc00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb2",        0x0dc00000, 0xc0000000, "l", F_DELAYED },
+{ "cb23",       0x2bc00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb23",       0x0bc00000, 0xc0000000, "l", F_DELAYED },
+{ "cb1",        0x29c00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb1",        0x09c00000, 0xc0000000, "l", F_DELAYED },
+{ "cb13",       0x27c00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb13",       0x07c00000, 0xc0000000, "l", F_DELAYED },
+{ "cb12",       0x25c00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb12",       0x05c00000, 0xc0000000, "l", F_DELAYED },
+{ "cb123",      0x23c00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb123",      0x03c00000, 0xc0000000, "l", F_DELAYED },
+{ "cb0",        0x33c00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb0",        0x13c00000, 0xc0000000, "l", F_DELAYED },
+{ "cb03",       0x35c00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb03",       0x15c00000, 0xc0000000, "l", F_DELAYED },
+{ "cb02",       0x37c00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb02",       0x17c00000, 0xc0000000, "l", F_DELAYED },
+{ "cb023",      0x39c00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb023",      0x19c00000, 0xc0000000, "l", F_DELAYED },
+{ "cb01",       0x3bc00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb01",       0x1bc00000, 0xc0000000, "l", F_DELAYED },
+{ "cb013",      0x3dc00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb013",      0x1dc00000, 0xc0000000, "l", F_DELAYED },
+{ "cb012",      0x3fc00000, 0xc0000000, ",al", F_DELAYED },
+{ "cb012",      0x1fc00000, 0xc0000000, "l", F_DELAYED },
 
 { "fstoi",      0x81a01a20, 0x400025c0, "f,g", 0 },
 { "fdtoi",      0x81a01a40, 0x400025a0, "f,g", 0 },
@@ -598,6 +685,7 @@ static struct sparc_opcode sparc_opcodes[] =
 { "fdivx",      0x81a009e0, 0x40083600, "e,f,g", 0 },
 { "fdivd",      0x81a009c0, 0x40003620, "e,f,g", 0 },
 { "fdivs",      0x81a009a0, 0x40003640, "e,f,g", 0 },
+
 { "fmuls",      0x81a00920, 0x400036c0, "e,f,g", 0 },
 { "fmuld",      0x81a00940, 0x400036a0, "e,f,g", 0 },
 { "fmulx",      0x81a00960, 0x40003680, "e,f,g", 0 },
@@ -613,6 +701,7 @@ static struct sparc_opcode sparc_opcodes[] =
 { "fsubx",      0x81a008e0, 0x40003700, "e,f,g", 0 },
 { "fsubd",      0x81a008c0, 0x40003720, "e,f,g", 0 },
 { "fsubs",      0x81a008a0, 0x40003740, "e,f,g", 0 },
+
 { "faddx",      0x81a00860, 0x40003780, "e,f,g", 0 },
 { "faddd",      0x81a00840, 0x400037a0, "e,f,g", 0 },
 { "fadds",      0x81a00820, 0x400037c0, "e,f,g", 0 },

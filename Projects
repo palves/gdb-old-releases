@@ -2,15 +2,8 @@
         Suggested projects for aspiring or current GDB hackers
         ======================================================
 
-    (You should probably chat with kingdon@ai.mit.edu to make sure that
+    (You should probably chat with bug-gdb@cygnus.com to make sure that
   no one else is doing the project you chose).
-
-Add watchpoints (break if a memory location changes).  This would
-usually have to involve constant single stepping, but occasionally
-there is operating system support which gdb should be able to cleanly
-use (e.g. on the 80386, there are 4 debug registers.  By ptracing an
-address into them, you can get a trap on writes or on reads and
-writes).
 
 Rewrite proceed, wait_for_inferior, and normal_stop to clean them up.
 Suggestions: 
@@ -40,15 +33,9 @@ while continuing  execution of the subprocess.  Useful when you are
 debugging servers and you want to dodge out and initiate a connection
 to a server running under gdb.
 
-Make "handle" understand symbolic signal names.
-
 Work out and implement a reasonably general mechanism for multi-threaded
 processies.  There are parts of one implemented in convex-dep.c, if
 you want an example.
-
-A standalone version of gdb on the i386 exists.  Anyone who wants to
-do some serious working cleaning it up and making it a general
-standalone gdb should contact pace@wheaties.ai.mit.edu.
 
 Add stab information to allow reasonable debugging of inline functions
 (possibly they should show up on a stack backtrace?  With a note
@@ -70,11 +57,6 @@ allocate a partial symtab for each BINCL/EINCL grouping.  This will
 seriously decrease the size of inter-psymtab dependencies and hence
 lessen the amount that needs to be read in when a new source file is
 accessed. 
-
-Work out some method of saving breakpoints across the reloading of an
-executable.  Probably this should be by saving the commands by which
-the breakpoints were set and re-executing them (as text locations may
-change). 
 
 Do an "x/i $pc" after each stepi or nexti.  
 
@@ -101,13 +83,14 @@ Enhance the gdb manual with extra examples where needed.
 Arrange for list_command not to use decode_line_1 and thus not require
 symbols to be read in simply to read a source file.
 
-Problem in xgdb; the readline library needs the terminal in CBREAK
-mode for command line editing, but this makes it difficult to dispatch
-on button presses.  Possible solution: use a define to replace getc in
-readline.c with a routine that does button dispatches.  You should
-probably see XGDB-README before you fiddle with XGDB.  Also, someone
-is implementing a new xgdb; it may not be worth while fiddling with
-the old one.
+Allow patching of executables, a la "adb -w".
+
+Improve the target interface so that targets can be stacked; e.g. an
+exec file and a core file (memory references that the core file can't
+satisfy are directed to the exec file); those two plus a child process.
+The child doesn't let any refs through, but when the child terminates,
+you are back to debugging the core file -- you might even want to swap
+back and forth between the two, or between two core files.
 
 # Local Variables:
 # mode: text

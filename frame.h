@@ -17,7 +17,9 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* Note that frame.h requires param.h! */
+#if !defined (FRAME_H)
+#define FRAME_H 1
+#include "param.h"
 
 /*
  * FRAME is the type of the identifier of a specific stack frame.  It
@@ -95,9 +97,11 @@ extern struct frame_info *get_frame_info ();
 extern struct frame_info *get_prev_frame_info ();
 
 extern FRAME create_new_frame ();
+extern void  flush_cached_frames ();
 
 extern void get_frame_saved_regs ();
 
+extern void  set_current_frame ();
 extern FRAME get_prev_frame ();
 extern FRAME get_current_frame ();
 extern FRAME get_next_frame ();
@@ -106,10 +110,21 @@ extern struct block *get_frame_block ();
 extern struct block *get_current_block ();
 extern struct block *get_selected_block ();
 extern struct symbol *get_frame_function ();
-extern struct symbol *get_pc_function ();
+extern CORE_ADDR get_frame_pc ();
+extern CORE_ADDR get_pc_function_start ();
+struct block *block_for_pc ();
+
+int frameless_look_for_prologue ();
+
+void print_frame_args ();
 
 /* In stack.c */
 extern FRAME find_relative_frame ();
+extern void print_selected_frame ();
+extern void print_sel_frame ();
+extern void select_frame ();
+extern void record_selected_frame ();
 
 /* Generic pointer value indicating "I don't know."  */
 #define Frame_unknown (CORE_ADDR)-1
+#endif /* frame.h not already included.  */

@@ -18,21 +18,54 @@ along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
-#include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <pwd.h>
 #include "defs.h"
 #include "param.h"
-#ifdef HAVE_TERMIO
-#include <termio.h>
-#endif
+#include "signals.h"
+#include "gdbcmd.h"
+#include "terminal.h"
+#include <varargs.h>
+#include <ctype.h>
+#include <string.h>
+#include "bfd.h"
+#include "target.h"
+
+extern volatile void return_to_top_level ();
+extern volatile void exit ();
+extern char *gdb_readline ();
+extern char *getenv();
+extern char *malloc();
+extern char *realloc();
 
 /* If this definition isn't overridden by the header files, assume
    that isatty and fileno exist on this system.  */
 #ifndef ISATTY
 #define ISATTY(FP)	(isatty (fileno (FP)))
 #endif
+
+#ifdef MISSING_VPRINTF
+#ifdef __GNU_LIBRARY
+#undef MISSING_VPRINTF
+#else  /* !__GNU_LIBRARY */
+
+#ifndef vfprintf
+#define vfprintf(file, format, ap) _doprnt (format, ap, file)
+#endif /* vfprintf */
+
+#ifndef vprintf
+/* Can't #define it since printcmd.c needs it */
+void
+vprintf (format, ap)
+     char *format; void *ap;
+{
+  vfprintf (stdout, format, ap);
+}
+#endif /* vprintf */
+
+#endif /* GNU_LIBRARY */
+#endif /* MISSING_VPRINTF */
 
 void error ();
 void fatal ();
@@ -50,6 +83,17 @@ int quit_flag;
    rather than waiting until QUIT is executed.  */
 
 int immediate_quit;
+
+/* Nonzero means that encoded C++ names should be printed out in their
+   C++ form rather than raw.  */
+
+int demangle = 1;
+
+/* Nonzero means that encoded C++ names should be printed out in their
+   C++ form even in assembler language displays.  If this is set, but
+   DEMANGLE is zero, names are printed raw, i.e. DEMANGLE controls.  */
+
+int asm_demangle = 0;
 
 /* Add a new cleanup to the cleanup_chain,
    and return the previous chain pointer
@@ -137,15 +181,112 @@ free_current_contents (location)
   free (*location);
 }
 
-/* Generally useful subroutines used throughout the program.  */
+/* Print an error message and return to command level.
+   The first argument STRING is the error message, used as a fprintf string,
+   and the remaining args are passed as arguments to it.  */
+
+/* VARARGS */
+void
+error (va_alist)
+     va_dcl
+{
+  va_list args;
+  char *string;
+
+  va_start (args);
+  target_terminal_ours ();
+  fflush (stdout);
+  string = va_arg (args, char *);
+  vfprintf (stderr, string, args);
+  fprintf (stderr, "\n");
+  va_end (args);
+  return_to_top_level ();
+}
+
+/* Print an error message and exit reporting failure.
+   This is for a error that we cannot continue from.
+   The arguments are printed a la printf.  */
+
+/* VARARGS */
+void
+fatal (va_alist)
+     va_dcl
+{
+  va_list args;
+  char *string;
+
+  va_start (args);
+  string = va_arg (args, char *);
+  fprintf (stderr, "gdb: ");
+  vfprintf (stderr, string, args);
+  fprintf (stderr, "\n");
+  va_end (args);
+  exit (1);
+}
+
+/* Print an error message and exit, dumping core.
+   The arguments are printed a la printf ().  */
+/* VARARGS */
+void
+fatal_dump_core (va_alist)
+     va_dcl
+{
+  va_list args;
+  char *string;
+
+  va_start (args);
+  string = va_arg (args, char *);
+  /* "internal error" is always correct, since GDB should never dump
+     core, no matter what the input.  */
+  fprintf (stderr, "gdb internal error: ");
+  vfprintf (stderr, string, args);
+  fprintf (stderr, "\n");
+  va_end (args);
+
+  signal (SIGQUIT, SIG_DFL);
+  kill (getpid (), SIGQUIT);
+  /* We should never get here, but just in case...  */
+  exit (1);
+}
+
+/* Memory management stuff (malloc friends).  */
+
+#if defined (NO_MALLOC_CHECK)
+void
+init_malloc ()
+{}
+#else /* Have mcheck().  */
+static void
+malloc_botch ()
+{
+  fatal_dump_core ("Memory corruption");
+}
+
+void
+init_malloc ()
+{
+  mcheck (malloc_botch);
+}
+#endif /* Have mcheck().  */
 
 /* Like malloc but get error if no storage available.  */
 
+#ifdef __STDC__
+void *
+#else
 char *
+#endif
 xmalloc (size)
      long size;
 {
-  register char *val = (char *) malloc (size);
+  register char *val;
+
+  /* At least one place (dbxread.c:condense_misc_bunches where misc_count == 0)
+     GDB wants to allocate zero bytes.  */
+  if (size == 0)
+    return NULL;
+  
+  val = (char *) malloc (size);
   if (!val)
     fatal ("virtual memory exhausted.", 0);
   return val;
@@ -153,7 +294,11 @@ xmalloc (size)
 
 /* Like realloc but get error if no storage available.  */
 
+#ifdef __STDC__
+void *
+#else
 char *
+#endif
 xrealloc (ptr, size)
      char *ptr;
      long size;
@@ -188,6 +333,12 @@ perror_with_name (string)
   strcat (combined, ": ");
   strcat (combined, err);
 
+  /* I understand setting these is a matter of taste.  Still, some people
+     may clear errno but not know about bfd_error.  Doing this here is not
+     unreasonable. */
+  bfd_error = no_error;
+  errno = 0;
+
   error ("%s.", combined);
 }
 
@@ -217,9 +368,12 @@ print_sys_errmsg (string, errcode)
   printf ("%s.\n", combined);
 }
 
+/* Control C eventually causes this to be called, at a convenient time.  */
+
 void
 quit ()
 {
+  target_terminal_ours ();
 #ifdef HAVE_TERMIO
   ioctl (fileno (stdout), TCFLSH, 1);
 #else /* not HAVE_TERMIO */
@@ -247,57 +401,32 @@ request_quit ()
   if (immediate_quit)
     quit ();
 }
+
+/* My replacement for the read system call.
+   Used like `read' but keeps going if `read' returns too soon.  */
 
-/* Print an error message and return to command level.
-   STRING is the error message, used as a fprintf string,
-   and ARG is passed as an argument to it.  */
-
-void
-error (string, arg1, arg2, arg3)
-     char *string;
-     int arg1, arg2, arg3;
+int
+myread (desc, addr, len)
+     int desc;
+     char *addr;
+     int len;
 {
-  terminal_ours ();		/* Should be ok even if no inf.  */
-  fflush (stdout);
-  fprintf (stderr, string, arg1, arg2, arg3);
-  fprintf (stderr, "\n");
-  return_to_top_level ();
+  register int val;
+  int orglen = len;
+
+  while (len > 0)
+    {
+      val = read (desc, addr, len);
+      if (val < 0)
+	return val;
+      if (val == 0)
+	return orglen - len;
+      len -= val;
+      addr += val;
+    }
+  return orglen;
 }
-
-/* Print an error message and exit reporting failure.
-   This is for a error that we cannot continue from.
-   STRING and ARG are passed to fprintf.  */
-
-void
-fatal (string, arg)
-     char *string;
-     int arg;
-{
-  fprintf (stderr, "gdb: ");
-  fprintf (stderr, string, arg);
-  fprintf (stderr, "\n");
-  exit (1);
-}
-
-/* Print an error message and exit, dumping core.
-   STRING is a printf-style control string, and ARG is a corresponding
-   argument.  */
-void
-fatal_dump_core (string, arg)
-     char *string;
-     int arg;
-{
-  /* "internal error" is always correct, since GDB should never dump
-     core, no matter what the input.  */
-  fprintf (stderr, "gdb internal error: ");
-  fprintf (stderr, string, arg);
-  fprintf (stderr, "\n");
-  signal (SIGQUIT, SIG_DFL);
-  kill (getpid (), SIGQUIT);
-  /* We should never get here, but just in case...  */
-  exit (1);
-}
-
+
 /* Make a copy of the string at PTR with SIZE characters
    (and add a null character at the end in the copy).
    Uses malloc to get the space.  Returns the address of the copy.  */
@@ -339,11 +468,15 @@ print_spaces (n, file)
    The first, a control string, should end in "? ".
    It should not say how to answer, because we do that.  */
 
+/* VARARGS */
 int
-query (ctlstr, arg1, arg2)
-     char *ctlstr;
+query (va_alist)
+     va_dcl
 {
+  va_list args;
+  char *ctlstr;
   register int answer;
+  register int ans2;
 
   /* Automatically answer "yes" if input is not from a terminal.  */
   if (!input_from_terminal_p ())
@@ -351,13 +484,23 @@ query (ctlstr, arg1, arg2)
 
   while (1)
     {
-      printf (ctlstr, arg1, arg2);
+      va_start (args);
+      ctlstr = va_arg (args, char *);
+      vfprintf (stdout, ctlstr, args);
+      va_end (args);
       printf ("(y or n) ");
       fflush (stdout);
       answer = fgetc (stdin);
       clearerr (stdin);		/* in case of C-d */
-      if (answer != '\n')
-	while (fgetc (stdin) != '\n') clearerr (stdin);
+      if (answer == EOF)	/* C-d */
+        return 1;
+      if (answer != '\n')	/* Eat rest of input line, to EOF or newline */
+	do 
+	  {
+	    ans2 = fgetc (stdin);
+	    clearerr (stdin);
+	  }
+        while (ans2 != EOF && ans2 != '\n');
       if (answer >= 'a')
 	answer -= 040;
       if (answer == 'Y')
@@ -370,6 +513,7 @@ query (ctlstr, arg1, arg2)
 
 /* Parse a C escape sequence.  STRING_PTR points to a variable
    containing a pointer to the string to parse.  That pointer
+   should point to the character after the \.  That pointer
    is updated past the characters we use.  The value of the
    escape sequence is returned.
 
@@ -495,47 +639,60 @@ printchar (ch, stream, quoter)
     }
 }
 
-static int lines_per_page, lines_printed, chars_per_line, chars_printed;
+/* Number of lines per page or UINT_MAX if paging is disabled.  */
+static unsigned int lines_per_page;
+/* Number of chars per line or UNIT_MAX is line folding is disabled.  */
+static unsigned int chars_per_line;
+/* Current count of lines printed on this page, chars on this line.  */
+static unsigned int lines_printed, chars_printed;
 
-/* Set values of page and line size.  */
-static void
-set_screensize_command (arg, from_tty)
-     char *arg;
-     int from_tty;
+/* Buffer and start column of buffered text, for doing smarter word-
+   wrapping.  When someone calls wrap_here(), we start buffering output
+   that comes through fputs_filtered().  If we see a newline, we just
+   spit it out and forget about the wrap_here().  If we see another
+   wrap_here(), we spit it out and remember the newer one.  If we see
+   the end of the line, we spit out a newline, the indent, and then
+   the buffered output.
+
+   wrap_column is the column number on the screen where wrap_buffer begins.
+     When wrap_column is zero, wrapping is not in effect.
+   wrap_buffer is malloc'd with chars_per_line+2 bytes. 
+     When wrap_buffer[0] is null, the buffer is empty.
+   wrap_pointer points into it at the next character to fill.
+   wrap_indent is the string that should be used as indentation if the
+     wrap occurs.  */
+
+static char *wrap_buffer, *wrap_pointer, *wrap_indent;
+static int wrap_column;
+
+/* Get the number of lines to print with commands like "list".
+   This is based on guessing how many long (i.e. more than chars_per_line
+   characters) lines there will be.  To be completely correct, "list"
+   and friends should be rewritten to count characters and see where
+   things are wrapping, but that would be a fair amount of work.  */
+int
+lines_to_list ()
 {
-  char *p = arg;
-  char *p1;
-  int tolinesize = lines_per_page;
-  int tocharsize = chars_per_line;
+  /* RMS didn't like the following algorithm.  Let's set it back to
+     10 and see if anyone else complains.  */
+  /* return lines_per_page == UINT_MAX ? 10 : lines_per_page / 2; */
+  return 10;
+}
 
-  if (p == 0)
-    error_no_arg ("set screensize");
-
-  while (*p >= '0' && *p <= '9')
-    p++;
-
-  if (*p && *p != ' ' && *p != '\t')
-    error ("Non-integral argument given to \"set screensize\".");
-
-  tolinesize = atoi (arg);
-
-  while (*p == ' ' || *p == '\t')
-    p++;
-
-  if (*p)
+static void 
+set_screen_width_command (args, from_tty, c)
+     char *args;
+     int from_tty;
+     struct cmd_list_element *c;
+{
+  if (!wrap_buffer)
     {
-      p1 = p;
-      while (*p1 >= '0' && *p1 <= '9')
-	p1++;
-
-      if (*p1)
-	error ("Non-integral second argument given to \"set screensize\".");
-
-      tocharsize = atoi (p);
+      wrap_buffer = (char *) xmalloc (chars_per_line + 2);
+      wrap_buffer[0] = '\0';
     }
-
-  lines_per_page = tolinesize;
-  chars_per_line = tocharsize;
+  else
+    wrap_buffer = (char *) xrealloc (wrap_buffer, chars_per_line + 2);
+  wrap_pointer = wrap_buffer;	/* Start it at the beginning */
 }
 
 static void
@@ -556,25 +713,31 @@ reinitialize_more_filter ()
   chars_printed = 0;
 }
 
-static void
-screensize_info (arg, from_tty)
-     char *arg;
-     int from_tty;
+/* Indicate that if the next sequence of characters overflows the line,
+   a newline should be inserted here rather than when it hits the end. 
+   If INDENT is nonzero, it is a string to be printed to indent the
+   wrapped part on the next line.  INDENT must remain accessible until
+   the next call to wrap_here() or until a newline is printed through
+   fputs_filtered().  INDENT should not contain tabs, as that
+   will mess up the char count on the next line.  FIXME.  */
+
+void
+wrap_here(indent)
+  char *indent;
 {
-  if (arg)
-    error ("\"info screensize\" does not take any arguments.");
-  
-  if (!lines_per_page)
-    printf ("Output more filtering is disabled.\n");
-  else
+  if (wrap_buffer[0])
     {
-      printf ("Output more filtering is enabled with\n");
-      printf ("%d lines per page and %d characters per line.\n",
-	      lines_per_page, chars_per_line);
+      *wrap_pointer = '\0';
+      fputs (wrap_buffer, stdout);
     }
+  wrap_pointer = wrap_buffer;
+  wrap_buffer[0] = '\0';
+  wrap_column = chars_printed;
+  wrap_indent = indent;
 }
 
-/* Like fputs but pause after every screenful.
+/* Like fputs but pause after every screenful, and can wrap at points
+   other than the final character of a line.
    Unlike fputs, fputs_filtered does not return a value.
    It is OK for LINEBUFFER to be NULL, in which case just don't print
    anything.
@@ -594,7 +757,8 @@ fputs_filtered (linebuffer, stream)
     return;
   
   /* Don't do any filtering if it is disabled.  */
-  if (stream != stdout || !ISATTY(stdout) || lines_per_page == 0)
+  if (stream != stdout
+   || (lines_per_page == UINT_MAX && chars_per_line == UINT_MAX))
     {
       fputs (linebuffer, stream);
       return;
@@ -616,7 +780,10 @@ fputs_filtered (linebuffer, stream)
 	  /* Print a single line.  */
 	  if (*lineptr == '\t')
 	    {
-	      putc ('\t', stream);
+	      if (wrap_column)
+		*wrap_pointer++ = '\t';
+	      else
+		putc ('\t', stream);
 	      /* Shifting right by 3 produces the number of tab stops
 	         we have already passed, and then adding one and
 		 shifting left 3 advances to the next tab stop.  */
@@ -625,38 +792,142 @@ fputs_filtered (linebuffer, stream)
 	    }
 	  else
 	    {
-	      putc (*lineptr, stream);
+	      if (wrap_column)
+		*wrap_pointer++ = *lineptr;
+	      else
+	        putc (*lineptr, stream);
 	      chars_printed++;
 	      lineptr++;
 	    }
       
 	  if (chars_printed >= chars_per_line)
 	    {
+	      unsigned int save_chars = chars_printed;
+
 	      chars_printed = 0;
 	      lines_printed++;
+	      /* If we aren't actually wrapping, don't output newline --
+		 if chars_per_line is right, we probably just overflowed
+		 anyway; if it's wrong, let us keep going.  */
+	      if (wrap_column)
+		putc ('\n', stream);
+
 	      /* Possible new page.  */
 	      if (lines_printed >= lines_per_page - 1)
 		prompt_for_continue ();
+
+	      /* Now output indentation and wrapped string */
+	      if (wrap_column)
+		{
+		  if (wrap_indent)
+		    fputs (wrap_indent, stream);
+		  *wrap_pointer = '\0';		/* Null-terminate saved stuff */
+		  fputs (wrap_buffer, stream);	/* and eject it */
+		  /* FIXME, this strlen is what prevents wrap_indent from
+		     containing tabs.  However, if we recurse to print it
+		     and count its chars, we risk trouble if wrap_indent is
+		     longer than (the user settable) chars_per_line.  */
+		  chars_printed = strlen (wrap_indent)
+				+ (save_chars - wrap_column);
+		  wrap_pointer = wrap_buffer;	/* Reset buffer */
+		  wrap_buffer[0] = '\0';
+		  wrap_column = 0;		/* And disable fancy wrap */
+ 		}
 	    }
 	}
 
       if (*lineptr == '\n')
 	{
+	  chars_printed = 0;
+	  wrap_here ("");	/* Spit out chars, cancel further wraps */
 	  lines_printed++;
 	  putc ('\n', stream);
 	  lineptr++;
-	  chars_printed = 0;
 	}
     }
 }
 
-/* Print ARG1, ARG2, and ARG3 on stdout using format FORMAT.  If this
-   information is going to put the amount written since the last call
-   to INIIALIZE_MORE_FILTER or the last page break over the page size,
+
+/* fputs_demangled is a variant of fputs_filtered that
+   demangles g++ names.*/
+
+void
+fputs_demangled (linebuffer, stream, arg_mode)
+     char *linebuffer;
+     FILE *stream;
+     int arg_mode;
+{
+#ifdef __STDC__
+  extern char *cplus_demangle (const char *, int);
+#else
+  extern char *cplus_demangle ();
+#endif
+#define SYMBOL_MAX 1024
+
+#define SYMBOL_CHAR(c) (isascii(c) && (isalnum(c) || (c) == '_' || (c) == '$'))
+
+  char buf[SYMBOL_MAX+1];
+# define SLOP 5		/* How much room to leave in buf */
+  char *p;
+
+  if (linebuffer == NULL)
+    return;
+
+  /* If user wants to see raw output, no problem.  */
+  if (!demangle) {
+    fputs_filtered (linebuffer, stream);
+  }
+
+  p = linebuffer;
+
+  while ( *p != (char) 0 ) {
+    int i = 0;
+
+    /* collect non-interesting characters into buf */
+    while ( *p != (char) 0 && !SYMBOL_CHAR(*p) && i < (int)sizeof(buf)-SLOP ) {
+      buf[i++] = *p;
+      p++;
+    }
+    if (i > 0) {
+      /* output the non-interesting characters without demangling */
+      buf[i] = (char) 0;
+      fputs_filtered(buf, stream);
+      i = 0;  /* reset buf */
+    }
+
+    /* and now the interesting characters */
+    while (i < SYMBOL_MAX
+     && *p != (char) 0
+     && SYMBOL_CHAR(*p)
+     && i < (int)sizeof(buf) - SLOP) {
+      buf[i++] = *p;
+      p++;
+    }
+    buf[i] = (char) 0;
+    if (i > 0) {
+      char * result;
+      
+      if ( (result = cplus_demangle(buf, arg_mode)) != NULL ) {
+	fputs_filtered(result, stream);
+	free(result);
+      }
+      else {
+	fputs_filtered(buf, stream);
+      }
+    }
+  }
+}
+
+/* Print a variable number of ARGS using format FORMAT.  If this
+   information is going to put the amount written (since the last call
+   to INITIALIZE_MORE_FILTER or the last page break) over the page size,
    print out a pause message and do a gdb_readline to get the users
    permision to continue.
 
    Unlike fprintf, this function does not return a value.
+
+   We implement three variants, vfprintf (takes a vararg list and stream),
+   fprintf (takes a stream to write on), and printf (the usual).
 
    Note that this routine has a restriction that the length of the
    final output line must be less than 255 characters *or* it must be
@@ -670,16 +941,22 @@ fputs_filtered (linebuffer, stream)
    (since prompt_for_continue may do so) so this routine should not be
    called when cleanups are not in place.  */
 
+#if !defined(MISSING_VPRINTF) || defined (vsprintf)
+/* VARARGS */
 void
-fprintf_filtered (stream, format, arg1, arg2, arg3, arg4, arg5, arg6)
+vfprintf_filtered (stream, format, args)
+     va_list args;
+#else
+void fprintf_filtered (stream, format, arg1, arg2, arg3, arg4, arg5, arg6)
+#endif
      FILE *stream;
      char *format;
-     int arg1, arg2, arg3, arg4, arg5, arg6;
 {
   static char *linebuffer = (char *) 0;
   static int line_size;
-  int format_length = strlen (format);
-  int numchars;
+  int format_length;
+
+  format_length = strlen (format);
 
   /* Allocated linebuffer for the first time.  */
   if (!linebuffer)
@@ -698,19 +975,93 @@ fprintf_filtered (stream, format, arg1, arg2, arg3, arg4, arg5, arg6)
       linebuffer = (char *) xmalloc (line_size);
     }
 
+
   /* This won't blow up if the restrictions described above are
      followed.   */
+#if !defined(MISSING_VPRINTF) || defined (vsprintf)
+  (void) vsprintf (linebuffer, format, args);
+#else
   (void) sprintf (linebuffer, format, arg1, arg2, arg3, arg4, arg5, arg6);
+#endif
 
   fputs_filtered (linebuffer, stream);
 }
 
+#if !defined(MISSING_VPRINTF) || defined (vsprintf)
+/* VARARGS */
+void
+fprintf_filtered (va_alist)
+     va_dcl
+{
+  va_list args;
+  FILE *stream;
+  char *format;
+
+  va_start (args);
+  stream = va_arg (args, FILE *);
+  format = va_arg (args, char *);
+
+  /* This won't blow up if the restrictions described above are
+     followed.   */
+  (void) vfprintf_filtered (stream, format, args);
+  va_end (args);
+}
+
+/* VARARGS */
+void
+printf_filtered (va_alist)
+     va_dcl
+{
+  va_list args;
+  char *format;
+
+  va_start (args);
+  format = va_arg (args, char *);
+
+  (void) vfprintf_filtered (stdout, format, args);
+  va_end (args);
+}
+#else
 void
 printf_filtered (format, arg1, arg2, arg3, arg4, arg5, arg6)
      char *format;
      int arg1, arg2, arg3, arg4, arg5, arg6;
 {
   fprintf_filtered (stdout, format, arg1, arg2, arg3, arg4, arg5, arg6);
+}
+#endif
+
+/* Easy */
+
+void
+puts_filtered (string)
+     char *string;
+{
+  fputs_filtered (string, stdout);
+}
+
+/* Return a pointer to N spaces and a null.  The pointer is good
+   until the next call to here.  */
+char *
+n_spaces (n)
+     int n;
+{
+  register char *t;
+  static char *spaces;
+  static int max_spaces;
+
+  if (n > max_spaces)
+    {
+      if (spaces)
+	free (spaces);
+      spaces = malloc (n+1);
+      for (t = spaces+n; t != spaces;)
+	*--t = ' ';
+      spaces[n] = '\0';
+      max_spaces = n;
+    }
+
+  return spaces + max_spaces - n;
 }
 
 /* Print N spaces.  */
@@ -719,18 +1070,33 @@ print_spaces_filtered (n, stream)
      int n;
      FILE *stream;
 {
-  register char *s = (char *) alloca (n + 1);
-  register char *t = s;
-
-  while (n--)
-    *t++ = ' ';
-  *t = '\0';
-
-  fputs_filtered (s, stream);
+  fputs_filtered (n_spaces (n), stream);
 }
-
 
-#ifdef USG
+/* C++ demangler stuff.  */
+char *cplus_demangle ();
+
+/* Print NAME on STREAM, demangling if necessary.  */
+void
+fprint_symbol (stream, name)
+     FILE *stream;
+     char *name;
+{
+  char *demangled;
+  if ((!demangle) || NULL == (demangled = cplus_demangle (name, 1)))
+    fputs_filtered (name, stream);
+  else
+    {
+      fputs_filtered (demangled, stream);
+      free (demangled);
+    }
+}
+
+#if !defined (USG_UTILS)
+#define USG_UTILS defined (USG)
+#endif
+
+#if USG_UTILS
 bcopy (from, to, count)
 char *from, *to;
 {
@@ -770,35 +1136,13 @@ rindex (s, c)
   char *strrchr ();
   return strrchr (s, c);
 }
+#endif /* USG_UTILS.  */
 
-#ifndef USG
-char *sys_siglist[32] = {
-	"SIG0",
-	"SIGHUP",
-	"SIGINT",
-	"SIGQUIT",
-	"SIGILL",
-	"SIGTRAP",
-	"SIGIOT",
-	"SIGEMT",
-	"SIGFPE",
-	"SIGKILL",
-	"SIGBUS",
-	"SIGSEGV",
-	"SIGSYS",
-	"SIGPIPE",
-	"SIGALRM",
-	"SIGTERM",
-	"SIGUSR1",
-	"SIGUSR2",
-	"SIGCLD",
-	"SIGPWR",
-	"SIGWIND",
-	"SIGPHONE",
-	"SIGPOLL",
-};
+#if !defined (QUEUE_MISSING)
+#define QUEUE_MISSING defined (USG)
 #endif
 
+#if QUEUE_MISSING
 /* Queue routines */
 
 struct queue {
@@ -823,29 +1167,30 @@ struct queue *item;
 	item->forw->back = item->back;
 	item->back->forw = item->forw;
 }
-#endif /* USG */
+#endif /* QUEUE_MISSING */
 
-#ifdef USG
-/* There is too much variation in Sys V signal numbers and names, so
-   we must initialize them at runtime.  */
-static char undoc[] = "(undocumented)";
-
-char *sys_siglist[NSIG];
-#endif /* USG */
-
-extern struct cmd_list_element *setlist;
-
 void
 _initialize_utils ()
 {
-  int i;
-  add_cmd ("screensize", class_support, set_screensize_command,
-	   "Change gdb's notion of the size of the output screen.\n\
-The first argument is the number of lines on a page.\n\
-The second argument (optional) is the number of characters on a line.",
-	   &setlist);
+  struct cmd_list_element *c;
+
+  c = add_set_cmd ("screen-width", class_support, var_uinteger, 
+		  (char *)&chars_per_line,
+		  "Set number of characters gdb thinks are in a line.",
+		  &setlist);
+  add_show_from_set (c, &showlist);
+  c->function = set_screen_width_command;
+
+  add_show_from_set
+    (add_set_cmd ("screen-height", class_support,
+		  var_uinteger, (char *)&lines_per_page,
+		  "Set number of lines gdb thinks are in a page.", &setlist),
+     &showlist);
+  
+#if 0
   add_info ("screensize", screensize_info,
 	    "Show gdb's current notion of the size of the output screen.");
+#endif /* 0 */
 
   /* These defaults will be used if we are unable to get the correct
      values from termcap.  */
@@ -853,7 +1198,7 @@ The second argument (optional) is the number of characters on a line.",
   chars_per_line = 80;
   /* Initialize the screen height and width from termcap.  */
   {
-    int termtype = getenv ("TERM");
+    char *termtype = getenv ("TERM");
 
     /* Positive means success, nonpositive means failure.  */
     int status;
@@ -877,7 +1222,7 @@ The second argument (optional) is the number of characters on a line.",
 		 in the terminal description.  This probably means
 		 that paging is not useful (e.g. emacs shell window),
 		 so disable paging.  */
-	      lines_per_page = 0;
+	      lines_per_page = UINT_MAX;
 	    
 	    val = tgetnum ("co");
 	    if (val >= 0)
@@ -886,115 +1231,19 @@ The second argument (optional) is the number of characters on a line.",
       }
   }
 
-#ifdef USG
-  /* Initialize signal names.  */
-	for (i = 0; i < NSIG; i++)
-		sys_siglist[i] = undoc;
+  set_screen_width_command ((char *)NULL, 0, c);
 
-#ifdef SIGHUP
-	sys_siglist[SIGHUP	] = "SIGHUP";
-#endif
-#ifdef SIGINT
-	sys_siglist[SIGINT	] = "SIGINT";
-#endif
-#ifdef SIGQUIT
-	sys_siglist[SIGQUIT	] = "SIGQUIT";
-#endif
-#ifdef SIGILL
-	sys_siglist[SIGILL	] = "SIGILL";
-#endif
-#ifdef SIGTRAP
-	sys_siglist[SIGTRAP	] = "SIGTRAP";
-#endif
-#ifdef SIGIOT
-	sys_siglist[SIGIOT	] = "SIGIOT";
-#endif
-#ifdef SIGEMT
-	sys_siglist[SIGEMT	] = "SIGEMT";
-#endif
-#ifdef SIGFPE
-	sys_siglist[SIGFPE	] = "SIGFPE";
-#endif
-#ifdef SIGKILL
-	sys_siglist[SIGKILL	] = "SIGKILL";
-#endif
-#ifdef SIGBUS
-	sys_siglist[SIGBUS	] = "SIGBUS";
-#endif
-#ifdef SIGSEGV
-	sys_siglist[SIGSEGV	] = "SIGSEGV";
-#endif
-#ifdef SIGSYS
-	sys_siglist[SIGSYS	] = "SIGSYS";
-#endif
-#ifdef SIGPIPE
-	sys_siglist[SIGPIPE	] = "SIGPIPE";
-#endif
-#ifdef SIGALRM
-	sys_siglist[SIGALRM	] = "SIGALRM";
-#endif
-#ifdef SIGTERM
-	sys_siglist[SIGTERM	] = "SIGTERM";
-#endif
-#ifdef SIGUSR1
-	sys_siglist[SIGUSR1	] = "SIGUSR1";
-#endif
-#ifdef SIGUSR2
-	sys_siglist[SIGUSR2	] = "SIGUSR2";
-#endif
-#ifdef SIGCLD
-	sys_siglist[SIGCLD	] = "SIGCLD";
-#endif
-#ifdef SIGCHLD
-	sys_siglist[SIGCHLD	] = "SIGCHLD";
-#endif
-#ifdef SIGPWR
-	sys_siglist[SIGPWR	] = "SIGPWR";
-#endif
-#ifdef SIGTSTP
-	sys_siglist[SIGTSTP	] = "SIGTSTP";
-#endif
-#ifdef SIGTTIN
-	sys_siglist[SIGTTIN	] = "SIGTTIN";
-#endif
-#ifdef SIGTTOU
-	sys_siglist[SIGTTOU	] = "SIGTTOU";
-#endif
-#ifdef SIGSTOP
-	sys_siglist[SIGSTOP	] = "SIGSTOP";
-#endif
-#ifdef SIGXCPU
-	sys_siglist[SIGXCPU	] = "SIGXCPU";
-#endif
-#ifdef SIGXFSZ
-	sys_siglist[SIGXFSZ	] = "SIGXFSZ";
-#endif
-#ifdef SIGVTALRM
-	sys_siglist[SIGVTALRM	] = "SIGVTALRM";
-#endif
-#ifdef SIGPROF
-	sys_siglist[SIGPROF	] = "SIGPROF";
-#endif
-#ifdef SIGWINCH
-	sys_siglist[SIGWINCH	] = "SIGWINCH";
-#endif
-#ifdef SIGCONT
-	sys_siglist[SIGCONT	] = "SIGCONT";
-#endif
-#ifdef SIGURG
-	sys_siglist[SIGURG	] = "SIGURG";
-#endif
-#ifdef SIGIO
-	sys_siglist[SIGIO	] = "SIGIO";
-#endif
-#ifdef SIGWIND
-	sys_siglist[SIGWIND	] = "SIGWIND";
-#endif
-#ifdef SIGPHONE
-	sys_siglist[SIGPHONE	] = "SIGPHONE";
-#endif
-#ifdef SIGPOLL
-	sys_siglist[SIGPOLL	] = "SIGPOLL";
-#endif
-#endif /* USG */
+  add_show_from_set
+    (add_set_cmd ("demangle", class_support, var_boolean, 
+		  (char *)&demangle,
+		"Set demangling of encoded C++ names when displaying symbols.",
+		  &setlist),
+     &showlist);
+
+  add_show_from_set
+    (add_set_cmd ("asm-demangle", class_support, var_boolean, 
+		  (char *)&asm_demangle,
+	"Set demangling of C++ names in disassembly listings.",
+		  &setlist),
+     &showlist);
 }

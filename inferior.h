@@ -18,6 +18,12 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* For bpstat.  */
+#include "breakpoint.h"
+
+/* For FRAME_ADDR.  */
+#include "frame.h"
+
 /*
  * Structure in which to save the status of the inferior.  Save
  * through "save_inferior_status", restore through
@@ -30,8 +36,8 @@ struct inferior_status {
   int pc_changed;
   int stop_signal;
   int stop_pc;
-  int stop_frame_address;
-  int stop_breakpoint;
+  FRAME_ADDR stop_frame_address;
+  bpstat stop_bpstat;
   int stop_step;
   int stop_stack_dummy;
   int stopped_by_random_signal;
@@ -42,11 +48,11 @@ struct inferior_status {
   int step_over_calls;
   CORE_ADDR step_resume_break_address;
   int stop_after_trap;
-  int stop_after_attach;
+  int stop_soon_quietly;
   FRAME_ADDR selected_frame_address;
   int selected_level;
-  struct command_line *breakpoint_commands;
   char stop_registers[REGISTER_BYTES];
+  int breakpoint_proceeded;
   int restore_stack_info;
 };
 
@@ -60,12 +66,26 @@ extern char *inferior_io_terminal;
 
 extern int inferior_pid;
 
-/* Nonzero if debugging a remote machine via a serial link or ethernet.  */
-extern int remote_debugging;
+/* Character array containing an image of the inferior programs' registers.  */
 
-/* Routines for use in remote debugging.  Documented in remote.c.  */
-int remote_read_inferior_memory ();
-int remote_write_inferior_memory ();
+extern char registers[];
+
+extern void clear_proceed_status ();
+extern void start_inferior ();
+extern void proceed ();
+extern void kill_inferior ();
+extern void kill_inferior_fast ();
+extern void generic_mourn_inferior ();
+extern int  have_inferior_p ();
+extern void terminal_ours ();
+extern void detach ();
+extern void run_stack_dummy ();
+extern CORE_ADDR read_pc ();
+extern void write_pc ();
+extern void wait_for_inferior ();
+extern void init_wait_for_inferior ();
+extern void close_exec_file ();
+extern void reopen_exec_file ();
 
 /* Last signal that the inferior received (why it stopped).  */
 
@@ -79,9 +99,14 @@ extern CORE_ADDR stop_pc;
 
 extern FRAME_ADDR stop_frame_address;
 
-/* Number of breakpoint it stopped at, or 0 if none.  */
+/* Chain containing status of breakpoint(s) that we have stopped at.  */
 
-extern int stop_breakpoint;
+extern bpstat stop_bpstat;
+
+/* Flag indicating that a command has proceeded the inferior past the
+   current breakpoint.  */
+
+extern int breakpoint_proceeded;
 
 /* Nonzero if stopped due to a step command.  */
 
@@ -129,4 +154,40 @@ extern char stop_registers[REGISTER_BYTES];
 
 extern int pc_changed;
 
-long read_memory_integer ();
+/* Nonzero if the child process in inferior_pid was attached rather
+   than forked.  */
+
+int attach_flag;
+
+/* Possible values for CALL_DUMMY_LOCATION.  */
+#define ON_STACK 1
+#define BEFORE_TEXT_END 2
+#define AFTER_TEXT_END 3
+
+#if !defined (CALL_DUMMY_LOCATION)
+#if defined (CANNOT_EXECUTE_STACK)
+#define CALL_DUMMY_LOCATION BEFORE_TEXT_END
+#else /* Can execute stack.  */
+#define CALL_DUMMY_LOCATION ON_STACK
+#endif /* Can execute stack.  */
+#endif /* No CALL_DUMMY_LOCATION.  */
+
+/* Are we in a call dummy?  The code below which allows DECR_PC_AFTER_BREAK
+   below is for infrun.c, which may give the macro a pc without that
+   subtracted out.  */
+#if !defined (PC_IN_CALL_DUMMY)
+#if CALL_DUMMY_LOCATION == BEFORE_TEXT_END
+#define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
+  ((pc) >= text_end - CALL_DUMMY_LENGTH         \
+   && (pc) < text_end + DECR_PC_AFTER_BREAK)
+#else /* Not before text_end.  */
+#if CALL_DUMMY_LOCATION == AFTER_TEXT_END
+#define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
+  ((pc) >= text_end   \
+   && (pc) < text_end + CALL_DUMMY_LENGTH + DECR_PC_AFTER_BREAK)
+#else /* On stack.  */
+#define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
+  ((sp) INNER_THAN (pc) && (pc) INNER_THAN (frame_address))
+#endif /* On stack.  */
+#endif /* Not before text_end.  */
+#endif /* No PC_IN_CALL_DUMMY.  */

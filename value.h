@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#if !defined (VALUE_H)
+#define VALUE_H 1
 /*
  * The structure which defines the type of a value.  It should never
  * be possible for a program lval value to survive over a call to the inferior
@@ -82,15 +84,35 @@ struct value
        if you take a field of a structure that is stored in a
        register.  Shouldn't it be?  */
     short regno;
+    /* If zero, contents of this value are in the contents field.
+       If nonzero, contents are in inferior memory at address
+       in the location.address field plus the offset field
+       (and the lval field should be lval_memory).  */
+    char lazy;
+    /* If nonzero, this is the value of a variable which does not
+       actually exist in the program.  */
+    char optimized_out;
     /* Actual contents of the value.  For use of this value; setting
-       it uses the stuff above.  */
+       it uses the stuff above.  Not valid if lazy is nonzero.
+       Target byte-order.  */
     long contents[1];
   };
 
 typedef struct value *value;
 
 #define VALUE_TYPE(val) (val)->type
-#define VALUE_CONTENTS(val) ((char *) (val)->contents)
+#define VALUE_LAZY(val) (val)->lazy
+/* VALUE_CONTENTS and VALUE_CONTENTS_RAW both return the address of
+   the gdb buffer used to hold a copy of the contents of the lval.  
+   VALUE_CONTENTS is used when the contents of the buffer are needed --
+   it uses value_fetch_lazy() to load the buffer from the process being 
+   debugged if it hasn't already been loaded.  VALUE_CONTENTS_RAW is 
+   used when data is being stored into the buffer, or when it is 
+   certain that the contents of the buffer are valid.  */
+#define VALUE_CONTENTS_RAW(val) ((char *) (val)->contents)
+#define VALUE_CONTENTS(val) ((void)(VALUE_LAZY(val) && value_fetch_lazy(val)),\
+			     VALUE_CONTENTS_RAW(val))
+extern int value_fetch_lazy ();
 #define VALUE_LVAL(val) (val)->lval
 #define VALUE_ADDRESS(val) (val)->location.address
 #define VALUE_INTERNALVAR(val) (val)->location.internalvar
@@ -103,18 +125,29 @@ typedef struct value *value;
 #define VALUE_REPEATED(val) (val)->repeated
 #define VALUE_REPETITIONS(val) (val)->repetitions
 #define VALUE_REGNO(val) (val)->regno
+#define VALUE_OPTIMIZED_OUT(val) ((val)->optimized_out)
+
+/* Convert a REF to the object referenced. */
+
+#define COERCE_REF(arg)    \
+{ if (TYPE_CODE ( VALUE_TYPE (arg)) == TYPE_CODE_REF)			\
+    arg = value_at_lazy (TYPE_TARGET_TYPE (VALUE_TYPE (arg)),		\
+			 unpack_long (VALUE_TYPE (arg),			\
+				      VALUE_CONTENTS (arg)));}
 
 /* If ARG is an array, convert it to a pointer.
    If ARG is an enum, convert it to an integer.
+   If ARG is a function, convert it to a function pointer.
 
    References are dereferenced.  */
 
 #define COERCE_ARRAY(arg)    \
-{ if (TYPE_CODE ( VALUE_TYPE (arg)) == TYPE_CODE_REF)			\
-    arg = value_ind (arg);						\
+{ COERCE_REF(arg);							\
   if (VALUE_REPEATED (arg)						\
       || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY)		\
     arg = value_coerce_array (arg);					\
+  if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FUNC)                   \
+    arg = value_coerce_function (arg);                                  \
   if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ENUM)			\
     arg = value_cast (builtin_type_unsigned_int, arg);			\
 }
@@ -138,6 +171,7 @@ struct internalvar
   value value;
 };
 
+#include "symtab.h"
 LONGEST value_as_long ();
 double value_as_double ();
 LONGEST unpack_long ();
@@ -146,6 +180,7 @@ long unpack_field_as_long ();
 value value_from_long ();
 value value_from_double ();
 value value_at ();
+value value_at_lazy ();
 value value_from_register ();
 value value_of_variable ();
 value value_of_register ();
@@ -159,29 +194,34 @@ value value_binop ();
 value value_add ();
 value value_sub ();
 value value_coerce_array ();
+value value_coerce_function ();
 value value_ind ();
 value value_addr ();
 value value_assign ();
 value value_neg ();
 value value_lognot ();
 value value_struct_elt (), value_struct_elt_for_address ();
-value value_field ();
+value value_field (), value_primitive_field ();
 value value_cast ();
 value value_zero ();
 value value_repeat ();
 value value_subscript ();
 
-value call_function ();
 value value_being_returned ();
 int using_struct_return ();
+void set_return_value ();
 
 value evaluate_expression ();
 value evaluate_type ();
 value parse_and_eval ();
 value parse_to_comma_and_eval ();
+extern CORE_ADDR parse_and_eval_address ();
+extern CORE_ADDR parse_and_eval_address_1 ();
 
 value access_value_history ();
 value value_of_internalvar ();
+void set_internalvar ();
+void set_internalvar_component ();
 struct internalvar *lookup_internalvar ();
 
 int value_equal ();
@@ -193,10 +233,29 @@ value value_of_this ();
 value value_static_field ();
 value value_x_binop ();
 value value_x_unop ();
+value value_fn_field ();
+value value_virtual_fn_field ();
+value value_static_field ();
 int binop_user_defined_p ();
 int unop_user_defined_p ();
+int typecmp ();
+int fill_in_vptr_fieldno ();
+int destructor_name_p ();
 
+#define value_free(val) free (val)
+void free_all_values ();
+void release_value ();
+int record_latest_value ();
+
+void registers_changed ();
 void read_register_bytes ();
+void write_register_bytes ();
+void read_register_gen ();
+CORE_ADDR read_register ();
+void write_register ();
+void supply_register ();
+void get_saved_register ();
+
 void modify_field ();
 void type_print ();
 void type_print_1 ();
@@ -210,3 +269,13 @@ enum val_prettyprint {
   Val_pretty_default
   };
 
+char *baseclass_addr ();
+void print_floating ();
+int value_print ();
+int val_print ();
+void print_variable_value ();
+char *internalvar_name ();
+void clear_value_history ();
+void clear_internalvars ();
+
+#endif /* value.h not already included.  */

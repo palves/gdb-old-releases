@@ -18,136 +18,158 @@ along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
+#include <errno.h>
+#include <signal.h>
 #include "defs.h"
 #include "param.h"
 #include "frame.h"  /* required by inferior.h */
 #include "inferior.h"
+#include "symtab.h"
+#include "command.h"
+#include "bfd.h"
+#include "target.h"
+#include "gdbcore.h"
 
-#ifdef USG
-#include <sys/types.h>
-#include <fcntl.h>
-#endif
+extern int xfer_memory ();
 
-#ifdef COFF_ENCAPSULATE
-#include "a.out.encap.h"
-#else
-#include <a.out.h>
-#endif
-#ifndef N_MAGIC
-#ifdef COFF_FORMAT
-#define N_MAGIC(exec) ((exec).magic)
-#else
-#define N_MAGIC(exec) ((exec).a_magic)
-#endif
-#endif
-#include <signal.h>
-#include <sys/param.h>
-#include <sys/dir.h>
-#include <sys/file.h>
-#include <sys/stat.h>
-
-#ifdef UMAX_CORE
-#include <sys/ptrace.h>
-#else
-#include <sys/user.h>
-#endif
-
-#ifndef N_TXTADDR
-#define N_TXTADDR(hdr) 0
-#endif /* no N_TXTADDR */
-
-#ifndef N_DATADDR
-#define N_DATADDR(hdr) hdr.a_text
-#endif /* no N_DATADDR */
-
-#ifndef COFF_FORMAT
-#ifndef AOUTHDR
-#define AOUTHDR		struct exec
-#endif
-#endif
-
+extern int sys_nerr;
+extern char *sys_errlist[];
 extern char *sys_siglist[];
 
-extern core_file_command (), exec_file_command ();
+extern char registers[];
 
 /* Hook for `exec_file_command' command to call.  */
 
-void (*exec_file_display_hook) ();
-   
-/* File names of core file and executable file.  */
+void (*exec_file_display_hook) () = NULL;
 
-char *corefile;
-char *execfile;
+struct section_table *core_sections, *core_sections_end;
 
-/* Descriptors on which core file and executable file are open.
-   Note that the execchan is closed when an inferior is created
-   and reopened if the inferior dies or is killed.  */
+/* Binary file diddling handle for the core file.  */
 
-int corechan;
-int execchan;
+bfd *core_bfd = NULL;
 
-/* Last modification time of executable file.
-   Also used in source.c to compare against mtime of a source file.  */
+/* Forward decl */
+extern struct target_ops core_ops;
 
-int exec_mtime;
+
+/* Discard all vestiges of any previous core file
+   and mark data and stack spaces as empty.  */
 
-/* Virtual addresses of bounds of the two areas of memory in the core file.  */
+void
+cleanup_core ()
+{
+  if (core_bfd) {
+    free (bfd_get_filename (core_bfd));
+    bfd_close (core_bfd);
+    core_bfd = NULL;
+  }
+  unpush_target (&core_ops);
+}
 
-CORE_ADDR data_start;
-CORE_ADDR data_end;
-CORE_ADDR stack_start;
-CORE_ADDR stack_end;
+/* This routine opens and sets up the core file bfd */
 
-#if defined (REG_STACK_SEGMENT)
-/* Start and end of the register stack segment.  */
-CORE_ADDR reg_stack_start;
-CORE_ADDR reg_stack_end;
-#endif /* REG_STACK_SEGMENT */
+void
+core_open (filename, from_tty)
+     char *filename;
+     int from_tty;
+{
+  char *p;
+  int siggy;
+  struct cleanup *old_chain;
+  char *temp;
+  bfd *temp_bfd;
 
-/* Virtual addresses of bounds of two areas of memory in the exec file.
-   Note that the data area in the exec file is used only when there is no core file.  */
+  if (!filename)
+    {
+      error (core_bfd? 
+       "No core file specified.  (Use `detach' to stop debugging a core file.)"
+     : "No core file specified.");
+    }
 
-CORE_ADDR text_start;
-CORE_ADDR text_end;
+  filename = tilde_expand (filename);
+  if (filename[0] != '/') {
+    temp = concat (current_directory, "/", filename);
+    free (filename);
+    filename = temp;
+  }
 
-CORE_ADDR exec_data_start;
-CORE_ADDR exec_data_end;
+  old_chain = make_cleanup (free, filename);
+  temp_bfd = bfd_openr (filename, NULL);
+  if (temp_bfd == NULL)
+    {
+      perror_with_name (filename);
+    }
 
-/* Offset within executable file of start of text area data.  */
+  if (!bfd_check_format (temp_bfd, bfd_core))
+    {
+      bfd_close (temp_bfd);
+      error ("\"%s\" does not appear to be a core dump", filename);
+    }
 
-int text_offset;
+  /* Looks semi-reasonable.  Toss the old core file and work on the new.  */
 
-/* Offset within executable file of start of data area data.  */
+  discard_cleanups (old_chain);		/* Don't free filename any more */
+  if (core_bfd)
+    cleanup_core ();
+  core_bfd = temp_bfd;
+  old_chain = make_cleanup (cleanup_core, core_bfd);
 
-int exec_data_offset;
+  validate_files ();
 
-/* Offset within core file of start of data area data.  */
+  /* Find the data section */
+  if (build_section_table (core_bfd, &core_sections, &core_sections_end))
+    error ("Can't find sections in `%s': %s", bfd_get_filename(core_bfd),
+	   bfd_errmsg (bfd_error));
 
-int data_offset;
+  push_target (&core_ops);
 
-/* Offset within core file of start of stack area data.  */
+  /* Fetch all registers from core file */
+  target_fetch_registers (-1);
 
-int stack_offset;
-  
-#ifdef COFF_FORMAT
-/* various coff data structures */
+  p = bfd_core_file_failing_command (core_bfd);
+  if (p)
+    printf ("Core file invoked as `%s'.\n", p);
 
-FILHDR file_hdr;
-SCNHDR text_hdr;
-SCNHDR data_hdr;
+  siggy = bfd_core_file_failing_signal (core_bfd);
+  if (siggy > 0)
+    printf ("Program terminated with signal %d, %s.\n", siggy,
+	    siggy < NSIG ? sys_siglist[siggy] : "(undocumented)");
 
-#endif /* not COFF_FORMAT */
+  set_current_frame ( create_new_frame (read_register (FP_REGNUM),
+					read_pc ()));
+  select_frame (get_current_frame (), 0);
+  /* FIXME, handle shared library reading here.  */
+  print_sel_frame (0);	/* Print the top frame and source line */
 
-/* a.out header saved in core file.  */
-  
-AOUTHDR core_aouthdr;
+  discard_cleanups (old_chain);
+}
 
-/* a.out header of exec file.  */
+void
+core_detach (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  dont_repeat ();
+  if (args)
+    error ("Too many arguments");
+  cleanup_core();
+  if (from_tty)
+    printf ("No core file now.\n");
+}
 
-AOUTHDR exec_aouthdr;
+/* Backward compatability with old way of specifying core files.  */
 
-void validate_files ();
-unsigned int register_addr ();
+void
+core_file_command (filename, from_tty)
+     char *filename;
+     int from_tty;
+{
+  if (!filename)
+    core_detach (filename, from_tty);
+  else
+    core_open (filename, from_tty);
+}
+
 
 /* Call this to specify the hook for exec_file_command to call back.
    This is called from the x-window display code.  */
@@ -166,20 +188,19 @@ specify_exec_file_hook (hook)
 void
 close_exec_file ()
 {
-  if (execchan >= 0)
-    close (execchan);
-  execchan = -1;
+#ifdef FIXME
+  if (exec_bfd)
+    bfd_tempclose (exec_bfd);
+#endif
 }
 
 void
 reopen_exec_file ()
 {
-  if (execchan < 0 && execfile != 0)
-    {
-      char *filename = concat (execfile, "", "");
-      exec_file_command (filename, 0);
-      free (filename);
-    }
+#ifdef FIXME
+  if (exec_bfd)
+    bfd_reopen (exec_bfd);
+#endif
 }
 
 /* If we have both a core file and an exec file,
@@ -190,20 +211,11 @@ reopen_exec_file ()
 void
 validate_files ()
 {
-  if (execfile != 0 && corefile != 0)
+  if (exec_bfd && core_bfd)
     {
-      struct stat st_core;
-
-      if (fstat (corechan, &st_core) < 0)
-	/* It might be a good idea to print an error message.
-	   On the other hand, if the user tries to *do* anything with
-	   the core file, (s)he'll find out soon enough.  */
-	return;
-
-      if (N_MAGIC (core_aouthdr) != 0
-	  && bcmp (&core_aouthdr, &exec_aouthdr, sizeof core_aouthdr))
+      if (core_file_matches_executable_p (core_bfd, exec_bfd))
 	printf ("Warning: core file does not match specified executable file.\n");
-      else if (exec_mtime > st_core.st_mtime)
+      else if (bfd_get_mtime(exec_bfd) > bfd_get_mtime(core_bfd))
 	printf ("Warning: exec file is newer than core file.\n");
     }
 }
@@ -216,343 +228,202 @@ char *
 get_exec_file (err)
      int err;
 {
-  if (err && execfile == 0)
-    error ("No executable file specified.\n\
-Use the \"exec-file\" and \"symbol-file\" commands.");
-  return execfile;
+  if (exec_bfd) return bfd_get_filename(exec_bfd);
+  if (!err)     return NULL;
+
+  error ("No executable file specified.\n\
+Use the \"file\" or \"exec-file\" command.");
+  return NULL;
 }
 
 int
 have_core_file_p ()
 {
-  return corefile != 0;
+  return core_bfd != NULL;
 }
 
 static void
-files_info ()
+core_files_info ()
 {
-  char *symfile;
-  extern char *get_sym_file ();
+  struct section_table *p;
 
-  if (execfile)
-    printf ("Executable file \"%s\".\n", execfile);
-  else
-    printf ("No executable file\n");
-  if (corefile == 0)
-    printf ("No core dump file\n");
-  else
-    printf ("Core dump file \"%s\".\n", corefile);
+  printf ("\tCore file `%s'.\n", bfd_get_filename(core_bfd));
 
-  if (have_inferior_p ())
-    printf ("Using the running image of the program, rather than these files.\n");
-
-  symfile = get_sym_file ();
-  if (symfile != 0)
-    printf ("Symbols from \"%s\".\n", symfile);
-
-#ifdef FILES_INFO_HOOK
-  if (FILES_INFO_HOOK ())
-    return;
-#endif
-
-  if (! have_inferior_p ())
-    {
-      if (execfile)
-	{
-	  printf ("Text segment in executable from 0x%x to 0x%x.\n",
-		  text_start, text_end);
-	  printf ("Data segment in executable from 0x%x to 0x%x.\n",
-		  exec_data_start, exec_data_end);
-	  if (corefile)
-	    printf ("(But since we have a core file, we're using...)\n");
-	}
-      if (corefile)
-	{
-	  printf ("Data segment in core file from 0x%x to 0x%x.\n",
-		  data_start, data_end);
-	  printf ("Stack segment in core file from 0x%x to 0x%x.\n",
-		  stack_start, stack_end);
-	}
-    }
+  for (p = core_sections; p < core_sections_end; p++)
+    printf("\tcore file  from 0x%08x to 0x%08x is %s\n",
+	p->addr, p->endaddr,
+	bfd_section_name (core_bfd, p->sec_ptr));
 }
 
-/* Read "memory data" from core file and/or executable file.
-   Returns zero if successful, 1 if xfer_core_file failed, errno value if
-   ptrace failed. */
+void
+memory_error (status, memaddr)
+     int status;
+     CORE_ADDR memaddr;
+{
 
-int
+  if (status == EIO)
+    {
+      /* Actually, address between memaddr and memaddr + len
+	 was out of bounds. */
+      error ("Cannot access memory: address 0x%x out of bounds.", memaddr);
+    }
+  else
+    {
+      if (status >= sys_nerr || status < 0)
+	error ("Error accessing memory address 0x%x: unknown error (%d).",
+	       memaddr, status);
+      else
+	error ("Error accessing memory address 0x%x: %s.",
+	       memaddr, sys_errlist[status]);
+    }
+}
+
+/* Same as target_read_memory, but report an error if can't read.  */
+void
 read_memory (memaddr, myaddr, len)
      CORE_ADDR memaddr;
      char *myaddr;
      int len;
 {
-  if (len == 0)
-    return 0;
-
-  if (have_inferior_p ())
-    {
-      if (remote_debugging)
-	return remote_read_inferior_memory (memaddr, myaddr, len);
-      else
-	return read_inferior_memory (memaddr, myaddr, len);
-    }
-  else
-      return xfer_core_file (memaddr, myaddr, len);
+  int status;
+  status = target_read_memory (memaddr, myaddr, len);
+  if (status != 0)
+    memory_error (status, memaddr);
 }
 
-/* Write LEN bytes of data starting at address MYADDR
-   into debugged program memory at address MEMADDR.
-   Returns zero if successful, or an errno value if ptrace failed.  */
-
-int
+/* Same as target_write_memory, but report an error if can't write.  */
+void
 write_memory (memaddr, myaddr, len)
      CORE_ADDR memaddr;
      char *myaddr;
      int len;
 {
-  if (have_inferior_p ())
-    {
-      if (remote_debugging)
-	return remote_write_inferior_memory (memaddr, myaddr, len);
-      else
-	return write_inferior_memory (memaddr, myaddr, len);
-    }
-  else
-    error ("Can write memory only when program being debugged is running.");
+  int status;
+
+  status = target_write_memory (memaddr, myaddr, len);
+  if (status != 0)
+    memory_error (status, memaddr);
 }
 
-#ifndef XFER_CORE_FILE
-/* Read from the program's memory (except for inferior processes).
-   This function is misnamed, since it only reads, never writes; and
-   since it will use the core file and/or executable file as necessary.
+/* Read an integer from debugged memory, given address and number of bytes.  */
 
-   It should be extended to write as well as read, FIXME, for patching files.
+long
+read_memory_integer (memaddr, len)
+     CORE_ADDR memaddr;
+     int len;
+{
+  char cbuf;
+  short sbuf;
+  int ibuf;
+  long lbuf;
 
-   Return 0 if address could be read, 1 if not. */
+  if (len == sizeof (char))
+    {
+      read_memory (memaddr, &cbuf, len);
+      return cbuf;
+    }
+  if (len == sizeof (short))
+    {
+      read_memory (memaddr, (char *)&sbuf, len);
+      SWAP_TARGET_AND_HOST (&sbuf, sizeof (short));
+      return sbuf;
+    }
+  if (len == sizeof (int))
+    {
+      read_memory (memaddr, (char *)&ibuf, len);
+      SWAP_TARGET_AND_HOST (&ibuf, sizeof (int));
+      return ibuf;
+    }
+  if (len == sizeof (lbuf))
+    {
+      read_memory (memaddr, (char *)&lbuf, len);
+      SWAP_TARGET_AND_HOST (&lbuf, sizeof (lbuf));
+      return lbuf;
+    }
+  error ("Cannot handle integers of %d bytes.", len);
+  return -1;	/* for lint */
+}
+
+/* Read or write the core file.
 
-int
-xfer_core_file (memaddr, myaddr, len)
+   Args are address within core file, address within gdb address-space,
+   length, and a flag indicating whether to read or write.
+
+   Result is a length:
+
+	0:    We cannot handle this address and length.
+	> 0:  We have handled N bytes starting at this address.
+	      (If N == length, we did it all.)  We might be able
+	      to handle more bytes beyond this length, but no
+	      promises.
+	< 0:  We cannot handle this address, but if somebody
+	      else handles (-N) bytes, we can start from there.
+
+   The actual work is done by xfer_memory in exec.c, which we share
+   in common with exec_xfer_memory().  */
+
+static int
+core_xfer_memory (memaddr, myaddr, len, write)
      CORE_ADDR memaddr;
      char *myaddr;
      int len;
+     int write;
 {
-  register int i;
-  register int val;
-  int xferchan;
-  char **xferfile;
-  int fileptr;
-  int returnval = 0;
-
-  while (len > 0)
-    {
-      xferfile = 0;
-      xferchan = 0;
-
-      /* Determine which file the next bunch of addresses reside in,
-	 and where in the file.  Set the file's read/write pointer
-	 to point at the proper place for the desired address
-	 and set xferfile and xferchan for the correct file.
-
-	 If desired address is nonexistent, leave them zero.
-
-	 i is set to the number of bytes that can be handled
-	 along with the next address.
-
-	 We put the most likely tests first for efficiency.  */
-
-      /* Note that if there is no core file
-	 data_start and data_end are equal.  */
-      if (memaddr >= data_start && memaddr < data_end)
-	{
-	  i = min (len, data_end - memaddr);
-	  fileptr = memaddr - data_start + data_offset;
-	  xferfile = &corefile;
-	  xferchan = corechan;
-	}
-      /* Note that if there is no core file
-	 stack_start and stack_end are equal.  */
-      else if (memaddr >= stack_start && memaddr < stack_end)
-	{
-	  i = min (len, stack_end - memaddr);
-	  fileptr = memaddr - stack_start + stack_offset;
-	  xferfile = &corefile;
-	  xferchan = corechan;
-	}
-#ifdef REG_STACK_SEGMENT
-      /* Pyramids have an extra segment in the virtual address space
-         for the (control) stack of register-window frames */
-      else if (memaddr >= reg_stack_start && memaddr < reg_stack_end)
-	{
-	  i = min (len, reg_stack_end - memaddr);
-	  fileptr = memaddr - reg_stack_start + reg_stack_offset;
-	  xferfile = &corefile;
-	  xferchan = corechan;
-	}
-#endif /* REG_STACK_SEGMENT */
-
-      else if (corechan < 0
-	       && memaddr >= exec_data_start && memaddr < exec_data_end)
-	{
-	  i = min (len, exec_data_end - memaddr);
-	  fileptr = memaddr - exec_data_start + exec_data_offset;
-	  xferfile = &execfile;
-	  xferchan = execchan;
-	}
-      else if (memaddr >= text_start && memaddr < text_end)
-	{
-	  i = min (len, text_end - memaddr);
-	  fileptr = memaddr - text_start + text_offset;
-	  xferfile = &execfile;
-	  xferchan = execchan;
-	}
-      else if (memaddr < text_start)
-	{
-	  i = min (len, text_start - memaddr);
-	}
-      else if (memaddr >= text_end
-	       && memaddr < (corechan >= 0? data_start : exec_data_start))
-	{
-	  i = min (len, data_start - memaddr);
-	}
-      else if (corechan >= 0
-	       && memaddr >= data_end && memaddr < stack_start)
-	{
-	  i = min (len, stack_start - memaddr);
-	}
-      else if (corechan < 0 && memaddr >= exec_data_end)
-	{
-	  /* Since there is nothing at higher addresses than data
-	     (without a core file or an inferior, there is no
-	     stack, set i to do the rest of the operation now.  */
-	  i = len;
-	}
-#ifdef REG_STACK_SEGMENT
-      else if (memaddr >= reg_stack_end && reg_stack_end != 0)
-	{
-	  i = min (len, reg_stack_start - memaddr);
-	}
-      else if (memaddr >= stack_end && memaddr < reg_stack_start)
-#else /* no REG_STACK_SEGMENT.  */
-      else if (memaddr >= stack_end && stack_end != 0)
-#endif /* no REG_STACK_SEGMENT.  */
-	{
-	  /* Since there is nothing at higher addresses than
-	     the stack, set i to do the rest of the operation now.  */
-	  i = len;
-	}
-      else
-	{
-	  /* Address did not classify into one of the known ranges.
-	     This shouldn't happen; we catch the endpoints.  */
-	  fatal ("Internal: Bad case logic in xfer_core_file.");
-	}
-
-      /* Now we know which file to use.
-	 Set up its pointer and transfer the data.  */
-      if (xferfile)
-	{
-	  if (*xferfile == 0)
-	    if (xferfile == &execfile)
-	      error ("No program file to examine.");
-	    else
-	      error ("No core dump file or running program to examine.");
-	  val = lseek (xferchan, fileptr, 0);
-	  if (val < 0)
-	    perror_with_name (*xferfile);
-	  val = myread (xferchan, myaddr, i);
-	  if (val < 0)
-	    perror_with_name (*xferfile);
-	}
-      /* If this address is for nonexistent memory,
-	 read zeros if reading, or do nothing if writing.
-	 Actually, we never right.  */
-      else
-	{
-	  bzero (myaddr, i);
-	  returnval = 1;
-	}
-
-      memaddr += i;
-      myaddr += i;
-      len -= i;
-    }
-  return returnval;
-}
-#endif /* XFER_CORE_FILE */
-
-/* My replacement for the read system call.
-   Used like `read' but keeps going if `read' returns too soon.  */
-
-int
-myread (desc, addr, len)
-     int desc;
-     char *addr;
-     int len;
-{
-  register int val;
-  int orglen = len;
-
-  while (len > 0)
-    {
-      val = read (desc, addr, len);
-      if (val < 0)
-	return val;
-      if (val == 0)
-	return orglen - len;
-      len -= val;
-      addr += val;
-    }
-  return orglen;
+  return xfer_memory (memaddr, myaddr, len, write,
+		      core_bfd, core_sections, core_sections_end);
 }
 
-#ifdef REGISTER_U_ADDR
+/* Get the registers out of a core file.  This is the machine-
+   independent part.  Fetch_core_registers is the machine-dependent
+   part, typically implemented in the xm-file for each architecture.  */
 
-/* Return the address in the core dump or inferior of register REGNO.
-   BLOCKEND is the address of the end of the user structure.  */
-
-unsigned int
-register_addr (regno, blockend)
+static int
+get_core_registers (regno)
      int regno;
-     int blockend;
 {
-  int addr;
+  sec_ptr reg_sec;
+  unsigned size;
+  char *the_regs;
 
-  if (regno < 0 || regno >= NUM_REGS)
-    error ("Invalid register number %d.", regno);
-
-  REGISTER_U_ADDR (addr, blockend, regno);
-
-  return addr;
+  reg_sec = bfd_get_section_by_name (core_bfd, ".reg");
+  size = bfd_section_size (core_bfd, reg_sec);
+  the_regs = alloca (size);
+  if (bfd_get_section_contents (core_bfd, reg_sec, the_regs,
+				(unsigned)0, size))
+    {
+      fetch_core_registers (the_regs, size);
+      registers_fetched();
+    }
+  else
+    {
+      fprintf (stderr, "Couldn't fetch registers from core file: %s\n",
+	       bfd_errmsg (bfd_error));
+    }
+  return 0;  /* FIXME, what result goes here?  */
 }
-
-#endif /* REGISTER_U_ADDR */
 
+struct target_ops core_ops = {
+	"core", "Local core dump file",
+	core_open, core_detach, 0, 0, /* resume, wait */
+	get_core_registers, 
+	0, 0, 0, 0, /* store_regs, prepare_to_store, conv_to, conv_from */
+	core_xfer_memory, core_files_info,
+	0, 0, /* core_insert_breakpoint, core_remove_breakpoint, */
+	0, 0, 0, 0, 0, /* terminal stuff */
+	0, 0, 0, 0, /* kill, add_file, call fn, lookup sym */
+	0, 0, /* create_inferior */
+	0, /* next */
+	0, 1, 1, 1, 0,	/* all mem, mem, stack, regs, exec */
+	OPS_MAGIC,		/* Always the last thing */
+};
+
 void
 _initialize_core()
 {
-  corechan = -1;
-  execchan = -1;
-  corefile = 0;
-  execfile = 0;
-  exec_file_display_hook = 0;
-
-  text_start = 0;
-  text_end = 0;
-  data_start = 0;
-  data_end = 0;
-  exec_data_start = 0;
-  exec_data_end = 0;
-  stack_start = STACK_END_ADDR;
-  stack_end = STACK_END_ADDR;
 
   add_com ("core-file", class_files, core_file_command,
 	   "Use FILE as core dump for examining memory and registers.\n\
-No arg means have no core file.");
-  add_com ("exec-file", class_files, exec_file_command,
-	   "Use FILE as program for getting contents of pure memory.\n\
-If FILE cannot be found as specified, your execution directory path\n\
-is searched for a command of that name.\n\
-No arg means have no executable file.");
-  add_info ("files", files_info, "Names of files being debugged.");
+No arg means have no core file.  This command has been superseded by the\n\
+`target core' and `detach' commands.");
+  add_target (&core_ops);
 }
-

@@ -45,7 +45,7 @@ static char *xmalloc (), *xrealloc ();
 #endif
 
 #define NEW_TTY_DRIVER
-#if defined (SYSV) || defined (hpux)
+#if defined (SYSV) || defined (hpux)  || defined (Xenix)
 #undef NEW_TTY_DRIVER
 #include <termio.h>
 #else
@@ -71,6 +71,9 @@ struct passwd *getpwuid (), *getpwent ();
 #ifndef SYSV
 #include <sys/dir.h>
 #else  /* SYSV */
+#if defined (Xenix)
+#include <sys/ndir.h>
+#else
 #ifdef hpux
 #include <ndir.h>
 #else
@@ -78,6 +81,7 @@ struct passwd *getpwuid (), *getpwent ();
 #define direct dirent
 #define d_namlen d_reclen
 #endif  /* hpux */
+#endif  /* xenix */
 #endif  /* SYSV */
 
 /* Some standard library routines. */
@@ -112,8 +116,8 @@ char *index ();
 static update_line ();
 static void output_character_function ();
 static delete_chars ();
-static start_insert ();
-static end_insert ();
+static delete_chars ();
+static insert_some_chars ();
 
 #ifdef VOID_SIGHANDLER
 #define sighandler void
@@ -125,27 +129,8 @@ static end_insert ();
    to say SigHandler *foo = signal (SIGKILL, SIG_IGN); */
 typedef sighandler SigHandler ();
 
-#ifdef SIGWINCH
-static sighandler rl_handle_sigwinch ();
-static SigHandler *old_sigwinch = (SigHandler *)NULL;
-#endif
-
 /* If on, then readline handles signals in a way that doesn't screw. */
 #define HANDLE_SIGNALS
-
-#if defined (SYSV)
-#ifdef HANDLE_SIGNALS
-#undef HANDLE_SIGNALS
-#endif
-#endif
-
-/* Stupid comparison routine for qsort () ing strings. */
-static int
-compare_strings (s1, s2)
-  char **s1, **s2;
-{
-  return (strcmp (*s1, *s2));
-}
 
 
 /* **************************************************************** */
@@ -219,6 +204,11 @@ int rl_key_sequence_length = 0;
    before readline_internal () prints the first prompt. */
 Function *rl_startup_hook = (Function *)NULL;
 
+/* If non-zero, then this is the address of a function to call when
+   completing on a directory name.  The function is called with
+   the address of a string (the current directory name) as an arg. */
+Function *rl_symbolic_link_hook = (Function *)NULL;
+
 /* What we use internally.  You should always refer to RL_LINE_BUFFER. */
 static char *the_line;
 
@@ -236,6 +226,23 @@ char *rl_terminal_name = (char *)NULL;
 char *rl_line_buffer = (char *)NULL;
 static int rl_line_buffer_len = 0;
 #define DEFAULT_BUFFER_SIZE 256
+
+
+/* **************************************************************** */
+/*								    */
+/*			`Forward' declarations  		    */
+/*								    */
+/* **************************************************************** */
+
+/* Non-zero means do not parse any lines other than comments and
+   parser directives. */
+static unsigned char parsing_conditionalized_out = 0;
+
+/* Caseless strcmp (). */
+static int stricmp (), strnicmp ();
+
+/* Non-zero means to save keys that we dispatch on in a kbd macro. */
+static int defining_kbd_macro = 0;
 
 
 /* **************************************************************** */
@@ -266,20 +273,12 @@ readline (prompt)
   rl_initialize ();
   rl_prep_terminal ();
 
-#ifdef SIGWINCH
-  old_sigwinch = (SigHandler *)signal (SIGWINCH, rl_handle_sigwinch);
-#endif
-
 #ifdef HANDLE_SIGNALS
   rl_set_signals ();
 #endif
 
   value = readline_internal ();
   rl_deprep_terminal ();
-
-#ifdef SIGWINCH
-  signal (SIGWINCH, old_sigwinch);
-#endif
 
 #ifdef HANDLE_SIGNALS
   rl_clear_signals ();
@@ -305,7 +304,10 @@ readline_internal ()
   if (!readline_echoing_p)
     {
       if (rl_prompt)
-	fprintf (out_stream, "%s", rl_prompt);
+	{
+	  fprintf (out_stream, "%s", rl_prompt);
+	  fflush (out_stream);
+	}
     }
   else
     {
@@ -399,40 +401,6 @@ readline_internal ()
 }
 
 
-/* Variables for keyboard macros.  */
-
-/* The currently executing macro string.  If this is non-zero,
-   then it is a malloc ()'ed string where input is coming from. */
-static char *executing_macro = (char *)NULL;
-
-/* The offset in the above string to the next character to be read. */
-static int executing_macro_index = 0;
-
-/* Non-zero means to save keys that we dispatch on in a kbd macro. */
-static int defining_kbd_macro = 0;
-
-/* The current macro string being built.  Characters get stuffed
-   in here by add_macro_char (). */
-static char *current_macro = (char *)NULL;
-
-/* The size of the buffer allocated to current_macro. */
-static int current_macro_size = 0;
-
-/* The index at which characters are being added to current_macro. */
-static int current_macro_index = 0;
-
-/* A structure used to save nested macro strings.
-   It is a linked list of string/index for each saved macro. */
-struct saved_macro {
-  struct saved_macro *next;
-  char *string;
-  int index;
-};
-
-/* The list of saved macros. */
-struct saved_macro *macro_list = (struct saved_macro *)NULL;
-
-
 /* **************************************************************** */
 /*					        		    */
 /*			   Signal Handling                          */
@@ -440,6 +408,8 @@ struct saved_macro *macro_list = (struct saved_macro *)NULL;
 /* **************************************************************** */
 
 #ifdef SIGWINCH
+static SigHandler *old_sigwinch = (SigHandler *)NULL;
+
 static sighandler
 rl_handle_sigwinch (sig, code, scp)
      int sig, code;
@@ -489,9 +459,6 @@ rl_signal_handler (sig, code, scp)
       free_undo_list ();
       rl_clear_message ();
       rl_init_argument ();
-#ifdef SIGWINCH
-      signal (SIGWINCH, old_sigwinch);
-#endif
 
 #ifdef SIGTSTP
     case SIGTSTP:
@@ -515,7 +482,6 @@ rl_signal_handler (sig, code, scp)
 rl_set_signals ()
 {
   old_int = (SigHandler *)signal (SIGINT, rl_signal_handler);
-
   if (old_int == (SigHandler *)SIG_IGN)
     signal (SIGINT, SIG_IGN);
 
@@ -527,6 +493,16 @@ rl_set_signals ()
 #ifdef SIGTTOU
   old_ttou = (SigHandler *)signal (SIGTTOU, rl_signal_handler);
   old_ttin = (SigHandler *)signal (SIGTTIN, rl_signal_handler);
+
+  if (old_tstp == (SigHandler *)SIG_IGN)
+    {
+      signal (SIGTTOU, SIG_IGN);
+      signal (SIGTTIN, SIG_IGN);
+    }
+#endif
+
+#ifdef SIGWINCH
+  old_sigwinch = (SigHandler *)signal (SIGWINCH, rl_handle_sigwinch);
 #endif
 }
 
@@ -537,15 +513,19 @@ rl_clear_signals ()
 #ifdef SIGTSTP
   signal (SIGTSTP, old_tstp);
 #endif
+
 #ifdef SIGTTOU
   signal (SIGTTOU, old_ttou);
   signal (SIGTTIN, old_ttin);
 #endif
+
+#ifdef SIGWINCH
+      signal (SIGWINCH, old_sigwinch);
+#endif
 }
 #endif  /* HANDLE_SIGNALS */
 
-
-
+
 /* **************************************************************** */
 /*								    */
 /*			Character Input Buffering       	    */
@@ -707,17 +687,24 @@ rl_read_key ()
 	    c = rl_getc (in_stream);
 	}
     }
+
+#ifdef NEVER  /* This breaks supdup to 4.0.3c machines. */
 #ifdef TIOCSTART
   /* Ugh.  But I can't think of a better way. */
   if (xoff_state && c == xon_char)
     {
       ioctl (fileno (in_stream), TIOCSTART, 0);
       xoff_state = 0;
-      return rl_read_key ();
+      return (rl_read_key ());
     }
 #endif /* TIOCSTART */
+#endif
+
   return (c);
 }
+
+/* I'm beginning to hate the declaration rules for various compilers. */
+static void add_macro_char ();
 
 /* Do the command associated with KEY in MAP.
    If the associated command is really a keymap, then read
@@ -726,12 +713,9 @@ rl_dispatch (key, map)
      register int key;
      Keymap map;
 {
-  if (defining_kbd_macro)
-    {
-      static add_macro_char ();
 
-      add_macro_char (key);
-    }
+  if (defining_kbd_macro)
+    add_macro_char (key);
 
   if (key > 127 && key < 256)
     {
@@ -812,14 +796,46 @@ rl_dispatch (key, map)
 /*								    */
 /* **************************************************************** */
 
+/* The currently executing macro string.  If this is non-zero,
+   then it is a malloc ()'ed string where input is coming from. */
+static char *executing_macro = (char *)NULL;
+
+/* The offset in the above string to the next character to be read. */
+static int executing_macro_index = 0;
+
+/* The current macro string being built.  Characters get stuffed
+   in here by add_macro_char (). */
+static char *current_macro = (char *)NULL;
+
+/* The size of the buffer allocated to current_macro. */
+static int current_macro_size = 0;
+
+/* The index at which characters are being added to current_macro. */
+static int current_macro_index = 0;
+
+/* A structure used to save nested macro strings.
+   It is a linked list of string/index for each saved macro. */
+struct saved_macro {
+  struct saved_macro *next;
+  char *string;
+  int index;
+};
+
+/* The list of saved macros. */
+struct saved_macro *macro_list = (struct saved_macro *)NULL;
+
+/* Forward declarations of static functions.  Thank you C. */
+static void push_executing_macro (), pop_executing_macro ();
+
+/* This one has to be declared earlier in the file. */
+/* static void add_macro_char (); */
+
 /* Set up to read subsequent input from STRING.
    STRING is free ()'ed when we are done with it. */
 static
 with_macro_input (string)
      char *string;
 {
-  static push_executing_macro ();
-
   push_executing_macro ();
   executing_macro = string;
   executing_macro_index = 0;
@@ -835,8 +851,6 @@ next_macro_key ()
 
   if (!executing_macro[executing_macro_index])
     {
-      static pop_executing_macro ();
-
       pop_executing_macro ();
       return (next_macro_key ());
     }
@@ -845,7 +859,7 @@ next_macro_key ()
 }
 
 /* Save the currently executing macro on a stack of saved macros. */
-static
+static void
 push_executing_macro ()
 {
   struct saved_macro *saver;
@@ -860,7 +874,7 @@ push_executing_macro ()
 
 /* Discard the current macro, replacing it with the one
    on the top of the stack of saved macros. */
-static
+static void
 pop_executing_macro ()
 {
   if (executing_macro)
@@ -880,7 +894,7 @@ pop_executing_macro ()
 }
 
 /* Add a character to the macro being built. */
-static
+static void
 add_macro_char (c)
      int c;
 {
@@ -950,10 +964,6 @@ rl_call_last_kbd_macro (count, ignore)
 }
 
 
-/* Non-zero means do not parse any lines other than comments and
-   parser directives. */
-static unsigned char parsing_conditionalized_out = 0;
-
 /* **************************************************************** */
 /*								    */
 /*			Initializations 			    */
@@ -999,9 +1009,7 @@ rl_initialize ()
   rl_last_func = (Function *)NULL;
 
   /* Parsing of key-bindings begins in an enabled state. */
-  {
-    parsing_conditionalized_out = 0;
-  }
+  parsing_conditionalized_out = 0;
 }
 
 /* Initialize the entire state of the world. */
@@ -1043,7 +1051,8 @@ readline_initialize_everything ()
    equivalents. */
 readline_default_bindings ()
 {
-#ifdef TIOCGETP
+
+#ifdef NEW_TTY_DRIVER
   struct sgttyb ttybuff;
   int tty = fileno (rl_instream);
 
@@ -1074,7 +1083,22 @@ readline_default_bindings ()
       }
   }
 #endif /* TIOCGLTC */
-#endif /*  TIOCGETP */
+#else /* not NEW_TTY_DRIVER */
+  struct termio ttybuff;
+  int tty = fileno (rl_instream);
+
+  if (ioctl (tty, TCGETA, &ttybuff) != -1)
+    {
+      int erase = ttybuff.c_cc[VERASE];
+      int kill = ttybuff.c_cc[VKILL];
+
+      if (erase != -1 && keymap[(unsigned char)erase].type == ISFUNC)
+	keymap[(unsigned char)erase].function = rl_rubout;
+
+      if (kill != -1 && keymap[(unsigned char)kill].type == ISFUNC)
+	keymap[(unsigned char)kill].function = rl_unix_line_discard;
+    }
+#endif /* NEW_TTY_DRIVER */
 }
 
 
@@ -1227,7 +1251,11 @@ char *rl_display_prompt = (char *)NULL;
 static int line_size = 1024;
 
 /* Non-zero means to always use horizontal scrolling in line display. */
-int horizontal_scroll_mode = 0;
+static int horizontal_scroll_mode = 0;
+
+/* Non-zero means to display an asterisk at the starts of history lines
+   which have been modified. */
+static int mark_modified_lines = 0;
 
 /* I really disagree with this, but my boss (among others) insists that we
    support compilers that don't work.  I don't think we are gaining by doing
@@ -1236,6 +1264,8 @@ int horizontal_scroll_mode = 0;
    function block, not here. */
 static void move_cursor_relative ();
 static void output_some_chars ();
+static void output_character_function ();
+static int compare_strings ();
 
 /* Basic redisplay algorithm. */
 rl_redisplay ()
@@ -1272,7 +1302,7 @@ rl_redisplay ()
   /* Mark the line as modified or not.  We only do this for history
      lines. */
   out = 0;
-  if (current_history () && rl_undo_list)
+  if (mark_modified_lines && current_history () && rl_undo_list)
     {
       line[out++] = '*';
       line[out] = '\0';
@@ -1509,7 +1539,7 @@ update_line (old, new, current_line)
 
 	  /* Sometimes it is cheaper to print the characters rather than
 	     use the terminal's capabilities. */
-	  if ((2 * (ne - nfd)) < lendiff && (!term_IC || !*term_IC))
+	  if ((2 * (ne - nfd)) < lendiff && !term_IC)
 	    {
 	      output_some_chars (nfd, (ne - nfd));
 	      last_c_pos += (ne - nfd);
@@ -1518,10 +1548,8 @@ update_line (old, new, current_line)
 	    {
 	      if (*ols)
 		{
-		  start_insert (lendiff);
-		  output_some_chars (nfd, lendiff);
+		  insert_some_chars (nfd, lendiff);
 		  last_c_pos += lendiff;
-		  end_insert ();
 		}
 	      else
 		{
@@ -1603,7 +1631,6 @@ move_cursor_relative (new, data)
      char *data;
 {
   register int i;
-  static void output_character_function ();
 
   /* It may be faster to output a CR, and then move forwards instead
      of moving backwards. */
@@ -1841,13 +1868,12 @@ init_terminal_io (terminal_name)
   term_ei = tgetstr ("ei", &buffer);
   term_IC = tgetstr ("IC", &buffer);
   term_ic = tgetstr ("ic", &buffer);
-  term_ip = tgetstr ("ip", &buffer);
-  term_IC = tgetstr ("IC", &buffer);
 
   /* "An application program can assume that the terminal can do
       character insertion if *any one of* the capabilities `IC',
-      `im', `ic' or `ip' is provided." */
-  terminal_can_insert = (term_IC || term_im || term_ic || term_ip);
+      `im', `ic' or `ip' is provided."  But we can't do anything if
+      only `ip' is provided, so... */
+  terminal_can_insert = (term_IC || term_im || term_ic);
 
   term_up = tgetstr ("up", &buffer);
   term_dc = tgetstr ("dc", &buffer);
@@ -1894,35 +1920,44 @@ delete_chars (count)
     }
 }
 
-/* Prepare to insert by inserting COUNT blank spaces. */
+/* Insert COUNT character from STRING to the output stream. */
 static
-start_insert (count)
+insert_some_chars (string, count)
+     char *string;
      int count;
 {
-  if (term_im && *term_im)
-    tputs (term_im, 1, output_character_function);
-
-  if (term_IC && *term_IC &&
-      (count > 1 || !term_ic || !*term_ic))
+  /* If IC is defined, then we do not have to "enter" insert mode. */
+  if (term_IC)
     {
       char *tgoto (), *buffer;
       buffer = tgoto (term_IC, 0, count);
       tputs (buffer, 1, output_character_function);
+      output_some_chars (string, count);
     }
   else
     {
-      if (term_ic && *term_ic)
-	while (count--)
-	  tputs (term_ic, 1, output_character_function);
-    }
-}
+      register int i;
 
-/* We are finished doing our insertion.  Send ending string. */
-static
-end_insert ()
-{
-  if (term_ei && *term_ei)
-    tputs (term_ei, 1, output_character_function);
+      /* If we have to turn on insert-mode, then do so. */
+      if (term_im && *term_im)
+	tputs (term_im, 1, output_character_function);
+
+      /* If there is a special command for inserting characters, then
+	 use that first to open up the space. */
+      if (term_ic && *term_ic)
+	{
+	  for (i = count; i--; )
+	    tputs (term_ic, 1, output_character_function);
+	}
+
+      /* Print the text. */
+      output_some_chars (string, count);
+
+      /* If there is a string to turn off insert mode, we had best use
+	 it now. */
+      if (term_ei && *term_ei)
+	tputs (term_ei, 1, output_character_function);
+    }
 }
 
 /* Move the cursor back. */
@@ -1951,16 +1986,22 @@ crlf ()
 clear_to_eol (count)
      int count;
 {
-  if (term_clreol) {
-    tputs (term_clreol, 1, output_character_function);
-  } else {
-    register int i;
-    /* Do one more character space. */
-    count++;
-    for (i = 0; i < count; i++)
-      putc (' ', out_stream);
-    backspace (count);
-  }
+  if (term_clreol)
+    {
+      tputs (term_clreol, 1, output_character_function);
+    }
+  else
+    {
+      register int i;
+
+      /* Do one more character space. */
+      count++;
+
+      for (i = 0; i < count; i++)
+	putc (' ', out_stream);
+
+      backspace (count);
+    }
 }
 
 
@@ -1969,6 +2010,9 @@ clear_to_eol (count)
 /*		      Saving and Restoring the TTY	    	    */
 /*								    */
 /* **************************************************************** */
+
+/* Non-zero means that the terminal is in a prepped state. */
+static int terminal_prepped = 0;
 
 #ifdef NEW_TTY_DRIVER
 
@@ -1992,83 +2036,92 @@ static
 rl_prep_terminal ()
 {
   int tty = fileno (rl_instream);
+  int oldmask = sigblock (sigmask (SIGINT));
 
-  /* We always get the latest tty values.  Maybe stty changed them. */
-
-  ioctl (tty, TIOCGETP, &the_ttybuff);
-  original_tty_flags = the_ttybuff.sg_flags;
-
-  readline_echoing_p = (original_tty_flags & ECHO);
-
-  /* If this terminal doesn't care how the 8th bit is used,
-     then we can use it for the meta-key.
-     We check by seeing if BOTH odd and even parity are allowed. */
-  if ((the_ttybuff.sg_flags & (ODDP | EVENP)) == (ODDP | EVENP))
+  if (!terminal_prepped)
     {
-#ifdef PASS8
-      the_ttybuff.sg_flags |= PASS8;
+      /* We always get the latest tty values.  Maybe stty changed them. */
+      ioctl (tty, TIOCGETP, &the_ttybuff);
+      original_tty_flags = the_ttybuff.sg_flags;
+
+      readline_echoing_p = (original_tty_flags & ECHO);
+
+	
+#if defined (TIOCLGET)
+      ioctl (tty, TIOCLGET, &local_mode_flags);
 #endif
 
-#if defined (TIOCLGET) && defined (LPASS8)
-      {
-	int flags;
-	ioctl (tty, TIOCLGET, &flags);
-	local_mode_flags = flags;
-	flags |= LPASS8;
-	ioctl (tty, TIOCLSET, &flags);
-      }
+      /* If this terminal doesn't care how the 8th bit is used,
+	 then we can use it for the meta-key.
+	 We check by seeing if BOTH odd and even parity are allowed. */
+      if ((the_ttybuff.sg_flags & ODDP) && (the_ttybuff.sg_flags & EVENP))
+	{
+#ifdef PASS8
+	  the_ttybuff.sg_flags |= PASS8;
 #endif
-    }
+	  /* Hack on local mode flags if we can. */
+#if defined (TIOCLGET) && defined (LPASS8)
+	  {
+	    int flags;
+	    flags = local_mode_flags | LPASS8;
+	    ioctl (tty, TIOCLSET, &flags);
+	  }
+#endif
+	}
 
 #ifdef TIOCGETC
-  {
-    struct tchars temp;
+      {
+	struct tchars temp;
 
-    ioctl (tty, TIOCGETC, &original_tchars);
-    bcopy (&original_tchars, &temp, sizeof (struct tchars));
+	ioctl (tty, TIOCGETC, &original_tchars);
+	bcopy (&original_tchars, &temp, sizeof (struct tchars));
 
-    /* Get rid of C-s and C-q.
-       We remember the value of startc (C-q) so that if the terminal is in
-       xoff state, the user can xon it by pressing that character. */
-    xon_char = temp.t_startc;
-    temp.t_stopc = -1;
-    temp.t_startc = -1;
+	/* Get rid of C-s and C-q.
+	   We remember the value of startc (C-q) so that if the terminal is in
+	   xoff state, the user can xon it by pressing that character. */
+	xon_char = temp.t_startc;
+	temp.t_stopc = -1;
+	temp.t_startc = -1;
 
-    /* If there is an XON character, bind it to restart the output. */
-    if (xon_char != -1)
-      rl_bind_key (xon_char, rl_restart_output);
+	/* If there is an XON character, bind it to restart the output. */
+	if (xon_char != -1)
+	  rl_bind_key (xon_char, rl_restart_output);
 
-    /* If there is an EOF char, bind eof_char to it. */
-    if (temp.t_eofc != -1)
-      eof_char = temp.t_eofc;
+	/* If there is an EOF char, bind eof_char to it. */
+	if (temp.t_eofc != -1)
+	  eof_char = temp.t_eofc;
 
 #ifdef NEVER
-    /* Get rid of C-\ and C-c. */
-    temp.t_intrc = temp.t_quitc = -1;
+	/* Get rid of C-\ and C-c. */
+	temp.t_intrc = temp.t_quitc = -1;
 #endif
 
-    ioctl (tty, TIOCSETC, &temp);
-  }
+	ioctl (tty, TIOCSETC, &temp);
+      }
 #endif /* TIOCGETC */
 
 #ifdef TIOCGLTC
-  {
-    struct ltchars temp;
+      {
+	struct ltchars temp;
 
-    ioctl (tty, TIOCGLTC, &original_ltchars);
-    bcopy (&original_ltchars, &temp, sizeof (struct ltchars));
+	ioctl (tty, TIOCGLTC, &original_ltchars);
+	bcopy (&original_ltchars, &temp, sizeof (struct ltchars));
 
-    /* Make the interrupt keys go away.  Just enough to make people happy. */
-    temp.t_dsuspc = -1;		/* C-y */
-    temp.t_lnextc = -1;		/* C-v */
+	/* Make the interrupt keys go away.  Just enough to make people happy. */
+	temp.t_dsuspc = -1;	/* C-y */
+	temp.t_lnextc = -1;	/* C-v */
 
-    ioctl (tty, TIOCSLTC, &temp);
-  }
+	ioctl (tty, TIOCSLTC, &temp);
+      }
 #endif /* TIOCGLTC */
 
-  the_ttybuff.sg_flags &= ~ECHO;
-  the_ttybuff.sg_flags |= CBREAK;
-  ioctl (tty, TIOCSETN, &the_ttybuff);
+      the_ttybuff.sg_flags &= ~ECHO;
+      the_ttybuff.sg_flags |= CBREAK;
+      ioctl (tty, TIOCSETN, &the_ttybuff);
+
+      terminal_prepped = 1;
+    }
+  sigsetmask (oldmask);
 }
 
 /* Restore the terminal to its original state. */
@@ -2076,26 +2129,41 @@ static
 rl_deprep_terminal ()
 {
   int tty = fileno (rl_instream);
+  int oldmask = sigblock (sigmask (SIGINT));
 
-#if defined (TIOCLGET) && defined (LPASS8)
-  if ((the_ttybuff.sg_flags & (ODDP | EVENP)) == (ODDP | EVENP))
-     ioctl (tty, TIOCLSET, &local_mode_flags);
+  if (terminal_prepped)
+    {
+      the_ttybuff.sg_flags = original_tty_flags;
+      ioctl (tty, TIOCSETN, &the_ttybuff);
+      readline_echoing_p = 1;
+
+#if defined (TIOCLGET)
+      ioctl (tty, TIOCLSET, &local_mode_flags);
 #endif
 
 #ifdef TIOCSLTC
-  ioctl (tty, TIOCSLTC, &original_ltchars);
+      ioctl (tty, TIOCSLTC, &original_ltchars);
 #endif
 
 #ifdef TIOCSETC
-  ioctl (tty, TIOCSETC, &original_tchars);
+      ioctl (tty, TIOCSETC, &original_tchars);
 #endif
+      terminal_prepped = 0;
+    }
 
-  the_ttybuff.sg_flags = original_tty_flags;
-  ioctl (tty, TIOCSETN, &the_ttybuff);
-  readline_echoing_p = 1;
+  sigsetmask (oldmask);
 }
 
 #else  /* !defined (NEW_TTY_DRIVER) */
+
+#if !defined (VMIN)
+#define VMIN VEOF
+#endif
+
+#if !defined (VTIME)
+#define VTIME VEOL
+#endif
+
 static struct termio otio;
 
 static
@@ -2110,15 +2178,16 @@ rl_prep_terminal ()
   readline_echoing_p = (tio.c_lflag & ECHO);
 
   tio.c_lflag &= ~(ICANON|ECHO);
-  tio.c_iflag &= ~(IXON|ISTRIP|INPCK);
+  tio.c_iflag &= ~(IXON|IXOFF|IXANY|ISTRIP|INPCK);
 
-#ifndef HANDLE_SIGNALS
+#if !defined (HANDLE_SIGNALS)
   tio.c_lflag &= ~ISIG;
 #endif
 
-  tio.c_cc[VEOF] = 1;		/* really: MIN */
-  tio.c_cc[VEOL] = 0;		/* really: TIME */
-  ioctl (tty, TCSETAW,&tio);
+  tio.c_cc[VMIN] = 1;
+  tio.c_cc[VTIME] = 0;
+  ioctl (tty, TCSETAW, &tio);
+  ioctl (tty, TCXONC, 1);	/* Simulate a ^Q. */
 }
 
 static
@@ -2126,6 +2195,7 @@ rl_deprep_terminal ()
 {
   int tty = fileno (rl_instream);
   ioctl (tty, TCSETAW, &otio);
+  ioctl (tty, TCXONC, 1);	/* Simulate a ^Q. */
 }
 #endif  /* NEW_TTY_DRIVER */
 
@@ -2193,7 +2263,7 @@ rl_abort ()
 
 /* Return a copy of the string between FROM and TO.
    FROM is inclusive, TO is not. */
-char *
+static char *
 rl_copy (from, to)
      int from, to;
 {
@@ -2461,9 +2531,14 @@ rl_backward_word (count)
 rl_refresh_line ()
 {
   int curr_line = last_c_pos / screenwidth;
+  extern char *term_clreol;
 
   move_vert(curr_line);
   move_cursor_relative (0, the_line);   /* XXX is this right */
+
+  if (term_clreol)
+    tputs (term_clreol, 1, output_character_function);
+
   rl_forced_update_display ();
   rl_display_fixed = 1;
 }
@@ -2474,7 +2549,6 @@ rl_refresh_line ()
 rl_clear_screen ()
 {
   extern char *term_clrpag;
-  static void output_character_function ();
 
   if (rl_explicit_arg)
     {
@@ -2524,7 +2598,7 @@ rl_insert (count, c)
 
   if (count > 1024)
     {
-      int descreaser;
+      int decreaser;
 
       string = (char *)alloca (1024 + 1);
 
@@ -2533,10 +2607,10 @@ rl_insert (count, c)
 
       while (count)
 	{
-	  descreaser = (count > 1024 ? 1024 : count);
-	  string[descreaser] = '\0';
+	  decreaser = (count > 1024 ? 1024 : count);
+	  string[decreaser] = '\0';
 	  rl_insert_text (string);
-	  count -= descreaser;
+	  count -= decreaser;
 	}
       return;
     }
@@ -2547,7 +2621,7 @@ rl_insert (count, c)
      them all. */
   if (any_typein)
     {
-      int slen, key = 0, t;
+      int key = 0, t;
 
       i = 0;
       string = (char *)alloca (ibuffer_len + 1);
@@ -2580,7 +2654,7 @@ rl_insert (count, c)
 rl_quoted_insert (count)
      int count;
 {
-  int c = rl_read_key (in_stream);
+  int c = rl_read_key ();
   rl_insert (count, c);
 }
 
@@ -2590,11 +2664,6 @@ rl_tab_insert (count)
 {
   rl_insert (count, '\t');
 }
-
-#ifdef VI_MODE
-/* Non-zero means enter insertion mode. */
-static vi_doing_insert = 0;
-#endif
 
 /* What to do when a NEWLINE is pressed.  We accept the whole line.
    KEY is the key that invoked this command.  I guess it could have
@@ -2607,6 +2676,7 @@ rl_newline (count, key)
 
 #ifdef VI_MODE
   {
+    extern int vi_doing_insert;
     if (vi_doing_insert)
       {
 	rl_end_undo_group ();
@@ -2678,6 +2748,7 @@ rl_rubout (count)
 	  putc (' ', out_stream);
 	  backspace (1);
 	  last_c_pos--;
+	  visible_line[last_c_pos] = '\0';
 	  rl_display_fixed++;
 	}
     }
@@ -2686,7 +2757,7 @@ rl_rubout (count)
 /* Delete the character under the cursor.  Given a numeric argument,
    kill that many characters instead. */
 rl_delete (count, invoking_key)
-     int count;
+     int count, invoking_key;
 {
   if (count < 0)
     {
@@ -2990,8 +3061,6 @@ rl_complete (ignore, invoking_key)
      int ignore, invoking_key;
 {
   rl_complete_internal (TAB);
-  if (running_in_emacs)
-    printf ("%s", the_line);
 }
 
 /* List the possible completions.  See description of rl_complete (). */
@@ -3005,7 +3074,7 @@ get_y_or_n ()
 {
   int c;
  loop:
-  c = rl_read_key (in_stream);
+  c = rl_read_key ();
   if (c == 'y' || c == 'Y') return (1);
   if (c == 'n' || c == 'N') return (0);
   if (c == ABORT_CHAR) rl_abort ();
@@ -3177,9 +3246,12 @@ rl_complete_internal (what_to_do)
       switch (what_to_do)
 	{
 	case TAB:
-	  rl_delete_text (start, rl_point);
-	  rl_point = start;
-	  rl_insert_text (matches[0]);
+	  if (matches[0])
+	    {
+	      rl_delete_text (start, rl_point);
+	      rl_point = start;
+	      rl_insert_text (matches[0]);
+	    }
 
 	  /* If there are more matches, ring the bell to indicate.
 	     If this was the only match, and we are hacking files,
@@ -3331,9 +3403,7 @@ rl_complete_internal (what_to_do)
 
 	    /* Sort the items if they are not already sorted. */
 	    if (!rl_ignore_completion_duplicates)
-	      {
-		qsort (matches, len, sizeof (char *), compare_strings);
-	      }
+	      qsort (matches, len, sizeof (char *), compare_strings);
 
 	    /* Print the sorted items, up-and-down alphabetically, like
 	       ls might. */
@@ -3383,6 +3453,14 @@ rl_complete_internal (what_to_do)
 	free (matches[i]);
       free (matches);
     }
+}
+
+/* Stupid comparison routine for qsort () ing strings. */
+static int
+compare_strings (s1, s2)
+  char **s1, **s2;
+{
+  return (strcmp (*s1, *s2));
 }
 
 /* A completion function for usernames.
@@ -3998,7 +4076,7 @@ rl_search_history (direction, invoking_key)
 
   while (!done)
     {
-      c = rl_read_key (in_stream);
+      c = rl_read_key ();
 
       /* Hack C to Do What I Mean. */
       {
@@ -4596,23 +4674,9 @@ filename_completion_function (text, state)
 	char *tilde_expand (), *temp_dirname = tilde_expand (dirname);
 	free (dirname);
 	dirname = temp_dirname;
-#ifdef SHELL
-	{
-	  extern int follow_symbolic_links;
-	  char *make_absolute ();
 
-	  if (follow_symbolic_links && (strcmp (dirname, ".") != 0))
-	    {
-	      temp_dirname = make_absolute (dirname, get_working_directory (""));
-
-	      if (temp_dirname)
-		{
-		  free (dirname);
-		  dirname = temp_dirname;
-		}
-	    }
-	}
-#endif				/* SHELL */
+	if (rl_symbolic_link_hook)
+	  (*rl_symbolic_link_hook) (&dirname);
       }
       directory = opendir (dirname);
       filename_len = strlen (filename);
@@ -4912,8 +4976,8 @@ rl_translate_keyseq (seq, array, len)
       array[l++] = c;
     }
 
-  array[l] = '\0';
   *len = l;
+  array[l] = '\0';
   return (0);
 }
 
@@ -4925,7 +4989,6 @@ rl_named_function (string)
      char *string;
 {
   register int i;
-  static int stricmp ();
 
   for (i = 0; funmap[i]; i++)
     if (stricmp (funmap[i]->name, string) == 0)
@@ -5032,7 +5095,6 @@ parser_if (args)
      char *args;
 {
   register int i;
-  static int stricmp ();
 
   /* Push parser state. */
   if (if_stack_depth + 1 >= if_stack_size)
@@ -5103,7 +5165,6 @@ handle_parser_directive (statement)
 {
   register int i;
   char *directive, *args;
-  static int stricmp ();
 
   /* Isolate the actual directive. */
 
@@ -5142,7 +5203,7 @@ rl_parse_and_bind (string)
 {
   extern char *possible_control_prefixes[], *possible_meta_prefixes[];
   char *rindex (), *funname, *kname;
-  static int substring_member_of_array (), stricmp ();
+  static int substring_member_of_array ();
   register int c;
   int key, i;
 
@@ -5294,8 +5355,6 @@ rl_parse_and_bind (string)
 rl_variable_bind (name, value)
      char *name, *value;
 {
-  static int strnicmp (), stricmp ();
-
   if (stricmp (name, "editing-mode") == 0)
     {
       if (strnicmp (value, "vi", 2) == 0)
@@ -5317,6 +5376,13 @@ rl_variable_bind (name, value)
 	horizontal_scroll_mode = 1;
       else
 	horizontal_scroll_mode = 0;
+    }
+  else if (stricmp (name, "mark-modified-lines") == 0)
+    {
+      if (!*value || stricmp (value, "On") == 0)
+	mark_modified_lines = 1;
+      else
+	mark_modified_lines = 0;
     }
 }
 
@@ -5349,7 +5415,6 @@ glean_key_from_name (name)
      char *name;
 {
   register int i;
-  static int stricmp ();
 
   for (i = 0; name_key_alist[i].name; i++)
     if (stricmp (name, name_key_alist[i].name) == 0)
@@ -5391,13 +5456,14 @@ strnicmp (string1, string2, count)
 {
   register char ch1, ch2;
 
-  while (count) {
-    ch1 = *string1++;
-    ch2 = *string2++;
-    if (to_upper(ch1) == to_upper(ch2))
-      count--;
-    else break;
-  }
+  while (count)
+    {
+      ch1 = *string1++;
+      ch2 = *string2++;
+      if (to_upper(ch1) == to_upper(ch2))
+	count--;
+      else break;
+    }
   return (count);
 }
 
@@ -5408,12 +5474,13 @@ stricmp (string1, string2)
 {
   register char ch1, ch2;
 
-  while (*string1 && *string2) {
-    ch1 = *string1++;
-    ch2 = *string2++;
-    if (to_upper(ch1) != to_upper(ch2))
-      return (1);
-  }
+  while (*string1 && *string2)
+    {
+      ch1 = *string1++;
+      ch2 = *string2++;
+      if (to_upper(ch1) != to_upper(ch2))
+	return (1);
+    }
   return (*string1 | *string2);
 }
 
@@ -5481,11 +5548,12 @@ rl_getc (stream)
 /*								    */
 /* **************************************************************** */
 
+static void memory_error_and_abort ();
+
 static char *
 xmalloc (bytes)
      int bytes;
 {
-  static memory_error_and_abort ();
   char *temp = (char *)malloc (bytes);
 
   if (!temp)
@@ -5498,7 +5566,6 @@ xrealloc (pointer, bytes)
      char *pointer;
      int bytes;
 {
-  static memory_error_and_abort ();
   char *temp = (char *)realloc (pointer, bytes);
 
   if (!temp)
@@ -5506,7 +5573,7 @@ xrealloc (pointer, bytes)
   return (temp);
 }
 
-static
+static void
 memory_error_and_abort ()
 {
   fprintf (stderr, "readline: Out of virtual memory!\n");

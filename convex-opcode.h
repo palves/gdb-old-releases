@@ -46,7 +46,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define VS 6
 #define VLS 7
 #define PSW 8
+/* Prevent an error during "make depend".  */
+#if !defined (PC)
 #define PC 9
+#endif
 #define ITR 10
 #define VV 11
 #define ITSR 12

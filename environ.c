@@ -19,6 +19,11 @@
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
 #include "environ.h"
+#include <string.h>
+
+extern char *xmalloc ();
+extern char *xrealloc ();
+extern void free ();
 
 /* Return a new environment object.  */
 
@@ -60,12 +65,12 @@ init_environ (e)
   extern char **environ;
   register int i;
 
-  for (i = 0; environ[i]; i++);
+  for (i = 0; environ[i]; i++) /*EMPTY*/;
 
   if (e->allocated < i)
     {
       e->allocated = max (i, e->allocated + 10);
-      e->vector = (char **) xrealloc (e->vector,
+      e->vector = (char **) xrealloc ((char *)e->vector,
 				      (e->allocated + 1) * sizeof (char *));
     }
 
@@ -75,7 +80,7 @@ init_environ (e)
     {
       register int len = strlen (e->vector[i]);
       register char *new = (char *) xmalloc (len + 1);
-      bcopy (e->vector[i], new, len);
+      bcopy (e->vector[i], new, len + 1);
       e->vector[i] = new;
     }
 }
@@ -132,7 +137,7 @@ set_in_environ (e, var, value)
       if (i == e->allocated)
 	{
 	  e->allocated += 10;
-	  vector = (char **) xrealloc (vector,
+	  vector = (char **) xrealloc ((char *)vector,
 				       (e->allocated + 1) * sizeof (char *));
 	  e->vector = vector;
 	}

@@ -23,7 +23,15 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "param.h"
 #include "symtab.h"
 #include "frame.h"
+#include "gdbcmd.h"
+#include "value.h"
+#include "gdbcore.h"
+#include "target.h"
+#include "breakpoint.h"
 
+extern int addressprint;	/* Print addresses, or stay symbolic only? */
+extern int info_verbose;	/* Verbosity of symbol reading msgs */
+extern char *reg_names[];	/* Names of registers */
 
 /* Thie "selected" stack frame is used by default for local and arg access.
    May be zero, for no selected frame.  */
@@ -40,8 +48,6 @@ int selected_frame_level;
    when a frame is printed, and do so in a format programs can parse.  */
 
 int frame_file_full_name = 0;
-
-static void select_calling_frame ();
 
 void print_frame_info ();
 
@@ -68,10 +74,6 @@ print_stack_frame (frame, level, source)
   print_frame_info (fi, level, source, 1);
 }
 
-/* Flag which will indicate when the frame has been changed
-   by and "up" or "down" command.  */
-static int frame_changed;
-
 void
 print_frame_info (fi, level, source, args)
      struct frame_info *fi;
@@ -83,6 +85,8 @@ print_frame_info (fi, level, source, args)
   struct symbol *func;
   register char *funname = 0;
   int numargs;
+
+#if 0	/* Symbol reading is fast enough now */
   struct partial_symtab *pst;
 
   /* Don't give very much information if we haven't readin the
@@ -97,12 +101,15 @@ print_frame_info (fi, level, source, args)
 	fname = "??";
 	
       printf_filtered ("#%-2d ", level);
-      printf_filtered ("0x%x in ", fi->pc);
+      if (addressprint)
+        printf_filtered ("0x%x in ", fi->pc);
 
-      printf_filtered ("%s (...) (...)\n", fname);
+      fputs_demangled (fname, stdout, -1);
+      fputs_filtered (" (...)\n", stdout);
       
       return;
     }
+#endif
 
   sal = find_pc_line (fi->pc, fi->next_frame);
   func = find_pc_function (fi->pc);
@@ -144,27 +151,31 @@ print_frame_info (fi, level, source, args)
 	funname = misc_function_vector[misc_index].name;
     }
 
-  if (frame_changed || source >= 0 || !sal.symtab)
+  if (source >= 0 || !sal.symtab)
     {
       if (level >= 0)
 	printf_filtered ("#%-2d ", level);
-      else if (frame_changed)
-	printf ("#%-2d ", 0);
-      if (fi->pc != sal.pc || !sal.symtab)
-	printf_filtered ("0x%x in ", fi->pc);
-      printf_filtered ("%s (", funname ? funname : "??");
+      if (addressprint)
+	if (fi->pc != sal.pc || !sal.symtab)
+	  printf_filtered ("0x%x in ", fi->pc);
+      fputs_demangled (funname ? funname : "??", stdout, -1);
+      wrap_here ("   ");
+      fputs_filtered (" (", stdout);
       if (args)
 	{
 	  FRAME_NUM_ARGS (numargs, fi);
 	  print_frame_args (func, fi, numargs, stdout);
 	}
       printf_filtered (")");
-      if (sal.symtab)
-	printf_filtered (" (%s line %d)", sal.symtab->filename, sal.line);
+      if (sal.symtab && sal.symtab->filename)
+	{
+          wrap_here ("   ");
+	  printf_filtered (" at %s:%d", sal.symtab->filename, sal.line);
+	}
       printf_filtered ("\n");
     }
 
-  if ((frame_changed || source != 0) && sal.symtab)
+  if ((source != 0) && sal.symtab)
     {
       int done = 0;
       int mid_statement = source < 0 && fi->pc != sal.pc;
@@ -172,13 +183,12 @@ print_frame_info (fi, level, source, args)
 	done = identify_source_line (sal.symtab, sal.line, mid_statement);
       if (!done)
 	{
-	  if (mid_statement)
+	  if (addressprint && mid_statement)
 	    printf_filtered ("0x%x\t", fi->pc);
 	  print_source_lines (sal.symtab, sal.line, sal.line + 1, 1);
 	}
-      current_source_line = max (sal.line - 5, 1);
+      current_source_line = max (sal.line - lines_to_list () / 2, 1);
     }
-  frame_changed = 0;
   if (source != 0)
     set_default_breakpoint (1, fi->pc, sal.symtab, sal.line);
 
@@ -223,7 +233,6 @@ parse_frame_specification (frame_exp)
     {
       char *addr_string, *p;
       struct cleanup *tmp_cleanup;
-      struct frame_info *fci;
 
       while (*frame_exp == ' ') frame_exp++;
       for (p = frame_exp; *p && *p != ' '; p++)
@@ -327,7 +336,7 @@ frame_info (addr_exp)
   int i, count;
   char *funname = 0;
 
-  if (!(have_inferior_p () || have_core_file_p ()))
+  if (!target_has_stack)
     error ("No inferior or core file.");
 
   frame = parse_frame_specification (addr_exp);
@@ -335,7 +344,6 @@ frame_info (addr_exp)
     error ("Invalid frame specified.");
 
   fi = get_frame_info (frame);
-  get_frame_saved_regs (fi, &fsr);
   sal = find_pc_line (fi->pc, fi->next_frame);
   func = get_frame_function (frame);
   if (func)
@@ -349,17 +357,18 @@ frame_info (addr_exp)
   calling_frame = get_prev_frame (frame);
 
   if (!addr_exp && selected_frame_level >= 0)
-    printf ("Stack level %d, frame at 0x%x:\n pc = 0x%x",
-	    selected_frame_level, FRAME_FP(frame), fi->pc);
+    printf ("Stack level %d, frame at 0x%x:\n %s = 0x%x",
+	    selected_frame_level, FRAME_FP(frame),
+	    reg_names[PC_REGNUM], fi->pc);
   else
-    printf ("Stack frame at 0x%x:\n pc = 0x%x",
-	    FRAME_FP(frame), fi->pc);
+    printf ("Stack frame at 0x%x:\n %s = 0x%x",
+	    FRAME_FP(frame), reg_names[PC_REGNUM], fi->pc);
 
   if (funname)
     printf (" in %s", funname);
   if (sal.symtab)
     printf (" (%s line %d)", sal.symtab->filename, sal.line);
-  printf ("; saved pc 0x%x\n", FRAME_SAVED_PC (frame));
+  printf ("; saved %s 0x%x\n", reg_names[PC_REGNUM], FRAME_SAVED_PC (frame));
   if (calling_frame)
     printf (" called by frame at 0x%x", FRAME_FP (calling_frame));
   if (fi->next_frame && calling_frame)
@@ -392,7 +401,9 @@ frame_info (addr_exp)
 	printf ("\n");
       }
   }
-  
+
+#if defined (FRAME_FIND_SAVED_REGS)  
+  get_frame_saved_regs (fi, &fsr);
   /* The sp is special; what's returned isn't the save address, but
      actually the value of the previous frame's sp.  */
   printf (" Previous frame's sp is 0x%x\n", fsr.regs[SP_REGNUM]);
@@ -413,6 +424,7 @@ frame_info (addr_exp)
       }
   if (count)
     printf ("\n");
+#endif /* Have FRAME_FIND_SAVED_REGS.  */
 }
 
 #if 0
@@ -449,8 +461,9 @@ backtrace_limit_info (arg, from_tty)
 /* Print briefly all stack frames or just the innermost COUNT frames.  */
 
 static void
-backtrace_command (count_exp)
+backtrace_command (count_exp, from_tty)
      char *count_exp;
+     int from_tty;
 {
   struct frame_info *fi;
   register int count;
@@ -476,12 +489,16 @@ backtrace_command (count_exp)
 
 	  current = trailing;
 	  while (current && count--)
-	    current = get_prev_frame (current);
+	    {
+	      QUIT;
+	      current = get_prev_frame (current);
+	    }
 	  
 	  /* Will stop when CURRENT reaches the top of the stack.  TRAILING
 	     will be COUNT below it.  */
 	  while (current)
 	    {
+	      QUIT;
 	      trailing = get_prev_frame (trailing);
 	      current = get_prev_frame (current);
 	      trailing_level++;
@@ -493,6 +510,28 @@ backtrace_command (count_exp)
   else
     count = -1;
 
+  if (info_verbose)
+    {
+      struct partial_symtab *ps;
+      
+      /* Read in symbols for all of the frames.  Need to do this in
+	 a separate pass so that "Reading in symbols for xxx" messages
+	 don't screw up the appearance of the backtrace.  Also
+	 if people have strong opinions against reading symbols for
+	 backtrace this may have to be an option.  */
+      i = count;
+      for (frame = trailing;
+	   frame != NULL && i--;
+	   frame = get_prev_frame (frame))
+	{
+	  QUIT;
+	  fi = get_frame_info (frame);
+	  ps = find_pc_psymtab (fi->pc);
+	  if (ps)
+	    (void) PSYMTAB_TO_SYMTAB (ps);	/* Force syms to come in */
+	}
+    }
+
   for (i = 0, frame = trailing;
        frame && count--;
        i++, frame = get_prev_frame (frame))
@@ -503,7 +542,7 @@ backtrace_command (count_exp)
     }
 
   /* If we've stopped before the end, mention that.  */
-  if (frame)
+  if (frame && from_tty)
     printf_filtered ("(More stack frames follow...)\n");
 }
 
@@ -531,10 +570,52 @@ print_block_frame_locals (b, frame, stream)
 	  || SYMBOL_CLASS (sym) == LOC_STATIC)
 	{
 	  values_printed = 1;
-	  fputs_filtered (SYMBOL_NAME (sym), stream);
+	  fprint_symbol (stream, SYMBOL_NAME (sym));
 	  fputs_filtered (" = ", stream);
 	  print_variable_value (sym, frame, stream);
 	  fprintf_filtered (stream, "\n");
+	  fflush (stream);
+	}
+    }
+  return values_printed;
+}
+
+/* Same, but print labels.
+   FIXME, this does not even reference FRAME... --gnu  */
+
+static int
+print_block_frame_labels (b, frame, have_default, stream)
+     struct block *b;
+     register FRAME frame;
+     int *have_default;
+     register FILE *stream;
+{
+  int nsyms;
+  register int i;
+  register struct symbol *sym;
+  register int values_printed = 0;
+
+  nsyms = BLOCK_NSYMS (b);
+
+  for (i = 0; i < nsyms; i++)
+    {
+      sym = BLOCK_SYM (b, i);
+      if (! strcmp (SYMBOL_NAME (sym), "default"))
+	{
+	  if (*have_default)
+	    continue;
+	  *have_default = 1;
+	}
+      if (SYMBOL_CLASS (sym) == LOC_LABEL)
+	{
+	  struct symtab_and_line sal;
+	  sal = find_pc_line (SYMBOL_VALUE_ADDRESS (sym), 0);
+	  values_printed = 1;
+	  fputs_demangled (SYMBOL_NAME (sym), stream, 1);
+	  if (addressprint)
+	    fprintf_filtered (stream, " 0x%x", SYMBOL_VALUE_ADDRESS (sym));
+	  fprintf_filtered (stream, " in file %s, line %d\n",
+			    sal.symtab->filename, sal.line);
 	  fflush (stream);
 	}
     }
@@ -585,13 +666,102 @@ print_frame_local_vars (frame, stream)
   return 1;
 }
 
-static void
-locals_info ()
+/* Same, but print labels.  */
+
+static int
+print_frame_label_vars (frame, this_level_only, stream)
+     register FRAME frame;
+     int this_level_only;
+     register FILE *stream;
 {
-  if (!have_inferior_p () && !have_core_file_p ())
-    error ("No inferior or core file.");
+  extern struct blockvector *blockvector_for_pc ();
+  register struct blockvector *bl;
+  register struct block *block = get_frame_block (frame);
+  register int values_printed = 0;
+  int index, have_default = 0;
+  char *blocks_printed;
+  struct frame_info *fi = get_frame_info (frame);
+  CORE_ADDR pc = fi->pc;
+
+  if (block == 0)
+    {
+      fprintf_filtered (stream, "No symbol table info available.\n");
+      fflush (stream);
+      return 0;
+    }
+
+  bl = blockvector_for_pc (BLOCK_END (block) - 4, &index);
+  blocks_printed = (char *) alloca (BLOCKVECTOR_NBLOCKS (bl) * sizeof (char));
+  bzero (blocks_printed, BLOCKVECTOR_NBLOCKS (bl) * sizeof (char));
+
+  while (block != 0)
+    {
+      CORE_ADDR end = BLOCK_END (block) - 4;
+      int last_index;
+
+      if (bl != blockvector_for_pc (end, &index))
+	error ("blockvector blotch");
+      if (BLOCKVECTOR_BLOCK (bl, index) != block)
+	error ("blockvector botch");
+      last_index = BLOCKVECTOR_NBLOCKS (bl);
+      index += 1;
+
+      /* Don't print out blocks that have gone by.  */
+      while (index < last_index
+	     && BLOCK_END (BLOCKVECTOR_BLOCK (bl, index)) < pc)
+	index++;
+
+      while (index < last_index
+	     && BLOCK_END (BLOCKVECTOR_BLOCK (bl, index)) < end)
+	{
+	  if (blocks_printed[index] == 0)
+	    {
+	      if (print_block_frame_labels (BLOCKVECTOR_BLOCK (bl, index), frame, &have_default, stream))
+		values_printed = 1;
+	      blocks_printed[index] = 1;
+	    }
+	  index++;
+	}
+      if (have_default)
+	return 1;
+      if (values_printed && this_level_only)
+	return 1;
+
+      /* After handling the function's top-level block, stop.
+	 Don't continue to its superblock, the block of
+	 per-file symbols.  */
+      if (BLOCK_FUNCTION (block))
+	break;
+      block = BLOCK_SUPERBLOCK (block);
+    }
+
+  if (!values_printed && !this_level_only)
+    {
+      fprintf_filtered (stream, "No catches.\n");
+      fflush (stream);
+    }
+  
+  return values_printed;
+}
+
+static void
+locals_info (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  if (!target_has_stack)
+    error ("No stack.");
 
   print_frame_local_vars (selected_frame, stdout);
+}
+
+static void
+catch_info ()
+{
+  if (!target_has_stack)
+    error ("No stack.");
+
+  print_frame_label_vars (selected_frame, 0, stdout);
 }
 
 static int
@@ -603,7 +773,7 @@ print_frame_arg_vars (frame, stream)
   register struct block *b;
   int nsyms;
   register int i;
-  register struct symbol *sym;
+  register struct symbol *sym, *sym2;
   register int values_printed = 0;
 
   if (func == 0)
@@ -624,9 +794,15 @@ print_frame_arg_vars (frame, stream)
 	  || SYMBOL_CLASS (sym) == LOC_REGPARM)
 	{
 	  values_printed = 1;
-	  fputs_filtered (SYMBOL_NAME (sym), stream);
+	  fprint_symbol (stream, SYMBOL_NAME (sym));
 	  fputs_filtered (" = ", stream);
-	  print_variable_value (sym, frame, stream);
+	  /* We have to look up the symbol because arguments often have
+	     two entries (one a parameter, one a register) and the one
+	     we want is the register, which lookup_symbol will find for
+	     us.  */
+	  sym2 = lookup_symbol (SYMBOL_NAME (sym),
+			b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
+	  print_variable_value (sym2, frame, stream);
 	  fprintf_filtered (stream, "\n");
 	  fflush (stream);
 	}
@@ -644,8 +820,8 @@ print_frame_arg_vars (frame, stream)
 static void
 args_info ()
 {
-  if (!have_inferior_p () && !have_core_file_p ())
-    error ("No inferior or core file.");
+  if (!target_has_stack)
+    error ("No stack.");
   print_frame_arg_vars (selected_frame, stdout);
 }
 
@@ -681,7 +857,7 @@ record_selected_frame (frameaddrp, levelp)
 struct block *
 get_selected_block ()
 {
-  if (!have_inferior_p () && !have_core_file_p ())
+  if (!target_has_stack)
     return 0;
 
   if (!selected_frame)
@@ -758,8 +934,8 @@ frame_command (level_exp, from_tty)
   register FRAME frame, frame1;
   unsigned int level = 0;
 
-  if (!have_inferior_p () && ! have_core_file_p ())
-    error ("No inferior or core file.");
+  if (!target_has_stack)
+    error ("No stack.");
 
   frame = parse_frame_specification (level_exp);
 
@@ -771,7 +947,6 @@ frame_command (level_exp, from_tty)
   if (!frame1)
     level = 0;
 
-  frame_changed = level;
   select_frame (frame, level);
 
   if (!from_tty)
@@ -784,8 +959,9 @@ frame_command (level_exp, from_tty)
    from the previously selected frame, and print it briefly.  */
 
 static void
-up_command (count_exp)
+up_silently_command (count_exp, from_tty)
      char *count_exp;
+     int from_tty;
 {
   register FRAME frame;
   int count = 1, count1;
@@ -793,24 +969,31 @@ up_command (count_exp)
     count = parse_and_eval_address (count_exp);
   count1 = count;
   
-  if (!have_inferior_p () && !have_core_file_p ())
-    error ("No inferior or core file.");
+  if (!target_has_stack)
+    error ("No stack.");
 
   frame = find_relative_frame (selected_frame, &count1);
   if (count1 != 0 && count_exp == 0)
     error ("Initial frame selected; you cannot go up.");
   select_frame (frame, selected_frame_level + count - count1);
+}
 
+static void
+up_command (count_exp, from_tty)
+     char *count_exp;
+     int from_tty;
+{
+  up_silently_command (count_exp, from_tty);
   print_stack_frame (selected_frame, selected_frame_level, 1);
-  frame_changed++;
 }
 
 /* Select the frame down one or COUNT stack levels
    from the previously selected frame, and print it briefly.  */
 
 static void
-down_command (count_exp)
+down_silently_command (count_exp, from_tty)
      char *count_exp;
+     int from_tty;
 {
   register FRAME frame;
   int count = -1, count1;
@@ -822,9 +1005,16 @@ down_command (count_exp)
   if (count1 != 0 && count_exp == 0)
     error ("Bottom (i.e., innermost) frame selected; you cannot go down.");
   select_frame (frame, selected_frame_level + count - count1);
+}
 
+
+static void
+down_command (count_exp, from_tty)
+     char *count_exp;
+     int from_tty;
+{
+  down_silently_command (count_exp, from_tty);
   print_stack_frame (selected_frame, selected_frame_level, 1);
-  frame_changed--;
 }
 
 static void
@@ -873,8 +1063,6 @@ return_command (retval_exp, from_tty)
     frame_command ("0", 1);
 }
 
-extern struct cmd_list_element *setlist;
-
 void
 _initialize_stack ()
 {
@@ -891,11 +1079,17 @@ If an argument is given, it is an expression for the value to return.");
   add_com ("up", class_stack, up_command,
 	   "Select and print stack frame that called this one.\n\
 An argument says how many frames up to go.");
+  add_com ("up-silently", class_support, up_silently_command,
+	   "Same as the `up' command, but does not print anything.\n\
+This is useful in command scripts.");
 
   add_com ("down", class_stack, down_command,
 	   "Select and print stack frame called by this one.\n\
 An argument says how many frames down to go.");
   add_com_alias ("do", "down", class_stack, 1);
+  add_com ("down-silently", class_support, down_silently_command,
+	   "Same as the `down' command, but does not print anything.\n\
+This is useful in command scripts.");
 
   add_com ("frame", class_stack, frame_command,
 	   "Select and print a stack frame.\n\
@@ -922,6 +1116,8 @@ With a negative argument, print outermost -COUNT frames.");
 	    "Local variables of current stack frame.");
   add_info ("args", args_info,
 	    "Argument variables of current stack frame.");
+  add_info ("catch", catch_info,
+	    "Exceptions that can be caught in the current stack frame.");
 
 #if 0
   add_cmd ("backtrace-limit", class_stack, set_backtrace_limit_command, 

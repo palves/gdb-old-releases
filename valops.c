@@ -17,17 +17,25 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include "stdio.h"
+#include <stdio.h>
 #include "defs.h"
 #include "param.h"
 #include "symtab.h"
 #include "value.h"
 #include "frame.h"
 #include "inferior.h"
+#include "gdbcore.h"
+#include "target.h"
+
+#include <errno.h>
+
+/* Local functions.  */
+static value search_struct_field ();
 
 /* Cast value ARG2 to type TYPE and return as a value.
    More general than a C cast: accepts any two types of the same length,
    and if ARG2 is an lvalue it can be cast into anything at all.  */
+/* In C++, casts may change pointer representations.  */
 
 value
 value_cast (type, arg2)
@@ -55,12 +63,29 @@ value_cast (type, arg2)
     return value_from_long (type, value_as_long (arg2));
   else if (TYPE_LENGTH (type) == TYPE_LENGTH (VALUE_TYPE (arg2)))
     {
+      if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_PTR)
+	{
+	  struct type *t1 = TYPE_TARGET_TYPE (type);
+	  struct type *t2 = TYPE_TARGET_TYPE (VALUE_TYPE (arg2));
+	  if (TYPE_CODE (t1) == TYPE_CODE_STRUCT
+	      && TYPE_CODE (t2) == TYPE_CODE_STRUCT)
+	    {
+	      value v = search_struct_field (type_name_no_tag (t1),
+					     value_ind (arg2), 0, t2);
+	      if (v)
+		{
+		  v = value_addr (v);
+		  VALUE_TYPE (v) = type;
+		  return v;
+		}
+	    }
+	}
       VALUE_TYPE (arg2) = type;
       return arg2;
     }
   else if (VALUE_LVAL (arg2) == lval_memory)
     {
-      return value_at (type, VALUE_ADDRESS (arg2) + VALUE_OFFSET (arg2));
+      return value_at_lazy (type, VALUE_ADDRESS (arg2) + VALUE_OFFSET (arg2));
     }
   else
     error ("Invalid cast.");
@@ -81,7 +106,14 @@ value_zero (type, lv)
   return val;
 }
 
-/* Return the value with a specified type located at specified address.  */
+/* Return a value with type TYPE located at ADDR.  
+
+   Call value_at only if the data needs to be fetched immediately;
+   if we can be 'lazy' and defer the fetch, perhaps indefinately, call
+   value_at_lazy instead.  value_at_lazy simply records the address of
+   the data and sets the lazy-evaluation-required flag.  The lazy flag 
+   is tested in the VALUE_CONTENTS macro, which is used if and when 
+   the contents are actually required.  */
 
 value
 value_at (type, addr)
@@ -89,22 +121,52 @@ value_at (type, addr)
      CORE_ADDR addr;
 {
   register value val = allocate_value (type);
-  int temp;
 
-  temp = read_memory (addr, VALUE_CONTENTS (val), TYPE_LENGTH (type));
-  if (temp)
-    {
-      if (have_inferior_p ())
-	print_sys_errmsg ("ptrace", temp);
-      /* Actually, address between addr and addr + len was out of bounds. */
-      error ("Cannot read memory: address 0x%x out of bounds.", addr);
-    }
+  read_memory (addr, VALUE_CONTENTS_RAW (val), TYPE_LENGTH (type));
 
   VALUE_LVAL (val) = lval_memory;
   VALUE_ADDRESS (val) = addr;
 
   return val;
 }
+
+/* Return a lazy value with type TYPE located at ADDR (cf. value_at).  */
+
+value
+value_at_lazy (type, addr)
+     struct type *type;
+     CORE_ADDR addr;
+{
+  register value val = allocate_value (type);
+
+  VALUE_LVAL (val) = lval_memory;
+  VALUE_ADDRESS (val) = addr;
+  VALUE_LAZY (val) = 1;
+
+  return val;
+}
+
+/* Called only from the VALUE_CONTENTS macro, if the current data for
+   a variable needs to be loaded into VALUE_CONTENTS(VAL).  Fetches the
+   data from the user's process, and clears the lazy flag to indicate
+   that the data in the buffer is valid.
+
+   This function returns a value because it is used in the VALUE_CONTENTS
+   macro as part of an expression, where a void would not work.  The
+   value is ignored.  */
+
+int
+value_fetch_lazy (val)
+     register value val;
+{
+  CORE_ADDR addr = VALUE_ADDRESS (val) + VALUE_OFFSET (val);
+
+  read_memory (addr, VALUE_CONTENTS_RAW (val), 
+	       TYPE_LENGTH (VALUE_TYPE (val)));
+  VALUE_LAZY (val) = 0;
+  return 0;
+}
+
 
 /* Store the contents of FROMVAL into the location of TOVAL.
    Return a new value with the location of TOVAL and contents of FROMVAL.  */
@@ -118,8 +180,6 @@ value_assign (toval, fromval)
   char raw_buffer[MAX_REGISTER_RAW_SIZE];
   char virtual_buffer[MAX_REGISTER_VIRTUAL_SIZE];
   int use_buffer = 0;
-
-  extern CORE_ADDR find_saved_register ();
 
   COERCE_ARRAY (fromval);
 
@@ -139,7 +199,7 @@ value_assign (toval, fromval)
 	fromval = value_cast (REGISTER_VIRTUAL_TYPE (regno), fromval);
       bcopy (VALUE_CONTENTS (fromval), virtual_buffer,
 	     REGISTER_VIRTUAL_SIZE (regno));
-      REGISTER_CONVERT_TO_RAW (regno, virtual_buffer, raw_buffer);
+      target_convert_from_virtual (regno, virtual_buffer, raw_buffer);
       use_buffer = REGISTER_RAW_SIZE (regno);
     }
 
@@ -160,13 +220,13 @@ value_assign (toval, fromval)
     case lval_memory:
       if (VALUE_BITSIZE (toval))
 	{
-	  int val;
+	  int v;		/* FIXME, this won't work for large bitfields */
 	  read_memory (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-		       &val, sizeof val);
-	  modify_field (&val, (int) value_as_long (fromval),
+		       &v, sizeof v);
+	  modify_field (&v, (int) value_as_long (fromval),
 			VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
 	  write_memory (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-			&val, sizeof val);
+			(char *)&v, sizeof v);
 	}
       else if (use_buffer)
 	write_memory (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
@@ -179,14 +239,14 @@ value_assign (toval, fromval)
     case lval_register:
       if (VALUE_BITSIZE (toval))
 	{
-	  int val;
+	  int v;
 
 	  read_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-			       &val, sizeof val);
-	  modify_field (&val, (int) value_as_long (fromval),
+			       &v, sizeof v);
+	  modify_field (&v, (int) value_as_long (fromval),
 			VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
 	  write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
-				&val, sizeof val);
+				&v, sizeof v);
 	}
       else if (use_buffer)
 	write_register_bytes (VALUE_ADDRESS (toval) + VALUE_OFFSET (toval),
@@ -209,7 +269,6 @@ value_assign (toval, fromval)
 	char *buffer = (char *) alloca (amount_to_copy);
 	int regno;
 	FRAME frame;
-	CORE_ADDR addr;
 
 	/* Figure out which frame this is in currently.  */
 	for (frame = get_current_frame ();
@@ -228,13 +287,9 @@ value_assign (toval, fromval)
 	     amount_copied < amount_to_copy;
 	     amount_copied += reg_size, regno++)
 	  {
-	    addr = find_saved_register (frame, regno);
-	    if (addr == 0)
-	      read_register_bytes (REGISTER_BYTE (regno),
-				   buffer + amount_copied,
-				   reg_size);
-	    else
-	      read_memory (addr, buffer + amount_copied, reg_size);
+	    get_saved_register (buffer + amount_copied,
+				(int *)NULL, (CORE_ADDR)NULL,
+				frame, regno, (enum lval_type *)NULL);
 	  }
 
 	/* Modify what needs to be modified.  */
@@ -254,13 +309,22 @@ value_assign (toval, fromval)
 	     amount_copied < amount_to_copy;
 	     amount_copied += reg_size, regno++)
 	  {
-	    addr = find_saved_register (frame, regno);
-	    if (addr == 0)
-	      write_register_bytes (REGISTER_BYTE (regno),
-				    buffer + amount_copied,
-				    reg_size);
-	    else
+	    enum lval_type lval;
+	    CORE_ADDR addr;
+	    int optim;
+
+	    /* Just find out where to put it.  */
+	    get_saved_register ((char *)NULL,
+			        &optim, &addr, frame, regno, &lval);
+	    
+	    if (optim)
+	      error ("Attempt to assign to a value that was optimized out.");
+	    if (lval == lval_memory)
 	      write_memory (addr, buffer + amount_copied, reg_size);
+	    else if (lval == lval_register)
+	      write_register_bytes (addr, buffer + amount_copied, reg_size);
+	    else
+	      error ("Attempt to assign to an unmodifiable value.");
 	  }
       }
       break;
@@ -280,8 +344,8 @@ value_assign (toval, fromval)
     }
 
   val = allocate_value (type);
-  bcopy (toval, val, VALUE_CONTENTS (val) - (char *) val);
-  bcopy (VALUE_CONTENTS (fromval), VALUE_CONTENTS (val), TYPE_LENGTH (type));
+  bcopy (toval, val, VALUE_CONTENTS_RAW (val) - (char *) val);
+  bcopy (VALUE_CONTENTS (fromval), VALUE_CONTENTS_RAW (val), TYPE_LENGTH (type));
   VALUE_TYPE (val) = type;
   
   return val;
@@ -304,7 +368,7 @@ value_repeat (arg1, count)
   val = allocate_repeat_value (VALUE_TYPE (arg1), count);
 
   read_memory (VALUE_ADDRESS (arg1) + VALUE_OFFSET (arg1),
-	       VALUE_CONTENTS (val),
+	       VALUE_CONTENTS_RAW (val),
 	       TYPE_LENGTH (VALUE_TYPE (val)) * count);
   VALUE_LVAL (val) = lval_memory;
   VALUE_ADDRESS (val) = VALUE_ADDRESS (arg1) + VALUE_OFFSET (arg1);
@@ -348,6 +412,27 @@ value_coerce_array (arg1)
   return val;
 }
 
+/* Given a value which is a function, return a value which is a pointer
+   to it.  */
+
+value
+value_coerce_function (arg1)
+     value arg1;
+{
+  register struct type *type;
+  register value val;
+
+  if (VALUE_LVAL (arg1) != lval_memory)
+    error ("Attempt to take address of value not located in memory.");
+
+  /* Get the type of the result.  */
+  type = lookup_pointer_type (VALUE_TYPE (arg1));
+  val = value_from_long (builtin_type_long,
+		(LONGEST) (VALUE_ADDRESS (arg1) + VALUE_OFFSET (arg1)));
+  VALUE_TYPE (val) = type;
+  return val;
+}  
+
 /* Return a pointer value for the object for which ARG1 is the contents.  */
 
 value
@@ -355,14 +440,16 @@ value_addr (arg1)
      value arg1;
 {
   register struct type *type;
-  register value val, arg1_coerced;
+  register value val;
 
+  COERCE_REF(arg1);
   /* Taking the address of an array is really a no-op
      once the array is coerced to a pointer to its first element.  */
-  arg1_coerced = arg1;
-  COERCE_ARRAY (arg1_coerced);
-  if (arg1 != arg1_coerced)
-    return arg1_coerced;
+  if (VALUE_REPEATED (arg1)
+      || TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_ARRAY)
+    return value_coerce_array (arg1);
+  if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_FUNC)
+    return value_coerce_function (arg1);
 
   if (VALUE_LVAL (arg1) != lval_memory)
     error ("Attempt to take address of value not located in memory.");
@@ -381,12 +468,6 @@ value
 value_ind (arg1)
      value arg1;
 {
-  /* Must do this before COERCE_ARRAY, otherwise an infinite loop
-     will result */
-  if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_REF)
-    return value_at (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)),
-		     (CORE_ADDR) value_as_long (arg1));
-
   COERCE_ARRAY (arg1);
 
   if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_MEMBER)
@@ -400,10 +481,7 @@ value_ind (arg1)
     return value_at (builtin_type_int,
 		     (CORE_ADDR) value_as_long (arg1));
   else if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_PTR)
-    return value_at (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)),
-		     (CORE_ADDR) value_as_long (arg1));
-  else if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_REF)
-    return value_at (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)),
+    return value_at_lazy (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)),
 		     (CORE_ADDR) value_as_long (arg1));
   error ("Attempt to take contents of a non-pointer value.");
 }
@@ -421,9 +499,9 @@ push_word (sp, buffer)
 
 #if 1 INNER_THAN 2
   sp -= len;
-  write_memory (sp, &buffer, len);
+  write_memory (sp, (char *)&buffer, len);
 #else /* stack grows upward */
-  write_memory (sp, &buffer, len);
+  write_memory (sp, (char *)&buffer, len);
   sp += len;
 #endif /* stack grows upward */
 
@@ -503,6 +581,66 @@ value_arg_push (sp, arg)
   return value_push (sp, value_arg_coerce (arg));
 }
 
+/* Determine a function's address and its return type from its value. 
+   Calls error() if the function is not valid for calling.  */
+
+CORE_ADDR
+find_function_addr (function, retval_type)
+     value function;
+     struct type **retval_type;
+{
+  register struct type *ftype = VALUE_TYPE (function);
+  register enum type_code code = TYPE_CODE (ftype);
+  struct type *value_type;
+  CORE_ADDR funaddr;
+
+  /* If it's a member function, just look at the function
+     part of it.  */
+
+  /* Determine address to call.  */
+  if (code == TYPE_CODE_FUNC || code == TYPE_CODE_METHOD)
+    {
+      funaddr = VALUE_ADDRESS (function);
+      value_type = TYPE_TARGET_TYPE (ftype);
+    }
+  else if (code == TYPE_CODE_PTR)
+    {
+      funaddr = value_as_long (function);
+      if (TYPE_CODE (TYPE_TARGET_TYPE (ftype)) == TYPE_CODE_FUNC
+	  || TYPE_CODE (TYPE_TARGET_TYPE (ftype)) == TYPE_CODE_METHOD)
+	value_type = TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (ftype));
+      else
+	value_type = builtin_type_int;
+    }
+  else if (code == TYPE_CODE_INT)
+    {
+      /* Handle the case of functions lacking debugging info.
+	 Their values are characters since their addresses are char */
+      if (TYPE_LENGTH (ftype) == 1)
+	funaddr = value_as_long (value_addr (function));
+      else
+	/* Handle integer used as address of a function.  */
+	funaddr = value_as_long (function);
+
+      value_type = builtin_type_int;
+    }
+  else
+    error ("Invalid data type for function to be called.");
+
+  *retval_type = value_type;
+  return funaddr;
+}
+
+#if defined (CALL_DUMMY)
+/* All this stuff with a dummy frame may seem unnecessarily complicated
+   (why not just save registers in GDB?).  The purpose of pushing a dummy
+   frame which looks just like a real frame is so that if you call a
+   function and then hit a breakpoint (get a signal, etc), "backtrace"
+   will look right.  Whether the backtrace needs to actually show the
+   stack at the time the inferior function was called is debatable, but
+   it certainly needs to not display garbage.  So if you are contemplating
+   making dummy frames be different from normal frames, consider that.  */
+
 /* Perform a function call in the inferior.
    ARGS is a vector of values of arguments (NARGS of them).
    FUNCTION is a value, the function to be called.
@@ -511,7 +649,7 @@ value_arg_push (sp, arg)
    during the execution of the function.  */
 
 value
-call_function (function, nargs, args)
+call_function_by_hand (function, nargs, args)
      value function;
      int nargs;
      value *args;
@@ -527,9 +665,8 @@ call_function (function, nargs, args)
   CORE_ADDR struct_addr;
   struct inferior_status inf_status;
   struct cleanup *old_chain;
-
-  if (!have_inferior_p ())
-    error ("Cannot invoke functions if the inferior is not running.");
+  CORE_ADDR funaddr;
+  int using_gcc;
 
   save_inferior_status (&inf_status, 1);
   old_chain = make_cleanup (restore_inferior_status, &inf_status);
@@ -549,63 +686,34 @@ call_function (function, nargs, args)
   sp += sizeof dummy;
 #endif
 
+  funaddr = find_function_addr (function, &value_type);
+
   {
-    register CORE_ADDR funaddr;
-    register struct type *ftype = VALUE_TYPE (function);
-    register enum type_code code = TYPE_CODE (ftype);
-
-    /* If it's a member function, just look at the function
-       part of it.  */
-
-    /* Determine address to call.  */
-    if (code == TYPE_CODE_FUNC || code == TYPE_CODE_METHOD)
-      {
-	funaddr = VALUE_ADDRESS (function);
-	value_type = TYPE_TARGET_TYPE (ftype);
-      }
-    else if (code == TYPE_CODE_PTR)
-      {
-	funaddr = value_as_long (function);
-	if (TYPE_CODE (TYPE_TARGET_TYPE (ftype)) == TYPE_CODE_FUNC
-	    || TYPE_CODE (TYPE_TARGET_TYPE (ftype)) == TYPE_CODE_METHOD)
-	  value_type = TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (ftype));
-	else
-	  value_type = builtin_type_int;
-      }
-    else if (code == TYPE_CODE_INT)
-      {
-	/* Handle the case of functions lacking debugging info.
-	   Their values are characters since their addresses are char */
-	if (TYPE_LENGTH (ftype) == 1)
-	  funaddr = value_as_long (value_addr (function));
-	else
-	  /* Handle integer used as address of a function.  */
-	  funaddr = value_as_long (function);
-
-	value_type = builtin_type_int;
-      }
-    else
-      error ("Invalid data type for function to be called.");
-
-    /* Are we returning a value using a structure return or a normal
-       value return? */
-
-    struct_return = using_struct_return (function, funaddr, value_type);
-
-    /* Create a call sequence customized for this function
-       and the number of arguments for it.  */
-    bcopy (dummy, dummy1, sizeof dummy);
-    FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, value_type);
+    struct block *b = block_for_pc (funaddr);
+    /* If compiled without -g, assume GCC.  */
+    using_gcc = b == NULL || BLOCK_GCC_COMPILED (b);
   }
 
-#ifndef CANNOT_EXECUTE_STACK
-  write_memory (start_sp, dummy1, sizeof dummy);
+  /* Are we returning a value using a structure return or a normal
+     value return? */
 
-#else
+  struct_return = using_struct_return (function, funaddr, value_type,
+				       using_gcc);
+
+  /* Create a call sequence customized for this function
+     and the number of arguments for it.  */
+  bcopy (dummy, dummy1, sizeof dummy);
+  FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, args,
+		  value_type, using_gcc);
+
+#if CALL_DUMMY_LOCATION == ON_STACK
+  write_memory (start_sp, (char *)dummy1, sizeof dummy);
+
+#else /* Not on stack.  */
+#if CALL_DUMMY_LOCATION == BEFORE_TEXT_END
   /* Convex Unix prohibits executing in the stack segment. */
   /* Hope there is empty room at the top of the text segment. */
   {
-    extern CORE_ADDR text_end;
     static checked = 0;
     if (!checked)
       for (start_sp = text_end - sizeof dummy; start_sp < text_end; ++start_sp)
@@ -614,9 +722,20 @@ call_function (function, nargs, args)
     checked = 1;
     sp = old_sp;
     start_sp = text_end - sizeof dummy;
-    write_memory (start_sp, dummy1, sizeof dummy);
+    write_memory (start_sp, (char *)dummy1, sizeof dummy);
   }
-#endif /* CANNOT_EXECUTE_STACK */
+#else /* After text_end.  */
+  {
+    int errcode;
+    sp = old_sp;
+    start_sp = text_end;
+    errcode = target_write_memory (start_sp, (char *)dummy1, sizeof dummy);
+    if (errcode != 0)
+      error ("Cannot write text segment -- call_function failed");
+  }
+#endif /* After text_end.  */
+#endif /* Not on stack.  */
+
 #ifdef STACK_ALIGN
   /* If stack grows down, we must leave a hole at the top. */
   {
@@ -654,9 +773,41 @@ call_function (function, nargs, args)
 	sp += TYPE_LENGTH (value_type);
 #endif
       }
-    
+
+#if defined (REG_STRUCT_HAS_ADDR)
+  {
+    /* This is a machine like the sparc, where we need to pass a pointer
+       to the structure, not the structure itself.  */
+    if (REG_STRUCT_HAS_ADDR (using_gcc))
+      for (i = nargs - 1; i >= 0; i--)
+	if (TYPE_CODE (VALUE_TYPE (args[i])) == TYPE_CODE_STRUCT)
+	  {
+	    CORE_ADDR addr;
+#if !(1 INNER_THAN 2)
+	    /* The stack grows up, so the address of the thing we push
+	       is the stack pointer before we push it.  */
+	    addr = sp;
+#endif
+	    /* Push the structure.  */
+	    sp = value_push (sp, args[i]);
+#if 1 INNER_THAN 2
+	    /* The stack grows down, so the address of the thing we push
+	       is the stack pointer after we push it.  */
+	    addr = sp;
+#endif
+	    /* The value we're going to pass is the address of the thing
+	       we just pushed.  */
+	    args[i] = value_from_long (builtin_type_long, (LONGEST) addr);
+	  }
+  }
+#endif /* REG_STRUCT_HAS_ADDR.  */
+
+#ifdef PUSH_ARGUMENTS
+  PUSH_ARGUMENTS(nargs, args, sp, struct_return, struct_addr);
+#else /* !PUSH_ARGUMENTS */
   for (i = nargs - 1; i >= 0; i--)
     sp = value_arg_push (sp, args[i]);
+#endif /* !PUSH_ARGUMENTS */
 
 #ifdef CALL_DUMMY_STACK_ADJUST
 #if 1 INNER_THAN 2
@@ -672,14 +823,16 @@ call_function (function, nargs, args)
      it doesn't cost us anything but space and if the function is pcc
      it will ignore this value, we will make that assumption.
 
-     Also note that on some machines (like the sparc) pcc uses this
-     convention in a slightly twisted way also.  */
+     Also note that on some machines (like the sparc) pcc uses a 
+     convention like gcc's.  */
 
   if (struct_return)
     STORE_STRUCT_RETURN (struct_addr, sp);
 
-  /* Write the stack pointer.  This is here because the statement above
-     might fool with it */
+  /* Write the stack pointer.  This is here because the statements above
+     might fool with it.  On SPARC, this write also stores the register
+     window into the right place in the new stack frame, which otherwise
+     wouldn't happen.  (See write_inferior_registers in sparc-xdep.c.)  */
   write_register (SP_REGNUM, sp);
 
   /* Figure out the value returned by the function.  */
@@ -696,6 +849,16 @@ call_function (function, nargs, args)
     return value_being_returned (value_type, retbuf, struct_return);
   }
 }
+#else /* no CALL_DUMMY.  */
+value
+call_function_by_hand (function, nargs, args)
+     value function;
+     int nargs;
+     value *args;
+{
+  error ("Cannot invoke functions on this machine.");
+}
+#endif /* no CALL_DUMMY.  */
 
 /* Create a value for a string constant:
    Call the function malloc in the inferior to get space for it,
@@ -739,7 +902,7 @@ value_string (ptr, len)
 
   /* Find the address of malloc in the inferior.  */
 
-  sym = lookup_symbol ("malloc", 0, VAR_NAMESPACE, 0);
+  sym = lookup_symbol ("malloc", 0, VAR_NAMESPACE, 0, NULL);
   if (sym != 0)
     {
       if (SYMBOL_CLASS (sym) != LOC_BLOCK)
@@ -748,19 +911,19 @@ value_string (ptr, len)
     }
   else
     {
-      register int i;
-      for (i = 0; i < misc_function_count; i++)
-	if (!strcmp (misc_function_vector[i].name, "malloc"))
+      register int j;
+      for (j = 0; j < misc_function_count; j++)
+	if (!strcmp (misc_function_vector[j].name, "malloc"))
 	  break;
-      if (i < misc_function_count)
+      if (j < misc_function_count)
 	val = value_from_long (builtin_type_long,
-			     (LONGEST) misc_function_vector[i].address);
+			     (LONGEST) misc_function_vector[j].address);
       else
 	error ("String constants require the program to have a function \"malloc\".");
     }
 
   blocklen = value_from_long (builtin_type_int, (LONGEST) (len + 1));
-  val = call_function (val, 1, &blocklen);
+  val = target_call_function (val, 1, &blocklen);
   if (value_zerop (val))
     error ("No memory available for string constant.");
   write_memory ((CORE_ADDR) value_as_long (val), copy, len + 1);
@@ -768,44 +931,163 @@ value_string (ptr, len)
   return val;
 }
 
-/* Given ARG1, a value of type (pointer to a)* structure/union,
+/* Helper function used by value_struct_elt to recurse through baseclasses.
+   Look for a field NAME in ARG1. Adjust the address of ARG1 by OFFSET bytes,
+   and treat the result as having type TYPE.
+   If found, return value, else return NULL. */
+
+static value
+search_struct_field (name, arg1, offset, type)
+     char *name;
+     register value arg1;
+     int offset;
+     register struct type *type;
+{
+  int i;
+
+  check_stub_type (type);
+
+  for (i = TYPE_NFIELDS (type) - 1; i >= TYPE_N_BASECLASSES (type); i--)
+    {
+      char *t_field_name = TYPE_FIELD_NAME (type, i);
+      if (t_field_name && !strcmp (t_field_name, name))
+	  return TYPE_FIELD_STATIC (type, i)
+	      ? value_static_field (type, name, i)
+	      : value_primitive_field (arg1, offset, i, type);
+    }
+
+  for (i = TYPE_N_BASECLASSES (type) - 1; i >= 0; i--)
+    {
+      value v;
+      /* If we are looking for baseclasses, this is what we get when we
+	 hit them.  */
+      int found_baseclass = !strcmp (name, TYPE_BASECLASS_NAME (type, i));
+
+      if (BASETYPE_VIA_VIRTUAL (type, i))
+	{
+	  value v2;
+	  baseclass_addr (type, i, VALUE_CONTENTS (arg1) + offset, &v2);
+	  if (v2 == 0)
+	    error ("virtual baseclass botch");
+	  if (found_baseclass)
+	    return v2;
+	  v = search_struct_field (name, v2, 0, TYPE_BASECLASS (type, i));
+	  if (v) return v;
+	  else continue;
+	}
+      if (found_baseclass)
+	v = value_primitive_field (arg1, offset, i, type);
+      else
+	v = search_struct_field (name, arg1,
+				 offset + TYPE_BASECLASS_BITPOS (type, i) / 8,
+				 TYPE_BASECLASS (type, i));
+      if (v) return v;
+    }
+  return NULL;
+}
+
+/* Helper function used by value_struct_elt to recurse through baseclasses.
+   Look for a field NAME in ARG1. Adjust the address of ARG1 by OFFSET bytes,
+   and treat the result as having type TYPE.
+   If found, return value, else return NULL. */
+
+static value
+search_struct_method (name, arg1, args, offset, static_memfuncp, type)
+     char *name;
+     register value arg1, *args;
+     int offset, *static_memfuncp;
+     register struct type *type;
+{
+  int i;
+
+  check_stub_type (type);
+  for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; i--)
+    {
+      char *t_field_name = TYPE_FN_FIELDLIST_NAME (type, i);
+      if (t_field_name && !strcmp (t_field_name, name))
+	{
+	  int j;
+	  struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
+
+	  for (j = TYPE_FN_FIELDLIST_LENGTH (type, i) - 1; j >= 0; --j)
+	    {
+	      if (TYPE_FLAGS (TYPE_FN_FIELD_TYPE (f, j)) & TYPE_FLAG_STUB)
+		check_stub_method (type, i, j);
+	      if (!typecmp (TYPE_FN_FIELD_STATIC_P (f, j),
+			    TYPE_FN_FIELD_ARGS (f, j), args))
+		{
+		  if (TYPE_FN_FIELD_VIRTUAL_P (f, j))
+		    return (value)value_virtual_fn_field (arg1, f, j);
+		  if (TYPE_FN_FIELD_STATIC_P (f, j) && static_memfuncp)
+		    *static_memfuncp = 1;
+		  return (value)value_fn_field (arg1, i, j);
+		}
+	    }
+	}
+    }
+
+  for (i = TYPE_N_BASECLASSES (type) - 1; i >= 0; i--)
+    {
+      value v;
+
+      if (BASETYPE_VIA_VIRTUAL (type, i))
+	{
+	  value v2;
+	  baseclass_addr (type, i, VALUE_CONTENTS (arg1) + offset, &v2);
+	  if (v2 == 0)
+	    error ("virtual baseclass botch");
+	  v = search_struct_method (name, v2, args, 0,
+				    static_memfuncp, TYPE_BASECLASS (type, i));
+	  if (v) return v;
+	  else continue;
+	}
+
+      v = search_struct_method (name, arg1, args,
+				TYPE_BASECLASS_BITPOS (type, i) / 8,
+				static_memfuncp, TYPE_BASECLASS (type, i));
+      if (v) return v;
+    }
+  return NULL;
+}
+
+/* Given *ARGP, a value of type (pointer to a)* structure/union,
    extract the component named NAME from the ultimate target structure/union
    and return it as a value with its appropriate type.
-   ERR is used in the error message if ARG1's type is wrong.
+   ERR is used in the error message if *ARGP's type is wrong.
 
    C++: ARGS is a list of argument types to aid in the selection of
    an appropriate method. Also, handle derived types.
 
    STATIC_MEMFUNCP, if non-NULL, points to a caller-supplied location
    where the truthvalue of whether the function that was resolved was
-   a static member function or not.
+   a static member function or not is stored.
 
    ERR is an error message to be printed in case the field is not found.  */
 
 value
-value_struct_elt (arg1, args, name, static_memfuncp, err)
-     register value arg1, *args;
+value_struct_elt (argp, args, name, static_memfuncp, err)
+     register value *argp, *args;
      char *name;
      int *static_memfuncp;
      char *err;
 {
   register struct type *t;
-  register int i;
-  int found = 0;
+  int found = 0;	/* FIXME, half the time this doesn't get set */
+  value arg1_as_ptr = *argp;	/* FIXME, set but not used! */
+  value v;
 
-  struct type *baseclass;
+  COERCE_ARRAY (*argp);
 
-  COERCE_ARRAY (arg1);
-
-  t = VALUE_TYPE (arg1);
+  t = VALUE_TYPE (*argp);
 
   /* Follow pointers until we get to a non-pointer.  */
 
   while (TYPE_CODE (t) == TYPE_CODE_PTR || TYPE_CODE (t) == TYPE_CODE_REF)
     {
-      arg1 = value_ind (arg1);
-      COERCE_ARRAY (arg1);
-      t = VALUE_TYPE (arg1);
+      arg1_as_ptr = *argp;
+      *argp = value_ind (*argp);
+      COERCE_ARRAY (*argp);
+      t = VALUE_TYPE (*argp);
     }
 
   if (TYPE_CODE (t) == TYPE_CODE_MEMBER)
@@ -814,8 +1096,6 @@ value_struct_elt (arg1, args, name, static_memfuncp, err)
   if (TYPE_CODE (t) != TYPE_CODE_STRUCT
       && TYPE_CODE (t) != TYPE_CODE_UNION)
     error ("Attempt to extract a component of a value that is not a %s.", err);
-
-  baseclass = t;
 
   /* Assume it's not, unless we see that it is.  */
   if (static_memfuncp)
@@ -827,56 +1107,26 @@ value_struct_elt (arg1, args, name, static_memfuncp, err)
 
       /* Try as a variable first, because if we succeed, there
 	 is less work to be done.  */
-      while (t)
-	{
-	  for (i = TYPE_NFIELDS (t) - 1; i >= 0; i--)
-	    {
-	      char *t_field_name = TYPE_FIELD_NAME (t, i);
-	      if (t_field_name && !strcmp (t_field_name, name))
-		{
-		  found = 1;
-		  break;
-		}
-	    }
-
-	  if (i >= 0)
-	    return TYPE_FIELD_STATIC (t, i)
-	      ? value_static_field (t, name, i) : value_field (arg1, i);
-
-	  if (TYPE_N_BASECLASSES (t) == 0)
-	    break;
-
-	  t = TYPE_BASECLASS (t, 1);
-	  VALUE_TYPE (arg1) = t; /* side effect! */
-	}
+      v = search_struct_field (name, *argp, 0, t);
+      if (v)
+	return v;
 
       /* C++: If it was not found as a data field, then try to
          return it as a pointer to a method.  */
-      t = baseclass;
-      VALUE_TYPE (arg1) = t;	/* side effect! */
 
       if (destructor_name_p (name, t))
-	error ("use `info method' command to print out value of destructor");
+	error ("Cannot get value of destructor");
 
-      while (t)
+      v = search_struct_method (name, *argp, args, 0, static_memfuncp, t);
+
+      if (v == 0)
 	{
-	  for (i = TYPE_NFN_FIELDS (t) - 1; i >= 0; --i)
-	    {
-	      if (! strcmp (TYPE_FN_FIELDLIST_NAME (t, i), name))
-		{
-		  error ("use `info method' command to print value of method \"%s\"", name);
-		}
-	    }
-
-	  if (TYPE_N_BASECLASSES (t) == 0)
-	    break;
-
-	  t = TYPE_BASECLASS (t, 1);
+	  if (TYPE_NFN_FIELDS (t))
+	    error ("There is no member or method named %s.", name);
+	  else
+	    error ("There is no member named %s.", name);
 	}
-
-      if (found == 0)
-	error ("There is no field named %s.", name);
-      return 0;
+      return v;
     }
 
   if (destructor_name_p (name, t))
@@ -884,7 +1134,7 @@ value_struct_elt (arg1, args, name, static_memfuncp, err)
       if (!args[1])
 	{
 	  /* destructors are a special case.  */
-	  return (value)value_fn_field (arg1, 0,
+	  return (value)value_fn_field (*argp, 0,
 					TYPE_FN_FIELDLIST_LENGTH (t, 0));
 	}
       else
@@ -892,75 +1142,21 @@ value_struct_elt (arg1, args, name, static_memfuncp, err)
 	  error ("destructor should not have any argument");
 	}
     }
-
-  /*   This following loop is for methods with arguments.  */
-  while (t)
-    {
-      /* Look up as method first, because that is where we
-	 expect to find it first.  */
-      for (i = TYPE_NFN_FIELDS (t) - 1; i >= 0; i--)
-	{
-	  struct fn_field *f = TYPE_FN_FIELDLIST1 (t, i);
-
-	  if (!strcmp (TYPE_FN_FIELDLIST_NAME (t, i), name))
-	    {
-	      int j;
-	      struct fn_field *f = TYPE_FN_FIELDLIST1 (t, i);
-
-	      found = 1;
-	      for (j = TYPE_FN_FIELDLIST_LENGTH (t, i) - 1; j >= 0; --j)
-		if (!typecmp (TYPE_FN_FIELD_STATIC_P (f, j),
-			      TYPE_FN_FIELD_ARGS (f, j), args))
-		  {
-		    if (TYPE_FN_FIELD_VIRTUAL_P (f, j))
-		      return (value)value_virtual_fn_field (arg1, f, j, t);
-		    if (TYPE_FN_FIELD_STATIC_P (f, j) && static_memfuncp)
-		      *static_memfuncp = 1;
-		    return (value)value_fn_field (arg1, i, j);
-		  }
-	    }
-	}
-
-      if (TYPE_N_BASECLASSES (t) == 0)
-	break;
-      
-      t = TYPE_BASECLASS (t, 1);
-      VALUE_TYPE (arg1) = t;	/* side effect! */
-    }
-
-  if (found)
-    {
-      error ("Structure method %s not defined for arglist.", name);
-      return 0;
-    }
   else
+    v = search_struct_method (name, *argp, args, 0, static_memfuncp, t);
+
+  if (v == 0)
     {
-      /* See if user tried to invoke data as function */
-      t = baseclass;
-      while (t)
-	{
-	  for (i = TYPE_NFIELDS (t) - 1; i >= 0; i--)
-	    {
-	      char *t_field_name = TYPE_FIELD_NAME (t, i);
-	      if (t_field_name && !strcmp (t_field_name, name))
-		{
-		  found = 1;
-		  break;
-		}
-	    }
-
-	  if (i >= 0)
-	    return TYPE_FIELD_STATIC (t, i)
-	      ? value_static_field (t, name, i) : value_field (arg1, i);
-
-	  if (TYPE_N_BASECLASSES (t) == 0)
-	    break;
-
-	  t = TYPE_BASECLASS (t, 1);
-	  VALUE_TYPE (arg1) = t; /* side effect! */
-	}
-      error ("Structure has no component named %s.", name);
+      /* See if user tried to invoke data as function.  If so,
+	 hand it back.  If it's not callable (i.e., a pointer to function),
+	 gdb should give an error.  */
+      v = search_struct_field (name, *argp, 0, t);
     }
+
+  if (v)
+    return v;
+
+  error ("Structure has no component named %s.", name);
 }
 
 /* C++: return 1 is NAME is a legitimate name for the destructor
@@ -972,22 +1168,59 @@ destructor_name_p (name, type)
      struct type *type;
 {
   /* destructors are a special case.  */
-  char *dname = TYPE_NAME (type);
 
   if (name[0] == '~')
     {
+      char *dname = type_name_no_tag (type);
+
       if (! TYPE_HAS_DESTRUCTOR (type))
-	error ("type `%s' does not have destructor defined",
-	       TYPE_NAME (type));
-      /* Skip past the "struct " at the front.  */
-      while (*dname++ != ' ') ;
+	error ("type `%s' does not have destructor defined", dname);
       if (strcmp (dname, name+1))
-	error ("destructor specification error");
+	error ("name of destructor must equal name of class");
       else
 	return 1;
     }
   return 0;
 }
+
+/* Helper function for check_field: Given TYPE, a structure/union,
+   return 1 if the component named NAME from the ultimate
+   target structure/union is defined, otherwise, return 0. */
+
+static int
+check_field_in (type, name)
+     register struct type *type;
+     char *name;
+{
+  register int i;
+
+  for (i = TYPE_NFIELDS (type) - 1; i >= TYPE_N_BASECLASSES (type); i--)
+    {
+      char *t_field_name = TYPE_FIELD_NAME (type, i);
+      if (t_field_name && !strcmp (t_field_name, name))
+	return 1;
+    }
+
+  /* C++: If it was not found as a data field, then try to
+     return it as a pointer to a method.  */
+
+  /* Destructors are a special case.  */
+  if (destructor_name_p (name, type))
+    return 1;
+
+  for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; --i)
+    {
+      if (!strcmp (TYPE_FN_FIELDLIST_NAME (type, i), name))
+	return 1;
+    }
+
+  for (i = TYPE_N_BASECLASSES (type) - 1; i >= 0; i--)
+    if (check_field_in (TYPE_BASECLASS (type, i), name))
+      return 1;
+      
+  return 0;
+}
+
 
 /* C++: Given ARG1, a value of type (pointer to a)* structure/union,
    return 1 if the component named NAME from the ultimate
@@ -999,10 +1232,6 @@ check_field (arg1, name)
      char *name;
 {
   register struct type *t;
-  register int i;
-  int found = 0;
-
-  struct type *baseclass;
 
   COERCE_ARRAY (arg1);
 
@@ -1020,47 +1249,7 @@ check_field (arg1, name)
       && TYPE_CODE (t) != TYPE_CODE_UNION)
     error ("Internal error: `this' is not an aggregate");
 
-  baseclass = t;
-
-  while (t)
-    {
-      for (i = TYPE_NFIELDS (t) - 1; i >= 0; i--)
-	{
-	  char *t_field_name = TYPE_FIELD_NAME (t, i);
-	  if (t_field_name && !strcmp (t_field_name, name))
-	    {
-	      return 1;
-	    }
-	}
-      if (TYPE_N_BASECLASSES (t) == 0)
-	break;
-
-      t = TYPE_BASECLASS (t, 1);
-    }
-
-  /* C++: If it was not found as a data field, then try to
-     return it as a pointer to a method.  */
-  t = baseclass;
-  VALUE_TYPE (arg1) = t;	/* side effect! */
-
-  /* Destructors are a special case.  */
-  if (destructor_name_p (name, t))
-    return 1;
-
-  while (t)
-    {
-      for (i = TYPE_NFN_FIELDS (t) - 1; i >= 0; --i)
-	{
-	  if (!strcmp (TYPE_FN_FIELDLIST_NAME (t, i), name))
-	    return 1;
-	}
-
-      if (TYPE_N_BASECLASSES (t) == 0)
-	break;
-
-      t = TYPE_BASECLASS (t, 1);
-    }
-  return 0;
+  return check_field_in (t, name);
 }
 
 /* C++: Given an aggregate type DOMAIN, and a member name NAME,
@@ -1076,7 +1265,6 @@ value_struct_elt_for_address (domain, intype, name)
 {
   register struct type *t = domain;
   register int i;
-  int found = 0;
   value v;
 
   struct type *baseclass;
@@ -1089,18 +1277,29 @@ value_struct_elt_for_address (domain, intype, name)
 
   while (t)
     {
-      for (i = TYPE_NFIELDS (t) - 1; i >= 0; i--)
+      for (i = TYPE_NFIELDS (t) - 1; i >= TYPE_N_BASECLASSES (t); i--)
 	{
 	  char *t_field_name = TYPE_FIELD_NAME (t, i);
 	  if (t_field_name && !strcmp (t_field_name, name))
 	    {
+	      if (TYPE_FIELD_STATIC (t, i))
+		{
+		  char *phys_name = TYPE_FIELD_STATIC_PHYSNAME (t, i);
+		  struct symbol *sym =
+		      lookup_symbol (phys_name, 0, VAR_NAMESPACE, 0, NULL);
+		  if (! sym) error ("Internal error: could not find physical static variable named %s", phys_name);
+		  v = value_from_long(builtin_type_long,
+				      (CORE_ADDR)SYMBOL_BLOCK_VALUE (sym));
+		  VALUE_TYPE(v) = lookup_pointer_type (TYPE_FIELD_TYPE (t, i));
+		  return v;
+	        }
 	      if (TYPE_FIELD_PACKED (t, i))
 		error ("pointers to bitfield members not allowed");
 
 	      v = value_from_long (builtin_type_int,
 				   (LONGEST) (TYPE_FIELD_BITPOS (t, i) >> 3));
-	      VALUE_TYPE (v) = lookup_pointer_type (
-		      lookup_member_type (TYPE_FIELD_TYPE (t, i), baseclass));
+	      VALUE_TYPE (v)
+		= lookup_pointer_type (lookup_member_type (TYPE_FIELD_TYPE (t, i), baseclass));
 	      return v;
 	    }
 	}
@@ -1108,7 +1307,7 @@ value_struct_elt_for_address (domain, intype, name)
       if (TYPE_N_BASECLASSES (t) == 0)
 	break;
 
-      t = TYPE_BASECLASS (t, 1);
+      t = TYPE_BASECLASS (t, 0);
     }
 
   /* C++: If it was not found as a data field, then try to
@@ -1155,7 +1354,7 @@ value_struct_elt_for_address (domain, intype, name)
 	      else
 		{
 		  struct symbol *s = lookup_symbol (TYPE_FN_FIELD_PHYSNAME (f, j),
-						    0, VAR_NAMESPACE, 0);
+						    0, VAR_NAMESPACE, 0, NULL);
 		  v = locate_var_value (s, 0);
 		}
 	      VALUE_TYPE (v) = lookup_pointer_type (lookup_member_type (TYPE_FN_FIELD_TYPE (f, j), baseclass));
@@ -1166,7 +1365,7 @@ value_struct_elt_for_address (domain, intype, name)
       if (TYPE_N_BASECLASSES (t) == 0)
 	break;
 
-      t = TYPE_BASECLASS (t, 1);
+      t = TYPE_BASECLASS (t, 0);
     }
   return 0;
 }
@@ -1181,7 +1380,7 @@ value_struct_elt_for_address (domain, intype, name)
    which is the type of the instance variable.  This is because we want
    to handle calls with objects from derived classes.  This is not
    entirely correct: we should actually check to make sure that a
-   requested operation is type secure, shouldn't we?  */
+   requested operation is type secure, shouldn't we?  FIXME.  */
 
 int
 typecmp (staticp, t1, t2)
@@ -1201,7 +1400,8 @@ typecmp (staticp, t1, t2)
     {
       if (! t2[i]
 	  || t1[i]->code != t2[i]->type->code
-	  || t1[i]->target_type != t2[i]->type->target_type)
+/* Too pessimistic:  || t1[i]->target_type != t2[i]->type->target_type */
+ )
 	return i+1;
     }
   if (!t1[i]) return 0;
@@ -1217,9 +1417,10 @@ value_of_this (complain)
 {
   extern FRAME selected_frame;
   struct symbol *func, *sym;
-  char *funname = 0;
   struct block *b;
   int i;
+  static const char funny_this[] = "this";
+ 
 
   if (selected_frame == 0)
     if (complain)
@@ -1227,12 +1428,12 @@ value_of_this (complain)
     else return 0;
 
   func = get_frame_function (selected_frame);
-  if (func)
-    funname = SYMBOL_NAME (func);
-  else
-    if (complain)
-      error ("no `this' in nameless context");
-    else return 0;
+  if (!func)
+    {
+      if (complain)
+	error ("no `this' in nameless context");
+      else return 0;
+    }
 
   b = SYMBOL_BLOCK_VALUE (func);
   i = BLOCK_NSYMS (b);
@@ -1241,11 +1442,16 @@ value_of_this (complain)
       error ("no args, no `this'");
     else return 0;
 
-  sym = BLOCK_SYM (b, 0);
-  if (strncmp ("$this", SYMBOL_NAME (sym), 5))
-    if (complain)
-      error ("current stack frame not in method");
-    else return 0;
+  /* Calling lookup_block_symbol is necessary to get the LOC_REGISTER
+     symbol instead of the LOC_ARG one (if both exist).  */
+  sym = lookup_block_symbol (b, funny_this, VAR_NAMESPACE);
+  if (sym == NULL)
+    {
+      if (complain)
+	error ("current stack frame not in method");
+      else
+	return NULL;
+    }
 
   return read_var_value (sym, selected_frame);
 }
