@@ -1,3 +1,71 @@
+Thu Feb 18 01:19:49 1993  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Update PTRACE_ARG3_TYPE doc, pull PT_*.
+
+Wed Feb 17 08:15:24 1993  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Remove SET_STACK_LIMIT_HUGE from target defines.
+
+Thu Feb 11 10:38:40 1993  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Fix thinko (NM_FILE => NAT_FILE).  Found
+	by Michael Ben-Gershon <mybg@CS.HUJI.AC.IL>.
+
+Wed Feb 10 23:59:19 1993  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Eliminate IBM6000_HOST, document IBM6000_TARGET.
+
+Tue Feb  9 18:26:21 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo, gdbinv-s.texi: misc updates
+
+Sat Feb  6 10:25:47 1993  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Brief documentation for longjmp support,
+	from an email msg by Stu.
+
+Fri Feb  5 14:10:15 1993  John Gilmore  (gnu@cygnus.com)
+
+	* stabs.texinfo:  Fix description of floating point "range"
+	types (which really define basic types).  Reported by Jim Meehan,
+	<meehan@src.dec.com>.
+
+	* gdbint.texinfo:  Remove COFF_NO_LONG_FILE_NAMES define, now gone.
+
+Thu Feb  4 13:56:46 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* gdbint.texinfo: Slightly expand section on supporting a new
+	object file format.
+
+Thu Feb  4 01:49:04 1993  John Gilmore  (gnu@cygnus.com)
+
+	* Makefile.in (refcard.ps, lrefcard.ps):  Remove psref.tex
+	intermediate file.
+
+Tue Feb  2 12:18:06 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo, gdbinv-s.texi: miscellaneous stylistic cleanups
+
+Mon Feb  1 15:35:47 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdbinv-s.texi: z8000 simulator target name is just "sim"
+
+	* gdbinv-s.texi:  Mention that Z8000 simulator can simulate Z8001
+	as well as Z8002.
+
+Sat Nov 28 06:51:35 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Add sections on clean design and on how to send
+	in changes.
+
+Mon Nov  9 23:57:02 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Add how to declare the result of make_cleanup.
+
+Mon Oct 26 11:09:47 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdb.texinfo:  Fix typo, reported by Karl Berry.
+
 Fri Oct 23 00:41:21 1992  John Gilmore  (gnu@cygnus.com)
 
 	* gdb.texinfo:  Add opcodes dir to GDB distribution description.

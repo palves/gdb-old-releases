@@ -72,7 +72,7 @@ static void
 command_loop_marker PARAMS ((int));
 
 static void
-print_gdb_version PARAMS ((void));
+print_gdb_version PARAMS ((FILE *));
 
 static void
 quit_command PARAMS ((char *, int));
@@ -518,6 +518,7 @@ main (argc, argv)
 	{"m", no_argument, &mapped_symbol_files, 1},
 	{"quiet", no_argument, &quiet, 1},
 	{"q", no_argument, &quiet, 1},
+	{"silent", no_argument, &quiet, 1},
 	{"nx", no_argument, &inhibit_gdbinit, 1},
 	{"n", no_argument, &inhibit_gdbinit, 1},
 	{"batch", no_argument, &batch, 1},
@@ -612,20 +613,19 @@ main (argc, argv)
 #endif
 	  case '?':
 	    fprintf (stderr,
-		     "Use `%s +help' for a complete list of options.\n",
+		     "Use `%s --help' for a complete list of options.\n",
 		     argv[0]);
 	    exit (1);
 	  }
-
       }
+
     if (print_help)
       {
-	fputs ("\
-This is GDB, the GNU debugger.  Use the command\n\
-    gdb [options] [executable [core-file]]\n\
-to enter the debugger.\n\
-\n\
-Options available are:\n\
+	print_gdb_version(stderr);
+	fputs ("\n\
+This is the GNU debugger.  Usage:\n\
+    gdb [options] [executable-file [core-file or process-id]]\n\
+Options:\n\
   -help             Print this message.\n\
   -quiet            Do not print version number on startup.\n\
   -fullname         Output information used by emacs-GDB interface.\n\
@@ -689,7 +689,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
       /* Print all the junk at the top, with trailing "..." if we are about
 	 to read a symbol file (possibly slowly).  */
       print_gnu_advertisement ();
-      print_gdb_version ();
+      print_gdb_version (stdout);
       if (symarg)
 	printf_filtered ("..");
       wrap_here("");
@@ -757,7 +757,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 
   if (execarg != NULL
       && symarg != NULL
-      && strcmp (execarg, symarg) == 0)
+      && STREQ (execarg, symarg))
     {
       /* The exec file and the symbol-file are the same.  If we can't open
 	 it, better only print one error message.  */
@@ -898,7 +898,6 @@ execute_command (p, from_tty)
      int from_tty;
 {
   register struct cmd_list_element *c;
-  register struct command_line *cmdlines;
   register enum language flang;
   static int warned = 0;
 
@@ -1768,7 +1767,7 @@ define_command (comname, from_tty)
 
   /* Look it up, and verify that we got an exact match.  */
   c = lookup_cmd (&tem, cmdlist, "", -1, 1);
-  if (c && 0 != strcmp (comname, c->name))
+  if (c && !STREQ (comname, c->name))
     c = 0;
     
   if (c)
@@ -1790,7 +1789,7 @@ define_command (comname, from_tty)
       /* Look up cmd it hooks, and verify that we got an exact match.  */
       tem = comname+HOOK_LEN;
       hookc = lookup_cmd (&tem, cmdlist, "", -1, 0);
-      if (hookc && 0 != strcmp (comname+HOOK_LEN, hookc->name))
+      if (hookc && !STREQ (comname+HOOK_LEN, hookc->name))
 	hookc = 0;
       if (!hookc)
 	{
@@ -1890,10 +1889,11 @@ There is absolutely no warranty for GDB; type \"show warranty\" for details.\n\
 }
 
 static void
-print_gdb_version ()
+print_gdb_version (stream)
+  FILE *stream;
 {
-  printf_filtered ("\
-GDB %s, Copyright 1992 Free Software Foundation, Inc.",
+  fprintf_filtered (stream, "\
+GDB %s, Copyright 1993 Free Software Foundation, Inc.",
 	  version);
 }
 
@@ -1905,7 +1905,7 @@ show_version (args, from_tty)
 {
   immediate_quit++;
   print_gnu_advertisement ();
-  print_gdb_version ();
+  print_gdb_version (stdout);
   printf_filtered ("\n");
   immediate_quit--;
 }
@@ -1960,7 +1960,7 @@ pwd_command (args, from_tty)
   if (args) error ("The \"pwd\" command does not take an argument: %s", args);
   getcwd (dirbuf, sizeof (dirbuf));
 
-  if (strcmp (dirbuf, current_directory))
+  if (!STREQ (dirbuf, current_directory))
     printf ("Working directory %s\n (canonically %s).\n",
 	    current_directory, dirbuf);
   else
@@ -2050,7 +2050,7 @@ source_command (args, from_tty)
   file = tilde_expand (file);
   make_cleanup (free, file);
 
-  stream = fopen (file, "r");
+  stream = fopen (file, FOPEN_RT);
   if (stream == 0)
     perror_with_name (file);
 
@@ -2071,7 +2071,7 @@ echo_command (text, from_tty)
   register int c;
 
   if (text)
-    while (c = *p++)
+    while ((c = *p++) != '\0')
       {
 	if (c == '\\')
 	  {
@@ -2247,6 +2247,7 @@ int signo;
 {
   /* This message is based on ANSI C, section 4.7.  Note that integer
      divide by zero causes this, so "float" is a misnomer.  */
+  signal (SIGFPE, float_handler);
   error ("Erroneous arithmetic operation.");
 }
 

@@ -99,45 +99,54 @@ extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
 
 /* Add any kind of symbol to a psymbol_allocation_list. */
 
-#define	ADD_PSYMBOL_VT_TO_LIST(NAME,NAMELENGTH,NAMESPACE,CLASS,LIST,VALUE,VT) \
-  do {		        						\
-    register struct partial_symbol *psym;				\
-    if ((LIST).next >= (LIST).list + (LIST).size)			\
-	   extend_psymbol_list (&(LIST),objfile);				\
-    psym = (LIST).next++;						\
-									\
-    SYMBOL_NAME (psym) = (char *) obstack_alloc (&objfile->psymbol_obstack,	\
-						 (NAMELENGTH) + 1);	\
-    memcpy (SYMBOL_NAME (psym), (NAME), (NAMELENGTH));			\
-    SYMBOL_NAME (psym)[(NAMELENGTH)] = '\0';				\
-    SYMBOL_NAMESPACE (psym) = (NAMESPACE);				\
-    SYMBOL_CLASS (psym) = (CLASS);					\
-    VT (psym) = (VALUE); 						\
-  } while (0);
+#ifndef INLINE_ADD_PSYMBOL
+#define INLINE_ADD_PSYMBOL 1
+#endif
 
-#ifdef DEBUG
+#if !INLINE_ADD_PSYMBOL
 
 /* Since one arg is a struct, we have to pass in a ptr and deref it (sigh) */
 
-#define	ADD_PSYMBOL_TO_LIST(name, namelength, namespace, class, list, value) \
-  add_psymbol_to_list (name, namelength, namespace, class, &list, value)
+#define	ADD_PSYMBOL_TO_LIST(name, namelength, namespace, class, list, value, language, objfile) \
+  add_psymbol_to_list (name, namelength, namespace, class, &list, value, language, objfile)
 
-#define	ADD_PSYMBOL_ADDR_TO_LIST(name, namelength, namespace, class, list, value) \
-  add_psymbol_addr_to_list (name, namelength, namespace, class, &list, value)
+#define	ADD_PSYMBOL_ADDR_TO_LIST(name, namelength, namespace, class, list, value, language, objfile) \
+  add_psymbol_addr_to_list (name, namelength, namespace, class, &list, value, language, objfile)
 
-#else	/* !DEBUG */
+#else	/* !INLINE_ADD_PSYMBOL */
+
+#include "demangle.h"
+
+#define	ADD_PSYMBOL_VT_TO_LIST(NAME,NAMELENGTH,NAMESPACE,CLASS,LIST,VALUE,VT,LANGUAGE, OBJFILE) \
+  do {		        						\
+    register struct partial_symbol *psym;				\
+    register char *demangled_name;					\
+    if ((LIST).next >= (LIST).list + (LIST).size)			\
+      extend_psymbol_list (&(LIST),(OBJFILE));				\
+    psym = (LIST).next++;						\
+    SYMBOL_NAME (psym) =						\
+      (char *) obstack_alloc (&objfile->psymbol_obstack,		\
+			      (NAMELENGTH) + 1);			\
+    memcpy (SYMBOL_NAME (psym), (NAME), (NAMELENGTH));			\
+    SYMBOL_NAME (psym)[(NAMELENGTH)] = '\0';				\
+    SYMBOL_NAMESPACE (psym) = (NAMESPACE);				\
+    PSYMBOL_CLASS (psym) = (CLASS);					\
+    VT (psym) = (VALUE); 						\
+    SYMBOL_LANGUAGE (psym) = (LANGUAGE);				\
+    SYMBOL_INIT_DEMANGLED_NAME (psym, &objfile->psymbol_obstack);	\
+  } while (0);
 
 /* Add a symbol with an integer value to a psymtab. */
 
-#define ADD_PSYMBOL_TO_LIST(name, namelength, namespace, class, list, value) \
-  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, list, value, SYMBOL_VALUE)
+#define ADD_PSYMBOL_TO_LIST(name, namelength, namespace, class, list, value, language, objfile) \
+  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, list, value, SYMBOL_VALUE, language, objfile)
 
 /* Add a symbol with a CORE_ADDR value to a psymtab. */
 
-#define	ADD_PSYMBOL_ADDR_TO_LIST(name, namelength, namespace, class, list, value)\
-  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, list, value, SYMBOL_VALUE_ADDRESS)
+#define	ADD_PSYMBOL_ADDR_TO_LIST(name, namelength, namespace, class, list, value, language, objfile)\
+  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, list, value, SYMBOL_VALUE_ADDRESS, language, objfile)
 
-#endif	/* DEBUG */
+#endif	/* INLINE_ADD_PSYMBOL */
 
 			/*   Functions   */
 
@@ -197,32 +206,6 @@ obconcat PARAMS ((struct obstack *obstackp, const char *, const char *,
 		  const char *));
 
 			/*   Variables   */
-
-/* Support for complaining about things in the symbol file that aren't
-   catastrophic.
-
-   Each such thing gets a counter.  The first time we have the problem,
-   during a symbol read, we report it.  At the end of symbol reading,
-   if verbose, we report how many of each problem we had.  */
-
-struct complaint {
-  char *message;
-  unsigned counter;
-  struct complaint *next;
-};
-
-/* Root of the chain of complaints that have at some point been issued. 
-   This is used to reset the counters, and/or report the total counts.  */
-
-extern struct complaint complaint_root[1];
-
-/* Functions that handle complaints.  (in symfile.c)  */
-
-extern void
-complain PARAMS ((struct complaint *, char *));
-
-extern void
-clear_complaints PARAMS ((int sym_reading, int noisy));
 
 /* From symfile.c */
 

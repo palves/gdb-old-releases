@@ -49,23 +49,14 @@ struct block *block_found;
 /* Number of arguments seen so far in innermost function call.  */
 int arglist_len;
 
-/* Data structure for saving values of arglist_len
-   for function calls whose arguments contain other function calls.  */
-
-struct funcall
-  {
-    struct funcall *next;
-    int arglist_len;
-  };
-
-struct funcall *funcall_chain;
-
-/* This kind of datum is used to represent the name
-   of a symbol token.  */
+/* A string token, either a char-string or bit-string.  Char-strings are
+   used, for example, for the names of symbols. */
 
 struct stoken
   {
+    /* Pointer to first byte of char-string or first bit of bit-string */
     char *ptr;
+    /* Length of string in bytes for char-string or bits for bit-string */
     int length;
   };
 
@@ -119,13 +110,13 @@ extern void
 write_exp_string PARAMS ((struct stoken));
 
 extern void
+write_exp_bitstring PARAMS ((struct stoken));
+
+extern void
 start_arglist PARAMS ((void));
 
 extern int
 end_arglist PARAMS ((void));
-
-extern void
-free_funcalls PARAMS ((void));
 
 extern char *
 copy_name PARAMS ((struct stoken));
@@ -175,9 +166,9 @@ int comma_terminates;
    they are used as the "surrounding precedence" to force
    various kinds of things to be parenthesized.  */
 enum precedence
-{ PREC_NULL, PREC_COMMA, PREC_ABOVE_COMMA, PREC_ASSIGN, PREC_OR, PREC_AND,
-  PREC_LOGIOR, PREC_LOGAND, PREC_LOGXOR, PREC_EQUAL, PREC_ORDER,
-  PREC_SHIFT, PREC_ADD, PREC_MUL, PREC_REPEAT,
+{ PREC_NULL, PREC_COMMA, PREC_ABOVE_COMMA, PREC_ASSIGN, PREC_LOGICAL_OR,
+  PREC_LOGICAL_AND, PREC_BITWISE_IOR, PREC_BITWISE_AND, PREC_BITWISE_XOR,
+  PREC_EQUAL, PREC_ORDER, PREC_SHIFT, PREC_ADD, PREC_MUL, PREC_REPEAT,
   PREC_HYPER, PREC_PREFIX, PREC_SUFFIX };
 
 /* Table mapping opcodes into strings for printing operators

@@ -343,5 +343,6 @@ bfd_target rs6000coff_vec =
      _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(coff),
-  COFF_SWAP_TABLE
+  0, 0,
+  COFF_SWAP_TABLE,
 };

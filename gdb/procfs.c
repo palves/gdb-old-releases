@@ -45,8 +45,6 @@ regardless of whether or not the actual target has floating point hardware.
 #include "command.h"
 #include "gdbcore.h"
 
-#include "nm.h"
-
 #define MAX_SYSCALLS	256	/* Maximum number of syscalls for table */
 
 #ifndef PROC_NAME_FMT
@@ -1958,10 +1956,17 @@ procfs_wait (statloc)
     }
   else if (!(pi.prstatus.pr_flags & (PR_STOPPED | PR_ISTOP)))
     {
+      if (attach_flag)
+	set_sigint_trap();	/* Causes SIGINT to be passed on to the
+				   attached process. */
+
       if (ioctl (pi.fd, PIOCWSTOP, &pi.prstatus) < 0)
 	{
 	  checkerr++;
 	}
+
+      if (attach_flag)
+	clear_sigint_trap();
     }    
   if (checkerr)
     {

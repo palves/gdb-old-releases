@@ -1,5 +1,5 @@
 /* ELF executable support for BFD.
-   Copyright 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
    in "UNIX System V Release 4, Programmers Guide: ANSI C and
@@ -90,6 +90,26 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define bfd_prpsinfo(abfd, descdata, descsz, filepos)	/* Define away */
 #endif
 
+/* Forward declarations of static functions */
+
+static char *
+elf_read PARAMS ((bfd *, long, int));
+
+static struct sec *
+section_from_elf_index PARAMS ((bfd *, int));
+
+static int
+elf_section_from_bfd_section PARAMS ((bfd *, struct sec *));
+
+static boolean
+elf_slurp_symbol_table PARAMS ((bfd *, asymbol **));
+
+static void
+elf_info_to_howto PARAMS ((bfd *, arelent *, Elf_Internal_Rela *));
+
+static char *
+elf_get_str_section PARAMS ((bfd *, unsigned int));
+     
 /* Forward data declarations */
 
 extern bfd_target elf_little_vec, elf_big_vec;
@@ -320,13 +340,6 @@ DEFUN(elf_swap_reloca_out,(abfd, src, dst),
   bfd_h_put_32 (abfd, src->r_addend, dst->r_addend);
 }
 
-static char *EXFUN(elf_read, (bfd *, long, int));
-static struct sec * EXFUN(section_from_elf_index, (bfd *, int));
-static int EXFUN(elf_section_from_bfd_section, (bfd *, struct sec *));
-static boolean EXFUN(elf_slurp_symbol_table, (bfd *, asymbol **));
-static void EXFUN(elf_info_to_howto, (bfd *, arelent *, Elf_Internal_Rela *));
-static char *EXFUN(elf_get_str_section, (bfd *, unsigned int));
-     
 /* 
 INTERNAL_FUNCTION
 	bfd_elf_find_section
@@ -347,15 +360,29 @@ DEFUN(bfd_elf_find_section, (abfd, name),
       bfd		*abfd AND
       char		*name)
 {
-  Elf_Internal_Shdr *i_shdrp = elf_elfsections (abfd);
-  char *shstrtab = elf_get_str_section (abfd, elf_elfheader (abfd)->e_shstrndx);
-  unsigned int max = elf_elfheader (abfd)->e_shnum;
+  Elf_Internal_Shdr *i_shdrp;
+  Elf_Internal_Shdr *gotit = NULL;
+  char *shstrtab;
+  unsigned int max;
   unsigned int i;
 
-  for (i = 1; i < max; i++)
-    if (!strcmp (&shstrtab[i_shdrp[i].sh_name], name))
-      return &i_shdrp[i];
-  return 0;
+  i_shdrp = elf_elfsections (abfd);
+  if (i_shdrp != NULL)
+    {
+      shstrtab = elf_get_str_section (abfd, elf_elfheader (abfd)->e_shstrndx);
+      if (shstrtab != NULL)
+	{
+	  max = elf_elfheader (abfd)->e_shnum;
+	  for (i = 1; i < max; i++)
+	    {
+	      if (!strcmp (&shstrtab[i_shdrp[i].sh_name], name))
+		{
+		  gotit = &i_shdrp[i];
+		}
+	    }
+	}
+    }
+  return (gotit);
 }
 
 /* End of GDB support.  */
@@ -365,20 +392,25 @@ DEFUN(elf_get_str_section, (abfd, shindex),
       bfd		*abfd AND
       unsigned int	shindex)
 {
-  Elf_Internal_Shdr *i_shdrp = elf_elfsections (abfd);
-  unsigned int shstrtabsize = i_shdrp[shindex].sh_size;
-  unsigned int offset = i_shdrp[shindex].sh_offset;
-  char *shstrtab = i_shdrp[shindex].rawdata;
+  Elf_Internal_Shdr *i_shdrp;
+  char *shstrtab = NULL;
+  unsigned int offset;
+  unsigned int shstrtabsize;
 
-  if (shstrtab)
-    return shstrtab;
-
-  if ((shstrtab = elf_read (abfd, offset, shstrtabsize)) == NULL)
+  i_shdrp = elf_elfsections (abfd);
+  if (i_shdrp != NULL)
     {
-      return (NULL);
+      shstrtab = i_shdrp[shindex].rawdata;
+      if (shstrtab == NULL)
+	{
+	  /* No cached one, attempt to read, and cache what we read. */
+	  offset = i_shdrp[shindex].sh_offset;
+	  shstrtabsize = i_shdrp[shindex].sh_size;
+	  shstrtab = elf_read (abfd, offset, shstrtabsize);
+	  i_shdrp[shindex].rawdata = (void*) shstrtab;
+	}
     }
-  i_shdrp[shindex].rawdata = (void*)shstrtab;
-  return shstrtab;
+  return (shstrtab);
 }
 
 static char *
@@ -544,8 +576,8 @@ DEFUN(bfd_new_strtab, (abfd),
 {
   struct strtab *ss;
 
-  ss = (struct strtab *)malloc(sizeof(struct strtab));
-  ss->tab = malloc(1);
+  ss = (struct strtab *) bfd_xmalloc(sizeof(struct strtab));
+  ss->tab = bfd_xmalloc(1);
   BFD_ASSERT(ss->tab != 0);
   *ss->tab = 0;
   ss->nentries = 0;
@@ -590,7 +622,7 @@ DEFUN(bfd_add_2_to_strtab, (abfd, ss, str, str2),
   if (ss->length)
     ss->tab = realloc(ss->tab, ss->length + ln);
   else 
-    ss->tab = malloc(ln);
+    ss->tab = bfd_xmalloc(ln);
 
   BFD_ASSERT(ss->tab != 0);
   strcpy(ss->tab + ss->length, str);
@@ -1945,7 +1977,7 @@ DEFUN (elf_slurp_symbol_table, (abfd, symptrs),
   sym = symbase;
 
   /* Temporarily allocate room for the raw ELF symbols.  */
-  x_symp = (Elf_External_Sym *) malloc (symcount * sizeof (Elf_External_Sym));
+  x_symp = (Elf_External_Sym *) bfd_xmalloc (symcount * sizeof (Elf_External_Sym));
 
   if (bfd_read ((PTR) x_symp, sizeof (Elf_External_Sym), symcount, abfd) 
       != symcount * sizeof (Elf_External_Sym))
@@ -2046,12 +2078,17 @@ static unsigned int
 DEFUN (elf_get_symtab_upper_bound, (abfd), bfd *abfd)
 {
   unsigned int symcount;
-  unsigned int symtab_size;
-  Elf_Internal_Shdr *i_shdrp = elf_elfsections (abfd);
-  Elf_Internal_Shdr *hdr = i_shdrp + elf_onesymtab (abfd);
+  unsigned int symtab_size = 0;
+  Elf_Internal_Shdr *i_shdrp;
+  Elf_Internal_Shdr *hdr;
 
-  symcount = hdr->sh_size / sizeof (Elf_External_Sym);
-  symtab_size = (symcount - 1 + 1) * (sizeof (asymbol));
+  i_shdrp = elf_elfsections (abfd);
+  if (i_shdrp != NULL)
+    {
+      hdr = i_shdrp + elf_onesymtab (abfd);
+      symcount = hdr->sh_size / sizeof (Elf_External_Sym);
+      symtab_size = (symcount - 1 + 1) * (sizeof (asymbol));
+    }
   return (symtab_size);
 }
 
@@ -2075,10 +2112,9 @@ sec_ptr         asect;
     return (0);
 }
 
-/* FIXME!!! sparc howto should go into elf-32-sparc.c */
-#ifdef sparc
 enum reloc_type
   {
+    R_SPARC_offset = 0,
     R_SPARC_NONE = 0,
     R_SPARC_8,		R_SPARC_16,		R_SPARC_32, 
     R_SPARC_DISP8,	R_SPARC_DISP16,		R_SPARC_DISP32, 
@@ -2092,8 +2128,20 @@ enum reloc_type
     R_SPARC_GLOB_DAT,	R_SPARC_JMP_SLOT,
     R_SPARC_RELATIVE,
     R_SPARC_UA32,
+    R_SPARC_max,
+
+    R_386_offset = R_SPARC_max,
+    R_386_NONE = 0,
+    R_386_32,		R_386_PC32,
+    R_386_GOT32,	R_386_PLT32,
+    R_386_COPY,
+    R_386_GLOB_DAT,	R_386_JUMP_SLOT,
+    R_386_RELATIVE,
+    R_386_GOTOFF,	R_386_GOTPC,
+    R_386_max,
     };
 
+#if 0 /* not used */
 #define	RELOC_TYPE_NAMES	\
     "R_SPARC_NONE",		\
     "R_SPARC_8",	"R_SPARC_16",		"R_SPARC_32",		\
@@ -2107,9 +2155,17 @@ enum reloc_type
     "R_SPARC_COPY",		\
     "R_SPARC_GLOB_DAT",	"R_SPARC_JMP_SLOT",	\
     "R_SPARC_RELATIVE",		\
-    "R_SPARC_UA32"
+    "R_SPARC_UA32",		\
+    "R_386_NONE",			\
+    "R_386_32",		"R_386_PC32",	\
+    "R_386_GOT32",	"R_386_PLT32",	\
+    "R_386_COPY",			\
+    "R_386_GLOB_DAT",	"R_386_JUMP_SLOT",	\
+    "R_386_RELATIVE",			\
+    "R_386_GOTOFF",	"R_386_GOTPC"
+#endif
 
-static reloc_howto_type elf_howto_table[] = 
+static reloc_howto_type elf_sparc_howto_table[] = 
 {
   HOWTO(R_SPARC_NONE,   0,0, 0,false,0,false,false, 0,"R_SPARC_NONE",   false,0,0x00000000,false),
   HOWTO(R_SPARC_8,      0,0, 8,false,0,true,  true, 0,"R_SPARC_8",      false,0,0x000000ff,false),
@@ -2136,6 +2192,11 @@ static reloc_howto_type elf_howto_table[] =
   HOWTO(R_SPARC_RELATIVE,0,0,00,false,0,false,false,0,"R_SPARC_RELATIVE",false,0,0x00000000,false),
   HOWTO(R_SPARC_UA32,    0,0,00,false,0,false,false,0,"R_SPARC_UA32",    false,0,0x00000000,false),
 };
+
+#if 0
+static const reloc_howto_type elf_386_howto_table[] =
+{
+  HOWTO (R_386_NONE, 0, 0, 0, false, 0, 
 #endif
 
 static void
@@ -2145,16 +2206,26 @@ DEFUN(elf_info_to_howto, (abfd, cache_ptr, dst),
       Elf_Internal_Rela	*dst)
 {
   /* FIXME!!! just doing sparc for now... */
-#ifdef sparc
-  BFD_ASSERT (ELF_R_TYPE(dst->r_info) < 24);
+  switch (abfd->arch_info->arch)
+    {
+    case bfd_arch_sparc:
+      BFD_ASSERT (ELF_R_TYPE(dst->r_info) < (unsigned char) R_SPARC_max);
+      cache_ptr->howto = &elf_sparc_howto_table[ELF_R_TYPE(dst->r_info)];
+      break;
 
-  cache_ptr->howto = &elf_howto_table[ELF_R_TYPE(dst->r_info)];
-#else
-  fprintf (stderr, "elf_info_to_howto not implemented\n");
-  abort ();
+#if 0
+    case bfd_arch_i386:
+      BFD_ASSER (ELF_R_TYPE (dst->r_info) < R_386_max);
+      cache_ptr->howto = &elf_i386_howto_table[ELF_R_TYPE (dst->r_info)];
+      break;
 #endif
+
+    default:
+      fprintf (stderr, "elf_info_to_howto not implemented\n");
+      abort ();
+    }
 }
-      
+
 static boolean
 DEFUN(elf_slurp_reloca_table,(abfd, asect, symbols),
       bfd            *abfd AND
@@ -2434,14 +2505,12 @@ DEFUN(elf_set_section_contents, (abfd, section, location, offset, count),
    one for little-endian machines.   */
 
 /* Archives are generic or unimplemented.  */
-#define elf_slurp_armap			bfd_false
+#define elf_slurp_armap			bfd_slurp_coff_armap
 #define elf_slurp_extended_name_table	_bfd_slurp_extended_name_table
 #define elf_truncate_arname		bfd_dont_truncate_arname
 #define elf_openr_next_archived_file	bfd_generic_openr_next_archived_file
 #define elf_generic_stat_arch_elt	bfd_generic_stat_arch_elt
-#define	elf_write_armap			(PROTO (boolean, (*),		\
-     (bfd *arch, unsigned int elength, struct orl *map, unsigned int orl_count,	\
-      int stridx))) bfd_false
+#define	elf_write_armap			coff_write_armap
 
 /* Ordinary section reading and writing */
 #define elf_new_section_hook		_bfd_dummy_new_section_hook
@@ -2455,6 +2524,8 @@ DEFUN(elf_set_section_contents, (abfd, section, location, offset, count),
 #define elf_bfd_get_relocated_section_contents \
  bfd_generic_get_relocated_section_contents
 #define elf_bfd_relax_section bfd_generic_relax_section
+#define elf_bfd_seclet_link bfd_generic_seclet_link
+
 bfd_target elf_big_vec =
 {
   /* name: identify kind of target */
@@ -2476,7 +2547,6 @@ bfd_target elf_big_vec =
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
    SEC_CODE | SEC_DATA), 
-
 
    /* leading_symbol_char: is the first char of a user symbol
       predictable, and if so what is it */
@@ -2524,12 +2594,20 @@ bfd_target elf_big_vec =
     bfd_false
   },
 
-  /* Initialize a jump table with the standard macro.  All names start
-     with "elf" */
+  /* Initialize a jump table with the standard macro.  All names start with
+     "elf" */
   JUMP_TABLE(elf),
 
-  /* SWAP_TABLE */
-  NULL, NULL, NULL
+  /* reloc_type_lookup: How applications can find out about amiga relocation
+     types (see documentation on reloc types).  */
+  NULL,
+
+  /* _bfd_make_debug_symbol:  Back-door to allow format aware applications to
+     create debug symbols while using BFD for everything else. */
+  NULL,
+
+  /* backend_data: */
+  NULL
 };
 
 bfd_target elf_little_vec =
@@ -2600,10 +2678,18 @@ bfd_target elf_little_vec =
     bfd_false
   },
 
-  /* Initialize a jump table with the standard macro.  All names start
-     with "elf" */
+  /* Initialize a jump table with the standard macro.  All names start with
+     "elf" */
   JUMP_TABLE(elf),
 
-  /* SWAP_TABLE */
-  NULL, NULL, NULL
+  /* reloc_type_lookup: How applications can find out about amiga relocation
+     types (see documentation on reloc types).  */
+  NULL,
+
+  /* _bfd_make_debug_symbol:  Back-door to allow format aware applications to
+     create debug symbols while using BFD for everything else. */
+  NULL,
+
+  /* backend_data: */
+  NULL
 };

@@ -119,7 +119,8 @@ static void
 printf_command PARAMS ((char *, int));
 
 static void
-print_frame_nameless_args PARAMS ((CORE_ADDR, long, int, int, FILE *));
+print_frame_nameless_args PARAMS ((struct frame_info *, long, int, int,
+				   FILE *));
 
 static void
 display_info PARAMS ((char *, int));
@@ -135,18 +136,6 @@ free_display PARAMS ((struct display *));
 
 static void
 display_command PARAMS ((char *, int));
-
-static void
-ptype_command PARAMS ((char *, int));
-
-static struct type *
-ptype_eval PARAMS ((struct expression *));
-
-static void
-whatis_command PARAMS ((char *, int));
-
-static void
-whatis_exp PARAMS ((char *, int));
 
 static void
 x_command PARAMS ((char *, int));
@@ -317,6 +306,7 @@ print_formatted (val, format, size)
     default:
       if (format == 0
 	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_ARRAY
+	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_STRING
 	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_STRUCT
 	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_UNION
 	  || VALUE_REPEATED (val))
@@ -445,9 +435,9 @@ print_scalar_formatted (valaddr, type, format, size, stream)
 
     case 'd':
 #ifdef LONG_LONG
-      fprintf_filtered (stream, "%lld", val_long);
+      fprintf_filtered (stream, local_decimal_format_custom("ll"), val_long);
 #else
-      fprintf_filtered (stream, "%d", val_long);
+      fprintf_filtered (stream, local_decimal_format(), val_long);
 #endif
       break;
 
@@ -531,7 +521,9 @@ print_scalar_formatted (valaddr, type, format, size, stream)
 	    if (*cp == '\0')
 	      cp--;
 	  }
+	fprintf_filtered (stream, local_binary_format_prefix());
         fprintf_filtered (stream, cp);
+	fprintf_filtered (stream, local_binary_format_suffix());
       }
       break;
 
@@ -559,7 +551,8 @@ set_next_address (addr)
    after LEADIN.  Print nothing if no symbolic name is found nearby.
    DO_DEMANGLE controls whether to print a symbol in its native "raw" form,
    or to interpret it as a possible C++ name and convert it back to source
-   form. */
+   form.  However note that DO_DEMANGLE can be overridden by the specific
+   settings of the demangle and asm_demangle variables. */
 
 void
 print_address_symbolic (addr, stream, do_demangle, leadin)
@@ -579,10 +572,10 @@ print_address_symbolic (addr, stream, do_demangle, leadin)
   fputs_filtered (leadin, stream);
   fputs_filtered ("<", stream);
   if (do_demangle)
-    fputs_demangled (msymbol -> name, stream, DMGL_ANSI | DMGL_PARAMS);
+    fputs_filtered (SYMBOL_SOURCE_NAME (msymbol), stream);
   else
-    fputs_filtered (msymbol -> name, stream);
-  name_location = msymbol -> address;
+    fputs_filtered (SYMBOL_LINKAGE_NAME (msymbol), stream);
+  name_location = SYMBOL_VALUE_ADDRESS (msymbol);
   if (addr - name_location)
     fprintf_filtered (stream, "+%d>", addr - name_location);
   else
@@ -711,6 +704,11 @@ validate_format (fmt, cmdname)
     error ("Format letter \"%c\" is meaningless in \"%s\" command.",
 	   fmt.format, cmdname);
 }
+
+/*  Evaluate string EXP as an expression in the current language and
+    print the resulting value.  EXP may contain a format specifier as the
+    first argument ("/x myvar" for example, to print myvar in hex).
+    */
 
 static void
 print_command_1 (exp, inspect, voidprint)
@@ -886,7 +884,7 @@ address_info (exp, from_tty)
 
   sym = lookup_symbol (exp, get_selected_block (), VAR_NAMESPACE, 
 		       &is_a_field_of_this, (struct symtab **)NULL);
-  if (sym == 0)
+  if (sym == NULL)
     {
       if (is_a_field_of_this)
 	{
@@ -898,7 +896,7 @@ address_info (exp, from_tty)
 
       if (msymbol != NULL)
 	printf ("Symbol \"%s\" is at %s in a file compiled without debugging.\n",
-		exp, local_hex_string(msymbol -> address));
+		exp, local_hex_string(SYMBOL_VALUE_ADDRESS (msymbol)));
       else
 	error ("No symbol \"%s\" in current context.", exp);
       return;
@@ -1052,136 +1050,6 @@ x_command (exp, from_tty)
       set_internalvar (lookup_internalvar ("__"), last_examine_value);
     }
 }
-
-/* Commands for printing types of things.  */
-
-/* Print type of EXP, or last thing in value history if EXP == NULL.
-   show is passed to type_print.  */
-static void
-whatis_exp (exp, show)
-     char *exp;
-     int show;
-{
-  struct expression *expr;
-  register value val;
-  register struct cleanup *old_chain;
-
-  if (exp)
-    {
-      expr = parse_expression (exp);
-      old_chain = make_cleanup (free_current_contents, &expr);
-      val = evaluate_type (expr);
-    }
-  else
-    val = access_value_history (0);
-
-  printf_filtered ("type = ");
-  type_print (VALUE_TYPE (val), "", stdout, show);
-  printf_filtered ("\n");
-
-  if (exp)
-    do_cleanups (old_chain);
-}
-
-/* ARGSUSED */
-static void
-whatis_command (exp, from_tty)
-     char *exp;
-     int from_tty;
-{
-  /* Most of the time users do not want to see all the fields
-     in a structure.  If they do they can use the "ptype" command.
-     Hence the "-1" below.  */
-  whatis_exp (exp, -1);
-}
-
-/* Simple subroutine for ptype_command.  */
-static
-struct type *
-ptype_eval(exp)
-   struct expression *exp;
-{
-   if(exp->elts[0].opcode==OP_TYPE)
-      return exp->elts[1].type;
-   else
-      return 0;
-}
-
-/* TYPENAME is either the name of a type, or an expression.  */
-/* ARGSUSED */
-static void
-ptype_command (typename, from_tty)
-     char *typename;
-     int from_tty;
-{
-  register struct type *type;
-  struct expression *expr;
-  register struct cleanup *old_chain;
-
-  if (typename)
-  {
-     expr = parse_expression (typename);
-     old_chain = make_cleanup (free_current_contents, &expr);
-     type = ptype_eval (expr);
-
-     if(type)
-     {
-	printf_filtered ("type = ");
-	type_print (type, "", stdout, 1);
-	printf_filtered ("\n");
-	do_cleanups (old_chain);
-     }
-     else
-     {
-	do_cleanups (old_chain);
-	whatis_exp (typename, 1);
-     }
-  }
-  else
-     whatis_exp (typename, 1);
-}
-
-#if MAINTENANCE_CMDS
-
-/* Dump details of a type specified either directly or indirectly.
-   Uses the same sort of type lookup mechanism as ptype_command()
-   and whatis_command(). */
-
-void
-maintenance_print_type (typename, from_tty)
-     char *typename;
-     int from_tty;
-{
-  register value val;
-  register struct type *type;
-  register struct cleanup *old_chain;
-  struct expression *expr;
-
-  if (typename != NULL)
-  {
-    expr = parse_expression (typename);
-    old_chain = make_cleanup (free_current_contents, &expr);
-    if (expr -> elts[0].opcode == OP_TYPE)
-      {
-	/* The user expression names a type directly, just use that type. */
-	type = expr -> elts[1].type;
-      }
-    else
-      {
-	/* The user expression may name a type indirectly by naming an
-	   object of that type.  Find that indirectly named type. */
-	val = evaluate_type (expr);
-	type = VALUE_TYPE (val);
-      }
-    if (type != NULL)
-      {
-	recursive_dump_type (type, 0);
-      }
-    do_cleanups (old_chain);
-  }
-}
-
-#endif	/* MAINTENANCE_CMDS */
 
 
 /* Add an expression to the auto-display chain.
@@ -1254,7 +1122,7 @@ clear_displays ()
 {
   register struct display *d;
 
-  while (d = display_chain)
+  while ((d = display_chain) != NULL)
     {
       free ((PTR)d->exp);
       display_chain = d->next;
@@ -1643,7 +1511,7 @@ print_frame_args (func, fi, num, stream)
       if (! first)
 	fprintf_filtered (stream, ", ");
       wrap_here ("    ");
-      fprint_symbol (stream, SYMBOL_NAME (sym));
+      fprint_symbol (stream, SYMBOL_SOURCE_NAME (sym));
       fputs_filtered ("=", stream);
 
       /* Avoid value_print because it will deref ref parameters.  We just
@@ -1665,48 +1533,59 @@ print_frame_args (func, fi, num, stream)
   if (num != -1)
     {
       long start;
-      CORE_ADDR addr;
 
       if (highest_offset == -1)
 	start = FRAME_ARGS_SKIP;
       else
 	start = highest_offset;
 
-      addr = FRAME_ARGS_ADDRESS (fi);
-      if (addr)
-        print_frame_nameless_args (addr, start, num - args_printed,
-				   first, stream);
+      print_frame_nameless_args (fi, start, num - args_printed,
+				 first, stream);
     }
 }
 
 /* Print nameless args on STREAM.
-   ARGSADDR is the address of the arglist, START is the offset
+   FI is the frameinfo for this frame, START is the offset
    of the first nameless arg, and NUM is the number of nameless args to
    print.  FIRST is nonzero if this is the first argument (not just
    the first nameless arg).  */
 static void
-print_frame_nameless_args (argsaddr, start, num, first, stream)
-     CORE_ADDR argsaddr;
+print_frame_nameless_args (fi, start, num, first, stream)
+     struct frame_info *fi;
      long start;
      int num;
      int first;
      FILE *stream;
 {
   int i;
+  CORE_ADDR argsaddr;
+  long arg_value;
+
   for (i = 0; i < num; i++)
     {
       QUIT;
+#ifdef NAMELESS_ARG_VALUE
+      NAMELESS_ARG_VALUE (fi, start, &arg_value);
+#else
+      argsaddr = FRAME_ARGS_ADDRESS (fi);
+      if (!argsaddr)
+	return;
+
+      arg_value = read_memory_integer (argsaddr + start, sizeof (int));
+#endif
+
       if (!first)
 	fprintf_filtered (stream, ", ");
-#ifndef PRINT_TYPELESS_INTEGER
-      fprintf_filtered (stream, "%d",
-	       read_memory_integer (argsaddr + start, sizeof (int)));
+
+#ifdef	PRINT_NAMELESS_INTEGER
+      PRINT_NAMELESS_INTEGER (stream, arg_value);
 #else
-      PRINT_TYPELESS_INTEGER (stream, builtin_type_int,
-			      (LONGEST)
-			      read_memory_integer (argsaddr + start,
-						   sizeof (int)));
-#endif
+#ifdef PRINT_TYPELESS_INTEGER
+      PRINT_TYPELESS_INTEGER (stream, builtin_type_int, (LONGEST) arg_value);
+#else
+      fprintf_filtered (stream, "%d", arg_value);
+#endif /* PRINT_TYPELESS_INTEGER */
+#endif /* PRINT_NAMELESS_INTEGER */
       first = 0;
       start += sizeof (int);
     }
@@ -2048,15 +1927,6 @@ Default is the function surrounding the pc of the selected frame.\n\
 With a single argument, the function surrounding that address is dumped.\n\
 Two arguments are taken as a range of memory to dump.");
 
-  add_com ("ptype", class_vars, ptype_command,
-	   "Print definition of type TYPE.\n\
-Argument may be a type name defined by typedef, or \"struct STRUCTNAME\"\n\
-or \"union UNIONNAME\" or \"enum ENUMNAME\".\n\
-The selected stack frame's lexical context is used to look up the name.");
-
-  add_com ("whatis", class_vars, whatis_command,
-	   "Print data type of expression EXP.");
-
 #if 0
   add_com ("whereis", class_vars, whereis_command,
 	   "Print line number and file of definition of variable.");
@@ -2108,10 +1978,11 @@ This is useful for formatted output in user-defined commands.");
 This is useful in user-defined commands.");
 
   add_prefix_cmd ("set", class_vars, set_command,
-"Perform an assignment VAR = EXP.\n\
-You must type the \"=\".  VAR may be a debugger \"convenience\" variable\n\
-(names starting with $), a register (a few standard names starting with $),\n\
-or an actual variable in the program being debugged.  EXP is any expression.\n\
+"Evaluate expression EXP and assign result to variable VAR, using assignment\n\
+syntax appropriate for the current language (VAR = EXP or VAR := EXP for\n\
+example).  VAR may be a debugger \"convenience\" variable (names starting\n\
+with $), a register (a few standard names starting with $), or an actual\n\
+variable in the program being debugged.  EXP is any valid expression.\n\
 Use \"set variable\" for variables with names identical to set subcommands.\n\
 \nWith a subcommand, this command modifies parts of the gdb environment.\n\
 You can see these environment settings with the \"show\" command.",
@@ -2125,10 +1996,11 @@ current working language.  The result is printed and saved in the value\n\
 history, if it is not void.");
 
   add_cmd ("variable", class_vars, set_command,
-           "Perform an assignment VAR = EXP.\n\
-You must type the \"=\".  VAR may be a debugger \"convenience\" variable\n\
-(names starting with $), a register (a few standard names starting with $),\n\
-or an actual variable in the program being debugged.  EXP is any expression.\n\
+"Evaluate expression EXP and assign result to variable VAR, using assignment\n\
+syntax appropriate for the current language (VAR = EXP or VAR := EXP for\n\
+example).  VAR may be a debugger \"convenience\" variable (names starting\n\
+with $), a register (a few standard names starting with $), or an actual\n\
+variable in the program being debugged.  EXP is any valid expression.\n\
 This may usually be abbreviated to simply \"set\".",
            &setlist);
 

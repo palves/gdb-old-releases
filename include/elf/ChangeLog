@@ -1,3 +1,9 @@
+Sun Nov 15 09:34:02 1992  Fred Fish  (fnf@cygnus.com)
+
+	* dwarf.h (AT_src_coords):  Whitespace change only.
+	* dwarf.h (AT_body_begin, AT_body_end, LANG_MODULA2):
+	Add from latest gcc.
+
 Sat Aug  1 13:46:53 1992  Fred Fish  (fnf@cygnus.com)
 
 	* dwarf.h:  Replace with current version from gcc distribution.

@@ -1,5 +1,5 @@
 /* BFD back-end for a.out.adobe binaries.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Cygnus Support.  Based on bout.c.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -112,8 +112,10 @@ aout_adobe_object_p (abfd)
      take just about any a.out file as an Adobe a.out file.  FIXME!  */
 
   if (N_BADMAG (anexec)) {
+    extern char *getenv ();
+
     targ = getenv ("GNUTARGET");
-    if (targ && strcmp (targ, a_out_adobe_vec.name))
+    if (targ && !strcmp (targ, a_out_adobe_vec.name))
       ;		/* Just continue anyway, if specifically set to this format */
     else
       {
@@ -474,6 +476,7 @@ DEFUN(aout_adobe_sizeof_headers,(ignore_abfd, ignore),
 
 #define aout_32_bfd_get_relocated_section_contents  bfd_generic_get_relocated_section_contents
 #define aout_32_bfd_relax_section                   bfd_generic_relax_section
+#define aout_32_bfd_seclet_link			    bfd_generic_seclet_link
 
 bfd_target a_out_adobe_vec =
 {

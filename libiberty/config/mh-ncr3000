@@ -9,7 +9,6 @@
 CC = /usr/ccs/ATT/cc
 CFLAGS =
 
-HDEFINES = -DUSG -DUSGr4
 RANLIB = true
 
 # The /usr/ucb/install program is incompatible (complains about unknown

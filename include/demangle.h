@@ -16,6 +16,9 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
+#if !defined (DEMANGLE_H)
+#define DEMANGLE_H
+
 #include <ansidecl.h>
 
 /* Options passed to cplus_demangle (in 2nd parameter). */
@@ -69,3 +72,5 @@ cplus_demangle PARAMS ((CONST char *mangled, int options));
 
 extern void
 set_cplus_marker_for_demangling PARAMS ((int ch));
+
+#endif	/* DEMANGLE_H */

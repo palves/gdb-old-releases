@@ -1,2 +1,2 @@
 # Target:  AT&T 3B2 running coff.
-TDEFAULTS = -DDEFAULT_VECTOR=i386coff_vec
+TDEFAULTS = -DDEFAULT_VECTOR=we32kcoff_vec

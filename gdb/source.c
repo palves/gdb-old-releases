@@ -154,7 +154,7 @@ select_source_symtab (s)
 	{
 	  char *name = s -> filename;
 	  int len = strlen (name);
-	  if (! (len > 2 && (strcmp (&name[len - 2], ".h") == 0)))
+	  if (! (len > 2 && (STREQ (&name[len - 2], ".h"))))
 	    {
 	      current_source_symtab = s;
 	    }
@@ -171,7 +171,7 @@ select_source_symtab (s)
 	{
 	  char *name = ps -> filename;
 	  int len = strlen (name);
-	  if (! (len > 2 && (strcmp (&name[len - 2], ".h") == 0)))
+	  if (! (len > 2 && (STREQ (&name[len - 2], ".h"))))
 	    {
 	      cs_pst = ps;
 	    }
@@ -200,7 +200,9 @@ show_directories (ignore, from_tty)
      char *ignore;
      int from_tty;
 {
-  printf_filtered ("Source directories searched: %s\n", source_path);
+  puts_filtered ("Source directories searched: ");
+  puts_filtered (source_path);
+  puts_filtered ("\n");
 }
 
 /* Forget what we learned about line positions in source files,
@@ -425,9 +427,10 @@ source_info (ignore, from_tty)
   if (s->fullname)
     printf_filtered ("Located in %s\n", s->fullname);
   if (s->nlines)
-    printf_filtered ("Contains %d lines\n", s->nlines);
+    printf_filtered ("Contains %d line%s.\n", s->nlines,
+		     s->nlines == 1 ? "" : "s");
 
-  printf_filtered("Source language %s.\n", language_str (s->language));
+  printf_filtered("Source language is %s.\n", language_str (s->language));
 }
 
 
@@ -608,13 +611,15 @@ find_source_lines (s, desc)
      int desc;
 {
   struct stat st;
-  char c;
   register char *data, *p, *end;
   int nlines = 0;
   int lines_allocated = 1000;
   int *line_charpos;
   long exec_mtime;
   int size;
+#ifdef LSEEK_NOT_LINEAR
+  char c;
+#endif
 
   line_charpos = (int *) xmmalloc (s -> objfile -> md,
 				   lines_allocated * sizeof (int));
@@ -777,6 +782,8 @@ identify_source_line (s, line, mid_statement)
     get_filename_and_charpos (s, (char **)NULL);
   if (s->fullname == 0)
     return 0;
+  if (line >= s->nlines) 
+   return 0;
   printf ("\032\032%s:%d:%d:%s:0x%x\n", s->fullname,
 	  line, s->line_charpos[line - 1],
 	  mid_statement ? "middle" : "beg",
@@ -834,7 +841,7 @@ print_source_lines (s, line, stopline, noerror)
       perror_with_name (s->filename);
     }
 
-  stream = fdopen (desc, "r");
+  stream = fdopen (desc, FOPEN_RT);
   clearerr (stream);
 
   while (nlines-- > 0)
@@ -903,7 +910,7 @@ list_command (arg, from_tty)
 
   /* "l" or "l +" lists next ten lines.  */
 
-  if (arg == 0 || !strcmp (arg, "+"))
+  if (arg == 0 || STREQ (arg, "+"))
     {
       if (current_source_symtab == 0)
 	error ("No default source file yet.  Do \"help list\".");
@@ -913,7 +920,7 @@ list_command (arg, from_tty)
     }
 
   /* "l -" lists previous ten lines, the ones before the ten just listed.  */
-  if (!strcmp (arg, "-"))
+  if (STREQ (arg, "-"))
     {
       if (current_source_symtab == 0)
 	error ("No default source file yet.  Do \"help list\".");
@@ -1003,7 +1010,7 @@ list_command (arg, from_tty)
       if (sym)
 	{
 	  printf_filtered ("%s is in ", local_hex_string(sal.pc));
-	  fprint_symbol (stdout, SYMBOL_NAME (sym));
+	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), stdout);
 	  printf_filtered (" (%s:%d).\n", sal.symtab->filename, sal.line);
 	}
       else
@@ -1152,7 +1159,7 @@ forward_search_command (regex, from_tty)
       perror_with_name (current_source_symtab->filename);
     }
 
-  stream = fdopen (desc, "r");
+  stream = fdopen (desc, FOPEN_RT);
   clearerr (stream);
   while (1) {
 /* FIXME!!!  We walk right off the end of buf if we get a long line!!! */
@@ -1224,7 +1231,7 @@ reverse_search_command (regex, from_tty)
       perror_with_name (current_source_symtab->filename);
     }
 
-  stream = fdopen (desc, "r");
+  stream = fdopen (desc, FOPEN_RT);
   clearerr (stream);
   while (line > 1)
     {

@@ -50,11 +50,14 @@ other things to work on, if you get bored. :-)
 #include "elf/dwarf.h"
 #include "buildsym.h"
 #include "demangle.h"
+#include "expression.h"	/* Needed for enum exp_opcode in language.h, sigh... */
+#include "language.h"
+#include "complaints.h"
 
-#include <varargs.h>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/types.h>
+
 #ifndef	NO_SYS_FILE
 #include <sys/file.h>
 #endif
@@ -64,11 +67,117 @@ other things to work on, if you get bored. :-)
 #define L_SET 0
 #endif
 
-#ifdef MAINTENANCE	/* Define to 1 to compile in some maintenance stuff */
-#define SQUAWK(stuff) dwarfwarn stuff
-#else
-#define SQUAWK(stuff)
-#endif
+/* Some macros to provide DIE info for complaints. */
+
+#define DIE_ID (curdie!=NULL ? curdie->die_ref : 0)
+#define DIE_NAME (curdie!=NULL && curdie->at_name!=NULL) ? curdie->at_name : ""
+
+/* Complaints that can be issued during DWARF debug info reading. */
+
+struct complaint no_bfd_get_N =
+{
+  "DIE @ 0x%x \"%s\", no bfd support for %d byte data object", 0, 0
+};
+
+struct complaint malformed_die =
+{
+  "DIE @ 0x%x \"%s\", malformed DIE, bad length (%d bytes)", 0, 0
+};
+
+struct complaint bad_die_ref =
+{
+  "DIE @ 0x%x \"%s\", reference to DIE (0x%x) outside compilation unit", 0, 0
+};
+
+struct complaint unknown_attribute_form =
+{
+  "DIE @ 0x%x \"%s\", unknown attribute form (0x%x)", 0, 0
+};
+
+struct complaint unknown_attribute_length =
+{
+  "DIE @ 0x%x \"%s\", unknown attribute length, skipped remaining attributes", 0, 0
+};
+
+struct complaint unexpected_fund_type =
+{
+  "DIE @ 0x%x \"%s\", unexpected fundamental type 0x%x", 0, 0
+};
+
+struct complaint unknown_type_modifier =
+{
+  "DIE @ 0x%x \"%s\", unknown type modifier %u", 0, 0
+};
+
+struct complaint volatile_ignored =
+{
+  "DIE @ 0x%x \"%s\", type modifier 'volatile' ignored", 0, 0
+};
+
+struct complaint const_ignored =
+{
+  "DIE @ 0x%x \"%s\", type modifier 'const' ignored", 0, 0
+};
+
+struct complaint botched_modified_type =
+{
+  "DIE @ 0x%x \"%s\", botched modified type decoding (mtype 0x%x)", 0, 0
+};
+
+struct complaint op_deref2 =
+{
+  "DIE @ 0x%x \"%s\", OP_DEREF2 address 0x%x not handled", 0, 0
+};
+
+struct complaint op_deref4 =
+{
+  "DIE @ 0x%x \"%s\", OP_DEREF4 address 0x%x not handled", 0, 0
+};
+
+struct complaint basereg_not_handled =
+{
+  "DIE @ 0x%x \"%s\", BASEREG %d not handled", 0, 0
+};
+
+struct complaint dup_user_type_allocation =
+{
+  "DIE @ 0x%x \"%s\", internal error: duplicate user type allocation", 0, 0
+};
+
+struct complaint dup_user_type_definition =
+{
+  "DIE @ 0x%x \"%s\", internal error: duplicate user type definition", 0, 0
+};
+
+struct complaint missing_tag =
+{
+  "DIE @ 0x%x \"%s\", missing class, structure, or union tag", 0, 0
+};
+
+struct complaint bad_array_element_type =
+{
+  "DIE @ 0x%x \"%s\", bad array element type attribute 0x%x", 0, 0
+};
+
+struct complaint subscript_data_items =
+{
+  "DIE @ 0x%x \"%s\", can't decode subscript data items", 0, 0
+};
+
+struct complaint unhandled_array_subscript_format =
+{
+  "DIE @ 0x%x \"%s\", array subscript format 0x%x not handled yet", 0, 0
+};
+
+struct complaint unknown_array_subscript_format =
+{
+  "DIE @ 0x%x \"%s\", unknown array subscript format %x", 0, 0
+};
+
+struct complaint not_row_major =
+{
+  "DIE @ 0x%x \"%s\", array not row major; not handled correctly", 0, 0
+};
 
 #ifndef R_FP		/* FIXME */
 #define R_FP 14		/* Kludge to get frame pointer register number */
@@ -92,8 +201,6 @@ typedef unsigned int DIE_REF;	/* Reference to a DIE */
 #define CFRONT_PRODUCER "CFRONT "	/* A wild a** guess... */
 #endif
 
-#define STREQ(a,b)		(strcmp(a,b)==0)
-#define STREQN(a,b,n)		(strncmp(a,b,n)==0)
 
 /* Flags to target_to_host() that tell whether or not the data object is
    expected to be signed.  Used, for example, when fetching a signed
@@ -305,19 +412,38 @@ struct pending **list_in_scope = &file_symbols;
    we can divide any DIE offset by 4 to obtain a unique index into this fixed
    size array.  Since each element is a 4 byte pointer, it takes exactly as
    much memory to hold this array as to hold the DWARF info for a given
-   compilation unit.  But it gets freed as soon as we are done with it. */
+   compilation unit.  But it gets freed as soon as we are done with it.
+   This has worked well in practice, as a reasonable tradeoff between memory
+   consumption and speed, without having to resort to much more complicated
+   algorithms. */
 
 static struct type **utypes;	/* Pointer to array of user type pointers */
 static int numutypes;		/* Max number of user type pointers */
+
+/* Maintain an array of referenced fundamental types for the current
+   compilation unit being read.  For DWARF version 1, we have to construct
+   the fundamental types on the fly, since no information about the
+   fundamental types is supplied.  Each such fundamental type is created by
+   calling a language dependent routine to create the type, and then a
+   pointer to that type is then placed in the array at the index specified
+   by it's FT_<TYPENAME> value.  The array has a fixed size set by the
+   FT_NUM_MEMBERS compile time constant, which is the number of predefined
+   fundamental types gdb knows how to construct. */
+
+static struct type *ftypes[FT_NUM_MEMBERS];  /* Fundamental types */
 
 /* Record the language for the compilation unit which is currently being
    processed.  We know it once we have seen the TAG_compile_unit DIE,
    and we need it while processing the DIE's for that compilation unit.
    It is eventually saved in the symtab structure, but we don't finalize
    the symtab struct until we have processed all the DIE's for the
-   compilation unit. */
+   compilation unit.  We also need to get and save a pointer to the 
+   language struct for this language, so we can call the language
+   dependent routines for doing things such as creating fundamental
+   types. */
 
 static enum language cu_language;
+static const struct language_defn *cu_language_defn;
 
 /* Forward declarations of static functions so we don't have to worry
    about ordering within this file.  */
@@ -343,9 +469,6 @@ read_func_scope PARAMS ((struct dieinfo *, char *, char *, struct objfile *));
 static void
 read_lexical_block_scope PARAMS ((struct dieinfo *, char *, char *,
 				  struct objfile *));
-
-static void
-dwarfwarn ();
 
 static void
 scan_partial_symbols PARAMS ((char *, char *, struct objfile *));
@@ -386,13 +509,16 @@ static struct type *
 decode_array_element_type PARAMS ((char *));
 
 static struct type *
-decode_subscr_data PARAMS ((char *, char *));
+decode_subscript_data_item PARAMS ((char *, char *));
 
 static void
 dwarf_read_array_type PARAMS ((struct dieinfo *));
 
 static void
 read_tag_pointer_type PARAMS ((struct dieinfo *dip));
+
+static void
+read_tag_string_type PARAMS ((struct dieinfo *dip));
 
 static void
 read_subroutine_type PARAMS ((struct dieinfo *, char *, char *));
@@ -450,6 +576,66 @@ record_minimal_symbol PARAMS ((char *, CORE_ADDR, enum minimal_symbol_type,
 static void
 set_cu_language PARAMS ((struct dieinfo *));
 
+static struct type *
+dwarf_fundamental_type PARAMS ((struct objfile *, int));
+
+
+/*
+
+LOCAL FUNCTION
+
+	dwarf_fundamental_type -- lookup or create a fundamental type
+
+SYNOPSIS
+
+	struct type *
+	dwarf_fundamental_type (struct objfile *objfile, int typeid)
+
+DESCRIPTION
+
+	DWARF version 1 doesn't supply any fundamental type information,
+	so gdb has to construct such types.  It has a fixed number of
+	fundamental types that it knows how to construct, which is the
+	union of all types that it knows how to construct for all languages
+	that it knows about.  These are enumerated in gdbtypes.h.
+
+	As an example, assume we find a DIE that references a DWARF
+	fundamental type of FT_integer.  We first look in the ftypes
+	array to see if we already have such a type, indexed by the
+	gdb internal value of FT_INTEGER.  If so, we simply return a
+	pointer to that type.  If not, then we ask an appropriate
+	language dependent routine to create a type FT_INTEGER, using
+	defaults reasonable for the current target machine, and install
+	that type in ftypes for future reference.
+
+RETURNS
+
+	Pointer to a fundamental type.
+
+*/
+
+static struct type *
+dwarf_fundamental_type (objfile, typeid)
+     struct objfile *objfile;
+     int typeid;
+{
+  if (typeid < 0 || typeid >= FT_NUM_MEMBERS)
+    {
+      error ("internal error - invalid fundamental type id %d", typeid);
+    }
+
+  /* Look for this particular type in the fundamental type vector.  If one is
+     not found, create and install one appropriate for the current language
+     and the current target machine. */
+
+  if (ftypes[typeid] == NULL)
+    {
+      ftypes[typeid] = cu_language_defn -> la_fund_type(objfile, typeid);
+    }
+
+  return (ftypes[typeid]);
+}
+
 /*
 
 LOCAL FUNCTION
@@ -486,17 +672,24 @@ set_cu_language (dip)
       case LANG_C_PLUS_PLUS:
 	cu_language = language_cplus;
 	break;
+      case LANG_MODULA2:
+	cu_language = language_m2;
+	break;
       case LANG_ADA83:
       case LANG_COBOL74:
       case LANG_COBOL85:
       case LANG_FORTRAN77:
       case LANG_FORTRAN90:
       case LANG_PASCAL83:
-      case LANG_MODULA2:
-      default:
+	/* We don't know anything special about these yet. */
 	cu_language = language_unknown;
 	break;
+      default:
+	/* If no at_language, try to deduce one from the filename */
+	cu_language = deduce_language_from_filename (dip -> at_name);
+	break;
     }
+  cu_language_defn = language_def (cu_language);
 }
 
 /*
@@ -619,55 +812,6 @@ record_minimal_symbol (name, address, ms_type, objfile)
 
 LOCAL FUNCTION
 
-	dwarfwarn -- issue a DWARF related warning
-
-DESCRIPTION
-
-	Issue warnings about DWARF related things that aren't serious enough
-	to warrant aborting with an error, but should not be ignored either.
-	This includes things like detectable corruption in DIE's, missing
-	DIE's, unimplemented features, etc.
-
-	In general, running across tags or attributes that we don't recognize
-	is not considered to be a problem and we should not issue warnings
-	about such.
-
-NOTES
-
-	We mostly follow the example of the error() routine, but without
-	returning to command level.  It is arguable about whether warnings
-	should be issued at all, and if so, where they should go (stdout or
-	stderr).
-
-	We assume that curdie is valid and contains at least the basic
-	information for the DIE where the problem was noticed.
-*/
-
-static void
-dwarfwarn (va_alist)
-     va_dcl
-{
-  va_list ap;
-  char *fmt;
-  
-  va_start (ap);
-  fmt = va_arg (ap, char *);
-  warning_setup ();
-  fprintf (stderr, "warning: DWARF ref 0x%x: ", curdie -> die_ref);
-  if (curdie -> at_name)
-    {
-      fprintf (stderr, "'%s': ", curdie -> at_name);
-    }
-  vfprintf (stderr, fmt, ap);
-  fprintf (stderr, "\n");
-  fflush (stderr);
-  va_end (ap);
-}
-
-/*
-
-LOCAL FUNCTION
-
 	read_lexical_block_scope -- process all dies in a lexical block
 
 SYNOPSIS
@@ -731,7 +875,7 @@ lookup_utype (die_ref)
   utypeidx = (die_ref - dbroff) / 4;
   if ((utypeidx < 0) || (utypeidx >= numutypes))
     {
-      dwarfwarn ("reference to DIE (0x%x) outside compilation unit", die_ref);
+      complain (&bad_die_ref, DIE_ID, DIE_NAME);
     }
   else
     {
@@ -774,13 +918,13 @@ alloc_utype (die_ref, utypep)
   typep = utypes + utypeidx;
   if ((utypeidx < 0) || (utypeidx >= numutypes))
     {
-      utypep = lookup_fundamental_type (current_objfile, FT_INTEGER);
-      dwarfwarn ("reference to DIE (0x%x) outside compilation unit", die_ref);
+      utypep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
+      complain (&bad_die_ref, DIE_ID, DIE_NAME);
     }
   else if (*typep != NULL)
     {
       utypep = *typep;
-      SQUAWK (("internal error: dup user type allocation"));
+      complain (&dup_user_type_allocation, DIE_ID, DIE_NAME);
     }
   else
     {
@@ -837,7 +981,7 @@ decode_die_type (dip)
     }
   else
     {
-      type = lookup_fundamental_type (current_objfile, FT_INTEGER);
+      type = dwarf_fundamental_type (current_objfile, FT_INTEGER);
     }
   return (type);
 }
@@ -881,7 +1025,9 @@ struct_type (dip, thisdie, enddie, objfile)
   char *tpart1;
   struct dieinfo mbr;
   char *nextdie;
+#if !BITS_BIG_ENDIAN
   int anonymous_size;
+#endif
   
   if ((type = lookup_utype (dip -> die_ref)) == NULL)
     {
@@ -907,7 +1053,7 @@ struct_type (dip, thisdie, enddie, objfile)
 	/* Should never happen */
 	TYPE_CODE (type) = TYPE_CODE_UNDEF;
 	tpart1 = "???";
-	SQUAWK (("missing class, structure, or union tag"));
+	complain (&missing_tag, DIE_ID, DIE_NAME);
 	break;
     }
   /* Some compilers try to be helpful by inventing "fake" names for
@@ -1115,8 +1261,8 @@ decode_array_element_type (scan)
   scan += SIZEOF_ATTRIBUTE;
   if ((nbytes = attribute_size (attribute)) == -1)
     {
-      SQUAWK (("bad array element type attribute 0x%x", attribute));
-      typep = lookup_fundamental_type (current_objfile, FT_INTEGER);
+      complain (&bad_array_element_type, DIE_ID, DIE_NAME, attribute);
+      typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
     }
   else
     {
@@ -1142,8 +1288,8 @@ decode_array_element_type (scan)
 	    typep = decode_mod_u_d_type (scan);
 	    break;
 	  default:
-	    SQUAWK (("bad array element type attribute 0x%x", attribute));
-	    typep = lookup_fundamental_type (current_objfile, FT_INTEGER);
+	    complain (&bad_array_element_type, DIE_ID, DIE_NAME, attribute);
+	    typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
 	    break;
 	  }
     }
@@ -1154,11 +1300,12 @@ decode_array_element_type (scan)
 
 LOCAL FUNCTION
 
-	decode_subscr_data -- decode array subscript and element type data
+	decode_subscript_data_item -- decode array subscript item
 
 SYNOPSIS
 
-	static struct type *decode_subscr_data (char *scan, char *end)
+	static struct type *
+	decode_subscript_data_item (char *scan, char *end)
 
 DESCRIPTION
 
@@ -1170,9 +1317,21 @@ DESCRIPTION
 	source (I.E. leftmost dimension first, next to leftmost second,
 	etc).
 
+	The data items describing each array dimension consist of four
+	parts: (1) a format specifier, (2) type type of the subscript
+	index, (3) a description of the low bound of the array dimension,
+	and (4) a description of the high bound of the array dimension.
+
+	The last data item is the description of the type of each of
+	the array elements.
+
 	We are passed a pointer to the start of the block of bytes
-	containing the data items, and a pointer to the first byte past
-	the data.  This function decodes the data and returns a type.
+	containing the remaining data items, and a pointer to the first
+	byte past the data.  This function recursively decodes the
+	remaining data items and returns a type.
+
+	If we somehow fail to decode some data, we complain about it
+	and return a type "array of int".
 
 BUGS
 	FIXME:  This code only implements the forms currently used
@@ -1183,12 +1342,14 @@ BUGS
  */
 
 static struct type *
-decode_subscr_data (scan, end)
+decode_subscript_data_item (scan, end)
      char *scan;
      char *end;
 {
-  struct type *typep = NULL;
-  struct type *nexttype;
+  struct type *typep = NULL;	/* Array type we are building */
+  struct type *nexttype;	/* Type of each element (may be array) */
+  struct type *indextype;	/* Type of this index */
+  struct type *rangetype;
   unsigned int format;
   unsigned short fundtype;
   unsigned long lowbound;
@@ -1206,32 +1367,23 @@ decode_subscr_data (scan, end)
     case FMT_FT_C_C:
       fundtype = target_to_host (scan, SIZEOF_FMT_FT, GET_UNSIGNED,
 				 current_objfile);
+      indextype = decode_fund_type (fundtype);
       scan += SIZEOF_FMT_FT;
-      if (fundtype != FT_integer && fundtype != FT_signed_integer
-	  && fundtype != FT_unsigned_integer)
+      nbytes = TARGET_FT_LONG_SIZE (current_objfile);
+      lowbound = target_to_host (scan, nbytes, GET_UNSIGNED, current_objfile);
+      scan += nbytes;
+      highbound = target_to_host (scan, nbytes, GET_UNSIGNED, current_objfile);
+      scan += nbytes;
+      nexttype = decode_subscript_data_item (scan, end);
+      if (nexttype == NULL)
 	{
-	  SQUAWK (("array subscripts must be integral types, not type 0x%x",
-		   fundtype));
+	  /* Munged subscript data or other problem, fake it. */
+	  complain (&subscript_data_items, DIE_ID, DIE_NAME);
+	  nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
 	}
-      else
-	{
-	  nbytes = TARGET_FT_LONG_SIZE (current_objfile);
-	  lowbound = target_to_host (scan, nbytes, GET_UNSIGNED,
-				     current_objfile);
-	  scan += nbytes;
-	  highbound = target_to_host (scan, nbytes, GET_UNSIGNED,
-				      current_objfile);
-	  scan += nbytes;
-	  nexttype = decode_subscr_data (scan, end);
-	  if (nexttype != NULL)
-	    {
-	      typep = alloc_type (current_objfile);
-	      TYPE_CODE (typep) = TYPE_CODE_ARRAY;
-	      TYPE_LENGTH (typep) = TYPE_LENGTH (nexttype);
-	      TYPE_LENGTH (typep) *= (highbound - lowbound) + 1;
-	      TYPE_TARGET_TYPE (typep) = nexttype;
-	    }		    
-	}
+      rangetype = create_range_type ((struct type *) NULL, indextype,
+				      lowbound, highbound);
+      typep = create_array_type ((struct type *) NULL, nexttype, rangetype);
       break;
     case FMT_FT_C_X:
     case FMT_FT_X_C:
@@ -1240,10 +1392,16 @@ decode_subscr_data (scan, end)
     case FMT_UT_C_X:
     case FMT_UT_X_C:
     case FMT_UT_X_X:
-      SQUAWK (("array subscript format 0x%x not handled yet", format));
+      complain (&unhandled_array_subscript_format, DIE_ID, DIE_NAME, format);
+      nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
+      rangetype = create_range_type ((struct type *) NULL, nexttype, 0, 0);
+      typep = create_array_type ((struct type *) NULL, nexttype, rangetype);
       break;
     default:
-      SQUAWK (("unknown array subscript format %x", format));
+      complain (&unknown_array_subscript_format, DIE_ID, DIE_NAME, format);
+      nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
+      rangetype = create_range_type ((struct type *) NULL, nexttype, 0, 0);
+      typep = create_array_type ((struct type *) NULL, nexttype, rangetype);
       break;
     }
   return (typep);
@@ -1279,7 +1437,7 @@ dwarf_read_array_type (dip)
   if (dip -> at_ordering != ORD_row_major)
     {
       /* FIXME:  Can gdb even handle column major arrays? */
-      SQUAWK (("array not row major; not handled correctly"));
+      complain (&not_row_major, DIE_ID, DIE_NAME);
     }
   if ((sub = dip -> at_subscr_data) != NULL)
     {
@@ -1287,30 +1445,29 @@ dwarf_read_array_type (dip)
       blocksz = target_to_host (sub, nbytes, GET_UNSIGNED, current_objfile);
       subend = sub + nbytes + blocksz;
       sub += nbytes;
-      type = decode_subscr_data (sub, subend);
-      if (type == NULL)
+      type = decode_subscript_data_item (sub, subend);
+      if ((utype = lookup_utype (dip -> die_ref)) == NULL)
 	{
-	  if ((utype = lookup_utype (dip -> die_ref)) == NULL)
-	    {
-	      utype = alloc_utype (dip -> die_ref, NULL);
-	    }
-	  TYPE_CODE (utype) = TYPE_CODE_ARRAY;
-	  TYPE_TARGET_TYPE (utype) = 
-      	    lookup_fundamental_type (current_objfile, FT_INTEGER);
-	  TYPE_LENGTH (utype) = 1 * TYPE_LENGTH (TYPE_TARGET_TYPE (utype));
+	  /* Install user defined type that has not been referenced yet. */
+	  alloc_utype (dip -> die_ref, type);
+	}
+      else if (TYPE_CODE (utype) == TYPE_CODE_UNDEF)
+	{
+	  /* Ick!  A forward ref has already generated a blank type in our
+	     slot, and this type probably already has things pointing to it
+	     (which is what caused it to be created in the first place).
+	     If it's just a place holder we can plop our fully defined type
+	     on top of it.  We can't recover the space allocated for our
+	     new type since it might be on an obstack, but we could reuse
+	     it if we kept a list of them, but it might not be worth it
+	     (FIXME). */
+	  *utype = *type;
 	}
       else
 	{
-	  if ((utype = lookup_utype (dip -> die_ref)) == NULL)
-	    {
-	      alloc_utype (dip -> die_ref, type);
-	    }
-	  else
-	    {
-	      TYPE_CODE (utype) = TYPE_CODE_ARRAY;
-	      TYPE_LENGTH (utype) = TYPE_LENGTH (type);
-	      TYPE_TARGET_TYPE (utype) = TYPE_TARGET_TYPE (type);
-	    }
+	  /* Double ick!  Not only is a type already in our slot, but
+	     someone has decorated it.  Complain and leave it alone. */
+	  complain (&dup_user_type_definition, DIE_ID, DIE_NAME);
 	}
     }
 }
@@ -1355,6 +1512,60 @@ read_tag_pointer_type (dip)
       
       TYPE_LENGTH (utype) = sizeof (char *);
       TYPE_CODE (utype) = TYPE_CODE_PTR;
+    }
+}
+
+/*
+
+LOCAL FUNCTION
+
+	read_tag_string_type -- read TAG_string_type DIE
+
+SYNOPSIS
+
+	static void read_tag_string_type (struct dieinfo *dip)
+
+DESCRIPTION
+
+	Extract all information from a TAG_string_type DIE and add to
+	the user defined type vector.  It isn't really a user defined
+	type, but it behaves like one, with other DIE's using an
+	AT_user_def_type attribute to reference it.
+ */
+
+static void
+read_tag_string_type (dip)
+     struct dieinfo *dip;
+{
+  struct type *utype;
+  struct type *indextype;
+  struct type *rangetype;
+  unsigned long lowbound = 0;
+  unsigned long highbound;
+
+  if ((utype = lookup_utype (dip -> die_ref)) != NULL)
+    {
+      /* Ack, someone has stuck a type in the slot we want.  Complain
+	 about it. */
+      complain (&dup_user_type_definition, DIE_ID, DIE_NAME);
+    }
+  else
+    {
+      if (dip -> has_at_byte_size)
+	{
+	  /* A fixed bounds string */
+	  highbound = dip -> at_byte_size - 1;
+	}
+      else
+	{
+	  /* A varying length string.  Stub for now.  (FIXME) */
+	  highbound = 1;
+	}
+      indextype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
+      rangetype = create_range_type ((struct type *) NULL, indextype,
+				     lowbound, highbound);
+      utype = create_string_type ((struct type *) NULL, rangetype);
+      alloc_utype (dip -> die_ref, utype);
     }
 }
 
@@ -1408,7 +1619,7 @@ read_subroutine_type (dip, thisdie, enddie)
       ftype = lookup_function_type (type);
       alloc_utype (dip -> die_ref, ftype);
     }
-  else
+  else if (TYPE_CODE (ftype) == TYPE_CODE_UNDEF)
     {
       /* We have an existing partially constructed type, so bash it
 	 into the correct type. */
@@ -1416,6 +1627,10 @@ read_subroutine_type (dip, thisdie, enddie)
       TYPE_FUNCTION_TYPE (type) = ftype;
       TYPE_LENGTH (ftype) = 1;
       TYPE_CODE (ftype) = TYPE_CODE_FUNC;
+    }
+  else
+    {
+      complain (&dup_user_type_definition, DIE_ID, DIE_NAME);
     }
 }
 
@@ -1569,6 +1784,7 @@ enum_type (dip, objfile)
 	  memset (sym, 0, sizeof (struct symbol));
 	  SYMBOL_NAME (sym) = create_name (list -> field.name,
 					   &objfile->symbol_obstack);
+	  SYMBOL_INIT_LANGUAGE_SPECIFIC (sym, cu_language);
 	  SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
 	  SYMBOL_CLASS (sym) = LOC_CONST;
 	  SYMBOL_TYPE (sym) = type;
@@ -1745,6 +1961,7 @@ read_file_scope (dip, thisdie, enddie, objfile)
   utypes = (struct type **) xmalloc (numutypes * sizeof (struct type *));
   back_to = make_cleanup (free, utypes);
   memset (utypes, 0, numutypes * sizeof (struct type *));
+  memset (ftypes, 0, FT_NUM_MEMBERS * sizeof (struct type *));
   start_symtab (dip -> at_name, dip -> at_comp_dir, dip -> at_low_pc);
   decode_line_numbers (lnbase);
   process_dies (thisdie + dip -> die_length, enddie, objfile);
@@ -1837,6 +2054,9 @@ process_dies (thisdie, enddie, objfile)
 	      break;
 	    case TAG_pointer_type:
 	      read_tag_pointer_type (&di);
+	      break;
+	    case TAG_string_type:
+	      read_tag_string_type (&di);
 	      break;
 	    default:
 	      new_symbol (&di, objfile);
@@ -2032,7 +2252,8 @@ locval (loc)
 	    else
 	      {
 		stack[++stacki] = 0;
-		SQUAWK (("BASEREG %d not handled!", regno));
+
+		complain (&basereg_not_handled, DIE_ID, DIE_NAME, regno);
 	      }
 	    break;
 	  case OP_ADDR:
@@ -2049,10 +2270,10 @@ locval (loc)
 	    break;
 	  case OP_DEREF2:
 	    /* pop, deref and push 2 bytes (as a long) */
-	    SQUAWK (("OP_DEREF2 address 0x%x not handled", stack[stacki]));
+	    complain (&op_deref2, DIE_ID, DIE_NAME, stack[stacki]);
 	    break;
 	  case OP_DEREF4:	/* pop, deref and push 4 bytes (as a long) */
-	    SQUAWK (("OP_DEREF4 address 0x%x not handled", stack[stacki]));
+	    complain (&op_deref4, DIE_ID, DIE_NAME, stack[stacki]);
 	    break;
 	  case OP_ADD:	/* pop top 2 items, add, push result */
 	    stack[stacki - 1] += stack[stacki];
@@ -2371,7 +2592,8 @@ add_enum_psymbol (dip, objfile)
 	{
 	  scan += TARGET_FT_LONG_SIZE (objfile);
 	  ADD_PSYMBOL_TO_LIST (scan, strlen (scan), VAR_NAMESPACE, LOC_CONST,
-			       objfile -> static_psymbols, 0);
+			       objfile -> static_psymbols, 0, cu_language,
+			       objfile);
 	  scan += strlen (scan) + 1;
 	}
     }
@@ -2407,7 +2629,7 @@ add_partial_symbol (dip, objfile)
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			   VAR_NAMESPACE, LOC_BLOCK,
 			   objfile -> global_psymbols,
-			   dip -> at_low_pc);
+			   dip -> at_low_pc, cu_language, objfile);
       break;
     case TAG_global_variable:
       record_minimal_symbol (dip -> at_name, locval (dip -> at_location),
@@ -2415,25 +2637,25 @@ add_partial_symbol (dip, objfile)
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			   VAR_NAMESPACE, LOC_STATIC,
 			   objfile -> global_psymbols,
-			   0);
+			   0, cu_language, objfile);
       break;
     case TAG_subroutine:
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			   VAR_NAMESPACE, LOC_BLOCK,
 			   objfile -> static_psymbols,
-			   dip -> at_low_pc);
+			   dip -> at_low_pc, cu_language, objfile);
       break;
     case TAG_local_variable:
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			   VAR_NAMESPACE, LOC_STATIC,
 			   objfile -> static_psymbols,
-			   0);
+			   0, cu_language, objfile);
       break;
     case TAG_typedef:
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			   VAR_NAMESPACE, LOC_TYPEDEF,
 			   objfile -> static_psymbols,
-			   0);
+			   0, cu_language, objfile);
       break;
     case TAG_class_type:
     case TAG_structure_type:
@@ -2442,14 +2664,14 @@ add_partial_symbol (dip, objfile)
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			   STRUCT_NAMESPACE, LOC_TYPEDEF,
 			   objfile -> static_psymbols,
-			   0);
+			   0, cu_language, objfile);
       if (cu_language == language_cplus)
 	{
 	  /* For C++, these implicitly act as typedefs as well. */
 	  ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
 			       VAR_NAMESPACE, LOC_TYPEDEF,
 			       objfile -> static_psymbols,
-			       0);
+			       0, cu_language, objfile);
 	}
       break;
     }
@@ -2558,7 +2780,8 @@ scan_partial_symbols (thisdie, enddie, objfile)
 		      temp = dbbase + di.at_sibling - dbroff;
 		      if ((temp < thisdie) || (temp >= enddie))
 			{
-			  dwarfwarn ("reference to DIE (0x%x) outside compilation unit", di.at_sibling);
+			  complain (&bad_die_ref, DIE_ID, DIE_NAME,
+				    di.at_sibling);
 			}
 		      else
 			{
@@ -2755,6 +2978,14 @@ new_symbol (dip, objfile)
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       SYMBOL_CLASS (sym) = LOC_STATIC;
       SYMBOL_TYPE (sym) = decode_die_type (dip);
+
+      /* If this symbol is from a C++ compilation, then attempt to cache the
+	 demangled form for future reference.  This is a typical time versus
+	 space tradeoff, that was decided in favor of time because it sped up
+	 C++ symbol lookups by a factor of about 20. */
+
+      SYMBOL_LANGUAGE (sym) = cu_language;
+      SYMBOL_INIT_DEMANGLED_NAME (sym, &objfile -> symbol_obstack);
       switch (dip -> die_tag)
 	{
 	case TAG_label:
@@ -2883,6 +3114,7 @@ synthesize_typedef (dip, objfile, type)
       memset (sym, 0, sizeof (struct symbol));
       SYMBOL_NAME (sym) = create_name (dip -> at_name,
 				       &objfile->symbol_obstack);
+      SYMBOL_INIT_LANGUAGE_SPECIFIC (sym, cu_language);
       SYMBOL_TYPE (sym) = type;
       SYMBOL_CLASS (sym) = LOC_TYPEDEF;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
@@ -3056,8 +3288,8 @@ decode_modified_type (modifiers, modcount, mtype)
 	    }
 	  break;
 	default:
-	  SQUAWK (("botched modified type decoding (mtype 0x%x)", mtype));
-	  typep = lookup_fundamental_type (current_objfile, FT_INTEGER);
+	  complain (&botched_modified_type, DIE_ID, DIE_NAME, mtype);
+	  typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
 	  break;
 	}
     }
@@ -3074,17 +3306,16 @@ decode_modified_type (modifiers, modcount, mtype)
 	    typep = lookup_reference_type (typep);
 	    break;
 	  case MOD_const:
-	    SQUAWK (("type modifier 'const' ignored"));		/* FIXME */
+	    complain (&const_ignored, DIE_ID, DIE_NAME);  /* FIXME */
 	    break;
 	  case MOD_volatile:
-	    SQUAWK (("type modifier 'volatile' ignored"));	/* FIXME */
+	    complain (&volatile_ignored, DIE_ID, DIE_NAME); /* FIXME */
 	    break;
 	  default:
 	    if (!(MOD_lo_user <= (unsigned char) modifier
 		  && (unsigned char) modifier <= MOD_hi_user))
 	      {
-		SQUAWK (("unknown type modifier %u",
-			 (unsigned char) modifier));
+		complain (&unknown_type_modifier, DIE_ID, DIE_NAME, modifier);
 	      }
 	    break;
 	}
@@ -3106,10 +3337,12 @@ DESCRIPTION
 
 NOTES
 
-	If we encounter a fundamental type that we are unprepared to
-	deal with, and it is not in the range of those types defined
-	as application specific types, then we issue a warning and
-	treat the type as an "int".
+	For robustness, if we are asked to translate a fundamental
+	type that we are unprepared to deal with, we return int so
+	callers can always depend upon a valid type being returned,
+	and so gdb may at least do something reasonable by default.
+	If the type is not in the range of those types defined as
+	application specific types, we also issue a warning.
 */
 
 static struct type *
@@ -3122,108 +3355,111 @@ decode_fund_type (fundtype)
     {
 
     case FT_void:
-      typep = lookup_fundamental_type (current_objfile, FT_VOID);
+      typep = dwarf_fundamental_type (current_objfile, FT_VOID);
       break;
     
     case FT_boolean:		/* Was FT_set in AT&T version */
-      typep = lookup_fundamental_type (current_objfile, FT_BOOLEAN);
+      typep = dwarf_fundamental_type (current_objfile, FT_BOOLEAN);
       break;
 
     case FT_pointer:		/* (void *) */
-      typep = lookup_fundamental_type (current_objfile, FT_VOID);
+      typep = dwarf_fundamental_type (current_objfile, FT_VOID);
       typep = lookup_pointer_type (typep);
       break;
     
     case FT_char:
-      typep = lookup_fundamental_type (current_objfile, FT_CHAR);
+      typep = dwarf_fundamental_type (current_objfile, FT_CHAR);
       break;
     
     case FT_signed_char:
-      typep = lookup_fundamental_type (current_objfile, FT_SIGNED_CHAR);
+      typep = dwarf_fundamental_type (current_objfile, FT_SIGNED_CHAR);
       break;
 
     case FT_unsigned_char:
-      typep = lookup_fundamental_type (current_objfile, FT_UNSIGNED_CHAR);
+      typep = dwarf_fundamental_type (current_objfile, FT_UNSIGNED_CHAR);
       break;
     
     case FT_short:
-      typep = lookup_fundamental_type (current_objfile, FT_SHORT);
+      typep = dwarf_fundamental_type (current_objfile, FT_SHORT);
       break;
 
     case FT_signed_short:
-      typep = lookup_fundamental_type (current_objfile, FT_SIGNED_SHORT);
+      typep = dwarf_fundamental_type (current_objfile, FT_SIGNED_SHORT);
       break;
     
     case FT_unsigned_short:
-      typep = lookup_fundamental_type (current_objfile, FT_UNSIGNED_SHORT);
+      typep = dwarf_fundamental_type (current_objfile, FT_UNSIGNED_SHORT);
       break;
     
     case FT_integer:
-      typep = lookup_fundamental_type (current_objfile, FT_INTEGER);
+      typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
       break;
 
     case FT_signed_integer:
-      typep = lookup_fundamental_type (current_objfile, FT_SIGNED_INTEGER);
+      typep = dwarf_fundamental_type (current_objfile, FT_SIGNED_INTEGER);
       break;
     
     case FT_unsigned_integer:
-      typep = lookup_fundamental_type (current_objfile, FT_UNSIGNED_INTEGER);
+      typep = dwarf_fundamental_type (current_objfile, FT_UNSIGNED_INTEGER);
       break;
     
     case FT_long:
-      typep = lookup_fundamental_type (current_objfile, FT_LONG);
+      typep = dwarf_fundamental_type (current_objfile, FT_LONG);
       break;
 
     case FT_signed_long:
-      typep = lookup_fundamental_type (current_objfile, FT_SIGNED_LONG);
+      typep = dwarf_fundamental_type (current_objfile, FT_SIGNED_LONG);
       break;
     
     case FT_unsigned_long:
-      typep = lookup_fundamental_type (current_objfile, FT_UNSIGNED_LONG);
+      typep = dwarf_fundamental_type (current_objfile, FT_UNSIGNED_LONG);
       break;
     
     case FT_long_long:
-      typep = lookup_fundamental_type (current_objfile, FT_LONG_LONG);
+      typep = dwarf_fundamental_type (current_objfile, FT_LONG_LONG);
       break;
 
     case FT_signed_long_long:
-      typep = lookup_fundamental_type (current_objfile, FT_SIGNED_LONG_LONG);
+      typep = dwarf_fundamental_type (current_objfile, FT_SIGNED_LONG_LONG);
       break;
 
     case FT_unsigned_long_long:
-      typep = lookup_fundamental_type (current_objfile, FT_UNSIGNED_LONG_LONG);
+      typep = dwarf_fundamental_type (current_objfile, FT_UNSIGNED_LONG_LONG);
       break;
 
     case FT_float:
-      typep = lookup_fundamental_type (current_objfile, FT_FLOAT);
+      typep = dwarf_fundamental_type (current_objfile, FT_FLOAT);
       break;
     
     case FT_dbl_prec_float:
-      typep = lookup_fundamental_type (current_objfile, FT_DBL_PREC_FLOAT);
+      typep = dwarf_fundamental_type (current_objfile, FT_DBL_PREC_FLOAT);
       break;
     
     case FT_ext_prec_float:
-      typep = lookup_fundamental_type (current_objfile, FT_EXT_PREC_FLOAT);
+      typep = dwarf_fundamental_type (current_objfile, FT_EXT_PREC_FLOAT);
       break;
     
     case FT_complex:
-      typep = lookup_fundamental_type (current_objfile, FT_COMPLEX);
+      typep = dwarf_fundamental_type (current_objfile, FT_COMPLEX);
       break;
     
     case FT_dbl_prec_complex:
-      typep = lookup_fundamental_type (current_objfile, FT_DBL_PREC_COMPLEX);
+      typep = dwarf_fundamental_type (current_objfile, FT_DBL_PREC_COMPLEX);
       break;
     
     case FT_ext_prec_complex:
-      typep = lookup_fundamental_type (current_objfile, FT_EXT_PREC_COMPLEX);
+      typep = dwarf_fundamental_type (current_objfile, FT_EXT_PREC_COMPLEX);
       break;
     
     }
 
-  if ((typep == NULL) && !(FT_lo_user <= fundtype && fundtype <= FT_hi_user))
+  if (typep == NULL)
     {
-      SQUAWK (("unexpected fundamental type 0x%x", fundtype));
-      typep = lookup_fundamental_type (current_objfile, FT_VOID);
+      typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
+      if (!(FT_lo_user <= fundtype && fundtype <= FT_hi_user))
+	{
+	  complain (&unexpected_fund_type, DIE_ID, DIE_NAME, fundtype);
+	}
     }
     
   return (typep);
@@ -3325,7 +3561,7 @@ basicdieinfo (dip, diep, objfile)
   if ((dip -> die_length < SIZEOF_DIE_LENGTH) ||
       ((diep + dip -> die_length) > (dbbase + dbsize)))
     {
-      dwarfwarn ("malformed DIE, bad length (%d bytes)", dip -> die_length);
+      complain (&malformed_die, DIE_ID, DIE_NAME, dip -> die_length);
       dip -> die_length = 0;
     }
   else if (dip -> die_length < (SIZEOF_DIE_LENGTH + SIZEOF_DIE_TAG))
@@ -3393,7 +3629,7 @@ completedieinfo (dip, objfile)
       diep += SIZEOF_ATTRIBUTE;
       if ((nbytes = attribute_size (attr)) == -1)
 	{
-	  SQUAWK (("unknown attribute length, skipped remaining attributes"));;
+	  complain (&unknown_attribute_length, DIE_ID, DIE_NAME);
 	  diep = end;
 	  continue;
 	}
@@ -3550,8 +3786,7 @@ completedieinfo (dip, objfile)
 	  diep += strlen (diep) + 1;
 	  break;
 	default:
-	  SQUAWK (("unknown attribute form (0x%x)", form));
-	  SQUAWK (("unknown attribute length, skipped remaining attributes"));;
+	  complain (&unknown_attribute_form, DIE_ID, DIE_NAME, form);
 	  diep = end;
 	  break;
 	}
@@ -3609,7 +3844,7 @@ target_to_host (from, nbytes, signextend, objfile)
 	rtnval = bfd_get_8 (objfile -> obfd, (bfd_byte *) from);
 	break;
       default:
-	dwarfwarn ("no bfd support for %d byte data object", nbytes);
+	complain (&no_bfd_get_N, DIE_ID, DIE_NAME, nbytes);
 	rtnval = 0;
 	break;
     }
@@ -3665,7 +3900,7 @@ attribute_size (attr)
 	nbytes = TARGET_FT_POINTER_SIZE (objfile);
 	break;
       default:
-	SQUAWK (("unknown attribute form (0x%x)", form));
+	complain (&unknown_attribute_form, DIE_ID, DIE_NAME, form);
 	nbytes = -1;
 	break;
       }

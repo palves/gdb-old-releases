@@ -1,3 +1,8 @@
+Wed Nov 11 21:12:58 1992  John Gilmore  (gnu@cygnus.com)
+
+	* configure.in:  Reformat case for ease of reading.
+	Add SunOS 3.* case, reported by Karl Berry, <karl@claude.cs.umb.edu>.
+
 Thu Oct  1 23:09:48 1992  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
 
 	* configure.in: now use cpu-vendor-os triple instead of nested cases

@@ -1,5 +1,5 @@
 /* BFD semi-generic back-end for a.out binaries.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -252,7 +252,7 @@ DESCRIPTION
 	byte stream memory image, into the internal exec_header
 	structure.
 
-EXAMPLE
+SYNOPSIS
 	void aout_<size>_swap_exec_header_in,
            (bfd *abfd,
             struct external_exec *raw_bytes,
@@ -291,7 +291,7 @@ DESCRIPTION
 	Swaps the information in an internal exec header structure
 	into the supplied buffer ready for writing to disk.
 
-EXAMPLE
+SYNOPSIS
 	void aout_<size>_swap_exec_header_out
 	  (bfd *abfd,
 	   struct internal_exec *execp,
@@ -329,7 +329,7 @@ DESCRIPTION
 	environments "finish up" function just before returning, to
 	handle any last-minute setup.  
 
-EXAMPLE
+SYNOPSIS
 	bfd_target *aout_<size>_some_aout_object_p
 	 (bfd *abfd,
 	  bfd_target *(*callback_to_real_object_p)());
@@ -339,7 +339,7 @@ bfd_target *
 DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
       bfd *abfd AND
       struct internal_exec *execp AND
-      bfd_target *(*callback_to_real_object_p) ())
+      bfd_target *(*callback_to_real_object_p) PARAMS ((bfd *)))
 {
   struct aout_data_struct *rawptr, *oldrawptr;
   bfd_target *result;
@@ -484,9 +484,11 @@ DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
     abfd->flags |= EXEC_P;
   if (result)
     {
+#if 0 /* These should be set correctly anyways.  */
       abfd->sections = obj_textsec (abfd);
       obj_textsec (abfd)->next = obj_datasec (abfd);
       obj_datasec (abfd)->next = obj_bsssec (abfd);
+#endif
     }
   else
     {
@@ -503,7 +505,7 @@ FUNCTION
 DESCRIPTION
 	This routine initializes a BFD for use with a.out files.
 
-EXAMPLE
+SYNOPSIS
 	boolean aout_<size>_mkobject, (bfd *);
 */
 
@@ -555,7 +557,7 @@ DESCRIPTION
 	If the architecture is understood, machine type 0 (default)
 	should always be understood.  
 
-EXAMPLE
+SYNOPSIS
 	enum machine_type  aout_<size>_machine_type
 	 (enum bfd_architecture arch,
 	  unsigned long machine));
@@ -593,9 +595,20 @@ DEFUN(NAME(aout,machine_type),(arch, machine),
     if (machine == 0)	arch_flags = M_29K;
     break;
       
+  case bfd_arch_mips:
+    switch (machine) {
+    case 0:
+    case 2000:
+    case 3000:          arch_flags = M_MIPS1; break;
+    case 4000:
+    case 4400:
+    case 6000:          arch_flags = M_MIPS2; break;
+    default:            arch_flags = M_UNKNOWN; break;
+    }
+    break;
+
   default:
     arch_flags = M_UNKNOWN;
-    break;
   }
   return arch_flags;
 }
@@ -610,7 +623,7 @@ DESCRIPTION
 	values supplied. Verifies that the format can support the
 	architecture required.
 
-EXAMPLE
+SYNOPSIS
 	boolean aout_<size>_set_arch_mach,
 	 (bfd *,
 	  enum bfd_architecture,
@@ -632,6 +645,7 @@ DEFUN(NAME(aout,set_arch_mach),(abfd, arch, machine),
   switch (arch) {
   case bfd_arch_sparc:
   case bfd_arch_a29k:
+  case bfd_arch_mips:
     obj_reloc_entry_size (abfd) = RELOC_EXT_SIZE;
     break;
   default:
@@ -873,13 +887,13 @@ DEFUN (NAME (aout,adjust_sizes_and_vmas), (abfd, text_size, text_end),
 
 /*
 FUNCTION
-	aout_<size>new_section_hook
+	aout_<size>_new_section_hook
   
 DESCRIPTION
 	Called by the BFD in response to a @code{bfd_make_section}
 	request.
 
-EXAMPLE
+SYNOPSIS
         boolean aout_<size>_new_section_hook,
 	   (bfd *abfd,
 	    asection *newsect));
@@ -1211,7 +1225,7 @@ DEFUN(translate_to_native_sym_flags,(sym_pointer, cache_ptr, abfd),
   {
     sym_pointer->e_type[0] = (N_UNDF | N_EXT);
   }
-  else if (bfd_get_output_section(cache_ptr) == &bfd_com_section) {
+  else if (bfd_is_com_section (bfd_get_output_section (cache_ptr))) {
       sym_pointer->e_type[0] = (N_UNDF | N_EXT);
     }    
   else {    
@@ -1261,7 +1275,7 @@ DEFUN(NAME(aout,make_empty_symbol),(abfd),
   aout_symbol_type  *new =
     (aout_symbol_type *)bfd_zalloc (abfd, sizeof (aout_symbol_type));
   new->symbol.the_bfd = abfd;
-    
+
   return &new->symbol;
 }
 
@@ -1309,6 +1323,7 @@ DEFUN(NAME(aout,slurp_symbol_table),(abfd),
   if (bfd_read ((PTR)strings, 1, string_size, abfd) != string_size) {
     goto bailout;
   }
+  strings[string_size] = 0; /* Just in case. */
     
   /* OK, now walk the new symtable, cacheing symbol properties */
     {
@@ -1320,12 +1335,12 @@ DEFUN(NAME(aout,slurp_symbol_table),(abfd),
       for (sym_pointer = syms, cache_ptr = cached;
 	   sym_pointer < sym_end; sym_pointer++, cache_ptr++) 
 	  {
-	    bfd_vma x = GET_WORD(abfd, sym_pointer->e_strx);
+	    long x = GET_WORD(abfd, sym_pointer->e_strx);
 	    cache_ptr->symbol.the_bfd = abfd;
-	    if (x)
+	    if (x >= 0 && x < string_size)
 	      cache_ptr->symbol.name = x + strings;
 	    else
-	      cache_ptr->symbol.name = (char *)NULL;
+	      goto bailout;
 	      
 	    cache_ptr->symbol.value = GET_SWORD(abfd,  sym_pointer->e_value);
 	    cache_ptr->desc = bfd_h_get_16(abfd, sym_pointer->e_desc);
@@ -1368,7 +1383,7 @@ DEFUN(NAME(aout,write_syms),(abfd),
 	PUT_WORD  (abfd, 0, (unsigned char *)nsp.e_strx);
       }
       
-      if (g->the_bfd->xvec->flavour == abfd->xvec->flavour) 
+      if (bfd_asymbol_flavour(g) == abfd->xvec->flavour) 
 	  {
 	    bfd_h_put_16(abfd, aout_symbol(g)->desc,  nsp.e_desc);
 	    bfd_h_put_8(abfd, aout_symbol(g)->other,  nsp.e_other);
@@ -1467,7 +1482,7 @@ DEFUN(NAME(aout,swap_std_reloc_out),(abfd, g, natptr),
      */
      
 
-  if (output_section == &bfd_com_section 
+  if (bfd_is_com_section (output_section)
       || output_section == &bfd_abs_section
       || output_section == &bfd_und_section) 
     {
@@ -1551,7 +1566,7 @@ DEFUN(NAME(aout,swap_ext_reloc_out),(abfd, g, natptr),
      check for that here
      */
      
-  if (output_section == &bfd_com_section 
+  if (bfd_is_com_section (output_section)
       || output_section == &bfd_abs_section
       || output_section == &bfd_und_section) 
   {
@@ -1983,7 +1998,7 @@ DEFUN(NAME(aout,print_symbol),(ignore_abfd, afile, symbol, how),
       if (section_code == '?')
 	{
 	  int type_code = aout_symbol(symbol)->type  & 0xff;
-	  char *stab_name = aout_stab_name(type_code);
+	  CONST char *stab_name = aout_stab_name(type_code);
 	  char buf[10];
 	  if (stab_name == NULL)
 	    {

@@ -24,6 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #ifdef __STDC__		/* Forward decls for prototypes */
 struct value;
+struct objfile;
 /* enum exp_opcode;	ANSI's `wisdom' didn't include forward enum decls. */
 #endif
 
@@ -61,30 +62,122 @@ extern enum type_mode {type_mode_auto, type_mode_manual} type_mode;
 extern enum type_check
   {type_check_off, type_check_warn, type_check_on} type_check;
 
+/* Information for doing language dependent formatting of printed values. */
+
+struct language_format_info
+{
+  /* The format that can be passed directly to standard C printf functions
+     to generate a completely formatted value in the format appropriate for
+     the language. */
+
+  char *la_format;
+
+  /* The prefix to be used when directly printing a value, or constructing
+     a standard C printf format.  This generally is everything up to the
+     conversion specification (the part introduced by the '%' character
+     and terminated by the conversion specifier character). */
+
+  char *la_format_prefix;
+
+  /* The conversion specifier.  This is generally everything after the
+     field width and precision, typically only a single character such
+     as 'o' for octal format or 'x' for hexadecimal format. */
+
+  char *la_format_specifier;
+
+  /* The suffix to be used when directly printing a value, or constructing
+     a standard C printf format.  This generally is everything after the
+     conversion specification (the part introduced by the '%' character
+     and terminated by the conversion specifier character). */
+
+  char *la_format_suffix;		/* Suffix for custom format string */
+};
+
 /* Structure tying together assorted information about a language.  */
 
-struct language_defn {
-  char *	   la_name;		/* Name of the language */
-  enum language    la_language;		/* its symtab language-enum (defs.h) */
-  struct type ** const
-		  *la_builtin_type_vector;  /* Its builtin types */
-  enum range_check la_range_check;	/* Default range checking */
-  enum type_check  la_type_check;	/* Default type checking */
-  int            (*la_parser) PARAMS((void));	/* Parser function */
-  void           (*la_error) PARAMS ((char *)); /* Parser error function */
-  struct type	 **la_longest_int;	/* Longest signed integral type */
-  struct type	 **la_longest_unsigned_int; /* Longest uns integral type */
-  struct type	 **la_longest_float;	/* Longest floating point type */
-  char		  *la_hex_format;	/* Hexadecimal printf format str */
-  char		  *la_hex_format_pre;	/* Prefix for custom format string */
-  char		  *la_hex_format_suf;	/* Suffix for custom format string */
-  char		  *la_octal_format;	/* Octal printf format str */
-  char		  *la_octal_format_pre;	/* Prefix for custom format string */
-  char		  *la_octal_format_suf;	/* Suffix for custom format string */
-const struct op_print
-		  *la_op_print_tab;	/* Table for printing expressions */
-/* Add fields above this point, so the magic number is always last. */
-  long 		   la_magic;		/* Magic number for compat checking */
+struct language_defn
+{
+  /* Name of the language */
+  
+  char *la_name;
+
+  /* its symtab language-enum (defs.h) */
+
+  enum language la_language;
+
+  /* Its builtin types */
+
+  struct type ** const *la_builtin_type_vector;
+
+  /* Default range checking */
+
+  enum range_check la_range_check;
+
+  /* Default type checking */
+
+  enum type_check la_type_check;
+
+  /* Parser function. */
+  
+  int (*la_parser) PARAMS((void));
+
+  /* Parser error function */
+
+  void (*la_error) PARAMS ((char *));
+
+  void (*la_printchar) PARAMS ((int, FILE *));
+
+  void (*la_printstr) PARAMS ((FILE *, char *, unsigned int, int));
+
+  struct type *(*la_fund_type) PARAMS ((struct objfile *, int));
+
+  /* Print a type using syntax appropriate for this language. */
+
+  void (*la_print_type) PARAMS ((struct type *, char *, FILE *, int, int));
+
+  /* Print a value using syntax appropriate for this language. */
+
+  int (*la_val_print) PARAMS ((struct type *, char *,  CORE_ADDR, FILE *,
+			       int, int, int, enum val_prettyprint));
+
+  /* Longest signed integral type */
+
+  struct type **la_longest_int;
+
+  /* Longest unsigned integral type */
+
+  struct type **la_longest_unsigned_int;
+
+  /* Longest floating point type */
+
+  struct type **la_longest_float;
+
+  /* Base 2 (binary) formats. */
+
+  struct language_format_info la_binary_format;
+
+  /* Base 8 (octal) formats. */
+
+  struct language_format_info la_octal_format;
+
+  /* Base 10 (decimal) formats */
+
+  struct language_format_info la_decimal_format;
+
+  /* Base 16 (hexadecimal) formats */
+
+  struct language_format_info la_hex_format;
+
+
+  /* Table for printing expressions */
+
+  const struct op_print *la_op_print_tab;
+
+  /* Add fields above this point, so the magic number is always last. */
+  /* Magic number for compat checking */
+
+  long la_magic;
+
 };
 
 #define LANG_MAGIC	910823L
@@ -138,18 +231,97 @@ set_language PARAMS ((enum language));
 #define	longest_unsigned_int()	(*current_language->la_longest_unsigned_int)
 #define	longest_float()		(*current_language->la_longest_float)
 
-/* Hexadecimal number formatting is in defs.h because it is so common
-   throughout GDB.  */
+#define create_fundamental_type(objfile,typeid) \
+  (current_language->la_fund_type(objfile, typeid))
 
-/* Return a format string for printf that will print a number in the local
-   (language-specific) octal format.  Result is static and is
-   overwritten by the next call.  local_octal_format_custom takes printf
-   options like "08" or "l" (to produce e.g. %08x or %lx).  */
+#define LA_PRINT_TYPE(type,varstring,stream,show,level) \
+  (current_language->la_print_type(type,varstring,stream,show,level))
 
-#define local_octal_format() (current_language->la_octal_format)
+#define LA_VAL_PRINT(type,valaddr,addr,stream,fmt,deref,recurse,pretty) \
+  (current_language->la_val_print(type,valaddr,addr,stream,fmt,deref, \
+				  recurse,pretty))
+
+/* Return a format string for printf that will print a number in one of
+   the local (language-specific) formats.  Result is static and is
+   overwritten by the next call.  Takes printf options like "08" or "l"
+   (to produce e.g. %08x or %lx).  */
+
+#define local_binary_format() \
+  (current_language->la_binary_format.la_format)
+#define local_binary_format_prefix() \
+  (current_language->la_binary_format.la_format_prefix)
+#define local_binary_format_specifier() \
+  (current_language->la_binary_format.la_format_specifier)
+#define local_binary_format_suffix() \
+  (current_language->la_binary_format.la_format_suffix)
+
+#define local_octal_format() \
+  (current_language->la_octal_format.la_format)
+#define local_octal_format_prefix() \
+  (current_language->la_octal_format.la_format_prefix)
+#define local_octal_format_specifier() \
+  (current_language->la_octal_format.la_format_specifier)
+#define local_octal_format_suffix() \
+  (current_language->la_octal_format.la_format_suffix)
+
+#define local_decimal_format() \
+  (current_language->la_decimal_format.la_format)
+#define local_decimal_format_prefix() \
+  (current_language->la_decimal_format.la_format_prefix)
+#define local_decimal_format_specifier() \
+  (current_language->la_decimal_format.la_format_specifier)
+#define local_decimal_format_suffix() \
+  (current_language->la_decimal_format.la_format_suffix)
+
+#define local_hex_format() \
+  (current_language->la_hex_format.la_format)
+#define local_hex_format_prefix() \
+  (current_language->la_hex_format.la_format_prefix)
+#define local_hex_format_specifier() \
+  (current_language->la_hex_format.la_format_specifier)
+#define local_hex_format_suffix() \
+  (current_language->la_hex_format.la_format_suffix)
+
+#define LA_PRINT_CHAR(ch, stream) \
+  (current_language->la_printchar(ch, stream))
+#define LA_PRINT_STRING(stream, string, length, force_ellipses) \
+  (current_language->la_printstr(stream, string, length, force_ellipses))
+
+/* Test a character to decide whether it can be printed in literal form
+   or needs to be printed in another representation.  For example,
+   in C the literal form of the character with octal value 141 is 'a'
+   and the "other representation" is '\141'.  The "other representation"
+   is program language dependent. */
+
+#define PRINT_LITERAL_FORM(c) \
+  ((c)>=0x20 && ((c)<0x7F || (c)>=0xA0) && (!sevenbit_strings || (c)<0x80))
+
+/* Return a format string for printf that will print a number in one of
+   the local (language-specific) formats.  Result is static and is
+   overwritten by the next call.  Takes printf options like "08" or "l"
+   (to produce e.g. %08x or %lx).  */
 
 extern char *
-local_octal_format_custom PARAMS ((char *));
+local_octal_format_custom PARAMS ((char *));	/* language.c */
+
+extern char *
+local_hex_format_custom PARAMS ((char *));	/* language.c */
+
+/* Return a string that contains a number formatted in one of the local
+   (language-specific) formats.  Result is static and is overwritten by
+   the next call.  Takes printf options like "08" or "l".  */
+
+extern char *
+local_octal_string PARAMS ((int));		/* language.c */
+
+extern char *
+local_octal_string_custom PARAMS ((int, char *));/* language.c */
+
+extern char *
+local_hex_string PARAMS ((int));		/* language.c */
+
+extern char *
+local_hex_string_custom PARAMS ((int, char *));	/* language.c */
 
 /* Type predicates */
 
@@ -212,6 +384,9 @@ extern int
 value_true PARAMS ((struct value *));
 
 /* Misc:  The string representing a particular enum language.  */
+
+extern const struct language_defn *
+language_def PARAMS ((enum language));
 
 extern char *
 language_str PARAMS ((enum language));

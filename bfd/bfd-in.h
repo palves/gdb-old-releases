@@ -1,5 +1,7 @@
-/* A -*- C -*- header file for the bfd library
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+/* Main header file for the bfd library -- portable access to object files.
+   ==> The bfd.h file is generated from bfd-in.h and various .c files; if you
+   ==> change it, your changes will probably be lost.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -20,8 +22,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* bfd.h -- The only header file required by users of the bfd library 
 
-This file is generated from various .c files, if you change it, your
-bits may be lost.
+The bfd.h file is generated from bfd-in.h and various .c files; if you
+change it, your changes will probably be lost.
 
 All the prototypes and definitions following the comment "THE FOLLOWING
 IS EXTRACTED FROM THE SOURCE" are extracted from the source files for
@@ -43,16 +45,7 @@ here.  */
 #include "ansidecl.h"
 #include "obstack.h"
 
-/* Make it easier to declare prototypes (puts conditional here) */
-#ifndef PROTO
-#	if __STDC__
-#		define PROTO(type, name, arglist) type name arglist
-#	else
-#		define PROTO(type, name, arglist) type name ()
-#	endif
-#endif
-
-#define BFD_VERSION "2.0"
+#define BFD_VERSION "2.1"
 
 /* forward declaration */
 typedef struct _bfd bfd;
@@ -150,9 +143,12 @@ typedef int symtype;		/* Who knows, yet? */
 #define bfd_get_section(x) ((x)->section)
 #define bfd_get_output_section(x) ((x)->section->output_section)
 #define bfd_set_section(x,y) ((x)->section) = (y)
-#define bfd_asymbol_base(x) ((x)->section?((x)->section->vma):0)
-#define bfd_asymbol_value(x) (bfd_asymbol_base(x) + x->value)
+#define bfd_asymbol_base(x) ((x)->section->vma)
+#define bfd_asymbol_value(x) (bfd_asymbol_base(x) + (x)->value)
 #define bfd_asymbol_name(x) ((x)->name)
+/*Perhaps future: #define bfd_asymbol_bfd(x) ((x)->section->owner)*/
+#define bfd_asymbol_bfd(x) ((x)->the_bfd)
+#define bfd_asymbol_flavour(x) (bfd_asymbol_bfd(x)->xvec->flavour)
 
 /* This is a type pun with struct ranlib on purpose! */
 typedef struct carsym {
@@ -197,6 +193,8 @@ typedef struct sec *sec_ptr;
 #define bfd_get_section_flags(bfd, ptr) ((ptr)->flags + 0)
 #define bfd_get_section_userdata(bfd, ptr) ((ptr)->userdata)
 
+#define bfd_is_com_section(ptr) (((ptr)->flags & SEC_IS_COMMON) != 0)
+
 #define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (val)), ((ptr)->user_set_vma = true), true)
 #define bfd_set_section_alignment(bfd, ptr, val) (((ptr)->alignment_power = (val)),true)
 #define bfd_set_section_userdata(bfd, ptr, val) (((ptr)->userdata = (val)),true)
@@ -218,26 +216,25 @@ typedef enum bfd_error {
 
 extern bfd_ec bfd_error;
 struct reloc_cache_entry;
-struct bfd_seclet_struct ;
+struct bfd_seclet;
 
 
 typedef struct bfd_error_vector {
-  PROTO(void,(* nonrepresentable_section ),(CONST bfd  *CONST abfd,
-					    CONST char *CONST name));
-  PROTO(void,(* undefined_symbol),(CONST struct reloc_cache_entry *rel,
-				   CONST struct bfd_seclet_struct *sec
-				   ));
-  PROTO(void, (* reloc_value_truncated),(CONST struct
+  void (* nonrepresentable_section ) PARAMS ((CONST bfd  *CONST abfd,
+					      CONST char *CONST name));
+  void (* undefined_symbol) PARAMS ((CONST struct reloc_cache_entry *rel,
+				     CONST struct bfd_seclet *sec));
+  void (* reloc_value_truncated) PARAMS ((CONST struct
 					  reloc_cache_entry *rel,
-					  struct bfd_seclet_struct *sec));
+					  struct bfd_seclet *sec));
 
-  PROTO(void, (* reloc_dangerous),(CONST struct reloc_cache_entry *rel,
-				   CONST struct bfd_seclet_struct *sec));
+  void (* reloc_dangerous) PARAMS ((CONST struct reloc_cache_entry *rel,
+				    CONST struct bfd_seclet *sec));
   
 } bfd_error_vector_type;
 
-PROTO (CONST char *, bfd_errmsg, (bfd_ec error_tag));
-PROTO (void, bfd_perror, (CONST char *message));
+CONST char *bfd_errmsg PARAMS ((bfd_ec error_tag));
+void bfd_perror PARAMS ((CONST char *message));
 
 
 typedef enum bfd_print_symbol
@@ -292,15 +289,10 @@ CAT(NAME,_bfd_debug_info_start),\
 CAT(NAME,_bfd_debug_info_end),\
 CAT(NAME,_bfd_debug_info_accumulate),\
 CAT(NAME,_bfd_get_relocated_section_contents),\
-CAT(NAME,_bfd_relax_section)
+CAT(NAME,_bfd_relax_section),\
+CAT(NAME,_bfd_seclet_link)
 
-#define COFF_SWAP_TABLE \
- coff_swap_aux_in, coff_swap_sym_in, coff_swap_lineno_in, \
- coff_swap_aux_out, coff_swap_sym_out, \
- coff_swap_lineno_out, coff_swap_reloc_out, \
- coff_swap_filehdr_out, coff_swap_aouthdr_out, \
- coff_swap_scnhdr_out
-
+#define COFF_SWAP_TABLE (PTR) &bfd_coff_std_swap_table
 
 
 /* User program access to BFD facilities */

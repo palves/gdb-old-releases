@@ -10,6 +10,8 @@
 
 #include <stdio.h>
 
+#define USE_UTIME
+
 #ifndef DONTDECLARE_MALLOC
 extern PTR  EXFUN(malloc,(unsigned));
 extern PTR  EXFUN(realloc, (PTR, unsigned));
@@ -18,7 +20,7 @@ extern int  EXFUN(abort,(void));
 extern int  EXFUN(free,(PTR));
 extern void EXFUN(bcopy,(char*,char*,int));
 extern void EXFUN(exit,(int));
-extern int  EXFUN(strtol());
+extern int  EXFUN(strtol,(char *, char **, int));
 extern void EXFUN(bzero,(char *, int));
 #define NO_STDARG 1
 extern int  EXFUN(abort,(void));
@@ -52,7 +54,7 @@ extern char *ctime();
 extern int _flsbuf();
 extern int fclose();
 extern int time();
-extern int utimes();
+extern int utime();
 extern int vfprintf();
 extern long atol();
 extern char *getenv();

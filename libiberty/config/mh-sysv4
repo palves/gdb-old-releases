@@ -1,6 +1,3 @@
-HDEFINES = -DUSG -DUSGr4
+HDEFINES = -DHAVE_SYSCONF
 RANLIB=true
-INSTALL = /usr/ucb/install -c
-
-# The l flag generates a warning from the SVR4 archiver, remove it.
-AR_FLAGS = cq
+INSTALL = cp

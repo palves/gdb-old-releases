@@ -22,23 +22,42 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-static bfd_arch_info_type arch_info_struct = 
+static bfd_arch_info_type arch_info_struct[] = 
+  {
   {
     32,	/* 32 bits in a word */
     32,	/* 32 bits in an address */
     8,	/* 8 bits in a byte */
     bfd_arch_mips,
-    0,	/* only 1 machine */
+    3000,
     "mips",
-    "mips",
+    "mips:3000",
     3,
-    true, /* the one and only */
+    true, /* the standard instruction set */
+    bfd_default_compatible, 
+    bfd_default_scan,
+    0,
+  },
+  {
+    64, /* 64 bits in a word */
+    64, /* 64 bits in an address */
+    8,  /* 8 bits in a byte */
+    bfd_arch_mips,
+    4000,
+    "mips",
+    "mips:4000",
+    3,
+    false,
     bfd_default_compatible, 
     bfd_default_scan ,
     0,
+  }
   };
 
 void DEFUN_VOID(bfd_mips_arch)
 {
-  bfd_arch_linkin(&arch_info_struct);
+  register int i;
+
+  for (i = 0; i < sizeof (arch_info_struct) / sizeof (*arch_info_struct); i++)
+    bfd_arch_linkin(&arch_info_struct[i]);
 }

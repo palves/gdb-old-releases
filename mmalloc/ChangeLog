@@ -1,3 +1,17 @@
+Tue Feb 16 08:09:15 1993  Fred Fish  (fnf@cygnus.com)
+
+	* Makefile.in, attach.c, detach.c, keys.c, mmap-sup.c, mmtrace.c,
+	sbrk-sup.c:  Use GNU Library General Public License, like other
+	files.
+
+Wed Nov 18 19:18:59 1992  John Gilmore  (gnu@cygnus.com)
+
+	* configure.in:  Regularize list of host configs.
+
+Fri Oct 30 00:59:46 1992  John Gilmore  (gnu@cygnus.com)
+
+	* mmalloc.texi:  Add missing doubled @.  Bugfix by Paul Eggert.
+
 Fri Oct 23 01:50:52 1992  Stu Grossman  (grossman at cygnus.com)
 
 	* configure.in:  Handle solaris same as sysv4.

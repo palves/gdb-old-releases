@@ -45,17 +45,26 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define MAX_PATH_SIZE 256		/* FIXME: Should be dynamic */
 
-/* On SVR4 systems, for the initial implementation, use main() as the
-   "startup mapping complete" breakpoint address.  The models for SunOS
-   and SVR4 dynamic linking debugger support are different in that SunOS
-   hits one breakpoint when all mapping is complete while using the SVR4
+/* On SVR4 systems, for the initial implementation, use some runtime startup
+   symbol as the "startup mapping complete" breakpoint address.  The models
+   for SunOS and SVR4 dynamic linking debugger support are different in that
+   SunOS hits one breakpoint when all mapping is complete while using the SVR4
    debugger support takes two breakpoint hits for each file mapped, and
    there is no way to know when the "last" one is hit.  Both these
    mechanisms should be tied to a "breakpoint service routine" that
    gets automatically executed whenever one of the breakpoints indicating
    a change in mapping is hit.  This is a future enhancement.  (FIXME) */
 
-#define BKPT_AT_MAIN 1
+#define BKPT_AT_SYMBOL 1
+
+static char *bkpt_names[] = {
+#ifdef SOLIB_BKPT_NAME
+  SOLIB_BKPT_NAME,		/* Prefer configured name if it exists. */
+#endif
+  "_start",
+  "main",
+  NULL
+};
 
 /* local data declarations */
 
@@ -90,7 +99,6 @@ struct so_list {
   char so_name[MAX_PATH_SIZE];		/* shared object lib name (FIXME) */
   char symbols_loaded;			/* flag: symbols read in yet? */
   char from_tty;			/* flag: print msgs? */
-  bfd *so_bfd;				/* bfd for so_name */
   struct objfile *objfile;		/* objfile for loaded lib */
   struct section_table *sections;
   struct section_table *sections_end;
@@ -186,9 +194,11 @@ solib_map_sections (so)
   char *scratch_pathname;
   int scratch_chan;
   struct section_table *p;
+  struct cleanup *old_chain;
+  bfd *abfd;
   
   filename = tilde_expand (so -> so_name);
-  make_cleanup (free, filename);
+  old_chain = make_cleanup (free, filename);
   
   scratch_chan = openp (getenv ("PATH"), 1, filename, O_RDONLY, 0,
 			&scratch_pathname);
@@ -201,19 +211,24 @@ solib_map_sections (so)
     {
       perror_with_name (filename);
     }  
+  make_cleanup (free, scratch_pathname);
 
-  so -> so_bfd = bfd_fdopenr (scratch_pathname, NULL, scratch_chan);
-  if (!so -> so_bfd)
+  abfd = bfd_fdopenr (scratch_pathname, NULL, scratch_chan);
+  if (!abfd)
     {
+      close (scratch_chan);
       error ("Could not open `%s' as an executable file: %s",
 	     scratch_pathname, bfd_errmsg (bfd_error));
     }
-  if (!bfd_check_format (so -> so_bfd, bfd_object))
+
+  make_cleanup (bfd_close, abfd);	/* Zap bfd, close scratch_chan. */
+
+  if (!bfd_check_format (abfd, bfd_object))
     {
       error ("\"%s\": not in executable format: %s.",
 	     scratch_pathname, bfd_errmsg (bfd_error));
     }
-  if (build_section_table (so -> so_bfd, &so -> sections, &so -> sections_end))
+  if (build_section_table (abfd, &so -> sections, &so -> sections_end))
     {
       error ("Can't find the file sections in `%s': %s", 
 	     exec_bfd -> filename, bfd_errmsg (bfd_error));
@@ -227,11 +242,14 @@ solib_map_sections (so)
       p -> addr += (CORE_ADDR) LM_ADDR (so);
       p -> endaddr += (CORE_ADDR) LM_ADDR (so);
       so -> lmend = (CORE_ADDR) max (p -> endaddr, so -> lmend);
-      if (strcmp (p -> sec_ptr -> name, ".text") == 0)
+      if (STREQ (p -> sec_ptr -> name, ".text"))
 	{
 	  so -> textsection = p;
 	}
     }
+
+  /* Free the file names, close the file now.  */
+  do_cleanups (old_chain);
 }
 
 /* Read all dynamically loaded common symbol definitions from the inferior
@@ -273,12 +291,11 @@ solib_add_common_symbols (rtc_symp, objfile)
 
 	  /* Don't enter the symbol twice if the target is re-run. */
 
-#ifdef NAMES_HAVE_UNDERSCORE
-	  if (*name == '_')
+	  if (name[0] == bfd_get_symbol_leading_char (objfile->obfd))
 	    {
 	      name++;
 	    }
-#endif
+
 	  /* FIXME:  Do we really want to exclude symbols which happen
 	     to match symbols for other locations in the inferior's
 	     address space, even when they are in different linkage units? */
@@ -353,7 +370,7 @@ bfd_lookup_symbol (abfd, symname)
       for (i = 0; i < number_of_symbols; i++)
 	{
 	  sym = *symbol_table++;
-	  if (strcmp (sym -> name, symname) == 0)
+	  if (STREQ (sym -> name, symname))
 	    {
 	      symaddr = sym -> value;
 	      break;
@@ -508,9 +525,9 @@ locate_base ()
      library.  We don't want the shared library versions. */
 
   msymbol = lookup_minimal_symbol (DEBUG_BASE, symfile_objfile);
-  if ((msymbol != NULL) && (msymbol -> address != 0))
+  if ((msymbol != NULL) && (SYMBOL_VALUE_ADDRESS (msymbol) != 0))
     {
-      address = msymbol -> address;
+      address = SYMBOL_VALUE_ADDRESS (msymbol);
     }
   return (address);
 
@@ -533,6 +550,23 @@ locate_base ()
 
 }
 
+/*
+
+LOCAL FUNCTION
+
+	first_link_map_member -- locate first member in dynamic linker's map
+
+SYNOPSIS
+
+	static struct link_map *first_link_map_member (void)
+
+DESCRIPTION
+
+	Read in a copy of the first member in the inferior's dynamic
+	link map from the inferior's dynamic linker structures, and return
+	a pointer to the copy in our address space.
+*/
+
 static struct link_map *
 first_link_map_member ()
 {
@@ -553,6 +587,9 @@ first_link_map_member ()
 #else	/* SVR4_SHARED_LIBS */
 
   read_memory (debug_base, (char *) &debug_copy, sizeof (struct r_debug));
+  /* FIXME:  Perhaps we should validate the info somehow, perhaps by
+     checking r_version for a known version number, or r_state for
+     RT_CONSISTENT. */
   lm = debug_copy.r_map;
 
 #endif	/* !SVR4_SHARED_LIBS */
@@ -599,7 +636,7 @@ find_solib (so_list_ptr)
 	  /* We have not already read in the dynamic linking structures
 	     from the inferior, lookup the address of the base structure. */
 	  debug_base = locate_base ();
-	  if (debug_base > 0)
+	  if (debug_base != 0)
 	    {
 	      /* Read the base structure in and find the address of the first
 		 link map list member. */
@@ -892,10 +929,6 @@ clear_solib()
 	{
 	  free ((PTR)so_list_head -> sections);
 	}
-      if (so_list_head -> so_bfd)
-	{
-	  bfd_close (so_list_head -> so_bfd);
-	}
       next = so_list_head -> next;
       free((PTR)so_list_head);
       so_list_head = next;
@@ -1014,6 +1047,7 @@ DESCRIPTION
 static int
 enable_break ()
 {
+  int success = 0;
 
 #ifndef SVR4_SHARED_LIBS
 
@@ -1042,31 +1076,37 @@ enable_break ()
   /* Write a value of 1 to this member.  */
 
   in_debugger = 1;
-
   write_memory (flag_addr, (char *) &in_debugger, sizeof (in_debugger));
+  success = 1;
 
 #else	/* SVR4_SHARED_LIBS */
 
-#ifdef BKPT_AT_MAIN
+#ifdef BKPT_AT_SYMBOL
 
   struct minimal_symbol *msymbol;
+  char **bkpt_namep;
+  CORE_ADDR bkpt_addr;
 
-  msymbol = lookup_minimal_symbol ("main", symfile_objfile);
-  if ((msymbol != NULL) && (msymbol -> address != 0))
+  /* Scan through the list of symbols, trying to look up the symbol and
+     set a breakpoint there.  Terminate loop when we/if we succeed. */
+
+  breakpoint_addr = 0;
+  for (bkpt_namep = bkpt_names; *bkpt_namep != NULL; bkpt_namep++)
     {
-      breakpoint_addr = msymbol -> address;
-    }
-  else
-    {
-      return (0);
+      msymbol = lookup_minimal_symbol (*bkpt_namep, symfile_objfile);
+      if ((msymbol != NULL) && (SYMBOL_VALUE_ADDRESS (msymbol) != 0))
+	{
+	  bkpt_addr = SYMBOL_VALUE_ADDRESS (msymbol);
+	  if (target_insert_breakpoint (bkpt_addr, shadow_contents) == 0)
+	    {
+	      breakpoint_addr = bkpt_addr;
+	      success = 1;
+	      break;
+	    }
+	}
     }
 
-  if (target_insert_breakpoint (breakpoint_addr, shadow_contents) != 0)
-    {
-      return (0);
-    }
-
-#else	/* !BKPT_AT_MAIN */
+#else	/* !BKPT_AT_SYMBOL */
 
   struct symtab_and_line sal;
 
@@ -1080,12 +1120,13 @@ enable_break ()
      deal with hitting these breakpoints.  (FIXME). */
 
   warning ("'%s': line %d: missing SVR4 support code", __FILE__, __LINE__);
+  success = 1;
 
-#endif	/* BKPT_AT_MAIN */
+#endif	/* BKPT_AT_SYMBOL */
 
 #endif	/* !SVR4_SHARED_LIBS */
 
-  return (1);
+  return (success);
 }
   
 /*
@@ -1104,6 +1145,21 @@ DESCRIPTION
 	shell) until it is ready to execute it's first instruction.  At this
 	point, this function gets called via expansion of the macro
 	SOLIB_CREATE_INFERIOR_HOOK.
+
+	For SunOS executables, this first instruction is typically the
+	one at "_start", or a similar text label, regardless of whether
+	the executable is statically or dynamically linked.  The runtime
+	startup code takes care of dynamically linking in any shared
+	libraries, once gdb allows the inferior to continue.
+
+	For SVR4 executables, this first instruction is either the first
+	instruction in the dynamic linker (for dynamically linked
+	executables) or the instruction at "start" for statically linked
+	executables.  For dynamically linked executables, the system
+	first exec's /lib/libc.so.N, which contains the dynamic linker,
+	and starts it running.  The dynamic linker maps in any needed
+	shared libraries, maps in the actual user executable, and then
+	jumps to "start" in the user executable.
 
 	For both SunOS shared libraries, and SVR4 shared libraries, we
 	can arrange to cooperate with the dynamic linker to discover the

@@ -1,5 +1,5 @@
 /* BFD back-end for AMD 29000 COFF binaries.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Contributed by David Wood at New York University 7/8/91.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -42,7 +42,7 @@ asymbol *symbol;
 {                                             
   long relocation = 0;
 
-  if (symbol->section == &bfd_com_section) 
+  if (bfd_is_com_section (symbol->section))
   {
     relocation = 0;                           
   }
@@ -272,7 +272,7 @@ static void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
       ptr = *(relent->sym_ptr_ptr);
 
       if (ptr 
-	  && ptr->the_bfd == abfd		
+	  && bfd_asymbol_bfd(ptr) == abfd		
 
 	  && ((ptr->flags & BSF_OLD_COMMON)== 0))	
       {						
@@ -334,6 +334,6 @@ bfd_target a29kcoff_big_vec =
   },
 
   JUMP_TABLE(coff),
+     0, 0,
   COFF_SWAP_TABLE
  };
-

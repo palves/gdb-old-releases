@@ -147,10 +147,10 @@ struct nlist {
  * Note that an N_CALLNAME entry *must* have a corresponding N_BALNAME entry,
  * but not every N_BALNAME entry must have an N_CALLNAME entry.
  */
-#define N_CALLNAME	(-1)
-#define N_BALNAME	(-2)
-#define IS_CALLNAME(x)	(N_CALLNAME == (int)(x))
-#define IS_BALNAME(x)	(N_BALNAME == (int)(x))
+#define N_CALLNAME	((char)-1)
+#define N_BALNAME	((char)-2)
+#define IS_CALLNAME(x)	(N_CALLNAME == (x))
+#define IS_BALNAME(x)	(N_BALNAME == (x))
 #define IS_OTHER(x)	((x)>0 && (x) <=32)
 
 #define b_out_relocation_info relocation_info

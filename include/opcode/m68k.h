@@ -1,5 +1,5 @@
 /* Opcode table for m680[01234]0/m6888[12]/m68851.
-   Copyright (C) 1989, 1991 Free Software Foundation.
+   Copyright 1989, 1991, 1992, 1993 Free Software Foundation.
 
 This file is part of GDB, the GNU Debugger and GAS, the GNU Assembler.
 
@@ -17,6 +17,13 @@ You should have received a copy of the GNU General Public License
 along with GDB or GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* GCC has trouble initializing such a large structure -- it's exponential or
+   something in the size.  So allow it to be broken in half.  */
+#ifndef BREAK_UP_BIG_DECL
+#define	BREAK_UP_BIG_DECL	/* nothing */
+#define	AND_OTHER_PART		0
+#endif
+
 /* Syntax options: by default we recognize both MIT and Motorola
    syntax.  This can be controlled with the macros MIT_SYNTAX_ONLY and
    MOTOROLA_SYNTAX_ONLY (but these probably don't work very well,
@@ -30,6 +37,12 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    looking it up.  */
 
 /* These are used as bit flags for arch below. */
+
+/* Define this so that jump tables with calculable offsets are possible.
+   This option forces "bsr" and "bra" to always use 16-bit offsets, even
+   if smaller ones work work.  Other pseudo-instructions are available for
+   variable-sized offsets.  */
+#define FIXED_SIZE_BRANCH
 
 enum m68k_architecture { a,b };
 
@@ -1617,6 +1630,11 @@ struct m68k_opcode m68k_opcodes[] =
 {"fjule",	one(0xF08D),		one(0xF1FF),		"IdBc", mfloat },
 {"fjult",	one(0xF08C),		one(0xF1FF),		"IdBc", mfloat },
 {"fjun",	one(0xF088),		one(0xF1FF),		"IdBc", mfloat },
+
+/* GCC has trouble initializing such a large structure -- it's exponential or
+   something in the size.  So break it in half.  */
+BREAK_UP_BIG_DECL
+
 /* float stuff ends here */
 {"illegal",	one(0045374),		one(0177777),		"",     m68000up },
 
@@ -2387,15 +2405,17 @@ TBL("tblunb", "tblunw", "tblunl", 0, 0),
  
 };
 
-int numopcodes=sizeof(m68k_opcodes)/sizeof(m68k_opcodes[0]);
+int numopcodes = 
+	(sizeof(m68k_opcodes) + AND_OTHER_PART)/sizeof(m68k_opcodes[0]);
 
-struct m68k_opcode *endop = m68k_opcodes+sizeof(m68k_opcodes)/sizeof(m68k_opcodes[0]);
+struct m68k_opcode *endop = m68k_opcodes +
+	(sizeof(m68k_opcodes) + AND_OTHER_PART)/sizeof(m68k_opcodes[0]);
 #endif
+
 /*
  * Local Variables:
  * fill-column: 131
  * End:
  */
-
 
 /* end of m68k-opcode.h */

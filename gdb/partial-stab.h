@@ -80,7 +80,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		  && namestring [nsl - 2] == '.')
 #ifdef GDB_TARGET_IS_HPPA
               /* some cooperation from gcc to get around ld stupidity */
-              || (namestring[0] == 'e' && !strcmp (namestring, "end_file."))
+              || (namestring[0] == 'e' && STREQ (namestring, "end_file."))
 #endif
 	      )
 	    {
@@ -117,13 +117,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	  SET_NAMESTRING ();
 	  /* Check for __DYNAMIC, which is used by Sun shared libraries. 
 	     Record it even if it's local, not global, so we can find it.
-	     Same with virtual function tables, both global and static.  */
-	  if ((namestring[8] == 'C' && (strcmp ("__DYNAMIC", namestring) == 0))
-	      || VTBL_PREFIX_P ((namestring+HASH_OFFSET)))
-	    {
-	      record_minimal_symbol (namestring, CUR_SYMBOL_VALUE,
-				    CUR_SYMBOL_TYPE, objfile); /* Always */
-	    }
+	     FIXME:  this might want to check for _DYNAMIC and the current
+		     symbol_leading_char.  */
+	  if (namestring[8] == 'C' && STREQ ("__DYNAMIC", namestring))
+	    goto record_it;
+
+	  /* Same with virtual function tables, both global and static.  */
+	  {
+	    char *tempstring = namestring;
+	    if (tempstring[0] == bfd_get_symbol_leading_char (objfile->obfd))
+	      tempstring++;
+	    if (VTBL_PREFIX_P ((tempstring)))
+	      goto record_it;
+	  }
 #endif /* DBXREAD_ONLY */
 	  continue;
 
@@ -261,20 +267,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 	  /* Mark down an include file in the current psymtab */
 
-	  psymtab_include_list[includes_used++] = namestring;
-	  if (includes_used >= includes_allocated)
-	    {
-	      char **orig = psymtab_include_list;
+	  goto record_include_file;
 
-	      psymtab_include_list = (char **)
-		alloca ((includes_allocated *= 2) *
-			sizeof (char *));
-	      memcpy ((PTR)psymtab_include_list, (PTR)orig,
-		      includes_used * sizeof (char *));
-	    }
-
-#endif /* DBXREAD_ONLY */
+#else /* DBXREAD_ONLY */
 	  continue;
+#endif
 
 	case N_SOL:
 	  /* Mark down an include file in the current psymtab */
@@ -291,12 +288,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	     things like "break c-exp.y:435" need to work (I
 	     suppose the psymtab_include_list could be hashed or put
 	     in a binary tree, if profiling shows this is a major hog).  */
-	  if (pst && !strcmp (namestring, pst->filename))
+	  if (pst && STREQ (namestring, pst->filename))
 	    continue;
 	  {
 	    register int i;
 	    for (i = 0; i < includes_used; i++)
-	      if (!strcmp (namestring, psymtab_include_list[i]))
+	      if (STREQ (namestring, psymtab_include_list[i]))
 		{
 		  i = -1; 
 		  break;
@@ -304,6 +301,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	    if (i == -1)
 	      continue;
 	  }
+
+	record_include_file:
 
 	  psymtab_include_list[includes_used++] = namestring;
 	  if (includes_used >= includes_allocated)
@@ -339,13 +338,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		{
 		  ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				       STRUCT_NAMESPACE, LOC_TYPEDEF,
-				       objfile->static_psymbols, CUR_SYMBOL_VALUE);
+				       objfile->static_psymbols,
+				       CUR_SYMBOL_VALUE,
+				       psymtab_language, objfile);
 		  if (p[2] == 't')
 		    {
 		      /* Also a typedef with the same name.  */
 		      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 					   VAR_NAMESPACE, LOC_TYPEDEF,
-					   objfile->static_psymbols, CUR_SYMBOL_VALUE);
+					   objfile->static_psymbols,
+					   CUR_SYMBOL_VALUE, psymtab_language,
+					   objfile);
 		      p += 1;
 		    }
 		}
@@ -355,7 +358,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		{
 		  ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				       VAR_NAMESPACE, LOC_TYPEDEF,
-				       objfile->static_psymbols, CUR_SYMBOL_VALUE);
+				       objfile->static_psymbols,
+				       CUR_SYMBOL_VALUE,
+				       psymtab_language, objfile);
 		}
 	    check_enum:
 	      /* If this is an enumerated type, we need to
@@ -405,7 +410,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 			 enum constants in psymtabs, just in symtabs.  */
 		      ADD_PSYMBOL_TO_LIST (p, q - p,
 					   VAR_NAMESPACE, LOC_CONST,
-					   objfile->static_psymbols, 0);
+					   objfile->static_psymbols, 0,
+					   psymtab_language, objfile);
 		      /* Point past the name.  */
 		      p = q;
 		      /* Skip over the value.  */
@@ -421,7 +427,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	      /* Constant, e.g. from "const" in Pascal.  */
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_CONST,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
+				   objfile->static_psymbols, CUR_SYMBOL_VALUE,
+				   psymtab_language, objfile);
 	      continue;
 	    default:
 	      /* Skip if the thing following the : is
@@ -462,27 +469,33 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	    case 'c':
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_CONST,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
+				   objfile->static_psymbols, CUR_SYMBOL_VALUE,
+				   psymtab_language, objfile);
 	      continue;
 	    case 'S':
 	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
 	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_STATIC,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
+					VAR_NAMESPACE, LOC_STATIC,
+					objfile->static_psymbols,
+					CUR_SYMBOL_VALUE,
+					psymtab_language, objfile);
 	      continue;
 	    case 'G':
 	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
 	      /* The addresses in these entries are reported to be
 		 wrong.  See the code that reads 'G's for symtabs. */
 	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_STATIC,
-				   objfile->global_psymbols, CUR_SYMBOL_VALUE);
+					VAR_NAMESPACE, LOC_STATIC,
+					objfile->global_psymbols,
+					CUR_SYMBOL_VALUE,
+					psymtab_language, objfile);
 	      continue;
 
 	    case 't':
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_TYPEDEF,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
+				   objfile->static_psymbols, CUR_SYMBOL_VALUE,
+				   psymtab_language, objfile);
 	      continue;
 
 	    case 'f':
@@ -499,7 +512,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif /* DBXREAD_ONLY */
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_BLOCK,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
+				   objfile->static_psymbols, CUR_SYMBOL_VALUE,
+				   psymtab_language, objfile);
 	      continue;
 
 	      /* Global functions were ignored here, but now they
@@ -521,7 +535,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif /* DBXREAD_ONLY */
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_BLOCK,
-				   objfile->global_psymbols, CUR_SYMBOL_VALUE);
+				   objfile->global_psymbols, CUR_SYMBOL_VALUE,
+				   psymtab_language, objfile);
 	      continue;
 
 	      /* Two things show up here (hopefully); static symbols of
@@ -642,6 +657,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	default:
 	  /* If we haven't found it yet, ignore it.  It's probably some
 	     new type we don't know about yet.  */
-	  complain (&unknown_symtype_complaint, local_hex_string(CUR_SYMBOL_TYPE));
+	  complain (&unknown_symtype_complaint,
+		    local_hex_string (CUR_SYMBOL_TYPE));
 	  continue;
 	}

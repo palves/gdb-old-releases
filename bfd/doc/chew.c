@@ -346,12 +346,17 @@ DEFUN(remove_noncomments,(src,dst),
 	else idx++;
     }
 }
-/* turn foobar name(stuff); into foobar EXFUN(name,(stuff));
 
+/* turn:
+     foobar name(stuff);
+   into:
+     foobar
+     name PARAMS ((stuff));
+   and a blank line.
  */
 
 static void
-DEFUN_VOID(exfunstuff)
+DEFUN_VOID(paramstuff)
 {
     unsigned int openp;
     unsigned int fname;
@@ -360,14 +365,13 @@ DEFUN_VOID(exfunstuff)
     init_string(&out);
     
 
-    /* make sure that it's not already exfuned */
-    if(find(tos,"EXFUN") || find(tos,"PROTO") || !find(tos,"(")) {
+    /* make sure that it's not already param'd or proto'd */
+    if(find(tos,"PARAMS") || find(tos,"PROTO") || !find(tos,"(")) {
 	    catstr(&out,tos);
 	}
     else 
     {
-	
-	/*Find the open paren*/
+	/* Find the open paren */
 	for (openp = 0; at(tos, openp) != '('  && at(tos,openp); openp++)
 	 ;
 
@@ -381,23 +385,26 @@ DEFUN_VOID(exfunstuff)
 
 	fname++;
 	
-	for (idx = 0; idx < fname; idx++) 
+	for (idx = 0; idx < fname; idx++) 	/* Output type */
 	{
 	    catchar(&out, at(tos,idx));
 	}
     
-	cattext(&out,"EXFUN(");
-	for (idx = fname; idx < openp; idx++) 
+        cattext(&out, "\n");	/* Insert a newline between type and fnname */
+
+	for (idx = fname; idx < openp; idx++) 		/* Output fnname */
 	{
 	    catchar(&out, at(tos,idx));
 	}
-	cattext(&out,", ");
+
+	cattext(&out," PARAMS (");
+
 	while (at(tos,idx) && at(tos,idx) !=';') 
 	{
 	    catchar(&out, at(tos, idx));
 	    idx++;
 	}
-	cattext(&out,");\n");
+	cattext(&out,");\n\n");
     }
     overwrite_string(tos, &out);    
     pc++;
@@ -1306,7 +1313,7 @@ char *av[])
   add_intrinsic("exit", exit );
   add_intrinsic("swap", swap );
   add_intrinsic("outputdots", outputdots );
-  add_intrinsic("exfunstuff", exfunstuff );
+  add_intrinsic("paramstuff", paramstuff );
   add_intrinsic("maybecatstr", maybecatstr );
   add_intrinsic("translatecomments", translatecomments );
   add_intrinsic("kill_bogus_lines", kill_bogus_lines);

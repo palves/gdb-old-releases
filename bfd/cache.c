@@ -52,6 +52,10 @@ DESCRIPTION
 */
 
 
+static boolean
+bfd_cache_delete PARAMS ((bfd *));
+
+
 static int open_files;
 
 static bfd *cache_sentinel;	/* Chain of BFDs with active fds we've
@@ -90,9 +94,6 @@ bfd *bfd_last_cache;
  *
  */
 
-static void EXFUN(bfd_cache_delete,(bfd *));
-
-
 static void
 DEFUN_VOID(close_one)
 {
@@ -108,7 +109,7 @@ DEFUN_VOID(close_one)
     }
 
     kill->where = ftell((FILE *)(kill->iostream));
-    bfd_cache_delete(kill);
+    (void) bfd_cache_delete(kill);
 }
 
 /* Cuts the BFD abfd out of the chain in the cache */
@@ -121,15 +122,24 @@ DEFUN(snip,(abfd),
   if (cache_sentinel == abfd) cache_sentinel = (bfd *)NULL;
 }
 
-static void
+static boolean
 DEFUN(bfd_cache_delete,(abfd),
       bfd *abfd)
 {
-  fclose ((FILE *)(abfd->iostream));
+  boolean ret;
+
+  if (fclose ((FILE *)(abfd->iostream)) == 0)
+    ret = true;
+  else
+    {
+      ret = false;
+      bfd_error = system_call_error;
+    }
   snip (abfd);
   abfd->iostream = NULL;
   open_files--;
   bfd_last_cache = 0;
+  return ret;
 }
   
 static bfd *
@@ -180,16 +190,24 @@ DESCRIPTION
 	then close it too.
 
 SYNOPSIS
-	void bfd_cache_close (bfd *);
+	boolean bfd_cache_close (bfd *);
+
+RETURNS
+	<<false>> is returned if closing the file fails, <<true>> is
+	returned if all is well.
 */
-void
+boolean
 DEFUN(bfd_cache_close,(abfd),
       bfd *abfd)
 {
   /* If this file is open then remove from the chain */
   if (abfd->iostream) 
     {
-      bfd_cache_delete(abfd);
+      return bfd_cache_delete(abfd);
+    }
+  else
+    {
+      return true;
     }
 }
 

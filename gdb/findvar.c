@@ -498,7 +498,10 @@ read_var_value (var, frame)
 	if (REG_STRUCT_HAS_ADDR (BLOCK_GCC_COMPILED (b))
 	    && (   (TYPE_CODE (type) == TYPE_CODE_STRUCT)
 	        || (TYPE_CODE (type) == TYPE_CODE_UNION)))
-	  addr = *(CORE_ADDR *)VALUE_CONTENTS (v);
+	  {
+	    addr = *(CORE_ADDR *)VALUE_CONTENTS (v);
+	    VALUE_LVAL (v) = lval_memory;
+	  }
 	else
 	  return v;
       }
@@ -687,7 +690,7 @@ locate_var_value (var, frame)
 
   lazy_value = read_var_value (var, frame);
   if (lazy_value == 0)
-    error ("Address of \"%s\" is unknown.", SYMBOL_NAME (var));
+    error ("Address of \"%s\" is unknown.", SYMBOL_SOURCE_NAME (var));
 
   if (VALUE_LAZY (lazy_value)
       || TYPE_CODE (type) == TYPE_CODE_FUNC)
@@ -702,12 +705,12 @@ locate_var_value (var, frame)
     case lval_register:
     case lval_reg_frame_relative:
       error ("Address requested for identifier \"%s\" which is in a register.",
-	     SYMBOL_NAME (var));
+	     SYMBOL_SOURCE_NAME (var));
       break;
 
     default:
       error ("Can't take address of \"%s\" which isn't an lvalue.",
-	     SYMBOL_NAME (var));
+	     SYMBOL_SOURCE_NAME (var));
       break;
     }
   return 0;  /* For lint -- never reached */

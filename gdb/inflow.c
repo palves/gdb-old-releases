@@ -326,9 +326,9 @@ child_terminal_info (args, from_tty)
     return;
   }
 #if !defined(__GO32__)
-#ifdef TIOCGPGRP
   printf_filtered ("Inferior's terminal status (currently saved by GDB):\n");
 
+#ifdef TIOCGPGRP
   printf_filtered ("owner pgrp = %d, fcntl flags = 0x%x.\n",
 	  pgrp_inferior, tflags_inferior);
 #endif /* TIOCGPGRP */
@@ -491,6 +491,29 @@ generic_mourn_inferior ()
   /* It is confusing to the user for ignore counts to stick around
      from previous runs of the inferior.  So clear them.  */
   breakpoint_clear_ignore_counts ();
+}
+
+/* Call set_sigint_trap when you need to pass a signal on to an attached
+   process when handling SIGINT */
+
+static void
+pass_signal()
+{
+  kill (inferior_pid, SIGINT);
+}
+
+static void (*osig)();
+
+void
+set_sigint_trap()
+{
+  osig = (void (*) ()) signal (SIGINT, pass_signal);
+}
+
+void
+clear_sigint_trap()
+{
+  signal (SIGINT, osig);
 }
 
 

@@ -197,6 +197,7 @@ struct internalvar
 
 #ifdef __STDC__
 struct frame_info;
+struct fn_field;
 #endif
 
 extern void
@@ -271,6 +272,12 @@ extern value
 value_string PARAMS ((char *ptr, int len));
 
 extern value
+value_array PARAMS ((int lowbound, int highbound, value *elemvec));
+
+extern value
+value_concat PARAMS ((value arg1, value arg2));
+
+extern value
 value_binop PARAMS ((value arg1, value arg2, enum exp_opcode op));
 
 extern value
@@ -298,7 +305,7 @@ extern value
 value_neg PARAMS ((value arg1));
 
 extern value
-value_lognot PARAMS ((value arg1));
+value_complement PARAMS ((value arg1));
 
 extern value
 value_struct_elt PARAMS ((value *argp, value *args, char *name,
@@ -390,7 +397,7 @@ extern int
 value_less PARAMS ((value arg1, value arg2));
 
 extern int
-value_zerop PARAMS ((value arg1));
+value_logical_not PARAMS ((value arg1));
 
 /* C++ */
 
@@ -417,9 +424,6 @@ binop_user_defined_p PARAMS ((enum exp_opcode op, value arg1, value arg2));
 
 extern int
 unop_user_defined_p PARAMS ((enum exp_opcode op, value arg1));
-
-extern int
-typecmp PARAMS ((int staticp, struct type *t1[], value t2[]));
 
 extern int
 destructor_name_p PARAMS ((const char *name, const struct type *type));
@@ -469,19 +473,6 @@ extern void
 type_print PARAMS ((struct type *type, char *varstring, FILE *stream,
 		    int show));
 
-extern void
-type_print_1 PARAMS ((struct type *type, char *varstring, FILE *stream,
-		      int show, int level));
-
-/* Possibilities for prettyprint parameters to routines which print
-   things.  */
-enum val_prettyprint {
-  Val_no_prettyprint = 0,
-  Val_prettyprint,
-  /* Use the default setting which the user has specified.  */
-  Val_pretty_default
-  };
-
 extern char *
 baseclass_addr PARAMS ((struct type *type, int index, char *valaddr,
 			value *valuep, int *errp));
@@ -498,6 +489,9 @@ val_print PARAMS ((struct type *type, char *valaddr, CORE_ADDR address,
 		   FILE *stream, int format, int deref_ref,
 		   int recurse, enum val_prettyprint pretty));
 
+extern int
+val_print_string PARAMS ((CORE_ADDR addr, unsigned int len, FILE *stream));
+
 /* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
 extern void
 print_variable_value PARAMS ((struct symbol *var, struct frame_info *frame,
@@ -510,7 +504,7 @@ extern int
 check_field PARAMS ((value, const char *));
 
 extern void
-typedef_print PARAMS ((struct type *type, struct symbol *new, FILE *stream));
+c_typedef_print PARAMS ((struct type *type, struct symbol *new, FILE *stream));
 
 extern char *
 internalvar_name PARAMS ((struct internalvar *var));
@@ -525,6 +519,9 @@ clear_internalvars PARAMS ((void));
 
 extern value
 value_copy PARAMS ((value));
+
+extern int
+baseclass_offset PARAMS ((struct type *, int, value, int));
 
 /* From valops.c */
 

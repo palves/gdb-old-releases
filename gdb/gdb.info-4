@@ -1,16 +1,16 @@
-This is Info file ./gdb.info, produced by Makeinfo-1.47 from the input
-file gdb-all.texi.
+This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
+file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.06, October 1992, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.7.
+   This is Edition 4.07, January 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.8.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software Foundation,
-Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -53,7 +53,7 @@ can be selected manually, or GDB can set it automatically.
 
 * Setting::                     Switching between source languages
 * Show::                        Displaying the language
-* Checks::                      Type and Range checks
+* Checks::                      Type and range checks
 * Support::                     Supported languages
 
 
@@ -78,9 +78,13 @@ File: gdb.info,  Node: Manually,  Next: Automatically,  Up: Setting
 Setting the working language
 ----------------------------
 
-   To set the language, issue the command `set language LANG', where
-LANG is the name of a language: `c' or `modula-2'. For a list of the
-supported languages, type `set language'.
+   If you allow GDB to set the language automatically, expressions are
+interpreted the same way in your debugging session and your program.
+
+   If you wish, you may set the language manually.  To do this, issue
+the command `set language LANG', where LANG is the name of a language,
+such as `c' or `modula-2'.  For a list of the supported languages, type
+`set language'.
 
    Setting the language manually prevents GDB from updating the working
 language automatically.  This can lead to confusion if you try to debug
@@ -95,10 +99,6 @@ might not have the effect you intended.  In C, this means to add `b'
 and `c' and place the result in `a'.  The result printed would be the
 value of `a'.  In Modula-2, this means to compare `a' to the result of
 `b+c', yielding a `BOOLEAN' value.
-
-   If you allow GDB to set the language automatically, then you can
-count on expressions evaluating the same way in your debugging session
-and in your program.
 
 
 File: gdb.info,  Node: Automatically,  Prev: Manually,  Up: Setting
@@ -152,7 +152,7 @@ working language, and also what language source files were written in.
 
 `info frame'
      Among the other information listed here (*note Information about a
-     Frame: Frame Info.) is the source language for this frame.  This
+     frame: Frame Info.) is the source language for this frame.  This
      is the language that will become the working language if you ever
      use an identifier that is in this frame.
 
@@ -163,7 +163,7 @@ working language, and also what language source files were written in.
 
 File: gdb.info,  Node: Checks,  Next: Support,  Prev: Show,  Up: Languages
 
-Type and range Checking
+Type and range checking
 =======================
 
      *Warning:* In this release, the GDB commands for type and range
@@ -183,7 +183,7 @@ GDB will not check the statements in your program, it can check
 expressions entered directly into GDB for evaluation via the `print'
 command, for example.  As with the working language, GDB can also
 decide whether or not to check automatically based on your program's
-source language.  *Note Supported Languages: Support, for the default
+source language.  *Note Supported languages: Support, for the default
 settings of supported languages.
 
 * Menu:
@@ -227,7 +227,7 @@ sense to evaluate anyway.
 instance, both Modula-2 and C require the arguments to arithmetical
 operators to be numbers.  In C, enumerated types and pointers can be
 represented as numbers, so that they are valid arguments to mathematical
-operators.  *Note Supported Languages: Support, for further details on
+operators.  *Note Supported languages: Support, for further details on
 specific languages.
 
    GDB provides some additional commands for controlling the type
@@ -235,14 +235,14 @@ checker:
 
 `set check type auto'
      Set type checking on or off based on the current working language.
-     *Note Supported Languages: Support, for the default settings for
+     *Note Supported languages: Support, for the default settings for
      each language.
 
 `set check type on'
 `set check type off'
      Set type checking on or off, overriding the default setting for the
      current working language.  Issue a warning if the setting does not
-     match the language's default.  If any type mismatches occur in
+     match the language default.  If any type mismatches occur in
      evaluating an expression while typechecking is on, GDB prints a
      message and aborts evaluation of the expression.
 
@@ -259,7 +259,7 @@ checker:
 
 File: gdb.info,  Node: Range Checking,  Prev: Type Checking,  Up: Checks
 
-An overview of Range Checking
+An overview of range checking
 -----------------------------
 
    In some languages (such as Modula-2), it is an error to exceed the
@@ -268,37 +268,37 @@ checking is meant to ensure program correctness by making sure
 computations do not overflow, or indices on an array element access do
 not exceed the bounds of the array.
 
-   For expressions you use in GDB commands, you can tell GDB to ignore
-range errors; to always treat them as errors and abandon the
-expression; or to issue warnings when a range error occurs but evaluate
-the expression anyway.
+   For expressions you use in GDB commands, you can tell GDB to treat
+range errors in one of three ways: ignore them, always treat them as
+errors and abandon the expression, or issue warnings but evaluate the
+expression anyway.
 
    A range error can result from numerical overflow, from exceeding an
-array index bound, or when you type in a constant that is not a member
-of any type.  Some languages, however, do not treat overflows as an
-error.  In many implementations of C, mathematical overflow causes the
-result to "wrap around" to lower values--for example, if M is the
-largest integer value, and S is the smallest, then
+array index bound, or when you type a constant that is not a member of
+any type.  Some languages, however, do not treat overflows as an error.
+ In many implementations of C, mathematical overflow causes the result
+to "wrap around" to lower values--for example, if M is the largest
+integer value, and S is the smallest, then
 
      M + 1 => S
 
    This, too, is specific to individual languages, and in some cases
 specific to individual compilers or machines.  *Note  Supported
-Languages: Support, for further details on specific languages.
+languages: Support, for further details on specific languages.
 
    GDB provides some additional commands for controlling the range
 checker:
 
 `set check range auto'
      Set range checking on or off based on the current working language.
-     *Note Supported Languages: Support, for the default settings for
+     *Note Supported languages: Support, for the default settings for
      each language.
 
 `set check range on'
 `set check range off'
      Set range checking on or off, overriding the default setting for
      the current working language.  A warning is issued if the setting
-     does not match the language's default.  If a range error occurs,
+     does not match the language default.  If a range error occurs,
      then a message is printed and evaluation of the expression is
      aborted.
 
@@ -316,7 +316,7 @@ checker:
 
 File: gdb.info,  Node: Support,  Prev: Checks,  Up: Languages
 
-Supported Languages
+Supported languages
 ===================
 
    GDB 4 supports C, C++, and Modula-2.  Some GDB features may be used
@@ -354,18 +354,18 @@ must compile your C++ programs with the GNU C++ compiler, `g++'.
 
 * Menu:
 
-* C Operators::                 C and C++ Operators
-* C Constants::                 C and C++ Constants
-* Cplusplus expressions::       C++ Expressions
+* C Operators::                 C and C++ operators
+* C Constants::                 C and C++ constants
+* Cplus expressions::           C++ expressions
 * C Defaults::                  Default settings for C and C++
-* C Checks::                    C and C++ Type and Range Checks
+* C Checks::                    C and C++ type and range checks
 * Debugging C::                 GDB and C
 * Debugging C plus plus::       Special features for C++
 
 
 File: gdb.info,  Node: C Operators,  Next: C Constants,  Up: C
 
-C and C++ Operators
+C and C++ operators
 ...................
 
    Operators must be defined on values of specific types.  For instance,
@@ -375,7 +375,7 @@ defined on groups of types.
    For the purposes of C and C++, the following definitions hold:
 
    * *Integral types* include `int' with any of its storage-class
-     specifiers, `char', and `enum's.
+     specifiers; `char'; and `enum'.
 
    * *Floating-point types* include `float' and `double'.
 
@@ -459,7 +459,7 @@ of increasing precedence:
 `&'
      Address operator.  Defined on variables.  Same precedence as `++'.
 
-     For debugging C++, GDB implements a use of `&' beyond what's
+     For debugging C++, GDB implements a use of `&' beyond what is
      allowed in the C++ language itself: you can use `&(&REF)' (or, if
      you prefer, simply `&&REF' to examine the address where a C++
      reference variable (declared with `&REF') is stored.
@@ -480,7 +480,7 @@ of increasing precedence:
      Structure member, and pointer-to-structure member.  For
      convenience, GDB regards the two as equivalent, choosing whether
      to dereference a pointer based on the stored type information.
-     Defined on `struct's and `union's.
+     Defined on `struct' and `union' data.
 
 `[]'
      Array indexing.  `A[I]' is defined as `*(A+I)'.  Same precedence
@@ -494,13 +494,13 @@ of increasing precedence:
      `class' types.
 
 `::'
-     The GDB scope operator (*note Expressions: Expressions.). Same
-     precedence as `::', above.
+     Doubled colons also represent the GDB scope operator (*note
+     Expressions: Expressions.). Same precedence as `::', above.
 
 
-File: gdb.info,  Node: C Constants,  Next: Cplusplus expressions,  Prev: C Operators,  Up: C
+File: gdb.info,  Node: C Constants,  Next: Cplus expressions,  Prev: C Operators,  Up: C
 
-C and C++ Constants
+C and C++ constants
 ...................
 
    GDB allows you to express the constants of C and C++ in the
@@ -531,15 +531,21 @@ following ways:
    * String constants are a sequence of character constants surrounded
      by double quotes (`"').
 
-   * Pointer constants are an integral value.
+   * Pointer constants are an integral value.  You can also write
+     pointers to constants using the C operator `&'.
+
+   * Array constants are comma-separated lists surrounded by braces `{'
+     and `}'; for example, `{1,2,3}' is a three-element array of
+     integers, `{{1,2}, {3,4}, {5,6}}' is a three-by-two array, and
+     `{&"hi", &"there", &"fred"}' is a three-element array of pointers.
 
 
-File: gdb.info,  Node: Cplusplus expressions,  Next: C Defaults,  Prev: C Constants,  Up: C
+File: gdb.info,  Node: Cplus expressions,  Next: C Defaults,  Prev: C Constants,  Up: C
 
-C++ Expressions
+C++ expressions
 ...............
 
-   GDB's expression handling has a number of extensions to interpret a
+   GDB expression handling has a number of extensions to interpret a
 significant subset of C++ expressions.
 
      *Warning:* Most of these extensions depend on the use of additional
@@ -585,12 +591,12 @@ significant subset of C++ expressions.
      repeatedly if necessary, for example in an expression like
      `SCOPE1::SCOPE2::NAME'.  GDB also allows resolving name scope by
      reference to source files, in both C and C++ debugging (*note
-     Program Variables: Variables.).
+     Program variables: Variables.).
 
 
-File: gdb.info,  Node: C Defaults,  Next: C Checks,  Prev: Cplusplus expressions,  Up: C
+File: gdb.info,  Node: C Defaults,  Next: C Checks,  Prev: Cplus expressions,  Up: C
 
-C and C++ Defaults
+C and C++ defaults
 ..................
 
    If you allow GDB to set type and range checking automatically, they
@@ -606,11 +612,8 @@ the source language: Automatically, for further details.
 
 File: gdb.info,  Node: C Checks,  Next: Debugging C,  Prev: C Defaults,  Up: C
 
-C and C++ Type and Range Checks
+C and C++ type and range checks
 ...............................
-
-     *Warning:* in this release, GDB does not yet perform type or range
-     checking.
 
    By default, when GDB parses C or C++ expressions, type checking is
 not used.  However, if you turn type checking on, GDB will consider two
@@ -637,13 +640,13 @@ GDB and C
 or `class' will also be printed. Otherwise, it will appear as `{...}'.
 
    The `@' operator aids in the debugging of dynamic arrays, formed
-with pointers and a memory allocation function.  (*note Expressions:
-Expressions.)
+with pointers and a memory allocation function.  *Note Expressions:
+Expressions.
 
 
 File: gdb.info,  Node: Debugging C plus plus,  Prev: Debugging C,  Up: C
 
-GDB Features for C++
+GDB features for C++
 ....................
 
    Some GDB commands are particularly useful with C++, and some are
@@ -651,18 +654,18 @@ designed specifically for use with C++.  Here is a summary:
 
 `breakpoint menus'
      When you want a breakpoint in a function whose name is overloaded,
-     GDB's breakpoint menus help you specify which function definition
-     you want.  *Note Breakpoint Menus::.
+     GDB breakpoint menus help you specify which function definition
+     you want.  *Note Breakpoint menus: Breakpoint Menus.
 
 `rbreak REGEX'
      Setting breakpoints using regular expressions is helpful for
      setting breakpoints on overloaded functions that are not members
-     of any special classes. *Note Setting Breakpoints: Set Breaks.
+     of any special classes. *Note Setting breakpoints: Set Breaks.
 
 `catch EXCEPTIONS'
 `info catch'
      Debug C++ exception handling using these commands.  *Note
-     Breakpoints and Exceptions: Exception Handling.
+     Breakpoints and exceptions: Exception Handling.
 
 `ptype TYPENAME'
      Print inheritance relationships as well as other information for
@@ -674,25 +677,25 @@ designed specifically for use with C++.  Here is a summary:
 `show print asm-demangle'
      Control whether C++ symbols display in their source form, both when
      displaying code as C++ source and when displaying disassemblies.
-     *Note Print Settings: Print Settings.
+     *Note Print settings: Print Settings.
 
 `set print object'
 `show print object'
      Choose whether to print derived (actual) or declared types of
-     objects. *Note Print Settings: Print Settings.
+     objects. *Note Print settings: Print Settings.
 
 `set print vtbl'
 `show print vtbl'
      Control the format for printing virtual function tables. *Note
-     Print Settings: Print Settings.
+     Print settings: Print Settings.
 
 `Overloaded symbol names'
      You can specify a particular definition of an overloaded symbol,
-     using the same notation that's used to declare such symbols in
+     using the same notation that is used to declare such symbols in
      C++: type `SYMBOL(TYPES)' rather than just SYMBOL.  You can also
-     use GDB's command-line word completion facilities to list the
+     use the GDB command-line word completion facilities to list the
      available choices, or to finish the type list for you. *Note
-     Command Completion: Completion, for details on how to do this.
+     Command completion: Completion, for details on how to do this.
 
 
 File: gdb.info,  Node: Modula-2,  Prev: C,  Up: Support
@@ -700,20 +703,20 @@ File: gdb.info,  Node: Modula-2,  Prev: C,  Up: Support
 Modula-2
 --------
 
-   The extensions made to GDB to support Modula-2 support output from
-the GNU Modula-2 compiler (which is currently being developed). Other
-Modula-2 compilers are not currently supported, and attempting to debug
-executables produced by them will most likely result in an error as GDB
-reads in the executable's symbol table.
+   The extensions made to GDB to support Modula-2 only support output
+from the GNU Modula-2 compiler (which is currently being developed). 
+Other Modula-2 compilers are not currently supported, and attempting to
+debug executables produced by them will most likely result in an error
+as GDB reads in the executable's symbol table.
 
 * Menu:
 
 * M2 Operators::                Built-in operators
-* Built-In Func/Proc::           Built-in Functions and Procedures
-* M2 Constants::                Modula-2 Constants
+* Built-In Func/Proc::           Built-in functions and procedures
+* M2 Constants::                Modula-2 constants
 * M2 Defaults::                 Default settings for Modula-2
 * Deviations::                  Deviations from standard Modula-2
-* M2 Checks::                   Modula-2 Type and Range Checks
+* M2 Checks::                   Modula-2 type and range checks
 * M2 Scope::                    The scope operators `::' and `.'
 * GDB/M2::                      GDB and Modula-2
 
@@ -739,7 +742,7 @@ following definitions hold:
 
    * *Scalar types* consist of all of the above.
 
-   * *Set types* consist of `SET's and `BITSET's.
+   * *Set types* consist of `SET' and `BITSET' types.
 
    * *Boolean types* consist of `BOOLEAN'.
 
@@ -798,7 +801,7 @@ increasing precedence:
      precedence as `*'.
 
 `-'
-     Negative. Defined on `INTEGER's and `REAL's.
+     Negative. Defined on `INTEGER' and `REAL' data.
 
 `^'
      Pointer dereferencing.  Defined on pointer types.
@@ -808,15 +811,15 @@ increasing precedence:
      `^'.
 
 `.'
-     `RECORD' field selector.  Defined on `RECORD's.  Same precedence
-     as `^'.
+     `RECORD' field selector.  Defined on `RECORD' data.  Same
+     precedence as `^'.
 
 `[]'
-     Array indexing.  Defined on `ARRAY's.  Same precedence as `^'.
+     Array indexing.  Defined on `ARRAY' data.  Same precedence as `^'.
 
 `()'
-     Procedure argument list.  Defined on `PROCEDURE's.  Same precedence
-     as `^'.
+     Procedure argument list.  Defined on `PROCEDURE' objects.  Same
+     precedence as `^'.
 
 `::, .'
      GDB and Modula-2 scope operators.
@@ -829,7 +832,7 @@ increasing precedence:
 
 File: gdb.info,  Node: Built-In Func/Proc,  Next: M2 Constants,  Prev: M2 Operators,  Up: Modula-2
 
-Built-in Functions and Procedures
+Built-in functions and procedures
 .................................
 
    Modula-2 also makes available several built-in procedures and
@@ -961,7 +964,7 @@ ways:
    * String constants consist of a sequence of characters enclosed by a
      pair of like quotes, either single (`'') or double (`"'). Escape
      sequences in the style of C are also allowed.  *Note C and C++
-     Constants: C Constants, for a brief explanation of escape
+     constants: C Constants, for a brief explanation of escape
      sequences.
 
    * Enumerated constants consist of an enumerated identifier.
@@ -975,7 +978,7 @@ ways:
 
 File: gdb.info,  Node: M2 Defaults,  Next: Deviations,  Prev: M2 Constants,  Up: Modula-2
 
-Modula-2 Defaults
+Modula-2 defaults
 .................
 
    If type and range checking are set automatically by GDB, they both
@@ -991,7 +994,7 @@ automatically: Automatically, for further details.
 
 File: gdb.info,  Node: Deviations,  Next: M2 Checks,  Prev: M2 Defaults,  Up: Modula-2
 
-Deviations from Standard Modula-2
+Deviations from standard Modula-2
 .................................
 
    A few changes have been made to make Modula-2 programs easier to
@@ -1017,7 +1020,7 @@ debug. This is done primarily via loosening its type strictness:
 
 File: gdb.info,  Node: M2 Checks,  Next: M2 Scope,  Prev: Deviations,  Up: Modula-2
 
-Modula-2 Type and Range Checks
+Modula-2 type and range checks
 ..............................
 
      *Warning:* in this release, GDB does not yet perform type or range
@@ -1076,7 +1079,7 @@ GDB and Modula-2
    Some GDB commands have little use when debugging Modula-2 programs.
 Five subcommands of `set print' and `show print' apply specifically to
 C and C++: `vtbl', `demangle', `asm-demangle', `object', and `union'. 
-The first four apply to C++, and the last to C's `union' type, which
+The first four apply to C++, and the last to the C `union' type, which
 has no direct analogue in Modula-2.
 
    The `@' operator (*note Expressions: Expressions.), while available
@@ -1100,13 +1103,13 @@ symbols (names of variables, functions and types) defined in your
 program.  This information is inherent in the text of your program and
 does not change as your program executes.  GDB finds it in your
 program's symbol table, in the file indicated when you started GDB
-(*note Choosing Files: File Options.), or by one of the file-management
-commands (*note Commands to Specify Files: Files.).
+(*note Choosing files: File Options.), or by one of the file-management
+commands (*note Commands to specify files: Files.).
 
    Occasionally, you may need to refer to symbols that contain unusual
 characters, which GDB ordinarily treats as word delimiters.  The most
 frequent case is in referring to static variables in other source files
-(*note Program Variables: Variables.).  File names are recorded in
+(*note Program variables: Variables.).  File names are recorded in
 object files as debugging symbols, but GDB would ordinarily parse a
 typical file name, like `foo.c', as the three words `foo' `.' `c'.  To
 allow GDB to recognize `foo.c' as a single symbol, enclose it in single
@@ -1144,12 +1147,13 @@ looks up the value of `x' in the scope of the file `foo.c'.
 `ptype'
      Print a description of the type of expression EXP.  `ptype'
      differs from `whatis' by printing a detailed description, instead
-     of just the name of the type.  For example, if your program
-     declares a variable as
+     of just the name of the type.
+
+     For example, for this variable declaration:
 
           struct complex {double real; double imag;} v;
 
-     compare the output of the two commands:
+     the two commands give this output:
 
           (gdb) whatis v
           type = struct complex
@@ -1222,7 +1226,7 @@ looks up the value of `x' in the scope of the file `foo.c'.
      minimal symbol information required for each object file from
      which GDB has read some symbols. The description of `symbol-file'
      explains how GDB reads symbols; both `info source' and
-     `symbol-file' are described in *Note Commands to Specify Files:
+     `symbol-file' are described in *Note Commands to specify files:
      Files.
 
 
@@ -1243,17 +1247,17 @@ address, or even return prematurely from a function to its caller.
 
 * Menu:
 
-* Assignment::                  Assignment to Variables
-* Jumping::                     Continuing at a Different Address
-* Signaling::                   Giving your program a Signal
-* Returning::                   Returning from a Function
-* Calling::                     Calling your Program's Functions
-* Patching::                    Patching your Program
+* Assignment::                  Assignment to variables
+* Jumping::                     Continuing at a different address
+* Signaling::                   Giving your program a signal
+* Returning::                   Returning from a function
+* Calling::                     Calling your program's functions
+* Patching::                    Patching your program
 
 
 File: gdb.info,  Node: Assignment,  Next: Jumping,  Up: Altering
 
-Assignment to Variables
+Assignment to variables
 =======================
 
    To alter the value of a variable, evaluate an assignment expression.
@@ -1269,16 +1273,15 @@ languages.
    If you are not interested in seeing the value of the assignment, use
 the `set' command instead of the `print' command.  `set' is really the
 same as `print' except that the expression's value is not printed and
-is not put in the value history (*note Value History: Value History.). 
+is not put in the value history (*note Value history: Value History.). 
 The expression is evaluated only for its effects.
 
    If the beginning of the argument string of the `set' command appears
 identical to a `set' subcommand, use the `set variable' command instead
 of just `set'.  This command is identical to `set' except for its lack
-of subcommands.  For example, a program might well have a variable
-`width'--which leads to an error if we try to set a new value with just
-`set width=13', as we might if `set width' did not happen to be a GDB
-command:
+of subcommands.  For example, if your program has a variable `width',
+you get an error if you try to set a new value with just `set width=13',
+because GDB has the command `set width':
 
      (gdb) whatis width
      type = double
@@ -1287,14 +1290,14 @@ command:
      (gdb) set width=47
      Invalid syntax in expression.
 
-The invalid expression, of course, is `=47'.  What we can do in order
-to actually set our program's variable `width' is
+The invalid expression, of course, is `=47'.  In order to actually set
+the program's variable `width', use
 
      (gdb) set var width=47
 
    GDB allows more implicit conversions in assignments than C; you can
 freely store an integer value into a pointer variable or vice versa,
-and any structure can be converted to any other structure that is the
+and you can convert any structure to any other structure that is the
 same length or shorter.
 
    To store values into arbitrary places in memory, use the `{...}'
@@ -1310,7 +1313,7 @@ stores the value 4 into that memory location.
 
 File: gdb.info,  Node: Jumping,  Next: Signaling,  Prev: Assignment,  Up: Altering
 
-Continuing at a Different Address
+Continuing at a different address
 =================================
 
    Ordinarily, when you continue your program, you do so at the place
@@ -1320,8 +1323,8 @@ commands:
 
 `jump LINESPEC'
      Resume execution at line LINESPEC.  Execution will stop
-     immediately if there is a breakpoint there.  *Note Printing Source
-     Lines: List, for a description of the different forms of LINESPEC.
+     immediately if there is a breakpoint there.  *Note Printing source
+     lines: List, for a description of the different forms of LINESPEC.
 
      The `jump' command does not change the current stack frame, or the
      stack pointer, or the contents of any memory location or any
@@ -1346,7 +1349,7 @@ not start your program running; it only changes the address where it
 
 causes the next `continue' command or stepping command to execute at
 address `0x485', rather than at the address where your program stopped.
-*Note Continuing and Stepping: Continuing and Stepping.
+*Note Continuing and stepping: Continuing and Stepping.
 
    The most common occasion to use the `jump' command is to back up,
 perhaps with more breakpoints set, over a portion of a program that has
@@ -1355,7 +1358,7 @@ already executed, in order to examine its execution in more detail.
 
 File: gdb.info,  Node: Signaling,  Next: Returning,  Prev: Jumping,  Up: Altering
 
-Giving your program a Signal
+Giving your program a signal
 ============================
 
 `signal SIGNALNUM'

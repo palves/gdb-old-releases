@@ -32,10 +32,20 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    The horribly ugly wait_for_inferior() routine uses this macro to detect
    when we have stepped into one of these fragments. */
 
-#define IN_SOLIB_TRAMPOLINE(pc,name) ((name) && (strcmp ("_init", name) == 0))
+#define IN_SOLIB_TRAMPOLINE(pc,name) ((name) && (STREQ ("_init", name)))
 
 /* In SVR4 ELF files, the ABI defines (pg. 4-25) that "External C symbols
    have the same names in C, assembly code, and object files' symbol
    tables."  So... */
 
 #undef	NAMES_HAVE_UNDERSCORE
+
+/* It is unknown which, if any, SVR4 assemblers do not accept dollar signs
+   in identifiers.  The default in G++ is to use dots instead, for all SVR4
+   systems, so we make that our default also.  FIXME: There should be some
+   way to get G++ to tell us what CPLUS_MARKER it is using, perhaps by
+   stashing it in the debugging information as part of the name of an
+   invented symbol ("gcc_cplus_marker$" for example). */
+
+#undef CPLUS_MARKER
+#define CPLUS_MARKER '.'

@@ -1,5 +1,5 @@
 /* Generic symbol-table support for the BFD library.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -28,8 +28,8 @@ SECTION
 	application requests the symbol table, BFD reads the table in
 	the native form and translates parts of it into the internal
 	format. To maintain more than the infomation passed to
-	applications some targets keep some information 'behind the
-	sceans', in a structure only the particular back end knows
+	applications some targets keep some information `behind the
+	scenes', in a structure only the particular back end knows
 	about. For example, the coff back end keeps the original
 	symbol table structure as well as the canonical structure when
 	a BFD is read in. On output, the coff back end can reconstruct
@@ -43,8 +43,8 @@ SECTION
 	application with pointers to the canonical information.  To
 	output symbols, the application provides BFD with a table of
 	pointers to pointers to <<asymbol>>s. This allows applications
-	like the linker to output a symbol as read, since the 'behind
-	the sceens' information will be still available. 
+	like the linker to output a symbol as read, since the `behind
+	the scenes' information will be still available. 
 @menu
 @* Reading Symbols::
 @* Writing Symbols::
@@ -156,10 +156,15 @@ CODE_FRAGMENT
 .{
 .	{* A pointer to the BFD which owns the symbol. This information
 .	   is necessary so that a back end can work out what additional
-.   	   (invisible to the application writer) information is carried
-.	   with the symbol.  *}
+.   	   information (invisible to the application writer) is carried
+.	   with the symbol.
 .
-.  struct _bfd *the_bfd;
+.	   This field is *almost* redundant, since you can use section->owner
+.	   instead, except that some symbols point to the global sections
+.	   bfd_{abs,com,und}_section.  This could be fixed by making
+.	   these globals be per-bfd (or per-target-flavor).  FIXME. *}
+.
+.  struct _bfd *the_bfd; {* Use bfd_asymbol_bfd(sym) to access this field. *}
 .
 .	{* The text of the symbol. The name is left alone, and not copied - the
 .	   application may not alter it. *}
@@ -180,7 +185,7 @@ CODE_FRAGMENT
 .	   value is the offset into the section of the data. *}
 .#define BSF_GLOBAL	0x02
 .
-.	{* Obsolete *}
+.	{* Obsolete; should be deleted? *}
 .#define BSF_IMPORT	0x04
 .
 .	{* The symbol has global scope, and is exported. The value is
@@ -188,7 +193,7 @@ CODE_FRAGMENT
 .#define BSF_EXPORT	0x08
 .
 .	{* The symbol is undefined. <<extern>> in <<C>>. The value has
-.	   no meaning. *}
+.	   no meaning.  Obsolete; should be deleted? *}
 .#define BSF_UNDEFINED_OBS 0x10	
 .
 .	{* The symbol is common, initialized to zero; default in
@@ -203,11 +208,11 @@ CODE_FRAGMENT
 .	   meaning. *}
 .#define BSF_DEBUGGING	0x40
 .
-.	{* Used by the linker *}
+.	{* Used by the linker. *}
 .#define BSF_KEEP        0x10000
 .#define BSF_KEEP_G      0x80000
 .
-.	{* Unused *}
+.	{* Unused; should be deleted? *}
 .#define BSF_WEAK        0x100000
 .#define BSF_CTOR        0x200000 
 .
@@ -257,7 +262,7 @@ CODE_FRAGMENT
 .
 .	{* Back end special data. This is being phased out in favour
 .	   of making this a union. *}
-.  PTR udata;	
+.  PTR udata;
 .
 .} asymbol;
 */
@@ -422,7 +427,7 @@ asymbol *symbol)
 {
   flagword flags = symbol->flags;
   
-  if (symbol->section == &bfd_com_section) return 'C';
+  if (bfd_is_com_section (symbol->section)) return 'C';
   if (symbol->section == &bfd_und_section) return 'U';
  
    if ( flags & (BSF_GLOBAL|BSF_LOCAL) ) {
@@ -454,7 +459,6 @@ asymbol *symbol)
 void
 bfd_symbol_is_absolute()
 {
-  
   abort();
 }
 

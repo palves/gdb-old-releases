@@ -1,2 +1,2 @@
-# Target: DECstation.
-# Nothing to do for now.
+# Target: DECstation running ULTRIX
+TDEFAULTS = -DDEFAULT_VECTOR=ecoff_little_vec

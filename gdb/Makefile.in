@@ -1,4 +1,4 @@
-#Copyright 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+#Copyright 1989, 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
 
 # This file is part of GDB.
 
@@ -75,16 +75,13 @@ srcdir = .
 # CFLAGS section if your system doesn't have fcntl.h in /usr/include (which 
 # is where it should be according to Posix).
 
+# If you use bison instead of yacc, it needs to include the "-y" argument.
+#BISON="bison -y"
 BISON=yacc
 YACC=$(BISON)
 
-# Documentation (gdb.dvi) needs either GNU m4 or SysV m4; 
-# Berkeley/Sun don't have quite enough. 
-#M4=/usr/5bin/m4
-M4=gm4
-
 # where to find texinfo; GDB dist should include a recent one
-TEXIDIR=${srcdir}/../texinfo/fsf
+TEXIDIR=${srcdir}/../texinfo
 
 # where to find makeinfo, preferably one designed for texinfo-2
 MAKEINFO=makeinfo
@@ -166,7 +163,7 @@ CDEPS = ${XM_CDEPS} ${TM_CDEPS} ${NAT_CDEPS} \
 ADD_FILES = ${REGEX} ${ALLOCA}  ${XM_ADD_FILES} ${TM_ADD_FILES} ${NAT_ADD_FILES}
 ADD_DEPS = ${REGEX1} ${ALLOCA1} ${XM_ADD_FILES} ${TM_ADD_FILES} ${NAT_ADD_FILES}
 
-VERSION = 4.7
+VERSION = 4.8
 DIST=gdb
 
 LINT=/usr/5bin/lint
@@ -177,6 +174,8 @@ LINTFLAGS= -I${BFD_DIR}
 # End of host and target-dependent makefile fragments
 
 FLAGS_TO_PASS = \
+	"prefix=$(prefix)" \
+	"exec_prefix=$(exec_prefix)" \
 	"against=$(against)" \
 	"AR=$(AR)" \
 	"AR_FLAGS=$(AR_FLAGS)" \
@@ -199,9 +198,11 @@ SFILES_MAINDIR = \
 	 remote.c source.c stack.c symmisc.c symtab.c symfile.c \
 	 utils.c valarith.c valops.c valprint.c values.c c-exp.y m2-exp.y \
 	 mem-break.c target.c \
-	 dbxread.c coffread.c elfread.c dwarfread.c xcoffread.c stabsread.c \
+	 dbxread.c coffread.c elfread.c dwarfread.c stabsread.c \
 	 ieee-float.c language.c parse.c buildsym.c objfiles.c \
-	 minsyms.c mipsread.c maint.c
+	 minsyms.c mipsread.c maint.c  c-lang.c  m2-lang.c \
+	 complaints.c typeprint.c c-typeprint.c  m2-typeprint.c \
+	 c-valprint.c cp-valprint.c  m2-valprint.c
 
 # Source files in subdirectories (which will be handled separately by
 #  'make gdb.tar.Z').
@@ -210,21 +211,30 @@ SFILES_MAINDIR = \
 SFILES_SUBDIR = \
 	 ${srcdir}/vx-share/dbgRpcLib.h \
 	 ${srcdir}/vx-share/ptrace.h \
-	 ${srcdir}/vx-share/reg.h \
 	 ${srcdir}/vx-share/vxTypes.h \
 	 ${srcdir}/vx-share/vxWorks.h \
 	 ${srcdir}/vx-share/wait.h \
 	 ${srcdir}/vx-share/xdr_ld.h \
 	 ${srcdir}/vx-share/xdr_ptrace.h \
 	 ${srcdir}/vx-share/xdr_rdb.h \
-	 ${srcdir}/vx-share/xdr_regs.h \
 	 ${srcdir}/nindy-share/b.out.h \
 	 ${srcdir}/nindy-share/block_io.h \
 	 ${srcdir}/nindy-share/coff.h \
 	 ${srcdir}/nindy-share/demux.h \
 	 ${srcdir}/nindy-share/env.h \
 	 ${srcdir}/nindy-share/stop.h \
-	 ${srcdir}/nindy-share/ttycntl.h
+	 ${srcdir}/nindy-share/ttycntl.h \
+	 ${srcdir}/29k-share/udi_soc
+
+# Source files in sub-subdirectories.  We need to know this because we
+# make relative symlinks with them.
+SFILES_SUBSUBDIR = \
+	 ${srcdir}/29k-share/udi/udiphcfg.h \
+	 ${srcdir}/29k-share/udi/udiphsun.h \
+	 ${srcdir}/29k-share/udi/udiproc.h \
+	 ${srcdir}/29k-share/udi/udipt29k.h \
+	 ${srcdir}/29k-share/udi/udiptcfg.h \
+	 ${srcdir}/29k-share/udi/udisoc.h
 
 # Non-source files in subdirs, that should go into gdb.tar.Z.
 NONSRC_SUBDIR = \
@@ -234,7 +244,7 @@ NONSRC_SUBDIR = \
 	 ${srcdir}/vx-share/README
 
 # All source files that go into linking GDB, except config-specified files.
-SFILES = $(SFILES_MAINDIR) $(SFILES_SUBDIR)
+SFILES = $(SFILES_MAINDIR) $(SFILES_SUBDIR) $(SFILES_SUBSUBDIR)
 
 # All source files that lint should look at
 LINTFILES = $(SFILES) $(YYFILES) init.c
@@ -250,13 +260,13 @@ HFILES=	breakpoint.h buildsym.h call-cmds.h command.h defs.h \
 	gdb-stabs.h ieee-float.h inferior.h language.h \
 	minimon.h objfiles.h parser-defs.h partial-stab.h \
 	serial.h signals.h solib.h symfile.h symtab.h stabsread.h \
-	target.h terminal.h xcoffsolib.h value.h \
+	target.h terminal.h typeprint.h xcoffsolib.h value.h \
 	tm-68k.h tm-hppa.h tm-i960.h tm-sparc.h tm-sunos.h tm-sysv4.h \
 	xm-m68k.h xm-sparc.h xm-sysv4.h xm-vax.h \
-	nm-i386bsd.h nm-i386mach.h nm-i386sco.h nm-i386v.h nm-i386v4.h nm-irix3.h \
-	nm-irix4.h nm-linux.h nm-m88k.h nm-mips.h nm-news.h nm-rs6000.h \
-	nm-sun2.h nm-sun3.h nm-sun386.h nm-sun4os4.h nm-trash.h \
-	nm-ultra3.h nm-hppab.h nm-hppah.h nm-umax.h nm-sysv4.h
+	nm-trash.h \
+	c-lang.h  m2-lang.h complaints.h \
+	ns32k-opcode.h \
+	valprint.h
 
 REMOTE_EXAMPLES = m68k-stub.c i386-stub.c sparc-stub.c rem-multi.shar
 
@@ -275,7 +285,7 @@ OTHERS = Makefile.in depend alldeps.mak createtags munch configure.in \
 
 # Subdirectories of gdb, which should be included in their entirety in
 # gdb-xxx.tar.Z:
-TARDIRS = doc # tests
+TARDIRS = doc sparclite # tests
 
 # GDB "info" files, which should be included in their entirety
 INFOFILES = gdb.info*
@@ -295,8 +305,10 @@ OBS = version.o main.o blockframe.o breakpoint.o findvar.o stack.o source.o \
     copying.o $(DEPFILES) mem-break.o target.o \
     ieee-float.o putenv.o parse.o language.o $(YYOBJ) \
     buildsym.o objfiles.o minsyms.o maint.o demangle.o \
-    dbxread.o coffread.o elfread.o dwarfread.o xcoffread.o mipsread.o \
-    stabsread.o core.o
+    dbxread.o coffread.o elfread.o dwarfread.o mipsread.o \
+    stabsread.o core.o c-lang.o  m2-lang.o complaints.o \
+    typeprint.o c-typeprint.o  m2-typeprint.o \
+    c-valprint.o cp-valprint.o  m2-valprint.o
 
 RAPP_OBS = rgdb.o rudp.o rserial.o serial.o udp.o $(XDEPFILES)
 
@@ -311,8 +323,8 @@ NTSSTART = kdb-start.o
 SUBDIRS = doc
 
 # For now, shortcut the "configure GDB for fewer languages" stuff.
-YYFILES = c-exp.tab.c m2-exp.tab.c
-YYOBJ = c-exp.tab.o m2-exp.tab.o
+YYFILES = c-exp.tab.c m2-exp.tab.c 
+YYOBJ = c-exp.tab.o m2-exp.tab.o 
 
 # Prevent Sun make from putting in the machine type.  Setting
 # TARGET_ARCH to nothing works for SunOS 3, 4.0, but not for 4.1.
@@ -320,14 +332,14 @@ YYOBJ = c-exp.tab.o m2-exp.tab.o
 	${CC} -c ${INTERNAL_CFLAGS} $<
 
 all: gdb
-	$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
+	$(MAKE) $(FLAGS_TO_PASS) DO=all "DODIRS=$(SUBDIRS)" subdir_do
 check:
 info: force
-	$(MAKE) subdir_do DO=info "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
+	$(MAKE) $(FLAGS_TO_PASS) DO=info "DODIRS=$(SUBDIRS)" subdir_do
 install-info: force
-	$(MAKE) subdir_do DO=install-info "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
+	$(MAKE) $(FLAGS_TO_PASS) DO=install-info "DODIRS=$(SUBDIRS)" subdir_do
 clean-info: force
-	$(MAKE) subdir_do DO=clean-info "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
+	$(MAKE) $(FLAGS_TO_PASS) DO=clean-info "DODIRS=$(SUBDIRS)" subdir_do
 
 gdb.z:gdb.1
 	nroff -man $(srcdir)/gdb.1 | col -b > gdb.t 
@@ -345,7 +357,7 @@ install: gdb
 	$(INSTALL_PROGRAM) gdb $(bindir)/$$n; \
 	$(INSTALL_DATA) $(srcdir)/gdb.1 $(man1dir)/$$n.1
 	$(M_INSTALL)
-	$(MAKE) subdir_do DO=install "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
+	$(MAKE) DO=install "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS) subdir_do
 
 init.c: $(srcdir)/munch $(OBS) $(TSOBS)
 	$(srcdir)/munch ${MUNCH_DEFINE} $(OBS) $(TSOBS) > init.c
@@ -357,9 +369,10 @@ gdb: $(OBS) $(TSOBS) ${ADD_DEPS} ${CDEPS} init.o
 saber_gdb: $(SFILES) $(DEPFILES) copying.c version.c
 	#setopt load_flags $(CFLAGS) -I$(BFD_DIR) -DHOST_SYS=SUN4_SYS
 	#load ./init.c $(SFILES)
-	#unload ${srcdir}/c-exp.y ${srcdir}/m2-exp.y ${srcdir}/vx-share/*.h
+	#unload ${srcdir}/c-exp.y ${srcdir}/m2-exp.y 
+	#unload ${srcdir}/vx-share/*.h
 	#unload ${srcdir}/nindy-share/[A-Z]*
-	#load c-exp.tab.c m2-exp.tab.c
+	#load c-exp.tab.c m2-exp.tab.c 
 	#load copying.c version.c
 	#load ../opcodes/libopcodes.a
 	#load ../libiberty/libiberty.a
@@ -391,8 +404,8 @@ rapp: $(RAPP_OBS)
 # Support for building Makefile out of configured pieces, automatically
 # generated dependencies, etc.  alldeps.mak is a file that contains
 # "make" variable definitions for all ALLDEPFILES, ALLDEPFILES_MAINDIR,
-# ALLDEPFILES_SUBDIR, ALLPARAM, and ALLCONFIG, all cadged from the current
-# contents of the config subdirectory.
+# ALLDEPFILES_SUBDIR, ALLDEPFILES_SUBSUBDIR, ALLPARAM, and ALLCONFIG,
+# all cadged from the current contents of the config subdirectory.
 
 alldeps.mak: ${srcdir}/config
 	rm -f alldeps.mak alldeps.tmp allparam.tmp allconfig.tmp
@@ -404,7 +417,7 @@ alldeps.mak: ${srcdir}/config
 	      for (i = 2; i <= NF; i++) \
 	        print $$i >> "alldeps.tmp" ; \
             } \
-	    $$1 == "TM_FILE=" || $$1 == "XM_FILE=" || $$1 == "NAT_FILE" { \
+	    $$1 == "TM_FILE=" || $$1 == "XM_FILE=" || $$1 == "NAT_FILE=" { \
 	      print $$2 >> "allparam.tmp" }' ; \
 	done
 	sort <alldeps.tmp | uniq | \
@@ -416,20 +429,26 @@ alldeps.mak: ${srcdir}/config
 	      -e 's!xdr_ld.o!vx-share/xdr_ld.c!' \
 	      -e 's!xdr_ptrace.o!vx-share/xdr_ptrace.c!' \
 	      -e 's!xdr_rdb.o!vx-share/xdr_rdb.c!' \
-	      -e 's!xdr_regs.o!vx-share/xdr_regs.c!' \
+	      -e 's!udr.o!29k-share/udi/udr.c!' \
+	      -e 's!udip2soc.o!29k-share/udi/udip2soc.c!' \
 	      -e 's/\.o/.c/' \
 	    >alldeps2.tmp
 	echo '# Start of "alldeps.mak" definitions' \
 	    >>alldeps.mak;
-	echo 'ALLDEPFILES = $$(ALLDEPFILES_MAINDIR) $$(ALLDEPFILES_SUBDIR)' \
+	echo 'ALLDEPFILES = $$(ALLDEPFILES_MAINDIR) $$(ALLDEPFILES_SUBDIR) $$(ALLDEP_FILES_SUBSUBDIR)' \
 	    >>alldeps.mak;
 	grep -v / alldeps2.tmp | \
 	  awk 'BEGIN {printf "ALLDEPFILES_MAINDIR="} \
 	    NR == 0 {printf $$0;} \
 	    NR != 0 {printf "\\\n" $$0} \
 	    END {printf "\n\n"}' >>alldeps.mak;
-	grep / alldeps2.tmp | \
+	grep / alldeps2.tmp | grep -v '/.*/' | \
 	  awk 'BEGIN {printf "ALLDEPFILES_SUBDIR="} \
+	    NR == 0 {printf $$0;} \
+	    NR != 0 {printf "\\\n" $$0} \
+	    END {printf "\n\n"}' >>alldeps.mak;
+	grep '/.*/' alldeps2.tmp | \
+	  awk 'BEGIN {printf "ALLDEPFILES_SUBSUBDIR="} \
 	    NR == 0 {printf $$0;} \
 	    NR != 0 {printf "\\\n" $$0} \
 	    END {printf "\n\n"}' >>alldeps.mak;
@@ -453,21 +472,23 @@ depend: $(SOURCES) Makefile.in
 	@echo for systems other than the one you are using.
 	@echo Also ignore parse errors in valops.c, and any errors in
 	@echo arm-convert.s.
-	touch xm.h tm.h
+	touch xm.h tm.h nm.h
 	-$(GCC) -MM -nostdinc -I/usr/include $(CFLAGS) -I$(BFD_DIR) \
 	  -I${READLINE_DIR} $(INCLUDE_CFLAGS) \
 	  `ls $(SOURCES) | grep -v '\.[hy]$$' | \
 	  sort -u` >depend.tmp
 # If running in srcdir, translate "./foo.c" into "$srcdir/foo.c" except
-# for xm.h and tm.h.  This allows the same "depend" file to be used
+# for xm.h, tm.h and nm.h.  This allows the same "depend" file to be used
 # by the various subdirectories.
 	if [ "${srcdir}" = "." ] ; then \
 	  <depend.tmp sed \
 	    -e 's; ./xm.h; xm.h;g'  \
 	    -e 's; ./tm.h; tm.h;g'  \
+	    -e 's; ./nm.h; nm.h;g'  \
 	    -e 's; \./; $${srcdir}/;g'  \
 	    -e 's; vx-share/; $${srcdir}/vx-share/;g'  \
 	    -e 's; nindy-share/; $${srcdir}/nindy-share/;g'  \
+	    -e 's; 29k-share/; $${srcdir}/29k-share/;g'  \
 	    >depend.tm2; \
 	  rm depend.tmp; \
 	  mv depend.tm2 depend.tmp; \
@@ -479,6 +500,7 @@ depend: $(SOURCES) Makefile.in
 	  -e 's; [a-z0-9./]*bfd/; $(BFD_DEP)/;g'  \
 	  -e 's; ./xm.h; xm.h config.status;g'  \
 	  -e 's; ./tm.h; tm.h config.status;g'  \
+	  -e 's; ./nm.h; nm.h config.status;g'  \
 	  >depend
 	rm depend.tmp
 
@@ -559,7 +581,7 @@ update-depend: update-alldeps force_update
 # are products of other files.
 setup-to-dist: update-depend force_update
 	../configure none
-	(cd doc; $(MAKE) $(MFLAGS) gdbVN.m4)
+	(cd doc; $(MAKE) $(MFLAGS) GDBvn.texi)
 	$(MAKE) $(MFLAGS) gdb.info
 	$(MAKE) $(MFLAGS) refcard.ps
 
@@ -581,17 +603,21 @@ make-proto-gdb-1: ${TARFILES} ${TARDIRS} gdb.info
 	cd proto-gdb.dir ; for i in ${TARFILES} ; do ln -s ../$$i . ; done
 	cd proto-gdb.dir ; ln -s ../${INFOFILES} .
 	cd proto-gdb.dir ; for i in ${TARDIRS}; do \
-	  mkdir $$i; cd $$i; \
+	  (mkdir $$i; cd $$i; \
 	  ln -s ../../$$i/* .; \
 	  rm -rf SCCS CVS.adm RCS config.status; \
-	  if test -f Makefile.in; then rm Makefile; else true; fi; done
+	  if test -f Makefile.in; then rm Makefile; else true; fi;); done
 	mkdir proto-gdb.dir/config
 	cd proto-gdb.dir/config ; \
 	  for i in $(ALLCONFIG) ; do ln -s ../../$$i ../$$i ; done
 	mkdir proto-gdb.dir/vx-share proto-gdb.dir/nindy-share
+	mkdir proto-gdb.dir/29k-share proto-gdb.dir/29k-share/udi
 	cd proto-gdb.dir/config ; \
 	  for i in $(SFILES_SUBDIR) $(NONSRC_SUBDIR) $(ALLDEPFILES_SUBDIR); \
 	    do ln -s ../../$$i ../$$i ; done
+	cd proto-gdb.dir/config ; \
+	  for i in $(SFILES_SUBSUBDIR) $(ALLDEPFILES_SUBSUBDIR); \
+	    do ln -s ../../../$$i ../$$i ; done
 	chmod og=u `find . -print`
 
 clean:
@@ -599,19 +625,19 @@ clean:
 	rm -f init.c version.c
 	rm -f gdb core gdb.tar gdb.tar.Z make.log
 	rm -f gdb[0-9]
-	@$(MAKE) subdir_do DO=clean "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
+	@$(MAKE) $(FLAGS_TO_PASS) DO=clean "DODIRS=$(SUBDIRS)" subdir_do 
 
-distclean: clean c-exp.tab.c m2-exp.tab.c TAGS
+distclean: clean c-exp.tab.c m2-exp.tab.c  TAGS
 	rm -f tm.h xm.h config.status
 	rm -f y.output yacc.acts yacc.tmp
 	rm -f ${TESTS} Makefile depend
-	@$(MAKE) subdir_do DO=distclean "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
+	@$(MAKE) $(FLAGS_TO_PASS) DO=distclean "DODIRS=$(SUBDIRS)" subdir_do 
 
 realclean: clean
-	rm -f c-exp.tab.c m2-exp.tab.c TAGS
+	rm -f c-exp.tab.c m2-exp.tab.c  TAGS
 	rm -f tm.h xm.h config.status
 	rm -f Makefile depend
-	@$(MAKE) subdir_do DO=realclean "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
+	@$(MAKE) $(FLAGS_TO_PASS) DO=realclean "DODIRS=$(SUBDIRS)" subdir_do
 
 STAGESTUFF=${OBS} ${TSOBS} ${NTSOBS} ${ADD_FILES} init.c init.o version.c gdb
 
@@ -631,27 +657,24 @@ force:
 
 # Documentation!
 # GDB QUICK REFERENCE (TeX dvi file, CM fonts)
-refcard.dvi: $(srcdir)/doc/refcard.tex
+refcard.dvi:
 	( cd ./doc; $(MAKE) refcard.dvi $(FLAGS_TO_PASS) )
 	mv ./doc/refcard.dvi .
 
 # GDB QUICK REFERENCE (PostScript output, common PS fonts)
-refcard.ps: $(srcdir)/doc/refcard.tex
+refcard.ps:
 	( cd ./doc; $(MAKE) refcard.ps $(FLAGS_TO_PASS) )
 	mv ./doc/refcard.ps .
 
 # GDB MANUAL: TeX dvi file
-gdb.dvi: ./doc/gdb-all.texi
-	( cd ./doc; $(MAKE) M4=$(M4) gdb.dvi $(FLAGS_TO_PASS) )
+gdb.dvi:
+	( cd ./doc; $(MAKE) gdb.dvi $(FLAGS_TO_PASS) )
 	mv ./doc/gdb.dvi .
 
 # GDB MANUAL: info file
-gdb.info: ./doc/gdb-all.texi
-	( cd ./doc; $(MAKE) M4=$(M4) gdb.info $(FLAGS_TO_PASS) )
+gdb.info:
+	( cd ./doc; $(MAKE) gdb.info $(FLAGS_TO_PASS) )
 	mv ./doc/gdb.info* .
-
-./doc/gdb-all.texi:
-	(cd ./doc; $(MAKE) M4=$(M4) gdb-all.texi $(FLAGS_TO_PASS) )
 
 # Make copying.c from COPYING
 copying.c: ${srcdir}/COPYING ${srcdir}/copying.awk
@@ -662,27 +685,38 @@ version.c: Makefile
 
 # c-exp.tab.c is generated in target dir from c-exp.y if it doesn't exist
 # in srcdir, then compiled in target dir to c-exp.tab.o.
+# ././c-exp.tab.c is so the command argument will never match $(srcdir)/c-exp.y
+# (some "makes" rewrite the VPATH into command arguments if they match deps).
 # Remove bogus decls for malloc/realloc/free which conflict with everything
 # else.
 c-exp.tab.o: c-exp.tab.c
-c-exp.tab.c: $(srcdir)/c-exp.y
+c-exp.tab.c: $(srcdir)/c-exp.y $(srcdir)/Makefile.in
 	@echo 'Expect 4 shift/reduce conflicts.'
 	${YACC} $(srcdir)/c-exp.y
 	-sed -e '/extern.*malloc/d' \
 	     -e '/extern.*realloc/d' \
 	     -e '/extern.*free/d' \
-	  < y.tab.c > c-exp.tab.c
+	     -e '/include.*malloc.h/d' \
+	     -e 's/malloc/xmalloc/g' \
+	     -e 's/realloc/xrealloc/g' \
+	  < y.tab.c > ././c-exp.tab.c
 	-rm y.tab.c
+
 
 # m2-exp.tab.c is generated in target dir from m2-exp.y if it doesn't exist
 # in srcdir, then compiled in target dir to m2-exp.tab.o.
+# Remove bogus decls for malloc/realloc/free which conflict with everything
+# else.
 m2-exp.tab.o: m2-exp.tab.c
-m2-exp.tab.c: $(srcdir)/m2-exp.y
+m2-exp.tab.c: $(srcdir)/m2-exp.y $(srcdir)/Makefile.in
 	${YACC} $(srcdir)/m2-exp.y
 	-sed -e '/extern.*malloc/d' \
 	     -e '/extern.*realloc/d' \
 	     -e '/extern.*free/d' \
-	  < y.tab.c > m2-exp.tab.c
+	     -e '/include.*malloc.h/d' \
+	     -e 's/malloc/xmalloc/g' \
+	     -e 's/realloc/xrealloc/g' \
+	  < y.tab.c > ././m2-exp.tab.c
 	-rm y.tab.c
 
 
@@ -708,11 +742,16 @@ dwarfread.o: ${srcdir}/dwarfread.c
 stabsread.o: ${srcdir}/stabsread.c
 	${CC} -c ${INTERNAL_CFLAGS} -I$(BFD_DIR) ${srcdir}/stabsread.c
 
+# Used on RS/6000 native
 xcoffread.o: ${srcdir}/xcoffread.c
 	${CC} -c ${INTERNAL_CFLAGS} -I$(BFD_DIR) ${srcdir}/xcoffread.c
 
 xcoffexec.o: ${srcdir}/xcoffexec.c
 	${CC} -c ${INTERNAL_CFLAGS} -I$(BFD_DIR) ${srcdir}/xcoffexec.c
+
+# Used on HP-PA native
+paread.o: ${srcdir}/paread.c
+	${CC} -c ${INTERNAL_CFLAGS} -I$(BFD_DIR) ${srcdir}/paread.c
 
 # Drag in the files that are in another directory.
 
@@ -724,9 +763,6 @@ xdr_ptrace.o: ${srcdir}/vx-share/xdr_ptrace.c
 
 xdr_rdb.o: ${srcdir}/vx-share/xdr_rdb.c
 	${CC} -c ${INTERNAL_CFLAGS} ${srcdir}/vx-share/xdr_rdb.c
-
-xdr_regs.o: ${srcdir}/vx-share/xdr_regs.c
-	${CC} -c ${INTERNAL_CFLAGS} ${srcdir}/vx-share/xdr_regs.c
 
 nindy.o: ${srcdir}/nindy-share/nindy.c
 	${CC} -c ${INTERNAL_CFLAGS} -DSTRIP='"$(tooldir)/bin/strip"' \
@@ -740,6 +776,12 @@ ttybreak.o: ${srcdir}/nindy-share/ttybreak.c
 
 ttyflush.o: ${srcdir}/nindy-share/ttyflush.c
 	${CC} -c ${INTERNAL_CFLAGS} ${srcdir}/nindy-share/ttyflush.c
+
+udr.o: ${srcdir}/29k-share/udi/udr.c
+	${CC} -c ${INTERNAL_CFLAGS} ${srcdir}/29k-share/udi/udr.c
+
+udip2soc.o: ${srcdir}/29k-share/udi/udip2soc.c
+	${CC} -c ${INTERNAL_CFLAGS} ${srcdir}/29k-share/udi/udip2soc.c
 
 lint: $(LINTFILES)
 	$(LINT) $(INCLUDE_CFLAGS) $(LINTFLAGS) $(LINTFILES) \

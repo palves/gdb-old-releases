@@ -173,6 +173,7 @@ CORE_ADDR step_range_end; /* Exclusive */
 FRAME_ADDR step_frame_address;
 
 /* 1 means step over all subroutine calls.
+   0 means don't step over calls (used by stepi).
    -1 means step over calls to undebuggable functions.  */
 
 int step_over_calls;
@@ -235,8 +236,12 @@ Start it from the beginning? "))
 
   if (from_tty)
     {
-      printf_filtered ("Starting program: %s %s\n",
-	      exec_file? exec_file: "", inferior_args);
+      puts_filtered("Starting program: ");
+      if (exec_file)
+	puts_filtered(exec_file);
+      puts_filtered(" ");
+      puts_filtered(inferior_args);
+      puts_filtered("\n");
       fflush (stdout);
     }
 
@@ -366,14 +371,14 @@ step_1 (skip_subroutines, single_inst, count_string)
 	      fflush (stdout);
 
 	      /* No info or after _etext ("Can't happen") */
-	      if (msymbol == NULL || (msymbol + 1) -> name == NULL)
+	      if (msymbol == NULL || SYMBOL_NAME (msymbol + 1) == NULL)
 		error ("No data available on pc function.");
 
 	      printf_filtered ("Single stepping until function exit.\n");
 	      fflush (stdout);
 
-	      step_range_start = msymbol -> address;
-	      step_range_end = (msymbol + 1) -> address;
+	      step_range_start = SYMBOL_VALUE_ADDRESS (msymbol);
+	      step_range_end = SYMBOL_VALUE_ADDRESS (msymbol + 1);
 	    }
 	}
       else
@@ -415,8 +420,6 @@ jump_command (arg, from_tty)
   struct symtab_and_line sal;
   struct symbol *fn;
   struct symbol *sfn;
-  char *fname;
-  struct cleanup *back_to;
 
   ERROR_NO_INFERIOR;
 
@@ -442,14 +445,12 @@ jump_command (arg, from_tty)
   sfn = find_pc_function (sal.pc);
   if (fn != NULL && sfn != fn)
     {
-      fname = strdup_demangled (SYMBOL_NAME (fn));
-      back_to = make_cleanup (free, fname);
-      if (!query ("Line %d is not in `%s'.  Jump anyway? ", sal.line, fname))
+      if (!query ("Line %d is not in `%s'.  Jump anyway? ", sal.line,
+		  SYMBOL_SOURCE_NAME (fn)))
 	{
 	  error ("Not confirmed.");
 	  /* NOTREACHED */
 	}
-      do_cleanups (back_to);
     }
 
   addr = ADDR_BITS_SET (sal.pc);
@@ -567,7 +568,7 @@ until_next_command (from_tty)
       if (msymbol == NULL)
 	error ("Execution is not within a known function.");
       
-      step_range_start = msymbol -> address;
+      step_range_start = SYMBOL_VALUE_ADDRESS (msymbol);
       step_range_end = pc;
     }
   else
@@ -735,15 +736,27 @@ environment_info (var, from_tty)
     {
       register char *val = get_in_environ (inferior_environ, var);
       if (val)
-	printf_filtered ("%s = %s\n", var, val);
+	{
+	  puts_filtered (var);
+	  puts_filtered (" = ");
+	  puts_filtered (val);
+	  puts_filtered ("\n");
+	}
       else
-	printf_filtered ("Environment variable \"%s\" not defined.\n", var);
+	{
+	  puts_filtered ("Environment variable \"");
+	  puts_filtered (var);
+	  puts_filtered ("\" not defined.\n");
+	}
     }
   else
     {
       register char **vector = environ_vector (inferior_environ);
       while (*vector)
-	printf_filtered ("%s\n", *vector++);
+	{
+	  puts_filtered (*vector++);
+	  puts_filtered ("\n");
+	}
     }
 }
 
@@ -765,15 +778,16 @@ set_environment_command (arg, from_tty)
   if (p != 0 && val != 0)
     {
       /* We have both a space and an equals.  If the space is before the
-	 equals and the only thing between the two is more space, use
-	 the equals */
+	 equals, walk forward over the spaces til we see a nonspace 
+	 (possibly the equals). */
       if (p > val)
 	while (*val == ' ')
 	  val++;
 
-      /* Take the smaller of the two.  If there was space before the
-	 "=", they will be the same right now. */
-      p = arg + min (p - arg, val - arg);
+      /* Now if the = is after the char following the spaces,
+	 take the char following the spaces.  */
+      if (p > val)
+	p = val - 1;
     }
   else if (val != 0 && p == 0)
     p = val;
@@ -829,7 +843,7 @@ unset_environment_command (var, from_tty)
 
 /* Handle the execution path (PATH variable) */
 
-const static char path_var_name[] = "PATH";
+static const char path_var_name[] = "PATH";
 
 /* ARGSUSED */
 static void
@@ -863,6 +877,13 @@ path_command (dirname, from_tty)
 CORE_ADDR
 read_pc ()
 {
+#ifdef GDB_TARGET_IS_HPPA
+  int flags = read_register(FLAGS_REGNUM);
+
+  if (flags & 2)
+    return read_register(31) & ~0x3;
+#endif
+
   return ADDR_BITS_REMOVE ((CORE_ADDR) read_register (PC_REGNUM));
 }
 

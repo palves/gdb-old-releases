@@ -33,6 +33,13 @@ typedef unsigned int CORE_ADDR;
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
+/* Gdb does *lots* of string compares.  Use macros to speed them up by
+   avoiding function calls if the first characters are not the same. */
+
+#define STRCMP(a,b) (*(a) == *(b) ? strcmp ((a), (b)) : (int)*(a) - (int)*(b))
+#define STREQ(a,b) (*(a) == *(b) ? !strcmp ((a), (b)) : 0)
+#define STREQN(a,b,c) (*(a) == *(b) ? !strncmp ((a), (b), (c)) : 0)
+
 /* The character C++ uses to build identifiers that must be unique from
    the program's identifiers (such as $this and $$vptr).  */
 #define CPLUS_MARKER '$'	/* May be overridden to '.' for SysV */
@@ -41,6 +48,7 @@ typedef unsigned int CORE_ADDR;
 
 extern int quit_flag;
 extern int immediate_quit;
+extern int sevenbit_strings;
 
 extern void
 quit PARAMS ((void));
@@ -92,7 +100,8 @@ inside_entry_file PARAMS ((CORE_ADDR addr));
 extern int
 inside_main_func PARAMS ((CORE_ADDR pc));
 
-/* From cplus-dem.c */
+
+/* From libiberty.a */
 
 extern char *
 cplus_demangle PARAMS ((const char *, int));
@@ -124,9 +133,6 @@ extern PTR
 mmalloc_getkey PARAMS ((PTR, int));
 
 /* From utils.c */
-
-extern char *
-demangle_and_match PARAMS ((const char *, const char *, int));
 
 extern int
 strcmp_iw PARAMS ((const char *, const char *));
@@ -184,6 +190,9 @@ extern int
 query ();
 
 extern void
+begin_line PARAMS ((void));
+
+extern void
 wrap_here PARAMS ((char *));
 
 extern void
@@ -197,6 +206,9 @@ fputs_filtered PARAMS ((const char *, FILE *));
 
 extern void
 puts_filtered PARAMS ((char *));
+
+extern void
+vprintf_filtered ();
 
 extern void
 vfprintf_filtered ();
@@ -223,10 +235,7 @@ extern char *
 n_spaces PARAMS ((int));
 
 extern void
-printchar PARAMS ((int, FILE *, int));
-
-extern char *
-strdup_demangled PARAMS ((const char *));
+gdb_printchar PARAMS ((int, FILE *, int));
 
 extern void
 fprint_symbol PARAMS ((FILE *, char *));
@@ -334,7 +343,10 @@ extern unsigned output_radix;
 /* Baud rate specified for communication with serial target systems.  */
 extern char *baud_rate;
 
-/* Languages represented in the symbol table and elsewhere. */
+/* Languages represented in the symbol table and elsewhere.
+   This should probably be in language.h, but since enum's can't
+   be forward declared to satisfy opaque references before their
+   actual definition, needs to be here. */
 
 enum language 
 {
@@ -345,32 +357,30 @@ enum language
    language_m2			/* Modula-2 */
 };
 
-/* Return a format string for printf that will print a number in the local
-   (language-specific) hexadecimal format.  Result is static and is
-   overwritten by the next call.  local_hex_format_custom takes printf
-   options like "08" or "l" (to produce e.g. %08x or %lx).  */
+/* Possibilities for prettyprint parameters to routines which print
+   things.  Like enum language, this should be in value.h, but needs
+   to be here for the same reason.  FIXME:  If we can eliminate this
+   as an arg to LA_VAL_PRINT, then we can probably move it back to
+   value.h. */
 
-#define local_hex_format() (current_language->la_hex_format)
-
-extern char *
-local_hex_format_custom PARAMS ((char *));	/* language.c */
-
-/* Return a string that contains a number formatted in the local
-   (language-specific) hexadecimal format.  Result is static and is
-   overwritten by the next call.  local_hex_string_custom takes printf
-   options like "08" or "l".  */
-
-extern char *
-local_hex_string PARAMS ((int));		/* language.c */
-
-extern char *
-local_hex_string_custom PARAMS ((int, char *));	/* language.c */
+enum val_prettyprint
+{
+  Val_no_prettyprint = 0,
+  Val_prettyprint,
+  /* Use the default setting which the user has specified.  */
+  Val_pretty_default
+};
 
 
 /* Host machine definition.  This will be a symlink to one of the
    xm-*.h files, built by the `configure' script.  */
 
 #include "xm.h"
+
+/* Native machine support.  This will be a symlink to one of the
+   nm-*.h files, built by the `configure' script.  */
+
+#include "nm.h"
 
 /* If the xm.h file did not define the mode string used to open the
    files, assume that binary files are opened the same way as text
@@ -517,6 +527,17 @@ local_hex_string_custom PARAMS ((int, char *));	/* language.c */
 # else
 #  define LONGEST long
 # endif
+#endif
+
+/* If we picked up a copy of CHAR_BIT from a configuration file
+   (which may get it by including <limits.h>) then use it to set
+   the number of bits in a host char.  If not, use the same size
+   as the target. */
+
+#if defined (CHAR_BIT)
+#define HOST_CHAR_BIT CHAR_BIT
+#else
+#define HOST_CHAR_BIT TARGET_CHAR_BIT
 #endif
 
 /* Assorted functions we can declare, now that const and volatile are 

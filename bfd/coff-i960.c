@@ -52,7 +52,7 @@ DEFUN (optcall_callback, (abfd, reloc_entry, symbol_in, data,
 
   /* So the target symbol has to be of coff type, and the symbol 
      has to have the correct native information within it */
-  if ((cs->symbol.the_bfd->xvec->flavour != bfd_target_coff_flavour)
+  if ((bfd_asymbol_flavour(&cs->symbol) != bfd_target_coff_flavour)
       || (cs->native == (combined_entry_type *)NULL)) {
      /* This is interesting, consider the case where we're outputting */
      /* coff from a mix n match input, linking from coff to a symbol */
@@ -168,9 +168,9 @@ bfd_target icoff_little_vec =
  {bfd_false, coff_write_object_contents, /* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE(coff),
-  COFF_SWAP_TABLE,
   coff_i960_reloc_type_lookup,
   coff_make_debug_symbol,
+  COFF_SWAP_TABLE,
 };
 
 
@@ -201,7 +201,7 @@ _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs
   {bfd_false, coff_write_object_contents,	/* bfd_write_contents */
      _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE(coff),
-  COFF_SWAP_TABLE,
   coff_i960_reloc_type_lookup,
   coff_make_debug_symbol,
+  COFF_SWAP_TABLE,
 };

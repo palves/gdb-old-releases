@@ -33,12 +33,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    has a way to detect the bottom of the stack, there is no need
    to call this function from FRAME_CHAIN_VALID; the reason for
    doing so is that some machines have no way of detecting bottom
-   of stack.  */
+   of stack. 
+
+   A PC of zero is always considered to be the bottom of the stack. */
 
 int
 inside_entry_file (addr)
      CORE_ADDR addr;
 {
+  if (addr == 0)
+    return 1;
   if (symfile_objfile == 0)
     return 0;
   return (addr >= symfile_objfile -> ei.entry_file_lowpc &&
@@ -49,12 +53,16 @@ inside_entry_file (addr)
    that correspond to the main() function.  See comments above for why
    we might want to do this.
 
-   Typically called from FRAME_CHAIN_VALID. */
+   Typically called from FRAME_CHAIN_VALID.
+
+   A PC of zero is always considered to be the bottom of the stack. */
 
 int
 inside_main_func (pc)
 CORE_ADDR pc;
 {
+  if (pc == 0)
+    return 1;
   if (symfile_objfile == 0)
     return 0;
   return (symfile_objfile -> ei.main_func_lowpc  <= pc &&
@@ -65,12 +73,16 @@ CORE_ADDR pc;
    that correspond to the process entry point function.  See comments
    in objfiles.h for why we might want to do this.
 
-   Typically called from FRAME_CHAIN_VALID. */
+   Typically called from FRAME_CHAIN_VALID.
+
+   A PC of zero is always considered to be the bottom of the stack. */
 
 int
 inside_entry_func (pc)
 CORE_ADDR pc;
 {
+  if (pc == 0)
+    return 1;
   if (symfile_objfile == 0)
     return 0;
   return (symfile_objfile -> ei.entry_func_lowpc  <= pc &&
@@ -198,7 +210,7 @@ get_frame_info (frame)
    frame_info for the frame, and FRAMELESS should be set to nonzero
    if it represents a frameless function invocation.  */
 
-/* Return nonzero if the function for this frame has a prologue.  Many
+/* Return nonzero if the function for this frame lacks a prologue.  Many
    machines can define FRAMELESS_FUNCTION_INVOCATION to just call this
    function.  */
 
@@ -422,7 +434,7 @@ get_pc_function_start (pc)
     }
   else if ((msymbol = lookup_minimal_symbol_by_pc (pc)) != NULL)
     {
-      fstart = msymbol -> address;
+      fstart = SYMBOL_VALUE_ADDRESS (msymbol);
     }
   else
     {
@@ -613,9 +625,8 @@ find_pc_partial_function (pc, name, address)
 	  goto return_error;
 	}
       if (psb
-	  && (msymbol == NULL
-	      || (SYMBOL_VALUE_ADDRESS (psb)
-		  >= msymbol -> address)))
+	  && (msymbol == NULL ||
+	      (SYMBOL_VALUE_ADDRESS (psb) >= SYMBOL_VALUE_ADDRESS (msymbol))))
 	{
 	  /* This case isn't being cached currently. */
 	  if (address)
@@ -635,16 +646,16 @@ find_pc_partial_function (pc, name, address)
 
   {
     if (msymbol -> type == mst_text)
-      cache_pc_function_low = msymbol -> address;
+      cache_pc_function_low = SYMBOL_VALUE_ADDRESS (msymbol);
     else
       /* It is a transfer table for Sun shared libraries.  */
       cache_pc_function_low = pc - FUNCTION_START_OFFSET;
   }
-  cache_pc_function_name = msymbol -> name;
+  cache_pc_function_name = SYMBOL_NAME (msymbol);
   /* FIXME:  Deal with bumping into end of minimal symbols for a given
      objfile, and what about testing for mst_text again? */
-  if ((msymbol + 1) -> name != NULL)
-    cache_pc_function_high = (msymbol + 1) -> address;
+  if (SYMBOL_NAME (msymbol + 1) != NULL)
+    cache_pc_function_high = SYMBOL_VALUE_ADDRESS (msymbol + 1);
   else
     cache_pc_function_high = cache_pc_function_low + 1;
   if (address)

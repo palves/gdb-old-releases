@@ -39,6 +39,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "parser-defs.h"
 
 static void
+free_funcalls PARAMS ((void));
+
+static void
 prefixify_expression PARAMS ((struct expression *));
 
 static int
@@ -47,10 +50,26 @@ length_of_subexp PARAMS ((struct expression *, int));
 static void
 prefixify_subexp PARAMS ((struct expression *, struct expression *, int, int));
 
+/* Data structure for saving values of arglist_len for function calls whose
+   arguments contain other function calls.  */
+
+struct funcall
+  {
+    struct funcall *next;
+    int arglist_len;
+  };
+
+static struct funcall *funcall_chain;
+
 /* Assign machine-independent names to certain registers 
    (unless overridden by the REGISTER_NAMES table) */
 
+#ifdef NO_STD_REGS
+unsigned num_std_regs = 0;
+struct std_regs std_regs[1];
+#else
 struct std_regs std_regs[] = {
+
 #ifdef PC_REGNUM
 	{ "pc", PC_REGNUM },
 #endif
@@ -63,9 +82,12 @@ struct std_regs std_regs[] = {
 #ifdef PS_REGNUM
 	{ "ps", PS_REGNUM },
 #endif
+
 };
 
 unsigned num_std_regs = (sizeof std_regs / sizeof std_regs[0]);
+
+#endif
 
 
 /* Begin counting arguments for a function call,
@@ -74,8 +96,9 @@ unsigned num_std_regs = (sizeof std_regs / sizeof std_regs[0]);
 void
 start_arglist ()
 {
-  register struct funcall *new = (struct funcall *) xmalloc (sizeof (struct funcall));
+  register struct funcall *new;
 
+  new = (struct funcall *) xmalloc (sizeof (struct funcall));
   new->next = funcall_chain;
   new->arglist_len = arglist_len;
   arglist_len = 0;
@@ -99,7 +122,7 @@ end_arglist ()
 /* Free everything in the funcall chain.
    Used when there is an error inside parsing.  */
 
-void
+static void
 free_funcalls ()
 {
   register struct funcall *call, *next;
@@ -126,9 +149,9 @@ write_exp_elt (expelt)
   if (expout_ptr >= expout_size)
     {
       expout_size *= 2;
-      expout = (struct expression *) xrealloc ((char *) expout,
-					       sizeof (struct expression)
-					       + expout_size * sizeof (union exp_element));
+      expout = (struct expression *)
+	xrealloc ((char *) expout, sizeof (struct expression)
+		  + EXP_ELEM_TO_BYTES (expout_size));
     }
   expout->elts[expout_ptr++] = expelt;
 }
@@ -200,28 +223,111 @@ write_exp_elt_intern (expelt)
 }
 
 /* Add a string constant to the end of the expression.
-   Follow it by its length in bytes, as a separate exp_element.  */
+
+   String constants are stored by first writing an expression element
+   that contains the length of the string, then stuffing the string
+   constant itself into however many expression elements are needed
+   to hold it, and then writing another expression element that contains
+   the length of the string.  I.E. an expression element at each end of
+   the string records the string length, so you can skip over the 
+   expression elements containing the actual string bytes from either
+   end of the string.  Note that this also allows gdb to handle
+   strings with embedded null bytes, as is required for some languages.
+
+   Don't be fooled by the fact that the string is null byte terminated,
+   this is strictly for the convenience of debugging gdb itself.  Gdb
+   Gdb does not depend up the string being null terminated, since the
+   actual length is recorded in expression elements at each end of the
+   string.  The null byte is taken into consideration when computing how
+   many expression elements are required to hold the string constant, of
+   course. */
+
 
 void
 write_exp_string (str)
      struct stoken str;
 {
   register int len = str.length;
-  register int lenelt
-    = (len + sizeof (union exp_element)) / sizeof (union exp_element);
+  register int lenelt;
+  register char *strdata;
 
-  expout_ptr += lenelt;
+  /* Compute the number of expression elements required to hold the string
+     (including a null byte terminator), along with one expression element
+     at each end to record the actual string length (not including the
+     null byte terminator). */
 
-  if (expout_ptr >= expout_size)
+  lenelt = 2 + BYTES_TO_EXP_ELEM (len + 1);
+
+  /* Ensure that we have enough available expression elements to store
+     everything. */
+
+  if ((expout_ptr + lenelt) >= expout_size)
     {
-      expout_size = max (expout_size * 2, expout_ptr + 10);
+      expout_size = max (expout_size * 2, expout_ptr + lenelt + 10);
       expout = (struct expression *)
 	xrealloc ((char *) expout, (sizeof (struct expression)
-			   + (expout_size * sizeof (union exp_element))));
+				    + EXP_ELEM_TO_BYTES (expout_size)));
     }
-  memcpy ((char *) &expout->elts[expout_ptr - lenelt], str.ptr, len);
-  ((char *) &expout->elts[expout_ptr - lenelt])[len] = 0;
+
+  /* Write the leading length expression element (which advances the current
+     expression element index), then write the string constant followed by a
+     terminating null byte, and then write the trailing length expression
+     element. */
+
   write_exp_elt_longcst ((LONGEST) len);
+  strdata = (char *) &expout->elts[expout_ptr];
+  memcpy (strdata, str.ptr, len);
+  *(strdata + len) = '\0';
+  expout_ptr += lenelt - 2;
+  write_exp_elt_longcst ((LONGEST) len);
+}
+
+/* Add a bitstring constant to the end of the expression.
+
+   Bitstring constants are stored by first writing an expression element
+   that contains the length of the bitstring (in bits), then stuffing the
+   bitstring constant itself into however many expression elements are
+   needed to hold it, and then writing another expression element that
+   contains the length of the bitstring.  I.E. an expression element at
+   each end of the bitstring records the bitstring length, so you can skip
+   over the expression elements containing the actual bitstring bytes from
+   either end of the bitstring. */
+
+void
+write_exp_bitstring (str)
+     struct stoken str;
+{
+  register int bits = str.length;	/* length in bits */
+  register int len = (bits + HOST_CHAR_BIT - 1) / HOST_CHAR_BIT;
+  register int lenelt;
+  register char *strdata;
+
+  /* Compute the number of expression elements required to hold the bitstring,
+     along with one expression element at each end to record the actual
+     bitstring length in bits. */
+
+  lenelt = 2 + BYTES_TO_EXP_ELEM (len);
+
+  /* Ensure that we have enough available expression elements to store
+     everything. */
+
+  if ((expout_ptr + lenelt) >= expout_size)
+    {
+      expout_size = max (expout_size * 2, expout_ptr + lenelt + 10);
+      expout = (struct expression *)
+	xrealloc ((char *) expout, (sizeof (struct expression)
+				    + EXP_ELEM_TO_BYTES (expout_size)));
+    }
+
+  /* Write the leading length expression element (which advances the current
+     expression element index), then write the bitstring constant, and then
+     write the trailing length expression element. */
+
+  write_exp_elt_longcst ((LONGEST) bits);
+  strdata = (char *) &expout->elts[expout_ptr];
+  memcpy (strdata, str.ptr, len);
+  expout_ptr += lenelt - 2;
+  write_exp_elt_longcst ((LONGEST) bits);
 }
 
 /* Return a null-terminated temporary copy of the name
@@ -243,8 +349,8 @@ static void
 prefixify_expression (expr)
      register struct expression *expr;
 {
-  register int len = sizeof (struct expression) +
-				    expr->nelts * sizeof (union exp_element);
+  register int len =
+    sizeof (struct expression) + EXP_ELEM_TO_BYTES (expr->nelts);
   register struct expression *temp;
   register int inpos = expr->nelts, outpos = 0;
 
@@ -268,7 +374,7 @@ length_of_subexp (expr, endpos)
   register int args = 0;
   register int i;
 
-  if (endpos < 0)
+  if (endpos < 1)
     error ("?error in length_of_subexp");
 
   i = (int) expr->elts[endpos - 1].opcode;
@@ -277,9 +383,8 @@ length_of_subexp (expr, endpos)
     {
       /* C++  */
     case OP_SCOPE:
-      oplen = 4 + ((expr->elts[endpos - 2].longconst
-		    + sizeof (union exp_element))
-		   / sizeof (union exp_element));
+      oplen = longest_to_int (expr->elts[endpos - 2].longconst);
+      oplen = 5 + BYTES_TO_EXP_ELEM (oplen + 1);
       break;
 
     case OP_LONG:
@@ -298,13 +403,12 @@ length_of_subexp (expr, endpos)
 
     case OP_FUNCALL:
       oplen = 3;
-      args = 1 + expr->elts[endpos - 2].longconst;
+      args = 1 + longest_to_int (expr->elts[endpos - 2].longconst);
       break;
 
     case UNOP_MAX:
     case UNOP_MIN:
       oplen = 3;
-      args = 0;
       break;
 
    case BINOP_VAL:
@@ -329,11 +433,24 @@ length_of_subexp (expr, endpos)
     case STRUCTOP_STRUCT:
     case STRUCTOP_PTR:
       args = 1;
+      /* fall through */
     case OP_M2_STRING:
     case OP_STRING:
-      oplen = 3 + ((expr->elts[endpos - 2].longconst
-		    + sizeof (union exp_element))
-		   / sizeof (union exp_element));
+      oplen = longest_to_int (expr->elts[endpos - 2].longconst);
+      oplen = 4 + BYTES_TO_EXP_ELEM (oplen + 1);
+      break;
+
+    case OP_BITSTRING:
+      oplen = longest_to_int (expr->elts[endpos - 2].longconst);
+      oplen = (oplen + HOST_CHAR_BIT - 1) / HOST_CHAR_BIT;
+      oplen = 4 + BYTES_TO_EXP_ELEM (oplen);
+      break;
+
+    case OP_ARRAY:
+      oplen = 4;
+      args = longest_to_int (expr->elts[endpos - 2].longconst);
+      args -= longest_to_int (expr->elts[endpos - 3].longconst);
+      args += 1;
       break;
 
     case TERNOP_COND:
@@ -341,9 +458,9 @@ length_of_subexp (expr, endpos)
       break;
 
       /* Modula-2 */
-   case BINOP_MULTI_SUBSCRIPT:
+   case MULTI_SUBSCRIPT:
       oplen=3;
-      args = 1 + expr->elts[endpos- 2].longconst;
+      args = 1 + longest_to_int (expr->elts[endpos- 2].longconst);
       break;
 
     case BINOP_ASSIGN_MODIFY:
@@ -395,9 +512,8 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
     {
       /* C++  */
     case OP_SCOPE:
-      oplen = 4 + ((inexpr->elts[inend - 2].longconst
-		    + sizeof (union exp_element))
-		   / sizeof (union exp_element));
+      oplen = longest_to_int (inexpr->elts[inend - 2].longconst);
+      oplen = 5 + BYTES_TO_EXP_ELEM (oplen + 1);
       break;
 
     case OP_LONG:
@@ -416,13 +532,12 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
 
     case OP_FUNCALL:
       oplen = 3;
-      args = 1 + inexpr->elts[inend - 2].longconst;
+      args = 1 + longest_to_int (inexpr->elts[inend - 2].longconst);
       break;
 
     case UNOP_MIN:
     case UNOP_MAX:
       oplen = 3;
-      args = 0;
       break;
 
     case UNOP_CAST:
@@ -443,15 +558,27 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
       args=1;
       break;
 
-   case STRUCTOP_STRUCT:
+    case STRUCTOP_STRUCT:
     case STRUCTOP_PTR:
       args = 1;
+      /* fall through */
     case OP_M2_STRING:
     case OP_STRING:
-      oplen = 3 + ((inexpr->elts[inend - 2].longconst
-		    + sizeof (union exp_element))
-		   / sizeof (union exp_element));
-		   
+      oplen = longest_to_int (inexpr->elts[inend - 2].longconst);
+      oplen = 4 + BYTES_TO_EXP_ELEM (oplen + 1);
+      break;
+
+    case OP_BITSTRING:
+      oplen = longest_to_int (inexpr->elts[inend - 2].longconst);
+      oplen = (oplen + HOST_CHAR_BIT - 1) / HOST_CHAR_BIT;
+      oplen = 4 + BYTES_TO_EXP_ELEM (oplen);
+      break;
+
+    case OP_ARRAY:
+      oplen = 4;
+      args = longest_to_int (inexpr->elts[inend - 2].longconst);
+      args -= longest_to_int (inexpr->elts[inend - 3].longconst);
+      args += 1;
       break;
 
     case TERNOP_COND:
@@ -464,9 +591,9 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
       break;
 
       /* Modula-2 */
-   case BINOP_MULTI_SUBSCRIPT:
+   case MULTI_SUBSCRIPT:
       oplen=3;
-      args = 1 + inexpr->elts[inend - 2].longconst;
+      args = 1 + longest_to_int (inexpr->elts[inend - 2].longconst);
       break;
 
       /* C++ */
@@ -482,7 +609,7 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
      to the beginning of the output.  */
   inend -= oplen;
   memcpy (&outexpr->elts[outbeg], &inexpr->elts[inend],
-		 oplen * sizeof (union exp_element));
+	  EXP_ELEM_TO_BYTES (oplen));
   outbeg += oplen;
 
   /* Find the lengths of the arg subexpressions.  */
@@ -548,8 +675,7 @@ parse_exp_1 (stringptr, block, comma)
   expout_size = 10;
   expout_ptr = 0;
   expout = (struct expression *)
-    xmalloc (sizeof (struct expression)
-	     + expout_size * sizeof (union exp_element));
+    xmalloc (sizeof (struct expression) + EXP_ELEM_TO_BYTES (expout_size));
   expout->language_defn = current_language;
   make_cleanup (free_current_contents, &expout);
 
@@ -557,12 +683,23 @@ parse_exp_1 (stringptr, block, comma)
     current_language->la_error (NULL);
 
   discard_cleanups (old_chain);
+
+  /* Record the actual number of expression elements, and then
+     reallocate the expression memory so that we free up any
+     excess elements. */
+
   expout->nelts = expout_ptr;
   expout = (struct expression *)
     xrealloc ((char *) expout,
-	      sizeof (struct expression)
-	      + expout_ptr * sizeof (union exp_element));
+	      sizeof (struct expression) + EXP_ELEM_TO_BYTES (expout_ptr));;
+
+  /* Convert expression from postfix form as generated by yacc
+     parser, to a prefix form. */
+
+  DUMP_EXPRESSION (expout, stdout, "before conversion to prefix form");
   prefixify_expression (expout);
+  DUMP_EXPRESSION (expout, stdout, "after conversion to prefix form");
+
   *stringptr = lexptr;
   return expout;
 }

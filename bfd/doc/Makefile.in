@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1990, 1991, 1992 Free Software Foundation
+#   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ AR = ar
 AR_FLAGS = qv
 BISON = bison
 MAKEINFO = makeinfo
+TEXI2DVI = texi2dvi
 RANLIB = ranlib
 CFLAGS = -g
 
@@ -86,25 +87,31 @@ SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
 	$(srcdir)/../libbfd.c $(srcdir)/../opncls.c \
 	$(srcdir)/../reloc.c  $(srcdir)/../section.c \
 	$(srcdir)/../syms.c  $(srcdir)/../targets.c \
-	$(srcdir)/../init.c
+	$(srcdir)/../init.c $(srcdir)/../seclet.c
 
 SRCPROT = $(srcdir)/../archive.c $(srcdir)/../archures.c \
 	$(srcdir)/../bfd.c $(srcdir)/../coffcode.h $(srcdir)/../core.c \
 	$(srcdir)/../format.c $(srcdir)/../libbfd.c \
 	$(srcdir)/../opncls.c $(srcdir)/../reloc.c \
 	$(srcdir)/../section.c $(srcdir)/../syms.c \
-	$(srcdir)/../targets.c $(srcdir)/../init.c    
+	$(srcdir)/../targets.c $(srcdir)/../init.c \
+	$(srcdir)/../seclet.c    
 
 SRCIPROT = $(srcdir)/../cache.c $(srcdir)/../libbfd.c \
 	$(srcdir)/../reloc.c $(srcdir)/../cpu-h8300.c \
 	$(srcdir)/../cpu-i960.c $(srcdir)/../archures.c \
-	$(srcdir)/../init.c $(srcdir)/../ctor.c
+	$(srcdir)/../init.c $(srcdir)/../ctor.c \
+	$(srcdir)/../seclet.c
 
 STAGESTUFF = $(DOCFILES) *.info*
+
+TEXIDIR = $(srcdir)/../../texinfo/fsf
 
 all install:
 
 info: bfd.info
+
+dvi: bfd.dvi
 
 install-info: info
 	-parent=`echo $(infodir)|sed -e 's@/[^/]*$$@@'`; \
@@ -173,11 +180,10 @@ ctor.texi: $(MKDOC) $(srcdir)/../ctor.c $(srcdir)/doc.str
 libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(srcdir)/../init.c		\
 	$(srcdir)/../libbfd.c		\
-	$(srcdir)/../init.c		\
-	$(srcdir)/../libbfd.c		\
 	$(srcdir)/../cache.c		\
 	$(srcdir)/../ctor.c		\
 	$(srcdir)/../reloc.c		\
+	$(srcdir)/../seclet.c		\
 	$(srcdir)/../cpu-h8300.c	\
 	$(srcdir)/../cpu-i960.c		\
 	$(srcdir)/../archures.c		\
@@ -186,11 +192,10 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	cat $(srcdir)/../libbfd-in.h >libbfd.h 
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../init.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../libbfd.c >>libbfd.h
-	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../init.c >>libbfd.h
-	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../libbfd.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cache.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../ctor.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../reloc.c >>libbfd.h
+	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../seclet.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cpu-h8300.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cpu-i960.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../archures.c >>libbfd.h
@@ -209,7 +214,9 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	$(srcdir)/../section.c 		\
 	$(srcdir)/../archures.c		\
 	$(srcdir)/../reloc.c		\
+	$(srcdir)/../seclet.c		\
 	$(srcdir)/../syms.c		\
+	$(srcdir)/../bfd.c		\
 	$(srcdir)/../archive.c		\
 	$(srcdir)/../core.c		\
 	$(srcdir)/../targets.c		\
@@ -222,6 +229,7 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../section.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../archures.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../reloc.c >>bfd.h
+	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../seclet.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../syms.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../bfd.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../archive.c >>bfd.h
@@ -241,9 +249,7 @@ bfd.info: $(DOCFILES) bfd.texinfo
 	$(MAKEINFO) -o bfd.info $(srcdir)/bfd.texinfo
 
 bfd.dvi: $(DOCFILES) bfd.texinfo
-	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex bfd.texinfo
-#	texindex bfd.??
-#	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex bfd.texinfo
+	$(TEXI2DVI) $(srcdir)/bfd.texino
 
 bfd.ps: bfd.dvi
 	dvips bfd -o

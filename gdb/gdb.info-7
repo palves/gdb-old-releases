@@ -1,16 +1,16 @@
-This is Info file ./gdb.info, produced by Makeinfo-1.47 from the input
-file gdb-all.texi.
+This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
+file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
 * Gdb: (gdb).                   The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.06, October 1992, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.7.
+   This is Edition 4.07, January 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.8.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software Foundation,
-Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
+Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -30,9 +30,48 @@ may be included in a translation approved by the Free Software
 Foundation instead of in the original English.
 
 
+File: gdb.info,  Node: Config Names,  Next: configure Options,  Prev: Separate Objdir,  Up: Installing GDB
+
+Specifying names for hosts and targets
+======================================
+
+   The specifications used for hosts and targets in the `configure'
+script are based on a three-part naming scheme, but some short
+predefined aliases are also supported.  The full naming scheme encodes
+three pieces of information in the following pattern:
+
+     ARCHITECTURE-VENDOR-OS
+
+   For example, you can use the alias `sun4' as a HOST argument or in a
+`--target=TARGET' option.  The equivalent full name is
+`sparc-sun-sunos4'.
+
+   The `configure' script accompanying GDB does not provide any query
+facility to list all supported host and target names or aliases. 
+`configure' calls the Bourne shell script `config.sub' to map
+abbreviations to full names; you can read the script, if you wish, or
+you can use it to test your guesses on abbreviations--for example:
+
+     % sh config.sub sun4
+     sparc-sun-sunos411
+     % sh config.sub sun3
+     m68k-sun-sunos411
+     % sh config.sub decstation
+     mips-dec-ultrix42
+     % sh config.sub hp300bsd
+     m68k-hp-bsd
+     % sh config.sub i386v
+     i386-unknown-sysv
+     % sh config.sub i786v
+     Invalid configuration `i786v': machine `i786v' not recognized
+
+`config.sub' is also distributed in the GDB source directory
+(`gdb-4.8', for version 4.8).
+
+
 File: gdb.info,  Node: configure Options,  Prev: Config Names,  Up: Installing GDB
 
-`configure' Options
+`configure' options
 ===================
 
    Here is a summary of the `configure' options and arguments that are

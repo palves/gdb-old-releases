@@ -286,7 +286,7 @@ cobr( memaddr, word1, word2 )
 	if ( word1 & 2 ){		/* Predicts branch not taken */
 		fputs_filtered ( ".f", stream );
 	}
-	fputs_filtered ( "\t", stream, 0 );
+	fputs_filtered ( "\t", stream );
 
 	src1 = (word1 >> 19) & 0x1f;
 	src2 = (word1 >> 14) & 0x1f;
@@ -341,8 +341,12 @@ mem( memaddr, word1, word2, noprint )
 	 *	-2: 2 operands, store instruction
 	 */
 	static struct tabent *mem_tab = NULL;
-	static struct { int opcode; char *name; char numops; } mem_init[] = {
+/* Opcodes of 0x8X, 9X, aX, bX, and cX must be in the table.  */
 #define MEM_MIN	0x80
+#define MEM_MAX	0xcf
+#define MEM_SIZ	((MEM_MAX-MEM_MIN+1) * sizeof(struct tabent))
+
+	static struct { int opcode; char *name; char numops; } mem_init[] = {
 		0x80,	"ldob",	 2,
 		0x82,	"stob",	-2,
 		0x84,	"bx",	 1,
@@ -363,8 +367,6 @@ mem( memaddr, word1, word2, noprint )
 		0xc2,	"stib",	-2,
 		0xc8,	"ldis",	 2,
 		0xca,	"stis",	-2,
-#define MEM_MAX	0xca
-#define MEM_SIZ	((MEM_MAX-MEM_MIN+1) * sizeof(struct tabent))
 		0,	NULL,	0
 	};
 
@@ -664,7 +666,7 @@ reg( word1 )
 	dst  = (word1 >> 19) & 0x1f;
 
 	if  ( reg_tab[i].numops != 0 ){
-		fputs_filtered( "\t", stream, 0 );
+		fputs_filtered( "\t", stream );
 
 		switch ( reg_tab[i].numops ){
 		case 1:

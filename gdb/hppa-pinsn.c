@@ -24,33 +24,44 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "opcode/hppa.h"
 
-char *control_reg[] = {"rctr", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",
-		       "pidr1", "pidr2", "ccr", "sar", "pidr3", "pidr4",
-		       "iva", "eiem", "itmr", "pcsq", "pcoq", "iir", "isr",
-		       "ior", "ipsw", "eirr", "tr0", "tr1", "tr2", "tr3",
-		       "tr4", "tr5", "tr6", "tr7"
-		       };
+static char *control_reg[] =
+{  "rctr", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",
+   "pidr1", "pidr2", "ccr", "sar", "pidr3", "pidr4",
+   "iva", "eiem", "itmr", "pcsq", "pcoq", "iir", "isr",
+   "ior", "ipsw", "eirr", "tr0", "tr1", "tr2", "tr3",
+   "tr4", "tr5", "tr6", "tr7"
+   };
 
-char *compare_cond_names[] = {"", ",=", ",<", ",<=", ",<<", ",<<=", ",sv",
-			      ",od", ",tr", ",<>", ",>=", ",>", ",>>=",
-			      ",>>", ",nsv", ",ev"
-			      };
-char *add_cond_names[] = {"", ",=", ",<", ",<=", ",nuv", ",znv", ",sv",
-			  ",od", ",tr", ",<>", ",>=", ",>", ",uv",
-			  ",vnz", ",nsv", ",ev"
-			  };
-char *logical_cond_names[] = {"", ",=", ",<", ",<=", 0, 0, 0, ",od",
-			      ",tr", ",<>", ",>=", ",>", 0, 0, 0, ",ev"};
-char *unit_cond_names[] = {"", 0, ",sbz", ",shz", ",sdc", 0, ",sbc", ",shc",
-			   ",tr", 0, ",nbz", ",nhz", ",ndc", 0, ",nbc", ",nhc"
-			   };
-char *shift_cond_names[] = {"", ",=", ",<", ",od", ",tr", ",<>", ",>=", ",ev"};
+static char *compare_cond_names[] =
+{  "", ",=", ",<", ",<=", ",<<", ",<<=", ",sv",
+   ",od", ",tr", ",<>", ",>=", ",>", ",>>=",
+   ",>>", ",nsv", ",ev"
+   };
 
-char *index_compl_names[] = {"", ",m", ",s", ",sm"};
-char *short_ldst_compl_names[] = {"", ",ma", "", ",mb"};
-char *short_bytes_compl_names[] = {"", ",b,m", ",e", ",e,m"};
-char *float_format_names[] = {",sgl", ",dbl", ",quad"};
-char *float_comp_names[] =
+static char *add_cond_names[] =
+{  "", ",=", ",<", ",<=", ",nuv", ",znv", ",sv",
+   ",od", ",tr", ",<>", ",>=", ",>", ",uv",
+   ",vnz", ",nsv", ",ev"
+   };
+
+static char *logical_cond_names[] =
+{  "", ",=", ",<", ",<=", 0, 0, 0, ",od",
+   ",tr", ",<>", ",>=", ",>", 0, 0, 0, ",ev"
+   };
+
+static char *unit_cond_names[] =
+{  "", 0, ",sbz", ",shz", ",sdc", 0, ",sbc", ",shc",
+   ",tr", 0, ",nbz", ",nhz", ",ndc", 0, ",nbc", ",nhc"
+   };
+
+static char *shift_cond_names[] =
+{"", ",=", ",<", ",od", ",tr", ",<>", ",>=", ",ev"};
+
+static char *index_compl_names[] = {"", ",m", ",s", ",sm"};
+static char *short_ldst_compl_names[] = {"", ",ma", "", ",mb"};
+static char *short_bytes_compl_names[] = {"", ",b,m", ",e", ",e,m"};
+static char *float_format_names[] = {",sgl", ",dbl", ",quad"};
+static char *float_comp_names[] =
 {",false?", ",false", ",?", ",!<=>", ",=", ",=t", ",?=", ",!<>",
  ",!?>=", ",<", ",?<", ",!>=", ",!?>", ",<=", ",?<=", ",!>",
  ",!?<=", ",>", ",?>", ",!<=", ",!?<", ",>=", ",?>=", ",!<",
@@ -65,7 +76,10 @@ char *float_comp_names[] =
 #define GET_COND(insn) (GET_FIELD ((insn), 16, 18) + \
 			(GET_FIELD ((insn), 19, 19) ? 8 : 0))
 
-void fput_reg (), fput_const ();
+static void fput_reg PARAMS ((unsigned reg, FILE *stream));
+static void fput_const PARAMS ((unsigned num, FILE *stream));
+static void fput_reg_r PARAMS ((unsigned reg, FILE *stream));
+static void fput_creg PARAMS ((unsigned reg, FILE *stream));
 
 /* Print one instruction from MEMADDR on STREAM.  */
 int
@@ -73,9 +87,10 @@ print_insn (memaddr, stream)
      CORE_ADDR memaddr;
      FILE *stream;
 {
-  unsigned int insn, i, op;
+  long insn;
+  unsigned int i, op;
 
-  read_memory (memaddr, &insn, sizeof (insn));
+  insn = read_memory_integer (memaddr, sizeof (insn));
 
   for (i = 0; i < NUMOPCODES; ++i)
     {
@@ -219,13 +234,13 @@ print_insn (memaddr, stream)
 		  print_address (memaddr + 8 + extract_12 (insn), stream);
 		  break;
 		case 'W':
-		  /* don't interpret an address if it's an external branch
-		     instruction. */
 		  op = GET_FIELD (insn, 0, 5);
-		  if (op != 0x38 /* be */ && op != 0x39 /* ble */)
-		    print_address (memaddr + 8 + extract_17 (insn), stream);
-		  else
+
+		  if (op == 0x38 /* be */ || op == 0x39 /* ble */)
 		    fput_const (extract_17 (insn), stream);
+		  else
+		    print_address (memaddr + 8 + extract_17 (insn), stream);
+
 		  break;
 		case 'B':
 		  {
@@ -242,6 +257,10 @@ print_insn (memaddr, stream)
 		case 'P':
 		  fprintf_filtered (stream, "%d",
 				    GET_FIELD (insn, 22, 26));
+		  break;
+		case 'Q':
+		  fprintf_filtered (stream, "%d",
+				    GET_FIELD (insn, 11, 15));
 		  break;
 		case 'T':
 		  fprintf_filtered (stream, "%d",
@@ -326,6 +345,35 @@ print_insn (memaddr, stream)
 		  break;
 		}
 	    }
+
+/* If this is an external branch, examine the previous instruction and see if
+   it was an ldil that loaded something into the same base reg.  If so, then
+   calculate the branch target from the constants in both instructions, and
+   print it out. */
+
+	  op = GET_FIELD (insn, 0, 5);
+	  if (op == 0x38 /* be */ || op == 0x39 /* ble */)
+	    {
+	      CORE_ADDR target_address;
+	      long prev_insn;
+	      int basereg, basereg_prev;
+
+	      target_address = extract_17 (insn);
+	      basereg = GET_FIELD (insn, 6, 10);
+	      if (basereg != 0)
+		{
+		  prev_insn = read_memory_integer (memaddr - 4,
+						   sizeof(prev_insn));
+		  basereg_prev = GET_FIELD (prev_insn, 6, 10);
+
+		  if ((prev_insn & 0xfc000000) == 0x20000000 /* ldil */
+		      && basereg == basereg_prev)
+		    target_address += extract_21 (prev_insn);
+		}
+	      fprintf_filtered (stream, "\t! ");
+	      print_address (target_address, stream);
+	    }
+
 	  return sizeof(insn);
 	}
     }
@@ -335,7 +383,7 @@ print_insn (memaddr, stream)
   
 /* Utility function to print registers */
 
-void
+static void
 fput_reg (reg, stream)
      unsigned reg;
      FILE *stream;

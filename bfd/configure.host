@@ -32,12 +32,15 @@ i[34]86-*-sco*)		my_host=i386v ;;
 i[34]86-*-mach*)	my_host=i386mach ;;
 i[34]86-*-msdos*)	my_host=dose ;;
 i[34]86-*-linux)	my_host=i386linux ;;
+i[34]86-*-isc*)		my_host=i386isc ;;
+i[34]86-*-aix*)		my_host=i386aix ;;
 
 i860-*-*)		my_host=stratus ;;
 
+mips-dec-bsd*)          my_host=mipsbsd ;;
 mips-dec-*)		my_host=decstation ;;
-mips-sgi-irix3)		my_host=irix3 ;;
-mips-sgi-irix4)		my_host=irix4 ;;
+mips-sgi-irix3*)	my_host=irix3 ;;
+mips-sgi-irix4*)	my_host=irix4 ;;
 
 m68*-cbm-amigados)	my_host=amigados ;;
 m68*-cbm-sysv4*)	my_host=amix ;;
@@ -58,7 +61,7 @@ rs6000-*-*)		my_host=rs6000 ;;
 
 sparc-*-sunos64)	my_host=sparc-ll ;;
 sparc-*-sysv4*)		my_host=sysv4 ;;
-sparc-*-solaris2*)	my_host=solaris2 ;;
+sparc-*-solaris*)	my_host=solaris2 ;;
 sparc-*-sysv64)		my_host=sysv4-ll ;;
 sparc-*-*)		my_host=sparc ;;
 

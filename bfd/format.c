@@ -106,6 +106,15 @@ DEFUN(bfd_check_format,(abfd, format),
   if (abfd->format != bfd_unknown)
     return (abfd->format == format)? true: false;
 
+
+  /* Since the target type was defaulted, check them 
+     all in the hope that one will be uniquely recognized.  */
+
+  save_targ = abfd->xvec;
+  match_count = 0;
+  right_targ = 0;
+
+
   /* presume the answer is yes */
   abfd->format = format;
 
@@ -119,16 +128,7 @@ DEFUN(bfd_check_format,(abfd, format),
       abfd->xvec = right_targ;		/* Set the target as returned */
       return true;			/* File position has moved, BTW */
     }
-    abfd->format = bfd_unknown;
-    return false;			/* Specified target is not right */
   }
-
-  /* Since the target type was defaulted, check them 
-     all in the hope that one will be uniquely recognized.  */
-
-  save_targ = abfd->xvec;
-  match_count = 0;
-  right_targ = 0;
 
   for (target = target_vector; *target != NULL; target++) {
     bfd_target *temp;

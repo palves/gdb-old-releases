@@ -60,6 +60,7 @@ typedef struct ieee_per_section
 } ieee_per_section_type;
 
 #define ieee_per_section(x) ((ieee_per_section_type *)((x)->used_by_bfd))
+/* FIXME!  There should be no limit to the number of sections!  */
 #define NSECTIONS 20
 
   

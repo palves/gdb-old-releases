@@ -24,27 +24,32 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    See expression.h for the details of the format.
    What is important here is that it can be built up sequentially
    during the process of parsing; the lower levels of the tree always
-   come first in the result.  */
+   come first in the result.
+
+   Note that malloc's and realloc's in this file are transformed to
+   xmalloc and xrealloc respectively by the same sed command in the
+   makefile that remaps any other malloc/realloc inserted by the parser
+   generator.  Doing this with #defines and trying to control the interaction
+   with include files (<malloc.h> and <stdlib.h> for example) just became
+   too messy, particularly when such includes can be inserted at random
+   times by the parser generator.  */
    
 %{
 
-#include <stdio.h>
-#include <string.h>
 #include "defs.h"
-#include "symtab.h"
-#include "gdbtypes.h"
-#include "frame.h"
 #include "expression.h"
 #include "parser-defs.h"
 #include "value.h"
 #include "language.h"
-#include "bfd.h"
-#include "symfile.h"
-#include "objfiles.h"
+#include "c-lang.h"
 
-/* These MUST be included in any grammar file!!!! Please choose unique names!
-   Note that this are a combined list of variables that can be produced
-   by any one of bison, byacc, or yacc. */
+/* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
+   as well as gratuitiously global symbol names, so we can have multiple
+   yacc generated parsers in gdb.  Note that these are only the variables
+   produced by yacc.  If other parser generators (bison, byacc, etc) produce
+   additional global names that conflict at link time, then those parser
+   generators need to be fixed instead of adding those names to this list. */
+
 #define	yymaxdepth c_maxdepth
 #define	yyparse	c_parse
 #define	yylex	c_lex
@@ -72,21 +77,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yy_yyv	c_yyv
 #define	yyval	c_val
 #define	yylloc	c_lloc
-#define yyss	c_yyss		/* byacc */
-#define	yyssp	c_yysp		/* byacc */
-#define	yyvs	c_yyvs		/* byacc */
-#define	yyvsp	c_yyvsp		/* byacc */
+#define yyreds	c_reds		/* With YYDEBUG defined */
+#define yytoks	c_toks		/* With YYDEBUG defined */
+
+#ifndef YYDEBUG
+#define	YYDEBUG	0		/* Default to no yydebug support */
+#endif
 
 int
 yyparse PARAMS ((void));
 
-int
+static int
 yylex PARAMS ((void));
 
 void
 yyerror PARAMS ((char *));
-
-/* #define	YYDEBUG	1 */
 
 %}
 
@@ -98,6 +103,10 @@ yyerror PARAMS ((char *));
   {
     LONGEST lval;
     unsigned LONGEST ulval;
+    struct {
+      LONGEST val;
+      struct type *type;
+    } typed_val;
     double dval;
     struct symbol *sym;
     struct type *tval;
@@ -119,7 +128,8 @@ static int
 parse_number PARAMS ((char *, int, int, YYSTYPE *));
 %}
 
-%type <voidval> exp exp1 type_exp start variable qualified_name
+%type <voidval> exp exp1 type_exp start variable qualified_name lcurly
+%type <lval> rcurly
 %type <tval> type typebase
 %type <tvec> nonempty_typelist
 /* %type <bval> block */
@@ -129,8 +139,7 @@ parse_number PARAMS ((char *, int, int, YYSTYPE *));
 %type <tval> ptype
 %type <lval> array_mod
 
-%token <lval> INT CHAR
-%token <ulval> UINT
+%token <typed_val> INT
 %token <dval> FLOAT
 
 /* Both NAME and TYPENAME tokens represent symbols in the input,
@@ -151,9 +160,9 @@ parse_number PARAMS ((char *, int, int, YYSTYPE *));
 /* A NAME_OR_INT is a symbol which is not known in the symbol table,
    but which would parse as a valid number in the current input radix.
    E.g. "c" when input_radix==16.  Depending on the parse, it will be
-   turned into a name or into a number.  NAME_OR_UINT ditto.  */
+   turned into a name or into a number.  */
 
-%token <ssym> NAME_OR_INT NAME_OR_UINT
+%token <ssym> NAME_OR_INT 
 
 %token STRUCT CLASS UNION ENUM SIZEOF UNSIGNED COLONCOLON
 %token TEMPLATE
@@ -162,7 +171,6 @@ parse_number PARAMS ((char *, int, int, YYSTYPE *));
 /* Special type cases, put in to allow the parser to distinguish different
    legal basetypes.  */
 %token SIGNED_KEYWORD LONG SHORT INT_KEYWORD CONST_KEYWORD VOLATILE_KEYWORD
-
 %token <lval> LAST REGNAME
 
 %token <ivar> VARIABLE
@@ -192,18 +200,6 @@ parse_number PARAMS ((char *, int, int, YYSTYPE *));
 %token <ssym> BLOCKNAME 
 %type <bval> block
 %left COLONCOLON
-
-%{
-/* Ensure that if the generated parser contains any calls to malloc/realloc,
-   that they get mapped to xmalloc/xrealloc.  We have to do this here
-   rather than earlier in the file because this is the first point after
-   the place where the SVR4 yacc includes <malloc.h>, and if we do it
-   before that, then the remapped declarations in <malloc.h> will collide
-   with the ones in "defs.h". */
-
-#define malloc	xmalloc
-#define realloc	xrealloc
-%}
 
 
 %%
@@ -236,11 +232,11 @@ exp	:	'-' exp    %prec UNARY
 	;
 
 exp	:	'!' exp    %prec UNARY
-			{ write_exp_elt_opcode (UNOP_ZEROP); }
+			{ write_exp_elt_opcode (UNOP_LOGICAL_NOT); }
 	;
 
 exp	:	'~' exp    %prec UNARY
-			{ write_exp_elt_opcode (UNOP_LOGNOT); }
+			{ write_exp_elt_opcode (UNOP_COMPLEMENT); }
 	;
 
 exp	:	INCREMENT exp    %prec UNARY
@@ -312,6 +308,10 @@ exp	:	exp '('
 			  write_exp_elt_opcode (OP_FUNCALL); }
 	;
 
+lcurly	:	'{'
+			{ start_arglist (); }
+	;
+
 arglist	:
 	;
 
@@ -323,7 +323,17 @@ arglist	:	arglist ',' exp   %prec ABOVE_COMMA
 			{ arglist_len++; }
 	;
 
-exp	:	'{' type '}' exp  %prec UNARY
+rcurly	:	'}'
+			{ $$ = end_arglist () - 1; }
+	;
+exp	:	lcurly arglist rcurly	%prec ARROW
+			{ write_exp_elt_opcode (OP_ARRAY);
+			  write_exp_elt_longcst ((LONGEST) 0);
+			  write_exp_elt_longcst ((LONGEST) $3);
+			  write_exp_elt_opcode (OP_ARRAY); }
+	;
+
+exp	:	lcurly type rcurly exp  %prec UNARY
 			{ write_exp_elt_opcode (UNOP_MEMVAL);
 			  write_exp_elt_type ($2);
 			  write_exp_elt_opcode (UNOP_MEMVAL); }
@@ -398,23 +408,23 @@ exp	:	exp '>' exp
 	;
 
 exp	:	exp '&' exp
-			{ write_exp_elt_opcode (BINOP_LOGAND); }
+			{ write_exp_elt_opcode (BINOP_BITWISE_AND); }
 	;
 
 exp	:	exp '^' exp
-			{ write_exp_elt_opcode (BINOP_LOGXOR); }
+			{ write_exp_elt_opcode (BINOP_BITWISE_XOR); }
 	;
 
 exp	:	exp '|' exp
-			{ write_exp_elt_opcode (BINOP_LOGIOR); }
+			{ write_exp_elt_opcode (BINOP_BITWISE_IOR); }
 	;
 
 exp	:	exp ANDAND exp
-			{ write_exp_elt_opcode (BINOP_AND); }
+			{ write_exp_elt_opcode (BINOP_LOGICAL_AND); }
 	;
 
 exp	:	exp OROR exp
-			{ write_exp_elt_opcode (BINOP_OR); }
+			{ write_exp_elt_opcode (BINOP_LOGICAL_OR); }
 	;
 
 exp	:	exp '?' exp ':' exp	%prec '?'
@@ -433,11 +443,8 @@ exp	:	exp ASSIGN_MODIFY exp
 
 exp	:	INT
 			{ write_exp_elt_opcode (OP_LONG);
-			  if ($1 == (int) $1 || $1 == (unsigned int) $1)
-			    write_exp_elt_type (builtin_type_int);
-			  else
-			    write_exp_elt_type (BUILTIN_TYPE_LONGEST);
-			  write_exp_elt_longcst ((LONGEST) $1);
+			  write_exp_elt_type ($1.type);
+			  write_exp_elt_longcst ((LONGEST)($1.val));
 			  write_exp_elt_opcode (OP_LONG); }
 	;
 
@@ -445,46 +452,12 @@ exp	:	NAME_OR_INT
 			{ YYSTYPE val;
 			  parse_number ($1.stoken.ptr, $1.stoken.length, 0, &val);
 			  write_exp_elt_opcode (OP_LONG);
-			  if (val.lval == (int) val.lval ||
-			      val.lval == (unsigned int) val.lval)
-			    write_exp_elt_type (builtin_type_int);
-			  else
-			    write_exp_elt_type (BUILTIN_TYPE_LONGEST);
-			  write_exp_elt_longcst (val.lval);
-			  write_exp_elt_opcode (OP_LONG); }
-	;
-
-exp	:	UINT
-			{
-			  write_exp_elt_opcode (OP_LONG);
-			  if ($1 == (unsigned int) $1)
-			    write_exp_elt_type (builtin_type_unsigned_int);
-			  else
-			    write_exp_elt_type (BUILTIN_TYPE_UNSIGNED_LONGEST);
-			  write_exp_elt_longcst ((LONGEST) $1);
+			  write_exp_elt_type (val.typed_val.type);
+			  write_exp_elt_longcst ((LONGEST)val.typed_val.val);
 			  write_exp_elt_opcode (OP_LONG);
 			}
 	;
 
-exp	:	NAME_OR_UINT
-			{ YYSTYPE val;
-			  parse_number ($1.stoken.ptr, $1.stoken.length, 0, &val);
-			  write_exp_elt_opcode (OP_LONG);
-			  if (val.ulval == (unsigned int) val.ulval)
-			    write_exp_elt_type (builtin_type_unsigned_int);
-			  else
-			    write_exp_elt_type (BUILTIN_TYPE_UNSIGNED_LONGEST);
-			  write_exp_elt_longcst ((LONGEST)val.ulval);
-			  write_exp_elt_opcode (OP_LONG);
-			}
-	;
-
-exp	:	CHAR
-			{ write_exp_elt_opcode (OP_LONG);
-			  write_exp_elt_type (builtin_type_char);
-			  write_exp_elt_longcst ((LONGEST) $1);
-			  write_exp_elt_opcode (OP_LONG); }
-	;
 
 exp	:	FLOAT
 			{ write_exp_elt_opcode (OP_DOUBLE);
@@ -522,9 +495,27 @@ exp	:	SIZEOF '(' type ')'	%prec UNARY
 	;
 
 exp	:	STRING
-			{ write_exp_elt_opcode (OP_STRING);
-			  write_exp_string ($1);
-			  write_exp_elt_opcode (OP_STRING); }
+			{ /* C strings are converted into array constants with
+			     an explicit null byte added at the end.  Thus
+			     the array upper bound is the string length.
+			     There is no such thing in C as a completely empty
+			     string. */
+			  char *sp = $1.ptr; int count = $1.length;
+			  while (count-- > 0)
+			    {
+			      write_exp_elt_opcode (OP_LONG);
+			      write_exp_elt_type (builtin_type_char);
+			      write_exp_elt_longcst ((LONGEST)(*sp++));
+			      write_exp_elt_opcode (OP_LONG);
+			    }
+			  write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_type (builtin_type_char);
+			  write_exp_elt_longcst ((LONGEST)'\0');
+			  write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_opcode (OP_ARRAY);
+			  write_exp_elt_longcst ((LONGEST) 0);
+			  write_exp_elt_longcst ((LONGEST) ($1.length));
+			  write_exp_elt_opcode (OP_ARRAY); }
 	;
 
 /* C++.  */
@@ -598,7 +589,7 @@ qualified_name:	typebase COLONCOLON name
 			    error ("`%s' is not defined as an aggregate type.",
 				   TYPE_NAME (type));
 
-			  if (strcmp (type_name_no_tag (type), $4.ptr))
+			  if (!STREQ (type_name_no_tag (type), $4.ptr))
 			    error ("invalid destructor `%s::~%s'",
 				   type_name_no_tag (type), $4.ptr);
 
@@ -637,7 +628,7 @@ variable:	qualified_name
 			    {
 			      write_exp_elt_opcode (OP_LONG);
 			      write_exp_elt_type (builtin_type_int);
-			      write_exp_elt_longcst ((LONGEST) msymbol -> address);
+			      write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
 			      write_exp_elt_opcode (OP_LONG);
 			      write_exp_elt_opcode (UNOP_MEMVAL);
 			      if (msymbol -> type == mst_data ||
@@ -722,7 +713,7 @@ variable:	name_not_typename
 				{
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_type (builtin_type_int);
-				  write_exp_elt_longcst ((LONGEST) msymbol -> address);
+				  write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
 				  if (msymbol -> type == mst_data ||
@@ -751,6 +742,7 @@ ptype	:	typebase
 		  int done = 0;
 		  int array_size;
 		  struct type *follow_type = $1;
+		  struct type *range_type;
 		  
 		  while (!done)
 		    switch (pop_type ())
@@ -767,8 +759,15 @@ ptype	:	typebase
 		      case tp_array:
 			array_size = pop_type_int ();
 			if (array_size != -1)
-			  follow_type = create_array_type (follow_type,
-							   array_size);
+			  {
+			    range_type =
+			      create_range_type ((struct type *) NULL,
+						 builtin_type_int, 0,
+						 array_size - 1);
+			    follow_type =
+			      create_array_type ((struct type *) NULL,
+						 follow_type, range_type);
+			  }
 			else
 			  follow_type = lookup_pointer_type (follow_type);
 			break;
@@ -813,7 +812,7 @@ direct_abs_decl: '(' abs_decl ')'
 array_mod:	'[' ']'
 			{ $$ = -1; }
 	|	'[' INT ']'
-			{ $$ = $2; }
+			{ $$ = $2.val; }
 	;
 
 func_mod:	'(' ')'
@@ -913,13 +912,13 @@ typename:	TYPENAME
 
 nonempty_typelist
 	:	type
-		{ $$ = (struct type **) xmalloc (sizeof (struct type *) * 2);
+		{ $$ = (struct type **) malloc (sizeof (struct type *) * 2);
 		  $<ivec>$[0] = 1;	/* Number of types in vector */
 		  $$[1] = $1;
 		}
 	|	nonempty_typelist ',' type
 		{ int len = sizeof (struct type *) * (++($<ivec>1[0]) + 1);
-		  $$ = (struct type **) xrealloc ((char *) $1, len);
+		  $$ = (struct type **) realloc ((char *) $1, len);
 		  $$[$<ivec>$[0]] = $3;
 		}
 	;
@@ -928,7 +927,6 @@ name	:	NAME { $$ = $1.stoken; }
 	|	BLOCKNAME { $$ = $1.stoken; }
 	|	TYPENAME { $$ = $1.stoken; }
 	|	NAME_OR_INT  { $$ = $1.stoken; }
-	|	NAME_OR_UINT  { $$ = $1.stoken; }
 	;
 
 name_not_typename :	NAME
@@ -939,7 +937,6 @@ name_not_typename :	NAME
    =exp) or just an exp.  If name_not_typename was ever used in an lvalue
    context where only a name could occur, this might be useful.
   	|	NAME_OR_INT
-  	|	NAME_OR_UINT
  */
 	;
 
@@ -964,6 +961,10 @@ parse_number (p, len, parsed_float, putithere)
   register int c;
   register int base = input_radix;
   int unsigned_p = 0;
+  int long_p = 0;
+  LONGEST high_bit;
+  struct type *signed_type;
+  struct type *unsigned_type;
 
   if (parsed_float)
     {
@@ -1016,8 +1017,8 @@ parse_number (p, len, parsed_float, putithere)
 	{
 	  if (base > 10 && c >= 'a' && c <= 'f')
 	    n += i = c - 'a' + 10;
-	  else if (len == 0 && c == 'l')
-	    ;
+	  else if (len == 0 && c == 'l') 
+            long_p = 1;
 	  else if (len == 0 && c == 'u')
 	    unsigned_p = 1;
 	  else
@@ -1025,6 +1026,7 @@ parse_number (p, len, parsed_float, putithere)
 	}
       if (i >= base)
 	return ERROR;		/* Invalid digit in this base */
+
       /* Portably test for overflow (only works for nonzero values, so make
 	 a second check for zero).  */
       if((prevn >= n) && n != 0)
@@ -1037,17 +1039,40 @@ parse_number (p, len, parsed_float, putithere)
       }
       prevn=n;
     }
+ 
+     /* If the number is too big to be an int, or it's got an l suffix
+	then it's a long.  Work out if this has to be a long by
+	shifting right and and seeing if anything remains, and the
+	target int size is different to the target long size. */
 
-  if (unsigned_p)
-    {
-      putithere->ulval = n;
-      return UINT;
-    }
-  else
-    {
-      putithere->lval = n;
-      return INT;
-    }
+    if ((TARGET_INT_BIT != TARGET_LONG_BIT && (n >> TARGET_INT_BIT)) || long_p)
+      {
+         high_bit = ((LONGEST)1) << (TARGET_LONG_BIT-1);
+	 unsigned_type = builtin_type_unsigned_long;
+	 signed_type = builtin_type_long;
+      }
+    else 
+      {
+	 high_bit = ((LONGEST)1) << (TARGET_INT_BIT-1);
+	 unsigned_type = builtin_type_unsigned_int;
+	 signed_type = builtin_type_int;
+      }    
+
+   putithere->typed_val.val = n;
+
+   /* If the high bit of the worked out type is set then this number
+      has to be unsigned. */
+
+   if (unsigned_p || (n & high_bit)) 
+     {
+        putithere->typed_val.type = unsigned_type;
+     }
+   else 
+     {
+        putithere->typed_val.type = signed_type;
+     }
+
+   return INT;
 }
 
 struct token
@@ -1057,22 +1082,22 @@ struct token
   enum exp_opcode opcode;
 };
 
-const static struct token tokentab3[] =
+static const struct token tokentab3[] =
   {
     {">>=", ASSIGN_MODIFY, BINOP_RSH},
     {"<<=", ASSIGN_MODIFY, BINOP_LSH}
   };
 
-const static struct token tokentab2[] =
+static const struct token tokentab2[] =
   {
     {"+=", ASSIGN_MODIFY, BINOP_ADD},
     {"-=", ASSIGN_MODIFY, BINOP_SUB},
     {"*=", ASSIGN_MODIFY, BINOP_MUL},
     {"/=", ASSIGN_MODIFY, BINOP_DIV},
     {"%=", ASSIGN_MODIFY, BINOP_REM},
-    {"|=", ASSIGN_MODIFY, BINOP_LOGIOR},
-    {"&=", ASSIGN_MODIFY, BINOP_LOGAND},
-    {"^=", ASSIGN_MODIFY, BINOP_LOGXOR},
+    {"|=", ASSIGN_MODIFY, BINOP_BITWISE_IOR},
+    {"&=", ASSIGN_MODIFY, BINOP_BITWISE_AND},
+    {"^=", ASSIGN_MODIFY, BINOP_BITWISE_XOR},
     {"++", INCREMENT, BINOP_END},
     {"--", DECREMENT, BINOP_END},
     {"->", ARROW, BINOP_END},
@@ -1089,20 +1114,24 @@ const static struct token tokentab2[] =
 
 /* Read one token, getting characters through lexptr.  */
 
-int
+static int
 yylex ()
 {
-  register int c;
-  register int namelen;
-  register unsigned i;
-  register char *tokstart;
-
+  int c;
+  int namelen;
+  unsigned int i;
+  char *tokstart;
+  char *tokptr;
+  int tempbufindex;
+  static char *tempbuf;
+  static int tempbufsize;
+  
  retry:
 
   tokstart = lexptr;
   /* See if it is a special token of length 3.  */
   for (i = 0; i < sizeof tokentab3 / sizeof tokentab3[0]; i++)
-    if (!strncmp (tokstart, tokentab3[i].operator, 3))
+    if (STREQN (tokstart, tokentab3[i].operator, 3))
       {
 	lexptr += 3;
 	yylval.opcode = tokentab3[i].opcode;
@@ -1111,7 +1140,7 @@ yylex ()
 
   /* See if it is a special token of length 2.  */
   for (i = 0; i < sizeof tokentab2 / sizeof tokentab2[0]; i++)
-    if (!strncmp (tokstart, tokentab2[i].operator, 2))
+    if (STREQN (tokstart, tokentab2[i].operator, 2))
       {
 	lexptr += 2;
 	yylval.opcode = tokentab2[i].opcode;
@@ -1137,7 +1166,10 @@ yylex ()
       c = *lexptr++;
       if (c == '\\')
 	c = parse_escape (&lexptr);
-      yylval.lval = c;
+
+      yylval.typed_val.val = c;
+      yylval.typed_val.type = builtin_type_char;
+
       c = *lexptr++;
       if (c != '\'')
 	{
@@ -1151,7 +1183,7 @@ yylex ()
 	    }
 	  error ("Invalid character constant.");
 	}
-      return CHAR;
+      return INT;
 
     case '(':
       paren_depth++;
@@ -1260,21 +1292,55 @@ yylex ()
       return c;
 
     case '"':
-      for (namelen = 1; (c = tokstart[namelen]) != '"'; namelen++)
-	if (c == '\\')
+
+      /* Build the gdb internal form of the input string in tempbuf,
+	 translating any standard C escape forms seen.  Note that the
+	 buffer is null byte terminated *only* for the convenience of
+	 debugging gdb itself and printing the buffer contents when
+	 the buffer contains no embedded nulls.  Gdb does not depend
+	 upon the buffer being null byte terminated, it uses the length
+	 string instead.  This allows gdb to handle C strings (as well
+	 as strings in other languages) with embedded null bytes */
+
+      tokptr = ++tokstart;
+      tempbufindex = 0;
+
+      do {
+	/* Grow the static temp buffer if necessary, including allocating
+	   the first one on demand. */
+	if (tempbufindex + 1 >= tempbufsize)
 	  {
-	    c = tokstart[++namelen];
-	    if (c >= '0' && c <= '9')
-	      {
-		c = tokstart[++namelen];
-		if (c >= '0' && c <= '9')
-		  c = tokstart[++namelen];
-	      }
+	    tempbuf = (char *) realloc (tempbuf, tempbufsize += 64);
 	  }
-      yylval.sval.ptr = tokstart + 1;
-      yylval.sval.length = namelen - 1;
-      lexptr += namelen + 1;
-      return STRING;
+	switch (*tokptr)
+	  {
+	  case '\0':
+	  case '"':
+	    /* Do nothing, loop will terminate. */
+	    break;
+	  case '\\':
+	    tokptr++;
+	    c = parse_escape (&tokptr);
+	    if (c == -1)
+	      {
+		continue;
+	      }
+	    tempbuf[tempbufindex++] = c;
+	    break;
+	  default:
+	    tempbuf[tempbufindex++] = *tokptr++;
+	    break;
+	  }
+      } while ((*tokptr != '"') && (*tokptr != '\0'));
+      if (*tokptr++ != '"')
+	{
+	  error ("Unterminated string in expression.");
+	}
+      tempbuf[tempbufindex] = '\0';	/* See note above */
+      yylval.sval.ptr = tempbuf;
+      yylval.sval.length = tempbufindex;
+      lexptr = tokptr;
+      return (STRING);
     }
 
   if (!(c == '_' || c == '$'
@@ -1340,14 +1406,14 @@ yylex ()
   if (*tokstart == '$') {
     for (c = 0; c < NUM_REGS; c++)
       if (namelen - 1 == strlen (reg_names[c])
-	  && !strncmp (tokstart + 1, reg_names[c], namelen - 1))
+	  && STREQN (tokstart + 1, reg_names[c], namelen - 1))
 	{
 	  yylval.lval = c;
 	  return REGNAME;
 	}
     for (c = 0; c < num_std_regs; c++)
      if (namelen - 1 == strlen (std_regs[c].name)
-	 && !strncmp (tokstart + 1, std_regs[c].name, namelen - 1))
+	 && STREQN (tokstart + 1, std_regs[c].name, namelen - 1))
        {
 	 yylval.lval = std_regs[c].regnum;
 	 return REGNAME;
@@ -1357,40 +1423,40 @@ yylex ()
   switch (namelen)
     {
     case 8:
-      if (!strncmp (tokstart, "unsigned", 8))
+      if (STREQN (tokstart, "unsigned", 8))
 	return UNSIGNED;
       if (current_language->la_language == language_cplus
-	  && !strncmp (tokstart, "template", 8))
+	  && STREQN (tokstart, "template", 8))
 	return TEMPLATE;
-      if (!strncmp (tokstart, "volatile", 8))
+      if (STREQN (tokstart, "volatile", 8))
 	return VOLATILE_KEYWORD;
       break;
     case 6:
-      if (!strncmp (tokstart, "struct", 6))
+      if (STREQN (tokstart, "struct", 6))
 	return STRUCT;
-      if (!strncmp (tokstart, "signed", 6))
+      if (STREQN (tokstart, "signed", 6))
 	return SIGNED_KEYWORD;
-      if (!strncmp (tokstart, "sizeof", 6))      
+      if (STREQN (tokstart, "sizeof", 6))      
 	return SIZEOF;
       break;
     case 5:
       if (current_language->la_language == language_cplus
-	  && !strncmp (tokstart, "class", 5))
+	  && STREQN (tokstart, "class", 5))
 	return CLASS;
-      if (!strncmp (tokstart, "union", 5))
+      if (STREQN (tokstart, "union", 5))
 	return UNION;
-      if (!strncmp (tokstart, "short", 5))
+      if (STREQN (tokstart, "short", 5))
 	return SHORT;
-      if (!strncmp (tokstart, "const", 5))
+      if (STREQN (tokstart, "const", 5))
 	return CONST_KEYWORD;
       break;
     case 4:
-      if (!strncmp (tokstart, "enum", 4))
+      if (STREQN (tokstart, "enum", 4))
 	return ENUM;
-      if (!strncmp (tokstart, "long", 4))
+      if (STREQN (tokstart, "long", 4))
 	return LONG;
       if (current_language->la_language == language_cplus
-	  && !strncmp (tokstart, "this", 4))
+	  && STREQN (tokstart, "this", 4))
 	{
 	  static const char this_name[] =
 				 { CPLUS_MARKER, 't', 'h', 'i', 's', '\0' };
@@ -1401,7 +1467,7 @@ yylex ()
 	}
       break;
     case 3:
-      if (!strncmp (tokstart, "int", 3))
+      if (STREQN (tokstart, "int", 3))
 	return INT_KEYWORD;
       break;
     default:
@@ -1465,12 +1531,6 @@ yylex ()
 	    yylval.ssym.is_a_field_of_this = is_a_field_of_this;
 	    return NAME_OR_INT;
 	  }
-	if (hextype == UINT)
-	  {
-	    yylval.ssym.sym = sym;
-	    yylval.ssym.is_a_field_of_this = is_a_field_of_this;
-	    return NAME_OR_UINT;
-	  }
       }
 
     /* Any other kind of symbol */
@@ -1485,195 +1545,4 @@ yyerror (msg)
      char *msg;
 {
   error (msg ? msg : "Invalid syntax in expression.");
-}
-
-/* Table mapping opcodes into strings for printing operators
-   and precedences of the operators.  */
-
-const static struct op_print c_op_print_tab[] =
-  {
-    {",",  BINOP_COMMA, PREC_COMMA, 0},
-    {"=",  BINOP_ASSIGN, PREC_ASSIGN, 1},
-    {"||", BINOP_OR, PREC_OR, 0},
-    {"&&", BINOP_AND, PREC_AND, 0},
-    {"|",  BINOP_LOGIOR, PREC_LOGIOR, 0},
-    {"&",  BINOP_LOGAND, PREC_LOGAND, 0},
-    {"^",  BINOP_LOGXOR, PREC_LOGXOR, 0},
-    {"==", BINOP_EQUAL, PREC_EQUAL, 0},
-    {"!=", BINOP_NOTEQUAL, PREC_EQUAL, 0},
-    {"<=", BINOP_LEQ, PREC_ORDER, 0},
-    {">=", BINOP_GEQ, PREC_ORDER, 0},
-    {">",  BINOP_GTR, PREC_ORDER, 0},
-    {"<",  BINOP_LESS, PREC_ORDER, 0},
-    {">>", BINOP_RSH, PREC_SHIFT, 0},
-    {"<<", BINOP_LSH, PREC_SHIFT, 0},
-    {"+",  BINOP_ADD, PREC_ADD, 0},
-    {"-",  BINOP_SUB, PREC_ADD, 0},
-    {"*",  BINOP_MUL, PREC_MUL, 0},
-    {"/",  BINOP_DIV, PREC_MUL, 0},
-    {"%",  BINOP_REM, PREC_MUL, 0},
-    {"@",  BINOP_REPEAT, PREC_REPEAT, 0},
-    {"-",  UNOP_NEG, PREC_PREFIX, 0},
-    {"!",  UNOP_ZEROP, PREC_PREFIX, 0},
-    {"~",  UNOP_LOGNOT, PREC_PREFIX, 0},
-    {"*",  UNOP_IND, PREC_PREFIX, 0},
-    {"&",  UNOP_ADDR, PREC_PREFIX, 0},
-    {"sizeof ", UNOP_SIZEOF, PREC_PREFIX, 0},
-    {"++", UNOP_PREINCREMENT, PREC_PREFIX, 0},
-    {"--", UNOP_PREDECREMENT, PREC_PREFIX, 0},
-    /* C++  */
-    {"::", BINOP_SCOPE, PREC_PREFIX, 0},
-};
-
-/* These variables point to the objects
-   representing the predefined C data types.  */
-
-struct type *builtin_type_void;
-struct type *builtin_type_char;
-struct type *builtin_type_short;
-struct type *builtin_type_int;
-struct type *builtin_type_long;
-struct type *builtin_type_long_long;
-struct type *builtin_type_signed_char;
-struct type *builtin_type_unsigned_char;
-struct type *builtin_type_unsigned_short;
-struct type *builtin_type_unsigned_int;
-struct type *builtin_type_unsigned_long;
-struct type *builtin_type_unsigned_long_long;
-struct type *builtin_type_float;
-struct type *builtin_type_double;
-struct type *builtin_type_long_double;
-struct type *builtin_type_complex;
-struct type *builtin_type_double_complex;
-
-struct type ** const (c_builtin_types[]) = 
-{
-  &builtin_type_int,
-  &builtin_type_long,
-  &builtin_type_short,
-  &builtin_type_char,
-  &builtin_type_float,
-  &builtin_type_double,
-  &builtin_type_void,
-  &builtin_type_long_long,
-  &builtin_type_signed_char,
-  &builtin_type_unsigned_char,
-  &builtin_type_unsigned_short,
-  &builtin_type_unsigned_int,
-  &builtin_type_unsigned_long,
-  &builtin_type_unsigned_long_long,
-  &builtin_type_long_double,
-  &builtin_type_complex,
-  &builtin_type_double_complex,
-  0
-};
-
-const struct language_defn c_language_defn = {
-  "c",				/* Language name */
-  language_c,
-  c_builtin_types,
-  range_check_off,
-  type_check_off,
-  c_parse,
-  c_error,
-  &BUILTIN_TYPE_LONGEST,	 /* longest signed   integral type */
-  &BUILTIN_TYPE_UNSIGNED_LONGEST,/* longest unsigned integral type */
-  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
-  "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
-  "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
-  c_op_print_tab,		/* expression operators for printing */
-  LANG_MAGIC
-};
-
-const struct language_defn cplus_language_defn = {
-  "c++",				/* Language name */
-  language_cplus,
-  c_builtin_types,
-  range_check_off,
-  type_check_off,
-  c_parse,
-  c_error,
-  &BUILTIN_TYPE_LONGEST,	 /* longest signed   integral type */
-  &BUILTIN_TYPE_UNSIGNED_LONGEST,/* longest unsigned integral type */
-  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
-  "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
-  "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
-  c_op_print_tab,		/* expression operators for printing */
-  LANG_MAGIC
-};
-
-void
-_initialize_c_exp ()
-{
-  builtin_type_void =
-    init_type (TYPE_CODE_VOID, 1,
-	       0,
-	       "void", (struct objfile *) NULL);
-  builtin_type_char =
-    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "char", (struct objfile *) NULL);
-  builtin_type_signed_char =
-    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_SIGNED,
-	       "signed char", (struct objfile *) NULL);
-  builtin_type_unsigned_char =
-    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned char", (struct objfile *) NULL);
-  builtin_type_short =
-    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "short", (struct objfile *) NULL);
-  builtin_type_unsigned_short =
-    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned short", (struct objfile *) NULL);
-  builtin_type_int =
-    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "int", (struct objfile *) NULL);
-  builtin_type_unsigned_int =
-    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned int", (struct objfile *) NULL);
-  builtin_type_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "long", (struct objfile *) NULL);
-  builtin_type_unsigned_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned long", (struct objfile *) NULL);
-  builtin_type_long_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "long long", (struct objfile *) NULL);
-  builtin_type_unsigned_long_long = 
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned long long", (struct objfile *) NULL);
-  builtin_type_float =
-    init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "float", (struct objfile *) NULL);
-  builtin_type_double =
-    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "double", (struct objfile *) NULL);
-  builtin_type_long_double =
-    init_type (TYPE_CODE_FLT, TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "long double", (struct objfile *) NULL);
-  builtin_type_complex =
-    init_type (TYPE_CODE_FLT, TARGET_COMPLEX_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "complex", (struct objfile *) NULL);
-  builtin_type_double_complex =
-    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "double complex", (struct objfile *) NULL);
-
-  add_language (&c_language_defn);
-  add_language (&cplus_language_defn);
 }

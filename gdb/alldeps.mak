@@ -1,7 +1,7 @@
 # Start of "alldeps.mak" definitions
-ALLDEPFILES = $(ALLDEPFILES_MAINDIR) $(ALLDEPFILES_SUBDIR)
+ALLDEPFILES = $(ALLDEPFILES_MAINDIR) $(ALLDEPFILES_SUBDIR) $(ALLDEP_FILES_SUBSUBDIR)
 ALLDEPFILES_MAINDIR=\
-a68v-xdep.c\
+a68v-nat.c\
 altos-xdep.c\
 am29k-pinsn.c\
 am29k-tdep.c\
@@ -16,16 +16,16 @@ coredep.c\
 corelow.c\
 exec.c\
 fork-child.c\
-go32-nat.c\
 go32-xdep.c\
 gould-pinsn.c\
 gould-xdep.c\
 h8300-tdep.c\
-hp300ux-xdep.c\
+hp300ux-nat.c\
 hppa-pinsn.c\
 hppab-core.c\
 hppab-nat.c\
 hppab-tdep.c\
+hppah-nat.c\
 hppah-tdep.c\
 i386-pinsn.c\
 i386-tdep.c\
@@ -50,6 +50,7 @@ mips-tdep.c\
 news-xdep.c\
 nindy-tdep.c\
 ns32k-pinsn.c\
+paread.c\
 procfs.c\
 pyr-pinsn.c\
 pyr-tdep.c\
@@ -61,6 +62,7 @@ remote-hms.c\
 remote-mm.c\
 remote-nindy.c\
 remote-st2000.c\
+remote-udi.c\
 remote-vx.c\
 rs6000-nat.c\
 rs6000-pinsn.c\
@@ -81,6 +83,7 @@ ultra3-xdep.c\
 umax-xdep.c\
 vax-pinsn.c\
 xcoffexec.c\
+xcoffread.c\
 xcoffsolib.c
 
 ALLDEPFILES_SUBDIR=\
@@ -90,10 +93,40 @@ nindy-share/ttybreak.c\
 nindy-share/ttyflush.c\
 vx-share/xdr_ld.c\
 vx-share/xdr_ptrace.c\
-vx-share/xdr_rdb.c\
-vx-share/xdr_regs.c
+vx-share/xdr_rdb.c
+
+ALLDEPFILES_SUBSUBDIR=\
+29k-share/udi/udip2soc.c\
+29k-share/udi/udr.c
 
 ALLPARAM=\
+nm-apollo68b.h\
+nm-apollo68v.h\
+nm-hp300bsd.h\
+nm-hp300hpux.h\
+nm-hppab.h\
+nm-hppah.h\
+nm-i386bsd.h\
+nm-i386mach.h\
+nm-i386sco.h\
+nm-i386sco4.h\
+nm-i386v.h\
+nm-i386v4.h\
+nm-irix3.h\
+nm-irix4.h\
+nm-linux.h\
+nm-m88k.h\
+nm-mips.h\
+nm-news.h\
+nm-rs6000.h\
+nm-sun2.h\
+nm-sun3.h\
+nm-sun386.h\
+nm-sun4os4.h\
+nm-sysv4.h\
+nm-ultra3.h\
+nm-umax.h\
+nm-vax.h\
 tm-29k.h\
 tm-3b1.h\
 tm-68k-noun.h\
@@ -194,6 +227,7 @@ ALLCONFIG=\
 ./config/3b1.mh\
 ./config/3b1.mt\
 ./config/a29k-kern.mt\
+./config/a29k-udi.mt\
 ./config/a29k.mt\
 ./config/altos.mh\
 ./config/altos.mt\
@@ -227,6 +261,7 @@ ALLCONFIG=\
 ./config/i386bsd.mt\
 ./config/i386mach.mh\
 ./config/i386sco.mh\
+./config/i386sco4.mh\
 ./config/i386sol2.mh\
 ./config/i386sol2.mt\
 ./config/i386v.mh\

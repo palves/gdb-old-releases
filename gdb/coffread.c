@@ -1,6 +1,6 @@
 /* Read coff symbol tables and convert to internal format, for GDB.
    Contributed by David D. Johnson, Brown University (ddj@cs.brown.edu).
-   Copyright 1987, 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1987, 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -26,12 +26,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symfile.h"
 #include "objfiles.h"
 #include "buildsym.h"
+#include "complaints.h"
 #include <obstack.h>
 
 #include <string.h>
 
+#include "libbfd.h"		/* FIXME secret internal data from BFD */
 #include "coff/internal.h"	/* Internal format of COFF symbols in BFD */
 #include "libcoff.h"		/* FIXME secret internal data from BFD */
+
+/* Translate an external name string into a user-visible name.  */
+#define	EXTERNAL_NAME(string, abfd) \
+	(string[0] == bfd_get_symbol_leading_char(abfd)? string+1: string)
 
 /* To be an sdb debug type, type must have at least a basic or primary
    derived type.  Using this rather than checking against T_NULL is
@@ -189,6 +195,9 @@ struct complaint misordered_blocks_complaint =
 struct complaint tagndx_bad_complaint =
   {"Symbol table entry for %s has bad tagndx value", 0, 0};
 
+struct complaint eb_complaint = 
+  {"Mismatched .eb symbol ignored starting at symnum %d", 0, 0};
+
 /* Simplified internal version of coff symbol table information */
 
 struct coff_symbol {
@@ -318,7 +327,7 @@ coff_lookup_type (index)
       int old_vector_length = type_vector_length;
 
       type_vector_length *= 2;
-      if (type_vector_length < index) {
+      if (index /* is still */ >= type_vector_length) {
 	type_vector_length = index * 2;
       }
       type_vector = (struct type **)
@@ -614,8 +623,7 @@ coff_end_symtab (objfile)
 
 	  if (BLOCK_START(pb->block) < BLOCK_START(pbnext->block)) {
 	    struct block *tmp = pb->block;
-	    complain (&misordered_blocks_complaint,
-		      (char *) BLOCK_START (pb->block));
+	    complain (&misordered_blocks_complaint, BLOCK_START (pb->block));
 	    pb->block = pbnext->block;
 	    pbnext->block = tmp;
 	    swapped = 1;
@@ -901,7 +909,7 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
   struct cleanup *old_chain;
   int val;
 
-  stream = fopen (objfile->name, FOPEN_RB);
+  stream = bfd_cache_lookup(objfile->obfd);
   if (!stream)
    perror_with_name(objfile->name);
 
@@ -910,9 +918,8 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
   if (val < 0)
     perror_with_name (objfile->name);
 
-  /* These cleanups will be discarded below if we succeed.  */
+  /* This cleanup will be discarded below if we succeed.  */
   old_chain = make_cleanup (free_objfile, objfile);
-  make_cleanup (fclose, stream);
 
   current_objfile = objfile;
   nlist_stream_global = stream;
@@ -1006,7 +1013,7 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 
           case C_STAT:
 	    if (cs->c_name[0] == '.') {
-		    if (strcmp (cs->c_name, ".text") == 0) {
+		    if (STREQ (cs->c_name, ".text")) {
 			    /* FIXME:  don't wire in ".text" as section name
 				       or symbol name! */
 			    if (++num_object_files == 1) {
@@ -1061,7 +1068,7 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 	    break;
 
 	  case C_FCN:
-	    if (strcmp (cs->c_name, ".bf") == 0)
+	    if (STREQ (cs->c_name, ".bf"))
 	      {
 		within_function = 1;
 
@@ -1069,7 +1076,7 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 		/* main_aux.x_sym.x_misc.x_lnsz.x_lnno
 			    contains line number of '{' } */
 		if (cs->c_naux != 1)
-		  complain (&bf_no_aux_complaint, (char *) cs->c_symnum);
+		  complain (&bf_no_aux_complaint, cs->c_symnum);
 		fcn_first_line = main_aux.x_sym.x_misc.x_lnsz.x_lnno;
 
 		new = (struct coff_context_stack *)
@@ -1084,7 +1091,7 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 		new->name = process_coff_symbol (&fcn_cs_saved,
 						 &fcn_aux_saved, objfile);
 	      }
-	    else if (strcmp (cs->c_name, ".ef") == 0)
+	    else if (STREQ (cs->c_name, ".ef"))
 	      {
 		      /* the value of .ef is the address of epilogue code;
 		       * not useful for gdb
@@ -1094,12 +1101,12 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 		new = coff_context_stack;
 		if (new == 0)
 		  {
-		    complain (&ef_complaint, (char *) cs->c_symnum);
+		    complain (&ef_complaint, cs->c_symnum);
 		    within_function = 0;
 		    break;
 		  }
 		if (cs->c_naux != 1) {
-		  complain (&ef_no_aux_complaint, (char *) cs->c_symnum);
+		  complain (&ef_no_aux_complaint, cs->c_symnum);
 		  fcn_last_line = 0x7FFFFFFF;
 		} else {
 		  fcn_last_line = main_aux.x_sym.x_misc.x_lnsz.x_lnno;
@@ -1130,7 +1137,7 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 	    break;
 
 	  case C_BLOCK:
-	    if (strcmp (cs->c_name, ".bb") == 0)
+	    if (STREQ (cs->c_name, ".bb"))
 	      {
 		new = (struct coff_context_stack *)
 			    xmalloc (sizeof (struct coff_context_stack));
@@ -1144,12 +1151,14 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 		new->name = 0;
 		coff_local_symbols = 0;
 	      }
-	    else if (strcmp (cs->c_name, ".eb") == 0)
+	    else if (STREQ (cs->c_name, ".eb"))
 	      {
 		new = coff_context_stack;
 		if (new == 0 || depth != new->depth)
-		  error ("Invalid symbol data: .bb/.eb symbol mismatch at symbol %d.",
-			 symnum);
+		  {
+		    complain (&eb_complaint, (char *)symnum);
+		    break;
+		  }
 		if (coff_local_symbols && coff_context_stack->next)
 		  {
 		    /* Make a block for the local symbols within.  */
@@ -1357,6 +1366,10 @@ getsymname (symbol_entry)
   return result;
 }
 
+/* Extract the file name from the aux entry of a C_FILE symbol.  Return
+   only the last component of the name.  Result is in static storage and
+   is only good for temporary use.  */
+
 static char *
 getfilename (aux_entry)
     union internal_auxent *aux_entry;
@@ -1365,24 +1378,11 @@ getfilename (aux_entry)
   register char *temp;
   char *result;
 
-#ifndef COFF_NO_LONG_FILE_NAMES
-#if defined (x_zeroes)
-  /* Data General.  */
-  if (aux_entry->x_zeroes == 0)
-    strcpy (buffer, stringtab + aux_entry->x_offset);
-#else /* no x_zeroes */
   if (aux_entry->x_file.x_n.x_zeroes == 0)
     strcpy (buffer, stringtab + aux_entry->x_file.x_n.x_offset);
-#endif /* no x_zeroes */
   else
-#endif /* COFF_NO_LONG_FILE_NAMES */
     {
-#if defined (x_name)
-      /* Data General.  */
-      strncpy (buffer, aux_entry->x_name, FILNMLEN);
-#else
       strncpy (buffer, aux_entry->x_file.x_fname, FILNMLEN);
-#endif
       buffer[FILNMLEN] = '\0';
     }
   result = buffer;
@@ -1446,7 +1446,7 @@ enter_linenos (file_offset, first_line, last_line)
 
   if (file_offset < linetab_offset)
     {
-      complain (&lineno_complaint, (char *) file_offset);
+      complain (&lineno_complaint, file_offset);
       if (file_offset > linetab_size)	/* Too big to be an offset? */
 	return;
       file_offset += linetab_offset;  /* Try reading at that linetab offset */
@@ -1526,7 +1526,7 @@ patch_opaque_types (s)
 	  for (sym = opaque_type_chain[hash]; sym;)
 	    {
 	      if (name[0] == SYMBOL_NAME (sym)[0] &&
-		  !strcmp (name + 1, SYMBOL_NAME (sym) + 1))
+		  STREQ (name + 1, SYMBOL_NAME (sym) + 1))
 		{
 		  if (prev)
 		    {
@@ -1565,19 +1565,16 @@ process_coff_symbol (cs, aux, objfile)
      struct objfile *objfile;
 {
   register struct symbol *sym
-    = (struct symbol *) obstack_alloc (&objfile->symbol_obstack, sizeof (struct symbol));
+    = (struct symbol *) obstack_alloc (&objfile->symbol_obstack,
+				       sizeof (struct symbol));
   char *name;
-#ifdef NAMES_HAVE_UNDERSCORE
-  int offset = 1;
-#else
-  int offset = 0;
-#endif
   struct type *temptype;
 
   memset (sym, 0, sizeof (struct symbol));
   name = cs->c_name;
-  name = (name[0] == '_' ? name + offset : name);
-  SYMBOL_NAME (sym) = obstack_copy0 (&objfile->symbol_obstack, name, strlen (name));
+  name = EXTERNAL_NAME (name, objfile->obfd);
+  SYMBOL_NAME (sym) = obstack_copy0 (&objfile->symbol_obstack, name,
+				     strlen (name));
 
   /* default assumptions */
   SYMBOL_VALUE (sym) = cs->c_value;
@@ -1773,7 +1770,7 @@ decode_type (cs, c_type, aux)
 	{
 	  int i, n;
 	  register unsigned short *dim;
-	  struct type *base_type;
+	  struct type *base_type, *index_type, *range_type;
 
 	  /* Define an array type.  */
 	  /* auxent refers to array, not base type */
@@ -1788,13 +1785,12 @@ decode_type (cs, c_type, aux)
 	    *dim = *(dim + 1);
 	  *dim = 0;
 
-	  type = alloc_type (current_objfile);
-
 	  base_type = decode_type (cs, new_c_type, aux);
-
-	  TYPE_CODE (type) = TYPE_CODE_ARRAY;
-	  TYPE_TARGET_TYPE (type) = base_type;
-	  TYPE_LENGTH (type) = n * TYPE_LENGTH (base_type);
+	  index_type = lookup_fundamental_type (current_objfile, FT_INTEGER);
+	  range_type =
+	    create_range_type ((struct type *) NULL, index_type, 0, n - 1);
+	  type =
+	    create_array_type ((struct type *) NULL, base_type, range_type);
 	}
       return type;
     }
@@ -1803,12 +1799,15 @@ decode_type (cs, c_type, aux)
      struct, union, and enum types.  EPI a29k coff
      fakes us out by producing aux entries with a nonzero
      x_tagndx for definitions of structs, unions, and enums, so we
-     have to check the c_sclass field.  */
+     have to check the c_sclass field.  SCO 3.2v4 cc gets confused
+     with pointers to pointers to defined structs, and generates
+     negative x_tagndx fields.  */
   if (cs->c_naux > 0 && aux->x_sym.x_tagndx.l != 0)
     {
-      if  (cs->c_sclass != C_STRTAG
-	&& cs->c_sclass != C_UNTAG
-	&& cs->c_sclass != C_ENTAG)
+      if (cs->c_sclass != C_STRTAG
+	  && cs->c_sclass != C_UNTAG
+	  && cs->c_sclass != C_ENTAG
+	  && aux->x_sym.x_tagndx.l >= 0)
 	{
 	  type = coff_alloc_type (aux->x_sym.x_tagndx.l);
 	  return type;
@@ -1976,11 +1975,6 @@ coff_read_struct_type (index, length, lastsym)
   int nfields = 0;
   register int n;
   char *name;
-#ifdef NAMES_HAVE_UNDERSCORE
-  int offset = 1;
-#else
-  int offset = 0;
-#endif
   struct coff_symbol member_sym;
   register struct coff_symbol *ms = &member_sym;
   struct internal_syment sub_sym;
@@ -1996,7 +1990,7 @@ coff_read_struct_type (index, length, lastsym)
     {
       read_one_sym (ms, &sub_sym, &sub_aux);
       name = ms->c_name;
-      name = (name[0] == '_' ? name + offset : name);
+      name = EXTERNAL_NAME (name, current_objfile->obfd);
 
       switch (ms->c_sclass)
 	{
@@ -2074,11 +2068,6 @@ coff_read_enum_type (index, length, lastsym)
   struct coff_pending *osyms, *syms;
   register int n;
   char *name;
-#ifdef NAMES_HAVE_UNDERSCORE
-  int offset = 1;
-#else
-  int offset = 0;
-#endif
 
   type = coff_alloc_type (index);
   if (within_function)
@@ -2091,7 +2080,7 @@ coff_read_enum_type (index, length, lastsym)
     {
       read_one_sym (ms, &sub_sym, &sub_aux);
       name = ms->c_name;
-      name = (name[0] == '_' ? name + offset : name);
+      name = EXTERNAL_NAME (name, current_objfile->obfd);
 
       switch (ms->c_sclass)
 	{
@@ -2139,10 +2128,10 @@ coff_read_enum_type (index, length, lastsym)
     }
   /* Is this Modula-2's BOOLEAN type?  Flag it as such if so. */
   if(TYPE_NFIELDS(type) == 2 &&
-     ((!strcmp(TYPE_FIELD_NAME(type,0),"TRUE") &&
-       !strcmp(TYPE_FIELD_NAME(type,1),"FALSE")) ||
-      (!strcmp(TYPE_FIELD_NAME(type,1),"TRUE") &&
-       !strcmp(TYPE_FIELD_NAME(type,0),"FALSE"))))
+     ((STREQ(TYPE_FIELD_NAME(type,0),"TRUE") &&
+       STREQ(TYPE_FIELD_NAME(type,1),"FALSE")) ||
+      (STREQ(TYPE_FIELD_NAME(type,1),"TRUE") &&
+       STREQ(TYPE_FIELD_NAME(type,0),"FALSE"))))
      TYPE_CODE(type) = TYPE_CODE_BOOL;
   return type;
 }

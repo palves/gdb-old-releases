@@ -153,10 +153,10 @@ set_in_environ (e, var, value)
 
   /* Certain variables get exported back to the parent (e.g. our) 
      environment, too.  */
-  if (!strcmp(var, "PATH")			/* Object file location */
-   || !strcmp (var, "G960BASE") 		/* Intel 960 downloads */
-   || !strcmp (var, "G960BIN") 			/* Intel 960 downloads */
-   || !strcmp (var, "GNUTARGET")		/* BFD object file type */
+  if (STREQ(var, "PATH")		/* Object file location */
+   || STREQ (var, "G960BASE") 		/* Intel 960 downloads */
+   || STREQ (var, "G960BIN") 		/* Intel 960 downloads */
+   || STREQ (var, "GNUTARGET")		/* BFD object file type */
 				) {
     putenv (strsave (s));
   }

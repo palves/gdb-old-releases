@@ -61,9 +61,75 @@ static reloc_howto_type howto_table[] =
 #define RTYPE2HOWTO(cache_ptr, dst) \
 	    cache_ptr->howto = howto_table + (dst)->r_type;
 
+/* On SCO Unix 3.2.2 the native assembler generates two .data
+   sections.  We handle that by renaming the second one to .data2.  It
+   does no harm to do this for any 386 COFF target.  */
+#define TWO_DATA_SECS
+
+/* For some reason when using i386 COFF the value stored in the .text
+   section for a reference to a .bss or absolute symbol is the value
+   itself plus any desired offset.  The linker has already clobbered
+   the value stored in the bfd symbol, so we have to dig it out of the
+   stored COFF symbol information.  Moreover, we have to dig it out of
+   the COFF information for this COFF file, since we might have a
+   different common value in different COFF files.  What a mess.
+   Ian Taylor, Cygnus Support.  */
+
+static long i386comm_value ();
+
+#define CALC_ADDEND(abfd, ptr, reloc, cache_ptr)		\
+  if (ptr							\
+      && ((ptr->flags & BSF_OLD_COMMON) != 0			\
+	  || ptr->section == &bfd_abs_section))			\
+    cache_ptr->addend = - i386comm_value (abfd, ptr);		\
+  else if (ptr && bfd_asymbol_bfd(ptr) == abfd			\
+	   && ptr->section != (asection *) NULL			\
+	   && ((ptr->flags & BSF_OLD_COMMON)== 0))		\
+    cache_ptr->addend = - (ptr->section->vma + ptr->value);	\
+  else								\
+    cache_ptr->addend = 0;					\
+  if (ptr && howto_table[reloc.r_type].pc_relative)		\
+    cache_ptr->addend += asect->vma;
+
 #include "coffcode.h"
 
-#define coff_write_armap bsd_write_armap
+static long
+i386comm_value (abfd, ptr)
+     bfd *abfd;
+     asymbol *ptr;
+{
+  coff_symbol_type *symbol, *symbol_end;  
+  CONST char *name;
+
+  /* If this symbol is from the current COFF file, we can just
+     use coff_symbol_from.  */
+  if (bfd_asymbol_bfd(ptr) == abfd)
+    return coff_symbol_from (abfd, ptr)->native->u.syment.n_value;
+
+  /* Otherwise we have to dig through the symbol information for
+     BFD we are dealing with.  */
+  name = bfd_asymbol_name (ptr);
+  if (! coff_slurp_symbol_table (abfd))
+    return 0;
+  symbol = obj_symbols (abfd);
+  symbol_end = symbol + bfd_get_symcount (abfd);
+  for (; symbol < symbol_end; symbol++)
+    {
+      struct internal_syment *p;
+
+      /* The flags for this symbol will often be UNDEFINED rather than
+	 either of the COMMON flags, aand I don't feel like figuring
+	 out why.  */
+      p = &symbol->native->u.syment;
+      if (p->n_sclass == C_EXT
+	  && p->n_value != 0
+	  && symbol->symbol.name[0] == name[0]
+	  && strcmp (symbol->symbol.name, name) == 0)
+	return p->n_value;
+    }
+
+  return 0;
+}
 
 bfd_target *i3coff_object_p(a)
 bfd *a ;
@@ -98,5 +164,6 @@ bfd_target i386coff_vec =
        _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(coff),
-  COFF_SWAP_TABLE
-  };
+  0, 0,
+  COFF_SWAP_TABLE,
+};

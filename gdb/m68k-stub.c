@@ -104,7 +104,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <setjmp.h>
-#include "ansidecl.h"
 
 /************************************************************************
  *
@@ -123,7 +122,7 @@ extern ExceptionHook exceptionHook;  /* hook variable for errors/exceptions */
 /* FORWARD DECLARATIONS */
 /************************/
 static void
-initializeRemcomErrorFrame PARAMS ((void));
+initializeRemcomErrorFrame ();
 
 /************************************************************************/
 /* BUFMAX defines the maximum number of characters in inbound/outbound buffers*/
@@ -279,7 +278,7 @@ asm("	lea     sp@(4),sp");     /* pull off 68000 return address */
 #endif
 asm("	rte");
 
-extern void _catchException PARAMS ((void));
+extern void _catchException ();
 
 #ifdef mc68020
 /* This function is called when a 68020 exception occurs.  It saves

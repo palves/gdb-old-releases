@@ -1,5 +1,6 @@
 /* Target-struct-independent code to start (run) and stop an inferior process.
-   Copyright 1986, 1987, 1988, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1991, 1992, 1993
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -161,7 +162,7 @@ hook_stop_stub PARAMS ((char *));
    no name, assume we are not in sigtramp).  */
 #if !defined (IN_SIGTRAMP)
 #define IN_SIGTRAMP(pc, name) \
-  (name && !strcmp ("_sigtramp", name))
+  (name && STREQ ("_sigtramp", name))
 #endif
 
 /* GET_LONGJMP_TARGET returns the PC at which longjmp() will resume the
@@ -184,6 +185,16 @@ hook_stop_stub PARAMS ((char *));
    to nonzero if we are current stopped in one of these. */
 #ifndef IN_SOLIB_TRAMPOLINE
 #define IN_SOLIB_TRAMPOLINE(pc,name)	0
+#endif
+
+/* On some systems, the PC may be left pointing at an instruction that  won't
+   actually be executed.  This is usually indicated by a bit in the PSW.  If
+   we find ourselves in such a state, then we step the target beyond the
+   nullified instruction before returning control to the user so as to avoid
+   confusion. */
+
+#ifndef INSTRUCTION_NULLIFIED
+#define INSTRUCTION_NULLIFIED 0
 #endif
 
 #ifdef TDESC
@@ -510,6 +521,7 @@ wait_for_inferior ()
   int remove_breakpoints_on_following_step = 0;
   int current_line;
   int handling_longjmp = 0;	/* FIXME */
+  struct symtab *symtab;
 
   sal = find_pc_line(prev_pc, 0);
   current_line = sal.line;
@@ -575,6 +587,15 @@ wait_for_inferior ()
 	single_step (0);	/* This actually cleans up the ss */
 #endif /* NO_SINGLE_STEP */
       
+/* If PC is pointing at a nullified instruction, then step beyond it so that
+   the user won't be confused when GDB appears to be ready to execute it. */
+
+      if (INSTRUCTION_NULLIFIED)
+	{
+	  resume (1, 0);
+	  continue;
+	}
+
       stop_pc = read_pc ();
       set_current_frame ( create_new_frame (read_register (FP_REGNUM),
 					    read_pc ()));
@@ -668,8 +689,7 @@ wait_for_inferior ()
 		      if (DECR_PC_AFTER_BREAK)
 			{
 			  stop_pc -= DECR_PC_AFTER_BREAK;
-			  write_register (PC_REGNUM, stop_pc);
-			  pc_changed = 0;
+			  write_pc (stop_pc);
 			}
 		    }
 		  else
@@ -972,8 +992,9 @@ wait_for_inferior ()
 	      if (tmp != 0)
 		stop_func_start = tmp;
 
-	      if (find_pc_function (stop_func_start) != 0)
-	        goto step_into_function;
+	      symtab = find_pc_symtab (stop_func_start);
+	      if (symtab && LINETABLE (symtab))
+		goto step_into_function;
 
 step_over_function:
 	      /* A subroutine call has happened.  */
@@ -1198,9 +1219,6 @@ save_pc:
 void
 normal_stop ()
 {
-  char *tem;
-  struct cmd_list_element *c;
-
   /* Make sure that the current_frame's pc is correct.  This
      is a correction for setting up the frame info before doing
      DECR_PC_AFTER_BREAK */
@@ -1301,6 +1319,7 @@ hook_stop_stub (cmd)
      char *cmd;
 {
   execute_user_command ((struct cmd_list_element *)cmd, 0);
+  return (0);
 }
 
 

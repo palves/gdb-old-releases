@@ -21,8 +21,4 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define ALIGN_STACK_ON_STARTUP
 
-#define	FETCH_INFERIOR_REGISTERS
-
-#define PTRACE_IN_WRONG_PLACE
-
 extern char *strdup();

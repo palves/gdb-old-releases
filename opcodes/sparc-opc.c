@@ -25,7 +25,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.	*/
 
 #include <stdio.h>
 #include "ansidecl.h"
-#define BFD_EMIT_TABLE
 #include "opcode/sparc.h"
 
 const char *architecture_pname[] = {
@@ -37,7 +36,10 @@ const char *architecture_pname[] = {
 };
 
 
+/* Branch condition field.  */
 #define COND(x)		(((x)&0xf)<<25)
+
+
 
 #define CONDA	(COND(0x8))
 #define CONDCC	(COND(0xd))

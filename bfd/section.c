@@ -1,5 +1,5 @@
 /* Object file "section" support for the BFD library.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -220,15 +220,13 @@ CODE_FRAGMENT
 .        {* The section is a constuctor, and should be placed at the
 .          end of the . *}
 .
-.
 .#define SEC_CONSTRUCTOR_TEXT 0x1100
 .
 .#define SEC_CONSTRUCTOR_DATA 0x2100
 .
 .#define SEC_CONSTRUCTOR_BSS  0x3100
 .
-.
-.        {* The section has contents - a bss section could be
+.        {* The section has contents - a data section could be
 .           <<SEC_ALLOC>> | <<SEC_HAS_CONTENTS>>, a debug section could be
 .           <<SEC_HAS_CONTENTS>> *}
 .
@@ -240,7 +238,19 @@ CODE_FRAGMENT
 .
 .#define SEC_NEVER_LOAD 0x400
 .
+.        {* The section is a shared library section.  The linker must leave
+.           these completely alone, as the vma and size are used when
+.           the executable is loaded. *}
 .
+.#define SEC_SHARED_LIBRARY 0x800
+.
+.        {* The section is a common section (symbols may be defined
+.           multiple times, the value of a symbol is the amount of
+.           space it requires, and the largest symbol value is the one
+.           used).  Most targets have exactly one of these (.bss), but
+.           ECOFF has two. *}
+.
+.#define SEC_IS_COMMON 0x8000
 .       
 .   bfd_vma vma;
 .   boolean user_set_vma;
@@ -340,8 +350,8 @@ CODE_FRAGMENT
 .	 {* A symbol which points at this section only *}
 .   struct symbol_cache_entry *symbol;  
 .   struct symbol_cache_entry **symbol_ptr_ptr;
-.   struct bfd_seclet_struct *seclets_head;
-.   struct bfd_seclet_struct *seclets_tail;
+.   struct bfd_seclet *seclets_head;
+.   struct bfd_seclet *seclets_tail;
 .} asection ;
 .
 .
@@ -368,21 +378,22 @@ CODE_FRAGMENT
 /* These symbols are global, not specific to any BFD.  Therefore, anything
    that tries to change them is broken, and should be repaired.  */
 static CONST asymbol global_syms[] = {
-  /* bfd, name, value, attr, section [, udata] */
+  /* the_bfd, name, value, attr, section [, udata] */
   { 0, BFD_COM_SECTION_NAME, 0, BSF_SECTION_SYM, &bfd_com_section },
   { 0, BFD_UND_SECTION_NAME, 0, BSF_SECTION_SYM, &bfd_und_section },
   { 0, BFD_ABS_SECTION_NAME, 0, BSF_SECTION_SYM, &bfd_abs_section },
 };
 
-#define STD_SECTION(SEC,SYM,NAME, IDX)	\
+#define STD_SECTION(SEC, FLAGS, SYM, NAME, IDX)	\
   asymbol *SYM = (asymbol *) &global_syms[IDX]; \
-  asection SEC = { NAME, 0, 0, 0, 0, (boolean) 0, 0, 0, 0, &SEC,\
+  asection SEC = { NAME, 0, 0, FLAGS, 0, (boolean) 0, 0, 0, 0, &SEC,\
 		    0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, (boolean) 0, \
 		     (asymbol *) &global_syms[IDX], &SYM, }
 
-STD_SECTION (bfd_com_section, bfd_com_symbol, BFD_COM_SECTION_NAME, 0);
-STD_SECTION (bfd_und_section, bfd_und_symbol, BFD_UND_SECTION_NAME, 1);
-STD_SECTION (bfd_abs_section, bfd_abs_symbol, BFD_ABS_SECTION_NAME, 2);
+STD_SECTION (bfd_com_section, SEC_IS_COMMON, bfd_com_symbol,
+	     BFD_COM_SECTION_NAME, 0);
+STD_SECTION (bfd_und_section, 0, bfd_und_symbol, BFD_UND_SECTION_NAME, 1);
+STD_SECTION (bfd_abs_section, 0, bfd_abs_symbol, BFD_ABS_SECTION_NAME, 2);
 #undef STD_SECTION
 
 /*
@@ -630,9 +641,7 @@ DESCRIPTION
 void
 DEFUN(bfd_map_over_sections,(abfd, operation, user_storage),
       bfd *abfd AND
-      void EXFUN((*operation), (bfd *abfd,
-				asection *sect,
-				PTR obj)) AND
+      void (*operation) PARAMS ((bfd *abfd, asection *sect, PTR obj)) AND
       PTR user_storage)
 {
   asection *sect;

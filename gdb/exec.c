@@ -162,7 +162,7 @@ exec_file_command (args, from_tty)
       {
 	struct section_table *p;
 	for (p = exec_ops.to_sections; p < exec_ops.to_sections_end; p++)
-	  if (!strcmp (".text", bfd_section_name (p->bfd, p->sec_ptr)))
+	  if (STREQ (".text", bfd_section_name (p->bfd, p->sec_ptr)))
 	    {
 	      text_start = p->addr;
 	      text_end   = p->endaddr;
@@ -329,7 +329,7 @@ xfer_memory (memaddr, myaddr, len, write, target)
 	wanna_xfer = coredata;
       }
 #endif				/* REG_STACK_SEGMENT */
-#endif FIXME
+#endif /* FIXME */
 
 void
 print_section_info (t, abfd)

@@ -184,8 +184,8 @@ union external_auxent {
 /********************** RELOCATION DIRECTIVES **********************/
 
 /* The external reloc has an offset field, because some of the reloc
-   types on the h8 don't have room in the instruction for the entire
-   offset - eg the strange jump and high page addressing modes */
+   types on the z8k don't have room in the instruction for the entire
+   offset - eg with segments */
 
 struct external_reloc {
   char r_vaddr[4];

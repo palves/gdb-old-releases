@@ -171,9 +171,10 @@ DEFUN(NAME(aout,sunos4_write_object_contents),
   }
     
   choose_reloc_size(abfd);
-    
-  /* FIXME */
-  N_SET_FLAGS (*execp, 0x1);
+
+  /* Some tools want this to be 0, some tools want this to be one.
+     Today, it seems that 0 is the most important setting (PR1927) */
+  N_SET_FLAGS (*execp, 0x0);
     
   WRITE_HEADERS(abfd, execp);
 
@@ -582,9 +583,10 @@ static CONST struct aout_backend_data sunos4_aout_backend = {
 
 #define MY_bfd_debug_info_start		bfd_void
 #define MY_bfd_debug_info_end		bfd_void
-#define MY_bfd_debug_info_accumulate	(PROTO(void,(*),(bfd*, struct sec *))) bfd_void
-#define MY_core_file_p sunos4_core_file_p
-#define MY_write_object_contents NAME(aout,sunos4_write_object_contents)
+#define MY_bfd_debug_info_accumulate	\
+			(void (*) PARAMS ((bfd *, struct sec *))) bfd_void
+#define MY_core_file_p			sunos4_core_file_p
+#define MY_write_object_contents	NAME(aout,sunos4_write_object_contents)
 #define MY_backend_data			&sunos4_aout_backend
 
 #define TARGET_IS_BIG_ENDIAN_P

@@ -26,26 +26,32 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    See expression.h for the details of the format.
    What is important here is that it can be built up sequentially
    during the process of parsing; the lower levels of the tree always
-   come first in the result.  */
+   come first in the result.
+
+   Note that malloc's and realloc's in this file are transformed to
+   xmalloc and xrealloc respectively by the same sed command in the
+   makefile that remaps any other malloc/realloc inserted by the parser
+   generator.  Doing this with #defines and trying to control the interaction
+   with include files (<malloc.h> and <stdlib.h> for example) just became
+   too messy, particularly when such includes can be inserted at random
+   times by the parser generator. */
    
 %{
-#include <stdio.h>
-#include <string.h>
+
 #include "defs.h"
-#include "symtab.h"
-#include "gdbtypes.h"
-#include "frame.h"
 #include "expression.h"
 #include "language.h"
 #include "value.h"
 #include "parser-defs.h"
-#include "bfd.h"
-#include "symfile.h"
-#include "objfiles.h"
+#include "m2-lang.h"
 
-/* These MUST be included in any grammar file!!!! Please choose unique names!
-   Note that this are a combined list of variables that can be produced
-   by any one of bison, byacc, or yacc. */
+/* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
+   as well as gratuitiously global symbol names, so we can have multiple
+   yacc generated parsers in gdb.  Note that these are only the variables
+   produced by yacc.  If other parser generators (bison, byacc, etc) produce
+   additional global names that conflict at link time, then those parser
+   generators need to be fixed instead of adding those names to this list. */
+
 #define	yymaxdepth m2_maxdepth
 #define	yyparse	m2_parse
 #define	yylex	m2_lex
@@ -73,10 +79,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yy_yyv	m2_yyv
 #define	yyval	m2_val
 #define	yylloc	m2_lloc
-#define yyss	m2_yyss		/* byacc */
-#define	yyssp	m2_yysp		/* byacc */
-#define	yyvs	m2_yyvs		/* byacc */
-#define	yyvsp	m2_yyvsp	/* byacc */
+#define yyreds	m2_reds		/* With YYDEBUG defined */
+#define yytoks	m2_toks		/* With YYDEBUG defined */
+
+#ifndef YYDEBUG
+#define	YYDEBUG	0		/* Default to no yydebug support */
+#endif
+
+int
+yyparse PARAMS ((void));
+
+static int
+yylex PARAMS ((void));
+
+void
+yyerror PARAMS ((char *));
 
 #if 0
 static char *
@@ -86,23 +103,15 @@ make_qualname PARAMS ((char *, char *));
 static int
 parse_number PARAMS ((int));
 
-static int
-yylex PARAMS ((void));
-
-static void
-yyerror PARAMS ((char *));
-
-int
-yyparse PARAMS ((void));
-
 /* The sign of the number being parsed. */
-int number_sign = 1;
+static int number_sign = 1;
 
 /* The block that the module specified by the qualifer on an identifer is
    contained in, */
-struct block *modblock=0;
+#if 0
+static struct block *modblock=0;
+#endif
 
-/* #define	YYDEBUG	1 */
 %}
 
 /* Although the yacc "value" of an expression is not used,
@@ -165,7 +174,7 @@ struct block *modblock=0;
 %nonassoc ASSIGN
 %left '<' '>' LEQ GEQ '=' NOTEQUAL '#' IN
 %left OROR
-%left ANDAND '&'
+%left LOGICAL_AND '&'
 %left '@'
 %left '+' '-'
 %left '*' '/' DIV MOD
@@ -177,18 +186,7 @@ struct block *modblock=0;
 %right QID
 */
 
-%{
-/* Ensure that if the generated parser contains any calls to malloc/realloc,
-   that they get mapped to xmalloc/xrealloc.  We have to do this here
-   rather than earlier in the file because this is the first point after
-   the place where the SVR4 yacc includes <malloc.h>, and if we do it
-   before that, then the remapped declarations in <malloc.h> will collide
-   with the ones in "defs.h". */
-
-#define malloc	xmalloc
-#define realloc	xrealloc
-%}
-
+
 %%
 
 start   :	exp
@@ -219,7 +217,7 @@ exp	:	'+' exp    %prec UNARY
 	;
 
 exp	:	not_exp exp %prec UNARY
-			{ write_exp_elt_opcode (UNOP_ZEROP); }
+			{ write_exp_elt_opcode (UNOP_LOGICAL_NOT); }
 	;
 
 not_exp	:	NOT
@@ -335,9 +333,9 @@ exp     :       exp '['
 			   function types */
                         { start_arglist(); }
                 non_empty_arglist ']'  %prec DOT
-                        { write_exp_elt_opcode (BINOP_MULTI_SUBSCRIPT);
+                        { write_exp_elt_opcode (MULTI_SUBSCRIPT);
 			  write_exp_elt_longcst ((LONGEST) end_arglist());
-			  write_exp_elt_opcode (BINOP_MULTI_SUBSCRIPT); }
+			  write_exp_elt_opcode (MULTI_SUBSCRIPT); }
         ;
 
 exp	:	exp '('
@@ -446,16 +444,12 @@ exp	:	exp '>' exp
 			{ write_exp_elt_opcode (BINOP_GTR); }
 	;
 
-exp	:	exp ANDAND exp
-			{ write_exp_elt_opcode (BINOP_AND); }
-	;
-
-exp	:	exp '&'	exp
-			{ write_exp_elt_opcode (BINOP_AND); }
+exp	:	exp LOGICAL_AND exp
+			{ write_exp_elt_opcode (BINOP_LOGICAL_AND); }
 	;
 
 exp	:	exp OROR exp
-			{ write_exp_elt_opcode (BINOP_OR); }
+			{ write_exp_elt_opcode (BINOP_LOGICAL_OR); }
 	;
 
 exp	:	exp ASSIGN exp
@@ -642,7 +636,7 @@ variable:	NAME
 				{
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_type (builtin_type_int);
-				  write_exp_elt_longcst ((LONGEST) msymbol -> address);
+				  write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
 				  if (msymbol -> type == mst_data ||
@@ -815,7 +809,7 @@ static struct keyword keytab[] =
 {
     {"OR" ,   OROR	 },
     {"IN",    IN         },/* Note space after IN */
-    {"AND",   ANDAND     },
+    {"AND",   LOGICAL_AND},
     {"ABS",   ABS	 },
     {"CHR",   CHR	 },
     {"DEC",   DEC	 },
@@ -859,7 +853,7 @@ yylex ()
 
   /* See if it is a special token of length 2 */
   for( i = 0 ; i < sizeof tokentab2 / sizeof tokentab2[0] ; i++)
-     if(!strncmp(tokentab2[i].name, tokstart, 2))
+     if(STREQN(tokentab2[i].name, tokstart, 2))
      {
 	lexptr += 2;
 	return tokentab2[i].token;
@@ -1054,14 +1048,14 @@ yylex ()
   if (*tokstart == '$') {
     for (c = 0; c < NUM_REGS; c++)
       if (namelen - 1 == strlen (reg_names[c])
-	  && !strncmp (tokstart + 1, reg_names[c], namelen - 1))
+	  && STREQN (tokstart + 1, reg_names[c], namelen - 1))
 	{
 	  yylval.lval = c;
 	  return REGNAME;
 	}
     for (c = 0; c < num_std_regs; c++)
      if (namelen - 1 == strlen (std_regs[c].name)
-	 && !strncmp (tokstart + 1, std_regs[c].name, namelen - 1))
+	 && STREQN (tokstart + 1, std_regs[c].name, namelen - 1))
        {
 	 yylval.lval = std_regs[c].regnum;
 	 return REGNAME;
@@ -1071,7 +1065,7 @@ yylex ()
 
   /*  Lookup special keywords */
   for(i = 0 ; i < sizeof(keytab) / sizeof(keytab[0]) ; i++)
-     if(namelen == strlen(keytab[i].keyw) && !strncmp(tokstart,keytab[i].keyw,namelen))
+     if(namelen == strlen(keytab[i].keyw) && STREQN(tokstart,keytab[i].keyw,namelen))
 	   return keytab[i].token;
 
   yylval.sval.ptr = tokstart;
@@ -1137,12 +1131,12 @@ yylex ()
     else
     {
        /* Built-in BOOLEAN type.  This is sort of a hack. */
-       if(!strncmp(tokstart,"TRUE",4))
+       if(STREQN(tokstart,"TRUE",4))
        {
 	  yylval.ulval = 1;
 	  return M2_TRUE;
        }
-       else if(!strncmp(tokstart,"FALSE",5))
+       else if(STREQN(tokstart,"FALSE",5))
        {
 	  yylval.ulval = 0;
 	  return M2_FALSE;
@@ -1159,7 +1153,7 @@ static char *
 make_qualname(mod,ident)
    char *mod, *ident;
 {
-   char *new = xmalloc(strlen(mod)+strlen(ident)+2);
+   char *new = malloc(strlen(mod)+strlen(ident)+2);
 
    strcpy(new,mod);
    strcat(new,".");
@@ -1168,7 +1162,7 @@ make_qualname(mod,ident)
 }
 #endif  /* 0 */
 
-static void
+void
 yyerror(msg)
      char *msg;	/* unused */
 {
@@ -1178,103 +1172,4 @@ yyerror(msg)
    else
      error("Invalid syntax in expression");
 }
-
-/* Table of operators and their precedences for printing expressions.  */
 
-const static struct op_print m2_op_print_tab[] = {
-    {"+",   BINOP_ADD, PREC_ADD, 0},
-    {"+",   UNOP_PLUS, PREC_PREFIX, 0},
-    {"-",   BINOP_SUB, PREC_ADD, 0},
-    {"-",   UNOP_NEG, PREC_PREFIX, 0},
-    {"*",   BINOP_MUL, PREC_MUL, 0},
-    {"/",   BINOP_DIV, PREC_MUL, 0},
-    {"DIV", BINOP_INTDIV, PREC_MUL, 0},
-    {"MOD", BINOP_REM, PREC_MUL, 0},
-    {":=",  BINOP_ASSIGN, PREC_ASSIGN, 1},
-    {"OR",  BINOP_OR, PREC_OR, 0},
-    {"AND", BINOP_AND, PREC_AND, 0},
-    {"NOT", UNOP_ZEROP, PREC_PREFIX, 0},
-    {"=",   BINOP_EQUAL, PREC_EQUAL, 0},
-    {"<>",  BINOP_NOTEQUAL, PREC_EQUAL, 0},
-    {"<=",  BINOP_LEQ, PREC_ORDER, 0},
-    {">=",  BINOP_GEQ, PREC_ORDER, 0},
-    {">",   BINOP_GTR, PREC_ORDER, 0},
-    {"<",   BINOP_LESS, PREC_ORDER, 0},
-    {"^",   UNOP_IND, PREC_PREFIX, 0},
-    {"@",   BINOP_REPEAT, PREC_REPEAT, 0},
-};
-
-/* The built-in types of Modula-2.  */
-
-struct type *builtin_type_m2_char;
-struct type *builtin_type_m2_int;
-struct type *builtin_type_m2_card;
-struct type *builtin_type_m2_real;
-struct type *builtin_type_m2_bool;
-
-struct type ** const (m2_builtin_types[]) = 
-{
-  &builtin_type_m2_char,
-  &builtin_type_m2_int,
-  &builtin_type_m2_card,
-  &builtin_type_m2_real,
-  &builtin_type_m2_bool,
-  0
-};
-
-const struct language_defn m2_language_defn = {
-  "modula-2",
-  language_m2,
-  m2_builtin_types,
-  range_check_on,
-  type_check_on,
-  m2_parse,			/* parser */
-  m2_error,			/* parser error function */
-  &builtin_type_m2_int,		/* longest signed   integral type */
-  &builtin_type_m2_card,		/* longest unsigned integral type */
-  &builtin_type_m2_real,		/* longest floating point type */
-  "0%XH", "0%", "XH",		/* Hex   format string, prefix, suffix */
-  "%oB",  "%",  "oB",		/* Octal format string, prefix, suffix */
-  m2_op_print_tab,		/* expression operators for printing */
-  LANG_MAGIC
-};
-
-/* Initialization for Modula-2 */
-
-void
-_initialize_m2_exp ()
-{
-  /* Modula-2 "pervasive" types.  NOTE:  these can be redefined!!! */
-  builtin_type_m2_int =
-    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "INTEGER", (struct objfile *) NULL);
-  builtin_type_m2_card =
-    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "CARDINAL", (struct objfile *) NULL);
-  builtin_type_m2_real =
-    init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "REAL", (struct objfile *) NULL);
-  builtin_type_m2_char =
-    init_type (TYPE_CODE_CHAR, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "CHAR", (struct objfile *) NULL);
-  builtin_type_m2_bool =
-    init_type (TYPE_CODE_BOOL, TARGET_INT_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "BOOLEAN", (struct objfile *) NULL);
-
-  TYPE_NFIELDS(builtin_type_m2_bool) = 2;
-  TYPE_FIELDS(builtin_type_m2_bool) = 
-     (struct field *) malloc (sizeof (struct field) * 2);
-  TYPE_FIELD_BITPOS(builtin_type_m2_bool,0) = 0;
-  TYPE_FIELD_NAME(builtin_type_m2_bool,0) = (char *)malloc(6);
-  strcpy(TYPE_FIELD_NAME(builtin_type_m2_bool,0),"FALSE");
-  TYPE_FIELD_BITPOS(builtin_type_m2_bool,1) = 1;
-  TYPE_FIELD_NAME(builtin_type_m2_bool,1) = (char *)malloc(5);
-  strcpy(TYPE_FIELD_NAME(builtin_type_m2_bool,1),"TRUE");
-
-  add_language (&m2_language_defn);
-}

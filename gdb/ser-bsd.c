@@ -69,8 +69,6 @@ int
 serial_open(name)
      const char *name;
 {
-  struct sgttyb sgttyb;
-
   desc = open (name, O_RDWR);
   if (desc < 0)
     error("Open of %s failed: %s", name, safe_strerror(errno));
@@ -221,7 +219,7 @@ serial_close()
   if (desc < 0)
     return;
 
-  serial_restore(desc, oldstate);
+  serial_restore(desc, &oldstate);
 
   close(desc);
   desc = -1;

@@ -1,5 +1,5 @@
 /* Target-dependent code for the MIPS architecture, for GDB, the GNU Debugger.
-   Copyright 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Contributed by Alessandro Forin(af@cs.cmu.edu) at CMU
    and by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin.
 
@@ -322,7 +322,7 @@ init_extra_frame_info(fci)
 	fci->frame = read_register (SP_REGNUM);
       else
 	fci->frame = READ_FRAME_REG(fci, PROC_FRAME_REG(proc_desc))
-	              + PROC_FRAME_OFFSET(proc_desc);
+		      + PROC_FRAME_OFFSET(proc_desc);
 
       if (proc_desc == &temp_proc_desc)
 	  *fci->saved_regs = temp_saved_regs;
@@ -378,11 +378,14 @@ init_extra_frame_info(fci)
    arguments without difficulty.  */
 
 FRAME
-setup_arbitrary_frame (stack, pc)
-     FRAME_ADDR stack;
-     CORE_ADDR pc;
+setup_arbitrary_frame (argc, argv)
+     int argc;
+     FRAME_ADDR *argv;
 {
-  return create_new_frame (stack, pc);
+  if (argc != 2)
+    error ("MIPS frame specifications require two arguments: sp and pc");
+
+  return create_new_frame (argv[0], argv[1]);
 }
 
 
@@ -683,7 +686,11 @@ isa_NAN(p, len)
     }
   else if (len == 8)
     {
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+      exponent = *p;
+#else
       exponent = *(p+1);
+#endif
       exponent = exponent << 1 >> (32 - DOUBLE_EXP_BITS - 1);
       return ((exponent == -1) || (! exponent && *p * *(p+1)));
     }

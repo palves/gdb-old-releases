@@ -1,5 +1,5 @@
 /* BFD back-end for Hitachi H8/300 COFF binaries.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Steve Chamberlain, <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -150,8 +150,8 @@ static void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
 
 #undef  coff_bfd_get_relocated_section_contents 
 #undef coff_bfd_relax_section
-#define  coff_bfd_get_relocated_section_contents bfd_coff_get_relocated_section_contents
-#define coff_bfd_relax_section bfd_coff_relax_section
+#define  coff_bfd_get_relocated_section_contents bfd_coff_reloc16_get_relocated_section_contents
+#define coff_bfd_relax_section bfd_coff_reloc16_relax_section
 
 bfd_target h8300coff_vec =
 {
@@ -179,5 +179,6 @@ _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs
      _bfd_write_archive_contents, bfd_false},
 
      JUMP_TABLE(coff),
-    COFF_SWAP_TABLE
+  0, 0,
+    COFF_SWAP_TABLE,
 };

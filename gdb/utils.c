@@ -33,6 +33,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "bfd.h"
 #include "target.h"
 #include "demangle.h"
+#include "expression.h"
+#include "language.h"
 
 /* Prototypes for local functions */
 
@@ -808,11 +810,13 @@ parse_escape (string_ptr)
     }
 }
 
-/* Print the character C on STREAM as part of the contents
-   of a literal string whose delimiter is QUOTER.  */
+/* Print the character C on STREAM as part of the contents of a literal
+   string whose delimiter is QUOTER.  Note that this routine should only
+   be call for printing things which are independent of the language
+   of the program being debugged. */
 
 void
-printchar (c, stream, quoter)
+gdb_printchar (c, stream, quoter)
      register int c;
      FILE *stream;
      int quoter;
@@ -977,6 +981,20 @@ wrap_here(indent)
     {
       wrap_column = chars_printed;
       wrap_indent = indent;
+    }
+}
+
+/* Ensure that whatever gets printed next, using the filtered output
+   commands, starts at the beginning of the line.  I.E. if there is
+   any pending output for the current line, flush it and start a new
+   line.  Otherwise do nothing. */
+
+void
+begin_line ()
+{
+  if (chars_printed > 0)
+    {
+      puts_filtered ("\n");
     }
 }
 
@@ -1148,9 +1166,17 @@ fputs_demangled (linebuffer, stream, arg_mode)
     }
     buf[i] = (char) 0;
     if (i > 0) {
-      char * result;
-      
-      if ( (result = cplus_demangle(buf, arg_mode)) != NULL ) {
+      char *result = NULL;
+
+      /* Lacking a better method to determine what language this symbol may
+	 have been mangled for, switch on the current_language.  (FIXME) */
+      switch (current_language -> la_language)
+	{
+	  case language_cplus:
+	    result = cplus_demangle (buf, arg_mode);
+	    break;
+	}
+      if (result != NULL ) {
 	fputs_filtered(result, stream);
 	free(result);
       }
@@ -1209,6 +1235,14 @@ vfprintf_filtered (stream, format, args)
   vsprintf (linebuffer, format, args);
 
   fputs_filtered (linebuffer, stream);
+}
+
+void
+vprintf_filtered (format, args)
+     char *format;
+     va_list args;
+{
+  vfprintf_filtered (stdout, format, args);
 }
 
 /* VARARGS */
@@ -1337,34 +1371,29 @@ print_spaces_filtered (n, stream)
 
 /* C++ demangler stuff.  */
 
-/* Make a copy of a symbol, applying C++ demangling if demangling is enabled
-   and a demangled version exists.  Note that the value returned from
-   cplus_demangle is already allocated in malloc'd memory. */
-
-char *
-strdup_demangled (name)
-     const char *name;
-{
-  char *demangled = NULL;
-
-  if (demangle)
-    {
-      demangled = cplus_demangle (name, DMGL_PARAMS | DMGL_ANSI);
-    }
-  return ((demangled != NULL) ? demangled : strdup (name));
-}
-
-
 /* Print NAME on STREAM, demangling if necessary.  */
 void
 fprint_symbol (stream, name)
      FILE *stream;
      char *name;
 {
-  char *demangled;
-  if ((!demangle)
-      || NULL == (demangled = cplus_demangle (name, DMGL_PARAMS | DMGL_ANSI)))
-    fputs_filtered (name, stream);
+  char *demangled = NULL;
+
+  if (demangle)
+    {
+      /* Lacking a better method of knowing what demangler to use, pick
+	 one appropriate for whatever the current language is.  (FIXME) */
+      switch (current_language -> la_language)
+	{
+	  case language_cplus:
+	    demangled = cplus_demangle (name, DMGL_PARAMS | DMGL_ANSI);
+	    break;
+	}
+    }
+  if (demangled == NULL)
+    {
+      fputs_filtered (name, stream);
+    }
   else
     {
       fputs_filtered (demangled, stream);
@@ -1377,9 +1406,9 @@ fprint_symbol (stream, name)
    don't (slightly different than strcmp()'s range of return values).
    
    As an extra hack, string1=="FOO(ARGS)" matches string2=="FOO".
-   This "feature" is useful for demangle_and_match(), which is used
-   when searching for matching C++ function names (such as if the
-   user types 'break FOO', where FOO is a mangled C++ function). */
+   This "feature" is useful when searching for matching C++ function names
+   (such as if the user types 'break FOO', where FOO is a mangled C++
+   function). */
 
 int
 strcmp_iw (string1, string2)
@@ -1407,40 +1436,6 @@ strcmp_iw (string1, string2)
 	}
     }
   return (*string1 != '\0' && *string1 != '(') || (*string2 != '\0');
-}
-
-/* Demangle NAME and compare the result with LOOKFOR, ignoring any differences
-   in whitespace.
-   
-   If a match is found, returns a pointer to the demangled version of NAME
-   in malloc'd memory, which needs to be freed by the caller after use.
-   If a match is not found, returns NULL.
-
-   OPTIONS is a flags word that controls the demangling process and is just
-   passed on to the demangler.
-
-   When the caller sees a non-NULL result, it knows that NAME is the mangled
-   equivalent of LOOKFOR, and it can use either NAME, the "official demangled"
-   version of NAME (the return value) or the "unofficial demangled" version
-   of NAME (LOOKFOR, which it already knows). */
-
-char *
-demangle_and_match (name, lookfor, options)
-     const char *name;
-     const char *lookfor;
-     int options;
-{
-  char *demangled;
-
-  if ((demangled = cplus_demangle (name, options)) != NULL)
-    {
-      if (strcmp_iw (demangled, lookfor) != 0)
-	{
-	  free (demangled);
-	  demangled = NULL;
-	}
-    }
-  return (demangled);
 }
 
 

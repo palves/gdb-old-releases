@@ -40,7 +40,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 2.10 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 2.13 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -70,9 +70,9 @@ This document describes the GNU stabs debugging format in a.out files.
 * Simple types::
 * Example::                     A comprehensive example in C 
 * Variables::
-* Aggregate types::
+* Aggregate Types::
 * Symbol tables::               Symbol information in symbol tables
-* GNU C++ stabs::
+* GNU Cplusplus stabs::
 
 Appendixes:
 * Example2.c::                  Source code for extended example
@@ -305,7 +305,7 @@ types used to describe C language source files.
 * Source file:: The path and name of the source file
 * Line numbers::
 * Procedures::
-* Block structure::
+* Block Structure::
 @end menu
 
 @node Source file
@@ -460,7 +460,7 @@ represents the procedure itself.  The @code{N_LBRAC} uses the
 @menu
 * Basic types:: Basic type definitions
 * Range types:: Range types defined by min and max value 
-* Bit-ranges:: Range type defined by number of bits
+* Float "range" types:: Range type defined by size in bytes
 @end menu
 
 @node Basic types
@@ -529,17 +529,20 @@ range of type @code{int}, with a minimum value of 0 and a maximum of 65535.
 13 .stabs "short unsigned int:t8=r1;0;65535;",128,0,0,0
 @end example
 
-@node Bit-ranges
-@section Range type defined by number of bits
+@node Float "range" types
+@section Range type defined by size in bytes
 
 @table @strong
 @item Type Descriptor:
 @code{r}
 @end table
 
-In a range definition, if the number after the second semicolon is 0,
-then the number after the first semicolon is the number of bits needed
-to represent the type.
+In a range definition, if the first number after the semicolon is
+positive and the second is zero, then the type being defined is a
+floating point type, and the number after the first semicolon is the
+number of bytes needed to represent the type.  Note that this does not
+provide a way to distinguish 8-byte real floating point types from
+8-byte complex floating point types.
 
 @example
 .stabs "@var{name}:
@@ -725,7 +728,7 @@ nesting is reflected in the nested bracketing stabs (@code{N_LBRAC},
 
 @menu
 * Automatic variables:: locally scoped
-* Global variables::
+* Global Variables::
 * Register variables::
 * Initialized statics::
 * Un-initialized statics::
@@ -1484,11 +1487,11 @@ entry now holds an absolute address.
 215 0000e008 D _g_foo
 @end example
 
-@node GNU C++ stabs
+@node GNU Cplusplus stabs
 @chapter GNU C++ stabs
 
 @menu
-* Basic C++ types::
+* Basic Cplusplus types::
 * Simple classes::
 * Class instance::
 * Methods:: Method definition
@@ -1518,7 +1521,7 @@ cross-reference
 @end table
 
 
-@node Basic C++ types
+@node Basic Cplusplus types
 @section Basic types for C++
 
 << the examples that follow are based on a01.C >>

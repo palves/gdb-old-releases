@@ -30,6 +30,29 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "value.h"
 #include "demangle.h"
+#include "complaints.h"
+
+/* These variables point to the objects
+   representing the predefined C data types.  */
+
+struct type *builtin_type_void;
+struct type *builtin_type_char;
+struct type *builtin_type_short;
+struct type *builtin_type_int;
+struct type *builtin_type_long;
+struct type *builtin_type_long_long;
+struct type *builtin_type_signed_char;
+struct type *builtin_type_unsigned_char;
+struct type *builtin_type_unsigned_short;
+struct type *builtin_type_unsigned_int;
+struct type *builtin_type_unsigned_long;
+struct type *builtin_type_unsigned_long_long;
+struct type *builtin_type_float;
+struct type *builtin_type_double;
+struct type *builtin_type_long_double;
+struct type *builtin_type_complex;
+struct type *builtin_type_double_complex;
+struct type *builtin_type_string;
 
 /* Alloc a new type structure and fill it with some defaults.  If
    OBJFILE is non-NULL, then allocate the space for the type structure
@@ -290,55 +313,109 @@ allocate_stub_method (type)
   return (mtype);
 }
 
-/* Create an array type.  Elements will be of type TYPE, and there will
-   be NUM of them.
+/* Create a range type using either a blank type supplied in RESULT_TYPE,
+   or creating a new type, inheriting the objfile from INDEX_TYPE.
 
-   Eventually this should be extended to take two more arguments which
-   specify the bounds of the array and the type of the index.
-   It should also be changed to be a "lookup" function, with the
-   appropriate data structures added to the type field.
-   Then read array type should call here.  */
+   Indices will be of type INDEX_TYPE, and will range from LOW_BOUND to
+   HIGH_BOUND, inclusive.
+
+   FIXME:  Maybe we should check the TYPE_CODE of RESULT_TYPE to make
+   sure it is TYPE_CODE_UNDEF before we bash it into a range type? */
 
 struct type *
-create_array_type (element_type, number)
-     struct type *element_type;
-     int number;
+create_range_type (result_type, index_type, low_bound, high_bound)
+     struct type *result_type;
+     struct type *index_type;
+     int low_bound;
+     int high_bound;
 {
-  struct type *result_type;
-  struct type *range_type;
+  if (result_type == NULL)
+    {
+      result_type = alloc_type (TYPE_OBJFILE (index_type));
+    }
+  TYPE_CODE (result_type) = TYPE_CODE_RANGE;
+  TYPE_TARGET_TYPE (result_type) = index_type;
+  TYPE_LENGTH (result_type) = TYPE_LENGTH (index_type);
+  TYPE_NFIELDS (result_type) = 2;
+  TYPE_FIELDS (result_type) = (struct field *)
+    TYPE_ALLOC (result_type, 2 * sizeof (struct field));
+  memset (TYPE_FIELDS (result_type), 0, 2 * sizeof (struct field));
+  TYPE_FIELD_BITPOS (result_type, 0) = low_bound;
+  TYPE_FIELD_BITPOS (result_type, 1) = high_bound;
+  TYPE_FIELD_TYPE (result_type, 0) = builtin_type_int;		/* FIXME */
+  TYPE_FIELD_TYPE (result_type, 1) = builtin_type_int;		/* FIXME */
 
-  result_type = alloc_type (TYPE_OBJFILE (element_type));
+  return (result_type);
+}
 
+
+/* Create an array type using either a blank type supplied in RESULT_TYPE,
+   or creating a new type, inheriting the objfile from RANGE_TYPE.
+
+   Elements will be of type ELEMENT_TYPE, the indices will be of type
+   RANGE_TYPE.
+
+   FIXME:  Maybe we should check the TYPE_CODE of RESULT_TYPE to make
+   sure it is TYPE_CODE_UNDEF before we bash it into an array type? */
+
+struct type *
+create_array_type (result_type, element_type, range_type)
+     struct type *result_type;
+     struct type *element_type;
+     struct type *range_type;
+{
+  int low_bound;
+  int high_bound;
+
+  if (TYPE_CODE (range_type) != TYPE_CODE_RANGE)
+    {
+      /* FIXME:  We only handle range types at the moment.  Complain and
+	 create a dummy range type to use. */
+      warning ("internal error:  array index type must be a range type");
+      range_type = lookup_fundamental_type (TYPE_OBJFILE (range_type),
+					    FT_INTEGER);
+      range_type = create_range_type ((struct type *) NULL, range_type, 0, 0);
+    }
+  if (result_type == NULL)
+    {
+      result_type = alloc_type (TYPE_OBJFILE (range_type));
+    }
   TYPE_CODE (result_type) = TYPE_CODE_ARRAY;
   TYPE_TARGET_TYPE (result_type) = element_type;
-  TYPE_LENGTH (result_type) = number * TYPE_LENGTH (element_type);
+  low_bound = TYPE_FIELD_BITPOS (range_type, 0);
+  high_bound = TYPE_FIELD_BITPOS (range_type, 1);
+  TYPE_LENGTH (result_type) =
+    TYPE_LENGTH (element_type) * (high_bound - low_bound + 1);
   TYPE_NFIELDS (result_type) = 1;
-  TYPE_FIELDS (result_type) = (struct field *)
-    TYPE_ALLOC (result_type, sizeof (struct field));
-
-  {
-    /* Create range type.  */
-    range_type = alloc_type (TYPE_OBJFILE (result_type));
-    TYPE_CODE (range_type) = TYPE_CODE_RANGE;
-    TYPE_TARGET_TYPE (range_type) = builtin_type_int;  /* FIXME */
-
-    /* This should never be needed.  */
-    TYPE_LENGTH (range_type) = sizeof (int);
-
-    TYPE_NFIELDS (range_type) = 2;
-    TYPE_FIELDS (range_type) = (struct field *)
-      TYPE_ALLOC (range_type, 2 * sizeof (struct field));
-    TYPE_FIELD_BITPOS (range_type, 0) = 0; /* FIXME */
-    TYPE_FIELD_BITPOS (range_type, 1) = number-1; /* FIXME */
-    TYPE_FIELD_TYPE (range_type, 0) = builtin_type_int; /* FIXME */
-    TYPE_FIELD_TYPE (range_type, 1) = builtin_type_int; /* FIXME */
-  }
+  TYPE_FIELDS (result_type) =
+    (struct field *) TYPE_ALLOC (result_type, sizeof (struct field));
+  memset (TYPE_FIELDS (result_type), 0, sizeof (struct field));
   TYPE_FIELD_TYPE (result_type, 0) = range_type;
   TYPE_VPTR_FIELDNO (result_type) = -1;
 
   return (result_type);
 }
 
+/* Create a string type using either a blank type supplied in RESULT_TYPE,
+   or creating a new type.  String types are similar enough to array of
+   char types that we can use create_array_type to build the basic type
+   and then bash it into a string type.
+
+   For fixed length strings, the range type contains 0 as the lower
+   bound and the length of the string minus one as the upper bound.
+
+   FIXME:  Maybe we should check the TYPE_CODE of RESULT_TYPE to make
+   sure it is TYPE_CODE_UNDEF before we bash it into a string type? */
+
+struct type *
+create_string_type (result_type, range_type)
+     struct type *result_type;
+     struct type *range_type;
+{
+  result_type = create_array_type (result_type, builtin_type_char, range_type);
+  TYPE_CODE (result_type) = TYPE_CODE_STRING;
+  return (result_type);
+}
 
 /* Smash TYPE to be a type of members of DOMAIN with type TO_TYPE. 
    A MEMBER is a wierd thing -- it amounts to a typed offset into
@@ -445,7 +522,7 @@ lookup_primitive_typename (name)
 
    for (p = current_language -> la_builtin_type_vector; *p != NULL; p++)
      {
-       if (!strcmp ((**p) -> name, name))
+       if (STREQ ((**p) -> name, name))
 	 {
 	   return (**p);
 	 }
@@ -613,9 +690,9 @@ lookup_template_type (name, type, block)
   return (SYMBOL_TYPE (sym));
 }
 
-/* Given a type TYPE, lookup the type of the component of type named
-   NAME.  
-   If NOERR is nonzero, return zero if NAME is not suitably defined.  */
+/* Given a type TYPE, lookup the type of the component of type named NAME.  
+   If NOERR is nonzero, return zero if NAME is not suitably defined.
+   If NAME is the name of a baseclass type, return that type.  */
 
 struct type *
 lookup_struct_elt_type (type, name, noerr)
@@ -641,11 +718,14 @@ lookup_struct_elt_type (type, name, noerr)
 
   check_stub_type (type);
 
+  if (STREQ (type_name_no_tag (type), name))
+    return type;
+
   for (i = TYPE_NFIELDS (type) - 1; i >= TYPE_N_BASECLASSES (type); i--)
     {
       char *t_field_name = TYPE_FIELD_NAME (type, i);
 
-      if (t_field_name && !strcmp (t_field_name, name))
+      if (t_field_name && STREQ (t_field_name, name))
 	{
 	  return TYPE_FIELD_TYPE (type, i);
 	}
@@ -656,7 +736,7 @@ lookup_struct_elt_type (type, name, noerr)
     {
       struct type *t;
 
-      t = lookup_struct_elt_type (TYPE_BASECLASS (type, i), name, 0);
+      t = lookup_struct_elt_type (TYPE_BASECLASS (type, i), name, noerr);
       if (t != NULL)
 	{
 	  return t;
@@ -688,7 +768,10 @@ fill_in_vptr_fieldno (type)
   if (TYPE_VPTR_FIELDNO (type) < 0)
     {
       int i;
-      for (i = 1; i < TYPE_N_BASECLASSES (type); i++)
+
+      /* We must start at zero in case the first (and only) baseclass is
+	 virtual (and hence we cannot share the table pointer).  */
+      for (i = 0; i < TYPE_N_BASECLASSES (type); i++)
 	{
 	  fill_in_vptr_fieldno (TYPE_BASECLASS (type, i));
 	  if (TYPE_VPTR_FIELDNO (TYPE_BASECLASS (type, i)) >= 0)
@@ -728,7 +811,7 @@ check_stub_type (type)
       struct symbol *sym;
       if (name == NULL)
 	{
-	  complain (&stub_noname_complaint, 0);
+	  complain (&stub_noname_complaint);
 	  return;
 	}
       sym = lookup_symbol (name, 0, STRUCT_NAMESPACE, 0, 
@@ -910,28 +993,24 @@ init_type (code, length, flags, name, objfile)
    define fundamental types.
 
    For the formats which don't provide fundamental types, gdb can create
-   such types, using defaults reasonable for the current target machine.
+   such types, using defaults reasonable for the current language and
+   the current target machine.
 
-   FIXME:  Some compilers distinguish explicitly signed integral types
-   (signed short, signed int, signed long) from "regular" integral types
-   (short, int, long) in the debugging information.  There is some dis-
-   agreement as to how useful this feature is.  In particular, gcc does
-   not support this.  Also, only some debugging formats allow the
-   distinction to be passed on to a debugger.  For now, we always just
-   use "short", "int", or "long" as the type name, for both the implicit
-   and explicitly signed types.  This also makes life easier for the
-   gdb test suite since we don't have to account for the differences
-   in output depending upon what the compiler and debugging format
-   support.  We will probably have to re-examine the issue when gdb
-   starts taking it's fundamental type information directly from the
-   debugging information supplied by the compiler.  fnf@cygnus.com */
+   NOTE:  This routine is obsolescent.  Each debugging format reader
+   should manage it's own fundamental types, either creating them from
+   suitable defaults or reading them from the debugging information,
+   whichever is appropriate.  The DWARF reader has already been
+   fixed to do this.  Once the other readers are fixed, this routine
+   will go away.  Also note that fundamental types should be managed
+   on a compilation unit basis in a multi-language environment, not
+   on a linkage unit basis as is done here. */
+
 
 struct type *
 lookup_fundamental_type (objfile, typeid)
      struct objfile *objfile;
      int typeid;
 {
-  register struct type *type = NULL;
   register struct type **typep;
   register int nbytes;
 
@@ -939,187 +1018,28 @@ lookup_fundamental_type (objfile, typeid)
     {
       error ("internal error - invalid fundamental type id %d", typeid);
     }
-  else
+
+  /* If this is the first time we need a fundamental type for this objfile
+     then we need to initialize the vector of type pointers. */
+  
+  if (objfile -> fundamental_types == NULL)
     {
-      /* If this is the first time we */
-      if (objfile -> fundamental_types == NULL)
-	{
-	  nbytes = FT_NUM_MEMBERS * sizeof (struct type *);
-	  objfile -> fundamental_types = (struct type **)
-	    obstack_alloc (&objfile -> type_obstack, nbytes);
-	  memset ((char *) objfile -> fundamental_types, 0, nbytes);
-	}
-      typep = objfile -> fundamental_types + typeid;
-      if ((type = *typep) == NULL)
-	{
-	  switch (typeid)
-	    {
-	      default:
-	        error ("internal error: unhandled type id %d", typeid);
-		break;
-	      case FT_VOID:
-	        type = init_type (TYPE_CODE_VOID,
-				  TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "void", objfile);
-		break;
-	      case FT_BOOLEAN:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_INT_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_UNSIGNED,
-				  "boolean", objfile);
-		break;
-	      case FT_STRING:
-		type = init_type (TYPE_CODE_PASCAL_ARRAY,
-				  TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "string", objfile);
-		break;
-	      case FT_CHAR:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "char", objfile);
-		break;
-	      case FT_SIGNED_CHAR:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_SIGNED,
-				  "signed char", objfile);
-		break;
-	      case FT_UNSIGNED_CHAR:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_UNSIGNED,
-				  "unsigned char", objfile);
-		break;
-	      case FT_SHORT:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_SHORT_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "short", objfile);
-		break;
-	      case FT_SIGNED_SHORT:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_SHORT_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_SIGNED,
-				  "short", objfile);	/* FIXME -fnf */
-		break;
-	      case FT_UNSIGNED_SHORT:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_SHORT_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_UNSIGNED,
-				  "unsigned short", objfile);
-		break;
-	      case FT_INTEGER:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_INT_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "int", objfile);
-		break;
-	      case FT_SIGNED_INTEGER:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_INT_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_SIGNED,
-				  "int", objfile);	/* FIXME -fnf */
-		break;
-	      case FT_UNSIGNED_INTEGER:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_INT_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_UNSIGNED,
-				  "unsigned int", objfile);
-		break;
-	      case FT_FIXED_DECIMAL:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_INT_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "fixed decimal", objfile);
-		break;
-	      case FT_LONG:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_LONG_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "long", objfile);
-		break;
-	      case FT_SIGNED_LONG:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_LONG_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_SIGNED,
-				  "long", objfile);	/* FIXME -fnf */
-		break;
-	      case FT_UNSIGNED_LONG:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_LONG_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_UNSIGNED,
-				  "unsigned long", objfile);
-		break;
-	      case FT_LONG_LONG:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "long long", objfile);
-		break;
-	      case FT_SIGNED_LONG_LONG:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_SIGNED,
-				  "signed long long", objfile);
-		break;
-	      case FT_UNSIGNED_LONG_LONG:
-		type = init_type (TYPE_CODE_INT,
-				  TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-				  TYPE_FLAG_UNSIGNED,
-				  "unsigned long long", objfile);
-		break;
-	      case FT_FLOAT:
-		type = init_type (TYPE_CODE_FLT,
-				  TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "float", objfile);
-		break;
-	      case FT_DBL_PREC_FLOAT:
-		type = init_type (TYPE_CODE_FLT,
-				  TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "double", objfile);
-		break;
-	      case FT_FLOAT_DECIMAL:
-		type = init_type (TYPE_CODE_FLT,
-				  TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "floating decimal", objfile);
-		break;
-	      case FT_EXT_PREC_FLOAT:
-		type = init_type (TYPE_CODE_FLT,
-				  TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "long double", objfile);
-		break;
-	      case FT_COMPLEX:
-		type = init_type (TYPE_CODE_FLT,
-				  TARGET_COMPLEX_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "complex", objfile);
-		break;
-	      case FT_DBL_PREC_COMPLEX:
-		type = init_type (TYPE_CODE_FLT,
-				  TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "double complex", objfile);
-		break;
-	      case FT_EXT_PREC_COMPLEX:
-		type = init_type (TYPE_CODE_FLT,
-				  TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
-				  0,
-				  "long double complex", objfile);
-		break;
-	    }
-	  /* Install the newly created type in the objfile's fundamental_types
-	     vector. */
-	  *typep = type;
-	}
+      nbytes = FT_NUM_MEMBERS * sizeof (struct type *);
+      objfile -> fundamental_types = (struct type **)
+	obstack_alloc (&objfile -> type_obstack, nbytes);
+      memset ((char *) objfile -> fundamental_types, 0, nbytes);
     }
-  return (type);
+
+  /* Look for this particular type in the fundamental type vector.  If one is
+     not found, create and install one appropriate for the current language. */
+
+  typep = objfile -> fundamental_types + typeid;
+  if (*typep == NULL)
+    {
+      *typep = create_fundamental_type (objfile, typeid);
+    }
+
+  return (*typep);
 }
 
 #if MAINTENANCE_CMDS
@@ -1229,8 +1149,6 @@ print_cplus_stuff (type, spaces)
      struct type *type;
      int spaces;
 {
-  int bitno;
-
   printfi_filtered (spaces, "n_baseclasses %d\n",
 		    TYPE_N_BASECLASSES (type));
   printfi_filtered (spaces, "nfn_fields %d\n",
@@ -1322,8 +1240,8 @@ recursive_dump_type (type, spaces)
       case TYPE_CODE_RANGE:
 	printf_filtered ("(TYPE_CODE_RANGE)");
 	break;
-      case TYPE_CODE_PASCAL_ARRAY:
-	printf_filtered ("(TYPE_CODE_PASCAL_ARRAY)");
+      case TYPE_CODE_STRING:
+	printf_filtered ("(TYPE_CODE_STRING)");
 	break;
       case TYPE_CODE_ERROR:
 	printf_filtered ("(TYPE_CODE_ERROR)");
@@ -1431,3 +1349,80 @@ recursive_dump_type (type, spaces)
 }
 
 #endif	/* MAINTENANCE_CMDS */
+
+void
+_initialize_gdbtypes ()
+{
+  builtin_type_void =
+    init_type (TYPE_CODE_VOID, 1,
+	       0,
+	       "void", (struct objfile *) NULL);
+  builtin_type_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "char", (struct objfile *) NULL);
+  builtin_type_signed_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_SIGNED,
+	       "signed char", (struct objfile *) NULL);
+  builtin_type_unsigned_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned char", (struct objfile *) NULL);
+  builtin_type_short =
+    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "short", (struct objfile *) NULL);
+  builtin_type_unsigned_short =
+    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned short", (struct objfile *) NULL);
+  builtin_type_int =
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "int", (struct objfile *) NULL);
+  builtin_type_unsigned_int =
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned int", (struct objfile *) NULL);
+  builtin_type_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "long", (struct objfile *) NULL);
+  builtin_type_unsigned_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned long", (struct objfile *) NULL);
+  builtin_type_long_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "long long", (struct objfile *) NULL);
+  builtin_type_unsigned_long_long = 
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned long long", (struct objfile *) NULL);
+  builtin_type_float =
+    init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "float", (struct objfile *) NULL);
+  builtin_type_double =
+    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "double", (struct objfile *) NULL);
+  builtin_type_long_double =
+    init_type (TYPE_CODE_FLT, TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "long double", (struct objfile *) NULL);
+  builtin_type_complex =
+    init_type (TYPE_CODE_FLT, TARGET_COMPLEX_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "complex", (struct objfile *) NULL);
+  builtin_type_double_complex =
+    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "double complex", (struct objfile *) NULL);
+  builtin_type_string =
+    init_type (TYPE_CODE_STRING, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "string", (struct objfile *) NULL);
+}

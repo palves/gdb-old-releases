@@ -1,6 +1,6 @@
 \input texinfo
 @setfilename gdbint.info
-@c $Id: gdbint.texinfo,v 1.41 1992/10/21 21:11:55 gnu Exp $
+@c $Id: gdbint.texinfo,v 1.56 1993/02/18 09:20:58 gnu Exp $
 
 @ifinfo
 @format
@@ -13,7 +13,7 @@ END-INFO-DIR-ENTRY
 @ifinfo
 This file documents the internals of the GNU debugger GDB.
 
-Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
 Contributed by Cygnus Support.  Written by John Gilmore.
 
 Permission is granted to make and distribute verbatim copies of
@@ -42,7 +42,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.41 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.56 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -51,7 +51,7 @@ regarded as a program in the language TeX).
 @end tex
 
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1990, 1991, 1992 Free Software Foundation, Inc.
+Copyright @copyright{} 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -81,7 +81,11 @@ GDB as you discover it (or as you design changes to GDB).
 * Cleanups::			Cleanups
 * Wrapping::			Wrapping Output Lines
 * Frames::			Keeping track of function calls
+* Remote Stubs::		Code that runs in targets and talks to GDB
+* Longjmp Support::		Stepping through longjmp's in the target
 * Coding Style::		Strunk and White for GDB maintainers
+* Clean Design::		Frank Lloyd Wright for GDB maintainers
+* Submitting Patches::		How to get your changes into GDB releases
 * Host Conditionals::		What features exist in the host
 * Target Conditionals::		What features exist in the target
 * Native Conditionals::		Conditionals for when host and target are same
@@ -362,7 +366,7 @@ on machine @var{xxx}.
 In particular, this lists the required native-dependent object files,
 by defining @samp{NATDEPFILES=@dots{}}.  Also
 specifies the header file which describes native support on @var{xxx},
-by defining @samp{NM_FILE= nm-@var{xxx}.h}.
+by defining @samp{NAT_FILE= nm-@var{xxx}.h}.
 You can also define @samp{NAT_CFLAGS},
 @samp{NAT_ADD_FILES}, @samp{NAT_CLIBS}, @samp{NAT_CDEPS},
 etc.; see @file{Makefile.in}.
@@ -372,8 +376,6 @@ etc.; see @file{Makefile.in}.
 Contains C macro definitions describing the native system environment,
 such as child process control and core file support.
 Crib from existing @file{nm-*.h} files to create a new one.
-Code that needs these definitions will have to @code{#include "nm.h"}
-explicitly, since it is not included by @file{defs.h}.
 
 @item gdb/@var{xxx}-nat.c
 Contains any miscellaneous C code required for this native support
@@ -539,11 +541,24 @@ If you are using an existing object file format (a.out or COFF),
 there is probably little to be done.  See @file{bfd/doc/bfd.texinfo}
 for more information on writing new a.out or COFF versions.
 
-If you need to add a new object file format, you are beyond the scope
-of this document right now.  Look at the structure of the a.out
-and COFF support, build a transfer vector (@code{xvec}) for your new format,
-and start populating it with routines.  Add it to the list in
+If you need to add a new object file format, you must first add it to
+BFD.  This is beyond the scope of this document right now.  Basically
+you must build a transfer vector (of type @code{bfd_target}), which will
+mean writing all the required routines, and add it to the list in
 @file{bfd/targets.c}.
+
+You must then arrange for the BFD code to provide access to the
+debugging symbols.  Generally GDB will have to call swapping routines
+from BFD and a few other BFD internal routines to locate the debugging
+information.  As much as possible, GDB should not depend on the BFD
+internal data structures.
+
+For some targets (e.g., COFF), there is a special transfer vector used
+to call swapping routines, since the external data structures on various
+platforms have different sizes and layouts.  Specialized routines that
+will only ever be implemented by one object file format may be called
+directly.  This interface should be described in a file
+@file{bfd/libxxx.h}, which is included by GDB.
 
 If you are adding a new operating system for an existing CPU chip, add a
 @file{tm-@var{xos}.h} file that describes the operating system
@@ -928,6 +943,9 @@ what they say.  This is only done if you ask that it be done.
 Syntax:
 
 @table @code
+@item struct cleanup *@var{old_chain};
+Declare a variable which will hold a cleanup chain handle.
+
 @item @var{old_chain} = make_cleanup (@var{function}, @var{arg});
 Make a cleanup which will cause @var{function} to be called with @var{arg}
 (a @code{char *}) later.  The result, @var{old_chain}, is a handle that can be
@@ -1015,6 +1033,62 @@ frame.  This will be used to create a new GDB frame struct, and then
 the new frame.
 @end table
 
+@node Remote Stubs
+@chapter Remote Stubs
+
+GDB's file @file{remote.c} talks a serial protocol to code that runs
+in the target system.  GDB provides several sample ``stubs'' that can
+be integrated into target programs or operating systems for this purpose;
+they are named @file{*-stub.c}.
+
+The GDB user's manual describes how to put such a stub into your target
+code.  What follows is a discussion of integrating the SPARC stub
+into a complicated operating system (rather than a simple program),
+by Stu Grossman, the author of this stub.
+
+The trap handling code in the stub assumes the following upon entry to
+trap_low:
+
+@enumerate
+@item %l1 and %l2 contain pc and npc respectively at the time of the trap
+@item traps are disabled
+@item you are in the correct trap window
+@end enumerate
+
+As long as your trap handler can guarantee those conditions, then there is no
+reason why you shouldn't be able to `share' traps with the stub.  The stub has
+no requirement that it be jumped to directly from the hardware trap vector.
+That is why it calls @code{exceptionHandler()}, which is provided by the external
+environment.  For instance, this could setup the hardware traps to actually
+execute code which calls the stub first, and then transfers to its own trap
+handler.
+
+For the most point, there probably won't be much of an issue with `sharing'
+traps, as the traps we use are usually not used by the kernel, and often
+indicate unrecoverable error conditions.  Anyway, this is all controlled by a
+table, and is trivial to modify.
+The most important trap for us is for @code{ta 1}.  Without that, we
+can't single step or do breakpoints.  Everything else is unnecessary
+for the proper operation of the debugger/stub.
+
+From reading the stub, it's probably not obvious how breakpoints work.  They
+are simply done by deposit/examine operations from GDB.
+
+@node Longjmp Support
+@chapter Longjmp Support
+
+GDB has support for figuring out that the target is doing a
+@code{longjmp} and for stopping at the target of the jump, if we are
+stepping.  This is done with a few specialized internal breakpoints,
+which are visible in the @code{maint info breakpoint} command.
+
+To make this work, you need to define a macro called
+@code{GET_LONGJMP_TARGET}, which will examine the @code{jmp_buf}
+structure and extract the longjmp target address.  Since @code{jmp_buf}
+is target specific, you will need to define it in the appropriate
+@file{tm-xxx.h} file.  Look in @file{tm-sun4os4.h} and
+@file{sparc-tdep.c} for examples of how to do this.
+
 @node Coding Style
 @chapter Coding Style
 
@@ -1057,6 +1131,151 @@ We don't have a gcc option that will properly check that these rules
 have been followed, but it's GDB policy, and we periodically check it
 using the tools available (plus manual labor), and clean up any remnants.
 
+@node Clean Design
+@chapter Clean Design
+
+In addition to getting the syntax right, there's the little question of
+semantics.  Some things are done in certain ways in GDB because long
+experience has shown that the more obvious ways caused various kinds of
+trouble.  In particular:
+
+@table @bullet
+@item
+You can't assume the byte order of anything that comes from a
+target (including @var{value}s, object files, and instructions).  Such
+things must be byte-swapped using @code{SWAP_TARGET_AND_HOST} in GDB,
+or one of the swap routines defined in @file{bfd.h}, such as @code{bfd_get_32}.
+
+@item
+You can't assume that you know what interface is being used to talk to
+the target system.  All references to the target must go through the
+current @code{target_ops} vector.
+
+@item
+You can't assume that the host and target machines are the same machine
+(except in the ``native'' support modules).
+In particular, you can't assume that the target machine's header files
+will be available on the host machine.  Target code must bring along its
+own header files -- written from scratch or explicitly donated by their
+owner, to avoid copyright problems.
+
+@item
+Insertion of new @code{#ifdef}'s will be frowned upon.  It's much better
+to write the code portably than to conditionalize it for various systems.
+
+@item
+New @code{#ifdef}'s which test for specific compilers or manufacturers
+or operating systems are unacceptable.  All @code{#ifdef}'s should test
+for features.  The information about which configurations contain which
+features should be segregated into the configuration files.  Experience
+has proven far too often that a feature unique to one particular system
+often creeps into other systems; and that a conditional based on 
+some predefined macro for your current system will become worthless
+over time, as new versions of your system come out that behave differently
+with regard to this feature.
+
+@item
+Adding code that handles specific architectures, operating systems, target
+interfaces, or hosts, is not acceptable in generic code.  If a hook
+is needed at that point, invent a generic hook and define it for your
+configuration, with something like:
+
+@example
+#ifdef	WRANGLE_SIGNALS
+   WRANGLE_SIGNALS (signo);
+#endif
+@end example
+
+In your host, target, or native configuration file, as appropriate, 
+define @code{WRANGLE_SIGNALS} to do the machine-dependent thing.  Take
+a bit of care in defining the hook, so that it can be used by other
+ports in the future, if they need a hook in the same place.
+
+@item
+@emph{Do} write code that doesn't depend on the sizes of C data types,
+the format of the host's floating point numbers, the alignment of anything,
+or the order of evaluation of expressions.  In short, follow good 
+programming practices for writing portable C code.
+
+@end table
+
+@node Submitting Patches
+@chapter Submitting Patches
+
+Thanks for thinking of offering your changes back to the community of
+GDB users.  In general we like to get well designed enhancements.
+Thanks also for checking in advance about the best way to transfer the
+changes.
+
+The two main problems with getting your patches in are,
+
+@table @bullet
+@item
+The GDB maintainers will only install "cleanly designed" patches.
+You may not always agree on what is clean design.
+@pxref{Coding Style}, @pxref{Clean Design}.
+
+@item
+If the maintainers don't have time to put the patch in when it
+arrives, or if there is any question about a patch, it
+goes into a large queue with everyone else's patches and
+bug reports.
+@end table
+
+I don't know how to get past these problems except by continuing to try.
+
+There are two issues here -- technical and legal.
+
+The legal issue is that to incorporate substantial changes requires a
+copyright assignment from you and/or your employer, granting ownership of the changes to
+the Free Software Foundation.  You can get the standard document for
+doing this by sending mail to @code{gnu@@prep.ai.mit.edu} and asking for it.
+I recommend that people write in "All programs owned by the
+Free Software Foundation" as "NAME OF PROGRAM", so that changes in
+many programs (not just GDB, but GAS, Emacs, GCC, etc) can be
+contributed with only one piece of legalese pushed through the
+bureacracy and filed with the FSF.  I can't start merging changes until
+this paperwork is received by the FSF (their rules, which I follow since
+I maintain it for them).
+
+Technically, the easiest way to receive changes is to receive each
+feature as a small context diff or unidiff, suitable for "patch".
+Each message sent to me should include the changes to C code and
+header files for a single feature, plus ChangeLog entries for each
+directory where files were modified, and diffs for any changes needed
+to the manuals (gdb/doc/gdb.texi or gdb/doc/gdbint.texi).  If there
+are a lot of changes for a single feature, they can be split down
+into multiple messages.
+
+In this way, if I read and like the feature, I can add it to the
+sources with a single patch command, do some testing, and check it in.
+If you leave out the ChangeLog, I have to write one.  If you leave
+out the doc, I have to puzzle out what needs documenting.  Etc.
+
+The reason to send each change in a separate message is that I will
+not install some of the changes.  They'll be returned to you with
+questions or comments.  If I'm doing my job, my message back to you
+will say what you have to fix in order to make the change acceptable.
+The reason to have separate messages for separate features is so
+that other changes (which I @emph{am} willing to accept) can be installed
+while one or more changes are being reworked.  If multiple features
+are sent in a single message, I tend to not put in the effort to sort
+out the acceptable changes from the unacceptable, so none of the
+features get installed until all are acceptable.
+
+If this sounds painful or authoritarian, well, it is.  But I get a lot
+of bug reports and a lot of patches, and most of them don't get
+installed because I don't have the time to finish the job that the bug
+reporter or the contributor could have done.  Patches that arrive
+complete, working, and well designed, tend to get installed on the day
+they arrive.  The others go into a queue and get installed if and when
+I scan back over the queue -- which can literally take months
+sometimes.  It's in both our interests to make patch installation easy
+-- you get your changes installed, and I make some forward progress on
+GDB in a normal 12-hour day (instead of them having to wait until I
+have a 14-hour or 16-hour day to spend cleaning up patches before I
+can install them).
+
 @node Host Conditionals
 @chapter Host Conditionals
 
@@ -1077,7 +1296,10 @@ main.c
 @item KERNELDEBUG
 tm-hppa.h
 @item MEM_FNS_DECLARED
-defs.h
+Your host config file defines this if it includes 
+declarations of @code{memcpy} and @code{memset}.  Define this
+to avoid conflicts between the native include
+files and the declarations in @file{defs.h}.
 @item NO_SYS_FILE
 dbxread.c
 @item PYRAMID_CONTROL_FRAME_DEBUGGING
@@ -1174,8 +1396,6 @@ objfiles.c
 hppabsd-tdep.c
 @item COFF_FORMAT
 symm-tdep.c
-@item COFF_NO_LONG_FILE_NAMES
-coffread.c
 @item CORE_NEEDS_RELOCATION
 stack.c
 @item CPLUS_MARKER
@@ -1307,10 +1527,6 @@ hp300ux-xdep.c
 infrun.c
 @item I80960
 remote-vx.c
-@item IBM6000_HOST
-breakpoint.c
-@item IBM6000_TARGET
-buildsym.c
 @item IEEE_DEBUG
 ieee-float.c
 @item IEEE_FLOAT
@@ -1401,8 +1617,6 @@ when using HAVE_MMAP, this is the increment between mappings.
 ser-go32.c
 @item MOTOROLA
 xm-altos.h
-@item NAMES_HAVE_UNDERSCORE
-coffread.c
 @item NBPG
 altos-xdep.c
 @item NEED_POSIX_SETPGID
@@ -1487,16 +1701,6 @@ infrun.c
 defs.h
 @item PS_REGNUM
 parse.c
-@item PTRACE_ARG3_TYPE
-inferior.h
-@item PTRACE_FP_BUG
-mach386-xdep.c
-@item PT_ATTACH
-hppabsd-xdep.c
-@item PT_DETACH
-hppabsd-xdep.c
-@item PT_KILL
-infptrace.c
 @item PUSH_ARGUMENTS
 valops.c
 @item PYRAMID_CONTROL_FRAME_DEBUGGING
@@ -1554,8 +1758,6 @@ infrun.c
 core.c
 @item SOLIB_CREATE_INFERIOR_HOOK
 infrun.c
-@item SOME_NAMES_HAVE_DOT
-minsyms.c
 @item SP_REGNUM
 parse.c
 @item STAB_REG_TO_REGNUM
@@ -1713,8 +1915,6 @@ dbxread.c
 main.c
 @item KERNELDEBUG
 tm-hppa.h
-@item MEM_FNS_DECLARED
-defs.h
 @item NO_SYS_FILE
 dbxread.c
 @item PYRAMID_CONTROL_FRAME_DEBUGGING
@@ -1787,8 +1987,6 @@ objfiles.c
 hppabsd-tdep.c
 @item COFF_FORMAT
 symm-tdep.c
-@item COFF_NO_LONG_FILE_NAMES
-coffread.c
 @item CORE_NEEDS_RELOCATION
 stack.c
 @item CPLUS_MARKER
@@ -1938,10 +2136,10 @@ hp300ux-xdep.c
 infrun.c
 @item I80960
 remote-vx.c
-@item IBM6000_HOST
-breakpoint.c
 @item IBM6000_TARGET
-buildsym.c
+Shows that we are configured for an IBM RS/6000 target.  This conditional
+should be eliminated (FIXME) and replaced by feature-specific macros.
+It was introduced in haste and we are repenting at leisure.
 @item IEEE_DEBUG
 ieee-float.c
 @item IEEE_FLOAT
@@ -2004,8 +2202,6 @@ maint.c
 mips-tdep.c
 @item MOTOROLA
 xm-altos.h
-@item NAMES_HAVE_UNDERSCORE
-coffread.c
 @item NBPG
 altos-xdep.c
 @item NEED_POSIX_SETPGID
@@ -2086,10 +2282,6 @@ infrun.c
 defs.h
 @item PS_REGNUM
 parse.c
-@item PTRACE_ARG3_TYPE
-inferior.h
-@item PTRACE_FP_BUG
-mach386-xdep.c
 @item PUSH_ARGUMENTS
 valops.c
 @item REGISTER_BYTES
@@ -2114,8 +2306,6 @@ state.c
 state.c
 @item SEM
 coffread.c
-@item SET_STACK_LIMIT_HUGE
-infrun.c
 @item SHELL_COMMAND_CONCAT
 infrun.c
 @item SHELL_FILE
@@ -2136,8 +2326,6 @@ infrun.c
 core.c
 @item SOLIB_CREATE_INFERIOR_HOOK
 infrun.c
-@item SOME_NAMES_HAVE_DOT
-minsyms.c
 @item SP_REGNUM
 parse.c
 @item STAB_REG_TO_REGNUM
@@ -2295,6 +2483,11 @@ this pointer.  It examines the current state of the machine as needed.
 Defines the format for the name of a @file{/proc} device.  Should be
 defined in @file{nm.h} @emph{only} in order to override the default
 definition in @file{procfs.c}.
+@item PTRACE_FP_BUG
+mach386-xdep.c
+@item PTRACE_ARG3_TYPE
+The type of the third argument to the @code{ptrace} system call, if it exists
+and is different from @code{int}.
 @item REGISTER_U_ADDR
 Defines the offset of the registers in the ``u area''; @pxref{Host}.
 @item USE_PROC_FS

@@ -1,5 +1,5 @@
 /* Parameters for hosting on a Hewlett-Packard 9000/300, running bsd.
-   Copyright 1986, 1987, 1989, 1991, 1992  Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993  Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -19,16 +19,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /*
  * Configuration file for HP9000/300 series machine running
- * University of Utah's 4.3bsd port.  This is NOT for HP-UX.
+ * University of Utah's 4.3bsd (or 4.4BSD) port.  This is NOT for HP-UX.
  * Problems to hpbsd-bugs@cs.utah.edu
  */
 
 #define	HOST_BYTE_ORDER	BIG_ENDIAN
 
-/* Avoid "INT_MIN redefined" warnings -- by defining it here, exactly
-   the same as in the system <machine/machtypes.h> file.  */
-#undef	INT_MIN
-#define	INT_MIN		0x80000000
+/* Avoid "INT_MIN redefined" preprocessor warnings -- by defining them here,
+   exactly the same as in the system <limits.h> file.  */
+#define	UINT_MAX	4294967295	/* max value for an unsigned int */
+#define	INT_MAX		2147483647	/* max value for an int */
+#define	INT_MIN		(-2147483647-1)	/* min value for an int */
+#define	LONG_MAX	2147483647	/* max value for a long */
 
 /* Get rid of any system-imposed stack limit if possible.  */
 
@@ -37,32 +39,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Get kernel u area address at run-time using BSD style nlist ().  */
 #define KERNEL_U_ADDR_BSD
 
-/* This is a piece of magic that is given a register number REGNO
-   and as BLOCKEND the address in the system of the end of the user structure
-   and stores in ADDR the address in the kernel or core dump
-   of that register.  */
-
-#define REGISTER_U_ADDR(addr, blockend, regno)				\
-{									\
-  if (regno < PS_REGNUM)						\
-    addr = (int) &((struct frame *)(blockend))->f_regs[regno];		\
-  else if (regno == PS_REGNUM)						\
-    addr = (int) &((struct frame *)(blockend))->f_stackadj;		\
-  else if (regno == PC_REGNUM)						\
-    addr = (int) &((struct frame *)(blockend))->f_pc;			\
-  else if (regno < FPC_REGNUM)						\
-    addr = (int)							\
-      &((struct user *)0)->u_pcb.pcb_fpregs.fpf_regs[((regno)-FP0_REGNUM)*3];\
-  else if (regno == FPC_REGNUM)						\
-    addr = (int) &((struct user *)0)->u_pcb.pcb_fpregs.fpf_fpcr;	\
-  else if (regno == FPS_REGNUM)						\
-    addr = (int) &((struct user *)0)->u_pcb.pcb_fpregs.fpf_fpsr;	\
-  else									\
-    addr = (int) &((struct user *)0)->u_pcb.pcb_fpregs.fpf_fpiar;	\
-}
-
 /* Kernel is a bit tenacious about sharing text segments, disallowing bpts.  */
 #define	ONE_PROCESS_WRITETEXT
+
+/* psignal's definition in 4.4BSD conflicts with the one in defs.h. 
+   But there *is* no psignal definition in 4.3BSD.  So we avoid the defs.h
+   version here, and supply our own (matching) one.  */
+#define PSIGNAL_IN_SIGNAL_H
+void    psignal PARAMS ((unsigned int, const char *));
+
+extern char *strdup PARAMS ((const char *));
 
 /* Interface definitions for kernel debugger KDB.  */
 
@@ -115,5 +101,3 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 { asm ("subil #8,sp@(28)");     \
   asm ("movem sp@,#0xffff"); \
   asm ("rte"); }
-
-extern char *strdup PARAMS ((const char *));

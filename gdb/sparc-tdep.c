@@ -1,5 +1,5 @@
 /* Target-dependent code for the SPARC for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -23,10 +23,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "obstack.h"
 #include "target.h"
 #include "ieee-float.h"
-/* XXX --  Shouldn't be doing native stuff here */
-#include "nm.h"
 
-#ifdef	USE_PROC_FS       /* XXX --  Shouldn't be doing native stuff here */
+#ifdef	USE_PROC_FS
 #include <sys/procfs.h>
 #endif
 
@@ -191,15 +189,21 @@ frame_saved_pc (frame)
  * difficulty. 
  */
 FRAME
-setup_arbitrary_frame (frame, stack)
-     FRAME_ADDR frame, stack;
+setup_arbitrary_frame (argc, argv)
+     int argc;
+     FRAME_ADDR *argv;
 {
-  FRAME fid = create_new_frame (frame, 0);
+  FRAME fid;
+
+  if (argc != 2)
+    error ("Sparc frame specifications require two arguments: fp and sp");
+
+  fid = create_new_frame (argv[0], 0);
 
   if (!fid)
     fatal ("internal: create_new_frame returned invalid frame id");
   
-  fid->bottom = stack;
+  fid->bottom = argv[1];
   fid->pc = FRAME_SAVED_PC (fid);
   return fid;
 }
@@ -653,7 +657,6 @@ const struct ext_format ext_format_sparc = {
    16, 0,    0x80, 0,1,	   4,8,		/* sparc */
 };
 
-/* XXX --  Shouldn't be doing native stuff here */
 #ifdef USE_PROC_FS	/* Target dependent support for /proc */
 
 /*  The /proc interface divides the target machine's register set up into

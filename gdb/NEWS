@@ -1,6 +1,148 @@
 		What has changed since GDB-3.5?
 		(Organized release by release)
 
+*** Changes in GDB-4.8:
+
+ * HP Precision Architecture supported
+
+GDB now supports HP PA-RISC machines running HPUX.  A preliminary
+version of this support was available as a set of patches from the
+University of Utah.  GDB does not support debugging of programs
+compiled with the HP compiler, because HP will not document their file
+format.  Instead, you must use GCC (version 2.3.2 or later) and PA-GAS
+(as available from jaguar.cs.utah.edu:/dist/pa-gas.u4.tar.Z).
+
+Many problems in the preliminary version have been fixed.
+
+ * Faster and better demangling
+
+We have improved template demangling and fixed numerous bugs in the GNU style
+demangler.  It can now handle type modifiers such as `static' or `const'.  Wide
+character types (wchar_t) are now supported.  Demangling of each symbol is now
+only done once, and is cached when the symbol table for a file is read in.
+This results in a small increase in memory usage for C programs, a moderate
+increase in memory usage for C++ programs, and a fantastic speedup in
+symbol lookups.
+
+`Cfront' style demangling still doesn't work with AT&T cfront.  It was written
+from the specifications in the Annotated Reference Manual, which AT&T's
+compiler does not actually implement.
+
+ * G++ multiple inheritance compiler problem
+
+In the 2.3.2 release of gcc/g++, how the compiler resolves multiple
+inheritance lattices was reworked to properly discover ambiguities.  We
+recently found an example which causes this new algorithm to fail in a
+very subtle way, producing bad debug information for those classes.
+The file 'gcc.patch' (in this directory) can be applied to gcc to
+circumvent the problem.  A future GCC release will contain a complete
+fix.
+
+The previous G++ debug info problem (mentioned below for the gdb-4.7
+release) is fixed in gcc version 2.3.2.
+
+ * Improved configure script
+
+The `configure' script will now attempt to guess your system type if
+you don't supply a host system type.  The old scheme of supplying a
+host system triplet is preferable over using this.  All the magic is
+done in the new `config.guess' script.  Examine it for details.
+
+We have also brought our configure script much more in line with the FSF's
+version.  It now supports the --with-xxx options.  In particular,
+`--with-minimal-bfd' can be used to make the GDB binary image smaller.
+The resulting GDB will not be able to read arbitrary object file formats --
+only the format ``expected'' to be used on the configured target system.
+We hope to make this the default in a future release.
+
+ * Documentation improvements
+
+There's new internal documentation on how to modify GDB, and how to
+produce clean changes to the code.  We implore people to read it
+before submitting changes.
+
+The GDB manual uses new, sexy Texinfo conditionals, rather than arcane
+M4 macros.  The new texinfo.tex is provided in this release.  Pre-built
+`info' files are also provided.  To build `info' files from scratch,
+you will need the latest `makeinfo' release, which will be available in
+a future texinfo-X.Y release.
+
+*NOTE*  The new texinfo.tex can cause old versions of TeX to hang.
+We're not sure exactly which versions have this problem, but it has
+been seen in 3.0.  We highly recommend upgrading to TeX version 3.141
+or better.  If that isn't possible, there is a patch in
+`texinfo/tex3patch' that will modify `texinfo/texinfo.tex' to work
+around this problem.
+
+ * New features
+
+GDB now supports array constants that can be used in expressions typed in by
+the user.  The syntax is `{element, element, ...}'.  Ie: you can now type
+`print {1, 2, 3}', and it will build up an array in memory malloc'd in
+the target program.
+
+The new directory `gdb/sparclite' contains a program that demonstrates
+how the sparc-stub.c remote stub runs on a Fujitsu SPARClite processor.
+
+ * New native hosts supported
+
+HP/PA-RISC under HPUX using GNU tools	hppa1.1-hp-hpux
+386 CPUs running SCO Unix 3.2v4		i386-unknown-sco3.2v4
+
+ * New targets supported
+
+AMD 29k family via UDI			a29k-amd-udi  or  udi29k
+
+ * New file formats supported
+
+BFD now supports reading HP/PA-RISC executables (SOM file format?),
+HPUX core files, and SCO 3.2v2 core files.
+
+ * Major bug fixes
+
+Attaching to processes now works again; thanks for the many bug reports.
+
+We have also stomped on a bunch of core dumps caused by
+printf_filtered("%s") problems.
+
+We eliminated a copyright problem on the rpc and ptrace header files
+for VxWorks, which was discovered at the last minute during the 4.7
+release.  You should now be able to build a VxWorks GDB.
+
+You can now interrupt gdb while an attached process is running.  This
+will cause the attached process to stop, and give control back to GDB.
+
+We fixed problems caused by using too many file descriptors
+for reading symbols from object files and libraries.  This was
+especially a problem for programs that used many (~100) shared
+libraries.
+
+The `step' command now only enters a subroutine if there is line number
+information for the subroutine.  Otherwise it acts like the `next'
+command.  Previously, `step' would enter subroutines if there was
+any debugging information about the routine.  This avoids problems
+when using `cc -g1' on MIPS machines.
+
+ * Internal improvements
+
+GDB's internal interfaces have been improved to make it easier to support
+debugging of multiple languages in the future.
+
+GDB now uses a common structure for symbol information internally.
+Minimal symbols (derived from linkage symbols in object files), partial
+symbols (from a quick scan of debug information), and full symbols
+contain a common subset of information, making it easier to write
+shared code that handles any of them.
+
+ * New command line options
+
+We now accept --silent as an alias for --quiet.
+
+ * Mmalloc licensing
+
+The memory-mapped-malloc library is now licensed under the GNU Library
+General Public License.
+
 *** Changes in GDB-4.7:
 
  * Host/native/target split

@@ -1,3 +1,54 @@
+Tue Feb 16 00:51:30 1993  John Gilmore  (gnu@cygnus.com)
+
+	* bfd.h:  Update for BFD_VERSION 2.1.
+
+Tue Jan 26 11:49:20 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* bfd.h: Update for SEC_IS_COMMON flag.
+
+Tue Jan 19 12:25:12 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* bfd.h: Update for bfd_asymbol_value bug fix.
+
+Fri Jan  8 16:37:18 1993  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* bfd.h: Update to include ECOFF tdata and target_flavour.
+
+Sun Dec 27 17:52:30 1992  Fred Fish  (fnf@cygnus.com)
+
+	* bfd.h:  Add declaration for bfd_get_size().
+
+Tue Dec 22 22:42:46 1992  Fred Fish  (fnf@cygnus.com)
+
+	* demangle.h:  Protect file from multiple inclusions with
+	#if !defined(DEMANGLE_H)...#define DEMANGLE_H...#endif.
+
+Mon Dec 21 21:25:50 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* bfd.h:  Update to get hppa_core_struct from bfd.c.
+
+Thu Dec 17 00:42:35 1992  John Gilmore  (gnu@cygnus.com)
+
+	* bfd.h:  Update to get tekhex tdata name change from bfd.
+
+Mon Nov  9 23:55:42 1992  John Gilmore  (gnu@cygnus.com)
+
+	* ansidecl.h:  Update comments to discourage use of EXFUN.
+
+Thu Nov  5 16:35:44 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* bfd.h: Update to bring in SEC_SHARED_LIBRARY.
+
+Thu Nov  5 03:21:32 1992  John Gilmore  (gnu@cygnus.com)
+
+	* bfd.h:  Update to match EXFUN, bfd_seclet_struct, and SDEF
+	cleanups in bfd.
+
+Wed Nov  4 07:28:05 1992  Ken Raeburn  (raeburn@cygnus.com)
+
+	* bout.h (N_CALLNAME, N_BALNAME): Define as char-type values, so
+	widening works consistently.
+
 Fri Oct 16 03:17:08 1992  John Gilmore  (gnu@cygnus.com)
 
 	* getopt.h:  Update to Revised Standard FSF Version.

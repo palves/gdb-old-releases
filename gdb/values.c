@@ -314,7 +314,7 @@ clear_value_history ()
   while (value_history_chain)
     {
       for (i = 0; i < VALUE_HISTORY_CHUNK; i++)
-	if (val = value_history_chain->values[i])
+	if ((val = value_history_chain->values[i]) != NULL)
 	  free ((PTR)val);
       next = value_history_chain->next;
       free ((PTR)value_history_chain);
@@ -391,7 +391,7 @@ lookup_internalvar (name)
   register struct internalvar *var;
 
   for (var = internalvars; var; var = var->next)
-    if (!strcmp (var->name, name))
+    if (STREQ (var->name, name))
       return var;
 
   var = (struct internalvar *) xmalloc (sizeof (struct internalvar));
@@ -701,8 +701,7 @@ unpack_long (type, valaddr)
     }
   /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
      whether we want this to be true eventually.  */
-  else if (code == TYPE_CODE_PTR
-	   || code == TYPE_CODE_REF)
+  else if (code == TYPE_CODE_PTR || code == TYPE_CODE_REF)
     {
       if (len == sizeof(long))
       {
@@ -1020,13 +1019,13 @@ value_virtual_fn_field (arg1p, f, j, type, offset)
    FIXME-tiemann: should work with dossier entries as well.  */
 
 static value
-value_headof (arg, btype, dtype)
-     value arg;
+value_headof (in_arg, btype, dtype)
+     value in_arg;
      struct type *btype, *dtype;
 {
   /* First collect the vtables we must look at for this object.  */
   /* FIXME-tiemann: right now, just look at top-most vtable.  */
-  value vtbl, entry, best_entry = 0;
+  value arg, vtbl, entry, best_entry = 0;
   int i, nelems;
   int offset, best_offset = 0;
   struct symbol *sym;
@@ -1036,25 +1035,24 @@ value_headof (arg, btype, dtype)
 
   btype = TYPE_VPTR_BASETYPE (dtype);
   check_stub_type (btype);
+  arg = in_arg;
   if (btype != dtype)
-    vtbl = value_cast (lookup_pointer_type (btype), arg);
-  else
-    vtbl = arg;
-  vtbl = value_ind (value_field (value_ind (vtbl), TYPE_VPTR_FIELDNO (btype)));
+    arg = value_cast (lookup_pointer_type (btype), arg);
+  vtbl = value_ind (value_field (value_ind (arg), TYPE_VPTR_FIELDNO (btype)));
 
   /* Check that VTBL looks like it points to a virtual function table.  */
   msymbol = lookup_minimal_symbol_by_pc (VALUE_ADDRESS (vtbl));
   if (msymbol == NULL
-      || !VTBL_PREFIX_P (demangled_name = msymbol -> name))
+      || !VTBL_PREFIX_P (demangled_name = SYMBOL_NAME (msymbol)))
     {
       /* If we expected to find a vtable, but did not, let the user
 	 know that we aren't happy, but don't throw an error.
 	 FIXME: there has to be a better way to do this.  */
       struct type *error_type = (struct type *)xmalloc (sizeof (struct type));
-      memcpy (error_type, VALUE_TYPE (arg), sizeof (struct type));
+      memcpy (error_type, VALUE_TYPE (in_arg), sizeof (struct type));
       TYPE_NAME (error_type) = savestring ("suspicious *", sizeof ("suspicious *"));
-      VALUE_TYPE (arg) = error_type;
-      return arg;
+      VALUE_TYPE (in_arg) = error_type;
+      return in_arg;
     }
 
   /* Now search through the virtual function table.  */
@@ -1091,14 +1089,15 @@ value_headof (arg, btype, dtype)
       *(strchr (demangled_name, ':')) = '\0';
     }
   sym = lookup_symbol (demangled_name, 0, VAR_NAMESPACE, 0, 0);
-  if (sym == 0)
-    error ("could not find type declaration for `%s'", SYMBOL_NAME (sym));
+  if (sym == NULL)
+    error ("could not find type declaration for `%s'", demangled_name);
   if (best_entry)
     {
       free (demangled_name);
       arg = value_add (value_cast (builtin_type_int, arg),
 		       value_field (best_entry, 0));
     }
+  else arg = in_arg;
   VALUE_TYPE (arg) = lookup_pointer_type (SYMBOL_TYPE (sym));
   return arg;
 }
@@ -1152,7 +1151,7 @@ baseclass_offset (type, index, arg, offset)
 	 in the fields.  */
       for (i = n_baseclasses; i < len; i++)
 	{
-	  if (! strcmp (vbase_name, TYPE_FIELD_NAME (type, i)))
+	  if (STREQ (vbase_name, TYPE_FIELD_NAME (type, i)))
 	    {
 	      CORE_ADDR addr
 		= unpack_pointer (TYPE_FIELD_TYPE (type, i),
@@ -1215,12 +1214,12 @@ baseclass_addr (type, index, valaddr, valuep, errp)
       char *vbase_name, *type_name = type_name_no_tag (basetype);
 
       vbase_name = (char *)alloca (strlen (type_name) + 8);
-      sprintf (vbase_name, "_vb$%s", type_name);
+      sprintf (vbase_name, "_vb%c%s", CPLUS_MARKER, type_name);
       /* First look for the virtual baseclass pointer
 	 in the fields.  */
       for (i = n_baseclasses; i < len; i++)
 	{
-	  if (! strcmp (vbase_name, TYPE_FIELD_NAME (type, i)))
+	  if (STREQ (vbase_name, TYPE_FIELD_NAME (type, i)))
 	    {
 	      value val = allocate_value (basetype);
 	      CORE_ADDR addr;
@@ -1384,7 +1383,7 @@ value_from_longest (type, num)
      integers, and that all pointers have the same form.  */
   if (code == TYPE_CODE_INT  || code == TYPE_CODE_ENUM || 
       code == TYPE_CODE_CHAR || code == TYPE_CODE_PTR ||
-      code == TYPE_CODE_REF)
+      code == TYPE_CODE_REF  || code == TYPE_CODE_BOOL)
     {
       if (len == sizeof (char))
 	* (char *) VALUE_CONTENTS_RAW (val) = num;

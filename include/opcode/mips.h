@@ -21,86 +21,63 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* FIXME!  This assumes that a host compiler will lay out
-   bit fields in a particular order based on its byte order.
-   Fix this with shifts and masks. */
-#if HOST_BYTE_ORDER == BIG_ENDIAN
-#define BIT_FIELDS_2(a,b) a;b;
-#define BIT_FIELDS_4(a,b,c,d) a;b;c;d;
-#define BIT_FIELDS_6(a,b,c,d,e,f) a;b;c;d;e;f;
-#else
-#define BIT_FIELDS_2(a,b) b;a;
-#define BIT_FIELDS_4(a,b,c,d) d;c;b;a;
-#define BIT_FIELDS_6(a,b,c,d,e,f) f;e;d;c;b;a;
-#endif
+/* These are bit masks and shift counts to use to access the various
+   fields of an instruction.  To retrieve the X field of an
+   instruction, use the expression
+	(i >> OP_SH_X) & OP_MASK_X
+   To set the same field (to j), use
+	i = (i &~ (OP_MASK_X << OP_SH_X)) | (j << OP_SH_X)
 
-struct op_i_fmt
-{
-BIT_FIELDS_4(
-  unsigned op : 6,
-  unsigned rs : 5,
-  unsigned rt : 5,
-  unsigned immediate : 16)
-};
+   Make sure you use fields that are appropriate for the instruction,
+   of course.  
 
-struct op_j_fmt
-{
-BIT_FIELDS_2(
-  unsigned op : 6,
-  unsigned target : 26)
-};
+   The 'i' format uses OP, RS, RT and IMMEDIATE.  
 
-struct op_r_fmt
-{
-BIT_FIELDS_6(
-  unsigned op : 6,
-  unsigned rs : 5,
-  unsigned rt : 5,
-  unsigned rd : 5,
-  unsigned shamt : 5,
-  unsigned funct : 6)
-};
+   The 'j' format uses OP and TARGET.
 
+   The 'r' format uses OP, RS, RT, RD, SHAMT and FUNCT.
 
-struct fop_i_fmt
-{
-BIT_FIELDS_4(
-  unsigned op : 6,
-  unsigned rs : 5,
-  unsigned rt : 5,
-  unsigned immediate : 16)
-};
+   The 'b' format uses OP, RS, RT and DELTA.
 
-struct op_b_fmt
-{
-BIT_FIELDS_4(
-  unsigned op : 6,
-  unsigned rs : 5,
-  unsigned rt : 5,
-  short delta : 16)
-};
+   The floating point 'i' format uses OP, RS, RT and IMMEDIATE.
 
-struct op_brk_fmt
-{
-  BIT_FIELDS_4(
-  unsigned op: 6,
-  unsigned code: 10,
- /* Kane states the breakpoint-code code field in BREAK is 20 bits.  Yet MIPS 
-    assemblers and debuggers only use ten bits.  */
-  unsigned illdefined: 10,
-  unsigned spec: 6)
-};
+   The floating point 'r' format uses OP, FMT, FT, FS, FD and FUNCT.
 
-struct fop_r_fmt
-{
-BIT_FIELDS_6(
-  unsigned op : 6,
-  unsigned fmt : 5,
-  unsigned ft : 5,
-  unsigned fs : 5,
-  unsigned fd : 5,
-  unsigned funct : 6)
-};
+   A breakpoint instruction uses OP, CODE and SPEC (10 bits of the
+   breakpoint instruction are not defined; Kane says the
+   breakpoint-code code field in BREAK is 20 bits; yet MIPS assemblers
+   and debuggers only use ten bits).  */
+
+#define OP_MASK_OP		0x3f
+#define OP_SH_OP		26
+#define OP_MASK_RS		0x1f
+#define OP_SH_RS		21
+#define OP_MASK_FMT		0x1f
+#define OP_SH_FMT		21
+#define OP_MASK_CODE		0x3ff
+#define OP_SH_CODE		16
+#define OP_MASK_RT		0x1f
+#define OP_SH_RT		16
+#define OP_MASK_FT		0x1f
+#define OP_SH_FT		16
+#define OP_MASK_RD		0x1f
+#define OP_SH_RD		11
+#define OP_MASK_FS		0x1f
+#define OP_SH_FS		11
+#define OP_MASK_SHAMT		0x1f
+#define OP_SH_SHAMT		6
+#define OP_MASK_FD		0x1f
+#define OP_SH_FD		6
+#define OP_MASK_TARGET		0x3ffffff
+#define OP_SH_TARGET		0
+#define OP_MASK_IMMEDIATE	0xffff
+#define OP_SH_IMMEDIATE		0
+#define OP_MASK_DELTA		0xffff
+#define OP_SH_DELTA		0
+#define OP_MASK_FUNCT		0x3f
+#define OP_SH_FUNCT		0
+#define OP_MASK_SPEC		0x3f
+#define OP_SH_SPEC		0
 
 struct mips_opcode
 {
@@ -115,7 +92,8 @@ struct mips_opcode
 
    "s" rs: source register specifier
    "t" rt: target register
-   "i" immediate
+   "i" unsigned immediate
+   "j" signed immediate
    "a" target address
    "b" branch target address
    "c" branch condition
@@ -130,13 +108,13 @@ struct mips_opcode
    "D" distination register
 */
 
-#define one(x) (x << 26)
-#define op_func(x, y) ((x << 26) | y)
-#define op_cond(x, y) ((x << 26) | (y << 16))
-#define op_rs_func(x, y, z) ((x << 26) | (y << 21) | z)
-#define op_rs_b11(x, y, z) ((x << 26) | (y << 21) | z)
-#define op_o16(x, y) ((x << 26) | (y << 16))
-#define op_bc(x, y, z) ((x << 26) | (y << 21) | (z << 16))
+#define one(x) (x << OP_SH_OP)
+#define op_func(x, y) ((x << OP_SH_OP) | y)
+#define op_cond(x, y) ((x << OP_SH_OP) | (y << OP_SH_RT))
+#define op_rs_func(x, y, z) ((x << OP_SH_OP) | (y << OP_SH_RS) | z)
+#define op_rs_b11(x, y, z) ((x << OP_SH_OP) | (y << OP_SH_FMT) | z)
+#define op_o16(x, y) ((x << OP_SH_OP) | (y << OP_SH_RT))
+#define op_bc(x, y, z) ((x << OP_SH_OP) | (y << OP_SH_RS) | (z << OP_SH_RT))
 
 struct mips_opcode mips_opcodes[] = 
 {
@@ -146,8 +124,8 @@ struct mips_opcode mips_opcodes[] =
   {"li",	op_bc(13,0,0),  op_bc(0x3f,31,0),    /*ori*/    "t,i", 0},
   {"move",	op_func(0, 33),	op_cond(0x3f,31)|0x7ff,/*addu*/	"d,s", 0},
   {"b",		one(4),		0xffff0000,	     /*beq*/	"b", 1},
-  {"b",   op_cond (1, 1), op_cond(0x3f, 0x1f)|(0x1f << 21), /*bgez*/   "b", 1},
-  {"bal", op_cond (1, 17),op_cond(0x3f, 0x1f)|(0x1f << 21), /*bgezal*/ "b", 1},
+  {"b",   op_cond (1, 1), op_cond(0x3f, 0x1f)|(0x1f << OP_SH_RS), /*bgez*/   "b", 1},
+  {"bal", op_cond (1, 17),op_cond(0x3f, 0x1f)|(0x1f << OP_SH_RS), /*bgezal*/ "b", 1},
 
   {"sll",	op_func(0, 0),	op_func(0x3f, 0x3f),		"d,t,h", 0},
   {"srl",	op_func(0, 2),	op_func(0x3f, 0x3f),		"d,t,h", 0},

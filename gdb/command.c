@@ -260,7 +260,7 @@ delete_cmd (name, list)
   register struct cmd_list_element *c;
   struct cmd_list_element *p;
 
-  while (*list && !strcmp ((*list)->name, name))
+  while (*list && STREQ ((*list)->name, name))
     {
       if ((*list)->hookee)
 	(*list)->hookee->hook = 0;	/* Hook slips out of its mouth */
@@ -272,7 +272,7 @@ delete_cmd (name, list)
   if (*list)
     for (c = *list; c->next;)
       {
-	if (!strcmp (c->next->name, name))
+	if (STREQ (c->next->name, name))
 	  {
 	    if (c->next->hookee)
 	      c->next->hookee->hook = 0;  /* hooked cmd gets away.  */
@@ -1081,7 +1081,7 @@ do_setshow_command (arg, from_tty, c)
 	  unsigned char *p;
 	  fputs_filtered ("\"", stdout);
 	  for (p = *(unsigned char **) c->var; *p != '\0'; p++)
-	    printchar (*p, stdout, '"');
+	    gdb_printchar (*p, stdout, '"');
 	  fputs_filtered ("\"", stdout);
 	}
 	break;
@@ -1136,6 +1136,7 @@ cmd_show_list (list, from_tty, prefix)
   }
 }
 
+#ifndef CANT_FORK
 /* ARGSUSED */
 static void
 shell_escape (arg, from_tty)
@@ -1171,7 +1172,9 @@ shell_escape (arg, from_tty)
   else
     error ("Fork failed");
 }
+#endif
 
+#ifndef CANT_FORK
 static void
 make_command (arg, from_tty)
      char *arg;
@@ -1190,6 +1193,7 @@ make_command (arg, from_tty)
   
   shell_escape (p, from_tty);
 }
+#endif
 
 static void
 show_user_1 (c, stream)
@@ -1239,13 +1243,15 @@ show_user (args, from_tty)
 void
 _initialize_command ()
 {
+#ifndef CANT_FORK
   add_com ("shell", class_support, shell_escape,
 	   "Execute the rest of the line as a shell command.  \n\
 With no arguments, run an inferior shell.");
-
+#endif
+#ifndef CANT_FORK
   add_com ("make", class_support, make_command,
 	   "Run the ``make'' program using the rest of the line as arguments.");
-
+#endif
   add_cmd ("user", no_class, show_user, 
 	   "Show definitions of user defined commands.\n\
 Argument is the name of the user defined command.\n\

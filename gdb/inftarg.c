@@ -76,7 +76,14 @@ child_wait (status)
   int pid;
 
   do {
+    if (attach_flag)
+      set_sigint_trap();	/* Causes SIGINT to be passed on to the
+				   attached process. */
     pid = wait (status);
+
+    if (attach_flag)
+      clear_sigint_trap();
+
     if (pid == -1)		/* No more children to wait for */
       {
 	fprintf (stderr, "Child process unexpectedly missing.\n");

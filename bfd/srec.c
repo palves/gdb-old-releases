@@ -1,5 +1,5 @@
 /* BFD back-end for s-record objects.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -438,6 +438,7 @@ void DEFUN(srec_write_record,(abfd, type, address, data, end),
     TOHEX(dst, check_sum, check_sum);
     dst+=2;
     
+    *dst ++ = '\r';
     *dst ++ = '\n';
     bfd_write((PTR)buffer, 1, dst - buffer , abfd);
 }
@@ -503,9 +504,8 @@ DEFUN(srec_write_terminator,(abfd, tdata),
     
     srec_write_record(abfd, 10 - tdata->type,
 		      abfd->start_address, buffer, buffer);
-
-
 }
+
 static boolean
 DEFUN(srec_mkobject, (abfd), 
       bfd *abfd)
@@ -589,6 +589,8 @@ DEFUN(srec_make_empty_symbol, (abfd),
 #define srec_bfd_debug_info_accumulate  (FOO(void, (*), (bfd *,	 asection *))) bfd_void
 #define srec_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
 #define srec_bfd_relax_section bfd_generic_relax_section
+#define srec_bfd_seclet_link bfd_generic_seclet_link
+
 bfd_target srec_vec =
 {
     "srec",			/* name */

@@ -9,7 +9,7 @@ END-INFO-DIR-ENTRY
 @end format
 
 This file documents the GNU mmalloc (mapped-malloc) package, written by
-fnf@@cygnus.com, based on GNU malloc written by mike@ai.mit.edu.
+fnf@@cygnus.com, based on GNU malloc written by mike@@ai.mit.edu.
 
 Copyright (C) 1992 Free Software Foundation, Inc.
 
@@ -47,7 +47,7 @@ into another language, under the above conditions for modified versions.
 
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.2 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.3 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill fnf\@cygnus.com\par

@@ -1,23 +1,20 @@
 
-# line 30 "./c-exp.y"
+# line 38 "./c-exp.y"
 
-#include <stdio.h>
-#include <string.h>
 #include "defs.h"
-#include "symtab.h"
-#include "gdbtypes.h"
-#include "frame.h"
 #include "expression.h"
 #include "parser-defs.h"
 #include "value.h"
 #include "language.h"
-#include "bfd.h"
-#include "symfile.h"
-#include "objfiles.h"
+#include "c-lang.h"
 
-/* These MUST be included in any grammar file!!!! Please choose unique names!
-   Note that this are a combined list of variables that can be produced
-   by any one of bison, byacc, or yacc. */
+/* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
+   as well as gratuitiously global symbol names, so we can have multiple
+   yacc generated parsers in gdb.  Note that these are only the variables
+   produced by yacc.  If other parser generators (bison, byacc, etc) produce
+   additional global names that conflict at link time, then those parser
+   generators need to be fixed instead of adding those names to this list. */
+
 #define	yymaxdepth c_maxdepth
 #define	yyparse	c_parse
 #define	yylex	c_lex
@@ -45,28 +42,32 @@
 #define	yy_yyv	c_yyv
 #define	yyval	c_val
 #define	yylloc	c_lloc
-#define yyss	c_yyss		/* byacc */
-#define	yyssp	c_yysp		/* byacc */
-#define	yyvs	c_yyvs		/* byacc */
-#define	yyvsp	c_yyvsp		/* byacc */
+#define yyreds	c_reds		/* With YYDEBUG defined */
+#define yytoks	c_toks		/* With YYDEBUG defined */
+
+#ifndef YYDEBUG
+#define	YYDEBUG	0		/* Default to no yydebug support */
+#endif
 
 int
 yyparse PARAMS ((void));
 
-int
+static int
 yylex PARAMS ((void));
 
 void
 yyerror PARAMS ((char *));
 
-/* #define	YYDEBUG	1 */
 
-
-# line 97 "./c-exp.y"
+# line 102 "./c-exp.y"
 typedef union 
   {
     LONGEST lval;
     unsigned LONGEST ulval;
+    struct {
+      LONGEST val;
+      struct type *type;
+    } typed_val;
     double dval;
     struct symbol *sym;
     struct type *tval;
@@ -82,64 +83,50 @@ typedef union
     int *ivec;
   } YYSTYPE;
 
-# line 117 "./c-exp.y"
+# line 126 "./c-exp.y"
 /* YYSTYPE gets defined by %union */
 static int
 parse_number PARAMS ((char *, int, int, YYSTYPE *));
 # define INT 257
-# define CHAR 258
-# define UINT 259
-# define FLOAT 260
-# define STRING 261
-# define NAME 262
-# define TYPENAME 263
-# define NAME_OR_INT 264
-# define NAME_OR_UINT 265
-# define STRUCT 266
-# define CLASS 267
-# define UNION 268
-# define ENUM 269
-# define SIZEOF 270
-# define UNSIGNED 271
-# define COLONCOLON 272
-# define TEMPLATE 273
-# define ERROR 274
-# define SIGNED_KEYWORD 275
-# define LONG 276
-# define SHORT 277
-# define INT_KEYWORD 278
-# define CONST_KEYWORD 279
-# define VOLATILE_KEYWORD 280
-# define LAST 281
-# define REGNAME 282
-# define VARIABLE 283
-# define ASSIGN_MODIFY 284
-# define THIS 285
-# define ABOVE_COMMA 286
-# define OROR 287
-# define ANDAND 288
-# define EQUAL 289
-# define NOTEQUAL 290
-# define LEQ 291
-# define GEQ 292
-# define LSH 293
-# define RSH 294
-# define UNARY 295
-# define INCREMENT 296
-# define DECREMENT 297
-# define ARROW 298
-# define BLOCKNAME 299
-
-# line 197 "./c-exp.y"
-/* Ensure that if the generated parser contains any calls to malloc/realloc,
-   that they get mapped to xmalloc/xrealloc.  We have to do this here
-   rather than earlier in the file because this is the first point after
-   the place where the SVR4 yacc includes <malloc.h>, and if we do it
-   before that, then the remapped declarations in <malloc.h> will collide
-   with the ones in "defs.h". */
-
-#define malloc	xmalloc
-#define realloc	xrealloc
+# define FLOAT 258
+# define STRING 259
+# define NAME 260
+# define TYPENAME 261
+# define NAME_OR_INT 262
+# define STRUCT 263
+# define CLASS 264
+# define UNION 265
+# define ENUM 266
+# define SIZEOF 267
+# define UNSIGNED 268
+# define COLONCOLON 269
+# define TEMPLATE 270
+# define ERROR 271
+# define SIGNED_KEYWORD 272
+# define LONG 273
+# define SHORT 274
+# define INT_KEYWORD 275
+# define CONST_KEYWORD 276
+# define VOLATILE_KEYWORD 277
+# define LAST 278
+# define REGNAME 279
+# define VARIABLE 280
+# define ASSIGN_MODIFY 281
+# define THIS 282
+# define ABOVE_COMMA 283
+# define OROR 284
+# define ANDAND 285
+# define EQUAL 286
+# define NOTEQUAL 287
+# define LEQ 288
+# define GEQ 289
+# define LSH 290
+# define RSH 291
+# define UNARY 292
+# define INCREMENT 293
+# define DECREMENT 294
+# define ARROW 295
+# define BLOCKNAME 296
 #define yyclearin yychar = -1
 #define yyerrok yyerrflag = 0
 extern int yychar;
@@ -150,7 +137,7 @@ extern int yyerrflag;
 YYSTYPE yylval, yyval;
 # define YYERRCODE 256
 
-# line 946 "./c-exp.y"
+# line 943 "./c-exp.y"
 
 
 /* Take care of parsing a number (anything that starts with a digit).
@@ -172,6 +159,10 @@ parse_number (p, len, parsed_float, putithere)
   register int c;
   register int base = input_radix;
   int unsigned_p = 0;
+  int long_p = 0;
+  LONGEST high_bit;
+  struct type *signed_type;
+  struct type *unsigned_type;
 
   if (parsed_float)
     {
@@ -224,8 +215,8 @@ parse_number (p, len, parsed_float, putithere)
 	{
 	  if (base > 10 && c >= 'a' && c <= 'f')
 	    n += i = c - 'a' + 10;
-	  else if (len == 0 && c == 'l')
-	    ;
+	  else if (len == 0 && c == 'l') 
+            long_p = 1;
 	  else if (len == 0 && c == 'u')
 	    unsigned_p = 1;
 	  else
@@ -233,6 +224,7 @@ parse_number (p, len, parsed_float, putithere)
 	}
       if (i >= base)
 	return ERROR;		/* Invalid digit in this base */
+
       /* Portably test for overflow (only works for nonzero values, so make
 	 a second check for zero).  */
       if((prevn >= n) && n != 0)
@@ -245,17 +237,40 @@ parse_number (p, len, parsed_float, putithere)
       }
       prevn=n;
     }
+ 
+     /* If the number is too big to be an int, or it's got an l suffix
+	then it's a long.  Work out if this has to be a long by
+	shifting right and and seeing if anything remains, and the
+	target int size is different to the target long size. */
 
-  if (unsigned_p)
-    {
-      putithere->ulval = n;
-      return UINT;
-    }
-  else
-    {
-      putithere->lval = n;
-      return INT;
-    }
+    if ((TARGET_INT_BIT != TARGET_LONG_BIT && (n >> TARGET_INT_BIT)) || long_p)
+      {
+         high_bit = ((LONGEST)1) << (TARGET_LONG_BIT-1);
+	 unsigned_type = builtin_type_unsigned_long;
+	 signed_type = builtin_type_long;
+      }
+    else 
+      {
+	 high_bit = ((LONGEST)1) << (TARGET_INT_BIT-1);
+	 unsigned_type = builtin_type_unsigned_int;
+	 signed_type = builtin_type_int;
+      }    
+
+   putithere->typed_val.val = n;
+
+   /* If the high bit of the worked out type is set then this number
+      has to be unsigned. */
+
+   if (unsigned_p || (n & high_bit)) 
+     {
+        putithere->typed_val.type = unsigned_type;
+     }
+   else 
+     {
+        putithere->typed_val.type = signed_type;
+     }
+
+   return INT;
 }
 
 struct token
@@ -265,22 +280,22 @@ struct token
   enum exp_opcode opcode;
 };
 
-const static struct token tokentab3[] =
+static const struct token tokentab3[] =
   {
     {">>=", ASSIGN_MODIFY, BINOP_RSH},
     {"<<=", ASSIGN_MODIFY, BINOP_LSH}
   };
 
-const static struct token tokentab2[] =
+static const struct token tokentab2[] =
   {
     {"+=", ASSIGN_MODIFY, BINOP_ADD},
     {"-=", ASSIGN_MODIFY, BINOP_SUB},
     {"*=", ASSIGN_MODIFY, BINOP_MUL},
     {"/=", ASSIGN_MODIFY, BINOP_DIV},
     {"%=", ASSIGN_MODIFY, BINOP_REM},
-    {"|=", ASSIGN_MODIFY, BINOP_LOGIOR},
-    {"&=", ASSIGN_MODIFY, BINOP_LOGAND},
-    {"^=", ASSIGN_MODIFY, BINOP_LOGXOR},
+    {"|=", ASSIGN_MODIFY, BINOP_BITWISE_IOR},
+    {"&=", ASSIGN_MODIFY, BINOP_BITWISE_AND},
+    {"^=", ASSIGN_MODIFY, BINOP_BITWISE_XOR},
     {"++", INCREMENT, BINOP_END},
     {"--", DECREMENT, BINOP_END},
     {"->", ARROW, BINOP_END},
@@ -297,20 +312,24 @@ const static struct token tokentab2[] =
 
 /* Read one token, getting characters through lexptr.  */
 
-int
+static int
 yylex ()
 {
-  register int c;
-  register int namelen;
-  register unsigned i;
-  register char *tokstart;
-
+  int c;
+  int namelen;
+  unsigned int i;
+  char *tokstart;
+  char *tokptr;
+  int tempbufindex;
+  static char *tempbuf;
+  static int tempbufsize;
+  
  retry:
 
   tokstart = lexptr;
   /* See if it is a special token of length 3.  */
   for (i = 0; i < sizeof tokentab3 / sizeof tokentab3[0]; i++)
-    if (!strncmp (tokstart, tokentab3[i].operator, 3))
+    if (STREQN (tokstart, tokentab3[i].operator, 3))
       {
 	lexptr += 3;
 	yylval.opcode = tokentab3[i].opcode;
@@ -319,7 +338,7 @@ yylex ()
 
   /* See if it is a special token of length 2.  */
   for (i = 0; i < sizeof tokentab2 / sizeof tokentab2[0]; i++)
-    if (!strncmp (tokstart, tokentab2[i].operator, 2))
+    if (STREQN (tokstart, tokentab2[i].operator, 2))
       {
 	lexptr += 2;
 	yylval.opcode = tokentab2[i].opcode;
@@ -345,7 +364,10 @@ yylex ()
       c = *lexptr++;
       if (c == '\\')
 	c = parse_escape (&lexptr);
-      yylval.lval = c;
+
+      yylval.typed_val.val = c;
+      yylval.typed_val.type = builtin_type_char;
+
       c = *lexptr++;
       if (c != '\'')
 	{
@@ -359,7 +381,7 @@ yylex ()
 	    }
 	  error ("Invalid character constant.");
 	}
-      return CHAR;
+      return INT;
 
     case '(':
       paren_depth++;
@@ -468,21 +490,55 @@ yylex ()
       return c;
 
     case '"':
-      for (namelen = 1; (c = tokstart[namelen]) != '"'; namelen++)
-	if (c == '\\')
+
+      /* Build the gdb internal form of the input string in tempbuf,
+	 translating any standard C escape forms seen.  Note that the
+	 buffer is null byte terminated *only* for the convenience of
+	 debugging gdb itself and printing the buffer contents when
+	 the buffer contains no embedded nulls.  Gdb does not depend
+	 upon the buffer being null byte terminated, it uses the length
+	 string instead.  This allows gdb to handle C strings (as well
+	 as strings in other languages) with embedded null bytes */
+
+      tokptr = ++tokstart;
+      tempbufindex = 0;
+
+      do {
+	/* Grow the static temp buffer if necessary, including allocating
+	   the first one on demand. */
+	if (tempbufindex + 1 >= tempbufsize)
 	  {
-	    c = tokstart[++namelen];
-	    if (c >= '0' && c <= '9')
-	      {
-		c = tokstart[++namelen];
-		if (c >= '0' && c <= '9')
-		  c = tokstart[++namelen];
-	      }
+	    tempbuf = (char *) xrealloc (tempbuf, tempbufsize += 64);
 	  }
-      yylval.sval.ptr = tokstart + 1;
-      yylval.sval.length = namelen - 1;
-      lexptr += namelen + 1;
-      return STRING;
+	switch (*tokptr)
+	  {
+	  case '\0':
+	  case '"':
+	    /* Do nothing, loop will terminate. */
+	    break;
+	  case '\\':
+	    tokptr++;
+	    c = parse_escape (&tokptr);
+	    if (c == -1)
+	      {
+		continue;
+	      }
+	    tempbuf[tempbufindex++] = c;
+	    break;
+	  default:
+	    tempbuf[tempbufindex++] = *tokptr++;
+	    break;
+	  }
+      } while ((*tokptr != '"') && (*tokptr != '\0'));
+      if (*tokptr++ != '"')
+	{
+	  error ("Unterminated string in expression.");
+	}
+      tempbuf[tempbufindex] = '\0';	/* See note above */
+      yylval.sval.ptr = tempbuf;
+      yylval.sval.length = tempbufindex;
+      lexptr = tokptr;
+      return (STRING);
     }
 
   if (!(c == '_' || c == '$'
@@ -548,14 +604,14 @@ yylex ()
   if (*tokstart == '$') {
     for (c = 0; c < NUM_REGS; c++)
       if (namelen - 1 == strlen (reg_names[c])
-	  && !strncmp (tokstart + 1, reg_names[c], namelen - 1))
+	  && STREQN (tokstart + 1, reg_names[c], namelen - 1))
 	{
 	  yylval.lval = c;
 	  return REGNAME;
 	}
     for (c = 0; c < num_std_regs; c++)
      if (namelen - 1 == strlen (std_regs[c].name)
-	 && !strncmp (tokstart + 1, std_regs[c].name, namelen - 1))
+	 && STREQN (tokstart + 1, std_regs[c].name, namelen - 1))
        {
 	 yylval.lval = std_regs[c].regnum;
 	 return REGNAME;
@@ -565,40 +621,40 @@ yylex ()
   switch (namelen)
     {
     case 8:
-      if (!strncmp (tokstart, "unsigned", 8))
+      if (STREQN (tokstart, "unsigned", 8))
 	return UNSIGNED;
       if (current_language->la_language == language_cplus
-	  && !strncmp (tokstart, "template", 8))
+	  && STREQN (tokstart, "template", 8))
 	return TEMPLATE;
-      if (!strncmp (tokstart, "volatile", 8))
+      if (STREQN (tokstart, "volatile", 8))
 	return VOLATILE_KEYWORD;
       break;
     case 6:
-      if (!strncmp (tokstart, "struct", 6))
+      if (STREQN (tokstart, "struct", 6))
 	return STRUCT;
-      if (!strncmp (tokstart, "signed", 6))
+      if (STREQN (tokstart, "signed", 6))
 	return SIGNED_KEYWORD;
-      if (!strncmp (tokstart, "sizeof", 6))      
+      if (STREQN (tokstart, "sizeof", 6))      
 	return SIZEOF;
       break;
     case 5:
       if (current_language->la_language == language_cplus
-	  && !strncmp (tokstart, "class", 5))
+	  && STREQN (tokstart, "class", 5))
 	return CLASS;
-      if (!strncmp (tokstart, "union", 5))
+      if (STREQN (tokstart, "union", 5))
 	return UNION;
-      if (!strncmp (tokstart, "short", 5))
+      if (STREQN (tokstart, "short", 5))
 	return SHORT;
-      if (!strncmp (tokstart, "const", 5))
+      if (STREQN (tokstart, "const", 5))
 	return CONST_KEYWORD;
       break;
     case 4:
-      if (!strncmp (tokstart, "enum", 4))
+      if (STREQN (tokstart, "enum", 4))
 	return ENUM;
-      if (!strncmp (tokstart, "long", 4))
+      if (STREQN (tokstart, "long", 4))
 	return LONG;
       if (current_language->la_language == language_cplus
-	  && !strncmp (tokstart, "this", 4))
+	  && STREQN (tokstart, "this", 4))
 	{
 	  static const char this_name[] =
 				 { CPLUS_MARKER, 't', 'h', 'i', 's', '\0' };
@@ -609,7 +665,7 @@ yylex ()
 	}
       break;
     case 3:
-      if (!strncmp (tokstart, "int", 3))
+      if (STREQN (tokstart, "int", 3))
 	return INT_KEYWORD;
       break;
     default:
@@ -673,12 +729,6 @@ yylex ()
 	    yylval.ssym.is_a_field_of_this = is_a_field_of_this;
 	    return NAME_OR_INT;
 	  }
-	if (hextype == UINT)
-	  {
-	    yylval.ssym.sym = sym;
-	    yylval.ssym.is_a_field_of_this = is_a_field_of_this;
-	    return NAME_OR_UINT;
-	  }
       }
 
     /* Any other kind of symbol */
@@ -694,428 +744,234 @@ yyerror (msg)
 {
   error (msg ? msg : "Invalid syntax in expression.");
 }
-
-/* Table mapping opcodes into strings for printing operators
-   and precedences of the operators.  */
-
-const static struct op_print c_op_print_tab[] =
-  {
-    {",",  BINOP_COMMA, PREC_COMMA, 0},
-    {"=",  BINOP_ASSIGN, PREC_ASSIGN, 1},
-    {"||", BINOP_OR, PREC_OR, 0},
-    {"&&", BINOP_AND, PREC_AND, 0},
-    {"|",  BINOP_LOGIOR, PREC_LOGIOR, 0},
-    {"&",  BINOP_LOGAND, PREC_LOGAND, 0},
-    {"^",  BINOP_LOGXOR, PREC_LOGXOR, 0},
-    {"==", BINOP_EQUAL, PREC_EQUAL, 0},
-    {"!=", BINOP_NOTEQUAL, PREC_EQUAL, 0},
-    {"<=", BINOP_LEQ, PREC_ORDER, 0},
-    {">=", BINOP_GEQ, PREC_ORDER, 0},
-    {">",  BINOP_GTR, PREC_ORDER, 0},
-    {"<",  BINOP_LESS, PREC_ORDER, 0},
-    {">>", BINOP_RSH, PREC_SHIFT, 0},
-    {"<<", BINOP_LSH, PREC_SHIFT, 0},
-    {"+",  BINOP_ADD, PREC_ADD, 0},
-    {"-",  BINOP_SUB, PREC_ADD, 0},
-    {"*",  BINOP_MUL, PREC_MUL, 0},
-    {"/",  BINOP_DIV, PREC_MUL, 0},
-    {"%",  BINOP_REM, PREC_MUL, 0},
-    {"@",  BINOP_REPEAT, PREC_REPEAT, 0},
-    {"-",  UNOP_NEG, PREC_PREFIX, 0},
-    {"!",  UNOP_ZEROP, PREC_PREFIX, 0},
-    {"~",  UNOP_LOGNOT, PREC_PREFIX, 0},
-    {"*",  UNOP_IND, PREC_PREFIX, 0},
-    {"&",  UNOP_ADDR, PREC_PREFIX, 0},
-    {"sizeof ", UNOP_SIZEOF, PREC_PREFIX, 0},
-    {"++", UNOP_PREINCREMENT, PREC_PREFIX, 0},
-    {"--", UNOP_PREDECREMENT, PREC_PREFIX, 0},
-    /* C++  */
-    {"::", BINOP_SCOPE, PREC_PREFIX, 0},
-};
-
-/* These variables point to the objects
-   representing the predefined C data types.  */
-
-struct type *builtin_type_void;
-struct type *builtin_type_char;
-struct type *builtin_type_short;
-struct type *builtin_type_int;
-struct type *builtin_type_long;
-struct type *builtin_type_long_long;
-struct type *builtin_type_signed_char;
-struct type *builtin_type_unsigned_char;
-struct type *builtin_type_unsigned_short;
-struct type *builtin_type_unsigned_int;
-struct type *builtin_type_unsigned_long;
-struct type *builtin_type_unsigned_long_long;
-struct type *builtin_type_float;
-struct type *builtin_type_double;
-struct type *builtin_type_long_double;
-struct type *builtin_type_complex;
-struct type *builtin_type_double_complex;
-
-struct type ** const (c_builtin_types[]) = 
-{
-  &builtin_type_int,
-  &builtin_type_long,
-  &builtin_type_short,
-  &builtin_type_char,
-  &builtin_type_float,
-  &builtin_type_double,
-  &builtin_type_void,
-  &builtin_type_long_long,
-  &builtin_type_signed_char,
-  &builtin_type_unsigned_char,
-  &builtin_type_unsigned_short,
-  &builtin_type_unsigned_int,
-  &builtin_type_unsigned_long,
-  &builtin_type_unsigned_long_long,
-  &builtin_type_long_double,
-  &builtin_type_complex,
-  &builtin_type_double_complex,
-  0
-};
-
-const struct language_defn c_language_defn = {
-  "c",				/* Language name */
-  language_c,
-  c_builtin_types,
-  range_check_off,
-  type_check_off,
-  c_parse,
-  c_error,
-  &BUILTIN_TYPE_LONGEST,	 /* longest signed   integral type */
-  &BUILTIN_TYPE_UNSIGNED_LONGEST,/* longest unsigned integral type */
-  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
-  "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
-  "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
-  c_op_print_tab,		/* expression operators for printing */
-  LANG_MAGIC
-};
-
-const struct language_defn cplus_language_defn = {
-  "c++",				/* Language name */
-  language_cplus,
-  c_builtin_types,
-  range_check_off,
-  type_check_off,
-  c_parse,
-  c_error,
-  &BUILTIN_TYPE_LONGEST,	 /* longest signed   integral type */
-  &BUILTIN_TYPE_UNSIGNED_LONGEST,/* longest unsigned integral type */
-  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
-  "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
-  "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
-  c_op_print_tab,		/* expression operators for printing */
-  LANG_MAGIC
-};
-
-void
-_initialize_c_exp ()
-{
-  builtin_type_void =
-    init_type (TYPE_CODE_VOID, 1,
-	       0,
-	       "void", (struct objfile *) NULL);
-  builtin_type_char =
-    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "char", (struct objfile *) NULL);
-  builtin_type_signed_char =
-    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_SIGNED,
-	       "signed char", (struct objfile *) NULL);
-  builtin_type_unsigned_char =
-    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned char", (struct objfile *) NULL);
-  builtin_type_short =
-    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "short", (struct objfile *) NULL);
-  builtin_type_unsigned_short =
-    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned short", (struct objfile *) NULL);
-  builtin_type_int =
-    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "int", (struct objfile *) NULL);
-  builtin_type_unsigned_int =
-    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned int", (struct objfile *) NULL);
-  builtin_type_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "long", (struct objfile *) NULL);
-  builtin_type_unsigned_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned long", (struct objfile *) NULL);
-  builtin_type_long_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "long long", (struct objfile *) NULL);
-  builtin_type_unsigned_long_long = 
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-	       TYPE_FLAG_UNSIGNED,
-	       "unsigned long long", (struct objfile *) NULL);
-  builtin_type_float =
-    init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "float", (struct objfile *) NULL);
-  builtin_type_double =
-    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "double", (struct objfile *) NULL);
-  builtin_type_long_double =
-    init_type (TYPE_CODE_FLT, TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "long double", (struct objfile *) NULL);
-  builtin_type_complex =
-    init_type (TYPE_CODE_FLT, TARGET_COMPLEX_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "complex", (struct objfile *) NULL);
-  builtin_type_double_complex =
-    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
-	       0,
-	       "double complex", (struct objfile *) NULL);
-
-  add_language (&c_language_defn);
-  add_language (&cplus_language_defn);
-}
 int yyexca[] ={
 -1, 1,
 	0, -1,
 	-2, 0,
--1, 47,
-	272, 66,
-	-2, 130,
--1, 131,
-	272, 95,
+-1, 45,
+	269, 66,
+	-2, 129,
+-1, 129,
+	269, 95,
 	-2, 126,
--1, 180,
-	272, 67,
+-1, 181,
+	269, 67,
 	-2, 68,
 	};
-# define YYNPROD 131
-# define YYLAST 1050
+# define YYNPROD 130
+# define YYLAST 1038
 int yyact[]={
 
-     9,   183,   167,   182,   110,     7,   109,    15,   115,     6,
-   201,   115,     8,   184,   181,   111,   104,   106,   107,   108,
-   178,   122,   123,   116,   112,   113,   116,    96,    96,    98,
-    98,    95,    95,   192,   160,   102,    78,    59,    94,    49,
-    55,   176,    57,     9,    99,    55,    53,    58,     7,   200,
-    88,    53,     6,   105,    34,     8,   173,    39,    40,    41,
-    42,    78,    38,   100,    44,    31,    43,    36,    37,    35,
-    45,    46,    96,   185,    98,    49,    95,   206,   168,   214,
-   101,   101,   199,   208,    78,   193,   203,     9,   188,   204,
-    14,    54,   198,    10,    15,   199,    54,    78,   164,   165,
-    92,     2,    49,   210,   114,    59,    70,   101,    55,   211,
-    57,    60,   197,    61,    53,    58,    78,   189,   129,   133,
-   136,   162,   168,    30,    33,   101,   191,    28,    68,    76,
-    69,    75,    56,    14,   169,   170,    10,   174,   104,   106,
-   107,   108,   171,    97,    59,    22,     1,    55,   121,    57,
-    60,     3,    61,    53,    58,   135,     0,     0,     0,    54,
-     0,   172,    71,     0,    59,    70,     0,    55,     0,    57,
-    60,    56,    61,    53,    58,   105,     0,    14,     0,     0,
-    10,     0,     0,     0,   179,     0,     0,    68,    76,    69,
-    75,    56,    72,     0,     0,     0,     0,     0,    54,     0,
-     0,     0,    59,     0,     0,    55,   167,    57,    60,     0,
-    61,    53,    58,     0,     0,     0,     0,     0,    54,     0,
-     0,    71,     0,     0,    16,    20,    18,    21,    26,    48,
-    34,    17,    19,    39,    40,    41,    42,    13,    38,    32,
-    44,     0,    43,    36,    37,    35,    45,    46,    23,    24,
-    25,    72,    27,   213,     0,     0,    54,     0,     0,     0,
-     0,   163,    93,    11,    12,     0,    47,    16,    20,    18,
-    21,    26,    48,    34,    17,    19,    39,    40,    41,    42,
-    13,    38,    32,    44,     0,    43,    36,    37,    35,    45,
-    46,    23,    24,    25,     0,    27,    50,    51,    52,     0,
-     0,    50,    51,    52,     0,     0,    11,    12,     0,    47,
-     0,    16,    20,    18,    21,    26,    48,    34,    17,    19,
-    39,    40,    41,    42,    13,    38,    32,    44,   134,    43,
-    36,    37,    35,    45,    46,    23,    24,    25,     0,    27,
-     0,     0,   104,   106,   107,   108,     0,     0,     0,     0,
-    11,    12,    77,    47,     0,    74,    73,    64,    65,    66,
-    67,    62,    63,     0,    50,    51,    52,     0,     0,     0,
-     0,     0,    59,    70,     0,    55,     0,    57,    60,   105,
-    61,    53,    58,    59,    70,     0,    55,     0,    57,    60,
-     0,    61,    53,    58,     0,    68,     0,    69,    75,    56,
-    62,    63,     0,    50,    51,    52,    68,     0,    69,     0,
-    56,    77,     0,     0,    74,    73,    64,    65,    66,    67,
-    62,    63,     0,    50,    51,    52,    54,   130,     0,    71,
-     0,     0,     0,    59,    70,     0,    55,    54,    57,    60,
-    71,    61,    53,    58,    59,    70,     0,    55,     0,    57,
-    60,     0,    61,    53,    58,     0,    68,     0,    69,    72,
-    56,    50,    51,    52,     0,     0,     0,    68,     0,    69,
-    72,    56,    59,    70,     0,    55,     0,    57,    60,     0,
-    61,    53,    58,    59,   212,     0,    55,    54,    57,    60,
-    71,    61,    53,    58,     0,    68,     0,    69,    54,    56,
-     0,    71,     0,     0,     0,     0,    68,     0,    69,     0,
-    56,     0,     0,    59,     0,     0,    55,     0,    57,    60,
-    72,    61,    53,    58,   175,     0,    54,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,    68,    54,    69,     0,
-    56,     0,     0,     0,     0,     0,     0,     0,   104,   131,
-   107,   108,    39,    40,    41,    42,     0,    38,     0,    44,
-     0,    43,    36,    37,    35,    45,    46,    54,    96,     0,
-    98,   175,    95,     0,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,   105,     0,    59,     0,     0,
-    55,     0,    57,    60,     0,    61,    53,    58,     0,     0,
-     0,     0,   177,     5,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,    56,     0,     0,    89,    91,     0,
-     0,   101,    74,    73,    64,    65,    66,    67,    62,    63,
-     0,    50,    51,    52,    73,    64,    65,    66,    67,    62,
-    63,    54,    50,    51,    52,     0,     0,   104,   131,   107,
-   108,    39,    40,    41,    42,     0,    38,     0,    44,     0,
-    43,    36,    37,    35,    45,    46,     0,     0,     0,     0,
+     9,    57,   203,   185,    53,     7,    55,    15,   182,     6,
+    51,    56,     8,   167,   103,   105,   106,    32,   109,    37,
+    38,    39,    40,   184,    36,   183,    42,   192,    41,    34,
+    35,    33,    43,    44,   168,   158,   108,    53,   107,   101,
+     9,   179,    87,    51,   113,     7,    76,    86,   113,     6,
+   104,   202,     8,    98,    99,    52,   120,   121,   114,   173,
+   110,   111,   114,    95,    95,    97,    97,    94,    94,    93,
+    76,    47,   160,    95,   161,    97,   186,    94,    47,   214,
+     9,   176,   200,    91,     2,   168,   205,    15,    52,   160,
+    27,   207,   209,    10,    29,    76,   193,   199,    57,    68,
+   200,    53,   211,    55,    58,   210,    59,    51,    56,   165,
+   100,   198,    47,    76,   164,    76,   100,   100,   167,   191,
+   189,    66,    74,    67,    73,    54,   100,   134,    28,    31,
+    27,   162,    25,    10,    57,    68,   133,    53,   112,    55,
+    58,   132,    59,    51,    56,   127,   131,   103,   105,   106,
+   171,   172,    52,   162,    96,    69,    14,    66,    74,    67,
+    73,    54,    19,   163,   169,   170,    57,   174,     1,    53,
+    27,    55,    58,    10,    59,    51,    56,   190,     3,     0,
+   119,     0,     0,   104,     0,    70,     0,     0,    52,     0,
+     0,    69,     0,    54,     0,     0,     0,     0,     0,     0,
+     0,     0,     0,     0,     0,   180,     0,     0,     0,     0,
      0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,   105,    64,    65,    66,    67,    62,
-    63,   161,    50,    51,    52,     0,    64,    65,    66,    67,
-    62,    63,     0,    50,    51,    52,    34,     0,     0,    39,
-    40,    41,    42,     0,    38,     0,    44,     0,    43,    36,
-    37,    35,    45,    46,    64,    65,    66,    67,    62,    63,
-     0,    50,    51,    52,     0,    64,    65,    66,    67,    62,
-    63,     0,    50,    51,    52,     0,    34,     0,     0,    39,
-    40,    41,    42,     0,    38,     0,    44,     0,    43,    36,
-    37,    35,    45,    46,     0,     0,     0,    66,    67,    62,
-    63,     0,    50,    51,    52,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,   166,     0,   202,     0,
-     0,     0,     0,    34,     0,     0,    39,    40,    41,    42,
-     0,    38,   207,    44,     4,    43,    36,    37,    35,    45,
-    46,    79,    81,    82,    83,    84,    85,    86,    87,   103,
-     0,     0,     0,     0,     0,     0,   117,   118,   119,   120,
-     0,   124,     0,     0,     0,     0,     0,    80,    29,   128,
-   132,     0,     0,     0,     0,     0,    50,    51,    52,     0,
-     0,     0,    90,    29,   127,     0,     0,     0,     0,     0,
-     0,   137,   138,   139,   140,   141,   142,   143,   144,   145,
-   146,   147,   148,   149,   150,   151,   152,   153,   154,   155,
-   156,   157,   158,   125,   126,     0,     0,     0,     0,   180,
+    52,    70,     0,     0,    16,    18,    23,    46,    32,    17,
+    37,    38,    39,    40,    13,    36,    30,    42,     0,    41,
+    34,    35,    33,    43,    44,    20,    21,    22,     0,    24,
+     0,     0,   103,   105,   106,     0,     0,    48,    49,    50,
+    11,    12,     0,    45,    16,    18,    23,    46,    32,    17,
+    37,    38,    39,    40,    13,    36,    30,    42,     0,    41,
+    34,    35,    33,    43,    44,    20,    21,    22,   104,    24,
+    48,    49,    50,   213,   201,    92,     0,     0,     0,     0,
+    11,    12,     0,    45,    16,    18,    23,    46,    32,    17,
+    37,    38,    39,    40,    13,    36,    30,    42,     0,    41,
+    34,    35,    33,    43,    44,    20,    21,    22,     0,    24,
      0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,   159,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,    29,     0,     0,     0,
-     0,     0,     0,     0,     0,   186,    90,     0,     0,   187,
-     0,   190,     0,     0,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,   196,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,     0,   194,     0,   195,
+    11,    12,    75,    45,   128,    72,    71,    62,    63,    64,
+    65,    60,    61,     0,    48,    49,    50,     0,     0,   103,
+   129,   106,    37,    38,    39,    40,     0,    36,     0,    42,
+     0,    41,    34,    35,    33,    43,    44,   212,    75,     0,
+     0,    72,    71,    62,    63,    64,    65,    60,    61,     0,
+    48,    49,    50,    57,    68,   104,    53,     0,    55,    58,
+     0,    59,    51,    56,    57,    68,     0,    53,     0,    55,
+    58,     0,    59,    51,    56,     0,    66,     0,    67,    73,
+    54,     0,    48,    49,    50,     0,     0,    66,     0,    67,
+     0,    54,    57,    68,     0,    53,     0,    55,    58,     0,
+    59,    51,    56,    57,    68,     0,    53,    52,    55,    58,
+    69,    59,    51,    56,     0,    66,     0,    67,    52,    54,
+     0,    69,     0,     0,     0,     0,    66,     0,    67,    57,
+    54,     0,    53,     0,    55,    58,     0,    59,    51,    56,
+    70,    95,     0,    97,   175,    94,    52,     0,     0,    69,
+     0,    70,     0,    57,    68,     0,    53,    52,    55,    58,
+    69,    59,    51,    56,    57,     0,     0,    53,     0,    55,
+    58,     0,    59,    51,    56,     0,    66,     0,    67,    70,
+    54,     0,     0,    52,     0,     0,     0,    66,     0,    67,
+    57,    54,     0,    53,   100,    55,    58,     0,    59,    51,
+    56,     0,     0,   175,     0,     0,     0,    52,     0,     0,
+     0,     0,     0,    66,     0,    67,     0,    54,    52,     0,
+     0,     0,   103,   129,   106,    37,    38,    39,    40,     0,
+    36,     0,    42,     0,    41,    34,    35,    33,    43,    44,
+    57,     0,     0,    53,    52,    55,    58,     0,    59,    51,
+    56,     0,     0,     0,     0,     0,     0,    32,   104,    37,
+    38,    39,    40,     0,    36,     0,    42,    54,    41,    34,
+    35,    33,    43,    44,     0,     0,     0,     0,     0,     0,
+     0,     0,     0,   177,     5,     0,     0,     0,   166,     0,
+     0,     0,     0,     0,    52,     0,     0,     0,    88,    90,
+    72,    71,    62,    63,    64,    65,    60,    61,     0,    48,
+    49,    50,    71,    62,    63,    64,    65,    60,    61,   102,
+    48,    49,    50,     0,     0,     0,   115,   116,   117,   118,
+     0,   122,     0,     0,     0,     0,     0,     0,     0,   126,
+   130,    62,    63,    64,    65,    60,    61,     0,    48,    49,
+    50,     0,    62,    63,    64,    65,    60,    61,     0,    48,
+    49,    50,     0,     0,    32,     0,    37,    38,    39,    40,
+   159,    36,     0,    42,     0,    41,    34,    35,    33,    43,
+    44,     0,     0,     0,     0,    48,    49,    50,     0,     0,
+   181,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,    62,    63,    64,    65,    60,    61,     0,    48,
+    49,    50,     0,    62,    63,    64,    65,    60,    61,     0,
+    48,    49,    50,    32,     0,    37,    38,    39,    40,     0,
+    36,     0,    42,     0,    41,    34,    35,    33,    43,    44,
+     0,    64,    65,    60,    61,     0,    48,    49,    50,     0,
+     0,     4,     0,     0,     0,     0,   197,     0,    77,    79,
+    80,    81,    82,    83,    84,    85,    89,     0,     0,     0,
+   204,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,     0,     0,   208,    78,    26,     0,     0,     0,
+     0,     0,     0,    60,    61,     0,    48,    49,    50,   125,
+    26,    26,     0,     0,     0,     0,   135,   136,   137,   138,
+   139,   140,   141,   142,   143,   144,   145,   146,   147,   148,
+   149,   150,   151,   152,   153,   154,   155,   156,     0,   123,
+   124,     0,     0,     0,     0,     0,     0,     0,     0,     0,
      0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
      0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,   205,     0,   195,     0,
-     0,     0,     0,     0,     0,     0,     0,     0,     0,   209,
-     0,    90,     0,     0,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,    90,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,     0,    90,     0,     0,
-     0,     0,     0,     0,     0,     0,     0,     0,     0,    90 };
+     0,     0,   157,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,    26,     0,     0,     0,     0,     0,     0,     0,
+   187,     0,     0,   178,   188,     0,    89,     0,     0,     0,
+     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,   194,     0,     0,   195,   196,     0,     0,     0,
+     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,     0,   206,     0,   196,     0,     0,     0,     0,
+     0,     0,     0,     0,     0,     0,     0,     0,     0,   178,
+     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,   178,     0,     0,     0,     0,     0,     0,     0,
+     0,     0,     0,     0,     0,     0,   178,     0,     0,     0,
+     0,     0,     0,     0,     0,     0,     0,   178 };
 int yypact[]={
 
-   -33, -1000,    31, -1000,   127,    76,   -33,   -33,   -33,   -33,
-   -33,   -33,   -33,    10,  -209,   -33, -1000, -1000, -1000, -1000,
- -1000, -1000, -1000, -1000, -1000, -1000, -1000, -1000, -1000,   -10,
-  -237, -1000,  -246, -1000, -1000, -1000,  -272,  -263,  -252,  -246,
-  -246,  -246,  -246,  -255,  -246,  -209,  -209, -1000, -1000,   -33,
- -1000, -1000,   385,   286,   -33, -1000,   -33,   -33,   -33,   -33,
+   -33, -1000,    34, -1000,    97,    75,   -33,   -33,   -33,   -33,
+   -33,   -33,   -33,     7,   -33,   -33, -1000, -1000, -1000, -1000,
+ -1000, -1000, -1000, -1000, -1000, -1000,    26, -1000,  -230, -1000,
+  -246, -1000, -1000, -1000,  -237,  -257,  -213,  -246,  -246,  -246,
+  -246,  -217,  -246,  -244,  -244, -1000, -1000,   -33, -1000, -1000,
+   302,    99,   -33, -1000,   -33,   -33,   -33,   -33,   -33,   -33,
    -33,   -33,   -33,   -33,   -33,   -33,   -33,   -33,   -33,   -33,
-   -33,   -33,   -33,   -33,   -33,   -33,   -33,   -33,  -209,     5,
-  -238,     5,     5,     5,     5,     5,     5,     5,   -33,    -4,
-   -11,    57,    58,    80, -1000,    34,    34,    16,   530, -1000,
- -1000,   -73,  -246, -1000, -1000, -1000, -1000, -1000, -1000, -1000,
-  -264, -1000,  -275,  -265, -1000, -1000, -1000, -1000, -1000, -1000,
- -1000, -1000, -1000, -1000,    13, -1000, -1000,   127, -1000, -1000,
-   -33, -1000, -1000, -1000,   -33,    -5,   -33,   165,     5,     5,
-     5,     0,     0,   550,   550,   476,   476,   107,   107,   107,
-   107,   446,   435,   407,   396,   346,    68,   127,   127,  -239,
-  -124,    44,   -33,    36,   -33, -1000, -1000,  -246, -1000, -1000,
- -1000, -1000, -1000,   483,    71, -1000,    51,    76, -1000,   -44,
- -1000, -1000, -1000,  -268, -1000,  -209,     5,     5, -1000,    45,
-   127,   -33,    35,    54,     5,     5, -1000, -1000, -1000,  -209,
- -1000, -1000,    21, -1000,   -33,   335,    62,    76, -1000,   127,
-    69,   443, -1000,    38, -1000 };
+   -33,   -33,   -33,   -33,   -33,   -33,  -244,    -3,  -234,    -3,
+    -3,    -3,    -3,    -3,    -3,    -3,   -33,    28,     6,    97,
+    73,    68,    -8, -1000,    35,    35,    19,   443, -1000, -1000,
+   -52,  -246, -1000, -1000, -1000, -1000, -1000, -1000,  -267, -1000,
+  -250,  -272, -1000, -1000, -1000, -1000, -1000, -1000, -1000, -1000,
+ -1000, -1000,    16, -1000, -1000,    97, -1000, -1000,   -33, -1000,
+ -1000, -1000,   -33,    27,   -33,   432,    -3,    -3,    -3,   -36,
+   -36,   129,   129,   493,   493,   543,   543,   543,   543,   467,
+   456,   406,   395,   367,    61,    97,    97,  -242,  -113,    55,
+   -33, -1000, -1000,   -33,   -33, -1000, -1000,  -246, -1000, -1000,
+ -1000, -1000, -1000,   502,    70, -1000,    56,    75,    25, -1000,
+   -42, -1000, -1000, -1000,  -273, -1000,  -244,    -3,    -3, -1000,
+    45,   -33,    49,    47,    97,    -3,    -3, -1000, -1000, -1000,
+  -244,    43, -1000, -1000,    30, -1000,   356,    64,    75, -1000,
+    62,   336, -1000,    38, -1000 };
 int yypgo[]={
 
-     0,   804,   100,   151,   146,   145,    65,   602,   837,    41,
-    63,   143,    38,   127,    44,   786,   124,   104,   123,   120,
-   117 };
+     0,   791,    83,   178,   168,   162,    94,   156,    74,   623,
+   825,    81,    54,   154,    69,   132,    53,   628,   129,   138,
+   128,   127,    42 };
 int yyr1[]={
 
      0,     4,     4,     3,     2,     2,     1,     1,     1,     1,
      1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
-     1,     1,     1,    19,     1,    20,    20,    20,     1,     1,
+     1,     1,     1,    21,     1,     7,    22,    22,    22,     8,
      1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
      1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
      1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
-     1,     1,     1,     1,     1,     1,    18,    18,     5,     6,
-     6,     5,     5,     5,    13,    13,    12,    12,    12,    12,
-    12,    11,    11,    11,    11,    11,    14,    14,    10,    10,
-     7,     7,     7,     7,     7,     8,     8,     8,     8,     8,
-     8,     8,     8,     8,     8,     8,     8,     8,     8,     8,
-     8,     8,     8,     8,     8,     8,     8,     8,    17,    17,
-    17,    17,     9,     9,    15,    15,    15,    15,    15,    16,
-    16 };
+     1,     1,     1,     1,     1,     1,    20,    20,     5,     6,
+     6,     5,     5,     5,    15,    15,    14,    14,    14,    14,
+    14,    13,    13,    13,    13,    13,    16,    16,    12,    12,
+     9,     9,     9,     9,     9,    10,    10,    10,    10,    10,
+    10,    10,    10,    10,    10,    10,    10,    10,    10,    10,
+    10,    10,    10,    10,    10,    10,    10,    10,    19,    19,
+    19,    19,    11,    11,    17,    17,    17,    17,    18,    18 };
 int yyr2[]={
 
      0,     2,     2,     3,     2,     7,     5,     5,     5,     5,
      5,     5,     5,     5,     5,     5,     7,     7,     9,     7,
-     7,     9,     9,     1,    11,     0,     3,     7,     9,     9,
+     7,     9,     9,     1,    11,     3,     0,     3,     7,     3,
+     7,     9,     9,     7,     7,     7,     7,     7,     7,     7,
      7,     7,     7,     7,     7,     7,     7,     7,     7,     7,
-     7,     7,     7,     7,     7,     7,     7,     7,     7,     7,
-    11,     7,     7,     3,     3,     3,     3,     3,     3,     2,
+     7,     7,     7,    11,     7,     7,     3,     3,     3,     2,
      3,     3,     3,     9,     3,     3,     3,     7,     7,     7,
      9,     2,     5,     3,     2,     5,     3,     5,     3,     5,
      2,     7,     5,     3,     5,     3,     5,     7,     5,     7,
      2,     7,    13,    17,    19,     3,     3,     3,     3,     5,
      7,     5,     7,     7,     9,     5,     7,     5,     5,     5,
      5,     5,     3,     5,     3,    11,     5,     5,     2,     3,
-     3,     3,     3,     7,     3,     3,     3,     3,     3,     2,
-     2 };
+     3,     3,     3,     7,     3,     3,     3,     3,     2,     2 };
 int yychk[]={
 
- -1000,    -4,    -2,    -3,    -1,    -7,    42,    38,    45,    33,
-   126,   296,   297,   270,   123,    40,   257,   264,   259,   265,
-   258,   260,    -5,   281,   282,   283,   261,   285,   -13,    -8,
-   -18,    -6,   272,   -16,   263,   278,   276,   277,   271,   266,
-   267,   268,   269,   275,   273,   279,   280,   299,   262,    44,
-   296,   297,   298,    46,    91,    40,    64,    42,    47,    37,
-    43,    45,   293,   294,   289,   290,   291,   292,    60,    62,
-    38,    94,   124,   288,   287,    63,    61,   284,    40,    -1,
-    -8,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    40,    -7,
-    -8,    -7,    -2,   272,   -12,    42,    38,   -11,    40,   -14,
-   -10,    91,   272,   -15,   262,   299,   263,   264,   265,   278,
-   276,   278,   276,   277,   -17,   263,   278,   -15,   -15,   -15,
-   -15,   -17,   276,   277,   -15,    -8,    -8,    -1,   -15,    -6,
-    42,   263,   -15,    -6,    42,    -2,   -19,    -1,    -1,    -1,
+ -1000,    -4,    -2,    -3,    -1,    -9,    42,    38,    45,    33,
+   126,   293,   294,   267,    -7,    40,   257,   262,   258,    -5,
+   278,   279,   280,   259,   282,   -15,   -10,   123,   -20,    -6,
+   269,   -18,   261,   275,   273,   274,   268,   263,   264,   265,
+   266,   272,   270,   276,   277,   296,   260,    44,   293,   294,
+   295,    46,    91,    40,    64,    42,    47,    37,    43,    45,
+   290,   291,   286,   287,   288,   289,    60,    62,    38,    94,
+   124,   285,   284,    63,    61,   281,    40,    -1,   -10,    -1,
+    -1,    -1,    -1,    -1,    -1,    -1,    40,   -22,    -9,    -1,
+    -9,    -2,   269,   -14,    42,    38,   -13,    40,   -16,   -12,
+    91,   269,   -17,   260,   296,   261,   262,   275,   273,   275,
+   273,   274,   -19,   261,   275,   -17,   -17,   -17,   -17,   -19,
+   273,   274,   -17,   -10,   -10,    -1,   -17,    -6,    42,   261,
+   -17,    -6,    42,    -2,   -21,    -1,    -1,    -1,    -1,    -1,
     -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -8,
-   272,    -7,   125,   272,    41,    41,   -15,   126,    42,   -12,
-   -12,   -14,   -10,    40,   -12,    41,    -9,    -7,    93,   257,
-   -15,   278,   278,   276,   278,    60,    -1,    -1,    93,   -20,
-    -1,    58,   272,    41,    -1,    -1,   -15,    41,    41,    44,
-    93,   278,    -7,    41,    44,    -1,    42,    -7,    62,    -1,
-    41,    40,    41,    -9,    41 };
+    -1,    -1,    -1,    -1,    -1,    -1,    -1,   -10,   269,    -9,
+    44,    -8,   125,    -8,    41,    41,   -17,   126,    42,   -14,
+   -14,   -16,   -12,    40,   -14,    41,   -11,    -9,   -10,    93,
+   257,   -17,   275,   275,   273,   275,    60,    -1,    -1,    93,
+   -22,    58,   269,    41,    -1,    -1,    -1,   -17,    41,    41,
+    44,   269,    93,   275,    -9,    41,    -1,    42,    -9,    62,
+    41,    40,    41,   -11,    41 };
 int yydef[]={
 
      0,    -2,     1,     2,     4,     3,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,    53,    54,    55,    56,
-    57,    58,    59,    60,    61,    62,    64,    65,    90,    74,
-     0,    71,     0,    73,    95,    96,    97,    98,   112,     0,
-     0,     0,     0,   114,     0,     0,     0,    -2,   129,     0,
-    13,    14,     0,     0,     0,    23,     0,     0,     0,     0,
+     0,     0,     0,     0,    26,     0,    56,    57,    58,    59,
+    60,    61,    62,    64,    65,    90,    74,    25,     0,    71,
+     0,    73,    95,    96,    97,    98,   112,     0,     0,     0,
+     0,   114,     0,     0,     0,    -2,   128,     0,    13,    14,
+     0,     0,     0,    23,     0,     0,     0,     0,     0,     0,
      0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-     0,     0,     0,     0,     0,     0,     0,     0,     0,     6,
-     0,     7,     8,     9,    10,    11,    12,    15,     0,     0,
-    74,     0,     0,     0,    75,    76,    78,    80,     0,    83,
-    85,     0,     0,    72,   124,   125,   126,   127,   128,    99,
-   101,   105,   120,   121,   111,   118,   119,   107,   108,   109,
-   110,   113,   120,   121,     0,   116,   117,     5,    16,    17,
-     0,    -2,    19,    20,     0,     0,    25,    31,    32,    33,
-    34,    35,    36,    37,    38,    39,    40,    41,    42,    43,
-    44,    45,    46,    47,    48,    49,     0,    51,    52,     0,
-     0,     0,     0,     0,     0,    30,    69,     0,    91,    77,
-    79,    82,    84,     0,     0,    88,     0,   122,    86,     0,
-    -2,   102,   100,   103,   106,     0,    18,    21,    22,     0,
-    26,     0,     0,    63,    28,    29,    70,    81,    89,     0,
-    87,   104,     0,    24,     0,    50,     0,   123,   115,    27,
+     0,     0,     0,     0,     0,     0,     0,     6,     0,     7,
+     8,     9,    10,    11,    12,    15,     0,     0,     0,    27,
+     0,     0,     0,    75,    76,    78,    80,     0,    83,    85,
+     0,     0,    72,   124,   125,   126,   127,    99,   101,   105,
+   120,   121,   111,   118,   119,   107,   108,   109,   110,   113,
+   120,   121,     0,   116,   117,     5,    16,    17,     0,    -2,
+    19,    20,     0,     0,    26,    34,    35,    36,    37,    38,
+    39,    40,    41,    42,    43,    44,    45,    46,    47,    48,
+    49,    50,    51,    52,     0,    54,    55,     0,     0,     0,
+     0,    30,    29,     0,     0,    33,    69,     0,    91,    77,
+    79,    82,    84,     0,     0,    88,     0,   122,    74,    86,
+     0,    -2,   102,   100,   103,   106,     0,    18,    21,    22,
+     0,     0,     0,    63,    28,    31,    32,    70,    81,    89,
+     0,     0,    87,   104,     0,    24,    53,     0,   123,   115,
     92,     0,    93,     0,    94 };
 typedef struct { char *t_name; int t_val; } yytoktype;
 #ifndef YYDEBUG
@@ -1127,65 +983,62 @@ typedef struct { char *t_name; int t_val; } yytoktype;
 yytoktype yytoks[] =
 {
 	"INT",	257,
-	"CHAR",	258,
-	"UINT",	259,
-	"FLOAT",	260,
-	"STRING",	261,
-	"NAME",	262,
-	"TYPENAME",	263,
-	"NAME_OR_INT",	264,
-	"NAME_OR_UINT",	265,
-	"STRUCT",	266,
-	"CLASS",	267,
-	"UNION",	268,
-	"ENUM",	269,
-	"SIZEOF",	270,
-	"UNSIGNED",	271,
-	"COLONCOLON",	272,
-	"TEMPLATE",	273,
-	"ERROR",	274,
-	"SIGNED_KEYWORD",	275,
-	"LONG",	276,
-	"SHORT",	277,
-	"INT_KEYWORD",	278,
-	"CONST_KEYWORD",	279,
-	"VOLATILE_KEYWORD",	280,
-	"LAST",	281,
-	"REGNAME",	282,
-	"VARIABLE",	283,
-	"ASSIGN_MODIFY",	284,
-	"THIS",	285,
+	"FLOAT",	258,
+	"STRING",	259,
+	"NAME",	260,
+	"TYPENAME",	261,
+	"NAME_OR_INT",	262,
+	"STRUCT",	263,
+	"CLASS",	264,
+	"UNION",	265,
+	"ENUM",	266,
+	"SIZEOF",	267,
+	"UNSIGNED",	268,
+	"COLONCOLON",	269,
+	"TEMPLATE",	270,
+	"ERROR",	271,
+	"SIGNED_KEYWORD",	272,
+	"LONG",	273,
+	"SHORT",	274,
+	"INT_KEYWORD",	275,
+	"CONST_KEYWORD",	276,
+	"VOLATILE_KEYWORD",	277,
+	"LAST",	278,
+	"REGNAME",	279,
+	"VARIABLE",	280,
+	"ASSIGN_MODIFY",	281,
+	"THIS",	282,
 	",",	44,
-	"ABOVE_COMMA",	286,
+	"ABOVE_COMMA",	283,
 	"=",	61,
 	"?",	63,
-	"OROR",	287,
-	"ANDAND",	288,
+	"OROR",	284,
+	"ANDAND",	285,
 	"|",	124,
 	"^",	94,
 	"&",	38,
-	"EQUAL",	289,
-	"NOTEQUAL",	290,
+	"EQUAL",	286,
+	"NOTEQUAL",	287,
 	"<",	60,
 	">",	62,
-	"LEQ",	291,
-	"GEQ",	292,
-	"LSH",	293,
-	"RSH",	294,
+	"LEQ",	288,
+	"GEQ",	289,
+	"LSH",	290,
+	"RSH",	291,
 	"@",	64,
 	"+",	43,
 	"-",	45,
 	"*",	42,
 	"/",	47,
 	"%",	37,
-	"UNARY",	295,
-	"INCREMENT",	296,
-	"DECREMENT",	297,
-	"ARROW",	298,
+	"UNARY",	292,
+	"INCREMENT",	293,
+	"DECREMENT",	294,
+	"ARROW",	295,
 	".",	46,
 	"[",	91,
 	"(",	40,
-	"BLOCKNAME",	299,
+	"BLOCKNAME",	296,
 	"-unknown-",	-1	/* ends search */
 };
 
@@ -1216,10 +1069,13 @@ char * yyreds[] =
 	"exp : exp '[' exp1 ']'",
 	"exp : exp '('",
 	"exp : exp '(' arglist ')'",
+	"lcurly : '{'",
 	"arglist : /* empty */",
 	"arglist : exp",
 	"arglist : arglist ',' exp",
-	"exp : '{' type '}' exp",
+	"rcurly : '}'",
+	"exp : lcurly arglist rcurly",
+	"exp : lcurly type rcurly exp",
 	"exp : '(' type ')' exp",
 	"exp : '(' exp1 ')'",
 	"exp : exp '@' exp",
@@ -1246,9 +1102,6 @@ char * yyreds[] =
 	"exp : exp ASSIGN_MODIFY exp",
 	"exp : INT",
 	"exp : NAME_OR_INT",
-	"exp : UINT",
-	"exp : NAME_OR_UINT",
-	"exp : CHAR",
 	"exp : FLOAT",
 	"exp : variable",
 	"exp : LAST",
@@ -1319,7 +1172,6 @@ char * yyreds[] =
 	"name : BLOCKNAME",
 	"name : TYPENAME",
 	"name : NAME_OR_INT",
-	"name : NAME_OR_UINT",
 	"name_not_typename : NAME",
 	"name_not_typename : BLOCKNAME",
 };
@@ -1394,8 +1246,8 @@ yyparse()
 	/*
 	** Initialize externals - yyparse may be called more than once
 	*/
-	yyv = (YYSTYPE*)malloc(yymaxdepth*sizeof(YYSTYPE));
-	yys = (int*)malloc(yymaxdepth*sizeof(int));
+	yyv = (YYSTYPE*)xmalloc(yymaxdepth*sizeof(YYSTYPE));
+	yys = (int*)xmalloc(yymaxdepth*sizeof(int));
 	if (!yyv || !yys)
 	{
 		yyerror( "out of memory" );
@@ -1473,16 +1325,16 @@ yyparse()
 		if ( ++yy_ps >= &yys[ yymaxdepth ] )	/* room on stack? */
 		{
 			/*
-			** reallocate and recover.  Note that pointers
+			** xreallocate and recover.  Note that pointers
 			** have to be reset, or bad things will happen
 			*/
 			int yyps_index = (yy_ps - yys);
 			int yypv_index = (yy_pv - yyv);
 			int yypvt_index = (yypvt - yyv);
 			yymaxdepth += YYMAXDEPTH;
-			yyv = (YYSTYPE*)realloc((char*)yyv,
+			yyv = (YYSTYPE*)xrealloc((char*)yyv,
 				yymaxdepth * sizeof(YYSTYPE));
-			yys = (int*)realloc((char*)yys,
+			yys = (int*)xrealloc((char*)yys,
 				yymaxdepth * sizeof(int));
 			if (!yyv || !yys)
 			{
@@ -1765,259 +1617,254 @@ yyparse()
 	{
 		
 case 3:
-# line 216 "./c-exp.y"
+# line 212 "./c-exp.y"
 { write_exp_elt_opcode(OP_TYPE);
 			  write_exp_elt_type(yypvt[-0].tval);
 			  write_exp_elt_opcode(OP_TYPE);} break;
 case 5:
-# line 224 "./c-exp.y"
+# line 220 "./c-exp.y"
 { write_exp_elt_opcode (BINOP_COMMA); } break;
 case 6:
-# line 229 "./c-exp.y"
+# line 225 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_IND); } break;
 case 7:
-# line 232 "./c-exp.y"
+# line 228 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_ADDR); } break;
 case 8:
-# line 235 "./c-exp.y"
+# line 231 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_NEG); } break;
 case 9:
-# line 239 "./c-exp.y"
-{ write_exp_elt_opcode (UNOP_ZEROP); } break;
+# line 235 "./c-exp.y"
+{ write_exp_elt_opcode (UNOP_LOGICAL_NOT); } break;
 case 10:
-# line 243 "./c-exp.y"
-{ write_exp_elt_opcode (UNOP_LOGNOT); } break;
+# line 239 "./c-exp.y"
+{ write_exp_elt_opcode (UNOP_COMPLEMENT); } break;
 case 11:
-# line 247 "./c-exp.y"
+# line 243 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_PREINCREMENT); } break;
 case 12:
-# line 251 "./c-exp.y"
+# line 247 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_PREDECREMENT); } break;
 case 13:
-# line 255 "./c-exp.y"
+# line 251 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_POSTINCREMENT); } break;
 case 14:
-# line 259 "./c-exp.y"
+# line 255 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_POSTDECREMENT); } break;
 case 15:
-# line 263 "./c-exp.y"
+# line 259 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_SIZEOF); } break;
 case 16:
-# line 267 "./c-exp.y"
+# line 263 "./c-exp.y"
 { write_exp_elt_opcode (STRUCTOP_PTR);
 			  write_exp_string (yypvt[-0].sval);
 			  write_exp_elt_opcode (STRUCTOP_PTR); } break;
 case 17:
-# line 273 "./c-exp.y"
+# line 269 "./c-exp.y"
 { /* exp->type::name becomes exp->*(&type::name) */
 			  /* Note: this doesn't work if name is a
 			     static member!  FIXME */
 			  write_exp_elt_opcode (UNOP_ADDR);
 			  write_exp_elt_opcode (STRUCTOP_MPTR); } break;
 case 18:
-# line 280 "./c-exp.y"
+# line 276 "./c-exp.y"
 { write_exp_elt_opcode (STRUCTOP_MPTR); } break;
 case 19:
-# line 284 "./c-exp.y"
+# line 280 "./c-exp.y"
 { write_exp_elt_opcode (STRUCTOP_STRUCT);
 			  write_exp_string (yypvt[-0].sval);
 			  write_exp_elt_opcode (STRUCTOP_STRUCT); } break;
 case 20:
-# line 290 "./c-exp.y"
+# line 286 "./c-exp.y"
 { /* exp.type::name becomes exp.*(&type::name) */
 			  /* Note: this doesn't work if name is a
 			     static member!  FIXME */
 			  write_exp_elt_opcode (UNOP_ADDR);
 			  write_exp_elt_opcode (STRUCTOP_MEMBER); } break;
 case 21:
-# line 298 "./c-exp.y"
+# line 294 "./c-exp.y"
 { write_exp_elt_opcode (STRUCTOP_MEMBER); } break;
 case 22:
-# line 302 "./c-exp.y"
+# line 298 "./c-exp.y"
 { write_exp_elt_opcode (BINOP_SUBSCRIPT); } break;
 case 23:
-# line 308 "./c-exp.y"
+# line 304 "./c-exp.y"
 { start_arglist (); } break;
 case 24:
-# line 310 "./c-exp.y"
+# line 306 "./c-exp.y"
 { write_exp_elt_opcode (OP_FUNCALL);
 			  write_exp_elt_longcst ((LONGEST) end_arglist ());
 			  write_exp_elt_opcode (OP_FUNCALL); } break;
-case 26:
+case 25:
+# line 312 "./c-exp.y"
+{ start_arglist (); } break;
+case 27:
 # line 319 "./c-exp.y"
 { arglist_len = 1; } break;
-case 27:
+case 28:
 # line 323 "./c-exp.y"
 { arglist_len++; } break;
-case 28:
+case 29:
 # line 327 "./c-exp.y"
+{ yyval.lval = end_arglist () - 1; } break;
+case 30:
+# line 330 "./c-exp.y"
+{ write_exp_elt_opcode (OP_ARRAY);
+			  write_exp_elt_longcst ((LONGEST) 0);
+			  write_exp_elt_longcst ((LONGEST) yypvt[-0].lval);
+			  write_exp_elt_opcode (OP_ARRAY); } break;
+case 31:
+# line 337 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_MEMVAL);
 			  write_exp_elt_type (yypvt[-2].tval);
 			  write_exp_elt_opcode (UNOP_MEMVAL); } break;
-case 29:
-# line 333 "./c-exp.y"
+case 32:
+# line 343 "./c-exp.y"
 { write_exp_elt_opcode (UNOP_CAST);
 			  write_exp_elt_type (yypvt[-2].tval);
 			  write_exp_elt_opcode (UNOP_CAST); } break;
-case 30:
-# line 339 "./c-exp.y"
-{ } break;
-case 31:
-# line 345 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_REPEAT); } break;
-case 32:
-# line 349 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_MUL); } break;
 case 33:
-# line 353 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_DIV); } break;
+# line 349 "./c-exp.y"
+{ } break;
 case 34:
-# line 357 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_REM); } break;
+# line 355 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_REPEAT); } break;
 case 35:
-# line 361 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_ADD); } break;
+# line 359 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_MUL); } break;
 case 36:
-# line 365 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_SUB); } break;
+# line 363 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_DIV); } break;
 case 37:
-# line 369 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_LSH); } break;
+# line 367 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_REM); } break;
 case 38:
-# line 373 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_RSH); } break;
+# line 371 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_ADD); } break;
 case 39:
-# line 377 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_EQUAL); } break;
+# line 375 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_SUB); } break;
 case 40:
-# line 381 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_NOTEQUAL); } break;
+# line 379 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_LSH); } break;
 case 41:
-# line 385 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_LEQ); } break;
+# line 383 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_RSH); } break;
 case 42:
-# line 389 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_GEQ); } break;
+# line 387 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_EQUAL); } break;
 case 43:
-# line 393 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_LESS); } break;
+# line 391 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_NOTEQUAL); } break;
 case 44:
-# line 397 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_GTR); } break;
+# line 395 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_LEQ); } break;
 case 45:
-# line 401 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_LOGAND); } break;
+# line 399 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_GEQ); } break;
 case 46:
-# line 405 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_LOGXOR); } break;
+# line 403 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_LESS); } break;
 case 47:
-# line 409 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_LOGIOR); } break;
+# line 407 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_GTR); } break;
 case 48:
-# line 413 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_AND); } break;
+# line 411 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_BITWISE_AND); } break;
 case 49:
-# line 417 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_OR); } break;
+# line 415 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_BITWISE_XOR); } break;
 case 50:
-# line 421 "./c-exp.y"
-{ write_exp_elt_opcode (TERNOP_COND); } break;
+# line 419 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_BITWISE_IOR); } break;
 case 51:
-# line 425 "./c-exp.y"
-{ write_exp_elt_opcode (BINOP_ASSIGN); } break;
+# line 423 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_LOGICAL_AND); } break;
 case 52:
-# line 429 "./c-exp.y"
+# line 427 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_LOGICAL_OR); } break;
+case 53:
+# line 431 "./c-exp.y"
+{ write_exp_elt_opcode (TERNOP_COND); } break;
+case 54:
+# line 435 "./c-exp.y"
+{ write_exp_elt_opcode (BINOP_ASSIGN); } break;
+case 55:
+# line 439 "./c-exp.y"
 { write_exp_elt_opcode (BINOP_ASSIGN_MODIFY);
 			  write_exp_elt_opcode (yypvt[-1].opcode);
 			  write_exp_elt_opcode (BINOP_ASSIGN_MODIFY); } break;
-case 53:
-# line 435 "./c-exp.y"
-{ write_exp_elt_opcode (OP_LONG);
-			  if (yypvt[-0].lval == (int) yypvt[-0].lval || yypvt[-0].lval == (unsigned int) yypvt[-0].lval)
-			    write_exp_elt_type (builtin_type_int);
-			  else
-			    write_exp_elt_type (BUILTIN_TYPE_LONGEST);
-			  write_exp_elt_longcst ((LONGEST) yypvt[-0].lval);
-			  write_exp_elt_opcode (OP_LONG); } break;
-case 54:
-# line 445 "./c-exp.y"
-{ YYSTYPE val;
-			  parse_number (yypvt[-0].ssym.stoken.ptr, yypvt[-0].ssym.stoken.length, 0, &val);
-			  write_exp_elt_opcode (OP_LONG);
-			  if (val.lval == (int) val.lval ||
-			      val.lval == (unsigned int) val.lval)
-			    write_exp_elt_type (builtin_type_int);
-			  else
-			    write_exp_elt_type (BUILTIN_TYPE_LONGEST);
-			  write_exp_elt_longcst (val.lval);
-			  write_exp_elt_opcode (OP_LONG); } break;
-case 55:
-# line 458 "./c-exp.y"
-{
-			  write_exp_elt_opcode (OP_LONG);
-			  if (yypvt[-0].ulval == (unsigned int) yypvt[-0].ulval)
-			    write_exp_elt_type (builtin_type_unsigned_int);
-			  else
-			    write_exp_elt_type (BUILTIN_TYPE_UNSIGNED_LONGEST);
-			  write_exp_elt_longcst ((LONGEST) yypvt[-0].ulval);
-			  write_exp_elt_opcode (OP_LONG);
-			} break;
 case 56:
-# line 470 "./c-exp.y"
+# line 445 "./c-exp.y"
+{ write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_type (yypvt[-0].typed_val.type);
+			  write_exp_elt_longcst ((LONGEST)(yypvt[-0].typed_val.val));
+			  write_exp_elt_opcode (OP_LONG); } break;
+case 57:
+# line 452 "./c-exp.y"
 { YYSTYPE val;
 			  parse_number (yypvt[-0].ssym.stoken.ptr, yypvt[-0].ssym.stoken.length, 0, &val);
 			  write_exp_elt_opcode (OP_LONG);
-			  if (val.ulval == (unsigned int) val.ulval)
-			    write_exp_elt_type (builtin_type_unsigned_int);
-			  else
-			    write_exp_elt_type (BUILTIN_TYPE_UNSIGNED_LONGEST);
-			  write_exp_elt_longcst ((LONGEST)val.ulval);
+			  write_exp_elt_type (val.typed_val.type);
+			  write_exp_elt_longcst ((LONGEST)val.typed_val.val);
 			  write_exp_elt_opcode (OP_LONG);
 			} break;
-case 57:
-# line 483 "./c-exp.y"
-{ write_exp_elt_opcode (OP_LONG);
-			  write_exp_elt_type (builtin_type_char);
-			  write_exp_elt_longcst ((LONGEST) yypvt[-0].lval);
-			  write_exp_elt_opcode (OP_LONG); } break;
 case 58:
-# line 490 "./c-exp.y"
+# line 463 "./c-exp.y"
 { write_exp_elt_opcode (OP_DOUBLE);
 			  write_exp_elt_type (builtin_type_double);
 			  write_exp_elt_dblcst (yypvt[-0].dval);
 			  write_exp_elt_opcode (OP_DOUBLE); } break;
 case 60:
-# line 500 "./c-exp.y"
+# line 473 "./c-exp.y"
 { write_exp_elt_opcode (OP_LAST);
 			  write_exp_elt_longcst ((LONGEST) yypvt[-0].lval);
 			  write_exp_elt_opcode (OP_LAST); } break;
 case 61:
-# line 506 "./c-exp.y"
+# line 479 "./c-exp.y"
 { write_exp_elt_opcode (OP_REGISTER);
 			  write_exp_elt_longcst ((LONGEST) yypvt[-0].lval);
 			  write_exp_elt_opcode (OP_REGISTER); } break;
 case 62:
-# line 512 "./c-exp.y"
+# line 485 "./c-exp.y"
 { write_exp_elt_opcode (OP_INTERNALVAR);
 			  write_exp_elt_intern (yypvt[-0].ivar);
 			  write_exp_elt_opcode (OP_INTERNALVAR); } break;
 case 63:
-# line 518 "./c-exp.y"
+# line 491 "./c-exp.y"
 { write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_type (builtin_type_int);
 			  write_exp_elt_longcst ((LONGEST) TYPE_LENGTH (yypvt[-1].tval));
 			  write_exp_elt_opcode (OP_LONG); } break;
 case 64:
-# line 525 "./c-exp.y"
-{ write_exp_elt_opcode (OP_STRING);
-			  write_exp_string (yypvt[-0].sval);
-			  write_exp_elt_opcode (OP_STRING); } break;
+# line 498 "./c-exp.y"
+{ /* C strings are converted into array constants with
+			     an explicit null byte added at the end.  Thus
+			     the array upper bound is the string length.
+			     There is no such thing in C as a completely empty
+			     string. */
+			  char *sp = yypvt[-0].sval.ptr; int count = yypvt[-0].sval.length;
+			  while (count-- > 0)
+			    {
+			      write_exp_elt_opcode (OP_LONG);
+			      write_exp_elt_type (builtin_type_char);
+			      write_exp_elt_longcst ((LONGEST)(*sp++));
+			      write_exp_elt_opcode (OP_LONG);
+			    }
+			  write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_type (builtin_type_char);
+			  write_exp_elt_longcst ((LONGEST)'\0');
+			  write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_opcode (OP_ARRAY);
+			  write_exp_elt_longcst ((LONGEST) 0);
+			  write_exp_elt_longcst ((LONGEST) (yypvt[-0].sval.length));
+			  write_exp_elt_opcode (OP_ARRAY); } break;
 case 65:
-# line 532 "./c-exp.y"
+# line 523 "./c-exp.y"
 { write_exp_elt_opcode (OP_THIS);
 			  write_exp_elt_opcode (OP_THIS); } break;
 case 66:
-# line 539 "./c-exp.y"
+# line 530 "./c-exp.y"
 {
 			  if (yypvt[-0].ssym.sym != 0)
 			      yyval.bval = SYMBOL_BLOCK_VALUE (yypvt[-0].ssym.sym);
@@ -2034,7 +1881,7 @@ case 66:
 			    }
 			} break;
 case 67:
-# line 557 "./c-exp.y"
+# line 548 "./c-exp.y"
 { struct symbol *tem
 			    = lookup_symbol (copy_name (yypvt[-0].sval), yypvt[-2].bval,
 					     VAR_NAMESPACE, 0, NULL);
@@ -2043,7 +1890,7 @@ case 67:
 				   copy_name (yypvt[-0].sval));
 			  yyval.bval = SYMBOL_BLOCK_VALUE (tem); } break;
 case 68:
-# line 567 "./c-exp.y"
+# line 558 "./c-exp.y"
 { struct symbol *sym;
 			  sym = lookup_symbol (copy_name (yypvt[-0].sval), yypvt[-2].bval,
 					       VAR_NAMESPACE, 0, NULL);
@@ -2055,7 +1902,7 @@ case 68:
 			  write_exp_elt_sym (sym);
 			  write_exp_elt_opcode (OP_VAR_VALUE); } break;
 case 69:
-# line 580 "./c-exp.y"
+# line 571 "./c-exp.y"
 {
 			  struct type *type = yypvt[-2].tval;
 			  if (TYPE_CODE (type) != TYPE_CODE_STRUCT
@@ -2069,7 +1916,7 @@ case 69:
 			  write_exp_elt_opcode (OP_SCOPE);
 			} break;
 case 70:
-# line 593 "./c-exp.y"
+# line 584 "./c-exp.y"
 {
 			  struct type *type = yypvt[-3].tval;
 			  struct stoken tmp_token;
@@ -2078,7 +1925,7 @@ case 70:
 			    error ("`%s' is not defined as an aggregate type.",
 				   TYPE_NAME (type));
 
-			  if (strcmp (type_name_no_tag (type), yypvt[-0].sval.ptr))
+			  if (!STREQ (type_name_no_tag (type), yypvt[-0].sval.ptr))
 			    error ("invalid destructor `%s::~%s'",
 				   type_name_no_tag (type), yypvt[-0].sval.ptr);
 
@@ -2093,7 +1940,7 @@ case 70:
 			  write_exp_elt_opcode (OP_SCOPE);
 			} break;
 case 72:
-# line 619 "./c-exp.y"
+# line 610 "./c-exp.y"
 {
 			  char *name = copy_name (yypvt[-0].sval);
 			  struct symbol *sym;
@@ -2115,7 +1962,7 @@ case 72:
 			    {
 			      write_exp_elt_opcode (OP_LONG);
 			      write_exp_elt_type (builtin_type_int);
-			      write_exp_elt_longcst ((LONGEST) msymbol -> address);
+			      write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
 			      write_exp_elt_opcode (OP_LONG);
 			      write_exp_elt_opcode (UNOP_MEMVAL);
 			      if (msymbol -> type == mst_data ||
@@ -2134,7 +1981,7 @@ case 72:
 			      error ("No symbol \"%s\" in current context.", name);
 			} break;
 case 73:
-# line 661 "./c-exp.y"
+# line 652 "./c-exp.y"
 { struct symbol *sym = yypvt[-0].ssym.sym;
 
 			  if (sym)
@@ -2199,7 +2046,7 @@ case 73:
 				{
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_type (builtin_type_int);
-				  write_exp_elt_longcst ((LONGEST) msymbol -> address);
+				  write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
 				  if (msymbol -> type == mst_data ||
@@ -2219,12 +2066,13 @@ case 73:
 			    }
 			} break;
 case 75:
-# line 749 "./c-exp.y"
+# line 740 "./c-exp.y"
 {
 		  /* This is where the interesting stuff happens.  */
 		  int done = 0;
 		  int array_size;
 		  struct type *follow_type = yypvt[-1].tval;
+		  struct type *range_type;
 		  
 		  while (!done)
 		    switch (pop_type ())
@@ -2241,8 +2089,15 @@ case 75:
 		      case tp_array:
 			array_size = pop_type_int ();
 			if (array_size != -1)
-			  follow_type = create_array_type (follow_type,
-							   array_size);
+			  {
+			    range_type =
+			      create_range_type ((struct type *) NULL,
+						 builtin_type_int, 0,
+						 array_size - 1);
+			    follow_type =
+			      create_array_type ((struct type *) NULL,
+						 follow_type, range_type);
+			  }
 			else
 			  follow_type = lookup_pointer_type (follow_type);
 			break;
@@ -2253,188 +2108,185 @@ case 75:
 		  yyval.tval = follow_type;
 		} break;
 case 76:
-# line 784 "./c-exp.y"
+# line 783 "./c-exp.y"
 { push_type (tp_pointer); yyval.voidval = 0; } break;
 case 77:
-# line 786 "./c-exp.y"
+# line 785 "./c-exp.y"
 { push_type (tp_pointer); yyval.voidval = yypvt[-0].voidval; } break;
 case 78:
-# line 788 "./c-exp.y"
+# line 787 "./c-exp.y"
 { push_type (tp_reference); yyval.voidval = 0; } break;
 case 79:
-# line 790 "./c-exp.y"
+# line 789 "./c-exp.y"
 { push_type (tp_reference); yyval.voidval = yypvt[-0].voidval; } break;
 case 81:
-# line 795 "./c-exp.y"
+# line 794 "./c-exp.y"
 { yyval.voidval = yypvt[-1].voidval; } break;
 case 82:
-# line 797 "./c-exp.y"
+# line 796 "./c-exp.y"
 {
 			  push_type_int (yypvt[-0].lval);
 			  push_type (tp_array);
 			} break;
 case 83:
-# line 802 "./c-exp.y"
+# line 801 "./c-exp.y"
 {
 			  push_type_int (yypvt[-0].lval);
 			  push_type (tp_array);
 			  yyval.voidval = 0;
 			} break;
 case 84:
-# line 808 "./c-exp.y"
+# line 807 "./c-exp.y"
 { push_type (tp_function); } break;
 case 85:
-# line 810 "./c-exp.y"
+# line 809 "./c-exp.y"
 { push_type (tp_function); } break;
 case 86:
-# line 814 "./c-exp.y"
+# line 813 "./c-exp.y"
 { yyval.lval = -1; } break;
 case 87:
-# line 816 "./c-exp.y"
-{ yyval.lval = yypvt[-1].lval; } break;
+# line 815 "./c-exp.y"
+{ yyval.lval = yypvt[-1].typed_val.val; } break;
 case 88:
-# line 820 "./c-exp.y"
+# line 819 "./c-exp.y"
 { yyval.voidval = 0; } break;
 case 89:
-# line 822 "./c-exp.y"
+# line 821 "./c-exp.y"
 { free ((PTR)yypvt[-1].tvec); yyval.voidval = 0; } break;
 case 91:
-# line 827 "./c-exp.y"
+# line 826 "./c-exp.y"
 { yyval.tval = lookup_member_type (builtin_type_int, yypvt[-2].tval); } break;
 case 92:
-# line 829 "./c-exp.y"
+# line 828 "./c-exp.y"
 { yyval.tval = lookup_member_type (yypvt[-5].tval, yypvt[-3].tval); } break;
 case 93:
-# line 831 "./c-exp.y"
+# line 830 "./c-exp.y"
 { yyval.tval = lookup_member_type
 			    (lookup_function_type (yypvt[-7].tval), yypvt[-5].tval); } break;
 case 94:
-# line 834 "./c-exp.y"
+# line 833 "./c-exp.y"
 { yyval.tval = lookup_member_type
 			    (lookup_function_type (yypvt[-8].tval), yypvt[-6].tval);
 			  free ((PTR)yypvt[-1].tvec); } break;
 case 95:
-# line 841 "./c-exp.y"
+# line 840 "./c-exp.y"
 { yyval.tval = yypvt[-0].tsym.type; } break;
 case 96:
-# line 843 "./c-exp.y"
+# line 842 "./c-exp.y"
 { yyval.tval = builtin_type_int; } break;
 case 97:
-# line 845 "./c-exp.y"
+# line 844 "./c-exp.y"
 { yyval.tval = builtin_type_long; } break;
 case 98:
-# line 847 "./c-exp.y"
+# line 846 "./c-exp.y"
 { yyval.tval = builtin_type_short; } break;
 case 99:
-# line 849 "./c-exp.y"
+# line 848 "./c-exp.y"
 { yyval.tval = builtin_type_long; } break;
 case 100:
-# line 851 "./c-exp.y"
+# line 850 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long; } break;
 case 101:
-# line 853 "./c-exp.y"
+# line 852 "./c-exp.y"
 { yyval.tval = builtin_type_long_long; } break;
 case 102:
-# line 855 "./c-exp.y"
+# line 854 "./c-exp.y"
 { yyval.tval = builtin_type_long_long; } break;
 case 103:
-# line 857 "./c-exp.y"
+# line 856 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long_long; } break;
 case 104:
-# line 859 "./c-exp.y"
+# line 858 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long_long; } break;
 case 105:
-# line 861 "./c-exp.y"
+# line 860 "./c-exp.y"
 { yyval.tval = builtin_type_short; } break;
 case 106:
-# line 863 "./c-exp.y"
+# line 862 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_short; } break;
 case 107:
-# line 865 "./c-exp.y"
+# line 864 "./c-exp.y"
 { yyval.tval = lookup_struct (copy_name (yypvt[-0].sval),
 					      expression_context_block); } break;
 case 108:
-# line 868 "./c-exp.y"
+# line 867 "./c-exp.y"
 { yyval.tval = lookup_struct (copy_name (yypvt[-0].sval),
 					      expression_context_block); } break;
 case 109:
-# line 871 "./c-exp.y"
+# line 870 "./c-exp.y"
 { yyval.tval = lookup_union (copy_name (yypvt[-0].sval),
 					     expression_context_block); } break;
 case 110:
-# line 874 "./c-exp.y"
+# line 873 "./c-exp.y"
 { yyval.tval = lookup_enum (copy_name (yypvt[-0].sval),
 					    expression_context_block); } break;
 case 111:
-# line 877 "./c-exp.y"
+# line 876 "./c-exp.y"
 { yyval.tval = lookup_unsigned_typename (TYPE_NAME(yypvt[-0].tsym.type)); } break;
 case 112:
-# line 879 "./c-exp.y"
+# line 878 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_int; } break;
 case 113:
-# line 881 "./c-exp.y"
+# line 880 "./c-exp.y"
 { yyval.tval = lookup_signed_typename (TYPE_NAME(yypvt[-0].tsym.type)); } break;
 case 114:
-# line 883 "./c-exp.y"
+# line 882 "./c-exp.y"
 { yyval.tval = builtin_type_int; } break;
 case 115:
-# line 885 "./c-exp.y"
+# line 884 "./c-exp.y"
 { yyval.tval = lookup_template_type(copy_name(yypvt[-3].sval), yypvt[-1].tval,
 						    expression_context_block);
 			} break;
 case 116:
-# line 889 "./c-exp.y"
+# line 888 "./c-exp.y"
 { yyval.tval = yypvt[-0].tval; } break;
 case 117:
-# line 890 "./c-exp.y"
+# line 889 "./c-exp.y"
 { yyval.tval = yypvt[-0].tval; } break;
 case 119:
-# line 895 "./c-exp.y"
+# line 894 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "int";
 		  yyval.tsym.stoken.length = 3;
 		  yyval.tsym.type = builtin_type_int;
 		} break;
 case 120:
-# line 901 "./c-exp.y"
+# line 900 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "long";
 		  yyval.tsym.stoken.length = 4;
 		  yyval.tsym.type = builtin_type_long;
 		} break;
 case 121:
-# line 907 "./c-exp.y"
+# line 906 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "short";
 		  yyval.tsym.stoken.length = 5;
 		  yyval.tsym.type = builtin_type_short;
 		} break;
 case 122:
-# line 916 "./c-exp.y"
+# line 915 "./c-exp.y"
 { yyval.tvec = (struct type **) xmalloc (sizeof (struct type *) * 2);
 		  yyval.ivec[0] = 1;	/* Number of types in vector */
 		  yyval.tvec[1] = yypvt[-0].tval;
 		} break;
 case 123:
-# line 921 "./c-exp.y"
+# line 920 "./c-exp.y"
 { int len = sizeof (struct type *) * (++(yypvt[-2].ivec[0]) + 1);
 		  yyval.tvec = (struct type **) xrealloc ((char *) yypvt[-2].tvec, len);
 		  yyval.tvec[yyval.ivec[0]] = yypvt[-0].tval;
 		} break;
 case 124:
-# line 927 "./c-exp.y"
+# line 926 "./c-exp.y"
 { yyval.sval = yypvt[-0].ssym.stoken; } break;
 case 125:
-# line 928 "./c-exp.y"
+# line 927 "./c-exp.y"
 { yyval.sval = yypvt[-0].ssym.stoken; } break;
 case 126:
-# line 929 "./c-exp.y"
+# line 928 "./c-exp.y"
 { yyval.sval = yypvt[-0].tsym.stoken; } break;
 case 127:
-# line 930 "./c-exp.y"
-{ yyval.sval = yypvt[-0].ssym.stoken; } break;
-case 128:
-# line 931 "./c-exp.y"
+# line 929 "./c-exp.y"
 { yyval.sval = yypvt[-0].ssym.stoken; } break;
 	}
 	goto yystack;		/* reset registers in driver code */

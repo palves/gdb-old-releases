@@ -33,8 +33,8 @@ you automatically for many a.out systems.  Do:
 	make gen-aout
 	./gen-aout <target> > <target>.c
 (This only works if you are building on the target ("native").
-If you must make a cross-portt from scratch, copy  the most
-similar existing file that include aout-target.h, and fix what is wrong.)
+If you must make a cross-port from scratch, copy  the most
+similar existing file that includes aout-target.h, and fix what is wrong.)
 
 Check the parameters in <target>.c, and fix anything that is wrong.
 (Also let us know about it; perhaps we can improve gen-aout.c.)
@@ -62,8 +62,8 @@ TEXT_START_ADDR
 PAGE_SIZE
 
 SEGMENT_SIZE
-	Usually, teh same as the PAGE_SIZE.
-	Alignmement needed for the data segment.
+        Usually, the same as the PAGE_SIZE.
+        Alignment needed for the data segment.
 
 TARGETNAME
 	The name of the target, for run-time lookups.

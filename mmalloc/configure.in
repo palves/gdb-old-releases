@@ -10,24 +10,11 @@ configdirs=""
 # per-host:
 
 case "${host}" in
-  mips-sgi-irix4)
-	host_makefile_frag=config/mh-irix4
-	;;
-  *-sun-sunos4*)
-	host_makefile_frag=config/mh-sunos4
-	;;
-  i[34]86-ncr-sysv4*)
-	host_makefile_frag=config/mh-ncr3000
-	;;
-  *-*-sysv4*|*-*-solaris*)
-	host_makefile_frag=config/mh-sysv4
-	;;
+  i[34]86-ncr-sysv4*)	host_makefile_frag=config/mh-ncr3000 ;;
+  *-*-irix4*)		host_makefile_frag=config/mh-irix4 ;;
+  *-*-solaris*)		host_makefile_frag=config/mh-sysv4 ;;
+  *-*-sunos4*)		host_makefile_frag=config/mh-sunos4 ;;
+  *-*-sysv4*)		host_makefile_frag=config/mh-sysv4 ;;
 esac
 
 # per-target:
-
-#
-# Local Variables:
-# fill-column: 131
-# End:
-#

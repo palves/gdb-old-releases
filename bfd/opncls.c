@@ -153,6 +153,17 @@ DESCRIPTION
 	 It opens a BFD on a file already described by the @var{fd}
 	 supplied. 
 
+	 When the file is later bfd_closed, the file descriptor will be closed.
+
+	 If the caller desires that this file descriptor be cached by BFD
+	 (opened as needed, closed as needed to free descriptors for
+	 other opens), with the supplied @var{fd} used as an initial
+	 file descriptor (but subject to closure at any time), set
+	 bfd->cacheable nonzero in the returned BFD.  The default is to
+	 assume no cacheing; the file descriptor will remain open until
+	 bfd_close, and will not be affected by BFD operations on other
+	 files.
+
          Possible errors are no_memory, invalid_target and system_call
 	 error.
 */
@@ -294,6 +305,9 @@ DESCRIPTION
 
 	All memory attached to the BFD's obstacks is released. 
 
+	The file descriptor associated with the BFD is closed (even
+	if it was passed in to BFD by bfd_fdopenr).
+
 RETURNS
 	<<true>> is returned if all is ok, otherwise <<false>>.
 */
@@ -303,17 +317,20 @@ boolean
 DEFUN(bfd_close,(abfd),
       bfd *abfd)
 {
+  boolean ret;
+
   if (!bfd_read_p(abfd))
     if (BFD_SEND_FMT (abfd, _bfd_write_contents, (abfd)) != true)
       return false;
 
   if (BFD_SEND (abfd, _close_and_cleanup, (abfd)) != true) return false;
 
-  bfd_cache_close(abfd);
+  ret = bfd_cache_close(abfd);
 
   /* If the file was open for writing and is now executable,
      make it so */
-  if (abfd->direction == write_direction 
+  if (ret == true
+      && abfd->direction == write_direction 
       && abfd->flags & EXEC_P) {
     struct stat buf;
     stat(abfd->filename, &buf);
@@ -331,7 +348,7 @@ DEFUN(bfd_close,(abfd),
   }
   (void) obstack_free (&abfd->memory, (PTR)0);
   (void) free(abfd);
-  return true;
+  return ret;
 }
 
 /*
@@ -361,11 +378,14 @@ boolean
 DEFUN(bfd_close_all_done,(abfd),
       bfd *abfd)
 {
-  bfd_cache_close(abfd);
+  boolean ret;
+
+  ret = bfd_cache_close(abfd);
 
   /* If the file was open for writing and is now executable,
      make it so */
-  if (abfd->direction == write_direction 
+  if (ret == true
+      && abfd->direction == write_direction 
       && abfd->flags & EXEC_P) {
     struct stat buf;
     stat(abfd->filename, &buf);
@@ -383,7 +403,7 @@ DEFUN(bfd_close_all_done,(abfd),
   }
   (void) obstack_free (&abfd->memory, (PTR)0);
   (void) free(abfd);
-  return true;
+  return ret;
 }
 
 

@@ -51,8 +51,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define FT_STRING		23
 #define FT_FIXED_DECIMAL	24
 #define FT_FLOAT_DECIMAL	25
+#define FT_BYTE			26
+#define FT_UNSIGNED_BYTE	27
 
-#define FT_NUM_MEMBERS		26
+#define FT_NUM_MEMBERS		28	/* Highest FT_* above, plus one. */
+
+/* Some macros for char-based bitfields.  */
+
+#define B_SET(a,x)	((a)[(x)>>3] |= (1 << ((x)&7)))
+#define B_CLR(a,x)	((a)[(x)>>3] &= ~(1 << ((x)&7)))
+#define B_TST(a,x)	((a)[(x)>>3] & (1 << ((x)&7)))
+#define B_TYPE		unsigned char
+#define	B_BYTES(x)	( 1 + ((x)>>3) )
+#define	B_CLRALL(a,x)	memset ((a), 0, B_BYTES(x))
 
 /* Different kinds of data types are distinguished by the `code' field.  */
 
@@ -60,7 +71,7 @@ enum type_code
 {
   TYPE_CODE_UNDEF,		/* Not used; catches errors */
   TYPE_CODE_PTR,		/* Pointer type */
-  TYPE_CODE_ARRAY,		/* Array type, lower bound zero */
+  TYPE_CODE_ARRAY,		/* Array type with lower & upper bounds. */
   TYPE_CODE_STRUCT,		/* C struct or Pascal record */
   TYPE_CODE_UNION,		/* C union or Pascal variant part */
   TYPE_CODE_ENUM,		/* Enumeration type */
@@ -70,7 +81,8 @@ enum type_code
   TYPE_CODE_VOID,		/* Void type (values zero length) */
   TYPE_CODE_SET,		/* Pascal sets */
   TYPE_CODE_RANGE,		/* Range (integers within spec'd bounds) */
-  TYPE_CODE_PASCAL_ARRAY,	/* Array with explicit type of index */
+  TYPE_CODE_STRING,		/* String types, distinct from array of char */
+  TYPE_CODE_BITSTRING,		/* String of bits, distinct from bool array */
   TYPE_CODE_ERROR,              /* Unknown type */
 
   /* C++ */
@@ -80,7 +92,7 @@ enum type_code
 
   /* Modula-2 */
   TYPE_CODE_CHAR,		/* *real* character type */
-  TYPE_CODE_BOOL		/* Builtin Modula-2 BOOLEAN */
+  TYPE_CODE_BOOL		/* BOOLEAN type */
 };
 
 /* For now allow source to use TYPE_CODE_CLASS for C++ classes, as an
@@ -193,6 +205,7 @@ struct type
 	 containing structure.  For a function type, this is the
 	 position in the argument list of this argument.
 	 For a range bound or enum value, this is the value itself.
+	 (FIXME:  What about ranges larger than host int size?)
 	 For BITS_BIG_ENDIAN=1 targets, it is the bit offset to the MSB.
 	 For BITS_BIG_ENDIAN=0 targets, it is the bit offset to the LSB. */
 
@@ -472,6 +485,7 @@ extern struct type *builtin_type_double;
 extern struct type *builtin_type_long_double;
 extern struct type *builtin_type_complex;
 extern struct type *builtin_type_double_complex;
+extern struct type *builtin_type_string;
 
 /* This type represents a type that was unrecognized in symbol
    read-in.  */
@@ -488,6 +502,7 @@ extern struct type *builtin_type_m2_int;
 extern struct type *builtin_type_m2_card;
 extern struct type *builtin_type_m2_real;
 extern struct type *builtin_type_m2_bool;
+
 
 /* LONG_LONG is defined if the host has "long long".  */
 
@@ -571,7 +586,13 @@ extern struct type *
 lookup_function_type PARAMS ((struct type *));
 
 extern struct type *
-create_array_type PARAMS ((struct type *, int));
+create_range_type PARAMS ((struct type *, struct type *, int, int));
+
+extern struct type *
+create_array_type PARAMS ((struct type *, struct type *, struct type *));
+
+extern struct type *
+create_string_type PARAMS ((struct type *, struct type *));
 
 extern struct type *
 lookup_unsigned_typename PARAMS ((char *));

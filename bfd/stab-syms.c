@@ -28,7 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define __define_name(CODE, STRING) {(int)CODE, STRING},
 #define __define_stab(NAME, CODE, STRING) __define_name(CODE, STRING)
-struct {short code; char string[10];} aout_stab_names[]
+CONST struct {short code; char string[10];} aout_stab_names[]
   = {
 #include "aout/stab.def"
 
@@ -47,7 +47,7 @@ __define_name (N_WARNING, "WARNING")
 #undef __define_stab
 #undef GNU_EXTRA_STABS
 
-char *
+CONST char *
 DEFUN(aout_stab_name,(code),
 int code)
 {

@@ -23,7 +23,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbtypes.h"
 #include "expression.h"
 #include "target.h"
+#include "language.h"
 #include <string.h>
+
+/* Define whether or not the C operator '/' truncates towards zero for
+   differently signed operands (truncation direction is undefined in C). */
+
+#ifndef TRUNCATION_TOWARDS_ZERO
+#define TRUNCATION_TOWARDS_ZERO ((-5 / 2) == -2)
+#endif
 
 static value
 value_subscripted_rvalue PARAMS ((value, value));
@@ -104,17 +112,35 @@ an integer nor a pointer of the same type.");
   return value_binop (arg1, arg2, BINOP_SUB);
 }
 
-/* Return the value of ARRAY[IDX].  */
+/* Return the value of ARRAY[IDX].
+   See comments in value_coerce_array() for rationale for reason for
+   doing lower bounds adjustment here rather than there.
+   FIXME:  Perhaps we should validate that the index is valid and if
+   verbosity is set, warn about invalid indices (but still use them). */
 
 value
 value_subscript (array, idx)
      value array, idx;
 {
-  if (TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_ARRAY
-      && VALUE_LVAL (array) != lval_memory)
-    return value_subscripted_rvalue (array, idx);
-  else
-    return value_ind (value_add (array, idx));
+  int lowerbound;
+  value bound;
+  struct type *range_type;
+
+  if (TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_ARRAY)
+    {
+      range_type = TYPE_FIELD_TYPE (VALUE_TYPE (array), 0);
+      lowerbound = TYPE_FIELD_BITPOS (range_type, 0);
+      if (lowerbound != 0)
+	{
+	  bound = value_from_longest (builtin_type_int, (LONGEST) lowerbound);
+	  idx = value_sub (idx, bound);
+	}
+      if (VALUE_LVAL (array) != lval_memory)
+	{
+	  return value_subscripted_rvalue (array, idx);
+	}
+    }
+  return value_ind (value_add (array, idx));
 }
 
 /* Return the value of EXPR[IDX], expr an aggregate rvalue
@@ -224,32 +250,33 @@ value_x_binop (arg1, arg2, op, otherop)
   ptr = tstr+8;
   switch (op)
     {
-    case BINOP_ADD:	strcpy(ptr,"+"); break;
-    case BINOP_SUB:	strcpy(ptr,"-"); break;
-    case BINOP_MUL:	strcpy(ptr,"*"); break;
-    case BINOP_DIV:	strcpy(ptr,"/"); break;
-    case BINOP_REM:	strcpy(ptr,"%"); break;
-    case BINOP_LSH:	strcpy(ptr,"<<"); break;
-    case BINOP_RSH:	strcpy(ptr,">>"); break;
-    case BINOP_LOGAND:	strcpy(ptr,"&"); break;
-    case BINOP_LOGIOR:	strcpy(ptr,"|"); break;
-    case BINOP_LOGXOR:	strcpy(ptr,"^"); break;
-    case BINOP_AND:	strcpy(ptr,"&&"); break;
-    case BINOP_OR:	strcpy(ptr,"||"); break;
-    case BINOP_MIN:	strcpy(ptr,"<?"); break;
-    case BINOP_MAX:	strcpy(ptr,">?"); break;
-    case BINOP_ASSIGN:	strcpy(ptr,"="); break;
+    case BINOP_ADD:		strcpy(ptr,"+"); break;
+    case BINOP_SUB:		strcpy(ptr,"-"); break;
+    case BINOP_MUL:		strcpy(ptr,"*"); break;
+    case BINOP_DIV:		strcpy(ptr,"/"); break;
+    case BINOP_REM:		strcpy(ptr,"%"); break;
+    case BINOP_LSH:		strcpy(ptr,"<<"); break;
+    case BINOP_RSH:		strcpy(ptr,">>"); break;
+    case BINOP_BITWISE_AND:	strcpy(ptr,"&"); break;
+    case BINOP_BITWISE_IOR:	strcpy(ptr,"|"); break;
+    case BINOP_BITWISE_XOR:	strcpy(ptr,"^"); break;
+    case BINOP_LOGICAL_AND:	strcpy(ptr,"&&"); break;
+    case BINOP_LOGICAL_OR:	strcpy(ptr,"||"); break;
+    case BINOP_MIN:		strcpy(ptr,"<?"); break;
+    case BINOP_MAX:		strcpy(ptr,">?"); break;
+    case BINOP_ASSIGN:		strcpy(ptr,"="); break;
     case BINOP_ASSIGN_MODIFY:	
       switch (otherop)
 	{
-	case BINOP_ADD:      strcpy(ptr,"+="); break;
-	case BINOP_SUB:      strcpy(ptr,"-="); break;
-	case BINOP_MUL:      strcpy(ptr,"*="); break;
-	case BINOP_DIV:      strcpy(ptr,"/="); break;
-	case BINOP_REM:      strcpy(ptr,"%="); break;
-	case BINOP_LOGAND:   strcpy(ptr,"&="); break;
-	case BINOP_LOGIOR:   strcpy(ptr,"|="); break;
-	case BINOP_LOGXOR:   strcpy(ptr,"^="); break;
+	case BINOP_ADD:		strcpy(ptr,"+="); break;
+	case BINOP_SUB:		strcpy(ptr,"-="); break;
+	case BINOP_MUL:		strcpy(ptr,"*="); break;
+	case BINOP_DIV:		strcpy(ptr,"/="); break;
+	case BINOP_REM:		strcpy(ptr,"%="); break;
+	case BINOP_BITWISE_AND:	strcpy(ptr,"&="); break;
+	case BINOP_BITWISE_IOR:	strcpy(ptr,"|="); break;
+	case BINOP_BITWISE_XOR:	strcpy(ptr,"^="); break;
+	case BINOP_MOD:		/* invalid */
 	default:
 	  error ("Invalid binary operation specified.");
 	}
@@ -261,6 +288,7 @@ value_x_binop (arg1, arg2, op, otherop)
     case BINOP_GTR:       strcpy(ptr,">"); break;
     case BINOP_GEQ:       strcpy(ptr,">="); break;
     case BINOP_LEQ:       strcpy(ptr,"<="); break;
+    case BINOP_MOD:	  /* invalid */
     default:
       error ("Invalid binary operation specified.");
     }
@@ -317,9 +345,9 @@ value_x_unop (arg1, op)
     case UNOP_PREDECREMENT:	strcpy(ptr,"++"); break;
     case UNOP_POSTINCREMENT:	strcpy(ptr,"++"); break;
     case UNOP_POSTDECREMENT:	strcpy(ptr,"++"); break;
-    case UNOP_ZEROP:	strcpy(ptr,"!"); break;
-    case UNOP_LOGNOT:	strcpy(ptr,"~"); break;
-    case UNOP_NEG:	strcpy(ptr,"-"); break;
+    case UNOP_LOGICAL_NOT:	strcpy(ptr,"!"); break;
+    case UNOP_COMPLEMENT:	strcpy(ptr,"~"); break;
+    case UNOP_NEG:		strcpy(ptr,"-"); break;
     default:
       error ("Invalid binary operation specified.");
     }
@@ -336,8 +364,151 @@ value_x_unop (arg1, op)
   error ("member function %s not found", tstr);
   return 0;  /* For lint -- never reached */
 }
+
 
-/* Perform a binary operation on two integers or two floats.
+/* Concatenate two values with the following conditions:
+
+   (1)	Both values must be either bitstring values or character string
+	values and the resulting value consists of the concatenation of
+	ARG1 followed by ARG2.
+
+	or
+
+	One value must be an integer value and the other value must be
+	either a bitstring value or character string value, which is
+	to be repeated by the number of times specified by the integer
+	value.
+
+
+    (2)	Boolean values are also allowed and are treated as bit string
+    	values of length 1.
+
+    (3)	Character values are also allowed and are treated as character
+    	string values of length 1.
+*/
+
+value
+value_concat (arg1, arg2)
+     value arg1, arg2;
+{
+  register value inval1, inval2, outval;
+  int inval1len, inval2len;
+  int count, idx;
+  char *ptr;
+  char inchar;
+
+  /* First figure out if we are dealing with two values to be concatenated
+     or a repeat count and a value to be repeated.  INVAL1 is set to the
+     first of two concatenated values, or the repeat count.  INVAL2 is set
+     to the second of the two concatenated values or the value to be 
+     repeated. */
+
+  if (TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_INT)
+    {
+      inval1 = arg2;
+      inval2 = arg1;
+    }
+  else
+    {
+      inval1 = arg1;
+      inval2 = arg2;
+    }
+
+  /* Now process the input values. */
+
+  if (TYPE_CODE (VALUE_TYPE (inval1)) == TYPE_CODE_INT)
+    {
+      /* We have a repeat count.  Validate the second value and then
+	 construct a value repeated that many times. */
+      if (TYPE_CODE (VALUE_TYPE (inval2)) == TYPE_CODE_STRING
+	  || TYPE_CODE (VALUE_TYPE (inval2)) == TYPE_CODE_CHAR)
+	{
+	  count = longest_to_int (value_as_long (inval1));
+	  inval2len = TYPE_LENGTH (VALUE_TYPE (inval2));
+	  ptr = (char *) alloca (count * inval2len);
+	  if (TYPE_CODE (VALUE_TYPE (inval2)) == TYPE_CODE_CHAR)
+	    {
+	      inchar = (char) unpack_long (VALUE_TYPE (inval2),
+					   VALUE_CONTENTS (inval2));
+	      for (idx = 0; idx < count; idx++)
+		{
+		  *(ptr + idx) = inchar;
+		}
+	    }
+	  else
+	    {
+	      for (idx = 0; idx < count; idx++)
+		{
+		  memcpy (ptr + (idx * inval2len), VALUE_CONTENTS (inval2),
+			  inval2len);
+		}
+	    }
+	  outval = value_string (ptr, count * inval2len);
+	}
+      else if (TYPE_CODE (VALUE_TYPE (inval2)) == TYPE_CODE_BITSTRING
+	       || TYPE_CODE (VALUE_TYPE (inval2)) == TYPE_CODE_BOOL)
+	{
+	  error ("unimplemented support for bitstring/boolean repeats");
+	}
+      else
+	{
+	  error ("can't repeat values of that type");
+	}
+    }
+  else if (TYPE_CODE (VALUE_TYPE (inval1)) == TYPE_CODE_STRING
+      || TYPE_CODE (VALUE_TYPE (inval1)) == TYPE_CODE_CHAR)
+    {
+      /* We have two character strings to concatenate. */
+      if (TYPE_CODE (VALUE_TYPE (inval2)) != TYPE_CODE_STRING
+	  && TYPE_CODE (VALUE_TYPE (inval2)) != TYPE_CODE_CHAR)
+	{
+	  error ("Strings can only be concatenated with other strings.");
+	}
+      inval1len = TYPE_LENGTH (VALUE_TYPE (inval1));
+      inval2len = TYPE_LENGTH (VALUE_TYPE (inval2));
+      ptr = (char *) alloca (inval1len + inval2len);
+      if (TYPE_CODE (VALUE_TYPE (inval1)) == TYPE_CODE_CHAR)
+	{
+	  *ptr = (char) unpack_long (VALUE_TYPE (inval1), VALUE_CONTENTS (inval1));
+	}
+      else
+	{
+	  memcpy (ptr, VALUE_CONTENTS (inval1), inval1len);
+	}
+      if (TYPE_CODE (VALUE_TYPE (inval2)) == TYPE_CODE_CHAR)
+	{
+	  *(ptr + inval1len) = 
+	    (char) unpack_long (VALUE_TYPE (inval2), VALUE_CONTENTS (inval2));
+	}
+      else
+	{
+	  memcpy (ptr + inval1len, VALUE_CONTENTS (inval2), inval2len);
+	}
+      outval = value_string (ptr, inval1len + inval2len);
+    }
+  else if (TYPE_CODE (VALUE_TYPE (inval1)) == TYPE_CODE_BITSTRING
+	   || TYPE_CODE (VALUE_TYPE (inval1)) == TYPE_CODE_BOOL)
+    {
+      /* We have two bitstrings to concatenate. */
+      if (TYPE_CODE (VALUE_TYPE (inval2)) != TYPE_CODE_BITSTRING
+	  && TYPE_CODE (VALUE_TYPE (inval2)) != TYPE_CODE_BOOL)
+	{
+	  error ("Bitstrings or booleans can only be concatenated with other bitstrings or booleans.");
+	}
+      error ("unimplemented support for bitstring/boolean concatenation.");
+    }      
+  else
+    {
+      /* We don't know how to concatenate these operands. */
+      error ("illegal operands for concatenation.");
+    }
+  return (outval);
+}
+
+
+/* Perform a binary operation on two operands which have reasonable
+   representations as integers or floats.  This includes booleans,
+   characters, integers, or floats.
    Does not support addition and subtraction on pointers;
    use value_add or value_sub if you want to handle those possibilities.  */
 
@@ -353,12 +524,20 @@ value_binop (arg1, arg2, op)
 
   if ((TYPE_CODE (VALUE_TYPE (arg1)) != TYPE_CODE_FLT
        &&
-       TYPE_CODE (VALUE_TYPE (arg1)) != TYPE_CODE_INT)
+       TYPE_CODE (VALUE_TYPE (arg1)) != TYPE_CODE_CHAR
+       &&
+       TYPE_CODE (VALUE_TYPE (arg1)) != TYPE_CODE_INT
+       &&
+       TYPE_CODE (VALUE_TYPE (arg1)) != TYPE_CODE_BOOL)
       ||
       (TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_FLT
        &&
-       TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_INT))
-    error ("Argument to arithmetic operation not a number.");
+       TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_CHAR
+       &&
+       TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_INT
+       &&
+       TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_BOOL))
+    error ("Argument to arithmetic operation not a number or boolean.");
 
   if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_FLT
       ||
@@ -393,14 +572,44 @@ value_binop (arg1, arg2, op)
       SWAP_TARGET_AND_HOST (&v, sizeof (v));
       *(double *) VALUE_CONTENTS_RAW (val) = v;
     }
+  else if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_BOOL
+	   &&
+	   TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_BOOL)
+      {
+	  LONGEST v1, v2, v;
+	  v1 = value_as_long (arg1);
+	  v2 = value_as_long (arg2);
+	  
+	  switch (op)
+	    {
+	    case BINOP_BITWISE_AND:
+	      v = v1 & v2;
+	      break;
+	      
+	    case BINOP_BITWISE_IOR:
+	      v = v1 | v2;
+	      break;
+	      
+	    case BINOP_BITWISE_XOR:
+	      v = v1 ^ v2;
+	      break;
+	      
+	    default:
+	      error ("Invalid operation on booleans.");
+	    }
+	  
+	  SWAP_TARGET_AND_HOST (&v, sizeof (v));
+	  *(LONGEST *) VALUE_CONTENTS_RAW (val) = v;
+      }
   else
     /* Integral operations here.  */
+    /* FIXME:  Also mixed integral/booleans, with result an integer. */
     {
       /* Should we promote to unsigned longest?  */
       if ((TYPE_UNSIGNED (VALUE_TYPE (arg1))
 	   || TYPE_UNSIGNED (VALUE_TYPE (arg2)))
 	  && (TYPE_LENGTH (VALUE_TYPE (arg1)) >= sizeof (unsigned LONGEST)
-	      || TYPE_LENGTH (VALUE_TYPE (arg1)) >= sizeof (unsigned LONGEST)))
+	      || TYPE_LENGTH (VALUE_TYPE (arg2)) >= sizeof (unsigned LONGEST)))
 	{
 	  unsigned LONGEST v1, v2, v;
 	  v1 = (unsigned LONGEST) value_as_long (arg1);
@@ -428,6 +637,21 @@ value_binop (arg1, arg2, op)
 	      v = v1 % v2;
 	      break;
 	      
+	    case BINOP_MOD:
+	      /* Knuth 1.2.4, integer only.  Note that unlike the C '%' op,
+	         v1 mod 0 has a defined value, v1. */
+	      if (v2 == 0)
+		{
+		  v = v1;
+		}
+	      else
+		{
+		  v = v1/v2;
+		  /* Note floor(v1/v2) == v1/v2 for unsigned. */
+		  v = v1 - (v2 * v);
+		}
+	      break;
+	      
 	    case BINOP_LSH:
 	      v = v1 << v2;
 	      break;
@@ -436,23 +660,23 @@ value_binop (arg1, arg2, op)
 	      v = v1 >> v2;
 	      break;
 	      
-	    case BINOP_LOGAND:
+	    case BINOP_BITWISE_AND:
 	      v = v1 & v2;
 	      break;
 	      
-	    case BINOP_LOGIOR:
+	    case BINOP_BITWISE_IOR:
 	      v = v1 | v2;
 	      break;
 	      
-	    case BINOP_LOGXOR:
+	    case BINOP_BITWISE_XOR:
 	      v = v1 ^ v2;
 	      break;
 	      
-	    case BINOP_AND:
+	    case BINOP_LOGICAL_AND:
 	      v = v1 && v2;
 	      break;
 	      
-	    case BINOP_OR:
+	    case BINOP_LOGICAL_OR:
 	      v = v1 || v2;
 	      break;
 	      
@@ -500,6 +724,25 @@ value_binop (arg1, arg2, op)
 	      v = v1 % v2;
 	      break;
 	      
+	    case BINOP_MOD:
+	      /* Knuth 1.2.4, integer only.  Note that unlike the C '%' op,
+	         X mod 0 has a defined value, X. */
+	      if (v2 == 0)
+		{
+		  v = v1;
+		}
+	      else
+		{
+		  v = v1/v2;
+		  /* Compute floor. */
+		  if (TRUNCATION_TOWARDS_ZERO && (v < 0) && ((v1 % v2) != 0))
+		    {
+		      v--;
+		    }
+		  v = v1 - (v2 * v);
+		}
+	      break;
+	      
 	    case BINOP_LSH:
 	      v = v1 << v2;
 	      break;
@@ -508,23 +751,23 @@ value_binop (arg1, arg2, op)
 	      v = v1 >> v2;
 	      break;
 	      
-	    case BINOP_LOGAND:
+	    case BINOP_BITWISE_AND:
 	      v = v1 & v2;
 	      break;
 	      
-	    case BINOP_LOGIOR:
+	    case BINOP_BITWISE_IOR:
 	      v = v1 | v2;
 	      break;
 	      
-	    case BINOP_LOGXOR:
+	    case BINOP_BITWISE_XOR:
 	      v = v1 ^ v2;
 	      break;
 	      
-	    case BINOP_AND:
+	    case BINOP_LOGICAL_AND:
 	      v = v1 && v2;
 	      break;
 	      
-	    case BINOP_OR:
+	    case BINOP_LOGICAL_OR:
 	      v = v1 || v2;
 	      break;
 	      
@@ -552,7 +795,7 @@ value_binop (arg1, arg2, op)
 /* Simulate the C operator ! -- return 1 if ARG1 contains zero.  */
 
 int
-value_zerop (arg1)
+value_logical_not (arg1)
      value arg1;
 {
   register int len;
@@ -695,7 +938,7 @@ value_neg (arg1)
 }
 
 value
-value_lognot (arg1)
+value_complement (arg1)
      register value arg1;
 {
   COERCE_ENUM (arg1);

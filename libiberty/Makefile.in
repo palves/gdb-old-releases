@@ -58,7 +58,8 @@ INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
 
 AR = ar
-AR_FLAGS = qv
+AR_FLAGS = rc
+
 CFLAGS = -g
 BISON = bison
 MAKEINFO = makeinfo
@@ -106,8 +107,8 @@ info install-info clean-info:
 #       and add them to this list (alphabetical order please)
 CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c concat.c \
 	 cplus-dem.c fdmatch.c getcwd.c getopt.c getopt1.c getpagesize.c \
-         index.c insque.c memcmp.c memcpy.c memmove.c memset.c \
-         obstack.c random.c rindex.c sigsetmask.c spaces.c \
+         index.c insque.c memchr.c memcmp.c memcpy.c memmove.c memset.c \
+         obstack.c random.c rename.c rindex.c sigsetmask.c spaces.c \
          strchr.c strdup.c strerror.c strrchr.c strsignal.c \
          strstr.c strtol.c strtoul.c vfork.c vfprintf.c vprintf.c vsprintf.c
 # These are always included in the library.
@@ -180,7 +181,7 @@ needed2.awk: $(srcdir)/functions.def Makefile
 	 | sed -e '/DEFFUNC/s|DEFFUNC.\([^,]*\).*|/\1/ { printf "#ifndef NEED_\1\\n#define NEED_\1\\n#endif\\n" }|' \
 	 >>needed2.awk
 
-dummy.o: $(srcdir)/dummy.c
+dummy.o: $(srcdir)/dummy.c $(srcdir)/functions.def
 	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) $(srcdir)/dummy.c
 
 errors: dummy.o $(EXTRA_OFILES)
@@ -216,9 +217,9 @@ TAGS: $(CFILES)
 
 # Create a standalone demangler if so desired ("make demangle").
 
-demangle: ${srcdir}/${DEMANGLER}.c
-	${CC} -o $@ -DMAIN ${INTERNAL_CFLAGS} \
-	  `echo ${srcdir}/${DEMANGLER}.c | sed 's,^\./,,'`
+demangle: ${srcdir}/cplus-dem.c
+	$(CC) -o $@ -DMAIN $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) \
+	  `echo $^ | sed 's,^\./,,'`
 
 ls:
 	@echo Makefile $(HFILES) $(CFILES)

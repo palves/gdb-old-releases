@@ -1,7 +1,7 @@
 /* BFD back-end for SCO System V 3.2 Unix core files.
    This was based on trad-core.c, which was written by John Gilmore of
         Cygnus Support.
-   Copyright 1988, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Scott Michel, IntelliMED Corporation. scottm%intime@uunet
 
    NB: This does work with SCO System V 3.2 Unix and ODT. However, it
@@ -249,6 +249,9 @@ sco_core_file_matches_executable_p  (core_bfd, exec_bfd)
 	(bfd *, struct sec *))) bfd_void
 #define sco_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
 #define sco_bfd_relax_section bfd_generic_relax_section
+#define sco_bfd_seclet_link \
+  ((boolean (*) PARAMS ((bfd *, PTR, boolean))) bfd_false)
+
 /* If somebody calls any byte-swapping routines, shoot them.  */
 void
 swap_abort()
@@ -269,9 +272,10 @@ bfd_target sco_core_vec =
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
-    ' ',						   /* ar_pad_char */
-    16,							   /* ar_max_namelen */
-    3,							   /* minimum alignment power */
+    0,						/* leading underscore */
+    ' ',					/* ar_pad_char */
+    16,						/* ar_max_namelen */
+    3,						/* minimum alignment power */
     NO_GET, NO_PUT, NO_GET, NO_PUT, NO_GET, NO_PUT, /* data */
     NO_GET, NO_PUT, NO_GET, NO_PUT, NO_GET, NO_PUT, /* hdrs */
 

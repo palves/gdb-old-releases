@@ -155,7 +155,7 @@ byteswap( n )
 	}
 	return n;
 }
-#endif 
+#endif /* 0 */
 
 
 /******************************************************************************
@@ -363,7 +363,7 @@ timed_read(buf,n,timeout)
 		return 0;
 	}
 }
-#endif
+#endif /* USG */
 
 /******************************************************************************
  * rdnin:
@@ -813,7 +813,7 @@ coffstrip( fn )
 		fprintf(stderr,"Check env variables G960BIN and G960BASE\n");
 		return NULL;
 	}
-#endif
+#endif /* 0 */
 
 	success = 0;
 	sprintf( buf, "cp %s %s", fn, tempfile );

@@ -12,30 +12,17 @@ files="alloca-norm.h"
 links="alloca-conf.h"
 
 case "${host}" in
-  mips-sgi-irix4)
-	  host_makefile_frag=config/mh-irix4
-	  ;;
-  rs6000-ibm-aix*)
-	  host_makefile_frag=config/mh-aix
-	  files="alloca-botch.h"
-	  ;;
-  m68k-apollo-bsd*)
-	  host_makefile_frag=config/mh-a68bsd 
-	  ;;
-  m68k-apollo-sysv*)
-	  host_makefile_frag=config/mh-apollo68
-	  ;;
-  i[34]86-ncr-sysv4*)
-	  host_makefile_frag=config/mh-ncr3000 
-	  ;;
-  *-*-sysv* | m88k-dg-dgux | mips-sgi-irix* | m88k-motorola-m88kbcs )
-	  host_makefile_frag=config/mh-sysv
-	  ;;
-  *-sun-solaris2* )
-	  host_makefile_frag=config/mh-solaris
-	  ;;
-  *-*-sysv4 )
-	  host_makefile_frag=config/mh-sysv4
-	  ;;
+  rs6000-ibm-aix*)	host_makefile_frag=config/mh-aix
+			files="alloca-botch.h" ;;
+  m68k-apollo-bsd*)	host_makefile_frag=config/mh-a68bsd ;;
+  m68k-apollo-sysv*)	host_makefile_frag=config/mh-apollo68 ;;
+  i[34]86-ncr-sysv4*)	host_makefile_frag=config/mh-ncr3000 ;;
+  *-*-dgux*)		host_makefile_frag=config/mh-sysv ;;
+  *-*-irix4*)		host_makefile_frag=config/mh-irix4 ;;
+  *-*-m88kbcs)		host_makefile_frag=config/mh-sysv ;;
+  *-*-solaris2*)	host_makefile_frag=config/mh-sysv4 ;;
+  *-*-sysv4*)		host_makefile_frag=config/mh-sysv4 ;;
+  *-*-sysv*)		host_makefile_frag=config/mh-sysv ;;
 esac
+
 # per-target:

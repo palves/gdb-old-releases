@@ -61,12 +61,12 @@ nindy_frame_chain_valid (chain, curframe)
 	sym = lookup_symbol(sf, 0, VAR_NAMESPACE, (int *)NULL, 
 				  (struct symtab **)NULL);
 	if ( sym != 0 ){
-		a = sym->value.value;
+		a = SYMBOL_VALUE (sym);
 	} else {
 		msymbol = lookup_minimal_symbol (sf, (struct objfile *) NULL);
 		if (msymbol == NULL)
 			return 0;
-		a = msymbol -> address;
+		a = SYMBOL_VALUE_ADDRESS (msymbol);
 	}
 
 	return ( chain != read_memory_integer(a,4) );

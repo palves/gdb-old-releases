@@ -13,32 +13,17 @@ files=sysdep-norm.h
 links=sysdep.h
 
 case "${host}" in
-  rs6000-ibm-aix) 
-    files=sysdep-aix.h
-    my_host=aix
-    ;;
-  *-*-aix*)
-    my_host=aix
-    ;;
-  mips-sgi-irix*)
-    files=sysdep-irix.h
-    ;;
-  m68k-sony-news* | *-*-mach* | *-*-bsd*)
-    files=sysdep-obsd.h
-    ;;
-  *-*-sysv4*)
-    my_host=sysv4 
-    ;;
-  *-*-sco*)
-    files=sysdep-sco.h 
-    ;;
-  *-apollo-sysv*)
-    files=sysdep-a68v.h
-    my_host=apollo68v 
-    ;;
-  m88k-motorola-m88kbcs)
-    my_host=delta88
-    ;;
+  rs6000-ibm-aix)	files=sysdep-aix.h;	my_host=aix ;;
+  *-*-aix*)					my_host=aix ;;
+  mips-sgi-irix*)	files=sysdep-irix.h ;;
+  m68k-sony-news*)	files=sysdep-obsd.h ;;
+  m68k-*-sunos3*)	files=sysdep-obsd.h ;;
+  *-*-mach*)		files=sysdep-obsd.h ;;
+  *-*-bsd*)		files=sysdep-obsd.h ;;
+  *-*-sysv4*)					my_host=sysv4 ;;
+  *-*-sco*)		files=sysdep-sco.h ;;
+  *-apollo-sysv*)	files=sysdep-a68v.h;	my_host=apollo68v ;;
+  m88k-motorola-m88kbcs)			my_host=delta88 ;;
 esac
 
 host_makefile_frag=config/mh-${my_host}

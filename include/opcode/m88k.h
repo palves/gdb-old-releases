@@ -85,6 +85,8 @@
  * of instructions have regarding writing results back into registers and
  * signalling exceptions.
  */
+/* PMEM is also defined in <sys/param.h> on Delta 88's.  Sigh!  */
+#undef PMEM
 
 # define    PINT  0   /* Integer Priority */
 # define    PFLT  1   /* Floating Point Priority */
@@ -229,7 +231,7 @@ struct  PROCESSOR   {
 # define    SUBUB   ADD+3
 # define    SUB     ADD+4
 
-# define    AND     ADD+5
+# define    AND_    ADD+5
 # define    OR      ADD+6
 # define    XOR     ADD+7
 # define    CMP     ADD+8
@@ -501,14 +503,14 @@ static INSTAB  instructions[] =
  0x78000000,"div      ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {32,32,PINT,DIV,  i16bit,1,0,1,0,0,0,0,0,0,0,0}   ,NULL,
  0x7c000000,"cmp      ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,CMP,    i16bit,1,0,1,0,0,0,0,0,0,0,0}   ,NULL,
 
- 0xf4004000,"and      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,AND         ,0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
- 0xf4004400,"and.c    ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,AND         ,0,1,1,1,1,0,0,0,0,0,0,0}   ,NULL,
+ 0xf4004000,"and      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,AND_        ,0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
+ 0xf4004400,"and.c    ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,AND_        ,0,1,1,1,1,0,0,0,0,0,0,0}   ,NULL,
  0xf4005800,"or       ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,OR          ,0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4005c00,"or.c     ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,OR          ,0,1,1,1,1,0,0,0,0,0,0,0}   ,NULL,
  0xf4005000,"xor      ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,XOR         ,0,1,1,1,0,0,0,0,0,0,0,0}   ,NULL,
  0xf4005400,"xor.c    ",{21,5,REG}  ,{16,5,REG}   ,{0,5,REG} , {1,1,PINT,XOR         ,0,1,1,1,1,0,0,0,0,0,0,0}   ,NULL,
- 0x40000000,"and      ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,AND    ,i16bit,1,0,1,0,0,0,0,0,0,0,0}   ,NULL,
- 0x44000000,"and.u    ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,AND    ,i16bit,1,0,1,0,1,0,0,0,0,0,0}   ,NULL,
+ 0x40000000,"and      ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,AND_   ,i16bit,1,0,1,0,0,0,0,0,0,0,0}   ,NULL,
+ 0x44000000,"and.u    ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,AND_   ,i16bit,1,0,1,0,1,0,0,0,0,0,0}   ,NULL,
  0x58000000,"or       ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,OR     ,i16bit,1,0,1,0,0,0,0,0,0,0,0}   ,NULL,
  0x5c000000,"or.u     ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,OR     ,i16bit,1,0,1,0,1,0,0,0,0,0,0}   ,NULL,
  0x50000000,"xor      ",{21,5,REG}  ,{16,5,REG}   ,{0,16,HEX}, {1,1,PINT,XOR    ,i16bit,1,0,1,0,0,0,0,0,0,0,0}   ,NULL,

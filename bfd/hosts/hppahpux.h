@@ -7,6 +7,9 @@
 #include <string.h>
 #include <sys/file.h>
 #include <memory.h>
+#include <stdlib.h>
+
+#define HOST_HPPAHPUX
 
 void free();
 
@@ -19,6 +22,8 @@ void free();
 #ifndef __STDC__
 #define NATIVE_HPPAHPUX_COMPILER
 #endif
+
+#define USE_UTIME
 
 #if 0
 static int

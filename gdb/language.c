@@ -112,7 +112,7 @@ const struct language_defn *expected_language;
 static const struct language_defn **languages;
 static unsigned languages_size;
 static unsigned languages_allocsize;
-#define	DEFAULT_ALLOCSIZE 3
+#define	DEFAULT_ALLOCSIZE 4
 
 /* The "set language/type/range" commands all put stuff in these
    buffers.  This is to make them work as set/show commands.  The
@@ -161,11 +161,11 @@ set_language_command (ignore, from_tty)
 
   /* FIXME -- do this from the list, with HELP.  */
   if (!language || !language[0]) {
-    printf("The currently understood settings are:\n\n\
-local or auto    Automatic setting based on source file\n\
-c                Use the C language\n\
-c++              Use the C++ language\n\
-modula-2         Use the Modula-2 language\n");
+    printf("The currently understood settings are:\n\n");
+    printf ("local or auto    Automatic setting based on source file\n");
+    printf ("c                Use the C language\n");
+    printf ("c++              Use the C++ language\n");
+    printf ("modula-2         Use the Modula-2 language\n");
     /* Restore the silly string. */
     set_language(current_language->la_language);
     return;
@@ -173,7 +173,7 @@ modula-2         Use the Modula-2 language\n");
 
   /* Search the list of languages for a match.  */
   for (i = 0; i < languages_size; i++) {
-    if (!strcmp (languages[i]->la_name, language)) {
+    if (STREQ (languages[i]->la_name, language)) {
       /* Found it!  Go into manual mode, and use this language.  */
       if (languages[i]->la_language == language_auto) {
 	/* Enter auto mode.  Set to the current frame's language, if known.  */
@@ -221,22 +221,22 @@ set_type_command(ignore, from_tty)
    char *ignore;
    int from_tty;
 {
-   if (!strcmp(type,"on"))
+   if (STREQ(type,"on"))
    {
       type_check = type_check_on;
       type_mode = type_mode_manual;
    }
-   else if (!strcmp(type,"warn"))
+   else if (STREQ(type,"warn"))
    {
       type_check = type_check_warn;
       type_mode = type_mode_manual;
    }
-   else if (!strcmp(type,"off"))
+   else if (STREQ(type,"off"))
    {
       type_check = type_check_off;
       type_mode = type_mode_manual;
    }
-   else if (!strcmp(type,"auto"))
+   else if (STREQ(type,"auto"))
    {
       type_mode = type_mode_auto;
       set_type_range();
@@ -267,22 +267,22 @@ set_range_command(ignore, from_tty)
    char *ignore;
    int from_tty;
 {
-   if (!strcmp(range,"on"))
+   if (STREQ(range,"on"))
    {
       range_check = range_check_on;
       range_mode = range_mode_manual;
    }
-   else if (!strcmp(range,"warn"))
+   else if (STREQ(range,"warn"))
    {
       range_check = range_check_warn;
       range_mode = range_mode_manual;
    }
-   else if (!strcmp(range,"off"))
+   else if (STREQ(range,"off"))
    {
       range_check = range_check_off;
       range_mode = range_mode_manual;
    }
-   else if (!strcmp(range,"auto"))
+   else if (STREQ(range,"auto"))
    {
       range_mode = range_mode_auto;
       set_type_range();
@@ -476,9 +476,11 @@ local_hex_format_custom(pre)
 {
    static char form[50];
 
-   strcpy (form, current_language->la_hex_format_pre);
+   strcpy (form, local_hex_format_prefix ());
+   strcat (form, "%");
    strcat (form, pre);
-   strcat (form, current_language->la_hex_format_suf);
+   strcat (form, local_hex_format_specifier ());
+   strcat (form, local_hex_format_suffix ());
    return form;
 }
 
@@ -490,7 +492,7 @@ local_hex_string (num)
 {
    static char res[50];
 
-   sprintf (res, current_language->la_hex_format, num);
+   sprintf (res, local_hex_format(), num);
    return res;
 }
 
@@ -515,9 +517,11 @@ local_octal_format_custom(pre)
 {
    static char form[50];
 
-   strcpy (form, current_language->la_octal_format_pre);
+   strcpy (form, local_octal_format_prefix ());
+   strcat (form, "%");
    strcat (form, pre);
-   strcat (form, current_language->la_octal_format_suf);
+   strcat (form, local_octal_format_specifier ());
+   strcat (form, local_octal_format_suffix ());
    return form;
 }
 
@@ -556,7 +560,10 @@ simple_type(type)
   }
 }
 
-/* Returns non-zero if its argument is of an ordered type. */
+/* Returns non-zero if its argument is of an ordered type.
+   An ordered type is one in which the elements can be tested for the
+   properties of "greater than", "less than", etc, or for which the
+   operations "increment" or "decrement" make sense. */
 int
 ordered_type (type)
    struct type *type;
@@ -645,6 +652,25 @@ character_type (type)
    }
 }
 
+/* Returns non-zero if the value is a string type */
+int
+string_type (type)
+   struct type *type;
+{
+   switch(current_language->la_language)
+   {
+   case language_m2:
+      return TYPE_CODE(type) != TYPE_CODE_STRING ? 0 : 1;
+
+   case language_c:
+   case language_cplus:
+      /* C does not have distinct string type. */
+      return (0);
+   default:
+      return (0);
+   }
+}
+
 /* Returns non-zero if the value is a boolean type */
 int
 boolean_type (type)
@@ -717,7 +743,7 @@ value_true(val)
 
   case language_c:
   case language_cplus:
-    return !value_zerop (val);
+    return !value_logical_not (val);
 
   case language_m2:
     type = VALUE_TYPE(val);
@@ -734,11 +760,12 @@ value_true(val)
       }
     if (i >= len)
       return 0;		/* Not a valid BOOLEAN value */
-    if (!strcmp ("TRUE", TYPE_FIELD_NAME(VALUE_TYPE(val), i)))
+    if (STREQ ("TRUE", TYPE_FIELD_NAME(VALUE_TYPE(val), i)))
       return 1;		/* BOOLEAN with value TRUE */
     else
       return 0;		/* BOOLEAN with value FALSE */
     break;
+
 
   default:
     error ("Language not supported.");
@@ -786,8 +813,8 @@ binop_type_check(arg1,arg2,op)
 	 type_op_error ("Arguments to %s must be of the same type.",op);
       break;
 
-   case BINOP_AND:
-   case BINOP_OR:
+   case BINOP_LOGICAL_AND:
+   case BINOP_LOGICAL_OR:
       if (!boolean_type(t1) || !boolean_type(t2))
 	 type_op_error ("Arguments to %s must be of boolean type.",op);
       break;
@@ -809,6 +836,7 @@ binop_type_check(arg1,arg2,op)
       break;
 
    case BINOP_REM:
+   case BINOP_MOD:
       if (!integral_type(t1) || !integral_type(t2))
 	 type_op_error ("Arguments to %s must be of integral type.",op);
       break;
@@ -837,9 +865,16 @@ binop_type_check(arg1,arg2,op)
 	 type_op_error ("Arguments to %s must be of the same type.",op);
       break;
 
+    case BINOP_CONCAT:
+      /* FIXME:  Needs to handle bitstrings as well. */
+      if (!(string_type(t1) || character_type(t1) || integral_type(t1))
+	  || !(string_type(t2) || character_type(t2) || integral_type(t2)))
+	  type_op_error ("Arguments to %s must be strings or characters.", op);
+      break;
+
    /* Unary checks -- arg2 is null */
 
-   case UNOP_ZEROP:
+   case UNOP_LOGICAL_NOT:
       if (!boolean_type(t1))
 	 type_op_error ("Argument to %s must be of boolean type.",op);
       break;
@@ -900,6 +935,8 @@ binop_type_check(arg1,arg2,op)
 	    break;
 	 }
 #endif
+
+
       }
    }
 }
@@ -981,6 +1018,22 @@ range_error (va_alist)
 
 /* This page contains miscellaneous functions */
 
+/* Return the language struct for a given language enum. */
+
+const struct language_defn *
+language_def(lang)
+   enum language lang;
+{
+  int i;
+
+  for (i = 0; i < languages_size; i++) {
+    if (languages[i]->la_language == lang) {
+      return languages[i];
+    }
+  }
+  return NULL;
+}
+
 /* Return the language as a string */
 char *
 language_str(lang)
@@ -1057,8 +1110,62 @@ unk_lang_error (msg)
   error ("Attempted to parse an expression with unknown language");
 }
 
+static void
+unk_lang_printchar (c, stream)
+     register int c;
+     FILE *stream;
+{
+  error ("internal error - unimplemented function unk_lang_printchar called.");
+}
+
+static void
+unk_lang_printstr (stream, string, length, force_ellipses)
+     FILE *stream;
+     char *string;
+     unsigned int length;
+     int force_ellipses;
+{
+  error ("internal error - unimplemented function unk_lang_printstr called.");
+}
+
+static struct type *
+unk_lang_create_fundamental_type (objfile, typeid)
+     struct objfile *objfile;
+     int typeid;
+{
+  error ("internal error - unimplemented function unk_lang_create_fundamental_type called.");
+}
+
+void
+unk_lang_print_type (type, varstring, stream, show, level)
+     struct type *type;
+     char *varstring;
+     FILE *stream;
+     int show;
+     int level;
+{
+  error ("internal error - unimplemented function unk_lang_print_type called.");
+}
+
+int
+unk_lang_val_print (type, valaddr, address, stream, format, deref_ref,
+		    recurse, pretty)
+     struct type *type;
+     char *valaddr;
+     CORE_ADDR address;
+     FILE *stream;
+     int format;
+     int deref_ref;
+     int recurse;
+     enum val_prettyprint pretty;
+{
+  error ("internal error - unimplemented function unk_lang_val_print called.");
+}
+
 static struct type ** const (unknown_builtin_types[]) = { 0 };
-static const struct op_print unk_op_print_tab[] = { 0 };
+static const struct op_print unk_op_print_tab[] = {
+    {NULL, OP_NULL, PREC_NULL, 0}
+};
 
 const struct language_defn unknown_language_defn = {
   "unknown",
@@ -1068,11 +1175,18 @@ const struct language_defn unknown_language_defn = {
   type_check_off,
   unk_lang_parser,
   unk_lang_error,
+  unk_lang_printchar,		/* Print character constant */
+  unk_lang_printstr,
+  unk_lang_create_fundamental_type,
+  unk_lang_print_type,		/* Print a type using appropriate syntax */
+  unk_lang_val_print,		/* Print a value using appropriate syntax */
   &builtin_type_error,		/* longest signed   integral type */
   &builtin_type_error,		/* longest unsigned integral type */
   &builtin_type_error,		/* longest floating point type */
-  "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
-  "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
+  {"",      "",    "",   ""},	/* Binary format info */
+  {"0%o",   "0",   "o",  ""},	/* Octal format info */
+  {"%d",    "",    "d",  ""},	/* Decimal format info */
+  {"0x%x",  "0x",  "x",  ""},	/* Hex format info */
   unk_op_print_tab,		/* expression operators for printing */
   LANG_MAGIC
 };
@@ -1086,11 +1200,18 @@ const struct language_defn auto_language_defn = {
   type_check_off,
   unk_lang_parser,
   unk_lang_error,
+  unk_lang_printchar,		/* Print character constant */
+  unk_lang_printstr,
+  unk_lang_create_fundamental_type,
+  unk_lang_print_type,		/* Print a type using appropriate syntax */
+  unk_lang_val_print,		/* Print a value using appropriate syntax */
   &builtin_type_error,		/* longest signed   integral type */
   &builtin_type_error,		/* longest unsigned integral type */
   &builtin_type_error,		/* longest floating point type */
-  "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
-  "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
+  {"",      "",    "",   ""},	/* Binary format info */
+  {"0%o",   "0",   "o",  ""},	/* Octal format info */
+  {"%d",    "",    "d",  ""},	/* Decimal format info */
+  {"0x%x",  "0x",  "x",  ""},	/* Hex format info */
   unk_op_print_tab,		/* expression operators for printing */
   LANG_MAGIC
 };
@@ -1103,11 +1224,18 @@ const struct language_defn local_language_defn = {
   type_check_off,
   unk_lang_parser,
   unk_lang_error,
+  unk_lang_printchar,		/* Print character constant */
+  unk_lang_printstr,
+  unk_lang_create_fundamental_type,
+  unk_lang_print_type,		/* Print a type using appropriate syntax */
+  unk_lang_val_print,		/* Print a value using appropriate syntax */
   &builtin_type_error,		/* longest signed   integral type */
   &builtin_type_error,		/* longest unsigned integral type */
   &builtin_type_error,		/* longest floating point type */
-  "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
-  "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
+  {"",      "",    "",   ""},	/* Binary format info */
+  {"0%o",   "0",   "o",  ""},	/* Octal format info */
+  {"%d",    "",    "d",  ""},	/* Decimal format info */
+  {"0x%x",  "0x",  "x",  ""},	/* Hex format info */
   unk_op_print_tab,		/* expression operators for printing */
   LANG_MAGIC
 };

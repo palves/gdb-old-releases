@@ -1,6 +1,6 @@
 \input texinfo.tex
 @setfilename bfd.info
-@c $Id: bfd.texinfo,v 1.12 1991/12/20 00:48:42 pesch Exp $
+@c $Id: bfd.texinfo,v 1.14 1993/02/12 04:25:38 zoo Exp $
 @tex
 % NOTE LOCAL KLUGE TO AVOID TOO MUCH WHITESPACE
 \global\long\def\example{%
@@ -67,7 +67,7 @@ into another language, under the above conditions for modified versions.
 
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.12 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.14 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill sac\@cygnus.com\par
@@ -170,7 +170,7 @@ points to a structure called @code{bfd}, described in
 instances of it within code @code{abfd}.  All operations on
 the target object file are applied as methods to the BFD.  The mapping is
 defined within @code{bfd.h} in a set of macros, all beginning
-@samp{bfd}_.
+with @samp{bfd_} to reduce namespace pollution.
 
 For example, this sequence would do what you would probably expect:
 return the number of sections in an object file attached to a BFD
@@ -231,7 +231,7 @@ correctly).
 Another example is COFF section names. COFF files may contain an
 unlimited number of sections, each one with a textual section name. If
 the target of the link is a format which does not have many sections (eg
-@code{a.out}) or has sections without names (eg the Oasys format) the
+@code{a.out}) or has sections without names (@i{e.g.}, the Oasys format) the
 link cannot be done simply. You can circumvent this problem by
 describing the desired input-to-output section mapping with the linker command
 language.
@@ -279,8 +279,7 @@ information like Unix magic numbers is not stored here---only the magic
 numbers' meaning, so a @code{ZMAGIC} file would have both the demand
 pageable bit and the write protected text bit set.  The byte order of
 the target is stored on a per-file basis, so that big- and little-endian
-object files may be linked with one another.
-@c FIXME: generalize above from "link"?
+object files may be used with one another.
 
 @item sections
 Each section in the input file contains the name of the section, the
@@ -314,7 +313,7 @@ IEEE, Oasys) and the type is simple enough to fit within one word
 
 @item relocation level
 Each canonical BFD relocation record contains a pointer to the symbol to
-relocate to, the offset of the data to relocate, the section the data
+relocate to (if any), the offset of the data to relocate, the section the data
 is in and a pointer to a relocation type descriptor. Relocation is
 performed effectively by message passing through the relocation type
 descriptor and symbol pointer. It allows relocations to be performed
@@ -322,7 +321,7 @@ on output data using a relocation method only available in one of the
 input formats. For instance, Oasys provides a byte relocation format.
 A relocation record requesting this relocation type would point
 indirectly to a routine to perform this, so the relocation may be
-performed on a byte being written to a COFF file, even though 68k COFF
+performed on a byte being written to a 68k COFF file, even though 68k COFF
 has no such relocation type.
 
 @item line numbers
@@ -380,11 +379,12 @@ lost.
 
 The general rule is not to close a BFD until all operations dependent
 upon data from the BFD have been completed, or all the data from within
-the file has been copied. To help with the management of memory, there is a function
-(@code{bfd_alloc_size}) which returns the number of bytes in obstacks
-associated with the supplied BFD. This could be used to select the
-greediest open BFD, close it to reclaim the memory, perform some
-operation and reopen the BFD again, to get a fresh copy of the data structures.
+the file has been copied. To help with the management of memory, there
+is a function (@code{bfd_alloc_size}) which returns the number of bytes
+in obstacks associated with the supplied BFD. This could be used to
+select the greediest open BFD, close it to reclaim the memory, perform
+some operation and reopen the BFD again, to get a fresh copy of the data
+structures.
 
 @node Initialization, Sections, Memory Usage, BFD front end
 @include  init.texi
@@ -428,7 +428,7 @@ operation and reopen the BFD again, to get a fresh copy of the data structures.
 @node BFD back end, Index, BFD front end, Top
 @chapter BFD back end
 @menu
-* What to put where::
+* What to Put Where::
 * aout ::	a.out backends
 * coff ::	coff backends
 @ignore

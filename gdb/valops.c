@@ -25,10 +25,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "gdbcore.h"
 #include "target.h"
+#include "demangle.h"
 
 #include <errno.h>
 
 /* Local functions.  */
+
+static int
+typecmp PARAMS ((int staticp, struct type *t1[], value t2[]));
 
 static CORE_ADDR
 find_function_addr PARAMS ((value, struct type **));
@@ -49,7 +53,61 @@ search_struct_method PARAMS ((char *, value *, value *, int, int *,
 static int
 check_field_in PARAMS ((struct type *, const char *));
 
+static CORE_ADDR
+allocate_space_in_inferior PARAMS ((int));
+
 
+/* Allocate NBYTES of space in the inferior using the inferior's malloc
+   and return a value that is a pointer to the allocated space. */
+
+static CORE_ADDR
+allocate_space_in_inferior (len)
+     int len;
+{
+  register value val;
+  register struct symbol *sym;
+  struct minimal_symbol *msymbol;
+  struct type *type;
+  value blocklen;
+  LONGEST maddr;
+
+  /* Find the address of malloc in the inferior.  */
+
+  sym = lookup_symbol ("malloc", 0, VAR_NAMESPACE, 0, NULL);
+  if (sym != NULL)
+    {
+      if (SYMBOL_CLASS (sym) != LOC_BLOCK)
+	{
+	  error ("\"malloc\" exists in this program but is not a function.");
+	}
+      val = value_of_variable (sym);
+    }
+  else
+    {
+      msymbol = lookup_minimal_symbol ("malloc", (struct objfile *) NULL);
+      if (msymbol != NULL)
+	{
+	  type = lookup_pointer_type (builtin_type_char);
+	  type = lookup_function_type (type);
+	  type = lookup_pointer_type (type);
+	  maddr = (LONGEST) SYMBOL_VALUE_ADDRESS (msymbol);
+	  val = value_from_longest (type, maddr);
+	}
+      else
+	{
+	  error ("evaluation of this expression requires the program to have a function \"malloc\".");
+	}
+    }
+
+  blocklen = value_from_longest (builtin_type_int, (LONGEST) len);
+  val = call_function_by_hand (val, 1, &blocklen);
+  if (value_logical_not (val))
+    {
+      error ("No memory available to program.");
+    }
+  return (value_as_long (val));
+}
+
 /* Cast value ARG2 to type TYPE and return as a value.
    More general than a C cast: accepts any two types of the same length,
    and if ARG2 is an lvalue it can be cast into anything at all.  */
@@ -420,13 +478,32 @@ value_of_variable (var)
 
   val = read_var_value (var, (FRAME) 0);
   if (val == 0)
-    error ("Address of symbol \"%s\" is unknown.", SYMBOL_NAME (var));
+    error ("Address of symbol \"%s\" is unknown.", SYMBOL_SOURCE_NAME (var));
   return val;
 }
 
-/* Given a value which is an array, return a value which is
-   a pointer to its first (actually, zeroth) element. 
-   FIXME, this should be subtracting the array's lower bound. */
+/* Given a value which is an array, return a value which is a pointer to its
+   first element, regardless of whether or not the array has a nonzero lower
+   bound.
+
+   FIXME:  A previous comment here indicated that this routine should be
+   substracting the array's lower bound.  It's not clear to me that this
+   is correct.  Given an array subscripting operation, it would certainly
+   work to do the adjustment here, essentially computing:
+
+   (&array[0] - (lowerbound * sizeof array[0])) + (index * sizeof array[0])
+
+   However I believe a more appropriate and logical place to account for
+   the lower bound is to do so in value_subscript, essentially computing:
+
+   (&array[0] + ((index - lowerbound) * sizeof array[0]))
+
+   As further evidence consider what would happen with operations other
+   than array subscripting, where the caller would get back a value that
+   had an address somewhere before the actual first element of the array,
+   and the information about the lower bound would be lost because of
+   the coercion to pointer type.
+   */
 
 value
 value_coerce_array (arg1)
@@ -704,6 +781,7 @@ call_function_by_hand (function, nargs, args)
   struct cleanup *old_chain;
   CORE_ADDR funaddr;
   int using_gcc;
+  CORE_ADDR real_pc;
 
   if (!target_has_execution)
     noprocess();
@@ -745,8 +823,15 @@ call_function_by_hand (function, nargs, args)
   memcpy (dummy1, dummy, sizeof dummy);
   for (i = 0; i < sizeof dummy / sizeof (REGISTER_TYPE); i++)
     SWAP_TARGET_AND_HOST (&dummy1[i], sizeof (REGISTER_TYPE));
+
+#ifdef GDB_TARGET_IS_HPPA
+  FIX_CALL_DUMMY (dummy1, start_sp, real_pc, funaddr, nargs, args,
+		  value_type, using_gcc);
+#else
   FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, args,
 		  value_type, using_gcc);
+  real_pc = start_sp;
+#endif
 
 #if CALL_DUMMY_LOCATION == ON_STACK
   write_memory (start_sp, (char *)dummy1, sizeof dummy);
@@ -891,7 +976,7 @@ call_function_by_hand (function, nargs, args)
     /* Execute the stack dummy routine, calling FUNCTION.
        When it is done, discard the empty frame
        after storing the contents of all regs into retbuf.  */
-    run_stack_dummy (start_sp + CALL_DUMMY_START_OFFSET, retbuf);
+    run_stack_dummy (real_pc + CALL_DUMMY_START_OFFSET, retbuf);
 
     do_cleanups (old_chain);
 
@@ -908,78 +993,147 @@ call_function_by_hand (function, nargs, args)
   error ("Cannot invoke functions on this machine.");
 }
 #endif /* no CALL_DUMMY.  */
+
 
-/* Create a value for a string constant:
-   Call the function malloc in the inferior to get space for it,
-   then copy the data into that space
-   and then return the address with type char *.
-   PTR points to the string constant data; LEN is number of characters.  */
+/* Create a value for an array by allocating space in the inferior, copying
+   the data into that space, and then setting up an array value.
+
+   The array bounds are set from LOWBOUND and HIGHBOUND, and the array is
+   populated from the values passed in ELEMVEC.
+
+   The element type of the array is inherited from the type of the
+   first element, and all elements must have the same size (though we
+   don't currently enforce any restriction on their types). */
+
+value
+value_array (lowbound, highbound, elemvec)
+     int lowbound;
+     int highbound;
+     value *elemvec;
+{
+  int nelem;
+  int idx;
+  int typelength;
+  value val;
+  struct type *rangetype;
+  struct type *arraytype;
+  CORE_ADDR addr;
+
+  /* Validate that the bounds are reasonable and that each of the elements
+     have the same size. */
+
+  nelem = highbound - lowbound + 1;
+  if (nelem <= 0)
+    {
+      error ("bad array bounds (%d, %d)", lowbound, highbound);
+    }
+  typelength = TYPE_LENGTH (VALUE_TYPE (elemvec[0]));
+  for (idx = 0; idx < nelem; idx++)
+    {
+      if (TYPE_LENGTH (VALUE_TYPE (elemvec[idx])) != typelength)
+	{
+	  error ("array elements must all be the same size");
+	}
+    }
+
+  /* Allocate space to store the array in the inferior, and then initialize
+     it by copying in each element.  FIXME:  Is it worth it to create a
+     local buffer in which to collect each value and then write all the
+     bytes in one operation? */
+
+  addr = allocate_space_in_inferior (nelem * typelength);
+  for (idx = 0; idx < nelem; idx++)
+    {
+      write_memory (addr + (idx * typelength), VALUE_CONTENTS (elemvec[idx]),
+		    typelength);
+    }
+
+  /* Create the array type and set up an array value to be evaluated lazily. */
+
+  rangetype = create_range_type ((struct type *) NULL, builtin_type_int,
+				 lowbound, highbound);
+  arraytype = create_array_type ((struct type *) NULL, 
+				 VALUE_TYPE (elemvec[0]), rangetype);
+  val = value_at_lazy (arraytype, addr);
+  return (val);
+}
+
+/* Create a value for a string constant by allocating space in the inferior,
+   copying the data into that space, and returning the address with type
+   TYPE_CODE_STRING.  PTR points to the string constant data; LEN is number
+   of characters.
+   Note that string types are like array of char types with a lower bound of
+   zero and an upper bound of LEN - 1.  Also note that the string may contain
+   embedded null bytes. */
 
 value
 value_string (ptr, len)
      char *ptr;
      int len;
 {
-  register value val;
-  register struct symbol *sym;
-  value blocklen;
-  register char *copy = (char *) alloca (len + 1);
-  char *i = ptr;
-  register char *o = copy, *ibeg = ptr;
-  register int c;
+  value val;
+  struct type *rangetype;
+  struct type *stringtype;
+  CORE_ADDR addr;
 
-  /* Copy the string into COPY, processing escapes.
-     We could not conveniently process them in the parser
-     because the string there wants to be a substring of the input.  */
+  /* Allocate space to store the string in the inferior, and then
+     copy LEN bytes from PTR in gdb to that address in the inferior. */
 
-  while (i - ibeg < len)
-    {
-      c = *i++;
-      if (c == '\\')
-	{
-	  c = parse_escape (&i);
-	  if (c == -1)
-	    continue;
-	}
-      *o++ = c;
-    }
-  *o = 0;
+  addr = allocate_space_in_inferior (len);
+  write_memory (addr, ptr, len);
 
-  /* Get the length of the string after escapes are processed.  */
+  /* Create the string type and set up a string value to be evaluated
+     lazily. */
 
-  len = o - copy;
-
-  /* Find the address of malloc in the inferior.  */
-
-  sym = lookup_symbol ("malloc", 0, VAR_NAMESPACE, 0, NULL);
-  if (sym != 0)
-    {
-      if (SYMBOL_CLASS (sym) != LOC_BLOCK)
-	error ("\"malloc\" exists in this program but is not a function.");
-      val = value_of_variable (sym);
-    }
-  else
-    {
-      struct minimal_symbol *msymbol;
-      msymbol = lookup_minimal_symbol ("malloc", (struct objfile *) NULL);
-      if (msymbol != NULL)
-	val =
-	  value_from_longest (lookup_pointer_type (lookup_function_type (
-				lookup_pointer_type (builtin_type_char))),
-			      (LONGEST) msymbol -> address);
-      else
-	error ("String constants require the program to have a function \"malloc\".");
-    }
-
-  blocklen = value_from_longest (builtin_type_int, (LONGEST) (len + 1));
-  val = call_function_by_hand (val, 1, &blocklen);
-  if (value_zerop (val))
-    error ("No memory available for string constant.");
-  write_memory (value_as_pointer (val), copy, len + 1);
-  VALUE_TYPE (val) = lookup_pointer_type (builtin_type_char);
-  return val;
+  rangetype = create_range_type ((struct type *) NULL, builtin_type_int,
+				 0, len - 1);
+  stringtype = create_string_type ((struct type *) NULL, rangetype);
+  val = value_at_lazy (stringtype, addr);
+  return (val);
 }
 
+/* Compare two argument lists and return the position in which they differ,
+   or zero if equal.
+
+   STATICP is nonzero if the T1 argument list came from a
+   static member function.
+
+   For non-static member functions, we ignore the first argument,
+   which is the type of the instance variable.  This is because we want
+   to handle calls with objects from derived classes.  This is not
+   entirely correct: we should actually check to make sure that a
+   requested operation is type secure, shouldn't we?  FIXME.  */
+
+static int
+typecmp (staticp, t1, t2)
+     int staticp;
+     struct type *t1[];
+     value t2[];
+{
+  int i;
+
+  if (t2 == 0)
+    return 1;
+  if (staticp && t1 == 0)
+    return t2[1] != 0;
+  if (t1 == 0)
+    return 1;
+  if (TYPE_CODE (t1[0]) == TYPE_CODE_VOID) return 0;
+  if (t1[!staticp] == 0) return 0;
+  for (i = !staticp; t1[i] && TYPE_CODE (t1[i]) != TYPE_CODE_VOID; i++)
+    {
+      if (! t2[i])
+	return i+1;
+      if (TYPE_CODE (t1[i]) == TYPE_CODE_REF
+	  && TYPE_TARGET_TYPE (t1[i]) == VALUE_TYPE (t2[i]))
+	continue;
+      if (TYPE_CODE (t1[i]) != TYPE_CODE (VALUE_TYPE (t2[i])))
+	return i+1;
+    }
+  if (!t1[i]) return 0;
+  return t2[i] ? i+1 : 0;
+}
+
 /* Helper function used by value_struct_elt to recurse through baseclasses.
    Look for a field NAME in ARG1. Adjust the address of ARG1 by OFFSET bytes,
    and search in it assuming it has (class) type TYPE.
@@ -1005,17 +1159,17 @@ search_struct_field (name, arg1, offset, type, looking_for_baseclass)
       {
 	char *t_field_name = TYPE_FIELD_NAME (type, i);
 
-	if (t_field_name && !strcmp (t_field_name, name))
+	if (t_field_name && STREQ (t_field_name, name))
 	  {
 	    value v;
 	    if (TYPE_FIELD_STATIC (type, i))
 	      {
 		char *phys_name = TYPE_FIELD_STATIC_PHYSNAME (type, i);
 		struct symbol *sym =
-		  lookup_symbol (phys_name, 0, VAR_NAMESPACE, 0, NULL);
-		if (! sym) error (
-	  "Internal error: could not find physical static variable named %s",
-				  phys_name);
+		    lookup_symbol (phys_name, 0, VAR_NAMESPACE, 0, NULL);
+		if (sym == NULL)
+		    error ("Internal error: could not find physical static variable named %s",
+			   phys_name);
 		v = value_at (TYPE_FIELD_TYPE (type, i),
 			      (CORE_ADDR)SYMBOL_BLOCK_VALUE (sym));
 	      }
@@ -1033,7 +1187,7 @@ search_struct_field (name, arg1, offset, type, looking_for_baseclass)
       /* If we are looking for baseclasses, this is what we get when we
 	 hit them.  */
       int found_baseclass = (looking_for_baseclass
-			     && !strcmp (name, TYPE_BASECLASS_NAME (type, i)));
+			     && STREQ (name, TYPE_BASECLASS_NAME (type, i)));
 
       if (BASETYPE_VIA_VIRTUAL (type, i))
 	{
@@ -1078,7 +1232,7 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
   for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; i--)
     {
       char *t_field_name = TYPE_FN_FIELDLIST_NAME (type, i);
-      if (t_field_name && !strcmp (t_field_name, name))
+      if (t_field_name && STREQ (t_field_name, name))
 	{
 	  int j = TYPE_FN_FIELDLIST_LENGTH (type, i) - 1;
 	  struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
@@ -1110,8 +1264,7 @@ search_struct_method (name, arg1p, args, offset, static_memfuncp, type)
 
       if (BASETYPE_VIA_VIRTUAL (type, i))
 	{
-	  base_offset =
-	      baseclass_offset (type, i, *arg1p, offset);
+	  base_offset = baseclass_offset (type, i, *arg1p, offset);
 	  if (base_offset == -1)
 	    error ("virtual baseclass botch");
 	}
@@ -1252,7 +1405,7 @@ destructor_name_p (name, type)
   if (name[0] == '~')
     {
       char *dname = type_name_no_tag (type);
-      if (strcmp (dname, name+1))
+      if (!STREQ (dname, name+1))
 	error ("name of destructor must equal name of class");
       else
 	return 1;
@@ -1274,7 +1427,7 @@ check_field_in (type, name)
   for (i = TYPE_NFIELDS (type) - 1; i >= TYPE_N_BASECLASSES (type); i--)
     {
       char *t_field_name = TYPE_FIELD_NAME (type, i);
-      if (t_field_name && !strcmp (t_field_name, name))
+      if (t_field_name && STREQ (t_field_name, name))
 	return 1;
     }
 
@@ -1287,7 +1440,7 @@ check_field_in (type, name)
 
   for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; --i)
     {
-      if (!strcmp (TYPE_FN_FIELDLIST_NAME (type, i), name))
+      if (STREQ (TYPE_FN_FIELDLIST_NAME (type, i), name))
 	return 1;
     }
 
@@ -1354,16 +1507,15 @@ value_struct_elt_for_reference (domain, offset, curtype, name, intype)
     {
       char *t_field_name = TYPE_FIELD_NAME (t, i);
       
-      if (t_field_name && !strcmp (t_field_name, name))
+      if (t_field_name && STREQ (t_field_name, name))
 	{
 	  if (TYPE_FIELD_STATIC (t, i))
 	    {
 	      char *phys_name = TYPE_FIELD_STATIC_PHYSNAME (t, i);
 	      struct symbol *sym =
 		lookup_symbol (phys_name, 0, VAR_NAMESPACE, 0, NULL);
-	      if (! sym)
-		error (
-	    "Internal error: could not find physical static variable named %s",
+	      if (sym == NULL)
+		error ("Internal error: could not find physical static variable named %s",
 		       phys_name);
 	      return value_at (SYMBOL_TYPE (sym),
 			       (CORE_ADDR)SYMBOL_BLOCK_VALUE (sym));
@@ -1393,7 +1545,7 @@ value_struct_elt_for_reference (domain, offset, curtype, name, intype)
 
   for (i = TYPE_NFN_FIELDS (t) - 1; i >= 0; --i)
     {
-      if (!strcmp (TYPE_FN_FIELDLIST_NAME (t, i), name))
+      if (STREQ (TYPE_FN_FIELDLIST_NAME (t, i), name))
 	{
 	  int j = TYPE_FN_FIELDLIST_LENGTH (t, i);
 	  struct fn_field *f = TYPE_FN_FIELDLIST1 (t, i);
@@ -1461,46 +1613,6 @@ value_struct_elt_for_reference (domain, offset, curtype, name, intype)
 	return v;
     }
   return 0;
-}
-
-/* Compare two argument lists and return the position in which they differ,
-   or zero if equal.
-
-   STATICP is nonzero if the T1 argument list came from a
-   static member function.
-
-   For non-static member functions, we ignore the first argument,
-   which is the type of the instance variable.  This is because we want
-   to handle calls with objects from derived classes.  This is not
-   entirely correct: we should actually check to make sure that a
-   requested operation is type secure, shouldn't we?  FIXME.  */
-
-int
-typecmp (staticp, t1, t2)
-     int staticp;
-     struct type *t1[];
-     value t2[];
-{
-  int i;
-
-  if (t2 == 0)
-    return 1;
-  if (staticp && t1 == 0)
-    return t2[1] != 0;
-  if (t1 == 0)
-    return 1;
-  if (t1[0]->code == TYPE_CODE_VOID) return 0;
-  if (t1[!staticp] == 0) return 0;
-  for (i = !staticp; t1[i] && t1[i]->code != TYPE_CODE_VOID; i++)
-    {
-      if (! t2[i]
-	  || t1[i]->code != t2[i]->type->code
-/* Too pessimistic:  || t1[i]->target_type != t2[i]->type->target_type */
- )
-	return i+1;
-    }
-  if (!t1[i]) return 0;
-  return t2[i] ? i+1 : 0;
 }
 
 /* C++: return the value of the class instance variable, if one exists.

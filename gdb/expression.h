@@ -20,6 +20,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #if !defined (EXPRESSION_H)
 #define EXPRESSION_H 1
 
+#ifdef __STDC__
+struct block;	/* Forward declaration for prototypes */
+#endif
+
 /* Definitions for saved C expressions.  */
 
 /* An expression is represented as a vector of union exp_element's.
@@ -48,13 +52,14 @@ enum exp_opcode
   BINOP_MUL,		/* * */
   BINOP_DIV,		/* / */
   BINOP_REM,		/* % */
+  BINOP_MOD,		/* mod (Knuth 1.2.4) */
   BINOP_LSH,		/* << */
   BINOP_RSH,		/* >> */
-  BINOP_AND,		/* && */
-  BINOP_OR,		/* || */
-  BINOP_LOGAND,		/* & */
-  BINOP_LOGIOR,		/* | */
-  BINOP_LOGXOR,		/* ^ */
+  BINOP_LOGICAL_AND,	/* && */
+  BINOP_LOGICAL_OR,	/* || */
+  BINOP_BITWISE_AND,	/* & */
+  BINOP_BITWISE_IOR,	/* | */
+  BINOP_BITWISE_XOR,	/* ^ */
   BINOP_EQUAL,		/* == */
   BINOP_NOTEQUAL,	/* != */
   BINOP_LESS,		/* < */
@@ -65,7 +70,6 @@ enum exp_opcode
   BINOP_ASSIGN,		/* = */
   BINOP_COMMA,		/* , */
   BINOP_SUBSCRIPT,	/* x[y] */
-  BINOP_MULTI_SUBSCRIPT, /* Modula-2 x[a,b,...] */
   BINOP_EXP,		/* Exponentiation */
 
 /* C++.  */
@@ -95,11 +99,24 @@ enum exp_opcode
   BINOP_INCL,
   BINOP_EXCL,
 
+  /* Concatenate two operands, such as character strings or bitstrings.
+     If the first operand is a integer expression, then it means concatenate
+     the second operand with itself that many times. */
+  BINOP_CONCAT,
+
   /* This must be the highest BINOP_ value, for expprint.c.  */
   BINOP_END,
 
 /* Operates on three values computed by following subexpressions.  */
   TERNOP_COND,		/* ?: */
+
+/* Multidimensional subscript operator, such as Modula-2 x[a,b,...].
+   The dimensionality is encoded in the operator, like the number of
+   function arguments in OP_FUNCALL, I.E. <OP><dimension><OP>.
+   The value of the first following subexpression is subscripted
+   by each of the next following subexpressions, one per dimension. */
+
+   MULTI_SUBSCRIPT,
 
 /* The OP_... series take immediate following arguments.
    After the arguments come another OP_... (the same one)
@@ -140,6 +157,21 @@ enum exp_opcode
    data is just made into a string constant when the operation
    is executed.  */
   OP_STRING,
+/* OP_BITSTRING represents a packed bitstring constant.
+   Its format is the same as that of a STRUCTOP, but the bitstring
+   data is just made into a bitstring constant when the operation
+   is executed.  */
+  OP_BITSTRING,
+/* OP_ARRAY creates an array constant out of the following subexpressions.
+   It is followed by two exp_elements, the first containing an integer
+   that is the lower bound of the array and the second containing another
+   integer that is the upper bound of the array.  The second integer is
+   followed by a repeat of OP_ARRAY, making four exp_elements total.
+   The bounds are used to compute the number of following subexpressions
+   to consume, as well as setting the bounds in the created array constant.
+   The type of the elements is taken from the type of the first subexp,
+   and they must all match. */
+  OP_ARRAY,
 
 /* UNOP_CAST is followed by a type pointer in the next exp_element.
    With another UNOP_CAST at the end, this makes three exp_elements.
@@ -153,8 +185,8 @@ enum exp_opcode
 /* UNOP_... operate on one value from a following subexpression
    and replace it with a result.  They take no immediate arguments.  */
   UNOP_NEG,		/* Unary - */
-  UNOP_ZEROP,		/* Unary ! */
-  UNOP_LOGNOT,		/* Unary ~ */
+  UNOP_LOGICAL_NOT,	/* Unary ! */
+  UNOP_COMPLEMENT,	/* Unary ~ */
   UNOP_IND,		/* Unary * */
   UNOP_ADDR,		/* Unary & */
   UNOP_PREINCREMENT,	/* ++ before an expression */
@@ -225,6 +257,14 @@ struct expression
   union exp_element elts[1];
 };
 
+/* Macros for converting between number of expression elements and bytes
+   to store that many expression elements. */
+
+#define EXP_ELEM_TO_BYTES(elements) \
+    ((elements) * sizeof (union exp_element))
+#define BYTES_TO_EXP_ELEM(bytes) \
+    (((bytes) + sizeof (union exp_element) - 1) / sizeof (union exp_element))
+
 /* From parse.c */
 
 extern struct expression *
@@ -245,5 +285,18 @@ print_expression PARAMS ((struct expression *, FILE *));
 
 extern char *
 op_string PARAMS ((enum exp_opcode));
+
+/* To enable dumping of all parsed expressions in a human readable
+   form, define DEBUG_EXPRESSIONS.  This is a compile time constant
+   at the moment, since it's not clear that this feature is important
+   enough to include by default. */
+
+#ifdef DEBUG_EXPRESSIONS
+extern void
+dump_expression PARAMS ((struct expression *, FILE *, char *));
+#define DUMP_EXPRESSION(exp,file,note) dump_expression ((exp), (file), (note))
+#else
+#define DUMP_EXPRESSION(exp,file,note)	/* Null expansion */
+#endif	/* DEBUG_EXPRESSIONS */
 
 #endif	/* !defined (EXPRESSION_H) */

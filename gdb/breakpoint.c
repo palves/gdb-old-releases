@@ -931,7 +931,7 @@ which its expression is valid.\n", b->number);
 	      bs->commands = b->commands;
 	      if (b->silent)
 		this_bp_print = 0;
-	      if (bs->commands && !strcmp ("silent", bs->commands->line))
+	      if (bs->commands && STREQ ("silent", bs->commands->line))
 		{
 		  bs->commands = bs->commands->next;
 		  this_bp_print = 0;
@@ -1051,8 +1051,7 @@ breakpoint_1 (bnum, allflag)
 		if (sym)
 		  {
 		    fputs_filtered ("in ", stdout);
-		    fputs_demangled (SYMBOL_NAME (sym), stdout, 
-				     DMGL_ANSI | DMGL_PARAMS);
+		    fputs_filtered (SYMBOL_SOURCE_NAME (sym), stdout);
 		    fputs_filtered (" at ", stdout);
 		  }
 		fputs_filtered (b->symtab->filename, stdout);
@@ -1254,7 +1253,7 @@ create_longjmp_breakpoint(func_name)
 
       m = lookup_minimal_symbol(func_name, (struct objfile *)NULL);
       if (m)
-	sal.pc = m->address;
+	sal.pc = SYMBOL_VALUE_ADDRESS (m);
       else
 	return;
     }
@@ -1844,7 +1843,7 @@ get_catch_sals (this_level_only)
 	      for (i = 0; i < nsyms; i++)
 		{
 		  sym = BLOCK_SYM (b, i);
-		  if (! strcmp (SYMBOL_NAME (sym), "default"))
+		  if (STREQ (SYMBOL_NAME (sym), "default"))
 		    {
 		      if (have_default)
 			continue;
@@ -2230,10 +2229,18 @@ breakpoint_re_set_one (bint)
 	}
       free ((PTR)sals.sals);
       break;
+
     case bp_watchpoint:
+      if (b->cond_string != NULL)
+	{
+	  s = b->cond_string;
+	  b->cond = parse_exp_1 (&s, (struct block *)0, 0);
+	}
       break;
+
     default:
       printf_filtered ("Deleting unknown breakpoint type %d\n", b->type);
+      /* fall through */
     case bp_until:
     case bp_finish:
     case bp_longjmp:

@@ -1,5 +1,5 @@
 /* Define a target vector and some small routines for a variant of a.out.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -241,7 +241,8 @@ static CONST struct aout_backend_data MY(backend_data) = {
 #define MY_bfd_debug_info_end		bfd_void
 #endif
 #ifndef MY_bfd_debug_info_accumulate
-#define MY_bfd_debug_info_accumulate	(PROTO(void,(*),(bfd*, struct sec *))) bfd_void
+#define MY_bfd_debug_info_accumulate	\
+			(void (*) PARAMS ((bfd*, struct sec *))) bfd_void
 #endif
 
 #ifndef MY_core_file_failing_command
@@ -334,6 +335,7 @@ static CONST struct aout_backend_data MY(backend_data) = {
 #define MY_symbol_leading_char '_'
 #endif
 
+#ifndef MY_BFD_TARGET
 bfd_target MY(vec) =
 {
   TARGETNAME,		/* name */
@@ -395,8 +397,9 @@ bfd_target MY(vec) =
   MY_bfd_debug_info_accumulate,
   bfd_generic_get_relocated_section_contents,
   bfd_generic_relax_section,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* COFF stuff?! */
+  bfd_generic_seclet_link,
   MY_reloc_howto_type_lookup,
   MY_make_debug_symbol,
   (PTR) MY_backend_data,
 };
+#endif /* MY_BFD_TARGET */

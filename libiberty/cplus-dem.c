@@ -34,6 +34,9 @@ Cambridge, MA 02139, USA.  */
 #include <string.h>
 #include <stdio.h>
 
+extern char *xmalloc ();
+extern char *xrealloc ();
+
 /* In order to allow a single demangler executable to demangle strings
    using various common values of CPLUS_MARKER, as well as any specific
    one set at compile time, we maintain a string containing all the
@@ -199,7 +202,7 @@ demangle_template PARAMS ((struct work_stuff *work, CONST char **, string *));
 
 static int
 demangle_qualified PARAMS ((struct work_stuff *, CONST char **, string *,
-			    int));
+			    int, int));
 
 static int
 demangle_class PARAMS ((struct work_stuff *, CONST char **, string *));
@@ -276,10 +279,8 @@ remember_type PARAMS ((struct work_stuff *, CONST char *, int));
 static void
 forget_types PARAMS ((struct work_stuff *));
 
-#if 0
 static void
 string_prepends PARAMS ((string *, string *));
-#endif
 
 /*  Translate count to integer, consuming tokens in the process.
     Conversion terminates on the first non-digit character. */
@@ -482,7 +483,7 @@ demangle_signature (work, mangled, declp)
   int success = 1;
   int func_done = 0;
   int expect_func = 0;
-  CONST char *oldmangled;
+  CONST char *oldmangled = NULL;
 
   while (success && (**mangled != '\0'))
     {
@@ -490,7 +491,7 @@ demangle_signature (work, mangled, declp)
 	{
 	  case 'Q':
 	    oldmangled = *mangled;
-	    success = demangle_qualified (work, mangled, declp, 1);
+	    success = demangle_qualified (work, mangled, declp, 1, 0);
 	    if (success)
 	      {
 		remember_type (work, oldmangled, *mangled - oldmangled);
@@ -499,23 +500,35 @@ demangle_signature (work, mangled, declp)
 	      {
 		expect_func = 1;
 	      }
+	    oldmangled = NULL;
 	    break;
 	  
 	  case 'S':
 	    /* Static member function */
+	    if (oldmangled == NULL)
+	      {
+		oldmangled = *mangled;
+	      }
 	    (*mangled)++;
 	    work -> static_type = 1;
 	    break;
 
 	  case 'C':
 	    /* a const member function */
+	    if (oldmangled == NULL)
+	      {
+		oldmangled = *mangled;
+	      }
 	    (*mangled)++;
 	    work -> const_type = 1;
 	    break;
 	  
 	  case '0': case '1': case '2': case '3': case '4':
 	  case '5': case '6': case '7': case '8': case '9':
-	    oldmangled = *mangled;
+	    if (oldmangled == NULL)
+	      {
+		oldmangled = *mangled;
+	      }
 	    success = demangle_class (work, mangled, declp);
 	    if (success)
 	      {
@@ -525,6 +538,7 @@ demangle_signature (work, mangled, declp)
 	      {
 		expect_func = 1;
 	      }
+	    oldmangled = NULL;
 	    break;
 	  
 	  case 'F':
@@ -534,6 +548,7 @@ demangle_signature (work, mangled, declp)
 	     safely just consume any 'F' at this point and be compatible
 	     with either style. */
 
+	    oldmangled = NULL;
 	    func_done = 1;
 	    (*mangled)++;
 
@@ -552,6 +567,7 @@ demangle_signature (work, mangled, declp)
 	  case 't':
 	    /* Template */
 	    success = demangle_template (work, mangled, declp);
+	    func_done = 1;
 	    break;
 
 	  case '_':
@@ -656,10 +672,12 @@ demangle_template (work, mangled, declp)
   int success = 0;
   int done;
   CONST char *old_p;
+  CONST char *start;
   int symbol_len;
   string temp;
 
   (*mangled)++;
+  start = *mangled;
   string_init (&tname);
   string_init (&trawname);
   /* get template name */
@@ -667,9 +685,8 @@ demangle_template (work, mangled, declp)
     {
       return (0);
     }
+  remember_type (work, start, *mangled - start + r);
   string_appendn (&tname, *mangled, r);
-  string_appendn (&trawname, *mangled, r);
-  string_appendn (&trawname, "", 1);
   *mangled += r;
   string_append (&tname, "<");
   /* get size of template parameter list */
@@ -687,11 +704,11 @@ demangle_template (work, mangled, declp)
       if (**mangled == 'Z')
 	{
 	  (*mangled)++;
+	  /* temp is initialized in do_type */
 	  success = do_type (work, mangled, &temp);
-	  string_appendn (&temp, "", 1);
 	  if (success)
 	    {
-	      string_append (&tname, temp.b);
+	      string_appends (&tname, &temp);
 	    }
 	  string_delete(&temp);
 	  if (!success)
@@ -707,11 +724,11 @@ demangle_template (work, mangled, declp)
 	  is_real = 0;
 	  is_integral = 0;
 	  done = 0;
+	  /* temp is initialized in do_type */
 	  success = do_type (work, mangled, &temp);
-	  string_appendn (&temp, "", 1);
 	  if (success)
 	    {
-	      string_append (&tname, temp.b);
+	      string_appends (&tname, &temp);
 	    }
 	  string_delete(&temp);
 	  if (!success)
@@ -748,6 +765,7 @@ demangle_template (work, mangled, declp)
 		  case 'i':	/* int */
 		  case 's':	/* short */
 		  case 'c':	/* char */
+		  case 'w':	/* wchar_t */
 		    done = is_integral = 1;
 		    break;
 		  case 'r':	/* long double */
@@ -818,14 +836,16 @@ demangle_template (work, mangled, declp)
 	}
       need_comma = 1;
     }
-  string_append (&tname, ">::");
+  string_append (&tname, ">");
+  string_appends (&trawname, &tname);
+  string_append (&tname, "::");
   if (work -> destructor)
     {
       string_append (&tname, "~");
     }
   if (work -> constructor || work -> destructor)
     {
-      string_append (&tname, trawname.b);
+      string_appends (&tname, &trawname);
     }
   string_delete(&trawname);
   
@@ -835,7 +855,7 @@ demangle_template (work, mangled, declp)
     }
   else
     {
-      string_prepend (declp, tname.b);
+      string_prepends (declp, &tname);
       string_delete (&tname);
       
       if (work -> static_type)
@@ -993,9 +1013,10 @@ demangle_prefix (work, mangled, declp)
 	  success = 0;
 	}
     }
-  else if ((scan == *mangled) && (isdigit (scan[2]) || (scan[2] == 'Q')))
+  else if ((scan == *mangled) &&
+	   (isdigit (scan[2]) || (scan[2] == 'Q') || (scan[2] == 't')))
     {
-      /* A GNU style constructor starts with "__<digit>" or "__Q". */
+      /* A GNU style constructor starts with "__[0-9Qt]. */
       work -> constructor = 1;
       *mangled = scan + 2;
     }
@@ -1060,6 +1081,8 @@ DESCRIPTION
 		_vt$foo		(foo virtual table)
 		_vt$foo$bar	(foo::bar virtual table)
 		_3foo$varname	(static data member)
+		_Q22rs2tu$vw	(static data member)
+		__t6vector1Zii	(constructor with template)
  */
 
 static int
@@ -1104,18 +1127,38 @@ gnu_special (work, mangled, declp)
       string_append (declp, " virtual table");
     }
   else if ((*mangled)[0] == '_'
-	   && isdigit ((*mangled)[1])
+	   && (strchr("0123456789Qt", (*mangled)[1]) != NULL)
 	   && (p = strpbrk (*mangled, cplus_markers)) != NULL)
     {
       /* static data member, "_3foo$varname" for example */
       (*mangled)++;
-      p++;
-      n = consume_count (mangled);
-      string_appendn (declp, *mangled, n);
-      string_append (declp, "::");
-      n = strlen (p);
-      string_appendn (declp, p, n);
-      (*mangled) = p + n;
+      switch (**mangled)
+	{
+	  case 'Q':
+	    success = demangle_qualified (work, mangled, declp, 0, 1);
+	    break;
+	  case 't':
+	    success = demangle_template (work, mangled, declp);
+	    break;
+	  default:
+	    n = consume_count (mangled);
+	    string_appendn (declp, *mangled, n);
+	    (*mangled) += n;
+	}
+      if (success && (p == *mangled))
+	{
+	  /* Consumed everything up to the cplus_marker, append the
+	     variable name. */
+	  (*mangled)++;
+	  string_append (declp, "::");
+	  n = strlen (*mangled);
+	  string_appendn (declp, *mangled, n);
+	  (*mangled) += n;
+	}
+      else
+	{
+	  success = 0;
+	}
     }
   else
     {
@@ -1195,13 +1238,14 @@ SYNOPSIS
 
 	static int
 	demangle_qualified (struct work_stuff *, const char *mangled,
-			    string *result, int isfuncname);
+			    string *result, int isfuncname, int append);
 
 DESCRIPTION
 
 	Demangle a qualified name, such as "Q25Outer5Inner" which is
 	the mangled form of "Outer::Inner".  The demangled output is
-	appended to the result string.
+	prepended or appended to the result string according to the
+	state of the append flag.
 
 	If isfuncname is nonzero, then the qualified name we are building
 	is going to be used as a member function name, so if it is a
@@ -1217,16 +1261,19 @@ BUGS
  */
 
 static int
-demangle_qualified (work, mangled, result, isfuncname)
+demangle_qualified (work, mangled, result, isfuncname, append)
      struct work_stuff *work;
      CONST char **mangled;
      string *result;
      int isfuncname;
+     int append;
 {
   int qualifiers;
   int namelength;
   int success = 0;
+  string temp;
 
+  string_init (&temp);
   qualifiers = (*mangled)[1] - '0';
   if (qualifiers > 0 && qualifiers < 10)
     {
@@ -1242,8 +1289,8 @@ demangle_qualified (work, mangled, result, isfuncname)
       (*mangled) += 2;
 
 
-      /* Pick off the names and append them to the result string as they
-	 are found, separated by '::'. */
+      /* Pick off the names and collect them in the temp buffer in the order
+	 in which they are found, separated by '::'. */
 
       while (qualifiers-- > 0)
 	{
@@ -1254,10 +1301,10 @@ demangle_qualified (work, mangled, result, isfuncname)
 	      success = 0;
 	      break;
 	    }
-	  string_appendn (result, *mangled, namelength);
+	  string_appendn (&temp, *mangled, namelength);
 	  if (qualifiers > 0)
 	    {
-	      string_appendn (result, "::", 2);
+	      string_appendn (&temp, "::", 2);
 	    }
 	  *mangled += namelength;
 	}
@@ -1269,14 +1316,31 @@ demangle_qualified (work, mangled, result, isfuncname)
 
       if (isfuncname && (work -> constructor || work -> destructor))
 	{
-	  string_appendn (result, "::", 2);
+	  string_appendn (&temp, "::", 2);
 	  if (work -> destructor)
 	    {
-	      string_append (result, "~");
+	      string_append (&temp, "~");
 	    }
-	  string_appendn (result, (*mangled) - namelength, namelength);
+	  string_appendn (&temp, (*mangled) - namelength, namelength);
+	}
+
+      /* Now either prepend the temp buffer to the result, or append it, 
+	 depending upon the state of the append flag. */
+
+      if (append)
+	{
+	  string_appends (result, &temp);
+	}
+      else
+	{
+	  if (!STRING_EMPTY (result))
+	    {
+	      string_appendn (&temp, "::", 2);
+	    }
+	  string_prepends (result, &temp);
 	}
     }
+  string_delete (&temp);
   return (success);
 }
 
@@ -1500,7 +1564,7 @@ do_type (work, mangled, result)
     {
       /* A qualified name, such as "Outer::Inner". */
       case 'Q':
-        success = demangle_qualified (work, mangled, result, 0);
+        success = demangle_qualified (work, mangled, result, 0, 1);
 	break;
 
       default:
@@ -1622,6 +1686,11 @@ demangle_fund_type (work, mangled, result)
 	APPEND_BLANK (result);
 	string_append (result, "char");
 	break;
+      case 'w':
+	(*mangled)++;
+	APPEND_BLANK (result);
+	string_append (result, "wchar_t");
+	break;
       case 'r':
 	(*mangled)++;
 	APPEND_BLANK (result);
@@ -1719,7 +1788,7 @@ remember_type (work, start, len)
 				sizeof (char *) * work -> typevec_size);
 	}
     }
-  tem = (char *) xmalloc (len + 1);
+  tem = xmalloc (len + 1);
   memcpy (tem, start, len);
   tem[len] = '\0';
   work -> typevec[work -> ntypes++] = tem;
@@ -2060,7 +2129,7 @@ string_need (s, n)
 	{
 	  n = 32;
 	}
-      s->p = s->b = (char *) xmalloc (n);
+      s->p = s->b = xmalloc (n);
       s->e = s->b + n;
     }
   else if (s->e - s->p < n)
@@ -2068,7 +2137,7 @@ string_need (s, n)
       tem = s->p - s->b;
       n += tem;
       n *= 2;
-      s->b = (char *) xrealloc (s->b, n);
+      s->b = xrealloc (s->b, n);
       s->p = s->b + tem;
       s->e = s->b + n;
     }
@@ -2164,8 +2233,6 @@ string_prepend (p, s)
     }
 }
 
-#if 0
-
 static void
 string_prepends (p, s)
      string *p, *s;
@@ -2175,8 +2242,6 @@ string_prepends (p, s)
       string_prependn (p, s->b, s->p - s->b);
     }
 }
-
-#endif
 
 static void
 string_prependn (p, s, n)
@@ -2222,13 +2287,13 @@ demangle_it (mangled_name)
     }
 }
 
-PTR
+char *
 xmalloc (size)
     long size;
 {
-  PTR newmem;
+  char * newmem;
 
-  if ((newmem = malloc ((int) size)) == NULL)
+  if ((newmem = (char *) malloc ((int) size)) == NULL)
     {
       fprintf (stderr, "\nCan't allocate %u bytes\n", size);
       exit (1);
@@ -2236,14 +2301,14 @@ xmalloc (size)
   return (newmem);
 }
 
-PTR
+char *
 xrealloc (oldmem, size)
-    PTR oldmem;
+    char * oldmem;
     long size;
 {
-  PTR newmem;
+  char * newmem;
 
-  if ((newmem = realloc ((char *) oldmem, (int) size)) == NULL)
+  if ((newmem = (char *) realloc ((char *) oldmem, (int) size)) == NULL)
     {
       fprintf (stderr, "\nCan't reallocate %u bytes\n", size);
       exit (1);
@@ -2306,6 +2371,8 @@ main (argc, argv)
 	  demangle_it (mangled_name);
 	}
     }
+
+  exit (0);
 }
 
 #endif	/* main */

@@ -17,11 +17,8 @@ files="hosts/${my_host}.h"
 links="sysdep.h"
 
 if [ ! -f ${srcdir}/${files} ] ; then
-	if [ -n "${my_host}" ] ; then
-		echo '***' No file ${srcdir}/${files} 1>&2
-	fi
-	echo '***' ${srcname} does not support host ${host} 1>&2
-	exit 1
+	files=../bfd/hosts/std-host.h
+	echo "[${srcname} has no specific support for host ${host} -- using std-host]"
 fi
 
 host_makefile_frag=
@@ -43,12 +40,16 @@ case "${target}" in
   a29k-*-coff)		bfd_target=a29k-coff ;;
   a29k-*-sym1)		bfd_target=a29k-coff ;;
   h8300-*-*)		bfd_target=h8300-coff ;;
+  h8500-*-*)		bfd_target=h8500-coff ;;
   hppa*-*-bsd)		bfd_target=hppabsd ;;
   hppa*-*-hpux)		bfd_target=hppahpux ;;
   i[34]86-*-sysv4*)	bfd_target=i386-elf ;;
   i[34]86-*-sysv*)	bfd_target=i386-coff ;;
-  i[34]86-*-sco*)	bfd_target=i386-coff ;;
+  i[34]86-*-isc*)	bfd_target=i386-coff ;;
+  i[34]86-*-sco*)	bfd_target=i386-sco ;;
   i[34]86-*-bsd*)	bfd_target=i386-bsd ;;
+  i[34]86-*-aix*)	bfd_target=i386-coff ;;
+  i[34]86-*-elf)	bfd_target=i386-elf ;;
   i[34]86-none-*)	bfd_target=i386-coff ;;
   i960-*-vxworks)	bfd_target=i960-bout ;;
   i960-*-aout)		bfd_target=i960-bout ;;
@@ -64,6 +65,7 @@ case "${target}" in
   m68*-netx-*)		bfd_target=m68k-aout ;;
   m88k-*-*)		bfd_target=m88k-coff ;;
   mips-big-*)		bfd_target=irix3 ;;
+  mips-dec-bsd*)        bfd_target=mipsdecbsd ;;
   mips-dec-*)		bfd_target=decstation ;;
   mips-sgi-*)		bfd_target=irix3 ;;
   rs6000-*-*)		bfd_target=rs6000 ;;
@@ -71,6 +73,7 @@ case "${target}" in
   sparc-*-sysv4*)	bfd_target=sparc-elf ;;
   sparc*-*-*)		bfd_target=sparc-aout ;;
   tahoe-*-*)		bfd_target=tahoe ;;
+  vax-*-vms)		bfd_target=vax-vms ;;
   vax-*-*)		bfd_target=vax ;;
   we32k-*-*)		bfd_target=we32k ;;
   z8k*-*-*)		bfd_target=z8k-coff ;;
@@ -82,7 +85,6 @@ case "${target}" in
   *-*-go32)		bfd_target=${target_cpu}-aout ;;
   *-*-linux*)		bfd_target=${target_cpu}-linux ;;
   *-*-sysv*)		bfd_target=${target_cpu}-coff ;;
-  *-*-scosysv*)		bfd_target=${target_cpu}-coff ;;
 
   *-adobe-*)		bfd_target=adobe ;;
   *-sony-*)		bfd_target=news ;;
@@ -105,3 +107,16 @@ target_makefile_frag=config/${bfd_target}.mt
 
 # We don't do any links based on the target system, just very minor makefile
 # config.
+
+# post-target:
+
+case ${with_minimal_bfd} in
+  yes)
+    echo MINIMIZE=1 >> Makefile
+    ;;
+  no | "")
+    ;;
+  *)
+    echo "*** bad value \"${with_minimal_bfd}\" for minimal-bfd flag; ignored" 1>&2
+    ;;
+esac

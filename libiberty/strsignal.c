@@ -30,6 +30,9 @@ Cambridge, MA 02139, USA.  */
 extern void *malloc (size_t size);				/* 4.10.3.3 */
 extern void *memset (void *s, int c, size_t n);			/* 4.11.6.1 */
 #else	/* !__STDC__ */
+#ifndef const
+#define const
+#endif
 extern char *malloc ();		/* Standard memory allocater */
 extern char *memset ();
 #endif	/* __STDC__ */
@@ -56,12 +59,14 @@ extern char *memset ();
    thing that should have to be updated as new signal numbers are introduced.
    It's sort of ugly, but at least its portable. */
 
-static struct signal_info
+struct signal_info
 {
   int value;		/* The numeric value from <signal.h> */
   char *name;		/* The equivalent symbolic value */
   char *msg;		/* Short message about this value */
-} signal_table[] =
+};
+
+static const struct signal_info signal_table[] =
 {
 #if defined (SIGHUP)
   SIGHUP, "SIGHUP", "Hangup",
@@ -213,7 +218,7 @@ static char **sys_siglist;
 
 static int sys_nsig = NSIG;
 #ifdef __STDC__
-extern const char * const sys_siglist[];
+extern char * const sys_siglist[];
 #else
 extern char *sys_siglist[];
 #endif
@@ -251,7 +256,7 @@ BUGS
 static void
 init_signal_tables ()
 {
-  struct signal_info *eip;
+  const struct signal_info *eip;
   int nbytes;
 
   /* If we haven't already scanned the signal_table once to find the maximum

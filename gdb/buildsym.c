@@ -31,6 +31,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "symfile.h"		/* Needed for "struct complaint" */
 #include "objfiles.h"
+#include "complaints.h"
 #include <string.h>
 
 /* Ask buildsym.h to define the vars it normally declares `extern'.  */
@@ -256,11 +257,12 @@ finish_block (symbol, listhead, old_blocks, start, end, objfile)
 	    {
 	      if (symbol)
 		{
-		  complain (&innerblock_complaint, SYMBOL_NAME (symbol));
+		  complain (&innerblock_complaint,
+			    SYMBOL_SOURCE_NAME (symbol));
 		}
 	      else
 		{
-		  complain (&innerblock_anon_complaint, 0);
+		  complain (&innerblock_anon_complaint);
 		}
 	      BLOCK_START (pblock->block) = BLOCK_START (block);
 	      BLOCK_END   (pblock->block) = BLOCK_END   (block);
@@ -345,7 +347,7 @@ make_blockvector (objfile)
 	      > BLOCK_START(BLOCKVECTOR_BLOCK (blockvector, i)))
 	    {
 	      complain (&blockvector_complaint, 
-			(char *) BLOCK_START(BLOCKVECTOR_BLOCK (blockvector, i)));
+			BLOCK_START(BLOCKVECTOR_BLOCK (blockvector, i)));
 	    }
 	}
     }
@@ -370,7 +372,7 @@ start_subfile (name, dirname)
 
   for (subfile = subfiles; subfile; subfile = subfile->next)
     {
-      if (!strcmp (subfile->name, name))
+      if (STREQ (subfile->name, name))
 	{
 	  current_subfile = subfile;
 	  return;
@@ -387,11 +389,29 @@ start_subfile (name, dirname)
   current_subfile = subfile;
 
   /* Save its name and compilation directory name */
-  subfile->name = strdup (name);
+  subfile->name = (name == NULL)? NULL : strdup (name);
   subfile->dirname = (dirname == NULL) ? NULL : strdup (dirname);
   
   /* Initialize line-number recording for this subfile.  */
   subfile->line_vector = NULL;
+
+  /* Default the source language to whatever can be deduced from
+     the filename.  If nothing can be deduced (such as for a C/C++
+     include file with a ".h" extension), then inherit whatever
+     language the previous subfile had.  This kludgery is necessary
+     because there is no standard way in some object formats to
+     record the source language.  Also, when symtabs are allocated
+     we try to deduce a language then as well, but it is too late
+     for us to use that information while reading symbols, since
+     symtabs aren't allocated until after all the symbols have
+     been processed for a given source file. */
+
+  subfile->language = deduce_language_from_filename (subfile->name);
+  if (subfile->language == language_unknown &&
+      subfile->next != NULL)
+    {
+      subfile->language = subfile->next->language;
+    }
 }
 
 /* For stabs readers, the first N_SO symbol is assumed to be the source
@@ -416,6 +436,24 @@ patch_subfile_names (subfile, name)
     {
       subfile->dirname = subfile->name;
       subfile->name = strdup (name);
+
+      /* Default the source language to whatever can be deduced from
+	 the filename.  If nothing can be deduced (such as for a C/C++
+	 include file with a ".h" extension), then inherit whatever
+	 language the previous subfile had.  This kludgery is necessary
+	 because there is no standard way in some object formats to
+	 record the source language.  Also, when symtabs are allocated
+	 we try to deduce a language then as well, but it is too late
+	 for us to use that information while reading symbols, since
+	 symtabs aren't allocated until after all the symbols have
+	 been processed for a given source file. */
+
+      subfile->language = deduce_language_from_filename (subfile->name);
+      if (subfile->language == language_unknown &&
+	  subfile->next != NULL)
+	{
+	  subfile->language = subfile->next->language;
+	}
     }
 }
 
@@ -707,6 +745,13 @@ end_symtab (end_addr, sort_pending, sort_linevec, objfile)
 	    }
 	  symtab->free_code = free_linetable;
 	  symtab->free_ptr = NULL;
+
+	  /* Use whatever language we have been using for this subfile,
+	     not the one that was deduced in allocate_symtab from the
+	     filename.  We already did our own deducing when we created
+	     the subfile, and we may have altered our opinion of what
+	     language it is from things we found in the symbols. */
+	  symtab->language = subfile->language;
 
 #ifdef IBM6000_TARGET
 	  /* In case we need to duplicate symbol tables (to represent include

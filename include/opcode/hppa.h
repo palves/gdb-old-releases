@@ -156,6 +156,18 @@ And these (PJH) for PA-89 F.P. registers and instructions:
 static struct pa_opcode pa_opcodes[] =
 {
 
+/* pseudo-instructions */
+
+{ "b",		0xe8000000, 0xffe0e000, "nW", NORMAL}, /* bl foo,r0 */
+{ "ldi",	0x34000000, 0xffe0c000, "j,x"},	/* ldo val(r0),r */
+{ "comib", 	0x84000000, 0xfc000000, "?n5,b,w", CONDITIONAL}, /* comib{tf}*/
+{ "comb",	0x80000000, 0xfc000000, "?nx,b,w", CONDITIONAL}, /* comb{tf} */
+{ "addb",	0xa0000000, 0xfc000000, "!nx,b,w", CONDITIONAL}, /* addb{tf} */
+{ "addib",	0xa4000000, 0xfc000000, "!n5,b,w", CONDITIONAL}, /* addib{tf}*/
+{ "nop",        0x08000240, 0xffffffff, ""},      /* or 0,0,0 */
+{ "copy",       0x08000240, 0xffe0ffe0, "x,t"},   /* or r,0,t */
+{ "mtsar",      0x01601840, 0xffe0ffff, "x"}, /* mtctl r,cr11 */
+
 { "ldw",        0x48000000, 0xfc000000, "j(B),x"},
 { "ldh",        0x44000000, 0xfc000000, "j(B),x"},
 { "ldb",        0x40000000, 0xfc000000, "j(B),x"},
@@ -241,20 +253,23 @@ static struct pa_opcode pa_opcodes[] =
 { "subi",       0x94000000, 0xfc000800, "-i,b,x", CONDITIONAL},
 { "subio",      0x94000800, 0xfc000800, "-i,b,x", CONDITIONAL},
 { "comiclr",    0x90000000, 0xfc000800, "-i,b,x", CONDITIONAL},
+
+/* Extract and Deposit Instructions */
+
 { "vshd",       0xd0000000, 0xfc001fe0, ">x,b,t", CONDITIONAL},
 { "shd",        0xd0000800, 0xfc001c00, ">x,b,p,t", CONDITIONAL},
 { "vextru",     0xd0001000, 0xfc001fe0, ">b,T,x", CONDITIONAL},
 { "vextrs",     0xd0001400, 0xfc001fe0, ">b,T,x", CONDITIONAL},
-{ "extru",      0xd0001800, 0xfc001fe0, ">b,P,T,x", CONDITIONAL},
-{ "extrs",      0xd0001c00, 0xfc001fe0, ">b,P,T,x", CONDITIONAL},
-{ "vdep",       0xd4000400, 0xfc001fe0, ">x,T,b", CONDITIONAL},
-{ "dep",        0xd4000c00, 0xfc001c00, ">x,p,T,b", CONDITIONAL},
-{ "vdepi",      0xd4001400, 0xfc001fe0, ">5,T,b", CONDITIONAL},
-{ "depi",       0xd4001c00, 0xfc001c00, ">5,p,T,b", CONDITIONAL},
+{ "extru",      0xd0001800, 0xfc001c00, ">b,P,T,x", CONDITIONAL},
+{ "extrs",      0xd0001c00, 0xfc001c00, ">b,P,T,x", CONDITIONAL},
 { "zvdep",      0xd4000000, 0xfc001fe0, ">x,T,b", CONDITIONAL},
+{ "vdep",       0xd4000400, 0xfc001fe0, ">x,T,b", CONDITIONAL},
 { "zdep",       0xd4000800, 0xfc001c00, ">x,p,T,b", CONDITIONAL},
+{ "dep",        0xd4000c00, 0xfc001c00, ">x,p,T,b", CONDITIONAL},
 { "zvdepi",     0xd4001000, 0xfc001fe0, ">5,T,b", CONDITIONAL},
+{ "vdepi",      0xd4001400, 0xfc001fe0, ">5,T,b", CONDITIONAL},
 { "zdepi",      0xd4001800, 0xfc001c00, ">5,p,T,b", CONDITIONAL},
+{ "depi",       0xd4001c00, 0xfc001c00, ">5,p,T,b", CONDITIONAL},
 
 /* System Control Instructions */
 
@@ -338,18 +353,6 @@ static struct pa_opcode pa_opcodes[] =
 { "cldds",      0x2c001000, 0xfc001e00, ",u,Z5(B),t"},
 { "cstws",      0x24001200, 0xfc001e00, ",u,Zt,5(B)"},
 { "cstds",      0x2c001200, 0xfc001e00, ",u,Zt,5(B)"},
-
-/* pseudo-instructions */
-
-{ "b",		0xe8000000, 0xffe0e000, "nW", NORMAL},
-{ "ldi",	0x34000000, 0xffe0c000, "j,x"},
-{ "comib", 	0x84000000, 0xfc000000, "?n5,b,w", CONDITIONAL},
-{ "comb",	0x80000000, 0xfc000000, "?nx,b,w", CONDITIONAL},
-{ "addb",	0xa0000000, 0xfc000000, "!nx,b,w", CONDITIONAL},
-{ "addib",	0xa4000000, 0xfc000000, "!n5,b,w", CONDITIONAL},
-{ "nop",        0x08000240, 0xffffffff, ""},      /* NOP  <=> OR 0,0,0 */
-{ "copy",       0x08000240, 0xffe0ffe0, "x,t"},   /* COPY <=> OR r,0,t */
-{ "mtsar",      0x01601840, 0xffe0ffff, "x"},
 };
 
 #define NUMOPCODES ((sizeof pa_opcodes)/(sizeof pa_opcodes[0]))

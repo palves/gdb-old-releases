@@ -26,7 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "command.h"
 #include "symtab.h"
-#include "symfile.h"		/* for struct complaint */
+#include "complaints.h"
 
 #include <string.h>
 #include <errno.h>
@@ -48,7 +48,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "vx-share/xdr_ld.h"
 #include "vx-share/xdr_rdb.h"
 #include "vx-share/dbgRpcLib.h"
-#include "vx-share/reg.h"
 
 #include <symtab.h>
 
@@ -810,7 +809,7 @@ vx_lookup_symbol (name, pAddr)
   status = net_clnt_call (VX_SYMBOL_INQ, xdr_wrapstring, &name,
 			  xdr_SYMBOL_ADDR, &symbolAddr);
   if (status != RPC_SUCCESS) {
-      complain (&cant_contact_target, 0);
+      complain (&cant_contact_target);
       return -1;
   }
 
@@ -1231,14 +1230,15 @@ vx_kill ()
 
   status = net_ptrace_clnt_call (PTRACE_KILL, &ptrace_in, &ptrace_out);
   if (status == -1)
-    error (rpcerr);
-  if (ptrace_out.status == -1)
+    warning (rpcerr);
+  else if (ptrace_out.status == -1)
     {
       errno = ptrace_out.errno;
       perror_with_name ("Killing VxWorks process");
     }
 
-  /* If it gives good status, the process is *gone*, no events remain.  */
+  /* If it gives good status, the process is *gone*, no events remain.
+     If the kill failed, assume the process is gone anyhow.  */
   inferior_pid = 0;
   pop_target ();	/* go back to non-executing VxWorks connection */
 }

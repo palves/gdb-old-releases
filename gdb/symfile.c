@@ -30,6 +30,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcmd.h"
 #include "breakpoint.h"
 #include "language.h"
+#include "complaints.h"
+#include "demangle.h"
 
 #include <obstack.h>
 #include <assert.h>
@@ -40,9 +42,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/stat.h>
 #include <ctype.h>
 
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
 /* Global variables owned by this file */
 
 int readnow_symbol_files;		/* Read full symbols immediately */
+
+struct complaint oldsyms_complaint = {
+  "Replacing old symbols for `%s'", 0, 0
+};
+
+struct complaint empty_symtab_complaint = {
+  "Empty symbol table found for `%s'", 0, 0
+};
 
 /* External variables and functions referenced. */
 
@@ -96,20 +110,6 @@ int symbol_reloading = SYMBOL_RELOADING_DEFAULT;
 int symbol_reloading = 0;
 #endif
 
-/* Structure to manage complaints about symbol file contents.  */
-
-struct complaint complaint_root[1] = {
-  {(char *) 0, 0, complaint_root},
-};
-
-/* Some actual complaints.  */
-
-struct complaint oldsyms_complaint = {
-	"Replacing old symbols for `%s'", 0, 0 };
-
-struct complaint empty_symtab_complaint = {
-	"Empty symbol table found for `%s'", 0, 0 };
-
 
 /* In the following sort, we always make sure that
    register debug symbol declarations always come before regular
@@ -136,7 +136,7 @@ compare_symbols (s1p, s2p)
   if (namediff != 0) return namediff;
 
   /* If they match, compare the rest of the names.  */
-  namediff = strcmp (SYMBOL_NAME (*s1), SYMBOL_NAME (*s2));
+  namediff = STRCMP (SYMBOL_NAME (*s1), SYMBOL_NAME (*s2));
   if (namediff != 0) return namediff;
 
   /* For symbols of the same name, registers should come first.  */
@@ -184,7 +184,7 @@ compare_psymbols (s1p, s2p)
     }
   else
     {
-      return (strcmp (st1 + 2, st2 + 2));
+      return (STRCMP (st1 + 2, st2 + 2));
     }
 }
 
@@ -379,21 +379,6 @@ syms_from_objfile (objfile, addr, mainline, verbo)
   struct section_offsets *section_offsets;
   asection *lowest_sect;
 
-  /* There is a distinction between having no symbol table
-     (we refuse to read the file, leaving the old set of symbols around)
-     and having no debugging symbols in your symbol table (we read
-     the file and end up with a mostly empty symbol table).
-
-     FIXME:  This strategy works correctly when the debugging symbols are
-     intermixed with "normal" symbols.  However, when the debugging symbols
-     are separate, such as with ELF/DWARF, it is perfectly plausible for
-     the symbol table to be missing but still have all the DWARF info
-     intact.  Thus in general it is wrong to assume that having no symbol
-     table implies no debugging information. */
-
-  if (!(bfd_get_file_flags (objfile -> obfd) & HAS_SYMS))
-    return;
-
   init_entry_point_info (objfile);
   find_sym_fns (objfile);
 
@@ -433,7 +418,7 @@ syms_from_objfile (objfile, addr, mainline, verbo)
 	warning ("no loadable sections found in added symbol-file %s",
 		 objfile->name);
       else if (0 == bfd_get_section_name (objfile->obfd, lowest_sect)
-	       || 0 != strcmp(".text",
+	       || !STREQ (".text",
 			      bfd_get_section_name (objfile->obfd, lowest_sect)))
 	warning ("Lowest section in %s is %s at 0x%x",
 		 objfile->name,
@@ -443,6 +428,41 @@ syms_from_objfile (objfile, addr, mainline, verbo)
       if (lowest_sect)
 	addr -= bfd_section_vma (objfile->obfd, lowest_sect);
     }
+
+  {
+  /* Debugging check inserted for testing elimination of NAMES_HAVE_UNDERSCORE.
+     Complain if the dynamic setting of NAMES_HAVE_UNDERSCORE from BFD
+     doesn't match the static setting from the GDB config files, but only
+     if we are using the first BFD target (the default target selected by
+     the same configuration that decided whether NAMES_HAVE_UNDERSCORE is
+     defined or not).  For other targets (such as when the user sets GNUTARGET
+     or we are reading a "foreign" object file), it is likely that the value
+     of bfd_get_symbol_leading_char has no relation to the value of
+     NAMES_HAVE_UNDERSCORE for the target for which this gdb was built.
+     Hack alert: the only way to currently do this with bfd is to ask it to
+     produce a list of known target names and compare the first one in the
+     list with the one for the bfd we are using.
+     FIXME:  Remove this check after a round of testing.  
+						-- gnu@cygnus.com, 16dec92 */
+    CONST char **targets = bfd_target_list ();
+    if (targets != NULL && *targets != NULL)
+      {
+	if (bfd_get_symbol_leading_char (objfile->obfd) !=
+#ifdef NAMES_HAVE_UNDERSCORE
+	    '_'
+#else
+	    0
+#endif
+	    && STREQ (bfd_get_target (objfile->obfd), *targets))
+	  {
+	    fprintf (stderr, "GDB internal error!  NAMES_HAVE_UNDERSCORE set wrong for %s BFD:\n%s\n",
+		     bfd_get_target (objfile->obfd),
+		     bfd_get_filename (objfile->obfd));
+	  }
+	free (targets);
+      }
+    /* End of debugging check.  FIXME.  */
+  }
 
   /* Initialize symbol reading routines for this objfile, allow complaints to
      appear for this new file, and record how verbose to be, then do the
@@ -519,26 +539,10 @@ symbol_file_add (name, from_tty, addr, mainline, mapped, readnow)
   struct partial_symtab *psymtab;
   bfd *abfd;
 
-  /* Open a bfd for the file and then check to see if the file has a
-     symbol table.  There is a distinction between having no symbol table
-     (we refuse to read the file, leaving the old set of symbols around)
-     and having no debugging symbols in the symbol table (we read the file
-     and end up with a mostly empty symbol table, but with lots of stuff in
-     the minimal symbol table).  We need to make the decision about whether
-     to continue with the file before allocating and building a objfile.
-
-     FIXME:  This strategy works correctly when the debugging symbols are
-     intermixed with "normal" symbols.  However, when the debugging symbols
-     are separate, such as with ELF/DWARF, it is perfectly plausible for
-     the symbol table to be missing but still have all the DWARF info
-     intact.  Thus in general it is wrong to assume that having no symbol
-     table implies no debugging information. */
+  /* Open a bfd for the file, and give user a chance to burp if we'd be
+     interactively wiping out any existing symbols.  */
 
   abfd = symfile_bfd_open (name);
-  if (!(bfd_get_file_flags (abfd) & HAS_SYMS))
-    {
-      error ("%s has no symbol-table", name);
-    }
 
   if ((have_full_symbols () || have_partial_symbols ())
       && mainline
@@ -659,11 +663,11 @@ symbol_file_command (args, from_tty)
       cleanups = make_cleanup (freeargv, (char *) argv);
       while (*argv != NULL)
 	{
-	  if (strcmp (*argv, "-mapped") == 0)
+	  if (STREQ (*argv, "-mapped"))
 	    {
 	      mapped = 1;
 	    }
-	  else if (strcmp (*argv, "-readnow") == 0)
+	  else if (STREQ (*argv, "-readnow"))
 	    {
 	      readnow = 1;
 	    }
@@ -740,7 +744,7 @@ symfile_bfd_open (name)
   name = tilde_expand (name);	/* Returns 1st new malloc'd copy */
 
   /* Look down path for it, allocate 2nd new malloc'd copy.  */
-  desc = openp (getenv ("PATH"), 1, name, O_RDONLY, 0, &absolute_name);
+  desc = openp (getenv ("PATH"), 1, name, O_RDONLY | O_BINARY, 0, &absolute_name);
   if (desc < 0)
     {
       make_cleanup (free, name);
@@ -758,6 +762,7 @@ symfile_bfd_open (name)
       error ("\"%s\": can't open to read symbols: %s.", name,
 	     bfd_errmsg (bfd_error));
     }
+  sym_bfd->cacheable = true;
 
   if (!bfd_check_format (sym_bfd, bfd_object))
     {
@@ -860,11 +865,11 @@ add_symbol_file_command (args, from_tty)
 	{
 	  name = arg;
 	}
-      else if (strcmp (arg, "-mapped") == 0)
+      else if (STREQ (arg, "-mapped"))
 	{
 	  mapped = 1;
 	}
-      else if (strcmp (arg, "-readnow") == 0)
+      else if (STREQ (arg, "-readnow"))
 	{
 	  readnow = 1;
 	}
@@ -948,109 +953,24 @@ the_big_top:
   if (reread_one)
     breakpoint_re_set ();
 }
-
-/* Functions to handle complaints during symbol reading.  */
 
-/* How many complaints about a particular thing should be printed before
-   we stop whining about it?  Default is no whining at all, since so many
-   systems have ill-constructed symbol files.  */
-
-static unsigned stop_whining = 0;
-
-/* Should each complaint be self explanatory, or should we assume that
-   a series of complaints is being produced? 
-   case 0:  self explanatory message.
-   case 1:  First message of a series that must start off with explanation.
-   case 2:  Subsequent message, when user already knows we are reading
-            symbols and we can just state our piece.  */
-
-static int complaint_series = 0;
-
-/* Print a complaint about the input symbols, and link the complaint block
-   into a chain for later handling.  */
-
-void
-complain (complaint, val)
-     struct complaint *complaint;
-     char *val;
-{
-  complaint->counter++;
-  if (complaint->next == 0) {
-    complaint->next = complaint_root->next;
-    complaint_root->next = complaint;
-  }
-  if (complaint->counter > stop_whining)
-    return;
-  wrap_here ("");
-
-  switch (complaint_series + (info_verbose << 1)) {
-
-  /* Isolated messages, must be self-explanatory.  */
-  case 0:
-    puts_filtered ("During symbol reading, ");
-    wrap_here("");
-    printf_filtered (complaint->message, val);
-    puts_filtered (".\n");
-    break;
-
-  /* First of a series, without `set verbose'.  */
-  case 1:
-    puts_filtered ("During symbol reading...");
-    printf_filtered (complaint->message, val);
-    puts_filtered ("...");
-    wrap_here("");
-    complaint_series++;
-    break;
-
-  /* Subsequent messages of a series, or messages under `set verbose'.
-     (We'll already have produced a "Reading in symbols for XXX..." message
-      and will clean up at the end with a newline.)  */
-  default:
-    printf_filtered (complaint->message, val);
-    puts_filtered ("...");
-    wrap_here("");
-  }
-}
-
-/* Clear out all complaint counters that have ever been incremented.
-   If sym_reading is 1, be less verbose about successive complaints,
-   since the messages are appearing all together during a command that
-   reads symbols (rather than scattered around as psymtabs get fleshed
-   out into symtabs at random times).  If noisy is 1, we are in a
-   noisy symbol reading command, and our caller will print enough
-   context for the user to figure it out.  */
-
-void
-clear_complaints (sym_reading, noisy)
-     int sym_reading;
-     int noisy;
-{
-  struct complaint *p;
-
-  for (p = complaint_root->next; p != complaint_root; p = p->next)
-    p->counter = 0;
-
-  if (!sym_reading && !noisy && complaint_series > 1) {
-    /* Terminate previous series, since caller won't.  */
-    puts_filtered ("\n");
-  }
-
-  complaint_series = sym_reading? 1 + noisy: 0;
-}
 
 enum language
 deduce_language_from_filename (filename)
      char *filename;
 {
-  char *c = strrchr (filename, '.');
+  char *c;
   
-  if (!c) ; /* Get default. */
-  else if(!strcmp(c,".mod"))
-     return language_m2;
-  else if(!strcmp(c,".c"))
-     return language_c;
-  else if(!strcmp(c,".cc") || !strcmp(c,".C"))
-     return language_cplus;
+  if (0 == filename) 
+    ; /* Get default */
+  else if (0 == (c = strrchr (filename, '.')))
+    ; /* Get default. */
+  else if(STREQ(c,".mod"))
+    return language_m2;
+  else if(STREQ(c,".c"))
+    return language_c;
+  else if(STREQ(c,".cc") || STREQ(c,".C"))
+    return language_cplus;
 
   return language_unknown;		/* default */
 }
@@ -1265,7 +1185,7 @@ free_named_symtabs (name)
 
 again2:
   for (ps = partial_symtab_list; ps; ps = ps->next) {
-    if (!strcmp (name, ps->filename)) {
+    if (STREQ (name, ps->filename)) {
       cashier_psymtab (ps);	/* Blow it away...and its little dog, too.  */
       goto again2;		/* Must restart, chain has been munged */
     }
@@ -1275,7 +1195,7 @@ again2:
 
   for (s = symtab_list; s; s = s->next)
     {
-      if (!strcmp (name, s->filename))
+      if (STREQ (name, s->filename))
 	break;
       prev = s;
     }
@@ -1363,40 +1283,79 @@ start_psymtab_common (objfile, section_offsets,
 /* Debugging versions of functions that are usually inline macros
    (see symfile.h).  */
 
-#if 0		/* Don't quite work nowadays... */
+#if !INLINE_ADD_PSYMBOL
 
 /* Add a symbol with a long value to a psymtab.
    Since one arg is a struct, we pass in a ptr and deref it (sigh).  */
 
 void
-add_psymbol_to_list (name, namelength, namespace, class, list, val)
+add_psymbol_to_list (name, namelength, namespace, class, list, val, language,
+		     objfile)
      char *name;
      int namelength;
      enum namespace namespace;
      enum address_class class;
      struct psymbol_allocation_list *list;
      long val;
+     enum language language;
+     struct objfile *objfile;
 {
-  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, (*list), val,
-			  SYMBOL_VALUE);
+  register struct partial_symbol *psym;
+  register char *demangled_name;
+
+  if (list->next >= list->list + list->size)
+    {
+      extend_psymbol_list (list,objfile);
+    }
+  psym = list->next++;
+  
+  SYMBOL_NAME (psym) =
+    (char *) obstack_alloc (&objfile->psymbol_obstack, namelength + 1);
+  memcpy (SYMBOL_NAME (psym), name, namelength);
+  SYMBOL_NAME (psym)[namelength] = '\0';
+  SYMBOL_VALUE (psym) = val;
+  SYMBOL_LANGUAGE (psym) = language;
+  PSYMBOL_NAMESPACE (psym) = namespace;
+  PSYMBOL_CLASS (psym) = class;
+  SYMBOL_INIT_DEMANGLED_NAME (psym, &objfile->psymbol_obstack);
 }
 
 /* Add a symbol with a CORE_ADDR value to a psymtab. */
 
 void
-add_psymbol_addr_to_list (name, namelength, namespace, class, list, val)
+add_psymbol_addr_to_list (name, namelength, namespace, class, list, val,
+			  language, objfile)
      char *name;
      int namelength;
      enum namespace namespace;
      enum address_class class;
      struct psymbol_allocation_list *list;
      CORE_ADDR val;
+     enum language language;
+     struct objfile *objfile;
 {
-  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, (*list), val,
-			  SYMBOL_VALUE_ADDRESS);
+  register struct partial_symbol *psym;
+  register char *demangled_name;
+
+  if (list->next >= list->list + list->size)
+    {
+      extend_psymbol_list (list,objfile);
+    }
+  psym = list->next++;
+  
+  SYMBOL_NAME (psym) =
+    (char *) obstack_alloc (&objfile->psymbol_obstack, namelength + 1);
+  memcpy (SYMBOL_NAME (psym), name, namelength);
+  SYMBOL_NAME (psym)[namelength] = '\0';
+  SYMBOL_VALUE_ADDRESS (psym) = val;
+  SYMBOL_LANGUAGE (psym) = language;
+  PSYMBOL_NAMESPACE (psym) = namespace;
+  PSYMBOL_CLASS (psym) = class;
+  SYMBOL_INIT_DEMANGLED_NAME (psym, &objfile->psymbol_obstack);
 }
 
-#endif /* 0 */
+#endif /* !INLINE_ADD_PSYMBOL */
+
 
 void
 _initialize_symfile ()
@@ -1414,13 +1373,6 @@ The second argument provides the starting address of the file's text.");
   add_com ("load", class_files, load_command,
    "Dynamically load FILE into the running program, and record its symbols\n\
 for access from GDB.");
-
-  add_show_from_set
-    (add_set_cmd ("complaints", class_support, var_zinteger,
-		  (char *)&stop_whining,
-	  "Set max number of complaints about incorrect symbols.",
-		  &setlist),
-     &showlist);
 
   add_show_from_set
     (add_set_cmd ("symbol-reloading", class_support, var_boolean,

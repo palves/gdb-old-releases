@@ -22,8 +22,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "target.h"
 
-#include "nm.h"
-
 #ifdef USG
 #include <sys/types.h>
 #endif
@@ -135,10 +133,6 @@ child_resume (step, signal)
 }
 
 #ifdef ATTACH_DETACH
-/* Nonzero if we are debugging an attached process rather than
-   an inferior.  */
-extern int attach_flag;
-
 /* Start debugging the process whose number is PID.  */
 int
 attach (pid)

@@ -52,8 +52,6 @@ exec_close PARAMS ((int));
 
 struct section_table *exec_sections, *exec_sections_end;
 
-#define eq(s0, s1)	!strcmp(s0, s1)
-
 /* Whether to open exec and core files read-only or read-write.  */
 
 int write_files = 0;
@@ -293,7 +291,7 @@ sex_to_vmap(bfd *bf, sec_ptr sex, struct vmap_and_bfd *vmap_bfd)
   if ((bfd_get_section_flags(bf, sex) & SEC_LOAD) == 0)
     return;
 
-  if (!strcmp(bfd_section_name(bf, sex), ".text")) {
+  if (STREQ(bfd_section_name(bf, sex), ".text")) {
     vp->tstart = 0;
     vp->tend   = vp->tstart + bfd_section_size(bf, sex);
 
@@ -305,12 +303,12 @@ sex_to_vmap(bfd *bf, sec_ptr sex, struct vmap_and_bfd *vmap_bfd)
     vp->tadj = sex->filepos - bfd_section_vma(bf, sex);
   }
 
-  else if (!strcmp(bfd_section_name(bf, sex), ".data")) {
+  else if (STREQ(bfd_section_name(bf, sex), ".data")) {
     vp->dstart = 0;
     vp->dend   = vp->dstart + bfd_section_size(bf, sex);
   }
 
-  else if (!strcmp(bfd_section_name(bf, sex), ".bss"))	/* FIXMEmgo */
+  else if (STREQ(bfd_section_name(bf, sex), ".bss"))	/* FIXMEmgo */
     printf ("bss section in exec! Don't know what the heck to do!\n");
 }
 
@@ -334,19 +332,19 @@ map_vmap (bfd *bf, bfd *arch)
   vmap_bfd.pvmap = vp;
   bfd_map_over_sections (bf, sex_to_vmap, &vmap_bfd);
 
+#if 0
+  /* This is only needed if we want to load shared libraries no matter what.
+     Since we provide the choice of incremental loading of shared objects
+     now, we do not have to load them as default anymore. */
+    
   obj = lookup_objfile_bfd (bf);
   if (exec_bfd && !obj) {
     obj = allocate_objfile (bf, 0);
 
-#if 0
-    /* This is only needed if we want to load shared libraries no matter what.
-       Since we provide the choice of incremental loading of shared objects
-       now, we do not have to load them as default anymore. */
-    
     syms_from_objfile (obj, 0, 0, 0);
     new_symfile_objfile (obj, 0, 0);
-#endif
   }
+#endif
 
   /* find the end of the list, and append. */
   for (vpp = &vmap; *vpp; vpp = &(*vpp)->nxt)
@@ -392,27 +390,28 @@ struct stat *vip;
 	} else if (vp->member[0]) {
 	  /* no match, and member present, not this one. */
 	  continue;
-	} else {
+	} else if (vip) {
+	  /* No match, and no member. need to be sure.
+	     If we were given a stat structure, see if the open file
+	     underlying this BFD matches.  */
 	  struct stat si;
 	  FILE *io;
 	  
-	  /*
-	   * no match, and no member. need to be sure.
-	   */
 	  io = bfd_cache_lookup(objfile->obfd);
 	  if (!io)
 	    fatal("cannot find BFD's iostream for sym");
-	  /*
-	   * see if we are referring to the same file
-	   */
+
+	  /* see if we are referring to the same file */
 	  if (fstat(fileno(io), &si) < 0)
 	    fatal("cannot fstat BFD for sym");
 	  
-	  if (vip && (si.st_dev != vip->st_dev
+	  if ((si.st_dev != vip->st_dev
 	      || si.st_ino != vip->st_ino))
 	    continue;
+	} else {
+          continue;	/* No stat struct: no way to match it */
 	}
-	
+
 	if (vp->tstart != old_start) {
 
 	  /* Once we find a relocation base address for one of the symtabs
@@ -433,10 +432,11 @@ struct stat *vip;
 	  ALL_MSYMBOLS (objfile, msymbol)
 #else
 	  for (msymbol = objfile->msymbols;
-		msymbol->name || msymbol->address; (msymbol)++)
+	       SYMBOL_NAME (msymbol) || SYMBOL_VALUE_ADDRESS (msymbol);
+	       (msymbol)++)
 #endif
-	      if (msymbol->address < TEXT_SEGMENT_BASE)
-		msymbol -> address += vp->tstart - old_start;
+	      if (SYMBOL_VALUE_ADDRESS (msymbol) < TEXT_SEGMENT_BASE)
+		SYMBOL_VALUE_ADDRESS (msymbol) += vp->tstart - old_start;
 
 	   break;
 	}
@@ -578,7 +578,7 @@ register struct ld_info *ldi; {
 		 * FIXME??? am I tossing BFDs?  bfd?
 		 */
 		while (last = bfd_openr_next_archived_file(bfd, last))
-			if (eq(mem, last->filename))
+			if (STREQ(mem, last->filename))
 				break;
 
 		if (!last) {
@@ -630,12 +630,12 @@ vmap_exec ()
 
   for (i=0; &exec_ops.to_sections[i] < exec_ops.to_sections_end; i++)
     {
-      if (strcmp(".text", exec_ops.to_sections[i].sec_ptr->name) == 0)
+      if (STREQ(".text", exec_ops.to_sections[i].sec_ptr->name))
 	{
 	  exec_ops.to_sections[i].addr += vmap->tstart;
 	  exec_ops.to_sections[i].endaddr += vmap->tstart;
 	}
-      else if (strcmp(".data", exec_ops.to_sections[i].sec_ptr->name) == 0)
+      else if (STREQ(".data", exec_ops.to_sections[i].sec_ptr->name))
 	{
 	  exec_ops.to_sections[i].addr += vmap->dstart;
 	  exec_ops.to_sections[i].endaddr += vmap->dstart;
@@ -706,8 +706,8 @@ retry:
 
 	  /* The filenames are not always sufficient to match on. */
 
-	  if ((name[0] == "/" && !eq(name, vp->name))
-	      	|| (memb[0] && !eq(memb, vp->member)))
+	  if ((name[0] == "/" && !STREQ(name, vp->name))
+	      	|| (memb[0] && !STREQ(memb, vp->member)))
 	    continue;
 
 	  io = bfd_cache_lookup(vp->bfd);		/* totally opaque! */

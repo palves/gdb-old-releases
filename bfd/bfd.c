@@ -1,5 +1,5 @@
 /* Generic BFD library interface and support routines.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -146,15 +146,17 @@ CODE_FRAGMENT
 .      struct _oasys_data *oasys_obj_data;
 .      struct _oasys_ar_data *oasys_ar_data;
 .      struct coff_tdata *coff_obj_data;
+.      struct ecoff_tdata *ecoff_obj_data;
 .      struct ieee_data_struct *ieee_data;
 .      struct ieee_ar_data_struct *ieee_ar_data;
 .      struct srec_data_struct *srec_data;
-.      struct srec_data_struct *tekhex_data;
+.      struct tekhex_data_struct *tekhex_data;
 .      struct elf_obj_tdata *elf_obj_data;
 .      struct bout_data_struct *bout_data;
 .      struct sun_core_struct *sun_core_data;
 .      struct trad_core_struct *trad_core_data;
 .      struct hppa_data_struct *hppa_data;
+.      struct hppa_core_struct *hppa_core_data;
 .      PTR any;
 .      } tdata;
 .  
@@ -232,7 +234,7 @@ static
 void 
 DEFUN(bfd_undefined_symbol,(relent, seclet),
       CONST  arelent *relent AND
-      CONST  struct bfd_seclet_struct *seclet)
+      CONST  struct bfd_seclet *seclet)
 {
   asymbol *symbol = *(relent->sym_ptr_ptr);
   printf("bfd error relocating, symbol %s is undefined\n",
@@ -244,7 +246,7 @@ static
 void 
 DEFUN(bfd_reloc_value_truncated,(relent, seclet),
          CONST  arelent *relent AND
-      struct bfd_seclet_struct *seclet)
+      struct bfd_seclet *seclet)
 {
   printf("bfd error relocating, value truncated\n");
   exit(1);
@@ -254,7 +256,7 @@ static
 void 
 DEFUN(bfd_reloc_is_dangerous,(relent, seclet),
       CONST  arelent *relent AND
-     CONST  struct bfd_seclet_struct *seclet)
+     CONST  struct bfd_seclet *seclet)
 {
   printf("bfd error relocating, dangerous\n");
   exit(1);
@@ -518,6 +520,53 @@ bfd_get_mtime (abfd)
 
 /*
 FUNCTION
+	The bfd_get_size function
+
+SYNOPSIS
+	long bfd_get_size(bfd *);
+
+DESCRIPTION
+	Return file size (as read from file system) for the file
+	associated with a bfd.
+
+	Note that the initial motivation for, and use of, this routine is not
+	so we can get the exact size of the object the bfd applies to, since
+	that might not be generally possible (archive members for example?).
+	Although it would be ideal if someone could eventually modify
+	it so that such results were guaranteed.
+
+	Instead, we want to ask questions like "is this NNN byte sized
+	object I'm about to try read from file offset YYY reasonable?"
+	As as example of where we might want to do this, some object formats
+	use string tables for which the first sizeof(long) bytes of the table
+	contain the size of the table itself, including the size bytes.
+	If an application tries to read what it thinks is one of these
+	string tables, without some way to validate the size, and for
+	some reason the size is wrong (byte swapping error, wrong location
+	for the string table, etc), the only clue is likely to be a read
+	error when it tries to read the table, or a "virtual memory
+	exhausted" error when it tries to allocated 15 bazillon bytes
+	of space for the 15 bazillon byte table it is about to read.
+	This function at least allows us to answer the quesion, "is the
+	size reasonable?".
+*/
+
+long
+bfd_get_size (abfd)
+     bfd *abfd;
+{
+  FILE *fp;
+  struct stat buf;
+
+  fp = bfd_cache_lookup (abfd);
+  if (0 != fstat (fileno (fp), &buf))
+    return 0;
+
+  return buf.st_size;
+}
+
+/*
+FUNCTION
 	stuff
 
 DESCRIPTION
@@ -543,49 +592,16 @@ DESCRIPTION
 .#define bfd_stat_arch_elt(abfd, stat) \
 .        BFD_SEND (abfd, _bfd_stat_arch_elt,(abfd, stat))
 .
-.#define bfd_coff_swap_aux_in(a,e,t,c,i) \
-.        BFD_SEND (a, _bfd_coff_swap_aux_in, (a,e,t,c,i))
-.
-.#define bfd_coff_swap_sym_in(a,e,i) \
-.        BFD_SEND (a, _bfd_coff_swap_sym_in, (a,e,i))
-.
-.#define bfd_coff_swap_lineno_in(a,e,i) \
-.        BFD_SEND ( a, _bfd_coff_swap_lineno_in, (a,e,i))
-.
 .#define bfd_set_arch_mach(abfd, arch, mach)\
 .        BFD_SEND ( abfd, _bfd_set_arch_mach, (abfd, arch, mach))
 .
-.#define bfd_coff_swap_reloc_out(abfd, i, o) \
-.        BFD_SEND (abfd, _bfd_coff_swap_reloc_out, (abfd, i, o))
-.
-.#define bfd_coff_swap_lineno_out(abfd, i, o) \
-.        BFD_SEND (abfd, _bfd_coff_swap_lineno_out, (abfd, i, o))
-.
-.#define bfd_coff_swap_aux_out(abfd, i, t,c,o) \
-.        BFD_SEND (abfd, _bfd_coff_swap_aux_out, (abfd, i,t,c, o))
-.
-.#define bfd_coff_swap_sym_out(abfd, i,o) \
-.        BFD_SEND (abfd, _bfd_coff_swap_sym_out, (abfd, i, o))
-.
-.#define bfd_coff_swap_scnhdr_out(abfd, i,o) \
-.        BFD_SEND (abfd, _bfd_coff_swap_scnhdr_out, (abfd, i, o))
-.
-.#define bfd_coff_swap_filehdr_out(abfd, i,o) \
-.        BFD_SEND (abfd, _bfd_coff_swap_filehdr_out, (abfd, i, o))
-.
-.#define bfd_coff_swap_aouthdr_out(abfd, i,o) \
-.        BFD_SEND (abfd, _bfd_coff_swap_aouthdr_out, (abfd, i, o))
-.
-.#define bfd_get_relocated_section_contents(abfd, seclet, data) \
-.	BFD_SEND (abfd, _bfd_get_relocated_section_contents, (abfd, seclet, data))
+.#define bfd_get_relocated_section_contents(abfd, seclet, data, relocateable) \
+.	BFD_SEND (abfd, _bfd_get_relocated_section_contents, (abfd, seclet, data, relocateable))
 . 
 .#define bfd_relax_section(abfd, section, symbols) \
 .       BFD_SEND (abfd, _bfd_relax_section, (abfd, section, symbols))
+.
+.#define bfd_seclet_link(abfd, data, relocateable) \
+.       BFD_SEND (abfd, _bfd_seclet_link, (abfd, data, relocateable))
 
 */
-
-
-
-
-
-

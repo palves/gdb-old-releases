@@ -73,9 +73,14 @@ static const template i386_optab[] = {
 /* in/out from ports */
 {"in", 2, 0xe4, _, W|NoModrm, Imm8, Acc, 0 },
 {"in", 2, 0xec, _, W|NoModrm, InOutPortReg, Acc, 0 },
+{"in", 1, 0xe4, _, W|NoModrm, Imm8, 0, 0 },
+{"in", 1, 0xec, _, W|NoModrm, InOutPortReg, 0, 0 },
 {"out", 2, 0xe6, _, W|NoModrm, Acc, Imm8, 0 },
 {"out", 2, 0xee, _, W|NoModrm, Acc, InOutPortReg, 0 },
+{"out", 1, 0xe6, _, W|NoModrm, Imm8, 0, 0 },
+{"out", 1, 0xee, _, W|NoModrm, InOutPortReg, 0, 0 },
 
+#if 0
 {"inb",  1, 0xe4, _, NoModrm, Imm8, 0, 0 },
 {"inb",  1, 0xec, _, NoModrm, WordMem, 0, 0 },
 {"inw",  1, 0x66e5, _, NoModrm, Imm8, 0, 0 },
@@ -84,6 +89,7 @@ static const template i386_optab[] = {
 {"outb", 1, 0xee, _, NoModrm, WordMem, 0, 0 },
 {"outw", 1, 0x66e7, _, NoModrm, Imm8, 0, 0 },
 {"outw", 1, 0x66ef, _, NoModrm, WordMem, 0, 0 },
+#endif
 
 /* load effective address */
 {"lea", 2, 0x8d, _, Modrm, WordMem, WordReg, 0 },
@@ -241,6 +247,7 @@ static const template i386_optab[] = {
 
 {"shld", 3, 0x0fa4, _, Modrm, Imm8, WordReg, WordReg|Mem},
 {"shld", 3, 0x0fa5, _, Modrm, ShiftCount, WordReg, WordReg|Mem},
+{"shld", 2, 0x0fa5, _, Modrm, WordReg, WordReg|Mem, 0},
 
 {"shr", 2, 0xd0, 5, W|Modrm, Imm1, Reg|Mem, 0},
 {"shr", 2, 0xc0, 5, W|Modrm, Imm8, Reg|Mem, 0},
@@ -249,6 +256,7 @@ static const template i386_optab[] = {
 
 {"shrd", 3, 0x0fac, _, Modrm, Imm8, WordReg, WordReg|Mem},
 {"shrd", 3, 0x0fad, _, Modrm, ShiftCount, WordReg, WordReg|Mem},
+{"shrd", 2, 0x0fad, _, Modrm, WordReg, WordReg|Mem, 0},
 
 {"sar", 2, 0xd0, 7, W|Modrm, Imm1, Reg|Mem, 0},
 {"sar", 2, 0xc0, 7, W|Modrm, Imm8, Reg|Mem, 0},
@@ -723,7 +731,7 @@ static const template i386_optab[] = {
 };
 #undef _
 
-static const template *i386_optab_end 
+static const template *const i386_optab_end
   = i386_optab + sizeof (i386_optab)/sizeof(i386_optab[0]);
 
 /* 386 register table */
@@ -759,7 +767,7 @@ static const reg_entry i386_regtab[] = {
 
 #define MAX_REG_NAME_SIZE 8	/* for parsing register names from input */
 
-static const reg_entry *i386_regtab_end
+static const reg_entry *const i386_regtab_end
   = i386_regtab + sizeof(i386_regtab)/sizeof(i386_regtab[0]);
 
 /* segment stuff */
@@ -777,7 +785,7 @@ static const seg_entry null = { "", 0x0 };
   It is indexed by the mode & modrm entries of the modrm byte as follows:
       index = (mode<<3) | modrm;
 */
-static const seg_entry *one_byte_segment_defaults[] = {
+static const seg_entry *const one_byte_segment_defaults[] = {
   /* mode 0 */
   &ds, &ds, &ds, &ds, &null, &ds, &ds, &ds,
   /* mode 1 */
@@ -787,7 +795,7 @@ static const seg_entry *one_byte_segment_defaults[] = {
   /* mode 3 --- not a memory reference; never referenced */
 };
 
-static const seg_entry *two_byte_segment_defaults[] = {
+static const seg_entry *const two_byte_segment_defaults[] = {
   /* mode 0 */
   &ds, &ds, &ds, &ds, &ss, &ds, &ds, &ds,
   /* mode 1 */
@@ -815,7 +823,7 @@ static const prefix_entry i386_prefixtab[] = {
   { "repne", 0xf2 }, { "repnz", 0xf2 }
 };
 
-static const prefix_entry *i386_prefixtab_end
+static const prefix_entry *const i386_prefixtab_end
   = i386_prefixtab + sizeof(i386_prefixtab)/sizeof(i386_prefixtab[0]);
 
 /* end of i386-opcode.h */

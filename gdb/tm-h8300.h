@@ -77,17 +77,8 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
 
 #define INNER_THAN <
 
-/* Sequence of bytes for breakpoint instruction.
-   This is a TRAP instruction.  The last 4 bits (0xf below) is the
-   vector.  Systems which don't use 0xf should define BPT_VECTOR
-   themselves before including this file.  */
 
-
-#define BPT_VECTOR 0xf
-
-
-
-#define BREAKPOINT {0x4e, (0x40 | BPT_VECTOR)}
+#define BREAKPOINT {0x53, 0x00}
 
 
 /* If your kernel resets the pc after the trap happens you may need to
@@ -111,8 +102,9 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
 
 #define REGISTER_TYPE  unsigned short
 
-#  define NUM_REGS 10 
-#  define REGISTER_BYTES (10*2)
+/*#  define NUM_REGS 20 /* 20 for fake HW support */
+#  define NUM_REGS 11
+#  define REGISTER_BYTES (NUM_REGS*2)
 
 
 /* Index within `registers' of the first byte of the space for
@@ -162,9 +154,15 @@ UNSIGNED_SHORT(read_memory_integer (read_register (SP_REGNUM), 2))
 /* Initializer for an array of names of registers.
    Entries beyond the first NUM_REGS are ignored.  */
 
+#if NUM_REGS==20
 #define REGISTER_NAMES  \
- {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp","ccr","pc"} 
-
+ {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp",\
+  "ccr","pc","cycles","hcheck","tier","tcsr","frc",\
+   "ocra","ocrb","tcr","tocr","icra"} 
+#else
+#define REGISTER_NAMES \
+  {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "ccr","pc","cycles"}
+#endif
 
 /* Register numbers of various important registers.
    Note that some of these values are "real" register numbers,
@@ -304,4 +302,7 @@ typedef unsigned short INSN_WORD;
 
 #define read_memory_short(x)  (read_memory_integer(x,2) & 0xffff)
 #define DONT_USE_REMOTE
+
+
+#define	PRINT_REGISTER_HOOK(regno) print_register_hook(regno)
 

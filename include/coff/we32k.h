@@ -108,6 +108,9 @@ struct external_scnhdr {
 	char		s_flags[4];	/* flags			*/
 };
 
+#define	SCNHDR	struct external_scnhdr
+#define	SCNHSZ	sizeof(SCNHDR)
+
 /*
  * names of "special" sections
  */
@@ -117,31 +120,6 @@ struct external_scnhdr {
 #define _TV	".tv"
 #define _INIT	".init"
 #define _FINI	".fini"
-
-/*
- * s_flags "type"
- */
-#define STYP_REG	 (0x0000) /* "regular": allocated, relocated, loaded */
-#define STYP_DSECT	 (0x0001) /* "dummy":  relocated only*/
-#define STYP_NOLOAD	 (0x0002) /* "noload": allocated, relocated, not loaded */
-#define STYP_GROUP	 (0x0004) /* "grouped": formed of input sections */
-#define STYP_PAD	 (0x0008) /* "padding": not allocated, not relocated, loaded */
-#define STYP_COPY	 (0x0010) /* "copy": for decision function used by field update;  not allocated, not relocated,
-				     loaded; reloc & lineno entries processed normally */
-#define STYP_TEXT	 (0x0020) /* section contains text only */
-#define S_SHRSEG	 (0x0020) /* In 3b Update files (output of ogen), sections which appear in SHARED segments of the Pfile
-				     will have the S_SHRSEG flag set by ogen, to inform dufr that updating 1 copy of the proc. will
-				     update all process invocations. */
-#define STYP_DATA	 (0x0040) /* section contains data only */
-#define STYP_BSS	 (0x0080) /* section contains bss only */
-#define S_NEWFCN	 (0x0100) /* In a minimal file or an update file, a new function (as compared with a replaced function) */
-#define STYP_INFO	 (0x0200) /* comment: not allocated not relocated, not loaded */
-#define STYP_OVER	 (0x0400) /* overlay: relocated not allocated or loaded */
-#define STYP_LIB	 (0x0800) /* for .lib: same as INFO */
-
-#define	SCNHDR	struct external_scnhdr
-#define	SCNHSZ	sizeof(SCNHDR)
-
 
 /********************** LINE NUMBERS **********************/
 
@@ -185,58 +163,11 @@ struct external_syment
   char e_numaux[1];
 };
 
-/*
- * Relocatable symbols have number of the section in which they are defined,
- * or one of the following:
- */
-#define N_UNDEF	((short)0)  /* undefined symbol */
-#define N_ABS	((short)-1) /* value of symbol is absolute */
-#define N_DEBUG	((short)-2) /* debugging symbol -- value is meaningless */
-#define N_TV	((short)-3) /* indicates symbol needs preload transfer vector */
-#define P_TV	((short)-4) /* indicates symbol needs postload transfer vector*/
-
-/*
- * Type of a symbol, in low 4 bits of the word
- */
-#define T_NULL		0
-#define T_VOID		1	/* function argument (only used by compiler) */
-#define T_CHAR		2	/* character		*/
-#define T_SHORT		3	/* short integer	*/
-#define T_INT		4	/* integer		*/
-#define T_LONG		5	/* long integer		*/
-#define T_FLOAT		6	/* floating point	*/
-#define T_DOUBLE	7	/* double word		*/
-#define T_STRUCT	8	/* structure 		*/
-#define T_UNION		9	/* union 		*/
-#define T_ENUM		10	/* enumeration 		*/
-#define T_MOE		11	/* member of enumeration*/
-#define T_UCHAR		12	/* unsigned character	*/
-#define T_USHORT	13	/* unsigned short	*/
-#define T_UINT		14	/* unsigned integer	*/
-#define T_ULONG		15	/* unsigned long	*/
-#define T_LNGDBL	16	/* long double		*/
-
-/*
- * derived types, in n_type
-*/
-#define DT_NON		(0)	/* no derived type */
-#define DT_PTR		(1)	/* pointer */
-#define DT_FCN		(2)	/* function */
-#define DT_ARY		(3)	/* array */
-
 #define N_BTMASK	(0xf)
 #define N_TMASK		(0x30)
 #define N_BTSHFT	(4)
 #define N_TSHIFT	(2)
   
-#define BTYPE(x)	((x) & N_BTMASK)
-
-#define ISPTR(x)	(((x) & N_TMASK) == (DT_PTR << N_BTSHFT))
-#define ISFCN(x)	(((x) & N_TMASK) == (DT_FCN << N_BTSHFT))
-#define ISARY(x)	(((x) & N_TMASK) == (DT_ARY << N_BTSHFT))
-
-#define DECREF(x) ((((x)>>N_TSHIFT)&~N_BTMASK)|((x)&N_BTMASK))
-
 union external_auxent {
 	struct {
 		char x_tagndx[4];	/* str, un, or enum tag indx */

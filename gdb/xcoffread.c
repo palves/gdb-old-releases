@@ -1,5 +1,5 @@
 /* Read AIX xcoff symbol tables and convert to internal format, for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993
    	     Free Software Foundation, Inc.
    Derived from coffread.c, dbxread.c, and a lot of hacking.
    Contributed by IBM Corporation.
@@ -20,12 +20,14 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* Native only:  Need struct tbtable in <sys/debug.h> from host, and 
+		 need xcoff_add_toc_to_loadinfo in rs6000-tdep.c from target.
+		 need xcoff_init_loadinfo ditto.  
+   However, if you grab <sys/debug.h> and make it available on your
+   host, and define FAKING_RS6000, then this code will compile.  */
+
 #include "defs.h"
 #include "bfd.h"
-
-#if defined(IBM6000_HOST) && defined(IBM6000_TARGET)
-/* Native only:  Need struct tbtable in <sys/debug.h> from host, and 
-		 need xcoff_add_toc_to_loadinfo in rs6000-tdep.c from target. */
 
 /* AIX XCOFF names have a preceeding dot `.' */
 #define NAMES_HAVE_DOT 1
@@ -49,6 +51,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "buildsym.h"
 #include "stabsread.h"
 #include "gdb-stabs.h"
+#include "complaints.h"
 
 #include "coff/internal.h"	/* FIXME, internal data from BFD */
 #include "libcoff.h"		/* FIXME, internal data from BFD */
@@ -143,25 +146,19 @@ static unsigned	local_n_tmask;
 
 static unsigned	local_symesz;
 
-
-/* coff_symfile_init()
-   is the coff-specific initialization routine for reading symbols.
-   It is passed a struct sym_fns which contains, among other things,
-   the BFD for the file whose symbols are being read, and a slot for
-   a pointer to "private data" which we fill with cookies and other
-   treats for coff_symfile_read().
- 
-   We will only be called if this is a COFF or COFF-like file.
-   BFD handles figuring out the format of the file, and code in symtab.c
-   uses BFD's determination to vector to us.
- 
-   The ultimate result is a new symtab (or, FIXME, eventually a psymtab).  */
-
 struct coff_symfile_info {
   file_ptr min_lineno_offset;		/* Where in file lowest line#s are */
   file_ptr max_lineno_offset;		/* 1+last byte of line#s in file */
 };
 
+static struct complaint rsym_complaint = 
+  {"Non-stab C_RSYM `%s' needs special handling", 0, 0};
+
+static struct complaint storclass_complaint =
+  {"Unexpected storage class: %d", 0, 0};
+
+static struct complaint bf_notfound_complaint =
+  {"line numbers off, `.bf' symbol not found", 0, 0};
 
 static void
 enter_line_range PARAMS ((struct subfile *, unsigned, unsigned,
@@ -233,7 +230,7 @@ compare_symbols (s1p, s2p)
   /* Names that are less should come first.  */
   register struct symbol **s1 = (struct symbol **) s1p;
   register struct symbol **s2 = (struct symbol **) s2p;
-  register int namediff = strcmp (SYMBOL_NAME (*s1), SYMBOL_NAME (*s2));
+  register int namediff = STRCMP (SYMBOL_NAME (*s1), SYMBOL_NAME (*s2));
   if (namediff != 0) 
     return namediff;
 
@@ -330,7 +327,7 @@ struct pending_stabs *stabs;
       pp += 2;
 
       if (*(pp-1) == 'F' || *(pp-1) == 'f')
-	SYMBOL_TYPE (sym) = lookup_function_type (read_type (&pp));
+	SYMBOL_TYPE (sym) = lookup_function_type (read_type (&pp, objfile));
       else
 	SYMBOL_TYPE (sym) = read_type (&pp, objfile);
     }
@@ -633,9 +630,8 @@ process_linenos (start, end)
 
 /*	start_subfile (inclTable[ii].name, (char*)0);  */
 	start_subfile (" ?", (char*)0);
-	current_subfile->name = 
-		obsavestring (inclTable[ii].name, strlen (inclTable[ii].name),
-			      &current_objfile->symbol_obstack);
+	free (current_subfile->name);
+	current_subfile->name = strdup (inclTable[ii].name);
 
         if (lv == lineTb) {
 	  current_subfile->line_vector = (struct linetable *)
@@ -959,16 +955,11 @@ retrieve_traceback (abfd, textsec, cs, size)
 }
 
 
-/* A parameter template, used by ADD_PARM_TO_PENDING. */
+/* A parameter template, used by ADD_PARM_TO_PENDING.  It is initialized
+   in our initializer function at the bottom of the file, to avoid
+   dependencies on the exact "struct symbol" format.  */
 
-static struct symbol parmsym = {		/* default parameter symbol */
-	"",					/* name */
-	VAR_NAMESPACE,				/* namespace */
-	LOC_ARG,				/* class */
-	NULL,					/* type */
-	0,					/* line number */
-	0,					/* value */
-};
+static struct symbol parmsym;
 
 /* Add a parameter to a given pending symbol list. */ 
 
@@ -1333,7 +1324,8 @@ function_entry_point:
 	    /* Recording this entry is necessary. Single stepping relies on
 	       this vector to get an idea about function address boundaries. */
 
-	    prim_record_minimal_symbol (0, cs->c_value, mst_unknown);
+	    prim_record_minimal_symbol ("<trampoline>", cs->c_value,
+					mst_unknown);
 #else
 
 	    /* record trampoline code entries as mst_unknown symbol. When we
@@ -1419,7 +1411,7 @@ function_entry_point:
     
 
     case C_FCN:
-      if (strcmp (cs->c_name, ".bf") == 0) {
+      if (STREQ (cs->c_name, ".bf")) {
 
         bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
 			      main_aux);
@@ -1503,7 +1495,7 @@ function_entry_point:
 		(fcn_cs_saved.c_value, fcn_stab_saved.c_name, 0, 0, objfile);
 #endif
       }
-      else if (strcmp (cs->c_name, ".ef") == 0) {
+      else if (STREQ (cs->c_name, ".ef")) {
 
         bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
 			      main_aux);
@@ -1565,11 +1557,11 @@ function_entry_point:
 	break;
 
     case C_BLOCK	:
-      if (strcmp (cs->c_name, ".bb") == 0) {
+      if (STREQ (cs->c_name, ".bb")) {
 	depth++;
 	new = push_context (depth, cs->c_value);
       }
-      else if (strcmp (cs->c_name, ".eb") == 0) {
+      else if (STREQ (cs->c_name, ".eb")) {
 	new = pop_context ();
 	if (depth != new->depth)
 	  error ("Invalid symbol data: .bb/.eb symbol mismatch at symbol %d.",
@@ -1605,7 +1597,9 @@ function_entry_point:
      If no XMC_TC0 is found, toc_offset should be zero. Another place to obtain
      this information would be file auxiliary header. */
 
+#ifndef FAKING_RS6000
   xcoff_add_toc_to_loadinfo (toc_offset);
+#endif
 }
 
 #define	SYMBOL_DUP(SYMBOL1, SYMBOL2)	\
@@ -1707,7 +1701,7 @@ process_xcoff_symbol (cs, objfile)
 				obsavestring (name, qq-name,
 					      &objfile->symbol_obstack);
 	}
-	ttype = SYMBOL_TYPE (sym) = read_type (&pp);
+	ttype = SYMBOL_TYPE (sym) = read_type (&pp, objfile);
 
 	/* if there is no name for this typedef, you don't have to keep its
 	   symbol, since nobody could ask for it. Otherwise, build a symbol
@@ -1884,9 +1878,8 @@ process_xcoff_symbol (cs, objfile)
       break;
 
     case C_RSYM:
-
-#ifdef NO_DEFINE_SYMBOL
 	pp = (char*) strchr (name, ':');
+#ifdef NO_DEFINE_SYMBOL
 	SYMBOL_CLASS (sym) = LOC_REGISTER;
 	SYMBOL_VALUE (sym) = STAB_REG_TO_REGNUM (cs->c_value);
 	if (pp) {
@@ -1912,13 +1905,13 @@ process_xcoff_symbol (cs, objfile)
 	  return sym;
 	}
 	else {
-	  warning ("A non-stab C_RSYM needs special handling.");
+	  complain (&rsym_complaint, name);
 	  return NULL;
 	}
 #endif
 
     default	:
-      warning ("Unexpected storage class: %d.", cs->c_sclass);
+      complain (&storclass_complaint, cs->c_sclass);
       return NULL;
     }
   }
@@ -1951,12 +1944,12 @@ read_symbol_lineno (symtable, symno)
   for (ii = 0; ii < 50; ii++) {
     bfd_coff_swap_sym_in (symfile_bfd,
 			     symtable + (symno*local_symesz), symbol);
-    if (symbol->n_sclass == C_FCN && 0 == strcmp (symbol->n_name, ".bf"))
+    if (symbol->n_sclass == C_FCN && STREQ (symbol->n_name, ".bf"))
       goto gotit;
     symno += symbol->n_numaux+1;
   }
 
-  printf ("GDB Error: `.bf' not found.\n");
+  complain (&bf_notfound_complaint);
   return 0;
 
 gotit:
@@ -1986,7 +1979,7 @@ PTR vpinfo;
 
   count = asect->lineno_count;
 
-  if (strcmp (asect->name, ".text") || count == 0)
+  if (!STREQ (asect->name, ".text") || count == 0)
     return;
 
   size   = count * coff_data (symfile_bfd)->local_linesz;
@@ -2041,74 +2034,25 @@ init_lineno (abfd, offset, size)
   printf ("Gdb Error: symbol names on multiple lines not implemented.\n")
 
 
-/* xlc/dbx combination uses a set of builtin types, starting from -1. return
-   the proper type node fora given builtin type #. */
-
-struct type *
-builtin_type (pp)
-char **pp;
-{
-  int typenums[2];
-
-  if (**pp != '-') {
-    printf ("ERROR!, unknown built-in type!\n");
-    return NULL;
-  }
-  *pp += 1;
-  read_type_number (pp, typenums);
-
-  /* default types are defined in dbxstclass.h. */
-  switch ( typenums[1] ) {
-  case 1: 
-    return lookup_fundamental_type (current_objfile, FT_INTEGER);
-  case 2: 
-    return lookup_fundamental_type (current_objfile, FT_CHAR);
-  case 3: 
-    return lookup_fundamental_type (current_objfile, FT_SHORT);
-  case 4: 
-    return lookup_fundamental_type (current_objfile, FT_LONG);
-  case 5: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_CHAR);
-  case 6: 
-    return lookup_fundamental_type (current_objfile, FT_SIGNED_CHAR);
-  case 7: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_SHORT);
-  case 8: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_INTEGER);
-  case 9: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_INTEGER);
-  case 10: 
-    return lookup_fundamental_type (current_objfile, FT_UNSIGNED_LONG);
-  case 11: 
-    return lookup_fundamental_type (current_objfile, FT_VOID);
-  case 12: 
-    return lookup_fundamental_type (current_objfile, FT_FLOAT);
-  case 13: 
-    return lookup_fundamental_type (current_objfile, FT_DBL_PREC_FLOAT);
-  case 14: 
-    return lookup_fundamental_type (current_objfile, FT_EXT_PREC_FLOAT);
-  case 15: 
-    /* requires a builtin `integer' */
-    return lookup_fundamental_type (current_objfile, FT_INTEGER);
-  case 16: 
-    return lookup_fundamental_type (current_objfile, FT_BOOLEAN);
-  case 17: 
-    /* requires builtin `short real' */
-    return lookup_fundamental_type (current_objfile, FT_FLOAT);
-  case 18: 
-    /* requires builtin `real' */
-    return lookup_fundamental_type (current_objfile, FT_FLOAT);
-  default :
-    printf ("ERROR! Unknown builtin type -%d\n", typenums[1]);
-    return NULL;
-  }
-}
-
 static void
 xcoff_new_init (objfile)
      struct objfile *objfile;
 {
 }
+
+
+/* xcoff_symfile_init()
+   is the xcoff-specific initialization routine for reading symbols.
+   It is passed an objfile which contains, among other things,
+   the BFD for the file whose symbols are being read, and a slot for
+   a pointer to "private data" which we fill with cookies and other
+   treats for xcoff_symfile_read().
+ 
+   We will only be called if this is an XCOFF or XCOFF-like file.
+   BFD handles figuring out the format of the file, and code in symfile.c
+   uses BFD's determination to vector to us.
+ 
+   The ultimate result is a new symtab (or, FIXME, eventually a psymtab).  */
 
 static void
 xcoff_symfile_init (objfile)
@@ -2288,9 +2232,11 @@ xcoff_symfile_read (objfile, section_offset, mainline)
   init_minimal_symbol_collection ();
   make_cleanup (discard_minimal_symbols, 0);
 
+#ifndef FAKING_RS6000
   /* Initialize load info structure. */
   if (mainline)
     xcoff_init_loadinfo ();
+#endif
 
   /* Now that the executable file is positioned at symbol table,
      process it and define symbols accordingly. */
@@ -2352,13 +2298,11 @@ void
 _initialize_xcoffread ()
 {
   add_symtab_fns(&xcoff_sym_fns);
-}
 
-#else /* IBM6000_HOST */
-struct type *
-builtin_type (ignore)
-char **ignore;
-{
-    fatal ("GDB internal error: builtin_type called on non-RS/6000!");
+  /* Initialize symbol template later used for arguments.  */
+  SYMBOL_NAME (&parmsym) = "";
+  SYMBOL_INIT_LANGUAGE_SPECIFIC (&parmsym, language_c);
+  SYMBOL_NAMESPACE (&parmsym) = VAR_NAMESPACE;
+  SYMBOL_CLASS (&parmsym) = LOC_ARG;
+  /* Its other fields are zero, or are filled in later.  */
 }
-#endif /* IBM6000_HOST */

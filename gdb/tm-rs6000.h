@@ -1,5 +1,5 @@
 /* Parameters for target execution on an RS6000, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
    Contributed by IBM Corporation.
 
 This file is part of GDB.
@@ -36,6 +36,9 @@ extern int	symtab_relocated;
 
 #define	PC_LOAD_SEGMENT(PC)	pc_load_segment_name(PC)
 
+/* AIX cc seems to get this right.  */
+
+#define BELIEVE_PCC_PROMOTION 1
 
 /* Conversion between a register number in stab string to actual register num. */
 
@@ -82,6 +85,7 @@ struct aix_framedata {
   int	saved_fpr;			/* smallest # of saved fpr */
   int	alloca_reg;			/* alloca register number (frame ptr) */
   char	frameless;			/* true if frameless functions. */
+  char	nosavedpc;			/* true if pc not saved. */
 };
 
 void 
@@ -174,13 +178,7 @@ extern int loadinfotextindex;
    the new frame is not set up until the new function executes
    some instructions.  */
 
-#define	SAVED_PC_AFTER_CALL(frame)	\
-	(register_valid [LR_REGNUM] ? 	\
-	  (*(int*)&registers[REGISTER_BYTE (LR_REGNUM)]) :	\
-	  read_register (LR_REGNUM))
-
-/*#define SAVED_PC_AFTER_CALL(frame)	saved_pc_after_call(frame) */
-
+#define	SAVED_PC_AFTER_CALL(frame) read_register (LR_REGNUM)
 
 /* Address of end of stack space.  */
 
@@ -423,7 +421,7 @@ extern unsigned int rs6000_struct_return_address;
    does not, FRAMELESS is set to 1, else 0.  */
 
 #define FRAMELESS_FUNCTION_INVOCATION(FI, FRAMELESS) \
-	FRAMELESS = frameless_function_invocation (FI)
+	FRAMELESS = frameless_function_invocation (FI, 0)
 
 /* Functions calling alloca() change the value of the stack pointer. We
    need to use initial stack pointer (which is saved in r31 by gcc) in 
@@ -436,17 +434,19 @@ extern unsigned int rs6000_struct_return_address;
 	CORE_ADDR initial_sp;			/* initial stack pointer. */ \
 	struct frame_saved_regs *cache_fsr;	/* saved registers	  */
 
-/* Frameless function invocation in IBM RS/6000 is half-done. It perfectly
-   sets up a new frame, e.g. a new frame (in fact stack) pointer, etc, but it 
-   doesn't save the %pc. In the following, even though it is considered a 
-   frameless invocation, we still need to walk one frame up. */
+/* Frameless function invocation in IBM RS/6000 is sometimes
+   half-done. It perfectly sets up a new frame, e.g. a new frame (in
+   fact stack) pointer, etc, but it doesn't save the %pc.  We call
+   frameless_function_invocation to tell us how to get the %pc.  */
 
 #define	INIT_EXTRA_FRAME_INFO(fromleaf, fi)	\
 	fi->initial_sp = 0;		\
 	fi->cache_fsr = 0;
 
-#define FRAME_SAVED_PC(FRAME)		\
-	read_memory_integer (read_memory_integer ((FRAME)->frame, 4)+8, 4)
+#define FRAME_SAVED_PC(FRAME)					\
+	(frameless_function_invocation (FRAME, 1)		\
+	 ? SAVED_PC_AFTER_CALL (FRAME)				\
+	 : read_memory_integer (read_memory_integer ((FRAME)->frame, 4)+8, 4))
 
 #define FRAME_ARGS_ADDRESS(FI)	\
   (((struct frame_info*)(FI))->initial_sp ?		\
@@ -583,36 +583,6 @@ extern unsigned int rs6000_struct_return_address;
 
 #define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, type, using_gcc) \
 	fix_call_dummy(dummyname, pc, fun, nargs, type)
-
-
-/* Signal handler for SIGWINCH `window size changed'. */
-
-#define	SIGWINCH_HANDLER  aix_resizewindow
-extern	void	aix_resizewindow ();
-
-/* `lines_per_page' and `chars_per_line' are local to utils.c. Rectify this. */
-
-#define	SIGWINCH_HANDLER_BODY	\
-									\
-/* Respond to SIGWINCH `window size changed' signal, and reset GDB's	\
-   window settings approproatelt. */					\
-									\
-void 						\
-aix_resizewindow ()				\
-{						\
-  int fd = fileno (stdout);			\
-  if (isatty (fd)) {				\
-    int val;					\
-						\
-    val = atoi (termdef (fd, 'l'));		\
-    if (val > 0)				\
-      lines_per_page = val;			\
-    val = atoi (termdef (fd, 'c'));		\
-    if (val > 0)				\
-      chars_per_line = val;			\
-  }						\
-}
-
 
 /* Flag for machine-specific stuff in shared files.  FIXME */
 #define IBM6000_TARGET

@@ -60,9 +60,34 @@ m68k_rtype2howto(internal, relocentry)
    case R_RELLONG_NEG:	internal->howto = m68kcoff_howto_table + 6; break;
   }
 }
+           
+static int m68k_howto2rtype(internal)
+struct reloc_howto_struct *internal;
+{
+  if (internal->pc_relative) 
+  {
+    switch (internal->bitsize) 
+    {
+     case 32: return R_PCRLONG;
+     case 16: return R_PCRWORD;
+     case 8: return R_PCRBYTE;
+    }
+  }
+  else 
+  {
+    switch (internal->bitsize) 
+     {
+      case 32: return R_RELLONG;
+      case 16: return R_RELWORD;
+      case 8: return R_RELBYTE;
+     }
+  }
+  return R_RELLONG;    
+}
 
 #define RTYPE2HOWTO(internal, relocentry) m68k_rtype2howto(internal, (relocentry)->r_type)
 
+#define SELECT_RELOC(external, internal) external = m68k_howto2rtype(internal);
 #include "coffcode.h"
 
 
@@ -81,7 +106,7 @@ bfd_target m68kcoff_vec =
   0,				/* leading underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  3,				/* minimum section alignment */
+  1,				/* minimum section alignment */
   _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
   _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
 
@@ -93,5 +118,6 @@ bfd_target m68kcoff_vec =
    _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(coff),
+     0, coff_make_debug_symbol,
   COFF_SWAP_TABLE
  };

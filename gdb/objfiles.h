@@ -240,6 +240,11 @@ struct objfile
 
   PTR sym_private;
 
+  /* Hook for other info specific to this objfile.  This must point to
+     memory allocated on one of the obstacks in this objfile, so that it
+     gets freed automatically when reading a new object file. */
+
+  PTR obj_private;
 };
 
 /* Defines for the objfile flag word. */
@@ -339,7 +344,7 @@ have_minimal_symbols PARAMS ((void));
 /* Traverse all minimal symbols in one objfile.  */
 
 #define	ALL_OBJFILE_MSYMBOLS(objfile, m) \
-    for ((m) = (objfile) -> msymbols; (m)->name != NULL; (m)++)
+    for ((m) = (objfile) -> msymbols; SYMBOL_NAME(m) != NULL; (m)++)
 
 
 /* Traverse all symtabs in all objfiles.  */

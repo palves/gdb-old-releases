@@ -1,3 +1,99 @@
+Thu Feb 18 23:00:19 1993  John Gilmore  (gnu@cygnus.com)
+
+	* strsignal.c (sys_siglist):  Remove yet another *%^&%&$# "const"
+	because BSD 4.4 lacks one.  Isn't this fun?
+
+Thu Feb 18 11:24:25 1993  Fred Fish  (fnf@cygnus.com)
+
+	* cplus-dem.c (demangle_signature):  Set func_done after
+	demangling a template.
+	* cplus-dem.c (demangle_template):  Fix several small bugs
+	in demangling GNU style templates.
+	* cplus-dem.c (demangle_prefix):  Fix for templates in GNU
+	style constructors.
+	* cplus-dem.c (gnu_special):  Fix for templates in GNU style
+	static data members.
+
+Tue Feb 16 17:28:35 1993  Fred Fish  (fnf@cygnus.com)
+
+	* cplus-dem.c (demangle_signature):  Modify to include type
+	modifiers like static and const in remembered types.
+
+Thu Feb 11 22:20:47 1993  Fred Fish  (fnf@cygnus.com)
+
+	* cplus-dem.c (demangled_qualified):  Add new parameter that tells
+	whether to prepend or append the qualifiers.
+	* cplus-dem.c (string_prepends):  Used now, remove #if 0.
+	* cplus-dem.c (demangle_signature):  Call demangle_qualified
+	with prepending.
+	* cplus_dem.c (gnu_special):  Recognize static data members that
+	use qualified names.
+	* cplus-dem.c (demangle_qualified):  Accumulate qualifiers in a
+	temporary buffer and the prepend or append them to the result,
+	as specified by the new "append" flag.
+	* cplus-dem.c (do_type):  Call demangled_qualified with
+	appending.
+
+Mon Dec 28 10:47:19 1992  Ken Raeburn  (raeburn@cygnus.com)
+
+	* strsignal.c (signal_table): Now const.
+	(init_signal_tables): Variable eip now points to const.
+
+	* strerror.c (error_table): Now const.
+	(init_error_tables): Variable eip now points to const.
+
+Tue Dec 15 15:36:50 1992  Per Bothner  (bothner@cygnus.com)
+
+	* memchr.c (memchr):  New (ANSI standard) function.
+	* Makefile.in, functions.def:  Added memchr.
+	* Makefile.in (AR_FLAGS): Use rc instad of non-standard cq.
+
+Wed Dec  2 22:49:10 1992  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
+
+	* getopt.c: remove use of USG around <alloca.h>, which never meant
+	anything anyway
+
+	* config/mh-{aix,apollo68,ncr3000,sysv,sysv4}: removed definitions
+	of USG and USGr4
+
+Thu Nov 19 03:09:33 1992  Brendan Kehoe  (brendan@lisa.cygnus.com)
+
+	* cplus-dem.c (demangle_fund_type): Recognize `w', a wide character;
+	it's now a type according to the ANSI X3J16 working paper; output
+	"wchar_t" for it.
+	(demangle_template): Accept `w' as an integral type.
+	(xmalloc, xrealloc): Use `char *', not `PTR'.  Cast calls to their
+	counterparts malloc and realloc to `char *'.
+	(main): Exit with a 0 status.
+	* Makefile.in (demangle): Don't expect the user to define
+	DEMANGLE, instead force to be cplus-dem.c.  Look in $(srcdir)/../include
+	for demangle.h.  Pass it any HDEFINES or XTRAFLAGS.
+
+Wed Nov 18 18:56:20 1992  John Gilmore  (gnu@cygnus.com)
+
+	* Makefile.in (AR_FLAGS):  Avoid verbosity.
+	* config/mh-sysv4:  Remove AR_FLAGS override, use INSTALL=cp,
+	replace USGr4 with HAVE_SYSCONF.
+	* config/mh-solaris:  Remove; mh-sysv4 works now.
+	* getpagesize.c:  Replace USGr4 with HAVE_SYSCONF.
+	* configure.in:  Simplify host matching table, remove separate
+	solaris config file.
+
+Sun Nov 15 09:35:16 1992  Fred Fish  (fnf@cygnus.com)
+
+	* configure.in (i[34]86-*-solaris2*):  Add, use mh-sysv4.
+
+Tue Nov  3 21:27:03 1992  Brendan Kehoe  (brendan@cygnus.com)
+
+	* cplus-dem.c (xmalloc, xrealloc): Add decls.
+	(remember_type): Don't cast xmalloc.
+	(string_need): Likewise; don't cast xrealloc either.
+
+Fri Oct 23 08:52:01 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* Makefile.in, functions.defs, rename.c: added simple
+	implementation of rename, since some binutils programs use it.
+
 Thu Oct 15 15:18:22 1992  Per Bothner  (bothner@cygnus.com)
 
 	* strsignal.c:  Add appropriate 'const' to sys_siglist
