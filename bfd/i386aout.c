@@ -17,22 +17,38 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#define	PAGE_SIZE	4096
-#define	SEGMENT_SIZE	PAGE_SIZE
-#define TEXT_START_ADDR	0x8000 
-#define ARCH 32
+
+/* The only 386 aout system we have here is GO32 from DJ. 
+   These numbers make BFD work with that. If your aout 386 system
+   doesn't work with these, we'll have to split them into different
+   files.  Send me (sac@cygnus.com) the runes to make it work on your
+   system, and I'll stick it in for the next release.
+
+ */
+#define TARGET_IS_LITTLE_ENDIAN_P
+#define N_HEADER_IN_TEXT(x) 0
 #define BYTES_IN_WORD 4
+#define ARCH 32
+
+#define N_TXTOFF(x) 0x20
+#define N_TXTADDR(x) (N_MAGIC(x)==ZMAGIC ? 0x1020 : 0)
+
+#define N_TXTSIZE(x) ((x).a_text)
+#if 0
+#define N_DATADDR(x) (N_MAGIC(x)==OMAGIC? (N_TXTADDR(x)+(x).a_text) : (SEGMENT_SIZE + ((0x1020+(x).a_text-1) & ~(SEGMENT_SIZE-1))))
+#define NOSUBEXECB
+
+#endif
+#define PAGE_SIZE 4096
+#define SEGMENT_SIZE 0x400000
+#define DEFAULT_ARCH bfd_arch_i386
+
+#define MY(OP) CAT(i386aout_,OP)
+#define TARGETNAME "a.out-i386"
+#define NO_WRITE_HEADER_KLUDGE 1
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
-#include "aout/aout64.h"
-#include "aout/stab_gnu.h"
-#include "aout/ar.h"
-#include "libaout.h"           /* BFD a.out internal data structures */
-
-#define DEFAULT_ARCH bfd_arch_i386
-#define MY(OP) CAT(i386aout_,OP)
-#define TARGETNAME "a.out-i386"
-
+#include "libaout.h"
 #include "aout-target.h"

@@ -22,6 +22,8 @@ Cambridge, MA 02139, USA.
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation. */
 
+#include <string.h>	/* Prototypes for memcpy, memmove, memset, etc */
+
 #include "mmalloc.h"
 
 /* Prototypes for local functions */
@@ -45,7 +47,7 @@ align (mdp, size)
   if (adj != 0)
     {
       adj = BLOCKSIZE - adj;
-      (void) mdp -> morecore (mdp, adj);
+      mdp -> morecore (mdp, adj);
       result = (char *) result + adj;
     }
   return (result);
@@ -105,8 +107,8 @@ morecore (mdp, size)
 	  mdp -> morecore (mdp, -size);
 	  return (NULL);
 	}
-      memset ((PTR)newinfo, 0, newsize * sizeof (malloc_info));
-      memcpy ((PTR)newinfo, (PTR)mdp -> heapinfo,
+      memset ((PTR) newinfo, 0, newsize * sizeof (malloc_info));
+      memcpy ((PTR) newinfo, (PTR) mdp -> heapinfo,
 	      mdp -> heapsize * sizeof (malloc_info));
       oldinfo = mdp -> heapinfo;
       newinfo[BLOCK (oldinfo)].busy.type = 0;
@@ -323,5 +325,5 @@ PTR
 malloc (size)
   size_t size;
 {
-  return (mmalloc ((void *) NULL, size));
+  return (mmalloc ((PTR) NULL, size));
 }

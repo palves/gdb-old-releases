@@ -81,6 +81,11 @@ extern int inferior_pid;
 
 extern char registers[];
 
+/* Array of validity bits (one per register).  Nonzero at position XXX_REGNUM
+   means that `registers' contains a valid copy of inferior register XXX.  */
+
+extern char register_valid[NUM_REGS];
+
 extern void
 clear_proceed_status PARAMS ((void));
 
@@ -160,8 +165,12 @@ detach PARAMS ((int));
 extern void
 child_resume PARAMS ((int, int));
 
+#ifndef PTRACE_ARG3_TYPE
+#define PTRACE_ARG3_TYPE int	/* Correct definition for most systems. */
+#endif
+
 extern int
-call_ptrace PARAMS ((int, int, int *, int));
+call_ptrace PARAMS ((int, int, PTRACE_ARG3_TYPE, int));
 
 /* From procfs.c */
 

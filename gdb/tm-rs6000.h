@@ -25,7 +25,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define AIX_BUGGY_PTRACE_CONTINUE	\
 { \
-  int ret = ptrace (PT_CONTINUE, inferior_pid, (int *)1, signal, 0); \
+  int ret = ptrace (PT_CONTINUE, inferior_pid, \
+		    (PTRACE_ARG3_TYPE) 1, signal, 0); \
   if (errno) { \
 /*    printf ("ret: %d, errno: %d, signal: %d\n", ret, errno, signal); */ \
     errno = 0; } \
@@ -107,6 +108,11 @@ struct aix_framedata {
 
 #undef NAMES_HAVE_UNDERSCORE
 
+/* AIX's assembler doesn't grok dollar signs in identifiers.
+   So we use dots instead.  This item must be coordinated with G++. */
+#undef CPLUS_MARKER
+#define CPLUS_MARKER '.'
+
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
 
@@ -179,9 +185,6 @@ extern int aix_loadInfoTextIndex;
    Can't go through the frames for this because on some machines
    the new frame is not set up until the new function executes
    some instructions.  */
-
-extern char registers[];
-extern char register_valid [];
 
 #define	SAVED_PC_AFTER_CALL(frame)	\
 	(register_valid [LR_REGNUM] ? 	\

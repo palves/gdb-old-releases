@@ -27,6 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "obstack.h"
 #include "language.h"
+#include "demangle.h"
 
 #include <errno.h>
 
@@ -51,7 +52,7 @@ static void
 type_print_base PARAMS ((struct type *, FILE *, int, int));
 
 static void
-type_print_varspec_suffix PARAMS ((struct type *, FILE *, int, int));
+type_print_varspec_suffix PARAMS ((struct type *, FILE *, int, int, int));
 
 static void
 type_print_varspec_prefix PARAMS ((struct type *, FILE *, int, int));
@@ -79,9 +80,6 @@ is_vtbl_ptr_type PARAMS ((struct type *));
 static void
 print_hex_chars PARAMS ((FILE *, unsigned char *, unsigned));
 
-extern int sys_nerr;
-extern char *sys_errlist[];
-
 extern int demangle;	/* whether to print C++ syms raw or source-form */
 
 /* Maximum number of chars to print for a string pointer value
@@ -94,12 +92,6 @@ static unsigned int print_max;
 unsigned input_radix = 10;
 unsigned output_radix = 10;
 int output_format = 0;
-
-
-char **unsigned_type_table;
-char **signed_type_table;
-char **float_type_table;
-
 
 /* Print repeat counts if there are more than this
    many repetitions of an element in an array.  */
@@ -244,7 +236,7 @@ print_floating (valaddr, type, stream)
     if (len == sizeof (float))
       {
 	/* It's single precision. */
-	bcopy (valaddr, &low, sizeof (low));
+	memcpy ((char *) &low, valaddr, sizeof (low));
 	/* target -> host.  */
 	SWAP_TARGET_AND_HOST (&low, sizeof (float));
 	nonnegative = low >= 0;
@@ -258,19 +250,19 @@ print_floating (valaddr, type, stream)
 	/* It's double precision.  Get the high and low words.  */
 
 #if TARGET_BYTE_ORDER == BIG_ENDIAN
-	  bcopy (valaddr+4, &low,  sizeof (low));
-	  bcopy (valaddr+0, &high, sizeof (high));
+	memcpy (&low, valaddr+4,  sizeof (low));
+	memcpy (&high, valaddr+0, sizeof (high));
 #else
-	  bcopy (valaddr+0, &low,  sizeof (low));
-	  bcopy (valaddr+4, &high, sizeof (high));
+	memcpy (&low, valaddr+0,  sizeof (low));
+	memcpy (&high, valaddr+4, sizeof (high));
 #endif
-	  SWAP_TARGET_AND_HOST (&low, sizeof (low));
-	  SWAP_TARGET_AND_HOST (&high, sizeof (high));
-	  nonnegative = high >= 0;
-	  is_nan = (((high >> 20) & 0x7ff) == 0x7ff
-		    && ! ((((high & 0xfffff) == 0)) && (low == 0)));
-	  high &= 0xfffff;
-	}
+	SWAP_TARGET_AND_HOST (&low, sizeof (low));
+	SWAP_TARGET_AND_HOST (&high, sizeof (high));
+	nonnegative = high >= 0;
+	is_nan = (((high >> 20) & 0x7ff) == 0x7ff
+		  && ! ((((high & 0xfffff) == 0)) && (low == 0)));
+	high &= 0xfffff;
+      }
 
     if (is_nan)
       {
@@ -376,7 +368,7 @@ value_print (val, stream, format, pretty)
 	      rep1 = i + 1;
 	      reps = 1;
 	      while (rep1 < n
-		     && !bcmp (VALUE_CONTENTS (val) + typelen * i,
+		     && !memcmp (VALUE_CONTENTS (val) + typelen * i,
 			       VALUE_CONTENTS (val) + typelen * rep1, typelen))
 		{
 		  ++reps;
@@ -521,11 +513,14 @@ val_print_fields (type, valaddr, stream, format, recurse, pretty, dont_print)
 	    fprintf_filtered (stream, ", ");
 	  else if (n_baseclasses > 0)
 	    {
-	      fprintf_filtered (stream, "\n");
-	      print_spaces_filtered (2 + 2 * recurse, stream);
-	      fputs_filtered ("members of ", stream);
-	      fputs_filtered (type_name_no_tag (type), stream);
-	      fputs_filtered (": ", stream);
+	      if (pretty)
+		{
+		  fprintf_filtered (stream, "\n");
+		  print_spaces_filtered (2 + 2 * recurse, stream);
+		  fputs_filtered ("members of ", stream);
+		  fputs_filtered (type_name_no_tag (type), stream);
+		  fputs_filtered (": ", stream);
+		}
 	    }
 	  fields_seen = 1;
 
@@ -544,14 +539,14 @@ val_print_fields (type, valaddr, stream, format, recurse, pretty, dont_print)
 		fputs_filtered ("\"( ptr \"", stream);
 	      else
 		fputs_filtered ("\"( nodef \"", stream);
-	      fputs_filtered (TYPE_FIELD_NAME (type, i), stream);
+	      fprint_symbol (stream, TYPE_FIELD_NAME (type, i));
 	      fputs_filtered ("\" \"", stream);
-	      fputs_filtered (TYPE_FIELD_NAME (type, i), stream);
+	      fprint_symbol (stream, TYPE_FIELD_NAME (type, i));
 	      fputs_filtered ("\") \"", stream);
 	    }
 	  else
 	    {
-	      fputs_filtered (TYPE_FIELD_NAME (type, i), stream);
+	      fprint_symbol (stream, TYPE_FIELD_NAME (type, i));
 	      fputs_filtered (" = ", stream);
 	    }
 	  if (TYPE_FIELD_PACKED (type, i))
@@ -635,9 +630,11 @@ cplus_val_print (type, valaddr, stream, format, recurse, pretty, dont_print)
 	error ("could not find virtual baseclass `%s'\n",
 	       type_name_no_tag (TYPE_BASECLASS (type, i)));
 
-      fprintf_filtered (stream, "\n");
       if (pretty)
-	print_spaces_filtered (2 + 2 * recurse, stream);
+	{
+	  fprintf_filtered (stream, "\n");
+	  print_spaces_filtered (2 * recurse, stream);
+	}
       fputs_filtered ("<", stream);
       fputs_filtered (type_name_no_tag (TYPE_BASECLASS (type, i)), stream);
       fputs_filtered ("> = ", stream);
@@ -647,6 +644,8 @@ cplus_val_print (type, valaddr, stream, format, recurse, pretty, dont_print)
 	val_print_fields (TYPE_BASECLASS (type, i), baddr, stream, format,
 			  recurse, pretty,
 			  (struct type **)obstack_base (&dont_print_obstack));
+      fputs_filtered (", ", stream);
+
     flush_it:
       ;
     }
@@ -816,8 +815,8 @@ val_print (type, valaddr, address, stream, format, deref_ref, recurse, pretty)
 		  rep1 = i + 1;
 		  reps = 1;
 		  while (rep1 < len
-			 && !bcmp (valaddr + i * eltlen,
-				   valaddr + rep1 * eltlen, eltlen))
+			 && !memcmp (valaddr + i * eltlen,
+				     valaddr + rep1 * eltlen, eltlen))
 		    {
 		      ++reps;
 		      ++rep1;
@@ -1024,12 +1023,8 @@ val_print (type, valaddr, address, stream, format, deref_ref, recurse, pretty)
 		    }
 		  else
 		    {
-		      if (errcode >= sys_nerr || errcode < 0)
-			error ("Error reading memory address 0x%x: unknown error (%d).",
-			       addr + i, errcode);
-		      else
-			error ("Error reading memory address 0x%x: %s.",
-			       addr + i, sys_errlist[errcode]);
+		      error ("Error reading memory address 0x%x: %s.",
+			     addr + i, safe_strerror (errcode));
 		    }
 		}
 
@@ -1045,7 +1040,8 @@ val_print (type, valaddr, address, stream, format, deref_ref, recurse, pretty)
 	      if ((msymbol != NULL) && (vt_address == msymbol -> address))
 		{
 		  fputs_filtered (" <", stream);
-		  fputs_demangled (msymbol -> name, stream, 1);
+		  fputs_demangled (msymbol -> name, stream,
+				   DMGL_ANSI | DMGL_PARAMS);
 		  fputs_filtered (">", stream);
 		}
 	      if (vtblprint)
@@ -1361,6 +1357,9 @@ type_print_1 (type, varstring, stream, show, level)
      int level;
 {
   register enum type_code code;
+  char *demangled = NULL;
+  int demangled_args;
+
   type_print_base (type, stream, show, level);
   code = TYPE_CODE (type);
   if ((varstring && *varstring)
@@ -1376,9 +1375,26 @@ type_print_1 (type, varstring, stream, show, level)
 	|| code == TYPE_CODE_REF)))
     fprintf_filtered (stream, " ");
   type_print_varspec_prefix (type, stream, show, 0);
-  fputs_demangled (varstring, stream, -1);	/* Print demangled name
-						   without arguments */
-  type_print_varspec_suffix (type, stream, show, 0);
+
+  /* See if the name has a C++ demangled equivalent, and if so, print that
+     instead. */
+
+  if (demangle)
+    {
+      demangled = cplus_demangle (varstring, DMGL_ANSI | DMGL_PARAMS);
+    }
+  fputs_filtered ((demangled != NULL) ? demangled : varstring, stream);
+
+  /* For demangled function names, we have the arglist as part of the name,
+     so don't print an additional pair of ()'s */
+
+  demangled_args = (demangled != NULL) && (code == TYPE_CODE_FUNC);
+  type_print_varspec_suffix (type, stream, show, 0, demangled_args);
+
+  if (demangled)
+    {
+      free (demangled);
+    }
 }
 
 /* Print the method arguments ARGS to the file STREAM.  */
@@ -1391,8 +1407,8 @@ type_print_method_args (args, prefix, varstring, staticp, stream)
 {
   int i;
 
-  fputs_demangled (prefix, stream, 1);
-  fputs_demangled (varstring, stream, 1);
+  fputs_demangled (prefix, stream, DMGL_ANSI | DMGL_PARAMS);
+  fputs_demangled (varstring, stream, DMGL_ANSI | DMGL_PARAMS);
   fputs_filtered (" (", stream);
   if (args && args[!staticp] && args[!staticp]->code != TYPE_CODE_VOID)
     {
@@ -1546,6 +1562,9 @@ type_print_varspec_prefix (type, stream, show, passed_a_ptr)
     case TYPE_CODE_ERROR:
     case TYPE_CODE_CHAR:
     case TYPE_CODE_BOOL:
+    case TYPE_CODE_SET:
+    case TYPE_CODE_RANGE:
+    case TYPE_CODE_PASCAL_ARRAY:
       /* These types need no prefix.  They are listed here so that
 	 gcc -Wall will reveal any types that haven't been handled.  */
       break;
@@ -1557,11 +1576,12 @@ type_print_varspec_prefix (type, stream, show, passed_a_ptr)
    Args work like type_print_varspec_prefix.  */
 
 static void
-type_print_varspec_suffix (type, stream, show, passed_a_ptr)
+type_print_varspec_suffix (type, stream, show, passed_a_ptr, demangled_args)
      struct type *type;
      FILE *stream;
      int show;
      int passed_a_ptr;
+     int demangled_args;
 {
   if (type == 0)
     return;
@@ -1586,19 +1606,19 @@ type_print_varspec_suffix (type, stream, show, passed_a_ptr)
       fprintf_filtered (stream, "]");
       
       type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0,
-				 0);
+				 0, 0);
       break;
 
     case TYPE_CODE_MEMBER:
       if (passed_a_ptr)
 	fprintf_filtered (stream, ")");
-      type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0, 0);
+      type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0, 0, 0);
       break;
 
     case TYPE_CODE_METHOD:
       if (passed_a_ptr)
 	fprintf_filtered (stream, ")");
-      type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0, 0);
+      type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0, 0, 0);
       if (passed_a_ptr)
 	{
 	  int i;
@@ -1623,15 +1643,16 @@ type_print_varspec_suffix (type, stream, show, passed_a_ptr)
 
     case TYPE_CODE_PTR:
     case TYPE_CODE_REF:
-      type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0, 1);
+      type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0, 1, 0);
       break;
 
     case TYPE_CODE_FUNC:
       type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0,
-				 passed_a_ptr);
+				 passed_a_ptr, 0);
       if (passed_a_ptr)
 	fprintf_filtered (stream, ")");
-      fprintf_filtered (stream, "()");
+      if (!demangled_args)
+	fprintf_filtered (stream, "()");
       break;
 
     case TYPE_CODE_UNDEF:
@@ -1644,6 +1665,9 @@ type_print_varspec_suffix (type, stream, show, passed_a_ptr)
     case TYPE_CODE_ERROR:
     case TYPE_CODE_CHAR:
     case TYPE_CODE_BOOL:
+    case TYPE_CODE_SET:
+    case TYPE_CODE_RANGE:
+    case TYPE_CODE_PASCAL_ARRAY:
       /* These types do not need a suffix.  They are listed so that
 	 gcc -Wall will report types that may not have been considered.  */
       break;
@@ -1674,17 +1698,22 @@ type_print_base (type, stream, show, level)
   register int i;
   register int len;
   register int lastval;
-
+  char *mangled_name;
+  char *demangled_name;
+  enum {s_none, s_public, s_private, s_protected} section_type;
   QUIT;
 
   wrap_here ("    ");
-  if (type == 0)
+  if (type == NULL)
     {
-      fprintf_filtered (stream, "<type unknown>");
+      fputs_filtered ("<type unknown>", stream);
       return;
     }
 
-  if (TYPE_NAME (type) && show <= 0)
+  /* When SHOW is zero or less, and there is a valid type name, then always
+     just print the type name directly from the type. */
+
+  if ((show <= 0) && (TYPE_NAME (type) != NULL))
     {
       fputs_filtered (TYPE_NAME (type), stream);
       return;
@@ -1702,7 +1731,8 @@ type_print_base (type, stream, show, level)
       break;
 
     case TYPE_CODE_STRUCT:
-      fprintf_filtered (stream, "struct ");
+      fprintf_filtered (stream,
+			HAVE_CPLUS_STRUCT (type) ? "class " : "struct ");
       goto struct_union;
 
     case TYPE_CODE_UNION:
@@ -1736,6 +1766,8 @@ type_print_base (type, stream, show, level)
 
 	  /* If there is a base class for this type,
 	     do not print the field that it occupies.  */
+
+	  section_type = s_none;
 	  for (i = TYPE_N_BASECLASSES (type); i < len; i++)
 	    {
 	      QUIT;
@@ -1743,6 +1775,40 @@ type_print_base (type, stream, show, level)
 	      if ((TYPE_FIELD_NAME (type, i))[5] == CPLUS_MARKER &&
 		  !strncmp (TYPE_FIELD_NAME (type, i), "_vptr", 5))
 		continue;
+
+	      /* If this is a C++ class we can print the various C++ section
+		 labels. */
+
+	      if (HAVE_CPLUS_STRUCT (type))
+		{
+		  if (TYPE_FIELD_PROTECTED (type, i))
+		    {
+		      if (section_type != s_protected)
+			{
+			  section_type = s_protected;
+			  print_spaces_filtered (level + 2, stream);
+			  fprintf_filtered (stream, "protected:\n");
+			}
+		    }
+		  else if (TYPE_FIELD_PRIVATE (type, i))
+		    {
+		      if (section_type != s_private)
+			{
+			  section_type = s_private;
+			  print_spaces_filtered (level + 2, stream);
+			  fprintf_filtered (stream, "private:\n");
+			}
+		    }
+		  else
+		    {
+		      if (section_type != s_public)
+			{
+			  section_type = s_public;
+			  print_spaces_filtered (level + 2, stream);
+			  fprintf_filtered (stream, "public:\n");
+			}
+		    }
+		}
 
 	      print_spaces_filtered (level + 4, stream);
 	      if (TYPE_FIELD_STATIC (type, i))
@@ -1778,6 +1844,34 @@ type_print_base (type, stream, show, level)
 	      for (j = 0; j < len2; j++)
 		{
 		  QUIT;
+		  if (f[j].is_protected)
+		    {
+		      if (section_type != s_protected)
+			{
+			  section_type = s_protected;
+			  print_spaces_filtered (level + 2, stream);
+			  fprintf_filtered (stream, "protected:\n");
+			}
+		    }
+		  else if (f[j].is_private)
+		    {
+		      if (section_type != s_private)
+			{
+			  section_type = s_private;
+			  print_spaces_filtered (level + 2, stream);
+			  fprintf_filtered (stream, "private:\n");
+			}
+		    }
+		  else
+		    {
+		      if (section_type != s_public)
+			{
+			  section_type = s_public;
+			  print_spaces_filtered (level + 2, stream);
+			  fprintf_filtered (stream, "public:\n");
+			}
+		    }
+
 		  print_spaces_filtered (level + 4, stream);
 		  if (TYPE_FN_FIELD_VIRTUAL_P (f, j))
 		    fprintf_filtered (stream, "virtual ");
@@ -1799,9 +1893,11 @@ type_print_base (type, stream, show, level)
 		  if (TYPE_FN_FIELD_STUB (f, j))
 		    {
 		      /* Build something we can demangle.  */
-		      char *mangled_name = gdb_mangle_name (type, i, j);
-		      char *demangled_name = cplus_demangle (mangled_name, 1);
-		      if (demangled_name == 0)
+		      mangled_name = gdb_mangle_name (type, i, j);
+		      demangled_name =
+			  cplus_demangle (mangled_name,
+					  DMGL_ANSI | DMGL_PARAMS);
+		      if (demangled_name == NULL)
 			fprintf_filtered (stream, "<badly mangled name %s>",
 			    mangled_name);
 		      else 
@@ -1864,27 +1960,6 @@ type_print_base (type, stream, show, level)
 	}
       break;
 
-    case TYPE_CODE_INT:
-      name = 0;
-      if (TYPE_LENGTH (type) <= sizeof (LONGEST))
-	{
-	  if (TYPE_UNSIGNED (type))
-	    name = unsigned_type_table[TYPE_LENGTH (type)];
-	  else
-	    name = signed_type_table[TYPE_LENGTH (type)];
-	}
-      if (name)
-	fputs_filtered (name, stream);
-      else
-	fprintf_filtered (stream, "<%d bit integer>",
-			  TYPE_LENGTH (type) * TARGET_CHAR_BIT);
-      break;
-
-    case TYPE_CODE_FLT:
-      name = float_type_table[TYPE_LENGTH (type)];
-      fputs_filtered (name, stream);
-      break;
-
     case TYPE_CODE_VOID:
       fprintf_filtered (stream, "void");
       break;
@@ -1903,7 +1978,19 @@ type_print_base (type, stream, show, level)
       break;
 
     default:
-      error ("Invalid type code in symbol table.");
+      /* Handle types not explicitly handled by the other cases,
+	 such as fundamental types.  For these, just print whatever
+	 the type name is, as recorded in the type itself.  If there
+	 is no type name, then complain. */
+      if (TYPE_NAME (type) != NULL)
+	{
+	  fputs_filtered (TYPE_NAME (type), stream);
+	}
+      else
+	{
+	  error ("Invalid type code (%d) in symbol table.", TYPE_CODE (type));
+	}
+      break;
     }
 }
 
@@ -1979,9 +2066,6 @@ set_radix (arg, from_tty, c)
   set_output_radix (arg, 0, c);
 }
 
-struct cmd_list_element *setprintlist = NULL;
-struct cmd_list_element *showprintlist = NULL;
-
 /*ARGSUSED*/
 static void
 set_print (arg, from_tty)
@@ -2097,37 +2181,6 @@ _initialize_valprint ()
   objectprint = 0;
 
   print_max = 200;
-
-  /* Initialize the names of the various types based on their lengths on
-     the target, in bits.  Note that ordering is important, so that for example,
-     if ints and longs are the same size, that size will default to "int". */
-
-  unsigned_type_table = (char **)
-    xmalloc ((1 + (TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT)) * sizeof (char *));
-  bzero (unsigned_type_table, (1 + (TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT)));
-  unsigned_type_table[TARGET_CHAR_BIT/TARGET_CHAR_BIT] = "unsigned char";
-  unsigned_type_table[TARGET_SHORT_BIT/TARGET_CHAR_BIT] = "unsigned short";
-  unsigned_type_table[TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT] = "unsigned long long";
-  unsigned_type_table[TARGET_LONG_BIT/TARGET_CHAR_BIT] = "unsigned long";
-  unsigned_type_table[TARGET_INT_BIT/TARGET_CHAR_BIT] = "unsigned int";
-
-  signed_type_table = (char **)
-    xmalloc ((1 + (TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT)) * sizeof (char *));
-  bzero (signed_type_table, (1 + (TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT)));
-  signed_type_table[TARGET_CHAR_BIT/TARGET_CHAR_BIT] = "char";
-  signed_type_table[TARGET_SHORT_BIT/TARGET_CHAR_BIT] = "short";
-  signed_type_table[TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT] = "long long";
-  signed_type_table[TARGET_LONG_BIT/TARGET_CHAR_BIT] = "long";
-  signed_type_table[TARGET_INT_BIT/TARGET_CHAR_BIT] = "int";
-
-  float_type_table = (char **)
-    xmalloc ((1 + (TARGET_LONG_DOUBLE_BIT/TARGET_CHAR_BIT)) * sizeof (char *));
-  bzero (float_type_table, (1 + (TARGET_LONG_DOUBLE_BIT/TARGET_CHAR_BIT)));
-  float_type_table[TARGET_FLOAT_BIT/TARGET_CHAR_BIT] = "float";
-  float_type_table[TARGET_DOUBLE_COMPLEX_BIT/TARGET_CHAR_BIT] = "double complex";
-  float_type_table[TARGET_COMPLEX_BIT/TARGET_CHAR_BIT] = "complex";
-  float_type_table[TARGET_LONG_DOUBLE_BIT/TARGET_CHAR_BIT] = "long double";
-  float_type_table[TARGET_DOUBLE_BIT/TARGET_CHAR_BIT] = "double";
 
   obstack_begin (&dont_print_obstack, 32 * sizeof (struct type *));
 }

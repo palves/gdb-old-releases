@@ -122,6 +122,7 @@ static int obscure_syntax = 0;
 
 int
 re_set_syntax (syntax)
+     int syntax;
 {
   int ret;
 
@@ -177,7 +178,7 @@ re_set_syntax (syntax)
       pending_exact += c; \
   }
 
-static int store_jump (), insert_jump ();
+static void store_jump (), insert_jump ();
 
 char *
 re_compile_pattern (pattern, size, bufp)
@@ -659,7 +660,7 @@ re_compile_pattern (pattern, size, bufp)
 /* Store where `from' points a jump operation to jump to where `to' points.
   `opcode' is the opcode to store. */
 
-static int
+static void
 store_jump (from, opcode, to)
      char *from, *to;
      char opcode;
@@ -676,7 +677,7 @@ store_jump (from, opcode, to)
 
    If you call this function, you must zero out pending_exact.  */
 
-static int
+static void
 insert_jump (op, from, to, current_end)
      char op;
      char *from, *to, *current_end;
@@ -706,7 +707,7 @@ re_compile_fastmap (bufp)
   register char *fastmap = bufp->fastmap;
   register unsigned char *p = pattern;
   register unsigned char *pend = pattern + size;
-  register int j, k;
+  register int j;
   unsigned char *translate = (unsigned char *) bufp->translate;
 
   unsigned char *stackb[NFAILURES];

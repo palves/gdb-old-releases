@@ -26,6 +26,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	USG 1
 #define	HAVE_SIGSETMASK	1
 
+/* AIX declares the mem functions */
+
+#undef MEM_FNS_DECLARED
+#define MEM_FNS_DECLARED 1
+
 /* This system requires that we open a terminal with O_NOCTTY for it to
    not become our controlling terminal.  */
 
@@ -60,18 +65,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define NO_SINGLE_STEP
 
-/* AIX's assembler doesn't grok dollar signs in identifiers.
-   So we use dots instead.  This item must be coordinated with G++. */
-#undef CPLUS_MARKER
-#define CPLUS_MARKER '.'
-
 /* Flag for machine-specific stuff in shared files.  FIXME */
 #define IBM6000_HOST
 
 /* /usr/include/stdlib.h always uses void* and void,
    even when __STDC__ isn't defined. */
 #define MALLOC_INCOMPATIBLE
-extern void* malloc PARAMS (());
-extern void* realloc PARAMS (());
-extern void free PARAMS (());
+extern void *malloc PARAMS ((size_t size));
+extern void *realloc PARAMS ((void *ptr, size_t size));
+extern void free PARAMS ((void *));
 
+/* AIX doesn't have strdup, so we need to declare it for libiberty */
+extern char *strdup PARAMS ((char *));

@@ -67,7 +67,7 @@ __mmalloc_free (mdp, ptr)
 	    {
 	      i = mdp -> heapinfo[i].free.next;
 	    }
-	  while (i > 0 && i < block);
+	  while ((i != 0) && (i < block));
 	  i = mdp -> heapinfo[i].free.prev;
 	}
 
@@ -162,7 +162,7 @@ __mmalloc_free (mdp, ptr)
 	  mdp -> heapstats.chunks_free -= BLOCKSIZE >> type;
 	  mdp -> heapstats.bytes_free -= BLOCKSIZE;
 
-	  mfree (mdp, (PTR) ADDRESS(block));
+	  mfree ((PTR) mdp, (PTR) ADDRESS(block));
 	}
       else if (mdp -> heapinfo[block].busy.info.frag.nfree != 0)
 	{
@@ -243,5 +243,5 @@ void
 free (ptr)
   PTR ptr;
 {
-  mfree ((void *) NULL, ptr);
+  mfree ((PTR) NULL, ptr);
 }

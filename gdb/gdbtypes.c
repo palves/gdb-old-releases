@@ -29,6 +29,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "language.h"
 #include "target.h"
 #include "value.h"
+#include "demangle.h"
 
 /* Alloc a new type structure and fill it with some defaults.  If
    OBJFILE is non-NULL, then allocate the space for the type structure
@@ -51,7 +52,7 @@ alloc_type (objfile)
       type  = (struct type *) obstack_alloc (&objfile -> type_obstack,
 					     sizeof (struct type));
     }
-  (void) memset ((char *)type, 0, sizeof (struct type));
+  memset ((char *)type, 0, sizeof (struct type));
 
   /* Initialize the fields that might not be zero. */
 
@@ -62,6 +63,61 @@ alloc_type (objfile)
   return (type);
 }
 
+/* Lookup a pointer to a type TYPE.  TYPEPTR, if nonzero, points
+   to a pointer to memory where the pointer type should be stored.
+   If *TYPEPTR is zero, update it to point to the pointer type we return.
+   We allocate new memory if needed.  */
+
+struct type *
+make_pointer_type (type, typeptr)
+     struct type *type;
+     struct type **typeptr;
+{
+  register struct type *ntype;		/* New type */
+  struct objfile *objfile;
+
+  ntype = TYPE_POINTER_TYPE (type);
+
+  if (ntype) 
+    if (typeptr == 0)		
+      return ntype;	/* Don't care about alloc, and have new type.  */
+    else if (*typeptr == 0)
+      {
+	*typeptr = ntype;	/* Tracking alloc, and we have new type.  */
+	return ntype;
+      }
+
+  if (typeptr == 0 || *typeptr == 0)	/* We'll need to allocate one.  */
+    {
+      ntype = alloc_type (TYPE_OBJFILE (type));
+      if (typeptr)
+	*typeptr = ntype;
+    }
+  else				/* We have storage, but need to reset it.  */
+    {
+      ntype = *typeptr;
+      objfile = TYPE_OBJFILE (ntype);
+      memset ((char *)ntype, 0, sizeof (struct type));
+      TYPE_OBJFILE (ntype) = objfile;
+    }
+
+  TYPE_TARGET_TYPE (ntype) = type;
+  TYPE_POINTER_TYPE (type) = ntype;
+
+  /* FIXME!  Assume the machine has only one representation for pointers!  */
+
+  TYPE_LENGTH (ntype) = TARGET_PTR_BIT / TARGET_CHAR_BIT;
+  TYPE_CODE (ntype) = TYPE_CODE_PTR;
+
+  /* pointers are unsigned */
+  TYPE_FLAGS (ntype) |= TYPE_FLAG_UNSIGNED;
+  
+  if (!TYPE_POINTER_TYPE (type))	/* Remember it, if don't have one.  */
+    TYPE_POINTER_TYPE (type) = ntype;
+
+  return ntype;
+}
+
 /* Given a type TYPE, return a type of pointers to that type.
    May need to construct such a type if this is the first use.  */
 
@@ -69,52 +125,121 @@ struct type *
 lookup_pointer_type (type)
      struct type *type;
 {
-  register struct type *ptype;
-
-  if ((ptype = TYPE_POINTER_TYPE (type)) == NULL)
-    {
-      /* This is the first time anyone wanted a pointer to a TYPE.  */
-      
-      ptype  = alloc_type (TYPE_OBJFILE (type));
-      TYPE_TARGET_TYPE (ptype) = type;
-      TYPE_POINTER_TYPE (type) = ptype;
-      
-      /* FIXME, assume machine has only one representation for pointers!  */
-      
-      TYPE_LENGTH (ptype) = TARGET_PTR_BIT / TARGET_CHAR_BIT;
-      TYPE_CODE (ptype) = TYPE_CODE_PTR;
-      
-      /* pointers are unsigned */
-      TYPE_FLAGS(ptype) |= TYPE_FLAG_UNSIGNED;
-      
-    }
-  return (ptype);
+  return make_pointer_type (type, (struct type **)0);
 }
+
+/* Lookup a C++ `reference' to a type TYPE.  TYPEPTR, if nonzero, points
+   to a pointer to memory where the reference type should be stored.
+   If *TYPEPTR is zero, update it to point to the reference type we return.
+   We allocate new memory if needed.  */
+
+struct type *
+make_reference_type (type, typeptr)
+     struct type *type;
+     struct type **typeptr;
+{
+  register struct type *ntype;		/* New type */
+  struct objfile *objfile;
+
+  ntype = TYPE_REFERENCE_TYPE (type);
+
+  if (ntype) 
+    if (typeptr == 0)		
+      return ntype;	/* Don't care about alloc, and have new type.  */
+    else if (*typeptr == 0)
+      {
+	*typeptr = ntype;	/* Tracking alloc, and we have new type.  */
+	return ntype;
+      }
+
+  if (typeptr == 0 || *typeptr == 0)	/* We'll need to allocate one.  */
+    {
+      ntype = alloc_type (TYPE_OBJFILE (type));
+      if (typeptr)
+	*typeptr = ntype;
+    }
+  else				/* We have storage, but need to reset it.  */
+    {
+      ntype = *typeptr;
+      objfile = TYPE_OBJFILE (ntype);
+      memset ((char *)ntype, 0, sizeof (struct type));
+      TYPE_OBJFILE (ntype) = objfile;
+    }
+
+  TYPE_TARGET_TYPE (ntype) = type;
+  TYPE_REFERENCE_TYPE (type) = ntype;
+
+  /* FIXME!  Assume the machine has only one representation for references,
+     and that it matches the (only) representation for pointers!  */
+
+  TYPE_LENGTH (ntype) = TARGET_PTR_BIT / TARGET_CHAR_BIT;
+  TYPE_CODE (ntype) = TYPE_CODE_REF;
+  
+  if (!TYPE_REFERENCE_TYPE (type))	/* Remember it, if don't have one.  */
+    TYPE_REFERENCE_TYPE (type) = ntype;
+
+  return ntype;
+}
+
+/* Same as above, but caller doesn't care about memory allocation details.  */
 
 struct type *
 lookup_reference_type (type)
      struct type *type;
 {
-  register struct type *rtype;
-
-  if ((rtype = TYPE_REFERENCE_TYPE (type)) == NULL)
-    {
-      /* This is the first time anyone wanted a pointer to a TYPE.  */
-      
-      rtype  = alloc_type (TYPE_OBJFILE (type));
-      TYPE_TARGET_TYPE (rtype) = type;
-      TYPE_REFERENCE_TYPE (type) = rtype;
-      
-      /* We assume the machine has only one representation for pointers!  */
-      /* FIXME:  This confuses host<->target data representations, and is a
-	 poor assumption besides. */
-      
-      TYPE_LENGTH (rtype) = sizeof (char *);
-      TYPE_CODE (rtype) = TYPE_CODE_REF;
-      
-    }
-  return (rtype);
+  return make_reference_type (type, (struct type **)0);
 }
+
+/* Lookup a function type that returns type TYPE.  TYPEPTR, if nonzero, points
+   to a pointer to memory where the function type should be stored.
+   If *TYPEPTR is zero, update it to point to the function type we return.
+   We allocate new memory if needed.  */
+
+struct type *
+make_function_type (type, typeptr)
+     struct type *type;
+     struct type **typeptr;
+{
+  register struct type *ntype;		/* New type */
+  struct objfile *objfile;
+
+  ntype = TYPE_FUNCTION_TYPE (type);
+
+  if (ntype) 
+    if (typeptr == 0)		
+      return ntype;	/* Don't care about alloc, and have new type.  */
+    else if (*typeptr == 0)
+      {
+	*typeptr = ntype;	/* Tracking alloc, and we have new type.  */
+	return ntype;
+      }
+
+  if (typeptr == 0 || *typeptr == 0)	/* We'll need to allocate one.  */
+    {
+      ntype = alloc_type (TYPE_OBJFILE (type));
+      if (typeptr)
+	*typeptr = ntype;
+    }
+  else				/* We have storage, but need to reset it.  */
+    {
+      ntype = *typeptr;
+      objfile = TYPE_OBJFILE (ntype);
+      memset ((char *)ntype, 0, sizeof (struct type));
+      TYPE_OBJFILE (ntype) = objfile;
+    }
+
+  TYPE_TARGET_TYPE (ntype) = type;
+  TYPE_FUNCTION_TYPE (type) = ntype;
+
+  TYPE_LENGTH (ntype) = 1;
+  TYPE_CODE (ntype) = TYPE_CODE_FUNC;
+  
+  if (!TYPE_FUNCTION_TYPE (type))	/* Remember it, if don't have one.  */
+    TYPE_FUNCTION_TYPE (type) = ntype;
+
+  return ntype;
+}
+
 
 /* Given a type TYPE, return a type of functions that return that type.
    May need to construct such a type if this is the first use.  */
@@ -123,20 +248,7 @@ struct type *
 lookup_function_type (type)
      struct type *type;
 {
-  register struct type *ptype;
-
-  if ((ptype = TYPE_FUNCTION_TYPE (type)) == NULL)
-    {
-      /* This is the first time anyone wanted a function returning a TYPE.  */
-      
-      ptype = alloc_type (TYPE_OBJFILE (type));
-      TYPE_TARGET_TYPE (ptype) = type;
-      TYPE_FUNCTION_TYPE (type) = ptype;
-      
-      TYPE_LENGTH (ptype) = 1;
-      TYPE_CODE (ptype) = TYPE_CODE_FUNC;
-    }
-  return (ptype);
+  return make_function_type (type, (struct type **)0);
 }
 
 /* Implement direct support for MEMBER_TYPE in GNU C++.
@@ -223,7 +335,7 @@ create_array_type (element_type, number)
     TYPE_FIELD_TYPE (range_type, 0) = builtin_type_int; /* FIXME */
     TYPE_FIELD_TYPE (range_type, 1) = builtin_type_int; /* FIXME */
   }
-  TYPE_FIELD_TYPE(result_type,0)=range_type;
+  TYPE_FIELD_TYPE (result_type, 0) = range_type;
   TYPE_VPTR_FIELDNO (result_type) = -1;
 
   return (result_type);
@@ -250,7 +362,7 @@ smash_to_member_type (type, domain, to_type)
 
   objfile = TYPE_OBJFILE (type);
 
-  (void) memset ((char *)type, 0, sizeof (struct type));
+  memset ((char *)type, 0, sizeof (struct type));
   TYPE_OBJFILE (type) = objfile;
   TYPE_TARGET_TYPE (type) = to_type;
   TYPE_DOMAIN_TYPE (type) = domain;
@@ -276,7 +388,7 @@ smash_to_method_type (type, domain, to_type, args)
 
   objfile = TYPE_OBJFILE (type);
 
-  (void) memset ((char *)type, 0, sizeof (struct type));
+  memset ((char *)type, 0, sizeof (struct type));
   TYPE_OBJFILE (type) = objfile;
   TYPE_TARGET_TYPE (type) = to_type;
   TYPE_DOMAIN_TYPE (type) = domain;
@@ -385,6 +497,22 @@ lookup_unsigned_typename (name)
   strcpy (uns, "unsigned ");
   strcpy (uns + 9, name);
   return (lookup_typename (uns, (struct block *) NULL, 0));
+}
+
+struct type *
+lookup_signed_typename (name)
+     char *name;
+{
+  struct type *t;
+  char *uns = alloca (strlen (name) + 8);
+
+  strcpy (uns, "signed ");
+  strcpy (uns + 7, name);
+  t = lookup_typename (uns, (struct block *) NULL, 1);
+  /* If we don't find "signed FOO" just try again with plain "FOO". */
+  if (t != NULL)
+    return t;
+  return lookup_typename (name, (struct block *) NULL, 0);
 }
 
 /* Lookup a structure type named "struct NAME",
@@ -498,6 +626,10 @@ lookup_struct_elt_type (type, name, noerr)
     int noerr;
 {
   int i;
+
+  if (TYPE_CODE (type) == TYPE_CODE_PTR ||
+      TYPE_CODE (type) == TYPE_CODE_REF)
+      type = TYPE_TARGET_TYPE (type);
 
   if (TYPE_CODE (type) != TYPE_CODE_STRUCT &&
       TYPE_CODE (type) != TYPE_CODE_UNION)
@@ -628,7 +760,8 @@ check_stub_method (type, i, j)
 {
   struct fn_field *f;
   char *mangled_name = gdb_mangle_name (type, i, j);
-  char *demangled_name = cplus_demangle (mangled_name, 0);
+  char *demangled_name = cplus_demangle (mangled_name,
+					 DMGL_PARAMS | DMGL_ANSI);
   char *argtypetext, *p;
   int depth = 0, argcount = 1;
   struct type **argtypes;
@@ -733,7 +866,12 @@ allocate_cplus_struct_type (type)
     }
 }
 
-/* Helper function to initialize the standard scalar types.  */
+/* Helper function to initialize the standard scalar types.
+
+   If NAME is non-NULL and OBJFILE is non-NULL, then we make a copy
+   of the string pointed to by name in the type_obstack for that objfile,
+   and initialize the type name to that copy.  There are places (mipsread.c
+   in particular, where init_type is called with a NULL value for NAME). */
 
 struct type *
 init_type (code, length, flags, name, objfile)
@@ -749,7 +887,15 @@ init_type (code, length, flags, name, objfile)
   TYPE_CODE (type) = code;
   TYPE_LENGTH (type) = length;
   TYPE_FLAGS (type) |= flags;
-  TYPE_NAME (type) = name;
+  if ((name != NULL) && (objfile != NULL))
+    {
+      TYPE_NAME (type) =
+	obsavestring (name, strlen (name), &objfile -> type_obstack);
+    }
+  else
+    {
+      TYPE_NAME (type) = name;
+    }
 
   /* C++ fancies.  */
 
@@ -768,7 +914,21 @@ init_type (code, length, flags, name, objfile)
    define fundamental types.
 
    For the formats which don't provide fundamental types, gdb can create
-   such types, using defaults reasonable for the current target machine. */
+   such types, using defaults reasonable for the current target machine.
+
+   FIXME:  Some compilers distinguish explicitly signed integral types
+   (signed short, signed int, signed long) from "regular" integral types
+   (short, int, long) in the debugging information.  There is some dis-
+   agreement as to how useful this feature is.  In particular, gcc does
+   not support this.  Also, only some debugging formats allow the
+   distinction to be passed on to a debugger.  For now, we always just
+   use "short", "int", or "long" as the type name, for both the implicit
+   and explicitly signed types.  This also makes life easier for the
+   gdb test suite since we don't have to account for the differences
+   in output depending upon what the compiler and debugging format
+   support.  We will probably have to re-examine the issue when gdb
+   starts taking it's fundamental type information directly from the
+   debugging information supplied by the compiler.  fnf@cygnus.com */
 
 struct type *
 lookup_fundamental_type (objfile, typeid)
@@ -791,7 +951,7 @@ lookup_fundamental_type (objfile, typeid)
 	  nbytes = FT_NUM_MEMBERS * sizeof (struct type *);
 	  objfile -> fundamental_types = (struct type **)
 	    obstack_alloc (&objfile -> type_obstack, nbytes);
-	  (void) memset ((char *)objfile -> fundamental_types, 0, nbytes);
+	  memset ((char *)objfile -> fundamental_types, 0, nbytes);
 	}
       typep = objfile -> fundamental_types + typeid;
       if ((type = *typep) == NULL)
@@ -847,7 +1007,7 @@ lookup_fundamental_type (objfile, typeid)
 		type = init_type (TYPE_CODE_INT,
 				  TARGET_SHORT_BIT / TARGET_CHAR_BIT,
 				  TYPE_FLAG_SIGNED,
-				  "signed short", objfile);
+				  "short", objfile);	/* FIXME -fnf */
 		break;
 	      case FT_UNSIGNED_SHORT:
 		type = init_type (TYPE_CODE_INT,
@@ -865,13 +1025,19 @@ lookup_fundamental_type (objfile, typeid)
 		type = init_type (TYPE_CODE_INT,
 				  TARGET_INT_BIT / TARGET_CHAR_BIT,
 				  TYPE_FLAG_SIGNED,
-				  "signed int", objfile);
+				  "int", objfile);	/* FIXME -fnf */
 		break;
 	      case FT_UNSIGNED_INTEGER:
 		type = init_type (TYPE_CODE_INT,
 				  TARGET_INT_BIT / TARGET_CHAR_BIT,
 				  TYPE_FLAG_UNSIGNED,
 				  "unsigned int", objfile);
+		break;
+	      case FT_FIXED_DECIMAL:
+		type = init_type (TYPE_CODE_INT,
+				  TARGET_INT_BIT / TARGET_CHAR_BIT,
+				  0,
+				  "fixed decimal", objfile);
 		break;
 	      case FT_LONG:
 		type = init_type (TYPE_CODE_INT,
@@ -883,7 +1049,7 @@ lookup_fundamental_type (objfile, typeid)
 		type = init_type (TYPE_CODE_INT,
 				  TARGET_LONG_BIT / TARGET_CHAR_BIT,
 				  TYPE_FLAG_SIGNED,
-				  "signed long", objfile);
+				  "long", objfile);	/* FIXME -fnf */
 		break;
 	      case FT_UNSIGNED_LONG:
 		type = init_type (TYPE_CODE_INT,
@@ -907,8 +1073,7 @@ lookup_fundamental_type (objfile, typeid)
 		type = init_type (TYPE_CODE_INT,
 				  TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
 				  TYPE_FLAG_UNSIGNED,
-				  "unsigned long long",
-				  objfile);
+				  "unsigned long long", objfile);
 		break;
 	      case FT_FLOAT:
 		type = init_type (TYPE_CODE_FLT,
@@ -921,6 +1086,12 @@ lookup_fundamental_type (objfile, typeid)
 				  TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
 				  0,
 				  "double", objfile);
+		break;
+	      case FT_FLOAT_DECIMAL:
+		type = init_type (TYPE_CODE_FLT,
+				  TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
+				  0,
+				  "floating decimal", objfile);
 		break;
 	      case FT_EXT_PREC_FLOAT:
 		type = init_type (TYPE_CODE_FLT,
@@ -944,8 +1115,7 @@ lookup_fundamental_type (objfile, typeid)
 		type = init_type (TYPE_CODE_FLT,
 				  TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
 				  0,
-				  "long double complex",
-				  objfile);
+				  "long double complex", objfile);
 		break;
 	    }
 	  /* Install the newly created type in the objfile's fundamental_types
@@ -956,3 +1126,214 @@ lookup_fundamental_type (objfile, typeid)
   return (type);
 }
 
+#if MAINTENANCE_CMDS
+
+static void
+print_bit_vector (bits, nbits)
+     B_TYPE *bits;
+     int nbits;
+{
+  int bitno;
+
+  for (bitno = 0; bitno < nbits; bitno++)
+    {
+      if ((bitno % 8) == 0)
+	{
+	  puts_filtered (" ");
+	}
+      if (B_TST (bits, bitno))
+	{
+	  printf_filtered ("1");
+	}
+      else
+	{
+	  printf_filtered ("0");
+	}
+    }
+}
+
+static void
+print_cplus_stuff (type, spaces)
+     struct type *type;
+     int spaces;
+{
+  int bitno;
+
+  printfi_filtered (spaces, "cplus_stuff: @ 0x%x\n",
+		    TYPE_CPLUS_SPECIFIC (type));
+  printfi_filtered (spaces, "n_baseclasses: %d\n",
+		    TYPE_N_BASECLASSES (type));
+  if (TYPE_N_BASECLASSES (type) > 0)
+    {
+      printfi_filtered (spaces, "virtual_field_bits: %d @ 0x%x:",
+			TYPE_N_BASECLASSES (type),
+			TYPE_FIELD_VIRTUAL_BITS (type));
+      print_bit_vector (TYPE_FIELD_VIRTUAL_BITS (type),
+			TYPE_N_BASECLASSES (type));
+      puts_filtered ("\n");
+    }
+  if (TYPE_NFIELDS (type) > 0)
+    {
+      if (TYPE_FIELD_PRIVATE_BITS (type) != NULL)
+	{
+	  printfi_filtered (spaces, "private_field_bits: %d @ 0x%x:",
+			    TYPE_NFIELDS (type),
+			    TYPE_FIELD_PRIVATE_BITS (type));
+	  print_bit_vector (TYPE_FIELD_PRIVATE_BITS (type),
+			    TYPE_NFIELDS (type));
+	  puts_filtered ("\n");
+	}
+      if (TYPE_FIELD_PROTECTED_BITS (type) != NULL)
+	{
+	  printfi_filtered (spaces, "protected_field_bits: %d @ 0x%x:",
+			    TYPE_NFIELDS (type),
+			    TYPE_FIELD_PROTECTED_BITS (type));
+	  print_bit_vector (TYPE_FIELD_PROTECTED_BITS (type),
+			    TYPE_NFIELDS (type));
+	  puts_filtered ("\n");
+	}
+    }
+}
+
+void
+recursive_dump_type (type, spaces)
+     struct type *type;
+     int spaces;
+{
+  int idx;
+
+  printfi_filtered (spaces, "type node @ 0x%x\n", type);
+  printfi_filtered (spaces, "name: @ 0x%x '%s'\n", TYPE_NAME (type),
+		    TYPE_NAME (type) ? TYPE_NAME (type) : "<NULL>");
+  printfi_filtered (spaces, "code: 0x%x ", TYPE_CODE (type));
+  switch (TYPE_CODE (type))
+    {
+      case TYPE_CODE_UNDEF:
+        printf_filtered ("TYPE_CODE_UNDEF");
+	break;
+      case TYPE_CODE_PTR:
+	printf_filtered ("TYPE_CODE_PTR");
+	break;
+      case TYPE_CODE_ARRAY:
+	printf_filtered ("TYPE_CODE_ARRAY");
+	break;
+      case TYPE_CODE_STRUCT:
+	printf_filtered ("TYPE_CODE_STRUCT");
+	break;
+      case TYPE_CODE_UNION:
+	printf_filtered ("TYPE_CODE_UNION");
+	break;
+      case TYPE_CODE_ENUM:
+	printf_filtered ("TYPE_CODE_ENUM");
+	break;
+      case TYPE_CODE_FUNC:
+	printf_filtered ("TYPE_CODE_FUNC");
+	break;
+      case TYPE_CODE_INT:
+	printf_filtered ("TYPE_CODE_INT");
+	break;
+      case TYPE_CODE_FLT:
+	printf_filtered ("TYPE_CODE_FLT");
+	break;
+      case TYPE_CODE_VOID:
+	printf_filtered ("TYPE_CODE_VOID");
+	break;
+      case TYPE_CODE_SET:
+	printf_filtered ("TYPE_CODE_SET");
+	break;
+      case TYPE_CODE_RANGE:
+	printf_filtered ("TYPE_CODE_RANGE");
+	break;
+      case TYPE_CODE_PASCAL_ARRAY:
+	printf_filtered ("TYPE_CODE_PASCAL_ARRAY");
+	break;
+      case TYPE_CODE_ERROR:
+	printf_filtered ("TYPE_CODE_ERROR");
+	break;
+      case TYPE_CODE_MEMBER:
+	printf_filtered ("TYPE_CODE_MEMBER");
+	break;
+      case TYPE_CODE_METHOD:
+	printf_filtered ("TYPE_CODE_METHOD");
+	break;
+      case TYPE_CODE_REF:
+	printf_filtered ("TYPE_CODE_REF");
+	break;
+      case TYPE_CODE_CHAR:
+	printf_filtered ("TYPE_CODE_CHAR");
+	break;
+      case TYPE_CODE_BOOL:
+	printf_filtered ("TYPE_CODE_BOOL");
+	break;
+      default:
+	printf_filtered ("<UNKNOWN TYPE CODE>");
+	break;
+    }
+  puts_filtered ("\n");
+  printfi_filtered (spaces, "length: %d\n", TYPE_LENGTH (type));
+  printfi_filtered (spaces, "objfile: @ 0x%x\n", TYPE_OBJFILE (type));
+  printfi_filtered (spaces, "target_type: @ 0x%x\n", TYPE_TARGET_TYPE (type));
+  if (TYPE_TARGET_TYPE (type) != NULL)
+    {
+      recursive_dump_type (TYPE_TARGET_TYPE (type), spaces + 2);
+    }
+  printfi_filtered (spaces, "pointer_type: @ 0x%x\n",
+		    TYPE_POINTER_TYPE (type));
+  printfi_filtered (spaces, "reference_type: @ 0x%x\n",
+		    TYPE_REFERENCE_TYPE (type));
+  printfi_filtered (spaces, "function_type: @ 0x%x\n",
+		    TYPE_FUNCTION_TYPE (type));
+  printfi_filtered (spaces, "flags: 0x%x", TYPE_FLAGS (type));
+  if (TYPE_FLAGS (type) & TYPE_FLAG_UNSIGNED)
+    {
+      puts_filtered (" TYPE_FLAG_UNSIGNED");
+    }
+  if (TYPE_FLAGS (type) & TYPE_FLAG_SIGNED)
+    {
+      puts_filtered (" TYPE_FLAG_SIGNED");
+    }
+  if (TYPE_FLAGS (type) & TYPE_FLAG_STUB)
+    {
+      puts_filtered (" TYPE_FLAG_STUB");
+    }
+  puts_filtered ("\n");
+  printfi_filtered (spaces, "nfields: %d @ 0x%x\n", TYPE_NFIELDS (type),
+		    TYPE_FIELDS (type));
+  for (idx = 0; idx < TYPE_NFIELDS (type); idx++)
+    {
+      printfi_filtered (spaces + 2,
+			"[%d] bitpos %d bitsize %d type 0x%x name 0x%x '%s'\n",
+			idx, TYPE_FIELD_BITPOS (type, idx),
+			TYPE_FIELD_BITSIZE (type, idx),
+			TYPE_FIELD_TYPE (type, idx),
+			TYPE_FIELD_NAME (type, idx),
+			TYPE_FIELD_NAME (type, idx) != NULL
+			  ? TYPE_FIELD_NAME (type, idx)
+			  : "<NULL>");
+      if (TYPE_FIELD_TYPE (type, idx) != NULL)
+	{
+	  recursive_dump_type (TYPE_FIELD_TYPE (type, idx), spaces + 4);
+	}
+    }
+  printfi_filtered (spaces, "vptr_basetype: @ 0x%x\n",
+		    TYPE_VPTR_BASETYPE (type));
+  if (TYPE_VPTR_BASETYPE (type) != NULL)
+    {
+      recursive_dump_type (TYPE_VPTR_BASETYPE (type), spaces + 2);
+    }
+  printfi_filtered (spaces, "vptr_fieldno: %d\n", TYPE_VPTR_FIELDNO (type));
+  switch (TYPE_CODE (type))
+    {
+      case TYPE_CODE_METHOD:
+      case TYPE_CODE_FUNC:
+	printfi_filtered (spaces, "arg_types: @ 0x%x\n",
+			  TYPE_ARG_TYPES (type));
+	break;
+
+      case TYPE_CODE_STRUCT:
+	print_cplus_stuff (type, spaces);
+	break;
+    }
+}
+
+#endif	/* MAINTENANCE_CMDS */

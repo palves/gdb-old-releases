@@ -1,3 +1,4 @@
+
 /* BFD library -- caching of file descriptors.
    Copyright (C) 1990-1991 Free Software Foundation, Inc.
    Hacked by Steve Chamberlain of Cygnus Support (steve@cygnus.com).
@@ -35,7 +36,7 @@ SECTION
 
 */
 
-/* $Id: cache.c,v 1.15 1991/12/12 01:23:17 sac Exp $ */
+/* $Id: cache.c,v 1.18 1992/05/26 22:12:18 raeburn Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -46,7 +47,7 @@ INTERNAL_FUNCTION
 	BFD_CACHE_MAX_OPEN macro
 
 DESCRIPTION
-	The maxiumum number of files which the cache will keep open at
+	The maximum number of files which the cache will keep open at
 	one time.
 
 .#define BFD_CACHE_MAX_OPEN 10
@@ -215,9 +216,11 @@ DEFUN(bfd_open_file, (abfd),
       bfd *abfd)
 {
   abfd->cacheable = true;	/* Allow it to be closed later. */
+
   if(open_files >= BFD_CACHE_MAX_OPEN) {
     close_one();
   }
+
   switch (abfd->direction) {
   case read_direction:
   case no_direction:
@@ -237,6 +240,7 @@ DEFUN(bfd_open_file, (abfd),
     }
     break;
   }
+
   if (abfd->iostream) {
     open_files++;
     bfd_cache_init (abfd);

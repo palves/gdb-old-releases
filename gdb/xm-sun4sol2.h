@@ -1,4 +1,4 @@
-/* Macro definitions for running gdb on a Sun 4 running sunos 5.
+/* Macro definitions for running gdb on a Sun 4 running Solaris 2.
    Copyright 1989, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -28,7 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* SVR4's can't seem to agree on what to call the type that contains the
    general registers.  Kludge around it with a #define.  */
 
-#define	gregset_t	prgreg_t
+#define	gregset_t	prgregset_t
 #define	fpregset_t	prfpregset_t
 
 /* The native Sun compiler complains about using volatile
@@ -59,3 +59,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* These are not currently used in SVR4 (but should be, FIXME!).  */
 #undef	DO_DEFERRED_STORES
 #undef	CLEAR_DEFERRED_STORES
+
+/* May be needed, may be not?  From Pace Willisson's port.  FIXME.  */
+#define NEED_POSIX_SETPGID
+
+/* Solaris PSRVADDR support does not seem to include a place for nPC.  */
+#define PRSVADDR_BROKEN

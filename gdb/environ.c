@@ -73,13 +73,13 @@ init_environ (e)
 				      (e->allocated + 1) * sizeof (char *));
     }
 
-  bcopy (environ, e->vector, (i + 1) * sizeof (char *));
+  memcpy (e->vector, environ, (i + 1) * sizeof (char *));
 
   while (--i >= 0)
     {
       register int len = strlen (e->vector[i]);
       register char *new = (char *) xmalloc (len + 1);
-      bcopy (e->vector[i], new, len + 1);
+      memcpy (new, e->vector[i], len + 1);
       e->vector[i] = new;
     }
 }
@@ -179,8 +179,8 @@ unset_in_environ (e, var)
 	&& s[len] == '=')
       {
 	free (s);
-	bcopy (vector + 1, vector,
-	       (e->allocated - (vector - e->vector)) * sizeof (char *));
+	memcpy (vector, vector + 1,
+		(e->allocated - (vector - e->vector)) * sizeof (char *));
 	e->vector[e->allocated - 1] = 0;
 	return;
       }

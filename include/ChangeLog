@@ -1,3 +1,41 @@
+Sat Jul  4 03:22:23 1992  John Gilmore  (gnu at cygnus.com)
+
+	* bfd.h:  Regen after adding BSF_FILE.
+
+Mon Jun 29 14:18:36 1992  Fred Fish  (fnf at sunfish)
+
+	* obstack.h:  Convert bcopy() use to memcpy(), which is more 
+	portable, more standard, and can take advantage of gcc's builtin
+	functions for increased performance.
+
+Thu Jun 25 04:46:08 1992  John Gilmore  (gnu at cygnus.com)
+
+	* ansidecl.h (PARAMS):  Incorporate this macro from gdb's defs.h.
+	It's a cleaner way to forward-declare function prototypes.
+
+Fri Jun 19 15:46:32 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* bfd.h:  HPPA merge.
+
+Tue Jun 16 21:30:56 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* getopt.h: gratuitous white space changes merged from other prep
+	  releases.
+
+Thu Jun 11 01:10:55 1992  John Gilmore  (gnu at cygnus.com)
+
+	* bfd.h:  Regen'd from bfd.c after removing elf_core_tdata_struct.
+
+Mon May 18 17:29:03 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* getopt.h: merged changes from make-3.62.11.
+
+	* getopt.h: merged changes from grep-1.6 (alpha).
+
+Fri May  8 14:53:32 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* getopt.h: merged changes from bison-1.18.
+
 Sat Mar 14 17:25:20 1992  Fred Fish  (fnf@cygnus.com)
 
 	* obstack.h:  Add "area_id" and "flags" members to obstack

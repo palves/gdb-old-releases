@@ -102,9 +102,9 @@ rs6000coff_core_p (abfd)
 
   close (fd);
 
-  if (coredata.c_tab < (sizeof (coredata.c_u) + (int)&coredata.c_u - (int)&coredata.c_signo) ||
-      coredata.c_tab >= statbuf.st_size ||
-      (long)coredata.c_stack <= (long)coredata.c_tab ) {
+  if ((u_long) coredata.c_tab < sizeof coredata ||
+      (u_long) coredata.c_tab >= statbuf.st_size ||
+      (long) coredata.c_tab >= (long)coredata.c_stack ) {
     return NULL;
   }
 
@@ -128,7 +128,7 @@ rs6000coff_core_p (abfd)
   core_stacksec (abfd)->flags = SEC_ALLOC + SEC_LOAD;
   core_stacksec (abfd)->_raw_size = coredata.c_size;
   core_stacksec (abfd)->vma = STACK_END_ADDR - coredata.c_size;
-  core_stacksec (abfd)->filepos = coredata.c_stack;	/*???? */
+  core_stacksec (abfd)->filepos = (int)coredata.c_stack;	/*???? */
 
   /* .reg section for GPRs and special registers. */
   if ((core_regsec (abfd) = (asection*) bfd_zalloc (abfd, sizeof (asection)))
@@ -140,7 +140,7 @@ rs6000coff_core_p (abfd)
   core_regsec (abfd)->name = ".reg";
   core_regsec (abfd)->flags = SEC_ALLOC;
   core_regsec (abfd)->_raw_size = (32 + NUM_OF_SPEC_REGS) * 4;
-  core_regsec (abfd)->vma = NULL;			/* not used?? */
+  core_regsec (abfd)->vma = 0;			/* not used?? */
   core_regsec (abfd)->filepos = 
   	(char*)&coredata.c_u.u_save - (char*)&coredata;
 
@@ -154,7 +154,7 @@ rs6000coff_core_p (abfd)
   core_reg2sec (abfd)->name = ".reg2";
   core_reg2sec (abfd)->flags = SEC_ALLOC;
   core_reg2sec (abfd)->_raw_size = 8 * 32;			/* 32 FPRs. */
-  core_reg2sec (abfd)->vma = NULL;			/* not used?? */
+  core_reg2sec (abfd)->vma = 0;			/* not used?? */
   core_reg2sec (abfd)->filepos = 
   	(char*)&coredata.c_u.u_save.fpr[0] - (char*)&coredata;
 

@@ -124,7 +124,18 @@ struct objfile
 
   /* All struct objfile's are chained together by their next pointers.
      The global variable "object_files" points to the first link in this
-     chain. */
+     chain.
+
+     FIXME:  There is a problem here if the objfile is reusable, and if
+     multiple users are to be supported.  The problem is that the objfile
+     list is linked through a member of the objfile struct itself, which
+     is only valid for one gdb process.  The list implementation needs to
+     be changed to something like:
+
+     struct list {struct list *next; struct objfile *objfile};
+
+     where the list structure is completely maintained separately within
+     each gdb process. */
 
   struct objfile *next;
 
@@ -205,6 +216,12 @@ struct objfile
 
   PTR md;
 
+  /* The file descriptor that was used to obtain the mmalloc descriptor
+     for this objfile.  If we call mmalloc_detach with the malloc descriptor
+     we should then close this file descriptor. */
+
+  int mmfd;
+
   /* Structure which keeps track of functions that manipulate objfile's
      of the same type as this objfile.  I.E. the function to read partial
      symbols for example.  Note that this structure is in statically
@@ -276,6 +293,9 @@ extern struct objfile *
 allocate_objfile PARAMS ((bfd *, int));
 
 extern void
+unlink_objfile PARAMS ((struct objfile *));
+
+extern void
 free_objfile PARAMS ((struct objfile *));
 
 extern void
@@ -305,22 +325,40 @@ have_minimal_symbols PARAMS ((void));
        (obj) != NULL? ((nxt)=(obj)->next,1) :0;	\
        (obj) = (nxt))
 
+
+/* Traverse all symtabs in one objfile.  */
+
+#define	ALL_OBJFILE_SYMTABS(objfile, s) \
+    for ((s) = (objfile) -> symtabs; (s) != NULL; (s) = (s) -> next)
+
+/* Traverse all psymtabs in one objfile.  */
+
+#define	ALL_OBJFILE_PSYMTABS(objfile, p) \
+    for ((p) = (objfile) -> psymtabs; (p) != NULL; (p) = (p) -> next)
+
+/* Traverse all minimal symbols in one objfile.  */
+
+#define	ALL_OBJFILE_MSYMBOLS(objfile, m) \
+    for ((m) = (objfile) -> msymbols; (m)->name != NULL; (m)++)
+
+
 /* Traverse all symtabs in all objfiles.  */
 
 #define	ALL_SYMTABS(objfile, s) \
   ALL_OBJFILES (objfile)	 \
-    for ((s) = (objfile) -> symtabs; (s) != NULL; (s) = (s) -> next)
+    ALL_OBJFILE_SYMTABS (objfile, s)
 
 /* Traverse all psymtabs in all objfiles.  */
 
 #define	ALL_PSYMTABS(objfile, p) \
   ALL_OBJFILES (objfile)	 \
-    for ((p) = (objfile) -> psymtabs; (p) != NULL; (p) = (p) -> next)
+    ALL_OBJFILE_PSYMTABS (objfile, p)
 
 /* Traverse all minimal symbols in all objfiles.  */
 
 #define	ALL_MSYMBOLS(objfile, m) \
   ALL_OBJFILES (objfile)	 \
-    for ((m) = (objfile) -> msymbols; (m)->name != NULL; (m)++)
+    if ((objfile)->msymbols)	 \
+      ALL_OBJFILE_MSYMBOLS (objfile, m)
 
 #endif	/* !defined (OBJFILES_H) */

@@ -25,7 +25,7 @@ struct external_filehdr {
 #define M68KBADMAG(x) (((x).f_magic!=MC68MAGIC) && ((x).f_magic!=MC68KWRMAGIC) && ((x).f_magic!=MC68TVMAGIC) && \
   ((x).f_magic!=MC68KROMAGIC) && ((x).f_magic!=MC68KPGMAGIC) && ((x).f_magic!=M68MAGIC) && ((x).f_magic!=M68TVMAGIC) )
 
-			
+#define OMAGIC M68MAGIC			
 
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)

@@ -65,7 +65,7 @@ sparc)
 	case "${host_os}" in
 	sunos3)		gdb_host=sun4os3 ;;
 	sunos4)		gdb_host=sun4os4 ;;
-	sunos5*|sysv4*)	gdb_host=sun4os5 ;;
+	solaris2*)	gdb_host=sun4sol2 ;;
 	*)		gdb_host=sun4 ;;
 	esac
 	;;
@@ -99,13 +99,16 @@ i386)
 	sun)	gdb_host=sun386 ;;
 	sco)	gdb_host=i386sco ;;
 	sequent)	gdb_host=symmetry ;;
+	ncr)	gdb_host=ncr3000 ;;
 	*)
 		case "${host_os}" in
+		go32)   gdb_host=go32 ;;
 		sysv32)	gdb_host=i386v32 ;;
 		sysv4*)	gdb_host=i386v4 ;;
 		sysv*)	gdb_host=i386v ;;
 		scosysv*) gdb_host=i386sco ;;
 		mach)	gdb_host=i386mach ;;
+		linux)	gdb_host=linux ;;
 		esac
 		;;
 	esac
@@ -153,6 +156,17 @@ arm | merlin | none | np1 | pn | pyramid | tahoe)
 	gdb_host=${host_cpu}
 	;;
 
+hppa)
+	case "${host_vendor}" in
+	hp)
+		case "${host_os}" in
+		hpux)	gdb_host=hppahpux ;;
+		bsd)	gdb_host=hppabsd ;;
+		esac
+		;;
+	esac
+	;;
+
 ### unhandled hosts
 #altosgas
 #i386v-g
@@ -183,6 +197,7 @@ m68k)
 		sysv4*)		gdb_target=amix ;;
 		esac
 		;;
+	ericsson) gdb_target=es1800 ;;
 	hp)
 		case "${target_os}" in
 		bsd)	gdb_target=hp300bsd ;;
@@ -213,12 +228,27 @@ m68000)
 		sunos4)	gdb_target=sun2os4 ;;
 		*)	gdb_target=sun2 ;;
 		esac
+		;;
+	wrs)	gdb_target=vxworks68 ;;
+	esac
+	;;
+
+m680[124]0)
+	case "${target_vendor}" in
+	wrs)	gdb_target=vxworks68 ;;
 	esac
 	;;
 
 m68030)
 	case "${target_vendor}" in
 	sony)	gdb_target=news1000 ;;
+	wrs)	gdb_target=vxworks68 ;;
+	esac
+	;;
+
+m68kmote)
+	case "${target_vendor}" in
+	tandem)	gdb_target=st2000 ;;
 	esac
 	;;
 
@@ -237,6 +267,7 @@ a29k)
 	sym1)	gdb_target=ultra3 ;;
 	kern)	gdb_target=a29k-kern ;;
 	ebmon)  gdb_target=a29k;;
+	udi)	gdb_target=a29k-udi;;
 	esac
 	;;
 	
@@ -258,7 +289,7 @@ sparc)
 		case "${target_os}" in
 		sunos3)		gdb_target=sun4os3 ;;
 		sunos4)		gdb_target=sun4os4 ;;
-		sunos5|sysv4*)	gdb_target=sun4os5 ;;
+		solaris2*)	gdb_target=sun4sol2 ;;
 		*)		gdb_target=sun4 ;;
 		esac
 		;;
@@ -277,6 +308,7 @@ i386)
 	sco)	gdb_target=i386sco ;;
 	sun)	gdb_target=sun386 ;;
 	sequent)	gdb_target=symmetry ;;
+	ncr)	gdb_target=ncr3000 ;;
 	*)
 		case "${target_os}" in
 		sysv32)	gdb_target=i386v32 ;;
@@ -286,6 +318,7 @@ i386)
 		mach)	gdb_target=i386mach ;;
 		coff)	gdb_target=i386v ;;
 		aout)	gdb_target=i386aout ;;
+		linux)	gdb_target=linux ;;
 		esac
 	esac
 	;;
@@ -305,6 +338,17 @@ ns32k)
 
 rs6000)
 	gdb_target=rs6000
+	;;
+
+hppa)
+	case "${target_vendor}" in
+	hp)
+		case "${target_os}" in
+		hpux)	gdb_target=hppahpux ;;
+		bsd)	gdb_target=hppabsd ;;
+		esac
+		;;
+	esac
 	;;
 
 ### unhandled targets

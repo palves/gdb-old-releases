@@ -55,15 +55,13 @@ INSTALL_DATA =	$(INSTALL)
 
 AR =		ar
 AR_FLAGS =	qv
+CFLAGS =	-g
 BISON =		bison
 MAKEINFO =	makeinfo
 RANLIB =	ranlib
 RM =		rm
 
 TARGETLIB =	libmmalloc.a
-
-MINUS_G =	-g
-CFLAGS =	$(MINUS_G) -I. -I$(srcdir)/../include $(HDEFINES)
 
 CFILES =	mcalloc.c mfree.c mmalloc.c mmcheck.c mmemalign.c mmstats.c \
 		mmtrace.c mrealloc.c mvalloc.c mmap-sup.c attach.c detach.c \
@@ -77,6 +75,9 @@ OFILES =	mcalloc.o mfree.o mmalloc.o mmcheck.o mmemalign.o mmstats.o \
 
 #### Host, target, and site specific Makefile fragments come in here.
 ###
+
+.c.o:
+	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $<
 
 # Do we want/need any config overrides?
 #	 

@@ -323,7 +323,7 @@ value_assign (toval, fromval)
 	     amount_copied += reg_size, regno++)
 	  {
 	    get_saved_register (buffer + amount_copied,
-				(int *)NULL, (CORE_ADDR)NULL,
+				(int *)NULL, (CORE_ADDR *)NULL,
 				frame, regno, (enum lval_type *)NULL);
 	  }
 
@@ -333,10 +333,10 @@ value_assign (toval, fromval)
 			(int) value_as_long (fromval),
 			VALUE_BITPOS (toval), VALUE_BITSIZE (toval));
 	else if (use_buffer)
-	  bcopy (raw_buffer, buffer + byte_offset, use_buffer);
+	  memcpy (buffer + byte_offset, raw_buffer, use_buffer);
 	else
-	  bcopy (VALUE_CONTENTS (fromval), buffer + byte_offset,
-		 TYPE_LENGTH (type));
+	  memcpy (buffer + byte_offset, VALUE_CONTENTS (fromval),
+		  TYPE_LENGTH (type));
 
 	/* Copy it back.  */
 	for ((regno = VALUE_FRAME_REGNUM (toval) + reg_offset,
@@ -379,8 +379,9 @@ value_assign (toval, fromval)
     }
 
   val = allocate_value (type);
-  bcopy (toval, val, VALUE_CONTENTS_RAW (val) - (char *) val);
-  bcopy (VALUE_CONTENTS (fromval), VALUE_CONTENTS_RAW (val), TYPE_LENGTH (type));
+  memcpy (val, toval, VALUE_CONTENTS_RAW (val) - (char *) val);
+  memcpy (VALUE_CONTENTS_RAW (val), VALUE_CONTENTS (fromval),
+	  TYPE_LENGTH (type));
   VALUE_TYPE (val) = type;
   
   return val;
@@ -741,7 +742,7 @@ call_function_by_hand (function, nargs, args)
 
   /* Create a call sequence customized for this function
      and the number of arguments for it.  */
-  bcopy (dummy, dummy1, sizeof dummy);
+  memcpy (dummy1, dummy, sizeof dummy);
   for (i = 0; i < sizeof dummy / sizeof (REGISTER_TYPE); i++)
     SWAP_TARGET_AND_HOST (&dummy1[i], sizeof (REGISTER_TYPE));
   FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, args,
@@ -1419,17 +1420,23 @@ value_struct_elt_for_reference (domain, offset, curtype, name, intype)
 	    {
 	      struct symbol *s = lookup_symbol (TYPE_FN_FIELD_PHYSNAME (f, j),
 						0, VAR_NAMESPACE, 0, NULL);
-	      v = read_var_value (s, 0);
-#if 0
-	      VALUE_TYPE (v) = lookup_reference_type
-		(lookup_member_type (TYPE_FN_FIELD_TYPE (f, j),
-				     domain));
-#endif
-	      return v;
+	      if (s == NULL)
+		{
+		  v = 0;
 		}
+	      else
+		{
+		  v = read_var_value (s, 0);
+#if 0
+		  VALUE_TYPE (v) = lookup_reference_type
+		    (lookup_member_type (TYPE_FN_FIELD_TYPE (f, j),
+					 domain));
+#endif
+		}
+	      return v;
 	    }
 	}
-
+    }
   for (i = TYPE_N_BASECLASSES (t) - 1; i >= 0; i--)
     {
       value v;

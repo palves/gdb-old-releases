@@ -285,6 +285,15 @@ DEFUN(MY(write_object_contents),(abfd),
 #ifndef MY_bfd_debug_info_accumulat
 #define MY_bfd_debug_info_accumulat NAME(aout,bfd_debug_info_accumulat)
 #endif
+#ifndef MY_reloc_howto_type_lookup
+#define MY_reloc_howto_type_lookup 0
+#endif
+#ifndef MY_make_debug_symbol
+#define MY_make_debug_symbol 0
+#endif
+#ifndef MY_backend_data
+#define MY_backend_data (PTR) 0
+#endif
 
 bfd_target MY(vec) =
 {
@@ -345,5 +354,9 @@ bfd_target MY(vec) =
   MY_bfd_debug_info_end,
   MY_bfd_debug_info_accumulate,
   bfd_generic_get_relocated_section_contents,
-  bfd_generic_relax_section
+  bfd_generic_relax_section,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* COFF stuff?! */
+  MY_reloc_howto_type_lookup,
+  MY_make_debug_symbol,
+  (PTR) MY_backend_data,
 };

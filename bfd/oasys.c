@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: oasys.c,v 1.42 1992/01/28 06:01:20 sac Exp $ */
+/* $Id: oasys.c,v 1.43 1992/05/12 21:42:40 sac Exp $ */
 
 #define UNDERSCORE_HACK 1
 #include "bfd.h"
@@ -871,6 +871,10 @@ DEFUN(oasys_write_syms, (abfd),
       }
       bfd_h_put_16(abfd, 0, (uint8e_type *)(&symbol.refno[0]));
     }
+#ifdef UNDERSCORE_HACK
+    if (src[l] == '_')
+      dst[l++] = '.';
+#endif
     while (src[l]) {
       dst[l] = src[l];
       l++;
@@ -994,7 +998,7 @@ DEFUN(oasys_write_data, (abfd),
       unsigned int relocs_to_go = s->reloc_count;
       arelent **p = s->orelocation;
       if (s->reloc_count != 0) {
-	/* Sort the reloc records so it's easy to insert the relocs into the
+/* Sort the reloc records so it's easy to insert the relocs into the
 	   data */
     
 	qsort(s->orelocation,
@@ -1013,21 +1017,23 @@ DEFUN(oasys_write_data, (abfd),
 	    uint8e_type *dst = &processed_data.data[1];
 
 	    unsigned int i;
-	    unsigned int long_length = 128;
+	    *mod = 0;
 
 
-	    bfd_h_put_32(abfd, s->vma + current_byte_index, processed_data.addr);
-	    if ((size_t)(long_length + current_byte_index) > (size_t)(s->_cooked_size)) {
-	      long_length = s->_cooked_size - current_byte_index;
-	    }
-	    while (long_length  > 0 &&  (dst - (uint8e_type*)&processed_data < 128)) {
-	    
-	      unsigned int length = long_length;
-	      *mod =0;
-	      if (length > 8)
-		length = 8;
+	    bfd_h_put_32(abfd, s->vma + current_byte_index,
+			 processed_data.addr);
 
-	      for (i = 0; i < length; i++) {
+ 	    /* Don't start a relocation unless you're sure you can finish it
+ 	       within the same data record.  The worst case relocation is a
+ 	       4-byte relocatable value which is split across two modification
+ 	       bytes (1 relocation byte + 2 symbol reference bytes + 2 data +
+ 	       1 modification byte + 2 data = 8 bytes total).  That's where
+ 	       the magic number 8 comes from.
+ 	    */
+ 	    while (current_byte_index < s->_raw_size && dst <=
+ 		(uint8e_type*)&processed_data.data[sizeof(processed_data.data)-8]) {
+ 	    
+
 		if (relocs_to_go != 0) {	
 		  arelent *r = *p;
 		  reloc_howto_type *CONST how=r->howto;
@@ -1104,6 +1110,21 @@ DEFUN(oasys_write_data, (abfd),
 			  }
 
 			}
+#define ADVANCE { if (++i >= 8) { i = 0; mod = dst++; *mod = 0; } current_byte_index++; }
+		    /* relocations never occur from an unloadable section,
+		       so we can assume that raw_data is not NULL
+		     */
+		    *dst++ = *raw_data++;
+		    ADVANCE
+		    *dst++ = *raw_data++;
+		    ADVANCE
+		    if (how->size == 2) {
+		      *dst++ = *raw_data++;
+		      ADVANCE
+		      *dst++ = *raw_data++;
+		      ADVANCE
+		    }
+		    continue;
 		  }
 		}
 		/* If this is coming from an unloadable section then copy
@@ -1114,10 +1135,12 @@ DEFUN(oasys_write_data, (abfd),
 		else {
 		  *dst++ = *raw_data++;
 		}
-		current_byte_index++;
-	      }
-	      mod = dst++;
-	      long_length -= length;
+		ADVANCE
+	    }
+
+	    /* Don't write a useless null modification byte */
+	    if (dst == mod+1) {
+	      --dst;
 	    }
 
 	    oasys_write_record(abfd,

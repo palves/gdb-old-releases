@@ -10,7 +10,7 @@
  * | maintained in the copy.                                   |
  * |-----------------------------------------------------------|
  */
-/* $Header: /local/cvsfiles/devo/include/coff/sym.h,v 1.2 1992/04/03 04:04:43 gnu Exp $ */
+/* $Header: /local/cvsfiles/devo/include/coff/sym.h,v 1.3 1992/04/14 22:21:15 gnu Exp $ */
 #ifndef _SYM_H
 #define _SYM_H
 
@@ -438,12 +438,20 @@ stProc		scText	address		iaux	(isymMac is first AUX)
 stStaticProc	scText	address		iaux	(isymMac is first AUX)
 
 stMember	scNil	ordinal		---	(if member of enum)
+	(mipsread thinks the case below has a bit, not byte, offset.)
 stMember	scNil	byte offset	iaux	(if member of struct/union)
 stMember	scBits	bit offset	iaux	(bit field spec)
 
 stBlock		scText	address		isymMac (text block)
+	(the code seems to think that rather than scNil, we see scInfo for
+	 the two cases below.)
 stBlock		scNil	cb		isymMac (struct/union member define)
 stBlock		scNil	cMembers	isymMac (enum member define)
+
+	(New types added by SGI to simplify things:)
+stStruct	scInfo	cb		isymMac (struct type define)
+stUnion		scInfo	cb		isymMac (union  type define)
+stEnum		scInfo	cMembers	isymMac (enum   type define)
 
 stEnd		scText	address		isymStart
 stEnd		scNil	-------		isymStart (struct/union/enum)

@@ -21,6 +21,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <string.h>
 #include "mmalloc.h"
 
 #ifndef SEEK_SET
@@ -155,6 +156,11 @@ mmalloc_attach (fd, baseaddr)
    after we've switched over to using the mapped in malloc descriptor 
    rather than the temporary one on the stack.
 
+   Once we've switched over to using the mapped in malloc descriptor, we
+   have to update the pointer to the morecore function, since it almost
+   certainly will be at a different address if the process reusing the
+   mapped region is from a different executable.
+
    Also note that if the heap being remapped previously used the mmcheck()
    routines, we need to update the hooks since their target functions
    will have certainly moved if the executable has changed in any way.
@@ -181,9 +187,10 @@ reuse (fd)
 	{
 	  mdp = (struct mdesc *) mtemp.base;
 	  mdp -> fd = fd;
+	  mdp -> morecore = __mmalloc_mmap_morecore;
 	  if (mdp -> mfree_hook != NULL)
 	    {
-	      (void) mmcheck ((PTR) mdp, (void (*) PARAMS ((void))) NULL);
+	      mmcheck ((PTR) mdp, (void (*) PARAMS ((void))) NULL);
 	    }
 	}
     }
@@ -196,6 +203,7 @@ reuse (fd)
    to link to, but trying to initialize access to an mmap'd managed region
    always fails. */
 
+/* ARGSUSED */
 PTR
 mmalloc_attach (fd, baseaddr)
   int fd;

@@ -885,7 +885,7 @@ WORD(swap)
     
 }
 
-WORD(dup)
+WORD(other_dup)
 {
     tos++;
     init_string(tos);
@@ -1266,11 +1266,8 @@ int ac AND
 char *av[])
 {
   unsigned int i;
-    
-
   string_type buffer;
   string_type pptr;
-    
 
   init_string(&buffer);
   init_string(&pptr);
@@ -1285,12 +1282,14 @@ char *av[])
   add_intrinsic("skip_past_newline", skip_past_newline );
   add_intrinsic("catstr", icatstr );
   add_intrinsic("copy_past_newline", icopy_past_newline );
-  add_intrinsic("dup", dup );
+  add_intrinsic("dup", other_dup );
   add_intrinsic("remchar", remchar );
   add_intrinsic("get_stuff_in_command", get_stuff_in_command );
   add_intrinsic("do_fancy_stuff", do_fancy_stuff );
   add_intrinsic("bulletize", bulletize );
   add_intrinsic("courierize", courierize );
+  /* If the following line gives an error, exit() is not declared in the
+     ../hosts/foo.h file for this host.  Fix it there, not here!  */
   add_intrinsic("exit", exit );
   add_intrinsic("swap", swap );
   add_intrinsic("outputdots", outputdots );

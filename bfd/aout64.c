@@ -1,5 +1,5 @@
 /* BFD back-end for 64-bit a.out files.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992  Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -21,4 +21,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifdef HOST_64_BIT
 #define ARCH_SIZE 64
 #include "aoutx.h"
+#else
+/* Prevent "empty translation unit" warnings from the idiots at X3J11. */
+static char ansi_c_idiots = 69;
 #endif

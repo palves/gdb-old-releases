@@ -165,7 +165,7 @@ add_prefix_cmd (name, class, fun, doc, prefixlist, prefixname,
   return c;
 }
 
-/* Like add_prefix_cmd butsets the abbrev_flag on the new command. */
+/* Like add_prefix_cmd but sets the abbrev_flag on the new command. */
    
 struct cmd_list_element *
 add_abbrev_prefix_cmd (name, class, fun, doc, prefixlist, prefixname,
@@ -235,7 +235,7 @@ add_show_from_set (setcmd, list)
   struct cmd_list_element *showcmd =
     (struct cmd_list_element *) xmalloc (sizeof (struct cmd_list_element));
 
-  bcopy (setcmd, showcmd, sizeof (struct cmd_list_element));
+  memcpy (showcmd, setcmd, sizeof (struct cmd_list_element));
   delete_cmd (showcmd->name, list);
   showcmd->type = show_cmd;
   
@@ -471,36 +471,35 @@ help_cmd_list (list, class, prefix, recurse, stream)
     }
 }
 
-/* This routine takes a line of TEXT and a CLIST in which to
-   start the lookup.  When it returns it will have incremented the text
-   pointer past the section of text it matched, set *RESULT_LIST to
-   the list in which the last word was matched, and will return the
-   cmd list element which the text matches.  It will return 0 if no
-   match at all was possible.  It will return -1 if ambigous matches are
-   possible; in this case *RESULT_LIST will be set to the list in which
-   there are ambiguous choices (and text will be set to the ambiguous
-   text string).
+/* This routine takes a line of TEXT and a CLIST in which to start the
+   lookup.  When it returns it will have incremented the text pointer past
+   the section of text it matched, set *RESULT_LIST to point to the list in
+   which the last word was matched, and will return a pointer to the cmd
+   list element which the text matches.  It will return NULL if no match at
+   all was possible.  It will return -1 (cast appropriately, ick) if ambigous
+   matches are possible; in this case *RESULT_LIST will be set to point to
+   the list in which there are ambiguous choices (and *TEXT will be set to
+   the ambiguous text string).
 
    It does no error reporting whatsoever; control will always return
    to the superior routine.
 
-   In the case of an ambiguous return (-1), *RESULT_LIST will be set to
-   point at the prefix_command (ie. the best match) *or* (special
-   case) will be 0 if no prefix command was ever found.  For example,
-   in the case of "info a", "info" matches without ambiguity, but "a"
-   could be "args" or "address", so *RESULT_LIST is set to
-   the cmd_list_element for "info".  So in this case
-   result list should not be interpeted as a pointer to the beginning
-   of a list; it simply points to a specific command.
+   In the case of an ambiguous return (-1), *RESULT_LIST will be set to point
+   at the prefix_command (ie. the best match) *or* (special case) will be NULL
+   if no prefix command was ever found.  For example, in the case of "info a",
+   "info" matches without ambiguity, but "a" could be "args" or "address", so
+   *RESULT_LIST is set to the cmd_list_element for "info".  So in this case
+   RESULT_LIST should not be interpeted as a pointer to the beginning of a
+   list; it simply points to a specific command.
 
    If RESULT_LIST is NULL, don't set *RESULT_LIST (but don't otherwise
    affect the operation).
 
    This routine does *not* modify the text pointed to by TEXT.
    
-   If IGNORE_HELP_CLASSES is nonzero, ignore any command list
-   elements which are actually help classes rather than commands (i.e.
-   the function field of the struct cmd_list_element is 0).  */
+   If IGNORE_HELP_CLASSES is nonzero, ignore any command list elements which
+   are actually help classes rather than commands (i.e. the function field of
+   the struct cmd_list_element is NULL).  */
 
 struct cmd_list_element *
 lookup_cmd_1 (text, clist, result_list, ignore_help_classes)

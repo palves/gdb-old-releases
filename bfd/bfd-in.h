@@ -52,7 +52,7 @@ here.  */
 #	endif
 #endif
 
-#define BFD_VERSION "0.18"
+#define BFD_VERSION "1.97"
 
 /* forward declaration */
 typedef struct _bfd bfd;
@@ -180,14 +180,17 @@ typedef struct lineno_cache_entry {
 
 typedef struct sec *sec_ptr;
 
+#define bfd_get_section_name(bfd, ptr) ((ptr)->name + 0)
+#define bfd_get_section_vma(bfd, ptr) ((ptr)->vma + 0)
+#define bfd_get_section_alignment(bfd, ptr) ((ptr)->alignment_power + 0)
 #define bfd_section_name(bfd, ptr) ((ptr)->name)
 #define bfd_section_size(bfd, ptr) (bfd_get_section_size_before_reloc(ptr))
 #define bfd_section_vma(bfd, ptr) ((ptr)->vma)
 #define bfd_section_alignment(bfd, ptr) ((ptr)->alignment_power)
-#define bfd_get_section_flags(bfd, ptr) ((ptr)->flags)
+#define bfd_get_section_flags(bfd, ptr) ((ptr)->flags + 0)
 #define bfd_get_section_userdata(bfd, ptr) ((ptr)->userdata)
 
-#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (val)), true)
+#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (val)), ((ptr)->user_set_vma = true), true)
 #define bfd_set_section_alignment(bfd, ptr, val) (((ptr)->alignment_power = (val)),true)
 #define bfd_set_section_userdata(bfd, ptr, val) (((ptr)->userdata = (val)),true)
 
@@ -203,7 +206,7 @@ typedef enum bfd_error {
 	      symbol_not_found, file_not_recognized,
 	      file_ambiguously_recognized, no_contents,
 	      bfd_error_nonrepresentable_section,
-	      no_debug_section,
+	      no_debug_section, bad_value,
 	      invalid_error_code} bfd_ec;
 
 extern bfd_ec bfd_error;
@@ -226,7 +229,7 @@ typedef struct bfd_error_vector {
   
 } bfd_error_vector_type;
 
-PROTO (char *, bfd_errmsg, (bfd_ec error_tag));
+PROTO (CONST char *, bfd_errmsg, (bfd_ec error_tag));
 PROTO (void, bfd_perror, (CONST char *message));
 
 
@@ -330,15 +333,4 @@ extern CONST short _bfd_host_big_endian;
 #define SHORT_SIZE 2
 #define LONG_SIZE 4
 
-
-
-/* ANd more from the source */
-
-
-
-
-
-
-
-
- 
+/* And more from the source.  */

@@ -80,18 +80,22 @@ CORE_ADDR skip_prologue ();
 
 /* Sequence of bytes for breakpoint instruction.  */
 /* ASNEQ 0x50, gr1, gr1
-   The trap number 0x50 is chosen arbitrarily.  */
+   The trap number 0x50 is chosen arbitrarily.
+   We let the command line (or previously included files) override this
+   setting.  */
+#ifndef BREAKPOINT
 #if TARGET_BYTE_ORDER == BIG_ENDIAN
 #define BREAKPOINT {0x72, 0x50, 0x01, 0x01}
 #else /* Target is little-endian.  */
 #define BREAKPOINT {0x01, 0x01, 0x50, 0x72}
 #endif /* Target is little-endian.  */
+#endif /* BREAKPOINT */
 
 /* Amount PC must be decremented by after a breakpoint.
    This is often the number of bytes in BREAKPOINT
    but not always.  */
 
-#define DECR_PC_AFTER_BREAK 4
+#define DECR_PC_AFTER_BREAK 0
 
 /* Nonzero if instruction at PC is a return instruction.
    On the 29k, this is a "jmpi l0" instruction.  */
@@ -147,8 +151,27 @@ CORE_ADDR skip_prologue ();
   "AI10", "AI11", "AI12", "AI13", "AI14", "AI15", "FP",			 \
   "bp", "fc", "cr", "q",						 \
   "vab", "ops", "cps", "cfg", "cha", "chd", "chc", "rbp", "tmc", "tmr",	 \
-  "pc0", "pc1", "pc2", "mmu", "lru", "fpe", "int", "fps", "exo", "gr1",  \
+  "pc0", "pc1", "pc2", "mmu", "lru", "fpe", "inte", "fps", "exo", "gr1",  \
   "alu", "ipc", "ipa", "ipb" }
+
+/*
+ * Converts an sdb register number to an internal gdb register number.
+ * Currently under epi, gr96->0...gr127->31...lr0->32...lr127->159, or...
+ * 		  	gr64->0...gr95->31, lr0->32...lr127->159.
+ */
+#define SDB_REG_TO_REGNUM(value) \
+  (((value) >= 96 && (value) <= 127) ? ((value) - 96) : \
+   ((value) >= 128 && (value) <=  255) ? ((value) - 128 + LR0_REGNUM) : \
+   (value))
+
+/*
+ * Provide the processor register numbers of some registers that are
+ * expected/written in instructions that might change under different
+ * register sets.  Namely, gcc can compile (-mkernel-registers) so that
+ * it uses gr64-gr95 in stead of gr96-gr127.
+ */
+#define MSP_HW_REGNUM	125		/* gr125 */
+#define RAB_HW_REGNUM	126		/* gr126 */
 
 /* Convert Processor Special register #x to REGISTER_NAMES register # */
 #define SR_REGNUM(x) \
@@ -202,7 +225,7 @@ CORE_ADDR skip_prologue ();
 #define MMU_REGNUM (VAB_REGNUM + 13)
 #define LRU_REGNUM (VAB_REGNUM + 14)
 #define FPE_REGNUM (VAB_REGNUM + 15)
-#define INT_REGNUM (VAB_REGNUM + 16)
+#define INTE_REGNUM (VAB_REGNUM + 16)
 #define FPS_REGNUM (VAB_REGNUM + 17)
 #define EXO_REGNUM (VAB_REGNUM + 18)
 /* gr1 is defined above as 200 = VAB_REGNUM + 19 */
@@ -422,17 +445,22 @@ long read_register_stack_integer ();
 #define EXTRA_FRAME_INFO  \
   CORE_ADDR saved_msp;    \
   unsigned int rsize;     \
-  unsigned int msize;
+  unsigned int msize;	  \
+  unsigned char flags;
+
+/* Bits for flags in EXTRA_FRAME_INFO */
+#define TRANSPARENT	0x1		/* This is a transparent frame */
+#define MFP_USED	0x2		/* A memory frame pointer is used */
 
 /* Because INIT_FRAME_PC gets passed fromleaf, that's where we init
    not only ->pc and ->frame, but all the extra stuff, when called from
    get_prev_frame_info, that is.  */
-#define INIT_EXTRA_FRAME_INFO(fromleaf, fci) \
-  init_extra_frame_info(fci);
+#define INIT_EXTRA_FRAME_INFO(fromleaf, fci)  init_extra_frame_info(fci)
 void init_extra_frame_info ();
-#define INIT_FRAME_PC(fromleaf, fci) \
-  init_frame_pc(fromleaf, fci);
+
+#define INIT_FRAME_PC(fromleaf, fci) init_frame_pc(fromleaf, fci)
 void init_frame_pc ();
+
 
 /* FRAME_CHAIN takes a FRAME
    and produces the frame's chain-pointer.
@@ -451,15 +479,16 @@ void init_frame_pc ();
 
 /* These are mostly dummies for the 29k because INIT_FRAME_PC
    sets prev->frame instead.  */
-#define FRAME_CHAIN(thisframe) (0)
+#define FRAME_CHAIN(thisframe) ((thisframe)->frame + (thisframe)->rsize)
 
-/* Not sure how to figure out where the bottom frame is.  There is
-   no frame for start.  In my tests so far the
-   pc has been outside the text segment, though, so check for that.
-   FIXME!!!
-   However, allow a pc in a call dummy.  */
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  (!inside_entry_file (FRAME_SAVED_PC (thisframe)))
+/* Determine if the frame has a 'previous' and back-traceable frame. */
+#define FRAME_IS_UNCHAINED(frame)	((frame)->flags & TRANSPARENT)
+
+/* Find the previous frame of a transparent routine.
+ * For now lets not try and trace through a transparent routine (we might 
+ * have to assume that all transparent routines are traps).
+ */
+#define FIND_PREV_UNCHAINED_FRAME(frame)	0
 
 /* Define other aspects of the stack frame.  */
 
@@ -517,20 +546,20 @@ extern CORE_ADDR frame_locals_address ();
                      		      |	               |  We must not disturb
                      		      |	args_out_sproc |  it.
         memory stack 		      |________________|
-                     		      |____lr1_sproc___|
-       |            |		      |__retaddr_sproc_| <- gr1 (at start)
-       |____________|<-msp 0 <-----------mfp_dummy_____|
-       |            |  (at start)     |                |
-       | arg_slop   |		      |  saved regs    |
-       | (16 words) |		      | gr96-gr124     |
-       |____________|<-msp 1--after   | sr128-sr135    |
-       |            | PUSH_DUMMY_FRAME|                |
-       | struct ret |                 |________________|
-       | 17+        |                 |                |
-       |____________|<- lrp           | args_out_dummy |
-       | struct ret |		      |  (16 words)    |
-       | 16         |		      |________________|
-       | (16 words) |                 |____lr1_dummy___|
+                     		      |____lr1_sproc___|<-+
+       |            |		      |__retaddr_sproc_|  | <-- gr1 (at start)
+       |____________|<-msp 0 <-----------mfp_dummy_____|  |
+       |            |  (at start)     |  save regs     |  |
+       | arg_slop   |		      |  pc0,pc1       |  |
+       | (16 words) |		      | gr96-gr124     |  |
+       |____________|<-msp 1--after   | sr160-sr162    |  |
+       |            | PUSH_DUMMY_FRAME| sr128-sr135    |  |
+       | struct ret |                 |________________|  |
+       | 17+        |                 |                |  | 
+       |____________|<- lrp           | args_out_dummy |  |
+       | struct ret |		      |  (16 words)    |  |
+       | 16         |		      |________________|  |
+       | (16 words) |                 |____lr1_dummy___|--+
        |____________|<- msp 2--after  |_retaddr_dummy__|<- gr1 after
        |            | struct ret      |                |   PUSH_DUMMY_FRAME
        | margs17+   | area allocated  |  locals_inf    |
@@ -562,25 +591,29 @@ extern CORE_ADDR frame_locals_address ();
 
 /* Number of special registers (sr128-) to save.  */
 #define DUMMY_SAVE_SR128 8
+/* Number of special registers (sr160-) to save.  */
+#define DUMMY_SAVE_SR160 3
 /* Number of general (gr96- or gr64-) registers to save.  */
 #define DUMMY_SAVE_GREGS 29
 
 #define DUMMY_FRAME_RSIZE \
-(4 /* mfp_dummy */     	       	       	       	   \
- + DUMMY_SAVE_GREGS * 4                             \
- + DUMMY_SAVE_SR128 * 4				   \
- + DUMMY_ARG					   \
+(4 /* mfp_dummy */     	  \
+ + 2 * 4  /* pc0, pc1 */  \
+ + DUMMY_SAVE_GREGS * 4   \
+ + DUMMY_SAVE_SR160 * 4	  \
+ + DUMMY_SAVE_SR128 * 4	  \
+ + DUMMY_ARG		  \
  )
 
 /* Push an empty stack frame, to record the current PC, etc.  */
 
-#define PUSH_DUMMY_FRAME push_dummy_frame();
+#define PUSH_DUMMY_FRAME push_dummy_frame()
 extern void push_dummy_frame ();
 
 /* Discard from the stack the innermost frame,
    restoring all saved registers.  */
 
-#define POP_FRAME pop_frame ();
+#define POP_FRAME pop_frame()
 extern void pop_frame ();
 
 /* This sequence of words is the instructions
@@ -588,9 +621,9 @@ extern void pop_frame ();
    loadm 0, 0, lr2, msp     ; load first 16 words of arguments into registers
    add msp, msp, 16 * 4     ; point to the remaining arguments
   CONST_INSN:
-   const gr96,inf
-   consth gr96,inf
-   calli lr0, gr96
+   const lr0,inf
+   consth lr0,inf
+   calli lr0, lr0 
    aseq 0x40,gr1,gr1   ; nop
    asneq 0x50,gr1,gr1  ; breakpoint
    */
@@ -598,8 +631,10 @@ extern void pop_frame ();
 /* Position of the "const" instruction within CALL_DUMMY in bytes.  */
 #define CONST_INSN (3 * 4)
 #if TARGET_BYTE_ORDER == HOST_BYTE_ORDER
-#define CALL_DUMMY {0x0400870f, 0x3600827d, 0x157d7d40, 0x03ff60ff,    \
-		    0x02ff60ff, 0xc8008060, 0x70400101, 0x72500101}
+#define CALL_DUMMY {0x0400870f,\
+		0x36008200|(MSP_HW_REGNUM), \
+		0x15000040|(MSP_HW_REGNUM<<8)|(MSP_HW_REGNUM<<16), \
+		0x03ff80ff, 0x02ff80ff, 0xc8008080, 0x70400101, 0x72500101}
 #else /* Byte order differs.  */
   you lose
 #endif /* Byte order differs.  */

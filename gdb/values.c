@@ -27,6 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "gdbcmd.h"
 #include "target.h"
+#include "demangle.h"
 
 /* Local function prototypes. */
 
@@ -211,9 +212,9 @@ value_copy (arg)
   VALUE_LAZY (val) = VALUE_LAZY (arg);
   if (!VALUE_LAZY (val))
     {
-      bcopy (VALUE_CONTENTS_RAW (arg), VALUE_CONTENTS_RAW (val),
-	     TYPE_LENGTH (VALUE_TYPE (arg))
-	     * (VALUE_REPEATED (arg) ? VALUE_REPETITIONS (arg) : 1));
+      memcpy (VALUE_CONTENTS_RAW (val), VALUE_CONTENTS_RAW (arg),
+	      TYPE_LENGTH (VALUE_TYPE (arg))
+	      * (VALUE_REPEATED (arg) ? VALUE_REPETITIONS (arg) : 1));
     }
   return val;
 }
@@ -233,10 +234,11 @@ record_latest_value (val)
 
   /* Check error now if about to store an invalid float.  We return -1
      to the caller, but allow them to continue, e.g. to print it as "Nan". */
-  if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_FLT) {
-    (void) unpack_double (VALUE_TYPE (val), VALUE_CONTENTS (val), &i);
-    if (i) return -1;		/* Indicate value not saved in history */
-  }
+  if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_FLT)
+    {
+      unpack_double (VALUE_TYPE (val), VALUE_CONTENTS (val), &i);
+      if (i) return -1;		/* Indicate value not saved in history */
+    }
 
   /* Here we treat value_history_count as origin-zero
      and applying to the value being stored now.  */
@@ -247,7 +249,7 @@ record_latest_value (val)
       register struct value_history_chunk *new
 	= (struct value_history_chunk *)
 	  xmalloc (sizeof (struct value_history_chunk));
-      bzero (new->values, sizeof new->values);
+      memset (new->values, 0, sizeof new->values);
       new->next = value_history_chain;
       value_history_chain = new;
     }
@@ -437,8 +439,7 @@ set_internalvar_component (var, offset, bitpos, bitsize, newval)
     modify_field (addr, (int) value_as_long (newval),
 		  bitpos, bitsize);
   else
-    bcopy (VALUE_CONTENTS (newval), addr,
-	   TYPE_LENGTH (VALUE_TYPE (newval)));
+    memcpy (addr, VALUE_CONTENTS (newval), TYPE_LENGTH (VALUE_TYPE (newval)));
 }
 
 void
@@ -453,6 +454,11 @@ set_internalvar (var, val)
 
   free ((PTR)var->value);
   var->value = value_copy (val);
+  /* Force the value to be fetched from the target now, to avoid problems
+     later when this internalvar is referenced and the target is gone or
+     has changed.  */
+  if (VALUE_LAZY (var->value))
+    value_fetch_lazy (var->value);
   release_value (var->value);
 }
 
@@ -546,7 +552,7 @@ value_as_pointer (val)
 {
   /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
      whether we want this to be true eventually.  */
-  return value_as_long (val);
+  return ADDR_BITS_REMOVE(value_as_long (val));
 }
 
 /* Unpack raw data (copied from debugee, target byte order) at VALADDR
@@ -582,7 +588,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (float))
 	{
 	  float retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -590,7 +596,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (double))
 	{
 	  double retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -611,7 +617,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (short))
 	{
 	  unsigned short retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -619,7 +625,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (int))
 	{
 	  unsigned int retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -627,7 +633,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (long))
 	{
 	  unsigned long retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -635,7 +641,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (long long))
 	{
 	  unsigned long long retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -650,7 +656,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (char))
 	{
 	  SIGNED char retval;	/* plain chars might be unsigned on host */
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -658,7 +664,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (short))
 	{
 	  short retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -666,7 +672,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (int))
 	{
 	  int retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -674,7 +680,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (long))
 	{
 	  long retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -683,7 +689,7 @@ unpack_long (type, valaddr)
       if (len == sizeof (long long))
 	{
 	  long long retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -700,15 +706,15 @@ unpack_long (type, valaddr)
     {
       if (len == sizeof(long))
       {
-	long retval;
-	bcopy (valaddr, &retval, sizeof(retval));
+	unsigned long retval;
+	memcpy (&retval, valaddr, sizeof(retval));
 	SWAP_TARGET_AND_HOST (&retval, sizeof(retval));
 	return retval;
       }
       else if (len == sizeof(short))
       {
-	short retval;
-	bcopy (valaddr, &retval, len);
+	unsigned short retval;
+	memcpy (&retval, valaddr, len);
 	SWAP_TARGET_AND_HOST (&retval, len);
 	return retval;
       }
@@ -750,7 +756,7 @@ unpack_double (type, valaddr, invp)
       if (len == sizeof (float))
 	{
 	  float retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -758,7 +764,7 @@ unpack_double (type, valaddr, invp)
       if (len == sizeof (double))
 	{
 	  double retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -811,7 +817,7 @@ unpack_pointer (type, valaddr)
       if (len == sizeof (CORE_ADDR))
 	{
 	  CORE_ADDR retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
+	  memcpy (&retval, valaddr, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
@@ -867,9 +873,8 @@ value_primitive_field (arg1, offset, fieldno, arg_type)
       if (VALUE_LAZY (arg1))
 	VALUE_LAZY (v) = 1;
       else
-	bcopy (VALUE_CONTENTS_RAW (arg1) + offset,
-	       VALUE_CONTENTS_RAW (v),
-	       TYPE_LENGTH (type));
+	memcpy (VALUE_CONTENTS_RAW (v), VALUE_CONTENTS_RAW (arg1) + offset,
+		TYPE_LENGTH (type));
     }
   VALUE_LVAL (v) = VALUE_LVAL (arg1);
   if (VALUE_LVAL (arg1) == lval_internalvar)
@@ -1003,8 +1008,6 @@ value_headof (arg, btype, dtype)
   /* First collect the vtables we must look at for this object.  */
   /* FIXME-tiemann: right now, just look at top-most vtable.  */
   value vtbl, entry, best_entry = 0;
-  /* FIXME: entry_type is never used.  */
-  struct type *entry_type;
   int i, nelems;
   int offset, best_offset = 0;
   struct symbol *sym;
@@ -1029,7 +1032,7 @@ value_headof (arg, btype, dtype)
 	 know that we aren't happy, but don't throw an error.
 	 FIXME: there has to be a better way to do this.  */
       struct type *error_type = (struct type *)xmalloc (sizeof (struct type));
-      bcopy (VALUE_TYPE (arg), error_type, sizeof (struct type));
+      memcpy (error_type, VALUE_TYPE (arg), sizeof (struct type));
       TYPE_NAME (error_type) = savestring ("suspicious *", sizeof ("suspicious *"));
       VALUE_TYPE (arg) = error_type;
       return arg;
@@ -1065,7 +1068,7 @@ value_headof (arg, btype, dtype)
     {
       pc_for_sym = value_as_pointer (value_field (best_entry, 2));
       sym = find_pc_function (pc_for_sym);
-      demangled_name = cplus_demangle (SYMBOL_NAME (sym), -1);
+      demangled_name = cplus_demangle (SYMBOL_NAME (sym), DMGL_ANSI);
       *(strchr (demangled_name, ':')) = '\0';
     }
   sym = lookup_symbol (demangled_name, 0, VAR_NAMESPACE, 0, 0);
@@ -1190,29 +1193,60 @@ baseclass_addr (type, index, valaddr, valuep, errp)
   return valaddr + TYPE_BASECLASS_BITPOS (type, index) / 8;
 }
 
-long
+/* Unpack a field FIELDNO of the specified TYPE, from the anonymous object at
+   VALADDR.
+
+   Extracting bits depends on endianness of the machine.  Compute the
+   number of least significant bits to discard.  For big endian machines,
+   we compute the total number of bits in the anonymous object, subtract
+   off the bit count from the MSB of the object to the MSB of the
+   bitfield, then the size of the bitfield, which leaves the LSB discard
+   count.  For little endian machines, the discard count is simply the
+   number of bits from the LSB of the anonymous object to the LSB of the
+   bitfield.
+
+   If the field is signed, we also do sign extension. */
+
+LONGEST
 unpack_field_as_long (type, valaddr, fieldno)
      struct type *type;
      char *valaddr;
      int fieldno;
 {
-  unsigned long val;
+  unsigned LONGEST val;
+  unsigned LONGEST valmask;
   int bitpos = TYPE_FIELD_BITPOS (type, fieldno);
   int bitsize = TYPE_FIELD_BITSIZE (type, fieldno);
+  int lsbcount;
 
-  bcopy (valaddr + bitpos / 8, &val, sizeof val);
-  SWAP_TARGET_AND_HOST (&val, sizeof val);
+  memcpy (&val, valaddr + bitpos / 8, sizeof (val));
+  SWAP_TARGET_AND_HOST (&val, sizeof (val));
 
-  /* Extracting bits depends on endianness of the machine.  */
+  /* Extract bits.  See comment above. */
+
 #if BITS_BIG_ENDIAN
-  val = val >> (sizeof val * 8 - bitpos % 8 - bitsize);
+  lsbcount = (sizeof val * 8 - bitpos % 8 - bitsize);
 #else
-  val = val >> (bitpos % 8);
+  lsbcount = (bitpos % 8);
 #endif
+  val >>= lsbcount;
 
-  if (bitsize < 8 * sizeof (val))
-    val &= (((unsigned long)1) << bitsize) - 1;
-  return val;
+  /* If the field does not entirely fill a LONGEST, then zero the sign bits.
+     If the field is signed, and is negative, then sign extend. */
+
+  if ((bitsize > 0) && (bitsize < 8 * sizeof (val)))
+    {
+      valmask = (((unsigned LONGEST) 1) << bitsize) - 1;
+      val &= valmask;
+      if (!TYPE_UNSIGNED (TYPE_FIELD_TYPE (type, fieldno)))
+	{
+	  if (val & (valmask ^ (valmask >> 1)))
+	    {
+	      val |= ~valmask;
+	    }
+	}
+    }
+  return (val);
 }
 
 /* Modify the value of a bitfield.  ADDR points to a block of memory in
@@ -1234,7 +1268,7 @@ modify_field (addr, fieldval, bitpos, bitsize)
       && 0 != (fieldval & ~((1<<bitsize)-1)))
     error ("Value %d does not fit in %d bits.", fieldval, bitsize);
   
-  bcopy (addr, &oword, sizeof oword);
+  memcpy (&oword, addr, sizeof oword);
   SWAP_TARGET_AND_HOST (&oword, sizeof oword);		/* To host format */
 
   /* Shifting for bit field depends on endianness of the target machine.  */
@@ -1250,7 +1284,7 @@ modify_field (addr, fieldval, bitpos, bitsize)
   oword |= fieldval << bitpos;
 
   SWAP_TARGET_AND_HOST (&oword, sizeof oword);		/* To target format */
-  bcopy (&oword, addr, sizeof oword);
+  memcpy (addr, &oword, sizeof oword);
 }
 
 /* Convert C numbers into newly allocated values */

@@ -16,6 +16,8 @@ License along with the GNU C Library; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
+#include <string.h>	/* Prototypes for memcpy, memmove, memset, etc */
+
 #include "mmalloc.h"
 
 /* Allocate an array of NMEMB elements each SIZE bytes long.
@@ -31,7 +33,7 @@ mcalloc (md, nmemb, size)
 
   if ((result = mmalloc (md, nmemb * size)) != NULL)
     {
-      (void) memset (result, 0, nmemb * size);
+      memset (result, 0, nmemb * size);
     }
   return (result);
 }
@@ -47,5 +49,5 @@ calloc (nmemb, size)
   size_t nmemb;
   size_t size;
 {
-  return (mcalloc ((void *) NULL, nmemb, size));
+  return (mcalloc ((PTR) NULL, nmemb, size));
 }

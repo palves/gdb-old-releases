@@ -35,6 +35,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <ctype.h>
 #include <sys/stat.h>
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 /* Prototypes for local functions */
 
@@ -135,7 +138,7 @@ exec_file_command (args, from_tty)
       make_cleanup (free, filename);
       
       scratch_chan = openp (getenv ("PATH"), 1, filename, 
-			    write_files? O_RDWR: O_RDONLY, 0,
+			    write_files? O_RDWR|O_BINARY: O_RDONLY|O_BINARY, 0,
 			    &scratch_pathname);
       if (scratch_chan < 0)
 	perror_with_name (filename);

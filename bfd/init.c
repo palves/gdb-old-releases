@@ -52,7 +52,6 @@ void DEFUN_VOID(bfd_init)
     initialized = true;
 
     bfd_arch_init();
-    bfd_section_init();
   }
 }
 

@@ -437,7 +437,7 @@ extern const struct ext_format ext_format_68881;
       for (regnum = 15; regnum >= 0; regnum--, regmask >>= 1)		\
 	if (regmask & 1)						\
           (frame_saved_regs).regs[regnum] = (next_addr -= 4); }		\
-  else if (0x2f00 == 0xfff0 & read_memory_integer (pc, 2))		\
+  else if (0x2f00 == (0xfff0 & read_memory_integer (pc, 2)))		\
     { regnum = 0xf & read_memory_integer (pc, 2); pc += 2;		\
       (frame_saved_regs).regs[regnum] = (next_addr -= 4); }		\
   /* clrw -(sp); movw ccr,-(sp) may follow.  */				\
@@ -501,11 +501,12 @@ extern const struct ext_format ext_format_68881;
 #endif	/* HAVE_68881 */
 
 /* Insert the specified number of args and function address
-   into a call sequence of the above form stored at DUMMYNAME.  */
+   into a call sequence of the above form stored at DUMMYNAME.
+   We use the BFD routines to store a big-endian value of known size.  */
 
 #define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, type, gcc_p)     \
-{ *(int *)((char *) dummyname + CALL_DUMMY_START_OFFSET + 2) = fun;  \
-  *(int *)((char *) dummyname + CALL_DUMMY_START_OFFSET + 8) = nargs * 4; }
+{ _do_putb32 (fun,     (char *) dummyname + CALL_DUMMY_START_OFFSET + 2);  \
+  _do_putb32 (nargs*4, (char *) dummyname + CALL_DUMMY_START_OFFSET + 8); }
 
 /* Push an empty stack frame, to record the current PC, etc.  */
 

@@ -117,6 +117,17 @@ struct frame_saved_regs
 
 #endif	/* FRAME_CHAIN_VALID */
 
+/* If we encounter a request to use base register addressing of variables
+   on a machine for which gdb has not been configured to support such
+   access, report the failure to support this access mode. */
+
+#if !defined (FRAME_GET_BASEREG_VALUE)
+
+#define FRAME_GET_BASEREG_VALUE(frame, regno) \
+  (error ("Missing valid method for finding contents of base register."),0)
+
+#endif
+
 /* The stack frame that the user has specified for commands to act on.
    Note that one cannot assume this is the address of valid data.  */
 

@@ -32,8 +32,8 @@ extern void abort PARAMS ((void));
 
 /* Arbitrary magical numbers.  */
 
-#define MAGICWORD	0xfedabeeb	/* Magic word for active chunk */
-#define MAGICWORDFREE	0xdeadbeef	/* Magic word for inactive chunk */
+#define MAGICWORD	(unsigned int) 0xfedabeeb	/* Active chunk */
+#define MAGICWORDFREE	(unsigned int) 0xdeadbeef	/* Inactive chunk */
 #define MAGICBYTE	((char) 0xd7)
 
 /* Each memory allocation is bounded by a header structure and a trailer

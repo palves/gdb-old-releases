@@ -15,8 +15,13 @@ irix4)
 	host_makefile_frag=config/mh-irix4
 	;;
 
-sysv4)
+sysv4*)
 	host_makefile_frag=config/mh-sysv4
+	case "${host_vendor}" in
+	ncr*)
+		host_makefile_frag=config/mh-ncr3000
+		;;
+	esac
 	;;
 
 sunos4*)

@@ -80,7 +80,7 @@ PROTO (bfd_size_type, bfd_write, (CONST PTR ptr, bfd_size_type size, bfd_size_ty
 
 
 
-PROTO (int, bfd_seek,(bfd* abfd, file_ptr fp , int direction));
+PROTO (int, bfd_seek,(bfd* CONST abfd, CONST file_ptr fp , CONST int direction));
 PROTO (long, bfd_tell, (bfd *abfd));
 PROTO (bfd *, _bfd_create_empty_archive_element_shell, (bfd *obfd));
 PROTO (bfd *, look_for_bfd_in_cache, (bfd *arch_bfd, file_ptr index));
@@ -212,14 +212,15 @@ void EXFUN(bfd_constructor_entry, (bfd *abfd,
     CONST char*type));
 CONST struct reloc_howto_struct *EXFUN(bfd_default_reloc_type_lookup
     , (CONST struct bfd_arch_info *,
-    bfd_reloc_code_type  code));
+    bfd_reloc_code_real_type  code));
 boolean EXFUN(bfd_generic_relax_section
     , (bfd *abfd,
     asection *section,
     asymbol **symbols));
 bfd_byte *
 EXFUN(bfd_generic_get_relocated_section_contents, (bfd *abfd,
-    struct bfd_seclet_struct  *seclet)
+    struct bfd_seclet_struct  *seclet,
+    bfd_byte *data)
     
     );
 extern bfd_arch_info_type bfd_default_arch_struct;
@@ -232,3 +233,4 @@ CONST bfd_arch_info_type *EXFUN(bfd_default_compatible
     , (CONST bfd_arch_info_type *a,
     CONST bfd_arch_info_type *b));
 boolean EXFUN(bfd_default_scan, (CONST struct bfd_arch_info *, CONST char *));
+struct elf_internal_shdr *EXFUN(bfd_elf_find_section , (bfd *abfd, char *name));

@@ -43,14 +43,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symfile.h"
 #include "objfiles.h"
 
-/* Ensure that if the generated parser contains any calls to malloc/realloc,
-   that they get mapped to xmalloc/xrealloc. */
-
-#define malloc	xmalloc
-#define realloc	xrealloc
-
-/* These MUST be included in any grammar file!!!!
-   Please choose unique names! */
+/* These MUST be included in any grammar file!!!! Please choose unique names!
+   Note that this are a combined list of variables that can be produced
+   by any one of bison, byacc, or yacc. */
 #define	yymaxdepth m2_maxdepth
 #define	yyparse	m2_parse
 #define	yylex	m2_lex
@@ -78,6 +73,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yy_yyv	m2_yyv
 #define	yyval	m2_val
 #define	yylloc	m2_lloc
+#define yyss	m2_yyss		/* byacc */
+#define	yyssp	m2_yysp		/* byacc */
+#define	yyvs	m2_yyvs		/* byacc */
+#define	yyvsp	m2_yyvsp	/* byacc */
 
 #if 0
 static char *
@@ -104,7 +103,6 @@ int number_sign = 1;
 struct block *modblock=0;
 
 /* #define	YYDEBUG	1 */
-
 %}
 
 /* Although the yacc "value" of an expression is not used,
@@ -135,7 +133,7 @@ struct block *modblock=0;
 %type <sym> fblock 
 
 %token <lval> INT HEX ERROR
-%token <ulval> UINT TRUE FALSE CHAR
+%token <ulval> UINT M2_TRUE M2_FALSE CHAR
 %token <dval> FLOAT
 
 /* Both NAME and TYPENAME tokens represent symbols in the input,
@@ -178,6 +176,19 @@ struct block *modblock=0;
 /* This is not an actual token ; it is used for precedence. 
 %right QID
 */
+
+%{
+/* Ensure that if the generated parser contains any calls to malloc/realloc,
+   that they get mapped to xmalloc/xrealloc.  We have to do this here
+   rather than earlier in the file because this is the first point after
+   the place where the SVR4 yacc includes <malloc.h>, and if we do it
+   before that, then the remapped declarations in <malloc.h> will collide
+   with the ones in "defs.h". */
+
+#define malloc	xmalloc
+#define realloc	xrealloc
+%}
+
 %%
 
 start   :	exp
@@ -454,13 +465,13 @@ exp	:	exp ASSIGN exp
 
 /* Constants */
 
-exp	:	TRUE
+exp	:	M2_TRUE
 			{ write_exp_elt_opcode (OP_BOOL);
 			  write_exp_elt_longcst ((LONGEST) $1);
 			  write_exp_elt_opcode (OP_BOOL); }
 	;
 
-exp	:	FALSE
+exp	:	M2_FALSE
 			{ write_exp_elt_opcode (OP_BOOL);
 			  write_exp_elt_longcst ((LONGEST) $1);
 			  write_exp_elt_opcode (OP_BOOL); }
@@ -785,11 +796,11 @@ static struct
    int token;
 } tokentab2[] =
 {
-    {"<>",    NOTEQUAL 	 },
-    {":=",    ASSIGN	 },
-    {"<=",    LEQ	 },
-    {">=",    GEQ	 },
-    {"::",    COLONCOLON },
+    { {'<', '>'},    NOTEQUAL 	},
+    { {':', '='},    ASSIGN	},
+    { {'<', '='},    LEQ	},
+    { {'>', '='},    GEQ	},
+    { {':', ':'},    COLONCOLON },
 
 };
 
@@ -973,7 +984,7 @@ yylex ()
 	  {
 	    char *err_copy = (char *) alloca (p - tokstart + 1);
 
-	    bcopy (tokstart, err_copy, p - tokstart);
+	    memcpy (err_copy, tokstart, p - tokstart);
 	    err_copy[p - tokstart] = 0;
 	    error ("Invalid number \"%s\".", err_copy);
 	  }
@@ -1129,12 +1140,12 @@ yylex ()
        if(!strncmp(tokstart,"TRUE",4))
        {
 	  yylval.ulval = 1;
-	  return TRUE;
+	  return M2_TRUE;
        }
        else if(!strncmp(tokstart,"FALSE",5))
        {
 	  yylval.ulval = 0;
-	  return FALSE;
+	  return M2_FALSE;
        }
     }
 
@@ -1233,24 +1244,26 @@ const struct language_defn m2_language_defn = {
 void
 _initialize_m2_exp ()
 {
-  /* FIXME:  The code below assumes that the sizes of the basic data
-     types are the same on the host and target machines!!!  */
-
   /* Modula-2 "pervasive" types.  NOTE:  these can be redefined!!! */
   builtin_type_m2_int =
-    init_type (TYPE_CODE_INT, sizeof(int), 0,
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       0,
 	       "INTEGER", (struct objfile *) NULL);
   builtin_type_m2_card =
-    init_type (TYPE_CODE_INT, sizeof(int), TYPE_FLAG_UNSIGNED,
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
 	       "CARDINAL", (struct objfile *) NULL);
   builtin_type_m2_real =
-    init_type (TYPE_CODE_FLT, sizeof(float), 0,
+    init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
+	       0,
 	       "REAL", (struct objfile *) NULL);
   builtin_type_m2_char =
-    init_type (TYPE_CODE_CHAR, sizeof(char), TYPE_FLAG_UNSIGNED,
+    init_type (TYPE_CODE_CHAR, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
 	       "CHAR", (struct objfile *) NULL);
   builtin_type_m2_bool =
-    init_type (TYPE_CODE_BOOL, sizeof(int), TYPE_FLAG_UNSIGNED,
+    init_type (TYPE_CODE_BOOL, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
 	       "BOOLEAN", (struct objfile *) NULL);
 
   TYPE_NFIELDS(builtin_type_m2_bool) = 2;

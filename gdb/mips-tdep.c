@@ -129,10 +129,12 @@ static CORE_ADDR
 heuristic_proc_start(pc)
     CORE_ADDR pc;
 {
-
     CORE_ADDR start_pc = pc;
     CORE_ADDR fence = start_pc - 200;
+
+    if (start_pc == 0)	return 0;
     if (fence < VM_MIN_ADDRESS) fence = VM_MIN_ADDRESS;
+
     /* search back for previous return */
     for (start_pc -= 4; ; start_pc -= 4)
 	if (start_pc < fence) return 0; 
@@ -163,6 +165,8 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
     if (start_pc == 0) return NULL;
     bzero(&temp_proc_desc, sizeof(temp_proc_desc));
     bzero(&temp_saved_regs, sizeof(struct frame_saved_regs));
+    PROC_LOW_ADDR(&temp_proc_desc) = start_pc;
+
     if (start_pc + 200 < limit_pc) limit_pc = start_pc + 200;
   restart:
     frame_size = 0;
@@ -170,7 +174,7 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
 	unsigned long word;
 	int status;
 
-	status = read_memory_nobpt (cur_pc, &word, 4); 
+	status = read_memory_nobpt (cur_pc, (char *)&word, 4); 
 	if (status) memory_error (status, cur_pc); 
 	SWAP_TARGET_AND_HOST (&word, sizeof (word));
 	if ((word & 0xFFFF0000) == 0x27bd0000) /* addiu $sp,$sp,-i */
@@ -364,7 +368,6 @@ init_extra_frame_info(fci)
     }
 }
 
-
 CORE_ADDR
 mips_push_arguments(nargs, args, sp, struct_return, struct_addr)
   int nargs;
@@ -403,8 +406,8 @@ mips_push_arguments(nargs, args, sp, struct_return, struct_addr)
     write_memory(sp + m_arg->offset, m_arg->contents, m_arg->len);
   if (struct_return) {
     buf = struct_addr;
-    write_memory(sp, &buf, sizeof(CORE_ADDR));
-}
+    write_memory(sp, (char *)&buf, sizeof(CORE_ADDR));
+  }
   return sp;
 }
 
@@ -462,7 +465,7 @@ mips_push_dummy_frame()
     if (PROC_REG_MASK(proc_desc) & (1 << ireg))
       {
 	buffer = read_register (ireg);
-	write_memory (save_address, &buffer, sizeof(REGISTER_TYPE));
+	write_memory (save_address, (char *)&buffer, sizeof(REGISTER_TYPE));
 	save_address -= 4;
       }
   /* save floating-points registers */
@@ -471,20 +474,20 @@ mips_push_dummy_frame()
     if (PROC_FREG_MASK(proc_desc) & (1 << ireg))
       {
 	buffer = read_register (ireg + FP0_REGNUM);
-	write_memory (save_address, &buffer, 4);
+	write_memory (save_address, (char *)&buffer, 4);
 	save_address -= 4;
       }
   write_register (PUSH_FP_REGNUM, sp);
   PROC_FRAME_REG(proc_desc) = PUSH_FP_REGNUM;
   PROC_FRAME_OFFSET(proc_desc) = 0;
   buffer = read_register (PC_REGNUM);
-  write_memory (sp - 4, &buffer, sizeof(REGISTER_TYPE));
+  write_memory (sp - 4, (char *)&buffer, sizeof(REGISTER_TYPE));
   buffer = read_register (HI_REGNUM);
-  write_memory (sp - 8, &buffer, sizeof(REGISTER_TYPE));
+  write_memory (sp - 8, (char *)&buffer, sizeof(REGISTER_TYPE));
   buffer = read_register (LO_REGNUM);
-  write_memory (sp - 12, &buffer, sizeof(REGISTER_TYPE));
+  write_memory (sp - 12, (char *)&buffer, sizeof(REGISTER_TYPE));
   buffer = read_register (FCRCS_REGNUM);
-  write_memory (sp - 16, &buffer, sizeof(REGISTER_TYPE));
+  write_memory (sp - 16, (char *)&buffer, sizeof(REGISTER_TYPE));
   sp -= 4 * (GEN_REG_SAVE_COUNT+FLOAT_REG_SAVE_COUNT+SPECIAL_REG_SAVE_COUNT);
   write_register (SP_REGNUM, sp);
   PROC_LOW_ADDR(proc_desc) = sp - CALL_DUMMY_SIZE + CALL_DUMMY_START_OFFSET;
@@ -498,7 +501,7 @@ mips_pop_frame()
 { register int regnum;
   FRAME frame = get_current_frame ();
   CORE_ADDR new_sp = frame->frame;
-  mips_extra_func_info_t proc_desc = (mips_extra_func_info_t)frame->proc_desc;
+  mips_extra_func_info_t proc_desc = frame->proc_desc;
   if (PROC_DESC_IS_DUMMY(proc_desc))
     {
       struct linked_proc_info **ptr = &linked_proc_desc_table;;

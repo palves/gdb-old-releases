@@ -134,7 +134,7 @@ value_subscripted_rvalue (array, idx)
     error ("no such vector element");
 
   v = allocate_value (elt_type);
-  bcopy (VALUE_CONTENTS (array) + elt_offs, VALUE_CONTENTS (v), elt_size);
+  memcpy (VALUE_CONTENTS (v), VALUE_CONTENTS (array) + elt_offs, elt_size);
 
   if (VALUE_LVAL (array) == lval_internalvar)
     VALUE_LVAL (v) = lval_internalvar_component;
@@ -549,7 +549,7 @@ value_binop (arg1, arg2, op)
   return val;
 }
 
-/* Simulate the C operator ! -- return 1 if ARG1 contains zeros.  */
+/* Simulate the C operator ! -- return 1 if ARG1 contains zero.  */
 
 int
 value_zerop (arg1)
@@ -559,6 +559,9 @@ value_zerop (arg1)
   register char *p;
 
   COERCE_ARRAY (arg1);
+
+  if (TYPE_CODE (VALUE_TYPE (arg1)) == TYPE_CODE_FLT)
+    return 0 == value_as_double (arg1);
 
   len = TYPE_LENGTH (VALUE_TYPE (arg1));
   p = VALUE_CONTENTS (arg1);

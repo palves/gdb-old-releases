@@ -60,19 +60,30 @@ struct sym_fns {
 
   /* sym_read (objfile, addr, mainline)
      Reads a symbol file into a psymtab (or possibly a symtab).
-     OBJFILE is the objfile struct for the file we are reading.  ADDR
-     is the offset between the file's specified start address and
-     its true address in memory.  MAINLINE is 1 if this is the
+     OBJFILE is the objfile struct for the file we are reading.
+     SECTION_OFFSETS
+     are the offset between the file's specified section addresses and
+     their true addresses in memory.
+     MAINLINE is 1 if this is the
      main symbol table being read, and 0 if a secondary
      symbol file (e.g. shared library or dynamically loaded file)
      is being read.  */
 
-  void (*sym_read) PARAMS ((struct objfile *, CORE_ADDR, int));
+  void (*sym_read) PARAMS ((struct objfile *, struct section_offsets *, int));
 
   /* Called when we are finished with an objfile.  Should do all cleanup
      that is specific to the object file format for the particular objfile. */
  
   void (*sym_finish) PARAMS ((struct objfile *));
+
+  /* This function produces a file-dependent section_offsets structure,
+     allocated in the objfile's storage, and based on the parameter.
+     The parameter is currently a CORE_ADDR (FIXME!) for backward compatibility
+     with the higher levels of GDB.  It should probably be changed to
+     a string, where NULL means the default, and others are parsed in a file
+     dependent way.  The result of this function is handed in to sym_read.  */
+
+  struct section_offsets *(*sym_offsets) PARAMS ((struct objfile *, CORE_ADDR));
 
   /* Finds the next struct sym_fns.  They are allocated and initialized
      in whatever module implements the functions pointed to; an 
@@ -151,8 +162,12 @@ init_entry_point_info PARAMS ((struct objfile *));
 extern void
 syms_from_objfile PARAMS ((struct objfile *, CORE_ADDR, int, int));
 
+extern void
+new_symfile_objfile PARAMS ((struct objfile *, int, int));
+
 extern struct partial_symtab *
-start_psymtab_common PARAMS ((struct objfile *, CORE_ADDR, char *, CORE_ADDR,
+start_psymtab_common PARAMS ((struct objfile *, struct section_offsets *,
+			      char *, CORE_ADDR,
 			      struct partial_symbol *,
 			      struct partial_symbol *));
 
@@ -217,8 +232,18 @@ allocate_psymtab PARAMS ((char *, struct objfile *));
 /* From dwarfread.c */
 
 extern void
-dwarf_build_psymtabs PARAMS ((int, char *, CORE_ADDR, int, unsigned int,
+dwarf_build_psymtabs PARAMS ((int, char *, struct section_offsets *, int,
+			      unsigned int,
 			      unsigned int, unsigned int, unsigned int,
 			      struct objfile *));
+
+/* From dbxread.c */
+
+extern void
+elfstab_build_psymtabs PARAMS ((struct objfile *objfile,
+	struct section_offsets *section_offsets,
+	int mainline,
+	unsigned int staboff, unsigned int stabsize,
+	unsigned int stabstroffset, unsigned int stabstrsize));
 
 #endif	/* !defined(SYMFILE_H) */

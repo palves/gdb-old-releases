@@ -49,9 +49,11 @@ extern struct cmd_list_element *enablebreaklist;
 extern struct cmd_list_element *setlist;
 
 /* Chain containing all defined unset subcommands */
+
 extern struct cmd_list_element *unsetlist;
 
 /* Chain containing all defined show subcommands.  */
+
 extern struct cmd_list_element *showlist;
 
 /* Chain containing all defined \"set history\".  */
@@ -59,14 +61,38 @@ extern struct cmd_list_element *showlist;
 extern struct cmd_list_element *sethistlist;
 
 /* Chain containing all defined \"show history\".  */
+
 extern struct cmd_list_element *showhistlist;
 
 /* Chain containing all defined \"unset history\".  */
 
 extern struct cmd_list_element *unsethistlist;
 
+/* Chain containing all defined maintenance subcommands. */
+
+#if MAINTENANCE_CMDS
+extern struct cmd_list_element *maintenancelist;
+#endif
+
+/* Chain containing all defined "maintenance info" subcommands. */
+
+#if MAINTENANCE_CMDS
+extern struct cmd_list_element *maintenanceinfolist;
+#endif
+
+/* Chain containing all defined "maintenance print" subcommands. */
+
+#if MAINTENANCE_CMDS
+extern struct cmd_list_element *maintenanceprintlist;
+#endif
+
 extern struct cmd_list_element *setprintlist;
+
 extern struct cmd_list_element *showprintlist;
+
+extern struct cmd_list_element *setchecklist;
+
+extern struct cmd_list_element *showchecklist;
 
 extern void
 execute_command PARAMS ((char *, int));

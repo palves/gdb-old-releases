@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: demo64.c,v 1.5 1991/11/17 21:37:57 bothner Exp $ */
+/* $Id: demo64.c,v 1.6 1992/06/11 08:10:02 gnu Exp $ */
 
 /* Can only compile this if there is a 64 bit int type */
 #ifdef HOST_64_BIT
@@ -26,4 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define MY(OP) CAT(demo_64_,OP)
 #define TARGETNAME  "demo64"
 #include "aoutf1.h"
+#else
+/* Prevent "empty translation unit" warnings from the idiots at X3J11. */
+static char ansi_c_idiots = 69;
 #endif

@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: opncls.c,v 1.39 1992/01/30 15:30:44 sac Exp $ */
+/* $Id: opncls.c,v 1.42 1992/05/12 21:42:43 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -78,6 +78,7 @@ bfd *obfd;
 	nbfd->xvec = obfd->xvec;
 	nbfd->my_archive = obfd;
 	nbfd->direction = read_direction;
+	nbfd->target_defaulted = obfd->target_defaulted;
 	return nbfd;
 }
 
@@ -189,12 +190,15 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
     bfd_error = invalid_target;
     return NULL;
   }
-
+#if defined(VMS) || defined(__GO32__)
+  nbfd->iostream = (char *)fopen(filename, FOPEN_RB);
+#else
 #ifdef FASCIST_FDOPEN
   nbfd->iostream = (char *) fdopen (fd, FOPEN_RB); 
 #else
   /* if the fd were open for read only, this still would not hurt: */
   nbfd->iostream = (char *) fdopen (fd, FOPEN_RUB); 
+#endif
 #endif
   if (nbfd->iostream == NULL) {
     (void) obstack_free (&nbfd->memory, (PTR)0);

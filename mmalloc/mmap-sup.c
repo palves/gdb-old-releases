@@ -29,12 +29,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "mmalloc.h"
 
+extern int munmap PARAMS ((caddr_t, size_t));	/* Not in any header file */
+
 /* Cache the pagesize for the current host machine.  Note that if the host
    does not readily provide a getpagesize() function, we need to emulate it
    elsewhere, not clutter up this file with lots of kluges to try to figure
    it out. */
 
 static size_t pagesize;
+extern int getpagesize PARAMS ((void));
 
 #define PAGE_ALIGN(addr) (caddr_t) (((long)(addr) + pagesize - 1) & \
 				    ~(pagesize - 1))
@@ -132,4 +135,7 @@ __mmalloc_remap_core (mdp)
   return ((PTR) base);
 }
 
+#else	/* defined(HAVE_MMAP) */
+/* Prevent "empty translation unit" warnings from the idiots at X3J11. */
+static char ansi_c_idiots = 69;
 #endif	/* defined(HAVE_MMAP) */

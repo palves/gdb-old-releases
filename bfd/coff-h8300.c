@@ -143,14 +143,13 @@ static void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
   
   relent->addend = reloc->r_offset;
   
-/*  relent->address-= section->vma;*/
+  relent->address-= section->vma;
 /*  relent->section = 0;*/
 }
 
 #include "coffcode.h"
 
 
-#define coff_write_armap bsd_write_armap
 #undef  coff_bfd_get_relocated_section_contents 
 #undef coff_bfd_relax_section
 #define  coff_bfd_get_relocated_section_contents bfd_coff_get_relocated_section_contents

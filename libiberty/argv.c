@@ -48,6 +48,7 @@ char *alloca ();
 extern void *memcpy (void *s1, const void *s2, size_t n);	/* 4.11.2.1 */
 extern size_t strlen (const char *s);				/* 4.11.6.3 */
 extern void *malloc (size_t size);				/* 4.10.3.3 */
+extern void *realloc (void *ptr, size_t size);			/* 4.10.3.4 */
 extern void free (void *ptr);					/* 4.10.3.2 */
 extern char *strdup (const char *s);				/* Non-ANSI */
 
@@ -56,6 +57,7 @@ extern char *strdup (const char *s);				/* Non-ANSI */
 extern char *memcpy ();		/* Copy memory region */
 extern int strlen ();		/* Count length of string */
 extern char *malloc ();		/* Standard memory allocater */
+extern char *realloc ();	/* Standard memory reallocator */
 extern void free ();		/* Free malloc'd memory */
 extern char *strdup ();		/* Duplicate a string */
 
@@ -66,66 +68,10 @@ extern char *strdup ();		/* Duplicate a string */
 #endif
 
 #ifndef EOS
-#define EOS '\000'
+#define EOS '\0'
 #endif
 
-/*  Local data. */
-
-static int argc = 0;
-static int maxargc = 0;
-static char **argv = NULL;
-
-/*
-
-NAME
-
-	expandargv -- initialize or expand an argv
-
-SYNOPSIS
-
-	static int expandargv ()
-
-DESCRIPTION
-
-	Expand argv by a factor of two (or initialize argv for the first
-	time if there is no current argv).
-
-RETURNS
-
-	Returns the new max value for argc, or zero if any error.
-*/
-
-static int expandargv ()
-{
-  register int argvsize;
-  register char **newargv;
-
-  /* Increase maxargc */
-  if (maxargc == 0)
-    {
-      maxargc = 16;
-    }
-  else
-    {
-      maxargc *= 2;
-    }
-  argvsize = (maxargc + 1) * sizeof (char *);
-  if ((newargv = (char **) malloc (argvsize)) == NULL)
-    {
-      maxargc = 0;
-    }
-  else
-    {
-      if (argv != NULL)
-	{
-	  /* Copy and free old args */
-	  memcpy (newargv, argv, argc * sizeof (char *));
-	  free (argv);
-	}
-      argv = newargv;
-    }
-  return (maxargc);
-}
+#define INITIAL_MAXARGC 8	/* Number of args + NULL in initial argv */
 
 
 /*
@@ -142,8 +88,8 @@ SYNOPSIS
 DESCRIPTION
 
 	Free an argument vector that was built using buildargv.  Simply scans
-	through the vector, freeing the memory for each argument, and then
-	finally the vector itself.
+	through the vector, freeing the memory for each argument until the
+	terminating NULL is found, and then frees the vector itself.
 
 RETURNS
 
@@ -206,39 +152,62 @@ NOTES
 	string.  This ensures that we always have enough space in which to
 	work, since the extracted arg is never larger than the input string.
 
+	If the input is a null string (as opposed to a NULL pointer), then
+	buildarg returns an argv that has one arg, a null string.
+
+	Argv is always kept terminated with a NULL arg pointer, so it can
+	be passed to freeargv at any time, or returned, as appropriate.
 */
 
 char **buildargv (input)
 char *input;
 {
-  register char *arg;
-  register int squote = 0;
-  register int dquote = 0;
-  register int bsquote = 0;
+  char *arg;
   char *copybuf;
+  int squote = 0;
+  int dquote = 0;
+  int bsquote = 0;
+  int argc = 0;
+  int maxargc = 0;
+  char **argv = NULL;
+  char **nargv;
 
-  argv = NULL;
   if (input != NULL)
     {
-      argc = 0;
-      maxargc = 0;
       copybuf = alloca (strlen (input) + 1);
-      while (*input != EOS)
+      /* Is a do{}while to always execute the loop once.  Always return an
+	 argv, even for null strings.  See NOTES above, test case below. */
+      do
 	{
 	  /* Pick off argv[argc] */
 	  while (isspace (*input))
 	    {
 	      input++;
 	    }
-	  /* Check to see if argv needs expansion. */
-	  if (argc >= maxargc)
+	  if ((maxargc == 0) || (argc >= (maxargc - 1)))
 	    {
-	      if (expandargv () == 0)
+	      /* argv needs initialization, or expansion */
+	      if (argv == NULL)
 		{
-		  freeargv (argv);
-		  argv = NULL;
+		  maxargc = INITIAL_MAXARGC;
+		  nargv = (char **) malloc (maxargc * sizeof (char *));
+		}
+	      else
+		{
+		  maxargc *= 2;
+		  nargv = (char **) realloc (argv, maxargc * sizeof (char *));
+		}
+	      if (nargv == NULL)
+		{
+		  if (argv != NULL)
+		    {
+		      freeargv (argv);
+		      argv = NULL;
+		    }
 		  break;
 		}
+	      argv = nargv;
+	      argv[argc] = NULL;
 	    }
 	  /* Begin scanning arg */
 	  arg = copybuf;
@@ -300,18 +269,17 @@ char *input;
 		}
 	    }
 	  *arg = EOS;
-	  /* Add arg to argv */
-	  if ((argv[argc++] = strdup (copybuf)) == NULL)
+	  argv[argc] = strdup (copybuf);
+	  if (argv[argc] == NULL)
 	    {
 	      freeargv (argv);
 	      argv = NULL;
 	      break;
 	    }
-	}
-      if (argv != NULL)
-	{
+	  argc++;
 	  argv[argc] = NULL;
 	}
+      while (*input != EOS);
     }
   return (argv);
 }
@@ -328,6 +296,8 @@ static char *tests[] =
   "arg \"foo bar\" has embedded whitespace",
   "arg 'Jack said \\'hi\\'' has single quotes",
   "arg 'Jack said \\\"hi\\\"' has double quotes",
+  "a b c d e f g h i j k l m n o p q r s t u v w x y z 1 2 3 4 5 6 7 8 9",
+  "",
   NULL
 };
 

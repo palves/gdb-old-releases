@@ -41,9 +41,11 @@ fetch_inferior_registers (regno)
 
   registers_fetched ();
   
-  ptrace (PTRACE_GETREGS, inferior_pid, &inferior_registers);
+  ptrace (PTRACE_GETREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) &inferior_registers);
 #ifdef FP0_REGNUM
-  ptrace (PTRACE_GETFPREGS, inferior_pid, &inferior_fp_registers);
+  ptrace (PTRACE_GETFPREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) &inferior_fp_registers);
 #endif 
   
   bcopy (&inferior_registers, registers, 16 * 4);
@@ -88,9 +90,11 @@ store_inferior_registers (regno)
 	 sizeof inferior_fp_registers - sizeof inferior_fp_registers.fps_regs);
 #endif
 
-  ptrace (PTRACE_SETREGS, inferior_pid, &inferior_registers);
+  ptrace (PTRACE_SETREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) &inferior_registers);
 #if FP0_REGNUM
-  ptrace (PTRACE_SETFPREGS, inferior_pid, &inferior_fp_registers);
+  ptrace (PTRACE_SETFPREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) &inferior_fp_registers);
 #endif
 }
 
@@ -111,8 +115,8 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
       error ("Can't find registers in core file");
 
     bcopy ((char *)regs, registers, 16 * 4);
-    supply_register (PS_REGNUM, &regs->r_ps);
-    supply_register (PC_REGNUM, &regs->r_pc);
+    supply_register (PS_REGNUM, (char *)&regs->r_ps);
+    supply_register (PC_REGNUM, (char *)&regs->r_pc);
 
   } else if (which == 2) {
 

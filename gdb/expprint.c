@@ -114,7 +114,7 @@ print_subexp (exp, pos, stream, prec)
     case OP_REGISTER:
       (*pos) += 2;
       fprintf_filtered (stream, "$%s",
-	       longest_to_int (reg_names[exp->elts[pc + 1].longconst]));
+	       reg_names[longest_to_int (exp->elts[pc + 1].longconst)]);
       return;
 
     case OP_INTERNALVAR:

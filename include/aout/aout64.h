@@ -93,7 +93,7 @@ struct external_exec
 #endif
 
 /* Offset in an a.out of the start of the text section. */
-
+#ifndef N_TXTOFF
 #define N_TXTOFF(x)	\
     (N_MAGIC(x) != ZMAGIC ? EXEC_BYTES_SIZE : /* object file or NMAGIC */\
      N_SHARED_LIB(x) ? 0 : \
@@ -101,28 +101,28 @@ struct external_exec
 	    EXEC_BYTES_SIZE :			/* no padding */\
 	    PAGE_SIZE				/* a page of padding */\
     )
-
+#endif
 /* Size of the text section.  It's always as stated, except that we
    offset it to `undo' the adjustment to N_TXTADDR and N_TXTOFF
    for ZMAGIC files that nominally include the exec header
    as part of the first page of text.  (BFD doesn't consider the
    exec header to be part of the text segment.)  */
-
+#ifndef N_TXTSIZE
 #define	N_TXTSIZE(x) \
     ((N_MAGIC(x) != ZMAGIC || N_SHARED_LIB(x)) ? (x).a_text : \
      N_HEADER_IN_TEXT(x)  ?	\
 	    (x).a_text - EXEC_BYTES_SIZE:	/* no padding */\
 	    (x).a_text				/* a page of padding */\
     )
-
+#endif
 /* The address of the data segment in virtual memory.
    It is the text segment address, plus text segment size, rounded
    up to a N_SEGSIZE boundary for pure or pageable files. */
-
+#ifndef N_DATADDR
 #define N_DATADDR(x) \
     (N_MAGIC(x)==OMAGIC? (N_TXTADDR(x)+N_TXTSIZE(x)) \
      :  (N_SEGSIZE(x) + ((N_TXTADDR(x)+N_TXTSIZE(x)-1) & ~(N_SEGSIZE(x)-1))))
-
+#endif
 /* The address of the BSS segment -- immediately after the data segment.  */
 
 #define N_BSSADDR(x)	(N_DATADDR(x) + (x).a_data)

@@ -3,7 +3,6 @@ BEGIN	{
 	  print "/* ==> Do not modify this file!!  It is created automatically";
 	  print "   by copying.awk.  Modify copying.awk instead.  <== */";
 	  print ""
-	  print "#include <stdio.h>"
 	  print "#include \"defs.h\""
 	  print "#include \"command.h\""
 	  print "#include \"gdbcmd.h\""

@@ -1,7 +1,7 @@
 _dnl__								-*- Texinfo -*-
 _dnl__ Copyright (c) 1990 1991 1992 Free Software Foundation, Inc.
 _dnl__ This file is part of the source for the GDB manual.
-_dnl__ M4 FRAGMENT $Id: gdbinv-s.m4.in,v 2.4 1992/03/04 01:08:43 pesch Exp $
+_dnl__ M4 FRAGMENT $Id: gdbinv-s.m4.in,v 2.5 1992/05/15 00:20:43 pesch Exp $
 _dnl__ This text diverted to "Remote Debugging" section in general case;
 _dnl__ however, if we're doing a manual specifically for one of these, it
 _dnl__ belongs up front (in "Getting In and Out" chapter).
@@ -478,23 +478,31 @@ what speed to use over the serial device.
 
 @kindex device
 @cindex serial device for H8/300
-Use the special @code{gdb83} command @samp{device @var{port}} if you need to
-explicitly set the serial device.  The default @var{port} is the first
-available port on your host; on Unix hosts, this is typically something
-like @file{/dev/ttya}, and on DOS hosts @file{com1}.
+Use the special @code{gdb83} command @samp{device @var{port}} if you
+need to explicitly set the serial device.  The default @var{port} is the
+first available port on your host.  This is only necessary on Unix
+hosts, where it is typically something like @file{/dev/ttya}.
+
+On DOS hosts, communication with the serial device is handled by an
+auxiliary program, @code{asynctsr}.  For example, to use @code{COM2} as
+the serial device from a DOS host, execute @samp{asynctsr 2}
+@emph{before} starting GDB.
 
 @kindex speed
 @cindex serial line speed for H8/300
 @code{gdb83} has another special command to set the communications speed
-for the H8/300: @samp{speed @var{bps}}.  
+for the H8/300: @samp{speed @var{bps}}.  This command also is only used
+from Unix hosts; on DOS hosts, set the line speed as usual from outside
+GDB with the DOS @kbd{mode} command (for instance, @w{@samp{mode
+com2:9600,n,8,1,p}} for a 9600 bps connection).
 
 For example, you might start an H8/300 debugging session at 19200 bps
 like this (exploiting the default target and device):
 
 @smallexample
 $ gdb83
-@c FIXME: this falsifies the exact text played out, to permit smallbook
-@c FIXME... format to come out better.
+@c FIXME: this falsifies the linebreaks in the exact text played out, to
+@c FIXME... permit smallbook format to come out better.
 GDB is free software and you are welcome to distribute copies
  of it  under certain conditions; type "show copying" to see 
  the conditions.

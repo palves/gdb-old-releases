@@ -140,7 +140,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define ELF_ST_BIND(val)		(((unsigned int)(val)) >> 4)
 #define ELF_ST_TYPE(val)		((val) & 0xF)
-#define ELF_ST_INFO(bind,type)		(((bind) << 4) & ((type) & 0xF))
+#define ELF_ST_INFO(bind,type)		(((bind) << 4) + ((type) & 0xF))
 
 #define STB_LOCAL	0		/* Symbol not visible outside obj */
 #define STB_GLOBAL	1		/* Symbol visible outside obj */

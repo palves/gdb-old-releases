@@ -17,6 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
+#include <string.h>	/* Prototypes for memcpy, memmove, memset, etc */
+
 #include "mmalloc.h"
 
 extern PTR sbrk ();
@@ -29,6 +31,27 @@ extern PTR sbrk ();
 
 struct mdesc *__mmalloc_default_mdp;
 
+/* Use sbrk() to get more core. */
+
+static PTR
+sbrk_morecore (mdp, size)
+  struct mdesc *mdp;
+  int size;
+{
+  PTR result;
+
+  if ((result = sbrk (size)) == (PTR) -1)
+    {
+      result = NULL;
+    }
+  else
+    {
+      mdp -> breakval += size;
+      mdp -> top += size;
+    }
+  return (result);
+}
+
 /* Initialize the default malloc descriptor if this is the first time
    a request has been made to use the default sbrk'd region. */
 
@@ -40,25 +63,11 @@ __mmalloc_sbrk_init ()
   base = sbrk (0);
   __mmalloc_default_mdp = (struct mdesc *) sbrk (sizeof (struct mdesc));
   memset ((char *) __mmalloc_default_mdp, 0, sizeof (struct mdesc));
-  __mmalloc_default_mdp -> morecore = __mmalloc_sbrk_morecore;
+  __mmalloc_default_mdp -> morecore = sbrk_morecore;
   __mmalloc_default_mdp -> base = base;
   __mmalloc_default_mdp -> breakval = __mmalloc_default_mdp -> top = sbrk (0);
   __mmalloc_default_mdp -> fd = -1;
   return (__mmalloc_default_mdp);
 }
 
-PTR
-__mmalloc_sbrk_morecore (mdp, size)
-  struct mdesc *mdp;
-  int size;
-{
-  PTR result = NULL;
-
-  if ((result = sbrk (size)) != NULL)
-    {
-      mdp -> breakval += size;
-      mdp -> top += size;
-    }
-  return (result);
-}
 

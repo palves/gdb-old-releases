@@ -193,32 +193,47 @@ struct mdesc
   /* If a system call made by the mmalloc package fails, the errno is
      preserved for future examination. */
 
-  int errno;
+  int saved_errno;
 
   /* Pointer to the function that is used to get more core, or return core
      to the system, for requests using this malloc descriptor.  For memory
      mapped regions, this is the mmap() based routine.  There may also be
      a single malloc descriptor that points to an sbrk() based routine
      for systems without mmap() or for applications that call the mmalloc()
-     package with a NULL malloc descriptor. */
+     package with a NULL malloc descriptor.
+
+     FIXME:  For mapped regions shared by more than one process, this
+     needs to be maintained on a per-process basis. */
 
   PTR (*morecore) PARAMS ((struct mdesc *, int));
      
   /* Pointer to the function that causes an abort when the memory checking
      features are activated.  By default this is set to abort(), but can
-     be set to another function by the application using mmalloc(). */
+     be set to another function by the application using mmalloc().
+
+     FIXME:  For mapped regions shared by more than one process, this
+     needs to be maintained on a per-process basis. */
 
   void (*abortfunc) PARAMS ((void));
 
-  /* Debugging hook for free.  */
+  /* Debugging hook for free.
+
+     FIXME:  For mapped regions shared by more than one process, this
+     needs to be maintained on a per-process basis. */
 
   void (*mfree_hook) PARAMS ((PTR, PTR));
 
-  /* Debugging hook for `malloc'.  */
+  /* Debugging hook for `malloc'.
+
+     FIXME:  For mapped regions shared by more than one process, this
+     needs to be maintained on a per-process basis. */
 
   PTR (*mmalloc_hook) PARAMS ((PTR, size_t));
 
-  /* Debugging hook for realloc.  */
+  /* Debugging hook for realloc.
+
+     FIXME:  For mapped regions shared by more than one process, this
+     needs to be maintained on a per-process basis. */
 
   PTR (*mrealloc_hook) PARAMS ((PTR, PTR, size_t));
 
@@ -284,7 +299,7 @@ struct mdesc
   /* An array of keys to data within the mapped region, for use by the
      application.  */
 
-  void *keys[MMALLOC_KEYS];
+  PTR keys[MMALLOC_KEYS];
 
 };
 
@@ -345,10 +360,6 @@ extern struct mdesc *__mmalloc_default_mdp;
    an sbrk() region. */
 
 extern struct mdesc *__mmalloc_sbrk_init PARAMS ((void));
-
-/* Grow or shrink a contiguous region using sbrk(). */
-
-extern PTR __mmalloc_sbrk_morecore PARAMS ((struct mdesc *, int));
 
 /* Grow or shrink a contiguous mapped region using mmap().
    Works much like sbrk() */

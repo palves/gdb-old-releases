@@ -13,13 +13,18 @@
 #define SEEK_SET 0
 #define SEEK_CUR 1
 
-extern int  EXFUN(abort,(void));
+#ifdef __STDC__
+extern void EXFUN(free,(PTR));
+#else /* not __STDC__ */
+extern int EXFUN(free,(PTR));
+#endif /* not __STDC__ */
+extern void  EXFUN(abort,(void));
 extern int  EXFUN(close,(int));
 extern int  EXFUN(fcntl,(int des, int cmd, int e));
 extern int  EXFUN(fprintf,(FILE *,char *,...));
 extern int  EXFUN(printf,(char *,...));
 extern int  EXFUN(qsort,(void *data,int els, int siz, int func()));
-extern int  EXFUN(exit,(int));
+extern void  EXFUN(exit,(int));
 extern int  EXFUN(fseek,(FILE*, int, int));
 extern int  EXFUN(fclose,(FILE*));
 extern void EXFUN(bcopy,(char*,char*,int));
@@ -37,9 +42,11 @@ extern int fwrite();
 extern int sscanf();
 extern int stat();
 extern int strtol();
-void free();
-char *malloc();
-char *realloc();
+#ifndef DONTDECLARE_MALLOC
+extern PTR   EXFUN(malloc,(unsigned));
+extern PTR   EXFUN(realloc, (PTR, unsigned));
+#endif
+
 extern char *strrchr();
 extern char *ctime();
 extern int _flsbuf();

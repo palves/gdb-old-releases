@@ -29,6 +29,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcmd.h"
 #include "target.h"
 #include "breakpoint.h"
+#include "demangle.h"
 
 extern int asm_demangle;	/* Whether to demangle syms in asm printouts */
 extern int addressprint;	/* Whether to print hex addresses in HLL " */
@@ -578,7 +579,7 @@ print_address_symbolic (addr, stream, do_demangle, leadin)
   fputs_filtered (leadin, stream);
   fputs_filtered ("<", stream);
   if (do_demangle)
-    fputs_demangled (msymbol -> name, stream, 1);
+    fputs_demangled (msymbol -> name, stream, DMGL_ANSI | DMGL_PARAMS);
   else
     fputs_filtered (msymbol -> name, stream);
   name_location = msymbol -> address;
@@ -840,7 +841,7 @@ output_command (exp, from_tty)
     {
       exp++;
       fmt = decode_format (&exp, 0, 0);
-      validate_format (fmt, "print");
+      validate_format (fmt, "output");
       format = fmt.format;
     }
 
@@ -876,6 +877,7 @@ address_info (exp, from_tty)
   register struct symbol *sym;
   register struct minimal_symbol *msymbol;
   register long val;
+  register long basereg;
   int is_a_field_of_this;	/* C++: lookup_symbol sets this to nonzero
 				   if exp is a field of `this'. */
 
@@ -904,6 +906,7 @@ address_info (exp, from_tty)
 
   printf ("Symbol \"%s\" is ", SYMBOL_NAME (sym));
   val = SYMBOL_VALUE (sym);
+  basereg = SYMBOL_BASEREG (sym);
 
   switch (SYMBOL_CLASS (sym))
     {
@@ -929,15 +932,39 @@ address_info (exp, from_tty)
       break;
       
     case LOC_ARG:
-      printf ("an argument at offset %ld", val);
+      if (SYMBOL_BASEREG_VALID (sym))
+	{
+	  printf ("an argument at offset %ld from register %s",
+		  val, reg_names[basereg]);
+	}
+      else
+	{
+	  printf ("an argument at offset %ld", val);
+	}
       break;
 
     case LOC_LOCAL_ARG:
-      printf ("an argument at frame offset %ld", val);
+      if (SYMBOL_BASEREG_VALID (sym))
+	{
+	  printf ("an argument at offset %ld from register %s",
+		  val, reg_names[basereg]);
+	}
+      else
+	{
+	  printf ("an argument at frame offset %ld", val);
+	}
       break;
 
     case LOC_LOCAL:
-      printf ("a local variable at frame offset %ld", val);
+      if (SYMBOL_BASEREG_VALID (sym))
+	{
+	  printf ("a local variable at offset %ld from register %s",
+		  val, reg_names[basereg]);
+	}
+      else
+	{
+	  printf ("a local variable at frame offset %ld", val);
+	}
       break;
 
     case LOC_REF_ARG:
@@ -978,8 +1005,6 @@ x_command (exp, from_tty)
     {
       exp++;
       fmt = decode_format (&exp, last_format, last_size);
-      last_size = fmt.size;
-      last_format = fmt.format;
     }
 
   /* If we have an expression, evaluate it and use it as the address.  */
@@ -1008,6 +1033,10 @@ x_command (exp, from_tty)
     }
 
   do_examine (fmt, next_address);
+
+  /* If the examine succeeds, we remember its size and format for next time.  */
+  last_size = fmt.size;
+  last_format = fmt.format;
 
   /* Set a couple of internal variables if appropriate. */
   if (last_examine_value)
@@ -1111,6 +1140,49 @@ ptype_command (typename, from_tty)
   else
      whatis_exp (typename, 1);
 }
+
+#if MAINTENANCE_CMDS
+
+/* Dump details of a type specified either directly or indirectly.
+   Uses the same sort of type lookup mechanism as ptype_command()
+   and whatis_command(). */
+
+void
+maintenance_print_type (typename, from_tty)
+     char *typename;
+     int from_tty;
+{
+  register value val;
+  register struct type *type;
+  register struct cleanup *old_chain;
+  struct expression *expr;
+
+  if (typename != NULL)
+  {
+    expr = parse_expression (typename);
+    old_chain = make_cleanup (free_current_contents, &expr);
+    if (expr -> elts[0].opcode == OP_TYPE)
+      {
+	/* The user expression names a type directly, just use that type. */
+	type = expr -> elts[1].type;
+      }
+    else
+      {
+	/* The user expression may name a type indirectly by naming an
+	   object of that type.  Find that indirectly named type. */
+	val = evaluate_type (expr);
+	type = VALUE_TYPE (val);
+      }
+    if (type != NULL)
+      {
+	recursive_dump_type (type, 0);
+      }
+    do_cleanups (old_chain);
+  }
+}
+
+#endif	/* MAINTENANCE_CMDS */
+
 
 /* Add an expression to the auto-display chain.
    Specify the expression.  */

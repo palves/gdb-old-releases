@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-
 #include "defs.h"
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -27,12 +26,20 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "breakpoint.h"
 #include "command.h"
 #include "obstack.h"
+#include "language.h"
 
 #include <string.h>
 
 #ifndef DEV_TTY
 #define DEV_TTY "/dev/tty"
 #endif
+
+/* Unfortunately for debugging, stderr is usually a macro.  Better if we
+   make a variable which has the same value and which is accessible when
+   debugging GDB with itself.  */
+FILE *std_in  = stdin;
+FILE *std_out = stdout;
+FILE *std_err = stderr;
 
 /* Prototypes for local functions */
 
@@ -48,9 +55,6 @@ dump_msymbols PARAMS ((struct objfile *, FILE *));
 static void 
 dump_objfile PARAMS ((struct objfile *));
 
-static void
-printobjfiles_command PARAMS ((char *, int));
-
 static int
 block_depth PARAMS ((struct block *));
 
@@ -58,19 +62,11 @@ static void
 print_partial_symbol PARAMS ((struct partial_symbol *, int, char *, FILE *));
 
 static void
-printpsyms_command PARAMS ((char *, int));
-
-static void
 print_symbol PARAMS ((struct symbol *, int, FILE *));
-
-static void
-printsyms_command PARAMS ((char *, int));
 
 static void
 free_symtab_block PARAMS ((struct objfile *, struct block *));
 
-static void
-printmsyms_command PARAMS ((char *, int));
 
 /* Free a struct block <- B and all the symbols defined in that block.  */
 
@@ -144,6 +140,8 @@ free_symtab (s)
     mfree (s -> objfile -> md, s -> fullname);
   mfree (s -> objfile -> md, (PTR) s);
 }
+
+#if MAINTENANCE_CMDS
 
 static void 
 dump_objfile (objfile)
@@ -249,7 +247,7 @@ dump_psymtab (objfile, psymtab, outfile)
 		    psymtab -> filename);
   fprintf_filtered (outfile, "(object 0x%x)\n\n", psymtab);
   fprintf (outfile, "  Read from object file %s (0x%x)\n",
-	   objfile -> name, objfile);
+	   objfile -> name, (unsigned int) objfile);
   
   if (psymtab -> readin)
     {
@@ -257,8 +255,15 @@ dump_psymtab (objfile, psymtab, outfile)
 		"  Full symtab was read (at 0x%x by function at 0x%x)\n",
 			psymtab -> symtab, psymtab -> read_symtab);
     }
-  fprintf_filtered (outfile, "  Relocate symbols by 0x%x\n",
-		    psymtab -> addr);
+
+  /* FIXME, we need to be able to print the relocation stuff. */
+  /* This prints some garbage for anything but stabs right now.  FIXME.  */
+  fprintf_filtered (outfile, "  Relocate symbols by 0x%x, 0x%x, 0x%x, 0x%x.\n",
+		    ANOFFSET (psymtab->section_offsets, 0),
+		    ANOFFSET (psymtab->section_offsets, 1),
+		    ANOFFSET (psymtab->section_offsets, 2),
+		    ANOFFSET (psymtab->section_offsets, 3));
+
   fprintf_filtered (outfile, "  Symbols cover text addresses 0x%x-0x%x\n",
 		    psymtab -> textlow, psymtab -> texthigh);
   fprintf_filtered (outfile, "  Depends on %d other partial symtabs.\n",
@@ -293,7 +298,8 @@ dump_symtab (objfile, symtab, outfile)
 
   fprintf (outfile, "\nSymtab for file %s\n", symtab->filename);
   fprintf (outfile, "Read from object file %s (%x)\n", objfile->name,
-	   objfile);
+	   (unsigned int) objfile);
+  fprintf (outfile, "Language: %s\n", language_str (symtab -> language));
   
   /* First print the line table.  */
   l = LINETABLE (symtab);
@@ -313,10 +319,10 @@ dump_symtab (objfile, symtab, outfile)
       b = BLOCKVECTOR_BLOCK (bv, i);
       depth = block_depth (b) * 2;
       print_spaces (depth, outfile);
-      fprintf (outfile, "block #%03d (object 0x%x) ", i, b);
+      fprintf (outfile, "block #%03d (object 0x%x) ", i, (unsigned int) b);
       fprintf (outfile, "[0x%x..0x%x]", BLOCK_START (b), BLOCK_END (b));
       if (BLOCK_SUPERBLOCK (b))
-	fprintf (outfile, " (under 0x%x)", BLOCK_SUPERBLOCK (b));
+	fprintf (outfile, " (under 0x%x)", (unsigned int) BLOCK_SUPERBLOCK (b));
       if (BLOCK_FUNCTION (b))
 	fprintf (outfile, " %s", SYMBOL_NAME (BLOCK_FUNCTION (b)));
       fputc ('\n', outfile);
@@ -329,8 +335,8 @@ dump_symtab (objfile, symtab, outfile)
   fprintf (outfile, "\n");
 }
 
-static void
-printsyms_command (args, from_tty)
+void
+maintenance_print_symbols (args, from_tty)
      char *args;
      int from_tty;
 {
@@ -346,7 +352,7 @@ printsyms_command (args, from_tty)
 
   if (args == NULL)
     {
-      error ("printsyms takes an output file name and optional symbol file name");
+      error ("print-symbols takes an output file name and optional symbol file name");
     }
   else if ((argv = buildargv (args)) == NULL)
     {
@@ -417,8 +423,10 @@ print_symbol (symbol, depth, outfile)
 	fprintf (outfile, "typedef ");
       if (SYMBOL_TYPE (symbol))
 	{
-	  type_print_1 (SYMBOL_TYPE (symbol), SYMBOL_NAME (symbol),
-			outfile, 1, depth);
+	  /* Print details of types, except for enums where it's clutter.  */
+	  type_print_1 (SYMBOL_TYPE (symbol), SYMBOL_NAME (symbol), outfile,
+			TYPE_CODE (SYMBOL_TYPE (symbol)) != TYPE_CODE_ENUM,
+			depth);
 	  fprintf (outfile, "; ");
 	}
       else
@@ -452,12 +460,28 @@ print_symbol (symbol, depth, outfile)
 	  break;
 
 	case LOC_ARG:
-	  fprintf (outfile, "arg at 0x%lx,", SYMBOL_VALUE (symbol));
+	  if (SYMBOL_BASEREG_VALID (symbol))
+	    {
+	      fprintf (outfile, "arg at 0x%lx from register %d,",
+		       SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
+	    }
+	  else
+	    {
+	      fprintf (outfile, "arg at 0x%lx,", SYMBOL_VALUE (symbol));
+	    }
 	  break;
 
 	case LOC_LOCAL_ARG:
-	  fprintf (outfile, "arg at offset 0x%x from fp,",
-		   SYMBOL_VALUE (symbol));
+	  if (SYMBOL_BASEREG_VALID (symbol))
+	    {
+	      fprintf (outfile, "arg at offset 0x%lx from register %d,",
+		       SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
+	    }
+	  else
+	    {
+	      fprintf (outfile, "arg at offset 0x%lx from fp,",
+		       SYMBOL_VALUE (symbol));
+	    }
 
 	case LOC_REF_ARG:
 	  fprintf (outfile, "reference arg at 0x%lx,", SYMBOL_VALUE (symbol));
@@ -468,7 +492,15 @@ print_symbol (symbol, depth, outfile)
 	  break;
 
 	case LOC_LOCAL:
-	  fprintf (outfile, "local at 0x%lx,", SYMBOL_VALUE (symbol));
+	  if (SYMBOL_BASEREG_VALID (symbol))
+	    {
+	      fprintf (outfile, "local at 0x%lx from register %d",
+		       SYMBOL_VALUE (symbol), SYMBOL_BASEREG (symbol));
+	    }
+	  else
+	    {
+	      fprintf (outfile, "local at 0x%lx,", SYMBOL_VALUE (symbol));
+	    }
 	  break;
 
 	case LOC_TYPEDEF:
@@ -480,7 +512,7 @@ print_symbol (symbol, depth, outfile)
 
 	case LOC_BLOCK:
 	  fprintf (outfile, "block (object 0x%x) starting at 0x%x,",
-		   SYMBOL_BLOCK_VALUE (symbol),
+		   (unsigned int) SYMBOL_BLOCK_VALUE (symbol),
 		   BLOCK_START (SYMBOL_BLOCK_VALUE (symbol)));
 	  break;
 
@@ -492,8 +524,8 @@ print_symbol (symbol, depth, outfile)
   fprintf (outfile, "\n");
 }
 
-static void
-printpsyms_command (args, from_tty)
+void
+maintenance_print_psymbols (args, from_tty)
      char *args;
      int from_tty;
 {
@@ -509,7 +541,7 @@ printpsyms_command (args, from_tty)
 
   if (args == NULL)
     {
-      error ("printpsyms takes an output file name and optional symbol file name");
+      error ("print-psymbols takes an output file name and optional symbol file name");
     }
   else if ((argv = buildargv (args)) == NULL)
     {
@@ -624,8 +656,8 @@ print_partial_symbol (p, count, what, outfile)
     }
 }
 
-static void
-printmsyms_command (args, from_tty)
+void
+maintenance_print_msymbols (args, from_tty)
      char *args;
      int from_tty;
 {
@@ -640,7 +672,7 @@ printmsyms_command (args, from_tty)
 
   if (args == NULL)
     {
-      error ("printmsyms takes an output file name and optional symbol file name");
+      error ("print-msymbols takes an output file name and optional symbol file name");
     }
   else if ((argv = buildargv (args)) == NULL)
     {
@@ -675,8 +707,8 @@ printmsyms_command (args, from_tty)
   do_cleanups (cleanups);
 }
 
-static void
-printobjfiles_command (ignore, from_tty)
+void
+maintenance_print_objfiles (ignore, from_tty)
      char *ignore;
      int from_tty;
 {
@@ -689,6 +721,7 @@ printobjfiles_command (ignore, from_tty)
     dump_objfile (objfile);
   immediate_quit--;
 }
+
 
 /* Return the nexting depth of a block within other blocks in its symtab.  */
 
@@ -701,8 +734,12 @@ block_depth (block)
   return i;
 }
 
+#endif	/* MAINTENANCE_CMDS */
+
 
-/* Increase the space allocated for LISTP. */
+/* Increase the space allocated for LISTP, which is probably
+   global_psymbol_list or static_psymbol_list. This space will eventually
+   be freed in free_objfile().  */
 
 void
 extend_psymbol_list (listp, objfile)
@@ -790,16 +827,6 @@ add_psymbol_addr_to_list (name, namelength, namespace, class, listp, psymval)
 void
 _initialize_symmisc ()
 {
-  add_com ("printmsyms", class_obscure, printmsyms_command,
-	   "Print dump of current minimal symbol definitions to file OUTFILE.\n\
-If a SOURCE file is specified, dump only that file's symbols.");
-  add_com ("printpsyms", class_obscure, printpsyms_command,
-	  "Print dump of current partial symbol definitions to file OUTFILE.\n\
-If a SOURCE file is specified, dump only that file's partial symbols.");
-  add_com ("printsyms", class_obscure, printsyms_command,
-	   "Print dump of current symbol definitions to file OUTFILE.\n\
-If a SOURCE file is specified, dump only that file's symbols.");
-  add_com ("printobjfiles", class_obscure, printobjfiles_command,
-	   "Print dump of current object file definitions.");
+  /* Nothing to do... */
 }
 

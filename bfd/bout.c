@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bout.c,v 1.28 1992/04/02 07:26:11 gnu Exp $ */
+/* $Id: bout.c,v 1.33 1992/06/22 15:42:22 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -262,12 +262,14 @@ b_out_write_object_contents (abfd)
 #define BAL_MASK 0x00ffffff
 
 static bfd_reloc_status_type 
-callj_callback(abfd, reloc_entry, symbol_in, data, input_section)
-bfd *abfd;
-arelent *reloc_entry;
-asymbol *symbol_in;
-PTR data;
-asection *input_section;
+DEFUN (callj_callback, (abfd, reloc_entry, symbol_in, data,
+			input_section, output_bfd),
+       bfd *abfd AND
+       arelent *reloc_entry AND
+       asymbol *symbol_in AND
+       PTR data AND
+       asection *input_section AND
+       bfd *output_bfd)
 {
   int  word = bfd_get_32(abfd, (bfd_byte *)data + reloc_entry->address);
   aout_symbol_type  *symbol = aout_symbol(symbol_in);
@@ -311,6 +313,24 @@ static  reloc_howto_type howto_reloc_abs32 =
 HOWTO(1, 0, 2, 32, false, 0, true, true,0,"abs32", true, 0xffffffff,0xffffffff,false);
 static reloc_howto_type howto_reloc_pcrel24 =
 HOWTO(2, 0, 2, 24, true, 0, true, true,0,"pcrel24", true, 0x00ffffff,0x00ffffff,false);
+
+static reloc_howto_type *
+b_out_reloc_type_lookup (abfd, code)
+     bfd *abfd;
+     bfd_reloc_code_real_type code;
+{
+  switch (code)
+    {
+    default:
+      return 0;
+    case BFD_RELOC_I960_CALLJ:
+      return &howto_reloc_callj;
+    case BFD_RELOC_32:
+      return &howto_reloc_abs32;
+    case BFD_RELOC_24_PCREL:
+      return &howto_reloc_pcrel24;
+    }
+}
 
 /* Allocate enough room for all the reloc entries, plus pointers to them all */
 
@@ -436,7 +456,8 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
 	      break;
 	    case N_ABS:
 	    case N_ABS | N_EXT:
-	      BFD_ASSERT(0);
+	      cache_ptr->sym_ptr_ptr = obj_bsssec(abfd)->symbol_ptr_ptr;
+	      cache_ptr->addend = 0;
 	      break;
 	    default:
 	      BFD_ASSERT(0);
@@ -529,14 +550,9 @@ else
     else {
 	raw[7] = len_2;
       }
-    if (output_section == &bfd_abs_section) 
-    {
-      r_extern = 0;
-      r_idx = N_ABS;
-      r_addend += sym->value;
-    }
-    else if (output_section == &bfd_com_section 
-	     || output_section == &bfd_und_section) 
+    if (output_section == &bfd_com_section 
+	|| output_section == &bfd_abs_section
+	|| output_section == &bfd_und_section) 
     {
       /* Fill in symbol */
       r_extern = 1;
@@ -715,6 +731,7 @@ DEFUN(b_out_sizeof_headers,(ignore_abfd, ignore),
 
 #define aout_32_bfd_get_relocated_section_contents  bfd_generic_get_relocated_section_contents
 #define aout_32_bfd_relax_section                   bfd_generic_relax_section
+
 bfd_target b_out_vec_big_host =
 {
   "b.out.big",			/* name */
@@ -738,7 +755,9 @@ _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs
     {bfd_false, b_out_write_object_contents,	/* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(aout_32)
+  JUMP_TABLE(aout_32),
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* COFF stuff?! */
+  b_out_reloc_type_lookup,
 };
 
 
@@ -764,5 +783,7 @@ _do_getl64, _do_putl64, _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* hdrs 
        _bfd_generic_mkarchive, bfd_false},
     {bfd_false, b_out_write_object_contents,	/* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
-  JUMP_TABLE(aout_32)
+  JUMP_TABLE(aout_32),
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* COFF stuff?! */
+  b_out_reloc_type_lookup,
 };

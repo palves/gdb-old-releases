@@ -58,7 +58,7 @@ mmalloc_detach (md)
 	{
 	  if (mtemp.flags & MMALLOC_DEVZERO)
 	    {
-	      (void) close (mtemp.fd);
+	      close (mtemp.fd);
 	    }
 	  md = NULL;
 	}

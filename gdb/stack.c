@@ -28,6 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "target.h"
 #include "breakpoint.h"
+#include "demangle.h"
 
 static void
 return_command PARAMS ((char *, int));
@@ -87,9 +88,8 @@ frame_info PARAMS ((char *, int));
 extern int addressprint;	/* Print addresses, or stay symbolic only? */
 extern int info_verbose;	/* Verbosity of symbol reading msgs */
 extern int lines_to_list;	/* # of lines "list" command shows by default */
-extern char *reg_names[];	/* Names of registers */
 
-/* Thie "selected" stack frame is used by default for local and arg access.
+/* The "selected" stack frame is used by default for local and arg access.
    May be zero, for no selected frame.  */
 
 FRAME selected_frame;
@@ -159,7 +159,7 @@ print_frame_info (fi, level, source, args)
       if (addressprint)
         printf_filtered ("%s in ", local_hex_string(fi->pc));
 
-      fputs_demangled (fname, stdout, -1);
+      fputs_demangled (fname, stdout, 0);
       fputs_filtered (" (...)\n", stdout);
       
       return;
@@ -218,7 +218,7 @@ print_frame_info (fi, level, source, args)
       if (addressprint)
 	if (fi->pc != sal.pc || !sal.symtab)
 	  printf_filtered ("%s in ", local_hex_string(fi->pc));
-      fputs_demangled (funname ? funname : "??", stdout, -1);
+      fputs_demangled (funname ? funname : "??", stdout, 0);
       wrap_here ("   ");
       fputs_filtered (" (", stdout);
       if (args)
@@ -429,7 +429,7 @@ frame_info (addr_exp, from_tty)
   if (funname)
     {
       printf_filtered (" in ");
-      fputs_demangled (funname, stdout, 1);
+      fputs_demangled (funname, stdout, DMGL_ANSI | DMGL_PARAMS);
     }
   wrap_here ("   ");
   if (sal.symtab)
@@ -624,7 +624,7 @@ backtrace_command (count_exp, from_tty)
 	  fi = get_frame_info (frame);
 	  ps = find_pc_psymtab (fi->pc);
 	  if (ps)
-	    (void) PSYMTAB_TO_SYMTAB (ps);	/* Force syms to come in */
+	    PSYMTAB_TO_SYMTAB (ps);	/* Force syms to come in */
 	}
     }
 
@@ -704,7 +704,7 @@ print_block_frame_labels (b, have_default, stream)
 	  struct symtab_and_line sal;
 	  sal = find_pc_line (SYMBOL_VALUE_ADDRESS (sym), 0);
 	  values_printed = 1;
-	  fputs_demangled (SYMBOL_NAME (sym), stream, 1);
+	  fputs_demangled (SYMBOL_NAME (sym), stream, DMGL_ANSI | DMGL_PARAMS);
 	  if (addressprint)
 	    fprintf_filtered (stream, " %s", 
 			      local_hex_string(SYMBOL_VALUE_ADDRESS (sym)));
@@ -779,7 +779,7 @@ print_frame_label_vars (frame, this_level_only, stream)
 
   bl = blockvector_for_pc (BLOCK_END (block) - 4, &index);
   blocks_printed = (char *) alloca (BLOCKVECTOR_NBLOCKS (bl) * sizeof (char));
-  bzero (blocks_printed, BLOCKVECTOR_NBLOCKS (bl) * sizeof (char));
+  memset (blocks_printed, 0, BLOCKVECTOR_NBLOCKS (bl) * sizeof (char));
 
   while (block != 0)
     {
@@ -1066,7 +1066,7 @@ up_silently_command (count_exp, from_tty)
     count = parse_and_eval_address (count_exp);
   count1 = count;
   
-  if (!target_has_stack)
+  if (target_has_stack == 0 || selected_frame == 0)
     error ("No stack.");
 
   frame = find_relative_frame (selected_frame, &count1);
@@ -1099,7 +1099,7 @@ down_silently_command (count_exp, from_tty)
     count = - parse_and_eval_address (count_exp);
   count1 = count;
   
-  if (!target_has_stack)
+  if (target_has_stack == 0 || selected_frame == 0)
     error ("No stack.");
 
   frame = find_relative_frame (selected_frame, &count1);
@@ -1127,6 +1127,9 @@ return_command (retval_exp, from_tty)
   FRAME_ADDR selected_frame_addr;
   CORE_ADDR selected_frame_pc;
   FRAME frame;
+  char *funcname;
+  struct cleanup *back_to;
+  value return_value;
 
   if (selected_frame == NULL)
     error ("No selected frame.");
@@ -1134,14 +1137,30 @@ return_command (retval_exp, from_tty)
   selected_frame_addr = FRAME_FP (selected_frame);
   selected_frame_pc = (get_frame_info (selected_frame))->pc;
 
+  /* Compute the return value (if any -- possibly getting errors here).
+     Call VALUE_CONTENTS to make sure we have fully evaluated it, since
+     it might live in the stack frame we're about to pop.  */
+
+  if (retval_exp)
+    {
+      return_value = parse_and_eval (retval_exp);
+      VALUE_CONTENTS (return_value);
+    }
+
   /* If interactive, require confirmation.  */
 
   if (from_tty)
     {
       if (thisfun != 0)
 	{
-	  if (!query ("Make %s return now? ", SYMBOL_NAME (thisfun)))
-	    error ("Not confirmed.");
+	  funcname = strdup_demangled (SYMBOL_NAME (thisfun));
+	  back_to = make_cleanup (free, funcname);
+	  if (!query ("Make %s return now? ", funcname))
+	    {
+	      error ("Not confirmed.");
+	      /* NOTREACHED */
+	    }
+	  do_cleanups (back_to);
 	}
       else
 	if (!query ("Make selected stack frame return now? "))
@@ -1165,7 +1184,7 @@ return_command (retval_exp, from_tty)
      for return values.  */
 
   if (retval_exp)
-    set_return_value (parse_and_eval (retval_exp));
+    set_return_value (return_value);
 
   /* If interactive, print the frame that is now current.  */
 

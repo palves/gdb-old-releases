@@ -21,9 +21,9 @@ strtoul(s, ptr, base)
 {
   unsigned long total = 0, tmp = 0;
   unsigned digit;
-  int radix;
   CONST char *start=s;
   int did_conversion=0;
+  int negate = 0;
 
   if (s==NULL)
     {
@@ -37,37 +37,33 @@ strtoul(s, ptr, base)
     s++;
   if (*s == '+')
     s++;
-  radix = base;
-  if (base==0 || base==16)
+  else if (*s == '-')
+    s++, negate = 1;
+  if (base==0 || base==16) /*  the 'base==16' is for handling 0x */
     {
       /*
-       * try to infer radix from the string
-       * (assume decimal).
+       * try to infer base from the string
        */
-      if (*s=='0')
-	{
-	  radix = 8;	/* guess it's octal */
-	  s++;		/* (but check for hex) */
-	  if (*s=='X' || *s=='x')
-	    {
-	      s++;
-	      radix = 16;
-	    }
-	}
+      if (*s != '0')
+        tmp = 10;	/* doesn't start with 0 - assume decimal */
+      else if (s[1] == 'X' || s[1] == 'x')
+	tmp = 16, s += 2; /* starts with 0x or 0X - hence hex */
+      else
+	tmp = 8;	/* starts with 0 - hence octal */
+      if (base==0)
+	base = (int)tmp;
     }
-  if (radix==0)
-    radix = 10;
 
   while ( digit = *s )
     {
-      if (digit >= '0' && digit < ('0'+radix))
+      if (digit >= '0' && digit < ('0'+base))
 	digit -= '0';
       else
-	if (radix > 10)
+	if (base > 10)
 	  {
-	    if (digit >= 'a' && digit < ('a'+radix))
+	    if (digit >= 'a' && digit < ('a'+(base-10)))
 	      digit = digit - 'a' + 10;
-	    else if (digit >= 'A' && digit < ('A'+radix))
+	    else if (digit >= 'A' && digit < ('A'+(base-10)))
 	      digit = digit - 'A' + 10;
 	    else
 	      break;
@@ -75,7 +71,7 @@ strtoul(s, ptr, base)
 	else
 	  break;
       did_conversion = 1;
-      tmp = (total * radix) + digit;
+      tmp = (total * base) + digit;
       if (tmp < total)	/* check overflow */
 	{
 	  errno = ERANGE;
@@ -88,5 +84,5 @@ strtoul(s, ptr, base)
     }
   if (ptr != NULL)
     *ptr = (char *) ((did_conversion) ? (char *)s : (char *)start);
-  return (total);
+  return negate ? -total : total;
 }

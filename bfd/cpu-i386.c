@@ -16,7 +16,6 @@ static bfd_arch_info_type arch_info_struct =
     bfd_default_compatible, 
     bfd_default_scan ,
     0,
-    0,
   };
 
 void DEFUN_VOID(bfd_i386_arch)

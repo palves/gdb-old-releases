@@ -52,12 +52,10 @@ INSTALL_DATA = $(INSTALL)
 
 AR = ar
 AR_FLAGS = qv
+CFLAGS = -g
 BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
-
-#### Host, target, and site specific Makefile fragments come in here.
-###
 
 # Define TYPES as -DVOID_SIGHANDLER if your operating system uses
 # a return type of "void" for signal handlers.
@@ -73,10 +71,8 @@ TYPES = -DVOID_SIGHANDLER
 # the vi line editing mode and features.
 READLINE_DEFINES = $(TYPES) -DVI_MODE
 
-MINUS_G=-g
 DEBUG_FLAGS = $(MINUS_G)
 LDFLAGS = $(DEBUG_FLAGS) 
-CFLAGS = $(H_CFLAGS) $(DEBUG_FLAGS) $(USG) -I. $(LOCAL_INCLUDES) $(CPPFLAGS) $(READLINE_DEFINES)
 
 # A good alternative is gcc -traditional.
 #CC = gcc -traditional
@@ -98,7 +94,11 @@ SUPPORT = COPYING Makefile $(DOCUMENTATION) ChangeLog
 
 THINGS_TO_TAR = $(SOURCES) $(SUPPORT)
 
-##########################################################################
+#### Host, target, and site specific Makefile fragments come in here.
+###
+
+.c.o:
+	$(CC) -c $(CFLAGS) $(H_CFLAGS) $(DEBUG_FLAGS) $(USG) -I. $(LOCAL_INCLUDES) $(CPPFLAGS) $(READLINE_DEFINES) $<
 
 STAGESTUFF = *.o
 
@@ -127,10 +127,10 @@ funmap.o:	readline.h
 keymaps.o:	emacs_keymap.c vi_keymap.c keymaps.h chardefs.h keymaps.c
 
 tilde.o:	$(srcdir)/../glob/tilde.c
-	$(CC) -c $(CFLAGS) $(srcdir)/../glob/tilde.c
+	$(CC) -c $(CFLAGS) $(H_CFLAGS) $(DEBUG_FLAGS) $(USG) -I. $(LOCAL_INCLUDES) $(CPPFLAGS) $(READLINE_DEFINES) $(srcdir)/../glob/tilde.c
 
 libtest:	libreadline.a libtest.c
-	$(CC) -o libtest $(CFLAGS) $(CPPFLAGS) -L. libtest.c -lreadline -ltermcap
+	$(CC) -o libtest $(CFLAGS) $(H_CFLAGS) $(DEBUG_FLAGS) $(USG) -I. $(LOCAL_INCLUDES) $(CPPFLAGS) $(READLINE_DEFINES) -L. libtest.c -lreadline -ltermcap
 
 readline: readline.c history.o keymaps.o funmap.o readline.h chardefs.h vi_mode.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(READLINE_DEFINES) \

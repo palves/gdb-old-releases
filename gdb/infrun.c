@@ -109,7 +109,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "breakpoint.h"
 #include "wait.h"
 #include "gdbcore.h"
-#include "signame.h"
 #include "command.h"
 #include "terminal.h"		/* For #ifdef TIOCGPGRP and new_tty */
 #include "target.h"
@@ -157,9 +156,6 @@ static void
 resume_cleanups PARAMS ((int));
 
 extern char **environ;
-
-extern int sys_nerr;
-extern char *sys_errlist[];
 
 extern struct target_ops child_ops;	/* In inftarg.c */
 
@@ -215,9 +211,9 @@ extern dc_dcontext_t current_context;
 
 /* Tables of how to react to signals; the user sets them.  */
 
-static char signal_stop[NSIG];
-static char signal_print[NSIG];
-static char signal_program[NSIG];
+static char *signal_stop;
+static char *signal_print;
+static char *signal_program;
 
 /* Nonzero if breakpoints are now inserted in the inferior.  */
 /* Nonstatic for initialization during xxx_create_inferior. FIXME. */
@@ -585,9 +581,11 @@ child_create_inferior (exec_file, allargs, env)
 	 for the inferior.  */
 
 #ifdef USE_PROC_FS
-      proc_set_exec_trap ();		/* Use SVR4 /proc interface */
+      /* Use SVR4 /proc interface */
+      proc_set_exec_trap ();
 #else
-      call_ptrace (0, 0, 0, 0);		/* "Trace me, Dr. Memory!" */
+      /* "Trace me, Dr. Memory!" */
+      call_ptrace (0, 0, (PTRACE_ARG3_TYPE) 0, 0);
 #endif
 
       /* There is no execlpe call, so we have to set the environment
@@ -599,7 +597,7 @@ child_create_inferior (exec_file, allargs, env)
       execlp (shell_file, shell_file, "-c", shell_command, (char *)0);
 
       fprintf (stderr, "Cannot exec %s: %s.\n", shell_file,
-	       errno < sys_nerr ? sys_errlist[errno] : "unknown error");
+	       safe_strerror (errno));
       fflush (stderr);
       _exit (0177);
     }
@@ -735,6 +733,9 @@ child_attach (args, from_tty)
 #else
   pid = atoi (args);
 
+  if (pid == getpid())		/* Trying to masturbate? */
+    error ("I refuse to debug myself!");
+
   if (target_has_execution)
     {
       if (query ("A program is being debugged already.  Kill it? "))
@@ -817,11 +818,11 @@ wait_for_inferior ()
 	{
 	  target_terminal_ours ();	/* Must do this before mourn anyway */
 	  if (WEXITSTATUS (w))
-	    printf ("\nProgram exited with code 0%o.\n", 
+	    printf_filtered ("\nProgram exited with code 0%o.\n", 
 		     (unsigned int)WEXITSTATUS (w));
 	  else
 	    if (!batch_mode())
-	      printf ("\nProgram exited normally.\n");
+	      printf_filtered ("\nProgram exited normally.\n");
 	  fflush (stdout);
 	  target_mourn_inferior ();
 #ifdef NO_SINGLE_STEP
@@ -837,16 +838,13 @@ wait_for_inferior ()
 	  target_terminal_ours ();	/* Must do this before mourn anyway */
 	  target_kill ();		/* kill mourns as well */
 #ifdef PRINT_RANDOM_SIGNAL
-	  printf ("\nProgram terminated: ");
+	  printf_filtered ("\nProgram terminated: ");
 	  PRINT_RANDOM_SIGNAL (stop_signal);
 #else
-	  printf ("\nProgram terminated with signal %d, %s\n",
-		  stop_signal,
-		  stop_signal < NSIG
-		  ? sys_siglist[stop_signal]
-		  : "(undocumented)");
+	  printf_filtered ("\nProgram terminated with signal %d, %s\n",
+			   stop_signal, safe_strsignal (stop_signal));
 #endif
-	  printf ("The inferior process no longer exists.\n");
+	  printf_filtered ("The inferior process no longer exists.\n");
 	  fflush (stdout);
 #ifdef NO_SINGLE_STEP
 	  one_stepped = 0;
@@ -869,8 +867,7 @@ wait_for_inferior ()
       stop_func_name = 0;
       /* Don't care about return value; stop_func_start and stop_func_name
 	 will both be 0 if it doesn't work.  */
-      (void) find_pc_partial_function (stop_pc, &stop_func_name,
-				       &stop_func_start);
+      find_pc_partial_function (stop_pc, &stop_func_name, &stop_func_start);
       stop_func_start += FUNCTION_START_OFFSET;
       another_trap = 0;
       bpstat_clear (&stop_bpstat);
@@ -902,7 +899,10 @@ wait_for_inferior ()
       if (stop_signal == SIGTRAP
 	  || (breakpoints_inserted &&
 	      (stop_signal == SIGILL
-	       || stop_signal == SIGEMT))
+#ifdef SIGEMT
+	       || stop_signal == SIGEMT
+#endif
+            ))
 	  || stop_soon_quietly)
 	{
 	  if (stop_signal == SIGTRAP && stop_after_trap)
@@ -1007,11 +1007,8 @@ wait_for_inferior ()
 #ifdef PRINT_RANDOM_SIGNAL
 	      PRINT_RANDOM_SIGNAL (stop_signal);
 #else
-	      printf ("\nProgram received signal %d, %s\n",
-		      stop_signal,
-		      stop_signal < NSIG
-		      ? sys_siglist[stop_signal]
-		      : "(undocumented)");
+	      printf_filtered ("\nProgram received signal %d, %s\n",
+			       stop_signal, safe_strsignal (stop_signal));
 #endif /* PRINT_RANDOM_SIGNAL */
 	      fflush (stdout);
 	    }
@@ -1493,7 +1490,7 @@ normal_stop ()
     {
       target_terminal_ours_for_output ();
       print_sys_errmsg ("ptrace", breakpoints_failed);
-      printf ("Stopped; cannot insert breakpoints.\n\
+      printf_filtered ("Stopped; cannot insert breakpoints.\n\
 The same program may be running in another process.\n");
     }
 
@@ -1504,7 +1501,7 @@ The same program may be running in another process.\n");
     if (remove_breakpoints ())
       {
 	target_terminal_ours_for_output ();
-	printf ("Cannot remove breakpoints because program is no longer writable.\n\
+	printf_filtered ("Cannot remove breakpoints because program is no longer writable.\n\
 It might be running in another process.\n\
 Further execution is probably impossible.\n");
       }
@@ -1614,15 +1611,16 @@ static void
 sig_print_info (number)
      int number;
 {
-  char *abbrev = sig_abbrev(number);
-  if (abbrev == NULL)
+  char *name;
+
+  if ((name = strsigno (number)) == NULL)
     printf_filtered ("%d\t\t", number);
   else
-    printf_filtered ("SIG%s (%d)\t", abbrev, number);
+    printf_filtered ("%s (%d)\t", name, number);
   printf_filtered ("%s\t", signal_stop[number] ? "Yes" : "No");
   printf_filtered ("%s\t", signal_print[number] ? "Yes" : "No");
   printf_filtered ("%s\t\t", signal_program[number] ? "Yes" : "No");
-  printf_filtered ("%s\n", sys_siglist[number]);
+  printf_filtered ("%s\n", safe_strsignal (number));
 }
 
 /* Specify how various signals in the inferior should be handled.  */
@@ -1666,7 +1664,7 @@ handle_command (args, from_tty)
 	    {
 	      /* Numeric.  */
 	      signum = atoi (p);
-	      if (signum <= 0 || signum >= NSIG)
+	      if (signum <= 0 || signum > signo_max ())
 		{
 		  p[wordlen] = '\0';
 		  error ("Invalid signal %s given as argument to \"handle\".", p);
@@ -1675,14 +1673,14 @@ handle_command (args, from_tty)
 	  else
 	    {
 	      /* Symbolic.  */
-	      signum = sig_number (p);
-	      if (signum == -1)
+	      signum = strtosigno (p);
+	      if (signum == 0)
 		error ("No such signal \"%s\"", p);
 	    }
 
 	  if (signum == SIGTRAP || signum == SIGINT)
 	    {
-	      if (!query ("SIG%s is used by the debugger.\nAre you sure you want to change it? ", sig_abbrev (signum)))
+	      if (!query ("%s is used by the debugger.\nAre you sure you want to change it? ", strsigno (signum)))
 		error ("Not confirmed.");
 	    }
 	}
@@ -1744,8 +1742,8 @@ signals_info (signum_exp, from_tty)
   if (signum_exp)
     {
       /* First see if this is a symbol name.  */
-      i = sig_number (signum_exp);
-      if (i == -1)
+      i = strtosigno (signum_exp);
+      if (i == 0)
 	{
 	  /* Nope, maybe it's an address which evaluates to a signal
 	     number.  */
@@ -1801,7 +1799,7 @@ save_inferior_status (inf_status, restore_stack_info)
   inf_status->restore_stack_info = restore_stack_info;
   inf_status->proceed_to_finish = proceed_to_finish;
   
-  bcopy (stop_registers, inf_status->stop_registers, REGISTER_BYTES);
+  memcpy (inf_status->stop_registers, stop_registers, REGISTER_BYTES);
   
   record_selected_frame (&(inf_status->selected_frame_address),
 			 &(inf_status->selected_level));
@@ -1835,7 +1833,7 @@ restore_inferior_status (inf_status)
   breakpoint_proceeded = inf_status->breakpoint_proceeded;
   proceed_to_finish = inf_status->proceed_to_finish;
 
-  bcopy (inf_status->stop_registers, stop_registers, REGISTER_BYTES);
+  memcpy (stop_registers, inf_status->stop_registers, REGISTER_BYTES);
 
   /* The inferior can be gone if the user types "print exit(0)"
      (and perhaps other times).  */
@@ -1873,6 +1871,7 @@ void
 _initialize_infrun ()
 {
   register int i;
+  register int numsigs;
 
   add_info ("signals", signals_info,
 	    "What debugger does when program gets various signals.\n\
@@ -1888,7 +1887,11 @@ Stop means reenter debugger if this signal happens (implies print).\n\
 Pass means let program see this signal; otherwise program doesn't know.\n\
 Pass and Stop may be combined.");
 
-  for (i = 0; i < NSIG; i++)
+  numsigs = signo_max () + 1;
+  signal_stop = xmalloc (sizeof (signal_stop[0]) * numsigs);
+  signal_print = xmalloc (sizeof (signal_print[0]) * numsigs);
+  signal_program = xmalloc (sizeof (signal_program[0]) * numsigs);
+  for (i = 0; i < numsigs; i++)
     {
       signal_stop[i] = 1;
       signal_print[i] = 1;

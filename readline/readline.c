@@ -1,7 +1,7 @@
 /* readline.c -- a general facility for reading lines of input
-   with emacs style editing and completion. */
+   with emacs style editing and completion.  */
 
-/* Copyright (C) 1987, 1989, 1991 Free Software Foundation, Inc.
+/* Copyright 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
 
    This file contains the Readline Library (the Library), a set of
    routines for providing Emacs style line input to programs that ask
@@ -97,6 +97,72 @@ static char *xmalloc (), *xrealloc ();
 #    define _POSIX_VDISABLE -1
 #  endif /* !_POSIX_VERSION */
 #endif /* !NEW_TTY_DRIVER && !_POSIX_VDISABLE */
+
+/* Define some macros for dealing with assorted signalling disciplines.
+
+   These macros provide a way to use signal blocking and disabling
+   without smothering your code in a pile of #ifdef's.
+
+   SIGNALS_UNBLOCK;			Stop blocking all signals.
+
+   {
+     SIGNALS_DECLARE_SAVED (name);	Declare a variable to save the 
+					signal blocking state.
+	...
+     SIGNALS_BLOCK (SIGSTOP, name);	Block a signal, and save the previous
+					state for restoration later.
+	...
+     SIGNALS_RESTORE (name);		Restore previous signals.
+   }
+
+*/
+
+#ifdef HAVE_POSIX_SIGNALS
+							/* POSIX signals */
+
+#define	SIGNALS_UNBLOCK \
+      do { sigset_t set;	\
+	sigemptyset (&set);	\
+	sigprocmask (SIG_SETMASK, &set, (sigset_t *)NULL);	\
+      } while (0)
+
+#define	SIGNALS_DECLARE_SAVED(name)	sigset_t name
+
+#define	SIGNALS_BLOCK(SIG, saved)	\
+	do { sigset_t set;		\
+	  sigemptyset (&set);		\
+	  sigaddset (&set, SIG);	\
+	  sigprocmask (SIG_BLOCK, &set, &saved);	\
+	} while (0)
+
+#define	SIGNALS_RESTORE(saved)		\
+  sigprocmask (SIG_SETMASK, &saved, (sigset_t *)NULL)
+
+
+#else	/* HAVE_POSIX_SIGNALS */
+#ifdef HAVE_BSD_SIGNALS
+							/* BSD signals */
+
+#define	SIGNALS_UNBLOCK			sigsetmask (0)
+#define	SIGNALS_DECLARE_SAVED(name)	int name
+#define	SIGNALS_BLOCK(SIG, saved)	saved = sigblock (sigmask (SIG))
+#define	SIGNALS_RESTORE(saved)		sigsetmask (saved)
+
+
+#else  /* HAVE_BSD_SIGNALS */
+							/* None of the Above */
+
+#define	SIGNALS_UNBLOCK			/* nothing */
+#define	SIGNALS_DECLARE_SAVED(name)	/* nothing */
+#define	SIGNALS_BLOCK(SIG, saved)	/* nothing */
+#define	SIGNALS_RESTORE(saved)		/* nothing */
+
+
+#endif /* HAVE_BSD_SIGNALS */
+#endif /* HAVE_POSIX_SIGNALS */
+
+/*  End of signal handling definitions.  */
+
 
 #include <errno.h>
 extern int errno;
@@ -163,7 +229,7 @@ extern char *tilde_expand ();
 static update_line ();
 static void output_character_function ();
 static delete_chars ();
-static insert_some_chars ();
+static void insert_some_chars ();
 
 #if defined (VOID_SIGHANDLER)
 #  define sighandler void
@@ -179,7 +245,7 @@ typedef sighandler SigHandler ();
 #define HANDLE_SIGNALS
 
 #ifdef __GO32__
-#include <pc.h>
+#include <sys/pc.h>
 #undef HANDLE_SIGNALS
 #endif
 
@@ -241,7 +307,7 @@ static jmp_buf readline_top_level;
 static FILE *in_stream, *out_stream;
 
 /* The names of the streams that we do input and output to. */
-FILE *rl_instream = stdin, *rl_outstream = stdout;
+FILE *rl_instream, *rl_outstream;
 
 /* Non-zero means echo characters as they are read. */
 int readline_echoing_p = 1;
@@ -292,6 +358,7 @@ static unsigned char parsing_conditionalized_out = 0;
 
 /* Caseless strcmp (). */
 static int stricmp (), strnicmp ();
+static char *strpbrk ();
 
 /* Non-zero means to save keys that we dispatch on in a kbd macro. */
 static int defining_kbd_macro = 0;
@@ -539,18 +606,7 @@ rl_signal_handler (sig)
 
       kill (getpid (), sig);
 
-#if defined (HAVE_POSIX_SIGNALS)
-      {
-	sigset_t set;
-
-	sigemptyset (&set);
-	sigprocmask (SIG_SETMASK, &set, (sigset_t *)NULL);
-      }
-#else
-#if defined (HAVE_BSD_SIGNALS)
-      sigsetmask (0);
-#endif /* HAVE_BSD_SIGNALS */
-#endif /* HAVE_POSIX_SIGNALS */
+      SIGNALS_UNBLOCK;
 
       rl_prep_terminal ();
       rl_set_signals ();
@@ -1118,6 +1174,12 @@ readline_initialize_everything ()
 {
   /* Find out if we are running in Emacs. */
   running_in_emacs = getenv ("EMACS");
+
+  /* Set up input and output if they aren't already.  */
+  if (!rl_instream)
+    rl_instream = stdin;
+  if (!rl_outstream)
+    rl_outstream = stdout;
 
   /* Allocate data structures. */
   if (!rl_line_buffer)
@@ -1961,6 +2023,11 @@ static char *term_string_buffer = (char *)NULL;
 /* Non-zero means this terminal can't really do anything. */
 int dumb_term = 0;
 
+/* On Solaris2, sys/types.h brings in sys/reg.h,
+   which screws up the Termcap variable PC, used below.  */
+
+#undef	PC	
+
 char PC;
 char *BC, *UP;
 
@@ -2159,7 +2226,7 @@ delete_chars (count)
 }
 
 /* Insert COUNT characters from STRING to the output stream. */
-static
+static void
 insert_some_chars (string, count)
      char *string;
      int count;
@@ -2292,14 +2359,12 @@ rl_prep_terminal ()
 {
 #ifndef __GO32__
   int tty = fileno (rl_instream);
-#if defined (HAVE_BSD_SIGNALS)
-  int oldmask;
-#endif /* HAVE_BSD_SIGNALS */
+  SIGNALS_DECLARE_SAVED (saved_signals);
 
   if (terminal_prepped)
     return;
 
-  oldmask = sigblock (sigmask (SIGINT));
+  SIGNALS_BLOCK (SIGINT, saved_signals);
 
   /* We always get the latest tty values.  Maybe stty changed them. */
   ioctl (tty, TIOCGETP, &the_ttybuff);
@@ -2389,9 +2454,7 @@ rl_prep_terminal ()
 
   terminal_prepped = 1;
 
-#if defined (HAVE_BSD_SIGNALS)
-  sigsetmask (oldmask);
-#endif
+  SIGNALS_RESTORE (saved_signals);
 #endif /* !__GO32__ */
 }
 
@@ -2401,14 +2464,12 @@ rl_deprep_terminal ()
 {
 #ifndef __GO32__
   int tty = fileno (rl_instream);
-#if defined (HAVE_BSD_SIGNALS)
-  int oldmask;
-#endif
+  SIGNALS_DECLARE_SAVED (saved_signals);
 
   if (!terminal_prepped)
     return;
 
-  oldmask = sigblock (sigmask (SIGINT));
+  SIGNALS_BLOCK (SIGINT, saved_signals);
 
   the_ttybuff.sg_flags = original_tty_flags;
   ioctl (tty, TIOCSETN, &the_ttybuff);
@@ -2427,9 +2488,7 @@ rl_deprep_terminal ()
 #endif
   terminal_prepped = 0;
 
-#if defined (HAVE_BSD_SIGNALS)
-  sigsetmask (oldmask);
-#endif
+  SIGNALS_RESTORE (saved_signals);
 #endif /* !__GO32 */
 }
 
@@ -2462,28 +2521,14 @@ rl_prep_terminal ()
   struct termio tio;
 #endif /* !TERMIOS_TTY_DRIVER */
 
-#if defined (HAVE_POSIX_SIGNALS)
-  sigset_t set, oset;
-#else
-#  if defined (HAVE_BSD_SIGNALS)
-  int oldmask;
-#  endif /* HAVE_BSD_SIGNALS */
-#endif /* !HAVE_POSIX_SIGNALS */
+  SIGNALS_DECLARE_SAVED (saved_signals);
 
   if (terminal_prepped)
     return;
 
   /* Try to keep this function from being INTerrupted.  We can do it
      on POSIX and systems with BSD-like signal handling. */
-#if defined (HAVE_POSIX_SIGNALS)
-  sigemptyset (&set);
-  sigaddset (&set, SIGINT);
-  sigprocmask (SIG_BLOCK, &set, &oset);
-#else /* !HAVE_POSIX_SIGNALS */
-#  if defined (HAVE_BSD_SIGNALS)
-  oldmask = sigblock (sigmask (SIGINT));
-#  endif /* HAVE_BSD_SIGNALS */
-#endif /* !HAVE_POSIX_SIGNALS */
+  SIGNALS_BLOCK (SIGINT, saved_signals);
 
 #if defined (TERMIOS_TTY_DRIVER)
   tcgetattr (tty, &tio);
@@ -2550,13 +2595,7 @@ rl_prep_terminal ()
 
   terminal_prepped = 1;
 
-#if defined (HAVE_POSIX_SIGNALS)
-  sigprocmask (SIG_SETMASK, &oset, (sigset_t *)NULL);
-#else
-#  if defined (HAVE_BSD_SIGNALS)
-  sigsetmask (oldmask);
-#  endif /* HAVE_BSD_SIGNALS */
-#endif /* !HAVE_POSIX_SIGNALS */
+  SIGNALS_RESTORE (saved_signals);
 #endif /* !__GO32__ */
 }
 
@@ -2568,26 +2607,12 @@ rl_deprep_terminal ()
 
   /* Try to keep this function from being INTerrupted.  We can do it
      on POSIX and systems with BSD-like signal handling. */
-#if defined (HAVE_POSIX_SIGNALS)
-  sigset_t set, oset;
-#else /* !HAVE_POSIX_SIGNALS */
-#  if defined (HAVE_BSD_SIGNALS)
-  int oldmask;
-#  endif /* HAVE_BSD_SIGNALS */
-#endif /* !HAVE_POSIX_SIGNALS */
+  SIGNALS_DECLARE_SAVED (saved_signals);
 
   if (!terminal_prepped)
     return;
 
-#if defined (HAVE_POSIX_SIGNALS)
-  sigemptyset (&set);
-  sigaddset (&set, SIGINT);
-  sigprocmask (SIG_BLOCK, &set, &oset);
-#else /* !HAVE_POSIX_SIGNALS */
-#  if defined (HAVE_BSD_SIGNALS)
-  oldmask = sigblock (sigmask (SIGINT));
-#  endif /* HAVE_BSD_SIGNALS */
-#endif /* !HAVE_POSIX_SIGNALS */
+  SIGNALS_BLOCK (SIGINT, saved_signals);
 
 #if defined (TERMIOS_TTY_DRIVER)
   tcsetattr (tty, TCSADRAIN, &otio);
@@ -2599,13 +2624,7 @@ rl_deprep_terminal ()
 
   terminal_prepped = 0;
 
-#if defined (HAVE_POSIX_SIGNALS)
-  sigprocmask (SIG_SETMASK, &oset, (sigset_t *)NULL);
-#else /* !HAVE_POSIX_SIGNALS */
-#  if defined (HAVE_BSD_SIGNALS)
-  sigsetmask (oldmask);
-#  endif /* HAVE_BSD_SIGNALS */
-#endif /* !HAVE_POSIX_SIGNALS */
+  SIGNALS_RESTORE (saved_signals);
 #endif /* !__GO32__ */
 }
 #endif  /* NEW_TTY_DRIVER */
@@ -3619,6 +3638,12 @@ char *rl_basic_word_break_characters = " \t\n\"\\'`@$><=;|&{(";
    rl_basic_word_break_characters.  */
 char *rl_completer_word_break_characters = (char *)NULL;
 
+/* The list of characters which are used to quote a substring of the command
+   line.  Command completion occurs on the entire substring, and within the
+   substring rl_completer_word_break_characters are treated as any other
+   character, unless they also appear within this list. */
+char *rl_completer_quote_characters = (char *)NULL;
+
 /* List of characters that are word break characters, but should be left
    in TEXT when it is passed to the completion function.  The shell uses
    this to help determine what kind of completing to do. */
@@ -3654,8 +3679,10 @@ rl_complete_internal (what_to_do)
   char *filename_completion_function ();
   char **completion_matches (), **matches;
   Function *our_func;
-  int start, end, delimiter = 0;
+  int start, scan, end, delimiter = 0;
   char *text, *saved_line_buffer;
+  char quote_char = '\0';
+  char *replacement;
 
   if (the_line)
     saved_line_buffer = savestring (the_line);
@@ -3675,8 +3702,41 @@ rl_complete_internal (what_to_do)
 
   if (rl_point)
     {
-      while (--rl_point &&
-	     !rindex (rl_completer_word_break_characters, the_line[rl_point]));
+      if (rl_completer_quote_characters)
+	{
+	  /* We have a list of characters which can be used in pairs to quote
+	     substrings for completion.  Try to find the start of an unclosed
+	     quoted substring.
+	     FIXME:  Doesn't yet handle '\' escapes to hid embedded quotes */
+	  for (scan = 0; scan < end; scan++)
+	    {
+	      if (quote_char != '\0')
+		{
+		  /* Ignore everything until the matching close quote char */
+		  if (the_line[scan] == quote_char)
+		    {
+		      /* Found matching close quote. Abandon this substring. */
+		      quote_char = '\0';
+		      rl_point = end;
+		    }
+		}
+	      else if (rindex (rl_completer_quote_characters, the_line[scan]))
+		{
+		  /* Found start of a quoted substring. */
+		  quote_char = the_line[scan];
+		  rl_point = scan + 1;
+		}
+	    }
+	}
+      if (rl_point == end)
+	{
+	  /* We didn't find an unclosed quoted substring upon which to do
+	     completion, so use the word break characters to find the
+	     substring on which to do completion. */
+	  while (--rl_point &&
+		 !rindex (rl_completer_word_break_characters,
+			  the_line[rl_point])) {;}
+	}
 
       /* If we are at a word break, then advance past it. */
       if (rindex (rl_completer_word_break_characters, the_line[rl_point]))
@@ -3728,7 +3788,7 @@ rl_complete_internal (what_to_do)
     some_matches:
 
       /* It seems to me that in all the cases we handle we would like
-	 to ignore duplicate possiblilities.  Scan for the text to
+	 to ignore duplicate possibilities.  Scan for the text to
 	 insert being identical to the other completions. */
       if (rl_ignore_completion_duplicates)
 	{
@@ -3801,11 +3861,40 @@ rl_complete_internal (what_to_do)
 	      our_func == (int (*)())filename_completion_function)
 	    (void)(*rl_ignore_some_completions_function)(matches);
 
-	  if (matches[0])
+	  /* If we are doing completions on quoted substrings, and any matches
+	     contain any of the completer word break characters, then auto-
+	     matically prepend the substring with a quote character (just
+	     pick the first one from the list of such) if it does not already
+	     begin with a quote string.  FIXME:  Need to remove any such
+	     automatically inserted quote character when it no longer is
+	     necessary, such as if we change the string we are completing on
+	     and the new set of matches don't require a quoted substring? */
+
+	  replacement = matches[0];
+	  if (matches[0] != NULL
+	      && rl_completer_quote_characters != NULL
+	      && (quote_char == '\0'))
+	    {
+	      for (i = 1; matches[i] != NULL; i++)
+		{
+		  if (strpbrk (matches[i], rl_completer_word_break_characters))
+		    {
+		      /* Found an embedded word break character in a potential
+			 match, so need to prepend a quote character if we are
+			 replacing the completion string. */
+		      replacement = alloca (strlen (matches[0]) + 2);
+		      quote_char = *rl_completer_quote_characters;
+		      *replacement = quote_char;
+		      strcpy (replacement + 1, matches[0]);
+		      break;
+		    }
+		}
+	    }
+	  if (replacement)
 	    {
 	      rl_delete_text (start, rl_point);
 	      rl_point = start;
-	      rl_insert_text (matches[0]);
+	      rl_insert_text (replacement);
 	    }
 
 	  /* If there are more matches, ring the bell to indicate.
@@ -3819,10 +3908,15 @@ rl_complete_internal (what_to_do)
 	    }
 	  else
 	    {
-	      char temp_string[2];
+	      char temp_string[16];
+	      int temp_index = 0;
 
-	      temp_string[0] = delimiter ? delimiter : ' ';
-	      temp_string[1] = '\0';
+	      if (quote_char)
+		{
+		  temp_string[temp_index++] = quote_char;
+		}
+	      temp_string[temp_index++] = delimiter ? delimiter : ' ';
+	      temp_string[temp_index++] = '\0';
 
 	      if (rl_filename_completion_desired)
 		{
@@ -6311,6 +6405,27 @@ rl_function_dumper (print_readably)
 /* **************************************************************** */
 
 static char *strindex ();
+
+/* Return pointer to first occurance in STRING1 of any character from STRING2,
+   or NULL if no occurance found. */
+static char *
+strpbrk (string1, string2)
+     char *string1, *string2;
+{
+  register char *scan;
+
+  for (; *string1 != '\0'; string1++)
+    {
+      for (scan = string2; *scan != '\0'; scan++)
+	{
+	  if (*string1 == *scan)
+	    {
+	      return (string1);
+	    }
+	}
+    }
+  return (NULL);
+}
 
 /* Return non-zero if any members of ARRAY are a substring in STRING. */
 static int

@@ -279,12 +279,14 @@ Relocations for the H8
 
 */
 static bfd_reloc_status_type 
-DEFUN(howto16_callback,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
-bfd *abfd AND
-arelent *reloc_entry AND
-struct symbol_cache_entry *symbol_in AND
-PTR data AND
-asection *ignore_input_section)
+DEFUN(howto16_callback,(abfd, reloc_entry, symbol_in, data,
+			ignore_input_section, ignore_bfd),
+      bfd *abfd AND
+      arelent *reloc_entry AND
+      struct symbol_cache_entry *symbol_in AND
+      PTR data AND
+      asection *ignore_input_section AND
+      bfd *ignore_bfd)
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -300,12 +302,14 @@ asection *ignore_input_section)
 
 
 static bfd_reloc_status_type 
-DEFUN(howto8_callback,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
-bfd *abfd AND
-arelent *reloc_entry AND
-struct symbol_cache_entry *symbol_in AND
-PTR data AND
-asection *ignore_input_section)
+DEFUN(howto8_callback,(abfd, reloc_entry, symbol_in, data,
+		       ignore_input_section, ignore_bfd),
+      bfd *abfd AND
+      arelent *reloc_entry AND
+      struct symbol_cache_entry *symbol_in AND
+      PTR data AND
+      asection *ignore_input_section AND
+      bfd *ignore_bfd)
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -321,12 +325,14 @@ asection *ignore_input_section)
 
 
 static bfd_reloc_status_type 
-DEFUN(howto8_FFnn_callback,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
-bfd *abfd AND
-arelent *reloc_entry AND
-struct symbol_cache_entry *symbol_in AND
-PTR data AND
-asection *ignore_input_section)
+DEFUN(howto8_FFnn_callback,(abfd, reloc_entry, symbol_in, data,
+			    ignore_input_section, ignore_bfd),
+      bfd *abfd AND
+      arelent *reloc_entry AND
+      struct symbol_cache_entry *symbol_in AND
+      PTR data AND
+      asection *ignore_input_section AND
+      bfd *ignore_bfd)
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -342,12 +348,14 @@ asection *ignore_input_section)
 }
 
 static bfd_reloc_status_type 
-DEFUN(howto8_pcrel_callback,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
-bfd *abfd AND
-arelent *reloc_entry AND
-struct symbol_cache_entry *symbol_in AND
-PTR data AND
-asection *ignore_input_section)
+DEFUN(howto8_pcrel_callback,(abfd, reloc_entry, symbol_in, data,
+			     ignore_input_section, ignore_bfd),
+      bfd *abfd AND
+      arelent *reloc_entry AND
+      struct symbol_cache_entry *symbol_in AND
+      PTR data AND
+      asection *ignore_input_section AND
+      bfd *ignore_bfd)
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -378,7 +386,7 @@ static reloc_howto_type howto_8_pcrel
 static CONST struct reloc_howto_struct *
 DEFUN(local_bfd_reloc_type_lookup,(arch, code),
  CONST struct bfd_arch_info *arch AND
- bfd_reloc_code_type code)
+ bfd_reloc_code_real_type code)
 {
   switch (code) {
   case BFD_RELOC_16:
@@ -421,7 +429,7 @@ static bfd_arch_info_type arch_info_struct =
     bfd_default_compatible,
     h8300_scan,
     print_insn_h8300,
-    local_bfd_reloc_type_lookup,
+/*    local_bfd_reloc_type_lookup, */
     0,
   };
 

@@ -96,6 +96,7 @@ DESCRIPTION
 .  bfd_arch_pyramid,   {* Pyramid Technology *}
 .  bfd_arch_h8300,     {* Hitachi H8/300 *}
 .  bfd_arch_rs6000,    {* IBM RS/6000 *}
+.  bfd_arch_hppa,      {* HP PA RISC *}
 .  bfd_arch_last
 .  };
 
@@ -104,7 +105,7 @@ DESCRIPTION
 
 
 
-/* $Id: archures.c,v 1.22 1991/12/08 00:55:40 sac Exp $ */
+/* $Id: archures.c,v 1.26 1992/06/22 15:42:20 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -119,7 +120,6 @@ DESCRIPTION
 	This structure contains information on architectures for use
 	within BFD.
 
-.typedef int bfd_reloc_code_type;
 .
 .typedef struct bfd_arch_info 
 .{
@@ -130,8 +130,8 @@ DESCRIPTION
 .  long mach;
 .  char *arch_name;
 .  CONST  char *printable_name;
+.  unsigned int section_align_power;
 . {* true if this is the default machine for the architecture *}
-. unsigned int section_align_power;
 .  boolean the_default;	
 .  CONST struct bfd_arch_info * EXFUN((*compatible),
 .	(CONST struct bfd_arch_info *a,
@@ -140,12 +140,11 @@ DESCRIPTION
 .  boolean EXFUN((*scan),(CONST struct bfd_arch_info *,CONST char *));
 .  unsigned int EXFUN((*disassemble),(bfd_vma addr, CONST char *data,
 .				     PTR stream));
-.  CONST struct reloc_howto_struct *EXFUN((*reloc_type_lookup),
-.    (CONST struct bfd_arch_info *,
-.    bfd_reloc_code_type  code));
+.
+.  unsigned int segment_size;
+.  unsigned int page_size;
 .
 .  struct bfd_arch_info *next;
-.
 .} bfd_arch_info_type;
 */
 
@@ -256,8 +255,6 @@ bfd_arch_info_type bfd_default_arch_struct =
     bfd_default_compatible,
     bfd_default_scan, 
     0,
-    bfd_default_reloc_type_lookup
-
 };
 
 /*
@@ -415,6 +412,7 @@ extern void EXFUN(bfd_a29k_arch,(void));
 extern void EXFUN(bfd_mips_arch,(void));
 extern void EXFUN(bfd_i386_arch,(void));
 extern void EXFUN(bfd_rs6000_arch,(void));
+extern void EXFUN(bfd_hppa_arch,(void));
 
 
 
@@ -433,6 +431,7 @@ static void EXFUN((*archures_init_table[]),()) =
   bfd_m68k_arch,
   bfd_vax_arch,
   bfd_rs6000_arch,
+  bfd_hppa_arch,
 #endif
   0
   };

@@ -20,7 +20,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 NAME
 
-	bcopy -- copy memory regions of arbitary length
+	bcopy -- copy memory regions of arbitrary length
 
 SYNOPSIS
 

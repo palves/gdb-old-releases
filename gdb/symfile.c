@@ -70,7 +70,7 @@ symfile_bfd_open PARAMS ((char *));
 static void
 find_sym_fns PARAMS ((struct objfile *));
 
-static void
+void
 clear_symtab_users_once PARAMS ((void));
 
 /* List of all available sym_fns.  On gdb startup, each object file reader
@@ -332,6 +332,27 @@ init_entry_point_info (objfile)
     }
 }
 
+/* Remember the lowest-addressed loadable section we've seen.  
+   This function is called via bfd_map_over_sections.  */
+
+#if 0 	/* Not used yet */
+static void
+find_lowest_section (abfd, sect, obj)
+     bfd *abfd;
+     asection *sect;
+     PTR obj;
+{
+  asection **lowest = (asection **)obj;
+
+  if (0 == (bfd_get_section_flags (abfd, sect) & SEC_LOAD))
+    return;
+  if (!*lowest)
+    *lowest = sect;		/* First loadable section */
+  else if (bfd_section_vma (abfd, *lowest) >= bfd_section_vma (abfd, sect))
+    *lowest = sect;		/* A lower loadable section */
+}
+#endif 
+
 /* Process a symbol file, as either the main file or as a dynamically
    loaded file.
 
@@ -351,7 +372,8 @@ syms_from_objfile (objfile, addr, mainline, verbo)
      int mainline;
      int verbo;
 {
-  asection *text_sect;
+  struct section_offsets *section_offsets;
+  asection *lowest_sect;
 
   /* There is a distinction between having no symbol table
      (we refuse to read the file, leaving the old set of symbols around)
@@ -382,12 +404,40 @@ syms_from_objfile (objfile, addr, mainline, verbo)
 	}
 
       (*objfile -> sf -> sym_new_init) (objfile);
+    }
 
-      /* For mainline, caller didn't know the specified address of the
-         text section.  We fix that here.  */
+  /* Convert addr into an offset rather than an absolute address.
+     We find the lowest address of a loaded segment in the objfile,
+     and assume that <addr> is where that got loaded.  Due to historical
+     precedent, we warn if that doesn't happen to be the ".text"
+     segment.  */
 
-      text_sect = bfd_get_section_by_name (objfile -> obfd, ".text");
-      addr = bfd_section_vma (objfile -> obfd, text_sect);
+  if (mainline)
+    {
+      addr = 0;		/* No offset from objfile addresses.  */
+    }
+  else
+    {
+      lowest_sect = bfd_get_section_by_name (objfile->obfd, ".text");
+#if 0
+      lowest_sect = 0;
+      bfd_map_over_sections (objfile->obfd, find_lowest_section,
+			     (PTR) &lowest_sect);
+#endif
+
+      if (lowest_sect == 0)
+	warning ("no loadable sections found in added symbol-file %s",
+		 objfile->name);
+      else if (0 == bfd_get_section_name (objfile->obfd, lowest_sect)
+	       || 0 != strcmp(".text",
+			      bfd_get_section_name (objfile->obfd, lowest_sect)))
+	warning ("Lowest section in %s is %s at 0x%x",
+		 objfile->name,
+		 bfd_section_name (objfile->obfd, lowest_sect),
+		 bfd_section_vma (objfile->obfd, lowest_sect));
+
+      if (lowest_sect)
+	addr -= bfd_section_vma (objfile->obfd, lowest_sect);
     }
 
   /* Initialize symbol reading routines for this objfile, allow complaints to
@@ -396,7 +446,8 @@ syms_from_objfile (objfile, addr, mainline, verbo)
 
   (*objfile -> sf -> sym_init) (objfile);
   clear_complaints (1, verbo);
-  (*objfile -> sf -> sym_read) (objfile, addr, mainline);
+  section_offsets = (*objfile -> sf -> sym_offsets) (objfile, addr);
+  (*objfile -> sf -> sym_read) (objfile, section_offsets, mainline);
 
   /* Don't allow char * to have a typename (else would get caddr_t.)  */
   /* Ditto void *.  FIXME should do this for all the builtin types.  */
@@ -404,6 +455,22 @@ syms_from_objfile (objfile, addr, mainline, verbo)
   TYPE_NAME (lookup_pointer_type (builtin_type_char)) = 0;
   TYPE_NAME (lookup_pointer_type (builtin_type_void)) = 0;
 
+  /* Mark the objfile has having had initial symbol read attempted.  Note
+     that this does not mean we found any symbols... */
+
+  objfile -> flags |= OBJF_SYMS;
+}
+
+/* Perform required actions immediately after either reading in the initial
+   symbols for a new objfile, or mapping in the symbols from a reusable
+   objfile. */
+   
+void
+new_symfile_objfile (objfile, mainline, verbo)
+     struct objfile *objfile;
+     int mainline;
+     int verbo;
+{
   if (mainline)
     {
       /* OK, make it the "real" symbol file.  */
@@ -475,6 +542,11 @@ symbol_file_add (name, from_tty, addr, mainline, mapped, readnow)
       && !query ("Load new symbol table from \"%s\"? ", name))
       error ("Not confirmed.");
       
+  /* Getting new symbols may change our opinion about what is
+     frameless.  */
+
+  reinit_frame_cache ();
+
   objfile = allocate_objfile (abfd, mapped);
 
   /* If the objfile uses a mapped symbol file, and we have a psymtab for
@@ -492,6 +564,8 @@ symbol_file_add (name, from_tty, addr, mainline, mapped, readnow)
 	  wrap_here ("");
 	  fflush (stdout);
 	}
+      init_entry_point_info (objfile);
+      find_sym_fns (objfile);
     }
   else
     {
@@ -505,8 +579,9 @@ symbol_file_add (name, from_tty, addr, mainline, mapped, readnow)
 	  fflush (stdout);
 	}
       syms_from_objfile (objfile, addr, mainline, from_tty);
-      objfile -> flags |= OBJF_SYMS;
     }      
+
+  new_symfile_objfile (objfile, mainline, from_tty);
 
   /* We now have at least a partial symbol table.  Check to see if the
      user requested that all symbols be read on initial access via either
@@ -526,7 +601,7 @@ symbol_file_add (name, from_tty, addr, mainline, mapped, readnow)
 	   psymtab != NULL;
 	   psymtab = psymtab -> next)
 	{
-	  (void) psymtab_to_symtab (psymtab);
+	  psymtab_to_symtab (psymtab);
 	}
     }
 
@@ -564,6 +639,10 @@ symbol_file_command (args, from_tty)
 	error ("Not confirmed.");
       free_all_objfiles ();
       symfile_objfile = NULL;
+      if (from_tty)
+	{
+	  printf ("No symbol file now.\n");
+	}
     }
   else
     {
@@ -599,11 +678,7 @@ symbol_file_command (args, from_tty)
 	}
       else
 	{
-	  /* Getting new symbols may change our opinion about what is
-	     frameless.  */
-	  reinit_frame_cache ();
-	  (void) symbol_file_add (name, from_tty, (CORE_ADDR)0, 1,
-				     mapped, readnow);
+	  symbol_file_add (name, from_tty, (CORE_ADDR)0, 1, mapped, readnow);
 	}
       do_cleanups (cleanups);
     }
@@ -633,6 +708,7 @@ symfile_bfd_open (name)
     }
   free (name);			/* Free 1st new malloc'd copy */
   name = absolute_name;		/* Keep 2nd malloc'd copy in bfd */
+				/* It'll be freed in free_objfile(). */
 
   sym_bfd = bfd_fdopenr (name, NULL, desc);
   if (!sym_bfd)
@@ -775,12 +851,7 @@ add_symbol_file_command (args, from_tty)
 	      name, local_hex_string (text_addr)))
     error ("Not confirmed.");
 
-  /* Getting new symbols may change our opinion about what is
-     frameless.  */
-
-  reinit_frame_cache ();
-
-  (void) symbol_file_add (name, 0, text_addr, 0, mapped, readnow);
+  symbol_file_add (name, 0, text_addr, 0, mapped, readnow);
 }
 
 /* Re-read symbols if a symbol-file has changed.  */
@@ -968,7 +1039,7 @@ allocate_symtab (filename, objfile)
 
   symtab = (struct symtab *)
     obstack_alloc (&objfile -> symbol_obstack, sizeof (struct symtab));
-  (void) memset (symtab, 0, sizeof (*symtab));
+  memset (symtab, 0, sizeof (*symtab));
   symtab -> filename = obsavestring (filename, strlen (filename),
 				     &objfile -> symbol_obstack);
   symtab -> fullname = NULL;
@@ -1004,7 +1075,7 @@ allocate_psymtab (filename, objfile)
       obstack_alloc (&objfile -> psymbol_obstack,
 		     sizeof (struct partial_symtab));
 
-  (void) memset (psymtab, 0, sizeof (struct partial_symtab));
+  memset (psymtab, 0, sizeof (struct partial_symtab));
   psymtab -> filename = obsavestring (filename, strlen (filename),
 				      &objfile -> psymbol_obstack);
   psymtab -> symtab = NULL;
@@ -1047,7 +1118,7 @@ allocate_psymtab (filename, objfile)
 static int clear_symtab_users_queued;
 static int clear_symtab_users_done;
 
-static void
+void
 clear_symtab_users_once ()
 {
   /* Enforce once-per-`do_cleanups'-semantics */
@@ -1229,10 +1300,10 @@ again2:
 
 
 struct partial_symtab *
-start_psymtab_common (objfile, addr,
+start_psymtab_common (objfile, section_offsets,
 		      filename, textlow, global_syms, static_syms)
      struct objfile *objfile;
-     CORE_ADDR addr;
+     struct section_offsets *section_offsets;
      char *filename;
      CORE_ADDR textlow;
      struct partial_symbol *global_syms;
@@ -1241,14 +1312,51 @@ start_psymtab_common (objfile, addr,
   struct partial_symtab *psymtab;
 
   psymtab = allocate_psymtab (filename, objfile);
-  psymtab -> addr = addr;
+  psymtab -> section_offsets = section_offsets;
   psymtab -> textlow = textlow;
   psymtab -> texthigh = psymtab -> textlow;  /* default */
   psymtab -> globals_offset = global_syms - objfile -> global_psymbols.list;
   psymtab -> statics_offset = static_syms - objfile -> static_psymbols.list;
   return (psymtab);
 }
+
+/* Debugging versions of functions that are usually inline macros
+   (see symfile.h).  */
 
+#if 0		/* Don't quite work nowadays... */
+
+/* Add a symbol with a long value to a psymtab.
+   Since one arg is a struct, we pass in a ptr and deref it (sigh).  */
+
+void
+add_psymbol_to_list (name, namelength, namespace, class, list, val)
+     char *name;
+     int namelength;
+     enum namespace namespace;
+     enum address_class class;
+     struct psymbol_allocation_list *list;
+     long val;
+{
+  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, (*list), val,
+			  SYMBOL_VALUE);
+}
+
+/* Add a symbol with a CORE_ADDR value to a psymtab. */
+
+void
+add_psymbol_addr_to_list (name, namelength, namespace, class, list, val)
+     char *name;
+     int namelength;
+     enum namespace namespace;
+     enum address_class class;
+     struct psymbol_allocation_list *list;
+     CORE_ADDR val;
+{
+  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, (*list), val,
+			  SYMBOL_VALUE_ADDRESS);
+}
+
+#endif /* 0 */
 
 void
 _initialize_symfile ()

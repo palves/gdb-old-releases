@@ -522,7 +522,7 @@ target_xfer_memory (memaddr, myaddr, len, write)
 	  /* If this address is for nonexistent memory,
 	     read zeros if reading, or do nothing if writing.  Return error. */
 	  if (!write)
-	    bzero (myaddr, len);
+	    memset (myaddr, 0, len);
 	  if (errno == 0)
 	    return EIO;
 	  else

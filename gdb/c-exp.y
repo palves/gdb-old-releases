@@ -42,14 +42,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symfile.h"
 #include "objfiles.h"
 
-/* Ensure that if the generated parser contains any calls to malloc/realloc,
-   that they get mapped to xmalloc/xrealloc. */
-
-#define malloc	xmalloc
-#define realloc	xrealloc
-
-/* These MUST be included in any grammar file!!!! 
-   Please choose unique names! */
+/* These MUST be included in any grammar file!!!! Please choose unique names!
+   Note that this are a combined list of variables that can be produced
+   by any one of bison, byacc, or yacc. */
 #define	yymaxdepth c_maxdepth
 #define	yyparse	c_parse
 #define	yylex	c_lex
@@ -77,6 +72,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yy_yyv	c_yyv
 #define	yyval	c_val
 #define	yylloc	c_lloc
+#define yyss	c_yyss		/* byacc */
+#define	yyssp	c_yysp		/* byacc */
+#define	yyvs	c_yyvs		/* byacc */
+#define	yyvsp	c_yyvsp		/* byacc */
 
 int
 yyparse PARAMS ((void));
@@ -156,13 +155,13 @@ parse_number PARAMS ((char *, int, int, YYSTYPE *));
 
 %token <ssym> NAME_OR_INT NAME_OR_UINT
 
-%token STRUCT UNION ENUM SIZEOF UNSIGNED COLONCOLON
+%token STRUCT CLASS UNION ENUM SIZEOF UNSIGNED COLONCOLON
 %token TEMPLATE
 %token ERROR
 
 /* Special type cases, put in to allow the parser to distinguish different
    legal basetypes.  */
-%token SIGNED_KEYWORD LONG SHORT INT_KEYWORD
+%token SIGNED_KEYWORD LONG SHORT INT_KEYWORD CONST_KEYWORD VOLATILE_KEYWORD
 
 %token <lval> LAST REGNAME
 
@@ -193,6 +192,19 @@ parse_number PARAMS ((char *, int, int, YYSTYPE *));
 %token <ssym> BLOCKNAME 
 %type <bval> block
 %left COLONCOLON
+
+%{
+/* Ensure that if the generated parser contains any calls to malloc/realloc,
+   that they get mapped to xmalloc/xrealloc.  We have to do this here
+   rather than earlier in the file because this is the first point after
+   the place where the SVR4 yacc includes <malloc.h>, and if we do it
+   before that, then the remapped declarations in <malloc.h> will collide
+   with the ones in "defs.h". */
+
+#define malloc	xmalloc
+#define realloc	xrealloc
+%}
+
 
 %%
 
@@ -822,6 +834,9 @@ type	:	ptype
 			{ $$ = lookup_member_type
 			    (lookup_function_type ($1), $3);
 			  free ((PTR)$8); }
+	/* "const" and "volatile" are curently ignored. */
+	|	CONST_KEYWORD type { $$ = $2; }
+	|	VOLATILE_KEYWORD type { $$ = $2; }
 	;
 
 typebase
@@ -852,6 +867,9 @@ typebase
 	|	STRUCT name
 			{ $$ = lookup_struct (copy_name ($2),
 					      expression_context_block); }
+	|	CLASS name
+			{ $$ = lookup_struct (copy_name ($2),
+					      expression_context_block); }
 	|	UNION name
 			{ $$ = lookup_union (copy_name ($2),
 					     expression_context_block); }
@@ -863,7 +881,7 @@ typebase
 	|	UNSIGNED
 			{ $$ = builtin_type_unsigned_int; }
 	|	SIGNED_KEYWORD typename
-			{ $$ = $2.type; }
+			{ $$ = lookup_signed_typename (TYPE_NAME($2.type)); }
 	|	SIGNED_KEYWORD
 			{ $$ = builtin_type_int; }
 	|	TEMPLATE name '<' type '>'
@@ -895,13 +913,13 @@ typename:	TYPENAME
 
 nonempty_typelist
 	:	type
-		{ $$ = (struct type **)xmalloc (sizeof (struct type *) * 2);
-		  $$[0] = (struct type *)0;
+		{ $$ = (struct type **) xmalloc (sizeof (struct type *) * 2);
+		  $<ivec>$[0] = 1;	/* Number of types in vector */
 		  $$[1] = $1;
 		}
 	|	nonempty_typelist ',' type
-		{ int len = sizeof (struct type *) * ++($<ivec>1[0]);
-		  $$ = (struct type **)xrealloc ((char *) $1, len);
+		{ int len = sizeof (struct type *) * (++($<ivec>1[0]) + 1);
+		  $$ = (struct type **) xrealloc ((char *) $1, len);
 		  $$[$<ivec>$[0]] = $3;
 		}
 	;
@@ -1112,6 +1130,9 @@ yylex ()
       goto retry;
 
     case '\'':
+      /* We either have a character constant ('0' or '\177' for example)
+	 or we have a quoted symbol reference ('foo(int,int)' in C++
+	 for example). */
       lexptr++;
       c = *lexptr++;
       if (c == '\\')
@@ -1119,7 +1140,17 @@ yylex ()
       yylval.lval = c;
       c = *lexptr++;
       if (c != '\'')
-	error ("Invalid character constant.");
+	{
+	  namelen = skip_quoted (tokstart) - tokstart;
+	  if (namelen > 2)
+	    {
+	      lexptr = tokstart + namelen;
+	      namelen -= 2;
+	      tokstart++;
+	      goto tryname;
+	    }
+	  error ("Invalid character constant.");
+	}
       return CHAR;
 
     case '(':
@@ -1196,7 +1227,7 @@ yylex ()
 	  {
 	    char *err_copy = (char *) alloca (p - tokstart + 1);
 
-	    bcopy (tokstart, err_copy, p - tokstart);
+	    memcpy (err_copy, tokstart, p - tokstart);
 	    err_copy[p - tokstart] = 0;
 	    error ("Invalid number \"%s\".", err_copy);
 	  }
@@ -1272,6 +1303,7 @@ yylex ()
      and $$digits (equivalent to $<-digits> if you could type that).
      Make token type LAST, and put the number (the digits) in yylval.  */
 
+  tryname:
   if (*tokstart == '$')
     {
       register int negate = 0;
@@ -1330,6 +1362,8 @@ yylex ()
       if (current_language->la_language == language_cplus
 	  && !strncmp (tokstart, "template", 8))
 	return TEMPLATE;
+      if (!strncmp (tokstart, "volatile", 8))
+	return VOLATILE_KEYWORD;
       break;
     case 6:
       if (!strncmp (tokstart, "struct", 6))
@@ -1340,10 +1374,15 @@ yylex ()
 	return SIZEOF;
       break;
     case 5:
+      if (current_language->la_language == language_cplus
+	  && !strncmp (tokstart, "class", 5))
+	return CLASS;
       if (!strncmp (tokstart, "union", 5))
 	return UNION;
       if (!strncmp (tokstart, "short", 5))
 	return SHORT;
+      if (!strncmp (tokstart, "const", 5))
+	return CONST_KEYWORD;
       break;
     case 4:
       if (!strncmp (tokstart, "enum", 4))

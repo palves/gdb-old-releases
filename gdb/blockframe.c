@@ -39,6 +39,8 @@ int
 inside_entry_file (addr)
      CORE_ADDR addr;
 {
+  if (symfile_objfile == 0)
+    return 0;
   return (addr >= symfile_objfile -> ei.entry_file_lowpc &&
 	  addr <  symfile_objfile -> ei.entry_file_highpc);
 }
@@ -53,6 +55,8 @@ int
 inside_main_func (pc)
 CORE_ADDR pc;
 {
+  if (symfile_objfile == 0)
+    return 0;
   return (symfile_objfile -> ei.main_func_lowpc  <= pc &&
 	  symfile_objfile -> ei.main_func_highpc > pc);
 }
@@ -67,6 +71,8 @@ int
 inside_entry_func (pc)
 CORE_ADDR pc;
 {
+  if (symfile_objfile == 0)
+    return 0;
   return (symfile_objfile -> ei.entry_func_lowpc  <= pc &&
 	  symfile_objfile -> ei.entry_func_highpc > pc);
 }

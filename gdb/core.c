@@ -49,10 +49,6 @@ get_core_registers PARAMS ((int));
 static void
 core_files_info PARAMS ((struct target_ops *));
 
-extern int sys_nerr;
-extern char *sys_errlist[];
-extern char *sys_siglist[];
-
 extern char registers[];
 
 /* Hook for `exec_file_command' command to call.  */
@@ -176,7 +172,7 @@ core_open (filename, from_tty)
   siggy = bfd_core_file_failing_signal (core_bfd);
   if (siggy > 0)
     printf ("Program terminated with signal %d, %s.\n", siggy,
-	    siggy < NSIG ? sys_siglist[siggy] : "(undocumented)");
+	    safe_strsignal (siggy));
 
   if (ontop) {
     /* Fetch all registers from core file */
@@ -184,7 +180,7 @@ core_open (filename, from_tty)
 
     /* Add symbols and section mappings for any shared libraries */
 #ifdef SOLIB_ADD
-    (void) catch_errors (solib_add_stub, (char *)from_tty, (char *)0);
+    catch_errors (solib_add_stub, (char *)from_tty, (char *)0);
 #endif
 
     /* Now, set up the frame cache, and print the top of stack */
@@ -193,9 +189,9 @@ core_open (filename, from_tty)
     select_frame (get_current_frame (), 0);
     print_stack_frame (selected_frame, selected_frame_level, 1);
   } else {
-    printf (
-"Warning: you won't be able to access this core file until you terminate\n\
-your %s; do ``info files''\n", current_target->to_longname);
+    warning (
+"you won't be able to access this core file until you terminate\n\
+your %s; do ``info files''", current_target->to_longname);
   }
 }
 
@@ -267,9 +263,9 @@ validate_files ()
   if (exec_bfd && core_bfd)
     {
       if (!core_file_matches_executable_p (core_bfd, exec_bfd))
-	printf ("Warning: core file may not match specified executable file.\n");
+	warning ("core file may not match specified executable file.");
       else if (bfd_get_mtime(exec_bfd) > bfd_get_mtime(core_bfd))
-	printf ("Warning: exec file is newer than core file.\n");
+	warning ("exec file is newer than core file.");
     }
 }
 
@@ -312,12 +308,8 @@ memory_error (status, memaddr)
     }
   else
     {
-      if (status >= sys_nerr || status < 0)
-	error ("Error accessing memory address %s: unknown error (%d).",
-	       local_hex_string(memaddr), status);
-      else
-	error ("Error accessing memory address %s: %s.",
-	       local_hex_string(memaddr), sys_errlist[status]);
+      error ("Error accessing memory address %s: %s.",
+	     local_hex_string (memaddr), safe_strerror (status));
     }
 }
 

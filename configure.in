@@ -3,7 +3,7 @@
 # script appropriate for this directory.  For more information, check
 # any existing configure script.
 
-configdirs="mmalloc libiberty bfd binutils byacc bison gcc readline glob ld gas gdb emacs ispell make grep diff rcs cvs patch send_pr libg++ newlib gprof"
+configdirs="autoconf libgcc mmalloc libiberty bfd binutils byacc bison flex gcc readline glob ld gas gdb emacs ispell make grep diff rcs cvs patch send_pr libg++ newlib gprof gdbtest"
 srctrigger=cfg-paper.texi
 srcname="gnu development package"
 
@@ -15,9 +15,11 @@ case "${host_os}" in
 aix*)		host_makefile_frag=config/mh-aix ;;
 m88kbcs)	host_makefile_frag=config/mh-delta88;;
 sysv4*)		host_makefile_frag=config/mh-sysv4 ;;
+solaris*)	host_makefile_frag=config/mh-solaris ;;
 sysv* | irix3)	host_makefile_frag=config/mh-sysv ;;
 sco*)		host_makefile_frag=config/mh-sco ;;
 irix4)		host_makefile_frag=config/mh-irix4 ;;
+linux)		host_makefile_frag=config/mh-linux ;;
 ultrix*)
 	case "${host_cpu}" in
 	mips)	host_makefile_frag=config/mh-decstation ;;
@@ -32,6 +34,10 @@ apollo*)	case "${host_cpu}" in
 			bsd*) host_makefile_frag=config/mh-a68bsd ;;
 			esac;;
 		esac ;;
+ncr*)		case "${host_os}" in
+		sysv4*) host_makefile_frag=config/mh-ncr3000 ;;
+		esac ;;
+			
 esac
 
 # per-target:
@@ -41,8 +47,8 @@ bfd_target=
 case "${target_vendor}" in
 amd)
 	case "${target_os}" in
-		ebmon) 	bfd_target="ebmon29k" 
-			;;
+		ebmon) 	bfd_target="ebmon29k" ;;
+		udi) 	bfd_target="udi29k" ;;
 		*) echo "bad target_os for amd"	;;
 	esac
 	;;
@@ -54,7 +60,7 @@ esac
 case "${target_cpu}" in
 	mips)  configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
 	;;
-	rs6000)configdirs=`echo ${configdirs} | sed -e 's/gas//'`
+	rs6000)configdirs=`echo ${configdirs} | sed -e 's/gas//;s/binutils//;s/ld//'`
 esac
 
 target_makefile_frag=config/mt-${bfd_target}
@@ -64,3 +70,4 @@ target_makefile_frag=config/mt-${bfd_target}
 # fill-column: 131
 # End:
 #
+

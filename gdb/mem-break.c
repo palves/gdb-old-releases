@@ -36,7 +36,9 @@ static unsigned char break_insn[] = BREAKPOINT;
 
 /* This is only to check that BREAKPOINT fits in BREAKPOINT_MAX bytes.  */
 
+#if 0  /* FIXME:  Unused */
 static unsigned char check_break_insn_size[BREAKPOINT_MAX] = BREAKPOINT;
+#endif
 
 /* Insert a breakpoint on machines that don't have any better breakpoint
    support.  We read the contents of the target location and stash it,

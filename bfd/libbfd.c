@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: libbfd.c,v 1.30 1992/01/24 22:44:23 sac Exp $ */
+/* $Id: libbfd.c,v 1.31 1992/05/26 03:43:09 raeburn Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -152,7 +152,7 @@ DESCRIPTION
 DEFUN(PTR bfd_xmalloc,(size),
       bfd_size_type size)
 {
-  static char no_memory_message[] = "Virtual memory exhausted!\n";
+  static CONST char no_memory_message[] = "Virtual memory exhausted!\n";
   PTR ptr;
   if (size == 0) size = 1;
   ptr = (PTR)malloc(size);

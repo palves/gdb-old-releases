@@ -1,4 +1,4 @@
-		README for gdb-4.5 release
+		README for gdb-4.6 release
     Stu Grossman & John Gilmore 	10 Apr 1992
 
 This is GDB, the GNU source-level debugger, presently running under un*x.
@@ -11,22 +11,22 @@ Unpacking and Installation -- quick overview
 In this release, the GDB debugger sources, the generic GNU include
 files, the BFD ("binary file description") library, the readline library,
 and other libraries all have directories of their own underneath
-the gdb-4.5 directory.  The idea is that a variety of GNU tools can
+the gdb-4.6 directory.  The idea is that a variety of GNU tools can
 share a common copy of these things.  Configuration scripts and
 makefiles exist to cruise up and down this directory tree and
 automatically build all the pieces in the right order.
 
-When you unpack the gdb-4.5.tar.Z file, you'll get a directory called
-`gdb-4.5', which contains:
+When you unpack the gdb-4.6.tar.Z file, you'll get a directory called
+`gdb-4.6', which contains:
 
-  Makefile.in     config/         configure.man   libiberty/
-  README          config.sub*     gdb/            mmalloc/
-  bfd/            configure*      glob/           readline/
-  cfg-paper.texi  configure.in    include/        texinfo/
+ Makefile.in     config/         configure.man   libiberty/      texinfo/
+ README          config.sub*     gdb/            mmalloc/
+ bfd/            configure*      glob/           move-if-change*
+ cfg-paper.texi  configure.in    include/        readline/
 
 To build GDB, you can just do:
 
-	cd gdb-4.5
+	cd gdb-4.6
 	./configure HOSTTYPE		(e.g. sun4, decstation)
 	make
 	cp gdb/gdb /usr/local/bin/gdb	(or wherever you want)
@@ -44,8 +44,8 @@ More Documentation
 
    The GDB 4 release includes an already-formatted reference card,
 ready for printing on a PostScript or GhostScript printer, in the `gdb'
-subdirectory of the main source directory--in `gdb-4.5/gdb/refcard.ps'
-of the version 4.5 release.  If you have a PostScript or GhostScript
+subdirectory of the main source directory--in `gdb-4.6/gdb/refcard.ps'
+of the version 4.6 release.  If you have a PostScript or GhostScript
 printer, you can print the reference card by just sending `refcard.ps'
 to the printer.
 
@@ -69,14 +69,17 @@ and TeX (or `texi2roff') to typeset the printed version.
    GDB includes an already formatted copy of the on-line Info version
 of this manual in the `gdb' subdirectory.  The main Info file is
 `gdb-VERSION-NUMBER/gdb/gdb.info', and it refers to subordinate files
-matching `gdb.info*' in the same directory.
+matching `gdb.info*' in the same directory.  You can read these files
+by hand if necessary, but they are easier to read using the `info'
+subsystem in GNU Emacs, or by using the standalone `info' program,
+available as part of the texinfo distribution.
 
    If you want to format these Info files yourself, you need one of the
 Info formatting programs, such as `texinfo-format-buffer' or
 `makeinfo'.
 
    If you have `makeinfo' installed, and are in the top level GDB
-source directory (`gdb-4.5', in the case of version 4.5), you can make
+source directory (`gdb-4.6', in the case of version 4.6), you can make
 the Info file by typing:
 
      cd gdb
@@ -103,7 +106,7 @@ file.  `texinfo.tex' is distributed with GDB and is located in the
    If you have TeX and a DVI printer program installed, you can
 typeset and print this manual.  First switch to the the `gdb'
 subdirectory of the main source directory (for example, to
-`gdb-4.5/gdb') and then type:
+`gdb-4.6/gdb') and then type:
 
      make gdb.dvi
 
@@ -118,36 +121,36 @@ program.
 in a single directory, whose name is usually composed by appending the
 version number to `gdb'.
 
-   For example, the GDB version 4.5 distribution is in the `gdb-4.5'
+   For example, the GDB version 4.6 distribution is in the `gdb-4.6'
 directory.  That directory contains:
 
-`gdb-4.5/configure (and supporting files)'
+`gdb-4.6/configure (and supporting files)'
      script for configuring GDB and all its supporting libraries.
 
-`gdb-4.5/gdb'
+`gdb-4.6/gdb'
      the source specific to GDB itself
 
-`gdb-4.5/bfd'
+`gdb-4.6/bfd'
      source for the Binary File Descriptor library
 
-`gdb-4.5/include'
+`gdb-4.6/include'
      GNU include files
 
-`gdb-4.5/libiberty'
+`gdb-4.6/libiberty'
      source for the `-liberty' free software library
 
-`gdb-4.5/readline'
+`gdb-4.6/readline'
      source for the GNU command-line interface
 
-`gdb-4.5/glob'
+`gdb-4.6/glob'
      source for the GNU filename pattern-matching subroutine
 
-`gdb-4.5/mmalloc'
+`gdb-4.6/mmalloc'
      source for the GNU memory-mapped malloc package
 
    The simplest way to configure and build GDB is to run `configure'
 from the `gdb-VERSION-NUMBER' source directory, which in this example
-is the `gdb-4.5' directory.
+is the `gdb-4.6' directory.
 
    First switch to the `gdb-VERSION-NUMBER' source directory if you
 are not already in it; then run `configure'.  Pass the identifier for
@@ -155,7 +158,7 @@ the platform on which GDB will run as an argument.
 
    For example:
 
-     cd gdb-4.5
+     cd gdb-4.6
      ./configure HOST
      make
 
@@ -174,8 +177,8 @@ you may need to run `sh' on it explicitly:
      sh configure HOST
 
    If you run `configure' from a directory that contains source
-directories for multiple libraries or programs, such as the `gdb-4.5'
-source directory for version 4.5, `configure' creates configuration
+directories for multiple libraries or programs, such as the `gdb-4.6'
+source directory for version 4.6, `configure' creates configuration
 files for every directory level underneath (unless you tell it not to,
 with the `--norecursion' option).
 
@@ -183,10 +186,10 @@ with the `--norecursion' option).
 directories in the GDB distribution, if you only want to configure
 that subdirectory; but be sure to specify a path to it.
 
-   For example, with version 4.5, type the following to configure only
+   For example, with version 4.6, type the following to configure only
 the `bfd' subdirectory:
 
-     cd gdb-4.5/bfd
+     cd gdb-4.6/bfd
      ../configure HOST
 
    You can install `gdb' anywhere; it has no hardwired paths. 
@@ -214,13 +217,13 @@ directory.  If the path to `configure' would be the same as the
 argument to `--srcdir', you can leave out the `--srcdir' option; it
 will be assumed.)
 
-   For example, with version 4.5, you can build GDB in a separate
-directory for a Sun 4 like this:
+   For example, with version 4.6, you can build GDB in a separate
+directory for a Sun-4 like this:
 
-     cd gdb-4.5
+     cd gdb-4.6
      mkdir ../gdb-sun4
      cd ../gdb-sun4
-     ../gdb-4.5/configure sun4
+     ../gdb-4.6/configure sun4
      make
 
    When `configure' builds a configuration using a remote source
@@ -241,8 +244,8 @@ called `configure' (or one of its subdirectories).
 
    The `Makefile' generated by `configure' for each source directory
 also runs recursively.  If you type `make' in a source directory such
-as `gdb-4.5' (or in a separate configured directory configured with
-`--srcdir=PATH/gdb-4.5'), you will build all the required libraries,
+as `gdb-4.6' (or in a separate configured directory configured with
+`--srcdir=PATH/gdb-4.6'), you will build all the required libraries,
 then build GDB.
 
    When you have multiple hosts or targets configured in separate
@@ -266,9 +269,10 @@ a `--target=TARGET' option, but the equivalent full name is
 `sparc-sun-sunos4'.
 
    The following table shows all the architectures, hosts, and OS
-prefixes that `configure' recognizes in GDB version 4.5.  Entries in
+prefixes that `configure' recognizes in GDB version 4.6.  Entries in
 the "OS prefix" column ending in a `*' may be followed by a release
-number.
+number.  Note that this table is by no means complete, and may be somewhat
+inaccurate.  See WHATS.NEW for to get an idea of new configurations.
 
 
      ARCHITECTURE  VENDOR                     OS prefix
@@ -324,7 +328,7 @@ you can use it to test your guesses on abbreviations--for example:
      *** Configuration "i786v" not recognized
 
 `config.sub' is also distributed in the GDB source directory
-(`gdb-4.5', for version 4.5).
+(`gdb-4.6', for version 4.6).
 
 
 `configure' Options
@@ -425,7 +429,7 @@ via-ethernet back ends.
 
 The correct address for reporting bugs found in gdb is
 "bug-gdb@prep.ai.mit.edu".  Please email all bugs to that address.
-Please include the GDB version number (e.g. gdb-4.5), and how
+Please include the GDB version number (e.g. gdb-4.6), and how
 you configured it (e.g. "sun4" or "mach386 host, i586-intel-synopsys
 target").
 
@@ -447,7 +451,7 @@ the compiler actually outputs or the debugger actually understands.
 
 If you port gdb to a new machine, please send the required changes to
 bug-gdb@prep.ai.mit.edu.  There's lots of information about doing your
-own port in the file gdb-4.5/gdb/doc/gdbint.texinfo, which you can
+own port in the file gdb-4.6/gdb/doc/gdbint.texinfo, which you can
 print out, or read with `info' (see the Makefile.in there).  If your
 changes are more than a few lines, obtain and send in a copyright
 assignment from gnu@prep.ai.mit.edu, as described in the section
@@ -467,6 +471,12 @@ an editor while debugging I suggest trying gdb-mode in gnu-emacs
 
 
 		Writing Code for GDB
+
+Documentation about GDB's internals is in the subdirectory doc, as
+`gdbint.texinfo'.  In particular, there is a `cookbook' there on how
+to port GDB to a new machine.  You can read it by hand, print it
+by using TeX and texinfo, or process it into an `info' file for use
+with Emacs' info mode or the standalone `info' program.
 
 We appreciate having users contribute code that is of general use, but
 for it to be included in future GDB releases it must be cleanly

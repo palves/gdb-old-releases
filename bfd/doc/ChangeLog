@@ -1,3 +1,24 @@
+Fri Jun 19 18:59:54 1992  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in (libbfd.h):  Add elf.c as a source of prototypes.
+
+Mon May 11 18:55:59 1992  John Gilmore  (gnu at cygnus.com)
+
+	* chew.c:  exit() should be declared by config files, not by
+	portable source code.  Its type could be int or void function.	
+
+Mon May  4 13:45:57 1992  K. Richard Pixley  (rich@rtl.cygnus.com)
+
+	* Makefile.in: another CFLAGS correction.
+
+Tue Apr 28 10:21:32 1992  K. Richard Pixley  (rich@rtl.cygnus.com)
+
+	* Makefile.in: Do the CFLAGS thing.
+
+Fri Apr 10 22:34:52 1992  Fred Fish  (fnf@cygnus.com)
+
+	* Makefile.in (MINUS_G):  Add macro and default to -g.
+
 Fri Mar  6 18:53:18 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
 
 	* chew.c: now has -w switch turn on warnings

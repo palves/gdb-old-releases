@@ -93,7 +93,8 @@ typedef struct oasys_data_record {
   oasys_record_header_type header;
   uint8e_type relb;
   uint8e_type addr[4];
-  uint8e_type data[256];
+  /* maximum total size of data record is 255 bytes */
+  uint8e_type data[246];
 } oasys_data_record_type;
 
 typedef struct oasys_header_record {

@@ -19,7 +19,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if !defined (TERMINAL_H)
 #define TERMINAL_H 1
-
+#if !defined(__GO32__)
 /* Define a common set of macros -- BSD based -- and redefine whatever
    the system offers to make it look like that.  */
 
@@ -48,7 +48,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TERMINAL struct sgttyb
 
 #endif /* no termio */
-
+#endif /* not go32 */
 extern void
 new_tty PARAMS ((void));
 

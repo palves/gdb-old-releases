@@ -88,6 +88,20 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define PROTO(type, name, arglist) type name arglist
 
+/* We could use the EXFUN macro to handle prototypes, but
+   the name is misleading and the result is ugly.  So just define a
+   simple macro to handle the parameter lists, as in:
+
+	static int foo PARAMS ((int, char));
+
+   EXFUN would do it like this:
+
+	static int EXFUN (foo, (int, char));
+
+   but the function is not external...  EXFUN should be considered
+   obsolete, and new code written to use PARAMS.  */
+
+#define PARAMS(paramlist) paramlist
 
 #else	/* Not ANSI C.  */
 
@@ -106,7 +120,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	DEFUN(name, arglist, args)	name arglist args;
 #define	DEFUN_VOID(name)		name()
 #define PROTO(type, name, arglist) type name ()
-#endif	/* ANSI C.  */
+#define PARAMS(paramlist)		()
 
+#endif	/* ANSI C.  */
 
 #endif	/* ansidecl.h	*/

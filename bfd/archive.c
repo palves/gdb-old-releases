@@ -93,7 +93,7 @@ DESCRIPTION
    front, and need to touch every entry to do so.  C'est la vie.
 */
 
-/* $Id: archive.c,v 1.47 1992/04/02 07:26:07 gnu Exp $ */
+/* $Id: archive.c,v 1.49 1992/07/08 23:28:15 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -625,7 +625,8 @@ bfd_slurp_coff_armap (abfd)
   unsigned int stringsize;
   carsym *carsyms;
   int result;
-
+  bfd_vma (*swap)();
+  
   result = bfd_read ((PTR)&nextname, 1, 1, abfd);
   bfd_seek (abfd, -1L, SEEK_CUR);
 
@@ -641,9 +642,9 @@ bfd_slurp_coff_armap (abfd)
   raw_armap = (int *) bfd_alloc(abfd,mapdata->parsed_size);
 
   if (raw_armap == NULL) 
-      {
+  {
     bfd_error = no_memory;
-  byebye:
+   byebye:
     bfd_release (abfd, (PTR)mapdata);
     return false;
   }
@@ -652,47 +653,64 @@ bfd_slurp_coff_armap (abfd)
   if (bfd_read ((PTR)raw_armap, 1, mapdata->parsed_size, abfd) !=
       mapdata->parsed_size) {
     bfd_error = malformed_archive;
-  oops:
+   oops:
     bfd_release (abfd, (PTR)raw_armap);
     goto byebye;
   }
 
   /* The coff armap must be read sequentially.  So we construct a bsd-style
      one in core all at once, for simplicity. 
-
+     
      It seems that all numeric information in a coff archive is always
      in big endian format, nomatter the host or target. */
 
-  stringsize = mapdata->parsed_size - (4 * (_do_getb32((PTR)raw_armap))) - 4;
-
+  stringsize 
+   = mapdata->parsed_size - (4 * (_do_getb32((PTR)raw_armap))) - 4;
+  /* Except that some archive formats are broken, and it may be our
+     fault - the i960 little endian coff sometimes has bit and sometimes
+     little, because our tools changed.  Here's a horrible hack to clean
+     up the crap
+     */
+  swap = _do_getb32;
+  
+  if (stringsize > 0xfffff) 
   {
-    unsigned int nsymz = _do_getb32( (PTR)raw_armap);
-    unsigned int carsym_size = (nsymz * sizeof (carsym));
-    unsigned int ptrsize = (4 * nsymz);
-    unsigned int i;
-    ardata->symdefs = (carsym *) bfd_zalloc(abfd,carsym_size + stringsize + 1);
-    if (ardata->symdefs == NULL) {
-      bfd_error = no_memory;
-      goto oops;
-    }
-    carsyms = ardata->symdefs;
+    /* This looks dangerous, let's do it the other way around */
+    stringsize = mapdata->parsed_size - (4 *
+					 (_do_getl32((PTR)raw_armap))) - 4;
 
-    stringbase = ((char *) ardata->symdefs) + carsym_size;
-    memcpy (stringbase, (char*)raw_armap + ptrsize + 4,  stringsize);
-
-
-    /* OK, build the carsyms */
-    for (i = 0; i < nsymz; i++) 
-      {
-	rawptr = raw_armap + i + 1;
-	carsyms->file_offset = _do_getb32((PTR)rawptr);
-	carsyms->name = stringbase;
-	for (; *(stringbase++););
-	carsyms++;
-      }
-    *stringbase = 0;
+    swap = _do_getl32;
   }
-  ardata->symdef_count = _do_getb32((PTR)raw_armap);
+  
+
+ {
+   unsigned int nsymz = swap( (PTR)raw_armap);
+   unsigned int carsym_size = (nsymz * sizeof (carsym));
+   unsigned int ptrsize = (4 * nsymz);
+   unsigned int i;
+   ardata->symdefs = (carsym *) bfd_zalloc(abfd,carsym_size + stringsize + 1);
+   if (ardata->symdefs == NULL) {
+     bfd_error = no_memory;
+     goto oops;
+   }
+   carsyms = ardata->symdefs;
+
+   stringbase = ((char *) ardata->symdefs) + carsym_size;
+   memcpy (stringbase, (char*)raw_armap + ptrsize + 4,  stringsize);
+
+
+   /* OK, build the carsyms */
+   for (i = 0; i < nsymz; i++) 
+   {
+     rawptr = raw_armap + i + 1;
+     carsyms->file_offset = swap((PTR)rawptr);
+     carsyms->name = stringbase;
+     for (; *(stringbase++););
+     carsyms++;
+   }
+   *stringbase = 0;
+ }
+  ardata->symdef_count = swap((PTR)raw_armap);
   ardata->first_file_filepos = bfd_tell (abfd);
   /* Pad to an even boundary if you have to */
   ardata->first_file_filepos += (ardata->first_file_filepos) %2;
@@ -1311,7 +1329,7 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
   unsigned int mapsize = ranlibsize + stringsize + 8;
   file_ptr firstreal;
   bfd *current = arch->archive_head;
-  bfd *last_elt = current;		/* last element arch seen */
+  bfd *last_elt = current;	/* last element arch seen */
   int temp;
   int count;
   struct ar_hdr hdr;
@@ -1323,13 +1341,19 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
   stat (arch->filename, &statbuf);
   memset ((char *)(&hdr), 0, sizeof (struct ar_hdr));
   sprintf (hdr.ar_name, RANLIBMAG);
-  sprintf (hdr.ar_date, "%ld", statbuf.st_mtime);  
+
+  /* write the timestamp of the archive header to be just a little bit
+     later than the timestamp of the file, otherwise the linker will
+     complain that the index is out of date.
+     */
+
+  sprintf (hdr.ar_date, "%ld", statbuf.st_mtime + 60);  
   sprintf (hdr.ar_uid, "%d", getuid());
   sprintf (hdr.ar_gid, "%d", getgid());
   sprintf (hdr.ar_size, "%-10d", (int) mapsize);
   hdr.ar_fmag[0] = '`'; hdr.ar_fmag[1] = '\n';
   for (i = 0; i < sizeof (struct ar_hdr); i++)
-    if (((char *)(&hdr))[i] == '\0') (((char *)(&hdr))[i]) = ' ';
+   if (((char *)(&hdr))[i] == '\0') (((char *)(&hdr))[i]) = ' ';
   bfd_write ((char *)&hdr, 1, sizeof (struct ar_hdr), arch);
   bfd_h_put_32(arch, ranlibsize, (PTR)&temp);
   bfd_write (&temp, 1, sizeof (temp), arch);
@@ -1339,12 +1363,12 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
     struct symdef *outp = &outs;
     
     if (((bfd *)(map[count]).pos) != last_elt) {
-	    do {
-		    firstreal += arelt_size (current) + sizeof (struct ar_hdr);
-		    firstreal += firstreal % 2;
-		    current = current->next;
-	    } while (current != (bfd *)(map[count]).pos);
-    } /* if new archive element */
+      do {
+	firstreal += arelt_size (current) + sizeof (struct ar_hdr);
+	firstreal += firstreal % 2;
+	current = current->next;
+      } while (current != (bfd *)(map[count]).pos);
+    }				/* if new archive element */
 
     last_elt = current;
     bfd_h_put_32(arch, ((map[count]).namidx),(PTR) &outs.s.string_offset);
@@ -1356,12 +1380,12 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
   bfd_h_put_32(arch, stringsize, (PTR)&temp);
   bfd_write ((PTR)&temp, 1, sizeof (temp), arch);
   for (count = 0; count < orl_count; count++)
-    bfd_write (*((map[count]).name), 1, strlen (*((map[count]).name))+1, arch);
+   bfd_write (*((map[count]).name), 1, strlen (*((map[count]).name))+1, arch);
 
   /* The spec sez this should be a newline.  But in order to be
      bug-compatible for sun's ar we use a null. */
   if (padit)
-    bfd_write("\0",1,1,arch);
+   bfd_write("\0",1,1,arch);
 
   return true;
 }

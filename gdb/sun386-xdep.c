@@ -24,7 +24,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
-#include "signame.h"
 #include "gdbcore.h"
 
 #include <sys/param.h>
@@ -52,8 +51,10 @@ fetch_inferior_registers (regno)
 
   registers_fetched ();
 
-  ptrace (PTRACE_GETREGS, inferior_pid, &inferior_registers);
-  ptrace (PTRACE_GETFPREGS, inferior_pid, &inferior_fp_registers);
+  ptrace (PTRACE_GETREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) &inferior_registers);
+  ptrace (PTRACE_GETFPREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) &inferior_fp_registers);
 
   bcopy (&inferior_registers, registers, sizeof inferior_registers);
 
@@ -90,20 +91,27 @@ store_inferior_registers (regno)
        instruction that moves eax into ebp gets single-stepped.  */
     {
       int stack = inferior_registers.r_reg[SP_REGNUM];
-      int stuff = ptrace (PTRACE_PEEKDATA, inferior_pid, stack);
+      int stuff = ptrace (PTRACE_PEEKDATA, inferior_pid,
+			  (PTRACE_ARG3_TYPE) stack);
       int reg = inferior_registers.r_reg[EAX];
       inferior_registers.r_reg[EAX] =
 	inferior_registers.r_reg[FP_REGNUM];
-      ptrace (PTRACE_SETREGS, inferior_pid, &inferior_registers);
-      ptrace (PTRACE_POKEDATA, inferior_pid, stack, 0xc589);
-      ptrace (PTRACE_SINGLESTEP, inferior_pid, stack, 0);
+      ptrace (PTRACE_SETREGS, inferior_pid, 
+	      (PTRACE_ARG3_TYPE) &inferior_registers);
+      ptrace (PTRACE_POKEDATA, inferior_pid, (PTRACE_ARG3_TYPE) stack,
+	      0xc589);
+      ptrace (PTRACE_SINGLESTEP, inferior_pid, (PTRACE_ARG3_TYPE) stack,
+	      0);
       wait (0);
-      ptrace (PTRACE_POKEDATA, inferior_pid, stack, stuff);
+      ptrace (PTRACE_POKEDATA, inferior_pid, (PTRACE_ARG3_TYPE) stack,
+	      stuff);
       inferior_registers.r_reg[EAX] = reg;
     }
 #endif
-  ptrace (PTRACE_SETREGS, inferior_pid, &inferior_registers);
-  ptrace (PTRACE_SETFPREGS, inferior_pid, &inferior_fp_registers);
+  ptrace (PTRACE_SETREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) &inferior_registers);
+  ptrace (PTRACE_SETFPREGS, inferior_pid,
+	  (PTRACE_ARG3_TYPE) &inferior_fp_registers);
 }
 
 /* Machine-dependent code which would otherwise be in core.c */
@@ -186,10 +194,7 @@ core_file_command (filename, from_tty)
 	printf ("Core file is from \"%s\".\n", corestr.c_cmdname);
 	if (corestr.c_signo > 0)
 	  printf ("Program terminated with signal %d, %s.\n",
-			corestr.c_signo,
-			corestr.c_signo < NSIG
-			? sys_siglist[corestr.c_signo]
-			: "(undocumented)");
+		  corestr.c_signo, safe_strsignal (corestr.c_signo));
       }
       if (filename[0] == '/')
 	corefile = savestring (filename, strlen (filename));

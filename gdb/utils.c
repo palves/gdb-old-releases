@@ -18,10 +18,11 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
-
+#if !defined(__GO32__)
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <pwd.h>
+#endif
 #include <varargs.h>
 #include <ctype.h>
 #include <string.h>
@@ -31,6 +32,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "terminal.h"
 #include "bfd.h"
 #include "target.h"
+#include "demangle.h"
 
 /* Prototypes for local functions */
 
@@ -251,10 +253,10 @@ error (va_alist)
   wrap_here("");			/* Force out any buffered output */
   fflush (stdout);
   if (error_pre_print)
-    fprintf (stderr, error_pre_print);
+    fprintf_filtered (stderr, error_pre_print);
   string = va_arg (args, char *);
-  vfprintf (stderr, string, args);
-  fprintf (stderr, "\n");
+  vfprintf_filtered (stderr, string, args);
+  fprintf_filtered (stderr, "\n");
   va_end (args);
   return_to_top_level ();
 }
@@ -309,6 +311,45 @@ fatal_dump_core (va_alist)
   exit (1);
 }
 
+/* The strerror() function can return NULL for errno values that are
+   out of range.  Provide a "safe" version that always returns a
+   printable string. */
+
+char *
+safe_strerror (errnum)
+     int errnum;
+{
+  char *msg;
+  static char buf[32];
+
+  if ((msg = strerror (errnum)) == NULL)
+    {
+      sprintf (buf, "(undocumented errno %d)", errnum);
+      msg = buf;
+    }
+  return (msg);
+}
+
+/* The strsignal() function can return NULL for signal values that are
+   out of range.  Provide a "safe" version that always returns a
+   printable string. */
+
+char *
+safe_strsignal (signo)
+     int signo;
+{
+  char *msg;
+  static char buf[32];
+
+  if ((msg = strsignal (signo)) == NULL)
+    {
+      sprintf (buf, "(undocumented signal %d)", signo);
+      msg = buf;
+    }
+  return (msg);
+}
+
+
 /* Print the system error message for errno, and also mention STRING
    as the file name for which the error was encountered.
    Then return to command level.  */
@@ -317,16 +358,10 @@ void
 perror_with_name (string)
      char *string;
 {
-  extern int sys_nerr;
-  extern char *sys_errlist[];
   char *err;
   char *combined;
 
-  if (errno < sys_nerr)
-    err = sys_errlist[errno];
-  else
-    err = "unknown error";
-
+  err = safe_strerror (errno);
   combined = (char *) alloca (strlen (err) + strlen (string) + 3);
   strcpy (combined, string);
   strcat (combined, ": ");
@@ -349,22 +384,16 @@ print_sys_errmsg (string, errcode)
      char *string;
      int errcode;
 {
-  extern int sys_nerr;
-  extern char *sys_errlist[];
   char *err;
   char *combined;
 
-  if (errcode < sys_nerr)
-    err = sys_errlist[errcode];
-  else
-    err = "unknown error";
-
+  err = safe_strerror (errcode);
   combined = (char *) alloca (strlen (err) + strlen (string) + 3);
   strcpy (combined, string);
   strcat (combined, ": ");
   strcat (combined, err);
 
-  printf ("%s.\n", combined);
+  fprintf (stderr, "%s.\n", combined);
 }
 
 /* Control C eventually causes this to be called, at a convenient time.  */
@@ -374,6 +403,7 @@ quit ()
 {
   target_terminal_ours ();
   wrap_here ((char *)0);		/* Force out any pending output */
+#if !defined(__GO32__)
 #ifdef HAVE_TERMIO
   ioctl (fileno (stdout), TCFLSH, 1);
 #else /* not HAVE_TERMIO */
@@ -384,6 +414,7 @@ quit ()
 #else
   error ("Quit (expect signal %d when inferior is resumed)", SIGINT);
 #endif /* TIOCGPGRP */
+#endif
 }
 
 /* Control C comes here */
@@ -477,7 +508,7 @@ init_malloc (md)
       warning ("internal error: failed to install memory consistency checks");
     }
 
-  (void) mmtrace ();
+  mmtrace ();
 }
 
 #endif /* Have mmalloc and want corruption checking  */
@@ -603,7 +634,7 @@ savestring (ptr, size)
      int size;
 {
   register char *p = (char *) xmalloc (size + 1);
-  bcopy (ptr, p, size);
+  memcpy (p, ptr, size);
   p[size] = 0;
   return p;
 }
@@ -615,7 +646,7 @@ msavestring (md, ptr, size)
      int size;
 {
   register char *p = (char *) xmmalloc (md, size + 1);
-  bcopy (ptr, p, size);
+  memcpy (p, ptr, size);
   p[size] = 0;
   return p;
 }
@@ -670,9 +701,9 @@ query (va_alist)
     {
       va_start (args);
       ctlstr = va_arg (args, char *);
-      vfprintf (stdout, ctlstr, args);
+      vfprintf_filtered (stdout, ctlstr, args);
       va_end (args);
-      printf ("(y or n) ");
+      printf_filtered ("(y or n) ");
       fflush (stdout);
       answer = fgetc (stdin);
       clearerr (stdin);		/* in case of C-d */
@@ -691,7 +722,7 @@ query (va_alist)
 	return 1;
       if (answer == 'N')
 	return 0;
-      printf ("Please answer y or n.\n");
+      printf_filtered ("Please answer y or n.\n");
     }
 }
 
@@ -788,7 +819,11 @@ printchar (c, stream, quoter)
      int quoter;
 {
 
-  if (c < 040 || (sevenbit_strings && c >= 0177)) {
+  c &= 0xFF;			/* Avoid sign bit follies */
+
+  if (              c < 0x20  ||		/* Low control chars */	
+      (c >= 0x7F && c < 0xA0) ||		/* DEL, High controls */
+      (sevenbit_strings && c >= 0x80)) {	/* high order bit set */
     switch (c)
       {
       case '\n':
@@ -1063,7 +1098,7 @@ fputs_demangled (linebuffer, stream, arg_mode)
   && (isalnum(c) || (c) == '_' || (c) == CPLUS_MARKER))
 
   char buf[SYMBOL_MAX+1];
-# define SLOP 5		/* How much room to leave in buf */
+# define DMSLOP 5		/* How much room to leave in buf */
   char *p;
 
   if (linebuffer == NULL)
@@ -1081,7 +1116,7 @@ fputs_demangled (linebuffer, stream, arg_mode)
     int i = 0;
 
     /* collect non-interesting characters into buf */
-    while ( *p != (char) 0 && !SYMBOL_CHAR(*p) && i < (int)sizeof(buf)-SLOP ) {
+    while (*p != (char) 0 && !SYMBOL_CHAR(*p) && i < (int)sizeof(buf)-DMSLOP ) {
       buf[i++] = *p;
       p++;
     }
@@ -1096,7 +1131,7 @@ fputs_demangled (linebuffer, stream, arg_mode)
     while (i < SYMBOL_MAX
      && *p != (char) 0
      && SYMBOL_CHAR(*p)
-     && i < (int)sizeof(buf) - SLOP) {
+     && i < (int)sizeof(buf) - DMSLOP) {
       buf[i++] = *p;
       p++;
     }
@@ -1170,7 +1205,7 @@ vfprintf_filtered (stream, format, args)
 
   /* This won't blow up if the restrictions described above are
      followed.   */
-  (void) vsprintf (linebuffer, format, args);
+  vsprintf (linebuffer, format, args);
 
   fputs_filtered (linebuffer, stream);
 }
@@ -1205,6 +1240,26 @@ printf_filtered (va_alist)
   va_start (args);
   format = va_arg (args, char *);
 
+  vfprintf_filtered (stdout, format, args);
+  va_end (args);
+}
+
+/* Like printf_filtered, but prints it's result indented.
+   Called as printfi_filtered (spaces, format, arg1, arg2, ...); */
+
+/* VARARGS */
+void
+printfi_filtered (va_alist)
+     va_dcl
+{
+  va_list args;
+  int spaces;
+  char *format;
+
+  va_start (args);
+  spaces = va_arg (args, int);
+  format = va_arg (args, char *);
+  print_spaces_filtered (spaces, stdout);
   vfprintf_filtered (stdout, format, args);
   va_end (args);
 }
@@ -1253,6 +1308,24 @@ print_spaces_filtered (n, stream)
 
 /* C++ demangler stuff.  */
 
+/* Make a copy of a symbol, applying C++ demangling if demangling is enabled
+   and a demangled version exists.  Note that the value returned from
+   cplus_demangle is already allocated in malloc'd memory. */
+
+char *
+strdup_demangled (name)
+     const char *name;
+{
+  char *demangled = NULL;
+
+  if (demangle)
+    {
+      demangled = cplus_demangle (name, DMGL_PARAMS | DMGL_ANSI);
+    }
+  return ((demangled != NULL) ? demangled : strdup (name));
+}
+
+
 /* Print NAME on STREAM, demangling if necessary.  */
 void
 fprint_symbol (stream, name)
@@ -1260,7 +1333,8 @@ fprint_symbol (stream, name)
      char *name;
 {
   char *demangled;
-  if ((!demangle) || NULL == (demangled = cplus_demangle (name, 1)))
+  if ((!demangle)
+      || NULL == (demangled = cplus_demangle (name, DMGL_PARAMS | DMGL_ANSI)))
     fputs_filtered (name, stream);
   else
     {
@@ -1268,6 +1342,73 @@ fprint_symbol (stream, name)
       free (demangled);
     }
 }
+
+/* Do a strcmp() type operation on STRING1 and STRING2, ignoring any
+   differences in whitespace.  Returns 0 if they match, non-zero if they
+   don't (slightly different than strcmp()'s range of return values). */
+
+int
+strcmp_iw (string1, string2)
+     const char *string1;
+     const char *string2;
+{
+  while ((*string1 != '\0') && (*string2 != '\0'))
+    {
+      while (isspace (*string1))
+	{
+	  string1++;
+	}
+      while (isspace (*string2))
+	{
+	  string2++;
+	}
+      if (*string1 != *string2)
+	{
+	  break;
+	}
+      if (*string1 != '\0')
+	{
+	  string1++;
+	  string2++;
+	}
+    }
+  return (!((*string1 == '\0') && (*string2 == '\0')));
+}
+
+/* Demangle NAME and compare the result with LOOKFOR, ignoring any differences
+   in whitespace.
+   
+   If a match is found, returns a pointer to the demangled version of NAME
+   in malloc'd memory, which needs to be freed by the caller after use.
+   If a match is not found, returns NULL.
+
+   OPTIONS is a flags word that controls the demangling process and is just
+   passed on to the demangler.
+
+   When the caller sees a non-NULL result, it knows that NAME is the mangled
+   equivalent of LOOKFOR, and it can use either NAME, the "official demangled"
+   version of NAME (the return value) or the "unofficial demangled" version
+   of NAME (LOOKFOR, which it already knows). */
+
+char *
+demangle_and_match (name, lookfor, options)
+     const char *name;
+     const char *lookfor;
+     int options;
+{
+  char *demangled;
+
+  if ((demangled = cplus_demangle (name, options)) != NULL)
+    {
+      if (strcmp_iw (demangled, lookfor) != 0)
+	{
+	  free (demangled);
+	  demangled = NULL;
+	}
+    }
+  return (demangled);
+}
+
 
 void
 _initialize_utils ()
@@ -1289,6 +1430,10 @@ _initialize_utils ()
   
   /* These defaults will be used if we are unable to get the correct
      values from termcap.  */
+#if defined(__GO32__)
+  lines_per_page = ScreenRows();
+  chars_per_line = ScreenCols();
+#else  
   lines_per_page = 24;
   chars_per_line = 80;
   /* Initialize the screen height and width from termcap.  */
@@ -1331,7 +1476,7 @@ _initialize_utils ()
   /* If there is a better way to determine the window size, use it. */
   SIGWINCH_HANDLER ();
 #endif
-
+#endif
   /* If the output is not a terminal, don't paginate it.  */
   if (!ISATTY (stdout))
     lines_per_page = UINT_MAX;

@@ -1,3 +1,26 @@
+Sat Jun 20 16:31:10 1992  John Gilmore  (gnu at cygnus.com)
+
+	* gdb.texinfo:  document `set remotedebug' and `set
+	rstack_high_address'.
+
+Thu May 14 17:09:48 1992  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo: slight expansion of new text on reading info files
+	* gdbinv-s.m4.in: correct and expand info on cross-debugging
+	H8/300 from DOS.
+
+Tue May 12 12:22:47 1992  John Gilmore  (gnu at cygnus.com)
+
+	* gdb.texinfo:  `info user' => `show user'.  Noticed by David Taylor.
+
+Mon May 11 19:06:27 1992  John Gilmore  (gnu at cygnus.com)
+
+	* gdb.texinfo:  Say how to read the `info' files.
+
+Tue May  5 12:11:38 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* Makefile.in: gm4 -> m4.
+
 Fri Apr 10 17:50:43 1992  John Gilmore  (gnu at rtl.cygnus.com)
 
 	* gdb.texinfo:  Update for GDB-4.5.  Move `Formatting

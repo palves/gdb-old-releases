@@ -10,7 +10,7 @@
  * | maintained in the copy.                                   |
  * |-----------------------------------------------------------|
  */
-/* $Header: /local/cvsfiles/devo/include/coff/symconst.h,v 1.2 1992/04/03 04:04:44 gnu Exp $ */
+/* $Header: /local/cvsfiles/devo/include/coff/symconst.h,v 1.5 1992/06/13 06:00:35 gnu Exp $ */
 
 /* (C) Copyright 1984 by Third Eye Software, Inc.
  *
@@ -40,8 +40,10 @@
 #define langAda		6
 #define langPl1		7
 #define langCobol	8
-#define langStdc	9
-#define langMax		10	/* maximun allowed 32 -- 5 bits */
+#define langStdc	9	/* FIXME: Collides with SGI langCplusplus */
+#define langCplusplus	9	/* FIXME: Collides with langStdc */
+#define langCplusplusV2	10	/* SGI addition */
+#define langMax		11	/* maximun allowed 32 -- 5 bits */
 
 /* The following are value definitions for the fields in the SYMR */
 
@@ -101,6 +103,10 @@
 #define stStaticProc	14	/* load time only static procs */
 #define stConstant	15	/* const */
 #define stStaParam	16	/* Fortran static parameters */
+    /* These new symbol types have been recently added to SGI machines. */
+#define stStruct	26	/* Beginning of block defining a struct type */
+#define stUnion		27	/* Beginning of block defining a union type */
+#define stEnum		28	/* Beginning of block defining an enum type */
     /* Psuedo-symbols - internal to debugger */
 #define stStr		60	/* string */
 #define stNumber	61	/* pure number (ie. 4 NOR 2+2) */
@@ -121,7 +127,7 @@
 #define tqMax	8
 
 /* basic types as seen in ti.bt */
-#define btNil		0	/* undefined */
+#define btNil		0	/* undefined (also, enum members) */
 #define btAdr		1	/* address - integer same size as pointer */
 #define btChar		2	/* character */
 #define btUChar		3	/* unsigned character */

@@ -1,5 +1,5 @@
 /* i80960 instruction disassembler for GDB.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,8 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
-
-extern char *reg_names[];
 
 static FILE *stream;		/* Output goes here */
 static void print_addr();
@@ -330,7 +328,7 @@ mem( memaddr, word1, word2, noprint )
 	int len;
 	int mode;
 	int offset;
-	char *reg1, *reg2, *reg3;
+	CONST char *reg1, *reg2, *reg3;
 
 	/* This lookup table is too sparse to make it worth typing in, but not
 	 * so large as to make a sparse array necessary.  We allocate the
@@ -824,7 +822,7 @@ invalid( word1 )
 static void
 print_addr(a)
 {
-	fprintf( stream, "0x%x", a );
+	print_address (a, stream);
 }
 
 static void

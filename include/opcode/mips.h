@@ -128,10 +128,13 @@ struct mips_opcode
 struct mips_opcode mips_opcodes[] = 
 {
 /* These first opcodes are special cases of the ones in the comments */
-  {"nop",	0,		0xffffffff,	     /*li*/	"", 0},
+  {"nop",	0,		0xffffffff,	     /*sll*/	"", 0},
   {"li",	op_bc(9,0,0),	op_bc(0x3f,31,0),    /*addiu*/	"t,j", 0},
-  {"b",		one(4),		0xffff0000,	     /*beq*/	"b", 1},
+  {"li",	op_bc(13,0,0),  op_bc(0x3f,31,0),    /*ori*/    "t,i", 0},
   {"move",	op_func(0, 33),	op_cond(0x3f,31)|0x7ff,/*addu*/	"d,s", 0},
+  {"b",		one(4),		0xffff0000,	     /*beq*/	"b", 1},
+  {"b",   op_cond (1, 1), op_cond(0x3f, 0x1f)|(0x1f << 21), /*bgez*/   "b", 1},
+  {"bal", op_cond (1, 17),op_cond(0x3f, 0x1f)|(0x1f << 21), /*bgezal*/ "b", 1},
 
   {"sll",	op_func(0, 0),	op_func(0x3f, 0x3f),		"d,t,h", 0},
   {"srl",	op_func(0, 2),	op_func(0x3f, 0x3f),		"d,t,h", 0},
@@ -184,11 +187,13 @@ struct mips_opcode mips_opcodes[] =
 	/* rs field is don't care field? */
   {"lui",	one(15),	one(0x3f),			"t,i", 0},
 
-/* co processor 0 instruction */
-  {"mfc0",	op_rs_b11 (16, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"cfc0",	op_rs_b11 (16, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"mtc0",	op_rs_b11 (16, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"ctc0",	op_rs_b11 (16, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
+/* Coprocessor 0 instructions */
+/* `S' is not quite right for 2nd operand -- should be coproc reg, not
+   float reg.*/
+  {"mfc0",	op_rs_b11 (16, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"cfc0",	op_rs_b11 (16, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"mtc0",	op_rs_b11 (16, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"ctc0",	op_rs_b11 (16, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
 
   {"bc0f",	op_o16(16, 0x100),	op_o16(0x3f, 0x3ff),	"b", 1},
   {"bc0f",	op_o16(16, 0x180),	op_o16(0x3f, 0x3ff),	"b", 1},
@@ -321,21 +326,25 @@ struct mips_opcode mips_opcodes[] =
   {"c.ngt.d",	op_rs_func(17, 0x11, 63),
 			op_rs_func(0x3f, 0x1f, 0x7ff),	"S,T", 0},
 
-/* co processor 2 instruction */
-  {"mfc2",	op_rs_b11 (18, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"cfc2",	op_rs_b11 (18, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"mtc2",	op_rs_b11 (18, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"ctc2",	op_rs_b11 (18, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
+/* Coprocessor 2 instruction */
+/* `S' is not quite right for 2nd operand -- should be coproc reg, not
+   float reg.*/
+  {"mfc2",	op_rs_b11 (18, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"cfc2",	op_rs_b11 (18, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"mtc2",	op_rs_b11 (18, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"ctc2",	op_rs_b11 (18, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
   {"bc2f",	op_o16(18, 0x100),	op_o16(0x3f, 0x3ff),	"b", 1},
   {"bc2f",	op_o16(18, 0x180),	op_o16(0x3f, 0x3ff),	"b", 1},
   {"bc2f",	op_o16(18, 0x101),	op_o16(0x3f, 0x3ff),	"b", 1},
   {"bc2t",	op_o16(18, 0x181),	op_o16(0x3f, 0x3ff),	"b", 1},
 
-/* co processor 3 instruction */
-  {"mtc3",	op_rs_b11 (19, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"cfc3",	op_rs_b11 (19, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"mtc3",	op_rs_b11 (19, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
-  {"ctc3",	op_rs_b11 (19, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x1ffff),	"t,d", 0},
+/* Coprocessor 3 instruction */
+/* `S' is not quite right for 2nd operand -- should be coproc reg, not
+   float reg.*/
+  {"mfc3",	op_rs_b11 (19, 0, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"cfc3",	op_rs_b11 (19, 2, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"mtc3",	op_rs_b11 (19, 4, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
+  {"ctc3",	op_rs_b11 (19, 6, 0),	op_rs_b11(0x3f, 0x1f, 0x7ff),	"t,S", 0},
   {"bc3f",	op_o16(19, 0x100),	op_o16(0x3f, 0x3ff),	"b", 1},
   {"bc3f",	op_o16(19, 0x180),	op_o16(0x3f, 0x3ff),	"b", 1},
   {"bc3t",	op_o16(19, 0x101),	op_o16(0x3f, 0x3ff),	"b", 1},

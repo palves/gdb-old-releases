@@ -1,7 +1,6 @@
 /* ==> Do not modify this file!!  It is created automatically
    by copying.awk.  Modify copying.awk instead.  <== */
 
-#include <stdio.h>
 #include "defs.h"
 #include "command.h"
 #include "gdbcmd.h"

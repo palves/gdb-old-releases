@@ -30,12 +30,12 @@ extern struct objfile *current_objfile;
 #define obstack_chunk_free free
 
 /* Some macros for char-based bitfields.  */
-#define B_SET(a,x) (a[x>>3] |= (1 << (x&7)))
-#define B_CLR(a,x) (a[x>>3] &= ~(1 << (x&7)))
-#define B_TST(a,x) (a[x>>3] & (1 << (x&7)))
+#define B_SET(a,x) ((a)[(x)>>3] |= (1 << ((x)&7)))
+#define B_CLR(a,x) ((a)[(x)>>3] &= ~(1 << ((x)&7)))
+#define B_TST(a,x) ((a)[(x)>>3] & (1 << ((x)&7)))
 #define B_TYPE		unsigned char
 #define	B_BYTES(x)	( 1 + ((x)>>3) )
-#define	B_CLRALL(a,x) bzero (a, B_BYTES(x))
+#define	B_CLRALL(a,x) memset ((a), 0, B_BYTES(x))
 
 
 /* Define a simple structure used to hold some very basic information about
@@ -153,10 +153,10 @@ struct block
   /* Note that in an unrelocated symbol segment in an object file
      this pointer may be zero when the correct value should be
      the second special block (for symbols whose scope is one compilation).
-     This is because the compiler ouptuts the special blocks at the
+     This is because the compiler outputs the special blocks at the
      very end, after the other blocks.   */
   struct block *superblock;
-  /* A flag indicating whether or not the fucntion corresponding
+  /* A flag indicating whether or not the function corresponding
      to this block was compiled with gcc or not.  If there is no
      function corresponding to this block, this meaning of this flag
      is undefined.  (In practice it will be 1 if the block was created
@@ -251,6 +251,18 @@ struct symbol
       struct symbol *chain;	/* for opaque typedef struct chain */
     }
   value;
+
+  /* Some symbols require an additional value to be recorded on a per-
+     symbol basis.  Stash those values here. */
+  union
+    {
+      struct			/* for OP_BASEREG in DWARF location specs */
+	{
+	  short regno_valid;	/* 0 == regno invalid; !0 == regno valid */
+	  short regno;		/* base register number {0, 1, 2, ...} */
+	} basereg;
+    }
+  aux_value;
 };
 
 
@@ -322,6 +334,23 @@ struct source
   struct linetable contents;
 };
 
+/* How to relocate the symbols from each section in a symbol file.
+   Each struct contains an array of offsets.
+   The ordering and meaning of the offsets is file-type-dependent;
+   typically it is indexed by section numbers or symbol types or
+   something like that.
+
+   To give us flexibility in changing the internal representation
+   of these offsets, the ANOFFSET macro must be used to insert and
+   extract offset values in the struct.  */
+
+struct section_offsets
+  {
+    CORE_ADDR offsets[1];		/* As many as needed. */
+  };
+
+#define	ANOFFSET(secoff, whichone)	(secoff->offsets[whichone])
+
 /* Each source file is represented by a struct symtab. 
    These objects are chained through the `next' field.  */
 
@@ -392,10 +421,9 @@ struct partial_symtab
   /* Information about the object file from which symbols should be read.  */
   struct objfile *objfile;
 
-  /* Address relative to which the symbols in this file are.  Need to
-     relocate by this amount when reading in symbols from the symbol
-     file.  */
-  CORE_ADDR addr;
+  /* Set of relocation offsets to apply to each section.  */ 
+  struct section_offsets *section_offsets;
+
   /* Range of text addresses covered by this file; texthigh is the
      beginning of the next section. */
   CORE_ADDR textlow, texthigh;
@@ -478,6 +506,16 @@ extern int current_source_line;
 #define SYMBOL_VALUE_CHAIN(symbol) (symbol)->value.chain
 #define SYMBOL_TYPE(symbol) (symbol)->type
 #define SYMBOL_LINE(symbol) (symbol)->line
+#if 0
+/* This currently fails because some symbols are not being initialized
+   to zero on allocation, and no code is currently setting this value.
+   Basereg handling will probably change significantly in the next release.
+   FIXME -fnf */
+#define SYMBOL_BASEREG_VALID(symbol) (symbol)->aux_value.basereg.regno_valid
+#else
+#define SYMBOL_BASEREG_VALID(symbol) 0
+#endif
+#define SYMBOL_BASEREG(symbol) (symbol)->aux_value.basereg.regno
 
 /* The virtual function table is now an array of structures
    which have the form { int16 offset, delta; void *pfn; }. 
@@ -564,6 +602,11 @@ extern void
 prim_record_minimal_symbol PARAMS ((const char *, CORE_ADDR,
 				    enum minimal_symbol_type));
 
+extern void
+prim_record_minimal_symbol_and_info PARAMS ((const char *, CORE_ADDR,
+					     enum minimal_symbol_type,
+					     char *info));
+
 extern struct minimal_symbol *
 lookup_minimal_symbol PARAMS ((const char *, struct objfile *));
 
@@ -625,6 +668,22 @@ decode_line_1 PARAMS ((char **, int, struct symtab *, int));
 
 /* Symmisc.c */
 
+#if MAINTENANCE_CMDS
+
+void
+maintenance_print_symbols PARAMS ((char *, int));
+
+void
+maintenance_print_psymbols PARAMS ((char *, int));
+
+void
+maintenance_print_msymbols PARAMS ((char *, int));
+
+void
+maintenance_print_objfiles PARAMS ((char *, int));
+
+#endif
+
 extern void
 free_symtab PARAMS ((struct symtab *));
 
@@ -657,6 +716,9 @@ extern char **
 make_symbol_completion_list PARAMS ((char *));
 
 /* symtab.c */
+
+extern void
+clear_symtab_users_once PARAMS ((void));
 
 extern struct partial_symtab *
 find_main_psymtab PARAMS ((void));

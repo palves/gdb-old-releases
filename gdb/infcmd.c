@@ -106,8 +106,6 @@ step_command PARAMS ((char *, int));
 static void
 run_command PARAMS ((char *, int));
 
-extern char *sys_siglist[];
-
 #define ERROR_NO_INFERIOR \
    if (!target_has_execution) error ("The program is not being run.");
 
@@ -237,7 +235,7 @@ Start it from the beginning? "))
 
   if (from_tty)
     {
-      printf ("Starting program: %s %s\n",
+      printf_filtered ("Starting program: %s %s\n",
 	      exec_file? exec_file: "", inferior_args);
       fflush (stdout);
     }
@@ -272,13 +270,13 @@ continue_command (proc_count_exp, from_tty)
 	  /* set_ignore_count prints a message ending with a period.
 	     So print two spaces before "Continuing.".  */
 	  if (from_tty)
-	    printf ("  ");
+	    printf_filtered ("  ");
 	  num = bpstat_num (&bs);
 	}
     }
 
   if (from_tty)
-    printf ("Continuing.\n");
+    printf_filtered ("Continuing.\n");
 
   clear_proceed_status ();
 
@@ -364,14 +362,14 @@ step_1 (skip_subroutines, single_inst, count_string)
 
 	      msymbol = lookup_minimal_symbol_by_pc (stop_pc);
 	      target_terminal_ours ();
-	      printf ("Current function has no line number information.\n");
+	      printf_filtered ("Current function has no line number information.\n");
 	      fflush (stdout);
 
 	      /* No info or after _etext ("Can't happen") */
 	      if (msymbol == NULL || (msymbol + 1) -> name == NULL)
 		error ("No data available on pc function.");
 
-	      printf ("Single stepping until function exit.\n");
+	      printf_filtered ("Single stepping until function exit.\n");
 	      fflush (stdout);
 
 	      step_range_start = msymbol -> address;
@@ -415,6 +413,10 @@ jump_command (arg, from_tty)
   register CORE_ADDR addr;
   struct symtabs_and_lines sals;
   struct symtab_and_line sal;
+  struct symbol *fn;
+  struct symbol *sfn;
+  char *fname;
+  struct cleanup *back_to;
 
   ERROR_NO_INFERIOR;
 
@@ -435,19 +437,25 @@ jump_command (arg, from_tty)
 
   resolve_sal_pc (&sal);			/* May error out */
 
-  {
-    struct symbol *fn = get_frame_function (get_current_frame ());
-    struct symbol *sfn = find_pc_function (sal.pc);
-    if (fn != 0 && sfn != fn
-	&& ! query ("Line %d is not in `%s'.  Jump anyway? ",
-		    sal.line, SYMBOL_NAME (fn)))
-      error ("Not confirmed.");
-  }
+  /* See if we are trying to jump to another function. */
+  fn = get_frame_function (get_current_frame ());
+  sfn = find_pc_function (sal.pc);
+  if (fn != NULL && sfn != fn)
+    {
+      fname = strdup_demangled (SYMBOL_NAME (fn));
+      back_to = make_cleanup (free, fname);
+      if (!query ("Line %d is not in `%s'.  Jump anyway? ", sal.line, fname))
+	{
+	  error ("Not confirmed.");
+	  /* NOTREACHED */
+	}
+      do_cleanups (back_to);
+    }
 
   addr = ADDR_BITS_SET (sal.pc);
 
   if (from_tty)
-    printf ("Continuing at %s.\n", local_hex_string(addr));
+    printf_filtered ("Continuing at %s.\n", local_hex_string(addr));
 
   clear_proceed_status ();
   proceed (addr, 0, 0);
@@ -471,7 +479,7 @@ signal_command (signum_exp, from_tty)
   signum = parse_and_eval_address (signum_exp);
 
   if (from_tty)
-    printf ("Continuing with signal %d.\n", signum);
+    printf_filtered ("Continuing with signal %d.\n", signum);
 
   clear_proceed_status ();
   proceed (stop_pc, signum, 0);
@@ -520,7 +528,7 @@ The expression which contained the function call has been discarded.");
 
   /* On return, the stack dummy has been popped already.  */
 
-  bcopy (stop_registers, buffer, sizeof stop_registers);
+  memcpy (buffer, stop_registers, sizeof stop_registers);
 }
 
 /* Proceed until we reach a different source line with pc greater than
@@ -684,14 +692,14 @@ program_info (args, from_tty)
   
   if (!target_has_execution)
     {
-      printf ("The program being debugged is not being run.\n");
+      printf_filtered ("The program being debugged is not being run.\n");
       return;
     }
 
   target_files_info ();
-  printf ("Program stopped at %s.\n", local_hex_string(stop_pc));
+  printf_filtered ("Program stopped at %s.\n", local_hex_string(stop_pc));
   if (stop_step)
-    printf ("It stopped after being stepped.\n");
+    printf_filtered ("It stopped after being stepped.\n");
   else if (num != 0)
     {
       /* There may be several breakpoints in the same place, so this
@@ -699,9 +707,9 @@ program_info (args, from_tty)
       while (num != 0)
 	{
 	  if (num < 0)
-	    printf ("It stopped at a breakpoint that has since been deleted.\n");
+	    printf_filtered ("It stopped at a breakpoint that has since been deleted.\n");
 	  else
-	    printf ("It stopped at breakpoint %d.\n", num);
+	    printf_filtered ("It stopped at breakpoint %d.\n", num);
 	  num = bpstat_num (&bs);
 	}
     }
@@ -709,14 +717,13 @@ program_info (args, from_tty)
 #ifdef PRINT_RANDOM_SIGNAL
     PRINT_RANDOM_SIGNAL (stop_signal);
 #else
-    printf ("It stopped with signal %d (%s).\n",
-	    stop_signal, 
-	    (stop_signal > NSIG)? "unknown": sys_siglist[stop_signal]);
+    printf_filtered ("It stopped with signal %d (%s).\n",
+		     stop_signal, safe_strsignal (stop_signal));
 #endif
   }
 
   if (!from_tty)
-    printf ("Type \"info stack\" or \"info registers\" for more information.\n");
+    printf_filtered ("Type \"info stack\" or \"info registers\" for more information.\n");
 }
 
 static void
@@ -728,15 +735,15 @@ environment_info (var, from_tty)
     {
       register char *val = get_in_environ (inferior_environ, var);
       if (val)
-	printf ("%s = %s\n", var, val);
+	printf_filtered ("%s = %s\n", var, val);
       else
-	printf ("Environment variable \"%s\" not defined.\n", var);
+	printf_filtered ("Environment variable \"%s\" not defined.\n", var);
     }
   else
     {
       register char **vector = environ_vector (inferior_environ);
       while (*vector)
-	printf ("%s\n", *vector++);
+	printf_filtered ("%s\n", *vector++);
     }
 }
 
@@ -793,7 +800,7 @@ set_environment_command (arg, from_tty)
   var = savestring (arg, p - arg);
   if (nullset)
     {
-      printf ("Setting environment variable \"%s\" to null value.\n", var);
+      printf_filtered ("Setting environment variable \"%s\" to null value.\n", var);
       set_in_environ (inferior_environ, var, "");
     }
   else
@@ -830,7 +837,7 @@ path_info (args, from_tty)
      char *args;
      int from_tty;
 {
-  printf ("Executable and object file path: %s\n", 
+  printf_filtered ("Executable and object file path: %s\n", 
       get_in_environ (inferior_environ, path_var_name));
 }
 
@@ -869,7 +876,7 @@ write_pc (val)
   pc_changed = 0;
 }
 
-char *reg_names[] = REGISTER_NAMES;
+const char * const reg_names[] = REGISTER_NAMES;
 
 /* Print out the machine register regnum. If regnum is -1,
    print all registers (fpregs == 1) or all non-float registers
@@ -1067,19 +1074,17 @@ float_info (addr_exp, from_tty)
 #ifdef FLOAT_INFO
 	FLOAT_INFO;
 #else
-	printf ("No floating point info available for this processor.\n");
+	printf_filtered ("No floating point info available for this processor.\n");
 #endif
 }
 
-struct cmd_list_element *unsetlist = NULL;
-
 /* ARGSUSED */
 static void
 unset_command (args, from_tty)
      char *args;
      int from_tty;
 {
-  printf ("\"unset\" must be followed by the name of an unset subcommand.\n");
+  printf_filtered ("\"unset\" must be followed by the name of an unset subcommand.\n");
   help_list (unsetlist, "unset ", -1, stdout);
 }
 
@@ -1206,7 +1211,7 @@ then the same breakpoint won't break until the Nth time it is reached.");
 	   "Start debugged program.  You may specify arguments to give it.\n\
 Args may include \"*\", or \"[...]\"; they are expanded using \"sh\".\n\
 Input and output redirection with \">\", \"<\", or \">>\" are also allowed.\n\n\
-With no arguments, uses arguments last specified (with \"run\" or \"set args\".\n\
+With no arguments, uses arguments last specified (with \"run\" or \"set args\").\n\
 To cancel previous arguments and run with no arguments,\n\
 use \"set args\" without arguments.");
   add_com_alias ("r", "run", class_run, 1);

@@ -74,6 +74,9 @@ EXTERN struct subfile *current_subfile;
 
 EXTERN unsigned char processing_gcc_compilation;
 
+/* When set, we are processing a .o file compiled by sun acc */
+EXTERN unsigned char processing_acc_compilation;
+
 /* Count symbols as they are processed, for error messages.  */
 
 EXTERN unsigned int symnum;
@@ -256,18 +259,10 @@ EXTERN int n_this_object_header_files;
 
 EXTERN int n_allocated_this_object_header_files;
 
-/* When a header file is getting special overriding definitions
-   for one source file, record here the header_files index
-   of its normal definition vector.
-   At other times, this is -1.  */
-
-EXTERN int header_file_prev_index;
-
 struct subfile_stack
 {
   struct subfile_stack *next;
   char *name;
-  int prev_index;
 };
 
 EXTERN struct subfile_stack *subfile_stack;
@@ -343,7 +338,8 @@ extern struct symbol *
 define_symbol PARAMS ((unsigned int, char *, int, int, struct objfile *));
 
 extern struct partial_symtab *
-start_psymtab PARAMS ((struct objfile *, CORE_ADDR, char *, CORE_ADDR, int,
+start_psymtab PARAMS ((struct objfile *, struct section_offsets *, char *,
+		       CORE_ADDR, int,
 		       struct partial_symbol *, struct partial_symbol *));
 
 extern void
@@ -351,9 +347,8 @@ end_psymtab PARAMS ((struct partial_symtab *, char **, int, int, CORE_ADDR,
 		     struct partial_symtab **, int));
 
 extern void
-process_one_symbol PARAMS ((int, int, CORE_ADDR, char *, int,
-			    struct objfile *));
-
+process_one_symbol PARAMS ((int, int, CORE_ADDR, char *,
+			    struct section_offsets *, struct objfile *));
 extern int
 hashname PARAMS ((char *));
 

@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-i960.c,v 1.28 1992/03/29 18:45:44 gnu Exp $ */
+/* $Id: coff-i960.c,v 1.31 1992/06/22 15:42:24 sac Exp $ */
 
 #define I960 1
 #define BADMAG(x) I960BADMAG(x)
@@ -30,19 +30,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/i960.h"
 #include "coff/internal.h"
 #include "libcoff.h"		/* to allow easier abstraction-breaking */
-
+#define COFF_LONG_FILENAMES
 
 #define CALLS	 0x66003800	/* Template for 'calls' instruction	*/
 #define BAL	 0x0b000000	/* Template for 'bal' instruction	*/
 #define BAL_MASK 0x00ffffff
 
 static bfd_reloc_status_type 
-optcall_callback(abfd, reloc_entry, symbol_in, data, ignore_input_section)
-bfd *abfd;
-arelent *reloc_entry;
-asymbol *symbol_in;
-PTR data;
-asection *ignore_input_section;
+DEFUN (optcall_callback, (abfd, reloc_entry, symbol_in, data,
+			  ignore_input_section, ignore_bfd),
+       bfd *abfd AND
+       arelent *reloc_entry AND
+       asymbol *symbol_in AND
+       PTR data AND
+       asection *ignore_input_section AND
+       bfd *ignore_bfd)
 {
   /* This item has already been relocated correctly, but we may be
    * able to patch in yet better code - done by digging out the
@@ -97,51 +99,47 @@ asection *ignore_input_section;
   return result;
 }
 
-
-
-static reloc_howto_type howto_table[] = 
-{
-  {0},
-  {1},
-  {2},
-  {3},
-  {4},
-  {5},
-  {6},
-  {7},
-  {8},
-  {9},
-  {10},
-  {11},
-  {12},
-  {13},
-  {14},
-  {15},
-  {16},
-
+static reloc_howto_type howto_rellong =
   { (unsigned int) R_RELLONG, 0, 2, 32,false, 0, true, true,
-      0,"rellong", true, 0xffffffff, 0xffffffff},
-  {18},
-  {19},
-  {20},
-  {21},
-  {22},
-  {23},
-  {24},
-
+      0,"rellong", true, 0xffffffff, 0xffffffff};
+static reloc_howto_type howto_iprmed =
   {  R_IPRMED, 0, 2, 24,true,0, true, true,0,"iprmed ", true,
-       0x00ffffff, 0x00ffffff},
-  {26},
- 
+       0x00ffffff, 0x00ffffff};
+static reloc_howto_type howto_optcall =
   {  R_OPTCALL, 0,2,24,true,0, true, true, optcall_callback,
-       "optcall", true, 0x00ffffff, 0x00ffffff},
+       "optcall", true, 0x00ffffff, 0x00ffffff};
 
-};
+static reloc_howto_type *
+DEFUN (coff_i960_reloc_type_lookup, (abfd, code),
+       bfd *abfd AND
+       bfd_reloc_code_real_type code)
+{
+  switch (code)
+    {
+    default:
+      return 0;
+    case BFD_RELOC_I960_CALLJ:
+      return &howto_optcall;
+    case BFD_RELOC_32:
+      return &howto_rellong;
+    case BFD_RELOC_24_PCREL:
+      return &howto_iprmed;
+    }
+}
 
 /* The real code is in coffcode.h */
 
 #define RTYPE2HOWTO(cache_ptr, dst) \
-	    cache_ptr->howto = howto_table + (dst)->r_type;
+{							\
+   reloc_howto_type *howto_ptr;				\
+   switch ((dst)->r_type) {				\
+     case 17: howto_ptr = &howto_rellong; break;	\
+     case 25: howto_ptr = &howto_iprmed; break;		\
+     case 27: howto_ptr = &howto_optcall; break;	\
+     default: howto_ptr = 0; break;			\
+     }							\
+   cache_ptr->howto = howto_ptr;			\
+ }
 
 #include "coffcode.h"
 
@@ -171,8 +169,10 @@ bfd_target icoff_little_vec =
     {bfd_false, coff_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE(coff),
-COFF_SWAP_TABLE
-  };
+  COFF_SWAP_TABLE,
+  coff_i960_reloc_type_lookup,
+  coff_make_debug_symbol,
+};
 
 
 bfd_target icoff_big_vec =
@@ -201,5 +201,7 @@ _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs
   {bfd_false, coff_write_object_contents,	/* bfd_write_contents */
      _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE(coff),
-COFF_SWAP_TABLE
+  COFF_SWAP_TABLE,
+  coff_i960_reloc_type_lookup,
+  coff_make_debug_symbol,
 };

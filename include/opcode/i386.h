@@ -1,23 +1,21 @@
 /* i386-opcode.h -- Intel 80386 opcode table
-   Copyright (C) 1989, 1991, Free Software Foundation.
+   Copyright 1989, 1991, 1992 Free Software Foundation.
 
-This file is part of GAS, the GNU Assembler.
+This file is part of GAS, the GNU Assembler, and GDB, the GNU Debugger.
 
-GAS is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GAS is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GAS; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
-   
-/* $Id: i386.h,v 1.2 1992/02/21 09:33:34 rich Exp $ */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 static const template i386_optab[] = {
 
@@ -352,9 +350,11 @@ static const template i386_optab[] = {
 {"setno", 1, 0x0f91, 0, Modrm, Reg8|Mem, 0, 0},
 
 {"setb", 1, 0x0f92, 0, Modrm, Reg8|Mem, 0, 0},
+{"setc", 1, 0x0f92, 0, Modrm, Reg8|Mem, 0, 0},
 {"setnae", 1, 0x0f92, 0, Modrm, Reg8|Mem, 0, 0},
 
 {"setnb", 1, 0x0f93, 0, Modrm, Reg8|Mem, 0, 0},
+{"setnc", 1, 0x0f93, 0, Modrm, Reg8|Mem, 0, 0},
 {"setae", 1, 0x0f93, 0, Modrm, Reg8|Mem, 0, 0},
 
 {"sete", 1, 0x0f94, 0, Modrm, Reg8|Mem, 0, 0},
@@ -463,70 +463,70 @@ static const template i386_optab[] = {
 
 /* load */
 {"fld", 1, 0xd9c0, _, ShortForm, FloatReg, 0, 0}, /* register */
-{"flds", 1, 0xd9, 0, Modrm, Mem, 0, 0},           /* %st0 <-- mem float */
-{"fildl", 1, 0xdb, 0, Modrm, Mem, 0, 0},           /* %st0 <-- mem word */
-{"fldl", 1, 0xdd, 0, Modrm, Mem, 0, 0},           /* %st0 <-- mem double */
+{"flds", 1, 0xd9, 0, Modrm, Mem, 0, 0},		/* %st0 <-- mem float */
+{"fldl", 1, 0xdd, 0, Modrm, Mem, 0, 0},		/* %st0 <-- mem double */
 {"fldl", 1, 0xd9c0, _, ShortForm, FloatReg, 0, 0}, /* register */
-{"filds", 1, 0xdf, 0, Modrm, Mem, 0, 0},           /* %st0 <-- mem dword */
-{"fildq", 1, 0xdf, 5, Modrm, Mem, 0, 0},           /* %st0 <-- mem qword */
-{"fldt", 1, 0xdb, 5, Modrm, Mem, 0, 0},           /* %st0 <-- mem efloat */
-{"fbld", 1, 0xdf, 4, Modrm, Mem, 0, 0},           /* %st0 <-- mem bcd */
+{"fild", 1, 0xdf, 0, Modrm, Mem, 0, 0},		/* %st0 <-- mem word (16) */
+{"fildl", 1, 0xdb, 0, Modrm, Mem, 0, 0},	/* %st0 <-- mem dword (32) */
+{"fildll",1, 0xdf, 5, Modrm, Mem, 0, 0},	/* %st0 <-- mem qword (64) */
+{"fldt", 1, 0xdb, 5, Modrm, Mem, 0, 0},		/* %st0 <-- mem efloat */
+{"fbld", 1, 0xdf, 4, Modrm, Mem, 0, 0},		/* %st0 <-- mem bcd */
 
 /* store (no pop) */
 {"fst", 1, 0xddd0, _, ShortForm, FloatReg, 0, 0}, /* register */
-{"fsts", 1, 0xd9, 2, Modrm, Mem, 0, 0},           /* %st0 --> mem float */
-{"fistl", 1, 0xdb, 2, Modrm, Mem, 0, 0},           /* %st0 --> mem dword */
-{"fstl", 1, 0xdd, 2, Modrm, Mem, 0, 0},           /* %st0 --> mem double */
+{"fsts", 1, 0xd9, 2, Modrm, Mem, 0, 0},		/* %st0 --> mem float */
+{"fstl", 1, 0xdd, 2, Modrm, Mem, 0, 0},		/* %st0 --> mem double */
 {"fstl", 1, 0xddd0, _, ShortForm, FloatReg, 0, 0}, /* register */
-{"fists", 1, 0xdf, 2, Modrm, Mem, 0, 0},           /* %st0 --> mem word */
+{"fist", 1, 0xdf, 2, Modrm, Mem, 0, 0},		/* %st0 --> mem word (16) */
+{"fistl", 1, 0xdb, 2, Modrm, Mem, 0, 0},	/* %st0 --> mem dword (32) */
 
 /* store (with pop) */
 {"fstp", 1, 0xddd8, _, ShortForm, FloatReg, 0, 0}, /* register */
-{"fstps", 1, 0xd9, 3, Modrm, Mem, 0, 0},           /* %st0 --> mem float */
-{"fistpl", 1, 0xdb, 3, Modrm, Mem, 0, 0},           /* %st0 --> mem word */
-{"fstpl", 1, 0xdd, 3, Modrm, Mem, 0, 0},           /* %st0 --> mem double */
+{"fstps", 1, 0xd9, 3, Modrm, Mem, 0, 0},	/* %st0 --> mem float */
+{"fstpl", 1, 0xdd, 3, Modrm, Mem, 0, 0},	/* %st0 --> mem double */
 {"fstpl", 1, 0xddd8, _, ShortForm, FloatReg, 0, 0}, /* register */
-{"fistps", 1, 0xdf, 3, Modrm, Mem, 0, 0},           /* %st0 --> mem dword */
-{"fistpq", 1, 0xdf, 7, Modrm, Mem, 0, 0},           /* %st0 --> mem qword */
-{"fstpt", 1, 0xdb, 7, Modrm, Mem, 0, 0},           /* %st0 --> mem efloat */
-{"fbstp", 1, 0xdf, 6, Modrm, Mem, 0, 0},           /* %st0 --> mem bcd */
+{"fistp", 1, 0xdf, 3, Modrm, Mem, 0, 0},	/* %st0 --> mem word (16) */
+{"fistpl",1, 0xdb, 3, Modrm, Mem, 0, 0},	/* %st0 --> mem dword (32) */
+{"fistpll",1,0xdf, 7, Modrm, Mem, 0, 0},	/* %st0 --> mem qword (64) */
+{"fstpt", 1, 0xdb, 7, Modrm, Mem, 0, 0},	/* %st0 --> mem efloat */
+{"fbstp", 1, 0xdf, 6, Modrm, Mem, 0, 0},	/* %st0 --> mem bcd */
 
 /* exchange %st<n> with %st0 */
 {"fxch", 1, 0xd9c8, _, ShortForm, FloatReg, 0, 0},
 
 /* comparison (without pop) */
 {"fcom", 1, 0xd8d0, _, ShortForm, FloatReg, 0, 0},
-{"fcoms", 1, 0xd8, 2, Modrm, Mem, 0, 0}, /* compare %st0, mem float  */
-{"ficoml", 1, 0xda, 2, Modrm, Mem, 0, 0}, /* compare %st0, mem word  */ 
-{"fcoml", 1, 0xdc, 2, Modrm, Mem, 0, 0}, /* compare %st0, mem double  */
+{"fcoms", 1, 0xd8, 2, Modrm, Mem, 0, 0},	/* compare %st0, mem float  */
+{"ficoml", 1, 0xda, 2, Modrm, Mem, 0, 0},	/* compare %st0, mem word  */ 
+{"fcoml", 1, 0xdc, 2, Modrm, Mem, 0, 0},	/* compare %st0, mem double  */
 {"fcoml", 1, 0xd8d0, _, ShortForm, FloatReg, 0, 0},
-{"ficoms", 1, 0xde, 2, Modrm, Mem, 0, 0}, /* compare %st0, mem dword */
+{"ficoms", 1, 0xde, 2, Modrm, Mem, 0, 0},	/* compare %st0, mem dword */
 
 /* comparison (with pop) */
 {"fcomp", 1, 0xd8d8, _, ShortForm, FloatReg, 0, 0},
-{"fcomps", 1, 0xd8, 3, Modrm, Mem, 0, 0}, /* compare %st0, mem float  */
-{"ficompl", 1, 0xda, 3, Modrm, Mem, 0, 0}, /* compare %st0, mem word  */ 
-{"fcompl", 1, 0xdc, 3, Modrm, Mem, 0, 0}, /* compare %st0, mem double  */
+{"fcomps", 1, 0xd8, 3, Modrm, Mem, 0, 0},	/* compare %st0, mem float  */
+{"ficompl", 1, 0xda, 3, Modrm, Mem, 0, 0},	/* compare %st0, mem word  */ 
+{"fcompl", 1, 0xdc, 3, Modrm, Mem, 0, 0},	/* compare %st0, mem double  */
 {"fcompl", 1, 0xd8d8, _, ShortForm, FloatReg, 0, 0},
-{"ficomps", 1, 0xde, 3, Modrm, Mem, 0, 0}, /* compare %st0, mem dword */
-{"fcompp", 0, 0xded9, _, NoModrm, 0, 0, 0}, /* compare %st0, %st1 & pop twice */
+{"ficomps", 1, 0xde, 3, Modrm, Mem, 0, 0},	/* compare %st0, mem dword */
+{"fcompp", 0, 0xded9, _, NoModrm, 0, 0, 0},	/* compare %st0, %st1 & pop 2 */
 
 /* unordered comparison (with pop) */
 {"fucom", 1, 0xdde0, _, ShortForm, FloatReg, 0, 0},
 {"fucomp", 1, 0xdde8, _, ShortForm, FloatReg, 0, 0},
 {"fucompp", 0, 0xdae9, _, NoModrm, 0, 0, 0}, /* ucompare %st0, %st1 & pop twice */
 
-{"ftst", 0, 0xd9e4, _, NoModrm, 0, 0, 0},   /* test %st0 */
-{"fxam", 0, 0xd9e5, _, NoModrm, 0, 0, 0},   /* examine %st0 */
+{"ftst", 0, 0xd9e4, _, NoModrm, 0, 0, 0},	/* test %st0 */
+{"fxam", 0, 0xd9e5, _, NoModrm, 0, 0, 0},	/* examine %st0 */
 
 /* load constants into %st0 */
-{"fld1", 0, 0xd9e8, _, NoModrm, 0, 0, 0},   /* %st0 <-- 1.0 */
-{"fldl2t", 0, 0xd9e9, _, NoModrm, 0, 0, 0},   /* %st0 <-- log2(10) */
-{"fldl2e", 0, 0xd9ea, _, NoModrm, 0, 0, 0},   /* %st0 <-- log2(e) */
-{"fldpi", 0, 0xd9eb, _, NoModrm, 0, 0, 0},   /* %st0 <-- pi */
-{"fldlg2", 0, 0xd9ec, _, NoModrm, 0, 0, 0},   /* %st0 <-- log10(2) */
-{"fldln2", 0, 0xd9ed, _, NoModrm, 0, 0, 0},   /* %st0 <-- ln(2) */
-{"fldz", 0, 0xd9ee, _, NoModrm, 0, 0, 0},   /* %st0 <-- 0.0 */
+{"fld1", 0, 0xd9e8, _, NoModrm, 0, 0, 0},	/* %st0 <-- 1.0 */
+{"fldl2t", 0, 0xd9e9, _, NoModrm, 0, 0, 0},	/* %st0 <-- log2(10) */
+{"fldl2e", 0, 0xd9ea, _, NoModrm, 0, 0, 0},	/* %st0 <-- log2(e) */
+{"fldpi", 0, 0xd9eb, _, NoModrm, 0, 0, 0},	/* %st0 <-- pi */
+{"fldlg2", 0, 0xd9ec, _, NoModrm, 0, 0, 0},	/* %st0 <-- log10(2) */
+{"fldln2", 0, 0xd9ed, _, NoModrm, 0, 0, 0},	/* %st0 <-- ln(2) */
+{"fldz", 0, 0xd9ee, _, NoModrm, 0, 0, 0},	/* %st0 <-- 0.0 */
 
 /* arithmetic */
 
@@ -701,7 +701,9 @@ static const template i386_optab[] = {
   (see prefix table below)
 */
 {"aword", 0, 0x67, _, NoModrm, 0, 0, 0},
+{"addr16", 0, 0x67, _, NoModrm, 0, 0, 0},
 {"word", 0, 0x66, _, NoModrm, 0, 0, 0},
+{"data16", 0, 0x66, _, NoModrm, 0, 0, 0},
 {"lock", 0, 0xf0, _, NoModrm, 0, 0, 0},
 {"cs", 0, 0x2e, _, NoModrm, 0, 0, 0},
 {"ds", 0, 0x3e, _, NoModrm, 0, 0, 0},
@@ -711,7 +713,9 @@ static const template i386_optab[] = {
 {"ss", 0, 0x36, _, NoModrm, 0, 0, 0},
 {"rep", 0, 0xf3, _, NoModrm, 0, 0, 0},
 {"repe", 0, 0xf3, _, NoModrm, 0, 0, 0},
-{ "repne", 0, 0xf2, _, NoModrm, 0, 0, 0},
+{"repz", 0, 0xf3, _, NoModrm, 0, 0, 0},
+{"repne", 0, 0xf2, _, NoModrm, 0, 0, 0},
+{"repnz", 0, 0xf2, _, NoModrm, 0, 0, 0},
 
 {"", 0, 0, 0, 0, 0, 0, 0}	/* sentinal */
 };
@@ -804,8 +808,9 @@ static const prefix_entry i386_prefixtab[] = {
 /* REPE & REPNE used to detect rep/repne with a non-string instruction */
 #define REPNE 0xf2
 #define REPE  0xf3
-  { "rep", 0xf3 }, { "repe", 0xf3 }, /* repeat string instructions */
-  { "repne", 0xf2 }
+  { "rep", 0xf3 }, 		/* repeat string instructions */
+  { "repe", 0xf3 },  { "repz", 0xf3 },
+  { "repne", 0xf2 }, { "repnz", 0xf2 }
 };
 
 static const prefix_entry *i386_prefixtab_end

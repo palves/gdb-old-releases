@@ -45,6 +45,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symfile.h"
 #include "objfiles.h"
 #include "buildsym.h"
+#include "gdb-stabs.h"
 
 #include "coff/internal.h"	/* FIXME, internal data from BFD */
 #include "libcoff.h"		/* FIXME, internal data from BFD */
@@ -61,7 +62,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    one of Transarc, to reduce the size of the symbol table. Types won't be
    recognized, but tag names will be. */
 
-/* #define	NO_TYPES  1 */
+/* #define	NO_TYPEDEFS  1 */
 
 /* Simplified internal version of coff symbol table information */
 
@@ -181,11 +182,16 @@ aixcoff_symfile_init PARAMS ((struct objfile *));
 static void
 aixcoff_new_init PARAMS ((struct objfile *));
 
+struct section_offset;
+
 static void
-aixcoff_symfile_read PARAMS ((struct sym_fns *, CORE_ADDR, int));
+aixcoff_symfile_read PARAMS ((struct objfile *, struct section_offset *, int));
 
 static void
 aixcoff_symfile_finish PARAMS ((struct objfile *));
+
+static struct section_offsets *
+aixcoff_symfile_offsets PARAMS ((struct objfile *, CORE_ADDR));
 
 static int
 init_lineno PARAMS ((bfd *, long, int));
@@ -1092,7 +1098,13 @@ read_xcoff_symtab (objfile, nsyms)
 	symname_alloced = 1;
       }
       cs->c_value = symbol->n_value;
-      cs->c_sclass = symbol->n_sclass & 0xff;
+      /* n_sclass is signed (FIXME), so we had better not mask off any
+	 high bits it contains, since the values we will be comparing
+	 it to are also signed (FIXME).  Defined in <coff/internal.h>.
+	 At this point (3Jun92, gnu@cygnus.com) I think the fix is to
+	 make the fields and values unsigned chars, but changing the next
+	 line is a simple patch late in the release cycle, for now.  */
+      cs->c_sclass = symbol->n_sclass /* & 0xff */;
       cs->c_secnum = symbol->n_scnum;
       cs->c_type = (unsigned)symbol->n_type;
 
@@ -1563,7 +1575,7 @@ function_entry_point:
       break;
 
     default		:
-      (void) process_xcoff_symbol (cs, objfile);
+      process_xcoff_symbol (cs, objfile);
       break;
     }
 
@@ -2232,9 +2244,9 @@ free_debugsection()
 /* aixcoff version of symbol file read. */
 
 static void
-aixcoff_symfile_read (objfile, addr, mainline)
+aixcoff_symfile_read (objfile, section_offset, mainline)
   struct objfile *objfile;
-  CORE_ADDR addr;
+  struct section_offset *section_offset;
   int mainline;
 {
   int num_symbols;				/* # of symbols */
@@ -2314,6 +2326,28 @@ aixcoff_symfile_read (objfile, addr, mainline)
   select_source_symtab (0);
 }
 
+/* XCOFF-specific parsing routine for section offsets.
+   Plain and simple for now.  */
+
+static
+struct section_offsets *
+aixcoff_symfile_offsets (objfile, addr)
+     struct objfile *objfile;
+     CORE_ADDR addr;
+{
+  struct section_offsets *section_offsets;
+  int i;
+ 
+  section_offsets = (struct section_offsets *)
+    obstack_alloc (&objfile -> psymbol_obstack,
+		   sizeof (struct section_offsets) +
+		          sizeof (section_offsets->offsets) * (SECT_OFF_MAX-1));
+
+  for (i = 0; i < SECT_OFF_MAX; i++)
+    ANOFFSET (section_offsets, i) = addr;
+  
+  return section_offsets;
+}
 /* Register our ability to parse symbols for aixcoff BFD files. */
 
 static struct sym_fns aixcoff_sym_fns =
@@ -2324,6 +2358,7 @@ static struct sym_fns aixcoff_sym_fns =
   aixcoff_symfile_init,	/* sym_init: read initial info, setup for sym_read() */
   aixcoff_symfile_read,	/* sym_read: read a symbol file into symtab */
   aixcoff_symfile_finish, /* sym_finish: finished with file, cleanup */
+  aixcoff_symfile_offsets, /* sym_offsets: xlate offsets ext->int form */
   NULL			/* next: pointer to next struct sym_fns */
 };
 
@@ -2331,52 +2366,6 @@ void
 _initialize_xcoffread ()
 {
   add_symtab_fns(&aixcoff_sym_fns);
-}
-
-
-/* In order to handle forward type references, we needed to have this old
-   routine. Try printing the type of member `p' in the following structure
-   in a dbx environment.
-
-     struct s {
-       ...
-       struct s *p;
-     };
-*/
-
-
-/* Smash TYPE to be a type of pointers to TO_TYPE.
-   If TO_TYPE is not permanent and has no pointer-type yet,
-   record TYPE as its pointer-type.  */
-
-void
-smash_to_pointer_type (type, to_type)
-     struct type *type, *to_type;
-{
-/*  int type_permanent = (TYPE_FLAGS (type) & TYPE_FLAG_PERM); */
-  
-  bzero (type, sizeof (struct type));
-  TYPE_TARGET_TYPE (type) = to_type;
-  /* We assume the machine has only one representation for pointers!  */
-  TYPE_LENGTH (type) = sizeof (char *);
-  TYPE_CODE (type) = TYPE_CODE_PTR;
-
-/* ??? TYPE_TARGET_TYPE and TYPE_MAIN_VARIANT are the same. You can't do
-  this. It will break the target type!!!
-  TYPE_MAIN_VARIANT (type) = type;
-
-  if (type_permanent)
-    TYPE_FLAGS (type) |= TYPE_FLAG_PERM;
-*/
-
-  if (TYPE_POINTER_TYPE (to_type) == 0)
-#if 0
-      && (!(TYPE_FLAGS (to_type) & TYPE_FLAG_PERM)
-	  || type_permanent))
-#endif /* 0 */
-    {
-      TYPE_POINTER_TYPE (to_type) = type;
-    }
 }
 
 #else /* IBM6000_HOST */

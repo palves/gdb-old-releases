@@ -27,8 +27,11 @@ extern char *getenv ();
 #endif
 
 static FILE *mallstream;
+
+#if 0	/* FIXME:  Disabled for now. */
 static char mallenv[] = "MALLOC_TRACE";
 static char mallbuf[BUFSIZ];	/* Buffer for the output.  */
+#endif
 
 /* Address to breakpoint on accesses to... */
 static PTR mallwatch;
@@ -57,7 +60,8 @@ tr_freehook (md, ptr)
   struct mdesc *mdp;
 
   mdp = MD_TO_MDP (md);
-  fprintf (mallstream, "- %08x\n", ptr);  /* Be sure to print it first.  */
+  /* Be sure to print it first.  */
+  fprintf (mallstream, "- %08x\n", (unsigned int) ptr);
   if (ptr == mallwatch)
     tr_break ();
   mdp -> mfree_hook = old_mfree_hook;
@@ -79,7 +83,7 @@ tr_mallochook (md, size)
   mdp -> mmalloc_hook = tr_mallochook;
 
   /* We could be printing a NULL here; that's OK.  */
-  fprintf (mallstream, "+ %08x %x\n", hdr, size);
+  fprintf (mallstream, "+ %08x %x\n", (unsigned int) hdr, size);
 
   if (hdr == mallwatch)
     tr_break ();
@@ -110,9 +114,10 @@ tr_reallochook (md, ptr, size)
   mdp -> mrealloc_hook = tr_reallochook;
   if (hdr == NULL)
     /* Failed realloc.  */
-    fprintf (mallstream, "! %08x %x\n", ptr, size);
+    fprintf (mallstream, "! %08x %x\n", (unsigned int) ptr, size);
   else
-    fprintf (mallstream, "< %08x\n> %08x %x\n", ptr, hdr, size);
+    fprintf (mallstream, "< %08x\n> %08x %x\n", (unsigned int) ptr,
+	     (unsigned int) hdr, size);
 
   if (hdr == mallwatch)
     tr_break ();
@@ -128,12 +133,10 @@ tr_reallochook (md, ptr, size)
 int
 mmtrace ()
 {
-  char *mallfile;
-  int rtnval;
-  
 #if 0	/* FIXME!  This is disabled for now until we figure out how to
 	   maintain a stack of hooks per heap, since we might have other
 	   hooks (such as set by mmcheck) active also. */
+  char *mallfile;
 
   mallfile = getenv (mallenv);
   if (mallfile  != NULL || mallwatch != NULL)

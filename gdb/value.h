@@ -52,7 +52,7 @@ struct value
       {
 	/* Address in inferior or byte of registers structure.  */
 	CORE_ADDR address;
-	/* Pointer to interrnal variable.  */
+	/* Pointer to internal variable.  */
 	struct internalvar *internalvar;
 	/* Number of register.  Only used with
 	   lval_reg_frame_relative.  */
@@ -62,7 +62,9 @@ struct value
     int offset;	
     /* Only used for bitfields; number of bits contained in them.  */
     int bitsize;
-    /* Only used for bitfields; position of start of field.  */
+    /* Only used for bitfields; position of start of field.
+       For BITS_BIG_ENDIAN=0 targets, it is the position of the LSB.
+       For BITS_BIG_ENDIAN=1 targets, it is the position of the MSB. */
     int bitpos;
     /* Frame value is relative to.  In practice, this address is only
        used if the value is stored in several registers in other than
@@ -212,7 +214,7 @@ unpack_double PARAMS ((struct type *type, char *valaddr, int *invp));
 extern CORE_ADDR
 unpack_pointer PARAMS ((struct type *type, char *valaddr));
 
-extern long
+extern LONGEST
 unpack_field_as_long PARAMS ((struct type *type, char *valaddr,
 			      int fieldno));
 

@@ -553,7 +553,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_x_binop (arg1, arg2, op, OP_NULL);
       else
 	if (noside == EVAL_AVOID_SIDE_EFFECTS
-	    && op == BINOP_DIV)
+	    && (op == BINOP_DIV || op == BINOP_REM))
 	  return value_zero (VALUE_TYPE (arg1), not_lval);
       else
 	return value_binop (arg1, arg2, op);
@@ -695,8 +695,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
       else
 	{
-	  tem = value_less (arg1, arg2);
-	  return value_from_longest (builtin_type_int, (LONGEST) ! tem);
+	  tem = value_less (arg2, arg1) || value_equal (arg1, arg2);
+	  return value_from_longest (builtin_type_int, (LONGEST) tem);
 	}
 
     case BINOP_LEQ:
@@ -710,8 +710,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
       else 
 	{
-	  tem = value_less (arg2, arg1);
-	  return value_from_longest (builtin_type_int, (LONGEST) ! tem);
+	  tem = value_less (arg1, arg2) || value_equal (arg1, arg2);
+	  return value_from_longest (builtin_type_int, (LONGEST) tem);
 	}
 
     case BINOP_REPEAT:
@@ -1068,7 +1068,7 @@ parse_and_eval_type (p, length)
     char *tmp = (char *)alloca (length + 4);
     struct expression *expr;
     tmp[0] = '(';
-    bcopy (p, tmp+1, length);
+    memcpy (tmp+1, p, length);
     tmp[length+1] = ')';
     tmp[length+2] = '0';
     tmp[length+3] = '\0';

@@ -15,6 +15,17 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* New stab from Solaris 2.  This uses an n_type of 0, which in a.out files
+   overlaps the N_UNDF used for ordinary symbols.  In ELF files, the
+   debug information is in a different file section, so there is no conflict.
+   This symbol's n_value gives the size of the string section associated
+   with this file.  The symbol's n_strx (relative to the just-updated
+   string section start address) gives the name of the source file,
+   e.g. "foo.c", without any path information.  The symbol's n_desc gives
+   the count of upcoming symbols associated with this file (not including
+   this one).  */
+/* __define_stab (N_UNDF, 0x00, "UNDF")  */
+
 /* Global variable.  Only the name is significant.
    To find the address, look in the corresponding external symbol.  */
 __define_stab (N_GSYM, 0x20, "GSYM")
@@ -25,7 +36,11 @@ __define_stab (N_FNAME, 0x22, "FNAME")
 
 /* Function name or text-segment variable for C.  Value is its address.
    Desc is supposedly starting line number, but GCC doesn't set it
-   and DBX seems not to miss it.  */
+   and DBX seems not to miss it.
+   N_FUN entries can now contain an argument type list after the function's
+   return type, with a ';' preceding each argument type.  An argument type
+   of 0 means "...".  Also, function prototypes (as opposed to definitions)
+   are described as N_FUN with a 'P' type after the name ("printf:P1;"etc).  */
 __define_stab (N_FUN, 0x24, "FUN")
 
 /* Data-segment variable with internal linkage.  Value is its address.
@@ -35,9 +50,11 @@ __define_stab (N_STSYM, 0x26, "STSYM")
 /* BSS-segment variable with internal linkage.  Value is its address.  */
 __define_stab (N_LCSYM, 0x28, "LCSYM")
 
-/* Name of main routine.  Only the name is significant.
-   This is not used in C.  */
+/* Name of main routine.  Only the name is significant.  */
 __define_stab (N_MAIN, 0x2a, "MAIN")
+
+/* Solaris2:  Read-only data symbols.  */
+__define_stab (N_ROSYM, 0x2c, "ROSYM")
 
 /* Global symbol in Pascal.
    Supposedly the value is its line number; I'm skeptical.  */
@@ -49,6 +66,18 @@ __define_stab (N_NSYMS, 0x32, "NSYMS")
 /* "No DST map for sym: name, ,0,type,ignored"  according to Ultrix V4.0. */
 __define_stab (N_NOMAP, 0x34, "NOMAP")
 
+/* New stab from Solaris 2.  Like N_SO, but for the object file.  Two in
+   a row provide the build directory and the relative path of the .o from it.
+   Solaris2 uses this to avoid putting the stabs info into the linked
+   executable; this stab goes into the ".stab.index" section, and the debugger
+   reads the real stabs directly from the .o files instead.  */
+__define_stab (N_OBJ, 0x38, "OBJ")
+
+/* New stab from Solaris 2.  Options for the debugger, related to the
+   source language for this module.  E.g. whether to use ANSI
+   integral promotions or traditional integral promotions.  */
+__define_stab (N_OPT, 0x3c, "OPT")
+
 /* Register variable.  Value is number of register.  */
 __define_stab (N_RSYM, 0x40, "RSYM")
 
@@ -56,7 +85,8 @@ __define_stab (N_RSYM, 0x40, "RSYM")
 __define_stab (N_M2C, 0x42, "M2C")
 
 /* Line number in text segment.  Desc is the line number;
-   value is corresponding address.  */
+   value is corresponding address.  On Solaris2, the line number is
+   relative to the start of the current function.  */
 __define_stab (N_SLINE, 0x44, "SLINE")
 
 /* Similar, for data segment.  */
@@ -76,6 +106,9 @@ __define_stab (N_BROWS, 0x48, "BROWS")
    are enough empty fields? */
 __define_stab(N_DEFD, 0x4a, "DEFD")
 
+/* New in Solaris2.  Function start/body/end line numbers.  */
+__define_stab(N_FLINE, 0x4C, "FLINE")
+
 /* THE FOLLOWING TWO STAB VALUES CONFLICT.  Happily, one is for Modula-2
    and one is for C++.   Still,... */
 /* GNU C++ exception variable.  Name is variable name.  */
@@ -93,8 +126,17 @@ __define_stab (N_CATCH, 0x54, "CATCH")
 /* Structure or union element.  Value is offset in the structure.  */
 __define_stab (N_SSYM, 0x60, "SSYM")
 
+/* Solaris2:  Last stab emitted for module.  */
+__define_stab (N_ENDM, 0x62, "ENDM")
+
 /* Name of main source file.
-   Value is starting text address of the compilation.  */
+   Value is starting text address of the compilation.
+   If multiple N_SO's appear, the first to contain a trailing / is the
+   compilation directory.  The first to not contain a trailing / is the
+   source file name, relative to the compilation directory.  Others (perhaps
+   resulting from cfront) are ignored.
+   On Solaris2, value is undefined, but desc is a source-language code.  */
+
 __define_stab (N_SO, 0x64, "SO")
 
 /* Automatic variable in the stack.  Value is offset from frame pointer.
@@ -126,7 +168,8 @@ __define_stab (N_ENTRY, 0xa4, "ENTRY")
 /* Beginning of lexical block.
    The desc is the nesting level in lexical blocks.
    The value is the address of the start of the text for the block.
-   The variables declared inside the block *precede* the N_LBRAC symbol.  */
+   The variables declared inside the block *precede* the N_LBRAC symbol.
+   On Solaris2, the value is relative to the start of the current function.  */
 __define_stab (N_LBRAC, 0xc0, "LBRAC")
 
 /* Place holder for deleted include file.  Replaces a N_BINCL and everything
@@ -139,7 +182,8 @@ __define_stab (N_EXCL, 0xc2, "EXCL")
 __define_stab (N_SCOPE, 0xc4, "SCOPE")
 
 /* End of a lexical block.  Desc matches the N_LBRAC's desc.
-   The value is the address of the end of the text for the block.  */
+   The value is the address of the end of the text for the block.
+   On Solaris2, the value is relative to the start of the current function.  */
 __define_stab (N_RBRAC, 0xe0, "RBRAC")
 
 /* Begin named common block.  Only the name is significant.  */
@@ -153,6 +197,9 @@ __define_stab (N_ECOMM, 0xe4, "ECOMM")
    I'm not sure how this is used.  */
 __define_stab (N_ECOML, 0xe8, "ECOML")
 
+/* Solaris2: Pascal "with" statement: type,,0,0,offset */
+__define_stab (N_WITH, 0xea, "WITH")
+
 /* These STAB's are used on Gould systems for Non-Base register symbols
    or something like that.  FIXME.  I have assigned the values at random
    since I don't have a Gould here.  Fixups from Gould folk welcome... */
@@ -165,7 +212,6 @@ __define_stab (N_NBLCS,  0xF8, "NBLCS")
 /* Second symbol entry containing a length-value for the preceding entry.
    The value is the length.  */
 __define_stab (N_LENG, 0xfe, "LENG")
-
 
 /* The above information, in matrix format.
 
@@ -189,14 +235,14 @@ __define_stab (N_LENG, 0xfe, "LENG")
 	|_______________________________________________|
 	| Debug entries with bit 01 set are unused.	|
 	| 20 GSYM   | 22 FNAME	| 24 FUN    | 26 STSYM	|
-	| 28 LCSYM  | 2A MAIN	| 2C	    | 2E	|
+	| 28 LCSYM  | 2A MAIN	| 2C ROSYM  | 2E	|
 	| 30 PC	    | 32 NSYMS	| 34 NOMAP  | 36	|
-	| 38	    | 3A	| 3C	    | 3E	|
+	| 38 OBJ    | 3A	| 3C OPT    | 3E	|
 	| 40 RSYM   | 42 M2C	| 44 SLINE  | 46 DSLINE |
-	| 48 BSLINE*| 4A DEFD	| 4C        | 4E	|
+	| 48 BSLINE*| 4A DEFD	| 4C FLINE  | 4E	|
 	| 50 EHDECL*| 52	| 54 CATCH  | 56        |
 	| 58        | 5A        | 5C        | 5E	|
-	| 60 SSYM   | 62	| 64 SO	    | 66 	|
+	| 60 SSYM   | 62 ENDM	| 64 SO	    | 66 	|
 	| 68 	    | 6A	| 6C	    | 6E	|
 	| 70	    | 72	| 74	    | 76	|
 	| 78	    | 7A	| 7C	    | 7E	|
@@ -213,7 +259,7 @@ __define_stab (N_LENG, 0xfe, "LENG")
 	| D0	    | D2	| D4	    | D6	|
 	| D8	    | DA	| DC	    | DE	|
 	| E0 RBRAC  | E2 BCOMM	| E4 ECOMM  | E6	|
-	| E8 ECOML  | EA	| EC	    | EE	|
+	| E8 ECOML  | EA WITH	| EC	    | EE	|
 	| F0	    | F2	| F4	    | F6	|
 	| F8	    | FA	| FC	    | FE LENG	|
 	+-----------------------------------------------+

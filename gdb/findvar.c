@@ -171,8 +171,8 @@ read_relative_register_raw_bytes (regnum, myaddr)
   int optim;
   if (regnum == FP_REGNUM && selected_frame)
     {
-      bcopy (&FRAME_FP(selected_frame), myaddr, sizeof (CORE_ADDR));
-      SWAP_TARGET_AND_HOST (myaddr, sizeof (CORE_ADDR)); /* in target order */
+      memcpy (myaddr, &FRAME_FP(selected_frame), REGISTER_RAW_SIZE(FP_REGNUM));
+      SWAP_TARGET_AND_HOST (myaddr, REGISTER_RAW_SIZE(FP_REGNUM)); /* in target order */
       return 0;
     }
 
@@ -201,8 +201,8 @@ value_of_register (regnum)
 
   target_convert_to_virtual (regnum, raw_buffer, virtual_buffer);
   val = allocate_value (REGISTER_VIRTUAL_TYPE (regnum));
-  bcopy (virtual_buffer, VALUE_CONTENTS_RAW (val),
-	 REGISTER_VIRTUAL_SIZE (regnum));
+  memcpy (VALUE_CONTENTS_RAW (val), virtual_buffer,
+	  REGISTER_VIRTUAL_SIZE (regnum));
   VALUE_LVAL (val) = lval;
   VALUE_ADDRESS (val) = addr;
   VALUE_REGNO (val) = regnum;
@@ -262,7 +262,7 @@ read_register_bytes (regbyte, myaddr, len)
 	break;
       }
   if (myaddr != NULL)
-    bcopy (&registers[regbyte], myaddr, len);
+    memcpy (myaddr, &registers[regbyte], len);
 }
 
 /* Read register REGNO into memory at MYADDR, which must be large enough
@@ -276,7 +276,8 @@ read_register_gen (regno, myaddr)
 {
   if (!register_valid[regno])
     target_fetch_registers (regno);
-  bcopy (&registers[REGISTER_BYTE (regno)], myaddr, REGISTER_RAW_SIZE (regno));
+  memcpy (myaddr, &registers[REGISTER_BYTE (regno)],
+	  REGISTER_RAW_SIZE (regno));
 }
 
 /* Copy LEN bytes of consecutive data from memory at MYADDR
@@ -290,7 +291,7 @@ write_register_bytes (regbyte, myaddr, len)
 {
   /* Make sure the entire registers array is valid.  */
   read_register_bytes (0, (char *)NULL, REGISTER_BYTES);
-  bcopy (myaddr, &registers[regbyte], len);
+  memcpy (&registers[regbyte], myaddr, len);
   target_store_registers (-1);
 }
 
@@ -352,7 +353,7 @@ supply_register (regno, val)
      char *val;
 {
   register_valid[regno] = 1;
-  bcopy (val, &registers[REGISTER_BYTE (regno)], REGISTER_RAW_SIZE (regno));
+  memcpy (&registers[REGISTER_BYTE (regno)], val, REGISTER_RAW_SIZE (regno));
 }
 
 /* Given a struct symbol for a variable,
@@ -381,14 +382,14 @@ read_var_value (var, frame)
   switch (SYMBOL_CLASS (var))
     {
     case LOC_CONST:
-      bcopy (&SYMBOL_VALUE (var), VALUE_CONTENTS_RAW (v), len);
+      memcpy (VALUE_CONTENTS_RAW (v), &SYMBOL_VALUE (var), len);
       SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (v), len);
       VALUE_LVAL (v) = not_lval;
       return v;
 
     case LOC_LABEL:
       addr = SYMBOL_VALUE_ADDRESS (var);
-      bcopy (&addr, VALUE_CONTENTS_RAW (v), len);
+      memcpy (VALUE_CONTENTS_RAW (v), &addr, len);
       SWAP_TARGET_AND_HOST (VALUE_CONTENTS_RAW (v), len);
       VALUE_LVAL (v) = not_lval;
       return v;
@@ -397,7 +398,7 @@ read_var_value (var, frame)
       {
 	char *bytes_addr;
 	bytes_addr = SYMBOL_VALUE_BYTES (var);
-	bcopy (bytes_addr, VALUE_CONTENTS_RAW (v), len);
+	memcpy (VALUE_CONTENTS_RAW (v), bytes_addr, len);
 	VALUE_LVAL (v) = not_lval;
 	return v;
       }
@@ -407,34 +408,58 @@ read_var_value (var, frame)
       break;
 
     case LOC_ARG:
-      fi = get_frame_info (frame);
-      if (fi == NULL)
-	return 0;
-      addr = FRAME_ARGS_ADDRESS (fi);
-      if (!addr) {
-	return 0;
-      }
+      if (SYMBOL_BASEREG_VALID (var))
+	{
+	  addr = FRAME_GET_BASEREG_VALUE (frame, SYMBOL_BASEREG (var));
+	}
+      else
+	{
+	  fi = get_frame_info (frame);
+	  if (fi == NULL)
+	    return 0;
+	  addr = FRAME_ARGS_ADDRESS (fi);
+	}
+      if (!addr)
+	{
+	  return 0;
+	}
       addr += SYMBOL_VALUE (var);
       break;
       
     case LOC_REF_ARG:
-      fi = get_frame_info (frame);
-      if (fi == NULL)
-	return 0;
-      addr = FRAME_ARGS_ADDRESS (fi);
-      if (!addr) {
-	return 0;
-      }
+      if (SYMBOL_BASEREG_VALID (var))
+	{
+	  addr = FRAME_GET_BASEREG_VALUE (frame, SYMBOL_BASEREG (var));
+	}
+      else
+	{
+	  fi = get_frame_info (frame);
+	  if (fi == NULL)
+	    return 0;
+	  addr = FRAME_ARGS_ADDRESS (fi);
+	}
+      if (!addr)
+	{
+	  return 0;
+	}
       addr += SYMBOL_VALUE (var);
       read_memory (addr, (char *) &addr, sizeof (CORE_ADDR));
       break;
       
     case LOC_LOCAL:
     case LOC_LOCAL_ARG:
-      fi = get_frame_info (frame);
-      if (fi == NULL)
-	return 0;
-      addr = SYMBOL_VALUE (var) + FRAME_LOCALS_ADDRESS (fi);
+      if (SYMBOL_BASEREG_VALID (var))
+	{
+	  addr = FRAME_GET_BASEREG_VALUE (frame, SYMBOL_BASEREG (var));
+	}
+      else
+	{
+	  fi = get_frame_info (frame);
+	  if (fi == NULL)
+	    return 0;
+	  addr = FRAME_LOCALS_ADDRESS (fi);
+	}
+      addr += SYMBOL_VALUE (var);
       break;
 
     case LOC_TYPEDEF:
@@ -581,7 +606,7 @@ value_from_register (type, regnum, frame)
 	 endian machines.  */
 
       /* Copy into the contents section of the value.  */
-      bcopy (value_bytes, VALUE_CONTENTS_RAW (v), len);
+      memcpy (VALUE_CONTENTS_RAW (v), value_bytes, len);
 
       return v;
     }
@@ -613,11 +638,11 @@ value_from_register (type, regnum, frame)
 	     with raw type `extended' and virtual type `double'.
 	     Fetch it as a `double' and then convert to `float'.  */
 	  v = allocate_value (REGISTER_VIRTUAL_TYPE (regnum));
-	  bcopy (virtual_buffer, VALUE_CONTENTS_RAW (v), len);
+	  memcpy (VALUE_CONTENTS_RAW (v), virtual_buffer, len);
 	  v = value_cast (type, v);
 	}
       else
-	bcopy (virtual_buffer, VALUE_CONTENTS_RAW (v), len);
+	memcpy (VALUE_CONTENTS_RAW (v), virtual_buffer, len);
     }
   else
     {
@@ -631,8 +656,7 @@ value_from_register (type, regnum, frame)
 	}
 #endif
 
-      bcopy (virtual_buffer + VALUE_OFFSET (v),
-	     VALUE_CONTENTS_RAW (v), len);
+      memcpy (VALUE_CONTENTS_RAW (v), virtual_buffer + VALUE_OFFSET (v), len);
     }
   
   return v;

@@ -20,6 +20,8 @@ Cambridge, MA 02139, USA.
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation. */
 
+#include <string.h>	/* Prototypes for memcpy, memmove, memset, etc */
+
 #include "mmalloc.h"
 
 /* Resize the given region to the new size, returning a pointer
@@ -104,11 +106,13 @@ mrealloc (md, ptr, size)
 	  result = mmalloc (md, size);
 	  if (result == NULL)
 	    {
-	      (void) mmalloc (md, blocks * BLOCKSIZE);
-	      return NULL;
+	      mmalloc (md, blocks * BLOCKSIZE);
+	      return (NULL);
 	    }
 	  if (ptr != result)
-	    memmove (result, ptr, blocks * BLOCKSIZE);
+	    {
+	      memmove (result, ptr, blocks * BLOCKSIZE);
+	    }
 	}
       break;
 
@@ -145,5 +149,5 @@ realloc (ptr, size)
   PTR ptr;
   size_t size;
 {
-  return (mrealloc ((void *) NULL, ptr, size));
+  return (mrealloc ((PTR) NULL, ptr, size));
 }

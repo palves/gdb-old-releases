@@ -113,6 +113,12 @@ extern char *rl_basic_word_break_characters;
    rl_basic_word_break_characters.  */
 extern char *rl_completer_word_break_characters;
 
+/* List of characters which are used to quote a substring of the command
+   line, upon which completion is to be performed for the entire substring.
+   Within quoted substrings, rl_completer_word_break_characters are treated
+   as normal characters, unless they also appear in this list. */
+extern char *rl_completer_quote_characters;
+
 /* List of characters that are word break characters, but should be left
    in TEXT when it is passed to the completion function.  The shell uses
    this to help determine what kind of completing to do. */
@@ -148,6 +154,10 @@ extern Function *rl_startup_hook;
    completing on a directory name.  The function is called with
    the address of a string (the current directory name) as an arg. */
 extern Function *rl_symbolic_link_hook;
+
+/* If non-zero then this is the address of a function you want called
+   while Readline is waiting for character input.     */
+extern Function *rl_event_hook;
 
 /* Non-zero means that modified history lines are preceded
    with an asterisk. */

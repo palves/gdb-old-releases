@@ -21,6 +21,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "inferior.h"
 #include "gdbcore.h"
+#include "target.h"
 
 #ifdef USE_PROC_FS	/* Target dependent support for /proc */
 #include <sys/procfs.h>
@@ -203,9 +204,9 @@ i386_get_frame_setup (pc)
       static unsigned char proto2[4] = { 0x87,0x44,0x24,0x00 };
       pos = codestream_tell ();
       codestream_read (buf, 4);
-      if (bcmp (buf, proto1, 3) == 0)
+      if (memcmp (buf, proto1, 3) == 0)
 	pos += 3;
-      else if (bcmp (buf, proto2, 4) == 0)
+      else if (memcmp (buf, proto2, 4) == 0)
 	pos += 4;
       
       codestream_seek (pos);
@@ -388,13 +389,12 @@ i386_frame_find_saved_regs (fip, fsrp)
      struct frame_saved_regs *fsrp;
 {
   long locals;
-  unsigned char *p;
   unsigned char op;
   CORE_ADDR dummy_bottom;
   CORE_ADDR adr;
   int i;
   
-  bzero (fsrp, sizeof *fsrp);
+  memset (fsrp, 0, sizeof *fsrp);
   
   /* if frame is the end of a dummy, compute where the
    * beginning would be
@@ -661,14 +661,14 @@ get_longjmp_target(pc)
   sp = read_register(SP_REGNUM);
 
   if (target_read_memory(sp + SP_ARG0, /* Offset of first arg on stack */
-			 &jb_addr,
+			 (char *) &jb_addr,
 			 sizeof(CORE_ADDR)))
     return 0;
 
 
   SWAP_TARGET_AND_HOST(&jb_addr, sizeof(CORE_ADDR));
 
-  if (target_read_memory(jb_addr + JB_PC * JB_ELEMENT_SIZE, pc,
+  if (target_read_memory(jb_addr + JB_PC * JB_ELEMENT_SIZE, (char *) pc,
 			 sizeof(CORE_ADDR)))
     return 0;
 

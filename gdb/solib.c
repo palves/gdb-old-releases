@@ -101,6 +101,9 @@ static struct so_list *so_list_head;	/* List of known shared objects */
 static CORE_ADDR debug_base;		/* Base of dynamic linker structures */
 static CORE_ADDR breakpoint_addr;	/* Address where end bkpt is set */
 
+extern int
+fdmatch PARAMS ((int, int));		/* In libiberty */
+
 /* Local function prototypes */
 
 static void
@@ -631,7 +634,7 @@ find_solib (so_list_ptr)
       /* Get next link map structure from inferior image and build a local
 	 abbreviated load_map structure */
       new = (struct so_list *) xmalloc (sizeof (struct so_list));
-      (void) memset ((char *) new, 0, sizeof (struct so_list));
+      memset ((char *) new, 0, sizeof (struct so_list));
       new -> lmaddr = lm;
       /* Add the new node as the next node in the list, or as the root
 	 node if this is the first one. */
@@ -771,8 +774,9 @@ solib_add (arg_string, from_tty, target)
 	      if (so -> so_name[0])
 		{
 		  count = so -> sections_end - so -> sections;
-		  bcopy (so -> sections, (char *)(target -> to_sections + old), 
-			 (sizeof (struct section_table)) * count);
+		  memcpy ((char *) (target -> to_sections + old),
+			  so -> sections, 
+			  (sizeof (struct section_table)) * count);
 		  old += count;
 		}
 	    }
@@ -1011,12 +1015,11 @@ static int
 enable_break ()
 {
 
-  int j;
-
 #ifndef SVR4_SHARED_LIBS
 
+  int j;
   int in_debugger;
-  
+
   /* Get link_dynamic structure */
 
   j = target_read_memory (debug_base, (char *) &dynamic_copy,
@@ -1201,11 +1204,34 @@ special_symbol_handling (so)
 struct so_list *so;
 {
 #ifndef SVR4_SHARED_LIBS
+  int j;
+
+  if (debug_addr == 0)
+    {
+      /* Get link_dynamic structure */
+
+      j = target_read_memory (debug_base, (char *) &dynamic_copy,
+			      sizeof (dynamic_copy));
+      if (j)
+	{
+	  /* unreadable */
+	  return;
+	}
+
+      /* Calc address of debugger interface structure */
+      /* FIXME, this needs work for cross-debugging of core files
+	 (byteorder, size, alignment, etc).  */
+
+      debug_addr = (CORE_ADDR) dynamic_copy.ldd;
+    }
 
   /* Read the debugger structure from the inferior, just to make sure
      we have a current copy. */
 
-  read_memory (debug_addr, (char *) &debug_copy, sizeof (debug_copy));
+  j = target_read_memory (debug_addr, (char *) &debug_copy,
+			  sizeof (debug_copy));
+  if (j)
+    return;		/* unreadable */
 
   /* Get common symbol definitions for the loaded object. */
 

@@ -1,5 +1,7 @@
 /* Version of sigsetmask.c
-   Copyright (C) 1991 Free Software Foundation, Inc.
+   Copyright 1991, 1992 Free Software Foundation, Inc.
+   Written by Steve Chamberlain (sac@cygnus.com).
+   Contributed by Cygnus Support.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -15,24 +17,26 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* steve chamberlain	
-   sac@cygnus.com
-
-*/
-
-
 /* Set the current signal mask to the set provided, and return the 
    previous value */
 
+#define _POSIX_SOURCE
 #include <ansidecl.h>
 #include <signal.h>
 
-sigset_t
+#ifdef SIG_SETMASK
+int
 DEFUN(sigsetmask,(set),
-      sigset_t *set)
+      int set)
 {
+    sigset_t new;
     sigset_t old;
     
-    (void) sigprocmask(SIG_SETMASK, set, &old);
-    return old;
+    sigemptyset (&new);
+    if (set != 0) {
+      abort();	/* FIXME, we don't know how to translate old mask to new */
+    }
+    sigprocmask(SIG_SETMASK, &new, &old);
+    return 1;	/* FIXME, we always return 1 as old value.  */
 }
+#endif

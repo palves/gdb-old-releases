@@ -23,20 +23,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 
 /* First include ansidecl.h so we can use the various macro definitions
-   in all subsequent file inclusions.  FIXME:  This inclusion can now
-   be removed from all files that include defs.h */
+   here and in all subsequent file inclusions.  */
 
 #include "ansidecl.h"
-
-/* We could use the EXFUN macro in ansidecl.h to handle prototypes, but
-   the name is misleading the the result is ugly.  So just define a simple
-   macro to handle the parameter lists. */
-
-#ifdef __STDC__
-#define PARAMS(paramlist) paramlist
-#else
-#define PARAMS(paramlist) ()
-#endif
 
 /* An address in the program being debugged.  Host byte order.  */
 typedef unsigned int CORE_ADDR;
@@ -68,7 +57,7 @@ enum command_class
   /* Classes of commands */
   no_class = -1, class_run = 0, class_vars, class_stack,
   class_files, class_support, class_info, class_breakpoint,
-  class_alias, class_obscure, class_user
+  class_alias, class_obscure, class_user, class_maintenance
 };
 
 /* the cleanup list records things that have to be undone
@@ -131,6 +120,18 @@ extern PTR
 mmalloc_getkey PARAMS ((PTR, int));
 
 /* From utils.c */
+
+extern char *
+demangle_and_match PARAMS ((const char *, const char *, int));
+
+extern int
+strcmp_iw PARAMS ((const char *, const char *));
+
+extern char *
+safe_strerror PARAMS ((int));
+
+extern char *
+safe_strsignal PARAMS ((int));
 
 extern void
 init_malloc PARAMS ((PTR));
@@ -200,6 +201,9 @@ extern void
 printf_filtered ();
 
 extern void
+printfi_filtered ();
+
+extern void
 print_spaces PARAMS ((int, FILE *));
 
 extern void
@@ -210,6 +214,9 @@ n_spaces PARAMS ((int));
 
 extern void
 printchar PARAMS ((int, FILE *, int));
+
+extern char *
+strdup_demangled PARAMS ((const char *));
 
 extern void
 fprint_symbol PARAMS ((FILE *, char *));
@@ -234,6 +241,9 @@ extern void
 symbol_file_command PARAMS ((char *, int));
 
 /* From main.c */
+
+extern char *
+skip_quoted PARAMS ((char *));
 
 extern char *
 gdb_readline PARAMS ((char *));
@@ -352,6 +362,13 @@ local_hex_string_custom PARAMS ((int, char *));	/* language.c */
 
 #include "xm.h"
 
+/* If the xm.h file did not define the mode string used to open the
+   files, assume that binary files are opened the same way as text
+   files */
+#ifndef FOPEN_RB
+#include "fopen-same.h"
+#endif
+
 /*
  * Allow things in gdb to be declared "const".  If compiling ANSI, it
  * just works.  If compiling with gcc but non-ansi, redefine to __const__.
@@ -385,7 +402,11 @@ local_hex_string_custom PARAMS ((int, char *));	/* language.c */
    to keep them happy */
 
 #ifndef NORETURN
-# define NORETURN volatile
+# ifdef __lucid
+#   define NORETURN /*nothing*/
+# else
+#   define NORETURN volatile
+# endif
 #endif
 
 /* Defaults for system-wide constants (if not defined by xm.h, we fake it).  */
@@ -470,7 +491,7 @@ local_hex_string_custom PARAMS ((int, char *));	/* language.c */
 #if !defined (longest_to_int)
 #if defined (LONG_LONG)
 #define longest_to_int(x) (((x) > INT_MAX || (x) < INT_MIN) \
-			   ? error ("Value out of range.") : (int) (x))
+			   ? (error ("Value out of range."),0) : (int) (x))
 #else /* No LONG_LONG.  */
 /* Assume sizeof (int) == sizeof (long).  */
 #define longest_to_int(x) ((int) (x))
@@ -536,7 +557,7 @@ mmtrace PARAMS ((void));
 extern int
 parse_escape PARAMS ((char **));
 
-extern char *reg_names[];
+extern const char * const reg_names[];
 
 extern NORETURN void			/* Does not return to the caller.  */
 error ();
@@ -574,6 +595,34 @@ buildargv PARAMS ((char *));
 extern void
 freeargv PARAMS ((char **));
 
+extern char *
+strerrno PARAMS ((int));
+
+extern char *
+strsigno PARAMS ((int));
+
+extern int
+errno_max PARAMS ((void));
+
+extern int
+signo_max PARAMS ((void));
+
+extern int
+strtoerrno PARAMS ((char *));
+
+extern int
+strtosigno PARAMS ((char *));
+
+extern char *
+strsignal PARAMS ((int));
+
+/* From other system libraries */
+
+#ifndef PSIGNAL_IN_SIGNAL_H
+extern void
+psignal PARAMS ((unsigned, char *));
+#endif
+
 /* For now, we can't include <stdlib.h> because it conflicts with
    "../include/getopt.h".  (FIXME)
 
@@ -591,8 +640,14 @@ freeargv PARAMS ((char **));
 extern int
 fclose PARAMS ((FILE *stream));				/* 4.9.5.1 */
 
+extern void
+perror PARAMS ((const char *));				/* 4.9.10.4 */
+
 extern double
 atof PARAMS ((const char *nptr));			/* 4.10.1.1 */
+
+extern int
+atoi PARAMS ((const char *));				/* 4.10.1.2 */
 
 #ifndef MALLOC_INCOMPATIBLE
 
@@ -612,6 +667,14 @@ qsort PARAMS ((void *base, size_t nmemb,		/* 4.10.5.2 */
 	       size_t size,
 	       int (*comp)(const void *, const void *)));
 
+#ifndef	MEM_FNS_DECLARED	/* Some non-ANSI use void *, not char *.  */
+extern PTR
+memcpy PARAMS ((void *, const void *, size_t));		/* 4.11.2.1 */
+#endif
+
+extern int
+memcmp PARAMS ((const void *, const void *, size_t));	/* 4.11.4.1 */
+
 extern char *
 strchr PARAMS ((const char *, int));			/* 4.11.5.2 */
 
@@ -619,7 +682,15 @@ extern char *
 strrchr PARAMS ((const char *, int));			/* 4.11.5.5 */
 
 extern char *
+strstr PARAMS ((const char *, const char *));		/* 4.11.5.7 */
+
+extern char *
 strtok PARAMS ((char *, const char *));			/* 4.11.5.8 */
+
+#ifndef	MEM_FNS_DECLARED	/* Some non-ANSI use void *, not char *.  */
+extern PTR
+memset PARAMS ((void *, int, size_t));			/* 4.11.6.1 */
+#endif
 
 extern char *
 strerror PARAMS ((int));				/* 4.11.6.2 */
@@ -630,13 +701,17 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 #  define alloca __builtin_alloca
 # else
 #  ifdef sparc
-#   include <alloca.h>
+#   include <alloca.h>		/* NOTE:  Doesn't declare alloca() */
 #  endif
+#  ifdef __STDC__
+   extern void *alloca (size_t);
+#  else /* __STDC__ */
    extern char *alloca ();
+#  endif
 # endif
 #endif
 
-/* TARGET_BYTE_ORDER and HOST_BYTE_ORDER should be defined to one of these.  */
+/* TARGET_BYTE_ORDER and HOST_BYTE_ORDER must be defined to one of these.  */
 
 #if !defined (BIG_ENDIAN)
 #define BIG_ENDIAN 4321
@@ -702,10 +777,6 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 #define ADDR_BITS_SET(addr) (addr)
 #endif /* No ADDR_BITS_REMOVE.  */
 
-#if !defined (SYS_SIGLIST_MISSING)
-#define SYS_SIGLIST_MISSING defined (USG)
-#endif /* No SYS_SIGLIST_MISSING */
-
 /* From valops.c */
 
 extern CORE_ADDR
@@ -718,5 +789,20 @@ push_word PARAMS ((CORE_ADDR, REGISTER_TYPE));
  */
 extern CORE_ADDR
 push_word ();
+
+/* Some parts of gdb might be considered optional, in the sense that they
+   are not essential for being able to build a working, usable debugger
+   for a specific environment.  For example, the maintenance commands
+   are there for the benefit of gdb maintainers.  As another example,
+   some environments really don't need gdb's that are able to read N
+   different object file formats.  In order to make it possible (but
+   not necessarily recommended) to build "stripped down" versions of
+   gdb, the following defines control selective compilation of those
+   parts of gdb which can be safely left out when necessary.  Note that
+   the default is to include everything. */
+
+#ifndef MAINTENANCE_CMDS
+#define MAINTENANCE_CMDS 1
+#endif
 
 #endif /* !defined (DEFS_H) */

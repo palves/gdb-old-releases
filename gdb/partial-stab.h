@@ -35,16 +35,23 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 	case N_TEXT | N_EXT:
 	case N_NBTEXT | N_EXT:
-	case N_NBDATA | N_EXT:
-	case N_NBBSS | N_EXT:
-	case N_SETV | N_EXT:
-	case N_ABS | N_EXT:
+	  CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_TEXT);
+	  goto record_it;
+
 	case N_DATA | N_EXT:
+	case N_NBDATA | N_EXT:
+	  CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
+	  goto record_it;
+
 	case N_BSS | N_EXT:
+	case N_NBBSS | N_EXT:
+        case N_SETV | N_EXT:		/* FIXME, is this in BSS? */
+	  CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_BSS);
+	  goto record_it;
+
+	case N_ABS | N_EXT:
+	record_it:
 #ifdef DBXREAD_ONLY
-
-	  CUR_SYMBOL_VALUE += addr;		/* Relocate */
-
 	  SET_NAMESTRING();
 
 	bss_ext_symbol:
@@ -66,23 +73,29 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	case N_FN_SEQ:
 	case N_TEXT:
 #ifdef DBXREAD_ONLY
-	  CUR_SYMBOL_VALUE += addr;		/* Relocate */
+	  CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 	  SET_NAMESTRING();
 	  if ((namestring[0] == '-' && namestring[1] == 'l')
 	      || (namestring [(nsl = strlen (namestring)) - 1] == 'o'
-		  && namestring [nsl - 2] == '.'))
+		  && namestring [nsl - 2] == '.')
+#ifdef hp9000s800
+              /* some cooperation from gcc to get around ld stupidity */
+              || (namestring[0] == 'e' && !strcmp (namestring, "end_file."))
+#endif
+	      )
 	    {
+#ifndef hp9000s800
 	      if (objfile -> ei.entry_point <  CUR_SYMBOL_VALUE &&
-		  objfile -> ei.entry_point >= last_o_file_start &&
-		  addr == 0)		/* FIXME nogood nomore */
+		  objfile -> ei.entry_point >= last_o_file_start)
 		{
 		  objfile -> ei.entry_file_lowpc = last_o_file_start;
 		  objfile -> ei.entry_file_highpc = CUR_SYMBOL_VALUE;
 		}
+#endif
 	      if (past_first_source_file && pst
 		  /* The gould NP1 uses low values for .o and -l symbols
 		     which are not the address.  */
-		  && CUR_SYMBOL_VALUE > pst->textlow)
+		  && CUR_SYMBOL_VALUE >= pst->textlow)
 		{
 		  END_PSYMTAB (pst, psymtab_include_list, includes_used,
 			       symnum * symbol_size, CUR_SYMBOL_VALUE,
@@ -100,7 +113,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 	case N_DATA:
 #ifdef DBXREAD_ONLY
-	  CUR_SYMBOL_VALUE += addr;		/* Relocate */
+	  CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
 	  SET_NAMESTRING ();
 	  /* Check for __DYNAMIC, which is used by Sun shared libraries. 
 	     Record it even if it's local, not global, so we can find it.
@@ -108,10 +121,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	  if ((namestring[8] == 'C' && (strcmp ("__DYNAMIC", namestring) == 0))
 	      || VTBL_PREFIX_P ((namestring+HASH_OFFSET)))
 	    {
-	      /* Not really a function here, but... */
 	      record_minimal_symbol (namestring, CUR_SYMBOL_VALUE,
 				    CUR_SYMBOL_TYPE, objfile); /* Always */
-	  }
+	    }
 #endif /* DBXREAD_ONLY */
 	  continue;
 
@@ -134,9 +146,28 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif /* DBXREAD_ONLY */
 	  continue;	/* Just undefined, not COMMON */
 
+	case N_UNDF:
+#ifdef DBXREAD_ONLY
+	  if (processing_acc_compilation && bufp->n_strx == 1) {
+	    /* Deal with relative offsets in the string table
+	       used in ELF+STAB under Solaris.  If we want to use the
+	       n_strx field, which contains the name of the file,
+	       we must adjust file_string_table_offset *before* calling
+	       SET_NAMESTRING().  */
+	    past_first_source_file = 1;
+	    file_string_table_offset = next_file_string_table_offset;
+	    next_file_string_table_offset =
+	      file_string_table_offset + bufp->n_value;
+	    if (next_file_string_table_offset < file_string_table_offset)
+	      error ("string table offset backs up at %d", symnum);
+  /* FIXME -- replace error() with complaint.  */
+	    continue;
+	  }
+#endif /* DBXREAD_ONLY */
+	  continue;
+
 	    /* Lots of symbol types we can just ignore.  */
 
-	case N_UNDF:
 	case N_ABS:
 	case N_BSS:
 	case N_NBDATA:
@@ -167,50 +198,58 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 	case N_SO: {
 	  unsigned long valu = CUR_SYMBOL_VALUE;
-	  /* Symbol number of the first symbol of this file (i.e. the N_SO
-	     if there is just one, or the first if we have a pair).  */
-	  int first_symnum = symnum;
+	  static int last_so_symnum = -10;
+	  static int dir_so_symnum = -10;
+	  int tmp;
+	  char *p;
 	  
 	  /* End the current partial symtab and start a new one */
 
 	  SET_NAMESTRING();
 
-	  valu += addr;		/* Relocate */
+	  valu += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 
-	  if (pst && past_first_source_file)
+	  if (pst)
 	    {
-	      /* Some compilers (including gcc) emit a pair of initial N_SOs.
-		 The first one is a directory name; the second the file name.
-		 If pst exists, is empty, and has a filename ending in '/',
-		 we assume the previous N_SO was a directory name. */
-	      if (pst -> objfile -> global_psymbols.next
-		  ==  (pst -> objfile -> global_psymbols.list + pst->globals_offset)
-		&& pst -> objfile -> static_psymbols.next
-		  == (pst -> objfile -> static_psymbols.list + pst->statics_offset)
-		&& pst->filename && pst->filename[0]
-		&& pst->filename[strlen(pst->filename)-1] == '/') {
-		  /* Just replace the directory name with the real filename. */
-		  pst->filename =
-		      (char *) obstack_alloc (&pst->objfile->psymbol_obstack,
-					      strlen (namestring) + 1);
-		  strcpy (pst->filename, namestring);
-		  continue;
-	      }
 	      END_PSYMTAB (pst, psymtab_include_list, includes_used,
-			   first_symnum * symbol_size, valu,
+			   symnum * symbol_size, valu,
 			   dependency_list, dependencies_used);
 	      pst = (struct partial_symtab *) 0;
 	      includes_used = 0;
 	      dependencies_used = 0;
 	    }
-	  else
-	    past_first_source_file = 1;
 
-	  pst = START_PSYMTAB (objfile, addr,
+	  /* Some compilers (including gcc) emit a pair of initial N_SOs.
+	     The first one is a directory name; the second the file name.
+	     If pst exists, is empty, and has a filename ending in '/',
+	     we assume the previous N_SO was a directory name. */
+
+	  p = strrchr (namestring, '/');
+	  if (p && *(p+1) == '\000')
+	    {
+	      dir_so_symnum = symnum;
+	      continue;		/* Simply ignore directory name SOs */
+	    }
+
+	  /* Some other compilers (C++ ones in particular) emit useless
+	     SOs for non-existant .c files. */
+
+	  if (last_so_symnum == symnum - 1)
+	    continue;		/* Ignore repeated SOs */
+	  last_so_symnum = symnum;
+
+	  past_first_source_file = 1;
+
+	  if (dir_so_symnum == symnum - 1) /* Was prev. SO a directory? */
+	    tmp = dir_so_symnum;
+	  else
+	    tmp = symnum;
+	  pst = START_PSYMTAB (objfile, section_offsets,
 			       namestring, valu,
-			       first_symnum * symbol_size,
+			       tmp * symbol_size,
 			       objfile -> global_psymbols.next,
 			       objfile -> static_psymbols.next);
+	  dir_so_symnum = -10;
 	  continue;
 	}
 
@@ -286,6 +325,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	case N_LSYM:		/* Typedef or automatic variable. */
 	case N_STSYM:		/* Data seg var -- static  */
 	case N_LCSYM:		/* BSS      "  */
+	case N_ROSYM:		/* Read-only data seg var -- static.  */
 	case N_NBSTS:           /* Gould nobase.  */
 	case N_NBLCS:           /* symbols.  */
 
@@ -299,22 +339,28 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	  switch (p[1])
 	    {
 	    case 'T':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   STRUCT_NAMESPACE, LOC_TYPEDEF,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
-	      if (p[2] == 't')
+	      if (p != namestring)	/* a name is there, not just :T... */
 		{
-		  /* Also a typedef with the same name.  */
 		  ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				       VAR_NAMESPACE, LOC_TYPEDEF,
+				       STRUCT_NAMESPACE, LOC_TYPEDEF,
 				       objfile->static_psymbols, CUR_SYMBOL_VALUE);
-		  p += 1;
+		  if (p[2] == 't')
+		    {
+		      /* Also a typedef with the same name.  */
+		      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
+					   VAR_NAMESPACE, LOC_TYPEDEF,
+					   objfile->static_psymbols, CUR_SYMBOL_VALUE);
+		      p += 1;
+		    }
 		}
 	      goto check_enum;
 	    case 't':
-	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
-				   VAR_NAMESPACE, LOC_TYPEDEF,
-				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
+	      if (p != namestring)	/* a name is there, not just :T... */
+		{
+		  ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
+				       VAR_NAMESPACE, LOC_TYPEDEF,
+				       objfile->static_psymbols, CUR_SYMBOL_VALUE);
+		}
 	    check_enum:
 	      /* If this is an enumerated type, we need to
 		 add all the enum constants to the partial symbol
@@ -390,7 +436,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 	case N_FUN:
 	case N_GSYM:		/* Global (extern) variable; can be
-				   data or bss (sigh).  */
+				   data or bss (sigh FIXME).  */
 
 	/* Following may probably be ignored; I'll leave them here
 	   for now (until I do Pascal and Modula 2 extensions).  */
@@ -423,13 +469,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
 	      continue;
 	    case 'S':
-	      CUR_SYMBOL_VALUE += addr;		/* Relocate */
+	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
 	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_STATIC,
 				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
 	      continue;
 	    case 'G':
-	      CUR_SYMBOL_VALUE += addr;		/* Relocate */
+	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
 	      /* The addresses in these entries are reported to be
 		 wrong.  See the code that reads 'G's for symtabs. */
 	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
@@ -444,6 +490,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	      continue;
 
 	    case 'f':
+#ifdef DBXREAD_ONLY
+	      /* Kludges for ELF/STABS with Sun ACC */
+	      last_function_name = namestring;
+	      if (pst->textlow == 0)
+		pst->textlow = CUR_SYMBOL_VALUE;
+#if 0
+	      if (startup_file_end == 0)
+		startup_file_end = CUR_SYMBOL_VALUE;
+#endif
+	      /* End kludge.  */
+#endif /* DBXREAD_ONLY */
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_BLOCK,
 				   objfile->static_psymbols, CUR_SYMBOL_VALUE);
@@ -455,6 +512,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		 FIXME, why did it used to ignore these?  That broke
 		 "i fun" on these functions.  */
 	    case 'F':
+#ifdef DBXREAD_ONLY
+	      /* Kludges for ELF/STABS with Sun ACC */
+	      last_function_name = namestring;
+	      if (pst->textlow == 0)
+		pst->textlow = CUR_SYMBOL_VALUE;
+#if 0
+	      if (startup_file_end == 0)
+		startup_file_end = CUR_SYMBOL_VALUE;
+#endif
+	      /* End kludge.  */
+#endif /* DBXREAD_ONLY */
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_BLOCK,
 				   objfile->global_psymbols, CUR_SYMBOL_VALUE);
@@ -567,6 +635,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	case N_LBRAC:
 	case N_NSYMS:		/* Ultrix 4.0: symbol count */
 	case N_DEFD:		/* GNU Modula-2 */
+
+	case N_OBJ:		/* useless types from Solaris */
+	case N_OPT:
+	case N_ENDM:
 	  /* These symbols aren't interesting; don't worry about them */
 
 	  continue;

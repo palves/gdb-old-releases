@@ -120,9 +120,6 @@ static void
 show_commands PARAMS ((char *, int));
 
 static void
-dump_me_command PARAMS ((char *, int));
-
-static void
 echo_command PARAMS ((char *, int));
 
 static void
@@ -227,7 +224,12 @@ struct cmd_list_element *enablebreaklist;
 
 struct cmd_list_element *setlist;
 
+/* Chain containing all defined unset subcommands */
+
+struct cmd_list_element *unsetlist;
+
 /* Chain containing all defined show subcommands.  */
+
 struct cmd_list_element *showlist;
 
 /* Chain containing all defined \"set history\".  */
@@ -235,11 +237,38 @@ struct cmd_list_element *showlist;
 struct cmd_list_element *sethistlist;
 
 /* Chain containing all defined \"show history\".  */
+
 struct cmd_list_element *showhistlist;
 
 /* Chain containing all defined \"unset history\".  */
 
 struct cmd_list_element *unsethistlist;
+
+/* Chain containing all defined maintenance subcommands. */
+
+#if MAINTENANCE_CMDS
+struct cmd_list_element *maintenancelist;
+#endif
+
+/* Chain containing all defined "maintenance info" subcommands. */
+
+#if MAINTENANCE_CMDS
+struct cmd_list_element *maintenanceinfolist;
+#endif
+
+/* Chain containing all defined "maintenance print" subcommands. */
+
+#if MAINTENANCE_CMDS
+struct cmd_list_element *maintenanceprintlist;
+#endif
+
+struct cmd_list_element *setprintlist;
+
+struct cmd_list_element *showprintlist;
+
+struct cmd_list_element *setchecklist;
+
+struct cmd_list_element *showchecklist;
 
 /* stdio stream that command input is being read from.  */
 
@@ -412,6 +441,9 @@ main (argc, argv)
   /* Number of elements used.  */
   int ndir;
   
+  struct stat homebuf, cwdbuf;
+  char *homedir, *homeinit;
+
   register int i;
 
   /* This needs to happen before the first use of malloc.  */
@@ -650,8 +682,43 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
     }
 
   error_pre_print = "\n\n";
-  warning_pre_print = "\n\nwarning: ";
+  /* We may get more than one warning, don't double space all of them... */
+  warning_pre_print = "\nwarning: ";
 
+  /* Read and execute $HOME/.gdbinit file, if it exists.  This is done
+     *before* all the command line arguments are processed; it sets
+     global parameters, which are independent of what file you are
+     debugging or what directory you are in.  */
+  homedir = getenv ("HOME");
+  if (homedir)
+    {
+      homeinit = (char *) alloca (strlen (getenv ("HOME")) +
+				  strlen (gdbinit) + 10);
+      strcpy (homeinit, getenv ("HOME"));
+      strcat (homeinit, "/");
+      strcat (homeinit, gdbinit);
+      if (!inhibit_gdbinit && access (homeinit, R_OK) == 0)
+	{
+	  /* The official language of expressions in $HOME/.gdbinit is C. */
+	  set_language (language_c);
+	  if (!setjmp (to_top_level))
+	    source_command (homeinit, 0);
+	}
+      do_cleanups (ALL_CLEANUPS);
+
+      /* Do stats; no need to do them elsewhere since we'll only
+	 need them if homedir is set.  Make sure that they are
+	 zero in case one of them fails (this guarantees that they
+	 won't match if either exists).  */
+      
+      memset (&homebuf, 0, sizeof (struct stat));
+      memset (&cwdbuf, 0, sizeof (struct stat));
+      
+      stat (homeinit, &homebuf);
+      stat (gdbinit, &cwdbuf); /* We'll only need this if
+				       homedir was set.  */
+    }
+  
   /* Now perform all the actions indicated by the arguments.  */
   if (cdarg != NULL)
     {
@@ -739,49 +806,15 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
   error_pre_print = 0;
   warning_pre_print = "warning: ";
 
-  {
-    struct stat homebuf, cwdbuf;
-    char *homedir, *homeinit;
-
-    /* Read init file, if it exists in home directory  */
-    homedir = getenv ("HOME");
-    if (homedir)
-      {
-	homeinit = (char *) alloca (strlen (getenv ("HOME")) +
-				    strlen (gdbinit) + 10);
-	strcpy (homeinit, getenv ("HOME"));
-	strcat (homeinit, "/");
-	strcat (homeinit, gdbinit);
-	if (!inhibit_gdbinit && access (homeinit, R_OK) == 0)
-	  if (!setjmp (to_top_level))
-	    source_command (homeinit, 0);
-	do_cleanups (ALL_CLEANUPS);
-
-	/* Do stats; no need to do them elsewhere since we'll only
-	   need them if homedir is set.  Make sure that they are
-	   zero in case one of them fails (this guarantees that they
-	   won't match if either exists).  */
-	
-	memset (&homebuf, 0, sizeof (struct stat));
-	memset (&cwdbuf, 0, sizeof (struct stat));
-	
-	stat (homeinit, &homebuf);
-	stat (gdbinit, &cwdbuf); /* We'll only need this if
-					 homedir was set.  */
-      }
-    
-    /* Read the input file in the current directory, *if* it isn't
-       the same file (it should exist, also).  */
-
-    if (!homedir
-	|| bcmp ((char *) &homebuf,
-		 (char *) &cwdbuf,
-		 sizeof (struct stat)))
-      if (!inhibit_gdbinit && access (gdbinit, R_OK) == 0)
-	if (!setjmp (to_top_level))
-	  source_command (gdbinit, 0);
-	do_cleanups (ALL_CLEANUPS);
-  }
+  /* Read the .gdbinit file in the current directory, *if* it isn't
+     the same as the $HOME/.gdbinit file (it should exist, also).  */
+  
+  if (!homedir
+      || memcmp ((char *) &homebuf, (char *) &cwdbuf, sizeof (struct stat)))
+    if (!inhibit_gdbinit && access (gdbinit, R_OK) == 0)
+      if (!setjmp (to_top_level))
+	source_command (gdbinit, 0);
+      do_cleanups (ALL_CLEANUPS);
 
   for (i = 0; i < ncmd; i++)
     if (!setjmp (to_top_level))
@@ -1021,7 +1054,21 @@ static char *history_filename;
 
 /* Variables which are necessary for fancy command line editing.  */
 char *gdb_completer_word_break_characters =
-  " \t\n!@#$%^&*()-+=|~`}{[]\"';:?/>.<,";
+  " \t\n!@#$%^&*()+=|~`}{[]\"';:?/>.<,-";
+
+/* When completing on command names, we remove '-' from the list of
+   word break characters, since we use it in command names.  If the
+   readline library sees one in any of the current completion strings,
+   it thinks that the string needs to be quoted and automatically supplies
+   a leading quote. */
+char *gdb_completer_command_word_break_characters =
+  " \t\n!@#$%^&*()+=|~`}{[]\"';:?/>.<,";
+
+/* Characters that can be used to quote completion strings.  Note that we
+   can't include '"' because the gdb C parser treats such quoted sequences
+   as strings. */
+char *gdb_completer_quote_characters =
+  "'";
 
 /* Functions that are used as part of the fancy command line editing.  */
 
@@ -1035,39 +1082,62 @@ noop_completer (text)
   return NULL;
 }
 
-/* Generate symbol names one by one for the completer.  If STATE is
-   zero, then we need to initialize, otherwise the initialization has
-   already taken place.  TEXT is what we expect the symbol to start
-   with.  RL_LINE_BUFFER is available to be looked at; it contains the
-   entire text of the line.  RL_POINT is the offset in that line of
-   the cursor.  You should pretend that the line ends at RL_POINT.
-   The result is NULL if there are no more completions, else a char
-   string which is a possible completion.  */
+/* Generate symbol names one by one for the completer.  Each time we are
+   called return another potential completion to the caller.
 
+   TEXT is what we expect the symbol to start with.
+
+   MATCHES is the number of matches that have currently been collected from
+   calling this completion function.  When zero, then we need to initialize,
+   otherwise the initialization has already taken place and we can just
+   return the next potential completion string.
+
+   Returns NULL if there are no more completions, else a pointer to a string
+   which is a possible completion.
+
+   RL_LINE_BUFFER is available to be looked at; it contains the entire text
+   of the line.  RL_POINT is the offset in that line of the cursor.  You
+   should pretend that the line ends at RL_POINT. */
+   
 static char *
-symbol_completion_function (text, state)
+symbol_completion_function (text, matches)
      char *text;
-     int state;
+     int matches;
 {
-  static char **list = (char **)NULL;
-  static int index;
-  char *output;
-  extern char *rl_line_buffer;
-  extern int rl_point;
+  static char **list = (char **)NULL;		/* Cache of completions */
+  static int index;				/* Next cached completion */
+  char *output = NULL;
   char *tmp_command, *p;
   struct cmd_list_element *c, *result_list;
+  extern char *rl_line_buffer;
+  extern int rl_point;
 
-  if (!state)
+  if (matches == 0)
     {
-      /* Free the storage used by LIST, but not by the strings inside.  This is
-	 because rl_complete_internal () frees the strings. */
+      /* The caller is beginning to accumulate a new set of completions, so
+	 we need to find all of them now, and cache them for returning one at
+	 a time on future calls. */
+
       if (list)
-	free ((PTR)list);
+	{
+	  /* Free the storage used by LIST, but not by the strings inside.
+	     This is because rl_complete_internal () frees the strings. */
+	  free ((PTR)list);
+	}
       list = 0;
       index = 0;
 
-      /* Decide whether to complete on a list of gdb commands or on
-	 symbols.  */
+      /* Choose the default set of word break characters to break completions.
+	 If we later find out that we are doing completions on command strings
+	 (as opposed to strings supplied by the individual command completer
+	 functions, which can be any string) then we will switch to the
+	 special word break set for command strings, which leaves out the
+	 '-' character used in some commands. */
+
+      rl_completer_word_break_characters =
+	  gdb_completer_word_break_characters;
+
+      /* Decide whether to complete on a list of gdb commands or on symbols. */
       tmp_command = (char *) alloca (rl_point + 1);
       p = tmp_command;
       
@@ -1076,47 +1146,55 @@ symbol_completion_function (text, state)
 
       if (rl_point == 0)
 	{
-	  /* An empty line we want to consider ambiguous; that is,
-	     it could be any command.  */
+	  /* An empty line we want to consider ambiguous; that is, it
+	     could be any command.  */
 	  c = (struct cmd_list_element *) -1;
 	  result_list = 0;
 	}
       else
-	c = lookup_cmd_1 (&p, cmdlist, &result_list, 1);
+	{
+	  c = lookup_cmd_1 (&p, cmdlist, &result_list, 1);
+	}
 
       /* Move p up to the next interesting thing.  */
       while (*p == ' ' || *p == '\t')
-	p++;
+	{
+	  p++;
+	}
 
       if (!c)
-	/* He's typed something unrecognizable.  Sigh.  */
-	list = (char **) 0;
+	{
+	  /* He's typed something unrecognizable.  Sigh.  */
+	  list = NULL;
+	}
       else if (c == (struct cmd_list_element *) -1)
 	{
 	  /* If we didn't recognize everything up to the thing that
 	     needs completing, and we don't know what command it is
-	     yet, we are in trouble.  Part of the trouble might be
-	     that the list of delimiters used by readline includes
-	     '-', which we use in commands.  Check for this.  */
-	  if (p + strlen(text) != tmp_command + rl_point) {
-	    if (tmp_command[rl_point - strlen(text) - 1] == '-')
-	      text = p;
-	    else {
+	     yet, we are in trouble. */
+
+	  if (p + strlen(text) != tmp_command + rl_point)
+	    {
 	      /* This really should not produce an error.  Better would
 		 be to pretend to hit RETURN here; this would produce a
 		 response like "Ambiguous command: foo, foobar, etc",
-		 and leave the line available for re-entry with ^P.  Instead,
-		 this error blows away the user's typed input without
-		 any way to get it back.  */
+		 and leave the line available for re-entry with ^P.
+		 Instead, this error blows away the user's typed input
+		 without any way to get it back.  */
 	      error ("  Unrecognized command.");
 	    }
-	  }
 	  
 	  /* He's typed something ambiguous.  This is easier.  */
 	  if (result_list)
-	    list = complete_on_cmdlist (*result_list->prefixlist, text);
+	    {
+	      list = complete_on_cmdlist (*result_list->prefixlist, text);
+	    }
 	  else
-	    list = complete_on_cmdlist (cmdlist, text);
+	    {
+	      list = complete_on_cmdlist (cmdlist, text);
+	    }
+	  rl_completer_word_break_characters =
+	      gdb_completer_command_word_break_characters;
 	}
       else
 	{
@@ -1130,48 +1208,95 @@ symbol_completion_function (text, state)
 	     command.   */
 
 	  if (!*p && *text)
-	    /* Always (might be longer versions of thie command).  */
-	    list = complete_on_cmdlist (result_list, text);
+	    {
+	      /* Always (might be longer versions of thie command).  */
+	      list = complete_on_cmdlist (result_list, text);
+	      rl_completer_word_break_characters =
+		  gdb_completer_command_word_break_characters;
+	    }
 	  else if (!*p && !*text)
 	    {
 	      if (c->prefixlist)
-		list = complete_on_cmdlist (*c->prefixlist, "");
+		{
+		  list = complete_on_cmdlist (*c->prefixlist, "");
+		  rl_completer_word_break_characters =
+		      gdb_completer_command_word_break_characters;
+		}
 	      else
-		list = (*c->completer) ("");
+		{
+		  list = (*c->completer) ("");
+		}
 	    }
 	  else
 	    {
 	      if (c->prefixlist && !c->allow_unknown)
 		{
-#if 0
-		  /* Something like "info adsfkdj".  But error() is not
-		     the proper response; just return no completions
-		     instead.  */
-		  *p = '\0';
-		  error ("\"%s\" command requires a subcommand.",
-			 tmp_command);
-#else
+		  /* Something like "info adsfkdj".  But error() is not the
+		     proper response; just return no completions instead. */
 		  list = NULL;
-#endif
 		}
 	      else
-		list = (*c->completer) (text);
+		{
+		  list = (*c->completer) (text);
+		}
 	    }
 	}
     }
 
-  /* If the debugged program wasn't compiled with symbols, or if we're
-     clearly completing on a command and no command matches, return
-     NULL.  */
-  if (!list)
-    return ((char *)NULL);
+  /* If we found a list of potential completions during initialization then
+     dole them out one at a time.  The vector of completions is NULL
+     terminated, so after returning the last one, return NULL (and continue
+     to do so) each time we are called after that, until a new list is
+     available. */
 
-  output = list[index];
-  if (output)
-    index++;
+  if (list)
+    {
+      output = list[index];
+      if (output)
+	{
+	  index++;
+	}
+    }
 
   return (output);
 }
+
+/* Skip over a possibly quoted word (as defined by the quote characters
+   and word break characters the completer uses).  Returns pointer to the
+   location after the "word". */
+
+char *
+skip_quoted (str)
+     char *str;
+{
+  char quote_char = '\0';
+  char *scan;
+
+  for (scan = str; *scan != '\0'; scan++)
+    {
+      if (quote_char != '\0')
+	{
+	  /* Ignore everything until the matching close quote char */
+	  if (*scan == quote_char)
+	    {
+	      /* Found matching close quote. */
+	      scan++;
+	      break;
+	    }
+	}
+      else if (strchr (gdb_completer_quote_characters, *scan))
+	{
+	  /* Found start of a quoted string. */
+	  quote_char = *scan;
+	}
+      else if (strchr (gdb_completer_word_break_characters, *scan))
+	{
+	  break;
+	}
+    }
+  return (scan);
+}
+
 
 #ifdef STOP_SIGNAL
 static void
@@ -1918,18 +2043,6 @@ echo_command (text, from_tty)
   fflush (stdout);
 }
 
-/* ARGSUSED */
-static void
-dump_me_command (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  if (query ("Should GDB dump core? "))
-    {
-      signal (SIGQUIT, SIG_DFL);
-      kill (getpid (), SIGQUIT);
-    }
-}
 
 /* Functions to manipulate command line editing control variables.  */
 
@@ -2098,17 +2211,27 @@ batch_mode ()
 static void
 initialize_cmd_lists ()
 {
-  cmdlist = (struct cmd_list_element *) 0;
-  infolist = (struct cmd_list_element *) 0;
-  enablelist = (struct cmd_list_element *) 0;
-  disablelist = (struct cmd_list_element *) 0;
-  deletelist = (struct cmd_list_element *) 0;
-  enablebreaklist = (struct cmd_list_element *) 0;
-  setlist = (struct cmd_list_element *) 0;
+  cmdlist = NULL;
+  infolist = NULL;
+  enablelist = NULL;
+  disablelist = NULL;
+  deletelist = NULL;
+  enablebreaklist = NULL;
+  setlist = NULL;
+  unsetlist = NULL;
   showlist = NULL;
-  sethistlist = (struct cmd_list_element *) 0;
+  sethistlist = NULL;
   showhistlist = NULL;
-  unsethistlist = (struct cmd_list_element *) 0;
+  unsethistlist = NULL;
+#if MAINTENANCE_CMDS
+  maintenancelist = NULL;
+  maintenanceinfolist = NULL;
+  maintenanceprintlist = NULL;
+#endif
+  setprintlist = NULL;
+  showprintlist = NULL;
+  setchecklist = NULL;
+  showchecklist = NULL;
 }
 
 /* Init the history buffer.  Note that we are called after the init file(s)
@@ -2161,11 +2284,18 @@ initialize_main ()
   /* Setup important stuff for command line editing.  */
   rl_completion_entry_function = (int (*)()) symbol_completion_function;
   rl_completer_word_break_characters = gdb_completer_word_break_characters;
+  rl_completer_quote_characters = gdb_completer_quote_characters;
   rl_readline_name = "gdb";
 
   /* Define the classes of commands.
      They will appear in the help list in the reverse of this order.  */
 
+  add_cmd ("internals", class_maintenance, NO_FUNCTION,
+	   "Maintenance commands.\n\
+Some gdb commands are provided just for use by gdb maintainers.\n\
+These commands are subject to frequent change, and may not be as\n\
+well documented as user commands.",
+	   &cmdlist);
   add_cmd ("obscure", class_obscure, NO_FUNCTION, "Obscure features.", &cmdlist);
   add_cmd ("aliases", class_alias, NO_FUNCTION, "Aliases of other commands.", &cmdlist);
   add_cmd ("user-defined", class_user, NO_FUNCTION, "User-defined commands.\n\
@@ -2244,9 +2374,6 @@ when gdb is started.");
   c->function.sfunc = set_verbose;
   set_verbose (NULL, 0, c);
   
-  add_com ("dump-me", class_obscure, dump_me_command,
-	   "Get fatal error; make debugger dump its core.");
-
   add_show_from_set
     (add_set_cmd ("editing", class_support, var_boolean, (char *)&command_editing_p,
 	   "Set editing of command lines as they are typed.\n\

@@ -53,7 +53,13 @@ typedef struct
 }
 AOUTHDR;
 
+
 #define AOUTSZ (sizeof(AOUTHDR))
+
+#define OMAGIC          0404    /* object files, eg as output */
+#define ZMAGIC          0413    /* demand load format, eg normal ld output */
+#define STMAGIC		0401	/* target shlib */
+#define SHMAGIC		0443	/* host   shlib */
 
 
 /********************** STORAGE CLASSES **********************/

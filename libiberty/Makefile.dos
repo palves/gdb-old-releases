@@ -8,8 +8,7 @@ TARGETLIB = libiberty.a
 RANLIB = ar rvs
 AR = ar
 AR_FLAGS = crv
-MINUS_G = -O
-CFLAGS = $(MINUS_G) -I. -I$(srcdir)/../include $(HDEFINES)
+CFLAGS = -O -I. -I$(srcdir)/../include $(HDEFINES)
 
 # NEEDED_OBJECTS is overridden by config/mh-default,
 # and also the recursive make in the rule for $(TARGETLIB).

@@ -24,7 +24,7 @@ irix*)
 	files=sysdep-irix.h
 	;;
 
-newsos* | mach*)
+newsos* | mach* | bsd*)
 	files=sysdep-obsd.h
 	;;
 

@@ -29,6 +29,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define obj_relocbase(bfd)	(coff_data(bfd)->relocbase)
 #define obj_raw_syments(bfd)	(coff_data(bfd)->raw_syments)
 #define obj_convert(bfd)	(coff_data(bfd)->conversion_table)
+#define obj_conv_table_size(bfd) (coff_data(bfd)->conv_table_size)
 #if CFILE_STUFF
 #define obj_symbol_slew(bfd)	(coff_data(bfd)->symbol_index_slew)
 #else
@@ -42,6 +43,7 @@ typedef struct coff_tdata
 {
   struct   coff_symbol_struct *symbols;	/* symtab for input bfd */
   unsigned int *conversion_table;
+  int conv_table_size;
   file_ptr sym_filepos;
 
   long symbol_index_slew;	/* used during read to mark whether a

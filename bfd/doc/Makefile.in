@@ -52,11 +52,13 @@ AR_FLAGS = qv
 BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
+CFLAGS = -g
 
 #### Host, target, and site specific Makefile fragments come in here.
 ###
 
-CFLAGS = $(H_CFLAGS) -I.. -I$(srcdir)/.. -I$(srcdir)/../../include 
+.c.o:
+	$(CC) $(CFLAGS) -c $(H_CFLAGS) -I.. -I$(srcdir)/.. -I$(srcdir)/../../include $<
 
 # main GDB source directory
 
@@ -112,7 +114,7 @@ install-info: info
 docs: $(MKDOC) protos bfd.info bfd.dvi bfd.ps
 
 $(MKDOC): chew.c
-	$(CC) $(CFLAGS) -o $(MKDOC) $(srcdir)/chew.c $(LOADLIBES)
+	$(CC) $(CFLAGS) -o $(MKDOC) $(H_CFLAGS) -I.. -I$(srcdir)/.. -I$(srcdir)/../../include $(srcdir)/chew.c $(LOADLIBES)
 
 protos: libbfd.h libcoff.h bfd.h
 
@@ -176,6 +178,7 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(srcdir)/../cpu-h8300.c	\
 	$(srcdir)/../cpu-i960.c		\
 	$(srcdir)/../archures.c		\
+	$(srcdir)/../elf.c		\
 	$(MKDOC)
 	cat $(srcdir)/../libbfd-in.h >libbfd.h 
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../init.c >>libbfd.h
@@ -188,6 +191,7 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cpu-h8300.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../cpu-i960.c >>libbfd.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../archures.c >>libbfd.h
+	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../elf.c >>libbfd.h
 
 libcoff.h: $(srcdir)/../libcoff-in.h	\
 	$(srcdir)/../coffcode.h \

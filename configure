@@ -55,6 +55,7 @@ floating_point=default
 gas=default
 host_alias=
 host_makefile_frag=
+moveifchange=
 next_host=
 next_prefix=
 next_site=
@@ -62,22 +63,24 @@ next_srcdir=
 next_target=
 next_tmpdir=
 norecursion=
-removing=
 prefix=/usr/local
 progname=
 program_prefix=
 program_prefix_option=
-silent=
+program_suffix=
+program_suffix_option=
+redirect=">/dev/null"
+removing=
 site=
-site_option=
 site_makefile_frag=
+site_option=
 srcdir=
 srctrigger=
+subdirs=
 target_alias=
 target_makefile_frag=
 undefinedargs=
-verbose=
-version="$Revision: 1.110 $"
+version="$Revision: 1.129 $"
 x11=default
 
 NO_EDIT="This file was generated automatically by configure.  Do not edit."
@@ -91,14 +94,13 @@ NO_EDIT="This file was generated automatically by configure.  Do not edit."
 ## path.  Since PATH might include "." we also add `pwd` to the end of PATH.
 ##
 
-PWD=`pwd`
 progname=$0
 
 case "${progname}" in
 /*) ;;
 */*) ;;
 *)
-	PATH=$PATH:${PWD} ; export PATH
+	PATH=$PATH:${PWD=`pwd`} ; export PATH
 	;;
 esac
 
@@ -117,6 +119,10 @@ do
 		program_prefix=${arg}
 		program_prefixoption="-program_prefix=${program_prefix}"
 		next_program_prefix=
+	elif [ -n "${next_program_suffix}" ] ; then
+		program_suffix=${arg}
+		program_suffixoption="-program_suffix=${program_suffix}"
+		next_program_suffix=
 	elif [ -n "${next_target}" ] ; then
 		next_target=
 		case "${target_alias}" in
@@ -173,16 +179,19 @@ do
 			next_prefix=yes
 			;;
 		-rm | --rm) removing=${arg} ;;
-		-program_prefix=* | --program_prefix=* | --program_prefi=* | --program_pref=* | --program_pre=* | --program_pr=* | --program_p=* | --program_=* | --program=* | --progra=* | --progr=* | --prog=* | --pro=*)
-			program_prefix=`echo ${arg} | sed 's/^[-a-z]*=//'`
+		-program_prefix=* | --program_prefix=* | --program_prefi=* | --program_pref=* | --program_pre=* | --program_pr=* | --program_p=*)
+			program_prefix=`echo ${arg} | sed 's/^[-a-z_]*=//'`
 			program_prefixoption=${arg}
 			;;
-		-program_prefix | --program_prefix | --program_prefi | --program_pref | --program_pre | --program_pr | --program_p | --program_ | --program | --progra | --progr | --prog | --pro)
+		-program_prefix | --program_prefix | --program_prefi | --program_pref | --program_pre | --program_pr | --program_p)
 			next_program_prefix=yes
 			;;
-		-s | -silent | --silent | --silen | --sile | --sil)
-			silent=true
-			arguments=`echo ${arguments} | sed "s:${arg}::"`
+		-program_suffix=* | --program_suffix=* | --program_suffi=* | --program_suff=* | --program_suf=* | --program_su=* | --program_s=*)
+			program_suffix=`echo ${arg} | sed 's/^[-a-z_]*=//'`
+			program_suffixoption=${arg}
+			;;
+		-program_suffix | --program_suffix | --program_suffi | --program_suff | --program_suf | --program_su | --program_s)
+			next_program_suffix=yes
 			;;
 		-site=* | --site=* | --sit=* | --si=*)
 			site_option=${arg}
@@ -221,7 +230,8 @@ do
 			next_tmpdir=yes
 			;;
 		-v | -verbose | --v)
-			verbose=${arg}
+			redirect=
+			verbose=-v
 			;;
 		-version | -V | --version | --V)
 			echo "This is Cygnus Configure version" `echo ${version} | sed 's/[ $:]//g'`
@@ -306,6 +316,7 @@ if [ -n "${fatal}" -o "${host_alias}" = "help" ] ; then
 	echo " -norecursion		configure this directory only. [recurse]" ;
 	echo " -prefix=MYDIR		configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
 	echo " -program_prefix=FOO	install programs with FOO prepended to their names. [ \"\" ]" ;
+	echo " -program_suffix=FOO	install programs with FOO appended to their names. [ \"\" ]" ;
 	echo " -site=SITE		configure with site specific makefile for SITE" ;
 	echo " -srcdir=DIR		find the sources in DIR. [\".\" or \"..\"]" ;
 	echo " -target=TARGET		configure for TARGET.  [TARGET = HOST]" ;
@@ -322,13 +333,24 @@ if [ -n "${fatal}" -o "${host_alias}" = "help" ] ; then
 fi
 
 configsub=`echo ${progname} | sed 's/configure$/config.sub/'`
+moveifchange=`echo ${progname} | sed 's/configure$/move-if-change/'`
 
-if ${configsub} `echo ${host_alias} | sed -e 's/ .*//'` >/dev/null 2>&1 ; then
+# this is a hack.  sun4 must always be a valid host alias or this will fail.
+if ${configsub} sun4 >/dev/null 2>&1 ; then
 	true
 else
 	echo '***' cannot find config.sub.  1>&2
 	exit 1
 fi
+
+touch config.junk
+if ${moveifchange} config.junk config.trash ; then
+	true
+else
+	echo '***' cannot find move-if-change.  1>&2
+	exit 1
+fi
+rm -f config.junk config.trash
 
 case "${srcdir}" in
 "")
@@ -352,7 +374,7 @@ case "${srcdir}" in
 ".") ;;
 *)
 	if [ -f ${srcdir}/config.status ] ; then
-		echo '***' Cannot configure here in \"${PWD}\" when \"${srcdir}\" is currently configured. 1>&2
+		echo '***' Cannot configure here in \"${PWD=`pwd`}\" when \"${srcdir}\" is currently configured. 1>&2
 		exit 1
 	fi
 esac
@@ -408,7 +430,7 @@ fi
 # some sanity checks on configure.in
 case "${srctrigger}" in
 "")
-	echo '***' srctrigger not set in ${PWD}/configure.in.  1>&2
+	echo '***' srctrigger not set in ${PWD=`pwd`}/configure.in.  1>&2
 	exit 1
 	;;
 *) ;;
@@ -444,21 +466,60 @@ esac
 
 if [ ! -r ${srcdir}/${srctrigger} ] ; then
 	case "${srcdirdefaulted}" in
-	"") echo '***' "${progname}: Can't find ${srcname} sources in ${PWD}/${srcdir}" 1>&2 ;;
-	*)  echo '***' "${progname}: Can't find ${srcname} sources in ${PWD}/. or ${PWD}/.." 1>&2 ;;
+	"") echo '***' "${progname}: Can't find ${srcname} sources in ${PWD=`pwd`}/${srcdir}" 1>&2 ;;
+	*)  echo '***' "${progname}: Can't find ${srcname} sources in ${PWD=`pwd`}/. or ${PWD=`pwd`}/.." 1>&2 ;;
 	esac
 
 	echo '***' \(At least ${srctrigger} is missing.\) 1>&2
 	exit 1
 fi
 
-case "${removing}" in
-"")
+for subdir in . ${subdirs} ; do
+
+    # ${subdir} is relative path from . to the directory we're currently
+    # configuring.
+    # ${invsubdir} is inverse of ${subdir), *with* trailing /, if needed.
+    invsubdir=`echo ${subdir}/ | sed -e 's|\./||g' -e 's|[^/]*/|../|g'`
+
+    ### figure out what to do with srcdir
+    case "${srcdir}" in
+	".")  # no -srcdir option.  We're building in place.
+		makesrcdir=. ;;
+	/*) # absolute path
+		makesrcdir=`echo ${srcdir}/${subdir} | sed -e 's|/\.$||'`
+		;;
+	*) # otherwise relative
+		case "${subdir}" in
+		.) makesrcdir=${srcdir} ;;
+		*) makesrcdir=`echo ${subdir} | sed -e 's:[^./][^./]*:..:g'`/${srcdir}/${subdir} ;;
+		esac
+		;;
+    esac
+
+    if [ "${subdir}/" != "./" ] ; then
+	Makefile=${subdir}/Makefile
+    fi
+
+    if [ ! -d ${subdir} ] ; then
+	mkdir ${subdir}
+    fi
+
+    case "${removing}" in
+    "")
+	case "${subdir}" in
+	.) ;;
+	*) eval echo Building in ${subdir} ${redirect} ;;
+	esac
+
+	# FIXME Should this be done recursively ??? (Useful for e.g. gdbtest)
 	# Set up the list of links to be made.
 	# ${links} is the list of link names, and ${files} is the list of names to link to.
 
 	# Make the links.
 	configlinks="${links}"
+	if [ -r ${subdir}/config.status ] ; then
+		mv -f ${subdir}/config.status ${subdir}/config.back
+	fi
 	while [ -n "${files}" ] ; do
 		# set file to car of files, files to cdr of files
 		set ${files}; file=$1; shift; files=$*
@@ -471,7 +532,6 @@ case "${removing}" in
 		fi
 
 		${remove} -f ${link}
-		rm -f config.status
 		# Make a symlink if possible, otherwise try a hard link
 		${symbolic_link} ${srcdir}/${file} ${link} 2>/dev/null || ${hard_link} ${srcdir}/${file} ${link}
 
@@ -480,24 +540,20 @@ case "${removing}" in
 			exit 1
 		fi
 
-		case "${verbose}" in
-		"") ;;
-		*)  echo "Linked \"${link}\" to \"${srcdir}/${file}\"." ;;
-		esac
+		echo "Linked \"${link}\" to \"${srcdir}/${file}\"."
 	done
 
 	# Create a .gdbinit file which runs the one in srcdir
 	# and tells GDB to look there for source files.
 
-	if [ -r ${srcdir}/.gdbinit ] ; then
+	if [ -r ${srcdir}/${subdir}/.gdbinit ] ; then
 		case ${srcdir} in
-		.)
-			;;
-		*) cat > .gdbinit <<EOF
-# ${NO_EDIT} > .gdbinit
+		.) ;;
+		*) cat > ${subdir}/.gdbinit <<EOF
+# ${NO_EDIT}
 dir .
-dir ${srcdir}
-source ${srcdir}/.gdbinit
+dir ${makesrcdir}
+source ${makesrcdir}/.gdbinit
 EOF
 			;;
 		esac
@@ -515,55 +571,65 @@ EOF
 	# so do these separately because I don't trust the order of sed -e expressions.
 
 	# Conditionalize for this site from "Makefile.in" (or whatever it's called) into Makefile.tem
+	rm -f ${subdir}/Makefile.tem
 	case "${site}" in
-	"") cp ${srcdir}/${Makefile_in} Makefile.tem ;;
+	"") cp ${srcdir}/${subdir}/${Makefile_in} ${subdir}/Makefile.tem ;;
 	*)
 		site_makefile_frag=${srcdir}/config/ms-${site}
 
 		if [ -f ${site_makefile_frag} ] ; then
-			sed -e "/^####/  r ${site_makefile_frag}" ${srcdir}/${Makefile_in} \
-				> Makefile.tem
+			sed -e "/^####/  r ${site_makefile_frag}" ${srcdir}/${subdir}/${Makefile_in} \
+				> ${subdir}/Makefile.tem
 		else
-			cp ${srcdir}/${Makefile_in} Makefile.tem
+			cp ${srcdir}/${subdir}/${Makefile_in} ${subdir}/Makefile.tem
 			site_makefile_frag=
 		fi
 		;;
 	esac
-	# working copy now in Makefile.tem
+	# working copy now in ${subdir}/Makefile.tem
 
 	# Conditionalize the makefile for this host.
+	rm -f ${Makefile}
 	case "${host_makefile_frag}" in
-	"") mv Makefile.tem ${Makefile} ;;
+	"") mv ${subdir}/Makefile.tem ${Makefile} ;;
 	*)
-		host_makefile_frag=${srcdir}/${host_makefile_frag}
+		if [ ! -f ${host_makefile_frag} ] ; then
+			host_makefile_frag=${srcdir}/${host_makefile_frag}
+		fi
 		if [ -f ${host_makefile_frag} ] ; then
-			sed -e "/^####/  r ${host_makefile_frag}" Makefile.tem > ${Makefile}
+			sed -e "/^####/  r ${host_makefile_frag}" ${subdir}/Makefile.tem > ${Makefile}
 		else
 			echo '***' Expected host makefile fragment \"${host_makefile_frag}\" 1>&2
-			echo '***' is missing in ${PWD}. 1>&2
-			mv Makefile.tem ${Makefile}
+			echo '***' is missing in ${PWD=`pwd`}. 1>&2
+			mv ${subdir}/Makefile.tem ${Makefile}
 		fi
 	esac
 	# working copy now in ${Makefile}
 
 	# Conditionalize the makefile for this target.
+	rm -f ${subdir}/Makefile.tem
 	case "${target_makefile_frag}" in
-	"") mv ${Makefile} Makefile.tem ;;
+	"") mv ${Makefile} ${subdir}/Makefile.tem ;;
 	*)
-		target_makefile_frag=${srcdir}/${target_makefile_frag}
+		if [ ! -f ${target_makefile_frag} ] ; then
+			target_makefile_frag=${srcdir}/${target_makefile_frag}
+		fi
 		if [ -f ${target_makefile_frag} ] ; then
-			sed -e "/^####/  r ${target_makefile_frag}" ${Makefile} > Makefile.tem
+			sed -e "/^####/  r ${target_makefile_frag}" ${Makefile} > ${subdir}/Makefile.tem
 		else
-			mv ${Makefile} Makefile.tem
+			mv ${Makefile} ${subdir}/Makefile.tem
 			target_makefile_frag=
 		fi
 		;;
 	esac
-	# real copy now in Makefile.tem
+	# real copy now in ${subdir}/Makefile.tem
 
 	# prepend warning about editting, and a bunch of variables.
+	rm -f ${Makefile}
 	cat > ${Makefile} <<EOF
 # ${NO_EDIT}
+VPATH = ${makesrcdir}
+links = ${configlinks}
 host_alias = ${host_alias}
 host_cpu = ${host_cpu}
 host_vendor = ${host_vendor}
@@ -572,25 +638,41 @@ target_alias = ${target_alias}
 target_cpu = ${target_cpu}
 target_vendor = ${target_vendor}
 target_os = ${target_os}
-target_makefile_frag = ${target_makefile_frag}
-host_makefile_frag = ${host_makefile_frag}
-site_makefile_frag = ${site_makefile_frag}
-links = ${configlinks}
-VPATH = ${srcdir}
 EOF
+	case "${target_makefile_frag}" in
+	"") ;;
+	/*)
+  echo target_makefile_frag = ${target_makefile_frag} >>${Makefile} ;;
+	*)
+  echo target_makefile_frag = ${invsubdir}${target_makefile_frag} >>${Makefile} ;;
+	esac
+
+	case "${host_makefile_frag}" in
+	"") ;;
+	/*)
+  echo host_makefile_frag = ${host_makefile_frag} >>${Makefile} ;;
+	*)
+  echo host_makefile_frag = ${invsubdir}${host_makefile_frag} >>${Makefile} ;;
+	esac
+
+	if [ "${site_makefile_frag}" != "" ] ; then
+	    echo site_makefile_frag = ${invsubdir}${site_makefile_frag} >>${Makefile}
+	fi 
 
 	# fixme: this shouldn't be in configure.
 	# Define macro CROSS_COMPILE in compilation if this is a cross-compiler.
 	case "${host_alias}" in
 	"${target_alias}")
-		tooldir="\$(libdir)"
+		tooldir='$(libdir)'
 		echo "ALL=all.internal" >> ${Makefile}
 		;;
 	*)
 		echo "CROSS=-DCROSS_COMPILE" >> ${Makefile}
 		echo "ALL=all.cross" >> ${Makefile}
 		case "${program_prefix}" in
-		"")	program_prefix=${target_alias}- ;;
+		"")     if [ "${program_suffix}" = "" ] ; then 
+			program_prefix=${target_alias}- ;
+			fi ;;
 		*)	;;
 		esac
 
@@ -598,39 +680,45 @@ EOF
 		;;
 	esac
 
-	# reset prefix, exec_prefix, srcdir, SUBDIRS, NONSUBDIRS, remove any form
-	# feeds.
+	# reset prefix, exec_prefix, srcdir, SUBDIRS, NONSUBDIRS,
+	# remove any form feeds.
+	if [ -z "${subdirs}" ]; then
+	    rm -f ${subdir}/Makefile.tem2
+	    sed -e "s:^SUBDIRS[ 	]*=.*$:SUBDIRS = ${configdirs}:" \
+		-e "s:^NONSUBDIRS[ 	]*=.*$:NONSUBDIRS = ${noconfigdirs}:" \
+		${subdir}/Makefile.tem > ${subdir}/Makefile.tem2
+	    mv ${subdir}/Makefile.tem2 ${subdir}/Makefile.tem
+	fi
 	sed -e "s:^prefix[ 	]*=.*$:prefix = ${prefix}:" \
 		-e "s:^exec_prefix[ 	]*=.*$:exec_prefix = ${exec_prefix}:" \
-		-e "s:^srcdir[ 	]*=.*$:srcdir = ${srcdir}:" \
-		-e "s:^SUBDIRS[ 	]*=.*$:SUBDIRS = ${configdirs}:" \
-		-e "s:^NONSUBDIRS[ 	]*=.*$:NONSUBDIRS = ${noconfigdirs}:" \
+		-e "s:^srcdir[ 	]*=.*$:srcdir = ${makesrcdir}:" \
 		-e "s///" \
 		-e "s:^program_prefix[ 	]*=.*$:program_prefix = ${program_prefix}:" \
+		-e "s:^program_suffix[ 	]*=.*$:program_suffix = ${program_suffix}:" \
 		-e "s:^tooldir[ 	]*=.*$:tooldir = ${tooldir}:" \
-		Makefile.tem >> ${Makefile}
+		${subdir}/Makefile.tem >> ${Makefile}
 	# final copy now in ${Makefile}
 
-	rm Makefile.tem
+	rm -f ${subdir}/Makefile.tem
 
-	if [ -n "${verbose}" -o -z "${silent}" ] ; then
-		case "${host_makefile_frag}" in
-		"") using= ;;
-		*) using="and \"${host_makefile_frag}\"" ;;
-		esac
+	case "${host_makefile_frag}" in
+	"") using= ;;
+	*) using="and \"${host_makefile_frag}\"" ;;
+	esac
 
-		case "${target_makefile_frag}" in
-		"") ;;
-		*) using="${using} and \"${target_makefile_frag}\"" ;;
-		esac
+	case "${target_makefile_frag}" in
+	"") ;;
+	*) using="${using} and \"${target_makefile_frag}\"" ;;
+	esac
 
-		case "${site_makefile_frag}" in
-		"") ;;
-		*) using="${using} and \"${site_makefile_frag}\"" ;;
-		esac
+	case "${site_makefile_frag}" in
+	"") ;;
+	*) using="${using} and \"${site_makefile_frag}\"" ;;
+	esac
 
-		echo "Created \"${Makefile}\" in" ${PWD} `echo "${using}" | sed 's/and/using/'`
-	fi
+	newusing=`echo "${using}" | sed 's/and/using/'`
+	using=${newusing}
+	echo "Created \"${Makefile}\" in" ${PWD=`pwd`} ${using}
 
 	. ${tmpfile}.pos
 
@@ -644,24 +732,35 @@ EOF
 	*) ;;
 	esac
 
-	echo "#!/bin/sh
+	if [ ${subdir} = . ] ; then
+	    echo "#!/bin/sh
 # ${NO_EDIT}
-# ${PWD} was configured as follows:
+# This directory was configured as follows:
 ${progname}" ${arguments}  "
-# ${using}" > config.status
-	chmod a+x config.status
+# ${using}" > ${subdir}/config.new
+	else
+	    echo "#!/bin/sh
+# ${NO_EDIT}
+# This directory was configured as follows:
+cd ${invsubdir}
+${progname}" ${arguments}  "
+# ${using}" > ${subdir}/config.new
+	fi
+	chmod a+x ${subdir}/config.new
+	if [ -r ${subdir}/config.back ] ; then
+		mv -f ${subdir}/config.back ${subdir}/config.status
+	fi
+	${moveifchange} ${subdir}/config.new ${subdir}/config.status
 	;;
 
-*)	rm -f ${Makefile} config.status ${links} ;;
-esac
+    *)	rm -f ${Makefile} ${subdir}/config.status ${links} ;;
+    esac
+done
 
 # If there are subdirectories, then recur. 
 if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then 
 	for configdir in ${configdirs} ; do
-		case "${verbose}" in
-		"") ;;
-		*) echo Configuring ${configdir}... ;;
-		esac
+		eval echo Configuring ${configdir}... ${redirect}
 
 		if [ -d ${srcdir}/${configdir} ] ; then
 			case "${srcdir}" in
@@ -673,7 +772,7 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
 				;;
 			esac
 
-			POPDIR=${PWD}
+			POPDIR=${PWD=`pwd`}
 			cd ${configdir} 
 
 ### figure out what to do with srcdir
@@ -700,9 +799,9 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
 			fi
 
 ### The recursion line is here.
-			if ${recprog} -s ${host_alias} -target=${target_alias} \
-				${verbose} ${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
-				${srcdiroption} ${program_prefixoption} ${site_option} ${removing} ; then
+			if eval ${recprog} ${verbose} ${host_alias} -target=${target_alias} \
+				${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
+				${srcdiroption} ${program_prefixoption} ${program_suffixoption} ${site_option} ${removing} ${redirect} ; then
 				true
 			else
 				exit 1
@@ -710,18 +809,10 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
 
 			cd ${POPDIR}
 		else
-			case "${verbose}" in
-			"") ;;
-			*) echo Warning: source directory \"${srcdir}/${configdir}\" is missing. ;;
-			esac
+			eval echo Warning: source directory \"${srcdir}/${configdir}\" is missing. ${redirect}
 		fi
 	done
 fi
-
-### clean up.
-
-# trap cmd above handles this now:
-#rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos
 
 exit 0
 

@@ -79,7 +79,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "wait.h"
 #include "terminal.h"
+#include "gdbcmd.h"
 
+#if !defined(DONT_USE_REMOTE)
 #ifdef USG
 #include <sys/types.h>
 #endif
@@ -172,7 +174,8 @@ int remote_desc = -1;
 /* Called when SIGALRM signal sent due to alarm() timeout.  */
 #ifndef HAVE_TERMIO
 void
-remote_timer ()
+remote_timer (signo)
+     int signo;
 {
   if (kiodebug)
     printf ("remote_timer called\n");
@@ -202,6 +205,8 @@ remote_close (quitting)
 #ifndef B38400
 #define B38400 EXTB
 #endif
+
+
 
 static struct {int rate, damn_b;} baudtab[] = {
 	{0, B0},
@@ -387,7 +392,8 @@ remote_resume (step, siggnal)
 /* Send ^C to target to halt it.  Target will respond, and send us a
    packet.  */
 
-void remote_interrupt()
+void remote_interrupt(signo)
+     int signo;
 {
   
   if (kiodebug)
@@ -414,7 +420,7 @@ remote_wait (status)
 
   WSETEXIT ((*status), 0);
 
-  ofunc = signal (SIGINT, remote_interrupt);
+  ofunc = (void (*)()) signal (SIGINT, remote_interrupt);
   getpkt ((char *) buf);
   signal (SIGINT, ofunc);
 
@@ -777,7 +783,7 @@ putpkt (buf)
 }
 
 /* Read a packet from the remote machine, with error checking,
-   and store it in BUF.  */
+   and store it in BUF.  BUF is expected to be of size PBUFSIZ.  */
 
 static void
 getpkt (buf)
@@ -816,6 +822,12 @@ getpkt (buf)
 	  c = readchar ();
 	  if (c == '#')
 	    break;
+	  if (bp >= buf+PBUFSIZ-1)
+	  {
+	    *bp = '\0';
+	    printf_filtered ("Remote packet too long: %s\n", buf);
+	    goto whole;
+	  }
 	  *bp++ = c;
 	  csum += c;
 	}
@@ -825,8 +837,10 @@ getpkt (buf)
       c2 = fromhex (readchar ());
       if ((csum & 0xff) == (c1 << 4) + c2)
 	break;
-      printf ("Bad checksum, sentsum=0x%x, csum=0x%x, buf=%s\n",
+      printf_filtered ("Bad checksum, sentsum=0x%x, csum=0x%x, buf=%s\n",
 	      (c1 << 4) + c2, csum & 0xff, buf);
+      /* Try the whole thing again.  */
+whole:
       write (remote_desc, "-", 1);
     }
 
@@ -1041,4 +1055,13 @@ void
 _initialize_remote ()
 {
   add_target (&remote_ops);
+
+  add_show_from_set (
+    add_set_cmd ("remotedebug", no_class, var_boolean, (char *)&kiodebug,
+		   "Set debugging of remote serial I/O.\n\
+When enabled, each packet sent or received with the remote target\n\
+is displayed.", &setlist),
+	&showlist);
 }
+
+#endif

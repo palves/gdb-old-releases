@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-m68k.c,v 1.16 1992/01/24 22:44:00 sac Exp $ */
+/* $Id: coff-m68k.c,v 1.17 1992/05/02 01:41:26 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -28,7 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
-static reloc_howto_type howto_table[] = 
+ reloc_howto_type m68kcoff_howto_table[] = 
 {
   HOWTO(R_RELBYTE,	       0,  0,  	8,  false, 0, true,  true,0,"8",	true, 0x000000ff,0x000000ff, false),
   HOWTO(R_RELWORD,	       0,  1, 	16, false, 0, true,  true,0,"16",	true, 0x0000ffff,0x0000ffff, false),
@@ -41,12 +41,12 @@ static reloc_howto_type howto_table[] =
 
 /* Turn a howto into a reloc number */
 
-#define SELECT_RELOC(x,howto) { x = howto_table[howto->size +(int)howto->pc_relative*3].type; }
+#define SELECT_RELOC(x,howto) { x = m68kcoff_howto_table[howto->size +(int)howto->pc_relative*3].type; }
 #define BADMAG(x) M68KBADMAG(x)
 #define M68 1		/* Customize coffcode.h */
 
 #define RTYPE2HOWTO(internal, relocentry) \
-    (internal)->howto = ( howto_table + (relocentry)->r_type - R_RELBYTE);
+    (internal)->howto = ( m68kcoff_howto_table + (relocentry)->r_type - R_RELBYTE);
 
 #include "coffcode.h"
 

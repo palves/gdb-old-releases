@@ -33,6 +33,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "language.h"
 #include <string.h>
+#include "demangle.h"
 
 /* local function prototypes */
 
@@ -271,7 +272,7 @@ condition_command (arg, from_tty)
 	    b->cond = 0;
 	    b->cond_string = NULL;
 	    if (from_tty)
-	      printf ("Breakpoint %d now unconditional.\n", bnum);
+	      printf_filtered ("Breakpoint %d now unconditional.\n", bnum);
 	  }
 	else
 	  {
@@ -317,7 +318,7 @@ commands_command (arg, from_tty)
       {
 	if (from_tty && input_from_terminal_p ())
 	  {
-	    printf ("Type commands for when breakpoint %d is hit, one per line.\n\
+	    printf_filtered ("Type commands for when breakpoint %d is hit, one per line.\n\
 End with a line saying just \"end\".\n", bnum);
 	    fflush (stdout);
 	  }
@@ -390,8 +391,8 @@ read_memory_nobpt (memaddr, myaddr, len)
 	      bptlen -= (membpt + bptlen) - (memaddr + len);
 	    }
 
-	  bcopy (b->shadow_contents + bptoffset,
-		 myaddr + membpt - memaddr, bptlen);
+	  memcpy (myaddr + membpt - memaddr, 
+		  b->shadow_contents + bptoffset, bptlen);
 
 	  if (membpt > memaddr)
 	    {
@@ -576,7 +577,7 @@ bpstat_copy (bs)
   for (; bs != NULL; bs = bs->next)
     {
       tmp = (bpstat) xmalloc (sizeof (*tmp));
-      bcopy (bs, tmp, sizeof (*tmp));
+      memcpy (tmp, bs, sizeof (*tmp));
       if (p == NULL)
 	/* This is the first thing in the chain.  */
 	retval = tmp;
@@ -1053,7 +1054,8 @@ breakpoint_1 (bnum, allflag)
 		if (sym)
 		  {
 		    fputs_filtered ("in ", stdout);
-		    fputs_demangled (SYMBOL_NAME (sym), stdout, 1);
+		    fputs_demangled (SYMBOL_NAME (sym), stdout, 
+				     DMGL_ANSI | DMGL_PARAMS);
 		    fputs_filtered (" at ", stdout);
 		  }
 		fputs_filtered (b->symtab->filename, stdout);
@@ -1110,9 +1112,11 @@ breakpoints_info (bnum_exp, from_tty)
   breakpoint_1 (bnum, 0);
 }
 
+#if MAINTENANCE_CMDS
+
 /* ARGSUSED */
 static void
-all_breakpoints_info (bnum_exp, from_tty)
+maintenance_info_breakpoints (bnum_exp, from_tty)
      char *bnum_exp;
      int from_tty;
 {
@@ -1123,6 +1127,8 @@ all_breakpoints_info (bnum_exp, from_tty)
 
   breakpoint_1 (bnum, 1);
 }
+
+#endif
 
 /* Print a message describing any breakpoints set at PC.  */
 
@@ -1207,7 +1213,7 @@ set_raw_breakpoint (sal)
   register struct breakpoint *b, *b1;
 
   b = (struct breakpoint *) xmalloc (sizeof (struct breakpoint));
-  bzero (b, sizeof *b);
+  memset (b, 0, sizeof (*b));
   b->address = sal.pc;
   b->symtab = sal.symtab;
   b->line_number = sal.line;
@@ -1375,6 +1381,12 @@ mention (b)
       if (b->symtab)
 	printf_filtered (": file %s, line %d.",
 			 b->symtab->filename, b->line_number);
+      break;
+    case bp_until:
+    case bp_finish:
+    case bp_longjmp:
+    case bp_longjmp_resume:
+      break;
     }
   printf_filtered ("\n");
 }
@@ -1794,7 +1806,7 @@ get_catch_sals (this_level_only)
 
   bl = blockvector_for_pc (BLOCK_END (block) - 4, &index);
   blocks_searched = (char *) alloca (BLOCKVECTOR_NBLOCKS (bl) * sizeof (char));
-  bzero (blocks_searched, BLOCKVECTOR_NBLOCKS (bl) * sizeof (char));
+  memset (blocks_searched, 0, BLOCKVECTOR_NBLOCKS (bl) * sizeof (char));
 
   while (block != 0)
     {
@@ -2242,7 +2254,7 @@ breakpoint_re_set ()
   ALL_BREAKPOINTS_SAFE (b, temp)
     {
       sprintf (message, message1, b->number);	/* Format possible error msg */
-      (void) catch_errors (breakpoint_re_set_one, (char *) b, message);
+      catch_errors (breakpoint_re_set_one, (char *) b, message);
     }
 
   create_longjmp_breakpoint("longjmp");
@@ -2278,11 +2290,13 @@ set_ignore_count (bptnum, count, from_tty)
 	if (!from_tty)
 	  return;
 	else if (count == 0)
-	  printf ("Will stop next time breakpoint %d is reached.", bptnum);
+	  printf_filtered ("Will stop next time breakpoint %d is reached.",
+			   bptnum);
 	else if (count == 1)
-	  printf ("Will ignore next crossing of breakpoint %d.", bptnum);
+	  printf_filtered ("Will ignore next crossing of breakpoint %d.",
+			   bptnum);
 	else
-	  printf ("Will ignore next %d crossings of breakpoint %d.",
+	  printf_filtered ("Will ignore next %d crossings of breakpoint %d.",
 		  count, bptnum);
 	return;
       }
@@ -2321,7 +2335,7 @@ ignore_command (args, from_tty)
   set_ignore_count (num,
 		    longest_to_int (value_as_long (parse_and_eval (p))),
 		    from_tty);
-  printf ("\n");
+  printf_filtered ("\n");
 }
 
 /* Call FUNCTION on each of the breakpoints
@@ -2395,7 +2409,14 @@ enable_command (args, from_tty)
   struct breakpoint *bpt;
   if (args == 0)
     ALL_BREAKPOINTS (bpt)
-      enable_breakpoint (bpt);
+      switch (bpt->type)
+	{
+	case bp_breakpoint:
+	case bp_watchpoint:
+	  enable_breakpoint (bpt);
+	default:
+	  continue;
+	}
   else
     map_breakpoint_numbers (args, enable_breakpoint);
 }
@@ -2407,7 +2428,7 @@ disable_breakpoint (bpt)
   bpt->enable = disabled;
 
   if (xgdb_verbose && bpt->type == bp_breakpoint)
-    printf ("breakpoint #%d disabled\n", bpt->number);
+    printf_filtered ("breakpoint #%d disabled\n", bpt->number);
 
   check_duplicates (bpt->address);
 }
@@ -2421,7 +2442,14 @@ disable_command (args, from_tty)
   register struct breakpoint *bpt;
   if (args == 0)
     ALL_BREAKPOINTS (bpt)
-      disable_breakpoint (bpt);
+      switch (bpt->type)
+	{
+	case bp_breakpoint:
+	case bp_watchpoint:
+	  disable_breakpoint (bpt);
+	default:
+	  continue;
+	}
   else
     map_breakpoint_numbers (args, disable_breakpoint);
 }
@@ -2485,15 +2513,6 @@ decode_line_spec_1 (string, funfirstline)
   return sals;
 }
 
-
-/* Chain containing all defined enable commands.  */
-
-extern struct cmd_list_element 
-  *enablelist, *disablelist,
-  *deletelist, *enablebreaklist;
-
-extern struct cmd_list_element *cmdlist;
-
 void
 _initialize_breakpoint ()
 {
@@ -2627,8 +2646,8 @@ Do \"help breakpoints\" for info on other commands dealing with breakpoints.");
   add_info ("breakpoints", breakpoints_info,
 	    "Status of user-settable breakpoints, or breakpoint number NUMBER.\n\
 The \"Type\" column indicates one of:\n\
-\tbreakpoint     - for normal breakpoints\n\
-\twatchpoint     - for watchpoints\n\
+\tbreakpoint     - normal breakpoint\n\
+\twatchpoint     - watchpoint\n\
 The \"Disp\" column contains one of \"keep\", \"del\", or \"dis\" to indicate\n\
 the disposition of the breakpoint after it gets hit.  \"dis\" means that the\n\
 breakpoint will be disabled.  The \"Address\" and \"What\" columns indicate the\n\
@@ -2638,15 +2657,17 @@ are set to the address of the last breakpoint listed.\n\n\
 Convenience variable \"$bpnum\" contains the number of the last\n\
 breakpoint set.");
 
-  add_info ("all-breakpoints", all_breakpoints_info,
+#if MAINTENANCE_CMDS
+
+  add_cmd ("breakpoints", class_maintenance, maintenance_info_breakpoints,
 	    "Status of all breakpoints, or breakpoint number NUMBER.\n\
 The \"Type\" column indicates one of:\n\
-\tbreakpoint     - for normal breakpoints\n\
-\twatchpoint     - for watchpoints\n\
-\tlongjmp        - for internal breakpoints to handle stepping through longjmp()\n\
-\tlongjmp resume - for internal breakpoints at the target of longjmp()\n\
-\tuntil          - for internal breakpoints used by the \"until\" command\n\
-\tfinish         - for internal breakpoints used by the \"finish\" command\n\
+\tbreakpoint     - normal breakpoint\n\
+\twatchpoint     - watchpoint\n\
+\tlongjmp        - internal breakpoint used to step through longjmp()\n\
+\tlongjmp resume - internal breakpoint at the target of longjmp()\n\
+\tuntil          - internal breakpoint used by the \"until\" command\n\
+\tfinish         - internal breakpoint used by the \"finish\" command\n\
 The \"Disp\" column contains one of \"keep\", \"del\", or \"dis\" to indicate\n\
 the disposition of the breakpoint after it gets hit.  \"dis\" means that the\n\
 breakpoint will be disabled.  The \"Address\" and \"What\" columns indicate the\n\
@@ -2654,7 +2675,10 @@ address and file/line number respectively.\n\n\
 Convenience variable \"$_\" and default examine address for \"x\"\n\
 are set to the address of the last breakpoint listed.\n\n\
 Convenience variable \"$bpnum\" contains the number of the last\n\
-breakpoint set.");
+breakpoint set.",
+	   &maintenanceinfolist);
+
+#endif	/* MAINTENANCE_CMDS */
 
   add_com ("catch", class_breakpoint, catch_command,
          "Set breakpoints to catch exceptions that are raised.\n\

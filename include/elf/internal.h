@@ -41,7 +41,7 @@ typedef unsigned char	Elf_Char;	/* Unsigned tiny integer */
 
 #define EI_NIDENT	16		/* Size of e_ident[] */
 
-typedef struct {
+typedef struct elf_internal_ehdr {
   unsigned char	e_ident[EI_NIDENT];	/* ELF "magic number" */
   Elf_Half	e_type;			/* Identifies object file type */
   Elf_Half	e_machine;		/* Specifies required architecture */
@@ -60,7 +60,7 @@ typedef struct {
 
 /* Program header */
 
-typedef struct {
+typedef struct elf_internal_phdr {
   Elf_Word	p_type;			/* Identifies program segment type */
   Elf_Off	p_offset;		/* Segment file offset */
   Elf_Addr	p_vaddr;		/* Segment virtual address */
@@ -73,7 +73,7 @@ typedef struct {
 
 /* Section header */
 
-typedef struct {
+typedef struct elf_internal_shdr {
   Elf_Word	sh_name;		/* Section name, index in string tbl */
   Elf_Word	sh_type;		/* Type of section */
   Elf_Word	sh_flags;		/* Miscellaneous section attributes */
@@ -87,12 +87,13 @@ typedef struct {
 
   /* The internal rep also has some cached info associated with it. */
   void		*rawdata;		/* null if unused... */
+  void		*contents;		/* null if unused... */
   
 } Elf_Internal_Shdr;
 
 /* Symbol table entry */
 
-typedef struct {
+typedef struct elf_internal_sym {
   Elf_Word	st_name;		/* Symbol name, index in string tbl */
   Elf_Addr	st_value;		/* Value of the symbol */
   Elf_Word	st_size;		/* Associated symbol size */
@@ -103,7 +104,7 @@ typedef struct {
 
 /* Note segments */
 
-typedef struct {
+typedef struct elf_internal_note {
   Elf_Word	namesz;			/* Size of entry's owner string */
   Elf_Word	descsz;			/* Size of the note descriptor */
   Elf_Word	type;			/* Interpretation of the descriptor */
@@ -112,14 +113,13 @@ typedef struct {
 
 /* Relocation Entries */
 
-typedef struct {
+typedef struct elf_internal_rel {
   Elf_Addr	r_offset;	/* Location at which to apply the action */
   Elf_Word	r_info;		/* index and type of relocation */
 } Elf_Internal_Rel;
 
-typedef struct {
+typedef struct elf_internal_rela {
   Elf_Addr	r_offset;	/* Location at which to apply the action */
   Elf_Word	r_info;		/* Index and Type of relocation */
   Elf_Sword	r_addend;	/* Constant addend used to compute value */
 } Elf_Internal_Rela;
-

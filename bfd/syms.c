@@ -209,7 +209,8 @@ CODE_FRAGMENT
 .#define BSF_WEAK        0x100000
 .#define BSF_CTOR        0x200000 
 .
-.       {* This symbol was created to point to a section *}
+.       {* This symbol was created to point to a section, e.g. ELF's
+.	   STT_SECTION symbols.  *}
 .#define BSF_SECTION_SYM 0x400000 
 .
 .	{* The symbol used to be a common symbol, but now it is
@@ -239,7 +240,11 @@ CODE_FRAGMENT
 .	{* Signal that the symbol is indirect. The value of the symbol
 .	   is a pointer to an undefined asymbol which contains the
 .	   name to use instead. *}
-.#define BSF_INDIRECT     0x4000000
+.#define BSF_INDIRECT      0x4000000
+.
+.	{* BSF_FILE marks symbols that contain a file name.  This is used
+.	   for ELF STT_FILE symbols.  *}
+.#define BSF_FILE          0x08000000
 .
 .  flagword flags;
 .
@@ -381,6 +386,19 @@ DESCRIPTION
 
 .#define bfd_make_empty_symbol(abfd) \
 .     BFD_SEND (abfd, _bfd_make_empty_symbol, (abfd))
+*/
+
+/*
+FUNCTION
+	bfd_make_debug_symbol
+
+DESCRIPTION
+	This function creates a new <<asymbol>> structure for the BFD,
+	to be used as a debugging symbol.  Further details of its use have
+	yet to be worked out.
+
+.#define bfd_make_debug_symbol(abfd,ptr,size) \
+.        BFD_SEND (abfd, _bfd_make_debug_symbol, (abfd, ptr, size))
 */
 
 /*

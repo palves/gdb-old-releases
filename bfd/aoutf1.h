@@ -145,8 +145,6 @@ DEFUN(NAME(aout,sunos4_write_object_contents),
   struct external_exec exec_bytes;
   struct internal_exec *execp = exec_hdr (abfd);
     
-  execp->a_text = obj_textsec (abfd)->_raw_size;
-    
   /* Magic number, maestro, please!  */
   switch (bfd_get_arch(abfd)) {
   case bfd_arch_m68k:
@@ -527,6 +525,34 @@ DEFUN(sunos4_core_file_matches_executable_p, (core_bfd, exec_bfd),
 		  (char *) exec_hdr (exec_bfd),
 		  sizeof (struct internal_exec)) == 0) ? true : false;
 }
+
+extern reloc_howto_type aout_32_ext_howto_table[];
+
+static reloc_howto_type *
+DEFUN (sunos4_reloc_type_lookup, (abfd, code),
+       bfd *abfd AND
+       bfd_reloc_code_real_type code)
+{
+  switch (bfd_get_arch (abfd))
+    {
+    default:
+      return 0;
+    case bfd_arch_sparc:
+      switch (code)
+	{
+	default:
+	  return 0;
+#define IDX(i,j)	case i: return &aout_32_ext_howto_table[j]
+	  IDX (BFD_RELOC_CTOR, 2);
+	  IDX (BFD_RELOC_32, 2);
+	  IDX (BFD_RELOC_HI22, 8);
+	  IDX (BFD_RELOC_LO10, 11);
+	  IDX (BFD_RELOC_32_PCREL_S2, 6);
+	}
+    }
+}
+
+static CONST struct aout_backend_data sunos4_aout_backend = { 0, 1 };
 
 #define	MY_core_file_failing_command 	sunos4_core_file_failing_command
 #define	MY_core_file_failing_signal	sunos4_core_file_failing_signal
@@ -537,6 +563,8 @@ DEFUN(sunos4_core_file_matches_executable_p, (core_bfd, exec_bfd),
 #define MY_bfd_debug_info_accumulate	(PROTO(void,(*),(bfd*, struct sec *))) bfd_void
 #define MY_core_file_p sunos4_core_file_p
 #define MY_write_object_contents NAME(aout,sunos4_write_object_contents)
+#define MY_reloc_howto_type_lookup	sunos4_reloc_type_lookup
+#define MY_backend_data			&sunos4_aout_backend
 
 #define TARGET_IS_BIG_ENDIAN_P
 

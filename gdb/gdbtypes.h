@@ -49,8 +49,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define FT_DBL_PREC_COMPLEX	21
 #define FT_EXT_PREC_COMPLEX	22
 #define FT_STRING		23
+#define FT_FIXED_DECIMAL	24
+#define FT_FLOAT_DECIMAL	25
 
-#define FT_NUM_MEMBERS		24
+#define FT_NUM_MEMBERS		26
 
 /* Different kinds of data types are distinguished by the `code' field.  */
 
@@ -87,7 +89,7 @@ enum type_code
 
 #define TYPE_FLAG_UNSIGNED	(1 << 0)
 
-/* Explicity signed integer type */
+/* Explicitly signed integer type */
 
 #define TYPE_FLAG_SIGNED	(1 << 1)
 
@@ -96,6 +98,7 @@ enum type_code
    via (struct sir_not_appearing_in_this_film *)).  */
 
 #define TYPE_FLAG_STUB		(1 << 2)
+
 
 struct type
 {
@@ -180,7 +183,9 @@ struct type
       /* Position of this field, counting in bits from start of
 	 containing structure.  For a function type, this is the
 	 position in the argument list of this argument.
-	 For a range bound or enum value, this is the value itself.  */
+	 For a range bound or enum value, this is the value itself.
+	 For BITS_BIG_ENDIAN=1 targets, it is the bit offset to the MSB.
+	 For BITS_BIG_ENDIAN=0 targets, it is the bit offset to the LSB. */
 
       int bitpos;
 
@@ -225,7 +230,9 @@ struct type
 
       struct type **arg_types;
 
-      /* CPLUS_STUFF is for TYPE_CODE_STRUCT.  */
+      /* CPLUS_STUFF is for TYPE_CODE_STRUCT.  It is initialized to point to
+	 cplus_struct_default, a default static instance of a struct
+	 cplus_struct_type. */
 
       struct cplus_struct_type *cplus_stuff;
 
@@ -239,10 +246,24 @@ struct type
 
 struct cplus_struct_type
 {
+  /* For derived classes, the number of base classes is given by
+     n_baseclasses and virtual_field_bits is a bit vector containing one bit
+     per base class.
+     If the base class is virtual, the corresponding bit will be set. */
 
-  B_TYPE *virtual_field_bits; /* if base class is virtual */
+  B_TYPE *virtual_field_bits;
+
+  /* For classes with private fields, the number of fields is given by
+     nfields and private_field_bits is a bit vector containing one bit
+     per field.
+     If the field is private, the corresponding bit will be set. */
 
   B_TYPE *private_field_bits;
+
+  /* For classes with protected fields, the number of fields is given by
+     nfields and protected_field_bits is a bit vector containing one bit
+     per field.
+     If the field is private, the corresponding bit will be set. */
 
   B_TYPE *protected_field_bits;
 
@@ -483,6 +504,9 @@ extern struct type *
 lookup_reference_type PARAMS ((struct type *));
 
 extern struct type *
+make_reference_type PARAMS ((struct type *, struct type **));
+
+extern struct type *
 lookup_member_type PARAMS ((struct type *, struct type *));
 
 extern void
@@ -502,7 +526,13 @@ extern struct type *
 lookup_struct_elt_type PARAMS ((struct type *, char *, int));
 
 extern struct type *
+make_pointer_type PARAMS ((struct type *, struct type **));
+
+extern struct type *
 lookup_pointer_type PARAMS ((struct type *));
+
+extern struct type *
+make_function_type PARAMS ((struct type *, struct type **));
 
 extern struct type *
 lookup_function_type PARAMS ((struct type *));
@@ -512,6 +542,9 @@ create_array_type PARAMS ((struct type *, int));
 
 extern struct type *
 lookup_unsigned_typename PARAMS ((char *));
+
+extern struct type *
+lookup_signed_typename PARAMS ((char *));
 
 extern void
 check_stub_type PARAMS ((struct type *));
@@ -543,9 +576,17 @@ lookup_fundamental_type PARAMS ((struct objfile *, int));
 extern void
 fill_in_vptr_fieldno PARAMS ((struct type *));
 
+#if MAINTENANCE_CMDS
+extern void recursive_dump_type PARAMS ((struct type *, int));
+#endif
+
 /* printcmd.c */
 
 extern void
 print_scalar_formatted PARAMS ((char *, struct type *, int, int, FILE *));
+
+#if MAINTENANCE_CMDS
+extern void maintenance_print_type PARAMS ((char *, int));
+#endif
 
 #endif	/* GDBTYPES_H */

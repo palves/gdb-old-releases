@@ -8,6 +8,7 @@
 #include <sys/file.h>
 
 void *malloc();
+void *realloc();
 void free();
 
 #ifndef O_ACCMODE

@@ -24,6 +24,7 @@ Cambridge, MA 02139, USA.  */
    it out. */
 
 static size_t pagesize;
+extern int getpagesize PARAMS ((void));
 
 PTR
 mvalloc (md, size)
