@@ -1,3 +1,131 @@
+Sat Jul 16 13:26:31 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* configure.in (m88*-harris-cxux7*): Recognize.
+	* sysdep-cxux7.h: New file.
+
+Fri Jul  8 13:18:33 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* rttty.c (control_meta_key_on): Remove superfluous testing of
+	__GO32__.
+
+Thu Jun 30 15:21:54 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* rltty.c (control_meta_key_on): Don't compile if __GO32__ is
+	defined.
+	(rltty_set_default_bindings): Likewise.
+	* display.c (insert_some_chars, delete_chars): row_start should be
+	a short.
+	* parens.c (rl_insert_close): No FD_SET if using __GO32__.
+	* readline.c (rl_gather_tyi): Strip off spurious high bits.
+
+Sun Jun 12 03:51:52 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* history.c:  Swap inclusion of rldefs.h and chardefs.h to avoid
+	CTRL macro redefinition.
+
+Mon May  9 18:29:42 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* readline.c (readline_default_bindings): Don't compile if
+	__GO32__ is defined.
+	(_rl_set_screen_size): Likewise.
+	* rltty.c (rltty_set_default_bindings): Likewise.
+	(control_meta_key): Likewise.
+	* display.c: If __GO32__ is defined, include <sys/pc.h>.
+	* parens.c: If __GO32__ is defined, undefine FD_SET.
+	* signals.c: Include SIGWINCH handling in the set of things which
+	is not done if HANDLE_SIGNALS is not set.
+
+Fri May  6 13:38:39 1994  Steve Chamberlain  (sac@cygnus.com)
+
+        * config/mh-go32: New fragment.
+	* configure.in (host==go32): Use go32 fragment.
+
+Wed May  4 14:36:53 1994  Stu Grossman  (grossman@cygnus.com)
+
+	* chardefs.h, rldefs.h:  Move decls of string funcs from chardefs.h
+	to rldefs.h so that they don't pollute apps that include
+	readline.h.
+	* history.c:  include rldefs.h to get decls of string funcs.
+
+Wed May  4 12:15:11 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* configure.in (rs6000-bull-bosx*): New configuration, RS/6000
+	variant.
+
+Wed Apr 20 10:43:52 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* configure.in: Use mh-posix for sunos4.1*.
+
+Wed Apr 13 21:28:44 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* rltty.c (set_tty_settings): Don't set readline_echoing_p.
+	(rl_deprep_terminal) [NEW_TTY_DRIVER]: Set readline_echoing_p.
+
+Sun Mar 13 09:13:12 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Add TAGS target.
+
+Wed Mar  9 18:01:31 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* isearch.c, search.c: Include sysdep.h.
+
+Thu Mar  3 17:40:03 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* configure.in: For ISC, use mh-sysv, not mh-isc.
+
+Thu Feb 24 04:13:53 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* Merge in changes from bash-1.13.5. Merge changes from glob/tilde.c
+	into tilde.c and use it. Add system function declarations where
+	necessary. Check for __GO32__, not _GO32_ consistently.
+	* Makefile.in:  Update dependencies.
+	* rltty.c:  Include <sys/file.h> to match include file setup
+	in readline.c for rldefs.h. Otherwise we get inconsistent
+	TTY_DRIVER definitions in readline.c and rltty.c.
+	* bind.c, complete.c:  Do not include <sys/types.h>, it is already
+	included via sysdep.h, which causes problems if <sys/types.h> has
+	no multiple inclusion protection.
+	* readline.c (_rl_set_screen_size):  Reestablish test for
+	TIOCGWINSZ_BROKEN.
+	* rldefs.h:  Define S_ISREG if necessary.
+
+Fri Feb 18 08:56:35 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Add search.o rule for Sun make.
+
+Wed Feb 16 16:35:49 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* rltty.c:  #if out some code if __GO32__.
+
+Tue Feb 15 14:07:08 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* readline.c (_rl_output_character_function), display.c:
+	Return int, not void, to conform with the expected arg of tputs.
+	* readline.c (init_terminal_io):  tgetflag only takes 1 arg.
+	* readline.c (_rl_savestring):  New function.
+	* chardefs.h:  To avoid conflicts and/or warnings, define
+	savestring as a macro wrapper for _rl_savestring.
+	* display.c (extern term_xn):  It's an int flag, not a string.
+	* charsdefs.h, rldefs.h:  Remove HAVE_STRING_H-related junk.
+
+Sat Feb  5 08:32:30 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Remove obsolete rules for history.info and
+	readline.info.
+
+Thu Jan 27 17:04:01 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* chardefs.h: Only declare strrchr if it is not #define'd.
+
+Tue Jan 25 11:30:06 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* rldefs.h: Accept __hpux as well as hpux for HP compiler in ANSI mode.
+
+Fri Jan 21 17:31:26 1994  Jim Kingdon  (kingdon@lisa.cygnus.com)
+
+	* chardefs.h, tilde.c: Just declare strrchr rather than trying to
+	include a system header.
+
 Fri Jan 21 14:40:43 1994  Fred Fish  (fnf@cygnus.com)
 
 	* Makefile.in (distclean, realclean):  Expand local-distclean
@@ -5,11 +133,33 @@ Fri Jan 21 14:40:43 1994  Fred Fish  (fnf@cygnus.com)
 	Makefile.  Make them depend on local-clean.
 	* Makefile.in (local-distclean):  Remove now superfluous target.
 
+Mon Jan 17 12:42:07 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* readline.c (doing_an_undo): Delete second declaration, since it
+	confuses the alpha-osf1 native compiler.
+
 Sun Jan 16 12:33:11 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* complete.c, bind.c: Include <sys/stat.h>.
+	* complete.c: Define X_OK if not defined by a system header.
+
+	* chardefs.h: Don't declare xmalloc.
+
+	* keymaps.h: Include "chardefs.h" not <readline/chardefs.h>.
 
 	* Makefile.in (clean mostlyclean distclean realclean): Recurse
 	into subdirectories as well as doing this directory.  Add clean-dvi
 	target.
+
+Sat Jan 15 19:36:12 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* readline.c, display.c:  Patches to allow use of all 80
+	columns on most terminals (those with am and xn).
+
+	Merge in changes from bash-1.13.  The most obvious one is
+	that the file readline.c has been split into multiple files.
+	* bind.c, complete.c, dispay.c, isearch.c, parens.c, rldefs.h,
+	rltty.c, search.c signals.c, tilde.c, tilde.h, xmalloc.c:  New files.
 
 Sat Dec 11 16:29:17 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
 

@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb::                         The GNU debugger.
+* Gdb: (gdb).                     The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.12.
+Source-Level Debugger' for GDB Version 4.13.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -236,6 +236,12 @@ brief description of the stack frame just selected.
      On the SPARC architecture, `frame' needs two addresses to select
      an arbitrary frame: a frame pointer and a stack pointer.
 
+     On the MIPS and Alpha architecture, it needs two addresses: a stack
+     pointer and a program counter.
+
+     On the 29k architecture, it needs three addresses: a register stack
+     pointer, a program counter, and a memory stack pointer.
+
 `up N'
      Move N frames up the stack.  For positive numbers N, this advances
      toward the outermost frame, to higher frame numbers, to frames
@@ -304,8 +310,10 @@ selected stack frame.
 `info frame ADDR'
 `info f ADDR'
      Print a verbose description of the frame at address ADDR, without
-     selecting that frame.  The selected frame remains unchanged by
-     this command.
+     selecting that frame.  The selected frame remains unchanged by this
+     command.  This requires the same kind of address (more than one
+     for some architectures) that you specify in the `frame' command.
+     *Note Selecting a frame: Selection.
 
 `info args'
      Print the arguments of the selected frame, each on a separate line.

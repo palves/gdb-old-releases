@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb::                         The GNU debugger.
+* Gdb: (gdb).                     The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.12.
+Source-Level Debugger' for GDB Version 4.13.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -26,6 +26,83 @@ manual into another language, under the above conditions for modified
 versions.
 
 
+File: gdb.info,  Node: Formatting Documentation,  Next: Installing GDB,  Prev: Renamed Commands,  Up: Top
+
+Formatting Documentation
+************************
+
+   The GDB 4 release includes an already-formatted reference card, ready
+for printing with PostScript or Ghostscript, in the `gdb' subdirectory
+of the main source directory(1).  If you can use PostScript or
+Ghostscript with your printer, you can print the reference card
+immediately with `refcard.ps'.
+
+   The release also includes the source for the reference card.  You
+can format it, using TeX, by typing:
+
+     make refcard.dvi
+
+   The GDB reference card is designed to print in landscape mode on US
+"letter" size paper; that is, on a sheet 11 inches wide by 8.5 inches
+high.  You will need to specify this form of printing as an option to
+your DVI output program.
+
+   All the documentation for GDB comes as part of the machine-readable
+distribution.  The documentation is written in Texinfo format, which is
+a documentation system that uses a single source file to produce both
+on-line information and a printed manual.  You can use one of the Info
+formatting commands to create the on-line version of the documentation
+and TeX (or `texi2roff') to typeset the printed version.
+
+   GDB includes an already formatted copy of the on-line Info version of
+this manual in the `gdb' subdirectory.  The main Info file is
+`gdb-VERSION-NUMBER/gdb/gdb.info', and it refers to subordinate files
+matching `gdb.info*' in the same directory.  If necessary, you can
+print out these files, or read them with any editor; but they are
+easier to read using the `info' subsystem in GNU Emacs or the
+standalone `info' program, available as part of the GNU Texinfo
+distribution.
+
+   If you want to format these Info files yourself, you need one of the
+Info formatting programs, such as `texinfo-format-buffer' or `makeinfo'.
+
+   If you have `makeinfo' installed, and are in the top level GDB
+source directory (`gdb-4.13', in the case of version 4.13), you can
+make the Info file by typing:
+
+     cd gdb
+     make gdb.info
+
+   If you want to typeset and print copies of this manual, you need TeX,
+a program to print its DVI output files, and `texinfo.tex', the Texinfo
+definitions file.
+
+   TeX is a typesetting program; it does not print files directly, but
+produces output files called DVI files.  To print a typeset document,
+you need a program to print DVI files.  If your system has TeX
+installed, chances are it has such a program.  The precise command to
+use depends on your system; `lpr -d' is common; another (for PostScript
+devices) is `dvips'.  The DVI print command may require a file name
+without any extension or a `.dvi' extension.
+
+   TeX also requires a macro definitions file called `texinfo.tex'.
+This file tells TeX how to typeset a document written in Texinfo
+format.  On its own, TeX cannot read, much less typeset a Texinfo file.
+`texinfo.tex' is distributed with GDB and is located in the
+`gdb-VERSION-NUMBER/texinfo' directory.
+
+   If you have TeX and a DVI printer program installed, you can typeset
+and print this manual.  First switch to the the `gdb' subdirectory of
+the main source directory (for example, to `gdb-4.13/gdb') and then
+type:
+
+     make gdb.dvi
+
+   ---------- Footnotes ----------
+
+   (1)  In `gdb-4.13/gdb/refcard.ps' of the version 4.13 release.
+
+
 File: gdb.info,  Node: Installing GDB,  Next: Index,  Prev: Formatting Documentation,  Up: Top
 
 Installing GDB
@@ -39,39 +116,39 @@ preparing GDB for installation; you can then use `make' to build the
 a single directory, whose name is usually composed by appending the
 version number to `gdb'.
 
-   For example, the GDB version 4.12 distribution is in the `gdb-4.12'
+   For example, the GDB version 4.13 distribution is in the `gdb-4.13'
 directory.  That directory contains:
 
-`gdb-4.12/configure (and supporting files)'
+`gdb-4.13/configure (and supporting files)'
      script for configuring GDB and all its supporting libraries.
 
-`gdb-4.12/gdb'
+`gdb-4.13/gdb'
      the source specific to GDB itself
 
-`gdb-4.12/bfd'
+`gdb-4.13/bfd'
      source for the Binary File Descriptor library
 
-`gdb-4.12/include'
+`gdb-4.13/include'
      GNU include files
 
-`gdb-4.12/libiberty'
+`gdb-4.13/libiberty'
      source for the `-liberty' free software library
 
-`gdb-4.12/opcodes'
+`gdb-4.13/opcodes'
      source for the library of opcode tables and disassemblers
 
-`gdb-4.12/readline'
+`gdb-4.13/readline'
      source for the GNU command-line interface
 
-`gdb-4.12/glob'
+`gdb-4.13/glob'
      source for the GNU filename pattern-matching subroutine
 
-`gdb-4.12/mmalloc'
+`gdb-4.13/mmalloc'
      source for the GNU memory-mapped malloc package
 
    The simplest way to configure and build GDB is to run `configure'
 from the `gdb-VERSION-NUMBER' source directory, which in this example
-is the `gdb-4.12' directory.
+is the `gdb-4.13' directory.
 
    First switch to the `gdb-VERSION-NUMBER' source directory if you are
 not already in it; then run `configure'.  Pass the identifier for the
@@ -79,7 +156,7 @@ platform on which GDB will run as an argument.
 
    For example:
 
-     cd gdb-4.12
+     cd gdb-4.13
      ./configure HOST
      make
 
@@ -100,8 +177,8 @@ you may need to run `sh' on it explicitly:
      sh configure HOST
 
    If you run `configure' from a directory that contains source
-directories for multiple libraries or programs, such as the `gdb-4.12'
-source directory for version 4.12, `configure' creates configuration
+directories for multiple libraries or programs, such as the `gdb-4.13'
+source directory for version 4.13, `configure' creates configuration
 files for every directory level underneath (unless you tell it not to,
 with the `--norecursion' option).
 
@@ -109,10 +186,10 @@ with the `--norecursion' option).
 directories in the GDB distribution if you only want to configure that
 subdirectory, but be sure to specify a path to it.
 
-   For example, with version 4.12, type the following to configure only
+   For example, with version 4.13, type the following to configure only
 the `bfd' subdirectory:
 
-     cd gdb-4.12/bfd
+     cd gdb-4.13/bfd
      ../configure HOST
 
    You can install `gdb' anywhere; it has no hardwired paths.  However,
@@ -148,13 +225,13 @@ directory.  If the path to `configure' would be the same as the
 argument to `--srcdir', you can leave out the `--srcdir' option; it is
 assumed.)
 
-   For example, with version 4.12, you can build GDB in a separate
+   For example, with version 4.13, you can build GDB in a separate
 directory for a Sun 4 like this:
 
-     cd gdb-4.12
+     cd gdb-4.13
      mkdir ../gdb-sun4
      cd ../gdb-sun4
-     ../gdb-4.12/configure sun4
+     ../gdb-4.13/configure sun4
      make
 
    When `configure' builds a configuration using a remote source
@@ -175,9 +252,9 @@ called `configure' (or one of its subdirectories).
 
    The `Makefile' that `configure' generates in each source directory
 also runs recursively.  If you type `make' in a source directory such
-as `gdb-4.12' (or in a separate configured directory configured with
-`--srcdir=PATH/gdb-4.12'), you will build all the required libraries,
-and then build GDB.
+as `gdb-4.13' (or in a separate configured directory configured with
+`--srcdir=DIRNAME/gdb-4.13'), you will build all the required
+libraries, and then build GDB.
 
    When you have multiple hosts or targets configured in separate
 directories, you can run `make' on them in parallel (for example, if
@@ -221,7 +298,7 @@ you can use it to test your guesses on abbreviations--for example:
      Invalid configuration `i786v': machine `i786v' not recognized
 
 `config.sub' is also distributed in the GDB source directory
-(`gdb-4.12', for version 4.12).
+(`gdb-4.13', for version 4.13).
 
 
 File: gdb.info,  Node: configure Options,  Prev: Config Names,  Up: Installing GDB
@@ -236,7 +313,7 @@ for a full explanation of `configure'.
 
      configure [--help]
                [--prefix=DIR]
-               [--srcdir=PATH]
+               [--srcdir=DIRNAME]
                [--norecursion] [--rm]
                [--target=TARGET] HOST
 
@@ -250,7 +327,7 @@ prefer; but you may abbreviate option names if you use `--'.
      Configure the source to install programs and files under directory
      `DIR'.
 
-`--srcdir=PATH'
+`--srcdir=DIRNAME'
      *Warning: using this option requires GNU `make', or another `make'
      that implements the `VPATH' feature.*
      Use this option to make configurations in directories separate
@@ -258,9 +335,9 @@ prefer; but you may abbreviate option names if you use `--'.
      this to build (or maintain) several configurations simultaneously,
      in separate directories.  `configure' writes configuration
      specific files in the current directory, but arranges for them to
-     use the source in the directory PATH.  `configure' creates
+     use the source in the directory DIRNAME.  `configure' creates
      directories under the working directory in parallel to the source
-     directories below PATH.
+     directories below DIRNAME.
 
 `--norecursion'
      Configure only the directory level where `configure' is executed;
@@ -388,8 +465,8 @@ Index
 * clear:                                Delete Breaks.
 * clearing breakpoints, watchpoints:    Delete Breaks.
 * colon, doubled as scope operator:     M2 Scope.
-* colon-colon:                          M2 Scope.
 * colon-colon:                          Variables.
+* colon-colon:                          M2 Scope.
 * command files:                        Command Files.
 * command files:                        Hooks.
 * command line editing:                 Editing.
@@ -431,7 +508,7 @@ Index
 * delete environment:                   Renamed Commands.
 * deleting breakpoints, watchpoints:    Delete Breaks.
 * detach:                               Attach.
-* device:                               Hitachi Remote.
+* device:                               Hitachi Boards.
 * directories for source files:         Source Path.
 * directory:                            Source Path.
 * directory, compilation:               Source Path.
@@ -500,8 +577,8 @@ Index
 * formatted output:                     Output Formats.
 * Fortran:                              Summary.
 * forward-search:                       Search.
-* frame:                                Frames.
 * frame:                                Selection.
+* frame:                                Frames.
 * frame number:                         Frames.
 * frame pointer:                        Frames.
 * frameless execution:                  Frames.
@@ -551,8 +628,8 @@ Index
 * info f:                               Frame Info.
 * info files:                           Files.
 * info float:                           Floating Point Hardware.
-* info frame:                           Show.
 * info frame:                           Frame Info.
+* info frame:                           Show.
 * info functions:                       Symbols.
 * info history:                         Renamed Commands.
 * info line:                            Machine Code.
@@ -569,8 +646,8 @@ Index
 * info share:                           Files.
 * info sharedlibrary:                   Files.
 * info signals:                         Signals.
-* info source:                          Show.
 * info source:                          Symbols.
+* info source:                          Show.
 * info sources:                         Symbols.
 * info stack:                           Backtrace.
 * info target:                          Files.
@@ -619,6 +696,7 @@ Index
 * mapped:                               Files.
 * mark-modified-lines:                  Readline Init Syntax.
 * member functions:                     Cplus expressions.
+* memory models, H8/500:                Hitachi Special.
 * memory tracing:                       Breakpoints.
 * memory, viewing as typed object:      Expressions.
 * memory-mapped symbol file:            Files.
@@ -723,8 +801,8 @@ Index
 * searching:                            Search.
 * selected frame:                       Stack.
 * serial connections, debugging:        Protocol.
-* serial device, Hitachi micros:        Hitachi Remote.
-* serial line speed, Hitachi micros:    Hitachi Remote.
+* serial device, Hitachi micros:        Hitachi Boards.
+* serial line speed, Hitachi micros:    Hitachi Boards.
 * serial line, target remote:           Debug Session.
 * serial protocol, GDB remote:          Protocol.
 * set addressprint:                     Renamed Commands.
@@ -751,6 +829,8 @@ Index
 * set history write:                    Renamed Commands.
 * set language:                         Manually.
 * set listsize:                         List.
+* set machine:                          Hitachi Special.
+* set memory MOD:                       Hitachi Special.
 * set mipsfpu off:                      MIPS Remote.
 * set prettyprint:                      Renamed Commands.
 * set print address:                    Print Settings.
@@ -758,7 +838,6 @@ Index
 * set print asm-demangle:               Print Settings.
 * set print demangle:                   Print Settings.
 * set print elements:                   Print Settings.
-* set print fast-symbolic-addr:         Print Settings.
 * set print max-symbolic-offset:        Print Settings.
 * set print object:                     Print Settings.
 * set print pretty:                     Print Settings.
@@ -815,6 +894,7 @@ Index
 * show history write:                   Renamed Commands.
 * show language:                        Show.
 * show listsize:                        List.
+* show machine:                         Hitachi Special.
 * show mipsfpu:                         MIPS Remote.
 * show paths:                           Environment.
 * show prettyprint:                     Renamed Commands.
@@ -823,7 +903,6 @@ Index
 * show print asm-demangle:              Print Settings.
 * show print demangle:                  Print Settings.
 * show print elements:                  Print Settings.
-* show print fast-symbolic-addr:        Print Settings.
 * show print max-symbolic-offset:       Print Settings.
 * show print object:                    Print Settings.
 * show print pretty:                    Print Settings.
@@ -833,8 +912,8 @@ Index
 * show print vtbl:                      Print Settings.
 * show prompt:                          Prompt.
 * show radix:                           Numbers.
-* show remotedebug:                     Protocol.
 * show remotedebug:                     MIPS Remote.
+* show remotedebug:                     Protocol.
 * show retransmit-timeout:              MIPS Remote.
 * show rstack_high_address:             Registers.
 * show screen-height:                   Renamed Commands.
@@ -863,7 +942,7 @@ Index
 * source:                               Command Files.
 * source path:                          Source Path.
 * sparc-stub.c:                         Remote Serial.
-* speed:                                Hitachi Remote.
+* speed:                                Hitachi Boards.
 * st2000 CMD:                           ST2000 Remote.
 * ST2000 auxiliary commands:            ST2000 Remote.
 * stack frame:                          Frames.
@@ -889,13 +968,14 @@ Index
 * target:                               Targets.
 * target amd-eb:                        Target Commands.
 * target core:                          Target Commands.
+* target e7000:                         Hitachi ICE.
 * target exec:                          Target Commands.
 * target hms:                           Target Commands.
 * target mips PORT:                     MIPS Remote.
 * target nindy:                         Target Commands.
 * target remote:                        Target Commands.
-* target sim:                           Simulator.
 * target sim:                           Target Commands.
+* target sim:                           Simulator.
 * target st2000:                        Target Commands.
 * target udi:                           Target Commands.
 * target vxworks:                       Target Commands.
@@ -919,8 +999,8 @@ Index
 * type checking:                        Checks.
 * type conversions in C++:              Cplus expressions.
 * u:                                    Continuing and Stepping.
-* UDI:                                  UDI29K Remote.
 * udi:                                  UDI29K Remote.
+* UDI:                                  UDI29K Remote.
 * undisplay:                            Auto Display.
 * unknown address, locating:            Output Formats.
 * unset:                                Renamed Commands.

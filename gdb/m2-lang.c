@@ -24,6 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "parser-defs.h"
 #include "language.h"
 #include "m2-lang.h"
+#include "c-lang.h"
 
 /* Print the character C on STREAM as part of the contents of a literal
    string whose delimiter is QUOTER.  Note that that format for printing
@@ -405,8 +406,7 @@ const struct language_defn m2_language_defn = {
   m2_create_fundamental_type,	/* Create fundamental type in this language */
   m2_print_type,		/* Print a type using appropriate syntax */
   m2_val_print,			/* Print a value using appropriate syntax */
-  &builtin_type_m2_int,		/* longest signed   integral type */
-  &builtin_type_m2_card,	/* longest unsigned integral type */
+  c_value_print,		/* Print a top-level value */
   &builtin_type_m2_real,	/* longest floating point type */
   {"",      "",   "",   ""},	/* Binary format info */
   {"%loB",   "",   "o",  "B"},	/* Octal format info */
@@ -442,16 +442,6 @@ _initialize_m2_language ()
     init_type (TYPE_CODE_BOOL, TARGET_INT_BIT / TARGET_CHAR_BIT,
 	       TYPE_FLAG_UNSIGNED,
 	       "BOOLEAN", (struct objfile *) NULL);
-
-  TYPE_NFIELDS(builtin_type_m2_bool) = 2;
-  TYPE_FIELDS(builtin_type_m2_bool) = 
-     (struct field *) xmalloc (sizeof (struct field) * 2);
-  TYPE_FIELD_BITPOS(builtin_type_m2_bool,0) = 0;
-  TYPE_FIELD_NAME(builtin_type_m2_bool,0) = (char *)xmalloc(6);
-  strcpy(TYPE_FIELD_NAME(builtin_type_m2_bool,0),"FALSE");
-  TYPE_FIELD_BITPOS(builtin_type_m2_bool,1) = 1;
-  TYPE_FIELD_NAME(builtin_type_m2_bool,1) = (char *)xmalloc(5);
-  strcpy(TYPE_FIELD_NAME(builtin_type_m2_bool,1),"TRUE");
 
   add_language (&m2_language_defn);
 }

@@ -93,8 +93,8 @@ mips_store_registers PARAMS ((int regno));
 static int
 mips_fetch_word PARAMS ((CORE_ADDR addr));
 
-static void
-mips_store_word PARAMS ((CORE_ADDR addr, int value));
+static int
+mips_store_word PARAMS ((CORE_ADDR addr, int value, char *old_contents));
 
 static int
 mips_xfer_memory PARAMS ((CORE_ADDR memaddr, char *myaddr, int len,
@@ -345,10 +345,12 @@ mips_readchar (timeout)
     mips_error ("Error reading from remote: %s", safe_strerror (errno));
   if (sr_get_debug () > 1)
     {
+      /* Don't use _filtered; we can't deal with a QUIT out of
+	 target_wait, and I think this might be called from there.  */
       if (ch != SERIAL_TIMEOUT)
-	printf_filtered ("Read '%c' %d 0x%x\n", ch, ch, ch);
+	printf_unfiltered ("Read '%c' %d 0x%x\n", ch, ch, ch);
       else
-	printf_filtered ("Timed out in read\n");
+	printf_unfiltered ("Timed out in read\n");
     }
 
   /* If we have seen <IDT> and we either time out, or we see a @
@@ -361,8 +363,10 @@ mips_readchar (timeout)
       && ! mips_initializing)
     {
       if (sr_get_debug () > 0)
-	printf_filtered ("Reinitializing MIPS debugging mode\n");
-      SERIAL_WRITE (mips_desc, "\rdb tty0\r", sizeof "\rdb tty0\r" - 1);
+	/* Don't use _filtered; we can't deal with a QUIT out of
+	   target_wait, and I think this might be called from there.  */
+	printf_unfiltered ("Reinitializing MIPS debugging mode\n");
+      SERIAL_WRITE (mips_desc, "\015db tty0\015", sizeof "\015db tty0\015" - 1);
       sleep (1);
 
       mips_need_reply = 0;
@@ -410,11 +414,17 @@ mips_receive_header (hdr, pgarbage, ch, timeout)
 	    {
 	      /* Printing the character here lets the user of gdb see
 		 what the program is outputting, if the debugging is
-		 being done on the console port.  FIXME: Perhaps this
-		 should be filtered?  */
+		 being done on the console port.  Don't use _filtered;
+		 we can't deal with a QUIT out of target_wait.  */
 	      if (! mips_initializing || sr_get_debug () > 0)
 		{
-		  putchar_unfiltered (ch);
+		  if (ch < 0x20 && ch != '\n')
+		    {
+		      putchar_unfiltered ('^');
+		      putchar_unfiltered (ch + 0x40);
+		    }
+		  else
+		    putchar_unfiltered (ch);
 		  gdb_flush (gdb_stdout);
 		}
 
@@ -549,8 +559,10 @@ mips_send_packet (s, get_ack)
 
       if (sr_get_debug () > 0)
 	{
+	  /* Don't use _filtered; we can't deal with a QUIT out of
+	     target_wait, and I think this might be called from there.  */
 	  packet[HDR_LENGTH + len + TRLR_LENGTH] = '\0';
-	  printf_filtered ("Writing \"%s\"\n", packet + 1);
+	  printf_unfiltered ("Writing \"%s\"\n", packet + 1);
 	}
 
       if (SERIAL_WRITE (mips_desc, packet,
@@ -607,7 +619,9 @@ mips_send_packet (s, get_ack)
 	    {
 	      hdr[HDR_LENGTH] = '\0';
 	      trlr[TRLR_LENGTH] = '\0';
-	      printf_filtered ("Got ack %d \"%s%s\"\n",
+	      /* Don't use _filtered; we can't deal with a QUIT out of
+		 target_wait, and I think this might be called from there.  */
+	      printf_unfiltered ("Got ack %d \"%s%s\"\n",
 			       HDR_GET_SEQ (hdr), hdr + 1, trlr);
 	    }
 
@@ -672,16 +686,20 @@ mips_receive_packet (buff, throw_error, timeout)
       /* An acknowledgement is probably a duplicate; ignore it.  */
       if (! HDR_IS_DATA (hdr))
 	{
+	  /* Don't use _filtered; we can't deal with a QUIT out of
+	     target_wait, and I think this might be called from there.  */
 	  if (sr_get_debug () > 0)
-	    printf_filtered ("Ignoring unexpected ACK\n");
+	    printf_unfiltered ("Ignoring unexpected ACK\n");
 	  continue;
 	}
 
       /* If this is the wrong sequence number, ignore it.  */
       if (HDR_GET_SEQ (hdr) != mips_receive_seq)
 	{
+	  /* Don't use _filtered; we can't deal with a QUIT out of
+	     target_wait, and I think this might be called from there.  */
 	  if (sr_get_debug () > 0)
-	    printf_filtered ("Ignoring sequence number %d (want %d)\n",
+	    printf_unfiltered ("Ignoring sequence number %d (want %d)\n",
 			     HDR_GET_SEQ (hdr), mips_receive_seq);
 	  continue;
 	}
@@ -710,8 +728,10 @@ mips_receive_packet (buff, throw_error, timeout)
 
       if (i < len)
 	{
+	  /* Don't use _filtered; we can't deal with a QUIT out of
+	     target_wait, and I think this might be called from there.  */
 	  if (sr_get_debug () > 0)
-	    printf_filtered ("Got new SYN after %d chars (wanted %d)\n",
+	    printf_unfiltered ("Got new SYN after %d chars (wanted %d)\n",
 			     i, len);
 	  continue;
 	}
@@ -726,8 +746,10 @@ mips_receive_packet (buff, throw_error, timeout)
 	}
       if (err == -2)
 	{
+	  /* Don't use _filtered; we can't deal with a QUIT out of
+	     target_wait, and I think this might be called from there.  */
 	  if (sr_get_debug () > 0)
-	    printf_filtered ("Got SYN when wanted trailer\n");
+	    printf_unfiltered ("Got SYN when wanted trailer\n");
 	  continue;
 	}
 
@@ -735,7 +757,9 @@ mips_receive_packet (buff, throw_error, timeout)
 	break;
 
       if (sr_get_debug () > 0)
-	printf_filtered ("Bad checksum; data %d, trailer %d\n",
+	/* Don't use _filtered; we can't deal with a QUIT out of
+	   target_wait, and I think this might be called from there.  */
+	printf_unfiltered ("Bad checksum; data %d, trailer %d\n",
 			 mips_cksum (hdr, buff, len),
 			 TRLR_GET_CKSUM (trlr));
 
@@ -755,7 +779,9 @@ mips_receive_packet (buff, throw_error, timeout)
       if (sr_get_debug () > 0)
 	{
 	  ack[HDR_LENGTH + TRLR_LENGTH] = '\0';
-	  printf_filtered ("Writing ack %d \"%s\"\n", mips_receive_seq,
+	  /* Don't use _filtered; we can't deal with a QUIT out of
+	     target_wait, and I think this might be called from there.  */
+	  printf_unfiltered ("Writing ack %d \"%s\"\n", mips_receive_seq,
 			   ack + 1);
 	}
 
@@ -771,7 +797,9 @@ mips_receive_packet (buff, throw_error, timeout)
   if (sr_get_debug () > 0)
     {
       buff[len] = '\0';
-      printf_filtered ("Got packet \"%s\"\n", buff);
+      /* Don't use _filtered; we can't deal with a QUIT out of
+	 target_wait, and I think this might be called from there.  */
+      printf_unfiltered ("Got packet \"%s\"\n", buff);
     }
 
   /* We got the packet.  Send an acknowledgement.  */
@@ -791,7 +819,9 @@ mips_receive_packet (buff, throw_error, timeout)
   if (sr_get_debug () > 0)
     {
       ack[HDR_LENGTH + TRLR_LENGTH] = '\0';
-      printf_filtered ("Writing ack %d \"%s\"\n", mips_receive_seq,
+      /* Don't use _filtered; we can't deal with a QUIT out of
+	 target_wait, and I think this might be called from there.  */
+      printf_unfiltered ("Writing ack %d \"%s\"\n", mips_receive_seq,
 		       ack + 1);
     }
 
@@ -888,6 +918,13 @@ mips_request (cmd, addr, data, perr, timeout)
   return rresponse;
 }
 
+static void
+mips_initialize_cleanups (arg)
+     PTR arg;
+{
+  mips_initializing = 0;
+}
+
 /* Initialize a new connection to the MIPS board, and make sure we are
    really connected.  */
 
@@ -897,9 +934,16 @@ mips_initialize ()
   char cr;
   char buff[DATA_MAXLEN + 1];
   int err;
+  struct cleanup *old_cleanups = make_cleanup (mips_initialize_cleanups, NULL);
 
+  /* What is this code doing here?  I don't see any way it can happen, and
+     it might mean mips_initializing didn't get cleared properly.
+     So I'll make it a warning.  */
   if (mips_initializing)
-    return;
+    {
+      warning ("internal error: mips_initialize called twice");
+      return;
+    }
 
   mips_initializing = 1;
 
@@ -909,7 +953,8 @@ mips_initialize ()
   /* The board seems to want to send us a packet.  I don't know what
      it means.  The packet seems to be triggered by a carriage return
      character, although perhaps any character would do.  */
-  cr = '\r';
+  cr = '\015';
+  /* FIXME check the result from this */
   SERIAL_WRITE (mips_desc, &cr, 1);
 
   if (mips_receive_packet (buff, 0, 3) < 0)
@@ -922,14 +967,14 @@ mips_initialize ()
       cc = '\003';
       SERIAL_WRITE (mips_desc, &cc, 1);
       sleep (2);
-      SERIAL_WRITE (mips_desc, "\rdb tty0\r", sizeof "\rdb tty0\r" - 1);
+      SERIAL_WRITE (mips_desc, "\015db tty0\015", sizeof "\015db tty0\015" - 1);
       sleep (1);
-      cr = '\r';
+      cr = '\015';
       SERIAL_WRITE (mips_desc, &cr, 1);
     }
   mips_receive_packet (buff, 1, 3);
 
-  mips_initializing = 0;
+  do_cleanups (old_cleanups);
 
   /* If this doesn't call error, we have connected; we don't care if
      the request itself succeeds or fails.  */
@@ -1143,10 +1188,18 @@ mips_fetch_registers (regno)
       return;
     }
 
-  val = mips_request ('r', (unsigned int) mips_map_regno (regno),
-		      (unsigned int) 0, &err, mips_receive_wait);
-  if (err)
-    mips_error ("Can't read register %d: %s", regno, safe_strerror (errno));
+  if (regno == FP_REGNUM || regno == ZERO_REGNUM)
+    /* FP_REGNUM on the mips is a hack which is just supposed to read
+       zero (see also mips-nat.c).  */
+    val = 0;
+  else
+    {
+      val = mips_request ('r', (unsigned int) mips_map_regno (regno),
+			  (unsigned int) 0, &err, mips_receive_wait);
+      if (err)
+	mips_error ("Can't read register %d: %s", regno,
+		    safe_strerror (errno));
+    }
 
   {
     char buf[MAX_REGISTER_RAW_SIZE];
@@ -1210,25 +1263,34 @@ mips_fetch_word (addr)
   return val;
 }
 
-/* Store a word to the target board.  */
+/* Store a word to the target board.  Returns errno code or zero for
+   success.  If OLD_CONTENTS is non-NULL, put the old contents of that
+   memory location there.  */
 
-static void
-mips_store_word (addr, val)
+static int
+mips_store_word (addr, val, old_contents)
      CORE_ADDR addr;
      int val;
+     char *old_contents;
 {
   int err;
+  unsigned int oldcontents;
 
-  mips_request ('D', (unsigned int) addr, (unsigned int) val, &err,
-		mips_receive_wait);
+  oldcontents = mips_request ('D', (unsigned int) addr, (unsigned int) val,
+			      &err,
+			      mips_receive_wait);
   if (err)
     {
       /* Data space failed; try instruction space.  */
-      mips_request ('I', (unsigned int) addr, (unsigned int) val, &err,
-		    mips_receive_wait);
+      oldcontents = mips_request ('I', (unsigned int) addr,
+				  (unsigned int) val, &err,
+				  mips_receive_wait);
       if (err)
-	mips_error ("Can't write address 0x%x: %s", addr, safe_strerror (errno));
+	return errno;
     }
+  if (old_contents != NULL)
+    store_unsigned_integer (old_contents, 4, oldcontents);
+  return 0;
 }
 
 /* Read or write LEN bytes from inferior memory at MEMADDR,
@@ -1253,6 +1315,8 @@ mips_xfer_memory (memaddr, myaddr, len, write, ignore)
   register int count = (((memaddr + len) - addr) + 3) / 4;
   /* Allocate buffer of that many longwords.  */
   register char *buffer = alloca (count * 4);
+
+  int status;
 
   if (write)
     {
@@ -1279,9 +1343,24 @@ mips_xfer_memory (memaddr, myaddr, len, write, ignore)
 
       for (i = 0; i < count; i++, addr += 4)
 	{
-	  mips_store_word (addr, extract_unsigned_integer (&buffer[i*4], 4));
+	  status = mips_store_word (addr,
+				    extract_unsigned_integer (&buffer[i*4], 4),
+				    NULL);
+	  /* Report each kilobyte (we download 32-bit words at a time) */
+	  if (i % 256 == 255) 
+	    {
+	      printf_unfiltered ("*");
+	      fflush (stdout);
+	    }
+	  if (status)
+	    {
+	      errno = status;
+	      return 0;
+	    }
 	  /* FIXME: Do we want a QUIT here?  */
 	}
+      if (count >= 256)
+	printf_unfiltered ("\n");
     }
   else
     {
@@ -1340,10 +1419,15 @@ mips_create_inferior (execfile, args, env)
   CORE_ADDR entry_pt;
 
   if (args && *args)
-    mips_error ("Can't pass arguments to remote MIPS board.");
+    {
+      warning ("\
+Can't pass arguments to remote MIPS board; arguments ignored.");
+      /* And don't try to use them on the next "run" command.  */
+      execute_command ("set args", 0);
+    }
 
   if (execfile == 0 || exec_bfd == 0)
-    mips_error ("No exec file specified");
+    error ("No executable file specified");
 
   entry_pt = (CORE_ADDR) bfd_get_start_address (exec_bfd);
 
@@ -1363,14 +1447,57 @@ mips_mourn_inferior ()
   generic_mourn_inferior ();
 }
 
+/* We can write a breakpoint and read the shadow contents in one
+   operation.  */
+
+/* The IDT board uses an unusual breakpoint value, and sometimes gets
+   confused when it sees the usual MIPS breakpoint instruction.  */
+
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+static unsigned char break_insn[] = {0, 0, 0x0a, 0x0d};
+#else
+static unsigned char break_insn[] = {0x0d, 0x0a, 0, 0};
+#endif
+
+/* Insert a breakpoint on targets that don't have any better breakpoint
+   support.  We read the contents of the target location and stash it,
+   then overwrite it with a breakpoint instruction.  ADDR is the target
+   location in the target machine.  CONTENTS_CACHE is a pointer to 
+   memory allocated for saving the target contents.  It is guaranteed
+   by the caller to be long enough to save sizeof BREAKPOINT bytes (this
+   is accomplished via BREAKPOINT_MAX).  */
+
+static int
+mips_insert_breakpoint (addr, contents_cache)
+     CORE_ADDR addr;
+     char *contents_cache;
+{
+  int status;
+
+  return
+    mips_store_word (addr,
+		     extract_unsigned_integer (break_insn, sizeof break_insn),
+		     contents_cache);
+}
+
+static int
+mips_remove_breakpoint (addr, contents_cache)
+     CORE_ADDR addr;
+     char *contents_cache;
+{
+  return target_write_memory (addr, contents_cache, sizeof break_insn);
+}
+
 /* The target vector.  */
 
 struct target_ops mips_ops =
 {
   "mips",			/* to_shortname */
   "Remote MIPS debugging over serial line",	/* to_longname */
-  "Debug a board using the MIPS remote debugging protocol over a serial line.\n\
-Specify the serial device it is connected to (e.g., /dev/ttya).",  /* to_doc */
+  "\
+Debug a board using the MIPS remote debugging protocol over a serial line.\n\
+The argument is the device it is connected to or, if it contains a colon,\n\
+HOST:PORT to access a board over a network",  /* to_doc */
   mips_open,			/* to_open */
   mips_close,			/* to_close */
   NULL,				/* to_attach */
@@ -1382,8 +1509,8 @@ Specify the serial device it is connected to (e.g., /dev/ttya).",  /* to_doc */
   mips_prepare_to_store,	/* to_prepare_to_store */
   mips_xfer_memory,		/* to_xfer_memory */
   mips_files_info,		/* to_files_info */
-  NULL,				/* to_insert_breakpoint */
-  NULL,				/* to_remove_breakpoint */
+  mips_insert_breakpoint,	/* to_insert_breakpoint */
+  mips_remove_breakpoint,	/* to_remove_breakpoint */
   NULL,				/* to_terminal_init */
   NULL,				/* to_terminal_inferior */
   NULL,				/* to_terminal_ours_for_output */

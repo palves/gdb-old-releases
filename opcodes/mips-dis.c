@@ -186,37 +186,58 @@ _print_insn_mips (memaddr, word, info)
      struct disassemble_info *info;
      unsigned long int word;
 {
-  register int i;
-  register const char *d;
+  register const struct mips_opcode *op;
+  static boolean init = 0;
+  static const struct mips_opcode *mips_hash[OP_MASK_OP + 1];
 
-  for (i = 0; i < NUMOPCODES; i++)
+  /* Build a hash table to shorten the search time.  */
+  if (! init)
     {
-      if (mips_opcodes[i].pinfo != INSN_MACRO)
+      int i;
+
+      for (i = 0; i <= OP_MASK_OP; i++)
 	{
-	  register unsigned int match = mips_opcodes[i].match;
-	  register unsigned int mask = mips_opcodes[i].mask;
-	  if ((word & mask) == match)
-	    break;
+	  for (op = mips_opcodes; op < &mips_opcodes[NUMOPCODES]; op++)
+	    {
+	      if (op->pinfo == INSN_MACRO)
+		continue;
+	      if ((i << OP_SH_OP) == (op->match & (OP_MASK_OP << OP_SH_OP)))
+		{
+		  mips_hash[i] = op;
+		  break;
+		}
+	    }
+        }
+
+      init = 1;
+    }
+
+  op = mips_hash[(word >> OP_SH_OP) & OP_MASK_OP];
+  if (op != NULL)
+    {
+      for (; op < &mips_opcodes[NUMOPCODES]; op++)
+	{
+	  if (op->pinfo != INSN_MACRO && (word & op->mask) == op->match)
+	    {
+	      register const char *d;
+
+	      (*info->fprintf_func) (info->stream, "%s", op->name);
+
+	      d = op->args;
+	      if (d != NULL)
+		{
+		  (*info->fprintf_func) (info->stream, " ");
+		  for (; *d != '\0'; d++)
+		    print_insn_arg (d, word, memaddr, info);
+		}
+
+	      return 4;
+	    }
 	}
     }
 
   /* Handle undefined instructions.  */
-  if (i == NUMOPCODES)
-    {
-      (*info->fprintf_func) (info->stream, "0x%x", word);
-      return 4;
-    }
-
-  (*info->fprintf_func) (info->stream, "%s", mips_opcodes[i].name);
-
-  if (!(d = mips_opcodes[i].args))
-    return 4;
-
-  (*info->fprintf_func) (info->stream, " ");
-
-  while (*d)
-    print_insn_arg (d++, word, memaddr, info);
-
+  (*info->fprintf_func) (info->stream, "0x%x", word);
   return 4;
 }
 

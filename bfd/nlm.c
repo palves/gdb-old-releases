@@ -33,7 +33,7 @@ nlm_mkobject (abfd)
     (struct nlm_obj_tdata *) bfd_zalloc (abfd, sizeof (struct nlm_obj_tdata));
   if (nlm_tdata (abfd) == NULL)
     {
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       return (false);
     }
 

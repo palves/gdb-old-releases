@@ -23,6 +23,7 @@
 #include "ansidecl.h"
 #include "sysdep.h"
 #include "remote-sim.h"
+#include "bfd.h"
 
 int debug;
 
@@ -165,15 +166,13 @@ decode (addr, data, dst)
 
 	  thisnib = (len & 1) ? (thisnib & 0xf) : ((thisnib >> 4) & 0xf);
 
-	  if (looking_for < 16)
+	  if (looking_for < 16 && looking_for >= 0)
 	    {
-
 	      if (looking_for != thisnib)
 		goto fail;
 	    }
 	  else
 	    {
-
 	      if ((int) looking_for & (int) B31)
 		{
 		  if (!(((int) thisnib & 0x8) != 0))
@@ -181,7 +180,6 @@ decode (addr, data, dst)
 		  looking_for = (op_type) ((int) looking_for & ~(int)
 					   B31);
 		  thisnib &= 0x7;
-
 		}
 	      if ((int) looking_for & (int) B30)
 		{
@@ -230,6 +228,10 @@ decode (addr, data, dst)
 		    | (data[2] << 8)
 		    | (data[3]);
 		}
+	      else if (looking_for & MEMIND)
+		{
+		  abs = data[1];
+		}
 	      else if (looking_for & L_32)
 		{
 		  int i = len >> 1;
@@ -239,18 +241,16 @@ decode (addr, data, dst)
 		    | (data[i + 3]);
 
 		  plen = 32;
-
 		}
 	      else if (looking_for & L_24)
 		{
 		  int i = len >> 1;
-		  abs = (data[i] << 16) | (data[i + 1] << 8) | (data[i +
-								     2]);
+		  abs = (data[i] << 16) | (data[i + 1] << 8) | (data[i + 2]);
 		  plen = 24;
 		}
 	      else if (looking_for & IGNORE)
 		{
-
+		  /* nothing to do */
 		}
 	      else if (looking_for & DISPREG)
 		{
@@ -299,7 +299,6 @@ decode (addr, data, dst)
 		    op_type *args = q->args.nib;
 		    int hadone = 0;
 
-
 		    while (*args != E)
 		      {
 			int x = *args;
@@ -315,7 +314,6 @@ decode (addr, data, dst)
 			    p = &(dst->src);
 			  }
 
-
 			if (x & (IMM | KBIT | DBIT))
 			  {
 			    p->type = X (OP_IMM, size);
@@ -323,8 +321,7 @@ decode (addr, data, dst)
 			  }
 			else if (x & REG)
 			  {
-			    /*
-			       Reset the size, some
+			    /* Reset the size, some
 			       ops (like mul) have two sizes */
 
 			    size = bitfrom (x);
@@ -362,6 +359,8 @@ decode (addr, data, dst)
 			  {
 			    p->type = X (OP_PCREL, size);
 			    p->literal = abs + addr + 2;
+			    if (x & L_16)
+			      p->literal += 2;
 			  }
 			else if (x & ABSJMP)
 			  {
@@ -381,7 +380,6 @@ decode (addr, data, dst)
 			else
 			  printf ("Hmmmm %x", x);
 
-
 			args++;
 		      }
 		  }
@@ -397,7 +395,6 @@ decode (addr, data, dst)
 		    {
 		      dst->src.type = lvalue (dst->src.type, dst->src.reg);
 		    }
-
 
 		  if (dst->dst.type == -1)
 		    dst->dst = dst->src;
@@ -565,14 +562,16 @@ fetch (arg, n)
       t &= cpu.mask;
       return GET_MEMORY_L (t);
 
+    case X (OP_MEM, SL):
+      t = GET_MEMORY_L (abs);
+      t &= cpu.mask;
+      return t;
+
     default:
       abort ();
 
     }
 }
-
-
-
 
 
 static
@@ -615,7 +614,6 @@ store (arg, n)
       SET_L_REG (rn, t);
       SET_MEMORY_L (t, n);
       break;
-
 
     case X (OP_DISP, SB):
       t = GET_L_REG (rn) + abs;
@@ -710,13 +708,11 @@ init_pointers ()
 	  lreg[i] = &cpu.regs[i];
 	}
 
-
       lreg[8] = &cpu.regs[8];
 
       /* initialize the seg registers */
       if (!cpu.cache)
 	sim_csize (CSIZE);
-
     }
 }
 
@@ -745,6 +741,7 @@ mop (code, bsize, sign)
   int multiplicand;
   int result;
   int n, nz;
+
   if (sign)
     {
       multiplicand =
@@ -819,7 +816,7 @@ case  O(name, SB):				\
   if(s) store (&code->dst,ea); goto next;	\
 }
 
-int
+void
 sim_resume (step, siggnal)
 {
   static int init1;
@@ -1220,14 +1217,12 @@ sim_resume (step, siggnal)
 	  {
 	    int tmp;
 
-
 	    tmp = cpu.regs[7];
 
 	    if (h8300hmode)
 	      {
 		pc = GET_MEMORY_L (tmp);
 		tmp += 4;
-
 	      }
 	    else
 	      {
@@ -1242,7 +1237,7 @@ sim_resume (step, siggnal)
 	case O (O_ILL, SB):
 	  cpu.exception = SIGILL;
 	  goto end;
-
+	case O (O_SLEEP, SB):
 	case O (O_BPT, SB):
 	  cpu.exception = SIGTRAP;
 	  goto end;
@@ -1283,14 +1278,12 @@ sim_resume (step, siggnal)
 
 	case O (O_DIVU, SB):
 	  {
-
 	    rd = GET_W_REG (code->dst.reg);
 	    ea = GET_B_REG (code->src.reg);
 	    if (ea)
 	      {
 		tmp = rd % ea;
 		rd = rd / ea;
-
 	      }
 	    SET_W_REG (code->dst.reg, (rd & 0xff) | (tmp << 8));
 	    n = ea & 0x80;
@@ -1300,7 +1293,6 @@ sim_resume (step, siggnal)
 	  }
 	case O (O_DIVU, SW):
 	  {
-
 	    rd = GET_L_REG (code->dst.reg);
 	    ea = GET_W_REG (code->src.reg);
 	    n = ea & 0x8000;
@@ -1309,13 +1301,10 @@ sim_resume (step, siggnal)
 	      {
 		tmp = rd % ea;
 		rd = rd / ea;
-
 	      }
 	    SET_L_REG (code->dst.reg, (rd & 0xffff) | (tmp << 16));
 	    goto next;
 	  }
-
-
 
 	case O (O_DIVS, SB):
 	  {
@@ -1324,12 +1313,10 @@ sim_resume (step, siggnal)
 	    ea = SEXTCHAR (GET_B_REG (code->src.reg));
 	    if (ea)
 	      {
-
 		tmp = (int) rd % (int) ea;
 		rd = (int) rd / (int) ea;
 		n = rd & 0x8000;
 		nz = 1;
-
 	      }
 	    else
 	      nz = 0;
@@ -1338,17 +1325,14 @@ sim_resume (step, siggnal)
 	  }
 	case O (O_DIVS, SW):
 	  {
-
 	    rd = GET_L_REG (code->dst.reg);
 	    ea = SEXTSHORT (GET_W_REG (code->src.reg));
 	    if (ea)
 	      {
-
 		tmp = (int) rd % (int) ea;
 		rd = (int) rd / (int) ea;
 		n = rd & 0x80000000;
 		nz = 1;
-
 	      }
 	    else
 	      nz = 0;
@@ -1380,7 +1364,7 @@ sim_resume (step, siggnal)
 	  goto next;
 
 	default:
-	  cpu.exception = 123;
+	  cpu.exception = SIGILL;
 	  goto end;
 
 	}
@@ -1549,8 +1533,6 @@ sim_resume (step, siggnal)
 }
 
 
-
-
 int
 sim_write (addr, buffer, size)
      SIM_ADDR addr;
@@ -1584,7 +1566,6 @@ sim_read (addr, buffer, size)
 }
 
 
-
 #define R0_REGNUM	0
 #define R1_REGNUM	1
 #define R2_REGNUM	2
@@ -1606,7 +1587,7 @@ sim_read (addr, buffer, size)
 #define TICK_REGNUM     12
 
 
-int
+void
 sim_store_register (rn, value)
      int rn;
      unsigned char *value;
@@ -1651,10 +1632,9 @@ sim_store_register (rn, value)
       cpu.ticks = longval;
       break;
     }
-  return 0;
 }
 
-int
+void
 sim_fetch_register (rn, buf)
      int rn;
      unsigned char *buf;
@@ -1709,33 +1689,16 @@ sim_fetch_register (rn, buf)
       buf[0] = v >> 8;
       buf[1] = v;
     }
-  return 0;
 }
 
-int
-sim_trace ()
-{
-  return 0;
-}
-
-int
+void
 sim_stop_reason (reason, sigrc)
      enum sim_stop *reason;
      int *sigrc;
 {
   *reason = sim_stopped;
   *sigrc = cpu.exception;
-  return 0;
 }
-
-int
-sim_set_pc (n)
-     SIM_ADDR n;
-{
-  cpu.pc = n;
-  return 0;
-}
-
 
 sim_csize (n)
 {
@@ -1749,26 +1712,21 @@ sim_csize (n)
 }
 
 
-
-int
-sim_info (printf_fn, verbose)
-     void (*printf_fn) ();
+void
+sim_info (verbose)
      int verbose;
-
 {
   double timetaken = (double) cpu.ticks / (double) now_persec ();
   double virttime = cpu.cycles / 10.0e6;
 
-
-  printf ("\n\n#instructions executed  %10d\n", cpu.insts);
-  printf ("#cycles (v approximate) %10d\n", cpu.cycles);
-  printf ("#real time taken        %10.4f\n", timetaken);
-  printf ("#virtual time taked     %10.4f\n", virttime);
+  printf_filtered ("\n\n#instructions executed  %10d\n", cpu.insts);
+  printf_filtered ("#cycles (v approximate) %10d\n", cpu.cycles);
+  printf_filtered ("#real time taken        %10.4f\n", timetaken);
+  printf_filtered ("#virtual time taked     %10.4f\n", virttime);
   if (timetaken != 0.0)
-    printf ("#simulation ratio       %10.4f\n", virttime / timetaken);
-  printf ("#compiles               %10d\n", cpu.compiles);
-  printf ("#cache size             %10d\n", cpu.csize);
-
+    printf_filtered ("#simulation ratio       %10.4f\n", virttime / timetaken);
+  printf_filtered ("#compiles               %10d\n", cpu.compiles);
+  printf_filtered ("#cache size             %10d\n", cpu.csize);
 
 #ifdef ADEBUG
   if (verbose)
@@ -1777,35 +1735,70 @@ sim_info (printf_fn, verbose)
       for (i = 0; i < O_LAST; i++)
 	{
 	  if (cpu.stats[i])
-	    printf ("%d: %d\n", i, cpu.stats[i]);
+	    printf_filtered ("%d: %d\n", i, cpu.stats[i]);
 	}
     }
 #endif
+}
 
-  return 0;
+/* Indicate whether the cpu is an h8/300 or h8/300h.
+   FLAG is non-zero for the h8/300h.  */
+
+void
+set_h8300h (flag)
+     int flag;
+{
+  h8300hmode = flag;
 }
 
 void
-set_h8300h ()
-{
-  h8300hmode = 1;
-}
-
-int
 sim_kill ()
 {
-  return 0;
+  /* nothing to do */
 }
 
-sim_open (name)
-     char *name;
+void
+sim_open (args)
+     char *args;
 {
-  return 0;
+  /* nothing to do */
 }
 
-sim_set_args (argv, env)
+void
+sim_close (quitting)
+     int quitting;
+{
+  /* nothing to do */
+}
+
+/* Called by gdb to load a program into memory.  */
+
+int
+sim_load (prog, from_tty)
+     char *prog;
+     int from_tty;
+{
+  bfd *abfd;
+
+  /* See if the file is for the h8/300 or h8/300h.  */
+  /* ??? This may not be the most efficient way.  The z8k simulator
+     does this via a different mechanism (INIT_EXTRA_SYMTAB_INFO).  */
+  if ((abfd = bfd_openr (prog, "coff-h8300")) != 0)
+    {
+      if (bfd_check_format (abfd, bfd_object)) 
+	set_h8300h (abfd->arch_info->mach == bfd_mach_h8300h);
+      bfd_close (abfd);
+    }
+
+  /* Return non-zero so gdb will handle it.  */
+  return 1;
+}
+
+void
+sim_create_inferior (start_address, argv, env)
+     SIM_ADDR start_address;
      char **argv;
      char **env;
 {
-  return 0;
+  cpu.pc = start_address;
 }

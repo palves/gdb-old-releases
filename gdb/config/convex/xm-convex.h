@@ -32,10 +32,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define HAVE_WAIT_STRUCT
 #define NO_SIGINTERRUPT
 
-/* Get rid of any system-imposed stack limit if possible.  */
-
-#define SET_STACK_LIMIT_HUGE
-
 /* Use SIGCONT rather than SIGTSTP because convex Unix occasionally
    turkeys SIGTSTP.  I think.  */
 

@@ -227,6 +227,7 @@ int gdb_i386vector = -1;
   asm ("cmpl $0, _mem_fault_routine");					   \
   asm ("jne mem_fault");
 
+asm (".text");
 asm ("mem_fault:");
 /* OK to clobber temp registers; we're just going to end up in set_mem_err.  */
 /* Pop error code from the stack and save it.  */

@@ -1,5 +1,5 @@
 /* genlink.h -- interface to the BFD generic linker
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -34,14 +34,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* The generic linker uses a hash table which is a derived class of
    the standard linker hash table, just as the other backend specific
    linkers do.  Do not confuse the generic linker hash table with the
-   standard BFD linker hash table it is built upon.  The generic
-   linker hash table is onl referred to in this file.  */
+   standard BFD linker hash table it is built upon.  */
 
 /* Generic linker hash table entries.  */
 
 struct generic_link_hash_entry
 {
   struct bfd_link_hash_entry root;
+  /* Whether this symbol has been written out.  */
+  boolean written;
   /* Symbol from input BFD.  */
   asymbol *sym;
 };
@@ -73,6 +74,12 @@ struct generic_link_hash_table
 #define _bfd_generic_hash_table(p) \
   ((struct generic_link_hash_table *) ((p)->hash))
 
+/* The generic linker reads in the asymbol structures for an input BFD
+   and keeps them in the outsymbol and symcount fields.  */
+
+#define _bfd_generic_link_get_symbols(abfd) ((abfd)->outsymbols)
+#define _bfd_generic_link_get_symcount(abfd) ((abfd)->symcount)
+
 /* Add the symbols of input_bfd to the symbols being built for
    output_bfd.  */
 extern boolean _bfd_generic_link_output_symbols
@@ -85,6 +92,7 @@ extern boolean _bfd_generic_link_output_symbols
 
 struct generic_write_global_symbol_info
 {
+  struct bfd_link_info *info;
   bfd *output_bfd;
   size_t *psymalloc;
 };

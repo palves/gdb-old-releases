@@ -195,9 +195,8 @@ store_address (addr, len, val)
    formats.  So if host is IEEE floating and target is VAX floating,
    or vice-versa, it loses.  This means that we can't (yet) use these
    routines for extendeds.  Extendeds are handled by
-   REGISTER_CONVERTIBLE.  What we want is a fixed version of
-   ieee-float.c (the current version can't deal with single or double,
-   and I suspect it is probably broken for some extendeds too).
+   REGISTER_CONVERTIBLE.  What we want is to use floatformat.h, but that
+   doesn't yet handle VAX floating at all.
 
    2.  We can't deal with it if there is more than one floating point
    format in use.  This has to be fixed at the unpack_double level.
@@ -417,13 +416,13 @@ read_relative_register_raw_bytes (regnum, myaddr)
    in its virtual format, with the type specified by
    REGISTER_VIRTUAL_TYPE.  */
 
-value
+value_ptr
 value_of_register (regnum)
      int regnum;
 {
   CORE_ADDR addr;
   int optim;
-  register value reg_val;
+  register value_ptr reg_val;
   char raw_buffer[MAX_REGISTER_RAW_SIZE];
   enum lval_type lval;
 
@@ -466,12 +465,21 @@ char registers[REGISTER_BYTES + /* SLOP */ 256];
 /* Nonzero if that register has been fetched.  */
 char register_valid[NUM_REGS];
 
+/* The thread/process associated with the current set of registers.  For now,
+   -1 is special, and means `no current process'.  */
+int registers_pid = -1;
+
 /* Indicate that registers may have changed, so invalidate the cache.  */
+
 void
 registers_changed ()
 {
   int i;
-  for (i = 0; i < NUM_REGS; i++)
+  int numregs = ARCH_NUM_REGS;
+
+  registers_pid = -1;
+
+  for (i = 0; i < numregs; i++)
     register_valid[i] = 0;
 }
 
@@ -480,7 +488,8 @@ void
 registers_fetched ()
 {
   int i;
-  for (i = 0; i < NUM_REGS; i++)
+  int numregs = ARCH_NUM_REGS;
+  for (i = 0; i < numregs; i++)
     register_valid[i] = 1;
 }
 
@@ -495,8 +504,16 @@ read_register_bytes (regbyte, myaddr, len)
      int len;
 {
   /* Fetch all registers.  */
-  int i;
-  for (i = 0; i < NUM_REGS; i++)
+  int i, numregs;
+
+  if (registers_pid != inferior_pid)
+    {
+      registers_changed ();
+      registers_pid = inferior_pid;
+    }
+
+  numregs = ARCH_NUM_REGS;
+  for (i = 0; i < numregs; i++)
     if (!register_valid[i])
       {
 	target_fetch_registers (-1);
@@ -515,6 +532,12 @@ read_register_gen (regno, myaddr)
      int regno;
      char *myaddr;
 {
+  if (registers_pid != inferior_pid)
+    {
+      registers_changed ();
+      registers_pid = inferior_pid;
+    }
+
   if (!register_valid[regno])
     target_fetch_registers (regno);
   memcpy (myaddr, &registers[REGISTER_BYTE (regno)],
@@ -530,6 +553,12 @@ write_register_bytes (regbyte, myaddr, len)
      char *myaddr;
      int len;
 {
+  if (registers_pid != inferior_pid)
+    {
+      registers_changed ();
+      registers_pid = inferior_pid;
+    }
+
   /* Make sure the entire registers array is valid.  */
   read_register_bytes (0, (char *)NULL, REGISTER_BYTES);
   memcpy (&registers[regbyte], myaddr, len);
@@ -543,11 +572,38 @@ CORE_ADDR
 read_register (regno)
      int regno;
 {
+  if (registers_pid != inferior_pid)
+    {
+      registers_changed ();
+      registers_pid = inferior_pid;
+    }
+
   if (!register_valid[regno])
     target_fetch_registers (regno);
 
   return extract_address (&registers[REGISTER_BYTE (regno)],
 			  REGISTER_RAW_SIZE(regno));
+}
+
+CORE_ADDR
+read_register_pid (regno, pid)
+     int regno, pid;
+{
+  int save_pid;
+  CORE_ADDR retval;
+
+  if (pid == inferior_pid)
+    return read_register (regno);
+
+  save_pid = inferior_pid;
+
+  inferior_pid = pid;
+
+  retval = read_register (regno);
+
+  inferior_pid = save_pid;
+
+  return retval;
 }
 
 /* Registers we shouldn't try to store.  */
@@ -571,6 +627,12 @@ write_register (regno, val)
   if (CANNOT_STORE_REGISTER (regno))
     return;
 
+  if (registers_pid != inferior_pid)
+    {
+      registers_changed ();
+      registers_pid = inferior_pid;
+    }
+
   size = REGISTER_RAW_SIZE(regno);
   buf = alloca (size);
   store_signed_integer (buf, size, (LONGEST) val);
@@ -578,11 +640,9 @@ write_register (regno, val)
   /* If we have a valid copy of the register, and new value == old value,
      then don't bother doing the actual store. */
 
-  if (register_valid [regno]) 
-    {
-      if (memcmp (&registers[REGISTER_BYTE (regno)], buf, size) == 0)
-	return;
-    }
+  if (register_valid [regno]
+      && memcmp (&registers[REGISTER_BYTE (regno)], buf, size) == 0)
+    return;
   
   target_prepare_to_store ();
 
@@ -591,6 +651,29 @@ write_register (regno, val)
   register_valid [regno] = 1;
 
   target_store_registers (regno);
+}
+
+void
+write_register_pid (regno, val, pid)
+     int regno;
+     LONGEST val;
+     int pid;
+{
+  int save_pid;
+
+  if (pid == inferior_pid)
+    {
+      write_register (regno, val);
+      return;
+    }
+
+  save_pid = inferior_pid;
+
+  inferior_pid = pid;
+
+  write_register (regno, val);
+
+  inferior_pid = save_pid;
 }
 
 /* Record that register REGNO contains VAL.
@@ -602,6 +685,12 @@ supply_register (regno, val)
      int regno;
      char *val;
 {
+  if (registers_pid != inferior_pid)
+    {
+      registers_changed ();
+      registers_pid = inferior_pid;
+    }
+
   register_valid[regno] = 1;
   memcpy (&registers[REGISTER_BYTE (regno)], val, REGISTER_RAW_SIZE (regno));
 
@@ -609,6 +698,111 @@ supply_register (regno, val)
      registers, that the rest of the code would like to ignore.  */
 #ifdef CLEAN_UP_REGISTER_VALUE
   CLEAN_UP_REGISTER_VALUE(regno, &registers[REGISTER_BYTE(regno)]);
+#endif
+}
+
+
+/* This routine is getting awfully cluttered with #if's.  It's probably
+   time to turn this into READ_PC and define it in the tm.h file.
+   Ditto for write_pc.  */
+
+CORE_ADDR
+read_pc ()
+{
+#ifdef TARGET_READ_PC
+  return TARGET_READ_PC (inferior_pid);
+#else
+  return ADDR_BITS_REMOVE ((CORE_ADDR) read_register_pid (PC_REGNUM, inferior_pid));
+#endif
+}
+
+CORE_ADDR
+read_pc_pid (pid)
+     int pid;
+{
+#ifdef TARGET_READ_PC
+  return TARGET_READ_PC (pid);
+#else
+  return ADDR_BITS_REMOVE ((CORE_ADDR) read_register_pid (PC_REGNUM, pid));
+#endif
+}
+
+void
+write_pc (val)
+     CORE_ADDR val;
+{
+#ifdef TARGET_WRITE_PC
+  TARGET_WRITE_PC (val, inferior_pid);
+#else
+  write_register_pid (PC_REGNUM, (long) val, inferior_pid);
+#ifdef NPC_REGNUM
+  write_register_pid (NPC_REGNUM, (long) val + 4, inferior_pid);
+#ifdef NNPC_REGNUM
+  write_register_pid (NNPC_REGNUM, (long) val + 8, inferior_pid);
+#endif
+#endif
+#endif
+}
+
+void
+write_pc_pid (val, pid)
+     CORE_ADDR val;
+     int pid;
+{
+#ifdef TARGET_WRITE_PC
+  TARGET_WRITE_PC (val, pid);
+#else
+  write_register_pid (PC_REGNUM, (long) val, pid);
+#ifdef NPC_REGNUM
+  write_register_pid (NPC_REGNUM, (long) val + 4, pid);
+#ifdef NNPC_REGNUM
+  write_register_pid (NNPC_REGNUM, (long) val + 8, pid);
+#endif
+#endif
+#endif
+}
+
+/* Cope with strage ways of getting to the stack and frame pointers */
+
+CORE_ADDR
+read_sp ()
+{
+#ifdef TARGET_READ_SP
+  return TARGET_READ_SP ();
+#else
+  return read_register (SP_REGNUM);
+#endif
+}
+
+void
+write_sp (val)
+     CORE_ADDR val;
+{
+#ifdef TARGET_WRITE_SP
+  TARGET_WRITE_SP (val);
+#else
+  write_register (SP_REGNUM, val);
+#endif
+}
+
+CORE_ADDR
+read_fp ()
+{
+#ifdef TARGET_READ_FP
+  return TARGET_READ_FP ();
+#else
+  return read_register (FP_REGNUM);
+#endif
+}
+
+void
+write_fp (val)
+     CORE_ADDR val;
+{
+#ifdef TARGET_WRITE_FP
+  TARGET_WRITE_FP (val);
+#else
+  write_register (FP_REGNUM, val);
 #endif
 }
 
@@ -658,12 +852,12 @@ symbol_read_needs_frame (sym)
    If the variable cannot be found, return a zero pointer.
    If FRAME is NULL, use the selected_frame.  */
 
-value
+value_ptr
 read_var_value (var, frame)
      register struct symbol *var;
      FRAME frame;
 {
-  register value v;
+  register value_ptr v;
   struct frame_info *fi;
   struct type *type = SYMBOL_TYPE (var);
   CORE_ADDR addr;
@@ -767,15 +961,17 @@ read_var_value (var, frame)
 	  return 0;
 	b = get_frame_block (frame);
 	
-	v = value_from_register (type, SYMBOL_VALUE (var), frame);
 
 	if (SYMBOL_CLASS (var) == LOC_REGPARM_ADDR)
 	  {
-	    addr = *(CORE_ADDR *)VALUE_CONTENTS (v);
+	    addr =
+	      value_as_pointer (value_from_register (lookup_pointer_type (type),
+						     SYMBOL_VALUE (var),
+						     frame));
 	    VALUE_LVAL (v) = lval_memory;
 	  }
 	else
-	  return v;
+	  return value_from_register (type, SYMBOL_VALUE (var), frame);
       }
       break;
 
@@ -797,7 +993,7 @@ read_var_value (var, frame)
 /* Return a value of type TYPE, stored in register REGNUM, in frame
    FRAME. */
 
-value
+value_ptr
 value_from_register (type, regnum, frame)
      struct type *type;
      int regnum;
@@ -806,7 +1002,7 @@ value_from_register (type, regnum, frame)
   char raw_buffer [MAX_REGISTER_RAW_SIZE];
   CORE_ADDR addr;
   int optim;
-  value v = allocate_value (type);
+  value_ptr v = allocate_value (type);
   int len = TYPE_LENGTH (type);
   char *value_bytes = 0;
   int value_bytes_copied = 0;
@@ -1005,14 +1201,14 @@ value_from_register (type, regnum, frame)
    return a (pointer to a) struct value containing the properly typed
    address.  */
 
-value
+value_ptr
 locate_var_value (var, frame)
      register struct symbol *var;
      FRAME frame;
 {
   CORE_ADDR addr = 0;
   struct type *type = SYMBOL_TYPE (var);
-  value lazy_value;
+  value_ptr lazy_value;
 
   /* Evaluate it first; if the result is a memory address, we're fine.
      Lazy evaluation pays off here. */

@@ -1,5 +1,5 @@
 /* Parameters for targeting to a Bull DPX2.
-   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1991, 1994 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -26,5 +26,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    record, not using x_fsize field.  */
 #define FUNCTION_EPILOGUE_SIZE 4
 
+/* The child target can't deal with writing floating registers.  */
+#define CANNOT_STORE_REGISTER(regno) ((regno) >= FP0_REGNUM)
+
 #include <sys/types.h>
-#include "m68k/tm-68k.h"
+#include "m68k/tm-m68k.h"

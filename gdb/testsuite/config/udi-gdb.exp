@@ -1,5 +1,5 @@
 # Test Framework Driver for GDB driving Universal Debug Interface on 29K
-#   Copyright 1988, 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+#   Copyright 1988, 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,13 +24,6 @@
 # NOTE: these test assume that there is a udi_soc file in th
 #
 
-# these need to be initialized only if site.exp doesn't set them
-set prompt "\(gdb\)"
-
-if ![info exists prompt] then {
-    set prompt "\(gdb\)"
-}
-
 load_lib gdb.exp
 load_lib udi.exp
 
@@ -39,42 +32,6 @@ load_lib udi.exp
 #
 proc gdb_version {} {
     default_gdb_version
-}
-
-#
-# gdb_load -- load a file into the GDB. 
-#             Returns a 0 if there was an error,
-#                       1 if it load successfully.
-#
-proc gdb_load { arg } {
-    global verbose
-    global loadpath
-    global loadfile
-    global prompt
-    global spawn_id
-    global GDB
-    global expect_out
-
-    send "load $arg\n"
-    verbose "Loading $arg into $GDB"
-    expect {
-	-re "Loading.*\.text.*\.data.*\.bss.*Reading symbols from $arg.+done.*$prompt $" {
-	    verbose "Loaded $arg into $GDB"
-	    return 1
-	}
-	-re "$prompt $" {
-	    error "Couldn't load $arg into $GDB."
-	    return 0
-	}
-	timeout {
-		error "Timed out trying to load $arg."
-	    return 0
-	}
-    }
-    if [info exists expect_out(buffer)] then {
-	send_log $expect_out(buffer)
-    }
-    return 0
 }
 
 #
@@ -92,7 +49,7 @@ proc gdb_target_udi { } {
     set timeout 60
     expect {
 	-re "target udi $targetname\[\r\n\]+" {
-	    continue -expect
+	    exp_continue
 	}
 	-re "TIP UDI 1.2 Conformant.*$prompt $"	{
 	    verbose "Set target to $targetname"
@@ -101,14 +58,14 @@ proc gdb_target_udi { } {
 	    warning "$expect_out(buffer)"
 	}
 	-re "TIP-ipc ERROR,.*failed:" {
-	    error "$expect_out(buffer)"
+	    perror "$expect_out(buffer)"
 	}
 	-re "A program is being debugged already.  Kill it\? \(y or n\)" {
 	    send "y\n"
-	    continue -expect
+	    exp_continue
 	}
 	timeout { 
-	    error "Couldn't set target for UDI."
+	    perror "Couldn't set target for UDI."
 	    cleanup
 	    exit $exit_status
 	}
@@ -117,50 +74,28 @@ proc gdb_target_udi { } {
 }
 
 #
+# gdb_load -- load a file into the debugger.
+#             return a -1 if anything goes wrong.
+#
+proc gdb_load { arg } {
+    global verbose
+    global loadpath
+    global loadfile
+    global GDB
+    global prompt
+
+    if [gdb_file_cmd $arg] then { return -1 }
+
+    gdb_target_udi
+}
+
+#
 # gdb_start -- start GDB running. This assumes that there the
 #              UDICONF enviroment variable is set.
 #
 proc gdb_start { } {
-    global GDB
-    global GDBFLAGS
-    global spawn_id
-    global prompt
-    global verbose
-
-    set GDB [which $GDB]
-    # start GDB
-    if [ llength $GDBFLAGS ] then {
-	spawn $GDB $GDBFLAGS
-    } else {
-	spawn $GDB
-    }
-    expect  {
-	-re "GDB.*$prompt $"   {
-	    verbose "$GDB initialized for cross mode\n"
-	}
-	-re "$prompt $" {
-	    error "GDB never initialized."
-	    return -1
-	}
-	timeout {
-	    error "(timeout) GDB never initialized."    
-	    return -1
-	}
-    }
-
-    # force the height to "unlimited", so no pagers get used
-    send "set height 0\n"
-    expect -re ".*$prompt $" {}
-    # force the width to "unlimited", so no wraparound occurs
-    send "set width 0\n"
-    expect -re ".*$prompt $" {}
-    # set the default arguments to "main", so that "run" with no
-    # arguments will work correctly.
-    send "set args main\n"
-    expect -re ".*$prompt $" {}
-
+    default_gdb_start
     verbose "Setting up target, Please wait..."
-
     gdb_target_udi
 }
 

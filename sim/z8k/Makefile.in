@@ -66,7 +66,7 @@ DEP = mkdep
 TARGETLIB = libsim.a
 
 
-top:run libsim.a
+all:run libsim.a
 
 OFILES = iface.o mem.o comped1.o comped3.o comped2.o support.o  quick.o compedb3.o
 

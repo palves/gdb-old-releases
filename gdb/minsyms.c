@@ -1,5 +1,5 @@
 /* GDB routines for manipulating the minimal symbol tables.
-   Copyright 1992 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
 This file is part of GDB.
@@ -38,11 +38,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 #include "defs.h"
+#include <string.h>
 #include "symtab.h"
 #include "bfd.h"
 #include "symfile.h"
 #include "objfiles.h"
 #include "demangle.h"
+#include "gdb-stabs.h"
 
 /* Accumulate the minimal symbols for each objfile in bunches of BUNCH_SIZE.
    At the end, copy them all into one newly allocated location on an objfile's
@@ -96,9 +98,7 @@ lookup_minimal_symbol (name, objf)
   struct minimal_symbol *msymbol;
   struct minimal_symbol *found_symbol = NULL;
   struct minimal_symbol *found_file_symbol = NULL;
-#ifdef IBM6000_TARGET
   struct minimal_symbol *trampoline_symbol = NULL;
-#endif
 
   for (objfile = object_files;
        objfile != NULL && found_symbol == NULL;
@@ -124,34 +124,17 @@ lookup_minimal_symbol (name, objf)
 		      found_file_symbol = msymbol;
 		      break;
 
-		    case mst_unknown:
-#ifdef IBM6000_TARGET
-		      /* I *think* all platforms using shared
-			 libraries (and trampoline code) will suffer
-			 this problem. Consider a case where there are
-			 5 shared libraries, each referencing `foo'
-			 with a trampoline entry. When someone wants
-			 to put a breakpoint on `foo' and the only
-			 info we have is minimal symbol vector, we
-			 want to use the real `foo', rather than one
-			 of those trampoline entries. MGO */
+		    case mst_solib_trampoline:
 
 		      /* If a trampoline symbol is found, we prefer to
 			 keep looking for the *real* symbol. If the
-			 actual symbol not found, then we'll use the
-			 trampoline entry. Sorry for the machine
-			 dependent code here, but I hope this will
-			 benefit other platforms as well. For
-			 trampoline entries, we used mst_unknown
-			 earlier. Perhaps we should define a
-			 `mst_trampoline' type?? */
-
+			 actual symbol is not found, then we'll use the
+			 trampoline entry. */
 		      if (trampoline_symbol == NULL)
 			trampoline_symbol = msymbol;
 		      break;
-#else
-		      /* FALLTHROUGH */
-#endif
+
+		    case mst_unknown:
 		    default:
 		      found_symbol = msymbol;
 		      break;
@@ -168,11 +151,9 @@ lookup_minimal_symbol (name, objf)
   if (found_file_symbol)
     return found_file_symbol;
 
-  /* Symbols for IBM shared library trampolines are next best.  */
-#ifdef IBM6000_TARGET
+  /* Symbols for shared library trampolines are next best.  */
   if (trampoline_symbol)
     return trampoline_symbol;
-#endif
 
   return NULL;
 }
@@ -298,8 +279,29 @@ prim_record_minimal_symbol (name, address, ms_type, objfile)
      enum minimal_symbol_type ms_type;
      struct objfile *objfile;
 {
+  int section;
+
+  switch (ms_type)
+    {
+    case mst_text:
+    case mst_file_text:
+    case mst_solib_trampoline:
+      section = SECT_OFF_TEXT;
+      break;
+    case mst_data:
+    case mst_file_data:
+      section = SECT_OFF_DATA;
+      break;
+    case mst_bss:
+    case mst_file_bss:
+      section = SECT_OFF_BSS;
+      break;
+    default:
+      section = -1;
+    }
+
   prim_record_minimal_symbol_and_info (name, address, ms_type,
-				       NULL, -1, objfile);
+				       NULL, section, objfile);
 }
 
 void
@@ -348,6 +350,7 @@ prim_record_minimal_symbol_and_info (name, address, ms_type, info, section,
   SYMBOL_INIT_LANGUAGE_SPECIFIC (msymbol, language_unknown);
   SYMBOL_VALUE_ADDRESS (msymbol) = address;
   SYMBOL_SECTION (msymbol) = section;
+
   MSYMBOL_TYPE (msymbol) = ms_type;
   /* FIXME:  This info, if it remains, needs its own field.  */
   MSYMBOL_INFO (msymbol) = info; /* FIXME! */
@@ -596,5 +599,50 @@ install_minimal_symbols (objfile)
 	  SYMBOL_INIT_DEMANGLED_NAME (msymbols, &objfile->symbol_obstack);
 	}
     }
+}
+
+/* Check if PC is in a shared library trampoline code stub.
+   Return minimal symbol for the trampoline entry or NULL if PC is not
+   in a trampoline code stub.  */
+
+struct minimal_symbol *
+lookup_solib_trampoline_symbol_by_pc (pc)
+     CORE_ADDR pc;
+{
+  struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (pc);
+
+  if (msymbol != NULL && MSYMBOL_TYPE (msymbol) == mst_solib_trampoline)
+    return msymbol;
+  return NULL;
+}
+
+/* If PC is in a shared library trampoline code stub, return the
+   address of the `real' function belonging to the stub.
+   Return 0 if PC is not in a trampoline code stub or if the real
+   function is not found in the minimal symbol table.
+
+   We may fail to find the right function if a function with the
+   same name is defined in more than one shared library, but this
+   is considered bad programming style. We could return 0 if we find
+   a duplicate function in case this matters someday.  */
+
+CORE_ADDR
+find_solib_trampoline_target (pc)
+     CORE_ADDR pc;
+{
+  struct objfile *objfile;
+  struct minimal_symbol *msymbol;
+  struct minimal_symbol *tsymbol = lookup_solib_trampoline_symbol_by_pc (pc);
+
+  if (tsymbol != NULL)
+    {
+      ALL_MSYMBOLS (objfile, msymbol)
+	{
+	  if (MSYMBOL_TYPE (msymbol) == mst_text
+	      && STREQ (SYMBOL_NAME (msymbol), SYMBOL_NAME (tsymbol)))
+	    return SYMBOL_VALUE_ADDRESS (msymbol);
+	}
+    }
+  return 0;
 }
 

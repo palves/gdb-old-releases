@@ -168,10 +168,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef NO_COFF_RELOCS
 
 static void
-DEFUN(bfd_swap_reloc_in,(abfd, reloc_src, reloc_dst),
-      bfd            *abfd AND
-      RELOC *reloc_src AND
-      struct internal_reloc *reloc_dst)
+bfd_swap_reloc_in (abfd, reloc_src, reloc_dst)
+     bfd            *abfd;
+     RELOC *reloc_src;
+     struct internal_reloc *reloc_dst;
 {
   reloc_dst->r_vaddr = bfd_h_get_32(abfd, (bfd_byte *)reloc_src->r_vaddr);
   reloc_dst->r_symndx = bfd_h_get_signed_32(abfd, (bfd_byte *) reloc_src->r_symndx);
@@ -191,17 +191,23 @@ DEFUN(bfd_swap_reloc_in,(abfd, reloc_src, reloc_dst),
 
 
 static unsigned int
-DEFUN(coff_swap_reloc_out,(abfd, src, dst),
-      bfd       *abfd AND
-      PTR	src AND
-      PTR	dst)
+coff_swap_reloc_out (abfd, src, dst)
+     bfd       *abfd;
+     PTR	src;
+     PTR	dst;
 {
   struct internal_reloc *reloc_src = (struct internal_reloc *)src;
   struct external_reloc *reloc_dst = (struct external_reloc *)dst;
   bfd_h_put_32(abfd, reloc_src->r_vaddr, (bfd_byte *) reloc_dst->r_vaddr);
   bfd_h_put_32(abfd, reloc_src->r_symndx, (bfd_byte *) reloc_dst->r_symndx);
+
+#ifdef RS6000COFF_C
+  bfd_h_put_8 (abfd, reloc_src->r_type, (bfd_byte *) reloc_dst->r_type);
+  bfd_h_put_8 (abfd, reloc_src->r_size, (bfd_byte *) reloc_dst->r_size);
+#else
   bfd_h_put_16(abfd, reloc_src->r_type, (bfd_byte *)
 	       reloc_dst->r_type);
+#endif
 
 #ifdef SWAP_OUT_RELOC_OFFSET
   SWAP_OUT_RELOC_OFFSET(abfd,
@@ -218,10 +224,10 @@ DEFUN(coff_swap_reloc_out,(abfd, src, dst),
 #endif /* NO_COFF_RELOCS */
 
 static void
-DEFUN(coff_swap_filehdr_in,(abfd, src, dst),
-      bfd            *abfd AND
-      PTR	     src AND
-      PTR	     dst)
+coff_swap_filehdr_in (abfd, src, dst)
+     bfd            *abfd;
+     PTR	     src;
+     PTR	     dst;
 {
   FILHDR *filehdr_src = (FILHDR *) src;
   struct internal_filehdr *filehdr_dst = (struct internal_filehdr *) dst;
@@ -236,10 +242,10 @@ DEFUN(coff_swap_filehdr_in,(abfd, src, dst),
 }
 
 static  unsigned int
-DEFUN(coff_swap_filehdr_out,(abfd, in, out),
-      bfd       *abfd AND
-      PTR	in AND
-      PTR	out)
+coff_swap_filehdr_out (abfd, in, out)
+     bfd       *abfd;
+     PTR	in;
+     PTR	out;
 {
   struct internal_filehdr *filehdr_in = (struct internal_filehdr *)in;
   FILHDR *filehdr_out = (FILHDR *)out;
@@ -258,10 +264,10 @@ DEFUN(coff_swap_filehdr_out,(abfd, in, out),
 #ifndef NO_COFF_SYMBOLS
 
 static void
-DEFUN(coff_swap_sym_in,(abfd, ext1, in1),
-      bfd            *abfd AND
-      PTR ext1 AND
-      PTR in1)
+coff_swap_sym_in (abfd, ext1, in1)
+     bfd            *abfd;
+     PTR ext1;
+     PTR in1;
 {
   SYMENT *ext = (SYMENT *)ext1;
   struct internal_syment      *in = (struct internal_syment *)in1;
@@ -290,10 +296,10 @@ DEFUN(coff_swap_sym_in,(abfd, ext1, in1),
 }
 
 static unsigned int
-DEFUN(coff_swap_sym_out,(abfd, inp, extp),
-      bfd       *abfd AND
-      PTR	inp AND
-      PTR	extp)
+coff_swap_sym_out (abfd, inp, extp)
+     bfd       *abfd;
+     PTR	inp;
+     PTR	extp;
 {
   struct internal_syment *in = (struct internal_syment *)inp;
   SYMENT *ext =(SYMENT *)extp;
@@ -324,12 +330,14 @@ DEFUN(coff_swap_sym_out,(abfd, inp, extp),
 }
 
 static void
-DEFUN(coff_swap_aux_in,(abfd, ext1, type, class, in1),
-      bfd            *abfd AND
-      PTR 	      ext1 AND
-      int             type AND
-      int             class AND
-      PTR 	      in1)
+coff_swap_aux_in (abfd, ext1, type, class, indx, numaux, in1)
+     bfd            *abfd;
+     PTR 	      ext1;
+     int             type;
+     int             class;
+     int	      indx;
+     int	      numaux;
+     PTR 	      in1;
 {
   AUXENT    *ext = (AUXENT *)ext1;
   union internal_auxent *in = (union internal_auxent *)in1;
@@ -347,21 +355,27 @@ DEFUN(coff_swap_aux_in,(abfd, ext1, type, class, in1),
 	    memcpy (in->x_file.x_fname, ext->x_file.x_fname, FILNMLEN);
 #endif
 	  }
-      break;
+      return;
 
       /* RS/6000 "csect" auxents */
 #ifdef RS6000COFF_C
     case C_EXT:
     case C_HIDEXT:
-      in->x_csect.x_scnlen   = bfd_h_get_32 (abfd, (bfd_byte *) ext->x_csect.x_scnlen);
-      in->x_csect.x_parmhash = bfd_h_get_32 (abfd, (bfd_byte *) ext->x_csect.x_parmhash);
-      in->x_csect.x_snhash   = bfd_h_get_16 (abfd, (bfd_byte *) ext->x_csect.x_snhash);
-      /* We don't have to hack bitfields in x_smtyp because it's defined by
-	 shifts-and-ands, which are equivalent on all byte orders.  */
-      in->x_csect.x_smtyp    = bfd_h_get_8  (abfd, (bfd_byte *) ext->x_csect.x_smtyp);
-      in->x_csect.x_smclas   = bfd_h_get_8  (abfd, (bfd_byte *) ext->x_csect.x_smclas);
-      in->x_csect.x_stab     = bfd_h_get_32 (abfd, (bfd_byte *) ext->x_csect.x_stab);
-      in->x_csect.x_snstab   = bfd_h_get_16 (abfd, (bfd_byte *) ext->x_csect.x_snstab);
+      if (indx + 1 == numaux)
+	{
+	  in->x_csect.x_scnlen.l = bfd_h_get_32 (abfd, ext->x_csect.x_scnlen);
+	  in->x_csect.x_parmhash = bfd_h_get_32 (abfd,
+						 ext->x_csect.x_parmhash);
+	  in->x_csect.x_snhash   = bfd_h_get_16 (abfd, ext->x_csect.x_snhash);
+	  /* We don't have to hack bitfields in x_smtyp because it's
+	     defined by shifts-and-ands, which are equivalent on all
+	     byte orders.  */
+	  in->x_csect.x_smtyp    = bfd_h_get_8  (abfd, ext->x_csect.x_smtyp);
+	  in->x_csect.x_smclas   = bfd_h_get_8  (abfd, ext->x_csect.x_smclas);
+	  in->x_csect.x_stab     = bfd_h_get_32 (abfd, ext->x_csect.x_stab);
+	  in->x_csect.x_snstab   = bfd_h_get_16 (abfd, ext->x_csect.x_snstab);
+	  return;
+	}
       break;
 #endif
 
@@ -374,46 +388,49 @@ DEFUN(coff_swap_aux_in,(abfd, ext1, type, class, in1),
 	  in->x_scn.x_scnlen = GET_SCN_SCNLEN(abfd, ext);
 	  in->x_scn.x_nreloc = GET_SCN_NRELOC(abfd, ext);
 	  in->x_scn.x_nlinno = GET_SCN_NLINNO(abfd, ext);
-	  break;
+	  return;
 	}
-    default:
-      in->x_sym.x_tagndx.l = bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_tagndx);
-#ifndef NO_TVNDX
-      in->x_sym.x_tvndx = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_tvndx);
-#endif
-
-      if (ISARY(type)) {
-#if DIMNUM != E_DIMNUM
-	  -> Error, we need to cope with truncating or extending DIMNUM!;
-#else
-	  in->x_sym.x_fcnary.x_ary.x_dimen[0] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
-	  in->x_sym.x_fcnary.x_ary.x_dimen[1] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
-	  in->x_sym.x_fcnary.x_ary.x_dimen[2] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
-	  in->x_sym.x_fcnary.x_ary.x_dimen[3] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
-#endif
-	}
-      if (class == C_BLOCK || ISFCN(type) || ISTAG(class)) {
-	in->x_sym.x_fcnary.x_fcn.x_lnnoptr = GET_FCN_LNNOPTR(abfd, ext);
-	in->x_sym.x_fcnary.x_fcn.x_endndx.l = GET_FCN_ENDNDX(abfd, ext);
-      }
-
-      if (ISFCN(type)) {
-	  in->x_sym.x_misc.x_fsize = bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_misc.x_fsize);
-	}
-      else {
-	  in->x_sym.x_misc.x_lnsz.x_lnno = GET_LNSZ_LNNO(abfd, ext);
-	  in->x_sym.x_misc.x_lnsz.x_size = GET_LNSZ_SIZE(abfd, ext);
-	}
+      break;
     }
+
+  in->x_sym.x_tagndx.l = bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_tagndx);
+#ifndef NO_TVNDX
+  in->x_sym.x_tvndx = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_tvndx);
+#endif
+
+  if (ISARY(type)) {
+#if DIMNUM != E_DIMNUM
+    -> Error, we need to cope with truncating or extending DIMNUM!;
+#else
+    in->x_sym.x_fcnary.x_ary.x_dimen[0] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
+    in->x_sym.x_fcnary.x_ary.x_dimen[1] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
+    in->x_sym.x_fcnary.x_ary.x_dimen[2] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
+    in->x_sym.x_fcnary.x_ary.x_dimen[3] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
+#endif
+  }
+  if (class == C_BLOCK || ISFCN(type) || ISTAG(class)) {
+    in->x_sym.x_fcnary.x_fcn.x_lnnoptr = GET_FCN_LNNOPTR(abfd, ext);
+    in->x_sym.x_fcnary.x_fcn.x_endndx.l = GET_FCN_ENDNDX(abfd, ext);
+  }
+
+  if (ISFCN(type)) {
+    in->x_sym.x_misc.x_fsize = bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_misc.x_fsize);
+  }
+  else {
+    in->x_sym.x_misc.x_lnsz.x_lnno = GET_LNSZ_LNNO(abfd, ext);
+    in->x_sym.x_misc.x_lnsz.x_size = GET_LNSZ_SIZE(abfd, ext);
+  }
 }
 
 static unsigned int
-DEFUN(coff_swap_aux_out,(abfd, inp, type, class, extp),
-  bfd   *abfd AND
-  PTR 	inp AND
-  int   type AND
-  int   class AND
-  PTR	extp)
+coff_swap_aux_out (abfd, inp, type, class, indx, numaux, extp)
+     bfd   *abfd;
+     PTR 	inp;
+     int   type;
+     int   class;
+     int   indx;
+     int   numaux;
+     PTR	extp;
 {
   union internal_auxent *in = (union internal_auxent *)inp;
   AUXENT *ext = (AUXENT *)extp;
@@ -434,21 +451,26 @@ DEFUN(coff_swap_aux_out,(abfd, inp, type, class, extp),
       memcpy (ext->x_file.x_fname, in->x_file.x_fname, FILNMLEN);
 #endif
     }
-    break;
+    return sizeof (AUXENT);
 
 #ifdef RS6000COFF_C
   /* RS/6000 "csect" auxents */
   case C_EXT:
   case C_HIDEXT:
-    PUTWORD (abfd, in->x_csect.x_scnlen,	ext->x_csect.x_scnlen);
-    PUTWORD (abfd, in->x_csect.x_parmhash,	ext->x_csect.x_parmhash);
-    PUTHALF (abfd, in->x_csect.x_snhash,	ext->x_csect.x_snhash);
-    /* We don't have to hack bitfields in x_smtyp because it's defined by
-       shifts-and-ands, which are equivalent on all byte orders.  */
-    PUTBYTE (abfd, in->x_csect.x_smtyp,		ext->x_csect.x_smtyp);
-    PUTBYTE (abfd, in->x_csect.x_smclas,	ext->x_csect.x_smclas);
-    PUTWORD (abfd, in->x_csect.x_stab,		ext->x_csect.x_stab);
-    PUTHALF (abfd, in->x_csect.x_snstab,	ext->x_csect.x_snstab);
+    if (indx + 1 == numaux)
+      {
+	PUTWORD (abfd, in->x_csect.x_scnlen.l,	ext->x_csect.x_scnlen);
+	PUTWORD (abfd, in->x_csect.x_parmhash,	ext->x_csect.x_parmhash);
+	PUTHALF (abfd, in->x_csect.x_snhash,	ext->x_csect.x_snhash);
+	/* We don't have to hack bitfields in x_smtyp because it's
+	   defined by shifts-and-ands, which are equivalent on all
+	   byte orders.  */
+	PUTBYTE (abfd, in->x_csect.x_smtyp,	ext->x_csect.x_smtyp);
+	PUTBYTE (abfd, in->x_csect.x_smclas,	ext->x_csect.x_smclas);
+	PUTWORD (abfd, in->x_csect.x_stab,	ext->x_csect.x_stab);
+	PUTHALF (abfd, in->x_csect.x_snstab,	ext->x_csect.x_snstab);
+	return sizeof (AUXENT);
+      }
     break;
 #endif
 
@@ -461,38 +483,39 @@ DEFUN(coff_swap_aux_out,(abfd, inp, type, class, extp),
       PUT_SCN_SCNLEN(abfd, in->x_scn.x_scnlen, ext);
       PUT_SCN_NRELOC(abfd, in->x_scn.x_nreloc, ext);
       PUT_SCN_NLINNO(abfd, in->x_scn.x_nlinno, ext);
-      break;
+      return sizeof (AUXENT);
     }
-  default:
-    PUTWORD(abfd, in->x_sym.x_tagndx.l, (bfd_byte *) ext->x_sym.x_tagndx);
-#ifndef NO_TVNDX
-    bfd_h_put_16(abfd, in->x_sym.x_tvndx , (bfd_byte *) ext->x_sym.x_tvndx);
-#endif
-
-    if (class == C_BLOCK || ISFCN(type) || ISTAG(class)) {
-      PUT_FCN_LNNOPTR(abfd,  in->x_sym.x_fcnary.x_fcn.x_lnnoptr, ext);
-      PUT_FCN_ENDNDX(abfd,  in->x_sym.x_fcnary.x_fcn.x_endndx.l, ext);
-    }
-
-    if (ISFCN(type)) {
-      PUTWORD(abfd, in->x_sym.x_misc.x_fsize, (bfd_byte *)  ext->x_sym.x_misc.x_fsize);
-    }
-    else {
-      if (ISARY(type)) {
-#if DIMNUM != E_DIMNUM
-	-> Error, we need to cope with truncating or extending DIMNUM!;
-#else
-	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[0], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
-	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[1], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
-	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[2], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
-	bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[3], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
-#endif
-      }
-      PUT_LNSZ_LNNO(abfd, in->x_sym.x_misc.x_lnsz.x_lnno, ext);
-      PUT_LNSZ_SIZE(abfd, in->x_sym.x_misc.x_lnsz.x_size, ext);
-    }
+    break;
   }
-return sizeof(AUXENT);
+
+  PUTWORD(abfd, in->x_sym.x_tagndx.l, (bfd_byte *) ext->x_sym.x_tagndx);
+#ifndef NO_TVNDX
+  bfd_h_put_16(abfd, in->x_sym.x_tvndx , (bfd_byte *) ext->x_sym.x_tvndx);
+#endif
+
+  if (class == C_BLOCK || ISFCN(type) || ISTAG(class)) {
+    PUT_FCN_LNNOPTR(abfd,  in->x_sym.x_fcnary.x_fcn.x_lnnoptr, ext);
+    PUT_FCN_ENDNDX(abfd,  in->x_sym.x_fcnary.x_fcn.x_endndx.l, ext);
+  }
+
+  if (ISFCN(type)) {
+    PUTWORD(abfd, in->x_sym.x_misc.x_fsize, (bfd_byte *)  ext->x_sym.x_misc.x_fsize);
+  }
+  else {
+    if (ISARY(type)) {
+#if DIMNUM != E_DIMNUM
+      -> Error, we need to cope with truncating or extending DIMNUM!;
+#else
+      bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[0], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
+      bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[1], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
+      bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[2], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
+      bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[3], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
+#endif
+    }
+    PUT_LNSZ_LNNO(abfd, in->x_sym.x_misc.x_lnsz.x_lnno, ext);
+    PUT_LNSZ_SIZE(abfd, in->x_sym.x_misc.x_lnsz.x_size, ext);
+  }
+  return sizeof(AUXENT);
 }
 
 #endif /* NO_COFF_SYMBOLS */
@@ -500,10 +523,10 @@ return sizeof(AUXENT);
 #ifndef NO_COFF_LINENOS
 
 static void
-DEFUN(coff_swap_lineno_in,(abfd, ext1, in1),
-      bfd            *abfd AND
-      PTR ext1 AND
-      PTR in1)
+coff_swap_lineno_in (abfd, ext1, in1)
+     bfd            *abfd;
+     PTR ext1;
+     PTR in1;
 {
   LINENO *ext = (LINENO *)ext1;
   struct internal_lineno      *in = (struct internal_lineno *)in1;
@@ -513,10 +536,10 @@ DEFUN(coff_swap_lineno_in,(abfd, ext1, in1),
 }
 
 static unsigned int
-DEFUN(coff_swap_lineno_out,(abfd, inp, outp),
-      bfd       *abfd AND
-      PTR	inp AND
-      PTR	outp)
+coff_swap_lineno_out (abfd, inp, outp)
+     bfd       *abfd;
+     PTR	inp;
+     PTR	outp;
 {
   struct internal_lineno *in = (struct internal_lineno *)inp;
   struct external_lineno *ext = (struct external_lineno *)outp;
@@ -531,10 +554,10 @@ DEFUN(coff_swap_lineno_out,(abfd, inp, outp),
 
 
 static void
-DEFUN(coff_swap_aouthdr_in,(abfd, aouthdr_ext1, aouthdr_int1),
-      bfd            *abfd AND
-      PTR aouthdr_ext1 AND
-      PTR aouthdr_int1)
+coff_swap_aouthdr_in (abfd, aouthdr_ext1, aouthdr_int1)
+     bfd            *abfd;
+     PTR aouthdr_ext1;
+     PTR aouthdr_int1;
 {
   AOUTHDR        *aouthdr_ext = (AOUTHDR *) aouthdr_ext1;
   struct internal_aouthdr *aouthdr_int = (struct internal_aouthdr *)aouthdr_int1;
@@ -599,10 +622,10 @@ DEFUN(coff_swap_aouthdr_in,(abfd, aouthdr_ext1, aouthdr_int1),
 }
 
 static unsigned int
-DEFUN(coff_swap_aouthdr_out,(abfd, in, out),
-      bfd       *abfd AND
-      PTR	in AND
-      PTR	out)
+coff_swap_aouthdr_out (abfd, in, out)
+     bfd       *abfd;
+     PTR	in;
+     PTR	out;
 {
   struct internal_aouthdr *aouthdr_in = (struct internal_aouthdr *)in;
   AOUTHDR *aouthdr_out = (AOUTHDR *)out;
@@ -645,10 +668,10 @@ DEFUN(coff_swap_aouthdr_out,(abfd, in, out),
 }
 
 static void
-DEFUN(coff_swap_scnhdr_in,(abfd, ext, in),
-      bfd            *abfd AND
-      PTR	     ext AND
-      PTR	     in)
+coff_swap_scnhdr_in (abfd, ext, in)
+     bfd            *abfd;
+     PTR	     ext;
+     PTR	     in;
 {
   SCNHDR *scnhdr_ext = (SCNHDR *) ext;
   struct internal_scnhdr *scnhdr_int = (struct internal_scnhdr *) in;
@@ -681,10 +704,10 @@ DEFUN(coff_swap_scnhdr_in,(abfd, ext, in),
 }
 
 static unsigned int
-DEFUN(coff_swap_scnhdr_out,(abfd, in, out),
-      bfd       *abfd AND
-      PTR	in AND
-      PTR	out)
+coff_swap_scnhdr_out (abfd, in, out)
+     bfd       *abfd;
+     PTR	in;
+     PTR	out;
 {
   struct internal_scnhdr *scnhdr_int = (struct internal_scnhdr *)in;
   SCNHDR *scnhdr_ext = (SCNHDR *)out;

@@ -51,8 +51,7 @@ ptrace_me PARAMS ((void));
 static void
 ptrace_him PARAMS ((int));
 
-static void
-child_create_inferior PARAMS ((char *, char *, char **));
+static void child_create_inferior PARAMS ((char *, char *, char **));
 
 static void
 child_mourn_inferior PARAMS ((void));
@@ -82,8 +81,12 @@ child_wait (pid, ourstatus)
     if (attach_flag)
       set_sigint_trap();	/* Causes SIGINT to be passed on to the
 				   attached process. */
-    pid = wait (&status);
+    set_sigio_trap ();
+
+    pid = proc_wait (inferior_pid, &status);
     save_errno = errno;
+
+    clear_sigio_trap ();
 
     if (attach_flag)
       clear_sigint_trap();
@@ -257,7 +260,7 @@ child_create_inferior (exec_file, allargs, env)
      char *allargs;
      char **env;
 {
-  fork_inferior (exec_file, allargs, env, ptrace_me, ptrace_him);
+  fork_inferior (exec_file, allargs, env, ptrace_me, ptrace_him, NULL);
   /* We are at the first instruction we care about.  */
   /* Pedal to the metal... */
   proceed ((CORE_ADDR) -1, TARGET_SIGNAL_0, 0);
@@ -267,6 +270,7 @@ static void
 child_mourn_inferior ()
 {
   unpush_target (&child_ops);
+  proc_remove_foreign (inferior_pid);
   generic_mourn_inferior ();
 }
 

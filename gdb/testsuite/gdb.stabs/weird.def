@@ -276,15 +276,7 @@ attr69:
 .stabs "attr33:G333=@! !#$%&'()*+,-./0123456789:<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~;1",N_GSYM,0,0, 0
 .stabs "attr35:G334=@# !#$%&'()*+,-./0123456789:<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~;1",N_GSYM,0,0, 0
 
-.stabs "primary:G200=ered:0,green:1,blue:2,;", N_GSYM,0,0, 0
-
 .stabs "attr36:G335=@$ !#$%&'()*+,-./0123456789:<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~;1",N_GSYM,0,0, 0
-
-.globl primary
-.data
-.align_it
-primary:
-.long 42
 
 .stabs "attr37:G337=@% !#$%&'()*+,-./0123456789:<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~;1",N_GSYM,0,0, 0
 
@@ -297,7 +289,7 @@ primary:
 .stabs "attr38:G338=@& !#$%&'()*+,-./0123456789:<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~;1",N_GSYM,0,0, 0
 
 # Unrecognized negative type number.  
-.stabs "bad_neg0type:t201=s8field0:1,0,32;field2:-534,32,64;field3:-1,96,32;;", N_LSYM,0,0, 0
+.stabs "bad_neg0type:t201=s16field0:1,0,32;field2:-534,32,64;field3:-1,96,32;;", N_LSYM,0,0, 0
 
 .stabs "bad_neg0:G201", N_GSYM,0,0, 0
 

@@ -77,7 +77,7 @@ case $os in
 	-convergent* | -ncr* | -news | -32* | -3600* | -3100* | -hitachi* |\
 	-c[123]* | -convex* | -sun | -crds | -omron* | -dg | -ultra | -tti* | \
 	-harris | -dolphin | -highlevel | -gould | -cbm | -ns | -masscomp | \
-	-sim)						# CYGNUS LOCAL
+	-sim | -cisco)						# CYGNUS LOCAL
 		os=
 		basic_machine=$1
 		;;
@@ -92,7 +92,7 @@ case $os in
 		basic_machine=`echo $1 | sed -e 's/86-.*/86-unknown/'`
 		;;
 	-hiux*)
-		os==-hiuxwe2
+		os=-hiuxwe2
 		;;
 	-sco4)
 		os=-sco3.2v4
@@ -120,8 +120,14 @@ case $os in
 	-isc*)
 		basic_machine=`echo $1 | sed -e 's/86-.*/86-unknown/'`
 		;;
-	-lynx)
+	-lynx*)
 		os=-lynxos
+		;;
+	-os9k)
+		os=-os9k
+		;;
+	-os9)
+		os=-os9
 		;;
 esac
 
@@ -135,6 +141,7 @@ case $basic_machine in
 		| powerpc \
 		| h8300 | h8300h | sh \
 		| m88110 | sparc | m680[01234]0 | m683?2 | z8k | v70 \
+		| v810 \
 		| h8500 | mips64 | mipsel | mips64el) # CYGNUS LOCAL
 		basic_machine=$basic_machine-unknown
 		;;
@@ -150,13 +157,19 @@ case $basic_machine in
 	      | none-* | 580-* | cray2-* | i960-* | xmp-* | ymp-* \
 	      | hppa1.0-* | hppa1.1-* | alpha-* | we32k-* | cydra-* | ns16k-* \
 	      | pn-* | np1-* | xps100-* | clipper-* | orion-* | sparclite-* \
-	      | powerpc \
+	      | powerpc-* \
 	      | h8300-* | h8300h-* | sh-* \
 	      | m88110-* | m680[01234]0-* | m683?2-* | z8k-* | h8500-* \
 	      | mips64-* | mipsel-* | mips64el-*) # CYGNUS LOCAL
 		;;
 	# Recognize the various machine names and aliases which stand
 	# for a CPU type and a company and sometimes even an OS.
+	sparc64)					# CYGNUS LOCAL
+		basic_machine=sparc64-sun
+		os=-elf
+		;;
+	sparc64-*)					# CYGNUS LOCAL
+		;;
 
 	mips3-*)					# CYGNUS LOCAL
 		basic_machine=`echo $basic_machine | sed -e 's/mips3/mips64/'`
@@ -352,9 +365,6 @@ case $basic_machine in
 	z8ksim)						# CYGNUS LOCAL
 		basic_machine=z8k-zilog
 		os=-sim
-		;;
-	z8k)						# CYGNUS LOCAL
-		basic_machine=z8k-zilog
 		;;
 	sun3)
 		basic_machine=m68k-sun
@@ -558,6 +568,10 @@ case $basic_machine in
 		basic_machine=v70-nec
 		os=-sysv
 		;;
+	v810 | necv810)
+		basic_machine=v810-nec
+		os=-none
+		;;
 	news1000)
 		basic_machine=m68030-sony
 		os=-newsos
@@ -610,11 +624,9 @@ case $basic_machine in
 		;;
 	sparclitefrw)					# CYGNUS LOCAL
 		basic_machine=sparclitefrw-fujitsu
-		os=-none
 		;;
 	sparclitefrwcompat)				# CYGNUS LOCAL
 		basic_machine=sparclitefrwcompat-fujitsu
-		os=-none
 		;;
 	adobe68k)					# CYGNUS LOCAL
 		basic_machine=m68010-adobe
@@ -701,7 +713,7 @@ case $os in
 	      | -hiux* | -386bsd* | -netbsd* | -riscix* | -lynxos* \
 	      | -go32 | -vsta | -sim | -es1800* | -udi | -hms* | -xray | -hds* \
 	      | -os68k* | -none* | -v88r* | -aout* | -coff | -elf* | -bosx* \
-	      | -abug | -ecoff* | -netware* )
+	      | -abug | -ecoff* | -netware* | -os9* )
 				# The last three lines above are CYGNUS LOCAL
 	;;
 	-sunos5*)
@@ -758,6 +770,9 @@ case $os in
 	-es1800*)					# CYGNUS LOCAL
 		os=-ose
 		;;
+	-cxux7*)
+		os=-cxux7
+		;;
 	-xenix)
 		os=-xenix
 		;;
@@ -797,6 +812,12 @@ case $basic_machine in
 		# This also exists in the configure program, but was not the
 		# default.
 		# os=-sunos4
+		;;
+	m68*-cisco)
+		os=-aout
+		;;
+	mips*-cisco)
+		os=-elf
 		;;
 	*-tti)	# must be before sparc entry or we get the wrong os.
 		os=-sysv3

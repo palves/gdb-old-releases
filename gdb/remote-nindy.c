@@ -107,7 +107,7 @@ NINDY ROM monitor at the other end of the line.
 #include "target.h"
 #include "gdbcore.h"
 #include "command.h"
-#include "ieee-float.h"
+#include "floatformat.h"
 
 #include "wait.h"
 #include <sys/file.h>
@@ -129,7 +129,6 @@ extern void generic_mourn_inferior ();
 
 extern struct target_ops nindy_ops;
 extern GDB_FILE *instream;
-extern struct ext_format ext_format_i960;	/* i960-tdep.c */
 
 extern char ninStopWhy ();
 extern int ninMemGet ();
@@ -197,7 +196,10 @@ nindy_open (name, from_tty)
   /* Allow user to interrupt the following -- we could hang if there's
      no NINDY at the other end of the remote tty.  */
   immediate_quit++;
-  sprintf(baudrate, "%d", sr_get_baud_rate());
+  /* If baud_rate is -1, then ninConnect will not recognize the baud rate
+     and will deal with the situation in a (more or less) reasonable
+     fashion.  */
+  sprintf(baudrate, "%d", baud_rate);
   ninConnect(name, baudrate,
 	     nindy_initial_brk, !from_tty, nindy_old_protocol);
   immediate_quit--;
@@ -227,8 +229,9 @@ nindy_detach (name, from_tty)
 static void
 nindy_files_info ()
 {
-  printf_unfiltered("\tAttached to %s at %d bps%s%s.\n", savename,
-	 sr_get_baud_rate(),
+  /* FIXME: this lies about the baud rate if we autobauded.  */
+  printf_unfiltered("\tAttached to %s at %d bits per second%s%s.\n", savename,
+	 baud_rate,
 	 nindy_old_protocol? " in old protocol": "",
          nindy_initial_brk? " with initial break": "");
 }
@@ -438,7 +441,7 @@ nindy_fetch_registers(regno)
 			 &nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)],
 			 &inv);
     /* dub now in host byte order */
-    double_to_ieee_extended (&ext_format_i960, &dub,
+    floatformat_from_double (&floatformat_i960_ext, &dub,
 			     &registers[REGISTER_BYTE (regnum)]);
   }
 
@@ -467,8 +470,8 @@ nindy_store_registers(regno)
   memcpy (nindy_regs.tcw, &registers[REGISTER_BYTE (TCW_REGNUM)], 1*4);
   for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 4; regnum++)
     {
-      ieee_extended_to_double (&ext_format_i960,
-			       &registers[REGISTER_BYTE (regnum)], &dub);
+      floatformat_to_double (&floatformat_i960_ext,
+			     &registers[REGISTER_BYTE (regnum)], &dub);
       store_floating (&nindy_regs.fp_as_double[8 * (regnum - FP0_REGNUM)],
 		      REGISTER_VIRTUAL_SIZE (regnum),
 		      dub);

@@ -1,3 +1,28 @@
+Wed May 18 13:47:58 1994  Doug Evans  (dje@canuck.cygnus.com)
+
+	* compile.c: #include "bfd.h".
+	(sim_*): Set result type to void where there isn't one.
+	(sim_resume, default case): Set cpu.exception to SIGILL.
+	(sim_trace): Delete.
+	(sim_set_pc): Delete.
+	(sim_info): Delete printf_fn arg, all callers changed.
+	Call printf_filtered.
+	(set_h8300h): New arg `flag', all callers changed.
+	(sim_close): New function.
+	(sim_load): New function.
+	(sim_create_inferior): Renamed from sim_set_args, all callers changed.
+	* run.c: #include <varargs.h>, "remote-sim.h".
+	(printf_filtered): New function.
+
+Fri May 13 18:32:27 1994  Doug Evans  (dje@canuck.cygnus.com)
+
+	* compile.c (decode): Fix typo (16 bit branches).
+	(*): Some white space clean up.
+
+Fri May  6 13:44:01 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* compile.c (decode): Compile 16bit branches properly.
+
 Sat Dec 11 16:32:36 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
 
 	* compile.c: Tidy up formatting. (sim_resume): Add orc, xorc,

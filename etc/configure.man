@@ -15,8 +15,9 @@ configure \(em\& prepare source code to be built
 configure HOST [--target=TARGET] [--srcdir=DIR] [--rm]
             [--site=SITE] [--prefix=DIR] [--exec_prefix=DIR]
             [--program_prefix=DIR] [--tmpdir=DIR]
-            [--with-PACKAGE[=YES/NO]] [--norecursion]
-            [--nfp] [-s] [-v] [-V | --version] [--help]
+            [--with-PACKAGE[=YES/NO]] [--without-PACKAGE]
+            [--enable-FEATURE[=YES/NO]] [--disable-FEATURE]
+            [--norecursion] [--nfp] [-s] [-v] [-V | --version] [--help]
 
 .SH DESCRIPTION
 .I configure
@@ -85,6 +86,21 @@ is explicitly present or not present.  If
 .I \=YES/NO
 is nonexistent, the default is
 .I YES.
+.I \--without-PACKAGE
+is equivalent to 
+.IR \--with-PACKAGE=no .
+
+.TP
+.I \--enable-FEATURE[=YES/NO]
+sets a flag for the build to recognize that
+.I FEATURE
+should be included or not included.  If
+.I \=YES/NO
+is nonexistent, the default is
+.I YES.
+.I \--disable-FEATURE
+is equivalent to
+.IR --enable-FEATURE=no .
 
 .TP
 .I \--norecursion

@@ -93,7 +93,7 @@ bfd_h8_disassemble (addr, info, hmode)
   int rdisp = 0;
   int abs = 0;
   int plen = 0;
-  static boolean init;  
+  static boolean init = 0;
   struct h8_opcode *q = h8_opcodes;
   char CONST **pregnames = hmode ? lregnames : wregnames;
   int status;
@@ -106,7 +106,7 @@ bfd_h8_disassemble (addr, info, hmode)
   if (!init)
     {
       bfd_h8_disassemble_init ();
-      init = true;
+      init = 1;
     }
 
   status = info->read_memory_func(addr, data, 2, info);
@@ -137,7 +137,7 @@ bfd_h8_disassemble (addr, info, hmode)
 	  
 	  thisnib = (len & 1) ? (thisnib & 0xf) : ((thisnib >> 4) & 0xf);
 	  
-	  if (looking_for < 16) 
+	  if (looking_for < 16 && looking_for >=0) 
 	    {
 	      
 	      if (looking_for != thisnib) 
@@ -190,7 +190,10 @@ bfd_h8_disassemble (addr, info, hmode)
 		      | (data[2] << 8)
 			| (data[3]);
 		}
-	      
+	      else if(looking_for & MEMIND)
+		{
+		  abs = data[1];
+		}
 	      else if (looking_for & L_32)
 		{
 		  int i = len >> 1;
@@ -323,8 +326,16 @@ bfd_h8_disassemble (addr, info, hmode)
 
 			else if (x & PCREL)
 			  {
-			    fprintf (stream, ".%s%d (%x)", (char) abs > 0 ? "+" : "", (char) abs,
-				     addr + (char) abs + 2);
+			    if (x & L_16) 
+			      {
+				abs  +=2;
+				fprintf (stream, ".%s%d (%x)", (short) abs > 0 ? "+" : "", (short) abs,
+					 addr + (short) abs + 2);
+			      }
+			    else {
+			      fprintf (stream, ".%s%d (%x)", (char) abs > 0 ? "+" : "", (char) abs,
+				       addr + (char) abs + 2);
+			    }
 			  }
 			else if (x & DISP)
 			  {

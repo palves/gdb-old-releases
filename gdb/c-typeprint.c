@@ -36,8 +36,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <string.h>
 #include <errno.h>
 
-extern int demangle;	/* whether to print C++ syms raw or source-form */
-
 static void
 c_type_print_args PARAMS ((struct type *, GDB_FILE *));
 
@@ -409,12 +407,12 @@ c_type_print_varspec_suffix (type, stream, show, passed_a_ptr, demangled_args)
       break;
 
     case TYPE_CODE_FUNC:
-      c_type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0,
-				 passed_a_ptr, 0);
       if (passed_a_ptr)
 	fprintf_filtered (stream, ")");
       if (!demangled_args)
 	fprintf_filtered (stream, "()");
+      c_type_print_varspec_suffix (TYPE_TARGET_TYPE (type), stream, 0,
+				   passed_a_ptr, 0);
       break;
 
     case TYPE_CODE_UNDEF:
@@ -443,12 +441,12 @@ c_type_print_varspec_suffix (type, stream, show, passed_a_ptr, demangled_args)
 
    SHOW positive means print details about the type (e.g. enum values),
    and print structure elements passing SHOW - 1 for show.
-   SHOW zero means just print the type name or struct tag if there is one.
+   SHOW negative means just print the type name or struct tag if there is one.
    If there is no name, print something sensible but concise like
    "struct {...}".
-   SHOW negative means the same things as SHOW zero.  The difference is that
-   zero is used for printing structure elements and -1 is used for the
-   "whatis" command.  But I don't see any need to distinguish.
+   SHOW zero means just print the type name or struct tag if there is one.
+   If there is no name, print something sensible but not as concise like
+   "struct {int x; int y;}".
 
    LEVEL is the number of spaces to indent by.
    We increase it for some recursive calls.  */
@@ -523,13 +521,13 @@ c_type_print_base (type, stream, show, level)
 	    fputs_filtered (" ", stream);
 	}
       wrap_here ("    ");
-      if (show <= 0)
+      if (show < 0)
 	{
 	  /* If we just printed a tag name, no need to print anything else.  */
 	  if (TYPE_TAG_NAME (type) == NULL)
 	    fprintf_filtered (stream, "{...}");
 	}
-      else if (show > 0)
+      else if (show > 0 || TYPE_TAG_NAME (type) == NULL)
 	{
 	  cp_type_print_derivation_info (stream, type);
 	  
@@ -730,13 +728,13 @@ c_type_print_base (type, stream, show, level)
 	}
 
       wrap_here ("    ");
-      if (show <= 0)
+      if (show < 0)
 	{
 	  /* If we just printed a tag name, no need to print anything else.  */
 	  if (TYPE_TAG_NAME (type) == NULL)
 	    fprintf_filtered (stream, "{...}");
 	}
-      else if (show > 0)
+      else if (show > 0 || TYPE_TAG_NAME (type) == NULL)
 	{
 	  fprintf_filtered (stream, "{");
 	  len = TYPE_NFIELDS (type);

@@ -27,8 +27,8 @@ fi
 # per-target:
 
 # Canonicalize the secondary target names.
-if [ -n "$with_targets" ]; then
-    for targ in `echo $with_targets | sed 's/,/ /g'`
+if [ -n "$enable_targets" ]; then
+    for targ in `echo $enable_targets | sed 's/,/ /g'`
     do
 	result=`$configsub $targ 2>/dev/null`
 	if [ -n "$result" ]; then
@@ -52,7 +52,7 @@ do
 	if [ ! -f ${srcdir}/../bfd/config/${bfd_target}.mt ] ; then
 	    echo '***' No file ${srcdir}/../bfd/config/${bfd_target}.mt 1>&2
 	    echo '***' opcodes does not support target ${bfd_target} 1>&2
-	    echo '***' Look in bfd/configure.in for supported targets 1>&2
+	    echo '***' Look in bfd/config.bfd for supported targets 1>&2
 	    exit 1
 	fi
 
@@ -85,6 +85,8 @@ if [ x${all_targets} = xfalse ]; then
 
     for arch in $SELECT_ARCHITECTURES
     do
+	ad=`echo $arch | sed -e s/bfd_//g -e s/_arch//g`
+	archdefs="$archdefs -DARCH_$ad"
 	case "$arch" in
 	bfd_a29k_arch)		ta="$ta a29k-dis.o" ;;
 	bfd_alpha_arch)		ta="$ta alpha-dis.o" ;;
@@ -93,10 +95,12 @@ if [ x${all_targets} = xfalse ]; then
 	bfd_hppa_arch)		ta="$ta hppa-dis.o" ;;
 	bfd_i386_arch)		ta="$ta i386-dis.o" ;;
 	bfd_i960_arch)		ta="$ta i960-dis.o" ;;
-	bfd_m68k_arch)		ta="$ta m68k-dis.o m68881-ext.o" ;;
+	bfd_m68k_arch)		ta="$ta m68k-dis.o" ;;
 	bfd_m88k_arch)		ta="$ta m88k-dis.o" ;;
 	bfd_mips_arch)		ta="$ta mips-dis.o mips-opc.o" ;;
-	bfd_rs6000_arch)	;;
+	bfd_ns32k_arch)		ta="$ta ns32k-dis.o" ;;
+	bfd_powerpc_arch)	ta="$ta ppc-dis.o ppc-opc.o" ;;
+	bfd_rs6000_arch)	ta="$ta ppc-dis.o ppc-opc.o" ;;
 	bfd_sh_arch)		ta="$ta sh-dis.o" ;;
 	bfd_sparc_arch)		ta="$ta sparc-dis.o sparc-opc.o" ;;
 	bfd_vax_arch)		;;
@@ -118,10 +122,22 @@ if [ x${all_targets} = xfalse ]; then
     done
     ta="$f"
 
-    echo "BFD_MACHINES = $ta" >> Makefile.2
+    # And duplicate -D flags.
+    f=""
+    for i in $archdefs ; do
+	case " $f " in
+	*" $i "*) ;;
+	*) f="$f $i" ;;
+	esac
+    done
+    archdefs="$f"
+
+    echo "ARCHDEFS = $archdefs"			>> Makefile.2
+    echo "BFD_MACHINES = $ta"			>> Makefile.2
 
 else	# all_targets is true
-    echo 'BFD_MACHINES = $(ALL_MACHINES)' >> Makefile.2
+    echo 'ARCHDEFS = -DARCH_all'		>> Makefile.2
+    echo 'BFD_MACHINES = $(ALL_MACHINES)'	>> Makefile.2
 fi	# all_targets is true
 
 cat Makefile.tmp >> Makefile.2

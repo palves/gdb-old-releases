@@ -58,19 +58,19 @@ extern boolean nlm_set_arch_mach PARAMS ((bfd *, enum bfd_architecture,
 
 extern void nlmNAME(get_symbol_info)
      PARAMS ((bfd *, asymbol *, symbol_info *));
-extern unsigned int nlmNAME(get_symtab_upper_bound)
+extern long nlmNAME(get_symtab_upper_bound)
      PARAMS ((bfd *));
-extern unsigned int nlmNAME(get_symtab)
+extern long nlmNAME(get_symtab)
      PARAMS ((bfd *, asymbol **));
 extern asymbol *nlmNAME(make_empty_symbol)
      PARAMS ((bfd *));
 extern void nlmNAME(print_symbol)
      PARAMS ((bfd *, PTR, asymbol *, bfd_print_symbol_type));
-extern unsigned int nlmNAME(get_reloc_upper_bound)
+extern long nlmNAME(get_reloc_upper_bound)
      PARAMS ((bfd *, asection *));
-extern unsigned int nlmNAME(canonicalize_reloc)
+extern long nlmNAME(canonicalize_reloc)
      PARAMS ((bfd *, asection *, arelent **, asymbol **));
-extern bfd_target *nlmNAME(object_p)
+extern const bfd_target *nlmNAME(object_p)
      PARAMS ((bfd *));
 extern boolean nlmNAME(set_arch_mach)
      PARAMS ((bfd *, enum bfd_architecture, unsigned long));
@@ -91,6 +91,7 @@ struct nlm_obj_tdata
   Nlm_Internal_Copyright_Header	nlm_copyright_hdr[1];
   Nlm_Internal_Extended_Header	nlm_extended_hdr[1];
   Nlm_Internal_Custom_Header	nlm_custom_hdr[1];
+  Nlm_Internal_Cygnus_Ext_Header nlm_cygnus_ext_hdr[1];
   /* BFD NLM symbols.  */
   nlmNAME(symbol_type)		*nlm_symbols;
   /* Lowest text and data VMA values.  */
@@ -122,6 +123,7 @@ struct nlm_obj_tdata
 #define nlm_copyright_header(bfd)	(nlm_tdata(bfd) -> nlm_copyright_hdr)
 #define nlm_extended_header(bfd)	(nlm_tdata(bfd) -> nlm_extended_hdr)
 #define nlm_custom_header(bfd)		(nlm_tdata(bfd) -> nlm_custom_hdr)
+#define nlm_cygnus_ext_header(bfd)	(nlm_tdata(bfd) -> nlm_cygnus_ext_hdr)
 #define nlm_get_symbols(bfd)		(nlm_tdata(bfd) -> nlm_symbols)
 #define nlm_set_symbols(bfd, p)		(nlm_tdata(bfd) -> nlm_symbols = (p))
 #define nlm_set_text_low(bfd, i)	(nlm_tdata(bfd) -> nlm_text_low = (i))
@@ -209,6 +211,7 @@ struct nlm_backend_data
   boolean (*nlm_write_external) PARAMS ((bfd *, bfd_size_type,
 					 asymbol *,
 					 struct reloc_and_sec *));
+  boolean (*nlm_write_export) PARAMS ((bfd *, asymbol *, bfd_vma));
 };
 
 #define nlm_backend(bfd) \
@@ -247,6 +250,8 @@ struct nlm_backend_data
   (nlm_backend(bfd) -> nlm_swap_fhdr_out)
 #define nlm_write_external_func(bfd) \
   (nlm_backend(bfd) -> nlm_write_external)
+#define nlm_write_export_func(bfd) \
+  (nlm_backend(bfd) -> nlm_write_export)
 
 /* The NLM code, data, and uninitialized sections have no names defined
    in the NLM, but bfd wants to give them names, so use the traditional

@@ -1173,7 +1173,7 @@ control_c (sig, code, scp, addr)
   cpu.exception = SIGINT;
 }
 
-int
+void
 sim_resume (step, siggnal)
 {
   static int init1;
@@ -1591,7 +1591,7 @@ sim_resume (step, siggnal)
 
       LABEL (O_BSR):
       LABEL (O_JSR):
-	PUSHWORD (argb);
+	PUSHWORD (code->next_pc);
 	pc = arga;
 	goto next;
 
@@ -2069,8 +2069,6 @@ sim_resume (step, siggnal)
   BUILDSR ();
 
   signal (SIGINT, prev);
-
-  return 0;
 }
 
 
@@ -2145,12 +2143,12 @@ sim_read (addr, buffer, size)
 #define INST_REGNUM     23
 #define TICK_REGNUM     24
 
-int
+void
 sim_store_register (rn, value)
      int rn;
      unsigned char *value;
 {
-  int seg;
+  int seg = 0;
   int reg = -1;
 
   init_pointers ();
@@ -2186,13 +2184,13 @@ sim_store_register (rn, value)
       break;
     case CYCLE_REGNUM:
       cpu.cycles = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
-      return 0;
+      return;
     case INST_REGNUM:
       cpu.insts = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
-      return 0;
+      return;
     case TICK_REGNUM:
       cpu.ticks = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
-      return 0;
+      return;
     case PR0_REGNUM:
     case PR1_REGNUM:
     case PR2_REGNUM:
@@ -2204,7 +2202,7 @@ sim_store_register (rn, value)
       SET_SEGREG (segforreg[rn], value[1]);
       reg = rn - PR0_REGNUM;      
       cpu.regs[reg].s[LOW] = (value[2] << 8) | value[3];
-      return 0;
+      return;
     }
 
   if (seg)
@@ -2214,11 +2212,9 @@ sim_store_register (rn, value)
     {
       cpu.regs[reg].s[LOW] = (value[0] << 8) | value[1];
     }
-
-  return 0;
 }
 
-int
+void
 sim_fetch_register (rn, buf)
      int rn;
      unsigned char *buf;
@@ -2292,8 +2288,6 @@ sim_fetch_register (rn, buf)
       buf[3] = cpu.insts >> 0;
       break;
     }
-
-  return 0;
 }
 
 int
@@ -2328,29 +2322,13 @@ sim_trace ()
   return 0;
 }
 
-int
+void
 sim_stop_reason (reason, sigrc)
      enum sim_stop *reason;
      int *sigrc;
 {
   *reason = sim_stopped;
   *sigrc = cpu.exception;
-  return 0;
-}
-
-int
-sim_set_pc (n)
-     SIM_ADDR n;
-{
-  unsigned char reg[4];
-
-  reg[0] = 0;
-  reg[1] = n >> 16;
-  reg[2] = n >> 8;
-  reg[3] = n;
-
-  sim_store_register (PC_REGNUM, reg);
-  return 0;
 }
 
 
@@ -2365,45 +2343,64 @@ sim_csize (n)
 }
 
 
-
-
-int
-sim_info (printf_fn, verbose)
-     void (*printf_fn)();
+void
+sim_info (verbose)
      int verbose;
 {
   double timetaken = (double) cpu.ticks / (double) now_persec ();
   double virttime = cpu.cycles / 10.0e6;
 
-  (*printf_fn) ("\n\ninstructions executed  %10d\n", cpu.insts);
-  (*printf_fn) ("cycles (v approximate) %10d\n", cpu.cycles);
-  (*printf_fn) ("real time taken        %10.4f\n", timetaken);
-  (*printf_fn) ("virtual time taked     %10.4f\n", virttime);
+  printf_filtered ("\n\ninstructions executed  %10d\n", cpu.insts);
+  printf_filtered ("cycles (v approximate) %10d\n", cpu.cycles);
+  printf_filtered ("real time taken        %10.4f\n", timetaken);
+  printf_filtered ("virtual time taked     %10.4f\n", virttime);
   if (timetaken) 
     {
-      (*printf_fn) ("simulation ratio       %10.4f\n", virttime / timetaken);
+      printf_filtered ("simulation ratio       %10.4f\n", virttime / timetaken);
     }
   
-  (*printf_fn) ("compiles               %10d\n", cpu.compiles);
-  (*printf_fn) ("cache size             %10d\n", cpu.csize);
-  return 0;
+  printf_filtered ("compiles               %10d\n", cpu.compiles);
+  printf_filtered ("cache size             %10d\n", cpu.csize);
+}
+
+void
+sim_kill()
+{
+  /* nothing to do */
+}
+
+void
+sim_open (args)
+     char *args;
+{
+  /* nothing to do */
+}
+
+void
+sim_close (quitting)
+     int quitting;
+{
+  /* nothing to do */
 }
 
 int
-sim_kill()
+sim_load (prog, from_tty)
+     char *prog;
+     int from_tty;
 {
-  return 0;
+  /* Return nonzero so gdb will handle it.  */
+  return 1;
 }
 
-sim_open (name)
-     char *name;
-{
-  return 0;
-}
-
-sim_set_args(argv, env)
+void
+sim_create_inferior (start_address, argv, env)
+     SIM_ADDR start_address;
      char **argv;
      char **env;
 {
-  return 0;
+  /* ??? We assume this is a 4 byte quantity.  */
+  int pc;
+
+  pc = start_address;
+  sim_store_register (PC_REGNUM, (unsigned char *) &pc);
 }

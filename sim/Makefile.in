@@ -236,6 +236,8 @@ clean-sh: force
 		true ; \
 	fi
 
+TAGS:
+
 ###
 
 force:

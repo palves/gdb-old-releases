@@ -1,5 +1,5 @@
 /* Target definitions for 64-bit ELF
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -25,21 +25,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    There are two such structures here:  one for big-endian machines and
    one for little-endian machines.   */
 
-/* Archives are generic or unimplemented.  */
-#ifndef bfd_elf64_slurp_armap
-#define bfd_elf64_slurp_armap		bfd_slurp_coff_armap
+#define	bfd_elf64_close_and_cleanup _bfd_generic_close_and_cleanup
+#define bfd_elf64_bfd_free_cached_info _bfd_generic_bfd_free_cached_info
+#ifndef bfd_elf64_get_section_contents
+#define bfd_elf64_get_section_contents _bfd_generic_get_section_contents
 #endif
-#define bfd_elf64_slurp_extended_name_table	_bfd_slurp_extended_name_table
-#define bfd_elf64_truncate_arname		bfd_dont_truncate_arname
-#define bfd_elf64_openr_next_archived_file	bfd_generic_openr_next_archived_file
-#define bfd_elf64_generic_stat_arch_elt	bfd_generic_stat_arch_elt
-#ifndef bfd_elf64_write_armap
-#define	bfd_elf64_write_armap		coff_write_armap
-#endif
-
-/* Ordinary section reading and writing */
-#define bfd_elf64_get_section_contents	bfd_generic_get_section_contents
-#define	bfd_elf64_close_and_cleanup		bfd_generic_close_and_cleanup
 
 #define bfd_elf64_bfd_debug_info_start	bfd_void
 #define bfd_elf64_bfd_debug_info_end	bfd_void
@@ -49,6 +39,34 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define bfd_elf64_bfd_relax_section bfd_generic_relax_section
 #define bfd_elf64_bfd_make_debug_symbol \
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
+
+#ifndef bfd_elf64_bfd_copy_private_section_data
+#define bfd_elf64_bfd_copy_private_section_data \
+  ((boolean (*) PARAMS ((bfd *, asection *, bfd *, asection *))) bfd_true)
+#endif
+#ifndef bfd_elf64_bfd_copy_private_bfd_data
+#define bfd_elf64_bfd_copy_private_bfd_data \
+  ((boolean (*) PARAMS ((bfd *, bfd *))) bfd_true)
+#endif
+#ifndef bfd_elf64_bfd_is_local_label
+#define bfd_elf64_bfd_is_local_label bfd_generic_is_local_label
+#endif
+
+#ifndef bfd_elf64_get_dynamic_reloc_upper_bound
+#define bfd_elf64_get_dynamic_reloc_upper_bound \
+  _bfd_nodynamic_get_dynamic_reloc_upper_bound
+#endif
+#ifndef bfd_elf64_canonicalize_dynamic_reloc
+#define bfd_elf64_canonicalize_dynamic_reloc \
+  _bfd_nodynamic_canonicalize_dynamic_reloc
+#endif
+
+#ifdef elf_backend_relocate_section
+#ifndef bfd_elf64_bfd_link_hash_table_create
+#define bfd_elf64_bfd_link_hash_table_create _bfd_elf_link_hash_table_create
+#endif
+#else /* ! defined (elf_backend_relocate_section) */
+/* If no backend relocate_section routine, use the generic linker.  */
 #ifndef bfd_elf64_bfd_link_hash_table_create
 #define bfd_elf64_bfd_link_hash_table_create \
   _bfd_generic_link_hash_table_create
@@ -59,6 +77,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef bfd_elf64_bfd_final_link
 #define bfd_elf64_bfd_final_link	_bfd_generic_final_link
 #endif
+#endif /* ! defined (elf_backend_relocate_section) */
 
 #ifndef elf_info_to_howto_rel
 #define elf_info_to_howto_rel 0
@@ -66,6 +85,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #ifndef ELF_MAXPAGESIZE
 #define ELF_MAXPAGESIZE 1
+#endif
+
+#ifndef elf_backend_collect
+#define elf_backend_collect false
 #endif
 
 #ifndef elf_backend_sym_is_global
@@ -92,6 +115,33 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef elf_backend_section_from_bfd_section
 #define elf_backend_section_from_bfd_section	0
 #endif
+#ifndef elf_backend_add_symbol_hook
+#define elf_backend_add_symbol_hook	0
+#endif
+#ifndef elf_backend_link_output_symbol_hook
+#define elf_backend_link_output_symbol_hook 0
+#endif
+#ifndef elf_backend_create_dynamic_sections
+#define elf_backend_create_dynamic_sections 0
+#endif
+#ifndef elf_backend_adjust_dynamic_symbol
+#define elf_backend_adjust_dynamic_symbol 0
+#endif
+#ifndef elf_backend_size_dynamic_sections
+#define elf_backend_size_dynamic_sections 0
+#endif
+#ifndef elf_backend_relocate_section
+#define elf_backend_relocate_section	0
+#endif
+#ifndef elf_backend_finish_dynamic_symbol
+#define elf_backend_finish_dynamic_symbol	0
+#endif
+#ifndef elf_backend_finish_dynamic_sections
+#define elf_backend_finish_dynamic_sections	0
+#endif
+#ifndef elf_backend_begin_write_processing
+#define elf_backend_begin_write_processing	0
+#endif
 #ifndef elf_backend_final_write_processing
 #define elf_backend_final_write_processing	0
 #endif
@@ -110,6 +160,7 @@ static CONST struct elf_backend_data elf64_bed =
   ELF_ARCH,			/* arch */
   ELF_MACHINE_CODE,		/* elf_machine_code */
   ELF_MAXPAGESIZE,		/* maxpagesize */
+  elf_backend_collect,
   elf_info_to_howto,
   elf_info_to_howto_rel,
   elf_backend_sym_is_global,
@@ -120,11 +171,21 @@ static CONST struct elf_backend_data elf64_bed =
   elf_backend_section_from_shdr,
   elf_backend_fake_sections,
   elf_backend_section_from_bfd_section,
+  elf_backend_add_symbol_hook,
+  elf_backend_link_output_symbol_hook,
+  elf_backend_create_dynamic_sections,
+  elf_backend_adjust_dynamic_symbol,
+  elf_backend_size_dynamic_sections,
+  elf_backend_relocate_section,
+  elf_backend_finish_dynamic_symbol,
+  elf_backend_finish_dynamic_sections,
+  elf_backend_begin_write_processing,
+  elf_backend_final_write_processing,
   elf_backend_ecoff_debug_swap
 };
 
 #ifdef TARGET_BIG_SYM
-bfd_target TARGET_BIG_SYM =
+const bfd_target TARGET_BIG_SYM =
 {
   /* name: identify kind of target */
   TARGET_BIG_NAME,
@@ -140,7 +201,7 @@ bfd_target TARGET_BIG_SYM =
 
   /* object_flags: mask of all file flags */
   (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS |
-   DYNAMIC | WP_TEXT),
+   DYNAMIC | WP_TEXT | D_PAGED),
   
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
@@ -159,7 +220,7 @@ bfd_target TARGET_BIG_SYM =
      FIXME:  this really has nothing to do with ELF, this is a characteristic
      of the archiver and should be independently tunable.  This value is
      a WAG (wild a** guess) */
-  15,
+  14,
 
   /* align_power_min: minimum alignment restriction for any section
      FIXME:  this value may be target machine dependent */
@@ -196,9 +257,15 @@ bfd_target TARGET_BIG_SYM =
     bfd_false
   },
 
-  /* Initialize a jump table with the standard macro.  All names start with
-     "elf" */
-  JUMP_TABLE(bfd_elf64),
+      BFD_JUMP_TABLE_GENERIC (bfd_elf64),
+      BFD_JUMP_TABLE_COPY (bfd_elf64),
+      BFD_JUMP_TABLE_CORE (bfd_elf64),
+      BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+      BFD_JUMP_TABLE_SYMBOLS (bfd_elf64),
+      BFD_JUMP_TABLE_RELOCS (bfd_elf64),
+      BFD_JUMP_TABLE_WRITE (bfd_elf64),
+      BFD_JUMP_TABLE_LINK (bfd_elf64),
+      BFD_JUMP_TABLE_DYNAMIC (bfd_elf64),
 
   /* backend_data: */
   (PTR) &elf64_bed,
@@ -206,7 +273,7 @@ bfd_target TARGET_BIG_SYM =
 #endif
 
 #ifdef TARGET_LITTLE_SYM
-bfd_target TARGET_LITTLE_SYM =
+const bfd_target TARGET_LITTLE_SYM =
 {
   /* name: identify kind of target */
   TARGET_LITTLE_NAME,
@@ -222,7 +289,7 @@ bfd_target TARGET_LITTLE_SYM =
 
   /* object_flags: mask of all file flags */
   (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS |
-   DYNAMIC | WP_TEXT),
+   DYNAMIC | WP_TEXT | D_PAGED),
   
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
@@ -241,7 +308,7 @@ bfd_target TARGET_LITTLE_SYM =
      FIXME:  this really has nothing to do with ELF, this is a characteristic
      of the archiver and should be independently tunable.  This value is
      a WAG (wild a** guess) */
-  15,
+  14,
 
   /* align_power_min: minimum alignment restriction for any section
      FIXME:  this value may be target machine dependent */
@@ -278,9 +345,15 @@ bfd_target TARGET_LITTLE_SYM =
     bfd_false
   },
 
-  /* Initialize a jump table with the standard macro.  All names start with
-     "elf" */
-  JUMP_TABLE(bfd_elf64),
+      BFD_JUMP_TABLE_GENERIC (bfd_elf64),
+      BFD_JUMP_TABLE_COPY (bfd_elf64),
+      BFD_JUMP_TABLE_CORE (bfd_elf64),
+      BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+      BFD_JUMP_TABLE_SYMBOLS (bfd_elf64),
+      BFD_JUMP_TABLE_RELOCS (bfd_elf64),
+      BFD_JUMP_TABLE_WRITE (bfd_elf64),
+      BFD_JUMP_TABLE_LINK (bfd_elf64),
+      BFD_JUMP_TABLE_DYNAMIC (bfd_elf64),
 
   /* backend_data: */
   (PTR) &elf64_bed,

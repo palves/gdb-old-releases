@@ -1,5 +1,5 @@
 /* BFD back-end for Hitachi H8/500 COFF binaries.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
    Written by Steve Chamberlain, <sac@cygnus.com>.
 
@@ -47,11 +47,11 @@ HOWTO (R_H8500_IMM32, 0, 1, 32, false, 0,
 
 static reloc_howto_type r_high8 =
 HOWTO (R_H8500_HIGH8, 0, 1, 8, false, 0,
-       complain_overflow_bitfield, 0, "r_high8", true, 0x000000ff, 0x000000ff, false);
+       complain_overflow_dont, 0, "r_high8", true, 0x000000ff, 0x000000ff, false);
 
 static reloc_howto_type r_low16 =
 HOWTO (R_H8500_LOW16, 0, 1, 16, false, 0,
-       complain_overflow_bitfield, 0, "r_low16", true, 0x0000ffff, 0x0000ffff, false);
+       complain_overflow_dont, 0, "r_low16", true, 0x0000ffff, 0x0000ffff, false);
 
 static reloc_howto_type r_pcrel8 =
 HOWTO (R_H8500_PCREL8, 0, 1, 8, true, 0, complain_overflow_signed, 0, "r_pcrel8", true, 0, 0, true);
@@ -62,7 +62,7 @@ HOWTO (R_H8500_PCREL16, 0, 1, 16, true, 0, complain_overflow_signed, 0, "r_pcrel
 
 static reloc_howto_type r_high16 =
 HOWTO (R_H8500_HIGH16, 0, 1, 8, false, 0,
-       complain_overflow_bitfield, 0, "r_high16", true, 0x000ffff, 0x0000ffff, false);
+       complain_overflow_dont, 0, "r_high16", true, 0x000ffff, 0x0000ffff, false);
 
 
 /* Turn a howto into a reloc number */
@@ -74,7 +74,7 @@ coff_h8500_select_reloc (howto)
   return howto->type;
 }
 
-#define SELECT_RELOC(x,howto) x= coff_h8500_select_reloc(howto)
+#define SELECT_RELOC(x,howto) x.r_type = coff_h8500_select_reloc(howto)
 
 
 #define BADMAG(x) H8500BADMAG(x)
@@ -160,7 +160,7 @@ static void reloc_processing (relent, reloc, symbols, abfd, section)
     }
   else
     {
-      relent->sym_ptr_ptr = &(bfd_abs_symbol);
+      relent->sym_ptr_ptr = bfd_abs_section_ptr->symbol_ptr_ptr;
     }
 
 
@@ -259,8 +259,9 @@ extra_case (in_abfd, link_info, link_order, reloc, data, src_ptr, dst_ptr)
 	if (gap > 128 || gap < -128)
 	  {
 	    if (! ((*link_info->callbacks->reloc_overflow)
-		   (link_info, input_section->owner, input_section,
-		    reloc->address)))
+		   (link_info, bfd_asymbol_name (*reloc->sym_ptr_ptr),
+		    reloc->howto->name, reloc->addend, input_section->owner,
+		    input_section, reloc->address)))
 	      abort ();
 	  }
 	bfd_put_8 (in_abfd, gap, data + *dst_ptr);
@@ -281,8 +282,9 @@ extra_case (in_abfd, link_info, link_order, reloc, data, src_ptr, dst_ptr)
 	if (gap > 32767 || gap < -32768)
 	  {
 	    if (! ((*link_info->callbacks->reloc_overflow)
-		   (link_info, input_section->owner, input_section,
-		    reloc->address)))
+		   (link_info, bfd_asymbol_name (*reloc->sym_ptr_ptr),
+		    reloc->howto->name, reloc->addend, input_section->owner,
+		    input_section, reloc->address)))
 	      abort ();
 	  }
 	bfd_put_16 (in_abfd, gap, data + *dst_ptr);
@@ -307,7 +309,7 @@ extra_case (in_abfd, link_info, link_order, reloc, data, src_ptr, dst_ptr)
   bfd_coff_reloc16_get_relocated_section_contents
 #define coff_bfd_relax_section bfd_coff_reloc16_relax_section
 
-bfd_target h8500coff_vec =
+const bfd_target h8500coff_vec =
 {
   "coff-h8500",			/* name */
   bfd_target_coff_flavour,
@@ -337,6 +339,15 @@ bfd_target h8500coff_vec =
   {bfd_false, coff_write_object_contents,	/* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE (coff),
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };

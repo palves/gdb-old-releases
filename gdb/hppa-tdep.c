@@ -66,6 +66,15 @@ static int prologue_inst_adjust_sp PARAMS ((unsigned long));
 static int is_branch PARAMS ((unsigned long));
 static int inst_saves_gr PARAMS ((unsigned long));
 static int inst_saves_fr PARAMS ((unsigned long));
+static int pc_in_interrupt_handler PARAMS ((CORE_ADDR));
+static int pc_in_linker_stub PARAMS ((CORE_ADDR));
+static int compare_unwind_entries PARAMS ((struct unwind_table_entry *,   
+					   struct unwind_table_entry *));
+static void read_unwind_info PARAMS ((struct objfile *));
+static void internalize_unwinds PARAMS ((struct objfile *,
+					 struct unwind_table_entry *,
+					 asection *, unsigned int,
+					 unsigned int));
 
 
 /* Routines to extract various sized constants out of hppa 
@@ -246,6 +255,204 @@ extract_17 (word)
 		      (word & 0x1) << 16, 17) << 2;
 }
 
+
+/* Compare the start address for two unwind entries returning 1 if 
+   the first address is larger than the second, -1 if the second is
+   larger than the first, and zero if they are equal.  */
+
+static int
+compare_unwind_entries (a, b)
+     struct unwind_table_entry *a;
+     struct unwind_table_entry *b;
+{
+  if (a->region_start > b->region_start)
+    return 1;
+  else if (a->region_start < b->region_start)
+    return -1;
+  else
+    return 0;
+}
+
+static void
+internalize_unwinds (objfile, table, section, entries, size)
+     struct objfile *objfile;
+     struct unwind_table_entry *table;
+     asection *section;
+     unsigned int entries, size;
+{
+  /* We will read the unwind entries into temporary memory, then
+     fill in the actual unwind table.  */
+  if (size > 0)
+    {
+      unsigned long tmp;
+      unsigned i;
+      char *buf = alloca (size);
+
+      bfd_get_section_contents (objfile->obfd, section, buf, 0, size);
+
+      /* Now internalize the information being careful to handle host/target
+	 endian issues.  */
+      for (i = 0; i < entries; i++)
+	{
+	  table[i].region_start = bfd_get_32 (objfile->obfd,
+						  (bfd_byte *)buf);
+	  buf += 4;
+	  table[i].region_end = bfd_get_32 (objfile->obfd, (bfd_byte *)buf);
+	  buf += 4;
+	  tmp = bfd_get_32 (objfile->obfd, (bfd_byte *)buf);
+	  buf += 4;
+	  table[i].Cannot_unwind = (tmp >> 31) & 0x1;;
+	  table[i].Millicode = (tmp >> 30) & 0x1;
+	  table[i].Millicode_save_sr0 = (tmp >> 29) & 0x1;
+	  table[i].Region_description = (tmp >> 27) & 0x3;
+	  table[i].reserved1 = (tmp >> 26) & 0x1;
+	  table[i].Entry_SR = (tmp >> 25) & 0x1;
+	  table[i].Entry_FR = (tmp >> 21) & 0xf;
+	  table[i].Entry_GR = (tmp >> 16) & 0x1f;
+	  table[i].Args_stored = (tmp >> 15) & 0x1;
+	  table[i].Variable_Frame = (tmp >> 14) & 0x1;
+	  table[i].Separate_Package_Body = (tmp >> 13) & 0x1;
+	  table[i].Frame_Extension_Millicode = (tmp >> 12 ) & 0x1;
+	  table[i].Stack_Overflow_Check = (tmp >> 11) & 0x1;
+	  table[i].Two_Instruction_SP_Increment = (tmp >> 10) & 0x1;
+	  table[i].Ada_Region = (tmp >> 9) & 0x1;
+	  table[i].reserved2 = (tmp >> 5) & 0xf;
+	  table[i].Save_SP = (tmp >> 4) & 0x1;
+	  table[i].Save_RP = (tmp >> 3) & 0x1;
+	  table[i].Save_MRP_in_frame = (tmp >> 2) & 0x1;
+	  table[i].extn_ptr_defined = (tmp >> 1) & 0x1;
+	  table[i].Cleanup_defined = tmp & 0x1;
+	  tmp = bfd_get_32 (objfile->obfd, (bfd_byte *)buf);
+	  buf += 4;
+	  table[i].MPE_XL_interrupt_marker = (tmp >> 31) & 0x1;
+	  table[i].HP_UX_interrupt_marker = (tmp >> 30) & 0x1;
+	  table[i].Large_frame = (tmp >> 29) & 0x1;
+	  table[i].reserved4 = (tmp >> 27) & 0x3;
+	  table[i].Total_frame_size = tmp & 0x7ffffff;
+	}
+    }
+}
+
+/* Read in the backtrace information stored in the `$UNWIND_START$' section of
+   the object file.  This info is used mainly by find_unwind_entry() to find
+   out the stack frame size and frame pointer used by procedures.  We put
+   everything on the psymbol obstack in the objfile so that it automatically
+   gets freed when the objfile is destroyed.  */
+
+static void
+read_unwind_info (objfile)
+     struct objfile *objfile;
+{
+  asection *unwind_sec, *elf_unwind_sec, *stub_unwind_sec;
+  unsigned unwind_size, elf_unwind_size, stub_unwind_size, total_size;
+  unsigned index, unwind_entries, elf_unwind_entries;
+  unsigned stub_entries, total_entries;
+  struct obj_unwind_info *ui;
+
+  ui = obstack_alloc (&objfile->psymbol_obstack,
+		      sizeof (struct obj_unwind_info));
+
+  ui->table = NULL;
+  ui->cache = NULL;
+  ui->last = -1;
+
+  /* Get hooks to all unwind sections.   Note there is no linker-stub unwind
+     section in ELF at the moment.  */
+  unwind_sec = bfd_get_section_by_name (objfile->obfd, "$UNWIND_START$");
+  elf_unwind_sec = bfd_get_section_by_name (objfile->obfd, ".PARISC.unwind");
+  stub_unwind_sec = bfd_get_section_by_name (objfile->obfd, "$UNWIND_END$");
+
+  /* Get sizes and unwind counts for all sections.  */
+  if (unwind_sec)
+    {
+      unwind_size = bfd_section_size (objfile->obfd, unwind_sec);
+      unwind_entries = unwind_size / UNWIND_ENTRY_SIZE;
+    }
+  else
+    {
+      unwind_size = 0;
+      unwind_entries = 0;
+    }
+
+  if (elf_unwind_sec)
+    {
+      elf_unwind_size = bfd_section_size (objfile->obfd, elf_unwind_sec);
+      elf_unwind_entries = elf_unwind_size / UNWIND_ENTRY_SIZE;
+    }
+  else
+    {
+      elf_unwind_size = 0;
+      elf_unwind_entries = 0;
+    }
+
+  if (stub_unwind_sec)
+    {
+      stub_unwind_size = bfd_section_size (objfile->obfd, stub_unwind_sec);
+      stub_entries = stub_unwind_size / STUB_UNWIND_ENTRY_SIZE;
+    }
+  else
+    {
+      stub_unwind_size = 0;
+      stub_entries = 0;
+    }
+
+  /* Compute total number of unwind entries and their total size.  */
+  total_entries = unwind_entries + elf_unwind_entries + stub_entries;
+  total_size = total_entries * sizeof (struct unwind_table_entry);
+
+  /* Allocate memory for the unwind table.  */
+  ui->table = obstack_alloc (&objfile->psymbol_obstack, total_size);
+  ui->last = total_entries - 1;
+
+  /* Internalize the standard unwind entries.  */
+  index = 0;
+  internalize_unwinds (objfile, &ui->table[index], unwind_sec,
+		       unwind_entries, unwind_size);
+  index += unwind_entries;
+  internalize_unwinds (objfile, &ui->table[index], elf_unwind_sec,
+		       elf_unwind_entries, elf_unwind_size);
+  index += elf_unwind_entries;
+
+  /* Now internalize the stub unwind entries.  */
+  if (stub_unwind_size > 0)
+    {
+      unsigned int i;
+      char *buf = alloca (stub_unwind_size);
+
+      /* Read in the stub unwind entries.  */
+      bfd_get_section_contents (objfile->obfd, stub_unwind_sec, buf,
+				0, stub_unwind_size);
+
+      /* Now convert them into regular unwind entries.  */
+      for (i = 0; i < stub_entries; i++, index++)
+	{
+	  /* Clear out the next unwind entry.  */
+	  memset (&ui->table[index], 0, sizeof (struct unwind_table_entry));
+
+	  /* Convert offset & size into region_start and region_end.  
+	     Stuff away the stub type into "reserved" fields.  */
+	  ui->table[index].region_start = bfd_get_32 (objfile->obfd,
+						      (bfd_byte *) buf);
+	  buf += 4;
+	  ui->table[index].stub_type = bfd_get_8 (objfile->obfd,
+						  (bfd_byte *) buf);
+	  buf += 2;
+	  ui->table[index].region_end
+	    = ui->table[index].region_start + 4 * 
+	      (bfd_get_16 (objfile->obfd, (bfd_byte *) buf) - 1);
+	  buf += 2;
+	}
+
+    }
+
+  /* Unwind table needs to be kept sorted.  */
+  qsort (ui->table, total_entries, sizeof (struct unwind_table_entry),
+	 compare_unwind_entries);
+
+  /* Keep a pointer to the unwind information.  */
+  objfile->obj_private = (PTR) ui;
+}
+
 /* Lookup the unwind (stack backtrace) info for the given PC.  We search all
    of the objfiles seeking the unwind table entry for this PC.  Each objfile
    contains a sorted list of struct unwind_table_entry.  Since we do a binary
@@ -265,7 +472,10 @@ find_unwind_entry(pc)
       ui = OBJ_UNWIND_INFO (objfile);
 
       if (!ui)
-	continue;
+	{
+	  read_unwind_info (objfile);
+	  ui = OBJ_UNWIND_INFO (objfile);
+	}
 
       /* First, check the cache */
 
@@ -298,9 +508,29 @@ find_unwind_entry(pc)
   return NULL;
 }
 
+/* Called to determine if PC is in an interrupt handler of some
+   kind.  */
+
+static int
+pc_in_interrupt_handler (pc)
+     CORE_ADDR pc;
+{
+  struct unwind_table_entry *u;
+  struct minimal_symbol *msym_us;
+
+  u = find_unwind_entry (pc);
+  if (!u)
+    return 0;
+
+  /* Oh joys.  HPUX sets the interrupt bit for _sigreturn even though
+     its frame isn't a pure interrupt frame.  Deal with this.  */
+  msym_us = lookup_minimal_symbol_by_pc (pc);
+
+  return u->HP_UX_interrupt_marker && !IN_SIGTRAMP (pc, SYMBOL_NAME (msym_us));
+}
+
 /* Called when no unwind descriptor was found for PC.  Returns 1 if it
    appears that PC is in a linker stub.  */
-static int pc_in_linker_stub PARAMS ((CORE_ADDR));
 
 static int
 pc_in_linker_stub (pc)
@@ -388,10 +618,11 @@ find_return_regnum(pc)
 
 /* Return size of frame, or -1 if we should use a frame pointer.  */
 int
-find_proc_framesize(pc)
+find_proc_framesize (pc)
      CORE_ADDR pc;
 {
   struct unwind_table_entry *u;
+  struct minimal_symbol *msym_us;
 
   u = find_unwind_entry (pc);
 
@@ -404,9 +635,12 @@ find_proc_framesize(pc)
 	return -1;
     }
 
-  if (u->Save_SP)
-    /* If this bit is set, it means there is a frame pointer and we should
-       use it.  */
+  msym_us = lookup_minimal_symbol_by_pc (pc);
+
+  /* If Save_SP is set, and we're not in an interrupt or signal caller,
+     then we have a frame pointer.  Use it.  */
+  if (u->Save_SP && !pc_in_interrupt_handler (pc)
+      && !IN_SIGTRAMP (pc, SYMBOL_NAME (msym_us)))
     return -1;
 
   return u->Total_frame_size << 3;
@@ -459,7 +693,7 @@ frameless_function_invocation (frame)
   u = find_unwind_entry (frame->pc);
 
   if (u == 0)
-    return frameless_look_for_prologue (frame);
+    return 0;
 
   return (u->Total_frame_size == 0 && u->stub_type == 0);
 }
@@ -480,24 +714,86 @@ frame_saved_pc (frame)
      FRAME frame;
 {
   CORE_ADDR pc = get_frame_pc (frame);
+  struct unwind_table_entry *u;
 
+  /* BSD, HPUX & OSF1 all lay out the hardware state in the same manner
+     at the base of the frame in an interrupt handler.  Registers within
+     are saved in the exact same order as GDB numbers registers.  How
+     convienent.  */
+  if (pc_in_interrupt_handler (pc))
+    return read_memory_integer (frame->frame + PC_REGNUM * 4, 4) & ~0x3;
+
+  /* Deal with signal handler caller frames too.  */
+  if (frame->signal_handler_caller)
+    {
+      CORE_ADDR rp;
+      FRAME_SAVED_PC_IN_SIGTRAMP (frame, &rp);
+      return rp;
+    }
+
+restart:
   if (frameless_function_invocation (frame))
     {
       int ret_regnum;
 
       ret_regnum = find_return_regnum (pc);
 
-      return read_register (ret_regnum) & ~0x3;
+      /* If the next frame is an interrupt frame or a signal
+	 handler caller, then we need to look in the saved
+	 register area to get the return pointer (the values
+	 in the registers may not correspond to anything useful).  */
+      if (frame->next 
+	  && (frame->next->signal_handler_caller
+	      || pc_in_interrupt_handler (frame->next->pc)))
+	{
+	  struct frame_info *fi;
+	  struct frame_saved_regs saved_regs;
+
+	  fi = get_frame_info (frame->next);
+	  get_frame_saved_regs (fi, &saved_regs);
+	  if (read_memory_integer (saved_regs.regs[FLAGS_REGNUM] & 0x2, 4))
+	    pc = read_memory_integer (saved_regs.regs[31], 4) & ~0x3;
+	  else
+	    pc = read_memory_integer (saved_regs.regs[RP_REGNUM], 4) & ~0x3;
+	}
+      else
+	pc = read_register (ret_regnum) & ~0x3;
     }
   else
     {
       int rp_offset = rp_saved (pc);
 
-      if (rp_offset == 0)
-	return read_register (RP_REGNUM) & ~0x3;
+      /* Similar to code in frameless function case.  If the next
+	 frame is a signal or interrupt handler, then dig the right
+	 information out of the saved register info.  */
+      if (rp_offset == 0
+	  && frame->next
+	  && (frame->next->signal_handler_caller
+	      || pc_in_interrupt_handler (frame->next->pc)))
+	{
+	  struct frame_info *fi;
+	  struct frame_saved_regs saved_regs;
+
+	  fi = get_frame_info (frame->next);
+	  get_frame_saved_regs (fi, &saved_regs);
+	  if (read_memory_integer (saved_regs.regs[FLAGS_REGNUM] & 0x2, 4))
+	    pc = read_memory_integer (saved_regs.regs[31], 4) & ~0x3;
+	  else
+	    pc = read_memory_integer (saved_regs.regs[RP_REGNUM], 4) & ~0x3;
+	}
+      else if (rp_offset == 0)
+	pc = read_register (RP_REGNUM) & ~0x3;
       else
-	return read_memory_integer (frame->frame + rp_offset, 4) & ~0x3;
+	pc = read_memory_integer (frame->frame + rp_offset, 4) & ~0x3;
     }
+
+  /* If PC is inside a linker stub, then dig out the address the stub
+     will return to.  */
+  u = find_unwind_entry (pc);
+  if (u && u->stub_type != 0)
+    goto restart;
+
+  return pc;
 }
 
 /* We need to correct the PC and the FP for the outermost frame when we are
@@ -569,6 +865,20 @@ frame_chain (frame)
 {
   int my_framesize, caller_framesize;
   struct unwind_table_entry *u;
+  CORE_ADDR frame_base;
+
+  /* Handle HPUX, BSD, and OSF1 style interrupt frames first.  These
+     are easy; at *sp we have a full save state strucutre which we can
+     pull the old stack pointer from.  Also see frame_saved_pc for
+     code to dig a saved PC out of the save state structure.  */
+  if (pc_in_interrupt_handler (frame->pc))
+    frame_base = read_memory_integer (frame->frame + SP_REGNUM * 4, 4);
+  else if (frame->signal_handler_caller)
+    {
+      FRAME_BASE_BEFORE_SIGTRAMP (frame, &frame_base);
+    }
+  else
+    frame_base = frame->frame;
 
   /* Get frame sizes for the current frame and the frame of the 
      caller.  */
@@ -578,13 +888,13 @@ frame_chain (frame)
   /* If caller does not have a frame pointer, then its frame
      can be found at current_frame - caller_framesize.  */
   if (caller_framesize != -1)
-    return frame->frame - caller_framesize;
+    return frame_base - caller_framesize;
 
   /* Both caller and callee have frame pointers and are GCC compiled
      (SAVE_SP bit in unwind descriptor is on for both functions.
      The previous frame pointer is found at the top of the current frame.  */
   if (caller_framesize == -1 && my_framesize == -1)
-    return read_memory_integer (frame->frame, 4);
+    return read_memory_integer (frame_base, 4);
 
   /* Caller has a frame pointer, but callee does not.  This is a little
      more difficult as GCC and HP C lay out locals and callee register save
@@ -618,7 +928,9 @@ frame_chain (frame)
 
       /* Entry_GR specifies the number of callee-saved general registers
 	 saved in the stack.  It starts at %r3, so %r3 would be 1.  */
-      if (u->Entry_GR >= 1 || u->Save_SP)
+      if (u->Entry_GR >= 1 || u->Save_SP
+	  || frame->signal_handler_caller
+	  || pc_in_interrupt_handler (frame->pc))
 	break;
       else
 	frame = frame->next;
@@ -628,7 +940,9 @@ frame_chain (frame)
     {
       /* We may have walked down the chain into a function with a frame
 	 pointer.  */
-      if (u->Save_SP)
+      if (u->Save_SP
+	  && !frame->signal_handler_caller
+	  && !pc_in_interrupt_handler (frame->pc))
 	return read_memory_integer (frame->frame, 4);
       /* %r3 was saved somewhere in the stack.  Dig it out.  */
       else 
@@ -660,12 +974,16 @@ frame_chain_valid (chain, thisframe)
 {
   struct minimal_symbol *msym_us;
   struct minimal_symbol *msym_start;
-  struct unwind_table_entry *u;
+  struct unwind_table_entry *u, *next_u = NULL;
+  FRAME next;
 
   if (!chain)
     return 0;
 
   u = find_unwind_entry (thisframe->pc);
+
+  if (u == NULL)
+    return 1;
 
   /* We can't just check that the same of msym_us is "_start", because
      someone idiotically decided that they were going to make a Ltext_end
@@ -680,10 +998,16 @@ frame_chain_valid (chain, thisframe)
       && SYMBOL_VALUE_ADDRESS (msym_us) == SYMBOL_VALUE_ADDRESS (msym_start))
     return 0;
 
-  if (u == NULL)
-    return 1;
+  next = get_next_frame (thisframe);
+  if (next)
+    next_u = find_unwind_entry (next->pc);
 
-  if (u->Save_SP || u->Total_frame_size || u->stub_type != 0)
+  /* If this frame does not save SP, has no stack, isn't a stub,
+     and doesn't "call" an interrupt routine or signal handler caller,
+     then its not valid.  */
+  if (u->Save_SP || u->Total_frame_size || u->stub_type != 0
+      || (thisframe->next && thisframe->next->signal_handler_caller)
+      || (next_u && next_u->HP_UX_interrupt_marker))
     return 1;
 
   if (pc_in_linker_stub (thisframe->pc))
@@ -785,8 +1109,10 @@ hppa_pop_frame ()
   fp = fi->frame;
   get_frame_saved_regs (fi, &fsr);
 
+#ifndef NO_PC_SPACE_QUEUE_RESTORE
   if (fsr.regs[IPSW_REGNUM])    /* Restoring a call dummy frame */
     restore_pc_queue (&fsr);
+#endif
 
   for (regnum = 31; regnum > 0; regnum--)
     if (fsr.regs[regnum])
@@ -814,7 +1140,7 @@ hppa_pop_frame ()
 
   /* Else use the value in %rp to set the new PC.  */
   else 
-    target_write_pc (read_register (RP_REGNUM));
+    target_write_pc (read_register (RP_REGNUM), 0);
 
   write_register (FP_REGNUM, read_memory_integer (fp, 4));
 
@@ -883,14 +1209,14 @@ restore_pc_queue (fsr)
         }
     }
   target_terminal_ours ();
-  fetch_inferior_registers (-1);
+  (current_target->to_fetch_registers) (-1);
   return 1;
 }
 
 CORE_ADDR
 hppa_push_arguments (nargs, args, sp, struct_return, struct_addr)
      int nargs;
-     value *args;
+     value_ptr *args;
      CORE_ADDR sp;
      int struct_return;
      CORE_ADDR struct_addr;
@@ -941,13 +1267,14 @@ hppa_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
      CORE_ADDR pc;
      CORE_ADDR fun;
      int nargs;
-     value *args;
+     value_ptr *args;
      struct type *type;
      int gcc_p;
 {
   CORE_ADDR dyncall_addr, sr4export_addr;
   struct minimal_symbol *msymbol;
   int flags = read_register (FLAGS_REGNUM);
+  struct unwind_table_entry *u;
 
   msymbol = lookup_minimal_symbol ("$$dyncall", (struct objfile *) NULL);
   if (msymbol == NULL)
@@ -955,6 +1282,49 @@ hppa_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
 
   dyncall_addr = SYMBOL_VALUE_ADDRESS (msymbol);
 
+  /* FUN could be a procedure label, in which case we have to get
+     its real address and the value of its GOT/DP.  */
+  if (fun & 0x2)
+    {
+      /* Get the GOT/DP value for the target function.  It's
+	 at *(fun+4).  Note the call dummy is *NOT* allowed to
+	 trash %r19 before calling the target function.  */
+      write_register (19, read_memory_integer ((fun & ~0x3) + 4, 4));
+
+      /* Now get the real address for the function we are calling, it's
+	 at *fun.  */
+      fun = (CORE_ADDR) read_memory_integer (fun & ~0x3, 4);
+    }
+
+  /* If we are calling an import stub (eg calling into a dynamic library)
+     then have sr4export call the magic __d_plt_call routine which is linked
+     in from end.o.  (You can't use _sr4export to call the import stub as
+     the value in sp-24 will get fried and you end up returning to the
+     wrong location.  You can't call the import stub directly as the code
+     to bind the PLT entry to a function can't return to a stack address.)  */
+  u = find_unwind_entry (fun);
+  if (u && u->stub_type == IMPORT)
+    {
+      CORE_ADDR new_fun;
+      msymbol = lookup_minimal_symbol ("__d_plt_call", (struct objfile *) NULL);
+      if (msymbol == NULL)
+	error ("Can't find an address for __d_plt_call trampoline");
+
+      /* This is where sr4export will jump to.  */
+      new_fun = SYMBOL_VALUE_ADDRESS (msymbol);
+
+      /* We have to store the address of the stub in __shlib_funcptr.  */
+      msymbol = lookup_minimal_symbol ("__shlib_funcptr",
+				       (struct objfile *)NULL);
+      if (msymbol == NULL)
+	error ("Can't find an address for __shlib_funcptr");
+
+      target_write_memory (SYMBOL_VALUE_ADDRESS (msymbol), (char *)&fun, 4);
+      fun = new_fun;
+
+    }
+
+  /* We still need sr4export's address too.  */
   msymbol = lookup_minimal_symbol ("_sr4export", (struct objfile *) NULL);
   if (msymbol == NULL)
     error ("Can't find an address for _sr4export trampoline");
@@ -1003,7 +1373,8 @@ hppa_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
 /* Get the PC from %r31 if currently in a syscall.  Also mask out privilege
    bits.  */
 CORE_ADDR
-target_read_pc ()
+target_read_pc (pid)
+     int pid;
 {
   int flags = read_register (FLAGS_REGNUM);
 
@@ -1015,8 +1386,9 @@ target_read_pc ()
 /* Write out the PC.  If currently in a syscall, then also write the new
    PC value into %r31.  */
 void
-target_write_pc (v)
+target_write_pc (v, pid)
      CORE_ADDR v;
+     int pid;
 {
   int flags = read_register (FLAGS_REGNUM);
 
@@ -1112,47 +1484,73 @@ pa_print_fp_reg (i)
   unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE];
   unsigned char virtual_buffer[MAX_REGISTER_VIRTUAL_SIZE];
 
-  /* Get the data in raw format.  */
+  /* Get 32bits of data.  */
   read_relative_register_raw_bytes (i, raw_buffer);
 
-  /* Convert raw data to virtual format if necessary.  */
-#ifdef REGISTER_CONVERTIBLE
-  if (REGISTER_CONVERTIBLE (i))
-    {
-      REGISTER_CONVERT_TO_VIRTUAL (i, REGISTER_VIRTUAL_TYPE (i),
-				   raw_buffer, virtual_buffer);
-    }
-  else
-#endif
-    memcpy (virtual_buffer, raw_buffer,
-	    REGISTER_VIRTUAL_SIZE (i));
+  /* Put it in the buffer.  No conversions are ever necessary.  */
+  memcpy (virtual_buffer, raw_buffer, REGISTER_RAW_SIZE (i));
 
   fputs_filtered (reg_names[i], gdb_stdout);
-  print_spaces_filtered (15 - strlen (reg_names[i]), gdb_stdout);
+  print_spaces_filtered (8 - strlen (reg_names[i]), gdb_stdout);
+  fputs_filtered ("(single precision)     ", gdb_stdout);
 
   val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, gdb_stdout, 0,
 	     1, 0, Val_pretty_default);
   printf_filtered ("\n");
+
+  /* If "i" is even, then this register can also be a double-precision
+     FP register.  Dump it out as such.  */
+  if ((i % 2) == 0)
+    {
+      /* Get the data in raw format for the 2nd half.  */
+      read_relative_register_raw_bytes (i + 1, raw_buffer);
+
+      /* Copy it into the appropriate part of the virtual buffer.  */
+      memcpy (virtual_buffer + REGISTER_RAW_SIZE (i), raw_buffer,
+	      REGISTER_RAW_SIZE (i));
+
+      /* Dump it as a double.  */
+      fputs_filtered (reg_names[i], gdb_stdout);
+      print_spaces_filtered (8 - strlen (reg_names[i]), gdb_stdout);
+      fputs_filtered ("(double precision)     ", gdb_stdout);
+
+      val_print (builtin_type_double, virtual_buffer, 0, gdb_stdout, 0,
+		 1, 0, Val_pretty_default);
+      printf_filtered ("\n");
+    }
 }
 
-/* Function calls that pass into a new compilation unit must pass through a
-   small piece of code that does long format (`external' in HPPA parlance)
-   jumps.  We figure out where the trampoline is going to end up, and return
-   the PC of the final destination.  If we aren't in a trampoline, we just
-   return NULL. 
+/* Figure out if PC is in a trampoline, and if so find out where
+   the trampoline will jump to.  If not in a trampoline, return zero.
 
-   For computed calls, we just extract the new PC from r22.  */
+   Simple code examination probably is not a good idea since the code
+   sequences in trampolines can also appear in user code.
+
+   We use unwinds and information from the minimal symbol table to
+   determine when we're in a trampoline.  This won't work for ELF
+   (yet) since it doesn't create stub unwind entries.  Whether or
+   not ELF will create stub unwinds or normal unwinds for linker
+   stubs is still being debated.
+
+   This should handle simple calls through dyncall or sr4export,
+   long calls, argument relocation stubs, and dyncall/sr4export
+   calling an argument relocation stub.  It even handles some stubs
+   used in dynamic executables.  */
 
 CORE_ADDR
 skip_trampoline_code (pc, name)
      CORE_ADDR pc;
      char *name;
 {
-  long inst0, inst1;
+  long orig_pc = pc;
+  long prev_inst, curr_inst, loc;
   static CORE_ADDR dyncall = 0;
+  static CORE_ADDR sr4export = 0;
   struct minimal_symbol *msym;
+  struct unwind_table_entry *u;
 
-/* FIXME XXX - dyncall must be initialized whenever we get a new exec file */
+/* FIXME XXX - dyncall and sr4export must be initialized whenever we get a
+   new exec file */
 
   if (!dyncall)
     {
@@ -1163,19 +1561,114 @@ skip_trampoline_code (pc, name)
 	dyncall = -1;
     }
 
+  if (!sr4export)
+    {
+      msym = lookup_minimal_symbol ("_sr4export", NULL);
+      if (msym)
+	sr4export = SYMBOL_VALUE_ADDRESS (msym);
+      else
+	sr4export = -1;
+    }
+
+  /* Addresses passed to dyncall may *NOT* be the actual address
+     of the funtion.  So we may have to do something special.  */
   if (pc == dyncall)
-    return (CORE_ADDR)(read_register (22) & ~0x3);
+    {
+      pc = (CORE_ADDR) read_register (22);
 
-  inst0 = read_memory_integer (pc, 4);
-  inst1 = read_memory_integer (pc+4, 4);
+      /* If bit 30 (counting from the left) is on, then pc is the address of
+	 the PLT entry for this function, not the address of the function
+	 itself.  Bit 31 has meaning too, but only for MPE.  */
+      if (pc & 0x2)
+	pc = (CORE_ADDR) read_memory_integer (pc & ~0x3, 4);
+    }
+  else if (pc == sr4export)
+    pc = (CORE_ADDR) (read_register (22));
 
-  if (   (inst0 & 0xffe00000) == 0x20200000 /* ldil xxx, r1 */
-      && (inst1 & 0xffe0e002) == 0xe0202002) /* be,n yyy(sr4, r1) */
-    pc = extract_21 (inst0) + extract_17 (inst1);
-  else
-    pc = (CORE_ADDR)NULL;
+  /* Get the unwind descriptor corresponding to PC, return zero
+     if no unwind was found.  */
+  u = find_unwind_entry (pc);
+  if (!u)
+    return 0;
 
-  return pc;
+  /* If this isn't a linker stub, then return now.  */
+  if (u->stub_type == 0)
+    return orig_pc == pc ? 0 : pc & ~0x3;
+
+  /* It's a stub.  Search for a branch and figure out where it goes.
+     Note we have to handle multi insn branch sequences like ldil;ble.
+     Most (all?) other branches can be determined by examining the contents
+     of certain registers and the stack.  */
+  loc = pc;
+  curr_inst = 0;
+  prev_inst = 0;
+  while (1)
+    {
+      /* Make sure we haven't walked outside the range of this stub.  */
+      if (u != find_unwind_entry (loc))
+	{
+	  warning ("Unable to find branch in linker stub");
+	  return orig_pc == pc ? 0 : pc & ~0x3;
+	}
+
+      prev_inst = curr_inst;
+      curr_inst = read_memory_integer (loc, 4);
+
+      /* Does it look like a branch external using %r1?  Then it's the
+	 branch from the stub to the actual function.  */
+      if ((curr_inst & 0xffe0e000) == 0xe0202000)
+	{
+	  /* Yup.  See if the previous instruction loaded
+	     a value into %r1.  If so compute and return the jump address.  */
+	  if ((prev_inst & 0xffe0e000) == 0x20202000)
+	    return (extract_21 (prev_inst) + extract_17 (curr_inst)) & ~0x3;
+	  else
+	    {
+	      warning ("Unable to find ldil X,%%r1 before ble Y(%%sr4,%%r1).");
+	      return orig_pc == pc ? 0 : pc & ~0x3;
+	    }
+	}
+
+      /* Does it look like bl X,%rp or bl X,%r0?  Another way to do a
+	 branch from the stub to the actual function.  */
+      else if ((curr_inst & 0xffe0e000) == 0xe8400000
+	       || (curr_inst & 0xffe0e000) == 0xe8000000)
+	return (loc + extract_17 (curr_inst) + 8) & ~0x3;
+
+      /* Does it look like bv (rp)?   Note this depends on the
+	 current stack pointer being the same as the stack
+	 pointer in the stub itself!  This is a branch on from the
+	 stub back to the original caller.  */
+      else if ((curr_inst & 0xffe0e000) == 0xe840c000)
+	{
+	  /* Yup.  See if the previous instruction loaded
+	     rp from sp - 8.  */
+	  if (prev_inst == 0x4bc23ff1)
+	    return (read_memory_integer
+		    (read_register (SP_REGNUM) - 8, 4)) & ~0x3;
+	  else
+	    {
+	      warning ("Unable to find restore of %%rp before bv (%%rp).");
+	      return orig_pc == pc ? 0 : pc & ~0x3;
+	    }
+	}
+
+      /* What about be,n 0(sr0,%rp)?  It's just another way we return to
+	 the original caller from the stub.  Used in dynamic executables.  */
+      else if (curr_inst == 0xe0400002)
+	{
+	  /* The value we jump to is sitting in sp - 24.  But that's
+	     loaded several instructions before the be instruction.
+	     I guess we could check for the previous instruction being
+	     mtsp %r1,%sr0 if we want to do sanity checking.  */
+	  return (read_memory_integer 
+		  (read_register (SP_REGNUM) - 24, 4)) & ~0x3;
+	}
+
+      /* Haven't found the branch yet, but we're still in the stub.
+	 Keep looking.  */
+      loc += 4;
+    }
 }
 
 /* For the given instruction (INST), return any adjustment it makes
@@ -1290,7 +1783,7 @@ inst_saves_fr (inst)
    be in the prologue.  */
 
 CORE_ADDR
-skip_prologue(pc)
+skip_prologue (pc)
      CORE_ADDR pc;
 {
   char buf[4];
@@ -1300,7 +1793,11 @@ skip_prologue(pc)
 
   u = find_unwind_entry (pc);
   if (!u)
-    return 0;
+    return pc;
+
+  /* If we are not at the beginning of a function, then return now.  */
+  if ((pc & ~0x3) != u->region_start)
+    return pc;
 
   /* This is how much of a frame adjustment we need to account for.  */
   stack_remaining = u->Total_frame_size << 3;
@@ -1407,6 +1904,29 @@ hppa_frame_find_saved_regs (frame_info, frame_saved_regs)
 			     + 6 * 4)))
     find_dummy_frame_regs (frame_info, frame_saved_regs);
 
+  /* Interrupt handlers are special too.  They lay out the register
+     state in the exact same order as the register numbers in GDB.  */
+  if (pc_in_interrupt_handler (frame_info->pc))
+    {
+      for (i = 0; i < NUM_REGS; i++)
+	{
+	  /* SP is a little special.  */
+	  if (i == SP_REGNUM)
+	    frame_saved_regs->regs[SP_REGNUM]
+	      = read_memory_integer (frame_info->frame + SP_REGNUM * 4, 4);
+	  else
+	    frame_saved_regs->regs[i] = frame_info->frame + i * 4;
+	}
+      return;
+    }
+
+  /* Handle signal handler callers.  */
+  if (frame_info->signal_handler_caller)
+    {
+      FRAME_FIND_SAVED_REGS_IN_SIGTRAMP (frame_info, frame_saved_regs);
+      return;
+    }
+
   /* Get the starting address of the function referred to by the PC
      saved in frame_info.  */
   pc = get_pc_function_start (frame_info->pc);
@@ -1438,6 +1958,11 @@ hppa_frame_find_saved_regs (frame_info, frame_saved_regs)
   save_fr = 0;
   for (i = 12; i < u->Entry_FR + 12; i++)
     save_fr |= (1 << i);
+
+  /* The frame always represents the value of %sp at entry to the
+     current function (and is thus equivalent to the "saved" stack
+     pointer.  */
+  frame_saved_regs->regs[SP_REGNUM] = frame_info->frame;
 
   /* Loop until we find everything of interest or hit a branch.
 
@@ -1472,13 +1997,10 @@ hppa_frame_find_saved_regs (frame_info, frame_saved_regs)
 	  frame_saved_regs->regs[RP_REGNUM] = frame_info->frame - 20;
 	}
 
-      /* This is the only way we save SP into the stack.  At this time
-	 the HP compilers never bother to save SP into the stack.  */
+      /* Just note that we found the save of SP into the stack.  The
+	 value for frame_saved_regs was computed above.  */
       if ((inst & 0xffffc000) == 0x6fc10000)
-	{
-	  save_sp = 0;
-	  frame_saved_regs->regs[SP_REGNUM] = frame_info->frame;
-	}
+	save_sp = 0;
 
       /* Account for general and floating-point register saves.  */
       reg = inst_saves_gr (inst);

@@ -7,5 +7,5 @@
 
 DEFAULT_VECTOR=bfd_elf32_i386_vec
 
-SELECT_VECS=nlm32_i386_vec i386coff_vec
+SELECT_VECS=nlm32_i386_vec i386coff_vec i386aout_vec
 SELECT_ARCHITECTURES=bfd_i386_arch

@@ -1,3 +1,22 @@
+# Makefile for regression testing the GNU debugger.
+#   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+
+# This file is part of GDB.
+
+# GDB is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# GDB is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING.  If not, write to
+# the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+
 srcdir = .
 prefix = /usr/local
 program_transform_name =
@@ -31,8 +50,9 @@ INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
 
 CFLAGS = -g
+# start-sanitize-chill
 CHILLFLAGS = $(CFLAGS)
-CHILL_LIB = -lchill
+# end-sanitize-chill
 # This should probably be consistent with the top-level Makefile.in,
 # gdb/Makefile.in, and gdb/testsuite/gdb.t2*/Makefile.in, so that "make check"
 # has the same effect no matter where it is run.
@@ -40,15 +60,21 @@ CXXFLAGS = -g -O
 
 LINK=		ln -s
 SUBDIRS=
-RUNTEST = runtest
-RUNTESTFLAGS = 
 
-RUNTEST_FOR_TARGET = ` \
-  if [ -f $${rootme}/../../dejagnu/site.exp ] ; then \
-    echo $${rootme}/../../dejagnu/runtest ; \
+EXPECT = `if [ -f $${rootme}/../../expect/expect ] ; then \
+          echo $${rootme}/../../expect/expect ; \
+          else echo expect ; fi`
+
+RUNTEST = $(RUNTEST_FOR_TARGET)
+
+RUNTESTFLAGS =
+
+RUNTEST_FOR_TARGET = `\
+  if [ -f $${srcdir}/../../dejagnu/runtest ]; then \
+    echo $${srcdir}/../../dejagnu/runtest; \
   else \
-    if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
-      echo $(RUNTEST); \
+    if [ "$(host_canonical)" = "$(target_canonical)" ]; then \
+      echo runtest; \
     else \
       t='$(program_transform_name)'; echo runtest | sed -e '' $$t; \
     fi; \
@@ -77,24 +103,12 @@ CXX_FOR_TARGET = ` \
     fi; \
   fi`
 
+# start-sanitize-chill
 CHILLFLAGS = $(CFLAGS)
 CHILL = gcc
 CHILL_FOR_TARGET = ` \
-  if [ -f $${rootme}/../../gcc/xgcc ] ; then \
-    echo $${rootme}/../../gcc/xgcc -B$${rootme}/../../gcc/ -L$${rootme}/../../chillrt/; \
-  else \
-    if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
-      echo $(CC); \
-    else \
-      t='$(program_transform_name)'; echo gcc | sed -e '' $$t; \
-    fi; \
-  fi`
-
-CHILL_LIB = -lchill
-
-CHILL = ` \
   if [ -f $${rootme}/../../gcc/Makefile ] ; then \
-    echo $${rootme}/../../gcc/xgcc -B$${rootme}../../gcc/ -L$${rootme}../../chillrt/; \
+    echo $${rootme}/../../gcc/xgcc -B$${rootme}../../gcc/; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo gcc; \
@@ -102,6 +116,16 @@ CHILL = ` \
       t='$(program_transform_name)'; echo gcc | sed -e '' $$t; \
     fi; \
   fi`
+CHILL = $(CHILL_FOR_TARGET)
+
+CHILL_LIB = ` \
+  if [ -f $${rootme}/../../gcc/ch/runtime/libchill.a ] ; then \
+    echo $${rootme}/../../gcc/ch/runtime/chillrt0.o \
+      $${rootme}/../../gcc/ch/runtime/libchill.a; \
+  else \
+      echo -lchill; \
+  fi`
+# end-sanitize-chill
 
 GDB = ` \
   if [ -f $${rootme}/../gdb ] ; \
@@ -111,14 +135,11 @@ GDB = ` \
 
 GDBFLAGS = -nx
 
-EXPECT = `if [ -f $${rootme}/../../expect/expect ] ; \
-	then echo $${rootme}/../../expect/expect ; \
-	else echo expect; fi`
-
 #### host, target, and site specific Makefile frags come in here.
 
 # The use of $$(x_FOR_TARGET) reduces the command line length by not
 # duplicating the lengthy definition.
+
 TARGET_FLAGS_TO_PASS = \
         "prefix=$(prefix)" \
         "exec_prefix=$(exec_prefix)" \
@@ -126,10 +147,12 @@ TARGET_FLAGS_TO_PASS = \
         'CC=$$(CC_FOR_TARGET)' \
         "CC_FOR_TARGET=$(CC_FOR_TARGET)" \
         "CFLAGS=$(CFLAGS)" \
+	$(start-sanitize-chill) \
         "CHILLFLAGS=$(CHILLFLAGS)" \
         'CHILL=$$(CHILL_FOR_TARGET)' \
         "CHILL_FOR_TARGET=$(CHILL_FOR_TARGET)" \
         "CHILL_LIB=$(CHILL_LIB)" \
+	$(end-sanitize-chill) \
         'CXX=$$(CXX_FOR_TARGET)' \
         "CXX_FOR_TARGET=$(CXX_FOR_TARGET)" \
         "CXXFLAGS=$(CXXFLAGS)" \
@@ -164,18 +187,9 @@ site.exp: ./config.status Makefile
 	@echo "# Do not edit here. If you wish to override these values" >> ./tmp0
 	@echo "# add them to the last section" >> ./tmp0
 	@echo "set GDBFLAGS \"${GDBFLAGS}\"" >> ./tmp0
-	@echo "set host_os ${host_os}" >> ./tmp0
-	@echo "set host_alias ${host_alias}" >> ./tmp0
-	@echo "set host_cpu ${host_cpu}" >> ./tmp0
-	@echo "set host_vendor ${host_vendor}" >> ./tmp0
-	@echo "set target_os ${target_os}" >> ./tmp0
-	@echo "set target_alias ${target_alias}" >> ./tmp0
-	@echo "set target_cpu ${target_cpu}" >> ./tmp0
-	@echo "set target_vendor ${target_vendor}" >> ./tmp0
 	@echo "set host_triplet ${host_canonical}" >> ./tmp0
 	@echo "set target_triplet ${target_canonical}" >> ./tmp0
 	@echo "set srcdir ${srcdir}" >> ./tmp0
-		@echo "set objdir `pwd`" >> ./tmp0
 	@echo "set tool gdb" >> ./tmp0
 	@echo "## All variables above are generated by configure. Do Not Edit ##" >> ./tmp0
 		@cat ./tmp0 > site.exp
@@ -184,10 +198,17 @@ site.exp: ./config.status Makefile
 	-@rm -f ./tmp?
 
 installcheck:
+
 check: site.exp all just-check
+
 just-check:
 	rootme=`pwd`; export rootme; \
-	$(RUNTEST_FOR_TARGET) $(RUNTESTFLAGS) --tool gdb GDB=$(GDB) --srcdir $(srcdir)
+	srcdir=${srcdir} ; export srcdir ; \
+	EXPECT=${EXPECT} ; export EXPECT ; \
+	if [ -f $${rootme}/../../expect/expect ] ; then  \
+	  TCL_LIBRARY=$${srcdir}/../../tcl/library ; \
+	  export TCL_LIBRARY ; fi ; \
+	$(RUNTEST) $(RUNTESTFLAGS) GDB=$(GDB)
 
 subdir_do: force
 	@for i in $(DODIRS); do \
@@ -231,7 +252,9 @@ distclean realclean: clean
 	for dir in ${SUBDIRS}; \
 	do \
 		echo "$$dir:"; \
-		(cd $$dir; $(MAKE) distclean); \
+		if [ -d $$dir ]; then \
+			(cd $$dir; $(MAKE) distclean); \
+		fi; \
 	done
 
 Makefile : $(srcdir)/Makefile.in $(srcdir)/configure.in $(host_makefile_frag) $(target_makefile_frag)

@@ -419,7 +419,7 @@ const struct mips_opcode mips_opcodes[] = {
 {"neg.s",   "D,V",	0x46000007, 0xffff003f,	WR_D|RD_S	},
 /* nop is at the start of the table.  */
 {"nor",     "d,v,t",	0x00000027, 0xfc0007ff,	WR_d|RD_s|RD_t	},
-{"nor",     "d,v,I",	0,    (int) M_NOR_I,	INSN_MACRO	},
+{"nor",     "t,r,I",	0,    (int) M_NOR_I,	INSN_MACRO	},
 {"not",     "d,v",	0x00000027, 0xfc0007ff,	WR_d|RD_s|RD_t	}, /* nor d,s,zero */
 {"or",      "d,v,t",	0x00000025, 0xfc0007ff,	WR_d|RD_s|RD_t	},
 {"or",      "t,r,I",	0,    (int) M_OR_I,	INSN_MACRO	},
@@ -491,7 +491,7 @@ const struct mips_opcode mips_opcodes[] = {
 {"sne",     "d,v,t",	0,    (int) M_SNE,	INSN_MACRO	},
 {"sne",     "d,v,I",	0,    (int) M_SNE_I,	INSN_MACRO	},
 {"sqrt.d",  "D,S",	0x46200004, 0xffff003f, WR_D|RD_S|I2	},
-{"sqrt.w",  "D,S",	0x46000004, 0xffff003f, WR_D|RD_S|I2	},
+{"sqrt.s",  "D,S",	0x46000004, 0xffff003f, WR_D|RD_S|I2	},
 {"srav",    "d,t,s",	0x00000007, 0xfc0007ff,	WR_d|RD_t|RD_s	},
 {"sra",     "d,w,s",	0x00000007, 0xfc0007ff,	WR_d|RD_t|RD_s	}, /* srav */
 {"sra",     "d,w,<",	0x00000003, 0xffe0003f,	WR_d|RD_t	},

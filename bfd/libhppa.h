@@ -1,5 +1,5 @@
 /* HP PA-RISC SOM object file format:  definitions internal to BFD.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -24,6 +24,7 @@
 #define _HPPA_H
 
 #define BYTES_IN_WORD 4
+#define PA_PAGESIZE 0x1000
 
 #ifndef INLINE
 #ifdef __GNUC__
@@ -307,20 +308,22 @@ hppa_field_adjust (value, constant_value, r_field)
      unsigned long constant_value;
      unsigned short r_field;
 {
-  value += constant_value;
   switch (r_field)
     {
     case e_fsel:		/* F  : no change                      */
+      value += constant_value;
       break;
 
     case e_lssel:		/* LS : if (bit 21) then add 0x800
 				   arithmetic shift right 11 bits */
+      value += constant_value;
       if (value & 0x00000400)
 	value += 0x800;
       value = (value & 0xfffff800) >> 11;
       break;
 
     case e_rssel:		/* RS : Sign extend from bit 21        */
+      value += constant_value;
       if (value & 0x00000400)
 	value |= 0xfffff800;
       else
@@ -328,20 +331,24 @@ hppa_field_adjust (value, constant_value, r_field)
       break;
 
     case e_lsel:		/* L  : Arithmetic shift right 11 bits */
+      value += constant_value;
       value = (value & 0xfffff800) >> 11;
       break;
 
     case e_rsel:		/* R  : Set bits 0-20 to zero          */
+      value += constant_value;
       value = value & 0x7ff;
       break;
 
     case e_ldsel:		/* LD : Add 0x800, arithmetic shift
 				   right 11 bits                  */
+      value += constant_value;
       value += 0x800;
       value = (value & 0xfffff800) >> 11;
       break;
 
     case e_rdsel:		/* RD : Set bits 0-20 to one           */
+      value += constant_value;
       value |= 0xfffff800;
       break;
 
@@ -410,7 +417,7 @@ hppa_field_adjust (value, constant_value, r_field)
    FIXME:  opcodes which do not map to a known format
    should return an error of some sort.  */
 
-static char
+static INLINE char
 bfd_hppa_insn2fmt (insn)
      unsigned long insn;
 {
@@ -465,5 +472,70 @@ bfd_hppa_insn2fmt (insn)
   return fmt;
 }
 
+
+/* Insert VALUE into INSN using R_FORMAT to determine exactly what
+   bits to change.  */
+   
+static INLINE unsigned long
+hppa_rebuild_insn (abfd, insn, value, r_format)
+     bfd *abfd;
+     unsigned long insn;
+     unsigned long value;
+     unsigned long r_format;
+{
+  unsigned long const_part;
+  unsigned long rebuilt_part;
+
+  switch (r_format)
+    {
+    case 11:
+      {
+	unsigned w1, w;
+
+	const_part = insn & 0xffffe002;
+	dis_assemble_12 (value, &w1, &w);
+	rebuilt_part = (w1 << 2) | w;
+	return const_part | rebuilt_part;
+      }
+
+    case 12:
+      {
+	unsigned w1, w;
+
+	const_part = insn & 0xffffe002;
+	dis_assemble_12 (value, &w1, &w);
+	rebuilt_part = (w1 << 2) | w;
+	return const_part | rebuilt_part;
+      }
+
+    case 14:
+      const_part = insn & 0xffffc000;
+      low_sign_unext (value, 14, &rebuilt_part);
+      return const_part | rebuilt_part;
+
+    case 17:
+      {
+	unsigned w1, w2, w;
+
+	const_part = insn & 0xffe0e002;
+	dis_assemble_17 (value, &w1, &w2, &w);
+	rebuilt_part = (w2 << 2) | (w1 << 16) | w;
+	return const_part | rebuilt_part;
+      }
+
+    case 21:
+      const_part = insn & 0xffe00000;
+      dis_assemble_21 (value, &rebuilt_part);
+      return const_part | rebuilt_part;
+
+    case 32:
+      const_part = 0;
+      return value;
+
+    default:
+      abort ();
+    }
+  return insn;
+}
 
 #endif /* _HPPA_H */

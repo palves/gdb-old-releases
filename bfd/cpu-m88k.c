@@ -1,5 +1,5 @@
 /* bfd back-end for m88k support
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -41,7 +41,8 @@ static bfd_arch_info_type arch_info_struct =
     0, /* disassemble */
   };
 
-void DEFUN_VOID(bfd_m88k_arch)
+void
+bfd_m88k_arch ()
 {
   bfd_arch_linkin(&arch_info_struct);
 }

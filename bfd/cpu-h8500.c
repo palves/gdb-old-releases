@@ -29,14 +29,14 @@ Relocations for the Z8K
 
 */
 static bfd_reloc_status_type 
-DEFUN(howto16_callback,(abfd, reloc_entry, symbol_in, data,
-			ignore_input_section, ignore_bfd),
-      bfd *abfd AND
-      arelent *reloc_entry AND
-      struct symbol_cache_entry *symbol_in AND
-      PTR data AND
-      asection *ignore_input_section AND
-      bfd *ignore_bfd)
+howto16_callback (abfd, reloc_entry, symbol_in, data,
+		  ignore_input_section, ignore_bfd)
+     bfd *abfd;
+     arelent *reloc_entry;
+     struct symbol_cache_entry *symbol_in;
+     PTR data;
+     asection *ignore_input_section;
+     bfd *ignore_bfd;
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -52,14 +52,14 @@ DEFUN(howto16_callback,(abfd, reloc_entry, symbol_in, data,
 
 
 static bfd_reloc_status_type 
-DEFUN(howto8_callback,(abfd, reloc_entry, symbol_in, data,
-		       ignore_input_section, ignore_bfd),
-      bfd *abfd AND
-      arelent *reloc_entry AND
-      struct symbol_cache_entry *symbol_in AND
-      PTR data AND
-      asection *ignore_input_section AND
-      bfd *ignore_bfd)
+howto8_callback (abfd, reloc_entry, symbol_in, data,
+		 ignore_input_section, ignore_bfd)
+     bfd *abfd;
+     arelent *reloc_entry;
+     struct symbol_cache_entry *symbol_in;
+     PTR data;
+     asection *ignore_input_section;
+     bfd *ignore_bfd;
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -75,14 +75,14 @@ DEFUN(howto8_callback,(abfd, reloc_entry, symbol_in, data,
 
 
 static bfd_reloc_status_type 
-DEFUN(howto8_FFnn_callback,(abfd, reloc_entry, symbol_in, data,
-			    ignore_input_section, ignore_bfd),
-      bfd *abfd AND
-      arelent *reloc_entry AND
-      struct symbol_cache_entry *symbol_in AND
-      PTR data AND
-      asection *ignore_input_section AND
-      bfd *ignore_bfd)
+howto8_FFnn_callback (abfd, reloc_entry, symbol_in, data,
+		      ignore_input_section, ignore_bfd)
+     bfd *abfd;
+     arelent *reloc_entry;
+     struct symbol_cache_entry *symbol_in;
+     PTR data;
+     asection *ignore_input_section;
+     bfd *ignore_bfd;
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -98,14 +98,14 @@ DEFUN(howto8_FFnn_callback,(abfd, reloc_entry, symbol_in, data,
 }
 
 static bfd_reloc_status_type 
-DEFUN(howto8_pcrel_callback,(abfd, reloc_entry, symbol_in, data,
-			     ignore_input_section, ignore_bfd),
-      bfd *abfd AND
-      arelent *reloc_entry AND
-      struct symbol_cache_entry *symbol_in AND
-      PTR data AND
-      asection *ignore_input_section AND
-      bfd *ignore_bfd)
+howto8_pcrel_callback (abfd, reloc_entry, symbol_in, data,
+		       ignore_input_section, ignore_bfd)
+     bfd *abfd;
+     arelent *reloc_entry;
+     struct symbol_cache_entry *symbol_in;
+     PTR data;
+     asection *ignore_input_section;
+     bfd *ignore_bfd;
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -134,9 +134,9 @@ static reloc_howto_type howto_8_pcrel
 
 
 static CONST struct reloc_howto_struct *
-DEFUN(local_bfd_reloc_type_lookup,(arch, code),
- CONST struct bfd_arch_info *arch AND
- bfd_reloc_code_real_type code)
+local_bfd_reloc_type_lookup (arch, code)
+     CONST struct bfd_arch_info *arch;
+     bfd_reloc_code_real_type code;
 {
   switch (code) {
   case BFD_RELOC_16:
@@ -155,9 +155,9 @@ DEFUN(local_bfd_reloc_type_lookup,(arch, code),
 int bfd_default_scan_num_mach();
 
 static boolean 
-DEFUN(scan_mach,(info, string),
-CONST struct bfd_arch_info *info AND
-CONST char *string)
+scan_mach (info, string)
+     CONST struct bfd_arch_info *info;
+     CONST char *string;
 {
   if (strcmp(string,"h8/500") == 0) return true;
   if (strcmp(string,"H8/500") == 0) return true;
@@ -172,9 +172,9 @@ CONST char *string)
    they'd be compatible */
 
 static CONST bfd_arch_info_type *
-DEFUN(compatible,(a,b),
-      CONST bfd_arch_info_type *a AND
-      CONST bfd_arch_info_type *b)
+compatible (a,b)
+     CONST bfd_arch_info_type *a;
+     CONST bfd_arch_info_type *b;
 {
   if (a->arch != b->arch || a->mach != b->mach)
    return NULL;
@@ -204,7 +204,7 @@ static bfd_arch_info_type arch_info_struct[] =
 
 
 void
-DEFUN_VOID(bfd_h8500_arch)
+bfd_h8500_arch()
 {
   bfd_arch_linkin(&arch_info_struct[0]);
 }

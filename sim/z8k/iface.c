@@ -1,5 +1,5 @@
 /* gdb->simulator interface.
-   Copyright (C) 1992, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
 
 This file is part of Z8KSIM
 
@@ -23,21 +23,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "signal.h"
 #include "remote-sim.h"
 
-int
-sim_clear_breakpoints ()
-{
-  return 1;
-}
-
-int
-sim_set_pc (addr)
-     SIM_ADDR addr;
-{
-  tm_store_register (REG_PC, addr);
-  return 0;
-}
-
-int
+void
 sim_store_register (regno, value)
      int regno;
      unsigned char *value;
@@ -46,16 +32,14 @@ sim_store_register (regno, value)
   int regval = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
 
   tm_store_register (regno, regval);
-  return 0;
 }
 
-int
+void
 sim_fetch_register (regno, buf)
      int regno;
      unsigned char *buf;
 {
   tm_fetch_register (regno, buf);
-  return 0;
 }
 
 int
@@ -84,8 +68,7 @@ sim_read (where, what, howmuch)
   return howmuch;
 }
 
-static
-void 
+static void 
 control_c (sig, code, scp, addr)
      int sig;
      int code;
@@ -95,7 +78,7 @@ control_c (sig, code, scp, addr)
   tm_exception (SIM_INTERRUPT);
 }
 
-int
+void
 sim_resume (step, sig)
      int step;
      int sig;
@@ -105,10 +88,9 @@ sim_resume (step, sig)
   prev = signal (SIGINT, control_c);
   tm_resume (step);
   signal (SIGINT, prev);
-  return 0;
 }
 
-int
+void
 sim_stop_reason (reason, sigrc)
      enum sim_stop *reason;
      int *sigrc;
@@ -139,22 +121,57 @@ sim_stop_reason (reason, sigrc)
     case SIM_DONE:
       *sigrc = 1;
       *reason = sim_exited;
-      return 0;
+      return;
     default:
       abort ();
     }
   *reason = sim_stopped;
-  return 0;
 }
 
-int
-sim_info (printf_fn, verbose)
-     void (*printf_fn)();
+void
+sim_info (verbose)
      int verbose;
 {
   sim_state_type x;
 
   tm_state (&x);
   tm_info_print (&x);
-  return 0;
+}
+
+void
+sim_open (args)
+     char *args;
+{
+  /* nothing to do */
+}
+
+void
+sim_close (quitting)
+     int quitting;
+{
+  /* nothing to do */
+}
+
+int
+sim_load (prog, from_tty)
+     char *prog;
+     int from_tty;
+{
+  /* Return non-zero so gdb will handle it.  */
+  return 1;
+}
+
+void
+sim_create_inferior (start_address, argv, env)
+     SIM_ADDR start_address;
+     char **argv;
+     char **env;
+{
+  tm_store_register (REG_PC, start_address);
+}
+
+void
+sim_kill ()
+{
+  /* nothing to do */
 }

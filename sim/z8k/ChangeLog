@@ -1,3 +1,32 @@
+Wed May 18 14:38:49 1994  Doug Evans  (dje@canuck.cygnus.com)
+
+	* support.c (sim_open): Delete from here.
+	(sim_set_args): Delete from here.
+	(sim_kill): Delete from here.
+	* iface.c (sim_*): Make result void where there isn't one.
+	(sim_clear_breakpoints): Delete.
+	(sim_set_pc): Delete.
+	(sim_info): Delete printf_fn arg, all callers changed.
+	(sim_open): Define here.
+	(sim_close): New function.
+	(sim_load): New function.
+	(sim_create_inferior): Renamed from sim_set_args.
+	(sim_kill): Define here.
+	* run.c (printf): Delete declaration.
+	(main): Call sim_create_inferior instead of sim_set_pc.
+	* sim.h (sim_clear_breakpoints): Delete.
+
+Wed May 18 13:22:02 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* writecode.c (main): Disable the chopping of large initializers.
+	GCC can now cope.
+
+Sat May  7 17:24:46 1994  Steve Chamberlain  (sac@cygnus.com)
+
+	* writecode.c (info_args): Add resflg and setflg.
+	* list.c : Regenerated.
+	* Makefile.in: First rule is now called 'all'
+
 Sat Dec 11 16:39:30 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
 
 	* iface.c (sim_store_register): Get regval the right way up.

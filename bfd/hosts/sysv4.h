@@ -19,6 +19,12 @@
 #define SEEK_CUR 1
 
 #define POSIX_UTIME
+
+/* Note that we also use this for ptx4 (sequent).  ptx4 does not
+   really have procfs, but it has the relevant headers for BFD to read
+   core files, so the proper thing to do for ptx4 is define
+   HAVE_PROCFS in BFD but not GDB.  */
+
 #define HAVE_PROCFS	/* This host has /proc support */
 
 extern void	abort	PARAMS ((void));
@@ -31,14 +37,12 @@ extern int	getgid	PARAMS (());
 extern int	getuid	PARAMS (());
 extern PTR	malloc	PARAMS ((unsigned));
 extern void	perror	PARAMS ((CONST char *));
-extern int	qsort	PARAMS ((void *data, int els, int siz, int func()));
 extern PTR	realloc	PARAMS ((PTR, unsigned));
 
 extern char *getenv();
 extern int chmod();
 extern int fstat();
 extern int stat();
-extern int strtol();
 
 extern char *ctime();
 extern int _flsbuf();

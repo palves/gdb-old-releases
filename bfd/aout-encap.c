@@ -1,5 +1,5 @@
 /* BFD back-end for a.out files encapsulated with COFF headers.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -23,7 +23,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	PAGE_SIZE	4096
 #define	SEGMENT_SIZE	PAGE_SIZE
 #define TEXT_START_ADDR 0
-#define ARCH 32
 #define BYTES_IN_WORD 4
 #endif
 
@@ -35,11 +34,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "aout/ar.h"
 #include "libaout.h"           /* BFD a.out internal data structures */
 
-bfd_target *encap_real_callback ();
+const bfd_target *encap_real_callback ();
 
-bfd_target *
-DEFUN(encap_object_p,(abfd),
-     bfd *abfd)
+const bfd_target *
+encap_object_p (abfd)
+     bfd *abfd;
 {
   unsigned char magicbuf[4]; /* Raw bytes of magic number from file */
   unsigned long magic;		/* Swapped magic number */
@@ -47,11 +46,13 @@ DEFUN(encap_object_p,(abfd),
   struct external_exec exec_bytes;
   struct internal_exec exec;
 
-  bfd_error = system_call_error;
-
   if (bfd_read ((PTR)magicbuf, 1, sizeof (magicbuf), abfd) !=
       sizeof (magicbuf))
-    return 0;
+    {
+      if (bfd_get_error () != bfd_error_system_call)
+	bfd_set_error (bfd_error_wrong_format);
+      return 0;
+    }
   
   coff_magic = bfd_h_get_16 (abfd, magicbuf);
   if (coff_magic != COFF_MAGIC)
@@ -67,7 +68,8 @@ DEFUN(encap_object_p,(abfd),
   struct external_exec exec_bytes;
   if (bfd_read ((PTR) &exec_bytes, 1, EXEC_BYTES_SIZE, abfd)
       != EXEC_BYTES_SIZE) {
-    bfd_error = wrong_format;
+    if (bfd_get_error () != bfd_error_system_call)
+      bfd_set_error (bfd_error_wrong_format);
     return 0;
   }
   NAME(aout,swap_exec_header_in)(abfd, &exec_bytes, &exec);
@@ -76,9 +78,9 @@ DEFUN(encap_object_p,(abfd),
 }
 
 /* Finish up the reading of a encapsulated-coff a.out file header */
-bfd_target *
-DEFUN(encap_real_callback,(abfd),
-      bfd *abfd)
+const bfd_target *
+encap_real_callback (abfd)
+     bfd *abfd;
 {
   struct internal_exec *execp = exec_hdr (abfd);
   
@@ -118,8 +120,8 @@ DEFUN(encap_real_callback,(abfd),
    file header, symbols, and relocation.  */
 
 boolean
-DEFUN(encap_write_object_contents,(abfd),
-      bfd *abfd)
+encap_write_object_contents (abfd)
+     bfd *abfd;
 {
   bfd_size_type data_pad = 0;
   struct external_exec exec_bytes;
@@ -145,7 +147,7 @@ int need_coff_header;
     {
       need_coff_header = 1;
       /* set this flag now, since it will change the values of N_TXTOFF, etc */
-      N_SET_FLAGS (outheader, N_FLAGS_COFF_ENCAPSULATE);
+      N_SET_FLAGS (outheader, aout_backend_info (abfd)->exec_hdr_flags);
       text_size += sizeof (struct coffheader);
     }
 #endif
@@ -229,5 +231,6 @@ int need_coff_header;
 
 #define MY_write_object_content encap_write_object_contents
 #define MY_object_p encap_object_p
+#define MY_exec_hdr_flags N_FLAGS_COFF_ENCAPSULATE
 
 #include "aout-target.h"

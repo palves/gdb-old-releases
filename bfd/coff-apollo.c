@@ -1,5 +1,5 @@
 /* BFD back-end for Apollo 68000 COFF binaries.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    By Troy Rollo (troy@cbme.unsw.edu.au)
    Based on m68k standard COFF version Written by Cygnus Support.
 
@@ -100,11 +100,11 @@ apollo_howto2rtype (internal)
   apollo_rtype2howto(internal, (relocentry)->r_type)
 
 #define SELECT_RELOC(external, internal) \
-  external = apollo_howto2rtype(internal);
+  external.r_type = apollo_howto2rtype(internal);
 
 #include "coffcode.h"
 
-bfd_target 
+const bfd_target 
 #ifdef TARGET_SYM
   TARGET_SYM =
 #else
@@ -147,7 +147,15 @@ bfd_target
  {bfd_false, coff_write_object_contents, /* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(coff),
-/*  0, coff_make_debug_symbol, */
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE
  };

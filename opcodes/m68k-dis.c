@@ -16,9 +16,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "dis-asm.h"
-#include "ieee-float.h"
-
-extern CONST struct ext_format ext_format_68881;
+#include "floatformat.h"
 
 /* Opcode/m68k.h is a massive table.  As a kludge, break it up into
    two pieces.  This makes nonportable C -- FIXME -- it assumes that
@@ -207,6 +205,10 @@ print_insn_m68k (memaddr, info)
     {
       register unsigned long opcode = m68k_opcodes[i].opcode;
       register unsigned long match = m68k_opcodes[i].match;
+
+      if (m68k_opcodes[i].flags & F_ALIAS)
+	continue;
+
       if (((0xff & buffer[0] & (match >> 24)) == (0xff & (opcode >> 24)))
 	  && ((0xff & buffer[1] & (match >> 16)) == (0xff & (opcode >> 16)))
 	  /* Only fetch the next two bytes if we need to.  */
@@ -272,6 +274,7 @@ print_insn_m68k (memaddr, info)
 	case '7':
 	case '8':
 	case '9':
+	case 'i':
 	  if (p - buffer < 4)
 	    p = buffer + 4;
 	  break;
@@ -587,8 +590,6 @@ print_insn_arg (d, buffer, p0, addr, info)
       
       if (val != 1)				/* Unusual coprocessor ID? */
 	(*info->fprintf_func) (info->stream, "(cpid=%d) ", val);
-      if (place == 'i')
-	p += 2;			     /* Skip coprocessor extended operands */
       break;
 
     case '*':
@@ -698,8 +699,9 @@ print_insn_arg (d, buffer, p0, addr, info)
 		  break;
 
 		case 'x':
-		  ieee_extended_to_double (&ext_format_68881,
-					   (char *)p, &flval);
+		  FETCH_DATA (info, p + 12);
+		  floatformat_to_double (&floatformat_m68881_ext,
+					 (char *) p, &flval);
 		  p += 12;
 		  break;
 

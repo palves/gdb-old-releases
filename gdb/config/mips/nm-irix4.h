@@ -34,3 +34,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    config file?  */
 
 #define	ONE_PROCESS_WRITETEXT
+
+/* Temporary new watchpoint stuff */
+#define TARGET_CAN_USE_HARDWARE_WATCHPOINT(type, cnt, ot) \
+	((type) == bp_hardware_watchpoint)
+
+/* When a hardware watchpoint fires off the PC will be left at the
+   instruction which caused the watchpoint.  It will be necessary for
+   GDB to step over the watchpoint. */
+
+#define STOPPED_BY_WATCHPOINT(W) \
+  procfs_stopped_by_watchpoint(inferior_pid)
+
+#define HAVE_NONSTEPPABLE_WATCHPOINT
+
+/* Use these macros for watchpoint insertion/deletion.  */
+/* type can be 0: write watch, 1: read watch, 2: access watch (read/write) */
+#define target_insert_watchpoint(addr, len, type) procfs_set_watchpoint (inferior_pid, addr, len, 2)
+#define target_remove_watchpoint(addr, len, type) procfs_set_watchpoint (inferior_pid, addr, 0, 0)

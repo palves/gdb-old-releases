@@ -184,7 +184,7 @@ typedef struct pdr {
  * for use by the static exception system.
  */
 typedef struct runtime_pdr {
-	unsigned long	adr;	/* memory address of start of procedure */
+	bfd_vma	adr;		/* memory address of start of procedure */
 	long	regmask;	/* save register mask */
 	long	regoffset;	/* save register offset */
 	long	fregmask;	/* save floating point register mask */
@@ -224,7 +224,7 @@ typedef	long LINER, *pLINER;
 
 typedef struct {
 	long	iss;		/* index into String Space of name */
-	long	value;		/* value of symbol */
+	bfd_vma	value;		/* value of symbol */
 	unsigned st : 6;	/* symbol type */
 	unsigned sc  : 5;	/* storage class - text, data, etc */
 	unsigned reserved : 1;	/* reserved */

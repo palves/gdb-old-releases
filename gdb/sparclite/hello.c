@@ -27,9 +27,20 @@ foo(arg)
   return arg+1;
 }
 
+int
+fact (i)
+     int i;
+{
+  if (i == 1)
+    return 1;
+  else
+    return i * fact ( i - 1);
+}
+
 main()
 {
   unsigned char c = 0;
+  int num;
 
   cache_on();
 
@@ -37,6 +48,8 @@ main()
   breakpoint();
 
   writez(1, "Got to here\n");
+
+  num = fact(10);
 
   while (1)
     {

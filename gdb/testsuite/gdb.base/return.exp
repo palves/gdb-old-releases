@@ -1,0 +1,125 @@
+# Copyright (C) 1992 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# This file was written by Jeff Law. (law@cs.utah.edu)
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set binfile "return"
+set srcfile $binfile.c
+
+if ![file exists $objdir/$subdir/$binfile] then {
+    # FIXME: should we warn if $all_flag like gdb.stabs/wierd.exp does?
+    return 0
+}
+
+proc return_tests { } {
+    global prompt
+
+
+    if { ! [ runto func1 ] } then { return 0 }
+    send "return\n"
+    expect {
+	-re "Make .* return now.*y or n. $" {
+	    send "y\n"
+	    exp_continue
+	}
+	-re "func1 ..;.*$prompt $" {
+	    send "step\n"
+	    exp_continue
+	}
+    -re ".*in main after func1.*$prompt $" { pass "simple return" }
+    -re "$prompt $" { fail "simple return" }
+    timeout { fail "(timeout) simple return" }
+    }
+
+    # Set breakpoints in other interesting functions.
+    send "break func2\n" ; expect -re ".*$prompt $"
+    send "break func3\n" ; expect -re ".*$prompt $"
+
+    gdb_test "continue" "return -5"
+    send "return 5\n"
+    expect {
+	-re "Make .* return now.*y or n. $" {
+	    send "y\n"
+	    exp_continue
+	}
+    -re ".*func2 =.*$prompt $" { }
+    -re "$prompt $" { fail "did not return (integer test)" }
+    timeout { fail "(timeout) did not return (integer test)" }
+    }
+    gdb_test "next" "func2 = 5"
+
+    gdb_test "continue" "return -5.0"
+    send "return 5.0\n"
+    expect {
+	-re "Make .* return now.*y or n. $" {
+	    send "y\n"
+	    exp_continue
+	}
+    -re ".*func3 =.*$prompt $" { }
+    -re "$prompt $" { fail "did not return (double test)" }
+    timeout { fail "(timeout) did not return (double test)" }
+    }
+
+    # This test is going to fail on all i*86 systems using an i*87.
+    # When returning a floating point value from a function, all known
+    # compilers do this via a `fldl' instruction, which pushes the floating
+    # value on the i387 stack. This causes two problems:
+    # a) Most i*86 targets do not store (or cannot store, see comment in
+    #    in i386v-nat.c:i386_register_u_addr) the floating point registers
+    #    to the target.
+    # b) gdb would have to figure out if the `fldl' instruction (or variants
+    #    of it) has already been executed. If not, it would have to simulate
+    #    a push instruction, as it is not enough to write the register,
+    #    the floating point `stack pointer' has to be updated too.
+    #    Do not expect this to get fixed anytime soon.
+
+    # This test also fails for sparc Solaris 2.3.
+    # At the time the `next' is issued, the floating point unit for the
+    # process is not yet initialized, and the storing of the floating
+    # point value to the floating point return register is ignored.
+    # The test is not xfailed, as future versions of Solaris might
+    # initialize the floating point unit at process start, making
+    # this test pass.
+
+    setup_xfail "i*86-*-*"
+    gdb_test "next" "func3 = 5.0" \
+	     "return double value (known problem with sparc solaris)"
+}
+
+
+# Start with a fresh gdb.
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load $objdir/$subdir/$binfile
+
+set oldtimeout $timeout
+set timeout 120
+
+return_tests
+
+set timeout $oldtimeout

@@ -1,5 +1,5 @@
 /* BFD back-end for HPPA BSD core files.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -57,7 +57,7 @@ static asection *make_bfd_asection PARAMS ((bfd *, CONST char *,
 					    flagword, bfd_size_type,
 					    bfd_vma, unsigned int));
 static asymbol *hppabsd_core_make_empty_symbol PARAMS ((bfd *));
-static bfd_target *hppabsd_core_core_file_p PARAMS ((bfd *));
+static const bfd_target *hppabsd_core_core_file_p PARAMS ((bfd *));
 static char *hppabsd_core_core_file_failing_command PARAMS ((bfd *));
 static int hppabsd_core_core_file_failing_signal PARAMS ((bfd *));
 static boolean hppabsd_core_core_file_matches_executable_p
@@ -111,11 +111,12 @@ hppabsd_core_make_empty_symbol (abfd)
      bfd *abfd;
 {
   asymbol *new = (asymbol *) bfd_zalloc (abfd, sizeof (asymbol));
-  new->the_bfd = abfd;
+  if (new)
+    new->the_bfd = abfd;
   return new;
 }
 
-static bfd_target *
+static const bfd_target *
 hppabsd_core_core_file_p (abfd)
      bfd *abfd;
 {
@@ -129,13 +130,23 @@ hppabsd_core_core_file_p (abfd)
   val = bfd_read ((void *) &u, 1, sizeof u, abfd);
   if (val != sizeof u)
     {
-      bfd_error = wrong_format;
+      if (bfd_get_error () != bfd_error_system_call)
+	bfd_set_error (bfd_error_wrong_format);
       return NULL;
     }
 
   /* Get the page size out of the u structure.  This will be different
      for PA 1.0 machines and PA 1.1 machines.   Yuk!  */
   clicksz = u.u_pcb.pcb_pgsz;
+
+  /* clicksz must be a power of two >= 2k.  */
+  if (clicksz < 0x800
+      || clicksz != (clicksz & -clicksz))
+    {
+      bfd_set_error (bfd_error_wrong_format);
+      return NULL;
+    }
+
 
   /* Sanity checks.  Make sure the size of the core file matches the
      the size computed from information within the core itself.  */
@@ -144,19 +155,19 @@ hppabsd_core_core_file_p (abfd)
     struct stat statbuf;
     if (stream == NULL || fstat (fileno (stream), &statbuf) < 0)
       {
-	bfd_error = system_call_error;
+	bfd_set_error (bfd_error_system_call);
 	return NULL;
       }
     if (NBPG * (UPAGES + u.u_dsize + u.u_ssize) > statbuf.st_size)
       {
-	bfd_error = file_truncated;
+	bfd_set_error (bfd_error_file_truncated);
 	return NULL;
       }
     if (clicksz * (UPAGES + u.u_dsize + u.u_ssize) < statbuf.st_size)
       {
 	/* The file is too big.  Maybe it's not a core file
 	   or we otherwise have bad values for u_dsize and u_ssize).  */
-	bfd_error = wrong_format;
+	bfd_set_error (bfd_error_wrong_format);
 	return NULL;
       }
   }
@@ -165,6 +176,11 @@ hppabsd_core_core_file_p (abfd)
 
   coredata = (struct hppabsd_core_struct *)
     bfd_zalloc (abfd, sizeof (struct hppabsd_core_struct));
+  if (!coredata)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return NULL;
+    }
 
   /* Make the core data and available via the tdata part of the BFD.  */
   abfd->tdata.hppabsd_core_data = coredata;
@@ -185,7 +201,7 @@ hppabsd_core_core_file_p (abfd)
   core_datasec (abfd)->vma = UDATASEG;
 
   core_regsec (abfd) = make_bfd_asection (abfd, ".reg",
-					 SEC_ALLOC + SEC_HAS_CONTENTS,
+					 SEC_HAS_CONTENTS,
 					 KSTAKSIZE * NBPG,
 					 NBPG * USIZE, 2);
   core_regsec (abfd)->vma = 0;
@@ -220,65 +236,15 @@ hppabsd_core_core_file_matches_executable_p (core_bfd, exec_bfd)
 }
 
 
-/* No archive file support via this BFD */
-#define	hppabsd_core_openr_next_archived_file \
-	bfd_generic_openr_next_archived_file
-#define	hppabsd_core_generic_stat_arch_elt	bfd_generic_stat_arch_elt
-#define	hppabsd_core_slurp_armap		bfd_false
-#define	hppabsd_core_slurp_extended_name_table	bfd_true
-#define	hppabsd_core_write_armap		(boolean (*) PARAMS	\
-    ((bfd *arch, unsigned int elength, struct orl *map, \
-      unsigned int orl_count, int stridx))) bfd_false
-#define	hppabsd_core_truncate_arname		bfd_dont_truncate_arname
-
-#define	hppabsd_core_close_and_cleanup		bfd_generic_close_and_cleanup
-#define	hppabsd_core_set_section_contents	(boolean (*) PARAMS	\
-        ((bfd *abfd, asection *section, PTR data, file_ptr offset,	\
-        bfd_size_type count))) bfd_generic_set_section_contents
-#define	hppabsd_core_get_section_contents \
-	bfd_generic_get_section_contents
-#define	hppabsd_core_new_section_hook		(boolean (*) PARAMS	\
-	((bfd *, sec_ptr))) bfd_true
-#define	hppabsd_core_get_symtab_upper_bound	bfd_0u
-#define	hppabsd_core_get_symtab			(unsigned int (*) PARAMS \
-        ((bfd *, struct symbol_cache_entry **))) bfd_0u
-#define	hppabsd_core_get_reloc_upper_bound	(unsigned int (*) PARAMS \
-	((bfd *, sec_ptr))) bfd_0u
-#define	hppabsd_core_canonicalize_reloc		(unsigned int (*) PARAMS \
-	((bfd *, sec_ptr, arelent **, struct symbol_cache_entry**))) bfd_0u
-#define	hppabsd_core_print_symbol		(void (*) PARAMS	\
-	((bfd *, PTR, struct symbol_cache_entry  *,			\
-	bfd_print_symbol_type))) bfd_false
-#define	hppabsd_core_get_symbol_info		(void (*) PARAMS	\
-	((bfd *, struct symbol_cache_entry  *,			\
-	symbol_info *))) bfd_false
-#define	hppabsd_core_get_lineno			(alent * (*) PARAMS	\
-	((bfd *, struct symbol_cache_entry *))) bfd_nullvoidptr
-#define	hppabsd_core_set_arch_mach		(boolean (*) PARAMS	\
-	((bfd *, enum bfd_architecture, unsigned long))) bfd_false
-#define	hppabsd_core_find_nearest_line		(boolean (*) PARAMS	\
-        ((bfd *abfd, struct sec  *section,				\
-         struct symbol_cache_entry  **symbols,bfd_vma offset,		\
-         CONST char **file, CONST char **func, unsigned int *line))) bfd_false
-#define	hppabsd_core_sizeof_headers		(int (*) PARAMS	\
-	((bfd *, boolean))) bfd_0
-
-#define hppabsd_core_bfd_debug_info_start	bfd_void
-#define hppabsd_core_bfd_debug_info_end		bfd_void
-#define hppabsd_core_bfd_debug_info_accumulate	(void (*) PARAMS	\
-	((bfd *, struct sec *))) bfd_void
-#define hppabsd_core_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
-#define hppabsd_core_bfd_relax_section		bfd_generic_relax_section
-#define hppabsd_core_bfd_reloc_type_lookup \
-  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
-#define hppabsd_core_bfd_make_debug_symbol \
-  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
-#define hppabsd_core_bfd_link_hash_table_create \
-  ((struct bfd_link_hash_table *(*) PARAMS ((bfd *))) bfd_nullvoidptr)
-#define hppabsd_core_bfd_link_add_symbols \
-  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
-#define hppabsd_core_bfd_final_link \
-  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
+#define hppabsd_core_get_symtab_upper_bound \
+  _bfd_nosymbols_get_symtab_upper_bound
+#define hppabsd_core_get_symtab _bfd_nosymbols_get_symtab
+#define hppabsd_core_print_symbol _bfd_nosymbols_print_symbol
+#define hppabsd_core_get_symbol_info _bfd_nosymbols_get_symbol_info
+#define hppabsd_core_bfd_is_local_label _bfd_nosymbols_bfd_is_local_label
+#define hppabsd_core_get_lineno _bfd_nosymbols_get_lineno
+#define hppabsd_core_find_nearest_line _bfd_nosymbols_find_nearest_line
+#define hppabsd_core_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
 static void
@@ -293,7 +259,7 @@ swap_abort ()
 #define	NO_SIGNED_GET \
   ((bfd_signed_vma (*) PARAMS ((const bfd_byte *))) swap_abort )
 
-bfd_target hppabsd_core_vec =
+const bfd_target hppabsd_core_vec =
   {
     "hppabsd-core",
     bfd_target_unknown_flavour,
@@ -301,7 +267,7 @@ bfd_target hppabsd_core_vec =
     true,			/* target headers byte order */
     (HAS_RELOC | EXEC_P |	/* object flags */
      HAS_LINENO | HAS_DEBUG |
-     HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
+     HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
     (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
     0,			                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */
@@ -329,7 +295,16 @@ bfd_target hppabsd_core_vec =
      bfd_false, bfd_false
     },
     
-    JUMP_TABLE(hppabsd_core),
+       BFD_JUMP_TABLE_GENERIC (_bfd_generic),
+       BFD_JUMP_TABLE_COPY (_bfd_generic),
+       BFD_JUMP_TABLE_CORE (hppabsd_core),
+       BFD_JUMP_TABLE_ARCHIVE (_bfd_noarchive),
+       BFD_JUMP_TABLE_SYMBOLS (hppabsd_core),
+       BFD_JUMP_TABLE_RELOCS (_bfd_norelocs),
+       BFD_JUMP_TABLE_WRITE (_bfd_generic),
+       BFD_JUMP_TABLE_LINK (_bfd_nolink),
+       BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
     (PTR) 0			/* backend_data */
 };
 #endif

@@ -22,6 +22,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <sys/conf.h>
 #include <sys/kernel.h>
+/* sys/kernel.h should define this, but doesn't always, sigh. */
+#ifndef __LYNXOS
+#define __LYNXOS
+#endif
 #include <sys/mem.h>
 #include <sys/signal.h>
 #include <sys/time.h>
@@ -48,7 +52,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define WIFTID(x) (((union wait *)&x)->w_tid)
 
+/* Override child_wait in inftarg.c */
+
 #define CHILD_WAIT
+
+/* Override child_resume in infptrace.c */
+
+#define CHILD_RESUME
 
 #include "target.h"
 

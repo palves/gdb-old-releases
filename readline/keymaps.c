@@ -50,9 +50,9 @@ Keymap
 rl_make_bare_keymap ()
 {
   register int i;
-  Keymap keymap = (Keymap)xmalloc (128 * sizeof (KEYMAP_ENTRY));
+  Keymap keymap = (Keymap)xmalloc (KEYMAP_SIZE * sizeof (KEYMAP_ENTRY));
 
-  for (i = 0; i < 128; i++)
+  for (i = 0; i < KEYMAP_SIZE; i++)
     {
       keymap[i].type = ISFUNC;
       keymap[i].function = (Function *)NULL;
@@ -75,7 +75,7 @@ rl_copy_keymap (map)
   register int i;
   Keymap temp = rl_make_bare_keymap ();
 
-  for (i = 0; i < 128; i++)
+  for (i = 0; i < KEYMAP_SIZE; i++)
     {
       temp[i].type = map[i].type;
       temp[i].function = map[i].function;
@@ -89,19 +89,29 @@ rl_copy_keymap (map)
 Keymap
 rl_make_keymap ()
 {
-  extern rl_insert (), rl_rubout ();
+  extern int rl_insert (), rl_rubout ();
   register int i;
   Keymap newmap;
 
   newmap = rl_make_bare_keymap ();
 
-  /* All printing characters are self-inserting. */
+  /* All ASCII printing characters are self-inserting. */
   for (i = ' '; i < 126; i++)
     newmap[i].function = rl_insert;
 
   newmap[TAB].function = rl_insert;
   newmap[RUBOUT].function = rl_rubout;
   newmap[CTRL('H')].function = rl_rubout;
+
+#if KEYMAP_SIZE > 128
+  /* Printing characters in some 8-bit character sets. */
+  for (i = 128; i < 160; i++)
+    newmap[i].function = rl_insert;
+
+  /* ISO Latin-1 printing characters should self-insert. */
+  for (i = 160; i < 256; i++)
+    newmap[i].function = rl_insert;
+#endif /* KEYMAP_SIZE > 128 */
 
   return (newmap);
 }
@@ -115,7 +125,7 @@ rl_discard_keymap (map)
   if (!map)
     return;
 
-  for (i = 0; i < 128; i++)
+  for (i = 0; i < KEYMAP_SIZE; i++)
     {
       switch (map[i].type)
 	{
@@ -133,7 +143,7 @@ rl_discard_keymap (map)
     }
 }
 
-#ifdef STATIC_MALLOC
+#if defined (STATIC_MALLOC)
 
 /* **************************************************************** */
 /*								    */

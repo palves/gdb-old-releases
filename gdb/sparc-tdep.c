@@ -1,5 +1,6 @@
 /* Target-dependent code for the SPARC for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -22,10 +23,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "obstack.h"
 #include "target.h"
-#include "ieee-float.h"
-
-#include "symfile.h" /* for objfiles.h */
-#include "objfiles.h" /* for find_pc_section */
+#include "value.h"
 
 #ifdef	USE_PROC_FS
 #include <sys/procfs.h>
@@ -131,9 +129,6 @@ single_step (ignore)
     }
 }
 
-#define	FRAME_SAVED_L0	0			    /* Byte offset from SP */
-#define	FRAME_SAVED_I0	(8 * REGISTER_RAW_SIZE (0)) /* Byte offset from SP */
-
 CORE_ADDR
 sparc_frame_chain (thisframe)
      FRAME thisframe;
@@ -161,12 +156,44 @@ sparc_extract_struct_value_address (regbuf)
 /* Find the pc saved in frame FRAME.  */
 
 CORE_ADDR
-frame_saved_pc (frame)
+sparc_frame_saved_pc (frame)
      FRAME frame;
 {
   char buf[MAX_REGISTER_RAW_SIZE];
   CORE_ADDR addr;
 
+  if (frame->signal_handler_caller)
+    {
+      /* This is the signal trampoline frame.
+	 Get the saved PC from the sigcontext structure.  */
+
+#ifndef SIGCONTEXT_PC_OFFSET
+#define SIGCONTEXT_PC_OFFSET 12
+#endif
+
+      CORE_ADDR sigcontext_addr;
+      char scbuf[TARGET_PTR_BIT / HOST_CHAR_BIT];
+      int saved_pc_offset = SIGCONTEXT_PC_OFFSET;
+      char *name = NULL;
+
+      /* Solaris2 ucbsigvechandler passes a pointer to a sigcontext
+	 as the third parameter.  The offset to the saved pc is 12.  */
+      find_pc_partial_function (frame->pc, &name,
+				(CORE_ADDR *)NULL,(CORE_ADDR *)NULL);
+      if (name && STREQ (name, "ucbsigvechandler"))
+	saved_pc_offset = 12;
+
+      /* The sigcontext address is contained in register O2.  */
+      get_saved_register (buf, (int *)NULL, (CORE_ADDR *)NULL,
+			  frame, O0_REGNUM + 2, (enum lval_type *)NULL);
+      sigcontext_addr = extract_address (buf, REGISTER_RAW_SIZE (O0_REGNUM));
+
+      /* Don't cause a memory_error when accessing sigcontext in case the
+	 stack layout has changed or the stack is corrupt.  */
+      target_read_memory (sigcontext_addr + saved_pc_offset,
+			  scbuf, sizeof (scbuf));
+      return extract_address (scbuf, sizeof (scbuf));
+    }
   addr = (frame->bottom + FRAME_SAVED_I0 +
 	  REGISTER_RAW_SIZE (I7_REGNUM) * (I7_REGNUM - I0_REGNUM));
   read_memory (addr, buf, REGISTER_RAW_SIZE (I7_REGNUM));
@@ -368,17 +395,13 @@ sparc_frame_find_saved_regs (fi, saved_regs_addr)
      struct frame_saved_regs *saved_regs_addr;
 {
   register int regnum;
-  FRAME_ADDR frame = read_register (FP_REGNUM);
+  FRAME_ADDR frame = FRAME_FP(fi);
   FRAME fid = FRAME_INFO_ID (fi);
 
   if (!fid)
     fatal ("Bad frame info struct in FRAME_FIND_SAVED_REGS");
 
   memset (saved_regs_addr, 0, sizeof (*saved_regs_addr));
-
-  /* Old test.
-  if (fi->pc >= frame - CALL_DUMMY_LENGTH - 0x140
-      && fi->pc <= frame) */
 
   if (fi->pc >= (fi->bottom ? fi->bottom :
 		   read_register (SP_REGNUM))
@@ -406,7 +429,8 @@ sparc_frame_find_saved_regs (fi, saved_regs_addr)
       frame = fi->bottom ?
 	fi->bottom : read_register (SP_REGNUM);
       for (regnum = L0_REGNUM; regnum < L0_REGNUM+16; regnum++)
-	saved_regs_addr->regs[regnum] = frame + (regnum-L0_REGNUM) * 4;
+	saved_regs_addr->regs[regnum] =
+	  frame + (regnum - L0_REGNUM) * REGISTER_RAW_SIZE (L0_REGNUM);
     }
   if (fi->next)
     {
@@ -416,7 +440,8 @@ sparc_frame_find_saved_regs (fi, saved_regs_addr)
 	 fi->next->bottom :
 	 read_register (SP_REGNUM));
       for (regnum = O0_REGNUM; regnum < O0_REGNUM+8; regnum++)
-	saved_regs_addr->regs[regnum] = next_next_frame + regnum * 4;
+	saved_regs_addr->regs[regnum] =
+	  next_next_frame + regnum * REGISTER_RAW_SIZE (O0_REGNUM);
     }
   /* Otherwise, whatever we would get from ptrace(GETREGS) is accurate */
   saved_regs_addr->regs[SP_REGNUM] = FRAME_FP (fi);
@@ -426,15 +451,7 @@ sparc_frame_find_saved_regs (fi, saved_regs_addr)
 
    We save the non-windowed registers and the ins.  The locals and outs
    are new; they don't need to be saved. The i's and l's of
-   the last frame were already saved on the stack
-
-   The return pointer register %i7 does not have the pc saved into it
-   (return from this frame will be accomplished by a POP_FRAME).  In
-   fact, we must leave it unclobbered, since we must preserve it in
-   the calling routine except across call instructions.  I'm not sure
-   the preceding sentence is true; isn't it based on confusing the %i7
-   saved in the dummy frame versus the one saved in the frame of the
-   calling routine?  */
+   the last frame were already saved on the stack.  */
 
 /* Definitely see tm-sparc.h for more doc of the frame format here.  */
 
@@ -466,6 +483,9 @@ sparc_push_dummy_frame ()
   write_memory (sp + 0x60, &register_temp[0], (8 + 8 + 8 + 32) * 4);
 
   write_register (FP_REGNUM, old_sp);
+
+  /* Set return address register for the call dummy to the current PC.  */
+  write_register (I7_REGNUM, read_pc() - 8);
 }
 
 /* Discard from the stack the innermost frame, restoring all saved registers.
@@ -580,16 +600,6 @@ sparc_pc_adjust(pc)
   else
     return pc+8;
 }
-
-
-/* Structure of SPARC extended floating point numbers.
-   This information is not currently used by GDB, since no current SPARC
-   implementations support extended float.  */
-
-const struct ext_format ext_format_sparc = {
-/* tot sbyte smask expbyte manbyte */
-   16, 0,    0x80, 0,1,	   4,8,		/* sparc */
-};
 
 #ifdef USE_PROC_FS	/* Target dependent support for /proc */
 
@@ -771,24 +781,3 @@ get_longjmp_target(pc)
   return 1;
 }
 #endif /* GET_LONGJMP_TARGET */
-
-/* So far used only for sparc solaris.  In sparc solaris, we recognize
-   a trampoline by it's section name.  That is, if the pc is in a
-   section named ".plt" then we are in a trampline.  */
-
-int
-in_solib_trampoline(pc, name)
-     CORE_ADDR pc;
-     char *name;
-{
-  struct obj_section *s;
-  int retval = 0;
-  
-  s = find_pc_section(pc);
-  
-  retval = (s != NULL
-	    && s->sec_ptr->name != NULL
-	    && STREQ (s->sec_ptr->name, ".plt"));
-  return(retval);
-}
-

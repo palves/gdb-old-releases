@@ -69,7 +69,7 @@ struct pa_opcode
 
    In the args field, the following characters are unused:
 
-	'  "#$%    *+- ./   3      :; =  @'
+	'  "#$%    *+- ./   3      :; =   '
 	' B         L              [\] _'
 	'    e gh   lm   qr        { } '
 
@@ -134,7 +134,8 @@ Also these:
 	(for 0xe format FP instructions)
    G    Destination Floating Point Operand Format Completer encoded 2 bits at 18
    M    Floating-Point Compare Conditions (encoded as 5 bits at 31)
-   ?    negated compare/subtract conditions.
+   ?    non-negated/negated compare/subtract conditions.
+   @    non-negated/negated add conditions.
    !    non-negated add conditions.
 
    s    2 bit space specifier at 17.
@@ -181,8 +182,8 @@ static const struct pa_opcode pa_opcodes[] =
 { "ldi",	0x34000000, 0xffe0c000, "j,x"},	/* ldo val(r0),r */
 { "comib", 	0x84000000, 0xfc000000, "?n5,b,w", CONDITIONAL}, /* comib{tf}*/
 { "comb",	0x80000000, 0xfc000000, "?nx,b,w", CONDITIONAL}, /* comb{tf} */
-{ "addb",	0xa0000000, 0xfc000000, "!nx,b,w", CONDITIONAL}, /* addb{tf} */
-{ "addib",	0xa4000000, 0xfc000000, "!n5,b,w", CONDITIONAL}, /* addib{tf}*/
+{ "addb",	0xa0000000, 0xfc000000, "@nx,b,w", CONDITIONAL}, /* addb{tf} */
+{ "addib",	0xa4000000, 0xfc000000, "@n5,b,w", CONDITIONAL}, /* addib{tf}*/
 { "nop",        0x08000240, 0xffffffff, ""},      /* or 0,0,0 */
 { "copy",       0x08000240, 0xffe0ffe0, "x,t"},   /* or r,0,t */
 { "mtsar",      0x01601840, 0xffe0ffff, "x"}, /* mtctl r,cr11 */
@@ -395,7 +396,7 @@ static const struct pa_opcode pa_opcodes[] =
 { "fldds",      0x2c001000, 0xfc001fc0, "C5(s,b),y"},
 { "fldds",      0x2c001000, 0xfc001fc0, "C5(b),y"},
 { "fstws",      0x24001200, 0xfc001f80, "Cv,5(s,b)"},
-{ "fstws",      0x24001200, 0xfc001f80, "Cy,5(b)"},
+{ "fstws",      0x24001200, 0xfc001f80, "Cv,5(b)"},
 { "fstds",      0x2c001200, 0xfc001fc0, "Cy,5(s,b)"},
 { "fstds",      0x2c001200, 0xfc001fc0, "Cy,5(b)"},
 { "fstqs",      0x3c001200, 0xfc001fc0, "Cy,5(s,b)"},
@@ -428,7 +429,7 @@ static const struct pa_opcode pa_opcodes[] =
 { "fcnvfxt",    0x38018200, 0xfc1f8720, "FGJ,v"},
 { "fcmp",       0x30000400, 0xfc00e7e0, "FME,X"},
 { "fcmp",       0x38000400, 0xfc00e720, "IMJ,K"},
-{ "xmpyu",	0x38004700, 0xfc00e720, "FE,X,v"},
+{ "xmpyu",	0x38004700, 0xfc00e720, "E,X,v"},
 { "fmpyadd",	0x18000000, 0xfc000000, "H4,6,7,9,8"},
 { "fmpysub",	0x98000000, 0xfc000000, "H4,6,7,9,8"},
 { "ftest",      0x30002420, 0xffffffff, ""},

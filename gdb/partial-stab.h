@@ -1,5 +1,5 @@
 /* Shared code to pre-read a stab (dbx-style), when building a psymtab.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -463,7 +463,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 		      /* Check for and handle cretinous dbx symbol name
 			 continuation!  */
-		      if (*p == '\\')
+		      if (*p == '\\' || (*p == '?' && p[1] == '\0'))
 			p = next_symbol_text ();
 
 		      /* Point to the character after the name
@@ -496,10 +496,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	      continue;
 
 	    case 'f':
+	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 #ifdef DBXREAD_ONLY
 	      /* Kludges for ELF/STABS with Sun ACC */
 	      last_function_name = namestring;
-	      if (pst && pst->textlow == 0)
+	      /* Do not fix textlow==0 for .o or NLM files, as 0 is a legit
+		 value for the bottom of the text seg in those cases. */
+	      if (pst && pst->textlow == 0 && !symfile_relocatable)
 		pst->textlow = CUR_SYMBOL_VALUE;
 #if 0
 	      if (startup_file_end == 0)
@@ -517,10 +520,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	         are put into the global psymtab like one would expect.
 		 They're also in the minimal symbol table.  */
 	    case 'F':
+	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 #ifdef DBXREAD_ONLY
 	      /* Kludges for ELF/STABS with Sun ACC */
 	      last_function_name = namestring;
-	      if (pst && pst->textlow == 0)
+	      /* Do not fix textlow==0 for .o or NLM files, as 0 is a legit
+		 value for the bottom of the text seg in those cases. */
+	      if (pst && pst->textlow == 0 && !symfile_relocatable)
 		pst->textlow = CUR_SYMBOL_VALUE;
 #if 0
 	      if (startup_file_end == 0)
@@ -668,6 +674,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	  /* If we haven't found it yet, ignore it.  It's probably some
 	     new type we don't know about yet.  */
 	  complain (&unknown_symtype_complaint,
-		    local_hex_string ((unsigned long) CUR_SYMBOL_TYPE));
+		    local_hex_string (CUR_SYMBOL_TYPE));
 	  continue;
 	}

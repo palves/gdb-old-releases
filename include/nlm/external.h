@@ -159,10 +159,16 @@ typedef struct nlmNAME(external_custom_header)
   /* The header is recognized by "CuStHeAd" in the stamp field. */
   char stamp[8];
 
+  /* Length of this header.  */
+  unsigned char length[NLM_TARGET_LONG_SIZE];
+
+  /* Offset to data.  */
+  unsigned char dataOffset[NLM_TARGET_LONG_SIZE];
+
+  /* Length of data.  */
   unsigned char dataLength[NLM_TARGET_LONG_SIZE];
 
-  unsigned char debugRecOffset[NLM_TARGET_LONG_SIZE];
-
-  unsigned char debugRecLength[NLM_TARGET_LONG_SIZE];
+  /* Stamp for this customer header--we recognize "CyGnUsEx".  */
+  char dataStamp[8];
 
 } NlmNAME(External_Custom_Header);

@@ -106,7 +106,10 @@ struct language_defn
 
   enum language la_language;
 
-  /* Its builtin types */
+  /* Its builtin types.  This is a vector ended by a NULL pointer.  These
+     types can be specified by name in parsing types in expressions,
+     regardless of whether the program being debugged actually defines
+     such a type.  */
 
   struct type ** const *la_builtin_type_vector;
 
@@ -141,13 +144,10 @@ struct language_defn
   int (*la_val_print) PARAMS ((struct type *, char *,  CORE_ADDR, GDB_FILE *,
 			       int, int, int, enum val_prettyprint));
 
-  /* Longest signed integral type */
+  /* Print a top-level value using syntax appropriate for this language. */
 
-  struct type **la_longest_int;
-
-  /* Longest unsigned integral type */
-
-  struct type **la_longest_unsigned_int;
+  int (*la_value_print) PARAMS ((struct value *, GDB_FILE *,
+				 int, enum val_prettyprint));
 
   /* Longest floating point type */
 
@@ -241,8 +241,6 @@ set_language PARAMS ((enum language));
    with the "set language" command. */
 
 /* Returns some built-in types */
-#define	longest_int()		(*current_language->la_longest_int)
-#define	longest_unsigned_int()	(*current_language->la_longest_unsigned_int)
 #define	longest_float()		(*current_language->la_longest_float)
 
 #define create_fundamental_type(objfile,typeid) \
@@ -254,6 +252,8 @@ set_language PARAMS ((enum language));
 #define LA_VAL_PRINT(type,valaddr,addr,stream,fmt,deref,recurse,pretty) \
   (current_language->la_val_print(type,valaddr,addr,stream,fmt,deref, \
 				  recurse,pretty))
+#define LA_VALUE_PRINT(val,stream,fmt,pretty) \
+  (current_language->la_value_print(val,stream,fmt,pretty))
 
 /* Return a format string for printf that will print a number in one of
    the local (language-specific) formats.  Result is static and is

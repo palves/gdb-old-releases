@@ -1,5 +1,5 @@
 /* BFD back-end for Motorola 88000 COFF "Binary Compatability Standard" files.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -46,15 +46,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 static bfd_reloc_status_type 
-DEFUN(howto_hvrt16,(abfd, reloc_entry, symbol_in, data,
-		    ignore_input_section, ignore_bfd, error_message),
-      bfd *abfd AND
-      arelent *reloc_entry AND
-      asymbol *symbol_in AND
-      PTR data AND
-      asection *ignore_input_section AND
-      bfd *ignore_bfd AND
-      char **error_message)
+howto_hvrt16 (abfd, reloc_entry, symbol_in, data,
+		    ignore_input_section, ignore_bfd, error_message)
+     bfd *abfd;
+     arelent *reloc_entry;
+     asymbol *symbol_in;
+     PTR data;
+     asection *ignore_input_section;
+     bfd *ignore_bfd;
+     char **error_message;
 {
   long relocation = 0;
   bfd_vma addr = reloc_entry->address;
@@ -104,7 +104,7 @@ static reloc_howto_type howto_table[] =
 
 #undef coff_write_armap
 
-bfd_target m88kbcs_vec =
+const bfd_target m88kbcs_vec =
 {
   "coff-m88kbcs",		/* name */
   bfd_target_coff_flavour,
@@ -134,6 +134,15 @@ bfd_target m88kbcs_vec =
     {bfd_false, coff_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(coff),
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };

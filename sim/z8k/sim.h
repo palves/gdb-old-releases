@@ -1,6 +1,3 @@
-/* FIXME: This decl may not be necessary anymore.  /dje 931025 */
-int sim_clear_breakpoints PARAMS ((void));
-
 #define SIM_SINGLE_STEP 1
 #define SIM_DONE 2
 #define SIM_BREAKPOINT 3

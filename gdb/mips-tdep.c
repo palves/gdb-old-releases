@@ -1,5 +1,6 @@
 /* Target-dependent code for the MIPS architecture, for GDB, the GNU Debugger.
-   Copyright 1988, 1989, 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
    Contributed by Alessandro Forin(af@cs.cmu.edu) at CMU
    and by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin.
 
@@ -29,10 +30,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "symfile.h"
 #include "objfiles.h"
+#include "gdbtypes.h"
 
 #include "opcode/mips.h"
 
 #define VM_MIN_ADDRESS (unsigned)0x400000
+
+/* FIXME: Put this declaration in frame.h.  */
+extern struct obstack frame_cache_obstack;
 
 #if 0
 static int mips_in_lenient_prologue PARAMS ((CORE_ADDR, CORE_ADDR));
@@ -68,7 +73,132 @@ struct linked_proc_info
 } *linked_proc_desc_table = NULL;
 
 
-#define READ_FRAME_REG(fi, regno) read_next_frame_reg((fi)->next, regno)
+/* Guaranteed to set fci->saved_regs to some values (it never leaves it
+   NULL).  */
+
+void
+mips_find_saved_regs (fci)
+     FRAME fci;
+{
+  int ireg;
+  CORE_ADDR reg_position;
+  /* r0 bit means kernel trap */
+  int kernel_trap;
+  /* What registers have been saved?  Bitmasks.  */
+  unsigned long gen_mask, float_mask;
+  mips_extra_func_info_t proc_desc;
+
+  fci->saved_regs = (struct frame_saved_regs *)
+    obstack_alloc (&frame_cache_obstack, sizeof(struct frame_saved_regs));
+  memset (fci->saved_regs, 0, sizeof (struct frame_saved_regs));
+
+  proc_desc = fci->proc_desc;
+  if (proc_desc == NULL)
+    /* I'm not sure how/whether this can happen.  Normally when we can't
+       find a proc_desc, we "synthesize" one using heuristic_proc_desc
+       and set the saved_regs right away.  */
+    return;
+
+  kernel_trap = PROC_REG_MASK(proc_desc) & 1;
+  gen_mask = kernel_trap ? 0xFFFFFFFF : PROC_REG_MASK(proc_desc);
+  float_mask = kernel_trap ? 0xFFFFFFFF : PROC_FREG_MASK(proc_desc);
+
+  if (/* In any frame other than the innermost, we assume that all
+	 registers have been saved.  This assumes that all register
+	 saves in a function happen before the first function
+	 call.  */
+      fci->next == NULL
+
+      /* In a dummy frame we know exactly where things are saved.  */
+      && !PROC_DESC_IS_DUMMY (proc_desc)
+
+      /* Not sure exactly what kernel_trap means, but if it means
+	 the kernel saves the registers without a prologue doing it,
+	 we better not examine the prologue to see whether registers
+	 have been saved yet.  */
+      && !kernel_trap)
+    {
+      /* We need to figure out whether the registers that the proc_desc
+	 claims are saved have been saved yet.  */
+
+      CORE_ADDR addr;
+      int status;
+      char buf[4];
+      unsigned long inst;
+
+      /* Bitmasks; set if we have found a save for the register.  */
+      unsigned long gen_save_found = 0;
+      unsigned long float_save_found = 0;
+
+      for (addr = PROC_LOW_ADDR (proc_desc);
+	   addr < fci->pc /*&& (gen_mask != gen_save_found
+			      || float_mask != float_save_found)*/;
+	   addr += 4)
+	{
+	  status = read_memory_nobpt (addr, buf, 4);
+	  if (status)
+	    memory_error (status, addr);
+	  inst = extract_unsigned_integer (buf, 4);
+	  if (/* sw reg,n($sp) */
+	      (inst & 0xffe00000) == 0xafa00000
+
+	      /* sw reg,n($r30) */
+	      || (inst & 0xffe00000) == 0xafc00000
+
+	      /* sd reg,n($sp) */
+	      || (inst & 0xffe00000) == 0xffa00000)
+	    {
+	      /* It might be possible to use the instruction to
+		 find the offset, rather than the code below which
+		 is based on things being in a certain order in the
+		 frame, but figuring out what the instruction's offset
+		 is relative to might be a little tricky.  */
+	      int reg = (inst & 0x001f0000) >> 16;
+	      gen_save_found |= (1 << reg);
+	    }
+	  else if (/* swc1 freg,n($sp) */
+		   (inst & 0xffe00000) == 0xe7a00000
+
+		   /* swc1 freg,n($r30) */
+		   || (inst & 0xffe00000) == 0xe7c00000
+
+                   /* sdc1 freg,n($sp) */
+                   || (inst & 0xffe00000) == 0xf7a00000)
+
+	    {
+	      int reg = ((inst & 0x001f0000) >> 16);
+	      float_save_found |= (1 << reg);
+	    }
+	}
+      gen_mask = gen_save_found;
+      float_mask = float_save_found;
+    }
+
+  /* Fill in the offsets for the registers which gen_mask says
+     were saved.  */
+  reg_position = fci->frame + PROC_REG_OFFSET (proc_desc);
+  for (ireg= 31; gen_mask; --ireg, gen_mask <<= 1)
+    if (gen_mask & 0x80000000)
+      {
+	fci->saved_regs->regs[ireg] = reg_position;
+	reg_position -= MIPS_REGSIZE;
+      }
+  /* Fill in the offsets for the registers which float_mask says
+     were saved.  */
+  reg_position = fci->frame + PROC_FREG_OFFSET (proc_desc);
+
+  /* The freg_offset points to where the first *double* register
+     is saved.  So skip to the high-order word. */
+  reg_position += 4;
+  for (ireg = 31; float_mask; --ireg, float_mask <<= 1)
+    if (float_mask & 0x80000000)
+      {
+	fci->saved_regs->regs[FP0_REGNUM+ireg] = reg_position;
+	reg_position -= MIPS_REGSIZE;
+      }
+
+  fci->saved_regs->regs[PC_REGNUM] = fci->saved_regs->regs[RA_REGNUM];
+}
 
 static int
 read_next_frame_reg(fi, regno)
@@ -76,30 +206,40 @@ read_next_frame_reg(fi, regno)
      int regno;
 {
   /* If it is the frame for sigtramp we have a complete sigcontext
-     immediately below the frame and we get the saved registers from there.
+     somewhere above the frame and we get the saved registers from there.
      If the stack layout for sigtramp changes we might have to change these
      constants and the companion fixup_sigtramp in mdebugread.c  */
 #ifndef SIGFRAME_BASE
-#define SIGFRAME_BASE		0x12c	/* sizeof(sigcontext) */
-#define SIGFRAME_PC_OFF		(-SIGFRAME_BASE + 2 * 4)
-#define SIGFRAME_REGSAVE_OFF	(-SIGFRAME_BASE + 3 * 4)
+/* To satisfy alignment restrictions the sigcontext is located 4 bytes
+   above the sigtramp frame.  */
+#define SIGFRAME_BASE		4
+#define SIGFRAME_PC_OFF		(SIGFRAME_BASE + 2 * 4)
+#define SIGFRAME_REGSAVE_OFF	(SIGFRAME_BASE + 3 * 4)
 #endif
 #ifndef SIGFRAME_REG_SIZE
 #define SIGFRAME_REG_SIZE	4
 #endif
   for (; fi; fi = fi->next)
-      if (in_sigtramp(fi->pc, 0)) {
+    {
+      if (fi->signal_handler_caller)
+	{
 	  int offset;
 	  if (regno == PC_REGNUM) offset = SIGFRAME_PC_OFF;
 	  else if (regno < 32) offset = (SIGFRAME_REGSAVE_OFF
 					 + regno * SIGFRAME_REG_SIZE);
 	  else return 0;
-	  return read_memory_integer(fi->frame + offset, 4);
-      }
+	  return read_memory_integer(fi->frame + offset, MIPS_REGSIZE);
+	}
       else if (regno == SP_REGNUM) return fi->frame;
-      else if (fi->saved_regs->regs[regno])
-	return read_memory_integer(fi->saved_regs->regs[regno], 4);
-  return read_register(regno);
+      else
+	{
+	  if (fi->saved_regs == NULL)
+	    mips_find_saved_regs (fi);
+	  if (fi->saved_regs->regs[regno])
+	    return read_memory_integer(fi->saved_regs->regs[regno], MIPS_REGSIZE);
+	}
+    }
+  return read_register (regno);
 }
 
 int
@@ -107,7 +247,10 @@ mips_frame_saved_pc(frame)
      FRAME frame;
 {
   mips_extra_func_info_t proc_desc = frame->proc_desc;
-  int pcreg = proc_desc ? PROC_PC_REG(proc_desc) : RA_REGNUM;
+  /* We have to get the saved pc from the sigcontext
+     if it is a signal handler frame.  */
+  int pcreg = frame->signal_handler_caller ? PC_REGNUM
+	      : (proc_desc ? PROC_PC_REG(proc_desc) : RA_REGNUM);
 
   if (proc_desc && PROC_DESC_IS_DUMMY(proc_desc))
       return read_memory_integer(frame->frame - 4, 4);
@@ -185,7 +328,7 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
     CORE_ADDR start_pc, limit_pc;
     FRAME next_frame;
 {
-    CORE_ADDR sp = next_frame ? next_frame->frame : read_register (SP_REGNUM);
+    CORE_ADDR sp = read_next_frame_reg (next_frame, SP_REGNUM);
     CORE_ADDR cur_pc;
     int frame_size;
     int has_frame_reg = 0;
@@ -366,127 +509,34 @@ void
 init_extra_frame_info(fci)
      struct frame_info *fci;
 {
-  extern struct obstack frame_cache_obstack;
   /* Use proc_desc calculated in frame_chain */
   mips_extra_func_info_t proc_desc =
     fci->next ? cached_proc_desc : find_proc_desc(fci->pc, fci->next);
 
-  fci->saved_regs = (struct frame_saved_regs*)
-    obstack_alloc (&frame_cache_obstack, sizeof(struct frame_saved_regs));
-  memset (fci->saved_regs, 0, sizeof (struct frame_saved_regs));
+  fci->saved_regs = NULL;
   fci->proc_desc =
     proc_desc == &temp_proc_desc ? 0 : proc_desc;
   if (proc_desc)
     {
-      int ireg;
-      CORE_ADDR reg_position;
-      /* r0 bit means kernel trap */
-      int kernel_trap = PROC_REG_MASK(proc_desc) & 1;
-
       /* Fixup frame-pointer - only needed for top frame */
-      /* This may not be quite right, if proc has a real frame register */
-      if (fci->pc == PROC_LOW_ADDR(proc_desc) && !PROC_DESC_IS_DUMMY(proc_desc))
-	fci->frame = read_register (SP_REGNUM);
+      /* This may not be quite right, if proc has a real frame register.
+	 Get the value of the frame relative sp, procedure might have been
+	 interrupted by a signal at it's very start.  */
+      if (fci->pc == PROC_LOW_ADDR (proc_desc)
+	  && !PROC_DESC_IS_DUMMY (proc_desc))
+	fci->frame = read_next_frame_reg (fci->next, SP_REGNUM);
       else
-	fci->frame = READ_FRAME_REG(fci, PROC_FRAME_REG(proc_desc))
-		      + PROC_FRAME_OFFSET(proc_desc);
+	fci->frame =
+	  read_next_frame_reg (fci->next, PROC_FRAME_REG (proc_desc))
+	    + PROC_FRAME_OFFSET (proc_desc);
 
       if (proc_desc == &temp_proc_desc)
-	*fci->saved_regs = temp_saved_regs;
-      else
 	{
-	  /* What registers have been saved?  Bitmasks.  */
-	  unsigned long gen_mask, float_mask;
-
-	  gen_mask = kernel_trap ? 0xFFFFFFFF : PROC_REG_MASK(proc_desc);
-	  float_mask = kernel_trap ? 0xFFFFFFFF : PROC_FREG_MASK(proc_desc);
-
-	  if (/* In any frame other than the innermost, we assume that all
-		 registers have been saved.  This assumes that all register
-		 saves in a function happen before the first function
-		 call.  */
-	      fci->next == NULL
-
-	      /* In a dummy frame we know exactly where things are saved.  */
-	      && !PROC_DESC_IS_DUMMY (proc_desc)
-
-	      /* Not sure exactly what kernel_trap means, but if it means
-		 the kernel saves the registers without a prologue doing it,
-		 we better not examine the prologue to see whether registers
-		 have been saved yet.  */
-	      && !kernel_trap)
-	    {
-	      /* We need to figure out whether the registers that the proc_desc
-		 claims are saved have been saved yet.  */
-
-	      CORE_ADDR addr;
-	      int status;
-	      char buf[4];
-	      unsigned long inst;
-
-	      /* Bitmasks; set if we have found a save for the register.  */
-	      unsigned long gen_save_found = 0;
-	      unsigned long float_save_found = 0;
-
-	      for (addr = PROC_LOW_ADDR (proc_desc);
-		   addr < fci->pc && (gen_mask != gen_save_found
-				      || float_mask != float_save_found);
-		   addr += 4)
-		{
-		  status = read_memory_nobpt (addr, buf, 4);
-		  if (status)
-		    memory_error (status, addr);
-		  inst = extract_unsigned_integer (buf, 4);
-		  if (/* sw reg,n($sp) */
-		      (inst & 0xffe00000) == 0xafa00000
-
-		      /* sw reg,n($r30) */
-		      || (inst & 0xffe00000) == 0xafc00000)
-		    {
-		      /* It might be possible to use the instruction to
-			 find the offset, rather than the code below which
-			 is based on things being in a certain order in the
-			 frame, but figuring out what the instruction's offset
-			 is relative to might be a little tricky.  */
-		      int reg = (inst & 0x001f0000) >> 16;
-		      gen_save_found |= (1 << reg);
-		    }
-		  else if (/* swc1 freg,n($sp) */
-			   (inst & 0xffe00000) == 0xe7a00000
-
-			   /* swc1 freg,n($r30) */
-			   || (inst & 0xffe00000) == 0xe7c00000)
-		    {
-		      int reg = ((inst & 0x001f0000) >> 16);
-		      float_save_found |= (1 << reg);
-		    }
-		}
-	      gen_mask = gen_save_found;
-	      float_mask = float_save_found;
-	    }
-
-	  /* Fill in the offsets for the registers which gen_mask says
-	     were saved.  */
-	  reg_position = fci->frame + PROC_REG_OFFSET (proc_desc);
-	  for (ireg= 31; gen_mask; --ireg, gen_mask <<= 1)
-	    if (gen_mask & 0x80000000)
-	      {
-		fci->saved_regs->regs[ireg] = reg_position;
-		reg_position -= 4;
-	      }
-	  /* Fill in the offsets for the registers which float_mask says
-	     were saved.  */
-	  reg_position = fci->frame + PROC_FREG_OFFSET (proc_desc);
-
-	  /* The freg_offset points to where the first *double* register
-	     is saved.  So skip to the high-order word. */
-	  reg_position += 4;
-	  for (ireg = 31; float_mask; --ireg, float_mask <<= 1)
-	    if (float_mask & 0x80000000)
-	      {
-		fci->saved_regs->regs[FP0_REGNUM+ireg] = reg_position;
-		reg_position -= 4;
-	      }
+	  fci->saved_regs = (struct frame_saved_regs*)
+	    obstack_alloc (&frame_cache_obstack,
+			   sizeof (struct frame_saved_regs));
+	  *fci->saved_regs = temp_saved_regs;
+	  fci->saved_regs->regs[PC_REGNUM] = fci->saved_regs->regs[RA_REGNUM];
 	}
 
       /* hack: if argument regs are saved, guess these contain args */
@@ -495,8 +545,6 @@ init_extra_frame_info(fci)
       else if ((PROC_REG_MASK(proc_desc) & 0x40) == 0) fci->num_args = 3;
       else if ((PROC_REG_MASK(proc_desc) & 0x20) == 0) fci->num_args = 2;
       else if ((PROC_REG_MASK(proc_desc) & 0x10) == 0) fci->num_args = 1;
-
-      fci->saved_regs->regs[PC_REGNUM] = fci->saved_regs->regs[RA_REGNUM];
     }
 }
 
@@ -530,20 +578,21 @@ setup_arbitrary_frame (argc, argv)
 CORE_ADDR
 mips_push_arguments(nargs, args, sp, struct_return, struct_addr)
   int nargs;
-  value *args;
+  value_ptr *args;
   CORE_ADDR sp;
   int struct_return;
   CORE_ADDR struct_addr;
 {
   register i;
-  int accumulate_size = struct_return ? 4 : 0;
+  int accumulate_size = struct_return ? MIPS_REGSIZE : 0;
   struct mips_arg { char *contents; int len; int offset; };
   struct mips_arg *mips_args =
-      (struct mips_arg*)alloca(nargs * sizeof(struct mips_arg));
+      (struct mips_arg*)alloca((nargs + 4) * sizeof(struct mips_arg));
   register struct mips_arg *m_arg;
+  int fake_args = 0;
+
   for (i = 0, m_arg = mips_args; i < nargs; i++, m_arg++) {
-    extern value value_arg_coerce();
-    value arg = value_arg_coerce (args[i]);
+    value_ptr arg = value_arg_coerce (args[i]);
     m_arg->len = TYPE_LENGTH (VALUE_TYPE (arg));
     /* This entire mips-specific routine is because doubles must be aligned
      * on 8-byte boundaries. It still isn't quite right, because MIPS decided
@@ -551,16 +600,48 @@ mips_push_arguments(nargs, args, sp, struct_return, struct_addr)
      * breaks their varargs implementation...). A correct solution
      * requires an simulation of gcc's 'alignof' (and use of 'alignof'
      * in stdarg.h/varargs.h).
+     * On the 64 bit r4000 we always pass the first four arguments
+     * using eight bytes each, so that we can load them up correctly
+     * in CALL_DUMMY.
      */
-    if (m_arg->len > 4) accumulate_size = (accumulate_size + 7) & -8;
+    if (m_arg->len > 4)
+      accumulate_size = (accumulate_size + 7) & -8;
     m_arg->offset = accumulate_size;
-    accumulate_size = (accumulate_size + m_arg->len + 3) & -4;
     m_arg->contents = VALUE_CONTENTS(arg);
+#ifndef GDB_TARGET_IS_MIPS64
+    accumulate_size = (accumulate_size + m_arg->len + 3) & -4;
+#else
+    if (accumulate_size >= 4 * MIPS_REGSIZE)
+      accumulate_size = (accumulate_size + m_arg->len + 3) &~ 4;
+    else
+      {
+	static char zeroes[8] = { 0 };
+	int len = m_arg->len;
+
+	if (len < 8)
+	  {
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+	    m_arg->offset += 8 - len;
+#endif
+	    ++m_arg;
+	    m_arg->len = 8 - len;
+	    m_arg->contents = zeroes;
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+	    m_arg->offset = accumulate_size;
+#else
+	    m_arg->offset = accumulate_size + len;
+#endif
+	    ++fake_args;
+	  }
+	accumulate_size = (accumulate_size + len + 7) & ~8;
+      }
+#endif
   }
   accumulate_size = (accumulate_size + 7) & (-8);
-  if (accumulate_size < 16) accumulate_size = 16; 
+  if (accumulate_size < 4 * MIPS_REGSIZE)
+    accumulate_size = 4 * MIPS_REGSIZE;
   sp -= accumulate_size;
-  for (i = nargs; m_arg--, --i >= 0; )
+  for (i = nargs + fake_args; m_arg--, --i >= 0; )
     write_memory(sp + m_arg->offset, m_arg->contents, m_arg->len);
   if (struct_return)
     {
@@ -625,8 +706,14 @@ mips_push_dummy_frame()
   for (ireg = 32; --ireg >= 0; )
     if (PROC_REG_MASK(proc_desc) & (1 << ireg))
       {
-	store_unsigned_integer (buffer, REGISTER_RAW_SIZE (ireg),
-				read_register (ireg));
+	read_register_gen (ireg, buffer);
+
+	/* Need to fix the save_address decrement below, and also make sure
+	   that we don't run into problems with the size of the dummy frame
+	   or any of the offsets within it.  */
+	if (REGISTER_RAW_SIZE (ireg) > 4)
+	  error ("Cannot call functions on mips64");
+
 	write_memory (save_address, buffer, REGISTER_RAW_SIZE (ireg));
 	save_address -= 4;
       }
@@ -635,26 +722,28 @@ mips_push_dummy_frame()
   for (ireg = 32; --ireg >= 0; )
     if (PROC_FREG_MASK(proc_desc) & (1 << ireg))
       {
-	store_unsigned_integer (buffer, 4, read_register (ireg + FP0_REGNUM));
-	write_memory (save_address, buffer, 4);
+	read_register_gen (ireg + FP0_REGNUM, buffer);
+
+	if (REGISTER_RAW_SIZE (ireg + FP0_REGNUM) > 4)
+	  error ("Cannot call functions on mips64");
+
+	write_memory (save_address, buffer,
+		      REGISTER_RAW_SIZE (ireg + FP0_REGNUM));
 	save_address -= 4;
       }
   write_register (PUSH_FP_REGNUM, sp);
   PROC_FRAME_REG(proc_desc) = PUSH_FP_REGNUM;
   PROC_FRAME_OFFSET(proc_desc) = 0;
-  store_unsigned_integer (buffer, REGISTER_RAW_SIZE (PC_REGNUM),
-			  read_register (PC_REGNUM));
+  read_register_gen (PC_REGNUM, buffer);
   write_memory (sp - 4, buffer, REGISTER_RAW_SIZE (PC_REGNUM));
-  store_unsigned_integer (buffer, REGISTER_RAW_SIZE (HI_REGNUM),
-			  read_register (HI_REGNUM));
+  read_register_gen (HI_REGNUM, buffer);
   write_memory (sp - 8, buffer, REGISTER_RAW_SIZE (HI_REGNUM));
-  store_unsigned_integer (buffer, REGISTER_RAW_SIZE (LO_REGNUM),
-			  read_register (LO_REGNUM));
+  read_register_gen (LO_REGNUM, buffer);
   write_memory (sp - 12, buffer, REGISTER_RAW_SIZE (LO_REGNUM));
-  store_unsigned_integer
-    (buffer,
-     REGISTER_RAW_SIZE (FCRCS_REGNUM),
-     mips_fpu ? read_register (FCRCS_REGNUM) : 0);
+  if (mips_fpu)
+    read_register_gen (FCRCS_REGNUM, buffer);
+  else
+    memset (buffer, 0, REGISTER_RAW_SIZE (FCRCS_REGNUM));
   write_memory (sp - 16, buffer, REGISTER_RAW_SIZE (FCRCS_REGNUM));
   sp -= 4 * (GEN_REG_SAVE_COUNT
 	     + (mips_fpu ? FLOAT_REG_SAVE_COUNT : 0)
@@ -676,6 +765,8 @@ mips_pop_frame()
   mips_extra_func_info_t proc_desc = frame->proc_desc;
 
   write_register (PC_REGNUM, FRAME_SAVED_PC(frame));
+  if (frame->saved_regs == NULL)
+    mips_find_saved_regs (frame);
   if (proc_desc)
     {
       for (regnum = 32; --regnum >= 0; )
@@ -727,6 +818,13 @@ mips_print_register (regnum, all)
      int regnum, all;
 {
   unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE];
+  struct type *our_type =
+    init_type (TYPE_CODE_INT,
+	       /* We will fill in the length for each register.  */
+	       0,
+	       TYPE_FLAG_UNSIGNED,
+	       NULL,
+	       NULL);
 
   /* Get the data in raw format.  */
   if (read_relative_register_raw_bytes (regnum, raw_buffer))
@@ -770,19 +868,11 @@ mips_print_register (regnum, all)
   /* Else print as integer in hex.  */
   else
     {
-      long val;
-
-      val = extract_signed_integer (raw_buffer,
-				    REGISTER_RAW_SIZE (regnum));
-
-      if (val == 0)
-	printf_filtered ("0");
-      else if (all)
-	/* FIXME: We should be printing this in a fixed field width, so that
-	   registers line up.  */
-	printf_filtered (local_hex_format(), val);
-      else
-	printf_filtered ("%s=%ld", local_hex_string(val), val);
+      print_scalar_formatted (raw_buffer,
+			      REGISTER_VIRTUAL_TYPE (regnum),
+			      'x',
+			      0,
+			      gdb_stdout);
     }
 }
 
@@ -828,8 +918,9 @@ mips_frame_num_args(fip)
 	return -1;
 }
 
-#if 0
 /* Is this a branch with a delay slot?  */
+static int is_delayed PARAMS ((unsigned long));
+
 static int
 is_delayed (insn)
      unsigned long insn;
@@ -844,7 +935,18 @@ is_delayed (insn)
 				       | INSN_COND_BRANCH_DELAY
 				       | INSN_COND_BRANCH_LIKELY)));
 }
-#endif
+
+int
+mips_step_skips_delay (pc)
+     CORE_ADDR pc;
+{
+  char buf[4];
+
+  if (target_read_memory (pc, buf, 4) != 0)
+    /* If error reading memory, guess that it is not a delayed branch.  */
+    return 0;
+  return is_delayed (extract_unsigned_integer (buf, 4));
+}
 
 /* To skip prologues, I use this predicate.  Returns either PC itself
    if the code at PC does not look like a function prologue; otherwise
@@ -863,6 +965,7 @@ mips_skip_prologue (pc, lenient)
     unsigned long inst;
     int offset;
     int seen_sp_adjust = 0;
+    int load_immediate_bytes = 0;
 
     /* Skip the typical prologue instructions. These are the stack adjustment
        instruction and the instructions that save registers on the stack
@@ -884,6 +987,9 @@ mips_skip_prologue (pc, lenient)
 
 	if ((inst & 0xffff0000) == 0x27bd0000)	/* addiu $sp,$sp,offset */
 	    seen_sp_adjust = 1;
+	else if (inst == 0x03a1e823 || 	        /* subu $sp,$sp,$at */
+		 inst == 0x03a8e823)   	        /* subu $sp,$sp,$t0 */
+	    seen_sp_adjust = 1;
 	else if ((inst & 0xFFE00000) == 0xAFA00000 && (inst & 0x001F0000))
 	    continue;				/* sw reg,n($sp) */
 						/* reg != $zero */
@@ -903,39 +1009,40 @@ mips_skip_prologue (pc, lenient)
 	else if (inst == 0x0399e021		/* addu $gp,$gp,$t9 */
 		 || inst == 0x033ce021)		/* addu $gp,$t9,$gp */
 	  continue;
+	/* The following instructions load $at or $t0 with an immediate
+	   value in preparation for a stack adjustment via
+	   subu $sp,$sp,[$at,$t0]. These instructions could also initialize
+	   a local variable, so we accept them only before a stack adjustment
+	   instruction was seen.  */
+	else if (!seen_sp_adjust)
+	  {
+	    if ((inst & 0xffff0000) == 0x3c010000 ||	  /* lui $at,n */
+		(inst & 0xffff0000) == 0x3c080000)	  /* lui $t0,n */
+	      {
+		load_immediate_bytes += 4;
+		continue;
+	      }
+	    else if ((inst & 0xffff0000) == 0x34210000 || /* ori $at,$at,n */
+		     (inst & 0xffff0000) == 0x35080000 || /* ori $t0,$t0,n */
+		     (inst & 0xffff0000) == 0x34010000 || /* ori $at,$zero,n */
+		     (inst & 0xffff0000) == 0x34080000)   /* ori $t0,$zero,n */
+	      {
+		load_immediate_bytes += 4;
+		continue;
+	      }
+	    else
+	      break;
+	  }
 	else
-	    break;
+	  break;
     }
+
+    /* In a frameless function, we might have incorrectly
+       skipped some load immediate instructions. Undo the skipping
+       if the load immediate was not followed by a stack adjustment.  */
+    if (load_immediate_bytes && !seen_sp_adjust)
+      offset -= load_immediate_bytes;
     return pc + offset;
-
-/* FIXME schauer. The following code seems no longer necessary if we
-   always skip the typical prologue instructions.  */
-
-#if 0
-    if (seen_sp_adjust)
-      return pc + offset;
-
-    /* Well, it looks like a frameless. Let's make sure.
-       Note that we are not called on the current PC,
-       but on the function`s start PC, and I have definitely
-       seen optimized code that adjusts the SP quite later */
-    b = block_for_pc(pc);
-    if (!b) return pc;
-
-    f = lookup_symbol(MIPS_EFI_SYMBOL_NAME, b, LABEL_NAMESPACE, 0, NULL);
-    if (!f) return pc;
-    /* Ideally, I would like to use the adjusted info
-       from mips_frame_info(), but for all practical
-       purposes it will not matter (and it would require
-       a different definition of SKIP_PROLOGUE())
-
-       Actually, it would not hurt to skip the storing
-       of arguments on the stack as well. */
-    if (((mips_extra_func_info_t)SYMBOL_VALUE(f))->pdr.frameoffset)
-	return pc + 4;
-
-    return pc;
-#endif
 }
 
 #if 0

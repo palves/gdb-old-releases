@@ -62,9 +62,8 @@ struct bfd_link_hash_entry
   struct bfd_hash_entry root;
   /* Type of this entry.  */
   enum bfd_link_hash_type type;
-  /* Whether this symbol has been written out.  */
-  boolean written;
-  /* Undefined and common entries are kept in a linked list through
+
+  /* Undefined and common symbols are kept in a linked list through
      this field.  This field is not in the union because that would
      force us to remove entries from the list when we changed their
      type, which would force the list to be doubly linked, which would
@@ -72,7 +71,15 @@ struct bfd_link_hash_entry
      created, it should be added to this list, the head of which is in
      the link hash table itself.  As symbols are defined, they need
      not be removed from the list; anything which reads the list must
-     doublecheck the symbol type.  Weak symbols are not kept on this
+     doublecheck the symbol type.
+
+     Weak symbols are not kept on this list.
+
+     Defined symbols use this field as a reference marker.  If the
+     field is not NULL, or this structure is the tail of the undefined
+     symbol list, the symbol has been referenced.  If the symbol is
+     undefined and becomes defined, this field will automatically be
+     non-NULL since the symbol will have been on the undefined symbol
      list.  */
   struct bfd_link_hash_entry *next;
   /* A union of information depending upon the type.  */
@@ -116,7 +123,7 @@ struct bfd_link_hash_table
      type of the entries in the hash table, which is sometimes
      important information when linking object files of different
      types together.  */
-  bfd_target *creator;
+  const bfd_target *creator;
   /* A linked list of undefined and common symbols, linked through the
      next field in the bfd_link_hash_entry structure.  */
   struct bfd_link_hash_entry *undefs;
@@ -150,6 +157,8 @@ struct bfd_link_info
   const struct bfd_link_callbacks *callbacks;
   /* true if BFD should generate a relocateable object file.  */
   boolean relocateable;
+  /* true if BFD should generate a shared object.  */
+  boolean shared;
   /* Which symbols to strip.  */
   enum bfd_link_strip strip;
   /* Which local symbols to discard.  */
@@ -228,21 +237,22 @@ struct bfd_link_callbacks
 				      bfd_vma nsize));
   /* A function which is called to add a symbol to a set.  ENTRY is
      the link hash table entry for the set itself (e.g.,
-     __CTOR_LIST__).  BITSIZE is the size in bits of an entry in the
-     set (typically 32 or 64).  ABFD, SEC and VALUE identify the value
-     to add to the set.  */
+     __CTOR_LIST__).  RELOC is the relocation to use for an entry in
+     the set when generating a relocateable file, and is also used to
+     get the size of the entry when generating an executable file.
+     ABFD, SEC and VALUE identify the value to add to the set.  */
   boolean (*add_to_set) PARAMS ((struct bfd_link_info *,
 				 struct bfd_link_hash_entry *entry,
-				 unsigned int bitsize,
+				 bfd_reloc_code_real_type reloc,
 				 bfd *abfd, asection *sec, bfd_vma value));
   /* A function which is called when the name of a g++ constructor or
      destructor is found.  This is only called by some object file
      formats.  CONSTRUCTOR is true for a constructor, false for a
-     destructor.  BITSIZE is the size in bits of a function pointer.
-     NAME is the name of the symbol found.  ABFD, SECTION and VALUE
-     are the value of the symbol.  */
+     destructor.  This will use BFD_RELOC_CTOR when generating a
+     relocateable file.  NAME is the name of the symbol found.  ABFD,
+     SECTION and VALUE are the value of the symbol.  */
   boolean (*constructor) PARAMS ((struct bfd_link_info *,
-				  boolean constructor, unsigned int bitsize,
+				  boolean constructor,
 				  const char *name, bfd *abfd, asection *sec,
 				  bfd_vma value));
   /* A function which is called when there is a reference to a warning
@@ -256,17 +266,25 @@ struct bfd_link_callbacks
   boolean (*undefined_symbol) PARAMS ((struct bfd_link_info *,
 				       const char *name, bfd *abfd,
 				       asection *section, bfd_vma address));
-  /* A function which is called when a reloc overflow occurs.  ABFD,
-     SECTION and ADDRESS identify the location at which the overflow
-     occurs.  */
+  /* A function which is called when a reloc overflow occurs.  NAME is
+     the name of the symbol or section the reloc is against,
+     RELOC_NAME is the name of the relocation, and ADDEND is any
+     addend that is used.  ABFD, SECTION and ADDRESS identify the
+     location at which the overflow occurs; if this is the result of a
+     bfd_section_reloc_link_order or bfd_symbol_reloc_link_order, then
+     ABFD will be NULL.  */
   boolean (*reloc_overflow) PARAMS ((struct bfd_link_info *,
+				     const char *name,
+				     const char *reloc_name, bfd_vma addend,
 				     bfd *abfd, asection *section,
 				     bfd_vma address));
   /* A function which is called when a dangerous reloc is performed.
      The canonical example is an a29k IHCONST reloc which does not
      follow an IHIHALF reloc.  MESSAGE is an appropriate message.
      ABFD, SECTION and ADDRESS identify the location at which the
-     problem occurred.  */
+     problem occurred; if this is the result of a
+     bfd_section_reloc_link_order or bfd_symbol_reloc_link_order, then
+     ABFD will be NULL.  */
   boolean (*reloc_dangerous) PARAMS ((struct bfd_link_info *,
 				      const char *message,
 				      bfd *abfd, asection *section,
@@ -274,7 +292,9 @@ struct bfd_link_callbacks
   /* A function which is called when a reloc is found to be attached
      to a symbol which is not being written out.  NAME is the name of
      the symbol.  ABFD, SECTION and ADDRESS identify the location of
-     the reloc.  */
+     the reloc; if this is the result of a
+     bfd_section_reloc_link_order or bfd_symbol_reloc_link_order, then
+     ABFD will be NULL.  */
   boolean (*unattached_reloc) PARAMS ((struct bfd_link_info *,
 				       const char *name,
 				       bfd *abfd, asection *section,
@@ -296,7 +316,10 @@ enum bfd_link_order_type
 {
   bfd_undefined_link_order,	/* Undefined.  */
   bfd_indirect_link_order,	/* Built from a section.  */
-  bfd_fill_link_order		/* Fill with a 16 bit constant.  */
+  bfd_fill_link_order,		/* Fill with a 16 bit constant.  */
+  bfd_data_link_order,		/* Set to explicit data.  */
+  bfd_section_reloc_link_order,	/* Relocate against a section.  */
+  bfd_symbol_reloc_link_order	/* Relocate against a symbol.  */
 };
 
 /* This is the link_order structure itself.  These form a chain
@@ -330,7 +353,56 @@ struct bfd_link_order
 	  /* Value to fill with.  */
 	  unsigned int value;
 	} fill;
+      struct
+	{
+	  /* Data to put into file.  The size field gives the number
+	     of bytes which this field points to.  */
+	  bfd_byte *contents;
+	} data;
+      struct
+	{
+	  /* Description of reloc to generate.  Used for
+	     bfd_section_reloc_link_order and
+	     bfd_symbol_reloc_link_order.  */
+	  struct bfd_link_order_reloc *p;
+	} reloc;
     } u;
+};
+
+/* A linker order of type bfd_section_reloc_link_order or
+   bfd_symbol_reloc_link_order means to create a reloc against a
+   section or symbol, respectively.  This is used to implement -Ur to
+   generate relocs for the constructor tables.  The
+   bfd_link_order_reloc structure describes the reloc that BFD should
+   create.  It is similar to a arelent, but I didn't use arelent
+   because the linker does not know anything about most symbols, and
+   any asymbol structure it creates will be partially meaningless.
+   This information could logically be in the bfd_link_order struct,
+   but I didn't want to waste the space since these types of relocs
+   are relatively rare.  */
+
+struct bfd_link_order_reloc
+{
+  /* Reloc type.  */
+  bfd_reloc_code_real_type reloc;
+
+  union
+    {
+      /* For type bfd_section_reloc_link_order, this is the section
+	 the reloc should be against.  This must be a section in the
+	 output BFD, not any of the input BFDs.  */
+      asection *section;
+      /* For type bfd_symbol_reloc_link_order, this is the name of the
+	 symbol the reloc should be against.  */
+      const char *name;
+    } u;
+
+  /* Addend to use.  The object file should contain zero.  The BFD
+     backend is responsible for filling in the contents of the object
+     file correctly.  For some object file formats (e.g., COFF) the
+     addend must be stored into in the object file, and for some
+     (e.g., SPARC a.out) it is kept in the reloc.  */
+  bfd_vma addend;
 };
 
 /* Allocate a new link_order for a section.  */

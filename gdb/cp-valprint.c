@@ -26,6 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "gdbcmd.h"
 #include "demangle.h"
+#include "annotate.h"
 
 int vtblprint;			/* Controls printing of vtbl's */
 int objectprint;		/* Controls looking up an object's derived type
@@ -150,6 +151,13 @@ cp_print_class_method (valaddr, type, stream)
     }
 }
 
+/* This was what it was for gcc 2.4.5 and earlier.  */
+static const char vtbl_ptr_name_old[] =
+  { CPLUS_MARKER,'v','t','b','l','_','p','t','r','_','t','y','p','e', 0 };
+/* It was changed to this after 2.4.5.  */
+const char vtbl_ptr_name[] =
+  { '_','_','v','t','b','l','_','p','t','r','_','t','y','p','e', 0 };
+
 /* Return truth value for assertion that TYPE is of the type
    "pointer to virtual function".  */
 
@@ -158,12 +166,6 @@ cp_is_vtbl_ptr_type(type)
      struct type *type;
 {
   char *typename = type_name_no_tag (type);
-  /* This was what it was for gcc 2.4.5 and earlier.  */
-  static const char vtbl_ptr_name_old[] =
-    { CPLUS_MARKER,'v','t','b','l','_','p','t','r','_','t','y','p','e', 0 };
-  /* It was changed to this after 2.4.5.  */
-  static const char vtbl_ptr_name[] =
-    { '_','_','v','t','b','l','_','p','t','r','_','t','y','p','e', 0 };
 
   return (typename != NULL
 	  && (STREQ (typename, vtbl_ptr_name)
@@ -178,14 +180,20 @@ cp_is_vtbl_member(type)
      struct type *type;
 {
   if (TYPE_CODE (type) == TYPE_CODE_PTR)
-    type = TYPE_TARGET_TYPE (type);
-  else
-    return 0;
-
-  if (TYPE_CODE (type) == TYPE_CODE_ARRAY
-      && TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_STRUCT)
-    /* Virtual functions tables are full of pointers to virtual functions.  */
-    return cp_is_vtbl_ptr_type (TYPE_TARGET_TYPE (type));
+    {
+      type = TYPE_TARGET_TYPE (type);
+      if (TYPE_CODE (type) == TYPE_CODE_ARRAY)
+	{
+	  type = TYPE_TARGET_TYPE (type);
+	  if (TYPE_CODE (type) == TYPE_CODE_STRUCT /* if not using thunks */
+	      || TYPE_CODE (type) == TYPE_CODE_PTR) /* if using thunks */
+	    {
+	      /* Virtual functions tables are full of pointers
+		 to virtual functions. */
+	      return cp_is_vtbl_ptr_type (type);
+	    }
+	}
+    }
   return 0;
 }
 
@@ -276,14 +284,19 @@ cp_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 	    }
 	  else
 	    {
+	      annotate_field_begin (TYPE_FIELD_TYPE (type, i));
+
 	      fprintf_symbol_filtered (stream, TYPE_FIELD_NAME (type, i),
 				       language_cplus,
 				       DMGL_PARAMS | DMGL_ANSI);
+	      annotate_field_name_end ();
 	      fputs_filtered (" = ", stream);
+	      annotate_field_value ();
 	    }
+
 	  if (TYPE_FIELD_PACKED (type, i))
 	    {
-	      value v;
+	      value_ptr v;
 
 	      /* Bitfields require special handling, especially due to byte
 		 order problems.  */
@@ -313,7 +326,9 @@ cp_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 			      0, stream, format, 0, recurse + 1, pretty);
 		}
 	    }
+	  annotate_field_end ();
 	}
+
       if (pretty)
 	{
 	  fprintf_filtered (stream, "\n");
@@ -353,6 +368,8 @@ cplus_print_value (type, valaddr, stream, format, recurse, pretty, dont_print)
 
   for (i = 0; i < n_baseclasses; i++)
     {
+      /* FIXME-32x64--assumes that a target pointer can fit in a char *.
+	 Fix it by nuking baseclass_addr.  */
       char *baddr;
       int err;
       char *basename;
@@ -392,8 +409,11 @@ cplus_print_value (type, valaddr, stream, format, recurse, pretty, dont_print)
       fputs_filtered (basename ? basename : "", stream);
       fputs_filtered ("> = ", stream);
       if (err != 0)
-	fprintf_filtered (stream,
-			  "<invalid address 0x%lx>", (unsigned long) baddr);
+	{
+	  fprintf_filtered (stream, "<invalid address ");
+	  print_address_numeric ((CORE_ADDR) baddr, 1, stream);
+	  fprintf_filtered (stream, ">");
+	}
       else
 	cp_print_value_fields (TYPE_BASECLASS (type, i), baddr, stream, format,
 			       recurse, pretty,

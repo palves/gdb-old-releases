@@ -1,5 +1,5 @@
 /* YACC grammar for Chill expressions, for GDB.
-   Copyright 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -54,6 +54,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 %{
 
 #include "defs.h"
+#include <string.h>
 #include <ctype.h>
 #include "expression.h"
 #include "language.h"
@@ -294,7 +295,7 @@ yyerror PARAMS ((char *));
 %type <voidval>		lower_element
 %type <voidval>		upper_element
 %type <voidval>		first_element
-%type <voidval>		mode_argument
+%type <tval>		mode_argument
 %type <voidval>		upper_lower_argument
 %type <voidval>		length_argument
 %type <voidval>		array_mode_name
@@ -902,14 +903,13 @@ chill_value_built_in_routine_call :
 			{
 			  $$ = 0;	/* FIXME */
 			}
-		|	SIZE '(' location ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+		|	SIZE '(' expression ')'
+			{ write_exp_elt_opcode (UNOP_SIZEOF); }
 		|	SIZE '(' mode_argument ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
+			{ write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_type (builtin_type_int);
+			  write_exp_elt_longcst ((LONGEST) TYPE_LENGTH ($3));
+			  write_exp_elt_opcode (OP_LONG); }
 		|	UPPER '(' upper_lower_argument ')'
 			{
 			  $$ = 0;	/* FIXME */
@@ -926,7 +926,7 @@ chill_value_built_in_routine_call :
 
 mode_argument :		mode_name
 			{
-			  $$ = 0;	/* FIXME */
+			  $$ = $1.type;
 			}
 		|	array_mode_name '(' expression ')'
 			{
@@ -1043,7 +1043,7 @@ match_simple_name_string ()
 {
   char *tokptr = lexptr;
 
-  if (isalpha (*tokptr))
+  if (isalpha (*tokptr) || *tokptr == '_')
     {
       char *result;
       do {
@@ -1053,9 +1053,6 @@ match_simple_name_string ()
       yylval.sval.length = tokptr - lexptr;
       lexptr = tokptr;
       result = copy_name (yylval.sval);
-      for (tokptr = result; *tokptr; tokptr++)
-	if (isupper (*tokptr))
-	  *tokptr = tolower(*tokptr);
       return result;
     }
   return (NULL);
@@ -1079,7 +1076,9 @@ decode_integer_value (base, tokptrptr, ivalptr)
 
   while (*tokptr != '\0')
     {
-      temp = tolower (*tokptr);
+      temp = *tokptr;
+      if (isupper (temp))
+        temp = tolower (temp);
       tokptr++;
       switch (temp)
 	{
@@ -1335,7 +1334,7 @@ match_float_literal ()
   return (0);
 }
 
-/* Recognize a string literal.  A string literal is a nonzero sequence
+/* Recognize a string literal.  A string literal is a sequence
    of characters enclosed in matching single or double quotes, except that
    a single character inside single quotes is a character literal, which
    we reject as a string literal.  To embed the terminator character inside
@@ -1363,7 +1362,6 @@ match_string_literal ()
       tempbuf[tempbufindex++] = *tokptr;
     }
   if (*tokptr == '\0'					/* no terminator */
-      || tempbufindex == 0				/* no string */
       || (tempbufindex == 1 && *tokptr == '\''))	/* char literal */
     {
       return (0);
@@ -1406,7 +1404,7 @@ match_character_literal ()
   char *tokptr = lexptr;
   int ival = 0;
   
-  if ((tolower (*tokptr) == 'c') && (*(tokptr + 1) == '\''))
+  if ((*tokptr == 'c' || *tokptr == 'C') && (*(tokptr + 1) == '\''))
     {
       /* We have a GNU chill extension form, so skip the leading "C'",
 	 decode the hex value, and then ensure that we have a trailing
@@ -1537,7 +1535,9 @@ match_bitstring_literal ()
   
   while (*tokptr != '\0' && *tokptr != '\'')
     {
-      digit = tolower (*tokptr);
+      digit = *tokptr;
+      if (isupper (digit))
+        digit = tolower (digit);
       tokptr++;
       switch (digit)
 	{
@@ -1773,7 +1773,7 @@ yylex ()
 {
     unsigned int i;
     int token;
-    char *simplename;
+    char *inputname;
     struct symbol *sym;
 
     /* Skip over any leading whitespace. */
@@ -1806,7 +1806,7 @@ yylex ()
       {
 	case '\'':
 	case '\"':
-	  /* First try to match a string literal, which is any nonzero
+	  /* First try to match a string literal, which is any
 	     sequence of characters enclosed in matching single or double
 	     quotes, except that a single character inside single quotes
 	     is a character literal, so we have to catch that case also. */
@@ -1885,10 +1885,16 @@ yylex ()
        the token from lexptr, so we can't back out if we later find that
        we can't classify what sort of name it is. */
 
-    simplename = match_simple_name_string ();
+    inputname = match_simple_name_string ();
 
-    if (simplename != NULL)
+    if (inputname != NULL)
       {
+	char *simplename = (char*) alloca (strlen (inputname));
+
+	char *dptr = simplename, *sptr = inputname;
+	for (; *sptr; sptr++)
+	  *dptr++ = isupper (*sptr) ? tolower(*sptr) : *sptr;
+
 	/* See if it is a reserved identifier. */
 	for (i = 0; i < sizeof (idtokentab) / sizeof (idtokentab[0]); i++)
 	    {
@@ -1910,9 +1916,15 @@ yylex ()
 		return (BOOLEAN_LITERAL);
 	    }
 
-	sym = lookup_symbol (simplename, expression_context_block,
+	sym = lookup_symbol (inputname, expression_context_block,
 			     VAR_NAMESPACE, (int *) NULL,
 			     (struct symtab **) NULL);
+	if (sym == NULL && strcmp (inputname, simplename) != 0)
+	  {
+	    sym = lookup_symbol (simplename, expression_context_block,
+				 VAR_NAMESPACE, (int *) NULL,
+				 (struct symtab **) NULL);
+	  }
 	if (sym != NULL)
 	  {
 	    yylval.ssym.stoken.ptr = NULL;
@@ -1953,7 +1965,7 @@ yylex ()
 	      case LOC_UNDEF:
 	      case LOC_CONST_BYTES:
 	      case LOC_OPTIMIZED_OUT:
-		error ("Symbol \"%s\" names no location.", simplename);
+		error ("Symbol \"%s\" names no location.", inputname);
 		break;
 	      }
 	  }
@@ -1963,7 +1975,7 @@ yylex ()
 	  }
 	else
 	  {
-	    error ("No symbol \"%s\" in current context.", simplename);
+	    error ("No symbol \"%s\" in current context.", inputname);
 	  }
       }
 
@@ -1975,8 +1987,8 @@ yylex ()
 	case '.':			/* Not float for example. */
 	  lexptr++;
 	  while (isspace (*lexptr)) lexptr++;
-	  simplename = match_simple_name_string ();
-	  if (!simplename)
+	  inputname = match_simple_name_string ();
+	  if (!inputname)
 	    return '.';
 	  return FIELD_NAME;
       }
@@ -1986,15 +1998,7 @@ yylex ()
 
 void
 yyerror (msg)
-     char *msg;	/* unused */
+     char *msg;
 {
-  printf_unfiltered ("Parsing:  %s\n", lexptr);
-  if (yychar < 256)
-    {
-      error ("Invalid syntax in expression near character '%c'.", yychar);
-    }
-  else
-    {
-      error ("Invalid syntax in expression");
-    }
+  error ("A %s in expression, near `%s'.", (msg ? msg : "error"), lexptr);
 }

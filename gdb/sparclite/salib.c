@@ -1,40 +1,106 @@
 /* Stand-alone library for SPARClite */
 
-extern unsigned long get_xmt_status();
-extern void xmt_char();
+#include "sparclite.h"
+
+#ifdef SL931
+#define SDTR_BASE 0x200
+#define SDTR_ASI 1
+#define SDTR_SHIFT 0
+#else
+#define SDTR_BASE 0x10000000
+#define SDTR_ASI 4
+#define SDTR_SHIFT 16
+#endif
+
+#define get_uart_status(PORT) \
+  ({unsigned long status; \
+      read_asi (SDTR_ASI, SDTR_BASE + 0x24 + PORT * 0x10, status); \
+	status >> SDTR_SHIFT; })
+
+#define xmt_char(PORT, C) write_asi (SDTR_ASI, SDTR_BASE + 0x20 + PORT * 0x10, C << SDTR_SHIFT)
+
+#define rcv_char(PORT) \
+  ({unsigned long c; \
+      read_asi (SDTR_ASI, SDTR_BASE + 0x20 + PORT * 0x10, c); \
+	c >> SDTR_SHIFT; })
+
+#if 0
+void
+set_uart (cmd)
+     int cmd;
+{
+  write_asi (SDTR_ASI, SDTR_BASE + 0x24, cmd << SDTR_SHIFT);
+}
+
+void
+set_timer_3 (val)
+     int val;
+{
+  write_asi (SDTR_ASI, SDTR_BASE + 0x78, val << SDTR_SHIFT);
+}
+#endif
+
+/* This cache code is known to work on both the 930 & 932 processors.  It just
+   cheats and clears the all of the address space that could contain tags, as
+   opposed to striding the tags at 8 or 16 word intervals, or using the cache
+   flush registers, which don't exist on all processors.  */
+
+void
+cache_off ()
+{
+  write_asi (1, 0, 0);
+}
+
+void
+cache_on ()
+{
+  unsigned long addr;
+
+  cache_off ();			/* Make sure the cache is off */
+
+  /* Reset all of the cache line valid bits */
+
+  for (addr = 0; addr < 0x1000; addr += 8)
+    {
+      write_asi (0xc, addr, 0);	/* Clear bank 1, icache */
+      write_asi (0xc, addr + 0x80000000, 0); /* Clear bank 2, icache */
+
+      write_asi (0xe, addr, 0);	/* Clear bank 1, dcache */
+      write_asi (0xe, addr + 0x80000000, 0); /* Clear bank 2, dcache */
+    }
+
+  /* turn on the cache */
+
+  write_asi (1, 0, 0x35);	/* Write buf ena, prefetch buf ena, data
+				   & inst caches enab */
+}
+
+/* Flush the instruction cache.  We need to do this for the debugger stub so
+   that breakpoints, et. al. become visible to the instruction stream after
+   storing them in memory.
+ */
+
+void
+flush_i_cache ()
+{
+  int cache_reg;
+  unsigned long addr;
+
+  read_asi (1, 0, cache_reg);	/* Read cache/bus interface reg */
+
+  if (!(cache_reg & 1))
+    return;			/* Just return if cache is already off */
+
+  for (addr = 0; addr < 0x1000; addr += 8)
+    {
+      write_asi (0xc, addr, 0);	/* Clear bank 1, icache */
+      write_asi (0xc, addr + 0x80000000, 0); /* Clear bank 2, icache */
+    }
+}
 
 asm("
 	.text
 	.align 4
-	.globl _get_uart_status
-_get_uart_status:
-	set 0x10000025, %o0
-	retl
-	lduba [%o0] 4, %o0
-
-	.globl _set_uart_stuff
-_set_uart_stuff:
-	set 0x10000025, %o1
-	retl
-	stba %o0, [%o1] 4
-
-	.globl _xmt_char
-_xmt_char:
-	set 0x10000021, %o1
-	retl
-	stba %o0, [%o1] 4
-
-	.globl _rcv_char
-_rcv_char:
-	set 0x10000021, %o0
-	retl
-	lduba [%o0] 4, %o0
-
-	.globl	_set_timer_3
-_set_timer_3:
-	set	0x10000078, %o1	! Address of TCR3 reload register
-	retl
-	stha	%o0, [%o1] 4	! Set the reg
 
 ! Register window overflow handler.  Come here when save would move us
 ! into the invalid window.  This routine runs with traps disabled, and
@@ -103,75 +169,6 @@ win_unf:
 	jmpl	%l1,  %g0
 	rett	%l2
 
-! Turn on the cache
-
-	.globl	_cache_on
-_cache_on:
-	sta	%g0, [%g0] 1		! First, make sure cache is off
-					!  before we diddle the tags
-	set	63 * 4 * 4, %o0
-	set	0x80000000, %o1
-
-! First, reset all of the cache line valid bits, then turn on the cache
-
-cache_loop:
-	sta	%g0, [%o0] 0x0c		! Bank 1, icache
-	sta	%g0, [%o0 + %o1] 0x0c	! Bank 2, icache
-
-	sta	%g0, [%o0] 0x0e		! Bank 1, dcache
-	sta	%g0, [%o0 + %o1] 0x0e	! Bank 2, dcache
-
-	subcc	%o0, 16, %o0
-	bge	cache_loop
-	nop
-
-	set	0x35, %o0		! Write buf ena, Prefetch buf ena,
-					! Data & Inst caches enab
-	retl
-	sta	%o0, [%g0] 1		! Turn on the cache
-
-! Flush the instruction cache.  We need to do this for the debugger stub so
-! that breakpoints, et. al. become visible to the instruction stream after
-! storing them in memory.
-
-	.globl	_flush_i_cache
-_flush_i_cache:
-	lda	[%g0] 1, %o3		! Get cache/bus interface reg
-	btst	1, %o3
-	bz	popj			! Branch if i-cache is off
-	nop
-
-	sta	%g0, [%g0] 1		! Make sure cache is off
-	nop
-	nop
-	nop
-
-	set	63 * 4 * 4, %o0		! Loop size
-	set	0x80000000, %o1		! Base addr of bank 2
-fi_loop:
-	lda	[%o0] 0x0c, %o2		! Bank 1, icache
-	bclr	0x3c0, %o2		! Clear valid bits
-	sta	%o2, [%o0] 0x0c
-
-	lda	[%o0 + %o1] 0x0c, %o2	! Bank 2, icache
-	bclr	0x3c0, %o2		! Clear valid bits
-	sta	%o2, [%o0 + %o1] 0x0c
-
-	subcc	%o0, 16, %o0
-	bge	fi_loop
-	nop
-
-	sta	%o3, [%g0] 1		! Turn cache back on
-
-popj:	retl
-	nop
-
-	.globl	_cache_off
-
-_cache_off:
-	retl
-	nop
-
 ! Read the TBR.
 
 	.globl _rdtbr
@@ -182,6 +179,17 @@ _rdtbr:
 ");
 
 extern unsigned long rdtbr();
+
+void
+die(val)
+     int val;
+{
+  static unsigned char *leds = (unsigned char *)0x02000003;
+
+  *leds = val;
+
+  while (1) ;
+}
 
 void
 __main()
@@ -264,18 +272,6 @@ update_leds()
     }
 }
 
-#if 0
-void
-update_leds()
-{
-  static unsigned char *leds = (unsigned char *)0x02000003;
-  static unsigned char curled = 0xfe;
-
-  *leds = curled;
-  curled = (curled >> 1) | (curled << 7);
-}
-#endif
-
  /* 1/5th of a second? */
 
 #define LEDTIME (20000000 / 500)
@@ -298,7 +294,7 @@ getDebugChar()
 	}
     }
 
-  return rcv_char();
+  return rcv_char(0);
 }
 
 /* Output one character to the serial port */
@@ -309,9 +305,9 @@ putDebugChar(c)
 {
   update_leds();
 
-  while ((get_uart_status() & 1) == 0) ;
+  while ((get_uart_status(0) & 1) == 0) ;
 
-  xmt_char(c);
+  xmt_char(0, c);
 }
 
 int
@@ -346,6 +342,7 @@ read(fd, data, length)
 /* Set the baud rate for the serial port, returns 0 for success,
    -1 otherwise */
 
+#if 0
 int
 set_baud_rate(baudrate)
      int baudrate;
@@ -368,3 +365,4 @@ set_baud_rate(baudrate)
 
   set_timer_3(baudrate);	/* Set it */
 }
+#endif

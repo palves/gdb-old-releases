@@ -190,11 +190,22 @@ add_abbrev_prefix_cmd (name, class, fun, doc, prefixlist, prefixname,
   return c;
 }
 
-/* ARGSUSED */
+/* This is an empty "cfunc".  */
 void
 not_just_help_class_command (args, from_tty)
      char *args;
      int from_tty;
+{
+}
+
+/* This is an empty "sfunc".  */
+static void empty_sfunc PARAMS ((char *, int, struct cmd_list_element *));
+
+static void
+empty_sfunc (args, from_tty, c)
+     char *args;
+     int from_tty;
+     struct cmd_list_element *c;
 {
 }
 
@@ -214,17 +225,15 @@ add_set_cmd (name, class, var_type, var, doc, list)
      char *doc;
      struct cmd_list_element **list;
 {
-  /* For set/show, we have to call do_setshow_command
-     differently than an ordinary function (take commandlist as
-     well as arg), so the function field isn't helpful.  However,
-     function == NULL means that it's a help class, so set the function
-     to not_just_help_class_command.  */
   struct cmd_list_element *c
-    = add_cmd (name, class, not_just_help_class_command, doc, list);
+    = add_cmd (name, class, NO_FUNCTION, doc, list);
 
   c->type = set_cmd;
   c->var_type = var_type;
   c->var = var;
+  /* This needs to be something besides NO_FUNCTION so that this isn't
+     treated as a help class.  */
+  c->function.sfunc = empty_sfunc;
   return c;
 }
 
@@ -675,12 +684,15 @@ lookup_cmd (line, list, cmdtype, allow_unknown, ignore_help_classes)
   struct cmd_list_element *last_list = 0;
   struct cmd_list_element *c =
     lookup_cmd_1 (line, list, &last_list, ignore_help_classes);
+#if 0
+  /* This is wrong for complete_command.  */
   char *ptr = (*line) + strlen (*line) - 1;
 
   /* Clear off trailing whitespace.  */
   while (ptr >= *line && (*ptr == ' ' || *ptr == '\t'))
     ptr--;
   *(ptr + 1) = '\0';
+#endif
   
   if (!c)
     {
@@ -1041,6 +1053,11 @@ do_setshow_command (arg, from_tty, c)
 		  {
 		    /* \ at end of argument is used after spaces
 		       so they won't be lost.  */
+		    /* This is obsolete now that we no longer strip
+		       trailing whitespace and actually, the backslash
+		       didn't get here in my test, readline or
+		       something did something funky with a backslash
+		       right before a newline.  */
 		    if (*p == 0)
 		      break;
 		    ch = parse_escape (&p);
@@ -1052,8 +1069,10 @@ do_setshow_command (arg, from_tty, c)
 		else
 		  *q++ = ch;
 	      }
+#if 0
 	    if (*(p - 1) != '\\')
 	      *q++ = ' ';
+#endif
 	    *q++ = '\0';
 	    new = (char *) xrealloc (new, q - new);
 	    if (*(char **)c->var != NULL)
@@ -1216,8 +1235,10 @@ shell_escape (arg, from_tty)
       else
 	execl (user_shell, p, "-c", arg, 0);
 
-      fprintf_unfiltered (gdb_stderr, "Exec of shell failed\n");
-      exit (0);
+      fprintf_unfiltered (gdb_stderr, "Cannot execute %s: %s\n", user_shell,
+			  safe_strerror (errno));
+      gdb_flush (gdb_stderr);
+      _exit (0177);
     }
 
   if (pid != -1)

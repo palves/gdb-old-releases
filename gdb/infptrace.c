@@ -1,5 +1,6 @@
 /* Low level Unix child interface to ptrace, for GDB when running under Unix.
-   Copyright 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -110,12 +111,17 @@ kill_inferior ()
   if (inferior_pid == 0)
     return;
   /* ptrace PT_KILL only works if process is stopped!!!  So stop it with
-     a real signal first, if we can.  */
+     a real signal first, if we can.  FIXME: This is bogus.  When the inferior
+     is not stopped, GDB should just be waiting for it.  Either the following
+     line is unecessary, or there is some problem elsewhere in GDB which
+     causes us to get here when the inferior is not stopped.  */
   kill (inferior_pid, SIGKILL);
   ptrace (PT_KILL, inferior_pid, (PTRACE_ARG3_TYPE) 0, 0);
   wait ((int *)0);
   target_mourn_inferior ();
 }
+
+#ifndef CHILD_RESUME
 
 /* Resume execution of the inferior process.
    If STEP is nonzero, single-step it.
@@ -131,15 +137,9 @@ child_resume (pid, step, signal)
 
   if (pid == -1)
     /* Resume all threads.  */
-#ifdef PIDGET
-    /* This is for Lynx, and should be cleaned up by having Lynx be
-       a separate debugging target, with its own target_resume function.  */
-    pid = PIDGET (inferior_pid);
-#else
     /* I think this only gets used in the non-threaded case, where "resume
        all threads" and "resume inferior_pid" are the same.  */
     pid = inferior_pid;
-#endif
 
   /* An address of (PTRACE_ARG3_TYPE)1 tells ptrace to continue from where
      it was.  (If GDB wanted it to start some other way, we have already
@@ -160,6 +160,8 @@ child_resume (pid, step, signal)
   if (errno)
     perror_with_name ("ptrace");
 }
+#endif /* CHILD_RESUME */
+
 
 #ifdef ATTACH_DETACH
 /* Start debugging the process whose number is PID.  */
@@ -243,7 +245,8 @@ static void
 fetch_register (regno)
      int regno;
 {
-  register unsigned int regaddr;
+  /* This isn't really an address.  But ptrace thinks of it as one.  */
+  CORE_ADDR regaddr;
   char buf[MAX_REGISTER_RAW_SIZE];
   char mess[128];				/* For messages */
   register int i;
@@ -283,9 +286,14 @@ void
 fetch_inferior_registers (regno)
      int regno;
 {
+  int numregs;
+
   if (regno == -1)
-    for (regno = 0; regno < NUM_REGS; regno++)
-      fetch_register (regno);
+    {
+      numregs = ARCH_NUM_REGS;
+      for (regno = 0; regno < numregs; regno++)
+        fetch_register (regno);
+    }
   else
     fetch_register (regno);
 }
@@ -303,9 +311,10 @@ void
 store_inferior_registers (regno)
      int regno;
 {
-  register unsigned int regaddr;
+  /* This isn't really an address.  But ptrace thinks of it as one.  */
+  CORE_ADDR regaddr;
   char buf[80];
-  register int i;
+  register int i, numregs;
 
   unsigned int offset = U_REGS_OFFSET;
 
@@ -327,7 +336,8 @@ store_inferior_registers (regno)
     }
   else
     {
-      for (regno = 0; regno < NUM_REGS; regno++)
+      numregs = ARCH_NUM_REGS;
+      for (regno = 0; regno < numregs; regno++)
 	{
 	  if (CANNOT_STORE_REGISTER (regno))
 	    continue;
@@ -349,6 +359,8 @@ store_inferior_registers (regno)
 }
 #endif /* !defined (FETCH_INFERIOR_REGISTERS).  */
 
+
+#if !defined (CHILD_XFER_MEMORY)
 /* NOTE! I tried using PTRACE_READDATA, etc., to read and write memory
    in the NEW_SUN_PTRACE case.
    It ought to be straightforward.  But it appears that writing did
@@ -447,3 +459,4 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
     }
   return len;
 }
+#endif /* !defined (CHILD_XFER_MEMORY).  */

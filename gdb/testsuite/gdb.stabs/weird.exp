@@ -12,13 +12,6 @@ proc do_tests {} {
 	global binfile
 	global prompt
 
-	# Do this first because the bug only exhibits itself before partial
-	# symbols have been expanded.
-	setup_xfail "*-*-*"
-	# xcoffread.c doesn't (yet) use partial symbol tables.
-	clear_xfail "rs*-*-aix*"
-	gdb_test "ptype red" "type = enum \{red, green, blue\}" "ptype unnamed enum"
-
 	# Mips/alpha targets that use gcc with mips-tfile put out the stabs
 	# assembler directives embedded in comments. If the assembler
 	# file is then processed with native cc, all stabs directives
@@ -130,14 +123,9 @@ proc do_tests {} {
 	gdb_test "whatis const69" "type = (unsigned int|inttype)" "whatis const69"
 
 	# Haven't investigated
-	setup_xfail "*-*-*"
 	gdb_test "p sizeof (const70)" " = 2" "'e' constant with embedded type"
 
-	# field3 is printing out a bogus value; haven't investigated
-	setup_xfail "*-*-*"
 	gdb_test "p bad_neg0" " = \{field0 = 42, field2 =.*field3 = 45\}" "p bad_neg0"
-	# test that it at least gets field0 right
-	gdb_test "p bad_neg0" " = \{field0 = 42, field2 =" "p bad_neg0, test 2"
 
 	gdb_test "ptype inttype" "type = (unsigned int|inttype)" "ptype on inttype"
 	gdb_test "p sizeof (float72type)" " = 9" "unrecognized floating point type"
@@ -256,7 +244,7 @@ if ![file exists $binfile] then {
 		}
 		-re "A program is being debugged already.  Kill it\? \(y or n\)" {
 		    send "y\n"
-		    continue -expect
+		    exp_continue
 		}
 		-re ".*$prompt $" {
 			fail "Errors reading weird.o"

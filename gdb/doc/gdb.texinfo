@@ -45,7 +45,7 @@
 @c manuals to an info tree.  zoo@cygnus.com is developing this facility.
 @format
 START-INFO-DIR-ENTRY
-* Gdb::                         The GNU debugger.
+* Gdb: (gdb).                     The GNU debugger.
 END-INFO-DIR-ENTRY
 @end format
 @end ifinfo
@@ -273,11 +273,13 @@ omitted from this list, we would like to add your names!
 @end quotation
 
 So that they may not regard their long labor as thankless, we
-particularly thank those who shepherded GDB through major releases: Fred
-Fish (releases 4.12, 4.11, 4.10, 4.9), Stu Grossman and John Gilmore (releases
-4.8, 4.7, 4.6, 4.5, 4.4), John Gilmore (releases 4.3, 4.2, 4.1, 4.0, and
-3.9); Jim Kingdon (releases 3.5, 3.4, 3.3); and Randy Smith (releases
-3.2, 3.1, 3.0).  As major maintainer of GDB for some period, each
+particularly thank those who shepherded GDB through major releases:
+Fred Fish (releases 4.12, 4.11, 4.10, and 4.9),
+Stu Grossman and John Gilmore (releases 4.8, 4.7, 4.6, 4.5, and 4.4),
+John Gilmore (releases 4.3, 4.2, 4.1, 4.0, and 3.9);
+Jim Kingdon (releases 3.5, 3.4, and 3.3);
+and Randy Smith (releases 3.2, 3.1, and 3.0).
+As major maintainer of GDB for some period, each
 contributed significantly to the structure, stability, and capabilities
 of the entire debugger.
 
@@ -300,17 +302,22 @@ the original support for encapsulated COFF.
 
 Adam de Boor and Bradley Davis contributed the ISI Optimum V support.
 Per Bothner, Noboyuki Hikichi, and Alessandro Forin contributed MIPS
-support.  Jean-Daniel Fekete contributed Sun 386i support.  Chris
-Hanson improved the HP9000 support.  Noboyuki Hikichi and Tomoyuki
-Hasei contributed Sony/News OS 3 support.  David Johnson contributed
-Encore Umax support.  Jyrki Kuoppala contributed Altos 3068 support.
-Keith Packard contributed NS32K support.  Doug Rabson contributed
-Acorn Risc Machine support.  Chris Smith contributed Convex support
-(and Fortran debugging).  Jonathan Stone contributed Pyramid support.
-Michael Tiemann contributed SPARC support.  Tim Tucker contributed
-support for the Gould NP1 and Gould Powernode.  Pace Willison
-contributed Intel 386 support.  Jay Vosburgh contributed Symmetry
 support.
+Jean-Daniel Fekete contributed Sun 386i support.
+Chris Hanson improved the HP9000 support.
+Noboyuki Hikichi and Tomoyuki Hasei contributed Sony/News OS 3 support.
+David Johnson contributed Encore Umax support.
+Jyrki Kuoppala contributed Altos 3068 support.
+Jeff Law contributed HP PA and SOM support.
+Keith Packard contributed NS32K support.
+Doug Rabson contributed Acorn Risc Machine support.
+Bob Rusk contributed Harris Nighthawk CX-UX support.
+Chris Smith contributed Convex support (and Fortran debugging).
+Jonathan Stone contributed Pyramid support.
+Michael Tiemann contributed SPARC support.
+Tim Tucker contributed support for the Gould NP1 and Gould Powernode.
+Pace Willison contributed Intel 386 support.
+Jay Vosburgh contributed Symmetry support.
 
 Rich Schaefer and Peter Schauer helped with support of SunOS shared
 libraries.
@@ -338,6 +345,14 @@ symbols.
 @end ifclear
 
 Hitachi America, Ltd. sponsored the support for Hitachi microprocessors.
+
+Kung Hsu, Jeff Law, and Rick Sladkey added support for hardware
+watchpoints.
+
+Stu Grossman wrote gdbserver.
+
+Jim Kingdon, Peter Schauer, Ian Taylor, and Stu Grossman made
+nearly innumerable bug fixes and cleanups throughout GDB.
 
 @ifset NOVEL
 @node New Features
@@ -1518,8 +1533,8 @@ The arguments to your program can be specified by the arguments of the
 @code{run} command.  They are passed to a shell, which expands wildcard
 characters and performs redirection of I/O, and thence to your program.
 Your @code{SHELL} environment variable (if it exists) specifies what
-shell @value{GDBN} if you do not define @code{SHELL}, @value{GDBN} uses
-@code{/bin/sh}.
+shell @value{GDBN} uses.  If you do not define @code{SHELL},
+@value{GDBN} uses @code{/bin/sh}.
 
 @code{run} with no arguments uses the same arguments used by the previous
 @code{run}, or those set by the @code{set args} command.
@@ -2171,7 +2186,7 @@ above (or no argument) specifying where to break.  @xref{Conditions,
 @kindex tbreak
 Set a breakpoint enabled only for one stop.  @var{args} are the
 same as for the @code{break} command, and the breakpoint is set in the same
-way, but the breakpoint is automatically disabled after the first time your
+way, but the breakpoint is automatically deleted after the first time your
 program stops there.  @xref{Disabling, ,Disabling breakpoints}.
 
 @item rbreak @var{regex}
@@ -2846,10 +2861,17 @@ line, then stop it and return control to @value{GDBN}.  This command is
 abbreviated @code{s}.
 
 @quotation
+@c "without debugging information" is imprecise; actually "without line
+@c numbers in the debugging information".  (gcc -g1 has debugging info but
+@c not line numbers).  But it seems complex to try to make that
+@c distinction here.
 @emph{Warning:} If you use the @code{step} command while control is
 within a function that was compiled without debugging information,
 execution proceeds until control reaches a function that does have
-debugging information.
+debugging information.  Likewise, it will not step into a function which
+is compiled without debugging information.  To step through functions
+without debugging information, use the @code{stepi} command, described
+below.
 @end quotation
 
 @item step @var{count}
@@ -3293,14 +3315,19 @@ impossible for @value{GDBN} to assign numbers properly to all frames.  In
 addition, this can be useful when your program has multiple stacks and
 switches between them.
 
-@ifset SPARC
+@ifclear H8EXCLUSIVE
 On the SPARC architecture, @code{frame} needs two addresses to
 select an arbitrary frame: a frame pointer and a stack pointer.
+
+On the MIPS and Alpha architecture, it needs two addresses: a stack
+pointer and a program counter.
+
+On the 29k architecture, it needs three addresses: a register stack
+pointer, a program counter, and a memory stack pointer.
 @c note to future updaters: this is conditioned on a flag
-@c FRAME_SPECIFICATION_DYADIC in the tm-*.h files, currently only used
-@c by SPARC, hence the specific attribution.  Generalize or list all
-@c possibilities if more supported machines start doing this.
-@end ifset
+@c SETUP_ARBITRARY_FRAME in the tm-*.h files.  The above is up to date
+@c as of 27 Jan 1994.
+@end ifclear
 
 @item up @var{n}
 @kindex up
@@ -3381,9 +3408,11 @@ the usual conventions.
 
 @item info frame @var{addr}
 @itemx info f @var{addr}
-Print a verbose description of the frame at address @var{addr},
-without selecting that frame.  The selected frame remains unchanged by
-this command.
+Print a verbose description of the frame at address @var{addr}, without
+selecting that frame.  The selected frame remains unchanged by this
+command.  This requires the same kind of address (more than one for some
+architectures) that you specify in the @code{frame} command.
+@xref{Selection, ,Selecting a frame}.
 
 @item info args
 @kindex info args
@@ -4411,42 +4440,16 @@ Ask how large the maximum offset is that @value{GDBN} prints in a
 symbolic address.
 @end table
 
-Sometimes @value{GDBN} can tell you more about an address if it does an
-extensive search of its symbol information.  The default is to provide
-a quick symbolic display that is usually correct, but which may not give
-the most useful answer when working in some object file formats.  If
-you are not getting the information you need, try:
-
-@table @code
-@item set print fast-symbolic-addr off
-@kindex set print fast-symbolic-addr
-Search all symbol information when displaying an address symbolically.
-This setting may display more information about static variables, for
-example, but also takes longer.
-
-@item set print fast-symbolic-addr
-@item set print fast-symbolic-addr on
-Search only the ``minimal symbol information'' when displaying symbolic
-information about an address.  This is the default.
-
-@item show print fast-symbolic-addr
-@kindex show print fast-symbolic-addr
-Ask whether @value{GDBN} is using a fast or slow method of printing
-symbolic address.
-@end table
-
 @cindex wild pointer, interpreting
 @cindex pointer, finding referent
 If you have a pointer and you are not sure where it points, try
-@samp{set print symbol-filename on} and @samp{set print
-fast-symbolic-addr off}.  Then you can determine the name and source
-file location of the variable where it points, using @samp{p/a
-@var{pointer}}.  This interprets the address in symbolic form.  For
-example, here @value{GDBN} shows that a variable @code{ptt} points at
-another variable @code{t}, defined in @file{hi2.c}:
+@samp{set print symbol-filename on}.  Then you can determine the name
+and source file location of the variable where it points, using
+@samp{p/a @var{pointer}}.  This interprets the address in symbolic form.
+For example, here @value{GDBN} shows that a variable @code{ptt} points
+at another variable @code{t}, defined in @file{hi2.c}:
 
 @example
-(@value{GDBP}) set print fast-symbolic-addr off
 (@value{GDBP}) set print symbol-filename on
 (@value{GDBP}) p/a ptt
 $4 = 0xe008 <t in hi2.c>
@@ -6976,12 +6979,12 @@ names of the executable and core dump files
 name of the executable file
 @end ifset
 currently in use by @value{GDBN}, and the files from which symbols were
-loaded.  The command @code{help targets} lists all possible targets
+loaded.  The command @code{help target} lists all possible targets
 rather than current ones.
 @end table
 
 All file-specifying commands allow both absolute and relative file names
-as arguments.  @value{GDBN} always converts the file name to an absolute path
+as arguments.  @value{GDBN} always converts the file name to an absolute file
 name and remembers it that way.
 
 @ifclear BARETARGET
@@ -7327,7 +7330,7 @@ write the remote stubs---the code that runs on the remote system to
 communicate with GDB.
 
 Other remote targets may be available in your
-configuration of GDB; use @code{help targets} to list them.
+configuration of GDB; use @code{help target} to list them.
 
 @ifset GENERIC
 @c Text on starting up GDB in various specific cases; it goes up front
@@ -8012,7 +8015,7 @@ environment's @code{PATH} variable, so the @value{GDBN} input and output
 session proceeds normally; but Emacs does not get enough information
 back from @value{GDBN} to locate the source files in this situation.  To
 avoid this problem, either start @value{GDBN} mode from the directory where
-your program resides, or specify a full path name when prompted for the
+your program resides, or specify an absolute file name when prompted for the
 @kbd{M-x gdb} argument.
 
 A similar confusion can result if you use the @value{GDBN} @code{file} command to
@@ -8517,10 +8520,10 @@ unset                     &&\rm(No longer an alias for delete)\cr
 @cindex GDB reference card
 @cindex reference card
 The GDB 4 release includes an already-formatted reference card, ready
-for printing with PostScript or GhostScript, in the @file{gdb}
+for printing with PostScript or Ghostscript, in the @file{gdb}
 subdirectory of the main source directory@footnote{In
 @file{gdb-@value{GDBVN}/gdb/refcard.ps} of the version @value{GDBVN}
-release.}.  If you can use PostScript or GhostScript with your printer,
+release.}.  If you can use PostScript or Ghostscript with your printer,
 you can print the reference card immediately with @file{refcard.ps}.
 
 The release also includes the source for the reference card.  You
@@ -8765,7 +8768,7 @@ called @code{configure} (or one of its subdirectories).
 The @code{Makefile} that @code{configure} generates in each source
 directory also runs recursively.  If you type @code{make} in a source
 directory such as @file{gdb-@value{GDBVN}} (or in a separate configured
-directory configured with @samp{--srcdir=@var{path}/gdb-@value{GDBVN}}), you
+directory configured with @samp{--srcdir=@var{dirname}/gdb-@value{GDBVN}}), you
 will build all the required libraries, and then build GDB.
 
 When you have multiple hosts or targets configured in separate
@@ -8828,7 +8831,7 @@ Does,,configure.info}, for a full explanation of @code{configure}.
 @example
 configure @r{[}--help@r{]}
           @r{[}--prefix=@var{dir}@r{]}
-          @r{[}--srcdir=@var{path}@r{]}
+          @r{[}--srcdir=@var{dirname}@r{]}
           @r{[}--norecursion@r{]} @r{[}--rm@r{]}
           @r{[}--target=@var{target}@r{]} @var{host}
 @end example
@@ -8848,7 +8851,7 @@ Configure the source to install programs and files under directory
 
 @c avoid splitting the warning from the explanation:
 @need 2000
-@item --srcdir=@var{path}
+@item --srcdir=@var{dirname}
 @strong{Warning: using this option requires GNU @code{make}, or another
 @code{make} that implements the @code{VPATH} feature.}@*
 Use this option to make configurations in directories separate from the
@@ -8856,9 +8859,9 @@ GDB source directories.  Among other things, you can use this to
 build (or maintain) several configurations simultaneously, in separate
 directories.  @code{configure} writes configuration specific files in
 the current directory, but arranges for them to use the source in the
-directory @var{path}.  @code{configure} creates directories under
+directory @var{dirname}.  @code{configure} creates directories under
 the working directory in parallel to the source directories below
-@var{path}.
+@var{dirname}.
 
 @item --norecursion
 Configure only the directory level where @code{configure} is executed; do not

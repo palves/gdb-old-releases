@@ -68,6 +68,14 @@ struct inferior_status {
   int proceed_to_finish;
 };
 
+/* This macro gives the number of registers actually in use by the
+   inferior.  This may be less than the total number of registers,
+   perhaps depending on the actual CPU in use or program being run.  */
+
+#ifndef ARCH_NUM_REGS
+#define ARCH_NUM_REGS NUM_REGS
+#endif
+
 extern void
 save_inferior_status PARAMS ((struct inferior_status *, int));
 
@@ -76,6 +84,9 @@ restore_inferior_status PARAMS ((struct inferior_status *));
 
 extern void set_sigint_trap PARAMS ((void));
 extern void clear_sigint_trap PARAMS ((void));
+
+extern void set_sigio_trap PARAMS ((void));
+extern void clear_sigio_trap PARAMS ((void));
 
 /* File name for default use for standard in/out in the inferior.  */
 
@@ -113,6 +124,9 @@ extern int run_stack_dummy PARAMS ((CORE_ADDR, char [REGISTER_BYTES]));
 
 extern CORE_ADDR
 read_pc PARAMS ((void));
+
+extern CORE_ADDR
+read_pc_pid PARAMS ((int));
 
 extern void
 write_pc PARAMS ((CORE_ADDR));
@@ -199,7 +213,7 @@ proc_iterate_over_mappings PARAMS ((int (*) (int, CORE_ADDR)));
 
 extern void fork_inferior PARAMS ((char *, char *, char **,
 				   void (*) (void),
-				   void (*) (int)));
+				   void (*) (int), char *));
 
 extern void startup_inferior PARAMS ((int));
 
@@ -397,11 +411,9 @@ extern CORE_ADDR text_end;
 #endif /* On stack.  */
 
 #if CALL_DUMMY_LOCATION == AT_ENTRY_POINT
-extern CORE_ADDR
-entry_point_address PARAMS ((void));
 #define PC_IN_CALL_DUMMY(pc, sp, frame_address)			\
-  ((pc) >= entry_point_address ()				\
-   && (pc) <= (entry_point_address () + DECR_PC_AFTER_BREAK))
+  ((pc) >= CALL_DUMMY_ADDRESS ()				\
+   && (pc) <= (CALL_DUMMY_ADDRESS () + DECR_PC_AFTER_BREAK))
 #endif /* At entry point.  */
 #endif /* No PC_IN_CALL_DUMMY.  */
 

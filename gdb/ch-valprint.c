@@ -1,5 +1,6 @@
 /* Support for printing Chill values for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -27,12 +28,105 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "language.h"
 #include "demangle.h"
 #include "c-lang.h" /* For c_val_print */
+#include "typeprint.h"
+#include "ch-lang.h"
 
 static void
 chill_print_value_fields PARAMS ((struct type *, char *, GDB_FILE *, int, int,
 				  enum val_prettyprint, struct type **));
 
 
+/* Print the elements of an array.
+   Similar to val_print_array_elements, but prints
+   element indexes (in Chill syntax). */
+
+static void
+chill_val_print_array_elements (type, valaddr, address, stream,
+				format, deref_ref, recurse, pretty)
+     struct type *type;
+     char *valaddr;
+     CORE_ADDR address;
+     GDB_FILE *stream;
+     int format;
+     int deref_ref;
+     int recurse;
+     enum val_prettyprint pretty;
+{
+  unsigned int i = 0;
+  unsigned int things_printed = 0;
+  unsigned len;
+  struct type *elttype;
+  struct type *range_type = TYPE_FIELD_TYPE (type, 0);
+  struct type *index_type = TYPE_TARGET_TYPE (range_type);
+  unsigned eltlen;
+  /* Position of the array element we are examining to see
+     whether it is repeated.  */
+  unsigned int rep1;
+  /* Number of repetitions we have detected so far.  */
+  unsigned int reps;
+  LONGEST low_bound =  TYPE_FIELD_BITPOS (range_type, 0);
+  LONGEST high_bound = TYPE_FIELD_BITPOS (range_type, 1);
+      
+  elttype = TYPE_TARGET_TYPE (type);
+  eltlen = TYPE_LENGTH (elttype);
+  len = TYPE_LENGTH (type) / eltlen;
+
+  annotate_array_section_begin (i, elttype);
+
+  for (; i < len && things_printed < print_max; i++)
+    {
+      if (i != 0)
+	{
+	  if (prettyprint_arrays)
+	    {
+	      fprintf_filtered (stream, ",\n");
+	      print_spaces_filtered (2 + 2 * recurse, stream);
+	    }
+	  else
+	    {
+	      fprintf_filtered (stream, ", ");
+	    }
+	}
+      wrap_here (n_spaces (2 + 2 * recurse));
+
+      rep1 = i + 1;
+      reps = 1;
+      while ((rep1 < len) && 
+	     !memcmp (valaddr + i * eltlen, valaddr + rep1 * eltlen, eltlen))
+	{
+	  ++reps;
+	  ++rep1;
+	}
+
+      fputs_filtered ("(", stream);
+      print_type_scalar (index_type, low_bound + i, stream);
+      if (reps > 1)
+	{
+	  fputs_filtered (":", stream);
+	  print_type_scalar (index_type, low_bound + i + reps - 1, stream);
+	  fputs_filtered ("): ", stream);
+	  val_print (elttype, valaddr + i * eltlen, 0, stream, format,
+		     deref_ref, recurse + 1, pretty);
+
+	  i = rep1 - 1;
+	  things_printed += 1;
+	}
+      else
+	{
+	  fputs_filtered ("): ", stream);
+	  val_print (elttype, valaddr + i * eltlen, 0, stream, format,
+		     deref_ref, recurse + 1, pretty);
+	  annotate_elt ();
+	  things_printed++;
+	}
+    }
+  annotate_array_section_end ();
+  if (i < len)
+    {
+      fprintf_filtered (stream, "...");
+    }
+}
+
 /* Print data of type TYPE located at VALADDR (within GDB), which came from
    the inferior at address ADDRESS, onto stdio stream STREAM according to
    FORMAT (a letter or 0 for natural format).  The data at VALADDR is in
@@ -73,8 +167,8 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	      print_spaces_filtered (2 + 2 * recurse, stream);
 	    }
 	  fprintf_filtered (stream, "[");
-	  val_print_array_elements (type, valaddr, address, stream, format,
-				    deref_ref, recurse, pretty, 0);
+	  chill_val_print_array_elements (type, valaddr, address, stream,
+					  format, deref_ref, recurse, pretty);
 	  fprintf_filtered (stream, "]");
 	}
       else
@@ -127,6 +221,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	}
       else
 	{
+	  /* FIXME: Why is this using builtin_type_chill_bool not type?  */
 	  val = unpack_long (builtin_type_chill_bool, valaddr);
 	  fprintf_filtered (stream, val ? "TRUE" : "FALSE");
 	}
@@ -147,6 +242,13 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	}
       addr = unpack_pointer (type, valaddr);
       elttype = TYPE_TARGET_TYPE (type);
+
+      /* We assume a NULL pointer is all zeros ... */
+      if (addr == 0)
+	{
+	  fputs_filtered ("NULL", stream);
+	  return 0;
+	}
       
       if (TYPE_CODE (elttype) == TYPE_CODE_FUNC)
 	{
@@ -157,7 +259,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	}
       if (addressprint && format != 's')
 	{
-	  fprintf_filtered (stream, "H'%lx", (unsigned long) addr);
+	  print_address_numeric (addr, 1, stream);
 	}
       
       /* For a pointer to char or unsigned char, also print the string
@@ -192,14 +294,21 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 
     case TYPE_CODE_BITSTRING:
     case TYPE_CODE_SET:
+      elttype = TYPE_FIELD_TYPE (type, 0);
+      check_stub_type (elttype);
+      if (TYPE_FLAGS (elttype) & TYPE_FLAG_STUB)
+	{
+	  fprintf_filtered (stream, "<incomplete type>");
+	  gdb_flush (stream);
+	  break;
+	}
       {
-	struct type *range = TYPE_FIELD_TYPE (type, 0);
+	struct type *range = elttype;
 	int low_bound = TYPE_LOW_BOUND (range);
 	int high_bound = TYPE_HIGH_BOUND (range);
 	int i;
 	int is_bitstring = TYPE_CODE (type) == TYPE_CODE_BITSTRING;
 	int need_comma = 0;
-	int in_range = 0;
 
 	if (is_bitstring)
 	  fputs_filtered ("B'", stream);
@@ -251,10 +360,11 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 		  fprintf_filtered (stream,
 				    "<dynamic length %d > static length %d>",
 				    length, TYPE_LENGTH (type));
-		  length > TYPE_LENGTH (type);
 		}
 	      LA_PRINT_STRING (stream, data_addr, length, 0);
 	      return length;
+	    default:
+	      break;
 	    }
 	}
       chill_print_value_fields (type, valaddr, stream, format, recurse, pretty,
@@ -264,8 +374,12 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
     case TYPE_CODE_REF:
       if (addressprint)
         {
-	  fprintf_filtered (stream, "LOC(H'%lx)",
-	  		    unpack_long (builtin_type_int, valaddr));
+	  fprintf_filtered (stream, "LOC(");
+	  print_address_numeric
+	    (extract_address (valaddr, TARGET_PTR_BIT / HOST_CHAR_BIT),
+	     1,
+	     stream);
+	  fprintf_filtered (stream, ")");
 	  if (deref_ref)
 	    fputs_filtered (": ", stream);
         }
@@ -274,7 +388,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	{
 	  if (TYPE_CODE (TYPE_TARGET_TYPE (type)) != TYPE_CODE_UNDEF)
 	    {
-	      value deref_val =
+	      value_ptr deref_val =
 		value_at
 		  (TYPE_TARGET_TYPE (type),
 		   unpack_pointer (lookup_pointer_type (builtin_type_void),
@@ -370,7 +484,7 @@ chill_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 	  fputs_filtered (": ", stream);
 	  if (TYPE_FIELD_PACKED (type, i))
 	    {
-	      value v;
+	      value_ptr v;
 
 	      /* Bitfields require special handling, especially due to byte
 		 order problems.  */
@@ -395,3 +509,73 @@ chill_print_value_fields (type, valaddr, stream, format, recurse, pretty,
     }
   fprintf_filtered (stream, "]");
 }
+
+int
+chill_value_print (val, stream, format, pretty)
+     value_ptr val;
+     GDB_FILE *stream;
+     int format;
+     enum val_prettyprint pretty;
+{
+  /* A "repeated" value really contains several values in a row.
+     They are made by the @ operator.
+     Print such values as if they were arrays.  */
+
+  if (VALUE_REPEATED (val))
+    {
+      register unsigned int n = VALUE_REPETITIONS (val);
+      register unsigned int typelen = TYPE_LENGTH (VALUE_TYPE (val));
+      fprintf_filtered (stream, "[");
+      /* Print arrays of characters using string syntax.  */
+      if (typelen == 1 && TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_INT
+	  && format == 0)
+	LA_PRINT_STRING (stream, VALUE_CONTENTS (val), n, 0);
+      else
+	{
+	  value_print_array_elements (val, stream, format, pretty);
+	}
+      fprintf_filtered (stream, "]");
+      return (n * typelen);
+    }
+  else
+    {
+      struct type *type = VALUE_TYPE (val);
+
+      /* If it is a pointer, indicate what it points to.
+
+	 Print type also if it is a reference.
+
+         C++: if it is a member pointer, we will take care
+	 of that when we print it.  */
+      if (TYPE_CODE (type) == TYPE_CODE_PTR ||
+	  TYPE_CODE (type) == TYPE_CODE_REF)
+	{
+	  char *valaddr = VALUE_CONTENTS (val);
+	  CORE_ADDR addr = unpack_pointer (type, valaddr);
+          if (TYPE_CODE (type) != TYPE_CODE_PTR || addr != 0)
+	    {
+	      int i;
+	      char *name = TYPE_NAME (type);
+	      if (name)
+		fputs_filtered (name, stream);
+	      else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_VOID)
+		fputs_filtered ("PTR", stream);
+	      else
+		{
+		  fprintf_filtered (stream, "(");
+		  type_print (type, "", stream, -1);
+		  fprintf_filtered (stream, ")");
+		}
+	      fprintf_filtered (stream, "(");
+	      i = val_print (type, valaddr, VALUE_ADDRESS (val),
+			     stream, format, 1, 0, pretty);
+	      fprintf_filtered (stream, ")");
+	      return i;
+	    }
+	}
+      return (val_print (type, VALUE_CONTENTS (val),
+			 VALUE_ADDRESS (val), stream, format, 1, 0, pretty));
+    }
+}
+
+

@@ -1,5 +1,5 @@
 /* Support routines for decoding "stabs" debugging information format.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -25,6 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    Avoid placing any object file format specific code in this file. */
 
 #include "defs.h"
+#include <string.h>
 #include "bfd.h"
 #include "obstack.h"
 #include "symtab.h"
@@ -32,6 +33,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symfile.h"
 #include "objfiles.h"
 #include "aout/stab_gnu.h"	/* We always use GNU stabs, not native */
+#include "libaout.h"
+#include "aout/aout64.h"
+#include "gdb-stabs.h"
 #include "buildsym.h"
 #include "complaints.h"
 #include "demangle.h"
@@ -194,10 +198,39 @@ static int undef_types_length;
 /* Check for and handle cretinous stabs symbol name continuation!  */
 #define STABS_CONTINUE(pp)				\
   do {							\
-    if (**(pp) == '\\') *(pp) = next_symbol_text ();	\
+    if (**(pp) == '\\' || (**(pp) == '?' && (*(pp))[1] == '\0')) \
+      *(pp) = next_symbol_text ();	\
   } while (0)
-
 
+/* FIXME: These probably should be our own types (like rs6000_builtin_type
+   has its own types) rather than builtin_type_*.  */
+static struct type **os9k_type_vector[] = {
+	0,
+	&builtin_type_int,
+	&builtin_type_char,
+	&builtin_type_long,
+	&builtin_type_short,
+	&builtin_type_unsigned_char,
+	&builtin_type_unsigned_short,
+	&builtin_type_unsigned_long,
+	&builtin_type_unsigned_int,
+	&builtin_type_float,
+	&builtin_type_double,
+	&builtin_type_void,
+	&builtin_type_long_double
+};
+
+static void os9k_init_type_vector PARAMS ((struct type **));
+
+static void
+os9k_init_type_vector(tv)
+    struct type **tv;
+{
+  int i;
+  for (i=0; i<sizeof(os9k_type_vector)/sizeof(struct type **); i++)
+    tv[i] = (os9k_type_vector[i] == 0 ? 0 : *(os9k_type_vector[i]));
+}
+
 /* Look up a dbx type-number pair.  Return the address of the slot
    where the type for that number-pair is stored.
    The number-pair is in TYPENUMS.
@@ -263,6 +296,10 @@ Invalid symbol data: type number (%d,%d) out of range at symtab pos %d.",
 		      (type_vector_length * sizeof (struct type *)));
 	  memset (&type_vector[old_len], 0,
 		  (type_vector_length - old_len) * sizeof (struct type *));
+
+	  if (os9k_stabs)
+	    /* Deal with OS9000 fundamental types.  */
+	    os9k_init_type_vector (type_vector);
 	}
       return (&type_vector[index]);
     }
@@ -365,6 +402,14 @@ patch_block_stabs (symbols, stabs, objfile)
 	  sym = find_symbol_in_list (symbols, name, pp-name);
 	  if (!sym)
 	    {
+	      /* FIXME-maybe: it would be nice if we noticed whether
+		 the variable was defined *anywhere*, not just whether
+		 it is defined in this compilation unit.  But neither
+		 xlc or GCC seem to need such a definition, and until
+		 we do psymtabs (so that the minimal symbols from all
+		 compilation units are available now), I'm not sure
+		 how to get the information.  */
+
 	      /* On xcoff, if a global is defined and never referenced,
 		 ld will remove it from the executable.  There is then
 		 a N_GSYM stab for it, but no regular (C_EXT) symbol.  */
@@ -451,7 +496,7 @@ read_type_number (pp, typenums)
 static char *type_synonym_name;
 
 #if !defined (REG_STRUCT_HAS_ADDR)
-#define REG_STRUCT_HAS_ADDR(gcc_p) 0
+#define REG_STRUCT_HAS_ADDR(gcc_p,type) 0
 #endif
 
 /* ARGSUSED */
@@ -497,6 +542,19 @@ define_symbol (valu, string, desc, type, objfile)
   sym = (struct symbol *) 
     obstack_alloc (&objfile -> symbol_obstack, sizeof (struct symbol));
   memset (sym, 0, sizeof (struct symbol));
+
+  switch (type & N_TYPE)
+    {
+    case N_TEXT:
+      SYMBOL_SECTION(sym) = SECT_OFF_TEXT;
+      break;
+    case N_DATA:
+      SYMBOL_SECTION(sym) = SECT_OFF_DATA;
+      break;
+    case N_BSS:
+      SYMBOL_SECTION(sym) = SECT_OFF_BSS;
+      break;
+    }
 
   if (processing_gcc_compilation)
     {
@@ -771,6 +829,7 @@ define_symbol (valu, string, desc, type, objfile)
       /* This case is faked by a conditional above,
 	 when there is no code letter in the dbx data.
 	 Dbx data never actually contains 'l'.  */
+    case 's':
     case 'l':
       SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_LOCAL;
@@ -934,9 +993,11 @@ define_symbol (valu, string, desc, type, objfile)
 	  /* Sun cc uses a pair of symbols, one 'p' and one 'r' with the same
 	     name to represent an argument passed in a register.
 	     GCC uses 'P' for the same case.  So if we find such a symbol pair
-	     we combine it into one 'P' symbol.
+	     we combine it into one 'P' symbol.  For Sun cc we need to do this
+	     regardless of REG_STRUCT_HAS_ADDR, because the compiler puts out
+	     the 'p' symbol even if it never saves the argument onto the stack.
 
-	     But we only do this in the REG_STRUCT_HAS_ADDR case, so that
+	     On most machines, we want to preserve both symbols, so that
 	     we can still get information about what is going on with the
 	     stack (VAX for computing args_printed, using stack slots instead
 	     of saved registers in backtraces, etc.).
@@ -948,13 +1009,18 @@ define_symbol (valu, string, desc, type, objfile)
 
 	  if (local_symbols
 	      && local_symbols->nsyms > 0
-	      && REG_STRUCT_HAS_ADDR (processing_gcc_compilation)
+#ifndef USE_REGISTER_NOT_ARG
+	      && REG_STRUCT_HAS_ADDR (processing_gcc_compilation,
+				      SYMBOL_TYPE (sym))
 	      && (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_STRUCT
-		  || TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_UNION))
+		  || TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_UNION)
+#endif
+	      )
 	    {
 	      struct symbol *prev_sym;
 	      prev_sym = local_symbols->symbol[local_symbols->nsyms - 1];
-	      if (SYMBOL_CLASS (prev_sym) == LOC_ARG
+	      if ((SYMBOL_CLASS (prev_sym) == LOC_REF_ARG
+		   || SYMBOL_CLASS (prev_sym) == LOC_ARG)
 		  && STREQ (SYMBOL_NAME (prev_sym), SYMBOL_NAME(sym)))
 		{
 		  SYMBOL_CLASS (prev_sym) = LOC_REGPARM;
@@ -1009,7 +1075,13 @@ define_symbol (valu, string, desc, type, objfile)
 
       if (TYPE_NAME (SYMBOL_TYPE (sym)) == NULL)
 	{
-	  if (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_PTR
+	  /* gcc-2.6 or later (when using -fvtable-thunks)
+	     emits a unique named type for a vtable entry.
+	     Some gdb code depends on that specific name. */
+	  extern const char vtbl_ptr_name[];
+
+	  if ((TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_PTR
+	       && strcmp (SYMBOL_NAME (sym), vtbl_ptr_name))
 	      || TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_FUNC)
 	    {
 	      /* If we are giving a name to a type such as "pointer to
@@ -1098,7 +1170,10 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_CLASS (sym) = LOC_STATIC;
       SYMBOL_VALUE_ADDRESS (sym) = valu;
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
-      add_symbol_to_list (sym, &local_symbols);
+      if (os9k_stabs)
+	add_symbol_to_list (sym, &global_symbols);
+      else
+	add_symbol_to_list (sym, &local_symbols);
       break;
 
     case 'v':
@@ -1138,10 +1213,20 @@ define_symbol (valu, string, desc, type, objfile)
      to LOC_REGPARM_ADDR for structures and unions.  */
 
   if (SYMBOL_CLASS (sym) == LOC_REGPARM
-      && REG_STRUCT_HAS_ADDR (processing_gcc_compilation)
+      && REG_STRUCT_HAS_ADDR (processing_gcc_compilation,
+			      SYMBOL_TYPE (sym))
       && ((TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_STRUCT)
 	  || (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_UNION)))
     SYMBOL_CLASS (sym) = LOC_REGPARM_ADDR;
+
+  /* Likewise for converting LOC_ARG to LOC_REF_ARG (for the 7th and
+     subsequent arguments on the sparc, for example).  */
+  if (SYMBOL_CLASS (sym) == LOC_ARG
+      && REG_STRUCT_HAS_ADDR (processing_gcc_compilation,
+			      SYMBOL_TYPE (sym))
+      && ((TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_STRUCT)
+	  || (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_UNION)))
+    SYMBOL_CLASS (sym) = LOC_REF_ARG;
 
   return sym;
 }
@@ -1190,7 +1275,7 @@ error_type (pp)
 	}
 
       /* Check for and handle cretinous dbx symbol name continuation!  */
-      if ((*pp)[-1] == '\\')
+      if ((*pp)[-1] == '\\' || (*pp)[-1] == '?')
 	{
 	  *pp = next_symbol_text ();
 	}
@@ -1430,7 +1515,7 @@ read_type (pp, objfile)
 
 	if (typenums[0] == xtypenums[0] && typenums[1] == xtypenums[1])
 	  /* It's being defined as itself.  That means it is "void".  */
-	  type = init_type (TYPE_CODE_VOID, 0, 0, NULL, objfile);
+	  type = init_type (TYPE_CODE_VOID, 1, 0, NULL, objfile);
 	else
 	  {
 	    struct type *xtype;
@@ -1480,16 +1565,40 @@ read_type (pp, objfile)
       break;
 
     case 'f':				/* Function returning another type */
+      if (os9k_stabs && **pp == '(')
+	{
+	  /* Function prototype; parse it.
+	     We must conditionalize this on os9k_stabs because otherwise
+	     it could be confused with a Sun-style (1,3) typenumber
+	     (I think).  */
+	  struct type *t;
+	  ++*pp;
+	  while (**pp != ')')
+            {
+              t = read_type(pp, objfile);
+              if (**pp == ',') ++*pp;
+            }
+	}
       type1 = read_type (pp, objfile);
       type = make_function_type (type1, dbx_lookup_type (typenums));
       break;
 
-    case 'k':				/* Const qualifier on some type (Sun) */
+    case 'k':			   /* Const qualifier on some type (Sun) */
+    case 'c':			   /* Const qualifier on some type (OS9000) */
+      /* Because 'c' means other things to AIX and 'k' is perfectly good,
+	 only accept 'c' in the os9k_stabs case.  */
+      if (type_descriptor == 'c' && !os9k_stabs)
+	return error_type (pp);
       type = read_type (pp, objfile);
       /* FIXME! For now, we ignore const and volatile qualifiers.  */
       break;
 
-    case 'B':				/* Volatile qual on some type (Sun) */
+    case 'B':			     /* Volatile qual on some type (Sun) */
+    case 'i':			     /* Volatile qual on some type (OS9000) */
+      /* Because 'i' means other things to AIX and 'B' is perfectly good,
+	 only accept 'i' in the os9k_stabs case.  */
+      if (type_descriptor == 'i' && !os9k_stabs)
+	return error_type (pp);
       type = read_type (pp, objfile);
       /* FIXME! For now, we ignore const and volatile qualifiers.  */
       break;
@@ -1550,10 +1659,17 @@ read_type (pp, objfile)
 	*dbx_lookup_type (typenums) = type;
       break;
 
-    case 'b':				/* Sun ACC builtin int type */
-      type = read_sun_builtin_type (pp, typenums, objfile);
-      if (typenums[0] != -1)
-	*dbx_lookup_type (typenums) = type;
+    case 'b':
+      if (os9k_stabs)
+	/* Const and volatile qualified type.  */
+	type = read_type (pp, objfile);
+      else
+	{
+	  /* Sun ACC builtin int type */
+	  type = read_sun_builtin_type (pp, typenums, objfile);
+	  if (typenums[0] != -1)
+	    *dbx_lookup_type (typenums) = type;
+	}
       break;
 
     case 'R':				/* Sun ACC builtin float type */
@@ -1699,7 +1815,7 @@ rs6000_builtin_type (typenum)
 			   "unsigned long", NULL);
       break;
     case 11:
-      rettype = init_type (TYPE_CODE_VOID, 0, 0, "void", NULL);
+      rettype = init_type (TYPE_CODE_VOID, 1, 0, "void", NULL);
       break;
     case 12:
       /* IEEE single precision (32 bit).  */
@@ -2339,6 +2455,7 @@ read_struct_fields (fip, pp, type, objfile)
 
   while (**pp != ';')
     {
+      if (os9k_stabs && **pp == ',') break;
       STABS_CONTINUE (pp);
       /* Get space to record the next field's data.  */
       new = (struct nextfield *) xmalloc (sizeof (struct nextfield));
@@ -2823,24 +2940,29 @@ read_array_type (pp, type, objfile)
   int nbits;
 
   /* Format of an array type:
-     "ar<index type>;lower;upper;<array_contents_type>".  Put code in
-     to handle this.
+     "ar<index type>;lower;upper;<array_contents_type>".
+     OS9000: "arlower,upper;<array_contents_type>".
 
      Fortran adjustable arrays use Adigits or Tdigits for lower or upper;
      for these, produce a type like float[][].  */
 
-  index_type = read_type (pp, objfile);
-  if (**pp != ';')
-    /* Improper format of array type decl.  */
-    return error_type (pp);
-  ++*pp;
+  if (os9k_stabs)
+    index_type = builtin_type_int;
+  else
+    {
+      index_type = read_type (pp, objfile);
+      if (**pp != ';')
+	/* Improper format of array type decl.  */
+	return error_type (pp);
+      ++*pp;
+    }
 
   if (!(**pp >= '0' && **pp <= '9') && **pp != '-')
     {
       (*pp)++;
       adjustable = 1;
     }
-  lower = read_huge_number (pp, ';', &nbits);
+  lower = read_huge_number (pp, os9k_stabs ? ',' : ';', &nbits);
   if (nbits != 0)
     return error_type (pp);
 
@@ -2900,6 +3022,7 @@ read_enum_type (pp, type, objfile)
   struct pending **symlist;
   struct pending *osyms, *syms;
   int o_nsyms;
+  int nbits;
 
 #if 0
   /* FIXME!  The stabs produced by Sun CC merrily define things that ought
@@ -2913,12 +3036,21 @@ read_enum_type (pp, type, objfile)
   osyms = *symlist;
   o_nsyms = osyms ? osyms->nsyms : 0;
 
+  if (os9k_stabs)
+    {
+      /* Size.  Perhaps this does not have to be conditionalized on
+	 os9k_stabs (assuming the name of an enum constant can't start
+	 with a digit).  */
+      read_huge_number (pp, 0, &nbits);
+      if (nbits != 0)
+	return error_type (pp);
+    }
+
   /* Read the value-names and their values.
      The input syntax is NAME:VALUE,NAME:VALUE, and so on.
      A semicolon or comma instead of a NAME means the end.  */
   while (**pp && **pp != ';' && **pp != ',')
     {
-      int nbits;
       STABS_CONTINUE (pp);
       p = *pp;
       while (*p != ':') p++;
@@ -2978,17 +3110,6 @@ read_enum_type (pp, type, objfile)
       if (syms == osyms)
 	break;
     }
-
-#if 0
-  /* This screws up perfectly good C programs with enums.  FIXME.  */
-  /* Is this Modula-2's BOOLEAN type?  Flag it as such if so. */
-  if(TYPE_NFIELDS(type) == 2 &&
-     ((STREQ(TYPE_FIELD_NAME(type,0),"TRUE") &&
-       STREQ(TYPE_FIELD_NAME(type,1),"FALSE")) ||
-      (STREQ(TYPE_FIELD_NAME(type,1),"TRUE") &&
-       STREQ(TYPE_FIELD_NAME(type,0),"FALSE"))))
-     TYPE_CODE(type) = TYPE_CODE_BOOL;
-#endif
 
   return type;
 }
@@ -3053,11 +3174,24 @@ read_sun_builtin_type (pp, typenums, objfile)
   type_bits = read_huge_number (pp, 0, &nbits);
   if (nbits != 0)
     return error_type (pp);
+  /* The type *should* end with a semicolon.  If it are embedded
+     in a larger type the semicolon may be the only way to know where
+     the type ends.  If this type is at the end of the stabstring we
+     can deal with the omitted semicolon (but we don't have to like
+     it).  Don't bother to complain(), Sun's compiler omits the semicolon
+     for "void".  */
+  if (**pp == ';')
+    ++(*pp);
 
-  return init_type (type_bits == 0 ? TYPE_CODE_VOID : TYPE_CODE_INT,
-		    type_bits / TARGET_CHAR_BIT,
-		    signed_type ? 0 : TYPE_FLAG_UNSIGNED, (char *)NULL,
-		    objfile);
+  if (type_bits == 0)
+    return init_type (TYPE_CODE_VOID, 1,
+		      signed_type ? 0 : TYPE_FLAG_UNSIGNED, (char *)NULL,
+		      objfile);
+  else
+    return init_type (TYPE_CODE_INT,
+		      type_bits / TARGET_CHAR_BIT,
+		      signed_type ? 0 : TYPE_FLAG_UNSIGNED, (char *)NULL,
+		      objfile);
 }
 
 static struct type *
@@ -3131,7 +3265,11 @@ read_huge_number (pp, end, bits)
       p++;
     }
 
-  upper_limit = LONG_MAX / radix;
+  if (os9k_stabs)
+    upper_limit = ULONG_MAX / radix;
+  else
+    upper_limit = LONG_MAX / radix;
+
   while ((c = *p++) >= '0' && c < ('0' + radix))
     {
       if (n <= upper_limit)
@@ -3275,7 +3413,7 @@ read_range_type (pp, typenums, objfile)
 
   /* A type defined as a subrange of itself, with bounds both 0, is void.  */
   if (self_subrange && n2 == 0 && n3 == 0)
-    return init_type (TYPE_CODE_VOID, 0, 0, NULL, objfile);
+    return init_type (TYPE_CODE_VOID, 1, 0, NULL, objfile);
 
   /* If n3 is zero and n2 is not, we want a floating type,
      and n2 is the width in bytes.
@@ -3499,7 +3637,7 @@ common_block_end (objfile)
     for (j = common_block_i; j < common_block->nsyms; j++)
       add_symbol_to_list (common_block->symbol[j], &new);
 
-  SYMBOL_NAMESPACE (sym) = (enum namespace)((long) new);
+  SYMBOL_TYPE (sym) = (struct type *) new;
 
   /* Should we be putting local_symbols back to what it was?
      Does it matter?  */
@@ -3519,7 +3657,7 @@ fix_common_block (sym, valu)
     struct symbol *sym;
     int valu;
 {
-  struct pending *next = (struct pending *) SYMBOL_NAMESPACE (sym);
+  struct pending *next = (struct pending *) SYMBOL_TYPE (sym);
   for ( ; next; next = next->next)
     {
       register int j;
@@ -3715,6 +3853,8 @@ scan_file_globals (objfile)
 		{
 		  SYMBOL_VALUE_ADDRESS (sym) = SYMBOL_VALUE_ADDRESS (msymbol);
 		}
+
+	      SYMBOL_SECTION (sym) = SYMBOL_SECTION (msymbol);
 	      
 	      if (prev)
 		{
@@ -3767,6 +3907,8 @@ void start_stabs ()
 
   /* FIXME: If common_block_name is not already NULL, we should complain().  */
   common_block_name = NULL;
+
+  os9k_stabs = 0;
 }
 
 /* Call after end_symtab() */

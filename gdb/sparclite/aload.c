@@ -32,6 +32,12 @@ ie: aload hello /dev/ttya
 #include <sys/types.h>
 #include <bfd.h>
 
+/* Where the code goes by default. */
+
+#ifndef LOAD_ADDRESS
+#define LOAD_ADDRESS 0x40000000
+#endif
+
 extern void *malloc();
 
 static void
@@ -86,7 +92,6 @@ main(argc, argv)
      char **argv;
 {
   struct termios termios;
-  unsigned char *loadaddr = (unsigned char *)0x40000000; /* Where the code goes */
   int cc, progsize, i;
   unsigned char buf[10];
   asection *section;
@@ -133,14 +138,17 @@ main(argc, argv)
     {
       if (bfd_get_section_flags (pbfd, section) & SEC_ALLOC)
 	{
-	  unsigned char *section_address;
+	  bfd_vma section_address;
 	  unsigned long section_size;
 	  const char *section_name;
 
 	  section_name = bfd_get_section_name (pbfd, section);
 
-	  section_address = bfd_get_section_vma (pbfd, section)
-	    + loadaddr;
+	  section_address = bfd_get_section_vma (pbfd, section);
+	  /* Adjust sections from a.out files, since they don't
+	     carry their addresses with.  */
+	  if (bfd_get_flavour (pbfd) == bfd_target_aout_flavour)
+	    section_address += LOAD_ADDRESS;
 	  section_size = bfd_section_size (pbfd, section);
 
 	  printf("[Loading section %s at %x (%d bytes)]\n",

@@ -233,6 +233,8 @@ extern CORE_ADDR find_saved_register PARAMS ((FRAME, int));
 
 extern FRAME block_innermost_frame PARAMS ((struct block *));
 
+extern FRAME find_frame_addr_in_frame_chain PARAMS ((FRAME_ADDR));
+
 extern CORE_ADDR sigtramp_saved_pc PARAMS ((FRAME));
 
 #endif /* !defined (FRAME_H)  */

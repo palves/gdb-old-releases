@@ -1,3 +1,4 @@
+
 /* generate instructions for Z8KSIM
    Copyright (C) 1992, 1993 Free Software Foundation, Inc.
 
@@ -52,6 +53,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define NOPS 500
 
+#define DIRTY_HACK 0 /* Enable if your gcc can't cope with huge tables */
 extern short z8k_inv_list[];
 struct opcode_value
 {
@@ -553,6 +555,10 @@ info_args (p)
 	  emit ("register unsigned int imm_src=<insn_4>&0x2;\n");
 	  nibs++;
 	  break;
+	case CLASS_FLAGS:
+		emit ("register unsigned int imm_src=<insn_4>;\n");
+		nibs++;
+break;	  
 	case CLASS_IMM:
 	  /* Work out the size of the think to fetch */
 
@@ -753,7 +759,7 @@ info_lvals (p)
 	{
 	case CLASS_X:
 	  /* address(reg) */
-	  emit ("register  <addr_type> oplval_<name>= base_<name> + get_word_reg(context,reg_<name>);\n");
+	  emit ("register  <addr_type> oplval_<name>= ((base_<name> + (short)get_word_reg(context,reg_<name>)) & 0xffff) + (base_<name> & ~0xffff);\n");
 	  break;
 	case CLASS_IR:
 	  /* Indirect register */
@@ -1003,6 +1009,7 @@ shift (p, arith)
      opcode_entry_type *p;
      int arith;
 {
+
   emit ("op_src = (char)op_src;\n");
   emit ("if (op_src < 0) \n");
   emit ("{\n");
@@ -1016,11 +1023,12 @@ shift (p, arith)
   emit ("tmp = op_dst << op_src;\n");
   emit ("context->carry = op_dst >> (%d - op_src);\n", p->type);
   emit ("}\n");
-  emit ("context->zero = tmp == 0;\n");
-  emit ("context->sign = (int)tmp < 0;\n");
+  emit ("context->zero = (<c_size>)tmp == 0;\n");
+  emit ("context->sign = (int)((<c_size>)tmp) < 0;\n");
   emit ("context->overflow = ((int)tmp < 0) != ((int)op_dst < 0);\n");
   emit ("context->cycles += 3*op_src;\n");
   emit ("context->broken_flags = 0;\n");
+
 }
 
 static void
@@ -1030,6 +1038,7 @@ rotate (p, through_carry, size, left)
      int size;
      int left;
 {
+
   if (!left)
     {
       emit ("while (op_src--) {\n");
@@ -1066,12 +1075,13 @@ rotate (p, through_carry, size, left)
       emit ("context->carry = rotbit;\n");
       emit ("}\n");
     }
-  emit ("tmp = op_dst;\n");
+  emit ("tmp = (<c_size>)op_dst;\n");
   emit ("context->zero = tmp == 0;\n");
   emit ("context->sign = (int)tmp < 0;\n");
   emit ("context->overflow = ((int)tmp < 0) != ((int)op_dst < 0);\n");
   emit ("context->cycles += 3*op_src;\n");
   emit ("context->broken_flags = 0;\n");
+
 }
 
 static void
@@ -1187,7 +1197,32 @@ exts (p)
       emit ("put_<size>_reg(context,reg_dst, tmp);\n");
     }
 }
+doflag(on)
+int on;
+{
+  /* Load up the flags */
+  emit(" COND (context, 0x0b);\n");
 
+  if (on)
+    emit ("{ int on =1;\n ");
+  else
+    emit ("{ int on =0;\n ");
+
+  emit ("if (imm_src & 1)\n");
+  emit ("PSW_OVERFLOW = on;\n");
+
+  emit ("if (imm_src & 2)\n");
+  emit ("PSW_SIGN = on;\n");
+
+  emit ("if (imm_src & 4)\n");
+  emit ("PSW_ZERO = on;\n");
+
+  emit ("if (imm_src & 8)\n");
+  emit ("PSW_CARRY = on;\n");
+  emit("}\n");
+
+
+}
 /* emit code to perform operation */
 void
 info_docode (p)
@@ -1385,6 +1420,12 @@ info_docode (p)
       break;
     case OPC_bit:
       dobit(p);
+      break;
+    case OPC_resflg:
+      doflag(0);
+      break;
+    case OPC_setflg:
+      doflag(1);
       break;
     default:
 
@@ -1635,7 +1676,8 @@ main (ac, av)
 	    {
 	      printf ("%d", p->idx);
 	    }
-	  if ((i & 0x3f) == 0)
+
+	  if ((i & 0x3f) == 0 && DIRTY_HACK)
 	    {
 	      printf ("\n#ifdef __GNUC__\n");
 	      printf ("};\n");
@@ -1719,7 +1761,7 @@ main (ac, av)
 	    printf (",");
 	  emit ("<fop>_%d\n", i);
 	  needcomma = 1;
-	  if ((i & 0x3f) == 0)
+	  if ((i & 0x3f) == 0 && DIRTY_HACK)
 	    {
 	      printf ("#ifdef __GNUC__\n");
 	      printf ("};\n");
@@ -1791,7 +1833,7 @@ main (ac, av)
 	      printf ("\n");
 	    }
 	  needcomma = 1;
-	  if ((i & 0x3f) == 0)
+	  if ((i & 0x3f) == 0 && DIRTY_HACK)
 	    {
 	      printf ("#ifdef __GNUC__\n");
 	      printf ("}; \n");

@@ -1,5 +1,5 @@
 /* BFD library support routines for constructors
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
 
    Hacked by Steve Chamberlain of Cygnus Support. With some help from
    Judy Chamberlain too.
@@ -95,7 +95,7 @@ INTERNAL_FUNCTION
 	bfd_constructor_entry 
 
 SYNOPSIS
-	void bfd_constructor_entry(bfd *abfd, 
+	boolean bfd_constructor_entry(bfd *abfd, 
 		asymbol **symbol_ptr_ptr,
 		CONST char*type);
 
@@ -109,13 +109,16 @@ DESCRIPTION
 	have one, and grow a relocation table for the entry points as
 	they accumulate.
 
+	Return <<true>> if successful, <<false>> if out of memory.
+
 */
 
  
-void DEFUN(bfd_constructor_entry,(abfd, symbol_ptr_ptr, type),
-	   bfd *abfd AND
-	   asymbol **symbol_ptr_ptr AND
-	   CONST char *type)
+boolean
+bfd_constructor_entry (abfd, symbol_ptr_ptr, type)
+     bfd *abfd;
+     asymbol **symbol_ptr_ptr;
+     CONST char *type;
 {
     /* Look up the section we're using to store the table in */
     asection *rel_section = bfd_get_section_by_name (abfd, type);
@@ -130,6 +133,11 @@ void DEFUN(bfd_constructor_entry,(abfd, symbol_ptr_ptr, type),
    {
        arelent_chain *reloc = (arelent_chain *)bfd_alloc(abfd,
 							 sizeof(arelent_chain));
+       if (!reloc)
+	 {
+	   bfd_set_error (bfd_error_no_memory);
+	   return false;
+	 }
 
 /*       reloc->relent.section = (asection *)NULL;*/
        reloc->relent.addend = 0;
@@ -143,5 +151,5 @@ void DEFUN(bfd_constructor_entry,(abfd, symbol_ptr_ptr, type),
        rel_section->_cooked_size += sizeof(int *);
        rel_section->reloc_count++;
    }
-
+    return true;
 }

@@ -19,6 +19,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "inferior.h"
+#include "floatformat.h"
 
 #include <stdio.h>
 
@@ -54,8 +55,6 @@ FIXME!! UPAGES is neither 2 nor 16
 /* @@@ Should move print_387_status() to i387-tdep.c */
 extern void print_387_control_word ();		/* i387-tdep.h */
 extern void print_387_status_word ();
-
-extern struct ext_format ext_format_i387;
 
 #define private static
 
@@ -121,7 +120,7 @@ fetch_inferior_registers (regno)
 			  &stateCnt);
 
   if (ret != KERN_SUCCESS)
-    message ("fetch_inferior_registers: %s ",
+    warning ("fetch_inferior_registers: %s ",
 	     mach_error_string (ret));
 #if 0
   /* It may be more effective to store validate all of them,
@@ -169,7 +168,7 @@ store_inferior_registers (regno)
 
    if (ret != KERN_SUCCESS) 
     {
-      message ("store_inferior_registers (get): %s",
+      warning ("store_inferior_registers (get): %s",
 	       mach_error_string (ret));
       if (must_suspend_thread)
 	setup_thread (current_thread, 0);
@@ -200,7 +199,7 @@ store_inferior_registers (regno)
 			  i386_THREAD_STATE_COUNT);
   
   if (ret != KERN_SUCCESS)
-    message ("store_inferior_registers (set): %s",
+    warning ("store_inferior_registers (set): %s",
 	     mach_error_string (ret));
 
   if (must_suspend_thread)
@@ -313,7 +312,7 @@ print_387_status (status, ep)
       for (i = 9; i >= 0; i--)
 	printf_unfiltered ("%02x", ep->regs[fpreg][i]);
       
-      ieee_extended_to_double (&ext_format_i387, (char *)ep->regs[fpreg],
+      floatformat_to_double (&floatformat_i387_ext, (char *)ep->regs[fpreg],
 			       &val);
       printf_unfiltered ("  %g\n", val);
     }
@@ -363,7 +362,7 @@ get_i387_state (fstate)
 
   if (ret != KERN_SUCCESS)
     {
-      message ("Can not get live floating point state: %s",
+      warning ("Can not get live floating point state: %s",
 	       mach_error_string (ret));
       return FALSE;
     }
@@ -376,7 +375,7 @@ get_i387_state (fstate)
   /* Clear the target then copy thread's float state there.
      Make a copy of the status word, for some reason?
    */
-  bzero (fstate, sizeof(struct fpstate));
+  memset (fstate, 0, sizeof (struct fpstate));
 
   fstate->status = fsp->exc_status;
 
@@ -412,7 +411,7 @@ i386_mach3_float_info()
 
   if (!valid) 
     {
-      message("no floating point status saved");
+      warning ("no floating point status saved");
       return;
     }
   

@@ -20,7 +20,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef _TM_H
 #define _TM_H
 
-#ifdef __GNUC__
+#ifdef __FOOBEYGNUC__
 typedef SFtype __attribute__ ((mode (SF)));
 typedef DFtype __attribute__ ((mode (DF)));
 

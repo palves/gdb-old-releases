@@ -1,5 +1,5 @@
 /* BFD back-end for Hitachi Super-H COFF binaries.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
    Written by Steve Chamberlain, <sac@cygnus.com>.
 
@@ -44,7 +44,7 @@ coff_SH_select_reloc (howto)
   return howto->type;
 }
 
-#define SELECT_RELOC(x,howto) x= coff_SH_select_reloc(howto)
+#define SELECT_RELOC(x,howto) x.r_type = coff_SH_select_reloc(howto)
 
 
 #define BADMAG(x) SHBADMAG(x)
@@ -63,9 +63,9 @@ coff_SH_select_reloc (howto)
    */
 
 static void
-DEFUN (rtype2howto, (internal, dst),
-       arelent * internal AND
-       struct internal_reloc *dst)
+rtype2howto (internal, dst)
+     arelent * internal;
+     struct internal_reloc *dst;
 {
   switch (dst->r_type)
     {
@@ -91,12 +91,12 @@ DEFUN (rtype2howto, (internal, dst),
  reloc_processing(relent, reloc, symbols, abfd, section)
 
 static void 
-DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
-       arelent * relent AND
-       struct internal_reloc *reloc AND
-       asymbol ** symbols AND
-       bfd * abfd AND
-       asection * section)
+reloc_processing (relent, reloc, symbols, abfd, section)
+     arelent * relent;
+     struct internal_reloc *reloc;
+     asymbol ** symbols;
+     bfd * abfd;
+     asection * section;
 {
   relent->address = reloc->r_vaddr;
   rtype2howto (relent, reloc);
@@ -107,7 +107,7 @@ DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
     }
   else
     {
-      relent->sym_ptr_ptr = &(bfd_abs_symbol);
+      relent->sym_ptr_ptr = bfd_abs_section_ptr->symbol_ptr_ptr;
     }
 
 
@@ -153,7 +153,7 @@ extra_case (in_abfd, link_info, link_order, reloc, data, src_ptr, dst_ptr)
   bfd_coff_reloc16_get_relocated_section_contents
 #define coff_bfd_relax_section bfd_coff_reloc16_relax_section
 
-bfd_target shcoff_vec =
+const bfd_target shcoff_vec =
 {
   "coff-sh",			/* name */
   bfd_target_coff_flavour,
@@ -183,6 +183,15 @@ bfd_getb64, bfd_getb_signed_64, bfd_putb64,
   {bfd_false, coff_write_object_contents,	/* bfd_write_contents */
      _bfd_write_archive_contents, bfd_false},
 
-     JUMP_TABLE(coff),
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
     COFF_SWAP_TABLE,
 };

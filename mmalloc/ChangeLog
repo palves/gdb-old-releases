@@ -1,3 +1,13 @@
+Fri May  6 13:04:25 1994  Steve Chamberlain  (sac@cygnus.com)
+
+        * config/go32.mh: New file
+	* configure.in (host==go32):  Use new fragment.
+
+Tue Feb  8 00:32:28 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mmtrace.c (tr_freehook, tr_mallochook, tr_reallochook):
+	Cast addresses put out via fprintf to unsigned long and use %lx.
+
 Tue Nov 16 20:33:17 1993  Jim Kingdon  (kingdon@deneb.cygnus.com)
 
 	* COPYING.LIB: New file (standard version 2 LGPL, as already cited

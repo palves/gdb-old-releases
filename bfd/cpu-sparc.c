@@ -37,7 +37,8 @@ static bfd_arch_info_type arch_info_struct =
     0,
   };
 
-void DEFUN_VOID(bfd_sparc_arch)
+void
+bfd_sparc_arch ()
 {
   bfd_arch_linkin(&arch_info_struct);
 }

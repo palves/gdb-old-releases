@@ -84,6 +84,7 @@ extern struct target_ops udi_ops;             /* Forward declaration */
    starts.  */
 
 UDISessionId udi_session_id = -1;
+static char *udi_config_id;
 
 CPUOffset IMemStart = 0;
 CPUSizeT IMemSize = 0;
@@ -139,8 +140,11 @@ udi_create_inferior (execfile, args, env)
 
   if (udi_session_id < 0)
     {
-      printf_unfiltered("UDI connection not open yet.\n");
-      return;
+      /* If the TIP is not open, open it.  */
+      if (UDIConnect (udi_config_id, &udi_session_id))
+	error("UDIConnect() failed: %s\n", dfe_errmsg);
+      /* We will need to download the program.  */
+      entry.Offset = 0;
     }
 
   inferior_pid = 40000;
@@ -150,7 +154,19 @@ udi_create_inferior (execfile, args, env)
 
   args1 = alloca (strlen(execfile) + strlen(args) + 2);
 
-  strcpy (args1, execfile);
+  if (execfile[0] == '\0')
+
+    /* It is empty.  We need to quote it somehow, or else the target
+       will think there is no argument being passed here.  According
+       to the UDI spec it is quoted "according to TIP OS rules" which
+       I guess means quoting it like the Unix shell should work
+       (sounds pretty bogus to me...).  In fact it doesn't work (with
+       isstip anyway), but passing in two quotes as the argument seems
+       like a reasonable enough behavior anyway (I guess).  */
+
+    strcpy (args1, "''");
+  else
+    strcpy (args1, execfile);
   strcat (args1, " ");
   strcat (args1, args);
 
@@ -191,7 +207,6 @@ udi_mourn()
 
 /* XXX - need cleanups for udiconnect for various failures!!! */
 
-static char *udi_config_id;
 static void
 udi_open (name, from_tty)
      char *name;
@@ -223,6 +238,7 @@ udi_open (name, from_tty)
   udi_config_id = strdup (strtok (name, " \t"));
 
   if (UDIConnect (udi_config_id, &udi_session_id))
+    /* FIXME: Should set udi_session_id to -1 here.  */
     error("UDIConnect() failed: %s\n", dfe_errmsg);
 
   push_target (&udi_ops);
@@ -291,10 +307,15 @@ udi_close (quitting)	/*FIXME: how is quitting used */
     return;
 
   /* We should never get here if there isn't something valid in
-     udi_session_id. */
+     udi_session_id.  */
 
   if (UDIDisconnect (udi_session_id, UDITerminateSession))
-    error ("UDIDisconnect() failed in udi_close");
+    {
+      if (quitting)
+	warning ("UDIDisconnect() failed in udi_close");
+      else
+	error ("UDIDisconnect() failed in udi_close");
+    }
 
   /* Do not try to close udi_session_id again, later in the program.  */
   udi_session_id = -1;
@@ -319,6 +340,9 @@ udi_attach (args, from_tty)
   UDICount	CountDone;
   UDIBool	HostEndian = 0;
   UDIError	err;
+
+  if (args == NULL)
+    error_no_arg ("program to attach");
 
   if (udi_session_id < 0)
       error ("UDI connection not opened yet, use the 'target udi' command.\n");
@@ -348,10 +372,15 @@ udi_detach (args,from_tty)
   if (UDIDisconnect (udi_session_id, UDIContinueSession))
     error ("UDIDisconnect() failed in udi_detach");
 
-  pop_target();         	/* calls udi_close to do the real work */
+  /* Don't try to UDIDisconnect it again in udi_close, which is called from
+     pop_target.  */
+  udi_session_id = -1;
+  inferior_pid = 0;
+
+  pop_target();
 
   if (from_tty)
-    printf_unfiltered ("Ending remote debugging\n");
+    printf_unfiltered ("Detaching from TIP\n");
 }
 
 
@@ -913,8 +942,10 @@ udi_xfer_inferior_memory (memaddr, myaddr, len, write)
 static void
 udi_files_info ()
 {
-  printf_unfiltered ("\tAttached to UDI socket to %s and running program %s.\n",
-          udi_config_id, prog_name);
+  printf_unfiltered ("\tAttached to UDI socket to %s", udi_config_id);
+  if (prog_name != NULL)
+    printf_unfiltered ("and running program %s", prog_name);
+  printf_unfiltered (".\n");
 }
 
 /**************************************************** UDI_INSERT_BREAKPOINT */
@@ -1001,6 +1032,13 @@ just invoke udi_close, which seems to get things right.
   /* Keep the target around, e.g. so "run" can do the right thing when
      we are already debugging something.  */
 
+  if (UDIDisconnect (udi_session_id, UDITerminateSession))
+    {
+      warning ("UDIDisconnect() failed");
+    }
+
+  /* Do not try to close udi_session_id again, later in the program.  */
+  udi_session_id = -1;
   inferior_pid = 0;
 }
 

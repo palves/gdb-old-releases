@@ -18,6 +18,9 @@ License along with libiberty; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
+#include "ansidecl.h"
+#include "libiberty.h"
+
 #include "config.h"
 
 #ifndef NEED_sys_errlist
@@ -43,9 +46,6 @@ Cambridge, MA 02139, USA.  */
 extern void *malloc (size_t size);				/* 4.10.3.3 */
 extern void *memset (void *s, int c, size_t n);			/* 4.11.6.1 */
 #else	/* !__STDC__ */
-#ifndef const
-#define const
-#endif
 extern char *malloc ();		/* Standard memory allocater */
 extern char *memset ();
 #endif	/* __STDC__ */
@@ -68,9 +68,9 @@ extern char *memset ();
 struct error_info
 {
   int value;		/* The numeric value from <errno.h> */
-  char *name;		/* The equivalent symbolic value */
+  const char *name;	/* The equivalent symbolic value */
 #ifdef NEED_sys_errlist
-  char *msg;		/* Short message about this value */
+  const char *msg;	/* Short message about this value */
 #endif
 };
 
@@ -451,7 +451,7 @@ static const struct error_info error_table[] =
 /* Translation table allocated and initialized at runtime.  Indexed by the
    errno value to find the equivalent symbolic value. */
 
-static char **error_names;
+static const char **error_names;
 static int num_error_names = 0;
 
 /* Translation table allocated and initialized at runtime, if it does not
@@ -465,7 +465,7 @@ static int num_error_names = 0;
 #ifdef NEED_sys_errlist
 
 static int sys_nerr;
-static char **sys_errlist;
+static const char **sys_errlist;
 
 #else
 
@@ -529,7 +529,7 @@ init_error_tables ()
   if (error_names == NULL)
     {
       nbytes = num_error_names * sizeof (char *);
-      if ((error_names = (char **) malloc (nbytes)) != NULL)
+      if ((error_names = (const char **) malloc (nbytes)) != NULL)
 	{
 	  memset (error_names, 0, nbytes);
 	  for (eip = error_table; eip -> name != NULL; eip++)
@@ -547,7 +547,7 @@ init_error_tables ()
   if (sys_errlist == NULL)
     {
       nbytes = num_error_names * sizeof (char *);
-      if ((sys_errlist = (char **) malloc (nbytes)) != NULL)
+      if ((sys_errlist = (const char **) malloc (nbytes)) != NULL)
 	{
 	  memset (sys_errlist, 0, nbytes);
 	  sys_nerr = num_error_names;
@@ -664,7 +664,7 @@ strerror (errnoval)
   else
     {
       /* In range, and a valid message.  Just return the message. */
-      msg = sys_errlist[errnoval];
+      msg = (char *) sys_errlist[errnoval];
     }
   
   return (msg);
@@ -681,7 +681,7 @@ NAME
 
 SYNOPSIS
 
-	char *strerrno (int errnoval)
+	const char *strerrno (int errnoval)
 
 DESCRIPTION
 
@@ -704,11 +704,11 @@ BUGS
 
 */
 
-char *
+const char *
 strerrno (errnoval)
   int errnoval;
 {
-  char *name;
+  const char *name;
   static char buf[32];
 
   if (error_names == NULL)
@@ -725,7 +725,7 @@ strerrno (errnoval)
     {
       /* In range, but no error_names or no entry at this index. */
       sprintf (buf, "Error %d", errnoval);
-      name = buf;
+      name = (const char *) buf;
     }
   else
     {
@@ -755,7 +755,7 @@ DESCRIPTION
 
 int
 strtoerrno (name)
-  char *name;
+     const char *name;
 {
   int errnoval = 0;
 
@@ -787,13 +787,15 @@ strtoerrno (name)
 
 #ifdef MAIN
 
+#include <stdio.h>
+
+int
 main ()
 {
   int errn;
   int errnmax;
-  char *name;
+  const char *name;
   char *msg;
-  char *strerrno ();
   char *strerror ();
 
   errnmax = errno_max ();
@@ -814,6 +816,8 @@ main ()
       msg = (msg == NULL) ? "<NULL>" : msg;
       printf ("%-4d%-18s%s\n", errn, name, msg);
     }
+
+  return 0;
 }
 
 #endif

@@ -1,5 +1,5 @@
 /* BFD back-end for we32k COFF files.
-   Copyright (C) 1992, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
    Contributed by Brendan Kehoe (brendan@cs.widener.edu).
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -54,7 +54,7 @@ static reloc_howto_type howto_table[] =
 
 /* Turn a howto into a reloc  nunmber */
 
-#define SELECT_RELOC(x,howto) { x = howto->type; }
+#define SELECT_RELOC(x,howto) { x.r_type = howto->type; }
 #define BADMAG(x) WE32KBADMAG(x)
 #define WE32K	1
 
@@ -65,7 +65,7 @@ static reloc_howto_type howto_table[] =
 
 #define coff_write_armap bsd_write_armap
 
-bfd_target we32kcoff_vec =
+const bfd_target we32kcoff_vec =
 {
   "coff-we32k",			/* name */
   bfd_target_coff_flavour,
@@ -96,6 +96,15 @@ bfd_target we32kcoff_vec =
  {bfd_false, coff_write_object_contents, /* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(coff),
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };

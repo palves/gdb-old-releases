@@ -1,5 +1,5 @@
 /* BFD backend for MIPS BSD (a.out) binaries.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
    Written by Ralph Campbell.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -19,7 +19,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define BYTES_IN_WORD 4
-#define ARCH 32
 /* #define ENTRY_CAN_BE_ZERO */
 #define N_HEADER_IN_TEXT(x) 1
 #define N_SHARED_LIB(x) 0
@@ -59,6 +58,7 @@ static boolean MY(write_object_contents) PARAMS ((bfd *abfd));
 
 #define MY_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define MY_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define MY_final_link_callback unused
 #define MY_bfd_final_link _bfd_generic_final_link
 
 #define MY_backend_data &MY(backend_data)
@@ -178,13 +178,15 @@ MY(write_object_contents) (abfd)
 #define MIPS_RELOC_LO16		5
 
 /*
- * This is only called when performing a BFD_RELOC_HI16_S relocation.
- * We need to see if bit 15 is set in the result. If it is, we add
- * 0x10000 and continue normally. This will compensate for the sign extension
- * when the low bits are added at run time.
+ * This is only called when performing a BFD_RELOC_MIPS_JMP relocation.
+ * The jump destination address is formed from the upper 4 bits of the
+ * "current" program counter concatenated with the jump instruction's
+ * 26 bit field and two trailing zeros.
+ * If the destination address is not in the same segment as the "current"
+ * program counter, then we need to signal an error.
  */
-bfd_reloc_status_type
-mips_fix_hi16_s (abfd,reloc_entry,symbol,data,input_section,output_bfd)
+static bfd_reloc_status_type
+mips_fix_jmp_addr (abfd,reloc_entry,symbol,data,input_section,output_bfd)
      bfd *abfd;
      arelent *reloc_entry;
      struct symbol_cache_entry *symbol;
@@ -192,17 +194,76 @@ mips_fix_hi16_s (abfd,reloc_entry,symbol,data,input_section,output_bfd)
      asection *input_section;
      bfd *output_bfd;
 {
+  bfd_vma relocation, pc;
+ 
+  /* If this is a partial relocation, just continue. */
+  if (output_bfd != (bfd *)NULL)
+    return bfd_reloc_continue;
+
+  /* If this is an undefined symbol, return error */
+  if (bfd_is_und_section (symbol->section)
+      && (symbol->flags & BSF_WEAK) == 0)
+    return bfd_reloc_undefined;
+
+  /* 
+   * Work out which section the relocation is targetted at and the
+   * initial relocation command value.
+   */
+  if (bfd_is_com_section (symbol->section))
+    relocation = 0;
+  else
+    relocation = symbol->value;
+
+  relocation += symbol->section->output_section->vma;
+  relocation += symbol->section->output_offset;
+  relocation += reloc_entry->addend;
+
+  pc = input_section->output_section->vma + input_section->output_offset +
+    reloc_entry->address + 4;
+
+  if ((relocation & 0xF0000000) != (pc & 0xF0000000))
+    return bfd_reloc_overflow;
+
+  return bfd_reloc_continue;
+}
+
+/*
+ * This is only called when performing a BFD_RELOC_HI16_S relocation.
+ * We need to see if bit 15 is set in the result. If it is, we add
+ * 0x10000 and continue normally. This will compensate for the sign extension
+ * when the low bits are added at run time.
+ */
+static bfd_reloc_status_type
+mips_fix_hi16_s PARAMS ((bfd *, arelent *, asymbol *, PTR,
+			 asection *, bfd *, char **));
+
+static bfd_reloc_status_type
+mips_fix_hi16_s (abfd, reloc_entry, symbol, data, input_section,
+		 output_bfd, error_message)
+     bfd *abfd;
+     arelent *reloc_entry;
+     asymbol *symbol;
+     PTR data;
+     asection *input_section;
+     bfd *output_bfd;
+     char **error_message;
+{
   bfd_vma relocation;
  
   /* If this is a partial relocation, just continue. */
   if (output_bfd != (bfd *)NULL)
     return bfd_reloc_continue;
 
+  /* If this is an undefined symbol, return error */
+  if (bfd_is_und_section (symbol->section)
+      && (symbol->flags & BSF_WEAK) == 0)
+    return bfd_reloc_undefined;
+
   /* 
    * Work out which section the relocation is targetted at and the
    * initial relocation command value.
    */
-  if (symbol->section == &bfd_com_section)
+  if (bfd_is_com_section (symbol->section))
     relocation = 0;
   else
     relocation = symbol->value;
@@ -220,7 +281,8 @@ mips_fix_hi16_s (abfd,reloc_entry,symbol,data,input_section,output_bfd)
 static reloc_howto_type mips_howto_table_ext[] = {
   {MIPS_RELOC_32,      0, 2, 32, false, 0,  complain_overflow_bitfield, 0,
 	"32",       false, 0, 0xffffffff, false},
-  {MIPS_RELOC_JMP,     2, 2, 26, false, 0, complain_overflow_bitfield, 0,
+  {MIPS_RELOC_JMP,     2, 2, 26, false, 0, complain_overflow_dont,
+	mips_fix_jmp_addr,
 	"MIPS_JMP", false, 0, 0x03ffffff, false},
   {MIPS_RELOC_WDISP16, 2, 1, 16, true,  0, complain_overflow_signed, 0,
 	"WDISP16",  false, 0, 0x0000ffff, false},
@@ -265,7 +327,7 @@ MY(reloc_howto_type_lookup) (abfd, code)
  * This is just like the standard aoutx.h version but we need to do our
  * own mapping of external reloc type values to howto entries.
  */
-unsigned int
+long
 MY(canonicalize_reloc)(abfd, section, relptr, symbols)
       bfd *abfd;
       sec_ptr section;
@@ -295,10 +357,8 @@ MY(canonicalize_reloc)(abfd, section, relptr, symbols)
   }
 
   if (!NAME(aout,slurp_reloc_table)(abfd, section, symbols))
-    return 0;
+    return -1;
   tblptr = section->relocation;
-  if (!tblptr)
-    return 0;
 
   /* fix up howto entries */
   for (count = 0; count++ < section->reloc_count;) 
@@ -315,12 +375,19 @@ MY(canonicalize_reloc)(abfd, section, relptr, symbols)
 static CONST struct aout_backend_data MY(backend_data) = {
   0,				/* zmagic contiguous */
   1,				/* text incl header */
+  0,				/* exec_hdr_flags */
   PAGE_SIZE,			/* text vma */
   MY_set_sizes,
   0,				/* text size includes exec header */
+  0,				/* add_dynamic_symbols */
+  0,				/* add_one_symbol */
+  0,				/* link_dynamic_object */
+  0,				/* write_dynamic_symbol */
+  0,				/* check_dynamic_reloc */
+  0				/* finish_dynamic_link */
 };
 
-bfd_target aout_mips_little_vec =
+const bfd_target aout_mips_little_vec =
 {
   "a.out-mips-little",		/* name */
   bfd_target_aout_flavour,
@@ -346,11 +413,21 @@ bfd_target aout_mips_little_vec =
        _bfd_generic_mkarchive, bfd_false},
     {bfd_false, MY_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
-  JUMP_TABLE (MY),
+
+     BFD_JUMP_TABLE_GENERIC (MY),
+     BFD_JUMP_TABLE_COPY (MY),
+     BFD_JUMP_TABLE_CORE (MY),
+     BFD_JUMP_TABLE_ARCHIVE (MY),
+     BFD_JUMP_TABLE_SYMBOLS (MY),
+     BFD_JUMP_TABLE_RELOCS (MY),
+     BFD_JUMP_TABLE_WRITE (MY),
+     BFD_JUMP_TABLE_LINK (MY),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   (PTR) MY_backend_data,
 };
 
-bfd_target aout_mips_big_vec =
+const bfd_target aout_mips_big_vec =
 {
   "a.out-mips-big",		/* name */
   bfd_target_aout_flavour,
@@ -376,6 +453,16 @@ bfd_target aout_mips_big_vec =
        _bfd_generic_mkarchive, bfd_false},
     {bfd_false, MY_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
-  JUMP_TABLE (MY),
+
+     BFD_JUMP_TABLE_GENERIC (MY),
+     BFD_JUMP_TABLE_COPY (MY),
+     BFD_JUMP_TABLE_CORE (MY),
+     BFD_JUMP_TABLE_ARCHIVE (MY),
+     BFD_JUMP_TABLE_SYMBOLS (MY),
+     BFD_JUMP_TABLE_RELOCS (MY),
+     BFD_JUMP_TABLE_WRITE (MY),
+     BFD_JUMP_TABLE_LINK (MY),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   (PTR) MY_backend_data,
 };

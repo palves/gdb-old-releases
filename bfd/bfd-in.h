@@ -1,5 +1,5 @@
 /* Main header file for the bfd library -- portable access to object files.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 ** NOTE: bfd.h and bfd-in2.h are GENERATED files.  Don't change them;
@@ -47,8 +47,8 @@ here.  */
 #include "ansidecl.h"
 #include "obstack.h"
 
-#define BFD_VERSION "2.2"
-
+/* These two lines get substitutions done by commands in Makefile.in.  */
+#define BFD_VERSION   "@VERSION@"
 #define BFD_ARCH_SIZE @WORDSIZE@
 
 #if BFD_ARCH_SIZE >= 64
@@ -100,9 +100,9 @@ typedef enum bfd_boolean {bfd_false, bfd_true} boolean;
 typedef long int file_ptr;
 
 /* Support for different sizes of target format ints and addresses.  If the
-   host implements 64-bit values, it defines HOST_64_BIT to be the appropriate
+   host implements 64-bit values, it defines BFD_HOST_64_BIT to be the appropriate
    type.  Otherwise, this code will fall back on gcc's "long long" type if gcc
-   is being used.  HOST_64_BIT must be defined in such a way as to be a valid
+   is being used.  BFD_HOST_64_BIT must be defined in such a way as to be a valid
    type name by itself or with "unsigned" prefixed.  It should be a signed
    type by itself.
 
@@ -111,27 +111,31 @@ typedef long int file_ptr;
 
 #ifdef	BFD64
 
-#if defined (__GNUC__) && !defined (HOST_64_BIT)
-#define HOST_64_BIT long long
-typedef HOST_64_BIT int64_type;
-typedef unsigned HOST_64_BIT uint64_type;
+#if defined (__GNUC__) && !defined (BFD_HOST_64_BIT)
+#define BFD_HOST_64_BIT long long
+typedef BFD_HOST_64_BIT int64_type;
+typedef unsigned BFD_HOST_64_BIT uint64_type;
 #endif
 
 #if !defined (uint64_type) && defined (__GNUC__)
 #define uint64_type unsigned long long
 #define int64_type long long
+#endif
+#ifndef uint64_typeLOW
 #define uint64_typeLOW(x) ((unsigned long)(((x) & 0xffffffff)))
 #define uint64_typeHIGH(x) ((unsigned long)(((x) >> 32) & 0xffffffff))
 #endif
 
-typedef unsigned HOST_64_BIT bfd_vma;
-typedef HOST_64_BIT bfd_signed_vma;
-typedef unsigned HOST_64_BIT bfd_size_type;
-typedef unsigned HOST_64_BIT symvalue;
+typedef unsigned BFD_HOST_64_BIT bfd_vma;
+typedef BFD_HOST_64_BIT bfd_signed_vma;
+typedef unsigned BFD_HOST_64_BIT bfd_size_type;
+typedef unsigned BFD_HOST_64_BIT symvalue;
+#ifndef fprintf_vma
 #define fprintf_vma(s,x) \
 		fprintf(s,"%08lx%08lx", uint64_typeHIGH(x), uint64_typeLOW(x))
 #define sprintf_vma(s,x) \
 		sprintf(s,"%08lx%08lx", uint64_typeHIGH(x), uint64_typeLOW(x))
+#endif
 #else /* not BFD64  */
 
 /* Represent a target address.  Also used as a generic unsigned type
@@ -211,25 +215,22 @@ typedef enum bfd_format {
 /* BFD is relaxable (this means that bfd_relax_section may be able to
    do something).  */
 #define BFD_IS_RELAXABLE 0x200
+
+/* This may be set before writing out a BFD to request using a
+   traditional format.  For example, this is used to request that when
+   writing out an a.out object the symbols not be hashed to eliminate
+   duplicates.  */
+#define BFD_TRADITIONAL_FORMAT 0x400
 
 /* symbols and relocation */
 
+/* A count of carsyms (canonical archive symbols).  */
 typedef unsigned long symindex;
 
 #define BFD_NO_MORE_SYMBOLS ((symindex) ~0)
 
-typedef enum bfd_symclass {
-	      bfd_symclass_unknown = 0,
-	      bfd_symclass_fcommon, /* fortran common symbols */
-	      bfd_symclass_global, /* global symbol, what a surprise */
-	      bfd_symclass_debugger, /* some debugger symbol */
-	      bfd_symclass_undefined /* none known */
-	    } symclass;
-
-
-/* general purpose part of a symbol;
-   target specific parts will be found in libcoff.h, liba.out.h etc */
-
+/* General purpose part of a symbol X;
+   target specific parts are in libcoff.h, libaout.h, etc.  */
 
 #define bfd_get_section(x) ((x)->section)
 #define bfd_get_output_section(x) ((x)->section->output_section)
@@ -241,6 +242,7 @@ typedef enum bfd_symclass {
 #define bfd_asymbol_bfd(x) ((x)->the_bfd)
 #define bfd_asymbol_flavour(x) (bfd_asymbol_bfd(x)->xvec->flavour)
 
+/* A canonical archive symbol.  */
 /* This is a type pun with struct ranlib on purpose! */
 typedef struct carsym {
   char *name;
@@ -248,7 +250,8 @@ typedef struct carsym {
 } carsym;			/* to make these you call a carsymogen */
 
   
-/* Used in generating armaps.  Perhaps just a forward definition would do? */
+/* Used in generating armaps (archive tables of contents).
+   Perhaps just a forward definition would do? */
 struct orl {			/* output ranlib */
   char **name;			/* symbol name */ 
   file_ptr pos;			/* bfd* or file position */
@@ -261,7 +264,7 @@ struct orl {			/* output ranlib */
 typedef struct lineno_cache_entry {
   unsigned int line_number;	/* Linenumber from start of function*/  
   union {
- struct symbol_cache_entry *sym;		/* Function name */
+    struct symbol_cache_entry *sym; /* Function name */
     unsigned long offset;	/* Offset into section */
   } u;
 } alent;
@@ -292,37 +295,6 @@ typedef struct sec *sec_ptr;
 
 typedef struct stat stat_type; 
 
-/* Error handling */
-
-typedef enum bfd_error
-{
-  no_error = 0,
-  system_call_error,
-  invalid_target,
-  wrong_format,
-  invalid_operation,
-  no_memory,
-  no_symbols,
-  no_relocation_info,
-  no_more_archived_files,
-  malformed_archive,
-  symbol_not_found,
-  file_not_recognized,
-  file_ambiguously_recognized,
-  no_contents,
-  bfd_error_nonrepresentable_section,
-  no_debug_section,
-  bad_value,
-  file_truncated,
-  invalid_error_code
-} bfd_ec;
-
-extern bfd_ec bfd_error;
-
-CONST char *bfd_errmsg PARAMS ((bfd_ec error_tag));
-void bfd_perror PARAMS ((CONST char *message));
-
-
 typedef enum bfd_print_symbol
 { 
   bfd_print_symbol_name,
@@ -330,13 +302,12 @@ typedef enum bfd_print_symbol
   bfd_print_symbol_all
 } bfd_print_symbol_type;
     
-
 /* Information about a symbol that nm needs.  */
 
 typedef struct _symbol_info
 {
   symvalue value;
-  char type;                   /*  */
+  char type;
   CONST char *name;            /* Symbol name.  */
   char stab_other;             /* Unused. */
   short stab_desc;             /* Info for N_TYPE.  */
@@ -424,11 +395,6 @@ extern void bfd_hash_traverse PARAMS ((struct bfd_hash_table *,
 						    PTR),
 				       PTR info));
 
-/* The code that implements targets can initialize a jump table with this
-   macro.  It must name all its routines the same way (a prefix plus
-   the standard routine suffix), or it must #define the routines that
-   are not so named, before calling JUMP_TABLE in the initializer.  */
-
 /* Semi-portable string concatenation in cpp.
    The CAT4 hack is to avoid a problem with some strict ANSI C preprocessors.
    The problem is, "32_" is not a valid preprocessing token, and we don't
@@ -454,44 +420,7 @@ extern void bfd_hash_traverse PARAMS ((struct bfd_hash_table *,
 #endif
 #endif
 
-#define JUMP_TABLE(NAME)\
-CAT(NAME,_core_file_failing_command),\
-CAT(NAME,_core_file_failing_signal),\
-CAT(NAME,_core_file_matches_executable_p),\
-CAT(NAME,_slurp_armap),\
-CAT(NAME,_slurp_extended_name_table),\
-CAT(NAME,_truncate_arname),\
-CAT(NAME,_write_armap),\
-CAT(NAME,_close_and_cleanup),\
-CAT(NAME,_set_section_contents),\
-CAT(NAME,_get_section_contents),\
-CAT(NAME,_new_section_hook),\
-CAT(NAME,_get_symtab_upper_bound),\
-CAT(NAME,_get_symtab),\
-CAT(NAME,_get_reloc_upper_bound),\
-CAT(NAME,_canonicalize_reloc),\
-CAT(NAME,_make_empty_symbol),\
-CAT(NAME,_print_symbol),\
-CAT(NAME,_get_symbol_info),\
-CAT(NAME,_get_lineno),\
-CAT(NAME,_set_arch_mach),\
-CAT(NAME,_openr_next_archived_file),\
-CAT(NAME,_find_nearest_line),\
-CAT(NAME,_generic_stat_arch_elt),\
-CAT(NAME,_sizeof_headers),\
-CAT(NAME,_bfd_debug_info_start),\
-CAT(NAME,_bfd_debug_info_end),\
-CAT(NAME,_bfd_debug_info_accumulate),\
-CAT(NAME,_bfd_get_relocated_section_contents),\
-CAT(NAME,_bfd_relax_section),\
-CAT(NAME,_bfd_reloc_type_lookup),\
-CAT(NAME,_bfd_make_debug_symbol),\
-CAT(NAME,_bfd_link_hash_table_create),\
-CAT(NAME,_bfd_link_add_symbols),\
-CAT(NAME,_bfd_final_link)
-
 #define COFF_SWAP_TABLE (PTR) &bfd_coff_std_swap_table
-
 
 /* User program access to BFD facilities */
 
@@ -540,8 +469,9 @@ void		bfd_putb32	   PARAMS ((bfd_vma, unsigned char *));
 void		bfd_putl32	   PARAMS ((bfd_vma, unsigned char *));
 void		bfd_putb16	   PARAMS ((bfd_vma, unsigned char *));
 void		bfd_putl16	   PARAMS ((bfd_vma, unsigned char *));
+
+/* Externally visible ECOFF routines.  */
 
-/* ECOFF linking routines.  */
 #if defined(__STDC__) || defined(ALMOST_STDC)
 struct ecoff_debug_info;
 struct ecoff_debug_swap;
@@ -549,6 +479,11 @@ struct ecoff_extr;
 struct symbol_cache_entry;
 struct bfd_link_info;
 #endif
+extern bfd_vma bfd_ecoff_get_gp_value PARAMS ((bfd * abfd));
+extern boolean bfd_ecoff_set_gp_value PARAMS ((bfd *abfd, bfd_vma gp_value));
+extern boolean bfd_ecoff_set_regmasks
+  PARAMS ((bfd *abfd, unsigned long gprmask, unsigned long fprmask,
+	   unsigned long *cprmask));
 extern PTR bfd_ecoff_debug_init
   PARAMS ((bfd *output_bfd, struct ecoff_debug_info *output_debug,
 	   const struct ecoff_debug_swap *output_swap,
@@ -589,5 +524,30 @@ extern boolean bfd_ecoff_write_accumulated_debug
   PARAMS ((PTR handle, bfd *abfd, struct ecoff_debug_info *debug,
 	   const struct ecoff_debug_swap *swap,
 	   struct bfd_link_info *info, file_ptr where));
+
+/* Externally visible ELF routines.  */
+
+extern boolean bfd_elf32_record_link_assignment
+  PARAMS ((bfd *, struct bfd_link_info *, const char *));
+extern boolean bfd_elf64_record_link_assignment
+  PARAMS ((bfd *, struct bfd_link_info *, const char *));
+extern boolean bfd_elf32_size_dynamic_sections
+  PARAMS ((bfd *, struct bfd_link_info *, struct sec **));
+extern boolean bfd_elf64_size_dynamic_sections
+  PARAMS ((bfd *, struct bfd_link_info *, struct sec **));
+extern void bfd_elf_set_dt_needed_name PARAMS ((bfd *, const char *));
+
+/* SunOS shared library support routines for the linker.  */
+
+extern boolean bfd_sunos_record_link_assignment
+  PARAMS ((bfd *, struct bfd_link_info *, const char *));
+extern boolean bfd_sunos_size_dynamic_sections
+  PARAMS ((bfd *, struct bfd_link_info *, struct sec **, struct sec **,
+	   struct sec **));
+
+/* Linux shared library support routines for the linker.  */
+
+extern boolean bfd_linux_size_dynamic_sections
+  PARAMS ((bfd *, struct bfd_link_info *));
 
 /* And more from the source.  */

@@ -6,7 +6,7 @@
 @ifinfo
 @format
 START-INFO-DIR-ENTRY
-* Stabs::                       The "stabs" debugging information format.
+* Stabs: (stabs).                 The "stabs" debugging information format.
 END-INFO-DIR-ENTRY
 @end format
 @end ifinfo
@@ -43,7 +43,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 2.104 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 2.120 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -84,7 +84,8 @@ This document describes the stabs debugging format.
                                 and GNU stabs in XCOFF
 * Sun Differences::		Differences between GNU stabs and Sun
                                 native stabs
-* Stabs In ELF::		Stabs in an ELF file.
+* Stab Sections::		In some object file formats, stabs are
+                                in sections.
 * Symbol Types Index::          Index of symbolic stab symbol type names.
 @end menu
 @end ifinfo
@@ -105,6 +106,9 @@ lists of symbol descriptors (@pxref{Symbol Descriptors}) and type
 descriptors (@pxref{Type Descriptors}) are believed to be completely
 comprehensive.  Stabs for COBOL-specific features and for variant
 records (used by Pascal and Modula-2) are poorly documented here.
+
+@c FIXME: Need to document all OS9000 stuff in GDB; see all references
+@c to os9k_stabs in stabsread.c.
 
 Other sources of information on stabs are @cite{Dbx and Dbxtool
 Interfaces}, 2nd edition, by Sun, 1988, and @cite{AIX Version 3.2 Files
@@ -282,7 +286,9 @@ except the string field.  The string field of every stab except the last
 is marked as continued with a backslash at the end (in the assembly code
 this may be written as a double backslash, depending on the assembler).
 Removing the backslashes and concatenating the string fields of each
-stab produces the original, long string.
+stab produces the original, long string.  Just to be incompatible (or so
+they don't have to worry about what the assembler does with
+backslashes), AIX can use @samp{?} instead of backslash.
 
 @node C Example
 @section A Simple Example in C Source
@@ -379,6 +385,7 @@ blocks of code.
 * Procedures::
 * Nested Procedures::
 * Block Structure::
+* Alternate Entry Points::      Entering procedures except at the beginning.
 @end menu
 
 @node Main Program
@@ -481,11 +488,10 @@ file.  @code{C_BINCL} and @code{C_EINCL} do not nest.
 
 @findex N_SLINE
 An @code{N_SLINE} symbol represents the start of a source line.  The
-desc field contains the line number and the value
-contains the code address for the start of that source line.  On most
-machines the address is absolute; for Sun's stabs-in-ELF and GNU's 
-stabs-in-SOM, it is relative to the function in which the @code{N_SLINE} 
-symbol occurs.
+desc field contains the line number and the value contains the code
+address for the start of that source line.  On most machines the address
+is absolute; for stabs in sections (@pxref{Stab Sections}), it is
+relative to the function in which the @code{N_SLINE} symbol occurs.
 
 @findex N_DSLINE
 @findex N_BSLINE
@@ -527,7 +533,7 @@ one has complained).
 
 A function is represented by an @samp{F} symbol descriptor for a global
 (extern) function, and @samp{f} for a static (local) function.  The
-value is the address of the start of the function.  For @code{a.out}, it
+value is the address of the start of the function.  For a.out, it
 is already relocated.  For stabs in ELF, the SunPRO compiler version
 2.0.1 and GCC put out an address which gets relocated by the linker.  In
 a future release SunPRO is planning to put out zero, in which case the
@@ -536,8 +542,8 @@ things up in the ELF symbols would probably be slow, I'm not sure how to
 find which symbol of that name is the right one, and this doesn't
 provide any way to deal with nested functions, it would probably be
 better to make the value of the stab an address relative to the start of
-the file.  See @ref{Stabs In ELF} for more information on linker
-relocation of stabs in ELF files.
+the file, or just absolute.  See @ref{ELF Linker Relocation} for more
+information on linker relocation of stabs in ELF files.
 
 The type information of the stab represents the return type of the
 function; thus @samp{foo:f5} means that foo is a function returning type
@@ -649,6 +655,11 @@ produces the stabs:
 
 @findex N_LBRAC
 @findex N_RBRAC
+@c For GCC 2.5.8 or so stabs-in-coff, these are absolute instead of
+@c function relative (as documented below).  But GDB has never been able
+@c to deal with that (it had wanted them to be relative to the file, but
+@c I just fixed that (between GDB 4.12 and 4.13)), so it is function
+@c relative just like ELF and SOM and the below documentation.
 The program's block structure is represented by the @code{N_LBRAC} (left
 brace) and the @code{N_RBRAC} (right brace) stab types.  The variables
 defined inside a block precede the @code{N_LBRAC} symbol for most
@@ -658,8 +669,8 @@ RISC machine, and Sun @code{acc} compilers, put the variables after the
 @code{N_RBRAC} symbols are the start and end addresses of the code of
 the block, respectively.  For most machines, they are relative to the
 starting address of this source file.  For the Gould NP1, they are
-absolute.  For Sun's stabs-in-ELF and GNU's stabs-in-SOM, they are relative 
-to the function in which they occur.
+absolute.  For stabs in sections (@pxref{Stab Sections}), they are
+relative to the function in which they occur.
 
 The @code{N_LBRAC} and @code{N_RBRAC} stabs that describe the block
 scope of a procedure are located after the @code{N_FUN} stab that
@@ -669,6 +680,19 @@ Sun documents the desc field of @code{N_LBRAC} and
 @code{N_RBRAC} symbols as containing the nesting level of the block.
 However, dbx seems to not care, and GCC always sets desc to
 zero.
+
+@node Alternate Entry Points
+@section Alternate Entry Points
+
+Some languages, like Fortran, have the ability to enter procedures at
+some place other than the beginning.  One can declare an alternate entry
+point.  The @code{N_ENTRY} stab is for this; however, the Sun FORTRAN compiler
+doesn't use it.  According to AIX documentation, only the name of a
+@code{C_ENTRY} stab is significant; the address of the alternate entry
+point comes from the corresponding external symbol.  A previous revision
+of this document said that the value of an @code{N_ENTRY} stab was the
+address of the alternate entry point, but I don't know the source for
+that information.
 
 @node Constants
 @chapter Constants
@@ -832,6 +856,11 @@ from the external symbol for the global variable.  In the example above,
 the @code{.global _g_foo} and @code{_g_foo:} lines tell the assembler to
 produce an external symbol.
 
+Some compilers, like GCC, output @code{N_GSYM} stabs only once, where
+the variable is defined.  Other compilers, like SunOS4 /bin/cc, output a
+@code{N_GSYM} stab for each compilation unit which references the
+variable.
+
 @node Register Variables
 @section Register Variables
 
@@ -894,7 +923,9 @@ type declarations using @code{C_DECL}) can also be between the
 
 Initialized static variables are represented by the @samp{S} and
 @samp{V} symbol descriptors.  @samp{S} means file scope static, and
-@samp{V} means procedure scope static.
+@samp{V} means procedure scope static.  One exception: in XCOFF, IBM's
+xlc compiler always uses @samp{V}, and whether it is file scope or not
+is distinguished by whether the stab is located within a function.
 
 @c This is probably not worth mentioning; it is only true on the sparc
 @c for `double' variables which although declared const are actually in
@@ -930,8 +961,15 @@ yield the following stabs:
 .stabs "var_noinit:S1",40,0,0,_var_noinit    # @r{40 is N_LCSYM}
 @end example
 
-In XCOFF files, each symbol has a section number, so the stab type
-need not indicate the section.
+In XCOFF files, the stab type need not indicate the section;
+@code{C_STSYM} can be used for all statics.  Also, each static variable
+is enclosed in a static block.  A @code{C_BSTAT} (emitted with a
+@samp{.bs} assembler directive) symbol begins the static block; its
+value is the symbol number of the csect symbol whose value is the
+address of the static block, its section is the section of the variables
+in that static block, and its name is @samp{.bs}.  A @code{C_ESTAT}
+(emitted with a @samp{.es} assembler directive) symbol ends the static
+block; its name is @samp{.es} and its value and section are ignored.
 
 In ECOFF files, the storage class is used to specify the section, so the
 stab type need not indicate the section.
@@ -947,7 +985,7 @@ The clean way to do all this would be to have a the value of a symbol
 descriptor @samp{S} symbol be an offset relative to the start of the
 file, just like everything else, but that introduces obvious
 compatibility problems.  For more information on linker stab relocation,
-@xref{Stabs In ELF}.
+@xref{ELF Linker Relocation}.
 
 @node Based Variables
 @section Fortran Based Variables
@@ -1532,9 +1570,9 @@ use a new negative type number.
 @code{integer}.  32 bit signed integral type.
 
 @item -16
-@code{boolean}.  32 bit type.  How is the truth value encoded?  Is it
-the least significant bit or is it a question of whether the whole value
-is zero or non-zero?
+@code{boolean}.  32 bit type.  GDB and GCC assume that zero is false,
+one is true, and other values have unspecified meaning.  I hope this
+agrees with how the IBM tools use the type.
 
 @item -17
 @code{short real}.  IEEE single precision.
@@ -1881,6 +1919,18 @@ is determined by the architecture (normally all enumerations types are
 32 bits).  Type attributes can be used to specify an enumeration type of
 another size for debuggers which support them; see @ref{String Field}.
 
+Enumeration types are unusual in that they define symbols for the
+enumeration values (@code{first}, @code{second}, and @code{third} in the
+above example), and even though these symbols are visible in the file as
+a whole (rather than being in a more local namespace like structure
+member names), they are defined in the type definition for the
+enumeration type rather than each having their own symbol.  In order to
+be fast, GDB will only get symbols from such types (in its initial scan
+of the stabs) if the type is the first thing defined after a @samp{T} or
+@samp{t} symbol descriptor (the above example fulfills this
+requirement).  If the type does not have a name, the compiler should
+emit it in a nameless stab (@pxref{String Field}); GCC does this.
+
 @node Structures
 @section Structures
 
@@ -2137,7 +2187,8 @@ relocatable address and the linker turns it into an absolute address.
 @menu
 * Transformations On Static Variables::
 * Transformations On Global Variables::
-* ELF and SOM Transformations::	       In ELF, things are a bit different.
+* Stab Section Transformations::	   For some object file formats,
+                                           things are a bit different.
 @end menu
 
 @node Transformations On Static Variables
@@ -2213,16 +2264,17 @@ entry now holds an absolute address:
 0000e008 D _g_foo
 @end example
 
-@node ELF and SOM Transformations
-@subsection Transformations of Stabs in ELF and SOM Files
+@node Stab Section Transformations
+@subsection Transformations of Stabs in separate sections
 
-For ELF and SOM files, use @code{objdump --stabs} instead of @code{nm} to show
-the stabs in an object or executable file.  @code{objdump} is a GNU
-utility; Sun does not provide any equivalent.
+For object file formats using stabs in separate sections (@pxref{Stab
+Sections}), use @code{objdump --stabs} instead of @code{nm} to show the
+stabs in an object or executable file.  @code{objdump} is a GNU utility;
+Sun does not provide any equivalent.
 
 The following example is for a stab whose value is an address is
-relative to the compilation unit (@pxref{Stabs In ELF}).  For example,
-if the source line
+relative to the compilation unit (@pxref{ELF Linker Relocation}).  For
+example, if the source line
 
 @example
 static int ld = 5;
@@ -2266,6 +2318,8 @@ Symnum n_type n_othr n_desc n_value  n_strx String
 * Simple Classes::
 * Class Instance::
 * Methods::			Method definition
+* Method Type Descriptor::      The @samp{#} type descriptor
+* Member Type Descriptor::      The @samp{@@} type descriptor
 * Protections::
 * Method Modifiers::
 * Virtual Methods::
@@ -2273,25 +2327,6 @@ Symnum n_type n_othr n_desc n_value  n_strx String
 * Virtual Base Classes::
 * Static Members::
 @end menu
-
-Type descriptors added for C++ descriptions:
-
-@table @code
-@item #
-method type (@code{##} if minimal debug)
-
-@item @@
-Member (class and variable) type.  It is followed by type information
-for the offset basetype, a comma, and type information for the type of
-the field being pointed to.  (FIXME: this is acknowledged to be
-gibberish.  Can anyone say what really goes here?).
-
-Note that there is a conflict between this and type attributes
-(@pxref{String Field}); both use type descriptor @samp{@@}.
-Fortunately, the @samp{@@} type descriptor used in this C++ sense always
-will be followed by a digit, @samp{(}, or @samp{-}, and type attributes
-never start with those things.
-@end table
 
 @node Class Names
 @section C++ Class Names
@@ -2436,12 +2471,11 @@ method.
 
 When the field name is a method name it is followed by two colons rather
 than one.  This is followed by a new type definition for the method.
-This is a number followed by an equal sign and the type descriptor
-@samp{#}, indicating a method type, and a second @samp{#}, indicating
-that this is the @dfn{minimal} type of method definition used by GCC2,
-not larger method definitions used by earlier versions of GCC.  This is
-followed by a type reference showing the return type of the method and a
-semi-colon.
+This is a number followed by an equal sign and the type of the method.
+Normally this will be a type declared using the @samp{#} type
+descriptor; see @ref{Method Type Descriptor}; static member functions
+are declared using the @samp{f} type descriptor instead; see
+@ref{Function Types}.
 
 The format of an overloaded operator method name differs from that of
 other methods.  It is @samp{op$::@var{operator-name}.} where
@@ -2577,6 +2611,39 @@ pointer.
 @end example
 
 << The examples that follow are based on A1.C >>
+
+@node Method Type Descriptor
+@section The @samp{#} Type Descriptor
+
+This is like the @samp{f} type descriptor for functions (@pxref{Function
+Types}), except that a function which uses the @samp{#} type descriptor
+takes an extra argument as its first argument, for the @code{this}
+pointer.  The @samp{#} type descriptor is optionally followed by the
+types of the arguments, then another @samp{#}.  If the types of the
+arguments are omitted, so that the second @samp{#} immediately follows
+the @samp{#} which is the type descriptor, the arguments are being
+omitted (to save space) and can be deduced from the mangled name of the
+method.  After the second @samp{#} there is type information for the
+return type of the method and a semicolon.
+
+Note that although such a type will normally be used to describe fields
+in structures, unions, or classes, for at least some versions of the
+compiler it can also be used in other contexts.
+
+@node Member Type Descriptor
+@section The @samp{@@} Type Descriptor
+
+The @samp{@@} type descriptor is for a member (class and variable) type.
+It is followed by type information for the offset basetype, a comma, and
+type information for the type of the field being pointed to.  (FIXME:
+this is acknowledged to be gibberish.  Can anyone say what really goes
+here?).
+
+Note that there is a conflict between this and type attributes
+(@pxref{String Field}); both use type descriptor @samp{@@}.
+Fortunately, the @samp{@@} type descriptor used in this C++ sense always
+will be followed by a digit, @samp{(}, or @samp{-}, and type attributes
+never start with those things.
 
 @node Protections
 @section Protections
@@ -2961,9 +3028,10 @@ description in the class stab shows this ordering.
 @appendix Table of Stab Types
 
 The following are all the possible values for the stab type field, for
-@code{a.out} files, in numeric order.  This does not apply to XCOFF, but
-it does apply to stabs in ELF and stabs in SOM.  Stabs in ECOFF use these 
-values but add 0x8f300 to distinguish them from non-stab symbols.
+a.out files, in numeric order.  This does not apply to XCOFF, but
+it does apply to stabs in sections (@pxref{Stab Sections}).  Stabs in
+ECOFF use these values but add 0x8f300 to distinguish them from non-stab
+symbols.
 
 The symbolic names are defined in the file @file{include/aout/stabs.def}.
 
@@ -3023,18 +3091,23 @@ Symbol is indirected to another symbol
 Common---visible after shared library dynamic link
 
 @item 0x14 N_SETA
+@itemx 0x15 N_SETA | N_EXT
 Absolute set element
 
 @item 0x16 N_SETT
+@itemx 0x17 N_SETT | N_EXT
 Text segment set element
 
 @item 0x18 N_SETD
+@itemx 0x19 N_SETD | N_EXT
 Data segment set element
 
 @item 0x1a N_SETB
+@itemx 0x1b N_SETB | N_EXT
 BSS segment set element
 
 @item 0x1c N_SETV
+@itemx 0x1d N_SETV | N_EXT
 Pointer to set vector
 
 @item 0x1e N_WARNING
@@ -3150,7 +3223,7 @@ Parameter variable; see @ref{Parameters}.
 End of an include file; see @ref{Include Files}.
 
 @item 0xa4     N_ENTRY
-Alternate entry point; see @ref{N_ENTRY}.
+Alternate entry point; see @ref{Alternate Entry Points}.
 
 @item 0xc0     N_LBRAC
 Beginning of a lexical block; see @ref{Block Structure}.
@@ -3293,6 +3366,9 @@ Register variable; see @ref{Register Variables}.
 @item S
 File scope variable; see @ref{Statics}.
 
+@item s
+Local variable (OS9000).
+
 @item t
 Type name; see @ref{Typedefs}.
 
@@ -3328,7 +3404,7 @@ Type reference; see @ref{String Field}.
 Reference to builtin type; see @ref{Negative Type Numbers}.
 
 @item #
-Method (C++); see @ref{Cplusplus}.
+Method (C++); see @ref{Method Type Descriptor}.
 
 @item *
 Pointer; see @ref{Miscellaneous Types}.
@@ -3338,7 +3414,7 @@ Reference (C++).
 
 @item @@
 Type Attributes (AIX); see @ref{String Field}.  Member (class and variable)
-type (GNU C++); see @ref{Cplusplus}.
+type (GNU C++); see @ref{Member Type Descriptor}.
 
 @item a
 Array; see @ref{Arrays}.
@@ -3348,13 +3424,15 @@ Open array; see @ref{Arrays}.
 
 @item b
 Pascal space type (AIX); see @ref{Miscellaneous Types}.  Builtin integer
-type (Sun); see @ref{Builtin Type Descriptors}.
+type (Sun); see @ref{Builtin Type Descriptors}.  Const and volatile
+qualfied type (OS9000).
 
 @item B
 Volatile-qualified type; see @ref{Miscellaneous Types}.
 
 @item c
-Complex builtin type; see @ref{Builtin Type Descriptors}.
+Complex builtin type (AIX); see @ref{Builtin Type Descriptors}.
+Const-qualified type (OS9000).
 
 @item C
 COBOL Picture type.  See AIX documentation for details.
@@ -3384,7 +3462,8 @@ Builtin floating point type; see @ref{Builtin Type Descriptors}.
 COBOL Group.  See AIX documentation for details.
 
 @item i
-Imported type; see @ref{Cross-References}.
+Imported type (AIX); see @ref{Cross-References}.  Volatile-qualified
+type (OS9000).
 
 @item k
 Const-qualified type; see @ref{Miscellaneous Types}.
@@ -3439,6 +3518,9 @@ Wide character; see @ref{Builtin Type Descriptors}.
 @item x
 Cross-reference; see @ref{Cross-References}.
 
+@item Y
+Used by IBM's xlC C++ compiler (for structures, I think).
+
 @item z
 gstring; see @ref{Strings}.
 @end table
@@ -3464,7 +3546,7 @@ The third line is the stab format with the significant stab fields
 named and the rest NIL.
 
 Subsequent lines expand upon the meaning and possible values for each
-significant stab field.  @samp{#} stands in for the type descriptor.
+significant stab field.
 
 Finally, any further information.
 
@@ -3479,7 +3561,6 @@ Finally, any further information.
 * N_MOD2::			Modula2 information "for imc"
 * N_CATCH::			GNU C++ "catch" clause
 * N_SSYM::			Structure or union element
-* N_ENTRY::			Alternate entry point
 * N_SCOPE::			Modula2 scope information (Sun only)
 * Gould::			non-base register symbols used on Gould systems
 * N_LENG::			Length of preceding entry
@@ -3623,16 +3704,6 @@ The value is the offset in the structure.
 <<?looking at structs and unions in C I didn't see these>>
 @end deffn
 
-@node N_ENTRY
-@section N_ENTRY
-
-@deffn @code{.stabn} N_ENTRY
-@findex N_ENTRY
-Alternate entry point.
-The value is its address.
-<<?>>
-@end deffn
-
 @node N_SCOPE
 @section N_SCOPE
 
@@ -3749,15 +3820,6 @@ the mapping is @code{N_@var{stabtype}} becomes @code{C_@var{stabtype}}.
 Some stab types in a.out are not supported in XCOFF; most of these use
 @code{C_DECL}.
 
-@c FIXME: Get C_* types for the block, figure out whether it is always
-@c used (I suspect not), explain clearly, and move to node Statics.
-Exception: initialised static @code{N_STSYM} and un-initialized static
-@code{N_LCSYM} both map to the @code{C_STSYM} storage class.  But the
-distinction is preserved because in XCOFF @code{N_STSYM} and
-@code{N_LCSYM} must be emited in a named static block.  Begin the block
-with @samp{.bs s[RW] data_section_name} for @code{N_STSYM} or @samp{.bs
-s bss_section_name} for @code{N_LCSYM}.  End the block with @samp{.es}.
-
 @c FIXME: I think they are trying to say something about whether the
 @c assembler defaults the value to the location counter.
 @item
@@ -3829,18 +3891,36 @@ incremented for each new type defined in the compilation.  GNU C stabs
 use the type number alone, with no source file number.
 @end itemize
 
-@node Stabs In ELF
-@appendix Using Stabs With The ELF Object File Format
+@node Stab Sections
+@appendix Using Stabs in Their Own Sections
 
-The ELF object file format allows tools to create object files with
-custom sections containing any arbitrary data.  To use stabs in ELF
-object files, the tools create two custom sections, a section named
-@code{.stab} which contains an array of fixed length structures, one
-struct per stab, and a section named @code{.stabstr} containing all the
-variable length strings that are referenced by stabs in the @code{.stab}
-section.  The byte order of the stabs binary data matches the byte order
-of the ELF file itself, as determined from the @code{EI_DATA} field in
-the @code{e_ident} member of the ELF header.
+Many object file formats allow tools to create object files with custom
+sections containing any arbitrary data.  For any such object file
+format, stabs can be embedded in special sections.  This is how stabs
+are used with ELF and SOM, and aside from ECOFF and XCOFF, is how stabs
+are used with COFF.
+
+@menu
+* Stab Section Basics::    How to embed stabs in sections
+* ELF Linker Relocation::  Sun ELF hacks
+@end menu
+
+@node Stab Section Basics
+@appendixsec How to Embed Stabs in Sections
+
+The assembler creates two custom sections, a section named @code{.stab}
+which contains an array of fixed length structures, one struct per stab,
+and a section named @code{.stabstr} containing all the variable length
+strings that are referenced by stabs in the @code{.stab} section.  The
+byte order of the stabs binary data depends on the object file format.
+For ELF, it matches the byte order of the ELF file itself, as determined
+from the @code{EI_DATA} field in the @code{e_ident} member of the ELF
+header.  For SOM, it is always big-endian (is this true??? FIXME).  For
+COFF, it matches the byte order of the COFF headers.  The meaning of the
+fields is the same as for a.out (@pxref{Symbol Table Format}), except
+that the @code{n_strx} field is relative to the strings for the current
+compilation unit (which can be found using the synthetic N_UNDF stab
+described below), rather than the entire string table.
 
 The first stab in the @code{.stab} section for each compilation unit is
 synthetic, generated entirely by the assembler, with no corresponding
@@ -3856,6 +3936,8 @@ Offset in the @code{.stabstr} section to the source filename.
 
 @item n_other
 Unused field, always zero.
+This may eventually be used to hold overflows from the count in
+the @code{n_desc} field.
 
 @item n_desc
 Count of upcoming symbols, i.e., the number of remaining stabs for this
@@ -3874,37 +3956,59 @@ The ELF section header for the @code{.stab} section has its
 @code{sh_link} member set to the section number of the @code{.stabstr}
 section, and the @code{.stabstr} section has its ELF section
 header @code{sh_type} member set to @code{SHT_STRTAB} to mark it as a
-string table.
+string table.  SOM and COFF have no way of linking the sections together
+or marking them as string tables.
+
+For COFF, the @code{.stab} and @code{.stabstr} sections are simply
+concatenated by the linker.  GDB then uses the @code{n_desc} fields to
+figure out the extent of the original sections.  Similarly, the
+@code{n_value} fields of the header symbols are added together in order
+to get the actual position of the strings in a desired @code{.stabstr}
+section.  Although this design obviates any need for the linker to relocate
+or otherwise manipulate @code{.stab} and @code{.stabstr} sections, it also
+requires some care to ensure that the offsets are calculated correctly.
+For instance, if the linker were to pad in between the @code{.stabstr}
+sections before concatenating, then the offsets to strings in the middle
+of the executable's @code{.stabstr} section would be wrong.
+
+@node ELF Linker Relocation
+@appendixsec Having the Linker Relocate Stabs in ELF 
+
+This section describes some Sun hacks for Stabs in ELF; it does not
+apply to COFF or SOM.
 
 To keep linking fast, you don't want the linker to have to relocate very
-many stabs.  Thus Sun has invented a scheme in which addresses in the
-@code{n_value} field are relative to the source file (or some entity
-smaller than a source file, like a function).  To find the address of
-each section corresponding to a given source file, the compiler puts out
-symbols giving the address of each section for a given source file.
-Since these are ELF (not stab) symbols, the linker relocates them
-correctly without having to touch the stabs section.  They are named
-@code{Bbss.bss} for the bss section, @code{Ddata.data} for the data
-section, and @code{Drodata.rodata} for the rodata section.  For the text
-section, there is no such symbol (but there should be, see below).  For
-an example of how these symbols work, @xref{ELF and SOM Transformations}.  GCC
-does not provide these symbols; it instead relies on the stabs getting
-relocated.  Thus addresses which would normally be relative to
-@code{Bbss.bss}, etc., are already relocated.  The Sun linker provided
-with Solaris 2.2 and earlier relocates stabs using normal ELF relocation
-information, as it would do for any section.  Sun has been threatening
-to kludge their linker to not do this (to speed up linking), even though
-the correct way to avoid having the linker do these relocations is to
-have the compiler no longer output relocatable values.  Last I heard
-they had been talked out of the linker kludge.  See Sun point patch
-101052-01 and Sun bug 1142109.  With the Sun compiler this affects
-@samp{S} symbol descriptor stabs (@pxref{Statics}) and functions
-(@pxref{Procedures}).  In the latter case, to adopt the clean solution
-(making the value of the stab relative to the start of the compilation
-unit), it would be necessary to invent a @code{Ttext.text} symbol,
-analogous to the @code{Bbss.bss}, etc., symbols.  I recommend this
-rather than using a zero value and getting the address from the ELF
-symbols.
+many stabs.  Making sure this is done for @code{N_SLINE},
+@code{N_RBRAC}, and @code{N_LBRAC} stabs is the most important thing
+(see the descriptions of those stabs for more information).  But Sun's
+stabs in ELF has taken this further, to make all addresses in the
+@code{n_value} field (functions and static variables) relative to the
+source file.  For the @code{N_SO} symbol itself, Sun simply omits the
+address.  To find the address of each section corresponding to a given
+source file, the compiler puts out symbols giving the address of each
+section for a given source file.  Since these are ELF (not stab)
+symbols, the linker relocates them correctly without having to touch the
+stabs section.  They are named @code{Bbss.bss} for the bss section,
+@code{Ddata.data} for the data section, and @code{Drodata.rodata} for
+the rodata section.  For the text section, there is no such symbol (but
+there should be, see below).  For an example of how these symbols work,
+@xref{Stab Section Transformations}.  GCC does not provide these symbols;
+it instead relies on the stabs getting relocated.  Thus addresses which
+would normally be relative to @code{Bbss.bss}, etc., are already
+relocated.  The Sun linker provided with Solaris 2.2 and earlier
+relocates stabs using normal ELF relocation information, as it would do
+for any section.  Sun has been threatening to kludge their linker to not
+do this (to speed up linking), even though the correct way to avoid
+having the linker do these relocations is to have the compiler no longer
+output relocatable values.  Last I heard they had been talked out of the
+linker kludge.  See Sun point patch 101052-01 and Sun bug 1142109.  With
+the Sun compiler this affects @samp{S} symbol descriptor stabs
+(@pxref{Statics}) and functions (@pxref{Procedures}).  In the latter
+case, to adopt the clean solution (making the value of the stab relative
+to the start of the compilation unit), it would be necessary to invent a
+@code{Ttext.text} symbol, analogous to the @code{Bbss.bss}, etc.,
+symbols.  I recommend this rather than using a zero value and getting
+the address from the ELF symbols.
 
 Finding the correct @code{Bbss.bss}, etc., symbol is difficult, because
 the linker simply concatenates the @code{.stab} sections from each

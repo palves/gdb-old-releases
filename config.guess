@@ -36,14 +36,14 @@ UNAME_VERSION=`(uname -v) 2>/dev/null` || UNAME_VERSION=unknown
 # Note: order is significant - the case branches are not exclusive.
 
 case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
-    alpha:OSF1:1.*:*)
+    alpha:OSF1:V*:*)
+	# After 1.2, OSF1 uses "V1.3" for uname -r.
+	echo alpha-dec-osf`echo ${UNAME_RELEASE} | sed -e 's/^V//'`
+	exit 0 ;;
+    alpha:OSF1:*:*)
 	# 1.2 uses "1.2" for uname -r.
 	echo alpha-dec-osf${UNAME_RELEASE}
         exit 0 ;;
-    alpha:OSF1:V1.*:*)
-	# 1.3 uses "V1.3" for uname -r.
-	echo alpha-dec-osf`echo ${UNAME_RELEASE} | sed -e 's/^V//'`
-	exit 0 ;;
     arm:RISC*:1.[012]*:*|arm:riscix:1.[012]*:*)
 	echo arm-acorn-riscix${UNAME_RELEASE}
 	exit 0;;
@@ -62,6 +62,9 @@ case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
     sun3*:SunOS:*:*)
 	echo m68k-sun-sunos${UNAME_RELEASE}
 	exit 0 ;;
+    mc68030:UNIX_System_V:4.*:*)
+	echo m68k-atari-sysv4
+	exit 0 ;;
     RISC*:ULTRIX:*:*)
 	echo mips-dec-ultrix${UNAME_RELEASE}
 	exit 0 ;;
@@ -70,6 +73,9 @@ case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
 	exit 0 ;;
     mips:*:5*:RISCos)
 	echo mips-mips-riscos${UNAME_RELEASE}
+	exit 0 ;;
+    m88k:CX/UX:7*:*)
+	echo m88k-harris-cxux7
 	exit 0 ;;
     m88k:*:4*:R4*)
 	echo m88k-motorola-sysv4
@@ -133,9 +139,10 @@ case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
 	main ()
 	{
 	  long cpu = sysconf (_SC_CPU_VERSION);
-	  if (CPU_IS_HP_MC68K (cpu))
-	    puts ("m68k-hitachi-hiuxwe2");
-	  else if (CPU_IS_PA_RISC (cpu))
+	  /* The order matters, because CPU_IS_HP_MC68K erroneously returns
+	     true for CPU_PA_RISC1_0.  CPU_IS_PA_RISC returns correct
+	     results, however.  */
+	  if (CPU_IS_PA_RISC (cpu))
 	    {
 	      switch (cpu)
 		{
@@ -145,6 +152,8 @@ case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
 		  default: puts ("hppa-hitachi-hiuxwe2"); break;
 		}
 	    }
+	  else if (CPU_IS_HP_MC68K (cpu))
+	    puts ("m68k-hitachi-hiuxwe2");
 	  else puts ("unknown-hitachi-hiuxwe2");
 	  exit (0);
 	}
@@ -159,10 +168,16 @@ EOF
     9000/8??:4.3bsd:*:*)
 	echo hppa1.0-hp-bsd
 	exit 0 ;;
-    C1*:ConvexOS:*:*)
+    hp7??:OSF1:*:* | hp8?7:OSF1:*:* )
+	echo hppa1.1-hp-osf
+	exit 0 ;;
+    hp8??:OSF1:*:*)
+	echo hppa1.0-hp-osf
+	exit 0 ;;
+    C1*:ConvexOS:*:* | convex:ConvexOS:C1:*)
 	echo c1-convex-bsd
         exit 0 ;;
-    C2*:ConvexOS:*:*)
+    C2*:ConvexOS:*:* | convex:ConvexOS:C2:*)
 	echo c2-convex-bsd
         exit 0 ;;
     CRAY*X-MP:UNICOS:*:*)
@@ -176,6 +191,12 @@ EOF
         exit 0 ;;
     hp3[0-9][05]:NetBSD:*:*)
 	echo m68k-hp-netbsd${UNAME_RELEASE}
+	exit 0 ;;
+    i[34]86:BSD/386:*:*)
+	echo ${UNAME_MACHINE}-unknown-bsdi${UNAME_RELEASE}
+	exit 0 ;;
+    i[34]86:FreeBSD:*:*)
+	echo ${UNAME_MACHINE}-unknown-freebsd${UNAME_RELEASE}
 	exit 0 ;;
     i[34]86:NetBSD:*:*)
 	echo ${UNAME_MACHINE}-unknown-netbsd${UNAME_RELEASE}
@@ -199,6 +220,14 @@ EOF
 		echo ${UNAME_MACHINE}-unknown-sysv32
 	fi
 	exit 0 ;;
+# ptx 4.0 does uname -s correctly, with DYNIX/ptx in there.  earlier versions
+# are messed up and put the nodename in both sysname and nodename.
+    i[34]86:DYNIX/ptx:4*:*)
+	echo i386-sequent-sysv4
+	exit 0 ;;
+    Intel:Mach:3*:*)
+	echo i386-unknown-mach3
+	exit 0 ;;
     mini*:CTIX:SYS*5:*)
 	# "miniframe"
 	echo m68010-convergent-sysv
@@ -208,6 +237,9 @@ EOF
     3[34]??:*:4.0:*)
 	uname -p 2>/dev/null | grep 86 >/dev/null \
 	  && echo i486-ncr-sysv4 && exit 0 ;;
+    33[56]0,3???:*:4.0:*)
+	uname -p 2>/dev/null | grep 86 >/dev/null \
+	  && echo i486-ncr-sysv43 && exit 0 ;;
     m680[234]0:LynxOS:2.2*:*)
 	echo m68k-lynx-lynxos${UNAME_RELEASE}
 	exit 0 ;;
@@ -216,6 +248,20 @@ EOF
 	exit 0 ;;
     TSUNAMI:LynxOS:2.2*:*)
 	echo sparc-lynx-lynxos${UNAME_RELEASE}
+	exit 0 ;;
+    rs6000:LynxOS:2.2*:*)
+	echo rs6000-lynx-lynxos${UNAME_RELEASE}
+	exit 0 ;;
+    RM*:SINIX-*:*:*)
+	echo mips-sni-sysv4
+	exit 0 ;;
+    *:SINIX-*:*:*)
+	if uname -p 2>/dev/null >/dev/null ; then
+		UNAME_MACHINE=`(uname -p) 2>/dev/null`
+		echo ${UNAME_MACHINE}-sni-sysv4
+	else
+		echo ns32k-sni-sysv
+	fi
 	exit 0 ;;
 esac
 
@@ -244,7 +290,10 @@ main()
 #endif
 
 #if defined(NeXT)
-  printf("m68k-next-bsd\n"); exit(0);
+#if !defined(__ARCHITECTURE__)
+#define __ARCHITECTURE__ "m68k"
+#endif
+  printf("%s-next-nextstep\n", __ARCHITECTURE__); exit(0);
 #endif
 
 #if defined (MULTIMAX) || defined (n16)
@@ -259,7 +308,7 @@ main()
 #endif
 #endif
 
-#if defined(__386BSD__) || (defined(__bsdi__) && defined(__i386__))
+#if defined(__386BSD__)
   printf("i386-unknown-bsd\n"); exit(0);
 #endif
 
@@ -274,6 +323,14 @@ main()
 
 #if defined(_SEQUENT_)
   printf("i386-sequent-ptx\n"); exit(0);
+#endif
+
+#if defined(vax)
+#if !defined(ultrix)
+  printf("vax-dec-bsd\n"); exit(0);
+#else
+  printf("vax-dec-ultrix\n"); exit(0);
+#endif
 #endif
 
   exit (1);

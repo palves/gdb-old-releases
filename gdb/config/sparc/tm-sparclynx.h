@@ -20,12 +20,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef TM_SPARCLYNX_H
 #define TM_SPARCLYNX_H
 
-/* Use generic Sparc definitions. */
+#include "tm-lynx.h"
 
+/* Use generic Sparc definitions. */
 #include "sparc/tm-sparc.h"
 
-/* Include COFF shared library support.  */
+/* Lynx does this backwards from everybody else */
 
-#include "coff-solib.h"
+#undef FRAME_SAVED_I0
+#undef FRAME_SAVED_L0
+
+#define FRAME_SAVED_I0 0
+#define FRAME_SAVED_L0 (8 * REGISTER_RAW_SIZE (I0_REGNUM))
 
 #endif /* TM_SPARCLYNX_H */

@@ -1,4 +1,3 @@
-
 /* Definitions for opcode table for the sparc.
 	Copyright 1989, 1991, 1992 Free Software Foundation, Inc.
 
@@ -42,12 +41,15 @@ enum sparc_architecture {
 	v6 = 0,
 	v7,
 	v8,
-	sparclite
+	sparclite,
+	v9
 };
 
 extern const char *architecture_pname[];
 
+/* Sparclite and v9 are both supersets of v8; we can't bump between them.  */
 
+#define ARCHITECTURES_CONFLICT_P(ARCH1, ARCH2) ((ARCH1) == sparclite && (ARCH2) == v9)
 
 struct sparc_opcode {
 	const char *name;
@@ -64,6 +66,8 @@ struct sparc_opcode {
 #define	F_UNBR		4	/* Unconditional branch */
 #define	F_CONDBR	8	/* Conditional branch */
 #define	F_JSR		16	/* Subroutine call */
+/* FIXME: Add F_ANACHRONISTIC flag for v9.  */
+/* FIXME: Add F_OBSOLETE flag for v9, for instructions that no longer exist? */
 
 /*
 
@@ -96,8 +100,13 @@ Kinds of operands:
 	m	alternate space register (asr) in rd
 	M	alternate space register (asr) in rs1
 	h	22 high bits.
+	K	MEMBAR mask (7 bits). (v9)
+	j	10 bit Immediate. (v9)
+	I	11 bit Immediate. (v9)
 	i	13 bit Immediate.
 	n	22 bit immediate.
+	k	2+14 bit PC relative immediate. (v9)
+	G	19 bit PC relative immediate. (v9)
 	l	22 bit PC relative immediate.
 	L	30 bit PC relative immediate.
 	a	Annul.	The annul bit is set.
@@ -105,6 +114,10 @@ Kinds of operands:
 	C	Coprocessor state register.
 	F	floating point state register.
 	p	Processor state register.
+	N	Branch predict clear ",pn" (v9)
+	T	Branch predict set ",pt" (v9)
+	z	%icc. (v9)
+	Z	%xcc. (v9)
 	q	Floating point queue.
 	r	Single register that is both rs1 and rsd.
 	Q	Coprocessor queue.
@@ -112,6 +125,18 @@ Kinds of operands:
 	t	Trap base register.
 	w	Window invalid mask register.
 	y	Y register.
+	E	%ccr. (v9)
+	s	%fprs. (v9)
+	P	%pc.  (v9)
+	W	%tick.	(v9)
+	o	%asi. (v9)
+	6	%fcc0. (v9)
+	7	%fcc1. (v9)
+	8	%fcc2. (v9)
+	9	%fcc3. (v9)
+	!	Privileged Register in rd (v9)
+	?	Privileged Register in rs1 (v9)
+	*	Prefetch function constant. (v9)
 
 The following chars are unused: (note: ,[] are used as punctuation)
 [uxOUXY3450]
@@ -122,6 +147,7 @@ The following chars are unused: (note: ,[] are used as punctuation)
 #define OP3(x)		(((x)&0x3f) << 19) /* op3 field of format3 insns */
 #define OP(x)		((unsigned)((x)&0x3) << 30) /* op field of all insns */
 #define OPF(x)		(((x)&0x1ff) << 5) /* opf field of float insns */
+#define OPF_LOW5(x)	OPF((x)&0x1f) /* v9 */
 #define F3F(x, y, z)	(OP(x) | OP3(y) | OPF(z)) /* format3 float insns */
 #define F3I(x)		(((x)&0x1) << 13) /* immediate field of format 3 insns */
 #define F2(x, y)	(OP(x) | OP2(y)) /* format 2 insns */
@@ -136,6 +162,7 @@ The following chars are unused: (note: ,[] are used as punctuation)
 #define ASI_RS2(x)	(SIMM13(x))
 
 #define ANNUL	(1<<29)
+#define BPRED	(1<<19)	/* v9 */
 #define	IMMED	F3I(1)
 #define RD_G0	RD(~0)
 #define	RS1_G0	RS1(~0)

@@ -18,8 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include "ieee-float.h"
-
 /* g++ support is not yet included.  */
 
 /* Define the bit, byte, and word ordering of the machine.  */
@@ -260,6 +258,9 @@ extern CORE_ADDR skip_prologue ();
 
    * cr06 is invalid  */
 
+/* Note that the Harris Unix kernels emulate the m88100's behavior on
+   the m88110.  */
+
 #define SXIP_REGNUM 35		/* On m88100, Contains Shadow Execute
 				   Instruction Pointer.  */
 #define SNIP_REGNUM 36		/* On m88100, Contains Shadow Next
@@ -388,7 +389,7 @@ if (!target_is_m88110) \
 
 #define REGISTER_CONVERTIBLE(N) ((N) >= XFP_REGNUM)
 
-extern const struct ext_format ext_format_m88110;
+#include "floatformat.h"
 
 /* Convert data from raw format for register REGNUM in buffer FROM
    to virtual format with type TYPE in buffer TO.  */
@@ -396,7 +397,7 @@ extern const struct ext_format ext_format_m88110;
 #define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,TYPE,FROM,TO) \
 { \
   double val; \
-  ieee_extended_to_double (&ext_format_m88110, (FROM), &val); \
+  floatformat_to_double (&floatformat_m88110_ext, (FROM), &val); \
   store_floating ((TO), TYPE_LENGTH (TYPE), val); \
 }
 
@@ -406,7 +407,7 @@ extern const struct ext_format ext_format_m88110;
 #define REGISTER_CONVERT_TO_RAW(TYPE,REGNUM,FROM,TO)	\
 { \
   double val = extract_floating ((FROM), TYPE_LENGTH (TYPE)); \
-  double_to_ieee_extended (&ext_format_m88110, &val, (TO)); \
+  floatformat_from_double (&floatformat_m88110_ext, &val, (TO)); \
 }
 
 /* Return the GDB type object for the "standard" data type
@@ -617,8 +618,8 @@ extern void m88k_push_dummy_frame();
    -- Kevin Buettner
 */
  
-#define TARGET_WRITE_PC(val)	{				\
-  write_register(SXIP_REGNUM, (long) val);			\
-  write_register(SNIP_REGNUM, (long) val | 2);			\
-  write_register(SFIP_REGNUM, ((long) val | 2) + 4);		\
+#define TARGET_WRITE_PC(val, pid) { \
+  write_register_pid(SXIP_REGNUM, (long) val, pid); \
+  write_register_pid(SNIP_REGNUM, (long) val | 2, pid); \
+  write_register_pid(SFIP_REGNUM, ((long) val | 2) + 4, pid); \
 }

@@ -1,5 +1,5 @@
 /* MIPS ELF support for BFD.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
 
    By Ian Lance Taylor, Cygnus Support, <ian@cygnus.com>, from
    information in the System V Application Binary Interface, MIPS
@@ -56,6 +56,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    relocated, alignment must be preserved.  */
 #define SHN_MIPS_ACOMMON	0xff00
 
+/* Defined and allocated text symbol.  Value is virtual address.
+   Occur in the dynamic symbol table of Alpha OSF/1 and Irix 5 executables.  */
+#define SHN_MIPS_TEXT		0xff01
+
+/* Defined and allocated data symbol.  Value is virtual address.
+   Occur in the dynamic symbol table of Alpha OSF/1 and Irix 5 executables.  */
+#define SHN_MIPS_DATA		0xff02
+
 /* Small common symbol.  */
 #define SHN_MIPS_SCOMMON	0xff03
 
@@ -96,15 +104,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 typedef struct
 {
   /* String table index for name of shared object.  */
-  Elf32_Word l_name;
+  unsigned long l_name;
   /* Time stamp.  */
-  Elf32_Word l_time_stamp;
+  unsigned long l_time_stamp;
   /* Checksum of symbol names and common sizes.  */
-  Elf32_Word l_checksum;
+  unsigned long l_checksum;
   /* String table index for version.  */
-  Elf32_Word l_version;
+  unsigned long l_version;
   /* Flags.  */
-  Elf32_Word l_flags;
+  unsigned long l_flags;
 } Elf32_Lib;
 
 /* The l_flags field of an Elf32_Lib structure may contain the
@@ -118,7 +126,7 @@ typedef struct
 
 /* A section of type SHT_MIPS_CONFLICT is an array of indices into the
    .dynsym section.  Each element has the following type.  */
-typedef Elf32_Addr Elf32_Conflict;
+typedef unsigned long Elf32_Conflict;
 
 /* A section of type SHT_MIPS_GPTAB contains information about how
    much GP space would be required for different -G arguments.  This
@@ -133,29 +141,45 @@ typedef union
   struct
     {
       /* -G value actually used for this object file.  */
-      Elf32_Word gt_current_g_value;
+      unsigned long gt_current_g_value;
       /* Unused.  */
-      Elf32_Word gt_unused;
+      unsigned long gt_unused;
     } gt_header;
   struct
     {
       /* If this -G argument has been used...  */
-      Elf32_Word gt_g_value;
+      unsigned long gt_g_value;
       /* ...this many GP section bytes would be required.  */
-      Elf32_Word gt_bytes;
+      unsigned long gt_bytes;
     } gt_entry;
 } Elf32_gptab;
+
+/* The external version of Elf32_gptab.  */
+
+typedef union
+{
+  struct
+    {
+      unsigned char gt_current_g_value[4];
+      unsigned char gt_unused[4];
+    } gt_header;
+  struct
+    {
+      unsigned char gt_g_value[4];
+      unsigned char gt_bytes[4];
+    } gt_entry;
+} Elf32_External_gptab;
 
 /* A section of type SHT_MIPS_REGINFO contains the following
    structure.  */
 typedef struct
 {
   /* Mask of general purpose registers used.  */
-  Elf32_Word ri_gprmask;
+  unsigned long ri_gprmask;
   /* Mask of co-processor registers used.  */
-  Elf32_Word ri_cprmask[4];
+  unsigned long ri_cprmask[4];
   /* GP register value for this object file.  */
-  Elf32_Sword ri_gp_value;
+  long ri_gp_value;
 } Elf32_RegInfo;
 
 /* The external version of the Elf_RegInfo structure.  */
@@ -228,3 +252,6 @@ extern void bfd_mips_elf32_swap_reginfo_out
 
 /* Number of page table entries in global offset table.  */
 #define DT_MIPS_HIPAGENO	0x70000014
+
+/* Address of run time loader map, used for debugging.  */
+#define DT_MIPS_RLD_MAP		0x70000016

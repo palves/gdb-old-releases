@@ -15,6 +15,7 @@ case "${host}" in
   *-*-solaris2*)	host_makefile_frag=config/mh-sysv4 ;;
   *-*-sunos4*)		host_makefile_frag=config/mh-sunos4 ;;
   *-*-sysv4*)		host_makefile_frag=config/mh-sysv4 ;;
+  *-*-go32*)		host_makefile_frag=config/mh-go32 ;;
 esac
 
 # per-target:

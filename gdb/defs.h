@@ -27,12 +27,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "ansidecl.h"
 
-/* An address in the program being debugged.  Host byte order.  */
-#ifndef CORE_ADDR_TYPE
-typedef unsigned int CORE_ADDR;
-#else
-typedef CORE_ADDR_TYPE CORE_ADDR;
-#endif
+/* For BFD64 and bfd_vma.  */
+#include "bfd.h"
+
+/* An address in the program being debugged.  Host byte order.  Rather
+   than duplicate all the logic in BFD which figures out what type
+   this is (long, long long, etc.) and whether it needs to be 64
+   bits (the host/target interactions are subtle), we just use
+   bfd_vma.  */
+
+typedef bfd_vma CORE_ADDR;
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -88,7 +92,8 @@ enum language
    language_c, 			/* C */
    language_cplus, 		/* C++ */
    language_chill,		/* Chill */
-   language_m2			/* Modula-2 */
+   language_m2,			/* Modula-2 */
+   language_asm			/* Assembly language */
 };
 
 /* the cleanup list records things that have to be undone
@@ -211,7 +216,11 @@ myread PARAMS ((int, char *, int));
 
 extern int
 query ();
+
+/* Annotation stuff.  */
 
+extern int annotation_level; /* in stack.c */
+
 extern void
 begin_line PARAMS ((void));
 
@@ -296,6 +305,9 @@ n_spaces PARAMS ((int));
 extern void
 gdb_printchar PARAMS ((int, GDB_FILE *, int));
 
+/* Print a host address.  */
+extern void gdb_print_address PARAMS ((void *, GDB_FILE *));
+
 extern void
 fprintf_symbol_filtered PARAMS ((GDB_FILE *, char *, enum language, int));
 
@@ -326,13 +338,10 @@ extern char *
 gdb_readline PARAMS ((char *));
 
 extern char *
-command_line_input PARAMS ((char *, int));
+command_line_input PARAMS ((char *, int, char *));
 
 extern void
 print_prompt PARAMS ((void));
-
-extern int
-batch_mode PARAMS ((void));
 
 extern int
 input_from_terminal_p PARAMS ((void));
@@ -344,6 +353,9 @@ set_next_address PARAMS ((CORE_ADDR));
 
 extern void
 print_address_symbolic PARAMS ((CORE_ADDR, GDB_FILE *, int, char *));
+
+extern void
+print_address_numeric PARAMS ((CORE_ADDR, int, GDB_FILE *));
 
 extern void
 print_address PARAMS ((CORE_ADDR, GDB_FILE *));
@@ -502,24 +514,32 @@ enum val_prettyprint
 #define	LONG_MAX ((long)(ULONG_MAX >> 1))	/* 0x7FFFFFFF for 32-bits */
 #endif
 
-/* Default to support for "long long" if the host compiler being used is gcc.
-   Config files must define CC_HAS_LONG_LONG to use other host compilers
-   that are capable of supporting "long long", and to cause gdb to use that
-   support.  Not defining CC_HAS_LONG_LONG will suppress use of "long long"
-   regardless of what compiler is used.
+#ifdef BFD64
 
-   FIXME: For now, automatic selection of "long long" as the default when
-   gcc is used is disabled, pending further testing.  Concerns include the
-   impact on gdb performance and the universality of bugfree long long
-   support on platforms that do have gcc.  Compiling with FORCE_LONG_LONG
-   will select "long long" use for testing purposes.  -fnf */
+/* This is to make sure that LONGEST is at least as big as CORE_ADDR.  */
+
+#define LONGEST BFD_HOST_64_BIT
+
+#else /* No BFD64 */
+
+/* If all compilers for this host support "long long" and we want to
+   use it for LONGEST (the performance hit is about 10% on a testsuite
+   run based on one DECstation test), then the xm.h file can define
+   CC_HAS_LONG_LONG.
+
+   Using GCC 1.39 on BSDI with long long causes about 700 new
+   testsuite failures.  Using long long for LONGEST on the DECstation
+   causes 3 new FAILs in the testsuite and many heuristic fencepost
+   warnings.  These are not investigated, but a first guess would be
+   that the BSDI problems are GCC bugs in long long support and the
+   latter are GDB bugs.  */
 
 #ifndef CC_HAS_LONG_LONG
-#  if defined (__GNUC__) && defined (FORCE_LONG_LONG) /* See FIXME above */
+#  if defined (__GNUC__) && defined (FORCE_LONG_LONG)
 #    define CC_HAS_LONG_LONG 1
 #  endif
 #endif
-	
+
 /* LONGEST should not be a typedef, because "unsigned LONGEST" needs to work.
    CC_HAS_LONG_LONG is defined if the host compiler supports "long long"
    variables and we wish to make use of that support.  */
@@ -532,19 +552,13 @@ enum val_prettyprint
 #  endif
 #endif
 
+#endif /* No BFD64 */
+
 /* Convert a LONGEST to an int.  This is used in contexts (e.g. number of
    arguments to a function, number in a value history, register number, etc.)
    where the value must not be larger than can fit in an int.  */
 
-#ifndef longest_to_int
-#  ifdef CC_HAS_LONG_LONG
-#    define longest_to_int(x) (((x) > INT_MAX || (x) < INT_MIN) \
-			       ? (error ("Value out of range."),0) : (int) (x))
-#  else
-     /* Assume sizeof (int) == sizeof (long).  */
-#    define longest_to_int(x) ((int) (x))
-#  endif
-#endif
+extern int longest_to_int PARAMS ((LONGEST));
 
 /* Assorted functions we can declare, now that const and volatile are 
    defined.  */
@@ -606,6 +620,8 @@ extern char *warning_pre_print;
 
 extern NORETURN void			/* Does not return to the caller.  */
 error ();
+
+extern void error_begin PARAMS ((void));
 
 extern NORETURN void			/* Does not return to the caller.  */
 fatal ();
@@ -727,7 +743,7 @@ free PARAMS ((void *));					/* 4.10.3.2 */
 extern void
 qsort PARAMS ((void *base, size_t nmemb,		/* 4.10.5.2 */
 	       size_t size,
-	       int (*comp)(const void *, const void *)));
+	       int (*compar)(const void *, const void *)));
 
 #ifndef	MEM_FNS_DECLARED	/* Some non-ANSI use void *, not char *.  */
 extern PTR
@@ -761,17 +777,21 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 #ifndef alloca
 # ifdef __GNUC__
 #  define alloca __builtin_alloca
-# else
+# else /* Not GNU C */
 #  ifdef sparc
 #   include <alloca.h>		/* NOTE:  Doesn't declare alloca() */
 #  endif
-#  ifdef __STDC__
-   extern void *alloca (size_t);
-#  else /* __STDC__ */
+
+/* We need to be careful not to declare this in a way which conflicts with
+   bison.  Bison never declares it as char *, but under various circumstances
+   (like __hpux) we need to use void *.  */
+#  if defined (__STDC__) || defined (__hpux)
+   extern void *alloca ();
+#  else /* Don't use void *.  */
    extern char *alloca ();
-#  endif
-# endif
-#endif
+#  endif /* Don't use void *.  */
+# endif /* Not GNU C */
+#endif /* alloca not defined */
 
 /* TARGET_BYTE_ORDER and HOST_BYTE_ORDER must be defined to one of these.  */
 

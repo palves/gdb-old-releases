@@ -1,4 +1,5 @@
-/* Definitions to make GDB run on an Alpha box under OSF1.
+/* Definitions to make GDB run on an Alpha box under OSF1.  This is
+   also used by the Alpha/Netware target.
    Copyright 1993 Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -16,6 +17,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#ifndef TM_ALPHA_H
+#define TM_ALPHA_H
 
 #include "bfd.h"
 #include "coff/sym.h"		/* Needed for PDR below.  */
@@ -77,7 +81,9 @@ alpha_saved_pc_after_call PARAMS ((struct frame_info *));
    This is often the number of bytes in BREAKPOINT
    but not always.  */
 
+#ifndef DECR_PC_AFTER_BREAK
 #define DECR_PC_AFTER_BREAK 4
+#endif
 
 /* Nonzero if instruction at PC is a return instruction.
    "ret $zero,($ra),1" on alpha. */
@@ -345,6 +351,9 @@ alpha_pop_frame PARAMS ((void));
 
 #define CALL_DUMMY_BREAKPOINT_OFFSET (0)
 
+extern CORE_ADDR alpha_call_dummy_address PARAMS ((void));
+#define CALL_DUMMY_ADDRESS() alpha_call_dummy_address()
+
 /* Insert the specified number of args and function address
    into a call sequence of the above form stored at DUMMYNAME.
    We only have to set RA_REGNUM to the dummy breakpoint address
@@ -352,7 +361,7 @@ alpha_pop_frame PARAMS ((void));
 
 #define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, type, gcc_p)    \
 {									\
-  CORE_ADDR bp_address = entry_point_address ();			\
+  CORE_ADDR bp_address = CALL_DUMMY_ADDRESS ();			\
   if (bp_address == 0)							\
     error ("no place to put call");					\
   write_register (RA_REGNUM, bp_address);				\
@@ -420,3 +429,10 @@ init_extra_frame_info PARAMS ((struct frame_info *));
 /* FIXME:  Depends on equivalence between FRAME and "struct frame_info *",
    and equivalence between CORE_ADDR and FRAME_ADDR. */
 extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
+
+/* This is used by heuristic_proc_start.  It should be shot it the head.  */
+#ifndef VM_MIN_ADDRESS
+#define VM_MIN_ADDRESS (CORE_ADDR)0x120000000
+#endif
+
+#endif /* TM_ALPHA_H */

@@ -16,6 +16,7 @@ case "${host}" in
   rs6000-ibm-aix)	files=sysdep-aix.h;	my_host=aix ;;
   rs6000-ibm-aix3.1)	files=sysdep-aix.h;	my_host=aix ;;
   *-*-aix*)					my_host=aix ;;
+  rs6000-bull-bosx*)	files=sysdep-aix.h;	my_host=aix ;;
   mips-sgi-irix*)	files=sysdep-irix.h ;;
   m68k-sony-news*)	files=sysdep-obsd.h ;;
   m68k-*-sunos3*)	files=sysdep-obsd.h ;;

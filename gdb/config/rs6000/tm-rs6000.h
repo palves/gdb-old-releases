@@ -98,15 +98,6 @@ function_frame_info PARAMS ((CORE_ADDR, struct aix_framedata *));
 
 #define	SKIP_TRAMPOLINE_CODE(pc)	skip_trampoline_code (pc)
 
-/* When a child process is just starting, we sneak in and relocate
-   the symbol table (and other stuff) after the dynamic linker has
-   figured out where they go.  */
-
-#define	SOLIB_CREATE_INFERIOR_HOOK(PID)	\
-  do {					\
-    xcoff_relocate_symtab (PID);	\
-  } while (0)
-
 /* Number of trap signals we need to skip over, once the inferior process
    starts running. */
 
@@ -132,18 +123,6 @@ function_frame_info PARAMS ((CORE_ADDR, struct aix_framedata *));
 
 #define	PROCESS_LINENUMBER_HOOK()	aix_process_linenos ()
    
-/* When a target process or core-file has been attached, we sneak in
-   and figure out where the shared libraries have got to.  */
-
-#define	SOLIB_ADD(a, b, c)	\
-  if (inferior_pid)	\
-    /* Attach to process.  */  \
-    xcoff_relocate_symtab (inferior_pid); \
-  else		\
-    /* Core file.  */ \
-    xcoff_relocate_core ();
-extern void xcoff_relocate_core PARAMS ((void));
-
 /* Immediately after a function call, return the saved pc.
    Can't go through the frames for this because on some machines
    the new frame is not set up until the new function executes
@@ -192,14 +171,6 @@ extern void xcoff_relocate_core PARAMS ((void));
 /* Return 1 if P points to an invalid floating point value.  */
 
 #define INVALID_FLOAT(p, len) 0   /* Just a first guess; not checked */
-
-/* Largest integer type */
-
-#define LONGEST long
-
-/* Name of the builtin type for the LONGEST type above. */
-
-#define BUILTIN_TYPE_LONGEST builtin_type_long
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -349,11 +320,11 @@ extern void xcoff_relocate_core PARAMS ((void));
    Since gdb needs to find it, we will store in a designated variable
    `rs6000_struct_return_address'. */
 
-extern unsigned int rs6000_struct_return_address;
+extern CORE_ADDR rs6000_struct_return_address;
 
 #define STORE_STRUCT_RETURN(ADDR, SP)	\
   { write_register (3, (ADDR));		\
-    rs6000_struct_return_address = (unsigned int)(ADDR); }
+    rs6000_struct_return_address = (ADDR); }
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,

@@ -335,8 +335,7 @@ tm_fetch_register (regno, buf)
       break;
     case REG_SP:
       {
-	if
-	  (sim_z8001_mode)
+	if (sim_z8001_mode)
 	  {
 	    swap_long (buf, get_long_reg (&the_state, 14));
 	  }
@@ -541,26 +540,4 @@ tm_write_byte (x, y)
 {
   x &= 0x3f00ffff;
   sim_write_byte (&the_state, x, y);
-}
-
-int
-sim_open (name)
-     char *name;
-{
-  return 0;
-}
-
-int 
-sim_set_args (argv, env)
-     char **argv;
-     char **env;
-{
-  return 0;
-}
-
-
-int
-sim_kill ()
-{
-  return 0;
 }

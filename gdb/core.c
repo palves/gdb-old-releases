@@ -1,5 +1,6 @@
 /* Core dump and executable file functions above target vector, for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -18,6 +19,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
+#include <string.h>
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -136,19 +138,24 @@ memory_error (status, memaddr)
      int status;
      CORE_ADDR memaddr;
 {
-
   if (status == EIO)
     {
       /* Actually, address between memaddr and memaddr + len
 	 was out of bounds. */
-      error ("Cannot access memory at address %s.",
-	     local_hex_string((unsigned long) memaddr));
+      error_begin ();
+      printf_filtered ("Cannot access memory at address ");
+      print_address_numeric (memaddr, 1, gdb_stdout);
+      printf_filtered (".\n");
+      return_to_top_level (RETURN_ERROR);
     }
   else
     {
-      error ("Error accessing memory address %s: %s.",
-	     local_hex_string ((unsigned long) memaddr),
-	     safe_strerror (status));
+      error_begin ();
+      printf_filtered ("Error accessing memory address ");
+      print_address_numeric (memaddr, 1, gdb_stdout);
+      printf_filtered (": %s.\n",
+			 safe_strerror (status));
+      return_to_top_level (RETURN_ERROR);
     }
 }
 

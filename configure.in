@@ -69,33 +69,44 @@ native_only="autoconf cvs emacs fileutils find grep groff gzip hello indent
 cross_only="xiberty newlib"
 
 ## All tools belong in one of the four categories, and are assigned above
+## We assign ${configdirs} this way to remove all embedded newlines.  This
+## is important because configure will choke if they ever get through.
 #
-configdirs="${host_libs} ${host_tools} ${target_libs} ${target_tools}"
+configdirs=`echo ${host_libs} ${host_tools} ${target_libs} ${target_tools}`
 
 ################################################################################
 
 srctrigger=move-if-change
 srcname="gnu development package"
 
+# This gets set non-empty for some net releases of packages.
+appdirs=""
+
 # per-host:
 
+# Work in distributions that contain no compiler tools, like Autoconf.
+if [ -d ${srcdir}/config ]; then
 case "${host}" in
   m68k-hp-hpux*)	  host_makefile_frag=config/mh-hp300 ;;
   m68k-apollo-sysv*)      host_makefile_frag=config/mh-apollo68 ;;
   m68k-apollo-bsd*)       host_makefile_frag=config/mh-a68bsd ;;
-  m88k-motorola-sysv*)    host_makefile_frag=config/mh-delta88;;
   m88k-dg-dgux*)	  host_makefile_frag=config/mh-dgux ;;
+  m88k-harris-cxux*)	  host_makefile_frag=config/mh-cxux ;;
+  m88k-motorola-sysv*)    host_makefile_frag=config/mh-delta88;;
   mips*-dec-ultrix*)      host_makefile_frag=config/mh-decstation ;;
   mips*-sgi-irix5*)       host_makefile_frag=config/mh-irix5 ;;
   mips*-sgi-irix4*)       host_makefile_frag=config/mh-irix4 ;;
   mips*-sgi-irix3*)       host_makefile_frag=config/mh-sysv ;;
+  mips*-*-sysv4*)	  host_makefile_frag=config/mh-sysv4 ;;
   mips*-*-sysv*)	  host_makefile_frag=config/mh-riscos ;;
+  i[34]86-ncr-sysv43)     host_makefile_frag=config/mh-ncrsvr43 ;;
   i[34]86-ncr-sysv4*)     host_makefile_frag=config/mh-ncr3000 ;;
   i[34]86-*-sco*)         host_makefile_frag=config/mh-sco ;;
   i[34]86-*-isc*)	  host_makefile_frag=config/mh-sysv ;;
   i[34]86-*-linux*)       host_makefile_frag=config/mh-linux ;;
   i[34]86-*-solaris2*)    host_makefile_frag=config/mh-sysv4 ;;
   i[34]86-*-aix*)	  host_makefile_frag=config/mh-aix386 ;;
+  i[34]86-*-go32*)	  host_makefile_frag=config/mh-go32 ;;
   vax-*-ultrix2*)         host_makefile_frag=config/mh-vaxult2 ;;
   *-ibm-aix*)             host_makefile_frag=config/mh-aix ;;
   *-bull-bosx*)           host_makefile_frag=config/mh-aix ;;
@@ -104,13 +115,18 @@ case "${host}" in
   *-sun-*)		  host_makefile_frag=config/mh-sun ;;
   *-hp-hpux*)             host_makefile_frag=config/mh-hpux ;;
   *-*-hiux*)              host_makefile_frag=config/mh-hpux ;;
-  *-*-lynxos*)	  	  host_makefile_frag=config/mh-lynxos
-				cross_only="xiberty" ;;
+  rs6000-*-lynxos*)	  host_makefile_frag=config/mh-lynxrs6k ;;
+  *-*-lynxos*)	  	  host_makefile_frag=config/mh-lynxos ;;
   *-*-sysv4*)             host_makefile_frag=config/mh-sysv4 ;;
   *-*-sysv*)              host_makefile_frag=config/mh-sysv ;;
 esac
+fi
 
 # per-target:
+
+case "${target}" in
+  v810*)		target_makefile_frag=config/mt-v810 ;;
+esac
 
 gasdir=gas
 use_gnu_ld=
@@ -123,7 +139,7 @@ case ${with_x} in
   yes | "")  # the default value for this tree is that X11 is available
 	;;
   no)
-    	configdirs=`echo ${configdirs} | sed -e 's/tk//;/gash//'`
+    	configdirs=`echo " ${configdirs} " | sed -e 's/ tk / /;/ gash / /'`
 	;;
   *)
     	echo "*** bad value \"${with_x}\" for -with-x flag; ignored" 1>&2
@@ -137,19 +153,30 @@ esac
 # toolchains, we add some directories that should only be useful in a
 # cross-compiler.
 
+is_cross_compiler=
+
 if [ x"${host}" = x"${target}" ] ; then
 	# when doing a native toolchain, don't build the targets
 	# that are in the 'cross only' list
 	for i in ${cross_only} ; do
-	  configdirs=`echo ${configdirs} | sed -e "s/$i//"`
+	  configdirs=`echo " ${configdirs} " | sed -e "s/ $i / /"`
 	done
+	is_cross_compiler=no
 else
 	# similarly, don't build the targets in the 'native only' 
 	# list when building a cross compiler
 	for i in ${native_only} ; do
-	  configdirs=`echo ${configdirs} | sed -e "s/$i//"`
+	  configdirs=`echo " ${configdirs} " | sed -e "s/ $i / /"`
 	done
+	is_cross_compiler=yes
 fi	
+
+# Configure extra directories which are host specific
+
+case "${host}" in
+  i[34]86-*-go32*)
+		  configdirs="$configdirs dosrel" ;;
+esac
 
 # Remove more programs from consideration, based on the host or 
 # target this usually means that a port of the program doesn't
@@ -169,18 +196,22 @@ case "${host}" in
     ;;
 esac
 
+
+
+
+
 case "${target}" in
   alpha-dec-osf1*)
-    noconfigdirs="$noconfigdirs emacs fileutils grep gas libg++ libio newlib"
+    noconfigdirs="$noconfigdirs emacs fileutils grep newlib"
     ;;	
   alpha*-*-*)
-    noconfigdirs="$noconfigdirs gas libg++ libio newlib"
+    noconfigdirs="$noconfigdirs newlib"
     ;;    
   h8300*-*-* | \
   h8500-*-*)
     noconfigdirs="$noconfigdirs libg++ libio"
     ;;
-  hppa*-*-osf)
+  hppa*-*-*elf*)
     # Do configure ld/binutils/gas for this case.
     ;;
   hppa*-*-*)
@@ -191,11 +222,16 @@ case "${target}" in
 	"" | cc*) noconfigdirs="$noconfigdirs emacs" ;;
         *) ;;
     esac
-    noconfigdirs="$noconfigdirs ld binutils shellutils"
+    noconfigdirs="$noconfigdirs ld shellutils"
     ;;
   i[34]86-*-go32)
     # add the go32 support tools to the list
+    # but don't build gdb
     configdirs=`echo go32 ${configdirs}`
+    noconfigdirs="$noconfigdirs gdb libg++ libio"
+    ;;
+  i[34]86-*-sco*)
+    noconfigdirs="$noconfigdirs gprof"
     ;;
   i[34]86-*-solaris2*)
     # The linker does static linking correctly, but the Solaris C library
@@ -211,16 +247,22 @@ case "${target}" in
     esac
     # but that's okay since emacs doesn't work anyway
     noconfigdirs="$noconfigdirs emacs"
-
-    # static versions of several key libraries are not available, 
-    # so building our entire toolchain is impossible until 
-    # the GNU linker supports shared libraries
-    noconfigdirs="$noconfigdirs ld"
+    ;;
+  powerpc-*-aix*)
+    # copied from rs6000-*-* entry
+    noconfigdirs="$noconfigdirs ld binutils gprof textutils cvs"
+    ;;
+  rs6000-*-lynxos*)
+    # a gcc built textutils will cause the linker to hang on 'join'
+    # The CVS server code doesn't work on the RS/6000
+    # Newlib makes problems for libg++ in crosses.
+    noconfigdirs="$noconfigdirs gas ld newlib gprof textutils cvs"
+    use_gnu_ld=no
+    use_gnu_as=no
     ;;
   rs6000-*-*)
     # a gcc built textutils will cause the linker to hang on 'join'
-    # The CVS server code doesn't work on the RS/6000
-    noconfigdirs="$noconfigdirs ld binutils gas gprof textutils cvs"
+    noconfigdirs="$noconfigdirs ld binutils gprof textutils"
     ;;
   m68k-apollo-*)
     noconfigdirs="$noconfigdirs ld binutils gprof"
@@ -229,8 +271,17 @@ case "${target}" in
     # The GNU linker does not support shared libraries.
     noconfigdirs="$noconfigdirs ld gprof"
     ;;
+  mips*-dec-bsd*)
+    noconfigdirs="$noconfigdirs gprof"
+    ;;
+  mips*-*-bsd*)
+    noconfigdirs="$noconfigdirs gprof ld"
+    ;;
   mips*-*-*)
     noconfigdirs="$noconfigdirs gprof"
+    ;;
+  romp-*-*)
+    noconfigdirs="bfd binutils ld gas opcodes"
     ;;
   sh-*-*)
     case "${host}" in
@@ -241,27 +292,28 @@ case "${target}" in
     esac
     ;;
   sparc-*-sunos4*)
-    use_gnu_ld=no
+    if [ x${is_cross_compiler} != xno ] ; then
+           noconfigdirs="$noconfigdirs gdb gdbtest newlib sim dejagnu expect tcl"
+    else
+           use_gnu_ld=no
+    fi
     ;;
-  sparc-*-solaris2*)
-    # See i386-*-solaris2* above.
-    noconfigdirs="$noconfigdirs ld"
+  vax-*-vms)
+    noconfigdirs="$noconfigdirs bfd binutils gdb ld newlib opcodes"
     ;;
-  i[34]86-*-sco*)
-    noconfigdirs="$noconfigdirs gprof"
+  vax-*-*)
+    noconfigdirs="$noconfigdirs newlib"
     ;;
-  *-*-sysv4)
-    use_gnu_ld=no
-    ;;
-  *-*-vms)
-    noconfigdirs="$noconfigdirs bfd ld binutils gdb"
-    ;;
+  *-*-lynxos*)
+     # Newlib makes problems for libg++ in crosses.
+     noconfigdirs="$noconfigdirs newlib"
+     ;;    
 esac
 
 notsupp=""
 for dir in . $noconfigdirs ; do
   if [ $dir != . ] && echo "# ${configdirs} #" | grep "${dir} " >/dev/null 2>&1 ; then
-    configdirs=`echo $configdirs | sed -e "s/${dir} / /"`
+    configdirs=`echo " ${configdirs} " | sed -e "s/ ${dir} / /"`
     if [ -r $srcdir/$dir/configure ] || [ -r $srcdir/$dir/configure.in ]; then
       notsupp="$notsupp $dir"
     fi
@@ -274,6 +326,24 @@ done
 # supported by the one or two programs in a package.
 
 if [ -n "${notsupp}" ] && [ -z "${norecursion}" ]; then
+  # If $appdirs is non-empty, at least one of those directories must still
+  # be configured, or we error out.  (E.g., if the gas release supports a
+  # specified target in some subdirs but not the gas subdir, we shouldn't
+  # pretend that all is well.)
+  if [ -n "$appdirs" ]; then
+    for dir in $appdirs ; do
+      if [ -r $dir/Makefile.in ] && echo "# ${configdirs} #" | grep "${dir} " >/dev/null 2>&1 ; then
+	appdirs=""
+	break
+      fi
+    done
+    if [ -n "$appdirs" ]; then
+      echo "*** This configuration is not supported by this package." 1>&2
+      exit 1
+    fi
+  fi
+  # Okay, some application will build, or we don't care to check.  Still
+  # notify of subdirs not getting built.
   echo "*** This configuration is not supported in the following subdirectories:" 1>&2
   echo "    ${notsupp}" 1>&2
   echo "    (Any other directories should still work fine.)" 1>&2

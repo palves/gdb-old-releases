@@ -89,6 +89,20 @@ print_insn_h8500 (addr, info)
     /* Error return.  */
     return -1;
 
+if (0)  {
+    static    int one;
+    if (!one ) 
+      {
+	one = 1;
+	for (opcode = h8500_table; opcode->name; opcode++)
+	  {
+	    if ((opcode->bytes[0].contents & 0x8) == 0)
+	      printf("%s\n", opcode->name);
+	  }
+      }
+  }
+
+
   /* Run down the table to find the one which matches */
   for (opcode = h8500_table; opcode->name; opcode++)
     {

@@ -1,5 +1,5 @@
 /* Native-dependent code for LynxOS.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -23,7 +23,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 
 #include <sys/ptrace.h>
-#include "/usr/include/sys/wait.h"
+#include <sys/wait.h>
+#include <sys/fpp.h>
 
 static unsigned long registers_addr PARAMS ((int pid));
 
@@ -52,7 +53,7 @@ static int regmap[] =
   X(fault),			/* we just substitute these two in the hopes
 				   that they are useful. */
 };
-#endif
+#endif /* I386 */
 
 #ifdef M68K
 /* Mappings from tm-m68k.h */
@@ -93,7 +94,372 @@ static int regmap[] =
   X(ssw),			/* fpcode */
   X(fault),			/* fpflags */
 };
-#endif
+#endif /* M68K */
+
+#ifdef SPARC
+/* Mappings from tm-sparc.h */
+
+#define FX(ENTRY)(offsetof(struct fcontext, ENTRY))
+
+static int regmap[] =
+{
+  -1,				/* g0 */
+  X(g1),
+  X(g2),
+  X(g3),
+  X(g4),
+  -1,				/* g5->g7 aren't saved by Lynx */
+  -1,
+  -1,
+
+  X(o[0]),
+  X(o[1]),
+  X(o[2]),
+  X(o[3]),
+  X(o[4]),
+  X(o[5]),
+  X(o[6]),			/* sp */
+  X(o[7]),			/* ra */
+
+  -1,-1,-1,-1,-1,-1,-1,-1,	/* l0 -> l7 */
+
+  -1,-1,-1,-1,-1,-1,-1,-1,	/* i0 -> i7 */
+
+  FX(f.fregs[0]),		/* f0 */
+  FX(f.fregs[1]),
+  FX(f.fregs[2]),
+  FX(f.fregs[3]),
+  FX(f.fregs[4]),
+  FX(f.fregs[5]),
+  FX(f.fregs[6]),
+  FX(f.fregs[7]),
+  FX(f.fregs[8]),
+  FX(f.fregs[9]),
+  FX(f.fregs[10]),
+  FX(f.fregs[11]),
+  FX(f.fregs[12]),
+  FX(f.fregs[13]),
+  FX(f.fregs[14]),
+  FX(f.fregs[15]),
+  FX(f.fregs[16]),
+  FX(f.fregs[17]),
+  FX(f.fregs[18]),
+  FX(f.fregs[19]),
+  FX(f.fregs[20]),
+  FX(f.fregs[21]),
+  FX(f.fregs[22]),
+  FX(f.fregs[23]),
+  FX(f.fregs[24]),
+  FX(f.fregs[25]),
+  FX(f.fregs[26]),
+  FX(f.fregs[27]),
+  FX(f.fregs[28]),
+  FX(f.fregs[29]),
+  FX(f.fregs[30]),
+  FX(f.fregs[31]),
+
+  X(y),
+  X(psr),
+  X(wim),
+  X(tbr),
+  X(pc),
+  X(npc),
+  FX(fsr),			/* fpsr */
+  -1,				/* cpsr */
+};
+#endif /* SPARC */
+
+#ifdef rs6000
+
+static int regmap[] =
+{
+  X(iregs[0]),			/* r0 */
+  X(iregs[1]),
+  X(iregs[2]),
+  X(iregs[3]),
+  X(iregs[4]),
+  X(iregs[5]),
+  X(iregs[6]),
+  X(iregs[7]),
+  X(iregs[8]),
+  X(iregs[9]),
+  X(iregs[10]),
+  X(iregs[11]),
+  X(iregs[12]),
+  X(iregs[13]),
+  X(iregs[14]),
+  X(iregs[15]),
+  X(iregs[16]),
+  X(iregs[17]),
+  X(iregs[18]),
+  X(iregs[19]),
+  X(iregs[20]),
+  X(iregs[21]),
+  X(iregs[22]),
+  X(iregs[23]),
+  X(iregs[24]),
+  X(iregs[25]),
+  X(iregs[26]),
+  X(iregs[27]),
+  X(iregs[28]),
+  X(iregs[29]),
+  X(iregs[30]),
+  X(iregs[31]),
+
+  X(fregs[0]),			/* f0 */
+  X(fregs[1]),
+  X(fregs[2]),
+  X(fregs[3]),
+  X(fregs[4]),
+  X(fregs[5]),
+  X(fregs[6]),
+  X(fregs[7]),
+  X(fregs[8]),
+  X(fregs[9]),
+  X(fregs[10]),
+  X(fregs[11]),
+  X(fregs[12]),
+  X(fregs[13]),
+  X(fregs[14]),
+  X(fregs[15]),
+  X(fregs[16]),
+  X(fregs[17]),
+  X(fregs[18]),
+  X(fregs[19]),
+  X(fregs[20]),
+  X(fregs[21]),
+  X(fregs[22]),
+  X(fregs[23]),
+  X(fregs[24]),
+  X(fregs[25]),
+  X(fregs[26]),
+  X(fregs[27]),
+  X(fregs[28]),
+  X(fregs[29]),
+  X(fregs[30]),
+  X(fregs[31]),
+
+  X(srr0),			/* IAR (PC) */
+  X(srr1),			/* MSR (PS) */
+  X(cr),			/* CR */
+  X(lr),			/* LR */
+  X(ctr),			/* CTR */
+  X(xer),			/* XER */
+  X(mq)				/* MQ */
+};
+
+#endif /* rs6000 */
+
+#ifdef SPARC
+
+/* This routine handles some oddball cases for Sparc registers and LynxOS.
+   In partucular, it causes refs to G0, g5->7, and all fp regs to return zero.
+   It also handles knows where to find the I & L regs on the stack.  */
+
+void
+fetch_inferior_registers (regno)
+     int regno;
+{
+  int whatregs = 0;
+
+#define WHATREGS_FLOAT 1
+#define WHATREGS_GEN 2
+#define WHATREGS_STACK 4
+
+  if (regno == -1)
+    whatregs = WHATREGS_FLOAT | WHATREGS_GEN | WHATREGS_STACK;
+  else if (regno >= L0_REGNUM && regno <= I7_REGNUM)
+    whatregs = WHATREGS_STACK;
+  else if (regno >= FP0_REGNUM && regno < FP0_REGNUM + 32)
+    whatregs = WHATREGS_FLOAT;
+  else
+    whatregs = WHATREGS_GEN;
+
+  if (whatregs & WHATREGS_GEN)
+    {
+      struct econtext ec;		/* general regs */
+      char buf[MAX_REGISTER_RAW_SIZE];
+      int retval;
+      int i;
+
+      errno = 0;
+      retval = ptrace (PTRACE_GETREGS, inferior_pid, (PTRACE_ARG3_TYPE) &ec,
+		       0);
+      if (errno)
+	perror_with_name ("ptrace(PTRACE_GETREGS)");
+  
+      memset (buf, 0, REGISTER_RAW_SIZE (G0_REGNUM));
+      supply_register (G0_REGNUM, buf);
+      supply_register (TBR_REGNUM, (char *)&ec.tbr);
+
+      memcpy (&registers[REGISTER_BYTE (G1_REGNUM)], &ec.g1,
+	      4 * REGISTER_RAW_SIZE (G1_REGNUM));
+      for (i = G1_REGNUM; i <= G1_REGNUM + 3; i++)
+	register_valid[i] = 1;
+
+      supply_register (PS_REGNUM, (char *)&ec.psr);
+      supply_register (Y_REGNUM, (char *)&ec.y);
+      supply_register (PC_REGNUM, (char *)&ec.pc);
+      supply_register (NPC_REGNUM, (char *)&ec.npc);
+      supply_register (WIM_REGNUM, (char *)&ec.wim);
+
+      memcpy (&registers[REGISTER_BYTE (O0_REGNUM)], ec.o,
+	      8 * REGISTER_RAW_SIZE (O0_REGNUM));
+      for (i = O0_REGNUM; i <= O0_REGNUM + 7; i++)
+	register_valid[i] = 1;
+    }
+
+  if (whatregs & WHATREGS_STACK)
+    {
+      CORE_ADDR sp;
+      int i;
+
+      sp = read_register (SP_REGNUM);
+
+      target_xfer_memory (sp + FRAME_SAVED_I0,
+			  &registers[REGISTER_BYTE(I0_REGNUM)],
+			  8 * REGISTER_RAW_SIZE (I0_REGNUM), 0);
+      for (i = I0_REGNUM; i <= I7_REGNUM; i++)
+	register_valid[i] = 1;
+
+      target_xfer_memory (sp + FRAME_SAVED_L0,
+			  &registers[REGISTER_BYTE(L0_REGNUM)],
+			  8 * REGISTER_RAW_SIZE (L0_REGNUM), 0);
+      for (i = L0_REGNUM; i <= L0_REGNUM + 7; i++)
+	register_valid[i] = 1;
+    }
+
+  if (whatregs & WHATREGS_FLOAT)
+    {
+      struct fcontext fc;		/* fp regs */
+      int retval;
+      int i;
+
+      errno = 0;
+      retval = ptrace (PTRACE_GETFPREGS, inferior_pid, (PTRACE_ARG3_TYPE) &fc,
+		       0);
+      if (errno)
+	perror_with_name ("ptrace(PTRACE_GETFPREGS)");
+  
+      memcpy (&registers[REGISTER_BYTE (FP0_REGNUM)], fc.f.fregs,
+	      32 * REGISTER_RAW_SIZE (FP0_REGNUM));
+      for (i = FP0_REGNUM; i <= FP0_REGNUM + 31; i++)
+	register_valid[i] = 1;
+
+      supply_register (FPS_REGNUM, (char *)&fc.fsr);
+    }
+}
+
+/* This routine handles storing of the I & L regs for the Sparc.  The trick
+   here is that they actually live on the stack.  The really tricky part is
+   that when changing the stack pointer, the I & L regs must be written to
+   where the new SP points, otherwise the regs will be incorrect when the
+   process is started up again.   We assume that the I & L regs are valid at
+   this point.  */
+
+void
+store_inferior_registers (regno)
+     int regno;
+{
+  int whatregs = 0;
+
+  if (regno == -1)
+    whatregs = WHATREGS_FLOAT | WHATREGS_GEN | WHATREGS_STACK;
+  else if (regno >= L0_REGNUM && regno <= I7_REGNUM)
+    whatregs = WHATREGS_STACK;
+  else if (regno >= FP0_REGNUM && regno < FP0_REGNUM + 32)
+    whatregs = WHATREGS_FLOAT;
+  else if (regno == SP_REGNUM)
+    whatregs = WHATREGS_STACK | WHATREGS_GEN;
+  else
+    whatregs = WHATREGS_GEN;
+
+  if (whatregs & WHATREGS_GEN)
+    {
+      struct econtext ec;		/* general regs */
+      int retval;
+
+      ec.tbr = read_register (TBR_REGNUM);
+      memcpy (&ec.g1, &registers[REGISTER_BYTE (G1_REGNUM)],
+	      4 * REGISTER_RAW_SIZE (G1_REGNUM));
+
+      ec.psr = read_register (PS_REGNUM);
+      ec.y = read_register (Y_REGNUM);
+      ec.pc = read_register (PC_REGNUM);
+      ec.npc = read_register (NPC_REGNUM);
+      ec.wim = read_register (WIM_REGNUM);
+
+      memcpy (ec.o, &registers[REGISTER_BYTE (O0_REGNUM)],
+	      8 * REGISTER_RAW_SIZE (O0_REGNUM));
+
+      errno = 0;
+      retval = ptrace (PTRACE_SETREGS, inferior_pid, (PTRACE_ARG3_TYPE) &ec,
+		       0);
+      if (errno)
+	perror_with_name ("ptrace(PTRACE_SETREGS)");
+    }
+
+  if (whatregs & WHATREGS_STACK)
+    {
+      int regoffset;
+      CORE_ADDR sp;
+
+      sp = read_register (SP_REGNUM);
+
+      if (regno == -1 || regno == SP_REGNUM)
+	{
+	  if (!register_valid[L0_REGNUM+5])
+	    abort();
+	  target_xfer_memory (sp + FRAME_SAVED_I0,
+			      &registers[REGISTER_BYTE (I0_REGNUM)],
+			      8 * REGISTER_RAW_SIZE (I0_REGNUM), 1);
+
+	  target_xfer_memory (sp + FRAME_SAVED_L0,
+			      &registers[REGISTER_BYTE (L0_REGNUM)],
+			      8 * REGISTER_RAW_SIZE (L0_REGNUM), 1);
+	}
+      else if (regno >= L0_REGNUM && regno <= I7_REGNUM)
+	{
+	  if (!register_valid[regno])
+	    abort();
+	  if (regno >= L0_REGNUM && regno <= L0_REGNUM + 7)
+	    regoffset = REGISTER_BYTE (regno) - REGISTER_BYTE (L0_REGNUM)
+	      + FRAME_SAVED_L0;
+	  else
+	    regoffset = REGISTER_BYTE (regno) - REGISTER_BYTE (I0_REGNUM)
+	      + FRAME_SAVED_I0;
+	  target_xfer_memory (sp + regoffset, &registers[REGISTER_BYTE (regno)],
+			      REGISTER_RAW_SIZE (regno), 1);
+	}
+    }
+
+  if (whatregs & WHATREGS_FLOAT)
+    {
+      struct fcontext fc;		/* fp regs */
+      int retval;
+
+/* We read fcontext first so that we can get good values for fq_t... */
+      errno = 0;
+      retval = ptrace (PTRACE_GETFPREGS, inferior_pid, (PTRACE_ARG3_TYPE) &fc,
+		       0);
+      if (errno)
+	perror_with_name ("ptrace(PTRACE_GETFPREGS)");
+  
+      memcpy (fc.f.fregs, &registers[REGISTER_BYTE (FP0_REGNUM)],
+	      32 * REGISTER_RAW_SIZE (FP0_REGNUM));
+
+      fc.fsr = read_register (FPS_REGNUM);
+
+      errno = 0;
+      retval = ptrace (PTRACE_SETFPREGS, inferior_pid, (PTRACE_ARG3_TYPE) &fc,
+		       0);
+      if (errno)
+	perror_with_name ("ptrace(PTRACE_SETFPREGS)");
+      }
+}
+#endif /* SPARC */
+
+#if defined (I386) || defined (M68K) || defined (rs6000)
 
 /* Return the offset relative to the start of the per-thread data to the
    saved context block.  */
@@ -110,12 +476,12 @@ registers_addr(pid)
   stblock = (CORE_ADDR) ptrace (PTRACE_THREADUSER, pid, (PTRACE_ARG3_TYPE)0,
 				0);
   if (errno)
-    perror_with_name ("registers_addr(PTRACE_THREADUSER)");
+    perror_with_name ("ptrace(PTRACE_THREADUSER)");
 
   ecp = (CORE_ADDR) ptrace (PTRACE_PEEKTHREAD, pid, (PTRACE_ARG3_TYPE)ecpoff,
 			    0);
   if (errno)
-    perror_with_name ("registers_addr(PTRACE_PEEKTHREAD)");
+    perror_with_name ("ptrace(PTRACE_PEEKTHREAD)");
 
   return ecp - stblock;
 }
@@ -147,7 +513,7 @@ fetch_inferior_registers (regno)
       char buf[MAX_REGISTER_RAW_SIZE];
       int ptrace_fun = PTRACE_PEEKTHREAD;
 
-#ifdef PTRACE_PEEKUSP
+#ifdef M68K
       ptrace_fun = regno == SP_REGNUM ? PTRACE_PEEKUSP : PTRACE_PEEKTHREAD;
 #endif
 
@@ -159,7 +525,7 @@ fetch_inferior_registers (regno)
 	  reg = ptrace (ptrace_fun, inferior_pid,
 			(PTRACE_ARG3_TYPE) (ecp + regmap[regno] + i), 0);
 	  if (errno)
-	    perror_with_name ("fetch_inferior_registers(ptrace)");
+	    perror_with_name ("ptrace(PTRACE_PEEKUSP)");
   
 	  *(int *)&buf[i] = reg;
 	}
@@ -170,6 +536,11 @@ fetch_inferior_registers (regno)
 /* Store our register values back into the inferior.
    If REGNO is -1, do this for all registers.
    Otherwise, REGNO specifies which register (so we can save time).  */
+
+/* Registers we shouldn't try to store.  */
+#if !defined (CANNOT_STORE_REGISTER)
+#define CANNOT_STORE_REGISTER(regno) 0
+#endif
 
 void
 store_inferior_registers (regno)
@@ -193,7 +564,10 @@ store_inferior_registers (regno)
     {
       int ptrace_fun = PTRACE_POKEUSER;
 
-#ifdef PTRACE_POKEUSP
+      if (CANNOT_STORE_REGISTER (regno))
+	continue;
+
+#ifdef M68K
       ptrace_fun = regno == SP_REGNUM ? PTRACE_POKEUSP : PTRACE_POKEUSER;
 #endif
 
@@ -207,10 +581,11 @@ store_inferior_registers (regno)
 	  ptrace (ptrace_fun, inferior_pid,
 		  (PTRACE_ARG3_TYPE) (ecp + regmap[regno] + i), reg);
 	  if (errno)
-	    perror_with_name ("PTRACE_POKEUSER");
+	    perror_with_name ("ptrace(PTRACE_POKEUSP)");
 	}
     }
 }
+#endif /* defined (I386) || defined (M68K) || defined (rs6000) */
 
 /* Wait for child to do something.  Return pid of child, or -1 in case
    of error; store status through argument pointer OURSTATUS.  */
@@ -222,7 +597,7 @@ child_wait (pid, ourstatus)
 {
   int save_errno;
   int thread;
-  int status;
+  union wait status;
 
   while (1)
     {
@@ -231,7 +606,12 @@ child_wait (pid, ourstatus)
       if (attach_flag)
 	set_sigint_trap();	/* Causes SIGINT to be passed on to the
 				   attached process. */
-      pid = wait (status);
+      pid = wait (&status);
+#ifdef SPARC
+/* Swap halves of status so that the rest of GDB can understand it */
+      status = (status << 16) | ((unsigned)status >> 16);
+#endif
+
       save_errno = errno;
 
       if (attach_flag)
@@ -252,8 +632,7 @@ child_wait (pid, ourstatus)
       if (pid != PIDGET (inferior_pid))	/* Some other process?!? */
 	continue;
 
-/*      thread = WIFTID (status);*/
-      thread = status >> 16;
+      thread = status.w_tid;	/* Get thread id from status */
 
       /* Initial thread value can only be acquired via wait, so we have to
 	 resort to this hack.  */
@@ -266,10 +645,67 @@ child_wait (pid, ourstatus)
 
       pid = BUILDPID (pid, thread);
 
-      store_waitstatus (ourstatus, status);
+      if (WIFSTOPPED(status)
+	  && WSTOPSIG(status) == SIGTRAP
+	  && !in_thread_list (pid))
+	{
+	  int realsig;
+
+	  realsig = ptrace (PTRACE_GETTRACESIG, pid, 0);
+
+	  if (realsig == SIGNEWTHREAD)
+	    {
+	      /* Simply ignore new thread notification, as we can't do anything
+		 useful with such threads.  All ptrace calls at this point just
+		 fail for no apparent reason.  The thread will eventually get a
+		 real signal when it becomes real.  */
+	      child_resume (pid, 0, TARGET_SIGNAL_0);
+	      continue;
+	    }
+	}
+
+      store_waitstatus (ourstatus, status.w_status);
 
       return pid;
     }
+}
+
+/* Resume execution of the inferior process.
+   If STEP is nonzero, single-step it.
+   If SIGNAL is nonzero, give it that signal.  */
+
+void
+child_resume (pid, step, signal)
+     int pid;
+     int step;
+     enum target_signal signal;
+{
+  int func;
+
+  errno = 0;
+
+  if (pid == -1)
+    {
+      /* Resume all threads.  */
+
+      pid = inferior_pid;
+    }
+
+  func = step ? PTRACE_SINGLESTEP_ONE : PTRACE_CONT;
+
+  /* An address of (PTRACE_ARG3_TYPE)1 tells ptrace to continue from where
+     it was.  (If GDB wanted it to start some other way, we have already
+     written a new PC value to the child.)
+
+     If this system does not support PT_STEP, a higher level function will
+     have called single_step() to transmute the step request into a
+     continue request (by setting breakpoints on all possible successor
+     instructions), so we don't have to worry about that here.  */
+
+  ptrace (func, pid, (PTRACE_ARG3_TYPE) 1, target_signal_to_host (signal));
+
+  if (errno)
+    perror_with_name ("ptrace");
 }
 
 /* Convert a Lynx process ID to a string.  Returns the string in a static
@@ -312,4 +748,11 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
   for (regno = 0; regno < NUM_REGS; regno++)
     supply_register (regno, core_reg_sect + offsetof (st_t, ec)
 		     + regmap[regno]);
+
+#ifdef SPARC
+/* Fetching this register causes all of the I & L regs to be read from the
+   stack and validated.  */
+
+  fetch_inferior_registers (I0_REGNUM);
+#endif
 }

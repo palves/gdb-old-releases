@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 960 b.out binaries.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -23,14 +23,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 #include "bfdlink.h"
+#include "genlink.h"
 #include "bout.h"
 
 #include "aout/stab_gnu.h"
 #include "libaout.h"		/* BFD a.out internal data structures */
 
 
+static int aligncode PARAMS ((bfd *abfd, asection *input_section,
+			      arelent *r, unsigned int shrink));
+static void perform_slip PARAMS ((bfd *abfd, unsigned int slip,
+				  asection *input_section, bfd_vma value));
 static boolean b_out_squirt_out_relocs PARAMS ((bfd *abfd, asection *section));
-static bfd_target *b_out_callback PARAMS ((bfd *));
+static const bfd_target *b_out_callback PARAMS ((bfd *));
 static bfd_reloc_status_type calljx_callback
   PARAMS ((bfd *, struct bfd_link_info *, arelent *, PTR src, PTR dst,
 	   asection *));
@@ -39,12 +44,12 @@ static bfd_reloc_status_type callj_callback
 	   unsigned int srcidx, unsigned int dstidx, asection *));
 static bfd_vma get_value PARAMS ((arelent *, struct bfd_link_info *,
 				  asection *));
-static int abs32code PARAMS ((asection *, asymbol **, arelent *,
+static int abs32code PARAMS ((bfd *, asection *, arelent *,
 			      unsigned int, struct bfd_link_info *));
-static boolean b_out_relax_section PARAMS ((bfd *, asection *,
-					    struct bfd_link_info *,
-					    asymbol **symbols));
-static bfd_byte *b_out_get_relocated_section_contents
+static boolean b_out_bfd_relax_section PARAMS ((bfd *, asection *,
+						struct bfd_link_info *,
+						boolean *));
+static bfd_byte *b_out_bfd_get_relocated_section_contents
   PARAMS ((bfd *, struct bfd_link_info *, struct bfd_link_order *,
 	   bfd_byte *, boolean, asymbol **));
 
@@ -52,10 +57,10 @@ static bfd_byte *b_out_get_relocated_section_contents
    stream memory image, into the internal exec_header structure.  */
 
 void
-DEFUN(bout_swap_exec_header_in,(abfd, raw_bytes, execp),
-      bfd *abfd AND
-      struct external_exec *raw_bytes AND
-      struct internal_exec *execp)
+bout_swap_exec_header_in (abfd, raw_bytes, execp)
+     bfd *abfd;
+     struct external_exec *raw_bytes;
+     struct internal_exec *execp;
 {
   struct external_exec *bytes = (struct external_exec *)raw_bytes;
 
@@ -84,10 +89,10 @@ PROTO(void, bout_swap_exec_header_out,
 	   struct internal_exec *execp,
 	   struct external_exec *raw_bytes));
 void
-DEFUN(bout_swap_exec_header_out,(abfd, execp, raw_bytes),
-     bfd *abfd AND
-     struct internal_exec *execp AND 
-     struct external_exec *raw_bytes)
+bout_swap_exec_header_out (abfd, execp, raw_bytes)
+     bfd *abfd;
+     struct internal_exec *execp;
+     struct external_exec *raw_bytes;
 {
   struct external_exec *bytes = (struct external_exec *)raw_bytes;
 
@@ -109,7 +114,7 @@ DEFUN(bout_swap_exec_header_out,(abfd, execp, raw_bytes),
 }
 
 
-static bfd_target *
+static const bfd_target *
 b_out_object_p (abfd)
      bfd *abfd;
 {
@@ -118,14 +123,15 @@ b_out_object_p (abfd)
 
   if (bfd_read ((PTR) &exec_bytes, 1, EXEC_BYTES_SIZE, abfd)
       != EXEC_BYTES_SIZE) {
-    bfd_error = wrong_format;
+    if (bfd_get_error () != bfd_error_system_call)
+      bfd_set_error (bfd_error_wrong_format);
     return 0;
   }
 
   anexec.a_info = bfd_h_get_32 (abfd, exec_bytes.e_info);
 
   if (N_BADMAG (anexec)) {
-    bfd_error = wrong_format;
+    bfd_set_error (bfd_error_wrong_format);
     return 0;
   }
 
@@ -137,7 +143,7 @@ b_out_object_p (abfd)
 /* Finish up the opening of a b.out file for reading.  Fill in all the
    fields that are not handled by common code.  */
 
-static bfd_target *
+static const bfd_target *
 b_out_callback (abfd)
      bfd *abfd;
 {
@@ -145,7 +151,7 @@ b_out_callback (abfd)
   unsigned long bss_start;
 
   /* Architecture and machine type */
-  bfd_set_arch_mach(abfd, 
+  bfd_set_arch_mach(abfd,
 		    bfd_arch_i960, /* B.out only used on i960 */
 		    bfd_mach_i960_core /* Default */
 		    );
@@ -199,21 +205,16 @@ b_out_mkobject (abfd)
 
   rawptr = (struct bout_data_struct *) bfd_zalloc (abfd, sizeof (struct bout_data_struct));
   if (rawptr == NULL) {
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       return false;
     }
 
   abfd->tdata.bout_data = rawptr;
   exec_hdr (abfd) = &rawptr->e;
 
-  /* For simplicity's sake we just make all the sections right here. */
   obj_textsec (abfd) = (asection *)NULL;
   obj_datasec (abfd) = (asection *)NULL;
   obj_bsssec (abfd) = (asection *)NULL;
-
-  bfd_make_section (abfd, ".text");
-  bfd_make_section (abfd, ".data");
-  bfd_make_section (abfd, ".bss");
 
   return true;
 }
@@ -223,6 +224,9 @@ b_out_write_object_contents (abfd)
      bfd *abfd;
 {
   struct external_exec swapped_hdr;
+
+  if (! aout_32_make_sections (abfd))
+    return false;
 
   exec_hdr (abfd)->a_info = BMAGIC;
 
@@ -245,21 +249,28 @@ b_out_write_object_contents (abfd)
 
   bout_swap_exec_header_out (abfd, exec_hdr (abfd), &swapped_hdr);
 
-  bfd_seek (abfd, (file_ptr) 0, SEEK_SET);
-  bfd_write ((PTR) &swapped_hdr, 1, EXEC_BYTES_SIZE, abfd);
+  if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0
+      || (bfd_write ((PTR) &swapped_hdr, 1, EXEC_BYTES_SIZE, abfd)
+	  != EXEC_BYTES_SIZE))
+    return false;
 
   /* Now write out reloc info, followed by syms and strings */
-  if (bfd_get_symcount (abfd) != 0) 
+  if (bfd_get_symcount (abfd) != 0)
     {
-      bfd_seek (abfd, (file_ptr)(N_SYMOFF(*exec_hdr(abfd))), SEEK_SET);
+      if (bfd_seek (abfd, (file_ptr)(N_SYMOFF(*exec_hdr(abfd))), SEEK_SET)
+	  != 0)
+	return false;
 
       if (! aout_32_write_syms (abfd))
 	return false;
 
-      bfd_seek (abfd, (file_ptr)(N_TROFF(*exec_hdr(abfd))), SEEK_SET);
+      if (bfd_seek (abfd, (file_ptr)(N_TROFF(*exec_hdr(abfd))), SEEK_SET) != 0)
+	return false;
 
       if (!b_out_squirt_out_relocs (abfd, obj_textsec (abfd))) return false;
-      bfd_seek (abfd, (file_ptr)(N_DROFF(*exec_hdr(abfd))), SEEK_SET);
+      if (bfd_seek (abfd, (file_ptr)(N_DROFF(*exec_hdr(abfd))), SEEK_SET)
+	  != 0)
+	return false;
 
       if (!b_out_squirt_out_relocs (abfd, obj_datasec (abfd))) return false;
     }
@@ -274,8 +285,12 @@ b_out_write_object_contents (abfd)
 #define BAL_MASK 0x00ffffff
 #define CALL     0x09000000
 #define PCREL13_MASK 0x1fff
+
+
+#define output_addr(sec) ((sec)->output_offset+(sec)->output_section->vma)
+
 /* Magic to turn callx into calljx */
-static bfd_reloc_status_type 
+static bfd_reloc_status_type
 calljx_callback (abfd, link_info, reloc_entry, src, dst, input_section)
      bfd *abfd;
      struct bfd_link_info *link_info;
@@ -284,34 +299,28 @@ calljx_callback (abfd, link_info, reloc_entry, src, dst, input_section)
      PTR dst;
      asection *input_section;
 {
-  int  word = bfd_get_32(abfd, src);
+  int word = bfd_get_32 (abfd, src);
   asymbol *symbol_in = *(reloc_entry->sym_ptr_ptr);
-  aout_symbol_type  *symbol = aout_symbol(symbol_in);
+  aout_symbol_type *symbol = aout_symbol (symbol_in);
+  bfd_vma value;
 
-  if (symbol_in->section == &bfd_und_section)
+  value = get_value (reloc_entry, link_info, input_section);
+
+  if (IS_CALLNAME (symbol->other))
     {
-      if (! ((*link_info->callbacks->undefined_symbol)
-	     (link_info, bfd_asymbol_name (symbol_in),
-	      input_section->owner, input_section, reloc_entry->address)))
-	abort ();
+      aout_symbol_type *balsym = symbol+1;
+      int inst = bfd_get_32 (abfd, (bfd_byte *) src-4);
+      /* The next symbol should be an N_BALNAME */
+      BFD_ASSERT (IS_BALNAME (balsym->other));
+      inst &= BAL_MASK;
+      inst |= BALX;
+      bfd_put_32 (abfd, inst, (bfd_byte *) dst-4);
+      symbol = balsym;
+      value = (symbol->symbol.value
+	       + output_addr (symbol->symbol.section));
     }
 
-  if (IS_CALLNAME(symbol->other)) 
-  {
-
-    aout_symbol_type *balsym = symbol+1;
-    int inst = bfd_get_32(abfd, (bfd_byte *) src-4);
-    /* The next symbol should be an N_BALNAME */
-    BFD_ASSERT(IS_BALNAME(balsym->other));
-    inst &= BAL_MASK;
-    inst |= BALX;
-    bfd_put_32(abfd, inst, (bfd_byte *) dst-4);
-    symbol = balsym;
-  }
-
-    word += symbol->symbol.section->output_offset +
-     symbol->symbol.section->output_section->vma +
-      symbol->symbol.value + reloc_entry->addend;
+  word += value + reloc_entry->addend;
 
   bfd_put_32(abfd, word, dst);
   return bfd_reloc_ok;
@@ -319,7 +328,7 @@ calljx_callback (abfd, link_info, reloc_entry, src, dst, input_section)
 
 
 /* Magic to turn call into callj */
-static bfd_reloc_status_type 
+static bfd_reloc_status_type
 callj_callback (abfd, link_info, reloc_entry,  data, srcidx, dstidx,
 		input_section)
      bfd *abfd;
@@ -330,57 +339,44 @@ callj_callback (abfd, link_info, reloc_entry,  data, srcidx, dstidx,
      unsigned int dstidx;
      asection *input_section;
 {
-  int  word = bfd_get_32(abfd, (bfd_byte *) data + srcidx);
+  int word = bfd_get_32 (abfd, (bfd_byte *) data + srcidx);
   asymbol *symbol_in = *(reloc_entry->sym_ptr_ptr);
+  aout_symbol_type *symbol = aout_symbol (symbol_in);
+  bfd_vma value;
 
-  aout_symbol_type  *symbol = aout_symbol(symbol_in);
+  value = get_value (reloc_entry, link_info, input_section);
 
-  if (symbol_in->section == &bfd_und_section)
+  if (IS_OTHER(symbol->other))
     {
-      if (! ((*link_info->callbacks->undefined_symbol)
-	     (link_info, bfd_asymbol_name (symbol_in),
-	      input_section->owner, input_section, reloc_entry->address)))
-	abort ();
+      /* Call to a system procedure - replace code with system
+	 procedure number.  */
+      word = CALLS | (symbol->other - 1);
     }
+  else if (IS_CALLNAME(symbol->other))
+    {
+      aout_symbol_type *balsym = symbol+1;
 
-  if (IS_OTHER(symbol->other)) 
-  {
-    /* Call to a system procedure - replace code with system
-       procedure number */
-    word = CALLS | (symbol->other - 1);
-
-  }
-
-  else  if (IS_CALLNAME(symbol->other)) 
-  {
-    aout_symbol_type *balsym = symbol+1;
-    /* The next symbol should be an N_BALNAME */
-    BFD_ASSERT(IS_BALNAME(balsym->other));
-
-    /* We are calling a leaf - so replace the call instruction
-       with a bal */
-
-    word = BAL |
-     (((word & BAL_MASK) +
-       balsym->symbol.section->output_offset +
-       balsym->symbol.section->output_section->vma+
-       balsym->symbol.value + reloc_entry->addend - dstidx -
-       ( input_section->output_section->vma + input_section->output_offset))
-      & BAL_MASK);
-
-
-  }
-  else 
-  {
-
-    word = CALL |
-     (((word & BAL_MASK) + 
-       symbol->symbol.section->output_offset +
-       symbol->symbol.section->output_section->vma+
-       symbol->symbol.value + reloc_entry->addend - dstidx -
-       ( input_section->output_section->vma + input_section->output_offset))
-      & BAL_MASK);
-  }
+      /* The next symbol should be an N_BALNAME.  */
+      BFD_ASSERT(IS_BALNAME(balsym->other));
+      
+      /* We are calling a leaf, so replace the call instruction with a
+	 bal.  */
+      word = BAL | ((word
+		     + output_addr (balsym->symbol.section)
+		     + balsym->symbol.value + reloc_entry->addend
+		     - dstidx
+		     - output_addr (input_section))
+		    & BAL_MASK);
+    }
+  else
+    {
+      word = CALL | (((word & BAL_MASK)
+		      + value
+		      + reloc_entry->addend
+		      - dstidx
+		      - output_addr (input_section))
+		     & BAL_MASK);
+    }
   bfd_put_32(abfd, word, (bfd_byte *) data + dstidx);
   return bfd_reloc_ok;
 }
@@ -388,7 +384,7 @@ callj_callback (abfd, link_info, reloc_entry,  data, srcidx, dstidx,
 /* type rshift size  bitsize  	pcrel	bitpos  absolute overflow check*/
 
 #define ABS32CODE 0
-#define ABS32CODE_SHRUNK 1 
+#define ABS32CODE_SHRUNK 1
 #define PCREL24 2
 #define CALLJ 3
 #define ABS32 4
@@ -409,7 +405,7 @@ static reloc_howto_type howto_reloc_pcrel13 =
 HOWTO(PCREL13, 0, 2, 13, true, 0, complain_overflow_signed,0,"pcrel13", true, 0x00001fff,0x00001fff,false);
 
 
-static reloc_howto_type howto_reloc_abs32codeshrunk = 
+static reloc_howto_type howto_reloc_abs32codeshrunk =
 HOWTO(ABS32CODE_SHRUNK, 0, 2, 24, true, 0, complain_overflow_signed, 0,"callx->callj", true, 0x00ffffff, 0x00ffffff,false);
 
 static  reloc_howto_type howto_reloc_abs32code =
@@ -430,7 +426,7 @@ static reloc_howto_type howto_done_align_table[] = {
 };
 
 static const reloc_howto_type *
-b_out_reloc_type_lookup (abfd, code)
+b_out_bfd_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
 {
@@ -441,6 +437,7 @@ b_out_reloc_type_lookup (abfd, code)
     case BFD_RELOC_I960_CALLJ:
       return &howto_reloc_callj;
     case BFD_RELOC_32:
+    case BFD_RELOC_CTOR:
       return &howto_reloc_abs32;
     case BFD_RELOC_24_PCREL:
       return &howto_reloc_pcrel24;
@@ -467,8 +464,10 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
   struct relocation_info *relocs;
   arelent *reloc_cache;
 
-  if (asect->relocation) return true;
-  if (!aout_32_slurp_symbol_table (abfd)) return false;
+  if (asect->relocation)
+    return true;
+  if (!aout_32_slurp_symbol_table (abfd))
+    return false;
 
   if (asect == obj_datasec (abfd)) {
     reloc_size = exec_hdr(abfd)->a_drsize;
@@ -480,34 +479,34 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
     goto doit;
   }
 
-  bfd_error = invalid_operation;
+  bfd_set_error (bfd_error_invalid_operation);
   return false;
 
  doit:
-  bfd_seek (abfd, (file_ptr)(asect->rel_filepos),  SEEK_SET);
+  if (bfd_seek (abfd, (file_ptr)(asect->rel_filepos),  SEEK_SET) != 0)
+    return false;
   count = reloc_size / sizeof (struct relocation_info);
 
-  relocs = (struct relocation_info *) bfd_xmalloc (reloc_size);
-  if (!relocs) {
-    bfd_error = no_memory;
+  relocs = (struct relocation_info *) malloc (reloc_size);
+  if (!relocs && reloc_size != 0) {
+    bfd_set_error (bfd_error_no_memory);
     return false;
   }
-  reloc_cache = (arelent *) bfd_xmalloc ((count+1) * sizeof (arelent));
+  reloc_cache = (arelent *) malloc ((count+1) * sizeof (arelent));
   if (!reloc_cache) {
     free ((char*)relocs);
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     return false;
   }
 
   if (bfd_read ((PTR) relocs, 1, reloc_size, abfd) != reloc_size) {
-    bfd_error = system_call_error;
     free (reloc_cache);
     free (relocs);
     return false;
   }
 
 
-  
+
   if (abfd->xvec->header_byteorder_big_p) {
     /* big-endian bit field allocation order */
     pcrel_mask  = 0x80;
@@ -528,22 +527,22 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
 
   for (rptr = relocs, cache_ptr = reloc_cache, counter = 0;
        counter < count;
-       counter++, rptr++, cache_ptr++) 
+       counter++, rptr++, cache_ptr++)
   {
     unsigned char *raw = (unsigned char *)rptr;
     unsigned int symnum;
     cache_ptr->address = bfd_h_get_32 (abfd, raw + 0);
     cache_ptr->howto = 0;
-    if (abfd->xvec->header_byteorder_big_p) 
+    if (abfd->xvec->header_byteorder_big_p)
     {
       symnum = (raw[4] << 16) | (raw[5] << 8) | raw[6];
-    } 
+    }
     else
     {
       symnum = (raw[6] << 16) | (raw[5] << 8) | raw[4];
     }
 
-    if (raw[7] & extern_mask) 
+    if (raw[7] & extern_mask)
     {
       /* if this is set then the r_index is a index into the symbol table;
        * if the bit is not set then r_index contains a section map.
@@ -552,7 +551,7 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
        */
       cache_ptr->sym_ptr_ptr = symbols + symnum;
       cache_ptr->addend = 0;
-    } else 
+    } else
     {
       /* in a.out symbols are relative to the beginning of the
        * file rather than sections ?
@@ -594,7 +593,7 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
 	if (raw[7] & pcrel_mask)
 	  {
 	    cache_ptr->howto = &howto_align_table[(raw[7] >> length_shift) & 3];
-	    cache_ptr->sym_ptr_ptr = &bfd_abs_symbol;
+	    cache_ptr->sym_ptr_ptr = bfd_abs_section_ptr->symbol_ptr_ptr;
 	  }
 	else
 	  {
@@ -607,7 +606,7 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
 	BFD_ASSERT(0);
 	break;
       }
-	
+
     }
 
     /* the i960 only has a few relocation types:
@@ -625,18 +624,18 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
       else
        cache_ptr->howto = &howto_reloc_pcrel24;
     }
-    else 
+    else
     {
-      if (raw[7] & incode_mask) 
+      if (raw[7] & incode_mask)
       {
 	cache_ptr->howto = &howto_reloc_abs32code;
       }
-      else 
+      else
       {
 	cache_ptr->howto = &howto_reloc_abs32;
       }
     }
-    if (cache_ptr->address < prev_addr) 
+    if (cache_ptr->address < prev_addr)
     {
       /* Ouch! this reloc is out of order, insert into the right place
        */
@@ -648,10 +647,10 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
       {
 	cursor[1] = cursor[0];
 	cursor--;
-      } 
+      }
       cursor[1] = tmp;
     }
-    else 
+    else
     {
       prev_addr = cache_ptr->address;
     }
@@ -672,11 +671,10 @@ b_out_squirt_out_relocs (abfd, section)
      bfd *abfd;
      asection *section;
 {
-
   arelent **generic;
   int r_extern = 0;
   int r_idx;
-  int incode_mask;  
+  int incode_mask;
   int len_1;
   unsigned int count = section->reloc_count;
   struct relocation_info *native, *natptr;
@@ -684,13 +682,13 @@ b_out_squirt_out_relocs (abfd, section)
   int extern_mask, pcrel_mask,  len_2, callj_mask;
   if (count == 0) return true;
   generic   = section->orelocation;
-  native = ((struct relocation_info *) bfd_xmalloc (natsize));
-  if (!native) {
-    bfd_error = no_memory;
+  native = ((struct relocation_info *) malloc (natsize));
+  if (!native && natsize != 0) {
+    bfd_set_error (bfd_error_no_memory);
     return false;
   }
 
-  if (abfd->xvec->header_byteorder_big_p) 
+  if (abfd->xvec->header_byteorder_big_p)
   {
     /* Big-endian bit field allocation order */
     pcrel_mask  = 0x80;
@@ -699,8 +697,8 @@ b_out_squirt_out_relocs (abfd, section)
     len_1       = 0x20;
     callj_mask  = 0x02;
     incode_mask = 0x08;
-  } 
-  else 
+  }
+  else
   {
     /* Little-endian bit field allocation order */
     pcrel_mask  = 0x01;
@@ -711,7 +709,7 @@ b_out_squirt_out_relocs (abfd, section)
     incode_mask = 0x10;
   }
 
-  for (natptr = native; count > 0; --count, ++natptr, ++generic) 
+  for (natptr = native; count > 0; --count, ++natptr, ++generic)
   {
     arelent *g = *generic;
     unsigned char *raw = (unsigned char *)natptr;
@@ -719,26 +717,26 @@ b_out_squirt_out_relocs (abfd, section)
 
     asection *output_section = sym->section->output_section;
 
-    bfd_h_put_32(abfd, g->address, raw);  
-    /* Find a type in the output format which matches the input howto - 
+    bfd_h_put_32(abfd, g->address, raw);
+    /* Find a type in the output format which matches the input howto -
      * at the moment we assume input format == output format FIXME!!
      */
     r_idx = 0;
     /* FIXME:  Need callj stuff here, and to check the howto entries to
        be sure they are real for this architecture.  */
-    if (g->howto== &howto_reloc_callj) 
+    if (g->howto== &howto_reloc_callj)
     {
       raw[7] = callj_mask + pcrel_mask + len_2;
     }
-    else if (g->howto == &howto_reloc_pcrel24) 
+    else if (g->howto == &howto_reloc_pcrel24)
     {
       raw[7] = pcrel_mask + len_2;
     }
-    else if (g->howto == &howto_reloc_pcrel13) 
+    else if (g->howto == &howto_reloc_pcrel13)
     {
       raw[7] = pcrel_mask + len_1;
     }
-    else if (g->howto == &howto_reloc_abs32code) 
+    else if (g->howto == &howto_reloc_abs32code)
     {
       raw[7] = len_2 + incode_mask;
     }
@@ -760,18 +758,18 @@ b_out_squirt_out_relocs (abfd, section)
     if (r_idx != 0)
       /* already mucked with r_extern, r_idx */;
     else if (bfd_is_com_section (output_section)
-	     || output_section == &bfd_abs_section
-	     || output_section == &bfd_und_section) 
+	     || bfd_is_abs_section (output_section)
+	     || bfd_is_und_section (output_section))
     {
 
-      if (bfd_abs_section.symbol == sym)
+      if (bfd_abs_section_ptr->symbol == sym)
       {
 	/* Whoops, looked like an abs symbol, but is really an offset
 	   from the abs section */
 	r_idx = 0;
 	r_extern = 0;
        }
-      else 
+      else
       {
 	/* Fill in symbol */
 
@@ -779,11 +777,11 @@ b_out_squirt_out_relocs (abfd, section)
 	r_idx =  stoi((*(g->sym_ptr_ptr))->flags);
       }
     }
-    else 
+    else
     {
       /* Just an ordinary section */
       r_extern = 0;
-      r_idx  = output_section->target_index;      
+      r_idx  = output_section->target_index;
     }
 
     if (abfd->xvec->header_byteorder_big_p) {
@@ -794,9 +792,9 @@ b_out_squirt_out_relocs (abfd, section)
       raw[6] = (unsigned char) (r_idx >> 16);
       raw[5] = (unsigned char) (r_idx>>  8);
       raw[4] = (unsigned char) (r_idx     );
-    }  
+    }
     if (r_extern)
-     raw[7] |= extern_mask; 
+     raw[7] |= extern_mask;
   }
 
   if (bfd_write ((PTR) native, 1, natsize, abfd) != natsize) {
@@ -809,7 +807,7 @@ b_out_squirt_out_relocs (abfd, section)
 }
 
 /* This is stupid.  This function should be a boolean predicate */
-static unsigned int
+static long
 b_out_canonicalize_reloc (abfd, section, relptr, symbols)
      bfd *abfd;
      sec_ptr section;
@@ -819,9 +817,9 @@ b_out_canonicalize_reloc (abfd, section, relptr, symbols)
   arelent *tblptr = section->relocation;
   unsigned int count = 0;
 
- if (!(tblptr || b_out_slurp_reloc_table (abfd, section, symbols))) return 0;
+  if (!(tblptr || b_out_slurp_reloc_table (abfd, section, symbols)))
+    return -1;
   tblptr = section->relocation;
- if (!tblptr) return 0;
 
   for (; count++ < section->reloc_count;)
     *relptr++ = tblptr++;
@@ -831,14 +829,14 @@ b_out_canonicalize_reloc (abfd, section, relptr, symbols)
   return section->reloc_count;
 }
 
-static unsigned int
+static long
 b_out_get_reloc_upper_bound (abfd, asect)
      bfd *abfd;
      sec_ptr asect;
 {
   if (bfd_get_format (abfd) != bfd_object) {
-    bfd_error = invalid_operation;
-    return 0;
+    bfd_set_error (bfd_error_invalid_operation);
+    return -1;
   }
 
   if (asect == obj_datasec (abfd))
@@ -851,8 +849,11 @@ b_out_get_reloc_upper_bound (abfd, asect)
 	    ((exec_hdr(abfd)->a_trsize / sizeof (struct relocation_info))
 	     +1));
 
-  bfd_error = invalid_operation;
-  return 0;
+  if (asect == obj_bsssec (abfd))
+    return 0;
+
+  bfd_set_error (bfd_error_invalid_operation);
+  return -1;
 }
 
 static boolean
@@ -865,19 +866,17 @@ b_out_set_section_contents (abfd, section, location, offset, count)
 {
 
   if (abfd->output_has_begun == false) { /* set by bfd.c handler */
-    if ((obj_textsec (abfd) == NULL) || (obj_datasec (abfd) == NULL) /*||
-        (obj_textsec (abfd)->_cooked_size == 0) || (obj_datasec (abfd)->_cooked_size == 0)*/) {
-      bfd_error = invalid_operation;
+    if (! aout_32_make_sections (abfd))
       return false;
-    }
 
     obj_textsec (abfd)->filepos = sizeof(struct internal_exec);
-    obj_datasec(abfd)->filepos = obj_textsec(abfd)->filepos 
+    obj_datasec(abfd)->filepos = obj_textsec(abfd)->filepos
                                  +  obj_textsec (abfd)->_raw_size;
 
   }
   /* regardless, once we know what we're doing, we might as well get going */
-  bfd_seek (abfd, section->filepos + offset, SEEK_SET);
+  if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0)
+    return false;
 
   if (count != 0) {
     return (bfd_write ((PTR)location, 1, count, abfd) == count) ?true:false;
@@ -912,10 +911,10 @@ b_out_set_arch_mach (abfd, arch, machine)
   return false;
 }
 
-static int 
-DEFUN(b_out_sizeof_headers,(ignore_abfd, ignore),
-      bfd *ignore_abfd AND
-      boolean ignore)
+static int
+b_out_sizeof_headers (ignore_abfd, ignore)
+     bfd *ignore_abfd;
+     boolean ignore;
 {
   return sizeof(struct internal_exec);
 }
@@ -923,7 +922,7 @@ DEFUN(b_out_sizeof_headers,(ignore_abfd, ignore),
 
 
 /************************************************************************/
-static bfd_vma 
+static bfd_vma
 get_value (reloc, link_info, input_section)
      arelent *reloc;
      struct bfd_link_info *link_info;
@@ -936,100 +935,129 @@ get_value (reloc, link_info, input_section)
      base of the section.  To relocate, we find where the section will
      live in the output and add that in */
 
-  if (symbol->section == &bfd_und_section)
+  if (bfd_is_und_section (symbol->section))
     {
-      if (! ((*link_info->callbacks->undefined_symbol)
-	     (link_info, bfd_asymbol_name (symbol),
-	      input_section->owner, input_section, reloc->address)))
-	abort ();
-      value = symbol->value;
+      struct bfd_link_hash_entry *h;
+
+      /* The symbol is undefined in this BFD.  Look it up in the
+	 global linker hash table.  FIXME: This should be changed when
+	 we convert b.out to use a specific final_link function and
+	 change the interface to bfd_relax_section to not require the
+	 generic symbols.  */
+      h = bfd_link_hash_lookup (link_info->hash, bfd_asymbol_name (symbol),
+				false, false, true);
+      if (h != (struct bfd_link_hash_entry *) NULL
+	  && h->type == bfd_link_hash_defined)
+	value = h->u.def.value + output_addr (h->u.def.section);
+      else if (h != (struct bfd_link_hash_entry *) NULL
+	       && h->type == bfd_link_hash_common)
+	value = h->u.c.size;
+      else
+	{
+	  if (! ((*link_info->callbacks->undefined_symbol)
+		 (link_info, bfd_asymbol_name (symbol),
+		  input_section->owner, input_section, reloc->address)))
+	    abort ();
+	  value = 0;
+	}
     }
-  else 
-  {
-    value = symbol->value +
-     symbol->section->output_offset +
-      symbol->section->output_section->vma;
-  }
+  else
+    {
+      value = symbol->value + output_addr (symbol->section);
+    }
 
   /* Add the value contained in the relocation */
   value += reloc->addend;
-  
+
   return value;
 }
 
 static void
-DEFUN(perform_slip,(s, slip, input_section, value),
-      asymbol **s AND
-      unsigned int slip AND
-      asection *input_section AND
-      bfd_vma value)
+perform_slip (abfd, slip, input_section, value)
+     bfd *abfd;
+     unsigned int slip;
+     asection *input_section;
+     bfd_vma value;
 {
-  
+  asymbol **s;
+
+  s = _bfd_generic_link_get_symbols (abfd);
+  BFD_ASSERT (s != (asymbol **) NULL);
+
   /* Find all symbols past this point, and make them know
      what's happened */
-  while (*s) 
+  while (*s)
   {
     asymbol *p = *s;
-    if (p->section == input_section) 
+    if (p->section == input_section)
     {
       /* This was pointing into this section, so mangle it */
       if (p->value > value)
       {
 	p->value -=slip;
+	if (p->udata != NULL)
+	  {
+	    struct generic_link_hash_entry *h;
+
+	    h = (struct generic_link_hash_entry *) p->udata;
+	    BFD_ASSERT (h->root.type == bfd_link_hash_defined);
+	    h->root.u.def.value -= slip;
+	    BFD_ASSERT (h->root.u.def.value == p->value);
+	  }
       }
     }
     s++;
-	
-  }    
+
+  }
 }
-#if 1
+
 /* This routine works out if the thing we want to get to can be
    reached with a 24bit offset instead of a 32 bit one.
    If it can, then it changes the amode */
 
-static int 
-abs32code (input_section, symbols, r, shrink, link_info)
+static int
+abs32code (abfd, input_section, r, shrink, link_info)
+     bfd *abfd;
      asection *input_section;
-     asymbol **symbols;
      arelent *r;
      unsigned int shrink;
      struct bfd_link_info *link_info;
 {
   bfd_vma value = get_value (r, link_info, input_section);
-  bfd_vma dot = input_section->output_section->vma +  input_section->output_offset + r->address;	
+  bfd_vma dot = output_addr (input_section) + r->address;
   bfd_vma gap;
-  
+
   /* See if the address we're looking at within 2^23 bytes of where
      we are, if so then we can use a small branch rather than the
      jump we were going to */
 
   gap = value - (dot - shrink);
-  
+
 
   if (-1<<23 < (long)gap && (long)gap < 1<<23 )
-  { 
+  {
     /* Change the reloc type from 32bitcode possible 24, to 24bit
        possible 32 */
 
     r->howto = &howto_reloc_abs32codeshrunk;
     /* The place to relc moves back by four bytes */
     r->address -=4;
-	  
+
     /* This will be four bytes smaller in the long run */
     shrink += 4 ;
-    perform_slip(symbols, 4, input_section, r->address-shrink +4);
-  }      
-  return shrink;      
+    perform_slip (abfd, 4, input_section, r->address-shrink + 4);
+  }
+  return shrink;
 }
 
-static int 
-DEFUN(aligncode,(input_section, symbols, r, shrink),
-      asection *input_section AND
-      asymbol **symbols AND
-      arelent *r AND
-      unsigned int shrink) 
+static int
+aligncode (abfd, input_section, r, shrink)
+     bfd *abfd;
+     asection *input_section;
+     arelent *r;
+     unsigned int shrink;
 {
-  bfd_vma dot = input_section->output_section->vma +  input_section->output_offset + r->address;	
+  bfd_vma dot = output_addr (input_section) + r->address;
   bfd_vma gap;
   bfd_vma old_end;
   bfd_vma new_end;
@@ -1052,75 +1080,98 @@ DEFUN(aligncode,(input_section, symbols, r, shrink),
   shrink_delta = (old_end - new_end) - shrink;
 
   if (shrink_delta)
-  { 
+  {
     /* Change the reloc so that it knows how far to align to */
     r->howto = howto_done_align_table + (r->howto - howto_align_table);
 
     /* Encode the stuff into the addend - for future use we need to
        know how big the reloc used to be */
-    r->addend = old_end ;
+    r->addend = old_end - dot + r->address;
 
     /* This will be N bytes smaller in the long run, adjust all the symbols */
-    perform_slip(symbols, shrink_delta, input_section, r->address - shrink );
+    perform_slip (abfd, shrink_delta, input_section, r->address - shrink);
     shrink += shrink_delta;
-  }      
-  return shrink;      
+  }
+  return shrink;
 }
 
-static boolean 
-b_out_relax_section (abfd, i, link_info, symbols)
+static boolean
+b_out_bfd_relax_section (abfd, i, link_info, again)
      bfd *abfd;
      asection *i;
      struct bfd_link_info *link_info;
-     asymbol **symbols;
+     boolean *again;
 {
-  
   /* Get enough memory to hold the stuff */
   bfd *input_bfd = i->owner;
   asection *input_section = i;
   int shrink = 0 ;
-  boolean new = false;
-  
-  bfd_size_type reloc_size = bfd_get_reloc_upper_bound(input_bfd,
-						       input_section);
-  arelent **reloc_vector = (arelent **)alloca(reloc_size);
+  arelent **reloc_vector = NULL;
+  long reloc_size = bfd_get_reloc_upper_bound(input_bfd,
+					      input_section);
 
-  /* Get the relocs and think about them */
-  if (bfd_canonicalize_reloc(input_bfd, 
-			     input_section,
-			     reloc_vector,
-			     symbols))
-  {
-    arelent **parent;
-    for (parent = reloc_vector; *parent; parent++) 
+  if (reloc_size < 0)
+    return false;
+
+  /* We only run this relaxation once.  It might work to run it
+     multiple times, but it hasn't been tested.  */
+  *again = false;
+
+  if (reloc_size)
     {
-      arelent *r = *parent;
-      switch (r->howto->type) {
-       case ALIGNER:
-	/* An alignment reloc */
-	shrink = aligncode(input_section, symbols, r,shrink);
-	new=true;
-	break;
-       case ABS32CODE:
-	/* A 32bit reloc in an addressing mode */
-	shrink = abs32code (input_section, symbols, r, shrink, link_info);
-	new=true;
-	break;
-       case ABS32CODE_SHRUNK:
-	shrink+=4;
-	break;
-      }
-    }
-  }
-  input_section->_cooked_size = input_section->_raw_size - shrink;  
+      long reloc_count;
 
-  return new;
+      reloc_vector = (arelent **) malloc (reloc_size);
+      if (reloc_vector == NULL && reloc_size != 0)
+	{
+	  bfd_set_error (bfd_error_no_memory);
+	  goto error_return;
+	}
+
+      /* Get the relocs and think about them */
+      reloc_count =
+	bfd_canonicalize_reloc (input_bfd, input_section, reloc_vector,
+				_bfd_generic_link_get_symbols (input_bfd));
+      if (reloc_count < 0)
+	goto error_return;
+      if (reloc_count > 0)
+	{
+	  arelent **parent;
+	  for (parent = reloc_vector; *parent; parent++)
+	    {
+	      arelent *r = *parent;
+	      switch (r->howto->type)
+		{
+		case ALIGNER:
+		  /* An alignment reloc */
+		  shrink = aligncode (abfd, input_section, r, shrink);
+		  break;
+		case ABS32CODE:
+		  /* A 32bit reloc in an addressing mode */
+		  shrink = abs32code (input_bfd, input_section, r, shrink,
+				      link_info);
+		  break;
+		case ABS32CODE_SHRUNK:
+		  shrink+=4;
+		  break;
+		}
+	    }
+	}
+    }
+  input_section->_cooked_size = input_section->_raw_size - shrink;
+
+  if (reloc_vector != NULL)
+    free (reloc_vector);
+  return true;
+ error_return:
+  if (reloc_vector != NULL)
+    free (reloc_vector);
+  return false;
 }
 
-#endif
 static bfd_byte *
-b_out_get_relocated_section_contents (in_abfd, link_info, link_order, data,
-				      relocateable, symbols)
+b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
+					  data, relocateable, symbols)
      bfd *in_abfd;
      struct bfd_link_info *link_info;
      struct bfd_link_order *link_order;
@@ -1131,10 +1182,14 @@ b_out_get_relocated_section_contents (in_abfd, link_info, link_order, data,
   /* Get enough memory to hold the stuff */
   bfd *input_bfd = link_order->u.indirect.section->owner;
   asection *input_section = link_order->u.indirect.section;
-  bfd_size_type reloc_size = bfd_get_reloc_upper_bound(input_bfd,
-						       input_section);
-  arelent **reloc_vector = (arelent **)alloca(reloc_size);
-  
+  long reloc_size = bfd_get_reloc_upper_bound(input_bfd,
+					      input_section);
+  arelent **reloc_vector = NULL;
+  long reloc_count;
+
+  if (reloc_size < 0)
+    goto error_return;
+
   /* If producing relocateable output, don't bother to relax.  */
   if (relocateable)
     return bfd_generic_get_relocated_section_contents (in_abfd, link_info,
@@ -1142,198 +1197,169 @@ b_out_get_relocated_section_contents (in_abfd, link_info, link_order, data,
 						       data, relocateable,
 						       symbols);
 
-  /* read in the section */
-  bfd_get_section_contents(input_bfd,
-			   input_section,
-			   data,
-			   0,
-			   input_section->_raw_size);
-  
-  
-  if (bfd_canonicalize_reloc(input_bfd, 
-			     input_section,
-			     reloc_vector,
-			     symbols) )
-  {
-    arelent **parent = reloc_vector;
-    arelent *reloc ;
-    
-
-
-    unsigned int dst_address = 0;
-    unsigned int src_address = 0;
-    unsigned int run;
-    unsigned int idx;
-    
-    /* Find how long a run we can do */
-    while (dst_address < link_order->size) 
+  reloc_vector = (arelent **) malloc (reloc_size);
+  if (reloc_vector == NULL && reloc_size != 0)
     {
-      
-      reloc = *parent;
-      if (reloc) 
-      {
-	/* Note that the relaxing didn't tie up the addresses in the
-	   relocation, so we use the original address to work out the
-	   run of non-relocated data */
-	run = reloc->address - src_address;
-	parent++;
-	
-      }
-      else 
-      {
-	run = link_order->size - dst_address;
-      }
-      /* Copy the bytes */
-      for (idx = 0; idx < run; idx++)
-      {
-	data[dst_address++] = data[src_address++];
-      }
-    
-      /* Now do the relocation */
-    
-      if (reloc) 
-      {
-	switch (reloc->howto->type) 
-	{
-	 case ABS32CODE:
-	  calljx_callback (in_abfd, link_info, reloc, src_address + data,
-			   dst_address + data, input_section);
-	  src_address+=4;
-	  dst_address+=4;
-	  break;
-	 case ABS32:
-	  bfd_put_32(in_abfd,
-		     (bfd_get_32 (in_abfd, data+src_address)
-		      + get_value (reloc, link_info, input_section)),
-		     data+dst_address);
-	  src_address+=4;
-	  dst_address+=4;
-	  break;
-	 case CALLJ:
-	  callj_callback (in_abfd, link_info, reloc, data, src_address,
-			  dst_address, input_section);
-	  src_address+=4;
-	  dst_address+=4;
-	  break;
-	 case ALIGNDONE:
-	  src_address = reloc->addend;
-	  dst_address = (dst_address + reloc->howto->size) & ~reloc->howto->size;
-	  break;
-	 case ABS32CODE_SHRUNK: 
-	  /* This used to be a callx, but we've found out that a
-	     callj will reach, so do the right thing */
-	  callj_callback (in_abfd, link_info, reloc, data, src_address + 4,
-			  dst_address, input_section);
-	  dst_address+=4;
-	  src_address+=8;
-	  break;
-	 case PCREL24:
-	 {
-	   long int word = bfd_get_32(in_abfd, data+src_address);
-	   asymbol *symbol = *(reloc->sym_ptr_ptr);
-	   if (symbol->section == &bfd_und_section)
-	   {
-	     if (! ((*link_info->callbacks->undefined_symbol)
-		    (link_info, bfd_asymbol_name (symbol),
-		     input_section->owner, input_section, reloc->address)))
-	       return NULL;
-	   }
-	   word = ((word & ~BAL_MASK)
-		   | (((word & BAL_MASK)
-		       /* value of symbol */
-		       + symbol->value
-		       /* how far it's moving in this relocation */
-		       + (symbol->section->output_offset
-			  + symbol->section->output_section->vma)
-		       - (input_section->output_section->vma
-			  + input_section->output_offset)
-		       /* addend, of course */
-		       + reloc->addend)
-		      & BAL_MASK));
-
-	   bfd_put_32(in_abfd,word,  data+dst_address);
-	   dst_address+=4;
-	   src_address+=4;
-
-	 }
-	  break;
-
-	 case PCREL13:
-	 {
-	   long int word = bfd_get_32(in_abfd, data+src_address);
-	   asymbol *symbol = *(reloc->sym_ptr_ptr);
-	   if (symbol->section == &bfd_und_section)
-	     {
-	       if (! ((*link_info->callbacks->undefined_symbol)
-		      (link_info, bfd_asymbol_name (symbol),
-		       input_section->owner, input_section, reloc->address)))
-		 return NULL;
-	     }
-	   word = ((word & ~PCREL13_MASK)
-		   | (((word & PCREL13_MASK)
-		       + (symbol->section->output_offset
-			  + symbol->section->output_section->vma)
-		       + symbol->value
-		       + reloc->addend
-		       - (input_section->output_section->vma
-			  + input_section->output_offset))
-		      & PCREL13_MASK));
-
-	   bfd_put_32(in_abfd,word,  data+dst_address);
-	   dst_address+=4;
-	   src_address+=4;
-
-	 }
-	  break;
-
-	 default:
-
-	  abort();
-	}
-      }    
+      bfd_set_error (bfd_error_no_memory);
+      goto error_return;
     }
-  }
+
+  input_section->reloc_done = 1;
+
+  /* read in the section */
+  BFD_ASSERT (true == bfd_get_section_contents(input_bfd,
+					       input_section,
+					       data,
+					       0,
+					       input_section->_raw_size));
+
+  reloc_count = bfd_canonicalize_reloc (input_bfd,
+					input_section,
+					reloc_vector,
+					symbols);
+  if (reloc_count < 0)
+    goto error_return;
+  if (reloc_count > 0)
+    {
+      arelent **parent = reloc_vector;
+      arelent *reloc ;
+
+      unsigned int dst_address = 0;
+      unsigned int src_address = 0;
+      unsigned int run;
+      unsigned int idx;
+
+      /* Find how long a run we can do */
+      while (dst_address < link_order->size)
+	{
+	  reloc = *parent;
+	  if (reloc)
+	    {
+	      /* Note that the relaxing didn't tie up the addresses in the
+		 relocation, so we use the original address to work out the
+		 run of non-relocated data */
+	      BFD_ASSERT (reloc->address >= src_address);
+	      run = reloc->address - src_address;
+	      parent++;
+	    }
+	  else
+	    {
+	      run = link_order->size - dst_address;
+	    }
+	  /* Copy the bytes */
+	  for (idx = 0; idx < run; idx++)
+	    {
+	      data[dst_address++] = data[src_address++];
+	    }
+
+	  /* Now do the relocation */
+
+	  if (reloc)
+	    {
+	      switch (reloc->howto->type)
+		{
+		case ABS32CODE:
+		  calljx_callback (in_abfd, link_info, reloc,
+				   src_address + data, dst_address + data,
+				   input_section);
+		  src_address+=4;
+		  dst_address+=4;
+		  break;
+		case ABS32:
+		  bfd_put_32(in_abfd,
+			     (bfd_get_32 (in_abfd, data+src_address)
+			      + get_value (reloc, link_info, input_section)),
+			     data+dst_address);
+		  src_address+=4;
+		  dst_address+=4;
+		  break;
+		case CALLJ:
+		  callj_callback (in_abfd, link_info, reloc, data, src_address,
+				  dst_address, input_section);
+		  src_address+=4;
+		  dst_address+=4;
+		  break;
+		case ALIGNDONE:
+		  BFD_ASSERT (reloc->addend >= src_address);
+		  BFD_ASSERT (reloc->addend <= input_section->_raw_size);
+		  src_address = reloc->addend;
+		  dst_address = ((dst_address + reloc->howto->size)
+				 & ~reloc->howto->size);
+		  break;
+		case ABS32CODE_SHRUNK:
+		  /* This used to be a callx, but we've found out that a
+		     callj will reach, so do the right thing.  */
+		  callj_callback (in_abfd, link_info, reloc, data,
+				  src_address + 4, dst_address, input_section);
+		  dst_address+=4;
+		  src_address+=8;
+		  break;
+		case PCREL24:
+		  {
+		    long int word = bfd_get_32(in_abfd, data+src_address);
+		    bfd_vma value;
+
+		    value = get_value (reloc, link_info, input_section);
+		    word = ((word & ~BAL_MASK)
+			    | (((word & BAL_MASK)
+				+ value
+				- output_addr (input_section)
+				+ reloc->addend)
+			       & BAL_MASK));
+
+		    bfd_put_32(in_abfd,word,  data+dst_address);
+		    dst_address+=4;
+		    src_address+=4;
+
+		  }
+		  break;
+
+		case PCREL13:
+		  {
+		    long int word = bfd_get_32(in_abfd, data+src_address);
+		    bfd_vma value;
+
+		    value = get_value (reloc, link_info, input_section);
+		    word = ((word & ~PCREL13_MASK)
+			    | (((word & PCREL13_MASK)
+				+ value
+				+ reloc->addend
+				- output_addr (input_section))
+			       & PCREL13_MASK));
+
+		    bfd_put_32(in_abfd,word,  data+dst_address);
+		    dst_address+=4;
+		    src_address+=4;
+
+		  }
+		  break;
+
+		default:
+		  abort();
+		}
+	    }
+	}
+    }
+  if (reloc_vector != NULL)
+    free (reloc_vector);
   return data;
+ error_return:
+  if (reloc_vector != NULL)
+    free (reloc_vector);
+  return NULL;
 }
 /***********************************************************************/
 
 /* Build the transfer vectors for Big and Little-Endian B.OUT files.  */
 
-/* We don't have core files.  */
-#define	aout_32_core_file_failing_command _bfd_dummy_core_file_failing_command
-#define	aout_32_core_file_failing_signal _bfd_dummy_core_file_failing_signal
-#define	aout_32_core_file_matches_executable_p	\
-				_bfd_dummy_core_file_matches_executable_p
+#define aout_32_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
+#define aout_32_close_and_cleanup aout_32_bfd_free_cached_info
 
-/* We use BSD-Unix generic archive files.  */
-#define	aout_32_openr_next_archived_file	bfd_generic_openr_next_archived_file
-#define	aout_32_generic_stat_arch_elt	bfd_generic_stat_arch_elt
-#define	aout_32_slurp_armap		bfd_slurp_bsd_armap
-#define	aout_32_slurp_extended_name_table	_bfd_slurp_extended_name_table
-#define	aout_32_write_armap		bsd_write_armap
-#define	aout_32_truncate_arname		bfd_bsd_truncate_arname
+#define b_out_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
+#define b_out_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define b_out_bfd_final_link _bfd_generic_final_link
 
-/* We override these routines from the usual a.out file routines.  */
-#define	aout_32_canonicalize_reloc	b_out_canonicalize_reloc
-#define	aout_32_get_reloc_upper_bound	b_out_get_reloc_upper_bound
-#define	aout_32_set_section_contents	b_out_set_section_contents
-#define	aout_32_set_arch_mach		b_out_set_arch_mach
-#define	aout_32_sizeof_headers		b_out_sizeof_headers
-
-#define aout_32_bfd_debug_info_start		bfd_void
-#define aout_32_bfd_debug_info_end		bfd_void
-#define aout_32_bfd_debug_info_accumulate	(PROTO(void,(*),(bfd*, struct sec *))) bfd_void
-
-#define aout_32_bfd_get_relocated_section_contents  b_out_get_relocated_section_contents
-#define aout_32_bfd_relax_section                   b_out_relax_section
-#define aout_32_bfd_reloc_type_lookup		    b_out_reloc_type_lookup
-#define aout_32_bfd_make_debug_symbol \
-  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
-#define aout_32_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
-#define aout_32_bfd_link_add_symbols _bfd_generic_link_add_symbols
-#define aout_32_bfd_final_link _bfd_generic_final_link
-
-bfd_target b_out_vec_big_host =
+const bfd_target b_out_vec_big_host =
 {
   "b.out.big",			/* name */
   bfd_target_aout_flavour,
@@ -1361,12 +1387,21 @@ bfd_target b_out_vec_big_host =
  {bfd_false, b_out_write_object_contents, /* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(aout_32),
+     BFD_JUMP_TABLE_GENERIC (aout_32),
+     BFD_JUMP_TABLE_COPY (_bfd_generic),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_bsd),
+     BFD_JUMP_TABLE_SYMBOLS (aout_32),
+     BFD_JUMP_TABLE_RELOCS (b_out),
+     BFD_JUMP_TABLE_WRITE (b_out),
+     BFD_JUMP_TABLE_LINK (b_out),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   (PTR) 0,
 };
 
 
-bfd_target b_out_vec_little_host =
+const bfd_target b_out_vec_little_host =
 {
   "b.out.little",		/* name */
   bfd_target_aout_flavour,
@@ -1376,23 +1411,33 @@ bfd_target b_out_vec_little_host =
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | BFD_IS_RELAXABLE ),
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
-    '_',			/* symbol leading char */
+  '_',				/* symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-     2,				/* minum align */
-bfd_getl64, bfd_getl_signed_64, bfd_putl64,
-     bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+  2,				/* minum align */
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+    bfd_getl32, bfd_getl_signed_32, bfd_putl32,
      bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */
-bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
      bfd_getl32, bfd_getl_signed_32, bfd_putl32,
      bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* hdrs */
-	 
-    {_bfd_dummy_target, b_out_object_p, /* bfd_check_format */
-       bfd_generic_archive_p, _bfd_dummy_target},
-    {bfd_false, b_out_mkobject,	/* bfd_set_format */
-       _bfd_generic_mkarchive, bfd_false},
-    {bfd_false, b_out_write_object_contents,	/* bfd_write_contents */
-       _bfd_write_archive_contents, bfd_false},
-  JUMP_TABLE(aout_32),
+
+  {_bfd_dummy_target, b_out_object_p, /* bfd_check_format */
+     bfd_generic_archive_p, _bfd_dummy_target},
+  {bfd_false, b_out_mkobject,	/* bfd_set_format */
+     _bfd_generic_mkarchive, bfd_false},
+  {bfd_false, b_out_write_object_contents, /* bfd_write_contents */
+     _bfd_write_archive_contents, bfd_false},
+
+     BFD_JUMP_TABLE_GENERIC (aout_32),
+     BFD_JUMP_TABLE_COPY (_bfd_generic),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_bsd),
+     BFD_JUMP_TABLE_SYMBOLS (aout_32),
+     BFD_JUMP_TABLE_RELOCS (b_out),
+     BFD_JUMP_TABLE_WRITE (b_out),
+     BFD_JUMP_TABLE_LINK (b_out),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   (PTR) 0
 };

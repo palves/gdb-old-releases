@@ -95,6 +95,8 @@ struct external_scnhdr {
 #define	SCNHDR	struct external_scnhdr
 #define	SCNHSZ	sizeof(SCNHDR)
 
+/* XCOFF uses a special .debug section with type STYP_DEBUG.  */
+#define STYP_DEBUG 0x2000
 
 /********************** LINE NUMBERS **********************/
 

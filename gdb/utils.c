@@ -30,12 +30,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "signals.h"
 #include "gdbcmd.h"
 #include "serial.h"
-#include "terminal.h" /* For job_control */
 #include "bfd.h"
 #include "target.h"
 #include "demangle.h"
 #include "expression.h"
 #include "language.h"
+#include "annotate.h"
+
+#include "readline.h"
+
+/* readline defines this.  */
+#undef savestring
 
 /* Prototypes for local functions */
 
@@ -66,6 +71,10 @@ set_width_command PARAMS ((char *, int, struct cmd_list_element *));
    to be executed if an error happens.  */
 
 static struct cleanup *cleanup_chain;
+
+/* Nonzero if we have job control. */
+
+int job_control;
 
 /* Nonzero means a quit has been requested.  */
 
@@ -245,6 +254,24 @@ warning (va_alist)
   va_end (args);
 }
 
+/* Start the printing of an error message.  Way to use this is to call
+   this, output the error message (use filtered output), and then call
+   return_to_top_level (RETURN_ERROR).  error() provides a convenient way to
+   do this for the special case that the error message can be formatted with
+   a single printf call, but this is more general.  */
+void
+error_begin ()
+{
+  target_terminal_ours ();
+  wrap_here ("");			/* Force out any buffered output */
+  gdb_flush (gdb_stdout);
+
+  annotate_error_begin ();
+
+  if (error_pre_print)
+    fprintf_filtered (gdb_stderr, error_pre_print);
+}
+
 /* Print an error message and return to command level.
    The first argument STRING is the error message, used as a fprintf string,
    and the remaining args are passed as arguments to it.  */
@@ -257,12 +284,8 @@ error (va_alist)
   va_list args;
   char *string;
 
+  error_begin ();
   va_start (args);
-  target_terminal_ours ();
-  wrap_here("");			/* Force out any buffered output */
-  gdb_flush (gdb_stdout);
-  if (error_pre_print)
-    fprintf_filtered (gdb_stderr, error_pre_print);
   string = va_arg (args, char *);
   vfprintf_filtered (gdb_stderr, string, args);
   fprintf_filtered (gdb_stderr, "\n");
@@ -379,7 +402,7 @@ perror_with_name (string)
   /* I understand setting these is a matter of taste.  Still, some people
      may clear errno but not know about bfd_error.  Doing this here is not
      unreasonable. */
-  bfd_error = no_error;
+  bfd_set_error (bfd_error_no_error);
   errno = 0;
 
   error ("%s.", combined);
@@ -432,6 +455,8 @@ quit ()
   /* 3.  The system-level buffer.  */
   SERIAL_FLUSH_OUTPUT (gdb_stdout_serial);
   SERIAL_UN_FDOPEN (gdb_stdout_serial);
+
+  annotate_error_begin ();
 
   /* Don't use *_filtered; we don't want to prompt the user to continue.  */
   if (error_pre_print)
@@ -511,13 +536,17 @@ request_quit (signo)
 {
   quit_flag = 1;
 
-#ifdef USG
-  /* Restore the signal handler.  */
+  /* Restore the signal handler.  Harmless with BSD-style signals, needed
+     for System V-style signals.  So just always do it, rather than worrying
+     about USG defines and stuff like that.  */
   signal (signo, request_quit);
-#endif
 
+#ifdef REQUEST_QUIT
+  REQUEST_QUIT;
+#else
   if (immediate_quit)
     quit ();
+#endif
 }
 
 
@@ -764,6 +793,21 @@ print_spaces (n, file)
     fputc (' ', file);
 }
 
+/* Print a host address.  */
+
+void
+gdb_print_address (addr, stream)
+     PTR addr;
+     GDB_FILE *stream;
+{
+
+  /* We could use the %p conversion specifier to fprintf if we had any
+     way of knowing whether this host supports it.  But the following
+     should work on the Alpha and on 32 bit machines.  */
+
+  fprintf_filtered (stream, "0x%lx", (unsigned long)addr);
+}
+
 /* Ask user a y-or-n question and return 1 iff answer is yes.
    Takes three args which are given to printf to print the question.
    The first, a control string, should end in "? ".
@@ -778,6 +822,7 @@ query (va_alist)
   char *ctlstr;
   register int answer;
   register int ans2;
+  int retval;
 
   /* Automatically answer "yes" if input is not from a terminal.  */
   if (!input_from_terminal_p ())
@@ -787,16 +832,27 @@ query (va_alist)
     {
       wrap_here ("");		/* Flush any buffered output */
       gdb_flush (gdb_stdout);
+
+      if (annotation_level > 1)
+	printf_filtered ("\n\032\032pre-query\n");
+
       va_start (args);
       ctlstr = va_arg (args, char *);
       vfprintf_filtered (gdb_stdout, ctlstr, args);
       va_end (args);
       printf_filtered ("(y or n) ");
+
+      if (annotation_level > 1)
+	printf_filtered ("\n\032\032query\n");
+
       gdb_flush (gdb_stdout);
       answer = fgetc (stdin);
       clearerr (stdin);		/* in case of C-d */
       if (answer == EOF)	/* C-d */
-        return 1;
+        {
+	  retval = 1;
+	  break;
+	}
       if (answer != '\n')	/* Eat rest of input line, to EOF or newline */
 	do 
 	  {
@@ -807,11 +863,21 @@ query (va_alist)
       if (answer >= 'a')
 	answer -= 040;
       if (answer == 'Y')
-	return 1;
+	{
+	  retval = 1;
+	  break;
+	}
       if (answer == 'N')
-	return 0;
+	{
+	  retval = 0;
+	  break;
+	}
       printf_filtered ("Please answer y or n.\n");
     }
+
+  if (annotation_level > 1)
+    printf_filtered ("\n\032\032post-query\n");
+  return retval;
 }
 
 
@@ -1003,6 +1069,15 @@ static void
 prompt_for_continue ()
 {
   char *ignore;
+  char cont_prompt[120];
+
+  if (annotation_level > 1)
+    printf_unfiltered ("\n\032\032pre-prompt-for-continue\n");
+
+  strcpy (cont_prompt,
+	  "---Type <return> to continue, or q <return> to quit---");
+  if (annotation_level > 1)
+    strcat (cont_prompt, "\n\032\032prompt-for-continue\n");
 
   /* We must do this *before* we call gdb_readline, else it will eventually
      call us -- thinking that we're trying to print beyond the end of the 
@@ -1017,8 +1092,14 @@ prompt_for_continue ()
      from system to system, and because telling them what to do in
      the prompt is more user-friendly than expecting them to think of
      SIGINT.  */
-  ignore =
-    gdb_readline ("---Type <return> to continue, or q <return> to quit---");
+  /* Call readline, not gdb_readline, because GO32 readline handles control-C
+     whereas control-C to gdb_readline will cause the user to get dumped
+     out to DOS.  */
+  ignore = readline (cont_prompt);
+
+  if (annotation_level > 1)
+    printf_unfiltered ("\n\032\032post-prompt-for-continue\n");
+
   if (ignore)
     {
       char *p = ignore;
@@ -1071,10 +1152,14 @@ void
 wrap_here(indent)
      char *indent;
 {
+  /* This should have been allocated, but be paranoid anyway. */
+  if (!wrap_buffer)
+    abort ();
+
   if (wrap_buffer[0])
     {
       *wrap_pointer = '\0';
-      fputs  (wrap_buffer, gdb_stdout);
+      fputs_unfiltered (wrap_buffer, gdb_stdout);
     }
   wrap_pointer = wrap_buffer;
   wrap_buffer[0] = '\0';
@@ -1157,7 +1242,7 @@ fputs_maybe_filtered (linebuffer, stream, filter)
   if (stream != gdb_stdout
    || (lines_per_page == UINT_MAX && chars_per_line == UINT_MAX))
     {
-      fputs (linebuffer, stream);
+      fputs_unfiltered (linebuffer, stream);
       return;
     }
 
@@ -1181,7 +1266,7 @@ fputs_maybe_filtered (linebuffer, stream, filter)
 	      if (wrap_column)
 		*wrap_pointer++ = '\t';
 	      else
-		putc ('\t', stream);
+		fputc_unfiltered ('\t', stream);
 	      /* Shifting right by 3 produces the number of tab stops
 	         we have already passed, and then adding one and
 		 shifting left 3 advances to the next tab stop.  */
@@ -1193,7 +1278,7 @@ fputs_maybe_filtered (linebuffer, stream, filter)
 	      if (wrap_column)
 		*wrap_pointer++ = *lineptr;
 	      else
-	        putc (*lineptr, stream);
+	        fputc_unfiltered (*lineptr, stream);
 	      chars_printed++;
 	      lineptr++;
 	    }
@@ -1208,7 +1293,7 @@ fputs_maybe_filtered (linebuffer, stream, filter)
 		 if chars_per_line is right, we probably just overflowed
 		 anyway; if it's wrong, let us keep going.  */
 	      if (wrap_column)
-		putc ('\n', stream);
+		fputc_unfiltered ('\n', stream);
 
 	      /* Possible new page.  */
 	      if (lines_printed >= lines_per_page - 1)
@@ -1217,9 +1302,9 @@ fputs_maybe_filtered (linebuffer, stream, filter)
 	      /* Now output indentation and wrapped string */
 	      if (wrap_column)
 		{
-		  fputs (wrap_indent, stream);
-		  *wrap_pointer = '\0';		/* Null-terminate saved stuff */
-		  fputs (wrap_buffer, stream);	/* and eject it */
+		  fputs_unfiltered (wrap_indent, stream);
+		  *wrap_pointer = '\0';	/* Null-terminate saved stuff */
+		  fputs_unfiltered (wrap_buffer, stream); /* and eject it */
 		  /* FIXME, this strlen is what prevents wrap_indent from
 		     containing tabs.  However, if we recurse to print it
 		     and count its chars, we risk trouble if wrap_indent is
@@ -1240,7 +1325,7 @@ fputs_maybe_filtered (linebuffer, stream, filter)
 	  chars_printed = 0;
 	  wrap_here ((char *)0);  /* Spit out chars, cancel further wraps */
 	  lines_printed++;
-	  putc ('\n', stream);
+	  fputc_unfiltered ('\n', stream);
 	  lineptr++;
 	}
     }
@@ -1252,25 +1337,6 @@ fputs_filtered (linebuffer, stream)
      FILE *stream;
 {
   fputs_maybe_filtered (linebuffer, stream, 1);
-}
-
-void
-fputs_unfiltered (linebuffer, stream)
-     const char *linebuffer;
-     FILE *stream;
-{
-#if 0
-
-  /* This gets the wrap_buffer buffering wrong when called from
-     gdb_readline (GDB was sometimes failing to print the prompt
-     before reading input).  Even at other times, it seems kind of
-     misguided, especially now that printf_unfiltered doesn't use
-     printf_maybe_filtered.  */
-
-  fputs_maybe_filtered (linebuffer, stream, 0);
-#else
-  fputs (linebuffer, stream);
-#endif
 }
 
 void
@@ -1298,27 +1364,16 @@ fputc_unfiltered (c, stream)
 /* Print a variable number of ARGS using format FORMAT.  If this
    information is going to put the amount written (since the last call
    to REINITIALIZE_MORE_FILTER or the last page break) over the page size,
-   print out a pause message and do a gdb_readline to get the users
-   permision to continue.
+   call prompt_for_continue to get the users permision to continue.
 
    Unlike fprintf, this function does not return a value.
 
    We implement three variants, vfprintf (takes a vararg list and stream),
    fprintf (takes a stream to write on), and printf (the usual).
 
-   Note that this routine has a restriction that the length of the
-   final output line must be less than 255 characters *or* it must be
-   less than twice the size of the format string.  This is a very
-   arbitrary restriction, but it is an internal restriction, so I'll
-   put it in.  This means that the %s format specifier is almost
-   useless; unless the caller can GUARANTEE that the string is short
-   enough, fputs_filtered should be used instead.
-
    Note also that a longjmp to top level may occur in this routine
    (since prompt_for_continue may do so) so this routine should not be
    called when cleanups are not in place.  */
-
-#define	MIN_LINEBUF	255
 
 static void
 vfprintf_maybe_filtered (stream, format, args, filter)
@@ -1327,23 +1382,18 @@ vfprintf_maybe_filtered (stream, format, args, filter)
      va_list args;
      int filter;
 {
-  char line_buf[MIN_LINEBUF+10];
-  char *linebuffer = line_buf;
-  int format_length;
+  char *linebuffer;
+  struct cleanup *old_cleanups;
 
-  format_length = strlen (format);
-
-  /* Reallocate buffer to a larger size if this is necessary.  */
-  if (format_length * 2 > MIN_LINEBUF)
+  vasprintf (&linebuffer, format, args);
+  if (linebuffer == NULL)
     {
-      linebuffer = alloca (10 + format_length * 2);
+      fputs_unfiltered ("\ngdb: virtual memory exhausted.\n", gdb_stderr);
+      exit (1);
     }
-
-  /* This won't blow up if the restrictions described above are
-     followed.   */
-  vsprintf (linebuffer, format, args);
-
+  old_cleanups = make_cleanup (free, linebuffer);
   fputs_maybe_filtered (linebuffer, stream, filter);
+  do_cleanups (old_cleanups);
 }
 
 
@@ -1362,7 +1412,18 @@ vfprintf_unfiltered (stream, format, args)
      char *format;
      va_list args;
 {
-  vfprintf (stream, format, args);
+  char *linebuffer;
+  struct cleanup *old_cleanups;
+
+  vasprintf (&linebuffer, format, args);
+  if (linebuffer == NULL)
+    {
+      fputs_unfiltered ("\ngdb: virtual memory exhausted.\n", gdb_stderr);
+      exit (1);
+    }
+  old_cleanups = make_cleanup (free, linebuffer);
+  fputs_unfiltered (linebuffer, stream);
+  do_cleanups (old_cleanups);
 }
 
 void
@@ -1378,7 +1439,7 @@ vprintf_unfiltered (format, args)
      char *format;
      va_list args;
 {
-  vfprintf (gdb_stdout, format, args);
+  vfprintf_unfiltered (gdb_stdout, format, args);
 }
 
 /* VARARGS */
@@ -1394,8 +1455,6 @@ fprintf_filtered (va_alist)
   stream = va_arg (args, FILE *);
   format = va_arg (args, char *);
 
-  /* This won't blow up if the restrictions described above are
-     followed.   */
   vfprintf_filtered (stream, format, args);
   va_end (args);
 }
@@ -1413,13 +1472,11 @@ fprintf_unfiltered (va_alist)
   stream = va_arg (args, FILE *);
   format = va_arg (args, char *);
 
-  /* This won't blow up if the restrictions described above are
-     followed.   */
   vfprintf_unfiltered (stream, format, args);
   va_end (args);
 }
 
-/* Like fprintf_filtered, but prints it's result indent.
+/* Like fprintf_filtered, but prints its result indented.
    Called as fprintfi_filtered (spaces, stream, format, ...);  */
 
 /* VARARGS */
@@ -1438,8 +1495,6 @@ fprintfi_filtered (va_alist)
   format = va_arg (args, char *);
   print_spaces_filtered (spaces, stream);
 
-  /* This won't blow up if the restrictions described above are
-     followed.   */
   vfprintf_filtered (stream, format, args);
   va_end (args);
 }

@@ -1,5 +1,5 @@
 /* Remote debugging interface for Hitachi E7000 ICE, for GDB
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support. 
 
    Written by Steve Chamberlain for Cygnus Support.
@@ -44,6 +44,7 @@ line too, so we use a slower per byte mechanism but without the
 startup overhead.  Even so, it's pretty slow... */
 
 int using_tcp; /* nonzero if using the tcp serial driver */
+int using_pc; /* nonzero if using the pc isa card */
 
 extern struct target_ops e7000_ops;	/* Forward declaration */
 #define CTRLC 0x03
@@ -53,7 +54,10 @@ extern struct target_ops e7000_ops;	/* Forward declaration */
 
 char *ENQSTRING = "\005";
 
-int echo;
+/* Nonzero if some routine (as opposed to the user) wants echoing.
+   FIXME: Do this reentrantly with an extra parameter.  */
+static int echo;
+
 int ctrl_c;
 static void e7000_close ();
 static void e7000_fetch_register ();
@@ -85,16 +89,24 @@ printf_e7000debug (va_alist)
 #else
 
 static void
-printf_e7000debug(a,b,c,d,e)
+printf_e7000debug(a,b,c,d,e,f)
   {
     char buf[200];
-    sprintf(buf, a,b,c,d,e);
+    sprintf(buf, a,b,c,d,e,f);
 #endif
+if (!e7000_desc)
+  {
+    error ("use \"target e7000 ...\" first.");
+  }
+    if (remote_debug )
+      printf("Sending %s\n", buf);
+
   if (SERIAL_WRITE (e7000_desc, buf, strlen (buf)))
     fprintf (stderr, "SERIAL_WRITE failed: %s\n", safe_strerror (errno));
 
-  /* And expect to see it echoed */
-  expect (buf);
+  /* And expect to see it echoed, unless using the pc interface */
+/*    if (!using_pc)*/
+      expect (buf);
 }
 
 static void
@@ -128,13 +140,40 @@ readchar (timeout)
   if (c == SERIAL_TIMEOUT)
     {
       if (timeout == 0)
-	return c;		/* Polls shouldn't generate timeout errors */
-
+	return -1;
+      echo = 0;
       error ("Timeout reading from remote system.");
     }
-  return c;
+  if(remote_debug) 
+    {
+      putchar (c);
+      fflush(stdout);
+    }
+
+  return normal(c);
 }
 
+static normal(x) 
+{
+  if (x == '\n') return '\r';
+  return x;
+}
+char *tl(x)
+{
+  static char b[8][10];
+  static int p;
+  p++;
+  p &= 7;
+  if (x >= ' ') 
+    { 
+      b[p][0] = x;
+      b[p][1] = 0;
+    }
+else {
+  sprintf(b[p],"<%d>", x);
+}
+  return b[p];
+}
 
 /* Scan input from the remote system, until STRING is found.  If DISCARD is
    non-zero, then discard non-matching input, else print it out.
@@ -147,10 +186,8 @@ expect (string)
   int c;
 
   while (1)
-
     {
       c = readchar (timeout);
-
       notice_quit ();
       if (quit_flag == 1) 
 	{
@@ -168,13 +205,13 @@ expect (string)
 	{
 	  error ("Serial communication error");
 	}
-      if (echo)
+      if (echo || remote_debug)
 	{
 	  if (c != '\r')
 	    putchar (c);
 	  fflush (stdout);
 	}
-      if (c == *p++)
+      if (normal(c) == normal(*p++))
 	{
 	  if (*p == '\0')
 	    {
@@ -183,7 +220,10 @@ expect (string)
 	}
       else
 	{
-	  p = string;
+	  p = string ;
+
+	  if (normal(c) == normal(string[0]))
+	    p++;
 	}
     }
 }
@@ -205,12 +245,14 @@ expect (string)
 static void
 expect_prompt ()
 {
-  expect (":");
+    expect (":");
 }
 static void
 expect_full_prompt ()
 {
-  expect ("\n:");
+
+    expect ("\r:");
+
 }
 
 static int
@@ -399,46 +441,65 @@ e7000_open (args, from_tty)
      int from_tty;
 {
   int n;
+  int loop;
   char junk[100];
   int sync;
   target_preopen (from_tty);
 
-  if (args)
-    n = sscanf (args, " %s %d %s", dev_name, &baudrate, junk);
-  else
-    n = 0;
-  if (n != 1 && n != 2)
-    error ("Bad arguments.  Usage:\ttarget e7000 <device> <speed>\n\
-or \t\ttarget e7000 <host>[:<port>]\n");
-
-  if (n == 1 && strchr (dev_name, ':') == 0)
+  n = 0;
+  if (args && strcasecmp (args,"pc") == 0)
     {
-      /* Default to normal telnet port */
-      strcat (dev_name, ":23");
+      strcpy (dev_name, args);
     }
+  else 
+    {
+    if (args) 
+      {
+	n = sscanf (args, " %s %d %s", dev_name, &baudrate, junk);
+      }
+
+    if (n != 1 && n != 2)
+      {
+	error ("Bad arguments.  Usage:\ttarget e7000 <device> <speed>\n\
+or \t\ttarget e7000 <host>[:<port>]\n\
+or \t\ttarget e7000 pc\n");
+      }
+
+#ifndef __GO32__
+    if (n == 1 && strchr (dev_name, ':') == 0)
+      {
+	/* Default to normal telnet port */
+	strcat (dev_name, ":23");
+      }
+#endif
+
+  }
 
   push_target (&e7000_ops);
-  e7000_desc = SERIAL_OPEN (dev_name);
 
+  e7000_desc = SERIAL_OPEN (dev_name);
 
   if (!e7000_desc)
     perror_with_name (dev_name);
 
   using_tcp = strcmp (e7000_desc->ops->name, "tcp") == 0;
+  using_pc = strcmp (e7000_desc->ops->name, "pc") == 0;
 
   SERIAL_SETBAUDRATE (e7000_desc, baudrate);
   SERIAL_RAW (e7000_desc);
 
   /* Hello?  Are you there?  */
   sync = 0;
+  loop =  0;
   putchar_e7000 (CTRLC);
   while (!sync)
     {
       int c;
+      int k = 0;
       if (from_tty)
 	printf_unfiltered ("[waiting for e7000...]\n");
-      write_e7000 ("\r\n");
-      c = SERIAL_READCHAR (e7000_desc, 3);
+      write_e7000 ("\r");
+      c = SERIAL_READCHAR (e7000_desc, 1);
       while (c != SERIAL_TIMEOUT)
 	{
 	  /* Dont echo cr's */
@@ -451,15 +512,26 @@ or \t\ttarget e7000 <host>[:<port>]\n");
 	    {
 	      sync = 1;
 	    }
-	  c = SERIAL_READCHAR (e7000_desc, 3);
+
+	  if (loop++ == 20) 
+	    {
+	      putchar_e7000 (CTRLC);
+	      loop = 0;
+	    }
+
+	  QUIT ;
+
+
 	  if (quit_flag)
 	    {
 	      putchar_e7000 (CTRLC);
 	      quit_flag = 0;
 	    }
+	  c = SERIAL_READCHAR (e7000_desc, 1);
 	}
     }
-  printf_e7000debug ("\r\n");
+  printf_e7000debug ("\r");
+
   expect_prompt ();
 
   if (from_tty)
@@ -526,8 +598,7 @@ e7000_resume (pid, step, sig)
  */
 
 #ifdef GDB_TARGET_IS_H8300
-char *want = "\n\
- PC=%p CCR=%c\n\
+char *want = "PC=%p CCR=%c\n\
  ER0 - ER3  %0 %1 %2 %3\n\
  ER4 - ER7  %4 %5 %6 %7\n";
 
@@ -538,18 +609,17 @@ char *want_nopc = "%p CCR=%c\n\
 
 #endif
 #ifdef GDB_TARGET_IS_SH
-char *want = "\n PC=%16 SR=%22\n\
- PR=%17 GBR=%18 VBR=%19\n\
- MACH=%20 MACL=%21\n\
- R0-7  %0 %1 %2 %3 %4 %5 %6 %7\n\
- R8-15 %8 %9 %10 %11 %12 %13 %14 %15\n";
+char *want = "PC=%16 SR=%22\n\
+PR=%17 GBR=%18 VBR=%19\n\
+MACH=%20 MACL=%21\n\
+R0-7  %0 %1 %2 %3 %4 %5 %6 %7\n\
+R8-15 %8 %9 %10 %11 %12 %13 %14 %15\n";
 
 char *want_nopc = "%16 SR=%22\n\
  PR=%17 GBR=%18 VBR=%19\n\
  MACH=%20 MACL=%21\n\
  R0-7  %0 %1 %2 %3 %4 %5 %6 %7\n\
  R8-15 %8 %9 %10 %11 %12 %13 %14 %15";
-
 
 #endif
 
@@ -558,12 +628,13 @@ int
 gch ()
 {
   int c = readchar (timeout);
-  if (echo)
+  if (remote_debug)
     {
       if (c >= ' ')
 	printf ("%c", c);
       else if (c == '\n')
 	printf ("\n", c);
+
     }
   return c;
 }
@@ -587,17 +658,22 @@ fetch_regs_from_dump (nextchar, want)
   char buf[MAX_REGISTER_RAW_SIZE];
 
   int  thischar = nextchar();
-  
+
   while (*want)
     {
       switch (*want)
 	{
 	case '\n':
-	  while (thischar != '\n')
-	    thischar = nextchar();
-	  thischar = nextchar();
-	  while (thischar == '\r')
-	    thischar = nextchar();
+	  /* Skip to end of line and then eat all new line type stuff */
+	  while (thischar != '\n' && thischar != '\r') 
+	    {
+	      thischar = nextchar();
+	    }
+
+	  while (thischar == '\n' || thischar == '\r') 
+	    {
+	      thischar = nextchar();
+	    }
 	  want++;
 	  break;
 
@@ -615,12 +691,12 @@ fetch_regs_from_dump (nextchar, want)
 		thischar = nextchar();
 	      
 	    }
-	  else if (thischar == ' ')
+	  else if (thischar == ' ' || thischar == '\n' || thischar == '\r')
 	    {
 	      thischar = nextchar();
 	    }
 	  else {
-	    error("out of sync in fetch registers");
+	    error("out of sync in fetch registers wanted <%s>, got <%c 0x%x>", want, thischar, thischar);
 	  }
     
 	  break;
@@ -983,7 +1059,7 @@ e7000_write_inferior_memory (memaddr, myaddr, len)
      unsigned char *myaddr;
      int len;
 {
-  if (len < 16 || using_tcp)
+  if (len < 16 || using_tcp || using_pc)
     {
       return write_small (memaddr, myaddr, len);
     }
@@ -992,13 +1068,6 @@ e7000_write_inferior_memory (memaddr, myaddr, len)
       return write_large (memaddr, myaddr, len);
     }
 }
-
-/* Read LEN bytes from inferior memory at MEMADDR.  Put the result
-   at debugger address MYADDR.  Returns length moved. 
-
-   Done by requesting an srecord dump from the E7000.
- */
-
 
 
 /* Read LEN bytes from inferior memory at MEMADDR.  Put the result
@@ -1023,6 +1092,7 @@ e7000_read_inferior_memory (memaddr, myaddr, len)
   int i;
   /* Starting address of this pass.  */
 
+/*  printf("READ INF %x %x %d\n", memaddr, myaddr, len);*/
   if (((memaddr - 1) + len) < memaddr)
     {
       errno = EIO;
@@ -1062,8 +1132,10 @@ e7000_read_inferior_memory (memaddr, myaddr, len)
 	printf_e7000debug(".\r");
       else
 	printf_e7000debug("\r");
+
     }
   expect_prompt();
+  return len;
 }
 
 
@@ -1342,7 +1414,7 @@ e7000_command (args, fromtty)
      char *args;
      int fromtty;
 {
-
+  echo = 0;
   if (!e7000_desc)
     error ("e7000 target not open.");
   if (!args)
@@ -1390,16 +1462,6 @@ e7000_drain (args, fromtty)
       else
 	printf ("<%x>", c & 0xff);
     }
-}
-
-e7000_noecho ()
-{
-  echo = !echo;
-  if (echo)
-    printf_filtered ("Snoop enabled\n");
-  else
-    printf_filtered ("Snoop disabled\n");
-
 }
 
 #define NITEMS 3
@@ -1547,7 +1609,7 @@ static char *estrings[] = { "** SLEEP", "BREAK !", "** PC", "PC", 0};
 static int
 e7000_wait (pid, status)
      int pid;
-     WAITTYPE *status;
+     struct target_waitstatus *status;
 {
   int c;
   int reset_pc;
@@ -1557,7 +1619,6 @@ e7000_wait (pid, status)
   int loop = 1;
   char *reg;
   int time = 0;
-  WSETSTOP ((*status), 0);
   /* Then echo chars until PC= string seen */
   gch ();			/* Drop cr */
   gch ();			/* and space */
@@ -1601,26 +1662,28 @@ e7000_wait (pid, status)
   reset_pc = why_stop ();
   expect_full_prompt ();
 
+  status->kind = TARGET_WAITKIND_STOPPED;
+  status->value.sig = TARGET_SIGNAL_TRAP;
+
   switch (reset_pc)
     {
     case 1:			/* Breakpoint */
-  
-      WSETSTOP ((*status), SIGTRAP);
+      status->value.sig = TARGET_SIGNAL_TRAP;      
       break;
     case 0:
       /* Single step */
-      WSETSTOP ((*status), SIGTRAP);
+      status->value.sig = TARGET_SIGNAL_TRAP;      
       break;
     case 2:
       /* Interrupt */
       if (had_sleep)
 	{
+	  status->value.sig = TARGET_SIGNAL_TRAP;      
 	  sub2_from_pc();
-	  WSETSTOP ((*status), SIGTRAP);
 	}
       else
 	{
-	  WSETSTOP ((*status), SIGINT);
+	  status->value.sig = TARGET_SIGNAL_INT;      
 	}
       break;
     }
@@ -1692,5 +1755,4 @@ _initialize_remote_e7000 ()
 
   add_com ("drain", class_obscure, e7000_drain,
 	   "Drain pending e7000 text buffers.");
-  add_com ("e7000-snoop",  class_obscure, e7000_noecho, "Toggle monitor echo.");
 }

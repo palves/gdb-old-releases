@@ -21,4 +21,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TARGET_SYM	sparclynx_coff_vec
 #define TARGET_NAME	"coff-sparc-lynx"
 
+#define LYNXOS
+
+#define COFF_LONG_FILENAMES
+
 #include "coff-sparc.c"

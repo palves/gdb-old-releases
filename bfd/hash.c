@@ -1,22 +1,22 @@
 /* hash.c -- hash table routines for BFD
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 94 Free Software Foundation, Inc.
    Written by Steve Chamberlain <sac@cygnus.com>
 
-This file is part of GLD, the Gnu Linker.
+This file is part of BFD, the Binary File Descriptor library.
 
-GLD is free software; you can redistribute it and/or modify
+This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
 
-GLD is distributed in the hope that it will be useful,
+This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GLD; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -234,8 +234,12 @@ EXAMPLE
 . {* Allocate the structure if it has not already been allocated by a
 .    derived class.  *}
 .  if (ret == (@var{entry_type} *) NULL)
-.    ret = ((@var{entry_type} *)
-.	   bfd_hash_allocate (table, sizeof (@var{entry_type})));
+.    {
+.      ret = ((@var{entry_type} *)
+.	      bfd_hash_allocate (table, sizeof (@var{entry_type})));
+.      if (ret == (@var{entry_type} *) NULL)
+.        return NULL;
+.    }
 .
 . {* Call the allocation method of the base class.  *}
 .  ret = ((@var{entry_type} *)
@@ -290,7 +294,7 @@ SUBSUBSECTION
 */
 
 /* Obstack allocation and deallocation routines.  */
-#define obstack_chunk_alloc bfd_xmalloc_by_size_t
+#define obstack_chunk_alloc malloc
 #define obstack_chunk_free free
 
 /* The default number of entries to use when creating a hash table.  */
@@ -309,9 +313,18 @@ bfd_hash_table_init_n (table, newfunc, size)
   unsigned int alloc;
 
   alloc = size * sizeof (struct bfd_hash_entry *);
-  obstack_begin (&table->memory, alloc);
+  if (!obstack_begin (&table->memory, alloc))
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return false;
+    }
   table->table = ((struct bfd_hash_entry **)
 		  obstack_alloc (&table->memory, alloc));
+  if (!table->table)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return false;
+    }
   memset ((PTR) table->table, 0, alloc);
   table->size = size;
   table->newfunc = newfunc;
@@ -388,6 +401,11 @@ bfd_hash_lookup (table, string, create, copy)
       char *new;
 
       new = (char *) obstack_alloc (&table->memory, len + 1);
+      if (!new)
+	{
+	  bfd_set_error (bfd_error_no_memory);
+	  return (struct bfd_hash_entry *) NULL;
+	}
       strcpy (new, string);
       string = new;
     }
@@ -421,7 +439,12 @@ bfd_hash_allocate (table, size)
      struct bfd_hash_table *table;
      unsigned int size;
 {
-  return obstack_alloc (&table->memory, size);
+  PTR ret;
+
+  ret = obstack_alloc (&table->memory, size);
+  if (ret == NULL && size != 0)
+    bfd_set_error (bfd_error_no_memory);
+  return ret;
 }
 
 /* Traverse a hash table.  */

@@ -22,6 +22,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sh-opc.h"
 #include "dis-asm.h"
 
+
 int 
 print_insn_sh(memaddr, info)
      bfd_vma memaddr;
@@ -213,13 +214,16 @@ print_insn_sh(memaddr, info)
 	    }
 	
 	}
-      if (op->name[0] == 'j'
+      if (!info->flags &&
+	  op->name[0] == 'j'
 	  || (op->name[0] == 'b' && (op->name[1] == 'r' 
 				     || op->name[1] == 's'))
 	  || (op->name[0] == 'r' && op->name[1] == 't')
 	  || (op->name[0] == 'b' && op->name[2] == '.'))
 	{
+	  info->flags = 1;
 	  fprintf(stream,"\t(slot ");  print_insn_sh(memaddr +2, info);
+	  info->flags = 0;
 	  fprintf(stream,")");
 	  return 4;
 	}

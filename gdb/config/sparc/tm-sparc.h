@@ -24,15 +24,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Floating point is IEEE compatible.  */
 #define IEEE_FLOAT
 
+/* If an argument is declared "register", Sun cc will keep it in a register,
+   never saving it onto the stack.  So we better not believe the "p" symbol
+   descriptor stab.  */
+
+#define USE_REGISTER_NOT_ARG
+
 /* When passing a structure to a function, Sun cc passes the address
    not the structure itself.  It (under SunOS4) creates two symbols,
    which we need to combine to a LOC_REGPARM.  Gcc version two (as of
    1.92) behaves like sun cc.  REG_STRUCT_HAS_ADDR is smart enough to
-   distinguish between Sun cc, gcc version 1 and gcc version 2.
+   distinguish between Sun cc, gcc version 1 and gcc version 2.  */
 
-   This still doesn't work if the argument is not one passed in a
-   register (i.e. it's the 7th or later argument).  */
-#define REG_STRUCT_HAS_ADDR(gcc_p) (gcc_p != 1)
+#define REG_STRUCT_HAS_ADDR(gcc_p,type) (gcc_p != 1)
 
 /* Sun /bin/cc gets this right as of SunOS 4.1.x.  We need to define
    BELIEVE_PCC_PROMOTION to get this right now that the code which
@@ -346,10 +350,18 @@ CORE_ADDR sparc_frame_chain ();
 #define FRAMELESS_FUNCTION_INVOCATION(FI, FRAMELESS) \
   (FRAMELESS) = frameless_look_for_prologue(FI)
 
+/* The location of I0 w.r.t SP.  This is actually dependent on how the system's
+   window overflow/underflow routines are written.  Most vendors save the L regs
+   followed by the I regs (at the higher address).  Some vendors get it wrong.
+ */
+
+#define	FRAME_SAVED_L0	0
+#define	FRAME_SAVED_I0	(8 * REGISTER_RAW_SIZE (L0_REGNUM))
+
 /* Where is the PC for a specific frame */
 
-#define FRAME_SAVED_PC(FRAME) frame_saved_pc (FRAME)
-CORE_ADDR frame_saved_pc ();
+#define FRAME_SAVED_PC(FRAME) sparc_frame_saved_pc (FRAME)
+CORE_ADDR sparc_frame_saved_pc ();
 
 /* If the argument is on the stack, it will be here.  */
 #define FRAME_ARGS_ADDRESS(fi) ((fi)->frame)

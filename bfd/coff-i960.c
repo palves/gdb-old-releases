@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 960 COFF files.
-   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -117,9 +117,9 @@ static reloc_howto_type howto_optcall =
        optcall_callback, "optcall", true, 0x00ffffff, 0x00ffffff};
 
 static const reloc_howto_type *
-DEFUN (coff_i960_reloc_type_lookup, (abfd, code),
-       bfd *abfd AND
-       bfd_reloc_code_real_type code)
+coff_i960_reloc_type_lookup (abfd, code)
+     bfd *abfd;
+     bfd_reloc_code_real_type code;
 {
   switch (code)
     {
@@ -128,6 +128,7 @@ DEFUN (coff_i960_reloc_type_lookup, (abfd, code),
     case BFD_RELOC_I960_CALLJ:
       return &howto_optcall;
     case BFD_RELOC_32:
+    case BFD_RELOC_CTOR:
       return &howto_rellong;
     case BFD_RELOC_24_PCREL:
       return &howto_iprmed;
@@ -153,7 +154,7 @@ DEFUN (coff_i960_reloc_type_lookup, (abfd, code),
 #undef coff_bfd_reloc_type_lookup
 #define coff_bfd_reloc_type_lookup coff_i960_reloc_type_lookup
 
-bfd_target icoff_little_vec =
+const bfd_target icoff_little_vec =
 {
   "coff-Intel-little",		/* name */
   bfd_target_coff_flavour,
@@ -165,7 +166,7 @@ bfd_target icoff_little_vec =
    HAS_SYMS | HAS_LOCALS | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
-  0,				/* leading underscore */
+  '_',				/* leading underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
 
@@ -183,12 +184,22 @@ bfd_target icoff_little_vec =
    _bfd_generic_mkarchive, bfd_false},
  {bfd_false, coff_write_object_contents, /* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
-  JUMP_TABLE(coff),
+
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };
 
 
-bfd_target icoff_big_vec =
+const bfd_target icoff_big_vec =
 {
   "coff-Intel-big",		/* name */
   bfd_target_coff_flavour,
@@ -200,7 +211,7 @@ bfd_target icoff_big_vec =
    HAS_SYMS | HAS_LOCALS | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
-  0,				/* leading underscore */
+  '_',				/* leading underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
 
@@ -218,6 +229,16 @@ bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      _bfd_generic_mkarchive, bfd_false},
   {bfd_false, coff_write_object_contents,	/* bfd_write_contents */
      _bfd_write_archive_contents, bfd_false},
-  JUMP_TABLE(coff),
+
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };

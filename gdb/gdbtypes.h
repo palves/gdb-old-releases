@@ -86,7 +86,11 @@ enum type_code
      of GDB which bogusly assume that TYPE_CODE_FLT can mean complex.  */
   TYPE_CODE_FLT,
 
-  /* Void type (values zero length; the length field is ignored).  */
+  /* Void type.  The length field specifies the length (probably always
+     one) which is used in pointer arithmetic involving pointers to
+     this type, but actually dereferencing such a pointer is invalid;
+     a void type has no length and no actual representation in memory
+     or registers.  A pointer to a void type is a generic pointer.  */
   TYPE_CODE_VOID,
 
   TYPE_CODE_SET,		/* Pascal sets */
@@ -111,14 +115,18 @@ enum type_code
   TYPE_CODE_METHOD,		/* Method type */
   TYPE_CODE_REF,		/* C++ Reference types */
 
-  /* Modula-2 */
   TYPE_CODE_CHAR,		/* *real* character type */
-  TYPE_CODE_BOOL		/* BOOLEAN type */
+
+  /* Boolean type.  0 is false, 1 is true, and other values are non-boolean
+     (e.g. FORTRAN "logical" used as unsigned int).  */
+  TYPE_CODE_BOOL
 };
 
 /* For now allow source to use TYPE_CODE_CLASS for C++ classes, as an
-   alias for TYPE_CODE_STRUCT.  Eventually these should probably be
-   officially distinct types within gdb. */
+   alias for TYPE_CODE_STRUCT.  This is for DWARF, which has a distinct
+   "class" attribute.  Perhaps we should actually have a separate TYPE_CODE
+   so that we can print "class" or "struct" depending on what the debug
+   info said.  It's not clear we should bother.  */
 
 #define TYPE_CODE_CLASS TYPE_CODE_STRUCT
 
@@ -407,7 +415,8 @@ struct cplus_struct_type
 
 	  /* The argument list.  Only valid if is_stub is clear.  Contains
 	     the type of each argument, including `this', and ending with
-	     a NULL pointer after the last argument.  */
+	     a NULL pointer after the last argument.  Should not contain
+	     a `this' pointer for static member functions.  */
 
 	  struct type **args;
 
@@ -596,20 +605,6 @@ extern struct type *builtin_type_chill_long;
 extern struct type *builtin_type_chill_ulong;
 extern struct type *builtin_type_chill_real;
 
-/* CC_HAS_LONG_LONG is defined if the host has "long long".  */
-
-#ifdef CC_HAS_LONG_LONG
-
-#define BUILTIN_TYPE_LONGEST builtin_type_long_long
-#define BUILTIN_TYPE_UNSIGNED_LONGEST builtin_type_unsigned_long_long
-
-#else /* not CC_HAS_LONG_LONG.  */
-
-#define BUILTIN_TYPE_LONGEST builtin_type_long
-#define BUILTIN_TYPE_UNSIGNED_LONGEST builtin_type_unsigned_long
-
-#endif /* not CC_HAS_LONG_LONG.  */
-
 /* Maximum and minimum values of built-in types */
 
 #define	MAX_OF_TYPE(t)	\
@@ -730,6 +725,8 @@ extern void recursive_dump_type PARAMS ((struct type *, int));
 
 extern void
 print_scalar_formatted PARAMS ((char *, struct type *, int, int, GDB_FILE *));
+
+extern int can_dereference PARAMS ((struct type *));
 
 #if MAINTENANCE_CMDS
 extern void maintenance_print_type PARAMS ((char *, int));

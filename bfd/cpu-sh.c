@@ -26,9 +26,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 int bfd_default_scan_num_mach();
 
 static boolean 
-DEFUN(scan_mach,(info, string),
-CONST struct bfd_arch_info *info AND
-CONST char *string)
+scan_mach (info, string)
+     CONST struct bfd_arch_info *info;
+     CONST char *string;
 {
   if (strcmp(string,"sh") == 0) return true;
   if (strcmp(string,"SH") == 0) return true;
@@ -41,9 +41,9 @@ CONST char *string)
    they'd be compatible */
 
 static CONST bfd_arch_info_type *
-DEFUN(compatible,(a,b),
-      CONST bfd_arch_info_type *a AND
-      CONST bfd_arch_info_type *b)
+compatible (a,b)
+     CONST bfd_arch_info_type *a;
+     CONST bfd_arch_info_type *b;
 {
   if (a->arch != b->arch || a->mach != b->mach)
    return NULL;
@@ -73,7 +73,7 @@ static bfd_arch_info_type arch_info_struct[] =
 
 
 void
-DEFUN_VOID(bfd_sh_arch)
+bfd_sh_arch ()
 {
   bfd_arch_linkin(&arch_info_struct[0]);
 }

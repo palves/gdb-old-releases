@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb::                         The GNU debugger.
+* Gdb: (gdb).                     The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.12.
+Source-Level Debugger' for GDB Version 4.13.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -24,6 +24,55 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
+
+
+File: gdb.info,  Node: Define,  Next: Hooks,  Up: Sequences
+
+User-defined commands
+=====================
+
+   A "user-defined command" is a sequence of GDB commands to which you
+assign a new name as a command.  This is done with the `define' command.
+
+`define COMMANDNAME'
+     Define a command named COMMANDNAME.  If there is already a command
+     by that name, you are asked to confirm that you want to redefine
+     it.
+
+     The definition of the command is made up of other GDB command
+     lines, which are given following the `define' command.  The end of
+     these commands is marked by a line containing `end'.
+
+`document COMMANDNAME'
+     Give documentation to the user-defined command COMMANDNAME.  The
+     command COMMANDNAME must already be defined.  This command reads
+     lines of documentation just as `define' reads the lines of the
+     command definition, ending with `end'.  After the `document'
+     command is finished, `help' on command COMMANDNAME displays the
+     documentation you have specified.
+
+     You may use the `document' command again to change the
+     documentation of a command.  Redefining the command with `define'
+     does not change the documentation.
+
+`help user-defined'
+     List all user-defined commands, with the first line of the
+     documentation (if any) for each.
+
+`show user'
+`show user COMMANDNAME'
+     Display the GDB commands used to define COMMANDNAME (but not its
+     documentation).  If no COMMANDNAME is given, display the
+     definitions for all user-defined commands.
+
+   User-defined commands do not take arguments.  When they are
+executed, the commands of the definition are not printed.  An error in
+any command stops execution of the user-defined command.
+
+   Commands that would ask for confirmation if used interactively
+proceed without asking when used inside a user-defined command.  Many
+GDB commands that normally print messages to say what they are doing
+omit the messages when used in a user-defined command.
 
 
 File: gdb.info,  Node: Hooks,  Next: Command Files,  Prev: Define,  Up: Sequences
@@ -224,8 +273,8 @@ usual, but you probably have no reason to use them from Emacs.
      and output session proceeds normally; but Emacs does not get
      enough information back from GDB to locate the source files in
      this situation.  To avoid this problem, either start GDB mode from
-     the directory where your program resides, or specify a full path
-     name when prompted for the `M-x gdb' argument.
+     the directory where your program resides, or specify an absolute
+     file name when prompted for the `M-x gdb' argument.
 
      A similar confusion can result if you use the GDB `file' command to
      switch to debugging a program in some other location, from an
@@ -1228,81 +1277,4 @@ command set as a whole more consistent and easier to use and remember:
      set/show vtblprint        set/show print vtbl
      
      unset                     [No longer an alias for delete]
-
-
-File: gdb.info,  Node: Formatting Documentation,  Next: Installing GDB,  Prev: Renamed Commands,  Up: Top
-
-Formatting Documentation
-************************
-
-   The GDB 4 release includes an already-formatted reference card, ready
-for printing with PostScript or GhostScript, in the `gdb' subdirectory
-of the main source directory(1).  If you can use PostScript or
-GhostScript with your printer, you can print the reference card
-immediately with `refcard.ps'.
-
-   The release also includes the source for the reference card.  You
-can format it, using TeX, by typing:
-
-     make refcard.dvi
-
-   The GDB reference card is designed to print in landscape mode on US
-"letter" size paper; that is, on a sheet 11 inches wide by 8.5 inches
-high.  You will need to specify this form of printing as an option to
-your DVI output program.
-
-   All the documentation for GDB comes as part of the machine-readable
-distribution.  The documentation is written in Texinfo format, which is
-a documentation system that uses a single source file to produce both
-on-line information and a printed manual.  You can use one of the Info
-formatting commands to create the on-line version of the documentation
-and TeX (or `texi2roff') to typeset the printed version.
-
-   GDB includes an already formatted copy of the on-line Info version of
-this manual in the `gdb' subdirectory.  The main Info file is
-`gdb-VERSION-NUMBER/gdb/gdb.info', and it refers to subordinate files
-matching `gdb.info*' in the same directory.  If necessary, you can
-print out these files, or read them with any editor; but they are
-easier to read using the `info' subsystem in GNU Emacs or the
-standalone `info' program, available as part of the GNU Texinfo
-distribution.
-
-   If you want to format these Info files yourself, you need one of the
-Info formatting programs, such as `texinfo-format-buffer' or `makeinfo'.
-
-   If you have `makeinfo' installed, and are in the top level GDB
-source directory (`gdb-4.12', in the case of version 4.12), you can
-make the Info file by typing:
-
-     cd gdb
-     make gdb.info
-
-   If you want to typeset and print copies of this manual, you need TeX,
-a program to print its DVI output files, and `texinfo.tex', the Texinfo
-definitions file.
-
-   TeX is a typesetting program; it does not print files directly, but
-produces output files called DVI files.  To print a typeset document,
-you need a program to print DVI files.  If your system has TeX
-installed, chances are it has such a program.  The precise command to
-use depends on your system; `lpr -d' is common; another (for PostScript
-devices) is `dvips'.  The DVI print command may require a file name
-without any extension or a `.dvi' extension.
-
-   TeX also requires a macro definitions file called `texinfo.tex'.
-This file tells TeX how to typeset a document written in Texinfo
-format.  On its own, TeX cannot read, much less typeset a Texinfo file.
-`texinfo.tex' is distributed with GDB and is located in the
-`gdb-VERSION-NUMBER/texinfo' directory.
-
-   If you have TeX and a DVI printer program installed, you can typeset
-and print this manual.  First switch to the the `gdb' subdirectory of
-the main source directory (for example, to `gdb-4.12/gdb') and then
-type:
-
-     make gdb.dvi
-
-   ---------- Footnotes ----------
-
-   (1)  In `gdb-4.12/gdb/refcard.ps' of the version 4.12 release.
 

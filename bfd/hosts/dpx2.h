@@ -1,6 +1,8 @@
 #include <sys/types.h>
 #define STDC_HEADERS
 
+#define POSIX_UTIME
+
 #include "hosts/std-host.h"
 
 /* Definitions that are needed for core files.  Core section sizes for

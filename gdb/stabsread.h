@@ -40,7 +40,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    have the correct data for that slot yet.
 
    The use of the LOC_BLOCK code in this chain is nonstandard--
-   it refers to a FORTRAN common block rather than the usual meaning.  */
+   it refers to a FORTRAN common block rather than the usual meaning, and
+   the such LOC_BLOCK symbols use their fields in nonstandard ways.  */
 
 EXTERN struct symbol *global_sym_chain[HASHSIZE];
 
@@ -163,6 +164,8 @@ end_stabs PARAMS ((void));
 extern void
 finish_global_stabs PARAMS ((struct objfile *objfile));
 
+EXTERN int os9k_stabs;
+
 /* Functions exported by dbxread.c.  These are not in stabsread.h because
    they are only used by some stabs readers.  */
 
@@ -195,11 +198,15 @@ extern void coffstab_build_psymtabs
 	   file_ptr stabstroffset,
 	   unsigned int stabstrsize));
 
+extern void stabsect_build_psymtabs
+  PARAMS ((struct objfile *objfile,
+	   struct section_offsets *section_offsets,
+	   int mainline,
+	   char *stab_name,
+	   char *stabstr_name,
+	   char *text_name));
+
 extern void elfstab_offset_sections PARAMS ((struct objfile *,
 					     struct partial_symtab *));
-
-extern void
-pastab_build_psymtabs PARAMS ((struct objfile *, struct section_offsets *,
-			       int));
 
 #undef EXTERN

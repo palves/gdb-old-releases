@@ -27,14 +27,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symtab.h"
 #include "value.h"
 #include "frame.h"
-#include "ieee-float.h"
-
-/* Structure of i960 extended floating point format.  */
-
-const struct ext_format ext_format_i960 = {
-/* tot sbyte smask expbyte manbyte */
-   12, 9,    0x80, 9,8,	   4,0,		/* i960 */
-};
+#include "floatformat.h"
+#include "target.h"
 
 /* gdb960 is always running on a non-960 host.  Check its characteristics.
    This routine must be called as part of gdb initialization.  */
@@ -589,15 +583,24 @@ i960_fault_to_signal (fault)
     {
     case 0: return TARGET_SIGNAL_BUS; /* parallel fault */
     case 1: return TARGET_SIGNAL_UNKNOWN;
-    case 2: return TARGET_SIGNAL_BUS; /* operation fault */
+    case 2: return TARGET_SIGNAL_ILL; /* operation fault */
     case 3: return TARGET_SIGNAL_FPE; /* arithmetic fault */
     case 4: return TARGET_SIGNAL_FPE; /* floating point fault */
-    case 5: return TARGET_SIGNAL_BUS; /* constraint fault */
+
+       /* constraint fault.  This appears not to distinguish between
+	  a range constraint fault (which should be SIGFPE) and a privileged
+	  fault (which should be SIGILL).  */
+    case 5: return TARGET_SIGNAL_ILL;
+
     case 6: return TARGET_SIGNAL_SEGV; /* virtual memory fault */
-    case 7: return TARGET_SIGNAL_SEGV; /* protection fault */
+
+       /* protection fault.  This is for an out-of-range argument to
+	  "calls".  I guess it also could be SIGILL. */
+    case 7: return TARGET_SIGNAL_SEGV;
+
     case 8: return TARGET_SIGNAL_BUS; /* machine fault */
     case 9: return TARGET_SIGNAL_BUS; /* structural fault */
-    case 0xa: return TARGET_SIGNAL_BUS; /* type fault */
+    case 0xa: return TARGET_SIGNAL_ILL; /* type fault */
     case 0xb: return TARGET_SIGNAL_UNKNOWN; /* reserved fault */
     case 0xc: return TARGET_SIGNAL_BUS; /* process fault */
     case 0xd: return TARGET_SIGNAL_SEGV; /* descriptor fault */

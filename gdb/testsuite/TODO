@@ -10,7 +10,12 @@ test, but it hasn't been tried on a wide range of architectures).
 
 nodebug.exp--test printing variables.
 
-Get crossload tests to use --with-targets and reenable them.
+Test printing of structures passed by value, for the 7th, 8th, and 9th
+arguments (PR 1714).  Test printing structure arguments of
+2,4,6,8,12,16,and 20 bytes.  Same for structure return of all those
+sizes ("return", "finish", and call function).
+
+Get crossload tests to use --enable-targets and reenable them.
 
 corefile.exp:
 1.  Print variables from the core file (data and stack), and text
@@ -34,6 +39,9 @@ appropriately (integer registers in decimal, registers which always
 contain addresses (pc, probably sp and fp, maybe others) in hex,
 floating point).
 
+Test completer.  There is a list of test cases in main.c in the gdb
+source.  Test these with TAB, M-?, and the "complete" command.
+
 Test "info line" with all kinds of linespecs.  Test that the last line
 of the file works right.
 
@@ -41,16 +49,28 @@ weird.exp--test that unrecognized cross-reference types or
 unrecognized visibility or virtual characters get skipped properly
 (see stabs.texinfo).
 
-Test "jump" including jump to a breakpoint (the latter will need an
-xfail for UDI and probably VxWorks (PR 1786 for vxworks; PR 2416
-contains some info for 29k).
-
 Test C++ nested types (especially if PR 1954 is fixed; even if not
 *some* things already should work even in the presence of nested
 types).  Test classes nested more than 9 levels deep (g++ mangles
 these differently) (both a demangle test and some tests which also
 test the compiler).  Test calling a method of a class nested more than
 9 levels (for gdb_mangle_name and demangling).
+
+Test static member functions (C++).  Test that "ptype" shows them
+correctly, both before and after they have been converted from stub
+methods.  Test that we can call them.
+
+Test printing complicated types, including functions, pointers to
+arrays of pointers of functions, functions which return pointers to
+functions, etc.
+
+Test GDB expressions--test all operators (and overloaded operators for
+C++).  Test integer constants which are signed or unsigned int, long,
+or long long.  Test detection of overflow of an integer constant.
+Here are a few integer constants to test (test they get the right
+types): 5, 5LL, 5LuL, 5L6u (invalid), 5LU.  Maybe things like
+0x12345678, 0x87654321, etc., but their types depend on sizes of int,
+long, etc.
 
 Test that printing const-qualified versions of various types works.
 In particular, on the sparc and probably other machines, "double" is
@@ -111,11 +131,32 @@ one but it is not quite right as of 19 Nov 1993).
 
 Test that "x" command sets $_ and $__.  Test $_ in general.
 
+Test that "p/a" works when given addresses in text, data, and bss
+segments.  Test that it works if program is compiled with or without
+-g.  Test that it works if preceding symbol is static or if it is
+extern.
+
+Given `char abc[] = "abc\0def";' test "x/s abc" followed by "x/s"
+(should display "abc" followed by "def").  Test this works with no
+error message even if this is the last thing in the section (tests
+that val_print_string ignores an error if the error occurs after the
+'\0').
+
 Test ability to process NMAGIC a.out files.
+
+Test shared libraries:  "next" over printf, "step" into a function in
+a shared library which has line number info, breakpoint in a function
+in a shared library (either before or after the program is run and the
+shared libraries are loaded--also maybe write a test where the PLT
+will be in an unloaded state even though the shared library is loaded).
 
 If there are two breakpoints in the same place, and exactly one of
 them has its condition true, test that the correct breakpoint gets
 printed.
+
+Test "jump" including jump to a breakpoint (the latter will need an
+xfail for UDI and probably VxWorks (PR 1786 for vxworks; PR 2416
+contains some info for 29k).
 
 Set a watchpoint on a local variable (to be interesting, make a few
 calls, to be more interesting, make a recursive call).  Test that it

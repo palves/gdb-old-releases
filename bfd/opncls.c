@@ -1,5 +1,5 @@
 /* opncls.c -- open and close a BFD.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990 91, 92, 93, 94 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -22,29 +22,34 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 #include "obstack.h"
-extern void bfd_cache_init PARAMS ((bfd *));
-FILE *bfd_open_file PARAMS ((bfd *));
 
 /* fdopen is a loser -- we should use stdio exclusively.  Unfortunately
    if we do that we can't use fcntl.  */
 
 
-#define obstack_chunk_alloc bfd_xmalloc_by_size_t
+#define obstack_chunk_alloc malloc
 #define obstack_chunk_free free
 
 /* Return a new BFD.  All BFD's are allocated through this routine.  */
 
 bfd *
-new_bfd PARAMS ((void))
+_bfd_new_bfd ()
 {
   bfd *nbfd;
 
-  nbfd = (bfd *)zalloc (sizeof (bfd));
+  nbfd = (bfd *)bfd_zmalloc (sizeof (bfd));
   if (!nbfd)
-    return 0;
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return 0;
+    }
 
   bfd_check_init();
-  obstack_begin(&nbfd->memory, 128);
+  if (!obstack_begin(&nbfd->memory, 128))
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return 0;
+    }
 
   nbfd->arch_info = &bfd_default_arch_struct;
 
@@ -69,12 +74,12 @@ new_bfd PARAMS ((void))
 /* Allocate a new BFD as a member of archive OBFD.  */
 
 bfd *
-new_bfd_contained_in (obfd)
+_bfd_new_bfd_contained_in (obfd)
      bfd *obfd;
 {
   bfd *nbfd;
 
-  nbfd = new_bfd();
+  nbfd = _bfd_new_bfd();
   nbfd->xvec = obfd->xvec;
   nbfd->my_archive = obfd;
   nbfd->direction = read_direction;
@@ -103,26 +108,26 @@ DESCRIPTION
 	that function.
 
 	If <<NULL>> is returned then an error has occured.   Possible errors
-	are <<no_memory>>, <<invalid_target>> or <<system_call>> error.
+	are <<bfd_error_no_memory>>, <<bfd_error_invalid_target>> or <<system_call>> error.
 */
 
 bfd *
-DEFUN(bfd_openr, (filename, target),
-      CONST char *filename AND
-      CONST char *target)
+bfd_openr (filename, target)
+     CONST char *filename;
+     CONST char *target;
 {
   bfd *nbfd;
-  bfd_target *target_vec;
+  const bfd_target *target_vec;
 
-  nbfd = new_bfd();
+  nbfd = _bfd_new_bfd();
   if (nbfd == NULL) {
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     return NULL;
   }
 
   target_vec = bfd_find_target (target, nbfd);
   if (target_vec == NULL) {
-    bfd_error = invalid_target;
+    bfd_set_error (bfd_error_invalid_target);
     return NULL;
   }
 
@@ -130,7 +135,7 @@ DEFUN(bfd_openr, (filename, target),
   nbfd->direction = read_direction;
 
   if (bfd_open_file (nbfd) == NULL) {
-    bfd_error = system_call_error;	/* File didn't exist, or some such */
+    bfd_set_error (bfd_error_system_call);	/* File didn't exist, or some such */
     bfd_release(nbfd,0);
     return NULL;
   }
@@ -169,20 +174,20 @@ DESCRIPTION
 	 <<bfd_close>>, and will not be affected by BFD operations on other
 	 files.
 
-         Possible errors are <<no_memory>>, <<invalid_target>> and <<system_call_error>>.
+         Possible errors are <<bfd_error_no_memory>>, <<bfd_error_invalid_target>> and <<bfd_error_system_call>>.
 */
 
 bfd *
-DEFUN(bfd_fdopenr,(filename, target, fd),
-      CONST char *filename AND
-      CONST char *target AND
-      int fd)
+bfd_fdopenr (filename, target, fd)
+     CONST char *filename;
+     CONST char *target;
+     int fd;
 {
   bfd *nbfd;
-  bfd_target *target_vec;
+  const bfd_target *target_vec;
   int fdflags;
 
-  bfd_error = system_call_error;
+  bfd_set_error (bfd_error_system_call);
 
 #ifdef NO_FCNTL
   fdflags = O_RDWR;			/* Assume full access */
@@ -191,16 +196,16 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
 #endif
   if (fdflags == -1) return NULL;
 
-  nbfd = new_bfd();
+  nbfd = _bfd_new_bfd();
 
   if (nbfd == NULL) {
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     return NULL;
   }
 
   target_vec = bfd_find_target (target, nbfd);
   if (target_vec == NULL) {
-    bfd_error = invalid_target;
+    bfd_set_error (bfd_error_invalid_target);
     return NULL;
   }
 #if defined(VMS) || defined(__GO32__)
@@ -234,7 +239,8 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
   default: abort ();
   }
 				
-  bfd_cache_init (nbfd);
+  if (! bfd_cache_init (nbfd))
+    return NULL;
 
   return nbfd;
 }
@@ -255,26 +261,26 @@ DESCRIPTION
 	Create a BFD, associated with file @var{filename}, using the
 	file format @var{target}, and return a pointer to it.
 
-	Possible errors are <<system_call_error>>, <<no_memory>>,
-	<<invalid_target>>.
+	Possible errors are <<bfd_error_system_call>>, <<bfd_error_no_memory>>,
+	<<bfd_error_invalid_target>>.
 */
 
 bfd *
-DEFUN(bfd_openw,(filename, target),
-      CONST char *filename AND
-      CONST char *target)
+bfd_openw (filename, target)
+     CONST char *filename;
+     CONST char *target;
 {
   bfd *nbfd;
-  bfd_target *target_vec;
+  const bfd_target *target_vec;
 
-  bfd_error = system_call_error;
+  bfd_set_error (bfd_error_system_call);
 
   /* nbfd has to point to head of malloc'ed block so that bfd_close may
      reclaim it correctly. */
 
-  nbfd = new_bfd();
+  nbfd = _bfd_new_bfd();
   if (nbfd == NULL) {
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     return NULL;
   }
 
@@ -285,7 +291,7 @@ DEFUN(bfd_openw,(filename, target),
   nbfd->direction = write_direction;
 
   if (bfd_open_file (nbfd) == NULL) {
-    bfd_error = system_call_error;	/* File not writeable, etc */
+    bfd_set_error (bfd_error_system_call);	/* File not writeable, etc */
     (void) obstack_free (&nbfd->memory, (PTR)0);
     return NULL;
   }
@@ -318,8 +324,8 @@ RETURNS
 
 
 boolean
-DEFUN(bfd_close,(abfd),
-      bfd *abfd)
+bfd_close (abfd)
+     bfd *abfd;
 {
   boolean ret;
 
@@ -379,8 +385,8 @@ RETURNS
 */
 
 boolean
-DEFUN(bfd_close_all_done,(abfd),
-      bfd *abfd)
+bfd_close_all_done (abfd)
+     bfd *abfd;
 {
   boolean ret;
 
@@ -424,8 +430,8 @@ DESCRIPTION
 */
 
 bfd_size_type
-DEFUN(bfd_alloc_size,(abfd),
-      bfd *abfd)
+bfd_alloc_size (abfd)
+     bfd *abfd;
 {
   struct _obstack_chunk *chunk = abfd->memory.chunk;
   size_t size = 0;
@@ -454,13 +460,13 @@ DESCRIPTION
 */
 
 bfd *
-DEFUN(bfd_create,(filename, templ),
-      CONST char *filename AND
-      bfd *templ)
+bfd_create (filename, templ)
+     CONST char *filename;
+     bfd *templ;
 {
-  bfd *nbfd = new_bfd();
+  bfd *nbfd = _bfd_new_bfd();
   if (nbfd == (bfd *)NULL) {
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     return (bfd *)NULL;
   }
   nbfd->filename = filename;
@@ -486,50 +492,57 @@ DESCRIPTION
 
 
 PTR
-DEFUN(bfd_alloc_by_size_t,(abfd, size),
-      bfd *abfd AND
-      size_t size)
+bfd_alloc_by_size_t (abfd, size)
+     bfd *abfd;
+     size_t size;
 {
-  PTR res = obstack_alloc(&(abfd->memory), size);
-  return res;
+  return obstack_alloc(&(abfd->memory), size);
 }
 
-DEFUN(void bfd_alloc_grow,(abfd, ptr, size),
-      bfd *abfd AND
-      PTR ptr AND
-      size_t size)
+void
+bfd_alloc_grow (abfd, ptr, size)
+     bfd *abfd;
+     PTR ptr;
+     size_t size;
 {
   (void) obstack_grow(&(abfd->memory), ptr, size);
 }
-DEFUN(PTR bfd_alloc_finish,(abfd),
-      bfd *abfd)
+
+PTR
+bfd_alloc_finish (abfd)
+     bfd *abfd;
 {
   return obstack_finish(&(abfd->memory));
 }
 
-DEFUN(PTR bfd_alloc, (abfd, size),
-      bfd *abfd AND
-      size_t size)
+PTR
+bfd_alloc (abfd, size)
+     bfd *abfd;
+     size_t size;
 {
   return bfd_alloc_by_size_t(abfd, (size_t)size);
 }
 
-DEFUN(PTR bfd_zalloc,(abfd, size),
-      bfd *abfd AND
-      size_t size)
+PTR
+bfd_zalloc (abfd, size)
+     bfd *abfd;
+     size_t size;
 {
   PTR res;
   res = bfd_alloc(abfd, size);
-  memset(res, 0, (size_t)size);
+  if (res)
+    memset(res, 0, (size_t)size);
   return res;
 }
 
-DEFUN(PTR bfd_realloc,(abfd, old, size),
-      bfd *abfd AND
-      PTR old AND
-      size_t size)
+PTR
+bfd_realloc (abfd, old, size)
+     bfd *abfd;
+     PTR old;
+     size_t size;
 {
   PTR res = bfd_alloc(abfd, size);
-  memcpy(res, old, (size_t)size);
+  if (res)
+    memcpy(res, old, (size_t)size);
   return res;
 }

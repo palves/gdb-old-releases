@@ -194,11 +194,17 @@ static int* stackPtr = &remcomStack[STACKSIZE/sizeof(int) - 1];
 
 static ExceptionHook oldExceptionHook;
 
+#ifdef mc68020
 /* the size of the exception stack on the 68020 varies with the type of
  * exception.  The following table is the number of WORDS used
  * for each exception format.
  */
 const short exceptionSize[] = { 4,4,6,4,4,4,4,4,29,10,16,46,12,4,4,4 };
+#endif
+
+#ifdef mc68332
+static const short exceptionSize[] = { 4,4,6,4,4,4,4,4,4,4,4,4,16,4,4,4 };
+#endif
 
 /************* jump buffer used for setjmp/longjmp **************************/
 jmp_buf remcomEnv;
@@ -274,7 +280,7 @@ asm("
 .globl __debug_level7
 __debug_level7:
 	movew   d0,sp@-");
-#ifdef mc68020
+#if defined (mc68020) || defined (mc68332)
 asm("	movew   sp@(2),d0");
 #else
 asm("	movew   sp@(6),d0");
@@ -286,14 +292,14 @@ asm("	andiw   #0x700,d0
         bra     __catchException
 _already7:
 	movew   sp@+,d0");
-#ifndef mc68020
+#if !defined (mc68020) && !defined (mc68332)
 asm("	lea     sp@(4),sp");     /* pull off 68000 return address */
 #endif
 asm("	rte");
 
 extern void _catchException ();
 
-#ifdef mc68020
+#if defined (mc68020) || defined (mc68332)
 /* This function is called when a 68020 exception occurs.  It saves
  * all the cpu and fpcp regs in the _registers array, creates a frame on a
  * linked list of frames which has the cpu and fpcp stack frames needed
@@ -482,7 +488,7 @@ void _returnFromException( Frame *frame )
         frame->fsaveHeader = -1; /* restore regs, but we dont have fsave info*/
     }
 
-#ifndef mc68020
+#if !defined (mc68020) && !defined (mc68332)
     /* a 68000 cannot use the internal info pushed onto a bus error
      * or address error frame when doing an RTE so don't put this info
      * onto the stack or the stack will creep every time this happens.
@@ -667,8 +673,8 @@ int exceptionVector;
     case 3 : sigval = 10; break; /* address error       */
     case 4 : sigval = 4;  break; /* illegal instruction */
     case 5 : sigval = 8;  break; /* zero divide         */
-    case 6 : sigval = 16; break; /* chk instruction     */
-    case 7 : sigval = 16; break; /* trapv instruction   */
+    case 6 : sigval = 8; break; /* chk instruction     */
+    case 7 : sigval = 8; break; /* trapv instruction   */
     case 8 : sigval = 11; break; /* privilege violation */
     case 9 : sigval = 5;  break; /* trace trap          */
     case 10: sigval = 4;  break; /* line 1010 emulator  */

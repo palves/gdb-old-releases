@@ -1,5 +1,6 @@
 /* Native support for the SGI Iris running IRIX version 5, for GDB.
-   Copyright 1988, 1989, 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
    Contributed by Alessandro Forin(af@cs.cmu.edu) at CMU
    and by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin.
    Implemented for Irix 4.x by Garrett A. Wollman.
@@ -212,11 +213,9 @@ static char *bkpt_names[] = {
 #define DEBUG_BASE "__rld_obj_head"
 
 /* How to get the loaded address of a shared library.  */
-#define LM_ADDR(so) ((so)->lm.o_base_address)
+#define LM_ADDR(so) ((so)->lm.o_praw)
 
 char shadow_contents[BREAKPOINT_MAX];	/* Stash old bkpt addr contents */
-
-extern CORE_ADDR sigtramp_address, sigtramp_end;
 
 struct so_list {
   struct so_list *next;			/* next structure in linked list */
@@ -303,6 +302,7 @@ solib_map_sections (so)
   struct section_table *p;
   struct cleanup *old_chain;
   bfd *abfd;
+  CORE_ADDR offset;
   
   filename = tilde_expand (so -> lm.o_path);
   old_chain = make_cleanup (free, filename);
@@ -325,7 +325,7 @@ solib_map_sections (so)
     {
       close (scratch_chan);
       error ("Could not open `%s' as an executable file: %s",
-	     scratch_pathname, bfd_errmsg (bfd_error));
+	     scratch_pathname, bfd_errmsg (bfd_get_error ()));
     }
   /* Leave bfd open, core_xfer_memory and "info files" need it.  */
   so -> abfd = abfd;
@@ -334,23 +334,30 @@ solib_map_sections (so)
   if (!bfd_check_format (abfd, bfd_object))
     {
       error ("\"%s\": not in executable format: %s.",
-	     scratch_pathname, bfd_errmsg (bfd_error));
+	     scratch_pathname, bfd_errmsg (bfd_get_error ()));
     }
   if (build_section_table (abfd, &so -> sections, &so -> sections_end))
     {
       error ("Can't find the file sections in `%s': %s", 
-	     bfd_get_filename (exec_bfd), bfd_errmsg (bfd_error));
+	     bfd_get_filename (exec_bfd), bfd_errmsg (bfd_get_error ()));
     }
+
+  /* Irix 5 shared objects are pre-linked to particular addresses
+     although the dynamic linker may have to relocate them if the
+     address ranges of the libraries used by the main program clash.
+     The offset is the difference between the address where the object
+     is mapped and the binding address of the shared library.  */
+  offset = (CORE_ADDR) LM_ADDR (so) - so -> lm.o_base_address;
 
   for (p = so -> sections; p < so -> sections_end; p++)
     {
       /* Relocate the section binding addresses as recorded in the shared
-	 object's file by the base address to which the object was actually
-	 mapped. */
-      p -> addr += (CORE_ADDR) LM_ADDR (so);
-      p -> endaddr += (CORE_ADDR) LM_ADDR (so);
+	 object's file by the offset to get the address to which the
+	 object was actually mapped.  */
+      p -> addr += offset;
+      p -> endaddr += offset;
       so -> lmend = (CORE_ADDR) max (p -> endaddr, so -> lmend);
-      if (STREQ (p -> sec_ptr -> name, ".text"))
+      if (STREQ (p -> the_bfd_section -> name, ".text"))
 	{
 	  so -> textsection = p;
 	}
@@ -524,6 +531,9 @@ find_solib (so_list_ptr)
     }
   if ((so_list_next == NULL) && (lm != NULL))
     {
+      int errcode;
+      char *buffer;
+
       /* Get next link map structure from inferior image and build a local
 	 abbreviated load_map structure */
       new = (struct so_list *) xmalloc (sizeof (struct so_list));
@@ -544,6 +554,11 @@ find_solib (so_list_ptr)
 		   sizeof (struct obj_list));
       read_memory ((CORE_ADDR) new->ll.data, (char *) &(new -> lm),
 		   sizeof (struct obj));
+      target_read_string ((CORE_ADDR)new->lm.o_path, &buffer,
+			  INT_MAX, &errcode);
+      if (errcode != 0)
+	memory_error (errcode, (CORE_ADDR)new->lm.o_path);
+      new->lm.o_path = buffer;
       solib_map_sections (new);
     }
   return (so_list_next);
@@ -598,37 +613,10 @@ solib_add (arg_string, from_tty, target)
       error ("Invalid regexp: %s", re_err);
     }
   
-  /* Getting new symbols may change our opinion about what is
-     frameless.  */
-  reinit_frame_cache ();
-  /* Not to mention where _sigtramp is.  */
-  sigtramp_address = 0;
-  
-  while ((so = find_solib (so)) != NULL)
-    {
-      if (so -> lm.o_path[0] && re_exec (so -> lm.o_path))
-	{
-	  so -> from_tty = from_tty;
-	  if (so -> symbols_loaded)
-	    {
-	      if (from_tty)
-		{
-		  printf_unfiltered ("Symbols already loaded for %s\n", so -> lm.o_path);
-		}
-	    }
-	  else if (catch_errors
-		   (symbol_add_stub, (char *) so,
-		    "Error while reading shared library symbols:\n",
-		    RETURN_MASK_ALL))
-	    {
-	      so_last = so;
-	      so -> symbols_loaded = 1;
-	    }
-	}
-    }
-  
-  /* Now add the shared library sections to the section table of the
-     specified target, if any.  */
+  /* Add the shared library sections to the section table of the
+     specified target, if any. We have to do this before reading the
+     symbol files as symbol_file_add calls reinit_frame_cache and
+     creating a new frame might access memory in the shared library.  */
   if (target)
     {
       /* Count how many new section_table entries there are.  */
@@ -671,6 +659,30 @@ solib_add (arg_string, from_tty, target)
 			  (sizeof (struct section_table)) * count);
 		  old += count;
 		}
+	    }
+	}
+    }
+  
+  /* Now add the symbol files.  */
+  while ((so = find_solib (so)) != NULL)
+    {
+      if (so -> lm.o_path[0] && re_exec (so -> lm.o_path))
+	{
+	  so -> from_tty = from_tty;
+	  if (so -> symbols_loaded)
+	    {
+	      if (from_tty)
+		{
+		  printf_unfiltered ("Symbols already loaded for %s\n", so -> lm.o_path);
+		}
+	    }
+	  else if (catch_errors
+		   (symbol_add_stub, (char *) so,
+		    "Error while reading shared library symbols:\n",
+		    RETURN_MASK_ALL))
+	    {
+	      so_last = so;
+	      so -> symbols_loaded = 1;
 	    }
 	}
     }
@@ -765,7 +777,7 @@ solib_address (address)
     {
       if (so -> lm.o_path[0])
 	{
-	  if ((address >= (CORE_ADDR) so->lm.o_base_address) &&
+	  if ((address >= (CORE_ADDR) LM_ADDR (so)) &&
 	      (address < (CORE_ADDR) so -> lmend))
 	    {
 	      return (1);
@@ -797,10 +809,11 @@ clear_solib()
       else
 	/* This happens for the executable on SVR4.  */
 	bfd_filename = NULL;
-      
+
       next = so_list_head -> next;
       if (bfd_filename)
 	free ((PTR)bfd_filename);
+      free (so_list_head->lm.o_path);
       free ((PTR)so_list_head);
       so_list_head = next;
     }

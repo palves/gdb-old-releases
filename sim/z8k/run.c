@@ -72,7 +72,7 @@ char **av;
       }
 
       start_address = bfd_get_start_address(abfd);
-      sim_set_pc(start_address);
+      sim_create_inferior (start_address, NULL, NULL);
       if (trace) 
       {
 	int done = 0;
@@ -87,7 +87,7 @@ char **av;
       }
       if (verbose) 
       {
-	sim_info(printf, 0);
+	sim_info(0);
       }
       return 0;
     }

@@ -1,3 +1,98 @@
+Wed Jul 13 18:43:47 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* ns32k.h (endop): Made pointer const too.
+
+Sun Jul 10 11:01:09 1994  Ian Dall  (dall@hfrd.dsto.gov.au)
+
+	* ns32k.h: Drop Q operand type as there is no correct use
+	for it. Add I and Z operand types which allow better checking.
+
+Thu Jul  7 12:34:48 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* h8300.h (xor.l) :fix bit pattern. 
+	(L_2): New size of operand.
+	(trapa): Use it.
+
+Fri Jun 10 16:38:11 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* m68k.h: Move "trap" before "tpcc" to change disassembly.
+
+Fri Jun  3 15:57:36 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* sparc.h: Include v9 definitions.
+
+Thu Jun  2 12:23:17 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* m68k.h (m68060): Defined.
+	(m68040up, mfloat, mmmu): Include it.
+	(struct m68k_opcode): Widen `arch' field.
+	(m68k_opcodes): Updated for M68060.  Removed comments that were
+	instructions commented out by "JF" years ago.
+
+Thu Apr 28 18:31:14 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* m68k.h (struct m68k_opcode): Shorten `arch' field to 8 bits, and
+	add a one-bit `flags' field.
+	(F_ALIAS): New macro.
+
+Wed Apr 27 11:29:52 1994  Steve Chamberlain  (sac@cygnus.com)
+
+	* h8300.h (dec, inc): Get encoding right.
+
+Mon Apr  4 13:12:43 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc.h (struct powerpc_operand): Removed signedp field; just use
+	a flag instead.
+	(PPC_OPERAND_SIGNED): Define.
+	(PPC_OPERAND_SIGNOPT): Define.
+
+Thu Mar 31 19:34:08 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* i386.h (IS_JUMP_ON_ECX_ZERO, "jcxz" pattern): Operand size
+	prefix is 0x66, not 0x67.  Patch from H.J. Lu (hlu@nynexst.com).
+
+Thu Mar  3 15:51:05 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* i386.h: Reverse last change.  It'll be handled in gas instead.
+
+Thu Feb 24 15:29:05 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* i386.h (sar): Disabled the two-operand Imm1 form, since it was
+	slower on the 486 and used the implicit shift count despite the
+	explicit operand.  The one-operand form is still available to get
+	the shorter form with the implicit shift count.
+
+Thu Feb 17 12:27:52 1994  Torbjorn Granlund  (tege@mexican.cygnus.com)
+
+	* hppa.h: Fix typo in fstws arg string.
+
+Wed Feb  9 21:23:52 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc.h (struct powerpc_opcode): Make operands field unsigned.
+
+Mon Feb  7 19:14:58 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc.h (PPC_OPCODE_601): Define.
+
+Fri Feb  4 23:43:50 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* hppa.h (addb): Use '@' for addb and addib pseudo ops.
+	(so we can determine valid completers for both addb and addb[tf].)
+
+	* hppa.h (xmpyu): No floating point format specifier for the
+	xmpyu instruction.
+
+Fri Feb  4 23:36:52 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc.h (PPC_OPERAND_NEXT): Define.
+	(PPC_OPERAND_NEGATIVE): Change value to make room for above.
+	(struct powerpc_macro): Define.
+	(powerpc_macros, powerpc_num_macros): Declare.
+
+Fri Jan 21 19:13:50 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc.h: New file.  Header file for PowerPC opcode table.
+
 Mon Jan 17 00:14:23 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
 
 	* hppa.h: More minor template fixes for sfu and copr (to allow
@@ -467,7 +562,7 @@ Sat Nov 30 20:40:51 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
 	m88k.h, mips.h , np1.h, ns32k.h, pn.h, pyr.h, sparc.h, tahoe.h,
 	vax.h, ChangeLog: renamed from ../<foo>-opcode.h
 
-
-	
-
-
+
+Local Variables:
+version-control: never
+End:

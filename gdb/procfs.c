@@ -1,5 +1,5 @@
 /* Machine independent support for SVR4 /proc (process file system) for GDB.
-   Copyright 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.
 
 This file is part of GDB.
@@ -34,6 +34,7 @@ regardless of whether or not the actual target has floating point hardware.
 
 #include "defs.h"
 
+#include <sys/types.h>
 #include <time.h>
 #include <sys/procfs.h>
 #include <fcntl.h>
@@ -41,6 +42,8 @@ regardless of whether or not the actual target has floating point hardware.
 #include <string.h>
 #include <stropts.h>
 #include <poll.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 #include "inferior.h"
 #include "target.h"
@@ -570,22 +573,33 @@ wait_fd ()
   if (attach_flag)
     set_sigint_trap ();	/* Causes SIGINT to be passed on to the
 			   attached process. */
+  set_sigio_trap ();
 
 #ifndef LOSING_POLL
   num_fds = poll (poll_list, num_poll_list, -1);
 #else
   pi = current_procinfo;
 
-  if (ioctl (pi->fd, PIOCWSTOP, &pi->prstatus) < 0)
+  while (ioctl (pi->fd, PIOCWSTOP, &pi->prstatus) < 0)
     {
-      print_sys_errmsg (pi->pathname, errno);
-      error ("PIOCWSTOP failed");
+      if (errno == ENOENT)
+	{
+	  /* Process exited.  */
+	  pi->prstatus.pr_flags = 0;
+	  break;
+	}
+      else if (errno != EINTR)
+	{
+	  print_sys_errmsg (pi->pathname, errno);
+	  error ("PIOCWSTOP failed");
+	}
     }
   pi->had_event = 1;
 #endif  
   
   if (attach_flag)
     clear_sigint_trap();
+  clear_sigio_trap ();
 
 #ifndef LOSING_POLL
 
@@ -1206,36 +1220,6 @@ init_syscall_table ()
 
 /*
 
-GLOBAL FUNCTION
-
-	ptrace -- override library version to force errors for /proc version
-
-SYNOPSIS
-
-	int ptrace (int request, int pid, PTRACE_ARG3_TYPE arg3, int arg4)
-
-DESCRIPTION
-
-	When gdb is configured to use /proc, it should not be calling
-	or otherwise attempting to use ptrace.  In order to catch errors
-	where use of /proc is configured, but some routine is still calling
-	ptrace, we provide a local version of a function with that name
-	that does nothing but issue an error message.
-*/
-
-int
-ptrace (request, pid, arg3, arg4)
-     int request;
-     int pid;
-     PTRACE_ARG3_TYPE arg3;
-     int arg4;
-{
-  error ("internal error - there is a call to ptrace() somewhere");
-  /*NOTREACHED*/
-}
-
-/*
-
 LOCAL FUNCTION
 
 	procfs_kill_inferior - kill any currently inferior
@@ -1441,12 +1425,13 @@ LOCAL FUNCTION
 
 SYNOPSIS
 
-	void create_procinfo (int pid)
+	struct procinfo * create_procinfo (int pid)
 
 DESCRIPTION
 
-	Allocate a procinfo structure, open the /proc file and then sets up
-	the set of signals and faults that are to be traced.
+	Allocate a procinfo structure, open the /proc file and then set up the
+	set of signals and faults that are to be traced.  Returns a pointer to
+	the new procinfo structure.
 
 NOTES
 
@@ -1455,7 +1440,7 @@ NOTES
 
  */
 
-static void
+static struct procinfo *
 create_procinfo (pid)
      int pid;
 {
@@ -1487,6 +1472,8 @@ create_procinfo (pid)
 
   if (ioctl (pi->fd, PIOCSFAULT, &pi->prrun.pr_fault) < 0)
     proc_init_failed (pi, "PIOCSFAULT failed");
+
+  return pi;
 }
 
 /*
@@ -2145,20 +2132,20 @@ do_detach (signal)
 	    {
 	      /* Clear any fault that might have stopped it.  */
 	      if (ioctl (pi->fd, PIOCCFAULT, 0))
-  		{
-  		  print_sys_errmsg (pi->pathname, errno);
+		{
+		  print_sys_errmsg (pi->pathname, errno);
 		  printf_unfiltered ("PIOCCFAULT failed.\n");
-  		}
+		}
 
 	      /* Make it run again when we close it.  */
-#if defined (PIOCSET)	/* New method */
+#if defined (PIOCSET)		/* New method */
 	      {
-		  long pr_flags;
-		  pr_flags = PR_RLC;
-		  result = ioctl (pi->fd, PIOCSET, &pr_flags);
+		long pr_flags;
+		pr_flags = PR_RLC;
+		result = ioctl (pi->fd, PIOCSET, &pr_flags);
 	      }
 #else
-#if defined (PIOCSRLC)	/* Original method */
+#if defined (PIOCSRLC)		/* Original method */
 	      result = ioctl (pi->fd, PIOCSRLC, 0);
 #endif
 #endif
@@ -2218,10 +2205,12 @@ procfs_wait (pid, ourstatus)
       if (pi->had_event)
 	break;
 
-wait_again:
-
   if (!pi)
-    pi = wait_fd ();
+    {
+    wait_again:
+
+      pi = wait_fd ();
+    }
 
   if (pid != -1)
     for (pi = procinfo_list; pi; pi = pi->next)
@@ -2324,6 +2313,28 @@ wait_again:
 	      statval = (SIGTRAP << 8) | 0177;
 
 	      break;
+	    case SYS_fork:
+#ifdef SYS_vfork
+	    case SYS_vfork:
+#endif
+/* At this point, we've detected the completion of a fork (or vfork) call in
+   our child.  The grandchild is also stopped because we set inherit-on-fork
+   earlier.  (Note that nobody has the grandchilds' /proc file open at this
+   point.)  We will release the grandchild from the debugger by opening it's
+   /proc file and then closing it.  Since run-on-last-close is set, the
+   grandchild continues on its' merry way.  */
+
+	      {
+		struct procinfo *pitemp;
+
+		pitemp = create_procinfo (pi->prstatus.pr_rval1);
+		if (pitemp)
+		  close_proc_file (pitemp);
+
+		if (ioctl (pi->fd, PIOCRUN, &pi->prrun) != 0)
+		  perror_with_name (pi->pathname);
+	      }
+	      goto wait_again;
 #endif /* SYS_sproc */
 
 	    default:
@@ -2339,6 +2350,19 @@ wait_again:
 	case PR_FAULTED:
 	  switch (what)
 	    {
+#ifdef FLTWATCH
+	    case FLTWATCH:
+	      statval = (SIGTRAP << 8) | 0177;
+	      break;
+#endif
+#ifdef FLTKWATCH
+	    case FLTKWATCH:
+	      statval = (SIGTRAP << 8) | 0177;
+	      break;
+#endif
+#ifndef FAULTED_USE_SIGINFO
+	      /* Irix, contrary to the documentation, fills in 0 for si_signo.
+		 Solaris fills in si_signo.  I'm not sure about others.  */
 	    case FLTPRIV:
 	    case FLTILL:
 	      statval = (SIGILL << 8) | 0177;
@@ -2346,7 +2370,7 @@ wait_again:
 	    case FLTBPT:
 	    case FLTTRACE:
 	      statval = (SIGTRAP << 8) | 0177;
-	      break;
+	      break;	      
 	    case FLTSTACK:
 	    case FLTACCESS:
 	    case FLTBOUNDS:
@@ -2358,8 +2382,13 @@ wait_again:
 	      statval = (SIGFPE << 8) | 0177;
 	      break;
 	    case FLTPAGE:		/* Recoverable page fault */
+#endif /* not FAULTED_USE_SIGINFO */
 	    default:
-	      error ("PIOCWSTOP, unknown why %d, what %d", why, what);
+	      /* Use the signal which the kernel assigns.  This is better than
+		 trying to second-guess it from the fault.  In fact, I suspect
+		 that FLTACCESS can be either SIGSEGV or SIGBUS.  */
+	      statval = ((pi->prstatus.pr_info.si_signo) << 8) | 0177;
+	      break;
 	    }
 	  break;
 	default:
@@ -3385,16 +3414,16 @@ No process.  Start debugging a program or specify an explicit process ID.");
 
 LOCAL FUNCTION
 
-	procfs_set_sproc_trap -- arrange for exec'd child stop on sproc
+	procfs_set_sproc_trap -- arrange for child to stop on sproc().
 
 SYNOPSIS
 
-	void procfs_set_sproc_trap (void)
+	void procfs_set_sproc_trap (struct procinfo *)
 
 DESCRIPTION
 
 	This function sets up a trap on sproc system call exits so that we can
-	detect the arrival of a new thread.  We are called with the child
+	detect the arrival of a new thread.  We are called with the new thread
 	stopped prior to it's first instruction.
 
 	Also note that we turn on the inherit-on-fork flag in the child process
@@ -3416,6 +3445,16 @@ procfs_set_sproc_trap (pi)
     }
 
   praddset (&exitset, SYS_sproc);
+
+  /* We trap on fork() and vfork() in order to disable debugging in our grand-
+     children and descendant processes.  At this time, GDB can only handle
+     threads (multiple processes, one address space).  forks (and execs) result
+     in the creation of multiple address spaces, which GDB can't handle yet.  */
+
+  praddset (&exitset, SYS_fork);
+#ifdef SYS_vfork
+  praddset (&exitset, SYS_vfork);
+#endif
 
   if (ioctl (pi->fd, PIOCSEXIT, &exitset) < 0)
     {
@@ -3448,8 +3487,78 @@ procfs_create_inferior (exec_file, allargs, env)
      char *allargs;
      char **env;
 {
+  char *shell_file = getenv ("SHELL");
+  char *tryname;
+  if (shell_file != NULL && strchr (shell_file, '/') == NULL)
+    {
+
+      /* We will be looking down the PATH to find shell_file.  If we
+	 just do this the normal way (via execlp, which operates by
+	 attempting an exec for each element of the PATH until it
+	 finds one which succeeds), then there will be an exec for
+	 each failed attempt, each of which will cause a PR_SYSEXIT
+	 stop, and we won't know how to distinguish the PR_SYSEXIT's
+	 for these failed execs with the ones for successful execs
+	 (whether the exec has succeeded is stored at that time in the
+	 carry bit or some such architecture-specific and
+	 non-ABI-specified place).
+
+	 So I can't think of anything better than to search the PATH
+	 now.  This has several disadvantages: (1) There is a race
+	 condition; if we find a file now and it is deleted before we
+	 exec it, we lose, even if the deletion leaves a valid file
+	 further down in the PATH, (2) there is no way to know exactly
+	 what an executable (in the sense of "capable of being
+	 exec'd") file is.  Using access() loses because it may lose
+	 if the caller is the superuser; failing to use it loses if
+	 there are ACLs or some such.  */
+
+      char *p;
+      char *p1;
+      /* FIXME-maybe: might want "set path" command so user can change what
+	 path is used from within GDB.  */
+      char *path = getenv ("PATH");
+      int len;
+      struct stat statbuf;
+
+      if (path == NULL)
+	path = "/bin:/usr/bin";
+
+      tryname = alloca (strlen (path) + strlen (shell_file) + 2);
+      for (p = path; p != NULL; p = p1 ? p1 + 1: NULL)
+	{
+	  p1 = strchr (p, ':');
+	  if (p1 != NULL)
+	    len = p1 - p;
+	  else
+	    len = strlen (p);
+	  strncpy (tryname, p, len);
+	  tryname[len] = '\0';
+	  strcat (tryname, "/");
+	  strcat (tryname, shell_file);
+	  if (access (tryname, X_OK) < 0)
+	    continue;
+	  if (stat (tryname, &statbuf) < 0)
+	    continue;
+	  if (!S_ISREG (statbuf.st_mode))
+	    /* We certainly need to reject directories.  I'm not quite
+	       as sure about FIFOs, sockets, etc., but I kind of doubt
+	       that people want to exec() these things.  */
+	    continue;
+	  break;
+	}
+      if (p == NULL)
+	/* Not found.  This must be an error rather than merely passing
+	   the file to execlp(), because execlp() would try all the
+	   exec()s, causing GDB to get confused.  */
+	error ("Can't find shell %s in PATH", shell_file);
+
+      shell_file = tryname;
+    }
+
   fork_inferior (exec_file, allargs, env,
-		 proc_set_exec_trap, procfs_init_inferior);
+		 proc_set_exec_trap, procfs_init_inferior, shell_file);
+
   /* We are at the first instruction we care about.  */
   /* Pedal to the metal... */
 
@@ -3482,6 +3591,68 @@ procfs_can_run ()
 {
   return(1);
 }
+#ifdef TARGET_CAN_USE_HARDWARE_WATCHPOINT
+
+/* Insert a watchpoint */
+int
+procfs_set_watchpoint(pid, addr, len, rw)
+     int		pid;
+     CORE_ADDR		addr;
+     int		len;
+     int		rw;
+{
+  struct procinfo	*pi;
+  prwatch_t		wpt;
+
+  pi = find_procinfo (pid == -1 ? inferior_pid : pid, 0);
+  wpt.pr_vaddr = (caddr_t)addr;
+  wpt.pr_size = len;
+  wpt.pr_wflags = ((rw & 1) ? MA_READ : 0) | ((rw & 2) ? MA_WRITE : 0);
+  if (ioctl (pi->fd, PIOCSWATCH, &wpt) < 0)
+    {
+      if (errno == E2BIG)
+	return -1;
+      /* Currently it sometimes happens that the same watchpoint gets
+	 deleted twice - don't die in this case (FIXME please) */
+      if (errno == ESRCH && len == 0)
+	return 0;
+      print_sys_errmsg (pi->pathname, errno);
+      error ("PIOCSWATCH failed");
+    }
+  return 0;
+}
+
+int
+procfs_stopped_by_watchpoint(pid)
+    int			pid;
+{
+  struct procinfo	*pi;
+  short 		what;
+  short 		why;
+
+  pi = find_procinfo (pid == -1 ? inferior_pid : pid, 0);
+  if (pi->prstatus.pr_flags & (PR_STOPPED | PR_ISTOP))
+    {
+      why = pi->prstatus.pr_why;
+      what = pi->prstatus.pr_what;
+      if (why == PR_FAULTED 
+#if defined (FLTWATCH) && defined (FLTKWATCH)
+	  && (what == FLTWATCH) || (what == FLTKWATCH)
+#else
+#ifdef FLTWATCH
+	  && (what == FLTWATCH) 
+#endif
+#ifdef FLTKWATCH
+	  && (what == FLTKWATCH)
+#endif
+#endif
+	  )
+	return what;
+    }
+  return 0;
+}
+#endif
+
 
 struct target_ops procfs_ops = {
   "procfs",			/* to_shortname */

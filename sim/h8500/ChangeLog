@@ -1,3 +1,16 @@
+Wed May 18 13:58:05 1994  Doug Evans  (dje@canuck.cygnus.com)
+
+	* compile.c (sim_*): Change result to void where there isn't one.
+	(sim_resume): Fix subroutine calling (push return address).
+	(sim_set_pc): Delete.
+	(sim_info): Delete printf_fn arg, all callers changed.
+	Call printf_filtered instead.
+	(sim_create_inferior): Renamed from sim_set_args.
+	(sim_close): New function.
+	(sim_load): New function.
+	* run.c: #include <varargs.h>, "remote-sim.h".
+	(printf_filtered): New function.
+
 Sat Dec 11 16:35:34 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
 
 	* compile.c (segforreg): New vector. (sim_resume): Get Z flag

@@ -43,7 +43,8 @@ static bfd_arch_info_type arch_info_struct =
     0,
   };
 
-void DEFUN_VOID(bfd_rs6000_arch)
+void
+bfd_rs6000_arch ()
 {
   bfd_arch_linkin(&arch_info_struct);
 }

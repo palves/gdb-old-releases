@@ -36,6 +36,7 @@ struct external_exec
 #define OMAGIC 0407		/* ...object file or impure executable.  */
 #define NMAGIC 0410		/* Code indicating pure executable.  */
 #define ZMAGIC 0413		/* Code indicating demand-paged executable.  */
+#define BMAGIC 0415		/* Used by a b.out object.  */
 
 /* This indicates a demand-paged executable with the header in the text.
    It is used by 386BSD (and variants) and Linux, at least.  */
@@ -287,6 +288,17 @@ struct internal_nlist {
 
 #define	N_WARNING 0x1e
 
+/* Weak symbols.  These are a GNU extension to the a.out format.  The
+   semantics are those of ELF weak symbols.  Weak symbols are always
+   externally visible.  The N_WEAK? values are squeezed into the
+   available slots.  The value of a N_WEAKU symbol is 0.  The values
+   of the other types are the definitions.  */
+#define N_WEAKU	0x0d		/* Weak undefined symbol.  */
+#define N_WEAKA 0x0e		/* Weak absolute symbol.  */
+#define N_WEAKT 0x0f		/* Weak text symbol.  */
+#define N_WEAKD 0x10		/* Weak data symbol.  */
+#define N_WEAKB 0x11		/* Weak bss symbol.  */
+
 /* Relocations 
 
   There	are two types of relocation flavours for a.out systems,
@@ -310,25 +322,25 @@ struct reloc_std_external {
   bfd_byte r_type[1];	/* relocation type			*/
 };
 
-#define	RELOC_STD_BITS_PCREL_BIG	0x80
-#define	RELOC_STD_BITS_PCREL_LITTLE	0x01
+#define	RELOC_STD_BITS_PCREL_BIG	((unsigned int) 0x80)
+#define	RELOC_STD_BITS_PCREL_LITTLE	((unsigned int) 0x01)
 
-#define	RELOC_STD_BITS_LENGTH_BIG	0x60
-#define	RELOC_STD_BITS_LENGTH_SH_BIG	5	/* To shift to units place */
-#define	RELOC_STD_BITS_LENGTH_LITTLE	0x06
+#define	RELOC_STD_BITS_LENGTH_BIG	((unsigned int) 0x60)
+#define	RELOC_STD_BITS_LENGTH_SH_BIG	5
+#define	RELOC_STD_BITS_LENGTH_LITTLE	((unsigned int) 0x06)
 #define	RELOC_STD_BITS_LENGTH_SH_LITTLE	1
 
-#define	RELOC_STD_BITS_EXTERN_BIG	0x10
-#define	RELOC_STD_BITS_EXTERN_LITTLE	0x08
+#define	RELOC_STD_BITS_EXTERN_BIG	((unsigned int) 0x10)
+#define	RELOC_STD_BITS_EXTERN_LITTLE	((unsigned int) 0x08)
 
-#define	RELOC_STD_BITS_BASEREL_BIG	0x08
-#define	RELOC_STD_BITS_BASEREL_LITTLE	0x10
+#define	RELOC_STD_BITS_BASEREL_BIG	((unsigned int) 0x08)
+#define	RELOC_STD_BITS_BASEREL_LITTLE	((unsigned int) 0x10)
 
-#define	RELOC_STD_BITS_JMPTABLE_BIG	0x04
-#define	RELOC_STD_BITS_JMPTABLE_LITTLE	0x20
+#define	RELOC_STD_BITS_JMPTABLE_BIG	((unsigned int) 0x04)
+#define	RELOC_STD_BITS_JMPTABLE_LITTLE	((unsigned int) 0x20)
 
-#define	RELOC_STD_BITS_RELATIVE_BIG	0x02
-#define	RELOC_STD_BITS_RELATIVE_LITTLE	0x40
+#define	RELOC_STD_BITS_RELATIVE_BIG	((unsigned int) 0x02)
+#define	RELOC_STD_BITS_RELATIVE_LITTLE	((unsigned int) 0x40)
 
 #define	RELOC_STD_SIZE	(BYTES_IN_WORD + 3 + 1)		/* Bytes per relocation entry */
 
@@ -370,12 +382,12 @@ struct reloc_ext_external {
   bfd_byte r_addend[BYTES_IN_WORD];	/* datum addend				*/
 };
 
-#define	RELOC_EXT_BITS_EXTERN_BIG	0x80
-#define	RELOC_EXT_BITS_EXTERN_LITTLE	0x01
+#define	RELOC_EXT_BITS_EXTERN_BIG	((unsigned int) 0x80)
+#define	RELOC_EXT_BITS_EXTERN_LITTLE	((unsigned int) 0x01)
 
-#define	RELOC_EXT_BITS_TYPE_BIG		0x1F
+#define	RELOC_EXT_BITS_TYPE_BIG		((unsigned int) 0x1F)
 #define	RELOC_EXT_BITS_TYPE_SH_BIG	0
-#define	RELOC_EXT_BITS_TYPE_LITTLE	0xF8
+#define	RELOC_EXT_BITS_TYPE_LITTLE	((unsigned int) 0xF8)
 #define	RELOC_EXT_BITS_TYPE_SH_LITTLE	3
 
 /* Bytes per relocation entry */
@@ -426,7 +438,13 @@ enum reloc_type
   RELOC_CONST,
   RELOC_CONSTH,
   
+  /* All the new ones I can think of, for sparc v9 */
 
+  RELOC_64,			/* data[0:63] = addend + sv 		*/
+  RELOC_DISP64,			/* data[0:63] = addend - pc + sv 	*/
+  RELOC_WDISP21,		/* data[0:20] = (addend + sv - pc)>>2 	*/
+  RELOC_DISP21,			/* data[0:20] = addend - pc + sv        */
+  RELOC_DISP14,			/* data[0:13] = addend - pc + sv 	*/
   /* Q .
      What are the other ones,
      Since this is a clean slate, can we throw away the ones we dont

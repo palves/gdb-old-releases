@@ -1,5 +1,5 @@
 /* BFD back-end for Hitachi H8/300 COFF binaries.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Steve Chamberlain, <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -41,7 +41,7 @@ static reloc_howto_type howto_table[] =
   HOWTO (R_JMP2, 0, 0, 8, false, 0, complain_overflow_bitfield, 0, "pcrecl/16", true, 0x000000ff, 0x000000ff, false),
 
 
-  HOWTO (R_JMPL1, 0, 1, 32, false, 0, complain_overflow_bitfield, 0, "24/pcrell", true, 0x0000ffff, 0x0000ffff, false),
+  HOWTO (R_JMPL1, 0, 2, 32, false, 0, complain_overflow_bitfield, 0, "24/pcrell", true, 0x00ffffff, 0x00ffffff, false),
   HOWTO (R_JMPL_B8, 0, 0, 8, false, 0, complain_overflow_bitfield, 0, "pc8/24", true, 0x000000ff, 0x000000ff, false),
 
   HOWTO (R_MOVLB1, 0, 1, 16, false, 0, complain_overflow_bitfield, 0, "24/8", true, 0x0000ffff, 0x0000ffff, false),
@@ -53,7 +53,7 @@ static reloc_howto_type howto_table[] =
 /* Turn a howto into a reloc number */
 
 #define SELECT_RELOC(x,howto) \
-  { x = select_reloc(howto); }
+  { x.r_type = select_reloc(howto); }
 
 #define BADMAG(x) (H8300BADMAG(x)&& H8300HBADMAG(x))
 #define H8300 1			/* Customize coffcode.h */
@@ -148,12 +148,12 @@ rtype2howto (internal, dst)
  reloc_processing(relent, reloc, symbols, abfd, section)
 
 static void
-DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
-       arelent * relent AND
-       struct internal_reloc *reloc AND
-       asymbol ** symbols AND
-       bfd * abfd AND
-       asection * section)
+reloc_processing (relent, reloc, symbols, abfd, section)
+     arelent * relent;
+     struct internal_reloc *reloc;
+     asymbol ** symbols;
+     bfd * abfd;
+     asection * section;
 {
   relent->address = reloc->r_vaddr;
   rtype2howto (relent, reloc);
@@ -164,7 +164,7 @@ DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
     }
   else
     {
-      relent->sym_ptr_ptr = &(bfd_abs_symbol);
+      relent->sym_ptr_ptr = bfd_abs_section_ptr->symbol_ptr_ptr;
     }
 
 
@@ -177,9 +177,9 @@ DEFUN (reloc_processing, (relent, reloc, symbols, abfd, section),
 
 
 static int
-h8300_reloc16_estimate(input_section, symbols, reloc, shrink, link_info)
+h8300_reloc16_estimate(abfd, input_section, reloc, shrink, link_info)
+     bfd *abfd;
      asection *input_section;
-     asymbol **symbols;
      arelent *reloc;
      unsigned int shrink;
      struct bfd_link_info *link_info;
@@ -218,7 +218,7 @@ h8300_reloc16_estimate(input_section, symbols, reloc, shrink, link_info)
 	  /* The place to relc moves back by one */
 	  /* This will be two bytes smaller in the long run */
 	  shrink +=2 ;
-	  bfd_perform_slip(symbols, 2, input_section, address);
+	  bfd_perform_slip(abfd, 2, input_section, address);
 	}      
 
       break;
@@ -246,7 +246,7 @@ h8300_reloc16_estimate(input_section, symbols, reloc, shrink, link_info)
 	  reloc->howto = reloc->howto + 1;	  
 	  /* This will be two bytes smaller in the long run */
 	  shrink +=2 ;
-	  bfd_perform_slip(symbols, 2, input_section, address);
+	  bfd_perform_slip(abfd, 2, input_section, address);
 	}
       break;
 
@@ -274,7 +274,7 @@ h8300_reloc16_estimate(input_section, symbols, reloc, shrink, link_info)
 
 	  /* This will be two bytes smaller in the long run */
 	  shrink +=2 ;
-	  bfd_perform_slip(symbols, 2, input_section, address);
+	  bfd_perform_slip(abfd, 2, input_section, address);
 	}
       break;
     }
@@ -324,14 +324,37 @@ h8300_reloc16_extra_cases (abfd, link_info, link_order, reloc, data, src_ptr,
 	if (gap > 127 || gap < -128)
 	  {
 	    if (! ((*link_info->callbacks->reloc_overflow)
-		   (link_info, input_section->owner, input_section,
-		    reloc->address)))
+		   (link_info, bfd_asymbol_name (*reloc->sym_ptr_ptr),
+		    reloc->howto->name, reloc->addend, input_section->owner,
+		    input_section, reloc->address)))
 	      abort ();
 	  }
 
 	bfd_put_8 (abfd, gap, data + dst_address);
 	dst_address++;
 	src_address++;
+
+	break;
+      }
+    case R_PCRWORD:
+      {
+	bfd_vma dot = link_order->offset 
+	  + dst_address 
+	    + link_order->u.indirect.section->output_section->vma;
+	int gap = (bfd_coff_reloc16_get_value (reloc, link_info, input_section)
+		   - dot) - 1;
+	if (gap > 32767 || gap < -32768)
+	  {
+	    if (! ((*link_info->callbacks->reloc_overflow)
+		   (link_info, bfd_asymbol_name (*reloc->sym_ptr_ptr),
+		    reloc->howto->name, reloc->addend, input_section->owner,
+		    input_section, reloc->address)))
+	      abort ();
+	  }
+
+	bfd_put_16 (abfd, gap, data + dst_address);
+	dst_address+=2;
+	src_address+=2;
 
 	break;
       }
@@ -343,8 +366,9 @@ h8300_reloc16_extra_cases (abfd, link_info, link_order, reloc, data, src_ptr,
 	if (gap > 0xff && gap < ~0xff)
 	  {
 	    if (! ((*link_info->callbacks->reloc_overflow)
-		   (link_info, input_section->owner, input_section,
-		    reloc->address)))
+		   (link_info, bfd_asymbol_name (*reloc->sym_ptr_ptr),
+		    reloc->howto->name, reloc->addend, input_section->owner,
+		    input_section, reloc->address)))
 	      abort ();
 	  }
 
@@ -538,7 +562,7 @@ h8300_reloc16_extra_cases (abfd, link_info, link_order, reloc, data, src_ptr,
 
 
 
-bfd_target h8300coff_vec =
+const bfd_target h8300coff_vec =
 {
   "coff-h8300",			/* name */
   bfd_target_coff_flavour,
@@ -567,6 +591,15 @@ bfd_target h8300coff_vec =
   {bfd_false, coff_write_object_contents,	/* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE (coff),
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };

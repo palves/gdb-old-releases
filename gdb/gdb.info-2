@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb::                         The GNU debugger.
+* Gdb: (gdb).                     The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.12.
+Source-Level Debugger' for GDB Version 4.13.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -441,7 +441,7 @@ variables.
 `tbreak ARGS'
      Set a breakpoint enabled only for one stop.  ARGS are the same as
      for the `break' command, and the breakpoint is set in the same
-     way, but the breakpoint is automatically disabled after the first
+     way, but the breakpoint is automatically deleted after the first
      time your program stops there.  *Note Disabling breakpoints:
      Disabling.
 
@@ -1005,7 +1005,11 @@ variables that are interesting, until you see the problem happen.
           *Warning:* If you use the `step' command while control is
           within a function that was compiled without debugging
           information, execution proceeds until control reaches a
-          function that does have debugging information.
+          function that does have debugging information.  Likewise, it
+          will not step into a function which is compiled without
+          debugging information.  To step through functions without
+          debugging information, use the `stepi' command, described
+          below.
 
 `step COUNT'
      Continue running as in `step', but do so COUNT times.  If a

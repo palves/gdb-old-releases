@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TARGET_IS_BIG_ENDIAN_P
 #define N_HEADER_IN_TEXT(x) 0
 #define BYTES_IN_WORD 4
-#define ARCH 32
 #define ENTRY_CAN_BE_ZERO
 #define N_SHARED_LIB(x) 0 /* Avoids warning */
 #define TEXT_START_ADDR 0

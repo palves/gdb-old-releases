@@ -1,5 +1,5 @@
 /* Read ELF (Executable and Linking Format) object files for GDB.
-   Copyright 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.
 
 This file is part of GDB.
@@ -20,10 +20,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "bfd.h"
-#include <time.h> /* For time_t in libbfd.h.  */
-#include <sys/types.h> /* For time_t, if not in time.h.  */
-#include "libbfd.h"		/* For bfd_elf_find_section */
+#include <string.h>
 #include "libelf.h"
+#include "elf/mips.h"
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
@@ -31,7 +30,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "stabsread.h"
 #include "gdb-stabs.h"
 #include "complaints.h"
-#include <string.h>
 #include "demangle.h"
 
 /* The struct elfinfo is available only during ELF symbol table and
@@ -75,7 +73,7 @@ static void
 elf_symfile_finish PARAMS ((struct objfile *));
 
 static void
-elf_symtab_read PARAMS ((bfd *,  CORE_ADDR, struct objfile *));
+elf_symtab_read PARAMS ((bfd *,  CORE_ADDR, struct objfile *, int));
 
 static void
 free_elfinfo PARAMS ((void *));
@@ -190,6 +188,9 @@ record_minimal_symbol_and_info (name, address, ms_type, info, objfile)
     case mst_text:
     case mst_file_text:
       section = SECT_OFF_TEXT;
+#ifdef SMASH_TEXT_ADDRESS
+      SMASH_TEXT_ADDRESS (address);
+#endif
       break;
     case mst_data:
     case mst_file_data:
@@ -236,16 +237,17 @@ DESCRIPTION
 */
 
 static void
-elf_symtab_read (abfd, addr, objfile)
+elf_symtab_read (abfd, addr, objfile, dynamic)
      bfd *abfd;
      CORE_ADDR addr;
      struct objfile *objfile;
+     int dynamic;
 {
-  unsigned int storage_needed;
+  long storage_needed;
   asymbol *sym;
   asymbol **symbol_table;
-  unsigned int number_of_symbols;
-  unsigned int i;
+  long number_of_symbols;
+  long i;
   int index;
   struct cleanup *back_to;
   CORE_ADDR symaddr;
@@ -259,13 +261,35 @@ elf_symtab_read (abfd, addr, objfile)
   struct dbx_symfile_info *dbx = (struct dbx_symfile_info *)
 				 objfile->sym_stab_info;
   unsigned long size;
-  
-  storage_needed = get_symtab_upper_bound (abfd);
+  int stripped = (bfd_get_symcount (abfd) == 0);
+ 
+  if (dynamic)
+    {
+      storage_needed = bfd_get_dynamic_symtab_upper_bound (abfd);
+
+      /* Nothing to be done if there is no dynamic symtab.  */
+      if (storage_needed < 0)
+	return;
+    }
+  else
+    {
+      storage_needed = bfd_get_symtab_upper_bound (abfd);
+      if (storage_needed < 0)
+	error ("Can't read symbols from %s: %s", bfd_get_filename (abfd),
+	       bfd_errmsg (bfd_get_error ()));
+    }
   if (storage_needed > 0)
     {
       symbol_table = (asymbol **) xmalloc (storage_needed);
       back_to = make_cleanup (free, symbol_table);
-      number_of_symbols = bfd_canonicalize_symtab (abfd, symbol_table); 
+      if (dynamic)
+        number_of_symbols = bfd_canonicalize_dynamic_symtab (abfd,
+							     symbol_table);
+      else
+        number_of_symbols = bfd_canonicalize_symtab (abfd, symbol_table);
+      if (number_of_symbols < 0)
+	error ("Can't read symbols from %s: %s", bfd_get_filename (abfd),
+	       bfd_errmsg (bfd_get_error ()));
       for (i = 0; i < number_of_symbols; i++)
 	{
 	  sym = symbol_table[i];
@@ -275,6 +299,15 @@ elf_symtab_read (abfd, addr, objfile)
 		 that are null strings (may happen). */
 	      continue;
 	    }
+
+	  /* If it is a nonstripped executable, do not enter dynamic
+	     symbols, as the dynamic symbol table is usually a subset
+	     of the main symbol table.
+	     On Irix 5 however, the symbols for the procedure linkage
+	     table entries have meaningful values only in the dynamic
+	     symbol table, so we always examine undefined symbols.  */
+	  if (dynamic && !stripped && sym -> section != &bfd_und_section)
+	    continue;
 	  if (sym -> flags & BSF_FILE)
 	    {
 	      /* STT_FILE debugging symbol that helps stabs-in-elf debugging.
@@ -302,9 +335,50 @@ elf_symtab_read (abfd, addr, objfile)
 	      /* For non-absolute symbols, use the type of the section
 		 they are relative to, to intuit text/data.  Bfd provides
 		 no way of figuring this out for absolute symbols. */
-	      if (sym -> section == &bfd_abs_section)
+	      if (sym -> section == &bfd_und_section
+		  && (sym -> flags & BSF_GLOBAL)
+		  && (sym -> flags & BSF_FUNCTION))
 		{
-		  ms_type = mst_abs;
+		  /* Symbol is a reference to a function defined in
+		     a shared library.
+		     If its value is non zero then it is usually the
+		     absolute address of the corresponding entry in
+		     the procedure linkage table.
+		     If its value is zero then the dynamic linker has to
+		     resolve the symbol. We are unable to find any
+		     meaningful address for this symbol in the
+		     executable file, so we skip it.
+		     Irix 5 has a zero value for all shared library functions
+		     in the main symbol table, but the dynamic symbol table
+		     provides the right values.  */
+		  ms_type = mst_solib_trampoline;
+		  symaddr = sym -> value;
+		  if (symaddr == 0)
+		    continue;
+		  symaddr += addr;
+		}
+	      else if (sym -> section == &bfd_abs_section)
+		{
+		  /* This is a hack to get the minimal symbol type
+		     right for Irix 5, which has absolute adresses
+		     with special section indices for dynamic symbols. */
+		  unsigned short shndx =
+		    ((elf_symbol_type *) sym)->internal_elf_sym.st_shndx;
+
+		  switch (shndx)
+		    {
+		    case SHN_MIPS_TEXT:
+		      ms_type = mst_text;
+		      break;
+		    case SHN_MIPS_DATA:
+		      ms_type = mst_data;
+		      break;
+		    case SHN_MIPS_ACOMMON:
+		      ms_type = mst_bss;
+		      break;
+		    default:
+		      ms_type = mst_abs;
+		    }
 		}
 	      else if (sym -> section -> flags & SEC_CODE)
 		{
@@ -312,7 +386,10 @@ elf_symtab_read (abfd, addr, objfile)
 		    {
 		      ms_type = mst_text;
 		    }
-		  else if (sym->name[0] == '.' && sym->name[1] == 'L')
+		  else if ((sym->name[0] == '.' && sym->name[1] == 'L')
+			   || ((sym -> flags & BSF_LOCAL)
+			       && sym->name[0] == 'L'
+			       && sym->name[1] == 'L'))
 		    /* Looks like a compiler-generated label.  Skip it.
 		       The assembler should be skipping these (to keep
 		       executables small), but apparently with gcc on the
@@ -490,7 +567,11 @@ elf_symfile_read (objfile, section_offsets, mainline)
 
   /* FIXME, should take a section_offsets param, not just an offset.  */
   offset = ANOFFSET (section_offsets, 0);
-  elf_symtab_read (abfd, offset, objfile);
+  elf_symtab_read (abfd, offset, objfile, 0);
+
+  /* Add the dynamic symbols.  */
+
+  elf_symtab_read (abfd, offset, objfile, 1);
 
   /* Now process debugging information, which is contained in
      special ELF sections.  We first have to find them... */
@@ -506,25 +587,21 @@ elf_symfile_read (objfile, section_offsets, mainline)
     }
   if (ei.stabsect)
     {
-      /* STABS sections */
+      asection *str_sect;
 
-      /* FIXME:  Sun didn't really know how to implement this well.
-	 They made .stab sections that don't point to the .stabstr
-	 section with the sh_link field.  BFD doesn't make string table
-	 sections visible to the caller.  So we have to search the
-	 ELF section table, not the BFD section table, for the string
-	 table.  */
-      struct elf32_internal_shdr *elf_sect;
+      /* Stab sections have an associated string table that looks like
+	 a separate section.  */
+      str_sect = bfd_get_section_by_name (abfd, ".stabstr");
 
-      elf_sect = bfd_elf_find_section (abfd, ".stabstr");
-      if (elf_sect)
+      /* FIXME should probably warn about a stab section without a stabstr.  */
+      if (str_sect)
 	elfstab_build_psymtabs (objfile,
-  	  section_offsets,
-	  mainline,
-	  ei.stabsect->filepos,				/* .stab offset */
-	  bfd_get_section_size_before_reloc (ei.stabsect),/* .stab size */
-	  (file_ptr) elf_sect->sh_offset,		/* .stabstr offset */
-	  elf_sect->sh_size);				/* .stabstr size */
+				section_offsets,
+				mainline,
+				ei.stabsect->filepos,
+				bfd_section_size (abfd, ei.stabsect),
+				str_sect->filepos,
+				bfd_section_size (abfd, str_sect));
     }
   if (ei.mdebugsect)
     {
@@ -536,13 +613,6 @@ elf_symfile_read (objfile, section_offsets, mainline)
       if (swap)
 	elfmdebug_build_psymtabs (objfile, swap, ei.mdebugsect,
 				  section_offsets);
-    }
-
-  if (!have_partial_symbols ())
-    {
-      wrap_here ("");
-      printf_filtered ("(no debugging symbols found)...");
-      wrap_here ("");
     }
 
   /* Install any minimal symbols that have been collected as the current

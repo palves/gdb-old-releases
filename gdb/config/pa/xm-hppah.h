@@ -30,17 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #undef  INT_MIN
 #define INT_MIN         0x80000000
 
-/* HPUX 8.0, in its infinite wisdom, has chosen to prototype ptrace
-   with five arguments, so programs written for normal ptrace lose.
-
-   Idiots.
-
-   (They should have just made it varadic).  */
-#define FIVE_ARG_PTRACE
-
-#ifndef hp800
 #define USG
-#endif
 
 #ifndef __STDC__
 /* This define is discussed in decode_line_1 in symtab.c  */
@@ -48,8 +38,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 #define HAVE_TERMIOS
-
-#define KERNEL_U_ADDR 0
 
 /* HP uses non-ANSI definitions, but with void * results.  */
 #define	MEM_FNS_DECLARED	/* Some non-ANSI use void *, not char *.  */

@@ -117,6 +117,11 @@ struct target_ops **current_target_stack;
 
 static struct cmd_list_element *targetlist = NULL;
 
+/* Nonzero if we are debugging an attached outside process
+   rather than an inferior.  */
+
+int attach_flag;
+
 /* The user just typed 'target' without the name of a target.  */
 
 /* ARGSUSED */
@@ -436,22 +441,31 @@ pop_target ()
 #undef	MIN
 #define MIN(A, B) (((A) <= (B)) ? (A) : (B))
 
-/* target_read_string -- read a null terminated string from MEMADDR in target.
-   The read may also be terminated early by getting an error from target_xfer_
-   memory.
-   LEN is the size of the buffer pointed to by MYADDR.  Note that a terminating
-   null will only be written if there is sufficient room.  The return value is
-   is the number of bytes (including the null) actually transferred.
-*/
+/* target_read_string -- read a null terminated string, up to LEN bytes,
+   from MEMADDR in target.  Set *ERRNOP to the errno code, or 0 if successful.
+   Set *STRING to a pointer to malloc'd memory containing the data; the caller
+   is responsible for freeing it.  Return the number of bytes successfully
+   read.  */
 
 int
-target_read_string (memaddr, myaddr, len)
+target_read_string (memaddr, string, len, errnop)
      CORE_ADDR memaddr;
-     char *myaddr;
+     char **string;
      int len;
+     int *errnop;
 {
   int tlen, origlen, offset, i;
   char buf[4];
+  int errcode = 0;
+  char *buffer;
+  int buffer_allocated;
+  char *bufptr;
+  unsigned int nbytes_read = 0;
+
+  /* Small for testing.  */
+  buffer_allocated = 4;
+  buffer = xmalloc (buffer_allocated);
+  bufptr = buffer;
 
   origlen = len;
 
@@ -460,20 +474,39 @@ target_read_string (memaddr, myaddr, len)
       tlen = MIN (len, 4 - (memaddr & 3));
       offset = memaddr & 3;
 
-      if (target_xfer_memory (memaddr & ~3, buf, 4, 0))
-	return origlen - len;
+      errcode = target_xfer_memory (memaddr & ~3, buf, 4, 0);
+      if (errcode != 0)
+	goto done;
+
+      if (bufptr - buffer + tlen > buffer_allocated)
+	{
+	  unsigned int bytes;
+	  bytes = bufptr - buffer;
+	  buffer_allocated *= 2;
+	  buffer = xrealloc (buffer, buffer_allocated);
+	  bufptr = buffer + bytes;
+	}
 
       for (i = 0; i < tlen; i++)
 	{
-	  *myaddr++ = buf[i + offset];
+	  *bufptr++ = buf[i + offset];
 	  if (buf[i + offset] == '\000')
-	    return (origlen - len) + i + 1;
+	    {
+	      nbytes_read += i + 1;
+	      goto done;
+	    }
 	}
 
       memaddr += tlen;
       len -= tlen;
+      nbytes_read += tlen;
     }
-  return origlen;
+ done:
+  if (errnop != NULL)
+    *errnop = errcode;
+  if (string != NULL)
+    *string = buffer;
+  return nbytes_read;
 }
 
 /* Read LEN bytes of target memory at address MEMADDR, placing the results in
@@ -637,7 +670,7 @@ target_info (args, from_tty)
       if ((int)(t->to_stratum) <= (int)dummy_stratum)
 	continue;
       if (has_all_mem)
-	printf_unfiltered("\tWhile running this, gdb does not access memory from...\n");
+	printf_unfiltered("\tWhile running this, GDB does not access memory from...\n");
       printf_unfiltered("%s:\n", t->to_longname);
       (t->to_files_info)(t);
       has_all_mem = t->to_has_all_memory;
@@ -660,6 +693,12 @@ target_preopen (from_tty)
       else
         error ("Program not killed.");
     }
+
+  /* Calling target_kill may remove the target from the stack.  But if
+     it doesn't (which seems like a win for UDI), remove it now.  */
+
+  if (target_has_execution)
+    pop_target ();
 }
 
 /* Detach a target after doing deferred register stores.  */
@@ -674,6 +713,21 @@ target_detach (args, from_tty)
   DO_DEFERRED_STORES;
 #endif
   (current_target->to_detach) (args, from_tty);
+}
+
+void
+target_link (modname, t_reloc)
+     char *modname;
+     CORE_ADDR *t_reloc;
+{
+  if (STREQ(current_target->to_shortname, "rombug"))
+    {
+      (current_target->to_lookup_symbol) (modname, t_reloc);
+      if (*t_reloc == 0)
+      error("Unable to link to %s and get relocation in rombug", modname);
+    }
+  else
+    *t_reloc = (CORE_ADDR)-1;
 }
 
 /* Look through the list of possible targets for a target that can
@@ -759,6 +813,34 @@ find_core_target ()
     }
   
   return(count == 1 ? runable : NULL);
+}
+
+/* The inferior process has died.  Long live the inferior!  */
+
+void
+generic_mourn_inferior ()
+{
+  extern int show_breakpoint_hit_counts;
+
+  inferior_pid = 0;
+  attach_flag = 0;
+  breakpoint_init_inferior ();
+  registers_changed ();
+
+#ifdef CLEAR_DEFERRED_STORES
+  /* Delete any pending stores to the inferior... */
+  CLEAR_DEFERRED_STORES;
+#endif
+
+  reopen_exec_file ();
+  reinit_frame_cache ();
+
+  /* It is confusing to the user for ignore counts to stick around
+     from previous runs of the inferior.  So clear them.  */
+  /* However, it is more confusing for the ignore counts to disappear when
+     using hit counts.  So don't clear them if we're counting hits.  */
+  if (!show_breakpoint_hit_counts)
+    breakpoint_clear_ignore_counts ();
 }
 
 /* This table must match in order and size the signals in enum target_signal
@@ -1192,6 +1274,10 @@ store_waitstatus (ourstatus, hoststatus)
     }
 }
 
+
+/* Returns zero to leave the inferior alone, one to interrupt it.  */
+int (*target_activity_function) PARAMS ((void));
+int target_activity_fd;
 
 /* Convert a normal process ID to a string.  Returns the string in a static
    buffer.  */

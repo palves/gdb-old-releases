@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 386 COFF files.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -33,6 +33,9 @@ static bfd_reloc_status_type coff_i386_reloc PARAMS ((bfd *abfd,
 						      asection *input_section,
 						      bfd *output_bfd,
 						      char **error_message));
+
+/* The page size is a guess based on ELF.  */
+#define COFF_PAGE_SIZE 0x1000
 
 /* For some reason when using i386 COFF the value stored in the .text
    section for a reference to a common symbol is the value itself plus
@@ -237,7 +240,7 @@ static reloc_howto_type howto_table[] =
 
 /* Turn a howto into a reloc  nunmber */
 
-#define SELECT_RELOC(x,howto) { x = howto->type; }
+#define SELECT_RELOC(x,howto) { x.r_type = howto->type; }
 #define BADMAG(x) I386BADMAG(x)
 #define I386 1			/* Customize coffcode.h */
 
@@ -289,14 +292,14 @@ static reloc_howto_type howto_table[] =
 
 #include "coffcode.h"
 
-static bfd_target *
+static const bfd_target *
 i3coff_object_p(a)
      bfd *a;
 {
   return coff_object_p(a);
 }
 
-bfd_target
+const bfd_target
 #ifdef TARGET_SYM
   TARGET_SYM =
 #else
@@ -314,7 +317,7 @@ bfd_target
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   0,				/* leading underscore */
@@ -337,6 +340,15 @@ bfd_target
     {bfd_false, coff_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(coff),
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };

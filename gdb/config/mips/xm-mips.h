@@ -23,10 +23,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define HOST_BYTE_ORDER LITTLE_ENDIAN
 #endif
 
-/* Get rid of any system-imposed stack limit if possible */
-
-#define	SET_STACK_LIMIT_HUGE
-
 #ifdef ultrix
 /* Needed for DECstation core files.  */
 #include <machine/param.h>
@@ -68,6 +64,3 @@ extern void *memset();
 
    But we have termios, at least as of Ultrix 4.2A, so use it.  */
 #define HAVE_TERMIOS
-
-/* Mips hosts need aligned va_list arguments.  */
-#include "mips/xm-makeva.h"

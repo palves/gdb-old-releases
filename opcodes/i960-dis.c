@@ -50,7 +50,7 @@ print_insn_i960 (memaddr, info_arg)
     struct disassemble_info *info_arg;
 {
   unsigned int word1, word2 = 0xdeadbeef;
-  char buffer[8];
+  bfd_byte buffer[8];
   int status;
 
   info = info_arg;
@@ -66,17 +66,13 @@ print_insn_i960 (memaddr, info_arg)
       return -1;
     }
 
-  word1 = buffer [0] |( buffer[1]<< 8) | (buffer[2] << 16) | ( buffer[3] <<24);
+  word1 = bfd_getl32 (buffer);
 
   /* Divide instruction set into classes based on high 4 bits of opcode.  */
   switch ( (word1 >> 28) & 0xf )
     {
     default:
       break;
-    case 0x0:
-    case 0x1:
-    case 0x2:
-    case 0x3:
     case 0x8:
     case 0x9:
     case 0xa:
@@ -90,8 +86,7 @@ print_insn_i960 (memaddr, info_arg)
 	  (*info->memory_error_func) (status, memaddr, info);
 	  return -1;
 	}
-      word2 =
-	buffer [4] |( buffer[5]<< 8) | (buffer[6] << 16) | ( buffer[7] <<24);
+      word2 = bfd_getl32 (buffer + 4);
       break;
     }
 
@@ -322,10 +317,10 @@ mem( memaddr, word1, word2, noprint )
 	char *reg1, *reg2, *reg3;
 
 	/* This lookup table is too sparse to make it worth typing in, but not
-	 * so large as to make a sparse array necessary.  We allocate the
-	 * table at runtime, initialize all entries to empty, and copy the
-	 * real ones in from an initialization table.
-	 *
+	   so large as to make a sparse array necessary.  We create the table
+	   at runtime.  */
+
+	/*
 	 * NOTE: In this table, the meaning of 'numops' is:
 	 *	 1: single operand
 	 *	 2: 2 operands, load instruction
@@ -335,7 +330,7 @@ mem( memaddr, word1, word2, noprint )
 /* Opcodes of 0x8X, 9X, aX, bX, and cX must be in the table.  */
 #define MEM_MIN	0x80
 #define MEM_MAX	0xcf
-#define MEM_SIZ	((MEM_MAX-MEM_MIN+1) * sizeof(struct tabent))
+#define MEM_SIZ	( * sizeof(struct tabent))
 
 	static struct { int opcode; char *name; char numops; } mem_init[] = {
 		0x80,	"ldob",	 2,
@@ -360,10 +355,10 @@ mem( memaddr, word1, word2, noprint )
 		0xca,	"stis",	-2,
 		0,	NULL,	0
 	};
+	static struct tabent mem_tab_buf[MEM_MAX - MEM_MIN + 1];
 
 	if ( mem_tab == NULL ){
-		mem_tab = (struct tabent *) xmalloc( MEM_SIZ );
-		memset( (void *) mem_tab, 0, MEM_SIZ );
+		mem_tab = mem_tab_buf;
 		for ( i = 0; mem_init[i].opcode != 0; i++ ){
 			j = mem_init[i].opcode - MEM_MIN;
 			mem_tab[j].name = mem_init[i].name;
@@ -455,10 +450,10 @@ reg( word1 )
 	char *mnemp;
 
 	/* This lookup table is too sparse to make it worth typing in, but not
-	 * so large as to make a sparse array necessary.  We allocate the
-	 * table at runtime, initialize all entries to empty, and copy the
-	 * real ones in from an initialization table.
-	 *
+	   so large as to make a sparse array necessary.  We create the table
+	   at runtime.  */
+
+	/*
 	 * NOTE: In this table, the meaning of 'numops' is:
 	 *	 1: single operand, which is NOT a destination.
 	 *	-1: single operand, which IS a destination.
@@ -615,13 +610,12 @@ reg( word1 )
 		0x79d,	"Fsubrl",	3,
 		0x79f,	"Faddrl",	3,
 #define REG_MAX	0x79f
-#define REG_SIZ	((REG_MAX-REG_MIN+1) * sizeof(struct tabent))
 		0,	NULL,	0
 	};
+	static struct tabent reg_tab_buf[REG_MAX - REG_MIN + 1];
 
 	if ( reg_tab == NULL ){
-		reg_tab = (struct tabent *) xmalloc( REG_SIZ );
-		memset( (void *) reg_tab, 0, REG_SIZ );
+		reg_tab = reg_tab_buf;
 		for ( i = 0; reg_init[i].opcode != 0; i++ ){
 			j = reg_init[i].opcode - REG_MIN;
 			reg_tab[j].name = reg_init[i].name;

@@ -9,7 +9,7 @@
 @ifinfo
 @format
 START-INFO-DIR-ENTRY
-* configure::                   Cygnus configure.
+* configure: (configure).        Cygnus configure.
 END-INFO-DIR-ENTRY
 @end format
 @end ifinfo
@@ -40,7 +40,8 @@ except that this permission notice may be stated in a translation approved
 by Cygnus Support.
 @end ifinfo
 
-@smallbook
+@c We should not distribute texinfo files with smallbook enabled.
+@c @smallbook
 @finalout
 @titlepage
 @title Cygnus configure
@@ -207,8 +208,9 @@ of the source configuration:
   configure @var{hosttype}  [--target=@var{target}] [--srcdir=@var{dir}] [--rm]
             [--site=@var{site}] [--prefix=@var{dir}] [--exec-prefix=@var{dir}]
             [--program-prefix=@var{string}] [--tmpdir=@var{dir}]
-            [--with-@var{package}[=@var{yes/no}]] [--norecursion]
-            [--nfp] [-s] [-v] [-V | --version] [--help]
+            [--with-@var{package}[=@var{yes/no}]] [--without-@var{package}]
+            [--enable-@var{feature}[=@var{yes/no}]] [--disable-@var{feature}]
+            [--norecursion] [--nfp] [-s] [-v] [-V | --version] [--help]
 @end smallexample
 
 @table @code
@@ -302,12 +304,17 @@ default is the value of the environment variable @w{@code{TMPDIR}}, or
 @file{/tmp} if the environment variable is not set.
 
 @item --with-@var{package}[=@var{yes/no}]
+@itemx --without-@var{package}
 @cindex @code{--with-@var{package}}
 @cindex @code{with-@var{package}} option
 @vindex with-@var{package}
+@cindex @code{--without-@var{package}}
+@cindex @code{without-@var{package}} option
+@vindex without-@var{package}
 Indicate that @var{package} is present, or not present, depending on
-@var{yes/no}.  If @var{yes/no} is nonexistent, its value is assumed to
-be @code{yes}.
+@var{yes/no}.  If @var{yes/no} is nonexistent, its value is assumed to be
+@code{yes}.  @samp{--without-@var{package}} is equivalent to
+@samp{--with-@var{package}=no}.
 
 For example, if you wish to configure the program @code{gcc} for a Sun
 SPARCstation running SunOS 4.x, and you want @code{gcc} to use the
@@ -323,6 +330,25 @@ eg$ configure --with-gnu-ld sun4
 details.  See the installation or release notes for your particular package for
 details on which other @var{package} options are recognized.
 @c FIXME - need to include info about --with-* in other dox!
+
+@item --enable-@var{feature}[=@var{yes/no}]
+@itemx --disable-@var{feature}
+@cindex @code{--enable-@var{feature}}
+@cindex @code{enable-@var{feature}} option
+@vindex enable-@var{feature}
+@cindex @code{--disable-@var{feature}}
+@cindex @code{disable-@var{feature}} option
+@vindex disable-@var{feature}
+Include @var{feature}, or not, depending on @var{yes/no}.  If @var{yes/no} is
+nonexistent, its value is assumed to be @code{yes}.
+@samp{--disable-@var{feature}} is equivalent to
+@samp{--enable-@var{feature}=no}.
+
+@noindent
+@xref{What configure really does, , What @code{configure} really does}, for
+details.  See the installation or release notes for your particular package for
+details on which other @var{feature} options are recognized.
+@c FIXME - need to include info about --enable-* in other dox!
 
 @item --norecursion
 @cindex @code{--norecursion}

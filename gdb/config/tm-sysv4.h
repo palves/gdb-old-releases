@@ -1,5 +1,5 @@
 /* Macro definitions for GDB on all SVR4 target systems.
-   Copyright 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support (fnf@cygnus.com).
 
 This file is part of GDB.
@@ -19,18 +19,20 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* For SVR4 shared libraries, each call to a library routine goes through
-   a small piece of trampoline code in the ".init" section.  Although each
-   of these fragments is labeled with the name of the routine being called,
-   the gdb symbol reading code deliberately ignores them so it won't confuse
-   them with the real functions.  It does however know about the label that
-   precedes all of the fragments, which is "_init".  Thus when we lookup a
-   function that corresponds to a PC value which is in one of the trampoline
-   fragments, we'll appear to be in the function "_init".  The following
-   macro will evaluate to nonzero when NAME is valid and matches "_init".
+   a small piece of trampoline code in the ".plt" section.
    The horribly ugly wait_for_inferior() routine uses this macro to detect
-   when we have stepped into one of these fragments. */
+   when we have stepped into one of these fragments.
+   We do not use lookup_solib_trampoline_symbol_by_pc, because
+   we cannot always find the shared library trampoline symbols
+   (e.g. on Irix5).  */
 
-#define IN_SOLIB_TRAMPOLINE(pc,name) ((name) && (STREQ ("_init", name)))
+#define IN_SOLIB_TRAMPOLINE(pc, name) in_plt_section((pc), (name))
+extern int in_plt_section PARAMS ((CORE_ADDR, char *));
+
+/* If PC is in a shared library trampoline code, return the PC
+   where the function itself actually starts.  If not, return 0.  */
+
+#define SKIP_TRAMPOLINE_CODE(pc)  find_solib_trampoline_target (pc)
 
 /* It is unknown which, if any, SVR4 assemblers do not accept dollar signs
    in identifiers.  The default in G++ is to use dots instead, for all SVR4

@@ -1,5 +1,5 @@
 /* BFD back-end for HP/UX core files.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
    Written by Stu Grossman, Cygnus Support.
    Converted to back-end form by Ian Lance Taylor, Cygnus SUpport
 
@@ -105,11 +105,12 @@ hpux_core_make_empty_symbol (abfd)
      bfd *abfd;
 {
   asymbol *new = (asymbol *) bfd_zalloc (abfd, sizeof (asymbol));
-  new->the_bfd = abfd;
+  if (new)
+    new->the_bfd = abfd;
   return new;
 }
 
-static bfd_target *
+static const bfd_target *
 hpux_core_core_file_p (abfd)
      bfd *abfd;
 {
@@ -135,7 +136,9 @@ hpux_core_core_file_p (abfd)
 	case CORE_EXEC:
 	  {
 	    struct proc_exec proc_exec;
-	    bfd_read ((void *) &proc_exec, 1, core_header.len, abfd);
+	    if (bfd_read ((void *) &proc_exec, 1, core_header.len, abfd)
+		!= core_header.len)
+	      break;
 	    strncpy (core_command (abfd), proc_exec.cmd, MAXCOMLEN + 1);
 	  }
 	  break;
@@ -143,11 +146,13 @@ hpux_core_core_file_p (abfd)
 	  {
 	    struct proc_info proc_info;
 	    core_regsec (abfd) = make_bfd_asection (abfd, ".reg",
-					       SEC_ALLOC + SEC_HAS_CONTENTS,
+						    SEC_HAS_CONTENTS,
 						    core_header.len,
 				(int) &proc_info - (int) &proc_info.hw_regs,
 						    2);
-	    bfd_read (&proc_info, 1, core_header.len, abfd);
+	    if (bfd_read (&proc_info, 1, core_header.len, abfd)
+		!= core_header.len)
+	      break;
 	    core_signal (abfd) = proc_info.sig;
 	  }
 	  if (!core_regsec (abfd))
@@ -209,63 +214,14 @@ hpux_core_core_file_matches_executable_p (core_bfd, exec_bfd)
   return true;			/* FIXME, We have no way of telling at this point */
 }
 
-/* No archive file support via this BFD */
-#define	hpux_core_openr_next_archived_file	bfd_generic_openr_next_archived_file
-#define	hpux_core_generic_stat_arch_elt		bfd_generic_stat_arch_elt
-#define	hpux_core_slurp_armap			bfd_false
-#define	hpux_core_slurp_extended_name_table	bfd_true
-#define	hpux_core_write_armap			(boolean (*) PARAMS	\
-    ((bfd *arch, unsigned int elength, struct orl *map, \
-      unsigned int orl_count, int stridx))) bfd_false
-#define	hpux_core_truncate_arname		bfd_dont_truncate_arname
-
-#define	hpux_core_close_and_cleanup		bfd_generic_close_and_cleanup
-#define	hpux_core_set_section_contents		(boolean (*) PARAMS	\
-        ((bfd *abfd, asection *section, PTR data, file_ptr offset,	\
-        bfd_size_type count))) bfd_generic_set_section_contents
-#define	hpux_core_get_section_contents		bfd_generic_get_section_contents
-#define	hpux_core_new_section_hook		(boolean (*) PARAMS	\
-	((bfd *, sec_ptr))) bfd_true
-#define	hpux_core_get_symtab_upper_bound	bfd_0u
-#define	hpux_core_get_symtab			(unsigned int (*) PARAMS \
-        ((bfd *, struct symbol_cache_entry **))) bfd_0u
-#define	hpux_core_get_reloc_upper_bound		(unsigned int (*) PARAMS \
-	((bfd *, sec_ptr))) bfd_0u
-#define	hpux_core_canonicalize_reloc		(unsigned int (*) PARAMS \
-	((bfd *, sec_ptr, arelent **, struct symbol_cache_entry**))) bfd_0u
-#define	hpux_core_print_symbol			(void (*) PARAMS	\
-	((bfd *, PTR, struct symbol_cache_entry  *,			\
-	bfd_print_symbol_type))) bfd_false
-#define	hpux_core_get_symbol_info		(void (*) PARAMS	\
-	((bfd *, struct symbol_cache_entry  *,			\
-	symbol_info *))) bfd_false
-#define	hpux_core_get_lineno			(alent * (*) PARAMS	\
-	((bfd *, struct symbol_cache_entry *))) bfd_nullvoidptr
-#define	hpux_core_set_arch_mach			(boolean (*) PARAMS	\
-	((bfd *, enum bfd_architecture, unsigned long))) bfd_false
-#define	hpux_core_find_nearest_line		(boolean (*) PARAMS	\
-        ((bfd *abfd, struct sec  *section,				\
-         struct symbol_cache_entry  **symbols,bfd_vma offset,		\
-         CONST char **file, CONST char **func, unsigned int *line))) bfd_false
-#define	hpux_core_sizeof_headers		(int (*) PARAMS	\
-	((bfd *, boolean))) bfd_0
-
-#define hpux_core_bfd_debug_info_start		bfd_void
-#define hpux_core_bfd_debug_info_end		bfd_void
-#define hpux_core_bfd_debug_info_accumulate	(void (*) PARAMS	\
-	((bfd *, struct sec *))) bfd_void
-#define hpux_core_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
-#define hpux_core_bfd_relax_section		bfd_generic_relax_section
-#define hpux_core_bfd_reloc_type_lookup \
-  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
-#define hpux_core_bfd_make_debug_symbol \
-  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
-#define hpux_core_bfd_link_hash_table_create \
-  ((struct bfd_link_hash_table *(*) PARAMS ((bfd *))) bfd_nullvoidptr)
-#define hpux_core_bfd_link_add_symbols \
-  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
-#define hpux_core_bfd_final_link \
-  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
+#define hpux_core_get_symtab_upper_bound _bfd_nosymbols_get_symtab_upper_bound
+#define hpux_core_get_symtab _bfd_nosymbols_get_symtab
+#define hpux_core_print_symbol _bfd_nosymbols_print_symbol
+#define hpux_core_get_symbol_info _bfd_nosymbols_get_symbol_info
+#define hpux_core_bfd_is_local_label _bfd_nosymbols_bfd_is_local_label
+#define hpux_core_get_lineno _bfd_nosymbols_get_lineno
+#define hpux_core_find_nearest_line _bfd_nosymbols_find_nearest_line
+#define hpux_core_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
 void
@@ -278,7 +234,7 @@ swap_abort()
 #define	NO_SIGNED_GET \
   ((bfd_signed_vma (*) PARAMS ((const bfd_byte *))) swap_abort )
 
-bfd_target hpux_core_vec =
+const bfd_target hpux_core_vec =
   {
     "hpux-core",
     bfd_target_unknown_flavour,
@@ -314,6 +270,15 @@ bfd_target hpux_core_vec =
      bfd_false, bfd_false
     },
     
-    JUMP_TABLE(hpux_core),
+       BFD_JUMP_TABLE_GENERIC (_bfd_generic),
+       BFD_JUMP_TABLE_COPY (_bfd_generic),
+       BFD_JUMP_TABLE_CORE (hpux_core),
+       BFD_JUMP_TABLE_ARCHIVE (_bfd_noarchive),
+       BFD_JUMP_TABLE_SYMBOLS (hpux_core),
+       BFD_JUMP_TABLE_RELOCS (_bfd_norelocs),
+       BFD_JUMP_TABLE_WRITE (_bfd_generic),
+       BFD_JUMP_TABLE_LINK (_bfd_nolink),
+       BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
     (PTR) 0			/* backend_data */
 };

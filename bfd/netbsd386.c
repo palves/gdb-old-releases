@@ -18,7 +18,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define	BYTES_IN_WORD	4
-#define	ARCH	32
 
 /* ZMAGIC files never have the header in the text.  */
 #define	N_HEADER_IN_TEXT(x)	0
@@ -52,7 +51,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   ((exec).a_info = \
    (((exec).a_info & ~(0x3ff<<16)) | (((machtype)&0xff) << 16)))
 #define N_SET_FLAGS(exec, flags) \
-  ((exec).a_info = ((exec).a_info & 0xffff) | (flags & 0xffff))
+  ((exec).a_info = \
+      (((exec).a_info & ~(0x3f<<26)) | (((flags)&0x3f) << 26)))
 
 #include "bfd.h"
 #include "sysdep.h"

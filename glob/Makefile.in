@@ -86,12 +86,16 @@ tilde.o:	tilde.c
 
 install:
 
+TAGS: force
+	etags $(srcdir)/*.c
+force:
+
 tilde-test: tilde.c
 	$(CC) $(CFLAGS) -o tilde-test -DTEST tilde.c
 mostlyclean clean:
 	$(RM) *.o *.a
 distclean realclean: clean
-	rm -f Makefile config.status
+	rm -f Makefile config.status sysdep.h
 
 # with the gnu make, this is done automatically.
 

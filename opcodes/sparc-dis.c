@@ -34,11 +34,29 @@ static  char *reg_names[] =
   "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",	
   "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
   "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31",
+#ifndef NO_V9
+  "f32", "f33", "f34", "f35", "f36", "f37", "f38", "f39",	
+  "f40", "f41", "f42", "f43", "f44", "f45", "f46", "f47",	
+  "f48", "f49", "f50", "f51", "f52", "f53", "f54", "f55",
+  "f56", "f57", "f58", "f59", "f60", "f61", "f62", "f63",
+/* psr, wim, tbr, fpsr, cpsr are v8 only.  */
+#endif
   "y", "psr", "wim", "tbr", "pc", "npc", "fpsr", "cpsr"
 };
 
 #define	freg_names	(&reg_names[4 * 8])
 
+#ifndef NO_V9
+/* These are ordered according to there register number in
+   rdpr and wrpr insns.  */
+static char *v9_priv_reg_names[] =
+{
+  "tpc", "tnpc", "tstate", "tt", "tick", "tba", "pstate", "tl",
+  "pil", "cwp", "cansave", "canrestore", "cleanwin", "otherwin",
+  "wstate", "fq"
+  /* "ver" - special cased */
+};
+#endif
 
 /* FIXME--need to deal with byte order (probably using masking and
    shifting rather than bitfields is easiest).  */
@@ -78,6 +96,21 @@ union sparc_insn
 #define	disp22	branch.DISP22
 #define	imm22	disp22
       } branch;
+#ifndef NO_V9
+    struct
+      {
+	unsigned int anop:2;
+	unsigned int a:1;
+	unsigned int z:1;
+	unsigned int rcond:3;
+	unsigned int op2:3;
+	unsigned int DISP16HI:2;
+	unsigned int p:1;
+	unsigned int _rs1:5;
+	unsigned int DISP16LO:14;
+#define	disp16(x) (((x).branch16.DISP16HI << 14) | (x).branch16.DISP16LO)
+      } branch16;
+#endif /* NO_V9 */
     struct
       {
 	unsigned int anop:2;
@@ -194,6 +227,17 @@ print_insn_sparc (memaddr, info)
 		      is_annulled = 1;
 		      ++s;
 		      continue;
+#ifndef NO_V9
+		    case 'N':
+		      (*info->fprintf_func) (stream, "pn");
+		      ++s;
+		      continue;
+
+		    case 'T':
+		      (*info->fprintf_func) (stream, "pt");
+		      ++s;
+		      continue;
+#endif	/* NO_V9 */
 
 		    default:
 		      break;
@@ -301,6 +345,98 @@ print_insn_sparc (memaddr, info)
 		    }
 		    break;
 
+#ifndef NO_V9
+		  case 'I':	/* 11 bit immediate.  */
+		  case 'j':	/* 10 bit immediate.  */
+		    {
+		      /* We cannot trust the compiler to sign-extend
+			 when extracting the bitfield, hence the shifts.  */
+		      int imm;
+
+		      if (*s == 'I')
+			imm = SEX (insn.imm13, 11);
+		      else
+			imm = SEX (insn.imm13, 10);
+
+		      /* Check to see whether we have a 1+i, and take
+			 note of that fact.
+			 
+			 Note: because of the way we sort the table,
+			 we will be matching 1+i rather than i+1,
+			 so it is OK to assume that i is after +,
+			 not before it.  */
+		      if (found_plus)
+			imm_added_to_rs1 = 1;
+		      
+		      if (imm <= 9)
+			(info->fprintf_func) (stream, "%d", imm);
+		      else
+			(info->fprintf_func) (stream, "%#x", (unsigned) imm);
+		    }
+		    break;
+
+		  case 'k':
+		    info->target = memaddr + (SEX (disp16 (insn), 16)) * 4;
+		    (*info->print_address_func) (info->target, info);
+		    break;
+
+		  case 'G':
+		    info->target = memaddr + (SEX (insn.disp22, 19)) * 4;
+		    (*info->print_address_func) (info->target, info);
+		    break;
+
+		  case '6':
+		  case '7':
+		  case '8':
+		  case '9':
+		    (*info->fprintf_func) (stream, "%%fcc%c", *s - '6' + '0');
+		    break;
+
+		  case 'z':
+		    (*info->fprintf_func) (stream, "%%icc");
+		    break;
+
+		  case 'Z':
+		    (*info->fprintf_func) (stream, "%%xcc");
+		    break;
+
+		  case 'E':
+		    (*info->fprintf_func) (stream, "%%ccr");
+		    break;
+
+		  case 's':
+		    (*info->fprintf_func) (stream, "%%fprs");
+		    break;
+
+		  case 'o':
+		    (*info->fprintf_func) (stream, "%%asi");
+		    break;
+
+		  case 'W':
+		    (*info->fprintf_func) (stream, "%%tick");
+		    break;
+
+		  case 'P':
+		    (*info->fprintf_func) (stream, "%%pc");
+		    break;
+
+		  case '?':
+		    if (insn.rs1 == 31)
+		      (*info->fprintf_func) (stream, "%%ver");
+		    else if ((unsigned) insn.rs1 < 16)
+		      (*info->fprintf_func) (stream, "%%%s", v9_priv_reg_names[insn.rs1]);
+		    else
+		      (*info->fprintf_func) (stream, "%%reserved");
+		    break;
+
+		  case '!':
+		    if ((unsigned) insn.rd < 15)
+		      (*info->fprintf_func) (stream, "%%%s", v9_priv_reg_names[insn.rd]);
+		    else
+		      (*info->fprintf_func) (stream, "%%reserved");
+		    break;
+		    break;
+#endif	/* NO_V9 */
 
 		  case 'M':
 		    (*info->fprintf_func) (stream, "%%asr%d", insn.rs1);

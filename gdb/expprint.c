@@ -64,7 +64,7 @@ print_subexp (exp, pos, stream, prec)
   enum precedence myprec = PREC_NULL;
   /* Set to 1 for a right-associative operator.  */
   int assoc = 0;
-  value val;
+  value_ptr val;
   char *tempstr = NULL;
 
   op_print_tab = exp->language_defn->la_op_print_tab;
@@ -506,8 +506,9 @@ dump_expression (exp, stream, note)
   char *eltscan;
   int eltsize;
 
-  fprintf_filtered (stream, "Dump of expression @ 0x%lx, %s:\n",
-		    (unsigned long) exp, note);
+  fprintf_filtered (stream, "Dump of expression @ ");
+  gdb_print_address (exp, stream);
+  fprintf_filtered (stream, ", %s:\n", note);
   fprintf_filtered (stream, "\tLanguage %s, %d elements, %d bytes each.\n",
 		    exp->language_defn->la_name, exp -> nelts,
 		    sizeof (union exp_element));

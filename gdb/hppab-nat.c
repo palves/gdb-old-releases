@@ -27,76 +27,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include <sys/ptrace.h>
 
-#ifndef PT_ATTACH
-#define PT_ATTACH PTRACE_ATTACH
-#endif
-
-#ifndef PT_DETACH
-#define PT_DETACH PTRACE_DETACH
-#endif
-
-/* This function simply calls ptrace with the given arguments.  
-   It exists so that all calls to ptrace are isolated in this 
-   machine-dependent file. */
-
-int
-call_ptrace (request, pid, addr, data)
-     int request, pid;
-     PTRACE_ARG3_TYPE addr;
-     int data;
-{
-  return ptrace (request, pid, addr, data, 0);
-}
-
 /* Use an extra level of indirection for ptrace calls.
    This lets us breakpoint usefully on call_ptrace.   It also
    allows us to pass an extra argument to ptrace without
    using an ANSI-C specific macro.  */
 
 #define ptrace call_ptrace
-
-void
-kill_inferior ()
-{
-  if (inferior_pid == 0)
-    return;
-  ptrace (PT_KILL, inferior_pid, (PTRACE_ARG3_TYPE) 0, 0);
-  wait ((int *)0);
-  target_mourn_inferior ();
-}
-
-#ifdef ATTACH_DETACH
-
-/* Start debugging the process whose number is PID.  */
-int
-attach (pid)
-     int pid;
-{
-  errno = 0;
-  ptrace (PT_ATTACH, pid, (PTRACE_ARG3_TYPE) 0, 0);
-  if (errno)
-    perror_with_name ("ptrace");
-  attach_flag = 1;
-  return pid;
-}
-
-/* Stop debugging the process whose number is PID
-   and continue it with signal number SIGNAL.
-   SIGNAL = 0 means just continue it.  */
-
-void
-detach (signal)
-     int signal;
-{
-  errno = 0;
-  ptrace (PT_DETACH, inferior_pid, (PTRACE_ARG3_TYPE) 1, signal);
-  if (errno)
-    perror_with_name ("ptrace");
-  attach_flag = 0;
-}
-#endif /* ATTACH_DETACH */
-
-
 
 #if !defined (offsetof)
 #define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)
@@ -204,125 +140,62 @@ store_inferior_registers (regno)
   return;
 }
 
-/* Resume execution of process PID.
-   If STEP is nonzero, single-step it.
-   If SIGNAL is nonzero, give it that signal.  */
 
-void
-child_resume (pid, step, signal)
-     int pid;
-     int step;
-     enum target_signal signal;
-{
-  errno = 0;
+/* PT_PROT is specific to the PA BSD kernel and isn't documented
+   anywhere (except here).  
 
-  if (pid == -1)
-    pid = inferior_pid;
+   PT_PROT allows one to enable/disable the data memory break bit
+   for pages of memory in an inferior process.  This bit is used
+   to cause "Data memory break traps" to occur when the appropriate
+   page is written to.
 
-  /* An address of (PTRACE_ARG3_TYPE) 1 tells ptrace to continue from where
-     it was. (If GDB wanted it to start some other way, we have already
-     written a new PC value to the child.)  */
+   The arguments are as follows:
 
-  if (step)
-    ptrace (PT_STEP, pid, (PTRACE_ARG3_TYPE) 1,
-	    target_signal_to_host (signal));
-  else
-    ptrace (PT_CONTINUE, pid, (PTRACE_ARG3_TYPE) 1,
-	    target_signal_to_host (signal));
+      PT_PROT -- The ptrace action to perform.
 
-  if (errno)
-    perror_with_name ("ptrace");
-}
+      INFERIOR_PID -- The pid of the process who's page table entries
+      will be modified.
 
-/* NOTE! I tried using PTRACE_READDATA, etc., to read and write memory
-   in the NEW_SUN_PTRACE case.
-   It ought to be straightforward.  But it appears that writing did
-   not write the data that I specified.  I cannot understand where
-   it got the data that it actually did write.  */
+      PT_ARGS -- The *address* of a 3 word block of memory which has
+      additional information:
 
-/* Copy LEN bytes to or from inferior's memory starting at MEMADDR
-   to debugger memory starting at MYADDR.   Copy to inferior if
-   WRITE is nonzero.
-  
-   Returns the length copied, which is either the LEN argument or zero.
-   This xfer function does not do partial moves, since child_ops
-   doesn't allow memory operations to cross below us in the target stack
-   anyway.  */
+        word 0 -- The start address to watch.  This should be a page-aligned
+	address.
+
+	word 1 -- The ending address to watch.  Again, this should be a 
+	page aligned address.
+
+	word 2 -- Nonzero to enable the data memory break bit on the
+	given address range or zero to disable the data memory break
+	bit on the given address range.
+
+  This call may fail if the given addresses are not valid in the inferior
+  process.  This most often happens when restarting a program which
+  as watchpoints inserted on heap or stack memory.  */
+	
+#define PT_PROT 21
 
 int
-child_xfer_memory (memaddr, myaddr, len, write, target)
-     CORE_ADDR memaddr;
-     char *myaddr;
-     int len;
-     int write;
-     struct target_ops *target;		/* ignored */
+hppa_set_watchpoint (addr, len, flag)
+     int addr, len, flag;
 {
-  register int i;
-  /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & - sizeof (int);
-  /* Round ending address up; get number of longwords that makes.  */
-  register int count
-    = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
-  /* Allocate buffer of that many longwords.  */
-  register int *buffer = (int *) alloca (count * sizeof (int));
+  int pt_args[3];
+  pt_args[0] = addr;
+  pt_args[1] = addr + len;
+  pt_args[2] = flag;
 
-  if (write)
-    {
-      /* Fill start and end extra bytes of buffer with existing memory data.  */
+  /* Mask off the lower 12 bits since we want to work on a page basis.  */
+  pt_args[0] >>= 12; 
+  pt_args[1] >>= 12; 
 
-      if (addr != memaddr || len < (int)sizeof (int)) {
-	/* Need part of initial word -- fetch it.  */
-        buffer[0] = ptrace (PT_READ_I, inferior_pid, (PTRACE_ARG3_TYPE) addr,
-			    0);
-      }
+  /* Rounding adjustments.  */
+  pt_args[1] -= pt_args[0]; 
+  pt_args[1]++; 
 
-      if (count > 1)		/* FIXME, avoid if even boundary */
-	{
-	  buffer[count - 1]
-	    = ptrace (PT_READ_I, inferior_pid,
-		      (PTRACE_ARG3_TYPE) (addr + (count - 1) * sizeof (int)),
-		      0);
-	}
+  /* Put the lower 12 bits back as zero.  */
+  pt_args[0] <<= 12; 
+  pt_args[1] <<= 12; 
 
-      /* Copy data to be written over corresponding part of buffer */
-
-      memcpy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
-
-      /* Write the entire buffer.  */
-
-      for (i = 0; i < count; i++, addr += sizeof (int))
-	{
-	  errno = 0;
-	  ptrace (PT_WRITE_D, inferior_pid, (PTRACE_ARG3_TYPE) addr,
-		  buffer[i]);
-	  if (errno)
-	    {
-	      /* Using the appropriate one (I or D) is necessary for
-		 Gould NP1, at least.  */
-	      errno = 0;
-	      ptrace (PT_WRITE_I, inferior_pid, (PTRACE_ARG3_TYPE) addr,
-		      buffer[i]);
-	    }
-	  if (errno)
-	    return 0;
-	}
-    }
-  else
-    {
-      /* Read all the longwords */
-      for (i = 0; i < count; i++, addr += sizeof (int))
-	{
-	  errno = 0;
-	  buffer[i] = ptrace (PT_READ_I, inferior_pid,
-			      (PTRACE_ARG3_TYPE) addr, 0);
-	  if (errno)
-	    return 0;
-	  QUIT;
-	}
-
-      /* Copy appropriate bytes out of the buffer.  */
-      memcpy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
-    }
-  return len;
+  /* Do it.  */
+  return ptrace (PT_PROT, inferior_pid, (PTRACE_ARG3_TYPE) pt_args, 0);
 }
-

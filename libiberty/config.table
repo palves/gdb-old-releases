@@ -8,6 +8,7 @@ case "${xhost-${host}}" in
   m68k-apollo-bsd*)	frag=mh-a68bsd ;;
   m68k-apollo-sysv*)	frag=mh-apollo68 ;;
   i[34]86-ncr-sysv4*)	frag=mh-ncr3000 ;;
+  *-*-cxux7*)		frag=mh-cxux7 ;;
   *-*-lynxos*)		frag=mh-lynxos ;;
   *-*-dgux*)		frag=mh-sysv ;;
   hppa*-hp-bsd*)	frag=mh-hpbsd ;;
@@ -19,4 +20,14 @@ case "${xhost-${host}}" in
   *-*-solaris2*)	frag=mh-sysv4 ;;
   *-*-sysv4*)		frag=mh-sysv4 ;;
   *-*-sysv*)		frag=mh-sysv ;;
+  *-*-go32)		frag=mh-go32 ;;
+esac
+
+# xiberty sets xhost.  Try to handle funky case of solaris 2 -> sun 4.
+case "${target}" in
+  sparc-sun-sunos4.1.3)
+	if [ "${host}" != "${target}" ] ; then
+	   frag=mt-sunos4
+	fi
+  ;;
 esac

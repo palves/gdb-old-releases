@@ -1,3 +1,16 @@
+Wed May  4 12:09:30 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* configure.in (rs6000-bull-bosx*): New configuration, RS/6000
+	variant.
+
+Mon Apr 25 16:06:29 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* Makefile.in (distclean): Remove sysdep.h.
+
+Sun Mar 13 09:18:07 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Add TAGS target.
+
 Fri Oct 22 08:02:52 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 	* configure.in: Add * to end of all OS names.

@@ -1,5 +1,5 @@
 /* BFD back-end for Irix core files.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
    Written by Stu Grossman, Cygnus Support.
    Converted to back-end form by Ian Lance Taylor, Cygnus Support
 
@@ -68,7 +68,7 @@ make_bfd_asection (abfd, name, flags, _raw_size, vma, filepos)
   return asect;
 }
 
-static bfd_target *
+static const bfd_target *
 irix_core_core_file_p (abfd)
      bfd *abfd;
 {
@@ -80,7 +80,11 @@ irix_core_core_file_p (abfd)
 
   val = bfd_read ((PTR)&coreout, 1, sizeof coreout, abfd);
   if (val != sizeof coreout)
-    return 0;
+    {
+      if (bfd_get_error () != bfd_error_system_call)
+	bfd_set_error (bfd_error_wrong_format);
+      return 0;
+    }
 
   if (coreout.c_magic != CORE_MAGIC
       || coreout.c_version != CORE_VERSION1)
@@ -93,7 +97,8 @@ irix_core_core_file_p (abfd)
   strncpy (core_command (abfd), coreout.c_name, CORE_NAMESIZE);
   core_signal (abfd) = coreout.c_sigcause;
 
-  bfd_seek (abfd, coreout.c_vmapoffset, SEEK_SET);
+  if (bfd_seek (abfd, coreout.c_vmapoffset, SEEK_SET) != 0)
+    return NULL;
 
   for (i = 0; i < coreout.c_nvmap; i++)
     {
@@ -120,6 +125,11 @@ irix_core_core_file_p (abfd)
 	  continue;
 	}
 
+      /* A file offset of zero means that the section is not contained
+	 in the corefile.  */
+      if (vmap.v_offset == 0)
+	continue;
+
       if (!make_bfd_asection (abfd, secname,
 			      SEC_ALLOC+SEC_LOAD+SEC_HAS_CONTENTS,
 			      vmap.v_len,
@@ -139,10 +149,11 @@ irix_core_core_file_p (abfd)
       || idf->i_offset + idf->i_len != ids->i_offset)
     return 0;			/* Can't deal with non-contig regs */
 
-  bfd_seek (abfd, idg->i_offset, SEEK_SET);
+  if (bfd_seek (abfd, idg->i_offset, SEEK_SET) != 0)
+    return NULL;
 
   make_bfd_asection (abfd, ".reg",
-		     SEC_ALLOC+SEC_HAS_CONTENTS,
+		     SEC_HAS_CONTENTS,
 		     idg->i_len + idf->i_len + ids->i_len,
 		     0,
 		     idg->i_offset);
@@ -178,66 +189,19 @@ irix_core_make_empty_symbol (abfd)
      bfd *abfd;
 {
   asymbol *new = (asymbol *) bfd_zalloc (abfd, sizeof (asymbol));
-  new->the_bfd = abfd;
+  if (new)
+    new->the_bfd = abfd;
   return new;
 }
 
-#define	irix_core_openr_next_archived_file	bfd_generic_openr_next_archived_file
-#define	irix_core_generic_stat_arch_elt		bfd_generic_stat_arch_elt
-#define	irix_core_slurp_armap			bfd_false
-#define	irix_core_slurp_extended_name_table	bfd_true
-#define	irix_core_write_armap			(boolean (*) PARAMS	\
-    ((bfd *arch, unsigned int elength, struct orl *map, \
-      unsigned int orl_count, int stridx))) bfd_false
-#define	irix_core_truncate_arname		bfd_dont_truncate_arname
-
-#define	irix_core_close_and_cleanup		bfd_generic_close_and_cleanup
-#define	irix_core_set_section_contents		(boolean (*) PARAMS	\
-        ((bfd *abfd, asection *section, PTR data, file_ptr offset,	\
-        bfd_size_type count))) bfd_generic_set_section_contents
-#define	irix_core_get_section_contents		bfd_generic_get_section_contents
-#define	irix_core_new_section_hook		(boolean (*) PARAMS	\
-	((bfd *, sec_ptr))) bfd_true
-#define	irix_core_get_symtab_upper_bound	bfd_0u
-#define	irix_core_get_symtab			(unsigned int (*) PARAMS \
-        ((bfd *, struct symbol_cache_entry **))) bfd_0u
-#define	irix_core_get_reloc_upper_bound		(unsigned int (*) PARAMS \
-	((bfd *, sec_ptr))) bfd_0u
-#define	irix_core_canonicalize_reloc		(unsigned int (*) PARAMS \
-	((bfd *, sec_ptr, arelent **, struct symbol_cache_entry**))) bfd_0u
-#define	irix_core_print_symbol			(void (*) PARAMS	\
-	((bfd *, PTR, struct symbol_cache_entry  *,			\
-	bfd_print_symbol_type))) bfd_false
-#define	irix_core_get_symbol_info		(void (*) PARAMS	\
-	((bfd *, struct symbol_cache_entry  *,			\
-	symbol_info *))) bfd_false
-#define	irix_core_get_lineno			(alent * (*) PARAMS	\
-	((bfd *, struct symbol_cache_entry *))) bfd_nullvoidptr
-#define	irix_core_set_arch_mach			(boolean (*) PARAMS	\
-	((bfd *, enum bfd_architecture, unsigned long))) bfd_false
-#define	irix_core_find_nearest_line		(boolean (*) PARAMS	\
-        ((bfd *abfd, struct sec  *section,				\
-         struct symbol_cache_entry  **symbols,bfd_vma offset,		\
-         CONST char **file, CONST char **func, unsigned int *line))) bfd_false
-#define	irix_core_sizeof_headers		(int (*) PARAMS	\
-	((bfd *, boolean))) bfd_0
-
-#define irix_core_bfd_debug_info_start		bfd_void
-#define irix_core_bfd_debug_info_end		bfd_void
-#define irix_core_bfd_debug_info_accumulate	(void (*) PARAMS	\
-	((bfd *, struct sec *))) bfd_void
-#define irix_core_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
-#define irix_core_bfd_relax_section		bfd_generic_relax_section
-#define irix_core_bfd_reloc_type_lookup \
-  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
-#define irix_core_bfd_make_debug_symbol \
-  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
-#define irix_core_bfd_link_hash_table_create \
-  ((struct bfd_link_hash_table *(*) PARAMS ((bfd *))) bfd_nullvoidptr)
-#define irix_core_bfd_link_add_symbols \
-  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
-#define irix_core_bfd_final_link \
-  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
+#define irix_core_get_symtab_upper_bound _bfd_nosymbols_get_symtab_upper_bound
+#define irix_core_get_symtab _bfd_nosymbols_get_symtab
+#define irix_core_print_symbol _bfd_nosymbols_print_symbol
+#define irix_core_get_symbol_info _bfd_nosymbols_get_symbol_info
+#define irix_core_bfd_is_local_label _bfd_nosymbols_bfd_is_local_label
+#define irix_core_get_lineno _bfd_nosymbols_get_lineno
+#define irix_core_find_nearest_line _bfd_nosymbols_find_nearest_line
+#define irix_core_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
 void
@@ -250,7 +214,7 @@ swap_abort()
 #define	NO_SIGNED_GET \
   ((bfd_signed_vma (*) PARAMS ((const bfd_byte *))) swap_abort )
 
-bfd_target irix_core_vec =
+const bfd_target irix_core_vec =
   {
     "irix-core",
     bfd_target_unknown_flavour,
@@ -286,7 +250,16 @@ bfd_target irix_core_vec =
      bfd_false, bfd_false
     },
     
-    JUMP_TABLE(irix_core),
+       BFD_JUMP_TABLE_GENERIC (_bfd_generic),
+       BFD_JUMP_TABLE_COPY (_bfd_generic),
+       BFD_JUMP_TABLE_CORE (irix_core),
+       BFD_JUMP_TABLE_ARCHIVE (_bfd_noarchive),
+       BFD_JUMP_TABLE_SYMBOLS (irix_core),
+       BFD_JUMP_TABLE_RELOCS (_bfd_norelocs),
+       BFD_JUMP_TABLE_WRITE (_bfd_generic),
+       BFD_JUMP_TABLE_LINK (_bfd_nolink),
+       BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
     (PTR) 0			/* backend_data */
 };
 

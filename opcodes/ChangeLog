@@ -1,7 +1,250 @@
-Mon Jan 17 02:40:52 1994  Jeffrey A Law  (law@cs.utah.edu)
+Fri Aug  5 14:00:05 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* Makefile.in (ns32k-dis.o): Add dependency.
+	* ns32k-dis.c (print_insn_arg): Declare initialized local as
+	string, not as array of chars.
+
+Wed Jul 13 18:01:58 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* ns32k-dis.c: Deleted all code in "#ifdef GDB".
+	(invalid_float): Enabled general version, doesn't require running
+	on ns32k host.  Changed to take char* argument, and test for
+	explicitly specified sizes, instead of using sizeof() on host CPU
+	types.
+	(INVALID_FLOAT): Cast first argument.
+	(opt_u, opt_U, opt_O, opt_C, opt_S, list_P532, list_M532,
+	list_P032, list_M032): Now const.
+	(optlist, list_search): Made appropriate arguments now point to
+	const.
+	(print_insn_arg): Changed static array of one-character-string
+	pointers into a static const array of characters; fixed sprintf
+	statement accordingly.
+
+Sun Jul 10 00:27:47 1994  Ian Dall  (dall@hfrd.dsto.gov.au)
+
+	* opcodes/ns32k-dis.c: Semi-new file.  Had apparently been dropped
+	from distribution. A ns32k-dis.c from a previous distribution has
+	been brought up to date and supports the new interface.
+
+	* disaaemble.c: define ARCH_ns32k and add case bfd_arch_ns32k.
+
+	* configure.in: add bfd_ns32k_arch target support.
+
+	* Makefile.in: add ns32k-dis.o to ALL_MACHINES.
+	Add ns32k-dis.c to CFILES. Add dependencies for ns32k-dis.o.
+
+Wed Jun 29 22:10:37 1994  Steve Chamberlain  (sac@cygnus.com)
+
+	* h8300-dis.c (bfd_h8_disassemble): Get 16bit branch
+	disassembly right.
+
+Tue Jun 28 13:22:06 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* h8300-dis.c, mips-dis.c: Don't use true and false.
+
+Thu Jun 23 12:53:19 1994  David J. Mackenzie  (djm@rtl.cygnus.com)
+
+	* configure.in: Change --with-targets to --enable-targets.
+
+Wed Jun 22 13:38:32 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* mips-dis.c (_print_insn_mips): Build a static hash table mapping
+	opcodes to the first instruction with that opcode, to speed
+	disassembly of large files.  From ralphc@pyramid.com (Ralph
+	Campbell).
+
+Tue Jun  7 12:49:44 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* Makefile.in (mostlyclean): Fix typo (was mostyclean).
+
+Wed May 11 22:32:00 1994  DJ Delorie (dj@ctron.com)
+
+	* configure.bat: update to latest makefile.in
+
+Sat May  7 17:13:21 1994  Steve Chamberlain  (sac@cygnus.com)
+
+	* a29k-dis.c (print_insn): Print 'x' type operand in hex.
+	* h8300-dis.c (bfd_h8_disassemble): Print 16bit rels correctly.
+	* sh-dis.c (print_insn_sh): Don't recur endlessly if delay
+	slot insn is in a delay slot.
+	* z8k-opc.h: (resflg): Fix patterns.
+	* h8500-opc.h Fix CR insn patterns.
+
+Fri May  6 14:34:46 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc-opc.c (powerpc_opcodes): Put PowerPC versions of "cmp" and
+	"cmpl" before POWER versions, so that gas -many uses them.
+
+Thu Apr 28 18:32:36 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* disassemble.c: New file.
+	* Makefile.in (OFILES): Add disassemble.o.
+	(disassemble.o): Provide dependencies; compile with $(ARCHDEFS).
+	* configure.in: Define ARCHDEFS in Makefile.  Code taken from
+	binutils/configure.in.
+
+	* m68k-dis.c (print_insn_m68k): If F_ALIAS flag is set, skip the
+	opcode being examined.
+
+Thu Apr 21 17:08:40 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc-opc.c (powerpc_operands): Added RAL, RAM and RAS.
+	(insert_ral, insert_ram, insert_ras): New functions.
+	(powerpc_opcodes): Use RAL for load with update, RAM for lmw, and
+	RAS for store with update.
+
+Sat Apr 16 23:41:44 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc-opc.c (powerpc_opcodes): Correct fcir.  From David Edelsohn
+	(edelsohn@npac.syr.edu).
+
+Wed Apr  6 17:11:45 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c (mips_opcodes): Correct operands of "nor" with an
+	immediate argument.
+
+Mon Apr  4 16:30:46 1994  Doug Evans  (dje@canuck.cygnus.com)
+
+	* sparc-opc.c (sparc_opcodes): Fix "rd %fprs,%l0".
+
+Mon Apr  4 13:22:00 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc-opc.c (powerpc_operands): The signedp field has been
+	removed, so don't initialize it.  Set the PPC_OPERAND_SIGNED flag
+	instead.  Add new operand SISIGNOPT.
+	(powerpc_opcodes): For lis, liu, addis, and cau use SISIGNOPT.
+	Based on patch from David Edelsohn (edelsohn@npac.syr.edu).
+	* ppc-dis.c (print_insn_powerpc): Check PPC_OPERAND_SIGNED rather
+	than signedp field.
+
+Wed Mar 30 00:31:49 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* i386-dis.c (struct private):  Renamed to dis_private. `private'
+	is a reserved word for dynix cc.
+
+Mon Mar 28 13:00:15 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* configure.in: Change error message to refer to bfd/config.bfd
+	rather than bfd/configure.in.
+
+Mon Mar 28 12:28:30 1994  David Edelsohn  (edelsohn@npac.syr.edu)
+
+	* ppc-opc.c: Define POWER2 as short alias flag.
+	(powerpc_opcodes): Add POWER/2 opcodes lfq*, stfq*, fcir[z], and
+	fsqrt.
+
+Wed Mar 23 12:23:05 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* i960-dis.c (print_insn_i960): Don't read a second word for
+	opcodes 0, 1, 2 and 3.
+
+Wed Mar 16 15:37:58 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* configure.in: Don't build m68881-ext.o for bfd_m68k_arch.
+
+Mon Mar 14 14:53:50 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* m68881-ext.c: Removed; no longer used.
+	* Makefile.in: Changed accordingly.
+
+	* m68k-dis.c (ext_format_68881): Don't declare.
+	(print_insn_m68k): If an instruction uses place 'i', it uses at
+	least four fixed bytes.
+	(print_insn_arg): Don't bump p by 2 for case 'I', place 'i'.  For
+	extended float, convert to double using floatformat_to_double, not
+	ieee_extended_to_double, and fetch the data before converting it.
+
+Tue Mar  8 18:12:25 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* mips-opc.c: It's sqrt.s, not sqrt.w.  From
+	davidj@ICSI.Berkeley.EDU (David Johnson).
+
+Tue Feb  8 16:55:27 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc-opc.c (powerpc_opcodes): The POWER uses bdn[l][a] where the
+	PowerPC uses bdnz[l][a].
+
+Tue Feb  8 00:32:28 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* dis-buf.c, i386-dis.c:  Include sysdep.h.
+
+Mon Feb  7 19:22:23 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* configure.in (bfd_powerpc_arch): Use ppc-dis.o and ppc-opc.o.
+
+	* ppc-opc.c (powerpc_opcodes): Mark POWER instructions supported
+	by Motorola PowerPC 601 with PPC_OPCODE_601.
+	* ppc-dis.c (print_insn_big_powerpc, print_insn_little_powerpc):
+	Disassemble Motorola PowerPC 601 instructions as well as normal
+	PowerPC instructions.
+
+Sun Feb  6 07:45:17 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* i960-dis.c (reg, mem): Just use a static array instead of
+	calling xmalloc.
+
+Sat Feb  5 00:04:02 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* hppa-dis.c (print_insn_hppa): For '?' and '@' only adjust the
+	condition name index if this is for a negated condition.
+
+	* hppa-dis.c (print_insn_hppa): No space before 'H' operand.
+	Floating point format for 'H' operand is backwards from normal
+	case (0 == double, 1 == single).  For '4', '6', '7', '9', and '8'
+	operands (fmpyadd and fmpysub), handle bizarre register
+	translation correctly for single precision format.
+
+	* hppa-dis.c (print_insn_hppa): Do not emit a space after 'F'
+	or 'I' operands if the next format specifier is 'M' (fcmp
+	condition completer).
+
+Feb  4 23:38:03 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc-opc.c (powerpc_operands): New operand type MBE to handle a
+	single number giving a bitmask for the MB and ME fields of an M
+	form instruction.  Change NB to accept 32, and turn it into 0;
+	also turn 0 into 32 when disassembling.  Seperated SH from NB.
+	(insert_mbe, extract_mbe): New functions.
+	(insert_nb, extract_nb): New functions.
+	(SC_MASK): Mask out SA and LK bits.
+	(powerpc_opcodes): Change "cal" to use RT, D, RA rather than RT,
+	RA, SI.  Change "liu" and "cau" to use UI rather than SI.  Mark
+	"bctr" and "bctrl" as accepted by POWER.  Change "rlwimi",
+	"rlimi", "rlwimi.", "rlimi.", "rlwinm", "rlinm", "rlwinm.",
+	"rlinm.", "rlmi", "rlmi.", "rlwnm", "rlnm", "rlwnm.", "rlnm." to
+	use MBE rather than MB.  Add "mfmq" and "mtmq" POWER instructions.
+	(powerpc_macros): Define table of macro definitions.
+	(powerpc_num_macros): Define.
+
+	* ppc-dis.c (print_insn_powerpc): Don't skip optional operands
+	if PPC_OPERAND_NEXT is set.
+
+Sat Jan 22 23:10:07 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* i960-dis.c (print_insn_i960): Make buffer bfd_byte instead of
+	char.  Retrieve contents using bfd_getl32 instead of shifting.
+
+Fri Jan 21 19:01:39 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* ppc-opc.c: New file.  Opcode table for PowerPC, including
+	opcodes for POWER (RS/6000).
+	* ppc-dis.c: New file.  PowerPC and Power (RS/6000) disassembler.
+	* Makefile.in (ALL_MACHINES): Add ppc-dis.o and ppc-opc.o.
+	(CFILES): Add ppc-dis.c.
+	(ppc-dis.o, ppc-opc.o): New targets.
+	* configure.in: Build ppc-dis.o and ppc-opc.o for bfd_rs6000_arch.
+
+Mon Jan 17 20:05:49 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
 
 	* hppa-dis.c (print_insn_hppa): Handle 'N' in assembler template.
-	No space before 'u', 'f', or 'N'.
+	No space before 'u', 'f', or 'N'. 
+
+Sun Jan 16 14:20:16 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* i386-dis.c (print_insn_i386): Add FIXME comment regarding reading
+	farther than we should.
+
+	* i386-dis.c (dis386): Use Yb and Yv for scasb and scasS.
 
 Thu Jan  6 12:38:05 1994  David J. Mackenzie  (djm@thepub.cygnus.com)
 
@@ -582,5 +825,7 @@ Mon Aug 31 13:47:35 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
 	* z8k-dis.c: knows how to disassemble z8k stuff
 	* z8k-opc.h: new file full of z8000 opcodes
 
-
-
+
+Local Variables:
+version-control: never
+End:

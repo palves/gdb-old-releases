@@ -99,6 +99,7 @@ enum target_signal {
   /* Used some places (e.g. stop_signal) to record the concept that
      there is no signal.  */
   TARGET_SIGNAL_0 = 0,
+  TARGET_SIGNAL_FIRST = 0,
   TARGET_SIGNAL_HUP = 1,
   TARGET_SIGNAL_INT = 2,
   TARGET_SIGNAL_QUIT = 3,
@@ -173,6 +174,14 @@ extern char *target_signal_to_name PARAMS ((enum target_signal));
 
 /* Given a name (SIGHUP, etc.), return its signal.  */
 enum target_signal target_signal_from_name PARAMS ((char *));
+
+/* If certain kinds of activity happen, target_wait should perform
+   callbacks.  */
+/* Right now we just call (*TARGET_ACTIVITY_FUNCTION) if I/O is possible
+   on TARGET_ACTIVITY_FD.   */
+extern int target_activity_fd;
+/* Returns zero to leave the inferior alone, one to interrupt it.  */
+extern int (*target_activity_function) PARAMS ((void));
 
 struct target_ops
 {
@@ -327,9 +336,13 @@ target_detach PARAMS ((char *, int));
 #define	target_resume(pid, step, siggnal)	\
 	(*current_target->to_resume) (pid, step, siggnal)
 
-/* Wait for process pid to do something.  Pid = -1 to wait for any pid to do
-   something.  Return pid of child, or -1 in case of error; store status
-   through argument pointer STATUS.  */
+/* Wait for process pid to do something.  Pid = -1 to wait for any pid
+   to do something.  Return pid of child, or -1 in case of error;
+   store status through argument pointer STATUS.  Note that it is
+   *not* OK to return_to_top_level out of target_wait without popping
+   the debugging target from the stack; GDB isn't prepared to get back
+   to the prompt with a debugging target but without the frame cache,
+   stop_pc, etc., set up.  */
 
 #define	target_wait(pid, status)		\
 	(*current_target->to_wait) (pid, status)
@@ -355,8 +368,7 @@ target_detach PARAMS ((char *, int));
 #define	target_prepare_to_store()	\
 	(*current_target->to_prepare_to_store) ()
 
-extern int
-target_read_string PARAMS ((CORE_ADDR, char *, int));
+extern int target_read_string PARAMS ((CORE_ADDR, char **, int, int *));
 
 extern int
 target_read_memory PARAMS ((CORE_ADDR, char *, int));
@@ -529,6 +541,8 @@ print_section_info PARAMS ((struct target_ops *, bfd *));
 #define	target_has_execution	\
 	(current_target->to_has_execution)
 
+extern void target_link PARAMS ((char *, CORE_ADDR *));
+
 /* Converts a process id to a string.  Usually, the string just contains
    `process xyz', but on some systems it may contain
    `process xyz thread abc'.  */
@@ -576,7 +590,9 @@ pop_target PARAMS ((void));
 struct section_table {
   CORE_ADDR addr;		/* Lowest address in section */
   CORE_ADDR endaddr;		/* 1+highest address in section */
-  sec_ptr   sec_ptr;		/* BFD section pointer */
+
+  sec_ptr the_bfd_section;
+
   bfd	   *bfd;		/* BFD file pointer */
 };
 
@@ -615,7 +631,7 @@ find_core_target PARAMS ((void));
    information (higher values, more information).  */
 extern int remote_debug;
 
-/* Speed in bits per second.  */
+/* Speed in bits per second, or -1 which means don't mess with the speed.  */
 extern int baud_rate;
 
 /* Functions for helping to write a native target.  */

@@ -83,7 +83,7 @@ add_to_objfile_sections (abfd, asect, objfile_p_char)
     return;
   section.offset = 0;
   section.objfile = objfile;
-  section.sec_ptr = asect;
+  section.the_bfd_section = asect;
   section.addr = bfd_section_vma (abfd, asect);
   section.endaddr = section.addr + bfd_section_size (abfd, asect);
   obstack_grow (&objfile->psymbol_obstack, &section, sizeof(section));
@@ -254,7 +254,7 @@ allocate_objfile (abfd, mapped)
   if (build_objfile_section_table (objfile))
     {
       error ("Can't find the file sections in `%s': %s", 
-	     objfile -> name, bfd_errmsg (bfd_error));
+	     objfile -> name, bfd_errmsg (bfd_get_error ()));
     }
 
   /* Push this file onto the head of the linked list of other such files. */
@@ -450,7 +450,7 @@ objfile_relocate (objfile, new_offsets)
   {
     struct symtab *s;
 
-    for (s = objfile->symtabs; s; s = s->next)
+    ALL_OBJFILE_SYMTABS (objfile, s)
       {
 	struct linetable *l;
 	struct blockvector *bv;
@@ -492,6 +492,15 @@ objfile_relocate (objfile, new_offsets)
 		    SYMBOL_VALUE_ADDRESS (sym) +=
 		      ANOFFSET (delta, SYMBOL_SECTION (sym));
 		  }
+#ifdef MIPS_EFI_SYMBOL_NAME
+		/* Relocate Extra Function Info for ecoff.  */
+
+		else
+		  if (SYMBOL_CLASS (sym) == LOC_CONST
+		      && SYMBOL_NAMESPACE (sym) == LABEL_NAMESPACE
+		      && STRCMP (SYMBOL_NAME (sym), MIPS_EFI_SYMBOL_NAME) == 0)
+		    ecoff_relocate_efi (sym, ANOFFSET (delta, s->block_line_section));
+#endif
 	      }
 	  }
       }
@@ -538,6 +547,58 @@ objfile_relocate (objfile, new_offsets)
     for (i = 0; i < objfile->num_sections; ++i)
       ANOFFSET (objfile->section_offsets, i) = ANOFFSET (new_offsets, i);
   }
+
+  {
+    struct obj_section *s;
+    bfd *abfd;
+
+    abfd = symfile_objfile->obfd;
+
+    for (s = symfile_objfile->sections;
+	 s < symfile_objfile->sections_end; ++s)
+      {
+	flagword flags;
+
+	flags = bfd_get_section_flags (abfd, s->the_bfd_section);
+
+	if (flags & SEC_CODE)
+	  {
+	    s->addr += ANOFFSET (delta, SECT_OFF_TEXT);
+	    s->endaddr += ANOFFSET (delta, SECT_OFF_TEXT);
+	  }
+	else if (flags & (SEC_DATA | SEC_LOAD))
+	  {
+	    s->addr += ANOFFSET (delta, SECT_OFF_DATA);
+	    s->endaddr += ANOFFSET (delta, SECT_OFF_DATA);
+	  }
+	else if (flags & SEC_ALLOC)
+	  {
+	    s->addr += ANOFFSET (delta, SECT_OFF_BSS);
+	    s->endaddr += ANOFFSET (delta, SECT_OFF_BSS);
+	  }
+      }
+  }
+
+  if (objfile->ei.entry_point != ~0)
+    objfile->ei.entry_point += ANOFFSET (delta, SECT_OFF_TEXT);
+
+  if (objfile->ei.entry_func_lowpc != INVALID_ENTRY_LOWPC)
+    {
+      objfile->ei.entry_func_lowpc += ANOFFSET (delta, SECT_OFF_TEXT);
+      objfile->ei.entry_func_highpc += ANOFFSET (delta, SECT_OFF_TEXT);
+    }
+
+  if (objfile->ei.entry_file_lowpc != INVALID_ENTRY_LOWPC)
+    {
+      objfile->ei.entry_file_lowpc += ANOFFSET (delta, SECT_OFF_TEXT);
+      objfile->ei.entry_file_highpc += ANOFFSET (delta, SECT_OFF_TEXT);
+    }
+
+  if (objfile->ei.main_func_lowpc != INVALID_ENTRY_LOWPC)
+    {
+      objfile->ei.main_func_lowpc += ANOFFSET (delta, SECT_OFF_TEXT);
+      objfile->ei.main_func_highpc += ANOFFSET (delta, SECT_OFF_TEXT);
+    }
 }
 
 /* Many places in gdb want to test just to see if we have any partial
@@ -784,4 +845,24 @@ find_pc_section(pc)
 	return(s);
 
   return(NULL);
+}
+
+/* In SVR4, we recognize a trampoline by it's section name. 
+   That is, if the pc is in a section named ".plt" then we are in
+   a trampoline.  */
+
+int
+in_plt_section(pc, name)
+     CORE_ADDR pc;
+     char *name;
+{
+  struct obj_section *s;
+  int retval = 0;
+  
+  s = find_pc_section(pc);
+  
+  retval = (s != NULL
+	    && s->the_bfd_section->name != NULL
+	    && STREQ (s->the_bfd_section->name, ".plt"));
+  return(retval);
 }

@@ -34,7 +34,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	exec_data_offset = N_TXTOFF (exec_coffhdr)		\
 		+ exec_aouthdr.a_text
 
-/* Macro for number of symbol table entries */
+/* Macro for number of symbol table entries (this used to be checked
+   in dbxread.c and caused the last psymtab to use this as the end of
+   text.  I'm not sure whether it would still be necessary).  */
 #define END_OF_TEXT_DEFAULT					\
 	(0xffffff)
 

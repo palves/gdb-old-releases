@@ -95,7 +95,7 @@ chill_printstr (stream, string, length, force_ellipses)
 
   if (length == 0)
     {
-      chill_printchar ('\0', stream);
+      fputs_filtered ("\"\"", stream);
       return;
     }
 
@@ -192,7 +192,7 @@ chill_is_varying_struct (type)
     return 0;
   if (TYPE_NFIELDS (type) != 2)
     return 0;
-  if (strcmp (TYPE_FIELD_NAME (type, 0), "<var_length>") != 0)
+  if (strcmp (TYPE_FIELD_NAME (type, 0), "__var_length") != 0)
     return 0;
   return 1;
 }
@@ -315,8 +315,7 @@ const struct language_defn chill_language_defn = {
   chill_create_fundamental_type,/* Create fundamental type in this language */
   chill_print_type,		/* Print a type using appropriate syntax */
   chill_val_print,		/* Print a value using appropriate syntax */
-  &BUILTIN_TYPE_LONGEST,	/* longest signed   integral type */
-  &BUILTIN_TYPE_UNSIGNED_LONGEST,/* longest unsigned integral type */
+  chill_value_print,		/* Print a top-levl value */
   &builtin_type_chill_real,	/* longest floating point type */
   {"",      "B'",  "",   ""},	/* Binary format info */
   {"O'%lo",  "O'",  "o",  ""},	/* Octal format info */

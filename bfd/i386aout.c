@@ -26,7 +26,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define N_HEADER_IN_TEXT(x) 0
 #define BYTES_IN_WORD 4
-#define ARCH 32
 
 #define N_TXTOFF(x) 0x20
 #define N_TXTADDR(x) (N_MAGIC(x)==ZMAGIC ? 0x1020 : 0)
@@ -54,9 +53,16 @@ static boolean MY(set_sizes)();
 static CONST struct aout_backend_data MY(backend_data) = {
   0,				/* zmagic contiguous */
   1,				/* text incl header */
+  0,				/* exec_hdr_flags */
   0,				/* text vma? */
   MY(set_sizes),
   1,				/* exec header not counted */
+  0,				/* add_dynamic_symbols */
+  0,				/* add_one_symbol */
+  0,				/* link_dynamic_object */
+  0,				/* write_dynamic_symbol */
+  0,				/* check_dynamic_reloc */
+  0				/* finish_dynamic_link */
 };
 
 #include "aout-target.h"

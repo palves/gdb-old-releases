@@ -1,5 +1,5 @@
 /* Parse expressions for GDB.
-   Copyright (C) 1986, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1989, 1990, 1991, 1994 Free Software Foundation, Inc.
    Modified from expread.y by the Department of Computer Science at the
    State University of New York at Buffalo, 1991.
 
@@ -29,6 +29,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    come first in the result.  */
    
 #include "defs.h"
+#include <string.h>
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "frame.h"
@@ -37,7 +38,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "language.h"
 #include "parser-defs.h"
-
+
+/* Global variables declared in parser-defs.h (and commented there).  */
+struct expression *expout;
+int expout_size;
+int expout_ptr;
+struct block *expression_context_block;
+struct block *innermost_block;
+int arglist_len;
+union type_stack_elt *type_stack;
+int type_stack_depth, type_stack_size;
+char *lexptr;
+char *namecopy;
+int paren_depth;
+int comma_terminates;
+
 static void
 free_funcalls PARAMS ((void));
 
@@ -339,6 +354,10 @@ write_exp_bitstring (str)
   write_exp_elt_longcst ((LONGEST) bits);
 }
 
+/* Type that corresponds to the address given in a minimal symbol.  */
+
+static struct type *msymbol_addr_type;
+
 /* Add the appropriate elements for a minimal symbol to the end of
    the expression.  */
 
@@ -349,7 +368,7 @@ write_exp_msymbol (msymbol, text_symbol_type, data_symbol_type)
      struct type *data_symbol_type;
 {
   write_exp_elt_opcode (OP_LONG);
-  write_exp_elt_type (builtin_type_long);
+  write_exp_elt_type (msymbol_addr_type);
   write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
   write_exp_elt_opcode (OP_LONG);
 
@@ -358,6 +377,7 @@ write_exp_msymbol (msymbol, text_symbol_type, data_symbol_type)
     {
     case mst_text:
     case mst_file_text:
+    case mst_solib_trampoline:
       write_exp_elt_type (text_symbol_type);
       break;
 
@@ -860,4 +880,11 @@ _initialize_parse ()
   type_stack_depth = 0;
   type_stack = (union type_stack_elt *)
     xmalloc (type_stack_size * sizeof (*type_stack));
+
+  /* We don't worry too much about what the name of this type is
+     because the name should rarely appear in output to the user.  */
+
+  msymbol_addr_type =
+    init_type (TYPE_CODE_PTR, TARGET_PTR_BIT / HOST_CHAR_BIT, 0,
+	       "void *", NULL);
 }

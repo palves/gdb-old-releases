@@ -16,6 +16,12 @@ struct external_filehdr {
 /* Magic numbers are defined in coff/ecoff.h.  */
 #define ALPHA_ECOFF_BADMAG(x) ((x).f_magic!=ALPHA_MAGIC)
 
+/* The object type is encoded in the f_flags.  */
+#define F_ALPHA_OBJECT_TYPE_MASK	0x3000
+#define F_ALPHA_NO_SHARED		0x1000
+#define F_ALPHA_SHARABLE		0x2000
+#define F_ALPHA_CALL_SHARED		0x3000
+
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)
 

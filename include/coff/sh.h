@@ -14,10 +14,10 @@ struct external_filehdr {
 
 
 
-#define	SHMAGIC	0x0500
+#define	SH_ARCH_MAGIC	0x0500
 
 
-#define SHBADMAG(x) (((x).f_magic!=SHMAGIC))
+#define SHBADMAG(x) (((x).f_magic!=SH_ARCH_MAGIC))
 
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)

@@ -1,3 +1,37 @@
+Mon Jun 27 18:04:54 1994  Steve Chamberlain  (sac@cirdan.cygnus.com)
+
+	* run.c (main): Specify the file type again.
+
+Thu May 26 19:04:37 1994  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* interp.c (trap): Fix irix incompatibility.
+	* run.c (main): open without specifying file type.
+
+Wed May 18 14:18:53 1994  Doug Evans  (dje@canuck.cygnus.com)
+
+	* interp.c (sim_*): Make result void where there isn't one.
+	(sim_set_pc): Delete.
+	(sim_info): Delete printf_fn arg, all callers changed.
+	Call printf_filtered instead.
+	(sim_close): New function.
+	(sim_load): New function.
+	(sim_create_inferior): Renamed from sim_set_args, all callers changed.
+	* run.c: #include <varargs.h>, "remote-sim.h".
+	(printf_filtered): New function.
+
+Wed Apr 27 12:03:48 1994  Steve Chamberlain  (sac@cygnus.com)
+
+	* gencode.c (table): Get direction of some opcodes right.
+        (trapa, rte): Implement fully.
+	* interp.c (trap): Make stat call more portable.
+
+Fri Feb 11 21:59:38 1994  Steve Chamberlain  (sac@sphagnum.cygnus.com)
+
+	* gencode.c (main, gendefines): New -d option prints table of defines.
+	* interp.c (trap): Add a load of system calls. 
+	(sim_memory_size): Now default to 8Mbyte.
+        (PARANOID): Keep vector of registers with undefined contents.
+
 Mon Nov 15 14:37:18 1993  Steve Chamberlain  (sac@jonny.cygnus.com)
 
 	* gencode.c: mova uses aligned addresses

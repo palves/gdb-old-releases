@@ -1,0 +1,1 @@
+LDFLAGS = -Tex93x.ld -nostartfiles -N

@@ -1,7 +1,7 @@
 /* BFD back-end for AIX on PS/2 core files.
    This was based on trad-core.c, which was written by John Gilmore of
         Cygnus Support.
-   Copyright 1988, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Minh Tran-Le <TRANLE@INTELLICORP.COM>.
    Converted to back end form by Ian Lance Taylor <ian@cygnus.com>.
 
@@ -75,9 +75,9 @@ struct trad_core_struct {
   asection *sections[MAX_CORE_SEGS];
 };
 
-static bfd_target *
-DEFUN(aix386_core_file_p,(abfd),
-      bfd *abfd)
+static const bfd_target *
+aix386_core_file_p (abfd)
+     bfd *abfd;
 {
   int i,n;
   unsigned char longbuf[4];	/* Raw bytes of various header fields */
@@ -88,10 +88,12 @@ DEFUN(aix386_core_file_p,(abfd),
     struct corehdr internal_core;
   } *mergem;
 
-  bfd_error = system_call_error;
-
   if (bfd_read ((PTR)longbuf, 1, sizeof (longbuf), abfd) != sizeof (longbuf))
-    return 0;
+    {
+      if (bfd_get_error () != bfd_error_system_call)
+	bfd_set_error (bfd_error_wrong_format);
+      return 0;
+    }
 
   if (strncmp(longbuf,COR_MAGIC,4)) return 0;
 
@@ -100,7 +102,7 @@ DEFUN(aix386_core_file_p,(abfd),
   mergem = (struct mergem *)bfd_zalloc (abfd, sizeof (struct mergem));
   if (mergem == NULL)
     {
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       return 0;
     }
 
@@ -108,7 +110,8 @@ DEFUN(aix386_core_file_p,(abfd),
 
   if ((bfd_read ((PTR) core, 1, core_size, abfd)) != core_size)
     {
-      bfd_error = system_call_error;
+      if (bfd_get_error () != bfd_error_system_call)
+	bfd_set_error (bfd_error_wrong_format);
       bfd_release (abfd, (char *)mergem);
       return 0;
     }
@@ -122,7 +125,7 @@ DEFUN(aix386_core_file_p,(abfd),
   if (core_regsec (abfd) == NULL)
     {
     loser:
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       bfd_release (abfd, (char *)mergem);
       return 0;
     }
@@ -195,8 +198,8 @@ DEFUN(aix386_core_file_p,(abfd),
   core_regsec (abfd)->name = ".reg";
   core_reg2sec (abfd)->name = ".reg2";
 
-  core_regsec (abfd)->flags = SEC_ALLOC + SEC_HAS_CONTENTS;
-  core_reg2sec (abfd)->flags = SEC_ALLOC + SEC_HAS_CONTENTS;
+  core_regsec (abfd)->flags = SEC_HAS_CONTENTS;
+  core_reg2sec (abfd)->flags = SEC_HAS_CONTENTS;
 
   core_regsec (abfd)->_raw_size = sizeof(core->cd_regs);
   core_reg2sec (abfd)->_raw_size = sizeof(core->cd_fpregs);
@@ -219,87 +222,27 @@ DEFUN(aix386_core_file_p,(abfd),
 }
 
 static char *
-DEFUN(aix386_core_file_failing_command,(abfd),
-      bfd *abfd)
+aix386_core_file_failing_command (abfd)
+     bfd *abfd;
 {
   return core_hdr (abfd)->cd_comm;
 }
 
 static int
-DEFUN(aix386_core_file_failing_signal,(abfd),
-      bfd *abfd)
+aix386_core_file_failing_signal (abfd)
+     bfd *abfd;
 {
   return core_hdr (abfd)->cd_cursig;
 }
 
 static boolean
-DEFUN(aix386_core_file_matches_executable_p, (core_bfd, exec_bfd),
-      bfd *core_bfd AND
-      bfd *exec_bfd)
+aix386_core_file_matches_executable_p (core_bfd, exec_bfd)
+     bfd *core_bfd;
+     bfd *exec_bfd;
 {
   return true;			/* FIXME, We have no way of telling at this
 				   point */
 }
-
-/* No archive file support via this BFD */
-#define	aix386_openr_next_archived_file	bfd_generic_openr_next_archived_file
-#define	aix386_generic_stat_arch_elt	bfd_generic_stat_arch_elt
-#define	aix386_slurp_armap			bfd_false
-#define	aix386_slurp_extended_name_table	bfd_true
-#define	aix386_write_armap			(PROTO (boolean, (*),	\
-     (bfd *arch, unsigned int elength, struct orl *map, \
-      unsigned int orl_count, int stridx))) bfd_false
-#define	aix386_truncate_arname		bfd_dont_truncate_arname
-
-#define	aix386_close_and_cleanup		bfd_generic_close_and_cleanup
-#define	aix386_set_section_contents		(PROTO(boolean, (*),	\
-         (bfd *abfd, asection *section, PTR data, file_ptr offset,	\
-	 bfd_size_type count))) bfd_generic_set_section_contents
-#define	aix386_get_section_contents		bfd_generic_get_section_contents
-#define	aix386_new_section_hook		(PROTO (boolean, (*),	\
-	(bfd *, sec_ptr))) bfd_true
-#define	aix386_get_symtab_upper_bound	bfd_0u
-#define	aix386_get_symtab			(PROTO (unsigned int, (*), \
-        (bfd *, struct symbol_cache_entry **))) bfd_0u
-#define	aix386_get_reloc_upper_bound		(PROTO (unsigned int, (*), \
-	(bfd *, sec_ptr))) bfd_0u
-#define	aix386_canonicalize_reloc		(PROTO (unsigned int, (*), \
-	(bfd *, sec_ptr, arelent **, struct symbol_cache_entry**))) bfd_0u
-#define	aix386_make_empty_symbol		(PROTO (		\
-	struct symbol_cache_entry *, (*), (bfd *))) bfd_false
-#define	aix386_print_symbol			(PROTO (void, (*),	\
-	(bfd *, PTR, struct symbol_cache_entry  *,			\
-	 bfd_print_symbol_type))) bfd_false
-#define	aix386_get_symbol_info			(PROTO (void, (*),	\
-	(bfd *, struct symbol_cache_entry  *,			\
-	 symbol_info *))) bfd_false
-#define	aix386_get_lineno			(PROTO (alent *, (*),	\
-	(bfd *, struct symbol_cache_entry *))) bfd_nullvoidptr
-#define	aix386_set_arch_mach			(PROTO (boolean, (*),	\
-	(bfd *, enum bfd_architecture, unsigned long))) bfd_false
-#define	aix386_find_nearest_line		(PROTO (boolean, (*),	\
-        (bfd *abfd, struct sec  *section,				\
-         struct symbol_cache_entry  **symbols,bfd_vma offset,		\
-         CONST char **file, CONST char **func, unsigned int *line))) bfd_false
-#define	aix386_sizeof_headers		(PROTO (int, (*),	\
-	(bfd *, boolean))) bfd_0
-
-#define aix386_bfd_debug_info_start		bfd_void
-#define aix386_bfd_debug_info_end		bfd_void
-#define aix386_bfd_debug_info_accumulate	(PROTO (void, (*),	\
-	(bfd *, struct sec *))) bfd_void
-#define aix386_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
-#define aix386_bfd_relax_section bfd_generic_relax_section
-#define aix386_bfd_reloc_type_lookup \
-  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
-#define aix386_bfd_make_debug_symbol \
-  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
-#define aix386_bfd_link_hash_table_create \
-  ((struct bfd_link_hash_table *(*) PARAMS ((bfd *))) bfd_nullvoidptr)
-#define aix386_bfd_link_add_symbols \
-  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
-#define aix386_bfd_final_link \
-  ((boolean (*) PARAMS ((bfd *, struct bfd_link_info *))) bfd_false)
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
 void
@@ -311,7 +254,7 @@ swap_abort()
 #define NO_GETS ((PROTO(bfd_signed_vma, (*), (const bfd_byte *))) swap_abort )
 #define	NO_PUT	((PROTO(void,        (*), (bfd_vma, bfd_byte *))) swap_abort )
 
-bfd_target aix386_core_vec =
+const bfd_target aix386_core_vec =
   {
     "aix386-core",
     bfd_target_unknown_flavour,
@@ -339,7 +282,16 @@ bfd_target aix386_core_vec =
      bfd_false, bfd_false},
     {bfd_false, bfd_false,	/* bfd_write_contents */
      bfd_false, bfd_false},
-    
-    JUMP_TABLE(aix386),
+
+     BFD_JUMP_TABLE_GENERIC (_bfd_generic),
+     BFD_JUMP_TABLE_COPY (_bfd_generic),
+     BFD_JUMP_TABLE_CORE (aix386),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_noarchive),
+     BFD_JUMP_TABLE_SYMBOLS (_bfd_nosymbols),
+     BFD_JUMP_TABLE_RELOCS (_bfd_norelocs),
+     BFD_JUMP_TABLE_WRITE (_bfd_generic),
+     BFD_JUMP_TABLE_LINK (_bfd_nolink),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
     (PTR) 0
 };

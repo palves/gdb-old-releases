@@ -41,6 +41,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/stat.h>
 #include <sys/debug.h>
 
+#include "coff/internal.h"	/* FIXME, internal data from BFD */
+#include "libcoff.h"		/* FIXME, internal data from BFD */
+#include "coff/rs6000.h"	/* FIXME, raw file-format guts of xcoff */
+
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "symfile.h"
@@ -48,10 +52,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "buildsym.h"
 #include "stabsread.h"
 #include "complaints.h"
-
-#include "coff/internal.h"	/* FIXME, internal data from BFD */
-#include "libcoff.h"		/* FIXME, internal data from BFD */
-#include "coff/rs6000.h"	/* FIXME, raw file-format guts of xcoff */
 
 /* For interface with stabsread.c.  */
 #include "aout/stab_gnu.h"
@@ -61,7 +61,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 struct coff_symbol {
   char *c_name;
   int c_symnum;		/* symbol number of this entry */
-  int c_nsyms;		/* 0 if syment only, 1 if syment + auxent */
+  int c_naux;		/* 0 if syment only, 1 if syment + auxent */
   long c_value;
   unsigned char c_sclass;
   int c_secnum;
@@ -168,12 +168,8 @@ xcoff_symfile_init PARAMS ((struct objfile *));
 static void
 xcoff_new_init PARAMS ((struct objfile *));
 
-#ifdef __STDC__
-struct section_offset;
-#endif
-
 static void
-xcoff_symfile_read PARAMS ((struct objfile *, struct section_offset *, int));
+xcoff_symfile_read PARAMS ((struct objfile *, struct section_offsets *, int));
 
 static void
 xcoff_symfile_finish PARAMS ((struct objfile *));
@@ -975,6 +971,46 @@ static int static_block_section = -1;
 
 static int symname_alloced = 0;
 
+/* Next symbol to read.  Pointer into raw seething symbol table.  */
+
+static char *raw_symbol;
+
+/* This is the function which stabsread.c calls to get symbol
+   continuations.  */
+static char *
+xcoff_next_symbol_text ()
+{
+  struct internal_syment symbol;
+  static struct complaint msg =
+    {"Unexpected symbol continuation", 0, 0};
+  char *retval;
+
+  bfd_coff_swap_sym_in (current_objfile->obfd, raw_symbol, &symbol);
+  if (symbol.n_zeroes)
+    {
+      complain (&msg);
+
+      /* Return something which points to '\0' and hope the symbol reading
+	 code does something reasonable.  */
+      retval = "";
+    }
+  else if (symbol.n_sclass & 0x80)
+    {
+      retval = debugsec + symbol.n_offset;
+      raw_symbol += coff_data (current_objfile->obfd)->local_symesz;
+      ++symnum;
+    }
+  else
+    {
+      complain (&msg);
+
+      /* Return something which points to '\0' and hope the symbol reading
+	 code does something reasonable.  */
+      retval = "";
+    }
+  return retval;
+}
+
 /* read the whole symbol table of a given bfd. */
 
 static void
@@ -983,13 +1019,12 @@ read_xcoff_symtab (objfile, nsyms)
      int nsyms;			/* # of symbols */
 {
   bfd *abfd = objfile->obfd;
-  char *raw_symbol;		/* Pointer into raw seething symbol table */
   char *raw_auxptr;		/* Pointer to first raw aux entry for sym */
   sec_ptr  textsec;		/* Pointer to text section */
   TracebackInfo *ptb;		/* Pointer to traceback table */
 
   struct internal_syment symbol[1];
-  union internal_auxent main_aux[1];
+  union internal_auxent main_aux;
   struct coff_symbol cs[1];
   CORE_ADDR file_start_addr = 0;
   CORE_ADDR file_end_addr = 0;
@@ -1054,6 +1089,8 @@ read_xcoff_symtab (objfile, nsyms)
     printf_unfiltered ("Unable to locate text section!\n");
   }
 
+  next_symbol_text_func = xcoff_next_symbol_text;
+
   while (symnum < nsyms) {
 
     QUIT;			/* make this command interruptable.  */
@@ -1070,7 +1107,7 @@ read_xcoff_symtab (objfile, nsyms)
       bfd_coff_swap_sym_in (abfd, raw_symbol, symbol);
 
       cs->c_symnum = symnum;
-      cs->c_nsyms = symbol->n_numaux;
+      cs->c_naux = symbol->n_numaux;
       if (symbol->n_zeroes) {
 	symname_alloced = 0;
 	/* We must use the original, unswapped, name here so the name field
@@ -1132,32 +1169,32 @@ read_xcoff_symtab (objfile, nsyms)
     /* if explicitly specified as a function, treat is as one. */
     if (ISFCN(cs->c_type) && cs->c_sclass != C_TPDEF) {
       bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
-			    main_aux);
+			    0, cs->c_naux, &main_aux);
       goto function_entry_point;
     }
 
-    if ((cs->c_sclass == C_EXT || cs->c_sclass == C_HIDEXT) && cs->c_nsyms == 1)
+    if ((cs->c_sclass == C_EXT || cs->c_sclass == C_HIDEXT) && cs->c_naux == 1)
     {
 	/* dealing with a symbol with a csect entry. */
 
 #   define	CSECT(PP)	((PP)->x_csect)
-#   define	CSECT_LEN(PP)	(CSECT(PP).x_scnlen)
+#   define	CSECT_LEN(PP)	(CSECT(PP).x_scnlen.l)
 #   define	CSECT_ALIGN(PP)	(SMTYP_ALIGN(CSECT(PP).x_smtyp))
 #   define	CSECT_SMTYP(PP)	(SMTYP_SMTYP(CSECT(PP).x_smtyp))
 #   define	CSECT_SCLAS(PP)	(CSECT(PP).x_smclas)
 
 	/* Convert the auxent to something we can access.  */
         bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
-			      main_aux);
+			      0, cs->c_naux, &main_aux);
 
-	switch (CSECT_SMTYP (main_aux)) {
+	switch (CSECT_SMTYP (&main_aux)) {
 
 	case XTY_ER :
 	  continue;			/* ignore all external references. */
 
 	case XTY_SD :			/* a section description. */
 	  {
-	    switch (CSECT_SCLAS (main_aux)) {
+	    switch (CSECT_SCLAS (&main_aux)) {
 
 	    case XMC_PR :			/* a `.text' csect.	*/
 	      {
@@ -1200,12 +1237,12 @@ read_xcoff_symtab (objfile, nsyms)
 
 		/* If this is the very first csect seen, basically `__start'. */
 		if (just_started) {
-		  first_object_file_end = cs->c_value + CSECT_LEN (main_aux);
+		  first_object_file_end = cs->c_value + CSECT_LEN (&main_aux);
 		  just_started = 0;
 		}
 
 		file_start_addr = cs->c_value;
-		file_end_addr = cs->c_value + CSECT_LEN (main_aux);
+		file_end_addr = cs->c_value + CSECT_LEN (&main_aux);
 
 		if (cs->c_name && cs->c_name[0] == '.') {
 		  last_csect_name = cs->c_name;
@@ -1238,19 +1275,19 @@ read_xcoff_symtab (objfile, nsyms)
 	case XTY_LD :
 	  
 	  /* a function entry point. */
-	  if (CSECT_SCLAS (main_aux) == XMC_PR) {
+	  if (CSECT_SCLAS (&main_aux) == XMC_PR) {
 
 function_entry_point:
 	    RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value, mst_text, 
 				   symname_alloced, cs->c_secnum, objfile);
 
-	    fcn_line_offset = main_aux->x_sym.x_fcnary.x_fcn.x_lnnoptr;
+	    fcn_line_offset = main_aux.x_sym.x_fcnary.x_fcn.x_lnnoptr;
 	    fcn_start_addr = cs->c_value;
 
 	    /* save the function header info, which will be used
 	       when `.bf' is seen. */
 	    fcn_cs_saved = *cs;
-	    fcn_aux_saved = *main_aux;
+	    fcn_aux_saved = main_aux;
 
 
 	    ptb = NULL;
@@ -1259,11 +1296,15 @@ function_entry_point:
 	       already available for it. Process traceback table for
 	       functions with only one auxent. */
 
-	    if (cs->c_nsyms == 1)
+	    if (cs->c_naux == 1)
 	      ptb = retrieve_tracebackinfo (abfd, textsec, cs);
 
-	    else if (cs->c_nsyms != 2)
-	      abort ();
+	    else if (cs->c_naux != 2)
+	      {
+		static struct complaint msg =
+		  {"Expected one or two auxents for function", 0, 0};
+		complain (&msg);
+	      }
 
 	    /* If there is traceback info, create and add parameters for it. */
 
@@ -1309,10 +1350,11 @@ function_entry_point:
 	    continue;
 	  }
 	  /* shared library function trampoline code entry point. */
-	  else if (CSECT_SCLAS (main_aux) == XMC_GL) {
+	  else if (CSECT_SCLAS (&main_aux) == XMC_GL) {
 
-	    /* record trampoline code entries as mst_unknown symbol. When we
-	       lookup mst symbols, we will choose mst_text over mst_unknown. */
+	    /* record trampoline code entries as mst_solib_trampoline symbol.
+	       When we lookup mst symbols, we will choose mst_text over
+	       mst_solib_trampoline. */
 
 #if 1
 	    /* After the implementation of incremental loading of shared
@@ -1323,26 +1365,28 @@ function_entry_point:
 	       consistient with gdb's behaviour on a SUN platform. */
 
 	    /* Trying to prefer *real* function entry over its trampoline,
-	       by assigning `mst_unknown' type to trampoline entries fails.
-	       Gdb treats those entries as chars. FIXME. */
+	       by assigning `mst_solib_trampoline' type to trampoline entries
+	       fails.  Gdb treats those entries as chars. FIXME. */
 
 	    /* Recording this entry is necessary. Single stepping relies on
 	       this vector to get an idea about function address boundaries. */
 
 	    prim_record_minimal_symbol_and_info
-	      ("<trampoline>", cs->c_value, mst_unknown,
+	      ("<trampoline>", cs->c_value, mst_solib_trampoline,
 	       (char *)NULL, cs->c_secnum, objfile);
 #else
 
-	    /* record trampoline code entries as mst_unknown symbol. When we
-	       lookup mst symbols, we will choose mst_text over mst_unknown. */
+	    /* record trampoline code entries as mst_solib_trampoline symbol.
+	       When we lookup mst symbols, we will choose mst_text over
+	       mst_solib_trampoline. */
 
-	    RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value, mst_unknown,
+	    RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value,
+				   mst_solib_trampoline,
 				   symname_alloced, objfile);
 #endif
 	    continue;
 	  }
-	  break;
+	  continue;
 
 	default :		/* all other XTY_XXXs */
 	  break;
@@ -1381,15 +1425,24 @@ function_entry_point:
       cur_src_end_addr = file_end_addr;
       end_symtab (file_end_addr, 1, 0, objfile, textsec->target_index);
       end_stabs ();
+
+      /* XCOFF, according to the AIX 3.2 documentation, puts the filename
+	 in cs->c_name.  But xlc 1.3.0.2 has decided to do things the
+	 standard COFF way and put it in the auxent.  We use the auxent if
+	 the symbol is ".file" and an auxent exists, otherwise use the symbol
+	 itself.  Simple enough.  */
+      if (!strcmp (cs->c_name, ".file") && cs->c_naux > 0)
+	filestring = coff_getfilename (&main_aux);
+      else
+	filestring = cs->c_name;
+
       start_stabs ();
-      start_symtab (cs->c_name, (char *)NULL, (CORE_ADDR)0);
+      start_symtab (filestring, (char *)NULL, (CORE_ADDR)0);
       last_csect_name = 0;
 
       /* reset file start and end addresses. A compilation unit with no text
          (only data) should have zero file boundaries. */
       file_start_addr = file_end_addr = 0;
-
-      filestring = cs->c_name;
       break;
 
 
@@ -1402,7 +1455,7 @@ function_entry_point:
       if (STREQ (cs->c_name, ".bf")) {
 
         bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
-			      main_aux);
+			      0, cs->c_naux, &main_aux);
 
 	within_function = 1;
 
@@ -1418,14 +1471,14 @@ function_entry_point:
       else if (STREQ (cs->c_name, ".ef")) {
 
         bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
-			      main_aux);
+			      0, cs->c_naux, &main_aux);
 
 	/* the value of .ef is the address of epilogue code;
 	   not useful for gdb */
 	/* { main_aux.x_sym.x_misc.x_lnsz.x_lnno
 	   contains number of lines to '}' */
 
-	fcn_last_line = main_aux->x_sym.x_misc.x_lnsz.x_lnno;
+	fcn_last_line = main_aux.x_sym.x_misc.x_lnsz.x_lnno;
 	new = pop_context ();
 	if (context_stack_depth != 0)
 	  error ("invalid symbol data; .bf/.ef/.bb/.eb symbol mismatch, at symbol %d.",
@@ -1629,24 +1682,25 @@ process_xcoff_symbol (cs, objfile)
 
     case C_STSYM:
 
-	/* If we are going to use Sun dbx's define_symbol(), we need to
-	   massage our stab string a little. Change 'V' type to 'S' to be
-	   comparible with Sun. */
-        /* FIXME: Is this to avoid a Sun-specific hack somewhere?
-	   Needs more investigation.  */
+      /* For xlc (not GCC), the 'V' symbol descriptor is used for all
+	 statics and we need to distinguish file-scope versus function-scope
+	 using within_function.  We do this by changing the string we pass
+	 to define_symbol to use 'S' where we need to, which is not necessarily
+	 super-clean, but seems workable enough.  */
 
-	if (*name == ':' || (pp = (char *) strchr(name, ':')) == NULL)
-	  return NULL;
+      if (*name == ':' || (pp = (char *) strchr(name, ':')) == NULL)
+	return NULL;
 
-	++pp;
-	if (*pp == 'V') *pp = 'S';
-	sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
-        if (sym != NULL)
-	  {
-	    SYMBOL_VALUE (sym) += static_block_base;
-	    SYMBOL_SECTION (sym) = static_block_section;
-	  }
-	return sym;
+      ++pp;
+      if (*pp == 'V' && !within_function)
+	*pp = 'S';
+      sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
+      if (sym != NULL)
+	{
+	  SYMBOL_VALUE (sym) += static_block_base;
+	  SYMBOL_SECTION (sym) = static_block_section;
+	}
+      return sym;
 
     case C_LSYM:
       sym = define_symbol (cs->c_value, cs->c_name, 0, N_LSYM, objfile);
@@ -1775,7 +1829,8 @@ gotit:
   /* take aux entry and return its lineno */
   symno++;
   bfd_coff_swap_aux_in (symfile_bfd, symtbl+(symno*local_symesz),
-			symbol->n_type, symbol->n_sclass, main_aux);
+			symbol->n_type, symbol->n_sclass,
+			0, symbol->n_numaux, main_aux);
 
   return main_aux->x_sym.x_misc.x_lnsz.x_lnno;
 }
@@ -1850,18 +1905,6 @@ free_linetab ()
   linetab = NULL;
 }
 
-/* dbx allows the text of a symbol name to be continued into the
-   next symbol name!  When such a continuation is encountered
-   (a \ at the end of the text of a name)
-   call this function to get the continuation.  */
-/* So far, I haven't seen this happenning xlc output. I doubt we'll need this
-   for xcoff. */
-
-#undef next_symbol_text
-#define	next_symbol_text() \
-  printf_unfiltered ("Gdb Error: symbol names on multiple lines not implemented.\n")
-
-
 static void
 xcoff_new_init (objfile)
      struct objfile *objfile;
@@ -2004,7 +2047,7 @@ free_debugsection()
 static void
 xcoff_symfile_read (objfile, section_offset, mainline)
   struct objfile *objfile;
-  struct section_offset *section_offset;
+  struct section_offsets *section_offset;
   int mainline;
 {
   int num_symbols;			/* # of symbols */

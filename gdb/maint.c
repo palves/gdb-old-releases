@@ -1,5 +1,5 @@
 /* Support for GDB maintenance commands.
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.
 
 This file is part of GDB.
@@ -137,6 +137,7 @@ print_section_table (abfd, asect, ignore)
 
   flags = bfd_get_section_flags (abfd, asect);
 
+  /* FIXME-32x64: Need print_address_numeric with field width.  */
   printf_filtered ("    %s",
 		   local_hex_string_custom
 		     ((unsigned long) bfd_section_vma (abfd, asect), "08l"));
@@ -170,8 +171,8 @@ print_section_table (abfd, asect, ignore)
     printf_filtered (" HAS_CONTENTS");
   if (flags & SEC_NEVER_LOAD)
     printf_filtered (" NEVER_LOAD");
-  if (flags & SEC_SHARED_LIBRARY)
-    printf_filtered (" SHARED_LIBRARY");
+  if (flags & SEC_COFF_SHARED_LIBRARY)
+    printf_filtered (" COFF_SHARED_LIBRARY");
   if (flags & SEC_IS_COMMON)
     printf_filtered (" IS_COMMON");
 
@@ -286,5 +287,9 @@ If a SOURCE file is specified, dump only that file's partial symbols.",
   add_cmd ("objfiles", class_maintenance, maintenance_print_objfiles,
 	   "Print dump of current object file definitions.",
 	   &maintenanceprintlist);
+
+  add_cmd ("check-symtabs", class_maintenance, maintenance_check_symtabs,
+	   "Check consistency of psymtabs and symtabs.",
+	   &maintenancelist);
 #endif	/* MAINTENANCE_CMDS */
 }

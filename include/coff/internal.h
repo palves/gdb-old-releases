@@ -78,9 +78,9 @@ struct internal_aouthdr
   unsigned long fprmask;	/* Floating pointer registers used.  */
 
   /* Apollo stuff */
-  long o_inlib;
-  long o_sri;
-  long vid[2];
+  long o_inlib;			/* inlib data */
+  long o_sri;			/* Static Resource Information */
+  long vid[2];			/* Version id */
 };
 
 /********************** STORAGE CLASSES **********************/
@@ -365,7 +365,11 @@ union internal_auxent
    ******************************************/
   struct
   {
-    long x_scnlen;		/* csect length */
+    union
+      {				/* csect length or enclosing csect */
+	long l;
+	struct coff_ptr_struct *p;
+      } x_scnlen;
     long x_parmhash;		/* parm type hash index */
     unsigned short x_snhash;	/* sect num with parm hash */
     unsigned char x_smtyp;	/* symbol align and type */
@@ -440,7 +444,7 @@ struct internal_reloc
   unsigned short r_type;	/* Relocation type		*/
   unsigned char r_size;		/* Used by RS/6000 and ECOFF	*/
   unsigned char r_extern;	/* Used by ECOFF		*/
-  unsigned long r_offset;	/* Used by RS/6000 and ECOFF	*/
+  unsigned long r_offset;	/* Used by Alpha ECOFF, SPARC, others */
 };
 
 #define R_RELBYTE	017

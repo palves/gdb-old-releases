@@ -96,7 +96,7 @@ BFD_CFLAGS = -I$(BFD_DIR) -I(BFD_SRC)
 # -I. for config files.
 # -I${srcdir} possibly for regex.h also.
 # -I${srcdir}/config for more generic config files.
-INCLUDE_CFLAGS = -I. -I${srcdir} -I${srcdir}/config -I$(INCLUDE_DIR)
+INCLUDE_CFLAGS = -I. -I.. -I${srcdir} -I${srcdir}/../config -I$(INCLUDE_DIR)
 
 # CFLAGS is specifically reserved for setting from the command line
 # when running make.  I.E.  "make USER_CFLAGS=-Wmissing-prototypes".
@@ -125,16 +125,21 @@ CDEPS = ${BFD_LIB} ${LIBIBERTY}
 .c.o:
 	${CC} -c ${INTERNAL_CFLAGS} $<
 
-OFILES = crt0.o hello.o salib.o sparc-stub.o
+OFILES = crt0.o hello.o salib.o sparcl-stub.o
 
 # this is so that we don't build by default.  In order to build hello (the
 # sparclite target program), you will need to fix this file to use the
 # sparclite gcc and gas, and then do `make all'.
 
 .PHONY: all info install install-info
-all:
+all: aload
 info:
+# This does not use INSTALL_XFORM or anything of the sort because there
+# only needs to be one aload.  Even if aload ends up being useful for more
+# than one target, perhaps one aload binary can be useful with all of them.
 install:
+	$(INSTALL_PROGRAM) aload $(bindir)/aload
+
 install-info:
 
 progs:	aload hello
@@ -148,6 +153,9 @@ aload:	aload.o
 sparc-stub.o: ${srcdir}/../sparc-stub.c
 	$(CC) -c ${INTERNAL_CFLAGS} ${srcdir}/../sparc-stub.c
 
+sparcl-stub.o: ${srcdir}/../sparcl-stub.c
+	$(CC) -c ${INTERNAL_CFLAGS} ${srcdir}/../sparcl-stub.c
+
 crt0.o:	crt0.s
 	$(CC) $(CFLAGS) -c ${srcdir}/crt0.s
 
@@ -155,7 +163,7 @@ aload.o: aload.c
 
 hello.o: hello.c
 
-salib.o: salib.c
+salib.o: salib.c sparclite.h
 
 mostlyclean:
 

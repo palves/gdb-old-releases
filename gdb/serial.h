@@ -33,6 +33,9 @@ struct _serial_t
   unsigned char *bufp;		/* Current byte */
   unsigned char buf[BUFSIZ];	/* Da buffer itself */
   int current_timeout;		/* (termio{s} only), last value of VTIME */
+  /* ser-unix.c termio{,s} only, we still need to wait for this many more
+     seconds.  */
+  int timeout_remaining;
 };
 
 typedef struct _serial_t *serial_t;
@@ -102,7 +105,9 @@ serial_t serial_fdopen PARAMS ((const int fd));
 #define SERIAL_GET_TTY_STATE(SERIAL_T) (SERIAL_T)->ops->get_tty_state((SERIAL_T))
 
 /* Set the state of the tty to TTYSTATE.  The change is immediate.
-   When changing to or from raw mode, input might be discarded.  */
+   When changing to or from raw mode, input might be discarded.
+   Returns 0 for success, negative value for error (in which case errno
+   contains the error).  */
 #define SERIAL_SET_TTY_STATE(SERIAL_T, TTYSTATE) (SERIAL_T)->ops->set_tty_state((SERIAL_T), (TTYSTATE))
 
 /* printf_filtered a user-comprehensible description of ttystate.  */

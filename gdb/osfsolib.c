@@ -1,5 +1,5 @@
 /* Handle OSF/1 shared libraries for GDB, the GNU Debugger.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994 Free Software Foundation, Inc.
    
 This file is part of GDB.
 
@@ -189,7 +189,7 @@ solib_map_sections (so)
     {
       close (scratch_chan);
       error ("Could not open `%s' as an executable file: %s",
-	     scratch_pathname, bfd_errmsg (bfd_error));
+	     scratch_pathname, bfd_errmsg (bfd_get_error ()));
     }
   /* Leave bfd open, core_xfer_memory and "info files" need it.  */
   so -> abfd = abfd;
@@ -198,12 +198,12 @@ solib_map_sections (so)
   if (!bfd_check_format (abfd, bfd_object))
     {
       error ("\"%s\": not in executable format: %s.",
-	     scratch_pathname, bfd_errmsg (bfd_error));
+	     scratch_pathname, bfd_errmsg (bfd_get_error ()));
     }
   if (build_section_table (abfd, &so -> sections, &so -> sections_end))
     {
       error ("Can't find the file sections in `%s': %s", 
-	     bfd_get_filename (exec_bfd), bfd_errmsg (bfd_error));
+	     bfd_get_filename (exec_bfd), bfd_errmsg (bfd_get_error ()));
     }
 
   for (p = so -> sections; p < so -> sections_end; p++)
@@ -214,7 +214,7 @@ solib_map_sections (so)
       p -> addr += (CORE_ADDR) LM_ADDR (so);
       p -> endaddr += (CORE_ADDR) LM_ADDR (so);
       so -> lmend = (CORE_ADDR) max (p -> endaddr, so -> lmend);
-      if (STREQ (p -> sec_ptr -> name, ".text"))
+      if (STREQ (p -> the_bfd_section -> name, ".text"))
 	{
 	  so -> textsection = p;
 	}
@@ -344,11 +344,17 @@ xfer_link_map_member (so_list_ptr, lm)
 	len = MAX_PATH_SIZE;
       strncpy (so_list_ptr->so_name, LM_NAME (so_list_ptr), MAX_PATH_SIZE);
 #else
-      if (!target_read_string((CORE_ADDR) LM_NAME (so_list_ptr),
-			      so_list_ptr->so_name, MAX_PATH_SIZE - 1))
-	error ("xfer_link_map_member: Can't read pathname for load map\n");
+      int errcode;
+      char *buffer;
+      target_read_string ((CORE_ADDR) LM_NAME (so_list_ptr), &buffer,
+			  MAX_PATH_SIZE - 1, &errcode);
+      if (errcode != 0)
+	error ("xfer_link_map_member: Can't read pathname for load map: %s\n",
+	       safe_strerror (errcode));
+      strncpy (so_list_ptr->so_name, buffer, MAX_PATH_SIZE - 1);
+      free (buffer);
 #endif
-      so_list_ptr->so_name[MAX_PATH_SIZE - 1] = 0;
+      so_list_ptr->so_name[MAX_PATH_SIZE - 1] = '\0';
 
       solib_map_sections (so_list_ptr);
     }
@@ -726,7 +732,9 @@ solib_create_inferior_hook()
 
   /* Nothing to do for statically bound executables.  */
 
-  if (symfile_objfile == 0 || symfile_objfile->ei.entry_file_lowpc == stop_pc)
+  if (symfile_objfile == NULL
+      || symfile_objfile->obfd == NULL
+      || ((bfd_get_file_flags (symfile_objfile->obfd) & DYNAMIC) == 0))
     return;
 
   /* Now run the target.  It will eventually get a SIGTRAP, at
@@ -748,8 +756,8 @@ solib_create_inferior_hook()
       But we are stopped in the runtime loader and we do not have symbols
       for the runtime loader. So heuristic_proc_start will be called
       and will put out an annoying warning.
-      Resetting stop_soon_quietly after symbol loading suppresses
-      the warning.  */
+      Delaying the resetting of stop_soon_quietly until after symbol loading
+      suppresses the warning.  */
   solib_add ((char *) 0, 0, (struct target_ops *) 0);
   stop_soon_quietly = 0;
 }

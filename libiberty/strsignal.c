@@ -18,7 +18,8 @@ License along with libiberty; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
-#include <ansidecl.h>
+#include "ansidecl.h"
+#include "libiberty.h"
 
 #include "config.h"
 
@@ -36,9 +37,6 @@ Cambridge, MA 02139, USA.  */
 extern void *malloc (size_t size);				/* 4.10.3.3 */
 extern void *memset (void *s, int c, size_t n);			/* 4.11.6.1 */
 #else	/* !__STDC__ */
-#ifndef const
-#define const
-#endif
 extern char *malloc ();		/* Standard memory allocater */
 extern char *memset ();
 #endif	/* __STDC__ */
@@ -73,9 +71,9 @@ extern char *memset ();
 struct signal_info
 {
   int value;		/* The numeric value from <signal.h> */
-  char *name;		/* The equivalent symbolic value */
+  const char *name;	/* The equivalent symbolic value */
 #ifdef NEED_sys_siglist
-  char *msg;		/* Short message about this value */
+  const char *msg;	/* Short message about this value */
 #endif
 };
 
@@ -235,7 +233,7 @@ static const struct signal_info signal_table[] =
 /* Translation table allocated and initialized at runtime.  Indexed by the
    signal value to find the equivalent symbolic value. */
 
-static char **signal_names;
+static const char **signal_names;
 static int num_signal_names = 0;
 
 /* Translation table allocated and initialized at runtime, if it does not
@@ -249,7 +247,7 @@ static int num_signal_names = 0;
 #ifdef NEED_sys_siglist
 
 static int sys_nsig;
-static char **sys_siglist;
+static const char **sys_siglist;
 
 #else
 
@@ -313,7 +311,7 @@ init_signal_tables ()
   if (signal_names == NULL)
     {
       nbytes = num_signal_names * sizeof (char *);
-      if ((signal_names = (char **) malloc (nbytes)) != NULL)
+      if ((signal_names = (const char **) malloc (nbytes)) != NULL)
 	{
 	  memset (signal_names, 0, nbytes);
 	  for (eip = signal_table; eip -> name != NULL; eip++)
@@ -331,7 +329,7 @@ init_signal_tables ()
   if (sys_siglist == NULL)
     {
       nbytes = num_signal_names * sizeof (char *);
-      if ((sys_siglist = (char **) malloc (nbytes)) != NULL)
+      if ((sys_siglist = (const char **) malloc (nbytes)) != NULL)
 	{
 	  memset (sys_siglist, 0, nbytes);
 	  sys_nsig = num_signal_names;
@@ -396,7 +394,7 @@ NAME
 
 SYNOPSIS
 
-	char *strsignal (int signo)
+	const char *strsignal (int signo)
 
 DESCRIPTION
 
@@ -418,11 +416,11 @@ DESCRIPTION
 
 */
 
-char *
+const char *
 strsignal (signo)
   int signo;
 {
-  char *msg;
+  const char *msg;
   static char buf[32];
 
 #ifdef NEED_sys_siglist
@@ -443,12 +441,12 @@ strsignal (signo)
     {
       /* In range, but no sys_siglist or no entry at this index. */
       sprintf (buf, "Signal %d", signo);
-      msg = buf;
+      msg = (const char *) buf;
     }
   else
     {
       /* In range, and a valid message.  Just return the message. */
-      msg = (char*)sys_siglist[signo];
+      msg = (const char *) sys_siglist[signo];
     }
   
   return (msg);
@@ -463,7 +461,7 @@ NAME
 
 SYNOPSIS
 
-	char *strsigno (int signo)
+	const char *strsigno (int signo)
 
 DESCRIPTION
 
@@ -485,11 +483,11 @@ BUGS
 
 */
 
-char *
+const char *
 strsigno (signo)
   int signo;
 {
-  char *name;
+  const char *name;
   static char buf[32];
 
   if (signal_names == NULL)
@@ -506,7 +504,7 @@ strsigno (signo)
     {
       /* In range, but no signal_names or no entry at this index. */
       sprintf (buf, "Signal %d", signo);
-      name = buf;
+      name = (const char *) buf;
     }
   else
     {
@@ -537,7 +535,7 @@ DESCRIPTION
 
 int
 strtosigno (name)
-  char *name;
+     const char *name;
 {
   int signo = 0;
 
@@ -610,14 +608,15 @@ psignal (signo, message)
 
 #ifdef MAIN
 
+#include <stdio.h>
+
+int
 main ()
 {
   int signo;
   int maxsigno;
-  char *name;
-  char *msg;
-  char *strsigno ();
-  char *strsignal ();
+  const char *name;
+  const char *msg;
 
   maxsigno = signo_max ();
   printf ("%d entries in names table.\n", num_signal_names);
@@ -637,6 +636,8 @@ main ()
       msg = (msg == NULL) ? "<NULL>" : msg;
       printf ("%-4d%-18s%s\n", signo, name, msg);
     }
+
+  return 0;
 }
 
 #endif

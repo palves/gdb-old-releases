@@ -1,5 +1,5 @@
 /* BFD library support routines for the i960 architecture.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
    Hacked by Steve Chamberlain of Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -29,9 +29,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    info_struct pointer */
 
 static boolean
-DEFUN(scan_960_mach, (ap, string),
-      CONST bfd_arch_info_type *ap AND
-      CONST char *string)
+scan_960_mach (ap, string)
+     CONST bfd_arch_info_type *ap;
+     CONST char *string;
 {
   unsigned long machine;
 
@@ -88,9 +88,9 @@ DEFUN(scan_960_mach, (ap, string),
    to its info structure */
 
 static CONST bfd_arch_info_type *
-DEFUN(compatible,(a,b),
-      CONST bfd_arch_info_type *a AND
-      CONST bfd_arch_info_type *b)
+compatible (a,b)
+     CONST bfd_arch_info_type *a;
+     CONST bfd_arch_info_type *b;
 {
 
   /* The i960 has two distinct subspecies which may not interbreed:
@@ -149,7 +149,8 @@ static bfd_arch_info_type arch_info_struct[] =
   };
 
 
-void DEFUN_VOID(bfd_i960_arch)
+void
+bfd_i960_arch ()
 {
   unsigned int i;
   for (i = 0; i < sizeof(arch_info_struct)/sizeof (*arch_info_struct); i++)  {

@@ -42,7 +42,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-#ifdef	COREFILES_PLEASE
+#ifdef HOST_AIX
 
 /* AOUTHDR is defined by the above.  We need another defn of it, from the
    system include files.  Punt the old one and get us a new name for the
@@ -95,7 +95,7 @@ typedef struct {
 /* Decide if a given bfd represents a `core' file or not. There really is no
    magic number or anything like, in rs6000coff. */
 
-bfd_target *
+const bfd_target *
 rs6000coff_core_p (abfd)
      bfd *abfd;
 {
@@ -108,27 +108,27 @@ rs6000coff_core_p (abfd)
   fd = open (abfd->filename, O_RDONLY);
   if (fd < 0)
     {
-      bfd_error = system_call_error;
+      bfd_set_error (bfd_error_system_call);
       return NULL;
     }
 
   if (fstat (fd, &statbuf) < 0)
     {
-      bfd_error = system_call_error;
+      bfd_set_error (bfd_error_system_call);
       close (fd);
       return NULL;
     }
   if (read (fd, &coredata, sizeof (struct core_dump))
       != sizeof (struct core_dump))
     {
-      bfd_error = wrong_format;
+      bfd_set_error (bfd_error_wrong_format);
       close (fd);
       return NULL;
     }
 
   if (close (fd) < 0)
     {
-      bfd_error = system_call_error;
+      bfd_set_error (bfd_error_system_call);
       return NULL;
     }
 
@@ -151,14 +151,14 @@ rs6000coff_core_p (abfd)
   if (!(coredata.c_flag & UBLOCK_VALID)
       || !(coredata.c_flag & LE_VALID))
     {
-      bfd_error = wrong_format;
+      bfd_set_error (bfd_error_wrong_format);
       return NULL;
     }
 
   if ((coredata.c_flag & CORE_TRUNC)
       || !(coredata.c_flag & USTACK_VALID))
     {
-      bfd_error = file_truncated;
+      bfd_set_error (bfd_error_file_truncated);
       return NULL;
     }
 
@@ -167,7 +167,7 @@ rs6000coff_core_p (abfd)
       != statbuf.st_size)
     {
       /* If the size is wrong, it means we're misinterpreting something.  */
-      bfd_error = wrong_format;
+      bfd_set_error (bfd_error_wrong_format);
       return NULL;
     }
 
@@ -176,18 +176,24 @@ rs6000coff_core_p (abfd)
       (u_long) coredata.c_tab >= statbuf.st_size ||
       (long) coredata.c_tab >= (long)coredata.c_stack)
     {
-      bfd_error = wrong_format;
+      bfd_set_error (bfd_error_wrong_format);
       return NULL;
     }
 
   /* maybe you should alloc space for the whole core chunk over here!! FIXMEmgo */
   tmpptr = (char*)bfd_zalloc (abfd, sizeof (Rs6kCorData));
+  if (!tmpptr)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return NULL;
+    }
+      
   set_tdata (abfd, tmpptr);
 
   /* .stack section. */
   if ((core_stacksec (abfd) = (asection*) bfd_zalloc (abfd, sizeof (asection)))
        == NULL)  {
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     /* bfd_release (abfd, ???? ) */
     return NULL;
   }
@@ -200,12 +206,12 @@ rs6000coff_core_p (abfd)
   /* .reg section for GPRs and special registers. */
   if ((core_regsec (abfd) = (asection*) bfd_zalloc (abfd, sizeof (asection)))
        == NULL)  {
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     /* bfd_release (abfd, ???? ) */
     return NULL;
   }
   core_regsec (abfd)->name = ".reg";
-  core_regsec (abfd)->flags = SEC_ALLOC;
+  core_regsec (abfd)->flags = SEC_HAS_CONTENTS;
   core_regsec (abfd)->_raw_size = (32 + NUM_OF_SPEC_REGS) * 4;
   core_regsec (abfd)->vma = 0;			/* not used?? */
   core_regsec (abfd)->filepos = 
@@ -214,12 +220,12 @@ rs6000coff_core_p (abfd)
   /* .reg2 section for FPRs (floating point registers). */
   if ((core_reg2sec (abfd) = (asection*) bfd_zalloc (abfd, sizeof (asection)))
        == NULL)  {
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     /* bfd_release (abfd, ???? ) */
     return NULL;
   }
   core_reg2sec (abfd)->name = ".reg2";
-  core_reg2sec (abfd)->flags = SEC_ALLOC;
+  core_reg2sec (abfd)->flags = SEC_HAS_CONTENTS;
   core_reg2sec (abfd)->_raw_size = 8 * 32;			/* 32 FPRs. */
   core_reg2sec (abfd)->vma = 0;			/* not used?? */
   core_reg2sec (abfd)->filepos = 
@@ -227,7 +233,7 @@ rs6000coff_core_p (abfd)
 
   if ((core_ldinfosec (abfd) = (asection*) bfd_zalloc (abfd, sizeof (asection)))
        == NULL)  {
-    bfd_error = no_memory;
+    bfd_set_error (bfd_error_no_memory);
     /* bfd_release (abfd, ???? ) */
     return NULL;
   }
@@ -254,7 +260,7 @@ rs6000coff_core_p (abfd)
       asection *sec = (asection *) bfd_zalloc (abfd, sizeof (asection));
       if (sec == NULL)
 	{
-	  bfd_error = no_memory;
+	  bfd_set_error (bfd_error_no_memory);
 	  return NULL;
 	}
       sec->name = ".data";
@@ -361,8 +367,8 @@ rs6000coff_get_section_contents (abfd, section, location, offset, count)
 
     /* else, use default bfd section content transfer. */
     else
-      return bfd_generic_get_section_contents 
+      return _bfd_generic_get_section_contents 
       			(abfd, section, location, offset, count);
 }
 
-#endif /* COREFILES_PLEASE */
+#endif /* HOST_AIX */

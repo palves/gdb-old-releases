@@ -1,3 +1,7 @@
+Sun Mar 13 09:27:50 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Add TAGS target.
+
 Mon Sep 13 12:47:15 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
 
 	* Makefile.in (all-z8k, install-z8k, clean-z8k, all-h8300,

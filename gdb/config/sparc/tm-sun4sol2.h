@@ -1,5 +1,5 @@
 /* Macro definitions for GDB for a Sun 4 running Solaris 2
-   Copyright 1989, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1989, 1992, 1993, 1994 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -19,9 +19,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "sparc/tm-sparc.h"
 #include "tm-sysv4.h"
-
-#undef IN_SOLIB_TRAMPOLINE
-#define IN_SOLIB_TRAMPOLINE(pc, name)	in_solib_trampoline((pc), (name))
+ 
+/* There are two different signal handler trampolines in Solaris2.  */
+#define IN_SIGTRAMP(pc, name) \
+  ((name) \
+   && (STREQ ("sigacthandler", name) || STREQ ("ucbsigvechandler", name)))
+ 
+/* The signal handler gets a pointer to an ucontext as third argument
+   if it is called from sigacthandler.  This is the offset to the saved
+   PC within it.  sparc_frame_saved_pc knows how to deal with
+   ucbsigvechandler.  */  
+#define SIGCONTEXT_PC_OFFSET 44
 
 #if 0	/* FIXME Setjmp/longjmp are not as well doc'd in SunOS 5.x yet */
 
@@ -51,3 +59,11 @@ get_longjmp_target PARAMS ((CORE_ADDR *));
 
 #define GET_LONGJMP_TARGET(ADDR) get_longjmp_target(ADDR)
 #endif  /* 0 */
+
+/* The SunPRO compiler puts out 0 instead of the address in an N_SO symbol.  */
+#define N_SO_ADDRESS_MAYBE_MISSING
+
+#define FAULTED_USE_SIGINFO
+
+/* Enable handling of shared libraries for a.out executables.  */
+#define HANDLE_SVR4_EXEC_EMULATORS

@@ -1,6 +1,547 @@
-Mon Jan 31 06:43:45 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+Mon Jul 25 17:05:51 1994  Stan Shebs  (shebs@andros.cygnus.com)
 
-	* configure.in (hppa*-*-*): Enable stabs tests for these configs. 
+	* gdb.base/help.exp: Update expected add-symbol-file, ignore, and
+	condition help.
+
+Sat Jul 23 15:12:52 1994  Fred Fish  (fnf@cygnus.com)
+
+	* Makefile.in:  Remove extra tabs that confuse some versions
+	of "make".  Use the newly built gdb to test with by default,
+	rather than the first one in the tester's search path.
+
+Thu Jul 14 18:13:56 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* Makefile.in (RUNTEST_FOR_TARGET): Fix relative pathname, the
+	  runtest script is relative to ${srcdir}, not ${rootdir}.
+
+Thu Jul 14 14:56:59 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* gdb.base/signals.exp: Allow for optionality of breakpoint
+	address.
+
+Thu Jul 14 11:21:27 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.base/{ptype.exp,ptype.c}: Add t_char_array test.
+
+Tue Jul 12 12:22:32 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* gdb.c++/cplusfuncs.cc: Include <stddef.h>, not <sys/types.h>,
+	  for size_t definition.
+	* gdb.c++/templates.cc: Likewise
+
+	* config/mt-i386-netware: New file.
+
+	* gdb.base/interrupt.c: Do not test if errno == EINTR if it's not
+	  defined.
+
+	* gdb.base/Makefile.in: Added support for systems that name core
+	  files by appending "core" to the program name.
+	* gdb.base/a1-selftest.exp: Likewise.
+
+Mon Jul 11 23:59:18 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/return.exp:  Add comment and message for `return double'
+	test failure on Sparc Solaris.
+
+Mon Jul  4 12:10:48 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* lib/gdb.exp (runto): Allow for optionality of breakpoint address.
+
+Wed Jun 29 00:26:17 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.c++/misc.cc:  Instantiate classes to inhibit the compiler
+	from optimizing them away.
+	* gdb.c++/classes.exp, gdb.c++/inherit.exp:  Update ptype expect
+	patterns to include default constructors and assignment operators,
+	to match gcc versions beyond 2.5.8. Accept any cplus demangling
+	character in the output of the virtual base pointer.
+
+Fri Jun 24 08:15:42 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.c++/cplusfuncs.exp:  Use string_to_regexp and a regular
+	expression match in print_addr_of to avoid unintented matches.
+	* gdb.c++/virtfunc.exp:  Accept alternate ptype output of g++
+	versions up to 2.5.8.
+
+Mon Jun 20 23:54:37 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/list.exp:  Tweak alternate pattern for listing of an
+	included file to run under newer versions of expect.
+	* gdb.c++/demangle.exp:  Add spaces to the expect patterns between
+	consecutive >'s in templates to accomodate recent cplus-dem.c change.
+	Remove xfail for the virtual table of BDDHookV.
+
+Sat Jun 18 12:51:34 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* lib/gdb.exp (string_to_regexp): Set a default result.
+	(default_gdb_start): Fix misleading message.
+
+Wed Jun 15 12:10:10 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* config/mt-a29k-udi, config/mt-i960-nindy, config/mt-sparc-aout:
+	Remove all CC, etc definitions.
+	* config/mt-hpux: New file.
+	* config/mt-mips-ecoff (CFLAGS_FOR_TARGET): Remove:
+	(CFLAGS, LDFLAGS): Define.
+	* config/mt-slite (CFLAGS_FOR_TARGET): Change to LDFLAGS.
+
+	* Makefile.in (site.exp): Don't insert host_os, etc.
+	(just-check): Just use RUNTEST with RUNTESTFLAGS only.
+	(distclean): Check existence of subdir.
+	* gdb.base/configure.in (hppa*-*-hpux*): Recognize.
+	* gdb.base/Makefile.in: General cleanup and simplification.
+	Use CC, CFLAGS, and LDFLAGS instead of ..._FOR_TARGET versions
+	to build executables.	Use default rule to build .o files.
+	(EXPECT, RUNTEST, CC): Fix relative pathname.
+	(site.exp): Don't insert host_os, etc.
+	* gdb.base/signals.c (main): Don't call signal unless SIGALRM
+	and/or SIGUSR1 defined.
+	* gdb.base/watchpoint.c: Don't include stdio.h a second time.
+	* gdb.c++/Makefile.in: General cleanup and simplification.
+	Use CC, CFLAGS, and LDFLAGS instead of ..._FOR_TARGET versions
+	(CFLAGS): Remove.
+	(EXPECT, RUNTEST_FOR_TARGET, CXX): Fix relative pathname.
+
+Fri Jun 10 10:55:09 1994  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.base/recurse.exp: Misc changes to get tests running again
+	after Kung's changes to the watchpoint code.
+	* gdb.base/watchpoint.exp: Likewise.
+
+Thu Jun  9 15:16:55 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* lib/gdb.exp (string_to_regexp):  Convert {\} also.
+
+Wed Jun  8 12:12:17 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* config/udi-gdb.exp, config/unix-gdb.exp: Call default_gdb_start.
+	* lib/gdb.exp (default_gdb_start): Define.
+	* gdb.base/bitfields.exp, gdb.base/break.exp, gdb.base/exprs.exp,
+	gdb.base/funcargs.exp, gdb.base/opaque.exp,
+	gdb.base/printcmds.exp, gdb.base/ptype.exp, gdb.base/recurse.exp,
+	gdb.base/scope.exp, gdb.base/setvar.exp, gdb.base/watchpoint.exp,
+	gdb.c++/classes.exp, gdb.c++/misc.exp, gdb.c++/virtfunc.exp:
+	Don't call gdb_target_udi in between tests.
+
+Tue Jun  7 08:30:15 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.c++/demangle.exp: Use gdb_test_exact, rather than demangle
+	(which was basically just a local version of the same thing).  In
+	addition to avoiding duplication, gdb_test_exact is faster.
+	* lib/gdb.exp (gdb_test_exact): Fix typo.
+
+	* lib/gdb.exp (delete_breakpoints): If there were no breakpoints,
+	don't give an error.
+
+	* gdb.base/term.exp: Call delete_breakpoints before starting.
+
+	* gdb.base/Makefile.in (EXECUTABLES): Remove t10.
+	(t10): Add comment.
+
+Mon Jun  6 18:26:50 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	Reorganization of the GDB Test Suite.
+
+	* gdb.base: New directory, contains all the basic tests.
+	* gdb.c++: New directory, tests specific to C++.
+	* gdb.chill: New directory, tests specific to Chill.
+	* gdb.t00, gdb.t01, gdb.t02, gdb.t03, gdb.t04, gdb.t05, gdb.t06,
+	gdb.t07, gdb.t08, gdb.t09, gdb.t10, gdb.t11, gdb.t12, gdb.t13,
+	gdb.t15, gdb.t16, gdb.t17, gdb.t20, gdb.t21, gdb.t22, gdb.t23,
+	gdb.t24, gdb.t30, gdb.t31: Removed directories, contents moved
+	into appropriate new directories (t00-t17 to base, t20-t23 to c++,
+	t30-31 to chill).
+	* */gdbme.*: Rename to match appropriate expect scripts.
+	* gdb.base/bitfields.c, gdb.base/break.c, gdb.base/callfuncs.c,
+	gdb.base/coremaker.c, gdb.base/exprs.c, gdb.base/funcargs.c,
+	gdb.base/interrupt.c, gdb.base/list0.c, gdb.base/list0.h,
+	gdb.base/list1.c, gdb.base/mips_pro.c, gdb.base/nodebug.c,
+	gdb.base/opaque-info.c, gdb.base/opaque0.c, gdb.base/opaque1.c,
+	gdb.base/printcmds.c, gdb.base/ptype.c, gdb.base/recurse.c,
+	gdb.base/return.c, gdb.base/run.c, gdb.base/scope0.c,
+	gdb.base/scope1.c, gdb.base/setvar.c, gdb.base/signals.c,
+	gdb.base/types.c, gdb.base/twice.c, gdb.base/watchpoint.c,
+	gdb.base/whatis-info.c, gdb.base/whatis.c: New names of C files.
+	* gdb.c++/cplusfuncs.cc, gdb.c++/templates.cc, gdb.c++/misc.cc,
+	gdb.c++/virtfunc.cc: New names of C++ files.
+	* gdb.chill/chillvars.ch: New name of Chill file.
+	* gdb.base/configure.in, gdb.c++/configure.in,
+	gdb.chill/configure.in: Merge in contents of gdb.t*/configure.in.
+	* gdb.base/Makefile.in, gdb.c++/Makefile.in,
+	gdb.chill/Makefile.in: Merge in contents of gdb.t*/Makefile.in.
+	* configure.in (configdirs): Update to reflect directory changes.
+	(target_abbrev): No longer define for any configuration.
+	* Makefile.in: Cosmetic improvements to header comments.
+
+Fri Jun  3 18:56:06 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	Various changes to gdb.t31:
+
+	* Makefile.in (gdbme.o):  Compile with -fspecial_UC.
+	* gdbme.ch:  Make all key-words and predefineds be upper-case.
+	* chillvars.exp:  Expect key-words and predefinds in upper-case.
+
+	* chillvars.exp:  Use gdb_test_exact many places.
+	Change expected output for arrays (which now includes index labels).
+
+	* pr-5020.exp, gdme.ch (module PR_5020):
+	New test, for PR-5020.
+
+Thu Jun  2 16:02:41 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* lib/gdb.exp (string_to_regexp, gdb_test_exact):  New procedures.
+	* Makefile.in (CHILL_LIB):  Remove bogus redundant definitions.
+
+Sun May 29 22:31:42 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* Makefile.in:  Fix bit-rot in definitions of CHILL,
+	CHILL_FOR_TARGET and Chill_LIB.
+	* gdb.t31/gdbme.ch:  Fix syntax of nested array tuples.
+	* gdb.t31/Makefile.in:  Add definitions for CHILLFLAGS,
+	CHILL, and CHILL_LIB.
+
+Wed May 25 17:10:38 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* Makefile.in (TARGET_FLAGS_TO_PASS): Fix syntax of
+	sanitize-chill comments.
+
+Sat May 21 10:05:08 1994  Bill Cox  (bill@rtl.cygnus.com)
+
+	* Revert the previous changes.  Please see Rob's directory
+	  /lisa/test/rob/progressive/gdb/testsuite for these fixes.
+
+Thu May 19 12:51:00 1994  Bill Cox  (bill@rtl.cygnus.com)
+
+	* Makefile.in, configure.in, config/mips-gdb.exp,
+          config/mt-a29k-udi, config/mt-i386-aout, config/mt-i960-nindy,
+          config/mt-sparc-aout, config/udi-gdb.exp, config/unix-gdb.exp,
+          config/unknown.exp, gdb.t00/default.exp, gdb.t00/help.exp,,
+	  gdb.t00/teststrategy.exp, gdb.t01/Makefile.in, gdb.t02/Makefile.in,
+	  gdb.t02/whatis.exp, gdb.t03/Makefile.in, gdb.t03/gdbme.c,
+	  gdb.t04/Makefile.in, gdb.t05/Makefile.in, gdb.t06/Makefile.in,
+	  gdb.t06/break.exp, gdb.t06/signals.c, gdb.t06/signals.exp,
+	  gdb.t08/Makefile.in, gdb.t08/opaque.exp, gdb.t09/Makefile.in,
+	  gdb.t10/Makefile.in, gdb.t11/Makefile.in, gdb.t12/Makefile.in,
+	  gdb.t13/Makefile.in, gdb.t15/Makefile.in, gdb.t15/funcargs.exp,
+	  gdb.t15/gdbme.c, gdb.t15/return.exp, gdb.t16/Makefile.in,
+	  gdb.t17/Makefile.in, gdb.t17/callfuncs.exp, gdb.t17/gdbme.c,
+	  gdb.t20/Makefile.in, gdb.t21/Makefile.in, gdb.t21/cplusfuncs.exp,
+	  gdb.t22/Makefile.in, gdb.t22/virtfunc.exp, gdb.t23/Makefile.in,
+	  gdb.t24/demangle.exp, lib/gdb.exp:  Check in Rob's testing
+	  changes from 94Q1.
+
+Wed May 18 17:04:03 1994  Bill Cox  (bill@rtl.cygnus.com),
+
+	* config/mt-lynx, config/mt-m68k, config/mt-mips-ecoff,
+	  config/mt-slite, config/mt-unix, config/mt-vxworks: Add
+	  Rob's new testing fragments.
+
+Tue May 17 15:04:14 1994  Bill Cox  (bill@rtl.cygnus.com)
+
+	* config/mips-gdb.exp, config/udi-gdb.exp, config/vx-gdb.exp,
+          lib/gdb.exp: Replace error proc calls with perror.
+
+Mon May 16 19:00:50 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* gdb.t00/teststrategy.exp: Reorder so that AIX gdb can print the
+	version also, match on casted version strings, and match on
+	gdb startup case where the line numbers might be messed up.
+
+Fri May 13 18:00:27 1994  Bill Cox  (bill@rtl.cygnus.com)
+
+	* config/mt-i960-vx (LDFLAGS): Add '-r' option for test links.
+          (CFLAGS): Delete it from here.
+
+Thu May 12 14:06:34 1994  Bill Cox  (bill@rtl.cygnus.com)
+
+	* .Sanitize: Drop the gdb.t30 and gdb.t31 directories
+	  unless keep-chill was specified on the command line.
+	* Makefile.in, config/makefile.rel.in: : Add comment lines
+          to Sanitize out CHILL references unless keep-chill
+           was specified.
+
+Tue May  3 16:08:09 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* gdb.t22/virtfunc.exp: Fix g++ ptype expected outputs.
+
+Fri Apr 29 14:26:35 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* Makefile.in (RUNTEST): Default to just "runtest".
+
+Tue Apr 26 22:21:40 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.t17/callfuncs.exp: More comments about t_func_values tests.
+	* gdb.t17/gdbme.c (t_func_values): Add comments about how and why
+	the code has been restructured.
+
+Thu Apr 21 12:48:07 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t00/default.exp (set write): Allow any number of \r and/or
+	\n, not just one of each.
+
+	* gdb.t07/gdbme.c (main): Don't take address of an array; SunOS4
+	/bin/cc gives a warning if you do.
+
+Thu Apr 21 11:54:04 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* gdb.t24/demangle.exp: change expect pattern of 
+	__t10ListS_link1ZUiRCUiPT0
+
+Wed Apr 13 15:05:00 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.t07/{recurse.exp, recurse.c}: New tests for watchpoints
+	on local variables in recursive functions.
+
+	* gdb.t07/Makefile.in: Build the new test.
+
+Tue Apr 12 20:45:25 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.t17/gdbme.c (t_func_values): Do not compare function pointers
+	directly.  Instead compare the return values from actual calls.
+
+Mon Apr 11 10:31:00 1994  Bill Cox  (bill@rtl.cygnus.com)
+
+	* Makefile.in (check): Set TCL_LIBRARY for runtest.
+
+Mon Apr 11 09:15:30 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* From Peter Schauer with minor modifications.
+        * gdb.t15/return.exp (return_tests): Handle targets where "return"
+        stops in mid-line in the caller.  Add xfail for returning a float
+        value on X86 targets.
+
+Tue Apr  5 15:16:33 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/hppa.exp (fcmp_tests): Break up into two halves
+	to avoid expect lossage.
+	(fmem_LRbug_tests): Likewise.
+	* gdb.disasm/hppa.s: Corresponding changes.
+
+	* gdb.disasm/hppa.exp: Rework escape sequences and end-of-line
+	conditions to work with latest dejagnu/expect.
+
+	* gdb.t15/funcargs.exp (finish from indirect call): No longer
+	expected to fail on the PA.
+	(backtrace in call with trampolines): Explicitly require main
+	to be frame #1 (no trampolines should show up in backtrace).
+
+	* gdb.t00/default.exp: Use "exp_continue" rather than obsolete
+	"continue -expect".
+	* gdb.t06/break.exp: Likewise.
+	* gdb.t07/watchpoint.exp: Likewise.
+	* gdb.t13/bitfields.exp: Likewise.
+	* gdb.t15/{funcargs,return}.exp: Likewise.
+	* gdb.stabs/weird.exp: Likewise.
+	* config/{mips,udi}-gdb.exp: Likewise.
+
+	* hppa.sed: Enclose comments within a sed command to avoid
+	losing with the old OSF1 sed.
+
+Wed Mar 30 00:31:49 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.t02/whatis.exp, gdb.t08/opaque.exp:  Add XFAILs for
+	sequent dynix.
+	* gdb.t06/signals.exp:  Add clear_xfail for sequent dynix.
+	* gdb.t15/funcargs.exp:  Conditionally step again to really
+	finish from marker_call_with_trampolines. Handle the case where
+	the first step from within call_with_trampolines already steps
+	us back to main.
+	* gdb.t15/gdbme.c:  Add comment to closing brace of
+	call_with_trampolines for funcargs.exp.
+
+Tue Mar 29 23:55:27 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.t07/watchpoint.exp (test_watchpoint_triggered_in_syscall): 
+	Fix typo(s).
+
+Sun Mar 27 16:53:14 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.t07/gdbme.c: More code for watchpoint testing.
+
+	* gdb.t07/watchpoint.exp: Accept both "Watchpoint" and
+	"Hardware watchpoint" throughout file.
+	(test_watchpoint_triggered_in_syscall): New test.
+	(test_complex_watchpoint): New test.
+
+Fri Mar 25 17:05:31 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdbme.c (call_with_trampolines): New function to try and step
+	into.  Tests trampoline problems on the PA.
+
+	* funcargs.exp (localvars_in_indirect_call): No longer expect
+	stepping into indirect call to fail on PAs.
+	(test_stepping_over_trampolines): New test.
+
+Wed Mar 23 07:43:33 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Add suggestions for static member function tests, and
+	completion tests.
+
+Wed Mar 16 08:28:28 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Add suggestions for "p/a" tests.
+
+	* lib/gdb.exp: Set prompt to (gdb) if it isn't already set.
+	(default_gdb_exit): Replace all the hair with sending "quit" to
+	the process with a simple close.
+
+Tue Mar 15 08:45:50 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Add suggestions for shared library tests.
+
+Sun Mar 13 10:45:22 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Add suggestions for x/s tests.
+
+Fri Mar 11 08:22:00 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t00/help.exp: Replace most of docstrings for "tbreak",
+	"enable once", and "enable breakpoints once" with ".*".
+
+Thu Mar 10 08:34:27 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Add suggestions about structure passing tests.
+
+Mon Mar  7 13:45:54 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.t03/gdbme.c:  gcc version 1 puts out the wrong stabs for
+	the primary1 test, use work around if __GNUC__ < 2.
+	* gdb.t06/signals.c:  Add comments for signals.exp pattern matching.
+	* gdb.t06/signals.exp:  Add XFAILs for i386 bsd and vax ultrix.
+	Test for bad output rather than waiting for timeout.  Issue
+	second continue only if first continue failed.
+
+Wed Mar  2 10:08:01 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* gdb.t21/cplusfuncs.exp (test_paddr_operator_functions): Do
+	operator[] test with gdb_test because the old code didn't seem to
+	be getting the quoting right with the new dejagnu.
+
+Thu Feb 24 19:49:25 1994  Rob Savoye  (rob@poseidon.cygnus.com)
+
+	* lib/gdb.exp: Set GDB to a fresh gdb if there is one, else use
+	one from the path.
+	* Makefile.in: Use a fresh expect if there is one, use runtest
+	from the src tree if there is one.
+  
+Thu Feb 24 18:49:37 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* gdb.t06/break.exp (test_next_with_recursion): Remove xfail for
+	next over recursive call.  Revise the tests from that point on
+	(which had been skipped) to match GDB's actual (correct) output.
+
+	* gdb.t07/watchpoint.exp (test_stepping): Remove xfail for bug
+	with next over a breakpoint whose condition is false.
+
+	* gdb.t00/help.exp: Comment out "help set print" tests just like
+	(and for same reason as) "help set" test.
+
+Mon Feb 14 09:58:23 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/hppa.s (fmemLRbug_tests): New tests.
+	* gdb.disasm/hppa.exp (fmemLRbug_tests): Run them.
+
+Sun Feb  6 15:36:13 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t06/break.exp (test_next_with_recursion): Remove no longer
+	necessary gdb_target_udi.
+
+	* gdb.t03/ptype.exp: For UDI, skip tests which call malloc.
+
+	* gdb.t02/whatis.exp, gdb.t03/ptype.exp: Remove xfails for PRs
+	1838 and 2417; they are fixed.
+
+	* gdb.t02/whatis.exp (v_char_array, v_signed_char_array),
+	gdb.t03/ptype.exp (ptype structure, ptype union):
+	Remove xfails; the test is looser than when the xfails were added.
+
+	* gdb.t00/{help.exp,default.exp}: Don't test "target remote" on UDI.
+	* gdb.t00/help.exp: Don't expect remote to be in "help target" output.
+
+	* gdb.t01/run.exp: Only run shell test if isnative.
+
+	* config/udi-gdb.exp (gdb_load): Use "file", not "load" command,
+	since "run" automatically loads if necessary.  Call gdb_target_udi
+	after the "file" since "file" kills any execution target.
+
+	* config/udi-gdb.exp (gdb_start): Don't send "set args main" to
+	GDB.  GDB doesn't work that way (not anymore at least) on UDI.
+	* gdb.t01/run.exp, gdb.t06/break.exp: Don't pass extra first
+	argument for UDI.
+
+Fri Feb  4 12:19:32 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* gdb.t17/interrupt.c: If we get EINTR, don't print an error message.
+
+	* gdb.t17/callfuncs.exp: Add xfails for rs6000.
+
+Sat Feb  5 09:11:56 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t24/demangle.exp: Re-write demangle to just call gdb_test,
+	properly quoting regexps.  This makes the second argument to
+	demangle a fixed string, which matches the callers, instead of a
+	shell-style pattern which is what the previous implementation
+	used.  Update some of the callers.
+
+Sat Feb  5 10:19:09 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/hppa.s (comib_tests): Add missing instruction.
+	(comib_nullified_tests): Fix typo.
+	* gdb.disasm/hppa.exp (all comb tests): Fix thinkos in expect
+	strings.  No longer expected to fail.
+
+	* gdb.disasm/hppa.s (addib_tests): Fix typo.
+	* gdb.disasm/hppa.exp (all addb tests): Fix thinkos in expect
+	strings.  No longer expected to fail.
+
+	* gdb.disasm/hppa.exp (fmpy_addsub_tests): Fix typo in expect
+	string.  No longer expected to fail.
+
+Fri Feb  4 23:45:11 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/hppa.exp (fcmp_tests): Fix thinko in expect string.
+	No longer expected to fail.
+
+	* gdb.disasm/hppa.exp (xmpyu_tests): Fix buglet in expect
+	string.  No longer expected to fail.
+
+Fri Feb  4 10:35:42 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t24/demangle.exp: Remove a bunch more tests which differ
+	only in the names (I probably got most of them).  I was even
+	generous with some which differed in underscores in names, and
+	probably missed a few, and I *still* was able to remove almost a
+	third of the file with almost no impact on testsuite coverage.
+
+Thu Feb  3 12:04:49 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t00/default.exp: Match udi_attach error message as well as
+	the one from child_attach.
+
+	* gdb.t00/default.exp: Use "." instead of "?" to match a question mark.
+
+	* gdb.stabs/weird.exp: Remove xfail for const70; just fixed in GDB.
+
+	* gdb.stabs/weird.def (bad_neg0type): Size of this type is 16, not 8.
+	* gdb.stabs/weird.exp: Remove xfail for "p bad_neg0"; this fixes it.
+
+	* Move test with enums and partial symbols back to
+	gdb.t03/{ptype.exp,gdbme.c} from gdb.stabs/{weird.def,weird.exp}.
+	Reverts the change of 26 May 93.  Per today's change to
+	stabs.texinfo, the behavior that weird.exp was expecting was
+	unreasonable; what is important is that the compiler+gdb get
+	things right, which happens with a recent gcc.  Also fix the test
+	to deal with native compilers which put out the stab gdb can't
+	deal with.
+
+Mon Jan 31 15:40:11 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t24/demangle.exp: Remove a bunch of tests which differ only
+	in the names.  The main thing these accomplish is to slow things down.
+	Many more such duplicates surely remain.
+
+	* gdb.t00/help.exp: Comment out "help support" test just like
+	(and for same reason as) "help set" test.
 
 Mon Jan 31 06:43:45 1994  Fred Fish  (fnf@cygnus.com)
 
@@ -16,12 +557,31 @@ Mon Jan 31 06:43:45 1994  Fred Fish  (fnf@cygnus.com)
 	* gdb.t22/virtfunc.exp (test_ptype_of_classes):  Accept "_vb." as
 	well as "_vb$".
 
+Sat Jan 29 23:31:26 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* configure.in (hppa*-*-*): Also configure and build stabs-only
+	tests.
+
+Thu Jan 27 08:21:16 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+
+	* gdb.t10/hppa.mt: A makefile fragment for the PA.
+	* gdb.t10/configure.in (hppa*-*-*): Use it.
+
+Tue Jan 25 12:58:26 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.t09/corefile:  Increase timeout when spawning gdb explicitly.
+
+Wed Jan 19 12:40:25 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.t06/signals.exp:  Handle blocked SIGTRAP on sun3 for bash
+	versions prior to 1.13.5.
+
 Tue Jan 18 20:10:50 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 	* gdb.t00/default.exp (show prompt): In FAIL case, only match if
 	the prompt is at the start of a line.
 
-Mon Jan 17 02:40:52 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
+Mon Jan 17 20:07:51 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
 
 	* gdb.disasm/hppa.s: Add new tests for sfu and copr instructions.
 	Enable "diag" instruction.  Delete copr from fpu_misc_tests, it's
@@ -32,7 +592,19 @@ Mon Jan 17 02:40:52 1994  Jeffrey A. Law  (law@snake.cs.utah.edu)
 
 Fri Jan 14 14:24:21 1994  Rob Savoye  (rob@darkstar.cygnus.com)
 
-	* Most .exp files: Tweak to run under either version of expect.
+	* gdb.t00/teststrategy.exp, gdb.t07/watchpoint.exp,
+	gdb.t31/chillvars.exp, lib/gdb.exp:
+	Tweak to run under either version of expect.
+	* lib/gdb.exp (default_gdb_exit): Remove "catch" statement.
+	* gdb.t00/teststrategy.exp: Use isnative and verbose procedures.
+	* gdb.t11/list.exp: Remove extraneous whitespace.
+
+Sat Jan 15 09:57:22 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.t16/printcmds.exp (test_print_strings): Accept
+	"(unsigned char *) " before the string.
+
+	* TODO: Add notes about printing of fancy types and GDB expressions.
 
 Thu Jan 13 17:16:09 1994  Stan Shebs  (shebs@andros.cygnus.com)
 
@@ -1359,4 +1931,10 @@ Sun Feb 21 10:55:55 1993  Mike Werner  (mtw@poseidon.cygnus.com)
 	of dejagnu.  The modifications to these testcases, etc., which
 	will allow them to work with the new version of dejagnu will be
 	made in a future update.
-
+
+Local Variables:
+mode: indented-text
+left-margin: 8
+fill-column: 74
+version-control: never
+End:

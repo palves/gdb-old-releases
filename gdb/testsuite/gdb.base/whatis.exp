@@ -1,0 +1,676 @@
+#   Copyright (C) 1988, 1990, 1991, 1992 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# This file was written by Rob Savoye. (rob@cygnus.com)
+
+if $tracelevel then {
+	strace $tracelevel
+	}
+
+#
+# test running programs
+#
+set prms_id 0
+set bug_id 0
+
+set binfile "whatis"
+
+if ![file exists $objdir/$subdir/$binfile] then {
+    perror "$objdir/$subdir/$binfile does not exist."
+    return 0
+}
+
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load $objdir/$subdir/$binfile
+
+source gdb.base/whatis-info.exp
+
+# If we did not use the signed keyword when compiling the file, don't
+# expect GDB to know that char is signed.
+if $signed_keyword_not_used then {
+  set signed_char "char"
+} else {
+  set signed_char "signed char"
+}
+
+# Define a procedure to set up an xfail for all targets that put out a
+# `long' type as an `int' type.
+# Sun/Ultrix cc have this problem.
+# It was said that COFF targets can not distinguish int from long either.
+
+proc setup_xfail_on_long_vs_int {} {
+	global gcc_compiled
+
+	if {!$gcc_compiled} then {
+		setup_xfail "*-sun-sunos4*" "*-*-ultrix*" "i*86-sequent-bsd*"
+	}
+}
+
+#
+# Test whatis command with basic C types
+#
+# The name printed now (as of 23 May 1993) is whatever name the compiler
+# uses in the stabs.  So we need to deal with names both from gcc and
+# native compilers.
+#
+# On the i960, which defaults to unsigned characters, gdb
+# misinterprets char as unsigned char.
+# Likewise with the rs6000; the compiler doesn't give us enough information
+# to distinguish between char and unsigned char
+setup_xfail "rs6000-*-*"
+setup_xfail "i960-*-*" 1821
+setup_xfail "mips-idt-*" "mips-sgi-*" "a29k-*-*"
+send "whatis v_char\n"
+expect "whatis v_char"
+expect {
+    -re "type = char.*$prompt $"	{ pass "whatis char" }
+    -re ".*$prompt $"	{ fail "whatis char" }
+    timeout		{ fail "(timeout) whatis char" }
+}
+
+
+setup_xfail "a29k-*-*"
+send "whatis v_signed_char\n"
+expect "whatis v_signed_char"
+expect {
+    -re "type = $signed_char.*$prompt $"	{ pass "whatis signed char" }
+    -re "$prompt $"	{ fail "whatis signed char" }
+    timeout		{ fail "(timeout) whatis signed char" }
+}
+
+
+send "whatis v_unsigned_char\n"
+expect {
+    -re "type = unsigned char.*$prompt $"	{ pass "whatis unsigned char" }
+    -re "$prompt $"	{ fail "whatis unsigned char" }
+    timeout		{ fail "(timeout) whatis unsigned char" }
+}
+
+
+send "whatis v_short\n"
+expect {
+    -re "type = short.*$prompt $"	{ pass "whatis short" }
+    -re "$prompt $"	{ fail "whatis short" }
+    timeout		{ fail "(timeout) whatis short" }
+}
+
+
+send "whatis v_signed_short\n"
+expect {
+    -re "type = short.*$prompt $"	{ pass "whatis signed short" }
+    -re "$prompt $"	{ fail "whatis signed short" }
+    timeout		{ fail "(timeout) whatis signed short" }
+}
+
+
+send "whatis v_unsigned_short\n"
+expect {
+    -re "type = unsigned short.*$prompt $" { pass "whatis unsigned short" }
+    -re "type = short unsigned int.*$prompt $" {pass "whatis unsigned short" }
+    -re "$prompt $"	{ fail "whatis unsigned short" }
+    timeout		{ fail "(timeout) whatis unsigned short" }
+}
+
+
+send "whatis v_int\n"
+expect {
+    -re "type = int.*$prompt $"	{ pass "whatis int" }
+    -re "$prompt $"	{ fail "whatis int" }
+    timeout		{ fail "(timeout) whatis int" }
+}
+
+
+send "whatis v_signed_int\n"
+expect {
+    -re "type = int.*$prompt $"	{ pass "whatis signed int" }
+    -re "$prompt $"	{ fail "whatis signed int" }
+    timeout		{ fail "(timeout) whatis signed int" }
+}
+
+
+send "whatis v_unsigned_int\n"
+expect {
+    -re "type = unsigned int.*$prompt $"	{ pass "whatis unsigned int" }
+    -re "$prompt $"	{ fail "whatis unsigned int" }
+    timeout		{ fail "(timeout) whatis unsigned int" }
+}
+
+setup_xfail_on_long_vs_int
+# AIX xlc gets this wrong and unsigned long right.  Go figure.
+if {!$gcc_compiled} then {setup_xfail "rs6000-*-aix*"}
+
+send "whatis v_long\n"
+expect {
+    -re "type = long.*$prompt $"	{ pass "whatis long" }
+    -re "$prompt $"	{ fail "whatis long" }
+    timeout		{ fail "(timeout) whatis long" }
+}
+
+
+setup_xfail_on_long_vs_int
+# AIX xlc gets this wrong and unsigned long right.  Go figure.
+if {!$gcc_compiled} then {setup_xfail "rs6000-*-aix*"}
+send "whatis v_signed_long\n"
+expect {
+    -re "type = long.*$prompt $"	{ pass "whatis signed long" }
+    -re "$prompt $"	{ fail "whatis signed long" }
+    timeout		{ fail "(timeout) whatis signed long" }
+}
+
+
+setup_xfail_on_long_vs_int
+send "whatis v_unsigned_long\n"
+expect {
+    -re "type = unsigned long.*$prompt $"	{ pass "whatis unsigned long" }
+    -re "type = long unsigned int.*$prompt $" { pass "whatis unsigned long" }
+    -re "$prompt $"	{ fail "whatis unsigned long" }
+    timeout		{ fail "(timeout) whatis unsigned long" }
+}
+
+
+send "whatis v_float\n"
+expect {
+    -re "type = float.*$prompt $"	{ pass "whatis float" }
+    -re "$prompt $"	{ fail "whatis float" }
+    timeout		{ fail "(timeout) whatis float" }
+}
+
+
+send "whatis v_double\n"
+expect {
+    -re "type = double.*$prompt $"	{ pass "whatis double" }
+    -re "$prompt $"	{ fail "whatis double" }
+    timeout		{ fail "(timeout) whatis double" }
+}
+
+
+#
+# test whatis command with arrays
+#
+# We already tested whether char prints as "char", so here we accept
+# "unsigned char", "signed char", and other perversions.  No need for more
+# than one xfail for the same thing.
+send "whatis v_char_array\n"
+expect {
+    -re "type = (signed |unsigned |)char .2..*$prompt $"	{ pass "whatis char array" }
+    -re "$prompt $"	{ fail "whatis char array" }
+    timeout		{ fail "(timeout) whatis char array" }
+}
+
+
+send "whatis v_signed_char_array\n"
+expect {
+    -re "type = (signed |unsigned |)char .2..*$prompt $"	{ pass "whatis signed char array" }
+    -re "$prompt $"	{ fail "whatis signed char array" }
+    timeout		{ fail "(timeout) whatis signed char array" }
+}
+
+
+send "whatis v_unsigned_char_array\n"
+expect {
+    -re "type = unsigned char .2..*$prompt $"	{ pass "whatis unsigned char array" }
+    -re "$prompt $"	{ fail "whatis unsigned char array" }
+    timeout		{ fail "(timeout) whatis unsigned char array" }
+}
+
+
+
+send "whatis v_int_array\n"
+expect {
+    -re "type = int .2..*$prompt $"	{ pass "whatis int array" }
+    -re "$prompt $"	{ fail "whatis int array" }
+    timeout		{ fail "(timeout) whatis int array" }
+}
+
+
+send "whatis v_signed_int_array\n"
+expect {
+    -re "type = int .2..*$prompt $"	{ pass "whatis signed int array" }
+    -re "$prompt $"	{ fail "whatis signed int array" }
+    timeout		{ fail "(timeout) whatis signed int array" }
+}
+
+
+send "whatis v_unsigned_int_array\n"
+expect {
+    -re "type = unsigned int .2..*$prompt $"	{ pass "whatis unsigned int array" }
+    -re "$prompt $"	{ fail "whatis unsigned int array" }
+    timeout		{ fail "(timeout) whatis unsigned int array" }
+}
+
+
+# We already tested whether long prints as long, so here we accept int
+# No need for more than one xfail for the same thing.
+send "whatis v_long_array\n"
+expect {
+    -re "type = (int|long|long int) .2..*$prompt $"	{ pass "whatis long array" }
+    -re "$prompt $"	{ fail "whatis long array" }
+    timeout		{ fail "(timeout) whatis long array" }
+}
+
+
+send "whatis v_signed_long_array\n"
+expect {
+    -re "type = (|signed )(int|long|long int) .2..*$prompt $"	{ pass "whatis signed long array" }
+    -re "$prompt $"	{ fail "whatis signed long array" }
+    timeout		{ fail "(timeout) whatis signed long array" }
+}
+
+
+send "whatis v_unsigned_long_array\n"
+expect {
+    -re "type = unsigned (long|int) .2..*$prompt $" { 
+	pass "whatis unsigned long array" }
+    -re "type = long unsigned int .2..*$prompt $" { 
+	pass "whatis unsigned long array" }
+    -re "$prompt $"	{ fail "whatis unsigned long array" }
+    timeout		{ fail "(timeout) whatis unsigned long array" }
+}
+
+
+send "whatis v_float_array\n"
+expect {
+    -re "type = float .2..*$prompt $"	{ pass "whatis float array" }
+    -re "$prompt $"	{ fail "whatis float array" }
+    timeout		{ fail "(timeout) whatis float array" }
+}
+
+
+send "whatis v_double_array\n"
+expect {
+    -re "type = double .2..*$prompt $"	{ pass "whatis double array" }
+    -re "$prompt $"	{ fail "whatis double array" }
+    timeout		{ fail "(timeout) whatis double array" }
+}
+
+
+#
+# test whatis command with pointers
+#
+# We already tested whether char prints as char, so accept various perversions
+# here.  We especially want to make sure we test that it doesn't print as
+# caddr_t.
+send "whatis v_char_pointer\n"
+expect {
+    -re "type = (unsigned |signed |)char \*.*$prompt $"	{ pass "whatis char pointer" }
+    -re "$prompt $"	{ fail "whatis char pointer" }
+    timeout		{ fail "(timeout) whatis char pointer" }
+}
+
+send "whatis v_signed_char_pointer\n"
+expect {
+    -re "type = (unsigned |signed |)char \*.*$prompt $"	{ pass "whatis signed char pointer" }
+    -re "$prompt $"	{ fail "whatis signed char pointer" }
+    timeout		{ fail "(timeout) whatis signed char pointer" }
+}
+
+
+send "whatis v_unsigned_char_pointer\n"
+expect {
+    -re "type = unsigned char \*.*$prompt $"	{ pass "whatis unsigned char pointer" }
+    -re "$prompt $"	{ fail "whatis unsigned char pointer" }
+    timeout		{ fail "(timeout) whatis unsigned char pointer" }
+}
+
+
+send "whatis v_short_pointer\n"
+expect {
+    -re "type = short \*.*$prompt $"	{ pass "whatis short pointer" }
+    -re "type = short int \*.*$prompt $"	{ pass "whatis short pointer" }
+    -re "$prompt $"	{ fail "whatis short pointer" }
+    timeout		{ fail "(timeout) whatis short pointer" }
+}
+
+
+send "whatis v_signed_short_pointer\n"
+expect {
+    -re "type = short \*.*$prompt $"	{ pass "whatis signed short pointer" }
+    -re "type = short int \*.*$prompt $" { pass "whatis signed short pointer" }
+    -re "$prompt $"	{ fail "whatis signed short pointer" }
+    timeout		{ fail "(timeout) whatis signed short pointer" }
+}
+
+
+send "whatis v_unsigned_short_pointer\n"
+expect {
+    -re "type = unsigned short \*.*$prompt $"	{ 
+	pass "whatis unsigned short pointer" }
+    -re "type = short unsigned int \*.*$prompt $"	{
+	pass "whatis unsigned short pointer" }
+    -re "$prompt $"	{ fail "whatis unsigned short pointer" }
+    timeout		{ fail "(timeout) whatis unsigned short pointer" }
+}
+
+
+send "whatis v_int_pointer\n"
+expect {
+    -re "type = int \*.*$prompt $"	{ pass "whatis int pointer" }
+    -re "$prompt $"	{ fail "whatis int pointer" }
+    timeout		{ fail "(timeout) whatis int pointer" }
+}
+
+
+send "whatis v_signed_int_pointer\n"
+expect {
+    -re "type = int \*.*$prompt $"	{ pass "whatis signed int pointer" }
+    -re "$prompt $"	{ fail "whatis signed int pointer" }
+    timeout		{ fail "(timeout) whatis signed int pointer" }
+}
+
+
+send "whatis v_unsigned_int_pointer\n"
+expect {
+    -re "type = unsigned int \*.*$prompt $"	{ pass "whatis unsigned int pointer" }
+    -re "$prompt $"	{ fail "whatis unsigned int pointer" }
+    timeout		{ fail "(timeout) whatis unsigned int pointer" }
+}
+
+
+# We already tested whether long prints as long, so here we accept int
+send "whatis v_long_pointer\n"
+expect {
+    -re "type = (long|int|long int) \*.*$prompt $"	{ pass "whatis long pointer" }
+    -re "$prompt $"	{ fail "whatis long pointer" }
+    timeout		{ fail "(timeout) whatis long pointer" }
+}
+
+
+send "whatis v_signed_long_pointer\n"
+expect {
+    -re "type = (signed |)(long|int|long int) \*.*$prompt $"	{ pass "whatis signed long pointer" }
+    -re "$prompt $"	{ fail "whatis signed long pointer" }
+    timeout		{ fail "(timeout) whatis signed long pointer" }
+}
+
+
+setup_xfail_on_long_vs_int
+send "whatis v_unsigned_long_pointer\n"
+expect {
+    -re "type = unsigned long \*.*$prompt $"	{ 
+	pass "whatis unsigned long pointer" }
+    -re "type = long unsigned int \*.*$prompt $"	{ 
+	pass "whatis unsigned long pointer" }
+    -re "$prompt $"	{ fail "whatis unsigned long pointer" }
+    timeout		{ fail "(timeout) whatis unsigned long pointer" }
+}
+
+
+send "whatis v_float_pointer\n"
+expect {
+    -re "type = float \*.*$prompt $"	{ pass "whatis float pointer" }
+    -re "$prompt $"	{ fail "whatis float pointer" }
+    timeout		{ fail "(timeout) whatis float pointer" }
+}
+
+
+send "whatis v_double_pointer\n"
+expect {
+    -re "type = double \*.*$prompt $"	{ pass "whatis double pointer" }
+    -re "$prompt $"	{ fail "whatis double pointer" }
+    timeout		{ fail "(timeout) whatis double pointer" }
+}
+
+
+#
+# test whatis command with structure types
+#
+send "whatis v_struct1\n"
+expect {
+    -re "type = struct t_struct.*$prompt $"	{ pass "whatis named structure" }
+    -re "$prompt $"	{ fail "whatis named structure" }
+    timeout		{ fail "(timeout) whatis named structure" }
+}
+
+
+send "whatis v_struct2\n"
+expect {  
+    -re "type = struct \{...\}.*$prompt $"	{ pass "whatis unnamed structure" }
+    -re "$prompt $"	{ fail "whatis unnamed structure" }
+    timeout		{ fail "(timeout) whatis unnamed structure" }
+}
+
+
+#
+# test whatis command with union types
+#
+send "whatis v_union\n"
+expect {
+    -re "type = union t_union.*$prompt $"	{ pass "whatis named union" }
+    -re "$prompt $"	{ fail "whatis named union" }
+    timeout		{ fail "(timeout) whatis named union" }
+}
+
+
+send "whatis v_union2\n"
+expect {
+    -re "type = union \{...\}.*$prompt $"	{ pass "whatis unnamed union" }
+    -re "$prompt $"	{ fail "whatis unnamed union" }
+    timeout		{ fail "(timeout) whatis unnamed union" }
+}
+
+
+#
+# test whatis command with functions return type
+#
+send "whatis v_char_func\n"
+expect {
+    -re "type = (signed |unsigned |)char \(\).*$prompt $"	{ pass "whatis char function" }
+    -re "$prompt $"	{ fail "whatis char function" }
+    timeout		{ fail "(timeout) whatis char function" }
+}
+
+
+send "whatis v_signed_char_func\n"
+expect {
+    -re "type = (signed |unsigned |)char \(\).*$prompt $"	{ pass "whatis signed char function" }
+    -re "$prompt $"	{ fail "whatis signed char function" }
+    timeout		{ fail "(timeout) whatis signed char function" }
+}
+
+
+send "whatis v_unsigned_char_func\n"
+expect {
+    -re "type = unsigned char \(\).*$prompt $"	{ pass "whatis unsigned char function" }
+    -re "$prompt $"	{ fail "whatis unsigned char function" }
+    timeout		{ fail "(timeout) whatis unsigned char function" }
+}
+
+
+send "whatis v_short_func\n"
+expect {
+    -re "type = short \(\).*$prompt $"	{ pass "whatis short function" }
+    -re "type = short int \(\).*$prompt $" { pass "whatis short function" }
+    -re "$prompt $"	{ fail "whatis short function" }
+    timeout		{ fail "(timeout) whatis short function" }
+}
+
+
+send "whatis v_signed_short_func\n"
+expect {
+    -re "type = short \(\).*$prompt $"	{ pass "whatis signed short function" }
+    -re "type = short int \(\).*$prompt $" { 
+	pass "whatis signed short function" }
+    -re "$prompt $"	{ fail "whatis signed short function" }
+    timeout		{ fail "(timeout) whatis signed short function" }
+}
+
+
+send "whatis v_unsigned_short_func\n"
+expect {
+    -re "type = unsigned short \(\).*$prompt $"
+	{ pass "whatis unsigned short function" }
+    -re "type = short unsigned int \(\).*$prompt $"
+	{ pass "whatis unsigned short function" }
+    -re "$prompt $"	{ fail "whatis unsigned short function" }
+    timeout		{ fail "(timeout) whatis unsigned short function" }
+}
+
+
+send "whatis v_int_func\n"
+expect {
+    -re "type = int \(\).*$prompt $"	{ pass "whatis int function" }
+    -re "$prompt $"	{ fail "whatis int function" }
+    timeout		{ fail "(timeout) whatis int function" }
+}
+
+
+send "whatis v_signed_int_func\n"
+expect {
+    -re "type = int \(\).*$prompt $"	{ pass "whatis signed int function" }
+    -re "$prompt $"	{ fail "whatis signed int function" }
+    timeout		{ fail "(timeout) whatis signed int function" }
+}
+
+
+send "whatis v_unsigned_int_func\n"
+expect {
+    -re "type = unsigned int \(\).*$prompt $"	{ pass "whatis unsigned int function" }
+    -re "$prompt $"	{ fail "whatis unsigned int function" }
+    timeout		{ fail "(timeout) whatis unsigned int function" }
+}
+
+send "whatis v_long_func\n"
+expect {
+    -re "type = (long|int|long int) \(\).*$prompt $"	{ pass "whatis long function" }
+    -re "$prompt $"	{ fail "whatis long function" }
+    timeout		{ fail "(timeout) whatis long function" }
+}
+
+
+send "whatis v_signed_long_func\n"
+expect {
+    -re "type = (int|long|long int) \(\).*$prompt $"	{
+	pass "whatis signed long function" }
+    -re "$prompt $"	{ fail "whatis signed long function" }
+    timeout		{ fail "(timeout) whatis signed long function" }
+}
+
+
+setup_xfail_on_long_vs_int
+send "whatis v_unsigned_long_func\n"
+expect {
+    -re "type = unsigned long \(\).*$prompt $"	{ 
+	pass "whatis unsigned long function" }
+    -re "type = long unsigned int \(\).*$prompt $"	{ 
+	pass "whatis unsigned long function" }
+    -re "$prompt $"	{ fail "whatis unsigned long function" }
+    timeout		{ fail "(timeout) whatis unsigned long function" }
+}
+
+
+# Sun /bin/cc calls this a function returning double.
+if {!$gcc_compiled} then {setup_xfail "*-sun-sunos4*"}
+
+send "whatis v_float_func\n"
+expect {
+    -re "type = float \(\).*$prompt $"	{ pass "whatis float function" }
+    -re "$prompt $"	{ fail "whatis float function" }
+    timeout		{ fail "(timeout) whatis float function" }
+}
+
+
+send "whatis v_double_func\n"
+expect {
+    -re "type = double \(\).*$prompt $"	{ pass "whatis double function" }
+    -re "$prompt $"	{ fail "whatis double function" }
+    timeout		{ fail "(timeout) whatis double function" }
+}
+
+
+#
+# test whatis command with some misc complicated types
+#
+send "whatis s_link\n"
+expect {
+    -re "type = struct link.*$prompt $"	{ pass "whatis complicated structure" }
+    -re "$prompt $"	{ fail "whatis complicated structure" }
+    timeout		{ fail "(timeout) whatis complicated structure" }
+}
+
+
+send "whatis u_link\n"
+expect {
+    -re "type = union tu_link.*$prompt $"	{ pass "whatis complicated union" }
+    -re "$prompt $"	{ fail "whatis complicated union" }
+    timeout		{ fail "(timeout) whatis complicated union" }
+}
+
+
+#
+# test whatis command with enumerations
+#
+send "whatis clunker\n"
+expect {
+    -re "type = enum cars.*$prompt $"	{ pass "whatis enumeration" }
+    -re "$prompt $"	{ fail "whatis enumeration" }
+    timeout		{ fail "(timeout) whatis enumeration" }
+}
+
+
+#
+# test whatis command with nested struct and union
+#
+send "whatis nested_su\n"
+expect {
+    -re "type = struct outer_struct.*$prompt $"	{ pass "whatis outer structure" }
+    -re "$prompt $"	{ fail "whatis outer structure" }
+    timeout		{ fail "(timeout) whatis outer structure" }
+}
+
+
+send "whatis nested_su.outer_int\n"
+expect {
+    -re "type = int.*$prompt $"	{ pass "whatis outer structure member" }
+    -re "$prompt $"	{ fail "whatis outer structure member" }
+    timeout		{ fail "(timeout) whatis outer structure member" }
+}
+
+
+send "whatis nested_su.inner_struct_instance\n"
+expect {
+    -re "type = struct inner_struct.*$prompt $"	{ pass "whatis inner structure" }
+    -re "$prompt $"	{ fail "whatis inner structure" }
+    timeout		{ fail "(timeout) whatis inner structure" }
+}
+
+
+send "whatis nested_su.inner_struct_instance.inner_int\n"
+expect {
+    -re "type = int.*$prompt $"	{ pass "whatis inner structure member" }
+    -re "$prompt $"	{ fail "whatis inner structure member" }
+    timeout		{ fail "(timeout) whatis inner structure member" }
+}
+
+
+send "whatis nested_su.inner_union_instance\n"
+expect {
+    -re "type = union inner_union.*$prompt $"	{ pass "whatis inner union" }
+    -re "$prompt $"	{ fail "whatis inner union" }
+    timeout		{ fail "(timeout) whatis inner union" }
+}
+
+
+# FIXME: this causes GDB to core dump, needs to be trapped somehow.
+#send "whatis nested_su.inner_union_instance.inner_int\n"
+#expect {
+#    -re "type = int.*$prompt $"	{ pass "whatis inner union member" }
+#    -re "$prompt $"	{ fail "whatis inner union member" }
+#    eof                 { clone_output "ERROR: gdb got a segmentation fault. FIXME\n" }
+#    timeout		{ fail "(timeout) whatis inner union member" }
+#}

@@ -1,5 +1,5 @@
 /* BFD back-end for Sparc COFF files.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -26,7 +26,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
-#define BADMAG(x) ((x).f_magic != SPARCMAGIC)
+#define BADMAG(x) ((x).f_magic != SPARCMAGIC && (x).f_magic != LYNXCOFFMAGIC)
+
+/* The page size is a guess based on ELF.  */
+#define COFF_PAGE_SIZE 0x10000
 
 enum reloc_type
   {
@@ -67,14 +70,19 @@ static CONST char *CONST reloc_type_names[] =
 
 /* This is stolen pretty directly from elf.c.  */
 static bfd_reloc_status_type
+bfd_coff_generic_reloc PARAMS ((bfd *, arelent *, asymbol *, PTR,
+				asection *, bfd *, char **));
+
+static bfd_reloc_status_type
 bfd_coff_generic_reloc (abfd, reloc_entry, symbol, data, input_section,
-			output_bfd)
+			output_bfd, error_message)
      bfd *abfd;
      arelent *reloc_entry;
      asymbol *symbol;
      PTR data;
      asection *input_section;
      bfd *output_bfd;
+     char **error_message;
 {
   if (output_bfd != (bfd *) NULL
       && (symbol->flags & BSF_SECTION_SYM) == 0
@@ -149,9 +157,9 @@ static CONST struct coff_reloc_map sparc_reloc_map[] =
 };
 
 static CONST struct reloc_howto_struct *
-DEFUN (coff_sparc_reloc_type_lookup, (abfd, code),
-       bfd *abfd AND
-       bfd_reloc_code_real_type code)
+coff_sparc_reloc_type_lookup (abfd, code)
+     bfd *abfd;
+     bfd_reloc_code_real_type code;
 {
   int i;
   for (i = 0; i < sizeof (sparc_reloc_map) / sizeof (struct coff_reloc_map); i++)
@@ -164,9 +172,9 @@ DEFUN (coff_sparc_reloc_type_lookup, (abfd, code),
 #define coff_bfd_reloc_type_lookup	coff_sparc_reloc_type_lookup
 
 static void
-DEFUN (rtype2howto, (cache_ptr, dst),
-       arelent *cache_ptr AND
-       struct internal_reloc *dst)
+rtype2howto (cache_ptr, dst)
+     arelent *cache_ptr;
+     struct internal_reloc *dst;
 {
   BFD_ASSERT (dst->r_type < (unsigned int) R_SPARC_max);
   cache_ptr->howto = &coff_sparc_howto_table[dst->r_type];
@@ -178,23 +186,41 @@ DEFUN (rtype2howto, (cache_ptr, dst),
 #define SWAP_OUT_RELOC_OFFSET	bfd_h_put_32
 /* This is just like the standard one, except for the addition of the
    last line, the adjustment of the addend.  */
-#define CALC_ADDEND(abfd, ptr, reloc, cache_ptr) 	\
-	    if (ptr && bfd_asymbol_bfd(ptr) == abfd	\
-		&& !bfd_is_com_section(ptr->section)	\
-		&& !(ptr->flags & BSF_OLD_COMMON))	\
-	    {						\
-		cache_ptr->addend = -(ptr->section->vma + ptr->value);	\
-	    }						\
-	    else {					\
-		cache_ptr->addend = 0;			\
-	    }						\
-	    cache_ptr->addend += dst.r_offset;
+#define CALC_ADDEND(abfd, ptr, reloc, cache_ptr)                \
+  {                                                             \
+    coff_symbol_type *coffsym = (coff_symbol_type *) NULL;      \
+    if (ptr && bfd_asymbol_bfd (ptr) != abfd)                   \
+      coffsym = (obj_symbols (abfd)                             \
+                 + (cache_ptr->sym_ptr_ptr - symbols));         \
+    else if (ptr)                                               \
+      coffsym = coff_symbol_from (abfd, ptr);                   \
+    if (coffsym != (coff_symbol_type *) NULL                    \
+        && coffsym->native->u.syment.n_scnum == 0)              \
+      cache_ptr->addend = 0;                                    \
+    else if (ptr && bfd_asymbol_bfd (ptr) == abfd               \
+             && ptr->section != (asection *) NULL)              \
+      cache_ptr->addend = - (ptr->section->vma + ptr->value);   \
+    else                                                        \
+      cache_ptr->addend = 0;                                    \
+    cache_ptr->addend += reloc.r_offset;			\
+  }
+
+/* Clear the r_spare field in relocs.  */
+#define SWAP_OUT_RELOC_EXTRA(abfd,src,dst) \
+  do { \
+       dst->r_spare[0] = 0; \
+       dst->r_spare[1] = 0; \
+     } while (0)
 
 #define __A_MAGIC_SET__
 
+/* Enable Sparc-specific hacks in coffcode.h. */
+
+#define COFF_SPARC
+
 #include "coffcode.h"
 
-bfd_target
+const bfd_target
 #ifdef TARGET_SYM
   TARGET_SYM =
 #else
@@ -212,10 +238,10 @@ bfd_target
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
+   HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
-  0,				/* leading underscore */
+  '_',				/* leading underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
 
@@ -235,7 +261,15 @@ bfd_target
     {bfd_false, coff_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(coff),
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (_bfd_nocore),
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };
-

@@ -62,6 +62,7 @@ typedef int op_type;
 #define DISPREG         0x100000
 #define IGNORE 		0x200000
 #define E      		0x400000		/* FIXME: end of nibble sequence? */
+#define L_2		0x800000
 #define CCR		0x4000000
 #define ABS             0x8000000
 #define B30  		0x1000000 		/* bit 3 must be low */
@@ -72,8 +73,10 @@ typedef int op_type;
 #define MEMIND          0x80000000
 
 #define IMM3 		IMM|L_3
-#define SIZE		(L_3|L_8|L_16|L_32|L_P|L_24)
-#define MODE		(REG|IMM|DISP|IND|INC|DEC|CCR|ABS)
+#define IMM2 		IMM|L_2
+
+#define SIZE		(L_2|L_3|L_8|L_16|L_32|L_P|L_24)
+#define MODE		(REG|IMM|DISP|IND|INC|DEC|CCR|ABS|MEMIND)
 
 #define RD8 		(DST|L_8|REG)
 #define RD16 		(DST|L_16|REG)
@@ -162,7 +165,7 @@ struct h8_opcode
 
 #define BRANCH(code, name, op) \
 { code, 1, 4,name,{DISP8,E,0}, { 0x4, op, DISP8, IGNORE, E, 0, 0, 0, 0}, 0, 0, 0, 0}, \
-{ code, 0, 6,name,{DISP16,E,0}, { 0x5, 0x8, 0x0, 0x0, DISP16, IGNORE, IGNORE, IGNORE, E,0}, 0, 0, 0, 0} 
+{ code, 0, 6,name,{DISP16,E,0}, { 0x5, 0x8, op, 0x0, DISP16, IGNORE, IGNORE, IGNORE, E,0}, 0, 0, 0, 0} 
 
 #define SOP(code, x,name) \
 {code, 1, x,  name 
@@ -358,8 +361,8 @@ struct h8_opcode h8_opcodes[] =
   UNOP(O(O_DAS,SB), "das",0x1,0xF),
   UNOP(O(O_DEC,SB), "dec.b",0x1,0xA),
 
-  NEW_SOP(O(O_DEC, SW),0,2,"dec.w") ,{DBIT,OR16,E },{0x1,0xB,0x5|DBIT,OR16,E} EOP,
-  NEW_SOP(O(O_DEC, SL),0,2,"dec.l") ,{DBIT,OR32,E },{0x1,0xB,0x7|DBIT,OR32|B30,E} EOP,
+  NEW_SOP(O(O_DEC, SW),0,2,"dec.w") ,{DBIT,RD16,E },{0x1,0xB,0x5|DBIT,RD16,E} EOP,
+  NEW_SOP(O(O_DEC, SL),0,2,"dec.l") ,{DBIT,RD32,E },{0x1,0xB,0x7|DBIT,RD32|B30,E} EOP,
 
   NEW_SOP(O(O_DIVU,SB),1,6,"divxu.b"), {RS8,RD16,E}, {0x5,0x1,RS8,RD16,E,0,0,0,0}EOP,
   NEW_SOP(O(O_DIVU,SW),0,20,"divxu.w"),{RS16,RD32,E},{0x5,0x3,RS16,B30|RD32,E}EOP,
@@ -378,8 +381,8 @@ struct h8_opcode h8_opcodes[] =
     
   UNOP(O(O_INC,SB), "inc",0x0,0xA),
 
-  NEW_SOP(O(O_INC,SW),0,2,"inc.w") ,{DBIT,OR16,E },{0x0,0xB,0x5|DBIT,OR16,E} EOP,
-  NEW_SOP(O(O_INC,SL),0,2,"inc.l") ,{DBIT,OR32,E },{0x0,0xB,0x7|DBIT,OR32|B30,E} EOP,
+  NEW_SOP(O(O_INC,SW),0,2,"inc.w") ,{DBIT,RD16,E },{0x0,0xB,0x5|DBIT,RD16,E} EOP,
+  NEW_SOP(O(O_INC,SL),0,2,"inc.l") ,{DBIT,RD32,E },{0x0,0xB,0x7|DBIT,RD32|B30,E} EOP,
 
   SOP(O(O_JMP,SB),4,"jmp"),{RSIND,E,0},{0x5,0x9,B30|RSIND,0x0,E,0,0,0,0}EOP,
   SOP(O(O_JMP,SB),6,"jmp"),{SRC|ABSJMP,E,0},{0x5,0xA,ABSJMP,IGNORE,IGNORE,IGNORE,IGNORE,IGNORE,E}EOP,
@@ -525,14 +528,14 @@ struct h8_opcode h8_opcodes[] =
   SOP(O(O_SUBS,SL),2,"subs"),{KBIT,RDP,E},{ 0x1,0xB,KBIT,RDP,E,0,0,0,0}EOP,
   TWOOP(O(O_SUBX,SB),"subx",0xB,0x1,0xE),
 
-  NEW_SOP(O(O_TRAPA,SB),0,2,"trapa"),{ IMM8,E},  {0x5,0x7,IMM8,IGNORE,E  }EOP,
+  NEW_SOP(O(O_TRAPA,SB),0,2,"trapa"),{ IMM2,E},  {0x5,0x7,IMM2,IGNORE,E  }EOP,
 
   TWOOP(O(O_XOR, SB),"xor",0xD,0x1,0x5),
 
   NEW_SOP(O(O_XOR,SW),0,4,"xor.w"),{IMM16,RD16,E },{0x7,0x9,0x5,RD16,IMM16,IGNORE,IGNORE,IGNORE,E} EOP,
   NEW_SOP(O(O_XOR,SW),0,2,"xor.w"),{RS16,RD16,E },{0x6,0x5,RS16,RD16,E} EOP,
 
-  NEW_SOP(O(O_XOR,SL),0,6,"xor.l"),{IMM32,RD32,E },{0x7,0xA,0x4,B30|RD32,IMM32LIST,E} EOP,
+  NEW_SOP(O(O_XOR,SL),0,6,"xor.l"),{IMM32,RD32,E },{0x7,0xA,0x5,B30|RD32,IMM32LIST,E} EOP,
   NEW_SOP(O(O_XOR,SL),0,2,"xor.l") ,{RS32,RD32,E },{0x0,0x1,0xF,0x0,0x6,0x5,B30|RS32,B30|RD32,E} EOP,
 
   SOP(O(O_XORC,SB),2,"xorc"),{IMM8,CCR,E},{ 0x0,0x5,IMM8,IGNORE,E,0,0,0,0}EOP,

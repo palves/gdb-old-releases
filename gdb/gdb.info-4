@@ -2,12 +2,12 @@ This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
-* Gdb::                         The GNU debugger.
+* Gdb: (gdb).                     The GNU debugger.
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.12.
+Source-Level Debugger' for GDB Version 4.13.
 
    Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
 Foundation, Inc.
@@ -104,34 +104,13 @@ printed is reasonably close to the closest earlier symbol:
      Ask how large the maximum offset is that GDB prints in a symbolic
      address.
 
-   Sometimes GDB can tell you more about an address if it does an
-extensive search of its symbol information.  The default is to provide
-a quick symbolic display that is usually correct, but which may not give
-the most useful answer when working in some object file formats.  If
-you are not getting the information you need, try:
-
-`set print fast-symbolic-addr off'
-     Search all symbol information when displaying an address
-     symbolically.  This setting may display more information about
-     static variables, for example, but also takes longer.
-
-`set print fast-symbolic-addr'
-`set print fast-symbolic-addr on'
-     Search only the "minimal symbol information" when displaying
-     symbolic information about an address.  This is the default.
-
-`show print fast-symbolic-addr'
-     Ask whether GDB is using a fast or slow method of printing
-     symbolic address.
-
    If you have a pointer and you are not sure where it points, try `set
-print symbol-filename on' and `set print fast-symbolic-addr off'.  Then
-you can determine the name and source file location of the variable
-where it points, using `p/a POINTER'.  This interprets the address in
-symbolic form.  For example, here GDB shows that a variable `ptt'
-points at another variable `t', defined in `hi2.c':
+print symbol-filename on'.  Then you can determine the name and source
+file location of the variable where it points, using `p/a POINTER'.
+This interprets the address in symbolic form.  For example, here GDB
+shows that a variable `ptt' points at another variable `t', defined in
+`hi2.c':
 
-     (gdb) set print fast-symbolic-addr off
      (gdb) set print symbol-filename on
      (gdb) p/a ptt
      $4 = 0xe008 <t in hi2.c>

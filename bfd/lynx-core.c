@@ -70,7 +70,7 @@ make_bfd_asection (abfd, name, flags, _raw_size, vma, filepos)
 }
 
 /* ARGSUSED */
-bfd_target *
+const bfd_target *
 lynx_core_file_p (abfd)
      bfd *abfd;
 {
@@ -88,13 +88,15 @@ lynx_core_file_p (abfd)
 
   /* Get the pss entry from the core file */
 
-  bfd_seek (abfd, 0, SEEK_SET);
+  if (bfd_seek (abfd, 0, SEEK_SET) != 0)
+    return NULL;
 
   val = bfd_read ((void *)&pss, 1, sizeof pss, abfd);
   if (val != sizeof pss)
     {
       /* Too small to be a core file */
-      bfd_error = wrong_format;
+      if (bfd_get_error () != bfd_error_system_call)
+	bfd_set_error (bfd_error_wrong_format);
       return NULL;
     }
 
@@ -103,7 +105,7 @@ lynx_core_file_p (abfd)
 
   if (!core_hdr (abfd))
     {
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       return NULL;
     }
 
@@ -118,20 +120,22 @@ lynx_core_file_p (abfd)
   threadp = (core_st_t *)bfd_alloc (abfd, tcontext_size);
   if (!threadp)
     {
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       return NULL;
     }
 
   /* Save thread contexts */
 
-  bfd_seek (abfd, pagesize, SEEK_SET);
+  if (bfd_seek (abfd, pagesize, SEEK_SET) != 0)
+    return NULL;
 
   val = bfd_read ((void *)threadp, pss.threadcnt, sizeof (core_st_t), abfd);
 
   if (val != tcontext_size)
     {
       /* Probably too small to be a core file */
-      bfd_error = wrong_format;
+      if (bfd_get_error () != bfd_error_system_call)
+	bfd_set_error (bfd_error_wrong_format);
       return NULL;
     }
   
@@ -144,7 +148,7 @@ lynx_core_file_p (abfd)
 			       pagesize + tcontext_size);
   if (!newsect)
     {
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       return NULL;
     }
 
@@ -155,7 +159,7 @@ lynx_core_file_p (abfd)
 			       pagesize + tcontext_size + pss.ssize);
   if (!newsect)
     {
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       return NULL;
     }
 
@@ -167,13 +171,13 @@ lynx_core_file_p (abfd)
    point registers.  */
 
   newsect = make_bfd_asection (abfd, ".reg",
-			       SEC_ALLOC + SEC_HAS_CONTENTS,
+			       SEC_HAS_CONTENTS,
 			       sizeof (core_st_t),
 			       0,
 			       pagesize);
   if (!newsect)
     {
-      bfd_error = no_memory;
+      bfd_set_error (bfd_error_no_memory);
       return NULL;
     }
 
@@ -183,13 +187,13 @@ lynx_core_file_p (abfd)
 
       sprintf (secname, ".reg/%d", BUILDPID (0, threadp[secnum].tid));
       newsect = make_bfd_asection (abfd, secname,
-				   SEC_ALLOC + SEC_HAS_CONTENTS,
+				   SEC_HAS_CONTENTS,
 				   sizeof (core_st_t),
 				   0,
 				   pagesize + secnum * sizeof (core_st_t));
       if (!newsect)
 	{
-	  bfd_error = no_memory;
+	  bfd_set_error (bfd_error_no_memory);
 	  return NULL;
 	}
     }

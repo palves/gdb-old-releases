@@ -1,5 +1,5 @@
 /* HP PA-RISC SOM object file format:  definitions internal to BFD.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -24,11 +24,14 @@
 #define _SOM_H
 
 #include "../bfd/sysdep.h"
+#include "libhppa.h"
 
 #include <a.out.h>
+#include <lst.h>
+#include <ar.h>
 
 
-#ifdef HOST_HPPABSD
+#if defined(HOST_HPPABSD) || defined (HOST_HPPAOSF)
 /* BSD uses a completely different scheme for object file identification.
    so for now, define _PA_RISC_ID to accept any random value for a model
    number.  */
@@ -73,21 +76,49 @@ typedef struct som_symbol
   }
 som_symbol_type;
 
+/* A structure containing all the magic information stored in a BFD's
+   private data which needs to be copied during an objcopy/strip run.  */
+struct som_exec_data
+  {
+    /* Sort-of a magic number.  BSD uses it to distinguish between
+       native executables and hpux executables.  */
+    short system_id;
+
+    /* Magic exec flags.  These control things like whether or not
+       null pointer dereferencing is allowed and the like.  */
+    long exec_flags;
+
+    /* Add more stuff here as needed.  Good examples of information
+       we might want to pass would be presumed_dp, entry_* and maybe
+       others from the file header.  */
+  };
+
 struct somdata
   {
+    /* All the magic information about an executable which lives
+       in the private BFD structure and needs to be copied from
+       the input bfd to the output bfd during a objcopy/strip.  */
+    struct som_exec_data *exec_data;
+
+    /* These three fields are only used when writing files and are
+       generated from scratch.  They need not be copied for objcopy
+       or strip to work.  */
     struct header *file_hdr;
     struct copyright_aux_hdr *copyright_aux_hdr;
     struct user_string_aux_hdr *version_aux_hdr;
+
+    /* Pointers to a saved copy of the symbol and string tables.  These
+       need not be copied for objcopy or strip to work.  */
     som_symbol_type *symtab;
     char *stringtab;
 
     /* We remember these offsets so that after check_file_format, we have
-       no dependencies on the particular format of the exec_hdr.  */
+       no dependencies on the particular format of the exec_hdr.
+       These offsets need not be copied for objcopy or strip to work.  */
 
     file_ptr sym_filepos;
     file_ptr str_filepos;
     file_ptr reloc_filepos;
-
     unsigned stringtab_size;
   };
 
@@ -96,31 +127,52 @@ struct som_data_struct
     struct somdata a;
   };
 
+/* Substructure of som_section_data_struct used to hold information
+   which can't be represented by the generic BFD section structure,
+   but which must be copied during objcopy or strip.  */
+struct som_copyable_section_data_struct
+  {
+    /* Various fields in space and subspace headers that we need
+       to pass around.  */
+    unsigned int sort_key : 8;
+    unsigned int access_control_bits : 7;
+    unsigned int is_defined : 1;
+    unsigned int is_private : 1;
+    unsigned int quadrant : 2;
+
+    /* For subspaces, this points to the section which represents the
+       space in which the subspace is contained.  For spaces it points
+       back to the section for this space.  */
+    asection *container;
+
+    /* The user-specified space number.  It is wrong to use this as
+       an index since duplicates and holes are allowed.  */
+    int space_number;
+
+    /* Add more stuff here as needed.  Good examples of information
+       we might want to pass would be initialization pointers, 
+       and the many subspace flags we do not represent yet.  */
+  };
+
 /* Used to keep extra SOM specific information for a given section.
 
    reloc_size holds the size of the relocation stream, note this
    is very different from the number of relocations as SOM relocations
    are variable length. 
 
-   reloc_stream is the actual stream of relocation entries.
-
-   The BFD section index may not exactly match a SOM subspace index,
-   for this reason we keep track of the original SOM subspace index
-   when a subspace is turned into a BFD section.  */
+   reloc_stream is the actual stream of relocation entries.  */
 
 struct som_section_data_struct
   {
+    struct som_copyable_section_data_struct *copy_data;
     unsigned int reloc_size;
     char *reloc_stream;
-    unsigned int subspace_index;
-    asection *containing_space;
-    int is_space;
-    struct space_dictionary_record space_dict;
-    int is_subspace;
-    struct subspace_dictionary_record subspace_dict;
+    struct space_dictionary_record *space_dict;
+    struct subspace_dictionary_record *subspace_dict;
   };
 
 #define somdata(bfd)			((bfd)->tdata.som_data->a)
+#define obj_som_exec_data(bfd)		(somdata(bfd).exec_data)
 #define obj_som_file_hdr(bfd)		(somdata(bfd).file_hdr)
 #define obj_som_copyright_hdr(bfd)	(somdata(bfd).copyright_aux_hdr)
 #define obj_som_version_hdr(bfd)	(somdata(bfd).version_aux_hdr)
@@ -132,8 +184,7 @@ struct som_section_data_struct
 #define obj_som_reloc_filepos(bfd)	(somdata(bfd).reloc_filepos)
 #define som_section_data(sec) \
   ((struct som_section_data_struct *)sec->used_by_bfd)
-#define som_symbol_data(symbol) \
-  (((som_symbol_type **) symbol->udata))
+#define som_symbol_data(symbol)		((som_symbol_type *) symbol)
 
 
 /* Defines groups of basic relocations.  FIXME:  These should
@@ -147,21 +198,21 @@ struct som_section_data_struct
 
 #define R_HPPA_NONE			R_NO_RELOCATION
 #define	R_HPPA				R_CODE_ONE_SYMBOL
-#define	R_HPPA_ABS_CALL			R_ABS_CALL
 #define	R_HPPA_PCREL_CALL		R_PCREL_CALL
+#define R_HPPA_ABS_CALL			R_ABS_CALL
 #define	R_HPPA_GOTOFF			R_DP_RELATIVE
-#define	R_HPPA_COMPLEX			R_COMP1
-#define	R_HPPA_COMPLEX_PCREL_CALL	R_COMP2
-#define	R_HPPA_COMPLEX_ABS_CALL		R_COMP3
 #define R_HPPA_ENTRY			R_ENTRY
 #define R_HPPA_EXIT			R_EXIT
+#define R_HPPA_COMPLEX			R_COMP1
 
 /* Exported functions, mostly for use by GAS.  */
-void bfd_som_set_section_attributes PARAMS ((asection *, char, char,
-					     unsigned char, int));
-void bfd_som_set_subsection_attributes PARAMS ((asection *, asection *,
-						int, unsigned char, int));
+boolean bfd_som_set_section_attributes PARAMS ((asection *, int, int,
+						unsigned int, int));
+boolean bfd_som_set_subsection_attributes PARAMS ((asection *, asection *,
+						   int, unsigned int, int));
 void bfd_som_set_symbol_type PARAMS ((asymbol *, unsigned int));
 void bfd_som_attach_unwind_info PARAMS ((asymbol *, char *));
-
+boolean bfd_som_attach_aux_hdr PARAMS ((bfd *, int, char *));
+int ** hppa_som_gen_reloc_type
+  PARAMS ((bfd *, int, int, enum hppa_reloc_field_selector_type_alt));
 #endif /* _SOM_H */

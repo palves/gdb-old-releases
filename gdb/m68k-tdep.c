@@ -341,6 +341,11 @@ m68k_find_saved_regs (frame_info, saved_regs)
 
  */
 
+/* Atari SVR4 has R_SR but not R_PS */
+
+#if !defined (R_PS) && defined (R_SR)
+#define R_PS R_SR
+#endif
 
 /*  Given a pointer to a general register set in /proc format (gregset_t *),
     unpack the register contents and supply them as gdb's idea of the current

@@ -1,5 +1,5 @@
 /* BFD back-end for IBM RS/6000 "XCOFF" files.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
    FIXME: Can someone provide a transliteration of this name into ASCII?
    Using the following chars caused a compiler warning on HIUX (so I replaced
    them with octal escapes), and isn't useful without an understanding of what
@@ -44,47 +44,434 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* The main body of code is in coffcode.h.  */
 
-/* Can't read rs6000 relocs */
-static reloc_howto_type dummy_reloc =
-  HOWTO (0,			/* type */
-	 0,			/* rightshift */
-	 0,			/* size (0 = byte, 1 = short, 2 = long) */
-	 8,			/* bitsize */
-	 false,			/* pc_relative */
-	 0,			/* bitpos */
-	 complain_overflow_dont, /* complain_on_overflow */
-	 0,			/* special_function */
-	 "UNKNOWN",		/* name */
-	 false,			/* partial_inplace */
-	 0,			/* src_mask */
-	 0,			/* dst_mask */
-	 false);		/* pcrel_offset */
+/* The XCOFF reloc table.  Actually, XCOFF relocations specify the
+   bitsize and whether they are signed or not, along with a
+   conventional type.  This table is for the types, which are used for
+   different algorithms for putting in the reloc.  Many of these
+   relocs need special_function entries, which I have not written.  */
 
-#define RTYPE2HOWTO(cache_ptr, dst) cache_ptr->howto = &dummy_reloc;
+static reloc_howto_type rs6000coff_howto_table[] =
+{
+  /* Standard 32 bit relocation.  */
+  HOWTO (0,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 32,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_POS",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffffffff,            /* src_mask */                             
+	 0xffffffff,            /* dst_mask */                             
+	 false),                /* pcrel_offset */
+
+  /* 32 bit relocation, but store negative value.  */
+  HOWTO (1,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 -2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 32,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_NEG",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffffffff,            /* src_mask */                             
+	 0xffffffff,            /* dst_mask */                             
+	 false),                /* pcrel_offset */
+
+  /* 32 bit PC relative relocation.  */
+  HOWTO (2,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 32,	                /* bitsize */                   
+	 true,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_signed, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_REL",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffffffff,            /* src_mask */                             
+	 0xffffffff,            /* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* 16 bit TOC relative relocation.  */
+  HOWTO (3,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 1,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_signed, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_TOC",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* I don't really know what this is.  */
+  HOWTO (4,	                /* type */                                 
+	 1,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 32,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_RTB",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffffffff,	        /* src_mask */                             
+	 0xffffffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* External TOC relative symbol.  */
+  HOWTO (5,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_GL",                /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Local TOC relative symbol.  */
+  HOWTO (6,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_TCL",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  { 7 },
+  
+  /* Non modifiable absolute branch.  */
+  HOWTO (8,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 26,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_BA",                /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0x3fffffc,	        /* src_mask */                             
+	 0x3fffffc,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  { 9 },
+
+  /* Non modifiable relative branch.  */
+  HOWTO (0xa,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 26,	                /* bitsize */                   
+	 true,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_signed, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_BR",                /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0x3fffffc,	        /* src_mask */                             
+	 0x3fffffc,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  { 0xb },
+
+  /* Indirect load.  */
+  HOWTO (0xc,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_RL",                /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Load address.  */
+  HOWTO (0xd,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_RLA",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  { 0xe },
+  
+  /* Non-relocating reference.  */
+  HOWTO (0xf,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 32,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_REF",               /* name */                                 
+	 false,	                /* partial_inplace */                      
+	 0,		        /* src_mask */                             
+	 0,     	   	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  { 0x10 },
+  { 0x11 },
+  
+  /* TOC relative indirect load.  */
+  HOWTO (0x12,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_TRL",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* TOC relative load address.  */
+  HOWTO (0x13,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_TRLA",              /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Modifiable relative branch.  */
+  HOWTO (0x14,	                /* type */                                 
+	 1,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 32,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_RRTBI",             /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffffffff,	        /* src_mask */                             
+	 0xffffffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Modifiable absolute branch.  */
+  HOWTO (0x15,	                /* type */                                 
+	 1,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 32,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_RRTBA",             /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffffffff,	        /* src_mask */                             
+	 0xffffffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Modifiable call absolute indirect.  */
+  HOWTO (0x16,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_CAI",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Modifiable call relative.  */
+  HOWTO (0x17,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_REL",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Modifiable branch absolute.  */
+  HOWTO (0x18,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_RBA",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Modifiable branch absolute.  */
+  HOWTO (0x19,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_RBAC",              /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Modifiable branch relative.  */
+  HOWTO (0x1a,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 26,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_signed, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_REL",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false),                /* pcrel_offset */
+  
+  /* Modifiable branch absolute.  */
+  HOWTO (0x1b,	                /* type */                                 
+	 0,	                /* rightshift */                           
+	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
+	 16,	                /* bitsize */                   
+	 false,	                /* pc_relative */                          
+	 0,	                /* bitpos */                               
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 0,		        /* special_function */                     
+	 "R_REL",               /* name */                                 
+	 true,	                /* partial_inplace */                      
+	 0xffff,	        /* src_mask */                             
+	 0xffff,        	/* dst_mask */                             
+	 false)                 /* pcrel_offset */
+};
+
+#define RTYPE2HOWTO(cache_ptr, dst) rs6000coff_rtype2howto (cache_ptr, dst)
+
+static void rs6000coff_rtype2howto PARAMS ((arelent *,
+					    struct internal_reloc *));
+
+static void
+rs6000coff_rtype2howto (relent, internal)
+     arelent *relent;
+     struct internal_reloc *internal;
+{
+  relent->howto = rs6000coff_howto_table + internal->r_type;
+
+  /* The r_size field of an XCOFF reloc encodes the bitsize of the
+     relocation, as well as indicating whether it is signed or not.
+     Doublecheck that the relocation information gathered from the
+     type matches this information.  */
+  if (relent->howto->bitsize != (internal->r_size & 0x1f) + 1)
+    abort ();
+#if 0
+  if ((internal->r_size & 0x80) != 0
+      ? (relent->howto->complain_on_overflow != complain_overflow_signed)
+      : (relent->howto->complain_on_overflow != complain_overflow_bitfield))
+    abort ();
+#endif
+}
+
+#define coff_bfd_reloc_type_lookup rs6000coff_reloc_type_lookup
+
+static const struct reloc_howto_struct *rs6000coff_reloc_type_lookup
+  PARAMS ((bfd *, bfd_reloc_code_real_type));
+
+static const struct reloc_howto_struct *
+rs6000coff_reloc_type_lookup (abfd, code)
+     bfd *abfd;
+     bfd_reloc_code_real_type code;
+{
+  switch (code)
+    {
+    case BFD_RELOC_PPC_B26:
+      return &rs6000coff_howto_table[0xa];
+    case BFD_RELOC_PPC_BA26:
+      return &rs6000coff_howto_table[8];
+    case BFD_RELOC_PPC_TOC16:
+      return &rs6000coff_howto_table[3];
+    case BFD_RELOC_32:
+      return &rs6000coff_howto_table[0];
+    default:
+      return NULL;
+    }
+}
+
+#define SELECT_RELOC(internal, howto)					\
+  {									\
+    internal.r_type = howto->type;					\
+    internal.r_size =							\
+      ((howto->complain_on_overflow == complain_overflow_signed		\
+	? 0x80								\
+	: 0)								\
+       | (howto->bitsize - 1));						\
+  }
+
+#define COFF_LONG_FILENAMES
 
 #include "coffcode.h"
 
 #define	coff_archive_p		bfd_generic_archive_p
 #define	coff_mkarchive		_bfd_generic_mkarchive
 
-#ifdef ARCHIVES_PLEASE
+#ifdef HOST_AIX
 
 /* ------------------------------------------------------------------------ */
 /*	Support for archive file stuff..				    */
 /*	Stolen from Damon A. Permezel's `bfd' portation.		    */
 /* ------------------------------------------------------------------------ */
 
-#undef	coff_openr_next_archived_file
-#define coff_openr_next_archived_file	rs6000coff_openr_next_archived_file
-
-#undef	coff_write_armap
-#define coff_write_armap		rs6000coff_write_armap
-
-#undef	coff_stat_arch_elt
-#define	coff_stat_arch_elt		rs6000coff_stat_arch_elt
-
-#undef	coff_snarf_ar_hdr
-#define	coff_snarf_ar_hdr		rs6000coff_snarf_ar_hdr
+#define rs6000coff_slurp_armap bfd_slurp_coff_armap
+#define rs6000coff_slurp_extended_name_table _bfd_slurp_extended_name_table
+#define rs6000coff_truncate_arname bfd_dont_truncate_arname
 
 #undef	coff_mkarchive
 #define	coff_mkarchive			rs6000coff_mkarchive
@@ -104,7 +491,8 @@ static boolean
 rs6000coff_mkarchive (abfd)
      bfd *abfd;
 {
-	bfd_error = invalid_operation;	/* write not supported	*/
+	bfd_set_error (bfd_error_invalid_operation);	/* write not supported	*/
+	return false;
 }
 
 
@@ -121,32 +509,31 @@ struct areltdata *
 rs6000coff_snarf_ar_hdr (abfd)
      bfd *abfd;
 {
-	extern int errno;
-
 	struct {
 		struct ar_hdr hdr;
 		char namebuf[256];
 	} h;
 	int size;
 	struct areltdata *ared;
-	unsigned int namelen = 0;
 	char *allocptr;
 
 	size = sizeof (h.hdr);
 	if (bfd_read(&h.hdr, 1, size, abfd) != size) {
-		bfd_error = no_more_archived_files;
+	        if (bfd_get_error () != bfd_error_system_call)
+		  bfd_set_error (bfd_error_no_more_archived_files);
 		return NULL;
 	}
 	size  = atoi(h.hdr.ar_namlen);	/* ar_name[] length	*/
 	size += size & 1;
 
 	if (bfd_read(&h.hdr._ar_name.ar_name[2], 1, size, abfd) != size) {
-		bfd_error = no_more_archived_files;
+	        if (bfd_get_error () != bfd_error_system_call)
+		  bfd_set_error (bfd_error_no_more_archived_files);
 		return NULL;
 	}
 
 	if (strncmp(h.hdr._ar_name.ar_fmag + size, AIAFMAG, 2)) {
-		bfd_error = malformed_archive;
+		bfd_set_error (bfd_error_malformed_archive);
 		return NULL;
 	}
 
@@ -156,7 +543,7 @@ rs6000coff_snarf_ar_hdr (abfd)
 	 * if the filename is NULL, we're (probably) at the end.
 	 */
 	if (size == 0) {
-		bfd_error = no_more_archived_files;
+		bfd_set_error (bfd_error_no_more_archived_files);
 		return NULL;
 	}
 
@@ -164,7 +551,7 @@ rs6000coff_snarf_ar_hdr (abfd)
 	allocptr = bfd_zalloc(abfd, sizeof (*ared) + size);
 
 	if (allocptr == NULL) {
-		bfd_error = no_memory;
+		bfd_set_error (bfd_error_no_memory);
 		return NULL;
 	}
 
@@ -189,13 +576,11 @@ rs6000coff_get_elt_at_filepos (archive, filepos)
   struct areltdata *new_areldata;
   bfd *n_nfd;
 
-  n_nfd = look_for_bfd_in_cache (archive, filepos);
+  n_nfd = _bfd_look_for_bfd_in_cache (archive, filepos);
   if (n_nfd) return n_nfd;
 
-  if (0 != bfd_seek (archive, filepos, SEEK_SET)) {
-    bfd_error = system_call_error;
+  if (0 != bfd_seek (archive, filepos, SEEK_SET))
     return NULL;
-  }
 
   if ((new_areldata = rs6000coff_snarf_ar_hdr (archive)) == NULL) return NULL;
   
@@ -235,7 +620,7 @@ rs6000coff_openr_next_archived_file(archive, last_file)
 }
 
 
-static bfd_target *
+static const bfd_target *
 rs6000coff_archive_p (abfd)
      bfd *abfd;
 {
@@ -243,12 +628,13 @@ rs6000coff_archive_p (abfd)
 	register struct artdata *art;
 
 	if (bfd_read (&hdr, sizeof (hdr), 1, abfd) != sizeof (hdr)) {
-		bfd_error = wrong_format;
+	        if (bfd_get_error () != bfd_error_system_call)
+		  bfd_set_error (bfd_error_wrong_format);
 		return 0;
 	}
 
 	if (strncmp(hdr.fl_magic, AIAMAG, SAIAMAG)) {
-		bfd_error = wrong_format;
+		bfd_set_error (bfd_error_wrong_format);
 		return 0;
 	}
 
@@ -258,7 +644,7 @@ rs6000coff_archive_p (abfd)
 	abfd->tdata.aout_ar_data =
 	  (void *) bfd_zalloc(abfd, sizeof (*art) + sizeof (hdr));
 	if ((art = bfd_ardata (abfd)) == NULL) {
-		bfd_error = no_memory;
+		bfd_set_error (bfd_error_no_memory);
 		return 0;
 	}
 
@@ -275,7 +661,7 @@ rs6000coff_archive_p (abfd)
 
 
 static int
-rs6000coff_stat_arch_elt(abfd, buf)
+rs6000coff_generic_stat_arch_elt(abfd, buf)
   bfd *abfd;
   struct stat *buf;
 {
@@ -283,7 +669,7 @@ rs6000coff_stat_arch_elt(abfd, buf)
 	char *aloser;
   
 	if (abfd->arelt_data == NULL) {
-		bfd_error = invalid_operation;
+		bfd_set_error (bfd_error_invalid_operation);
 		return -1;
 	}
     
@@ -308,15 +694,26 @@ rs6000coff_write_armap (arch, elength, map, orl_count, stridx)
   bfd *arch;
   unsigned int elength;
   struct orl *map; 
+  unsigned int orl_count;
+  int stridx;
 {
-	bfd_error = invalid_operation;
+	bfd_set_error (bfd_error_invalid_operation);
 	return false;
 }
-#endif	/* ARCHIVES_PLEASE */
+#endif	/* HOST_AIX */
 
 
-#ifdef COREFILES_PLEASE
-extern bfd_target * rs6000coff_core_p ();
+#define CORE_FILE_P _bfd_dummy_target
+
+#define coff_core_file_failing_command _bfd_nocore_core_file_failing_command
+#define coff_core_file_failing_signal _bfd_nocore_core_file_failing_signal
+#define coff_core_file_matches_executable_p \
+  _bfd_nocore_core_file_matches_executable_p
+
+#ifdef HOST_AIX
+#undef CORE_FILE_P
+#define CORE_FILE_P rs6000coff_core_p
+extern const bfd_target * rs6000coff_core_p ();
 extern boolean rs6000coff_get_section_contents ();
 extern boolean rs6000coff_core_file_matches_executable_p ();
 
@@ -326,11 +723,32 @@ extern boolean rs6000coff_core_file_matches_executable_p ();
 
 #undef	coff_get_section_contents
 #define	coff_get_section_contents	rs6000coff_get_section_contents
-#endif
+#endif /* HOST_AIX */
+
+#ifdef HOST_LYNX
+
+#undef CORE_FILE_P
+#define CORE_FILE_P lynx_core_file_p
+extern const bfd_target *lynx_core_file_p PARAMS ((bfd *abfd));
+
+extern boolean lynx_core_file_matches_executable_p PARAMS ((bfd *core_bfd,
+							    bfd *exec_bfd));
+#undef	coff_core_file_matches_executable_p
+#define coff_core_file_matches_executable_p lynx_core_file_matches_executable_p
+
+extern char *lynx_core_file_failing_command PARAMS ((bfd *abfd));
+#undef coff_core_file_failing_command
+#define coff_core_file_failing_command lynx_core_file_failing_command
+
+extern int lynx_core_file_failing_signal PARAMS ((bfd *abfd));
+#undef coff_core_file_failing_signal
+#define coff_core_file_failing_signal lynx_core_file_failing_signal
+
+#endif /* HOST_LYNX */
 
 /* The transfer vector that leads the outside world to all of the above. */
 
-bfd_target rs6000coff_vec =
+const bfd_target rs6000coff_vec =
 {
   "aixcoff-rs6000",		/* name */
   bfd_target_coff_flavour,	
@@ -355,18 +773,25 @@ bfd_target rs6000coff_vec =
      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* hdrs */
 
   {_bfd_dummy_target, coff_object_p, 	/* bfd_check_format */
-     coff_archive_p,
-#ifdef	COREFILES_PLEASE
-     rs6000coff_core_p
-#else
-     _bfd_dummy_target
-#endif
-       },
+     coff_archive_p, CORE_FILE_P},
   {bfd_false, coff_mkobject, coff_mkarchive, /* bfd_set_format */
      bfd_false},
   {bfd_false, coff_write_object_contents,	/* bfd_write_contents */
      _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(coff),
+     BFD_JUMP_TABLE_GENERIC (coff),
+     BFD_JUMP_TABLE_COPY (coff),
+     BFD_JUMP_TABLE_CORE (coff),
+#ifdef HOST_AIX
+     BFD_JUMP_TABLE_ARCHIVE (rs6000coff),
+#else
+     BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+#endif
+     BFD_JUMP_TABLE_SYMBOLS (coff),
+     BFD_JUMP_TABLE_RELOCS (coff),
+     BFD_JUMP_TABLE_WRITE (coff),
+     BFD_JUMP_TABLE_LINK (coff),
+     BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
   COFF_SWAP_TABLE,
 };

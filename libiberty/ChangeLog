@@ -1,3 +1,306 @@
+Sat Jul 16 12:56:32 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* config.table (*-*-cxux7*):  Recognize.
+	* floatformat.c (floatformat_m88110_ext) [HARRIS_FLOAT_FORMAT]:
+	Harris-specific float format.
+	* config/mh-cxux7: New file.
+
+Wed Jun 29 00:26:17 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* cplus-dem.c (demangle_template):  Make sure that the result of
+	consume_count doesn't index beyond the end of the string.
+
+Mon Jun 20 23:54:37 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* cplus-dem.c (gnu_special):  Handle vtable mangling of gcc-2.4.5 and
+	earlier. Improve test for new vtable mangling. Change output back
+	to `virtual table'.
+
+Mon Jun 20 11:37:30 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* obstack.c: Always compile this code, even if using the GNU
+	library.  Avoids problems with relatively recent binary
+	incompatibility.
+
+Thu Jun 16 17:54:01 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* cplus-dem.c: Include libiberty.h.
+	(xmalloc, xrealloc, free): Don't declare.
+	(strstr): Don't declare parameters.
+	(xmalloc, xrealloc): Don't define.
+	(long_options): Add no-strip-underscores.
+	(main): Call xmalloc_set_program_name.  Pass n in short options to
+	getopt_long.  Handle option 'n' to not strip underscores.
+	(usage): Mention -n and --no-strip-underscores.
+
+Sun Jun 12 01:37:09 1994  Jason Merrill  (jason@deneb.cygnus.com)
+
+	* cplus-dem.c (demangle_template): Separate consecutive >'s with a
+        space.
+	(gnu_special): Demangle template and qualified names in a vtable name.
+
+Fri May 27 12:27:52 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	From gas-2.3 and binutils-2.4 net releases:
+
+	Wed May 11 22:32:00 1994  DJ Delorie (dj@ctron.com)
+
+	* makefile.dos: [new] Makefile for dos/go32
+	* configure.bat: update for latest files
+	* msdos.c: remove some functions now in libc.a
+
+Fri May 20 18:53:32 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* cplus-dem.c (gnu_special):  Recognize thunks, as well as
+	the new naming style for vtables (when -fvtable-thunks).
+
+Wed May 18 13:34:06 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* Makefile.in (XTRAFLAGS): Don't define.
+	(.c.o, dummy.o): Don't use XTRAFLAGS.
+	($(RULE1)): Don't pass XTRAFLAGS down in recursive call.
+
+Fri May 13 16:02:12 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* vasprintf.c: New file.
+	* Makefile.in, functions.def: Add it.
+
+Fri May 13 16:20:28 1994  Jason Merrill  (jason@deneb.cygnus.com)
+
+	* cplus-dem.c (demangle_fund_type): Grok bool.
+
+Fri May  6 14:44:21 1994  Steve Chamberlain  (sac@cygnus.com)
+
+	* config.table: Add go32  
+	* config/mh-go32: New template.
+
+Fri May  6 11:01:59 1994  D. V. Henkel-Wallace  (gumby@rtl.cygnus.com)
+
+	* config.table, config/mt-sunos4: config for when sun4 is cross target.
+
+Mon Apr 11 00:54:33 1994  Richard Stallman  (rms@mole.gnu.ai.mit.edu)
+
+        * getopt.c [not __GNU_LIBRARY__] [__GCC__] [not __STDC__]:
+        Declare strlen to return int.  Don't include stddef.h.
+
+Fri Apr  1 00:38:17 1994  Jim Wilson  (wilson@mole.gnu.ai.mit.edu)
+
+        * getopt.c: Delete use of IN_GCC to control whether
+        stddef.h or gstddef.h is included.
+
+Thu Apr 14 14:00:56 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* cplus-dem.c (demangle_signature): Fix a bug in template function
+	type numbering.
+
+Wed Apr 13 17:23:03 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* cplus-dem.c (demangle_signature): Fix template function with arm
+	style argument type number, Tn.
+
+Wed Apr 13 17:11:15 1994  Jason Merrill  (jason@deneb.cygnus.com)
+
+	* cplus-dem.c (optable): Add new[] and delete[].
+
+Fri Apr  8 11:21:42 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* argv.c (buildargv): Don't produce empty argument just because
+	there is trailing whitespace.
+
+Wed Apr  6 11:42:14 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* cplus-dem.c (demangle_template): fix 'Q' qualified name bug.
+	Handle 'p' same as 'P'.
+	* cplus-dem.c (do_type): Handle 'p' same as 'P'.
+
+Sat Mar 26 12:00:13 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* floatformat.c (get_field, put_field):  Fix off by one error in
+	little endian case.
+
+Thu Mar 24 10:40:19 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* floatformat.c (floatformat_from_double): Pass unsigned char *,
+	not char *, to put_field.
+
+Fri Mar 18 12:34:33 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* memmove.c:  Re-wrote;  placed in public domain.
+
+Wed Mar 16 10:33:07 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* cplus-dem.c (demangle_prefix): If ARM demangling, don't treat
+	__Q* as a constructor.
+
+Mon Mar 14 12:26:02 1994  Ian Lance Taylor  (ian@cygnus.com)
+
+	* ieee-float.c: Removed; no longer used.
+	* Makefile.in: Changed accordingly.
+
+Mon Mar  7 12:28:17 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* floatformat.c (get_field): Removed unused local variable i.
+	(put_field): Removed unused local variable i.
+
+Sun Feb 27 21:50:11 1994  Jim Kingdon  (kingdon@deneb.cygnus.com)
+
+	* floatformat.c: New file, intended to replace ieee-float.c.
+	* Makefile.in: Change accordingly.
+
+Thu Feb 24 11:51:12 1994  David J. Mackenzie  (djm@rtl.cygnus.com)
+
+	* getopt.c: Remove #ifdef GETOPT_COMPAT and #if 0 code.
+	 (_getopt_initialize): New function, broken out of _getopt_internal. 
+	 (_getopt_internal): 
+	 If long_only and the ARGV-element has the form "-f", where f is
+	 a valid short option, don't consider it an abbreviated form of
+	 a long option that starts with f.  Otherwise there would be no
+	 way to give the -f short option.
+
+Thu Feb 10 14:44:16 1994  Richard Stallman  (rms@mole.gnu.ai.mit.edu)
+
+        * getopt.c [not __GNU_LIBRARY__] [__GNUC__] [not IN_GCC]:
+        Test just __STDC__, not emacs.
+
+Wed Feb  9 00:14:00 1994  Richard Stallman  (rms@mole.gnu.ai.mit.edu)
+
+        * getopt.c [not __GNU_LIBRARY__] [__GNUC__] [not IN_GCC]
+        [emacs] [not __STDC__]: Don't include stddef.h.  Don't declare strlen.
+
+Fri Dec 24 19:43:00 1993  Noah Friedman  (friedman@nutrimat.gnu.ai.mit.edu)
+
+        * getopt.c (_NO_PROTO): Define before config.h is included.
+
+Mon Sep 20 15:59:03 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
+
+        * getopt.c, getopt1.c [emacs || CONFIG_BROKETS]: Include
+	<config.h> only under these, else "config.h".
+
+Thu Aug 12 18:16:49 1993  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
+
+        * getopt.c, getopt1.c [HAVE_CONFIG_H]: Include
+        <config.h> instead of "config.h".
+
+Sun Feb 20 17:17:01 1994  Ian Lance Taylor  (ian@lisa.cygnus.com)
+
+	* concat.c: Check ANSI_PROTOTYPES rather than __STDC__ to decide
+	whether to use prototypes or not.
+	* strerror.c (const): Never undefine; let ansidecl.h handle it.
+	* strsignal.c (const): Likewise.
+
+Thu Feb 17 13:27:35 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* xatexit.c (_xexit_cleanup): Declare as extern; don't initialize.
+	Merging common and initialized variables need not be supported by
+	ANSI C compilers.
+	(xatexit): Initialize _xexit_cleanup if not already set.
+	* xexit.c: Comment fix.
+
+Wed Feb 16 01:15:36 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* xmalloc.c: Don't declare xexit; it's declared in libiberty.h.
+	(xrealloc): If oldmem is NULL, allocate with malloc, rather than
+	assuming that realloc works correctly.
+
+Tue Feb 15 09:26:16 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* concat.c, ieee-float.c:  Replace inclusion of <string.h>
+	with explicit function declarations, as recommended by Ian Taylor.
+
+Sat Feb 12 10:31:11 1994  David J. Mackenzie  (djm@rtl.cygnus.com)
+
+	* xmalloc.c (xmalloc, xrealloc): Use PTR and size_t throughout.
+	(malloc, realloc): Declare.
+
+Thu Feb 10 17:08:19 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* argv.c, basename.c: Include ansidecl.h and libiberty.h.
+	* concat.c, fdmatch.c, getruntime.c, spaces.c: Likewise.
+	* strerror.c, strsignal.c, xatexit.c, xexit.c: Likewise.
+	* xmalloc.c: Likewise.
+	* concat.c: Don't declare xmalloc.  If __STDC__, use <stdarg.h>
+	macros, not <varargs.h> macros.
+	* spaces.c (spaces): Make return type const.  Don't crash if
+	malloc returns NULL.
+	* strerror.c (struct error_info): Make name and msg fields const.
+	(error_names): Make const.
+	(strerrno): Make const.
+	(strtoerrno): Make argument const.
+	* strsignal.c (struct signal_info): Make name and msg fields
+	const.
+	(signal_names, sys_siglist): Make const.
+	(strsignal, strsigno): Make const.
+	(strtosigno): Make argument const.
+	* xatexit.c: Declare parameter types.
+	* xmalloc.c (name): Make const.
+	(xmalloc_set_program_name): Make argument const.
+	* Makefile.in (INCDIR): Define.
+	(.c.o): Use $(INCDIR).
+	(dummy.o): Likewise.
+	(argv.o, basename.o): New targets; depend on libiberty.h.
+	(concat.o, fdmatch.o, getruntime.o, spaces.o): Likewise.
+	(strerror.o, strsignal.o, xatexit.o, xexit.o): Likewise.
+	(xmalloc.o): Likewise.
+	(cplus-dem.o): New target; depend on demangle.h.
+	(getopt.o, getopt1.o): New targets; depend on getopt.h.
+	(ieee-float.o): New target; depend on ieee-float.h.
+	(obstack.o): New target; depend on obstack.h.
+
+Tue Feb  8 05:29:08 1994  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	Handle obstack_chunk_alloc returning NULL.  This allows
+	obstacks to be used by libraries, without forcing them
+	to call exit or longjmp.
+	* obstack.c (_obstack_begin, _obstack_begin_1, _obstack_newchunk):
+	If CALL_CHUNKFUN returns NULL, set alloc_failed, else clear it.
+	(_obstack_begin, _obstack_begin_1): Return 1 if successful, 0 if not.
+
+Tue Feb  8 00:32:28 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* concat.c, ieee-float.c:  Include <string.h>.
+
+Sun Feb  6 21:28:46 1994  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* xmalloc.c (xmalloc_set_program_name): New function.
+	(xmalloc, xrealloc): Include the name in the error message, if set.
+
+	* Replace atexit.c with xatexit.c.
+	* Makefile.in (CFILES), functions.def: Change references.
+
+Sat Feb  5 14:02:32 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* getruntime.c (get_run_time): Use getrusage or times if
+	HAVE_GETRUSAGE or HAVE_TIMES are defined.
+
+Fri Feb  4 15:49:38 1994  David J. Mackenzie  (djm@thepub.cygnus.com)
+
+	* atexit.c: New file.
+	* Makefile.in (CFILES), functions.def: Add it.
+	* xexit.c: New file.
+	* Makefile.in (CFILES, REQUIRED_OFILES): Add it.
+	* xmalloc.c (xmalloc, xrealloc): Call xexit instead of exit.
+	Change request for 0 bytes into request for 1 byte.
+
+Wed Feb  2 11:36:49 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
+
+	* xmalloc.c (xmalloc, xrealloc): Print size using %lu, and cast to
+	unsigned long, to avoid warnings.
+
+Fri Jan 28 17:49:06 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* dummy.c: Don't include time.h ever; always define clock_t as
+	"unsigned long".  Until gcc/fixincludes ensures that clock_t
+	exists, __STDC__ isn't a sufficient test.  And if clock() doesn't
+	exist, clock_t probably doesn't either.
+
+Mon Jan 24 11:52:31 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* clock.c, getruntime.c: New files.
+	* Makefile.in: Add to file lists.
+	* functions.def (clock): Add to list.
+	* dummy.c (time.h): Add if __STDC__.
+	(clock_t): #define as "unsigned long" if not __STDC__.
+
 Tue Jan 11 11:27:44 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
 
 	* strtod.c: Declare atof.  From edler@jan.ultra.nyu.edu (Jan
@@ -974,3 +1277,8 @@ Fri Oct  4 01:29:08 1991  John Gilmore  (gnu at cygnus.com)
 Tue Sep  3 06:36:23 1991  John Gilmore  (gnu at cygint.cygnus.com)
 
 	* obstack.c:  Merge with latest FSF version.
+
+
+Local Variables:
+version-control: never
+End:

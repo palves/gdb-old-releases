@@ -103,9 +103,12 @@
 	.EXPORT fmpy_tests,CODE
 	.EXPORT fdiv_tests,CODE
 	.EXPORT frem_tests,CODE
-	.EXPORT fcmp_sgl_tests,CODE
-	.EXPORT fcmp_dbl_tests,CODE
-	.EXPORT fcmp_quad_tests,CODE
+	.EXPORT fcmp_sgl_tests_1,CODE
+	.EXPORT fcmp_sgl_tests_2,CODE
+	.EXPORT fcmp_dbl_tests_1,CODE
+	.EXPORT fcmp_dbl_tests_2,CODE
+	.EXPORT fcmp_quad_tests_1,CODE
+	.EXPORT fcmp_quad_tests_2,CODE
 	.EXPORT fmpy_addsub_tests,CODE
 	.EXPORT xmpyu_tests,CODE
 	.EXPORT special_tests,CODE
@@ -114,6 +117,8 @@
 	.EXPORT copr_indexing_load,CODE
 	.EXPORT copr_indexing_store,CODE
 	.EXPORT copr_short_memory,CODE
+	.EXPORT fmemLRbug_tests_1,CODE
+	.EXPORT fmemLRbug_tests_2,CODE
 	.EXPORT main,CODE
 	.EXPORT main,ENTRY,PRIV_LEV=3,RTNVAL=GR
 main
@@ -299,6 +304,7 @@ comb_nullified_tests
 
 comib_tests
 	comib 0,%r4,comib_tests
+	comib,= 0,%r4,comib_tests
 	comib,< 0,%r4,comib_tests
 	comib,<= 0,%r4,comib_tests
 	comib,<< 0,%r4,comib_tests
@@ -312,7 +318,7 @@ comib_tests
 	comib,>>= 0,%r4,comib_tests
 	comib,>> 0,%r4,comib_tests
 	comib,nsv 0,%r4,comib_tests
-	comib,ev 0,%r4,comb_tests
+	comib,ev 0,%r4,comib_tests
 
 comib_nullified_tests
 	comib,n 0,%r4,comib_tests
@@ -385,7 +391,7 @@ addib_tests
 	addib,uv -1,%r4,addib_tests
 	addib,vnz -1,%r4,addib_tests
 	addib,nsv -1,%r4,addib_tests
-	addib,ev -1,%r4,comb_tests
+	addib,ev -1,%r4,addib_tests
 
 addib_nullified_tests
 	addib,n -1,%r4,addib_tests
@@ -1447,7 +1453,7 @@ frem_tests
 	frem,dbl %fr20,%fr24,%fr28
 	frem,quad %fr20,%fr24,%fr28
 
-fcmp_sgl_tests
+fcmp_sgl_tests_1
 	fcmp,sgl,false? %fr4,%fr5
 	fcmp,sgl,false %fr4,%fr5
 	fcmp,sgl,? %fr4,%fr5
@@ -1464,6 +1470,7 @@ fcmp_sgl_tests
 	fcmp,sgl,<= %fr4,%fr5
 	fcmp,sgl,?<= %fr4,%fr5
 	fcmp,sgl,!> %fr4,%fr5
+fcmp_sgl_tests_2
 	fcmp,sgl,!?<= %fr4,%fr5
 	fcmp,sgl,> %fr4,%fr5
 	fcmp,sgl,?> %fr4,%fr5
@@ -1481,7 +1488,7 @@ fcmp_sgl_tests
 	fcmp,sgl,true? %fr4,%fr5
 	fcmp,sgl,true %fr4,%fr5
 
-fcmp_dbl_tests
+fcmp_dbl_tests_1
 	fcmp,dbl,false? %fr4,%fr5
 	fcmp,dbl,false %fr4,%fr5
 	fcmp,dbl,? %fr4,%fr5
@@ -1498,6 +1505,7 @@ fcmp_dbl_tests
 	fcmp,dbl,<= %fr4,%fr5
 	fcmp,dbl,?<= %fr4,%fr5
 	fcmp,dbl,!> %fr4,%fr5
+fcmp_dbl_tests_2
 	fcmp,dbl,!?<= %fr4,%fr5
 	fcmp,dbl,> %fr4,%fr5
 	fcmp,dbl,?> %fr4,%fr5
@@ -1515,7 +1523,7 @@ fcmp_dbl_tests
 	fcmp,dbl,true? %fr4,%fr5
 	fcmp,dbl,true %fr4,%fr5
 
-fcmp_quad_tests
+fcmp_quad_tests_1
 	fcmp,quad,false? %fr4,%fr5
 	fcmp,quad,false %fr4,%fr5
 	fcmp,quad,? %fr4,%fr5
@@ -1532,6 +1540,7 @@ fcmp_quad_tests
 	fcmp,quad,<= %fr4,%fr5
 	fcmp,quad,?<= %fr4,%fr5
 	fcmp,quad,!> %fr4,%fr5
+fcmp_quad_tests_2
 	fcmp,quad,!?<= %fr4,%fr5
 	fcmp,quad,> %fr4,%fr5
 	fcmp,quad,?> %fr4,%fr5
@@ -1621,6 +1630,34 @@ copr_short_memory
 	cstds,4 26,0(0,4)
 	cstds,4,mb 26,0(0,4)
 	cstds,4,ma 26,0(0,4)
+
+fmemLRbug_tests_1
+	fstws	%fr6R,0(%r26)
+	fstws	%fr6L,4(%r26)
+	fstws	%fr6,8(%r26)
+	fstds	%fr6R,0(%r26)
+	fstds	%fr6L,4(%r26)
+	fstds	%fr6,8(%r26)
+	fldws	0(%r26),%fr6R
+	fldws	4(%r26),%fr6L
+	fldws	8(%r26),%fr6
+	fldds	0(%r26),%fr6R
+	fldds	4(%r26),%fr6L
+	fldds	8(%r26),%fr6
+
+fmemLRbug_tests_2
+	fstws	%fr6R,0(%sr0,%r26)
+	fstws	%fr6L,4(%sr0,%r26)
+	fstws	%fr6,8(%sr0,%r26)
+	fstds	%fr6R,0(%sr0,%r26)
+	fstds	%fr6L,4(%sr0,%r26)
+	fstds	%fr6,8(%sr0,%r26)
+	fldws	0(%sr0,%r26),%fr6R
+	fldws	4(%sr0,%r26),%fr6L
+	fldws	8(%sr0,%r26),%fr6
+	fldds	0(%sr0,%r26),%fr6R
+	fldds	4(%sr0,%r26),%fr6L
+	fldds	8(%sr0,%r26),%fr6
 
 	ldw 0(0,%r4),%r26
 	ldw 0(0,%r4),%r26

@@ -323,11 +323,11 @@ static const template i386_optab[] = {
 
 /* these turn into pseudo operations when disp is larger than 8 bits */
 #define IS_JUMP_ON_CX_ZERO(o) \
-  (o == 0x67e3)
+  (o == 0x66e3)
 #define IS_JUMP_ON_ECX_ZERO(o) \
   (o == 0xe3)
 
-{"jcxz", 1, 0x67e3, _, JumpByte, { Disp, 0, 0} },
+{"jcxz", 1, 0x66e3, _, JumpByte, { Disp, 0, 0} },
 {"jecxz", 1, 0xe3, _, JumpByte, { Disp, 0, 0} },
 
 #define IS_LOOP_ECX_TIMES(o) \

@@ -64,6 +64,9 @@ init_environ (e)
   extern char **environ;
   register int i;
 
+  if (environ == NULL)
+    return;
+
   for (i = 0; environ[i]; i++) /*EMPTY*/;
 
   if (e->allocated < i)
@@ -149,23 +152,16 @@ set_in_environ (e, var, value)
   strcat (s, value);
   vector[i] = s;
 
-  /* Certain variables get exported back to the parent (e.g. our) 
-     environment, too.  FIXME: this is a hideous hack and should not be
-     allowed to live.  What if we want to change the environment we pass to
-     the program without affecting GDB's behavior?  */
-  if (STREQ(var, "PATH"))		/* Object file location */
-    {
-      putenv (strsave (s));
-    }
+  /* This used to handle setting the PATH and GNUTARGET variables
+     specially.  The latter has been replaced by "set gnutarget"
+     (which has worked since GDB 4.11).  The former affects searching
+     the PATH to find SHELL, and searching the PATH to find the
+     argument of "symbol-file" or "exec-file".  Maybe we should have
+     some kind of "set exec-path" for that.  But in any event, having
+     "set env" affect anything besides the inferior is a bad idea.
+     What if we want to change the environment we pass to the program
+     without afecting GDB's behavior?  */
 
-  /* This is a compatibility hack, since GDB 4.10 and older didn't have
-     `set gnutarget'.  Eventually it should go away, so that (for example)
-     you can debug objdump's handling of GNUTARGET without affecting GDB's
-     behavior.  */
-  if (STREQ (var, "GNUTARGET"))
-    {
-      set_gnutarget ((char *)value);
-    }
   return;
 }
 

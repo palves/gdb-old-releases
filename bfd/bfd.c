@@ -1,5 +1,5 @@
 /* Generic BFD library interface and support routines.
-   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -38,7 +38,7 @@ CODE_FRAGMENT
 .    CONST char *filename;                
 .
 .    {* A pointer to the target jump table.             *}
-.    struct bfd_target *xvec;
+.    const struct bfd_target *xvec;
 .
 .    {* To avoid dragging too many header files into every file that
 .       includes `<<bfd.h>>', IOSTREAM has been declared as a "char
@@ -168,6 +168,7 @@ CODE_FRAGMENT
 .      struct sgi_core_struct *sgi_core_data;
 .      struct lynx_core_struct *lynx_core_data;
 .      struct osf_core_struct *osf_core_data;
+.      struct cisco_core_struct *cisco_core_data;
 .      PTR any;
 .      } tdata;
 .  
@@ -191,18 +192,56 @@ CODE_FRAGMENT
 #undef obj_symbols
 #include "libelf.h"
 
+
+/*
+SECTION
+	Error reporting
+
+	Most BFD functions return nonzero on success (check their
+	individual documentation for precise semantics).  On an error,
+	they call <<bfd_set_error>> to set an error condition that callers
+	can check by calling <<bfd_get_error>>.
+        If that returns <<bfd_error_system_call>>, then check
+	<<errno>>.
+
+	The easiest way to report a BFD error to the user is to
+	use <<bfd_perror>>.
+
+SUBSECTION
+	Type <<bfd_error_type>>
+
+	The values returned by <<bfd_get_error>> are defined by the
+	enumerated type <<bfd_error_type>>.
+
+CODE_FRAGMENT
+.
+.typedef enum bfd_error
+.{
+.  bfd_error_no_error = 0,
+.  bfd_error_system_call,
+.  bfd_error_invalid_target,
+.  bfd_error_wrong_format,
+.  bfd_error_invalid_operation,
+.  bfd_error_no_memory,
+.  bfd_error_no_symbols,
+.  bfd_error_no_more_archived_files,
+.  bfd_error_malformed_archive,
+.  bfd_error_file_not_recognized,
+.  bfd_error_file_ambiguously_recognized,
+.  bfd_error_no_contents,
+.  bfd_error_nonrepresentable_section,
+.  bfd_error_no_debug_section,
+.  bfd_error_bad_value,
+.  bfd_error_file_truncated,
+.  bfd_error_invalid_error_code
+.} bfd_error_type;
+.
+*/
+
 #undef strerror
 extern char *strerror();
 
-/** Error handling
-    o - Most functions return nonzero on success (check doc for
-        precise semantics); 0 or NULL on error.
-    o - Internal errors are documented by the value of bfd_error.
-        If that is system_call_error then check errno.
-    o - The easiest way to report this to the user is to use bfd_perror.
-*/
-
-bfd_ec bfd_error = no_error;
+static bfd_error_type bfd_error = bfd_error_no_error;
 
 CONST char *CONST bfd_errmsgs[] = {
                         "No error",
@@ -212,10 +251,8 @@ CONST char *CONST bfd_errmsgs[] = {
                         "Invalid operation",
                         "Memory exhausted",
                         "No symbols",
-                        "No relocation info",
                         "No more archived files",
                         "Malformed archive",
-                        "Symbol not found",
                         "File format not recognized",
                         "File format is ambiguous",
                         "Section has no contents",
@@ -226,64 +263,128 @@ CONST char *CONST bfd_errmsgs[] = {
                         "#<Invalid error code>"
                        };
 
+/*
+FUNCTION
+	bfd_get_error
+
+SYNOPSIS
+	bfd_error_type bfd_get_error (void);
+
+DESCRIPTION
+	Return the current BFD error condition.
+*/
+
+bfd_error_type
+bfd_get_error ()
+{
+  return bfd_error;
+}
+
+/*
+FUNCTION
+	bfd_set_error
+
+SYNOPSIS
+	void bfd_set_error (bfd_error_type error_tag);
+
+DESCRIPTION
+	Set the BFD error condition to be @var{error_tag}.
+*/
+
+void
+bfd_set_error (error_tag)
+     bfd_error_type error_tag;
+{
+  bfd_error = error_tag;
+}
+
+/*
+FUNCTION
+	bfd_errmsg
+
+SYNOPSIS
+	CONST char *bfd_errmsg (bfd_error_type error_tag);
+
+DESCRIPTION
+	Return a string describing the error @var{error_tag}, or
+	the system error if @var{error_tag} is <<bfd_error_system_call>>.
+*/
+
 CONST char *
 bfd_errmsg (error_tag)
-     bfd_ec error_tag;
+     bfd_error_type error_tag;
 {
 #ifndef errno
   extern int errno;
 #endif
-  if (error_tag == system_call_error)
+  if (error_tag == bfd_error_system_call)
     return strerror (errno);
 
-  if ((((int)error_tag <(int) no_error) ||
-       ((int)error_tag > (int)invalid_error_code)))
-    error_tag = invalid_error_code;/* sanity check */
+  if ((((int)error_tag <(int) bfd_error_no_error) ||
+       ((int)error_tag > (int)bfd_error_invalid_error_code)))
+    error_tag = bfd_error_invalid_error_code;/* sanity check */
 
   return bfd_errmsgs [(int)error_tag];
 }
 
+/*
+FUNCTION
+	bfd_perror
+
+SYNOPSIS
+	void bfd_perror (CONST char *message);
+
+DESCRIPTION
+	Print to the standard error stream a string describing the
+	last BFD error that occurred, or the last system error if
+	the last BFD error was a system call failure.  If @var{message}
+	is non-NULL and non-empty, the error string printed is preceded
+	by @var{message}, a colon, and a space.  It is followed by a newline.
+*/
+
 void
-DEFUN(bfd_perror,(message),
-      CONST char *message)
+bfd_perror (message)
+     CONST char *message;
 {
-  if (bfd_error == system_call_error)
+  if (bfd_get_error () == bfd_error_system_call)
     perror((char *)message);            /* must be system error then... */
   else {
     if (message == NULL || *message == '\0')
-      fprintf (stderr, "%s\n", bfd_errmsg (bfd_error));
+      fprintf (stderr, "%s\n", bfd_errmsg (bfd_get_error ()));
     else
-      fprintf (stderr, "%s: %s\n", message, bfd_errmsg (bfd_error));
+      fprintf (stderr, "%s: %s\n", message, bfd_errmsg (bfd_get_error ()));
   }
 }
 
- 
-/** Symbols */
-
+
+/*
+SECTION
+	Symbols
+*/
 
 /*
 FUNCTION
 	bfd_get_reloc_upper_bound
 
 SYNOPSIS
-	unsigned int bfd_get_reloc_upper_bound(bfd *abfd, asection *sect);
+	long bfd_get_reloc_upper_bound(bfd *abfd, asection *sect);
 
 DESCRIPTION
 	Return the number of bytes required to store the
 	relocation information associated with section @var{sect}
-	attached to bfd @var{abfd}.
+	attached to bfd @var{abfd}.  If an error occurs, return -1.
 
 */
 
 
-unsigned int
-DEFUN(bfd_get_reloc_upper_bound,(abfd, asect),
-     bfd *abfd AND
-     sec_ptr asect)
+long
+bfd_get_reloc_upper_bound (abfd, asect)
+     bfd *abfd;
+     sec_ptr asect;
 {
   if (abfd->format != bfd_object) {
-    bfd_error = invalid_operation;
-    return 0;
+    bfd_set_error (bfd_error_invalid_operation);
+    return -1;
   }
 
   return BFD_SEND (abfd, _get_reloc_upper_bound, (abfd, asect));
@@ -294,7 +395,7 @@ FUNCTION
 	bfd_canonicalize_reloc
 
 SYNOPSIS
-	unsigned int bfd_canonicalize_reloc
+	long bfd_canonicalize_reloc
         	(bfd *abfd,
 		asection *sec,
 		arelent **loc,
@@ -306,23 +407,24 @@ DESCRIPTION
 	information attached to @var{sec} into the internal canonical
 	form.  Place the table into memory at @var{loc}, which has
 	been preallocated, usually by a call to
-	<<bfd_get_reloc_upper_bound>>.
+	<<bfd_get_reloc_upper_bound>>.  Returns the number of relocs, or
+	-1 on error.
 
 	The @var{syms} table is also needed for horrible internal magic
 	reasons.
 
 
 */
-unsigned int
-DEFUN(bfd_canonicalize_reloc,(abfd, asect, location, symbols),
-     bfd *abfd AND
-     sec_ptr asect AND
-     arelent **location AND
-     asymbol **symbols)
+long
+bfd_canonicalize_reloc (abfd, asect, location, symbols)
+     bfd *abfd;
+     sec_ptr asect;
+     arelent **location;
+     asymbol **symbols;
 {
   if (abfd->format != bfd_object) {
-    bfd_error = invalid_operation;
-    return 0;
+    bfd_set_error (bfd_error_invalid_operation);
+    return -1;
   }
   return BFD_SEND (abfd, _bfd_canonicalize_reloc,
 		   (abfd, asect, location, symbols));
@@ -365,9 +467,9 @@ DESCRIPTION
 	Set the flag word in the BFD @var{abfd} to the value @var{flags}.
 
 	Possible errors are:
-	o <<wrong_format>> - The target bfd was not of object format.
-	o <<invalid_operation>> - The target bfd was open for reading.
-	o <<invalid_operation>> -
+	o <<bfd_error_wrong_format>> - The target bfd was not of object format.
+	o <<bfd_error_invalid_operation>> - The target bfd was open for reading.
+	o <<bfd_error_invalid_operation>> -
 	The flag word contained a bit which was not applicable to the
 	type of file.  E.g., an attempt was made to set the <<D_PAGED>> bit
 	on a BFD format which does not support demand paging.
@@ -380,18 +482,18 @@ bfd_set_file_flags (abfd, flags)
      flagword flags;
 {
   if (abfd->format != bfd_object) {
-    bfd_error = wrong_format;
+    bfd_set_error (bfd_error_wrong_format);
     return false;
   }
 
   if (bfd_read_p (abfd)) {
-    bfd_error = invalid_operation;
+    bfd_set_error (bfd_error_invalid_operation);
     return false;
   }
 
   bfd_get_file_flags (abfd) = flags;
   if ((flags & bfd_applicable_file_flags (abfd)) != flags) {
-    bfd_error = invalid_operation;
+    bfd_set_error (bfd_error_invalid_operation);
     return false;
   }
 
@@ -526,8 +628,13 @@ int
 bfd_get_gp_size (abfd)
      bfd *abfd;
 {
-  if (abfd->xvec->flavour == bfd_target_ecoff_flavour)
-    return ecoff_data (abfd)->gp_size;
+  if (abfd->format == bfd_object)
+    {
+      if (abfd->xvec->flavour == bfd_target_ecoff_flavour)
+	return ecoff_data (abfd)->gp_size;
+      else if (abfd->xvec->flavour == bfd_target_elf_flavour)
+	return elf_gp_size (abfd);
+    }
   return 0;
 }
 
@@ -549,6 +656,9 @@ bfd_set_gp_size (abfd, i)
      bfd *abfd;
      int i;
 {
+  /* Don't try to set GP size on an archive or core file! */
+  if (abfd->format != bfd_object)
+    return;
   if (abfd->xvec->flavour == bfd_target_ecoff_flavour)
     ecoff_data (abfd)->gp_size = i;
   else if (abfd->xvec->flavour == bfd_target_elf_flavour)
@@ -576,10 +686,10 @@ DESCRIPTION
 */
 
 bfd_vma
-DEFUN(bfd_scan_vma,(string, end, base),
-      CONST char *string AND
-      CONST char **end AND
-      int base)
+bfd_scan_vma (string, end, base)
+     CONST char *string;
+     CONST char **end;
+     int base;
 {
   bfd_vma value;
   int digit;
@@ -631,6 +741,27 @@ DEFUN(bfd_scan_vma,(string, end, base),
 
 /*
 FUNCTION
+	bfd_copy_private_bfd_data
+
+SYNOPSIS
+	boolean bfd_copy_private_bfd_data(bfd *ibfd, bfd *obfd);
+
+DESCRIPTION
+	Copy private BFD information from the BFD @var{ibfd} to the 
+	the BFD @var{obfd}.  Return <<true>> on success, <<false>> on error.
+	Possible error returns are:
+
+	o <<bfd_error_no_memory>> -
+	Not enough memory exists to create private data for @var{obfd}.
+
+.#define bfd_copy_private_bfd_data(ibfd, obfd) \
+.     BFD_SEND (ibfd, _bfd_copy_private_bfd_data, \
+.		(ibfd, obfd))
+
+*/
+
+/*
+FUNCTION
 	stuff
 
 DESCRIPTION
@@ -663,9 +794,8 @@ DESCRIPTION
 .	BFD_SEND (abfd, _bfd_get_relocated_section_contents, \
 .                 (abfd, link_info, link_order, data, relocateable, symbols))
 . 
-.#define bfd_relax_section(abfd, section, link_info, symbols) \
-.       BFD_SEND (abfd, _bfd_relax_section, \
-.                 (abfd, section, link_info, symbols))
+.#define bfd_relax_section(abfd, section, link_info, again) \
+.       BFD_SEND (abfd, _bfd_relax_section, (abfd, section, link_info, again))
 .
 .#define bfd_link_hash_table_create(abfd) \
 .	BFD_SEND (abfd, _bfd_link_hash_table_create, (abfd))
@@ -675,6 +805,21 @@ DESCRIPTION
 .
 .#define bfd_final_link(abfd, info) \
 .	BFD_SEND (abfd, _bfd_final_link, (abfd, info))
+.
+.#define bfd_free_cached_info(abfd) \
+.       BFD_SEND (abfd, _bfd_free_cached_info, (abfd))
+.
+.#define bfd_get_dynamic_symtab_upper_bound(abfd) \
+.	BFD_SEND (abfd, _bfd_get_dynamic_symtab_upper_bound, (abfd))
+.
+.#define bfd_canonicalize_dynamic_symtab(abfd, asymbols) \
+.	BFD_SEND (abfd, _bfd_canonicalize_dynamic_symtab, (abfd, asymbols))
+.
+.#define bfd_get_dynamic_reloc_upper_bound(abfd) \
+.	BFD_SEND (abfd, _bfd_get_dynamic_reloc_upper_bound, (abfd))
+.
+.#define bfd_canonicalize_dynamic_reloc(abfd, arels, asyms) \
+.	BFD_SEND (abfd, _bfd_canonicalize_dynamic_reloc, (abfd, arels, asyms))
 .
 
 */

@@ -1,5 +1,5 @@
 /* Generate parameters for an a.out system.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -26,7 +26,7 @@ main (argc, argv)
 {
   struct exec my_exec;
   int page_size;
-  char *target;
+  char *target = "unknown";
   FILE *file = fopen("gen-aout", "r");
   if (file == NULL) {
       fprintf(stderr, "Cannot open gen-aout!\n");
@@ -43,8 +43,6 @@ main (argc, argv)
       exit (1);
   }
 
-  printf("pagesize = %d\n", getpagesize());
-
 #ifdef N_TXTOFF
   page_size = N_TXTOFF(my_exec);
   if (page_size == 0)
@@ -53,8 +51,7 @@ main (argc, argv)
     printf("#define N_HEADER_IN_TEXT(x) 0\n");
 #endif
 
-  printf("#define BYTES_IN_WORD 4\n");
-  printf("#define ARCH 32\n");
+  printf("#define BYTES_IN_WORD %d\n", sizeof (int));
   if (my_exec.a_entry == 0) {
       printf("#define ENTRY_CAN_BE_ZERO\n");
       printf("#define N_SHARED_LIB(x) 0 /* Avoids warning */\n");
@@ -76,7 +73,19 @@ main (argc, argv)
     printf("/* #define PAGE_SIZE ??? */\n");
   printf("#define SEGMENT_SIZE PAGE_SIZE\n");
 
-  printf("#define DEFAULT_ARCH bfd_arch_m68k\n");
+#ifdef vax
+  arch = "vax";
+#endif
+#ifdef m68k
+  arch = "m68k";
+#endif
+  if (arch[0] == '1')
+    {
+      fprintf (stderr, "warning: preprocessor substituted architecture name inside string;");
+      fprintf (stderr, "         fix DEFAULT_ARCH in the output file yourself\n");
+      arch = "unknown";
+    }
+  printf("#define DEFAULT_ARCH bfd_arch_%s\n", arch);
 
   printf("\n#define MY(OP) CAT(%s_,OP)\n", target);
   printf("#define TARGETNAME \"a.out-%s\"\n\n", target);

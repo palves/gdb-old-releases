@@ -37,11 +37,11 @@ typedef unsigned long	Nlm32_Word;	/* Unsigned large integer */
 typedef unsigned short	Nlm32_Half;	/* Unsigned medium integer */
 typedef unsigned char	Nlm32_Char;	/* Unsigned tiny integer */
 
-#ifdef HOST_64_BIT
-typedef unsigned HOST_64_BIT	Nlm64_Addr;
-typedef unsigned HOST_64_BIT	Nlm64_Off;
-typedef          HOST_64_BIT	Nlm64_Sxword;
-typedef unsigned HOST_64_BIT	Nlm64_Xword;
+#ifdef BFD_HOST_64_BIT
+typedef unsigned BFD_HOST_64_BIT	Nlm64_Addr;
+typedef unsigned BFD_HOST_64_BIT	Nlm64_Off;
+typedef          BFD_HOST_64_BIT	Nlm64_Sxword;
+typedef unsigned BFD_HOST_64_BIT	Nlm64_Xword;
 #endif
 typedef          long		Nlm64_Sword;
 typedef unsigned long		Nlm64_Word;
@@ -270,16 +270,40 @@ typedef struct nlm_internal_extended_header
 #define nlm64_internal_extended_header nlm_internal_extended_header
 #define Nlm64_Internal_Extended_Header Nlm_Internal_Extended_Header
 
+/* The format of a custom header as stored internally is different
+   from the external format.  This is how we store a custom header
+   which we do not recognize.  */
+
 typedef struct nlm_internal_custom_header
 {
   /* The header is recognized by "CuStHeAd" in the stamp field. */
   char stamp[8];
+  bfd_size_type hdrLength;
+  file_ptr dataOffset;
   bfd_size_type dataLength;
-  file_ptr debugRecOffset;
-  bfd_size_type debugRecLength;
+  char dataStamp[8];
+  PTR hdr;
 } Nlm_Internal_Custom_Header;
 
 #define nlm32_internal_custom_header nlm_internal_custom_header
 #define Nlm32_Internal_Custom_Header Nlm_Internal_Custom_Header
 #define nlm64_internal_custom_header nlm_internal_custom_header
 #define Nlm64_Internal_Custom_Header Nlm_Internal_Custom_Header
+
+/* The internal Cygnus header is written out externally as a custom
+   header.  We don't try to replicate that structure here.  */
+
+typedef struct nlm_internal_cygnus_ext_header
+{
+  /* The header is recognized by "CyGnUsEx" in the stamp field. */
+  char stamp[8];
+  /* File location of debugging information.  */
+  file_ptr offset;
+  /* Length of debugging information.  */
+  bfd_size_type length;
+} Nlm_Internal_Cygnus_Ext_Header;
+
+#define nlm32_internal_cygnus_ext_header nlm_internal_cygnus_ext_header
+#define Nlm32_Internal_Cygnus_Ext_Header Nlm_Internal_Cygnus_Ext_Header
+#define nlm64_internal_cygnus_ext_header nlm_internal_cygnus_ext_header
+#define Nlm64_Internal_Cygnus_Ext_Header Nlm_Internal_Cygnus_Ext_Header
