@@ -11,7 +11,7 @@ clean mostlyclean:
 	-rm -f *.o *.diff *~ *.bad core sh3 hppa
 
 distclean maintainer-clean realclean: clean
-	-rm -f Makefile config.status
+	-rm -f Makefile config.status config.log
 
 Makefile: $(srcdir)/Makefile.in $(srcdir)/configure.in
 	$(SHELL) ./config.status --recheck

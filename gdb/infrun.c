@@ -200,6 +200,8 @@ extern int one_stepped;		/* From machine dependent code */
 extern void single_step ();	/* Same. */
 #endif /* NO_SINGLE_STEP */
 
+extern void write_pc_pid PARAMS ((CORE_ADDR, int));
+
 
 /* Things to clean up if we QUIT out of resume ().  */
 /* ARGSUSED */
@@ -457,7 +459,10 @@ wait_for_inferior ()
   CORE_ADDR stop_func_start;
   CORE_ADDR stop_func_end;
   char *stop_func_name;
-  CORE_ADDR prologue_pc = 0, tmp;
+#if 0
+  CORE_ADDR prologue_pc = 0;
+#endif
+  CORE_ADDR tmp;
   struct symtab_and_line sal;
   int remove_breakpoints_on_following_step = 0;
   int current_line;
@@ -1039,10 +1044,24 @@ wait_for_inferior ()
 	    {
 	      extern int auto_solib_add;
 
+	      /* Remove breakpoints, we eventually want to step over the
+		 shlib event breakpoint, and SOLIB_ADD might adjust
+		 breakpoint addresses via breakpoint_re_set.  */
+	      if (breakpoints_inserted)
+		remove_breakpoints ();
+	      breakpoints_inserted = 0;
+
 	      /* Check for any newly added shared libraries if we're
 		 supposed to be adding them automatically.  */
 	      if (auto_solib_add)
-		SOLIB_ADD (NULL, 0, NULL);
+		{
+		  /* Switch terminal for any messages produced by
+		     breakpoint_re_set.  */
+	          target_terminal_ours_for_output ();
+		  SOLIB_ADD (NULL, 0, NULL);
+		  re_enable_breakpoints_in_shlibs ();
+	          target_terminal_inferior ();
+		}
 
 	      /* If requested, stop when the dynamic linker notifies
 		 gdb of events.  This allows the user to get control
@@ -1057,7 +1076,6 @@ wait_for_inferior ()
 		{
 		  /* We want to step over this breakpoint, then keep going.  */
 		  another_trap = 1;
-		  remove_breakpoints_on_following_step = 1;
 		  break;
 		}
 	    }

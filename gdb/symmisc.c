@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "command.h"
 #include "obstack.h"
 #include "language.h"
+#include "bcache.h"
 
 #include "gdb_string.h"
 
@@ -195,6 +196,8 @@ print_objfile_statistics ()
 			 OBJSTAT (objfile, sz_strtab));
       printf_filtered ("  Total memory used for psymbol obstack: %d\n",
 		       obstack_memory_used (&objfile -> psymbol_obstack));
+      printf_filtered ("  Total memory used for psymbol cache: %d\n",
+		       obstack_memory_used (&objfile -> psymbol_cache.cache));
       printf_filtered ("  Total memory used for symbol obstack: %d\n",
 		       obstack_memory_used (&objfile -> symbol_obstack));
       printf_filtered ("  Total memory used for type obstack: %d\n",

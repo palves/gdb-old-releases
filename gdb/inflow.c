@@ -660,8 +660,7 @@ gdb_setpgid ()
 
   if (job_control)
     {
-#if defined (NEED_POSIX_SETPGID) || defined (HAVE_TERMIOS)
-      /* Do all systems with termios have setpgid?  I hope so.  */
+#if defined (NEED_POSIX_SETPGID) || (defined (HAVE_TERMIOS) && defined (HAVE_SETPGID))
       /* setpgid (0, 0) is supposed to work and mean the same thing as
 	 this, but on Ultrix 4.2A it fails with EPERM (and
 	 setpgid (getpid (), getpid ()) succeeds).  */
@@ -701,9 +700,13 @@ _initialize_inflow ()
 #ifdef _POSIX_JOB_CONTROL
   job_control = 1;
 #else
+#ifdef _SC_JOB_CONTROL
   job_control = sysconf (_SC_JOB_CONTROL);
-#endif
-#endif /* termios */
+#else
+  job_control = 0;	/* have to assume the worst */
+#endif	/* _SC_JOB_CONTROL */
+#endif	/* _POSIX_JOB_CONTROL */
+#endif	/* HAVE_TERMIOS */
 
 #ifdef HAVE_SGTTY
 #ifdef TIOCGPGRP

@@ -229,7 +229,6 @@ proc float_and_integral_args {} {
 	return
     }
 
-    if {$gcc_compiled} then { setup_xfail "mips-sgi-irix4*" }
     # Continue; should stop at call2g and print actual arguments.
     if [gdb_test "cont" ".* call2g \\(l=3, d2=5, c=97 'a', f1=4, s=1, d1=5, i=2, f2=4\\) .*" "continue to call2g"] {
 	return

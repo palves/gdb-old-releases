@@ -25,7 +25,7 @@ case "${host}" in
   m88*-harris-cxux7*)	host_makefile_frag=config/mh-sysv4 ; files=sysdep-cxux7.h ;;
   *-*-sysv4*)		host_makefile_frag=config/mh-sysv4 ; files=sysdep-sysv4.h ;;
   *-*-solaris2*)	host_makefile_frag=config/mh-sysv4 ;;
-  i[345]86-*-sco3.2v4*)	host_makefile_frag=config/mh-sco4; files=sysdep-sco.h ;;
+  i[345]86-*-sco3.2v[45]*)	host_makefile_frag=config/mh-sco4; files=sysdep-sco.h ;;
   i[345]86-*-sco*)	host_makefile_frag=config/mh-sco; files=sysdep-sco.h ;;
 # Don't use this; ISC 4.0 only supports POSIX features if you link with
 # -lcposix.  No thanks.
@@ -43,6 +43,7 @@ case "${host}" in
   m68k-sony-news*)					files=sysdep-obsd.h ;;
   *-*-bsd*)						files=sysdep-obsd.h ;;
   *-*-mach*)						files=sysdep-obsd.h ;;
+  *-*-gnu*)		host_makefile_frag=config/mh-gnu ;;
   *-*-sunos3*)						files=sysdep-obsd.h ;;
 # Using termios on SunOS is necessary to save and restore cs7 versus cs8.
   *-*-sunos4.1*)	host_makefile_frag=config/mh-posix ;;

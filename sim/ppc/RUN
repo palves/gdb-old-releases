@@ -39,13 +39,13 @@ To run one of these programs, use:
 
 	powerpc-unknown-eabi-run <image>
 
-vis
+for instance:
 
 	powerpc-unknown-eabi-run psim-test/uea/envp
 
-(The program envp prints out your shells environment - very useful
-:-).  More generally psim is run as (this is part of the output from
-the -h option):
+The program envp prints out your shells environment - very useful!
+More generally psim is run as (this is part of the output from the -h
+option):
 
         psim [ <psim-option> ... ] <image> [ <image-arg> ... ]
 
@@ -306,7 +306,8 @@ During startup, the device tree is created using the following steps:
 
 Most importantly earlier additions to the tree are not overridden by
 later additions.  Thus, command line options override information
-found in the program file and both override any emulation entries.
+found in the program file and both override any builtin emulation
+entries.
 
 The following is a summary of the most useful runtime configuration
 options:
@@ -405,7 +406,7 @@ From your favorite FTP site, the sources to gas/ld and gcc - mine
 happens to be archie.au :
 
 	ftp://archie.au/gnu/binutils-2.6.tar.gz
-	ftp://archie.au/gnu/gcc-2.6.2.tar.gz
+	ftp://archie.au/gnu/gcc-2.7.2.tar.gz
 
 From ftp://ftp.cygnus.com/pub/newlib the source code to a library:
 
@@ -571,7 +572,7 @@ interface.
 
 More than any thing, this user level emulation was the first
 implemented because I happened to have the NetBSD source code lying
-lying around.
+around.
 
 
 Preparation:
@@ -588,11 +589,13 @@ tree that fill out much of the PowerPC code are available in:
 	ftp://ftp.ci.com.au/pub/clayton
 
 Fetch everything in that directory - diffs, tar archives and scripts.
-In addition a patch to binutils is in:
+In addition patches to the bintuils and gcc are in:
 
 	ftp://ftp.ci.com.au/pub/psim/binutils-2.6+note.diff.gz
+	ftp://ftp.ci.com.au/pub/psim/gcc-2.7.2+sys-types.diff.gz
 
-Finally you'll require a compiler and assembler/linker:
+while the compiler (gcc) and assember (binutils) can be found at your
+favorite gnu ftp site.  I used versions:
 
 	gcc-2.7.2.tar.gz
 	binutils-2.6.tar.gz
@@ -618,23 +621,159 @@ considered as a guideline only.
 		$ cd .../scratch
 		$ ls -1
 		binutils-2.6.tar.gz
-		binutils-2.6.tar.gz
+		binutils-2.6+note.diff.gz
 		clayton-include-960203.diff.gz
 		clayton-lib-960203.diff.gz
 		clayton-lib-960203.tar.gz
 		clayton-sys-960203.diff.gz
 		clayton-sys-960203.tar.gz
-		clayton-utils-960203.tar.gz
 		clayton.chown.sh
 		clayton.install.sh
 		clayton.lorder.sh
 		clayton.make.sh
-		clayton.usr.bin.make.diff
 		gcc-2.7.2.tar.gz
 		gcc-2.7.2+sys-types.diff.gz
+		make.tar.gz
+		make.diff.gz
+
+
+	o	Prepare the destination directory ready for installation.
+
+		Firstly create many of the needed directories (some are
+		created automatically later):
+
+		$ for d in \
+                    /applications/psim \
+                    /applications/psim/bsd-root \
+                    /applications/psim/bsd-root/usr \
+                    /applications/psim/bsd-root/usr/share \
+                    /applications/psim/bsd-root/usr/share/doc \
+                    /applications/psim/bsd-root/usr/share/doc/psd \
+                    /applications/psim/bsd-root/usr/share/doc/psd/19.curses \
+                    /applications/psim/bsd-root/usr/include \
+                    /applications/psim/bsd-root/usr/lib \
+                    /applications/psim/powerpc-unknown-eabi \
+                    /applications/psim/powerpc-unknown-eabi/bin \
+                    ; \
+                  do test -d $d || mkdir $d ; done
+
+		Next, link the BSD and GNU include directories together.
+		GCC expects include files to be in one location while the
+		bsd install expects them in a second.  The link is in
+		the direction below because bsd's install also insists on
+		a directory (not a link) for its install destination.
+
+		$ rm -rf /applications/psim/powerpc-unknown-eabi/include
+		$ ln -s /applications/psim/bsd-root/usr/include \
+                    /applications/psim/powerpc-unknown-eabi/include
+
+		$ ls -l /applications/psim/powerpc-unknown-eabi/include
+		lrwxr-xr-x  1 cagney  wheel  39 Mar 21 18:09
+		/applications/psim/powerpc-unknown-eabi/include
+		-> /applications/psim/bsd-root/usr/include
+
+
+	o	Build/install Berkeley make
+
+		The tar archive make.tar.gz contains a recent snapshot
+		of bmake from the NetBSD source tree.  The notes below
+		describe how to build/install it.  If you have access
+		to an even more recent version of bmake, use that.
+
+		Unpack the source code:
+
+		$ cd .../scratch
+		$ gunzip < make.tar.gz | tar xf -
+		$ cd make
+
+		Apply the patch in make.diff.gz that fixes a minor
+		problem with a build under Solaris (by now it should
+		be fixed in the NetBSD-current source tree).
+
+		$ gunzip < ../make.diff.gz | more
+		$ gunzip < ../make.diff.gz | patch
+
+		Build it
+
+		$ make -f Makefile.boot 'CC=gcc -g -DPOSIX'
+
+		With bmake built, install it into the target specific bin
+		directory:
+
+		$ cp bmake /applications/psim/powerpc-unknown-eabi/bin/make
+		$ cd ..
+		$ rm -rf make
+
+
+	o	Set up a number of wrapper scripts for bmake so that it works.
+
+		In addition to needing BSD make the build process assumes
+		a number of BSD specific commands.  To get around this
+		several wrapper scripts are available.
+
+		powerpc-unknown-eabi-make (clayton.make.sh)
+
+			Front end to Berkeley make setting it up for a
+			cross compilation
+
+			$ cp clayton.make.sh \
+                          /applications/psim/bin/powerpc-unknown-eabi-make
+			$ chmod a+x \
+                          /applications/psim/bin/powerpc-unknown-eabi-make
+
+		chown (clayton.chown.sh)
+
+			Wrapper that does not do any thing.
+			Avoids the need to be root when installing.
+
+			$ cp clayton.chown.sh \
+                          /applications/psim/powerpc-unknown-eabi/bin/chown
+			$ chmod a+x \
+                          /applications/psim/powerpc-unknown-eabi/bin/chown
+
+		install (clayton.install.sh)
+
+			Wrapper to strip away a number of bsd specific install
+			arguments.
+
+			$ cp clayton.install.sh \
+                          /applications/psim/powerpc-unknown-eabi/bin/install
+			$ chmod a+x \
+                          /applications/psim/powerpc-unknown-eabi/bin/install
+
+		lorder (clayton.lorder.sh)
+
+			Tweaked lorder script that will use nm etc from
+			binutils.
+
+			$ cp clayton.lorder.sh \
+                          /applications/psim/powerpc-unknown-eabi/bin/lorder
+			$ chmod a+x \
+                          /applications/psim/powerpc-unknown-eabi/bin/lorder
+
+
+		printf (?)
+
+			Some operating systems don't include the program
+			printf.  If you host doesn't have one, then a
+			good source is the gnu sh-utils version.
+
+			Again, if that program is missing, then I suggest
+			installing it onto the powerpc specific program
+			directory:
+
+			/applications/psim/powerpc-unknown-eabi/bin
 
 
 	o	Unpack the bsd source code (if you haven't already)
+
+		If you're short on disk space (like me) just unpack:
+
+			sys, lib, share/mk, include, usr.sbin/config,
+			usr.sbin/dbsym, gnu/lib/libg++/g++-include,
+			usr.bin/lex
+
+		Otherwize, assuming you have a CD-DRIVE:
 
 		$ cd .../scratch
 		$ mkdir bsd-src
@@ -652,151 +791,17 @@ considered as a guideline only.
 		$ cd ..
 
 
-	o	Unpack/build/install binutils
-
-		$ cd .../scratch
-		$ gunzip < binutils-2.6.tar.gz | tar xf -
-		$ cd binutils-2.6
-
-		Optionally apply the note patch
-
-		$ gunzip ../binutils-2.6+note.diff.gz | patch
-
-		Then continue with the build
-
-		$ ./configure --target=powerpc-unknown-eabi \
-                              --prefix=/applications/psim
-		$ make
-		$ make install
-		$ cd ..
-		$ rm -rf binutils-2.6
-
-		This has the intended side effect of partially populating
-		the psim directory tree which makes follow on steps easier.
-
-
-	o	Fill out the install directory with a few additions (if
-		install -d works, this can be simplified).
-
-		$ mkdir \
-                    /applications/psim/bsd-root \
-                    /applications/psim/bsd-root/usr \
-                    /applications/psim/bsd-root/usr/share \
-                    /applications/psim/bsd-root/usr/share/doc \
-                    /applications/psim/bsd-root/usr/share/doc/psd \
-                    /applications/psim/bsd-root/usr/share/doc/psd/19.curses \
-                    /applications/psim/bsd-root/usr/include \
-                    /applications/psim/bsd-root/usr/lib \
-
-
-	o	Make the bsd and gnu include directories point to the same
-		location.
-
-		GCC expects include files to be in one location while the
-		bsd install expects them in a second.  The link is in
-		the direction below because bsd's install also insists on
-		a directory (not a link) for its install destination.
-
-		$ ln -s ../bsd-root/usr/include \
-                    /applications/psim/powerpc-unknown-eabi/include
-
-
-
-	o	Build/install Berkeley make
-
-		In building Berkeley make from the NetBSD-1.1 source tree
-		a number of problems may be encountered.
-
-		These problems have been fixed in NetBSD-current (after
-		4/2/96 (ie start Feb)) you should probably obtain that
-		version of make.  Alternatively, you can try following the
-		notes below that got make working on a Solaris-2.5/x86
-		host.
-
-		$ cd .../scratch
-		$ cd bsd-src/usr.bin/make
-		$ pwd
-		.../scratch/bsd-src/usr.bin/make
-
-		Copy/stub some additional include files that your host may not
-		have.
-
-		$ cp ../../include/ranlib.h ranlib.h
-		$ mkdir sys
-		$ cp ../../sys/sys/cdefs.h sys/cdefs.h
-		$ mkdir machine
-		$ touch machine/cdefs.h
-
-		Edit/fix some of the BSDisms. The patch file indicated
-		contains fixes I found when compiling on my host, your
-		host will probably differ.
-
-		$ gunzip < ../../../clayton.usr.bin.make.diff.gz | patch
-
-		Build it with some extra flags (again your flags will differ):
-
-		$ make -f Makefile.boot CC='gcc -g -DPOSIX'
-
-		With bmake built, install it into the target specific bin
-		directory:
-
-		$ cp bmake /applications/psim/powerpc-unknown-eabi/bin/make
-		$ cd ../../.. 
-
-
-	o	Patch/install Berkeley make's include (mk) files.
-
-		$ cd .../share
-		$ cd bsd-src/share
-		$ tar cf - mk | ( cd /applications/psim/bsd-root/usr/share \
-                     && tar xf - )
-		$ cd ../..
-
-
-	o	Set up a number of wrapper scripts for bmake so that it works.
-
-		In addition to needing BSD make the build process assumes
-		a number of BSD specific commands.  To get around this
-		several wrapper scripts are available.
-
-		powerpc-unknown-eabi-make (clayton.make)
-
-			Front end to Berkeley make setting it up for a
-			cross compilation
-
-			/applications/psim/bin/powerpc-unknown-eabi-make
-
-		chown (clayton.chown)
-
-			Wrapper that does not do any thing.
-			Avoids the need to be root when installing.
-
-			/applications/psim/powerpc-unknown-eabi/bin
-
-		install (clayton.install)
-
-			Wrapper to strip away a number of bsd specific install
-			arguments.
-
-			/applications/psim/powerpc-unknown-eabi/bin/install
-
-		lorder (clayton.lorder)
-
-			Tweaked lorder script that will use nm etc from
-			binutils.
-
-			/applications/psim/powerpc-unknown-eabi/bin/lorder
-
-
-	o	Apply the remaining patches for the BSD source tree
+	o	Apply the clayton (PowerPC) patches to your constructed
+		tree.
 
 		$ cd .../scratch
 		$ cd bsd-src
 		
 		Diffs are applied using something like:
 
-		$ gunzip < ../clayton-include-960203.diff.gz | more
-		...
+		$ gunzip < ../clayton-include-960312.diff.gz | patch -p1
+		$ gunzip < ../clayton-lib-960203.diff.gz | patch -p1
+		$ gunzip < ../clayton-sys-960203.diff.gz | patch -p1
 
 		The patch to sys/dev/pci/ncr.c.rej might fail.
 
@@ -804,14 +809,21 @@ considered as a guideline only.
 		to remove the `src' prefix.  I used
 
 		$ ln -s . src
-		$ gunzip < ../clayton-lib-960203.tar.gz | tar xtf -
-		...
+		$ gunzip < ../clayton-lib-960203.tar.gz | tar xvf -
+		$ gunzip < ../clayton-sys-960203.tar.gz | tar xvf -
 
 		So that src/xxx unpacked into ./xxx
 
-
 		$ cd ..
 
+
+	o	install Berkeley make's include (mk) files.
+
+		$ cd .../scrath
+		$ cd bsd-src/share
+		$ tar cf - mk | ( cd /applications/psim/bsd-root/usr/share \
+                     && tar xvf - )
+		$ cd ../..
 
 
 	o	Install the include files
@@ -824,8 +836,11 @@ considered as a guideline only.
 
 	o	Install a few other include files.
 
-		As with building libnew, the bsd build process has
-		several include file problems.
+		As discussed above in the section on building libnew,
+		the build process can have chicken/egg problems.  In the
+		case of BSD's libc, it wants to use several include files
+		(from the installed include directory) before they are
+		installed.  Just copy them in as seen below:
 
 		$ cd .../scratch
 		$ cd bsd-src
@@ -833,22 +848,62 @@ considered as a guideline only.
                     /applications/psim/powerpc-unknown-eabi/include
 		$ cp lib/libcurses/curses.h \
                     /applications/psim/powerpc-unknown-eabi/include
-		
 		$ cd ..
 
 
-
-	o	Build/install gcc
+	o	Unpack/patch/build/install BINUTILS
 
 		$ cd .../scratch
-		$ gunzip < gcc-2.7.2,tar.gz | tar xf -
+		$ gunzip < binutils-2.6.tar.gz | tar xf -
+
+		gas (bfd) 2.6 didn't support the reading and writing of
+		note sections.  The patch binutils-2.6+note.diff.gz
+		adds support for this.  PowerPC/ELF boot files being loaded
+		by OpenBoot ROM's should contain a PowerPC note section.
+
+		$ cd .../scratch
+		$ cd binutils-2.6/bfd
+		$ gunzip < ../../binutils-2.6+note.diff.gz | more
+		$ gunzip < ../../binutils-2.6+note.diff.gz | patch
+		$ cd ../..
+
+		Then continue with the build
+
+		$ cd .../scratch
+		$ cd binutils-2.6
+		$ ./configure --target=powerpc-unknown-eabi \
+                              --prefix=/applications/psim
+		$ make
+		$ make install
+		$ cd ..
+		$ rm -rf binutils-2.6
+
+		This has the intended side effect of partially populating
+		the psim directory tree which makes follow on steps easier.
+
+
+	o	Unpack/patch/build/install GCC
+
+		$ cd .../scratch
+		$ gunzip < gcc-2.7.2.tar.gz | tar xf -
 		$ cd gcc-2.7.2
 
-		GCC and BSD (for PowerPC) have a conflicting type
-		declaration.  The patch below gets around this
-		problem:
+		GCC-2.7.2 and the BSD include files have a conflicting type
+		declaration.  The patch below gets around this problem
+		(it may still be applicable to more recent versions of
+		GCC):
 
+		$ gunzip < ../gcc-2.7.2+sys-types.diff.gz | more
 		$ gunzip < ../gcc-2.7.2+sys-types.diff.gz | patch
+
+		If your version of GCC includes the file ginclude/ppc-asm.h
+		then you should install that header file into the directory:
+		/applications/psim/powerpc-unknown-eabi/include.  More
+		recent versions of GCC expect this file to be installed:
+
+		$ test -r ginclude/ppc-asm.h \
+                  && cp ginclude/ppc-asm.h \
+                     /applications/psim/powerpc-unknown-eabi/include
 
 		Other than that, assuming the include files installed
 		okay, the rest should be fine ....
@@ -869,10 +924,16 @@ considered as a guideline only.
 		$ powerpc-unknown-eabi-make install
 		$ cd ../..
 
-		If you encounter problems try the following: an include
-		file not yet installed; a directory not yet created;
-		running the hosts version of a program instead of a
-		bsd version.
+		If you encounter problems check the following (each
+		discussed above):
+
+			o	GCC and BSD have a common include
+				directory
+
+			o	all the missing include files installed
+
+			o	all the wrapper programs installed
+
 
 	o	Build/run a simple BSD program
 

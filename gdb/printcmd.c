@@ -324,7 +324,7 @@ print_scalar_formatted (valaddr, type, format, size, stream)
      GDB_FILE *stream;
 {
   LONGEST val_long;
-  int len = TYPE_LENGTH (type);
+  unsigned int len = TYPE_LENGTH (type);
 
   if (len > sizeof (LONGEST)
       && (format == 't'
@@ -334,18 +334,23 @@ print_scalar_formatted (valaddr, type, format, size, stream)
 	  || format == 'd'
 	  || format == 'x'))
     {
-      /* We can't print it normally, but we can print it in hex.
-         Printing it in the wrong radix is more useful than saying
-	 "use /x, you dummy".  */
-      /* FIXME:  we could also do octal or binary if that was the
-	 desired format.  */
-      /* FIXME:  we should be using the size field to give us a minimum
-	 field width to print.  */
-      val_print_type_code_int (type, valaddr, stream);
-      return;
-    }
+      if (! TYPE_UNSIGNED (type)
+	  || ! extract_long_unsigned_integer (valaddr, len, &val_long))
+	{
+	  /* We can't print it normally, but we can print it in hex.
+	     Printing it in the wrong radix is more useful than saying
+	     "use /x, you dummy".  */
+	  /* FIXME:  we could also do octal or binary if that was the
+	     desired format.  */
+	  /* FIXME:  we should be using the size field to give us a
+	     minimum field width to print.  */
+	  val_print_type_code_int (type, valaddr, stream);
+	  return;
+	}
 
-  if (format != 'f')
+      /* If we get here, extract_long_unsigned_integer set val_long.  */
+    }
+  else if (format != 'f')
     val_long = unpack_long (type, valaddr);
 
   /* If we are printing it as unsigned, truncate it in case it is actually

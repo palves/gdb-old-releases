@@ -1,3 +1,109 @@
+Sun Mar 24 13:39:15 1996  Fred Fish  <fnf@cygnus.com>
+
+	* lib/gdb.exp: Hardcode skip_chill to 1 for FSF releases since
+ 	almost nobody will have a chill compiler, or even know what it is.
+
+Wed Mar 20 08:48:03 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.base/list.exp (test_list_function): Remove setup_xfail for
+	"rs6000-*-*" for "list function in include file" when gcc compiled.
+	* gdb.base/printcmds.exp: Remove setup_xfail for "rs6000-*-aix*"
+	for "p ctable1[120]".
+	* gdb.base/scope.exp: Remove setup_xfail for "rs6000-*-*" for
+	"print 'scope0.c'::filelocal_bss before run" when gcc compiled.
+	Remove setup_xfail for "rs6000-*-*" for
+	"print 'scope0.c'::filelocal before run".
+	* gdb.base/{langs.exp, lists.exp, opaque.exp, scope.exp},
+	gdb.stabs/weird.exp: Remove use of compiler options "-c -o ..."
+	since some compilers don't allow both options to be given
+	on the same command line.  Create object file and move it.
+	
+Tue Mar 19 23:49:31 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.base/corefile.exp: Always regenerate the core file, since
+	we always regenerate the coremaker program.  Detect special case
+	where registers cannot be read from core file.
+	
+Tue Mar 19 16:52:49 1996  Fred Fish  <fnf@cygnus.com>
+
+	From Peter Schauer <Peter.Schauer@Regent.E-Technik.TU-Muenchen.DE>
+	* gdb.base/funcargs.c: Patch for SPARCworks alloca compatibility
+	* gdb.c++/templates.exp: Only match on basename of file since
+	some formats like xcoff don't encode directory information.
+	* gdb.stabs/weird.exp: Use the right sed script for powerpc
+	and rs6000 AIX xcoff targets.
+	* configure.in: Add stabsdirs to configdirs for powerpc-*-aix*.
+	* configure: Regenerate.
+	* gdb.base/Makefile.in (clean): Remove generated file twice-tmp.c
+	here, rather than in distclean.
+	
+Sun Mar 17 13:35:31 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.base/mips_pro.exp: Create mips_pro.ci to get gcc_compiled
+	defined, and use it to compile the test case with -O2.  The
+	native compilation still uses no optimization.
+	* gdb.base/mips_pro.c: Remove inline assembly code since
+	it is compiled PIC by default, which results in assembler
+	warnings that make the testsuite think the compilation
+	was unsuccessful.
+
+Sat Mar 16 15:02:24 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.c++/misc.exp: Add note to message for
+	"print s.a for foo struct" that this is a known gcc 2.7.2
+	and earlier bug.
+
+Fri Mar 15 17:49:57 1996  Fred Fish  (fnf@cygnus.com)
+
+	* gdb.base/break.exp: Fix pattern for matching "Delete all
+	breakpoints (y or n) ".  Add "mips-dec-ultrix*" to
+	setup_xfail for deleting all breakpoints test.  Fix various
+	timeout messages to include "(timeout)".
+	* gdb.base/callfuncs.exp: Add "i*86-*-sysv4*" to setup_xfail
+	for "p t_float_values2(3.14159,float_val2)".
+	* gdb.base/funcargs.exp: Remove "mips-sgi-irix4*" setup_xfail
+	for "continue to call2g" when gcc compiled.
+	* gdb.base/langs.exp: Remove "i*86-*-sysv4*" setup_xfail for
+	"up to foo in langs.exp", "show language at foo in langs.exp",
+	"show language at cppsub_ in langs.exp", "up to fsub in langs.exp",
+	and "show language at fsub in langs.exp".
+	* gdb.base/list.exp: Remove "*-*-sysv4*" setup_xfail for
+	"list line 1 in include file", "list message for lines past EOF",
+	"list function in include file", "list list0.h:foo", and
+	"list filename:function; nonexistant function".
+	* gdb.base/ptype.exp: Change "i*86-*-sysv4*" setup_xfail for
+	"whatis unnamed typedef'd enum (compiler bug in IBM's xlc)"
+	and "ptype t_char_array" to be for native cc only.
+	
+Fri Mar 15 16:17:22 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.base/corefile.exp: Remove "alpha-dec-osf2*" native compiled 
+	setup_xfail for "print coremaker_bss", "print coremaker_ro",
+ 	"print func2::coremaker_local", and "backtrace in corefile.exp".
+
+Wed Mar 13 14:54:11 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.base/signals.exp: Remove "alpha-*-osf2*" setup_xfail for
+	"bt in signals.exp".  This problem only appears when running
+	the testsuite, and then only intermittently.
+
+Tue Mar 12 15:00:16 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.base/return.exp (return_tests): Differentiate between
+	two tests of continuing.
+
+Tue Mar  5 14:33:33 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* */Makefile.in (maintainer-clean): Remove config.log.
+	* gdb.base/Makefile.in (EXECUTABLES): Replace twice with twice-tmp.
+	* gdb.c++/Makefile.in (PROGS): Add inherit.
+	(clean): Remove *.ci.
+
+Tue Feb 20 16:36:10 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.c++/misc.cc: Add test code from Mike Stump.
+	* gdb.c++/misc.exp: Add test to print s.a, for Mike Stump.
+
 Sun Feb 18 11:39:12 1996  Fred Fish  <fnf@cygnus.com>
 
 	* gdb.base/signals.exp: Change setup_xfail for "alpha-*-osf2"
@@ -15,11 +121,6 @@ Sun Feb 18 11:39:12 1996  Fred Fish  <fnf@cygnus.com>
 	to be for gcc only.
 	* lib/gdb.exp: Move verbose statements outside conditionals.
 	
-Tue Feb 20 16:36:10 1996  Fred Fish  <fnf@cygnus.com>
-
-	* gdb.c++/misc.cc: Add test code from Mike Stump.
-	* gdb.c++/misc.exp: Add test to print s.a, for Mike Stump.
-
 Sat Feb 17 02:22:14 1996  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
 
 	* gdb.base/sigall.exp:  Remove setup_xfail for irix4.  Fixed by

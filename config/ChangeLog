@@ -1,3 +1,7 @@
+Thu Mar 14 19:20:54 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* mh-necv4: New file.
+
 Thu Feb 15 13:07:43 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* mh-cxux (CC): New variable.

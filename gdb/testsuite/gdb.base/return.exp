@@ -58,7 +58,7 @@ proc return_tests { } {
     send "break func2\n" ; expect -re ".*$prompt $"
     send "break func3\n" ; expect -re ".*$prompt $"
 
-    gdb_test "continue" "return -5;"
+    gdb_test "continue" "return -5;" "continue to return of -5"
     send "return 5\n"
     expect {
 	-re "Make .* return now.*y or n. $" {
@@ -73,7 +73,7 @@ proc return_tests { } {
 
     gdb_test "p tmp2" ".* = 5" "correct value returned (integer test)"
 
-    gdb_test "continue" "return -5.0;"
+    gdb_test "continue" "return -5.0;" "continue to return of -5.0"
     send "return 5.0\n"
     expect {
 	-re "Make .* return now.*y or n. $" {

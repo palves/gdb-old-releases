@@ -95,11 +95,11 @@ proc test_template_breakpoints {} {
     }
     
     gdb_test "break T5<int>::~T5" \
-	"Breakpoint.*at.* file .*${srcdir}/gdb.c../${testfile}.cc, line.*" \
+	"Breakpoint.*at.* file .*${testfile}.cc, line.*" \
 	"destructor breakpoint"    
     
     gdb_test "break T5<int>::value" \
-	"Breakpoint.*at.* file .*${srcdir}/gdb.c../${testfile}.cc, line.*" \
+	"Breakpoint.*at.* file .*${testfile}.cc, line.*" \
 	"value method breakpoint"
 
     delete_breakpoints

@@ -251,7 +251,7 @@ enum exp_opcode
   UNOP_TRUNC,
 
   /* Chill builtin functions. */
-  UNOP_LOWER, UNOP_UPPER, UNOP_LENGTH,
+  UNOP_LOWER, UNOP_UPPER, UNOP_LENGTH, UNOP_CARD, UNOP_CHMAX, UNOP_CHMIN,
 
   OP_BOOL,		/* Modula-2 builtin BOOLEAN type */
   OP_M2_STRING,		/* Modula-2 string constants */

@@ -46,20 +46,20 @@ if ![file exists ${srcdir}/../tests] {
     return -1
 }
 
-send "cd ${srcdir}/../tests\r"
+send "[list set srcdir ${srcdir}/../tests]\r"
 expect {
     -re "set VERBOSE 1\[\r\n\]*1\[\r\n\]*%" {
 	verbose "Set verbose flag for tests"
 	exp_continue
     }
-    -re "cd $srcdir/../tests\[\r\n\]*$tprompt" {
-	verbose "Changed directory to $srcdir/../tests" 2
+    -re "${srcdir}/../tests\[\r\n\]*$tprompt" {
+	verbose "Set srcdir to $srcdir/../tests" 2
     }
     -re "no files matched glob pattern" {
-	warning "Didn't cd to $srcdir/../tests"
+	warning "Didn't set srcdir to $srcdir/../tests"
     }
     timeout {
-	perror "Couldn't change directories"
+	perror "Couldn't set srcdir"
 	return -1
     }
 }
@@ -69,9 +69,9 @@ if ![file exists ${srcdir}/../tests/${file}] {
     perror "The source for the test case \"$file\" is missing" 0
     return -1
 }
-send "source ${file}\n"
+send "source \$srcdir/${file}\n"
 expect {
-    -re "source $file\[\r\n\]+\[$tprompt\]*" {
+    -re "source \$srcdir/$file\[\r\n\]+\[$tprompt\]*" {
 	verbose "Sourced test $file ..."
 	set timeoutmsg "Never got to the end of "
 	exp_continue

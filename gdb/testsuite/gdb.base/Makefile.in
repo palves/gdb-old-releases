@@ -1,6 +1,6 @@
 srcdir = @srcdir@
 
-EXECUTABLES = bitfields interrupt mips_pro return twice break langs \
+EXECUTABLES = bitfields interrupt mips_pro return twice-tmp break langs \
 	nodebug run watchpoint callfuncs opaque scope whatis compiler \
 	opaque scope coremaker printcmds setvar exprs list ptype \
 	sigall funcargs recurse signals
@@ -23,10 +23,12 @@ check:
 clean mostlyclean:
 	-rm -f *~ *.o a.out xgdb *.x $(CROSS_EXECUTABLES) *.ci *.tmp
 	-rm -f core core.coremaker coremaker.core corefile $(EXECUTABLES)
+	-rm -f twice-tmp.c
 
 distclean maintainer-clean realclean: clean
 	-rm -f *~ core
-	-rm -f Makefile config.status *-init.exp twice_tmp.c
+	-rm -f Makefile config.status config.log
+	-rm -f *-init.exp
 	-rm -fr *.log summary detail *.plog *.sum *.psum site.*
 
 Makefile : $(srcdir)/Makefile.in $(srcdir)/configure.in

@@ -1,3 +1,8 @@
+Thu Feb 29 13:57:58 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* tcl.tests/tcl-test.exp: Don't cd to srcdir when testing; instead
+	run in current directory and have Tcl read tests from srcdir.
+
 Fri Jan 19 10:40:53 1996  Tom Tromey  <tromey@creche.cygnus.com>
 
 	* config/default.exp (testdrv): Test program is unix/tcltest.

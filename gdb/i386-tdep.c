@@ -17,8 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "gdb_string.h"
 #include "defs.h"
+#include "gdb_string.h"
 #include "frame.h"
 #include "inferior.h"
 #include "gdbcore.h"
@@ -26,15 +26,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "floatformat.h"
 #include "symtab.h"
 
-static long i386_get_frame_setup PARAMS ((int));
+static long i386_get_frame_setup PARAMS ((CORE_ADDR));
 
 static void i386_follow_jump PARAMS ((void));
 
 static void codestream_read PARAMS ((unsigned char *, int));
 
-static void codestream_seek PARAMS ((int));
+static void codestream_seek PARAMS ((CORE_ADDR));
 
-static unsigned char  codestream_fill PARAMS ((int));
+static unsigned char codestream_fill PARAMS ((int));
 
 /* Stdio style buffering was used to minimize calls to ptrace, but this
    buffering did not take into account that the code section being accessed
@@ -84,7 +84,7 @@ codestream_fill (peek_flag)
 
 static void
 codestream_seek (place)
-    int place;
+    CORE_ADDR place;
 {
   codestream_next_addr = place / CODESTREAM_BUFSIZ;
   codestream_next_addr *= CODESTREAM_BUFSIZ;
@@ -168,7 +168,7 @@ i386_follow_jump ()
 
 static long
 i386_get_frame_setup (pc)
-     int pc;
+     CORE_ADDR pc;
 {
   unsigned char op;
 
@@ -673,8 +673,8 @@ skip_trampoline_code (pc, name)
 
       if (symname) 
 	{
-	  if (strncmp (symname,"__imp_", 7) == 0
-	      || strncmp (symname,"_imp_", 6) == 0)
+	  if (strncmp (symname,"__imp_", 6) == 0
+	      || strncmp (symname,"_imp_", 5) == 0)
 	    return name ? 1 : read_memory_unsigned_integer (indirect, 4);
 	}
     }

@@ -681,6 +681,10 @@ if ![info exists argv0] then {
 
 proc skip_chill_tests {} {
     eval set skip_chill [expr ![isnative] || [istarget "*-*-aix*"] || [istarget "*-*-irix5*"] || [istarget "alpha-*-osf*"] || [istarget "hppa*-*-*"]]
+    # Hack - force skip_chill for FSF releases since chill is not generally
+    # available or used.  Probably less than one in 10000 gcc users even
+    # know what it is.  -fnf
+    set skip_chill 1
     verbose "Skip chill tests is $skip_chill"
     return $skip_chill
 }

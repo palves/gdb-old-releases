@@ -1,3 +1,7 @@
+Thu Mar 14 15:22:44 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* internal.h (R_MEM_INDIRECT): New reloc for the h8300.
+ 
 Fri Feb  9 10:44:11 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* aux-coff.h: Rename from aux.h, to avoid problems on hapless DOS

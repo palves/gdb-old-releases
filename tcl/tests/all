@@ -3,12 +3,24 @@
 # in this directory.
 #
 
-foreach i [lsort [glob *.test]] {
+# If the srcdir variable exists, tests are looked for in that
+# directory.  Otherwise they are looked for in ".".
+
+if {! [info exists srcdir]} then {
+    set srcdir .
+}
+
+# Always explicitly load `defs', so tests don't have to.  This avoids
+# the need for each .test file to know about $srcdir.
+
+source $srcdir/defs
+
+foreach i [lsort [glob $srcdir/*.test]] {
     if [string match l.*.test $i] {
 	# This is an SCCS lock file;  ignore it.
 	continue
     }
-    puts stdout $i
+    puts stdout [file tail $i]
     if [catch {source $i} msg] {
 	puts $msg
     }	

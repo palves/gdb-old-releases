@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "libbfd.h"
 #include "bfdlink.h"
+#include "genlink.h"
 #include "coff/h8300.h"
 #include "coff/internal.h"
 #include "libcoff.h"
@@ -75,6 +76,11 @@ static reloc_howto_type howto_table[] =
 
   HOWTO (R_MOVLB1, 0, 1, 16, false, 0, complain_overflow_bitfield,special, "24/8", false, 0x0000ffff, 0x0000ffff, false),
   HOWTO (R_MOVLB2, 0, 1, 16, false, 0, complain_overflow_bitfield, special, "8/24", false, 0x0000ffff, 0x0000ffff, false),
+
+  /* An indirect reference to a function.  This causes the function's address
+     to be added to the function vector in lo-mem and puts the address of
+     the function vector's entry in the jsr instruction.  */
+  HOWTO (R_MEM_INDIRECT, 0, 0, 8, false, 0, complain_overflow_bitfield, special, "8/indirect", false, 0x000000ff, 0x000000ff, false),
 
 };
 
@@ -156,6 +162,9 @@ rtype2howto (internal, dst)
       break;
     case R_MOVLB2:
       internal->howto = howto_table + 13;
+      break;
+    case R_MEM_INDIRECT:
+      internal->howto = howto_table + 14;
       break;
     default:
       abort ();
@@ -388,6 +397,7 @@ h8300_reloc16_extra_cases (abfd, link_info, link_order, reloc, data, src_ptr,
 	break;
       }
 
+    case R_MEM_INDIRECT: 	/* Temporary  */
     case R_RELBYTE:
       {
 	unsigned int gap = bfd_coff_reloc16_get_value (reloc, link_info,

@@ -291,10 +291,15 @@ tcltest: ${TCLTEST_OBJS} libtcl.a ${BUILD_DLTEST}
 
 .PHONY: test
 
+# We need to mkdir tests here because it isn't done at configure time
+# when the source and build directories are not the same.
 test: tcltest
+	-@mkdir ../tests
 	@cwd=`pwd`; \
 	cd $(TOP_DIR); TCL_LIBRARY=`pwd`/library; export TCL_LIBRARY; \
-	cd $$cwd; ( echo cd $(TOP_DIR)/tests\; source all ) | ./tcltest
+	cd $$cwd; \
+	( echo set srcdir \"$(TOP_DIR)/tests\"\;source $(TOP_DIR)/tests/all ) \
+	| ./tcltest
 
 # The following targets generate the shared libraries in dltest that
 # are used for testing;  this target is included as part of the "tcltest"

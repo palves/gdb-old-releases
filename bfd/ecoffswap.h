@@ -185,6 +185,10 @@ ecoff_swap_fdr_in (abfd, ext_copy, intern)
   
   intern->adr           = ecoff_get_off (abfd, (bfd_byte *)ext->f_adr);
   intern->rss           = bfd_h_get_32 (abfd, (bfd_byte *)ext->f_rss);
+#ifdef ECOFF_64
+  if (intern->rss == 0xffffffff)
+    intern->rss = -1;
+#endif
   intern->issBase       = bfd_h_get_32 (abfd, (bfd_byte *)ext->f_issBase);
   intern->cbSs          = ecoff_get_off (abfd, (bfd_byte *)ext->f_cbSs);
   intern->isymBase      = bfd_h_get_32 (abfd, (bfd_byte *)ext->f_isymBase);

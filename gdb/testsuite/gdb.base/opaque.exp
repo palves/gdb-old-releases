@@ -28,14 +28,16 @@ set bug_id 0
 
 set testfile "opaque"
 set binfile ${objdir}/${subdir}/opaque
-if  { [compile "${srcdir}/${subdir}/opaque0.c -g -c -o ${binfile}0.o"] != "" } {
+if  { [compile "-g -c ${srcdir}/${subdir}/opaque0.c"] != "" } {
     perror "Couldn't compile opaque0.c to object"
     return -1
 }
-if  { [compile "${srcdir}/${subdir}/opaque1.c -g -c -o ${binfile}1.o"] != "" } {
+execute_anywhere "mv opaque0.o ${binfile}0.o"
+if  { [compile "-g -c ${srcdir}/${subdir}/opaque1.c"] != "" } {
     perror "Couldn't compile opaque1.c to object"
     return -1
 }
+execute_anywhere "mv opaque1.o ${binfile}1.o"
 if  { [compile "${binfile}1.o ${binfile}0.o -o ${binfile}"] != "" } {
     perror "Couldn't link opaque."
     return -1

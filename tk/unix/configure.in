@@ -3,6 +3,10 @@ dnl	generate the file "configure", which is run during Tk installation
 dnl	to configure the system for the local environment.
 AC_INIT(../generic/tk.h)
 
+# CYGNUS LOCAL tromey - find config.guess/config.sub in our tree
+AC_CONFIG_AUX_DIR(../..)
+AC_CANONICAL_SYSTEM
+# END CYGNUS LOCAL
 
 AC_PROG_INSTALL
 AC_PROG_RANLIB

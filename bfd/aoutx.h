@@ -2482,7 +2482,7 @@ NAME(aout,get_symbol_info) (ignore_abfd, symbol, ret)
   if (ret->type == '?')
     {
       int type_code = aout_symbol(symbol)->type & 0xff;
-      CONST char *stab_name = aout_stab_name(type_code);
+      const char *stab_name = bfd_get_stab_name (type_code);
       static char buf[10];
 
       if (stab_name == NULL)
@@ -3967,6 +3967,11 @@ aout_link_write_symbols (finfo, input_bfd)
 	     external symbol. */
 	  h = *sym_hash;
 
+	  /* Use the name from the hash table, in case the symbol was
+             wrapped.  */
+	  if (h != NULL)
+	    name = h->root.root.string;
+
 	  /* If this is an indirect or warning symbol, then change
 	     hresolve to the base symbol.  We also change *sym_hash so
 	     that the relocation routines relocate against the real
@@ -4857,16 +4862,19 @@ aout_link_input_section_std (finfo, input_bfd, input_section, relocs,
 	    {
 	      const char *name;
 
-	      name = strings + GET_WORD (input_bfd, syms[r_index].e_strx);
+	      if (h != NULL)
+		name = h->root.root.string;
+	      else
+		name = strings + GET_WORD (input_bfd, syms[r_index].e_strx);
 	      if (! ((*finfo->info->callbacks->undefined_symbol)
 		     (finfo->info, name, input_bfd, input_section, r_addr)))
 		return false;
 	    }
 
 	  r = MY_final_link_relocate (howto,
-					input_bfd, input_section,
-					contents, r_addr, relocation,
-					(bfd_vma) 0);
+				      input_bfd, input_section,
+				      contents, r_addr, relocation,
+				      (bfd_vma) 0);
 	}
 
       if (r != bfd_reloc_ok)
@@ -5241,16 +5249,19 @@ aout_link_input_section_ext (finfo, input_bfd, input_section, relocs,
 	    {
 	      const char *name;
 
-	      name = strings + GET_WORD (input_bfd, syms[r_index].e_strx);
+	      if (h != NULL)
+		name = h->root.root.string;
+	      else
+		name = strings + GET_WORD (input_bfd, syms[r_index].e_strx);
 	      if (! ((*finfo->info->callbacks->undefined_symbol)
 		     (finfo->info, name, input_bfd, input_section, r_addr)))
 		return false;
 	    }
 
 	  r = MY_final_link_relocate (howto_table_ext + r_type,
-					input_bfd, input_section,
-					contents, r_addr, relocation,
-					r_addend);
+				      input_bfd, input_section,
+				      contents, r_addr, relocation,
+				      r_addend);
 	  if (r != bfd_reloc_ok)
 	    {
 	      switch (r)
@@ -5325,8 +5336,9 @@ aout_link_reloc_link_order (finfo, o, p)
 
       BFD_ASSERT (p->type == bfd_symbol_reloc_link_order);
       r_extern = 1;
-      h = aout_link_hash_lookup (aout_hash_table (finfo->info),
-				 pr->u.name, false, false, true);
+      h = ((struct aout_link_hash_entry *)
+	   bfd_wrapped_link_hash_lookup (finfo->output_bfd, finfo->info,
+					 pr->u.name, false, false, true));
       if (h != (struct aout_link_hash_entry *) NULL
 	  && h->indx >= 0)
 	r_index = h->indx;

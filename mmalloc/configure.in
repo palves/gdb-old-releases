@@ -5,7 +5,8 @@ AC_INIT(mmalloc.c)
 CC=${CC-cc}
 AC_PROG_CC
 AC_PROG_INSTALL
-AC_PROG_RANLIB
+AC_CHECK_TOOL(AR, ar)
+AC_CHECK_TOOL(RANLIB, ranlib, :)
 
 AC_FUNC_MMAP
 AC_CHECK_HEADERS(limits.h stddef.h)

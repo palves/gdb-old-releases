@@ -1,3 +1,528 @@
+Mon Apr 22 20:17:01 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (VERSION): Bump version number to 4.16
+	* NEWS: Update for 4.16 release.
+
+Fri Apr 12 21:39:42 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (VERSION): Bump version to 4.15.86
+	* README: Update for 4.16 release.
+	* configure.in (AC_CHECK_FUNCS): Also check for sbrk.
+	* configure: Regenerate with autoconf.
+	* config.in: Regenerate with autoheader.
+	* main.c (main): Only use sbrk() when HAVE_SBRK is defined.
+	* top.c (command_loop): Ditto.
+
+Thu Apr 11 17:51:58 1996  Fred Fish  <fnf@cygnus.com>
+
+	From: Miles Bader  <miles@gnu.ai.mit.edu>
+	* configure.in (AC_CHECK_HEADERS): check for endian.h.
+	Use AC_CHECK_TOOL to find AR & RANLIB.  Add AC_PROG_AWK.
+	Add host & target cases for i[345]86-*-gnu*.
+	* config.in: Regenerate with autoheader.
+	* configure: Regenerate with autoconf.
+	* Makefile.in (AR, AWK): Set from corresponding autoconf substs.
+	(init.c): Don't scan mig-generated files.
+	* defs.h (endian.h): Include if HAVE_ENDIAN_H defined.
+	* config/nm-m3.h (ATTACH_NO_WAIT): Define.
+	* infcmd.c (attach_command): Use "#ifndef ATTACH_NO_WAIT"
+ 	rather than "#ifndef MACH".
+
+Mon Apr  8 12:53:56 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (scm-exp.o, scm-lang.o, scm-valprint.o): Add targets and
+	dependencies.
+	* scm-lang.c (gdb_string.h): Include.
+	* objfiles.c (add_to_objfile_sections): Cast second arg of obstack_grow
+	call to correct type (char *).
+	* cp-valprint.c (cp_print_static_field): Ditto.
+	* somsolib.c (som_solib_create_inferior_hook): Add a declaration
+	for external find_unwind_entry function (from hppa-tdep.c).
+	* remote-pa.c (remote_write_bytes, remote_read_bytes): Change
+	type of second arg to "char *" to be type compatible with
+	dcache.
+	(remote_wait): Cast second arg to strtol to correct type.
+	* hppa-tdep.c (compare_unwind_entries): Change argument types to
+	"const void *" to be type compatible with qsort, and then
+	assign to local args prior to use.
+
+Sun Apr  7 22:34:29 1996  Fred Fish  <fnf@cygnus.com>
+
+	From: Miles Bader  <miles@gnu.ai.mit.edu>
+	* gnu-nat.c, gnu-nat.h, msg.defs, exc_request.defs, i386gnu-nat.c,
+	msg_reply.defs, notify.defs, process_reply.defs, reply_mig_hack.awk,
+	config/nm-gnu.h, config/i386/{i386gnu.mh, i386gnu.mt, nm-gnu.h,
+	m-i386gnu.h, xm-i386gnu.h}: New files for GNU hurd.
+
+Sun Apr  7 13:32:41 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in (case host): Add i386sco5 host.
+	* configure: Regenerate.
+	
+	From: Robert Lipe <robertl@dgii.com>
+	Add support for SCO OpenServer 5 (a.k.a. 3.2v5*)  This
+	target is an SVR3.2 with COFF, ELF, and shared libes, but
+	no /proc.
+	* config/i386/i386sco5.mh:  New file.
+	* config/i386/nm-i386sco5.h:  New file.
+
+Sat Apr  6 08:55:22 1996  Fred Fish  <fnf@cygnus.com>
+
+	* bcache.c (bcache): When size of chunk to cache is exactly equal to
+ 	BCACHE_MAXLENGTH, stash chunk as unique copy.
+
+Sat Apr  6 00:46:26 1996  Fred Fish  <fnf@cygnus.com>
+
+	* symfile.c (INLINE_ADD_PSYMBOL): Remove ifdef.
+	(add_psymbol_to_list): Add an arg for passing CORE_ADDR values and
+	use it, rather than calling add_psymbol_addr_to_list.
+	(add_psymbol_addr_to_list): Delete.
+	(add_psymbol_to_list): Make psymbol static to avoid random data in
+	gaps due to alignment of structure members.
+	* symfile.h (INLINE_ADD_PSYMBOL, ADD_PSYMBOL_TO_LIST,
+ 	ADD_PSYMBOL_ADDR_TO_LIST): Remove.  Real world tests show no
+	performance improvements by inlining via complicated macros and
+	they just make gdb larger and harder to maintain.
+	* dwarfread.c (add_enum_psymbol): Replace ADD_PSYMBOL_TO_LIST
+	and/or ADD_PSYMBOL_ADDR_TO_LIST macro(s) with call to
+	add_psymbol_to_list with appropriate long or CORE_ADDR args.
+	(add_partial_symbol): Ditto.
+	* partial-stab.h: Ditto.
+	* os9kread.c (read_os9k_psymtab): Ditto
+	* mdebugread.c (parse_partial_symbols): Ditto.
+	(handle_psymbol_enumerators): Ditto.
+	(demangle.h): Include.
+	* hpread.c (hpread_build_psymtabs): Ditto.
+	(hpread_build_psymtabs): Ditto.
+	(demangle.h): Include
+
+Thu Apr  4 17:59:58 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in: Check for setpgid function.
+	* config.in: Regenerate with autoheader.
+	* configure: Regenerate with autoconf.
+	* inflow.c (_initialize_inflow): Only try to use _SC_JOB_CONTROL
+	if it is actually defined.
+	(gdb_setpgid): Use HAVE_SETPGID.
+	* ch-exp.c: Change include of <string.h> to "gdb_string.h".
+	* c-exp.y: Ditto.
+	* f-exp.y: Ditto.
+	* m2-exp.y: Ditto.
+	* c-exp.y: Include <ctype.h>.
+	* serial.c: Ditto.
+	* config/m68k/nm-news.h: Add typedef for pid_t which is
+	apparently missing from <sys/types.h>.  Enclose entire
+	file in NM_NEWS_H ifndef and define when included.
+	* config/mips/nm-news-mips.h: Ditto.
+	* config/m68k/tm-m68k.h (REGISTER_CONVERT_TO_VIRTUAL,
+	REGISTER_CONVERT_TO_RAW): Change name of temporary variable.
+
+Thu Apr  4 17:17:53 1996  Fred Fish  <fnf@cygnus.com>
+
+	* symmisc.c (print_objfile_statistics): Print memory used by
+	psymbol cache obstack.
+
+Mon Apr  1 16:31:00 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mpw-make.sed: Change references to config.h to be in objdir,
+	edit out rules to rebuild config.h.
+
+Mon Apr  1 08:32:23 1996  Fred Fish  <fnf@cygnus.com>
+
+	* hppa-tdep.c (hppa_pop_frame): Call clear_proceed_status before
+	proceeding.
+
+Sun Mar 31 16:15:43 1996  Fred Fish  <fnf@cygnus.com>
+
+	* hppah-nat.c (store_inferior_registers, store_inferior_registers,
+	fetch_register, child_xfer_memory): Use call_ptrace function supplied
+	by infptrace.c rather than calling ptrace directly.
+
+Sat Mar 30 11:00:22 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in: Check whether printf family supports printing
+	long doubles or not and define PRINTF_HAS_LONG_DOUBLE if so.
+	* acconfig.h: Provide default undef for PRINTF_HAS_LONG_DOUBLE.
+	* configure: Regenerate.
+	* valprint.c (print_floating): Use PRINTF_HAS_LONG_DOUBLE.
+	* c-exp.y (parse_number): Use PRINTF_HAS_LONG_DOUBLE.
+	* configure.in: Fix have_gregset and have_fpregset autoconf
+	variable names so that they match the pattern required to
+	cache them.
+
+Fri Mar 29 21:53:14 1996  Fred Fish  <fnf@cygnus.com>
+
+	* core-aout.c (fetch_core_registers): Cast core_reg_size to int
+	before testing against reg_ptr.
+	* eval.c (evaluate_subexp_standard): Cast type of
+	TYPE_FN_FIELD_VOFFSET to int.
+	* findvar.c (extract_signed_integer, extract_unsigned_integer,
+	extract_long_unsigned_integer): Cast type of sizeof to int.
+	* values.c (unpack_field_as_long, modify_field): Ditto.
+	* valops.c (value_assign, call_function_by_hand): Ditto.
+	* infcmd.c (do_registers_info): Ditto.
+	* ser-tcp.c (tcp_open): Ditto
+	* remote.c (putpkt): Ditto.
+	* dcache.c (dcache_peek): Ditto.
+	* dcache.c (dcache_poke): Ditto.
+	* m2-exp.y (yylex): Ditto.
+	* gnu-regex.c (re_match_2): Ditto.
+	* f-lang.c (ADD_BF_SYMNUM, saved_bf_list_end, tmp_bf_ptr): Ifdef
+	out unused macro definition and variables.
+	* inftarg.c (proc_wait): Move from main.c to here, and make static.
+	* valprint.c (val_print_string): Change bufsize from int to unsigned.
+	* main.c (wait.h): Include
+	* top.c (command_line_input): Remove unused variable "c".
+	* f-typeprint.c (f_type_print_varspec_prefix): Add missing enum
+	value TYPE_CODE_TYPEDEF to switch statement.
+	(f_type_print_varspec_suffix): Add missing enum value
+	TYPE_CODE_TYPEDEF to switch statement.
+	* ch-exp.c (parse_primval): Add remaining enumeration values to
+	switch statement, with no specific action.
+	(ch_lex): Add LOC_UNRESOLVED in switch statement.
+	(pushback_token): Ifdef out, since code using it is ifdef'd out.
+	* stabsread.c (cleanup_undefined_types): Remove unused label
+	"badtype".
+	* objfiles.h (print_symbol_bcache_statistics): Add prototype.
+	* maint.c (objfiles.h): Include.
+	(maintenance_print_statistics): Remove unused variable "temp".
+	* minsyms.c (lookup_minimal_symbol_solib_trampoline): Remove
+	unused variable "found_file_symbol".
+	* m2-exp.y (yylex): Add LOC_UNRESOLVED case to switch.
+	* language.c (lang_bool_type): Use existing function local type
+	variable rather than create block local variables.
+	* solib.c (disable_break): Enclose in ifndef SVR4_SHARED_LIBS.
+	* infptrace.c (wait.h, command.h): Include.
+	* ser-tcp.c (gdb_string.h): Include
+	* i386-tdep.c (codestream_seek): Change "place" to CORE_ADDR.
+	(i386_get_frame_setup): Change "pc" from int to CORE_ADDR.
+	* command.c (complete_on_enum): Make assignment used as truth value
+	explictly check against NULL.
+	(wait.h): Include.
+	* infrun.c (wait_for_inferior): Ifdef out prologue_pc since code
+	that uses it is ifdef'd out.
+	* parser-defs.h: Add prototype for write_dollar_variable.
+	* infrun.c: Add prototype for write_pc_pid.
+	* breakpoint.h: Add prototype for re_enable_breakpoints_in_shlibs.
+	* symmisc.c (bcache.h): Include.
+	* bcache.h: Add prototype for print_bcache_statistics.
+	* symfile.c: Include <time.h>.
+	* printcmd.c (print_scalar_formatted): Change len to unsigned int.
+	* valarith.c (value_equal): Cast result of TYPE_LENGTH to int.
+	* valarith.c (value_binop): Change result_len, promoted_len1,
+ 	and promoted_len2 to unsigned int.
+	* valarith.c (value_subscripted_rvalue): Change elt_offs and
+ 	elt_size to unsigned int.
+	* valops.c (value_array): Change typelength to unsigned int.
+	(destructor_name_p): Change len to unsigned int.
+	* scm-lang.h (scm_parse): Add prototype for scm_unpack.
+	* symfile.c (decrement_reading_symtab): Change return type to void.
+	* valarith.c (value_subscript): Remove unused variable "word".
+	(value_subscript): Remove unused variable "tint".
+	* valops.c (auto_abandon): Ifdef out, since code using it is also
+	ifdef'd out.
+	* eval.c (init_array_element): Remove unused variable "val".
+	* Makefile.in (values.o): Depends on scm-lang.h.
+	(command.o): Depends upon wait_h.
+	(ser-tcp.o): Depends upon gdb_string.h.
+	(infptrace.o): Depends upon wait_h and command_h.
+	(maint.o): Depends on objfiles.h and symfile.h.
+	* values.c (allocate_repeat_value): Remove unused variable
+	"element_type".
+	(scm-lang.h): Include.
+	* breakpoint.c (create_longjmp_breakpoint): Enclose in
+	GET_LONGJMP_TARGET define, unused otherwise.
+	* config/i386/nm-linux.h: Add prototypes for i386_insert_watchpoint,
+	i386_remove_watchpoint and i386_stopped_by_watchpoint.
+	
+Thu Mar 28 06:51:26 1996  Fred Fish  <fnf@cygnus.com>
+
+	* valops.c (value_assign): Make copy of internal variable value
+	before returning it as a new value, since it is owned by the 
+	internal variable and will be freed along with it.
+
+Wed Mar 27 12:54:55 1996  Fred Fish  <fnf@cygnus.com>
+
+	From Peter Schauer <Peter.Schauer@Regent.E-Technik.TU-Muenchen.DE>
+	* breakpoint.c (breakpoint_re_set_one):	 Keep temporary
+	breakpoints bp_until, bp_finish, bp_watchpoint_cope, bp_call_dummy
+	and bp_step_resume in case breakpoint_re_set_one is called due
+	to a step over a dlopen call.
+	* infrun.c (wait_for_inferior):	 Always remove breakpoints from
+	inferior in BPSTAT_WHAT_CHECK_SHLIBS case.
+	
+Tue Mar 26 13:15:32 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (VERSION): Bump version to 4.15.85
+
+	* config/mips/tm-mips.h (COERCE_FLOAT_TO_DOUBLE): Only prefer
+	non-prototyped case over prototyped case for C.
+	* config/pa/tm-hppa.h (COERCE_FLOAT_TO_DOUBLE):  Ditto.
+
+Sat Mar 23 15:50:47 1996  Fred Fish  <fnf@cygnus.com>
+
+	* os9kread.c (os9k_process_one_symbol): Note nonportable
+	assumption that an int can hold a char *.
+
+	* bcache.h (struct hashlink): Wrap data[] inside union with
+	double to force longest alignment.
+	(BCACHE_DATA): New macro to access data[].
+	(BCACHE_ALIGNMENT): New macro to get offset to data[].
+	* bcache.c (lookup_cache, bcache): Use BCACHE_DATA to get
+ 	address of cached data.  Use BCACHE_ALIGNMENT to compute
+	amount of space to allocate for each hashlink struct.
+
+Sat Mar 23 12:14:02 1996  Fred Fish  <fnf@cygnus.com>
+
+	* ch-lang.c (evaluate_subexp_chill): Fix typo.
+
+Thu Mar 21 08:27:19 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (VERSION): Bump version to 4.15.3
+
+Thu Mar 21 10:56:41 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* config.in: Rename from config.h.in.
+	* configure.in: Call AC_CONFIG_HEADER with config.h:config.in.
+	Change CONFIG_HEADERS test in AC_OUTPUT accordingly.
+	* configure: Rebuild.
+	* Makefile.in (stamp-h): Depend upon config.in, not config.h.in.
+	Set CONFIG_HEADERS to config.h:config.in.
+
+Tue Mar 19 12:47:51 1996  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* partial-stab.h (case N_ENDM):  Finish current partial symbol
+	table for Solaris 2 cc.
+
+Tue Mar 19 10:39:15 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* rs6000-nat.c (exec_one_dummy_insn): Don't clobber the
+	PC in the registers array.  From Peter Schauer.
+
+Mon Mar 18 13:47:09 1996  Fred Fish  <fnf@cygnus.com>
+
+	* symfile.c (reread_symbols): Reinitialize bcache struct
+	members to zero using memset.  Also use memset to reinit
+	global_psymbols and static_psymbols, rather than explicitly
+	resetting each structure member.
+
+Sat Mar 16 19:47:36 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in: Add fragment to create stamp-h.
+	
+	From Peter Schauer <Peter.Schauer@Regent.E-Technik.TU-Muenchen.DE>
+	* configure.in (AC_CHECK_HEADERS):  Check for link.h.
+	* configure:  Regenerate with autoconf.
+	* config.h.in:  Regenerate with autoheader.
+	* config/i386/nm-linux.h:  Include solib.h only if HAVE_LINK_H
+	is defined.
+	* solib.c:  Exclude most of the code if HAVE_LINK_H is not defined.
+	* config/i386/linux.mh:  Reinstate XM_CLIBS, it is needed for
+	older a.out based systems.
+
+Sat Mar 16 16:45:43 1996  Fred Fish  <fnf@cygnus.com>
+
+	* config.h.in: New file.
+	* acconfig.h: New file, for autoheader.
+	* configure.in (AC_CONFIG_HEADER): Add, generate config.h.
+	* configure: Regenerate.
+	* Makefile.in (defs_h): Add config.h
+	(distclean): Remove config.h and stamp-h during distclean.
+	(config.h, stamp-h): New targets to remake config.h when necessary.
+	* defs.h (config.h): Include before any other includes or defines.
+	* i386-tdep.c (gdb_string.h): Move include after include of defs.h.
+	* i386v4-nat.c (defs.h): Include before testing HAVE_SYS_PROCFS_H.
+
+Sat Mar 16 14:55:27 1996  Fred Fish  <fnf@cygnus.com>
+
+	From Peter Schauer <Peter.Schauer@Regent.E-Technik.TU-Muenchen.DE>
+	* Makefile.in (INSTALLED_LIBS):  Make sure that @LIBS@ will not
+	result in an empty line, to work around a bug in native Ultrix 4.4
+	and OSF/1-3.2C make.
+
+Sat Mar 16 13:33:17 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in: Add gdbserver to configdirs under linux.
+	* configure: Regenerate.
+	
+Fri Mar 15 12:06:58 1996  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* config/i386/nm-nbsd.h (FLOAT_INFO): Comment out.
+	* config/i386/tm-nbsd.h (NUM_REGS): Define.
+
+Thu Mar 14 10:31:18 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* solib.c (solib_break_names): Add _r_debug_state for
+	vanilla SVR4 implementations.  From Peter Schauer.
+
+Mon Mar 11 14:24:57 1996  Dawn Perchik  <dawn@critters.cygnus.com>
+
+	* mon960-rom.c: New file; support mon960 rom monitor on i960.
+	* monitor.c (monitor_debug): Change remotedebug to buffer strings.
+	* monitor.c (monitor_open): Add test for flag MO_NO_ECHO_ON_OPEN before
+	epecting prompt and echo during open.
+	* monitor.c (monitor_stop): Add test for flag MO_SEND_BREAK_ON_OPEN to 
+	determine if break should be sent as stop command.
+	* monitor.h: Add flags MO_NO_ECHO_ON_OPEN and MO_SEND_BREAK_ON_OPEN.
+	* i960-tdep.c (mon960_frame_chain_valid): New function for getting 
+	stack frame on mon960.
+	* Makefile.in: Add mon960 files.
+	* configure.in: Changed i960-*-coff* and i960-*-elf* to target mon960;
+ 	added i960-nindy-coff* and i960-nindy-elf* for target nindy.
+	* configure: Regenerated.
+	* config/i960/mon960.mt, config/i960/tm-mon960.h: New files; 
+	support mon960 rom monitor on i960.
+
+Mon Mar 11 11:02:47 1996  Steve Chamberlain  <sac@slash.cygnus.com>
+
+	With Michael Snyder:
+	* i386-tdep.c (skip_trampoline_code): Fix strncmp length.
+	* win32-nat.c (CHECK, DEBUG*, debug_*): New.
+	(handle_load_dll): Don't reload symbols.
+	(handle_exception):  Use the DEBUG_* names.
+	(child_wait): Add DEBUG_* code.
+	(_initialize_inftarg): Add new commands to set debug_ names.
+
+Mon Mar 11 09:19:58 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* From Peter Schauer:
+	* breakpoint.c (insert_breakpoints): Use ALL_BREAKPOINTS_SAFE.
+	(bpstat_stop_status): Likewise.
+	(remove_solib_event_breakpoints): Likewise.
+	(clear_momentary_breakpoints): Likewise.
+	(re_enable_breakpoints_in_shlibs): Don't reenable a breakpoint
+	if we still can't read the memory for that breakpoint.
+	(mention): Add bp_shlib_event case to keep gcc quiet.
+	
+Fri Mar  8 12:08:12 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* breakpoint.h (enum enable): New enum shlib_disabled for
+	shared library breakpoints that have been temporarily disabled.
+	* breakpoint.c: Handle temporarily disabled shared library
+	breakpoints like disabled breakpoints in most places.
+	(insert_breakpoints): Use shlib_disabled to indicate
+	that an unsettable breakpoint is only temporarily disabled.
+	(re_enable_breakpoints_in_shlibs): New function.
+	* corelow.c (solib_add_stub): After adding shared libraries,
+	try to reenable any temporarily disabled breakpoints.
+	* infcmd.c (attach_command): Likewise.
+	* infrun.c (wait_for_inferior): Likewise.
+
+Fri Mar  8 11:41:25 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* defs.h (extract_long_unsigned_integer): Declare.
+	* findvar.c (extract_long_unsigned_integer): New function.
+	* printcmd.c (print_scalar_formatted): Use it.
+	* valprint.c (val_print_type_code_int): Likewise.
+
+Thu Mar  7 17:40:50 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* infcmd.c (do_registers_info): Ignore anonymous registers.
+	* sh-tdep.c (set processor): New command to set specific
+	processor type.
+	(sh_reg_names, sh3_reg_names): Arrays of register names for
+	SH and SH3 processors.
+	(sh_set_processor_type): New function.
+	* sh3-rom.c (sh3_open): Call it.
+	(sh3_regname): Add names of all the bank registers.
+	(sh3_supply_register): Clean up formatting.
+	* config/sh/tm-sh.h (NUM_REGS, NUM_REALREGS): Increase to include
+ 	bank registers.
+	(REGISTER_NAMES): Add names of bank registers.
+	(FP15_REGNUM): Define.
+	(REGISTER_VIRTUAL_TYPE): Use it.
+	* monitor.c: Clean up some comments.
+
+Thu Mar  7 12:09:51 1996  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* i386b-nat.c: Revert part of Mar 5 change.  FreeBSD collapsed the
+ 	s* and t* symbols too.
+
+Thu Mar  7 15:18:51 1996  James G. Smith  <jsmith@cygnus.co.uk>
+
+	* symfile.c (generic_load): Avoid division by zero.
+
+Wed Mar  6 17:57:59 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* breakpoint.c (bfd_lookup_symbol): Provide for all SVR4 systems,
+	not just those with HANDLE_SVR4_EXEC_EMULATORS.
+
+	From Peter Schauer:
+	* breakpoint.c (internal_breakpoint_number): Move to file scope.
+	(create_solib_event_breakpoint): Use an internal breakpoint number.
+
+Wed Mar  6 00:32:44 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* valarith.c (value_in): Change builtin_type_chill_bool to
+	LA_BOOL_TYPE.
+
+Tue Mar  5 23:48:36 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* ch-exp.c (parse_primval): Handle CARD, MAX, MIN.
+	(match_string_literal): Handle control sequence.
+	(match_character_literal): Deto.
+
+	* ch-lang.c (chill_printchar): Change formating of nonprintable
+	characters from C'xx' to ^(num).
+	(chill_printstr): Deto.
+	(value_chill_card, value_chill_max_min): New functions to process
+	Chill's CARD, MAX, MIN.
+	(evaluate_subexp_chill): Process UNOP_CARD, UNOP_CHMAX, UNOP_CHMIN.
+
+	* expression.h (exp_opcode): Add UNOP_CARD, UNOP_CHMAX, UNOP_CHMIN
+	for Chill's CARD, MAX, MIN.
+
+	* valarith.c (value_in): Add processing of TYPE_CODE_RANGE
+	and change return type from builtin_type_int to
+	builtin_type_chill_bool.
+
+Tue Mar  5 18:54:04 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* config/nm-nbsd.h (link_object, lo_name, etc): Move to here
+ 	from config/nm-nbsd.h.
+	* config/sparc/nm-nbsd.h (regs, fp_status, etc): Move to here
+	from config/sparc/tm-nbsd.h.
+
+	* config/m68k/nm-hp300hpux.h (FIVE_ARG_PTRACE): Define here
+	instead of in config/m68k/xm-hp300hpux.h.
+
+Tue Mar  5 12:05:35 1996  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* i386b-nat.c, m68knbsd-nat.c (fetch_core_registers): Provide
+ 	implementation for NetBSD systems.
+
+Mon Mar  4 23:44:16 1996  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* valarith.c (binop_user_defined_p):  Return 0 for BINOP_CONCAT.
+	(value_concat):  Handle varying strings (add COERCE_VARYING_ARRAY).
+
+	* ch-lang.c (evaluate_subexp_chill case MULTI_SUBSCRIPT):  Error
+	if "function" is pointer to non-function.
+
+Mon Mar  4 17:47:03 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* top.c (print_gdb_version): Update copyright year.
+
+Mon Mar  4 14:44:54 1996  Jeffrey A Law  (law@cygnus.com)
+
+	From Peter Schauer:
+	* infrun.c (wait_for_inferior): Remove breakpoints and
+	switch terminal settings before calling SOLIB_ADD.
+	* solib.c (enable_break, SVR4 variant): Don't map in symbols
+	for the dynamic linker, the namespace pollution causes real
+	problems.
+
+Sun Mar  3 17:18:57 1996  James G. Smith  <jsmith@cygnus.co.uk>
+
+	* remote-mips.c (common_breakpoint): Explicitly terminate the
+ 	returned buffer.
+
+Wed Feb 28 22:32:18 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	From Wilfried Moser <wilfried.moser@aut.alcatel.at>:
+	* remote.c (remote_detach): Send a command 'D' to the target
+	when detaching, update the function's comments.
+
 Wed Feb 28 15:50:12 1996  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (VERSION): Bump version to 4.15.2 to establish
@@ -50,7 +575,7 @@ Thu Feb 22 00:52:42 1996  J.T. Conklin  <jtc@rtl.cygnus.com>
 	* configure.in (m68k-*-netbsd*): New config.
 	* configure: Regenerated.
 
-Wed Feb 21 19:00:21 1996  Fred Fish  <fnf@ninemoons.com>
+Wed Feb 21 19:00:21 1996  Fred Fish  <fnf@cygnus.com>
 
 	* standalone.c (open, _initialize_standalone): Fix obvious typos
 	reported by Martin Pool <martin@citr.uq.oz.au>.
@@ -71,7 +596,7 @@ Tue Feb 20 23:59:19 1996  Jeffrey A Law  (law@cygnus.com)
 	* symfile.c (find_lowest_section): No longer static.
 	* symfile.h (find_lowest_section): Corresponding changes.
 
-Tue Feb 20 18:54:08 1996  Fred Fish  <fnf@rtl.cygnus.com>
+Tue Feb 20 18:54:08 1996  Fred Fish  <fnf@cygnus.com>
 
 	* valops.c (COERCE_FLOAT_TO_DOUBLE): Define default value.
 	(value_arg_coerce): Use COERCE_FLOAT_TO_DOUBLE.
@@ -703,7 +1228,7 @@ Fri Jan 12 21:41:58 1996  Jeffrey A Law  (law@cygnus.com)
 Fri Jan 12 15:56:12 1996  Steve Chamberlain  <sac@slash.cygnus.com>
 
 	* dsrec.c (load_srec): Remove unused variable.
-	monitor.c (monitor_expect): Don't expect a ^C to echo.
+	* monitor.c (monitor_expect): Don't expect a ^C to echo.
 	* serial.c (serial_open): Add parallel interface.
 	* sh3-rom.c (parallel, parallel_in_use): New.
 	(sh3_load): If parallel_in_use, download though the
@@ -742,7 +1267,7 @@ Fri Jan 12 09:36:17 1996  Tom Tromey  <tromey@creche.cygnus.com>
 	character.
 	(create_command_window): Make Delete delete left, not right.
 
-Fri Jan 12 07:14:27 1996  Fred Fish  <fnf@cirdan.cygnus.com>
+Fri Jan 12 07:14:27 1996  Fred Fish  <fnf@cygnus.com>
 
 	* lynx-nat.c, irix4-nat.c, sparc-nat.c: Include gdbcore.h
 	to get "struct core_fns" defined.
@@ -913,7 +1438,7 @@ Thu Jan  4 16:04:54 1996  Stu Grossman  (grossman@cygnus.com)
 	* sparcl-tdep.c (sparclite_check_watch_resources):  Fix logic bug
 	which prevented hardware watchpoints from working.
 
-Thu Jan  4 10:44:17 1996  Fred Fish  <fnf@cirdan.cygnus.com>
+Thu Jan  4 10:44:17 1996  Fred Fish  <fnf@cygnus.com>
 
 	* infptrace.c (udot_info): New function.
 	(PT_*): Define each individually if that one is not defined.

@@ -69,6 +69,16 @@ extern char **environ;
 /* Forward declaration */
 extern struct target_ops child_ops;
 
+static int
+proc_wait (pid, status)
+     int pid;
+     int *status;
+{
+#ifndef __GO32__
+  return wait (status);
+#endif
+}
+
 #ifndef CHILD_WAIT
 
 /* Wait for child to do something.  Return pid of child, or -1 in case

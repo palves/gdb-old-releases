@@ -4578,8 +4578,9 @@ ecoff_reloc_link_order (output_bfd, info, output_section, link_order)
 
       /* Treat a reloc against a defined symbol as though it were
          actually against the section.  */
-      h = bfd_link_hash_lookup (info->hash, link_order->u.reloc.p->u.name,
-				false, false, false);
+      h = bfd_wrapped_link_hash_lookup (output_bfd, info,
+					link_order->u.reloc.p->u.name,
+					false, false, false);
       if (h != NULL
 	  && (h->type == bfd_link_hash_defined
 	      || h->type == bfd_link_hash_defweak))
@@ -4655,9 +4656,10 @@ ecoff_reloc_link_order (output_bfd, info, output_section, link_order)
     {
       struct ecoff_link_hash_entry *h;
 
-      h = ecoff_link_hash_lookup (ecoff_hash_table (info),
-				  link_order->u.reloc.p->u.name,
-				  false, false, true);
+      h = ((struct ecoff_link_hash_entry *)
+	   bfd_wrapped_link_hash_lookup (output_bfd, info,
+					 link_order->u.reloc.p->u.name,
+					 false, false, true));
       if (h != (struct ecoff_link_hash_entry *) NULL
 	  && h->indx != -1)
 	in.r_symndx = h->indx;

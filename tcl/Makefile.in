@@ -14,11 +14,8 @@ mostlyclean-recursive clean-recursive distclean-recursive \
 maintainer-clean-recursive:
 	@cd unix && $(MAKE) `echo $@ | sed 's/-recursive//'`
 
-Makefile: Makefile.in
-	$(SHELL) ./config.status
-
 configure: configure.in
-	autoconf
+	cd $(SRC_DIR) ; autoconf
 
 mostlyclean: mostlyclean-recursive
 
@@ -58,3 +55,9 @@ check:
 	$(RUNTEST) $(RUNTESTFLAGS) --tool tcl --srcdir $(SRC_DIR)/testsuite
 
 installcheck:
+
+Makefile: Makefile.in config.status
+	CONFIG_FILES=Makefile CONFIG_HEADERS= $(SHELL) ./config.status
+
+config.status:
+	$(SHELL) config.status --recheck

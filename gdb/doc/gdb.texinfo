@@ -3487,7 +3487,7 @@ argument, this command is used to select a stack frame.
 This command prints a verbose description of the selected stack frame,
 including:
 
-@itemize
+@itemize @bullet
 @item 
 the address of the frame 
 @item
@@ -4000,8 +4000,8 @@ and string constants.  It unfortunately does not include symbols defined
 by preprocessor @code{#define} commands.
 
 @value{GDBN} now supports array constants in expressions input by
-the user.  The syntax is @var{element, element@dots{}}.  For example,
-you can now use the command @code{print @{1 2 3@}} to build up an array in 
+the user.  The syntax is @var{@{element, element@dots{}@}}.  For example,
+you can now use the command @code{print @{1, 2, 3@}} to build up an array in 
 memory that is malloc'd in the target program.
 
 @ifclear CONLY
@@ -4052,14 +4052,14 @@ in your program.
 Variables in expressions are understood in the selected stack frame
 (@pxref{Selection, ,Selecting a frame}); they must be either:
 
-@itemize
+@itemize @bullet
 @item
 global (or static)
 @end itemize
 
 @noindent or 
 
-@itemize
+@itemize @bullet
 @item
 visible according to the scope rules of the
 programming language from the point of execution in that frame

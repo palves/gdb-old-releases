@@ -1064,7 +1064,21 @@ demangle_template (work, mangled, tname, trawname)
 	      if (symbol_len == 0)
 		string_appendn (tname, "0", 1);
 	      else
-		string_appendn (tname, *mangled, symbol_len);
+		{
+		  char *p = xmalloc (symbol_len + 1), *q;
+		  strncpy (p, *mangled, symbol_len);
+		  p [symbol_len] = '\0';
+		  q = cplus_demangle (p, work->options);
+		  string_appendn (tname, "&", 1);
+		  if (q)
+		    {
+		      string_append (tname, q);
+		      free (q);
+		    }
+		  else
+		    string_append (tname, p);
+		  free (p);
+		}
 	      *mangled += symbol_len;
 	    }
 	}

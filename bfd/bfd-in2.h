@@ -333,6 +333,10 @@ typedef struct _symbol_info
   short stab_desc;             /* Stab desc.  */
   CONST char *stab_name;       /* String for stab type.  */
 } symbol_info;
+
+/* Get the name of a stabs type code.  */
+
+extern const char *bfd_get_stab_name PARAMS ((int));
 
 /* Hash table routines.  There is no way to free up a hash table.  */
 

@@ -24,7 +24,9 @@
 
 
 PSIM is a program written in extended ANSI-C that implements an
-instruction level simulation of the PowerPC environment.
+instruction level simulation of the PowerPC environment.  It is freely
+available in source code form under the terms of the GNU General
+Public License (version 2 or later).
 
 The PowerPC Architecture is described as having three levels of
 compliance:

@@ -108,6 +108,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 					for step or cont : SAA where AA is the
 					signal number.
 
+	detach          D               Reply OK.
+
 	There is no immediate reply to step or cont.
 	The reply comes when the machine stops.
 	It is		SAA		AA is the signal number.
@@ -568,22 +570,25 @@ device is attached to the remote system (e.g. /dev/ttya).");
     pop_target();
 }
 
-/* remote_detach()
-   takes a program previously attached to and detaches it.
-   We better not have left any breakpoints
-   in the program or it'll die when it hits one.
-   Close the open connection to the remote debugger.
-   Use this when you want to detach and do something else
-   with your gdb.  */
+/* This takes a program previously attached to and detaches it.  After
+   this is done, GDB can be used to debug some other program.  We
+   better not have left any breakpoints in the target program or it'll
+   die when it hits one.  */
 
 static void
 remote_detach (args, from_tty)
      char *args;
      int from_tty;
 {
+  char buf[PBUFSIZ];
+
   if (args)
     error ("Argument given to \"detach\" when remotely debugging.");
-  
+
+  /* Tell the remote target to detach.  */
+  strcpy (buf, "D");
+  remote_send (buf);
+
   pop_target ();
   if (from_tty)
     puts_filtered ("Ending remote debugging.\n");
@@ -1326,7 +1331,7 @@ putpkt (buf)
   /* Copy the packet into buffer BUF2, encapsulating it
      and giving it a checksum.  */
 
-  if (cnt > sizeof(buf2) - 5)		/* Prosanity check */
+  if (cnt > (int) sizeof (buf2) - 5)		/* Prosanity check */
     abort();
 
   p = buf2;

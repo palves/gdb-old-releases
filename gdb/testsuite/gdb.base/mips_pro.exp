@@ -8,9 +8,28 @@ set bug_id 0
 set testfile mips_pro
 set srcfile ${srcdir}/$subdir/${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [compile "${srcfile} -g -o ${binfile}"] != "" } {
-    perror "Couldn't compile ${srcfile}"
+
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c >> ${objdir}/${subdir}/mips_pro.tmp"] != "" } {
+    perror "Couldn't make ${testfile}.tmp"
     return -1
+}
+
+execute_anywhere "mv ${objdir}/${subdir}/${testfile}.tmp ${binfile}.ci"
+
+source ${binfile}.ci
+
+# This test must be compiled with -O2 if using gcc.
+
+if {$gcc_compiled} then {
+    if  { [compile "${srcfile} -O2 -g -o ${binfile}"] != "" } {
+	perror "Couldn't compile ${srcfile} with -O2"
+	return -1
+    }
+} else {
+    if  { [compile "${srcfile} -g -o ${binfile}"] != "" } {
+	perror "Couldn't compile ${srcfile}"
+	return -1
+    }
 }
 
 gdb_reinitialize_dir $srcdir/$subdir

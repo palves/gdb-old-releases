@@ -1672,8 +1672,13 @@ xcoff_link_add_symbols (abfd, info)
                  OK for symbol redefinitions to occur.  I can't figure
                  out just what the XCOFF linker is doing, but
                  something like this is required for -bnso to work.  */
-	      *sym_hash = xcoff_link_hash_lookup (xcoff_hash_table (info),
-						  name, true, copy, false);
+	      if (! bfd_is_und_section (section))
+		*sym_hash = xcoff_link_hash_lookup (xcoff_hash_table (info),
+						    name, true, copy, false);
+	      else
+		*sym_hash = ((struct xcoff_link_hash_entry *)
+			     bfd_wrapped_link_hash_lookup (abfd, info, name,
+							   true, copy, false));
 	      if (*sym_hash == NULL)
 		goto error_return;
 	      if (((*sym_hash)->root.type == bfd_link_hash_defined
@@ -1982,7 +1987,7 @@ xcoff_link_add_dynamic_symbols (abfd, info)
 	  name = nambuf;
 	}
 
-      /* Normally we could not xcoff_link_hash_lookup in an add
+      /* Normally we could not call xcoff_link_hash_lookup in an add
 	 symbols routine, since we might not be using an XCOFF hash
 	 table.  However, we verified above that we are using an XCOFF
 	 hash table.  */
@@ -2214,7 +2219,10 @@ xcoff_mark (info, sec)
 			  && h->root.root.string[0] == '.'
 			  && h->descriptor != NULL
 			  && ((h->descriptor->flags & XCOFF_DEF_DYNAMIC) != 0
-			      || info->shared)))
+			      || info->shared
+			      || ((h->descriptor->flags & XCOFF_IMPORT) != 0
+				  && (h->descriptor->flags
+				      & XCOFF_DEF_REGULAR) == 0))))
 		    break;
 		  /* Fall through.  */
 		case R_POS:
@@ -2488,8 +2496,9 @@ bfd_xcoff_link_count_reloc (output_bfd, info, name)
   if (! XCOFF_XVECP (output_bfd->xvec))
     return true;
 
-  h = xcoff_link_hash_lookup (xcoff_hash_table (info), name, false, false,
-			      false);
+  h = ((struct xcoff_link_hash_entry *)
+       bfd_wrapped_link_hash_lookup (output_bfd, info, name, false, false,
+				     false));
   if (h == NULL)
     {
       (*_bfd_error_handler) ("%s: no such symbol", name);
@@ -2935,16 +2944,18 @@ xcoff_build_ldsyms (h, p)
     h->flags |= XCOFF_MARK;
 
   /* If this symbol is called and defined in a dynamic object, or not
-     defined at all when building a shared object, then we need to set
-     up global linkage code for it.  (Unless we did garbage collection
-     and we didn't need this symbol.)  */
+     defined at all when building a shared object, or imported, then
+     we need to set up global linkage code for it.  (Unless we did
+     garbage collection and we didn't need this symbol.)  */
   if ((h->flags & XCOFF_CALLED) != 0
       && (h->root.type == bfd_link_hash_undefined
 	  || h->root.type == bfd_link_hash_undefweak)
       && h->root.root.string[0] == '.'
       && h->descriptor != NULL
       && ((h->descriptor->flags & XCOFF_DEF_DYNAMIC) != 0
-	  || ldinfo->info->shared)
+	  || ldinfo->info->shared
+	  || ((h->descriptor->flags & XCOFF_IMPORT) != 0
+	      && (h->descriptor->flags & XCOFF_DEF_REGULAR) == 0))
       && (! xcoff_hash_table (ldinfo->info)->gc
 	  || (h->flags & XCOFF_MARK) != 0))
     {
@@ -5274,9 +5285,10 @@ xcoff_reloc_link_order (output_bfd, finfo, output_section, link_order)
       return false;
     }
 
-  h = xcoff_link_hash_lookup (xcoff_hash_table (finfo->info),
-			      link_order->u.reloc.p->u.name,
-			      false, false, true);
+  h = ((struct xcoff_link_hash_entry *)
+       bfd_wrapped_link_hash_lookup (output_bfd, finfo->info,
+				     link_order->u.reloc.p->u.name,
+				     false, false, true));
   if (h == NULL)
     {
       if (! ((*finfo->info->callbacks->unattached_reloc)

@@ -64,18 +64,18 @@ if $usestubs {
 
 send "delete breakpoints\n"
 expect {
-    -re "Delete all breakpoints.*y or n. $"\
-	{ send "y\n"
+    -re "Delete all breakpoints.*$" {
+	    send "y\n"
 	    expect {
-		-re ".*$prompt $" {
-		    setup_xfail "i*86-*-sysv4*" "sparc-sun-sunos4*" "alpha-dec-osf2*"
-		    fail "Delete all breakpoints when none"
+		-re "$prompt $" {
+		    setup_xfail "i*86-*-sysv4*" "sparc-sun-sunos4*" "alpha-dec-osf2*" "mips-dec-ultrix*"
+		    fail "Delete all breakpoints when none (unexpected prompt)"
 		}
-		timeout	{ fail "Delete all breakpoints when none (timeout)" }
+		timeout	{ fail "Delete all breakpoints when none (timeout after unexpected prompt)" }
 	    }
 	}
     -re ".*$prompt $"       { pass "Delete all breakpoints when none" }
-    timeout	            { fail "Delete all breakpoints when none" }
+    timeout	            { fail "Delete all breakpoints when none (timeout)" }
 }
 
 #
@@ -157,7 +157,7 @@ if !$usestubs then {
     -re "Starting program.*Breakpoint \[0-9\]+,.*main .*argc.*argv.* at .*$srcfile:60.*60\[\t \]+if .argc.* \{.*$prompt $"\
 	                    { pass "run until function breakpoint" }
     -re ".*$prompt $"       { fail "run until function breakpoint" }
-    timeout	            { fail "(timeout) run until function breakpoint" }
+    timeout	            { fail "run until function breakpoint (timeout)" }
   }
 }
 
@@ -186,7 +186,7 @@ gdb_test continue "Continuing\\..*Breakpoint \[0-9\]+, main \\(argc=.*, argv=.*,
 #
 send "delete breakpoints\n"
 expect {
-    -re "Delete all breakpoints.*y or n.*$" {
+    -re "Delete all breakpoints.*$" {
 	send "y\n"
 	expect {
 	    -re ".*$prompt $" {
@@ -196,14 +196,14 @@ expect {
 			pass "Deleted all breakpoints"
 		    }
 		    -re ".*$prompt $"       { fail "Deleted all breakpoints" }
-		    timeout	            { fail "Deleted all breakpoints" }
+		    timeout	            { fail "Deleted all breakpoints (timeout)" }
 		}
 	    }
-	    timeout	            { fail "Deleted all breakpoints" }	    
+	    timeout	            { fail "Deleted all breakpoints (timeout)" }
 	}
     }
     -re ".*$prompt $"       { fail "Deleted all breakpoints" }
-    timeout	            { fail "Deleted all breakpoints" }
+    timeout	            { fail "Deleted all breakpoints (timeout)" }
 }
 
 
@@ -227,7 +227,7 @@ send "tbreak 64\n"
 expect {
     -re "Breakpoint.*at.* file .*$srcfile, line 64.*$prompt $" { pass "Temporary breakpoint line number" }
 	-re ".*$prompt $"   { pass "Temporary breakpoint line number" }
-	timeout	    { fail "(timeout) breakpoint line number" }
+	timeout	    { fail "breakpoint line number (timeout)" }
 }
 
 gdb_test "tbreak 60" "Breakpoint.*at.* file .*$srcfile, line 60.*" "Temporary breakpoint line number"
@@ -239,7 +239,7 @@ send "tbreak $srcfile:70\n"
 expect {
     -re "Breakpoint.*at.* file .*$srcfile, line 70.*$prompt $" { pass "Temporary breakpoint line number in file" }
 	-re ".*$prompt $"   { pass "Temporary breakpoint line number in file" }
-	timeout	    { fail "(timeout) breakpoint line number in file" }
+	timeout	    { fail "Temporary breakpoint line number in file (timeout)" }
 }
 
 gdb_test  "tbreak $srcfile:66" "Breakpoint.*at.* file .*$srcfile, line 66.*" "Temporary breakpoint line number in file"
@@ -257,7 +257,7 @@ expect {
         pass "Temporary breakpoint info"
     }
     -re ".*$prompt $"   { fail "Temporary breakpoint info" }
-    timeout	    { fail "(timeout) Temporary breakpoint info" }
+    timeout	    { fail "Temporary breakpoint info (timeout)" }
 }
 
 proc test_clear_command {} {
@@ -286,7 +286,7 @@ proc test_next_with_recursion {} {
 	    exp_continue
 	}
 	-re ".*$prompt $" {}
-	timeout { fail "killing inferior" ; return }
+	timeout { fail "killing inferior (timeout)" ; return }
     }
 
     delete_breakpoints
@@ -302,7 +302,7 @@ proc test_next_with_recursion {} {
     }
     expect {
 	-re "Break.* factorial .value=6. .*$prompt $" {}
-	timeout { fail "run to factorial(6)" ; return }
+	timeout { fail "run to factorial(6) (timeout)" ; return }
     }
 
     # Continue until we call factorial recursively with 5.
@@ -310,7 +310,7 @@ proc test_next_with_recursion {} {
     send "continue\n"
     expect {
 	-re "Continuing.*Break.* factorial .value=5. .*$prompt $" {}
-	timeout { fail "continue to factorial(5)" ; return }
+	timeout { fail "continue to factorial(5) (timeout)" ; return }
     }
 
     # Do a backtrace just to confirm how many levels deep we are.

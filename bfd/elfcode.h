@@ -776,7 +776,7 @@ write_relocs (abfd, sec, data)
   unsigned int idx;
   int use_rela_p = get_elf_backend_data (abfd)->use_rela_p;
   asymbol *last_sym = 0;
-  int last_sym_idx = 9999999;	/* should always be written before use */
+  int last_sym_idx = 0;
 
   /* If we have already failed, don't do anything.  */
   if (*failedp)
@@ -832,7 +832,13 @@ write_relocs (abfd, sec, data)
 	  else
 	    {
 	      last_sym = sym;
-	      last_sym_idx = n = _bfd_elf_symbol_from_bfd_symbol (abfd, &sym);
+	      n = _bfd_elf_symbol_from_bfd_symbol (abfd, &sym);
+	      if (n < 0)
+		{
+		  *failedp = true;
+		  return;
+		}
+	      last_sym_idx = n;
 	    }
 
 	  if ((*ptr->sym_ptr_ptr)->the_bfd->xvec != abfd->xvec
@@ -878,7 +884,13 @@ write_relocs (abfd, sec, data)
 	  else
 	    {
 	      last_sym = sym;
-	      last_sym_idx = n = _bfd_elf_symbol_from_bfd_symbol (abfd, &sym);
+	      n = _bfd_elf_symbol_from_bfd_symbol (abfd, &sym);
+	      if (n < 0)
+		{
+		  *failedp = true;
+		  return;
+		}
+	      last_sym_idx = n;
 	    }
 
 	  if ((*ptr->sym_ptr_ptr)->the_bfd->xvec != abfd->xvec

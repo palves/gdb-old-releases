@@ -1174,7 +1174,10 @@ mips_elf_gprel32_reloc (abfd,
     }
 
   if (output_bfd != (bfd *) NULL)
-    relocateable = true;
+    {
+      relocateable = true;
+      gp = _bfd_get_gp_value (output_bfd);
+    }
   else
     {
       relocateable = false;

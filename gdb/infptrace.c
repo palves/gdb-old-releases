@@ -22,6 +22,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "inferior.h"
 #include "target.h"
 #include "gdb_string.h"
+#include "wait.h"
+#include "command.h"
 
 #ifdef USG
 #include <sys/types.h>

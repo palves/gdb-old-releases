@@ -52,15 +52,31 @@ extern int kernel_u_size PARAMS ((void));
   i386_stopped_by_watchpoint (inferior_pid)
 
 /* Use these macros for watchpoint insertion/removal.  */
+
 #define target_insert_watchpoint(addr, len, type)  \
   i386_insert_watchpoint (inferior_pid, addr, len, 2)
+
 #define target_remove_watchpoint(addr, len, type)  \
   i386_remove_watchpoint (inferior_pid, addr, len)
 
-/* We define this because with ELF we use SVR4 style shared libraries. */
+/* We define this if link.h is available, because with ELF we use SVR4 style
+   shared libraries. */
 
-#include "solib.h"	/* Support for shared libraries. */
-
+#ifdef HAVE_LINK_H
+#include "solib.h"		/* Support for shared libraries. */
 #define SVR4_SHARED_LIBS
+#endif
+
+#if 0
+/* We need prototypes for these somewhere, and this file is the logical
+   spot, but they can't go here because CORE_ADDR is not defined at the
+   time this file is included in defs.h.  FIXME - fnf */
+extern CORE_ADDR
+i386_stopped_by_watchpoint PARAM ((int));
+extern int
+i386_insert_watchpoint PARAMS ((int pid, CORE_ADDR addr, int len, int rw));
+extern int
+i386_remove_watchpoint PARAMS ((int pid, CORE_ADDR addr, int len));
+#endif
 
 #endif /* #ifndef NM_LINUX_H */

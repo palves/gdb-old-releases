@@ -1028,8 +1028,13 @@ sunos_add_one_symbol (info, abfd, name, flags, section, value, string,
 	return false;
     }
 
-  h = sunos_link_hash_lookup (sunos_hash_table (info), name, true, copy,
-			      false);
+  if ((flags & (BSF_INDIRECT | BSF_WARNING | BSF_CONSTRUCTOR)) != 0
+      || ! bfd_is_und_section (section))
+    h = sunos_link_hash_lookup (sunos_hash_table (info), name, true, copy,
+				false);
+  else
+    h = ((struct sunos_link_hash_entry *)
+	 bfd_wrapped_link_hash_lookup (abfd, info, name, true, copy, false));
   if (h == NULL)
     return false;
 
@@ -1795,6 +1800,17 @@ sunos_scan_ext_relocs (info, abfd, sec, relocs, rel_size)
 	  && ((h->flags & SUNOS_DEF_DYNAMIC) == 0
 	      || (h->flags & SUNOS_DEF_REGULAR) != 0))
 	continue;
+
+      if (r_type == RELOC_JMP_TBL
+	  && ! info->shared
+	  && (h->flags & SUNOS_DEF_DYNAMIC) == 0
+	  && (h->flags & SUNOS_DEF_REGULAR) == 0)
+	{
+	  /* This symbol is apparently undefined.  Don't do anything
+             here; just let the relocation routine report an undefined
+             symbol.  */
+	  continue;
+	}
 
       if (strcmp (h->root.root.root.string, "__GLOBAL_OFFSET_TABLE_") == 0)
 	continue;

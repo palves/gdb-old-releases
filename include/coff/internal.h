@@ -597,6 +597,11 @@ struct internal_reloc
 #define R_MOVLB1    	0x48	/* Special h8 24bit or 8 bit reloc for mov.b 	*/
 #define R_MOVLB2 	0x49	/* Special h8 opcode for 8bit which could be 24 */
 
+/* An h8300 memory indirect jump/call.  Forces the address of the jump/call
+   target into the function vector (in page zero), and the address of the
+   vector entry to be placed in the jump/call instruction.  */
+#define R_MEM_INDIRECT	0x4a
+
 /* Z8k modes */
 #define R_IMM16   0x01		/* 16 bit abs */
 #define R_JR	  0x02		/* jr  8 bit disp */

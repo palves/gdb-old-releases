@@ -92,7 +92,7 @@ enum bptype {
 
 /* States of enablement of breakpoint. */
 
-enum enable { disabled, enabled};
+enum enable { disabled, enabled, shlib_disabled};
 
 /* Disposition of breakpoint.  Ie: what to do after hitting it. */
 
@@ -418,5 +418,7 @@ extern void enable_breakpoint PARAMS ((struct breakpoint *));
 extern void create_solib_event_breakpoint PARAMS ((CORE_ADDR));
 
 extern void remove_solib_event_breakpoints PARAMS ((void));
+
+extern void re_enable_breakpoints_in_shlibs PARAMS ((void));
 
 #endif /* !defined (BREAKPOINT_H) */

@@ -1,3 +1,30 @@
+Mon Apr  1 23:05:49 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in (case $system): For HP-UX test $have_dl before
+	setting SHLIB_CFLAGS, SHLIB_LD, SHLIB_SUFFIX, DL_OBJS, and DL_LIBS
+	* configure: Regenerate.
+	
+Fri Mar 15 09:03:31 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in: Some UNIX_SV* systems have linkers that
+ 	don't grok the -Bexport option.  Test that it does before
+	adding to LD_FLAGS.
+	* configure: Regenerated.
+
+Thu Mar 14 14:25:17 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* configure.in: Check for GNU ld in HP-UX case.
+
+Fri Mar  1 11:45:23 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* configure: Regenerated.
+	* configure.in: Use AC_CANONICAL_SYSTEM.  Look in Cygnus build
+	tree for config.sub and config.guess.
+
+Thu Feb 29 09:06:59 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (test): Define srcdir in test environment.
+
 Tue Feb 13 13:22:23 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* configure.in: On Solaris, put -export-dynamic in LD_FLAGS if the

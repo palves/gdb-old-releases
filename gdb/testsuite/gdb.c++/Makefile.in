@@ -1,6 +1,6 @@
 srcdir = @srcdir@
 
-PROGS = compiler cplusfuncs misc templates virtfunc
+PROGS = compiler cplusfuncs inherit misc templates virtfunc
 
 all: 
 	@echo "Nothing to be done for all..."
@@ -8,10 +8,10 @@ all:
 #### host, target, and site specific Makefile frags come in here.
 
 clean mostlyclean:
-	-rm -f *.o ${OBJS} ${PROGS} *~ core 
+	-rm -f *.ci *.o ${OBJS} ${PROGS} *~ core 
 
 distclean maintainer-clean realclean: clean
-	-rm -f Makefile config.status
+	-rm -f Makefile config.status config.log
 
 Makefile: $(srcdir)/Makefile.in $(srcdir)/configure.in
 	$(SHELL) ./config.status --recheck

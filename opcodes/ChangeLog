@@ -1,3 +1,29 @@
+Sun Apr  7 15:06:17 1996  Fred Fish  <fnf@cygnus.com>
+
+	From: Miles Bader  <miles@gnu.ai.mit.edu>
+	* configure.in: Use AC_CHECK_TOOL to find AR & RANLIB.
+	* configure: Regenerate with autoconf.
+	
+Sat Mar 16 13:04:07 1996  Fred Fish  <fnf@cygnus.com>
+
+	* z8kgen.c (internal, gas): Call xmalloc rather than unchecked
+	malloc.
+
+Tue Mar 12 12:14:10 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure: Rebuild with autoconf 2.8.
+
+Thu Mar  7 15:11:10 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* sparc-dis.c (print_insn_sparc): Handle 'O' operand char like 'r'.
+	* sparc-opc.c (sparc_opcodes): Use 'O' operand char for `neg reg'.
+
+Tue Mar  5 15:51:57 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Don't set SHLIB or SHLINK to an empty string,
+	since they appear as targets in Makefile.in.
+	* configure: Rebuild.
+
 Mon Feb 26 13:03:40 1996  Stan Shebs  <shebs@andros.cygnus.com>
 
 	* mpw-make.sed: Edit out shared library support bits.

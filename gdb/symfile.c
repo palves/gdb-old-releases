@@ -43,6 +43,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdb_string.h"
 #include "gdb_stat.h"
 #include <ctype.h>
+#include <time.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -273,7 +274,7 @@ obconcat (obstackp, s1, s2, s3)
 
 int currently_reading_symtab = 0;
 
-static int
+static void
 decrement_reading_symtab (dummy)
      void *dummy;
 {
@@ -994,8 +995,9 @@ generic_load (filename, from_tty)
      loaded in.  remote-nindy.c had no call to symbol_file_add, but remote-vx.c
      does.  */
 
-  printf_filtered ("Transfer rate: %d bits/sec.\n",
-		   (data_count * 8)/(end_time - start_time));
+  if (end_time != start_time)
+   printf_filtered ("Transfer rate: %d bits/sec.\n",
+                    (data_count * 8)/(end_time - start_time));
 
   do_cleanups (old_cleanups);
 }
@@ -1193,17 +1195,17 @@ reread_symbols ()
 	     enough?  */
 	  if (objfile->global_psymbols.list)
 	    mfree (objfile->md, objfile->global_psymbols.list);
-	  objfile->global_psymbols.list = NULL;
-	  objfile->global_psymbols.next = NULL;
-	  objfile->global_psymbols.size = 0;
+	  memset (&objfile -> global_psymbols, 0,
+		  sizeof (objfile -> global_psymbols));
 	  if (objfile->static_psymbols.list)
 	    mfree (objfile->md, objfile->static_psymbols.list);
-	  objfile->static_psymbols.list = NULL;
-	  objfile->static_psymbols.next = NULL;
-	  objfile->static_psymbols.size = 0;
+	  memset (&objfile -> static_psymbols, 0,
+		  sizeof (objfile -> static_psymbols));
 
 	  /* Free the obstacks for non-reusable objfiles */
 	  obstack_free (&objfile -> psymbol_cache.cache, 0);
+	  memset (&objfile -> psymbol_cache, 0,
+		  sizeof (objfile -> psymbol_cache));
 	  obstack_free (&objfile -> psymbol_obstack, 0);
 	  obstack_free (&objfile -> symbol_obstack, 0);
 	  obstack_free (&objfile -> type_obstack, 0);
@@ -1644,35 +1646,42 @@ start_psymtab_common (objfile, section_offsets,
   return (psymtab);
 }
 
-/* Debugging versions of functions that are usually inline macros
-   (see symfile.h).  */
-
-#if !INLINE_ADD_PSYMBOL
-
 /* Add a symbol with a long value to a psymtab.
    Since one arg is a struct, we pass in a ptr and deref it (sigh).  */
 
 void
-add_psymbol_to_list (name, namelength, namespace, class, list, val, language,
-		     objfile)
+add_psymbol_to_list (name, namelength, namespace, class, list, val, coreaddr,
+		     language, objfile)
      char *name;
      int namelength;
      namespace_enum namespace;
      enum address_class class;
      struct psymbol_allocation_list *list;
-     long val;
+     long val;					/* Value as a long */
+     CORE_ADDR coreaddr;			/* Value as a CORE_ADDR */
      enum language language;
      struct objfile *objfile;
 {
   register struct partial_symbol *psym;
   char *buf = alloca (namelength + 1);
-  struct partial_symbol psymbol;
+  /* psymbol is static so that there will be no uninitialized gaps in the
+     structure which might contain random data, causing cache misses in
+     bcache. */
+  static struct partial_symbol psymbol;
 
   /* Create local copy of the partial symbol */
   memcpy (buf, name, namelength);
   buf[namelength] = '\0';
   SYMBOL_NAME (&psymbol) = bcache (buf, namelength + 1, &objfile->psymbol_cache);
-  SYMBOL_VALUE (&psymbol) = val;
+  /* val and coreaddr are mutually exclusive, one of them *will* be zero */
+  if (val != 0)
+    {
+      SYMBOL_VALUE (&psymbol) = val;
+    }
+  else
+    {
+      SYMBOL_VALUE_ADDRESS (&psymbol) = coreaddr;
+    }
   SYMBOL_SECTION (&psymbol) = 0;
   SYMBOL_LANGUAGE (&psymbol) = language;
   PSYMBOL_NAMESPACE (&psymbol) = namespace;
@@ -1690,49 +1699,6 @@ add_psymbol_to_list (name, namelength, namespace, class, list, val, language,
   *list->next++ = psym;
   OBJSTAT (objfile, n_psyms++);
 }
-
-/* Add a symbol with a CORE_ADDR value to a psymtab. */
-
-void
-add_psymbol_addr_to_list (name, namelength, namespace, class, list, val,
-			  language, objfile)
-     char *name;
-     int namelength;
-     namespace_enum namespace;
-     enum address_class class;
-     struct psymbol_allocation_list *list;
-     CORE_ADDR val;
-     enum language language;
-     struct objfile *objfile;
-{
-  register struct partial_symbol *psym;
-  char *buf = alloca (namelength + 1);
-  struct partial_symbol psymbol;
-
-  /* Create local copy of the partial symbol */
-  memcpy (buf, name, namelength);
-  buf[namelength] = '\0';
-  SYMBOL_NAME (&psymbol) = bcache (buf, namelength + 1, &objfile->psymbol_cache);
-  SYMBOL_VALUE_ADDRESS (&psymbol) = val;
-  SYMBOL_SECTION (&psymbol) = 0;
-  SYMBOL_LANGUAGE (&psymbol) = language;
-  PSYMBOL_NAMESPACE (&psymbol) = namespace;
-  PSYMBOL_CLASS (&psymbol) = class;
-  SYMBOL_INIT_LANGUAGE_SPECIFIC (&psymbol, language);
-
-  /* Stash the partial symbol away in the cache */
-  psym = bcache (&psymbol, sizeof (struct partial_symbol), &objfile->psymbol_cache);
-
-  /* Save pointer to partial symbol in psymtab, growing symtab if needed. */
-  if (list->next >= list->list + list->size)
-    {
-      extend_psymbol_list (list, objfile);
-    }
-  *list->next++ = psym;
-  OBJSTAT (objfile, n_psyms++);
-}
-
-#endif /* !INLINE_ADD_PSYMBOL */
 
 /* Initialize storage for partial symbols.  */
 

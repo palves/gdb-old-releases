@@ -133,7 +133,7 @@ value_subscript (array, idx)
 {
   value_ptr bound;
   int c_style = current_language->c_style_arrays;
-  struct type *tarray, *tint;
+  struct type *tarray;
 
   COERCE_REF (array);
   tarray = check_typedef (VALUE_TYPE (array));
@@ -174,7 +174,7 @@ value_subscript (array, idx)
       LONGEST index = value_as_long (idx);
       value_ptr v;
       int offset, byte, bit_index;
-      LONGEST lowerbound, upperbound, word;
+      LONGEST lowerbound, upperbound;
       get_discrete_bounds (range_type, &lowerbound, &upperbound);
       if (index < lowerbound || index > upperbound)
 	error ("bitstring index out of range");
@@ -211,9 +211,9 @@ value_subscripted_rvalue (array, idx, lowerbound)
 {
   struct type *array_type = check_typedef (VALUE_TYPE (array));
   struct type *elt_type = check_typedef (TYPE_TARGET_TYPE (array_type));
-  int elt_size = TYPE_LENGTH (elt_type);
+  unsigned int elt_size = TYPE_LENGTH (elt_type);
   LONGEST index = value_as_long (idx);
-  int elt_offs = elt_size * longest_to_int (index - lowerbound);
+  unsigned int elt_offs = elt_size * longest_to_int (index - lowerbound);
   value_ptr v;
 
   if (index < lowerbound || elt_offs >= TYPE_LENGTH (array_type))
@@ -246,7 +246,7 @@ binop_user_defined_p (op, arg1, arg2)
      value_ptr arg1, arg2;
 {
   struct type *type1, *type2;
-  if (op == BINOP_ASSIGN)
+  if (op == BINOP_ASSIGN || op == BINOP_CONCAT)
     return 0;
   type1 = check_typedef (VALUE_TYPE (arg1));
   type2 = check_typedef (VALUE_TYPE (arg2));
@@ -479,6 +479,9 @@ value_concat (arg1, arg2)
   struct type *type1 = check_typedef (VALUE_TYPE (arg1));
   struct type *type2 = check_typedef (VALUE_TYPE (arg2));
 
+  COERCE_VARYING_ARRAY (arg1, type1);
+  COERCE_VARYING_ARRAY (arg2, type2);
+
   /* First figure out if we are dealing with two values to be concatenated
      or a repeat count and a value to be repeated.  INVAL1 is set to the
      first of two concatenated values, or the repeat count.  INVAL2 is set
@@ -707,11 +710,11 @@ value_binop (arg1, arg2, op)
     /* FIXME: This implements ANSI C rules (also correct for C++).
        What about FORTRAN and chill?  */
     {
-      int promoted_len1 = TYPE_LENGTH (type1);
-      int promoted_len2 = TYPE_LENGTH (type2);
+      unsigned int promoted_len1 = TYPE_LENGTH (type1);
+      unsigned int promoted_len2 = TYPE_LENGTH (type2);
       int is_unsigned1 = TYPE_UNSIGNED (type1);
       int is_unsigned2 = TYPE_UNSIGNED (type2);
-      int result_len;
+      unsigned int result_len;
       int unsigned_operation;
 
       /* Determine type length and signedness after promotion for
@@ -1057,8 +1060,8 @@ value_equal (arg1, arg2)
     return (CORE_ADDR) value_as_long (arg1) == value_as_pointer (arg2);
 
   else if (code1 == code2
-	   && ((len = TYPE_LENGTH (type1))
-	       == TYPE_LENGTH (type2)))
+	   && ((len = (int) TYPE_LENGTH (type1))
+	       == (int) TYPE_LENGTH (type2)))
     {
       p1 = VALUE_CONTENTS (arg1);
       p2 = VALUE_CONTENTS (arg2);
@@ -1188,6 +1191,8 @@ value_in (element, set)
   int member;
   struct type *settype = check_typedef (VALUE_TYPE (set));
   struct type *eltype = check_typedef (VALUE_TYPE (element));
+  if (TYPE_CODE (eltype) == TYPE_CODE_RANGE)
+    eltype = TYPE_TARGET_TYPE (eltype);
   if (TYPE_CODE (settype) != TYPE_CODE_SET)
     error ("Second argument of 'IN' has wrong type");
   if (TYPE_CODE (eltype) != TYPE_CODE_INT
@@ -1199,7 +1204,7 @@ value_in (element, set)
 			    value_as_long (element));
   if (member < 0)
     error ("First argument of 'IN' not in range");
-  return value_from_longest (builtin_type_int, member);
+  return value_from_longest (LA_BOOL_TYPE, member);
 }
 
 void

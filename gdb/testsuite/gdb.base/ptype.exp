@@ -207,8 +207,7 @@ expect {
 # GDB's behavior is correct; the type which the variable is defined
 # as (51) doesn't have a name.  Only 55 has a name.
 
-setup_xfail "i*86-*-sysv4*"
-if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
+if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" "i*86-*-sysv4*" }
 gdb_test "whatis v_boolean" "type = boolean" \
   "whatis unnamed typedef'd enum (compiler bug in IBM's xlc)"
 
@@ -482,8 +481,7 @@ expect {
 #}
 #
 
-setup_xfail "i*86-*-sysv4*"
-if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
+if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" "i*86-*-sysv4*" }
 gdb_test "ptype t_char_array" "type = (|unsigned )char \\\[0?\\\]"
 
 #

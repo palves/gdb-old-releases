@@ -1473,14 +1473,13 @@ alpha_relocate_section (output_bfd, info, input_bfd, input_section,
 	      /* Either gp hasn't been set at all or the current gp
 		 cannot address this .lita section.  In both cases we
 		 reset the gp to point into the "middle" of the
-		 current input .lita section.  For now, we issue a
-		 warning when redefining the gp value (probably should
-		 be made optional). */
+		 current input .lita section.  */
 	      if (gp && !ecoff_data (output_bfd)->issued_multiple_gp_warning)
 		{
-		  (*_bfd_error_handler) 
-		    ("%s: warning: using multiple gp values",
-		     bfd_get_filename (output_bfd));
+		  (*info->callbacks->warning) (info,
+					       "using multiple gp values",
+					       (char *) NULL, output_bfd,
+					       (asection *) NULL, (bfd_vma) 0);
 		  ecoff_data (output_bfd)->issued_multiple_gp_warning = true;
 		}
 	      if (lita_vma < gp - 0x8000)

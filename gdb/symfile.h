@@ -100,71 +100,12 @@ extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
 
 /* Add any kind of symbol to a psymbol_allocation_list. */
 
-#ifndef INLINE_ADD_PSYMBOL
-/* Default this to off for now, and probably eventually remove support for inlining via
-   macros.  Real world tests show no performance improvements by inlining, and the macros
-   just make debugging gdb more complicated and make gdb larger by up to 150 Kb. */
-#define INLINE_ADD_PSYMBOL 0
-#endif
-
-#include "demangle.h"
-
-#if !INLINE_ADD_PSYMBOL
+/* #include "demangle.h" */
 
 extern void
-add_psymbol_to_list PARAMS ((char *, int, namespace_enum,
-			     enum address_class,
-			     struct psymbol_allocation_list *,
-			     long, enum language, struct objfile *));
-
-extern void
-add_psymbol_addr_to_list PARAMS ((char *, int, namespace_enum,
-				  enum address_class,
-				  struct psymbol_allocation_list *,
-				  CORE_ADDR, enum language, struct objfile *));
-
-/* Since one arg is a struct, we have to pass in a ptr and deref it (sigh) */
-
-#define	ADD_PSYMBOL_TO_LIST(name, namelength, namespace, class, list, value, language, objfile) \
-  add_psymbol_to_list (name, namelength, namespace, class, &list, value, language, objfile)
-
-#define	ADD_PSYMBOL_ADDR_TO_LIST(name, namelength, namespace, class, list, value, language, objfile) \
-  add_psymbol_addr_to_list (name, namelength, namespace, class, &list, value, language, objfile)
-
-#else	/* !INLINE_ADD_PSYMBOL */
-
-#define	ADD_PSYMBOL_VT_TO_LIST(NAME,NAMELENGTH,NAMESPACE,CLASS,LIST,VALUE,VT,LANGUAGE, OBJFILE) \
-  do {		        						\
-    register struct partial_symbol *psym;				\
-    char *buf = alloca ((NAMELENGTH) + 1);				\
-    struct partial_symbol psymbol;					\
-    memcpy (buf, (NAME), (NAMELENGTH));					\
-    buf[(NAMELENGTH)] = '\0';						\
-    SYMBOL_NAME (&psymbol) = bcache (buf, (NAMELENGTH) + 1, &(OBJFILE)->psymbol_cache); \
-    VT (&psymbol) = (VALUE);						\
-    SYMBOL_SECTION (&psymbol) = 0;					\
-    SYMBOL_LANGUAGE (&psymbol) = (LANGUAGE);				\
-    PSYMBOL_NAMESPACE (&psymbol) = (NAMESPACE);				\
-    PSYMBOL_CLASS (&psymbol) = (CLASS);					\
-    SYMBOL_INIT_LANGUAGE_SPECIFIC (&psymbol, (LANGUAGE));		\
-    psym = bcache (&psymbol, sizeof (struct partial_symbol), &(OBJFILE)->psymbol_cache); \
-    if ((LIST).next >= (LIST).list + (LIST).size)			\
-      extend_psymbol_list (&(LIST), (OBJFILE));				\
-    *(LIST).next++ = psym;						\
-    OBJSTAT ((OBJFILE), n_psyms++);					\
-  } while (0)
-
-/* Add a symbol with an integer value to a psymtab. */
-
-#define ADD_PSYMBOL_TO_LIST(name, namelength, namespace, class, list, value, language, objfile) \
-  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, list, value, SYMBOL_VALUE, language, objfile)
-
-/* Add a symbol with a CORE_ADDR value to a psymtab. */
-
-#define	ADD_PSYMBOL_ADDR_TO_LIST(name, namelength, namespace, class, list, value, language, objfile)\
-  ADD_PSYMBOL_VT_TO_LIST (name, namelength, namespace, class, list, value, SYMBOL_VALUE_ADDRESS, language, objfile)
-
-#endif	/* INLINE_ADD_PSYMBOL */
+add_psymbol_to_list PARAMS ((char *, int, namespace_enum, enum address_class,
+			     struct psymbol_allocation_list *, long, CORE_ADDR,
+			     enum language, struct objfile *));
 
 extern void init_psymbol_list PARAMS ((struct objfile *, int));
 

@@ -21,6 +21,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 
+/* This file is only compilable if link.h is available. */
+
+#ifdef HAVE_LINK_H
+
 #include <sys/types.h>
 #include <signal.h>
 #include "gdb_string.h"
@@ -64,6 +68,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #ifdef SVR4_SHARED_LIBS
 static char *solib_break_names[] = {
   "r_debug_state",
+  "_r_debug_state",
   "_dl_debug_state",
   NULL
 };
@@ -157,9 +162,6 @@ sharedlibrary_command PARAMS ((char *, int));
 static int
 enable_break PARAMS ((void));
 
-static int
-disable_break PARAMS ((void));
-
 static void
 info_sharedlibrary_command PARAMS ((char *, int));
 
@@ -184,6 +186,9 @@ static CORE_ADDR
 elf_locate_base PARAMS ((void));
 
 #else
+
+static int
+disable_break PARAMS ((void));
 
 static void
 allocate_rt_common_objfile PARAMS ((void));
@@ -403,34 +408,6 @@ solib_add_common_symbols (rtc_symp)
 
 #ifdef SVR4_SHARED_LIBS
 
-#ifdef HANDLE_SVR4_EXEC_EMULATORS
-
-/*
-	Solaris BCP (the part of Solaris which allows it to run SunOS4
-	a.out files) throws in another wrinkle. Solaris does not fill
-	in the usual a.out link map structures when running BCP programs,
-	the only way to get at them is via groping around in the dynamic
-	linker.
-	The dynamic linker and it's structures are located in the shared
-	C library, which gets run as the executable's "interpreter" by
-	the kernel.
-
-	Note that we can assume nothing about the process state at the time
-	we need to find these structures.  We may be stopped on the first
-	instruction of the interpreter (C shared library), the first
-	instruction of the executable itself, or somewhere else entirely
-	(if we attached to the process for example).
-*/
-
-static char *debug_base_symbols[] = {
-  "r_debug",	/* Solaris 2.3 */
-  "_r_debug",	/* Solaris 2.1, 2.2 */
-  NULL
-};
-
-static int
-look_for_base PARAMS ((int, CORE_ADDR));
-
 static CORE_ADDR
 bfd_lookup_symbol PARAMS ((bfd *, char *));
 
@@ -490,6 +467,34 @@ bfd_lookup_symbol (abfd, symname)
     }
   return (symaddr);
 }
+
+#ifdef HANDLE_SVR4_EXEC_EMULATORS
+
+/*
+	Solaris BCP (the part of Solaris which allows it to run SunOS4
+	a.out files) throws in another wrinkle. Solaris does not fill
+	in the usual a.out link map structures when running BCP programs,
+	the only way to get at them is via groping around in the dynamic
+	linker.
+	The dynamic linker and it's structures are located in the shared
+	C library, which gets run as the executable's "interpreter" by
+	the kernel.
+
+	Note that we can assume nothing about the process state at the time
+	we need to find these structures.  We may be stopped on the first
+	instruction of the interpreter (C shared library), the first
+	instruction of the executable itself, or somewhere else entirely
+	(if we attached to the process for example).
+*/
+
+static char *debug_base_symbols[] = {
+  "r_debug",	/* Solaris 2.3 */
+  "_r_debug",	/* Solaris 2.1, 2.2 */
+  NULL
+};
+
+static int
+look_for_base PARAMS ((int, CORE_ADDR));
 
 /*
 
@@ -1240,6 +1245,8 @@ DESCRIPTION
 
 */
 
+#ifndef SVR4_SHARED_LIBS
+
 static int
 disable_break ()
 {
@@ -1287,6 +1294,8 @@ disable_break ()
 
   return (status);
 }
+
+#endif	/* #ifdef SVR4_SHARED_LIBS */
 
 /*
 
@@ -1371,9 +1380,7 @@ enable_break ()
 #ifdef BKPT_AT_SYMBOL
 
   struct minimal_symbol *msymbol;
-  struct objfile *objfile;
   char **bkpt_namep;
-  CORE_ADDR bkpt_addr;
   asection *interp_sect;
 
   /* First, remove all the solib event breakpoints.  Their addresses
@@ -1390,7 +1397,7 @@ enable_break ()
       char *buf;
       CORE_ADDR load_addr;
       bfd *tmp_bfd;
-      asection *lowest_sect;
+      CORE_ADDR sym_addr = 0;
 
       /* Read the contents of the .interp section into a local buffer;
 	 the contents specify the dynamic linker this program uses.  */
@@ -1424,42 +1431,21 @@ enable_break ()
 	 linker) and subtracting the offset of the entry point.  */
       load_addr = read_pc () - tmp_bfd->start_address;
 
-      /* load_addr now has the base address of the dynamic linker;
-	 however, due to severe braindamage in syms_from_objfile
-	 we need to add the address of the .text section, or the
-	 lowest section of .text doesn't exist to work around the
-	 braindamage.  Gross.  */
-      lowest_sect = bfd_get_section_by_name (tmp_bfd, ".text");
-      if (lowest_sect == NULL)
-        bfd_map_over_sections (tmp_bfd, find_lowest_section,
-                               (PTR) &lowest_sect);
-
-      if (lowest_sect == NULL)
+      /* Now try to set a breakpoint in the dynamic linker.  */
+      for (bkpt_namep = solib_break_names; *bkpt_namep != NULL; bkpt_namep++)
 	{
-	  warning ("Unable to find base address for dynamic linker %s\n", buf);
-	  bfd_close (tmp_bfd);
-	  goto bkpt_at_symbol;
+	  sym_addr = bfd_lookup_symbol (tmp_bfd, *bkpt_namep);
+	  if (sym_addr != 0)
+	    break;
 	}
-
-      load_addr += bfd_section_vma (tmp_bfd, lowest_sect);
 
       /* We're done with the temporary bfd.  */
       bfd_close (tmp_bfd);
 
-      /* Now make GDB aware of the symbols in the dynamic linker.  Some
-	 might complain about namespace pollution, but as a developer I've
-	 often wanted these symbols available from within the debugger.  */
-      objfile = symbol_file_add (buf, 0, load_addr, 0, 0, 1);
-
-      /* Now try to set a breakpoint in the dynamic linker.  */
-      for (bkpt_namep = solib_break_names; *bkpt_namep != NULL; bkpt_namep++)
+      if (sym_addr != 0)
 	{
-	  msymbol = lookup_minimal_symbol (*bkpt_namep, NULL, objfile);
-	  if ((msymbol != NULL) && (SYMBOL_VALUE_ADDRESS (msymbol) != 0))
-	    {
-	      create_solib_event_breakpoint (SYMBOL_VALUE_ADDRESS (msymbol));
-	      return 1;
-	    }
+	  create_solib_event_breakpoint (load_addr + sym_addr);
+	  return 1;
 	}
 
       /* For whatever reason we couldn't set a breakpoint in the dynamic
@@ -1701,10 +1687,13 @@ int from_tty;
   solib_add (args, from_tty, (struct target_ops *) 0);
 }
 
+#endif /* HAVE_LINK_H */
+
 void
 _initialize_solib()
 {
-  
+#ifdef HAVE_LINK_H
+
   add_com ("sharedlibrary", class_files, sharedlibrary_command,
 	   "Load shared object library symbols for files matching REGEXP.");
   add_info ("sharedlibrary", info_sharedlibrary_command, 
@@ -1720,4 +1709,6 @@ informs gdb that a new library has been loaded.  Otherwise, symbols\n\
 must be loaded manually, using `sharedlibrary'.",
 		  &setlist),
      &showlist);
+
+#endif /* HAVE_LINK_H */
 }

@@ -7,18 +7,21 @@ set bug_id 0
 
 set testfile langs
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [compile "${srcdir}/${subdir}/langs0.c -g -c -o ${binfile}0.o "] != "" } {
+if  { [compile "-g -c ${srcdir}/${subdir}/langs0.c"] != "" } {
     perror "Couldn't compile langs0.c to object"
     return -1
 }
-if  { [compile "${srcdir}/${subdir}/langs1.c -g -c -o ${binfile}1.o "] != "" } {
+execute_anywhere "mv langs0.o ${binfile}0.o"
+if  { [compile "-g -c ${srcdir}/${subdir}/langs1.c"] != "" } {
     perror "Couldn't compile langs1.c to object"
     return -1
 }
-if  { [compile "${srcdir}/${subdir}/langs2.c -g -c -o ${binfile}2.o "] != "" } {
+execute_anywhere "mv langs1.o ${binfile}1.o"
+if  { [compile "-g -c ${srcdir}/${subdir}/langs2.c"] != "" } {
     perror "Couldn't compile langs2.c to object"
     return -1
 }
+execute_anywhere "mv langs2.o ${binfile}2.o"
 if  { [compile "${binfile}0.o ${binfile}1.o ${binfile}2.o  -o ${binfile}"] != "" } {
     perror "Couldn't link langs."
     return -1
@@ -55,26 +58,20 @@ if [runto csub] then {
     gdb_test "bt" "#0.*csub.*#1.*(foo|foo__Fi) \\(.*#2.*cppsub_ .*#3.*fsub.*#4.*langs0__2do \\(.*#5  \[0-9a-fx\]* in main.*" "backtrace in langs.exp"
 
     if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
-    setup_xfail "i*86-*-sysv4*"
     gdb_test "up" ".* in (foo|foo__Fi) .* at langs2\\.cxx.*return csub \\(.*" \
 	"up to foo in langs.exp"
-    setup_xfail "i*86-*-sysv4*"
     gdb_test "show language" "currently c\\+\\+.*" \
 	"show language at foo in langs.exp"
 
-    setup_xfail "i*86-*-sysv4*"
     if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     gdb_test "up" ".* in cppsub_ .* at langs2\\.cxx.*return foo \\(.*" \
 	"up to cppsub_ in langs.exp"
-    setup_xfail "i*86-*-sysv4*"
     gdb_test "show language" "currently c\\+\\+.*" \
 	"show language at cppsub_ in langs.exp"
 
-    setup_xfail "i*86-*-sysv4*"
     if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     gdb_test "up" ".* in fsub.* at langs1\\.f.*return \\(cppsub .*" \
 	"up to fsub in langs.exp"
-    setup_xfail "i*86-*-sysv4*"
     gdb_test "show language" "currently fortran.*" \
 	"show language at fsub in langs.exp"
 

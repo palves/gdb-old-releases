@@ -1,3 +1,24 @@
+Thu Apr  4 15:17:22 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* INSTALL: Fix some long lines and remove x86 specific options in
+	the examples.
+
+Sun Mar 31 15:47:33 1996  Andrew Cagney  <cagney@kremvax.highland.com.au>
+
+        * INSTALL: Update to reflect gdb-4.16.
+
+        * RUN: Update to reflect gdb-4.16.  Review notes on building a BSD
+        runtime environment.
+
+	* README: Point out copyright status of simulator in introduction.
+
+Thu Mar  7 19:53:49 1996  Michael Meissner  <meissner@cygnus.com>
+
+	* emul_netbsd.c: Only include sys/mount.h if HAVE_SYS_MOUNT_H is
+	defined.
+	* configure.in: Test for sys/mount.h.
+	* configure,config.in: Regenerate.
+
 Thu Feb 22 22:48:57 1996  Andrew Cagney  <cagney@highland.com.au>
 
 	* README, RUN, INSTALL: Update to reflect announcement

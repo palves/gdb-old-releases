@@ -1,7 +1,25 @@
+Tue Mar 19 22:02:07 1996  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cplus-dem.c (demangle_template): Fix for non-mangled pointer
+	arguments.
+
+Fri Mar  8 17:24:18 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: If srcdir is `.' and with_target_subdir is not
+	`.', then set MULTISRCTOP before calling config-ml.in.
+
+Thu Mar  7 13:37:10 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mpw.c (mpw_open): Add debugging output option.
+
+Wed Mar  6 17:36:03 1996  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cplus-dem.c (demangle_template): Fix for address-of-extern arguments.
+
 Tue Feb 27 12:00:50 1996  Raymond Jou  <rjou@mexican.cygnus.com>
 
-	* mpw.c (mpwify_filename): Change 6 to 5 in 
-	strncmp (unixname, "/tmp/", 5)
+	* mpw.c (mpwify_filename): Change 6 to 5 in
+	strncmp (unixname, "/tmp/", 5).
 	
 Tue Feb 20 10:55:53 1996  Ian Lance Taylor  <ian@cygnus.com>
 

@@ -2081,7 +2081,11 @@ coff_compute_section_file_positions (abfd)
 
 }
 
-#ifndef RS6000COFF_C
+#if 0
+
+/* This can never work, because it is called too late--after the
+   section positions have been set.  I can't figure out what it is
+   for, so I am going to disable it--Ian Taylor 20 March 1996.  */
 
 /* If .file, .text, .data, .bss symbols are missing, add them.  */
 /* @@ Should we only be adding missing symbols, or overriding the aux
@@ -2151,9 +2155,7 @@ coff_add_missing_symbols (abfd)
   return true;
 }
 
-#endif /* ! defined (RS6000COFF_C) */
-
-
+#endif /* 0 */
 
 /* SUPPRESS 558 */
 /* SUPPRESS 529 */
@@ -2542,7 +2544,7 @@ coff_write_object_contents (abfd)
   if (bfd_get_symcount (abfd) != 0)
     {
       int firstundef;
-#ifndef RS6000COFF_C
+#if 0
       if (!coff_add_missing_symbols (abfd))
 	return false;
 #endif
@@ -3520,7 +3522,9 @@ dummy_reloc16_extra_cases (abfd, link_info, link_order, reloc, data, src_ptr,
 #else /* ! defined (coff_relocate_section) */
 #define coff_relocate_section NULL
 #define coff_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
+#ifndef coff_bfd_link_add_symbols
 #define coff_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#endif
 #define coff_bfd_final_link _bfd_generic_final_link
 #endif /* ! defined (coff_relocate_section) */
 #define coff_bfd_link_split_section  _bfd_generic_link_split_section

@@ -48,9 +48,10 @@ INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
 
-AR = ar
+AR = @AR@
 AR_FLAGS = qv
 RANLIB = @RANLIB@
+AWK = @AWK@
 
 # Flags that describe where you can find the termcap library.
 # This can be overridden in the host Makefile fragment file.
@@ -193,9 +194,8 @@ REGEX1 = gnu-regex.o
 # TERMCAP comes after readline, since readline depends on it.
 # If you have the Cygnus libraries installed,
 # you can use 'CLIBS=$(INSTALLED_LIBS)' 'CDEPS='
-INSTALLED_LIBS=-lbfd -lreadline $(TERMCAP) -lopcodes -lmmalloc \
-	-liberty $(XM_CLIBS) $(TM_CLIBS) $(NAT_CLIBS) $(ENABLE_CLIBS) \
-	@LIBS@
+INSTALLED_LIBS=-lbfd -lreadline $(TERMCAP) -lopcodes -lmmalloc -liberty \
+	$(XM_CLIBS) $(TM_CLIBS) $(NAT_CLIBS) $(ENABLE_CLIBS) @LIBS@
 CLIBS = $(SIM) $(BFD) $(READLINE) $(OPCODES) $(MMALLOC) $(LIBIBERTY) \
 	$(ENABLE_CLIBS) $(TERMCAP) $(XM_CLIBS) $(TM_CLIBS) $(NAT_CLIBS) \
 	$(LIBIBERTY) @LIBS@
@@ -205,7 +205,7 @@ CDEPS = $(XM_CDEPS) $(TM_CDEPS) $(NAT_CDEPS) $(SIM) $(BFD) $(READLINE) \
 ADD_FILES = $(REGEX) $(XM_ADD_FILES) $(TM_ADD_FILES) $(NAT_ADD_FILES)
 ADD_DEPS = $(REGEX1) $(XM_ADD_FILES) $(TM_ADD_FILES) $(NAT_ADD_FILES)
 
-VERSION = 4.15.2
+VERSION = 4.16
 DIST=gdb
 
 LINT=/usr/5bin/lint
@@ -401,7 +401,7 @@ breakpoint_h =	breakpoint.h $(frame_h) $(value_h)
 command_h =	command.h
 gdbcmd_h =	gdbcmd.h $(command_h)
 
-defs_h =	defs.h xm.h tm.h nm.h config.status
+defs_h =	defs.h xm.h tm.h nm.h config.status config.h
 
 inferior_h =	inferior.h $(breakpoint_h)
 
@@ -582,6 +582,7 @@ init.c: $(OBS) $(TSOBS)
 	    -e '/udip2soc.o/d' \
 	    -e '/udi2go32.o/d' \
 	    -e '/version.o/d' \
+	    -e '/^[a-z0-9A-Z_]*_[SU].o/d' \
 	    -e '/[a-z0-9A-Z_]*-exp.tab.o/d' \
 	    -e 's/\.o/.c/'` ; \
 	  case $$filename in \
@@ -720,7 +721,7 @@ clean mostlyclean:
 # functionality described is if the distributed files are unmodified.
 distclean: clean
 	@$(MAKE) $(FLAGS_TO_PASS) DO=distclean "DODIRS=$(SUBDIRS)" subdir_do 
-	rm -f nm.h tm.h xm.h config.status
+	rm -f nm.h tm.h xm.h config.status config.h stamp-h
 	rm -f y.output yacc.acts yacc.tmp y.tab.h
 	rm -f config.log config.cache
 	rm -f Makefile
@@ -750,6 +751,10 @@ subdir_do: force
 
 Makefile: Makefile.in config.status @frags@
 	$(SHELL) config.status
+
+config.h: stamp-h ; @true
+stamp-h: config.in config.status
+	CONFIG_HEADERS=config.h:config.in $(SHELL) config.status
 
 config.status: configure
 	$(SHELL) config.status --recheck
@@ -923,6 +928,7 @@ ALLCONFIG = config/a29k/a29k-kern.mt config/a29k/a29k-udi.mt config/a29k/vx29k.m
 	config/i386/sun386.mh \
 	config/i386/sun386.mt config/i386/symmetry.mh config/i386/symmetry.mt \
 	config/i386/win32.mh config/i386/win32.mt \
+	config/i960/mon960.mt \
 	config/i960/nindy960.mt config/i960/vxworks960.mt config/m68k/3b1.mh \
 	config/m68k/3b1.mt config/m68k/altos.mh config/m68k/altos.mt \
 	config/m68k/amix.mh config/m68k/amix.mt config/m68k/apollo68b.mh \
@@ -1045,7 +1051,7 @@ coffread.o: coffread.c $(bfd_h) $(breakpoint_h) buildsym.h \
 	gdb_string.h
 
 command.o: command.c $(defs_h) $(expression_h) $(gdbcmd_h) \
-	$(gdbtypes_h) $(symtab_h) $(value_h) gdb_string.h
+	$(gdbtypes_h) $(symtab_h) $(value_h) gdb_string.h $(wait_h)
 
 complaints.o: complaints.c complaints.h $(defs_h) $(gdbcmd_h)
 
@@ -1178,7 +1184,7 @@ inflow.o: inflow.c $(bfd_h) $(command_h) $(defs_h) $(inferior_h) \
 	signals.h target.h terminal.h thread.h gdb_string.h
 
 infptrace.o: infptrace.c $(defs_h) $(gdbcore_h) $(inferior_h) target.h \
-	gdb_string.h
+	gdb_string.h $(wait_h) $(command_h)
 
 infrun.o: infrun.c $(wait_h) $(defs_h) $(gdbcmd_h) $(gdbcore_h) \
 	$(inferior_h) target.h thread.h gdb_string.h
@@ -1226,7 +1232,7 @@ mac-nat.o: mac-nat.c $(defs_h) gdb_string.h
 main.o: main.c top.h $(defs_h) gdb_string.h
 
 maint.o: maint.c $(defs_h) $(gdbcmd_h) $(gdbtypes_h) $(symtab_h) language.h \
-	$(expression_h)
+	$(expression_h) objfiles.h symfile.h
 
 mdebugread.o: mdebugread.c buildsym.h complaints.h $(bfd_h) $(defs_h) \
 	$(expression_h) gdb-stabs.h $(gdbcore_h) $(gdbtypes_h) language.h \
@@ -1396,11 +1402,20 @@ rs6000-nat.o: rs6000-nat.c $(bfd_h) $(defs_h) $(inferior_h) target.h
 rs6000-tdep.o: rs6000-tdep.c $(defs_h) $(gdbcore_h) $(inferior_h) \
 	target.h xcoffsolib.h
 
+scm-exp.o: $(defs_h) $(value_h) parser-defs.h language.h c-lang.h \
+	scm-lang.h scm-tags.h
+
+scm-lang.o: $(defs_h) $(value_h) parser-defs.h language.h c-lang.h \
+	scm-lang.h scm-tags.h gdb_string.h
+
+scm-valprint.o: $(defs_h) $(value_h) parser-defs.h language.h  \
+	scm-lang.h valprint.h
+
 ser-go32.o: ser-go32.c $(defs_h) serial.h 
 
 ser-mac.o: ser-mac.c $(defs_h) serial.h signals.h
 
-ser-tcp.o: ser-tcp.c $(defs_h) serial.h signals.h
+ser-tcp.o: ser-tcp.c $(defs_h) serial.h signals.h gdb_string.h
 
 ser-unix.o: ser-unix.c $(defs_h) serial.h 
 
@@ -1411,6 +1426,9 @@ sh-tdep.o: sh-tdep.c $(bfd_h) $(dis-asm_h) \
 	$(gdbcmd_h) $(gdbtypes_h) $(symtab_h) $(value_h)
 
 sh3-rom.o: sh3-rom.c monitor.h $(bfd_h) $(wait_h) $(defs_h) $(gdbcmd_h) \
+	$(inferior_h) target.h serial.h terminal.h
+
+mon960-rom.o: mon960-rom.c monitor.h $(bfd_h) $(wait_h) $(defs_h) $(gdbcmd_h) \
 	$(inferior_h) target.h serial.h terminal.h
 
 solib.o: solib.c $(command_h) $(defs_h) $(gdbcore_h) $(inferior_h) \
@@ -1495,7 +1513,7 @@ valprint.o: valprint.c $(defs_h) $(expression_h) $(gdbcmd_h) \
 
 values.o: values.c $(defs_h) $(expression_h) $(frame_h) $(gdbcmd_h) \
 	$(gdbcore_h) $(gdbtypes_h) $(symtab_h) target.h $(value_h) \
-	gdb_string.h
+	gdb_string.h scm-lang.h
 
 vax-tdep.o: vax-tdep.c $(OP_INCLUDE)/vax.h $(defs_h) $(symtab_h)
 

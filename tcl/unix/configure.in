@@ -5,6 +5,13 @@ AC_INIT(../generic/tcl.h)
 
 AC_PROG_RANLIB
 AC_PREFIX_PROGRAM(tclsh)
+
+# CYGNUS LOCAL tromey - find config.guess/config.sub in our tree
+AC_CONFIG_AUX_DIR(../..)
+dnl We need AC_CANONICAL_SYSTEM before CY_AC_C_CROSS.
+AC_CANONICAL_SYSTEM
+# END CYGNUS LOCAL
+
 CY_AC_C_CROSS
 AC_PROG_CC
 
@@ -453,7 +460,8 @@ case $system in
     HP-UX-*.08.*|HP-UX-*.09.*|HP-UX-*.10.*)
         # CYGNUS LOCAL
         # gcc uses a different option than the native cc.
-        case "$CC" in
+	if test $have_dl = yes ; then
+	 case "$CC" in
 	  *gcc*)
 	    SHLIB_CFLAGS="-fpic"
 	    SHLIB_LD="gcc -shared -fpic"
@@ -463,11 +471,27 @@ case $system in
 	    SHLIB_LD="ld -b"
 	    ;;
 	  esac
-	SHLIB_SUFFIX=".sl"
-	DL_OBJS="tclLoadShl.o"
-        DL_LIBS="-ldld"
-	LD_FLAGS="-Wl,-E"
-	  ;;
+	 SHLIB_SUFFIX=".sl"
+	 DL_OBJS="tclLoadShl.o"
+         DL_LIBS="-ldld"
+	fi
+
+	# CYGNUS LOCAL: The GNU linker requires the -export-dynamic
+	# option to make all symbols visible in the dynamic symbol
+	# table.
+	hold_ldflags=$LDFLAGS
+	AC_MSG_CHECKING(for the ld -export-dynamic flag)
+	LDFLAGS="${LDFLAGS} -Wl,-export-dynamic"
+	AC_TRY_LINK(, [int i;], found=yes, found=no)
+	LDFLAGS=$hold_ldflags
+	AC_MSG_RESULT($found)
+	if test $found = yes; then
+	  LD_FLAGS="-Wl,-export-dynamic"
+	else
+	  LD_FLAGS="-Wl,-E"
+	fi
+	# END CYGNUS LOCAL
+	;;
     IRIX-4.*)
 	SHLIB_CFLAGS="-G0"
 	SHLIB_LD="echo tclLdAout | tclsh -r -G 0"
@@ -642,7 +666,21 @@ case $system in
 	SHLIB_SUFFIX=".so"
 	DL_OBJS="tclLoadDl.o"
 	DL_LIBS="-ldl"
-	LD_FLAGS="-Wl,-Bexport"
+	# CYGNUS LOCAL fnf
+	# Some UNIX_SV* systems (unixware 1.1.2 for example) have linkers
+	# that don't grok the -Bexport option.  Test that it does.
+	hold_ldflags=$LDFLAGS
+	AC_MSG_CHECKING(for ld accepts -Bexport flag)
+	LDFLAGS="${LDFLAGS} -Wl,-Bexport"
+	AC_TRY_LINK(, [int i;], found=yes, found=no)
+	LDFLAGS=$hold_ldflags
+	AC_MSG_RESULT($found)
+	if test $found = yes; then
+	  LD_FLAGS="-Wl,-Bexport"
+	else
+	  LD_FLAGS=""
+	fi
+	# END CYGNUS LOCAL
 	;;
 esac
 

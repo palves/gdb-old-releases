@@ -2128,9 +2128,10 @@ _bfd_coff_reloc_link_order (output_bfd, finfo, output_section, link_order)
     {
       struct coff_link_hash_entry *h;
 
-      h = coff_link_hash_lookup (coff_hash_table (finfo->info),
-				 link_order->u.reloc.p->u.name,
-				 false, false, true);
+      h = ((struct coff_link_hash_entry *)
+	   bfd_wrapped_link_hash_lookup (output_bfd, finfo->info,
+					 link_order->u.reloc.p->u.name,
+					 false, false, true));
       if (h != NULL)
 	{
 	  if (h->indx >= 0)

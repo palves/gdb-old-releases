@@ -54,4 +54,6 @@ extern PTR mmalloc_getkey PARAMS ((PTR, int));
 
 extern int mmalloc_errno PARAMS ((PTR));
 
+extern int mmtrace PARAMS ((void));
+
 #endif  /* MMALLOC_H */

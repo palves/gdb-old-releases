@@ -1272,6 +1272,11 @@ coff_get_lineno (ignore_abfd, symbol)
   return coffsymbol (symbol)->lineno;
 }
 
+#if 0
+
+/* This is only called from coff_add_missing_symbols, which has been
+   disabled.  */
+
 asymbol *
 coff_section_symbol (abfd, name)
      bfd *abfd;
@@ -1317,6 +1322,8 @@ coff_section_symbol (abfd, name)
 
   return sym;
 }
+
+#endif /* 0 */
 
 /* This function transforms the offsets into the symbol table into
    pointers to syments.  */
@@ -1574,7 +1581,7 @@ coff_get_normalized_symtab (abfd)
     return obj_raw_syments (abfd);
 
   size = obj_raw_syment_count (abfd) * sizeof (combined_entry_type);
-  internal = (combined_entry_type *) bfd_alloc (abfd, size);
+  internal = (combined_entry_type *) bfd_zalloc (abfd, size);
   if (internal == NULL && size != 0)
     return NULL;
   internal_end = internal + obj_raw_syment_count (abfd);
@@ -1600,10 +1607,6 @@ coff_get_normalized_symtab (abfd)
       unsigned int i;
       bfd_coff_swap_sym_in (abfd, (PTR) raw_src,
 			    (PTR) & internal_ptr->u.syment);
-      internal_ptr->fix_value = 0;
-      internal_ptr->fix_tag = 0;
-      internal_ptr->fix_end = 0;
-      internal_ptr->fix_scnlen = 0;
       symbol_ptr = internal_ptr;
 
       for (i = 0;
@@ -1612,11 +1615,6 @@ coff_get_normalized_symtab (abfd)
 	{
 	  internal_ptr++;
 	  raw_src += symesz;
-
-	  internal_ptr->fix_value = 0;
-	  internal_ptr->fix_tag = 0;
-	  internal_ptr->fix_end = 0;
-	  internal_ptr->fix_scnlen = 0;
 	  bfd_coff_swap_aux_in (abfd, (PTR) raw_src,
 				symbol_ptr->u.syment.n_type,
 				symbol_ptr->u.syment.n_sclass,
@@ -2040,48 +2038,47 @@ coff_find_nearest_line (abfd, section, symbols, offset, filename_ptr,
       line_base = 0;
     }
 
-  l = &section->lineno[i];
-
-  for (; i < section->lineno_count; i++)
+  if (section->lineno != NULL)
     {
-      if (l->line_number == 0)
+      l = &section->lineno[i];
+
+      for (; i < section->lineno_count; i++)
 	{
-	  /* Get the symbol this line number points at */
-	  coff_symbol_type *coff = (coff_symbol_type *) (l->u.sym);
-	  if (coff->symbol.value > offset)
-	    break;
-	  *functionname_ptr = coff->symbol.name;
-	  if (coff->native)
+	  if (l->line_number == 0)
 	    {
-	      combined_entry_type *s = coff->native;
-	      s = s + 1 + s->u.syment.n_numaux;
-
-	      /* In XCOFF a debugging symbol can follow the function
-	         symbol.  */
-	      if (s->u.syment.n_scnum == N_DEBUG)
-		s = s + 1 + s->u.syment.n_numaux;
-
-	      /*
-	         S should now point to the .bf of the function
-	       */
-	      if (s->u.syment.n_numaux)
+	      /* Get the symbol this line number points at */
+	      coff_symbol_type *coff = (coff_symbol_type *) (l->u.sym);
+	      if (coff->symbol.value > offset)
+		break;
+	      *functionname_ptr = coff->symbol.name;
+	      if (coff->native)
 		{
-		  /*
-		     The linenumber is stored in the auxent
-		   */
-		  union internal_auxent *a = &((s + 1)->u.auxent);
-		  line_base = a->x_sym.x_misc.x_lnsz.x_lnno;
-		  *line_ptr = line_base;
+		  combined_entry_type *s = coff->native;
+		  s = s + 1 + s->u.syment.n_numaux;
+
+		  /* In XCOFF a debugging symbol can follow the
+		     function symbol.  */
+		  if (s->u.syment.n_scnum == N_DEBUG)
+		    s = s + 1 + s->u.syment.n_numaux;
+
+		  /* S should now point to the .bf of the function.  */
+		  if (s->u.syment.n_numaux)
+		    {
+		      /* The linenumber is stored in the auxent.  */
+		      union internal_auxent *a = &((s + 1)->u.auxent);
+		      line_base = a->x_sym.x_misc.x_lnsz.x_lnno;
+		      *line_ptr = line_base;
+		    }
 		}
 	    }
+	  else
+	    {
+	      if (l->u.offset + bfd_get_section_vma (abfd, section) > offset)
+		break;
+	      *line_ptr = l->line_number + line_base - 1;
+	    }
+	  l++;
 	}
-      else
-	{
-	  if (l->u.offset + bfd_get_section_vma (abfd, section) > offset)
-	    break;
-	  *line_ptr = l->line_number + line_base - 1;
-	}
-      l++;
     }
 
   /* Cache the results for the next call.  */

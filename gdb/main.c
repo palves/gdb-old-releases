@@ -562,11 +562,13 @@ GDB manual (available as on-line info or a printed manual).\n", gdb_stdout);
 
   if (display_space)
     {
+#ifdef HAVE_SBRK
       extern char **environ;
       char *lim = (char *) sbrk (0);
 
       printf_unfiltered ("Startup size: data size %ld\n",
 			 (long) (lim - (char *) &environ));
+#endif
     }
 
   /* The default command loop. 
@@ -597,16 +599,6 @@ GDB manual (available as on-line info or a printed manual).\n", gdb_stdout);
 void
 init_proc ()
 {
-}
-
-int
-proc_wait (pid, status)
-     int pid;
-     int *status;
-{
-#ifndef __GO32__
-  return wait (status);
-#endif
 }
 
 void

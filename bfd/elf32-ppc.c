@@ -1804,9 +1804,12 @@ ppc_elf_add_symbol_hook (abfd, info, sym, namep, flagsp, secp, valp)
 	 put into .sdata.  */
       elf_linker_section_t *sdata = ppc_elf_create_linker_section (abfd, info, LINKER_SECTION_SDATA);
       if (!sdata->bss_section)
-	sdata->bss_section = bfd_make_section (elf_hash_table (info)->dynobj, sdata->bss_name);
+	{
+	  sdata->bss_section = bfd_make_section (elf_hash_table (info)->dynobj, sdata->bss_name);
+	  sdata->bss_section->flags = (sdata->bss_section->flags & ~SEC_LOAD) | SEC_IS_COMMON;
+	}
+
       *secp = sdata->bss_section;
-      (*secp)->flags |= SEC_IS_COMMON;
       *valp = sym->st_size;
     }
 

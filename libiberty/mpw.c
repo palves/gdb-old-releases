@@ -669,11 +669,24 @@ int
 mpw_open (char *filename, int arg2, int arg3)
 {
 #undef open
-
+  int fd, errnum = 0;
   char tmpname[256];
 
   mpwify_filename (filename, tmpname);
-  return open (tmpname, arg2);
+  fd = open (tmpname, arg2);
+  errnum = errno;
+
+  if (DebugPI)
+    {
+      fprintf (stderr, "# open (%s, %d, %d)", tmpname, arg2, arg3);
+      fprintf (stderr, " -> %d", fd);
+      if (fd == -1)
+	fprintf (stderr, " (errno is %d)", errnum);
+      fprintf (stderr, "\n");
+    }
+  if (fd == -1)
+    errno = errnum;
+  return fd;
 }
 
 int

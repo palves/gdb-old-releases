@@ -18,27 +18,27 @@ gcc -O2 -E
 gcc -O2 -E
 gcc -O2 -o conftest conftest.c -lXt
 gcc -O2 -E
-configure:1345: X11/XIntrinsic.h: No such file or directory
+configure:1433: X11/XIntrinsic.h: No such file or directory
 gcc -O2 -E
 gcc -O2 -o conftest conftest.c -lXbsd
-/usr/progressive/bin/ld: cannot open -lXbsd: No such file or directory
+/usr/cygnus/progressive-96q1/H-sparc-sun-sunos4.1/lib/gcc-lib/sparc-sun-sunos4.1/2.7-96q1/../../../../sparc-sun-sunos4.1/bin/ld: cannot open -lXbsd: No such file or directory
 collect2: ld returned 1 exit status
 gcc -O2 -o conftest conftest.c
 gcc -O2 -o conftest conftest.c
 gcc -O2 -c conftest.c
 gcc -O2 -o conftest conftest.c
-configure:1973: warning: conflicting types for built-in function `sin'
-/tmp/cca087671.o(.text+0x18): undefined reference to `sin'
+configure:2061: warning: conflicting types for built-in function `sin'
+/tmp/cca161041.o(.text+0x18): undefined reference to `sin'
 collect2: ld returned 1 exit status
 gcc -O2 -o conftest conftest.c -lieee
-/usr/progressive/bin/ld: cannot open -lieee: No such file or directory
+/usr/cygnus/progressive-96q1/H-sparc-sun-sunos4.1/lib/gcc-lib/sparc-sun-sunos4.1/2.7-96q1/../../../../sparc-sun-sunos4.1/bin/ld: cannot open -lieee: No such file or directory
 collect2: ld returned 1 exit status
 gcc -O2 -o conftest conftest.c
-/tmp/cca087911.o(.text+0x18): undefined reference to `memmove'
+/tmp/cca161281.o(.text+0x18): undefined reference to `memmove'
 collect2: ld returned 1 exit status
 gcc -O2 -o conftest conftest.c
 gcc -O2 -o conftest conftest.c
-/tmp/cca088161.o(.text+0x18): undefined reference to `BSDgettimeofday'
+/tmp/cca161531.o(.text+0x18): undefined reference to `BSDgettimeofday'
 collect2: ld returned 1 exit status
 gcc -O2 -E
 gcc -O2 -o conftest conftest.c

@@ -364,9 +364,8 @@ if [runto_main] then {
 The program being debugged stopped while in a function called from GDB.*" \
 	"p func1 () #2 in signals.exp"
     # But we should be able to backtrace...
-    # On alpha-*-osf2.0 this test works when run manually but fails when
+    # On alpha-*-osf2.0 this test works when run manually but sometime fails when
     # run under dejagnu, making it very hard to debug the problem.  Weird...
-    if {$gcc_compiled} then { setup_xfail "alpha-*-osf2*" }
     gdb_test "bt" "#0.*handler.*#1.*#2.*main.*" "bt in signals.exp"
     # ...and continue...
     gdb_test "continue" "Continuing\\." "continue in signals.exp"

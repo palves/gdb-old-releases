@@ -80,7 +80,7 @@ subdirs=
 target_alias=NOTARGET
 target_makefile_frag=
 undefs=NOUNDEFS
-version="$Revision: 1.221 $"
+version="$Revision: 1.222.4.1 $"
 x11=default
 
 ### we might need to use some other shell than /bin/sh for running subshells
@@ -180,8 +180,8 @@ do
 		esac
 
 		enableopt=`echo ${option} | sed 's:^--::;s:=.*$::;s:-:_:g'`
-		eval $enableopt="$optarg"
-		enableoptions="$enableoptions $option"
+		eval "$enableopt='$optarg'"
+		enableoptions="$enableoptions '$option'"
 		;;
 	--exec-prefix* | --ex*)
 		exec_prefix=$optarg
@@ -774,6 +774,44 @@ s/\\\n//g
   NM_FOR_TARGET=${NM_FOR_TARGET-${target_alias}-nm}
   RANLIB=${RANLIB-${host_alias}-ranlib}
   RANLIB_FOR_TARGET=${RANLIB_FOR_TARGET-${target_alias}-ranlib}
+
+  if [ -z "${BISON}" ]; then
+    IFS="${IFS= 	}"; save_ifs="$IFS"; IFS="${IFS}:"
+    for dir in $PATH; do
+      test -z "$dir" && dir=.
+      if test -f $dir/byacc; then
+	BISON=byacc
+	break
+      fi
+      if test -f $dir/bison; then
+	BISON=bison
+	break
+      fi
+      if test -f $dir/yacc; then
+	BISON=yacc
+	break
+      fi
+    done
+    IFS="$save_ifs"
+    BISON=${BISON-bison}
+  fi
+
+  if [ -z "${LEX}" ]; then
+    IFS="${IFS= 	}"; save_ifs="$IFS"; IFS="${IFS}:"
+    for dir in $PATH; do
+      test -z "$dir" && dir=.
+      if test -f $dir/flex; then
+	LEX=flex
+	break
+      fi
+      if test -f $dir/lex; then
+	LEX=lex
+	break
+      fi
+    done
+    IFS="$save_ifs"
+    LEX=${LEX-flex}
+  fi
 
   # Export variables which autoconf might try to set.
   export AS

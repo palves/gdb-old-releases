@@ -1,3 +1,14 @@
+Sun Apr  7 20:55:30 1996  Fred Fish  <fnf@rtl.cygnus.com>
+
+	From: Miles Bader  <miles@gnu.ai.mit.edu>
+	* configure.in: Use AC_CHECK_TOOL to find AR & RANLIB.
+	* configure: Regenerate with autoconf.
+	* Makefile.in: Use AR set by configure substitution.
+	
+Fri Mar 29 09:57:36 1996  Fred Fish  <fnf@cygnus.com>
+
+	* mmalloc.h (mmtrace): Add prototype.
+
 Sat Feb  3 12:41:00 1996  Fred Fish  <fnf@cygnus.com>
 
 	From H.J. Lu (hjl@gnu.ai.mit.edu):

@@ -544,11 +544,6 @@ NAME(aout,final_link) PARAMS ((bfd *, struct bfd_link_info *,
 boolean
 NAME(aout,bfd_free_cached_info) PARAMS ((bfd *));
 
-/* Prototypes for functions in stab-syms.c. */
-
-CONST char *
-aout_stab_name PARAMS ((int code));
-
 /* A.out uses the generic versions of these routines... */
 
 #define	aout_32_get_section_contents	_bfd_generic_get_section_contents

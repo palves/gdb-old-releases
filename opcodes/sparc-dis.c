@@ -267,6 +267,10 @@ print_insn_sparc (memaddr, info)
 	      && strchr (opcode->args, 'r') != 0)
 	      /* Can't do simple format if source and dest are different.  */
 	      continue;
+	  if (X_RS2 (insn) != X_RD (insn)
+	      && strchr (opcode->args, 'O') != 0)
+	      /* Can't do simple format if source and dest are different.  */
+	      continue;
 
 	  (*info->fprintf_func) (stream, opcode->name);
 
@@ -325,6 +329,7 @@ print_insn_sparc (memaddr, info)
 		    break;
 
 		  case '2':
+		  case 'O':
 		    reg (X_RS2 (insn));
 		    break;
 

@@ -64,8 +64,9 @@ bfd_coff_reloc16_get_value (reloc, link_info, input_section)
 	 we convert this stuff to use a specific final_link function
 	 and change the interface to bfd_relax_section to not require
 	 the generic symbols.  */
-      h = bfd_link_hash_lookup (link_info->hash, bfd_asymbol_name (symbol),
-				false, false, true);
+      h = bfd_wrapped_link_hash_lookup (input_section->owner, link_info,
+					bfd_asymbol_name (symbol),
+					false, false, true);
       if (h != (struct bfd_link_hash_entry *) NULL
 	  && (h->type == bfd_link_hash_defined
 	      || h->type == bfd_link_hash_defweak))

@@ -58,7 +58,10 @@ int getrusage();
 #endif
 
 #include <sys/ioctl.h>
+
+#if HAVE_SYS_MOUNT_H
 #include <sys/mount.h>
+#endif
 
 #if HAVE_DIRENT_H
 # include <dirent.h>

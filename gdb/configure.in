@@ -21,6 +21,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.3)dnl
 AC_INIT(main.c)
+AC_CONFIG_HEADER(config.h:config.in)
 
 AC_PROG_CC
 AC_AIX
@@ -28,32 +29,36 @@ AC_MINIX
 AC_ISC_POSIX
 
 AC_PROG_INSTALL
-AC_PROG_RANLIB
+AC_CHECK_TOOL(AR, ar)
+AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_PROG_YACC
+AC_PROG_AWK
 
 AC_CONFIG_AUX_DIR(`cd $srcdir;pwd`/..)
 AC_CANONICAL_SYSTEM
 AC_ARG_PROGRAM
 
 AC_HEADER_STDC
-AC_CHECK_HEADERS(limits.h memory.h string.h strings.h unistd.h termios.h termio.h sgtty.h stddef.h sys/procfs.h)
+AC_CHECK_HEADERS(limits.h memory.h string.h strings.h unistd.h termios.h termio.h sgtty.h stddef.h sys/procfs.h link.h endian.h)
 AC_HEADER_STAT
 
+AC_CHECK_FUNCS(setpgid sbrk)
+
 AC_MSG_CHECKING([for gregset_t type])
-AC_CACHE_VAL(gdb_have_gregset_t,
+AC_CACHE_VAL(gdb_cv_have_gregset_t,
 [AC_TRY_LINK([#include <sys/procfs.h>],[gregset_t *gregsetp = 0],
-gdb_have_gregset_t=yes, gdb_have_gregset_t=no)])
-AC_MSG_RESULT($gdb_have_gregset_t)
-if test $gdb_have_gregset_t = yes; then
+gdb_cv_have_gregset_t=yes, gdb_cv_have_gregset_t=no)])
+AC_MSG_RESULT($gdb_cv_have_gregset_t)
+if test $gdb_cv_have_gregset_t = yes; then
   AC_DEFINE(HAVE_GREGSET_T)
 fi
 
 AC_MSG_CHECKING([for fpregset_t type])
-AC_CACHE_VAL(gdb_have_fpregset_t,
+AC_CACHE_VAL(gdb_cv_have_fpregset_t,
 [AC_TRY_LINK([#include <sys/procfs.h>],[fpregset_t *fpregsetp = 0],
-gdb_have_fpregset_t=yes, gdb_have_fpregset_t=no)])
-AC_MSG_RESULT($gdb_have_fpregset_t)
-if test $gdb_have_fpregset_t = yes; then
+gdb_cv_have_fpregset_t=yes, gdb_cv_have_fpregset_t=no)])
+AC_MSG_RESULT($gdb_cv_have_fpregset_t)
+if test $gdb_cv_have_fpregset_t = yes; then
   AC_DEFINE(HAVE_FPREGSET_T)
 fi
 
@@ -61,7 +66,7 @@ dnl See if compiler supports "long double" type.  Can't use AC_C_LONG_DOUBLE
 dnl because autoconf complains about cross-compilation issues.  However, this
 dnl code uses the same variables as the macro for compatibility.
 
-AC_MSG_CHECKING(for long double)
+AC_MSG_CHECKING(for long double support in compiler)
 AC_CACHE_VAL(ac_cv_c_long_double,
 [AC_TRY_COMPILE(, [long double foo;],
 ac_cv_c_long_double=yes, ac_cv_c_long_double=no)])
@@ -69,6 +74,25 @@ AC_MSG_RESULT($ac_cv_c_long_double)
 if test $ac_cv_c_long_double = yes; then
   AC_DEFINE(HAVE_LONG_DOUBLE)
 fi
+
+dnl See if the compiler and runtime support printing long doubles
+
+AC_MSG_CHECKING(for long double support in printf)
+AC_CACHE_VAL(gdb_cv_printf_has_long_double,
+[AC_TRY_RUN([
+int main () {
+  char buf[16];
+  long double f = 3.141592653;
+  sprintf (buf, "%Lg", f);
+  return (strncmp ("3.14159", buf, 7));
+}],
+gdb_cv_printf_has_long_double=yes,
+gdb_cv_printf_has_long_double=no,
+gdb_cv_printf_has_long_double=no)])
+if test $gdb_cv_printf_has_long_double = yes; then
+  AC_DEFINE(PRINTF_HAS_LONG_DOUBLE)
+fi
+AC_MSG_RESULT($gdb_cv_printf_has_long_double)
 
 AC_FUNC_MMAP
 
@@ -274,7 +298,9 @@ i[3456]86-*-linux*)	gdb_host=linux ;;
 i[3456]86-*-lynxos*)	gdb_host=i386lynx ;;
 i[3456]86-*-mach3*)	gdb_host=i386m3 ;;
 i[3456]86-*-mach*)	gdb_host=i386mach ;;
+i[3456]86-*-gnu*)	gdb_host=i386gnu ;;
 i[3456]86-*-osf1mk*)	gdb_host=osf1mk ;;
+i[3456]86-*-sco3.2v5*)	gdb_host=i386sco5 ;;
 i[3456]86-*-sco3.2v4*)	gdb_host=i386sco4 ;;
 i[3456]86-*-sco*)	gdb_host=i386sco ;;
 i[3456]86-*-solaris*)	gdb_host=i386sol2 ;;
@@ -441,17 +467,21 @@ i[3456]86-*-sunos*)	gdb_target=sun386 ;;
 i[3456]86-*-sysv4*)	gdb_target=i386v4 ;;
 i[3456]86-*-sco*)	gdb_target=i386v ;;
 i[3456]86-*-sysv*)	gdb_target=i386v ;;
-i[3456]86-*-linux*)	gdb_target=linux ;;
+i[3456]86-*-linux*)	gdb_target=linux
+		configdirs="${configdirs} gdbserver" ;;
 i[3456]86-*-isc*)	gdb_target=i386v ;;
 i[3456]86-*-mach3*)	gdb_target=i386m3 ;;
 i[3456]86-*-mach*)	gdb_target=i386mach ;;
+i[3456]86-*-gnu*)	gdb_target=i386gnu ;;
 i[3456]86-*-netware*)	gdb_target=i386nw
 		configdirs="${configdirs} nlm" ;;
 i[3456]86-*-osf1mk*)	gdb_target=i386mk ;;
 i[3456]86-*-cygwin32)	gdb_target=cygwin32  ;;
 i960-*-bout*)		gdb_target=vxworks960 ;;
-i960-*-coff*)		gdb_target=nindy960 ;;
-i960-*-elf*)		gdb_target=nindy960 ;;
+i960-nindy-coff*)	gdb_target=nindy960 ;;
+i960-*-coff*)		gdb_target=mon960 ;;
+i960-nindy-elf*)	gdb_target=nindy960 ;;
+i960-*-elf*)		gdb_target=mon960 ;;
 
 i960-*-nindy*)		gdb_target=nindy960 ;;
 i960-*-vxworks*)	gdb_target=vxworks960 ;;
@@ -682,6 +712,11 @@ case ${srcdir} in
 *)
 grep "source ${srcdir}/.gdbinit" .gdbinit >/dev/null 2>/dev/null || \
 echo "source ${srcdir}/.gdbinit" >> .gdbinit
+esac
+
+case x$CONFIG_HEADERS in
+xconfig.h:config.in)
+echo > stamp-h ;;
 esac
 ],
 [

@@ -977,6 +977,11 @@ do_registers_info (regnum, fpregs)
 	  continue;
       }
 
+      /* If the register name is empty, it is undefined for this
+	 processor, so don't display anything.  */
+      if (reg_names[i] == NULL || *(reg_names[i]) == '\0')
+	continue;
+
       fputs_filtered (reg_names[i], gdb_stdout);
       print_spaces_filtered (15 - strlen (reg_names[i]), gdb_stdout);
 
@@ -1022,7 +1027,7 @@ do_registers_info (regnum, fpregs)
 
       /* Else if virtual format is too long for printf,
 	 print in hex a byte at a time.  */
-      else if (REGISTER_VIRTUAL_SIZE (i) > sizeof (long))
+      else if (REGISTER_VIRTUAL_SIZE (i) > (int) sizeof (long))
 	{
 	  register int j;
 	  printf_filtered ("0x");
@@ -1159,17 +1164,19 @@ attach_command (args, from_tty)
   clear_proceed_status ();
   stop_soon_quietly = 1;
 
-#ifndef MACH
-  /* Mach 3 does not generate any traps when attaching to inferior,
-     and to set up frames we can do this.  */
-
+  /* No traps are generated when attaching to inferior under Mach 3
+     or GNU hurd.  */
+#ifndef ATTACH_NO_WAIT
   wait_for_inferior ();
 #endif
 
 #ifdef SOLIB_ADD
   if (auto_solib_add)
-  /* Add shared library symbols from the newly attached process, if any.  */
-    SOLIB_ADD ((char *)0, from_tty, (struct target_ops *)0);
+    {
+      /* Add shared library symbols from the newly attached process, if any.  */
+      SOLIB_ADD ((char *)0, from_tty, (struct target_ops *)0);
+      re_enable_breakpoints_in_shlibs ();
+    }
 #endif
 
   normal_stop ();

@@ -99,13 +99,13 @@ BFD_LIBS = \
 	archive.o archures.o bfd.o cache.o coffgen.o corefile.o \
 	format.o init.o libbfd.o opncls.o reloc.o \
 	section.o syms.o targets.o hash.o linker.o \
-	elf.o srec.o binary.o tekhex.o ihex.o
+	elf.o srec.o binary.o tekhex.o ihex.o stab-syms.o
 
 BFD_LIBS_CFILES = \
 	archive.c archures.c bfd.c cache.c coffgen.c corefile.c \
 	format.c init.c libbfd.c opncls.c reloc.c \
 	section.c syms.c targets.c hash.c linker.c \
-	elf.c srec.c binary.c tekhex.c ihex.c
+	elf.c srec.c binary.c tekhex.c ihex.c stab-syms.c
 
 # This list is alphabetized to make it easier to keep in sync
 # with the decls and initializer in archures.c.
@@ -236,7 +236,6 @@ BFD32_BACKENDS = \
 	reloc16.o \
 	sparclynx.o \
 	sparcnetbsd.o \
-	stab-syms.o \
 	sunos.o \
 	tekhex.o \
 	versados.o \
@@ -321,7 +320,6 @@ BFD32_BACKENDS_CFILES = \
 	reloc16.c \
 	sparclynx.c \
 	sparcnetbsd.c \
-	stab-syms.c \
 	sunos.c \
 	tekhex.c \
 	versados.c \
@@ -810,6 +808,8 @@ srec.o: srec.c $(INCDIR)/libiberty.h
 binary.o: binary.c
 tekhex.o: tekhex.c $(INCDIR)/libiberty.h
 ihex.o: ihex.c $(INCDIR)/libiberty.h
+stab-syms.o: stab-syms.c libaout.h $(INCDIR)/bfdlink.h \
+  $(INCDIR)/aout/aout64.h $(INCDIR)/aout/stab.def
 cpu-a29k.o: cpu-a29k.c
 cpu-alpha.o: cpu-alpha.c
 cpu-arm.o: cpu-arm.c
@@ -1042,8 +1042,6 @@ sparclynx.o: sparclynx.c $(INCDIR)/aout/sun4.h libaout.h \
 sparcnetbsd.o: sparcnetbsd.c netbsd.h libaout.h $(INCDIR)/bfdlink.h \
   aout-target.h $(INCDIR)/aout/aout64.h $(INCDIR)/aout/stab_gnu.h \
   $(INCDIR)/aout/stab.def $(INCDIR)/aout/ar.h
-stab-syms.o: stab-syms.c libaout.h $(INCDIR)/bfdlink.h \
-  $(INCDIR)/aout/aout64.h $(INCDIR)/aout/stab.def
 sunos.o: sunos.c $(INCDIR)/bfdlink.h libaout.h aoutf1.h \
   $(INCDIR)/aout/sun4.h $(INCDIR)/aout/aout64.h $(INCDIR)/aout/stab_gnu.h \
   $(INCDIR)/aout/stab.def $(INCDIR)/aout/ar.h aout-target.h

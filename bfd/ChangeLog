@@ -1,3 +1,137 @@
+Sun Apr  7 18:23:36 1996  Fred Fish  <fnf@cygnus.com>
+
+	From: Miles Bader  <miles@gnu.ai.mit.edu>
+	* configure.in: Use AC_CHECK_TOOL to find ar & ranlib.
+	* configure: Regenerate with autoconf.
+	
+Wed Apr  3 16:22:16 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in (mips-sony-bsd*): Fix typo in AC_DEFINE.
+	(AC_CHECK_HEADERS): Check for sys/time.h
+	(AC_HEADER_TIME): Add macro.
+	* configure: Regenerate with autoconf.
+	* config.in: Regenerate with autoheader.
+	* sysdep.h: Use TIME_WITH_SYS_TIME and HAVE_SYS_TIME_H
+	to control what combination of <time> and <sys/time.h>
+	get included.
+	
+Wed Mar 20 16:53:12 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* coffcode.h (coff_add_missing_symbols): Ifdef out.
+	(coff_write_object_contents): Don't call coff_add_missing_symbols.
+	* coffgen.c (coff_section_symbol): Ifdef out.
+
+Mon Mar 18 12:54:41 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* elf32-mips.c (mips_elf_gprel32_reloc): Initialize gp if
+	output_bfd is not NULL.
+
+Thu Mar 14 17:12:06 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* coffgen.c (coff_get_normalized_symtab): Call bfd_zalloc instead
+	of bfd_alloc (fixes fix_line not being initialized).
+	Delete zeroing of fix_{value,tag,end,scnlen} fields.
+
+Thu Mar 14 16:06:06 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* coffcode.h: Allow specific backends to override the
+	bfd_link_add_symbols routine.
+
+	* coff-h8300.c: Include genlink.h.
+	(howto_table): Add R_MEM_INDIRECT.
+	(rtype2howto): Support R_MEM_INDIRECT.
+	(h8300_reloc16_extra_cases): Handle R_MEM_INDIRECT like R_RELBYTE
+	for now.
+	
+Tue Mar 12 12:41:17 1996  David Mosberger-Tang  <davidm@koala.azstarnet.com>
+
+	* coff-alpha.c (alpha_relocate_section): Use
+	info->callbacks_warning, rather than _bfd_error_handler, for
+	"multiple gp" warning.
+
+Tue Mar 12 12:10:55 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* linker.c (bfd_wrapped_link_hash_lookup): New function.
+	(_bfd_generic_link_add_one_symbol): Remove BFD_ASSERT on hash
+	table string.  Use bfd_wrapped_link_hash_lookup.
+	(_bfd_generic_link_write_global_symbol): Remove BFD_ASSERT on hash
+	table string.
+	* aoutx.h (aout_link_write_symbols): Use the name from the hash
+	table, if any, when writing out symbols.
+	(aout_link_input_section_std): Use the name from the hash table,
+	if any, when reporting undefined symbols.
+	(aout_link_input_section_ext): Likewise.
+	(aout_link_reloc_link_order): Use bfd_wrapped_link_hash_lookup.
+	* bout.c (get_value): Likewise.
+	* cofflink.c (_bfd_coff_reloc_link_order): Likewise.
+	* ecoff.c (ecoff_reloc_link_order): Likewise.
+	* elflink.h (elf_link_add_object_symbols): Likewise.
+	(elf_reloc_link_order): Likewise.	
+	* linker.c (_bfd_generic_link_output_symbols): Likewise.
+	(_bfd_generic_reloc_link_order): Likewise.
+	(default_indirect_link_order): Likewise.
+	* reloc16.c (bfd_coff_reloc16_get_value): Likewise.
+	* sunos.c (sunos_add_one_symbol): Likewise.
+	* xcofflink.c (xcoff_link_add_symbols): Likewise.
+	(bfd_xcoff_link_count_reloc): Likewise.
+	(xcoff_reloc_link_order): Likewise.
+
+	* ecoffswap.h (ecoff_swap_fdr_in): If ECOFF_64, turn 0xffffffff
+	into -1 for intern->rss.
+
+	* configure: Rebuild with autoconf 2.8.
+
+Mon Mar 11 12:28:31 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* stab-syms.c (__define_stab_duplicate): Define.
+	(bfd_get_stab_name): Rename from aout_stab_name.  Rewrite to use a
+	switch.
+	* bfd-in.h (bfd_get_stab_name): Declare.
+	* bfd-in2.h: Rebuild.
+	* Makefile.in: Rebuild dependencies.
+	(BFD_LIBS): Add stab-syms.o.
+	(BFD_LIBS_CFILES): Add stab-syms.c.
+	(BFD32_BACKENDS): Remove stab-syms.o.
+	(BFD32_BACKENDS_CFILES): Remove stab-syms.c.
+	* configure.in: Don't list stab-syms.o in bfd_backends.
+	* configure: Rebuild.
+	* libaout.h (aout_stab_name): Don't declare.
+	* aoutx.h (NAME(aout,get_symbol_info)): Call bfd_get_stab_name,
+	not aout_stab_name.
+
+Fri Mar  8 11:26:20 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* elf.c (assign_file_positions_for_segments): Adjust file offset
+	for section alignment even if SEC_LOAD is not set.
+
+Tue Mar  5 12:02:23 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Don't set SHLIB or SHLINK to an empty string,
+	since they appear as targets in Makefile.in.
+	* configure: Rebuild.
+
+	* sunos.c (sunos_scan_ext_relocs): If not making a shared library,
+	don't fiddle with a symbol which is not defined anywhere.
+
+Mon Mar  4 12:49:16 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* xcofflink.c (xcoff_mark): Treat undefined imported symbols as
+	though they are defined in a shared library.
+	(xcoff_build_ldsyms): Likewise.
+
+	* coffgen.c (coff_find_nearest_line): Don't look at the line
+	numbers for the section if section->lineno is NULL.
+
+	* elf.c (_bfd_elf_symbol_from_bfd_symbol): Print a useful error
+	message rather than calling BFD_ASSERT.
+	* elfcode.h (write_relocs): Check return value of
+	_bfd_elf_symbol_from_bfd_symbol.
+
+Fri Mar  1 09:42:59 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* elf32-ppc.c (ppc_elf_add_symbol_hook): Don't set SEC_LOAD flag
+	for .sbss section.
+
 Wed Feb 28 11:25:47 1996  Jeffrey A Law  (law@cygnus.com)
 
 	* libhppa.h (hppa_reloc_field_selector_type): Add R_HPPA_NLSEL
@@ -653,7 +787,7 @@ Thu Jan 25 12:14:16 1996  Ian Lance Taylor  <ian@cygnus.com>
 	* xcofflink.c (bfd_xcoff_size_dynamic_sections): Don't set
 	entry_section from hentry.
 	(xcoff_link_input_bfd): If a defined symbol has XCOFF_ENTRY set,
-	set snentyr.
+	set snenty.
 	(xcoff_link_input_bfd): Set sntoc, not toc_section.
 	(xcoff_write_global_symbol): Get toc_section from sntoc, rather
 	than using toc_section directly.

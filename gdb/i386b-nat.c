@@ -47,6 +47,11 @@ store_inferior_registers(regno)
   ptrace (PT_SETREGS, inferior_pid, (PTRACE_ARG3_TYPE) &inferior_registers, 0);
 }
 
+struct md_core {
+  struct reg intreg;
+  struct fpreg freg;
+};
+
 void
 fetch_core_registers (core_reg_sect, core_reg_size, which, ignore)
      char *core_reg_sect;
@@ -54,7 +59,13 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, ignore)
      int which;
      unsigned int ignore;
 {
-  abort();
+  struct md_core *core_reg = (struct md_core *)core_reg_sect;
+
+  /* integer registers */
+  memcpy(&registers[REGISTER_BYTE (0)], &core_reg->intreg,
+	 sizeof(struct reg));
+  /* floating point registers */
+  /* XXX */
 }
 
 #else
@@ -70,12 +81,25 @@ static int tregmap[] =
   tEIP, tEFLAGS, tCS, tSS
 };
 
+#ifdef sEAX
 static int sregmap[] = 
 {
   sEAX, sECX, sEDX, sEBX,
   sESP, sEBP, sESI, sEDI,
   sEIP, sEFLAGS, sCS, sSS
 };
+#else /* No sEAX */
+
+/* FreeBSD has decided to collapse the s* and t* symbols.  So if the s*
+   ones aren't around, use the t* ones for sregmap too.  */
+
+static int sregmap[] = 
+{
+  tEAX, tECX, tEDX, tEBX,
+  tESP, tEBP, tESI, tEDI,
+  tEIP, tEFLAGS, tCS, tSS
+};
+#endif /* No sEAX */
 
 /* blockend is the value of u.u_ar0, and points to the
    place where ES is stored.  */

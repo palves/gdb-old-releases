@@ -144,7 +144,8 @@ Kinds of operands:
 	z	%icc. (v9)
 	Z	%xcc. (v9)
 	q	Floating point queue.
-	r	Single register that is both rs1 and rsd.
+	r	Single register that is both rs1 and rd.
+	O	Single register that is both rs2 and rd.
 	Q	Coprocessor queue.
 	S	Special case.
 	t	Trap base register.
@@ -167,7 +168,7 @@ Kinds of operands:
 	x	OPF field (v9 impdep).
 
 The following chars are unused: (note: ,[] are used as punctuation)
-[OXY3450]
+[XY3450]
 
 */
 

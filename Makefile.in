@@ -650,12 +650,12 @@ $(DO_X):
 	    case $$i in \
 	    gcc) \
 	      for flag in $(EXTRA_GCC_FLAGS); do \
-		eval `echo "$$flag" | sed -e "s|^\(.*\)=\(.*\)|\1='\2'|"`; \
+		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'|"`; \
 	      done; \
 	      ;; \
 	    *) \
 	      for flag in $(EXTRA_HOST_FLAGS); do \
-		eval `echo "$$flag" | sed -e "s|^\(.*\)=\(.*\)|\1='\2'|"`; \
+		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'|"`; \
 	      done; \
 	      ;; \
 	    esac ; \
@@ -676,7 +676,7 @@ $(DO_X):
 	for i in $(TARGET_CONFIGDIRS) -dummy-; do \
 	  if [ -f $(TARGET_SUBDIR)/$$i/Makefile ]; then \
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
-		eval `echo "$$flag" | sed -e "s|^\(.*\)=\(.*\)|\1='\2'|"`; \
+		eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'|"`; \
 	    done; \
 	    export AR AS CC CXX NM RANLIB DLLTOOL; \
 	    if (cd $(TARGET_SUBDIR)/$$i; \
@@ -894,8 +894,16 @@ $(CONFIGURE_TARGET_MODULES):
 	    esac; \
 	    if [ "$(srcdir)" = "." ] ; then \
 	      if [ "$(TARGET_SUBDIR)" != "." ] ; then \
-		if $(SHELL) $${srcroot}/symlink-tree $${topdir}/$${dir} "Makefile" ; then \
-		  true; \
+		if $(SHELL) $${srcroot}/symlink-tree $${topdir}/$${dir} "no-such-file" ; then \
+		  if [ -f Makefile ]; then \
+		    if $(MAKE) distclean; then \
+		      true; \
+		    else \
+		      exit 1; \
+		    fi; \
+		  else \
+		    true; \
+		  fi; \
 		else \
 		  exit 1; \
 		fi; \

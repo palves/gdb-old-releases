@@ -128,7 +128,15 @@ monitor_debug (prefix, string, suffix)
 {
   int ch;
 
-  fputs_unfiltered (prefix, gdb_stderr);
+  /* print prefix and suffix after each line */
+  static int new_line=1;
+  if (new_line==1) {	/* print prefix if last char was a newline */
+    fputs_unfiltered (prefix, gdb_stderr);
+    new_line=0;
+  }
+  if (strchr(string,'\n'))	/* save state for next call */
+    new_line=1;
+
   while ((ch = *string++) != '\0')
     {
       switch (ch) {
@@ -144,15 +152,17 @@ monitor_debug (prefix, string, suffix)
       case '\\': fputs_unfiltered ("\\\\",  gdb_stderr);	break;	
       case '\b': fputs_unfiltered ("\\b",   gdb_stderr);	break;	
       case '\f': fputs_unfiltered ("\\f",   gdb_stderr);	break;	
-      case '\n': fputs_unfiltered ("\\n\n", gdb_stderr);	break;	
-      case '\r': fputs_unfiltered ("\\r\n", gdb_stderr);	break;	
+      case '\n': fputs_unfiltered ("\\n",   gdb_stderr);	break;	
+      case '\r': fputs_unfiltered ("\\r",   gdb_stderr);	break;	
       case '\t': fputs_unfiltered ("\\t",   gdb_stderr);	break;	
       case '\v': fputs_unfiltered ("\\v",   gdb_stderr);	break;	
       }
     }
 
-  fputs_unfiltered (suffix, gdb_stderr);
-  fputs_unfiltered ("\n", gdb_stderr);
+  if (new_line==1) {	/* print suffix if last char was a newline */
+    fputs_unfiltered (suffix, gdb_stderr);
+    fputs_unfiltered ("\n", gdb_stderr);
+  }
 }
 
 /* monitor_printf_noecho -- Send data to monitor, but don't expect an echo.
@@ -557,7 +567,10 @@ monitor_open (args, mon_ops, from_tty)
   if (current_monitor->stop)
     {
       monitor_stop ();
-      monitor_expect_prompt (NULL, 0);
+      if ((current_monitor->flags & MO_NO_ECHO_ON_OPEN) == 0)
+        {
+        monitor_expect_prompt (NULL, 0); 
+      }
     }
 
   /* wake up the monitor and see if it's alive */
@@ -566,7 +579,10 @@ monitor_open (args, mon_ops, from_tty)
       /* Some of the characters we send may not be echoed,
 	 but we hope to get a prompt at the end of it all. */
 	 
-      monitor_printf (*p);
+      if ((current_monitor->flags & MO_NO_ECHO_ON_OPEN) == 0)
+        monitor_printf(*p); 
+      else
+        monitor_printf_noecho (*p);
       monitor_expect_prompt (NULL, 0);
     }
 
@@ -665,10 +681,10 @@ monitor_resume (pid, step, sig)
     }
 }
 
-/* Parse the output of a register dump command.  A monitor specific regexp is
-   used to extract individual register descriptions of the form REG=VAL.  Each
-   description is split up into a name and a value string which are passed down
-   to monitor specific code.  */
+/* Parse the output of a register dump command.  A monitor specific
+   regexp is used to extract individual register descriptions of the
+   form REG=VAL.  Each description is split up into a name and a value
+   string which are passed down to monitor specific code.  */
 
 static char *
 parse_register_dump (buf, len)
@@ -679,8 +695,8 @@ parse_register_dump (buf, len)
     {
       int regnamelen, vallen;
       char *regname, *val;
-/* Element 0 points to start of register name, and element 1 points to the
-   start of the register value.  */
+      /* Element 0 points to start of register name, and element 1
+	 points to the start of the register value.  */
       struct re_registers register_strings;
 
       if (re_search (&register_pattern, buf, len, 0, len,
@@ -839,9 +855,9 @@ monitor_fetch_register (regno)
 
   monitor_printf (current_monitor->getreg.cmd, name);
 
-  /* If RESP_DELIM is specified, we search for that as a leading delimiter for
-     the register value.  Otherwise, we just start searching from the start of
-     the buf.  */
+  /* If RESP_DELIM is specified, we search for that as a leading
+     delimiter for the register value.  Otherwise, we just start
+     searching from the start of the buf.  */
 
   if (current_monitor->getreg.resp_delim)
     monitor_expect (current_monitor->getreg.resp_delim, NULL, 0);
@@ -865,9 +881,10 @@ monitor_fetch_register (regno)
 
   regbuf[i] = '\000';		/* terminate the number */
 
-  /* If TERM is present, we wait for that to show up.  Also, (if TERM is
-     present), we will send TERM_CMD if that is present.  In any case, we collect
-     all of the output into buf, and then wait for the normal prompt.  */
+  /* If TERM is present, we wait for that to show up.  Also, (if TERM
+     is present), we will send TERM_CMD if that is present.  In any
+     case, we collect all of the output into buf, and then wait for
+     the normal prompt.  */
 
   if (current_monitor->getreg.term)
     {
@@ -893,6 +910,7 @@ static void monitor_dump_regs ()
     {
       char buf[200];
       int resp_len;
+
       monitor_printf (current_monitor->dump_registers);
       resp_len = monitor_expect_prompt (buf, sizeof (buf));
       parse_register_dump (buf, resp_len);
@@ -940,10 +958,10 @@ monitor_store_register (regno)
 
   monitor_printf (current_monitor->setreg.cmd, name, val);
 
-/* It's possible that there are actually some monitors out there that will
-   prompt you when you set a register.  In that case, you may need to add some
-   code here to deal with TERM and TERM_CMD (see monitor_fetch_register to get
-   an idea of what's needed...) */
+/* It's possible that there are actually some monitors out there that
+   will prompt you when you set a register.  In that case, you may
+   need to add some code here to deal with TERM and TERM_CMD (see
+   monitor_fetch_register to get an idea of what's needed...) */
 
   monitor_expect_prompt (NULL, 0);
 }
@@ -1403,6 +1421,8 @@ monitor_load (file, from_tty)
 static void
 monitor_stop ()
 {
+  if ((current_monitor->flags & MO_SEND_BREAK_ON_STOP) != 0)
+    SERIAL_SEND_BREAK (monitor_desc);
   if (current_monitor->stop)
     monitor_printf_noecho (current_monitor->stop);
 }

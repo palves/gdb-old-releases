@@ -28,14 +28,16 @@ set bug_id 0
 
 set testfile "scope"
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [compile "${srcdir}/${subdir}/scope0.c -g -c -o ${binfile}0.o "] != "" } {
+if  { [compile "-g -c ${srcdir}/${subdir}/scope0.c"] != "" } {
     perror "Couldn't compile scope0.c to object"
     return -1
 }
-if  { [compile "${srcdir}/${subdir}/scope1.c -g -c -o ${binfile}1.o "] != "" } {
+execute_anywhere "mv scope0.o ${binfile}0.o"
+if  { [compile "-g -c ${srcdir}/${subdir}/scope1.c"] != "" } {
     perror "Couldn't compile scope1.c to object"
     return -1
 }
+execute_anywhere "mv scope1.o ${binfile}1.o"
 if  { [compile "${objdir}/${subdir}/scope0.o ${objdir}/${subdir}/scope1.o -o ${binfile}"] != "" } {
     perror "Couldn't link scope."
     return -1
@@ -1037,7 +1039,6 @@ gdb_test "print 'scope0.c'::filelocal_ro" "= 201"
 # so we actually read memory from the board.  Problem is crt0.o
 # is responsible for clearing bss and that hasnt' happened yet.
 setup_xfail "hppa*-*-*pro*"
-if {$gcc_compiled} then { setup_xfail "rs6000-*-*" }
 send "print 'scope0.c'::filelocal_bss\n"
 expect {
     -re " = 0\r\n$prompt $" {
@@ -1054,9 +1055,6 @@ expect {
 	fail "print 'scope0.c'::filelocal_bss before run"
     }
 }
-
-# AIX--sections get mapped to the same address so we can't get the right one.
-setup_xfail "rs6000-*-*"
 
 gdb_test "print 'scope0.c'::filelocal" "= 1" \
     "print 'scope0.c'::filelocal before run"

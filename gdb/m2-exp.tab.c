@@ -55,7 +55,7 @@
 
 
 #include "defs.h"
-#include <string.h>
+#include "gdb_string.h"
 #include "expression.h"
 #include "language.h"
 #include "value.h"
@@ -1830,7 +1830,7 @@ yylex ()
 
 
   /* See if it is a special token of length 2 */
-  for( i = 0 ; i < sizeof tokentab2 / sizeof tokentab2[0] ; i++)
+  for( i = 0 ; i < (int) (sizeof tokentab2 / sizeof tokentab2[0]) ; i++)
      if(STREQN(tokentab2[i].name, tokstart, 2))
      {
 	lexptr += 2;
@@ -1987,7 +1987,7 @@ yylex ()
   lexptr += namelen;
 
   /*  Lookup special keywords */
-  for(i = 0 ; i < sizeof(keytab) / sizeof(keytab[0]) ; i++)
+  for(i = 0 ; i < (int) (sizeof(keytab) / sizeof(keytab[0])) ; i++)
      if(namelen == strlen(keytab[i].keyw) && STREQN(tokstart,keytab[i].keyw,namelen))
 	   return keytab[i].token;
 
@@ -2049,6 +2049,7 @@ yylex ()
 	  error("internal:  Undefined class in m2lex()");
 
        case LOC_LABEL:
+       case LOC_UNRESOLVED:
 	  error("internal:  Unforseen case in m2lex()");
        }
     }

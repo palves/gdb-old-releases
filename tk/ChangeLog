@@ -1,3 +1,21 @@
+Thu Mar  7 10:08:57 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (config.status): Depend on nothing.
+
+Wed Mar  6 19:07:38 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (Makefile): Removed redundant target.
+
+Thu Feb 29 21:32:44 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (srcdir): Add macro.
+	(configure): Run autoconf in source dir, not build dir.
+
+Thu Feb 29 14:59:03 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (Makefile): New rule.
+	(config.status): New rule.
+
 Wed Jan 24 09:42:29 1996  Tom Tromey  <tromey@creche.cygnus.com>
 
 	* Makefile.in: Replaced realclean with maintainer-clean.

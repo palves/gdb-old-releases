@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* If we're using autoconf, it will define HAVE_TERMIOS_H,
    HAVE_TERMIO_H and HAVE_SGTTY_H for us. One day we can rewrite
    ser-unix.c and inflow.c to inspect those names instead of
-   HAVE_TERMIOS, HAVE_TERMIO and the implicit HAVE_SGTYY (when neither
+   HAVE_TERMIOS, HAVE_TERMIO and the implicit HAVE_SGTTY (when neither
    HAVE_TERMIOS or HAVE_TERMIO is set).  Until then, make sure that
    nothing has already defined the one of the names, and do the right
    thing. */

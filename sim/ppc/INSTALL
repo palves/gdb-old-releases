@@ -22,127 +22,51 @@
     ----------------------------------------------------------------------
 
 
-To build PSIM you will need the following files:
-
-
-	gdb-4.15.tar.gz		From your favorite GNU ftp site.
-				If you would prefer a graphical
-				development environment then PSIM can
-				also be built with gdbtk:
-			ftp://ftp.cygnus.com/pub/gdb/gdbtk-4.15.tar.gz
-
-
-	ftp://ftp.ci.com.au/pub/psim/gdb-4.15+psim.diff.gz
-or	ftp://cambridge.cygnus.com/pub/psim/gdb-4.15+psim.diff.gz
-
-				Firstly this file contains a few
-				minor changes to gdb-4.15 so that it
-				will build PSIM as part of GDB.
-
-
-	ftp://ftp.ci.com.au/pub/psim/gdb-4.15+note.diff.gz
-or	ftp://cambridge.cygnus.com/pub/psim/gdb-4.15+note.diff.gz
-
-				Add support for note sections (used
-				by OpenBoot PowerPC programs).
-
-
-	ftp://ftp.ci.com.au/pub/psim/gdb-4.15+attach.diff.gz
-or	ftp://cambridge.cygnus.com/pub/psim/gdb-4.15+attach.diff.gz
-	
-				Allow the gdb attach command to
-				work with simulators.
-
-
-	ftp://ftp.ci.com.au/pub/psim/psim-1.0.1.tar.gz
-or	ftp://cambridge.cygnus.com/pub/psim/psim-1.0.1.tar.gz
-
-				This contains the psim files proper.
-
-
-	gcc			Again available from your favorite
-				GNU ftp site.
-
-
-	patch			Some versions of patch do not like
-				the -p option. You may want to consider
-				installing gnu's patch.
-
-
-    ----------------------------------------------------------------------
-
-
 BUILDING PSIM:
 
+PSIM 1.0.2 is included in GDB-4.16.  To build PSIM you will need the
+following:
 
-	0.	A starting point
+	gdb-4.16.tar.gz		Available from your favorite GNU
+				ftp site
 
-		$ ls -1
-		gdb-4.15+attach.diff.gz
-		gdb-4.15+note.diff.gz
-		gdb-4.15+psim.diff.gz
-		gdb-4.15+psim.diff.gz
-		gdb-4.15.tar.gz
-		psim-1.0.1.tar.gz
-
+	gcc			GCC version two includes suport
+				for long long (64bit integer)
+				arrithemetic which PSIM uses.  Hence
+				it is recommended that you build PSIM
+				using GCC.
+				
+Method:
 
 	1.	Unpack gdb
 
-		$ gunzip < gdb-4.15.tar.gz | tar xf -
+		$ cd .../scratch
+		$ gunzip < gdb-4.16.tar.gz | tar xf -
 
 
-	2.	Change to the gdb directory, apply the psim patches and unpack
-		the psim files.
-
-		$ cd gdb-4.15
-
-		$ gunzip < ../gdb-4.15+psim.diff.gz | more
-		$ gunzip < ../gdb-4.15+psim.diff.gz | patch -p1
-
-		$ gunzip < ../gdb-4.15+psim-1.0.1.tar.gz | tar tvf -
-		$ gunzip < ../gdb-4.15+psim-1.0.1.tar.gz | tar xvf -
-
-		You may also want to consider applying the `attach' and
-		`note' patches that are available vis:
-
-		$ gunzip < ../gdb-4.15+attach.diff.gz | more
-		$ gunzip < ../gdb-4.15+attach.diff.gz | patch -p
-
-		$ gunzip < ../gdb-4.15+note.diff.gz | more
-		$ gunzip < ../gdb-4.15+note.diff.gz | patch -p
-
-
-	3.	Configure gdb
+	2.	Configure gdb
 
 		First consult the gdb documentation
 
-		$ cd gdb-4.15
+		$ cd .../scratch
+		$ cd gdb-4.16
 		$ more README
 		$ more gdb/README
 
 		then something like (I assume SH):
 
 		$ CC=gcc ./configure \
-                        --target=powerpc-unknown-eabisim \
-                        --prefix=/applications/psim
-
-		eabisim is needed as by default (because PSIM needs GCC) the
-		simulator is not built.
-
-		[If building with a more recent gdb snapshot then the
-		 command:
-		 $ ./configure \
                         --enable-sim-powerpc \
                         --target=powerpc-unknown-eabi \
                         --prefix=/applications/psim
-		 is used.]
+
 
 	4.	Build (again specifying GCC)
 
 		$ make CC=gcc
 
-		alternatively, if you are short on disk space or just want the
-		simulator built:
+		alternatively, if you are short on disk space or only
+		want to build the simulator:
 
 		$ ( cd libiberty && make CC=gcc )
 		$ ( cd bfd && make CC=gcc )
@@ -165,17 +89,21 @@ BUILDING PSIM:
 UPDATING PSIM:
 
 
-A PSIM is an ongoing development, occasional snapshots (that include
-new features) are made available.  To build/install one of these
-snapshots, you replace the current gdb/sim/ppc directory with the one
-in the update, re-configure and rebuild.
+A PSIM is an ongoing development.  Occasional snapshots which both contain new
+features and fix old bugs are made available.  See the ftp directory:
 
+	ftp://ftp.ci.com.au/pub/psim/beta
+or	ftp://cambridge.cygnus.com/pub/psim/beta
+
+for the latest version.  To build/install one of these snapshots, you
+replace the sim/ppc found in the gdb archive with with one from the
+snapshot.  Then just re-configure and rebuild/install.
 
 	Procedure:
 
 	0.	A starting point
 
-		$ cd gdb-4.15
+		$ cd gdb-4.16
 
 
 	1.	Remove the old psim directory
@@ -192,9 +120,38 @@ in the update, re-configure and rebuild.
 	3.	Reconfigure/rebuild (as seen above):
 
 		$ CC=gcc ./configure \
+			--enable-sim-powerpc \
                         --target=powerpc-unknown-eabi \
                         --prefix=/applications/psim
 		$ make CC=gcc
+
+
+    ----------------------------------------------------------------------
+
+
+UPDATES TO GDB:
+
+From time to time, problems involving the integration of PSIM into gdb
+are found.  While eventually each of these problems is resolved there
+can be periouds during which a local hack may be needed.
+
+At the time of writing the following were outstanding:
+
+	ATTACH command:
+
+		ftp://ftp.ci.com.au/pub/psim/gdb-4.15+attach.diff.gz
+	or	ftp://cambridge.cygnus.com/pub/psim/gdb-4.15+attach.diff.gz
+	
+	PSIM, unlike the other simulators found in GDB, is able to load
+	the description of a target machine (including the initial
+	state of all processor registers) from a file.
+
+	Unfortunatly GDB does not yet have a standard command that
+	facilitates the use of this feature.  Until such a command is
+	added, the patch (hack?) gdb-4.15+attach.diff.gz can be used to
+	extend GDB's attach command so that it can be used to initialize
+	the simulators configuration from a file.
+
 
 
     ----------------------------------------------------------------------
@@ -230,19 +187,6 @@ of the gdb directory tree) vis:
 			--enable-sim-inline
 		$ make CC=gcc
 
-[NOTE: gdb-4.15's top level configure script has a problem with some
-of PSIM's configure options.  If a problem is experienced, cd to the
-sim/ppc directory and run configure from there:
-
-		$ cd gdb-4.15
-		$ CC=gcc ./configure \
-                        --target=powerpc-unknown-eabisim \
-                        --prefix=/applications/psim
-		$ cd sim/ppc
-		$ ./configure --enable-sim-inline --target=....
-		$ cd ../..
-		$ make CC=gcc
-
 For a brief list of PSIM's configuration options, configure --help
 will list them vis:
 
@@ -259,9 +203,9 @@ Each PSIM specific option is discussed in detail below.
 Specify additional C compiler flags that are to be used when compiling
 just PSIM.
 
-PSIM places heavy demands on both the host machine and its C compiler.
-So that the builder has better control over the compiler the above
-option can be used to pass additional options to the compiler while PSIM is being built.
+PSIM places heavy demands on both the host machine and its C compiler.  So that
+the builder has better control over the compiler the above option can be used
+to pass additional options to the compiler while PSIM is being built.
 
 Ex: No debug information
 
@@ -604,7 +548,8 @@ Additional processors can be enabled with the runtime option:
 
 Ex: recommended
 
-Unless you intend studying multi-processor systems there is little reason for having PSIM configured with SMP support.  Specifying:
+Unless you intend studying multi-processor systems there is little reason for
+having PSIM configured with SMP support.  Specifying:
 
 	--disable-sim-smp
 or	--enable-sim-smp=0
@@ -663,8 +608,9 @@ NOTE: Psim has yet to be built on a 64bit host.
 Hardwire the PowerPC environment being modelled (user, virtual or
 operating).
 
-The PowerPC architecture defines three different levels of compliance
-to its architectural specification.  These environments are discussed in detail in PowerPC publications.
+The PowerPC architecture defines three different levels of compliance to its
+architectural specification.  These environments are discussed in detail in
+PowerPC publications.
 
 	user - normal user programs 
 	virtual - an extension of the user environment (includes timers)
@@ -821,7 +767,6 @@ TYPICAL CONFIGURATION OPTIONS:
                 --enable-sim-warnings \
                 --enable-sim-inline \
                 --disable-sim-smp \
-                --enable-sim-bswap \
                 --enable-sim-duplicate \
                 --enable-sim-endian=big \
                 --disable-sim-xor-endian \
@@ -829,7 +774,7 @@ TYPICAL CONFIGURATION OPTIONS:
                 --disable-sim-reserved-bits \
                 --disable-sim-assert \
                 --disable-sim-trace \
-                --enable-sim-cflags='-g0 -O2 -fno-strength-reduce -fomit-frame-pointer -malign-loops=2 -malign-jumps=2 -malign-functions=2'
+                --enable-sim-cflags='-g0,-O2,-fno-strength-reduce,-fomit-frame-pointer'
 
 
 	OEA CODE ONLY:
@@ -855,7 +800,6 @@ TYPICAL CONFIGURATION OPTIONS:
                 --enable-sim-powerpc \
                 --enable-sim-inline \
                 --disable-sim-smp \
-                --enable-sim-bswap \
                 --enable-sim-duplicate \
                 --enable-sim-endian=big \
                 --disable-sim-xor-endian \
@@ -865,4 +809,4 @@ TYPICAL CONFIGURATION OPTIONS:
                 --disable-sim-trace \
                 --enable-sim-opcode=ppc-opcode-flat \
                 --disable-sim-icache \
-                --enable-sim-cflags='-g0 -O3 -fno-strength-reduce -fomit-frame-pointer -malign-loops=2 -malign-jumps=2 -malign-functions=2'
+                --enable-sim-cflags='-g0,-O3,-fno-strength-reduce,-fomit-frame-pointer'

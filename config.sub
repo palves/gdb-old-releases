@@ -519,6 +519,10 @@ case $basic_machine in
 		basic_machine=i960-intel
 		os=-nindy
 		;;
+	mon960)
+		basic_machine=i960-intel
+		os=-mon960
+		;;
 	np1)
 		basic_machine=np1-gould
 		;;
@@ -813,8 +817,8 @@ case $os in
 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
 	      | -vms* | -sco* | -esix* | -isc* | -aix* | -sunos | -sunos[3456]* \
 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -solaris* | -sym* \
-	      | -amigados* | -msdos* | -moss* | -newsos* | -unicos* | -aof* |-aos* \
-	      | -nindy* | -vxworks* | -ebmon* | -hms* | -mvs* | -clix* \
+	      | -amigados* | -msdos* | -moss* | -newsos* | -unicos* | -aos* | -aof* \
+	      | -nindy* | -mon960* | -vxworks* | -ebmon* | -hms* | -mvs* | -clix* \
 	      | -riscos* | -linux* | -uniplus* | -iris* | -rtu* | -xenix* \
 	      | -hiux* | -386bsd* | -netbsd* | -freebsd* | -riscix* \
 	      | -lynxos* | -bosx* | -nextstep* | -cxux* | -aout* | -elf* \

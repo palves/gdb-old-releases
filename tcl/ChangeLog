@@ -1,3 +1,25 @@
+Thu Mar  7 10:01:05 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (config.status): Don't depend on configure.
+
+Wed Mar  6 10:48:56 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (Makefile): Removed redundant rule.
+
+Thu Feb 29 21:27:38 1996  Fred Fish  <fnf@ninemoons.com>
+
+	* Makefile.in (configure): Run autoconf in source dir,
+	not build dir.
+
+Thu Feb 29 09:08:52 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (Makefile): New rule.
+	(config.status): New rule.
+
+	* tests/all: Use $srcdir to find tests.
+	Source `defs' here.
+	Only print filename, not entire path.
+
 Tue Feb 27 20:40:56 1996  Rob Savoye  <rob@chinadoll.cygnus.com>
 
 	* unix/configure.in: Use -fpic for dltests, as gcc now support

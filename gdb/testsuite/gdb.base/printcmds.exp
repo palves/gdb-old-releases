@@ -1011,10 +1011,6 @@ send "set print address off\n" ; expect -re "$prompt $"
 send "set width 0\n" ; expect -re "$prompt $"
 
 if [set_lang_c] then {
-# On AIX, we can't print variables before we run the program.  This is because
-# the data segment and text segment are in the same range of addresses until
-# they are relocated.  Ick.
-    setup_xfail "rs6000-*-aix*"
     gdb_test "p ctable1\[120\]" "120 'x'"
 
     if [runto_main] then {
