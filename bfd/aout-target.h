@@ -17,6 +17,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include "aout/aout64.h"
+#include "aout/stab_gnu.h"
+#include "aout/ar.h"
+/*#include "libaout.h"*/
+
 /* Set parameters about this a.out file that are machine-dependent.
    This routine is called from some_aout_object_p just before it returns.  */
 static bfd_target *
@@ -144,7 +149,14 @@ DEFUN(MY(write_object_contents),(abfd),
   struct external_exec exec_bytes;
   struct internal_exec *execp = exec_hdr (abfd);
 
+#if CHOOSE_RELOC_SIZE
+  CHOOSE_RELOC_SIZE(abfd);
+#else
+  obj_reloc_entry_size (abfd) = RELOC_STD_SIZE;
+#endif
+
   WRITE_HEADERS(abfd, execp);
+
   return true;
 }
 #define MY_write_object_contents MY(write_object_contents)
@@ -290,7 +302,7 @@ bfd_target MY(vec) =
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   ' ',				/* ar_pad_char */
-  16,				/* ar_max_namelen */
+  15,				/* ar_max_namelen */
   1,				/* minimum alignment */
 #ifdef TARGET_IS_BIG_ENDIAN_P
   _do_getb64, _do_putb64,	_do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */

@@ -1,5 +1,5 @@
 /* ELF support for BFD.
-   Copyright (C) 1991 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1992 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
    in "UNIX System V Release 4, Programmers Guide: ANSI C and
@@ -84,6 +84,10 @@ typedef struct {
   Elf_Word	sh_info;		/* Additional section information */
   Elf_Word	sh_addralign;		/* Section alignment */
   Elf_Word	sh_entsize;		/* Entry size if section holds table */
+
+  /* The internal rep also has some cached info associated with it. */
+  void		*rawdata;		/* null if unused... */
+  
 } Elf_Internal_Shdr;
 
 /* Symbol table entry */
@@ -105,3 +109,17 @@ typedef struct {
   Elf_Word	type;			/* Interpretation of the descriptor */
   char		name[1];		/* Start of the name+desc data */
 } Elf_Internal_Note;
+
+/* Relocation Entries */
+
+typedef struct {
+  Elf_Addr	r_offset;	/* Location at which to apply the action */
+  Elf_Word	r_info;		/* index and type of relocation */
+} Elf_Internal_Rel;
+
+typedef struct {
+  Elf_Addr	r_offset;	/* Location at which to apply the action */
+  Elf_Word	r_info;		/* Index and Type of relocation */
+  Elf_Sword	r_addend;	/* Constant addend used to compute value */
+} Elf_Internal_Rela;
+

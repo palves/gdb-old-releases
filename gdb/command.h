@@ -15,8 +15,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#ifndef _COMMAND_H_INCLUDED
-#define _COMMAND_H_INCLUDED
+#if !defined (COMMAND_H)
+#define COMMAND_H 1
 
 /* Not a set/show command.  Note that some commands which begin with
    "set" or "show" might be in this category, if their syntax does
@@ -66,8 +66,12 @@ struct cmd_list_element
     /* Function definition of this command.
        Zero for command class names and for help topics that
        are not really commands.  */
-    void (*function) ();
-#   define NO_FUNCTION ((void (*)()) 0 )
+    union {
+	void (*cfunc) PARAMS ((char *args, int from_tty));
+	void (*sfunc) PARAMS ((char *args, int from_tty,
+			       struct cmd_list_element *c));
+    } function;
+#   define NO_FUNCTION ((void (*) PARAMS((char *args, int from_tty))) 0)
 
     /* Documentation of this command (or help topic).
        First line is brief documentation; remaining lines form, with it,
@@ -102,7 +106,7 @@ struct cmd_list_element
     char abbrev_flag;
 
     /* Completion routine for this command.  */
-    char **(*completer)();
+    char ** (*completer) PARAMS ((char *text));
 
     /* Type of "set" or "show" command (or SET_NOT_SET if not "set"
        or "show").  */
@@ -121,42 +125,87 @@ struct cmd_list_element
 
 /* Forward-declarations of the entry-points of command.c.  */
 
-extern struct cmd_list_element *add_cmd ();
-extern struct cmd_list_element *add_alias_cmd ();
-extern struct cmd_list_element *add_prefix_cmd ();
-extern struct cmd_list_element *add_abbrev_prefix_cmd ();
-extern struct cmd_list_element *lookup_cmd (), *lookup_cmd_1 ();
-extern void add_com ();
-extern void add_com_alias ();
-extern void add_info ();
-extern void add_info_alias ();
-extern char **complete_on_cmdlist ();
-extern void delete_cmd ();
-extern void help_cmd ();
-void help_list (
-#ifdef __STDC__
-		struct cmd_list_element *, char *, enum command_class, FILE *
-#endif
-		);
-void help_cmd_list (
-#ifdef __STDC__
-		    struct cmd_list_element *, enum command_class, char *,
-		    int, FILE *
-#endif
-		    );
-extern struct cmd_list_element *add_set_cmd ();
-extern struct cmd_list_element *add_show_from_set ();
+extern struct cmd_list_element *
+add_cmd PARAMS ((char *, enum command_class, void (*fun) (char *, int),
+		 char *, struct cmd_list_element **));
+
+extern struct cmd_list_element *
+add_alias_cmd PARAMS ((char *, char *, enum command_class, int,
+		       struct cmd_list_element **));
+
+extern struct cmd_list_element *
+add_prefix_cmd PARAMS ((char *, enum command_class, void (*fun) (char *, int),
+			char *, struct cmd_list_element **, char *, int,
+			struct cmd_list_element **));
+
+extern struct cmd_list_element *
+add_abbrev_prefix_cmd PARAMS ((char *, enum command_class,
+			       void (*fun) (char *, int), char *,
+			       struct cmd_list_element **, char *, int,
+			       struct cmd_list_element **));
+
+extern struct cmd_list_element *
+lookup_cmd PARAMS ((char **, struct cmd_list_element *, char *, int, int));
+
+extern struct cmd_list_element *
+lookup_cmd_1 PARAMS ((char **, struct cmd_list_element *,
+		      struct cmd_list_element **, int));
+
+extern void
+add_com PARAMS ((char *, enum command_class, void (*fun)(char *, int),
+		 char *));
+
+extern void
+add_com_alias PARAMS ((char *, char *, enum command_class, int));
+
+extern void
+add_info PARAMS ((char *, void (*fun) (char *, int), char *));
+
+extern void
+add_info_alias PARAMS ((char *, char *, int));
+
+extern char **
+complete_on_cmdlist PARAMS ((struct cmd_list_element *, char *));
+
+extern void
+delete_cmd PARAMS ((char *, struct cmd_list_element **));
+
+extern void
+help_cmd PARAMS ((char *, FILE *));
+
+extern void
+help_list PARAMS ((struct cmd_list_element *, char *, enum command_class,
+		   FILE *));
+
+extern void
+help_cmd_list PARAMS ((struct cmd_list_element *, enum command_class, char *,
+		       int, FILE *));
+
+extern struct cmd_list_element *
+add_set_cmd PARAMS ((char *, enum command_class, var_types, char *, char *,
+		     struct cmd_list_element **));
+
+extern struct cmd_list_element *
+add_show_from_set PARAMS ((struct cmd_list_element *,
+			   struct cmd_list_element **));
 
 /* Do a "set" or "show" command.  ARG is NULL if no argument, or the text
    of the argument, and FROM_TTY is nonzero if this command is being entered
    directly by the user (i.e. these are just like any other
    command).  C is the command list element for the command.  */
-extern void do_setshow_command ();
+
+extern void
+do_setshow_command PARAMS ((char *, int, struct cmd_list_element *));
 
 /* Do a "show" command for each thing on a command list.  */
-extern void cmd_show_list ();
 
-extern void error_no_arg ();		/* Print error for missing argument */
-extern void dont_repeat ();		/* Avoid auto-repeat of command */
+extern void
+cmd_show_list PARAMS ((struct cmd_list_element *, int, char *));
 
-#endif /* _COMMAND_H_INCLUDED */
+extern void
+error_no_arg PARAMS ((char *));
+
+extern void
+dont_repeat PARAMS ((void));
+
+#endif /* !defined (COMMAND_H) */

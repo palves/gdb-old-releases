@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-m88k.c,v 1.23 1992/01/24 22:44:02 sac Exp $ */
+/* $Id: coff-m88k.c,v 1.24 1992/02/20 16:31:22 gnu Exp $ */
 
 #define M88 1		/* Customize various include files */
 #include "bfd.h"
@@ -53,7 +53,7 @@ DEFUN(howto_hvrt16,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
 bfd *abfd AND
 arelent *reloc_entry AND
 asymbol *symbol_in AND
-unsigned char *data AND
+PTR data AND
 asection *ignore_input_section)
 {
   long relocation = 0;

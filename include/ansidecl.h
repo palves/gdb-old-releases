@@ -86,6 +86,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	DEFUN(name, arglist, args)	name(args)
 #define	DEFUN_VOID(name)		name(NOARGS)
 
+#define PROTO(type, name, arglist) type name arglist
+
+
 #else	/* Not ANSI C.  */
 
 #define	PTR		char *
@@ -102,7 +105,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	EXFUN(name, proto)		name()
 #define	DEFUN(name, arglist, args)	name arglist args;
 #define	DEFUN_VOID(name)		name()
-
+#define PROTO(type, name, arglist) type name ()
 #endif	/* ANSI C.  */
 
 

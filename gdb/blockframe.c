@@ -18,85 +18,30 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "symtab.h"
+#include "bfd.h"
+#include "symfile.h"
+#include "objfiles.h"
 #include "frame.h"
 #include "gdbcore.h"
 #include "value.h"		/* for read_register */
 #include "target.h"		/* for target_has_stack */
+#include "inferior.h"		/* for read_pc */
 
-CORE_ADDR read_pc ();		/* In infcmd.c */
-
-/* Start and end of object file containing the entry point.
-   STARTUP_FILE_END is the first address of the next file.
-   This file is assumed to be a startup file
-   and frames with pc's inside it
-   are treated as nonexistent.
-
-   Setting these variables is necessary so that backtraces do not fly off
-   the bottom of the stack.  */
-CORE_ADDR startup_file_start;
-CORE_ADDR startup_file_end;
-
-/* Is ADDR outside the startup file?  Note that if your machine
+/* Is ADDR inside the startup file?  Note that if your machine
    has a way to detect the bottom of the stack, there is no need
    to call this function from FRAME_CHAIN_VALID; the reason for
    doing so is that some machines have no way of detecting bottom
    of stack.  */
+
 int
-outside_startup_file (addr)
+inside_entry_file (addr)
      CORE_ADDR addr;
 {
-  return !(addr >= startup_file_start && addr < startup_file_end);
+  return (addr >= symfile_objfile -> ei.entry_file_lowpc &&
+	  addr <  symfile_objfile -> ei.entry_file_highpc);
 }
-
-/* Support an alternate method to avoid running off the bottom of
-   the stack (or top, depending upon your stack orientation).
-
-   There are two frames that are "special", the frame for the function
-   containing the process entry point, since it has no predecessor frame,
-   and the frame for the function containing the user code entry point
-   (the main() function), since all the predecessor frames are for the
-   process startup code.  Since we have no guarantee that the linked
-   in startup modules have any debugging information that gdb can use,
-   we need to avoid following frame pointers back into frames that might
-   have been built in the startup code, as we might get hopelessly 
-   confused.  However, we almost always have debugging information
-   available for main().
-
-   These variables are used to save the range of PC values which are valid
-   within the main() function and within the function containing the process
-   entry point.  If we always consider the frame for main() as the outermost
-   frame when debugging user code, and the frame for the process entry
-   point function as the outermost frame when debugging startup code, then
-   all we have to do is have FRAME_CHAIN_VALID return false whenever a
-   frame's current PC is within the range specified by these variables.
-   In essence, we set "blocks" in the frame chain beyond which we will
-   not proceed when following the frame chain.  
-
-   A nice side effect is that we can still debug startup code without
-   running off the end of the frame chain, assuming that we have usable
-   debugging information in the startup modules, and if we choose to not
-   use the block at main, or can't find it for some reason, everything
-   still works as before.  And if we have no startup code debugging
-   information but we do have usable information for main(), backtraces
-   from user code don't go wandering off into the startup code.
-
-   To use this method, define your FRAME_CHAIN_VALID macro like:
-
-	#define FRAME_CHAIN_VALID(chain, thisframe)     \
-	  (chain != 0                                   \
-	   && !(inside_main_scope ((thisframe)->pc))    \
-	   && !(inside_entry_scope ((thisframe)->pc)))
-
-   and add initializations of the four scope controlling variables inside
-   the object file / debugging information processing modules.  */
-
-CORE_ADDR entry_scope_lowpc;
-CORE_ADDR entry_scope_highpc;
-CORE_ADDR main_scope_lowpc;
-CORE_ADDR main_scope_highpc;
 
 /* Test a specified PC value to see if it is in the range of addresses
    that correspond to the main() function.  See comments above for why
@@ -105,23 +50,25 @@ CORE_ADDR main_scope_highpc;
    Typically called from FRAME_CHAIN_VALID. */
 
 int
-inside_main_scope (pc)
+inside_main_func (pc)
 CORE_ADDR pc;
 {
-  return (main_scope_lowpc <= pc && pc < main_scope_highpc);
+  return (symfile_objfile -> ei.main_func_lowpc  <= pc &&
+	  symfile_objfile -> ei.main_func_highpc > pc);
 }
 
 /* Test a specified PC value to see if it is in the range of addresses
-   that correspond to the process entry point function.  See comments above
-   for why we might want to do this.
+   that correspond to the process entry point function.  See comments
+   in objfiles.h for why we might want to do this.
 
    Typically called from FRAME_CHAIN_VALID. */
 
 int
-inside_entry_scope (pc)
+inside_entry_func (pc)
 CORE_ADDR pc;
 {
-  return (entry_scope_lowpc <= pc && pc < entry_scope_highpc);
+  return (symfile_objfile -> ei.entry_func_lowpc  <= pc &&
+	  symfile_objfile -> ei.entry_func_highpc > pc);
 }
 
 /* Address of innermost stack frame (contents of FP register) */
@@ -435,17 +382,26 @@ CORE_ADDR
 get_pc_function_start (pc)
      CORE_ADDR pc;
 {
-  register struct block *bl = block_for_pc (pc);
+  register struct block *bl;
   register struct symbol *symbol;
-  if (bl == 0 || (symbol = block_function (bl)) == 0)
+  register struct minimal_symbol *msymbol;
+  CORE_ADDR fstart;
+
+  if ((bl = block_for_pc (pc)) != NULL &&
+      (symbol = block_function (bl)) != NULL)
     {
-      register int misc_index = find_pc_misc_function (pc);
-      if (misc_index >= 0)
-	return misc_function_vector[misc_index].address;
-      return 0;
+      bl = SYMBOL_BLOCK_VALUE (symbol);
+      fstart = BLOCK_START (bl);
     }
-  bl = SYMBOL_BLOCK_VALUE (symbol);
-  return BLOCK_START (bl);
+  else if ((msymbol = lookup_minimal_symbol_by_pc (pc)) != NULL)
+    {
+      fstart = msymbol -> address;
+    }
+  else
+    {
+      fstart = 0;
+    }
+  return (fstart);
 }
 
 /* Return the symbol for the function executing in frame FRAME.  */
@@ -577,7 +533,7 @@ find_pc_partial_function (pc, name, address)
 {
   struct partial_symtab *pst;
   struct symbol *f;
-  int miscfunc;
+  struct minimal_symbol *msymbol;
   struct partial_symbol *psb;
 
   if (pc >= cache_pc_function_low && pc < cache_pc_function_high)
@@ -620,19 +576,19 @@ find_pc_partial_function (pc, name, address)
 	}
 
       /* Get the information from a combination of the pst
-	 (static symbols), and the misc function vector (extern
+	 (static symbols), and the minimal symbol table (extern
 	 symbols).  */
-      miscfunc = find_pc_misc_function (pc);
+      msymbol = lookup_minimal_symbol_by_pc (pc);
       psb = find_pc_psymbol (pst, pc);
 
-      if (!psb && miscfunc == -1)
+      if (!psb && (msymbol == NULL))
 	{
 	  goto return_error;
 	}
       if (psb
-	  && (miscfunc == -1
+	  && (msymbol == NULL
 	      || (SYMBOL_VALUE_ADDRESS (psb)
-		  >= misc_function_vector[miscfunc].address)))
+		  >= msymbol -> address)))
 	{
 	  /* This case isn't being cached currently. */
 	  if (address)
@@ -643,23 +599,25 @@ find_pc_partial_function (pc, name, address)
 	}
     }
   else
-    /* Must be in the misc function stuff.  */
+    /* Must be in the minimal symbol table.  */
     {
-      miscfunc = find_pc_misc_function (pc);
-      if (miscfunc == -1)
+      msymbol = lookup_minimal_symbol_by_pc (pc);
+      if (msymbol == NULL)
 	goto return_error;
     }
 
   {
-    if (misc_function_vector[miscfunc].type == mf_text)
-      cache_pc_function_low = misc_function_vector[miscfunc].address;
+    if (msymbol -> type == mst_text)
+      cache_pc_function_low = msymbol -> address;
     else
       /* It is a transfer table for Sun shared libraries.  */
       cache_pc_function_low = pc - FUNCTION_START_OFFSET;
   }
-  cache_pc_function_name = misc_function_vector[miscfunc].name;
-  if (miscfunc < misc_function_count /* && FIXME mf_text again? */ )
-    cache_pc_function_high = misc_function_vector[miscfunc+1].address;
+  cache_pc_function_name = msymbol -> name;
+  /* FIXME:  Deal with bumping into end of minimal symbols for a given
+     objfile, and what about testing for mst_text again? */
+  if ((msymbol + 1) -> name != NULL)
+    cache_pc_function_high = (msymbol + 1) -> address;
   else
     cache_pc_function_high = cache_pc_function_low + 1;
   if (address)
@@ -669,52 +627,10 @@ find_pc_partial_function (pc, name, address)
   return 1;
 }
 
-/* Find the misc function whose address is the largest
-   while being less than PC.  Return its index in misc_function_vector.
-   Returns -1 if PC is not in suitable range.  */
-
-int
-find_pc_misc_function (pc)
-     register CORE_ADDR pc;
-{
-  register int lo = 0;
-  register int hi = misc_function_count-1;
-  register int new;
-
-  /* Note that the last thing in the vector is always _etext.  */
-  /* Actually, "end", now that non-functions
-     go on the misc_function_vector.  */
-
-  /* Above statement is not *always* true - fix for case where there are */
-  /* no misc functions at all (ie no symbol table has been read). */
-  if (hi < 0) return -1;        /* no misc functions recorded */
-
-  /* trivial reject range test */
-  if (pc < misc_function_vector[0].address ||
-      pc > misc_function_vector[hi].address)
-    return -1;
-
-  /* Note that the following search will not return hi if
-     pc == misc_function_vector[hi].address.  If "end" points to the
-     first unused location, this is correct and the above test
-     simply needs to be changed to
-     "pc >= misc_function_vector[hi].address".  */
-  do {
-    new = (lo + hi) >> 1;
-    if (misc_function_vector[new].address == pc)
-      return new;		/* an exact match */
-    else if (misc_function_vector[new].address > pc)
-      hi = new;
-    else
-      lo = new;
-  } while (hi-lo != 1);
-
-  /* if here, we had no exact match, so return the lower choice */
-  return lo;
-}
-
 /* Return the innermost stack frame executing inside of the specified block,
    or zero if there is no such frame.  */
+
+#if 0	/* Currently unused */
 
 FRAME
 block_innermost_frame (block)
@@ -736,6 +652,8 @@ block_innermost_frame (block)
 	return frame;
     }
 }
+
+#endif	/* 0 */
 
 void
 _initialize_blockframe ()

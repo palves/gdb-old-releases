@@ -1,5 +1,5 @@
 /* Start (run) and stop the inferior process, for GDB.
-   Copyright (C) 1986, 1987, 1988, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -99,26 +99,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	   don't worry about this; it will make calls look like simple
 	   jumps (and the stack frames will be printed when the frame
 	   pointer moves), which is a reasonably non-violent response.
-
-#if 0
-    We skip this; it causes more problems than it's worth.
-#ifdef SUN4_COMPILER_FEATURE
-    We do a special ifdef for the sun 4, forcing it to single step
-  into calls which don't have prologues.  This means that we can't
-  nexti over leaf nodes, we can probably next over them (since they
-  won't have debugging symbols, usually), and we can next out of
-  functions returning structures (with a "call .stret4" at the end).
-#endif
-#endif
 */
-   
 
-   
-   
-
-#include <stdio.h>
-#include <string.h>
 #include "defs.h"
+#include <string.h>
 #include "symtab.h"
 #include "frame.h"
 #include "inferior.h"
@@ -146,13 +130,38 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 extern int original_stack_limit;
 #endif /* SET_STACK_LIMIT_HUGE */
 
-extern char *getenv ();
+/* Prototypes for local functions */
+
+static void
+signals_info PARAMS ((char *, int));
+
+static void
+handle_command PARAMS ((char *, int));
+
+static void
+sig_print_info PARAMS ((int));
+
+static void
+sig_print_header PARAMS ((void));
+
+static void
+remove_step_breakpoint PARAMS ((void));
+
+static void
+insert_step_breakpoint PARAMS ((void));
+
+static void
+resume PARAMS ((int, int));
+
+static void
+resume_cleanups PARAMS ((int));
+
 extern char **environ;
 
-extern void new_tty_prefork ();		/* In inflow.c */
+extern int sys_nerr;
+extern char *sys_errlist[];
 
 extern struct target_ops child_ops;	/* In inftarg.c */
-
 
 /* Sigtramp is a routine that the kernel calls (which then calls the
    signal handler).  On most machines it is a library routine that
@@ -168,6 +177,40 @@ extern struct target_ops child_ops;	/* In inftarg.c */
 #if !defined (IN_SIGTRAMP)
 #define IN_SIGTRAMP(pc, name) \
   (name && !strcmp ("_sigtramp", name))
+#endif
+
+/* GET_LONGJMP_TARGET returns the PC at which longjmp() will resume the
+   program.  It needs to examine the jmp_buf argument and extract the PC
+   from it.  The return value is non-zero on success, zero otherwise. */
+#ifndef GET_LONGJMP_TARGET
+#define GET_LONGJMP_TARGET(PC_ADDR) 0
+#endif
+
+
+/* Some machines have trampoline code that sits between function callers
+   and the actual functions themselves.  If this machine doesn't have
+   such things, disable their processing.  */
+#ifndef SKIP_TRAMPOLINE_CODE
+#define	SKIP_TRAMPOLINE_CODE(pc)	0
+#endif
+
+/* For SVR4 shared libraries, each call goes through a small piece of
+   trampoline code in the ".init" section.  IN_SOLIB_TRAMPOLINE evaluates
+   to nonzero if we are current stopped in one of these. */
+#ifndef IN_SOLIB_TRAMPOLINE
+#define IN_SOLIB_TRAMPOLINE(pc,name)	0
+#endif
+
+/* Notify other parts of gdb that might care that signal handling may
+   have changed for one or more signals. */
+#ifndef NOTICE_SIGNAL_HANDLING_CHANGE
+#define NOTICE_SIGNAL_HANDLING_CHANGE	/* No actions */
+#endif
+
+#ifdef TDESC
+#include "tdesc.h"
+int safe_to_init_tdesc_context = 0;
+extern dc_dcontext_t current_context;
 #endif
 
 /* Tables of how to react to signals; the user sets them.  */
@@ -250,12 +293,6 @@ extern int one_stepped;		/* From machine dependent code */
 extern void single_step ();	/* Same. */
 #endif /* NO_SINGLE_STEP */
 
-static void insert_step_breakpoint ();
-static void remove_step_breakpoint ();
-/*static*/ void wait_for_inferior ();
-void init_wait_for_inferior ();
-void normal_stop ();
-
 
 /* Things to clean up if we QUIT out of resume ().  */
 /* ARGSUSED */
@@ -284,7 +321,7 @@ resume (step, sig)
 
 #ifdef NO_SINGLE_STEP
   if (step) {
-    single_step();	/* Do it the hard way, w/temp breakpoints */
+    single_step(sig);	/* Do it the hard way, w/temp breakpoints */
     step = 0;		/* ...and don't ask hardware to do it.  */
   }
 #endif
@@ -411,21 +448,6 @@ The same program may be running in another process.");
   normal_stop ();
 }
 
-#if 0
-/* This might be useful (not sure), but isn't currently used.  See also
-   write_pc().  */
-/* Writing the inferior pc as a register calls this function
-   to inform infrun that the pc has been set in the debugger.  */
-
-void
-writing_pc (val)
-     CORE_ADDR val;
-{
-  stop_pc = val;
-  pc_changed = 1;
-}
-#endif
-
 /* Record the pc and sp of the program the last time it stopped.
    These are just used internally by wait_for_inferior, but need
    to be preserved over calls to it and cleared when the inferior
@@ -453,8 +475,6 @@ child_create_inferior (exec_file, allargs, env)
 {
   int pid;
   char *shell_command;
-  extern int sys_nerr;
-  extern char *sys_errlist[];
   char *shell_file;
   static char default_shell_file[] = SHELL_FILE;
   int len;
@@ -532,7 +552,7 @@ child_create_inferior (exec_file, allargs, env)
 #ifdef NEED_POSIX_SETPGID
       debug_setpgrp = setpgid (0, 0);
 #else
-#ifdef USG
+#if defined(USG) && !defined(SETPGRP_ARGS)
       debug_setpgrp = setpgrp ();
 #else
       debug_setpgrp = setpgrp (getpid (), getpid ());
@@ -645,7 +665,7 @@ child_create_inferior (exec_file, allargs, env)
      correct program, and are poised at the first instruction of the
      new program.  */
 #ifdef SOLIB_CREATE_INFERIOR_HOOK
-  SOLIB_CREATE_INFERIOR_HOOK ();
+  SOLIB_CREATE_INFERIOR_HOOK (pid);
 #endif
 
   /* Should this perhaps just be a "proceed" call?  FIXME */
@@ -718,7 +738,7 @@ child_attach (args, from_tty)
   if (target_has_execution)
     {
       if (query ("A program is being debugged already.  Kill it? "))
-	target_kill ((char *)0, from_tty);
+	target_kill ();
       else
 	error ("Inferior not killed.");
     }
@@ -765,21 +785,12 @@ wait_for_inferior ()
   CORE_ADDR stop_sp;
   CORE_ADDR stop_func_start;
   char *stop_func_name;
-  CORE_ADDR prologue_pc;
+  CORE_ADDR prologue_pc, tmp;
   int stop_step_resume_break;
   struct symtab_and_line sal;
   int remove_breakpoints_on_following_step = 0;
   int current_line;
-
-#if 0
-  /* This no longer works now that read_register is lazy;
-     it might try to ptrace when the process is not stopped.  */
-  prev_pc = read_pc ();
-  (void) find_pc_partial_function (prev_pc, &prev_func_name,
-				   &prev_func_start);
-  prev_func_start += FUNCTION_START_OFFSET;
-  prev_sp = read_register (SP_REGNUM);
-#endif /* 0 */
+  int handling_longjmp = 0;	/* FIXME */
 
   sal = find_pc_line(prev_pc, 0);
   current_line = sal.line;
@@ -792,6 +803,14 @@ wait_for_inferior ()
       registers_changed ();
 
       target_wait (&w);
+
+#ifdef SIGTRAP_STOP_AFTER_LOAD
+
+      /* Somebody called load(2), and it gave us a "trap signal after load".
+         Ignore it gracefully. */
+
+      SIGTRAP_STOP_AFTER_LOAD (w);
+#endif
 
       /* See if the process still exists; clean up if it doesn't.  */
       if (WIFEXITED (w))
@@ -816,7 +835,7 @@ wait_for_inferior ()
 	  stop_print_frame = 0;
 	  stop_signal = WTERMSIG (w);
 	  target_terminal_ours ();	/* Must do this before mourn anyway */
-	  target_kill ((char *)0, 0);	/* kill mourns as well */
+	  target_kill ();		/* kill mourns as well */
 #ifdef PRINT_RANDOM_SIGNAL
 	  printf ("\nProgram terminated: ");
 	  PRINT_RANDOM_SIGNAL (stop_signal);
@@ -909,21 +928,23 @@ wait_for_inferior ()
 	      /* See if there is a breakpoint at the current PC.  */
 #if DECR_PC_AFTER_BREAK
 	      /* Notice the case of stepping through a jump
-		 that leads just after a breakpoint.
+		 that lands just after a breakpoint.
 		 Don't confuse that with hitting the breakpoint.
 		 What we check for is that 1) stepping is going on
 		 and 2) the pc before the last insn does not match
 		 the address of the breakpoint before the current pc.  */
-	      if (!(prev_pc != stop_pc - DECR_PC_AFTER_BREAK
-		    && step_range_end && !step_resume_break_address))
+	      if (prev_pc == stop_pc - DECR_PC_AFTER_BREAK
+		  || !step_range_end
+		  || step_resume_break_address
+		  || handling_longjmp /* FIXME */)
 #endif /* DECR_PC_AFTER_BREAK not zero */
 		{
 		  /* See if we stopped at the special breakpoint for
 		     stepping over a subroutine call.  If both are zero,
 		     this wasn't the reason for the stop.  */
-		  if (stop_pc - DECR_PC_AFTER_BREAK
-		      		  == step_resume_break_address
-		      && step_resume_break_address)
+		  if (step_resume_break_address
+		      && stop_pc - DECR_PC_AFTER_BREAK
+		         == step_resume_break_address)
 		    {
 		      stop_step_resume_break = 1;
 		      if (DECR_PC_AFTER_BREAK)
@@ -959,8 +980,7 @@ wait_for_inferior ()
 		    /* End of a stack dummy.  Some systems (e.g. Sony
 		       news) give another signal besides SIGTRAP,
 		       so check here as well as above.  */
-		    || (stop_sp INNER_THAN stop_pc
-			&& stop_pc INNER_THAN stop_frame_address)
+		    || PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address)
 		    );
 	      if (!random_signal)
 		stop_signal = SIGTRAP;
@@ -1008,71 +1028,131 @@ wait_for_inferior ()
 	     one (now fixed) bug was caused by this -- a !random_signal was
 	     missing in one of the tests below.  */
 	}
-      
-      /* Handle cases caused by hitting a breakpoint.  */
-      
-      if (!random_signal
-	  && (bpstat_explains_signal (stop_bpstat) || stop_step_resume_break))
-	{
-	  /* Does a breakpoint want us to stop?  */
-	  if (bpstat_stop (stop_bpstat))
-	    {
-	      stop_print_frame = bpstat_should_print (stop_bpstat);
-	      break;
-	    }
-	  /* But if we have hit the step-resumption breakpoint,
-	     remove it.  It has done its job getting us here.
-	     The sp test is to make sure that we don't get hung
-	     up in recursive calls in functions without frame
-	     pointers.  If the stack pointer isn't outside of
-	     where the breakpoint was set (within a routine to be
-	     stepped over), we're in the middle of a recursive
-	     call. Not true for reg window machines (sparc)
-	     because the must change frames to call things and
-	     the stack pointer doesn't have to change if it
-	     the bp was set in a routine without a frame (pc can
-	     be stored in some other window).
-	     
-	     The removal of the sp test is to allow calls to
-	     alloca.  Nasty things were happening.  Oh, well,
-	     gdb can only handle one level deep of lack of
-	     frame pointer. */
-	  if (stop_step_resume_break
-/*
-   Disable test for step_frame_address match so that we always stop even if the
-   frames don't match.  Reason: if we hit the step_resume_breakpoint, there is
-   no way to temporarily disable it so that we can step past it.  If we leave
-   the breakpoint in, then we loop forever repeatedly hitting, but never
-   getting past the breakpoint.  This change keeps nexting over recursive
-   function calls from hanging gdb.
-/*	      && (step_frame_address == 0
-		  || (stop_frame_address == step_frame_address))*/)
-	    {
-	      remove_step_breakpoint ();
-	      step_resume_break_address = 0;
 
-	      /* If were waiting for a trap, hitting the step_resume_break
-		 doesn't count as getting it.  */
-	      if (trap_expected)
-		another_trap = 1;
-	    }
-	  /* Otherwise, must remove breakpoints and single-step
-	     to get us past the one we hit.  */
-	  else
-	    {
-	      remove_breakpoints ();
-	      remove_step_breakpoint ();
-	      breakpoints_inserted = 0;
-	      another_trap = 1;
-	    }
-	  
-	  /* We come here if we hit a breakpoint but should not
-	     stop for it.  Possibly we also were stepping
-	     and should stop for that.  So fall through and
-	     test for stepping.  But, if not stepping,
-	     do not stop.  */
-	}
-      
+      /* Handle cases caused by hitting a breakpoint.  */
+
+      if (!random_signal)
+	if (bpstat_explains_signal (stop_bpstat))
+	  {
+	    CORE_ADDR jmp_buf_pc;
+
+	    switch (stop_bpstat->breakpoint_at->type) /* FIXME */
+	      {
+		/* If we hit the breakpoint at longjmp, disable it for the
+		   duration of this command.  Then, install a temporary
+		   breakpoint at the target of the jmp_buf. */
+	      case bp_longjmp:
+		disable_longjmp_breakpoint();
+		remove_breakpoints ();
+		breakpoints_inserted = 0;
+		if (!GET_LONGJMP_TARGET(&jmp_buf_pc)) goto keep_going;
+
+		/* Need to blow away step-resume breakpoint, as it
+		   interferes with us */
+		remove_step_breakpoint ();
+		step_resume_break_address = 0;
+		stop_step_resume_break = 0;
+
+#if 0				/* FIXME - Need to implement nested temporary breakpoints */
+		if (step_over_calls > 0)
+		  set_longjmp_resume_breakpoint(jmp_buf_pc,
+						get_current_frame());
+		else
+#endif				/* 0 */
+		  set_longjmp_resume_breakpoint(jmp_buf_pc, NULL);
+		handling_longjmp = 1; /* FIXME */
+		goto keep_going;
+
+	      case bp_longjmp_resume:
+		remove_breakpoints ();
+		breakpoints_inserted = 0;
+#if 0				/* FIXME - Need to implement nested temporary breakpoints */
+		if (step_over_calls
+		    && (stop_frame_address
+			INNER_THAN step_frame_address))
+		  {
+		    another_trap = 1;
+		    goto keep_going;
+		  }
+#endif				/* 0 */
+		disable_longjmp_breakpoint();
+		handling_longjmp = 0; /* FIXME */
+		break;
+
+	      default:
+		fprintf(stderr, "Unknown breakpoint type %d\n",
+			stop_bpstat->breakpoint_at->type);
+	      case bp_watchpoint:
+	      case bp_breakpoint:
+	      case bp_until:
+	      case bp_finish:
+		/* Does a breakpoint want us to stop?  */
+		if (bpstat_stop (stop_bpstat))
+		  {
+		    stop_print_frame = bpstat_should_print (stop_bpstat);
+		    goto stop_stepping;
+		  }
+		/* Otherwise, must remove breakpoints and single-step
+		   to get us past the one we hit.  */
+		else
+		  {
+		    remove_breakpoints ();
+		    remove_step_breakpoint ();
+		    breakpoints_inserted = 0;
+		    another_trap = 1;
+		  }
+		break;
+	      }
+	  }
+	else if (stop_step_resume_break)
+	  {
+	    /* But if we have hit the step-resumption breakpoint,
+	       remove it.  It has done its job getting us here.
+	       The sp test is to make sure that we don't get hung
+	       up in recursive calls in functions without frame
+	       pointers.  If the stack pointer isn't outside of
+	       where the breakpoint was set (within a routine to be
+	       stepped over), we're in the middle of a recursive
+	       call. Not true for reg window machines (sparc)
+	       because the must change frames to call things and
+	       the stack pointer doesn't have to change if it
+	       the bp was set in a routine without a frame (pc can
+	       be stored in some other window).
+	       
+	       The removal of the sp test is to allow calls to
+	       alloca.  Nasty things were happening.  Oh, well,
+	       gdb can only handle one level deep of lack of
+	       frame pointer. */
+
+	    /*
+	      Disable test for step_frame_address match so that we always stop even if the
+	      frames don't match.  Reason: if we hit the step_resume_breakpoint, there is
+	      no way to temporarily disable it so that we can step past it.  If we leave
+	      the breakpoint in, then we loop forever repeatedly hitting, but never
+	      getting past the breakpoint.  This change keeps nexting over recursive
+	      function calls from hanging gdb.
+	      */
+#if 0
+	    if (* step_frame_address == 0
+		|| (step_frame_address == stop_frame_address))
+#endif
+	      {
+		remove_step_breakpoint ();
+		step_resume_break_address = 0;
+
+		/* If were waiting for a trap, hitting the step_resume_break
+		   doesn't count as getting it.  */
+		if (trap_expected)
+		  another_trap = 1;
+	      }
+	  }
+
+      /* We come here if we hit a breakpoint but should not
+	 stop for it.  Possibly we also were stepping
+	 and should stop for that.  So fall through and
+	 test for stepping.  But, if not stepping,
+	 do not stop.  */
+
       /* If this is the breakpoint at the end of a stack dummy,
 	 just stop silently.  */
       if (!random_signal 
@@ -1105,19 +1185,7 @@ wait_for_inferior ()
 		    && (stop_sp INNER_THAN prev_sp
 			|| stop_frame_address != step_frame_address)))
 	{
-#if 0
-	  /* When "next"ing through a function,
-	     This causes an extra stop at the end.
-	     Is there any reason for this?
-	     It's confusing to the user.  */
-	  /* Don't step through the return from a function
-	     unless that is the first instruction stepped through.  */
-	  if (ABOUT_TO_RETURN (stop_pc))
-	    {
-	      stop_step = 1;
-	      break;
-	    }
-#endif
+	  ;
 	}
       
       /* We stepped out of the stepping range.  See if that was due
@@ -1149,112 +1217,133 @@ wait_for_inferior ()
 	      if (step_range_end == 1)
 		step_range_end = (step_range_start = prev_pc) + 1;
 	      remove_breakpoints_on_following_step = 1;
+	      goto save_pc;
 	    }
 
 	  /* ==> See comments at top of file on this algorithm.  <==*/
 	  
-	  else if (stop_pc == stop_func_start
+	  if ((stop_pc == stop_func_start
+	       || IN_SOLIB_TRAMPOLINE (stop_pc, stop_func_name))
 	      && (stop_func_start != prev_func_start
 		  || prologue_pc != stop_func_start
 		  || stop_sp != prev_sp))
 	    {
-	      /* It's a subroutine call */
-	      if (step_over_calls > 0 
-		  || (step_over_calls &&  find_pc_function (stop_pc) == 0))
+	      /* It's a subroutine call.
+		 (0)  If we are not stepping over any calls ("stepi"), we
+		      just stop.
+		 (1)  If we're doing a "next", we want to continue through
+		      the call ("step over the call").
+		 (2)  If we are in a function-call trampoline (a stub between
+		      the calling routine and the real function), locate
+		      the real function and change stop_func_start.
+		 (3)  If we're doing a "step", and there are no debug symbols
+		      at the target of the call, we want to continue through
+		      it ("step over the call").
+		 (4)  Otherwise, we want to stop soon, after the function
+		      prologue ("step into the call"). */
+
+	      if (step_over_calls == 0)
 		{
-		  /* A subroutine call has happened.  */
-		  /* Set a special breakpoint after the return */
-		  step_resume_break_address =
-		    ADDR_BITS_REMOVE
-		      (SAVED_PC_AFTER_CALL (get_current_frame ()));
+		  /* I presume that step_over_calls is only 0 when we're
+		     supposed to be stepping at the assembly language level. */
+		  stop_step = 1;
+		  break;
+		}
+
+	      if (step_over_calls > 0)
+		goto step_over_function;
+
+	      tmp = SKIP_TRAMPOLINE_CODE (stop_pc);
+	      if (tmp != 0)
+		stop_func_start = tmp;
+
+	      if (find_pc_function (stop_func_start) != 0)
+	        goto step_into_function;
+
+step_over_function:
+	      /* A subroutine call has happened.  */
+	      /* Set a special breakpoint after the return */
+	      step_resume_break_address =
+		ADDR_BITS_REMOVE
+		  (SAVED_PC_AFTER_CALL (get_current_frame ()));
+	      step_resume_break_duplicate
+		= breakpoint_here_p (step_resume_break_address);
+	      if (breakpoints_inserted)
+		insert_step_breakpoint ();
+	      goto save_pc;
+
+step_into_function:
+	      /* Subroutine call with source code we should not step over.
+		 Do step to the first line of code in it.  */
+	      SKIP_PROLOGUE (stop_func_start);
+	      sal = find_pc_line (stop_func_start, 0);
+	      /* Use the step_resume_break to step until
+		 the end of the prologue, even if that involves jumps
+		 (as it seems to on the vax under 4.2).  */
+	      /* If the prologue ends in the middle of a source line,
+		 continue to the end of that source line.
+		 Otherwise, just go to end of prologue.  */
+#ifdef PROLOGUE_FIRSTLINE_OVERLAP
+	      /* no, don't either.  It skips any code that's
+		 legitimately on the first line.  */
+#else
+	      if (sal.end && sal.pc != stop_func_start)
+		stop_func_start = sal.end;
+#endif
+
+	      if (stop_func_start == stop_pc)
+		{
+		  /* We are already there: stop now.  */
+		  stop_step = 1;
+		  break;
+		}	
+	      else
+		/* Put the step-breakpoint there and go until there. */
+		{
+		  step_resume_break_address = stop_func_start;
+		  
 		  step_resume_break_duplicate
 		    = breakpoint_here_p (step_resume_break_address);
 		  if (breakpoints_inserted)
 		    insert_step_breakpoint ();
+		  /* Do not specify what the fp should be when we stop
+		     since on some machines the prologue
+		     is where the new fp value is established.  */
+		  step_frame_address = 0;
+		  /* And make sure stepping stops right away then.  */
+		  step_range_end = step_range_start;
 		}
-	      /* Subroutine call with source code we should not step over.
-		 Do step to the first line of code in it.  */
-	      else if (step_over_calls)
-		{
-		  SKIP_PROLOGUE (stop_func_start);
-		  sal = find_pc_line (stop_func_start, 0);
-		  /* Use the step_resume_break to step until
-		     the end of the prologue, even if that involves jumps
-		     (as it seems to on the vax under 4.2).  */
-		  /* If the prologue ends in the middle of a source line,
-		     continue to the end of that source line.
-		     Otherwise, just go to end of prologue.  */
-#ifdef PROLOGUE_FIRSTLINE_OVERLAP
-		  /* no, don't either.  It skips any code that's
-		     legitimately on the first line.  */
-#else
-		  if (sal.end && sal.pc != stop_func_start)
-		    stop_func_start = sal.end;
-#endif
-		  
-		  if (stop_func_start == stop_pc)
-		    {
-		      /* We are already there: stop now.  */
-		      stop_step = 1;
-		      break;
-		    }
-		  else
-		    /* Put the step-breakpoint there and go until there. */
-		    {
-		      step_resume_break_address = stop_func_start;
-		      
-		      step_resume_break_duplicate
-			= breakpoint_here_p (step_resume_break_address);
-		      if (breakpoints_inserted)
-			insert_step_breakpoint ();
-		      /* Do not specify what the fp should be when we stop
-			 since on some machines the prologue
-			 is where the new fp value is established.  */
-		      step_frame_address = 0;
-		      /* And make sure stepping stops right away then.  */
-		      step_range_end = step_range_start;
-		    }
-		}
-	      else
-		{
-		  /* We get here only if step_over_calls is 0 and we
-		     just stepped into a subroutine.  I presume
-		     that step_over_calls is only 0 when we're
-		     supposed to be stepping at the assembly
-		     language level.*/
-		  stop_step = 1;
-		  break;
-		}
+	      goto save_pc;
 	    }
-	  /* No subroutine call; stop now.  */
-	  else
-	    {
-	      /* We've wandered out of the step range (but we haven't done a
-		 subroutine call or return (that's handled elsewhere)).  We
-		 don't really want to stop until we encounter the start of a
-		 new statement.  If so, we stop.  Otherwise, we reset
-		 step_range_start and step_range_end, and just continue. */
-	      sal = find_pc_line(stop_pc, 0);
-	      
-	      if (step_range_end == 1 || /* Don't do this for stepi/nexti */
-		  sal.line == 0 ||       /* Stop now if no line # info */
-		  (current_line != sal.line
-		   && stop_pc == sal.pc)) {
-		stop_step = 1;
-		break;
-	      } else {
-		/* This is probably not necessary, but it probably makes
-		   stepping more efficient, as we avoid calling find_pc_line()
-		   for each instruction we step over. */
-		step_range_start = sal.pc;
-		step_range_end = sal.end;
-	      }
-	    }
+
+	  /* We've wandered out of the step range (but haven't done a
+	     subroutine call or return).  */
+
+	  sal = find_pc_line(stop_pc, 0);
+	  
+	  if (step_range_end == 1 ||	/* stepi or nexti */
+	      sal.line == 0 ||		/* ...or no line # info */
+	      (stop_pc == sal.pc	/* ...or we're at the start */
+	       && current_line != sal.line)) {	/* of a different line */
+	    /* Stop because we're done stepping.  */
+	    stop_step = 1;
+	    break;
+	  } else {
+	    /* We aren't done stepping, and we have line number info for $pc.
+	       Optimize by setting the step_range for the line.  
+	       (We might not be in the original line, but if we entered a
+	       new line in mid-statement, we continue stepping.  This makes 
+	       things like for(;;) statements work better.)  */
+	    step_range_start = sal.pc;
+	    step_range_end = sal.end;
+	    goto save_pc;
+	  }
+	  /* We never fall through here */
 	}
 
-      else if (trap_expected
-	       && IN_SIGTRAMP (stop_pc, stop_func_name)
-	       && !IN_SIGTRAMP (prev_pc, prev_func_name))
+      if (trap_expected
+	  && IN_SIGTRAMP (stop_pc, stop_func_name)
+	  && !IN_SIGTRAMP (prev_pc, prev_func_name))
 	{
 	  /* What has happened here is that we have just stepped the inferior
 	     with a signal (because it is a signal which shouldn't make
@@ -1274,6 +1363,14 @@ wait_for_inferior ()
 	  another_trap = 1;
 	}
 
+/* My apologies to the gods of structured programming. */
+/* Come to this label when you need to resume the inferior.  It's really much
+   cleaner at this time to do a goto than to try and figure out what the
+   if-else chain ought to look like!! */
+
+    keep_going:
+
+save_pc:
       /* Save the pc before execution, to compare with pc after stop.  */
       prev_pc = read_pc ();	/* Might have been DECR_AFTER_BREAK */
       prev_func_start = stop_func_start; /* Ok, since if DECR_PC_AFTER
@@ -1353,12 +1450,16 @@ wait_for_inferior ()
             }
 #endif /* SHIFT_INST_REGS */
 
-	  resume ((step_range_end && !step_resume_break_address)
-		  || (trap_expected && !step_resume_break_address)
+	  resume ((!step_resume_break_address
+		   && !handling_longjmp
+		   && (step_range_end
+		       || trap_expected))
 		  || bpstat_should_step (),
 		  stop_signal);
 	}
     }
+
+ stop_stepping:
   if (target_has_execution)
     {
       /* Assuming the inferior still exists, set these up for next
@@ -1485,6 +1586,24 @@ remove_step_breakpoint ()
 			      step_resume_break_shadow);
 }
 
+int signal_stop_state (signo)
+     int signo;
+{
+  return ((signo >= 0 && signo < NSIG) ? signal_stop[signo] : 0);
+}
+
+int signal_print_state (signo)
+     int signo;
+{
+  return ((signo >= 0 && signo < NSIG) ? signal_print[signo] : 0);
+}
+
+int signal_pass_state (signo)
+     int signo;
+{
+  return ((signo >= 0 && signo < NSIG) ? signal_program[signo] : 0);
+}
+
 static void
 sig_print_header ()
 {
@@ -1594,13 +1713,15 @@ handle_command (args, from_tty)
       /* Not a number and not a recognized flag word => complain.  */
       else
 	{
-	  error ("Unrecognized flag word: \"%s\".", p);
+	  error ("Unrecognized or ambiguous flag word: \"%s\".", p);
 	}
 
       /* Find start of next word.  */
       p = nextarg;
       while (*p == ' ' || *p == '\t') p++;
     }
+
+  NOTICE_SIGNAL_HANDLING_CHANGE;
 
   if (from_tty)
     {
@@ -1613,8 +1734,9 @@ handle_command (args, from_tty)
 /* Print current contents of the tables set by the handle command.  */
 
 static void
-signals_info (signum_exp)
+signals_info (signum_exp, from_tty)
      char *signum_exp;
+     int from_tty;
 {
   register int i;
   sig_print_header ();
@@ -1728,7 +1850,7 @@ restore_inferior_status (inf_status)
 	  FRAME_FP (fid) != inf_status->selected_frame_address ||
 	  level != 0)
 	{
-#if 0
+#if 1
 	  /* I'm not sure this error message is a good idea.  I have
 	     only seen it occur after "Can't continue previously
 	     requested operation" (we get called from do_cleanups), in
@@ -1808,4 +1930,3 @@ Pass and Stop may be combined.");
   signal_print[SIGURG] = 0;
 #endif /* SIGURG */
 }
-

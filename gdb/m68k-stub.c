@@ -104,6 +104,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <setjmp.h>
+#include "ansidecl.h"
 
 /************************************************************************
  *
@@ -121,7 +122,8 @@ extern ExceptionHook exceptionHook;  /* hook variable for errors/exceptions */
 /************************/
 /* FORWARD DECLARATIONS */
 /************************/
-void initializeRemcomErrorFrame(void);
+static void
+initializeRemcomErrorFrame PARAMS ((void));
 
 /************************************************************************/
 /* BUFMAX defines the maximum number of characters in inbound/outbound buffers*/
@@ -212,8 +214,13 @@ skip_frestore:                                       \n\
 #define RESTORE_FP_REGS()
 #endif /* __HAVE_68881__ */
 
+#ifdef __STDC__
 void return_to_super(void);
 void return_to_user(void);
+#else
+void return_to_super();
+void return_to_user();
+#endif
 
 asm("
 .text
@@ -277,7 +284,7 @@ asm("	lea     sp@(4),sp");     /* pull off 68000 return address */
 #endif
 asm("	rte");
 
-extern void _catchException();
+extern void _catchException PARAMS ((void));
 
 #ifdef mc68020
 /* This function is called when a 68020 exception occurs.  It saves
@@ -925,7 +932,11 @@ void handle_exception(int exceptionVector)
 }
 
 
+#ifdef __STDC__
 void initializeRemcomErrorFrame(void)
+#else
+void initializeRemcomErrorFrame()
+#endif
 {
     lastFrame = ((Frame *) &gdbFrameStack[FRAMESIZE-1]) - 1;
     lastFrame->previous = lastFrame;

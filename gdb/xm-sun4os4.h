@@ -26,3 +26,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    the area occupied by the shared libraries.  Sun knows about this bug
    but has no obvious fix for it.  */
 #define BROKEN_LARGE_ALLOCA
+
+/* SunOS 4.x has memory mapped files.  */
+
+#define HAVE_MMAP
+
+/* If you expect to use the mmalloc package to obtain mapped symbol files,
+   for now you have to specify some parameters that determine how gdb places
+   the mappings in it's address space.  See the comments in map_to_address()
+   for details.  This is expected to only be a short term solution.  Yes it
+   is a kludge.
+   FIXME:  Make this more automatic. */
+
+#define MMAP_BASE_ADDRESS	0xE0000000	/* First mapping here */
+#define MMAP_INCREMENT		0x01000000	/* Increment to next mapping */

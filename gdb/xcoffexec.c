@@ -1,5 +1,5 @@
 /* Execute AIXcoff files, for GDB.
-   Copyright (C) 1988, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992 Free Software Foundation, Inc.
    Derived from exec.c.  Modified by IBM Corporation.
    Donated by IBM Corporation and Cygnus Support.
 
@@ -21,7 +21,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* xcoff-exec -	deal with executing XCOFF files.  */
   
-#include <stdio.h>
+#include "defs.h"
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <fcntl.h>
@@ -30,15 +31,24 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/stat.h>
 #include <sys/ldr.h>
 
-#include "defs.h"
 #include "frame.h"
 #include "inferior.h"
 #include "target.h"
 #include "gdbcmd.h"
 #include "gdbcore.h"
 #include "symfile.h"
+#include "objfiles.h"
 
 #include "libbfd.h"		/* BFD internals (sigh!)  FIXME */
+#include "xcoffsolib.h"
+
+/* Prototypes for local functions */
+
+static void
+file_command PARAMS ((char *, int));
+
+static void
+exec_close PARAMS ((int));
 
 struct section_table *exec_sections, *exec_sections_end;
 
@@ -48,6 +58,8 @@ struct section_table *exec_sections, *exec_sections_end;
 
 int write_files = 0;
 
+extern int info_verbose;
+
 bfd *exec_bfd;			/* needed by core.c	*/
 
 extern char *getenv();
@@ -55,7 +67,9 @@ extern void child_create_inferior (), child_attach ();
 extern void add_syms_addr_command ();
 extern void symbol_file_command ();
 static void exec_files_info();
+extern struct objfile *lookup_objfile_bfd ();
 
+#if 0
 /*
  * the vmap struct is used to describe the virtual address space of
  * the target we are manipulating.  The first entry is always the "exec"
@@ -84,25 +98,48 @@ struct vmap_and_bfd {
 };
 
 static struct vmap *vmap;	/* current vmap				*/
+#endif /* 0 */
+
+struct vmap *vmap;		/* current vmap */
 
 extern struct target_ops exec_ops;
 
 
 /* exec_close -	done with exec file, clean up all resources. */
 
-void
-exec_close(quitting) {
-	register struct vmap *vp, *nxt;
+static void
+exec_close(quitting)
+{
+  register struct vmap *vp, *nxt;
+  struct objfile *obj;
+  
+  for (nxt = vmap; vp = nxt; )
+    {
+      nxt = vp->nxt;
 
-	for (nxt = vmap; vp = nxt; ) {
-		nxt = vp->nxt;
-		bfd_close(vp->bfd);
-		free_named_symtabs(vp->name, vp->member);	/* XXX	*/
-		free(vp);
-	}
+      /* if there is an objfile associated with this bfd,
+	 free_objfile() will do proper cleanup of objfile *and* bfd. */
+		   
+      if (obj = lookup_objfile_bfd (vp->bfd))
+	free_objfile (obj);
+      else
+	bfd_close(vp->bfd);
+      
+      free_named_symtabs(vp->name);
+      free(vp);
+    }
+  
+  vmap = 0;
 
-	vmap = 0;
-	exec_bfd = 0;
+  if (exec_bfd) {
+    bfd_close (exec_bfd);
+    exec_bfd = NULL;
+  }
+  if (exec_ops.to_sections) {
+    free (exec_ops.to_sections);
+    exec_ops.to_sections = NULL;
+    exec_ops.to_sections_end = NULL;
+  }
 }
 
 /*
@@ -112,9 +149,9 @@ void
 exec_file_command(filename, from_tty)
 char *filename;
 {
-  bfd *bfd;
-
   target_preopen(from_tty);
+
+  /* Remove any previous exec file.  */
   unpush_target(&exec_ops);
 
   /* Now open and digest the file the user requested, if any. */
@@ -124,35 +161,35 @@ char *filename;
   	int scratch_chan;
       
   	filename = tilde_expand(filename);
-  	make_cleanup(free, filename);
+  	make_cleanup (free, filename);
       
-  	scratch_chan = openp(getenv("PATH"), 1, filename, O_RDONLY, 0
-  			     , &scratch_pathname);
+  	scratch_chan = openp(getenv("PATH"), 1, filename,
+			     write_files? O_RDWR: O_RDONLY, 0,
+  			     &scratch_pathname);
   	if (scratch_chan < 0)
 	  perror_with_name(filename);
 
-  	bfd = bfd_fdopenr(scratch_pathname, NULL, scratch_chan);
-  	if (!bfd)
+  	exec_bfd = bfd_fdopenr(scratch_pathname, NULL, scratch_chan);
+  	if (!exec_bfd)
 	  error("Could not open `%s' as an executable file: %s"
   		      , scratch_pathname, bfd_errmsg(bfd_error));
 
   	/* make sure we have an object file */
 
-  	if (!bfd_check_format(bfd, bfd_object))
-  		error("\"%s\": not in executable format: %s."
-  		      , scratch_pathname, bfd_errmsg(bfd_error));
+  	if (!bfd_check_format(exec_bfd, bfd_object))
+  		error("\"%s\": not in executable format: %s.",
+  		      scratch_pathname, bfd_errmsg(bfd_error));
 
 
   	/* setup initial vmap */
 
-  	map_vmap (bfd, 0);
+  	map_vmap (exec_bfd, 0);
   	if (!vmap)
-  		error("Can't find the file sections in `%s': %s"
-  		      , bfd->filename, bfd_errmsg(bfd_error));
+  		error("Can't find the file sections in `%s': %s",
+  		      exec_bfd->filename, bfd_errmsg(bfd_error));
 
-  	exec_bfd = bfd;
-
-	if (build_section_table (exec_bfd, &exec_sections, &exec_sections_end))
+	if (build_section_table (exec_bfd, &exec_ops.to_sections,
+				&exec_ops.to_sections_end))
 	  error ("Can't find the file sections in `%s': %s", 
   		exec_bfd->filename, bfd_errmsg (bfd_error));
 
@@ -177,7 +214,7 @@ char *filename;
  * novelty.  Why did GDB go through four major releases before this
  * command was added?
  */
-void
+static void
 file_command(arg, from_tty)
 char *arg; {
 
@@ -189,7 +226,7 @@ char *arg; {
    table_pp_char is a char * to get it through bfd_map_over_sections;
    we cast it back to its proper type.  */
 
-void
+static void
 add_to_section_table (abfd, asect, table_pp_char)
      bfd *abfd;
      sec_ptr asect;
@@ -202,6 +239,9 @@ add_to_section_table (abfd, asect, table_pp_char)
   /* FIXME, we need to handle BSS segment here...it alloc's but doesn't load */
   if (!(aflag & SEC_LOAD))
     return;
+  if (0 == bfd_section_size (abfd, asect))
+    return;
+  (*table_pp)->bfd = abfd;
   (*table_pp)->sec_ptr = asect;
   (*table_pp)->addr = bfd_section_vma (abfd, asect);
   (*table_pp)->endaddr = (*table_pp)->addr + bfd_section_size (abfd, asect);
@@ -258,12 +298,12 @@ sex_to_vmap(bfd *bf, sec_ptr sex, struct vmap_and_bfd *vmap_bfd)
     vp->tstart = 0;
     vp->tend   = vp->tstart + bfd_section_size(bf, sex);
 
-    /* This is quite a tacky way to recognize the `exec' load segment (rather
-       than shared libraries. You should use `arch' instead. FIXMEmgo */
-    if (!vmap)
-      vp->tadj = sex->filepos - bfd_section_vma(bf, sex);
-    else
-      vp->tadj = 0;
+    /* When it comes to this adjustment value, in contrast to our previous
+       belief shared objects should behave the same as the main load segment.
+       This is the offset from the beginning of text section to the first
+       real instruction. */
+
+    vp->tadj = sex->filepos - bfd_section_vma(bf, sex);
   }
 
   else if (!strcmp(bfd_section_name(bf, sex), ".data")) {
@@ -283,9 +323,9 @@ map_vmap (bfd *bf, bfd *arch)
   struct vmap_and_bfd vmap_bfd;
   struct vmap *vp, **vpp;
   struct objfile *obj;
-  char *name;
 
   vp = (void*) xmalloc (sizeof (*vp));
+  bzero (vp, sizeof (*vp));
   vp->nxt = 0;
   vp->bfd = bf;
   vp->name = bfd_get_filename(arch ? arch : bf);
@@ -297,9 +337,15 @@ map_vmap (bfd *bf, bfd *arch)
 
   obj = lookup_objfile_bfd (bf);
   if (exec_bfd && !obj) {
-    name = savestring (bfd_get_filename (bf), strlen (bfd_get_filename (bf)));
-    obj = allocate_objfile (bf, name);
+    obj = allocate_objfile (bf, 0);
+
+#if 0
+    This is only needed if we want to load shared libraries no matter what.
+    Since we provide the choice of incremental loading of shared objects now,
+    we don't have to load them as default anymore.
+    
     syms_from_objfile (obj, 0, 0, 0);
+#endif
   }
 
   /* find the end of the list, and append. */
@@ -309,7 +355,7 @@ map_vmap (bfd *bf, bfd *arch)
 }
 
 
-/* true, if symbol table and misc_function_vector is relocated. */
+/* true, if symbol table and minimal symbol table are relocated. */
 
 int symtab_relocated = 0;
 
@@ -321,65 +367,98 @@ register struct vmap *vp;
 CORE_ADDR old_start;
 struct stat *vip; 
 {
-	register struct symtab *s;
-
-	/*
-	 * for each symbol table generated from the vp->bfd
-	 */
-	for (s = symtab_list; s; s = s->next) {
-
-	  /* skip over if this is not relocatable and doesn't have a line table */
-	  if (s->nonreloc && !LINETABLE (s))
+  register struct symtab *s;
+  register struct objfile *objfile;
+  register struct minimal_symbol *msymbol;
+  
+  /*
+   * for each symbol table generated from the vp->bfd
+   */
+  ALL_OBJFILES (objfile)
+    {
+      for (s = objfile -> symtabs; s != NULL; s = s -> next) {
+	
+	/* skip over if this is not relocatable and doesn't have a line table */
+	if (s->nonreloc && !LINETABLE (s))
+	  continue;
+	
+	/* matching the symbol table's BFD and the *vp's BFD is hairy.
+	   exec_file creates a seperate BFD for possibly the
+	   same file as symbol_file.FIXME ALL THIS MUST BE RECTIFIED. */
+	
+	if (objfile->obfd == vp->bfd) {
+	  /* if they match, we luck out. */
+	  ;
+	} else if (vp->member[0]) {
+	  /* no match, and member present, not this one. */
+	  continue;
+	} else {
+	  struct stat si;
+	  FILE *io;
+	  
+	  /*
+	   * no match, and no member. need to be sure.
+	   */
+	  io = bfd_cache_lookup(objfile->obfd);
+	  if (!io)
+	    fatal("cannot find BFD's iostream for sym");
+	  /*
+	   * see if we are referring to the same file
+	   */
+	  if (fstat(fileno(io), &si) < 0)
+	    fatal("cannot fstat BFD for sym");
+	  
+	  if (vip && (si.st_dev != vip->st_dev
+	      || si.st_ino != vip->st_ino))
 	    continue;
-
-		/* matching the symbol table's BFD and the *vp's BFD is hairy.
-		   exec_file creates a seperate BFD for possibly the
-		   same file as symbol_file.FIXME ALL THIS MUST BE RECTIFIED. */
-
-		if (s->objfile->obfd == vp->bfd) {
-			/* if they match, we luck out. */
-			;
-		} else if (vp->member[0]) {
-			/* no match, and member present, not this one. */
-			continue;
-		} else {
-			struct stat si;
-			FILE *io;
-
-			/*
-			 * no match, and no member. need to be sure.
-			 */
-			io = bfd_cache_lookup(s->objfile->obfd);
-			if (!io)
-				fatal("cannot find BFD's iostream for sym");
-			/*
-			 * see if we are referring to the same file
-			 */
-			if (fstat(fileno(io), &si) < 0)
-				fatal("cannot fstat BFD for sym");
-
-			if (si.st_dev != vip->st_dev
-			    || si.st_ino != vip->st_ino)
-				continue;
-		}
-
-		if (vp->tstart != old_start)
-		  vmap_symtab_1(s, vp, old_start);
 	}
+	
+	if (vp->tstart != old_start) {
 
-	if (vp->tstart != old_start)
-	  fixup_misc_vector (vp->tstart - old_start);
+	  /* Once we find a relocation base address for one of the symtabs
+	     in this objfile, it will be the same for all symtabs in this
+	     objfile. Clean this algorithm. FIXME. */
 
-	symtab_relocated = 1;
-}
+	  for (; s; s = s->next)
+	    if (!s->nonreloc || LINETABLE(s))
+		vmap_symtab_1(s, vp, old_start);
 
+#if 0 
+	  Himm.., recently we nullified trampoline entry names in order not
+	  to confuse them with real symbols.  Appearently this turned into a
+	  problem, and msymbol vector did not get relocated properly.  If
+	  msymbols have to have non-null names, then we should name
+	  trampoline entries with empty strings. 
 
-fixup_misc_vector (int disp)
-{
-  int ii;
-  for (ii=0; ii < misc_function_count; ++ii)
-    if (misc_function_vector[ii].address < 0x10000000)
-      misc_function_vector[ii].address += disp;
+	  ALL_MSYMBOLS (objfile, msymbol)
+#else
+	  for (msymbol = objfile->msymbols;
+		msymbol->name || msymbol->address; (msymbol)++)
+#endif
+	      if (msymbol->address < TEXT_SEGMENT_BASE)
+		msymbol -> address += vp->tstart - old_start;
+
+	   break;
+	}
+      }
+    }
+
+  if (vp->tstart != old_start) {
+
+#if 0
+  We don't have a valid `objfile' at this point. This is moved into the
+  previous statement; ALL_OBJFILES() for-loop.
+
+    ALL_MSYMBOLS (objfile, msymbol)
+      if (msymbol->address < TEXT_SEGMENT_BASE)
+	msymbol -> address += vp->tstart - old_start;
+#endif /* 0 */
+
+    /* breakpoints need to be relocated as well. */
+    fixup_breakpoints (0, TEXT_SEGMENT_BASE, vp->tstart - old_start);
+  }
+  
+  symtab_relocated = 1;
 }
 
 
@@ -403,12 +482,14 @@ CORE_ADDR old_start;
 
     /*
      * The line table must be relocated.  This is only present for
-     * b.text sections, so only vp->text type maps need be considered.
+     * .text sections, so only vp->text type maps need be considered.
      */
     l = LINETABLE (s);
-    len = l->nitems;
-    for (i = 0; i < len; i++)
+    if (l) {
+      len = l->nitems;
+      for (i = 0; i < len; i++)
 	l->item[i].pc += reloc;
+    }
 
     /* if this symbol table is not relocatable, only line table should
        be relocated and the rest ignored. */
@@ -480,19 +561,26 @@ CORE_ADDR old_start;
 add_vmap(ldi)
 register struct ld_info *ldi; {
 	bfd *bfd, *last;
-	register char *mem;
+	register char *mem, *objname;
+
+	/* This ldi structure was allocated using alloca() in 
+	   aixcoff_relocate_symtab(). Now we need to have persistent object 
+	   and member names, so we should save them. */
 
 	mem = ldi->ldinfo_filename + strlen(ldi->ldinfo_filename) + 1;
-	bfd = bfd_fdopenr(ldi->ldinfo_filename, NULL, ldi->ldinfo_fd);
+	mem = savestring (mem, strlen (mem));
+	objname = savestring (ldi->ldinfo_filename, strlen (ldi->ldinfo_filename));
+
+	bfd = bfd_fdopenr(objname, NULL, ldi->ldinfo_fd);
 	if (!bfd)
-		error("Could not open `%s' as an executable file: %s"
-		      , ldi->ldinfo_filename, bfd_errmsg(bfd_error));
+	  error("Could not open `%s' as an executable file: %s",
+					objname, bfd_errmsg(bfd_error));
 
 
 	/* make sure we have an object file */
 
 	if (bfd_check_format(bfd, bfd_object))
-		map_vmap (bfd, 0);
+	  map_vmap (bfd, 0);
 
 	else if (bfd_check_format(bfd, bfd_archive)) {
 		last = 0;
@@ -504,11 +592,10 @@ register struct ld_info *ldi; {
 				break;
 
 		if (!last) {
-			bfd_close(bfd);
-/* FIXME -- should be error */
-			warning("\"%s\": member \"%s\" missing.",
-			      bfd->filename, mem);
-			return;
+		  bfd_close(bfd);
+		  /* FIXME -- should be error */
+		  warning("\"%s\": member \"%s\" missing.", bfd->filename, mem);
+		  return;
 		}
 
 		if (!bfd_check_format(last, bfd_object)) {
@@ -523,18 +610,20 @@ register struct ld_info *ldi; {
 		bfd_close(bfd);
 /* FIXME -- should be error */
 		warning("\"%s\": not in executable format: %s."
-		      , ldi->ldinfo_filename, bfd_errmsg(bfd_error));
+		      , objname, bfd_errmsg(bfd_error));
 		return;
 	}
 }
 
 
-/* As well as symbol tables, exec_sections need relocation. Otherwise after
-   the inferior process terminates, symbol table is relocated but there is
-   no inferior process. Thus, we have to use `exec' bfd, rather than the inferior
-   process's memory space, when lookipng at symbols.
-   `exec_sections' need to be relocated only once though, as long as the exec
-   file was not changed.
+/* As well as symbol tables, exec_sections need relocation. After
+   the inferior process' termination, there will be a relocated symbol
+   table exist with no corresponding inferior process. At that time, we
+   need to use `exec' bfd, rather than the inferior process's memory space
+   to look up symbols.
+
+   `exec_sections' need to be relocated only once, as long as the exec
+   file remains unchanged.
 */
 vmap_exec ()
 {
@@ -544,17 +633,19 @@ vmap_exec ()
 
   execbfd = exec_bfd;
 
-  if (!vmap || !exec_sections) {
-    printf ("WARNING: vmap not found in vmap_exec()!\n");
-    return;
-  }
   /* First exec section is `.text', second is `.data'. If this is changed,
-     then this routine will choke. Better you should check section names,
-     FIXMEmgo. */
-  exec_sections [0].addr += vmap->tstart;
-  exec_sections [0].endaddr += vmap->tstart;
-  exec_sections [1].addr += vmap->dstart;
-  exec_sections [1].endaddr += vmap->dstart;
+     then this routine will choke. */
+
+  if (!vmap || !exec_ops.to_sections ||
+	strcmp (exec_ops.to_sections[0].sec_ptr->name, ".text") ||
+	strcmp (exec_ops.to_sections[1].sec_ptr->name, ".data"))
+
+    fatal ("aix: Improper exec_ops sections.");
+
+  exec_ops.to_sections [0].addr += vmap->tstart;
+  exec_ops.to_sections [0].endaddr += vmap->tstart;
+  exec_ops.to_sections [1].addr += vmap->dstart;
+  exec_ops.to_sections [1].endaddr += vmap->dstart;
 }
 
 
@@ -610,64 +701,65 @@ register struct ld_info *ldi;
 		      , name);
 retry:
 	for (got_one = 0, vp = vmap; vp; vp = vp->nxt) {
-		FILE *io;
+	  FILE *io;
 
-		/* The filenames are not always sufficient to match on. */
-		if ((name[0] == "/"
-		    && !eq(name, vp->name))
-		    || (memb[0] && !eq(memb, vp->member)))
-			continue;
+	  /* First try to find a `vp', which is the same as in ldinfo.
+	     If not the same, just continue and grep the next `vp'. If same,
+	     relocate its tstart, tend, dstart, dend values. If no such `vp'
+	     found, get out of this for loop, add this ldi entry as a new vmap
+	     (add_vmap) and come back, fins its `vp' and so on... */
 
-		/* totally opaque! */
-		io = bfd_cache_lookup(vp->bfd);
-		if (!io)
-			fatal("cannot find BFD's iostream for %s"
-			      , vp->name);
+	  /* The filenames are not always sufficient to match on. */
 
-		/* see if we are referring to the same file */
-		if (fstat(fileno(io), &vi) < 0)
-			fatal("cannot fstat BFD for %s", vp->name);
+	  if ((name[0] == "/" && !eq(name, vp->name))
+	      	|| (memb[0] && !eq(memb, vp->member)))
+	    continue;
 
-		if (ii.st_dev != vi.st_dev || ii.st_ino != vi.st_ino)
-			continue;
+	  io = bfd_cache_lookup(vp->bfd);		/* totally opaque! */
+	  if (!io)
+	    fatal("cannot find BFD's iostream for %s", vp->name);
 
-		if (!retried)
-		    close(ldi->ldinfo_fd);
+	  /* see if we are referring to the same file */
 
-		++got_one;
+	  if (fstat(fileno(io), &vi) < 0)
+	    fatal("cannot fstat BFD for %s", vp->name);
 
-		/* found a corresponding VMAP. remap! */
-		ostart = vp->tstart;
+	  if (ii.st_dev != vi.st_dev || ii.st_ino != vi.st_ino)
+	    continue;
 
-		vp->tstart = ldi->ldinfo_textorg;
-		vp->tend   = vp->tstart + ldi->ldinfo_textsize;
-		vp->dstart = ldi->ldinfo_dataorg;
-		vp->dend   = vp->dstart + ldi->ldinfo_datasize;
+	  if (!retried)
+	    close(ldi->ldinfo_fd);
 
-		if (vp->tadj) {
-		  vp->tstart += vp->tadj;
-		  vp->tend   += vp->tadj;
-		}
+	  ++got_one;
 
-		/* relocate symbol table(s). */
-		vmap_symtab(vp, ostart, &vi);
+	  /* found a corresponding VMAP. remap! */
+	  ostart = vp->tstart;
 
-		/* there may be more, so we don't break out of the loop. */
+	  vp->tstart = ldi->ldinfo_textorg;
+	  vp->tend   = vp->tstart + ldi->ldinfo_textsize;
+	  vp->dstart = ldi->ldinfo_dataorg;
+	  vp->dend   = vp->dstart + ldi->ldinfo_datasize;
+
+	  if (vp->tadj) {
+	    vp->tstart += vp->tadj;
+	    vp->tend   += vp->tadj;
+	  }
+
+	  /* relocate symbol table(s). */
+	  vmap_symtab(vp, ostart, &vi);
+
+	  /* there may be more, so we don't break out of the loop. */
 	}
 
-	/*
-	 * if there was no matching *vp, we must perforce create
-	 * the sucker(s)
-	 */
-	if (!got_one && !retried) {
-		add_vmap(ldi);
-		++retried;
-		goto retry;
+	/* if there was no matching *vp, we must perforce create the sucker(s) */
+  	if (!got_one && !retried) {
+	  add_vmap(ldi);
+	  ++retried;
+	  goto retry;
 	}
   } while (ldi->ldinfo_next
 	 && (ldi = (void *) (ldi->ldinfo_next + (char *) ldi)));
 
-  breakpoint_re_set();
 }
 
 /*
@@ -676,10 +768,9 @@ retry:
 vmap_inferior() {
 
 	if (inferior_pid == 0)
-		return 0;		/* normal processing	*/
+	  return 0;				/* normal processing	*/
 
 	exec_files_info();
-
 	return 1;
 }
 
@@ -702,18 +793,17 @@ vmap_inferior() {
     we just tail-call it with more arguments to select between them.  */
 
 int
-xfer_memory (memaddr, myaddr, len, write, abfd, sections, sections_end)
+xfer_memory (memaddr, myaddr, len, write, target)
      CORE_ADDR memaddr;
      char *myaddr;
      int len;
      int write;
-     bfd *abfd;
-     struct section_table *sections, *sections_end;
+     struct target_ops *target;
 {
   boolean res;
   struct section_table *p;
   CORE_ADDR nextsectaddr, memend;
-  boolean (*xfer_fn) ();
+  boolean (*xfer_fn) PARAMS ((bfd *, sec_ptr, PTR, file_ptr, bfd_size_type));
 
   if (len <= 0)
     abort();
@@ -722,13 +812,13 @@ xfer_memory (memaddr, myaddr, len, write, abfd, sections, sections_end)
   xfer_fn = write? bfd_set_section_contents: bfd_get_section_contents;
   nextsectaddr = memend;
 
-  for (p = sections; p < sections_end; p++)
+  for (p = target->to_sections; p < target->to_sections_end; p++)
     {
       if (p->addr <= memaddr)
 	if (p->endaddr >= memend)
 	  {
 	    /* Entire transfer is within this section.  */
-	    res = xfer_fn (abfd, p->sec_ptr, myaddr, memaddr - p->addr, len);
+	    res = xfer_fn (p->bfd, p->sec_ptr, myaddr, memaddr - p->addr, len);
 	    return (res != false)? len: 0;
 	  }
 	else if (p->endaddr <= memaddr)
@@ -740,7 +830,7 @@ xfer_memory (memaddr, myaddr, len, write, abfd, sections, sections_end)
 	  {
 	    /* This section overlaps the transfer.  Just do half.  */
 	    len = p->endaddr - memaddr;
-	    res = xfer_fn (abfd, p->sec_ptr, myaddr, memaddr - p->addr, len);
+	    res = xfer_fn (p->bfd, p->sec_ptr, myaddr, memaddr - p->addr, len);
 	    return (res != false)? len: 0;
 	  }
       else if (p->addr < nextsectaddr)
@@ -753,41 +843,58 @@ xfer_memory (memaddr, myaddr, len, write, abfd, sections, sections_end)
     return - (nextsectaddr - memaddr);	/* Next boundary where we can help */
 }
 
-/* The function called by target_xfer_memory via our target_ops */
-
-int
-exec_xfer_memory (memaddr, myaddr, len, write)
-     CORE_ADDR memaddr;
-     char *myaddr;
-     int len;
-     int write;
+void
+print_section_info (t, abfd)
+  struct target_ops *t;
+  bfd *abfd;
 {
-  return xfer_memory (memaddr, myaddr, len, write,
-		      exec_bfd, exec_sections, exec_sections_end);
+  struct section_table *p;
+
+  printf_filtered ("\t`%s', ", bfd_get_filename(abfd));
+  wrap_here ("        ");
+  printf_filtered ("file type %s.\n", bfd_get_target(abfd));
+
+  for (p = t->to_sections; p < t->to_sections_end; p++) {
+    printf_filtered ("\t%s", local_hex_string_custom (p->addr, "08"));
+    printf_filtered (" - %s", local_hex_string_custom (p->endaddr, "08"));
+    if (info_verbose)
+      printf_filtered (" @ %s",
+		       local_hex_string_custom (p->sec_ptr->filepos, "08"));
+    printf_filtered (" is %s", bfd_section_name (p->bfd, p->sec_ptr));
+    if (p->bfd != abfd) {
+      printf_filtered (" in %s", bfd_get_filename (p->bfd));
+    }
+    printf_filtered ("\n");
+  }
 }
 
-/*
- * exec_files_info -	"info files" command processor
- */
+
 static void
-exec_files_info() {
-	register struct vmap *vp = vmap;
+exec_files_info (t)
+  struct target_ops *t;
+{
+  register struct vmap *vp = vmap;
 
-	if (!vp)
-		return;
+  print_section_info (t, exec_bfd);
 
-	printf("\tMapping info for file `%s'.\n", vp->name);
-	printf("\t  %8.8s   %8.8s %8.8s %s\n"
-	       , "start", "end", "section", "file(member)");
+  if (!vp)
+    return;
 
-	for (; vp; vp = vp->nxt)
-		printf("\t0x%8.8x 0x%8.8x %s%s%s%s\n"
-		       , vp->tstart
-		       , vp->tend
-		       , vp->name
-		       , *vp->member ? "(" : ""
-		       ,  vp->member
-		       , *vp->member ? ")" : "");
+  printf("\tMapping info for file `%s'.\n", vp->name);
+
+  printf("\t  %8.8s   %8.8s   %8.8s   %8.8s %8.8s %s\n",
+    "tstart", "tend", "dstart", "dend", "section", "file(member)");
+
+  for (; vp; vp = vp->nxt)
+     printf("\t0x%8.8x 0x%8.8x 0x%8.8x 0x%8.8x %s%s%s%s\n",
+	vp->tstart,
+	vp->tend,
+	vp->dstart,
+	vp->dend,
+	vp->name,
+	*vp->member ? "(" : "",
+	vp->member,
+	*vp->member ? ")" : "");
 }
 
 #ifdef DAMON
@@ -861,13 +968,14 @@ set_section_command (args, from_tty)
   /* Parse out new virtual address */
   secaddr = parse_and_eval_address (args);
 
-  for (p = exec_sections; p < exec_sections_end; p++) {
+  for (p = exec_ops.to_sections; p < exec_ops.to_sections_end; p++) {
     if (!strncmp (secname, bfd_section_name (exec_bfd, p->sec_ptr), seclen)
 	&& bfd_section_name (exec_bfd, p->sec_ptr)[seclen] == '\0') {
       offset = secaddr - p->addr;
       p->addr += offset;
       p->endaddr += offset;
-      exec_files_info();
+      if (from_tty)
+        exec_files_info(&exec_ops);
       return;
     }
   } 
@@ -888,11 +996,11 @@ Specify the filename of the executable file.",
 	child_attach, 0, 0, 0, /* attach, detach, resume, wait, */
 	0, 0, /* fetch_registers, store_registers, */
 	0, 0, 0, /* prepare_to_store, conv_to, conv_from, */
-	exec_xfer_memory, exec_files_info,
+	xfer_memory, exec_files_info,
 	0, 0, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0, /* terminal stuff */
 	0, 0, /* kill, load */
-	0, 0, /* call fn, lookup sym */
+	0, /* lookup sym */
 	child_create_inferior,
 	0, /* mourn_inferior */
 	file_stratum, 0, /* next */

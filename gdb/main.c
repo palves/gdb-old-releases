@@ -1,5 +1,6 @@
 /* Top level `main' program for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,15 +18,16 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
-int fclose ();
 #include "defs.h"
 #include "gdbcmd.h"
+#include "call-cmds.h"
 #include "symtab.h"
 #include "inferior.h"
 #include "signals.h"
 #include "target.h"
 #include "breakpoint.h"
+#include "gdbtypes.h"
+#include "expression.h"
 #include "language.h"
 
 #include "getopt.h"
@@ -43,7 +45,9 @@ int fclose ();
 #endif
 
 #include <string.h>
+#ifndef	NO_SYS_FILE
 #include <sys/file.h>
+#endif
 #include <setjmp.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -56,6 +60,103 @@ int fclose ();
 int original_stack_limit;
 #endif
 
+/* Prototypes for local functions */
+
+static char *
+symbol_completion_function PARAMS ((char *, int));
+
+static void
+command_loop PARAMS ((void));
+
+static void
+command_loop_marker PARAMS ((int));
+
+static void
+print_gdb_version PARAMS ((void));
+
+static void
+quit_command PARAMS ((char *, int));
+
+static void
+initialize_main PARAMS ((void));
+
+static void
+initialize_history PARAMS ((void));
+
+static void
+initialize_cmd_lists PARAMS ((void));
+
+static void
+float_handler PARAMS ((int));
+
+static void
+source_command PARAMS ((char *, int));
+
+static void
+cd_command PARAMS ((char *, int));
+
+static void
+print_gnu_advertisement PARAMS ((void));
+
+static void
+init_signals PARAMS ((void));
+
+static void
+read_command_file PARAMS ((FILE *));
+
+static void 
+set_verbose PARAMS ((char *, int, struct cmd_list_element *));
+
+static void
+show_history PARAMS ((char *, int));
+
+static void
+set_history PARAMS ((char *, int));
+
+static void
+set_history_size_command PARAMS ((char *, int, struct cmd_list_element *));
+
+static void
+show_commands PARAMS ((char *, int));
+
+static void
+dump_me_command PARAMS ((char *, int));
+
+static void
+echo_command PARAMS ((char *, int));
+
+static void
+pwd_command PARAMS ((char *, int));
+
+static void
+show_version PARAMS ((char *, int));
+
+static void
+document_command PARAMS ((char *, int));
+
+static void
+define_command PARAMS ((char *, int));
+
+static void
+validate_comname PARAMS ((char *));
+
+static void
+help_command PARAMS ((char *, int));
+
+static void
+show_command PARAMS ((char *, int));
+
+static void
+info_command PARAMS ((char *, int));
+
+static void
+do_nothing PARAMS ((int));
+
+static void
+disconnect PARAMS ((int));
+
+static void
+source_cleanup PARAMS ((FILE *));
 
 /* If this definition isn't overridden by the header files, assume
    that isatty and fileno exist on this system.  */
@@ -79,6 +180,10 @@ extern char *version;
 /* Message to be printed before the error message, when an error occurs.  */
 
 extern char *error_pre_print;
+
+/* Message to be printed before the warning message, when a warning occurs.  */
+
+extern char *warning_pre_print;
 
 extern char lang_frame_mismatch_warn[];		/* language.c */
 
@@ -151,42 +256,14 @@ static char dirbuf[1024];
    The function receives two args: an input stream,
    and a prompt string.  */
 
-void (*window_hook) ();
+void (*window_hook) PARAMS ((FILE *, char *));
 
 extern int frame_file_full_name;
+extern int mapped_symbol_files;
+extern int readnow_symbol_files;
+
 int epoch_interface;
 int xgdb_verbose;
-
-/* The external commands we call... */
-extern void init_source_path ();
-extern void directory_command ();
-extern void exec_file_command ();
-extern void symbol_file_command ();
-extern void core_file_command ();
-extern void tty_command ();
-
-extern void help_list ();
-extern void initialize_all_files ();
-extern void init_malloc ();
-
-/* Forward declarations for this file */
-void free_command_lines ();
-char *gdb_readline ();
-char *command_line_input ();
-static void initialize_history ();
-static void initialize_main ();
-static void initialize_cmd_lists ();
-static void init_signals ();
-static void quit_command ();
-void command_loop ();
-static void source_command ();
-static void print_gdb_version ();
-static void print_gnu_advertisement ();
-static void float_handler ();
-static void cd_command ();
-static void read_command_file ();
-
-char *getenv ();
 
 /* gdb prints this when reading a command interactively */
 static char *prompt;
@@ -207,6 +284,7 @@ char *baud_rate;
 #ifndef STOP_SIGNAL
 #ifdef SIGTSTP
 #define STOP_SIGNAL SIGTSTP
+static void stop_sig PARAMS ((int));
 #endif
 #endif
 
@@ -223,16 +301,15 @@ char *baud_rate;
 
 jmp_buf to_top_level;
 
-void
+NORETURN void
 return_to_top_level ()
 {
   quit_flag = 0;
   immediate_quit = 0;
   bpstat_clear_actions(stop_bpstat);	/* Clear queued breakpoint commands */
-  clear_momentary_breakpoints ();
   disable_current_display ();
   do_cleanups (ALL_CLEANUPS);
-  longjmp (to_top_level, 1);
+  (NORETURN void) longjmp (to_top_level, 1);
 }
 
 /* Call FUNC with arg ARGS, catching any errors.
@@ -242,7 +319,7 @@ return_to_top_level ()
 
 int
 catch_errors (func, args, errstring)
-     int (*func) ();
+     int (*func) PARAMS ((char *));
      char *args;
      char *errstring;
 {
@@ -254,7 +331,7 @@ catch_errors (func, args, errstring)
   saved_cleanup_chain = save_cleanups ();
   saved_error_pre_print = error_pre_print;
 
-  bcopy (to_top_level, saved, sizeof (jmp_buf));
+  memcpy ((char *)saved, (char *)to_top_level, sizeof (jmp_buf));
   error_pre_print = errstring;
 
   if (setjmp (to_top_level) == 0)
@@ -265,17 +342,18 @@ catch_errors (func, args, errstring)
   restore_cleanups (saved_cleanup_chain);
 
   error_pre_print = saved_error_pre_print;
-  bcopy (saved, to_top_level, sizeof (jmp_buf));
+  memcpy ((char *)to_top_level, (char *)saved, sizeof (jmp_buf));
   return val;
 }
 
 /* Handler for SIGHUP.  */
 
 static void
-disconnect ()
+disconnect (signo)
+int signo;
 {
   kill_inferior_fast ();
-  signal (SIGHUP, SIG_DFL);
+  signal (signo, SIG_DFL);
   kill (getpid (), SIGHUP);
 }
 
@@ -337,7 +415,7 @@ main (argc, argv)
   register int i;
 
   /* This needs to happen before the first use of malloc.  */
-  init_malloc ();
+  init_malloc ((PTR) NULL);
 
 #if defined (ALIGN_STACK_ON_STARTUP)
   i = (int) &count & 0x3;
@@ -387,34 +465,38 @@ main (argc, argv)
        with no equivalent).  */
     static struct option long_options[] =
       {
-	{"quiet", 0, &quiet, 1},
-	{"q", 0, &quiet, 1},
-	{"nx", 0, &inhibit_gdbinit, 1},
-	{"n", 0, &inhibit_gdbinit, 1},
-	{"batch", 0, &batch, 1},
-	{"epoch", 0, &epoch_interface, 1},
-	{"fullname", 0, &frame_file_full_name, 1},
-	{"f", 0, &frame_file_full_name, 1},
-	{"help", 0, &print_help, 1},
-	{"se", 1, 0, 10},
-	{"symbols", 1, 0, 's'},
-	{"s", 1, 0, 's'},
-	{"exec", 1, 0, 'e'},
-	{"e", 1, 0, 'e'},
-	{"core", 1, 0, 'c'},
-	{"c", 1, 0, 'c'},
-	{"command", 1, 0, 'x'},
-	{"x", 1, 0, 'x'},
-	{"directory", 1, 0, 'd'},
-	{"cd", 1, 0, 11},
-	{"tty", 1, 0, 't'},
-	{"baud", 1, 0, 'b'},
-	{"b", 1, 0, 'b'},
+	{"readnow", no_argument, &readnow_symbol_files, 1},
+	{"r", no_argument, &readnow_symbol_files, 1},
+	{"mapped", no_argument, &mapped_symbol_files, 1},
+	{"m", no_argument, &mapped_symbol_files, 1},
+	{"quiet", no_argument, &quiet, 1},
+	{"q", no_argument, &quiet, 1},
+	{"nx", no_argument, &inhibit_gdbinit, 1},
+	{"n", no_argument, &inhibit_gdbinit, 1},
+	{"batch", no_argument, &batch, 1},
+	{"epoch", no_argument, &epoch_interface, 1},
+	{"fullname", no_argument, &frame_file_full_name, 1},
+	{"f", no_argument, &frame_file_full_name, 1},
+	{"help", no_argument, &print_help, 1},
+	{"se", required_argument, 0, 10},
+	{"symbols", required_argument, 0, 's'},
+	{"s", required_argument, 0, 's'},
+	{"exec", required_argument, 0, 'e'},
+	{"e", required_argument, 0, 'e'},
+	{"core", required_argument, 0, 'c'},
+	{"c", required_argument, 0, 'c'},
+	{"command", required_argument, 0, 'x'},
+	{"x", required_argument, 0, 'x'},
+	{"directory", required_argument, 0, 'd'},
+	{"cd", required_argument, 0, 11},
+	{"tty", required_argument, 0, 't'},
+	{"baud", required_argument, 0, 'b'},
+	{"b", required_argument, 0, 'b'},
 /* Allow machine descriptions to add more options... */
 #ifdef ADDITIONAL_OPTIONS
 	ADDITIONAL_OPTIONS
 #endif
-	{0, 0, 0, 0},
+	{0, no_argument, 0, 0},
       };
 
     while (1)
@@ -511,7 +593,9 @@ Options available are:\n\
   -exec=EXECFILE    Use EXECFILE as the executable.\n\
   -se=FILE          Use FILE as symbol file and executable file.\n\
   -core=COREFILE    Analyze the core dump COREFILE.\n\
-  -b BAUDRATE       Set serial port baud rate used for remote debugging\n\
+  -b BAUDRATE       Set serial port baud rate used for remote debugging.\n\
+  -mapped           Use mapped symbol files if supported on this system.\n\
+  -readnow          Fully read symbol files on first access.\n\
 ", stderr);
 #ifdef ADDITIONAL_OPTION_HELP
 	fputs (ADDITIONAL_OPTION_HELP, stderr);
@@ -566,6 +650,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
     }
 
   error_pre_print = "\n\n";
+  warning_pre_print = "\n\nwarning: ";
 
   /* Now perform all the actions indicated by the arguments.  */
   if (cdarg != NULL)
@@ -581,7 +666,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
   for (i = 0; i < ndir; i++)
     if (!setjmp (to_top_level))
       directory_command (dirarg[i], 0);
-  free (dirarg);
+  free ((PTR)dirarg);
   do_cleanups (ALL_CLEANUPS);
 
   if (execarg != NULL
@@ -613,18 +698,17 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
   if (!quiet)
     printf_filtered ("\n");
   error_pre_print = "\n";
+  warning_pre_print = "\nwarning: ";
 
   /* Set the initial language. */
   {
-    extern enum language deduce_language_from_filename ();
-    extern struct partial_symtab *find_main_psymtab ();
     struct partial_symtab *pst = find_main_psymtab ();
     enum language lang = language_unknown;  	
     if (pst == NULL) ;
 #if 0
     /* A better solution would set the language when reading the psymtab.
        This would win for symbol file formats that encode the langauge,
-       such as dwarf.  But, we don't do that yet. FIXME */
+       such as DWARF.  But, we don't do that yet. FIXME */
     else if (pst->language != language_unknown)
 	lang = pst->language;
 #endif
@@ -653,6 +737,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 
   /* Error messages should no longer be distinguished with extra output. */
   error_pre_print = 0;
+  warning_pre_print = "warning: ";
 
   {
     struct stat homebuf, cwdbuf;
@@ -677,8 +762,8 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 	   zero in case one of them fails (this guarantees that they
 	   won't match if either exists).  */
 	
-	bzero (&homebuf, sizeof (struct stat));
-	bzero (&cwdbuf, sizeof (struct stat));
+	memset (&homebuf, 0, sizeof (struct stat));
+	memset (&cwdbuf, 0, sizeof (struct stat));
 	
 	stat (homeinit, &homebuf);
 	stat (gdbinit, &cwdbuf); /* We'll only need this if
@@ -707,7 +792,7 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 	  source_command (cmdarg[i], !batch);
 	do_cleanups (ALL_CLEANUPS);
       }
-  free (cmdarg);
+  free ((PTR)cmdarg);
 
   /* Read in the old history after all the command files have been read. */
   initialize_history();
@@ -791,10 +876,10 @@ execute_command (p, from_tty)
 	}
       else if (c->type == set_cmd || c->type == show_cmd)
 	do_setshow_command (arg, from_tty & caution, c);
-      else if (c->function == NO_FUNCTION)
+      else if (c->function.cfunc == NO_FUNCTION)
 	error ("That is not a command, just a help topic.");
       else
-	(*c->function) (arg, from_tty & caution);
+	(*c->function.cfunc) (arg, from_tty & caution);
    }
 
   /* Tell the user if the language has changed (except first time).  */
@@ -827,7 +912,7 @@ execute_command (p, from_tty)
 }
 
 /* ARGSUSED */
-void
+static void
 command_loop_marker (foo)
      int foo;
 {
@@ -835,7 +920,7 @@ command_loop_marker (foo)
 
 /* Read commands from `instream' and execute them
    until end of file or error reading instream.  */
-void
+static void
 command_loop ()
 {
   struct cleanup *old_chain;
@@ -851,7 +936,7 @@ command_loop ()
       if (instream == stdin && stdin_is_tty)
 	reinitialize_more_filter ();
       old_chain = make_cleanup (command_loop_marker, 0);
-      command = command_line_input (instream == stdin ? prompt : 0,
+      command = command_line_input (instream == stdin ? prompt : (char *) NULL,
 				      instream == stdin);
       if (command == 0)
 	return;
@@ -925,9 +1010,6 @@ gdb_readline (prrompt)
   return result;
 }
 
-/* Declaration for fancy readline with command line editing.  */
-char *readline ();
-
 /* Variables which control command line editing and history
    substitution.  These variables are given default values at the end
    of this file.  */
@@ -961,7 +1043,8 @@ noop_completer (text)
    the cursor.  You should pretend that the line ends at RL_POINT.
    The result is NULL if there are no more completions, else a char
    string which is a possible completion.  */
-char *
+
+static char *
 symbol_completion_function (text, state)
      char *text;
      int state;
@@ -979,7 +1062,7 @@ symbol_completion_function (text, state)
       /* Free the storage used by LIST, but not by the strings inside.  This is
 	 because rl_complete_internal () frees the strings. */
       if (list)
-	free (list);
+	free ((PTR)list);
       list = 0;
       index = 0;
 
@@ -1092,7 +1175,8 @@ symbol_completion_function (text, state)
 
 #ifdef STOP_SIGNAL
 static void
-stop_sig ()
+stop_sig (signo)
+int signo;
 {
 #if STOP_SIGNAL == SIGTSTP
   signal (SIGTSTP, SIG_DFL);
@@ -1112,15 +1196,14 @@ stop_sig ()
 
 /* Initialize signal handlers. */
 static void
-do_nothing ()
+do_nothing (signo)
+int signo;
 {
 }
 
 static void
 init_signals ()
 {
-  extern void request_quit ();
-
   signal (SIGINT, request_quit);
 
   /* If we initialize SIGQUIT to SIG_IGN, then the SIG_IGN will get
@@ -1135,6 +1218,10 @@ init_signals ()
   if (signal (SIGHUP, do_nothing) != SIG_IGN)
     signal (SIGHUP, disconnect);
   signal (SIGFPE, float_handler);
+
+#if defined(SIGWINCH) && defined(SIGWINCH_HANDLER)
+  signal (SIGWINCH, SIGWINCH_HANDLER);
+#endif
 }
 
 /* Read one line from the command input stream `instream'
@@ -1158,7 +1245,7 @@ command_line_input (prrompt, repeat)
      int repeat;
 {
   static char *linebuffer = 0;
-  static int linelength = 0;
+  static unsigned linelength = 0;
   register char *p;
   char *p1;
   char *rl;
@@ -1352,7 +1439,7 @@ read_command_lines ()
   while (1)
     {
       dont_repeat ();
-      p = command_line_input (0, instream == stdin);
+      p = command_line_input ((char *) NULL, instream == stdin);
       if (p == NULL)
 	/* Treat end of file like "end".  */
 	break;
@@ -1407,7 +1494,7 @@ free_command_lines (lptr)
     {
       next = l->next;
       free (l->line);
-      free (l);
+      free ((PTR)l);
       l = next;
     }
 }
@@ -1417,7 +1504,7 @@ free_command_lines (lptr)
 void
 add_info (name, fun, doc)
      char *name;
-     void (*fun) ();
+     void (*fun) PARAMS ((char *, int));
      char *doc;
 {
   add_cmd (name, no_class, fun, doc, &infolist);
@@ -1464,7 +1551,7 @@ void
 add_com (name, class, fun, doc)
      char *name;
      enum command_class class;
-     void (*fun) ();
+     void (*fun) PARAMS ((char *, int));
      char *doc;
 {
   add_cmd (name, class, fun, doc, &cmdlist);
@@ -1510,13 +1597,18 @@ validate_comname (comname)
   p = comname;
   while (*p)
     {
-      if (!(*p >= 'A' && *p <= 'Z')
-	  && !(*p >= 'a' && *p <= 'z')
-	  && !(*p >= '0' && *p <= '9')
-	  && *p != '-')
+      if (!isalnum(*p) && *p != '-')
 	error ("Junk in argument list: \"%s\"", p);
       p++;
     }
+}
+
+/* This is just a placeholder in the command data structures.  */
+static void
+user_defined_command (ignore, from_tty)
+     char *ignore;
+     int from_tty;
+{
 }
 
 static void
@@ -1527,7 +1619,6 @@ define_command (comname, from_tty)
   register struct command_line *cmds;
   register struct cmd_list_element *c, *newc;
   char *tem = comname;
-  extern void not_just_help_class_command ();
 
   validate_comname (comname);
 
@@ -1542,9 +1633,16 @@ define_command (comname, from_tty)
 	tem = "Redefine command \"%s\"? ";
       else
 	tem = "Really redefine built-in command \"%s\"? ";
-      if (!query (tem, comname))
-	error ("Command \"%s\" not redefined.", comname);
+      if (!query (tem, c->name))
+	error ("Command \"%s\" not redefined.", c->name);
     }
+
+  comname = savestring (comname, strlen (comname));
+
+  /* If the rest of the commands will be case insensetive, this one 
+     should behave in the same manner. */
+  for (tem = comname; *tem; tem++)
+    if (isupper(*tem)) *tem = tolower(*tem);
 
   if (from_tty)
     {
@@ -1552,14 +1650,13 @@ define_command (comname, from_tty)
 End with a line saying just \"end\".\n", comname);
       fflush (stdout);
     }
-  comname = savestring (comname, strlen (comname));
 
   cmds = read_command_lines ();
 
   if (c && c->class == class_user)
     free_command_lines (&c->user_commands);
 
-  newc = add_cmd (comname, class_user, not_just_help_class_command,
+  newc = add_cmd (comname, class_user, user_defined_command,
 	   (c && c->class == class_user)
 	   ? c->doc : savestring ("User-defined.", 13), &cmdlist);
   newc->user_commands = cmds;
@@ -1624,7 +1721,7 @@ static void
 print_gdb_version ()
 {
   printf_filtered ("\
-GDB %s, Copyright 1991 Free Software Foundation, Inc.",
+GDB %s, Copyright 1992 Free Software Foundation, Inc.",
 	  version);
 }
 
@@ -1659,7 +1756,7 @@ quit_command (args, from_tty)
     {
       if (query ("The program is running.  Quit anyway? "))
 	{
-	  target_kill (args, from_tty);
+	  target_kill ();
 	}
       else
 	error ("Not confirmed.");
@@ -1713,6 +1810,9 @@ cd_command (dir, from_tty)
   dir = tilde_expand (dir);
   make_cleanup (free, dir);
 
+  if (chdir (dir) < 0)
+    perror_with_name (dir);
+
   len = strlen (dir);
   dir = savestring (dir, len - (len > 1 && dir[len-1] == '/'));
   if (dir[0] == '/')
@@ -1751,9 +1851,6 @@ cd_command (dir, from_tty)
 	  else p++;
 	}
     }
-
-  if (chdir (dir) < 0)
-    perror_with_name (dir);
 
   forget_cached_source_info ();
 
@@ -1854,7 +1951,7 @@ show_commands (args, from_tty)
      than the number of the last command).  Relative to history_base.  */
   int hist_len;
 
-  struct _hist_entry *history_get();
+  extern struct _hist_entry *history_get PARAMS ((int));
   extern int history_base;
 
   /* Print out some of the commands from the command history.  */
@@ -1926,8 +2023,13 @@ set_history_size_command (args, from_tty, c)
 {
   if (history_size == UINT_MAX)
     unstifle_history ();
-  else
+  else if (history_size >= 0)
     stifle_history (history_size);
+  else
+    {
+      history_size = UINT_MAX;
+      error ("History size must be non-negative");
+    }
 }
 
 /* ARGSUSED */
@@ -1977,7 +2079,8 @@ set_verbose (args, from_tty, c)
 }
 
 static void
-float_handler ()
+float_handler (signo)
+int signo;
 {
   /* This message is based on ANSI C, section 4.7.  Note that integer
      divide by zero causes this, so "float" is a misnomer.  */
@@ -2019,14 +2122,16 @@ initialize_history()
 {
   char *tmpenv;
 
-  if (tmpenv = getenv ("HISTSIZE"))
+  tmpenv = getenv ("HISTSIZE");
+  if (tmpenv)
     history_size = atoi (tmpenv);
   else if (!history_size)
     history_size = 256;
 
   stifle_history (history_size);
 
-  if (tmpenv = getenv ("GDBHISTFILE"))
+  tmpenv = getenv ("GDBHISTFILE");
+  if (tmpenv)
     history_filename = savestring (tmpenv, strlen(tmpenv));
   else if (!history_filename) {
     /* We include the current directory so that if the user changes
@@ -2136,7 +2241,7 @@ when gdb is started.");
 		   "Set ",
 		   &setlist),
   add_show_from_set (c, &showlist);
-  c->function = set_verbose;
+  c->function.sfunc = set_verbose;
   set_verbose (NULL, 0, c);
   
   add_com ("dump-me", class_obscure, dump_me_command,
@@ -2174,7 +2279,7 @@ Without an argument, saving is enabled.", &sethistlist),
 		   "Set the size of the command history, \n\
 ie. the number of previous commands to keep a record of.", &sethistlist);
   add_show_from_set (c, &showhistlist);
-  c->function = set_history_size_command;
+  c->function.sfunc = set_history_size_command;
 
   add_show_from_set
     (add_set_cmd ("filename", no_class, var_filename, (char *)&history_filename,

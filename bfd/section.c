@@ -580,7 +580,11 @@ FUNCTION
 	bfd_map_over_sections
 
 SYNOPSIS
-	void bfd_map_over_sections(bfd *abfd, void (*func)(), PTR obj);
+	void bfd_map_over_sections(bfd *abfd,
+				   void (*func)(bfd *abfd,
+						asection *sect,
+						PTR obj),
+				   PTR obj);
 
 DESCRIPTION
 	Calls the provided function @var{func} for each section
@@ -603,7 +607,9 @@ DESCRIPTION
 void
 DEFUN(bfd_map_over_sections,(abfd, operation, user_storage),
       bfd *abfd AND
-      void (*operation)() AND
+      void EXFUN((*operation), (bfd *abfd,
+				asection *sect,
+				PTR obj)) AND
       PTR user_storage)
 {
   asection *sect;
@@ -757,6 +763,7 @@ DEFUN(bfd_get_section_contents,(abfd, section, location, offset, count),
 
 
 /* Initialize the internal data structures */
+void
 DEFUN_VOID(bfd_section_init)
 {
 
@@ -767,8 +774,6 @@ DEFUN_VOID(bfd_section_init)
   bfd_com_section.symbol = bfd_com_symbol;
   bfd_com_section.symbol_ptr_ptr = &bfd_com_symbol;
   bfd_com_section.output_section = &bfd_com_section;
-  
-
 
   bfd_und_symbol = (asymbol *)zalloc(sizeof(asymbol));
   bfd_und_symbol->name = BFD_UND_SECTION_NAME;
@@ -785,9 +790,4 @@ DEFUN_VOID(bfd_section_init)
   bfd_abs_section.symbol = bfd_abs_symbol;
   bfd_abs_section.symbol_ptr_ptr = &bfd_abs_symbol;
   bfd_abs_section.output_section = &bfd_abs_section;  
-
-  
-  
-
-
 }

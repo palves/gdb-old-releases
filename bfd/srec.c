@@ -468,8 +468,6 @@ DEFUN(srec_write_section,(abfd, tdata, list),
 
     while (bytes_written < list->size)
     {
-	char buffer[MAXCHUNK];
-	char *dst = buffer;
 	bfd_vma address;
 	
 	unsigned int bytes_this_chunk = list->size - bytes_written;

@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -48,23 +47,26 @@ struct ext_format ext_format_i387 = {
 
 /* FIXME:  Eliminate these routines when we have the time to change all
    the callers.  */
+
 void
 i387_to_double (from, to)
-     char *from, *to;
+     char *from;
+     char *to;
 {
   ieee_extended_to_double (&ext_format_i387, from, (double *)to);
 }
 
 void
 double_to_i387 (from, to)
-     char *from, *to;
+     char *from;
+     char *to;
 {
   double_to_ieee_extended (&ext_format_i387, (double *)from, to);
 }
 
 void
 print_387_control_word (control)
-unsigned short control;
+     unsigned int control;
 {
   printf ("control %s: ", local_hex_string(control));
   printf ("compute to ");
@@ -95,13 +97,13 @@ unsigned short control;
       printf (";");
     }
   printf ("\n");
-  if (control & 0xe080) printf ("warning: reserved bits on: %s\n",
+  if (control & 0xe080) warning ("reserved bits on: %s\n",
 				local_hex_string(control & 0xe080));
 }
 
 void
 print_387_status_word (status)
-     unsigned short status;
+     unsigned int status;
 {
   printf ("status %s: ", local_hex_string (status));
   if (status & 0xff) 

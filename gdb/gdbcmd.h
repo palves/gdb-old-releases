@@ -1,5 +1,5 @@
 /* Header file for GDB-specific command-line stuff.
-   Copyright (C) 1986, 1989, 1990 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1990, 1992 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -14,6 +14,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#if !defined (GDBCMD_H)
+#define GDBCMD_H 1
 
 #include "command.h"
 
@@ -65,5 +68,10 @@ extern struct cmd_list_element *unsethistlist;
 extern struct cmd_list_element *setprintlist;
 extern struct cmd_list_element *showprintlist;
 
-void execute_command ();
-char **noop_completer ();
+extern void
+execute_command PARAMS ((char *, int));
+
+extern char **
+noop_completer PARAMS ((char *));
+
+#endif	/* !defined (GDBCMD_H) */

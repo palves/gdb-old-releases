@@ -247,6 +247,7 @@ SUBSUBSECTION
         information that BFD needs to know to tie up a back end's data.
 
 CODE_FRAGMENT
+.struct symbol_cache_entry;		{* Forward declaration *}
 .
 .typedef CONST struct reloc_howto_struct 
 .{ 
@@ -289,7 +290,12 @@ CODE_FRAGMENT
 .          called rather than the normal function. This allows really
 .          strange relocation methods to be accomodated (eg, i960 callj
 .          instructions). *}
-.  bfd_reloc_status_type (*special_function)();
+.  bfd_reloc_status_type EXFUN ((*special_function), 
+.					    (bfd *abfd,
+.					     arelent *reloc_entry,
+.                                            struct symbol_cache_entry *symbol,
+.                                            PTR data,
+.                                            asection *input_section));
 .
 .       {* The textual name of the relocation type. *}
 .  char *name;
@@ -785,22 +791,16 @@ DEFUN(bfd_generic_get_relocated_section_contents,(abfd, seclet),
       struct bfd_seclet_struct *seclet)
 {
   extern bfd_error_vector_type bfd_error_vector;
-  
-
-  asymbol **symbols = 0;
 
   /* Get enough memory to hold the stuff */
   bfd *input_bfd = seclet->u.indirect.section->owner;
   asection *input_section = seclet->u.indirect.section;
 
-  bfd_byte *data = (bfd_byte *)malloc(input_section->_raw_size);
-  bfd_byte *dst = data;
-  bfd_byte *prev_dst = data;
-  unsigned int gap = 0;
+  bfd_byte *data = (bfd_byte *) bfd_xmalloc(input_section->_raw_size);
 
   bfd_size_type reloc_size = bfd_get_reloc_upper_bound(input_bfd,
 						       input_section);
-  arelent **reloc_vector = (arelent **)malloc(reloc_size);
+  arelent **reloc_vector = (arelent **) bfd_xmalloc(reloc_size);
   
   /* read in the section */
   bfd_get_section_contents(input_bfd,
@@ -832,8 +832,6 @@ DEFUN(bfd_generic_get_relocated_section_contents,(abfd, seclet),
 
       if (r != bfd_reloc_ok) 
       {
-	asymbol *s;
-
 	switch (r)
 	{
 	case bfd_reloc_undefined:

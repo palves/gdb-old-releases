@@ -1,3 +1,211 @@
+Thu Apr  2 17:42:45 1992  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Now that we have sym.h and symconst.h, compile
+	coff-msym.c on all systems.
+	* config/{decstation.mh, irix3.mh, irix4.mh}:  Remove coff-msym.o dep.
+	* coff-msym.c:  Update include files and comments; add weakext bit.
+
+Wed Apr  1 23:16:38 1992  John Gilmore  (gnu at cygnus.com)
+
+	* archive.c, bfd.c, bout.c, coffcode.h, init.c, reloc.c,
+	section.c, srec.c, syms.c, coff-h8300.c:  Lint.
+
+Sun Mar 29 09:37:59 1992  John Gilmore  (gnu at cygnus.com)
+
+	* bout.c, coff-a29k.c, coff-i960.c:  Lint.
+	* configure.in:  Add new host and target configs.
+	* elf.c (bfd_prstatus, bfd_fpregset):  Avoid typename of register
+	structs, which vary; just use member name. 
+	(elf_object_p, elf_core_file_p):  Lint, fix comments.
+	* config/sparc-elf.mt, hosts/sysv4.h:  New config files.	
+
+Sat Mar 28 13:07:02 1992  Fred Fish  (fnf@cygnus.com)
+
+	* elf.c (elf_object_p, elf_core_file_p):  Fix to use only a single
+	local, disposable, copy of the external form of section header
+	table and program header table entries.
+
+Thu Mar 26 16:59:58 1992  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Set MINIMIZE back to 0 for a real release.
+
+Tue Mar 24 15:57:03 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* configure.in: config/irix4.m[ht], hosts/irix4.h: add support for
+	  irix4.
+
+Mon Mar 23 22:37:34 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* coff-msym.c (ecoff_swap_rfd_in):  remove & for array ref.
+
+Tue Mar 17 14:12:25 1992  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* bout.c (b_out_slurp_reloc_table):  Use BFD_ASSERT macro,
+	not internal bfd_assert function (twice).
+
+Tue Mar 17 10:45:12 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* aout-target.h: change ar_max_namelen to 15 (the right value)
+	* coff-a29k, coffcode.h: more hangovers from the bfd_abs_section
+	change
+
+Mon Mar 16 14:57:22 1992  Steve Chamberlain  (sac@rtl.cygnus.com)
+
+	* archive.c (bfd_generic_archive_p): check for bout archives too.
+	* bout.c: make it work again.
+
+Sat Mar 14 17:30:40 1992  Fred Fish  (fnf@cygnus.com)
+
+	* elf.c (elf_corefile_note):  Call bfd_xmalloc() instead of bare
+	malloc().
+	* reloc.c (bfd_generic_get_relocated_section_contents):  Call
+	bfd_xmalloc() instead of bare malloc().
+
+Fri Mar 13 15:44:37 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* Makefile.in: pass down MAKEINFO on info.
+
+Fri Mar 13 07:41:13 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* config/mt-<foo> now <foo>.mt, config/mh-<foo> now <foo>.mh.
+	host/h-<foo> now just <foo>. 
+	* configure.in: reflect changes
+
+Thu Mar 12 11:15:02 1992  Per Bothner  (bothner@cygnus.com)
+
+	* libbfd-in.h (set_tdata):  Make change of Feb 27 in the
+	actual source file, not just the generated libbfd.h.
+
+Sat Mar  7 10:33:41 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* coff-i960.c (icoff_little_vec): add COFF_SWAP_TABLE so we can run
+	gdb on little-endian 960 code. 
+	* archive.c (compute_and_write_armap): indirect symbols should go
+	into the archive header too.
+
+Fri Mar  6 21:55:16 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* Makefile.in: added check target.
+
+Thu Mar  5 23:51:42 1992  John Gilmore  (gnu at cygnus.com)
+
+	* coff-msym.c:  Move this file from gdb/ecoff.c.  It
+	handles byte-swapping for ECOFF (MIPS symbol) files.
+	* config/mh-decstation, config/mh-irix3:  Add coff-msym.o
+	to the files built on MIPS-based hosts.
+	* Makefile.in:  Add rule for coff-msym.
+
+Thu Mar  5 21:36:05 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* Makefile.in: added clean-info target.  MINIMIZE=1.
+
+Sun Mar  1 22:32:58 1992  Per Bothner  (bothner@cygnus.com)
+
+	* coff-rs6000.c:  Move core file functions into separate
+	new file rs6000-core.c.  This is needed because reading
+	core files depends on native include files that conflict
+	with ../include/coff/rs6000.h.
+	* config/mh-rs6000:  Add rs6000-core.o to HDEPFILES.
+
+Thu Feb 27 22:19:55 1992  Per Bothner  (bothner@cygnus.com)
+
+	* aoutx.h (NAME(aout,print_symbol)): Don't print
+	symbol addresss for undefined symbols.
+	* coff-rs6000.c:  Various updates (due to target-
+	independent changes).
+	* libbfd.h:  Ditto (tdata field is now a union).
+	* hosts/h-sparc.h:  Removed prototype for bogus function
+	'emset' (presumably should have been 'memset' - which is there).
+
+Thu Feb 27 11:46:33 1992  John Gilmore  (gnu at cygnus.com)
+
+	* configure.in (mips-big-* target):  Same is Iris.
+
+Thu Feb 27 09:24:56 1992  Steve Chamberlain  (sac at thepub.cygnus.com)
+
+	* aoutx.h (translate_from_native_sym_flags): when creating an
+	alias symbol, fill in the section as undefined, rather than
+	leaving it blank. If an output section can't be found for a
+	symbol, then don't core dump.
+
+Wed Feb 26 18:04:40 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* Makefile.in, configure.in: removed traces of namesubdir,
+	  -subdirs, $(subdir), $(unsubdir), some rcs triggers.  Forced
+	  copyrights to '92, changed some from Cygnus to FSF.
+
+Wed Feb 26 19:40:59 1992  Steve Chamberlain  (sac at thepub.cygnus.com)
+
+	* bfd.c: lint
+	* coff-h8300.c: fix stupid reloc subtraction bug
+	* coffcode.h (coff_swap_aux_out): only swap a tvndx by 2 bytes,
+	since that's how wide it is. (coff_slurp_symbol_table): always zero out
+	the symbol.flags and done_lineno fields.
+
+Tue Feb 25 14:29:24 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* coffcode.h (coff_write_symbol): write out the correct number of
+	auxents. 
+	* cpu-h8300.c: fix disassembly bug
+
+Fri Feb 21 21:39:56 1992  John Gilmore  (gnu at cygnus.com)
+
+	* bfd-in.h (bfd_errmsg), coffcode.h (coff_swap_aux_in,
+	section_from_bfd_index), cpu-h8300.c (howto*_callback),
+	reloc.c, section.c (bfd_map_over_sections), targets.c
+	(bfd_target_list):  Protolint.
+	* libbfd.h:  Update to match a libbfd-in.h from a month ago.
+
+Fri Feb 21 10:57:54 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* coffcode.h (coff_swap_aux_in): lint, (coff_print_symbol): prints
+	out tagndx too.
+	* aoutx.h (swap_std_reloc_out, swap_ext_reloc_out): use the output
+	section of a symbol rather than the section of a reffed symbol to
+	determine the r_index of an emmitted reloc.
+
+Thu Feb 20 18:10:34 1992  Per Bothner  (bothner at cygnus.com)
+
+	* PORTING: New (preliminary) porting guide.
+
+Wed Feb 19 21:39:37 1992  John Gilmore  (gnu at cygnus.com)
+
+	* bout.c (callj_callback), coff-a29k.c (a29k_reloc), coff-m88k.c
+	(howto_hvrt16):  lint.
+
+Mon Feb 17 12:02:17 1992  Per Bothner  (bothner at cygnus.com)
+
+	* hp300bsd.c (new), config/mt-hp300bsd:  Make hp300bsd
+	a full configuration (with possible cross-development),
+	instead of using host-aout.c.
+
+Sun Feb 16 13:01:49 1992  Per Bothner  (bothner at cygnus.com)
+
+	* aout-target.h (MY(write_object_contents):
+	Set obj_reloc_entry_size (abfd).
+	* gen-aout.c:  Change to emit a .c files, not a .h file.
+
+Thu Feb 13 20:11:47 1992  Fred Fish  (fnf at cygnus.com)
+
+	* elf.c (elf_slurp_symbol_table):  Remove obsolete use of
+	BSF_ABSOLUTE and replace with bfd_abs_section reference.
+
+Thu Feb 13 17:22:44 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* coffcode.h (get_normalized_symtab): fixed bug where symbols
+	with more than one auxent can cause nasty core dumps. 
+
+	* coffcode.h, libcoff.c: added new fielded to coff_symbol_struct
+	"done_lineno" so that a symbol which appears twice in the symbol
+	table only gets it's linenumbers relocated once. Modifed
+	(coff_write_native_symbol) and (coff_make_empty_symbol) to make
+	use of it.
+
+Tue Feb  4 15:39:55 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* aoutx.h: (translate_from_native_sym_flags): fix constructor
+	stuff to use the New Order.
+
 Fri Jan 31 01:34:45 1992  Stu Grossman  (grossman at cygnus.com)
 
 	* ieee.c:  Change type of envi[] to unsigned char.
@@ -86,8 +294,6 @@ Mon Jan 27 19:44:08 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
 	* seclet.c: moved much of this into coffcode.h
 	* srec.c: call generic_relax
 	* targets.c: define new transfer vector
-
-	
 
 Fri Jan 24 14:40:17 1992  Steve Chamberlain  (sac at rtl.cygnus.com)
 

@@ -17,16 +17,21 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "symtab.h"
+#include "gdbtypes.h"
 #include "expression.h"
 #include "value.h"
 #include "language.h"
 #include "parser-defs.h"
 
-static void print_simple_m2_func();
-static void print_subexp ();
+/* Prototypes for local functions */
+
+static void
+print_subexp PARAMS ((struct expression *, int *, FILE *, enum precedence));
+
+static void
+print_simple_m2_func PARAMS ((char *, struct expression *, int *, FILE *));
 
 void
 print_expression (exp, stream)
@@ -209,7 +214,7 @@ print_subexp (exp, pos, stream, prec)
         fputs_filtered ("(", stream);
       if (exp->elts[pc + 1].type->code == TYPE_CODE_FUNC &&
 	  exp->elts[pc + 3].opcode == OP_LONG) {
-	/* We have a misc function vector fn, probably.  It's encoded
+	/* We have a minimal symbol fn, probably.  It's encoded
 	   as a UNOP_MEMVAL (function-type) of an OP_LONG (int, address).
 	   Swallow the OP_LONG (including both its opcodes); ignore
 	   its type; print the value in the type of the MEMVAL.  */

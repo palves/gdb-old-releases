@@ -32,8 +32,11 @@ static char *xmalloc (), *xrealloc ();
 
 #include "sysdep.h"
 #include <stdio.h>
+#include <errno.h>
 #include <sys/types.h>
+#ifndef	NO_SYS_FILE
 #include <sys/file.h>
+#endif
 #include <sys/stat.h>
 #include <fcntl.h>
 
@@ -368,6 +371,8 @@ void
 stifle_history (max)
      int max;
 {
+  if (max < 0)
+    max = 0;
   if (history_length > max)
     {
       register int i, j;
@@ -582,10 +587,9 @@ history_do_write (filename, nelements, overwrite)
      int nelements, overwrite;
 {
   extern int errno;
-  register int i;
+  register int i, j;
   char *output = history_filename (filename);
   int file, mode;
-  char cr = '\n';
 
   if (overwrite)
     mode = O_WRONLY | O_CREAT | O_TRUNC;
@@ -598,13 +602,30 @@ history_do_write (filename, nelements, overwrite)
   if (nelements > history_length)
     nelements = history_length;
 
-  for (i = history_length - nelements; i < history_length; i++)
-    {
-      if (write (file, the_history[i]->line, strlen (the_history[i]->line)) < 0)
-	break;
-      if (write (file, &cr, 1) < 0)
-	break;
-    }
+  /* Build a buffer of all the lines to write, and write them in one syscall.
+     Suggested by Peter Ho (peter@robosts.oxford.ac.uk). */
+  {
+    register int j = 0;
+    int buffer_size = 0;
+    char *buffer;
+
+    /* Calculate the total number of bytes to write. */
+    for (i = history_length - nelements; i < history_length; i++)
+      buffer_size += 1 + strlen (the_history[i]->line);
+
+    /* Allocate the buffer, and fill it. */
+    buffer = (char *)xmalloc (buffer_size);
+
+    for (i = history_length - nelements; i < history_length; i++)
+      {
+	strcpy (buffer + j, the_history[i]->line);
+	j += strlen (the_history[i]->line);
+	buffer[j++] = '\n';
+      }
+
+    write (file, buffer, buffer_size);
+    free (buffer);
+  }
 
   close (file);
   return (0);

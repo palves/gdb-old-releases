@@ -1,5 +1,5 @@
 /* Mips opcde list for GDB, the GNU debugger.
-   Copyright (C) 1989 Free Software Foundation, Inc.
+   Copyright 1989, 1992 Free Software Foundation, Inc.
    Contributed by Nobuyuki Hikichi(hikichi@sra.junet)
    Made to work for little-endian machines, and debugged
    by Per Bothner (bothner@cs.wisc.edu).
@@ -21,7 +21,10 @@ You should have received a copy of the GNU General Public License
 along with GDB; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#if BITS_BIG_ENDIAN
+/* FIXME!  This assumes that a host compiler will lay out
+   bit fields in a particular order based on its byte order.
+   Fix this with shifts and masks. */
+#if HOST_BYTE_ORDER == BIG_ENDIAN
 #define BIT_FIELDS_2(a,b) a;b;
 #define BIT_FIELDS_4(a,b,c,d) a;b;c;d;
 #define BIT_FIELDS_6(a,b,c,d,e,f) a;b;c;d;e;f;

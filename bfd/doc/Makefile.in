@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1990, 1991 Cygnus Support
+#   Copyright (C) 1990, 1991, 1992 Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,10 +21,12 @@ srcdir = .
 
 prefix = /usr/local
 
-bindir = $(prefix)/bin
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+
 datadir = $(prefix)/lib
-libdir = $(prefix)/lib
-mandir = $(datadir)/man
+mandir = $(prefix)/man
 man1dir = $(mandir)/man1
 man2dir = $(mandir)/man2
 man3dir = $(mandir)/man3
@@ -34,7 +36,7 @@ man6dir = $(mandir)/man6
 man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 man9dir = $(mandir)/man9
-infodir = $(datadir)/info
+infodir = $(prefix)/info
 includedir = $(prefix)/include
 docdir = $(datadir)/doc
 

@@ -33,11 +33,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <string.h>
 #include "defs.h"
 #include "symtab.h"
+#include "gdbtypes.h"
 #include "frame.h"
 #include "expression.h"
 #include "language.h"
 #include "value.h"
 #include "parser-defs.h"
+#include "bfd.h"
+#include "symfile.h"
+#include "objfiles.h"
+
+/* Ensure that if the generated parser contains any calls to malloc/realloc,
+   that they get mapped to xmalloc/xrealloc. */
+
+#define malloc	xmalloc
+#define realloc	xrealloc
 
 /* These MUST be included in any grammar file!!!!
    Please choose unique names! */
@@ -69,10 +79,22 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yyval	m2_val
 #define	yylloc	m2_lloc
 
-/* Forward decl's */
-void yyerror ();
-static int yylex ();
-int yyparse ();
+#if 0
+static char *
+make_qualname PARAMS ((char *, char *));
+#endif
+
+static int
+parse_number PARAMS ((int));
+
+static int
+yylex PARAMS ((void));
+
+static void
+yyerror PARAMS ((char *));
+
+int
+yyparse PARAMS ((void));
 
 /* The sign of the number being parsed. */
 int number_sign = 1;
@@ -80,8 +102,6 @@ int number_sign = 1;
 /* The block that the module specified by the qualifer on an identifer is
    contained in, */
 struct block *modblock=0;
-
-char *make_qualname();
 
 /* #define	YYDEBUG	1 */
 
@@ -128,7 +148,7 @@ char *make_qualname();
    nonterminal "name", which matches either NAME or TYPENAME.  */
 
 %token <sval> STRING
-%token <sval> NAME BLOCKNAME IDENT CONST VARNAME
+%token <sval> NAME BLOCKNAME IDENT VARNAME
 %token <sval> TYPENAME
 
 %token SIZE CAP ORD HIGH ABS MIN_FUNC MAX_FUNC FLOAT_FUNC VAL CHR ODD TRUNC
@@ -146,8 +166,8 @@ char *make_qualname();
 %left ABOVE_COMMA
 %nonassoc ASSIGN
 %left '<' '>' LEQ GEQ '=' NOTEQUAL '#' IN
-%left OR
-%left AND '&'
+%left OROR
+%left ANDAND '&'
 %left '@'
 %left '+' '-'
 %left '*' '/' DIV MOD
@@ -415,7 +435,7 @@ exp	:	exp '>' exp
 			{ write_exp_elt_opcode (BINOP_GTR); }
 	;
 
-exp	:	exp AND exp
+exp	:	exp ANDAND exp
 			{ write_exp_elt_opcode (BINOP_AND); }
 	;
 
@@ -423,7 +443,7 @@ exp	:	exp '&'	exp
 			{ write_exp_elt_opcode (BINOP_AND); }
 	;
 
-exp	:	exp OR exp
+exp	:	exp OROR exp
 			{ write_exp_elt_opcode (BINOP_OR); }
 	;
 
@@ -602,34 +622,28 @@ variable:	NAME
 			    }
 			  else
 			    {
-			      register int i;
+			      struct minimal_symbol *msymbol;
 			      register char *arg = copy_name ($1);
 
-			      for (i = 0; i < misc_function_count; i++)
-				if (!strcmp (misc_function_vector[i].name, arg))
-				  break;
-
-			      if (i < misc_function_count)
+			      msymbol = lookup_minimal_symbol (arg,
+					  (struct objfile *) NULL);
+			      if (msymbol != NULL)
 				{
-				  enum misc_function_type mft =
-				    (enum misc_function_type)
-				      misc_function_vector[i].type;
-
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_type (builtin_type_int);
-				  write_exp_elt_longcst ((LONGEST) misc_function_vector[i].address);
+				  write_exp_elt_longcst ((LONGEST) msymbol -> address);
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
-				  if (mft == mf_data || mft == mf_bss)
+				  if (msymbol -> type == mst_data ||
+				      msymbol -> type == mst_bss)
 				    write_exp_elt_type (builtin_type_int);
-				  else if (mft == mf_text)
+				  else if (msymbol -> type == mst_text)
 				    write_exp_elt_type (lookup_function_type (builtin_type_int));
 				  else
 				    write_exp_elt_type (builtin_type_char);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
 				}
-			      else if (symtab_list == 0
-				       && partial_symtab_list == 0)
+			      else if (!have_full_symbols () && !have_partial_symbols ())
 				error ("No symbol table is loaded.  Use the \"symbol-file\" command.");
 			      else
 				error ("No symbol \"%s\" in current context.",
@@ -680,8 +694,6 @@ parse_number (olen)
   register int base = input_radix;
   register int len = olen;
   int unsigned_p = number_sign == 1 ? 1 : 0;
-
-  extern double atof ();
 
   if(p[len-1] == 'H')
   {
@@ -790,9 +802,9 @@ struct keyword {
 
 static struct keyword keytab[] =
 {
-    {"OR" ,   OR	 },
+    {"OR" ,   OROR	 },
     {"IN",    IN         },/* Note space after IN */
-    {"AND",   AND        },
+    {"AND",   ANDAND     },
     {"ABS",   ABS	 },
     {"CHR",   CHR	 },
     {"DEC",   DEC	 },
@@ -1131,7 +1143,8 @@ yylex ()
  }
 }
 
-char *
+#if 0		/* Unused */
+static char *
 make_qualname(mod,ident)
    char *mod, *ident;
 {
@@ -1142,10 +1155,11 @@ make_qualname(mod,ident)
    strcat(new,ident);
    return new;
 }
+#endif  /* 0 */
 
-
-void
-yyerror()
+static void
+yyerror(msg)
+     char *msg;	/* unused */
 {
    printf("Parsing:  %s\n",lexptr);
    if (yychar < 256)
@@ -1223,12 +1237,22 @@ _initialize_m2_exp ()
      types are the same on the host and target machines!!!  */
 
   /* Modula-2 "pervasive" types.  NOTE:  these can be redefined!!! */
-  builtin_type_m2_int =  init_type (TYPE_CODE_INT, sizeof(int), 0, "INTEGER");
-  builtin_type_m2_card = init_type (TYPE_CODE_INT, sizeof(int), 1, "CARDINAL");
-  builtin_type_m2_real = init_type (TYPE_CODE_FLT, sizeof(float), 0, "REAL");
-  builtin_type_m2_char = init_type (TYPE_CODE_CHAR, sizeof(char), 1, "CHAR");
+  builtin_type_m2_int =
+    init_type (TYPE_CODE_INT, sizeof(int), 0,
+	       "INTEGER", (struct objfile *) NULL);
+  builtin_type_m2_card =
+    init_type (TYPE_CODE_INT, sizeof(int), TYPE_FLAG_UNSIGNED,
+	       "CARDINAL", (struct objfile *) NULL);
+  builtin_type_m2_real =
+    init_type (TYPE_CODE_FLT, sizeof(float), 0,
+	       "REAL", (struct objfile *) NULL);
+  builtin_type_m2_char =
+    init_type (TYPE_CODE_CHAR, sizeof(char), TYPE_FLAG_UNSIGNED,
+	       "CHAR", (struct objfile *) NULL);
+  builtin_type_m2_bool =
+    init_type (TYPE_CODE_BOOL, sizeof(int), TYPE_FLAG_UNSIGNED,
+	       "BOOLEAN", (struct objfile *) NULL);
 
-  builtin_type_m2_bool = init_type (TYPE_CODE_BOOL, sizeof(int), 1, "BOOLEAN");
   TYPE_NFIELDS(builtin_type_m2_bool) = 2;
   TYPE_FIELDS(builtin_type_m2_bool) = 
      (struct field *) malloc (sizeof (struct field) * 2);

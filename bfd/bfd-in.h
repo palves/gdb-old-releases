@@ -226,7 +226,7 @@ typedef struct bfd_error_vector {
   
 } bfd_error_vector_type;
 
-PROTO (char *, bfd_errmsg, ());
+PROTO (char *, bfd_errmsg, (bfd_ec error_tag));
 PROTO (void, bfd_perror, (CONST char *message));
 
 

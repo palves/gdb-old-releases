@@ -1,5 +1,5 @@
 /* Target machine description for SGI Iris under Irix, for GDB.
-   Copyright 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -16,6 +16,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#include "coff/sym.h"			/* Needed for PDR below. */
+#include "coff/symconst.h"
 
 #define TARGET_BYTE_ORDER BIG_ENDIAN
 
@@ -102,6 +105,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    to be actual register numbers as far as the user is concerned
    but do serve to get the desired values when passed to read_register.  */
 
+#define A0_REGNUM 4		/* Loc of first arg during a subr call */
 #define SP_REGNUM 29		/* Contains address of top of stack */
 #define FP_REGNUM 30		/* Pseudo register that contains true address of executing stack frame */
 #define RA_REGNUM 31		/* Contains return address value */
@@ -199,15 +203,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    (its caller).  */
 
 /* FRAME_CHAIN takes a frame's nominal address
-   and produces the frame's chain-pointer.
-
-   However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.  */
+   and produces the frame's chain-pointer. */
 
 #define FRAME_CHAIN(thisframe) (FRAME_ADDR)mips_frame_chain(thisframe)
-
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
 
 /* Define other aspects of the stack frame.  */
 
@@ -301,25 +299,26 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    mipsread.c (ab)uses this to save memory */
 
 typedef struct mips_extra_func_info {
-	unsigned long	adr;	/* memory address of start of procedure */
-	long	isym;		/* pointer to procedure symbol */
-	long	pad2;		/* iline: start of line number entries*/
-	long	regmask;	/* save register mask */
-	long	regoffset;	/* save register offset */
 	long	numargs;	/* number of args to procedure (was iopt) */
-	long	fregmask;	/* save floating point register mask */
-	long	fregoffset;	/* save floating point register offset */
-	long	framesize;	/* frameoffset: frame size */
-	short	framereg;	/* frame pointer register */
-	short	pcreg;		/* offset or reg of return pc */
-	long	lnLow;		/* lowest line in the procedure */
-	long	lnHigh;		/* highest line in the procedure */
-	long	pad3;		/* cbLineOffset: byte offset for this procedure from the fd base */
+	PDR	pdr;		/* Procedure descriptor record */
 } *mips_extra_func_info_t;
 
 #define EXTRA_FRAME_INFO \
-  char *proc_desc; /* actually, a mips_extra_func_info_t */\
+  mips_extra_func_info_t proc_desc; \
   int num_args;\
   struct frame_saved_regs *saved_regs;
 
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fci) init_extra_frame_info(fci)
+
+/* Size of elements in jmpbuf */
+
+#define JB_ELEMENT_SIZE 4
+
+/* Figure out where the longjmp will land.  We expect that we have just entered
+   longjmp and haven't yet setup the stack frame, so the args are still in the
+   argument regs.  a0 (CALL_ARG0) points at the jmp_buf structure from which we
+   extract the pc (JB_PC) that we will land at.  The pc is copied into ADDR.
+   This routine returns true on success */
+
+/* Note that caller must #include <setjmp.h> in order to get def of JB_* */
+#define GET_LONGJMP_TARGET(ADDR) get_longjmp_target(ADDR)

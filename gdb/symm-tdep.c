@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* many 387-specific items of use taken from i386-dep.c */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -444,15 +443,12 @@ symmetry_extract_return_value(type, regbuf, valbuf)
     double	d; 
     int	l[2]; 
   } xd; 
-  int i;
+  struct minimal_symbol *msymbol;
   float f;
 
   if (TYPE_CODE_FLT == TYPE_CODE(type)) { 
-    for (i = 0; i < misc_function_count; i++) {
-      if (!strcmp(misc_function_vector[i].name, "1167_flt"))
-	break;
-    }
-    if (i < misc_function_count) {
+    msymbol = lookup_minimal_symbol ("1167_flt", (struct objfile *) NULL);
+    if (msymbol != NULL) {
       /* found "1167_flt" means 1167, %fp2-%fp3 */ 
       /* float & double; 19= %fp2, 20= %fp3 */
       /* no single precision on 1167 */

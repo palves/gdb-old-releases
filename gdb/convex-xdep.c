@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "command.h"
 #include "symtab.h"
@@ -258,6 +257,7 @@ fetch_inferior_registers (regno)
 /* Store our register values back into the inferior.
    For Convex, do this only once, right before resuming inferior.  */
 
+void
 store_inferior_registers (regno)
      int regno;
 {

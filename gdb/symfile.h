@@ -1,5 +1,5 @@
 /* Definitions for reading symbol files into GDB.
-   Copyright (C) 1990, 1991  Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992  Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,52 +17,28 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#if !defined (SYMFILE_H)
+#define SYMFILE_H
+
 /* This file requires that you first include "bfd.h".  */
 
-
-/* Structure for keeping track of object files.
-
-   One of these is allocated for each object file we access, e.g. the
-   exec_file, symbol_file, and any shared library object files.  */
-
-struct objfile {
-  /* All struct objfile's are chained together by their next pointers.  */
-  struct objfile *next;
-
-  /* Each objfile points to a chain of struct symtabs derived from this
-     object file.  They are chained by their objfile_chain pointers, and
-     each one points back to this struct objfile.  */
-  struct symtab *symtabs;
-
-  /* Ditto for psymtabs.  */
-  struct partial_symtab *psymtabs;
-
-  /* The object file's name.  Malloc'd; free it if you free this struct.  */
-  char *name;
-
-  /* The object file's BFD.  Can be null, in which case bfd_open (name) and
-     put the result here.  */
-  bfd *obfd;
-
-  /* The modification timestamp of the object file, as of the last time
-     we read its symbols.  */
-  long mtime;
+struct psymbol_allocation_list {
+  struct partial_symbol *list;
+  struct partial_symbol *next;
+  int size;
 };
-
 
 /* Structure to keep track of symbol reading functions for various
    object file types.  */
 
 struct sym_fns {
 
-  /* sym_name
-     is the name, or name prefix, of the BFD "target type" that this
+  /* is the name, or name prefix, of the BFD "target type" that this
      set of functions handles.  E.g. "a.out" or "sunOs" or "coff" or "elf".  */
 
   char *sym_name;
 
-  /* sym_namelen
-     counts how many bytes of sym_name should be checked against the
+  /* counts how many bytes of sym_name should be checked against the
      BFD target type of the file being read.  If an exact match is
      desired, specify the number of characters in sym_name plus 1 for the
      NUL.  If a prefix match is desired, specify the number of characters in
@@ -70,65 +46,56 @@ struct sym_fns {
 
   int sym_namelen;
 
-  /* sym_new_init
-     initializes anything that is global to the entire
-     symbol table.  It is called during symbol_file_add, when
-     we begin debugging an entirely new program.  */
+  /* Initializes anything that is global to the entire symbol table.  It is
+     called during symbol_file_add, when we begin debugging an entirely new
+     program. */
 
-  void (*sym_new_init) ();
+  void (*sym_new_init) PARAMS ((struct objfile *));
 
-  /* sym_init (sf)
-     reads any initial information from a symbol file, and
-     initializes the struct sym_fns SF in preparation for sym_read().
-     It is called every time we read a symbol file for any reason.  */
+  /* Reads any initial information from a symbol file, and initializes the
+     struct sym_fns SF in preparation for sym_read().  It is called every
+     time we read a symbol file for any reason. */
 
-  void (*sym_init) ();
+  void (*sym_init) PARAMS ((struct objfile *));
 
-  /* sym_read (sf, addr, mainline)
-     reads a symbol file into a psymtab (or possibly a symtab).
-     SF is the struct sym_fns that sym_init initialized.  ADDR
+  /* sym_read (objfile, addr, mainline)
+     Reads a symbol file into a psymtab (or possibly a symtab).
+     OBJFILE is the objfile struct for the file we are reading.  ADDR
      is the offset between the file's specified start address and
      its true address in memory.  MAINLINE is 1 if this is the
      main symbol table being read, and 0 if a secondary
      symbol file (e.g. shared library or dynamically loaded file)
      is being read.  */
 
-  void (*sym_read) ();
+  void (*sym_read) PARAMS ((struct objfile *, CORE_ADDR, int));
 
-  /* sym_bfd
-     is the accessor for the symbol file being read.  */
+  /* Called when we are finished with an objfile.  Should do all cleanup
+     that is specific to the object file format for the particular objfile. */
+ 
+  void (*sym_finish) PARAMS ((struct objfile *));
 
-  bfd  *sym_bfd;
-
-  /* sym_private
-     is where information can be shared among sym_init and sym_read.
-     It is typically a pointer to malloc'd memory.  */
-
-  char *sym_private;			/* Should be void * */
-
-  /* next
-     finds the next struct sym_fns.  They are allocated and initialized
+  /* Finds the next struct sym_fns.  They are allocated and initialized
      in whatever module implements the functions pointed to; an 
      initializer calls add_symtab_fns to add them to the global chain.  */
+
   struct sym_fns *next;
 
-  /* objfile
-     is the "struct objfile" for the object file being read.  */
-  struct objfile *objfile;
 };
 
-extern void extend_psymbol_list();
+extern void
+extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
+			     struct objfile *));
 
 /* Add any kind of symbol to a psymbol_allocation_list. */
 
-#define	ADD_PSYMBOL_VT_TO_LIST(NAME, NAMELENGTH, NAMESPACE, CLASS, LIST, VALUE, VT)\
+#define	ADD_PSYMBOL_VT_TO_LIST(NAME,NAMELENGTH,NAMESPACE,CLASS,LIST,VALUE,VT) \
   do {		        						\
     register struct partial_symbol *psym;				\
     if ((LIST).next >= (LIST).list + (LIST).size)			\
-	   extend_psymbol_list (&(LIST));				\
+	   extend_psymbol_list (&(LIST),objfile);				\
     psym = (LIST).next++;						\
 									\
-    SYMBOL_NAME (psym) = (char *) obstack_alloc (psymbol_obstack,	\
+    SYMBOL_NAME (psym) = (char *) obstack_alloc (&objfile->psymbol_obstack,	\
 						 (NAMELENGTH) + 1);	\
     memcpy (SYMBOL_NAME (psym), (NAME), (NAMELENGTH));			\
     SYMBOL_NAME (psym)[(NAMELENGTH)] = '\0';				\
@@ -163,63 +130,58 @@ extern void extend_psymbol_list();
 
 			/*   Functions   */
 
-extern struct symtab *allocate_symtab ();
-extern struct objfile *allocate_objfile ();
-extern void free_objfile ();
-extern int  free_named_symtabs ();
-extern void fill_in_vptr_fieldno ();
-extern void add_symtab_fns ();
-extern void syms_from_objfile ();
-struct partial_symtab *start_psymtab_common();
+extern void
+sort_pst_symbols PARAMS ((struct partial_symtab *));
 
-/* Functions for dealing with the misc "function" vector, really a misc
-   address<->symbol mapping vector for things we don't have debug symbols
-   for.  */
+extern struct symtab *
+allocate_symtab PARAMS ((char *, struct objfile *));
 
-extern void init_misc_bunches ();
-extern void prim_record_misc_function ();
-extern void discard_misc_bunches ();
-extern void condense_misc_bunches ();
+extern int
+free_named_symtabs PARAMS ((char *));
+
+extern void
+fill_in_vptr_fieldno PARAMS ((struct type *));
+
+extern void
+add_symtab_fns PARAMS ((struct sym_fns *));
+
+extern void
+init_entry_point_info PARAMS ((struct objfile *));
+
+extern void
+syms_from_objfile PARAMS ((struct objfile *, CORE_ADDR, int, int));
+
+extern struct partial_symtab *
+start_psymtab_common PARAMS ((struct objfile *, CORE_ADDR, char *, CORE_ADDR,
+			      struct partial_symbol *,
+			      struct partial_symbol *));
 
 /* Sorting your symbols for fast lookup or alphabetical printing.  */
 
-extern void sort_block_syms ();
-extern void sort_symtab_syms ();
-extern void sort_all_symtab_syms ();
-extern void sort_block_syms ();
+extern void
+sort_block_syms PARAMS ((struct block *));
+
+extern void
+sort_symtab_syms PARAMS ((struct symtab *));
+
+extern void
+sort_all_symtab_syms PARAMS ((void));
 
 /* Make a copy of the string at PTR with SIZE characters in the symbol obstack
    (and add a null character at the end in the copy).
    Returns the address of the copy.  */
 
-extern char *obsavestring ();
+extern char *
+obsavestring PARAMS ((char *, int, struct obstack *));
 
 /* Concatenate strings S1, S2 and S3; return the new string.
    Space is found in the symbol_obstack.  */
 
-extern char *obconcat ();
+extern char *
+obconcat PARAMS ((struct obstack *obstackp, const char *, const char *,
+		  const char *));
 
 			/*   Variables   */
-
-/* The object file that the main symbol table was loaded from (e.g. the
-   argument to the "symbol-file" or "file" command).  */
-
-extern struct objfile *symfile_objfile;
-
-/* Where execution starts in symfile */
-
-CORE_ADDR entry_point;
-
-/* Root of object file struct chain.  */
-
-struct objfile *object_files;
-
-/* Vectors of all partial symbols read in from file.  */
-
-extern struct psymbol_allocation_list {
-  struct partial_symbol *list, *next;
-  int size;
-} global_psymbols, static_psymbols;
 
 /* Support for complaining about things in the symbol file that aren't
    catastrophic.
@@ -241,5 +203,22 @@ extern struct complaint complaint_root[1];
 
 /* Functions that handle complaints.  (in symfile.c)  */
 
-void complain();
-void clear_complaints();
+extern void
+complain PARAMS ((struct complaint *, char *));
+
+extern void
+clear_complaints PARAMS ((int sym_reading, int noisy));
+
+/* From symfile.c */
+
+extern struct partial_symtab *
+allocate_psymtab PARAMS ((char *, struct objfile *));
+
+/* From dwarfread.c */
+
+extern void
+dwarf_build_psymtabs PARAMS ((int, char *, CORE_ADDR, int, unsigned int,
+			      unsigned int, unsigned int, unsigned int,
+			      struct objfile *));
+
+#endif	/* !defined(SYMFILE_H) */

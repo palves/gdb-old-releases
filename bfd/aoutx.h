@@ -750,163 +750,174 @@ DEFUN(translate_from_native_sym_flags,(sym_pointer, cache_ptr, abfd),
       aout_symbol_type *cache_ptr AND
       bfd *abfd)
 {
-  switch (cache_ptr->type & N_TYPE) {
-    case N_SETA:
-    case N_SETT:
-    case N_SETD:
-    case N_SETB:
+  switch (cache_ptr->type & N_TYPE) 
+  {
+  case N_SETA:
+  case N_SETT:
+  case N_SETD:
+  case N_SETB:
+  {
+    char *copy = bfd_alloc(abfd, strlen(cache_ptr->symbol.name)+1);
+    asection *section ;
+    asection *into_section;
+      
+    arelent_chain *reloc = (arelent_chain *)bfd_alloc(abfd, sizeof(arelent_chain));
+    strcpy(copy, cache_ptr->symbol.name);
+
+    /* Make sure that this bfd has a section with the right contructor
+       name */
+    section = bfd_get_section_by_name (abfd, copy);
+    if (!section)
+     section = bfd_make_section(abfd,copy);
+
+    /* Build a relocation entry for the constructor */
+    switch ( (cache_ptr->type  & N_TYPE) ) 
     {
-      char *copy = bfd_alloc(abfd, strlen(cache_ptr->symbol.name)+1);
-      asection *section ;
-      arelent_chain *reloc = (arelent_chain *)bfd_alloc(abfd, sizeof(arelent_chain));
-      strcpy(copy, cache_ptr->symbol.name);
-      section = bfd_get_section_by_name (abfd, copy);
-      if (!section)
-       section = bfd_make_section(abfd,copy);
-#if 0
-      switch ( (cache_ptr->type  & N_TYPE) ) {
-	case N_SETA:
-	  section->flags = SEC_CONSTRUCTOR;
-	  /*!!!	  reloc->relent.section =  (asection *)NULL;*/
-	  cache_ptr->symbol.section = (asection *)NULL;
-	  break;
-	case N_SETT:
-	  section->flags = SEC_CONSTRUCTOR_TEXT;
-	  //	  reloc->relent.section = (asection *)obj_textsec(abfd);
-	  cache_ptr->symbol.value -= reloc->relent.section->vma;
-	  break;
-	case N_SETD:
-	  section->flags = SEC_CONSTRUCTOR_DATA;
-	  reloc->relent.section = (asection *)obj_datasec(abfd);
-	  cache_ptr->symbol.value -= reloc->relent.section->vma;
-	  break;
-	case N_SETB:
-	  section->flags = SEC_CONSTRUCTOR_BSS;
-	  reloc->relent.section = (asection *)obj_bsssec(abfd);
-	  cache_ptr->symbol.value -= reloc->relent.section->vma;
-	  break;
-	}
-      cache_ptr->symbol.section = reloc->relent.section;
-      reloc->relent.addend = cache_ptr->symbol.value ;
-	  
-      /* We modify the symbol to belong to a section depending upon the
-	 name of the symbol - probably __CTOR__ or __DTOR__ but we don't
-	 really care, and add to the size of the section to contain a
-	 pointer to the symbol. Build a reloc entry to relocate to this
-	 symbol attached to this section.  */
-	  
-	  
-      section->reloc_count++;
-      section->alignment_power = 2;
-      reloc->relent.sym_ptr_ptr = (asymbol **)NULL;
-      reloc->next = section->constructor_chain;
-      section->constructor_chain = reloc;
-      reloc->relent.address = section->size;
-      section->size += sizeof(int *);
-#endif	  
-      reloc->relent.howto = howto_table_ext +CTOR_TABLE_RELOC_IDX;
-      cache_ptr->symbol.flags |=  BSF_DEBUGGING  | BSF_CONSTRUCTOR;
-    }
+    case N_SETA:
+      into_section = &bfd_abs_section;
+      break;
+    case N_SETT:
+      into_section = (asection *)obj_textsec(abfd);
+      break;
+    case N_SETD:
+      into_section = (asection *)obj_datasec(abfd);
+      break;
+    case N_SETB:
+      into_section = (asection *)obj_bsssec(abfd);
       break;
     default:
-      if (cache_ptr->type ==  N_WARNING) 
-      {
-	/* This symbol is the text of a warning message, the next symbol
-	   is the symbol to associate the warning with */
-	cache_ptr->symbol.flags = BSF_DEBUGGING | BSF_WARNING;
+      abort();
+    }
+
+    /* Build a relocation pointing into the constuctor section
+       pointing at the symbol in the set vector specified */
+
+    reloc->relent.addend = cache_ptr->symbol.value;
+    cache_ptr->symbol.section =  into_section->symbol->section;
+    reloc->relent.sym_ptr_ptr  = into_section->symbol_ptr_ptr;
+
+	  
+    /* We modify the symbol to belong to a section depending upon the
+       name of the symbol - probably __CTOR__ or __DTOR__ but we don't
+       really care, and add to the size of the section to contain a
+       pointer to the symbol. Build a reloc entry to relocate to this
+       symbol attached to this section.  */
+	  
+    section->flags = SEC_CONSTRUCTOR;
+
+	  
+    section->reloc_count++;
+    section->alignment_power = 2;
+
+    reloc->next = section->constructor_chain;
+    section->constructor_chain = reloc;
+    reloc->relent.address = section->_raw_size;
+    section->_raw_size += sizeof(int *);
+
+    reloc->relent.howto = howto_table_ext + CTOR_TABLE_RELOC_IDX;
+    cache_ptr->symbol.flags |=  BSF_DEBUGGING  | BSF_CONSTRUCTOR;
+  }
+    break;
+  default:
+    if (cache_ptr->type ==  N_WARNING) 
+    {
+      /* This symbol is the text of a warning message, the next symbol
+	 is the symbol to associate the warning with */
+      cache_ptr->symbol.flags = BSF_DEBUGGING | BSF_WARNING;
+      cache_ptr->symbol.value = (bfd_vma)((cache_ptr+1));
+      /* We furgle with the next symbol in place. We don't want it to be undefined, we'll trample the type */
+      (sym_pointer+1)->e_type[0] = 0xff;
+      break;
+    }
+    if ((cache_ptr->type | N_EXT) == (N_INDR | N_EXT)) {
+	/* Two symbols in a row for an INDR message. The first symbol
+	   contains the name we will match, the second symbol contains the
+	   name the first name is translated into. It is supplied to us
+	   undefined. This is good, since we want to pull in any files which
+	   define it */
+	cache_ptr->symbol.flags = BSF_DEBUGGING | BSF_INDIRECT;
 	cache_ptr->symbol.value = (bfd_vma)((cache_ptr+1));
-	/* We furgle with the next symbol in place. We don't want it to be undefined, we'll trample the type */
-	(sym_pointer+1)->e_type[0] = 0xff;
+	cache_ptr->symbol.section = &bfd_und_section;
 	break;
       }
-      if ((cache_ptr->type | N_EXT) == (N_INDR | N_EXT)) {
-	  /* Two symbols in a row for an INDR message. The first symbol
-	     contains the name we will match, the second symbol contains the
-	     name the first name is translated into. It is supplied to us
-	     undefined. This is good, since we want to pull in any files which
-	     define it */
-	  cache_ptr->symbol.flags = BSF_DEBUGGING | BSF_INDIRECT;
-	  cache_ptr->symbol.value = (bfd_vma)((cache_ptr+1));
-	  break;
-	}
 
       
-      if (sym_is_debugger_info (cache_ptr)) {
-	  cache_ptr->symbol.flags = BSF_DEBUGGING ;
-	  /* Work out the section correct for this symbol */
-	  switch (cache_ptr->type & N_TYPE) 
-	  {
-	  case N_TEXT:
-	  case N_FN:
-	    cache_ptr->symbol.section = obj_textsec (abfd);
+    if (sym_is_debugger_info (cache_ptr)) {
+	cache_ptr->symbol.flags = BSF_DEBUGGING ;
+	/* Work out the section correct for this symbol */
+	switch (cache_ptr->type & N_TYPE) 
+	{
+	case N_TEXT:
+	case N_FN:
+	  cache_ptr->symbol.section = obj_textsec (abfd);
+	  cache_ptr->symbol.value -= obj_textsec(abfd)->vma;
+	  break;
+	case N_DATA:
+	  cache_ptr->symbol.value  -= obj_datasec(abfd)->vma;
+	  cache_ptr->symbol.section = obj_datasec (abfd);
+	  break;
+	case N_BSS :
+	  cache_ptr->symbol.section = obj_bsssec (abfd);
+	  cache_ptr->symbol.value -= obj_bsssec(abfd)->vma;
+	  break;
+	default:
+	case N_ABS:
+
+	  cache_ptr->symbol.section = &bfd_abs_section;
+	  break;
+	}
+      }
+    else {
+
+	if (sym_is_fortrancommon (cache_ptr))
+	{
+	  cache_ptr->symbol.flags = 0;
+	  cache_ptr->symbol.section = &bfd_com_section;
+	}
+	else {
+
+
+	  }
+	  
+	/* In a.out, the value of a symbol is always relative to the 
+	 * start of the file, if this is a data symbol we'll subtract
+	 * the size of the text section to get the section relative
+	 * value. If this is a bss symbol (which would be strange)
+	 * we'll subtract the size of the previous two sections
+	 * to find the section relative address.
+	 */
+	  
+	if (sym_in_text_section (cache_ptr))   {
 	    cache_ptr->symbol.value -= obj_textsec(abfd)->vma;
-	    break;
-	  case N_DATA:
-	    cache_ptr->symbol.value  -= obj_datasec(abfd)->vma;
+	    cache_ptr->symbol.section = obj_textsec (abfd);
+	  }
+	else if (sym_in_data_section (cache_ptr)){
+	    cache_ptr->symbol.value -= obj_datasec(abfd)->vma;
 	    cache_ptr->symbol.section = obj_datasec (abfd);
-	    break;
-	  case N_BSS :
+	  }
+	else if (sym_in_bss_section(cache_ptr)) {
 	    cache_ptr->symbol.section = obj_bsssec (abfd);
 	    cache_ptr->symbol.value -= obj_bsssec(abfd)->vma;
-	    break;
-	  default:
-	  case N_ABS:
-
-	    cache_ptr->symbol.section = &bfd_abs_section;
-	    break;
 	  }
-	}
-      else {
-
-	  if (sym_is_fortrancommon (cache_ptr))
-	  {
+	else  if (sym_is_undefined (cache_ptr)) {
 	    cache_ptr->symbol.flags = 0;
-	    cache_ptr->symbol.section = &bfd_com_section;
+	    cache_ptr->symbol.section = &bfd_und_section;
 	  }
-	  else {
-
-
-	    }
-	  
-	  /* In a.out, the value of a symbol is always relative to the 
-	   * start of the file, if this is a data symbol we'll subtract
-	   * the size of the text section to get the section relative
-	   * value. If this is a bss symbol (which would be strange)
-	   * we'll subtract the size of the previous two sections
-	   * to find the section relative address.
-	   */
-	  
-	  if (sym_in_text_section (cache_ptr))   {
-	      cache_ptr->symbol.value -= obj_textsec(abfd)->vma;
-	      cache_ptr->symbol.section = obj_textsec (abfd);
-	    }
-	  else if (sym_in_data_section (cache_ptr)){
-	      cache_ptr->symbol.value -= obj_datasec(abfd)->vma;
-	      cache_ptr->symbol.section = obj_datasec (abfd);
-	    }
-	  else if (sym_in_bss_section(cache_ptr)) {
-	      cache_ptr->symbol.section = obj_bsssec (abfd);
-	      cache_ptr->symbol.value -= obj_bsssec(abfd)->vma;
-	    }
-	  else  if (sym_is_undefined (cache_ptr)) {
-	      cache_ptr->symbol.flags = 0;
-	      cache_ptr->symbol.section = &bfd_und_section;
-	    }
-	  else if (sym_is_absolute(cache_ptr))
-	  {
-	    cache_ptr->symbol.section = &bfd_abs_section;
-	  }
-	    
-	  if (sym_is_global_defn (cache_ptr)) 
-	  {
-	    cache_ptr->symbol.flags = BSF_GLOBAL | BSF_EXPORT;
-	  } 
-	  else 
-	  {
-	    cache_ptr->symbol.flags = BSF_LOCAL;
-	  }
+	else if (sym_is_absolute(cache_ptr))
+	{
+	  cache_ptr->symbol.section = &bfd_abs_section;
 	}
-    }
+	    
+	if (sym_is_global_defn (cache_ptr)) 
+	{
+	  cache_ptr->symbol.flags = BSF_GLOBAL | BSF_EXPORT;
+	} 
+	else 
+	{
+	  cache_ptr->symbol.flags = BSF_LOCAL;
+	}
+      }
+  }
 }
 
 
@@ -940,8 +951,19 @@ DEFUN(translate_to_native_sym_flags,(sym_pointer, cache_ptr, abfd),
       sym_pointer->e_type[0] = (N_UNDF | N_EXT);
     }    
   else {    
-      bfd_error_vector.nonrepresentable_section(abfd,
-						bfd_get_output_section(cache_ptr)->name);
+      if (cache_ptr->section->output_section) 
+      {
+	
+	bfd_error_vector.nonrepresentable_section(abfd,
+						  bfd_get_output_section(cache_ptr)->name);
+      }
+      else 
+      {
+	bfd_error_vector.nonrepresentable_section(abfd,
+						  cache_ptr->section->name);
+	
+      }
+      
     }
   /* Turn the symbol from section relative to absolute again */
     
@@ -1157,7 +1179,8 @@ DEFUN(NAME(aout,swap_std_reloc_out),(abfd, g, natptr),
   int r_pcrel;
   int r_baserel, r_jmptable, r_relative;
   unsigned int r_addend;
-    
+  asection *output_section = sym->section->output_section;
+  
   PUT_WORD(abfd, g->address, natptr->r_address);
     
   r_length = g->howto->size ;	/* Size as a power of two */
@@ -1171,14 +1194,14 @@ DEFUN(NAME(aout,swap_std_reloc_out),(abfd, g, natptr),
     
   /* name was clobbered by aout_write_syms to be symbol index */
 
-  if (sym->section == &bfd_abs_section) 
+  if (output_section == &bfd_abs_section) 
   {
     r_extern = 0;
     r_index = N_ABS;
     r_addend += sym->value;
   }
-  else if (sym->section == &bfd_com_section 
-	   || sym->section == &bfd_und_section) 
+  else if (output_section == &bfd_com_section 
+	   || output_section == &bfd_und_section) 
   {
     /* Fill in symbol */
     r_extern = 1;
@@ -1188,7 +1211,7 @@ DEFUN(NAME(aout,swap_std_reloc_out),(abfd, g, natptr),
   {
     /* Just an ordinary section */
     r_extern = 0;
-    r_index  = sym->section->target_index;      
+    r_index  = output_section->target_index;      
   }
     
   /* now the fun stuff */
@@ -1232,6 +1255,8 @@ DEFUN(NAME(aout,swap_ext_reloc_out),(abfd, g, natptr),
   unsigned int r_type;
   unsigned int r_addend;
   asymbol *sym = *(g->sym_ptr_ptr);    
+  asection *output_section = sym->section->output_section;
+  
   PUT_WORD (abfd, g->address, natptr->r_address);
     
   r_type = (unsigned int) g->howto->type;
@@ -1239,14 +1264,14 @@ DEFUN(NAME(aout,swap_ext_reloc_out),(abfd, g, natptr),
   r_addend = g->addend + (*(g->sym_ptr_ptr))->section->output_section->vma;
 
 
-  if (sym->section == &bfd_abs_section) 
+  if (output_section == &bfd_abs_section) 
   {
     r_extern = 0;
     r_index = N_ABS;
     r_addend += sym->value;
   }
-  else if (sym->section == &bfd_com_section 
-	   || sym->section == &bfd_und_section) 
+  else if (output_section == &bfd_com_section 
+	   || output_section == &bfd_und_section) 
   {
     /* Fill in symbol */
     r_extern = 1;
@@ -1256,7 +1281,7 @@ DEFUN(NAME(aout,swap_ext_reloc_out),(abfd, g, natptr),
   {
     /* Just an ordinary section */
     r_extern = 0;
-    r_index  = sym->section->target_index;      
+    r_index  = output_section->target_index;      
   }
 	 
 	 
@@ -1662,7 +1687,8 @@ DEFUN(NAME(aout,print_symbol),(ignore_abfd, afile, symbol, how),
 
       if (section_code == 'U')
 	fprintf(file, "        ");
-      fprintf_vma(file, symbol->value+symbol->section->vma);
+      else
+	fprintf_vma(file, symbol->value+symbol->section->vma);
       if (section_code == '?')
 	{
 	  int type_code = aout_symbol(symbol)->type  & 0xff;

@@ -147,7 +147,8 @@ static ExceptionHook oldExceptionHook;
 /***************************  ASSEMBLY CODE MACROS *************************/
 /* 									   */
 
-void return_to_prog(void);
+extern void
+return_to_prog PARAMS ((void));
 
 /* Restore the program's registers (including the stack pointer, which
    means we get the right stack and don't have to worry about popping our
@@ -554,7 +555,7 @@ char * parm;
 }
 
 /* Address of a routine to RTE to if we get a memory fault.  */
-static volatile void (*mem_fault_routine)() = NULL;
+static NORETURN void (*mem_fault_routine)() = NULL;
 
 /* Indicate to caller of mem2hex or hex2mem that there has been an
    error.  */

@@ -3,8 +3,6 @@
 # Configuration script
 #   Copyright (C) 1988, 1990, 1991, 1992 Free Software Foundation, Inc.
 
-#This file is part of GNU.
-
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -22,6 +20,8 @@
 # Please email any bugs, comments, and/or additions to this file to:
 # configure@cygnus.com
 
+# This file was written by K. Richard Pixley.
+
 #
 # Shell script to create proper links to machine-dependent files in
 # preparation for compilation.
@@ -30,9 +30,6 @@
 # If configure fails after disturbing the status quo, 
 # 	config.status is removed.
 #
-
-# NOTE: This script contains support for a Cygnus experimental feature, called
-# +subdirs, which is currently, tentatively, de-supported.
 
 export PATH || (echo "OOPS, this isn't sh.  Desperation time.  I will feed myself to sh."; sh $0 $argv; kill $$)
 
@@ -50,86 +47,87 @@ symbolic_link='ln -s'
 Makefile=Makefile
 Makefile_in=Makefile.in
 arguments=$*
-commontargets=
 configdirs=
-datadir=
-datadiroption=
-defaulttargets=
+exec_prefix=
+exec_prefixoption=
 fatal=
 floating_point=default
 gas=default
-hosts=
-#hostsubdir=
-#namesubdir=
-next_prefix=
+host_alias=
+host_makefile_frag=
 next_host=
-#next_namesubdir=
-#next_objdir=
+next_prefix=
 next_site=
 next_srcdir=
 next_target=
 next_tmpdir=
 norecursion=
-#objdir=
-#objdiroption=
+removing=
 prefix=/usr/local
 progname=
-recurring=
-removing=
+program_prefix=
+program_prefix_option=
+silent=
+site=
+site_option=
+site_makefile_frag=
 srcdir=
 srctrigger=
-target=
-targets=
-#targetsubdir=
+target_alias=
+target_makefile_frag=
 undefinedargs=
 verbose=
-version="$Revision: 1.91 $"
+version="$Revision: 1.110 $"
 x11=default
 
 NO_EDIT="This file was generated automatically by configure.  Do not edit."
 
 ## this is a little touchy and won't always work, but...
 ##
-## if the argv[0] starts with a slash then it is an absolute name that can be
-## used as is.
+## if the argv[0] starts with a slash then it is an absolute name that can (and
+## must) be used as is.
 ##
 ## otherwise, if argv[0] has no slash in it, we can assume that it is on the
 ## path.  Since PATH might include "." we also add `pwd` to the end of PATH.
 ##
-## otherwise we prepend `pwd` to $0 and hope that will give us an absolute
-## path.
-##
 
 PWD=`pwd`
+progname=$0
 
-if (echo $0 | grep '^/' > /dev/null) ; then
-	progname=$0
-elif (echo $0 | grep '/' > /dev/null) ; then
-	progname=${PWD}/$0
-else
-	progname=$0
+case "${progname}" in
+/*) ;;
+*/*) ;;
+*)
 	PATH=$PATH:${PWD} ; export PATH
-fi
+	;;
+esac
 
 for arg in $*;
 do
 	# handle things that might have args following as separate words
 	if [ -n "${next_prefix}" ] ; then prefix=${arg} ; prefixoption="-prefix=${prefix}" ; next_prefix=
-	elif [ -n "${next_datadir}" ] ; then datadir=${arg} ; datadiroption="-datadir=${datadir}" ; next_datadir=
-#	elif [ -n "${next_namesubdir}" ] ; then \
-#		namesubdir=${arg} ; namesubdiroption="--namesubdir=${namesubdir}" ; next_namesubdir=
-#	elif [ -n "${next_objdir}" ] ; then objdir=${arg} ; objdiroption="--objdir=${objdir}" ; next_objdir=
-	elif [ -n "${next_site}" ] ; then site=${arg} ; next_site=
-	elif [ -n "${next_srcdir}" ] ; then srcdir=${arg} ; next_srcdir=		
+	elif [ -n "${next_exec_prefix}" ] ; then
+		exec_prefix=${arg}
+		exec_prefixoption="-exec_prefix=${exec_prefix}"
+		next_exec_prefix=
+	elif [ -n "${next_site}" ] ; then site=${arg} ; site_option=-site=${site} ; next_site=
+	# remove any possible trailing slash from srcdir.  See note below.
+	elif [ -n "${next_srcdir}" ] ; then srcdir=`echo ${arg} | sed -e 's:/$::'` ; next_srcdir=
+	elif [ -n "${next_program_prefix}" ] ; then
+		program_prefix=${arg}
+		program_prefixoption="-program_prefix=${program_prefix}"
+		next_program_prefix=
 	elif [ -n "${next_target}" ] ; then
 		next_target=
-		if [ -z "${targets}" ] ; then
-			newtargets="${targets} ${arg}"
-			targets="${newtargets}"
-		else
-			echo '***' Can only configure for one target at a time.
+		case "${target_alias}" in
+		"")
+			target_alias="${arg}"
+			;;
+		*)
+			echo '***' Can only configure for one target at a time.  1>&2
 			fatal=yes
-		fi
+			;;
+		esac
 	elif [ -n "${next_tmpdir}" ] ; then
 		next_tmpdir=
 		tmpdiroption="--tmpdir=${arg}"
@@ -137,12 +135,12 @@ do
 
 	else
 		case ${arg} in
-		-datadir=* | --datadir=* | --datadi=* | --datad=* | --data=* | --dat=* | --da=* | --d=*)
-			datadir=`echo ${arg} | sed 's/^[-a-z]*=//'`
-			datadiroption=${arg}
+		-exec_prefix=* | --exec_prefix=* | --exec_prefi=* | --exec_pref=* | --exec_pre=* | --exec_pr=* | --exec_p=* | --exec_=* | --exec=* | --exe=* | --ex=* | --e=*)
+			exec_prefix=`echo ${arg} | sed 's/^[-a-z_]*=//'`
+			exec_prefixoption=${arg}
 			;;
-		-datadir | --datadir | --datadi | --datad | --data | --dat | --da | --d)
-			next_datadir=yes
+		-exec_prefix | --exec_prefix | --exec_prefi | --exec_pref | --exec_pre | --exec_pr | --exec_p | --exec_ | --exec | --exe | --ex | --e)
+			next_exec_prefix=yes
 			;;
 		-gas | --g*)
 			gas=yes
@@ -151,79 +149,66 @@ do
 			fatal=true
 			;;
 		-host=* | --host=* | --hos=* | --ho=*)
-#			if [ -n "${hosts}" ] ; then
-#				subdirs="--subdirs"
-#			fi
-
-			if [ -z "${hosts}" ] ; then
-				newhosts="${hosts} `echo ${arg} | sed 's/^[-a-z]*=//'`"
-				hosts="${newhosts}"
-			else
-				echo '***' Can only configure for one host at a time.
+			case "${host_alias}" in
+			"")
+				host_alias="`echo ${arg} | sed 's/^[-a-z]*=//'`"
+				;;
+			*)
+				echo '***' Can only configure for one host at a time.  1>&2
 				fatal=yes
-			fi
+				;;
+			esac
 			;;
-#		-namesubdir | --namesubdir | --namesubdi | --namesubd | --namesub | --namesu | --names | --name | --nam | --na)
-#			next_namesubdir=yes
-#			;;
-#		-namesubdir=* | --namesubdir=* | --namesubdi=* | --namesubd=* | --namesub=* | --namesu=* | --names=* | --name=* | --nam=* | --na=*)
-#			namesubdir=`echo ${arg} | sed 's/^[-a-z]*=//'`
-#			namesubdiroption=${arg}
-#			;;
 		-nfp | --nf*)
 			floating_point=no
 			;;
 		-norecursion | --no*)
 			norecursion=true
 			;;
-#		-objdir=* | --objdir=* | --objdi=* | --objd=* | --obj=* | --ob=* | --o=*)
-#			objdiroption=${arg}
-#			objdir=`echo ${arg} | sed 's/^[-a-z]*=//'`
-#			;;
-#		-objdir | --objdir | --objdi | --objd | --obj | --ob | --o)
-#			next_objdir=yes
-#			;;
-		-prefix=* | --prefix=* | --prefi=* | --pref=* | --pre=* | --pr=* | --p=*)
+		-prefix=* | --prefix=* | --prefi=* | --pref=* | --pre=*)
 			prefix=`echo ${arg} | sed 's/^[-a-z]*=//'`
 			prefixoption=${arg}
 			;;
-		-prefix | --prefix | --prefi | --pref | --pre | --pr | --p)
+		-prefix | --prefix | --prefi | --pref | --pre)
 			next_prefix=yes
 			;;
-		-recurring | --recurring | --recurrin | --recurri | --recurr | --recur | --recu | --rec | --re)
-			recurring=true
+		-rm | --rm) removing=${arg} ;;
+		-program_prefix=* | --program_prefix=* | --program_prefi=* | --program_pref=* | --program_pre=* | --program_pr=* | --program_p=* | --program_=* | --program=* | --progra=* | --progr=* | --prog=* | --pro=*)
+			program_prefix=`echo ${arg} | sed 's/^[-a-z]*=//'`
+			program_prefixoption=${arg}
+			;;
+		-program_prefix | --program_prefix | --program_prefi | --program_pref | --program_pre | --program_pr | --program_p | --program_ | --program | --progra | --progr | --prog | --pro)
+			next_program_prefix=yes
+			;;
+		-s | -silent | --silent | --silen | --sile | --sil)
+			silent=true
 			arguments=`echo ${arguments} | sed "s:${arg}::"`
 			;;
-		-rm | --rm)
-			removing=${arg}
-			;;
 		-site=* | --site=* | --sit=* | --si=*)
+			site_option=${arg}
 			site=`echo ${arg} | sed 's/^[-a-z]*=//'`
 			;;
-		-site | --site | --sit | --si)
+		-site | --site | --sit)
 			next_site=yes
 			;;
+		# remove trailing slashes.  Otherwise, when the file name gets
+		# bolted into an object file as debug info, it has two slashes in
+		# it.  Ordinarily this is ok, but emacs takes double slash to
+		# mean "forget the first part".
 		-srcdir=* | --srcdir=* | --srcdi=* | --srcd=* | --src=* | --sr=*)
-			srcdir=`echo ${arg} | sed 's/^[-a-z]*=//'`
+			srcdir=`echo ${arg} | sed 's/^[-a-z]*=//' | sed -e 's:/$::'`
 			;;
 		-srcdir | --srcdir | --srcdi | --srcd | --src | --sr)
 			next_srcdir=yes
 			;;
-#		-subdirs | --su*)
-#			subdirs=${arg}
-#			;;
 		-target=* | --target=* | --targe=* | --targ=* | --tar=* | --ta=*)
-#			if [ -n "${targets}" ] ; then
-#				subdirs="--subdirs"
-#			fi
-
-			if [ -z "${targets}" ] ; then
-				newtargets="${targets} `echo ${arg} | sed 's/^[-a-z]*=//'`"
-				targets="${newtargets}"
-			else
-				echo '***' Can only configure for one target at a time.
+			case "${target_alias}" in
+			"") target_alias="`echo ${arg} | sed 's/^[-a-z]*=//'`" ;;
+			*)
+				echo '***' Can only configure for one target at a time.  1>&2
 				fatal=yes
-			fi
+				;;
+			esac
 			;;
 		-target | --target | --targe | --targ | --tar | --ta)
 			next_target=yes
@@ -250,26 +235,25 @@ do
 			fatal=true
 			;;
 		*)
-#			if [ -n "${hosts}" ] ; then
-#				subdirs="--subdirs"
-#			fi
-
-			if [ -z "${undefs}" ] ; then
-				newundefs="${undefs} ${arg}"
-				undefs=${newundefs}
-			else
-				echo '***' Can only configure for one host and one target at a time.
+			case "${undefs}" in
+			"")
+				undefs="${arg}"
+				;;
+			*)
+				echo '***' Can only configure for one host and one target at a time.  1>&2
 				fatal=yes
-			fi
+				;;
+			esac
 			;;
 		esac
 	fi
 done
 
 # process host and target
-if [ -z "${fatal}" ] ; then
+case "${fatal}" in
+"")
 #	# Complain if an arg is missing
-#	if [ -z "${hosts}" ] ; then
+#	if [ -z "${host_alias}" ] ; then
 #		(echo ;
 #		echo "configure: No HOST specified." ;
 #		echo) 1>&2
@@ -284,50 +268,50 @@ if [ -z "${fatal}" ] ; then
 ### * if no targets are specified, then the unadorned args are targets, but if
 ### there were no unadorned args, then the hosts are also targets.
 
-	if [ -n "${hosts}" -a -n "${targets}" -a -n "${undefs}" ] ; then
-		echo '***' Can only configure for one host and one target at a time.
+	if [ -n "${host_alias}" -a -n "${target_alias}" -a -n "${undefs}" ] ; then
+		echo '***' Can only configure for one host and one target at a time.  1>&2
 		fatal=yes
-	elif [ -z "${hosts}" -a -z "${undefs}" ] ; then
-		echo '***' You must tell me for which host you want to configure.
+	elif [ -z "${host_alias}" -a -z "${undefs}" ] ; then
+		echo '***' You must tell me for which host you want to configure.  1>&2
 		fatal=yes
 	else
-		if [ -z "${hosts}" ] ; then
-			hosts=${undefs}
-		fi
+		case "${host_alias}" in
+		"") host_alias=${undefs} ;;
+		*) ;;
+		esac
 
-		if [ -z "${targets}" ] ; then
-			if [ -n "${undefs}" ] ; then
-				targets=${undefs}
-			else
-				targets=${hosts}
-			fi
-		fi
+		case "${target_alias}" in
+		"")
+			case "${undefs}" in
+			"")	target_alias=${host_alias} ;;
+			*)	target_alias=${undefs} ;;
+			esac
+			;;
+		*) ;;
+		esac
 	fi
-fi
+	;;
+*) ;;
+esac
 
-if [ -n "${fatal}" -o "${hosts}" = "help" ] ; then
+if [ -n "${fatal}" -o "${host_alias}" = "help" ] ; then
 	(echo "Usage: configure HOST" ;
 	echo ;
 	echo "Options: [defaults in brackets]" ;
-	echo " -datadir=MYDIR	configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
-	echo " -gas		configure the compilers for use with gas. [native as]" ;
-	echo " -help		print this message. [normal config]" ;
-	echo " -lang=LANG	configure to build LANG. [gcc]" ;
-	echo " -nfp		configure the compilers default to soft floating point. [hard float]" ;
-	echo " -norecursion	configure this directory only. [recurse]" ;
-#	echo " -objdir=ODIR	configure in a parallel tree rooted in ODIR. [rooted in \".\"]" ;
-	echo " -prefix=MYDIR	configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
-	echo " -rm		remove this configuration. [build a configuration]" ;
-	echo " -site		configure with site specific makefile" ;
-	echo " -srcdir=DIR	find the sources in DIR. [\".\" or \"..\"]" ;
-# This is correctly aligned in the output, even though it isn't here.
-#	echo " -subdirs	configure in subdirectories.  [in source directories]" ;
-	echo " -target=TARGET	configure for TARGET.  [TARGET = HOST]" ;
-	echo " -tmpdir=TMPDIR	create temporary files in TMPDIR.  [ TMPDIR = \"/tmp\" ]" ;
+	echo " -exec_prefix=MYDIR	configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
+	echo " -gas			configure the compilers for use with gas. [native as]" ;
+	echo " -help			print this message. [normal config]" ;
+	echo " -lang=LANG		configure to build LANG. [gcc]" ;
+	echo " -nfp			configure the compilers default to soft floating point. [hard float]" ;
+	echo " -norecursion		configure this directory only. [recurse]" ;
+	echo " -prefix=MYDIR		configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
+	echo " -program_prefix=FOO	install programs with FOO prepended to their names. [ \"\" ]" ;
+	echo " -site=SITE		configure with site specific makefile for SITE" ;
+	echo " -srcdir=DIR		find the sources in DIR. [\".\" or \"..\"]" ;
+	echo " -target=TARGET		configure for TARGET.  [TARGET = HOST]" ;
+	echo " -tmpdir=TMPDIR		create temporary files in TMPDIR.  [ TMPDIR = \"/tmp\" ]" ;
 	echo ;
 	echo "Where HOST and TARGET are something like \"vax\", \"sun3\", \"encore\", etc." ;
-#	echo "Asking for more than one \"--target\" implies \"--subdirs\".  Any other" ;
-#	echo "options given will apply to all targets."
 	) 1>&2
 
 	if [ -r config.status ] ; then
@@ -339,37 +323,67 @@ fi
 
 configsub=`echo ${progname} | sed 's/configure$/config.sub/'`
 
-if (${configsub} `echo ${hosts} | sed -e 's/ .*//'`) >/dev/null 2>&1 ; then
+if ${configsub} `echo ${host_alias} | sed -e 's/ .*//'` >/dev/null 2>&1 ; then
 	true
 else
-	echo '***' cannot find config.sub.
+	echo '***' cannot find config.sub.  1>&2
 	exit 1
 fi
 
-if [ -z "${srcdir}" ] ; then
+case "${srcdir}" in
+"")
 	if [ -r configure.in ] ; then
 		srcdir=.
 	else
-		echo '***' "Can't find configure.in.  Try using -srcdir=some_dir"
+		if [ -r ${progname}.in ] ; then
+			srcdir=`echo ${progname} | sed 's:/configure$::'`
+		else
+			echo '***' "Can't find configure.in.  Try using -srcdir=some_dir"  1>&2
+			exit 1
+		fi
+	fi
+	;;
+*) ;;
+esac
+
+### warn about some conflicting configurations.
+
+case "${srcdir}" in
+".") ;;
+*)
+	if [ -f ${srcdir}/config.status ] ; then
+		echo '***' Cannot configure here in \"${PWD}\" when \"${srcdir}\" is currently configured. 1>&2
 		exit 1
 	fi
-fi
+esac
 
+# default exec_prefix
+case "${exec_prefix}" in
+"") exec_prefix="\$(prefix)" ;;
+*) ;;
+esac
 
 ### break up ${srcdir}/configure.in.
-if [ -z "`grep '^# per\-host:' ${srcdir}/configure.in`" ] ; then
+case "`grep '^# per\-host:' ${srcdir}/configure.in`" in
+"")
 	echo '***' ${srcdir}/configure.in has no "per-host:" line. 1>&2
 	exit 1
-fi
+	;;
+*) ;;
+esac
 
-if [ -z "`grep '^# per\-target:' ${srcdir}/configure.in`" ] ; then
+case "`grep '^# per\-target:' ${srcdir}/configure.in`" in
+"")
 	echo '***' ${srcdir}/configure.in has no "per-target:" line. 1>&2
 	exit 1
-fi
+	;;
+*) ;;
+esac
 
-if [ -z "${TMPDIR}" ] ; then
-	TMPDIR=/tmp ; export TMPDIR
-fi
+case "${TMPDIR}" in
+"") TMPDIR=/tmp ; export TMPDIR ;;
+*) ;;
+esac
 
 # keep this filename short for &%*%$*# 14 char file names
 tmpfile=${TMPDIR}/cONf$$
@@ -392,401 +406,317 @@ fi
 . ${tmpfile}.com
 
 # some sanity checks on configure.in
-if [ -z "${srctrigger}" ] ; then
-	echo '***' srctrigger not set in ${PWD}/configure.in.
+case "${srctrigger}" in
+"")
+	echo '***' srctrigger not set in ${PWD}/configure.in.  1>&2
+	exit 1
+	;;
+*) ;;
+esac
+
+result=`${configsub} ${host_alias}`
+host_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
+host_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
+host_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
+host=${host_cpu}-${host_vendor}-${host_os}
+
+. ${tmpfile}.hst
+
+result=`${configsub} ${target_alias}`
+target_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
+target_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
+target_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
+target=${target_cpu}-${target_vendor}-${target_os}
+
+. ${tmpfile}.tgt
+
+# Find the source files, if location was not specified.
+case "${srcdir}" in
+"")
+	srcdirdefaulted=1
+	srcdir=.
+	if [ ! -r ${srctrigger} ] ; then
+		srcdir=..
+	fi
+	;;
+*) ;;
+esac
+
+if [ ! -r ${srcdir}/${srctrigger} ] ; then
+	case "${srcdirdefaulted}" in
+	"") echo '***' "${progname}: Can't find ${srcname} sources in ${PWD}/${srcdir}" 1>&2 ;;
+	*)  echo '***' "${progname}: Can't find ${srcname} sources in ${PWD}/. or ${PWD}/.." 1>&2 ;;
+	esac
+
+	echo '***' \(At least ${srctrigger} is missing.\) 1>&2
 	exit 1
 fi
 
-for host in ${hosts} ; do
-	# Default other arg
-	if [ -z "${targets}" -o -n "${defaulttargets}" ] ; then
-		targets=${host}
-		defaulttargets=true
+case "${removing}" in
+"")
+	# Set up the list of links to be made.
+	# ${links} is the list of link names, and ${files} is the list of names to link to.
+
+	# Make the links.
+	configlinks="${links}"
+	while [ -n "${files}" ] ; do
+		# set file to car of files, files to cdr of files
+		set ${files}; file=$1; shift; files=$*
+		set ${links}; link=$1; shift; links=$*
+
+		if [ ! -r ${srcdir}/${file} ] ; then
+			echo '***' "${progname}: cannot create a link \"${link}\"," 1>&2
+			echo '***' "since the file \"${file}\" does not exist." 1>&2
+			exit 1
+		fi
+
+		${remove} -f ${link}
+		rm -f config.status
+		# Make a symlink if possible, otherwise try a hard link
+		${symbolic_link} ${srcdir}/${file} ${link} 2>/dev/null || ${hard_link} ${srcdir}/${file} ${link}
+
+		if [ ! -r ${link} ] ; then
+			echo '***' "${progname}: unable to link \"${link}\" to \"${srcdir}/${file}\"." 1>&2
+			exit 1
+		fi
+
+		case "${verbose}" in
+		"") ;;
+		*)  echo "Linked \"${link}\" to \"${srcdir}/${file}\"." ;;
+		esac
+	done
+
+	# Create a .gdbinit file which runs the one in srcdir
+	# and tells GDB to look there for source files.
+
+	if [ -r ${srcdir}/.gdbinit ] ; then
+		case ${srcdir} in
+		.)
+			;;
+		*) cat > .gdbinit <<EOF
+# ${NO_EDIT} > .gdbinit
+dir .
+dir ${srcdir}
+source ${srcdir}/.gdbinit
+EOF
+			;;
+		esac
 	fi
 
-	host_alias=${host}
+	# Install a makefile, and make it set VPATH
+	# if necessary so that the sources are found.
+	# Also change its value of srcdir.
+	# NOTE: Makefile generation constitutes the majority of the time in configure.  Hence, this section has
+	# been somewhat optimized and is perhaps a bit twisty.
 
-	result=`${configsub} ${host}`
-	host_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
-	host_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
-	host_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
-	host=${host_cpu}-${host_vendor}-${host_os}
-	host_makefile_frag=config/mh-${host}
-	if [ ! -f ${host_makefile_frag} ]
-	then
-		host_makefile_frag=config/mh-${host_alias}
+	# code is order so as to try to sed the smallest input files we know.
+
+	# the three makefile fragments MUST end up in the resulting Makefile in this order: target, host, and site.
+	# so do these separately because I don't trust the order of sed -e expressions.
+
+	# Conditionalize for this site from "Makefile.in" (or whatever it's called) into Makefile.tem
+	case "${site}" in
+	"") cp ${srcdir}/${Makefile_in} Makefile.tem ;;
+	*)
+		site_makefile_frag=${srcdir}/config/ms-${site}
+
+		if [ -f ${site_makefile_frag} ] ; then
+			sed -e "/^####/  r ${site_makefile_frag}" ${srcdir}/${Makefile_in} \
+				> Makefile.tem
+		else
+			cp ${srcdir}/${Makefile_in} Makefile.tem
+			site_makefile_frag=
+		fi
+		;;
+	esac
+	# working copy now in Makefile.tem
+
+	# Conditionalize the makefile for this host.
+	case "${host_makefile_frag}" in
+	"") mv Makefile.tem ${Makefile} ;;
+	*)
+		host_makefile_frag=${srcdir}/${host_makefile_frag}
+		if [ -f ${host_makefile_frag} ] ; then
+			sed -e "/^####/  r ${host_makefile_frag}" Makefile.tem > ${Makefile}
+		else
+			echo '***' Expected host makefile fragment \"${host_makefile_frag}\" 1>&2
+			echo '***' is missing in ${PWD}. 1>&2
+			mv Makefile.tem ${Makefile}
+		fi
+	esac
+	# working copy now in ${Makefile}
+
+	# Conditionalize the makefile for this target.
+	case "${target_makefile_frag}" in
+	"") mv ${Makefile} Makefile.tem ;;
+	*)
+		target_makefile_frag=${srcdir}/${target_makefile_frag}
+		if [ -f ${target_makefile_frag} ] ; then
+			sed -e "/^####/  r ${target_makefile_frag}" ${Makefile} > Makefile.tem
+		else
+			mv ${Makefile} Makefile.tem
+			target_makefile_frag=
+		fi
+		;;
+	esac
+	# real copy now in Makefile.tem
+
+	# prepend warning about editting, and a bunch of variables.
+	cat > ${Makefile} <<EOF
+# ${NO_EDIT}
+host_alias = ${host_alias}
+host_cpu = ${host_cpu}
+host_vendor = ${host_vendor}
+host_os = ${host_os}
+target_alias = ${target_alias}
+target_cpu = ${target_cpu}
+target_vendor = ${target_vendor}
+target_os = ${target_os}
+target_makefile_frag = ${target_makefile_frag}
+host_makefile_frag = ${host_makefile_frag}
+site_makefile_frag = ${site_makefile_frag}
+links = ${configlinks}
+VPATH = ${srcdir}
+EOF
+
+	# fixme: this shouldn't be in configure.
+	# Define macro CROSS_COMPILE in compilation if this is a cross-compiler.
+	case "${host_alias}" in
+	"${target_alias}")
+		tooldir="\$(libdir)"
+		echo "ALL=all.internal" >> ${Makefile}
+		;;
+	*)
+		echo "CROSS=-DCROSS_COMPILE" >> ${Makefile}
+		echo "ALL=all.cross" >> ${Makefile}
+		case "${program_prefix}" in
+		"")	program_prefix=${target_alias}- ;;
+		*)	;;
+		esac
+
+		tooldir="\$(libdir)/${target_alias}"
+		;;
+	esac
+
+	# reset prefix, exec_prefix, srcdir, SUBDIRS, NONSUBDIRS, remove any form
+	# feeds.
+	sed -e "s:^prefix[ 	]*=.*$:prefix = ${prefix}:" \
+		-e "s:^exec_prefix[ 	]*=.*$:exec_prefix = ${exec_prefix}:" \
+		-e "s:^srcdir[ 	]*=.*$:srcdir = ${srcdir}:" \
+		-e "s:^SUBDIRS[ 	]*=.*$:SUBDIRS = ${configdirs}:" \
+		-e "s:^NONSUBDIRS[ 	]*=.*$:NONSUBDIRS = ${noconfigdirs}:" \
+		-e "s///" \
+		-e "s:^program_prefix[ 	]*=.*$:program_prefix = ${program_prefix}:" \
+		-e "s:^tooldir[ 	]*=.*$:tooldir = ${tooldir}:" \
+		Makefile.tem >> ${Makefile}
+	# final copy now in ${Makefile}
+
+	rm Makefile.tem
+
+	if [ -n "${verbose}" -o -z "${silent}" ] ; then
+		case "${host_makefile_frag}" in
+		"") using= ;;
+		*) using="and \"${host_makefile_frag}\"" ;;
+		esac
+
+		case "${target_makefile_frag}" in
+		"") ;;
+		*) using="${using} and \"${target_makefile_frag}\"" ;;
+		esac
+
+		case "${site_makefile_frag}" in
+		"") ;;
+		*) using="${using} and \"${site_makefile_frag}\"" ;;
+		esac
+
+		echo "Created \"${Makefile}\" in" ${PWD} `echo "${using}" | sed 's/and/using/'`
 	fi
 
-	. ${tmpfile}.hst
+	. ${tmpfile}.pos
 
-	for target in ${targets} ; do
+	# describe the chosen configuration in config.status.
+	# Make that file a shellscript which will reestablish
+	# the same configuration.  Used in Makefiles to rebuild
+	# Makefiles.
 
-		target_alias=${target}
-		result=`${configsub} ${target}`
-		target_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
-		target_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
-		target_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
-		target=${target_cpu}-${target_vendor}-${target_os}
-		target_makefile_frag=config/mt-${target}
-		if [ ! -f ${target_makefile_frag} ]
-		then
-			target_makefile_frag=config/mt-${target_alias}
-		fi
+	case "${norecursion}" in
+	"") arguments="${arguments} -norecursion" ;;
+	*) ;;
+	esac
 
-		. ${tmpfile}.tgt
-
-		if [ "${host_alias}" = "${target_alias}" ] ; then
-			subdirname=H-${host_alias}
-		else
-			subdirname=X-${host_alias}-${target_alias}
-		fi
-
-		if [ -n "${namesubdir}" ] ; then
-			subdirname=${namesubdir}
-		fi
-
-		if [ -n "${removing}" ] ; then
-#			if [ -n "${objdir}" ] ; then
-#				echo '***' --rm not supported for --objdir.  Just \"rm -rf ${objdir}\" by hand.
-#				exit 1
-#			fi
-
-#			if [ -n "${subdirs}" ] ; then
-#				if [ -d "${subdirname}" ] ; then
-#					rm -rf ${hostsubdir}
-#				else
-#					echo Warning: no ${PWD}/${hostsubdir} to remove.
-#				fi
-#			else
-				rm -f ${Makefile} config.status ${links}
-#			fi
-		else
-#			if [ -n "${objdir}" ]; then
-#				srcdir=${PWD}
-#				cd ${objdir}
-#			fi
-
-#			if [ -n "${subdirs}" ] ; then
-#				# check for existing status before allowing forced subdirs.
-#				if [ -f ${Makefile} ] ; then
-#					echo '***' "${Makefile} already exists in source directory.  ${PWD} not configured." 1>&2
-#					exit 1
-#				fi
-#
-#				# use a subdir common to all targets for this host iff: this is a cross AND
-#				# this tool does not claim to be target dependent AND we have not been asked to name the subdir.
-#				if [ ${host_alias} != ${target_alias} -a -z "${target_dependent}" -a -z "${namesubdiroption}" ]
-#				then
-#					if [ ! -d H-${host_alias} ] ; then mkdir H-${host_alias} ; fi
-#
-#					if (${symbolic_link} ${subdirname} H-${host_alias} 2> /dev/null) ; then
-#						true
-#					else # just give up. they lose.
-#						rmdir H-${host_alias}
-#						if [ ! -d ${subdirname} ] ; then mkdir ${subdirname} ; fi
-#					fi
-#				elif [ ! -d ${subdirname} ] ; then
-#					mkdir ${subdirname}
-#				fi
-#
-#				cd ${subdirname}
-#
-#				if [ -z "${srcdir}" ] ; then
-#					srcdir=..
-#				fi
-#			elif [ "`echo H-*`" != "H-*" -a "`echo X-*`" != "X-*" ] ; then
-#				# if not subdir builds, then make sure none exist.
-#				# We might miss if there are explicitly named subdirs.
-#				echo '***' "Configured subdirs exist.  ${PWD} not configured." 1>&2
-#				exit 1
-#			else
-#				true
-#			fi
-
-			# Find the source files, if location was not specified.
-			if [ -z "${srcdir}" ] ; then
-				srcdirdefaulted=1
-				srcdir=.
-				if [ ! -r ${srctrigger} ] ; then
-					srcdir=..
-				fi
-			fi
-
-			if [ ! -r ${srcdir}/${srctrigger} ] ; then
-				if [ -z "${srcdirdefaulted}" ] ; then
-					echo '***' "${progname}: Can't find ${srcname} sources in ${PWD}/${srcdir}" 1>&2
-				else
-					echo '***' "${progname}: Can't find ${srcname} sources in ${PWD}/. or ${PWD}/.." 1>&2
-				fi
-
-				echo '***' \(At least ${srctrigger} is missing.\) 1>&2
-				exit 1
-			fi
-
-			# Set up the list of links to be made.
-			# ${links} is the list of link names, and ${files} is the list of names to link to.
-
-			# Make the links.
-			while [ -n "${files}" ] ; do
-				# set file to car of files, files to cdr of files
-				set ${files}; file=$1; shift; files=$*
-				set ${links}; link=$1; shift; links=$*
-
-				if [ ! -r ${srcdir}/${file} ] ; then
-					echo '***' "${progname}: cannot create a link \"${link}\"," 1>&2
-					echo '***' "since the file \"${file}\" does not exist." 1>&2
-					exit 1
-				fi
-
-				${remove} -f ${link}
-				rm -f config.status
-				# Make a symlink if possible, otherwise try a hard link
-				${symbolic_link} ${srcdir}/${file} ${link} 2>/dev/null || ${hard_link} ${srcdir}/${file} ${link}
-
-				if [ ! -r ${link} ] ; then
-					echo '***' "${progname}: unable to link \"${link}\" to \"${srcdir}/${file}\"." 1>&2
-					exit 1
-				fi
-
-				if [ -n "${verbose}" ] ; then
-					echo "Linked \"${link}\" to \"${srcdir}/${file}\"."
-				fi
-			done
-
-			# Create a .gdbinit file which runs the one in srcdir
-			# and tells GDB to look there for source files.
-
-			if [ -r ${srcdir}/.gdbinit ] ; then
-				case ${srcdir} in
-				.)
-					;;
-				*)
-					echo "# "${NO_EDIT} > .gdbinit
-					echo "dir ." >> .gdbinit
-					echo "dir ${srcdir}" >> .gdbinit
-					echo "source ${srcdir}/.gdbinit" >> .gdbinit
-					;;
-				esac
-			fi
-
-			# Install a makefile, and make it set VPATH
-			# if necessary so that the sources are found.
-			# Also change its value of srcdir.
-
-		# FIXME-someday: This business of always writing to .tem and mv back
-		# is so that I don't screw things up while developing.  Once this
-		# template is stable, these should be optimized. xoxorich.
-
-			# Define macro CROSS_COMPILE in compilation if this is a cross-compiler.
-			if [ "${host}" != "${target}" ] ; then
-				echo "CROSS=-DCROSS_COMPILE" > ${Makefile}
-				echo "ALL=all.cross" >> ${Makefile}
-			else
-				echo "ALL=all.internal" > ${Makefile}
-			fi
-
-			# set target, host, VPATH
-			echo "host_alias = ${host_alias}" >> ${Makefile}
-			echo "host_cpu = ${host_cpu}" >> ${Makefile}
-			echo "host_vendor = ${host_vendor}" >> ${Makefile}
-			echo "host_os = ${host_os}" >> ${Makefile}
-
-			echo "target_alias = ${target_alias}" >> ${Makefile}
-			echo "target_cpu = ${target_cpu}" >> ${Makefile}
-			echo "target_vendor = ${target_vendor}" >> ${Makefile}
-			echo "target_os = ${target_os}" >> ${Makefile}
-
-#			if [ -n "${subdirs}" ] ; then
-#				(echo "subdir = /${subdirname}" ;
-#					echo "unsubdir = ..") >> ${Makefile}
-#			else
-				(echo "subdir =" ;
-					echo "unsubdir = .") >> ${Makefile}
-#			fi
-
-		#	echo "workdir = ${PWD}" >> ${Makefile}
-			echo "VPATH = ${srcdir}" >> ${Makefile}
-
-			# add "Makefile.in" (or whatever it's called)
-			cat ${srcdir}/${Makefile_in} >> ${Makefile}
-
-			# Conditionalize the makefile for this site.
-			if [ -n "${site}" ] ; then
-				site_makefile_frag=config/ms-${site}
-
-				if [ -f ${srcdir}/${site_makefile_frag} ] ; then
-					(echo "site_makefile_frag = ${srcdir}/${site_makefile_frag}" ; 
-						sed -e "/^####/  r ${srcdir}/${site_makefile_frag}" ${Makefile}) > Makefile.tem
-				else
-					(echo "site_makefile_frag =" ; 
-						cat ${Makefile}) > Makefile.tem
-				fi
-				mv Makefile.tem ${Makefile}
-			fi
-
-			# Conditionalize the makefile for this host.
-			if [ -f ${srcdir}/${host_makefile_frag} ] ; then
-				(echo "host_makefile_frag = ${srcdir}/${host_makefile_frag}" ;
-					sed -e "/^####/  r ${srcdir}/${host_makefile_frag}" ${Makefile}) > Makefile.tem
-			else
-				(echo "host_makefile_frag =" ;
-					cat ${Makefile}) > Makefile.tem
-			fi
-			mv Makefile.tem ${Makefile}
-
-			# Conditionalize the makefile for this target.
-			if [ -f ${srcdir}/${target_makefile_frag} ] ; then
-				(echo "target_makefile_frag = ${srcdir}/${target_makefile_frag}" ; 
-					sed -e "/^####/  r ${srcdir}/${target_makefile_frag}" ${Makefile}) > Makefile.tem
-			else
-				(echo "target_makefile_frag =" ; 
-					cat ${Makefile}) > Makefile.tem
-			fi
-			mv Makefile.tem ${Makefile}
-
-			# set srcdir
-			sed "s:^srcdir[ 	]*=.*$:srcdir = ${srcdir}:" ${Makefile} > Makefile.tem
-			mv Makefile.tem ${Makefile}
-
-			# set prefix
-			if [ -n "${prefix}" ] ; then
-				sed "s:^prefix[ 	]*=.*$:prefix = ${prefix}:" ${Makefile} > Makefile.tem
-				mv Makefile.tem ${Makefile}
-			fi
-
-			# set datadir
-			if [ -n "${datadir}" ] ; then
-				sed "s:^datadir[ 	]*=.*$:datadir = ${datadir}:" ${Makefile} > Makefile.tem
-				mv Makefile.tem ${Makefile}
-			fi
-
-			# reset SUBDIRS
-			sed "s:^SUBDIRS[ 	]*=.*$:SUBDIRS = ${configdirs}:" ${Makefile} > Makefile.tem
-			mv Makefile.tem ${Makefile}
-
-			# reset NONSUBDIRS
-			sed "s:^NONSUBDIRS[ 	]*=.*$:NONSUBDIRS = ${noconfigdirs}:" ${Makefile} > Makefile.tem
-			mv Makefile.tem ${Makefile}
-
-			# remove any form feeds.
-			sed -e "s///" ${Makefile} > Makefile.tem
-			mv Makefile.tem ${Makefile}
-
-			# prepend warning about editting.
-			echo "# "${NO_EDIT} > ${Makefile}.tem
-			cat ${Makefile} >> ${Makefile}.tem
-			mv Makefile.tem ${Makefile}
-
-			using=
-			if [ -f ${srcdir}/${host_makefile_frag} ] ; then
-				using="${using} and \"${host_makefile_frag}\""
-			fi
-			if [ -f ${srcdir}/${target_makefile_frag} ] ; then
-				using="${using} and \"${target_makefile_frag}\""
-			fi
-			if [ -n "${site}" -a \
-			     -f ${srcdir}/${site_makefile_frag} ] ; then
-				using="${using} and \"${site_makefile_frag}\""
-			fi
-			using=`echo "${using}" | sed 's/and/using/'`
-			using="Created \"${Makefile}\" in ${PWD}${using}."
-
-			if [ -n "${verbose}" -o -z "${recurring}" ] ; then
-				echo ${using}
-			fi
-
-			. ${tmpfile}.pos
-
-			# describe the chosen configuration in config.status.
-			# Make that file a shellscript which will reestablish
-			# the same configuration.  Used in Makefiles to rebuild
-			# Makefiles.
-
-			if [ -z "${norecursion}" ] ; then
-				arguments="${arguments} -norecursion"
-			fi
-
-			echo "#!/bin/sh
+	echo "#!/bin/sh
 # ${NO_EDIT}
 # ${PWD} was configured as follows:
 ${progname}" ${arguments}  "
 # ${using}" > config.status
-			chmod a+x config.status
+	chmod a+x config.status
+	;;
 
-#			originaldir=${PWD}
-#			cd ${srcdir}
-		fi
+*)	rm -f ${Makefile} config.status ${links} ;;
+esac
 
-		# If there are subdirectories, then recur. 
-		if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then 
-			for configdir in ${configdirs} ; do
-				if [ -n "${verbose}" ] ; then
-					echo Configuring ${configdir}...
+# If there are subdirectories, then recur. 
+if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then 
+	for configdir in ${configdirs} ; do
+		case "${verbose}" in
+		"") ;;
+		*) echo Configuring ${configdir}... ;;
+		esac
+
+		if [ -d ${srcdir}/${configdir} ] ; then
+			case "${srcdir}" in
+			".") ;;
+			*)
+				if [ ! -d ./${configdir} ] ; then
+					mkdir ./${configdir}
 				fi
+				;;
+			esac
 
-				if [ -d ${srcdir}/${configdir} ] ; then
-					if [ "${srcdir}" != "." ] ; then
-						if [ ! -d ./${configdir} ] ; then
-							mkdir ./${configdir}
-						fi
-					fi
-
-					POPDIR=${PWD}
-					cd ${configdir} 
+			POPDIR=${PWD}
+			cd ${configdir} 
 
 ### figure out what to do with srcdir
-					case "${srcdir}" in
-					".") ;; # do nothing.  We're building in place.
-					/*) srcdiroption="-srcdir=${srcdir}/${configdir}" ;; # absolute path
-					*) srcdiroption="-srcdir=../${srcdir}/${configdir}" ;; # otherwise relative
-					esac
+			case "${srcdir}" in
+			".") newsrcdir=${srcdir} ;; # no -srcdir option.  We're building in place.
+			/*) # absolute path
+				newsrcdir=${srcdir}/${configdir}
+				srcdiroption="-srcdir=${newsrcdir}"
+				;;
+			*) # otherwise relative
+				newsrcdir=../${srcdir}/${configdir}
+				srcdiroption="-srcdir=${newsrcdir}"
+				;;
+			esac
+
+### check for guested configure, otherwise fix possibly relative progname
+			if [ -f ${newsrcdir}/configure ] ; then
+				recprog=${newsrcdir}/configure
+			else
+				case "${progname}" in
+				/*)	recprog=${progname} ;;
+				*)	recprog=../${progname} ;;
+				esac
+			fi
 
 ### The recursion line is here.
-					if [ -f configure ] ; then
-						recprog=`pwd`/configure
-					else
-						recprog=${progname}
-					fi
+			if ${recprog} -s ${host_alias} -target=${target_alias} \
+				${verbose} ${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
+				${srcdiroption} ${program_prefixoption} ${site_option} ${removing} ; then
+				true
+			else
+				exit 1
+			fi
 
-					if (${recprog} -recurring ${host_alias} -target=${target_alias} \
-						${verbose} ${subdirs} ${removing} ${prefixoption} \
-						${tmpdiroption} ${namesubdiroption} ${datadiroption} \
-						${srcdiroption}) ; then
-						true
-					else
-						exit 1
-					fi
-
-					cd ${POPDIR}
-				elif [ -n "${verbose}" ] ; then
-					echo Warning: source directory \"${srcdir}/${configdir}\" is missing.
-				fi
-			done
+			cd ${POPDIR}
+		else
+			case "${verbose}" in
+			"") ;;
+			*) echo Warning: source directory \"${srcdir}/${configdir}\" is missing. ;;
+			esac
 		fi
-	done # for each target
-
-	# Now build a Makefile for this host.
-#	if [ -n "${subdirs}" -a ! -n "${removing}" ] ; then
-#		push=${PWD}
-#
-#		if [ -n "${objdir}" ] ; then
-#			cd ${objdir}
-#		fi
-#
-#		cd ${hostsubdir}
-#		cat > GNUmakefile << 'E!O!F'
-## Makefile generated by configure for host ${host_alias}.
-#
-#ALL := $(shell ls -d T-*)
-#
-#%:
-#	$(foreach subdir,$(ALL),$(MAKE) -C $(subdir) \$@ &&) true
-#
-#all:
-#E!O!F
-#		cd ${push}
-#	fi
-done # for each host
+	done
+fi
 
 ### clean up.
 

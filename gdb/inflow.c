@@ -1,5 +1,5 @@
 /* Low level interface to ptrace, for GDB when running under Unix.
-   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -37,7 +36,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/param.h>
 #include <signal.h>
 
-extern char *strerror();		/* strings corresponding to errno */
+static void
+kill_command PARAMS ((char *, int));
+
+static void
+terminal_ours_1 PARAMS ((int));
 
 extern struct target_ops child_ops;
 
@@ -278,6 +281,8 @@ terminal_ours_1 (output_only)
 #else /* not HAVE_TERMIO */
   sg_ours.sg_flags &= ~RAW & ~CBREAK;
 #endif /* not HAVE_TERMIO */
+
+  result = result;	/* lint */
 }
 
 /* ARGSUSED */
@@ -417,7 +422,7 @@ kill_command (arg, from_tty)
     error ("The program is not being run.");
   if (!query ("Kill the inferior process? "))
     error ("Not confirmed.");
-  target_kill (arg, from_tty);
+  target_kill ();
 
   /* Killing off the inferior can leave us with a core file.  If so,
      print the state we are left in.  */
@@ -528,7 +533,6 @@ Report which ones can be written.");
      all!).  */
 
   tflags_ours = fcntl (0, F_GETFL, 0);
-  OOPSY ("fcntl F_GETFL");		/* Should always work */
 
   result = ioctl (0, TIOCGETP, &sg_ours);
   if (result == 0) {

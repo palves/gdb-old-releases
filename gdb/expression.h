@@ -1,5 +1,5 @@
 /* Definitions for expressions stored in reversed prefix form, for GDB.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -16,6 +16,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#if !defined (EXPRESSION_H)
+#define EXPRESSION_H 1
 
 /* Definitions for saved C expressions.  */
 
@@ -223,14 +226,24 @@ struct expression
 };
 
 /* From parse.c */
-struct expression *parse_expression ();
-struct expression *parse_exp_1 ();
+
+extern struct expression *
+parse_expression PARAMS ((char *));
+
+extern struct expression *
+parse_exp_1 PARAMS ((char **, struct block *, int));
 
 /* The innermost context required by the stack and register variables
    we've encountered so far.  To use this, set it to NULL, then call
    parse_<whatever>, then look at it.  */
 extern struct block *innermost_block;
 
-/* From expprint.c.  */
-void print_expression ();
-char *op_string();
+/* From expprint.c */
+
+extern void
+print_expression PARAMS ((struct expression *, FILE *));
+
+extern char *
+op_string PARAMS ((enum exp_opcode));
+
+#endif	/* !defined (EXPRESSION_H) */

@@ -6,11 +6,11 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.4.
+   This is Edition 4.04, March 1992, of `Using GDB: A Guide to the GNU
+Source-Level Debugger' for GDB Version 4.5.
 
-   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
-Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software
+Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -28,6 +28,49 @@ manual into another language, under the above conditions for modified
 versions, except that the section entitled "GNU General Public
 License" may be included in a translation approved by the Free
 Software Foundation instead of in the original English.
+
+
+File: gdb.info,  Node: Input/Output,  Next: Attach,  Prev: Working Directory,  Up: Running
+
+Your Program's Input and Output
+===============================
+
+   By default, the program you run under GDB does input and output to
+the same terminal that GDB uses.  GDB switches the terminal to its own
+terminal modes to interact with you, but it records the terminal modes
+your program was using and switches back to them when you continue
+running your program.
+
+`info terminal'
+     Displays GDB's recorded information about the terminal modes your
+     program is using.
+
+   You can redirect your program's input and/or output using shell
+redirection with the `run' command.  For example,
+
+     run > outfile
+
+starts your program, diverting its output to the file `outfile'.
+
+   Another way to specify where your program should do input and
+output is with the `tty' command.  This command accepts a file name as
+argument, and causes this file to be the default for future `run'
+commands.  It also resets the controlling terminal for the child
+process, for future `run' commands.  For example,
+
+     tty /dev/ttyb
+
+directs that processes started with subsequent `run' commands default
+to do input and output on the terminal `/dev/ttyb' and have that as
+their controlling terminal.
+
+   An explicit redirection in `run' overrides the `tty' command's
+effect on the input/output device, but not its effect on the
+controlling terminal.
+
+   When you use the `tty' command or redirect input in the `run'
+command, only the input *for your program* is affected.  The input for
+GDB still comes from your terminal.
 
 
 File: gdb.info,  Node: Attach,  Next: Kill Process,  Prev: Input/Output,  Up: Running
@@ -78,7 +121,7 @@ whether or not you need to confirm by using the `set confirm' command
 (*note Optional Warnings and Messages: Messages/Warnings.).
 
 
-File: gdb.info,  Node: Kill Process,  Prev: Attach,  Up: Running
+File: gdb.info,  Node: Kill Process,  Next: Process Information,  Prev: Attach,  Up: Running
 
 Killing the Child Process
 =========================
@@ -101,6 +144,43 @@ an executable file while it is running in a process.  In this case,
 when you next type `run', GDB will notice that the file has changed,
 and will re-read the symbol table (while trying to preserve your
 current breakpoint settings).
+
+
+File: gdb.info,  Node: Process Information,  Prev: Kill Process,  Up: Running
+
+Additional Process Information
+==============================
+
+   Some operating systems provide a facility called `/proc' that can
+be used to examine the image of a running process using file-system
+subroutines.  If GDB is configured for an operating system with this
+facility, the command `info proc' is available to report on several
+kinds of information about the process running your program.
+
+`info proc'
+     Summarize available information about the process.
+
+`info proc mappings'
+     Report on the address ranges accessible in the program, with
+     information on whether your program may read, write, or execute
+     each range.
+
+`info proc times'
+     Starting time, user CPU time, and system CPU time for your
+     program and its children.
+
+`info proc id'
+     Report on the process ID's related to your program: its own
+     process id, the id of its parent, the process group id, and the
+     session id.
+
+`info proc status'
+     General information on the state of the process.  If the process
+     is stopped, this report includes the reason for stopping, and any
+     signal received.
+
+`info proc all'
+     Show all the above information about the process.
 
 
 File: gdb.info,  Node: Stopping,  Next: Stack,  Prev: Running,  Up: Top
@@ -153,8 +233,8 @@ aside from that, you can manage a watchpoint like any other
 breakpoint: you enable, disable, and delete both breakpoints and
 watchpoints using the same commands.
 
-   Each breakpoint or watchpoint is assigned a number when it is
-created; these numbers are successive integers starting with one.  In
+   GDB assigns a number to each breakpoint or watchpoint when you
+create it; these numbers are successive integers starting with one.  In
 many of the commands for controlling various features of breakpoints
 you use the breakpoint number to say which breakpoint you want to
 change.  Each breakpoint may be "enabled" or "disabled"; if disabled,
@@ -178,7 +258,11 @@ File: gdb.info,  Node: Set Breaks,  Next: Set Watchpoints,  Prev: Breakpoints,  
 Setting Breakpoints
 -------------------
 
-   Breakpoints are set with the `break' command (abbreviated `b').
+   Breakpoints are set with the `break' command (abbreviated `b'). 
+The debugger convenience variable `$bpnum' records the number of the
+beakpoint you've set most recently; see *Note Convenience Variables:
+Convenience Vars, for a discussion of what you can do with convenience
+variables.
 
    You have several ways to say where the breakpoint should go.
 
@@ -261,20 +345,75 @@ Setting Breakpoints
 
 `info breakpoints [N]'
 `info break [N]'
-     Print a list of all breakpoints (but not watchpoints) set and not
-     deleted, showing their numbers, where in your program they are,
-     and any special features in use for them. Disabled breakpoints
-     are included in the list, but marked as disabled. `info break'
-     with a breakpoint number N as argument lists only that
-     breakpoint.  The convenience variable `$_' and the default
+`info watchpoints [N]'
+     Print a table of all breakpoints and watchpoints set and not
+     deleted, with the following columns for each breakpoint:
+
+    *Breakpoint Numbers*
+    *Type*
+          Breakpoint or watchpoint.
+
+    *Disposition*
+          Whether the breakpoint is marked to be disabled or deleted
+          when hit.
+
+    *Enabled or Disabled*
+          Enabled breakpoints are marked with `y'.  `n' marks
+          breakpoints that are not enabled.
+
+    *Address*
+          Where the breakpoint is in your program, as a memory address
+
+    *What*
+          Where the breakpoint is in the source for your program, as a
+          file and line number.
+
+     Breakpoint commands, if any, are listed after the line for the
+     corresponding breakpoint.
+
+     `info break' with a breakpoint number N as argument lists only
+     that breakpoint.  The convenience variable `$_' and the default
      examining-address for the `x' command are set to the address of
-     the last breakpoint listed (*note Examining Memory: Memory.). 
-     The equivalent command for watchpoints is `info watch'.
+     the last breakpoint listed (*note Examining Memory: Memory.).
 
    GDB allows you to set any number of breakpoints at the same place in
 your program.  There is nothing silly or meaningless about this.  When
 the breakpoints are conditional, this is even useful (*note Break
 Conditions: Conditions.).
+
+   GDB itself sometimes sets breakpoints in your program for special
+purposes, such as proper handling of `longjmp' (in C programs).  These
+internal breakpoints are assigned negative numbers, starting with
+`-1'; `info breakpoints' does not display them, but the similar
+command `info all-breakpoints' does.
+
+`info all-breakpoints'
+     Using the same format as `info breakpoints', display both the
+     breakpoints you've set explicitly, and those GDB is using for
+     internal purposes.  Internal breakpoints are shown with negative
+     breakpoint numbers.  The type column identifies what kind of
+     breakpoint is shown:
+
+    `breakpoint'
+          Normal, explicitly set breakpoint.
+
+    `watchpoint'
+          Normal, explicitly set watchpoint.
+
+    `longjmp'
+          Internal breakpoint, used to handle correctly stepping
+          through `longjmp' calls.
+
+    `longjmp resume'
+          Internal breakpoint at the target of a `longjmp'.
+
+    `until'
+          Temporary internal breakpoint used by the GDB `until'
+          command.
+
+    `finish'
+          Temporary internal breakpoint used by the GDB `finish'
+          command.
 
 
 File: gdb.info,  Node: Set Watchpoints,  Next: Exception Handling,  Prev: Set Breaks,  Up: Breakpoints
@@ -296,8 +435,8 @@ future releases of GDB will use such hardware if it is available.
      Set a watchpoint for an expression.
 
 `info watchpoints'
-     This command prints a list of watchpoints; it is otherwise
-     similar to `info break'.
+     This command prints a list of watchpoints and breakpoints; it is
+     the same as `info break'.
 
 
 File: gdb.info,  Node: Exception Handling,  Next: Delete Breaks,  Prev: Set Watchpoints,  Up: Breakpoints
@@ -460,7 +599,8 @@ Set Breaks.), breakpoints that you set are initially enabled;
 subsequently, they become disabled or enabled only when you use one of
 the commands above.  (The command `until' can set and delete a
 breakpoint of its own, but it will not change the state of your other
-breakpoints; *note Continuing and Stepping: Continuing and Stepping..)
+breakpoints; see *Note Continuing and Stepping: Continuing and
+Stepping.)
 
 
 File: gdb.info,  Node: Conditions,  Next: Break Commands,  Prev: Disabling,  Up: Breakpoints
@@ -926,10 +1066,10 @@ Their full names are:
 
    When a signal has been set to stop your program, your program
 cannot see the signal until you continue.  It will see the signal
-then, if `pass' is in effect for the signal in question at that time. 
-In other words, after GDB reports a signal, you can use the `handle'
-command with `pass' or `nopass' to control whether that signal will be
-seen by your program when you later continue it.
+then, if `pass' is in effect for the signal in question *at that
+time*.  In other words, after GDB reports a signal, you can use the
+`handle' command with `pass' or `nopass' to control whether that
+signal will be seen by your program when you later continue it.
 
    You can also use the `signal' command to prevent your program from
 seeing a signal, or cause it to see a signal it normally would not see,
@@ -1073,121 +1213,5 @@ line number.
 The display for frame zero does not begin with a program counter
 value, indicating that your program has stopped at the beginning of the
 code for line `993' of `builtin.c'.
-
-
-File: gdb.info,  Node: Selection,  Next: Frame Info,  Prev: Backtrace,  Up: Stack
-
-Selecting a Frame
-=================
-
-   Most commands for examining the stack and other data in your
-program work on whichever stack frame is selected at the moment.  Here
-are the commands for selecting a stack frame; all of them finish by
-printing a brief description of the stack frame just selected.
-
-`frame N'
-`f N'
-     Select frame number N.  Recall that frame zero is the innermost
-     (currently executing) frame, frame one is the frame that called
-     the innermost one, and so on.  The highest-numbered frame is
-     `main''s frame.
-
-`frame ADDR'
-`f ADDR'
-     Select the frame at address ADDR.  This is useful mainly if the
-     chaining of stack frames has been damaged by a bug, making it
-     impossible for GDB to assign numbers properly to all frames.  In
-     addition, this can be useful when your program has multiple
-     stacks and switches between them.
-
-     On the SPARC architecture, `frame' needs two addresses to select
-     an arbitrary frame: a frame pointer and a stack pointer.
-
-`up N'
-     Move N frames up the stack.  For positive numbers N, this
-     advances toward the outermost frame, to higher frame numbers, to
-     frames that have existed longer.  N defaults to one.
-
-`down N'
-     Move N frames down the stack.  For positive numbers N, this
-     advances toward the innermost frame, to lower frame numbers, to
-     frames that were created more recently.  N defaults to one.  You
-     may abbreviate `down' as `do'.
-
-   All of these commands end by printing two lines of output
-describing the frame.  The first line shows the frame number, the
-function name, the arguments, and the source file and line number of
-execution in that frame.  The second line shows the text of that
-source line.  For example:
-
-     (gdb) up
-     #1  0x22f0 in main (argc=1, argv=0xf7fffbf4, env=0xf7fffbfc)
-         at env.c:10
-     10              read_input_file (argv[i]);
-
-   After such a printout, the `list' command with no arguments will
-print ten lines centered on the point of execution in the frame. 
-*Note Printing Source Lines: List.
-
-`up-silently N'
-`down-silently N'
-     These two commands are variants of `up' and `down', respectively;
-     they differ in that they do their work silently, without causing
-     display of the new frame.  They are intended primarily for use in
-     GDB command scripts, where the output might be unnecessary and
-     distracting.
-
-
-File: gdb.info,  Node: Frame Info,  Prev: Selection,  Up: Stack
-
-Information About a Frame
-=========================
-
-   There are several other commands to print information about the
-selected stack frame.
-
-`frame'
-`f'
-     When used without any argument, this command does not change which
-     frame is selected, but prints a brief description of the currently
-     selected stack frame.  It can be abbreviated `f'.  With an
-     argument, this command is used to select a stack frame (*note
-     Selecting a Frame: Selection.).
-
-`info frame'
-`info f'
-     This command prints a verbose description of the selected stack
-     frame, including the address of the frame, the addresses of the
-     next frame down (called by this frame) and the next frame up
-     (caller of this frame), the language that the source code
-     corresponding to this frame was written in, the address of the
-     frame's arguments, the program counter saved in it (the address
-     of execution in the caller frame), and which registers were saved
-     in the frame.  The verbose description is useful when something
-     has gone wrong that has made the stack format fail to fit the
-     usual conventions.
-
-`info frame ADDR'
-`info f ADDR'
-     Print a verbose description of the frame at address ADDR, without
-     selecting that frame.  The selected frame remains unchanged by
-     this command.
-
-`info args'
-     Print the arguments of the selected frame, each on a separate
-     line.
-
-`info locals'
-     Print the local variables of the selected frame, each on a
-     separate line.  These are all variables declared static or
-     automatic within all program blocks that execution in this frame
-     is currently inside of.
-
-`info catch'
-     Print a list of all the exception handlers that are active in the
-     current stack frame at the current point of execution.  To see
-     other exception handlers, visit the associated frame (using the
-     `up', `down', or `frame' commands); then type `info catch'. 
-     *Note Breakpoints and Exceptions: Exception Handling.
 
 

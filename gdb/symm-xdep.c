@@ -1,5 +1,5 @@
 /* Sequent Symmetry host interface, for GDB when running under Unix.
-   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* FIXME, some 387-specific items of use taken from i387-tdep.c -- ought to be
    merged back in. */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -37,10 +36,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sgtty.h>
 #define TERMINAL struct sgttyb
 
-extern void print_387_control_word ();
-extern void print_387_status_word ();
-extern void i387_to_double (from, to);
+#include "gdbcore.h"
 
+void
 store_inferior_registers(regno)
 int regno;
 {
@@ -112,7 +110,8 @@ int regno;
 }
 
 void
-fetch_inferior_registers()
+fetch_inferior_registers (regno)
+     int regno;
 {
     int i;
     struct pt_regset regs;
@@ -147,8 +146,6 @@ fetch_inferior_registers()
 
 /* Work with core dump and executable files, for GDB. 
    This code would be in core.c if it weren't machine-dependent. */
-
-#include "gdbcore.h"
 
 void
 core_file_command (filename, from_tty)
@@ -294,13 +291,13 @@ struct pt_regset ep;
 	    printf ("  %g\n", val);
 	}
     if (ep.pr_fpu.fpu_rsvd1)
-	printf ("warning: rsvd1 is 0x%x\n", ep.pr_fpu.fpu_rsvd1);
+	warning ("rsvd1 is 0x%x\n", ep.pr_fpu.fpu_rsvd1);
     if (ep.pr_fpu.fpu_rsvd2)
-	printf ("warning: rsvd2 is 0x%x\n", ep.pr_fpu.fpu_rsvd2);
+	warning ("rsvd2 is 0x%x\n", ep.pr_fpu.fpu_rsvd2);
     if (ep.pr_fpu.fpu_rsvd3)
-	printf ("warning: rsvd3 is 0x%x\n", ep.pr_fpu.fpu_rsvd3);
+	warning ("rsvd3 is 0x%x\n", ep.pr_fpu.fpu_rsvd3);
     if (ep.pr_fpu.fpu_rsvd5)
-	printf ("warning: rsvd5 is 0x%x\n", ep.pr_fpu.fpu_rsvd5);
+	warning ("rsvd5 is 0x%x\n", ep.pr_fpu.fpu_rsvd5);
 }
 
 

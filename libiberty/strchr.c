@@ -41,7 +41,7 @@ BUGS
 #include <ansidecl.h>
 
 char *
-strchr, (s, c)
+strchr (s, c)
   register CONST char *s;
   int c;
 {

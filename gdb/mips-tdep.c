@@ -1,5 +1,5 @@
 /* Target-dependent code for the MIPS architecture, for GDB, the GNU Debugger.
-   Copyright 1988, 1989, 1990, 1991  Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Alessandro Forin(af@cs.cmu.edu) at CMU
    and by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin.
 
@@ -19,7 +19,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -37,7 +36,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <signal.h>
 #include <sys/ioctl.h>
 
+#ifdef sgi
+/* Must do it this way only for SGIs, as other mips platforms get their
+   JB_ symbols from machine/pcb.h (included via sys/user.h). */
+#include <setjmp.h>
+#endif
+
 #include "gdbcore.h"
+#include "symfile.h"
+#include "objfiles.h"
 
 #ifndef	MIPSMAGIC
 #ifdef MIPSEL
@@ -54,19 +61,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/stat.h>
 
 
-#define PROC_LOW_ADDR(proc) ((proc)->adr) /* least address */
-#define PROC_HIGH_ADDR(proc) ((proc)->pad2) /* upper address bound */
-#define PROC_FRAME_OFFSET(proc) ((proc)->framesize)
-#define PROC_FRAME_REG(proc) ((proc)->framereg)
-#define PROC_REG_MASK(proc) ((proc)->regmask)
-#define PROC_FREG_MASK(proc) ((proc)->fregmask)
-#define PROC_REG_OFFSET(proc) ((proc)->regoffset)
-#define PROC_FREG_OFFSET(proc) ((proc)->fregoffset)
-#define PROC_PC_REG(proc) ((proc)->pcreg)
-#define PROC_SYMBOL(proc) (*(struct symbol**)&(proc)->isym)
+#define PROC_LOW_ADDR(proc) ((proc)->pdr.adr) /* least address */
+#define PROC_HIGH_ADDR(proc) ((proc)->pdr.iline) /* upper address bound */
+#define PROC_FRAME_OFFSET(proc) ((proc)->pdr.frameoffset)
+#define PROC_FRAME_REG(proc) ((proc)->pdr.framereg)
+#define PROC_REG_MASK(proc) ((proc)->pdr.regmask)
+#define PROC_FREG_MASK(proc) ((proc)->pdr.fregmask)
+#define PROC_REG_OFFSET(proc) ((proc)->pdr.regoffset)
+#define PROC_FREG_OFFSET(proc) ((proc)->pdr.fregoffset)
+#define PROC_PC_REG(proc) ((proc)->pdr.pcreg)
+#define PROC_SYMBOL(proc) (*(struct symbol**)&(proc)->pdr.isym)
 #define _PROC_MAGIC_ 0x0F0F0F0F
-#define PROC_DESC_IS_DUMMY(proc) ((proc)->isym == _PROC_MAGIC_)
-#define SET_PROC_DESC_IS_DUMMY(proc) ((proc)->isym = _PROC_MAGIC_)
+#define PROC_DESC_IS_DUMMY(proc) ((proc)->pdr.isym == _PROC_MAGIC_)
+#define SET_PROC_DESC_IS_DUMMY(proc) ((proc)->pdr.isym = _PROC_MAGIC_)
 
 struct linked_proc_info
 {
@@ -77,7 +84,7 @@ struct linked_proc_info
 
 #define READ_FRAME_REG(fi, regno) read_next_frame_reg((fi)->next, regno)
 
-int
+static int
 read_next_frame_reg(fi, regno)
      FRAME fi;
      int regno;
@@ -106,37 +113,25 @@ int
 mips_frame_saved_pc(frame)
      FRAME frame;
 {
-  mips_extra_func_info_t proc_desc = (mips_extra_func_info_t)frame->proc_desc;
+  mips_extra_func_info_t proc_desc = frame->proc_desc;
   int pcreg = proc_desc ? PROC_PC_REG(proc_desc) : RA_REGNUM;
+
   if (proc_desc && PROC_DESC_IS_DUMMY(proc_desc))
       return read_memory_integer(frame->frame - 4, 4);
-#if 0
-  /* If in the procedure prologue, RA_REGNUM might not have been saved yet.
-   * Assume non-leaf functions start with:
-   *	addiu $sp,$sp,-frame_size
-   *	sw $ra,ra_offset($sp)
-   * This if the pc is pointing at either of these instructions,
-   * then $ra hasn't been trashed.
-   * If the pc has advanced beyond these two instructions,
-   * then $ra has been saved.
-   * critical, and much more complex. Handling $ra is enough to get
-   * a stack trace, but some register values with be wrong.
-   */
-  if (frame->proc_desc && frame->pc < PROC_LOW_ADDR(proc_desc) + 8)
-      return read_register(pcreg);
-#endif
+
   return read_next_frame_reg(frame, pcreg);
 }
 
 static struct mips_extra_func_info temp_proc_desc;
 static struct frame_saved_regs temp_saved_regs;
 
-CORE_ADDR heuristic_proc_start(pc)
+static CORE_ADDR
+heuristic_proc_start(pc)
     CORE_ADDR pc;
 {
 
     CORE_ADDR start_pc = pc;
-    CORE_ADDR fence = start_pc - 10000;
+    CORE_ADDR fence = start_pc - 200;
     if (fence < VM_MIN_ADDRESS) fence = VM_MIN_ADDRESS;
     /* search back for previous return */
     for (start_pc -= 4; ; start_pc -= 4)
@@ -153,7 +148,7 @@ CORE_ADDR heuristic_proc_start(pc)
     return start_pc;
 }
 
-mips_extra_func_info_t
+static mips_extra_func_info_t
 heuristic_proc_desc(start_pc, limit_pc, next_frame)
     CORE_ADDR start_pc, limit_pc;
     FRAME next_frame;
@@ -177,6 +172,7 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
 
 	status = read_memory_nobpt (cur_pc, &word, 4); 
 	if (status) memory_error (status, cur_pc); 
+	SWAP_TARGET_AND_HOST (&word, sizeof (word));
 	if ((word & 0xFFFF0000) == 0x27bd0000) /* addiu $sp,$sp,-i */
 	    frame_size += (-word) & 0xFFFF;
 	else if ((word & 0xFFFF0000) == 0x23bd0000) /* addu $sp,$sp,-i */
@@ -223,30 +219,30 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
     return &temp_proc_desc;
 }
 
-mips_extra_func_info_t
+static mips_extra_func_info_t
 find_proc_desc(pc, next_frame)
     CORE_ADDR pc;
     FRAME next_frame;
 {
   mips_extra_func_info_t proc_desc;
-  extern struct block *block_for_pc();
-  struct block   *b = block_for_pc(pc);
-
+  struct block *b = block_for_pc(pc);
   struct symbol *sym =
       b ? lookup_symbol(".gdbinfo.", b, LABEL_NAMESPACE, 0, NULL) : NULL;
-  if (sym != NULL)
+
+  if (sym)
     {
 	/* IF this is the topmost frame AND
 	 * (this proc does not have debugging information OR
 	 * the PC is in the procedure prologue)
-	 * THEN create a "hueristic" proc_desc (by analyzing
+	 * THEN create a "heuristic" proc_desc (by analyzing
 	 * the actual code) to replace the "official" proc_desc.
 	 */
-	proc_desc = (struct mips_extra_func_info *)sym->value.value;
+	proc_desc = (mips_extra_func_info_t)SYMBOL_VALUE(sym);
 	if (next_frame == NULL) {
 	    struct symtab_and_line val;
 	    struct symbol *proc_symbol =
 		PROC_DESC_IS_DUMMY(proc_desc) ? 0 : PROC_SYMBOL(proc_desc);
+
 	    if (proc_symbol) {
 		val = find_pc_line (BLOCK_START
 				    (SYMBOL_BLOCK_VALUE(proc_symbol)),
@@ -263,6 +259,11 @@ find_proc_desc(pc, next_frame)
     }
   else
     {
+      /* Is linked_proc_desc_table really necessary?  It only seems to be used
+	 by procedure call dummys.  However, the procedures being called ought
+	 to have their own proc_descs, and even if they don't,
+	 heuristic_proc_desc knows how to create them! */
+
       register struct linked_proc_info *link;
       for (link = linked_proc_desc_table; link; link = link->next)
 	  if (PROC_LOW_ADDR(&link->info) <= pc
@@ -276,28 +277,23 @@ find_proc_desc(pc, next_frame)
 
 mips_extra_func_info_t cached_proc_desc;
 
-FRAME_ADDR mips_frame_chain(frame)
+FRAME_ADDR
+mips_frame_chain(frame)
     FRAME frame;
 {
-    extern CORE_ADDR startup_file_start;	/* From blockframe.c */
     mips_extra_func_info_t proc_desc;
     CORE_ADDR saved_pc = FRAME_SAVED_PC(frame);
-    if (startup_file_start)
-      { /* has at least the __start symbol */
-	if (saved_pc == 0 || !outside_startup_file (saved_pc)) return 0;
-      }
-    else
-      { /* This hack depends on the internals of __start. */
-	/* We also assume the breakpoints are *not* inserted */
-        if (saved_pc == 0
-	    || read_memory_integer (saved_pc + 8, 4) & 0xFC00003F == 0xD)
-	    return 0;  /* break */
-      }
+
+    if (saved_pc == 0 || inside_entry_file (saved_pc))
+      return 0;
+
     proc_desc = find_proc_desc(saved_pc, frame);
-    if (!proc_desc) return 0;
+    if (!proc_desc)
+      return 0;
+
     cached_proc_desc = proc_desc;
     return read_next_frame_reg(frame, PROC_FRAME_REG(proc_desc))
-	+ PROC_FRAME_OFFSET(proc_desc);
+      + PROC_FRAME_OFFSET(proc_desc);
 }
 
 void
@@ -308,11 +304,12 @@ init_extra_frame_info(fci)
   /* Use proc_desc calculated in frame_chain */
   mips_extra_func_info_t proc_desc = fci->next ? cached_proc_desc :
       find_proc_desc(fci->pc, fci->next);
+
   fci->saved_regs = (struct frame_saved_regs*)
     obstack_alloc (&frame_cache_obstack, sizeof(struct frame_saved_regs));
   bzero(fci->saved_regs, sizeof(struct frame_saved_regs));
   fci->proc_desc =
-      proc_desc == &temp_proc_desc ? (char*)NULL : (char*)proc_desc;
+      proc_desc == &temp_proc_desc ? 0 : proc_desc;
   if (proc_desc)
     {
       int ireg;
@@ -365,12 +362,11 @@ init_extra_frame_info(fci)
 
       fci->saved_regs->regs[PC_REGNUM] = fci->saved_regs->regs[RA_REGNUM];
     }
-  if (fci->next == 0)
-      supply_register(FP_REGNUM, &fci->frame);
 }
 
 
-CORE_ADDR mips_push_arguments(nargs, args, sp, struct_return, struct_addr)
+CORE_ADDR
+mips_push_arguments(nargs, args, sp, struct_return, struct_addr)
   int nargs;
   value *args;
   CORE_ADDR sp;
@@ -530,21 +526,28 @@ mips_pop_frame()
   set_current_frame (create_new_frame (new_sp, read_pc ()));
 }
 
-static
+static void
 mips_print_register(regnum, all)
      int regnum, all;
 {
-      unsigned char raw_buffer[8];
+      unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE];
       REGISTER_TYPE val;
 
-      read_relative_register_raw_bytes (regnum, raw_buffer);
-
-      if (!(regnum & 1) && regnum >= FP0_REGNUM && regnum < FP0_REGNUM+32) {
+      /* Get the data in raw format.  */
+      if (read_relative_register_raw_bytes (regnum, raw_buffer))
+	{
+	  printf_filtered ("%s: [Invalid]", reg_names[regnum]);
+	  return;
+	}
+      
+      /* If an even floating pointer register, also print as double. */
+      if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM+32
+	  && !((regnum-FP0_REGNUM) & 1)) {
 	  read_relative_register_raw_bytes (regnum+1, raw_buffer+4);
-	  printf_filtered ("(d%d: ", regnum&31);
+	  printf_filtered ("(d%d: ", regnum-FP0_REGNUM);
 	  val_print (builtin_type_double, raw_buffer, 0,
 		     stdout, 0, 1, 0, Val_pretty_default);
-	  printf_filtered ("); ", regnum&31);
+	  printf_filtered ("); ");
       }
       fputs_filtered (reg_names[regnum], stdout);
 #ifndef NUMERIC_REG_NAMES
@@ -566,6 +569,7 @@ mips_print_register(regnum, all)
 	  long val;
 
 	  bcopy (raw_buffer, &val, sizeof (long));
+	  SWAP_TARGET_AND_HOST ((char *)&val, sizeof (long));
 	  if (val == 0)
 	    printf_filtered ("0");
 	  else if (all)
@@ -576,6 +580,7 @@ mips_print_register(regnum, all)
 }
 
 /* Replacement for generic do_registers_info.  */
+void
 mips_do_registers_info (regnum, fpregs)
      int regnum;
      int fpregs;
@@ -602,6 +607,7 @@ mips_do_registers_info (regnum, fpregs)
 /* Return number of args passed to a frame. described by FIP.
    Can return -1, meaning no way to tell.  */
 
+int
 mips_frame_num_args(fip)
 	FRAME fip;
 {
@@ -640,12 +646,120 @@ isa_NAN(p, len)
     }
   else return 1;
 }
+
+/*
+ * Implemented for Irix 4.x by Garrett A. Wollman
+ */
+#ifdef USE_PROC_FS		/* Target-dependent /proc support */
 
+#include <sys/time.h>
+#include <sys/procfs.h>
+
+typedef unsigned int greg_t;	/* why isn't this defined? */
+
+/*
+ * See the comment in m68k-tdep.c regarding the utility of these functions.
+ */
+
+void 
+supply_gregset (gregsetp)
+     gregset_t *gregsetp;
+{
+  register int regno;
+  register greg_t *regp = (greg_t *)(gregsetp->gp_regs);
+
+  /* FIXME: somewhere, there should be a #define for the meaning
+     of this magic number 32; we should use that. */
+  for(regno = 0; regno < 32; regno++)
+    supply_register (regno, (char *)(regp + regno));
+
+  supply_register (PC_REGNUM, (char *)&(gregsetp->gp_pc));
+  supply_register (HI_REGNUM, (char *)&(gregsetp->gp_mdhi));
+  supply_register (LO_REGNUM, (char *)&(gregsetp->gp_mdlo));
+  supply_register (PS_REGNUM, (char *)&(gregsetp->gp_cause));
+}
+
+void
+fill_gregset (gregsetp, regno)
+     gregset_t *gregsetp;
+     int regno;
+{
+  int regi;
+  register greg_t *regp = (greg_t *)(gregsetp->gp_regs);
+  extern char registers[];
+
+  /* same FIXME as above wrt 32*/
+  for (regi = 0; regi < 32; regi++)
+    if ((regno == -1) || (regno == regi))
+      *(regp + regno) = *(greg_t *) &registers[REGISTER_BYTE (regi)];
+
+  if ((regno == -1) || (regno == PC_REGNUM))
+    gregsetp->gp_pc = *(greg_t *) &registers[REGISTER_BYTE (PC_REGNUM)];
+
+  if ((regno == -1) || (regno == PS_REGNUM))
+    gregsetp->gp_cause = *(greg_t *) &registers[REGISTER_BYTE (PS_REGNUM)];
+
+  if ((regno == -1) || (regno == HI_REGNUM))
+    gregsetp->gp_mdhi = *(greg_t *) &registers[REGISTER_BYTE (HI_REGNUM)];
+
+  if ((regno == -1) || (regno == LO_REGNUM))
+    gregsetp->gp_mdlo = *(greg_t *) &registers[REGISTER_BYTE (LO_REGNUM)];
+}
+
+/*
+ * Now we do the same thing for floating-point registers.
+ * We don't bother to condition on FP0_REGNUM since any
+ * reasonable MIPS configuration has an R3010 in it.
+ *
+ * Again, see the comments in m68k-tdep.c.
+ */
+
+void
+supply_fpregset (fpregsetp)
+     fpregset_t *fpregsetp;
+{
+  register int regno;
+
+  for (regno = 0; regno < 32; regno++)
+    supply_register (FP0_REGNUM + regno,
+		     (char *)&fpregsetp->fp_r.fp_regs[regno]);
+
+  supply_register (FCRCS_REGNUM, (char *)&fpregsetp->fp_csr);
+
+  /* FIXME: how can we supply FCRIR_REGNUM?  SGI doesn't tell us. */
+}
+
+void
+fill_fpregset (fpregsetp, regno)
+     fpregset_t *fpregsetp;
+     int regno;
+{
+  int regi;
+  char *from, *to;
+  extern char registers[];
+
+  for (regi = FP0_REGNUM; regi < FP0_REGNUM + 32; regi++)
+    {
+      if ((regno == -1) || (regno == regi))
+	{
+	  from = (char *) &registers[REGISTER_BYTE (regi)];
+	  to = (char *) &(fpregsetp->fp_r.fp_regs[regi]);
+	  bcopy(from, to, REGISTER_RAW_SIZE (regno));
+	}
+    }
+
+  if ((regno == -1) || (regno == FCRCS_REGNUM))
+    fpregsetp->fp_csr = *(unsigned *) &registers[REGISTER_BYTE(FCRCS_REGNUM)];
+}
+
+#endif /* USE_PROC_FS */
+
 /* To skip prologues, I use this predicate. Returns either PC
    itself if the code at PC does not look like a function prologue,
    PC+4 if it does (our caller does not need anything more fancy). */
 
-CORE_ADDR mips_skip_prologue(pc)
+CORE_ADDR
+mips_skip_prologue(pc)
      CORE_ADDR pc;
 {
     struct symbol *f;
@@ -681,8 +795,30 @@ CORE_ADDR mips_skip_prologue(pc)
 
        Actually, it would not hurt to skip the storing
        of arguments on the stack as well. */
-    if (((struct mips_extra_func_info *)f->value.value)->framesize)
+    if (((mips_extra_func_info_t)SYMBOL_VALUE(f))->pdr.frameoffset)
 	return pc + 4;
 
     return pc;
+}
+
+/* Figure out where the longjmp will land.
+   We expect the first arg to be a pointer to the jmp_buf structure from which
+   we extract the pc (JB_PC) that we will land at.  The pc is copied into PC.
+   This routine returns true on success. */
+
+int
+get_longjmp_target(pc)
+     CORE_ADDR *pc;
+{
+  CORE_ADDR jb_addr;
+
+  jb_addr = read_register(A0_REGNUM);
+
+  if (target_read_memory(jb_addr + JB_PC * JB_ELEMENT_SIZE, pc,
+			 sizeof(CORE_ADDR)))
+    return 0;
+
+  SWAP_TARGET_AND_HOST(pc, sizeof(CORE_ADDR));
+
+  return 1;
 }

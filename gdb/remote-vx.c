@@ -1,5 +1,5 @@
 /* Memory-access and commands for remote VxWorks processes, for GDB.
-   Copyright (C) 1990-1991  Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Wind River Systems and Cygnus Support.
 
 This file is part of GDB.
@@ -18,7 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -47,11 +46,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "xdr_rdb.h"
 #include "dbgRpcLib.h"
 
-/* get rid of value.h if possible */
-#include <value.h>
 #include <symtab.h>
- 
-extern value call_function_by_hand ();
+
 extern void symbol_file_command ();
 extern int stop_soon_quietly;		/* for wait_for_inferior */
 
@@ -719,7 +715,7 @@ vx_load_command (arg_string, from_tty)
   immediate_quit--;
 
   /* FIXME, for now we ignore data_addr and bss_addr.  */
-  symbol_file_add (arg_string, from_tty, text_addr, 0);
+  (void) symbol_file_add (arg_string, from_tty, text_addr, 0, 0);
 }
 
 #ifdef FIXME  /* Not ready for prime time */
@@ -1012,6 +1008,7 @@ vx_wait (status)
 
     case EVENT_ZERO_DIV:	/* Division by zero */
       WSETSTOP (w, SIGFPE);	/* Like Unix, call it a float exception. */
+      break;
 
     case EVENT_SIGNAL:
       /* The target is not running Unix, and its
@@ -1042,7 +1039,7 @@ add_symbol_stub (arg)
   struct ldfile *pLoadFile = (struct ldfile *)arg;
 
   printf("\t%s: ", pLoadFile->name);
-  symbol_file_add (pLoadFile->name, 0, pLoadFile->txt_addr, 0);
+  (void) symbol_file_add (pLoadFile->name, 0, pLoadFile->txt_addr, 0, 0);
   printf ("ok\n");
   return 1;
 }
@@ -1434,7 +1431,6 @@ Specify the name of the machine to connect to.",
 	0, 0, 0, 0, 0,	/* terminal stuff */
 	0, /* vx_kill, */
 	vx_load_command,
-	0,  /* call_function */
 	vx_lookup_symbol,
 	vx_create_inferior, 0,  /* mourn_inferior */
 	core_stratum, 0, /* next */
@@ -1457,7 +1453,6 @@ struct target_ops vx_run_ops = {
 	0, 0, 0, 0, 0,	/* terminal stuff */
 	vx_kill,
 	vx_load_command,
-	call_function_by_hand,  /* FIXME, calling fns is maybe botched? */
 	vx_lookup_symbol,
 	0, vx_mourn_inferior,
 	process_stratum, 0, /* next */

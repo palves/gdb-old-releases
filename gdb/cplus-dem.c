@@ -49,21 +49,16 @@
 /* define this if names don't start with _ */
 /* #define nounderscore 1 */
 
-#include <stdio.h>
-#include <ctype.h>
-
 /* GDB-specific, FIXME.  */
 #include "defs.h"
+
+#include <ctype.h>
 
 #ifdef USG
 #include <memory.h>
 #include <string.h>
 #else
 #include <strings.h>
-#define memcpy(s1, s2, n) bcopy ((s2), (s1), (n))
-#define memcmp(s1, s2, n) bcmp ((s2), (s1), (n))
-#define strchr index 
-#define strrchr rindex
 #endif
 
 /* This is '$' on systems where the assembler can deal with that.
@@ -81,18 +76,6 @@
 extern char *cplus_demangle (const char *type, int mode);
 #else
 extern char *cplus_demangle ();
-#endif
-
-#ifdef __STDC__
-/* GDB prototypes these as void* in defs.h, so we better too, at least
-   as long as we're including defs.h.  */
-extern void *xmalloc (int);
-extern void *xrealloc (char *, int);
-extern void free (void *);
-#else
-extern char *xmalloc ();
-extern char *xrealloc ();
-extern void free ();
 #endif
 
 static char **typevec = 0;
@@ -187,48 +170,59 @@ typedef struct string {
   char *e;			/* pointer after end of allocated space */
 } string;
 
-#ifdef __STDC__
-static void string_need (string *s, int n);
-static void string_delete (string *s);
-static void string_init (string *s);
-static void string_clear (string *s);
-static int string_empty (string *s);
-static void string_append (string *p, const char *s);
-static void string_appends (string *p, string *s);
-static void string_appendn (string *p, const char *s, int n);
-static void string_prepend (string *p, const char *s);
+static void
+string_need PARAMS ((string *, int));
+
+static void
+string_delete PARAMS ((string *));
+
+static void
+string_init PARAMS ((string *));
+
+static void
+string_clear PARAMS ((string *));
+
+static int
+string_empty PARAMS ((string *));
+
+static void
+string_append PARAMS ((string *, const char *));
+
+static void
+string_appends PARAMS ((string *, string *));
+
+static void
+string_appendn PARAMS ((string *, const char *, int));
+
+static void
+string_prepend PARAMS ((string *, const char *));
+
+static void
+string_prependn PARAMS ((string *, const char *, int));
+
+static int
+get_count PARAMS ((const char **, int *));
+
+static int
+do_args PARAMS ((const char **, string *, int));
+
+static int
+do_type PARAMS ((const char **, string *, int));
+
+static int
+do_arg PARAMS ((const char **, string *, int));
+
+static void
+munge_function_name PARAMS ((string *, int));
+
+static void
+remember_type PARAMS ((const char *, int));
+
 #if 0
-static void string_prepends (string *p, string *s);
+static void
+string_prepends PARAMS ((string *, string *));
 #endif
-static void string_prependn (string *p, const char *s, int n);
-static int get_count (const char **type, int *count);
-static int do_args (const char **type, string *decl, int arg_mode);
-static int do_type (const char **type, string *result, int arg_mode);
-static int do_arg (const char **type, string *result, int arg_mode);
-static void munge_function_name (string *name, int arg_mode);
-static void remember_type (const char *type, int len);
-#else
-static void string_need ();
-static void string_delete ();
-static void string_init ();
-static void string_clear ();
-static int string_empty ();
-static void string_append ();
-static void string_appends ();
-static void string_appendn ();
-static void string_prepend ();
-#if 0
-static void string_prepends ();
-#endif
-static void string_prependn ();
-static int get_count ();
-static int do_args ();
-static int do_type ();
-static int do_arg ();
-static int do_args ();
-static void munge_function_name ();
-static void remember_type ();
-#endif
+
 
 /* Takes operator name as e.g. "++" and returns mangled
    operator name (e.g. "postincrement_expr"), or NULL if not found.
@@ -449,7 +443,6 @@ cplus_demangle (type, arg_mode)
       p += 1;
       {
 	int r, i;
-	int non_empty = 0;
 	string tname;
 	string trawname;
 	
@@ -513,6 +506,7 @@ cplus_demangle (type, arg_mode)
 			done = is_pointer = 1;
 			break;
 		      case 'C':	/* const */
+		      case 'S':	/* explicitly signed [char] */
 		      case 'U':	/* unsigned */
 		      case 'V':	/* volatile */
 		      case 'F':	/* function */
@@ -872,6 +866,14 @@ do_type (type, result, arg_mode)
 	  else
 	    non_empty = 1;
 	  string_append (result, "unsigned");
+	  break;
+	case 'S': /* signed char only */
+	  *type += 1;
+	  if (non_empty)
+	    string_append (result, " ");
+	  else
+	    non_empty = 1;
+	  string_append (result, "signed");
 	  break;
 	case 'V':
 	  *type += 1;

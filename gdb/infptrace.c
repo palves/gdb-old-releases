@@ -1,5 +1,5 @@
 /* Low level Unix child interface to ptrace, for GDB when running under Unix.
-   Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -55,7 +54,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 #include "gdbcore.h"
+#ifndef	NO_SYS_FILE
 #include <sys/file.h>
+#endif
 #include <sys/stat.h>
 
 #if !defined (FETCH_INFERIOR_REGISTERS)
@@ -64,6 +65,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <a.out.h>		/* For struct nlist */
 #endif /* KERNEL_U_ADDR_BSD.  */
 #endif /* !FETCH_INFERIOR_REGISTERS */
+
 
 /* This function simply calls ptrace with the given arguments.  
    It exists so that all calls to ptrace are isolated in this 
@@ -93,9 +95,7 @@ kill_inferior_fast ()
 }
 
 void
-kill_inferior (args, from_tty)
-     char *args;
-     int from_tty;
+kill_inferior ()
 {
   kill_inferior_fast ();
   target_mourn_inferior ();
@@ -117,9 +117,17 @@ child_resume (step, signal)
      a new PC value to the child.)  */
 
   if (step)
+#ifdef NO_SINGLE_STEP
+    single_step (signal);
+#else    
     ptrace (PT_STEP, inferior_pid, (int *)1, signal);
+#endif
   else
+#ifdef AIX_BUGGY_PTRACE_CONTINUE
+    AIX_BUGGY_PTRACE_CONTINUE;
+#else
     ptrace (PT_CONTINUE, inferior_pid, (int *)1, signal);
+#endif
 
   if (errno)
     perror_with_name ("ptrace");
@@ -280,7 +288,7 @@ fetch_inferior_registers (regno)
    If REGNO is -1, do this for all registers.
    Otherwise, REGNO specifies which register (so we can save time).  */
 
-int
+void
 store_inferior_registers (regno)
      int regno;
 {
@@ -288,7 +296,6 @@ store_inferior_registers (regno)
   char buf[80];
   extern char registers[];
   register int i;
-  int result = 0;
 
   unsigned int offset = U_REGS_OFFSET;
 
@@ -304,7 +311,6 @@ store_inferior_registers (regno)
 	    {
 	      sprintf (buf, "writing register number %d(%d)", regno, i);
 	      perror_with_name (buf);
-	      result = -1;
 	    }
 	  regaddr += sizeof(int);
 	}
@@ -325,13 +331,11 @@ store_inferior_registers (regno)
 		{
 		  sprintf (buf, "writing register number %d(%d)", regno, i);
 		  perror_with_name (buf);
-		  result = -1;
 		}
 	      regaddr += sizeof(int);
 	    }
 	}
     }
-  return result;
 }
 #endif /* !defined (FETCH_INFERIOR_REGISTERS).  */
 

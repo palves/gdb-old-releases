@@ -18,7 +18,12 @@ rs6000)	my_host=rs6000
 mips)
 	case "${host_vendor}" in
 	dec)	my_host=decstation ;;
-	sgi)	my_host=irix3 ;;
+	sgi)
+		case "${host_os}" in
+		irix3)	my_host=irix3 ;;
+		irix4)	my_host=irix4 ;;
+		esac
+		;;
 	esac
 	;;
 
@@ -52,6 +57,11 @@ m68k)
 		;;
 	sony)	my_host=news ;;
 	sun)	my_host=sun3 ;;
+	apollo*)
+		case "${host_os}" in
+		sysv*)	my_host=apollov68 ;;
+		esac
+		;;
 	esac
 	;;
 
@@ -74,6 +84,8 @@ i386)
 sparc)
 	case "${host_os}" in
 	sunos64)	my_host=sparc-ll ;;
+	sysv4)		my_host=sysv4 ;;
+	sysv64)		my_host=sysv4-ll ;;
 	*)		my_host=sparc ;;
 	esac
 	;;
@@ -97,7 +109,7 @@ vax)
 esac
 
 # Set up to make a link between the host's include file and "sysdep.h".
-files="hosts/h-${my_host}.h"
+files="hosts/${my_host}.h"
 links="sysdep.h"
 
 if [ ! -f ${srcdir}/${files} ] ; then
@@ -109,8 +121,8 @@ if [ ! -f ${srcdir}/${files} ] ; then
 fi
 
 host_makefile_frag=
-if [ -f ${srcdir}/config/mh-${my_host} ] ; then
-	host_makefile_frag=config/mh-${my_host}
+if [ -f ${srcdir}/config/${my_host}.mh ] ; then
+	host_makefile_frag=config/${my_host}.mh
 fi
 
 # per-target:
@@ -162,7 +174,11 @@ wrs)
 sun)
 	case "${target_cpu}" in
 	m68k)	bfd_target=m68k-aout ;;
-	sparc)	bfd_target=sparc-aout ;;
+	sparc)	case "${target_os}" in
+		sysv4)	bfd_target=sparc-elf ;;
+		*)	bfd_target=sparc-aout ;;
+		esac
+		;;
 	esac
 	;;
 dec)
@@ -187,8 +203,22 @@ sgi)
 		bfd_target=irix3 ;;
 	esac
 	;;
+big)
+	case "${target_cpu}" in
+	mips)
+		bfd_target=irix3 ;;
+	esac
+	;;
+tandem)
+	bfd_target=m68k-aout 
+	;;
+
 none|nyu|sco)
 	case "${target_cpu}" in
+	m68k) case "${target_os}" in
+		os68k) bfd_target=m68k-aout ;;
+	      esac
+	      ;;
 	i386) bfd_target=i386-coff ;;
 	a29k) case "${target_os}" in
 		aout) bfd_target=a29k-aout ;;
@@ -217,15 +247,15 @@ motorola)
 	;;
 esac
 
-if [ ! -f ${srcdir}/config/mt-${bfd_target} ] ; then
+if [ ! -f ${srcdir}/config/${bfd_target}.mt ] ; then
 	if [ -n "${bfd_target}" ] ; then
-		echo '***' No file ${srcdir}/config/mt-${bfd_target}
+		echo '***' No file ${srcdir}/config/${bfd_target}.mt
 	fi
 	echo '***' BFD does not support target ${target}
 	echo '***' Look in bfd/configure.in for supported targets
 	exit 1
 fi
-target_makefile_frag=config/mt-${bfd_target}
+target_makefile_frag=config/${bfd_target}.mt
 
 # We don't do any links based on the target system, just very minor makefile
 # config.

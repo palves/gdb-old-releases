@@ -1,5 +1,5 @@
 /* Target dependent code for the Motorola 68000 series.
-   Copyright (C) 1990 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -148,6 +148,7 @@ m68k_pop_frame ()
 #define P_LEA_L		0x43fb
 #define P_MOVM_L	0x48ef
 #define P_FMOVM		0xf237
+#define P_TRAP		0x4e40
 
 CORE_ADDR
 m68k_skip_prologue (ip)
@@ -336,3 +337,58 @@ int regno;
 #endif	/* defined (FP0_REGNUM) */
 
 #endif  /* USE_PROC_FS */
+
+#ifdef GET_LONGJMP_TARGET
+/* Figure out where the longjmp will land.  Slurp the args out of the stack.
+   We expect the first arg to be a pointer to the jmp_buf structure from which
+   we extract the pc (JB_PC) that we will land at.  The pc is copied into PC.
+   This routine returns true on success. */
+
+int
+get_longjmp_target(pc)
+     CORE_ADDR *pc;
+{
+  CORE_ADDR sp, jb_addr;
+
+  sp = read_register(SP_REGNUM);
+
+  if (target_read_memory(sp + SP_ARG0, /* Offset of first arg on stack */
+			 &jb_addr,
+			 sizeof(CORE_ADDR)))
+    return 0;
+
+
+  SWAP_TARGET_AND_HOST(&jb_addr, sizeof(CORE_ADDR));
+
+  if (target_read_memory(jb_addr + JB_PC * JB_ELEMENT_SIZE, pc,
+			 sizeof(CORE_ADDR)))
+    return 0;
+
+  SWAP_TARGET_AND_HOST(pc, sizeof(CORE_ADDR));
+
+  return 1;
+}
+#endif /* GET_LONGJMP_TARGET */
+
+#ifdef sun
+
+/* Immediately after a function call, return the saved pc before the frame
+   is setup.  We check for the common case of being inside of a system call,
+   and if so, we know that Sun pushes the call # on the stack prior to doing
+   the trap. */
+
+CORE_ADDR
+sun3_saved_pc_after_call(frame)
+     struct frame_info *frame;
+{
+  int op;
+
+  op = read_memory_integer (frame->pc, 2);
+  op &= 0xFFFF;
+
+  if (op == P_TRAP)
+    return read_memory_integer (read_register (SP_REGNUM) + 4, 4);
+  else
+    return read_memory_integer (read_register (SP_REGNUM), 4);
+}
+#endif /* sun */

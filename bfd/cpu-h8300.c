@@ -39,11 +39,9 @@ DEFUN_VOID(bfd_h8_disassemble_init)
   struct h8_opcode *p; 
     
   for (p = h8_opcodes; p->name; p++) {	
-    int where = 0;
     int n1 = 0;
     int n2 = 0;
-    int n3 = 0;
-    int n4= 0;
+
     if ((int)p->data.nib[0] < 16) {
       n1 =(int) p->data.nib[0] ;
     } else n1 = 0;
@@ -63,7 +61,8 @@ DEFUN_VOID(bfd_h8_disassemble_init)
 
     /* Just make sure there are an even number of nibbles in it, and
        that the count is the same s the length */
-    for (i = 0; p->data.nib[i] != E; i++) ;
+    for (i = 0; p->data.nib[i] != E; i++) 
+     /*EMPTY*/;
     if (i & 1) abort();
     p->length = i/2;
   }
@@ -121,6 +120,7 @@ FILE *stream)
       case ABS16OR8SRC:
       case ABS16ORREL8SRC:
       case ABS16DST:
+      case ABS16OR8DST:
       case DISPSRC:
       case DISPDST:
       case IMM16:
@@ -282,8 +282,8 @@ static bfd_reloc_status_type
 DEFUN(howto16_callback,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
 bfd *abfd AND
 arelent *reloc_entry AND
-asymbol *symbol_in AND
-unsigned char *data AND
+struct symbol_cache_entry *symbol_in AND
+PTR data AND
 asection *ignore_input_section)
 {
   long relocation = 0;
@@ -303,8 +303,8 @@ static bfd_reloc_status_type
 DEFUN(howto8_callback,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
 bfd *abfd AND
 arelent *reloc_entry AND
-asymbol *symbol_in AND
-unsigned char *data AND
+struct symbol_cache_entry *symbol_in AND
+PTR data AND
 asection *ignore_input_section)
 {
   long relocation = 0;
@@ -324,8 +324,8 @@ static bfd_reloc_status_type
 DEFUN(howto8_FFnn_callback,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
 bfd *abfd AND
 arelent *reloc_entry AND
-asymbol *symbol_in AND
-unsigned char *data AND
+struct symbol_cache_entry *symbol_in AND
+PTR data AND
 asection *ignore_input_section)
 {
   long relocation = 0;
@@ -345,8 +345,8 @@ static bfd_reloc_status_type
 DEFUN(howto8_pcrel_callback,(abfd, reloc_entry, symbol_in, data, ignore_input_section),
 bfd *abfd AND
 arelent *reloc_entry AND
-asymbol *symbol_in AND
-unsigned char *data AND
+struct symbol_cache_entry *symbol_in AND
+PTR data AND
 asection *ignore_input_section)
 {
   long relocation = 0;

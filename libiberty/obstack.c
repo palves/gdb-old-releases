@@ -44,19 +44,37 @@ union fooround {long x; double d;};
    to avoid multiple evaluation.  */
 
 struct obstack *_obstack;
+
+/* Define a macro that calls either the normal malloc/realloc/free type
+   functions or the extended mmalloc/mrealloc/mfree type functions, based
+   on the state of the OBSTACK_MMALLOC_LIKE flag. */
+
+#define CALL_CHUNKFUN(h, size) \
+  (((h) -> flags & OBSTACK_MMALLOC_LIKE) \
+   ? (*(h)->chunkfun) ((h)->area_id, (size)) \
+   : (*(h)->chunkfun) ((size)))
+
+#define CALL_FREEFUN(h, old_chunk) \
+   if (((h) -> flags & OBSTACK_MMALLOC_LIKE)) \
+      (*(h)->freefun) ((h)->area_id, (old_chunk)); \
+   else \
+      (*(h)->freefun) ((old_chunk));
+
 
 /* Initialize an obstack H for use.  Specify chunk size SIZE (0 means default).
    Objects start on multiples of ALIGNMENT (0 means use default).
    CHUNKFUN is the function to use to allocate chunks,
-   and FREEFUN the function to free them.  */
+   and FREEFUN the function to free them. */
 
 void
-_obstack_begin (h, size, alignment, chunkfun, freefun)
+_obstack_begin (h, size, alignment, chunkfun, freefun, area_id, flags)
      struct obstack *h;
      int size;
      int alignment;
      POINTER (*chunkfun) ();
      void (*freefun) ();
+     void *area_id;
+     int flags;
 {
   register struct _obstack_chunk* chunk; /* points to new chunk */
 
@@ -81,16 +99,18 @@ _obstack_begin (h, size, alignment, chunkfun, freefun)
 
   h->chunkfun = (struct _obstack_chunk * (*)()) chunkfun;
   h->freefun = freefun;
+  h->area_id = area_id;
+  h->flags = flags;
   h->chunk_size = size;
   h->alignment_mask = alignment - 1;
 
-  chunk	= h->chunk = (*h->chunkfun) (h->chunk_size);
+  chunk = h->chunk = CALL_CHUNKFUN (h, h -> chunk_size);
   h->next_free = h->object_base = chunk->contents;
   h->chunk_limit = chunk->limit
     = (char *) chunk + h->chunk_size;
   chunk->prev = 0;
   /* The initial chunk now contains no empty object.  */
-  h->maybe_empty_object = 0;
+  h->flags &= ~OBSTACK_MAYBE_EMPTY_OBJECT;
 }
 
 /* Allocate a new current chunk for the obstack *H
@@ -117,7 +137,7 @@ _obstack_newchunk (h, length)
     new_size = h->chunk_size;
 
   /* Allocate and initialize the new chunk.  */
-  new_chunk = h->chunk = (*h->chunkfun) (new_size);
+  new_chunk = h->chunk = CALL_CHUNKFUN (h, new_size);
   new_chunk->prev = old_chunk;
   new_chunk->limit = h->chunk_limit = (char *) new_chunk + new_size;
 
@@ -144,16 +164,17 @@ _obstack_newchunk (h, length)
   /* If the object just copied was the only data in OLD_CHUNK,
      free that chunk and remove it from the chain.
      But not if that chunk might contain an empty object.  */
-  if (h->object_base == old_chunk->contents && ! h->maybe_empty_object)
+  if (h->object_base == old_chunk->contents &&
+      !(h->flags & OBSTACK_MAYBE_EMPTY_OBJECT))
     {
       new_chunk->prev = old_chunk->prev;
-      (*h->freefun) (old_chunk);
+      CALL_FREEFUN (h, old_chunk);
     }
 
   h->object_base = new_chunk->contents;
   h->next_free = h->object_base + obj_size;
   /* The new chunk certainly contains no empty object yet.  */
-  h->maybe_empty_object = 0;
+  h->flags &= ~OBSTACK_MAYBE_EMPTY_OBJECT;
 }
 
 /* Return nonzero if object OBJ has been allocated from obstack H.
@@ -203,11 +224,11 @@ _obstack_free (h, obj)
   while (lp != 0 && ((POINTER)lp >= obj || (POINTER)(lp)->limit < obj))
     {
       plp = lp->prev;
-      (*h->freefun) (lp);
+      CALL_FREEFUN (h, lp);
       lp = plp;
       /* If we switch chunks, we can't tell whether the new current
 	 chunk contains an empty object, so assume that it may.  */
-      h->maybe_empty_object = 1;
+      h->flags |= OBSTACK_MAYBE_EMPTY_OBJECT;
     }
   if (lp)
     {
@@ -237,11 +258,11 @@ obstack_free (h, obj)
   while (lp != 0 && ((POINTER)lp >= obj || (POINTER)(lp)->limit < obj))
     {
       plp = lp->prev;
-      (*h->freefun) (lp);
+      CALL_FREEFUN (h, lp);
       lp = plp;
       /* If we switch chunks, we can't tell whether the new current
 	 chunk contains an empty object, so assume that it may.  */
-      h->maybe_empty_object = 1;
+      h->flags |= OBSTACK_MAYBE_EMPTY_OBJECT;
     }
   if (lp)
     {

@@ -1,4 +1,4 @@
-##Copyright (C) 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+#Copyright (C) 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
 # This file is part of GDB.
 
@@ -18,10 +18,13 @@
 
 prefix = /usr/local
 
-bindir = $(prefix)/bin
+program_prefix =
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+
 datadir = $(prefix)/lib
-libdir = $(prefix)/lib
-mandir = $(datadir)/man
+mandir = $(prefix)/man
 man1dir = $(mandir)/man1
 man2dir = $(mandir)/man2
 man3dir = $(mandir)/man3
@@ -31,7 +34,7 @@ man6dir = $(mandir)/man6
 man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 man9dir = $(mandir)/man9
-infodir = $(datadir)/info
+infodir = $(prefix)/info
 includedir = $(prefix)/include
 docdir = $(datadir)/doc
 
@@ -48,13 +51,6 @@ RANLIB = ranlib
 # Flags that describe where you can find the termcap library.
 # This can be overridden in the host Makefile fragment file.
 TERMCAP = -ltermcap
-
-#### Host, target, and site specific Makefile fragments come in here.
-###
-
-# Host and target-dependent makefile fragments come in here.
-####
-# End of host and target-dependent makefile fragments
 
 # System V: If you compile gdb with a compiler which uses the coff
 # encapsulation feature (this is a function of the compiler used, NOT
@@ -100,29 +96,35 @@ MAKEINFO=makeinfo
 #CC-LD=gcc -static
 CC-LD=${CC}
 
-# define this to be "gmalloc.o" if you want to use the gnu malloc routine
-# (useful for debugging memory allocation problems in gdb).  To use your
-# system malloc, uncomment the following two lines.
-#GNU_MALLOC =
-#MALLOC_CFLAGS = -DNO_MALLOC_CHECK
-GNU_MALLOC = gmalloc.o mcheck.o mtrace.o
-MALLOC_CFLAGS =
-
 # Where is the "include" directory?  Traditionally ../include or ./include
 INCLUDE_DIR =  ${srcdir}/../include
 INCLUDE_DEP = $$(INCLUDE_DIR)
+
+# Where is the source dir for the MMALLOC library? Traditionally ../mmalloc
+# or ./mmalloc  (When we want the binary library built from it, we use
+# ${MMALLOC_DIR}${subdir}.)
+# Note that mmalloc can still be used on systems without mmap().
+# To use your system malloc, comment out the following defines.
+MMALLOC_DIR = ${srcdir}/../mmalloc
+MMALLOC_DEP = $$(MMALLOC_DIR)
+MMALLOC_LIB = ./../mmalloc${subdir}/libmmalloc.a
+# To use your system malloc, uncomment MMALLOC_DISABLE.
+#MMALLOC_DISABLE = -DNO_MMALLOC
+# To use mmalloc but disable corruption checking, uncomment MMALLOC_CHECK
+#MMALLOC_CHECK = -DNO_MMALLOC_CHECK
+MMALLOC_CFLAGS = ${MMALLOC_CHECK} ${MMALLOC_DISABLE}
 
 # Where is the source dir for the BFD library?  Traditionally ../bfd or ./bfd
 # (When we want the binary library built from it, we use ${BFD_DIR}${subdir}.)
 BFD_DIR =  ${srcdir}/../bfd
 BFD_DEP = $$(BFD_DIR)
-BFD_LIB = $(unsubdir)/../bfd${subdir}/libbfd.a
+BFD_LIB = ./../bfd${subdir}/libbfd.a
 
 # Where is the source dir for the READLINE library?  Traditionally in .. or .
 # (For the binary library built from it, we use ${READLINE_DIR}${subdir}.)
 READLINE_DIR = ${srcdir}/../readline
 READLINE_DEP = $$(READLINE_DIR)
-RL_LIB = $(unsubdir)/../readline${subdir}/libreadline.a
+RL_LIB = ./../readline${subdir}/libreadline.a
 
 # All the includes used for CFLAGS and for lint.
 # -I. for config files.
@@ -138,14 +140,14 @@ GLOBAL_CFLAGS = ${MINUS_G} ${TM_CFLAGS} ${XM_CFLAGS}
 # CFLAGS is the aggregate of several individual *_CFLAGS macros.
 # USER_CFLAGS is specifically reserved for setting from the command line
 # when running make.  I.E.  "make USER_CFLAGS=-Wmissing-prototypes".
-CFLAGS = ${GLOBAL_CFLAGS} ${PROFILE_CFLAGS} ${MALLOC_CFLAGS} ${INCLUDE_CFLAGS} ${USER_CFLAGS}
+CFLAGS = ${GLOBAL_CFLAGS} ${PROFILE_CFLAGS} ${MMALLOC_CFLAGS} ${INCLUDE_CFLAGS} ${USER_CFLAGS}
 # None of the things in CFLAGS will do any harm, and on some systems
 #  (e.g. SunOS4) it is important to use the M_CFLAGS.
 LDFLAGS = $(CFLAGS)
 
 # Where is the "-liberty" library, containing getopt and obstack?
 LIBIBERTY_DIR = ${srcdir}/../libiberty
-LIBIBERTY = $(unsubdir)/../libiberty${subdir}/libiberty.a
+LIBIBERTY = ./../libiberty${subdir}/libiberty.a
 
 # The config/mh-* file must define REGEX and REGEX1 on USG machines.
 # If your sysyem is missing alloca(), or, more likely, it's there but
@@ -155,17 +157,23 @@ LIBIBERTY = $(unsubdir)/../libiberty${subdir}/libiberty.a
 # Libraries and corresponding dependencies for compiling gdb.
 # {X,T}M_CLIBS, defined in *config files, have host- and target-dependent libs.
 # TERMCAP comes after readline, since readline depends on it.
-CLIBS = ${BFD_LIB}  ${RL_LIB} ${TERMCAP} ${LIBIBERTY} ${XM_CLIBS} ${TM_CLIBS}
-CDEPS = ${XM_CDEPS} ${TM_CDEPS} ${BFD_LIB} ${LIBIBERTY} ${RL_LIB}
+CLIBS = ${BFD_LIB}  ${RL_LIB} ${TERMCAP} ${MMALLOC_LIB} ${LIBIBERTY} \
+	${XM_CLIBS} ${TM_CLIBS}
+CDEPS = ${XM_CDEPS} ${TM_CDEPS} ${BFD_LIB} ${MMALLOC_LIB} ${LIBIBERTY} \
+	${RL_LIB} ${MMALLOC_LIB}
 
-ADD_FILES = ${REGEX} ${ALLOCA}  ${GNU_MALLOC} ${XM_ADD_FILES} ${TM_ADD_FILES}
-ADD_DEPS = ${REGEX1} ${ALLOCA1} ${GNU_MALLOC} ${XM_ADD_FILES} ${TM_ADD_FILES}
+ADD_FILES = ${REGEX} ${ALLOCA} ${XM_ADD_FILES} ${TM_ADD_FILES}
+ADD_DEPS = ${REGEX1} ${ALLOCA1} ${XM_ADD_FILES} ${TM_ADD_FILES}
 
-VERSION = 4.4
+VERSION = 4.5
 DIST=gdb
 
 LINT=/usr/5bin/lint
 LINTFLAGS= -I${BFD_DIR}
+
+# Host and target-dependent makefile fragments come in here.
+####
+# End of host and target-dependent makefile fragments
 
 # Source files in the main directory.
 # Files which are included via a config/* Makefile fragment
@@ -173,12 +181,13 @@ LINTFLAGS= -I${BFD_DIR}
 SFILES_MAINDIR = \
 	 blockframe.c breakpoint.c command.c core.c \
 	 environ.c eval.c expprint.c findvar.c infcmd.c inflow.c infrun.c \
-	 main.c printcmd.c \
+	 main.c printcmd.c gdbtypes.c \
 	 remote.c source.c stack.c symmisc.c symtab.c symfile.c \
 	 utils.c valarith.c valops.c valprint.c values.c c-exp.y m2-exp.y \
 	 signame.c cplus-dem.c mem-break.c target.c inftarg.c \
 	 dbxread.c coffread.c elfread.c dwarfread.c xcoffread.c \
-	 ieee-float.c language.c parse.c buildsym.c
+	 ieee-float.c language.c parse.c buildsym.c objfiles.c \
+	 minsyms.c mipsread.c
 
 # Source files in subdirectories (which will be handled separately by
 #  'make gdb.tar.Z').
@@ -220,19 +229,16 @@ SFILES_STAND = $(SFILES) standalone.c
 SFILES_KGDB  = $(SFILES) stuff.c kdb-start.c
 
 # Header files that are not named in config/* Makefile fragments go here.
-HFILES=	breakpoint.h buildsym.h command.h defs.h environ.h \
-	expression.h frame.h gdbcmd.h gdbcore.h \
-	ieee-float.h inferior.h minimon.h partial-stab.h \
-	signals.h signame.h symfile.h symtab.h \
+HFILES=	breakpoint.h buildsym.h call-cmds.h command.h defs.h environ.h \
+	expression.h frame.h gdbcmd.h gdbcore.h gdbtypes.h \
+	ieee-float.h inferior.h minimon.h objfiles.h partial-stab.h \
+	signals.h signame.h symfile.h symtab.h solib.h xcoffsolib.h \
 	target.h terminal.h tm-68k.h tm-i960.h tm-sunos.h tm-sysv4.h \
-	xm-m68k.h xm-sysv4.h language.h parser-defs.h value.h
+	xm-m68k.h xm-sysv4.h language.h parser-defs.h value.h xm-vax.h
 
 REMOTE_EXAMPLES = m68k-stub.c i386-stub.c rem-multi.shar
 
-MALLOCSRC = gmalloc.c mcheck.c mtrace.c mtrace.awk \
-	    gmalloc.h
-
-POSSLIBS_MAINDIR = regex.c regex.h alloca.c $(MALLOCSRC)
+POSSLIBS_MAINDIR = regex.c regex.h alloca.c
 POSSLIBS = $(POSSLIBS_MAINDIR)
 
 TESTS = testbpt.c testfun.c testrec.c testreg.c testregs.c
@@ -263,11 +269,11 @@ TARFILES = ${TAGFILES_MAINDIR} ${OTHERS} ${REMOTE_EXAMPLES}
 OBS = main.o blockframe.o breakpoint.o findvar.o stack.o source.o \
     values.o eval.o valops.o valarith.o valprint.o printcmd.o \
     symtab.o symfile.o symmisc.o infcmd.o infrun.o remote.o \
-    command.o utils.o expprint.o environ.o version.o \
+    command.o utils.o expprint.o environ.o version.o gdbtypes.o \
     copying.o $(DEPFILES) signame.o cplus-dem.o mem-break.o target.o \
     inftarg.o ieee-float.o putenv.o parse.o language.o $(YYOBJ) \
-    buildsym.o \
-    dbxread.o coffread.o elfread.o dwarfread.o xcoffread.o # mipsread.o
+    buildsym.o objfiles.o minsyms.o \
+    dbxread.o coffread.o elfread.o dwarfread.o xcoffread.o mipsread.o
 
 RAPP_OBS = rgdb.o rudp.o rserial.o serial.o udp.o $(XDEPFILES)
 
@@ -292,8 +298,9 @@ YYOBJ = c-exp.tab.o m2-exp.tab.o
 
 all: gdb
 	$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS)"
+check:
 info: force
-	$(MAKE) subdir_do DO=info "DODIRS=$(SUBDIRS)"
+	$(MAKE) subdir_do DO=info "DODIRS=$(SUBDIRS)" "MAKEINFO=$(MAKEINFO)"
 install-info: force
 	$(MAKE) subdir_do DO=install-info "DODIRS=$(SUBDIRS)"
 clean-info: force
@@ -305,7 +312,8 @@ gdb.z:gdb.1
 	mv gdb.t.z gdb.z
 	
 install: gdb 
-	$(INSTALL_PROGRAM) gdb $(bindir)/gdb
+	$(INSTALL_PROGRAM) gdb $(bindir)/$(program_prefix)gdb
+	$(INSTALL_DATA) $(srcdir)/gdb.1 $(man1dir)/$(program_prefix)gdb.1
 	$(M_INSTALL)
 	$(MAKE) subdir_do DO=install "DODIRS=$(SUBDIRS)"
 
@@ -323,14 +331,13 @@ saber_gdb: $(SFILES) $(DEPFILES) copying.c version.c
 	#unload ${srcdir}/nindy-share/[A-Z]*
 	#load c-exp.tab.c m2-exp.tab.c
 	#load copying.c version.c
-	#load `echo " "$(DEPFILES) | sed -e 's/\.o/.c/g' -e 's, , ../,g'`
-	#load ${LIBIBERTY_DIR}/*.c
-	#load ${BFD_DIR}/*.c
-	#load ${READLINE_DIR}/*.c
+	#load ../libiberty/libiberty.a
+	#load ../bfd/libbfd.a
+	#load ../readline/libreadline.a
+	#load ../mmalloc/libmmalloc.a
 	#load -ltermcap 
-	##void mcheck(a) void (*a)(); { }
-	##void mtrace() { }
-
+	#load `echo " "$(DEPFILES) | sed -e 's/\.o/.c/g' -e 's, , ../,g'`
+	echo "Load .c corresponding to:" $(DEPFILES)
 
 
 # This is useful when debugging GDB, because some Unix's don't let you run GDB
@@ -358,7 +365,7 @@ rapp: $(RAPP_OBS)
 
 alldeps.mak: ${srcdir}/config
 	rm -f alldeps.mak alldeps.tmp allparam.tmp allconfig.tmp
-	for i in `ls -d ${srcdir}/config/m[ht]-*` ; do \
+	for i in `ls -d ${srcdir}/config/*.m[ht]` ; do \
 	  echo $$i >>allconfig.tmp; \
 	  awk <$$i ' \
 	    $$1 == "TDEPFILES=" || $$1 == "XDEPFILES=" { \
@@ -416,7 +423,7 @@ depend: $(SOURCES) Makefile.in
 	@echo can safely be ignored.
 	@echo Also ignore parse errors in valops.c, and any errors in
 	@echo arm-convert.s.
-	-$(GCC) -MM $(CFLAGS) -I$(BFD_DIR) \
+	-$(GCC) -MM -nostdinc -I/usr/include $(CFLAGS) -I$(BFD_DIR) \
 	  `ls $(SOURCES) | grep -v '\.[hy]$$' |sort -u` >depend.tmp
 # If running in srcdir, translate "./foo.c" into "$srcdir/foo.c" except
 # for xm.h and tm.h.  This allows the same "depend" file to be used
@@ -457,6 +464,8 @@ xm-i386-sv32.h: xm-i386.h
 tm-i386gas.h: tm-i386.h
 xm-sun4os4.h: xm-sparc.h
 tm-sun4os4.h: tm-sparc.h
+xm-vaxult.h: xm-vax.h
+xm-vaxbsd.h: xm-vax.h
 
 kdb: $(NTSSTART) $(OBS) $(NTSOBS) ${ADD_DEPS} ${CDEPS}
 	rm -f init.c
@@ -529,8 +538,8 @@ make-proto-gdb-1: ${TARFILES} ${TARDIRS} gdb.info
 	chmod og=u `find . -print`
 
 clean:
-	rm -f ${OBS} ${TSOBS} ${NTSOBS} ${ADD_FILES}
-	rm -f init.c init.o version.c
+	rm -f *.o ${ADD_FILES}
+	rm -f init.c version.c
 	rm -f gdb core gdb.tar gdb.tar.Z make.log
 	rm -f gdb[0-9]
 	$(MAKE) subdir_do DO=clean "DODIRS=$(SUBDIRS)"
@@ -551,14 +560,15 @@ STAGESTUFF=${OBS} ${TSOBS} ${NTSOBS} ${ADD_FILES} init.c init.o version.c gdb
 
 subdir_do: force
 	for i in $(DODIRS); do \
-		if [ -d $(unsubdir)/$$i ] ; then \
-			if (cd $(unsubdir)/$$i$(subdir); \
+		if [ -d ./$$i ] ; then \
+			if (cd ./$$i; \
 				$(MAKE) \
 					"against=$(against)" \
 					"AR=$(AR)" \
 					"AR_FLAGS=$(AR_FLAGS)" \
 					"CC=$(CC)" \
 					"RANLIB=$(RANLIB)" \
+					"MAKEINFO=$(MAKEINFO)" \
 					"BISON=$(BISON)" $(DO)) ; then true ; \
 			else exit 1 ; fi ; \
 		else true ; fi ; \
@@ -609,25 +619,25 @@ force:
 # Documentation!
 # GDB QUICK REFERENCE (TeX dvi file, CM fonts)
 refcard.dvi: $(srcdir)/doc/refcard.tex
-	( cd $(unsubdir)/doc; $(MAKE) refcard.dvi )
-	mv $(unsubdir)/doc/refcard.dvi .
+	( cd ./doc; $(MAKE) refcard.dvi )
+	mv ./doc/refcard.dvi .
 
 # GDB QUICK REFERENCE (PostScript output, common PS fonts)
 refcard.ps: $(srcdir)/doc/refcard.tex
-	( cd $(unsubdir)/doc; $(MAKE) refcard.ps )
-	mv $(unsubdir)/doc/refcard.ps .
+	( cd ./doc; $(MAKE) refcard.ps )
+	mv ./doc/refcard.ps .
 
 # GDB MANUAL: TeX dvi file
-gdb.dvi: $(unsubdir)/doc/gdb-all.texi
-	( cd $(unsubdir)/doc; $(MAKE) M4=$(M4) gdb.dvi )
-	mv $(unsubdir)/doc/gdb.dvi .
+gdb.dvi: ./doc/gdb-all.texi
+	( cd ./doc; $(MAKE) M4=$(M4) gdb.dvi )
+	mv ./doc/gdb.dvi .
 
 # GDB MANUAL: info file
-gdb.info: $(unsubdir)/doc/gdb-all.texi
-	( cd $(unsubdir)/doc; $(MAKE) M4=$(M4) gdb.info )
-	mv $(unsubdir)/doc/gdb.info* .
+gdb.info: ./doc/gdb-all.texi
+	( cd ./doc; $(MAKE) M4=$(M4) gdb.info )
+	mv ./doc/gdb.info* .
 
-$(unsubdir)/doc/gdb-all.texi:
+./doc/gdb-all.texi:
 	(cd $(srcdir)/doc; $(MAKE) M4=$(M4) gdb-all.texi)
 
 # Make copying.c from COPYING
@@ -664,6 +674,9 @@ mipsread.o: ${srcdir}/mipsread.c
 
 elfread.o: ${srcdir}/elfread.c
 	${CC} -c ${CFLAGS} -I$(BFD_DIR) ${srcdir}/elfread.c
+
+dwarfread.o: ${srcdir}/dwarfread.c
+	${CC} -c ${CFLAGS} -I$(BFD_DIR) ${srcdir}/dwarfread.c
 
 xcoffread.o: ${srcdir}/xcoffread.c
 	${CC} -c ${CFLAGS} -I$(BFD_DIR) ${srcdir}/xcoffread.c

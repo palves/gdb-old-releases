@@ -1,14 +1,24 @@
 BEGIN	{
 	  FS="\"";
-	  print "/* Do not modify this file; it is created automatically";
-	  print "   by copying.awk.  */";
+	  print "/* ==> Do not modify this file!!  It is created automatically";
+	  print "   by copying.awk.  Modify copying.awk instead.  <== */";
+	  print ""
 	  print "#include <stdio.h>"
 	  print "#include \"defs.h\""
 	  print "#include \"command.h\""
 	  print "#include \"gdbcmd.h\""
+	  print ""
+	  print "static void"
+	  print "copying_info PARAMS ((char *, int));"
+	  print ""
+	  print "static void"
+	  print "warranty_info PARAMS ((char *, int));"
+	  print ""
 	  print "extern int immediate_quit;";
 	  print "static void";
-	  print "copying_info ()";
+	  print "copying_info (ignore, from_tty)";
+	  print "     char *ignore;";
+	  print "     int from_tty;";
 	  print "{";
 	  print "  immediate_quit++;";
 	}
@@ -30,7 +40,9 @@ NR == 1,/^[ 	]*NO WARRANTY[ 	]*$/	{
 	  print "}";
 	  print "";
 	  print "static void";
-	  print "warranty_info ()";
+	  print "warranty_info (ignore, from_tty)";
+	  print "     char *ignore;";
+	  print "     int from_tty;";
 	  print "{";
 	  print "  immediate_quit++;";
 	}

@@ -31,7 +31,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Set a tdata field.  Can't use the other macros for this, since they
    do casts, and casting to the left of assignment isn't portable.  */
-#define set_tdata(bfd, v) ((bfd)->tdata = (PTR) (v))
+#define set_tdata(bfd, v) ((bfd)->tdata.any = (PTR) (v))
 
 /* tdata for an archive.  For an input archive, cache
    needs to be free()'d.  For an output archive, symdefs do.  */

@@ -35,6 +35,8 @@ sysv4*)
 sysv*)
 	case "${host_vendor}" in
 	sco*) 	files=sysdep-sco.h;;
+	apollo*)	files=sysdep-a68v.h
+			my_host=apollo68v ;;
 	esac
 	;;
 
@@ -44,5 +46,9 @@ m88kbcs)
 esac
 
 host_makefile_frag=config/mh-${my_host}
+
+if [ ! -f ${host_makefile_frag} ] ; then
+	host_makefile_frag=
+fi
 
 # per-target:

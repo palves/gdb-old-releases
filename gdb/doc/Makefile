@@ -1,7 +1,4 @@
-# This file was generated automatically by configure. Do not edit.
-target_makefile_frag =
-host_makefile_frag =
-ALL=all.internal
+# This file was generated automatically by configure.  Do not edit.
 host_alias = none
 host_cpu = none
 host_vendor = none
@@ -10,10 +7,13 @@ target_alias = none
 target_cpu = none
 target_vendor = none
 target_os = none
-subdir =
-unsubdir = .
+target_makefile_frag = 
+host_makefile_frag = 
+site_makefile_frag = 
+links = gdbinv-m.m4 gdbinv-s.m4
 VPATH = .
-##Copyright (C) 1991 Free Software Foundation, Inc.
+ALL=all.internal
+##Copyright (C) 1991, 1992 Free Software Foundation, Inc.
 
 # Makefile for GDB documentation.
 # This file is part of GDB.
@@ -36,10 +36,12 @@ srcdir = .
 
 prefix = /usr/local
 
-bindir = $(prefix)/bin
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+
 datadir = $(prefix)/lib
-libdir = $(prefix)/lib
-mandir = $(datadir)/man
+mandir = $(prefix)/man
 man1dir = $(mandir)/man1
 man2dir = $(mandir)/man2
 man3dir = $(mandir)/man3
@@ -49,7 +51,7 @@ man6dir = $(mandir)/man6
 man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 man9dir = $(mandir)/man9
-infodir = $(datadir)/info
+infodir = $(prefix)/info
 includedir = $(prefix)/include
 docdir = $(datadir)/doc
 
@@ -64,8 +66,6 @@ AR_FLAGS = qv
 BISON = bison
 RANLIB = ranlib
 
-#### Host, target, and site specific Makefile fragments come in here.
-###
 # main GDB source directory
 gdbdir = ..
 
@@ -94,6 +94,9 @@ SFILES_DOCDIR = \
 
 # Which version of GDB manual? default includes everything
 CONFIG=all
+
+#### Host, target, and site specific Makefile fragments come in here.
+###
 
 all install:
 
@@ -188,6 +191,7 @@ gdbVN.m4 : $(srcdir)/${gdbdir}/Makefile.in
 #   source directory for the benefit of people who *don't* use this makefile,
 #   VPATH will often tell make not to bother building it, because the one
 #   in the srcdir is up to date.  (if not, then make should build one here).
+
 gdb-all.texi: ${SFILES_DOCDIR}
 	if [ ! -f ./gdbVN.m4 ]; then \
 		ln -s $(srcdir)/gdbVN.m4 . || \
@@ -201,6 +205,7 @@ gdb-all.texi: ${SFILES_DOCDIR}
 
 # GDB MANUAL: TeX dvi file
 gdb.dvi : gdb-${CONFIG}.texi rluser.texinfo inc-hist.texi
+	TEXINPUTS=${TEXIDIR}:.:$(srcdir):$$TEXINPUTS tex gdb-${CONFIG}.texi
 	TEXINPUTS=${TEXIDIR}:.:$(srcdir):$$TEXINPUTS tex gdb-${CONFIG}.texi
 	texindex gdb-${CONFIG}.??
 	TEXINPUTS=${TEXIDIR}:.:$(srcdir):$$TEXINPUTS tex gdb-${CONFIG}.texi

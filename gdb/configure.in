@@ -11,6 +11,11 @@ case "${host_cpu}" in
 
 m68k)
 	case "${host_vendor}" in
+	apollo*)
+		case "${host_os}" in
+		sysv*)	gdb_host=apollo68v ;;
+		esac
+		;;
 	att)	gdb_host=3b1 ;;
 	altos)
 		case "${host_os}" in
@@ -58,9 +63,10 @@ m68000)
 
 sparc)
 	case "${host_os}" in
-	sunos3)	gdb_host=sun4os3 ;;
-	sunos4)	gdb_host=sun4os4 ;;
-	*)	gdb_host=sun4 ;;
+	sunos3)		gdb_host=sun4os3 ;;
+	sunos4)		gdb_host=sun4os4 ;;
+	sunos5*|sysv4*)	gdb_host=sun4os5 ;;
+	*)		gdb_host=sun4 ;;
 	esac
 	;;
 
@@ -75,7 +81,12 @@ mips)
 	sony)	gdb_host=bigmips ;;
 	dec)	gdb_host=decstation ;;
 	little)	gdb_host=littlemips ;;
-	sgi)	gdb_host=irix3 ;;
+	sgi)
+		case "${host_os}" in
+		irix3)	gdb_host=irix3 ;;
+		irix4)	gdb_host=irix4 ;;
+		esac
+		;;
 	esac
 	;;
 
@@ -129,7 +140,16 @@ m88k)
 	esac
 	;;
 
-arm | vax | merlin | none | np1 | pn | pyramid | tahoe)
+vax)
+	case "${host_os}" in
+	bsd*)
+		gdb_host=vaxbsd ;;
+	ultrix*)
+		gdb_host=vaxult ;;
+	esac
+	;;
+
+arm | merlin | none | np1 | pn | pyramid | tahoe)
 	gdb_host=${host_cpu}
 	;;
 
@@ -141,13 +161,13 @@ arm | vax | merlin | none | np1 | pn | pyramid | tahoe)
 esac
 
 
-if [ ! -f ${srcdir}/config/mh-${gdb_host} ]; then
+if [ ! -f ${srcdir}/config/${gdb_host}.mh ]; then
 	echo '***' "Gdb does not support host ${host}" 1>&2
 	exit 1
 fi
 
 #  We really shouldn't depend on there being a space after XM_FILE= ...
-hostfile=`awk '$1 == "XM_FILE=" { print $2 }' <${srcdir}/config/mh-${gdb_host}`
+hostfile=`awk '$1 == "XM_FILE=" { print $2 }' <${srcdir}/config/${gdb_host}.mh`
 
 # per-target:
 
@@ -179,6 +199,9 @@ m68k)
 	wrs)	gdb_target=vxworks68 ;;
 	isi)	gdb_target=isi ;;
 	sony)	gdb_target=news ;;
+	esac
+	case "${target_os}" in
+	os68k)	gdb_target=os68k ;;
 	esac
 	;;
 
@@ -220,6 +243,7 @@ a29k)
 mips)
 	case "${target_vendor}" in
 	sony)	gdb_target=bigmips ;;
+	big)	gdb_target=bigmips ;;
 	dec)	gdb_target=decstation ;;
 	little)	gdb_target=littlemips ;;
 	sgi)	gdb_target=irix3 ;;
@@ -232,9 +256,10 @@ sparc)
 	case "${target_vendor}" in
 	sun)
 		case "${target_os}" in
-		sunos3)	gdb_target=sun4os3 ;;
-		sunos4)	gdb_target=sun4os4 ;;
-		*)	gdb_target=sun4 ;;
+		sunos3)		gdb_target=sun4os3 ;;
+		sunos4)		gdb_target=sun4os4 ;;
+		sunos5|sysv4*)	gdb_target=sun4os5 ;;
+		*)		gdb_target=sun4 ;;
 		esac
 		;;
 	esac
@@ -289,21 +314,21 @@ rs6000)
 
 esac
 
-if [ ! -f ${srcdir}/config/mt-${gdb_target} ]; then
+if [ ! -f ${srcdir}/config/${gdb_target}.mt ]; then
 	echo '***' "Gdb does not support target ${target}" 1>&2
 	exit 1
 fi
 
 if [ -z "${removing}" ] ; then
-	cat ${srcdir}/config/mh-${gdb_host} ${srcdir}/config/mt-${gdb_target} | awk '$1 == "#msg" {
+	cat ${srcdir}/config/${gdb_host}.mh ${srcdir}/config/${gdb_target}.mt | awk '$1 == "#msg" {
 		print substr($0,6)}'
 fi
 
 #  We really shouldn't depend on there being a space after TM_FILE= ...
-targetfile=`awk '$1 == "TM_FILE=" { print $2 }' <${srcdir}/config/mt-${gdb_target}`
+targetfile=`awk '$1 == "TM_FILE=" { print $2 }' <${srcdir}/config/${gdb_target}.mt`
 
-host_makefile_frag=config/mh-${gdb_host}
-target_makefile_frag=config/mt-${gdb_target}
+host_makefile_frag=config/${gdb_host}.mh
+target_makefile_frag=config/${gdb_target}.mt
 
 # If hostfile (XM_FILE) and/or targetfile (TM_FILE) is not set in the
 # ?config/* file, we don't make the corresponding links.  But we have

@@ -1,5 +1,5 @@
 /* General utility routines for GDB, the GNU debugger.
-   Copyright (C) 1986, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,7 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
+#include "defs.h"
+
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <pwd.h>
@@ -25,19 +26,32 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <ctype.h>
 #include <string.h>
 
-#include "defs.h"
 #include "signals.h"
 #include "gdbcmd.h"
 #include "terminal.h"
 #include "bfd.h"
 #include "target.h"
 
-extern volatile void return_to_top_level ();
-extern volatile void exit ();
-extern char *gdb_readline ();
-extern char *getenv();
-extern char *malloc();
-extern char *realloc();
+/* Prototypes for local functions */
+
+#if !defined (NO_MALLOC_CHECK)
+
+static void
+malloc_botch PARAMS ((void));
+
+#endif /* NO_MALLOC_CHECK  */
+
+static void
+fatal_dump_core ();	/* Can't prototype with <varargs.h> usage... */
+
+static void
+prompt_for_continue PARAMS ((void));
+
+static void 
+set_width_command PARAMS ((char *, int, struct cmd_list_element *));
+
+static void
+vfprintf_filtered PARAMS ((FILE *, char *, va_list));
 
 /* If this definition isn't overridden by the header files, assume
    that isatty and fileno exist on this system.  */
@@ -79,7 +93,7 @@ int sevenbit_strings = 0;
 /* String to be printed before error messages, if any.  */
 
 char *error_pre_print;
-char *warning_pre_print;
+char *warning_pre_print = "\nwarning: ";
 
 /* Add a new cleanup to the cleanup_chain,
    and return the previous chain pointer
@@ -88,8 +102,8 @@ char *warning_pre_print;
 
 struct cleanup *
 make_cleanup (function, arg)
-     void (*function) ();
-     int arg;
+     void (*function) PARAMS ((PTR));
+     PTR arg;
 {
   register struct cleanup *new
     = (struct cleanup *) xmalloc (sizeof (struct cleanup));
@@ -130,7 +144,7 @@ discard_cleanups (old_chain)
   while ((ptr = cleanup_chain) != old_chain)
     {
       cleanup_chain = ptr->next;
-      free (ptr);
+      free ((PTR)ptr);
     }
 }
 
@@ -225,7 +239,7 @@ warning (va_alist)
    and the remaining args are passed as arguments to it.  */
 
 /* VARARGS */
-volatile void
+NORETURN void
 error (va_alist)
      va_dcl
 {
@@ -247,10 +261,13 @@ error (va_alist)
 
 /* Print an error message and exit reporting failure.
    This is for a error that we cannot continue from.
-   The arguments are printed a la printf.  */
+   The arguments are printed a la printf.
+
+   This function cannot be declared volatile (NORETURN) in an
+   ANSI environment because exit() is not declared volatile. */
 
 /* VARARGS */
-volatile void
+NORETURN void
 fatal (va_alist)
      va_dcl
 {
@@ -259,7 +276,7 @@ fatal (va_alist)
 
   va_start (args);
   string = va_arg (args, char *);
-  fprintf (stderr, "gdb: ");
+  fprintf (stderr, "\ngdb: ");
   vfprintf (stderr, string, args);
   fprintf (stderr, "\n");
   va_end (args);
@@ -268,8 +285,9 @@ fatal (va_alist)
 
 /* Print an error message and exit, dumping core.
    The arguments are printed a la printf ().  */
+
 /* VARARGS */
-void
+static void
 fatal_dump_core (va_alist)
      va_dcl
 {
@@ -280,7 +298,7 @@ fatal_dump_core (va_alist)
   string = va_arg (args, char *);
   /* "internal error" is always correct, since GDB should never dump
      core, no matter what the input.  */
-  fprintf (stderr, "gdb internal error: ");
+  fprintf (stderr, "\ngdb internal error: ");
   vfprintf (stderr, string, args);
   fprintf (stderr, "\n");
   va_end (args);
@@ -289,67 +307,6 @@ fatal_dump_core (va_alist)
   kill (getpid (), SIGQUIT);
   /* We should never get here, but just in case...  */
   exit (1);
-}
-
-/* Memory management stuff (malloc friends).  */
-
-#if defined (NO_MALLOC_CHECK)
-void
-init_malloc ()
-{}
-#else /* Have mcheck().  */
-static void
-malloc_botch ()
-{
-  fatal_dump_core ("Memory corruption");
-}
-
-void
-init_malloc ()
-{
-  mcheck (malloc_botch);
-  mtrace ();
-}
-#endif /* Have mcheck().  */
-
-/* Like malloc but get error if no storage available.  */
-
-#ifdef __STDC__
-void *
-#else
-char *
-#endif
-xmalloc (size)
-     long size;
-{
-  register char *val;
-
-  /* At least one place (dbxread.c:condense_misc_bunches where misc_count == 0)
-     GDB wants to allocate zero bytes.  */
-  if (size == 0)
-    return NULL;
-  
-  val = (char *) malloc (size);
-  if (!val)
-    fatal ("virtual memory exhausted.", 0);
-  return val;
-}
-
-/* Like realloc but get error if no storage available.  */
-
-#ifdef __STDC__
-void *
-#else
-char *
-#endif
-xrealloc (ptr, size)
-     char *ptr;
-     long size;
-{
-  register char *val = (char *) realloc (ptr, size);
-  if (!val)
-    fatal ("virtual memory exhausted.", 0);
-  return val;
 }
 
 /* Print the system error message for errno, and also mention STRING
@@ -432,18 +389,184 @@ quit ()
 /* Control C comes here */
 
 void
-request_quit ()
+request_quit (signo)
+     int signo;
 {
   quit_flag = 1;
 
 #ifdef USG
   /* Restore the signal handler.  */
-  signal (SIGINT, request_quit);
+  signal (signo, request_quit);
 #endif
 
   if (immediate_quit)
     quit ();
 }
+
+
+/* Memory management stuff (malloc friends).  */
+
+#if defined (NO_MMALLOC)
+
+PTR
+mmalloc (md, size)
+     PTR md;
+     long size;
+{
+  return (malloc (size));
+}
+
+PTR
+mrealloc (md, ptr, size)
+     PTR md;
+     PTR ptr;
+     long size;
+{
+  if (ptr == 0)		/* Guard against old realloc's */
+    return malloc (size);
+  else
+    return realloc (ptr, size);
+}
+
+void
+mfree (md, ptr)
+     PTR md;
+     PTR ptr;
+{
+  free (ptr);
+}
+
+#endif	/* NO_MMALLOC */
+
+#if defined (NO_MMALLOC) || defined (NO_MMALLOC_CHECK)
+
+void
+init_malloc (md)
+     PTR md;
+{
+}
+
+#else /* have mmalloc and want corruption checking  */
+
+static void
+malloc_botch ()
+{
+  fatal_dump_core ("Memory corruption");
+}
+
+/* Attempt to install hooks in mmalloc/mrealloc/mfree for the heap specified
+   by MD, to detect memory corruption.  Note that MD may be NULL to specify
+   the default heap that grows via sbrk.
+
+   Note that for freshly created regions, we must call mmcheck prior to any
+   mallocs in the region.  Otherwise, any region which was allocated prior to
+   installing the checking hooks, which is later reallocated or freed, will
+   fail the checks!  The mmcheck function only allows initial hooks to be
+   installed before the first mmalloc.  However, anytime after we have called
+   mmcheck the first time to install the checking hooks, we can call it again
+   to update the function pointer to the memory corruption handler.
+
+   Returns zero on failure, non-zero on success. */
+
+void
+init_malloc (md)
+     PTR md;
+{
+  if (!mmcheck (md, malloc_botch))
+    {
+      warning ("internal error: failed to install memory consistency checks");
+    }
+
+  (void) mmtrace ();
+}
+
+#endif /* Have mmalloc and want corruption checking  */
+
+/* Called when a memory allocation fails, with the number of bytes of
+   memory requested in SIZE. */
+
+NORETURN void
+nomem (size)
+     long size;
+{
+  if (size > 0)
+    {
+      fatal ("virtual memory exhausted: can't allocate %ld bytes.", size);
+    }
+  else
+    {
+      fatal ("virtual memory exhausted.");
+    }
+}
+
+/* Like mmalloc but get error if no storage available, and protect against
+   the caller wanting to allocate zero bytes.  Whether to return NULL for
+   a zero byte request, or translate the request into a request for one
+   byte of zero'd storage, is a religious issue. */
+
+PTR
+xmmalloc (md, size)
+     PTR md;
+     long size;
+{
+  register PTR val;
+
+  if (size == 0)
+    {
+      val = NULL;
+    }
+  else if ((val = mmalloc (md, size)) == NULL)
+    {
+      nomem (size);
+    }
+  return (val);
+}
+
+/* Like mrealloc but get error if no storage available.  */
+
+PTR
+xmrealloc (md, ptr, size)
+     PTR md;
+     PTR ptr;
+     long size;
+{
+  register PTR val;
+
+  if (ptr != NULL)
+    {
+      val = mrealloc (md, ptr, size);
+    }
+  else
+    {
+      val = mmalloc (md, size);
+    }
+  if (val == NULL)
+    {
+      nomem (size);
+    }
+  return (val);
+}
+
+/* Like malloc but get error if no storage available, and protect against
+   the caller wanting to allocate zero bytes.  */
+
+PTR
+xmalloc (size)
+     long size;
+{
+  return (xmmalloc ((void *) NULL, size));
+}
+
+/* Like mrealloc but get error if no storage available.  */
+
+PTR
+xrealloc (ptr, size)
+     PTR ptr;
+     long size;
+{
+  return (xmrealloc ((void *) NULL, ptr, size));
+}
+
 
 /* My replacement for the read system call.
    Used like `read' but keeps going if `read' returns too soon.  */
@@ -476,10 +599,22 @@ myread (desc, addr, len)
 
 char *
 savestring (ptr, size)
-     char *ptr;
+     const char *ptr;
      int size;
 {
   register char *p = (char *) xmalloc (size + 1);
+  bcopy (ptr, p, size);
+  p[size] = 0;
+  return p;
+}
+
+char *
+msavestring (md, ptr, size)
+     void *md;
+     const char *ptr;
+     int size;
+{
+  register char *p = (char *) xmmalloc (md, size + 1);
   bcopy (ptr, p, size);
   p[size] = 0;
   return p;
@@ -493,6 +628,14 @@ strsave (ptr)
      const char *ptr;
 {
   return savestring (ptr, strlen (ptr));
+}
+
+char *
+mstrsave (md, ptr)
+     void *md;
+     const char *ptr;
+{
+  return (msavestring (md, ptr, strlen (ptr)));
 }
 
 void
@@ -551,6 +694,7 @@ query (va_alist)
       printf ("Please answer y or n.\n");
     }
 }
+
 
 /* Parse a C escape sequence.  STRING_PTR points to a variable
    containing a pointer to the string to parse.  That pointer
@@ -634,16 +778,15 @@ parse_escape (string_ptr)
     }
 }
 
-/* Print the character CH on STREAM as part of the contents
+/* Print the character C on STREAM as part of the contents
    of a literal string whose delimiter is QUOTER.  */
 
 void
-printchar (ch, stream, quoter)
-     unsigned char ch;
+printchar (c, stream, quoter)
+     register int c;
      FILE *stream;
      int quoter;
 {
-  register int c = ch;
 
   if (c < 040 || (sevenbit_strings && c >= 0177)) {
     switch (c)
@@ -803,10 +946,10 @@ wrap_here(indent)
 
 void
 fputs_filtered (linebuffer, stream)
-     char *linebuffer;
+     const char *linebuffer;
      FILE *stream;
 {
-  char *lineptr;
+  const char *lineptr;
 
   if (linebuffer == 0)
     return;
@@ -914,11 +1057,6 @@ fputs_demangled (linebuffer, stream, arg_mode)
      FILE *stream;
      int arg_mode;
 {
-#ifdef __STDC__
-  extern char *cplus_demangle (const char *, int);
-#else
-  extern char *cplus_demangle ();
-#endif
 #define SYMBOL_MAX 1024
 
 #define SYMBOL_CHAR(c) (isascii(c) \
@@ -1000,12 +1138,11 @@ fputs_demangled (linebuffer, stream, arg_mode)
    (since prompt_for_continue may do so) so this routine should not be
    called when cleanups are not in place.  */
 
-/* VARARGS */
-void
+static void
 vfprintf_filtered (stream, format, args)
-     va_list args;
      FILE *stream;
      char *format;
+     va_list args;
 {
   static char *linebuffer = (char *) 0;
   static int line_size;
@@ -1043,9 +1180,9 @@ void
 fprintf_filtered (va_alist)
      va_dcl
 {
-  va_list args;
   FILE *stream;
   char *format;
+  va_list args;
 
   va_start (args);
   stream = va_arg (args, FILE *);
@@ -1053,7 +1190,7 @@ fprintf_filtered (va_alist)
 
   /* This won't blow up if the restrictions described above are
      followed.   */
-  (void) vfprintf_filtered (stream, format, args);
+  vfprintf_filtered (stream, format, args);
   va_end (args);
 }
 
@@ -1068,7 +1205,7 @@ printf_filtered (va_alist)
   va_start (args);
   format = va_arg (args, char *);
 
-  (void) vfprintf_filtered (stdout, format, args);
+  vfprintf_filtered (stdout, format, args);
   va_end (args);
 }
 
@@ -1095,7 +1232,7 @@ n_spaces (n)
     {
       if (spaces)
 	free (spaces);
-      spaces = malloc (n+1);
+      spaces = (char *) xmalloc (n+1);
       for (t = spaces+n; t != spaces;)
 	*--t = ' ';
       spaces[n] = '\0';
@@ -1115,7 +1252,6 @@ print_spaces_filtered (n, stream)
 }
 
 /* C++ demangler stuff.  */
-char *cplus_demangle ();
 
 /* Print NAME on STREAM, demangling if necessary.  */
 void
@@ -1143,7 +1279,7 @@ _initialize_utils ()
 		  "Set number of characters gdb thinks are in a line.",
 		  &setlist);
   add_show_from_set (c, &showlist);
-  c->function = set_width_command;
+  c->function.sfunc = set_width_command;
 
   add_show_from_set
     (add_set_cmd ("height", class_support,
@@ -1190,6 +1326,12 @@ _initialize_utils ()
       }
   }
 
+#if defined(SIGWINCH) && defined(SIGWINCH_HANDLER)
+
+  /* If there is a better way to determine the window size, use it. */
+  SIGWINCH_HANDLER ();
+#endif
+
   /* If the output is not a terminal, don't paginate it.  */
   if (!ISATTY (stdout))
     lines_per_page = UINT_MAX;
@@ -1217,3 +1359,9 @@ _initialize_utils ()
 		  &setprintlist),
      &showprintlist);
 }
+
+/* Machine specific function to handle SIGWINCH signal. */
+
+#ifdef  SIGWINCH_HANDLER_BODY
+        SIGWINCH_HANDLER_BODY
+#endif

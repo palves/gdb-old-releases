@@ -1,5 +1,5 @@
 /* ELF support for BFD.
-   Copyright (C) 1991 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1992 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
    in "UNIX System V Release 4, Programmers Guide: ANSI C and
@@ -94,3 +94,15 @@ typedef struct {
   unsigned char	type[4];		/* Interpretation of the descriptor */
   char		name[1];		/* Start of the name+desc data */
 } Elf_External_Note;
+
+/* Relocation Entries */
+typedef struct {
+  unsigned char r_offset[4];	/* Location at which to apply the action */
+  unsigned char	r_info[4];	/* index and type of relocation */
+} Elf_External_Rel;
+
+typedef struct {
+  unsigned char r_offset[4];	/* Location at which to apply the action */
+  unsigned char	r_info[4];	/* index and type of relocation */
+  unsigned char	r_addend[4];	/* Constant addend used to compute value */
+} Elf_External_Rela;

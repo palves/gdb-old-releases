@@ -1,5 +1,5 @@
 /* Low level MIPS interface to ptrace, for GDB when running under Unix.
-   Copyright (C) 1988, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Alessandro Forin(af@cs.cmu.edu) at CMU
    and by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin.
 
@@ -19,13 +19,12 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
+#include "defs.h"
 #ifdef sgi
 #include <sys/inst.h>
 #else
 #include <mips/inst.h>
 #endif
-#include "defs.h"
 #include "frame.h"
 #include "inferior.h"
 #include "symtab.h"
@@ -57,12 +56,16 @@ fetch_core_registers ()
   return;
 }
 
+/* ARGSUSED */
 void
-fetch_inferior_registers ()
+fetch_inferior_registers (regno)
+     int regno;
 {
   return;
 }
 
+/* ARGSUSED */
+void
 store_inferior_registers (regno)
      int regno;
 {
@@ -88,9 +91,9 @@ store_inferior_registers (regno)
 /* Get all registers from the inferior */
 
 void
-fetch_inferior_registers ()
+fetch_inferior_registers (regno)
+     int regno;
 {
-  register int regno;
   register unsigned int regaddr;
   char buf[MAX_REGISTER_RAW_SIZE];
   register int i;
@@ -140,7 +143,8 @@ store_inferior_registers (regno)
 	{
 	  if (regno == ZERO_REGNUM || regno == PS_REGNUM
 	      || regno == BADVADDR_REGNUM || regno == CAUSE_REGNUM
-	      || regno == FCRIR_REGNUM || regno == FP_REGNUM)
+	      || regno == FCRIR_REGNUM || regno == FP_REGNUM
+	      || (regno >= FIRST_EMBED_REGNUM && regno <= LAST_EMBED_REGNUM))
 	    continue;
 	  regaddr = register_addr (regno, 1);
 	  errno = 0;

@@ -15,7 +15,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "gdbcmd.h"
 #include "symtab.h"
@@ -23,7 +22,31 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <ctype.h>
 #include <string.h>
 
-extern char *getenv ();
+/* Prototypes for local functions */
+
+static void
+undef_cmd_error PARAMS ((char *, char *));
+
+static void
+show_user PARAMS ((char *, int));
+
+static void
+show_user_1 PARAMS ((struct cmd_list_element *, FILE *));
+
+static void
+make_command PARAMS ((char *, int));
+
+static void
+shell_escape PARAMS ((char *, int));
+
+static int
+parse_binary_operation PARAMS ((char *));
+
+static void
+print_doc_line PARAMS ((FILE *, char *));
+
+extern void
+not_just_help_class_command PARAMS ((char *, int));
 
 /* Add element named NAME to command list *LIST.
    FUN should be the function to execute the command;
@@ -39,7 +62,7 @@ struct cmd_list_element *
 add_cmd (name, class, fun, doc, list)
      char *name;
      enum command_class class;
-     void (*fun) ();
+     void (*fun) PARAMS ((char *, int));
      char *doc;
      struct cmd_list_element **list;
 {
@@ -50,7 +73,7 @@ add_cmd (name, class, fun, doc, list)
   c->next = *list;
   c->name = name;
   c->class = class;
-  c->function = fun;
+  c->function.cfunc = fun;
   c->doc = doc;
   c->prefixlist = 0;
   c->prefixname = (char *)NULL;
@@ -68,11 +91,13 @@ add_cmd (name, class, fun, doc, list)
 
 /* Same as above, except that the abbrev_flag is set. */
 
+#if 0	/* Currently unused */
+
 struct cmd_list_element *
 add_abbrev_cmd (name, class, fun, doc, list)
      char *name;
      enum command_class class;
-     void (*fun) ();
+     void (*fun) PARAMS ((char *, int));
      char *doc;
      struct cmd_list_element **list;
 {
@@ -82,6 +107,8 @@ add_abbrev_cmd (name, class, fun, doc, list)
   c->abbrev_flag = 1;
   return c;
 }
+
+#endif
 
 struct cmd_list_element *
 add_alias_cmd (name, oldname, class, abbrev_flag, list)
@@ -105,7 +132,7 @@ add_alias_cmd (name, oldname, class, abbrev_flag, list)
       return 0;
     }
 
-  c = add_cmd (name, class, old->function, old->doc, list);
+  c = add_cmd (name, class, old->function.cfunc, old->doc, list);
   c->prefixlist = old->prefixlist;
   c->prefixname = old->prefixname;
   c->allow_unknown = old->allow_unknown;
@@ -124,7 +151,7 @@ add_prefix_cmd (name, class, fun, doc, prefixlist, prefixname,
 		allow_unknown, list)
      char *name;
      enum command_class class;
-     void (*fun) ();
+     void (*fun) PARAMS ((char *, int));
      char *doc;
      struct cmd_list_element **prefixlist;
      char *prefixname;
@@ -142,10 +169,10 @@ add_prefix_cmd (name, class, fun, doc, prefixlist, prefixname,
    
 struct cmd_list_element *
 add_abbrev_prefix_cmd (name, class, fun, doc, prefixlist, prefixname,
-		allow_unknown, list)
+		       allow_unknown, list)
      char *name;
      enum command_class class;
-     void (*fun) ();
+     void (*fun) PARAMS ((char *, int));
      char *doc;
      struct cmd_list_element **prefixlist;
      char *prefixname;
@@ -162,10 +189,9 @@ add_abbrev_prefix_cmd (name, class, fun, doc, prefixlist, prefixname,
 
 /* ARGSUSED */
 void
-not_just_help_class_command (args, from_tty, c)
+not_just_help_class_command (args, from_tty)
      char *args;
      int from_tty;
-     struct cmd_list_element *c;
 {
 }
 
@@ -175,6 +201,7 @@ not_just_help_class_command (args, from_tty, c)
    VAR_TYPE is the kind of thing we are setting.
    VAR is address of the variable being controlled by this command.
    DOC is the documentation string.  */
+
 struct cmd_list_element *
 add_set_cmd (name, class, var_type, var, doc, list)
      char *name;
@@ -237,7 +264,7 @@ delete_cmd (name, list)
   while (*list && !strcmp ((*list)->name, name))
     {
       p = (*list)->next;
-      free (*list);
+      free ((PTR)*list);
       *list = p;
     }
 
@@ -247,7 +274,7 @@ delete_cmd (name, list)
 	if (!strcmp (c->next->name, name))
 	  {
 	    p = c->next->next;
-	    free (c->next);
+	    free ((PTR)c->next);
 	    c->next = p;
 	  }
 	else
@@ -300,7 +327,7 @@ help_cmd (command, stream)
   fputs_filtered (c->doc, stream);
   fputs_filtered ("\n", stream);
 
-  if (c->prefixlist == 0 && c->function != 0)
+  if (c->prefixlist == 0 && c->function.cfunc != NULL)
     return;
   fprintf_filtered (stream, "\n");
 
@@ -309,7 +336,7 @@ help_cmd (command, stream)
     help_list (*c->prefixlist, c->prefixname, all_commands, stream);
 
   /* If this is a class name, print all of the commands in the class */
-  if (c->function == 0)
+  if (c->function.cfunc == NULL)
     help_list (cmdlist, "", c->class, stream);
 }
 
@@ -390,7 +417,7 @@ print_doc_line (stream, str)
   if (p - str > line_size - 1)
     {
       line_size = p - str + 1;
-      free (line_buffer);
+      free ((PTR)line_buffer);
       line_buffer = (char *) xmalloc (line_size);
     }
   strncpy (line_buffer, str, p - str);
@@ -413,7 +440,7 @@ print_doc_line (stream, str)
  *	ALL_CLASSES  to list all classes in list.
  *
  *   Note that RECURSE will be active on *all* sublists, not just the
- * ones seclected by the criteria above (ie. the selection mechanism
+ * ones selected by the criteria above (ie. the selection mechanism
  * is at the low level, not the high-level).
  */
 void
@@ -430,8 +457,8 @@ help_cmd_list (list, class, prefix, recurse, stream)
     {
       if (c->abbrev_flag == 0 &&
 	  (class == all_commands
-	  || (class == all_classes && c->function == 0)
-	  || (class == c->class && c->function != 0)))
+	  || (class == all_classes && c->function.cfunc == NULL)
+	  || (class == c->class && c->function.cfunc != NULL)))
 	{
 	  fprintf_filtered (stream, "%s%s -- ", prefix, c->name);
 	  print_doc_line (stream, c->doc);
@@ -510,7 +537,7 @@ lookup_cmd_1 (text, clist, result_list, ignore_help_classes)
   for (tmp = 0; tmp < len; tmp++)
     {
       char x = (*text)[tmp];
-      command[tmp] = (x >= 'A' && x <= 'Z') ? x - 'A' + 'a' : x;
+      command[tmp] = isupper(x) ? tolower(x) : x;
     }
   command[len] = '\0';
 
@@ -519,7 +546,7 @@ lookup_cmd_1 (text, clist, result_list, ignore_help_classes)
   nfound = 0;
   for (c = clist; c; c = c->next)
     if (!strncmp (command, c->name, len)
-	&& (!ignore_help_classes || c->function))
+	&& (!ignore_help_classes || c->function.cfunc))
       {
 	found = c;
 	nfound++;
@@ -587,7 +614,7 @@ lookup_cmd_1 (text, clist, result_list, ignore_help_classes)
 
 /* All this hair to move the space to the front of cmdtype */
 
-void
+static void
 undef_cmd_error (cmdtype, q)
      char *cmdtype, *q;
 {
@@ -759,10 +786,7 @@ lookup_cmd (line, list, cmdtype, allow_unknown)
   /* Find end of command name.  */
 
   p = *line;
-  while (*p == '-'
-	 || (*p >= 'a' && *p <= 'z')
-	 || (*p >= 'A' && *p <= 'Z')
-	 || (*p >= '0' && *p <= '9'))
+  while (*p == '-' || isalnum(*p))
     p++;
 
   /* Look up the command name.
@@ -787,8 +811,8 @@ lookup_cmd (line, list, cmdtype, allow_unknown)
   for (cmd_len = 0; cmd_len < p - *line; cmd_len++)
     {
       char x = (*line)[cmd_len];
-      if (x >= 'A' && x <= 'Z')
-	processed_cmd[cmd_len] = x - 'A' + 'a';
+      if (isupper(x))
+	processed_cmd[cmd_len] = tolower(x);
       else
 	processed_cmd[cmd_len] = x;
     }
@@ -881,7 +905,7 @@ complete_on_cmdlist (list, text)
   for (ptr = list; ptr; ptr = ptr->next)
     if (!strncmp (ptr->name, text, textlen)
 	&& !ptr->abbrev_flag
-	&& (ptr->function
+	&& (ptr->function.cfunc
 	    || ptr->prefixlist))
       {
 	if (matches == sizeof_matchlist)
@@ -899,7 +923,7 @@ complete_on_cmdlist (list, text)
 
   if (matches == 0)
     {
-      free (matchlist);
+      free ((PTR)matchlist);
       matchlist = 0;
     }
   else
@@ -967,7 +991,7 @@ do_setshow_command (arg, from_tty, c)
 	      arg = "";
 	    new = (char *) xmalloc (strlen (arg) + 2);
 	    p = arg; q = new;
-	    while (ch = *p++)
+	    while ((ch = *p++) != '\000')
 	      {
 		if (ch == '\\')
 		  {
@@ -1069,7 +1093,7 @@ do_setshow_command (arg, from_tty, c)
     }
   else
     error ("gdb internal error: bad cmd_type in do_setshow_command");
-  (*c->function) (NULL, from_tty, c);
+  (*c->function.sfunc) (NULL, from_tty, c);
 }
 
 /* Show all the settings in a list of show commands.  */
@@ -1103,13 +1127,12 @@ shell_escape (arg, from_tty)
 {
   int rc, status, pid;
   char *p, *user_shell;
-  extern char *rindex ();
 
   if ((user_shell = (char *) getenv ("SHELL")) == NULL)
     user_shell = "/bin/sh";
 
   /* Get the name of the shell for arg0 */
-  if ((p = rindex (user_shell, '/')) == NULL)
+  if ((p = strrchr (user_shell, '/')) == NULL)
     p = user_shell;
   else
     p++;			/* Get past '/' */

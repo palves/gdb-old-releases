@@ -45,6 +45,10 @@ BUGS
 #include <sys/types.h>
 #include <sys/param.h>
 
+#ifdef USGr4
+#include <unistd.h>
+#define GNU_OUR_PAGESIZE sysconf(_SC_PAGESIZE)
+#else
 #ifdef	PAGESIZE
 #define	GNU_OUR_PAGESIZE PAGESIZE
 #else	/* no PAGESIZE */
@@ -65,6 +69,7 @@ BUGS
 #endif /* NBPG */
 #endif /* EXEC_PAGESIZE */
 #endif /* PAGESIZE */
+#endif /* USGr4 */
 
 int
 getpagesize ()

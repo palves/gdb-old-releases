@@ -45,6 +45,7 @@ There is  no
 int internal_wanted;
 int internal_mode;
 
+int warning;
 
 
 /* Here is a string type ... */
@@ -1016,54 +1017,56 @@ dict_type *
 DEFUN(lookup_word,(word),
       char *word)
 {
-    dict_type *ptr = root;
-    while (ptr) {
-	    if (strcmp(ptr->word, word) == 0) return ptr;
-	    ptr = ptr->next;
+  dict_type *ptr = root;
+  while (ptr) {
+      if (strcmp(ptr->word, word) == 0) return ptr;
+      ptr = ptr->next;
 	    
-	 }
-    fprintf(stderr,"Can't find %s\n",word);
-    return 0;
+    }
+  if (warning)
+   fprintf(stderr,"Can't find %s\n",word);
+  return 0;
     
     
 }
 
 static void DEFUN_VOID(perform)
 {
-    tos = stack;
+  tos = stack;
     
-    while (at(ptr, idx)) {
-	    /* It's worth looking through the command list */
-	    if (iscommand(ptr, idx))
-	    {
-		unsigned int i;
-		int found = 0;
+  while (at(ptr, idx)) {
+      /* It's worth looking through the command list */
+      if (iscommand(ptr, idx))
+      {
+	unsigned int i;
+	int found = 0;
 
-		char *next;
-		dict_type *word ;
+	char *next;
+	dict_type *word ;
 		
-		(void)		nextword(addr(ptr, idx), &next);
+	(void)		nextword(addr(ptr, idx), &next);
 
 
-		word = lookup_word(next);
+	word = lookup_word(next);
 
 
 		
 
-		if (word) 
-		{
-		    exec(word);
-		}
-		else
-		{
-		    fprintf(stderr,"warning, %s is not recognised\n",  next);
-		    skip_past_newline();
-		}
-		
-	    }
-	    else skip_past_newline();
-
+	if (word) 
+	{
+	  exec(word);
 	}
+	else
+	{
+	  if (warning)
+	   fprintf(stderr,"warning, %s is not recognised\n",  next);
+	  skip_past_newline();
+	}
+		
+      }
+      else skip_past_newline();
+
+    }
 }
 
 dict_type *
@@ -1262,78 +1265,82 @@ int DEFUN(main,(ac,av),
 int ac AND
 char *av[])
 {
-    unsigned int i;
+  unsigned int i;
     
 
-    string_type buffer;
-    string_type pptr;
+  string_type buffer;
+  string_type pptr;
     
 
-    init_string(&buffer);
-    init_string(&pptr);
-    init_string(stack+0);
-    tos=stack+1;
-    ptr = &pptr;
+  init_string(&buffer);
+  init_string(&pptr);
+  init_string(stack+0);
+  tos=stack+1;
+  ptr = &pptr;
     
-    add_intrinsic("push_text", push_text);
-    add_intrinsic("!", bang);
-    add_intrinsic("@", atsign);
-    add_intrinsic("hello",hello);    
-    add_intrinsic("skip_past_newline", skip_past_newline );
-    add_intrinsic("catstr", icatstr );
-    add_intrinsic("copy_past_newline", icopy_past_newline );
-    add_intrinsic("dup", dup );
-    add_intrinsic("remchar", remchar );
-    add_intrinsic("get_stuff_in_command", get_stuff_in_command );
-    add_intrinsic("do_fancy_stuff", do_fancy_stuff );
-    add_intrinsic("bulletize", bulletize );
-    add_intrinsic("courierize", courierize );
-    add_intrinsic("exit", exit );
-    add_intrinsic("swap", swap );
-    add_intrinsic("outputdots", outputdots );
-    add_intrinsic("exfunstuff", exfunstuff );
-    add_intrinsic("maybecatstr", maybecatstr );
-    add_intrinsic("translatecomments", translatecomments );
-    add_intrinsic("kill_bogus_lines", kill_bogus_lines);
-    add_intrinsic("indent", indent);
-    add_intrinsic("internalmode", internalmode);
+  add_intrinsic("push_text", push_text);
+  add_intrinsic("!", bang);
+  add_intrinsic("@", atsign);
+  add_intrinsic("hello",hello);    
+  add_intrinsic("skip_past_newline", skip_past_newline );
+  add_intrinsic("catstr", icatstr );
+  add_intrinsic("copy_past_newline", icopy_past_newline );
+  add_intrinsic("dup", dup );
+  add_intrinsic("remchar", remchar );
+  add_intrinsic("get_stuff_in_command", get_stuff_in_command );
+  add_intrinsic("do_fancy_stuff", do_fancy_stuff );
+  add_intrinsic("bulletize", bulletize );
+  add_intrinsic("courierize", courierize );
+  add_intrinsic("exit", exit );
+  add_intrinsic("swap", swap );
+  add_intrinsic("outputdots", outputdots );
+  add_intrinsic("exfunstuff", exfunstuff );
+  add_intrinsic("maybecatstr", maybecatstr );
+  add_intrinsic("translatecomments", translatecomments );
+  add_intrinsic("kill_bogus_lines", kill_bogus_lines);
+  add_intrinsic("indent", indent);
+  add_intrinsic("internalmode", internalmode);
     
-    /* Put a nl at the start */
-    catchar(&buffer,'\n');
+  /* Put a nl at the start */
+  catchar(&buffer,'\n');
 
-    read_in(&buffer, stdin); 
-    remove_noncomments(&buffer, ptr);
-    for (i= 1; i < ac; i++) 
+  read_in(&buffer, stdin); 
+  remove_noncomments(&buffer, ptr);
+  for (i= 1; i < ac; i++) 
+  {
+    if (av[i][0] == '-')
     {
-	if (av[i][0] == '-')
-	{
-	    if (av[i][1] == 'f')
-	    {
-		string_type b;
-		FILE *f;
-		init_string(&b);
+      if (av[i][1] == 'f')
+      {
+	string_type b;
+	FILE *f;
+	init_string(&b);
 
-		f  = fopen(av[i+1],"r");
-		if (!f) 
-		{
-		  fprintf(stderr,"Can't open the input file %s\n",av[i+1]);
-		  return 33;
-		}
+	f  = fopen(av[i+1],"r");
+	if (!f) 
+	{
+	  fprintf(stderr,"Can't open the input file %s\n",av[i+1]);
+	  return 33;
+	}
 		
 		  
-		read_in(&b, f);
-		compile(b.ptr);
-		perform();	
-	    }
-	    else    if (av[i][1] == 'i') 
-	    {
-		internal_wanted = 1;
-	    }
-	}
+	read_in(&b, f);
+	compile(b.ptr);
+	perform();	
+      }
+      else if (av[i][1] == 'i') 
+      {
+	internal_wanted = 1;
+      }
+      else if (av[i][1] == 'w') 
+      {
+	warning = 1;
+      }
+    }
 
-    }      
-    write_buffer(stack+0);
-    return 0;
+  }      
+  write_buffer(stack+0);
+  return 0;
 }
 
 

@@ -54,14 +54,24 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Setpgrp() takes arguments, unlike ordinary Sys V's.  */
 
-#define	SETPGRP_ARGS
+#define	SETPGRP_ARGS 1
 
 /* RS6000/AIXCOFF does not support PT_STEP. Has to be simulated. */
 
 #define NO_SINGLE_STEP
 
-/* Interface between xcoff symbol reading code and AIX shared library
-   handling code.  FIXME, this probably needs generalizing.  */
+/* AIX's assembler doesn't grok dollar signs in identifiers.
+   So we use dots instead.  This item must be coordinated with G++. */
+#undef CPLUS_MARKER
+#define CPLUS_MARKER '.'
 
-#define XCOFF_INIT_LOADINFO()	xcoff_init_loadinfo()
-#define XCOFF_ADD_TOC_TO_LOADINFO(x)	xcoff_add_toc_to_loadinfo (x)
+/* Flag for machine-specific stuff in shared files.  FIXME */
+#define IBM6000_HOST
+
+/* /usr/include/stdlib.h always uses void* and void,
+   even when __STDC__ isn't defined. */
+#define MALLOC_INCOMPATIBLE
+extern void* malloc PARAMS (());
+extern void* realloc PARAMS (());
+extern void free PARAMS (());
+

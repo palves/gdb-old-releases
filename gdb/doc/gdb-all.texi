@@ -3,7 +3,7 @@
 @c Copyright (c) 1988 1989 1990 1991 1992 Free Software Foundation, Inc.
 @c %**start of header 
 @setfilename gdb.info
-@settitle Using GDB (v4)
+@settitle _GDB__, The GNU Debugger 
 @setchapternewpage odd
 @c @smallbook
 @c @cropmarks
@@ -21,10 +21,10 @@
 @c This revision number *not* the same as the Edition number.
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 2.77 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 2.89 $}  % For use in headers, footers too
 @end tex
 
-@c FOR UPDATES LEADING TO THIS DRAFT, GDB CHANGELOG CONSULTED BETWEEN:
+@c GDB CHANGELOG CONSULTED BETWEEN:
 @c Fri Oct 11 23:27:06 1991  John Gilmore  (gnu at cygnus.com)
 @c Sat Dec 22 02:51:40 1990  John Gilmore  (gnu at cygint)
 
@@ -42,11 +42,11 @@ END-INFO-DIR-ENTRY
 This file documents the GNU debugger GDB.
 
 @c !!set edition, date, version
-This is Edition 4.01, January 1992, 
+This is Edition 4.04, March 1992, 
 of @cite{Using GDB: A Guide to the GNU Source-Level Debugger}
-for GDB Version 4.4.
+for GDB Version 4.5.
 
-Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation, Inc.
+Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -75,11 +75,11 @@ instead of in the original English.
 
 @titlepage
 @title Using GDB
-@subtitle A Guide to the GNU Source-Level Debugger
+@subtitle The GNU Source-Level Debugger
 @sp 1
 @c !!set edition, date, version
-@subtitle Edition 4.01, for GDB version 4.4
-@subtitle January 1992
+@subtitle Edition 4.04, for GDB version 4.5
+@subtitle March 1992
 @author by Richard M. Stallman and Roland H. Pesch
 @page
 @tex
@@ -119,13 +119,13 @@ instead of in the original English.
 This file describes GDB, the GNU symbolic debugger.
 
 @c !!set edition, date, version
-This is Edition 4.01, January 1992, for GDB Version 4.4.
+This is Edition 4.04, March 1992, for GDB Version 4.5.
 @end ifinfo
 
 @menu
 * Summary::                     Summary of GDB
 * New Features::                New features since GDB version 3.5
-* Sample Session::              A Sample GDB session
+* Sample Session::              A sample GDB session
 * Invocation::                  Getting in and out of GDB
 * Commands::                    GDB commands
 * Running::                     Running programs under GDB
@@ -143,6 +143,7 @@ This is Edition 4.01, January 1992, for GDB Version 4.4.
 * Emacs::                       Using GDB under GNU Emacs
 * GDB Bugs::                    Reporting bugs in GDB
 * Renamed Commands::
+* Formatting Documentation::    How to format and print GDB documentation
 * Installing GDB::              Installing GDB
 * Copying::                     GNU GENERAL PUBLIC LICENSE
 * Index::                       Index
@@ -151,14 +152,14 @@ This is Edition 4.01, January 1992, for GDB Version 4.4.
 
 Summary of GDB
 
-* Free Software::               Free Software
+* Free Software::               Freely redistributable software
 * Contributors::                Contributors to GDB
 
 Getting In and Out of GDB
 
-* Invoking GDB::                Starting GDB
-* Leaving GDB::                 Leaving GDB
-* Shell Commands::              Shell Commands
+* Invoking GDB::                How to start GDB
+* Leaving GDB::                 How to quit GDB
+* Shell Commands::              How to use shell commands inside GDB
 
 Starting GDB
 
@@ -180,6 +181,7 @@ Running Programs Under GDB
 * Input/Output::                Your Program's Input and Output
 * Attach::                      Debugging an Already-Running Process
 * Kill Process::                Killing the Child Process
+* Process Information::         Additional Process Information
 
 Stopping and Continuing
 
@@ -339,7 +341,6 @@ Installing GDB
 * Separate Objdir::             Compiling GDB in another directory
 * Config Names::                Specifying names for hosts and targets
 * configure Options::           Summary of options for configure
-* Formatting Documentation::    How to format and print GDB documentation
 @end menu
 
 @node Summary, New Features, Top, Top
@@ -413,7 +414,7 @@ omitted from this list, we would like to add your names!
 
 So that they may not regard their long labor as thankless, we
 particularly thank those who shepherded GDB through major releases: Stu
-Grossman and John Gilmore (release 4.4), John Gilmore (releases 4.3, 4.2,
+Grossman and John Gilmore (releases 4.5, 4.4), John Gilmore (releases 4.3, 4.2,
 4.1, 4.0, and 3.9); Jim Kingdon (releases 3.5, 3.4, 3.3); and Randy
 Smith (releases 3.2, 3.1, 3.0).  As major maintainer of GDB for some
 period, each contributed significantly to the structure, stability, and
@@ -464,6 +465,8 @@ command-line editing and command history.
 Andrew Beers of SUNY Buffalo wrote the language-switching code and
 the Modula-2 support, and contributed the Languages chapter of this
 manual.
+
+Fred Fish wrote most of the support for Unix System Vr4.
 
 @node New Features, Sample Session, Summary, Top
 @unnumbered New Features since GDB version 3.5
@@ -538,8 +541,8 @@ of your program, and the latter refer to the state of GDB itself.
 @xref{Renamed Commands}, for details on what commands were renamed.
 
 @item Shared Libraries
-GDB 4 can debug programs and core files that use SunOS shared
-libraries.
+GDB 4 can debug programs and core files that use SunOS, SVR4, or IBM RS/6000
+shared libraries.
 
 @item Reference Card
 GDB 4 has a reference card.  @xref{Formatting Documentation} for
@@ -558,7 +561,7 @@ However, a handful of commands are enough to get started using the
 debugger.  This chapter illustrates these commands.
 
 @iftex
-In this sample session, we emphasize user input like this: @i{input},
+In this sample session, we emphasize user input like this: @b{input},
 to make it easier to pick out from the surrounding output.
 @end iftex
 
@@ -576,21 +579,21 @@ same thing.  However, when we change the open quote string to
 procedure fails to define a new synonym @code{baz}:
 
 @smallexample
-$ @i{cd gnu/m4}
-$ @i{./m4}
-@i{define(foo,0000)}
+$ @b{cd gnu/m4}
+$ @b{./m4}
+@b{define(foo,0000)}
 
-@i{foo}
+@b{foo}
 0000
-@i{define(bar,defn(`foo'))}
+@b{define(bar,defn(`foo'))}
 
-@i{bar}
+@b{bar}
 0000
-@i{changequote(<QUOTE>,<UNQUOTE>)}
+@b{changequote(<QUOTE>,<UNQUOTE>)}
 
-@i{define(baz,defn(<QUOTE>foo<UNQUOTE>))}
-@i{baz}
-@i{C-d}
+@b{define(baz,defn(<QUOTE>foo<UNQUOTE>))}
+@b{baz}
+@b{C-d}
 m4: End of input: 0: fatal error: EOF in string
 @end smallexample
 
@@ -598,7 +601,7 @@ m4: End of input: 0: fatal error: EOF in string
 Let's use GDB to try to see what's going on.
 
 @smallexample
-$ @i{gdb m4}
+$ @b{gdb m4}
 @c FIXME: this falsifies the exact text played out, to permit smallbook
 @c FIXME... format to come out better.
 GDB is free software and you are welcome to distribute copies
@@ -606,7 +609,7 @@ GDB is free software and you are welcome to distribute copies
  the conditions.
 There is absolutely no warranty for GDB; type "show warranty" 
 for details.
-GDB 4.4, Copyright 1992 Free Software Foundation, Inc...
+GDB 4.5, Copyright 1992 Free Software Foundation, Inc...
 (gdb)
 @end smallexample
 
@@ -617,7 +620,7 @@ tell GDB to use a narrower display width than usual, so that examples
 will fit in this manual.
 
 @smallexample
-(gdb) @i{set width 70}
+(gdb) @b{set width 70}
 @end smallexample
 
 @noindent
@@ -627,7 +630,7 @@ Having looked at the source, we know the relevant subroutine is
 @code{break} command.
 
 @smallexample
-(gdb) @i{break m4_changequote}
+(gdb) @b{break m4_changequote}
 Breakpoint 1 at 0x62f4: file builtin.c, line 879.
 @end smallexample
 
@@ -637,11 +640,11 @@ control; as long as control does not reach the @code{m4_changequote}
 subroutine, the program runs as usual:
 
 @smallexample
-(gdb) @i{run}
+(gdb) @b{run}
 Starting program: /work/Editorial/gdb/gnu/m4/m4
-@i{define(foo,0000)}
+@b{define(foo,0000)}
 
-@i{foo}
+@b{foo}
 0000
 @end smallexample
 
@@ -651,7 +654,7 @@ suspends execution of @code{m4}, displaying information about the
 context where it stops.
 
 @smallexample
-@i{changequote(<QUOTE>,<UNQUOTE>)}
+@b{changequote(<QUOTE>,<UNQUOTE>)}
 
 Breakpoint 1, m4_changequote (argc=3, argv=0x33c70) 
     at builtin.c:879
@@ -663,7 +666,7 @@ Now we use the command @code{n} (@code{next}) to advance execution to
 the next line of the current function.
 
 @smallexample
-(gdb) @i{n}
+(gdb) @b{n}
 882         set_quotes((argc >= 2) ? TOKEN_DATA_TEXT(argv[1])\
  : nil,
 @end smallexample
@@ -675,7 +678,7 @@ by using the command @code{s} (@code{step}) instead of @code{next}.
 subroutine, so it steps into @code{set_quotes}.
 
 @smallexample
-(gdb) @i{s}
+(gdb) @b{s}
 set_quotes (lq=0x34c78 "<QUOTE>", rq=0x34c88 "<UNQUOTE>")
     at input.c:530
 530         if (lquote != def_lquote)
@@ -690,7 +693,7 @@ in the stack as a whole: the @code{backtrace} command displays a
 stack frame for each active subroutine.
 
 @smallexample
-(gdb) @i{bt}
+(gdb) @b{bt}
 #0  set_quotes (lq=0x34c78 "<QUOTE>", rq=0x34c88 "<UNQUOTE>")
     at input.c:530
 #1  0x6344 in m4_changequote (argc=3, argv=0x33c70) 
@@ -708,15 +711,15 @@ times, we can use @samp{s}; the next two times we use @code{n} to avoid
 falling into the @code{xstrdup} subroutine.
 
 @smallexample
-(gdb) @i{s}
+(gdb) @b{s}
 0x3b5c  532         if (rquote != def_rquote)
-(gdb) @i{s}
+(gdb) @b{s}
 0x3b80  535         lquote = (lq == nil || *lq == '\0') ?  \
 def_lquote : xstrdup(lq);
-(gdb) @i{n}
+(gdb) @b{n}
 536         rquote = (rq == nil || *rq == '\0') ? def_rquote\
  : xstrdup(rq);
-(gdb) @i{n}
+(gdb) @b{n}
 538         len_lquote = strlen(rquote);
 @end smallexample
 
@@ -727,9 +730,9 @@ and right quotes we specified.  We can use the command @code{p}
 (@code{print}) to see their values.
 
 @smallexample
-(gdb) @i{p lquote}
+(gdb) @b{p lquote}
 $1 = 0x35d40 "<QUOTE>"
-(gdb) @i{p rquote}
+(gdb) @b{p rquote}
 $2 = 0x35d50 "<UNQUOTE>"
 @end smallexample
 
@@ -739,7 +742,7 @@ Let's look at some context; we can display ten lines of source
 surrounding the current line, with the @code{l} (@code{list}) command.
 
 @smallexample
-(gdb) @i{l}
+(gdb) @b{l}
 533             xfree(rquote);
 534
 535         lquote = (lq == nil || *lq == '\0') ? def_lquote\
@@ -759,13 +762,13 @@ Let's step past the two lines that set @code{len_lquote} and
 @code{len_rquote}, and then examine the values of those variables.
 
 @smallexample
-(gdb) @i{n}
+(gdb) @b{n}
 539         len_rquote = strlen(lquote);
-(gdb) @i{n}
+(gdb) @b{n}
 540     @}
-(gdb) @i{p len_lquote}
+(gdb) @b{p len_lquote}
 $3 = 9
-(gdb) @i{p len_rquote}
+(gdb) @b{p len_rquote}
 $4 = 7
 @end smallexample
 
@@ -778,9 +781,9 @@ any expression---and that expression can include subroutine calls and
 assignments.
 
 @smallexample
-(gdb) p len_lquote=strlen(lquote)
+(gdb) @b{p len_lquote=strlen(lquote)}
 $5 = 7
-(gdb) p len_rquote=strlen(rquote)
+(gdb) @b{p len_rquote=strlen(rquote)}
 $6 = 9
 @end smallexample
 
@@ -791,10 +794,10 @@ executing with the @code{c} (@code{continue}) command, and then try the
 example that caused trouble initially:
 
 @smallexample
-(gdb) @i{c}
+(gdb) @b{c}
 Continuing.
 
-@i{define(baz,defn(<QUOTE>foo<UNQUOTE>))}
+@b{define(baz,defn(<QUOTE>foo<UNQUOTE>))}
 
 baz
 0000
@@ -806,7 +809,7 @@ problem seems to have been just the two typos defining the wrong
 lengths.  We'll let @code{m4} exit by giving it an EOF as input.
 
 @smallexample
-@i{C-d}
+@b{C-d}
 Program exited normally.
 @end smallexample
 
@@ -816,14 +819,15 @@ indicates @code{m4} has finished executing.  We can end our GDB
 session with the GDB @code{quit} command.
 
 @smallexample
-(gdb) @i{quit}
+(gdb) @b{quit}
 @end smallexample
 
 @node Invocation, Commands, Sample Session, Top
 @chapter Getting In and Out of GDB
 
-Type @kbd{gdb} or @kbd{gdb @var{program} @var{core}} to start GDB
-and type @kbd{quit} or @kbd{C-d} to exit.
+This chapter discusses how to start GDB, and how to get out of it.
+(The essentials: type @samp{gdb} to start GDB, and type @kbd{quit}
+or @kbd{C-d} to exit.)
 
 @menu
 * Invoking GDB::                Starting GDB
@@ -837,9 +841,16 @@ and type @kbd{quit} or @kbd{C-d} to exit.
 Start GDB with the shell command @code{gdb}.  Once it's running,
 GDB reads commands from the terminal until you tell it to exit.
 
-You can run @code{gdb} with no arguments or options; but the most
-usual way to start GDB is with one argument or two, specifying an
-executable program as the argument:
+You can also run @code{gdb} with a variety of arguments and options,
+to specify more of your debugging environment at the outset.
+
+The command-line options described here are designed
+to cover a variety of situations; in some environments, some of these
+options may effectively be unavailable.  
+
+
+The most usual way to start GDB is with one argument or two,
+specifying an executable program as the argument:
 
 @example
 gdb @var{program}
@@ -863,6 +874,11 @@ gdb @var{program} 1234
 @noindent
 would attach GDB to process @code{1234} (unless you also have a file
 named @file{1234}; GDB does check for a core file first).
+
+Taking advantage of the second command-line argument requires a fairly
+complete operating system; when you use GDB as a remote debugger
+attached to a bare board, there may not be any notion of ``process'',
+and there is often no way to get a core dump.
 
 @noindent
 You can further control how GDB starts up by using command-line
@@ -932,7 +948,39 @@ Execute GDB commands from file @var{file}.  @xref{Command Files}.
 @item -directory=@var{directory}
 @itemx -d @var{directory}
 Add @var{directory} to the path to search for source files.
+
+@item -m
+@itemx -mapped
+@emph{Warning: this option depends on operating system facilities that are not
+supported on all systems.}@*
+If memory-mapped files are available on your system through the @code{mmap}
+system call, you can use this option 
+to cause GDB to write the symbols from your
+program into a reusable file in the current directory.  If the program you are debugging is
+called @file{/tmp/fred}, the mapped symbol file will be @file{./fred.syms}.
+Future GDB debugging sessions will notice the presence of this file,
+and will quickly map in symbol information from it, rather than reading
+the symbol table from the executable program.
+
+The @file{.syms} file is specific to the host machine on which GDB is run.
+It holds an exact image of GDB's internal symbol table.  It cannot be
+shared across multiple host platforms.
+
+@item -r
+@itemx -readnow
+Read each symbol file's entire symbol table immediately, rather than
+the default, which is to read it incrementally as it is needed.
+This makes startup slower, but makes future operations faster.
 @end table
+
+The @code{-mapped} and @code{-readnow} options are typically combined in order to
+build a @file{.syms} file that contains complete symbol information.
+A simple GDB invocation to do nothing but build a @file{.syms} file for future
+use is:
+
+@example
+	gdb -batch -nx -mapped -readnow programname
+@end example
 
 @node Mode Options,  , File Options, Invoking GDB
 @subsection Choosing Modes
@@ -974,6 +1022,7 @@ terminates) is not issued when running in batch mode.
 @item -cd=@var{directory}
 Run GDB using @var{directory} as its working directory,
 instead of the current directory.
+
 
 @item -fullname
 @itemx -f
@@ -1236,6 +1285,7 @@ To debug a program, you must run it under GDB.
 * Input/Output::                Your Program's Input and Output
 * Attach::                      Debugging an Already-Running Process
 * Kill Process::                Killing the Child Process
+* Process Information::         Additional Process Information
 @end menu
 
 @node Compilation, Starting, Running, Running
@@ -1254,10 +1304,20 @@ Many C compilers are unable to handle the @samp{-g} and @samp{-O}
 options together.  Using those compilers, you cannot generate optimized
 executables containing debugging information.
 
-The GNU C compiler supports @samp{-g} with or without @samp{-O}, making it
-possible to debug optimized code.  We recommend that you @emph{always} use
-@samp{-g} whenever you compile a program.  You may think your program is
-correct, but there is no sense in pushing your luck.
+gcc, the GNU C compiler, supports @samp{-g} with or without
+@samp{-O}, making it possible to debug optimized code.  We recommend
+that you @emph{always} use @samp{-g} whenever you compile a program.
+You may think your program is correct, but there is no sense in pushing
+your luck.
+
+@cindex optimized code, debugging
+@cindex debugging optimized code
+When you debug a program compiled with @samp{-g -O}, remember that the
+optimizer is rearranging your code; the debugger will show you what's
+really there.  Don't be too surprised when the execution path doesn't
+exactly match your source file!  An extreme example: if you define a
+variable, but never use it, GDB will never see that
+variable---because the compiler optimizes it out of existence.
 
 Some things do not work as well with @samp{-g -O} as with just
 @samp{-g}, particularly on machines with instruction scheduling.  If in
@@ -1265,7 +1325,7 @@ doubt, recompile with @samp{-g} alone, and if this fixes the problem,
 please report it as a bug (including a test case!).
 
 Older versions of the GNU C compiler permitted a variant option
-@samp{-gg} for debugging information.  GDB no longer supports this
+@w{@samp{-gg}} for debugging information.  GDB no longer supports this
 format; if your GNU C compiler has this option, do not use it.
 
 @ignore
@@ -1310,13 +1370,13 @@ that process run your program.  (In environments without processes,
 
 The execution of a program is affected by certain information it
 receives from its superior.  GDB provides ways to specify this
-information, which you must do @i{before} starting your program.  (You
+information, which you must do @emph{before} starting your program.  (You
 can change it after starting your program, but such changes will only affect
 your program the next time you start it.)  This information may be
 divided into four categories:
 
 @table @asis
-@item The @i{arguments.}
+@item The @emph{arguments.}
 Specify the arguments to give your program as the arguments of the
 @code{run} command.  If a shell is available on your target, the shell
 is used to pass the arguments, so that you may use normal conventions
@@ -1325,18 +1385,18 @@ the arguments.  In Unix systems, you can control which shell is used
 with the @code{SHELL} environment variable. @xref{Arguments, ,Your
 Program's Arguments}.
 
-@item The @i{environment.}
+@item The @emph{environment.}
 Your program normally inherits its environment from GDB, but you can
 use the GDB commands @code{set environment} and @code{unset
 environment} to change parts of the environment that will be given to
 your program.  @xref{Environment, ,Your Program's Environment}.
 
-@item The @i{working directory.}
+@item The @emph{working directory.}
 Your program inherits its working directory from GDB.  You can set
 GDB's working directory with the @code{cd} command in GDB.
 @xref{Working Directory, ,Your Program's Working Directory}.
 
-@item The @i{standard input and output.}
+@item The @emph{standard input and output.}
 Your program normally uses the same device for standard input and
 standard output as GDB is using.  You can redirect input and output
 in the @code{run} command line, or you can use the @code{tty} command to
@@ -1593,7 +1653,7 @@ confirmation if you try to do either of these things; you can control
 whether or not you need to confirm by using the @code{set confirm} command
 (@pxref{Messages/Warnings, ,Optional Warnings and Messages}).
 
-@node Kill Process,  , Attach, Running
+@node Kill Process, Process Information, Attach, Running
 @c @group
 @section Killing the Child Process
 
@@ -1619,6 +1679,47 @@ executable file while it is running in a process.  In this case, when you
 next type @code{run}, GDB will notice that the file has changed, and
 will re-read the symbol table (while trying to preserve your current
 breakpoint settings).
+
+@node Process Information, , Kill Process, Running
+@section Additional Process Information
+
+@kindex /proc
+@cindex process image
+Some operating systems provide a facility called @samp{/proc} that can
+be used to examine the image of a running process using file-system
+subroutines.  If GDB is configured for an operating system with this
+facility, the command @code{info proc} is available to report on several
+kinds of information about the process running your program.
+
+@table @code
+@item info proc
+@kindex info proc
+Summarize available information about the process.
+
+@item info proc mappings
+@kindex info proc mappings
+Report on the address ranges accessible in the program, with information
+on whether your program may read, write, or execute each range.
+
+@item info proc times
+@kindex info proc times
+Starting time, user CPU time, and system CPU time for your program and
+its children.
+
+@item info proc id
+@kindex info proc id
+Report on the process ID's related to your program: its own process id,
+the id of its parent, the process group id, and the session id.
+
+@item info proc status
+@kindex info proc status
+General information on the state of the process.  If the process is
+stopped, this report includes the reason for stopping, and any signal
+received.
+
+@item info proc all
+Show all the above information about the process.
+@end table
 
 @node Stopping, Stack, Running, Top
 @chapter Stopping and Continuing
@@ -1663,6 +1764,9 @@ C++), you can also set breakpoints where an exception is raised
 (@pxref{Exception Handling, ,Breakpoints and Exceptions}).
 
 @cindex watchpoints
+@cindex memory tracing
+@cindex breakpoint on memory address
+@cindex breakpoint on variable modification
 A @dfn{watchpoint} is a special breakpoint that stops your program
 when the value of an expression changes.  You must use a different
 command to set watchpoints (@pxref{Set Watchpoints, ,Setting
@@ -1670,11 +1774,13 @@ Watchpoints}), but aside from that, you can manage a watchpoint like
 any other breakpoint: you enable, disable, and delete both breakpoints
 and watchpoints using the same commands.
 
-Each breakpoint or watchpoint is assigned a number when it is created;
-these numbers are successive integers starting with one.  In many of the
-commands for controlling various features of breakpoints you use the
-breakpoint number to say which breakpoint you want to change.  Each
-breakpoint may be @dfn{enabled} or @dfn{disabled}; if disabled, it has
+@cindex breakpoint numbers
+@cindex numbers for breakpoints
+GDB assigns a number to each breakpoint or watchpoint when you
+create it; these numbers are successive integers starting with one.  In
+many of the commands for controlling various features of breakpoints you
+use the breakpoint number to say which breakpoint you want to change.
+Each breakpoint may be @dfn{enabled} or @dfn{disabled}; if disabled, it has
 no effect on your program until you enable it again.
 
 @menu
@@ -1699,7 +1805,13 @@ no effect on your program until you enable it again.
 
 @kindex break
 @kindex b
-Breakpoints are set with the @code{break} command (abbreviated @code{b}).
+@kindex $bpnum
+@cindex latest breakpoint
+Breakpoints are set with the @code{break} command (abbreviated
+@code{b}).  The debugger convenience variable @samp{$bpnum} records the 
+number of the beakpoint you've set most recently; see @ref{Convenience
+Vars,, Convenience Variables}, for a discussion of what you can do with
+convenience variables.
 
 You have several ways to say where the breakpoint should go.
 
@@ -1786,22 +1898,84 @@ classes.
 @kindex info breakpoints
 @cindex @code{$_} and @code{info breakpoints}
 @item info breakpoints @r{[}@var{n}@r{]}
-@item info break @r{[}@var{n}@r{]}
-Print a list of all breakpoints (but not watchpoints) set and not
-deleted, showing their numbers, where in your program they are, and any
-special features in use for them. Disabled breakpoints are included in
-the list, but marked as disabled. @code{info break} with a breakpoint
+@itemx info break @r{[}@var{n}@r{]}
+@itemx info watchpoints @r{[}@var{n}@r{]}
+Print a table of all breakpoints and watchpoints set and not
+deleted, with the following columns for each breakpoint:
+
+@table @emph
+@item Breakpoint Numbers
+@item Type
+Breakpoint or watchpoint.
+@item Disposition
+Whether the breakpoint is marked to be disabled or deleted when hit.
+@item Enabled or Disabled
+Enabled breakpoints are marked with @samp{y}.  @samp{n} marks breakpoints
+that are not enabled.
+@item Address
+Where the breakpoint is in your program, as a memory address
+@item What
+Where the breakpoint is in the source for your program, as a file and
+line number.
+@end table
+
+@noindent
+Breakpoint commands, if any, are listed after the line for the
+corresponding breakpoint.
+
+@noindent
+@code{info break} with a breakpoint
 number @var{n} as argument lists only that breakpoint.  The
 convenience variable @code{$_} and the default examining-address for
 the @code{x} command are set to the address of the last breakpoint
-listed (@pxref{Memory, ,Examining Memory}).  The equivalent command
-for watchpoints is @code{info watch}. 
+listed (@pxref{Memory, ,Examining Memory}).  
 @end table
 
 GDB allows you to set any number of breakpoints at the same place in
 your program.  There is nothing silly or meaningless about this.  When
 the breakpoints are conditional, this is even useful
 (@pxref{Conditions, ,Break Conditions}).
+
+@cindex negative breakpoint numbers
+@cindex internal GDB breakpoints
+GDB itself sometimes sets breakpoints in your program for special
+purposes, such as proper handling of @code{longjmp} (in C programs).
+These internal breakpoints are assigned negative numbers, starting with
+@code{-1}; @samp{info breakpoints} does not display them, but the
+similar command @samp{info all-breakpoints} does.
+
+@table @code
+@kindex all-breakpoints
+@item info all-breakpoints
+Using the same format as @samp{info breakpoints}, display both the
+breakpoints you've set explicitly, and those GDB is using for
+internal purposes.  Internal breakpoints are shown with negative
+breakpoint numbers.  The type column identifies what kind of breakpoint
+is shown:
+
+@table @code
+@item breakpoint
+Normal, explicitly set breakpoint.
+
+@item watchpoint
+Normal, explicitly set watchpoint.
+
+@item longjmp
+Internal breakpoint, used to handle correctly stepping through
+@code{longjmp} calls.
+
+@item longjmp resume
+Internal breakpoint at the target of a @code{longjmp}.
+
+@item until
+Temporary internal breakpoint used by the GDB @code{until} command.
+
+@item finish
+Temporary internal breakpoint used by the GDB @code{finish} command.
+@end table
+
+@end table
+
 
 @node Set Watchpoints, Exception Handling, Set Breaks, Breakpoints
 @subsection Setting Watchpoints
@@ -1824,8 +1998,8 @@ Set a watchpoint for an expression.
 
 @kindex info watchpoints
 @item info watchpoints
-This command prints a list of watchpoints; it is otherwise similar to
-@code{info break}.
+This command prints a list of watchpoints and breakpoints; it is the
+same as @code{info break}.
 @end table
 
 @node Exception Handling, Delete Breaks, Set Watchpoints, Breakpoints
@@ -2008,7 +2182,7 @@ Save for a breakpoint set with @code{tbreak} (@pxref{Set Breaks,
 enabled; subsequently, they become disabled or enabled only when you
 use one of the commands above.  (The command @code{until} can set and
 delete a breakpoint of its own, but it will not change the state of
-your other breakpoints; @pxref{Continuing and Stepping, ,Continuing and Stepping}.)
+your other breakpoints; see @ref{Continuing and Stepping, ,Continuing and Stepping}.)
 
 @node Conditions, Break Commands, Disabling, Breakpoints
 @subsection Break Conditions
@@ -2271,7 +2445,7 @@ Use the "delete" command to delete unwanted breakpoints.
 @c FIXME: "cannot insert breakpoints" error, v unclear.
 @c        Q in pending mail to Gilmore. ---pesch@cygnus.com, 26mar91
 @c        some light may be shed by looking at instances of
-@c        ONE_PROCESS_WRITETEXT.  But error seems possible otherwise
+@c        ONE_PROCESS_WRITETEXT.  But error message seems possible otherwise
 @c        too.  pesch, 20sep91
 Under some operating systems, breakpoints cannot be used in a program if
 any other process is running that program.  In this situation,
@@ -2532,7 +2706,7 @@ GDB should not allow your program to see this signal.
 
 When a signal has been set to stop your program, your program cannot see the
 signal until you continue.  It will see the signal then, if @code{pass} is
-in effect for the signal in question @i{at that time}.  In other words,
+in effect for the signal in question @emph{at that time}.  In other words,
 after GDB reports a signal, you can use the @code{handle} command with
 @code{pass} or @code{nopass} to control whether that signal will be seen by
 your program when you later continue it.
@@ -3107,13 +3281,12 @@ Variables}).
 @table @code
 @kindex disassemble
 @item disassemble
-This specialized command is provided to dump a range of memory as
-machine instructions.  The default memory range is the function
-surrounding the program counter of the selected frame.  A single
-argument to this command is a program counter value; the function
-surrounding this value will be dumped.  Two arguments (separated by one
-or more spaces) specify a range of addresses (first inclusive, second
-exclusive) to be dumped.
+This specialized command dumps a range of memory as machine
+instructions.  The default memory range is the function surrounding the
+program counter of the selected frame.  A single argument to this
+command is a program counter value; the function surrounding this value
+will be dumped.  Two arguments specify a range of addresses (first
+inclusive, second exclusive) to dump.
 @end table
 
 We can use @code{disassemble} to inspect the object code
@@ -3131,7 +3304,6 @@ Dump of assembler code from 0x63e4 to 0x6404:
 0x63fc builtin_init+5364:     call 0x9288 path_search
 0x6400 builtin_init+5368:     nop
 End of assembler dump.
-(gdb)
 @end smallexample
 
 @node Data, Languages, Source, Top
@@ -3265,9 +3437,10 @@ is declared.
 There is an exception: you can refer to a variable or function whose
 scope is a single source file even if the current execution point is not
 in this file.  But it is possible to have more than one such variable or
-function with the same name (in different source files).  If that happens,
-referring to that name has unpredictable effects.  If you wish, you can
-specify a variable in a particular file, using the colon-colon notation:
+function with the same name (in different source files).  If that
+happens, referring to that name has unpredictable effects.  If you wish,
+you can specify a static variable in a particular function or file,
+using the colon-colon notation:
 
 @cindex colon-colon
 @iftex
@@ -3276,10 +3449,12 @@ specify a variable in a particular file, using the colon-colon notation:
 @end iftex
 @example
 @var{file}::@var{variable}
+@var{function}::@var{variable}
 @end example
 
 @noindent
-Here @var{file} is the name of the source file whose variable you want.
+Here @var{file} or @var{function} is the name of the context for the
+static @var{variable}.
 
 @cindex C++ scope resolution
 This use of @samp{::} is very rarely in conflict with the very similar
@@ -4553,6 +4728,12 @@ Pointer dereferencing.  Defined on pointer types.  Same precedence as
 @item &
 Address operator.  Defined on variables.  Same precedence as @code{++}.
 
+For debugging C++, GDB implements a use of @samp{&} beyond what's
+allowed in the C++ language itself: you can use @samp{&(&@var{ref})}
+(or, if you prefer, simply @samp{&&@var{ref}} to examine the address
+where a C++ reference variable (declared with @samp{&@var{ref}}) is
+stored.
+
 @item -
 Negative.  Defined on integral and floating-point types.  Same
 precedence as @code{++}.
@@ -5186,7 +5367,7 @@ index bounds, and all built-in functions and procedures.
 @subsubsection The scope operators @code{::} and @code{.}
 @cindex scope
 @kindex .
-@kindex colon, doubled as scope operator
+@cindex colon, doubled as scope operator
 @ifinfo
 @kindex colon-colon
 @c Info cannot handoe :: but TeX can.
@@ -5376,6 +5557,7 @@ which match the regular-expression @var{regexp}.
 
 @item printsyms @var{filename}
 @itemx printpsyms @var{filename}
+@itemx printmsyms @var{filename}
 @kindex printsyms
 @cindex symbol dump
 @kindex printsyms
@@ -5387,11 +5569,14 @@ GDB includes all the symbols for which it has already collected full
 details: that is, @var{filename} reflects symbols for only those files
 whose symbols GDB has read.  You can use the command @code{info
 sources} to find out which files these are.  If you use
-@code{printpsyms}, the dump also shows information about symbols that
+@code{printpsyms} instead, the dump shows information about symbols that
 GDB only knows partially---that is, symbols defined in files that
-GDB has skimmed, but not yet read completely.  The description of
-@code{symbol-file} describes how GDB reads symbols; both commands
-are described under @ref{Files, ,Commands to Specify Files}.
+GDB has skimmed, but not yet read completely.  Finally,
+@code{printmsyms} dumos just the minimal symbol information required for
+each object file from which GDB has read some symbols.  The description of
+@code{symbol-file} explains how GDB reads symbols; both @code{info
+source} and @code{symbol-file} are described in @ref{Files, ,Commands
+to Specify Files}.
 @end table
 
 @node Altering, GDB Files, Symbols, Top
@@ -5676,6 +5861,14 @@ search, just as the shell does when looking for a program to run.  You
 can change the value of this variable, for both GDB and your program,
 using the @code{path} command.
 
+On systems with memory-mapped files, an auxiliary symbol table file
+@file{@var{filename}.syms} may be available for @var{filename}.  If it
+is, GDB will map in the symbol table from
+@file{@var{filename}.syms}, starting up more quickly.  See the
+descriptions of the options @samp{-mapped} and @samp{-readnow} (available
+on the command line, and with the commands @code{file}, @code{symbol-file},
+or @code{add-symbol-file}), for more information.
+
 @item file
 @code{file} with no argument makes GDB discard any information it
 has on both executable file and the symbol table.
@@ -5705,8 +5898,15 @@ the old symbol table data being discarded inside GDB.
 @code{symbol-file} will not repeat if you press @key{RET} again after
 executing it once.
 
+When GDB is configured for a particular environment, it will
+understand debugging information in whatever format is the standard
+generated for that environment; you may use either a GNU compiler, or
+other compilers that adhere to the local conventions.  Best results are
+usually obtained from GNU compilers; for example, using @code{gcc}
+you can generate debugging information for optimized code.
+
 On some kinds of object files, the @code{symbol-file} command does not
-actually read the symbol table in full right away.  Instead, it scans
+normally read the symbol table in full right away.  Instead, it scans
 the symbol table quickly to find which source files and which symbols
 are present.  The details are read later, one source file at a time,
 as they are needed.
@@ -5722,12 +5922,47 @@ When the symbol table is stored in COFF format, @code{symbol-file} does
 read the symbol table data in full right away.  We have not implemented
 the two-stage strategy for COFF yet.
 
-When GDB is configured for a particular environment, it will
-understand debugging information in whatever format is the standard
-generated for that environment; you may use either a GNU compiler, or
-other compilers that adhere to the local conventions.  Best results are
-usually obtained from GNU compilers; for example, using @code{gcc}
-you can generate debugging information for optimized code.
+@item symbol-file @var{filename} @r{[} -readnow @r{]} @r{[} -mapped @r{]}
+@itemx file @var{filename} @r{[} -readnow @r{]} @r{[} -mapped @r{]}
+@kindex readnow
+@cindex reading symbols immediately
+@cindex symbols, reading immediately
+@kindex mapped
+@cindex memory-mapped symbol file
+@cindex saving symbol table with memory mapping
+You can override the GDB two-stage strategy for reading symbol
+tables by using the @samp{-readnow} option with any of the commands that
+load symbol table information, if you want to be sure GDB has the
+entire symbol table available.  
+
+If memory-mapped files are available on your system through the
+@code{mmap} system call, you can use another option, @samp{-mapped}, to
+cause GDB to write the symbols for your program into a reusable
+file.  Future GDB debugging sessions will map in symbol information
+from this auxiliary symbol file (if the program hasn't changed), rather
+than spending time reading the symbol table from the executable
+program.  Using the @samp{-mapped} option has the same effect as
+starting GDB with the @samp{-mapped} command-line option.
+
+You can use both options together, to make sure the auxiliary symbol
+file has all the symbol information for your program.
+
+The @code{.syms} file is specific to the host machine on which GDB is run.
+It holds an exact image of GDB's internal symbol table.  It cannot be
+shared across multiple host platforms.
+
+The auxiliary symbol file for a program called @var{myprog} is called
+@samp{@var{myprog}.syms}.  Once this file exists (so long as it is newer
+than the corresponding executable), GDB will always attempt to use
+it when you debug @var{myprog}; no special options or commands are
+needed.
+@c FIXME: for now no mention of directories, since this seems to be in
+@c flux.  13mar1992 status is that in theory GDB would look either in
+@c current dir or in same dir as myprog; but issues like competing
+@c GDB's, or clutter in system dirs, mean that in practice right now
+@c only current dir is used.  FFish says maybe a special GDB hierarchy
+@c (eg rooted in val of env var GDBSYMS) could exist for mappable symbol
+@c files.
 
 @item core-file @r{[} @var{filename} @r{]}
 @kindex core
@@ -5767,9 +6002,11 @@ With the Nindy interface to an Intel 960 board, @code{load} will
 download @var{filename} to the 960 as well as adding its symbols in
 GDB.
 
+
 @code{load} will not repeat if you press @key{RET} again after using it.
 
 @item add-symbol-file @var{filename} @var{address}
+@itemx add-symbol-file @var{filename} @var{address} @r{[} -readnow @r{]} @r{[} -mapped @r{]}
 @kindex add-symbol-file
 @cindex dynamic linking
 The @code{add-symbol-file} command reads additional symbol table information
@@ -5785,6 +6022,10 @@ read keeps adding to the old.  To discard all old symbol data instead,
 use the @code{symbol-file} command.
 
 @code{add-symbol-file} will not repeat if you press @key{RET} after using it.
+
+You can use the @samp{-mapped} and @samp{-readnow} options just as with
+the @code{symbol-file} command, to change how GDB manages the symbol
+tabl einformation for @var{filename}.
 
 @item info files
 @itemx info target
@@ -5805,12 +6046,12 @@ name and remembers it that way.
 
 @cindex shared libraries
 
-GDB supports the SunOS shared library format.  GDB automatically
-loads symbol definitions from shared libraries when you use the
-@code{run} command, or when you examine a core file.  (Before you issue
-the @code{run} command, GDB will not understand references to a
-function in a shared library, however---unless you are debugging a core
-file).
+GDB supports SunOS, SVR4, and IBM RS/6000 shared libraries.
+GDB automatically loads symbol definitions from shared libraries
+when you use the @code{run} command, or when you examine a core file.
+(Before you issue the @code{run} command, GDB will not understand
+references to a function in a shared library, however---unless you are
+debugging a core file).
 @c FIXME: next GDB release should permit some refs to undef
 @c FIXME...symbols---eg in a break cmd---assuming they are from a shared lib
 
@@ -6101,6 +6342,7 @@ configuration of GDB; use @code{help targets} to list them.
 * i960-Nindy Remote::		GDB with a Remote i960 (Nindy)
 * EB29K Remote::		GDB with a Remote EB29K
 * VxWorks Remote::		GDB and VxWorks
+ 
 @end menu
 @node i960-Nindy Remote, EB29K Remote, Remote, Remote
 @subsection GDB with a Remote i960 (Nindy)
@@ -6134,7 +6376,7 @@ session.  @xref{Target Commands, ,Commands for Managing Targets}.
 @node Nindy Startup, Nindy Options, i960-Nindy Remote, i960-Nindy Remote
 @subsubsection Startup with Nindy
 
-If you simply start @code{GDB} without using any command-line
+If you simply start @code{gdb} without using any command-line
 options, you are prompted for what serial port to use, @emph{before} you
 reach the ordinary GDB prompt:
 
@@ -6399,6 +6641,10 @@ VxWorks targets from a Unix host.  Already-running tasks spawned from
 the VxWorks shell can also be debugged.  GDB uses code that runs on
 both the UNIX host and on the VxWorks target.  The program
 @code{gdb} is installed and executed on the UNIX host.
+
+The following information on connecting to VxWorks was current when
+this manual was produced; newer releases of VxWorks may use revised
+procedures.
 
 The remote debugging interface (RDB) routines are installed and executed
 on the VxWorks target.  These routines are included in the VxWorks library
@@ -7333,11 +7579,11 @@ version number.
 
 @item
 What compiler (and its version) was used to compile GDB---e.g.
-``gcc-1.37.1''.
+``gcc-2.0''.
 
 @item
 What compiler (and its version) was used to compile the program you
-are debugging---e.g.  ``gcc-1.37.1''.
+are debugging---e.g.  ``gcc-2.0''.
 
 @item
 The command arguments you gave the compiler to compile your example and
@@ -7435,7 +7681,7 @@ things without first using the debugger to find the facts.
 @include inc-hist.texi
 @end iftex
 
-@node Renamed Commands, Installing GDB, GDB Bugs, Top
+@node Renamed Commands, Formatting Documentation, GDB Bugs, Top
 @appendix Renamed Commands
 
 The following commands were renamed in GDB 4, in order to make the
@@ -7552,7 +7798,86 @@ unset                     &&\rm(No longer an alias for delete)\cr
 @end tex
 @c END TEXI2ROFF-KILL
 
-@node Installing GDB, Copying, Renamed Commands, Top
+@node Formatting Documentation, Installing GDB, Renamed Commands, Top
+@appendix Formatting the Documentation
+
+@cindex GDB reference card
+@cindex reference card
+The GDB 4 release includes an already-formatted reference card, ready
+for printing on a PostScript or GhostScript printer, in the @file{gdb}
+subdirectory of the main source directory---in
+@file{gdb-4.5/gdb/refcard.ps} of the version 4.5 release.  If you have
+a PostScript or GhostScript printer, you can print the reference card
+by just sending @file{refcard.ps} to the printer.
+
+The release also includes the source for the reference card.  You
+can format it, using @TeX{}, by typing:
+
+@example
+make refcard.dvi
+@end example
+
+The GDB reference card is designed to print in landscape mode on US
+``letter'' size paper; that is, on a sheet 11 inches wide by 8.5 inches
+high.  You will need to specify this form of printing as an option to
+your @sc{dvi} output program.
+
+@cindex documentation
+
+All the documentation for GDB comes as part of the machine-readable
+distribution.  The documentation is written in Texinfo format, which is
+a documentation system that uses a single source file to produce both
+on-line information and a printed manual.  You can use one of the Info
+formatting commands to create the on-line version of the documentation
+and @TeX{} (or @code{texi2roff}) to typeset the printed version.
+
+GDB includes an already formatted copy of the on-line Info version of
+this manual in the @file{gdb} subdirectory.  The main Info file is
+@file{gdb-@var{version-number}/gdb/gdb.info}, and it refers to
+subordinate files matching @samp{gdb.info*} in the same directory.
+
+If you want to format these Info files yourself, you need one of the
+Info formatting programs, such as @code{texinfo-format-buffer} or
+@code{makeinfo}.
+
+If you have @code{makeinfo} installed, and are in the top level GDB
+source directory (@file{gdb-4.5}, in the case of version 4.5), you can
+make the Info file by typing:
+
+@example
+cd gdb
+make gdb.info
+@end example
+
+If you want to typeset and print copies of this manual, you need
+@TeX{}, a printing program such as @code{lpr}, and @file{texinfo.tex},
+the Texinfo definitions file.
+
+@TeX{} is typesetting program; it does not print files directly, but
+produces output files called @sc{dvi} files.  To print a typeset
+document, you need a program to print @sc{dvi} files.  If your system
+has @TeX{} installed, chances are it has such a program.  The precise
+command to use depends on your system; @kbd{lpr -d} is common; another
+is @kbd{dvips}.  The @sc{dvi} print command may require a file name
+without any extension or a @samp{.dvi} extension.
+
+@TeX{} also requires a macro definitions file called
+@file{texinfo.tex}.  This file tells @TeX{} how to typeset a document
+written in Texinfo format.  On its own, @TeX{} cannot read, much less
+typeset a Texinfo file.  @file{texinfo.tex} is distributed with GDB
+and is located in the @file{gdb-@var{version-number}/texinfo}
+directory.
+
+If you have @TeX{} and a @sc{dvi} printer program installed, you can
+typeset and print this manual.  First switch to the the @file{gdb}
+subdirectory of the main source directory (for example, to
+@file{gdb-4.5/gdb}) and then type:
+
+@example
+make gdb.dvi
+@end example
+
+@node Installing GDB, Copying, Formatting Documentation, Top
 @appendix Installing GDB
 @cindex configuring GDB
 @cindex installation
@@ -7561,7 +7886,7 @@ unset                     &&\rm(No longer an alias for delete)\cr
 @c irrelevant in info file; it's as current as the code it lives with.
 @quotation
 @emph{Warning:} These installation instructions are current as of
-GDB version 4.4.  If you're installing a more recent release
+GDB version 4.5.  If you're installing a more recent release
 of GDB, we may have improved the installation procedures since
 printing this manual; see the @file{README} file included in your
 release for the most recent instructions.
@@ -7570,38 +7895,44 @@ release for the most recent instructions.
 
 GDB comes with a @code{configure} script that automates the process
 of preparing GDB for installation; you can then use @code{make} to
-build the @code{gdb} program.
+build the program.
 
 The GDB distribution includes all the source code you need for GDB in
 a single directory, whose name is usually composed by appending the
 version number to @samp{gdb}.
 
-For example, the GDB version 4.4 distribution is in the @file{gdb-4.4}
+For example, the GDB version 4.5 distribution is in the @file{gdb-4.5}
 directory.  That directory contains:
 
 @table @code
-@item gdb-4.4/configure @r{(and supporting files)}
+@item gdb-4.5/configure @r{(and supporting files)}
 script for configuring GDB and all its supporting libraries.
 
-@item gdb-4.4/gdb
+@item gdb-4.5/gdb
 the source specific to GDB itself
 
-@item gdb-4.4/bfd
-source for the Binary File Descriptor Library
+@item gdb-4.5/bfd
+source for the Binary File Descriptor library
 
-@item gdb-4.4/include
+@item gdb-4.5/include
 GNU include files
 
-@item gdb-4.4/libiberty
+@item gdb-4.5/libiberty
 source for the @samp{-liberty} free software library
 
-@item gdb-4.4/readline
+@item gdb-4.5/readline
 source for the GNU command-line interface
+
+@item gdb-4.5/glob
+source for the GNU filename pattern-matching subroutine
+
+@item gdb-4.5/mmalloc
+source for the GNU memory-mapped malloc package
 @end table
 
 The simplest way to configure and build GDB is to run @code{configure}
 from the @file{gdb-@var{version-number}} source directory, which in
-this example is the @file{gdb-4.4} directory.
+this example is the @file{gdb-4.5} directory.
 
 First switch to the @file{gdb-@var{version-number}} source directory
 if you are not already in it; then run @code{configure}.  Pass the
@@ -7611,7 +7942,7 @@ argument.
 For example:
 
 @example
-cd gdb-4.4
+cd gdb-4.5
 ./configure @var{host}
 make
 @end example
@@ -7620,10 +7951,10 @@ make
 where @var{host} is an identifier such as @samp{sun4} or
 @samp{decstation}, that identifies the platform where GDB will run.
 
-These @code{configure} and @code{make} commands build the three libraries @file{bfd},
-@file{readline}, and @file{libiberty}, then @code{gdb} itself.  The
-configured source files, and the binaries, are left in the
-corresponding source directories.
+This sequence of @code{configure} and @code{make} builds the @file{bfd},
+@file{readline}, @file{mmalloc}, and @file{libiberty} libraries, then
+@code{gdb} itself.  The configured source files, and the binaries, are
+left in the corresponding source directories.
 
 @code{configure} is a Bourne-shell (@code{/bin/sh}) script; if your
 system does not recognize this automatically when you run a different
@@ -7635,7 +7966,7 @@ sh configure @var{host}
 
 If you run @code{configure} from a directory that contains source
 directories for multiple libraries or programs, such as the
-@file{gdb-4.4} source directory for version 4.4, @code{configure}
+@file{gdb-4.5} source directory for version 4.5, @code{configure}
 creates configuration files for every directory level underneath (unless
 you tell it not to, with the @samp{--norecursion} option).
 
@@ -7643,12 +7974,12 @@ You can run the @code{configure} script from any of the
 subordinate directories in the GDB distribution, if you only want to
 configure that subdirectory; but be sure to specify a path to it.
 
-For example, with version 4.4, type the following to configure only
+For example, with version 4.5, type the following to configure only
 the @code{bfd} subdirectory:
 
 @example
 @group
-cd gdb-4.4/bfd
+cd gdb-4.5/bfd
 ../configure @var{host}
 @end group
 @end example
@@ -7663,7 +7994,6 @@ let GDB debug child processes whose programs are not readable.
 * Separate Objdir::             Compiling GDB in another directory
 * Config Names::                Specifying names for hosts and targets
 * configure Options::           Summary of options for configure
-* Formatting Documentation::    How to format and print GDB documentation
 @end menu
 
 @node Separate Objdir, Config Names, Installing GDB, Installing GDB
@@ -7680,18 +8010,20 @@ program specified there.
 
 To build @code{gdb} in a separate directory, run @code{configure}
 with the @samp{--srcdir} option to specify where to find the source.
-(Remember, you'll also need to specify a path to find @code{configure}
-itself from your working directory.)
+(You'll also need to specify a path to find @code{configure}
+itself from your working directory.  If the path to @code{configure}
+would be the same as the argument to @samp{--srcdir}, you can leave out
+the @samp{--srcdir} option; it will be assumed.)
 
-For example, with version 4.4, you can build GDB in a separate
+For example, with version 4.5, you can build GDB in a separate
 directory for a Sun 4 like this:
 
 @example
 @group
-cd gdb-4.4
+cd gdb-4.5
 mkdir ../gdb-sun4
 cd ../gdb-sun4
-../gdb-4.4/configure --srcdir=../gdb-4.4 sun4
+../gdb-4.5/configure sun4
 make
 @end group
 @end example
@@ -7715,8 +8047,8 @@ called @code{configure} (or one of its subdirectories).
 
 The @code{Makefile} generated by @code{configure} for each source
 directory also runs recursively.  If you type @code{make} in a source
-directory such as @file{gdb-4.4} (or in a separate configured
-directory configured with @samp{--srcdir=@var{path}/gdb-4.4}), you
+directory such as @file{gdb-4.5} (or in a separate configured
+directory configured with @samp{--srcdir=@var{path}/gdb-4.5}), you
 will build all the required libraries, then build GDB.
 
 When you have multiple hosts or targets configured in separate
@@ -7737,11 +8069,11 @@ of information in the following pattern:
 @end example
 
 For example, you can use the alias @code{sun4} as a @var{host} argument
-or in a @code{+target=@var{target}} option, but the equivalent full name
+or in a @code{--target=@var{target}} option, but the equivalent full name
 is @samp{sparc-sun-sunos4}.
 
 The following table shows all the architectures, hosts, and OS
-prefixes that @code{configure} recognizes in GDB version 4.4.  Entries
+prefixes that @code{configure} recognizes in GDB version 4.5.  Entries
 in the ``OS prefix'' column ending in a @samp{*} may be followed by a
 release number.
 
@@ -7846,22 +8178,22 @@ mips-dec-ultrix
 m68k-hp-bsd
 % sh config.sub i386v
 i386-none-sysv
-% sh config.sub i486v
-*** Configuration "i486v" not recognized
+% sh config.sub i786v
+*** Configuration "i786v" not recognized
 @end example
 
 @noindent
 @code{config.sub} is also distributed in the GDB source
-directory (@file{gdb-4.4}, for version 4.4).
+directory (@file{gdb-4.5}, for version 4.5).
 
-@node configure Options, Formatting Documentation, Config Names, Installing GDB
+@node configure Options, , Config Names, Installing GDB
 @section @code{configure} Options
 
 Here is a summary of all the @code{configure} options and arguments that
 you might use for building GDB:
 
 @example
-configure @r{[}--destdir=@var{dir}@r{]} @r{[}--srcdir=@var{path}@r{]}
+configure @r{[}--srcdir=@var{path}@r{]}
           @r{[}--norecursion@r{]} @r{[}--rm@r{]}
           @r{[}--target=@var{target}@r{]} @var{host}
 @end example
@@ -7872,14 +8204,9 @@ You may introduce options with a single @samp{-} rather than
 @samp{--}.
 
 @table @code
-@item --destdir=@var{dir}
-@var{dir} is an installation directory @emph{path prefix}.  After you
-configure with this option, @code{make install} will install GDB as
-@file{@var{dir}/bin/gdb}, and the libraries in @file{@var{dir}/lib}.
-If you specify @samp{--destdir=/usr/local}, for example, @code{make
-install} creates @file{/usr/local/bin/gdb}.
-
 @item --srcdir=@var{path}
+@strong{Warning: using this option requires GNU @code{make}, or another
+@code{make} that implements the @code{VPATH} feature.}@*
 Use this option to make configurations in directories separate from the
 GDB source directories.  Among other things, you can use this to
 build (or maintain) several configurations simultaneously, in separate
@@ -7920,84 +8247,6 @@ There is no convenient way to generate a list of all available hosts.
 @code{configure} accepts other options, for compatibility with
 configuring other GNU tools recursively; but these are the only
 options that affect GDB or its supporting libraries.
-
-@node Formatting Documentation,  , configure Options, Installing GDB
-@section Formatting the Documentation
-
-All the documentation for GDB, including this manual, comes as part of
-the distribution.  The documentation is written in Texinfo format,
-which is a documentation system that uses a single source file to
-produce both on-line information and a printed manual.  You can use
-one of the Info formatting commands to create the on-line version of
-the documentation and @TeX{} (or @code{texi2roff}) to typeset the
-printed version.
-
-GDB includes an already formatted copy of the on-line Info version of
-this manual in the @file{gdb} subdirectory.  The main Info file is
-@file{gdb-@var{version-number}/gdb/gdb.info}, and it refers to
-subordinate files matching @samp{gdb.info*} in the same directory.
-
-If you want to format these Info files yourself, you need one of the
-Info formatting programs, such as @code{texinfo-format-buffer} or
-@code{makeinfo}.
-
-If you have @code{makeinfo} installed, and are in the top level GDB
-source directory (@file{gdb-4.4}, in the case of version 4.4), you can
-make the Info file by typing:
-
-@example
-cd gdb
-make gdb.info
-@end example
-
-If you want to typeset and print copies of this manual, you need
-@TeX{}, a printing program such as @code{lpr}, and @file{texinfo.tex},
-the Texinfo definitions file.
-
-@TeX{} is typesetting program; it does not print files directly, but
-produces output files called @sc{dvi} files.  To print a typeset
-document, you need a program to print @sc{dvi} files.  If your system
-has @TeX{} installed, chances are it has such a program.  The precise
-command to use depends on your system; @kbd{lpr -d} is common; another
-is @kbd{dvips}.  The @sc{dvi} print command may require a file name
-without any extension or a @samp{.dvi} extension.
-
-@TeX{} also requires a macro definitions file called
-@file{texinfo.tex}.  This file tells @TeX{} how to typeset a document
-written in Texinfo format.  On its own, @TeX{} cannot read, much less
-typeset a Texinfo file.  @file{texinfo.tex} is distributed with GDB
-and is located in the @file{gdb-@var{version-number}/texinfo}
-directory.
-
-If you have @TeX{} and a @sc{dvi} printer program installed, you can
-typeset and print this manual.  First switch to the the @file{gdb}
-subdirectory of the main source directory (for example, to
-@file{gdb-4.4/gdb}) and then type:
-
-@example
-make gdb.dvi
-@end example
-
-@cindex GDB reference card
-@cindex reference card
-In addition to the manual, the GDB 4 release includes a three-column
-reference card.  Format the GDB reference card by typing:
-
-@example
-make refcard.dvi
-@end example
-
-The GDB reference card is designed to print in landscape mode on US
-``letter'' size paper; that is, on a sheet 11 inches wide by 8.5 inches
-high.  You will need to specify this form of printing as an option to
-your @sc{dvi} output program.
-
-The GDB 4 release includes an already-formatted reference card, ready
-for printing on a PostScript or GhostScript printer, in the @file{gdb}
-subdirectory of the main source directory---in
-@file{gdb-4.2/gdb/refcard.ps} of the version 4.2 release.  If you have
-a PostScript or GhostScript printer, you can print the reference card
-by just sending @file{refcard.ps} to the printer.
 
 @node Copying, Index, Installing GDB, Top
 @unnumbered GNU GENERAL PUBLIC LICENSE

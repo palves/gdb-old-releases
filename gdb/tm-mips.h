@@ -1,5 +1,5 @@
 /* Definitions to make GDB run on a mips box under 4.3bsd.
-   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Per Bothner (bothner@cs.wisc.edu) at U.Wisconsin
    and by Alessandro Forin (af@cs.cmu.edu) at CMU.
 
@@ -18,6 +18,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#include "coff/sym.h"		/* Needed for PDR below.  */
+#include "coff/symconst.h"
 
 #if !defined (TARGET_BYTE_ORDER)
 #define TARGET_BYTE_ORDER LITTLE_ENDIAN
@@ -95,7 +98,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Number of machine registers */
 
-#define NUM_REGS 73
+#define NUM_REGS 80
 
 /* Initializer for an array of names of registers.
    There should be NUM_REGS strings in this initializer.  */
@@ -107,10 +110,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	"t8",	"t9",	"k0",	"k1",	"gp",	"sp",	"s8",	"ra", \
 	"sr",	"lo",	"hi",	"bad",	"cause","pc",    \
 	"f0",   "f1",   "f2",   "f3",   "f4",   "f5",   "f6",   "f7", \
-	"f8",   "f9",   "f10",   "f11",   "f12",   "f13",   "f14",   "f15", \
-	"f16",   "f17",   "f18",   "f19",   "f20",   "f21",   "f22",   "f23",\
-	"f24",   "f25",   "f26",   "f27",   "f28",   "f29",   "f30",   "f31",\
-	"fsr",   "fir", "fp" \
+	"f8",   "f9",   "f10",  "f11",  "f12",  "f13",  "f14",  "f15", \
+	"f16",  "f17",  "f18",  "f19",  "f20",  "f21",  "f22",  "f23",\
+	"f24",  "f25",  "f26",  "f27",  "f28",  "f29",  "f30",  "f31",\
+	"fsr",  "fir",  "fp",   "inx",  "rand", "tlblo","ctxt", "tlbhi",\
+	"epc",  "prid"\
     }
 
 /* Register numbers of various important registers.
@@ -121,6 +125,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    but do serve to get the desired values when passed to read_register.  */
 
 #define ZERO_REGNUM 0		/* read-only register, always 0 */
+#define A0_REGNUM 4		/* Loc of first arg during a subr call */
 #define SP_REGNUM 29		/* Contains address of top of stack */
 #define RA_REGNUM 31		/* Contains return address value */
 #define PS_REGNUM 32		/* Contains processor status */
@@ -133,6 +138,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define FCRCS_REGNUM 70         /* FP control/status */
 #define FCRIR_REGNUM 71         /* FP implementation/revision */
 #define FP_REGNUM 72		/* Pseudo register that contains true address of executing stack frame */
+#define	FIRST_EMBED_REGNUM 73	/* First supervisor register for embedded use */
+#define	LAST_EMBED_REGNUM 79	/* Last one */
 
 /* Define DO_REGISTERS_INFO() to do machine-specific formatting
    of register dumps. */
@@ -220,15 +227,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    (its caller).  */
 
 /* FRAME_CHAIN takes a frame's nominal address
-   and produces the frame's chain-pointer.
-
-   However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.  */
+   and produces the frame's chain-pointer. */
 
 #define FRAME_CHAIN(thisframe) (FRAME_ADDR)mips_frame_chain(thisframe)
-
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
 
 /* Define other aspects of the stack frame.  */
 
@@ -322,25 +323,28 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    mipsread.c (ab)uses this to save memory */
 
 typedef struct mips_extra_func_info {
-	unsigned long	adr;	/* memory address of start of procedure */
-	long	isym;		/* pointer to procedure symbol */
-	long	pad2;		/* iline: start of line number entries*/
-	long	regmask;	/* save register mask */
-	long	regoffset;	/* save register offset */
 	long	numargs;	/* number of args to procedure (was iopt) */
-	long	fregmask;	/* save floating point register mask */
-	long	fregoffset;	/* save floating point register offset */
-	long	framesize;	/* frameoffset: frame size */
-	short	framereg;	/* frame pointer register */
-	short	pcreg;		/* offset or reg of return pc */
-	long	lnLow;		/* lowest line in the procedure */
-	long	lnHigh;		/* highest line in the procedure */
-	long	pad3;		/* cbLineOffset: byte offset for this procedure from the fd base */
+	PDR	pdr;		/* Procedure descriptor record */
 } *mips_extra_func_info_t;
 
 #define EXTRA_FRAME_INFO \
-  char *proc_desc; /* actually, a mips_extra_func_info_t */\
+  mips_extra_func_info_t proc_desc; \
   int num_args;\
   struct frame_saved_regs *saved_regs;
 
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fci) init_extra_frame_info(fci)
+
+#define STAB_REG_TO_REGNUM(num) ((num) < 32 ? (num) : (num)+FP0_REGNUM-32)
+
+/* Size of elements in jmpbuf */
+
+#define JB_ELEMENT_SIZE 4
+
+/* Figure out where the longjmp will land.  We expect that we have just entered
+   longjmp and haven't yet setup the stack frame, so the args are still in the
+   argument regs.  a0 (CALL_ARG0) points at the jmp_buf structure from which we
+   extract the pc (JB_PC) that we will land at.  The pc is copied into ADDR.
+   This routine returns true on success */
+
+/* Note that caller must #include <setjmp.h> in order to get def of JB_* */
+#define GET_LONGJMP_TARGET(ADDR) get_longjmp_target(ADDR)

@@ -35,7 +35,7 @@ typedef int op_type;
 #define HexC 	12
 #define HexD 	13
 #define HexE 	14
-#define HexF 	16
+#define HexF 	15
 #define START  		0x20
 #define KBIT 		0x21		/* K is #1, or #2, yielding 0x0 or 0x8 */
 #define IMM3 		0x22		/* bit number */
@@ -93,7 +93,8 @@ struct h8_opcode
 
 
 
-struct h8_opcode h8_opcodes[] 
+
+
 #ifdef DEFINE_TABLE
 
 #define BITOP(imm, name, op00, op01,op10,op11, op20,op21)\
@@ -126,7 +127,7 @@ struct h8_opcode h8_opcodes[]
 #define UNOP3(name, op1, op2, op3) \
 { name , {RS8, E}, {op1, op2, op3, RS8, E}}
 
-
+struct h8_opcode h8_opcodes[] 
 = 
 {
   TWOOP("add.b", Hex8, Hex0,Hex8),
@@ -255,5 +256,11 @@ SOP("subs"), {KBIT,RD16|B30,E}, { Hex1, HexB, KBIT, RD16|B30,E} EOP,
  TWOOP("xor", HexD, Hex1, Hex5), 
 SOP("xorc"), {IMM8, CCR,E}, { Hex0, Hex5, IMM8,IGNORE,E} EOP,
  0
- };
+};
+#else
+extern struct h8_opcode h8_opcodes[] ;
 #endif
+
+
+
+

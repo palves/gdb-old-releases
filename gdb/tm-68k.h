@@ -1,5 +1,5 @@
 /* Parameters for execution on a 68000 series machine.
-   Copyright (C) 1986, 1987, 1989, 1990 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1990, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -37,7 +37,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if !defined(SKIP_PROLOGUE)
 #define SKIP_PROLOGUE(ip)   {(ip) = m68k_skip_prologue(ip);}
-extern CORE_ADDR m68k_skip_prologue ();
+extern CORE_ADDR m68k_skip_prologue PARAMS ((CORE_ADDR ip));
 #endif
 
 /* Immediately after a function call, return the saved pc.
@@ -142,7 +142,7 @@ read_memory_integer (read_register (SP_REGNUM), 4)
 
 /* Put the declaration out here because if it's in the macros, PCC
    will complain.  */
-extern struct ext_format ext_format_68881;
+extern const struct ext_format ext_format_68881;
 
 /* Convert data from raw format for register REGNUM
    to virtual format for register REGNUM.  */
@@ -152,7 +152,7 @@ extern struct ext_format ext_format_68881;
   if ((REGNUM) >= FP0_REGNUM && (REGNUM) < FPC_REGNUM)	\
     ieee_extended_to_double (&ext_format_68881, (FROM), (double *)(TO)); \
   else					\
-    bcopy ((FROM), (TO), 4);	\
+    memcpy ((TO), (FROM), 4);	\
 }
 
 /* Convert data from virtual format for register REGNUM
@@ -163,7 +163,7 @@ extern struct ext_format ext_format_68881;
   if ((REGNUM) >= FP0_REGNUM && (REGNUM) < FPC_REGNUM)	\
     double_to_ieee_extended (&ext_format_68881, (double *)(FROM), (TO)); \
   else					\
-    bcopy ((FROM), (TO), 4);	\
+    memcpy ((TO), (FROM), 4);	\
 }
 
 /* Return the GDB type object for the "standard" data type
@@ -208,12 +208,12 @@ extern struct ext_format ext_format_68881;
 /* Convert data from raw format for register REGNUM
    to virtual format for register REGNUM.  */
 
-#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)  bcopy ((FROM), (TO), 4);
+#define REGISTER_CONVERT_TO_VIRTUAL(REGNUM,FROM,TO)  memcpy ((TO), (FROM), 4);
 
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
-#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)  bcopy ((FROM), (TO), 4);
+#define REGISTER_CONVERT_TO_RAW(REGNUM,FROM,TO)  memcpy ((TO), (FROM), 4);
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -264,9 +264,10 @@ extern struct ext_format ext_format_68881;
 
 #if !defined (EXTRACT_RETURN_VALUE)
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
-  bcopy ((char *)(REGBUF) +						\
+  memcpy ((VALBUF),							\
+	  (char *)(REGBUF) +						\
 	         (TYPE_LENGTH(TYPE) >= 4 ? 0 : 4 - TYPE_LENGTH(TYPE)),	\
-	 VALBUF, TYPE_LENGTH(TYPE))
+	  TYPE_LENGTH(TYPE))
 #endif
 
 /* Write into appropriate registers a function return value
@@ -287,37 +288,15 @@ extern struct ext_format ext_format_68881;
 /* Describe the pointer in each stack frame to the previous stack frame
    (its caller).  */
 
-/* FRAME_CHAIN takes a frame's nominal address
-   and produces the frame's chain-pointer.
-
-   However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.  */
-
-/* In the case of the 68000, the frame's nominal address
+/* FRAME_CHAIN takes a frame's nominal address and produces the frame's
+   chain-pointer.
+   In the case of the 68000, the frame's nominal address
    is the address of a 4-byte word containing the calling frame's address.  */
 
 #define FRAME_CHAIN(thisframe)  \
-  (outside_startup_file ((thisframe)->pc) ? \
+  (!inside_entry_file ((thisframe)->pc) ? \
    read_memory_integer ((thisframe)->frame, 4) :\
    0)
-
-#if defined (FRAME_CHAIN_VALID_ALTERNATE)
-
-/* Use the alternate method of avoiding running up off the end of
-   the frame chain or following frames back into the startup code.
-   See the comments in blockframe.c */
-   
-#define FRAME_CHAIN_VALID(chain, thisframe)	\
-  (chain != 0 					\
-   && !(inside_main_scope ((thisframe)->pc))	\
-   && !(inside_entry_scope ((thisframe)->pc)))
-
-#else
-
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && outside_startup_file (FRAME_SAVED_PC (thisframe)))
-
-#endif	/* FRAME_CHAIN_VALID_ALTERNATE */
 
 /* Define other aspects of the stack frame.  */
 
@@ -532,7 +511,14 @@ extern struct ext_format ext_format_68881;
 
 #define PUSH_DUMMY_FRAME	{ m68k_push_dummy_frame (); }
 
+extern void m68k_push_dummy_frame PARAMS ((void));
+
+extern void m68k_pop_frame PARAMS ((void));
+
 /* Discard from the stack the innermost frame, restoring all registers.  */
 
 #define POP_FRAME		{ m68k_pop_frame (); }
 
+/* Offset from SP to first arg on stack at first instruction of a function */
+
+#define SP_ARG0 (1 * 4)

@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bfd.c,v 1.42 1992/01/29 01:04:27 pesch Exp $ */
+/* $Id: bfd.c,v 1.44 1992/04/02 07:26:09 gnu Exp $ */
 
 /*
 SECTION
@@ -226,6 +226,7 @@ DEFUN(bfd_nonrepresentable_section,(abfd, name),
   exit(1);
 }
 
+/*ARGSUSED*/
 static 
 void 
 DEFUN(bfd_undefined_symbol,(relent, seclet),
@@ -237,23 +238,23 @@ DEFUN(bfd_undefined_symbol,(relent, seclet),
          symbol->name);
   exit(1);
 }
+/*ARGSUSED*/
 static 
 void 
 DEFUN(bfd_reloc_value_truncated,(relent, seclet),
          CONST  arelent *relent AND
       struct bfd_seclet_struct *seclet)
 {
-  asymbol *symbol = *(relent->sym_ptr_ptr);
   printf("bfd error relocating, value truncated\n");
   exit(1);
 }
+/*ARGSUSED*/
 static 
 void 
 DEFUN(bfd_reloc_is_dangerous,(relent, seclet),
       CONST  arelent *relent AND
      CONST  struct bfd_seclet_struct *seclet)
 {
-  asymbol *symbol = *(relent->sym_ptr_ptr);
   printf("bfd error relocating, dangerous\n");
   exit(1);
 }
@@ -438,7 +439,7 @@ DESCRIPTION
 	section to the supplied values.
 
 */
-
+/*ARGSUSED*/
 void
 bfd_set_reloc (ignore_abfd, asect, location, count)
      bfd *ignore_abfd;

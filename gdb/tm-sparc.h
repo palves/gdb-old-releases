@@ -1,5 +1,5 @@
-/* Parameters for target machine of Sun 4, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+/* Parameters for SPARC target machines, for GDB, the GNU debugger.
+   Copyright 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@mcc.com)
 
 This file is part of GDB.
@@ -287,25 +287,16 @@ extern CORE_ADDR sparc_pc_adjust();
 
 #define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
   (sparc_extract_struct_value_address (REGBUF))
-CORE_ADDR sparc_extract_struct_value_address (
-#ifdef __STDC__
-					      char [REGISTER_BYTES]
-#endif
-					      );
+
+extern CORE_ADDR
+sparc_extract_struct_value_address PARAMS ((char [REGISTER_BYTES]));
 
 
 /* Describe the pointer in each stack frame to the previous stack frame
    (its caller).  */
 
-/* If you're not compiling this on a sun, you'll have to get a copy
-   of <sun4/reg.h> (also known as <machine/reg.h>).  */
-#include <sun4/reg.h>
-
 /* FRAME_CHAIN takes a frame's nominal address
-   and produces the frame's chain-pointer.
-
-   However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.  */
+   and produces the frame's chain-pointer. */
 
 /* In the case of the Sun 4, the frame-chain's nominal address
    is held in the frame pointer register.
@@ -337,9 +328,6 @@ CORE_ADDR sparc_extract_struct_value_address (
 
 #define FRAME_CHAIN(thisframe) (sparc_frame_chain (thisframe))
 CORE_ADDR sparc_frame_chain ();
-
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
 
 /* Define other aspects of the stack frame.  */
 
@@ -581,4 +569,3 @@ extern void single_step ();
       print_floating (doublereg, builtin_type_double, stdout);	\
     }					\
   }
-

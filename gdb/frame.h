@@ -1,5 +1,5 @@
 /* Definitions for dealing with stack frames, for GDB, the GNU debugger.
-   Copyright 1986, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,42 +20,42 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #if !defined (FRAME_H)
 #define FRAME_H 1
 
-/*
- * FRAME is the type of the identifier of a specific stack frame.  It
- * is a pointer to the frame cache item corresponding to this frame.
- * Please note that frame id's are *not* constant over calls to the
- * inferior.  Use frame addresses, which are.
- *
- * FRAME_ADDR is the type of the address of a specific frame.  I
- * cannot imagine a case in which this would not be CORE_ADDR, so
- * maybe it's silly to give it it's own type.  Life's rough.
- *
- * FRAME_FP is a macro which converts from a frame identifier into a
- * frame_address.
- *
- * FRAME_INFO_ID is a macro which "converts" from a frame info pointer
- * to a frame id.  This is here in case I or someone else decides to
- * change the FRAME type again.
- *
- * This file and blockframe.c are the only places which are allowed to
- * use the equivalence between FRAME and struct frame_info *.  EXCEPTION:
- * value.h uses CORE_ADDR instead of FRAME_ADDR because the compiler
- * will accept that in the absence of this file.
- */
+/* FRAME is the type of the identifier of a specific stack frame.  It
+   is a pointer to the frame cache item corresponding to this frame.
+   Please note that frame id's are *not* constant over calls to the
+   inferior.  Use frame addresses, which are.
+  
+   FRAME_ADDR is the type of the address of a specific frame.  I
+   cannot imagine a case in which this would not be CORE_ADDR, so
+   maybe it's silly to give it it's own type.  Life's rough.
+  
+   FRAME_FP is a macro which converts from a frame identifier into a
+   frame_address.
+  
+   FRAME_INFO_ID is a macro which "converts" from a frame info pointer
+   to a frame id.  This is here in case I or someone else decides to
+   change the FRAME type again.
+  
+   This file and blockframe.c are the only places which are allowed to
+   use the equivalence between FRAME and struct frame_info *.  EXCEPTION:
+   value.h uses CORE_ADDR instead of FRAME_ADDR because the compiler
+   will accept that in the absence of this file.
+   FIXME:  Prototypes in other files make use of the equivalence between
+           "FRAME" and "struct frame_info *" and the equivalence between
+	   CORE_ADDR and FRAME_ADDR.  */
+
 typedef struct frame_info *FRAME;
 typedef CORE_ADDR	FRAME_ADDR;
 #define FRAME_FP(fr)	((fr)->frame)
 #define FRAME_INFO_ID(f)	(f)
 
-/*
- * Caching structure for stack frames.  This is also the structure
- * used for extended info about stack frames.  May add more to this
- * structure as it becomes necessary.
- *
- * Note that the first entry in the cache will always refer to the
- * innermost executing frame.  This value should be set (is it?
- * Check) in something like normal_stop.
- */
+/* Caching structure for stack frames.  This is also the structure
+   used for extended info about stack frames.  May add more to this
+   structure as it becomes necessary.
+  
+   Note that the first entry in the cache will always refer to the
+   innermost executing frame.  This value is set in wait_for_inferior.  */
+
 struct frame_info
   {
     /* Nominal address of the frame described.  */
@@ -87,6 +87,36 @@ struct frame_saved_regs
     CORE_ADDR regs[NUM_REGS];
   };
 
+/* Define a default FRAME_CHAIN_VALID, in the form that is suitable for most
+   targets.  If FRAME_CHAIN_VALID returns zero it means that the given frame
+   is the outermost one and has no caller.
+
+   If a particular target needs a different definition, then it can override
+   the definition here by providing one in the tm file. */
+
+#if !defined (FRAME_CHAIN_VALID)
+
+#if defined (FRAME_CHAIN_VALID_ALTERNATE)
+
+/* Use the alternate method of avoiding running up off the end of the frame
+   chain or following frames back into the startup code.  See the comments
+   in objfiles.h. */
+   
+#define FRAME_CHAIN_VALID(chain, thisframe)	\
+  ((chain) != 0					\
+   && !inside_main_func ((thisframe) -> pc)	\
+   && !inside_entry_func ((thisframe) -> pc))
+
+#else
+
+#define FRAME_CHAIN_VALID(chain, thisframe)	\
+  ((chain) != 0					\
+   && !inside_entry_file (FRAME_SAVED_PC (thisframe)))
+
+#endif	/* FRAME_CHAIN_VALID_ALTERNATE */
+
+#endif	/* FRAME_CHAIN_VALID */
+
 /* The stack frame that the user has specified for commands to act on.
    Note that one cannot assume this is the address of valid data.  */
 
@@ -96,38 +126,81 @@ extern FRAME selected_frame;
    0 for innermost, 1 for its caller, ...
    or -1 for frame specified by address with no defined level.  */
 
-int selected_frame_level;
+extern int selected_frame_level;
 
-extern struct frame_info *get_frame_info ();
-extern struct frame_info *get_prev_frame_info ();
+extern struct frame_info *
+get_frame_info PARAMS ((FRAME));
 
-extern FRAME create_new_frame ();
-extern void  flush_cached_frames ();
-extern void reinit_frame_cache ();
+extern struct frame_info *
+get_prev_frame_info PARAMS ((FRAME));
 
-extern void get_frame_saved_regs ();
+extern FRAME
+create_new_frame PARAMS ((FRAME_ADDR, CORE_ADDR));
 
-extern void  set_current_frame ();
-extern FRAME get_prev_frame ();
-extern FRAME get_current_frame ();
-extern FRAME get_next_frame ();
+extern void
+flush_cached_frames PARAMS ((void));
 
-extern struct block *get_frame_block ();
-extern struct block *get_current_block ();
-extern struct block *get_selected_block ();
-extern struct symbol *get_frame_function ();
-extern CORE_ADDR get_frame_pc ();
-extern CORE_ADDR get_pc_function_start ();
-struct block *block_for_pc ();
+extern void
+reinit_frame_cache PARAMS ((void));
 
-int frameless_look_for_prologue ();
+extern void
+get_frame_saved_regs PARAMS ((struct frame_info *, struct frame_saved_regs *));
 
-void print_frame_args ();
+extern void
+set_current_frame PARAMS ((FRAME));
 
-/* In stack.c */
-extern FRAME find_relative_frame ();
-extern void print_stack_frame ();
-extern void select_frame ();
-extern void record_selected_frame ();
+extern FRAME
+get_prev_frame PARAMS ((FRAME));
 
-#endif /* frame.h not already included.  */
+extern FRAME
+get_current_frame PARAMS ((void));
+
+extern FRAME
+get_next_frame PARAMS ((FRAME));
+
+extern struct block *
+get_frame_block PARAMS ((FRAME));
+
+extern struct block *
+get_current_block PARAMS ((void));
+
+extern struct block *
+get_selected_block PARAMS ((void));
+
+extern struct symbol *
+get_frame_function PARAMS ((FRAME));
+
+extern CORE_ADDR
+get_frame_pc PARAMS ((FRAME));
+
+extern CORE_ADDR
+get_pc_function_start PARAMS ((CORE_ADDR));
+
+extern struct block *
+block_for_pc PARAMS ((CORE_ADDR));
+
+extern int
+frameless_look_for_prologue PARAMS ((FRAME));
+
+extern void
+print_frame_args PARAMS ((struct symbol *, struct frame_info *, int, FILE *));
+
+extern FRAME
+find_relative_frame PARAMS ((FRAME, int*));
+
+extern void
+print_stack_frame PARAMS ((FRAME, int, int));
+
+extern void
+select_frame PARAMS ((FRAME, int));
+
+extern void
+record_selected_frame PARAMS ((FRAME_ADDR *, int *));
+
+extern void
+print_frame_info PARAMS ((struct frame_info *, int, int, int));
+
+extern CORE_ADDR
+find_saved_register PARAMS ((FRAME, int));
+
+#endif /* !defined (FRAME_H)  */

@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
-
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -46,189 +44,6 @@ extern int attach_flag;
 /* Nonzero if we just simulated a single step break. */
 int one_stepped;
 
-#if 0
-
-/* This is Damon's implementation of single step simulation. It suffers the
-   following program:
-
-   1 main () {
-   2   char buf[10];
-   3   puts ("test");
-   4   strcmp (buf, "test");  puts ("test");
-   5   exit (0);
-   6 }
-
-   You cannot `next' on line 4 in the above program. gdb puts a breakpoint
-   to the return address of `strcmp', and when execution arrives that point,
-   it is still in the line range and gdb attemps to resume it with single 
-   steps. At that point the breakpoint at step_resume_break_address (return 
-   address of strcmp) and single step's breakpoint mixes up and we end up
-   with a breakpoint which its shadow and itself are identical.
-
-   Fix that problem and use this version. FIXMEmgo.
-*/
-
-
-static struct sstep_breaks {
-	int address;
-	int data;
-} tbreak[2];
-
-
-/*
- * branch_dest -	calculate all places the current instruction may go
- */
-static
-branch_dest(tb)
-     register struct sstep_breaks *tb; 
-{
-    register ulong opcode, iar;
-    long instr;
-    int immediate, absolute;;
-
-    iar = read_pc();					/* current IAR	*/
-    target_read_memory(iar, &instr, sizeof (instr));	/* current inst	*/
-
-    opcode   = instr >> 26;
-    absolute = instr & 2;
-
-    tb[1].address = -1;
-
-    switch (opcode) {
-      case 0x10:			/* branch conditional	*/
-	immediate = ((instr & ~3) << 16) >> 16;
-
-	/*
-	 * two possible locations for next instruction
-	 */
-	tb[0].address = iar + 4;
-	tb[1].address = immediate + (absolute ? 0 : iar);
-
-	break;
-
-      case 0x12:			/* branch unconditional	*/
-	immediate = ((instr & ~3) << 6) >> 6;
-
-	/*
-	 * only one possible location for next instr
-	 */
-	tb[0].address = immediate + (absolute ? 0 : iar);
-
-	break;
-
-      case 0x13:			/* branch conditional register	*/
-	/*
-	 * WE NEED TO CHECK THE CR HERE, TO SEE IF THIS IS
-	 * REALLY UNCONDITIONAL.
-	 */
-	tb++->address = iar + 4;
-
-	switch ((instr >> 1) & 0x3ff) {
-	  case 0x10:			/* branch conditional register	*/
-	    tb->address = read_register(LR_REGNUM) & ~3;
-	    sigtramp_chk(tb);		/* return from sig handler?	*/
-	    break;
-
-	  case 0x210:			/* branch cond to CTR		*/
-	    tb->address = read_register(CTR_REGNUM) & ~3;
-	    sigtramp_chk(tb);		/* return from sig handler?	*/
-	    break;
-
-	  default:
-	    /*
-	     * not a branch.
-	     */
-	    tb->address = iar + 4;
-	    break;
-	}
-	break;
-	
-      default:
-	/*
-	 * not a branch, flow proceeds normally
-	 */
-	tb->address = iar + 4;
-	break;
-    }
-}
-
-/*
- * sigtramp_chk -	heuristic check to see if we think we are returning
- *			from a signal handler.
- *
- * Input:
- *	tb	-	^ to a single step branch location
- *
- * Note:
- *	When we are at the "br" instruction returning to a signal handler,
- *	we return in user mode to an address in the kernel.  If the
- *	segment of the branch target is 0, we may very well be in a
- *	signal handler.  From scrounging through this code, we note that
- *	register 29 has the signal context pointer, from which we can
- *	determine where we will end up next.
- */
-sigtramp_chk(tb)
-register struct sstep_breaks *tb; {
-    struct sigcontext sc;
-
-    if (tb->address & 0xf0000000)
-	return;		/* can't have been sigtramp	*/
-
-    if (target_read_memory(read_register(GPR29), &sc, sizeof (sc)))
-	return;		/* read fails, heuristic fails	*/
-
-    if ((sc.sc_jmpbuf.jmp_context.iar & 0xf0000000) == 0x10000000) {
-	/*
-	 * looks like it might be ok.....
-	 */
-	tb->address = sc.sc_jmpbuf.jmp_context.iar;
-    }
-}
-
-
-/*
- * single_step -	no trace mode harware support, or software support.
- *			sigh.
- */
-single_step(signal) {
-    register i;
-
-    if (!one_stepped) {
-	/*
-	 * need to set breakpoints for single step.
-	 * figure out all places the current instruction could go.
-	 */
-	branch_dest(&tbreak[0]);
-
-	/*
-	 * always at least one place to go to
-	 */
-	target_insert_breakpoint(tbreak[0].address, &tbreak[0].data);
-
-	/*
-	 * if there is another possible location, set a breakpoint there
-	 * as well.
-	 */
-	if (tbreak[1].address != -1)
-	    target_insert_breakpoint(tbreak[1].address, &tbreak[1].data);
-
-	one_stepped = 1;
-	ptrace(PT_CONTINUE, inferior_pid, 1, signal, 0);
-    } else {
-	/*
-	 * need to clear the breakpoints.
-	 */
-	for (i = 0; i < 2; ++i)
-	    if (tbreak[i].address != -1)
-		target_remove_breakpoint(tbreak[i].address, &tbreak[i].data);
-
-	one_stepped = 0;
-    }
-
-    return 1;
-}
-
-#else	/* !DAMON'S VERSION */
 
 /* Breakpoint shadows for the single step instructions will be kept here. */
 
@@ -280,7 +95,7 @@ branch_dest (opcode, instr, pc, safety)
 	
        default: return -1;
   }
-  return (dest < 0x10000000) ? safety : dest;
+  return (dest < TEXT_SEGMENT_BASE) ? safety : dest;
 }
 
 
@@ -309,6 +124,10 @@ int signal;
     opcode = insn >> 26;
     breaks[1] = branch_dest (opcode, insn, loc, breaks[0]);
 
+    /* Don't put two breakpoints on the same address. */
+    if (breaks[1] == breaks[0])
+      breaks[1] = -1;
+
     stepBreaks[1].address = -1;
 
     for (ii=0; ii < 2; ++ii) {
@@ -324,7 +143,7 @@ int signal;
     }  
 
     one_stepped = 1;
-    ptrace (PT_CONTINUE, inferior_pid, 1, signal);
+    ptrace (PT_CONTINUE, inferior_pid, 1, signal, 0);
   }
   else {
 
@@ -336,10 +155,9 @@ int signal;
 
     one_stepped = 0;
   }
+  errno = 0;
   return 1;
 }
-#endif /* !DAMON's version of single step. */
-
 
 
 /* return pc value after skipping a function prologue. */
@@ -360,8 +178,6 @@ int pc;
     pc += 4;
     op = read_memory_integer (pc, 4);
   }
-  else				/* else, this is a frameless invocation */
-    return pc;
 
   if ((op & 0xfc00003e) == 0x7c000026) { /* mfcr Rx */
     pc += 4;
@@ -371,11 +187,15 @@ int pc;
   if ((op & 0xfc000000) == 0x48000000) { /* bl foo, to save fprs??? */
     pc += 4;
     op = read_memory_integer (pc, 4);
-  }
 
-  if ((op & 0xfc1f0000) == 0xd8010000) { /* stfd Rx,NUM(r1) */
-    pc += 4;				 /* store floating register double */
-    op = read_memory_integer (pc, 4);
+    /* At this point, make sure this is not a trampoline function
+       (a function that simply calls another functions, and nothing else).
+       If the next is not a nop, this branch was part of the function
+       prologue. */
+
+    if (op == 0x4def7b82 ||		/* crorc 15, 15, 15 */
+	op == 0x0)
+      return pc - 4;			/* don't skip over this branch */
   }
 
   if ((op & 0xfc1f0000) == 0xbc010000) { /* stm Rx, NUM(r1) */
@@ -396,22 +216,58 @@ int pc;
     op = read_memory_integer (pc, 4);
   }
 
-  while ((op & 0xfc1f0000) == 0x90010000) {	/* st r?, NUM(r1) */  
-    pc += 4;
-    op = read_memory_integer (pc, 4);
-  }
+  /* store parameters into stack */
+  while(
+	(op & 0xfc1f0000) == 0xd8010000 || 	/* stfd Rx,NUM(r1) */
+	(op & 0xfc1f0000) == 0x90010000 ||	/* st r?, NUM(r1)  */
+	(op & 0xfc000000) == 0xfc000000 ||	/* frsp, fp?, .. */
+	(op & 0xd0000000) == 0xd0000000)	/* stfs, fp?, .. */
+    {
+      pc += 4;					/* store fpr double */
+      op = read_memory_integer (pc, 4);
+    }
 
   if (op == 0x603f0000) {			/* oril r31, r1, 0x0 */
     pc += 4;					/* this happens if r31 is used as */
     op = read_memory_integer (pc, 4);		/* frame ptr. (gcc does that)	  */
 
-    if ((op >> 16) == 0x907f) {			/* st r3, NUM(r31) */
-      pc += 4;
+    tmp = 0;
+    while ((op >> 16) == (0x907f + tmp)) {	/* st r3, NUM(r31) */
+      pc += 4;					/* st r4, NUM(r31), ... */
       op = read_memory_integer (pc, 4);
+      tmp += 0x20;
     }
   }
+#if 0
+/* I have problems with skipping over __main() that I need to address
+ * sometime. Previously, I used to use misc_function_vector which
+ * didn't work as well as I wanted to be.  -MGO */
+
+  /* If the first thing after skipping a prolog is a branch to a function,
+     this might be a call to an initializer in main(), introduced by gcc2.
+     We'd like to skip over it as well. Fortunately, xlc does some extra
+     work before calling a function right after a prologue, thus we can
+     single out such gcc2 behaviour. */
+     
+
+  if ((op & 0xfc000001) == 0x48000001) { /* bl foo, an initializer function? */
+    op = read_memory_integer (pc+4, 4);
+
+    if (op == 0x4def7b82) {		/* cror 0xf, 0xf, 0xf (nop) */
+
+      /* check and see if we are in main. If so, skip over this initializer
+         function as well. */
+
+      tmp = find_pc_misc_function (pc);
+      if (tmp >= 0 && !strcmp (misc_function_vector [tmp].name, "main"))
+        return pc + 8;
+    }
+  }
+#endif /* 0 */
+ 
   return pc;
 }
+
 
 /* text start and end addresses in virtual memory. */
 
@@ -424,10 +280,21 @@ CORE_ADDR text_end;
   frames, etc. 
 *************************************************************************/
 
+/* The total size of dummy frame is 436, which is;
+
+	32 gpr's	- 128 bytes
+	32 fpr's	- 256   "
+	7  the rest	- 28    "
+	and 24 extra bytes for the callee's link area. The last 24 bytes
+	for the link area might not be necessary, since it will be taken
+	care of by push_arguments(). */
+
+#define DUMMY_FRAME_SIZE 436
+
 #define	DUMMY_FRAME_ADDR_SIZE 10
 
 /* Make sure you initialize these in somewhere, in case gdb gives up what it
-   was debugging and starts debugging something else. FIXMEmgo */
+   was debugging and starts debugging something else. FIXMEibm */
 
 static int dummy_frame_count = 0;
 static int dummy_frame_size = 0;
@@ -442,6 +309,8 @@ push_dummy_frame ()
 {
   int sp, pc;				/* stack pointer and link register */
   int ii;
+
+  fetch_inferior_registers (-1);
 
   if (dummy_frame_count >= dummy_frame_size) {
     dummy_frame_size += DUMMY_FRAME_ADDR_SIZE;
@@ -459,26 +328,23 @@ push_dummy_frame ()
   dummy_frame_addr [dummy_frame_count++] = sp;
 
   /* Be careful! If the stack pointer is not decremented first, then kernel 
-     thinks he is free to use the sapce underneath it. And kernel actually 
+     thinks he is free to use the space underneath it. And kernel actually 
      uses that area for IPC purposes when executing ptrace(2) calls. So 
      before writing register values into the new frame, decrement and update
      %sp first in order to secure your frame. */
 
-  write_register (SP_REGNUM, sp-408);
+  write_register (SP_REGNUM, sp-DUMMY_FRAME_SIZE);
 
-#if 1
   /* gdb relies on the state of current_frame. We'd better update it,
      otherwise things like do_registers_info() wouldn't work properly! */
 
   flush_cached_frames ();
-  set_current_frame (create_new_frame (sp-408, pc));
-#endif /* 0 */
+  set_current_frame (create_new_frame (sp-DUMMY_FRAME_SIZE, pc));
 
   /* save program counter in link register's space. */
   write_memory (sp+8, &pc, 4);
 
-  /* save full floating point registers here. They will be from F14..F31
-     for know. I am not sure if we need to save everything here! */
+  /* save all floating point and general purpose registers here. */
 
   /* fpr's, f0..f31 */
   for (ii = 0; ii < 32; ++ii)
@@ -488,12 +354,17 @@ push_dummy_frame ()
   for (ii=1; ii <=32; ++ii)
     write_memory (sp-256-(ii*4), &registers[REGISTER_BYTE (32-ii)], 4);
 
-  /* so far, 32*2 + 32 words = 384 bytes have been written. We need 6 words
-     (24 bytes) for the rest of the registers. It brings the total to 408 
-     bytes.
-     save sp or so call back chain right here. */
-  write_memory (sp-408, &sp, 4);
-  sp -= 408;
+  /* so far, 32*2 + 32 words = 384 bytes have been written. 
+     7 extra registers in our register set: pc, ps, cnd, lr, cnt, xer, mq */
+
+  for (ii=1; ii <= (LAST_SP_REGNUM-FIRST_SP_REGNUM+1); ++ii) {
+    write_memory (sp-384-(ii*4), 
+	       &registers[REGISTER_BYTE (FPLAST_REGNUM + ii)], 4);
+  }
+
+  /* Save sp or so called back chain right here. */
+  write_memory (sp-DUMMY_FRAME_SIZE, &sp, 4);
+  sp -= DUMMY_FRAME_SIZE;
 
   /* And finally, this is the back chain. */
   write_memory (sp+8, &pc, 4);
@@ -505,12 +376,13 @@ push_dummy_frame ()
    In rs6000 when we push a dummy frame, we save all of the registers. This
    is usually done before user calls a function explicitly.
 
-   After a dummy frame is pushed, some instructions are copied into stack, and
-   stack pointer is decremented even more. Since we don't have a frame pointer to
-   get back to the parent frame of the dummy, we start having trouble poping it.
-   Therefore, we keep a dummy frame stack, keeping addresses of dummy frames as
-   such. When poping happens and when we detect that was a dummy frame, we pop
-   it back to its parent by using dummy frame stack (`dummy_frame_addr' array).
+   After a dummy frame is pushed, some instructions are copied into stack,
+   and stack pointer is decremented even more.  Since we don't have a frame
+   pointer to get back to the parent frame of the dummy, we start having
+   trouble poping it.  Therefore, we keep a dummy frame stack, keeping
+   addresses of dummy frames as such.  When poping happens and when we
+   detect that was a dummy frame, we pop it back to its parent by using
+   dummy frame stack (`dummy_frame_addr' array). 
  */
    
 pop_dummy_frame ()
@@ -528,7 +400,13 @@ pop_dummy_frame ()
     read_memory (sp-256-(ii*4), &registers[REGISTER_BYTE (32-ii)], 4);
   }
 
-  read_memory (sp-400, &registers [REGISTER_BYTE(PC_REGNUM)], 4);
+  /* restore the rest of the registers. */
+  for (ii=1; ii <=(LAST_SP_REGNUM-FIRST_SP_REGNUM+1); ++ii)
+    read_memory (sp-384-(ii*4),
+    		&registers[REGISTER_BYTE (FPLAST_REGNUM + ii)], 4);
+
+  read_memory (sp-(DUMMY_FRAME_SIZE-8), 
+  				&registers [REGISTER_BYTE(PC_REGNUM)], 4);
 
   /* when a dummy frame was being pushed, we had to decrement %sp first, in 
      order to secure astack space. Thus, saved %sp (or %r1) value, is not the
@@ -550,11 +428,9 @@ pop_dummy_frame ()
 pop_frame ()
 {
   int pc, lr, sp, prev_sp;		/* %pc, %lr, %sp */
+  struct aix_framedata fdata;
   FRAME fr = get_current_frame ();
-  int offset = 0;
-  int frameless = 0;			/* TRUE if function is frameless */
   int addr, ii;
-  int saved_gpr, saved_fpr;		/* # of saved gpr's and fpr's */
 
   pc = read_pc ();
   sp = FRAME_FP (fr);
@@ -569,10 +445,10 @@ pop_frame ()
      saved %pc value in the previous frame. */
 
   addr = get_pc_function_start (fr->pc) + FUNCTION_START_OFFSET;
-  function_frame_info (addr, &frameless, &offset, &saved_gpr, &saved_fpr);
+  function_frame_info (addr, &fdata);
 
   read_memory (sp, &prev_sp, 4);
-  if (frameless)
+  if (fdata.frameless)
     lr = read_register (LR_REGNUM);
   else
     read_memory (prev_sp+8, &lr, 4);
@@ -581,16 +457,16 @@ pop_frame ()
   write_register (PC_REGNUM, lr);
 
   /* reset register values if any was saved earlier. */
-  addr = prev_sp - offset;
+  addr = prev_sp - fdata.offset;
 
-  if (saved_gpr != -1)
-    for (ii=saved_gpr; ii <= 31; ++ii) {
+  if (fdata.saved_gpr != -1)
+    for (ii=fdata.saved_gpr; ii <= 31; ++ii) {
       read_memory (addr, &registers [REGISTER_BYTE (ii)], 4);
       addr += sizeof (int);
     }
 
-  if (saved_fpr != -1)
-    for (ii=saved_fpr; ii <= 31; ++ii) {
+  if (fdata.saved_fpr != -1)
+    for (ii=fdata.saved_fpr; ii <= 31; ++ii) {
       read_memory (addr, &registers [REGISTER_BYTE (ii+FP0_REGNUM)], 8);
       addr += 8;
   }
@@ -643,32 +519,32 @@ fix_call_dummy(dummyname, pc, fun, nargs, type)
 
 
 /* return information about a function frame.
+   in struct aix_frameinfo fdata:
     - frameless is TRUE, if function does not save %pc value in its frame.
     - offset is the number of bytes used in the frame to save registers.
     - saved_gpr is the number of the first saved gpr.
     - saved_fpr is the number of the first saved fpr.
+    - alloca_reg is the number of the register used for alloca() handling.
+      Otherwise -1.
  */
-function_frame_info (pc, frameless, offset, saved_gpr, saved_fpr)
+function_frame_info (pc, fdata)
   int pc;
-  int *frameless, *offset, *saved_gpr, *saved_fpr;
+  struct aix_framedata *fdata;
 {
   unsigned int tmp;
   register unsigned int op;
 
-  *offset = 0;
-  *saved_gpr = *saved_fpr = -1;
-
-  if (!inferior_pid)
-    return;
+  fdata->offset = 0;
+  fdata->saved_gpr = fdata->saved_fpr = fdata->alloca_reg = -1;
 
   op  = read_memory_integer (pc, 4);
   if (op == 0x7c0802a6) {		/* mflr r0 */
     pc += 4;
     op = read_memory_integer (pc, 4);
-    *frameless = 0;
+    fdata->frameless = 0;
   }
   else				/* else, this is a frameless invocation */
-    *frameless = 1;
+    fdata->frameless = 1;
 
 
   if ((op & 0xfc00003e) == 0x7c000026) { /* mfcr Rx */
@@ -679,6 +555,14 @@ function_frame_info (pc, frameless, offset, saved_gpr, saved_fpr)
   if ((op & 0xfc000000) == 0x48000000) { /* bl foo, to save fprs??? */
     pc += 4;
     op = read_memory_integer (pc, 4);
+    /* At this point, make sure this is not a trampoline function
+       (a function that simply calls another functions, and nothing else).
+       If the next is not a nop, this branch was part of the function
+       prologue. */
+
+    if (op == 0x4def7b82 ||		/* crorc 15, 15, 15 */
+	op == 0x0)
+      return;				/* prologue is over */
   }
 
   if ((op & 0xfc1f0000) == 0xd8010000) { /* stfd Rx,NUM(r1) */
@@ -688,21 +572,60 @@ function_frame_info (pc, frameless, offset, saved_gpr, saved_fpr)
 
   if ((op & 0xfc1f0000) == 0xbc010000) { /* stm Rx, NUM(r1) */
     int tmp2;
-    *saved_gpr = (op >> 21) & 0x1f;
+    fdata->saved_gpr = (op >> 21) & 0x1f;
     tmp2 = op & 0xffff;
     if (tmp2 > 0x7fff)
       tmp2 = 0xffff0000 | tmp2;
 
     if (tmp2 < 0) {
       tmp2 = tmp2 * -1;
-      *saved_fpr = (tmp2 - ((32 - *saved_gpr) * 4)) / 8;
-      if ( *saved_fpr > 0)
-        *saved_fpr = 32 - *saved_fpr;
+      fdata->saved_fpr = (tmp2 - ((32 - fdata->saved_gpr) * 4)) / 8;
+      if ( fdata->saved_fpr > 0)
+        fdata->saved_fpr = 32 - fdata->saved_fpr;
       else
-        *saved_fpr = -1;
+        fdata->saved_fpr = -1;
     }
-    *offset = tmp2;
+    fdata->offset = tmp2;
+    pc += 4;
+    op = read_memory_integer (pc, 4);
   }
+
+  while (((tmp = op >> 16) == 0x9001) ||	/* st   r0, NUM(r1) */
+	 (tmp == 0x9421) ||			/* stu  r1, NUM(r1) */
+	 (op == 0x93e1fffc)) 			/* st   r31,-4(r1) */
+  {
+    /* gcc takes a short cut and uses this instruction to save r31 only. */
+
+    if (op == 0x93e1fffc) {
+      if (fdata->offset)
+/*        fatal ("Unrecognized prolog."); */
+        printf ("Unrecognized prolog!\n");
+
+      fdata->saved_gpr = 31;
+      fdata->offset = 4;
+    }
+    pc += 4;
+    op = read_memory_integer (pc, 4);
+  }
+
+  while ((tmp = (op >> 22)) == 0x20f) {	/* l	r31, ... or */
+    pc += 4;				/* l	r30, ...    */
+    op = read_memory_integer (pc, 4);
+  }
+
+  /* store parameters into stack */
+  while(
+	(op & 0xfc1f0000) == 0xd8010000 || 	/* stfd Rx,NUM(r1) */
+	(op & 0xfc1f0000) == 0x90010000 ||	/* st r?, NUM(r1)  */
+	(op & 0xfc000000) == 0xfc000000 ||	/* frsp, fp?, .. */
+	(op & 0xd0000000) == 0xd0000000)	/* stfs, fp?, .. */
+    {
+      pc += 4;					/* store fpr double */
+      op = read_memory_integer (pc, 4);
+    }
+
+  if (op == 0x603f0000)				/* oril r31, r1, 0x0 */
+    fdata->alloca_reg = 31;
 }
 
 
@@ -830,12 +753,6 @@ ran_out_of_registers_for_arguments:
 
     write_register (SP_REGNUM, sp);
 
-#if 0
-    pc = read_pc ();
-    flush_cached_frames ();
-    set_current_frame (create_new_frame (sp, pc));
-#endif
-
     /* if the last argument copied into the registers didn't fit there 
        completely, push the rest of it into stack. */
 
@@ -869,17 +786,9 @@ ran_out_of_registers_for_arguments:
       ii += ((len + 3) & -4) / 4;
     }
   }
-  else {
-
+  else
     /* Secure stack areas first, before doing anything else. */
     write_register (SP_REGNUM, sp);
-
-#if 0
-    pc = read_pc ();
-    flush_cached_frames ();
-    set_current_frame (create_new_frame (sp, pc));
-#endif
-  }
 
   saved_sp = dummy_frame_addr [dummy_frame_count - 1];
   read_memory (saved_sp, tmp_buffer, 24);
@@ -943,8 +852,11 @@ int fram;
 
 
 
-/* Indirect function calls use a piece of trampoline code do co context switching,
-   i.e. to set the new TOC table. Skip such code if exists. */
+/* Indirect function calls use a piece of trampoline code to do context
+   switching, i.e. to set the new TOC table. Skip such code if we are on
+   its first instruction (as when we have single-stepped to here). 
+   Result is desired PC to step until, or NULL if we are not in
+   trampoline code.  */
 
 skip_trampoline_code (pc)
 int pc;

@@ -1,5 +1,5 @@
 /* Header for environment manipulation library.
-   Copyright (C) 1989, Free Software Foundation.
+   Copyright 1989, 1992 Free Software Foundation.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -14,6 +14,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#if !defined (ENVIRON_H)
+#define ENVIRON_H 1
 
 /* We manipulate environments represented as these structures.  */
 
@@ -30,10 +33,26 @@ struct environ
   char **vector;
 };
 
-struct environ *make_environ ();
-void free_environ ();
-void init_environ ();
-char *get_in_environ ();
-void set_in_environ ();
-void unset_in_environ ();
-char **environ_vector ();
+extern struct environ *
+make_environ PARAMS ((void));
+
+extern void
+free_environ PARAMS ((struct environ *));
+
+extern void
+init_environ PARAMS ((struct environ *));
+
+extern char *
+get_in_environ PARAMS ((const struct environ *, const char *));
+
+extern void
+set_in_environ PARAMS ((struct environ *, const char *,
+			const char *));
+
+extern void
+unset_in_environ PARAMS ((struct environ *, char *));
+
+extern char **
+environ_vector PARAMS ((struct environ *));
+
+#endif	/* defined (ENVIRON_H) */

@@ -5,6 +5,7 @@
 This file is part of GAS, the GNU Assembler, GDB, the GNU debugger, and
 the GNU Binutils.
 
+
 GAS/GDB is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
@@ -120,7 +121,7 @@ The following chars are unused: (note: ,[] are used as punctuation)
 
 #define OP2(x)		(((x)&0x7) << 22) /* op2 field of format2 insns */
 #define OP3(x)		(((x)&0x3f) << 19) /* op3 field of format3 insns */
-#define OP(x)		(((x)&0x3) << 30) /* op field of all insns */
+#define OP(x)		((unsigned)((x)&0x3) << 30) /* op field of all insns */
 #define OPF(x)		(((x)&0x1ff) << 5) /* opf field of float insns */
 #define F3F(x, y, z)	(OP(x) | OP3(y) | OPF(z)) /* format3 float insns */
 #define F3I(x)		(((x)&0x1) << 13) /* immediate field of format 3 insns */
@@ -426,7 +427,12 @@ static struct sparc_opcode sparc_opcodes[] = {
 { "jmpl",	F3(2, 0x38, 1), F3(~2, ~0x38, ~1)|RS1_G0,	"i,d", F_DELAYED, v6 }, /* jmpl %g0+i,d */
 { "jmpl",	F3(2, 0x38, 1), F3(~2, ~0x38, ~1),		"1+i,d", F_DELAYED, v6 },
 { "jmpl",	F3(2, 0x38, 1), F3(~2, ~0x38, ~1),		"i+1,d", F_DELAYED, v6 },
-{ "jmpl",	F3(2, 0x38, 1), F3(~2, ~0x38, ~1)|RS1_G0,	"i,d", F_DELAYED, v6 },
+
+
+
+
+
+
 
  /* The 1<<12 is a long story.  It is necessary.  For more info, please contact rich@cygnus.com */
 { "sll",	F3(2, 0x25, 0), F3(~2, ~0x25, ~0)|(1<<12)|ASI(~0),	"1,2,d", 0, v6 },
@@ -496,6 +502,7 @@ static struct sparc_opcode sparc_opcodes[] = {
 
 { "rd",	F3(2, 0x29, 0),			F3(~2, ~0x29, ~0)|RS1_G0|SIMM13(~0),	"p,d", 0, v6 }, /* rd %psr,r */
 { "rd",	F3(2, 0x2a, 0),			F3(~2, ~0x2a, ~0)|RS1_G0|SIMM13(~0),	"w,d", 0, v6 }, /* rd %wim,r */
+
 
 { "mov",	F3(2, 0x30, 0),		F3(~2, ~0x30, ~0)|ASI(~0),		"1,2,m", F_ALIAS, v8 }, /* wr r,r,%asrX */
 { "mov",	F3(2, 0x30, 0),		F3(~2, ~0x30, ~0)|RD_G0|ASI(~0),	"1,2,y", F_ALIAS, v6 }, /* wr r,r,%y */
@@ -859,4 +866,4 @@ condfc("fbule",	"cb013", 0xe, 0),
  * End:
  */
 
-/* end of sparc-opcode.h */
+/* end of sparc.h */

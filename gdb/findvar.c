@@ -17,9 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "symtab.h"
+#include "gdbtypes.h"
 #include "frame.h"
 #include "value.h"
 #include "gdbcore.h"
@@ -426,7 +426,7 @@ read_var_value (var, frame)
 	return 0;
       }
       addr += SYMBOL_VALUE (var);
-      read_memory (addr, &addr, sizeof (CORE_ADDR));
+      read_memory (addr, (char *) &addr, sizeof (CORE_ADDR));
       break;
       
     case LOC_LOCAL:

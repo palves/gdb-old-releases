@@ -209,10 +209,12 @@ exchange (argv)
 
   /* Interchange the two blocks of data in ARGV.  */
 
-  my_bcopy (&argv[first_nonopt], temp, nonopts_size);
-  my_bcopy (&argv[last_nonopt], &argv[first_nonopt],
+  my_bcopy ((char *)&argv[first_nonopt], (char *)temp,
+	    nonopts_size);
+  my_bcopy ((char *)&argv[last_nonopt], (char *)&argv[first_nonopt],
 	    (optind - last_nonopt) * sizeof (char *));
-  my_bcopy (temp, &argv[first_nonopt + optind - last_nonopt], nonopts_size);
+  my_bcopy ((char *)temp, (char *)&argv[first_nonopt + optind - last_nonopt],
+            nonopts_size);
 
   /* Update records for the slots the non-options now occupy.  */
 

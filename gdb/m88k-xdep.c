@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -66,9 +65,9 @@ extern int errno;
 extern char registers[REGISTER_BYTES];
 
 void
-fetch_inferior_registers ()
+fetch_inferior_registers (regno)
+     int regno;		/* Original value discarded */
 {
-  register int regno;
   register unsigned int regaddr;
   char buf[MAX_REGISTER_RAW_SIZE];
   register int i;
@@ -105,6 +104,7 @@ fetch_inferior_registers ()
    If REGNO is -1, do this for all registers.
    Otherwise, REGNO specifies which register (so we can save time).  */
 
+void
 store_inferior_registers (regno)
      int regno;
 {

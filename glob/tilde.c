@@ -21,7 +21,14 @@
 
 #include "sysdep.h"
 
+#ifndef __MSDOS__
 #include <pwd.h>
+#endif
+
+#ifdef __GNUC__
+#undef alloca
+#define alloca(x) __builtin_alloca(x)
+#endif
 
 #ifndef savestring
 #define savestring(x) (char *)strcpy (xmalloc (1 + strlen (x)), (x))
@@ -147,8 +154,15 @@ tilde_expand (filename)
       start = tilde_find_prefix (filename, &len);
 
       /* Copy the skipped text into the result. */
-      if ((result_index + start + 1) > result_size)
-	result = (char *)xrealloc (result, 1 + (result_size += (start + 20)));
+      /* This test is always true the first time, since result_index
+	 is 0, result_size is 0, and start is >= 0.  So we malloc here.  */
+      if ((result_index + start + 1) > result_size) {
+	result_size += (start + 20);
+	if (result == NULL)
+	  result = (char *)xmalloc  (        1 + result_size);
+	else
+	  result = (char *)xrealloc (result, 1 + result_size);
+      }
 
       strncpy (result + result_index, filename, start);
       result_index += start;
@@ -214,7 +228,9 @@ tilde_expand_word (filename)
 	}
       else
 	{
+#ifndef __MSDOS__
 	  struct passwd *getpwnam (), *user_entry;
+#endif
 	  char *username = (char *)alloca (257);
 	  int i, c;
 
@@ -227,11 +243,13 @@ tilde_expand_word (filename)
 	    }
 	  username[i - 1] = '\0';
 
+#ifndef __MSDOS__
 	  if (!(user_entry = getpwnam (username)))
 	    {
 	      /* If the calling program has a special syntax for
 		 expanding tildes, and we couldn't find a standard
 		 expansion, then let them try. */
+#endif
 	      if (tilde_expansion_failure_hook)
 		{
 		  char *expansion;
@@ -250,6 +268,7 @@ tilde_expand_word (filename)
 		    }
 		}
 	      /* We shouldn't report errors. */
+#ifndef __MSDOS__
 	    }
 	  else
 	    {
@@ -257,11 +276,14 @@ tilde_expand_word (filename)
 					  + strlen (&dirname[i]));
 	      strcpy (temp_name, user_entry->pw_dir);
 	      strcat (temp_name, &dirname[i]);
+#endif
 	    return_name:
 	      free (dirname);
 	      dirname = savestring (temp_name);
+#ifndef __MSDOS__
 	    }
 	    endpwent ();
+#endif
 	}
     }
   return (dirname);

@@ -1,5 +1,5 @@
-/* Parameters for execution on a Sun 386i, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1991 Free Software Foundation, Inc.
+/* Parameters for a Sun 386i target machine, for GDB, the GNU debugger.
+   Copyright 1986, 1987, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -48,6 +48,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    to reach some "real" code.  */
 
 #define SKIP_PROLOGUE(frompc)   {(frompc) = i386_skip_prologue((frompc));}
+
+extern int
+i386_skip_prologue PARAMS ((int));
 
 /* Immediately after a function call, return the saved pc.
    Can't always go through the frames for this because on some machines
@@ -174,6 +177,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   else							\
     bcopy ((FROM), (TO), 4); }
 
+extern void
+i387_to_double PARAMS ((char *, char *));
+
 /* Convert data from virtual format for register REGNUM
    to raw format for register REGNUM.  */
 
@@ -182,6 +188,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
     double_to_i387 ((FROM), (TO));	\
   else					\
     bcopy ((FROM), (TO), 4); }
+
+extern void
+double_to_i387 PARAMS ((char *, char *));
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -219,18 +228,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    (its caller).  */
 
 /* FRAME_CHAIN takes a frame's nominal address
-   and produces the frame's chain-pointer.
-
-   However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.  */
+   and produces the frame's chain-pointer. */
 
 #define FRAME_CHAIN(thisframe) \
-  (outside_startup_file ((thisframe)->pc) ? \
+  (!inside_entry_file ((thisframe)->pc) ? \
    read_memory_integer ((thisframe)->frame, 4) :\
    0)
-
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
 
 /* Define other aspects of the stack frame.  */
 
@@ -251,6 +254,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define FRAME_NUM_ARGS(numargs, fi) (numargs) = i386_frame_num_args(fi)
 
+#ifdef __STDC__		/* Forward decl's for prototypes */
+struct frame_info;
+struct frame_saved_regs;
+#endif
+
+extern int
+i386_frame_num_args PARAMS ((struct frame_info *));
+
 /* Return number of bytes at start of arglist that are not really args.  */
 
 #define FRAME_ARGS_SKIP 8
@@ -264,6 +275,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
 { i386_frame_find_saved_regs ((frame_info), &(frame_saved_regs)); }
 
+extern void
+i386_frame_find_saved_regs PARAMS ((struct frame_info *,
+				    struct frame_saved_regs *));
+
 
 /* Things needed for making the inferior call functions.  */
 
@@ -271,9 +286,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define PUSH_DUMMY_FRAME { i386_push_dummy_frame (); }
 
+extern void
+i386_push_dummy_frame PARAMS ((void));
+
 /* Discard from the stack the innermost frame, restoring all registers.  */
 
 #define POP_FRAME  { i386_pop_frame (); }
+
+extern void
+i386_pop_frame PARAMS ((void));
 
 /* this is 
  *   call 11223344 (32 bit relative)

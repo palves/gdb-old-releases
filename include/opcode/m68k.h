@@ -20,6 +20,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* These are used as bit flags for arch below. */
 
 enum m68k_architecture {
+	_m68k_undef = 0,
 	m68000 = 0x01,
 	m68008 = m68000, /* synonym for -m68000.  otherwise unused. */
 	m68010 = 0x02,
@@ -237,8 +238,8 @@ struct m68k_opcode {
    p  packed float, low bit of 1st word, immediate uses 12 bytes
 */
 
-#define one(x) ((x) << 16)
-#define two(x, y) (((x) << 16) + y)
+#define one(x) ((unsigned int) (x) << 16)
+#define two(x, y) (((unsigned int) (x) << 16) + y)
 
 /*
 	*** DANGER WILL ROBINSON ***

@@ -3,7 +3,7 @@
 # script appropriate for this directory.  For more information, check
 # any existing configure script.
 
-configdirs="libiberty bfd binutils byacc bison gcc readline glob flex ld gas gnulib clib gdb emacs ispell make grep diff rcs gdbm cvs prms fileutils libg++"
+configdirs="mmalloc libiberty bfd binutils byacc bison gcc readline glob ld gas gdb emacs ispell make grep diff rcs cvs patch send_pr libg++ newlib gprof"
 srctrigger=cfg-paper.texi
 srcname="gnu development package"
 
@@ -12,18 +12,29 @@ srcname="gnu development package"
 # XXX - FIXME there needs to be a case for mh_dgux
 
 case "${host_os}" in
+aix*)		host_makefile_frag=config/mh-aix ;;
 m88kbcs)	host_makefile_frag=config/mh-delta88;;
 sysv4*)		host_makefile_frag=config/mh-sysv4 ;;
-sysv* | irix*)	host_makefile_frag=config/mh-sysv ;;
-ultrix)		host_makefile_frag=config/mh-decstation ;;
+sysv* | irix3)	host_makefile_frag=config/mh-sysv ;;
+sco*)		host_makefile_frag=config/mh-sco ;;
+irix4)		host_makefile_frag=config/mh-irix4 ;;
+ultrix*)
+	case "${host_cpu}" in
+	mips)	host_makefile_frag=config/mh-decstation ;;
+	esac
 esac
 
 case "${host_vendor}" in
-sco*)		host_makefile_frag=config/mh-sco ;;
+apollo*)	case "${host_cpu}" in
+		m68k*)
+			case "${host_os}" in
+			sysv*) host_makefile_frag=config/mh-apollo68 ;;
+			bsd*) host_makefile_frag=config/mh-a68bsd ;;
+			esac;;
+		esac ;;
 esac
 
 # per-target:
-
 
 bfd_target=
 
@@ -40,9 +51,13 @@ amd)
 	;;
 esac
 
+case "${target_cpu}" in
+	mips)  configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
+	;;
+	rs6000)configdirs=`echo ${configdirs} | sed -e 's/gas//'`
+esac
 
 target_makefile_frag=config/mt-${bfd_target}
-
 
 #
 # Local Variables:

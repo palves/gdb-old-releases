@@ -1,9 +1,7 @@
-/* Remote debugging interface for HMS  Monitor Version 1.0
-
+/* Remote debugging interface for Hitachi HMS Monitor Version 1.0
    Copyright 1992 Free Software Foundation, Inc.
-
-   Contributed by Steve Chamberlain sac@cygnus.com
-
+   Contributed by Cygnus Support.  Written by Steve Chamberlain
+   (sac@cygnus.com).
 
 This file is part of GDB.
 
@@ -21,14 +19,11 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-
-
-#include <stdio.h>
-#include <string.h>
 #include "defs.h"
 #include "inferior.h"
 #include "wait.h"
 #include "value.h"
+#include <string.h>
 #include <ctype.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -41,9 +36,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* External data declarations */
 extern int stop_soon_quietly;           /* for wait_for_inferior */
 
-/* External function declarations */
-extern struct value *call_function_by_hand();
-
 /* Forward data declarations */
 extern struct target_ops hms_ops;		/* Forward declaration */
 
@@ -55,22 +47,197 @@ static int  hms_clear_breakpoints();
 
 extern struct target_ops hms_ops;
 
-#define DEBUG	
+static int quiet = 1;
+
 #ifdef DEBUG
-# define DENTER(NAME)   (printf_filtered("Entering %s\n",NAME), fflush(stdout))
-# define DEXIT(NAME)    (printf_filtered("Exiting  %s\n",NAME), fflush(stdout))
+# define DENTER(NAME) if (!quiet)  (printf_filtered("Entering %s\n",NAME), fflush(stdout))
+# define DEXIT(NAME)  if (!quiet)  (printf_filtered("Exiting  %s\n",NAME), fflush(stdout))
 #else
 # define DENTER(NAME)
 # define DEXIT(NAME)
 #endif
 
 
+/***********************************************************************/
+/* Caching stuff stolen from remote-nindy.c  */
 
-static int timeout = 5;
+/* The data cache records all the data read from the remote machine
+   since the last time it stopped.
+
+   Each cache block holds LINE_SIZE bytes of data
+   starting at a multiple-of-LINE_SIZE address.  */
+
+
+#define LINE_SIZE_POWER 4
+#define LINE_SIZE (1<<LINE_SIZE_POWER)     /* eg 1<<3 == 8 */
+#define LINE_SIZE_MASK ((LINE_SIZE-1))      /* eg 7*2+1= 111*/
+#define DCACHE_SIZE 64		/* Number of cache blocks */
+#define XFORM(x)  ((x&LINE_SIZE_MASK)>>2)
+struct dcache_block {
+	struct dcache_block *next, *last;
+	unsigned int addr;	/* Address for which data is recorded.  */
+	int data[LINE_SIZE/sizeof(int)];
+};
+
+struct dcache_block dcache_free, dcache_valid;
+
+/* Free all the data cache blocks, thus discarding all cached data.  */ 
+static
+void
+dcache_flush ()
+{
+  register struct dcache_block *db;
+
+  while ((db = dcache_valid.next) != &dcache_valid)
+    {
+      remque (db);
+      insque (db, &dcache_free);
+    }
+}
+
+/*
+ * If addr is present in the dcache, return the address of the block
+ * containing it.
+ */
+static
+struct dcache_block *
+dcache_hit (addr)
+     unsigned int addr;
+{
+  register struct dcache_block *db;
+
+  if (addr & 3)
+    abort ();
+
+  /* Search all cache blocks for one that is at this address.  */
+  db = dcache_valid.next;
+  while (db != &dcache_valid)
+    {
+      if ((addr & ~LINE_SIZE_MASK)== db->addr)
+	return db;
+      db = db->next;
+    }
+  return NULL;
+}
+
+/*  Return the int data at address ADDR in dcache block DC.  */
+static
+int
+dcache_value (db, addr)
+     struct dcache_block *db;
+     unsigned int addr;
+{
+  if (addr & 3)
+    abort ();
+  return (db->data[XFORM(addr)]);
+}
+
+/* Get a free cache block, put or keep it on the valid list,
+   and return its address.  The caller should store into the block
+   the address and data that it describes, then remque it from the
+   free list and insert it into the valid list.  This procedure
+   prevents errors from creeping in if a ninMemGet is interrupted
+   (which used to put garbage blocks in the valid list...).  */
+static
+struct dcache_block *
+dcache_alloc ()
+{
+  register struct dcache_block *db;
+
+  if ((db = dcache_free.next) == &dcache_free)
+    {
+      /* If we can't get one from the free list, take last valid and put
+	 it on the free list.  */
+      db = dcache_valid.last;
+      remque (db);
+      insque (db, &dcache_free);
+    }
+
+  remque (db);
+  insque (db, &dcache_valid);
+  return (db);
+}
+
+/* Return the contents of the word at address ADDR in the remote machine,
+   using the data cache.  */
+static
+int
+dcache_fetch (addr)
+     CORE_ADDR addr;
+{
+  register struct dcache_block *db;
+
+  db = dcache_hit (addr);
+  if (db == 0)
+    {
+      db = dcache_alloc ();
+      immediate_quit++;
+      hms_read_inferior_memory(addr & ~LINE_SIZE_MASK, (unsigned char *)db->data, LINE_SIZE);
+      immediate_quit--;
+      db->addr = addr & ~LINE_SIZE_MASK;
+      remque (db);			/* Off the free list */
+      insque (db, &dcache_valid);	/* On the valid list */
+    }
+  return (dcache_value (db, addr));
+}
+
+/* Write the word at ADDR both in the data cache and in the remote machine.  */
+static void
+dcache_poke (addr, data)
+     CORE_ADDR addr;
+     int data;
+{
+  register struct dcache_block *db;
+
+  /* First make sure the word is IN the cache.  DB is its cache block.  */
+  db = dcache_hit (addr);
+  if (db == 0)
+  {
+    db = dcache_alloc ();
+    immediate_quit++;
+    hms_write_inferior_memory(addr & ~LINE_SIZE_MASK, (unsigned char *)db->data, LINE_SIZE);
+    immediate_quit--;
+    db->addr = addr & ~LINE_SIZE_MASK;
+    remque (db);		/* Off the free list */
+    insque (db, &dcache_valid);	/* On the valid list */
+  }
+
+  /* Modify the word in the cache.  */
+  db->data[XFORM(addr)] = data;
+
+  /* Send the changed word.  */
+  immediate_quit++;
+  hms_write_inferior_memory(addr, (unsigned char *)&data, 4);
+  immediate_quit--;
+}
+
+/* The cache itself. */
+struct dcache_block the_cache[DCACHE_SIZE];
+
+/* Initialize the data cache.  */
+static void
+dcache_init ()
+{
+  register i;
+  register struct dcache_block *db;
+
+  db = the_cache;
+  dcache_free.next = dcache_free.last = &dcache_free;
+  dcache_valid.next = dcache_valid.last = &dcache_valid;
+  for (i=0;i<DCACHE_SIZE;i++,db++)
+    insque (db, &dcache_free);
+}
+
+
+/***********************************************************************
+ * I/O stuff stolen from remote-eb.c
+ ***********************************************************************/
+
+static int timeout = 2;
 static char *dev_name  = "/dev/ttya";
 
 
-static int quiet;
+
 
 /* Descriptor for I/O to remote machine.  Initialize it to -1 so that
    hms_open knows that we don't have a file open when the program
@@ -78,6 +245,8 @@ static int quiet;
 int hms_desc = -1;
 #define OPEN(x) ((x) >= 0)
 
+
+void hms_open();
 
 #define ON	1
 #define OFF	0
@@ -109,20 +278,6 @@ int	turnon;
   ioctl (desc, TIOCSETP, &sg);
 }
 
-/* Suck up all the input from the hms */
-slurp_input()
-{
-  char buf[8];
-
-#ifdef HAVE_TERMIO
-  /* termio does the timeout for us.  */
-  while (read (hms_desc, buf, 8) > 0);
-#else
-  alarm (timeout);
-  while (read (hms_desc, buf, 8) > 0);
-  alarm (0);
-#endif
-}
 
 /* Read a character from the remote system, doing all the fancy
    timeout stuff.  */
@@ -138,21 +293,46 @@ readchar ()
 #else
   alarm (timeout);
   if (read (hms_desc, &buf, 1) < 0)
-    {
-      if (errno == EINTR)
-	error ("Timeout reading from remote system.");
-      else
-	perror_with_name ("remote");
-    }
+  {
+    if (errno == EINTR)
+     error ("Timeout reading from remote system.");
+    else
+     perror_with_name ("remote");
+  }
   alarm (0);
 #endif
 
   if (buf == '\0')
-    error ("Timeout reading from remote system.");
+   error ("Timeout reading from remote system.");
 
-if (!quiet)
-  printf("'%c'",buf);
+  if (!quiet)
+   printf("%c",buf);
   
+  return buf & 0x7f;
+}
+
+static int
+readchar_nofail ()
+{
+  char buf;
+
+  buf = '\0';
+#ifdef HAVE_TERMIO
+  /* termio does the timeout for us.  */
+  read (hms_desc, &buf, 1);
+#else
+  alarm (timeout);
+  if (read (hms_desc, &buf, 1) < 0)
+  {
+    return 0;
+  }
+  alarm (0);
+#endif
+
+  if (buf == '\0') 
+  {
+    return 0;
+  }
   return buf & 0x7f;
 }
 
@@ -267,16 +447,10 @@ volatile int n_alarms;
 void
 hms_timer ()
 {
-#if 0
-  if (kiodebug)
-    printf ("hms_timer called\n");
-#endif
   n_alarms++;
 }
 #endif
 
-/* malloc'd name of the program on the remote system.  */
-static char *prog_name = NULL;
 
 /* Number of SIGTRAPs we need to simulate.  That is, the next
    NEED_ARTIFICIAL_TRAP calls to hms_wait should just return
@@ -289,15 +463,16 @@ hms_kill(arg,from_tty)
 char	*arg;
 int	from_tty;
 {
-#if 0
-	DENTER("hms_kill()");
-	fprintf (hms_stream, "K");
 
-	fprintf (hms_stream, "\r");
-	expect_prompt ();
-	DEXIT("hms_kill()");
-#endif
 }
+
+static check_open()
+{
+  if (!OPEN(hms_desc)) {
+      hms_open("",0);
+    }  
+}
+
 /*
  * Download a file specified in 'args', to the hms. 
  */
@@ -312,15 +487,14 @@ int	fromtty;
   char	buffer[1024];
 	
   DENTER("hms_load()");
-  if (!OPEN(hms_desc))
-  {
-    printf_filtered("HMS not open. Use 'target' command to open HMS\n");
-    return;
-  }
+  check_open();
+
+  dcache_flush();
+  inferior_pid = 0;  
   abfd = bfd_openr(args,"coff-h8300");
   if (!abfd) 
   {
-    printf_filtered("Can't open a bfd on file\n");
+    printf_filtered("Unable to open file %s\n", args);
     return;
   }
 
@@ -335,14 +509,29 @@ int	fromtty;
   {
     if (s->flags & SEC_LOAD) 
     {
-      char *buffer = xmalloc(s->_raw_size);
-      bfd_get_section_contents(abfd, s, buffer, 0, s->_raw_size);
+      int i;
 
-      hms_write_inferior_memory(s->vma, buffer, s->_raw_size);
+      
+#define DELTA 2048
+      char *buffer = xmalloc(DELTA);
+      printf_filtered("%s: %4x .. %4x  ",s->name, s->vma, s->vma + s->_raw_size);
+      for (i = 0; i < s->_raw_size; i+= DELTA) 
+      {
+	int delta = DELTA;
+	if (delta > s->_raw_size - i)
+	 delta = s->_raw_size - i ;
+
+	bfd_get_section_contents(abfd, s, buffer, i, delta);
+	hms_write_inferior_memory(s->vma + i, buffer, delta);
+	printf_filtered("*");
+	fflush(stdout);
+      }
+  printf_filtered(  "\n");      
       free(buffer);
     }
     s = s->next;
   }
+
   
   DEXIT("hms_load()");
 }
@@ -366,38 +555,31 @@ hms_create_inferior (execfile, args, env)
    error ("No exec file specified");
 
   entry_pt = (int) bfd_get_start_address (exec_bfd);
-
+  check_open();
+  
   if (OPEN(hms_desc))
   {
-    
+char buffer[100];    
     hms_kill(NULL,NULL);	 
     hms_clear_breakpoints();
     init_wait_for_inferior ();
     /* Clear the input because what the hms sends back is different
      * depending on whether it was running or not.
      */
-    /*	slurp_input();	/* After this there should be a prompt */
-    hms_write_cr("r");
-	
+/*sprintf(buffer,"g %x", entry_pt);
+
+    hms_write_cr(buffer);
+	*/
+hms_write_cr("");
+
     expect_prompt();
-    printf_filtered("Do you want to download '%s' (y/n)? [y] : ",prog_name);
-  {	
-    char buffer[10];
-    gets(buffer);
-    if (*buffer != 'n') {
-	hms_load(prog_name,0);
-      }
-  }
 
 
     insert_breakpoints ();	/* Needed to get correct instruction in cache */
     proceed(entry_pt, -1, 0);
 
 
-  } else 
-  {
-    printf_filtered("Hms not open yet.\n");
-  }
+  } 
   DEXIT("hms_create_inferior()");
 }
 
@@ -412,22 +594,12 @@ hms_create_inferior (execfile, args, env)
 #endif
 
 static struct {int rate, damn_b;} baudtab[] = {
-	{0, B0},
-	{50, B50},
-	{75, B75},
-	{110, B110},
-	{134, B134},
-	{150, B150},
-	{200, B200},
-	{300, B300},
-	{600, B600},
-	{1200, B1200},
-	{1800, B1800},
-	{2400, B2400},
-	{4800, B4800},
 	{9600, B9600},
 	{19200, B19200},
-	{38400, B38400},
+	{300, B300},
+	{1200, B1200},
+	{2400, B2400},
+	{4800, B4800},
 	{-1, -1},
 };
 
@@ -438,7 +610,7 @@ static int damn_b (rate)
 
   for (i = 0; baudtab[i].rate != -1; i++)
     if (rate == baudtab[i].rate) return baudtab[i].damn_b;
-  return B38400;	/* Random */
+  return B19200;
 }
 
 
@@ -485,31 +657,32 @@ char **p;
 }
 
 static int baudrate = 9600;
-static void
-hms_open (name, from_tty)
-     char *name;
-     int from_tty;
-{
-  TERMINAL sg;
-  unsigned int prl;
-  char *p;
-  
-  DENTER("hms_open()");
-  if(name == 0) 
-  {
-    name = "";
-    
-  }
-  
-  printf("Input string %s\n", name);
-  
-  prog_name = get_word(&name);
-  
-  hms_close (0);
 
-  hms_desc = open (dev_name, O_RDWR);
-  if (hms_desc < 0)
-   perror_with_name (dev_name);
+static int
+is_baudrate_right()
+{
+  
+
+  /* Put this port into NORMAL mode, send the 'normal' character */
+  hms_write("\001", 1);		/* Control A */
+  hms_write("\r", 1);		/* Cr */
+
+  while ( readchar_nofail()) /* Skip noise we put there */
+   ;
+  
+  hms_write("r");
+  if (readchar_nofail() == 'r')  
+   return 1;
+
+  /* Not the right baudrate, or the board's not on */
+  return 0;
+  
+
+}
+static void
+set_rate()
+{
+  TERMINAL sg;    
   ioctl (hms_desc, TIOCGETP, &sg);
 #ifdef HAVE_TERMIO
   sg.c_cc[VMIN] = 0;		/* read with timeout.  */
@@ -524,9 +697,59 @@ hms_open (name, from_tty)
 #endif
 
   ioctl (hms_desc, TIOCSETP, &sg);
+  
+}
+
+static void
+get_baudrate_right()
+{
+
+  int which_rate = 0;
+  
+  while (!is_baudrate_right()) 
+  {
+    which_rate++;
+
+    if (baudtab[which_rate].rate == -1)
+    {
+      which_rate = 0;
+    }
+
+    
+    baudrate = baudtab[which_rate].rate;
+    printf_filtered("Board not responding, trying %d baud\n",baudrate);
+    QUIT;
+    set_rate();
+  }
+}
+
+static void
+hms_open (name, from_tty)
+     char *name;
+     int from_tty;
+{
+
+  unsigned int prl;
+  char *p;
+  
+  DENTER("hms_open()");
+  if(name == 0) 
+  {
+    name = "";
+    
+  }
+  
+  hms_close (0);
+
+  hms_desc = open (dev_name, O_RDWR);
+  if (hms_desc < 0)
+   perror_with_name (dev_name);
+
+  set_rate();
+
+  dcache_init();
 
 
-  push_target (&hms_ops);
   /* start_remote ();              /* Initialize gdb process mechanisms */
 
 
@@ -543,11 +766,7 @@ hms_open (name, from_tty)
    perror ("hms_open: error in signal");
 #endif
 
-
-  /* Put this port into NORMAL mode, send the 'normal' character */
-  hms_write("\001", 1);		/* Control A */
-  hms_write("\r", 1);		/* Cr */
-  expect_prompt ();
+  get_baudrate_right();
   
   /* Hello?  Are you there?  */
   write (hms_desc, "\r", 1);
@@ -558,7 +777,7 @@ hms_open (name, from_tty)
   hms_clear_breakpoints();
 
 
-  printf_filtered("Remote debugging on an H8/300 HMS via %s %s.\n",dev_name,prog_name);
+  printf_filtered("Remote debugging on an H8/300 HMS via %s.\n",dev_name);
 
   DEXIT("hms_open()");
 }
@@ -603,8 +822,6 @@ hms_attach (args, from_tty)
 {
 
   DENTER("hms_attach()");
-  if (from_tty)
-      printf_filtered ("Attaching to remote program %s.\n", prog_name);
 
   /* push_target(&hms_ops);	/* This done in hms_open() */
 
@@ -655,12 +872,13 @@ hms_resume (step, sig)
      int step, sig;
 {
   DENTER("hms_resume()");
+  dcache_flush();
+  
   if (step)	
   {
     hms_write_cr("s");
-
-    hms_write("\003",1);
-    expect_prompt();
+    expect("Step>");
+    
     /* Force the next hms_wait to return a trap.  Not doing anything
        about I/O from the target means that the user has to type
        "continue" to see any.  FIXME, this should be fixed.  */
@@ -669,7 +887,7 @@ hms_resume (step, sig)
   else
   {
     hms_write_cr("g");
-    expect("g\r");
+    expect("g");
   }
   DEXIT("hms_resume()");
 }
@@ -703,50 +921,69 @@ hms_wait (status)
   int ch_handled;
   int old_timeout = timeout;
   int old_immediate_quit = immediate_quit;
-
+  int swallowed_cr = 0;
+  
   DENTER("hms_wait()");
 
   WSETEXIT ((*status), 0);
 
   if (need_artificial_trap != 0)
+  {
+    WSETSTOP ((*status), SIGTRAP);
+    need_artificial_trap--;
+    return 0;
+  }
+
+  timeout = 0;			/* Don't time out -- user program is running. */
+  immediate_quit = 1;		/* Helps ability to QUIT */
+  while (1) 
+  {
+    QUIT;			/* Let user quit and leave process running */
+    ch_handled = 0;
+    ch = readchar ();
+    if (ch == *bp) 
     {
-      WSETSTOP ((*status), SIGTRAP);
-      need_artificial_trap--;
-      return 0;
+	bp++;
+	if (*bp == '\0')
+	 break;
+	ch_handled = 1;
+
+	*swallowed_p++ = ch;
+      } 
+    else 
+    {
+      bp = bpt;
     }
+    if (ch == *ep || *ep == '?') 
+    {
+	ep++;
+	if (*ep == '\0')
+	 break;
 
-  timeout = 0;		/* Don't time out -- user program is running. */
-  immediate_quit = 1;	/* Helps ability to QUIT */
-  while (1) {
-      QUIT;		/* Let user quit and leave process running */
-      ch_handled = 0;
-      ch = readchar ();
-      if (ch == *bp) {
-	  bp++;
-	  if (*bp == '\0')
-	    break;
-	  ch_handled = 1;
+	if (!ch_handled)
+	 *swallowed_p++ = ch;
+	ch_handled = 1;
+      } 
+    else 
+    {
+      ep = exitmsg;
+    }
+      
+    if (!ch_handled) {
+	char *p;
+	/* Print out any characters which have been swallowed.  */
+	for (p = swallowed; p < swallowed_p; ++p)
+	 putc (*p, stdout);
+	swallowed_p = swallowed;
 
-	  *swallowed_p++ = ch;
-      } else
-	bp = bpt;
-      if (ch == *ep || *ep == '?') {
-	  ep++;
-	  if (*ep == '\0')
-	    break;
-
-	  if (!ch_handled)
-	    *swallowed_p++ = ch;
-	  ch_handled = 1;
-      } else
-	ep = exitmsg;
-      if (!ch_handled) {
-	  char *p;
-	  /* Print out any characters which have been swallowed.  */
-	  for (p = swallowed; p < swallowed_p; ++p)
-	    putc (*p, stdout);
-	  swallowed_p = swallowed;
+	  
+	if ((ch != '\r' && ch != '\n') || swallowed_cr>10) 
+	{
 	  putc (ch, stdout);
+	  swallowed_cr = 10;
+	}
+	swallowed_cr ++;
+	  
       }
   }
   if (*bp== '\0') 
@@ -833,11 +1070,11 @@ char *a;
 {
   int i;
   write(hms_desc,a,l);
-if (!quiet)
-  for (i = 0; i < l ; i++)
-  {
-    printf("[%c]", a[i]);
-  }
+  if (!quiet)
+   for (i = 0; i < l ; i++)
+   {
+     printf("%c", a[i]);
+   }
 }
 
 hms_write_cr(s)
@@ -858,7 +1095,8 @@ hms_fetch_registers ()
   
   REGISTER_TYPE reg[NUM_REGS];
   int foo[8];
-
+  check_open();
+  
   do 
   {
     
@@ -869,8 +1107,6 @@ hms_fetch_registers ()
     linebuf[REGREPLY_SIZE] = 0;
     gottok = 0;    
     if (linebuf[0] == 'r' &&
-	linebuf[1] == '\r' &&
-	linebuf[2] == '\n' &&
 	linebuf[3] == 'P' &&
 	linebuf[4] == 'C' &&
 	linebuf[5] == '=' && 
@@ -967,8 +1203,105 @@ CORE_ADDR addr;
 
 }
 
+/* Read a word from remote address ADDR and return it.
+ * This goes through the data cache.
+ */
+int
+hms_fetch_word (addr)
+     CORE_ADDR addr;
+{
+	return dcache_fetch (addr);
+}
+
+/* Write a word WORD into remote address ADDR.
+   This goes through the data cache.  */
+
+void
+hms_store_word (addr, word)
+     CORE_ADDR addr;
+     int word;
+{
+	dcache_poke (addr, word);
+}
+
+int
+hms_xfer_inferior_memory(memaddr, myaddr, len, write, target)
+     CORE_ADDR memaddr;
+     char *myaddr;
+     int len;
+     int write;
+     struct target_ops *target;			/* ignored */
+{
+  register int i;
+  /* Round starting address down to longword boundary.  */
+  register CORE_ADDR addr; 
+  /* Round ending address up; get number of longwords that makes.  */
+  register int count;
+  /* Allocate buffer of that many longwords.  */
+  register int *buffer ;
+
+  memaddr &= 0xffff;
+  addr = memaddr & - sizeof (int);
+  count   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
 
 
+  buffer = (int *)alloca (count * sizeof (int));
+  if (write)
+  {
+    /* Fill start and end extra bytes of buffer with existing memory data.  */
+
+    if (addr != memaddr || len < (int)sizeof (int)) {
+	/* Need part of initial word -- fetch it.  */
+        buffer[0] = hms_fetch_word (addr);
+      }
+
+    if (count > 1)		/* FIXME, avoid if even boundary */
+    {
+      buffer[count - 1]
+       = hms_fetch_word (addr + (count - 1) * sizeof (int));
+    }
+
+    /* Copy data to be written over corresponding part of buffer */
+
+    bcopy (myaddr, (char *) buffer + (memaddr & (sizeof (int) - 1)), len);
+
+    /* Write the entire buffer.  */
+
+    for (i = 0; i < count; i++, addr += sizeof (int))
+    {
+      errno = 0;
+      hms_store_word (addr, buffer[i]);
+      if (errno) 
+      {
+	
+	return 0;
+      }
+      
+    }
+  }
+  else
+  {
+    /* Read all the longwords */
+    for (i = 0; i < count; i++, addr += sizeof (int))
+    {
+      errno = 0;
+      buffer[i] = hms_fetch_word (addr);
+      if (errno) 
+      {
+	return 0;
+      }
+      QUIT;
+    }
+
+    /* Copy appropriate bytes out of the buffer.  */
+    bcopy ((char *) buffer + (memaddr & (sizeof (int) - 1)), myaddr, len);
+  }
+
+  
+  return len;
+}
+
+#if 0
 int
 hms_xfer_inferior_memory (memaddr, myaddr, len, write)
      CORE_ADDR memaddr;
@@ -976,14 +1309,14 @@ hms_xfer_inferior_memory (memaddr, myaddr, len, write)
      int len;
      int write;
 {
-memaddr &= 0xffff;
+  memaddr &= 0xffff;
   if (write)
    return hms_write_inferior_memory (memaddr, myaddr, len);
   else
    return hms_read_inferior_memory (memaddr, myaddr, len);
 
 }
-
+#endif
 
 int
 hms_write_inferior_memory (memaddr, myaddr, len)
@@ -1032,8 +1365,13 @@ hms_read_inferior_memory(memaddr, myaddr, len)
   /* Align to nearest low 16 bits */
   int i;
 				    
+#if 0
   CORE_ADDR start = memaddr & ~0xf;
   CORE_ADDR end = ((memaddr + len +16) & ~0xf) -1;
+#endif
+  CORE_ADDR start = memaddr;
+  CORE_ADDR end = memaddr + len -1;
+  
   int ok =1;
   
   /*
@@ -1042,8 +1380,10 @@ hms_read_inferior_memory(memaddr, myaddr, len)
     0         1         2         3         4         5         6
     */
   char buffer[66];
+  if (memaddr & 0xf) abort();
+  if (len != 16) abort();
   
-  sprintf(buffer, "m %4x %4x", start, end);
+  sprintf(buffer, "m %4x %4x", start & 0xffff, end & 0xffff);
   hms_write_cr(buffer);
   /* drop the echo and newline*/
   for (i = 0; i < 13; i++)
@@ -1094,7 +1434,7 @@ hms_read_inferior_memory(memaddr, myaddr, len)
   
   
   
-  hms_write("\003",1);
+  hms_write_cr(" ");
   expect_prompt();
   
 
@@ -1115,8 +1455,12 @@ hms_before_main_loop ()
   char *p, *p2;
   extern FILE *instream;
   extern jmp_buf to_top_level;
-  setjmp(to_top_level);
-  while (current_target != &hms_ops) { /* remote tty not specified yet */
+
+  push_target (&hms_ops);
+#if 0
+
+  while (current_target != &hms_ops) {
+      /* remote tty not specified yet */
       if ( instream == stdin ){
 	  printf("\nEnter device and filename, or \"quit\" to quit:  ");
 	  fflush( stdout );
@@ -1135,6 +1479,7 @@ hms_before_main_loop ()
 	  target_load (bfd_get_filename (exec_bfd), 1);
 	}
     }
+#endif
 }
 
 
@@ -1147,6 +1492,8 @@ char		*save;	/* Throw away, let hms save instructions */
 {
 
   DENTER("hms_insert_breakpoint()"); 
+  check_open();
+  
   if (num_brkpts < MAX_BREAKS) {
       char buffer[100];
       num_brkpts++;
@@ -1202,7 +1549,7 @@ hms_mourn()
 { 
   DENTER("hms_mourn()");
   hms_clear_breakpoints();
-  pop_target ();                /* Pop back to no-child state */
+/*  pop_target ();                /* Pop back to no-child state */
   generic_mourn_inferior ();
   DEXIT("hms_mourn()");
 }
@@ -1244,15 +1591,12 @@ hms_com (args, fromtty)
      char	*args;
      int	fromtty;
 {
-  if (!OPEN(hms_desc)) {
-      printf_filtered("Hms not open.  Use the 'target' command to open.\n");
-      return;
-    }
-
+  check_open();
+  
   if (!args) return;
 	
   /* Clear all input so only command relative output is displayed */
-  /*slurp_input();	*/
+
 
   hms_write_cr(args);
   hms_write("\030",1);
@@ -1277,7 +1621,6 @@ by a serial line.",
 	0, 0, 0, 0, 0,		/* Terminal handling */
 	hms_kill, 		/* FIXME, kill */
 	hms_load, 
-	call_function_by_hand,
 	0, 			/* lookup_symbol */
 	hms_create_inferior, 	/* create_inferior */ 
 	hms_mourn, 		/* mourn_inferior FIXME */
@@ -1301,15 +1644,55 @@ char *s;
     }  
 }
 
+static 
+hms_speed(s)
+char *s;
+{
+check_open();
+
+  
+  if (s) 
+  {
+    char buffer[100];
+    int newrate = atoi(s);
+    int which = 0;
+    while (baudtab[which].rate != newrate) 
+    {
+      if (baudtab[which].rate == -1) 
+      {
+	error("Can't use %d baud\n", newrate);
+      }
+      which++;
+    }
+    
+    printf_filtered("Checking target is in sync\n");
+    
+    get_baudrate_right();
+    baudrate = newrate;
+    printf_filtered("Sending commands to set target to %d\n",
+		    baudrate);    
+    
+    sprintf(buffer, "tm %d. N 8 1", baudrate);
+    hms_write_cr(buffer);
+  }    
+}
+
+/***********************************************************************/
+
 void
 _initialize_remote_hms ()
 {
   add_target (&hms_ops);
   add_com ("hms <command>", class_obscure, hms_com,
  	"Send a command to the HMS monitor.");
-  add_com ("quiet", class_obscure, hms_quiet,
-	   "Toggle the quiet flag");
+  add_com ("snoop", class_obscure, hms_quiet,
+	   "Show what commands are going to the monitor");
   add_com ("device", class_obscure, hms_device,
 	   "Set the terminal line for HMS communications");
+
+  add_com ("speed", class_obscure, hms_speed,
+	   "Set the terminal line speed for HMS communications");
   
 }
+
+

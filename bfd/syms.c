@@ -429,6 +429,7 @@ asymbol *symbol)
 }
 
 
+void
 bfd_symbol_is_absolute()
 {
   

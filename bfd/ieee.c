@@ -980,7 +980,7 @@ DEFUN(ieee_archive_p,(abfd),
 uint8e_type buffer[512];
 
   int buffer_offset = 0;
-  ieee_ar_data_type *save = IEEE_AR_DATA(abfd);
+  ieee_ar_data_type *save = abfd->tdata.ieee_ar_data;
   ieee_ar_data_type *ieee ;
   abfd->tdata.ieee_ar_data = (ieee_ar_data_type *)bfd_alloc(abfd, sizeof(ieee_ar_data_type));
   ieee=  IEEE_AR_DATA(abfd);
@@ -993,7 +993,11 @@ uint8e_type buffer[512];
 
   ieee->h.abfd = abfd;
 
-  if (this_byte(&(ieee->h)) != Module_Beginning) return (bfd_target*)NULL;
+  if (this_byte(&(ieee->h)) != Module_Beginning) {
+    abfd->tdata.ieee_ar_data = save;
+      return (bfd_target*)NULL;
+    }
+  
 
   next_byte(&(ieee->h));
   library= read_id(&(ieee->h));

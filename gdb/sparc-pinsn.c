@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
-
 #include "defs.h"
 #include "symtab.h"
 #include "opcode/sparc.h"
@@ -116,7 +114,7 @@ print_insn (memaddr, stream)
       opcodes_sorted = 1;
     }
 
-  read_memory (memaddr, &insn, sizeof (insn));
+  read_memory (memaddr, (char *) &insn, sizeof (insn));
 
   for (i = 0; i < NUMOPCODES; ++i)
     {

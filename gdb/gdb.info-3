@@ -6,11 +6,11 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.4.
+   This is Edition 4.04, March 1992, of `Using GDB: A Guide to the GNU
+Source-Level Debugger' for GDB Version 4.5.
 
-   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
-Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software
+Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -28,6 +28,122 @@ manual into another language, under the above conditions for modified
 versions, except that the section entitled "GNU General Public
 License" may be included in a translation approved by the Free
 Software Foundation instead of in the original English.
+
+
+File: gdb.info,  Node: Selection,  Next: Frame Info,  Prev: Backtrace,  Up: Stack
+
+Selecting a Frame
+=================
+
+   Most commands for examining the stack and other data in your
+program work on whichever stack frame is selected at the moment.  Here
+are the commands for selecting a stack frame; all of them finish by
+printing a brief description of the stack frame just selected.
+
+`frame N'
+`f N'
+     Select frame number N.  Recall that frame zero is the innermost
+     (currently executing) frame, frame one is the frame that called
+     the innermost one, and so on.  The highest-numbered frame is
+     `main''s frame.
+
+`frame ADDR'
+`f ADDR'
+     Select the frame at address ADDR.  This is useful mainly if the
+     chaining of stack frames has been damaged by a bug, making it
+     impossible for GDB to assign numbers properly to all frames.  In
+     addition, this can be useful when your program has multiple
+     stacks and switches between them.
+
+     On the SPARC architecture, `frame' needs two addresses to select
+     an arbitrary frame: a frame pointer and a stack pointer.
+
+`up N'
+     Move N frames up the stack.  For positive numbers N, this
+     advances toward the outermost frame, to higher frame numbers, to
+     frames that have existed longer.  N defaults to one.
+
+`down N'
+     Move N frames down the stack.  For positive numbers N, this
+     advances toward the innermost frame, to lower frame numbers, to
+     frames that were created more recently.  N defaults to one.  You
+     may abbreviate `down' as `do'.
+
+   All of these commands end by printing two lines of output
+describing the frame.  The first line shows the frame number, the
+function name, the arguments, and the source file and line number of
+execution in that frame.  The second line shows the text of that
+source line.  For example:
+
+     (gdb) up
+     #1  0x22f0 in main (argc=1, argv=0xf7fffbf4, env=0xf7fffbfc)
+         at env.c:10
+     10              read_input_file (argv[i]);
+
+   After such a printout, the `list' command with no arguments will
+print ten lines centered on the point of execution in the frame. 
+*Note Printing Source Lines: List.
+
+`up-silently N'
+`down-silently N'
+     These two commands are variants of `up' and `down', respectively;
+     they differ in that they do their work silently, without causing
+     display of the new frame.  They are intended primarily for use in
+     GDB command scripts, where the output might be unnecessary and
+     distracting.
+
+
+File: gdb.info,  Node: Frame Info,  Prev: Selection,  Up: Stack
+
+Information About a Frame
+=========================
+
+   There are several other commands to print information about the
+selected stack frame.
+
+`frame'
+`f'
+     When used without any argument, this command does not change which
+     frame is selected, but prints a brief description of the currently
+     selected stack frame.  It can be abbreviated `f'.  With an
+     argument, this command is used to select a stack frame (*note
+     Selecting a Frame: Selection.).
+
+`info frame'
+`info f'
+     This command prints a verbose description of the selected stack
+     frame, including the address of the frame, the addresses of the
+     next frame down (called by this frame) and the next frame up
+     (caller of this frame), the language that the source code
+     corresponding to this frame was written in, the address of the
+     frame's arguments, the program counter saved in it (the address
+     of execution in the caller frame), and which registers were saved
+     in the frame.  The verbose description is useful when something
+     has gone wrong that has made the stack format fail to fit the
+     usual conventions.
+
+`info frame ADDR'
+`info f ADDR'
+     Print a verbose description of the frame at address ADDR, without
+     selecting that frame.  The selected frame remains unchanged by
+     this command.
+
+`info args'
+     Print the arguments of the selected frame, each on a separate
+     line.
+
+`info locals'
+     Print the local variables of the selected frame, each on a
+     separate line.  These are all variables declared static or
+     automatic within all program blocks that execution in this frame
+     is currently inside of.
+
+`info catch'
+     Print a list of all the exception handlers that are active in the
+     current stack frame at the current point of execution.  To see
+     other exception handlers, visit the associated frame (using the
+     `up', `down', or `frame' commands); then type `info catch'. 
+     *Note Breakpoints and Exceptions: Exception Handling.
 
 
 File: gdb.info,  Node: Source,  Next: Data,  Prev: Stack,  Up: Top
@@ -277,13 +393,12 @@ convenience variable `$_' (*note Convenience Variables: Convenience
 Vars.).
 
 `disassemble'
-     This specialized command is provided to dump a range of memory as
-     machine instructions.  The default memory range is the function
+     This specialized command dumps a range of memory as machine
+     instructions.  The default memory range is the function
      surrounding the program counter of the selected frame.  A single
      argument to this command is a program counter value; the function
-     surrounding this value will be dumped.  Two arguments (separated
-     by one or more spaces) specify a range of addresses (first
-     inclusive, second exclusive) to be dumped.
+     surrounding this value will be dumped.  Two arguments specify a
+     range of addresses (first inclusive, second exclusive) to dump.
 
    We can use `disassemble' to inspect the object code range shown in
 the last `info line' example:
@@ -299,7 +414,6 @@ the last `info line' example:
      0x63fc builtin_init+5364:     call 0x9288 path_search
      0x6400 builtin_init+5368:     nop
      End of assembler dump.
-     (gdb)
 
 
 File: gdb.info,  Node: Data,  Next: Languages,  Prev: Source,  Up: Top
@@ -425,12 +539,14 @@ scope is a single source file even if the current execution point is
 not in this file.  But it is possible to have more than one such
 variable or function with the same name (in different source files). 
 If that happens, referring to that name has unpredictable effects.  If
-you wish, you can specify a variable in a particular file, using the
-colon-colon notation:
+you wish, you can specify a static variable in a particular function
+or file, using the colon-colon notation:
 
      FILE::VARIABLE
+     FUNCTION::VARIABLE
 
-Here FILE is the name of the source file whose variable you want.
+Here FILE or FUNCTION is the name of the context for the static
+VARIABLE.
 
    This use of `::' is very rarely in conflict with the very similar
 use of the same notation in C++.  GDB also supports use of the C++
@@ -1193,123 +1309,5 @@ to setting the language automatically.
 
 * Manually::                    Setting the working language manually
 * Automatically::               Having GDB infer the source language
-
-
-File: gdb.info,  Node: Manually,  Next: Automatically,  Prev: Setting,  Up: Setting
-
-Setting the working language
-----------------------------
-
-   To set the language, issue the command `set language LANG', where
-LANG is the name of a language: `c' or `modula-2'.  For a list of the
-supported languages, type `set language'.
-
-   Setting the language manually prevents GDB from updating the working
-language automatically.  This can lead to confusion if you try to
-debug a program when the working language is not the same as the
-source language, when an expression is acceptable to both
-languages--but means different things.  For instance, if the current
-source file were written in C, and GDB was parsing Modula-2, a command
-such as:
-
-     print a = b + c
-
-might not have the effect you intended.  In C, this means to add `b'
-and `c' and place the result in `a'.  The result printed would be the
-value of `a'.  In Modula-2, this means to compare `a' to the result of
-`b+c', yielding a `BOOLEAN' value.
-
-   If you allow GDB to set the language automatically, then you can
-count on expressions evaluating the same way in your debugging session
-and in your program.
-
-
-File: gdb.info,  Node: Automatically,  Prev: Manually,  Up: Setting
-
-Having GDB infer the source language
-------------------------------------
-
-   To have GDB set the working language automatically, use `set
-language local' or `set language auto'.  GDB then infers the language
-that a program was written in by looking at the name of its source
-files, and examining their extensions:
-
-`*.mod'
-     Modula-2 source file
-
-`*.c'
-`*.cc'
-     C or C++ source file.
-
-   This information is recorded for each function or procedure in a
-source file.  When your program stops in a frame (usually by
-encountering a breakpoint), GDB sets the working language to the
-language recorded for the function in that frame.  If the language for
-a frame is unknown (that is, if the function or block corresponding to
-the frame was defined in a source file that does not have a recognized
-extension), the current working language is not changed, and GDB
-issues a warning.
-
-   This may not seem necessary for most programs, which are written
-entirely in one source language.  However, program modules and
-libraries written in one source language can be used by a main program
-written in a different source language.  Using `set language auto' in
-this case frees you from having to set the working language manually.
-
-
-File: gdb.info,  Node: Show,  Next: Checks,  Prev: Setting,  Up: Languages
-
-Displaying the language
-=======================
-
-   The following commands will help you find out which language is the
-working language, and also what language source files were written in.
-
-`show language'
-     Display the current working language.  This is the language you
-     can use with commands such as `print' to build and compute
-     expressions that may involve variables in your program.
-
-`info frame'
-     Among the other information listed here (*note Information about
-     a Frame: Frame Info.) is the source language for this frame. 
-     This is the language that will become the working language if you
-     ever use an identifier that is in this frame.
-
-`info source'
-     Among the other information listed here (*note Examining the
-     Symbol Table: Symbols.) is the source language of this source
-     file.
-
-
-File: gdb.info,  Node: Checks,  Next: Support,  Prev: Show,  Up: Languages
-
-Type and range Checking
-=======================
-
-     *Warning:* In this release, the GDB commands for type and range
-     checking are included, but they do not yet have any effect.  This
-     section documents the intended facilities.
-
-   Some languages are designed to guard you against making seemingly
-common errors through a series of compile- and run-time checks.  These
-include checking the type of arguments to functions and operators, and
-making sure mathematical overflows are caught at run time.  Checks
-such as these help to ensure a program's correctness once it has been
-compiled by eliminating type mismatches, and providing active checks
-for range errors when your program is running.
-
-   GDB can check for conditions like the above if you wish.  Although
-GDB will not check the statements in your program, it can check
-expressions entered directly into GDB for evaluation via the `print'
-command, for example.  As with the working language, GDB can also
-decide whether or not to check automatically based on your program's
-source language.  *Note Supported Languages: Support, for the default
-settings of supported languages.
-
-* Menu:
-
-* Type Checking::               An overview of type checking
-* Range Checking::              An overview of range checking
 
 

@@ -1,5 +1,5 @@
 /* Interface between GDB and target environments, including files and processes
-   Copyright 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Cygnus Support.  Written by John Gilmore.
 
 This file is part of GDB.
@@ -17,6 +17,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#if !defined (TARGET_H)
+#define TARGET_H
 
 /* This include file defines the interface between the main part
    of the debugger, and the part which is target-specific, or
@@ -46,92 +49,53 @@ enum strata {
 	process_stratum		/* Executing processes */
 };
 
-struct target_ops {
-	char  *to_shortname;		/* Name this target type */
-	char  *to_longname;		/* Name for printing */
-	/* Documentation.  Does not include trailing newline, and
-	   starts with a one-line description (probably similar to
-	   to_longname).  */
-	char  *to_doc;
-#ifdef __STDC__
-	void (*to_open) (char *name, int from_tty);
-	void (*to_close) (int quitting);
-	void (*to_attach) (char *name, int from_tty);
-	void (*to_detach) (char *args, int from_tty);
-	void (*to_resume) (int step, int siggnal);
-	int  (*to_wait)   (int *status);
-	void (*to_fetch_registers) (int regno);
-	int  (*to_store_registers) (int regno);
-	void (*to_prepare_to_store) ();
-	void (*to_convert_to_virtual) (int regnum, char *from, char *to);
-	void (*to_convert_from_virtual) (int regnum, char *from, char *to);
-	int  (*to_xfer_memory) (CORE_ADDR memaddr, char *myaddr, int len, int w,
-				struct target_ops *);
-	void (*to_files_info) (struct target_ops *);
-	int  (*to_insert_breakpoint) (CORE_ADDR addr, char *save);
-	int  (*to_remove_breakpoint) (CORE_ADDR addr, char *save);
-	void  (*to_terminal_init) ();
-	void  (*to_terminal_inferior) ();
-	void  (*to_terminal_ours_for_output) ();
-	void  (*to_terminal_ours) ();
-	void  (*to_terminal_info) (char *arg, int from_tty);
-	void  (*to_kill) (char *arg, int from_tty);
-	void  (*to_load) (char *arg, int from_tty);
-struct value *(*to_call_function) (struct value *function,
-				   int nargs, struct value **args);
-	int   (*to_lookup_symbol) (char *name, CORE_ADDR *addrp);
-	void  (*to_create_inferior) (char *exec, char *args, char **env);
-	void  (*to_mourn_inferior) ();
-    enum strata to_stratum;
-struct target_ops *to_next;
-	int	to_has_all_memory;
-	int	to_has_memory;
-	int	to_has_stack;
-	int	to_has_registers;
-	int	to_has_execution;
-struct section_table *sections;
-struct section_table *sections_end;
-	int     to_magic;
-/* Need sub-structure for target machine related rather than comm related? */
-#else  /* STDC */
-	void (*to_open) ();
-	void (*to_close) ();
-	void (*to_attach) ();
-	void (*to_detach) ();
-	void (*to_resume) ();
-	int  (*to_wait)   ();
-	void (*to_fetch_registers) ();
-	int  (*to_store_registers) ();
-	void (*to_prepare_to_store) ();
-	void (*to_convert_to_virtual) ();
-	void (*to_convert_from_virtual) ();
-	int  (*to_xfer_memory) ();
-	void (*to_files_info) ();
-	int  (*to_insert_breakpoint) ();
-	int  (*to_remove_breakpoint) ();
-	void  (*to_terminal_init) ();
-	void  (*to_terminal_inferior) ();
-	void  (*to_terminal_ours_for_output) ();
-	void  (*to_terminal_ours) ();
-	void  (*to_terminal_info) ();
-	void  (*to_kill) ();
-	void  (*to_load) ();
-struct value *(*to_call_function) ();
-	int   (*to_lookup_symbol) ();
-	void  (*to_create_inferior) ();
-	void  (*to_mourn_inferior) ();
-    enum strata to_stratum;
-struct target_ops *to_next;
-	int	to_has_all_memory;
-	int	to_has_memory;
-	int	to_has_stack;
-	int	to_has_registers;
-	int	to_has_execution;
-struct section_table *sections;
-struct section_table *sections_end;
-	int     to_magic;
-/* Need sub-structure for target machine related rather than comm related? */
-#endif
+struct target_ops
+{
+  char	       *to_shortname;	/* Name this target type */
+  char	       *to_longname;	/* Name for printing */
+  char 	       *to_doc;	        /* Documentation.  Does not include trailing
+				   newline, and starts with a one-line descrip-
+				   tion (probably similar to to_longname). */
+  void 	      (*to_open) PARAMS ((char *, int));
+  void 	      (*to_close) PARAMS ((int));
+  void 	      (*to_attach) PARAMS ((char *, int));
+  void 	      (*to_detach) PARAMS ((char *, int));
+  void 	      (*to_resume) PARAMS ((int, int));
+  int  	      (*to_wait) PARAMS ((int *));
+  void 	      (*to_fetch_registers) PARAMS ((int));
+  void 	      (*to_store_registers) PARAMS ((int));
+  void 	      (*to_prepare_to_store) PARAMS ((void));
+  void 	      (*to_convert_to_virtual) PARAMS ((int, char *, char *));
+  void 	      (*to_convert_from_virtual) PARAMS ((int, char *, char *));
+  int  	      (*to_xfer_memory) PARAMS ((CORE_ADDR, char *, int, int,
+					 struct target_ops *));
+  void 	      (*to_files_info) PARAMS ((struct target_ops *));
+  int  	      (*to_insert_breakpoint) PARAMS ((CORE_ADDR, char *));
+  int 	      (*to_remove_breakpoint) PARAMS ((CORE_ADDR, char *));
+  void 	      (*to_terminal_init) PARAMS ((void));
+  void 	      (*to_terminal_inferior) PARAMS ((void));
+  void 	      (*to_terminal_ours_for_output) PARAMS ((void));
+  void 	      (*to_terminal_ours) PARAMS ((void));
+  void 	      (*to_terminal_info) PARAMS ((char *, int));
+  void 	      (*to_kill) PARAMS ((void));
+  void 	      (*to_load) PARAMS ((char *, int));
+  int 	      (*to_lookup_symbol) PARAMS ((char *, CORE_ADDR *));
+  void 	      (*to_create_inferior) PARAMS ((char *, char *, char **));
+  void 	      (*to_mourn_inferior) PARAMS ((void));
+  enum strata   to_stratum;
+  struct target_ops
+    	       *to_next;
+  int		to_has_all_memory;
+  int		to_has_memory;
+  int		to_has_stack;
+  int		to_has_registers;
+  int		to_has_execution;
+  struct section_table
+    	       *to_sections;
+  struct section_table
+	       *to_sections_end;
+  int		to_magic;
+  /* Need sub-structure for target machine related rather than comm related? */
 };
 
 /* Magic number for checking ops size.  If a struct doesn't end with this
@@ -231,19 +195,28 @@ extern struct target_ops	*current_target;
    function which iterates across the various targets.  Result is
    0 for success, or an errno value.  */
 
-#ifdef __STDC__
-/* Needs defs.h for CORE_ADDR */
-extern int target_read_string(CORE_ADDR memaddr, char *myaddr, int len);
-extern int target_read_memory(CORE_ADDR memaddr, char *myaddr, int len);
-extern int target_write_memory(CORE_ADDR memaddr, char *myaddr, int len);
-extern int target_xfer_memory(CORE_ADDR memaddr, char *myaddr, int len,
-			      int write);
-#else
-extern int target_read_string();
-extern int target_read_memory();
-extern int target_write_memory();
-extern int target_xfer_memory();
-#endif
+extern int
+target_read_string PARAMS ((CORE_ADDR, char *, int));
+
+extern int
+target_read_memory PARAMS ((CORE_ADDR, char *, int));
+
+extern int
+target_write_memory PARAMS ((CORE_ADDR, char *, int));
+
+extern int
+xfer_memory PARAMS ((CORE_ADDR, char *, int, int, struct target_ops *));
+
+extern int
+child_xfer_memory PARAMS ((CORE_ADDR, char *, int, int, struct target_ops *));
+
+extern int
+target_xfer_memory PARAMS ((CORE_ADDR, char *, int, int));
+
+/* From exec.c */
+
+extern void
+print_section_info PARAMS ((struct target_ops *, bfd *));
 
 /* Print a line about the current target.  */
 
@@ -305,8 +278,8 @@ extern int target_xfer_memory();
 
 /* Kill the inferior process.   Make it go away.  */
 
-#define target_kill(arg, from_tty) \
-	(*current_target->to_kill) (arg, from_tty)
+#define target_kill() \
+	(*current_target->to_kill) ()
 
 /* Load an executable file into the target process.  This is expected to
    not only bring new code into the target process, but also to update
@@ -314,16 +287,6 @@ extern int target_xfer_memory();
 
 #define target_load(arg, from_tty) \
 	(*current_target->to_load) (arg, from_tty)
-
-/* Perform a function call in the inferior.
-   ARGS is a vector of values of arguments (NARGS of them).
-   FUNCTION is a value, the function to be called.
-   Returns a value representing what the function returned.
-   May fail to return, if a breakpoint or signal is hit
-   during the execution of the function.  */
-
-#define target_call_function(function, nargs, args) 	\
-  (*current_target->to_call_function) (function, nargs, args)
 
 /* Look up a symbol in the target's symbol table.  NAME is the symbol
    name.  ADDRP is a CORE_ADDR * pointing to where the value of the symbol
@@ -399,19 +362,20 @@ extern int target_xfer_memory();
 
    pop_target:	 Remove the top thing on the stack of current targets.  */
 
-#ifdef __STDC__
-void add_target (struct target_ops *);
-int push_target (struct target_ops *);
-int unpush_target (struct target_ops *);
-void target_preopen (int);
-void pop_target (void);
-#else
-void add_target ();
-int push_target ();
-int unpush_target ();
-void target_preopen ();
-void pop_target ();
-#endif
+extern void
+add_target PARAMS ((struct target_ops *));
+
+extern int
+push_target PARAMS ((struct target_ops *));
+
+extern int
+unpush_target PARAMS ((struct target_ops *));
+
+extern void
+target_preopen PARAMS ((int));
+
+extern void
+pop_target PARAMS ((void));
 
 /* Struct section_table maps address ranges to file sections.  It is
    mostly used with BFD files, but can be used without (e.g. for handling
@@ -427,4 +391,29 @@ struct section_table {
 /* Builds a section table, given args BFD, SECTABLE_PTR, SECEND_PTR.
    Returns 0 if OK, 1 on error.  */
 
-int build_section_table ();	
+extern int
+build_section_table PARAMS ((bfd *, struct section_table **,
+			     struct section_table **));
+
+/* From inftarg.c */
+
+extern void
+host_convert_from_virtual PARAMS ((int, char *, char *));
+
+extern void
+host_convert_to_virtual PARAMS ((int, char *, char *));
+
+/* From mem-break.c */
+
+extern int
+memory_remove_breakpoint PARAMS ((CORE_ADDR, char *));
+
+extern int
+memory_insert_breakpoint PARAMS ((CORE_ADDR, char *));
+
+/* From target.c */
+
+void
+noprocess PARAMS ((void));
+
+#endif	/* !defined (TARGET_H) */

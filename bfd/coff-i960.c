@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-i960.c,v 1.26 1992/01/24 22:43:57 sac Exp $ */
+/* $Id: coff-i960.c,v 1.28 1992/03/29 18:45:44 gnu Exp $ */
 
 #define I960 1
 #define BADMAG(x) I960BADMAG(x)
@@ -41,7 +41,7 @@ optcall_callback(abfd, reloc_entry, symbol_in, data, ignore_input_section)
 bfd *abfd;
 arelent *reloc_entry;
 asymbol *symbol_in;
-unsigned char *data;
+PTR data;
 asection *ignore_input_section;
 {
   /* This item has already been relocated correctly, but we may be
@@ -70,7 +70,7 @@ asection *ignore_input_section;
 	 to the correct location */
 	{
 	  union internal_auxent *aux = &((cs->native+2)->u.auxent);
-	  int word = bfd_get_32(abfd, data + reloc_entry->address);
+	  int word = bfd_get_32(abfd, (bfd_byte *)data + reloc_entry->address);
 	  int olf = (aux->x_bal.x_balntry - cs->native->u.syment.n_value);
 	  BFD_ASSERT(cs->native->u.syment.n_numaux==2);
 	  /* We replace the original call instruction with a bal to */
@@ -80,7 +80,7 @@ asection *ignore_input_section;
 	  /* offset of the bal entry point */
 
 	  word = ((word +  olf)  & BAL_MASK) | BAL;
-  	  bfd_put_32(abfd, word,  data+reloc_entry->address);
+  	  bfd_put_32(abfd, word, (bfd_byte *) data + reloc_entry->address);
   	}
 	result = bfd_reloc_ok;
 	break;
@@ -170,7 +170,8 @@ bfd_target icoff_little_vec =
        _bfd_generic_mkarchive, bfd_false},
     {bfd_false, coff_write_object_contents, /* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
-  JUMP_TABLE(coff)
+  JUMP_TABLE(coff),
+COFF_SWAP_TABLE
   };
 
 

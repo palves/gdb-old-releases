@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    
-/* $Id: i386.h,v 1.1 1991/12/01 02:22:24 sac Exp $ */
+/* $Id: i386.h,v 1.2 1992/02/21 09:33:34 rich Exp $ */
 
 static const template i386_optab[] = {
 
@@ -77,6 +77,15 @@ static const template i386_optab[] = {
 {"in", 2, 0xec, _, W|NoModrm, InOutPortReg, Acc, 0 },
 {"out", 2, 0xe6, _, W|NoModrm, Acc, Imm8, 0 },
 {"out", 2, 0xee, _, W|NoModrm, Acc, InOutPortReg, 0 },
+
+{"inb",  1, 0xe4, _, NoModrm, Imm8, 0, 0 },
+{"inb",  1, 0xec, _, NoModrm, WordMem, 0, 0 },
+{"inw",  1, 0x66e5, _, NoModrm, Imm8, 0, 0 },
+{"inw",  1, 0x66ed, _, NoModrm, WordMem, 0, 0 },
+{"outb", 1, 0xe6, _, NoModrm, Imm8, 0, 0 },
+{"outb", 1, 0xee, _, NoModrm, WordMem, 0, 0 },
+{"outw", 1, 0x66e7, _, NoModrm, Imm8, 0, 0 },
+{"outw", 1, 0x66ef, _, NoModrm, WordMem, 0, 0 },
 
 /* load effective address */
 {"lea", 2, 0x8d, _, Modrm, WordMem, WordReg, 0 },
@@ -389,12 +398,17 @@ static const template i386_optab[] = {
 
 /* string manipulation */
 {"cmps", 0, 0xa6, _, W|NoModrm, 0, 0, 0},
+{"scmp", 0, 0xa6, _, W|NoModrm, 0, 0, 0},
 {"ins", 0, 0x6c, _, W|NoModrm, 0, 0, 0},
 {"outs", 0, 0x6e, _, W|NoModrm, 0, 0, 0},
 {"lods", 0, 0xac, _, W|NoModrm, 0, 0, 0},
+{"slod", 0, 0xac, _, W|NoModrm, 0, 0, 0},
 {"movs", 0, 0xa4, _, W|NoModrm, 0, 0, 0},
+{"smov", 0, 0xa4, _, W|NoModrm, 0, 0, 0},
 {"scas", 0, 0xae, _, W|NoModrm, 0, 0, 0},
+{"ssca", 0, 0xae, _, W|NoModrm, 0, 0, 0},
 {"stos", 0, 0xaa, _, W|NoModrm, 0, 0, 0},
+{"ssto", 0, 0xaa, _, W|NoModrm, 0, 0, 0},
 {"xlat", 0, 0xd7, _, NoModrm, 0, 0, 0},
 
 /* bit manipulation */

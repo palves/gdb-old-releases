@@ -17,11 +17,29 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
 #include "gdbcore.h"
+
+#ifdef USE_PROC_FS	/* Target dependent support for /proc */
+#include <sys/procfs.h>
+#endif
+
+static long
+i386_get_frame_setup PARAMS ((int));
+
+static void
+i386_follow_jump PARAMS ((void));
+
+static void
+codestream_read PARAMS ((unsigned char *, int));
+
+static void
+codestream_seek PARAMS ((int));
+
+static unsigned char 
+codestream_fill PARAMS ((int));
 
 /* helper functions for tm-i386.h */
 
@@ -57,6 +75,7 @@ static int codestream_cnt;
 
 static unsigned char 
 codestream_fill (peek_flag)
+    int peek_flag;
 {
   codestream_addr = codestream_next_addr;
   codestream_next_addr += CODESTREAM_BUFSIZ;
@@ -74,6 +93,7 @@ codestream_fill (peek_flag)
 
 static void
 codestream_seek (place)
+    int place;
 {
   codestream_next_addr = place / CODESTREAM_BUFSIZ;
   codestream_next_addr *= CODESTREAM_BUFSIZ;
@@ -86,6 +106,7 @@ codestream_seek (place)
 static void
 codestream_read (buf, count)
      unsigned char *buf;
+     int count;
 {
   unsigned char *p;
   int i;
@@ -95,7 +116,8 @@ codestream_read (buf, count)
 }
 
 /* next instruction is a jump, move to target */
-static
+
+static void
 i386_follow_jump ()
 {
   int long_delta;
@@ -146,8 +168,10 @@ i386_follow_jump ()
  * if entry sequence doesn't make sense, return -1, and leave 
  * codestream pointer random
  */
+
 static long
 i386_get_frame_setup (pc)
+     int pc;
 {
   unsigned char op;
   
@@ -358,6 +382,7 @@ i386_frame_num_args (fi)
  * next instruction will be a branch back to the start.
  */
 
+void
 i386_frame_find_saved_regs (fip, fsrp)
      struct frame_info *fip;
      struct frame_saved_regs *fsrp;
@@ -409,7 +434,10 @@ i386_frame_find_saved_regs (fip, fsrp)
 }
 
 /* return pc of first real instruction */
+
+int
 i386_skip_prologue (pc)
+     int pc;
 {
   unsigned char op;
   int i;
@@ -436,6 +464,7 @@ i386_skip_prologue (pc)
   return (codestream_tell ());
 }
 
+void
 i386_push_dummy_frame ()
 {
   CORE_ADDR sp = read_register (SP_REGNUM);
@@ -453,6 +482,7 @@ i386_push_dummy_frame ()
   write_register (SP_REGNUM, sp);
 }
 
+void
 i386_pop_frame ()
 {
   FRAME frame = get_current_frame ();
@@ -485,8 +515,6 @@ i386_pop_frame ()
 }
 
 #ifdef USE_PROC_FS	/* Target dependent support for /proc */
-
-#include <sys/procfs.h>
 
 /*  The /proc interface divides the target machine's register set up into
     two different sets, the general register set (gregset) and the floating
@@ -549,7 +577,7 @@ static int regmap[] =
 
 void
 supply_gregset (gregsetp)
-gregset_t *gregsetp;
+     gregset_t *gregsetp;
 {
   register int regno;
   register greg_t *regp = (greg_t *) gregsetp;
@@ -563,8 +591,8 @@ gregset_t *gregsetp;
 
 void
 fill_gregset (gregsetp, regno)
-gregset_t *gregsetp;
-int regno;
+     gregset_t *gregsetp;
+     int regno;
 {
   int regi;
   register greg_t *regp = (greg_t *) gregsetp;
@@ -588,7 +616,7 @@ int regno;
 
 void 
 supply_fpregset (fpregsetp)
-fpregset_t *fpregsetp;
+     fpregset_t *fpregsetp;
 {
   register int regno;
   
@@ -602,8 +630,8 @@ fpregset_t *fpregsetp;
 
 void
 fill_fpregset (fpregsetp, regno)
-fpregset_t *fpregsetp;
-int regno;
+     fpregset_t *fpregsetp;
+     int regno;
 {
   int regi;
   char *to;
@@ -616,3 +644,37 @@ int regno;
 #endif	/* defined (FP0_REGNUM) */
 
 #endif  /* USE_PROC_FS */
+
+#ifdef GET_LONGJMP_TARGET
+
+/* Figure out where the longjmp will land.  Slurp the args out of the stack.
+   We expect the first arg to be a pointer to the jmp_buf structure from which
+   we extract the pc (JB_PC) that we will land at.  The pc is copied into PC.
+   This routine returns true on success. */
+
+int
+get_longjmp_target(pc)
+     CORE_ADDR *pc;
+{
+  CORE_ADDR sp, jb_addr;
+
+  sp = read_register(SP_REGNUM);
+
+  if (target_read_memory(sp + SP_ARG0, /* Offset of first arg on stack */
+			 &jb_addr,
+			 sizeof(CORE_ADDR)))
+    return 0;
+
+
+  SWAP_TARGET_AND_HOST(&jb_addr, sizeof(CORE_ADDR));
+
+  if (target_read_memory(jb_addr + JB_PC * JB_ELEMENT_SIZE, pc,
+			 sizeof(CORE_ADDR)))
+    return 0;
+
+  SWAP_TARGET_AND_HOST(pc, sizeof(CORE_ADDR));
+
+  return 1;
+}
+
+#endif /* GET_LONGJMP_TARGET */

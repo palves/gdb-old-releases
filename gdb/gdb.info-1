@@ -6,11 +6,11 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.4.
+   This is Edition 4.04, March 1992, of `Using GDB: A Guide to the GNU
+Source-Level Debugger' for GDB Version 4.5.
 
-   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
-Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software
+Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -37,13 +37,13 @@ GDB, the GNU symbolic debugger
 
    This file describes GDB, the GNU symbolic debugger.
 
-   This is Edition 4.01, January 1992, for GDB Version 4.4.
+   This is Edition 4.04, March 1992, for GDB Version 4.5.
 
 * Menu:
 
 * Summary::                     Summary of GDB
 * New Features::                New features since GDB version 3.5
-* Sample Session::              A Sample GDB session
+* Sample Session::              A sample GDB session
 * Invocation::                  Getting in and out of GDB
 * Commands::                    GDB commands
 * Running::                     Running programs under GDB
@@ -61,6 +61,7 @@ GDB, the GNU symbolic debugger
 * Emacs::                       Using GDB under GNU Emacs
 * GDB Bugs::                    Reporting bugs in GDB
 * Renamed Commands::
+* Formatting Documentation::    How to format and print GDB documentation
 * Installing GDB::              Installing GDB
 * Copying::                     GNU GENERAL PUBLIC LICENSE
 * Index::                       Index
@@ -69,14 +70,14 @@ GDB, the GNU symbolic debugger
 
 Summary of GDB
 
-* Free Software::               Free Software
+* Free Software::               Freely redistributable software
 * Contributors::                Contributors to GDB
 
 Getting In and Out of GDB
 
-* Invoking GDB::                Starting GDB
-* Leaving GDB::                 Leaving GDB
-* Shell Commands::              Shell Commands
+* Invoking GDB::                How to start GDB
+* Leaving GDB::                 How to quit GDB
+* Shell Commands::              How to use shell commands inside GDB
 
 Starting GDB
 
@@ -98,6 +99,7 @@ Running Programs Under GDB
 * Input/Output::                Your Program's Input and Output
 * Attach::                      Debugging an Already-Running Process
 * Kill Process::                Killing the Child Process
+* Process Information::         Additional Process Information
 
 Stopping and Continuing
 
@@ -257,7 +259,6 @@ Installing GDB
 * Separate Objdir::             Compiling GDB in another directory
 * Config Names::                Specifying names for hosts and targets
 * configure Options::           Summary of options for configure
-* Formatting Documentation::    How to format and print GDB documentation
 
 
 File: gdb.info,  Node: Summary,  Next: New Features,  Prev: Top,  Up: Top
@@ -333,10 +334,10 @@ account.
 
    So that they may not regard their long labor as thankless, we
 particularly thank those who shepherded GDB through major releases: Stu
-Grossman and John Gilmore (release 4.4), John Gilmore (releases 4.3,
-4.2, 4.1, 4.0, and 3.9); Jim Kingdon (releases 3.5, 3.4, 3.3); and
-Randy Smith (releases 3.2, 3.1, 3.0).  As major maintainer of GDB for
-some period, each contributed significantly to the structure,
+Grossman and John Gilmore (releases 4.5, 4.4), John Gilmore (releases
+4.3, 4.2, 4.1, 4.0, and 3.9); Jim Kingdon (releases 3.5, 3.4, 3.3);
+and Randy Smith (releases 3.2, 3.1, 3.0).  As major maintainer of GDB
+for some period, each contributed significantly to the structure,
 stability, and capabilities of the entire debugger.
 
    Richard Stallman, assisted at various times by Pete TerMaat, Chris
@@ -384,6 +385,8 @@ command-line editing and command history.
    Andrew Beers of SUNY Buffalo wrote the language-switching code and
 the Modula-2 support, and contributed the Languages chapter of this
 manual.
+
+   Fred Fish wrote most of the support for Unix System Vr4.
 
 
 File: gdb.info,  Node: New Features,  Next: Sample Session,  Prev: Summary,  Up: Top
@@ -463,8 +466,8 @@ New Features since GDB version 3.5
      renamed.
 
 *Shared Libraries*
-     GDB 4 can debug programs and core files that use SunOS shared
-     libraries.
+     GDB 4 can debug programs and core files that use SunOS, SVR4, or
+     IBM RS/6000 shared libraries.
 
 *Reference Card*
      GDB 4 has a reference card.  *Note Formatting Documentation:: for
@@ -519,7 +522,7 @@ Let's use GDB to try to see what's going on.
       the conditions.
      There is absolutely no warranty for GDB; type "show warranty"
      for details.
-     GDB 4.4, Copyright 1992 Free Software Foundation, Inc...
+     GDB 4.5, Copyright 1992 Free Software Foundation, Inc...
      (gdb)
 
 GDB reads only enough symbol data to know where to find the rest when
@@ -689,8 +692,9 @@ File: gdb.info,  Node: Invocation,  Next: Commands,  Prev: Sample Session,  Up: 
 Getting In and Out of GDB
 *************************
 
-   Type `gdb' or `gdb PROGRAM CORE' to start GDB and type `quit' or
-`C-d' to exit.
+   This chapter discusses how to start GDB, and how to get out of it. 
+(The essentials: type `gdb' to start GDB, and type `quit' or `C-d' to
+exit.)
 
 * Menu:
 
@@ -707,9 +711,15 @@ Starting GDB
    Start GDB with the shell command `gdb'.  Once it's running, GDB
 reads commands from the terminal until you tell it to exit.
 
-   You can run `gdb' with no arguments or options; but the most usual
-way to start GDB is with one argument or two, specifying an executable
-program as the argument:
+   You can also run `gdb' with a variety of arguments and options, to
+specify more of your debugging environment at the outset.
+
+   The command-line options described here are designed to cover a
+variety of situations; in some environments, some of these options may
+effectively be unavailable.
+
+   The most usual way to start GDB is with one argument or two,
+specifying an executable program as the argument:
 
      gdb PROGRAM
 
@@ -725,6 +735,11 @@ want to debug a running process:
 
 would attach GDB to process `1234' (unless you also have a file named
 `1234'; GDB does check for a core file first).
+
+   Taking advantage of the second command-line argument requires a
+fairly complete operating system; when you use GDB as a remote debugger
+attached to a bare board, there may not be any notion of "process",
+and there is often no way to get a core dump.
 
 You can further control how GDB starts up by using command-line
 options.  GDB itself can remind you of the options available.
@@ -790,6 +805,37 @@ them, so long as enough of the option is present to be unambiguous.
 `-directory=DIRECTORY'
 `-d DIRECTORY'
      Add DIRECTORY to the path to search for source files.
+
+`-m'
+`-mapped'
+     *Warning: this option depends on operating system facilities that
+     are not supported on all systems.*
+      If memory-mapped files are available on your system through the
+     `mmap' system call, you can use this option to cause GDB to write
+     the symbols from your program into a reusable file in the current
+     directory.  If the program you are debugging is called
+     `/tmp/fred', the mapped symbol file will be `./fred.syms'. 
+     Future GDB debugging sessions will notice the presence of this
+     file, and will quickly map in symbol information from it, rather
+     than reading the symbol table from the executable program.
+
+     The `.syms' file is specific to the host machine on which GDB is
+     run.  It holds an exact image of GDB's internal symbol table.  It
+     cannot be shared across multiple host platforms.
+
+`-r'
+`-readnow'
+     Read each symbol file's entire symbol table immediately, rather
+     than the default, which is to read it incrementally as it is
+     needed.  This makes startup slower, but makes future operations
+     faster.
+
+   The `-mapped' and `-readnow' options are typically combined in
+order to build a `.syms' file that contains complete symbol
+information.  A simple GDB invocation to do nothing but build a
+`.syms' file for future use is:
+
+     	gdb -batch -nx -mapped -readnow programname
 
 
 File: gdb.info,  Node: Mode Options,  Prev: File Options,  Up: Invoking GDB
@@ -1064,6 +1110,7 @@ Running Programs Under GDB
 * Input/Output::                Your Program's Input and Output
 * Attach::                      Debugging an Already-Running Process
 * Kill Process::                Killing the Child Process
+* Process Information::         Additional Process Information
 
 
 File: gdb.info,  Node: Compilation,  Next: Starting,  Prev: Running,  Up: Running
@@ -1084,10 +1131,17 @@ run the compiler.
 together.  Using those compilers, you cannot generate optimized
 executables containing debugging information.
 
-   The GNU C compiler supports `-g' with or without `-O', making it
-possible to debug optimized code.  We recommend that you *always* use
-`-g' whenever you compile a program.  You may think your program is
-correct, but there is no sense in pushing your luck.
+   gcc, the GNU C compiler, supports `-g' with or without `-O', making
+it possible to debug optimized code.  We recommend that you *always*
+use `-g' whenever you compile a program.  You may think your program
+is correct, but there is no sense in pushing your luck.
+
+   When you debug a program compiled with `-g -O', remember that the
+optimizer is rearranging your code; the debugger will show you what's
+really there.  Don't be too surprised when the execution path doesn't
+exactly match your source file!  An extreme example: if you define a
+variable, but never use it, GDB will never see that variable--because
+the compiler optimizes it out of existence.
 
    Some things do not work as well with `-g -O' as with just `-g',
 particularly on machines with instruction scheduling.  If in doubt,
@@ -1119,12 +1173,12 @@ jumps to the start of your program.)
 
    The execution of a program is affected by certain information it
 receives from its superior.  GDB provides ways to specify this
-information, which you must do before starting your program.  (You can
-change it after starting your program, but such changes will only
+information, which you must do *before* starting your program.  (You
+can change it after starting your program, but such changes will only
 affect your program the next time you start it.)  This information may
 be divided into four categories:
 
-The arguments.
+The *arguments.*
      Specify the arguments to give your program as the arguments of the
      `run' command.  If a shell is available on your target, the shell
      is used to pass the arguments, so that you may use normal
@@ -1133,19 +1187,19 @@ The arguments.
      which shell is used with the `SHELL' environment variable. *Note
      Your Program's Arguments: Arguments.
 
-The environment.
+The *environment.*
      Your program normally inherits its environment from GDB, but you
      can use the GDB commands `set environment' and `unset
      environment' to change parts of the environment that will be
      given to your program.  *Note Your Program's Environment:
      Environment.
 
-The working directory.
+The *working directory.*
      Your program inherits its working directory from GDB.  You can set
      GDB's working directory with the `cd' command in GDB.  *Note Your
      Program's Working Directory: Working Directory.
 
-The standard input and output.
+The *standard input and output.*
      Your program normally uses the same device for standard input and
      standard output as GDB is using.  You can redirect input and
      output in the `run' command line, or you can use the `tty'
@@ -1275,48 +1329,5 @@ Files: Files.
 
 `pwd'
      Print GDB's working directory.
-
-
-File: gdb.info,  Node: Input/Output,  Next: Attach,  Prev: Working Directory,  Up: Running
-
-Your Program's Input and Output
-===============================
-
-   By default, the program you run under GDB does input and output to
-the same terminal that GDB uses.  GDB switches the terminal to its own
-terminal modes to interact with you, but it records the terminal modes
-your program was using and switches back to them when you continue
-running your program.
-
-`info terminal'
-     Displays GDB's recorded information about the terminal modes your
-     program is using.
-
-   You can redirect your program's input and/or output using shell
-redirection with the `run' command.  For example,
-
-     run > outfile
-
-starts your program, diverting its output to the file `outfile'.
-
-   Another way to specify where your program should do input and
-output is with the `tty' command.  This command accepts a file name as
-argument, and causes this file to be the default for future `run'
-commands.  It also resets the controlling terminal for the child
-process, for future `run' commands.  For example,
-
-     tty /dev/ttyb
-
-directs that processes started with subsequent `run' commands default
-to do input and output on the terminal `/dev/ttyb' and have that as
-their controlling terminal.
-
-   An explicit redirection in `run' overrides the `tty' command's
-effect on the input/output device, but not its effect on the
-controlling terminal.
-
-   When you use the `tty' command or redirect input in the `run'
-command, only the input *for your program* is affected.  The input for
-GDB still comes from your terminal.
 
 

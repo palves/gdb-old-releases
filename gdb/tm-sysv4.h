@@ -1,6 +1,6 @@
 /* Macro definitions for GDB on all SVR4 target systems.
-   Copyright (C) 1991, Free Software Foundation, Inc.
-   Written by Fred Fish at Cygnus Support (fnf@cygint)
+   Copyright (C) 1991, 1992, Free Software Foundation, Inc.
+   Written by Fred Fish at Cygnus Support (fnf@cygnus.com).
 
 This file is part of GDB.
 
@@ -18,20 +18,18 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* Support for SVR4 shared libraries. */
+#include "solib.h"	/* Support for shared libraries. */
 
-#define CLEAR_SOLIB			clear_solib
-extern void clear_solib ();			/* solib.c */
+/* For SVR4 shared libraries, each call to a library routine goes through
+   a small piece of trampoline code in the ".init" section.  Although each
+   of these fragments is labeled with the name of the routine being called,
+   the gdb symbol reading code deliberately ignores them so it won't confuse
+   them with the real functions.  It does however know about the label that
+   precedes all of the fragments, which is "_init".  Thus when we lookup a
+   function that corresponds to a PC value which is in one of the trampoline
+   fragments, we'll appear to be in the function "_init".  The following
+   macro will evaluate to nonzero when NAME is valid and matches "_init".
+   The horribly ugly wait_for_inferior() routine uses this macro to detect
+   when we have stepped into one of these fragments. */
 
-#define SOLIB_ADD(filename, from_tty, targ) solib_add (filename, from_tty, targ)
-extern void solib_add ();			/* solib.c */
-
-#define SOLIB_CREATE_INFERIOR_HOOK	solib_create_inferior_hook
-extern void solib_create_inferior_hook();	/* solib.c */
-
-/* If we can't set a breakpoint, and it's in a shared library, just
-   disable it.  */
-
-#define DISABLE_UNSETTABLE_BREAK(addr)	solib_address(addr)
-extern int solib_address ();			/* solib.c */
-
+#define IN_SOLIB_TRAMPOLINE(pc,name) ((name) && (strcmp ("_init", name) == 0))

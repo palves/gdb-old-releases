@@ -13,7 +13,7 @@
 
 /* Always use our: getopt.o getopt1.o obstack.o spaces.o */
 
-
+void
 main (argc, argv)
      int argc; char **argv;
 {
@@ -22,7 +22,7 @@ main (argc, argv)
 
 #undef DEF
 #undef AND
-#define AND ;
+#define AND = 0;
 /* ARGS expands into a set of declaration.  NAME ARG_LIST expands
    info a function call that uses those variables as actual parameters.
    If the function has been DEF'ed correctly, we can pass the right

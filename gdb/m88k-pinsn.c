@@ -19,9 +19,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
-#include "opcode/m88k.h"
 #include "defs.h"
+#include "opcode/m88k.h"
 #include "symtab.h"
 
 void sprint_address ();
@@ -329,7 +328,7 @@ void sprint_address (addr, buffer)
      char	*buffer;
 
 {
-	register int	i;
+	struct minimal_symbol *msymbol;
 	struct symbol	*fs;
 	char		*name;
 	int		name_location;
@@ -339,13 +338,13 @@ void sprint_address (addr, buffer)
 	fs = find_pc_function (addr);
 
 	if (!fs) {
-	    i = find_pc_misc_function (addr);
+	    msymbol = lookup_minimal_symbol_by_pc (addr);
 
-	    if (i < 0) return;	/* If nothing comes through, don't
+	    if (i == NULL) return;/* If nothing comes through, don't
 				   print anything symbolic */
 
-	    name = misc_function_vector[i].name;
-	    name_location = misc_function_vector[i].address;
+	    name = msymbol -> name;
+	    name_location = msymbol -> address;
 	} else {
 	    name = fs->name;
 	    name_location = BLOCK_START (SYMBOL_BLOCK_VALUE (fs));

@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -92,7 +91,7 @@ frame_chain_valid (chain, thisframe)
      struct frame_info *thisframe;
 {
   return (chain != 0
-       && outside_startup_file (FRAME_SAVED_PC (thisframe)));
+       && !inside_entry_file (FRAME_SAVED_PC (thisframe)));
 }
 
 void

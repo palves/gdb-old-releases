@@ -1,6 +1,6 @@
 /* Definitions for running gdb on a host machine running any flavor of SVR4.
-   Copyright (C) 1991, Free Software Foundation, Inc.
-   Written by Fred Fish at Cygnus Support (fnf@cygint)
+   Copyright 1991, 1992 Free Software Foundation, Inc.
+   Written by Fred Fish at Cygnus Support (fnf@cygnus.com).
 
 This file is part of GDB.
 
@@ -30,6 +30,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define HAVE_TERMIO
 
+/* SVR4 has mmap facilities */
+
+#define HAVE_MMAP
+
 /* TIOCGETC and TIOCGLTC are picked up somewhere, but struct tchars
    and struct ltchars are not.  This makes problems for inflow.c.
    It is unknown at this time if this is a generic SVR4 problem or
@@ -58,3 +62,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define CREATE_INFERIOR_HOOK(pid) inferior_proc_init(pid)
 #endif
 
+/* Use setpgid(0,0) to run inferior in a separate process group */
+
+#define NEED_POSIX_SETPGID
+
+/* If gdb's signal handling changes (due to a "handle" command), then
+   this macro expands to an action to perform to notify other parts of
+   gdb that might care, that signal handling has changed.  For hosts using
+   the /proc interface, gdb has more control over which signals cause the
+   inferior to stop and which do not.  In some cases, it is desirable to
+   have signals delivered directly to the inferior without involving the
+   debugger at all. */
+
+#ifdef USE_PROC_FS
+#define NOTICE_SIGNAL_HANDLING_CHANGE proc_signal_handling_change()
+#endif

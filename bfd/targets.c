@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: targets.c,v 1.52 1992/01/28 06:01:30 sac Exp $ */
+/* $Id: targets.c,v 1.55 1992/02/22 05:46:50 gnu Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -496,7 +496,7 @@ DESCRIPTION
 	modify the names 
 
 SYNOPSIS
-	CONST char **bfd_target_list();
+	CONST char **bfd_target_list(void);
 
 */
 

@@ -1,5 +1,5 @@
 /* Remote debugging interface for AMD 290*0 Adapt Monitor Version 2.1d18. 
-   Copyright 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Contributed by David Wood at New York University (wood@lab.ultra.nyu.edu).
    Adapted from work done at Cygnus Support in remote-eb.c.
 
@@ -29,9 +29,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	o - I can't get 19200 baud rate to work. 
    7/91 o - Freeze mode tracing can be done on a 29050.  */
 
-#include <stdio.h>
-#include <string.h>
 #include "defs.h"
+#include <string.h>
 #include "inferior.h"
 #include "wait.h"
 #include "value.h"
@@ -45,9 +44,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* External data declarations */
 extern int stop_soon_quietly;           /* for wait_for_inferior */
-
-/* External function declarations */
-extern struct value *call_function_by_hand();
 
 /* Forward data declarations */
 extern struct target_ops adapt_ops;		/* Forward declaration */
@@ -1427,7 +1423,6 @@ struct target_ops adapt_ops = {
 	0, 0, 0, 0, 0,		/* Terminal handling */
 	adapt_kill, 		/* FIXME, kill */
 	adapt_load, 
-	call_function_by_hand,
 	0, 			/* lookup_symbol */
 	adapt_create_inferior, 	/* create_inferior */ 
 	adapt_mourn, 		/* mourn_inferior FIXME */

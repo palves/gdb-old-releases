@@ -1,5 +1,5 @@
 /* ELF support for BFD.
-   Copyright (C) 1991 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1992 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
    in "UNIX System V Release 4, Programmers Guide: ANSI C and
@@ -75,7 +75,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define EM_386		3		/* Intel 80386 */
 #define EM_68K		4		/* Motorola m68k family */
 #define EM_88K		5		/* Motorola m88k family */
-#define EM_860		6		/* Intel 80860 */
+#define EM_860		7		/* Intel 80860 */
+#define EM_MIPS		8		/* MIPS R3000 */
 
 /* Values for e_version */
 
@@ -165,3 +166,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define SHN_ABS		0xFFF1		/* Associated symbol is absolute */
 #define SHN_COMMON	0xFFF2		/* Associated symbol is in common */
 #define SHN_HIRESERVE	0xFFFF		/* End range of reserved indices */
+
+/* relocation info handling macros */
+
+#define ELF_R_SYM(i)	((i)>>8)
+#define ELF_R_TYPE(i)	((unsigned char)(i))
+#define ELF_R_INFO(s,t)	(((s)<<8)+(unsigned char)(t))

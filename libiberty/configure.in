@@ -13,6 +13,10 @@ links="alloca-conf.h"
 
 case "${host_os}" in
 
+sysv4 )
+	host_makefile_frag=config/mh-sysv4
+	;;
+
 sysv* | dgux | irix | m88kbcs )
 	host_makefile_frag=config/mh-sysv
 	;;
@@ -26,9 +30,21 @@ aix)
 	esac
 	;;
 
+irix4)
+	host_makefile_frag=config/mh-irix4
+	;;
+
 *)
 	;;
 
 esac
 
+case "${host_vendor}" in
+	apollo*)
+		case "${host_cpu}" in
+			m68k*)
+				host_makefile_frag=config/mh-apollo68 ;;
+			esac
+		;;
+esac
 # per-target:

@@ -18,11 +18,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
+#include "defs.h"
 #include "environ.h"
 #include <string.h>
 #include "defs.h" /* For strsave().  */
 
-extern void free ();
 
 /* Return a new environment object.  */
 
@@ -98,14 +98,14 @@ environ_vector (e)
 
 char *
 get_in_environ (e, var)
-     struct environ *e;
-     char *var;
+     const struct environ *e;
+     const char *var;
 {
   register int len = strlen (var);
   register char **vector = e->vector;
   register char *s;
 
-  for (; s = *vector; vector++)
+  for (; (s = *vector) != NULL; vector++)
     if (!strncmp (s, var, len)
 	&& s[len] == '=')
       return &s[len + 1];
@@ -118,15 +118,15 @@ get_in_environ (e, var)
 void
 set_in_environ (e, var, value)
      struct environ *e;
-     char *var;
-     char *value;
+     const char *var;
+     const char *value;
 {
   register int i;
   register int len = strlen (var);
   register char **vector = e->vector;
   register char *s;
 
-  for (i = 0; s = vector[i]; i++)
+  for (i = 0; (s = vector[i]) != NULL; i++)
     if (!strncmp (s, var, len)
 	&& s[len] == '=')
       break;
@@ -174,7 +174,7 @@ unset_in_environ (e, var)
   register char **vector = e->vector;
   register char *s;
 
-  for (; s = *vector; vector++)
+  for (; (s = *vector) != NULL; vector++)
     if (!strncmp (s, var, len)
 	&& s[len] == '=')
       {

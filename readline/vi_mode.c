@@ -1096,6 +1096,7 @@ rl_vi_subst (count, key)
   else
     rl_delete (count, key);
 
+  rl_end_undo_group ();
   rl_vi_insertion_mode ();
 }
 

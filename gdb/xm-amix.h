@@ -1,6 +1,6 @@
 /* Macro definitions for GDB on a Commodore Amiga running SVR4 (amix)
-   Copyright (C) 1991, Free Software Foundation, Inc.
-   Written by Fred Fish at Cygnus Support (fnf@cygint)
+   Copyright 1991, 1992 Free Software Foundation, Inc.
+   Written by Fred Fish at Cygnus Support (fnf@cygnus.com)
 
 This file is part of GDB.
 
@@ -26,3 +26,20 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "xm-sysv4.h"
 
+/* The native AT&T compiler for m68k/SVR4 complains about using volatile
+   to indicate functions that never return.  So shut it up by simply
+   defining away "NORETURN", which is normally defined to "volatile". */
+
+#ifndef __GNUC__
+# define NORETURN /**/
+#endif
+
+/* If you expect to use the mmalloc package to obtain mapped symbol files,
+   for now you have to specify some parameters that determine how gdb places
+   the mappings in it's address space.  See the comments in map_to_address()
+   for details.  This is expected to only be a short term solution.  Yes it
+   is a kludge.
+   FIXME:  Make this more automatic. */
+
+#define MMAP_BASE_ADDRESS	0xC2000000	/* First mapping here */
+#define MMAP_INCREMENT		0x01000000	/* Increment to next mapping */

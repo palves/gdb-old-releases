@@ -20,27 +20,60 @@
 /*  Create and destroy argument vectors.  An argument vector is simply an
     array of string pointers, terminated by a NULL pointer. */
 
+/* AIX requires this to be the first thing in the file. */
+#ifdef __GNUC__
+#define alloca __builtin_alloca
+#else /* not __GNUC__ */
+#ifdef sparc
+#include <alloca.h>
+extern char *__builtin_alloca();  /* Stupid include file doesn't declare it */
+#else
+#ifdef _AIX
+ #pragma alloca
+#else
+char *alloca ();
+#endif
+#endif /* sparc */
+#endif /* not __GNUC__ */
+
+#define isspace(ch) ((ch) == ' ' || (ch) == '\t')
+
+#include "alloca-conf.h"
+
+/*  Routines imported from standard C runtime libraries. */
+
+#ifdef __STDC__
+
+#include <stddef.h>
+extern void *memcpy (void *s1, const void *s2, size_t n);	/* 4.11.2.1 */
+extern size_t strlen (const char *s);				/* 4.11.6.3 */
+extern void *malloc (size_t size);				/* 4.10.3.3 */
+extern void free (void *ptr);					/* 4.10.3.2 */
+extern char *strdup (const char *s);				/* Non-ANSI */
+
+#else	/* !__STDC__ */
+
+extern char *memcpy ();		/* Copy memory region */
+extern int strlen ();		/* Count length of string */
+extern char *malloc ();		/* Standard memory allocater */
+extern void free ();		/* Free malloc'd memory */
+extern char *strdup ();		/* Duplicate a string */
+
+#endif	/* __STDC__ */
+
 #ifndef NULL
 #define NULL 0
 #endif
 
+#ifndef EOS
 #define EOS '\000'
-
-#define isspace(ch) ((ch) == ' ' || (ch) == '\t')
+#endif
 
 /*  Local data. */
 
 static int argc = 0;
 static int maxargc = 0;
 static char **argv = NULL;
-
-/*  Routines imported from standard C runtime libraries. */
-
-extern void free ();		/* Free malloc'd memory */
-extern char *malloc ();		/* Standard memory allocater */
-extern char *memcpy ();		/* Copy memory region */
-extern int strlen ();		/* Count length of string */
-extern char *strdup ();		/* Duplicate a string */
 
 /*
 
@@ -179,12 +212,10 @@ char **buildargv (input)
 char *input;
 {
   register char *arg;
-  register char *newstr;
   register int squote = 0;
   register int dquote = 0;
   register int bsquote = 0;
   char *copybuf;
-  extern void *alloca ();
 
   argv = NULL;
   if (input != NULL)

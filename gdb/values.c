@@ -17,17 +17,27 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
-#include <string.h>
 #include "defs.h"
+#include <string.h>
 #include "symtab.h"
+#include "gdbtypes.h"
 #include "value.h"
 #include "gdbcore.h"
 #include "frame.h"
 #include "command.h"
 #include "gdbcmd.h"
+#include "target.h"
 
-extern char *cplus_demangle ();
+/* Local function prototypes. */
+
+static value
+value_headof PARAMS ((value, struct type *, struct type *));
+
+static void
+show_values PARAMS ((char *, int));
+
+static void
+show_convenience PARAMS ((char *, int));
 
 /* The value-history records all the values printed
    by print commands during this session.  Each chunk
@@ -303,9 +313,9 @@ clear_value_history ()
     {
       for (i = 0; i < VALUE_HISTORY_CHUNK; i++)
 	if (val = value_history_chain->values[i])
-	  free (val);
+	  free ((PTR)val);
       next = value_history_chain->next;
-      free (value_history_chain);
+      free ((PTR)value_history_chain);
       value_history_chain = next;
     }
   value_history_count = 0;
@@ -441,7 +451,7 @@ set_internalvar (var, val)
     SET_TRAPPED_INTERNALVAR (var, val, 0, 0, 0);
 #endif
 
-  free (var->value);
+  free ((PTR)var->value);
   var->value = value_copy (val);
   release_value (var->value);
 }
@@ -465,14 +475,16 @@ clear_internalvars ()
     {
       var = internalvars;
       internalvars = var->next;
-      free (var->name);
-      free (var->value);
-      free (var);
+      free ((PTR)var->name);
+      free ((PTR)var->value);
+      free ((PTR)var);
     }
 }
 
 static void
-show_convenience ()
+show_convenience (ignore, from_tty)
+     char *ignore;
+     int from_tty;
 {
   register struct internalvar *var;
   int varseen = 0;
@@ -485,10 +497,6 @@ show_convenience ()
 #endif
       if (!varseen)
 	{
-#if 0
-	  /* Useless noise.  */
-	  printf ("Debugger convenience variables:\n\n");
-#endif
 	  varseen = 1;
 	}
       printf_filtered ("$%s = ", var->name);
@@ -641,7 +649,7 @@ unpack_long (type, valaddr)
     {
       if (len == sizeof (char))
 	{
-	  char retval;
+	  SIGNED char retval;	/* plain chars might be unsigned on host */
 	  bcopy (valaddr, &retval, sizeof (retval));
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
@@ -690,13 +698,20 @@ unpack_long (type, valaddr)
   else if (code == TYPE_CODE_PTR
 	   || code == TYPE_CODE_REF)
     {
-      if (len == sizeof (CORE_ADDR))
-	{
-	  CORE_ADDR retval;
-	  bcopy (valaddr, &retval, sizeof (retval));
-	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
-	  return retval;
-	}
+      if (len == sizeof(long))
+      {
+	long retval;
+	bcopy (valaddr, &retval, sizeof(retval));
+	SWAP_TARGET_AND_HOST (&retval, sizeof(retval));
+	return retval;
+      }
+      else if (len == sizeof(short))
+      {
+	short retval;
+	bcopy (valaddr, &retval, len);
+	SWAP_TARGET_AND_HOST (&retval, len);
+	return retval;
+      }
     }
   else if (code == TYPE_CODE_MEMBER)
     error ("not implemented: member types in unpack_long");
@@ -995,6 +1010,8 @@ value_headof (arg, btype, dtype)
   struct symbol *sym;
   CORE_ADDR pc_for_sym;
   char *demangled_name;
+  struct minimal_symbol *msymbol;
+
   btype = TYPE_VPTR_BASETYPE (dtype);
   check_stub_type (btype);
   if (btype != dtype)
@@ -1004,8 +1021,9 @@ value_headof (arg, btype, dtype)
   vtbl = value_ind (value_field (value_ind (vtbl), TYPE_VPTR_FIELDNO (btype)));
 
   /* Check that VTBL looks like it points to a virtual function table.  */
-  i = find_pc_misc_function (VALUE_ADDRESS (vtbl));
-  if (i < 0 || ! VTBL_PREFIX_P (demangled_name = misc_function_vector[i].name))
+  msymbol = lookup_minimal_symbol_by_pc (VALUE_ADDRESS (vtbl));
+  if (msymbol == NULL
+      || !VTBL_PREFIX_P (demangled_name = msymbol -> name))
     {
       /* If we expected to find a vtable, but did not, let the user
 	 know that we aren't happy, but don't throw an error.
@@ -1080,70 +1098,6 @@ value_from_vtable_info (arg, type)
     return 0;
 
   return value_headof (arg, 0, type);
-}
-
-/* The value of a static class member does not depend
-   on its instance, only on its type.  If FIELDNO >= 0,
-   then fieldno is a valid field number and is used directly.
-   Otherwise, FIELDNAME is the name of the field we are
-   searching for.  If it is not a static field name, an
-   error is signaled.  TYPE is the type in which we look for the
-   static field member.
-
-   Return zero if we couldn't find anything; the caller may signal
-   an error in that case.  */
-
-value
-value_static_field (type, fieldname, fieldno)
-     register struct type *type;
-     char *fieldname;
-     register int fieldno;
-{
-  register value v;
-  struct symbol *sym;
-  char *phys_name;
-
-  if (fieldno < 0)
-    {
-      /* Look for static field.  */
-      int i;
-      for (i = TYPE_NFIELDS (type) - 1; i >= TYPE_N_BASECLASSES (type); i--)
-	if (! strcmp (TYPE_FIELD_NAME (type, i), fieldname))
-	  {
-	    if (TYPE_FIELD_STATIC (type, i))
-	      {
-		fieldno = i;
-		goto found;
-	      }
-	    else
-	      error ("field `%s' is not static", fieldname);
-	  }
-      for (; i > 0; i--)
-	{
-	  v = value_static_field (TYPE_BASECLASS (type, i), fieldname, -1);
-	  if (v != 0)
-	    return v;
-	}
-
-      if (destructor_name_p (fieldname, type))
-	error ("Cannot get value of destructor");
-
-      for (i = TYPE_NFN_FIELDS (type) - 1; i >= 0; i--)
-	{
-	  if (! strcmp (TYPE_FN_FIELDLIST_NAME (type, i), fieldname))
-	    error ("Cannot get value of method \"%s\"", fieldname);
-	}
-      error("there is no field named %s", fieldname);
-    }
-
- found:
-  phys_name = TYPE_FIELD_STATIC_PHYSNAME (type, fieldno);
-  sym = lookup_symbol (phys_name, 0, VAR_NAMESPACE, 0, NULL);
-  if (! sym) error ("Internal error: could not find physical static variable named %s", phys_name);
-
-  type = TYPE_FIELD_TYPE (type, fieldno);
-  v = value_at (type, (CORE_ADDR)SYMBOL_BLOCK_VALUE (sym));
-  return v;
 }
 
 /* Compute the address of the baseclass which is
@@ -1242,7 +1196,7 @@ unpack_field_as_long (type, valaddr, fieldno)
      char *valaddr;
      int fieldno;
 {
-  long val;
+  unsigned long val;
   int bitpos = TYPE_FIELD_BITPOS (type, fieldno);
   int bitsize = TYPE_FIELD_BITSIZE (type, fieldno);
 
@@ -1313,7 +1267,8 @@ value_from_longest (type, num)
   /* FIXME, we assume that pointers have the same form and byte order as
      integers, and that all pointers have the same form.  */
   if (code == TYPE_CODE_INT  || code == TYPE_CODE_ENUM || 
-      code == TYPE_CODE_CHAR || code == TYPE_CODE_PTR)
+      code == TYPE_CODE_CHAR || code == TYPE_CODE_PTR ||
+      code == TYPE_CODE_REF)
     {
       if (len == sizeof (char))
 	* (char *) VALUE_CONTENTS_RAW (val) = num;

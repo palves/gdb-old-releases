@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -43,9 +42,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "target.h"
 
-extern void print_387_control_word ();		/* i387-tdep.h */
-extern void print_387_status_word ();
-
 extern struct ext_format ext_format_i387;
 
 /* this table must line up with REGISTER_NAMES in m-i386.h */
@@ -61,7 +57,11 @@ static int regmap[] =
 /* blockend is the value of u.u_ar0, and points to the
  * place where GS is stored
  */
+
+int
 i386_register_u_addr (blockend, regnum)
+     int blockend;
+     int regnum;
 {
 #if 0
   /* this will be needed if fp registers are reinstated */
@@ -160,13 +160,13 @@ print_387_status (status, ep)
       printf ("  %g\n", val);
     }
   if (ep->r0)
-    printf ("warning: reserved0 is %s\n", local_hex_string(ep->r0));
+    warning ("reserved0 is %s\n", local_hex_string(ep->r0));
   if (ep->r1)
-    printf ("warning: reserved1 is %s\n", local_hex_string(ep->r1));
+    warning ("reserved1 is %s\n", local_hex_string(ep->r1));
   if (ep->r2)
-    printf ("warning: reserved2 is %s\n", local_hex_string(ep->r2));
+    warning ("reserved2 is %s\n", local_hex_string(ep->r2));
   if (ep->r3)
-    printf ("warning: reserved3 is %s\n", local_hex_string(ep->r3));
+    warning ("reserved3 is %s\n", local_hex_string(ep->r3));
 }
 
 #ifndef U_FPSTATE

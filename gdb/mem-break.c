@@ -18,12 +18,12 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 
 #ifdef BREAKPOINT
 /* This file is only useful if BREAKPOINT is set.  If not, we punt.  */
 
+#include "symtab.h"
 #include "breakpoint.h"
 #include "inferior.h"
 #include "target.h"
@@ -57,7 +57,7 @@ memory_insert_breakpoint (addr, contents_cache)
   val = target_read_memory (addr, contents_cache, sizeof break_insn);
 
   if (val == 0)
-    val = target_write_memory (addr, break_insn, sizeof break_insn);
+    val = target_write_memory (addr, (char *)break_insn, sizeof break_insn);
 
   return val;
 }

@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1990, 1991 Cygnus Support
+#   Copyright (C) 1990, 1991, 1992 Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,6 +17,9 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #
 
+# This file was written, and is maintained by K. Richard Pixley
+# <rich@cygnus.com>.
+
 #
 # Makefile for libiberty directory
 #
@@ -25,10 +28,13 @@ srcdir = .
 
 prefix = /usr/local
 
-bindir = $(prefix)/bin
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+
 datadir = $(prefix)/lib
-libdir = $(prefix)/lib
-mandir = $(datadir)/man
+
+mandir = $(prefix)/man
 man1dir = $(mandir)/man1
 man2dir = $(mandir)/man2
 man3dir = $(mandir)/man3
@@ -38,8 +44,9 @@ man6dir = $(mandir)/man6
 man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 man9dir = $(mandir)/man9
-infodir = $(datadir)/info
+infodir = $(prefix)/info
 includedir = $(prefix)/include
+oldincludedir =
 docdir = $(datadir)/doc
 
 SHELL = /bin/sh
@@ -75,6 +82,9 @@ DO_ALSO = needed-list
 EXTRA_OFILES = 
 
 all:	$(TARGETLIB)
+.PHONY: check
+check:
+
 
 #### Host, target, and site specific Makefile fragments come in here.
 ###
@@ -90,7 +100,7 @@ CFILES = basename.c bcmp.c bcopy.c bzero.c getopt.c getopt1.c getpagesize.c \
 	memcmp.c memcpy.c memmove.c memset.c strchr.c strrchr.c \
 	strdup.c strerror.c strstr.c strtol.c strtoul.c vfork.c \
 	vfprintf.c vprintf.c vsprintf.c sigsetmask.c concat.c fdmatch.c \
-	argv.c
+	argv.c alloca.c
 # These are always included in the library.
 REQUIRED_OFILES = basename.o getopt.o getopt1.o obstack.o spaces.o concat.o \
 	fdmatch.o argv.o
@@ -144,43 +154,6 @@ $(RULE2): $(REQUIRED_OFILES) $(HOST_OFILES) $(EXTRA_OFILES)
 # Do nothing.
 
 .PHONEY: all etags tags ls clean stage1 stage2 .always.
-
-stage1: force
-	-mkdir stage1
-	-mv -f $(STAGESTUFF) stage1
-
-stage2: force
-	-mkdir stage2
-	-mv -f $(STAGESTUFF) stage2
-
-stage3: force
-	-mkdir stage3
-	-mv -f $(STAGESTUFF) stage3
-
-stage4: force
-	-mkdir stage4
-	-mv -f $(STAGESTUFF) stage4
-
-against=stage2
-
-comparison: force
-	for i in *.o ; do cmp $$i $(against)/$$i || exit 1 ; done
-
-de-stage1: force
-	-(cd stage1 ; mv -f * ..)
-	-rmdir stage1
-
-de-stage2: force
-	-(cd stage2 ; mv -f * ..)
-	-rmdir stage2
-
-de-stage3: force
-	-(cd stage3 ; mv -f * ..)
-	-rmdir stage3
-
-de-stage4: force
-	-(cd stage4 ; mv -f * ..)
-	-rmdir stage4
 
 etags tags: TAGS
 

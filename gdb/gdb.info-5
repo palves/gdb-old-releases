@@ -6,11 +6,11 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.01, January 1992, of `Using GDB: A Guide to the
-GNU Source-Level Debugger' for GDB Version 4.4.
+   This is Edition 4.04, March 1992, of `Using GDB: A Guide to the GNU
+Source-Level Debugger' for GDB Version 4.5.
 
-   Copyright (C) 1988, 1989, 1990, 1991 1992 Free Software Foundation,
-Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software
+Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -54,6 +54,14 @@ are useful.
      program to run.  You can change the value of this variable, for
      both GDB and your program, using the `path' command.
 
+     On systems with memory-mapped files, an auxiliary symbol table
+     file `FILENAME.syms' may be available for FILENAME.  If it is,
+     GDB will map in the symbol table from `FILENAME.syms', starting
+     up more quickly.  See the descriptions of the options `-mapped'
+     and `-readnow' (available on the command line, and with the
+     commands `file', `symbol-file', or `add-symbol-file'), for more
+     information.
+
 `file'
      `file' with no argument makes GDB discard any information it has
      on both executable file and the symbol table.
@@ -82,8 +90,16 @@ are useful.
      `symbol-file' will not repeat if you press RET again after
      executing it once.
 
+     When GDB is configured for a particular environment, it will
+     understand debugging information in whatever format is the
+     standard generated for that environment; you may use either a GNU
+     compiler, or other compilers that adhere to the local
+     conventions.  Best results are usually obtained from GNU
+     compilers; for example, using `gcc' you can generate debugging
+     information for optimized code.
+
      On some kinds of object files, the `symbol-file' command does not
-     actually read the symbol table in full right away.  Instead, it
+     normally read the symbol table in full right away.  Instead, it
      scans the symbol table quickly to find which source files and
      which symbols are present.  The details are read later, one
      source file at a time, as they are needed.
@@ -99,13 +115,35 @@ are useful.
      read the symbol table data in full right away.  We have not
      implemented the two-stage strategy for COFF yet.
 
-     When GDB is configured for a particular environment, it will
-     understand debugging information in whatever format is the
-     standard generated for that environment; you may use either a GNU
-     compiler, or other compilers that adhere to the local
-     conventions.  Best results are usually obtained from GNU
-     compilers; for example, using `gcc' you can generate debugging
-     information for optimized code.
+`symbol-file FILENAME [ -readnow ] [ -mapped ]'
+`file FILENAME [ -readnow ] [ -mapped ]'
+     You can override the GDB two-stage strategy for reading symbol
+     tables by using the `-readnow' option with any of the commands
+     that load symbol table information, if you want to be sure GDB
+     has the entire symbol table available.
+
+     If memory-mapped files are available on your system through the
+     `mmap' system call, you can use another option, `-mapped', to
+     cause GDB to write the symbols for your program into a reusable
+     file.  Future GDB debugging sessions will map in symbol
+     information from this auxiliary symbol file (if the program
+     hasn't changed), rather than spending time reading the symbol
+     table from the executable program.  Using the `-mapped' option
+     has the same effect as starting GDB with the `-mapped'
+     command-line option.
+
+     You can use both options together, to make sure the auxiliary
+     symbol file has all the symbol information for your program.
+
+     The `.syms' file is specific to the host machine on which GDB is
+     run.  It holds an exact image of GDB's internal symbol table.  It
+     cannot be shared across multiple host platforms.
+
+     The auxiliary symbol file for a program called MYPROG is called
+     `MYPROG.syms'.  Once this file exists (so long as it is newer
+     than the corresponding executable), GDB will always attempt to use
+     it when you debug MYPROG; no special options or commands are
+     needed.
 
 `core-file [ FILENAME ]'
      Specify the whereabouts of a core dump file to be used as the
@@ -143,6 +181,7 @@ are useful.
      `load' will not repeat if you press RET again after using it.
 
 `add-symbol-file FILENAME ADDRESS'
+`add-symbol-file FILENAME ADDRESS [ -readnow ] [ -mapped ]'
      The `add-symbol-file' command reads additional symbol table
      information from the file FILENAME.  You would use this command
      when FILENAME has been dynamically loaded (by some other means)
@@ -158,6 +197,10 @@ are useful.
 
      `add-symbol-file' will not repeat if you press RET after using it.
 
+     You can use the `-mapped' and `-readnow' options just as with the
+     `symbol-file' command, to change how GDB manages the symbol tabl
+     einformation for FILENAME.
+
 `info files'
 `info target'
      `info files' and `info target' are synonymous; both print the
@@ -171,11 +214,12 @@ are useful.
 names as arguments.  GDB always converts the file name to an absolute
 path name and remembers it that way.
 
-   GDB supports the SunOS shared library format.  GDB automatically
-loads symbol definitions from shared libraries when you use the `run'
-command, or when you examine a core file.  (Before you issue the `run'
-command, GDB will not understand references to a function in a shared
-library, however--unless you are debugging a core file).
+   GDB supports SunOS, SVR4, and IBM RS/6000 shared libraries.  GDB
+automatically loads symbol definitions from shared libraries when you
+use the `run' command, or when you examine a core file.  (Before you
+issue the `run' command, GDB will not understand references to a
+function in a shared library, however--unless you are debugging a core
+file).
 
 `info share'
 `info sharedlibrary'
@@ -479,7 +523,7 @@ File: gdb.info,  Node: Nindy Startup,  Next: Nindy Options,  Prev: i960-Nindy Re
 Startup with Nindy
 ..................
 
-   If you simply start `GDB' without using any command-line options,
+   If you simply start `gdb' without using any command-line options,
 you are prompted for what serial port to use, *before* you reach the
 ordinary GDB prompt:
 
@@ -713,6 +757,10 @@ VxWorks targets from a Unix host.  Already-running tasks spawned from
 the VxWorks shell can also be debugged.  GDB uses code that runs on
 both the UNIX host and on the VxWorks target.  The program `gdb' is
 installed and executed on the UNIX host.
+
+   The following information on connecting to VxWorks was current when
+this manual was produced; newer releases of VxWorks may use revised
+procedures.
 
    The remote debugging interface (RDB) routines are installed and
 executed on the VxWorks target.  These routines are included in the
@@ -1192,67 +1240,5 @@ execution of the command file.
 proceed without asking when used in a command file.  Many GDB commands
 that normally print messages to say what they are doing omit the
 messages when called from command files.
-
-
-File: gdb.info,  Node: Output,  Prev: Command Files,  Up: Sequences
-
-Commands for Controlled Output
-==============================
-
-   During the execution of a command file or a user-defined command,
-normal GDB output is suppressed; the only output that appears is what
-is explicitly printed by the commands in the definition.  This section
-describes three commands useful for generating exactly the output you
-want.
-
-`echo TEXT'
-     Print TEXT.  Nonprinting characters can be included in TEXT using
-     C escape sequences, such as `\n' to print a newline.  *No newline
-     will be printed unless you specify one.* In addition to the
-     standard C escape sequences, a backslash followed by a space
-     stands for a space.  This is useful for outputting a string with
-     spaces at the beginning or the end, since leading and trailing
-     spaces are otherwise trimmed from all arguments.  To print ` and
-     foo = ', use the command `echo \ and foo = \ '.
-
-     A backslash at the end of TEXT can be used, as in C, to continue
-     the command onto subsequent lines.  For example,
-
-          echo This is some text\n\
-          which is continued\n\
-          onto several lines.\n
-
-     produces the same output as
-
-          echo This is some text\n
-          echo which is continued\n
-          echo onto several lines.\n
-
-`output EXPRESSION'
-     Print the value of EXPRESSION and nothing but that value: no
-     newlines, no `$NN = '.  The value is not entered in the value
-     history either.  *Note Expressions: Expressions, for more
-     information on expressions.
-
-`output/FMT EXPRESSION'
-     Print the value of EXPRESSION in format FMT.  You can use the
-     same formats as for `print'; *note Output formats::., for more
-     information.
-
-`printf STRING, EXPRESSIONS...'
-     Print the values of the EXPRESSIONS under the control of STRING. 
-     The EXPRESSIONS are separated by commas and may be either numbers
-     or pointers.  Their values are printed as specified by STRING,
-     exactly as if your program were to execute
-
-          printf (STRING, EXPRESSIONS...);
-
-     For example, you can print two values in hex like this:
-
-          printf "foo, bar-foo = 0x%x, 0x%x\n", foo, bar-foo
-
-     The only backslash-escape sequences that you can use in the format
-     string are the simple ones that consist of backslash followed by a
-     letter.
 
 

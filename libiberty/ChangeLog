@@ -1,3 +1,67 @@
+Wed Apr  1 23:31:43 1992  John Gilmore  (gnu at cygnus.com)
+
+	* argv.c, dummy.c:  Lint.
+
+Tue Mar 31 18:46:44 1992  Fred Fish  (fnf@cygnus.com)
+
+	* config/mh-sysv4:  New config file.
+	* configure.in (host_makefile_frag):  Set to config/mh-sysv4 for
+	host_os == sysv4.
+	* getpagesize.c:  For SVR4, use sysconf(_SC_PAGESIZE) to get
+	pagesize.
+
+Sun Mar 29 12:26:42 1992  John Gilmore  (gnu at cygnus.com)
+
+	* getopt.c:  Lint.
+
+Fri Mar 27 08:32:55 1992  Fred Fish  (fnf@cygnus.com)
+
+	* functions.def (alloca):  Fix return type and args to avoid
+	type clash with gcc's builtin alloca.
+
+Tue Mar 24 23:33:42 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* configure.in, config/mh-irix4: irix4 support.
+
+	* Makefile.in, functions.def, alloca.c: added alloca.
+
+Tue Mar 24 17:34:46 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* obstack.c (CALL_FREEFUN):  Make it compile on DECstations.
+
+Thu Mar 19 13:57:42 1992  Fred Fish  (fnf@cygnus.com)
+
+	* argv.c:  Fix various external function definitions to be
+	correct in an ANSI compilation environment.
+
+Sat Mar 14 17:28:17 1992  Fred Fish  (fnf@cygnus.com)
+
+	* obstack.c:  Changes to support calling mmalloc functions,
+	which take an additional argument over malloc functions.
+
+Fri Mar  6 22:01:10 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* added check target.
+
+Thu Feb 27 22:19:39 1992  Per Bothner  (bothner@cygnus.com)
+
+	* argv.c:  #include alloca-conf.h (needed by AIX).
+
+Wed Feb 26 18:04:40 1992  K. Richard Pixley  (rich@cygnus.com)
+
+	* Makefile.in, configure.in: removed traces of namesubdir,
+	  -subdirs, $(subdir), $(unsubdir), some rcs triggers.  Forced
+	  copyrights to '92, changed some from Cygnus to FSF.
+
+Sat Feb 22 01:09:21 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* argv.c:  Check in Fred's version which fixes problems with
+	alloca().
+
+Fri Feb  7 21:46:08 1992  Stu Grossman  (grossman at cygnus.com)
+
+	* makefile.dos:  Remove NUL to keep patch from failing.
+
 Thu Jan 30 22:48:41 1992  Stu Grossman  (grossman at cygnus.com)
 
 	* getopt.c (_getopt_internal):  Fix usage of enum has_arg.

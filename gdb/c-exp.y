@@ -32,11 +32,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <string.h>
 #include "defs.h"
 #include "symtab.h"
+#include "gdbtypes.h"
 #include "frame.h"
 #include "expression.h"
 #include "parser-defs.h"
 #include "value.h"
 #include "language.h"
+#include "bfd.h"
+#include "symfile.h"
+#include "objfiles.h"
+
+/* Ensure that if the generated parser contains any calls to malloc/realloc,
+   that they get mapped to xmalloc/xrealloc. */
+
+#define malloc	xmalloc
+#define realloc	xrealloc
 
 /* These MUST be included in any grammar file!!!! 
    Please choose unique names! */
@@ -68,10 +78,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yyval	c_val
 #define	yylloc	c_lloc
 
-/* Forward decls */
-void yyerror ();
-static int parse_number ();
-int yyparse ();
+int
+yyparse PARAMS ((void));
+
+int
+yylex PARAMS ((void));
+
+void
+yyerror PARAMS ((char *));
 
 /* #define	YYDEBUG	1 */
 
@@ -100,7 +114,13 @@ int yyparse ();
     int *ivec;
   }
 
-%type <voidval> exp exp1 type_exp start variable
+%{
+/* YYSTYPE gets defined by %union */
+static int
+parse_number PARAMS ((char *, int, int, YYSTYPE *));
+%}
+
+%type <voidval> exp exp1 type_exp start variable qualified_name
 %type <tval> type typebase
 %type <tvec> nonempty_typelist
 /* %type <bval> block */
@@ -142,7 +162,7 @@ int yyparse ();
 
 /* Special type cases, put in to allow the parser to distinguish different
    legal basetypes.  */
-%token SIGNED LONG SHORT INT_KEYWORD
+%token SIGNED_KEYWORD LONG SHORT INT_KEYWORD
 
 %token <lval> LAST REGNAME
 
@@ -157,8 +177,8 @@ int yyparse ();
 %left ABOVE_COMMA
 %right '=' ASSIGN_MODIFY
 %right '?'
-%left OR
-%left AND
+%left OROR
+%left ANDAND
 %left '|'
 %left '^'
 %left '&'
@@ -237,6 +257,13 @@ exp	:	exp ARROW name
 			  write_exp_elt_opcode (STRUCTOP_PTR); }
 	;
 
+exp	:	exp ARROW qualified_name
+			{ /* exp->type::name becomes exp->*(&type::name) */
+			  /* Note: this doesn't work if name is a
+			     static member!  FIXME */
+			  write_exp_elt_opcode (UNOP_ADDR);
+			  write_exp_elt_opcode (STRUCTOP_MPTR); }
+	;
 exp	:	exp ARROW '*' exp
 			{ write_exp_elt_opcode (STRUCTOP_MPTR); }
 	;
@@ -245,6 +272,14 @@ exp	:	exp '.' name
 			{ write_exp_elt_opcode (STRUCTOP_STRUCT);
 			  write_exp_string ($3);
 			  write_exp_elt_opcode (STRUCTOP_STRUCT); }
+	;
+
+exp	:	exp '.' qualified_name
+			{ /* exp.type::name becomes exp.*(&type::name) */
+			  /* Note: this doesn't work if name is a
+			     static member!  FIXME */
+			  write_exp_elt_opcode (UNOP_ADDR);
+			  write_exp_elt_opcode (STRUCTOP_MEMBER); }
 	;
 
 exp	:	exp '.' '*' exp
@@ -362,11 +397,11 @@ exp	:	exp '|' exp
 			{ write_exp_elt_opcode (BINOP_LOGIOR); }
 	;
 
-exp	:	exp AND exp
+exp	:	exp ANDAND exp
 			{ write_exp_elt_opcode (BINOP_AND); }
 	;
 
-exp	:	exp OR exp
+exp	:	exp OROR exp
 			{ write_exp_elt_opcode (BINOP_OR); }
 	;
 
@@ -529,7 +564,7 @@ variable:	block COLONCOLON name
 			  write_exp_elt_opcode (OP_VAR_VALUE); }
 	;
 
-variable:	typebase COLONCOLON name
+qualified_name:	typebase COLONCOLON name
 			{
 			  struct type *type = $1;
 			  if (TYPE_CODE (type) != TYPE_CODE_STRUCT
@@ -545,6 +580,7 @@ variable:	typebase COLONCOLON name
 	|	typebase COLONCOLON '~' name
 			{
 			  struct type *type = $1;
+			  struct stoken tmp_token;
 			  if (TYPE_CODE (type) != TYPE_CODE_STRUCT
 			      && TYPE_CODE (type) != TYPE_CODE_UNION)
 			    error ("`%s' is not defined as an aggregate type.",
@@ -554,17 +590,24 @@ variable:	typebase COLONCOLON name
 			    error ("invalid destructor `%s::~%s'",
 				   type_name_no_tag (type), $4.ptr);
 
+			  tmp_token.ptr = (char*) alloca ($4.length + 2);
+			  tmp_token.length = $4.length + 1;
+			  tmp_token.ptr[0] = '~';
+			  memcpy (tmp_token.ptr+1, $4.ptr, $4.length);
+			  tmp_token.ptr[tmp_token.length] = 0;
 			  write_exp_elt_opcode (OP_SCOPE);
 			  write_exp_elt_type (type);
-			  write_exp_string ($4);
+			  write_exp_string (tmp_token);
 			  write_exp_elt_opcode (OP_SCOPE);
-			  write_exp_elt_opcode (UNOP_LOGNOT);
 			}
+	;
+
+variable:	qualified_name
 	|	COLONCOLON name
 			{
 			  char *name = copy_name ($2);
 			  struct symbol *sym;
-			  int i;
+			  struct minimal_symbol *msymbol;
 
 			  sym =
 			    lookup_symbol (name, 0, VAR_NAMESPACE, 0, NULL);
@@ -575,31 +618,27 @@ variable:	typebase COLONCOLON name
 			      write_exp_elt_opcode (OP_VAR_VALUE);
 			      break;
 			    }
-			  for (i = 0; i < misc_function_count; i++)
-			    if (!strcmp (misc_function_vector[i].name, name))
-			      break;
 
-			  if (i < misc_function_count)
+			  msymbol = lookup_minimal_symbol (name,
+				      (struct objfile *) NULL);
+			  if (msymbol != NULL)
 			    {
-			      enum misc_function_type mft =
-				  misc_function_vector[i].type;
-			      
 			      write_exp_elt_opcode (OP_LONG);
 			      write_exp_elt_type (builtin_type_int);
-			      write_exp_elt_longcst ((LONGEST) misc_function_vector[i].address);
+			      write_exp_elt_longcst ((LONGEST) msymbol -> address);
 			      write_exp_elt_opcode (OP_LONG);
 			      write_exp_elt_opcode (UNOP_MEMVAL);
-			      if (mft == mf_data || mft == mf_bss)
+			      if (msymbol -> type == mst_data ||
+				  msymbol -> type == mst_bss)
 				write_exp_elt_type (builtin_type_int);
-			      else if (mft == mf_text)
+			      else if (msymbol -> type == mst_text)
 				write_exp_elt_type (lookup_function_type (builtin_type_int));
 			      else
 				write_exp_elt_type (builtin_type_char);
 			      write_exp_elt_opcode (UNOP_MEMVAL);
 			    }
 			  else
-			    if (symtab_list == 0
-				&& partial_symtab_list == 0)
+			    if (!have_full_symbols () && !have_partial_symbols ())
 			      error ("No symbol table is loaded.  Use the \"file\" command.");
 			    else
 			      error ("No symbol \"%s\" in current context.", name);
@@ -662,35 +701,28 @@ variable:	name_not_typename
 			    }
 			  else
 			    {
-			      register int i;
+			      struct minimal_symbol *msymbol;
 			      register char *arg = copy_name ($1.stoken);
 
-				/* FIXME, this search is linear!  At least
-				   optimize the strcmp with a 1-char cmp... */
-			      for (i = 0; i < misc_function_count; i++)
-				if (!strcmp (misc_function_vector[i].name, arg))
-				  break;
-
-			      if (i < misc_function_count)
+			      msymbol = lookup_minimal_symbol (arg,
+					  (struct objfile *) NULL);
+			      if (msymbol != NULL)
 				{
-				  enum misc_function_type mft =
-				      misc_function_vector[i].type;
-				  
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_type (builtin_type_int);
-				  write_exp_elt_longcst ((LONGEST) misc_function_vector[i].address);
+				  write_exp_elt_longcst ((LONGEST) msymbol -> address);
 				  write_exp_elt_opcode (OP_LONG);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
-				  if (mft == mf_data || mft == mf_bss)
+				  if (msymbol -> type == mst_data ||
+				      msymbol -> type == mst_bss)
 				    write_exp_elt_type (builtin_type_int);
-				  else if (mft == mf_text)
+				  else if (msymbol -> type == mst_text)
 				    write_exp_elt_type (lookup_function_type (builtin_type_int));
 				  else
 				    write_exp_elt_type (builtin_type_char);
 				  write_exp_elt_opcode (UNOP_MEMVAL);
 				}
-			      else if (symtab_list == 0
-				       && partial_symtab_list == 0)
+			      else if (!have_full_symbols () && !have_partial_symbols ())
 				error ("No symbol table is loaded.  Use the \"file\" command.");
 			      else
 				error ("No symbol \"%s\" in current context.",
@@ -775,7 +807,7 @@ array_mod:	'[' ']'
 func_mod:	'(' ')'
 			{ $$ = 0; }
 	|	'(' nonempty_typelist ')'
-			{ free ($2); $$ = 0; }
+			{ free ((PTR)$2); $$ = 0; }
 	;
 
 type	:	ptype
@@ -789,7 +821,7 @@ type	:	ptype
 	|	type '(' typebase COLONCOLON '*' ')' '(' nonempty_typelist ')'
 			{ $$ = lookup_member_type
 			    (lookup_function_type ($1), $3);
-			  free ($8); }
+			  free ((PTR)$8); }
 	;
 
 typebase
@@ -830,9 +862,9 @@ typebase
 			{ $$ = lookup_unsigned_typename (TYPE_NAME($2.type)); }
 	|	UNSIGNED
 			{ $$ = builtin_type_unsigned_int; }
-	|	SIGNED typename
+	|	SIGNED_KEYWORD typename
 			{ $$ = $2.type; }
-	|	SIGNED
+	|	SIGNED_KEYWORD
 			{ $$ = builtin_type_int; }
 	|	TEMPLATE name '<' type '>'
 			{ $$ = lookup_template_type(copy_name($2), $4,
@@ -869,7 +901,7 @@ nonempty_typelist
 		}
 	|	nonempty_typelist ',' type
 		{ int len = sizeof (struct type *) * ++($<ivec>1[0]);
-		  $$ = (struct type **)xrealloc ($1, len);
+		  $$ = (struct type **)xrealloc ((char *) $1, len);
 		  $$[$<ivec>$[0]] = $3;
 		}
 	;
@@ -914,8 +946,6 @@ parse_number (p, len, parsed_float, putithere)
   register int c;
   register int base = input_radix;
   int unsigned_p = 0;
-
-  extern double atof ();
 
   if (parsed_float)
     {
@@ -1028,8 +1058,8 @@ const static struct token tokentab2[] =
     {"++", INCREMENT, BINOP_END},
     {"--", DECREMENT, BINOP_END},
     {"->", ARROW, BINOP_END},
-    {"&&", AND, BINOP_END},
-    {"||", OR, BINOP_END},
+    {"&&", ANDAND, BINOP_END},
+    {"||", OROR, BINOP_END},
     {"::", COLONCOLON, BINOP_END},
     {"<<", LSH, BINOP_END},
     {">>", RSH, BINOP_END},
@@ -1305,7 +1335,7 @@ yylex ()
       if (!strncmp (tokstart, "struct", 6))
 	return STRUCT;
       if (!strncmp (tokstart, "signed", 6))
-	return SIGNED;
+	return SIGNED_KEYWORD;
       if (!strncmp (tokstart, "sizeof", 6))      
 	return SIZEOF;
       break;
@@ -1465,6 +1495,7 @@ struct type *builtin_type_short;
 struct type *builtin_type_int;
 struct type *builtin_type_long;
 struct type *builtin_type_long_long;
+struct type *builtin_type_signed_char;
 struct type *builtin_type_unsigned_char;
 struct type *builtin_type_unsigned_short;
 struct type *builtin_type_unsigned_int;
@@ -1486,6 +1517,7 @@ struct type ** const (c_builtin_types[]) =
   &builtin_type_double,
   &builtin_type_void,
   &builtin_type_long_long,
+  &builtin_type_signed_char,
   &builtin_type_unsigned_char,
   &builtin_type_unsigned_short,
   &builtin_type_unsigned_int,
@@ -1535,53 +1567,73 @@ void
 _initialize_c_exp ()
 {
   builtin_type_void =
-    init_type (TYPE_CODE_VOID, 1, 0,
-	       "void");
+    init_type (TYPE_CODE_VOID, 1,
+	       0,
+	       "void", (struct objfile *) NULL);
   builtin_type_char =
-    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT, 0,
-	       "char");
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "char", (struct objfile *) NULL);
+  builtin_type_signed_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_SIGNED,
+	       "signed char", (struct objfile *) NULL);
   builtin_type_unsigned_char =
-    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT, 1,
-	       "unsigned char");
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned char", (struct objfile *) NULL);
   builtin_type_short =
-    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT, 0,
-	       "short");
+    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "short", (struct objfile *) NULL);
   builtin_type_unsigned_short =
-    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT, 1,
-	       "unsigned short");
+    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned short", (struct objfile *) NULL);
   builtin_type_int =
-    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT, 0,
-	       "int");
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "int", (struct objfile *) NULL);
   builtin_type_unsigned_int =
-    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT, 1,
-	       "unsigned int");
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned int", (struct objfile *) NULL);
   builtin_type_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT, 0,
-	       "long");
+    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "long", (struct objfile *) NULL);
   builtin_type_unsigned_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT, 1,
-	       "unsigned long");
+    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned long", (struct objfile *) NULL);
   builtin_type_long_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT, 0,
-	       "long long");
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "long long", (struct objfile *) NULL);
   builtin_type_unsigned_long_long = 
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT, 1,
-	       "unsigned long long");
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned long long", (struct objfile *) NULL);
   builtin_type_float =
-    init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT, 0,
-	       "float");
+    init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "float", (struct objfile *) NULL);
   builtin_type_double =
-    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_BIT / TARGET_CHAR_BIT, 0,
-	       "double");
+    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "double", (struct objfile *) NULL);
   builtin_type_long_double =
-    init_type (TYPE_CODE_FLT, TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT, 0,
-	       "long double");
+    init_type (TYPE_CODE_FLT, TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "long double", (struct objfile *) NULL);
   builtin_type_complex =
-    init_type (TYPE_CODE_FLT, TARGET_COMPLEX_BIT / TARGET_CHAR_BIT, 0,
-	       "complex");
+    init_type (TYPE_CODE_FLT, TARGET_COMPLEX_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "complex", (struct objfile *) NULL);
   builtin_type_double_complex =
-    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT, 0,
-	       "double complex");
+    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "double complex", (struct objfile *) NULL);
 
   add_language (&c_language_defn);
   add_language (&cplus_language_defn);

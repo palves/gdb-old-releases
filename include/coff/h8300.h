@@ -86,9 +86,11 @@ struct external_lineno {
 		char l_symndx[4];	/* function name symbol index, iff l_lnno == 0*/
 		char l_paddr[4];	/* (physical) address of line number	*/
 	} l_addr;
-	char l_lnno[2];	/* line number		*/
+	char l_lnno[4];	/* line number		*/
 };
 
+#define GET_LINENO_LNNO(abfd, ext) bfd_h_get_32(abfd, (bfd_byte *) (ext->l_lnno));
+#define PUT_LINENO_LNNO(abfd,val, ext) bfd_h_put_32(abfd,val,  (bfd_byte *) (ext->l_lnno));
 
 #define	LINENO	struct external_lineno
 #define	LINESZ	sizeof(LINENO) 

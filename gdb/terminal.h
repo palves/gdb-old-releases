@@ -1,5 +1,5 @@
 /* Terminal interface definitions for GDB, the GNU Debugger.
-   Copyright (C) 1986, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#if !defined (TERMINAL_H)
+#define TERMINAL_H 1
 
 /* Define a common set of macros -- BSD based -- and redefine whatever
    the system offers to make it look like that.  */
@@ -47,4 +49,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #endif /* no termio */
 
-extern void new_tty ();
+extern void
+new_tty PARAMS ((void));
+
+#endif	/* !defined (TERMINAL_H) */

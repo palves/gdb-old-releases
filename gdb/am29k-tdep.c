@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
 #include "gdbcore.h"
-#include <stdio.h>
 #include "frame.h"
 #include "value.h"
 #include "symtab.h"
@@ -63,11 +62,11 @@ examine_prologue (pc, rsize, msize, mfp_used)
 {
   long insn;
   CORE_ADDR p = pc;
-  int misc_index = find_pc_misc_function (pc);
+  struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (pc);
   struct prologue_info *mi = 0;
 
-  if (misc_index >= 0)
-    mi = (struct prologue_info *)misc_function_vector[misc_index].misc_info;
+  if (msymbol != NULL)
+    mi = (struct prologue_info *) msymbol -> misc_info;
 
   if (mi != 0)
     {
@@ -247,13 +246,13 @@ examine_prologue (pc, rsize, msize, mfp_used)
     }
 
  done:
-  if (misc_index >= 0)
+  if (msymbol != NULL)
     {
       if (mi == 0)
 	{
 	  /* Add a new cache entry.  */
 	  mi = (struct prologue_info *)xmalloc (sizeof (struct prologue_info));
-	  misc_function_vector[misc_index].misc_info = (char *)mi;
+	  msymbol -> misc_info = (char *)mi;
 	  mi->rsize_valid = 0;
 	  mi->msize_valid = 0;
 	  mi->mfp_valid = 0;

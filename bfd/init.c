@@ -22,6 +22,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
+extern void DEFUN_VOID (bfd_section_init);
+
 static boolean initialized = false;
 
 /*
@@ -51,7 +53,6 @@ void DEFUN_VOID(bfd_init)
 
     bfd_arch_init();
     bfd_section_init();
-    
   }
 }
 

@@ -17,17 +17,72 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
-
 #include "defs.h"
-#include "language.h"
+#include "value.h"
 #include "symtab.h"
+#include "gdbtypes.h"
+#include "expression.h"
+#include "language.h"
 #include "frame.h"
 #include "gdbcmd.h"
-#include "value.h"
 #include "gdbcore.h"
 #include "target.h"
 #include "breakpoint.h"
+
+static void
+return_command PARAMS ((char *, int));
+
+static void
+down_command PARAMS ((char *, int));
+
+static void
+down_silently_command PARAMS ((char *, int));
+
+static void
+up_command PARAMS ((char *, int));
+
+static void
+up_silently_command PARAMS ((char *, int));
+
+static void
+frame_command PARAMS ((char *, int));
+
+static void
+select_frame_command PARAMS ((char *, int));
+
+static void
+args_info PARAMS ((char *, int));
+
+static void
+print_frame_arg_vars PARAMS ((FRAME, FILE *));
+
+static void
+catch_info PARAMS ((char *, int));
+
+static void
+locals_info PARAMS ((char *, int));
+
+static void
+print_frame_label_vars PARAMS ((FRAME, int, FILE *));
+
+static void
+print_frame_local_vars PARAMS ((FRAME, FILE *));
+
+static int
+print_block_frame_labels PARAMS ((struct block *, int *, FILE *));
+
+static int
+print_block_frame_locals PARAMS ((struct block *, FRAME, FILE *));
+
+static void
+backtrace_command PARAMS ((char *, int));
+
+static FRAME
+parse_frame_specification PARAMS ((char *));
+
+static void
+frame_info PARAMS ((char *, int));
+
 
 extern int addressprint;	/* Print addresses, or stay symbolic only? */
 extern int info_verbose;	/* Verbosity of symbol reading msgs */
@@ -50,7 +105,6 @@ int selected_frame_level;
 
 int frame_file_full_name = 0;
 
-void print_frame_info ();
 
 /* Print a stack frame briefly.  FRAME should be the frame id
    and LEVEL should be its level in the stack (or -1 for level not defined).
@@ -112,6 +166,10 @@ print_frame_info (fi, level, source, args)
     }
 #endif
 
+#ifdef CORE_NEEDS_RELOCATION
+  CORE_NEEDS_RELOCATION(fi->pc);
+#endif
+
   sal = find_pc_line (fi->pc, fi->next_frame);
   func = find_pc_function (fi->pc);
   if (func)
@@ -124,14 +182,15 @@ print_frame_info (fi, level, source, args)
 	 ends has been truncated by ar because it is longer than 15
 	 characters).
 
-	 So look in the misc_function_vector as well, and if it comes
+	 So look in the minimal symbol tables as well, and if it comes
 	 up with a larger address for the function use that instead.
-	 I don't think this can ever cause any problems;
-	 there shouldn't be any
-	 misc_function_vector symbols in the middle of a function.  */
-      int misc_index = find_pc_misc_function (fi->pc);
-      if (misc_index >= 0
-	  && (misc_function_vector[misc_index].address
+	 I don't think this can ever cause any problems; there shouldn't
+	 be any minimal symbols in the middle of a function.
+	 FIXME:  (Not necessarily true.  What about text labels) */
+
+      struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
+      if (msymbol != NULL
+	  && (msymbol -> address
 	      > BLOCK_START (SYMBOL_BLOCK_VALUE (func))))
 	{
 	  /* In this case we have no way of knowing the source file
@@ -140,16 +199,16 @@ print_frame_info (fi, level, source, args)
 	  /* We also don't know anything about the function besides
 	     its address and name.  */
 	  func = 0;
-	  funname = misc_function_vector[misc_index].name;
+	  funname = msymbol -> name;
 	}
       else
 	funname = SYMBOL_NAME (func);
     }
   else
     {
-      register int misc_index = find_pc_misc_function (fi->pc);
-      if (misc_index >= 0)
-	funname = misc_function_vector[misc_index].name;
+      register struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
+      if (msymbol != NULL)
+	funname = msymbol -> name;
     }
 
   if (source >= 0 || !sal.symtab)
@@ -173,6 +232,16 @@ print_frame_info (fi, level, source, args)
           wrap_here ("   ");
 	  printf_filtered (" at %s:%d", sal.symtab->filename, sal.line);
 	}
+
+#ifdef PC_LOAD_SEGMENT
+     /* If we couldn't print out function name but if can figure out what
+        load segment this pc value is from, at least print out some info
+	about its load segment. */
+      if (!funname) {
+	wrap_here ("  ");
+	printf_filtered (" from %s", PC_LOAD_SEGMENT (fi->pc));
+      }
+#endif
       printf_filtered ("\n");
     }
 
@@ -195,8 +264,6 @@ print_frame_info (fi, level, source, args)
 
   fflush (stdout);
 }
-
-void flush_cached_frames ();
 
 #ifdef FRAME_SPECIFICATION_DYADIC
 extern FRAME setup_arbitrary_frame ();
@@ -311,8 +378,9 @@ parse_frame_specification (frame_exp)
    This means absolutely all information in the frame is printed.  */
 
 static void
-frame_info (addr_exp)
+frame_info (addr_exp, from_tty)
      char *addr_exp;
+     int from_tty;
 {
   FRAME frame;
   struct frame_info *fi;
@@ -339,9 +407,9 @@ frame_info (addr_exp)
     funname = SYMBOL_NAME (func);
   else
     {
-      register int misc_index = find_pc_misc_function (fi->pc);
-      if (misc_index >= 0)
-	funname = misc_function_vector[misc_index].name;
+      register struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
+      if (msymbol != NULL)
+	funname = msymbol -> name;
     }
   calling_frame = get_prev_frame (frame);
 
@@ -695,7 +763,6 @@ print_frame_label_vars (frame, this_level_only, stream)
      int this_level_only;
      register FILE *stream;
 {
-  extern struct blockvector *blockvector_for_pc ();
   register struct blockvector *bl;
   register struct block *block = get_frame_block (frame);
   register int values_printed = 0;
@@ -773,7 +840,9 @@ locals_info (args, from_tty)
 }
 
 static void
-catch_info ()
+catch_info (ignore, from_tty)
+     char *ignore;
+     int from_tty;
 {
   if (!selected_frame)
     error ("No frame selected.");
@@ -830,7 +899,9 @@ print_frame_arg_vars (frame, stream)
 }
 
 static void
-args_info ()
+args_info (ignore, from_tty)
+     char *ignore;
+     int from_tty;
 {
   if (!selected_frame)
     error ("No frame selected.");

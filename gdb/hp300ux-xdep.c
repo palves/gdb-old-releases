@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -135,7 +134,6 @@ fetch_inferior_registers (regno)
      int regno;
 {
   struct user u;
-  register int regno;
   register unsigned int ar0_offset;
   
   ar0_offset = (INFERIOR_AR0 (u));
@@ -157,6 +155,7 @@ fetch_inferior_registers (regno)
    If REGNO is -1, do this for all registers.
    Otherwise, REGNO specifies which register (so we can save time).  */
 
+void
 store_inferior_registers (regno)
      register int regno;
 {
@@ -194,10 +193,11 @@ store_inferior_registers (regno)
 #endif /* HPUX_VERSION_5 */
 
 void
-fetch_core_registers (core_reg_sect, core_reg_size, which)
+fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
      char *core_reg_sect;
      int core_reg_size;
      int which;
+     unsigned int reg_addr;	/* Unused in this version */
 {
   int val, regno;
   struct user u;

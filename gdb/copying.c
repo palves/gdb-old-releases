@@ -1,12 +1,22 @@
-/* Do not modify this file; it is created automatically
-   by copying.awk.  */
+/* ==> Do not modify this file!!  It is created automatically
+   by copying.awk.  Modify copying.awk instead.  <== */
+
 #include <stdio.h>
 #include "defs.h"
 #include "command.h"
 #include "gdbcmd.h"
+
+static void
+copying_info PARAMS ((char *, int));
+
+static void
+warranty_info PARAMS ((char *, int));
+
 extern int immediate_quit;
 static void
-copying_info ()
+copying_info (ignore, from_tty)
+     char *ignore;
+     int from_tty;
 {
   immediate_quit++;
   printf_filtered ("		    GNU GENERAL PUBLIC LICENSE\n");
@@ -270,7 +280,9 @@ copying_info ()
 }
 
 static void
-warranty_info ()
+warranty_info (ignore, from_tty)
+     char *ignore;
+     int from_tty;
 {
   immediate_quit++;
   printf_filtered ("			    NO WARRANTY\n");

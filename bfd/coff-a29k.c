@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: coff-a29k.c,v 1.14 1992/01/30 15:30:34 sac Exp $ */
+/* $Id: coff-a29k.c,v 1.17 1992/03/29 18:45:43 gnu Exp $ */
 
 #define A29K 1
 
@@ -67,7 +67,7 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section),
       bfd *abfd AND
       arelent *reloc_entry AND
       asymbol *symbol_in AND
-      unsigned char *data AND
+      PTR data AND
       asection *input_section)
 {
     /* the consth relocation comes in two parts, we have to remember
@@ -104,7 +104,7 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section),
 	return(bfd_reloc_dangerous);
     }
 
-    insn = bfd_get_32(abfd, data + reloc_entry->address); 
+    insn = bfd_get_32(abfd, (bfd_byte *)data + reloc_entry->address); 
     sym_value = get_symbol_value(symbol_in);
 
     switch (r_type) 
@@ -194,7 +194,7 @@ DEFUN(a29k_reloc,(abfd, reloc_entry, symbol_in, data, input_section),
 	return (bfd_reloc_dangerous);
     }
 
-    bfd_put_32(abfd, insn, data+reloc_entry->address);
+    bfd_put_32(abfd, insn, (bfd_byte *)data + reloc_entry->address);
     return(bfd_reloc_ok);	
 }
 
@@ -248,7 +248,7 @@ static void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
     if (reloc->r_type == R_IHCONST) 
     {		
 	relent->addend = reloc->r_symndx;		
-	relent->sym_ptr_ptr= 0;
+	relent->sym_ptr_ptr= bfd_abs_section.symbol_ptr_ptr;
     }
     else 
     {

@@ -1,5 +1,5 @@
 /* Read ELF (Executable and Linking Format) object files for GDB.
-   Copyright (C) 1991 Free Software Foundation, Inc.
+   Copyright 1991, 1992 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.
 
 This file is part of GDB.
@@ -24,34 +24,23 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
  *									*
  * This file is still under construction.  When it is complete, this	*
  * notice will be removed.  Until then, direct any questions or changes	*
- * to Fred Fish at Cygnus Support (fnf@cygint)				*
+ * to Fred Fish at Cygnus Support (fnf@cygnus.com)			*
  *									* 
  * FIXME	Still needs support for shared libraries.		*
  * FIXME	Still needs support for core files.			*
  * FIXME	The ".debug" and ".line" section names are hardwired.	*
- * FIXME	Still needs support ELF symbol tables (as distinct	*
- *		from DWARF support).  Can use them to build the misc	*
- *		function vector at least.  This is fairly trivial once	*
- *		bfd is extended to handle ELF symbol tables.		*
  *									*
  ************************************************************************/
-
-#include <stdio.h>
 
 #include "defs.h"
 #include "elf/common.h"
 #include "elf/external.h"
 #include "elf/internal.h"
 #include "bfd.h"
-#include "symfile.h"
 #include "symtab.h"
-#include "ansidecl.h"
-
-extern int EXFUN (strcmp, (CONST char *a, CONST char *b));
-extern int EXFUN (dwarf_build_psymtabs,
-     (int desc, char *filename, CORE_ADDR addr, int mainline,
-      unsigned int dbfoff, unsigned int dbsize, unsigned int lnoffset,
-      unsigned int lnsize, struct objfile *objfile));
+#include "symfile.h"
+#include "objfiles.h"
+#include "buildsym.h"
 
 #define STREQ(a,b) (strcmp((a),(b))==0)
 
@@ -61,6 +50,28 @@ struct elfinfo {
   unsigned int lnoffset;	/* Offset to dwarf line number section */
   unsigned int lnsize;		/* Size of dwarf line number section */
 };
+
+static void
+elf_symfile_init PARAMS ((struct objfile *));
+
+static void
+elf_new_init PARAMS ((struct objfile *));
+
+static void
+elf_symfile_read PARAMS ((struct objfile *, CORE_ADDR, int));
+
+static void
+elf_symfile_finish PARAMS ((struct objfile *));
+
+static void
+elf_symtab_read PARAMS ((bfd *,  CORE_ADDR, struct objfile *));
+
+static void
+record_minimal_symbol PARAMS ((char *, CORE_ADDR, enum minimal_symbol_type,
+			       struct objfile *));
+
+static void
+elf_locate_sections PARAMS ((bfd *, asection *, PTR));
 
 /* We are called once per section from elf_symfile_read.  We
    need to examine each section we are passed, check to see
@@ -76,11 +87,14 @@ struct elfinfo {
    FIXME:  The section names should not be hardwired strings. */
 
 static void
-DEFUN(elf_locate_sections, (abfd, sectp, ei),
-      bfd *abfd AND
-      asection *sectp AND
-      struct elfinfo *ei)
+elf_locate_sections (ignore_abfd, sectp, eip)
+     bfd *ignore_abfd;
+     asection *sectp;
+     PTR eip;
 {
+  register struct elfinfo *ei;
+
+  ei = (struct elfinfo *) eip;
   if (STREQ (sectp -> name, ".debug"))
     {
       ei -> dboffset = sectp -> filepos;
@@ -93,9 +107,11 @@ DEFUN(elf_locate_sections, (abfd, sectp, ei),
     }
 }
 
+#if 0	/* Currently unused */
+
 char *
-DEFUN(elf_interpreter, (abfd),
-      bfd *abfd)
+elf_interpreter (abfd)
+     bfd *abfd;
 {
   sec_ptr interp_sec;
   unsigned size;
@@ -119,35 +135,35 @@ DEFUN(elf_interpreter, (abfd),
   return (interp);
 }
 
+#endif
+
 /*
 
 LOCAL FUNCTION
 
-	record_misc_function -- add entry to miscellaneous function vector
+	record_minimal_symbol -- add entry to minimal symbol table
 
 SYNOPSIS
 
-	static void record_misc_function (char *name, CORE_ADDR address)
+	static void record_minimal_symbol (char *name, CORE_ADDR address)
 
 DESCRIPTION
 
 	Given a pointer to the name of a symbol that should be added to the
-	miscellaneous function vector, and the address associated with that
-	symbol, records this information for later use in building the
-	miscellaneous function vector.
+	minimal symbol table and the address associated with that symbol, records
+	this information for later use in building the minimal symbol table.
 
-NOTES
-
-	FIXME:  For now we just use mf_unknown as the type.  This should be
-	fixed.
  */
 
 static void
-DEFUN(record_misc_function, (name, address, mf_type),
-      char *name AND CORE_ADDR address AND enum misc_function_type mf_type)
+record_minimal_symbol (name, address, ms_type, objfile)
+     char *name;
+     CORE_ADDR address;
+     enum minimal_symbol_type ms_type;
+     struct objfile *objfile;
 {
-  prim_record_misc_function (obsavestring (name, strlen (name)), address,
-			     mf_type);
+  name = obsavestring (name, strlen (name), &objfile -> symbol_obstack);
+  prim_record_minimal_symbol (name, address, ms_type);
 }
 
 /*
@@ -158,22 +174,23 @@ LOCAL FUNCTION
 
 SYNOPSIS
 
-	void elf_symtab_read (bfd *abfd, CORE_ADDR addr, int mainline)
+	void elf_symtab_read (bfd *abfd, CORE_ADDR addr,
+			      struct objfile *objfile)
 
 DESCRIPTION
 
 	Given an open bfd, a base address to relocate symbols to, and a
 	flag that specifies whether or not this bfd is for an executable
 	or not (may be shared library for example), add all the global
-	function and data symbols to the miscellaneous function vector.
+	function and data symbols to the minimal symbol table.
 
 */
 
 static void
-DEFUN (elf_symtab_read, (abfd, addr, mainline),
-       bfd *abfd AND
-       CORE_ADDR addr AND
-       int mainline)
+elf_symtab_read (abfd, addr, objfile)
+     bfd *abfd;
+     CORE_ADDR addr;
+     struct objfile *objfile;
 {
   unsigned int storage_needed;
   asymbol *sym;
@@ -182,46 +199,47 @@ DEFUN (elf_symtab_read, (abfd, addr, mainline),
   unsigned int i;
   struct cleanup *back_to;
   CORE_ADDR symaddr;
-  enum misc_function_type mf_type;
+  enum minimal_symbol_type ms_type;
   
   storage_needed = get_symtab_upper_bound (abfd);
 
   if (storage_needed > 0)
     {
-      symbol_table = (asymbol **) bfd_xmalloc (storage_needed);
+      symbol_table = (asymbol **) xmalloc (storage_needed);
       back_to = make_cleanup (free, symbol_table);
       number_of_symbols = bfd_canonicalize_symtab (abfd, symbol_table); 
   
       for (i = 0; i < number_of_symbols; i++)
 	{
 	  sym = *symbol_table++;
-	  /* Select global symbols that are defined in a specific section
-	     or are absolute. */
-	  if (sym -> flags & BSF_GLOBAL
-	      && (sym -> section == &bfd_abs_section))
+	  /* Select global/weak symbols that are defined in a specific section.
+	     Note that bfd now puts abs symbols in their own section, so
+	     all symbols we are interested in will have a section. */
+	  if ((sym -> flags & (BSF_GLOBAL | BSF_WEAK))
+	      && (sym -> section != NULL))
 	    {
 	      symaddr = sym -> value;
-	      if (!mainline)
+	      /* Relocate all non-absolute symbols by base address.  */
+	      if (sym -> section != &bfd_abs_section)
 		{
-		  /* Relocate all symbols by base address */
 		  symaddr += addr;
 		}
 	      /* For non-absolute symbols, use the type of the section
 		 they are relative to, to intuit text/data.  Bfd provides
 		 no way of figuring this out for absolute symbols. */
-	      if (sym -> section && (sym -> section -> flags & SEC_CODE))
+	      if (sym -> section -> flags & SEC_CODE)
 		{
-		  mf_type = mf_text;
+		  ms_type = mst_text;
 		}
-	      else if (sym -> section && (sym -> section -> flags & SEC_DATA))
+	      else if (sym -> section -> flags & SEC_DATA)
 		{
-		  mf_type = mf_data;
+		  ms_type = mst_data;
 		}
 	      else
 		{
-		  mf_type = mf_unknown;
+		  ms_type = mst_unknown;
 		}
-	      record_misc_function ((char *) sym -> name, symaddr, mf_type);
+	      record_minimal_symbol ((char *) sym -> name, symaddr, ms_type, objfile);
 	    }
 	}
       do_cleanups (back_to);
@@ -250,52 +268,62 @@ DEFUN (elf_symtab_read, (abfd, addr, mainline),
    Note that ELF files have a "minimal" symbol table, which looks a lot
    like a COFF symbol table, but has only the minimal information necessary
    for linking.  We process this also, and just use the information to
-   add to the misc function vector.  This gives us some minimal debugging
+   add to gdb's minimal symbol table.  This gives us some minimal debugging
    capability even for files compiled without -g.
  */
 
 static void
-DEFUN(elf_symfile_read, (sf, addr, mainline),
-      struct sym_fns *sf AND
-      CORE_ADDR addr AND
-      int mainline)
+elf_symfile_read (objfile, addr, mainline)
+     struct objfile *objfile;
+     CORE_ADDR addr;
+     int mainline;
 {
-  bfd *abfd = sf->objfile->obfd;
+  bfd *abfd = objfile->obfd;
   struct elfinfo ei;
   struct cleanup *back_to;
+  asection *text_sect;
 
-  init_misc_bunches ();
-  back_to = make_cleanup (discard_misc_bunches, 0);
+  init_minimal_symbol_collection ();
+  back_to = make_cleanup (discard_minimal_symbols, 0);
+
+  /* Compute the amount to relocate all symbols by.  The value passed in
+     as ADDR is typically either the actual address of the text section,
+     or a user specified address.  By subtracting off the actual address
+     of the text section, we can compute the relocation amount. */
+
+  text_sect = bfd_get_section_by_name (objfile -> obfd, ".text");
+  addr -= bfd_section_vma (objfile -> obfd, text_sect);
 
   /* Process the normal ELF symbol table first. */
 
-  elf_symtab_read (abfd, addr, mainline);
+  elf_symtab_read (abfd, addr, objfile);
 
   /* Now process the DWARF debugging information, which is contained in
      special ELF sections.  We first have to find them... */
 
   (void) memset ((char *) &ei, 0, sizeof (ei));
-  bfd_map_over_sections (abfd, elf_locate_sections, &ei);
+  bfd_map_over_sections (abfd, elf_locate_sections, (PTR) &ei);
   if (ei.dboffset && ei.lnoffset)
     {
       dwarf_build_psymtabs (fileno ((FILE *)(abfd -> iostream)),
 			    bfd_get_filename (abfd),
 			    addr, mainline,
 			    ei.dboffset, ei.dbsize,
-			    ei.lnoffset, ei.lnsize, sf->objfile);
+			    ei.lnoffset, ei.lnsize, objfile);
     }
 
-  if (!partial_symtab_list)
+  if (!have_partial_symbols ())
     {
       wrap_here ("");
       printf_filtered ("(no debugging symbols found)...");
       wrap_here ("");
     }
 
-  /* Go over the miscellaneous functions and install them in the
-     miscellaneous function vector. */
-  
-  condense_misc_bunches (!mainline);
+  /* Install any minimal symbols that have been collected as the current
+     minimal symbols for this objfile. */
+
+  install_minimal_symbols (objfile);
+
   do_cleanups (back_to);
 }
 
@@ -307,8 +335,25 @@ DEFUN(elf_symfile_read, (sf, addr, mainline),
    just a stub. */
 
 static void
-DEFUN_VOID (elf_new_init)
+elf_new_init (ignore)
+     struct objfile *ignore;
 {
+  buildsym_new_init ();
+}
+
+/* Perform any local cleanups required when we are done with a particular
+   objfile.  I.E, we are in the process of discarding all symbol information
+   for an objfile, freeing up all memory held for it, and unlinking the
+   objfile struct from the global list of known objfiles. */
+
+static void
+elf_symfile_finish (objfile)
+     struct objfile *objfile;
+{
+  if (objfile -> sym_private != NULL)
+    {
+      mfree (objfile -> md, objfile -> sym_private);
+    }
 }
 
 /* ELF specific initialization routine for reading symbols.
@@ -321,8 +366,8 @@ DEFUN_VOID (elf_new_init)
    just a stub. */
 
 static void
-DEFUN(elf_symfile_init, (sf),
-      struct sym_fns *sf)
+elf_symfile_init (ignore)
+     struct objfile *ignore;
 {
 }
 
@@ -343,19 +388,19 @@ DEFUN(elf_symfile_init, (sf),
     use "elf" in the same sense as "a.out" or "coff", to imply both the ELF
     object file format and the DWARF debugging format. */
 
-static struct sym_fns elf_sym_fns = {
+static struct sym_fns elf_sym_fns =
+{
   "elf",		/* sym_name: name or name prefix of BFD target type */
   3,			/* sym_namelen: number of significant sym_name chars */
   elf_new_init,		/* sym_new_init: init anything gbl to entire symtab */
   elf_symfile_init,	/* sym_init: read initial info, setup for sym_read() */
   elf_symfile_read,	/* sym_read: read a symbol file into symtab */
-  NULL,			/* sym_bfd: accessor for symbol file being read */
-  NULL,			/* sym_private: sym_init & sym_read shared info */
+  elf_symfile_finish,	/* sym_finish: finished with file, cleanup */
   NULL			/* next: pointer to next struct sym_fns */
 };
 
 void
-DEFUN_VOID (_initialize_elfread)
+_initialize_elfread ()
 {
   add_symtab_fns (&elf_sym_fns);
 }

@@ -100,7 +100,7 @@ struct internal_reloc *dst)
       break;
       
     default:
-      abort();
+fprintf(stderr,"Bad reloc\n");
       break;
     }
 }
@@ -125,8 +125,6 @@ static void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
 	   bfd *abfd AND
 	   asection *section)
 {
-
-  asymbol *ptr;
   relent->address = reloc->r_vaddr;		
   rtype2howto(relent,reloc);
 
@@ -145,7 +143,7 @@ static void DEFUN(reloc_processing,(relent,reloc, symbols, abfd, section) ,
   
   relent->addend = reloc->r_offset;
   
-  relent->address-= section->vma;
+/*  relent->address-= section->vma;*/
 /*  relent->section = 0;*/
 }
 

@@ -17,10 +17,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#include <stdio.h>
-#include <string.h>
 #include "defs.h"
+#include <string.h>
 #include "symtab.h"
+#include "gdbtypes.h"
 #include "value.h"
 #include "gdbcore.h"
 #include "gdbcmd.h"
@@ -29,22 +29,65 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "language.h"
 
 #include <errno.h>
+
+/* Prototypes for local functions */
+
+static void
+print_string PARAMS ((FILE *, char *, unsigned int, int));
+
+static void
+show_print PARAMS ((char *, int));
+
+static void
+set_print PARAMS ((char *, int));
+
+static void
+set_radix PARAMS ((char *, int, struct cmd_list_element *));
+
+static void
+set_output_radix PARAMS ((char *, int, struct cmd_list_element *));
+
+static void
+type_print_base PARAMS ((struct type *, FILE *, int, int));
+
+static void
+type_print_varspec_suffix PARAMS ((struct type *, FILE *, int, int));
+
+static void
+type_print_varspec_prefix PARAMS ((struct type *, FILE *, int, int));
+
+static void
+type_print_derivation_info PARAMS ((FILE *, struct type *));
+
+static void
+type_print_method_args PARAMS ((struct type **, char *, char *, int, FILE *));
+
+static void
+cplus_val_print PARAMS ((struct type *, char *, FILE *, int, int,
+			 enum val_prettyprint, struct type **));
+
+static void
+val_print_fields PARAMS ((struct type *, char *, FILE *, int, int,
+			  enum val_prettyprint, struct type **));
+
+static int
+is_vtbl_member PARAMS ((struct type *));
+
+static int
+is_vtbl_ptr_type PARAMS ((struct type *));
+
+static void
+print_hex_chars PARAMS ((FILE *, unsigned char *, unsigned));
+
 extern int sys_nerr;
 extern char *sys_errlist[];
 
-extern void print_scalar_formatted();	/* printcmd.c */
-extern void print_address_demangle();	/* printcmd.c */
 extern int demangle;	/* whether to print C++ syms raw or source-form */
 
 /* Maximum number of chars to print for a string pointer value
    or vector contents, or UINT_MAX for no limit.  */
 
 static unsigned int print_max;
-
-static void type_print_varspec_suffix ();
-static void type_print_varspec_prefix ();
-static void type_print_base ();
-static void type_print_method_args ();
 
 /* Default input and output radixes, and output format letter.  */
 
@@ -74,14 +117,13 @@ int objectprint;	/* Controls looking up an object's derived type
 
 struct obstack dont_print_obstack;
 
-static void cplus_val_print ();
 
 /* Print the character string STRING, printing at most LENGTH characters.
    Printing stops early if the number hits print_max; repeat counts
    are printed as appropriate.  Print ellipses at the end if we
    had to stop before printing LENGTH characters, or if FORCE_ELLIPSES.  */
 
-void
+static void
 print_string (stream, string, length, force_ellipses)
      FILE *stream;
      char *string;
@@ -286,7 +328,7 @@ int
 value_print (val, stream, format, pretty)
      value val;
      FILE *stream;
-     char format;
+     int format;
      enum val_prettyprint pretty;
 {
   register unsigned int i, n, typelen;
@@ -439,12 +481,13 @@ is_vtbl_member(type)
 
    DONT_PRINT is an array of baseclass types that we
    should not print, or zero if called from top level.  */
+
 static void
 val_print_fields (type, valaddr, stream, format, recurse, pretty, dont_print)
      struct type *type;
      char *valaddr;
      FILE *stream;
-     char format;
+     int format;
      int recurse;
      enum val_prettyprint pretty;
      struct type **dont_print;
@@ -547,7 +590,7 @@ cplus_val_print (type, valaddr, stream, format, recurse, pretty, dont_print)
      struct type *type;
      char *valaddr;
      FILE *stream;
-     char format;
+     int format;
      int recurse;
      enum val_prettyprint pretty;
      struct type **dont_print;
@@ -619,6 +662,61 @@ cplus_val_print (type, valaddr, stream, format, recurse, pretty, dont_print)
     }
 }
 
+static void
+print_class_member (valaddr, domain, stream, prefix)
+     char *valaddr;
+     struct type *domain;
+     FILE *stream;
+     char *prefix;
+{
+  
+  /* VAL is a byte offset into the structure type DOMAIN.
+     Find the name of the field for that offset and
+     print it.  */
+  int extra = 0;
+  int bits = 0;
+  register unsigned int i;
+  unsigned len = TYPE_NFIELDS (domain);
+  /* @@ Make VAL into bit offset */
+  LONGEST val = unpack_long (builtin_type_int, valaddr) << 3;
+  for (i = TYPE_N_BASECLASSES (domain); i < len; i++)
+    {
+      int bitpos = TYPE_FIELD_BITPOS (domain, i);
+      QUIT;
+      if (val == bitpos)
+	break;
+      if (val < bitpos && i != 0)
+	{
+	  /* Somehow pointing into a field.  */
+	  i -= 1;
+	  extra = (val - TYPE_FIELD_BITPOS (domain, i));
+	  if (extra & 0x7)
+	    bits = 1;
+	  else
+	    extra >>= 3;
+	  break;
+	}
+    }
+  if (i < len)
+    {
+      char *name;
+      fprintf_filtered (stream, prefix);
+      name = type_name_no_tag (domain);
+      if (name)
+        fputs_filtered (name, stream);
+      else
+	type_print_base (domain, stream, 0, 0);
+      fprintf_filtered (stream, "::");
+      fputs_filtered (TYPE_FIELD_NAME (domain, i), stream);
+      if (extra)
+	fprintf_filtered (stream, " + %d bytes", extra);
+      if (bits)
+	fprintf_filtered (stream, " (offset in bits)");
+    }
+  else
+    fprintf_filtered (stream, "%d", val >> 3);
+}
+
 /* Print data of type TYPE located at VALADDR (within GDB),
    which came from the inferior at address ADDRESS,
    onto stdio stream STREAM according to FORMAT
@@ -634,13 +732,12 @@ cplus_val_print (type, valaddr, stream, format, recurse, pretty, dont_print)
    The PRETTY parameter controls prettyprinting.  */
 
 int
-val_print (type, valaddr, address, stream, format,
-	   deref_ref, recurse, pretty)
+val_print (type, valaddr, address, stream, format, deref_ref, recurse, pretty)
      struct type *type;
      char *valaddr;
      CORE_ADDR address;
      FILE *stream;
-     char format;
+     int format;
      int deref_ref;
      int recurse;
      enum val_prettyprint pretty;
@@ -829,47 +926,9 @@ val_print (type, valaddr, address, stream, format,
 	}
       else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_MEMBER)
 	{
-	  struct type *domain = TYPE_DOMAIN_TYPE (TYPE_TARGET_TYPE (type));
-
-	  /* VAL is a byte offset into the structure type DOMAIN.
-	     Find the name of the field for that offset and
-	     print it.  */
-	  int extra = 0;
-	  int bits = 0;
-	  len = TYPE_NFIELDS (domain);
-	  /* @@ Make VAL into bit offset */
-	  val = unpack_long (builtin_type_int, valaddr) << 3;
-	  for (i = TYPE_N_BASECLASSES (domain); i < len; i++)
-	    {
-	      int bitpos = TYPE_FIELD_BITPOS (domain, i);
-	      QUIT;
-	      if (val == bitpos)
-		break;
-	      if (val < bitpos && i != 0)
-		{
-		  /* Somehow pointing into a field.  */
-		  i -= 1;
-		  extra = (val - TYPE_FIELD_BITPOS (domain, i));
-		  if (extra & 0x7)
-		    bits = 1;
-		  else
-		    extra >>= 3;
-		  break;
-		}
-	    }
-	  if (i < len)
-	    {
-	      fprintf_filtered (stream, "&");
-	      type_print_base (domain, stream, 0, 0);
-	      fprintf_filtered (stream, "::");
-	      fputs_filtered (TYPE_FIELD_NAME (domain, i), stream);
-	      if (extra)
-		fprintf_filtered (stream, " + %d bytes", extra);
-	      if (bits)
-		fprintf_filtered (stream, " (offset in bits)");
-	      break;
-	    }
-	  fprintf_filtered (stream, "%d", val >> 3);
+	  print_class_member (valaddr,
+			      TYPE_DOMAIN_TYPE (TYPE_TARGET_TYPE (type)),
+			      stream, "&");
 	}
       else
 	{
@@ -981,13 +1040,12 @@ val_print (type, valaddr, address, stream, format,
   	    {
 	      CORE_ADDR vt_address = unpack_pointer (type, valaddr);
 
-	      int vt_index = find_pc_misc_function (vt_address);
-	      if (vt_index >= 0
-		  && vt_address == misc_function_vector[vt_index].address)
+	      struct minimal_symbol *msymbol =
+		lookup_minimal_symbol_by_pc (vt_address);
+	      if ((msymbol != NULL) && (vt_address == msymbol -> address))
 		{
 		  fputs_filtered (" <", stream);
-		  fputs_demangled (misc_function_vector[vt_index].name,
-				   stream, 1);
+		  fputs_demangled (msymbol -> name, stream, 1);
 		  fputs_filtered (">", stream);
 		}
 	      if (vtblprint)
@@ -1017,6 +1075,13 @@ val_print (type, valaddr, address, stream, format,
       break;
 
     case TYPE_CODE_REF:
+      if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_MEMBER)
+        {
+	  print_class_member (valaddr,
+			      TYPE_DOMAIN_TYPE (TYPE_TARGET_TYPE (type)),
+			      stream, "");
+	  break;
+	}
       if (addressprint)
         {
 	  fprintf_filtered (stream, "@0x%lx",
@@ -1408,6 +1473,7 @@ type_print_varspec_prefix (type, stream, show, passed_a_ptr)
      int show;
      int passed_a_ptr;
 {
+  char *name;
   if (type == 0)
     return;
 
@@ -1429,8 +1495,11 @@ type_print_varspec_prefix (type, stream, show, passed_a_ptr)
       type_print_varspec_prefix (TYPE_TARGET_TYPE (type), stream, 0,
 				 0);
       fprintf_filtered (stream, " ");
-      type_print_base (TYPE_DOMAIN_TYPE (type), stream, 0,
-		       passed_a_ptr);
+      name = type_name_no_tag (TYPE_DOMAIN_TYPE (type));
+      if (name)
+	fputs_filtered (name, stream);
+      else
+        type_print_base (TYPE_DOMAIN_TYPE (type), stream, 0, passed_a_ptr);
       fprintf_filtered (stream, "::");
       break;
 
@@ -1705,7 +1774,7 @@ type_print_base (type, stream, show, level)
 	      struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
 	      int j, len2 = TYPE_FN_FIELDLIST_LENGTH (type, i);
 	      char *method_name = TYPE_FN_FIELDLIST_NAME (type, i);
-	      int is_constructor = strcmp(method_name, TYPE_NAME (type)) == 0;
+	      int is_constructor = name && strcmp(method_name, name) == 0;
 	      for (j = 0; j < len2; j++)
 		{
 		  QUIT;
@@ -1730,7 +1799,6 @@ type_print_base (type, stream, show, level)
 		  if (TYPE_FN_FIELD_STUB (f, j))
 		    {
 		      /* Build something we can demangle.  */
-		      char *strchr (), *gdb_mangle_name (), *cplus_demangle ();
 		      char *mangled_name = gdb_mangle_name (type, i, j);
 		      char *demangled_name = cplus_demangle (mangled_name, 1);
 		      if (demangled_name == 0)
@@ -2018,7 +2086,7 @@ _initialize_valprint ()
 		  "Set default input and output number radix.",
 		  &setlist);
   add_show_from_set (c, &showlist);
-  c->function = set_radix;
+  c->function.sfunc = set_radix;
 
   /* Give people the defaults which they are used to.  */
   prettyprint = 0;

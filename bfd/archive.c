@@ -93,7 +93,7 @@ DESCRIPTION
    front, and need to touch every entry to do so.  C'est la vie.
 */
 
-/* $Id: archive.c,v 1.44 1992/01/24 22:43:41 sac Exp $ */
+/* $Id: archive.c,v 1.47 1992/04/02 07:26:07 gnu Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -512,8 +512,11 @@ bfd_generic_archive_p (abfd)
 #ifdef GNU960
   if (strncmp (armag, BFD_GNU960_ARMAG(abfd), SARMAG)) return 0;
 #else
-  if (strncmp (armag, ARMAG, SARMAG)) return 0;
+  if (strncmp (armag, ARMAG, SARMAG) &&
+      strncmp (armag, ARMAGB, SARMAG)) return 0;
 #endif
+
+
 
   /* We are setting bfd_ardata(abfd) here, but since bfd_ardata
      involves a cast, we can't do it as the left operand of assignment. */
@@ -1260,6 +1263,7 @@ compute_and_write_armap (arch, elength)
 				 syms[src_count]->section;
 				
 				if ((flags & BSF_GLOBAL) ||
+				    (flags & BSF_INDIRECT) ||
 				    (sec == &bfd_com_section)) {
 
 					/* This symbol will go into the archive header */
@@ -1394,7 +1398,6 @@ coff_write_armap (arch, elength, map, symbol_count, stridx)
     unsigned int mapsize = stringsize + ranlibsize;
     file_ptr archive_member_file_ptr;
     bfd *current = arch->archive_head;
-    bfd *last_elt = current;	/* last element arch seen */
     int count;
     struct ar_hdr hdr;
     unsigned int i;
@@ -1426,11 +1429,10 @@ coff_write_armap (arch, elength, map, symbol_count, stridx)
     bfd_write_bigendian_4byte_int(arch, symbol_count);
 
     /* Two passes, first write the file offsets for each symbol -
-       remembering that each offset is on a two byte boundary
-       */
+       remembering that each offset is on a two byte boundary.  */
 
     /* Write out the file offset for the file associated with each
-       symbol, and remember to keep the offsets padded out */
+       symbol, and remember to keep the offsets padded out.  */
 
     current = arch->archive_head;
     count = 0;

@@ -18,14 +18,37 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+
+/* A successful ptrace(continue) might return errno != 0 in this particular port
+   of rs6000. I am not sure why. We will use this kludge and ignore it until
+   we figure out the real problem. */
+
+#define AIX_BUGGY_PTRACE_CONTINUE	\
+{ \
+  int ret = ptrace (PT_CONTINUE, inferior_pid, (int *)1, signal, 0); \
+  if (errno) { \
+/*    printf ("ret: %d, errno: %d, signal: %d\n", ret, errno, signal); */ \
+    errno = 0; } \
+}
+
 extern int	symtab_relocated;
+
+/* Minimum possible text address in AIX */
+
+#define TEXT_SEGMENT_BASE	0x10000000
+
 
 /* text addresses in a core file does not necessarily match to symbol table,
    if symbol table relocation wasn't done yet. */
 
 #define	CORE_NEEDS_RELOCATION(PC)	\
-  if (!symtab_relocated && !inferior_pid && (PC) > 0x10000000)	\
-    (PC) -= (0x10000000 + text_adjustment (exec_bfd));
+  if (!symtab_relocated && !inferior_pid && (PC) >  TEXT_SEGMENT_BASE)	\
+    (PC) -= ( TEXT_SEGMENT_BASE + text_adjustment (exec_bfd));
+
+/* Load segment of a given pc value. */
+
+#define	PC_LOAD_SEGMENT(PC)	pc_load_segment_name(PC)
+
 
 /* Conversion between a register number in stab string to actual register num. */
 
@@ -54,14 +77,26 @@ extern char *corefile;
 /* We are missing register descriptions in the system header files. Sigh! */
 
 struct regs {
-	int	gregs [32];	/* general purpose registers */
-	int	pc;		/* program conter	*/
-	int	ps;		/* processor status, or machine state */
+	int	gregs [32];		/* general purpose registers */
+	int	pc;			/* program conter	*/
+	int	ps;			/* processor status, or machine state */
 };
 
 struct fp_status {
-	double	fpregs [32];			/* floating GP registers */
+	double	fpregs [32];		/* floating GP registers */
 };
+
+
+/* To be used by function_frame_info. */
+
+struct aix_framedata {
+  int	offset;				/* # of bytes in gpr's and fpr's are saved */
+  int	saved_gpr;			/* smallest # of saved gpr */
+  int	saved_fpr;			/* smallest # of saved fpr */
+  int	alloca_reg;			/* alloca register number (frame ptr) */
+  char	frameless;			/* true if frameless functions. */
+};
+
 
 /* Define the byte order of the machine.  */
 
@@ -89,14 +124,56 @@ struct fp_status {
 
 /* When a child process is just starting, we sneak in and relocate
    the symbol table (and other stuff) after the dynamic linker has
-   figured out where they go.  */
+   figured out where they go. But we want to do this relocation just
+   once. */
 
-#define	SOLIB_CREATE_INFERIOR_HOOK(PID)	aixcoff_relocate_symtab (PID)
+extern int aix_loadInfoTextIndex;
 
+#define	SOLIB_CREATE_INFERIOR_HOOK(PID)	\
+  do {					\
+    if (aix_loadInfoTextIndex == 0)	\
+	aixcoff_relocate_symtab (PID);	\
+  } while (0)
+	
+
+/* Number of trap signals we need to skip over, once the inferior process
+   starts running. */
+
+#define	START_INFERIOR_TRAPS_EXPECTED	2
+
+/* AIX might return a sigtrap, with a "stop after load" status. It should
+   be ignored by gdb, shouldn't be mixed up with breakpoint traps. */
+
+/* Another little glitch  in AIX is signal 0. I have no idea why wait(2)
+   returns with this status word. It looks harmless. */
+
+#define SIGTRAP_STOP_AFTER_LOAD(W)	\
+ if ( (W) == 0x57c || (W) == 0x7f) {	\
+   if ((W)==0x57c && breakpoints_inserted) {	\
+     mark_breakpoints_out ();		\
+     insert_breakpoints ();		\
+     insert_step_breakpoint ();		\
+   }					\
+   resume (0, 0);			\
+   continue;				\
+ }
+
+/* In aixcoff, we cannot process line numbers when we see them. This is
+   mainly because we don't know the boundaries of the include files. So,
+   we postpone that, and then enter and sort(?) the whole line table at
+   once, when we are closing the current symbol table in end_symtab(). */
+
+#define	PROCESS_LINENUMBER_HOOK()	aix_process_linenos ()
+   
+   
 /* When a target process or core-file has been attached, we sneak in
-   and figure out where the shared libraries have got to.  */
+   and figure out where the shared libraries have got to. In case there
+   is no inferior_process exists (e.g. bringing up a core file), we can't
+   attemtp to relocate symbol table, since we don't have information about
+   load segments. */
 
-#define	SOLIB_ADD(a, b, c)		aixcoff_relocate_symtab (inferior_pid)
+#define	SOLIB_ADD(a, b, c)	\
+   if (inferior_pid)	aixcoff_relocate_symtab (inferior_pid)
 
 /* Immediately after a function call, return the saved pc.
    Can't go through the frames for this because on some machines
@@ -104,9 +181,12 @@ struct fp_status {
    some instructions.  */
 
 extern char registers[];
+extern char register_valid [];
 
 #define	SAVED_PC_AFTER_CALL(frame)	\
-	(*(int*)&registers[REGISTER_BYTE (LR_REGNUM)])
+	(register_valid [LR_REGNUM] ? 	\
+	  (*(int*)&registers[REGISTER_BYTE (LR_REGNUM)]) :	\
+	  read_register (LR_REGNUM))
 
 /*#define SAVED_PC_AFTER_CALL(frame)	saved_pc_after_call(frame) */
 
@@ -173,7 +253,7 @@ extern char registers[];
    There should be NUM_REGS strings in this initializer.  */
 
 #define REGISTER_NAMES  \
- {"r0", "sp", "toc", "r3", "r4", "r5", "r6", "r7",  \
+ {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",  \
   "r8", "r9", "r10","r11","r12","r13","r14","r15", \
   "r16","r17","r18","r19","r20","r21","r22","r23", \
   "r24","r25","r26","r27","r28","r29","r30","r31", \
@@ -194,6 +274,8 @@ extern char registers[];
 #define SP_REGNUM 1		/* Contains address of top of stack */
 #define	TOC_REGNUM 2		/* TOC register */
 #define FP0_REGNUM 32		/* Floating point register 0 */
+#define	GP0_REGNUM 0		/* GPR register 0 */
+#define FP0_REGNUM 32		/* FPR (Floating point) register 0 */
 #define FPLAST_REGNUM 63	/* Last floating point register */  
 
 /* Special purpose registers... */
@@ -307,7 +389,21 @@ extern unsigned int rs6000_struct_return_address;
    of type TYPE, given in virtual format.  */
 
 #define STORE_RETURN_VALUE(TYPE,VALBUF) \
-  printf ("FIXMEmgo! STORE_RETURN_VALUE not implemented yet!\n")
+  {									\
+    if (TYPE_CODE (TYPE) == TYPE_CODE_FLT)				\
+									\
+     /* Floating point values are returned starting from FPR1 and up.	\
+	Say a double_double_double type could be returned in		\
+	FPR1/FPR2/FPR3 triple. */					\
+									\
+      write_register_bytes (REGISTER_BYTE (FP0_REGNUM+1), (VALBUF),	\
+						TYPE_LENGTH (TYPE));	\
+    else								\
+      /* Everything else is returned in GPR3 and up. */			\
+      write_register_bytes (REGISTER_BYTE (GP0_REGNUM+3), (VALBUF),	\
+						TYPE_LENGTH (TYPE));	\
+  }
+
 
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
@@ -318,28 +414,27 @@ extern unsigned int rs6000_struct_return_address;
 
 /* Do implement the attach and detach commands.  */
 
-#define ATTACH_DETACH	/* FIXMEmgo! Not implemented yet! */
+#define ATTACH_DETACH
+
+/* infptrace.c requires those. */
+
+#define PTRACE_ATTACH 30
+#define	PTRACE_DETACH 31
 
 
 /* Describe the pointer in each stack frame to the previous stack frame
    (its caller).  */
 
 /* FRAME_CHAIN takes a frame's nominal address
-   and produces the frame's chain-pointer.
-
-   However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.  */
+   and produces the frame's chain-pointer. */
 
 /* In the case of the RS6000, the frame's nominal address
    is the address of a 4-byte word containing the calling frame's address.  */
 
 #define FRAME_CHAIN(thisframe)  \
-  (outside_startup_file ((thisframe)->pc) ?	\
+  (!inside_entry_file ((thisframe)->pc) ?	\
    read_memory_integer ((thisframe)->frame, 4) :\
    0)
-
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
 
 /* Define other aspects of the stack frame.  */
 
@@ -350,24 +445,36 @@ extern unsigned int rs6000_struct_return_address;
 #define FRAMELESS_FUNCTION_INVOCATION(FI, FRAMELESS) \
 	FRAMELESS = frameless_function_invocation (FI)
 
+/* Functions calling alloca() change the value of the stack pointer. We
+   need to use initial stack pointer (which is saved in r31 by gcc) in 
+   such cases. If a compiler emits traceback table, then we should use the
+   alloca register specified in traceback table. FIXME. */
+/* Also, it is a good idea to cache information about frame's saved registers
+   in the frame structure to speed things up. See tm-m88k.h. FIXME. */
+
+#define	EXTRA_FRAME_INFO	\
+	CORE_ADDR initial_sp;			/* initial stack pointer. */ \
+	struct frame_saved_regs *cache_fsr;	/* saved registers	  */
+
 /* Frameless function invocation in IBM RS/6000 is half-done. It perfectly
    sets up a new frame, e.g. a new frame (in fact stack) pointer, etc, but it 
    doesn't save the %pc. In the following, even though it is considered a 
    frameless invocation, we still need to walk one frame up. */
 
 #define	INIT_EXTRA_FRAME_INFO(fromleaf, fi)	\
-	if (fromleaf) {			\
-	  int tmp = 0;			\
-	  read_memory ((fi)->frame, &tmp, sizeof (int));	\
-	  (fi)->frame = tmp;		\
-	}
+	fi->initial_sp = 0;		\
+	fi->cache_fsr = 0;
 
 #define FRAME_SAVED_PC(FRAME)		\
 	read_memory_integer (read_memory_integer ((FRAME)->frame, 4)+8, 4)
 
-#define FRAME_ARGS_ADDRESS(fi) ((fi)->frame)
+#define FRAME_ARGS_ADDRESS(FI)	\
+  (((struct frame_info*)(FI))->initial_sp ?		\
+	((struct frame_info*)(FI))->initial_sp :	\
+	frame_initial_stack_address (FI))
 
-#define FRAME_LOCALS_ADDRESS(fi) ((fi)->frame)
+#define FRAME_LOCALS_ADDRESS(FI)	FRAME_ARGS_ADDRESS(FI)
+
 
 /* Set VAL to the number of args passed to frame described by FI.
    Can set VAL to -1, meaning no way to tell.  */
@@ -386,9 +493,51 @@ extern unsigned int rs6000_struct_return_address;
    This includes special registers such as pc and fp saved in special
    ways in the stack frame.  sp is even more special:
    the address we return for it IS the sp for the next frame.  */
+/* In the following implementation for RS6000, we did *not* save sp. I am
+   not sure if it will be needed. The following macro takes care of gpr's
+   and fpr's only. */
 
-#define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs)		\
-	printf ("FIXMEmgo! FRAME_FIND_SAVED_REGS() not implemented!\n")
+#define FRAME_FIND_SAVED_REGS(FRAME_INFO, FRAME_SAVED_REGS)		\
+{									\
+  int ii, frame_addr, func_start;					\
+  struct aix_framedata fdata;							\
+										\
+  /* find the start of the function and collect info about its frame. */	\
+										\
+  func_start = get_pc_function_start ((FRAME_INFO)->pc) + FUNCTION_START_OFFSET;\
+  function_frame_info (func_start, &fdata);					\
+  bzero (&(FRAME_SAVED_REGS), sizeof (FRAME_SAVED_REGS));			\
+										\
+  /* if there were any saved registers, figure out parent's stack pointer. */	\
+  frame_addr = 0;								\
+  /* the following is true only if the frame doesn't have a call to alloca(),	\
+      FIXME. */									\
+  if (fdata.saved_fpr >= 0 || fdata.saved_gpr >= 0) {				\
+    if ((FRAME_INFO)->prev && (FRAME_INFO)->prev->frame)			\
+      frame_addr = (FRAME_INFO)->prev->frame;					\
+    else									\
+      frame_addr = read_memory_integer ((FRAME_INFO)->frame, 4);		\
+  }										\
+										\
+  /* if != -1, fdata.saved_fpr is the smallest number of saved_fpr. All fpr's	\
+     from saved_fpr to fp31 are saved right underneath caller stack pointer,	\
+     starting from fp31 first. */						\
+										\
+  if (fdata.saved_fpr >= 0) {							\
+    for (ii=31; ii >= fdata.saved_fpr; --ii) 					\
+      (FRAME_SAVED_REGS).regs [FP0_REGNUM + ii] = frame_addr - ((32 - ii) * 8);	\
+    frame_addr -= (32 - fdata.saved_fpr) * 8;					\
+  }										\
+										\
+  /* if != -1, fdata.saved_gpr is the smallest number of saved_gpr. All gpr's	\
+     from saved_gpr to gpr31 are saved right under saved fprs, starting		\
+     from r31 first. */								\
+										\
+  if (fdata.saved_gpr >= 0)							\
+    for (ii=31; ii >= fdata.saved_gpr; --ii)					\
+      (FRAME_SAVED_REGS).regs [ii] = frame_addr - ((32 - ii) * 4);		\
+}
+
 
 /* Things needed for making the inferior call functions.  */
 
@@ -453,3 +602,36 @@ extern unsigned int rs6000_struct_return_address;
 
 #define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, type, using_gcc) \
 	fix_call_dummy(dummyname, pc, fun, nargs, type)
+
+
+/* Signal handler for SIGWINCH `window size changed'. */
+
+#define	SIGWINCH_HANDLER  aix_resizewindow
+extern	void	aix_resizewindow ();
+
+/* `lines_per_page' and `chars_per_line' are local to utils.c. Rectify this. */
+
+#define	SIGWINCH_HANDLER_BODY	\
+									\
+/* Respond to SIGWINCH `window size changed' signal, and reset GDB's	\
+   window settings approproatelt. */					\
+									\
+void 						\
+aix_resizewindow ()				\
+{						\
+  int fd = fileno (stdout);			\
+  if (isatty (fd)) {				\
+    int val;					\
+						\
+    val = atoi (termdef (fd, 'l'));		\
+    if (val > 0)				\
+      lines_per_page = val;			\
+    val = atoi (termdef (fd, 'c'));		\
+    if (val > 0)				\
+      chars_per_line = val;			\
+  }						\
+}
+
+
+/* Flag for machine-specific stuff in shared files.  FIXME */
+#define IBM6000_TARGET
