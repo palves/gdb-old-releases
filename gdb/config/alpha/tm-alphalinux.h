@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Are we currently handling a signal ?  */
 
-extern long alpha_linux_sigtramp_offset ();
+extern long alpha_linux_sigtramp_offset PARAMS ((CORE_ADDR));
 #undef IN_SIGTRAMP
 #define IN_SIGTRAMP(pc, name)	(alpha_linux_sigtramp_offset (pc) >= 0)
 
@@ -73,5 +73,8 @@ extern long alpha_linux_sigtramp_offset ();
 
 #undef FRAME_PAST_SIGTRAMP_FRAME
 #define FRAME_PAST_SIGTRAMP_FRAME(frame, pc)	(0)
+
+/* We need this for the SOLIB_TRAMPOLINE stuff.  */
+#include "tm-sysv4.h"
 
 #endif /* TM_LINUXALPHA_H */

@@ -1,4 +1,4 @@
-#define PAGE_SIZE (1<<PAGE_POWER)
+#define Z8k_PAGE_SIZE (1<<PAGE_POWER)
 
 int sim_read_byte PARAMS((sim_state_type *, sim_phys_addr_type));
 unsigned int sim_read_short PARAMS((sim_state_type *, sim_phys_addr_type));

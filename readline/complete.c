@@ -23,9 +23,6 @@
 #include "sysdep.h"
 #include <stdio.h>
 #include <fcntl.h>
-#if !defined (NO_SYS_FILE)
-#  include <sys/file.h>
-#endif /* !NO_SYS_FILE */
 
 #include <errno.h>
 /* Not all systems declare ERRNO in errno.h... and some systems #define it! */
@@ -35,7 +32,7 @@ extern int errno;
 
 /* These next are for filename completion.  Perhaps this belongs
    in a different place. */
-#if !defined(__MSDOS__) && !defined(_MSC_VER)
+#if !defined __MSDOS__ && (defined __CYGWIN32__ || ! defined _WIN32)
 #include <pwd.h>
 #endif /* __MSDOS__ */
 #if defined (USG) && !defined (isc386) && !defined (sgi)
@@ -1047,7 +1044,7 @@ filename_completion_function (text, state)
      int state;
      char *text;
 {
-#if !defined(__WIN32__) && !defined(_MSC_VER)
+#if !defined(_WIN32)
   static DIR *directory;
   static char *filename = (char *)NULL;
   static char *dirname = (char *)NULL;

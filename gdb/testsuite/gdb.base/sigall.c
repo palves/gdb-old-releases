@@ -1150,6 +1150,10 @@ gen_TERM ()
 int
 main ()
 {
+#ifdef usestubs
+  set_debug_traps ();
+  breakpoint ();
+#endif
   signal (SIGABRT, handle_ABRT);
 #ifdef SIGHUP
   signal (SIGHUP, handle_HUP);

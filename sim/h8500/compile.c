@@ -30,6 +30,7 @@
 #include <sys/param.h>
 #include <setjmp.h>
 #include "ansidecl.h"
+#include "bfd.h"
 #include "callback.h"
 #include "remote-sim.h"
 
@@ -37,8 +38,18 @@
 #define DEFINE_TABLE
 #define DISASSEMBLER_TABLE
 
+/* FIXME: Needs to live in header file.
+   This header should also include the things in remote-sim.h.
+   One could move this to remote-sim.h but this function isn't needed
+   by gdb.  */
+void sim_set_simcache_size PARAMS ((int));
 
 int debug;
+
+host_callback *sim_callback;
+
+static SIM_OPEN_KIND sim_kind;
+static char *myname;
 
 /* This code can be compiled with any old C compiler, in which case
    four or five switch statements will be executed for each
@@ -302,7 +313,7 @@ fastref exec_dispatch[100];
 static int
 get_now ()
 {
-  return time ((char *) 0);
+  return time (0);
 }
 
 static int
@@ -1116,8 +1127,8 @@ init_pointers ()
       segmap[R_HARD_0] = &cpu.regs[R_DP].c;
       segmap[R_HARD8_0] = &cpu.regs[R_BP].c;
 
-      cpu.memory = (unsigned char *) calloc (sizeof (char), MSIZE);
-      cpu.cache_idx = (unsigned short *) calloc (sizeof (short), MSIZE);
+      cpu.memory = (unsigned char *) calloc (sizeof (char), H8500_MSIZE);
+      cpu.cache_idx = (unsigned short *) calloc (sizeof (short), H8500_MSIZE);
 
       /* initialize the seg registers */
 
@@ -1129,7 +1140,7 @@ init_pointers ()
       cpu.regs[R7].s[LOW] = 0xfffe;
       cpu.regs[R6].s[LOW] = 0xfffe;
       if (!cpu.cache)
-	sim_csize (CSIZE);
+	sim_set_simcache_size (CSIZE);
     }
 }
 
@@ -1192,8 +1203,17 @@ segv ()
   longjmp (jbuf, 1);
 }
 
+int
+sim_stop (sd)
+     SIM_DESC sd;
+{
+  cpu.exception = SIGINT;
+  return 1;
+}
+
 void
-sim_resume (step, siggnal)
+sim_resume (sd, step, siggnal)
+     SIM_DESC sd;
 {
   static int init1;
   int res;
@@ -2100,7 +2120,8 @@ sim_resume (step, siggnal)
 
 
 int
-sim_write (addr, buffer, size)
+sim_write (sd, addr, buffer, size)
+     SIM_DESC sd;
      SIM_ADDR addr;
      unsigned char *buffer;
      int size;
@@ -2108,7 +2129,7 @@ sim_write (addr, buffer, size)
   int i;
 
   init_pointers ();
-  if (addr < 0 || addr + size > MSIZE)
+  if (addr < 0 || addr + size > H8500_MSIZE)
     return 0;
   for (i = 0; i < size; i++)
     {
@@ -2119,13 +2140,14 @@ sim_write (addr, buffer, size)
 }
 
 int
-sim_read (addr, buffer, size)
+sim_read (sd, addr, buffer, size)
+     SIM_DESC sd;
      SIM_ADDR addr;
      unsigned char *buffer;
      int size;
 {
   init_pointers ();
-  if (addr < 0 || addr + size > MSIZE)
+  if (addr < 0 || addr + size > H8500_MSIZE)
     return 0;
   memcpy (buffer, cpu.memory + addr, size);
   return size;
@@ -2169,7 +2191,8 @@ sim_read (addr, buffer, size)
 #define TICK_REGNUM     24
 
 void
-sim_store_register (rn, value)
+sim_store_register (sd, rn, value)
+     SIM_DESC sd;
      int rn;
      unsigned char *value;
 {
@@ -2240,7 +2263,8 @@ sim_store_register (rn, value)
 }
 
 void
-sim_fetch_register (rn, buf)
+sim_fetch_register (sd, rn, buf)
+     SIM_DESC sd;
      int rn;
      unsigned char *buf;
 {
@@ -2316,7 +2340,8 @@ sim_fetch_register (rn, buf)
 }
 
 int
-sim_trace ()
+sim_trace (sd)
+     SIM_DESC sd;
 {
 
   int i;
@@ -2343,12 +2368,13 @@ sim_trace ()
 	  cpu.regs[5].s[LOW],
 	  cpu.regs[6].s[LOW],
 	  cpu.regs[7].s[LOW]);
-  sim_resume (1, 0);
+  sim_resume (sd, 1, 0);
   return 0;
 }
 
 void
-sim_stop_reason (reason, sigrc)
+sim_stop_reason (sd, reason, sigrc)
+     SIM_DESC sd;
      enum sim_stop *reason;
      int *sigrc;
 {
@@ -2356,8 +2382,8 @@ sim_stop_reason (reason, sigrc)
   *sigrc = cpu.exception;
 }
 
-
-sim_csize (n)
+void
+sim_set_simcache_size (n)
 {
   if (cpu.cache)
     free (cpu.cache);
@@ -2367,80 +2393,123 @@ sim_csize (n)
   cpu.csize = n;
 }
 
+void
+sim_size (n)
+     int n;
+{
+  /* Fixed size.  */
+}
 
 void
-sim_info (verbose)
+sim_info (sd, verbose)
+     SIM_DESC sd;
      int verbose;
 {
   double timetaken = (double) cpu.ticks / (double) now_persec ();
   double virttime = cpu.cycles / 10.0e6;
 
-  printf_filtered ("\n\ninstructions executed  %10d\n", cpu.insts);
-  printf_filtered ("cycles (v approximate) %10d\n", cpu.cycles);
-  printf_filtered ("real time taken        %10.4f\n", timetaken);
-  printf_filtered ("virtual time taked     %10.4f\n", virttime);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "\n\ninstructions executed  %10d\n",
+				    cpu.insts);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "cycles (v approximate) %10d\n",
+				    cpu.cycles);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "real time taken        %10.4f\n",
+				    timetaken);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "virtual time taked     %10.4f\n",
+				    virttime);
   if (timetaken) 
     {
-      printf_filtered ("simulation ratio       %10.4f\n", virttime / timetaken);
+      (*sim_callback->printf_filtered) (sim_callback,
+					"simulation ratio       %10.4f\n",
+					virttime / timetaken);
     }
   
-  printf_filtered ("compiles               %10d\n", cpu.compiles);
-  printf_filtered ("cache size             %10d\n", cpu.csize);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "compiles               %10d\n",
+				    cpu.compiles);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "cache size             %10d\n",
+				    cpu.csize);
 }
 
-void
-sim_kill()
+SIM_DESC
+sim_open (kind, cb, abfd, argv)
+     SIM_OPEN_KIND kind;
+     host_callback *cb;
+     struct _bfd *abfd;
+     char **argv;
 {
-  /* nothing to do */
+  sim_kind = kind;
+  myname = argv[0];
+  sim_callback = cb;
+  /* fudge our descriptor */
+  return (SIM_DESC) 1;
 }
 
 void
-sim_open (args)
-     char *args;
-{
-  /* nothing to do */
-}
-
-void
-sim_close (quitting)
+sim_close (sd, quitting)
+     SIM_DESC sd;
      int quitting;
 {
   /* nothing to do */
 }
 
-int
-sim_load (prog, from_tty)
+SIM_RC
+sim_load (sd, prog, abfd, from_tty)
+     SIM_DESC sd;
      char *prog;
+     bfd *abfd;
      int from_tty;
 {
-  /* Return nonzero so gdb will handle it.  */
-  return 1;
+  extern bfd *sim_load_file (); /* ??? Don't know where this should live.  */
+  bfd *prog_bfd;
+
+  prog_bfd = sim_load_file (sd, myname, sim_callback, prog, abfd,
+			    sim_kind == SIM_OPEN_DEBUG,
+			    0, sim_write);
+  if (prog_bfd == NULL)
+    return SIM_RC_FAIL;
+  if (abfd == NULL)
+    bfd_close (prog_bfd);
+  return SIM_RC_OK;
 }
 
-void
-sim_create_inferior (start_address, argv, env)
-     SIM_ADDR start_address;
+SIM_RC
+sim_create_inferior (sd, abfd, argv, env)
+     SIM_DESC sd;
+     struct _bfd *abfd;
      char **argv;
      char **env;
 {
-  /* ??? We assume this is a 4 byte quantity.  */
   int pc;
+  bfd_vma start_address;
+  if (abfd != NULL)
+    start_address = bfd_get_start_address (abfd);
+  else
+    start_address = 0;
 
+  /* ??? We assume this is a 4 byte quantity.  */
   pc = start_address;
-  sim_store_register (PC_REGNUM, (unsigned char *) &pc);
+
+  sim_store_register (sd, PC_REGNUM, (unsigned char *) &pc);
+  return SIM_RC_OK;
 }
 
 void
-sim_do_command (cmd)
+sim_do_command (sd, cmd)
+     SIM_DESC sd;
      char *cmd;
 {
-  printf_filtered ("This simulator does not accept any commands.\n");
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "This simulator does not accept any commands.\n");
 }
-
 
 void
 sim_set_callbacks (ptr)
-struct host_callback_struct *ptr;
+     struct host_callback_struct *ptr;
 {
-
+  sim_callback = ptr;
 }

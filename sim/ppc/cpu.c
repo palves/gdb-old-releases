@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1995, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -175,34 +175,57 @@ cpu_get_program_counter(cpu *processor)
   return processor->program_counter;
 }
 
+
 INLINE_CPU\
 (void)
 cpu_restart(cpu *processor,
 	    unsigned_word nia)
 {
-  processor->program_counter = nia;
+  ASSERT(processor != NULL);
+  cpu_set_program_counter(processor, nia);
   psim_restart(processor->system, processor->cpu_nr);
 }
 
 INLINE_CPU\
 (void)
 cpu_halt(cpu *processor,
-	 unsigned_word cia,
+	 unsigned_word nia,
 	 stop_reason reason,
 	 int signal)
 {
-  if (processor == NULL) {
-    error("cpu_halt() processor=NULL, cia=0x%x, reason=%d, signal=%d\n",
-	  cia,
-	  reason,
-	  signal);
+  ASSERT(processor != NULL);
+  if (CURRENT_MODEL_ISSUE > 0)
+    model_halt(processor->model_ptr);
+  cpu_set_program_counter(processor, nia);
+  psim_halt(processor->system, processor->cpu_nr, reason, signal);
+}
+
+EXTERN_CPU\
+(void)
+cpu_error(cpu *processor,
+	  unsigned_word cia,
+	  const char *fmt,
+	  ...)
+{
+  char message[1024];
+  va_list ap;
+
+  /* format the message */
+  va_start(ap, fmt);
+  vsprintf(message, fmt, ap);
+  va_end(ap);
+
+  /* sanity check */
+  if (strlen(message) >= sizeof(message))
+    error("cpu_error: buffer overflow");
+
+  if (processor != NULL) {
+    printf_filtered("cpu %d, cia 0x%lx: %s\n",
+		    processor->cpu_nr + 1, (unsigned long)cia, message);
+    cpu_halt(processor, cia, was_signalled, -1);
   }
   else {
-    if (CURRENT_MODEL_ISSUE > 0)
-      model_halt(processor->model_ptr);
-
-    processor->program_counter = cia;
-    psim_halt(processor->system, processor->cpu_nr, reason, signal);
+    error("cpu: %s", message);
   }
 }
 
@@ -353,7 +376,8 @@ cpu_registers(cpu *processor)
 
 INLINE_CPU\
 (void)
-cpu_synchronize_context(cpu *processor)
+cpu_synchronize_context(cpu *processor,
+			unsigned_word cia)
 {
 #if (WITH_IDECODE_CACHE_SIZE)
   /* kill of the cache */
@@ -364,7 +388,8 @@ cpu_synchronize_context(cpu *processor)
   vm_synchronize_context(processor->virtual,
 			 processor->regs.spr,
 			 processor->regs.sr,
-			 processor->regs.msr);
+			 processor->regs.msr,
+			 processor, cia);
 }
 
 

@@ -79,6 +79,7 @@ uint32 fsr;
 #ifdef sparc
 	_set_fsr_raw(fsr & ~0x0f800000);
 #elif i386
+     void __setfpucw(unsigned short fpu_control);
      uint32 rawfsr;
 
      fsr >>= 30;
@@ -87,10 +88,10 @@ uint32 fsr;
 	case 2: break;
 	case 1: fsr = 3;
 	case 3: fsr = 1;
-    }
-    rawfsr = _get_cw();
-    rawfsr |= (fsr << 10) | 0x3ff;
-    __setfpucw(rawfsr);
+     }
+     rawfsr = _get_cw();
+     rawfsr |= (fsr << 10) | 0x3ff;
+     __setfpucw(rawfsr);
 #else
 #warning no fpu trap support for this target
 #endif
@@ -129,7 +130,6 @@ _get_fsr_raw:
     ");
 
 #elif i386
-	/* both these align statements were 16, not 8 */
 
     asm("
 
@@ -167,3 +167,40 @@ _get_cw:
 #warning no fpu trap support for this target
 #endif
 
+#if i386
+/* #if defined _WIN32 || defined __GO32__ */
+/* This is so floating exception handling works on NT
+   These definitions are from the linux fpu_control.h, which
+   doesn't exist on NT.
+
+   default to:
+     - extended precision
+     - rounding to nearest
+     - exceptions on overflow, zero divide and NaN
+*/
+#define _FPU_DEFAULT  0x1372 
+#define _FPU_RESERVED 0xF0C0  /* Reserved bits in cw */
+
+void
+__setfpucw(unsigned short fpu_control)
+{
+  volatile unsigned short cw;
+
+  /* If user supplied _fpu_control, use it ! */
+  if (!fpu_control)
+  { 
+    /* use defaults */
+    fpu_control = _FPU_DEFAULT;
+  }
+  /* Get Control Word */
+  __asm__ volatile ("fnstcw %0" : "=m" (cw) : );
+  
+  /* mask in */
+  cw &= _FPU_RESERVED;
+  cw = cw | (fpu_control & ~_FPU_RESERVED);
+
+  /* set cw */
+  __asm__ volatile ("fldcw %0" :: "m" (cw));
+}
+/* #endif */
+#endif

@@ -522,7 +522,7 @@ _rl_move_cursor_relative (new, data)
      of moving backwards. */
   if (new + 1 < _rl_last_c_pos - new)
     {
-#if defined(__MSDOS__) || defined(__WIN32__) || defined (_MSC_VER)
+#if defined(__MSDOS__) || defined(_WIN32)
       putc('\r', rl_outstream);
 #else
       tputs (term_cr, 1, _rl_output_character_function);
@@ -735,8 +735,7 @@ insert_some_chars (string, count)
      char *string;
      int count;
 {
-#if defined(__WIN32__) || defined(_MSC_VER)
-
+#if defined(_WIN32)
 #else
 #if defined (__GO32__)
   int row, col, width;
@@ -792,7 +791,7 @@ static void
 delete_chars (count)
      int count;
 {
-#if defined(__WIN32__) || defined(_MSC_VER)
+#if defined(_WIN32)
 
 #else
 #if defined (__GO32__)

@@ -1,5 +1,5 @@
 /* BFD back-end for archive files (libraries).
-   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
    Written by Cygnus Support.  Mostly Gumby Henkel-Wallace's fault.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -142,12 +142,9 @@ extern int errno;
 #define BFD_GNU960_ARMAG(abfd)	(BFD_COFF_FILE_P((abfd)) ? ARMAG : ARMAGB)
 #endif
 
-/* Can't define this in hosts/foo.h, because (e.g. in gprof) the hosts file
-   is included, then obstack.h, which thinks if offsetof is defined, it
-   doesn't need to include stddef.h.  */
 /* Define offsetof for those systems which lack it */
 
-#if !defined (offsetof)
+#ifndef offsetof
 #define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)
 #endif
 
@@ -780,7 +777,7 @@ do_slurp_bsd_armap (abfd)
   ardata->first_file_filepos += (ardata->first_file_filepos) % 2;
   /* FIXME, we should provide some way to free raw_ardata when
      we are done using the strings from it.  For now, it seems
-     to be allocated on an obstack anyway... */
+     to be allocated on an objalloc anyway... */
   bfd_has_map (abfd) = true;
   return true;
 }
@@ -826,7 +823,9 @@ do_slurp_coff_armap (abfd)
      little, because our tools changed.  Here's a horrible hack to clean
      up the crap.  */
 
-  if (stringsize > 0xfffff)
+  if (stringsize > 0xfffff
+      && bfd_get_arch (abfd) == bfd_arch_i960
+      && bfd_get_flavour (abfd) == bfd_target_coff_flavour)
     {
       /* This looks dangerous, let's do it the other way around */
       nsymz = bfd_getl32 ((PTR) int_buf);
@@ -930,6 +929,12 @@ bfd_slurp_armap (abfd)
     return do_slurp_bsd_armap (abfd);
   else if (!strncmp (nextname, "/               ", 16))
     return do_slurp_coff_armap (abfd);
+  else if (!strncmp (nextname, "/SYM64/         ", 16))
+    {
+      /* Irix 6 archive--must be recognized by code in elf64-mips.c.  */
+      bfd_set_error (bfd_error_wrong_format);
+      return false;
+    }
 
   bfd_has_map (abfd) = false;
   return true;
@@ -1034,7 +1039,7 @@ bfd_slurp_bsd_armap_f2 (abfd)
   ardata->first_file_filepos += (ardata->first_file_filepos) % 2;
   /* FIXME, we should provide some way to free raw_ardata when
      we are done using the strings from it.  For now, it seems
-     to be allocated on an obstack anyway... */
+     to be allocated on an objalloc anyway... */
   bfd_has_map (abfd) = true;
   return true;
 }
@@ -1117,7 +1122,7 @@ _bfd_slurp_extended_name_table (abfd)
 	(bfd_ardata (abfd)->first_file_filepos) % 2;
 
       /* FIXME, we can't release namedata here because it was allocated
-	 below extended_names on the obstack... */
+	 below extended_names on the objalloc... */
       /* bfd_release (abfd, namedata); */
     }
   return true;
@@ -1385,10 +1390,12 @@ bfd_ar_hdr_from_filesystem (abfd, filename)
     a strong stomach to write this, and it does, but it takes even a
     stronger stomach to try to code around such a thing!  */
 
+struct ar_hdr *bfd_special_undocumented_glue PARAMS ((bfd *, const char *));
+
 struct ar_hdr *
 bfd_special_undocumented_glue (abfd, filename)
      bfd *abfd;
-     char *filename;
+     const char *filename;
 {
   struct areltdata *ar_elt = bfd_ar_hdr_from_filesystem (abfd, filename);
   if (ar_elt == NULL)
@@ -1720,7 +1727,7 @@ _bfd_compute_and_write_armap (arch, elength)
   if (map == NULL)
     goto error_return;
 
-  /* We put the symbol names on the arch obstack, and then discard
+  /* We put the symbol names on the arch objalloc, and then discard
      them when done.  */
   first_name = bfd_alloc (arch, 1);
   if (first_name == NULL)
@@ -1873,8 +1880,13 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
   bfd_ardata (arch)->armap_datepos = (SARMAG
 				      + offsetof (struct ar_hdr, ar_date[0]));
   sprintf (hdr.ar_date, "%ld", bfd_ardata (arch)->armap_timestamp);
+#ifndef _WIN32
   sprintf (hdr.ar_uid, "%ld", (long) getuid ());
   sprintf (hdr.ar_gid, "%ld", (long) getgid ());
+#else
+  sprintf (hdr.ar_uid, "%ld", (long) 666);
+  sprintf (hdr.ar_gid, "%ld", (long) 42);
+#endif
   sprintf (hdr.ar_size, "%-10d", (int) mapsize);
   strncpy (hdr.ar_fmag, ARFMAG, 2);
   for (i = 0; i < sizeof (struct ar_hdr); i++)

@@ -22,7 +22,7 @@ Boston, MA 02111-1307, USA.  */
 /* This file lives in at least two places: libiberty and gcc.
    Don't change one without the other.  */
 
-#if ! defined (_WIN32) && ! defined (NO_SYS_FILE_H)
+#ifndef NO_SYS_FILE_H
 #include <sys/types.h>
 #include <sys/file.h>   /* May get R_OK, etc. on some systems.  */
 #endif
@@ -80,7 +80,7 @@ try (dir, base)
   if (base != 0)
     return base;
   if (dir != 0
-      && access (dir, R_OK | W_OK) == 0)
+      && access (dir, R_OK | W_OK | X_OK) == 0)
     return dir;
   return 0;
 }
@@ -114,21 +114,24 @@ choose_temp_base ()
  
   /* If all else fails, use the current directory!  */
   if (base == 0)
+#ifdef VMS
+    base = "[";
+#else
     base = ".";
+#endif
 
 #else /* MPW */
   base = ":";
 #endif
 
   len = strlen (base);
-  if (len == 0)
-    abort ();
   temp_filename = xmalloc (len + 1 /*DIR_SEPARATOR*/
 			   + strlen (TEMP_FILE) + 1);
   strcpy (temp_filename, base);
 
 #ifndef MPW
-  if (temp_filename[len-1] != '/'
+  if (len != 0
+      && temp_filename[len-1] != '/'
       && temp_filename[len-1] != DIR_SEPARATOR)
     temp_filename[len++] = DIR_SEPARATOR;
 #else /* MPW */

@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1995, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,18 +25,24 @@
 #include "basics.h"
 #include "events.h"
 
+#include <signal.h>
+
+
 
 /* The event queue maintains a single absolute time using two
    variables.
    
    TIME_OF_EVENT: this holds the time at which the next event is ment
    to occure.  If no next event it will hold the time of the last
-   event.  The first event occures at time 0 - system start.
+   event.
 
    TIME_FROM_EVENT: The current distance from TIME_OF_EVENT.  If an
    event is pending, this will be positive.  If no future event is
    pending this will be negative.  This variable is decremented once
    for each iteration of a clock cycle.
+
+   Initially, the clock is started at time one (1) with TIME_OF_EVENT
+   == 0 and TIME_FROM_EVENT == -1.
 
    Clearly there is a bug in that this code assumes that the absolute
    time counter will never become greater than 2^62. */
@@ -50,6 +56,7 @@ struct _event_entry {
 };
 
 struct _event_queue {
+  int processing;
   event_entry *queue;
   event_entry *volatile held;
   event_entry *volatile *volatile held_end;
@@ -64,9 +71,11 @@ event_queue_create(void)
 {
   event_queue *new_event_queue = ZALLOC(event_queue);
 
+  new_event_queue->processing = 0;
   new_event_queue->queue = NULL;
   new_event_queue->held = NULL;
   new_event_queue->held_end = &new_event_queue->held;
+
   /* both times are already zero */
   return new_event_queue;
 }
@@ -79,16 +88,25 @@ event_queue_init(event_queue *queue)
   event_entry *event;
 
   /* drain the interrupt queue */
-  /*-LOCK-*/
-  event = queue->held;
-  while (event != NULL) {
-    event_entry *dead = event;
-    event = event->next;
-    zfree(dead);
+  {
+#if defined(HAVE_SIGPROCMASK) && defined(SIG_SETMASK)
+    sigset_t old_mask;
+    sigset_t new_mask;
+    sigfillset(&new_mask);
+    /*-LOCK-*/ sigprocmask(SIG_SETMASK, &new_mask, &old_mask);
+#endif
+    event = queue->held;
+    while (event != NULL) {
+      event_entry *dead = event;
+      event = event->next;
+      zfree(dead);
+    }
+    queue->held = NULL;
+    queue->held_end = &queue->held;
+#if defined(HAVE_SIGPROCMASK) && defined(SIG_SETMASK)
+    /*-UNLOCK-*/ sigprocmask(SIG_SETMASK, &old_mask, NULL);
+#endif
   }
-  queue->held = NULL;
-  queue->held_end = &queue->held;
-  /*-UNLOCK-*/
 
   /* drain the normal queue */
   event = queue->queue;
@@ -100,6 +118,7 @@ event_queue_init(event_queue *queue)
   queue->queue = NULL;
     
   /* wind time back to one */
+  queue->processing = 0;
   queue->time_of_event = 0;
   queue->time_from_event = -1;
 }
@@ -135,7 +154,7 @@ insert_event_entry(event_queue *events,
 		   signed64 delta)
 {
   event_entry *curr;
-  event_entry **last;
+  event_entry **prev;
   signed64 time_of_event;
 
   if (delta < 0)
@@ -145,16 +164,19 @@ insert_event_entry(event_queue *events,
   time_of_event = event_queue_time(events) + delta;
 
   /* find the queue insertion point - things are time ordered */
-  last = &events->queue;
+  prev = &events->queue;
   curr = events->queue;
   while (curr != NULL && time_of_event >= curr->time_of_event) {
-    last = &curr->next;
+    ASSERT(curr->next == NULL
+	   || curr->time_of_event <= curr->next->time_of_event);
+    prev = &curr->next;
     curr = curr->next;
   }
+  ASSERT(curr == NULL || time_of_event < curr->time_of_event);
 
   /* insert it */
   new_event->next = curr;
-  *last = new_event;
+  *prev = new_event;
   new_event->time_of_event = time_of_event;
 
   /* adjust the time until the first event */
@@ -172,6 +194,12 @@ event_queue_schedule(event_queue *events,
   new_event->data = data;
   new_event->handler = handler;
   insert_event_entry(events, new_event, delta_time);
+  TRACE(trace_events, ("event scheduled at %ld - tag 0x%lx - time %ld, handler 0x%lx, data 0x%lx\n",
+		       (long)event_queue_time(events),
+		       (long)new_event,
+		       (long)new_event->time_of_event,
+		       (long)new_event->handler,
+		       (long)new_event->data));
   return (event_entry_tag)new_event;
 }
 
@@ -190,15 +218,31 @@ event_queue_schedule_after_signal(event_queue *events,
   new_event->time_of_event = delta_time; /* work it out later */
   new_event->next = NULL;
 
-  /*-LOCK-*/
-  if (events->held == NULL) {
-    events->held = new_event;
+  {
+#if defined(HAVE_SIGPROCMASK) && defined(SIG_SETMASK)
+    sigset_t old_mask;
+    sigset_t new_mask;
+    sigfillset(&new_mask);
+    /*-LOCK-*/ sigprocmask(SIG_SETMASK, &new_mask, &old_mask);
+#endif
+    if (events->held == NULL) {
+      events->held = new_event;
+    }
+    else {
+      *events->held_end = new_event;
+    }
+    events->held_end = &new_event->next;
+#if defined(HAVE_SIGPROCMASK) && defined(SIG_SETMASK)
+    /*-UNLOCK-*/ sigprocmask(SIG_SETMASK, &old_mask, NULL);
+#endif
   }
-  else {
-    *events->held_end = new_event;
-  }
-  events->held_end = &new_event->next;
-  /*-UNLOCK-*/
+
+  TRACE(trace_events, ("event scheduled at %ld - tag 0x%lx - time %ld, handler 0x%lx, data 0x%lx\n",
+		       (long)event_queue_time(events),
+		       (long)new_event,
+		       (long)new_event->time_of_event,
+		       (long)new_event->handler,
+		       (long)new_event->data));
 
   return (event_entry_tag)new_event;
 }
@@ -219,8 +263,19 @@ event_queue_deschedule(event_queue *events,
 	 ptr_to_current = &current->next, current = *ptr_to_current);
     if (current == to_remove) {
       *ptr_to_current = current->next;
+      TRACE(trace_events, ("event descheduled at %ld - tag 0x%lx - time %ld, handler 0x%lx, data 0x%lx\n",
+			   (long)event_queue_time(events),
+			   (long)event_to_remove,
+			   (long)current->time_of_event,
+			   (long)current->handler,
+			   (long)current->data));
       zfree(current);
       update_time_from_event(events);
+    }
+    else {
+      TRACE(trace_events, ("event descheduled at %ld - tag 0x%lx - not found\n",
+			   (long)event_queue_time(events),
+			   (long)event_to_remove));
     }
   }
   ASSERT((events->time_from_event >= 0) == (events->queue != NULL));
@@ -235,16 +290,32 @@ event_queue_tick(event_queue *events)
 {
   signed64 time_from_event;
 
-  /* remove things from the asynchronous event queue onto the real one */
+  /* we should only be here when the previous tick has been fully processed */
+  ASSERT(!events->processing);
+
+  /* move any events that were queued by any signal handlers onto the
+     real event queue.  BTW: When inlining, having this code here,
+     instead of in event_queue_process() causes GCC to put greater
+     weight on keeping the pointer EVENTS in a register.  This, in
+     turn results in better code being output. */
   if (events->held != NULL) {
     event_entry *held_events;
     event_entry *curr_event;
 
-    /*-LOCK-*/
-    held_events = events->held;
-    events->held = NULL;
-    events->held_end = &events->held;
-    /*-UNLOCK-*/
+    {
+#if defined(HAVE_SIGPROCMASK) && defined(SIG_SETMASK)
+      sigset_t old_mask;
+      sigset_t new_mask;
+      sigfillset(&new_mask);
+      /*-LOCK-*/ sigprocmask(SIG_SETMASK, &new_mask, &old_mask);
+#endif
+      held_events = events->held;
+      events->held = NULL;
+      events->held_end = &events->held;
+#if defined(HAVE_SIGPROCMASK) && defined(SIG_SETMASK)
+      /*-UNLOCK-*/ sigprocmask(SIG_SETMASK, &old_mask, NULL);
+#endif
+    }
 
     do {
       curr_event = held_events;
@@ -260,24 +331,38 @@ event_queue_tick(event_queue *events)
   return time_from_event == 0;
 }
 
+
+
 INLINE_EVENTS\
 (void)
 event_queue_process(event_queue *events)
 {
-  ASSERT(events->time_from_event == -1); /* was just zero */
-  ASSERT(events->queue != NULL); /* something to do */
+  signed64 event_time = event_queue_time(events);
+
+  ASSERT((events->time_from_event == -1 && events->queue != NULL)
+	 || events->processing); /* something to do */
+
   /* consume all events for this or earlier times.  Be careful to
      allow a new event to appear under our feet */
-  do {
+  events->processing = 1;
+  while (events->queue != NULL
+	 && events->queue->time_of_event <= event_time) {
     event_entry *to_do = events->queue;
+    event_handler *handler = to_do->handler;
+    void *data = to_do->data;
     events->queue = to_do->next;
-    to_do->handler(to_do->data);
+    TRACE(trace_events, ("event issued at %ld - tag 0x%lx - handler 0x%lx, data 0x%lx\n",
+			 (long)event_time,
+			 (long)to_do,
+			 (long)handler,
+			 (long)data));
     zfree(to_do);
-  } while (events->queue != NULL
-	   && events->queue->time_of_event <= events->time_of_event);
+    handler(data);
+  }
+  events->processing = 0;
+
   /* re-caculate time for new events */
   update_time_from_event(events);
-  ASSERT(events->time_from_event != 0);
 }
 
 

@@ -34,7 +34,7 @@ INSTALL_DATA = @INSTALL_DATA@
 gdbdir = $(srcdir)/..
 
 # where to find texinfo; GDB dist should include a recent one
-TEXIDIR=${gdbdir}/../texinfo
+#TEXIDIR=${gdbdir}/../texinfo
 
 # where to find makeinfo, preferably one designed for texinfo-2
 MAKEINFO=makeinfo
@@ -89,16 +89,18 @@ SFILES_DOC = $(SFILES_LOCAL) \
 #### Host, target, and site specific Makefile fragments come in here.
 ###
 
-all install:
+all:
+
+install: install-info
 
 info: gdb.info gdbint.info stabs.info
 dvi: gdb.dvi gdbint.dvi stabs.dvi refcard.dvi
 ps: gdb.ps gdbint.ps stabs.ps refcard.ps
 all-doc: info dvi ps
 
-install-info: info
-	for i in *.info* ; do \
-		$(INSTALL_DATA) $$i $(infodir)/$$i ; \
+install-info:
+	for i in `cd $(srcdir) && echo *.info*` ; do \
+		$(INSTALL_DATA) $(srcdir)/$$i $(infodir)/$$i ; \
 	done
 
 STAGESTUFF = *.info* gdb-all.texi GDBvn.texi *.ps *.dvi
@@ -303,19 +305,6 @@ gdb.mm: $(SFILES_LOCAL) links2roff rluser.texinfo inc-hist.texi
 	sed -e 's/---/\\(em/g' \
 	>gdb.mm 
 
-# GDB GUI MANUAL: TeX dvi file
-gdbgui.dvi : gdbgui.texinfo ${SFILES_DOC}
-	$(SET_TEXINPUTS) $(TEX) gdbgui.texinfo
-	$(TEXINDEX) gdbgui.??
-	$(SET_TEXINPUTS) $(TEX) gdbgui.texinfo
-	rm -f gdbgui.aux gdbgui.cp* gdbgui.fn* gdbgui.ky* \
-		gdbgui.log gdbgui.pg* gdbgui.toc gdbgui.tp* gdbgui.vr*
-
-# GDB GUI MANUAL: info file
-gdb-gui: gdbgui.info
-
-gdbgui.info: gdbgui.texinfo ${SFILES_DOC}
-	$(MAKEINFO) -o gdbgui.info $(srcdir)/gdbgui.texinfo
 
 # GDB INTERNALS MANUAL: TeX dvi file
 gdbint.dvi : gdbint.texinfo

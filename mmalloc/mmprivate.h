@@ -36,12 +36,6 @@ Boston, MA 02111-1307, USA.
 #  endif
 #endif
 
-#ifdef HAVE_STDDEF_H
-#  include <stddef.h>
-#else
-#  include <sys/types.h>   /* hope for the best -- ANSI C is your friend */
-#endif
-
 #ifndef MIN
 #  define MIN(A, B) ((A) < (B) ? (A) : (B))
 #endif
@@ -299,7 +293,7 @@ struct mdesc
 
 #define MMALLOC_DEVZERO		(1 << 0)	/* Have mapped to /dev/zero */
 #define MMALLOC_INITIALIZED	(1 << 1)	/* Initialized mmalloc */
-#define MMALLOC_MMCHECK_USED	(1 << 2)	/* mmcheck() called already */
+#define MMALLOC_MMCHECK_USED	(1 << 2)	/* mmcheckf() called already */
 
 /* Internal version of `mfree' used in `morecore'. */
 

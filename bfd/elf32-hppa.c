@@ -1,5 +1,6 @@
 /* BFD back-end for HP PA-RISC ELF files.
-   Copyright (C) 1990, 91, 92, 93, 94, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 1997
+   Free Software Foundation, Inc.
 
    Written by
 
@@ -27,7 +28,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "bfdlink.h"
 #include "libbfd.h"
-#include "obstack.h"
 #include "elf-bfd.h"
 
 /* The internal type of a symbol table extension entry.  */
@@ -234,7 +234,7 @@ static void add_entry_to_symext_chain
 static void
 elf_hppa_tc_make_sections PARAMS ((bfd *, symext_chainS *));
 
-static boolean hppa_elf_is_local_label PARAMS ((bfd *, asymbol *));
+static boolean hppa_elf_is_local_label_name PARAMS ((bfd *, const char *));
 
 static boolean elf32_hppa_add_symbol_hook
   PARAMS ((bfd *, struct bfd_link_info *, const Elf_Internal_Sym *,
@@ -296,7 +296,9 @@ static boolean elf32_hppa_link_output_symbol_hook
 static reloc_howto_type elf_hppa_howto_table[ELF_HOWTO_TABLE_SIZE] =
 {
   {R_PARISC_NONE, 0, 0, 0, false, 0, complain_overflow_bitfield, hppa_elf_reloc, "R_PARISC_NONE"},
-  {R_PARISC_DIR32, 0, 0, 32, false, 0, complain_overflow_bitfield, hppa_elf_reloc, "R_PARISC_DIR32"},
+  /* The values in DIR32 are to placate the check in
+     _bfd_stab_section_find_nearest_line.  */
+  {R_PARISC_DIR32, 0, 2, 32, false, 0, complain_overflow_bitfield, hppa_elf_reloc, "R_PARISC_DIR32", false, 0, 0xffffffff, false},
   {R_PARISC_DIR21L, 0, 0, 21, false, 0, complain_overflow_bitfield, hppa_elf_reloc, "R_PARISC_DIR21L"},
   {R_PARISC_DIR17R, 0, 0, 17, false, 0, complain_overflow_bitfield, hppa_elf_reloc, "R_PARISC_DIR17R"},
   {R_PARISC_DIR17F, 0, 0, 17, false, 0, complain_overflow_bitfield, hppa_elf_reloc, "R_PARISC_DIR17F"},
@@ -939,25 +941,26 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
    relocation with modifications based on format and field.  */
 
 elf32_hppa_reloc_type **
-hppa_elf_gen_reloc_type (abfd, base_type, format, field, ignore)
+hppa_elf_gen_reloc_type (abfd, base_type, format, field, ignore, sym)
      bfd *abfd;
      elf32_hppa_reloc_type base_type;
      int format;
      int field;
      int ignore;
+     asymbol *sym;
 {
   elf32_hppa_reloc_type *finaltype;
   elf32_hppa_reloc_type **final_types;
 
   /* Allocate slots for the BFD relocation.  */
-  final_types = (elf32_hppa_reloc_type **)
-    bfd_alloc_by_size_t (abfd, sizeof (elf32_hppa_reloc_type *) * 2);
+  final_types = ((elf32_hppa_reloc_type **)
+		 bfd_alloc (abfd, sizeof (elf32_hppa_reloc_type *) * 2));
   if (final_types == NULL)
     return NULL;
 
   /* Allocate space for the relocation itself.  */
-  finaltype = (elf32_hppa_reloc_type *)
-    bfd_alloc_by_size_t (abfd, sizeof (elf32_hppa_reloc_type));
+  finaltype = ((elf32_hppa_reloc_type *)
+	       bfd_alloc (abfd, sizeof (elf32_hppa_reloc_type)));
   if (finaltype == NULL)
     return NULL;
 
@@ -1550,11 +1553,11 @@ elf_hppa_reloc_type_lookup (abfd, code)
 /* Return true if SYM represents a local label symbol.  */
 
 static boolean
-hppa_elf_is_local_label (abfd, sym)
+hppa_elf_is_local_label_name (abfd, name)
      bfd *abfd;
-     asymbol *sym;
+     const char *name;
 {
-  return (sym->name[0] == 'L' && sym->name[1] == '$');
+  return (name[0] == 'L' && name[1] == '$');
 }
 
 /* Do any backend specific processing when beginning to write an object
@@ -2956,7 +2959,7 @@ error_return:
 
 /* Misc BFD support code.  */
 #define bfd_elf32_bfd_reloc_type_lookup		elf_hppa_reloc_type_lookup
-#define bfd_elf32_bfd_is_local_label		hppa_elf_is_local_label
+#define bfd_elf32_bfd_is_local_label_name	hppa_elf_is_local_label_name
 
 /* Symbol extension stuff.  */
 #define bfd_elf32_set_section_contents		elf32_hppa_set_section_contents

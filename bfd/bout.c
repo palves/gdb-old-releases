@@ -222,6 +222,34 @@ b_out_mkobject (abfd)
   return true;
 }
 
+static int
+b_out_symbol_cmp (a, b)
+     struct aout_symbol **a, **b;
+{
+  asection *sec;
+  bfd_vma av, bv;
+
+  /* Primary key is address */
+  sec = bfd_get_section (&(*a)->symbol);
+  av = sec->output_section->vma + sec->output_offset + (*a)->symbol.value;
+  sec = bfd_get_section (&(*b)->symbol);
+  bv = sec->output_section->vma + sec->output_offset + (*b)->symbol.value;
+
+  if (av < bv)
+    return -1;
+  if (av > bv)
+    return 1;
+
+  /* Secondary key puts CALLNAME syms last and BALNAME syms first, so
+     that they have the best chance of being contiguous.  */
+  if (IS_BALNAME ((*a)->other) || IS_CALLNAME ((*b)->other))
+    return -1;
+  if (IS_CALLNAME ((*a)->other) || IS_BALNAME ((*b)->other))
+    return 1;
+
+  return 0;
+}
+
 static boolean
 b_out_write_object_contents (abfd)
      bfd *abfd;
@@ -260,6 +288,31 @@ b_out_write_object_contents (abfd)
   /* Now write out reloc info, followed by syms and strings */
   if (bfd_get_symcount (abfd) != 0)
     {
+      /* Make sure {CALL,BAL}NAME symbols remain adjacent on output
+	 by sorting.  This is complicated by the fact that stabs are
+	 also ordered.  Solve this by shifting all stabs to the end
+	 in order, then sorting the rest.  */
+
+      asymbol **outsyms, **p, **q;
+
+      outsyms = bfd_get_outsymbols (abfd);
+      p = outsyms + bfd_get_symcount (abfd);
+
+      for (q = p--; p >= outsyms; p--)
+	{
+	  if ((*p)->flags & BSF_DEBUGGING)
+	    {
+	      asymbol *t = *--q;
+	      *q = *p;
+	      *p = t;
+	    }
+	}
+
+      if (q > outsyms)
+	qsort (outsyms, q - outsyms, sizeof(asymbol*), b_out_symbol_cmp);
+
+      /* Back to your regularly scheduled program.  */
+
       if (bfd_seek (abfd, (file_ptr)(N_SYMOFF(*exec_hdr(abfd))), SEEK_SET)
 	  != 0)
 	return false;
@@ -1406,7 +1459,7 @@ const bfd_target b_out_vec_big_host =
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | BFD_IS_RELAXABLE ),
-  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_CODE | SEC_DATA),
   '_',				/* symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
@@ -1447,7 +1500,7 @@ const bfd_target b_out_vec_little_host =
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | BFD_IS_RELAXABLE ),
-  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_CODE | SEC_DATA),
   '_',				/* symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */

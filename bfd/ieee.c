@@ -1,5 +1,7 @@
 /* BFD back-end for ieee-695 objects.
-   Copyright (C) 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 1997
+   Free Software Foundation, Inc.
+
    Written by Steve Chamberlain of Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -1001,6 +1003,29 @@ get_section_entry (abfd, ieee, index)
      ieee_data_type *ieee;
      unsigned int index;
 {
+  if (index >= ieee->section_table_size)
+    {
+      unsigned int c, i;
+      asection **n;
+
+      c = ieee->section_table_size;
+      if (c == 0)
+	c = 20;
+      while (c <= index)
+	c *= 2;
+
+      n = ((asection **)
+	   bfd_realloc (ieee->section_table, c * sizeof (asection *)));
+      if (n == NULL)
+	return NULL;
+
+      for (i = ieee->section_table_size; i < c; i++)
+	n[i] = NULL;
+
+      ieee->section_table = n;
+      ieee->section_table_size = c;
+    }
+
   if (ieee->section_table[index] == (asection *) NULL)
     {
       char *tmp = bfd_alloc (abfd, 11);
@@ -1040,8 +1065,6 @@ ieee_slurp_sections (abfd)
 		unsigned int section_index;
 		next_byte (&(ieee->h));
 		section_index = must_parse_int (&(ieee->h));
-		/* Fixme to be nice about a silly number of sections */
-		BFD_ASSERT (section_index < NSECTIONS);
 
 		section = get_section_entry (abfd, ieee, section_index);
 
@@ -1218,15 +1241,18 @@ ieee_archive_p (abfd)
      bfd *abfd;
 {
   char *library;
-  boolean loop;
   unsigned int i;
   unsigned char buffer[512];
   file_ptr buffer_offset = 0;
   ieee_ar_data_type *save = abfd->tdata.ieee_ar_data;
   ieee_ar_data_type *ieee;
-  abfd->tdata.ieee_ar_data = (ieee_ar_data_type *) bfd_alloc (abfd, sizeof (ieee_ar_data_type));
+  unsigned int alc_elts;
+  ieee_ar_obstack_type *elts = NULL;
+
+  abfd->tdata.ieee_ar_data =
+    (ieee_ar_data_type *) bfd_alloc (abfd, sizeof (ieee_ar_data_type));
   if (!abfd->tdata.ieee_ar_data)
-    return NULL;
+    goto error_return;
   ieee = IEEE_AR_DATA (abfd);
 
   /* FIXME: Check return value.  I'm not sure whether it needs to read
@@ -1241,7 +1267,7 @@ ieee_archive_p (abfd)
   if (this_byte (&(ieee->h)) != Module_Beginning)
     {
       abfd->tdata.ieee_ar_data = save;
-      return (const bfd_target *) NULL;
+      goto error_return;
     }
 
   next_byte (&(ieee->h));
@@ -1250,7 +1276,7 @@ ieee_archive_p (abfd)
     {
       bfd_release (abfd, ieee);
       abfd->tdata.ieee_ar_data = save;
-      return (const bfd_target *) NULL;
+      goto error_return;
     }
   /* Throw away the filename */
   read_id (&(ieee->h));
@@ -1262,43 +1288,65 @@ ieee_archive_p (abfd)
   must_parse_int (&(ieee->h));	/* And the two dummy numbers */
   must_parse_int (&(ieee->h));
 
-  loop = true;
+  alc_elts = 10;
+  elts = (ieee_ar_obstack_type *) bfd_malloc (alc_elts * sizeof *elts);
+  if (elts == NULL)
+    goto error_return;
+
   /* Read the index of the BB table */
-  while (loop)
+  while (1)
     {
-      ieee_ar_obstack_type t;
-      int rec = read_2bytes (&(ieee->h));
-      if (rec == (int) ieee_assign_value_to_variable_enum)
+      int rec;
+      ieee_ar_obstack_type *t;
+
+      rec = read_2bytes (&(ieee->h));
+      if (rec != (int) ieee_assign_value_to_variable_enum)
+	break;
+
+      if (ieee->element_count >= alc_elts)
 	{
-	  must_parse_int (&(ieee->h));
-	  t.file_offset = must_parse_int (&(ieee->h));
-	  t.abfd = (bfd *) NULL;
-	  ieee->element_count++;
+	  ieee_ar_obstack_type *n;
 
-	  bfd_alloc_grow (abfd, (PTR) &t, sizeof t);
-
-	  /* Make sure that we don't go over the end of the buffer */
-
-	  if ((size_t) ieee_pos (abfd) > sizeof (buffer) / 2)
-	    {
-	      /* Past half way, reseek and reprime */
-	      buffer_offset += ieee_pos (abfd);
-	      if (bfd_seek (abfd, buffer_offset, SEEK_SET) != 0)
-		return NULL;
-	      /* FIXME: Check return value.  I'm not sure whether it
-		 needs to read the entire buffer or not.  */
-	      bfd_read ((PTR) buffer, 1, sizeof (buffer), abfd);
-	      ieee->h.first_byte = buffer;
-	      ieee->h.input_p = buffer;
-	    }
+	  alc_elts *= 2;
+	  n = ((ieee_ar_obstack_type *)
+	       bfd_realloc (elts, alc_elts * sizeof *elts));
+	  if (n == NULL)
+	    goto error_return;
+	  elts = n;
 	}
-      else
-	loop = false;
+
+      t = &elts[ieee->element_count];
+      ieee->element_count++;
+
+      must_parse_int (&(ieee->h));
+      t->file_offset = must_parse_int (&(ieee->h));
+      t->abfd = (bfd *) NULL;
+
+      /* Make sure that we don't go over the end of the buffer */
+
+      if ((size_t) ieee_pos (abfd) > sizeof (buffer) / 2)
+	{
+	  /* Past half way, reseek and reprime */
+	  buffer_offset += ieee_pos (abfd);
+	  if (bfd_seek (abfd, buffer_offset, SEEK_SET) != 0)
+	    goto error_return;
+	  /* FIXME: Check return value.  I'm not sure whether it needs
+	     to read the entire buffer or not.  */
+	  bfd_read ((PTR) buffer, 1, sizeof (buffer), abfd);
+	  ieee->h.first_byte = buffer;
+	  ieee->h.input_p = buffer;
+	}
     }
 
-  ieee->elements = (ieee_ar_obstack_type *) bfd_alloc_finish (abfd);
-  if (!ieee->elements)
-    return (const bfd_target *) NULL;
+  ieee->elements = ((ieee_ar_obstack_type *)
+		    bfd_alloc (abfd,
+			       ieee->element_count * sizeof *ieee->elements));
+  if (ieee->elements == NULL)
+    goto error_return;
+  memcpy (ieee->elements, elts,
+	  ieee->element_count * sizeof *ieee->elements);
+  free (elts);
+  elts = NULL;
 
   /* Now scan the area again, and replace BB offsets with file */
   /* offsets */
@@ -1306,7 +1354,7 @@ ieee_archive_p (abfd)
   for (i = 2; i < ieee->element_count; i++)
     {
       if (bfd_seek (abfd, ieee->elements[i].file_offset, SEEK_SET) != 0)
-	return NULL;
+	goto error_return;
       /* FIXME: Check return value.  I'm not sure whether it needs to
 	 read the entire buffer or not.  */
       bfd_read ((PTR) buffer, 1, sizeof (buffer), abfd);
@@ -1327,8 +1375,14 @@ ieee_archive_p (abfd)
 	}
     }
 
-/*  abfd->has_armap = ;*/
+  /*  abfd->has_armap = ;*/
+
   return abfd->xvec;
+
+ error_return:
+  if (elts != NULL)
+    free (elts);
+  return NULL;
 }
 
 static boolean
@@ -1372,7 +1426,8 @@ ieee_object_p (abfd)
   ieee->external_reference_min_index = IEEE_REFERENCE_BASE;
   ieee->external_reference_max_index = 0;
   ieee->h.abfd = abfd;
-  memset ((PTR) ieee->section_table, 0, sizeof (ieee->section_table));
+  ieee->section_table = NULL;
+  ieee->section_table_size = 0;
 
   processor = ieee->mb.processor = read_id (&(ieee->h));
   if (strcmp (processor, "LIBRARY") == 0)
@@ -1802,6 +1857,10 @@ ieee_slurp_section_data (abfd)
 	      break;
 
 	    case ieee_value_starting_address_enum & 0xff:
+	      next_byte (&(ieee->h));
+	      if (this_byte (&(ieee->h)) == ieee_function_either_open_b_enum)
+		next_byte (&(ieee->h));
+	      abfd->start_address = must_parse_int (&(ieee->h));
 	      /* We've got to the end of the data now - */
 	      return true;
 	    default:
@@ -2037,7 +2096,7 @@ ieee_write_section_part (abfd)
 					((bfd_byte)
 					 (s->index
 					  + IEEE_SECTION_NUMBER_BASE)))
-		  || ! ieee_write_int (abfd, s->vma))
+		  || ! ieee_write_int (abfd, s->lma))
 		return false;
 	    }
 	}
@@ -2074,7 +2133,7 @@ do_with_relocs (abfd, s)
     return false;
   if ((abfd->flags & EXEC_P) != 0 && relocs_to_go == 0)
     {
-      if (! ieee_write_int (abfd, s->vma))
+      if (! ieee_write_int (abfd, s->lma))
 	return false;
     }
   else
@@ -2275,7 +2334,7 @@ do_as_repeat (abfd, s)
 	  || ! ieee_write_byte (abfd,
 				(bfd_byte) (s->index
 					    + IEEE_SECTION_NUMBER_BASE))
-	  || ! ieee_write_int (abfd, s->vma)
+	  || ! ieee_write_int (abfd, s->lma)
 	  || ! ieee_write_byte (abfd, ieee_repeat_data_enum)
 	  || ! ieee_write_int (abfd, s->_raw_size)
 	  || ! ieee_write_byte (abfd, ieee_load_constant_bytes_enum)
@@ -2495,7 +2554,7 @@ copy_expression ()
 	    s = ieee->section_table[section_number];
 	    if (s->output_section)
 	      {
-		value = s->output_section->vma;
+		value = s->output_section->lma;
 	      }
 	    else
 	      {
@@ -3136,7 +3195,8 @@ ieee_set_section_contents (abfd, section, location, offset, count)
     {
       if (section->contents == NULL)
 	{
-	  section->contents = bfd_alloc (abfd, section->_raw_size);
+	  section->contents = ((unsigned char *)
+			       bfd_alloc (abfd, section->_raw_size));
 	  if (section->contents == NULL)
 	    return false;
 	}
@@ -3179,7 +3239,6 @@ ieee_write_external_part (abfd)
       for (q = abfd->outsymbols; *q != (asymbol *) NULL; q++)
 	{
 	  asymbol *p = *q;
-	  hadone = true;
 	  if (bfd_is_und_section (p->section))
 	    {
 	      /* This must be a symbol reference .. */
@@ -3189,6 +3248,7 @@ ieee_write_external_part (abfd)
 		return false;
 	      p->value = reference_index;
 	      reference_index++;
+	      hadone = true;
 	    }
 	  else if (bfd_is_com_section (p->section))
 	    {
@@ -3203,6 +3263,7 @@ ieee_write_external_part (abfd)
 		return false;
 	      p->value = reference_index;
 	      reference_index++;
+	      hadone = true;
 	    }
 	  else if (p->flags & BSF_GLOBAL)
 	    {
@@ -3255,6 +3316,7 @@ ieee_write_external_part (abfd)
 		}
 	      p->value = public_index;
 	      public_index++;
+	      hadone = true;
 	    }
 	  else
 	    {
@@ -3695,7 +3757,7 @@ ieee_bfd_debug_info_accumulate (abfd, section)
 #define ieee_update_armap_timestamp bfd_true
 #define ieee_get_elt_at_index _bfd_generic_get_elt_at_index
 
-#define ieee_bfd_is_local_label bfd_generic_is_local_label
+#define ieee_bfd_is_local_label_name bfd_generic_is_local_label_name
 #define ieee_get_lineno _bfd_nosymbols_get_lineno
 #define ieee_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol
 #define ieee_read_minisymbols _bfd_generic_read_minisymbols
@@ -3727,7 +3789,7 @@ const bfd_target ieee_vec =
    HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
   (SEC_CODE | SEC_DATA | SEC_ROM | SEC_HAS_CONTENTS
    | SEC_ALLOC | SEC_LOAD | SEC_RELOC),	/* section flags */
-  0,				/* leading underscore */
+  '_',				/* leading underscore */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,

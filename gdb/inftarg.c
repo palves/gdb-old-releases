@@ -62,6 +62,12 @@ child_mourn_inferior PARAMS ((void));
 static int
 child_can_run PARAMS ((void));
 
+static int
+proc_wait PARAMS ((int, int*));
+
+static void
+child_stop PARAMS ((void));
+
 #ifndef CHILD_THREAD_ALIVE
 static int child_thread_alive PARAMS ((int));
 #endif
@@ -71,6 +77,10 @@ extern char **environ;
 /* Forward declaration */
 extern struct target_ops child_ops;
 
+int child_suppress_run = 0;	/* Non-zero if inftarg should pretend not to
+				   be a runnable target.  Used by targets
+				   that can sit atop inftarg, such as HPUX
+				   thread support.  */
 static int
 proc_wait (pid, status)
      int pid;
@@ -302,6 +312,9 @@ child_create_inferior (exec_file, allargs, env)
 static void
 child_mourn_inferior ()
 {
+  /* FIXME: Should be in a header file */
+  extern void proc_remove_foreign PARAMS ((int));
+
   unpush_target (&child_ops);
   proc_remove_foreign (inferior_pid);
   generic_mourn_inferior ();
@@ -310,7 +323,11 @@ child_mourn_inferior ()
 static int
 child_can_run ()
 {
-  return(1);
+  /* This variable is controlled by modules that sit atop inftarg that may layer
+     their own process structure atop that provided here.  hpux-thread.c does
+     this because of the Hpux user-mode level thread model.  */
+
+  return !child_suppress_run;
 }
 
 /* Send a SIGINT to the process group.  This acts just like the user typed a
@@ -319,7 +336,7 @@ child_can_run ()
    XXX - This may not be correct for all systems.  Some may want to use
    killpg() instead of kill (-pgrp). */
 
-void
+static void
 child_stop ()
 {
   extern pid_t inferior_process_group;

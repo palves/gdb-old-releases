@@ -1,10 +1,10 @@
-/* evax-egsd.c -- BFD back-end for ALPHA EVAX (openVMS/AXP) files.
-   Copyright 1996 Free Software Foundation Inc.
+/* evax-egsd.c -- BFD back-end for ALPHA EVAX (openVMS/Alpha) files.
+   Copyright 1996, 1997 Free Software Foundation Inc.
 
    go and read the openVMS linker manual (esp. appendix B)
    if you don't know what's going on here :-)
 
-   Written by Klaus Kämpf (kkaempf@progis.de)
+   Written by Klaus K"ampf (kkaempf@progis.de)
    of proGIS Softwareentwicklung, Aachen, Germany
 
 This program is free software; you can redistribute it and/or modify
@@ -41,8 +41,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define EVAX_LINK_NAME		"$LINK$"
 #define EVAX_DATA_NAME		"$DATA$"
 #define EVAX_BSS_NAME		"$BSS$"
+#define EVAX_READONLYADDR_NAME	"$READONLY_ADDR$"
 #define EVAX_READONLY_NAME	"$READONLY$"
 #define EVAX_LITERAL_NAME	"$LITERAL$"
+#define EVAX_COMMON_NAME	"$COMMON$"
+#define EVAX_LOCAL_NAME		"$LOCAL$"
 
 struct sec_flags_struct {
   char *name;			/* name of section */
@@ -52,7 +55,7 @@ struct sec_flags_struct {
   flagword flags_hassize;	/* flags we set if the section has a size > 0 */
 };
 
-/* just a dummy flag array since i don't understand it yet  */
+/* These flags are deccrtl/vaxcrtl (openVMS 6.2) compatible  */
 
 static struct sec_flags_struct evax_section_flags[] = {
   { EVAX_ABS_NAME,
@@ -65,13 +68,18 @@ static struct sec_flags_struct evax_section_flags[] = {
 	(SEC_CODE),
 	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_SHR|EGPS_S_V_EXE),
 	(SEC_IN_MEMORY|SEC_CODE|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_LOAD) },
+  { EVAX_LITERAL_NAME,
+	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_SHR|EGPS_S_V_RD|EGPS_S_V_NOMOD),
+	(SEC_DATA|SEC_READONLY),
+	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_SHR|EGPS_S_V_RD),
+	(SEC_IN_MEMORY|SEC_DATA|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_READONLY|SEC_LOAD) },
   { EVAX_LINK_NAME,
 	(EGPS_S_V_REL|EGPS_S_V_RD),
 	(SEC_DATA|SEC_READONLY),
 	(EGPS_S_V_REL|EGPS_S_V_RD),
 	(SEC_IN_MEMORY|SEC_DATA|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_READONLY|SEC_LOAD) },
   { EVAX_DATA_NAME,
-	(EGPS_S_V_REL|EGPS_S_V_RD|EGPS_S_V_WRT),
+	(EGPS_S_V_REL|EGPS_S_V_RD|EGPS_S_V_WRT|EGPS_S_V_NOMOD),
 	(SEC_DATA),
 	(EGPS_S_V_REL|EGPS_S_V_RD|EGPS_S_V_WRT),
 	(SEC_IN_MEMORY|SEC_DATA|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_LOAD) },
@@ -80,16 +88,21 @@ static struct sec_flags_struct evax_section_flags[] = {
 	(SEC_NO_FLAGS),
 	(EGPS_S_V_REL|EGPS_S_V_RD|EGPS_S_V_WRT|EGPS_S_V_NOMOD),
 	(SEC_IN_MEMORY|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_LOAD) },
+  { EVAX_READONLYADDR_NAME,
+	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_RD),
+	(SEC_DATA|SEC_READONLY),
+	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_RD),
+	(SEC_IN_MEMORY|SEC_DATA|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_READONLY|SEC_LOAD) },
   { EVAX_READONLY_NAME,
-	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_SHR|EGPS_S_V_RD),
+	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_SHR|EGPS_S_V_RD|EGPS_S_V_NOMOD),
 	(SEC_DATA|SEC_READONLY),
 	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_SHR|EGPS_S_V_RD),
 	(SEC_IN_MEMORY|SEC_DATA|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_READONLY|SEC_LOAD) },
-  { EVAX_LITERAL_NAME,
-	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_SHR|EGPS_S_V_RD),
-	(SEC_DATA|SEC_READONLY),
-	(EGPS_S_V_PIC|EGPS_S_V_REL|EGPS_S_V_SHR|EGPS_S_V_RD),
-	(SEC_IN_MEMORY|SEC_DATA|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_READONLY|SEC_LOAD) },
+  { EVAX_LOCAL_NAME,
+	(EGPS_S_V_REL|EGPS_S_V_RD|EGPS_S_V_WRT),
+	(SEC_DATA),
+	(EGPS_S_V_REL|EGPS_S_V_RD|EGPS_S_V_WRT),
+	(SEC_IN_MEMORY|SEC_DATA|SEC_HAS_CONTENTS|SEC_ALLOC|SEC_LOAD) },
   { NULL,
 	(EGPS_S_V_REL|EGPS_S_V_RD|EGPS_S_V_WRT),
 	(SEC_DATA),
@@ -261,7 +274,7 @@ _bfd_evax_slurp_egsd (abfd)
 	      return -1;
 	    old_flags = bfd_getl16 (evax_rec + 6);
 	    section->_raw_size = bfd_getl32 (evax_rec + 8);	/* allocation */
-	    new_flags = evax_secflag_by_name (name, section->_raw_size);
+	    new_flags = evax_secflag_by_name (name, (int) section->_raw_size);
 	    if (old_flags & EGPS_S_V_REL)
 	      new_flags |= SEC_RELOC;
 	    if (!bfd_set_section_flags (abfd, section, new_flags))
@@ -271,14 +284,13 @@ _bfd_evax_slurp_egsd (abfd)
 	    if ((base_addr % align_addr) != 0)
 	      base_addr += (align_addr - (base_addr % align_addr));
 	    section->vma = (bfd_vma)base_addr;
-	    base_addr += section->_raw_size;	/* FIXME: should be cooked size */
-	    section->contents = (unsigned char *) malloc (section->_raw_size);
+	    base_addr += section->_raw_size;
+	    section->contents = ((unsigned char *)
+				 bfd_malloc (section->_raw_size));
 	    if (section->contents == NULL)
-	      {
-		bfd_set_error (bfd_error_no_memory);
-		return -1;
-	      }
-	    memset (section->contents, 0, section->_raw_size);
+	      return -1;
+	    memset (section->contents, 0, (size_t) section->_raw_size);
+	    section->_cooked_size = section->_raw_size;
 #if EVAX_DEBUG
 	    evax_debug(3, "egsd psc %d (%s, flags %04x=%s) ",
 		       section->index, name, old_flags, flag2str(gpsflagdesc, old_flags));
@@ -319,11 +331,12 @@ _bfd_evax_slurp_egsd (abfd)
 	      }
 	    else	/* symbol reference */
 	      {
-#if EVAX_DEBUG
-		evax_debug(3, "egsd sym ref #%d (%s, %04x=%s)\n", abfd->symcount, evax_rec+9, old_flags, flag2str(gsyflagdesc, old_flags));
-#endif
                 symbol->name =
 		  _bfd_evax_save_counted_string ((char *)evax_rec+8);
+#if EVAX_DEBUG
+		evax_debug(3, "egsd sym ref #%d (%s, %04x=%s)\n", abfd->symcount,
+			   symbol->name, old_flags, flag2str(gsyflagdesc, old_flags));
+#endif
                 symbol->section = bfd_make_section (abfd, BFD_UND_SECTION_NAME);
 	      }
 
@@ -389,7 +402,6 @@ _bfd_evax_write_egsd (abfd)
   char dummy_name[10];
   char *sname;
   flagword new_flags, old_flags;
-  char uname[200];
   char *nptr, *uptr;
 
 #if EVAX_DEBUG
@@ -463,13 +475,25 @@ _bfd_evax_write_egsd (abfd)
 	    sname = EVAX_READONLY_NAME;
 	  else if ((*sname == 'l') && (strcmp (sname, "literal") == 0))
 	    sname = EVAX_LITERAL_NAME;
+	  else if ((*sname == 'c') && (strcmp (sname, "comm") == 0))
+	    sname = EVAX_COMMON_NAME;
+	  else if ((*sname == 'l') && (strcmp (sname, "lcomm") == 0))
+	    sname = EVAX_LOCAL_NAME;
 	}
+      else
+	sname = _bfd_evax_length_hash_symbol (abfd, sname, EOBJ_S_C_SECSIZ);
 
       _bfd_evax_output_begin (abfd, EGSD_S_C_PSC, -1);
       _bfd_evax_output_short (abfd, section->alignment_power & 0xff);
-      _bfd_evax_output_short (abfd,
-			      evax_esecflag_by_name (sname,
-						     section->_raw_size));
+      if (bfd_is_com_section (section))
+	{
+	  new_flags = (EGPS_S_V_OVR|EGPS_S_V_REL|EGPS_S_V_GBL|EGPS_S_V_RD|EGPS_S_V_WRT|EGPS_S_V_NOMOD|EGPS_S_V_COM);
+	}
+      else
+	{
+	  new_flags = evax_esecflag_by_name (sname, section->_raw_size);
+	}
+      _bfd_evax_output_short (abfd, new_flags);
       _bfd_evax_output_long (abfd, section->_raw_size);
       _bfd_evax_output_counted (abfd, sname);
       _bfd_evax_output_flush (abfd);
@@ -497,7 +521,10 @@ _bfd_evax_write_egsd (abfd)
 	}
       old_flags = symbol->flags;
 
-      if (((old_flags & BSF_GLOBAL) == 0)		/* not xdef */
+      if (old_flags & BSF_FILE)
+	continue;
+
+      if (((old_flags & (BSF_GLOBAL|BSF_WEAK)) == 0)	/* not xdef */
 	  && (!bfd_is_und_section (symbol->section)))	/* and not xref */
 	continue;					/* dont output */
 
@@ -517,14 +544,18 @@ _bfd_evax_write_egsd (abfd)
       _bfd_evax_output_short (abfd, 0);			/* data type, alignment */
 
       new_flags = 0;
+
       if (old_flags & BSF_WEAK)
 	new_flags |= EGSY_S_V_WEAK;
+      if (bfd_is_com_section (symbol->section))		/* .comm  */
+	new_flags |= (EGSY_S_V_WEAK|EGSY_S_V_COMM);
+
       if (old_flags & BSF_FUNCTION)
 	{
 	  new_flags |= EGSY_S_V_NORM;
 	  new_flags |= EGSY_S_V_REL;
 	}
-      if (old_flags & BSF_GLOBAL)
+      if (old_flags & (BSF_GLOBAL|BSF_WEAK))
 	{
 	  new_flags |= EGSY_S_V_DEF;
 	  if (!bfd_is_abs_section (symbol->section))
@@ -532,7 +563,7 @@ _bfd_evax_write_egsd (abfd)
 	}
       _bfd_evax_output_short (abfd, new_flags);
 
-      if (old_flags & BSF_GLOBAL)			/* symbol definition */
+      if (old_flags & (BSF_GLOBAL|BSF_WEAK))		/* symbol definition */
 	{
 	  if (old_flags & BSF_FUNCTION)
 	    {
@@ -549,27 +580,10 @@ _bfd_evax_write_egsd (abfd)
 	      _bfd_evax_output_quad (abfd, symbol->value);	/* L_VALUE */
 	      _bfd_evax_output_quad (abfd, 0);			/* L_CODE_ADDRESS */
 	      _bfd_evax_output_long (abfd, 0);			/* L_CA_PSINDX */
-	      _bfd_evax_output_long (abfd, symbol->section->index);/* L_PSINDX, FIXME */
+	      _bfd_evax_output_long (abfd, symbol->section->index);/* L_PSINDX */
 	    }
 	}
-      if (strlen ((char *)symbol->name) > 198)
-	{
-	  (*_bfd_error_handler) ("Name '%s' too long\n", symbol->name);
-	  abort ();
-	}
-      nptr = (char *)symbol->name;
-      uptr = uname;
-      while (*nptr)
-	{
-	  if (islower (*nptr))
-	    *uptr = toupper (*nptr);
-	  else
-	    *uptr = *nptr;
-	  uptr++;
-	  nptr++;
-	}
-      *uptr = 0;
-      _bfd_evax_output_counted (abfd, uname);
+      _bfd_evax_output_counted (abfd, _bfd_evax_length_hash_symbol (abfd, symbol->name, EOBJ_S_C_SYMSIZ));
 
       _bfd_evax_output_flush (abfd);
 

@@ -1,5 +1,5 @@
 /* linker.c -- BFD linker routines
-   Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1993, 94, 95, 96, 1997 Free Software Foundation, Inc.
    Written by Steve Chamberlain and Ian Lance Taylor, Cygnus Support
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -395,8 +395,7 @@ SUBSUBSECTION
 	is used to further controls which local symbols are included
 	in the output file.  If the value is <<discard_l>>, then all
 	local symbols which begin with a certain prefix are discarded;
-	this prefix is described by the <<lprefix>> and
-	<<lprefix_len>> fields of the <<bfd_link_info>> structure.
+	this is controlled by the <<bfd_is_local_label_name>> entry point.
 
 	The a.out backend handles symbols by calling
 	<<aout_link_write_symbols>> on each input BFD and then
@@ -1320,14 +1319,14 @@ generic_link_add_symbol_list (abfd, info, symbol_count, symbols, collect)
 		  if (bfd_is_com_section (bfd_get_section (p)))
 		    p->flags |= BSF_OLD_COMMON;
 		}
-
-	      /* Store a back pointer from the symbol to the hash
-		 table entry for the benefit of relaxation code until
-		 it gets rewritten to not use asymbol structures.
-		 Setting this is also used to check whether these
-		 symbols were set up by the generic linker.  */
-	      p->udata.p = (PTR) h;
 	    }
+
+	  /* Store a back pointer from the symbol to the hash
+	     table entry for the benefit of relaxation code until
+	     it gets rewritten to not use asymbol structures.
+	     Setting this is also used to check whether these
+	     symbols were set up by the generic linker.  */
+	  p->udata.p = (PTR) h;
 	}
     }
 
@@ -1395,7 +1394,7 @@ static const enum link_action link_action[8][8] =
   /* UNDEFW_ROW	*/  {WEAK,  NOACT, NOACT, REF,   REF,   NOACT, REFC,  WARNC },
   /* DEF_ROW 	*/  {DEF,   DEF,   DEF,   MDEF,  DEF,   CDEF,  MDEF,  CYCLE },
   /* DEFW_ROW 	*/  {DEFW,  DEFW,  DEFW,  NOACT, NOACT, NOACT, NOACT, CYCLE },
-  /* COMMON_ROW	*/  {COM,   COM,   COM,   CREF,  CREF,  BIG,   CREF,  WARNC },
+  /* COMMON_ROW	*/  {COM,   COM,   COM,   CREF,  CREF,  BIG,   REFC,  WARNC },
   /* INDR_ROW	*/  {IND,   IND,   IND,   MDEF,  IND,   CIND,  MIND,  CYCLE },
   /* WARN_ROW   */  {MWARN, WARN,  WARN,  CWARN, CWARN, WARN,  CWARN, MWARN },
   /* SET_ROW	*/  {SET,   SET,   SET,   SET,   SET,   SET,   CYCLE, CYCLE }
@@ -1940,6 +1939,12 @@ _bfd_generic_final_link (abfd, info)
   abfd->symcount = 0;
   outsymalloc = 0;
 
+  /* Mark all sections which will be included in the output file.  */
+  for (o = abfd->sections; o != NULL; o = o->next)
+    for (p = o->link_order_head; p != NULL; p = p->next)
+      if (p->type == bfd_indirect_link_order)
+	p->u.indirect.section->linker_mark = true;
+
   /* Build the output symbol table.  */
   for (sub = info->input_bfds; sub != (bfd *) NULL; sub = sub->link_next)
     if (! _bfd_generic_link_output_symbols (abfd, sub, info, &outsymalloc))
@@ -2267,10 +2272,7 @@ _bfd_generic_link_output_symbols (output_bfd, input_bfd, info, psymalloc)
 		  output = false;
 		  break;
 		case discard_l:
-		  if (bfd_asymbol_name (sym)[0] == info->lprefix[0]
-		      && (info->lprefix_len == 1
-			  || strncmp (bfd_asymbol_name (sym), info->lprefix,
-				      info->lprefix_len) == 0))
+		  if (bfd_is_local_label (input_bfd, sym))
 		    output = false;
 		  else
 		    output = true;
@@ -2290,6 +2292,15 @@ _bfd_generic_link_output_symbols (output_bfd, input_bfd, info, psymalloc)
 	}
       else
 	abort ();
+
+      /* If this symbol is in a section which is not being included
+	 in the output file, then we don't want to output the symbol.
+
+	 Gross.  .bss and similar sections won't have the linker_mark
+	 field set.  */
+      if ((sym->section->flags & SEC_HAS_CONTENTS) != 0
+	  && sym->section->linker_mark == false)
+	output = false;
 
       if (output)
 	{
@@ -2529,7 +2540,7 @@ bfd_new_link_order (abfd, section)
   struct bfd_link_order *new;
 
   new = ((struct bfd_link_order *)
-	 bfd_alloc_by_size_t (abfd, sizeof (struct bfd_link_order)));
+	 bfd_alloc (abfd, sizeof (struct bfd_link_order)));
   if (!new)
     return NULL;
 
@@ -2650,7 +2661,11 @@ default_indirect_link_order (output_bfd, info, output_section, link_order,
 	 because somebody is attempting to link together different
 	 types of object files.  Handling this case correctly is
 	 difficult, and sometimes impossible.  */
-      abort ();
+      (*_bfd_error_handler)
+	("Attempt to do relocateable link with %s input and %s output",
+	 bfd_get_target (input_bfd), bfd_get_target (output_bfd));
+      bfd_set_error (bfd_error_wrong_format);
+      return false;
     }
 
   if (! generic_linker)

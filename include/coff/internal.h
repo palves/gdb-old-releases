@@ -215,6 +215,7 @@ struct internal_aouthdr
 #define C_ALIAS	 	105	/* duplicate tag		*/
 #define C_HIDDEN	106	/* ext symbol in dmert public lib */
 
+
 /* New storage classes for WINDOWS_NT   */
 #define C_SECTION       104     /* section name */
 #define C_NT_WEAK	105	/* weak external */
@@ -257,6 +258,13 @@ struct internal_aouthdr
 #define C_FUN           (0x8e)
 #define C_BSTAT         (0x8f)
 #define C_ESTAT         (0x90)
+
+/* Storage classes for Thumb symbols */
+#define C_THUMBEXT      (128 + C_EXT)
+#define C_THUMBSTAT     (128 + C_STAT)
+#define C_THUMBLABEL    (128 + C_LABEL)
+#define C_THUMBEXTFUNC  (C_THUMBEXT  + 20)
+#define C_THUMBSTATFUNC (C_THUMBSTAT + 20)
 
 /********************** SECTION HEADER **********************/
 
@@ -587,10 +595,7 @@ struct internal_reloc
 #define R_VRT32  133
 #define R_RELLONG	(0x11)	/* Direct 32-bit relocation */
 #define R_IPRSHORT	(0x18)
-#define R_IPRMED 	(0x19)	/* 24-bit ip-relative relocation */
 #define R_IPRLONG	(0x1a)
-#define R_OPTCALL	(0x1b)	/* 32-bit optimizable call (leafproc/sysproc) */
-#define R_OPTCALLX	(0x1c)	/* 64-bit optimizable call (leafproc/sysproc) */
 #define R_GETSEG	(0x1d)
 #define R_GETPA		(0x1e)
 #define R_TAGWORD	(0x1f)

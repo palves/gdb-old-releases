@@ -20,9 +20,14 @@
  * 
  */
 
+#include "config.h"
 #include <signal.h>
 #include <string.h>
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
 #include <stdio.h>
+#include <sys/fcntl.h>
 #include "sis.h"
 #include <dis-asm.h>
 
@@ -43,22 +48,20 @@ extern struct estate ebase;
 
 extern int      ctrl_c;
 extern int      nfp;
+extern int      ift;
+extern int      wrp;
+extern int      rom8;
 extern int      sis_verbose;
 extern char    *sis_version;
 extern struct estate ebase;
 extern struct evcell evbuf[];
 extern struct irqcell irqarr[];
 extern int      irqpend, ext_irl;
+extern int      termsave;
+extern int      sparclite;
 extern char     uart_dev1[];
 extern char     uart_dev2[];
-
-#ifdef IUREV0
-extern int      iurev0;
-#endif
-
-#ifdef MECREV0
-extern int      mecrev0;
-#endif
+extern uint32   last_load_addr;
 
 run_sim(sregs, go, icount, dis)
     struct pstate  *sregs;
@@ -69,22 +72,18 @@ run_sim(sregs, go, icount, dis)
     int             mexc, ws;
 
     sregs->starttime = time(NULL);
+    init_stdio();
     while (!sregs->err_mode & (go || (icount > 0))) {
-	if (sregs->bptnum && check_bpt(sregs))
+	if (sregs->bptnum && check_bpt(sregs)) {
+            restore_stdio();
 	    return (BPT_HIT);
+	}
 	sregs->bphit = 0;
 	sregs->fhold = 0;
 	sregs->hold = 0;
 	sregs->icnt = 0;
 
 	sregs->asi = 9 - ((sregs->psr & 0x080) >> 7);
-
-#ifdef IUREV0
-	if (iurev0 && sregs->rett_err) {
-	    sregs->asi &= ~0x1;
-	    sregs->asi |= ((sregs->psr & 0x040) >> 6);
-	}
-#endif
 
 	mexc = memory_read(sregs->asi, sregs->pc, &sregs->inst, &sregs->hold);
 
@@ -121,14 +120,15 @@ run_sim(sregs, go, icount, dis)
 		sregs->err_mode = execute_trap(sregs);
 	    }
 	}
+        if (sregs->err_mode)
+	    error_mode(sregs->pc);
 	advance_time(sregs);
 	if (ctrl_c) {
 	    go = icount = 0;
 	}
     }
     sregs->tottime += time(NULL) - sregs->starttime;
-    if (sregs->err_mode)
-	error_mode(sregs->pc);
+    restore_stdio();
     if (sregs->err_mode)
 	return (ERROR);
     if (ctrl_c) {
@@ -169,14 +169,12 @@ main(argc, argv)
 		}
 	    } else if (strcmp(argv[stat], "-nfp") == 0)
 		nfp = 1;
-#ifdef IUREV0
-	    else if (strcmp(argv[stat], "-iurev0") == 0)
-		iurev0 = 1;
-#endif
-#ifdef MECREV0
-	    else if (strcmp(argv[stat], "-mecrev0") == 0)
-		mecrev0 = 1;
-#endif
+	    else if (strcmp(argv[stat], "-ift") == 0)
+		ift = 1;
+	    else if (strcmp(argv[stat], "-wrp") == 0)
+		wrp = 1;
+	    else if (strcmp(argv[stat], "-rom8") == 0)
+		rom8 = 1;
 	    else if (strcmp(argv[stat], "-uart1") == 0) {
 		if ((stat + 1) < argc)
 		    strcpy(uart_dev1, argv[++stat]);
@@ -186,30 +184,26 @@ main(argc, argv)
 	    } else if (strcmp(argv[stat], "-freq") == 0) {
 		if ((stat + 1) < argc)
 		    freq = VAL(argv[++stat]);
+	    } else if (strcmp(argv[stat], "-sparclite") == 0) {
+		sparclite = 1;
 	    } else {
 		printf("unknown option %s\n", argv[stat]);
 		usage();
 		exit(1);
 	    }
 	} else {
-	    bfd_load(argv[stat]);
+	    last_load_addr = bfd_load(argv[stat]);
 	}
 	stat++;
     }
-#ifdef IUREV0
-    if (iurev0)
-	printf(" simulating IU rev.0 jmpl/restore bug\n");
-#endif
-#ifdef MECREV0
-    if (iurev0)
-	printf(" simulating MEC rev.0 timer and uart interrupt bug\n");
-#endif
     if (nfp)
 	printf("FPU disabled\n");
     sregs.freq = freq;
 
-    INIT_DISASSEMBLE_INFO(dinfo, stdout, fprintf);
+    INIT_DISASSEMBLE_INFO(dinfo, stdout, (fprintf_ftype) fprintf);
+    dinfo.endian = BFD_ENDIAN_BIG;
 
+    termsave = fcntl(0, F_GETFL, 0);
     using_history();
     init_signals();
     ebase.simtime = 0;

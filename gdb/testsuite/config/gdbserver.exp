@@ -1,5 +1,5 @@
 # Test Framework Driver for GDB using the extended gdb remote protocol
-#   Copyright 1995 Free Software Foundation, Inc.
+#   Copyright 1995, 1997 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,7 +13,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 #
 # For this to function correctly, you need to set a number of variables
 # in your gdb/site.exp file
@@ -38,49 +38,7 @@
 
 # Load the basic gdb testing library
 load_lib gdb.exp
-
-#
-# gdb_version -- extract and print the version number of gdb
-#
-proc gdb_version {} {
-    default_gdb_version
-}
-
-#
-# gdb_target_monitor
-# Set gdb to target the monitor
-#
-proc gdb_target_monitor { } {
-    global prompt
-    global exit_status
-    global targetname
-    global serialport
-    global baud
-
-    set timeout 60
-    verbose "Timeout is now $timeout seconds" 2
-    for {set i 1} {$i <= 3} {incr i} {
-	send "target $targetname $serialport\n"
-	expect {
-		-re "Remote debugging using $serialport.*$prompt $"	{
-		     verbose "Set target to $targetname"
-		     return
-		}
-		-re "Connection refused" {
-		    verbose "Connection refused by remote target.  Pausing, and trying again."
-		    sleep 30
-		    continue
-		}
-		timeout { 
-		    break
-		}
-	}
-    }
-
-    perror "Couldn't set target for $targetname."
-    cleanup
-    exit $exit_status
-}
+load_lib monitor.exp
 
 #
 # gdb_load -- load a file into the debugger.
@@ -95,34 +53,34 @@ proc gdb_load { arg } {
     global loadpath
     global loadfile
     global GDB
-    global prompt
-    global serialport
-    global targethost
+    global gdb_prompt
     global debughost
     global port
-    global gdbserver
-    global rsh
-    global rcp
-
-    # first load the file into gdb
-    if [gdb_file_cmd $arg] then { return -1 }
 
     # bump the port number to avoid conflicts with hung ports
+    set targethost [target_info gdb_server_host];
+    set debughost [target_info gdb_debug_host];
+    if [target_info exists gdb_server_prog] {
+	set gdbserver [target_info gdb_server_prog];
+    } else {
+	set gdbserver "gdbserver";
+    }
     incr port
     set serialport $targethost:$port
-
      
     # Copy the file down to the remote host.
-    exec $rcp [lindex $arg 0] $targethost:/tmp
+    set file [remote_download host $arg];
 
     # now start gdbserver on the remote side
-    exec $rsh $targethost $gdbserver $debughost:$port /tmp/[file tail [lindex $arg 0]] > /dev/null >& /dev/null < /dev/null &
+    remote_spawn host "$gdbserver $debughost:$port $file >& /dev/null < /dev/null"
  
     # give it plenty of time to get going (lynx)
     sleep 30
 
     # tell gdb we are remote debugging
-    gdb_target_monitor
+    if [gdb_target_monitor $arg] {
+	return -1;
+    }
 
     return 1
 }
@@ -131,7 +89,7 @@ proc gdb_load { arg } {
 # gdb_start -- start GDB running.
 #
 proc gdb_start { } {
-    global prompt
+    global gdb_prompt
 
     # do the usual stuff
     catch default_gdb_start
@@ -140,17 +98,7 @@ proc gdb_start { } {
     # without it.
     send "set remotecache 0\n"
     expect {
-	-re "set remotecache 0\[\r\n\]+.*$prompt $" {}
+	-re "set remotecache 0\[\r\n\]+.*$gdb_prompt $" {}
 	default { fail "gdb_start"}
     }
 }
-
-#
-# gdb_exit -- exit gdb
-#
-proc gdb_exit { } {
-    catch default_gdb_exit
-}
-
-gdb_start
-

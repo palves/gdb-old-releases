@@ -13,7 +13,7 @@ AC_CONFIG_AUX_DIR(`cd $srcdir;pwd`/../..)
 AC_CANONICAL_SYSTEM
 
 # Directories to use in all configurations.
-configdirs="gdb.base gdb.c++ gdb.disasm gdb.chill"
+configdirs="gdb.base gdb.c++ gdb.disasm gdb.chill gdb.threads"
 
 # Directories to use for a configuration which uses stabs.
 stabsdirs="gdb.stabs"
@@ -29,10 +29,31 @@ case "${target}" in
 	*-*-lynxos*)	configdirs="${configdirs} ${stabsdirs}" ;;
 	*-sun-*)	configdirs="${configdirs} ${stabsdirs}" ;;
 	hppa*-*-*)	configdirs="${configdirs} ${stabsdirs}" ;;
+	*-*-elf*)	configdirs="${configdirs} ${stabsdirs}" ;;
 	*)		if test "x${with_stabs}" = x"yes" ; then
 			  configdirs="${configdirs} ${stabsdirs}"
 			fi ;;
 esac
+
+# Begin stuff to support --enable-shared
+AC_ARG_ENABLE(shared,
+[  --enable-shared         use shared libraries],
+[case "${enableval}" in
+  yes) shared=true ;;
+  no)  shared=false ;;
+  *) shared=true ;;
+esac])dnl
+RPATH_ENVVAR=LD_LIBRARY_PATH
+# If we have shared libraries, try to set RPATH_ENVVAR reasonably.
+if test "${shared}" = "true"; then
+  case "${host}" in
+  *-*-hpux*)
+    RPATH_ENVVAR=SHLIB_PATH
+    ;;
+  esac
+fi
+AC_SUBST(RPATH_ENVVAR)
+# End stuff to support --enable-shared
 
 # configure the subdirectories too
 AC_CONFIG_SUBDIRS($configdirs)

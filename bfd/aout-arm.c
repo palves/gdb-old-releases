@@ -1,5 +1,5 @@
 /* BFD back-end for raw ARM a.out binaries.
-   Copyright (C) 1994, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rwe@pegasus.esprit.ec.org)
    
 This file is part of BFD, the Binary File Descriptor library.
@@ -38,7 +38,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
-#include "assert.h"
 
 #define MYARM(OP) CAT(aoutarm_,OP)
 reloc_howto_type 	*MYARM(bfd_reloc_type_lookup)
@@ -348,7 +347,6 @@ MY_swap_std_reloc_in (abfd, bytes, cache_ptr, symbols, symcount)
 {
   int r_index;
   int r_extern;
-  unsigned int r_length;
   int r_pcrel;
   struct aoutdata *su = &(abfd->tdata.aout_data->a);
 
@@ -478,7 +476,7 @@ const bfd_target aout_arm_little_vec =
   (HAS_RELOC | EXEC_P |         /* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
-  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_CODE | SEC_DATA),
   MY_symbol_leading_char,
   AR_PAD_CHAR,                  /* ar_pad_char */
   15,                           /* ar_max_namelen */
@@ -517,7 +515,7 @@ const bfd_target aout_arm_big_vec =
   (HAS_RELOC | EXEC_P |         /* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
-  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_CODE | SEC_DATA),
   MY_symbol_leading_char,
   AR_PAD_CHAR,                  /* ar_pad_char */
   15,                           /* ar_max_namelen */

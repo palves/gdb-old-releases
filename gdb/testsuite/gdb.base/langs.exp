@@ -1,3 +1,22 @@
+#   Copyright (C) 1997 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
 if $tracelevel then {
 	strace $tracelevel
 }
@@ -7,34 +26,21 @@ set bug_id 0
 
 set testfile langs
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [compile "-g -c ${srcdir}/${subdir}/langs0.c"] != "" } {
-    perror "Couldn't compile langs0.c to object"
-    return -1
+
+if [is_remote host] {
+    remote_download host ${srcdir}/${subdir}/langs1.f
+    remote_download host ${srcdir}/${subdir}/langs2.cxx
 }
-execute_anywhere "mv langs0.o ${binfile}0.o"
-if  { [compile "-g -c ${srcdir}/${subdir}/langs1.c"] != "" } {
-    perror "Couldn't compile langs1.c to object"
-    return -1
-}
-execute_anywhere "mv langs1.o ${binfile}1.o"
-if  { [compile "-g -c ${srcdir}/${subdir}/langs2.c"] != "" } {
-    perror "Couldn't compile langs2.c to object"
-    return -1
-}
-execute_anywhere "mv langs2.o ${binfile}2.o"
-if  { [compile "${binfile}0.o ${binfile}1.o ${binfile}2.o  -o ${binfile}"] != "" } {
-    perror "Couldn't link langs."
-    return -1
+
+if  { [gdb_compile "${srcdir}/${subdir}/langs0.c ${srcdir}/${subdir}/langs1.c ${srcdir}/${subdir}/langs2.c" "${binfile}" executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
 # Create and source the file that provides information about the compiler
 # used to compile the test case.
-execute_anywhere "rm -f ${binfile}.ci"
-if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${binfile}.ci file"
-    return -1
+if [get_compiler_info ${binfile}] {
+    return -1;
 }
-source ${binfile}.ci
 
 gdb_exit
 gdb_start
@@ -45,7 +51,6 @@ gdb_test "b langs0" {Function "langs0" not defined\.} \
     "break on nonexistent function in langs.exp"
 
 if [runto csub] then {
-    global noresults
 
     gdb_test "show language" "currently c\".*" \
 	"show language at csub in langs.exp"
@@ -87,10 +92,15 @@ if [runto csub] then {
     gdb_test "show language" "currently c\".*" \
 	"show language at main in langs.exp"
 
-    if $noresults==1 then { return }
+    if [target_info exists gdb,noresults] { return }
 
-    gdb_test "cont" "Program exited normally\\." \
-	"continue to exit in langs.exp"
+    if [target_info exists use_gdb_stub] {
+	gdb_breakpoint "exit"
+	gdb_test "cont" "Breakpoint .*exit.*" "continue to exit in langs.exp"
+    } else {
+	gdb_test "cont" "Program exited normally\\..*" \
+		"continue to exit in langs.exp"
+    }
 }
 
 return 0

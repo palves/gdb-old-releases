@@ -1,3 +1,117 @@
+Fri Nov 21 12:54:58 1997  Manfred Hollstein <manfred@s-direktnet.de>
+
+	* Makefile.in: Add --no-split argument to avoid creating files
+	with names longer than 14 characters.
+
+Thu Sep 25 13:13:11 1997  Jason Molenda  (crash@pern.cygnus.com)
+
+	* intro.texi: Add closing ifset.
+
+Mon Sep  1 10:31:32 1997  Angela Marie Thomas (angela@cygnus.com)
+
+	* Install.in: Move setting HOST and TARGET to the beginning
+	of the file for editing convenience.
+
+Mon Sep  1 10:28:37 1997  Angela Marie Thomas (angela@cygnus.com)
+
+	* Install.in.: More friendly options/messages when extracting
+	from a file instead of a tape device.
+
+Tue Jun 17 15:50:23 1997  Angela Marie Thomas (angela@cygnus.com)
+
+	* Install.in: Add /usr/bsd to PATH for Irix (home of compress)
+
+Thu Jun 12 13:47:00 1997  Angela Marie Thomas (angela@cygnus.com)
+
+        * Install.in (show_exec_prefix_msg): fix quoting
+
+Wed Jun  4 15:31:43 1997  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* rebuilding.texi: Removed.
+
+Sat May 24 18:02:20 1997  Angela Marie Thomas (angela@cygnus.com)
+
+	* cross-tools-fix:  Remove host check since it doesn't matter
+	for this case.
+	* Install.in (guess_system): clean up more unused hosts.
+	* Install.in, cross-tools-fix, comp-tools-fix, comp-tools-verify:
+	Hack for host check to not warn the user for certain cases.
+
+Fri May 23 23:46:10 1997  Angela Marie Thomas (angela@cygnus.com)
+
+	* subst-strings: Remove a lot of unused code
+	* Install.in: Remove reference to TAPEdflt, use variables instead of
+	string substitution when able.
+
+Fri Apr 11 17:25:52 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Change file named in AC_INIT to Makefile.in.
+	* configure: Rebuild.
+
+Fri Apr 11 18:12:42 1997  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* Install.in (guess_system): Back out change to INSTALLHOST to
+	call all IRIX systems "mips-sgi-irix4"
+
+	* Makefile.in: Remove references to configure.texi and cfg-paper.texi.
+
+Thu Apr 10 23:26:45 1997  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* srctree.texi, emacs-relnotes.texi, cfg-paper.texi: Remove.
+	* Install.in: Remove Ultrix-specific hacks.
+	Update Cygnus phone numbers.
+	(guess_system): Remove some old systems (Ultrix, OSF1 v1 & 2,
+	m68k-HPUX, m68k SunOS, etc.)
+	(show_gnu_root_msg): Remove.
+	Removed all the remove option code.
+
+Thu Apr 10 23:23:33 1997  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* configure.man, configure.texi: Remote.
+
+Mon Apr  7 18:15:00 1997  Brendan Kehoe <brendan@cygnus.com>
+
+        * Fix the version string for OSF1 4.0 to recognize either
+        V4.* or X4.*
+
+Mon Apr  7 15:34:47 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* standards.texi, make-stds.texi: Update to current FSF versions.
+
+Tue Nov 19 15:36:14 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* make-rel-sym-tree: New file.
+
+Wed Oct 23 00:34:07 1996  Angela Marie Thomas (angela@cygnus.com)
+
+	* Lots of patches from progressive...
+ 	* Install.in: restore DDOPTS for AIX 4.x
+ 	* Install.in, subst-strings: add case for DG Aviion
+ 	* subst-strings: fix typo in INSTALLdir var setting
+ 	* comp-tools-verify: set SHLIB_PATH for shared libs
+ 	* Install.in, subst-strings:  add case for solaris2.5
+ 	* Install.in: fix regression for hppa1.1 check
+ 	* comp-tools-fix: set LD_LIBRARY_PATH
+ 	* comp-tools-fix: If fixincludes fixes /usr/include/limits.h,
+ 	install it as syslimits.h.
+
+Wed Oct 16 19:20:42 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* Install.in (guess_system): Treat powerpc-ibm-aix4.1 the same as
+	rs6000-ibm-aix4.1, since the compiler now uses common mode by
+	default.
+
+Wed Oct  2 15:39:07 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* configure.in (AC_PROG_INSTALL): Added.
+	* Makefile.in (distclean): Remove config.cache.
+
+Wed Oct  2 14:33:58 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* configure.in: Switch to autoconf configure.in.
+	* configure: New.
+	* Makefile.in: Use autoconf-substituted values.
+
 Tue Jun 25 18:56:08 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
 
 	* Makefile.in (datadir): Changed to $(prefix)/share.
@@ -22,11 +136,6 @@ Wed Sep 20 13:21:52 1995  Ian Lance Taylor  <ian@cygnus.com>
 
 	* Makefile.in (maintainer-clean): New target, synonym for
 	realclean.
-
-Thu Sep 14 17:19:58 1995  Jason Molenda  (crash@phydeaux.cygnus.com)
-
-	* Install.in (show_exec_prefix_msg): print out paths for
-	TCL_LIBRARY, TK_LIBRARY and GDBTK_FILENAME.
 
 Mon Aug 28 17:25:49 1995  Jason Molenda  (crash@phydeaux.cygnus.com)
 

@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1995, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -67,26 +67,6 @@ dumpf (int indent, char *msg, ...)
   va_start(ap, msg);
   vprintf(msg, ap);
   va_end(ap);
-}
-
-
-int
-it_is(const char *flag,
-      const char *flags)
-{
-  int flag_len = strlen(flag);
-  while (*flags != '\0') {
-    if (!strncmp(flags, flag, flag_len)
-	&& (flags[flag_len] == ',' || flags[flag_len] == '\0'))
-      return 1;
-    while (*flags != ',') {
-      if (*flags == '\0')
-	return 0;
-      flags++;
-    }
-    flags++;
-  }
-  return 0;
 }
 
 
@@ -181,3 +161,55 @@ i2target(int ms_bit_nr,
 }
 
 
+int
+name2i(const char *names,
+       const name_map *map)
+{
+  const name_map *curr;
+  const char *name = names;
+  while (*name != '\0') {
+    /* find our name */
+    char *end = strchr(name, ',');
+    char *next;
+    int len;
+    if (end == NULL) {
+      end = strchr(name, '\0');
+      next = end;
+    }
+    else {
+      next = end + 1;
+    }
+    len = end - name;
+    /* look it up */
+    curr = map;
+    while (curr->name != NULL) {
+      if (strncmp(curr->name, name, len) == 0
+	  && strlen(curr->name) == len)
+	return curr->i;
+      curr++;
+    }
+    name = next;
+  }
+  /* nothing found, possibly return a default */
+  curr = map;
+  while (curr->name != NULL)
+    curr++;
+  if (curr->i >= 0)
+    return curr->i;
+  else
+    error("%s contains no valid names\n", names);
+  return 0;
+}
+
+const char *
+i2name(const int i,
+       const name_map *map)
+{
+  while (map->name != NULL) {
+    if (map->i == i)
+      return map->name;
+    map++;
+  }
+  error("map lookup failed for %d\n", i);
+  return NULL;
+}

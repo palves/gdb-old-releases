@@ -1,5 +1,5 @@
 /* A.out "format 1" file handling code for BFD.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -65,13 +65,52 @@ The name put into the target vector.
 /*SUPPRESS558*/
 /*SUPPRESS529*/
 
-static void
 #if ARCH_SIZE == 64
-sunos_64_set_arch_mach
+#define sunos_set_arch_mach sunos_64_set_arch_mach
+#define sunos_write_object_contents aout_64_sunos4_write_object_contents
 #else
-sunos_32_set_arch_mach
+#define sunos_set_arch_mach sunos_32_set_arch_mach
+#define sunos_write_object_contents aout_32_sunos4_write_object_contents
 #endif
-  (abfd, machtype)
+
+static boolean sunos_merge_private_bfd_data PARAMS ((bfd *, bfd *));
+static void sunos_set_arch_mach PARAMS ((bfd *, int));
+static void choose_reloc_size PARAMS ((bfd *));
+static boolean sunos_write_object_contents PARAMS ((bfd *));
+static const bfd_target *sunos4_core_file_p PARAMS ((bfd *));
+static char *sunos4_core_file_failing_command PARAMS ((bfd *));
+static int sunos4_core_file_failing_signal PARAMS ((bfd *));
+static boolean sunos4_core_file_matches_executable_p PARAMS ((bfd *, bfd *));
+static boolean sunos4_set_sizes PARAMS ((bfd *));
+
+/* Merge backend data into the output file.
+   This is necessary on sparclet-aout where we want the resultant machine
+   number to be M_SPARCLET if any input file is M_SPARCLET.  */
+
+#define MY_bfd_merge_private_bfd_data sunos_merge_private_bfd_data
+
+static boolean
+sunos_merge_private_bfd_data (ibfd, obfd)
+     bfd *ibfd, *obfd;
+{
+  if (bfd_get_flavour (ibfd) != bfd_target_aout_flavour
+      || bfd_get_flavour (obfd) != bfd_target_aout_flavour)
+    return true;
+
+  if (bfd_get_arch (obfd) == bfd_arch_sparc)
+    {
+      if (bfd_get_mach (obfd) < bfd_get_mach (ibfd))
+	bfd_set_arch_mach (obfd, bfd_arch_sparc, bfd_get_mach (ibfd));
+    }
+
+  return true;
+}
+
+/* This is either sunos_32_set_arch_mach or sunos_64_set_arch_mach,
+   depending upon ARCH_SIZE.  */
+
+static void
+sunos_set_arch_mach (abfd, machtype)
      bfd *abfd;
      int machtype;
 {
@@ -155,17 +194,14 @@ choose_reloc_size (abfd)
     }
 }
 
-/* Write an object file in SunOS format.
-  Section contents have already been written.  We write the
-  file header, symbols, and relocation.  */
+/* Write an object file in SunOS format.  Section contents have
+   already been written.  We write the file header, symbols, and
+   relocation.  The real name of this function is either
+   aout_64_sunos4_write_object_contents or
+   aout_32_sunos4_write_object_contents, depending upon ARCH_SIZE.  */
 
 static boolean
-#if ARCH_SIZE == 64
-aout_64_sunos4_write_object_contents
-#else
-aout_32_sunos4_write_object_contents
-#endif
-  (abfd)
+sunos_write_object_contents (abfd)
      bfd *abfd;
 {
   struct external_exec exec_bytes;
@@ -360,6 +396,13 @@ struct internal_sunos_core
     int fp_stuff_size;		/* Size of it */
     int c_ucode;		/* Exception no. from u_code */
   };
+
+static void swapcore_sun3
+  PARAMS ((bfd *, char *, struct internal_sunos_core *));
+static void swapcore_sparc
+  PARAMS ((bfd *, char *, struct internal_sunos_core *));
+static void swapcore_solaris_bcp
+  PARAMS ((bfd *, char *, struct internal_sunos_core *));
 
 /* byte-swap in the Sun-3 core structure */
 static void
@@ -749,6 +792,9 @@ sunos4_set_sizes (abfd)
 #define MY_exec_hdr_flags 1
 #endif
 
+#ifndef MY_entry_is_text_address
+#define MY_entry_is_text_address 0
+#endif
 #ifndef MY_add_dynamic_symbols
 #define MY_add_dynamic_symbols 0
 #endif
@@ -772,6 +818,7 @@ static CONST struct aout_backend_data sunos4_aout_backend =
 {
   0,				/* zmagic files are not contiguous */
   1,				/* text includes header */
+  MY_entry_is_text_address,
   MY_exec_hdr_flags,
   0,				/* default text vma */
   sunos4_set_sizes,
@@ -796,6 +843,8 @@ static CONST struct aout_backend_data sunos4_aout_backend =
 #define MY_write_object_contents	NAME(aout,sunos4_write_object_contents)
 #define MY_backend_data			&sunos4_aout_backend
 
+#ifndef TARGET_IS_LITTLE_ENDIAN_P
 #define TARGET_IS_BIG_ENDIAN_P
+#endif
 
 #include "aout-target.h"

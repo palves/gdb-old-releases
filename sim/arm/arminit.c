@@ -67,6 +67,7 @@ ARMul_State *ARMul_NewState(void)
  unsigned i, j ;
 
  state = (ARMul_State *)malloc(sizeof(ARMul_State)) ;
+ memset (state, 0, sizeof (ARMul_State));
 
  state->Emulate = RUN ;
  for (i = 0 ; i < 16 ; i++) {

@@ -1,5 +1,5 @@
 # Makefile for GNU binary-file utilities
-# Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+# Copyright (C) 1992, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
 
 # This file is part of GNU binutils.
 
@@ -46,11 +46,9 @@ includedir = @includedir@
 
 SHELL = /bin/sh
 
-INSTALL = `cd $(srcdir)/../..;pwd`/install.sh -c
+INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
-INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
-INSTALL_XFORM1 = $(INSTALL_XFORM) -b=.1
 
 AR = @AR@
 AR_FLAGS = qv
@@ -144,14 +142,15 @@ interp.o:interp.c config.h
 ######################################################################
 
 mostlyclean:
-	-rm -f *.o *~ \#* core binutils.?? binutils.??? case.c config.log
+	-rm -f *.o *~ \#* core binutils.?? binutils.??? case.c
 
 clean: mostlyclean
 	-rm -f $(PROGS) *.o *.a
 
 distclean:
 	-rm -f Makefile config.status sysdep.h *.o *~ \#* core y.* \
-		binutils.?? binutils.??s binutils.aux binutils.log binutils.toc gencode run
+		binutils.?? binutils.??s binutils.aux binutils.log \
+		binutils.toc gencode run config.log
 	-rm -f $(PROGS) config.h stamp-h
 
 maintainer-clean realclean: clean distclean
@@ -162,10 +161,14 @@ etags tags: TAGS
 TAGS: force
 	etags $(INCDIR)/*.h $(srcdir)/*.[hc] 
 
-install: all 
+install: all installdirs
 	for i in $(PROGS) ; do \
-	  $(INSTALL_XFORM) $$i $(bindir)/`echo $$i | sed -e 's/.new//'` ; \
+	  n=`echo $$i | sed -e 's/.new//' | sed '$(program_transform_name)'`; \
+	  $(INSTALL_PROGRAM) $$i $(bindir)/$$n; \
 	done
+
+installdirs:
+	$(SHELL) $(srcdir)/../../mkinstalldirs $(bindir)
 
 install-info:
 

@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1996 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1996, 1997 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -29,9 +29,8 @@ set bug_id 0
 set testfile "recurse"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
-    perror "Couldn't compile ${srcfile}"
-    return -1
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
 # Start with a fresh gdb.
@@ -54,7 +53,7 @@ proc recurse_tests {} {
 	if [gdb_test "continue" \
 	    "Continuing.*\[Ww\]atchpoint.*: b.*Old value = 0.*New value = 10.*" \
 	    "continue to first instance watchpoint, first time"] then {
-	    return
+	    gdb_suppress_tests;
 	}
 
 	# Continue inward for a few iterations
@@ -80,7 +79,7 @@ proc recurse_tests {} {
 	if [gdb_test "continue" \
 	    "Continuing.*\[Ww\]atchpoint.*: b.*Old value = 0.*New value = 5.*"\
 	    "continue to second instance watchpoint, first time"] then {
-	    return
+	gdb_suppress_tests;
 	}
 
 	# Continue inward for a few iterations
@@ -97,35 +96,40 @@ proc recurse_tests {} {
 	if [gdb_test "continue" \
 	    "Continuing.*\[Ww\]atchpoint.*: b.*Old value = 5.*New value = 120.*return.*" \
 	    "continue to second instance watchpoint, second time"] then { 
-	    return
+	    gdb_suppress_tests;
 	}
 
 	# Continue again.  We should have a watchpoint go out of scope now
 	if [gdb_test "continue" \
 	    "Continuing.*\[Ww\]atchpoint.*deleted.*recurse \\(a=6\\) .*" \
 	    "second instance watchpoint deleted when leaving scope"] then {
-	    return
+	    gdb_suppress_tests;
 	}
 
 	# Continue until second set of b (first instance).
+	# 24320 is allowed as the final value for b as that's the value
+	# b would have on systems with 16bit integers.
+	#
+	# We could fix the test program to deal with this too.
 	if [gdb_test "continue" \
-	    "Continuing.*\[Ww\]atchpoint.*b.*Old value = 10.*New value = 3628800.*return.*" \
+	    "Continuing.*\[Ww\]atchpoint.*b.*Old value = 10.*New value = \(3628800|24320\).*return.*" \
 	    "continue to first instance watchpoint, second time"] then {
-	    return
+	    gdb_suppress_tests
 	}
 
 	# Continue again.  We should have a watchpoint go out of scope now
 	if [gdb_test "continue" \
 	    "Continuing.*\[Ww\]atchpoint.*deleted.*main \\(\\) .*" \
 	    "first instance watchpoint deleted when leaving scope"] then {
-	    return
+	    gdb_suppress_tests;
 	}
     }
+    gdb_stop_suppressing_tests;
 }
 
 # Only enabled for some targets merely because it has not been tested 
 # elsewhere.
-if {[istarget "sparc*-*-sunos4*"] || [istarget "hppa*-*-bsd*"]} then {
+if {[istarget "sparc*-*-sunos4*"] || [istarget "hppa*-*-bsd*"] || [istarget "sparclet-*-*"] || [istarget "m32r-*-elf"] || [istarget "mn10200-*-*"] || [istarget "mn10300-*-*"]} then {
 
     # Preserve the old timeout, and set a new one that should be
     # sufficient to avoid timing out during this test.

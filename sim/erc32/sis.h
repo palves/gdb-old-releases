@@ -20,6 +20,10 @@
  * 
  */
 
+#include "ansidecl.h"
+#include "callback.h"
+#include "remote-sim.h"
+
 #include "end.h"
 
 #define I_ACC_EXC 1

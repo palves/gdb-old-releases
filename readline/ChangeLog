@@ -1,3 +1,65 @@
+Thu Apr  9 11:59:38 1998  Ian Dall (<Ian.Dall@dsto.defence.gov.au>
+
+        * configure.in (host==netbsd): Include config/mh-bsd44.
+        * config/mh-bsd44: New file.
+
+Wed Dec  3 16:48:20 1997  Michael Snyder  (msnyder@cleaver.cygnus.com)
+
+	* rltty.c: fix typos.
+
+Tue Oct  8 08:59:24 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* tilde.c (tilde_word_expand):  __MSDOS___ -> __MSDOS__
+
+Sat Oct 05 11:24:34 1996  Mark Alexander  <marka@cygnus.com>
+
+	* rldefs.h: On Linux, include <termios.h> to fix compile error
+	in <termcap.h>.
+
+Wed Sep  4 18:06:51 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* rldefs.h:  Enable HANDLE_SIGNALS for cygwin32.
+
+Thu Aug 29 16:59:45 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* configure.in (i[345]86-*-*): Recognize i686 for pentium pro.
+
+Fri Aug 16 17:49:57 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* complete.c:  Include <pwd.h> if not DOS, and if cygwin32 or not
+	win32.
+	* configure.in:  Add test for *-*-cygwin32* to use config/mh-posix.
+	* readline.c:  Move decl of tgetstr to rldefs.h.
+	* (_rl_set_screen_size):  Remove redundant ifdef MINIMALs.
+	* rldefs.h:  Don't do MINIMAL for cygwin32.  Cygwin32 now uses
+	full-blown readline, except for termcap.
+
+Sun Aug 11 21:06:26 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* rldefs.c:  Get rid of define of SIGALRM if _WIN32 or __MSDOS__.
+	* Don't define ScreenCols/ScreenRows/... if cygwin32.
+	* sysdep-norm.h:  Don't include <malloc.h> if cygwin32.
+
+Sun Aug 11 14:59:09 1996  Fred Fish  <fnf@cygnus.com>
+
+	* rldefs.h:  If __osf__is defined, include <termio.h> instead of
+	<sgtty.h>.
+
+Fri Aug  9 08:54:26 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* bind.c complete.c history.c readline.c:  Don't include sys/file.h.
+	* complete.c display.c parens.c readline.c rldefs.h rltty.c
+	signals.c tilde.c:  Change refs to _MSC_VER and __WIN32__ to _WIN32.
+	* signals.c (rl_signal_handler):  Ifdef out kill if _WIN32.
+	* sysdep-norm.h:  Ifdef out include of dirent.h if _WIN32.
+	Include malloc.h if _WIN32.
+
+Thu Jul 18 15:59:35 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* rldefs.h (sys/uio.h) Before sys/stream.h is included under AIX,
+	include sys/uio.h, which prevents an undefined structure used in a
+	prototype message from being generated.
+
 Tue Jun 25 23:05:55 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
 
         * Makefile.in (datadir): Set to $(prefix)/share.

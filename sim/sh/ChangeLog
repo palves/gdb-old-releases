@@ -1,3 +1,269 @@
+Sun Feb  1 16:47:51 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sat Jan 31 18:15:41 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Jan 19 22:26:29 1998  Doug Evans  <devans@seba>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Dec 15 23:17:11 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Thu Dec  4 09:21:05 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Oct 22 14:43:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_load): Pass lma_p and sim_write args to
+ 	sim_load_file.
+
+Fri Oct  3 09:28:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Sep 24 17:38:57 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Sep 23 11:04:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Sep 22 11:46:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Sep 19 17:45:25 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Sep 15 17:36:15 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Sep  9 20:52:21 1997  Felix Lee  <flee@cygnus.com>
+
+	* interp.c (sim_resume): poll_quit() at least once per call;
+ 	otherwise gdb can loop sim_resume() uninterruptably.
+
+Thu Sep  4 17:21:23 1997  Doug Evans  <dje@seba>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Sep  2 13:15:27 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (tab): Order instructions according to SH3 document.
+
+Wed Aug 27 18:13:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Tue Aug 26 10:41:55 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_kill): Delete.
+	(sim_create_inferior): Add ABFD argument.
+	(sim_load): Move setting of PC from here.
+	(sim_create_inferior): To here.
+
+Mon Aug 25 17:50:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Mon Aug 25 16:17:51 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_open): Add ABFD argument.
+
+Mon Jun 23 15:49:14 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (get_dr): Avoid SIGFPE by moving integers instead of
+ 	FP's around.
+	(set_dr): Ditto.
+	
+Sun Jun 22 19:33:33 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (set_fpscr1): From J"orn Rennecke
+ 	<amylaar@cygnus.co.uk>, Fix typo. Ditto for comment.
+	
+Thu Jun 19 00:28:08 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_create_inferior): Clear registers each time an
+ 	inferior is started.
+
+Sun Jun 15 15:22:52 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (main): Perform basic checks on tab entries.
+
+	* Makefile.in (gencode): Always compile with -g.
+
+Sat Jun 14 13:45:09 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (gensim): Move ref checking code to before `stuff'.
+  	For branches with delay slots refs were not being checked.
+
+	* interp.c (sim_resume): Use nia to specify the next instruction
+ 	address instead of overloading pc.
+	(C): Delete definiton - refer to cycles directly.
+	(SEXT12): New macro - sign extend a 12 bit quantity.
+	(Delay_Slot): Rename from SL.
+
+	* gencode.c (tab): Update/simplify.
+	
+	* gencode.c (gensim): Better formatting of output code.
+	(gensim): Replace 10 with constant MAX_NR_STUFF- define as 15.
+	(tab): Sort alphabetically.  Break `stuff' into multiple lines.
+
+Fri Jun 13 22:10:13 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* gencode.c (braf, bsrf): Fix branch destination calculation to
+	be in accordance with the documentation.
+
+Fri Jun 13 15:33:53 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* interp.c (init_pointers): Fix little endian test.
+
+Wed May 28 23:42:35 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+        * gencode.c (swap.b): Fix treatment of high word.
+
+Tue May 20 10:23:28 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_open): Add callback argument.
+	(sim_set_callbacks): Delete SIM_DESC argument.
+
+Wed Apr 30 11:38:08 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (SIM_EXTRA_CLEAN): Define.
+	(clean targets): Delete.
+	(sh-clean): New target.
+
+Thu Apr 24 00:39:51 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Apr 23 17:55:22 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* tconfig.in: New file.
+	* interp.c (sim_open): Handle missing arg to -E.
+
+Tue Apr 22 08:55:35 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* Makefile.in:  Add clean targets.
+
+Fri Apr 18 18:57:04 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* interp.c:  Include float.h and define SIGTRAP if _WIN32.
+	WIN32 -> _WIN32.
+	* (trap):  Do do SYS_chown for _WIN32.
+
+Fri Apr 18 13:33:09 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* interp.c (sim_resume): Fix argument to poll_quit.
+
+Fri Apr 18 14:14:49 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_stop): New function.
+	(sim_resume): Use poll_quit for polling.
+
+Thu Apr 17 03:32:04 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (SIM_OBJS): Add sim-load.o.
+	* interp.c (target_byte_order): Delete.
+	(sim_kind, myname, little_endian_p): New static locals.
+	(init_pointers): Use little_endian_p instead of target_byte_order.
+	(sim_resume): Likewise.
+	(sim_open): Set sim_kind, myname.  Set little_endian_p from -E arg.
+	(sim_load): Return SIM_RC.  New arg abfd.  Call sim_load_file to
+	load file into simulator.  Set start address from bfd.
+	(sim_create_inferior): Return SIM_RC.  Delete arg start_address.
+
+Mon Apr  7 15:45:02 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Wed Apr  2 15:06:28 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* interp.c (sim_open): New arg `kind'.
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Apr  2 14:34:19 1997 Andrew Cagney <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 19 09:34:36 1997  Fred Fish  <fnf@cygnus.com>
+
+	* interp.c (sim_do_command): Check for NULL command or empty
+	string and handle it the same as a "help" command.  Use callback
+ 	to print error message for unrecognized commands.  Replace
+	hardcoded tab in literal string with a \t.  Other minor code
+ 	cleanup.
+
+Wed Mar 19 01:14:00 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Mar 17 15:10:07 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Re-generate.
+
+Fri Mar 14 10:34:11 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* configure: Regenerate to track ../common/aclocal.m4 changes.
+
+Thu Mar 13 13:00:00 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* interp.c (sim_open): New SIM_DESC result.  Argument is now
+	in argv form.
+	(other sim_*): New SIM_DESC argument.
+
+Tue Feb  4 13:33:30 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (@COMMON_MAKEFILE_FRAG): Use
+	COMMON_{PRE,POST}_CONFIG_FRAG instead.
+	* configure.in: sinclude ../common/aclocal.m4.
+	* configure: Regenerated.
+
+Thu Jan 23 11:46:23 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* configure configure.in Makefile.in:  Update to new configure
+	scheme which is more compatible with WinGDB builds.
+	* configure.in:  Improve comment on how to run autoconf.
+	* configure:  Re-run autoconf to get new ../common/aclocal.m4.
+	* Makefile.in:  Use autoconf substitution to install common
+	makefile fragment.
+
+Wed Nov 20 02:04:32 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in: Delete stuff moved to ../common/Make-common.in.
+	(SIM_OBJS,SIM_EXTRA_LIBS): Define.
+	* configure.in: Simplify using macros in ../common/aclocal.m4.
+	Call AC_CHECK_HEADERS(unistd.h).
+	* configure: Regenerated.
+	* config.in: New file.
+	* interp.c: #include "config.h".  #include <unistd.h> if present.
+	(trap): Fetch errno value with callback->get_errno.
+
+Tue Nov 12 13:34:00 1996  Dawn Perchik  <dawn@cygnus.com>   
+
+	* interp.c: Don't include windows polling code if inside simluator.
+
+Fri Sep 20 14:57:50 1996  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* interp.c: Minor formatting improvements.
+	(saved_state_type): Add bank registers.
+	(bp_holder): New function, use to break on when debugging BUSERROR.
+	(BUSERROR): Call it if bus error occurs.
+
 Wed Jun 26 12:29:22 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
 
         * Makefile.in (bindir, libdir, datadir, mandir, infodir, includedir,
@@ -24,7 +290,7 @@ Wed Feb 21 12:16:41 1996  Ian Lance Taylor  <ian@cygnus.com>
 Tue Dec  5 16:38:55 1995  Stu Grossman  (grossman@cygnus.com)
 
 	* gencode.c (mac.l):  Don't abort GDB if executing mac.l
-	instruction (which is unimplimented).  Generate a SIGTRAP (in the
+	instruction (which is unimplemented).  Generate a SIGTRAP (in the
 	simulated target) instead.
 
 Mon Dec  4 12:22:24 1995  J.T. Conklin  <jtc@rtl.cygnus.com>

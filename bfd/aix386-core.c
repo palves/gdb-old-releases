@@ -1,7 +1,8 @@
 /* BFD back-end for AIX on PS/2 core files.
    This was based on trad-core.c, which was written by John Gilmore of
         Cygnus Support.
-   Copyright 1988, 1989, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1988, 89, 91, 92, 93, 94, 95, 96, 1997
+   Free Software Foundation, Inc.
    Written by Minh Tran-Le <TRANLE@INTELLICORP.COM>.
    Converted to back end form by Ian Lance Taylor <ian@cygnus.com>.
 
@@ -24,7 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
-#include "obstack.h"
 #include "coff/i386.h"
 #include "coff/internal.h"
 #include "libcoff.h"
@@ -67,6 +67,8 @@ struct trad_core_struct {
   asection *reg2_section;
   asection *sections[MAX_CORE_SEGS];
 };
+
+static void swap_abort PARAMS ((void));
 
 static const bfd_target *
 aix386_core_file_p (abfd)
@@ -234,7 +236,7 @@ aix386_core_file_matches_executable_p (core_bfd, exec_bfd)
 }
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
-void
+static void
 swap_abort()
 {
   abort(); /* This way doesn't require any declaration for ANSI to fuck up */

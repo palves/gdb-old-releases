@@ -1,4 +1,4 @@
-# Copyright (C) 1996 Free Software Foundation, Inc.
+# Copyright (C) 1996, 1997 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -24,7 +24,7 @@ if $tracelevel then {
 }
 
 proc do_tests {} {
-    global prms_id bug_id subdir objdir srcdir binfile prompt
+    global prms_id bug_id subdir objdir srcdir binfile gdb_prompt
 
     set prms_id 0
     set bug_id 0
@@ -35,7 +35,7 @@ proc do_tests {} {
     gdb_start
     gdb_load $binfile
 
-    send "set language chill\n" ;  expect -re "$prompt $"
+    gdb_test "set language chill" ""
     runto pr-9095.ch:12
     gdb_test {p v_arr2(5)->.p(5)} "reference value used as function" \
 	"bad call using pointer"

@@ -40,15 +40,28 @@
 #define HAVE_BSD_SIGNALS
 /* #define USE_XON_XOFF */
 
-#if defined(__MSDOS__) || defined(_MSC_VER)
+/* Only do this for DOS, and WinGDB */
+#if defined __MSDOS__ || (defined _WIN32 && !defined __CYGWIN32__)
 #define NO_SYS_FILE
-#define SIGALRM 1234
 #undef NEW_TTY_DRIVER
 #undef HAVE_BSD_SIGNALS
 #define MINIMAL
 #endif
 
+/* Only do this for cygwin32 */
+#if defined __CYGWIN32__
+#define tgetent(ARG1, ARG2) -1
+#define tgetnum(ARG1) ((int)abort())
+#define tgetstr(ARG1, ARG2) ((char *)abort())
+#define tgetflag(ARG1) ((int)abort())
+#define tputs(ARG1, ARG2, ARG3) ((int)abort())
+#define setpwent()
+#else
+extern char *tgetstr ();
+#endif
+
 #if defined (__linux__)
+#  include <termios.h>
 #  include <termcap.h>
 #endif /* __linux__ */
 
@@ -58,27 +71,26 @@
 #  undef HAVE_BSD_SIGNALS
 #endif
 
-#if defined (__WIN32__) && !defined(_MSC_VER)
-#undef NEW_TTY_DRIVER
-#define MINIMAL
-#undef HAVE_BSD_SIGNALS
-#define TERMIOS_TTY_DRIVER
-#undef HANDLE_SIGNALS
-#include <termios.h>
-/*#define HAVE_POSIX_SIGNALS*/
+/* Only do this for WinGDB */
+#if defined _WIN32 && !defined __CYGWIN32__
+#define ScreenCols() 80
+#define ScreenRows() 24
+#define ScreenSetCursor() abort();
+#define ScreenGetCursor() abort();
 #endif
 
 /* System V machines use termio. */
 #if !defined (_POSIX_VERSION)
-/* CYGNUS LOCAL accept __hpux as well as hpux for HP compiler in ANSI mode.  */
-#  if defined (USG) || defined (hpux) || defined (__hpux) || defined (Xenix) || defined (sgi) || defined (DGUX)
+/* CYGNUS LOCAL accept __hpux as well as hpux for HP compiler in ANSI mode.
+   Add __osf__ to list of machines to force use of termio.h */
+#  if defined (USG) || defined (hpux) || defined (__hpux) || defined (Xenix) || defined (sgi) || defined (DGUX) || defined (__osf__)
 #    undef NEW_TTY_DRIVER
 #    define TERMIO_TTY_DRIVER
 #    include <termio.h>
 #    if !defined (TCOON)
 #      define TCOON 1
 #    endif
-#  endif /* USG || hpux || Xenix || sgi || DUGX */
+#  endif /* USG || hpux || Xenix || sgi || DUGX || __osf__ */
 #endif /* !_POSIX_VERSION */
 
 /* Posix systems use termios and the Posix signal functions. */
@@ -151,6 +163,12 @@
 #endif /* !1 */
 
 #if defined (USG) && defined (TIOCGWINSZ) && !defined (Linux)
+#  if defined (_AIX)
+	/* AIX 4.x seems to reference struct uio within a prototype
+	   in stream.h, but doesn't cause the uio include file to
+	   be included.  */
+#    include <sys/uio.h>
+#  endif
 #  include <sys/stream.h>
 #  if defined (HAVE_SYS_PTEM_H)
 #    include <sys/ptem.h>
@@ -183,7 +201,7 @@ extern char *strchr (), *strrchr ();
 /* If on, then readline handles signals in a way that doesn't screw. */
 #define HANDLE_SIGNALS
 
-#if defined(__WIN32__) || defined(__MSDOS__)
+#if defined __MSDOS__ || (defined _WIN32 && !defined __CYGWIN32__)
 #undef HANDLE_SIGNALS
 #endif
 

@@ -1,6 +1,6 @@
 #define DEBUG
 
-#define MSIZE (8*64*1024)
+#define H8500_MSIZE (8*64*1024)
 #define CSIZE 1000
 
 

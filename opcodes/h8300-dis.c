@@ -234,6 +234,8 @@ bfd_h8_disassemble (addr, info, mode)
 		    case 0:
 		      abs = 1;
 		      break;
+		    default:
+		      goto fail;
 		    }
 		}
 	      else if (looking_for & L_8)
@@ -243,13 +245,16 @@ bfd_h8_disassemble (addr, info, mode)
 		}
 	      else if (looking_for & L_3)
 		{
-		  plen = 3;
-		  bit = thisnib;
+		  bit = thisnib & 0x7;
 		}
 	      else if (looking_for & L_2)
 		{
 		  plen = 2;
-		  abs = thisnib;
+		  abs = thisnib & 0x3;
+		}
+	      else if (looking_for & MACREG)
+		{
+		  abs = (thisnib == 3);
 		}
 	      else if (looking_for == E)
 		{
@@ -267,6 +272,30 @@ bfd_h8_disassemble (addr, info, mode)
 		      }
 		  }
 		  fprintf (stream, "%s\t", q->name);
+
+		  /* Gross.  Disgusting.  */
+		  if (strcmp (q->name, "ldm.l") == 0)
+		    {
+		      int count, high;
+
+		      count = (data[1] >> 4) & 0x3;
+		      high = data[3] & 0x7;
+
+		      fprintf (stream, "@sp+,er%d-er%d", high - count, high);
+		      return q->length;
+		    }
+
+		  if (strcmp (q->name, "stm.l") == 0)
+		    {
+		      int count, low;
+
+		      count = (data[1] >> 4) & 0x3;
+		      low = data[3] & 0x7;
+
+		      fprintf (stream, "er%d-er%d,@-sp", low, low + count);
+		      return q->length;
+		    }
+
 		  /* Fill in the args */
 		  {
 		    op_type *args = q->args.nib;
@@ -286,6 +315,10 @@ bfd_h8_disassemble (addr, info, mode)
 			  }
 			else if (x & (IMM|KBIT|DBIT))
 			  {
+			    /* Bletch.  For shal #2,er0 and friends.  */
+			    if (*(args+1) & SRC_IN_DST)
+			      abs = 2;
+
 			    fprintf (stream, "#0x%x", (unsigned) abs);
 			  }
 			else if (x & REG)
@@ -306,7 +339,10 @@ bfd_h8_disassemble (addr, info, mode)
 		    
 			      }
 			  }
-
+			else if (x & MACREG)
+			  {
+			    fprintf (stream, "mac%c", abs ? 'l' : 'h');
+			  }
 			else if (x & INC)
 			  {
 			    fprintf (stream, "@%s+", pregnames[rs]);
@@ -357,8 +393,11 @@ bfd_h8_disassemble (addr, info, mode)
 
 			else if (x & CCR)
 			  {
-
 			    fprintf (stream, "ccr");
+			  }
+			else if (x & EXR)
+			  {
+			    fprintf (stream, "exr");
 			  }
 
 			else

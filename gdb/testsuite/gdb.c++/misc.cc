@@ -445,6 +445,13 @@ register_class ()
   return v.x + 5;
 }
 
+#ifdef usestubs
+extern "C" {
+  void set_debug_traps();
+  void breakpoint();
+};
+#endif
+
 int
 main()
 {

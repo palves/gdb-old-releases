@@ -21,7 +21,6 @@ not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include <sys/types.h>
-#include <fcntl.h> /* After sys/types.h, at least for dpx/2.  */
 #include "mmprivate.h"
 
 /* Terminate access to a mmalloc managed region by unmapping all memory pages
@@ -52,9 +51,10 @@ mmalloc_detach (md)
       /* Now unmap all the pages associated with this region by asking for a
 	 negative increment equal to the current size of the region. */
       
-      if ((mtemp.morecore (&mtemp, mtemp.base - mtemp.top)) == NULL)
+      if ((mtemp.morecore (&mtemp, mtemp.base - mtemp.breakval)) == NULL)
 	{
-	  /* Update the original malloc descriptor with any changes */
+	  /* Deallocating failed.  Update the original malloc descriptor
+	     with any changes */
 	  *(struct mdesc *) md = mtemp;
 	}
       else

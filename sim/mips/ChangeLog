@@ -1,3 +1,1245 @@
+Sun Feb  1 15:47:14 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (sim_use_gen): Make IGEN the default simulator
+ 	generator for generic 32 and 64 bit mips targets.
+	* configure: Re-generate.
+
+Sun Feb  1 16:52:37 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (SizeFGR): Determine from floating-point and not gpr
+ 	bitsize.
+
+	* interp.c (sim_fetch_register, sim_store_register): Read/write
+ 	FGR from correct location.
+	(sim_open): Set size of FGR's according to
+ 	WITH_TARGET_FLOATING_POINT_BITSIZE.
+	
+	* sim-main.h (FGR): Store floating point registers in a separate
+ 	array.
+
+Sun Feb  1 16:47:51 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Feb  3 00:10:50 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (ColdReset): Call PENDING_INVALIDATE.
+
+	* sim-main.h (ENGINE_ISSUE_PREFIX_HOOK): Call PENDING_TICK.
+
+	* interp.c (pending_tick): New function.  Deliver pending writes.
+
+	* sim-main.h (PENDING_FILL, PENDING_TICK, PENDING_SCHED,
+ 	PENDING_BIT, PENDING_INVALIDATE): Re-write pipeline code so that
+ 	it can handle mixed sized quantites and single bits.
+	
+Mon Feb  2 17:43:15 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (oengine.h): Do not include when building with IGEN.
+	(sim_open): Replace GPRLEN by WITH_TARGET_WORD_BITSIZE.
+	(sim_info): Ditto for PROCESSOR_64BIT.
+	(sim_monitor): Replace ut_reg with unsigned_word.
+	(*): Ditto for t_reg.
+	(LOADDRMASK): Define.
+	(sim_open): Remove defunct check that host FP is IEEE compliant,
+ 	using software to emulate floating point.
+	(value_fpr, ...): Always compile, was conditional on HASFPU.
+
+Sun Feb  1 11:15:29 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (sim_state): Make the cpu array MAX_NR_PROCESSORS in
+ 	size.
+
+	* interp.c (SD, CPU): Define.
+	(mips_option_handler): Set flags in each CPU.
+	(interrupt_event): Assume CPU 0 is the one being iterrupted.
+	(sim_close): Do not clear STATE, deleted anyway.
+	(sim_write, sim_read): Assume CPU zero's vm should be used for
+ 	data transfers.
+	(sim_create_inferior): Set the PC for all processors.
+	(sim_monitor, store_word, load_word, mips16_entry): Add cpu
+ 	argument.
+	(mips16_entry): Pass correct nr of args to store_word, load_word.
+	(ColdReset): Cold reset all cpu's.
+	(signal_exception): Pass cpu to sim_monitor & mips16_entry.
+	(sim_monitor, load_memory, store_memory, signal_exception): Use
+ 	`CPU' instead of STATE_CPU.
+
+
+	* sim-main.h: Replace uses of STATE_CPU with CPU. Replace sd with
+ 	SD or CPU_.
+	
+	* sim-main.h (signal_exception): Add sim_cpu arg.
+	(SignalException*): Pass both SD and CPU to signal_exception.
+	* interp.c (signal_exception): Update.
+	
+	* sim-main.h (value_fpr, store_fpr, dotrace, ifetch32), interp.c:
+ 	Ditto
+	(sync_operation, prefetch, cache_op, store_memory, load_memory,
+ 	address_translation): Ditto
+	(decode_coproc, cop_lw, cop_ld, cop_sw, cop_sd): Ditto.
+	
+Sat Jan 31 18:15:41 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sat Jan 31 14:49:24 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_engine_run): Add `nr_cpus' argument.
+
+	* mips.igen (model): Map processor names onto BFD name.	
+
+	* sim-main.h (CPU_CIA): Delete.
+ 	(SET_CIA, GET_CIA): Define
+
+Wed Jan 21 16:16:27 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (GPR_SET): Define, used by igen when zeroing a
+ 	regiser.
+
+	* configure.in (default_endian): Configure a big-endian simulator
+ 	by default.
+	* configure: Re-generate.
+	
+Mon Jan 19 22:26:29 1998  Doug Evans  <devans@seba>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Jan  5 20:38:54 1998  Mark Alexander  <marka@cygnus.com>
+
+	* interp.c (sim_monitor): Handle Densan monitor outbyte
+	and inbyte functions.
+
+1997-12-29  Felix Lee  <flee@cygnus.com>
+
+	* interp.c (sim_engine_run): msvc cpp barfs on #if (a==b!=c).
+
+Wed Dec 17 14:48:20 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in (tmp-igen): Arrange for $zero to always be
+	reset to zero after every instruction.
+
+Mon Dec 15 23:17:11 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Wed Dec 10 17:10:45 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* mips.igen (MSUB): Fix to work like MADD.
+	* gencode.c (MSUB): Similarly.
+
+Thu Dec  4 09:21:05 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Nov 26 11:00:23 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen (LWC1): Correct assembler - lwc1 not swc1.
+
+Sun Nov 23 01:45:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (sim-fpu.h): Include.
+
+	* interp.c (convert, SquareRoot, Recip, Divide, Multiply, Sub,
+ 	Add, Negate, AbsoluteValue, Equal, Less, Infinity, NaN): Rewrite
+ 	using host independant sim_fpu module.
+
+Thu Nov 20 19:56:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (signal_exception): Report internal errors with SIGABRT
+ 	not SIGQUIT.
+
+	* sim-main.h (C0_CONFIG): New register.
+	(signal.h): No longer include.
+
+	* interp.c (decode_coproc): Allow access C0_CONFIG to register.
+
+Tue Nov 18 15:33:48 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* Makefile.in (SIM_OBJS): Use $(SIM_NEW_COMMON_OBJS).
+
+Fri Nov 14 11:56:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen: Tag vr5000 instructions.
+	(ANDI): Was missing mipsIV model, fix assembler syntax.
+	(do_c_cond_fmt): New function.
+	(C.cond.fmt): Handle mips I-III which do not support CC field
+ 	separatly.
+	(bc1): Handle mips IV which do not have a delaed FCC separatly.
+	(SDR): Mask paddr when BigEndianMem, not the converse as specified
+ 	in IV3.2 spec.
+	(DMULT, DMULTU): Force use of hosts 64bit multiplication.  Handle
+ 	vr5000 which saves LO in a GPR separatly.
+	
+	* configure.in (enable-sim-igen): For vr5000, select vr5000
+ 	specific instructions.
+	* configure: Re-generate.
+	
+Wed Nov 12 14:42:52 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (SIM_OBJS): Add sim-fpu module.
+
+	* interp.c (store_fpr), sim-main.h: Add separate fmt_uninterpreted_32 and
+ 	fmt_uninterpreted_64 bit cases to switch.  Convert to
+ 	fmt_formatted,
+
+	* sim-main.h (ENGINE_ISSUE_PREFIX_HOOK): Define,
+
+	* mips.igen (SWR): Mask paddr when BigEndianMem, not the converse
+ 	as specified in IV3.2 spec.
+	(MTC1, DMTC1): Call StoreFPR to store the GPR in the FPR.
+
+Tue Nov 11 12:38:23 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen: Delay slot branches add OFFSET to NIA not CIA.
+ 	(MFC0, MTC0, SWC1, LWC1, SDC1, LDC1): Implement.
+	(MTC1, MFC1, DMTC1, DMFC1, CFC1, CTC1): Implement separate non
+ 	PENDING_FILL versions of instructions.  Simplify.
+	(X): New function.
+	(MULT, MULTU): Implement separate RD==0 and RD!=0 versions of
+ 	instructions.
+	(BEQZ, ..., SLT, SLTI, TLT, TLE, TLI, ...): Explicitly cast GPR to
+ 	a signed value.
+	(MTHI, MFHI): Disable code checking HI-LO.
+	
+	* sim-main.h (dotrace,tracefh), interp.c: Make dotrace & tracefh
+ 	global.
+	(NULLIFY_NEXT_INSTRUCTION): Call dotrace.
+
+Thu Nov  6 16:36:35 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (build_mips16_operands): Replace IPC with cia.
+
+	* interp.c (sim_monitor, signal_exception, cache_op, store_fpr,
+ 	value_fpr, cop_ld, cop_lw, cop_sw, cop_sd, decode_coproc): Replace
+ 	IPC to `cia'.
+	(UndefinedResult): Replace function with macro/function
+ 	combination.
+	(sim_engine_run): Don't save PC in IPC.
+
+	* sim-main.h (IPC): Delete.
+
+
+	* interp.c (signal_exception, store_word, load_word,
+ 	address_translation, load_memory, store_memory, cache_op,
+ 	prefetch, sync_operation, ifetch, value_fpr, store_fpr, convert,
+ 	cop_lw, cop_ld, cop_sw, cop_sd, decode_coproc, sim_monitor): Add
+ 	current instruction address - cia - argument.
+	(sim_read, sim_write): Call address_translation directly.
+	(sim_engine_run): Rename variable vaddr to cia.
+	(signal_exception): Pass cia to sim_monitor
+	
+	* sim-main.h (SignalException, LoadWord, StoreWord, CacheOp,
+ 	Prefetch, SyncOperation, ValueFPR, StoreFPR, Convert, COP_LW,
+ 	COP_LD, COP_SW, COP_SD, DecodeCoproc): Update.
+
+	* sim-main.h (SignalExceptionSimulatorFault): Delete definition.
+  	* interp.c (sim_open): Replace SignalExceptionSimulatorFault with
+ 	SIM_ASSERT.
+	
+	* interp.c (signal_exception): Pass restart address to
+ 	sim_engine_restart.
+
+	* Makefile.in (semantics.o, engine.o, support.o, itable.o,
+ 	idecode.o): Add dependency.
+
+	* sim-main.h (SIM_ENGINE_HALT_HOOK, SIM_ENGINE_RESUME_HOOK):
+ 	Delete definitions
+	(DELAY_SLOT): Update NIA not PC with branch address.
+	(NULLIFY_NEXT_INSTRUCTION): Set NIA to instruction after next.
+
+	* mips.igen: Use CIA not PC in branch calculations.
+	(illegal): Call SignalException.
+ 	(BEQ, ADDIU): Fix assembler.
+
+Wed Nov  5 12:19:56 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* m16.igen (JALX): Was missing.
+
+	* configure.in (enable-sim-igen): New configuration option.
+	* configure: Re-generate.
+	
+	* sim-main.h (MAX_INSNS, INSN_NAME): Define.
+
+	* interp.c (load_memory, store_memory): Delete parameter RAW.
+	(sim_read, sim_write): Use sim_core_{read,write}_buffer directly
+ 	bypassing {load,store}_memory.
+
+	* sim-main.h (ByteSwapMem): Delete definition.
+
+	* Makefile.in (SIM_OBJS): Add sim-memopt module.
+
+	* interp.c (sim_do_command, sim_commands): Delete mips specific
+ 	commands.  Handled by module sim-options.
+		
+	* sim-main.h (SIM_HAVE_FLATMEM): Undefine, use sim-core.o module.
+	(WITH_MODULO_MEMORY): Define.
+
+	* interp.c (sim_info): Delete code printing memory size.
+
+	* interp.c (mips_size): Nee sim_size, delete function.
+	(power2): Delete.
+	(monitor, monitor_base, monitor_size): Delete global variables.
+	(sim_open, sim_close): Delete code creating monitor and other
+ 	memory regions.  Use sim-memopts module, via sim_do_commandf, to
+ 	manage memory regions.
+	(load_memory, store_memory): Use sim-core for memory model.
+	
+	* interp.c (address_translation): Delete all memory map code
+ 	except line forcing 32 bit addresses.
+
+Wed Nov  5 11:21:11 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (WITH_TRACE): Delete definition.  Enables common
+ 	trace options.
+
+	* interp.c (logfh, logfile): Delete globals.
+	(sim_open, sim_close): Delete code opening & closing log file.
+	(mips_option_handler): Delete -l and -n options.
+	(OPTION mips_options): Ditto.
+
+	* interp.c (OPTION mips_options): Rename option trace to dinero.
+	(mips_option_handler): Update.
+
+Wed Nov  5 09:35:59 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (fetch_str): New function.
+	(sim_monitor): Rewrite using sim_read & sim_write.
+	(sim_open): Check magic number.
+	(sim_open): Write monitor vectors into memory using sim_write.
+	(MONITOR_BASE, MONITOR_SIZE, MEM_SIZE): Define.
+	(sim_read, sim_write): Simplify - transfer data one byte at a
+ 	time.
+	(load_memory, store_memory): Clarify meaning of parameter RAW.
+
+	* sim-main.h (isHOST): Defete definition.
+	(isTARGET): Mark as depreciated.
+	(address_translation): Delete parameter HOST.
+
+	* interp.c (address_translation): Delete parameter HOST.
+
+Wed Oct 29 11:13:56 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen: 
+
+	* Makefile.in (IGEN_INCLUDE): Files included by mips.igen.
+	(tmp-igen, tmp-m16): Depend on IGEN_INCLUDE.
+
+Tue Oct 28 11:06:47 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen: Add model filter field to records.
+
+Mon Oct 27 17:53:59 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (SIM_NO_CFLAGS): Define.  Define WITH_IGEN=0.
+	
+	interp.c (sim_engine_run): Do not compile function sim_engine_run
+ 	when WITH_IGEN == 1.
+
+	* configure.in (sim_igen_flags, sim_m16_flags): Set according to
+ 	target architecture.
+
+	Makefile.in (tmp-igen, tmp-m16): Drop -F and -M options to
+ 	igen. Replace with configuration variables sim_igen_flags /
+ 	sim_m16_flags.
+
+	* m16.igen: New file.  Copy mips16 insns here.
+	* mips.igen: From here.
+
+Mon Oct 27 13:53:59 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (SIM_NO_OBJ): Define, move SIM_M16_OBJ, SIM_IGEN_OBJ
+ 	to top.
+	(tmp-igen, tmp-m16): Pass -I srcdir to igen.
+
+Sat Oct 25 16:51:40 1997  Gavin Koch  <gavin@cygnus.com>
+
+	* gencode.c (build_instruction): Follow sim_write's lead in using
+	BigEndianMem instead of !ByteSwapMem.
+
+Fri Oct 24 17:41:49 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (sim_gen): Dependent on target, select type of
+ 	generator.  Always select old style generator.
+
+	configure: Re-generate.
+
+	Makefile.in (tmp-igen, tmp-m16, clean-m16, clean-igen): New
+ 	targets.
+	(SIM_M16_CFLAGS, SIM_M16_ALL, SIM_M16_OBJ, BUILT_SRC_FROM_M16,
+ 	SIM_IGEN_CFLAGS, SIM_IGEN_ALL, SIM_IGEN_OBJ, BUILT_SRC_FROM_IGEN,
+ 	IGEN_TRACE, IGEN_INSN, IGEN_DC): Define
+	(SIM_EXTRA_CFLAGS, SIM_EXTRA_ALL, SIM_OBJS): Add member
+ 	SIM_@sim_gen@_*, set by autoconf.
+	
+Wed Oct 22 12:52:06 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (NULLIFY_NEXT_INSTRUCTION, DELAY_SLOT): Define.
+
+	* interp.c (ColdReset): Remove #ifdef HASFPU, check
+ 	CURRENT_FLOATING_POINT instead.
+
+	* interp.c (ifetch32): New function. Fetch 32 bit instruction.
+	(address_translation): Raise exception InstructionFetch when
+ 	translation fails and isINSTRUCTION.
+	
+	* interp.c (sim_open, sim_write, sim_monitor, store_word,
+ 	sim_engine_run): Change type of of vaddr and paddr to
+ 	address_word.
+	(address_translation, prefetch, load_memory, store_memory,
+ 	cache_op): Change type of vAddr and pAddr to address_word.
+
+	* gencode.c (build_instruction): Change type of vaddr and paddr to
+ 	address_word.
+
+Mon Oct 20 15:29:04 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (ALU64_END, ALU32_END): Use ALU*_OVERFLOW_RESULT
+ 	macro to obtain result of ALU op.
+
+Tue Oct 21 17:39:14 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_info): Call profile_print.
+
+Mon Oct 20 13:31:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (SIM_OBJS): Add sim-profile.o module.
+
+	* sim-main.h (WITH_PROFILE): Do not define, defined in
+ 	common/sim-config.h.  Use sim-profile module.
+	(simPROFILE): Delete defintion.
+
+	* interp.c (PROFILE): Delete definition.
+	(mips_option_handler): Delete 'p', 'y' and 'x' profile options.
+	(sim_close): Delete code writing profile histogram.
+	(mips_set_profile, mips_set_profile_size, writeout16, writeout32):
+ 	Delete.
+	(sim_engine_run): Delete code profiling the PC.
+
+Mon Oct 20 13:31:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (SIGNEXTEND): Force type of result to unsigned_word.
+
+	* interp.c (sim_monitor): Make register pointers of type
+ 	unsigned_word*.
+
+	* sim-main.h: Make registers of type unsigned_word not
+ 	signed_word.
+
+Thu Oct 16 10:31:39 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sync_operation): Rename from SyncOperation, make
+ 	global, add SD argument.
+	(prefetch): Rename from Prefetch, make global, add SD argument.
+	(decode_coproc): Make global.
+
+	* sim-main.h (SyncOperation, DecodeCoproc, Pefetch): Define.
+
+	* gencode.c (build_instruction): Generate DecodeCoproc not
+ 	decode_coproc calls.
+
+	* interp.c (SETFCC, GETFCC, PREVCOC1): Move to sim-main.h
+	(SizeFGR): Move to sim-main.h
+	(simHALTEX, simHALTIN, simTRACE, simPROFILE, simDELAYSLOT,
+ 	simSIGINT, simJALDELAYSLOT): Move to sim-main.h
+	(FP_FLAGS, FP_ENABLE, FP_CAUSE, IR, UF, OF, DZ, IO, UO): Move to
+ 	sim-main.h.
+	(FP_FS, FP_MASK_RM, FP_SH_RM, FP_RM_NEAREST, FP_RM_TOPINF,
+ 	FP_RM_TOMINF, GETRM): Move to sim-main.h.
+	(Uncached, CachedNoncoherent, CachedCoherent, Cached,
+ 	isINSTRUCTION, ..., AccessLength_BYTE, ...): Move to sim-main.h.
+	(UserMode, BigEndianMem, ByteSwapMem, ReverseEndian,
+ 	BigEndianCPU, status_KSU_mask, ...). Moved to sim-main.h
+	
+	* sim-main.h (ALU32_END, ALU64_END): Define. When overflow raise
+ 	exception.
+	(sim-alu.h): Include.
+	(NULLIFY_NIA, NULL_CIA, CPU_CIA): Define.
+ 	(sim_cia): Typedef to instruction_address.
+	
+Thu Oct 16 10:31:41 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (interp.o): Rename generated file engine.c to
+	oengine.c.
+  	
+	* interp.c: Update.
+	
+Thu Oct 16 10:31:40 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (build_instruction): Use FPR_STATE not fpr_state.
+	
+Thu Oct 16 10:31:39 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (build_instruction): For "FPSQRT", output correct
+ 	number of arguments to Recip.
+	
+Tue Oct 14 17:38:18 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (interp.o): Depends on sim-main.h
+
+	* interp.c (mips16_entry, ColdReset,dotrace): Add SD argument. Use GPR not registers.
+
+	* sim-main.h (sim_cpu): Add registers, register_widths, fpr_state,
+ 	ipc, dspc, pending_*, hiaccess, loaccess, state, dsstate fields.
+ 	(REGISTERS, REGISTER_WIDTHS, FPR_STATE, IPC, DSPC, PENDING_*,
+ 	STATE, DSSTATE): Define
+	(GPR, FGRIDX, ..): Define.
+
+	* interp.c (registers, register_widths, fpr_state, ipc, dspc,
+ 	pending_*, hiaccess, loaccess, state, dsstate): Delete globals.
+	(GPR, FGRIDX, ...): Delete macros.
+	
+	* interp.c: Update names to match defines from sim-main.h
+	
+Tue Oct 14 15:11:45 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_monitor): Add SD argument.
+	(sim_warning): Delete.  Replace calls with calls to
+ 	sim_io_eprintf.
+	(sim_error): Delete. Replace calls with sim_io_error.
+	(open_trace, writeout32, writeout16, getnum): Add SD argument.
+	(mips_set_profile): Rename from sim_set_profile. Add SD argument.
+	(mips_set_profile_size): Rename from sim_set_profile_size. Add SD
+ 	argument.
+	(mips_size): Rename from sim_size. Add SD argument.
+
+	* interp.c (simulator): Delete global variable.
+	(callback): Delete global variable.
+	(mips_option_handler, sim_open, sim_write, sim_read,
+ 	sim_store_register, sim_fetch_register, sim_info, sim_do_command,
+ 	sim_size,sim_monitor): Use sim_io_* not callback->*.
+	(sim_open): ZALLOC simulator struct.
+	(PROFILE): Do not define.
+
+Tue Oct 14 13:35:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_open), support.h: Replace CHECKSIM macro found in
+ 	support.h with corresponding code.
+
+	* sim-main.h (word64, uword64), support.h: Move definition to
+ 	sim-main.h.
+	(WORD64LO, WORD64HI, SET64LO, SET64HI, WORD64, UWORD64): Ditto.
+
+	* support.h: Delete
+	* Makefile.in: Update dependencies
+	* interp.c: Do not include.
+	
+Tue Oct 14 13:35:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (address_translation, load_memory, store_memory,
+ 	cache_op): Rename to from AddressTranslation et.al., make global,
+ 	add SD argument
+	
+	* sim-main.h (AddressTranslation, LoadMemory, StoreMemory,
+ 	CacheOp): Define.
+	
+	* interp.c (SignalException): Rename to signal_exception, make
+ 	global.
+
+	* interp.c (Interrupt, ...): Move definitions to sim-main.h.
+	
+	* sim-main.h (SignalException, SignalExceptionInterrupt,
+ 	SignalExceptionInstructionFetch, SignalExceptionAddressStore,
+ 	SignalExceptionAddressLoad, SignalExceptionSimulatorFault,
+ 	SignalExceptionIntegerOverflow, SignalExceptionCoProcessorUnusable):
+ 	Define.
+  	
+	* interp.c, support.h: Use.
+	
+Tue Oct 14 13:19:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (ValueFPR, StoreFPR), sim-main.h: Make global, rename
+ 	to value_fpr / store_fpr. Add SD argument.
+	(NaN, Infinity, Less, Equal, AbsoluteValue, Negate, Add, Sub,
+ 	Multiply, Divide, Recip, SquareRoot, Convert): Make global.
+
+	* sim-main.h (ValueFPR, StoreFPR): Define.
+	
+Tue Oct 14 13:06:55 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_engine_run): Check consistency between configure
+ 	WITH_TARGET_WORD_BITSIZE and WITH_FLOATING_POINT and gensim GPRLEN
+ 	and HASFPU.
+
+	* configure.in (mips_bitsize): Configure WITH_TARGET_WORD_BITSIZE.
+        (mips_fpu): Configure WITH_FLOATING_POINT.
+	(mips_endian): Configure WITH_TARGET_ENDIAN.
+	* configure: Update.
+
+Fri Oct  3 09:28:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Sep 29 14:45:00 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* configure: Regenerated.
+
+Fri Sep 26 12:48:18 1997  Mark Alexander  <marka@cygnus.com>
+
+	* interp.c: Allow Debug, DEPC, and EPC registers to be examined in GDB.
+
+Thu Sep 25 11:15:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (print_igen_insn_models): Assume certain architectures
+ 	include all mips* instructions.
+	(print_igen_insn_format): Use data_size==-1 as marker for MIPS16
+ 	instruction.
+
+	* Makefile.in (tmp.igen): Add target. Generate igen input from
+ 	gencode file.
+
+	* gencode.c (FEATURE_IGEN): Define.
+	(main): Add --igen option.  Generate output in igen format.
+	(process_instructions): Format output according to igen option.
+	(print_igen_insn_format): New function.
+	(print_igen_insn_models): New function.
+	(process_instructions): Only issue warnings and ignore
+ 	instructions when no FEATURE_IGEN.
+
+Wed Sep 24 17:38:57 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (COP_SD, COP_LD): Add UNUSED to pacify GCC for some
+ 	MIPS targets.
+
+Tue Sep 23 11:04:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Sep 23 10:19:51 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (SIM_ALIGNMENT, SIM_ENDIAN, SIM_HOSTENDIAN,
+ 	SIM_RESERVED_BITS): Delete, moved to common.
+	(SIM_EXTRA_CFLAGS): Update.
+	
+Mon Sep 22 11:46:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in: Configure non-strict memory alignment.
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Sep 19 17:45:25 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sat Sep 20 14:07:28 1997  Gavin Koch  <gavin@cygnus.com>
+
+	* gencode.c (SDBBP,DERET): Added (3900) insns.
+	(RFE): Turn on for 3900.
+	* interp.c (DebugBreakPoint,DEPC,Debug,Debug_*): Added.
+	(dsstate): Made global.
+	(SUBTARGET_R3900): Added.
+	(CANCELDELAYSLOT): New.
+	(SignalException): Ignore SystemCall rather than ignore and
+	terminate.  Add DebugBreakPoint handling.
+	(decode_coproc): New insns RFE, DERET; and new registers Debug
+	and DEPC protected by SUBTARGET_R3900.
+	(sim_engine_run): Use CANCELDELAYSLOT rather than clearing
+	bits explicitly.
+	* Makefile.in,configure.in: Add mips subtarget option.
+	* configure: Update.	
+
+Fri Sep 19 09:33:27 1997  Gavin Koch  <gavin@cygnus.com>
+
+	* gencode.c: Add r3900 (tx39).
+	
+
+Tue Sep 16 15:52:04 1997  Gavin Koch  <gavin@cygnus.com>
+
+	* gencode.c (build_instruction): Don't need to subtract 4 for
+	JALR, just 2.
+
+Tue Sep 16 11:32:28 1997  Gavin Koch  <gavin@cygnus.com>
+
+	* interp.c: Correct some HASFPU problems.
+
+Mon Sep 15 17:36:15 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Sep 12 12:01:39 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (mips_options): Fix samples option short form, should
+ 	be `x'.
+
+Thu Sep 11 09:35:29 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_info): Enable info code.  Was just returning.
+
+Tue Sep  9 17:30:57 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (decode_coproc): Clarify warning about unsuported MTC0,
+ 	MFC0.
+
+Tue Sep  9 16:28:28 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (build_instruction): Use SIGNED64 for 64 bit
+ 	constants.
+	(build_instruction): Ditto for LL.
+
+Thu Sep  4 17:21:23 1997  Doug Evans  <dje@seba>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Aug 27 18:13:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Wed Aug 27 14:12:27 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_open): Add call to sim_analyze_program, update
+ 	call to sim_config.
+
+Tue Aug 26 10:40:07 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_kill): Delete.
+	(sim_create_inferior): Add ABFD argument. Set PC from same.
+	(sim_load): Move code initializing trap handlers from here.
+	(sim_open): To here.
+	(sim_load): Delete, use sim-hload.c.
+
+	* Makefile.in (SIM_OBJS): Add sim-hload.o module.
+
+Mon Aug 25 17:50:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Mon Aug 25 15:59:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_open): Add ABFD argument.
+	(sim_load): Move call to sim_config from here.
+	(sim_open): To here.  Check return status.
+
+Fri Jul 25 15:00:45 1997  Gavin Koch  <gavin@cygnus.com>
+ 
+ 	* gencode.c (build_instruction): Two arg MADD should
+ 	not assign result to $0.
+ 
+Thu Jun 26 12:13:17 1997  Angela Marie Thomas (angela@cygnus.com)
+
+	* sim/mips/configure: Change default_sim_endian to 0 (bi-endian)
+	* sim/mips/configure.in: Regenerate.
+
+Wed Jul  9 10:29:21 1997  Andrew Cagney  <cagney@critters.cygnus.com>
+
+	* interp.c (SUB_REG_UW, SUB_REG_SW, SUB_REG_*): Use more explicit
+ 	signed8, unsigned8 et.al. types.
+
+	* interp.c (SUB_REG_FETCH): Handle both little and big endian
+ 	hosts when selecting subreg.
+
+Wed Jul  2 11:54:10 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* interp.c (sim_engine_run): Reset the ZERO register to zero
+	regardless of FEATURE_WARN_ZERO.
+	* gencode.c (FEATURE_WARNINGS): Remove FEATURE_WARN_ZERO.
+
+Wed Jun  4 10:43:14 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (decode_coproc): Implement MTC0 N, CAUSE.
+	(SignalException): For BreakPoints ignore any mode bits and just
+ 	save the PC.
+	(SignalException): Always set the CAUSE register.
+
+Tue Jun  3 05:00:33 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (SignalException): Clear the simDELAYSLOT flag when an
+ 	exception has been taken.
+
+	* interp.c: Implement the ERET and mt/f sr instructions.
+
+Sat May 31 00:44:16 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (SignalException): Don't bother restarting an
+ 	interrupt.
+
+Fri May 30 23:41:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (SignalException): Really take an interrupt.
+	(interrupt_event): Only deliver interrupts when enabled.
+
+Tue May 27 20:08:06 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_info): Only print info when verbose.
+	(sim_info) Use sim_io_printf for output.
+	
+Tue May 27 14:22:23 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (CoProcPresent): Add UNUSED attribute - not used by all
+ 	mips architectures.
+
+Tue May 27 14:22:23 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_do_command): Check for common commands if a
+ 	simulator specific command fails.
+
+Thu May 22 09:32:03 1997  Gavin Koch  <gavin@cygnus.com>
+
+	* interp.c (sim_engine_run): ifdef out uses of simSTOP, simSTEP
+	and simBE when DEBUG is defined.
+
+Wed May 21 09:08:10 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (interrupt_event): New function.  Pass exception event
+ 	onto exception handler.
+
+	* configure.in: Check for stdlib.h.
+	* configure: Regenerate.
+
+	* gencode.c (build_instruction): Add UNUSED attribute to tempS
+ 	variable declaration.
+	(build_instruction): Initialize memval1.
+	(build_instruction): Add UNUSED attribute to byte, bigend,
+ 	reverse.
+	(build_operands): Ditto.
+
+	* interp.c: Fix GCC warnings.
+	(sim_get_quit_code): Delete.
+
+	* configure.in: Add INLINE, ENDIAN, HOSTENDIAN and WARNINGS.
+	* Makefile.in: Ditto.
+	* configure: Re-generate.
+	
+	* Makefile.in (SIM_OBJS): Add sim-watch.o module.
+
+Tue May 20 15:08:56 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (mips_option_handler): New function parse argumes using
+ 	sim-options.
+	(myname): Replace with STATE_MY_NAME.
+	(sim_open): Delete check for host endianness - performed by
+ 	sim_config.
+	(simHOSTBE, simBE): Delete, replaced by sim-endian flags.
+	(sim_open): Move much of the initialization from here.
+	(sim_load): To here.  After the image has been loaded and
+ 	endianness set.
+	(sim_open): Move ColdReset from here.
+	(sim_create_inferior): To here.
+	(sim_open): Make FP check less dependant on host endianness.
+
+	* Makefile.in (SIM_RUN_OBJS): Set to nrun.o - use new version or
+ 	run.
+	* interp.c (sim_set_callbacks): Delete.
+
+	* interp.c (membank, membank_base, membank_size): Replace with
+ 	STATE_MEMORY, STATE_MEM_SIZE, STATE_MEM_BASE.
+	(sim_open): Remove call to callback->init. gdb/run do this.
+
+	* interp.c: Update
+
+	* sim-main.h (SIM_HAVE_FLATMEM): Define.
+
+	* interp.c (big_endian_p): Delete, replaced by
+ 	current_target_byte_order.
+
+Tue May 20 13:55:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (host_read_long, host_read_word, host_swap_word,
+ 	host_swap_long): Delete. Using common sim-endian.
+	(sim_fetch_register, sim_store_register): Use H2T.
+	(pipeline_ticks): Delete.  Handled by sim-events.
+	(sim_info): Update.
+	(sim_engine_run): Update.
+
+Tue May 20 13:42:03 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_stop_reason): Move code determining simEXCEPTION
+ 	reason from here.
+	(SignalException): To here. Signal using sim_engine_halt.
+	(sim_stop_reason): Delete, moved to common.
+	
+Tue May 20 10:19:48 1997  Andrew Cagney  <cagney@b2.cygnus.com>
+
+	* interp.c (sim_open): Add callback argument.
+	(sim_set_callbacks): Delete SIM_DESC argument.
+	(sim_size): Ditto.
+
+Mon May 19 18:20:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (SIM_OBJS): Add common modules.
+
+	* interp.c (sim_set_callbacks): Also set SD callback.
+	(set_endianness, xfer_*, swap_*): Delete.
+	(host_read_word, host_read_long, host_swap_word, host_swap_long):
+ 	Change to functions using sim-endian macros.
+	(control_c, sim_stop): Delete, use common version.
+	(simulate): Convert into.
+	(sim_engine_run): This function.
+	(sim_resume): Delete.
+	
+	* interp.c (simulation): New variable - the simulator object.
+	(sim_kind): Delete global - merged into simulation.
+	(sim_load): Cleanup.  Move PC assignment from here.
+	(sim_create_inferior): To here.
+
+	* sim-main.h: New file.
+	* interp.c (sim-main.h): Include.
+	
+Thu Apr 24 00:39:51 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Apr 23 17:32:19 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* tconfig.in (SIM_HAVE_BIENDIAN): Define.
+
+Mon Apr 21 17:16:13 1997  Gavin Koch  <gavin@cygnus.com>
+
+	* gencode.c (build_instruction): DIV instructions: check 
+	for division by zero and integer overflow before using 
+	host's division operation.
+
+Thu Apr 17 03:18:14 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (SIM_OBJS): Add sim-load.o.
+	* interp.c: #include bfd.h.
+	(target_byte_order): Delete.
+	(sim_kind, myname, big_endian_p): New static locals.
+	(sim_open): Set sim_kind, myname.  Move call to set_endianness to
+	after argument parsing.  Recognize -E arg, set endianness accordingly.
+	(sim_load): Return SIM_RC.  New arg abfd.  Call sim_load_file to
+	load file into simulator.  Set PC from bfd.
+	(sim_create_inferior): Return SIM_RC.  Delete arg start_address.
+	(set_endianness): Use big_endian_p instead of target_byte_order.
+
+Wed Apr 16 17:55:37 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_size): Delete prototype - conflicts with
+ 	definition in remote-sim.h.  Correct definition.
+
+Mon Apr  7 15:45:02 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Wed Apr  2 15:06:28 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* interp.c (sim_open): New arg `kind'.
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Apr  2 14:34:19 1997 Andrew Cagney <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Mar 25 11:38:22 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* interp.c (sim_open): Set optind to 0 before calling getopt.
+
+Wed Mar 19 01:14:00 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Mar 17 10:52:59 1997  Gavin Koch  <gavin@cetus.cygnus.com>
+
+	* interp.c : Replace uses of pr_addr with pr_uword64
+	where the bit length is always 64 independent of SIM_ADDR.
+	(pr_uword64) : added.
+
+Mon Mar 17 15:10:07 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Re-generate.
+
+Fri Mar 14 10:34:11 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* configure: Regenerate to track ../common/aclocal.m4 changes.
+
+Thu Mar 13 12:51:36 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* interp.c (sim_open): New SIM_DESC result.  Argument is now
+	in argv form.
+	(other sim_*): New SIM_DESC argument.
+
+Mon Feb 24 22:47:14 1997  Dawn Perchik  <dawn@cygnus.com>
+
+	* interp.c: Fix printing of addresses for non-64-bit targets.
+	(pr_addr): Add function to print address based on size.
+
+Wed Feb 19 14:42:09 1997  Mark Alexander  <marka@cygnus.com>
+
+	* interp.c (simopen): Add support for LSI MiniRISC PMON vectors.
+
+Thu Feb 13 14:08:30 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* gencode.c (build_mips16_operands): Correct computation of base
+	address for extended PC relative instruction.
+
+Thu Feb  6 17:16:15 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* interp.c (mips16_entry): Add support for floating point cases.
+	(SignalException): Pass floating point cases to mips16_entry.
+	(ValueFPR): Don't restrict fmt_single and fmt_word to even
+	registers.
+	(StoreFPR): Likewise.  Also, don't clobber fpr + 1 for fmt_single
+	or fmt_word.
+	(COP_LW): Pass fmt_word rather than fmt_uninterpreted to StoreFPR,
+	and then set the state to fmt_uninterpreted.
+	(COP_SW): Temporarily set the state to fmt_word while calling
+	ValueFPR.
+
+Tue Feb  4 16:48:25 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* gencode.c (build_instruction): The high order may be set in the
+	comparison flags at any ISA level, not just ISA 4.
+
+Tue Feb  4 13:33:30 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (@COMMON_MAKEFILE_FRAG): Use
+	COMMON_{PRE,POST}_CONFIG_FRAG instead.
+	* configure.in: sinclude ../common/aclocal.m4.
+	* configure: Regenerated.
+
+Fri Jan 31 11:11:45 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure: Rebuild after change to aclocal.m4.
+
+Thu Jan 23 11:46:23 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* configure configure.in Makefile.in:  Update to new configure
+	scheme which is more compatible with WinGDB builds.
+	* configure.in:  Improve comment on how to run autoconf.
+	* configure:  Re-run autoconf to get new ../common/aclocal.m4.
+	* Makefile.in:  Use autoconf substitution to install common
+	makefile fragment.
+
+Wed Jan  8 12:39:03 1997  Jim Wilson  <wilson@cygnus.com>
+
+	* gencode.c (build_instruction): Use BigEndianCPU instead of
+	ByteSwapMem.
+
+Thu Jan 02 22:23:04 1997  Mark Alexander  <marka@cygnus.com>
+
+	* interp.c (sim_monitor): Make output to stdout visible in
+	wingdb's I/O log window.
+
+Tue Dec 31 07:04:00 1996  Mark Alexander  <marka@cygnus.com>
+
+	* support.h: Undo previous change to SIGTRAP
+	and SIGQUIT values.
+
+Mon Dec 30 17:36:06 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* interp.c (store_word, load_word): New static functions.
+	(mips16_entry): New static function.
+	(SignalException): Look for mips16 entry and exit instructions.
+	(simulate): Use the correct index when setting fpr_state after
+	doing a pending move.
+
+Sun Dec 29 09:37:18 1996  Mark Alexander  <marka@cygnus.com>
+
+	* interp.c: Fix byte-swapping code throughout to work on
+	both little- and big-endian hosts.
+
+Sun Dec 29 09:18:32 1996  Mark Alexander  <marka@cygnus.com>
+
+	* support.h: Make definitions of SIGTRAP and SIGQUIT consistent
+	with gdb/config/i386/xm-windows.h.
+
+Fri Dec 27 22:48:51 1996  Mark Alexander  <marka@cygnus.com>
+
+	* gencode.c (build_instruction): Work around MSVC++ code gen bug
+	that messes up arithmetic shifts.
+
+Fri Dec 20 11:04:05 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* support.h:  Use _WIN32 instead of __WIN32__.  Also add defs for
+	SIGTRAP and SIGQUIT for _WIN32.
+
+Thu Dec 19 14:07:27 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* gencode.c (build_instruction) [MUL]: Cast operands to word64, to
+	force a 64 bit multiplication.
+	(build_instruction) [OR]: In mips16 mode, don't do anything if the
+	destination register is 0, since that is the default mips16 nop
+	instruction.
+
+Mon Dec 16 14:59:38 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* gencode.c (MIPS16_DECODE): SWRASP is I8, not RI.
+	(build_endian_shift): Don't check proc64.
+	(build_instruction): Always set memval to uword64.  Cast op2 to
+	uword64 when shifting it left in memory instructions.  Always use
+	the same code for stores--don't special case proc64.
+
+	* gencode.c (build_mips16_operands): Fix base PC value for PC
+	relative operands.
+	(build_instruction): Call JALDELAYSLOT rather than DELAYSLOT for a
+	jal instruction.
+	* interp.c (simJALDELAYSLOT): Define.
+ 	(JALDELAYSLOT): Define.
+	(INDELAYSLOT, INJALDELAYSLOT): Define.
+	(simulate): Clear simJALDELAYSLOT when simDELAYSLOT is cleared.
+
+Tue Dec 24 22:11:20 1996  Angela Marie Thomas (angela@cygnus.com)
+
+	* interp.c (sim_open): add flush_cache as a PMON routine
+	(sim_monitor): handle flush_cache by ignoring it
+
+Wed Dec 11 13:53:51 1996  Jim Wilson  <wilson@cygnus.com>
+
+	* gencode.c (build_instruction): Use !ByteSwapMem instead of
+	BigEndianMem.
+	* interp.c (CONFIG, config_EP_{mask,shift,D,DxxDxx, config_BE): Delete.
+	(BigEndianMem): Rename to ByteSwapMem and change sense.
+	(BigEndianCPU, sim_write, LoadMemory, StoreMemory): Change
+	BigEndianMem references to !ByteSwapMem.
+	(set_endianness): New function, with prototype.
+	(sim_open): Call set_endianness.
+	(sim_info): Use simBE instead of BigEndianMem.
+	(xfer_direct_word, xfer_direct_long, swap_direct_word,
+	swap_direct_long, xfer_big_word, xfer_big_long, xfer_little_word,
+	xfer_little_long, swap_word, swap_long): Delete unnecessary MSC_VER
+	ifdefs, keeping the prototype declaration.
+	(swap_word): Rewrite correctly.
+	(ColdReset): Delete references to CONFIG.  Delete endianness related
+	code; moved to set_endianness.
+	
+Tue Dec 10 11:32:04 1996  Jim Wilson  <wilson@cygnus.com>
+
+	* gencode.c (build_instruction, case JUMP): Truncate PC to 32 bits.
+	* interp.c (CHECKHILO): Define away.
+	(simSIGINT): New macro.
+	(membank_size): Increase from 1MB to 2MB.
+	(control_c): New function.
+	(sim_resume): Rename parameter signal to signal_number.  Add local
+	variable prev.  Call signal before and after simulate.
+	(sim_stop_reason): Add simSIGINT support.
+	(sim_warning, sim_error, dotrace, SignalException): Define as stdarg
+	functions always.
+	(sim_warning): Delete call to SignalException.  Do call printf_filtered
+	if logfh is NULL.
+	(AddressTranslation): Add #ifdef DEBUG around debugging message and
+	a call to sim_warning.
+
+Wed Nov 27 11:53:50 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* gencode.c (process_instructions): If ! proc64, skip DOUBLEWORD
+	16 bit instructions.
+
+Tue Nov 26 11:53:12 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	Add support for mips16 (16 bit MIPS implementation):
+	* gencode.c (inst_type): Add mips16 instruction encoding types.
+	(GETDATASIZEINSN): Define.
+	(MIPS_DECODE): Add REG flag to dsllv, dsrav, and dsrlv.  Add
+	jalx.  Add LEFT flag to mfhi and mflo.  Add RIGHT flag to mthi and
+	mtlo.
+	(MIPS16_DECODE): New table, for mips16 instructions.
+	(bitmap_val): New static function.
+	(struct mips16_op): Define.
+	(mips16_op_table): New table, for mips16 operands.
+	(build_mips16_operands): New static function.
+	(process_instructions): If PC is odd, decode a mips16
+	instruction.  Break out instruction handling into new
+	build_instruction function.
+	(build_instruction): New static function, broken out of
+	process_instructions.  Check modifiers rather than flags for SHIFT
+	bit count and m[ft]{hi,lo} direction.
+	(usage): Pass program name to fprintf.
+	(main): Remove unused variable this_option_optind.  Change
+	``*loptarg++'' to ``loptarg++''.
+	(my_strtoul): Parenthesize && within ||.
+	* interp.c (LoadMemory): Accept a halfword pAddr if vAddr is odd.
+	(simulate): If PC is odd, fetch a 16 bit instruction, and
+	increment PC by 2 rather than 4.
+	* configure.in: Add case for mips16*-*-*.
+	* configure: Rebuild.
+
+Fri Nov 22 08:49:36 1996  Mark Alexander  <marka@cygnus.com>
+
+	* interp.c: Allow -t to enable tracing in standalone simulator.
+	Fix garbage output in trace file and error messages.
+
+Wed Nov 20 01:54:37 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in: Delete stuff moved to ../common/Make-common.in.
+	(SIM_{OBJS,EXTRA_CFLAGS,EXTRA_CLEAN}): Define.
+	* configure.in: Simplify using macros in ../common/aclocal.m4.
+	* configure: Regenerated.
+	* tconfig.in: New file.
+
+Tue Nov 12 13:34:00 1996  Dawn Perchik  <dawn@cygnus.com>
+
+	* interp.c: Fix bugs in 64-bit port.
+	Use ansi function declarations for msvc compiler.
+	Initialize and test file pointer in trace code.
+	Prevent duplicate definition of LAST_EMED_REGNUM.
+
+Tue Oct 15 11:07:06 1996  Mark Alexander  <marka@cygnus.com>
+
+	* interp.c (xfer_big_long): Prevent unwanted sign extension.
+
+Thu Sep 26 17:35:00 1996  James G. Smith  <jsmith@cygnus.co.uk>
+
+	* interp.c (SignalException): Check for explicit terminating
+ 	breakpoint value.
+	* gencode.c: Pass instruction value through SignalException()
+ 	calls for Trap, Breakpoint and Syscall.
+
+Thu Sep 26 11:35:17 1996  James G. Smith  <jsmith@cygnus.co.uk>
+
+	* interp.c (SquareRoot): Add HAVE_SQRT check to ensure sqrt() is
+ 	only used on those hosts that provide it.
+	* configure.in: Add sqrt() to list of functions to be checked for.
+	* config.in: Re-generated.
+	* configure: Re-generated.
+
+Fri Sep 20 15:47:12 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* gencode.c (process_instructions): Call build_endian_shift when
+	expanding STORE RIGHT, to fix swr.
+	* support.h (SIGNEXTEND): If the sign bit is not set, explicitly
+	clear the high bits.
+	* interp.c (Convert): Fix fmt_single to fmt_long to not truncate.
+	Fix float to int conversions to produce signed values.
+
+Thu Sep 19 15:34:17 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* gencode.c (MIPS_DECODE): Set UNSIGNED for multu instruction.
+	(process_instructions): Correct handling of nor instruction.
+	Correct shift count for 32 bit shift instructions. Correct sign
+	extension for arithmetic shifts to not shift the number of bits in
+	the type.  Fix 64 bit multiply high word calculation.  Fix 32 bit
+	unsigned multiply.  Fix ldxc1 and friends to use coprocessor 1.
+	Fix madd.
+	* interp.c (CHECKHILO): Don't set HIACCESS, LOACCESS, or HLPC.
+	It's OK to have a mult follow a mult.  What's not OK is to have a
+	mult follow an mfhi.
+	(Convert): Comment out incorrect rounding code.
+
+Mon Sep 16 11:38:16 1996  James G. Smith  <jsmith@cygnus.co.uk>
+
+	* interp.c (sim_monitor): Improved monitor printf
+ 	simulation. Tidied up simulator warnings, and added "--log" option
+ 	for directing warning message output.
+	* gencode.c: Use sim_warning() rather than WARNING macro.
+
+Thu Aug 22 15:03:12 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (gencode): Depend upon gencode.o, getopt.o, and
+	getopt1.o, rather than on gencode.c.  Link objects together.
+	Don't link against -liberty.
+	(gencode.o, getopt.o, getopt1.o): New targets.
+	* gencode.c: Include <ctype.h> and "ansidecl.h".
+	(AND): Undefine after including "ansidecl.h".
+	(ULONG_MAX): Define if not defined.
+	(OP_*): Don't define macros; now defined in opcode/mips.h.
+	(main): Call my_strtoul rather than strtoul.
+	(my_strtoul): New static function.
+
+Wed Jul 17 18:12:38 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* gencode.c (process_instructions):  Generate word64 and uword64
+	instead of `long long' and `unsigned long long' data types.
+	* interp.c:  #include sysdep.h to get signals, and define default
+	for SIGBUS.
+	* (Convert):  Work around for Visual-C++ compiler bug with type
+	conversion.
+	* support.h:  Make things compile under Visual-C++ by using
+	__int64 instead of `long long'.  Change many refs to long long
+	into word64/uword64 typedefs.
+
 Wed Jun 26 12:24:55 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
 
         * Makefile.in (bindir, libdir, datadir, mandir, infodir, includedir,

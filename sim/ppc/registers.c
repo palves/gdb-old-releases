@@ -120,6 +120,11 @@ register_description(const char reg[])
     description.index = 0;
     description.size = sizeof(msreg);
   }
+  else if (!strcmp(reg, "fpscr")) {
+    description.type = reg_fpscr;
+    description.index = 0;
+    description.size = sizeof(fpscreg);
+  }
   else if (!strncmp(reg, "sr", 2) && are_digits(reg + 2)) {
     description.type = reg_sr;
     description.index = atoi(reg+2);
@@ -130,7 +135,7 @@ register_description(const char reg[])
     description.index = spr_ctr;
     description.size = sizeof(spreg);
   }
-  else if (!strcmp(reg, "insn")) {
+  else if (!strcmp(reg, "insns")) {
     description.type = reg_insns;
     description.index = spr_ctr;
     description.size = sizeof(unsigned_word);

@@ -1,3 +1,208 @@
+Sun Feb  1 16:47:51 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sat Jan 31 18:15:41 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Jan 19 22:26:29 1998  Doug Evans  <devans@seba>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Dec 15 23:17:11 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Tue Dec  9 11:30:48 1997  Nick Clifton  <nickc@cygnus.com>
+
+	* Makefile.in: Updated with changes from branch.
+	* armdefs.h:   ditto
+	* armemu.c:    ditto   these changes
+	* armemu.h:    ditto   add support for
+	* armos.c:     ditto   the Thumb instruction
+	* armsupp.c:   ditto   set and the new v4
+	* armvirt.c:   ditto   architecture.
+	* wrapper.c:   ditto
+	* thumbemu.c:  New file from branch.
+
+
+Thu Dec  4 09:21:05 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Thu Oct 30 13:54:06 1997  Nick Clifton  <nickc@cygnus.com>
+
+	* armos.c (ARMul_OSHandleSWI): Add support for GetEnv SWI.  Patch
+	from Tony Thompson at ARM: athompso@arm.com 
+
+	* wrapper.c (sim_create_inferior): Add code to create an execution
+	environment.  Patch from Tony Thompson at ARM: athompso@arm.com
+
+Wed Oct 22 14:43:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* wrapper.c (sim_load): Pass lma_p and sim_write args to
+ 	sim_load_file.
+
+Fri Oct  3 09:28:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Sep 24 17:38:57 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Sep 23 11:04:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Sep 22 11:46:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Sep 19 17:45:25 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Sep 15 17:36:15 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Thu Sep  4 17:21:23 1997  Doug Evans  <dje@seba>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Aug 27 18:13:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Tue Aug 26 10:37:27 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* wrapper.c (sim_kill): Delete.
+	(sim_create_inferior): Add ABFD argument.
+	(sim_load): Move setting of PC from here.
+	(sim_create_inferior): To here.
+
+Mon Aug 25 17:50:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Mon Aug 25 15:35:45 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* wrapper.c (sim_open): Add ABFD argument.
+
+Tue May 20 10:13:26 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* wrapper.c (sim_open): Add callback argument.
+	(sim_set_callbacks): Drop SIM_DESC argument.
+
+Thu Apr 24 00:39:51 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Apr 18 13:32:23 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* wrapper.c (sim_stop): Stub sim_stop function.
+
+Thu Apr 17 18:33:01 1997  Fred Fish  <fnf@cygnus.com>
+
+	* arminit.c (ARMul_NewState): Preinitialize the state to
+	all zero/NULL.
+
+Thu Apr 17 02:39:02 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (SIM_OBJS): Add sim-load.o.
+	* wrapper.c (sim_kind,myname): New static locals.
+	(sim_open): Set sim_kind, myname.
+	(sim_load): Call sim_load_file to do work.  Set start address from bfd.
+	(sim_create_inferior): Return SIM_RC.  Delete start_address arg.
+
+Thu Apr 17 11:48:25 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* wrapper.c (sim_trace): Update so that it matches prototype.
+
+Mon Apr  7 15:45:02 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Mon Apr  7 12:01:17 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* Makefile.in (armemu32.o): Replace $< with autoconf recommended
+ 	$(srcdir)/....
+	(armemu26.o): Ditto.
+
+Wed Apr  2 15:06:28 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* wrapper.c (sim_open): New arg `kind'.
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Apr  2 14:50:44 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* COPYING: Update FSF address.
+
+Wed Apr  2 14:34:19 1997 Andrew Cagney <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 19 01:14:00 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Mar 17 15:10:07 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Re-generate.
+
+Fri Mar 14 10:34:11 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* configure: Regenerate to track ../common/aclocal.m4 changes.
+
+Thu Mar 13 12:38:56 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* wrapper.c (sim_open): Has result now.
+	(sim_*): New SIM_DESC argument.
+
+Tue Feb  4 13:22:21 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (@COMMON_MAKEFILE_FRAG@): Use
+	COMMON_{PRE,POST}_CONFIG_FRAG instead.
+	* configure.in: sinclude ../common/aclocal.m4.
+	* configure: Regenerated.
+
+Thu Jan 23 11:46:23 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* configure configure.in Makefile.in:  Update to new configure
+	scheme which is more compatible with WinGDB builds.
+	* configure.in:  Improve comment on how to run autoconf.
+	* configure:  Re-run autoconf to get new ../common/aclocal.m4.
+	* Makefile.in:  Use autoconf substitution to install common
+	makefile fragment.
+
+Wed Nov 20 01:05:10 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* run.c: Deleted, use one in ../common now.
+	* Makefile.in: Delete everything that's been moved to
+	../common/Make-common.in.
+	(SIM_OBJS): Define.
+	* configure.in: Simplify using macros in ../common/aclocal.m4.
+	* configure: Regenerated.
+	* config.in: New file.
+	* armos.c: #include config.h.
+	* wrapper.c (mem_size): Value is in bytes now.
+	(sim_callback): New global.
+	(arm_sim_set_profile{,_size}): Delete.
+	(arm_sim_set_mem_size): Rename to sim_size.
+	(sim_do_command): Call printf_filtered via callback.
+	(sim_set_callbacks): Record callback.
+
+Thu Oct  3 16:10:27 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
+
+	* Makefile.in (mostlyclean): Remove config.log.
+
 Wed Jun 26 12:17:24 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
 
         * Makefile.in (bindir, libdir, datadir, mandir, infodir, includedir,

@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <stdio.h>
 #include <signal.h>
 #ifdef HAVE_TIME_H
 #include <time.h>
@@ -26,15 +27,31 @@
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
+#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
+#endif
 #include "wait.h"
 #include "ansidecl.h"
+#include "bfd.h"
 #include "callback.h"
 #include "remote-sim.h"
-#include "bfd.h"
+
+#ifndef SIGTRAP
+# define SIGTRAP 5
+#endif
 
 int debug;
 
+host_callback *sim_callback;
+
+static SIM_OPEN_KIND sim_kind;
+static char *myname;
+
+/* FIXME: Needs to live in header file.
+   This header should also include the things in remote-sim.h.
+   One could move this to remote-sim.h but this function isn't needed
+   by gdb.  */
+void sim_set_simcache_size PARAMS ((int));
 
 #define X(op, size)  op*4+size
 
@@ -754,7 +771,7 @@ init_pointers ()
 
       /* initialize the seg registers */
       if (!cpu.cache)
-	sim_csize (CSIZE);
+	sim_set_simcache_size (CSIZE);
     }
 }
 
@@ -765,6 +782,7 @@ control_c (sig, code, scp, addr)
      char *scp;
      char *addr;
 {
+  cpu.state = SIM_STATE_STOPPED;
   cpu.exception = SIGINT;
 }
 
@@ -905,8 +923,18 @@ case  O(name, SB):				\
   if(s) store (&code->dst,ea); goto next;	\
 }
 
+int
+sim_stop (sd)
+     SIM_DESC sd;
+{
+  cpu.state = SIM_STATE_STOPPED;
+  cpu.exception = SIGINT;
+  return 1;
+}
+
 void
-sim_resume (step, siggnal)
+sim_resume (sd, step, siggnal)
+     SIM_DESC sd;
 {
   static int init1;
   int cycles = 0;
@@ -928,10 +956,12 @@ sim_resume (step, siggnal)
 
   if (step)
     {
+      cpu.state = SIM_STATE_STOPPED;
       cpu.exception = SIGTRAP;
     }
   else
     {
+      cpu.state = SIM_STATE_RUNNING;
       cpu.exception = 0;
     }
 
@@ -1246,7 +1276,10 @@ sim_resume (step, siggnal)
 	  goto next;
 
 	case O (O_SYSCALL, SB):
-	  printf ("%c", cpu.regs[2]);
+	  {
+	    char c = cpu.regs[2];
+	    sim_callback->write_stdout (sim_callback, &c, 1);
+	  }
 	  goto next;
 
 	  ONOT (O_NOT, rd = ~rd; v = 0;);
@@ -1264,16 +1297,16 @@ sim_resume (step, siggnal)
 		   t = rd & hm; c = rd & 2; v = 0; rd >>= 2; rd |= t | t >> 1 );
 	  OSHIFTS (O_ROTL,
 		   c = rd & hm; v = 0; rd <<= 1; rd |= C,
-		   c = rd & (hm >> 1); v = 0; rd <<= 2; rd |= C);
+		   c = rd & hm; v = 0; rd <<= 1; rd |= C; c = rd & hm; rd <<= 1; rd |= C);
 	  OSHIFTS (O_ROTR,
 		   c = rd & 1; v = 0; rd = (unsigned int) rd >> 1; if (c) rd |= hm,
-		   c = rd & 2; v = 0; rd = (unsigned int) rd >> 2; if (c) rd |= hm);
+		   c = rd & 1; v = 0; rd = (unsigned int) rd >> 1; if (c) rd |= hm; c = rd & 1; rd = (unsigned int) rd >> 1; if (c) rd |= hm);
 	  OSHIFTS (O_ROTXL,
 		   t = rd & hm; rd <<= 1; rd |= C; c = t; v = 0,
-		   t = rd & (hm >> 1); rd <<= 2; rd |= C; c = t; v = 0);
+		   t = rd & hm; rd <<= 1; rd |= C; c = t; v = 0; t = rd & hm; rd <<= 1; rd |= C; c = t);
 	  OSHIFTS (O_ROTXR,
 		   t = rd & 1; rd = (unsigned int) rd >> 1; if (C) rd |= hm; c = t; v = 0,
-		   t = rd & 2; rd = (unsigned int) rd >> 2; if (C) rd |= hm; c = t; v = 0);
+		   t = rd & 1; rd = (unsigned int) rd >> 1; if (C) rd |= hm; c = t; v = 0; t = rd & 1; rd = (unsigned int) rd >> 1; if (C) rd |= hm; c = t);
 
 	case O (O_JMP, SB):
 	  {
@@ -1307,7 +1340,7 @@ sim_resume (step, siggnal)
 	  pc = code->src.literal;
 	  goto call;
 
-	case O (O_RTS, SB):
+	case O (O_RTS, SN):
 	  {
 	    int tmp;
 
@@ -1329,18 +1362,39 @@ sim_resume (step, siggnal)
 	  }
 
 	case O (O_ILL, SB):
+	  cpu.state = SIM_STATE_STOPPED;
 	  cpu.exception = SIGILL;
 	  goto end;
-	case O (O_SLEEP, SB):
-	  /* The format of r0 is defined by devo/include/wait.h.
-	     cpu.exception handling needs some cleanup: we need to make the
-	     the handling of normal exits vs signals, etc. more sensible.  */
+	case O (O_SLEEP, SN):
+	  /* The format of r0 is defined by devo/include/wait.h.  */
+#if 0 /* FIXME: Ugh.  A breakpoint is the sleep insn.  */
+	  if (WIFEXITED (cpu.regs[0]))
+	    {
+	      cpu.state = SIM_STATE_EXITED;
+	      cpu.exception = WEXITSTATUS (cpu.regs[0]);
+	    }
+	  else if (WIFSTOPPED (cpu.regs[0]))
+	    {
+	      cpu.state = SIM_STATE_STOPPED;
+	      cpu.exception = WSTOPSIG (cpu.regs[0]);
+	    }
+	  else
+	    {
+	      cpu.state = SIM_STATE_SIGNALLED;
+	      cpu.exception = WTERMSIG (cpu.regs[0]);
+	    }
+#else
+	  /* FIXME: Doesn't this break for breakpoints when r0
+	     contains just the right (er, wrong) value?  */
+	  cpu.state = SIM_STATE_STOPPED;
 	  if (! WIFEXITED (cpu.regs[0]) && WIFSIGNALED (cpu.regs[0]))
 	    cpu.exception = SIGILL;
 	  else
 	    cpu.exception = SIGTRAP;
+#endif
 	  goto end;
-	case O (O_BPT, SB):
+	case O (O_BPT, SN):
+	  cpu.state = SIM_STATE_STOPPED;
 	  cpu.exception = SIGTRAP;
 	  goto end;
 
@@ -1462,7 +1516,7 @@ sim_resume (step, siggnal)
 	  res = rd + ea;
 	  goto log32;
 
-	case O (O_NOP, SB):
+	case O (O_NOP, SN):
 	  goto next;
 
 	case O (O_STM, SL):
@@ -1500,6 +1554,7 @@ sim_resume (step, siggnal)
 	  goto next;
 
 	default:
+	  cpu.state = SIM_STATE_STOPPED;
 	  cpu.exception = SIGILL;
 	  goto end;
 
@@ -1669,32 +1724,16 @@ sim_resume (step, siggnal)
       ;
       /*      if (cpu.regs[8] ) abort(); */
 
-#if defined (WIN32)
-      /* Poll after every 100th insn, */
-      if (poll_count++ > 100)
+      if (--poll_count < 0)
 	{
-	  poll_count = 0;
-	  if (win32pollquit())
-	    {
-	      control_c();
-	    }
+	  poll_count = 100;
+	  if ((*sim_callback->poll_quit) != NULL
+	      && (*sim_callback->poll_quit) (sim_callback))
+	    sim_stop (sd);
 	}
-#endif
-#if defined(__GO32__)
-      /* Poll after every 100th insn, */
-      if (poll_count++ > 100)
-	{
-	  poll_count = 0;
-	  if (kbhit ())
-	    {
-	      int c = getkey ();
-	      control_c ();
-	    }
-	}
-#endif
 
     }
-  while (!cpu.exception);
+  while (cpu.state == SIM_STATE_RUNNING);
   cpu.ticks += get_now () - tick_start;
   cpu.cycles += cycles;
   cpu.insts += insts;
@@ -1705,9 +1744,17 @@ sim_resume (step, siggnal)
   signal (SIGINT, prev);
 }
 
+int
+sim_trace (sd)
+     SIM_DESC sd;
+{
+  /* FIXME: unfinished */
+  abort ();
+}
 
 int
-sim_write (addr, buffer, size)
+sim_write (sd, addr, buffer, size)
+     SIM_DESC sd;
      SIM_ADDR addr;
      unsigned char *buffer;
      int size;
@@ -1731,7 +1778,8 @@ sim_write (addr, buffer, size)
 }
 
 int
-sim_read (addr, buffer, size)
+sim_read (sd, addr, buffer, size)
+     SIM_DESC sd;
      SIM_ADDR addr;
      unsigned char *buffer;
      int size;
@@ -1769,7 +1817,8 @@ sim_read (addr, buffer, size)
 
 
 void
-sim_store_register (rn, value)
+sim_store_register (sd, rn, value)
+     SIM_DESC sd;
      int rn;
      unsigned char *value;
 {
@@ -1816,7 +1865,8 @@ sim_store_register (rn, value)
 }
 
 void
-sim_fetch_register (rn, buf)
+sim_fetch_register (sd, rn, buf)
+     SIM_DESC sd;
      int rn;
      unsigned char *buf;
 {
@@ -1873,15 +1923,37 @@ sim_fetch_register (rn, buf)
 }
 
 void
-sim_stop_reason (reason, sigrc)
+sim_stop_reason (sd, reason, sigrc)
+     SIM_DESC sd;
      enum sim_stop *reason;
      int *sigrc;
 {
+#if 0 /* FIXME: This should work but we can't use it.
+	 grep for SLEEP above.  */
+  switch (cpu.state)
+    {
+    case SIM_STATE_EXITED : *reason = sim_exited; break;
+    case SIM_STATE_SIGNALLED : *reason = sim_signalled; break;
+    case SIM_STATE_STOPPED : *reason = sim_stopped; break;
+    default : abort ();
+    }
+#else
   *reason = sim_stopped;
+#endif
   *sigrc = cpu.exception;
 }
 
-sim_csize (n)
+/* FIXME: Rename to sim_set_mem_size.  */
+
+void
+sim_size (n)
+     int n;
+{
+  /* Memory size is fixed.  */
+}
+
+void
+sim_set_simcache_size (n)
 {
   if (cpu.cache)
     free (cpu.cache);
@@ -1894,29 +1966,47 @@ sim_csize (n)
 
 
 void
-sim_info (verbose)
+sim_info (sd, verbose)
+     SIM_DESC sd;
      int verbose;
 {
   double timetaken = (double) cpu.ticks / (double) now_persec ();
   double virttime = cpu.cycles / 10.0e6;
 
-  printf_filtered ("\n\n#instructions executed  %10d\n", cpu.insts);
-  printf_filtered ("#cycles (v approximate) %10d\n", cpu.cycles);
-  printf_filtered ("#real time taken        %10.4f\n", timetaken);
-  printf_filtered ("#virtual time taked     %10.4f\n", virttime);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "\n\n#instructions executed  %10d\n",
+				    cpu.insts);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "#cycles (v approximate) %10d\n",
+				    cpu.cycles);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "#real time taken        %10.4f\n",
+				    timetaken);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "#virtual time taked     %10.4f\n",
+				    virttime);
   if (timetaken != 0.0)
-    printf_filtered ("#simulation ratio       %10.4f\n", virttime / timetaken);
-  printf_filtered ("#compiles               %10d\n", cpu.compiles);
-  printf_filtered ("#cache size             %10d\n", cpu.csize);
+    (*sim_callback->printf_filtered) (sim_callback,
+				      "#simulation ratio       %10.4f\n",
+				      virttime / timetaken);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "#compiles               %10d\n",
+				    cpu.compiles);
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "#cache size             %10d\n",
+				    cpu.csize);
 
 #ifdef ADEBUG
-  if (verbose)
+  /* This to be conditional on `what' (aka `verbose'),
+     however it was never passed as non-zero.  */
+  if (1)
     {
       int i;
       for (i = 0; i < O_LAST; i++)
 	{
 	  if (cpu.stats[i])
-	    printf_filtered ("%d: %d\n", i, cpu.stats[i]);
+	    (*sim_callback->printf_filtered) (sim_callback,
+					      "%d: %d\n", i, cpu.stats[i]);
 	}
     }
 #endif
@@ -1929,24 +2019,31 @@ void
 set_h8300h (flag)
      int flag;
 {
+  /* FIXME: Much of the code in sim_load can be moved to sim_open.
+     This function being replaced by a sim_open:ARGV configuration
+     option */
   h8300hmode = flag;
 }
 
-void
-sim_kill ()
+SIM_DESC
+sim_open (kind, ptr, abfd, argv)
+     SIM_OPEN_KIND kind;
+     struct host_callback_struct *ptr;
+     struct _bfd *abfd;
+     char **argv;
 {
-  /* nothing to do */
+  /* FIXME: Much of the code in sim_load can be moved here */
+
+  sim_kind = kind;
+  myname = argv[0];
+  sim_callback = ptr;
+  /* fudge our descriptor */
+  return (SIM_DESC) 1;
 }
 
 void
-sim_open (args)
-     char *args;
-{
-  /* nothing to do */
-}
-
-void
-sim_close (quitting)
+sim_close (sd, quitting)
+     SIM_DESC sd;
      int quitting;
 {
   /* nothing to do */
@@ -1954,24 +2051,35 @@ sim_close (quitting)
 
 /* Called by gdb to load a program into memory.  */
 
-int
-sim_load (prog, from_tty)
+SIM_RC
+sim_load (sd, prog, abfd, from_tty)
+     SIM_DESC sd;
      char *prog;
+     bfd *abfd;
      int from_tty;
 {
-  bfd *abfd;
+  bfd *prog_bfd;
+
+  /* FIXME: The code below that sets a specific variant of the h8/300
+     being simulated should be moved to sim_open(). */
 
   /* See if the file is for the h8/300 or h8/300h.  */
   /* ??? This may not be the most efficient way.  The z8k simulator
      does this via a different mechanism (INIT_EXTRA_SYMTAB_INFO).  */
-  if ((abfd = bfd_openr (prog, "coff-h8300")) != 0)
+  if (abfd != NULL)
+    prog_bfd = abfd;
+  else
+    prog_bfd = bfd_openr (prog, "coff-h8300");
+  if (prog_bfd != NULL)
     {
-      if (bfd_check_format (abfd, bfd_object)) 
+      /* Set the cpu type.  We ignore failure from bfd_check_format
+	 and bfd_openr as sim_load_file checks too.  */
+      if (bfd_check_format (prog_bfd, bfd_object)) 
 	{
-	  set_h8300h (abfd->arch_info->mach == bfd_mach_h8300h
-		      || abfd->arch_info->mach == bfd_mach_h8300s);
+	  unsigned long mach = bfd_get_mach (prog_bfd);
+	  set_h8300h (mach == bfd_mach_h8300h
+		      || mach == bfd_mach_h8300s);
 	}
-      bfd_close (abfd);
     }
 
   /* If we're using gdb attached to the simulator, then we have to
@@ -2009,32 +2117,49 @@ sim_load (prog, from_tty)
     abort ();
   cpu.mask = memory_size - 1;
 
-  /* Return non-zero so gdb will handle it.  */
-  return 1;
+  if (sim_load_file (sd, myname, sim_callback, prog, prog_bfd,
+		     sim_kind == SIM_OPEN_DEBUG,
+		     0, sim_write)
+      == NULL)
+    {
+      /* Close the bfd if we opened it.  */
+      if (abfd == NULL && prog_bfd != NULL)
+	bfd_close (prog_bfd);
+      return SIM_RC_FAIL;
+    }
+
+  /* Close the bfd if we opened it.  */
+  if (abfd == NULL && prog_bfd != NULL)
+    bfd_close (prog_bfd);
+  return SIM_RC_OK;
 }
 
-void
-sim_create_inferior (start_address, argv, env)
-     SIM_ADDR start_address;
+SIM_RC
+sim_create_inferior (sd, abfd, argv, env)
+     SIM_DESC sd;
+     struct _bfd *abfd;
      char **argv;
      char **env;
 {
-  cpu.pc = start_address;
+  if (abfd != NULL)
+    cpu.pc = bfd_get_start_address (abfd);
+  else
+    cpu.pc = 0;
+  return SIM_RC_OK;
 }
 
 void
-sim_do_command (cmd)
+sim_do_command (sd, cmd)
+     SIM_DESC sd;
      char *cmd;
 {
-  printf_filtered ("This simulator does not accept any commands.\n");
+  (*sim_callback->printf_filtered) (sim_callback,
+				    "This simulator does not accept any commands.\n");
 }
-
-
 
 void
 sim_set_callbacks (ptr)
-struct host_callback_struct *ptr;
+     struct host_callback_struct *ptr;
 {
-
+  sim_callback = ptr;
 }
-

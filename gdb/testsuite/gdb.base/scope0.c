@@ -11,7 +11,7 @@ main ()
   set_debug_traps();
   breakpoint();
 #endif
-  init ();
+  init0 ();
   foo ();
   autovars (5, 6);
   localscopes (0);
@@ -26,7 +26,7 @@ usestatics ()
   useit (filelocal_ro);
 }
 
-init ()
+init0 ()
 {
   filelocal_bss = 101;
   init1 ();

@@ -24,9 +24,6 @@
 #include <signal.h>
 #include <errno.h>
 #include <stdio.h>
-#ifndef	NO_SYS_FILE
-#include <sys/file.h>
-#endif
 
 #if defined (HAVE_UNISTD_H)
 #  include <unistd.h>
@@ -144,8 +141,7 @@ control_meta_key (on)
       if (on && term_mm)
 	tputs (term_mm, 1, outchar);
       else if (!on && term_mo)
-	tputs
- (term_mo, 1, outchar);
+	tputs (term_mo, 1, outchar);
     }
 }
 #endif /* !MINIMAL */
@@ -490,7 +486,7 @@ rl_prep_terminal (meta_flag)
   terminal_prepped = 1;
 
   release_sigint ();
-#endif /* !MINIMAK */
+#endif /* !MINIMAL */
 }
 
 /* Restore the terminal's normal settings and modes. */

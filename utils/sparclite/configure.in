@@ -22,7 +22,7 @@ AC_CHECK_HEADER(sgtty.h, AC_DEFINE(HAVE_SGTTY) termio=sgtty)
 changequote(,)dnl
 PROGS="aload eload"
 case "${host}" in
-i[345]86-*-go32*)	
+i[3456]86-*-go32*)	
 	PROGS=""
 	;;
 *)

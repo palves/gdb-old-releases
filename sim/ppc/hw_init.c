@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
     
-    Copyright (C) 1994-1996, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
     
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -75,7 +75,7 @@ dma_file(device *me,
    DESCRIPTION
 
    Loads the entire contents of <file-name> into memory at starting at
-   <real-address>.  Assumes that memory exists for the load.
+   <<real-address>>.  Assumes that memory exists for the load.
 
    PROPERTIES
 
@@ -112,25 +112,92 @@ static device_callbacks const hw_file_callbacks = {
 
 /* DEVICE
 
-   data - initialize a memory location
+
+   data - initialize a memory location with specified data
+
 
    DESCRIPTION
 
-   A word sized quantity of data is written into memory, using the
-   targets byte ordering, at the specified memory location.
 
-   In the future this device will be extended so that it supports
-   initialization using other data types (eg array, ...)
+   The pseudo device <<data>> provides a mechanism specifying the
+   initialization of a small section of memory.
+
+   Normally, the data would be written using a dma operation.
+   However, for some addresses this will not result in the desired
+   result.  For instance, to initialize an address in an eeprom,
+   instead of a simple dma of the data, a sequence of writes (and then
+   real delays) that program the eeprom would be required.
+
+   For dma write initialization, the data device will write the
+   specified <<data>> to <<real-address>> using a normal dma.
+
+   For instance write initialization, the specified <<instance>> is
+   opened.  Then a seek to the <<real-address>> is performed followed
+   by a write of the data.
+
+
+   Integer properties are stored using the target's endian mode.
+
 
    PROPERTIES
 
-   data = <int>
 
-   Integer value to be loaded into memory
+   data = <any-valid-property> (required)
 
-   real-address = <integer>
+   Data to be loaded into memory.  The property type determines how it
+   is loaded.
 
-   Start address for the data. */
+
+   real-address = <integer> (required)
+
+   Start address at which the data is to be stored.
+
+
+   instance = <string> (optional)
+
+   Instance specification of the device that is to be opened so that
+   the specified data can be written to it.
+
+
+   EXAMPLES
+
+
+   The examples below illustrate the two alternative mechanisms that
+   can be used to store the value 0x12345678 at address 0xfff00c00,
+   which is normally part of the 512k system eeprom.
+
+
+   If the eeprom is being modeled by ram (<<memory>> device) then the
+   standard dma initialization can be used.  By convention: the data
+   devices are uniquely identified by argumenting them with the
+   destinations real address; and all data devices are put under the
+   node <</openprom/init>>.
+
+   | /openprom/memory@0xfff00000/reg 0xfff00000 0x80000
+   | /openprom/init/data@0x1000/data 0x12345678
+   | /openprom/init/data@0x1000/real-address 0x1000
+
+
+   If instead a real eeprom was being used the instance write method
+   would instead need to be used (storing just a single byte in an
+   eeprom requires a complex sequence of accesses).  The
+   <<real-address>> is specified as <<0x0c00>> which is the offset
+   into the eeprom.  For brevity, most of the eeprom properties have
+   been omited.
+
+   | /iobus/eeprom@0xfff00000/reg 0xfff00000 0x80000
+   | /openprom/init/data@0xfff00c00/real-address 0x0c00
+   | /openprom/init/data@0xfff00c00/data 0x12345667
+   | /openprom/init/data@0xfff00c00/instance /iobus/eeprom@0xfff00000/reg
+
+
+   BUGS
+
+
+   At present, only <<integer>> properties can be specified for an
+   initial data value.
+
+   */
 
 
 static void
@@ -138,27 +205,43 @@ hw_data_init_data_callback(device *me)
 {
   unsigned_word addr = device_find_integer_property(me, "real-address");
   const device_property *data = device_find_property(me, "data");
+  const char *instance_spec = (device_find_property(me, "instance") != NULL
+			       ? device_find_string_property(me, "instance")
+			       : NULL);
+  device_instance *instance = NULL;
   if (data == NULL)
     device_error(me, "missing property <data>\n");
+  if (instance_spec != NULL)
+    instance = tree_instance(me, instance_spec);
   switch (data->type) {
   case integer_property:
     {
-      unsigned32 buf = device_find_integer_property(me, "data");
+      unsigned_cell buf = device_find_integer_property(me, "data");
       H2T(buf);
-      if (device_dma_write_buffer(device_parent(me),
-				  &buf,
-				  0 /*address-space*/,
-				  addr,
-				  sizeof(buf), /*nr-bytes*/
-				  1 /*violate ro*/) != sizeof(buf))
-	device_error(me, "Problem storing integer 0x%x at 0x%lx\n",
-		     (unsigned)buf, (unsigned long)addr);
+      if (instance == NULL) {
+	if (device_dma_write_buffer(device_parent(me),
+				    &buf,
+				    0 /*address-space*/,
+				    addr,
+				    sizeof(buf), /*nr-bytes*/
+				    1 /*violate ro*/) != sizeof(buf))
+	  device_error(me, "Problem storing integer 0x%x at 0x%lx\n",
+		       (unsigned)buf, (unsigned long)addr);
+      }
+      else {
+	if (device_instance_seek(instance, 0, addr) < 0
+	    || device_instance_write(instance, &buf, sizeof(buf)) != sizeof(buf))
+	  device_error(me, "Problem storing integer 0x%x at 0x%lx of instance %s\n",
+		       (unsigned)buf, (unsigned long)addr, instance_spec);
+      }
     }
     break;
   default:
     device_error(me, "Write of this data is not yet implemented\n");
     break;
   }
+  if (instance != NULL)
+    device_instance_delete(instance);
 }
 
 
@@ -174,7 +257,9 @@ static device_callbacks const hw_data_callbacks = {
 
 /* DEVICE
 
+
    load-binary - load binary segments into memory
+
 
    DESCRIPTION
 
@@ -185,13 +270,31 @@ static device_callbacks const hw_data_callbacks = {
    This device is normally used to load an executable into memory as
    part of real mode simulation.
 
+
    PROPERTIES
+
 
    file-name = <string>
 
    Name of the binary to be loaded.
 
-   DEVICE
+
+   claim = <anything> (optional)
+
+   If this property is present, the real memory that is to be used by
+   the image being loaded will be claimed from the memory node
+   (specified by the ihandle <</chosen/memory>>).
+
+
+   BUGS
+
+   
+   When loading the binary the bfd virtual-address is used.  It should
+   be using the bfd load-address.
+
+   */
+
+/* DEVICE
 
    map-binary - map the binary into the users address space
 
@@ -257,10 +360,25 @@ update_for_binary_section(bfd *abfd,
   if (!(bfd_get_section_flags(abfd, the_section) & SEC_READONLY))
     access |= access_write;
 
+  /* if claim specified, allocate region from the memory device */
+  if (device_find_property(me, "claim") != NULL) {
+    device_instance *memory = tree_find_ihandle_property(me, "/chosen/memory");
+    unsigned_cell mem_in[3];
+    unsigned_cell mem_out[1];
+    mem_in[0] = 0; /*alignment - top-of-stack*/
+    mem_in[1] = section_size;
+    mem_in[2] = section_vma;
+    if (device_instance_call_method(memory, "claim", 3, mem_in, 1, mem_out) < 0)
+      device_error(me, "failed to claim memory for section at 0x%lx (0x%lx",
+		   section_vma,
+		   section_size);
+    if (mem_out[0] != section_vma)
+      device_error(me, "section address not as requested");
+  }
+
   /* if a map, pass up a request to create the memory in core */
   if (strncmp(device_name(me), "map-binary", strlen("map-binary")) == 0)
     device_attach_address(device_parent(me),
-			  device_name(me),
 			  attach_raw_memory,
 			  0 /*address space*/,
 			  section_vma,
@@ -517,32 +635,66 @@ create_ppc_aix_stack_frame(device *me,
 }
 
 
+static void
+create_ppc_chirp_bootargs(device *me,
+			  char **argv)
+{
+  /* concat the arguments */
+  char args[1024];
+  char **chp = argv + 1;
+  args[0] = '\0';
+  while (*chp != NULL) {
+    if (strlen(args) > 0)
+      strcat(args, " ");
+    if (strlen(args) + strlen(*chp) >= sizeof(args))
+      device_error(me, "buffer overflow");
+    strcat(args, *chp);
+    chp++;
+  }
+
+  /* set the arguments property */
+  tree_parse(me, "/chosen/bootargs \"%s", args);
+}
+
 
 static int
-hw_stack_ioctl_callback(device *me,
-			cpu *processor,
-			unsigned_word cia,
-			va_list ap)
+hw_stack_ioctl(device *me,
+	       cpu *processor,
+	       unsigned_word cia,
+	       device_ioctl_request request,
+	       va_list ap)
 {
-  unsigned_word stack_pointer;
-  const char *stack_type;
-  char **argv;
-  char **envp;
-  stack_pointer = va_arg(ap, unsigned_word);
-  argv = va_arg(ap, char **);
-  envp = va_arg(ap, char **);
-  DTRACE(stack,
-	 ("stack_ioctl_callback(me=0x%lx:%s processor=0x%lx cia=0x%lx argv=0x%lx envp=0x%lx)\n",
-	  (long)me, device_name(me), (long)processor, (long)cia, (long)argv, (long)envp));
-  stack_type = device_find_string_property(me, "stack-type");
-  if (strcmp(stack_type, "ppc-elf") == 0)
-    create_ppc_elf_stack_frame(me, stack_pointer, argv, envp);
-  else if (strcmp(stack_type, "ppc-xcoff") == 0)
-    create_ppc_aix_stack_frame(me, stack_pointer, argv, envp);
-  else if (strcmp(stack_type, "none") != 0)
-    device_error(me, "Unknown initial stack frame type %s\n", stack_type);
-  DTRACE(stack, 
-	 ("stack_ioctl_callback() = void\n"));
+  switch (request) {
+  case device_ioctl_create_stack:
+    {
+      unsigned_word stack_pointer = va_arg(ap, unsigned_word);
+      char **argv = va_arg(ap, char **);
+      char **envp = va_arg(ap, char **);
+      const char *stack_type;
+      DTRACE(stack,
+	     ("stack_ioctl_callback(me=0x%lx:%s processor=0x%lx cia=0x%lx argv=0x%lx envp=0x%lx)\n",
+	      (long)me, device_name(me),
+	      (long)processor,
+	      (long)cia,
+	      (long)argv,
+	      (long)envp));
+      stack_type = device_find_string_property(me, "stack-type");
+      if (strcmp(stack_type, "ppc-elf") == 0)
+	create_ppc_elf_stack_frame(me, stack_pointer, argv, envp);
+      else if (strcmp(stack_type, "ppc-xcoff") == 0)
+	create_ppc_aix_stack_frame(me, stack_pointer, argv, envp);
+      else if (strcmp(stack_type, "chirp") == 0)
+	create_ppc_chirp_bootargs(me, argv);
+      else if (strcmp(stack_type, "none") != 0)
+	device_error(me, "Unknown initial stack frame type %s", stack_type);
+      DTRACE(stack, 
+	     ("stack_ioctl_callback() = void\n"));
+      break;
+    }
+  default:
+    device_error(me, "Unsupported ioctl requested");
+    break;
+  }
   return 0;
 }
 
@@ -554,7 +706,7 @@ static device_callbacks const hw_stack_callbacks = {
   { NULL, }, /* interrupt */
   { NULL, }, /* unit */
   NULL, /* instance */
-  hw_stack_ioctl_callback,
+  hw_stack_ioctl,
 };
 
 const device_descriptor hw_init_device_descriptor[] = {

@@ -1,5 +1,5 @@
 /* Target-dependent code for the ALPHA architecture, for GDB, the GNU Debugger.
-   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -36,6 +36,8 @@ extern struct obstack frame_cache_obstack;
 
 
 /* Forward declarations.  */
+
+static alpha_extra_func_info_t push_sigtramp_desc PARAMS ((CORE_ADDR low_addr));
 
 static CORE_ADDR read_next_frame_reg PARAMS ((struct frame_info *, int));
 
@@ -132,7 +134,7 @@ struct linked_proc_info
 } *linked_proc_desc_table = NULL;
 
 
-/* Under Linux, signal handler invocations can be identified by the
+/* Under GNU/Linux, signal handler invocations can be identified by the
    designated code sequence that is used to return from a signal
    handler.  In particular, the return address of a signal handler
    points to the following sequence (the first instruction is quadword
@@ -155,11 +157,12 @@ struct linked_proc_info
    guarantee that we are in the middle of a sigreturn syscall.  Don't
    think this will be a problem in praxis, though.
 */
+
 long
 alpha_linux_sigtramp_offset (CORE_ADDR pc)
 {
   unsigned int i[3], w;
-  long off, res;
+  long off;
 
   if (read_memory_nobpt(pc, (char *) &w, 4) != 0)
     return -1;
@@ -209,8 +212,9 @@ alpha_osf_skip_sigtramp_frame (frame, pc)
    the signal-handler return code starting at address LOW_ADDR.  The
    descriptor is added to the linked_proc_desc_table.  */
 
-alpha_extra_func_info_t
-push_sigtramp_desc (CORE_ADDR low_addr)
+static alpha_extra_func_info_t
+push_sigtramp_desc (low_addr)
+     CORE_ADDR low_addr;
 {
   struct linked_proc_info *link;
   alpha_extra_func_info_t proc_desc;
@@ -233,6 +237,7 @@ push_sigtramp_desc (CORE_ADDR low_addr)
   PROC_PC_REG (proc_desc)	= 26;
   PROC_LOCALOFF (proc_desc)	= 0;
   SET_PROC_DESC_IS_DYN_SIGTRAMP (proc_desc);
+  return (proc_desc);
 }
 
 
@@ -484,7 +489,15 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
 	word = extract_unsigned_integer (buf, 4);
 
 	if ((word & 0xffff0000) == 0x23de0000)		/* lda $sp,n($sp) */
-	  frame_size += (-word) & 0xffff;
+	  {
+	    if (word & 0x8000)
+	      frame_size += (-word) & 0xffff;
+	    else
+	      /* Exit loop if a positive stack adjustment is found, which
+		 usually means that the stack cleanup code in the function
+		 epilogue is reached.  */
+	      break;
+	  }
 	else if ((word & 0xfc1f0000) == 0xb41e0000	/* stq reg,n($sp) */
 		 && (word & 0xffff0000) != 0xb7fe0000)	/* reg != $zero */
 	  {
@@ -506,14 +519,18 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
 	       rearrange the register saves.
 	       So we recognize only a few registers (t7, t9, ra) within
 	       the procedure prologue as valid return address registers.
+	       If we encounter a return instruction, we extract the
+	       the return address register from it.
 
 	       FIXME: Rewriting GDB to access the procedure descriptors,
 	       e.g. via the minimal symbol table, might obviate this hack.  */
 	    if (pcreg == -1
-		&& cur_pc < (start_pc + 20)
+		&& cur_pc < (start_pc + 80)
 		&& (reg == T7_REGNUM || reg == T9_REGNUM || reg == RA_REGNUM))
 	      pcreg = reg;
 	  }
+	else if ((word & 0xffe0ffff) == 0x6be08001)	/* ret zero,reg,1 */
+	  pcreg = (word >> 16) & 0x1f;
 	else if (word == 0x47de040f)			/* bis sp,sp fp */
 	  has_frame_reg = 1;
       }
@@ -521,15 +538,13 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
       {
 	/* If we haven't found a valid return address register yet,
 	   keep searching in the procedure prologue.  */
-	while (cur_pc < (limit_pc + 20) && cur_pc < (start_pc + 20))
+	while (cur_pc < (limit_pc + 80) && cur_pc < (start_pc + 80))
 	  {
 	    char buf[4];
 	    unsigned long word;
-	    int status;
 
-	    status = read_memory_nobpt (cur_pc, buf, 4); 
-	    if (status)
-	      memory_error (status, cur_pc);
+	    if (read_memory_nobpt (cur_pc, buf, 4))
+	      break;
 	    cur_pc += 4;
 	    word = extract_unsigned_integer (buf, 4);
 
@@ -542,6 +557,11 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
 		    pcreg = reg;
 		    break;
 		  }
+	      }
+	    else if ((word & 0xffe0ffff) == 0x6be08001)	/* ret zero,reg,1 */
+	      {
+		pcreg = (word >> 16) & 0x1f;
+		break;
 	      }
 	  }
       }
@@ -723,7 +743,13 @@ find_proc_desc (pc, next_frame)
       if (offset >= 0)
 	return push_sigtramp_desc (pc - offset);
 
-      if (startaddr == 0)
+      /* If heuristic_fence_post is non-zero, determine the procedure
+	 start address by examining the instructions.
+	 This allows us to find the start address of static functions which
+	 have no symbolic information, as startaddr would have been set to
+	 the preceding global function start address by the
+	 find_pc_partial_function call above.  */
+      if (startaddr == 0 || heuristic_fence_post != 0)
 	startaddr = heuristic_proc_start (pc);
 
       proc_desc =
@@ -1234,7 +1260,7 @@ alpha_register_convert_to_virtual (regnum, valtype, raw_buffer, virtual_buffer)
     }
   else if (TYPE_CODE (valtype) == TYPE_CODE_INT && TYPE_LENGTH (valtype) <= 4)
     {
-      unsigned LONGEST l;
+      ULONGEST l;
       l = extract_unsigned_integer (raw_buffer, REGISTER_RAW_SIZE (regnum));
       l = ((l >> 32) & 0xc0000000) | ((l >> 29) & 0x3fffffff);
       store_unsigned_integer (virtual_buffer, TYPE_LENGTH (valtype), l);
@@ -1263,7 +1289,7 @@ alpha_register_convert_to_raw (valtype, regnum, virtual_buffer, raw_buffer)
     }
   else if (TYPE_CODE (valtype) == TYPE_CODE_INT && TYPE_LENGTH (valtype) <= 4)
     {
-      unsigned LONGEST l;
+      ULONGEST l;
       if (TYPE_UNSIGNED (valtype))
 	l = extract_unsigned_integer (virtual_buffer, TYPE_LENGTH (valtype));
       else

@@ -26,6 +26,8 @@
 #include "idecode.h"
 #include "os_emul.h"
 
+#include "tree.h"
+
 #include "bfd.h"
 
 #ifndef INLINE_EMUL_GENERIC

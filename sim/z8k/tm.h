@@ -135,7 +135,6 @@ sim_state_type;
 
 extern int get_word_mem_da PARAMS((sim_state_type *context, int addr)); 
 extern int get_word_reg PARAMS((sim_state_type *context, int reg)); 
-extern int sim_trace PARAMS((void)); 
 extern void support_call PARAMS((sim_state_type *context, int sc)); 
 extern void tm_exception PARAMS((int x)); 
 extern int tm_read_byte PARAMS((int x)); 

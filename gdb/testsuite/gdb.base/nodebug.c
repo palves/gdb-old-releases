@@ -31,6 +31,10 @@ main (argc, argv)
      int argc;
      char **argv;
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   return top (argc);
 }
 

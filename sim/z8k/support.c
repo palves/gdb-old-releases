@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include "callback.h"
 #include "remote-sim.h"
 #include "syscall.h"
 
@@ -194,19 +195,16 @@ support_call (context, sc)
       arg_index = 0;
       break;
     case SYS_isatty:
-      ret =
-	isatty (args[0]);
+      ret = isatty (args[0]);
       arg_index = 0;
       break;
     case SYS_open:
       ret = open (aptr (args[0]), args[1], args[2]);
       arg_index = 0;
       break;
-      case
-    SYS_lseek:
+    case SYS_lseek:
       ret = lseek (args[0], (off_t) args[1], args[2]);
-      arg_index =
-	0;
+      arg_index = 0;
       break;
     case SYS_read:
       ret = read (args[0], aptr (args[1]), args[2]);
@@ -218,8 +216,7 @@ support_call (context, sc)
       break;
     case SYS_time:
       {
-	int
-	  dst = args[0];
+	int dst = args[0];
 
 	ret = time (0);
 	if (dst)
@@ -229,20 +226,19 @@ support_call (context, sc)
 	  }
 	retnext = ret;
 	ret = retnext >> 16;
-	arg_index =
-	  0;
+	arg_index = 0;
       }
       break;
     case SYS_fstat:
       {
 	int buf;
 	struct stat host_stat;
-	fd =
-	  args[0];
+	fd = args[0];
 	buf = sitoptr (args[1]);
 	ret = fstat (fd, &host_stat);
 	buf = put_short (context, buf, host_stat.st_dev);
 	buf = put_short (context, buf, host_stat.st_ino);
+	/* FIXME: Isn't mode_t 4 bytes?  */
 	buf = put_short (context, buf, host_stat.st_mode);
 	buf = put_short (context, buf, host_stat.st_nlink);
 	buf = put_short (context, buf, host_stat.st_uid);
@@ -489,7 +485,8 @@ tm_info_print (x)
 }
 
 int
-sim_trace ()
+sim_trace (sd)
+     SIM_DESC sd;
 {
   int i;
   char buffer[10];
@@ -570,6 +567,7 @@ unsigned int sa;
 unsigned int sb;
 unsigned int sub;
 {
+#undef MASK
 #define MASK (1<<31)
   context->broken_flags = 0;	
   if (sub)                        
@@ -594,6 +592,7 @@ unsigned short int sub;
 {
   unsigned short sa = sal;
   unsigned short sb = sbl;
+#undef MASK
 #define MASK (1<<15)
   context->broken_flags = 0;	
   if (sub)                        
@@ -617,6 +616,7 @@ unsigned char sa;
 unsigned char sb;
 unsigned char sub;
 {
+#undef MASK
 #define MASK (1<<7)
   context->broken_flags = 0;	
   if (sub)                        

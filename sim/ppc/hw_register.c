@@ -28,7 +28,9 @@
 
 /* DEVICE
 
+
    register - dummy device to initialize processor registers
+
 
    DESCRIPTION
 
@@ -48,7 +50,9 @@
 
    This device is normally a child of the /openprom/init node.
 
-   EXAMPLE
+
+   EXAMPLES
+
 
    Given a device tree containing the entry:
 
@@ -66,7 +70,9 @@
 
    and would be processed last to first resulting in the sequence: set
    all program counters to 0xfff00cf0; set processor zero's program
-   counter to zero. */
+   counter to zero.
+
+   */
 
 static void
 do_register_init(device *me,

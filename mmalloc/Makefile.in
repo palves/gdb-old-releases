@@ -71,7 +71,7 @@ TARGETLIB =	libmmalloc.a
 
 CFILES =	mcalloc.c mfree.c mmalloc.c mmcheck.c mmemalign.c mmstats.c \
 		mmtrace.c mrealloc.c mvalloc.c mmap-sup.c attach.c detach.c \
-		keys.c sbrk-sup.c
+		keys.c sbrk-sup.c mm.c
 
 HFILES =	mmalloc.h
 
@@ -81,8 +81,13 @@ OFILES =	mcalloc.o mfree.o mmalloc.o mmcheck.o mmemalign.o mmstats.o \
 
 DEFS =		@DEFS@
 
+# The current default is to build a single object module with all the mmalloc
+# functions.  To build a more traditional library, flip this macro definition.
+#TARGETOBJS =	$(OFILES)
+TARGETOBJS =	mm.o
+
 .c.o:
-	$(CC) -c $(CFLAGS) $(DEFS) -I. -I$(srcdir)/../include $<
+		$(CC) -c $(CFLAGS) $(DEFS) -I. -I$(srcdir)/../include $<
 
 # Do we want/need any config overrides?
 #	 
@@ -120,12 +125,15 @@ install:	all
 		$(RANLIB) $(libdir)/$(TARGETLIB).n
 		mv -f $(libdir)/$(TARGETLIB).n $(libdir)/$(TARGETLIB)
 
-$(TARGETLIB):	$(OFILES)
+$(TARGETLIB):	$(TARGETOBJS)
 		$(RM) -rf $@
-		$(AR) $(AR_FLAGS) $@ $(OFILES)
+		$(AR) $(AR_FLAGS) $@ $(TARGETOBJS)
 		$(RANLIB) $@
 
 $(OFILES) :	$(HFILES) Makefile
+
+mm.o:		$(HFILES) $(CFILES)
+		$(CC) -c $(CFLAGS) $(DEFS) -I. -I$(srcdir)/../include $(srcdir)/mm.c
 
 .always.:
 # Do nothing.
@@ -186,12 +194,10 @@ distclean:	clean
 		rm -f config.cache config.log config.status
 		rm -f Makefile depend
 
-maintainer-clean realclean:	clean 
+maintainer-clean realclean: distclean clean
 		@echo "This command is intended for maintainers to use;"
 		@echo "it deletes files that may require special tools to rebuild."
-		rm -f config.cache config.log config.status
 		rm -f mmalloc.info
-		rm -f Makefile depend
 
 force:
 

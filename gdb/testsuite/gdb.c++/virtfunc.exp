@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1994 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1994, 1997 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,12 +12,14 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
 
 # This file was written by Fred Fish. (fnf@cygnus.com)
+
+set ws "\[\r\n\t \]+"
 
 if $tracelevel then {
 	strace $tracelevel
@@ -29,10 +31,9 @@ set binfile ${objdir}/${subdir}/${testfile}
 
 # Create and source the file that provides information about the compiler
 # used to compile the test case.
-execute_anywhere "rm -f ${binfile}.ci"
-if  { [compile "-E ${srcdir}/${subdir}/compiler.cc >> ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${binfile}.ci"
-    return -1
+remote_file build delete ${binfile}.ci
+if  { [gdb_compile "${srcdir}/${subdir}/compiler.cc" "${binfile}.ci" preprocess ""] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 source ${binfile}.ci
 
@@ -40,14 +41,29 @@ source ${binfile}.ci
 # haven't tried to compile one, or the compilation failed for some reason.
 # In either case, just notify the user and skip the tests in this file.
 
-if {$gcc_compiled} then {
-    set libs "-L$objdir/../../libstdc++ -lstdc++"
-} else {
-    set libs {}
+set src "${srcdir}/${subdir}/${srcfile}"
+if  { [gdb_compile "${src}" "${binfile}" executable {c++ debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
-if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile} ${libs}"] != "" } {
-    perror "Couldn't compile ${srcfile}"
-    return -1
+
+proc gdb_virtfunc_init {} {
+    global srcdir subdir binfile
+    global gdb_prompt
+
+    gdb_reinitialize_dir $srcdir/$subdir
+    gdb_load $binfile
+
+    send_gdb "set language c++\n"
+    gdb_expect -re "$gdb_prompt $"
+    send_gdb "set width 0\n"
+    gdb_expect -re "$gdb_prompt $"
+}
+
+proc gdb_virtfunc_restart {} {
+    gdb_exit;
+    gdb_start;
+    gdb_virtfunc_init;
+    runto 'test_calls(void)';
 }
 
 #
@@ -55,389 +71,513 @@ if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile} ${libs}"] != "" 
 #
 
 proc test_ptype_of_classes {} {
-    global prompt
+    global gdb_prompt
+    global ws
 
     # This used to be a fail if it printed "struct" not "class".  But
     # since this struct doesn't use any special C++ features, it is
     # considered right for GDB to print it as "struct".
-    send "ptype VA\n"
-    expect {
-	-re "type = (struct|class) VA \{(\[\r\n\t \]+public:|)\[\r\n\t \]+int va;(\[\r\n\t \]+VA\\(void\\);|)(\[\r\n\t \]+VA\\(VA const &\\);|)(\[\r\n\t \]+VA & operator=\\(VA const &\\);|)\[\r\n\t \]+\}.*$prompt $" {
+    send_gdb "ptype VA\n"
+    gdb_expect {
+	-re "type = (struct|class) VA \{(${ws}public:|)${ws}int va;${ws}VA & operator=\\(VA const &\\);${ws}VA\\(VA const &\\);${ws}VA\\(void\\);${ws}\}.*$gdb_prompt $" {
 	    pass "ptype VA"
 	}
-	-re ".*$prompt $" { fail "ptype VA" }
-	timeout { fail "ptype VA (timeout)" }
+	-re "type = (struct|class) VA \{(${ws}public:|)${ws}int va;((${ws}VA & operator=\\(VA const &\\);)|(${ws}VA\\(VA const &\\);)|(${ws}VA\\(void\\);))*${ws}\}.*$gdb_prompt $" {
+	    pass "ptype VA (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
+	    fail "ptype VA"
+	}
+	timeout {
+	    fail "ptype VA (timeout)"
+	}
     }
 
-    send "ptype VB\n"
-    expect {
-	-re "type = class VB \{\[\r\n\t \]+public:\[\r\n\t \]+int vb;(\[\r\n\t \]+VB\\(void\\);|)(\[\r\n\t \]+VB\\(VB const &\\);|)(\[\r\n\t \]+VB & operator=\\(VB const &\\);|)\[\r\n\t \]+int fvb.void.;\[\r\n\t \]+virtual int vvb.void.;\[\r\n\t \]+\}.*$prompt $" {
+    send_gdb "ptype VB\n"
+    gdb_expect {
+	-re "type = class VB \{${ws}public:${ws}int vb;${ws}VB & operator=\\(VB const &\\);${ws}VB\\(VB const &\\);${ws}VB\\(void\\);${ws}int fvb\\(void\\);${ws}virtual int vvb\\(void\\);${ws}\}.*$gdb_prompt $" {
 	    pass "ptype VB"
 	}
-	-re "type = struct VB \{\[\r\n\t \]+int vb;\[\r\n\t \]+\}\r\n$prompt $" {
+	-re "type = class VB \{${ws}public:${ws}int vb;((${ws}VB & operator=\\(VB const &\\);)|(${ws}VB\\(VB const &\\);)|(${ws}VB\\(void\\);)|(${ws}int fvb\\(void\\);)|(${ws}virtual int vvb\\(void\\);))*${ws}\}.*$gdb_prompt $" {
+	    pass "ptype VB (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype VB"
 	}
-	-re ".*$prompt $" { fail "ptype VB" }
-	timeout { fail "ptype VB (timeout)" }
+	timeout {
+	    fail "ptype VB (timeout)"
+	}
     }
 
-    send "ptype V\n"
-    expect {
-	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype V\n"
+    gdb_expect {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;${ws}V & operator=\\(V const &\\);${ws}V\\(V const &\\);${ws}V\\(void\\);${ws}int f\\(void\\);${ws}virtual int vv\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype V"
 	}
-	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\}\r\n$prompt $" {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;((${ws}V & operator=\\(V const &\\);)|(${ws}V\\(V const &\\);)|(${ws}V\\(void\\);)|(${ws}int f\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype V (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype V"
 	}
-	-re ".*$prompt $" { fail "ptype V" }
-	timeout { fail "ptype V (timeout)" }
+	timeout {
+	    fail "ptype V (timeout)"
+	}
     }
 
-    send "ptype A\n"
-    expect {
-	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb\[\\\$\.\]+V;\[\r\n\t \]+int a;\[\r\n\t \]+public:(\[\r\n\t \]+A\\(int\\);|)(\[\r\n\t \]+A\\(int, A const &\\);|)(\[\r\n\t \]+A & operator=\\(A const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype A\n"
+    gdb_expect {
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb\[\\\$\.\]+V;${ws}int a;${ws}public:${ws}A & operator=\\(A const &\\);${ws}A\\(int, A const &\\);${ws}A\\(int\\);${ws}virtual int f\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype A"
 	}
-	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.FOO;\[\r\n\t \]+int a;\[\r\n\t \]+public:\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb\[\\\$\.\]+V;${ws}int a;${ws}public:((${ws}A & operator=\\(A const &\\);)|(${ws}A\\(int, A const &\\);)|(${ws}A\\(int\\);)|(${ws}virtual int f\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype A (obsolescent gcc or gdb)"
+	}
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb.FOO;${ws}int a;${ws}public:${ws}virtual int f.void.;${ws}\}\r\n$gdb_prompt $" {
 	    # This happens because the type is defined only after it is
 	    # too late.
 	    fail "ptype A (known failure with gcc cygnus-2.4.5-930417)"
 	    # Many of the rest of these tests have the same problem.
 	    return 0
 	}
-	-re "type = struct A \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int a;\[\r\n \t\]*\}\r\n$prompt $" {
+	-re ".*$gdb_prompt $" {
 	    fail "ptype A"
 	}
-	-re ".*$prompt $" { fail "ptype A" }
-	timeout { fail "ptype A (timeout)" }
+	timeout {
+	    fail "ptype A (timeout)"
+	}
     }
 
-    send "ptype B\n"
-    expect {
-	-re "type = class B : public A \{\[\r\n\t \]+private:\[\r\n\t \]+int b;\[\r\n\t \]+public:(\[\r\n\t \]+B\\(int\\);|)(\[\r\n\t \]+B\\(int, B const &\\);|)(\[\r\n\t \]+B & operator=\\(B const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype B\n"
+    gdb_expect {
+	-re "type = class B : public A \{${ws}private:${ws}int b;${ws}public:${ws}B & operator=\\(B const &\\);${ws}B\\(int, B const &\\);${ws}B\\(int\\);${ws}virtual int f\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype B"
 	}
-	-re "type = struct B \{\[\r\n \t\]*struct A A;\[\r\n \t\]*int b;\[\r\n \t\]*\}\r\n$prompt $" {
+	-re "type = class B : public A \{${ws}private:${ws}int b;${ws}public:((${ws}B & operator=\\(B const &\\);)|(${ws}B\\(int, B const &\\);)|(${ws}B\\(int\\);)|(${ws}virtual int f\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype B (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype B"
 	}
-	-re ".*$prompt $" { fail "ptype B" }
-	timeout { fail "ptype B (timeout)" }
+	timeout {
+	    fail "ptype B (timeout)"
+	}
     }
 
-    send "ptype C\n"
-    # The latest gcc/gdb combo leaves the class name out when it prints
-    # the type.  Accept this as an expected fail.
-    expect {
-	-re "type = class C : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int c;(\[\r\n\t \]+C\\(int\\);|)(\[\r\n\t \]+C\\(int, C const &\\);|)(\[\r\n\t \]+C & operator=\\(C const &\\);|)\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype C\n"
+    gdb_expect {
+	-re "type = class C : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int c;${ws}C & operator=\\(C const &\\);${ws}C\\(int, C const &\\);${ws}C\\(int\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype C"
 	}
-	-re "type = struct C \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int c;\[\r\n \t\]*\}\r\n$prompt $" {
+	-re "type = class C : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int c;((${ws}C & operator=\\(C const &\\);)|(${ws}C\\(int, C const &\\);)|(${ws}C\\(int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype C (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype C"
 	}
-	-re ".*$prompt $" { fail "ptype C" }
-	timeout { fail "ptype C (timeout)" }
+	timeout {
+	    fail "ptype C (timeout)"
+	}
     }
 
-    send "ptype AD\n"
-    expect {
-	-re "type = class AD \{\[\r\n\t \]+public:(\[\r\n\t \]+AD\\(void\\);|)(\[\r\n\t \]+AD\\(AD const &\\);|)(\[\r\n\t \]+AD & operator=\\(AD const &\\);|)\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype AD\n"
+    gdb_expect {
+	-re "type = class AD \{${ws}public:${ws}AD & operator=\\(AD const &\\);${ws}AD\\(AD const &\\);${ws}AD\\(void\\);${ws}virtual int vg\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype AD"
 	}
-	-re "type = struct AD \{\r\n\}\r\n$prompt $" {
+	-re "type = class AD \{${ws}public:((${ws}AD & operator=\\(AD const &\\);)|(${ws}AD\\(AD const &\\);)|(${ws}AD\\(void\\);)|(${ws}virtual int vg\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype AD (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype AD"
 	}
-	-re ".*$prompt $" { fail "ptype AD" }
-	timeout { fail "ptype AD (timeout)" }
+	timeout {
+	    fail "ptype AD (timeout)"
+	}
     }
 
-    send "ptype D\n"
-    expect {
-	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype D\n"
+    gdb_expect {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;${ws}D & operator=\\(D const &\\);${ws}D\\(int, D const &\\);${ws}D\\(int\\);${ws}static void s\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vd\\(void\\);${ws}int fd\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype D"
 	}
-	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\}\r\n$prompt $" {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;((${ws}D & operator=\\(D const &\\);)|(${ws}D\\(int, D const &\\);)|(${ws}D\\(int\\);)|(${ws}static void s\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vd\\(void\\);)|(${ws}int fd\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype D (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype D"
 	}
-	-re ".*$prompt $" { fail "ptype D" }
-	timeout { fail "ptype D (timeout)" }
+	timeout {
+	    fail "ptype D (timeout)"
+	}
     }
 
-    send "ptype E\n"
-    expect {
-	-re "type = class E : public B, public virtual V, public D, public C \{\[\r\n\t \]+public:\[\r\n\t \]+int e;(\[\r\n\t \]+E\\(int\\);|)(\[\r\n\t \]+E\\(int, E const &\\);|)(\[\r\n\t \]+E & operator=\\(E const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype E\n"
+    gdb_expect {
+	-re "type = class E : public B, public virtual V, public D, public C \{${ws}public:${ws}int e;${ws}E & operator=\\(E const &\\);${ws}E\\(int, E const &\\);${ws}E\\(int\\);${ws}virtual int f\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vv\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype E"
 	}
-	-re "type = struct E \{\[\r\n\t \]+struct B B;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct D D;\[\r\n\t \]+struct C C;\[\r\n\t \]+int e;\[\r\n\t \]+\}\r\n$prompt $" {
+	-re "type = class E : public B, public virtual V, public D, public C \{${ws}public:${ws}int e;((${ws}E & operator=\\(E const &\\);)|(${ws}E\\(int, E const &\\);)|(${ws}E\\(int\\);)|(${ws}virtual int f\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype E (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype E"
 	}
-	-re ".*$prompt $" { fail "ptype E" }
-	timeout { fail "ptype E (timeout)" }
+	timeout {
+	    fail "ptype E (timeout)"
+	}
     }
 
-    send "ptype dd\n"
-    expect {
-	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype dd\n"
+    gdb_expect {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;${ws}D & operator=\\(D const &\\);${ws}D\\(int, D const &\\);${ws}D\\(int\\);${ws}static void s\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vd\\(void\\);${ws}int fd\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype dd"
 	}
-	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\}\r\n$prompt $" {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;((${ws}D & operator=\\(D const &\\);)|(${ws}D\\(int, D const &\\);)|(${ws}D\\(int\\);)|(${ws}static void s\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vd\\(void\\);)|(${ws}int fd\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype dd (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype dd"
 	}
-	-re ".*$prompt $" { fail "ptype dd" }
-	timeout { fail "ptype dd (timeout)" }
+	timeout {
+	    fail "ptype dd (timeout)"
+	}
     }
 
-    send "ptype ppd\n"
-    expect {
-	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype ppd\n"
+    gdb_expect {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;${ws}D & operator=\\(D const &\\);${ws}D\\(int, D const &\\);${ws}D\\(int\\);${ws}static void s\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vd\\(void\\);${ws}int fd\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype ppd"
 	}
-	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;((${ws}D & operator=\\(D const &\\);)|(${ws}D\\(int, D const &\\);)|(${ws}D\\(int\\);)|(${ws}static void s\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vd\\(void\\);)|(${ws}int fd\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype ppd (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype ppd"
 	}
-	-re ".*$prompt $" { fail "ptype ppd" }
-	timeout { fail "ptype ppd (timeout)" }
+	timeout {
+	    fail "ptype ppd (timeout)"
+	}
     }
 
-    send "ptype pAd\n"
-    expect {
-	-re "type = class AD \{\[\r\n\t \]+public:(\[\r\n\t \]+AD\\(void\\);|)(\[\r\n\t \]+AD\\(AD const &\\);|)(\[\r\n\t \]+AD & operator=\\(AD const &\\);|)\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pAd\n"
+    gdb_expect {
+	-re "type = class AD \{${ws}public:${ws}AD & operator=\\(AD const &\\);${ws}AD\\(AD const &\\);${ws}AD\\(void\\);${ws}virtual int vg\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pAd"
 	}
-	-re "type = struct AD \{\r\n\} \[*\]+\r\n$prompt $" {
+	-re "type = class AD \{${ws}public:((${ws}AD & operator=\\(AD const &\\);)|(${ws}AD\\(AD const &\\);)|(${ws}AD\\(void\\);)|(${ws}virtual int vg\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pAd (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pAd"
 	}
-	-re ".*$prompt $" { fail "ptype pAd" }
-	timeout { fail "ptype pAd (timeout)" }
+	timeout {
+	    fail "ptype pAd (timeout)"
+	}
     }
 
-    send "ptype a\n"
-    expect {
-	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+int a;\[\r\n\t \]+public:(\[\r\n\t \]+A\\(int\\);|)(\[\r\n\t \]+A\\(int, A const &\\);|)(\[\r\n\t \]+A & operator=\\(A const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype a\n"
+    gdb_expect {
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}int a;${ws}public:${ws}A & operator=\\(A const &\\);${ws}A\\(int, A const &\\);${ws}A\\(int\\);${ws}virtual int f\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype a"
 	}
-	-re "type = struct A \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int a;\[\r\n \t\]*\}\r\n$prompt $" {
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}int a;${ws}public:((${ws}A & operator=\\(A const &\\);)|(${ws}A\\(int, A const &\\);)|(${ws}A\\(int\\);)|(${ws}virtual int f\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype a (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype a"
 	}
-	-re ".*$prompt $" { fail "ptype a" }
-	timeout { fail "ptype a (timeout)" }
+	timeout {
+	    fail "ptype a (timeout)"
+	}
     }
 
-    send "ptype b\n"
-    expect {
-	-re "type = class B : public A \{\[\r\n\t \]+private:\[\r\n\t \]+int b;\[\r\n\t \]+public:(\[\r\n\t \]+B\\(int\\);|)(\[\r\n\t \]+B\\(int, B const &\\);|)(\[\r\n\t \]+B & operator=\\(B const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype b\n"
+    gdb_expect {
+	-re "type = class B : public A \{${ws}private:${ws}int b;${ws}public:${ws}B & operator=\\(B const &\\);${ws}B\\(int, B const &\\);${ws}B\\(int\\);${ws}virtual int f\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype b"
 	}
-	-re "type = struct B \{\[\r\n \t\]*struct A A;\[\r\n \t\]*int b;\[\r\n \t\]*\}\r\n$prompt $" {
+	-re "type = class B : public A \{${ws}private:${ws}int b;${ws}public:((${ws}B & operator=\\(B const &\\);)|(${ws}B\\(int, B const &\\);)|(${ws}B\\(int\\);)|(${ws}virtual int f\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype b (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype b"
 	}
-	-re ".*$prompt $" { fail "ptype b" }
-	timeout { fail "ptype b (timeout)" }
+	timeout {
+	    fail "ptype b (timeout)"
+	}
     }
 
-    send "ptype c\n"
-    # The latest gcc/gdb combo leaves the class name out when it prints
-    # type type.  Accept this as an expected fail.
-    expect {
-	-re "type = class C : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int c;(\[\r\n\t \]+C\\(int\\);|)(\[\r\n\t \]+C\\(int, C const &\\);|)(\[\r\n\t \]+C & operator=\\(C const &\\);|)\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype c\n"
+    gdb_expect {
+	-re "type = class C : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int c;${ws}C & operator=\\(C const &\\);${ws}C\\(int, C const &\\);${ws}C\\(int\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype c"
 	}
-	-re "type = struct C \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int c;\[\r\n \t\]*\}\r\n$prompt $" {
+	-re "type = class C : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int c;((${ws}C & operator=\\(C const &\\);)|(${ws}C\\(int, C const &\\);)|(${ws}C\\(int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype c (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype c"
 	}
-	-re ".*$prompt $" { fail "ptype c" }
-	timeout { fail "ptype c (timeout)" }
+	timeout {
+	    fail "ptype c (timeout)"
+	}
     }
 
-    send "ptype d\n"
-    expect {
-	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype d\n"
+    gdb_expect {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;${ws}D & operator=\\(D const &\\);${ws}D\\(int, D const &\\);${ws}D\\(int\\);${ws}static void s\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vd\\(void\\);${ws}int fd\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype d"
 	}
-	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\}\r\n$prompt $" {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;((${ws}D & operator=\\(D const &\\);)|(${ws}D\\(int, D const &\\);)|(${ws}D\\(int\\);)|(${ws}static void s\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vd\\(void\\);)|(${ws}int fd\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype d (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype d"
 	}
-	-re ".*$prompt $" { fail "ptype d" }
-	timeout { fail "ptype d (timeout)" }
+	timeout {
+	    fail "ptype d (timeout)"
+	}
     }
 
-    send "ptype e\n"
-    expect {
-	-re "type = class E : public B, public virtual V, public D, public C \{\[\r\n\t \]+public:\[\r\n\t \]+int e;(\[\r\n\t \]+E\\(int\\);|)(\[\r\n\t \]+E\\(int, E const &\\);|)(\[\r\n\t \]+E & operator=\\(E const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype e\n"
+    gdb_expect {
+	-re "type = class E : public B, public virtual V, public D, public C \{${ws}public:${ws}int e;${ws}E & operator=\\(E const &\\);${ws}E\\(int, E const &\\);${ws}E\\(int\\);${ws}virtual int f\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vv\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype e"
 	}
-	-re "type = struct E \{\[\r\n\t \]+struct B B;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct D D;\[\r\n\t \]+struct C C;\[\r\n\t \]+int e;\[\r\n\t \]+\}\r\n$prompt $" {
+	-re "type = class E : public B, public virtual V, public D, public C \{${ws}public:${ws}int e;((${ws}E & operator=\\(E const &\\);)|(${ws}E\\(int, E const &\\);)|(${ws}E\\(int\\);)|(${ws}virtual int f\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype e (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype e"
 	}
-	-re ".*$prompt $" { fail "ptype e" }
-	timeout { fail "ptype e (timeout)" }
+	timeout {
+	    fail "ptype e (timeout)"
+	}
     }
 
-    send "ptype v\n"
-    expect {
-	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype v\n"
+    gdb_expect {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;${ws}V & operator=\\(V const &\\);${ws}V\\(V const &\\);${ws}V\\(void\\);${ws}int f\\(void\\);${ws}virtual int vv\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype v"
 	}
-	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\}\r\n$prompt $" {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;((${ws}V & operator=\\(V const &\\);)|(${ws}V\\(V const &\\);)|(${ws}V\\(void\\);)|(${ws}int f\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype v (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype v"
 	}
-	-re ".*$prompt $" { fail "ptype v" }
-	timeout { fail "ptype v (timeout)" }
+	timeout {
+	    fail "ptype v (timeout)"
+	}
     }
 
-    send "ptype vb\n"
-    expect {
-	-re "type = class VB \{\[\r\n\t \]+public:\[\r\n\t \]+int vb;(\[\r\n\t \]+VB\\(void\\);|)(\[\r\n\t \]+VB\\(VB const &\\);|)(\[\r\n\t \]+VB & operator=\\(VB const &\\);|)\[\r\n\t \]+int fvb.void.;\[\r\n\t \]+virtual int vvb.void.;\[\r\n\t \]+\}\r\n$prompt $" {
+    send_gdb "ptype vb\n"
+    gdb_expect {
+	-re "type = class VB \{${ws}public:${ws}int vb;${ws}VB & operator=\\(VB const &\\);${ws}VB\\(VB const &\\);${ws}VB\\(void\\);${ws}int fvb\\(void\\);${ws}virtual int vvb\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype vb"
 	}
-	-re "type = struct VB \{\[\r\n\t \]+int vb;\[\r\n\t \]+\}\r\n$prompt $" {
+	-re "type = class VB \{${ws}public:${ws}int vb;((${ws}VB & operator=\\(VB const &\\);)|(${ws}VB\\(VB const &\\);)|(${ws}VB\\(void\\);)|(${ws}int fvb\\(void\\);)|(${ws}virtual int vvb\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype vb (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype vb"
 	}
-	-re ".*$prompt $" { fail "ptype vb" }
-	timeout { fail "ptype vb (timeout)" }
+	timeout {
+	    fail "ptype vb (timeout)"
+	}
     }
 
-    send "ptype pAa\n"
-    expect {
-	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+int a;\[\r\n\t \]+public:(\[\r\n\t \]+A\\(int\\);|)(\[\r\n\t \]+A\\(int, A const &\\);|)(\[\r\n\t \]+A & operator=\\(A const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pAa\n"
+    gdb_expect {
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}int a;${ws}public:${ws}A & operator=\\(A const &\\);${ws}A\\(int, A const &\\);${ws}A\\(int\\);${ws}virtual int f\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pAa"
 	}
-	-re "type = struct A \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int a;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}int a;${ws}public:((${ws}A & operator=\\(A const &\\);)|(${ws}A\\(int, A const &\\);)|(${ws}A\\(int\\);)|(${ws}virtual int f\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pAa (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pAa"
 	}
-	-re ".*$prompt $" { fail "ptype pAa" }
-	timeout { fail "ptype pAa (timeout)" }
+	timeout {
+	    fail "ptype pAa (timeout)"
+	}
     }
 
-    send "ptype pAe\n"
-    expect {
-	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+int a;\[\r\n\t \]+public:(\[\r\n\t \]+A\\(int\\);|)(\[\r\n\t \]+A\\(int, A const &\\);|)(\[\r\n\t \]+A & operator=\\(A const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pAe\n"
+    gdb_expect {
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}int a;${ws}public:${ws}A & operator=\\(A const &\\);${ws}A\\(int, A const &\\);${ws}A\\(int\\);${ws}virtual int f\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pAe"
 	}
-	-re "type = struct A \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int a;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
+	-re "type = class A : public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}int a;${ws}public:((${ws}A & operator=\\(A const &\\);)|(${ws}A\\(int, A const &\\);)|(${ws}A\\(int\\);)|(${ws}virtual int f\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pAe (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pAe"
 	}
-	-re ".*$prompt $" { fail "ptype pAe" }
-	timeout { fail "ptype pAe (timeout)" }
+	timeout {
+	    fail "ptype pAe (timeout)"
+	}
     }
 
-    send "ptype pBe\n"
-    expect {
-	-re "type = class B : public A \{\[\r\n\t \]+private:\[\r\n\t \]+int b;\[\r\n\t \]+public:(\[\r\n\t \]+B\\(int\\);|)(\[\r\n\t \]+B\\(int, B const &\\);|)(\[\r\n\t \]+B & operator=\\(B const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pBe\n"
+    gdb_expect {
+	-re "type = class B : public A \{${ws}private:${ws}int b;${ws}public:${ws}B & operator=\\(B const &\\);${ws}B\\(int, B const &\\);${ws}B\\(int\\);${ws}virtual int f\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pBe"
 	}
-	-re "type = struct B \{\[\r\n \t\]*struct A A;\[\r\n \t\]*int b;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
+	-re "type = class B : public A \{${ws}private:${ws}int b;${ws}public:((${ws}B & operator=\\(B const &\\);)|(${ws}B\\(int, B const &\\);)|(${ws}B\\(int\\);)|(${ws}virtual int f\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pBe (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pBe"
 	}
-	-re ".*$prompt $" { fail "ptype pBe" }
-	timeout { fail "ptype pBe (timeout)" }
+	timeout {
+	    fail "ptype pBe (timeout)"
+	}
     }
 
-    send "ptype pDd\n"
-    expect {
-	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pDd\n"
+    gdb_expect {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;${ws}D & operator=\\(D const &\\);${ws}D\\(int, D const &\\);${ws}D\\(int\\);${ws}static void s\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vd\\(void\\);${ws}int fd\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pDd"
 	}
-	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;((${ws}D & operator=\\(D const &\\);)|(${ws}D\\(int, D const &\\);)|(${ws}D\\(int\\);)|(${ws}static void s\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vd\\(void\\);)|(${ws}int fd\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pDd (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pDd"
 	}
-	-re ".*$prompt $" { fail "ptype pDd" }
-	timeout { fail "ptype pDd (timeout)" }
+	timeout {
+	    fail "ptype pDd (timeout)"
+	}
     }
 
-    send "ptype pDe\n"
-    expect {
-	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pDe\n"
+    gdb_expect {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;${ws}D & operator=\\(D const &\\);${ws}D\\(int, D const &\\);${ws}D\\(int\\);${ws}static void s\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vd\\(void\\);${ws}int fd\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pDe"
 	}
-	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+	-re "type = class D : public AD, public virtual V \{${ws}private:${ws}V \[*\]+_vb.V;${ws}public:${ws}int d;((${ws}D & operator=\\(D const &\\);)|(${ws}D\\(int, D const &\\);)|(${ws}D\\(int\\);)|(${ws}static void s\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vd\\(void\\);)|(${ws}int fd\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pDe (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pDe"
 	}
-	-re ".*$prompt $" { fail "ptype pDe" }
-	timeout { fail "ptype pDe (timeout)" }
+	timeout {
+	    fail "ptype pDe (timeout)"
+	}
     }
 
-    send "ptype pVa\n"
-    expect {
-	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pVa\n"
+    gdb_expect {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;${ws}V & operator=\\(V const &\\);${ws}V\\(V const &\\);${ws}V\\(void\\);${ws}int f\\(void\\);${ws}virtual int vv\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pVa"
 	}
-	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;((${ws}V & operator=\\(V const &\\);)|(${ws}V\\(V const &\\);)|(${ws}V\\(void\\);)|(${ws}int f\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pVa (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pVa"
 	}
-	-re ".*$prompt $" { fail "ptype pVa" }
-	timeout { fail "ptype pVa (timeout)" }
+	timeout {
+	    fail "ptype pVa (timeout)"
+	}
     }
 
-    send "ptype pVv\n"
-    expect {
-	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pVv\n"
+    gdb_expect {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;${ws}V & operator=\\(V const &\\);${ws}V\\(V const &\\);${ws}V\\(void\\);${ws}int f\\(void\\);${ws}virtual int vv\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pVv"
 	}
-	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;((${ws}V & operator=\\(V const &\\);)|(${ws}V\\(V const &\\);)|(${ws}V\\(void\\);)|(${ws}int f\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pVv (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pVv"
 	}
-	-re ".*$prompt $" { fail "ptype pVv" }
-	timeout { fail "ptype pVv (timeout)" }
+	timeout {
+	    fail "ptype pVv (timeout)"
+	}
     }
 
-    send "ptype pVe\n"
-    expect {
-	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pVe\n"
+    gdb_expect {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;${ws}V & operator=\\(V const &\\);${ws}V\\(V const &\\);${ws}V\\(void\\);${ws}int f\\(void\\);${ws}virtual int vv\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pVe"
 	}
-	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;((${ws}V & operator=\\(V const &\\);)|(${ws}V\\(V const &\\);)|(${ws}V\\(void\\);)|(${ws}int f\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pVe (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pVe"
 	}
-	-re ".*$prompt $" { fail "ptype pVe" }
-	timeout { fail "ptype pVe (timeout)" }
+	timeout {
+	    fail "ptype pVe (timeout)"
+	}
     }
 
-    send "ptype pVd\n"
-    expect {
-	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pVd\n"
+    gdb_expect {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;${ws}V & operator=\\(V const &\\);${ws}V\\(V const &\\);${ws}V\\(void\\);${ws}int f\\(void\\);${ws}virtual int vv\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pVd"
 	}
-	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
+	-re "type = class V : public VA, public VB \{${ws}public:${ws}int w;((${ws}V & operator=\\(V const &\\);)|(${ws}V\\(V const &\\);)|(${ws}V\\(void\\);)|(${ws}int f\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pVd (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pVd"
 	}
-	-re ".*$prompt $" { fail "ptype pVd" }
-	timeout { fail "ptype pVd (timeout)" }
+	timeout {
+	    fail "ptype pVd (timeout)"
+	}
     }
 
-    send "ptype pADe\n"
-    expect {
-	-re "type = class AD \{\[\r\n\t \]+public:(\[\r\n\t \]+AD\\(void\\);|)(\[\r\n\t \]+AD\\(AD const &\\);|)(\[\r\n\t \]+AD & operator=\\(AD const &\\);|)\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pADe\n"
+    gdb_expect {
+	-re "type = class AD \{${ws}public:${ws}AD & operator=\\(AD const &\\);${ws}AD\\(AD const &\\);${ws}AD\\(void\\);${ws}virtual int vg\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pADe"
 	}
-	-re "type = struct AD \{\r\n\} \[*\]+\r\n$prompt $" {
+	-re "type = class AD \{${ws}public:((${ws}AD & operator=\\(AD const &\\);)|(${ws}AD\\(AD const &\\);)|(${ws}AD\\(void\\);)|(${ws}virtual int vg\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pADe (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pADe"
 	}
-	-re ".*$prompt $" { fail "ptype pADe" }
-	timeout { fail "ptype pADe (timeout)" }
+	timeout {
+	    fail "ptype pADe (timeout)"
+	}
     }
 
-    send "ptype pEe\n"
-    expect {
-	-re "type = class E : public B, public virtual V, public D, public C \{\[\r\n\t \]+public:\[\r\n\t \]+int e;(\[\r\n\t \]+E\\(int\\);|)(\[\r\n\t \]+E\\(int, E const &\\);|)(\[\r\n\t \]+E & operator=\\(E const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pEe\n"
+    gdb_expect {
+	-re "type = class E : public B, public virtual V, public D, public C \{${ws}public:${ws}int e;${ws}E & operator=\\(E const &\\);${ws}E\\(int, E const &\\);${ws}E\\(int\\);${ws}virtual int f\\(void\\);${ws}virtual int vg\\(void\\);${ws}virtual int vv\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pEe"
 	}
-	-re "type = struct E \{\[\r\n\t \]+struct B B;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct D D;\[\r\n\t \]+struct C C;\[\r\n\t \]+int e;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+	-re "type = class E : public B, public virtual V, public D, public C \{${ws}public:${ws}int e;((${ws}E & operator=\\(E const &\\);)|(${ws}E\\(int, E const &\\);)|(${ws}E\\(int\\);)|(${ws}virtual int f\\(void\\);)|(${ws}virtual int vg\\(void\\);)|(${ws}virtual int vv\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pEe (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pEe"
 	}
-	-re ".*$prompt $" { fail "ptype pEe" }
-	timeout { fail "ptype pEe (timeout)" }
+	timeout {
+	    fail "ptype pEe (timeout)"
+	}
     }
 
-    send "ptype pVB\n"
-    expect {
-	-re "type = class VB \{\[\r\n\t \]+public:\[\r\n\t \]+int vb;(\[\r\n\t \]+VB\\(void\\);|)(\[\r\n\t \]+VB\\(VB const &\\);|)(\[\r\n\t \]+VB & operator=\\(VB const &\\);|)\[\r\n\t \]+int fvb.void.;\[\r\n\t \]+virtual int vvb.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+    send_gdb "ptype pVB\n"
+    gdb_expect {
+	-re "type = class VB \{${ws}public:${ws}int vb;${ws}VB & operator=\\(VB const &\\);${ws}VB\\(VB const &\\);${ws}VB\\(void\\);${ws}int fvb\\(void\\);${ws}virtual int vvb\\(void\\);${ws}\} \[*\]+\r\n$gdb_prompt $" {
 	    pass "ptype pVB"
 	}
-	-re "type = struct VB \{\[\r\n\t \]+int vb;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
+	-re "type = class VB \{${ws}public:${ws}int vb;((${ws}VB & operator=\\(VB const &\\);)|(${ws}VB\\(VB const &\\);)|(${ws}VB\\(void\\);)|(${ws}int fvb\\(void\\);)|(${ws}virtual int vvb\\(void\\);))*${ws}\} \[*\]+\r\n$gdb_prompt $" {
+	    pass "ptype pVB (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
 	    fail "ptype pVB"
 	}
-	-re ".*$prompt $" { fail "ptype pVB" }
-	timeout { fail "ptype pVB (timeout)" }
+	timeout {
+	    fail "ptype pVB (timeout)"
+	}
     }
 }
 
@@ -446,147 +586,151 @@ proc test_ptype_of_classes {} {
 #
 
 proc test_virtual_calls {} {
-    global prompt
+    global gdb_prompt
     global GDB
 
-    send "print pAe->f()\n"
-    expect {
-	-re ".* = 20\r\n$prompt $" { pass "print pAe->f()" }
-	-re "Cannot invoke functions on this machine.*$prompt $" {
+    if [target_info exists gdb,cannot_call_functions] {
+	setup_xfail "*-*-*" 2416
+	fail "This target can not call functions"
+	return 0
+    }
+
+    send_gdb "print pAe->f()\n"
+    gdb_expect {
+	-re ".* = 20\r\n$gdb_prompt $" { pass "print pAe->f()" }
+	-re "Cannot invoke functions on this machine.*$gdb_prompt $" {
 	    fail "print pAe->f() (cannot invoke functions, skipping virtual calls)"
 	    return 0
 	}
-	-re ".*Cannot access memory at address 0x8.*$prompt $" {
+	-re ".*Cannot access memory at address 0x8.*$gdb_prompt $" {
 	    fail "print pAe->f() \
 (known failure with gcc cygnus-2.4.5-930417, skipping virtual calls)"
 	    return 0
 	}
-	-re ".*$prompt $" { fail "print pAe->f()" }
+	-re ".*$gdb_prompt $" { fail "print pAe->f()" }
 	timeout { fail "print pAe->f() (timeout)" }
-	eof { fail "print pAe->f() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pAe->f() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pAa->f()\n"
-    expect {
-	-re ".* = 1\r\n$prompt $" { pass "print pAa->f()" }
-	-re ".*$prompt $" { fail "print pAa->f()" }
+    send_gdb "print pAa->f()\n"
+    gdb_expect {
+	-re ".* = 1\r\n$gdb_prompt $" { pass "print pAa->f()" }
+	-re ".*$gdb_prompt $" { fail "print pAa->f()" }
 	timeout { fail "print pAa->f() (timeout)" }
-	eof { fail "print pAa->f() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pAa->f() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pDe->vg()\n"
+    send_gdb "print pDe->vg()\n"
 #   setup_xfail "*-*-*"
-    expect {
-	-re ".* = 202\r\n$prompt $" { pass "print pDe->vg()" }
-	-re ".*$prompt $" { fail "print pDe->vg()" }
+    gdb_expect {
+	-re ".* = 202\r\n$gdb_prompt $" { pass "print pDe->vg()" }
+	-re ".*$gdb_prompt $" { fail "print pDe->vg()" }
 	timeout { fail "print pDe->vg() (timeout)" }
-	eof { fail "print pDe->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pDe->vg() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pADe->vg()\n"
-    expect {
-	-re ".* = 202\r\n$prompt $" { pass "print pADe->vg()" }
-	-re ".*$prompt $" { fail "print pADe->vg()" }
+    send_gdb "print pADe->vg()\n"
+    gdb_expect {
+	-re ".* = 202\r\n$gdb_prompt $" { pass "print pADe->vg()" }
+	-re ".*$gdb_prompt $" { fail "print pADe->vg()" }
 	timeout { fail "print pADe->vg() (timeout)" }
-	eof { fail "print pADe->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pADe->vg() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pDd->vg()\n"
+    send_gdb "print pDd->vg()\n"
 #   setup_xfail "*-*-*"
-    expect {
-	-re ".* = 101\r\n$prompt $" { pass "print pDd->vg()" }
-	-re ".*$prompt $" { fail "print pDd->vg()" }
+    gdb_expect {
+	-re ".* = 101\r\n$gdb_prompt $" { pass "print pDd->vg()" }
+	-re ".*$gdb_prompt $" { fail "print pDd->vg()" }
 	timeout { fail "print pDd->vg() (timeout)" }
-	eof { fail "print pDd->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pDd->vg() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pEe->vvb()\n"
+    send_gdb "print pEe->vvb()\n"
 #   setup_xfail "*-*-*"
-    expect {
-	-re ".* = 411\r\n$prompt $" { pass "print pEe->vvb()" }
-	-re ".*$prompt $" { fail "print pEe->vvb()" }
+    gdb_expect {
+	-re ".* = 411\r\n$gdb_prompt $" { pass "print pEe->vvb()" }
+	-re ".*$gdb_prompt $" { fail "print pEe->vvb()" }
 	timeout { fail "print pEe->vvb() (timeout)" }
-	eof { fail "print pEe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pEe->vvb() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pVB->vvb()\n"
-    expect {
-	-re ".* = 407\r\n$prompt $" { pass "print pVB->vvb()" }
-	-re ".*$prompt $" { fail "print pVB->vvb()" }
+    send_gdb "print pVB->vvb()\n"
+    gdb_expect {
+	-re ".* = 407\r\n$gdb_prompt $" { pass "print pVB->vvb()" }
+	-re ".*$gdb_prompt $" { fail "print pVB->vvb()" }
 	timeout { fail "print pVB->vvb() (timeout)" }
-	eof { fail "print pVB->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pVB->vvb() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pBe->vvb()\n"
+    send_gdb "print pBe->vvb()\n"
 #   setup_xfail "*-*-*"
-    expect {
-	-re ".* = 411\r\n$prompt $" { pass "print pBe->vvb()" }
-	-re ".*$prompt $" { fail "print pBe->vvb()" }
+    gdb_expect {
+	-re ".* = 411\r\n$gdb_prompt $" { pass "print pBe->vvb()" }
+	-re ".*$gdb_prompt $" { fail "print pBe->vvb()" }
 	timeout { fail "print pBe->vvb() (timeout)" }
-	eof { fail "print pBe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pBe->vvb() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pDe->vvb()\n"
+    send_gdb "print pDe->vvb()\n"
 #   setup_xfail "*-*-*"
-    expect {
-	-re ".* = 411\r\n$prompt $" { pass "print pDe->vvb()" }
-	-re ".*$prompt $" { fail "print pDe->vvb()" }
+    gdb_expect {
+	-re ".* = 411\r\n$gdb_prompt $" { pass "print pDe->vvb()" }
+	-re ".*$gdb_prompt $" { fail "print pDe->vvb()" }
 	timeout { fail "print pDe->vvb() (timeout)" }
-	eof { fail "print pDe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pDe->vvb() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pEe->vd()\n"
+    send_gdb "print pEe->vd()\n"
 #   setup_xfail "*-*-*"
-    expect {
-	-re ".* = 282\r\n$prompt $" { pass "print pEe->vd()" }
-	-re ".*$prompt $" { fail "print pEe->vd()" }
+    gdb_expect {
+	-re ".* = 282\r\n$gdb_prompt $" { pass "print pEe->vd()" }
+	-re ".*$gdb_prompt $" { fail "print pEe->vd()" }
 	timeout { fail "print pEe->vd() (timeout)" }
-	eof { fail "print pEe->vd() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pEe->vd() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pEe->fvb()\n"
+    send_gdb "print pEe->fvb()\n"
 #   setup_xfail "*-*-*"
-    expect {
-	-re ".* = 311\r\n$prompt $" { pass "print pEe->fvb()" }
-	-re ".*$prompt $" { fail "print pEe->fvb()" }
+    gdb_expect {
+	-re ".* = 311\r\n$gdb_prompt $" { pass "print pEe->fvb()" }
+	-re ".*$gdb_prompt $" { fail "print pEe->fvb()" }
 	timeout { fail "print pEe->fvb() (timeout)" }
-	eof { fail "print pEe->fvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pEe->fvb() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 
-    send "print pEe->D::vg()\n"
+    send_gdb "print pEe->D::vg()\n"
     setup_xfail "*-*-*"
-    expect {
-	-re ".* = 102\r\n$prompt $" { pass "print pEe->D::vg()" }
-	-re ".*$prompt $" { fail "print pEe->D::vg()" }
+    gdb_expect {
+	-re ".* = 102\r\n$gdb_prompt $" { pass "print pEe->D::vg()" }
+	-re ".*$gdb_prompt $" { fail "print pEe->D::vg()" }
 	timeout { fail "print pEe->D::vg() (timeout)" }
-	eof { fail "print pEe->D::vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
+	eof { fail "print pEe->D::vg() ($GDB dumped core) (FIXME)" ; gdb_virtfunc_restart; return }
     }
 }
-
 
 proc do_tests {} {
     global prms_id
     global bug_id
-    global subdir
-    global objdir
-    global srcdir
-    global binfile
-    global prompt
 
     set prms_id 0
     set bug_id 0
 
-    # Start with a fresh gdb.
+    gdb_start;
+    gdb_virtfunc_init;
 
-    gdb_exit
-    gdb_start
-    gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $binfile
+    # Get the debug format for the compiled test case.  If that
+    # format is DWARF 1 then just skip all the tests since none of
+    # them will pass.
 
-    send "set language c++\n"
-    expect -re "$prompt $"
-    send "set width 0\n"
-    expect -re "$prompt $"
+    if [ runto_main ] then {
+	get_debug_format
+	if [ setup_xfail_format "DWARF 1" ] then {
+	    fail "C++ tests skipped due to limited C++ support in DWARF 1 debug format"
+	    return
+	}
+	clear_xfail "*-*-*"
+    }
 
     test_ptype_of_classes
 

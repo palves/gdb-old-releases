@@ -1,4 +1,4 @@
-# Copyright (C) 1992 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1996, 1997 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,12 +12,14 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
 
 # This file was written by Fred Fish. (fnf@cygnus.com)
+
+set ws "\[\r\n\t \]+"
 
 if $tracelevel then {
 	strace $tracelevel
@@ -26,17 +28,14 @@ if $tracelevel then {
 set testfile "templates"
 set srcfile ${testfile}.cc
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
-    perror "Couldn't compile ${srcfile}"
-    return -1
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
 # Create and source the file that provides information about the compiler
 # used to compile the test case.
-execute_anywhere "rm -f ${binfile}.ci"
-if  { [compile "-E ${srcdir}/${subdir}/compiler.cc > ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${binfile}.ci file"
-    return -1
+if  { [gdb_compile "${srcdir}/${subdir}/compiler.cc" "${binfile}.ci" preprocess ""] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 source ${binfile}.ci
 
@@ -45,30 +44,39 @@ source ${binfile}.ci
 #
 
 proc test_ptype_of_templates {} {
-    global prompt
+    global gdb_prompt
+    global ws
 
-    send "ptype T5<int>\n"
-    expect {
-	-re "type = class T5<int> \{\[\r\n\t \]+public:\[\r\n\t \]+static int X;\[\r\n\t \]+int x;\[\r\n\t \]+int val;\[\r\n\t \]+void ~T5 \\(\\);\[\r\n\t \]+T5\\(T5<int> const &\\);\[\r\n\t \]+T5\\(int\\);\[\r\n\t \]+T5<int> & operator=\\(T5<int> const &\\);.*int value\\(void\\);\[\r\n\t \]+\}.*$prompt $" {
-	    pass "ptype T5<int> (compiled with obsolescent gcc)"
-	}
-	-re "type = class T5<int> \{\[\r\n\t \]+public:\[\r\n\t \]+static int X;\[\r\n\t \]+int x;\[\r\n\t \]+int val;\[\r\n\t \]+T5\\(int\\);\[\r\n\t \]+T5\\(T5<int> const &\\);\[\r\n\t \]+void ~T5 \\(\\);\[\r\n\t \]+static void \\* operator new\\(unsigned (int|long)\\);\[\r\n\t \]+static void operator delete\\(void \\*\\);\[\r\n\t \]+int value\\(void\\);\[\r\n\t \]+\}.*$prompt $" {
+    send_gdb "ptype T5<int>\n"
+    gdb_expect {
+	-re "type = class T5<int> \{${ws}public:${ws}static int X;${ws}int x;${ws}int val;${ws}T5\\<int> & operator=\\(T5<int> const &\\);${ws}T5\\(int\\);${ws}T5\\(T5<int> const &\\);${ws}~T5\\(void\\);${ws}static void \\* operator new\\(unsigned (int|long)\\);${ws}static void operator delete\\(void \\*\\);${ws}int value\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype T5<int>"
 	}
-	-re ".*$prompt $" { fail "ptype T5<int>" }
-	default { fail "ptype T5<int> (timeout)" }
+	-re "type = class T5<int> \{${ws}public:${ws}static int X;${ws}int x;${ws}int val;((${ws}T5\\<int> & operator=\\(T5<int> const &\\);)|(${ws}T5\\(int\\);)|(${ws}T5\\(T5<int> const &\\);)|(${ws}~T5\\(void\\);)|(${ws}static void \\* operator new\\(unsigned (int|long)\\);)|(${ws}static void operator delete\\(void \\*\\);)|(${ws}int value\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype T5<int> (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
+	    fail "ptype T5<int>"
+	}
+	timeout {
+	    fail "ptype T5<int> (timeout)"
+	}
     }
 
-    send "ptype t5i\n"
-    expect {
-	-re "type = class T5<int> \{\[\r\n\t \]+public:\[\r\n\t \]+static int X;\[\r\n\t \]+int x;\[\r\n\t \]+int val;\[\r\n\t \]+void ~T5 \\(\\);\[\r\n\t \]+T5\\(T5<int> const &\\);\[\r\n\t \]+T5\\(int\\);\[\r\n\t \]+T5<int> & operator=\\(T5<int> const &\\);.*int value\\(void\\);\[\r\n\t \]+\}.*$prompt $" {
-	    pass "ptype t5i (compiled with obsolescent gcc)"
-	}
-	-re "type = class T5<int> \{\[\r\n\t \]+public:\[\r\n\t \]+static int X;\[\r\n\t \]+int x;\[\r\n\t \]+int val;\[\r\n\t \]+T5\\(int\\);\[\r\n\t \]+T5\\(T5<int> const &\\);\[\r\n\t \]+void ~T5 \\(\\);\[\r\n\t \]+static void \\* operator new\\(unsigned (int|long)\\);\[\r\n\t \]+static void operator delete\\(void \\*\\);\[\r\n\t \]+int value\\(void\\);\[\r\n\t \]+\}.*$prompt $" {
+    send_gdb "ptype t5i\n"
+    gdb_expect {
+	-re "type = class T5<int> \{${ws}public:${ws}static int X;${ws}int x;${ws}int val;${ws}T5<int> & operator=\\(T5<int> const &\\);${ws}T5\\(int\\);${ws}T5\\(T5<int> const &\\);${ws}~T5\\(void\\);${ws}static void \\* operator new\\(unsigned (int|long)\\);${ws}static void operator delete\\(void \\*\\);${ws}int value\\(void\\);${ws}\}\r\n$gdb_prompt $" {
 	    pass "ptype t5i"
 	}
-	-re ".*$prompt $" { fail "ptype t5i" }
-	default { fail "ptype t5i (timeout)" }
+	-re "type = class T5<int> \{${ws}public:${ws}static int X;${ws}int x;${ws}int val;((${ws}T5<int> & operator=\\(T5<int> const &\\);)|(${ws}T5\\(int\\);)|(${ws}T5\\(T5<int> const &\\);)|(${ws}~T5\\(void\\);)|(${ws}static void \\* operator new\\(unsigned (int|long)\\);)|(${ws}static void operator delete\\(void \\*\\);)|(${ws}int value\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	    pass "ptype t5i (obsolescent gcc or gdb)"
+	}
+	-re ".*$gdb_prompt $" {
+	    fail "ptype t5i"
+	}
+	timeout {
+	    fail "ptype t5i (timeout)"
+	}
     }
 }
 
@@ -77,27 +85,27 @@ proc test_ptype_of_templates {} {
 #
 
 proc test_template_breakpoints {} {
-    global prompt
+    global gdb_prompt
     global testfile
     global srcdir
 
-    send "break T5<int>::T5\n"
-    expect {
-	-re "0. cancel.*\r\n.1. all.*\r\n.2. T5<int>::T5\\(int\\) at .*\r\n.3. T5<int>::T5\\(T5<int> const &\\) at .*\r\n> $" {
+    send_gdb "break T5<int>::T5\n"
+    gdb_expect {
+	-re "0. cancel.*\[\r\n\]*.1. all.*\[\r\n\]*.2. T5<int>::T5\\(int\\) at .*\[\r\n\]*.3. T5<int>::T5\\(T5<int> const &\\) at .*\[\r\n\]*> $" {
 	    gdb_test "0" \
 		"cancelled" \
 		"constructor breakpoint (obsolete format!)"
 	}
-	-re ".0. cancel\r\n.1. all\r\n.2. T5<int>::T5\\(T5<int> const &\\) at .*/templates.cc:.*\r\n.3. T5<int>::T5\\(int\\) at .*/templates.cc:.*\r\n> $" {
+	-re ".0. cancel\[\r\n\]*.1. all\[\r\n\]*.2. T5<int>::T5\\(T5<int> const &\\) at .*templates.cc:.*\[\r\n\]*.3. T5<int>::T5\\(int\\) at .*templates.cc:.*\[\r\n\]*> $" {
 	    gdb_test "0" \
 		"cancelled" \
 		"constructor breakpoint"
 	}
-	-re ".*$prompt $" { fail "constructor breakpoint" }
+	-re ".*$gdb_prompt $" { fail "constructor breakpoint" }
 	default { fail "constructor breakpoint (timeout)" }
     }
     
-    gdb_test "break T5<int>::~T5" \
+   gdb_test "break T5<int>::~T5" \
 	"Breakpoint.*at.* file .*${testfile}.cc, line.*" \
 	"destructor breakpoint"    
     
@@ -113,15 +121,21 @@ proc test_template_breakpoints {} {
 #
 
 proc test_template_calls {} {
-    global prompt
+    global gdb_prompt
 
-    send "print t5i.value()\n"
-    expect {
-	-re ".* = 2\r\n$prompt $" { pass "print t5i.value()" }
-	-re "Cannot invoke functions on this machine.*$prompt $" {
+    if [target_info exists gdb,cannot_call_functions] {
+	setup_xfail "*-*-*" 2416
+	fail "This target can not call functions"
+	return
+    }
+
+    send_gdb "print t5i.value()\n"
+    gdb_expect {
+	-re ".* = 2\[\r\n\]*$gdb_prompt $" { pass "print t5i.value()" }
+	-re "Cannot invoke functions on this machine.*$gdb_prompt $" {
 	    fail "print t5i.value()"
 	}
-	-re ".*$prompt $" { fail "print t5i.value()" }
+	-re ".*$gdb_prompt $" { fail "print t5i.value()" }
 	default { fail "print t5i.value() (timeout)" }
     }
 }
@@ -134,7 +148,7 @@ proc do_tests {} {
     global objdir
     global srcdir
     global binfile
-    global prompt
+    global gdb_prompt
     global supports_template_debugging
 
     set prms_id 0
@@ -152,10 +166,23 @@ proc do_tests {} {
 	return
     }
 
+    # Get the debug format for the compiled test case.  If that
+    # format is DWARF 1 then just skip all the tests since none of
+    # them will pass.
+
+    if [ runto_main] then {
+	get_debug_format
+	if [ setup_xfail_format "DWARF 1" ] then {
+	    fail "C++ tests skipped due to limited C++ support in DWARF 1 debug format"
+	    return
+	}
+	clear_xfail "*-*-*"
+    }
+
     test_ptype_of_templates
     test_template_breakpoints
 
-    if [ runto_main ] {
+    if [ runto_main] {
 	test_template_calls
     }
 }

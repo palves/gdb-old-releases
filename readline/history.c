@@ -42,9 +42,6 @@ extern int errno;
 
 extern char *getenv();
 
-#ifndef	NO_SYS_FILE
-#include <sys/file.h>
-#endif
 #include <sys/stat.h>
 #include <fcntl.h>
 

@@ -42,24 +42,32 @@
 
 /* DEVICE
 
+
    nvram - non-volatile memory with clock
 
+
    DESCRIPTION
+
 
    This device implements a small byte addressable non-volatile
    memory.  The top 8 bytes of this memory include a real-time clock.
 
+
    PROPERTIES
+
 
    reg = <address> <size> (required)
 
    Specify the address/size of this device within its parents address
    space.
 
-   timezone = <integer> (required)
+
+   timezone = <integer> (optional)
 
    Adjustment to the hosts current GMT (in seconds) that should be
-   applied when updating the NVRAM's clock.
+   applied when updating the NVRAM's clock.  If no timezone is
+   specified, zero (GMT or UCT) is assumed.
+
 
    */
 
@@ -86,11 +94,10 @@ typedef struct _hw_nvram_device {
 static void *
 hw_nvram_create(const char *name,
 		const device_unit *unit_address,
-		const char *args,
-		device *parent)
+		const char *args)
 {
-  hw_nvram_device *hw_nvram = ZALLOC(hw_nvram_device);
-  return hw_nvram;
+  hw_nvram_device *nvram = ZALLOC(hw_nvram_device);
+  return nvram;
 }
 
 typedef struct _hw_nvram_reg_spec {
@@ -101,44 +108,54 @@ typedef struct _hw_nvram_reg_spec {
 static void
 hw_nvram_init_address(device *me)
 {
-  hw_nvram_device *hw_nvram = (hw_nvram_device*)device_data(me);
-  const device_property *reg = device_find_array_property(me, "reg");
-  const hw_nvram_reg_spec *spec = reg->array;
-  int nr_entries = reg->sizeof_array / sizeof(*spec);
+  hw_nvram_device *nvram = (hw_nvram_device*)device_data(me);
   
-  if ((reg->sizeof_array % sizeof(*spec)) != 0)
-    error("devices/%s reg property of incorrect size\n", device_name(me));
-  if (nr_entries > 1)
-    error("devices/%s reg property contains multiple specs\n",
-	  device_name(me));
-  
+  /* use the generic init code to attach this device to its parent bus */
+  generic_device_init_address(me);
+
+  /* find the first non zero reg property and use that as the device
+     size */
+  if (nvram->sizeof_memory == 0) {
+    reg_property_spec reg;
+    int reg_nr;
+    for (reg_nr = 0;
+	 device_find_reg_array_property(me, "reg", reg_nr, &reg);
+	 reg_nr++) {
+      unsigned attach_size;
+      if (device_size_to_attach_size(device_parent(me),
+				     &reg.size, &attach_size,
+				     me)) {
+	nvram->sizeof_memory = attach_size;
+	break;
+      }
+    }
+    if (nvram->sizeof_memory == 0)
+      device_error(me, "reg property must contain a non-zero phys-addr:size tupple");
+    if (nvram->sizeof_memory < 8)
+      device_error(me, "NVRAM must be at least 8 bytes in size");
+  }
+
   /* initialize the hw_nvram */
-  if (hw_nvram->memory == NULL) {
-    hw_nvram->sizeof_memory = BE2H_4(spec->size);
-    hw_nvram->memory = zalloc(hw_nvram->sizeof_memory);
+  if (nvram->memory == NULL) {
+    nvram->memory = zalloc(nvram->sizeof_memory);
   }
   else
-    memset(hw_nvram->memory, hw_nvram->sizeof_memory, 0);
+    memset(nvram->memory, nvram->sizeof_memory, 0);
   
-  hw_nvram->timezone = device_find_integer_property(me, "timezone");
+  if (device_find_property(me, "timezone") == NULL)
+    nvram->timezone = 0;
+  else
+    nvram->timezone = device_find_integer_property(me, "timezone");
   
-  hw_nvram->addr_year = hw_nvram->sizeof_memory - 1;
-  hw_nvram->addr_month = hw_nvram->sizeof_memory - 2;
-  hw_nvram->addr_date = hw_nvram->sizeof_memory - 3;
-  hw_nvram->addr_day = hw_nvram->sizeof_memory - 4;
-  hw_nvram->addr_hour = hw_nvram->sizeof_memory - 5;
-  hw_nvram->addr_minutes = hw_nvram->sizeof_memory - 6;
-  hw_nvram->addr_seconds = hw_nvram->sizeof_memory - 7;
-  hw_nvram->addr_control = hw_nvram->sizeof_memory - 8;
+  nvram->addr_year = nvram->sizeof_memory - 1;
+  nvram->addr_month = nvram->sizeof_memory - 2;
+  nvram->addr_date = nvram->sizeof_memory - 3;
+  nvram->addr_day = nvram->sizeof_memory - 4;
+  nvram->addr_hour = nvram->sizeof_memory - 5;
+  nvram->addr_minutes = nvram->sizeof_memory - 6;
+  nvram->addr_seconds = nvram->sizeof_memory - 7;
+  nvram->addr_control = nvram->sizeof_memory - 8;
   
-  device_attach_address(device_parent(me),
-			device_name(me),
-			attach_callback,
-			0 /*address space*/,
-			BE2H_4(spec->base),
-			hw_nvram->sizeof_memory,
-			access_read_write_exec,
-			me);
 }
 
 static int
@@ -147,28 +164,31 @@ hw_nvram_bcd(int val)
   return ((val / 10) << 4) + (val % 10);
 }
 
+
 /* If reached an update interval and allowed, update the clock within
    the hw_nvram.  While this function could be implemented using events
    it isn't on the assumption that the HW_NVRAM will hardly ever be
    referenced and hence there is little need in keeping the clock
    continually up-to-date */
+
 static void
-hw_nvram_update_clock(hw_nvram_device *hw_nvram, cpu *processor)
+hw_nvram_update_clock(hw_nvram_device *nvram,
+		      cpu *processor)
 {
 #ifdef HAVE_TIME_H
-  if (!(hw_nvram->memory[hw_nvram->addr_control] & 0xc0)) {
+  if (!(nvram->memory[nvram->addr_control] & 0xc0)) {
     time_t host_time = time(NULL);
-    if (hw_nvram->host_time != host_time) {
-      time_t nvtime = host_time + hw_nvram->timezone;
+    if (nvram->host_time != host_time) {
+      time_t nvtime = host_time + nvram->timezone;
       struct tm *clock = gmtime(&nvtime);
-      hw_nvram->host_time = host_time;
-      hw_nvram->memory[hw_nvram->addr_year] = hw_nvram_bcd(clock->tm_year);
-      hw_nvram->memory[hw_nvram->addr_month] = hw_nvram_bcd(clock->tm_mon + 1);
-      hw_nvram->memory[hw_nvram->addr_date] = hw_nvram_bcd(clock->tm_mday);
-      hw_nvram->memory[hw_nvram->addr_day] = hw_nvram_bcd(clock->tm_wday + 1);
-      hw_nvram->memory[hw_nvram->addr_hour] = hw_nvram_bcd(clock->tm_hour);
-      hw_nvram->memory[hw_nvram->addr_minutes] = hw_nvram_bcd(clock->tm_min);
-      hw_nvram->memory[hw_nvram->addr_seconds] = hw_nvram_bcd(clock->tm_sec);
+      nvram->host_time = host_time;
+      nvram->memory[nvram->addr_year] = hw_nvram_bcd(clock->tm_year);
+      nvram->memory[nvram->addr_month] = hw_nvram_bcd(clock->tm_mon + 1);
+      nvram->memory[nvram->addr_date] = hw_nvram_bcd(clock->tm_mday);
+      nvram->memory[nvram->addr_day] = hw_nvram_bcd(clock->tm_wday + 1);
+      nvram->memory[nvram->addr_hour] = hw_nvram_bcd(clock->tm_hour);
+      nvram->memory[nvram->addr_minutes] = hw_nvram_bcd(clock->tm_min);
+      nvram->memory[nvram->addr_seconds] = hw_nvram_bcd(clock->tm_sec);
     }
   }
 #else
@@ -177,7 +197,7 @@ hw_nvram_update_clock(hw_nvram_device *hw_nvram, cpu *processor)
 }
 
 static void
-hw_nvram_set_clock(hw_nvram_device *hw_nvram, cpu *processor)
+hw_nvram_set_clock(hw_nvram_device *nvram, cpu *processor)
 {
   error ("fixme - how do I set the localtime\n");
 }
@@ -192,11 +212,11 @@ hw_nvram_io_read_buffer(device *me,
 			unsigned_word cia)
 {
   int i;
-  hw_nvram_device *hw_nvram = (hw_nvram_device*)device_data(me);
+  hw_nvram_device *nvram = (hw_nvram_device*)device_data(me);
   for (i = 0; i < nr_bytes; i++) {
-    unsigned address = (addr + i) % hw_nvram->sizeof_memory;
-    unsigned8 data = hw_nvram->memory[address];
-    hw_nvram_update_clock(hw_nvram, processor);
+    unsigned address = (addr + i) % nvram->sizeof_memory;
+    unsigned8 data = nvram->memory[address];
+    hw_nvram_update_clock(nvram, processor);
     ((unsigned8*)dest)[i] = data;
   }
   return nr_bytes;
@@ -212,17 +232,17 @@ hw_nvram_io_write_buffer(device *me,
 			 unsigned_word cia)
 {
   int i;
-  hw_nvram_device *hw_nvram = (hw_nvram_device*)device_data(me);
+  hw_nvram_device *nvram = (hw_nvram_device*)device_data(me);
   for (i = 0; i < nr_bytes; i++) {
-    unsigned address = (addr + i) % hw_nvram->sizeof_memory;
+    unsigned address = (addr + i) % nvram->sizeof_memory;
     unsigned8 data = ((unsigned8*)source)[i];
-    if (address == hw_nvram->addr_control
+    if (address == nvram->addr_control
 	&& (data & 0x80) == 0
-	&& (hw_nvram->memory[address] & 0x80) == 0x80)
-      hw_nvram_set_clock(hw_nvram, processor);
+	&& (nvram->memory[address] & 0x80) == 0x80)
+      hw_nvram_set_clock(nvram, processor);
     else
-      hw_nvram_update_clock(hw_nvram, processor);
-    hw_nvram->memory[address] = data;
+      hw_nvram_update_clock(nvram, processor);
+    nvram->memory[address] = data;
   }
   return nr_bytes;
 }

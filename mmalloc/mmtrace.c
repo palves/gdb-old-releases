@@ -25,6 +25,11 @@ Boston, MA 02111-1307, USA.  */
 #include <stdio.h>
 #include "mmprivate.h"
 
+static void tr_break PARAMS ((void));
+static void tr_freehook PARAMS ((PTR, PTR));
+static PTR tr_mallochook PARAMS ((PTR, size_t));
+static PTR tr_reallochook PARAMS ((PTR, PTR, size_t));
+
 #ifndef	__GNU_LIBRARY__
 extern char *getenv ();
 #endif
@@ -138,7 +143,7 @@ mmtrace ()
 {
 #if 0	/* FIXME!  This is disabled for now until we figure out how to
 	   maintain a stack of hooks per heap, since we might have other
-	   hooks (such as set by mmcheck) active also. */
+	   hooks (such as set by mmcheck/mmcheckf) active also. */
   char *mallfile;
 
   mallfile = getenv (mallenv);

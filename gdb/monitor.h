@@ -164,6 +164,47 @@ struct monitor_ops
 
 #define MO_NO_ECHO_ON_SETMEM 0x800
 
+/* If set, then register store command expects value BEFORE regname */
+
+#define MO_REGISTER_VALUE_FIRST 0x1000
+
+/* If set, then the monitor displays registers as pairs.  */
+
+#define MO_32_REGS_PAIRED 0x2000
+
+/* If set, then register setting happens interactively.  */
+
+#define MO_SETREG_INTERACTIVE 0x4000
+
+/* If set, then memory setting happens interactively.  */
+
+#define MO_SETMEM_INTERACTIVE 0x8000
+
+/* If set, then memory dumps are always on 16-byte boundaries, even
+   when less is desired.  */
+
+#define MO_GETMEM_16_BOUNDARY 0x10000
+
+/* If set, then the monitor numbers its breakpoints starting from 1.  */
+
+#define MO_CLR_BREAK_1_BASED 0x20000
+
+/* If set, then the monitor acks srecords with a plus sign.  */
+
+#define MO_SREC_ACK_PLUS 0x40000
+
+/* If set, then the monitor "acks" srecords with rotating lines.  */
+
+#define MO_SREC_ACK_ROTATE 0x80000
+
+/* If set, then remove useless address bits from memory addresses.  */
+
+#define MO_ADDR_BITS_REMOVE 0x100000
+
+/* If set, then display target program output if prefixed by ^O.  */
+
+#define MO_PRINT_PROGRAM_OUTPUT 0x200000
+
 #define SREC_SIZE 160
 
 extern void monitor_open PARAMS ((char *args, struct monitor_ops *ops,
@@ -176,4 +217,7 @@ extern void monitor_printf PARAMS ((char *, ...))
      ATTR_FORMAT(printf, 1, 2);
 extern void monitor_printf_noecho PARAMS ((char *, ...))
      ATTR_FORMAT(printf, 1, 2);
+extern void monitor_write PARAMS ((char *buf, int buflen));
+extern int monitor_readchar PARAMS ((void));
+extern char *monitor_get_dev_name PARAMS ((void));
 extern void init_monitor_ops PARAMS ((struct target_ops *));

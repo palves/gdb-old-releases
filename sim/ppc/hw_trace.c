@@ -54,33 +54,38 @@
 
    can be used. */
 
-static void
-hw_trace_init_data(device *me)
-{
-  const device_property *prop = device_find_property(me, NULL);
-  while (prop != NULL) {
-    const char *name = prop->name;
-    unsigned32 value = device_find_integer_property(me, name);
-    trace_option(name, value);
-    prop = device_next_property(prop);
-  }
-}
 
-/* Hook to allow the (re) initialization of the trace options at any
-   time */
+/* Hook to allow the initialization of the trace options at any time */
+
 static int
 hw_trace_ioctl(device *me,
 	       cpu *processor,
 	       unsigned_word cia,
+	       device_ioctl_request request,
 	       va_list ap)
 {
-  hw_trace_init_data(me);
+  switch (request) {
+  case device_ioctl_set_trace:
+    {
+      const device_property *prop = device_find_property(me, NULL);
+      while (prop != NULL) {
+	const char *name = prop->name;
+	unsigned32 value = device_find_integer_property(me, name);
+	trace_option(name, value);
+	prop = device_next_property(prop);
+      }
+    }
+    break;
+  default:
+    device_error(me, "insupported ioctl request");
+    break;
+  }
   return 0;
 }
 
 
 static device_callbacks const hw_trace_callbacks = {
-  { NULL, hw_trace_init_data, }, /* init */
+  { NULL, }, /* init */
   { NULL, }, /* address */
   { NULL, }, /* IO */
   { NULL, }, /* DMA */

@@ -22,10 +22,9 @@
 #ifndef _DEVICE_TABLE_H_
 #define _DEVICE_TABLE_H_
 
-#include <stdarg.h>
-
 #include "basics.h"
 #include "device.h"
+#include "tree.h"
 
 #ifdef HAVE_STRING_H
 #include <string.h>
@@ -36,14 +35,16 @@
 #endif
 
 
+typedef struct _device_callbacks device_callbacks;
+
+
 /* The creator, returns a pointer to any data that should be allocated
    once during (multiple) simulation runs */
 
 typedef void *(device_creator)
      (const char *name,
       const device_unit *unit_address,
-      const char *args,
-      device *parent);
+      const char *args);
 
 
 /* two stages of initialization */
@@ -61,13 +62,12 @@ typedef struct _device_init_callbacks {
 
 typedef void (device_address_callback)
      (device *me,
-      const char *name,
       attach_type attach,
       int space,
       unsigned_word addr,
       unsigned nr_bytes,
       access_type access,
-      device *who); /*callback/default*/
+      device *client); /*callback/default*/
 
 typedef struct _device_address_callbacks {
   device_address_callback *attach;
@@ -147,7 +147,8 @@ typedef void (device_child_interrupt_event_callback)
 typedef struct _device_interrupt_port_descriptor {
   const char *name;
   int number; 
-  int bound;
+  int nr_ports;
+  port_direction direction;
 } device_interrupt_port_descriptor;
 
 typedef struct _device_interrupt_callbacks {
@@ -160,19 +161,34 @@ typedef struct _device_interrupt_callbacks {
 /* symbolic value decoding */
 
 typedef int (device_unit_decode_callback)
-     (device *me,
+     (device *bus,
       const char *unit,
       device_unit *address);
 
 typedef int (device_unit_encode_callback)
-     (device *me,
+     (device *bus,
       const device_unit *unit_address,
       char *buf,
       int sizeof_buf);
 
+typedef int (device_address_to_attach_address_callback)
+     (device *bus,
+      const device_unit *address,
+      int *attach_space,
+      unsigned_word *attach_address,
+      device *client);
+
+typedef int (device_size_to_attach_size_callback)
+     (device *bus,
+      const device_unit *size,
+      unsigned *nr_bytes,
+      device *client);
+
 typedef struct _device_convert_callbacks {
   device_unit_decode_callback *decode_unit;
   device_unit_encode_callback *encode_unit;
+  device_address_to_attach_address_callback *address_to_attach_address;
+  device_size_to_attach_size_callback *size_to_attach_size;
 } device_convert_callbacks;
 
 
@@ -196,29 +212,29 @@ typedef int (device_instance_seek_callback)
       unsigned_word pos_hi,
       unsigned_word pos_lo);
 
-typedef unsigned_word (device_instance_claim_callback)
+typedef int (device_instance_method)
      (device_instance *instance,
-      unsigned_word address,
-      unsigned_word length,
-      unsigned_word alignment);
+      int n_stack_args,
+      unsigned_cell stack_args[/*n_stack_args*/],
+      int n_stack_returns,
+      unsigned_cell stack_returns[/*n_stack_returns*/]);
 
-typedef void (device_instance_release_callback)
-     (device_instance *instance,
-      unsigned_word address,
-      unsigned_word length);
+typedef struct _device_instance_methods {
+  const char *name;
+  device_instance_method *method;
+} device_instance_methods;
 
 struct _device_instance_callbacks { /* NULL - error */
   device_instance_delete_callback *delete;
   device_instance_read_callback *read;
   device_instance_write_callback *write;
   device_instance_seek_callback *seek;
-  device_instance_claim_callback *claim;
-  device_instance_release_callback *release;
+  const device_instance_methods *methods;
 };
 
 typedef device_instance *(device_create_instance_callback)
      (device *me,
-      const char *path,
+      const char *full_path,
       const char *args);
 
 typedef device_instance *(package_create_instance_callback)
@@ -232,6 +248,7 @@ typedef int (device_ioctl_callback)
      (device *me,
       cpu *processor,
       unsigned_word cia,
+      device_ioctl_request request,
       va_list ap);
 
 typedef void (device_usage_callback)
@@ -297,6 +314,8 @@ extern device_unit_decode_callback ignore_device_unit_decode;
 extern device_init_callback generic_device_init_address;
 extern device_unit_decode_callback generic_device_unit_decode;
 extern device_unit_encode_callback generic_device_unit_encode;
+extern device_address_to_attach_address_callback generic_device_address_to_attach_address;
+extern device_size_to_attach_size_callback generic_device_size_to_attach_size;
 
 
 extern const device_callbacks passthrough_device_callbacks;

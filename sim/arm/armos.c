@@ -22,6 +22,8 @@ code), but it is a complete example. Defining NOOS will disable all the
 fun, and definign VAILDATE will define SWI 1 to enter SVC mode, and SWI
 0x11 to halt the emulator. */
 
+#include "config.h"
+
 #include <time.h>
 #include <errno.h>
 #include <string.h>
@@ -34,7 +36,7 @@ fun, and definign VAILDATE will define SWI 1 to enter SVC mode, and SWI
 #define unlink(s) remove(s)
 #endif
 
-#ifdef __sun__
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>	/* For SEEK_SET etc */
 #endif
 
@@ -298,6 +300,13 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
       OSptr->ErrorNo = errno ;
       return(TRUE) ;
 
+    case SWI_Write0 :
+      addr = state->Reg[0] ;
+      while ((temp = ARMul_ReadByte(state,addr++)) != 0)
+        (void)fputc((char)temp,stderr) ;
+      OSptr->ErrorNo = errno ;
+      return(TRUE) ;
+
     case SWI_GetErrno :
       state->Reg[0] = OSptr->ErrorNo ;
       return(TRUE) ;
@@ -306,6 +315,23 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
       state->EndCondition = RDIError_BreakpointReached ;
       state->Emulate = FALSE ;
       return(TRUE) ;
+
+    case SWI_GetEnv :
+       state->Reg[0] = ADDRCMDLINE ;
+       if (state->MemSize)
+          state->Reg[1] = state->MemSize ;
+       else
+          state->Reg[1] = ADDRUSERSTACK ;
+
+       addr = state->Reg[0] ;
+       cptr = state->CommandLine ;
+       if (cptr == NULL)
+          cptr = "\0" ;
+       do {
+          temp = (ARMword)*cptr++ ;
+          ARMul_WriteByte(state,addr++,temp) ;
+          } while (temp != 0) ;
+       return(TRUE) ;
 
     default :
       state->Emulate = FALSE ;      

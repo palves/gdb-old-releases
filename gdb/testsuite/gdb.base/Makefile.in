@@ -4,7 +4,7 @@ srcdir = @srcdir@
 EXECUTABLES = bitfields interrupt mips_pro return twice-tmp break langs \
 	nodebug run watchpoint callfuncs opaque scope whatis compiler \
 	opaque scope coremaker printcmds setvar exprs list ptype \
-	sigall funcargs recurse signals
+	sigall funcargs recurse signals structs
 
 # uuencoded format to avoid SCCS/RCS problems with binary files.
 CROSS_EXECUTABLES = i486-elf i860-elf m68k-elf m68k-aout m68k-aout2  \

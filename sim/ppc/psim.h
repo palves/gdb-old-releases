@@ -51,6 +51,11 @@ extern char **psim_options
 (device *root,
  char **argv);
 
+extern void psim_command
+(device *root,
+ char **argv);
+
+
 extern void psim_merge_device_file
 (device *root,
  const char *file_name);
@@ -85,19 +90,33 @@ extern void psim_step
 extern void psim_run
 (psim *system);
 
-extern void psim_run_until_stop
-(psim *system,
- volatile int *stop);
-
 extern void psim_restart
 (psim *system,
  int cpu_nr);
+
+extern void psim_set_halt_and_restart
+(psim *system,
+ void *halt_jmp_buf,
+ void *restart_jmp_buf);
+
+extern void psim_clear_halt_and_restart
+(psim *system);
+
+extern void psim_stop
+(psim *system);
 
 extern void psim_halt
 (psim *system,
  int cpu_nr,
  stop_reason reason,
  int signal);
+
+extern int psim_last_cpu
+(psim *system);
+
+extern int psim_nr_cpus
+(psim *system);
+
 
 extern psim_status psim_get_status
 (psim *system);

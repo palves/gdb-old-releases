@@ -52,6 +52,15 @@ get_longjmp_target PARAMS ((CORE_ADDR *));
 
 #include "solib.h"
 
+#ifdef __ELF__
+#define SVR4_SHARED_LIBS
+#define TARGET_ELF64
+#endif
+
 /* This is a lie.  It's actually in stdio.h. */
 
 #define PSIGNAL_IN_SIGNAL_H
+
+/* Given a pointer to either a gregset_t or fpregset_t, return a
+   pointer to the first register.  */
+#define ALPHA_REGSET_BASE(regsetp)  ((long *) (regsetp))

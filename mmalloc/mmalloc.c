@@ -330,5 +330,8 @@ PTR
 malloc (size)
   size_t size;
 {
-  return (mmalloc ((PTR) NULL, size));
+  PTR result;
+
+  result = mmalloc ((PTR) NULL, size);
+  return (result);
 }

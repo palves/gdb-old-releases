@@ -1,3 +1,47 @@
+Mon Feb  2 17:10:38 1998  Steve Haworth  <steve@pm.cse.rmit.EDU.AU>
+
+	* tic30.h: New file.
+
+Tue Dec  2 10:21:40 1997  Nick Clifton  <nickc@cygnus.com>
+
+	* arm.h (COFFARM): New define.
+
+Sat Nov 22 15:10:14 1997  Nick Clifton  <nickc@cygnus.com>
+
+	* internal.h (C_THUMBEXTFUNC, C_THUMBSTATFUNC): Constants to
+	define static and external functions.
+
+	* arm.h: Add bits to support PIC and APCS-FLOAT type binaries,
+	when implemented.
+
+Tue Jul 22 18:18:58 1997  Robert Hoehne <robert.hoehne@Mathematik.TU-Chemnitz.DE>
+
+	* go32exe.h: New file.
+
+Tue Jun  3 16:44:18 1997  Nick Clifton  <nickc@cygnus.com>
+
+	* internal.h: Add storage classes for Thumb symbols
+
+Fri Apr 18 11:52:55 1997  Niklas Hallqvist  <niklas@appli.se>
+
+	* alpha.h (ALPHA_ECOFF_BADMAG): Recognize *BSD/alpha magic too.
+	(ALPHA_R_LITERALSLEAZY): Define.
+	* ecoff.h (ALPHA_MAGIC_BSD): Define.
+
+Wed Jan 29 11:31:51 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* i960.h (R_IPR13, R_ALIGN): Define.
+
+Mon Jan 27 13:34:30 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h (R_IPRMED, R_OPTCALL, R_OPTCALLX): Move definitions
+	from here...
+	* i960.h (R_IPRMED, R_OPTCALL, R_OPTCALLX): ...to here.
+
+Thu Dec 19 16:18:11 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* arm.h (_LIT): Define.
+
 Fri Jun 28 12:54:38 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* pe.h (FILHSZ): Define.

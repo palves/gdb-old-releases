@@ -28,45 +28,66 @@
 #include <stdlib.h>
 #endif
 
+#include <ctype.h>
+
 
 /* Helper functions */
 
-/* Generic device init: Attaches the device of size <nr_bytes> (taken
-   from <name>@<int>,<nr_bytes>) to its parent at address zero and
-   with read/write access. */
 
-typedef struct _generic_reg_spec {
-  unsigned32 base;
-  unsigned32 size;
-} generic_reg_spec;
+/* Go through the devices various reg properties for those that
+   specify attach addresses */
 
 
 void
 generic_device_init_address(device *me)
 {
-  const device_property *reg = device_find_array_property(me, "reg");
-  const generic_reg_spec *spec = reg->array;
-  int nr_entries = reg->sizeof_array / sizeof(generic_reg_spec);
-
-  if ((reg->sizeof_array % sizeof(generic_reg_spec)) != 0)
-    error("devices/%s reg property is of wrong size\n", device_name(me));
- 
-  while (nr_entries > 0) {
-    device_attach_address(device_parent(me),
-			  device_name(me),
-			  attach_callback,
-			  0 /*space*/,
-			  BE2H_4(spec->base),
-			  BE2H_4(spec->size),
-			  access_read_write_exec,
-			  me);
-    spec++;
-    nr_entries--;
+  static const char *(reg_property_names[]) = {
+    "attach-addresses",
+    "assigned-addresses",
+    "reg",
+    "alternate-reg" ,
+    NULL
+  };
+  const char **reg_property_name;
+  int nr_valid_reg_properties = 0;
+  for (reg_property_name = reg_property_names;
+       *reg_property_name != NULL;
+       reg_property_name++) {
+    if (device_find_property(me, *reg_property_name) != NULL) {
+      reg_property_spec reg;
+      int reg_entry;
+      for (reg_entry = 0;
+	   device_find_reg_array_property(me, *reg_property_name, reg_entry,
+					  &reg);
+	   reg_entry++) {
+	unsigned_word attach_address;
+	int attach_space;
+	unsigned attach_size;
+	if (!device_address_to_attach_address(device_parent(me),
+					      &reg.address,
+					      &attach_space, &attach_address,
+					      me))
+	  continue;
+	if (!device_size_to_attach_size(device_parent(me),
+					&reg.size,
+					&attach_size, me))
+	  continue;
+	device_attach_address(device_parent(me),
+			      attach_callback,
+			      attach_space, attach_address, attach_size,
+			      access_read_write_exec,
+			      me);
+	nr_valid_reg_properties++;
+      }
+      /* if first option matches don't try for any others */
+      if (reg_property_name == reg_property_names)
+	break;
+    }
   }
 }
 
 int
-generic_device_unit_decode(device *me,
+generic_device_unit_decode(device *bus,
 			   const char *unit,
 			   device_unit *phys)
 {
@@ -74,76 +95,150 @@ generic_device_unit_decode(device *me,
   if (unit == NULL)
     return 0;
   else {
-    char *pos = (char*)unit; /* force for strtoul() */
+    int nr_cells = 0;
+    const int max_nr_cells = device_nr_address_cells(bus);
     while (1) {
-      char *old_pos = pos;
-      long int val = strtoul(pos, &pos, 0);
-      if (old_pos == pos && *pos == '\0')
-	return phys->nr_cells;
-      if (old_pos == pos && *pos != '\0')
+      char *end = NULL;
+      unsigned long val;
+      val = strtoul(unit, &end, 0);
+      /* parse error? */
+      if (unit == end)
 	return -1;
-      if (phys->nr_cells == 4)
+      /* two many cells? */
+      if (nr_cells >= max_nr_cells)
 	return -1;
-      phys->cells[phys->nr_cells] = val;
-      phys->nr_cells++;
+      /* save it */
+      phys->cells[nr_cells] = val;
+      nr_cells++;
+      unit = end;
+      /* more to follow? */
+      if (isspace(*unit) || *unit == '\0')
+	break;
+      if (*unit != ',')
+	return -1;
+      unit++;
     }
+    if (nr_cells < max_nr_cells) {
+      /* shift everything to correct position */
+      int i;
+      for (i = 1; i <= nr_cells; i++)
+	phys->cells[max_nr_cells - i] = phys->cells[nr_cells - i];
+      for (i = 0; i < (max_nr_cells - nr_cells); i++)
+	phys->cells[i] = 0;
+    }
+    phys->nr_cells = max_nr_cells;
+    return max_nr_cells;
   }
 }
 
 int
-generic_device_unit_encode(device *me,
+generic_device_unit_encode(device *bus,
 			   const device_unit *phys,
 			   char *buf,
 			   int sizeof_buf)
 {
   int i;
   int len;
-  char *pos = buf; /* force for strtoul() */
+  char *pos = buf;
+  /* skip leading zero's */
   for (i = 0; i < phys->nr_cells; i++) {
-    if (pos != buf) {
-      strcat(pos, ",");
+    if (phys->cells[i] != 0)
+      break;
+  }
+  /* don't output anything if empty */
+  if (phys->nr_cells == 0) {
+    strcpy(pos, "");
+    len = 0;
+  }
+  else if (i == phys->nr_cells) {
+    /* all zero */
+    strcpy(pos, "0");
+    len = 1;
+  }
+  else {
+    for (; i < phys->nr_cells; i++) {
+      if (pos != buf) {
+	strcat(pos, ",");
+	pos = strchr(pos, '\0');
+      }
+      if (phys->cells[i] < 10)
+	sprintf(pos, "%ld", (unsigned long)phys->cells[i]);
+      else
+	sprintf(pos, "0x%lx", (unsigned long)phys->cells[i]);
       pos = strchr(pos, '\0');
     }
-    sprintf(pos, "0x%lx", (unsigned long)phys->cells[i]);
-    pos = strchr(pos, '\0');
+    len = pos - buf;
   }
-  len = pos - buf;
   if (len >= sizeof_buf)
     error("generic_unit_encode - buffer overflow\n");
   return len;
 }
 
+int
+generic_device_address_to_attach_address(device *me,
+					 const device_unit *address,
+					 int *attach_space,
+					 unsigned_word *attach_address,
+					 device *client)
+{
+  int i;
+  for (i = 0; i < address->nr_cells - 2; i++) {
+    if (address->cells[i] != 0)
+      device_error(me, "Only 32bit addresses supported");
+  }
+  if (address->nr_cells >= 2)
+    *attach_space = address->cells[address->nr_cells - 2];
+  else
+    *attach_space = 0;
+  *attach_address = address->cells[address->nr_cells - 1];
+  return 1;
+}
+
+int
+generic_device_size_to_attach_size(device *me,
+				   const device_unit *size,
+				   unsigned *nr_bytes,
+				   device *client)
+{
+  int i;
+  for (i = 0; i < size->nr_cells - 1; i++) {
+    if (size->cells[i] != 0)
+      device_error(me, "Only 32bit sizes supported");
+  }
+  *nr_bytes = size->cells[0];
+  return *nr_bytes;
+}
+
+
 /* ignore/passthrough versions of each function */
 
 void
 passthrough_device_address_attach(device *me,
-				  const char *name,
 				  attach_type attach,
 				  int space,
 				  unsigned_word addr,
 				  unsigned nr_bytes,
 				  access_type access,
-				  device *who) /*callback/default*/
+				  device *client) /*callback/default*/
 {
-  device_attach_address(device_parent(me), name, attach,
+  device_attach_address(device_parent(me), attach,
 			space, addr, nr_bytes,
 			access,
-			who);
+			client);
 }
 
 void
 passthrough_device_address_detach(device *me,
-				  const char *name,
 				  attach_type attach,
 				  int space,
 				  unsigned_word addr,
 				  unsigned nr_bytes,
 				  access_type access,
-				  device *who) /*callback/default*/
+				  device *client) /*callback/default*/
 {
-  device_detach_address(device_parent(me), name, attach,
+  device_detach_address(device_parent(me), attach,
 			space, addr, nr_bytes, access,
-			who);
+			client);
 }
 
 unsigned

@@ -1,5 +1,5 @@
 /* Target definitions for NN-bit ELF
-   Copyright 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    There are two such structures here:  one for big-endian machines and
    one for little-endian machines.   */
 
-#define	bfd_elfNN_close_and_cleanup _bfd_generic_close_and_cleanup
+#define	bfd_elfNN_close_and_cleanup _bfd_elf_close_and_cleanup
 #define bfd_elfNN_bfd_free_cached_info _bfd_generic_bfd_free_cached_info
 #ifndef bfd_elfNN_get_section_contents
 #define bfd_elfNN_get_section_contents _bfd_generic_get_section_contents
@@ -61,6 +61,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define bfd_elfNN_get_section_contents_in_window \
   _bfd_generic_get_section_contents_in_window
 
+#ifndef elf_backend_got_symbol_offset
+#define elf_backend_got_symbol_offset (bfd_vma) 0
+#endif
 #ifndef elf_backend_want_got_plt
 #define elf_backend_want_got_plt 0
 #endif
@@ -69,6 +72,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 #ifndef elf_backend_want_plt_sym
 #define elf_backend_want_plt_sym 0
+#endif
+#ifndef elf_backend_plt_not_loaded
+#define elf_backend_plt_not_loaded 0
+#endif
+#ifndef elf_backend_plt_alignment
+#define elf_backend_plt_alignment 2
 #endif
 
 #define bfd_elfNN_bfd_debug_info_start	bfd_void
@@ -80,7 +89,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
  bfd_generic_get_relocated_section_contents
 #endif
 
+#ifndef bfd_elfNN_bfd_relax_section
 #define bfd_elfNN_bfd_relax_section bfd_generic_relax_section
+#endif
+
 #define bfd_elfNN_bfd_make_debug_symbol \
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
@@ -109,17 +121,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define bfd_elfNN_bfd_set_private_flags \
   ((boolean (*) PARAMS ((bfd *, flagword))) bfd_true)
 #endif
-#ifndef bfd_elfNN_bfd_is_local_label
-#define bfd_elfNN_bfd_is_local_label bfd_generic_is_local_label
+#ifndef bfd_elfNN_bfd_is_local_label_name
+#define bfd_elfNN_bfd_is_local_label_name _bfd_elf_is_local_label_name
 #endif
 
 #ifndef bfd_elfNN_get_dynamic_reloc_upper_bound
 #define bfd_elfNN_get_dynamic_reloc_upper_bound \
-  _bfd_nodynamic_get_dynamic_reloc_upper_bound
+  _bfd_elf_get_dynamic_reloc_upper_bound
 #endif
 #ifndef bfd_elfNN_canonicalize_dynamic_reloc
 #define bfd_elfNN_canonicalize_dynamic_reloc \
-  _bfd_nodynamic_canonicalize_dynamic_reloc
+  _bfd_elf_canonicalize_dynamic_reloc
 #endif
 
 #ifdef elf_backend_relocate_section
@@ -141,6 +153,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif /* ! defined (elf_backend_relocate_section) */
 #ifndef bfd_elfNN_bfd_link_split_section
 #define bfd_elfNN_bfd_link_split_section _bfd_generic_link_split_section
+#endif
+
+#ifndef bfd_elfNN_archive_p
+#define bfd_elfNN_archive_p bfd_generic_archive_p
+#endif
+
+#ifndef bfd_elfNN_write_archive_contents
+#define bfd_elfNN_write_archive_contents _bfd_write_archive_contents
+#endif
+
+#ifndef bfd_elfNN_mkobject
+#define bfd_elfNN_mkobject bfd_elf_mkobject
+#endif
+
+#ifndef bfd_elfNN_mkarchive
+#define bfd_elfNN_mkarchive _bfd_generic_mkarchive
 #endif
 
 #ifndef elf_symbol_leading_char
@@ -204,6 +232,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 #ifndef elf_backend_adjust_dynamic_symbol
 #define elf_backend_adjust_dynamic_symbol 0
+#endif
+#ifndef elf_backend_always_size_sections
+#define elf_backend_always_size_sections 0
 #endif
 #ifndef elf_backend_size_dynamic_sections
 #define elf_backend_size_dynamic_sections 0
@@ -274,6 +305,7 @@ static CONST struct elf_backend_data elfNN_bed =
   elf_backend_create_dynamic_sections,
   elf_backend_check_relocs,
   elf_backend_adjust_dynamic_symbol,
+  elf_backend_always_size_sections,
   elf_backend_size_dynamic_sections,
   elf_backend_relocate_section,
   elf_backend_finish_dynamic_symbol,
@@ -286,9 +318,12 @@ static CONST struct elf_backend_data elfNN_bed =
   ELF_MACHINE_ALT1,
   ELF_MACHINE_ALT2,
   &elf_backend_size_info,
+  elf_backend_got_symbol_offset,
   elf_backend_want_got_plt,
   elf_backend_plt_readonly,
-  elf_backend_want_plt_sym
+  elf_backend_want_plt_sym,
+  elf_backend_plt_not_loaded,
+  elf_backend_plt_alignment
 };
 
 #ifdef TARGET_BIG_SYM
@@ -309,7 +344,7 @@ const bfd_target TARGET_BIG_SYM =
   /* object_flags: mask of all file flags */
   (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS |
    DYNAMIC | WP_TEXT | D_PAGED),
-  
+
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
    SEC_CODE | SEC_DATA | SEC_DEBUGGING | SEC_EXCLUDE | SEC_SORT_ENTRIES),
@@ -342,28 +377,32 @@ const bfd_target TARGET_BIG_SYM =
   /* bfd_check_format: check the format of a file being read */
   { _bfd_dummy_target,		/* unknown format */
     bfd_elfNN_object_p,		/* assembler/linker output (object file) */
-    bfd_generic_archive_p,	/* an archive */
+    bfd_elfNN_archive_p,	/* an archive */
     bfd_elfNN_core_file_p	/* a core file */
   },
 
   /* bfd_set_format: set the format of a file being written */
   { bfd_false,
-    bfd_elf_mkobject,
-    _bfd_generic_mkarchive,
+    bfd_elfNN_mkobject,
+    bfd_elfNN_mkarchive,
     bfd_false
   },
 
   /* bfd_write_contents: write cached information into a file being written */
   { bfd_false,
     bfd_elfNN_write_object_contents,
-    _bfd_write_archive_contents,
+    bfd_elfNN_write_archive_contents,
     bfd_false
   },
 
       BFD_JUMP_TABLE_GENERIC (bfd_elfNN),
       BFD_JUMP_TABLE_COPY (bfd_elfNN),
       BFD_JUMP_TABLE_CORE (bfd_elfNN),
+#ifdef bfd_elfNN_archive_functions
+      BFD_JUMP_TABLE_ARCHIVE (bfd_elfNN_archive),
+#else
       BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+#endif
       BFD_JUMP_TABLE_SYMBOLS (bfd_elfNN),
       BFD_JUMP_TABLE_RELOCS (bfd_elfNN),
       BFD_JUMP_TABLE_WRITE (bfd_elfNN),
@@ -393,7 +432,7 @@ const bfd_target TARGET_LITTLE_SYM =
   /* object_flags: mask of all file flags */
   (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS |
    DYNAMIC | WP_TEXT | D_PAGED),
-  
+
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
    SEC_CODE | SEC_DATA | SEC_DEBUGGING | SEC_EXCLUDE | SEC_SORT_ENTRIES),
@@ -426,28 +465,32 @@ const bfd_target TARGET_LITTLE_SYM =
   /* bfd_check_format: check the format of a file being read */
   { _bfd_dummy_target,		/* unknown format */
     bfd_elfNN_object_p,		/* assembler/linker output (object file) */
-    bfd_generic_archive_p,	/* an archive */
+    bfd_elfNN_archive_p,	/* an archive */
     bfd_elfNN_core_file_p	/* a core file */
   },
 
   /* bfd_set_format: set the format of a file being written */
   { bfd_false,
-    bfd_elf_mkobject,
-    _bfd_generic_mkarchive,
+    bfd_elfNN_mkobject,
+    bfd_elfNN_mkarchive,
     bfd_false
   },
 
   /* bfd_write_contents: write cached information into a file being written */
   { bfd_false,
     bfd_elfNN_write_object_contents,
-    _bfd_write_archive_contents,
+    bfd_elfNN_write_archive_contents,
     bfd_false
   },
 
       BFD_JUMP_TABLE_GENERIC (bfd_elfNN),
       BFD_JUMP_TABLE_COPY (bfd_elfNN),
       BFD_JUMP_TABLE_CORE (bfd_elfNN),
+#ifdef bfd_elfNN_archive_functions
+      BFD_JUMP_TABLE_ARCHIVE (bfd_elfNN_archive),
+#else
       BFD_JUMP_TABLE_ARCHIVE (_bfd_archive_coff),
+#endif
       BFD_JUMP_TABLE_SYMBOLS (bfd_elfNN),
       BFD_JUMP_TABLE_RELOCS (bfd_elfNN),
       BFD_JUMP_TABLE_WRITE (bfd_elfNN),

@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1996, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,9 +30,12 @@
 
 /* DEVICE
 
+
    memory - description of system memory
 
+
    DESCRIPTION
+
 
    This device describes the size and location of the banks of
    physical memory within the simulation.
@@ -41,7 +44,9 @@
    that can be used by OpenBoot client programs to manage the
    allocation of physical memory.
 
+
    PROPERTIES
+
 
    reg = { <address> <size> } (required)
 
@@ -51,19 +56,32 @@
 
    Each pair specifies a block of memory that is currently unallocated.  
 
+
+   BUGS
+
+
+   OpenFirmware doesn't make it clear if, when releasing memory the
+   same address + size pair as was used during the claim should be
+   specified.
+
+   It is assumed that #size-cells and #address-cells for the parent
+   node of this device are both one i.e. an address or size can be
+   specified using a single memory cell (word).
+
+   Significant work will be required before the <<memory>> device can
+   support 64bit addresses (#address-cells equal two).
+
    */
 
 typedef struct _memory_reg_spec {
-  unsigned32 base;
-  unsigned32 size;
+  unsigned_cell base;
+  unsigned_cell size;
 } memory_reg_spec;
 
 typedef struct _hw_memory_chunk hw_memory_chunk;
 struct _hw_memory_chunk {
   unsigned_word address;
   unsigned_word size;
-  unsigned_word alloc_address;
-  unsigned_word alloc_size;
   int available;
   hw_memory_chunk *next;
 };
@@ -76,8 +94,7 @@ typedef struct _hw_memory_device {
 static void *
 hw_memory_create(const char *name,
 		 const device_unit *unit_address,
-		 const char *args,
-		 device *parent)
+		 const char *args)
 {
   hw_memory_device *hw_memory = ZALLOC(hw_memory_device);
   return hw_memory;
@@ -99,6 +116,10 @@ hw_memory_set_available(device *me,
   while (chunk != NULL) {
     if (chunk->available)
       nr_available += 1;
+    ASSERT(chunk->next == NULL
+	   || chunk->address < chunk->next->address);
+    ASSERT(chunk->next == NULL
+	   || chunk->address + chunk->size == chunk->next->address);
     chunk = chunk->next;
   }
   /* now create the available struct */
@@ -109,8 +130,8 @@ hw_memory_set_available(device *me,
   curr = 0;
   while (chunk != NULL) {
     if (chunk->available) {
-      available[curr].base = H2BE_4(chunk->address);
-      available[curr].size = H2BE_4(chunk->size);
+      available[curr].base = H2BE_cell(chunk->address);
+      available[curr].size = H2BE_cell(chunk->size);
       curr += 1;
     }
     chunk = chunk->next;
@@ -125,13 +146,6 @@ static void
 hw_memory_init_address(device *me)
 {
   hw_memory_device *hw_memory = (hw_memory_device*)device_data(me);
-  const device_property *reg = device_find_array_property(me, "reg");
-  const memory_reg_spec *spec = reg->array;
-  int nr_entries = reg->sizeof_array / sizeof(*spec);
-
-  /* sanity check reg property */
-  if ((reg->sizeof_array % sizeof(*spec)) != 0)
-    error("devices/%s reg property of incorrect size\n", device_name(me));
 
   /* free up any previous structures */
   {
@@ -145,24 +159,65 @@ hw_memory_init_address(device *me)
     }
   }
 
-  /* count/allocate memory entries */
+  /* attach memory regions according to the "reg" property */
   {
-    hw_memory_chunk **curr_chunk = &hw_memory->heap;
-    while (nr_entries > 0) {
-      hw_memory_chunk *new_chunk = ZALLOC(hw_memory_chunk);
-      new_chunk->address = BE2H_4(spec->base);
-      new_chunk->size = BE2H_4(spec->size);
-      new_chunk->available = 1;
+    int reg_nr;
+    reg_property_spec reg;
+    for (reg_nr = 0;
+	 device_find_reg_array_property(me, "reg", reg_nr, &reg);
+	 reg_nr++) {
+      int i;
+      /* check that the entry meets restrictions */
+      for (i = 0; i < reg.address.nr_cells - 1; i++)
+	if (reg.address.cells[i] != 0)
+	  device_error(me, "Only single celled addresses supported");
+      for (i = 0; i < reg.size.nr_cells - 1; i++)
+	if (reg.size.cells[i] != 0)
+	  device_error(me, "Only single celled sizes supported");
+      /* attach the range */
       device_attach_address(device_parent(me),
-			    device_name(me),
 			    attach_raw_memory,
 			    0 /*address space*/,
-			    new_chunk->address,
-			    new_chunk->size,
+			    reg.address.cells[reg.address.nr_cells - 1],
+			    reg.size.cells[reg.size.nr_cells - 1],
 			    access_read_write_exec,
 			    me);
-      spec++;
-      nr_entries--;
+    }
+  }
+
+  /* create the initial `available memory' data structure */
+  if (device_find_property(me, "available") != NULL) {
+    hw_memory_chunk **curr_chunk = &hw_memory->heap;
+    int cell_nr;
+    unsigned_cell dummy;
+    int nr_cells = device_find_integer_array_property(me, "available", 0, &dummy);
+    if ((nr_cells % 2) != 0)
+      device_error(me, "property \"available\" invalid - contains an odd number of cells");
+    for (cell_nr = 0;
+	 cell_nr < nr_cells;
+	 cell_nr += 2) {
+      hw_memory_chunk *new_chunk = ZALLOC(hw_memory_chunk);
+      device_find_integer_array_property(me, "available", cell_nr,
+					 &new_chunk->address);
+      device_find_integer_array_property(me, "available", cell_nr + 1,
+					 &new_chunk->size);
+      new_chunk->available = 1;
+      *curr_chunk = new_chunk;
+      curr_chunk = &new_chunk->next;
+    }
+  }
+  else {
+    hw_memory_chunk **curr_chunk = &hw_memory->heap;
+    int reg_nr;
+    reg_property_spec reg;
+    for (reg_nr = 0;
+	 device_find_reg_array_property(me, "reg", reg_nr, &reg);
+	 reg_nr++) {
+      hw_memory_chunk *new_chunk;
+      new_chunk = ZALLOC(hw_memory_chunk);
+      new_chunk->address = reg.address.cells[reg.address.nr_cells - 1];
+      new_chunk->size = reg.size.cells[reg.size.nr_cells - 1];
+      new_chunk->available = 1;
       *curr_chunk = new_chunk;
       curr_chunk = &new_chunk->next;
     }
@@ -178,114 +233,280 @@ hw_memory_instance_delete(device_instance *instance)
   return;
 }
 
-static unsigned_word
+static int
 hw_memory_instance_claim(device_instance *instance,
-			 unsigned_word address,
-			 unsigned_word size,
-			 unsigned_word alignment)
+			 int n_stack_args,
+			 unsigned_cell stack_args[/*n_stack_args*/],
+			 int n_stack_returns,
+			 unsigned_cell stack_returns[/*n_stack_returns*/])
 {
   hw_memory_device *hw_memory = device_instance_data(instance);
+  device *me = device_instance_device(instance);
+  int stackp = 0;
+  unsigned_word alignment;
+  unsigned_cell size;
+  unsigned_cell address;
   hw_memory_chunk *chunk = NULL;
-  DTRACE(memory, ("claim - address=0x%lx size=0x%lx alignment=%d\n",
-		  (unsigned long)address,
-		  (unsigned long)size,
-		  (int)alignment));
+
+  /* get the alignment from the stack */
+  if (n_stack_args < stackp + 1)
+    device_error(me, "claim - incorrect number of arguments (alignment missing)");
+  alignment = stack_args[stackp];
+  stackp++;
+
+  /* get the size from the stack */
+  {
+    int i;
+    int nr_cells = device_nr_size_cells(device_parent(me));
+    if (n_stack_args < stackp + nr_cells)
+      device_error(me, "claim - incorrect number of arguments (size missing)");
+    for (i = 0; i < nr_cells - 1; i++) {
+      if (stack_args[stackp] != 0)
+	device_error(me, "claim - multi-cell sizes not supported");
+      stackp++;
+    }
+    size = stack_args[stackp];
+    stackp++;
+  }
+
+  /* get the address from the stack */
+  {
+    int nr_cells = device_nr_address_cells(device_parent(me));
+    if (alignment != 0) {
+      if (n_stack_args != stackp) {
+	if (n_stack_args == stackp + nr_cells)
+	  DTRACE(memory, ("claim - extra address argument ignored\n"));
+	else
+	  device_error(me, "claim - incorrect number of arguments (optional addr)");
+      }
+      address = 0;
+    }
+    else {
+      int i;
+      if (n_stack_args != stackp + nr_cells)
+	device_error(me, "claim - incorrect number of arguments (addr missing)");
+      for (i = 0; i < nr_cells - 1; i++) {
+	if (stack_args[stackp] != 0)
+	  device_error(me, "claim - multi-cell addresses not supported");
+	stackp++;
+      }
+      address = stack_args[stackp];
+    }
+  }
+
+  /* check that there is space for the result */
+  if (n_stack_returns != 0
+      && n_stack_returns != device_nr_address_cells(device_parent(me)))
+    device_error(me, "claim - invalid number of return arguments");
+
   /* find a chunk candidate, either according to address or alignment */
   if (alignment == 0) {
     chunk = hw_memory->heap;
-    while (chunk != NULL
-	   && (address+size) > (chunk->address+chunk->size))
+    while (chunk != NULL) {
+      if ((address + size) <= (chunk->address + chunk->size))
+	break;
       chunk = chunk->next;
+    }
     if (chunk == NULL || address < chunk->address || !chunk->available)
-      error("hw_memory_instance_claim: failed to allocate @0x%lx, size %ld\n",
-	    (unsigned long)address, (unsigned long)size);
+      device_error(me, "failed to allocate %ld bytes at 0x%lx",
+		   (unsigned long)size, (unsigned long)address);
+    DTRACE(memory, ("claim - address=0x%lx size=0x%lx\n",
+		    (unsigned long)address,
+		    (unsigned long)size));
   }
   else {
+    /* adjust the alignment so that it is a power of two */
+    unsigned_word align_mask = 1;
+    while (align_mask < alignment && align_mask != 0)
+      align_mask <<= 1;
+    if (align_mask == 0)
+      device_error(me, "alignment 0x%lx is to large", (unsigned long)alignment);
+    align_mask -= 1;
+    /* now find an aligned chunk that fits */
     chunk = hw_memory->heap;
-    while (chunk != NULL && chunk->size < size)
+    while (chunk != NULL) {
+      address = ((chunk->address + align_mask) & ~align_mask);
+      if ((chunk->available)
+	  && (chunk->address + chunk->size >= address + size))
+	break;
       chunk = chunk->next;
-    if (chunk == NULL || FLOOR_PAGE(alignment-1) > 0)
-      error("hw_memory_instance_claim: failed to allocate %ld, align %ld\n",
-	    (unsigned long)size, (unsigned long)size);
-    address = chunk->address;
+    }
+    if (chunk == NULL)
+      device_error(me, "failed to allocate %ld bytes with alignment %ld",
+		   (unsigned long)size, (unsigned long)alignment);
+    DTRACE(memory, ("claim - size=0x%lx alignment=%ld (0x%lx), address=0x%lx\n",
+		    (unsigned long)size,
+		    (unsigned long)alignment,
+		    (unsigned long)alignment,
+		    (unsigned long)address));
   }
-  /* break of a part before this memory if needed */
+
+  /* break off a bit before this chunk if needed */
   ASSERT(address >= chunk->address);
-  if (FLOOR_PAGE(address) > chunk->address) {
-    hw_memory_chunk *last_chunk = chunk;
-    /* insert a new earlier chunk */
-    chunk = ZALLOC(hw_memory_chunk);
-    chunk->next = last_chunk->next;
-    last_chunk->next = chunk;
+  if (address > chunk->address) {
+    hw_memory_chunk *next_chunk = ZALLOC(hw_memory_chunk);
+    /* insert a new chunk */
+    next_chunk->next = chunk->next;
+    chunk->next = next_chunk;
     /* adjust the address/size */
-    chunk->address = FLOOR_PAGE(address);
-    chunk->size = last_chunk->size - (chunk->address - last_chunk->address);
-    last_chunk->size = chunk->address - last_chunk->address;
+    next_chunk->address = address;
+    next_chunk->size = chunk->address + chunk->size - next_chunk->address;
+    next_chunk->available = 1;
+    chunk->size = next_chunk->address - chunk->address;
+    /* make this new chunk the one to allocate */
+    chunk = next_chunk;
   }
-  ASSERT(FLOOR_PAGE(address) == chunk->address);
-  /* break of a bit after this chunk if needed */
-  if (ALIGN_PAGE(address+size) < chunk->address + chunk->size) {
+  ASSERT(address == chunk->address);
+
+  /* break off a bit after this chunk if needed */
+  ASSERT(address + size <= chunk->address + chunk->size);
+  if (address + size < chunk->address + chunk->size) {
     hw_memory_chunk *next_chunk = ZALLOC(hw_memory_chunk);
     /* insert it in to the list */
     next_chunk->next = chunk->next;
     chunk->next = next_chunk;
-    next_chunk->available = 1;
     /* adjust the address/size */
-    next_chunk->address = ALIGN_PAGE(address+size);
+    next_chunk->address = address + size;
     next_chunk->size = chunk->address + chunk->size - next_chunk->address;
+    next_chunk->available = 1;
     chunk->size = next_chunk->address - chunk->address;
   }
-  ASSERT(ALIGN_PAGE(address+size) == chunk->address + chunk->size);
-  /* now allocate it */
-  chunk->alloc_address = address;
-  chunk->alloc_size = size;
+  ASSERT(address + size == chunk->address + chunk->size);
+
+  /* now allocate/return it */
   chunk->available = 0;
   hw_memory_set_available(device_instance_device(instance), hw_memory);
-  return address;
+  if (n_stack_returns > 0) {
+    int i;
+    for (i = 0; i < n_stack_returns - 1; i++)
+      stack_returns[i] = 0;
+    stack_returns[n_stack_returns - 1] = address;
+  }
+
+  return 0;
 }
 
-static void
+
+static int
 hw_memory_instance_release(device_instance *instance,
-			   unsigned_word address,
-			   unsigned_word length)
+			   int n_stack_args,
+			   unsigned_cell stack_args[/*n_stack_args*/],
+			   int n_stack_returns,
+			   unsigned_cell stack_returns[/*n_stack_returns*/])
 {
   hw_memory_device *hw_memory = device_instance_data(instance);
-  hw_memory_chunk *chunk = hw_memory->heap;
+  device *me = device_instance_device(instance);
+  unsigned_word length;
+  unsigned_word address;
+  int stackp = 0;
+  hw_memory_chunk *chunk;
+  
+  /* get the length from the stack */
+  {
+    int i;
+    int nr_cells = device_nr_size_cells(device_parent(me));
+    if (n_stack_args < stackp + nr_cells)
+      device_error(me, "release - incorrect number of arguments (length missing)");
+    for (i = 0; i < nr_cells - 1; i++) {
+      if (stack_args[stackp] != 0)
+	device_error(me, "release - multi-cell length not supported");
+      stackp++;
+    }
+    length = stack_args[stackp];
+    stackp++;
+  }
+
+  /* get the address from the stack */
+  {
+    int i;
+    int nr_cells = device_nr_address_cells(device_parent(me));
+    if (n_stack_args != stackp + nr_cells)
+      device_error(me, "release - incorrect number of arguments (addr missing)");
+    for (i = 0; i < nr_cells - 1; i++) {
+      if (stack_args[stackp] != 0)
+	device_error(me, "release - multi-cell addresses not supported");
+      stackp++;
+    }
+    address = stack_args[stackp];
+  }
+
+  /* returns ok */
+  if (n_stack_returns != 0)
+    device_error(me, "release - nonzero number of results");
+
+  /* try to free the corresponding memory chunk */
+  chunk = hw_memory->heap;
   while (chunk != NULL) {
-    if (chunk->alloc_address == address
-	&& chunk->alloc_size == length
-	&& chunk->available == 0) {
-      /* free this chunk */
-      chunk->available = 1;
-      /* check for merge */
-      chunk = hw_memory->heap;
-      while (chunk != NULL) {
-	if (chunk->available
-	    && chunk->next != NULL && chunk->next->available) {
-	  /* adjacent */
-	  hw_memory_chunk *delete = chunk->next;
-	  ASSERT(chunk->address + chunk->size == delete->address);
-	  chunk->size += delete->size;
-	  chunk->next = delete->next;
-	  zfree(delete);
-	}
+    if (chunk->address == address
+	&& chunk->size == length) {
+      /* an exact match */
+      if (chunk->available)
+	device_error(me, "memory chunk 0x%lx (size 0x%lx) already available",
+		     (unsigned long)address,
+		     (unsigned long)length);
+      else {
+	/* free this chunk */
+	DTRACE(memory, ("release - address=0x%lx, length=0x%lx\n",
+			(unsigned long) address,
+			(unsigned long) length));
+	chunk->available = 1;
+	break;
       }
-      /* update the corresponding property */
-      hw_memory_set_available(device_instance_device(instance), hw_memory);
-      return;
+    }
+    else if (chunk->address >= address
+	     && chunk->address + chunk->size <= address + length) {
+      /* a sub region */
+      if (!chunk->available) {
+	DTRACE(memory, ("release - address=0x%lx, size=0x%lx within region 0x%lx length 0x%lx\n",
+			(unsigned long) chunk->address,
+			(unsigned long) chunk->size,
+			(unsigned long) address,
+			(unsigned long) length));
+	chunk->available = 1;
+      }
     }
     chunk = chunk->next;
   }
-  error("hw_memory_instance_release: Address 0x%lx, size %ld not found\n",
-	(unsigned long)address, (unsigned long)length);
-  /* FIXME - dump allocated */
-  /* FIXME - dump arguments */
+  if (chunk == NULL) {
+    printf_filtered("warning: released chunks within region 0x%lx..0x%lx\n",
+		    (unsigned long)address,
+		    (unsigned long)(address + length - 1));
+  }
+
+  /* check for the chance to merge two adjacent available memory chunks */
+  chunk = hw_memory->heap;
+  while (chunk != NULL) {
+    if (chunk->available
+	&& chunk->next != NULL && chunk->next->available) {
+      /* adjacent */
+      hw_memory_chunk *delete = chunk->next;
+      ASSERT(chunk->address + chunk->size == delete->address);
+      chunk->size += delete->size;
+      chunk->next = delete->next;
+      zfree(delete);
+    }
+    else {
+      chunk = chunk->next;
+    }
+  }
+
+  /* update the corresponding property */
+  hw_memory_set_available(device_instance_device(instance), hw_memory);
+
+  return 0;
 }
+
+
+static device_instance_methods hw_memory_instance_methods[] = {
+  { "claim", hw_memory_instance_claim },
+  { "release", hw_memory_instance_release },
+  { NULL, },
+};
 
 static device_instance_callbacks const hw_memory_instance_callbacks = {
   hw_memory_instance_delete,
   NULL /*read*/, NULL /*write*/, NULL /*seek*/,
-  hw_memory_instance_claim, hw_memory_instance_release
+  hw_memory_instance_methods
 };
 
 static device_instance *

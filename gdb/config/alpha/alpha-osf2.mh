@@ -3,6 +3,3 @@ XDEPFILES=
 XM_FILE= xm-alphaosf.h
 NAT_FILE= nm-osf2.h
 NATDEPFILES= infptrace.o inftarg.o corelow.o alpha-nat.o fork-child.o osfsolib.o procfs.o
-
-MMALLOC = 
-MMALLOC_DISABLE = -DNO_MMALLOC 

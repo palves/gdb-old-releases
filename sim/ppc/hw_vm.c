@@ -93,7 +93,6 @@ hw_vm_init_address_callback(device *me)
 
   /* establish this device as the default memory handler */
   device_attach_address(device_parent(me),
-			device_name(me),
 			attach_callback + 1,
 			0 /*address space - ignore*/,
 			0 /*addr - ignore*/,
@@ -105,13 +104,12 @@ hw_vm_init_address_callback(device *me)
 
 static void
 hw_vm_attach_address(device *me,
-		  const char *name,
-		  attach_type attach,
-		  int space,
-		  unsigned_word addr,
-		  unsigned nr_bytes,
-		  access_type access,
-		  device *who) /*callback/default*/
+		     attach_type attach,
+		     int space,
+		     unsigned_word addr,
+		     unsigned nr_bytes,
+		     access_type access,
+		     device *client) /*callback/default*/
 {
   hw_vm_device *vm = (hw_vm_device*)device_data(me);
   /* update end of bss if necessary */
@@ -121,7 +119,6 @@ hw_vm_attach_address(device *me,
     vm->heap_upper_limit = addr + nr_bytes;
   }
   device_attach_address(device_parent(me),
-			device_name(me),
 			attach_raw_memory,
 			0 /*address space*/,
 			addr,
@@ -167,7 +164,6 @@ hw_vm_add_space(device *me,
 
   /* got the parameters, allocate the space */
   device_attach_address(device_parent(me),
-			"vm@0x0,0", /* stop remap */
 			attach_raw_memory,
 			0 /*address space*/,
 			block_addr,
@@ -217,22 +213,33 @@ hw_vm_io_write_buffer_callback(device *me,
 
 
 static int
-hw_vm_ioctl_callback(device *me,
-		     cpu *processor,
-		     unsigned_word cia,
-		     va_list ap)
+hw_vm_ioctl(device *me,
+	    cpu *processor,
+	    unsigned_word cia,
+	    device_ioctl_request request,
+	    va_list ap)
 {
   /* While the caller is notified that the heap has grown by the
      requested amount, the heap is actually extended out to a page
      boundary. */
   hw_vm_device *vm = (hw_vm_device*)device_data(me);
-  unsigned_word requested_break = va_arg(ap, unsigned_word);
-  unsigned_word new_break = ALIGN_8(requested_break);
-  unsigned_word old_break = vm->heap_bound;
-  signed_word delta = new_break - old_break;
-  if (delta > 0)
-    vm->heap_bound = ALIGN_PAGE(new_break);
+  switch (request) {
+  case device_ioctl_break:
+    {
+      unsigned_word requested_break = va_arg(ap, unsigned_word);
+      unsigned_word new_break = ALIGN_8(requested_break);
+      unsigned_word old_break = vm->heap_bound;
+      signed_word delta = new_break - old_break;
+      if (delta > 0)
+	vm->heap_bound = ALIGN_PAGE(new_break);
+      break;
+    }
+  default:
+    device_error(me, "Unsupported ioctl request");
+    break;
+  }
   return 0;
+    
 }
 
 
@@ -247,15 +254,14 @@ static device_callbacks const hw_vm_callbacks = {
   { generic_device_unit_decode,
     generic_device_unit_encode, },
   NULL, /* instance */
-  hw_vm_ioctl_callback,
+  hw_vm_ioctl,
 };
 
 
 static void *
 hw_vm_create(const char *name,
-	      const device_unit *address,
-	      const char *args,
-	      device *parent)
+	     const device_unit *address,
+	     const char *args)
 {
   hw_vm_device *vm = ZALLOC(hw_vm_device);
   return vm;

@@ -27,7 +27,7 @@ extern char *getenv();
    GDB to add YET ANOTHER -I directive.  No thanks.  */
 #include "tilde.h"
 
-#ifndef __MSDOS__
+#if !defined(__MSDOS__) && !defined(_WIN32)
 #include <pwd.h>
 #endif
 
@@ -218,7 +218,7 @@ tilde_expand_word (filename)
 	  /* Prepend $HOME to the rest of the string. */
 	  char *temp_home = getenv ("HOME");
 
-#ifndef __MSDOS__
+#if !defined (__MSDOS__) && !defined (_WIN32)
 	  /* If there is no HOME variable, look up the directory in
 	     the password database. */
 	  if (!temp_home)
@@ -242,7 +242,7 @@ tilde_expand_word (filename)
 	}
       else
 	{
-#ifndef __MSDOS__
+#if !defined (__MSDOS__) && !defined (_WIN32)
 	  struct passwd *user_entry;
 #endif
 	  char *username = (char *)alloca (257);
@@ -257,7 +257,7 @@ tilde_expand_word (filename)
 	    }
 	  username[i - 1] = '\0';
 
-#ifndef __MSDOS__
+#if !defined (__MSDOS__) && !defined (_WIN32)
 	  if (!(user_entry = getpwnam (username)))
 	    {
 #endif
@@ -281,7 +281,7 @@ tilde_expand_word (filename)
 		    }
 		}
 	      /* We shouldn't report errors. */
-#ifndef __MSDOS__
+#if !defined (__MSDOS__) && !defined (_WIN32)
 	    }
 	  else
 	    {
@@ -293,7 +293,7 @@ tilde_expand_word (filename)
 	    return_name:
 	      free (dirname);
 	      dirname = savestring (temp_name);
-#ifndef __MSDOS__
+#if !defined (__MSDOS__) && !defined (_WIN32)
 	    }
 	    endpwent ();
 #endif

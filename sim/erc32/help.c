@@ -15,6 +15,9 @@ gen_help()
     printf(" cont [icnt]           continue execution for [icnt] instructions\n");
     printf(" dis [addr] [count]    disassemble [count] instructions at address [addr]\n");
     printf(" echo <string>         print <string> to the simulator window\n");
+#ifdef ERRINJ
+    printf(" error <period>        inject error traps in IU and FPU\n");
+#endif
     printf(" float                 print the FPU registers\n");
     printf(" go <addr> [icnt]      start execution at <addr> for [icnt] instructions\n");
     printf(" hist [trace_length]   enable/show trace history\n");

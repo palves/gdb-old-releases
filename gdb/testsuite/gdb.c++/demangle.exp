@@ -1,4 +1,4 @@
-# Copyright (C) 1992 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1997 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -28,23 +28,23 @@ if $tracelevel then {
 #
 
 proc test_gnu_style_demangling {} {
-    global prompt
+    global gdb_prompt
 
     # Set the demangling style to "gnu" and then check to make sure
     # it really got set.  Return if the style failed to get set for
     # some reason.
 
-    send "set demangle-style gnu\n"
-    expect {
-	-re "set demangle-style gnu\[\r\n\]+$prompt $" {}
-	-re ".*$prompt $" { fail "set demangle-style gnu failed" ; return }
+    send_gdb "set demangle-style gnu\n"
+    gdb_expect {
+	-re "set demangle-style gnu\[\r\n\]+$gdb_prompt $" {}
+	-re ".*$gdb_prompt $" { fail "set demangle-style gnu failed" ; return }
 	timeout { fail "set demangle-style gnu failed (timeout)" ; return }
     }
 
-    send "show demangle-style\n"
-    expect {
-	-re "The current C\[+\]+ demangling style is \"gnu\".\r\n$prompt $" {}
-	-re ".*$prompt $" { fail "demangling style not set to gnu" }
+    send_gdb "show demangle-style\n"
+    gdb_expect {
+	-re "The current C\[+\]+ demangling style is \"gnu\".\r\n$gdb_prompt $" {}
+	-re ".*$gdb_prompt $" { fail "demangling style not set to gnu" }
 	timeout { fail "show demangle-style timed out" }
     }
 
@@ -453,23 +453,23 @@ proc test_gnu_style_demangling {} {
 #
 
 proc test_lucid_style_demangling {} {
-    global prompt
+    global gdb_prompt
 
     # Set the demangling style to "lucid" and then check to make sure
     # it really got set.  Return if the style failed to get set for
     # some reason.
 
-    send "set demangle-style lucid\n"
-    expect {
-	-re "set demangle-style lucid\[\r\n\]+$prompt $" {}
-	-re ".*$prompt $" { fail "set demangle-style lucid failed" ; return }
+    send_gdb "set demangle-style lucid\n"
+    gdb_expect {
+	-re "set demangle-style lucid\[\r\n\]+$gdb_prompt $" {}
+	-re ".*$gdb_prompt $" { fail "set demangle-style lucid failed" ; return }
 	timeout { fail "set demangle-style lucid failed (timeout)" ; return }
     }
 
-    send "show demangle-style\n"
-    expect {
-	-re "The current C\[+\]+ demangling style is \"lucid\".\r\n$prompt $" {}
-	-re ".*$prompt $" { fail "demangling style not set to lucid" }
+    send_gdb "show demangle-style\n"
+    gdb_expect {
+	-re "The current C\[+\]+ demangling style is \"lucid\".\r\n$gdb_prompt $" {}
+	-re ".*$gdb_prompt $" { fail "demangling style not set to lucid" }
 	timeout { fail "show demangle-style timed out" }
     }
 
@@ -611,6 +611,7 @@ proc test_lucid_style_demangling {} {
     # GDB 930701 gets into an infinite loop.
     # GDB 930727 says "Can't demangle".
     # What is the correct demangling?  FIXME.
+    setup_xfail "*-*-*"
     gdb_test_exact "maint demangle __vtbl__3foo__vt_cc_main_" ""
 
     gdb_test_exact "maint demangle abs__F7complex" "abs(complex)"
@@ -730,23 +731,23 @@ proc test_lucid_style_demangling {} {
 #
 
 proc test_arm_style_demangling {} {
-    global prompt
+    global gdb_prompt
 
     # Set the demangling style to "arm" and then check to make sure
     # it really got set.  Return if the style failed to get set for
     # some reason.
 
-    send "set demangle-style arm\n"
-    expect {
-	-re "set demangle-style arm\[\r\n\]+$prompt $" {}
-	-re ".*$prompt $" { fail "set demangle-style arm failed" ; return }
+    send_gdb "set demangle-style arm\n"
+    gdb_expect {
+	-re "set demangle-style arm\[\r\n\]+$gdb_prompt $" {}
+	-re ".*$gdb_prompt $" { fail "set demangle-style arm failed" ; return }
 	timeout { fail "set demangle-style arm failed (timeout)" ; return }
     }
 
-    send "show demangle-style\n"
-    expect {
-	-re "The current C\[+\]+ demangling style is \"arm\".\r\n$prompt $" {}
-	-re ".*$prompt $" { fail "demangling style not set to arm" }
+    send_gdb "show demangle-style\n"
+    gdb_expect {
+	-re "The current C\[+\]+ demangling style is \"arm\".\r\n$gdb_prompt $" {}
+	-re ".*$gdb_prompt $" { fail "demangling style not set to arm" }
 	timeout { fail "show demangle-style timed out" }
     }
 
@@ -1088,7 +1089,7 @@ proc do_tests {} {
     global prms_id
     global bug_id
     global subdir
-    global prompt
+    global gdb_prompt
 
     set prms_id 0
     set bug_id 0
@@ -1098,10 +1099,10 @@ proc do_tests {} {
     gdb_exit
     gdb_start
 
-    send "set language c++\n"
-    expect -re "$prompt $"
-    send "set width 0\n"
-    expect -re "$prompt $"
+    send_gdb "set language c++\n"
+    gdb_expect -re "$gdb_prompt $"
+    send_gdb "set width 0\n"
+    gdb_expect -re "$gdb_prompt $"
     
     test_lucid_style_demangling
     test_gnu_style_demangling

@@ -50,6 +50,16 @@ INLINE_SIM_ENDIAN(unsigned_2) endian_be2h_2(unsigned_2 x);
 INLINE_SIM_ENDIAN(unsigned_4) endian_be2h_4(unsigned_4 x);
 INLINE_SIM_ENDIAN(unsigned_8) endian_be2h_8(unsigned_8 x);
 
+INLINE_SIM_ENDIAN(unsigned_1) endian_h2le_1(unsigned_1 x);
+INLINE_SIM_ENDIAN(unsigned_2) endian_h2le_2(unsigned_2 x);
+INLINE_SIM_ENDIAN(unsigned_4) endian_h2le_4(unsigned_4 x);
+INLINE_SIM_ENDIAN(unsigned_8) endian_h2le_8(unsigned_8 x);
+
+INLINE_SIM_ENDIAN(unsigned_1) endian_le2h_1(unsigned_1 x);
+INLINE_SIM_ENDIAN(unsigned_2) endian_le2h_2(unsigned_2 x);
+INLINE_SIM_ENDIAN(unsigned_4) endian_le2h_4(unsigned_4 x);
+INLINE_SIM_ENDIAN(unsigned_8) endian_le2h_8(unsigned_8 x);
+
 
 /* Host dependant:
 
@@ -136,7 +146,7 @@ INLINE_SIM_ENDIAN(unsigned_8) endian_be2h_8(unsigned_8 x);
 
    Little endian last time I looked */
 
-#if defined(i386) || defined(i486) || defined(i586) || defined(__i386__) || defined(__i486__) || defined(__i586__)
+#if defined(i386) || defined(i486) || defined(i586) || defined (i686) || defined(__i386__) || defined(__i486__) || defined(__i586__) || defined (__i686__)
 # if (WITH_HOST_BYTE_ORDER == 0)
 #  undef WITH_HOST_BYTE_ORDER
 #  define WITH_HOST_BYTE_ORDER LITTLE_ENDIAN
@@ -146,7 +156,7 @@ INLINE_SIM_ENDIAN(unsigned_8) endian_be2h_8(unsigned_8 x);
 # endif
 #endif
 
-#if (defined (__i486__) || defined (__i586__)) && defined(__GNUC__) && WITH_BSWAP
+#if (defined (__i486__) || defined (__i586__) || defined (__i686__)) && defined(__GNUC__) && WITH_BSWAP
 #undef  htonl
 #undef  ntohl
 #define htonl(IN) __extension__ ({ int _out; __asm__ ("bswap %0" : "=r" (_out) : "0" (IN)); _out; })
@@ -254,6 +264,18 @@ INLINE_SIM_ENDIAN(unsigned_8) endian_be2h_8(unsigned_8 x);
 #define BE2H_8(X) endian_be2h_8(X)
 
 
+/* HOST to LE */
+
+#define H2LE_1(X) endian_h2le_1(X)
+#define H2LE_2(X) endian_h2le_2(X)
+#define H2LE_4(X) endian_h2le_4(X)
+#define H2LE_8(X) endian_h2le_8(X)
+#define LE2H_1(X) endian_le2h_1(X)
+#define LE2H_2(X) endian_le2h_2(X)
+#define LE2H_4(X) endian_le2h_4(X)
+#define LE2H_8(X) endian_le2h_8(X)
+
+
 /* HOST to TARGET */
 
 #define H2T_1(X) endian_h2t_1(X)
@@ -321,6 +343,27 @@ do { \
   } \
 } while (0)
 
+#define H2LE(VARIABLE) \
+do { \
+  switch (sizeof(VARIABLE)) { \
+  case 1: VARIABLE = H2LE_1(VARIABLE); break; \
+  case 2: VARIABLE = H2LE_2(VARIABLE); break; \
+  case 4: VARIABLE = H2LE_4(VARIABLE); break; \
+  case 8: VARIABLE = H2LE_8(VARIABLE); break; \
+  } \
+} while (0)
+
+#define LE2H(VARIABLE) \
+do { \
+  switch (sizeof(VARIABLE)) { \
+  case 1: VARIABLE = LE2H_1(VARIABLE); break; \
+  case 2: VARIABLE = LE2H_2(VARIABLE); break; \
+  case 4: VARIABLE = LE2H_4(VARIABLE); break; \
+  case 8: VARIABLE = LE2H_8(VARIABLE); break; \
+  } \
+} while (0)
+
+
 
 /* TARGET WORD:
 
@@ -331,6 +374,8 @@ do { \
 #define T2H_word(X) T2H_8(X)
 #define H2BE_word(X) H2BE_8(X)
 #define BE2H_word(X) BE2H_8(X)
+#define H2LE_word(X) H2LE_8(X)
+#define LE2H_word(X) LE2H_8(X)
 #define SWAP_word(X) SWAP_8(X)
 #endif
 #if (WITH_TARGET_WORD_BITSIZE == 32)
@@ -338,8 +383,24 @@ do { \
 #define T2H_word(X) T2H_4(X)
 #define H2BE_word(X) H2BE_4(X)
 #define BE2H_word(X) BE2H_4(X)
+#define H2LE_word(X) H2LE_4(X)
+#define LE2H_word(X) LE2H_4(X)
 #define SWAP_word(X) SWAP_4(X)
 #endif
+
+
+/* TARGET CELL:
+
+   Byte swap a quantity the size of the targets IEEE 1275 memory cell */
+
+#define H2T_cell(X) H2T_4(X)
+#define T2H_cell(X) T2H_4(X)
+#define H2BE_cell(X) H2BE_4(X)
+#define BE2H_cell(X) BE2H_4(X)
+#define H2LE_cell(X) H2LE_4(X)
+#define LE2H_cell(X) LE2H_4(X)
+#define SWAP_cell(X) SWAP_4(X)
+
 
 #if (SIM_ENDIAN_INLINE & INCLUDE_MODULE)
 # include "sim-endian.c"

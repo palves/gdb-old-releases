@@ -113,9 +113,9 @@ ARMword ARMul_GetPC(ARMul_State *state)
 
 ARMword ARMul_GetNextPC(ARMul_State *state)
 {if (state->Mode > SVC26MODE)
-    return(state->Reg[15] + 4) ;
+    return(state->Reg[15] + isize) ;
  else
-    return((state->Reg[15] + 4) & R15PCBITS) ;
+    return((state->Reg[15] + isize) & R15PCBITS) ;
 }
 
 /***************************************************************************\
@@ -250,6 +250,9 @@ void ARMul_CPSRAltered(ARMul_State *state)
  ASSIGNZ((state->Cpsr & ZBIT) != 0) ;
  ASSIGNC((state->Cpsr & CBIT) != 0) ;
  ASSIGNV((state->Cpsr & VBIT) != 0) ;
+#ifdef MODET
+ ASSIGNT((state->Cpsr & TBIT) != 0);
+#endif
 
  if (oldmode > SVC26MODE) {
     if (state->Mode <= SVC26MODE) {

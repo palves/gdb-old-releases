@@ -28,18 +28,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "symtab.h"
 #include "symfile.h" /* for generic_load */
 
-#if !defined (HAVE_TERMIOS) && !defined (HAVE_TERMIO) && !defined (HAVE_SGTTY)
-#define HAVE_SGTTY
-#endif
-
-#ifdef HAVE_SGTTY
-#include <sys/ioctl.h>
-#endif
-
-#include <sys/types.h>	/* Needed by file.h on Sys V */
-#include <sys/file.h>
-#include <signal.h>
-#include <sys/stat.h>
 
 #define USE_GENERIC_LOAD
 
@@ -149,10 +137,10 @@ static char *mon960_regnames[NUM_REGS];
 
 /* need to pause the monitor for timing reasons, so slow it down */
 
-#if 1
+#if 0
 /* FIXME: this extremely long init string causes MON960 to return two NAKS
    instead of performing the autobaud recognition, at least when gdb
-   is running on Linux.  The short string below works on Linux, and on
+   is running on GNU/Linux.  The short string below works on Linux, and on
    SunOS using a tcp serial connection.  Must retest on SunOS using a
    direct serial connection; if that works, get rid of the long string. */
 static char *mon960_inits[] = {"\n\r\r\r\r\r\r\r\r\r\r\r\r\r\r\n\r\n\r\n", NULL};

@@ -1,5 +1,5 @@
 /* Perform arithmetic and other operations on values, for GDB.
-   Copyright 1986, 1989, 1991, 1992, 1993, 1994, 1995, 1996
+   Copyright 1986, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -58,6 +58,8 @@ value_add (arg1, arg2)
        || TYPE_CODE (type2) == TYPE_CODE_INT))
     /* Exactly one argument is a pointer, and one is an integer.  */
     {
+      value_ptr retval;
+
       if (TYPE_CODE (type1) == TYPE_CODE_PTR)
 	{
 	  valptr = arg1;
@@ -71,10 +73,13 @@ value_add (arg1, arg2)
 	  valptrtype = type2;
 	}
       len = TYPE_LENGTH (check_typedef (TYPE_TARGET_TYPE (valptrtype)));
-      if (len == 0) len = 1;	/* For (void *) */
-      return value_from_longest (valptrtype,
-			      value_as_long (valptr)
-			      + (len * value_as_long (valint)));
+      if (len == 0)
+	len = 1;		/* For (void *) */
+      retval = value_from_longest (valptrtype,
+				   value_as_long (valptr)
+				   + (len * value_as_long (valint)));
+      VALUE_BFD_SECTION (retval) = VALUE_BFD_SECTION (valptr);
+      return retval;
     }
 
   return value_binop (arg1, arg2, BINOP_ADD);
@@ -435,8 +440,9 @@ value_x_unop (arg1, op, noside)
     case UNOP_LOGICAL_NOT:	strcpy(ptr,"!"); break;
     case UNOP_COMPLEMENT:	strcpy(ptr,"~"); break;
     case UNOP_NEG:		strcpy(ptr,"-"); break;
+    case UNOP_IND:		strcpy(ptr,"*"); break;
     default:
-      error ("Invalid binary operation specified.");
+      error ("Invalid unary operation specified.");
     }
 
   argvec[0] = value_struct_elt (&arg1, argvec+1, tstr, &static_memfuncp, "structure");
@@ -769,12 +775,12 @@ value_binop (arg1, arg2, op)
 
       if (unsigned_operation)
 	{
-	  unsigned LONGEST v1, v2, v;
-	  v1 = (unsigned LONGEST) value_as_long (arg1);
-	  v2 = (unsigned LONGEST) value_as_long (arg2);
+	  ULONGEST v1, v2, v;
+	  v1 = (ULONGEST) value_as_long (arg1);
+	  v2 = (ULONGEST) value_as_long (arg2);
 
 	  /* Truncate values to the type length of the result.  */
-	  if (result_len < sizeof (unsigned LONGEST))
+	  if (result_len < sizeof (ULONGEST))
 	    {
 	      v1 &= ((LONGEST) 1 << HOST_CHAR_BIT * result_len) - 1;
 	      v2 &= ((LONGEST) 1 << HOST_CHAR_BIT * result_len) - 1;

@@ -527,6 +527,13 @@ T7::put(int i)
     // nothing
 }
 
+#ifdef usestubs
+extern "C" { 
+   void set_debug_traps();
+   void breakpoint();
+};
+#endif
+
 main()
 {
     int i;

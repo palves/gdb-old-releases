@@ -24,9 +24,6 @@
 #include "sysdep.h"
 #include <stdio.h>
 #include <fcntl.h>
-#ifndef	NO_SYS_FILE
-#include <sys/file.h>
-#endif
 #include <signal.h>
 
 /* This is needed to include support for TIOCGWINSZ and window resizing. */
@@ -62,7 +59,6 @@ extern char * getenv ();
    to be visible to readline callers. */
 
 /* Functions imported from other files in the library. */
-extern char *tgetstr ();
 extern void rl_prep_terminal (), rl_deprep_terminal ();
 extern void rl_vi_set_last ();
 extern Function *rl_function_of_keyseq ();
@@ -478,7 +474,7 @@ rl_unget_char (key)
 void
 rl_gather_tyi ()
 {
-#if defined (MINIMAL)
+#if defined (MINIMAL) && !defined (_WIN32)
   char input;
 
   if (isatty (0))
@@ -1153,7 +1149,6 @@ void
 _rl_set_screen_size (tty, ignore_env)
      int tty, ignore_env;
 {
-#ifndef MINIMAL
 #if defined (TIOCGWINSZ) && !defined (TIOCGWINSZ_BROKEN)
   struct winsize window_size;
 #endif /* TIOCGWINSZ */
@@ -1209,7 +1204,6 @@ _rl_set_screen_size (tty, ignore_env)
      don't use the last column. */
   if (!term_xn)
     screenwidth--;
-#endif
 }
 #endif /* !MINIMAL */
 
@@ -1778,7 +1772,7 @@ rl_refresh_line ()
   _rl_move_vert (curr_line);
   _rl_move_cursor_relative (0, the_line);   /* XXX is this right */
 
-#if defined (__WIN32__) || defined (_MSC_VER)
+#if defined (_WIN32)
   abort();
 #else
 #if defined (__GO32__)
@@ -3119,7 +3113,7 @@ rl_getc (stream)
   int result;
   unsigned char c;
 
-#if defined (MINIMAL)
+#if defined (MINIMAL) && !defined (_WIN32)
   if (isatty (0))
     return (getkey () & 0x7f);
 #endif /* MINIMAL */

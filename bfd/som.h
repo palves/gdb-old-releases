@@ -222,5 +222,6 @@ boolean bfd_som_set_subsection_attributes PARAMS ((asection *, asection *,
 void bfd_som_set_symbol_type PARAMS ((asymbol *, unsigned int));
 boolean bfd_som_attach_aux_hdr PARAMS ((bfd *, int, char *));
 int ** hppa_som_gen_reloc_type
-  PARAMS ((bfd *, int, int, enum hppa_reloc_field_selector_type_alt, int));
+  PARAMS ((bfd *, int, int, enum hppa_reloc_field_selector_type_alt,
+	   int, asymbol *));
 #endif /* _SOM_H */

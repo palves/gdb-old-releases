@@ -54,13 +54,15 @@ typedef struct
 struct h8_opcode *op;
 #endif
 }
-
 decoded_inst;
 
-
+enum h8300_sim_state {
+  SIM_STATE_RUNNING, SIM_STATE_EXITED, SIM_STATE_SIGNALLED, SIM_STATE_STOPPED
+};
 
 typedef struct
 {
+  enum h8300_sim_state state;
   int exception;
   unsigned  int regs[9];
   int pc;
@@ -84,5 +86,4 @@ typedef struct
   int stats[O_LAST];
 #endif
 }
-
 cpu_state_type;

@@ -1,5 +1,6 @@
 /* chew
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 1998
+   Free Software Foundation, Inc.
    Contributed by steve chamberlain @cygnus
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -854,9 +855,23 @@ DEFUN(copy_past_newline,(ptr, idx, dst),
       unsigned int idx AND
       string_type *dst)
 {
+    int column = 0;
+
     while (at(ptr, idx) && at(ptr, idx) != '\n') 
     {
-	catchar(dst, at(ptr, idx));
+	if (at (ptr, idx) == '\t')
+	  {
+	    /* Expand tabs.  Neither makeinfo nor TeX can cope well with
+	       them.  */
+	    do
+	      catchar (dst, ' ');
+	    while (++column & 7);
+	  }
+	else
+	  {
+	    catchar(dst, at(ptr, idx));
+	    column++;
+	  }
 	idx++;
 	
     }    
@@ -897,6 +912,11 @@ WORD(kill_bogus_lines)
     }
     c = idx;
     
+    /* If the first char is a '.' prepend a newline so that it is
+       recognized properly later.  */
+    if (at (tos, idx) == '.')
+      catchar (&out, '\n');
+
     /* Find the last char */
     while (at(tos,idx))
     {
@@ -972,7 +992,7 @@ WORD(indent)
 	      case '\n':
 		cattext(&out,"\n");
 		idx++;
-		if (tab) 
+		if (tab && at(tos,idx))
 		{
 		    cattext(&out,"    ");
 		}

@@ -27,5 +27,9 @@ top (y)
 int
 main (argc, argv)
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   return top (-1) + top (1);
 }

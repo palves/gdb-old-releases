@@ -1,5 +1,5 @@
 /* BFD back-end for RISC iX (Acorn, arm) binaries.
-   Copyright (C) 1994, 1995, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rwe@pegasus.esprit.ec.org)
    
 This file is part of BFD, the Binary File Descriptor library.
@@ -89,7 +89,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
-#include "assert.h"
 
 #define WRITE_HEADERS(abfd, execp)					   \
   {									   \
@@ -267,6 +266,7 @@ DEFUN(riscix_reloc_type_lookup,(abfd,code),
 
 #define MY_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define MY_bfd_link_add_symbols _bfd_generic_link_add_symbols
+#define MY_final_link_callback should_not_be_used
 #define MY_bfd_final_link _bfd_generic_final_link
 
 #define MY_bfd_reloc_type_lookup riscix_reloc_type_lookup
@@ -453,7 +453,7 @@ MY(canonicalize_reloc)(abfd, section, relptr, symbols)
   for (count = 0; count++ < section->reloc_count;)
     {
       c = tblptr->howto - NAME(aout,std_howto_table);
-      assert (c < RISCIX_TABLE_SIZE);
+      BFD_ASSERT (c < RISCIX_TABLE_SIZE);
       tblptr->howto = &riscix_std_reloc_howto[c];
 
       *relptr++ = tblptr++;
@@ -496,7 +496,7 @@ riscix_some_aout_object_p (abfd, execp, callback_to_real_object_p)
   execp = abfd->tdata.aout_data->a.hdr;
 
   /* Set the file flags */
-  abfd->flags = NO_FLAGS;
+  abfd->flags = BFD_NO_FLAGS;
   if (execp->a_drsize || execp->a_trsize)
     abfd->flags |= HAS_RELOC;
   /* Setting of EXEC_P has been deferred to the bottom of this function */

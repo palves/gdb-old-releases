@@ -1,5 +1,5 @@
 /* General utility routines for GDB, the GNU debugger.
-   Copyright 1986, 1989, 1990, 1991, 1992, 1995 Free Software Foundation, Inc.
+   Copyright 1986, 89, 90, 91, 92, 95, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -18,16 +18,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#if !defined(__GO32__) && !defined(__WIN32__) && !defined(MPW)
-#include <sys/ioctl.h>
-#include <sys/param.h>
-#include <pwd.h>
-#endif
-#ifdef ANSI_PROTOTYPES
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include <ctype.h>
 #include "gdb_string.h"
 #ifdef HAVE_UNISTD_H
@@ -51,13 +41,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Prototypes for local functions */
 
-#if defined (NO_MMALLOC) || defined (NO_MMALLOC_CHECK)
-#else
+static void vfprintf_maybe_filtered PARAMS ((FILE *, const char *, va_list, int));
 
-static void
-malloc_botch PARAMS ((void));
+static void fputs_maybe_filtered PARAMS ((const char *, FILE *, int));
 
-#endif /* NO_MMALLOC, etc */
+#if defined (USE_MMALLOC) && !defined (NO_MMCHECK)
+static void malloc_botch PARAMS ((void));
+#endif
 
 static void
 fatal_dump_core PARAMS((char *, ...));
@@ -77,7 +67,9 @@ set_width_command PARAMS ((char *, int, struct cmd_list_element *));
 /* Chain of cleanup actions established with make_cleanup,
    to be executed if an error happens.  */
 
-static struct cleanup *cleanup_chain;
+static struct cleanup *cleanup_chain; /* cleaned up after a failed command */
+static struct cleanup *final_cleanup_chain; /* cleaned up when gdb exits */
+static struct cleanup *run_cleanup_chain; /* cleaned up on each 'run' */
 
 /* Nonzero if we have job control. */
 
@@ -139,14 +131,37 @@ make_cleanup (function, arg)
      void (*function) PARAMS ((PTR));
      PTR arg;
 {
+    return make_my_cleanup (&cleanup_chain, function, arg);
+}
+
+struct cleanup *
+make_final_cleanup (function, arg)
+     void (*function) PARAMS ((PTR));
+     PTR arg;
+{
+    return make_my_cleanup (&final_cleanup_chain, function, arg);
+}
+struct cleanup *
+make_run_cleanup (function, arg)
+     void (*function) PARAMS ((PTR));
+     PTR arg;
+{
+    return make_my_cleanup (&run_cleanup_chain, function, arg);
+}
+struct cleanup *
+make_my_cleanup (pmy_chain, function, arg)
+     struct cleanup **pmy_chain;
+     void (*function) PARAMS ((PTR));
+     PTR arg;
+{
   register struct cleanup *new
     = (struct cleanup *) xmalloc (sizeof (struct cleanup));
-  register struct cleanup *old_chain = cleanup_chain;
+  register struct cleanup *old_chain = *pmy_chain;
 
-  new->next = cleanup_chain;
+  new->next = *pmy_chain;
   new->function = function;
   new->arg = arg;
-  cleanup_chain = new;
+  *pmy_chain = new;
 
   return old_chain;
 }
@@ -158,10 +173,32 @@ void
 do_cleanups (old_chain)
      register struct cleanup *old_chain;
 {
+    do_my_cleanups (&cleanup_chain, old_chain);
+}
+
+void
+do_final_cleanups (old_chain)
+     register struct cleanup *old_chain;
+{
+    do_my_cleanups (&final_cleanup_chain, old_chain);
+}
+
+void
+do_run_cleanups (old_chain)
+     register struct cleanup *old_chain;
+{
+    do_my_cleanups (&run_cleanup_chain, old_chain);
+}
+
+void
+do_my_cleanups (pmy_chain, old_chain)
+     register struct cleanup **pmy_chain;
+     register struct cleanup *old_chain;
+{
   register struct cleanup *ptr;
-  while ((ptr = cleanup_chain) != old_chain)
+  while ((ptr = *pmy_chain) != old_chain)
     {
-      cleanup_chain = ptr->next;	/* Do this first incase recursion */
+      *pmy_chain = ptr->next;	/* Do this first incase recursion */
       (*ptr->function) (ptr->arg);
       free (ptr);
     }
@@ -174,10 +211,25 @@ void
 discard_cleanups (old_chain)
      register struct cleanup *old_chain;
 {
+    discard_my_cleanups (&cleanup_chain, old_chain);
+}
+
+void
+discard_final_cleanups (old_chain)
+     register struct cleanup *old_chain;
+{
+    discard_my_cleanups (&final_cleanup_chain, old_chain);
+}
+
+void
+discard_my_cleanups (pmy_chain, old_chain)
+     register struct cleanup **pmy_chain;
+     register struct cleanup *old_chain;
+{
   register struct cleanup *ptr;
-  while ((ptr = cleanup_chain) != old_chain)
+  while ((ptr = *pmy_chain) != old_chain)
     {
-      cleanup_chain = ptr->next;
+      *pmy_chain = ptr->next;
       free ((PTR)ptr);
     }
 }
@@ -186,9 +238,22 @@ discard_cleanups (old_chain)
 struct cleanup *
 save_cleanups ()
 {
-  struct cleanup *old_chain = cleanup_chain;
+    return save_my_cleanups (&cleanup_chain);
+}
 
-  cleanup_chain = 0;
+struct cleanup *
+save_final_cleanups ()
+{
+    return save_my_cleanups (&final_cleanup_chain);
+}
+
+struct cleanup *
+save_my_cleanups (pmy_chain)
+    struct cleanup **pmy_chain;
+{
+  struct cleanup *old_chain = *pmy_chain;
+
+  *pmy_chain = 0;
   return old_chain;
 }
 
@@ -197,7 +262,22 @@ void
 restore_cleanups (chain)
      struct cleanup *chain;
 {
-  cleanup_chain = chain;
+    restore_my_cleanups (&cleanup_chain, chain);
+}
+
+void
+restore_final_cleanups (chain)
+     struct cleanup *chain;
+{
+    restore_my_cleanups (&final_cleanup_chain, chain);
+}
+
+void
+restore_my_cleanups (pmy_chain, chain)
+     struct cleanup **pmy_chain;
+     struct cleanup *chain;
+{
+  *pmy_chain = chain;
 }
 
 /* This function is useful for cleanups.
@@ -225,7 +305,7 @@ free_current_contents (location)
 /* ARGSUSED */
 void
 null_cleanup (arg)
-    char **arg;
+    PTR arg;
 {
 }
 
@@ -258,7 +338,7 @@ warning_begin ()
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-warning (char *string, ...)
+warning (const char *string, ...)
 #else
 warning (va_alist)
      va_dcl
@@ -303,11 +383,11 @@ error_begin ()
    The first argument STRING is the error message, used as a fprintf string,
    and the remaining args are passed as arguments to it.  */
 
-#ifdef ANSI_PROTOTYPES
+/* VARARGS */
 NORETURN void
-error (char *string, ...)
+#ifdef ANSI_PROTOTYPES
+error (const char *string, ...)
 #else
-void
 error (va_alist)
      va_dcl
 #endif
@@ -448,7 +528,7 @@ safe_strsignal (signo)
    as the file name for which the error was encountered.
    Then return to command level.  */
 
-void
+NORETURN void
 perror_with_name (string)
      char *string;
 {
@@ -536,60 +616,65 @@ quit ()
 }
 
 
-#if defined(__GO32__)||defined(WINGDB)
+#if defined(__GO32__)
 
 /* In the absence of signals, poll keyboard for a quit.
    Called from #define QUIT pollquit() in xm-go32.h. */
 
 void
-pollquit()
+notice_quit()
 {
   if (kbhit ())
-    {
-      int k = getkey ();
-      if (k == 1) {
+    switch (getkey ())
+      {
+      case 1:
 	quit_flag = 1;
-	quit();
+	break;
+      case 2:
+	immediate_quit = 2;
+	break;
+      default:
+	/* We just ignore it */
+	/* FIXME!! Don't think this actually works! */
+	fprintf_unfiltered (gdb_stderr, "CTRL-A to quit, CTRL-B to quit harder\n");
+	break;
       }
-      else if (k == 2) {
-	immediate_quit = 1;
-	quit ();
-      }
-      else 
-	{
-	  /* We just ignore it */
-	  fprintf_unfiltered (gdb_stderr, "CTRL-A to quit, CTRL-B to quit harder\n");
-	}
-    }
 }
 
+#elif defined(_MSC_VER) /* should test for wingdb instead? */
 
-#endif
-#if defined(__GO32__)||defined(WINGDB)
+/*
+ * Windows translates all keyboard and mouse events 
+ * into a message which is appended to the message 
+ * queue for the process.
+ */
+
 void notice_quit()
 {
-  if (kbhit ())
-    {
-      int k = getkey ();
-      if (k == 1) {
-	quit_flag = 1;
-      }
-      else if (k == 2)
-	{
-	  immediate_quit = 1;
-	}
-      else 
-	{
-	  fprintf_unfiltered (gdb_stderr, "CTRL-A to quit, CTRL-B to quit harder\n");
-	}
-    }
+  int k = win32pollquit();
+  if (k == 1)
+    quit_flag = 1;
+  else if (k == 2)
+    immediate_quit = 1;
 }
-#else
+
+#else /* !defined(__GO32__) && !defined(_MSC_VER) */
+
 void notice_quit()
 {
   /* Done by signals */
 }
-#endif
+
+#endif /* !defined(__GO32__) && !defined(_MSC_VER) */
+
+void
+pollquit()
+{
+  notice_quit ();
+  if (quit_flag || immediate_quit)
+    quit ();
+}
+
 /* Control C comes here */
 
 void
@@ -602,7 +687,6 @@ request_quit (signo)
      about USG defines and stuff like that.  */
   signal (signo, request_quit);
 
-
 #ifdef REQUEST_QUIT
   REQUEST_QUIT;
 #else
@@ -614,19 +698,15 @@ request_quit (signo)
 
 /* Memory management stuff (malloc friends).  */
 
-#if defined (NO_MMALLOC)
-
 /* Make a substitute size_t for non-ANSI compilers. */
 
-#ifdef _AIX
-#include <stddef.h>
-#else /* Not AIX */
-#ifndef __STDC__
+#ifndef HAVE_STDDEF_H
 #ifndef size_t
 #define size_t unsigned int
 #endif
 #endif
-#endif /* Not AIX */
+
+#if !defined (USE_MMALLOC)
 
 PTR
 mmalloc (md, size)
@@ -656,9 +736,9 @@ mfree (md, ptr)
   free (ptr);
 }
 
-#endif	/* NO_MMALLOC */
+#endif	/* USE_MMALLOC */
 
-#if defined (NO_MMALLOC) || defined (NO_MMALLOC_CHECK)
+#if !defined (USE_MMALLOC) || defined (NO_MMCHECK)
 
 void
 init_malloc (md)
@@ -666,7 +746,7 @@ init_malloc (md)
 {
 }
 
-#else /* have mmalloc and want corruption checking  */
+#else /* Have mmalloc and want corruption checking */
 
 static void
 malloc_botch ()
@@ -678,7 +758,7 @@ malloc_botch ()
    by MD, to detect memory corruption.  Note that MD may be NULL to specify
    the default heap that grows via sbrk.
 
-   Note that for freshly created regions, we must call mmcheck prior to any
+   Note that for freshly created regions, we must call mmcheckf prior to any
    mallocs in the region.  Otherwise, any region which was allocated prior to
    installing the checking hooks, which is later reallocated or freed, will
    fail the checks!  The mmcheck function only allows initial hooks to be
@@ -688,13 +768,24 @@ malloc_botch ()
 
    Returns zero on failure, non-zero on success. */
 
+#ifndef MMCHECK_FORCE
+#define MMCHECK_FORCE 0
+#endif
+
 void
 init_malloc (md)
      PTR md;
 {
-  if (!mmcheck (md, malloc_botch))
+  if (!mmcheckf (md, malloc_botch, MMCHECK_FORCE))
     {
-      warning ("internal error: failed to install memory consistency checks");
+      /* Don't use warning(), which relies on current_target being set
+	 to something other than dummy_target, until after
+	 initialize_all_files(). */
+
+      fprintf_unfiltered
+	(gdb_stderr, "warning: failed to install memory consistency checks; ");
+      fprintf_unfiltered
+	(gdb_stderr, "configuration should define NO_MMCHECK or MMCHECK_FORCE\n");
     }
 
   mmtrace ();
@@ -772,7 +863,7 @@ xmrealloc (md, ptr, size)
 
 PTR
 xmalloc (size)
-     long size;
+     size_t size;
 {
   return (xmmalloc ((PTR) NULL, size));
 }
@@ -782,7 +873,7 @@ xmalloc (size)
 PTR
 xrealloc (ptr, size)
      PTR ptr;
-     long size;
+     size_t size;
 {
   return (xmrealloc ((PTR) NULL, ptr, size));
 }
@@ -1310,7 +1401,9 @@ void
 gdb_flush (stream)
      FILE *stream;
 {
-  if (flush_hook)
+  if (flush_hook
+      && (stream == gdb_stdout
+	  || stream == gdb_stderr))
     {
       flush_hook (stream);
       return;
@@ -1470,6 +1563,80 @@ fputc_unfiltered (c, stream)
 }
 
 
+/* puts_debug is like fputs_unfiltered, except it prints special
+   characters in printable fashion.  */
+
+void
+puts_debug (prefix, string, suffix)
+     char *prefix;
+     char *string;
+     char *suffix;
+{
+  int ch;
+
+  /* Print prefix and suffix after each line.  */
+  static int new_line = 1;
+  static int carriage_return = 0;
+  static char *prev_prefix = "";
+  static char *prev_suffix = "";
+
+  if (*string == '\n')
+    carriage_return = 0;
+
+  /* If the prefix is changing, print the previous suffix, a new line,
+     and the new prefix.  */
+  if ((carriage_return || (strcmp(prev_prefix, prefix) != 0)) && !new_line)
+    {
+      fputs_unfiltered (prev_suffix, gdb_stderr);
+      fputs_unfiltered ("\n", gdb_stderr);
+      fputs_unfiltered (prefix, gdb_stderr);
+    }
+
+  /* Print prefix if we printed a newline during the previous call.  */
+  if (new_line)
+    {
+      new_line = 0;
+      fputs_unfiltered (prefix, gdb_stderr);
+    }
+
+  prev_prefix = prefix;
+  prev_suffix = suffix;
+
+  /* Output characters in a printable format.  */
+  while ((ch = *string++) != '\0')
+    {
+      switch (ch)
+        {
+	default:
+	  if (isprint (ch))
+	    fputc_unfiltered (ch, gdb_stderr);
+
+	  else
+	    fprintf_unfiltered (gdb_stderr, "\\%03o", ch);
+	  break;
+
+	case '\\': fputs_unfiltered ("\\\\",  gdb_stderr);	break;
+	case '\b': fputs_unfiltered ("\\b",   gdb_stderr);	break;
+	case '\f': fputs_unfiltered ("\\f",   gdb_stderr);	break;
+	case '\n': new_line = 1;
+		   fputs_unfiltered ("\\n",   gdb_stderr);	break;
+	case '\r': fputs_unfiltered ("\\r",   gdb_stderr);	break;
+	case '\t': fputs_unfiltered ("\\t",   gdb_stderr);	break;
+	case '\v': fputs_unfiltered ("\\v",   gdb_stderr);	break;
+        }
+
+      carriage_return = ch == '\r';
+    }
+
+  /* Print suffix if we printed a newline.  */
+  if (new_line)
+    {
+      fputs_unfiltered (suffix, gdb_stderr);
+      fputs_unfiltered ("\n", gdb_stderr);
+    }
+}
+
+
 /* Print a variable number of ARGS using format FORMAT.  If this
    information is going to put the amount written (since the last call
    to REINITIALIZE_MORE_FILTER or the last page break) over the page size,
@@ -1487,7 +1654,7 @@ fputc_unfiltered (c, stream)
 static void
 vfprintf_maybe_filtered (stream, format, args, filter)
      FILE *stream;
-     char *format;
+     const char *format;
      va_list args;
      int filter;
 {
@@ -1786,6 +1953,9 @@ fprintf_symbol_filtered (stream, name, lang, arg_mode)
 	    case language_cplus:
 	      demangled = cplus_demangle (name, arg_mode);
 	      break;
+	    case language_java:
+	      demangled = cplus_demangle (name, arg_mode | DMGL_JAVA);
+	      break;
 	    case language_chill:
 	      demangled = chill_demangle (name);
 	      break;
@@ -1860,14 +2030,14 @@ initialize_utils ()
   
   /* These defaults will be used if we are unable to get the correct
      values from termcap.  */
-#if defined(__GO32__) || defined(__WIN32__)
+#if defined(__GO32__)
   lines_per_page = ScreenRows();
   chars_per_line = ScreenCols();
 #else  
   lines_per_page = 24;
   chars_per_line = 80;
 
-#ifndef MPW
+#if !defined (MPW) && !defined (_WIN32)
   /* No termcap under MPW, although might be cool to do something
      by looking at worksheet or console window sizes. */
   /* Initialize the screen height and width from termcap.  */
@@ -1982,13 +2152,13 @@ get_field (data, order, total_len, start, len)
 
   /* Start at the least significant part of the field.  */
   cur_byte = (start + len) / FLOATFORMAT_CHAR_BIT;
-  if (order == floatformat_little)
+  if (order == floatformat_little || order == floatformat_littlebyte_bigword)
     cur_byte = (total_len / FLOATFORMAT_CHAR_BIT) - cur_byte - 1;
   cur_bitshift =
     ((start + len) % FLOATFORMAT_CHAR_BIT) - FLOATFORMAT_CHAR_BIT;
   result = *(data + cur_byte) >> (-cur_bitshift);
   cur_bitshift += FLOATFORMAT_CHAR_BIT;
-  if (order == floatformat_little)
+  if (order == floatformat_little || order == floatformat_littlebyte_bigword)
     ++cur_byte;
   else
     --cur_byte;
@@ -2005,7 +2175,7 @@ get_field (data, order, total_len, start, len)
       else
 	result |= *(data + cur_byte) << cur_bitshift;
       cur_bitshift += FLOATFORMAT_CHAR_BIT;
-      if (order == floatformat_little)
+      if (order == floatformat_little || order == floatformat_littlebyte_bigword)
 	++cur_byte;
       else
 	--cur_byte;
@@ -2030,6 +2200,48 @@ floatformat_to_doublest (fmt, from, to)
   unsigned int mant_bits, mant_off;
   int mant_bits_left;
   int special_exponent;		/* It's a NaN, denorm or zero */
+
+  /* If the mantissa bits are not contiguous from one end of the
+     mantissa to the other, we need to make a private copy of the
+     source bytes that is in the right order since the unpacking
+     algorithm assumes that the bits are contiguous.
+
+     Swap the bytes individually rather than accessing them through
+     "long *" since we have no guarantee that they start on a long
+     alignment, and also sizeof(long) for the host could be different
+     than sizeof(long) for the target.  FIXME: Assumes sizeof(long)
+     for the target is 4. */
+
+  if (fmt -> byteorder == floatformat_littlebyte_bigword)
+    {
+      static unsigned char *newfrom;
+      unsigned char *swapin, *swapout;
+      int longswaps;
+
+      longswaps = fmt -> totalsize / FLOATFORMAT_CHAR_BIT;
+      longswaps >>= 3;
+      
+      if (newfrom == NULL)
+	{
+	  newfrom = (unsigned char *) xmalloc (fmt -> totalsize);
+	}
+      swapout = newfrom;
+      swapin = ufrom;
+      ufrom = newfrom;
+      while (longswaps-- > 0)
+	{
+	  /* This is ugly, but efficient */
+	  *swapout++ = swapin[4];
+	  *swapout++ = swapin[5];
+	  *swapout++ = swapin[6];
+	  *swapout++ = swapin[7];
+	  *swapout++ = swapin[0];
+	  *swapout++ = swapin[1];
+	  *swapout++ = swapin[2];
+	  *swapout++ = swapin[3];
+	  swapin += 8;
+	}
+    }
 
   exponent = get_field (ufrom, fmt->byteorder, fmt->totalsize,
 			fmt->exp_start, fmt->exp_len);
@@ -2100,7 +2312,7 @@ put_field (data, order, total_len, start, len, stuff_to_put)
 
   /* Start at the least significant part of the field.  */
   cur_byte = (start + len) / FLOATFORMAT_CHAR_BIT;
-  if (order == floatformat_little)
+  if (order == floatformat_little || order == floatformat_littlebyte_bigword)
     cur_byte = (total_len / FLOATFORMAT_CHAR_BIT) - cur_byte - 1;
   cur_bitshift =
     ((start + len) % FLOATFORMAT_CHAR_BIT) - FLOATFORMAT_CHAR_BIT;
@@ -2109,7 +2321,7 @@ put_field (data, order, total_len, start, len, stuff_to_put)
   *(data + cur_byte) |=
     (stuff_to_put & ((1 << FLOATFORMAT_CHAR_BIT) - 1)) << (-cur_bitshift);
   cur_bitshift += FLOATFORMAT_CHAR_BIT;
-  if (order == floatformat_little)
+  if (order == floatformat_little || order == floatformat_littlebyte_bigword)
     ++cur_byte;
   else
     --cur_byte;
@@ -2128,7 +2340,7 @@ put_field (data, order, total_len, start, len, stuff_to_put)
 	*(data + cur_byte) = ((stuff_to_put >> cur_bitshift)
 			      & ((1 << FLOATFORMAT_CHAR_BIT) - 1));
       cur_bitshift += FLOATFORMAT_CHAR_BIT;
-      if (order == floatformat_little)
+      if (order == floatformat_little || order == floatformat_littlebyte_bigword)
 	++cur_byte;
       else
 	--cur_byte;
@@ -2204,7 +2416,7 @@ floatformat_from_doublest (fmt, from, to)
   memset (uto, 0, fmt->totalsize / FLOATFORMAT_CHAR_BIT);
   if (dfrom == 0)
     return;			/* Result is zero */
-  if (dfrom != dfrom)
+  if (dfrom != dfrom)		/* Result is NaN */
     {
       /* From is NaN */
       put_field (uto, fmt->byteorder, fmt->totalsize, fmt->exp_start,
@@ -2222,7 +2434,16 @@ floatformat_from_doublest (fmt, from, to)
       dfrom = -dfrom;
     }
 
-  /* How to tell an infinity from an ordinary number?  FIXME-someday */
+  if (dfrom + dfrom == dfrom && dfrom != 0.0)	/* Result is Infinity */
+    {
+      /* Infinity exponent is same as NaN's.  */
+      put_field (uto, fmt->byteorder, fmt->totalsize, fmt->exp_start,
+		 fmt->exp_len, fmt->exp_nan);
+      /* Infinity mantissa is all zeroes.  */
+      put_field (uto, fmt->byteorder, fmt->totalsize, fmt->man_start,
+		 fmt->man_len, 0);
+      return;
+    }
 
 #ifdef HAVE_LONG_DOUBLE
   mant = ldfrexp (dfrom, &exponent);
@@ -2251,10 +2472,11 @@ floatformat_from_doublest (fmt, from, to)
       if (mant_bits_left == fmt->man_len
 	  && fmt->intbit == floatformat_intbit_no)
 	{
-	  mant_long &= 0x7fffffff;
+	  mant_long <<= 1;
 	  mant_bits -= 1;
 	}
-      else if (mant_bits < 32)
+
+      if (mant_bits < 32)
 	{
 	  /* The bits we want are in the most significant MANT_BITS bits of
 	     mant_long.  Move them to the least significant.  */
@@ -2266,4 +2488,151 @@ floatformat_from_doublest (fmt, from, to)
       mant_off += mant_bits;
       mant_bits_left -= mant_bits;
     }
+  if (fmt -> byteorder == floatformat_littlebyte_bigword)
+    {
+      int count;
+      unsigned char *swaplow = uto;
+      unsigned char *swaphigh = uto + 4;
+      unsigned char tmp;
+
+      for (count = 0; count < 4; count++)
+	{
+	  tmp = *swaplow;
+	  *swaplow++ = *swaphigh;
+	  *swaphigh++ = tmp;
+	}
+    }
+}
+
+/* temporary storage using circular buffer */
+#define NUMCELLS 16
+#define CELLSIZE 32
+static char*
+get_cell()
+{
+  static char buf[NUMCELLS][CELLSIZE];
+  static int cell=0;
+  if (++cell>=NUMCELLS) cell=0;
+  return buf[cell];
+}
+
+/* print routines to handle variable size regs, etc.
+
+   FIXME: Note that t_addr is a bfd_vma, which is currently either an
+   unsigned long or unsigned long long, determined at configure time.
+   If t_addr is an unsigned long long and sizeof (unsigned long long)
+   is greater than sizeof (unsigned long), then I believe this code will
+   probably lose, at least for little endian machines.  I believe that
+   it would also be better to eliminate the switch on the absolute size
+   of t_addr and replace it with a sequence of if statements that compare
+   sizeof t_addr with sizeof the various types and do the right thing,
+   which includes knowing whether or not the host supports long long.
+   -fnf
+
+ */
+
+static int thirty_two = 32;	/* eliminate warning from compiler on 32-bit systems */
+
+char* 
+paddr(addr)
+  t_addr addr;
+{
+  char *paddr_str=get_cell();
+  switch (sizeof(t_addr))
+    {
+      case 8:
+        sprintf (paddr_str, "%08lx%08lx",
+		(unsigned long) (addr >> thirty_two), (unsigned long) (addr & 0xffffffff));
+	break;
+      case 4:
+        sprintf (paddr_str, "%08lx", (unsigned long) addr);
+	break;
+      case 2:
+        sprintf (paddr_str, "%04x", (unsigned short) (addr & 0xffff));
+	break;
+      default:
+        sprintf (paddr_str, "%lx", (unsigned long) addr);
+    }
+  return paddr_str;
+}
+
+char* 
+preg(reg)
+  t_reg reg;
+{
+  char *preg_str=get_cell();
+  switch (sizeof(t_reg))
+    {
+      case 8:
+        sprintf (preg_str, "%08lx%08lx",
+		(unsigned long) (reg >> thirty_two), (unsigned long) (reg & 0xffffffff));
+	break;
+      case 4:
+        sprintf (preg_str, "%08lx", (unsigned long) reg);
+	break;
+      case 2:
+        sprintf (preg_str, "%04x", (unsigned short) (reg & 0xffff));
+	break;
+      default:
+        sprintf (preg_str, "%lx", (unsigned long) reg);
+    }
+  return preg_str;
+}
+
+char*
+paddr_nz(addr)
+  t_addr addr;
+{
+  char *paddr_str=get_cell();
+  switch (sizeof(t_addr))
+    {
+      case 8:
+	{
+	  unsigned long high = (unsigned long) (addr >> thirty_two);
+	  if (high == 0)
+	    sprintf (paddr_str, "%lx", (unsigned long) (addr & 0xffffffff));
+	  else
+	    sprintf (paddr_str, "%lx%08lx",
+		    high, (unsigned long) (addr & 0xffffffff));
+	  break;
+	}
+      case 4:
+        sprintf (paddr_str, "%lx", (unsigned long) addr);
+	break;
+      case 2:
+        sprintf (paddr_str, "%x", (unsigned short) (addr & 0xffff));
+	break;
+      default:
+        sprintf (paddr_str,"%lx", (unsigned long) addr);
+    }
+  return paddr_str;
+}
+
+char*
+preg_nz(reg)
+  t_reg reg;
+{
+  char *preg_str=get_cell();
+  switch (sizeof(t_reg))
+    {
+      case 8:
+	{
+	  unsigned long high = (unsigned long) (reg >> thirty_two);
+	  if (high == 0)
+	    sprintf (preg_str, "%lx", (unsigned long) (reg & 0xffffffff));
+	  else
+	    sprintf (preg_str, "%lx%08lx",
+		    high, (unsigned long) (reg & 0xffffffff));
+	  break;
+	}
+      case 4:
+        sprintf (preg_str, "%lx", (unsigned long) reg);
+	break;
+      case 2:
+        sprintf (preg_str, "%x", (unsigned short) (reg & 0xffff));
+	break;
+      default:
+        sprintf (preg_str, "%lx", (unsigned long) reg);
+    }
+  return preg_str;
 }

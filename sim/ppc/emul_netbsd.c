@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1996, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -11,11 +11,11 @@
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
- 
+
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- 
+
     */
 
 
@@ -125,6 +125,15 @@ extern int errno;
 #endif
 
 
+/* EMULATION
+
+   NetBSD - Emulation of user programs for NetBSD/PPC
+
+   DESCRIPTION
+
+   */
+
+
 /* NetBSD's idea of what is needed to implement emulations */
 
 struct _os_emul_data {
@@ -169,7 +178,7 @@ write_stat(unsigned_word addr,
   emul_write_buffer(&buf, addr, sizeof(buf), processor, cia);
 }
 
-  
+
 #ifdef HAVE_FSTATFS
 STATIC_INLINE_EMUL_NETBSD void
 write_statfs(unsigned_word addr,
@@ -197,7 +206,7 @@ write_statfs(unsigned_word addr,
 }
 #endif
 
-  
+
 STATIC_INLINE_EMUL_NETBSD void
 write_timeval(unsigned_word addr,
 	      struct timeval t,
@@ -209,7 +218,7 @@ write_timeval(unsigned_word addr,
   emul_write_buffer(&t, addr, sizeof(t), processor, cia);
 }
 
-  
+
 STATIC_INLINE_EMUL_NETBSD void
 write_timezone(unsigned_word addr,
 	       struct timezone tz,
@@ -221,7 +230,7 @@ write_timezone(unsigned_word addr,
   emul_write_buffer(&tz, addr, sizeof(tz), processor, cia);
 }
 
-  
+
 #ifdef HAVE_GETDIRENTRIES
 STATIC_INLINE_EMUL_NETBSD void
 write_direntries(unsigned_word addr,
@@ -278,7 +287,7 @@ write_rusage(unsigned_word addr,
   emul_write_buffer(&rusage, addr, sizeof(rusage), processor, cia);
 }
 #endif
-  
+
 static void
 do_exit(os_emul_data *emul,
 	unsigned call,
@@ -308,16 +317,16 @@ do_read(os_emul_data *emul,
   int nbytes = cpu_registers(processor)->gpr[arg0+2];
   int status;
   SYS(read);
-  
+
   if (WITH_TRACE && ppc_trace[trace_os_emul])
     printf_filtered ("%d, 0x%lx, %d", d, (long)buf, nbytes);
 
   /* get a tempoary bufer */
   scratch_buffer = zalloc(nbytes);
-  
+
   /* check if buffer exists by reading it */
   emul_read_buffer(scratch_buffer, buf, nbytes, processor, cia);
-  
+
   /* read */
 #if 0
   if (d == 0) {
@@ -327,11 +336,11 @@ do_read(os_emul_data *emul,
   }
 #endif
   status = read (d, scratch_buffer, nbytes);
-  
+
   emul_write_status(processor, status, errno);
   if (status > 0)
     emul_write_buffer(scratch_buffer, buf, status, processor, cia);
-  
+
   zfree(scratch_buffer);
 }
 
@@ -344,30 +353,22 @@ do_write(os_emul_data *emul,
 	 unsigned_word cia)
 {
   void *scratch_buffer = NULL;
-  int nr_moved;
   int d = (int)cpu_registers(processor)->gpr[arg0];
   unsigned_word buf = cpu_registers(processor)->gpr[arg0+1];
   int nbytes = cpu_registers(processor)->gpr[arg0+2];
   int status;
   SYS(write);
-  
+
   if (WITH_TRACE && ppc_trace[trace_os_emul])
     printf_filtered ("%d, 0x%lx, %d", d, (long)buf, nbytes);
 
   /* get a tempoary bufer */
   scratch_buffer = zalloc(nbytes); /* FIXME - nbytes == 0 */
-  
+
   /* copy in */
-  nr_moved = vm_data_map_read_buffer(cpu_data_map(processor),
-				     scratch_buffer,
-				     buf,
-				     nbytes);
-  if (nr_moved != nbytes) {
-    /* FIXME - should handle better */
-    error("system_call()write copy failed (nr_moved=%d != nbytes=%d)\n",
-	  nr_moved, nbytes);
-  }
-  
+  emul_read_buffer(scratch_buffer, buf, nbytes,
+		   processor, cia);
+
   /* write */
   status = write(d, scratch_buffer, nbytes);
   emul_write_status(processor, status, errno);
@@ -433,6 +434,7 @@ do_break(os_emul_data *emul,
   status = device_ioctl(emul->vm,
 			processor,
 			cia,
+			device_ioctl_break,
 			new_break); /*ioctl-data*/
   emul_write_status(processor, 0, status);
 }
@@ -938,7 +940,7 @@ do___sysctl(os_emul_data *emul,
 			      processor,
 			      cia);
   name += sizeof(mib);
-  
+
   /* see what to do with it ... */
   switch ((int)mib) {
   case 6/*CTL_HW*/:
@@ -985,7 +987,7 @@ do___sysctl(os_emul_data *emul,
 static emul_syscall_descriptor netbsd_descriptors[] = {
   /* 0 */ { 0, "syscall" },
   /* 1 */ { do_exit, "exit" },
-  /* 2 */ { 0, "fork" },	  
+  /* 2 */ { 0, "fork" },
   /* 3 */ { do_read, "read" },
   /* 4 */ { do_write, "write" },
   /* 5 */ { do_open, "open" },
@@ -1189,7 +1191,7 @@ static emul_syscall_descriptor netbsd_descriptors[] = {
   /* 203 */ { 0, "mlock" },
   /* 204 */ { 0, "munlock" },
 };
-    
+
 static char *(netbsd_error_names[]) = {
   /* 0 */ "ESUCCESS",
   /* 1 */ "EPERM",
@@ -1363,25 +1365,30 @@ emul_netbsd_create(device *root,
 			0 /*oea-interrupt-prefix*/);
 
   /* virtual memory - handles growth of stack/heap */
-  vm = device_tree_add_parsed(root, "/openprom/vm");
-  device_tree_add_parsed(vm, "./stack-base 0x%lx",
-			 (unsigned long)(top_of_stack - stack_size));
-  device_tree_add_parsed(vm, "./nr-bytes 0x%x", stack_size);
+  vm = tree_parse(root, "/openprom/vm");
+  tree_parse(vm, "./stack-base 0x%lx",
+	     (unsigned long)(top_of_stack - stack_size));
+  tree_parse(vm, "./nr-bytes 0x%x", stack_size);
 
-  device_tree_add_parsed(root, "/openprom/vm/map-binary/file-name %s",
-			 bfd_get_filename(image));
+  tree_parse(root, "/openprom/vm/map-binary/file-name %s",
+	     bfd_get_filename(image));
 
   /* finish the init */
-  device_tree_add_parsed(root, "/openprom/init/register/pc 0x%lx",
-			 (unsigned long)bfd_get_start_address(image));
-  device_tree_add_parsed(root, "/openprom/init/register/sp 0x%lx",
-			 (unsigned long)top_of_stack);
-  device_tree_add_parsed(root, "/openprom/init/register/msr 0x%x",
-			 (device_find_boolean_property(root, "/options/little-endian?")
-			  ? msr_little_endian_mode
-			  : 0));
-  device_tree_add_parsed(root, "/openprom/init/stack/stack-type %s",
-			 (elf_binary ? "ppc-elf" : "ppc-xcoff"));
+  tree_parse(root, "/openprom/init/register/pc 0x%lx",
+	     (unsigned long)bfd_get_start_address(image));
+  tree_parse(root, "/openprom/init/register/sp 0x%lx",
+	     (unsigned long)top_of_stack);
+  tree_parse(root, "/openprom/init/register/msr 0x%x",
+	     ((tree_find_boolean_property(root, "/options/little-endian?")
+	       ? msr_little_endian_mode
+	       : 0)
+	      | (tree_find_boolean_property(root, "/openprom/options/floating-point?")
+		 ? (msr_floating_point_available
+		    | msr_floating_point_exception_mode_0
+		    | msr_floating_point_exception_mode_1)
+		 : 0)));
+  tree_parse(root, "/openprom/init/stack/stack-type %s",
+	     (elf_binary ? "ppc-elf" : "ppc-xcoff"));
 
   /* finally our emulation data */
   bsd_data = ZALLOC(os_emul_data);

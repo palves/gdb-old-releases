@@ -1,5 +1,5 @@
 /* sysdep.h -- handle host dependencies for the BFD library
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 1996 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -34,7 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <sys/stat.h>
 
 #include <errno.h>
-#ifndef errno
+#if !(defined(errno) || defined(_MSC_VER) && defined(_INC_ERRNO))
 extern int errno;
 #endif
 
@@ -46,7 +46,6 @@ extern int errno;
 #else
 extern char *strchr ();
 extern char *strrchr ();
-extern char *strstr ();
 #endif
 #endif
 
@@ -103,12 +102,24 @@ extern char *strstr ();
 #define SEEK_CUR 1
 #endif
 
+#ifdef NEED_DECLARATION_STRSTR
+extern char *strstr ();
+#endif
+
 #ifdef NEED_DECLARATION_MALLOC
 extern PTR malloc ();
 #endif
 
+#ifdef NEED_DECLARATION_REALLOC
+extern PTR realloc ();
+#endif
+
 #ifdef NEED_DECLARATION_FREE
 extern void free ();
+#endif
+
+#ifdef NEED_DECLARATION_GETENV
+extern char *getenv ();
 #endif
 
 #endif /* ! defined (BFD_SYSDEP_H) */

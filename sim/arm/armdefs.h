@@ -52,6 +52,9 @@ struct ARMul_State {
    ARMword Cpsr ; /* the current psr */
    ARMword Spsr[7] ; /* the exception psr's */
    ARMword NFlag, ZFlag, CFlag, VFlag, IFFlags ; /* dummy flags for speed */
+#ifdef MODET
+   ARMword TFlag ; /* Thumb state */
+#endif
    ARMword Bank ; /* the current register bank */
    ARMword Mode ; /* the current mode */
    ARMword instr, pc, temp ; /* saved register state */
@@ -146,7 +149,11 @@ struct ARMul_State {
 #define ARM2as  ARM2
 #define ARM61   ARM2
 #define ARM3    ARM2
- 
+
+#ifdef ARM60	/* previous definition in armopts.h */
+#undef ARM60
+#endif
+
 /* ARM6 family */
 #define ARM6    (ARM_Lock_Prop)
 #define ARM60   ARM6
@@ -270,15 +277,18 @@ extern void ARMul_Abort(ARMul_State *state, ARMword address) ;
 extern unsigned ARMul_MemoryInit(ARMul_State *state,unsigned long initmemsize) ;
 extern void ARMul_MemoryExit(ARMul_State *state) ;
 
-extern ARMword ARMul_LoadInstrS(ARMul_State *state,ARMword address) ;
-extern ARMword ARMul_LoadInstrN(ARMul_State *state,ARMword address) ;
+extern ARMword ARMul_LoadInstrS(ARMul_State *state,ARMword address,ARMword isize) ;
+extern ARMword ARMul_LoadInstrN(ARMul_State *state,ARMword address,ARMword isize) ;
+extern ARMword ARMul_ReLoadInstr(ARMul_State *state,ARMword address,ARMword isize) ;
 
 extern ARMword ARMul_LoadWordS(ARMul_State *state,ARMword address) ;
 extern ARMword ARMul_LoadWordN(ARMul_State *state,ARMword address) ;
+extern ARMword ARMul_LoadHalfWord(ARMul_State *state,ARMword address) ;
 extern ARMword ARMul_LoadByte(ARMul_State *state,ARMword address) ;
 
 extern void ARMul_StoreWordS(ARMul_State *state,ARMword address, ARMword data) ;
 extern void ARMul_StoreWordN(ARMul_State *state,ARMword address, ARMword data) ;
+extern void ARMul_StoreHalfWord(ARMul_State *state,ARMword address, ARMword data) ;
 extern void ARMul_StoreByte(ARMul_State *state,ARMword address, ARMword data) ;
 
 extern ARMword ARMul_SwapWord(ARMul_State *state,ARMword address, ARMword data) ;

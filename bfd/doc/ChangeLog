@@ -1,3 +1,68 @@
+Mon Jan 26 15:38:36 1998  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* doc.str (bodytext): Don't output @* at the end.
+	* chew.c (kill_bogus_lines): Make sure that a period at the
+	beginning is recognized.
+	(indent): Don't put indentation at the end.
+	(copy_past_newline): Expand tabs.
+	* Makefile.am (s-reloc, s-syms): Depend on doc.str.
+	* Makefile.in: Rebuild.
+
+Wed Oct  1 14:41:28 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.am (libbfd.h): Don't use cpu-h8300.c, cpu-i960.c, or
+	elfcode.h as input files; they don't contribute anything.
+	* Makefile.in: Rebuild.
+
+Fri Aug 15 04:55:15 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.am (libbfd.h, libcoff.h): Invoke $(MKDOC) as ./$(MKDOC).
+	* Makefile.in: Rebuild.
+
+Fri Aug  1 12:59:58 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.am (CC_FOR_BUILD): Don't set explicitly.
+	* Makefile.in: Rebuild.
+
+Thu Jul 31 20:00:12 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.am: New file, based on old Makefile.in.
+	* Makefile.in: Now built with automake.
+
+Tue Jul 22 14:44:00 1997  Robert Hoehne <robert.hoehne@Mathematik.TU-Chemnitz.DE>
+
+	* Makefile.in: Change stamp-* files to s-* files.  Use bfdt.texi
+	rather than bfd.texi.
+ 	(DOCFILES): Change bfd.texi to bfdt.texi.
+	* bfd.texinfo: Include bfdt.texi, not bfd.texi.
+
+Mon Jun 16 15:33:15 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (CC, CFLAGS): Substitute from configure script.
+	From Jeff Makey <jeff@cts.com>.
+
+Tue Apr 15 12:37:41 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (install-info): Use mkinstalldirs to build
+	$(infodir).
+
+Tue Apr  8 12:49:46 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (install-info): Permit info files to be in srcdir.
+	(stamp-*): Add a stamp-X target for each X.texi target.
+	(*.texi): Just depend upon stamp-X.
+	(clean): Remove stamp-*.
+	(distclean): Depend upon mostlyclean.  Remove stamp-*.  Don't
+	remove $(DOCFILES).
+
+Mon Apr  7 15:23:26 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (distclean): Don't remove *.info files.
+
+Thu Feb 13 20:50:02 1997  Klaus Kaempf  (kkaempf@progis.de)
+
+	* makefile.vms: New file.
+
 Tue Jun 18 18:32:28 1996  Ian Lance Taylor  <ian@cygnus.com>
 
 	* chew.c (kill_bogus_lines): Reset sl when not at the start of a

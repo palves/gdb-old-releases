@@ -1,5 +1,5 @@
 /* Main header file for the bfd library -- portable access to object files.
-   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 ** NOTE: bfd.h and bfd-in2.h are GENERATED files.  Don't change them;
@@ -49,12 +49,15 @@ extern "C" {
 #endif
 
 #include "ansidecl.h"
-#include "obstack.h"
 
 /* These two lines get substitutions done by commands in Makefile.in.  */
 #define BFD_VERSION  "@VERSION@"
-#define BFD_ARCH_SIZE @WORDSIZE@
+#define BFD_ARCH_SIZE @wordsize@
 #define BFD_HOST_64BIT_LONG @BFD_HOST_64BIT_LONG@
+#if @BFD_HOST_64_BIT_DEFINED@
+#define BFD_HOST_64_BIT @BFD_HOST_64_BIT@
+#define BFD_HOST_U_64_BIT @BFD_HOST_U_64_BIT@
+#endif
 
 #if BFD_ARCH_SIZE >= 64
 #define BFD64
@@ -114,27 +117,29 @@ typedef long int file_ptr;
 /* Support for different sizes of target format ints and addresses.
    If the type `long' is at least 64 bits, BFD_HOST_64BIT_LONG will be
    set to 1 above.  Otherwise, if gcc is being used, this code will
-   use gcc's "long long" type.  Otherwise, the compilation will fail
-   if 64-bit targets are requested.  */
+   use gcc's "long long" type.  Otherwise, BFD_HOST_64_BIT must be
+   defined above.  */
 
 #ifdef BFD64
 
 #ifndef BFD_HOST_64_BIT
 #if BFD_HOST_64BIT_LONG
 #define BFD_HOST_64_BIT long
+#define BFD_HOST_U_64_BIT unsigned long
 #else
 #ifdef __GNUC__
 #define BFD_HOST_64_BIT long long
+#define BFD_HOST_U_64_BIT unsigned long long
 #else /* ! defined (__GNUC__) */
  #error No 64 bit integer type available
 #endif /* ! defined (__GNUC__) */
 #endif /* ! BFD_HOST_64BIT_LONG */
 #endif /* ! defined (BFD_HOST_64_BIT) */
 
-typedef unsigned BFD_HOST_64_BIT bfd_vma;
+typedef BFD_HOST_U_64_BIT bfd_vma;
 typedef BFD_HOST_64_BIT bfd_signed_vma;
-typedef unsigned BFD_HOST_64_BIT bfd_size_type;
-typedef unsigned BFD_HOST_64_BIT symvalue;
+typedef BFD_HOST_U_64_BIT bfd_size_type;
+typedef BFD_HOST_U_64_BIT symvalue;
 
 #ifndef fprintf_vma
 #if BFD_HOST_64BIT_LONG
@@ -193,7 +198,7 @@ typedef enum bfd_format {
    to another, and are not necessarily correct).  */
 
 /* No flags.  */
-#define NO_FLAGS    	0x00
+#define BFD_NO_FLAGS   	0x00
 
 /* BFD contains relocation entries.  */
 #define HAS_RELOC   	0x01
@@ -304,6 +309,7 @@ typedef struct sec *sec_ptr;
 #define bfd_section_name(bfd, ptr) ((ptr)->name)
 #define bfd_section_size(bfd, ptr) (bfd_get_section_size_before_reloc(ptr))
 #define bfd_section_vma(bfd, ptr) ((ptr)->vma)
+#define bfd_section_lma(bfd, ptr) ((ptr)->lma)
 #define bfd_section_alignment(bfd, ptr) ((ptr)->alignment_power)
 #define bfd_get_section_flags(bfd, ptr) ((ptr)->flags + 0)
 #define bfd_get_section_userdata(bfd, ptr) ((ptr)->userdata)
@@ -374,8 +380,9 @@ struct bfd_hash_table
   struct bfd_hash_entry *(*newfunc) PARAMS ((struct bfd_hash_entry *,
 					     struct bfd_hash_table *,
 					     const char *));
-  /* An obstack for this hash table.  */
-  struct obstack memory;
+   /* An objalloc for this hash table.  This is a struct objalloc *,
+     but we use PTR to avoid requiring the inclusion of objalloc.h.  */
+  PTR memory;
 };
 
 /* Initialize a hash table.  */
@@ -533,6 +540,7 @@ struct ecoff_extr;
 struct symbol_cache_entry;
 struct bfd_link_info;
 struct bfd_link_hash_entry;
+struct bfd_elf_version_tree;
 #endif
 extern bfd_vma bfd_ecoff_get_gp_value PARAMS ((bfd * abfd));
 extern boolean bfd_ecoff_set_gp_value PARAMS ((bfd *abfd, bfd_vma gp_value));
@@ -599,11 +607,13 @@ extern boolean bfd_elf64_record_link_assignment
 extern struct bfd_link_needed_list *bfd_elf_get_needed_list
   PARAMS ((bfd *, struct bfd_link_info *));
 extern boolean bfd_elf32_size_dynamic_sections
-  PARAMS ((bfd *, const char *, const char *, boolean,
-	   struct bfd_link_info *, struct sec **));
+  PARAMS ((bfd *, const char *, const char *, boolean, const char *,
+	   const char * const *, struct bfd_link_info *, struct sec **,
+	   struct bfd_elf_version_tree *));
 extern boolean bfd_elf64_size_dynamic_sections
-  PARAMS ((bfd *, const char *, const char *, boolean,
-	   struct bfd_link_info *, struct sec **));
+  PARAMS ((bfd *, const char *, const char *, boolean, const char *,
+	   const char * const *, struct bfd_link_info *, struct sec **,
+	   struct bfd_elf_version_tree *));
 extern void bfd_elf_set_dt_needed_name PARAMS ((bfd *, const char *));
 extern const char *bfd_elf_get_dt_soname PARAMS ((bfd *));
 
@@ -622,6 +632,8 @@ extern boolean bfd_sunos_size_dynamic_sections
 extern boolean bfd_i386linux_size_dynamic_sections
   PARAMS ((bfd *, struct bfd_link_info *));
 extern boolean bfd_m68klinux_size_dynamic_sections
+  PARAMS ((bfd *, struct bfd_link_info *));
+extern boolean bfd_sparclinux_size_dynamic_sections
   PARAMS ((bfd *, struct bfd_link_info *));
 
 /* mmap hacks */

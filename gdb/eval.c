@@ -1,5 +1,5 @@
 /* Evaluate expressions for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -37,6 +37,19 @@ static value_ptr evaluate_subexp_for_sizeof PARAMS ((struct expression *,
 
 static value_ptr evaluate_subexp_for_address PARAMS ((struct expression *,
 						      int *, enum noside));
+
+static value_ptr evaluate_subexp PARAMS ((struct type *, struct expression *,
+					  int *, enum noside));
+
+static char *get_label PARAMS ((struct expression *, int *));
+
+static value_ptr
+evaluate_struct_tuple PARAMS ((value_ptr, struct expression *, int *,
+			       enum noside, int));
+
+static LONGEST
+init_array_element PARAMS ((value_ptr, value_ptr, struct expression *,
+			    int *, enum noside, LONGEST, LONGEST));
 
 #ifdef __GNUC__
 inline
@@ -316,6 +329,7 @@ init_array_element (array, element, exp, pos, noside, low_bound, high_bound)
      register struct expression *exp;
      register int *pos;
      enum noside noside;
+     LONGEST low_bound, high_bound;
 {
   LONGEST index;
   int element_size = TYPE_LENGTH (VALUE_TYPE (element));
@@ -529,6 +543,9 @@ evaluate_subexp_standard (expect_type, exp, pos, noside)
 		}
 	      else
 		{
+		  if (index > high_bound)
+		    /* to avoid memory corruption */
+		    error ("Too many array elements");
 		  memcpy (VALUE_CONTENTS_RAW (array)
 			  + (index - low_bound) * element_size,
 			  VALUE_CONTENTS (element),
@@ -965,7 +982,6 @@ evaluate_subexp_standard (expect_type, exp, pos, noside)
 				   NULL, "structure pointer");
 	}
 
-
     case STRUCTOP_MEMBER:
       arg1 = evaluate_subexp_for_address (exp, pos, noside);
       goto handle_pointer_to_member;
@@ -1394,7 +1410,8 @@ evaluate_subexp_standard (expect_type, exp, pos, noside)
       arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
-      if (TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_INT)
+      type = check_typedef (VALUE_TYPE (arg2));
+      if (TYPE_CODE (type) != TYPE_CODE_INT)
 	error ("Non-integral right operand for \"@\" operator.");
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	{
@@ -1445,7 +1462,9 @@ evaluate_subexp_standard (expect_type, exp, pos, noside)
       arg1 = evaluate_subexp (expect_type, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
-      if (noside == EVAL_AVOID_SIDE_EFFECTS)
+      if (unop_user_defined_p (op, arg1))
+	return value_x_unop (arg1, op, noside);
+      else if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	{
 	  type = check_typedef (VALUE_TYPE (arg1));
 	  if (TYPE_CODE (type) == TYPE_CODE_PTR
@@ -1509,7 +1528,8 @@ evaluate_subexp_standard (expect_type, exp, pos, noside)
 	return value_zero (exp->elts[pc + 1].type, lval_memory);
       else
 	return value_at_lazy (exp->elts[pc + 1].type,
-			      value_as_pointer (arg1));
+			      value_as_pointer (arg1),
+			      NULL);
 
     case UNOP_PREINCREMENT:
       arg1 = evaluate_subexp (expect_type, exp, pos, noside);
@@ -1750,6 +1770,10 @@ evaluate_subexp_for_sizeof (exp, pos)
       (*pos)++;
       val = evaluate_subexp (NULL_TYPE, exp, pos, EVAL_AVOID_SIDE_EFFECTS);
       type = check_typedef (VALUE_TYPE (val));
+      if (TYPE_CODE (type) != TYPE_CODE_PTR
+	  && TYPE_CODE (type) != TYPE_CODE_REF
+	  && TYPE_CODE (type) != TYPE_CODE_ARRAY)
+	error ("Attempt to take contents of a non-pointer value.");
       type = check_typedef (TYPE_TARGET_TYPE (type));
       return value_from_longest (builtin_type_int, (LONGEST)
 		      TYPE_LENGTH (type));

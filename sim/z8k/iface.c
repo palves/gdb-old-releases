@@ -1,5 +1,5 @@
 /* gdb->simulator interface.
-   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1997 Free Software Foundation, Inc.
 
 This file is part of Z8KSIM
 
@@ -17,15 +17,33 @@ You should have received a copy of the GNU General Public License
 along with Z8KZIM; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include <ansidecl.h>
+#include "ansidecl.h"
 #include "sim.h"
 #include "tm.h"
 #include "signal.h"
+#include "bfd.h"
 #include "callback.h"
-#include "../../gdb/remote-sim.h"
+#include "remote-sim.h"
+
+#ifndef NULL
+#define NULL 0
+#endif
+
+host_callback *z8k_callback;
+
+static SIM_OPEN_KIND sim_kind;
+static char *myname;
 
 void
-sim_store_register (regno, value)
+sim_size (n)
+     int n;
+{
+  /* Size is fixed.  */
+}
+
+void
+sim_store_register (sd, regno, value)
+     SIM_DESC sd;
      int regno;
      unsigned char *value;
 {
@@ -36,7 +54,8 @@ sim_store_register (regno, value)
 }
 
 void
-sim_fetch_register (regno, buf)
+sim_fetch_register (sd, regno, buf)
+     SIM_DESC sd;
      int regno;
      unsigned char *buf;
 {
@@ -44,7 +63,8 @@ sim_fetch_register (regno, buf)
 }
 
 int
-sim_write (where, what, howmuch)
+sim_write (sd, where, what, howmuch)
+     SIM_DESC sd;
      SIM_ADDR where;
      unsigned char *what;
      int howmuch;
@@ -57,7 +77,8 @@ sim_write (where, what, howmuch)
 }
 
 int
-sim_read (where, what, howmuch)
+sim_read (sd, where, what, howmuch)
+     SIM_DESC sd;
      SIM_ADDR where;
      unsigned char *what;
      int howmuch;
@@ -79,8 +100,17 @@ control_c (sig, code, scp, addr)
   tm_exception (SIM_INTERRUPT);
 }
 
+int
+sim_stop (sd)
+     SIM_DESC sd;
+{
+  tm_exception (SIM_INTERRUPT);
+  return 1;
+}
+
 void
-sim_resume (step, sig)
+sim_resume (sd, step, sig)
+     SIM_DESC sd;
      int step;
      int sig;
 {
@@ -92,7 +122,8 @@ sim_resume (step, sig)
 }
 
 void
-sim_stop_reason (reason, sigrc)
+sim_stop_reason (sd, reason, sigrc)
+     SIM_DESC sd;
      enum sim_stop *reason;
      int *sigrc;
 {
@@ -120,9 +151,13 @@ sim_stop_reason (reason, sigrc)
       *sigrc = SIGSEGV;
       break;
     case SIM_DONE:
-      *sigrc = 1;
-      *reason = sim_exited;
-      return;
+      {
+	sim_state_type x;
+	tm_state (&x);
+	*sigrc = x.regs[2].word & 255;
+	*reason = sim_exited;
+	return;
+      }
     default:
       abort ();
     }
@@ -130,7 +165,8 @@ sim_stop_reason (reason, sigrc)
 }
 
 void
-sim_info (verbose)
+sim_info (sd, verbose)
+     SIM_DESC sd;
      int verbose;
 {
   sim_state_type x;
@@ -139,55 +175,85 @@ sim_info (verbose)
   tm_info_print (&x);
 }
 
-void
-sim_open (args)
-     char *args;
+SIM_DESC
+sim_open (kind, cb, abfd, argv)
+     SIM_OPEN_KIND kind;
+     host_callback *cb;
+     struct _bfd *abfd;
+     char **argv;
 {
-  /* nothing to do */
+  /* FIXME: The code in sim_load that determines the exact z8k arch
+     should be moved to here */
+
+  sim_kind = kind;
+  myname = argv[0];
+  z8k_callback = cb;
+
+  /* fudge our descriptor for now */
+  return (SIM_DESC) 1;
 }
 
 void
-sim_close (quitting)
+sim_close (sd, quitting)
+     SIM_DESC sd;
      int quitting;
 {
   /* nothing to do */
 }
 
-int
-sim_load (prog, from_tty)
+SIM_RC
+sim_load (sd, prog, abfd, from_tty)
+     SIM_DESC sd;
      char *prog;
+     bfd *abfd;
      int from_tty;
 {
-  /* Return non-zero so gdb will handle it.  */
-  return 1;
+  extern bfd *sim_load_file (); /* ??? Don't know where this should live.  */
+  bfd *prog_bfd;
+
+  /* FIXME: The code determining the type of z9k processor should be
+     moved from here to sim_open. */
+
+  prog_bfd = sim_load_file (sd, myname, z8k_callback, prog, abfd,
+			    sim_kind == SIM_OPEN_DEBUG,
+			    0, sim_write);
+  if (prog_bfd == NULL)
+    return SIM_RC_FAIL;
+  if (bfd_get_mach (prog_bfd) == bfd_mach_z8001)
+    {
+      extern int sim_z8001_mode;
+      sim_z8001_mode = 1;
+    }
+  /* Close the bfd if we opened it.  */
+  if (abfd == NULL)
+    bfd_close (prog_bfd);
+  return SIM_RC_OK;
 }
 
-void
-sim_create_inferior (start_address, argv, env)
-     SIM_ADDR start_address;
+SIM_RC
+sim_create_inferior (sd, abfd, argv, env)
+     SIM_DESC sd;
+     struct _bfd *abfd;
      char **argv;
      char **env;
 {
-  tm_store_register (REG_PC, start_address);
+  if (abfd != NULL)
+    tm_store_register (REG_PC, bfd_get_start_address (abfd));
+  else
+    tm_store_register (REG_PC, 0);
+  return SIM_RC_OK;
 }
 
 void
-sim_kill ()
-{
-  /* nothing to do */
-}
-
-void
-sim_do_command (cmd)
+sim_do_command (sd, cmd)
+     SIM_DESC sd;
      char *cmd;
 {
-
 }
-
 
 void
 sim_set_callbacks (ptr)
-struct host_callback_struct *ptr;
+     host_callback *ptr;
 {
-
+  z8k_callback = ptr;
 }

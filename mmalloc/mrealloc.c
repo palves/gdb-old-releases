@@ -156,5 +156,8 @@ realloc (ptr, size)
   PTR ptr;
   size_t size;
 {
-  return (mrealloc ((PTR) NULL, ptr, size));
+  PTR result;
+
+  result = mrealloc ((PTR) NULL, ptr, size);
+  return (result);
 }

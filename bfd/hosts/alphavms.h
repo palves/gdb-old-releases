@@ -62,4 +62,8 @@ typedef BFD_HOST_64_BIT int64_type;
 
 #define NO_FCNTL 1
 
+#ifndef O_ACCMODE
+#define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
+#endif
+
 extern int getpagesize PARAMS ((void));

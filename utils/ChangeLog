@@ -1,3 +1,14 @@
+Fri Apr 24 12:51:21 1998  Jason Molenda  (crash@bugshack.cygnus.com)
+
+	* Makefile.in (dvi): Do nothing target.
+
+Mon Apr 14 16:30:30 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (INSTALL): Change install.sh to install-sh.
+	* misc/Makefile.in (INSTALL): Likewise.
+	* msdos/Makefile.in (INSTALL): Likewise.
+	* msdos/bin/Makefile.in (INSTALL): Likewise.
+
 Tue Oct 10 11:14:38 1995  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (BISON): Remove macro.

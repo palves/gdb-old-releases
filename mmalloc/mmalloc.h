@@ -1,12 +1,11 @@
 #ifndef MMALLOC_H
 #define MMALLOC_H 1
 
-/*  FIXME:  If <stddef.h> doesn't exist, you'll need to do something
-            to define size_t before including this file.  Like upgrading
-            to a system with an ANSI C environment. */
-
 #ifdef HAVE_STDDEF_H
 #  include <stddef.h>
+#else
+#  include <sys/types.h>   /* for size_t */
+#  include <stdio.h>       /* for NULL */
 #endif
 
 #include "ansidecl.h"
@@ -40,6 +39,8 @@ extern PTR mvalloc PARAMS ((PTR, size_t));
 
 extern int mmcheck PARAMS ((PTR, void (*) (void)));
 
+extern int mmcheckf PARAMS ((PTR, void (*) (void), int));
+
 /* Pick up the current statistics. (see FIXME elsewhere) */
 
 extern struct mstats mmstats PARAMS ((PTR));
@@ -55,5 +56,7 @@ extern PTR mmalloc_getkey PARAMS ((PTR, int));
 extern int mmalloc_errno PARAMS ((PTR));
 
 extern int mmtrace PARAMS ((void));
+
+extern PTR mmalloc_findbase PARAMS ((int));
 
 #endif  /* MMALLOC_H */

@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1996, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1996-1997, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@
 
 #ifndef HAVE_TERMIOS_STRUCTURE
 #undef HAVE_SYS_TERMIOS_H
+#undef HAVE_TCGETATTR
 #else
 #ifndef HAVE_SYS_TERMIOS_H
 #undef HAVE_TERMIOS_STRUCTURE
@@ -255,7 +256,6 @@ do_unix_write(os_emul_data *emul,
 	      unsigned_word cia)
 {
   void *scratch_buffer = NULL;
-  int nr_moved;
   int d = (int)cpu_registers(processor)->gpr[arg0];
   unsigned_word buf = cpu_registers(processor)->gpr[arg0+1];
   int nbytes = cpu_registers(processor)->gpr[arg0+2];
@@ -268,15 +268,8 @@ do_unix_write(os_emul_data *emul,
   scratch_buffer = zalloc(nbytes); /* FIXME - nbytes == 0 */
 
   /* copy in */
-  nr_moved = vm_data_map_read_buffer(cpu_data_map(processor),
-				     scratch_buffer,
-				     buf,
-				     nbytes);
-  if (nr_moved != nbytes) {
-    /* FIXME - should handle better */
-    error("system_call()write copy failed (nr_moved=%d != nbytes=%d)\n",
-	  nr_moved, nbytes);
-  }
+  emul_read_buffer(scratch_buffer, buf, nbytes,
+		   processor, cia);
 
   /* write */
   status = write(d, scratch_buffer, nbytes);
@@ -344,10 +337,35 @@ do_unix_break(os_emul_data *emul,
   status = device_ioctl(emul->vm,
 			processor,
 			cia,
+			device_ioctl_break,
 			new_break); /*ioctl-data*/
 
   emul_write_status(processor, 0, status);
 }
+
+#ifndef HAVE_ACCESS
+#define do_unix_access 0
+#else
+static void
+do_unix_access(os_emul_data *emul,
+	       unsigned call,
+	       const int arg0,
+	       cpu *processor,
+	       unsigned_word cia)
+{
+  unsigned_word path_addr = cpu_registers(processor)->gpr[arg0];
+  char path_buf[PATH_MAX];
+  char *path = emul_read_string(path_buf, path_addr, PATH_MAX, processor, cia);
+  int mode = (int)cpu_registers(processor)->gpr[arg0+1];
+  int status;
+
+  if (WITH_TRACE && ppc_trace[trace_os_emul])
+    printf_filtered ("0x%lx [%s], 0x%x [0%o]", (long)path_addr, path, mode, mode);
+
+  status = access(path, mode);
+  emul_write_status(processor, status, errno);
+}
+#endif
 
 #ifndef HAVE_GETPID
 #define do_unix_getpid 0
@@ -899,6 +917,26 @@ do_unix_getrusage(os_emul_data *emul,
 }
 #endif
 
+
+static void
+do_unix_nop(os_emul_data *emul,
+	    unsigned call,
+	    const int arg0,
+	    cpu *processor,
+	    unsigned_word cia)
+{
+  if (WITH_TRACE && ppc_trace[trace_os_emul])
+    printf_filtered ("0x%lx 0x%lx 0x%lx 0x%lx 0x%lx 0x%lx",
+		     (long)cpu_registers(processor)->gpr[arg0],
+		     (long)cpu_registers(processor)->gpr[arg0+1],
+		     (long)cpu_registers(processor)->gpr[arg0+2],
+		     (long)cpu_registers(processor)->gpr[arg0+3],
+		     (long)cpu_registers(processor)->gpr[arg0+4],
+		     (long)cpu_registers(processor)->gpr[arg0+5]);
+
+  emul_write_status(processor, 0, errno);
+}
+
 
 /* Common code for initializing the system call stuff */
 
@@ -935,23 +973,31 @@ emul_unix_create(device *root,
 			0 /*oea-interrupt-prefix*/);
 
   /* virtual memory - handles growth of stack/heap */
-  vm = device_tree_add_parsed(root, "/openprom/vm@0x%lx",
-			      (unsigned long)(top_of_stack - stack_size));
-  device_tree_add_parsed(vm, "./stack-base 0x%lx",
-			 (unsigned long)(top_of_stack - stack_size));
-  device_tree_add_parsed(vm, "./nr-bytes 0x%x", stack_size);
+  vm = tree_parse(root, "/openprom/vm@0x%lx",
+		  (unsigned long)(top_of_stack - stack_size));
+  tree_parse(vm, "./stack-base 0x%lx",
+	     (unsigned long)(top_of_stack - stack_size));
+  tree_parse(vm, "./nr-bytes 0x%x", stack_size);
 
-  device_tree_add_parsed(root, "/openprom/vm/map-binary/file-name %s",
-			 bfd_get_filename(image));
+  tree_parse(root, "/openprom/vm/map-binary/file-name %s",
+	     bfd_get_filename(image));
 
   /* finish the init */
-  device_tree_add_parsed(root, "/openprom/init/register/pc 0x%lx",
-			 (unsigned long)bfd_get_start_address(image));
-  device_tree_add_parsed(root, "/openprom/init/register/sp 0x%lx",
-			 (unsigned long)top_of_stack);
-  device_tree_add_parsed(root, "/openprom/init/register/msr 0x%x", msr_little_endian_mode);
-  device_tree_add_parsed(root, "/openprom/init/stack/stack-type %s",
-			 (elf_binary ? "ppc-elf" : "ppc-xcoff"));
+  tree_parse(root, "/openprom/init/register/pc 0x%lx",
+	     (unsigned long)bfd_get_start_address(image));
+  tree_parse(root, "/openprom/init/register/sp 0x%lx",
+	     (unsigned long)top_of_stack);
+  tree_parse(root, "/openprom/init/register/msr 0x%x",
+	     ((tree_find_boolean_property(root, "/options/little-endian?")
+	       ? msr_little_endian_mode
+	       : 0)
+	      | (tree_find_boolean_property(root, "/openprom/options/floating-point?")
+		 ? (msr_floating_point_available
+		    | msr_floating_point_exception_mode_0
+		    | msr_floating_point_exception_mode_1)
+		 : 0)));
+  tree_parse(root, "/openprom/init/stack/stack-type %s",
+	     (elf_binary ? "ppc-elf" : "ppc-xcoff"));
 
   /* finally our emulation data */
   data = ZALLOC(os_emul_data);
@@ -961,6 +1007,15 @@ emul_unix_create(device *root,
 }
 
 
+/* EMULATION
+
+   Solaris - Emulation of user programs for Solaris/PPC
+
+   DESCRIPTION
+
+   */
+
+
 /* Solaris specific implementation */
 
 typedef	signed32	solaris_uid_t;
@@ -1453,7 +1508,7 @@ static emul_syscall_descriptor solaris_descriptors[] = {
   /*  30 */ { 0, "utime" },
   /*  31 */ { 0, "stty" },
   /*  32 */ { 0, "gtty" },
-  /*  33 */ { 0, "access" },
+  /*  33 */ { do_unix_access, "access" },
   /*  34 */ { 0, "nice" },
   /*  35 */ { 0, "statfs" },
   /*  36 */ { 0, "sync" },
@@ -1518,8 +1573,8 @@ static emul_syscall_descriptor solaris_descriptors[] = {
   /*  94 */ { 0, "fchown" },
   /*  95 */ { 0, "sigprocmask" },
   /*  96 */ { 0, "sigsuspend" },
-  /*  97 */ { 0, "sigaltstack" },
-  /*  98 */ { 0, "sigaction" },
+  /*  97 */ { do_unix_nop, "sigaltstack" },
+  /*  98 */ { do_unix_nop, "sigaction" },
   /*  99 */ { 0, "sigpending" },
   /* 100 */ { 0, "context" },
   /* 101 */ { 0, "evsys" },
@@ -1858,7 +1913,7 @@ emul_solaris_create(device *root,
 
   return emul_unix_create(root, image, "solaris", &emul_solaris_syscalls);
 }
-
+  
 static void
 emul_solaris_init(os_emul_data *emul_data,
 		  int nr_cpus)
@@ -1889,6 +1944,15 @@ const os_emul emul_solaris = {
 };
 
 
+/* EMULATION
+
+   Linux - Emulation of user programs for Linux/PPC
+
+   DESCRIPTION
+
+   */
+
+
 /* Linux specific implementation */
 
 typedef unsigned32	linux_dev_t;
@@ -2297,10 +2361,10 @@ convert_to_linux_termios(unsigned_word addr,
 #else
 static void
 do_linux_ioctl(os_emul_data *emul,
-		 unsigned call,
-		 const int arg0,
-		 cpu *processor,
-		 unsigned_word cia)
+	       unsigned call,
+	       const int arg0,
+	       cpu *processor,
+	       unsigned_word cia)
 {
   int fildes = cpu_registers(processor)->gpr[arg0];
   unsigned request = cpu_registers(processor)->gpr[arg0+1];
@@ -2399,7 +2463,7 @@ static emul_syscall_descriptor linux_descriptors[] = {
   /*  30 */ { 0, "utime" },
   /*  31 */ { 0, "stty" },
   /*  32 */ { 0, "gtty" },
-  /*  33 */ { 0, "access" },
+  /*  33 */ { do_unix_access, "access" },
   /*  34 */ { 0, "nice" },
   /*  35 */ { 0, "ftime" },
   /*  36 */ { 0, "sync" },
@@ -2707,8 +2771,8 @@ static emul_syscall emul_linux_syscalls = {
 
 static os_emul_data *
 emul_linux_create(device *root,
-		    bfd *image,
-		    const char *name)
+		  bfd *image,
+		  const char *name)
 {
   /* check that this emulation is really for us */
   if (name != NULL && strcmp(name, "linux") != 0)
@@ -2722,15 +2786,15 @@ emul_linux_create(device *root,
 
 static void
 emul_linux_init(os_emul_data *emul_data,
-		  int nr_cpus)
+		int nr_cpus)
 {
   /* nothing yet */
 }
 
 static void
 emul_linux_system_call(cpu *processor,
-			 unsigned_word cia,
-			 os_emul_data *emul_data)
+		       unsigned_word cia,
+		       os_emul_data *emul_data)
 {
   emul_do_system_call(emul_data,
 		      emul_data->syscalls,

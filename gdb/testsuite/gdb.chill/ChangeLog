@@ -1,3 +1,77 @@
+Wed Sep 10 15:01:55 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* *.exp: The end-all be-all of quoting fixes. Ha.
+
+Thu Aug 21 10:31:23 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* enum.exp: More quoting fixes.
+	* pr-9946.exp: Ditto.
+	* gch1280.exp: Ditto.
+	* gch1272.exp: Ditto.
+
+Tue Aug 12 21:48:08 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* tests2.exp: Fix quoting.
+	* tests1.exp: Ditto.
+	* pr-9946.exp: Ditto.
+	* enum.exp: Ditto.
+	* builtins.exp: Ditto.
+	* powerset.exp: Ditto.
+	* misc.exp: Ditto.
+	* gch981.exp: Ditto.
+	* gch922.exp: Ditto.
+	* gch1280.exp: Ditto.
+	* gch1272.exp: Ditto.
+	* gch1041.exp: Ditto.
+
+Sat Nov 23 14:00:59 1996  Fred Fish  <fnf@cygnus.com>
+
+	* misc.exp: Change x86 linux setup_xfails to use new
+ 	i*86-pc-linux*-gnu quads.
+	* tuples.exp: Ditto.
+	* tests2.exp: Ditto.
+	* pr-5016.exp: Ditto.
+
+	* tuples.exp: Add i*86-pc-linux-gnu setup_fail to existing
+	xfails for 'set var vs1 := [ "bar", 42, m_ps[ a ] ]',
+	'set var $i := m_s1["foo", 44, m_ps[a ]]', and
+	'set var vs2 := [ 10+3, m_s1[ "foo" , 42, m_ps[ b ]]]'.
+	
+Mon Nov 11 10:27:32 1996  Fred Fish  <fnf@cygnus.com>
+
+	* callch.exp: Add mips*-sgi-irix* xfail for
+	"call king(a, otto[[10, 15], [20, 25]])".
+	* pr-8742.exp: Add mips*-sgi-irix* xfails for
+	"pass int powerset tuple"
+	"pass set powerset tuple"
+	"pass modeless int powerset tuple" and
+	"pass modeless set powerset tuple".
+	* tuples.exp: Add sparc-*-solaris* and sparc-*-sunos*
+	xfails for several "set var" commands that are failing.
+	Convert most of the set commands into gdb_test_exact
+	commands.
+
+Fri Oct 11 16:48:56 1996  Fred Fish  <fnf@cygnus.com>
+
+	* expstruct.exp (objfile2): Set and use, like other chill tests.
+	* pr-4975.exp: Ditto.
+	* pr-5646.exp: Ditto.
+	* pr-8134.exp: Ditto.
+
+Thu Sep  5 01:54:42 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* gch1280.exp: Enhance test case.
+
+Wed Sep  4 07:30:44 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* gch1272.{ch,exp}, gch1280.{ch,exp}, pr-9946.{ch,exp}: 
+	New test cases.
+
+Sun Aug 18 13:29:48 1996  Fred Fish  <fnf@cygnus.com>
+
+	* tests2.exp: Remove mips-sgi-irix* setup_xfail for
+	"real write 4" and "real write 8".
+
 Mon Jun 10 14:04:05 1996  Fred Fish  <fnf@cygnus.com>
 
 	* tests1.exp (test_modes): Remove *-*-* setup_sfail for 

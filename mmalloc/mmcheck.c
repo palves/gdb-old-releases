@@ -51,6 +51,11 @@ struct hdr
     unsigned long int magic;	/* Magic number to check header integrity.  */
   };
 
+static void checkhdr PARAMS ((struct mdesc *, CONST struct hdr *));
+static void mfree_check PARAMS ((PTR, PTR));
+static PTR mmalloc_check PARAMS ((PTR, size_t));
+static PTR mrealloc_check PARAMS ((PTR, PTR, size_t));
+
 /* Check the magicword and magicbyte, and if either is corrupted then
    call the emergency abort function specified for the heap in use. */
 
@@ -145,13 +150,20 @@ mrealloc_check (md, ptr, size)
    that is allocated prior to installation of the hooks is subsequently
    reallocated or freed after installation of the hooks, it is guaranteed
    to trigger a memory corruption error.  We do this by checking the state
-   of the MMALLOC_INITIALIZED flag.
+   of the MMALLOC_INITIALIZED flag.  If the FORCE argument is non-zero, this
+   checking is disabled and it is allowed to install the checking hooks at any
+   time.  This is useful on systems where the C runtime makes one or more
+   malloc calls before the user code had a chance to call mmcheck or mmcheckf,
+   but never calls free with these values.  Thus if we are certain that only
+   values obtained from mallocs after an mmcheck/mmcheckf will ever be passed
+   to free(), we can go ahead and force installation of the useful checking
+   hooks.
 
    However, we can call this function at any time after the initial call,
    to update the function pointers to the checking routines and to the
    user defined corruption handler routine, as long as these function pointers
    have been previously extablished by the initial call.  Note that we
-   do this automatically when remapping an previously used heap, to ensure
+   do this automatically when remapping a previously used heap, to ensure
    that the hooks get updated to the correct values, although the corruption
    handler pointer gets set back to the default.  The application can then
    call mmcheck to use a different corruption handler if desired.
@@ -159,9 +171,10 @@ mrealloc_check (md, ptr, size)
    Returns non-zero if checking is successfully enabled, zero otherwise. */
 
 int
-mmcheck (md, func)
+mmcheckf (md, func, force)
   PTR md;
   void (*func) PARAMS ((void));
+  int force;
 {
   struct mdesc *mdp;
   int rtnval;
@@ -177,7 +190,7 @@ mmcheck (md, func)
      have hooks that were previously installed, then allow the hooks to be
      initialized or updated. */
 
-  if (1 /* FIXME: Always allow installation for now. */ ||
+  if (force ||
       !(mdp -> flags & MMALLOC_INITIALIZED) ||
       (mdp -> mfree_hook != NULL))
     {
@@ -192,5 +205,19 @@ mmcheck (md, func)
       rtnval = 0;
     }
 
+  return (rtnval);
+}
+
+/* This routine is for backwards compatibility only, in case there are
+   still callers to the original mmcheck function. */
+
+int
+mmcheck (md, func)
+  PTR md;
+  void (*func) PARAMS ((void));
+{
+  int rtnval;
+
+  rtnval = mmcheckf (md, func, 0);
   return (rtnval);
 }

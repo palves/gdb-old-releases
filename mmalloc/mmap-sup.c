@@ -104,13 +104,29 @@ __mmalloc_mmap_morecore (mdp, size)
 	  /* FIXME:  Test results of lseek() and write() */
 	  lseek (mdp -> fd, foffset + mapbytes - 1, SEEK_SET);
 	  write (mdp -> fd, &buf, 1);
-	  mapto = mmap (mdp -> top, mapbytes, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_FIXED, mdp -> fd, foffset);
-	  if (mapto == mdp -> top)
+	  if (mdp -> base == 0)
 	    {
-	      mdp -> top = moveto;
-	      result = (PTR) mdp -> breakval;
-	      mdp -> breakval += size;
+	      /* Let mmap pick the map start address */
+	      mapto = mmap (0, mapbytes, PROT_READ | PROT_WRITE,
+			    MAP_SHARED, mdp -> fd, foffset);
+	      if (mapto != (caddr_t) -1)
+		{
+		  mdp -> base = mdp -> breakval = mapto;
+		  mdp -> top = mdp -> base + mapbytes;
+		  result = (PTR) mdp -> breakval;
+		  mdp -> breakval += size;
+		}
+	    }
+	  else
+	    {
+	      mapto = mmap (mdp -> top, mapbytes, PROT_READ | PROT_WRITE,
+			    MAP_SHARED | MAP_FIXED, mdp -> fd, foffset);
+	      if (mapto == mdp -> top)
+		{
+		  mdp -> top = moveto;
+		  result = (PTR) mdp -> breakval;
+		  mdp -> breakval += size;
+		}
 	    }
 	}
       else
@@ -133,6 +149,53 @@ __mmalloc_remap_core (mdp)
   base = mmap (mdp -> base, mdp -> top - mdp -> base,
 	       PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED,
 	       mdp -> fd, 0);
+  return ((PTR) base);
+}
+
+PTR
+mmalloc_findbase (size)
+  int size;
+{
+  int fd;
+  int flags;
+  caddr_t base = NULL;
+
+#ifdef MAP_ANONYMOUS
+  flags = MAP_SHARED | MAP_ANONYMOUS;
+  fd = -1;
+#else
+#ifdef MAP_FILE
+  flags = MAP_SHARED | MAP_FILE;
+#else
+  flags = MAP_SHARED;
+#endif
+  fd = open ("/dev/zero", O_RDWR);
+  if (fd != -1)
+    {
+      return ((PTR) NULL);
+    }
+#endif
+  base = mmap (0, size, PROT_READ | PROT_WRITE, flags, fd, 0);
+  if (base != (caddr_t) -1)
+    {
+      munmap (base, (size_t) size);
+    }
+  if (fd != -1)
+    {
+      close (fd);
+    }
+  if (base == 0)
+    {
+      /* Don't allow mapping at address zero.  We use that value
+	 to signal an error return, and besides, it is useful to
+	 catch NULL pointers if it is unmapped.  Instead start
+	 at the next page boundary. */
+      base = (caddr_t) getpagesize ();
+    }
+  else if (base == (caddr_t) -1)
+    {
+      base = NULL;
+    }
   return ((PTR) base);
 }
 

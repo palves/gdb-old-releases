@@ -205,6 +205,7 @@ struct breakpoint
      aborting, so you can back up to just before the abort.  */
   int hit_count;
 
+  asection *section;
 };
 
 /* The following stuff is an abstract data type "bpstat" ("breakpoint status").
@@ -359,6 +360,8 @@ struct frame_info;
 
 extern int breakpoint_here_p PARAMS ((CORE_ADDR));
 
+extern int breakpoint_inserted_here_p PARAMS ((CORE_ADDR));
+
 extern int frame_in_dummy PARAMS ((struct frame_info *));
 
 extern int breakpoint_thread_match PARAMS ((CORE_ADDR, int));
@@ -419,5 +422,7 @@ extern void create_solib_event_breakpoint PARAMS ((CORE_ADDR));
 extern void remove_solib_event_breakpoints PARAMS ((void));
 
 extern void re_enable_breakpoints_in_shlibs PARAMS ((void));
+
+extern struct breakpoint *set_breakpoint_sal PARAMS ((struct symtab_and_line));
 
 #endif /* !defined (BREAKPOINT_H) */

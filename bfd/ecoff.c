@@ -1,5 +1,5 @@
 /* Generic ECOFF (Extended-COFF) routines.
-   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
    Original version by Per Bothner.
    Full support added by Ian Lance Taylor, ian@cygnus.com.
 
@@ -142,7 +142,9 @@ _bfd_ecoff_new_section_hook (abfd, section)
 {
   section->alignment_power = 4;
 
-  if (strcmp (section->name, _TEXT) == 0)
+  if (strcmp (section->name, _TEXT) == 0
+      || strcmp (section->name, _INIT) == 0
+      || strcmp (section->name, _FINI) == 0)
     section->flags |= SEC_CODE | SEC_LOAD | SEC_ALLOC;
   else if (strcmp (section->name, _DATA) == 0
 	   || strcmp (section->name, _SDATA) == 0)
@@ -1441,11 +1443,11 @@ _bfd_ecoff_get_symbol_info (abfd, symbol, ret)
 
 /*ARGSUSED*/
 boolean
-_bfd_ecoff_bfd_is_local_label (abfd, symbol)
+_bfd_ecoff_bfd_is_local_label_name (abfd, name)
      bfd *abfd;
-     asymbol *symbol;
+     const char *name;
 {
-  return symbol->name[0] == '$';
+  return name[0] == '$';
 }
 
 /* Print information about an ECOFF symbol.  */
@@ -1854,10 +1856,10 @@ _bfd_ecoff_bfd_copy_private_bfd_data (ibfd, obfd)
   size_t c;
   boolean local;
 
-  /* This function is selected based on the input vector.  We only
-     want to copy information over if the output BFD also uses ECOFF
+  /* We only want to copy information over if both BFD's use ECOFF
      format.  */
-  if (bfd_get_flavour (obfd) != bfd_target_ecoff_flavour)
+  if (bfd_get_flavour (ibfd) != bfd_target_ecoff_flavour
+      || bfd_get_flavour (obfd) != bfd_target_ecoff_flavour)
     return true;
 
   /* Copy the GP value and the register masks.  */
@@ -2041,6 +2043,7 @@ ecoff_compute_section_file_positions (abfd)
   asection *current;
   unsigned int i;
   file_ptr old_sofar;
+  boolean rdata_in_text;
   boolean first_data, first_nonalloc;
   const bfd_vma round = ecoff_backend (abfd)->round;
 
@@ -2060,6 +2063,27 @@ ecoff_compute_section_file_positions (abfd)
 
   qsort (sorted_hdrs, abfd->section_count, sizeof (asection *),
 	 ecoff_sort_hdrs);
+
+  /* Some versions of the OSF linker put the .rdata section in the
+     text segment, and some do not.  */
+  rdata_in_text = ecoff_backend (abfd)->rdata_in_text;
+  if (rdata_in_text)
+    {
+      for (i = 0; i < abfd->section_count; i++)
+	{
+	  current = sorted_hdrs[i];
+	  if (strcmp (current->name, _RDATA) == 0)
+	    break;
+	  if ((current->flags & SEC_CODE) == 0
+	      && strcmp (current->name, _PDATA) != 0
+	      && strcmp (current->name, _RCONST) != 0)
+	    {
+	      rdata_in_text = false;
+	      break;
+	    }
+	}
+    }
+  ecoff_data (abfd)->rdata_in_text = rdata_in_text;
 
   first_data = true;
   first_nonalloc = true;
@@ -2088,7 +2112,7 @@ ecoff_compute_section_file_positions (abfd)
 	  && (abfd->flags & D_PAGED) != 0
 	  && ! first_data
 	  && (current->flags & SEC_CODE) == 0
-	  && (! ecoff_backend (abfd)->rdata_in_text
+	  && (! rdata_in_text
 	      || strcmp (current->name, _RDATA) != 0)
 	  && strcmp (current->name, _PDATA) != 0
 	  && strcmp (current->name, _RCONST) != 0)
@@ -2543,7 +2567,7 @@ _bfd_ecoff_write_object_contents (abfd)
 
       if ((section.s_flags & STYP_TEXT) != 0
 	  || ((section.s_flags & STYP_RDATA) != 0
-	      && backend->rdata_in_text)
+	      && ecoff_data (abfd)->rdata_in_text)
 	  || section.s_flags == STYP_PDATA
 	  || (section.s_flags & STYP_DYNAMIC) != 0
 	  || (section.s_flags & STYP_LIBLIST) != 0

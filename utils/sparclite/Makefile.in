@@ -96,9 +96,9 @@ all: $(PROGS)
 
 info:
 
-# This does not use INSTALL_XFORM or anything of the sort because there
-# only needs to be one aload.  Even if aload ends up being useful for more
-# than one target, perhaps one aload binary can be useful with all of them.
+# This does not use program_transform_name because there only needs to
+# be one aload.  Even if aload ends up being useful for more than one
+# target, perhaps one aload binary can be useful with all of them.
 # FIXME: not true, there can be both aout and coff loaders.
 install: $(PROGS)
 	if [ "$(PROGS)" != "" ]; then \

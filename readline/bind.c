@@ -23,9 +23,6 @@
 #include "sysdep.h"
 #include <stdio.h>
 #include <fcntl.h>
-#ifndef	NO_SYS_FILE
-#include <sys/file.h>
-#endif
 
 #include <errno.h>
 /* Not all systems declare ERRNO in errno.h... and some systems #define it! */

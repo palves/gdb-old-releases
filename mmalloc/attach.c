@@ -163,10 +163,10 @@ mmalloc_attach (fd, baseaddr)
    certainly will be at a different address if the process reusing the
    mapped region is from a different executable.
 
-   Also note that if the heap being remapped previously used the mmcheck()
+   Also note that if the heap being remapped previously used the mmcheckf()
    routines, we need to update the hooks since their target functions
    will have certainly moved if the executable has changed in any way.
-   We do this by calling mmcheck() internally.
+   We do this by calling mmcheckf() internally.
 
    Returns a pointer to the malloc descriptor if successful, or NULL if
    unsuccessful for some reason. */
@@ -192,7 +192,7 @@ reuse (fd)
 	  mdp -> morecore = __mmalloc_mmap_morecore;
 	  if (mdp -> mfree_hook != NULL)
 	    {
-	      mmcheck ((PTR) mdp, (void (*) PARAMS ((void))) NULL);
+	      mmcheckf ((PTR) mdp, (void (*) PARAMS ((void))) NULL, 1);
 	    }
 	}
     }

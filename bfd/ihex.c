@@ -1,5 +1,5 @@
 /* BFD back-end for Intel Hex objects.
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1997 Free Software Foundation, Inc.
    Written by Ian Lance Taylor of Cygnus Support <ian@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -142,6 +142,7 @@ static boolean ihex_write_object_contents PARAMS ((bfd *));
 static asymbol *ihex_make_empty_symbol PARAMS ((bfd *));
 static boolean ihex_set_arch_mach
   PARAMS ((bfd *, enum bfd_architecture, unsigned long));
+static int ihex_sizeof_headers PARAMS ((bfd *, boolean));
 
 /* The number of bytes we put on one line during output.  */
 
@@ -269,11 +270,10 @@ ihex_scan (abfd)
      bfd *abfd;
 {
   bfd_vma segbase;
-  bfd_vma extbase;
   asection *sec;
   int lineno;
   boolean error;
-  bfd_byte *buf;
+  bfd_byte *buf = NULL;
   size_t bufsize;
   int c;
 
@@ -282,12 +282,10 @@ ihex_scan (abfd)
 
   abfd->start_address = 0;
 
-  extbase = 0;
   segbase = 0;
   sec = NULL;
   lineno = 1;
   error = false;
-  buf = NULL;
   bufsize = 0;
   while ((c = ihex_get_byte (abfd, &error)) != EOF)
     {
@@ -378,7 +376,7 @@ ihex_scan (abfd)
 	    case 0:
 	      /* This is a data record.  */
 	      if (sec != NULL
-		  && sec->vma + sec->_raw_size == extbase + segbase + addr)
+		  && sec->vma + sec->_raw_size == segbase + addr)
 		{
 		  /* This data goes at the end of the section we are
                      currently building.  */
@@ -398,8 +396,8 @@ ihex_scan (abfd)
 		  if (sec == NULL)
 		    goto error_return;
 		  sec->flags = SEC_HAS_CONTENTS | SEC_LOAD | SEC_ALLOC;
-		  sec->vma = extbase + segbase + addr;
-		  sec->lma = extbase + segbase + addr;
+		  sec->vma = segbase + addr;
+		  sec->lma = segbase + addr;
 		  sec->_raw_size = len;
 		  sec->filepos = pos;
 		}
@@ -570,7 +568,7 @@ ihex_read_section (abfd, section, contents)
 {
   int c;
   bfd_byte *p;
-  bfd_byte *buf;
+  bfd_byte *buf = NULL;
   size_t bufsize;
   boolean error;
 
@@ -578,7 +576,6 @@ ihex_read_section (abfd, section, contents)
     goto error_return;
 
   p = contents;
-  buf = NULL;
   bufsize = 0;
   error = false;
   while ((c = ihex_get_byte (abfd, &error)) != EOF)
@@ -793,11 +790,9 @@ static boolean
 ihex_write_object_contents (abfd)
      bfd *abfd;
 {
-  bfd_vma extbase;
   bfd_vma segbase;
   struct ihex_data_list *l;
 
-  extbase = 0;
   segbase = 0;
   for (l = abfd->tdata.ihex_data->head; l != NULL; l = l->next)
     {
@@ -816,7 +811,7 @@ ihex_write_object_contents (abfd)
 	  if (now > CHUNK)
 	    now = CHUNK;
 
-	  if (where > extbase + segbase + 0xffff)
+	  if (where > segbase + 0xffff)
 	    {
 	      bfd_byte addr[2];
 
@@ -824,15 +819,15 @@ ihex_write_object_contents (abfd)
 	      if (where <= 0xfffff)
 		{
 		  segbase = where & 0xf0000;
-		  addr[0] = (segbase >> 12) & 0xff;
-		  addr[1] = (segbase >> 4) & 0xff;
+		  addr[0] = (bfd_byte)(segbase >> 12) & 0xff;
+		  addr[1] = (bfd_byte)(segbase >> 4) & 0xff;
 		  if (! ihex_write_record (abfd, 2, 0, 2, addr))
 		    return false;
 		}
 	      else
 		{
-		  extbase = where & 0xffff0000;
-		  if (where > extbase + 0xffff)
+		  segbase = where & 0xffff0000;
+		  if (where > segbase + 0xffff)
 		    {
 		      char buf[20];
 
@@ -843,15 +838,14 @@ ihex_write_object_contents (abfd)
 		      bfd_set_error (bfd_error_bad_value);
 		      return false;
 		    }
-		  addr[0] = (extbase >> 24) & 0xff;
-		  addr[1] = (extbase >> 16) & 0xff;
+		  addr[0] = (bfd_byte)(segbase >> 24) & 0xff;
+		  addr[1] = (bfd_byte)(segbase >> 16) & 0xff;
 		  if (! ihex_write_record (abfd, 2, 0, 4, addr))
 		    return false;
 		}
 	    }
 
-	  if (! ihex_write_record (abfd, now, where - (extbase + segbase),
-				   0, p))
+	  if (! ihex_write_record (abfd, now, where - segbase, 0, p))
 	    return false;
 
 	  where += now;
@@ -869,19 +863,19 @@ ihex_write_object_contents (abfd)
 
       if (start <= 0xfffff)
 	{
-	  startbuf[0] = ((start & 0xf0000) >> 12) & 0xff;
+	  startbuf[0] = (bfd_byte)((start & 0xf0000) >> 12) & 0xff;
 	  startbuf[1] = 0;
-	  startbuf[2] = (start >> 8) & 0xff;
-	  startbuf[3] = start & 0xff;
+	  startbuf[2] = (bfd_byte)(start >> 8) & 0xff;
+	  startbuf[3] = (bfd_byte)start & 0xff;
 	  if (! ihex_write_record (abfd, 4, 0, 3, startbuf))
 	    return false;
 	}
       else
 	{
-	  startbuf[0] = (start >> 24) & 0xff;
-	  startbuf[1] = (start >> 16) & 0xff;
-	  startbuf[2] = (start >> 8) & 0xff;
-	  startbuf[3] = start & 0xff;
+	  startbuf[0] = (bfd_byte)(start >> 24) & 0xff;
+	  startbuf[1] = (bfd_byte)(start >> 16) & 0xff;
+	  startbuf[2] = (bfd_byte)(start >> 8) & 0xff;
+	  startbuf[3] = (bfd_byte)start & 0xff;
 	  if (! ihex_write_record (abfd, 4, 0, 5, startbuf))
 	    return false;
 	}
@@ -949,7 +943,7 @@ ihex_sizeof_headers (abfd, exec)
   ((long (*) PARAMS ((bfd *, asymbol **))) bfd_0l)
 #define ihex_print_symbol _bfd_nosymbols_print_symbol
 #define ihex_get_symbol_info _bfd_nosymbols_get_symbol_info
-#define ihex_bfd_is_local_label _bfd_nosymbols_bfd_is_local_label
+#define ihex_bfd_is_local_label_name _bfd_nosymbols_bfd_is_local_label_name
 #define ihex_get_lineno _bfd_nosymbols_get_lineno
 #define ihex_find_nearest_line _bfd_nosymbols_find_nearest_line
 #define ihex_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol

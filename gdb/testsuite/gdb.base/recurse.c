@@ -17,5 +17,9 @@ recurse (a)
 
 main()
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   recurse (10);
 }

@@ -1,5 +1,5 @@
 /* ELF linking support for BFD.
-   Copyright 1995 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1997 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -33,17 +33,26 @@ _bfd_elf_create_got_section (abfd, info)
   register asection *s;
   struct elf_link_hash_entry *h;
   struct elf_backend_data *bed = get_elf_backend_data (abfd);
+  int ptralign;
 
   /* This function may be called more than once.  */
   if (bfd_get_section_by_name (abfd, ".got") != NULL)
     return true;
 
-  flags = SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY;
+  switch (bed->s->arch_size)
+    {
+    case 32: ptralign = 2; break;
+    case 64: ptralign = 3; break;
+    default: abort();
+    }
+
+  flags = (SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY
+	   | SEC_LINKER_CREATED);
 
   s = bfd_make_section (abfd, ".got");
   if (s == NULL
       || !bfd_set_section_flags (abfd, s, flags)
-      || !bfd_set_section_alignment (abfd, s, 2))
+      || !bfd_set_section_alignment (abfd, s, ptralign))
     return false;
 
   if (bed->want_got_plt)
@@ -51,7 +60,7 @@ _bfd_elf_create_got_section (abfd, info)
       s = bfd_make_section (abfd, ".got.plt");
       if (s == NULL
 	  || !bfd_set_section_flags (abfd, s, flags)
-	  || !bfd_set_section_alignment (abfd, s, 2))
+	  || !bfd_set_section_alignment (abfd, s, ptralign))
 	return false;
     }
 
@@ -61,9 +70,9 @@ _bfd_elf_create_got_section (abfd, info)
      a global offset table.  */
   h = NULL;
   if (!(_bfd_generic_link_add_one_symbol
-	(info, abfd, "_GLOBAL_OFFSET_TABLE_", BSF_GLOBAL, s, (bfd_vma) 0,
-	 (const char *) NULL, false, get_elf_backend_data (abfd)->collect,
-	 (struct bfd_link_hash_entry **) &h)))
+	(info, abfd, "_GLOBAL_OFFSET_TABLE_", BSF_GLOBAL, s,
+	 bed->got_symbol_offset, (const char *) NULL, false,
+	 bed->collect, (struct bfd_link_hash_entry **) &h)))
     return false;
   h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
   h->type = STT_OBJECT;
@@ -74,8 +83,9 @@ _bfd_elf_create_got_section (abfd, info)
 
   elf_hash_table (info)->hgot = h;
 
-  /* The first three global offset table entries are reserved.  */
-  s->_raw_size += 3 * 4;
+  /* The first three global offset table entries after
+     '_GLOBAL_OFFSET_TABLE_' are reserved.  */
+  s->_raw_size += (3 << ptralign) + bed->got_symbol_offset;
 
   return true;
 }
@@ -88,21 +98,35 @@ _bfd_elf_create_dynamic_sections (abfd, info)
      bfd *abfd;
      struct bfd_link_info *info;
 {
-  flagword flags;
+  flagword flags, pltflags;
   register asection *s;
   struct elf_backend_data *bed = get_elf_backend_data (abfd);
+  int ptralign;
+
+  switch (bed->s->arch_size)
+    {
+    case 32: ptralign = 2; break;
+    case 64: ptralign = 3; break;
+    default: abort();
+    }
 
   /* We need to create .plt, .rel[a].plt, .got, .got.plt, .dynbss, and
      .rel[a].bss sections.  */
 
-  flags = SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY;
+  flags = (SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY
+	   | SEC_LINKER_CREATED);
+
+  pltflags = flags;
+  pltflags |= SEC_CODE;
+  if (bed->plt_not_loaded)
+    pltflags &= ~ (SEC_LOAD | SEC_HAS_CONTENTS);
+  if (bed->plt_readonly)
+    pltflags |= SEC_READONLY;
 
   s = bfd_make_section (abfd, ".plt");
   if (s == NULL
-      || ! bfd_set_section_flags (abfd, s,
-				  (flags | SEC_CODE
-				   | (bed->plt_readonly ? SEC_READONLY : 0)))
-      || ! bfd_set_section_alignment (abfd, s, 2))
+      || ! bfd_set_section_flags (abfd, s, pltflags)
+      || ! bfd_set_section_alignment (abfd, s, bed->plt_alignment))
     return false;
 
   if (bed->want_plt_sym)
@@ -127,7 +151,7 @@ _bfd_elf_create_dynamic_sections (abfd, info)
   s = bfd_make_section (abfd, bed->use_rela_p ? ".rela.plt" : ".rel.plt");
   if (s == NULL
       || ! bfd_set_section_flags (abfd, s, flags | SEC_READONLY)
-      || ! bfd_set_section_alignment (abfd, s, 2))
+      || ! bfd_set_section_alignment (abfd, s, ptralign))
     return false;
 
   if (! _bfd_elf_create_got_section (abfd, info))
@@ -160,7 +184,7 @@ _bfd_elf_create_dynamic_sections (abfd, info)
       s = bfd_make_section (abfd, bed->use_rela_p ? ".rela.bss" : ".rel.bss");
       if (s == NULL
 	  || ! bfd_set_section_flags (abfd, s, flags | SEC_READONLY)
-	  || ! bfd_set_section_alignment (abfd, s, 2))
+	  || ! bfd_set_section_alignment (abfd, s, ptralign))
 	return false;
     }
 
@@ -184,6 +208,10 @@ _bfd_elf_link_record_dynamic_symbol (info, h)
   if (h->dynindx == -1)
     {
       struct bfd_strtab_hash *dynstr;
+      char *p, *alc;
+      const char *name;
+      boolean copy;
+      bfd_size_type indx;
 
       h->dynindx = elf_hash_table (info)->dynsymcount;
       ++elf_hash_table (info)->dynsymcount;
@@ -197,11 +225,34 @@ _bfd_elf_link_record_dynamic_symbol (info, h)
 	    return false;
 	}
 
-      h->dynstr_index = ((unsigned long)
-			 _bfd_stringtab_add (dynstr, h->root.root.string,
-					     true, false));
-      if (h->dynstr_index == (unsigned long) -1)
+      /* We don't put any version information in the dynamic string
+         table.  */
+      name = h->root.root.string;
+      p = strchr (name, ELF_VER_CHR);
+      if (p == NULL)
+	{
+	  alc = NULL;
+	  copy = false;
+	}
+      else
+	{
+	  alc = bfd_malloc (p - name + 1);
+	  if (alc == NULL)
+	    return false;
+	  strncpy (alc, name, p - name);
+	  alc[p - name] = '\0';
+	  name = alc;
+	  copy = true;
+	}
+
+      indx = _bfd_stringtab_add (dynstr, name, true, copy);
+
+      if (alc != NULL)
+	free (alc);
+
+      if (indx == (bfd_size_type) -1)
 	return false;
+      h->dynstr_index = indx;
     }
 
   return true;
@@ -239,9 +290,9 @@ _bfd_elf_create_linker_section (abfd, info, which, defaults)
 
       /* See if the sections already exist */
       lsect->section = s = bfd_get_section_by_name (dynobj, lsect->name);
-      if (!s)
+      if (!s || (s->flags & defaults->flags) != defaults->flags)
 	{
-	  lsect->section = s = bfd_make_section (dynobj, lsect->name);
+	  lsect->section = s = bfd_make_section_anyway (dynobj, lsect->name);
 
 	  if (s == NULL)
 	    return (elf_linker_section_t *)0;
@@ -316,12 +367,18 @@ _bfd_elf_create_linker_section (abfd, info, which, defaults)
 	}
     }
 
+#if 0
+  /* This does not make sense.  The sections which may exist in the
+     object file have nothing to do with the sections we want to
+     create.  */
+
   /* Find the related sections if they have been created */
   if (lsect->bss_name && !lsect->bss_section)
     lsect->bss_section = bfd_get_section_by_name (dynobj, lsect->bss_name);
 
   if (lsect->rel_name && !lsect->rel_section)
     lsect->rel_section = bfd_get_section_by_name (dynobj, lsect->rel_name);
+#endif
 
   return lsect;
 }
@@ -367,6 +424,7 @@ _bfd_elf_make_linker_section_rela (dynobj, lsect, alignment)
 				       | SEC_LOAD
 				       | SEC_HAS_CONTENTS
 				       | SEC_IN_MEMORY
+				       | SEC_LINKER_CREATED
 				       | SEC_READONLY))
 	  || ! bfd_set_section_alignment (dynobj, lsect->rel_section, alignment))
 	return false;
@@ -374,4 +432,3 @@ _bfd_elf_make_linker_section_rela (dynobj, lsect, alignment)
 
   return true;
 }
-

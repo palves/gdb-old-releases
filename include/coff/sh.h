@@ -227,8 +227,9 @@ struct external_reloc {
      .word L1 - L2
    The r_offset field holds the difference between the reloc address
    and L2.  */
+#define R_SH_SWITCH8	33		/* 8 bit switch table entry */
 #define R_SH_SWITCH16	25		/* 16 bit switch table entry */
-#define R_SH_SWITCH32	26		/* 16 bit switch table entry */
+#define R_SH_SWITCH32	26		/* 32 bit switch table entry */
 
 /* The USES reloc type is used for relaxing.  The compiler will
    generate .uses pseudo-ops when it finds a function call which it
@@ -240,7 +241,7 @@ struct external_reloc {
 /* The COUNT reloc type is used for relaxing.  The assembler will
    generate COUNT relocs for addresses referred to by the register
    loads associated with USES relocs.  The r_offset field of the COUNT
-   reloc holds the number of times the address is references in the
+   reloc holds the number of times the address is referenced in the
    object file.  */
 #define R_SH_COUNT	28		/* Count of constant pool uses */
 
@@ -264,3 +265,5 @@ struct external_reloc {
    label within a block of instructions.  This permits the linker to
    avoid swapping instructions which are the targets of branches.  */
 #define R_SH_LABEL	32		/* label */
+
+/* NB: R_SH_SWITCH8 is 33 */

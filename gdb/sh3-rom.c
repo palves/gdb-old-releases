@@ -70,14 +70,12 @@ sh3_supply_register (regname, regnamelen, val, vallen)
 	    else
 	      regno = GBR_REGNUM;
 	  break;
-#if 0
 	case 'S':
 	  if (regname[1] == 'S' && regname[2] == 'R')
 	    regno = SSR_REGNUM;
 	  else if (regname[1] == 'P' && regname[2] == 'C')
 	    regno = SPC_REGNUM;
 	  break;
-#endif
 	}
     }
   else if (regnamelen == 4)
@@ -108,7 +106,10 @@ sh3_supply_register (regname, regnamelen, val, vallen)
 	  numregs = 8;
 	}
     }
-	
+  else if (regnamelen == 17)
+    {
+    }
+
   if (regno >= 0)
     while (numregs-- > 0)
       val = monitor_supply_register (regno++, val);
@@ -123,7 +124,7 @@ sh3_load (desc, file, hashmark)
   if (parallel_in_use) 
     {
       monitor_printf("pl;s\r");
-      load_srec (parallel, file, 80, SREC_ALL, hashmark, NULL);
+      load_srec (parallel, file, 0, 80, SREC_ALL, hashmark, NULL);
       monitor_expect_prompt (NULL, 0);
     }
   else 
@@ -133,7 +134,7 @@ sh3_load (desc, file, hashmark)
       SERIAL_WRITE (desc, "\006", 1); /* Send ACK */
       monitor_expect ("LO x\r", NULL, 0); /* Look for filename */
 
-      load_srec (desc, file, 80, SREC_ALL, hashmark, NULL);
+      load_srec (desc, file, 0, 80, SREC_ALL, hashmark, NULL);
 
       monitor_expect ("\005", NULL, 0); /* Look for ENQ */
       SERIAL_WRITE (desc, "\006", 1); /* Send ACK */
@@ -146,33 +147,32 @@ sh3_load (desc, file, hashmark)
    than does GDB, and don't necessarily support all the registers
    either. So, typing "info reg sp" becomes a "r30".  */
 
-
 static char *sh3_regnames[NUM_REGS] = {
   "R0", "R1", "R2",  "R3", "R4",  "R5",   "R6",  "R7",
   "R8", "R9", "R10", "R11","R12", "R13",  "R14", "R15",
   "PC", "PR", "GBR", "VBR","MACH","MACL", "SR",
+  NULL, NULL,
+  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
   "SSR", "SPC",
   "R0_BANK0", "R1_BANK0", "R2_BANK0", "R3_BANK0",
   "R4_BANK0", "R5_BANK0", "R6_BANK0", "R7_BANK0",
   "R0_BANK1", "R1_BANK1", "R2_BANK1", "R3_BANK1",
-  "R4_BANK1", "R5_BANK1", "R6_BANK1", "R7_BANK1",
-  NULL, NULL,
-  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+  "R4_BANK1", "R5_BANK1", "R6_BANK1", "R7_BANK1"
 };
 
 static char *sh3e_regnames[NUM_REGS] = {
   "R0", "R1", "R2",  "R3", "R4",  "R5",   "R6",  "R7",
   "R8", "R9", "R10", "R11","R12", "R13",  "R14", "R15",
   "PC", "PR", "GBR", "VBR","MACH","MACL", "SR",
+  "FPUL", "FPSCR",
+  "FR0", "FR1", "FR2", "FR3", "FR4", "FR5", "FR6", "FR7",
+  "FR8", "FR9", "FR10", "FR11", "FR12", "FR13", "FR14", "FR15",
   "SSR","SPC",
   "R0_BANK0", "R1_BANK0", "R2_BANK0", "R3_BANK0",
   "R4_BANK0", "R5_BANK0", "R6_BANK0", "R7_BANK0",
   "R0_BANK1", "R1_BANK1", "R2_BANK1", "R3_BANK1",
-  "R4_BANK1", "R5_BANK1", "R6_BANK1", "R7_BANK1",
-  "FPUL", "FPSCR",
-  "FR0", "FR1", "FR2", "FR3", "FR4", "FR5", "FR6", "FR7",
-  "FR8", "FR9", "FR10", "FR11", "FR12", "FR13", "FR14", "FR15"
+  "R4_BANK1", "R5_BANK1", "R6_BANK1", "R7_BANK1"
 };
 
 /* Define the monitor command strings. Since these are passed directly
@@ -284,7 +284,7 @@ sh3_open (args, from_tty)
     }
 
   /* If we connected successfully, we know the processor is an SH3.  */
-  sh_set_processor_type ("sh3");
+  set_architecture_from_arch_mach (bfd_arch_sh, bfd_mach_sh3);
 }
 
 
@@ -333,7 +333,7 @@ sh3e_open (args, from_tty)
     }
 
   /* If we connected successfully, we know the processor is an SH3E.  */
-  sh_set_processor_type ("sh3e");
+  set_architecture_from_arch_mach (bfd_arch_sh, bfd_mach_sh3);
 }
 
 static void

@@ -23,9 +23,6 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#if !defined (NO_SYS_FILE)
-#  include <sys/file.h>
-#endif /* !NO_SYS_FILE */
 #include <signal.h>
 
 /* This is needed to include support for TIOCGWINSZ and window resizing. */
@@ -152,7 +149,9 @@ rl_signal_handler (sig)
       rl_clear_signals ();
       rl_pending_input = 0;
 
+#ifndef _WIN32
       kill (getpid (), sig);
+#endif
 
       SIGNALS_UNBLOCK;
 

@@ -35,6 +35,7 @@ and by Cygnus Support.  */
 #include "inferior.h"
 #include "gdb-stabs.h"
 #include "gdbcmd.h"
+#include "language.h"
 
 /* TODO:
 
@@ -95,6 +96,8 @@ struct so_list
 static struct so_list *so_list_head;
 
 static void som_sharedlibrary_info_command PARAMS ((char *, int));
+
+static void som_solib_sharedlibrary_command PARAMS ((char *, int));
 
 /* Add symbols from shared libraries into the symtab list.  */
 
@@ -497,7 +500,7 @@ som_solib_create_inferior_hook()
   struct minimal_symbol *msymbol;
   unsigned int dld_flags, status, have_endo;
   asection *shlib_info;
-  char shadow_contents[BREAKPOINT_MAX], buf[4];
+  char buf[4];
   struct objfile *objfile;
   CORE_ADDR anaddr;
 
@@ -520,13 +523,11 @@ som_solib_create_inferior_hook()
   have_endo = 0;
   /* If __d_pid is present, then put the inferior's pid into __d_pid.  hpux9
      requires __d_pid to be set.  hpux10 doesn't require __d_pid to be set
-     and the symbol may not be available.  */
+     and the symbol may not be available. 
+
+     Never warn about __d_pid.  */
   msymbol = lookup_minimal_symbol ("__d_pid", NULL, symfile_objfile);
-  if (msymbol == NULL)
-    {
-      warning ("Unable to find __d_pid symbol in object file.");
-    }
-  else
+  if (msymbol != NULL)
     {
       anaddr = SYMBOL_VALUE_ADDRESS (msymbol);
       store_unsigned_integer (buf, 4, inferior_pid);
@@ -575,7 +576,6 @@ som_solib_create_inferior_hook()
 	 export stub.  */
       ALL_OBJFILES (objfile)
 	{
-	  struct unwind_table_entry *u;
 	  extern struct unwind_table_entry *find_unwind_entry PARAMS ((CORE_ADDR pc));
 
 	  /* What a crock.  */
@@ -587,7 +587,7 @@ som_solib_create_inferior_hook()
 	    {
 	      struct unwind_table_entry *u;
 	      /* It must be a shared library trampoline.  */
-	      if (SYMBOL_TYPE (msymbol) != mst_solib_trampoline)
+	      if (MSYMBOL_TYPE (msymbol) != mst_solib_trampoline)
 		continue;
 
 	      /* It must also be an export stub.  */

@@ -1,7 +1,7 @@
 /* run front end support for arm
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
 
-This file is part of ARM SIM
+This file is part of ARM SIM.
 
 GNU CC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,13 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This file provides the interface between the simulator and run.c and gdb
    (when the simulator is linked with gdb).
-   All simulator interaction should go through this file.
-
-   Functions that begin with sim_ belong to the standard simulator interface.
-   Functions that begin with ARMul_ belong to the ARM simulator.
-   Functions that begin with arm_sim_ are additional functions necessary to
-   implement the interface.
-*/
+   All simulator interaction should go through this file.  */
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -37,10 +31,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "armemu.h"
 #include "dbg_rdi.h"
 
+host_callback *sim_callback;
+
 static struct ARMul_State *state;
 
-/* Memory size (log2 (n)).  */
-static int mem_size = 21;
+/* Who is using the simulator.  */
+static SIM_OPEN_KIND sim_kind;
+
+/* argv[0] */
+static char *myname;
+
+/* Memory size in bytes.  */
+static int mem_size = (1 << 21);
 
 /* Non-zero to display start up banner, and maybe other things.  */
 static int verbosity;
@@ -54,7 +56,7 @@ init ()
     {
       ARMul_EmulateInit();
       state = ARMul_NewState ();
-      ARMul_MemoryInit(state, 1 << mem_size);
+      ARMul_MemoryInit(state, mem_size);
       ARMul_OSInit(state);
       ARMul_CoProInit(state); 
       state->verbose = verbosity;
@@ -62,32 +64,27 @@ init ()
     }
 }
 
-/* Must be called before initializing simulator.  */
+/* Set verbosity level of simulator.
+   This is not intended to produce detailed tracing or debugging information.
+   Just summaries.  */
+/* FIXME: common/run.c doesn't do this yet.  */
 
 void
-arm_sim_set_verbosity (v)
+sim_set_verbose (v)
      int v;
 {
   verbosity = v;
 }
 
-/* Must be called before initializing simulator.  */
+/* Set the memory size to SIZE bytes.
+   Must be called before initializing simulator.  */   
+/* FIXME: Rename to sim_set_mem_size.  */
 
 void 
-arm_sim_set_mem_size (size)
+sim_size (size)
      int size;
 {
   mem_size = size;
-}
-
-void 
-arm_sim_set_profile ()
-{
-}
-
-void 
-arm_sim_set_profile_size ()
-{
 }
 
 void 
@@ -110,7 +107,8 @@ ARMul_Debug (ARMul_State * state, ARMword pc, ARMword instr)
 }
 
 int
-sim_write (addr, buffer, size)
+sim_write (sd, addr, buffer, size)
+     SIM_DESC sd;
      SIM_ADDR addr;
      unsigned char *buffer;
      int size;
@@ -125,7 +123,8 @@ sim_write (addr, buffer, size)
 }
 
 int
-sim_read (addr, buffer, size)
+sim_read (sd, addr, buffer, size)
+     SIM_DESC sd;
      SIM_ADDR addr;
      unsigned char *buffer;
      int size;
@@ -139,13 +138,24 @@ sim_read (addr, buffer, size)
   return size;
 }
 
-void 
-sim_trace ()
+int
+sim_trace (sd)
+     SIM_DESC sd;
 {
+  (*sim_callback->printf_filtered) (sim_callback, "This simulator does not support tracing\n");
+  return 1;
+}
+
+int
+sim_stop (sd)
+     SIM_DESC sd;
+{
+  return 0;
 }
 
 void
-sim_resume (step, siggnal)
+sim_resume (sd, step, siggnal)
+     SIM_DESC sd;
      int step, siggnal;
 {
   state->EndCondition = 0;
@@ -158,23 +168,92 @@ sim_resume (step, siggnal)
     }
   else
     {
+#if 1 /* JGS */
+      state->NextInstr = RESUME; /* treat as PC change */
+#endif
       state->Reg[15] = ARMul_DoProg (state);
     }
 
   FLUSHPIPE;
 }
 
-void
-sim_create_inferior (start_address, argv, env)
-     SIM_ADDR start_address;
+SIM_RC
+sim_create_inferior (sd, abfd, argv, env)
+     SIM_DESC sd;
+     struct _bfd *abfd;
      char **argv;
      char **env;
 {
-  ARMul_SetPC(state, start_address);
+  int argvlen=0;
+  char **arg;
+
+  if (abfd != NULL)
+    ARMul_SetPC (state, bfd_get_start_address (abfd));
+  else
+    ARMul_SetPC (state, 0); /* ??? */
+
+#if 1 /* JGS */
+  /* We explicitly select a processor capable of supporting the ARM
+     32bit mode, and then we force the simulated CPU into the 32bit
+     User mode: */
+  ARMul_SelectProcessor(state, ARM600);
+  ARMul_SetCPSR(state, USER32MODE);
+#endif
+
+  if (argv != NULL)
+    {
+      /*
+      ** Set up the command line (by laboriously stringing together the
+      ** environment carefully picked apart by our caller...)
+      */
+      /* Free any old stuff */
+      if (state->CommandLine != NULL)
+	{
+	  free(state->CommandLine);
+	  state->CommandLine = NULL;
+	}
+      
+      /* See how much we need */
+      for (arg = argv; *arg != NULL; arg++)
+	argvlen += strlen(*arg)+1;
+      
+      /* allocate it... */
+      state->CommandLine = malloc(argvlen+1);
+      if (state->CommandLine != NULL)
+	{
+	  arg = argv;
+	  state->CommandLine[0]='\0';
+	  for (arg = argv; *arg != NULL; arg++)
+	    {
+	      strcat(state->CommandLine, *arg);
+	      strcat(state->CommandLine, " ");
+	    }
+	}
+    }
+
+  if (env != NULL)
+    {
+      /* Now see if there's a MEMSIZE spec in the environment */
+      while (*env)
+	{
+	  if (strncmp(*env, "MEMSIZE=", sizeof("MEMSIZE=")-1)==0)
+	    {
+	      unsigned long top_of_memory;
+	      char *end_of_num;
+	      
+	      /* Set up memory limit */
+	      state->MemSize = strtoul(*env + sizeof("MEMSIZE=")-1, &end_of_num, 0);
+	    }
+	  env++;
+	}
+    }
+
+  return SIM_RC_OK;
 }
 
 void
-sim_info (verbose)
+sim_info (sd, verbose)
+     SIM_DESC sd;
      int verbose;
 {
 }
@@ -225,7 +304,8 @@ tomem (state, memory,  val)
 }
 
 void
-sim_store_register (rn, memory)
+sim_store_register (sd, rn, memory)
+     SIM_DESC sd;
      int rn;
      unsigned char *memory;
 {
@@ -234,42 +314,71 @@ sim_store_register (rn, memory)
 }
 
 void
-sim_fetch_register (rn, memory)
+sim_fetch_register (sd, rn, memory)
+     SIM_DESC sd;
      int rn;
      unsigned char *memory;
 {
+  ARMword regval;
+
   init ();
-  tomem (state, memory, ARMul_GetReg(state, state->Mode, rn));
+  if (rn < 16)
+    regval = ARMul_GetReg(state, state->Mode, rn);
+  else if (rn == 25)	/* FIXME: use PS_REGNUM from gdb/config/arm/tm-arm.h */
+    regval = ARMul_GetCPSR(state);
+  else
+    regval = 0;		/* FIXME: should report an error */
+  tomem (state, memory, regval);
 }
 
 
 
 
-void
-sim_open (name)
-     char *name;
+SIM_DESC
+sim_open (kind, ptr, abfd, argv)
+     SIM_OPEN_KIND kind;
+     host_callback *ptr;
+     struct _bfd *abfd;
+     char **argv;
 {
-  /* nothing to do */
+  sim_kind = kind;
+  myname = argv[0];
+  sim_callback = ptr;
+  return (SIM_DESC) 1;
 }
 
 void
-sim_close (quitting)
+sim_close (sd, quitting)
+     SIM_DESC sd;
      int quitting;
 {
   /* nothing to do */
 }
 
-int
-sim_load (prog, from_tty)
+SIM_RC
+sim_load (sd, prog, abfd, from_tty)
+     SIM_DESC sd;
      char *prog;
+     bfd *abfd;
      int from_tty;
 {
-  /* Return nonzero so GDB will handle it.  */
-  return 1;
+  extern bfd *sim_load_file (); /* ??? Don't know where this should live.  */
+  bfd *prog_bfd;
+
+  prog_bfd = sim_load_file (sd, myname, sim_callback, prog, abfd,
+			    sim_kind == SIM_OPEN_DEBUG,
+			    0, sim_write);
+  if (prog_bfd == NULL)
+    return SIM_RC_FAIL;
+  ARMul_SetPC (state, bfd_get_start_address (prog_bfd));
+  if (abfd == NULL)
+    bfd_close (prog_bfd);
+  return SIM_RC_OK;
 }
 
 void
-sim_stop_reason (reason, sigrc)
+sim_stop_reason (sd, reason, sigrc)
+     SIM_DESC sd;
      enum sim_stop *reason;
      int *sigrc;
 {
@@ -289,22 +398,17 @@ sim_stop_reason (reason, sigrc)
 }
 
 void
-sim_kill ()
-{
-  /* nothing to do */
-}
-
-void
-sim_do_command (cmd)
+sim_do_command (sd, cmd)
+     SIM_DESC sd;
      char *cmd;
 {
-  printf_filtered ("This simulator does not accept any commands.\n");
+  (*sim_callback->printf_filtered) (sim_callback, "This simulator does not accept any commands.\n");
 }
 
 
 void
 sim_set_callbacks (ptr)
-struct host_callback_struct *ptr;
+     host_callback *ptr;
 {
-
+  sim_callback = ptr;
 }

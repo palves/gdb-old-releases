@@ -1,6 +1,5 @@
 /* BFD backend for Extended Tektronix Hex Format  objects.
-   Copyright (C) 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
-
+   Copyright (C) 1992, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -99,6 +98,35 @@ static char sum_block[256];
 (d)[1] = digs[(x) & 0xf]; \
 (d)[0] = digs[((x)>>4)&0xf];
 #define	ISHEX(x)  hex_p(x)
+
+static void tekhex_init PARAMS ((void));
+static bfd_vma getvalue PARAMS ((char **));
+static void tekhex_print_symbol
+ PARAMS ((bfd *, PTR, asymbol *, bfd_print_symbol_type));
+static void tekhex_get_symbol_info PARAMS ((bfd *, asymbol *, symbol_info *));
+static asymbol *tekhex_make_empty_symbol PARAMS ((bfd *));
+static int tekhex_sizeof_headers PARAMS ((bfd *, boolean));
+static boolean tekhex_write_object_contents PARAMS ((bfd *));
+static void out PARAMS ((bfd *, int, char *, char *));
+static void writesym PARAMS ((char **, CONST char *));
+static void writevalue PARAMS ((char **, bfd_vma));
+static boolean tekhex_set_section_contents
+ PARAMS ((bfd*, sec_ptr, PTR, file_ptr, bfd_size_type));
+static boolean tekhex_set_arch_mach
+ PARAMS ((bfd *, enum bfd_architecture, unsigned long));
+static boolean tekhex_get_section_contents
+ PARAMS ((bfd *, asection *, PTR, file_ptr, bfd_size_type));
+static void move_section_contents
+ PARAMS ((bfd *, asection *, PTR, file_ptr, bfd_size_type, boolean));
+static const bfd_target *tekhex_object_p PARAMS ((bfd *));
+static boolean tekhex_mkobject PARAMS ((bfd *));
+static long tekhex_get_symtab_upper_bound PARAMS ((bfd *));
+static long tekhex_get_symtab PARAMS ((bfd *, asymbol **));
+static void pass_over PARAMS ((bfd *, void (*)(bfd*, int, char *)));
+static void first_phase PARAMS ((bfd *, int, char *));
+static void insert_byte PARAMS ((bfd *, int, bfd_vma));
+static struct data_struct *find_chunk PARAMS ((bfd *, bfd_vma));
+static unsigned int getsym PARAMS ((char *, char **));
 
 /*
 Here's an example
@@ -314,7 +342,7 @@ getsym (dstp, srcp)
   return len;
 }
 
-struct data_struct *
+static struct data_struct *
 find_chunk (abfd, vma)
      bfd *abfd;
      bfd_vma vma;
@@ -364,7 +392,7 @@ insert_byte (abfd, value, addr)
 static void
 first_phase (abfd, type, src)
      bfd *abfd;
-     char type;
+     int type;
      char *src;
 {
   asection *section = bfd_abs_section_ptr;
@@ -453,9 +481,9 @@ first_phase (abfd, type, src)
    record.  */
 
 static void
- pass_over (abfd, func)
+pass_over (abfd, func)
      bfd *abfd;
-     void (*func) ();
+     void (*func) PARAMS ((bfd *, int, char *));
 {
   unsigned int chars_on_line;
   boolean eof = false;
@@ -499,11 +527,10 @@ static void
 
 }
 
-long
+static long
 tekhex_get_symtab (abfd, table)
      bfd *abfd;
      asymbol **table;
-
 {
   tekhex_symbol_type *p = abfd->tdata.tekhex_data->symbols;
   unsigned int c = bfd_get_symcount (abfd);
@@ -518,7 +545,7 @@ tekhex_get_symtab (abfd, table)
   return bfd_get_symcount (abfd);
 }
 
-long
+static long
 tekhex_get_symtab_upper_bound (abfd)
      bfd *abfd;
 {
@@ -615,6 +642,7 @@ move_section_contents (abfd, section, locationp, offset, count, get)
     }
 
 }
+
 static boolean
 tekhex_get_section_contents (abfd, section, locationp, offset, count)
      bfd *abfd;
@@ -632,7 +660,7 @@ tekhex_get_section_contents (abfd, section, locationp, offset, count)
     return false;
 }
 
-boolean
+static boolean
 tekhex_set_arch_mach (abfd, arch, machine)
      bfd *abfd;
      enum bfd_architecture arch;
@@ -749,7 +777,7 @@ writesym (dst, sym)
 static void
 out (abfd, type, start, end)
      bfd *abfd;
-     char type;
+     int type;
      char *start;
      char *end;
 {
@@ -840,50 +868,53 @@ tekhex_write_object_contents (abfd)
     }
 
   /* And the symbols */
-  for (p = abfd->outsymbols; *p; p++)
+  if (abfd->outsymbols)
     {
-      int section_code = bfd_decode_symclass (*p);
+      for (p = abfd->outsymbols; *p; p++)
+	{
+	  int section_code = bfd_decode_symclass (*p);
 
-      if (section_code != '?')
-	{			/* do not include debug symbols */
-	  asymbol *s = *p;
-	  char *dst = buffer;
+	  if (section_code != '?')
+	    {			/* do not include debug symbols */
+	      asymbol *s = *p;
+	      char *dst = buffer;
 
-	  writesym (&dst, s->section->name);
+	      writesym (&dst, s->section->name);
 
-	  switch (section_code)
-	    {
-	    case 'A':
-	      *dst++ = '2';
-	      break;
-	    case 'a':
-	      *dst++ = '6';
-	      break;
-	    case 'D':
-	    case 'B':
-	    case 'O':
-	      *dst++ = '4';
-	      break;
-	    case 'd':
-	    case 'b':
-	    case 'o':
-	      *dst++ = '8';
-	      break;
-	    case 'T':
-	      *dst++ = '3';
-	      break;
-	    case 't':
-	      *dst++ = '7';
-	      break;
-	    case 'C':
-	    case 'U':
-	      bfd_set_error (bfd_error_wrong_format);
-	      return false;
+	      switch (section_code)
+		{
+		case 'A':
+		  *dst++ = '2';
+		  break;
+		case 'a':
+		  *dst++ = '6';
+		  break;
+		case 'D':
+		case 'B':
+		case 'O':
+		  *dst++ = '4';
+		  break;
+		case 'd':
+		case 'b':
+		case 'o':
+		  *dst++ = '8';
+		  break;
+		case 'T':
+		  *dst++ = '3';
+		  break;
+		case 't':
+		  *dst++ = '7';
+		  break;
+		case 'C':
+		case 'U':
+		  bfd_set_error (bfd_error_wrong_format);
+		  return false;
+		}
+
+	      writesym (&dst, s->name);
+	      writevalue (&dst, s->value + s->section->vma);
+	      out (abfd, '3', buffer, dst);
 	    }
-
-	  writesym (&dst, s->name);
-	  writevalue (&dst, s->value + s->section->vma);
-	  out (abfd, '3', buffer, dst);
 	}
     }
 
@@ -894,7 +925,7 @@ tekhex_write_object_contents (abfd)
 }
 
 static int
-  tekhex_sizeof_headers (abfd, exec)
+tekhex_sizeof_headers (abfd, exec)
      bfd *abfd;
      boolean exec;
 
@@ -959,7 +990,7 @@ tekhex_print_symbol (ignore_abfd, filep, symbol, how)
 #define tekhex_bfd_free_cached_info _bfd_generic_bfd_free_cached_info
 #define tekhex_new_section_hook _bfd_generic_new_section_hook
 
-#define tekhex_bfd_is_local_label bfd_generic_is_local_label
+#define tekhex_bfd_is_local_label_name bfd_generic_is_local_label_name
 #define tekhex_get_lineno _bfd_nosymbols_get_lineno
 #define tekhex_find_nearest_line _bfd_nosymbols_find_nearest_line
 #define tekhex_bfd_make_debug_symbol _bfd_nosymbols_bfd_make_debug_symbol

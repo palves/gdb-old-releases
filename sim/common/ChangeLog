@@ -1,3 +1,2439 @@
+Sun Feb  1 16:47:51 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sun Feb  1 16:16:57 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-types.h (fp_word): New type, define according to
+ 	WITH_TARGET_FLOATING_POINT_BITSIZE.
+
+	* aclocal.m4 (default_sim_floating_point_bitsize): Add
+ 	configuration of size of floating point registers.
+
+Sun Feb  1 14:02:31 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-profile.c (profile_print): Only print CPU <N> if other
+ 	output is going to appear.
+
+Sat Jan 31 18:15:41 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sat Jan 31 18:03:55 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-types.h (address_word): Typedef according to
+ 	WITH_TARGET_ADDRESS_BITSIZE.
+	(signed_cell, unsigned_cell, natural_cell): Ditto using
+ 	WITH_TARGET_CELL_BITSIZE.
+	
+	* sim-config.h (WITH_TARGET_ADDRESS_BITSIZE): Define.
+	(WITH_TARGET_CELL_BITSIZE): Define.
+	(WITH_HOST_WORD_BITSIZE): Delete.
+
+	* sim-config.c (print_sim_config): Update.
+
+	* aclocal.m4 (SIM_AC_OPTION_BITSIZE): Add support for
+ 	configuration of address and OpenFirmware cell sizes.
+
+Fri Jan 30 09:36:33 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-engine.h (sim_engine_run): Add argument nr_cpus.
+	* sim-run.c (sim_engine_run): Update.
+	
+	* sim-engine.h (SIM_ENGINE_HALT_HOOK): Use SET_CPU_CIA instead of
+ 	CPU_CIA.
+  	* sim-run.c (sim_engine_run): Ditto.
+
+	* sim-resume.c (sim_resume): Obtain nr_cpus from sim_engine.
+	(sim_resume): Pass nr_cpus to sim_engine_run.
+
+	* sim-engine.h (struct _sim_engine): Add member nr_cpus.
+	
+	* sim-engine.c (sim_engine_init): Hardwire nr_cpus to
+ 	MAX_NR_PROCESSORS.
+	(sim_engine_nr_cpus) sim-engine.c, sim-engine.h: New function
+	
+Thu Jan 29 12:13:01 1998  Doug Evans  <devans@canuck.cygnus.com>
+
+	* cgen.sh: Portably read parms past $9.
+
+Fri Jan 23 14:20:54 1998  Doug Evans  <devans@seba.cygnus.com>
+
+	* Make-common.in (stamp-tvals): New rule.
+	(targ-vals.h,targ-map.c): Depend on it.
+	(clean): Remove stamp-tvals.
+
+Tue Jan 20 21:35:13 1998  Michael Meissner  <meissner@cygnus.com>
+
+	* sim-utils.c (sim_state_alloc): #if 0 variable that is only used
+	in code also #if 0'ed.
+
+Mon Jan 19 22:26:29 1998  Doug Evans  <devans@seba>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* aclocal.m4: Recognize --enable-maintainer-mode.
+
+Mon Jan 19 12:45:45 1998  Doug Evans  <devans@seba.cygnus.com>
+
+	* cgen-scache.h: Deleted.
+	* Make-common.in (cgen-run.o,cgen-scache.o): Delete cgen-scache.h dep.
+	(CGEN_CPU_SCM): Add sim-model.scm.
+	* cgen-scache.c: Only compile contents if WITH_SCACHE.
+	(scache_init): Use runtime computed size of SCACHE.
+	(scache_flush): Likewise.
+	* cgen-mem.h (GETIMEMU[QHSD]I): Declare.
+	([GS]ETT{QI,UQI,HI,UHI,SI,USI,DI,UDI}): Declare.
+	* cgen-sim.h: Scache support moved here.
+	(PC): Redo definition.
+	(ARGBUF,SCACHE,PARALLEL_EXEC): Provide forward decls.
+	(DECODE): Add parallel execution support.
+	Only include semantic label members if using switch.
+	(SWITCH,CASE,BREAK,DEFAULT,ENDSWITCH): Portable computed goto support.
+	(CGEN_CPU): Delete members exec_state, halt_sigrc, halt_jmp_buf.
+	(IADDR,CIA,SEM_ARG,EX_FN_NAME,SEM_FN_NAME,RECORD_IADDR,SEM_ARGBUF,
+	SEM_NEXT_PC,SEM_BRANCH_VIA_{CACHE,ADDR},SEM_NEW_PC_ADDR): Moved here
+	from cgen-types.h.
+	(engine_{stop,run,resume,halt,signal}): Delete decls.
+	* cgen-types.h (CGEN_{XCAT3,CAT3}): Delete.
+	(argbuf,scache): Delete forward decls.
+	(STATE): Delete decl.
+	* cgen-utils.c: Don't include decode.h, mem-ops.h, sem-ops.h.
+	Include cgen-mem.h, cgen-ops.h.
+	(engine_halt,engine_signal): Delete.
+	({ex,exc,sem,semc}_illegal): Delete.
+	(sim_disassemble_insn): Result of extract fn is in bits.
+	* genmloop.sh: Rewrite.
+
+	* cgen-trace.c (trace_insn): Set printed_result_p=0 if not tracing
+	line numbers.
+
+	* sim-base.h (sim_state_base): Delete member `model'.
+	(sim_cpu_base): Add member `model'.
+	* sim-model.h (IMP_PROPERTIES): New type.
+	(MACH): New members imp_props, models.
+	(models): Delete decl.
+	* sim-model.c (set_model): Update.
+	* sim-profile.c (profile_print_model): Update.
+
+	* sim-utils.c (sim_state_alloc): Delete setting of cpu backlink here.
+
+Fri Jan 16 12:33:09 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* cgen-trace.c (trace_insn): Call CGEN_INSN_MNEMONIC() rather than
+	CGEN_INSN_SYNTAX().
+
+Mon Dec 15 23:17:11 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Mon Dec 15 23:16:03 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* aclocal.m4 (AR): Check for sigaction.
+
+Thu Dec  4 09:21:05 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* Make-common.in (sim-core.o): Depend on $(sim_main_headers).
+
+	* sim-config.h (WITH_TREE_PROPERTIES): Define as 0.
+	* sim-config.c (sim_config): Replace WITH_DEVICES with
+	WITH_TREE_PROPERTIES.
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Dec  3 17:56:02 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* Make-common.in (SIM_ENVIRONMENT): New variable.
+	(CONFIG_CFLAGS): Add it.
+	* aclocal.m4 (SIM_AC_OPTION_ENVIRONMENT): Handle
+	--enable-sim-environment option.
+	* configure: Regenerated.
+	* sim-config.h (environment support): Rewrite.
+	* sim-config.c (current_environment): Define as enum, unconditionally.
+	(current_alignment): Define unconditionally.
+	(config_environment_to_a): Update.
+	(config_alignment_to_a): Fix type of argument.  Define unconditionally.
+	(sim_config): Handle environment and alignment determination
+	unconditionally.  Delete sanity checks of current_environment,
+	unnecessary.
+	(print_sim_config): Update.
+	* sim-options.c (STANDARD_OPTIONS enum): Add OPTION_ENVIRONMENT.
+	(standard_options): Add --environment.
+	(standard_option_handler): Likewise.
+
+Fri Nov 28 12:21:25 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-alu.h: Add notes on carry vs borrow for subtraction.
+	(ALU{,8,16,32,64}ADD): Redefine ADD macro as add overflowing.
+	(ALU{,8,16,32,64}ADDC): Define - add carrying.
+	(ALU{,8,16,32,64}SUB): Redefine SUB macro as subtract overflowing.
+	(ALU{,8,16,32,64}SUBB): Define - subtract borrowing.
+	(ALU{,8,16,32,64}SUBC): Define - tract carrying.
+	(ALU{,8,16,32,64}ADD_CA, ALU{,8,16,32,64}ADDC_C): Replace single
+ 	argument ADD_CA macro with two argument ADDC_C - add carrying with
+ 	carry in.
+	(ALU{,8,16,32,64}SUB_CA, ALU{,8,16,32,64}SUBC_X): Replace single
+ 	argument SUB_CA macro with two argument SUBC_X - subtract
+ 	carrying, extended.
+	(ALU{,8,16,32,64}SUBB_B): Define - subtract borrowing with
+ 	borrow-in.
+	(ALU{,8,16,32,64}NEGC, ALU{,8,16,32,64}NEGB): Define.
+
+Sun Nov 30 17:40:57 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* sim-io.c (sim_io_{syscalls,getstring}): Delete.  No longer used.
+	* sim-io.h (sim_io_syscalls): Delete.
+
+Fri Nov 28 20:10:09 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* syscall.c (cb_syscall): Add missing else, so write to stdout
+	isn't doubled.
+
+	* sim-alu.h (ALU{,8,16,32,64}_SET_CARRY): Provide macros to import
+	the carry bit from the CPU's psw.
+
+Fri Nov 28 11:15:05 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* gennltvals.sh: Redo syscall support.
+	* nltvals.def: Regenerated.
+
+Wed Nov 26 16:49:38 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* syscall.c (cb_syscall): If writing to stdout or stderr, flush
+	the stream immediately.
+
+Wed Nov 26 12:32:11 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-io.c (sim_io_getstring): Delete unused len2.
+	(sim_io_syscalls): Ditto for sys_errno.
+
+Wed Nov 26 11:18:40 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* syscall.c (cb_syscall): Test CB_SYSCALL struct magic number.
+
+	* Make-common.in (run.o): Depend on remote-sim.h.
+	(nrun.o,sim-hload.o,sim-hrw.o): Likewise.
+	(sim-io.o,sim-reason.o,sim-resume.o): Likewise.
+
+Tue Nov 25 20:12:46 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* sim-io.c (sim_io_syscalls): Disable lseek.
+
+Tue Nov 25 00:12:38 1997  Doug Evans  <devans@seba.cygnus.com>
+
+	* gennltvals.sh: Use libgloss/syscall.h for sparc.
+	* nltvals.def: Regenerate.
+
+	* callback.c (os_stat): Make 3rd arg a host struct stat ptr.
+	(os_fstat): Likewise.  Validate fd argument.
+	(cb_host_to_target_stat): Delete big_p arg.  If HS arg is NULL,
+	just compute target stat struct length.
+	* syscall.c: #include "libiberty.h", <sys/types.h>, <sys/stat.h>.
+	(ENOSYS,ENAMETOOLONG): Provide definitions if missing.
+	(get_string): Return host errno values so they can be properly
+	translated later.
+	(cb_syscall): Likewise.
+	(cb_syscall, cases open,unlink): Use get_path instead of get_string.
+	(cb_syscall, case read): Use read_stdin for file descriptor 0.
+	(cb_syscall, case write): Use write_stderr for file descriptor 2.
+	(cb_syscall): Add cases for lseek, unlink, stat, fstat, time.
+	(get_path): New function.
+
+Mon Nov 24 18:56:07 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* sim-io.c (sim_io_syscalls): New function to provide system call
+	emulation.  Provide exit, open, close, read, write, lseek, and
+	unlink.
+	(sim_io_getstring): New function to return a string from a
+	simulated memory location.
+
+	* sim-io.h (sim_io_syscalls): Add declaration.
+
+Mon Nov 24 12:09:59 1997  Doug Evans  <devans@seba.cygnus.com>
+
+	* sim-core.c (sim_core_signal): Fix spelling error in message.
+
+	* sim-hrw.c (sim_read): Use read map, not write map.
+
+	* Make-common.in (all): Add .gdbinit.
+	* gdbinit.in: Add dump command.
+
+	* sim-model.c (model_options): Use '\0' for `shortopt'.
+
+	* sim-trace.c (trace_option_handler): Set state trace file
+	for --trace-file in addition to cpu's values.
+	(trace_vprintf): If cpu == NULL, try state's trace file.
+	(trace_options): Reorganize table, reword some descriptions.
+
+Sun Nov 23 10:57:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-fpu.c (sim_fpu_abs, sim_fpu_neg, sim_fpu_inv), sim-fpu.h:
+ 	New functions.
+
+Sat Nov 22 19:16:54 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-reason.c (sim_stop_reason): For sim_signalled, return the
+ 	signal untranslated, document problem with this.
+
+	* nrun.c (main): Check for a prog name of `*step'.  If present,
+ 	step the simulator instead of allowing it to run free.
+
+	* sim-signal.c (SIGQUIT): Define on _MSC_VER hosts.
+
+	* Make-common.in (sim_main_headers): Add sim-signal.h.
+
+Fri Nov 21 09:32:32 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-signal.c (sim_signal_to_host): Return 0 for SIM_SIGNONE.
+
+Thu Nov 20 20:35:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-signal.h: Start simulator signals at 64 so that host signal
+ 	numbers can be detected and reported.
+
+	* sim-signal.h (SIM_SIGFPE), sim-signal.h: Add signal.
+
+Wed Nov 19 12:02:41 1997  Doug Evans  <devans@seba.cygnus.com>
+
+	* callback.c (cb_host_to_target_stat): Fix return values.
+
+	* cgen-sim.h (enum_signal_type): Delete.
+	(engine_signal): Update prototype.
+	* cgen-utils.c: Don't include <signal.h>.
+	(sim_signal_to_host): Delete, lives in sim-signal.c now.
+	(engine_signal): Update.
+
+	* sim-utils.c (sim_state_alloc): Call SIM_STATE_ALLOC if defined.
+	(sim_state_free): Call SIM_STATE_FREE if defined.
+
+	* sim-module.c (sim_module_install): Don't leave any modules
+	installed if one fails to install.
+
+Wed Nov 19 13:25:48 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* sim-options.c: Don't include ../libiberty/alloca-conf.h any
+	more, since alloca is not used in this file.
+
+	* sim-alu.h (ALU{32,64}_*): Rewrite 32 and 64 bit ALU support to
+	correctly set the carry and overflow bits for those types.
+	(ALU{8,16,32,64}_{ADD,SUB}_CA): Take VAL argument to add along
+	with carry, so carry is correct after doing both adds.
+	(ALU*): Space out '\' to make it easier to read.
+
+Tue Nov 18 15:53:45 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* sim-core.c (sim_core_signal): Use sim_stopped instead of
+	sim_signalled.
+
+	* sim-signal.c, sim-signal.h: New files.
+	* Make-common.in (sim-signal.o): Add rule for.
+	(SIM_NEW_COMMON_OBJS): Add sim-signal.o.
+	* sim-abort.c: Don't include <signal.h>.
+	* sim-basics.h: #include "sim-signal.h".
+	* sim-break.c: Don't include <signal.h>.
+	(sim_handle_breakpoint): Replace SIGTRAP with SIM_SIGTRAP.
+	* sim-core.c: Don't include <signal.h>.
+	(SIGBUS): Delete definition.
+	(sim_core_signal): Replace SIGSEGV,SIGBUS with SIM_SIGSEGV,SIM_SIGBUS.
+	* sim-engine.c: Don't include <signal.h>.
+	(sim_engine_abort): Replace SIGABRT with SIM_SIGABRT.
+	* sim-reason.c (sim_stop_reason): Call sim_signal_to_host.
+	* sim-resume.c: Don't include <signal.h>.
+	(SIGTRAP): Delete definition.
+	(has_stepped): Replace SIGTRAP with SIM_SIGTRAP.
+	* sim-stop.c: Don't include <signal.h>.
+	(control_c_simulation): Replace SIGINT with SIM_SIGINT.
+	* sim-watch.c: Don't include <signal.h>.
+	(handle_watchpoint): Replace SIGINT with SIM_SIGINT.
+
+	* Make-common.in (SIM_NEW_COMMON_OBJS): New variable.
+
+	* sim-base.h (CIA_ADDR): Provide default definition.
+	* sim-core.c (sim_core_signal): Use CIA_ADDR to fetch value.
+	* sim-break.c (sim_handle_breakpoint): Likewise.
+
+Mon Nov 17 14:15:31 1997  Doug Evans  <devans@seba.cygnus.com>
+
+	* Make-common.in (srccom): New variable.
+
+	* Make-common.in (DEP, COMMON_DEP_CFLAGS): Define.
+	(LIB_OBJS): Add syscall.o.
+	(gentmap): Pass $(NL_TARGET) to $(CC).
+	(syscall.o): Add rule for.
+	(sim_main_headers): Add $(SIM_EXTRA_DEPS).
+	(sim-bits.o): Depend on $(sim-n-bits_h).
+	(sim-load.o): Depend on callback.h.
+
+	* Make-common.in (cgen-*.o): Update dependencies, mem-ops.h renamed to
+	cgen-mem.h, sem-ops.h renamed to cgen-ops.h.
+	* cgen-mem.h, cgen-ops.h: New files.
+
+	* aclocal.m4 (--enable-sim-scache): Pass -DWITH_SCACHE=0 for "=no".
+
+	* Makefile.in (nltvals.def): Depend on gennltvals.sh.
+	Rewrite build rule.
+	* callback.c: #include string.h or strings.h.
+	#include sys/types.h and sys/stat.h.
+	(cb_init_syscall_map,cb_init_errno_map,cb_init_open_map): Declare.
+	(os_get_errno,os_open): Update.
+	(os_stat,os_fstat): New functions.
+	(os_init): Initialize syscall_map, errno_map, open_map.
+	(default_callback): Add entries for os_stat, os_fstat, syscall_map,
+	errno_map, open_map, signal_map, stat_map.
+	(cb_read_target_syscall_maps): New function.
+	(cb_target_to_host_syscall): New function.
+	(cb_host_to_target_errno): Renamed from host_to_target_errno.
+	(cb_target_to_host_open): Renamed from target_to_host_open.
+	(store): New function.
+	(cb_host_to_target_stat): New function.
+	* syscall.c: New file.
+	* gentmap.c (sys_tdefs): New global.
+	(gen_targ_vals_h): Output target syscall numbers.
+	(gen_targ_map_c): Update.  Output target syscall translation map.
+	* gentvals.sh: New first argument `target'.  Preface table with
+	#ifdef NL_TARGET_$target if non-null target passed.
+	* gennltvals.sh: New file.
+	* nltvals.def: Regenerated.
+
+Fri Nov 14 11:33:34 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-n-core.h (sim_core_read_unaligned_N): Return static
+ 	sim_core_dummy_M.
+	(sim_core_dummy_M): Declare.
+	
+Wed Nov 12 18:16:15 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.c (sim_core_signal): Print the address of the
+ 	instruction.
+
+Thu Nov 13 11:49:41 1997  Doug Evans  <devans@seba.cygnus.com>
+
+	* sim-base.h (sim_state_base): Move `magic' to end of struct.
+
+	* sim-base.h (sim_state_base): Add member trace_data.
+	(STATE_TRACE_DATA): New macro.
+	* sim-trace.h (TRACE_DEBUG_IDX,TRACE_debug): New macros.
+	({WITH_,}TRACE_DEBUG_P): New macros.
+	(STATE_TRACE_FLAGS,STRACE_P,STRACE_DEBUG_P): New macros.
+	(_sim_cpu): Delete forward reference.
+	(debug_printf): Update.
+	* sim-trace.c (OPTION_TRACE_DEBUG): Define.
+	(trace_options): Add --trace-debug.
+	(set_trace_options): Handle it.
+	(trace_option_handler): Likewise.
+	(trace_install): Init state trace_data struct.
+	(trace_uninstall): Close state trace file.
+	* sim-events.c (ETRACE): Only print source file and line number if
+	--trace-debug.
+	* sim-n-core.h (sim_core_trace_M): Likewise.
+
+	* sim-core.c (sim_core_signal): Add missing "\n" in message.
+
+1997-11-13  Felix Lee  <flee@cygnus.com>
+
+	* sim-n-core.h (sim_core_read_unaligned_N): illegal empty
+	initializer.
+	* sim-types.h (unsigned128,signed128): fix typo for MSVC.
+
+Wed Nov 12 12:18:08 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* aclocal.m4 (SIM_AC_OPTION_SCACHE): Fix typo.
+
+	* Make-common.in (BUILT_SRC_FROM_COMMON): Remove files no longer
+	built this way.
+	(sim-config.o): Remove non-existent $(sim-nconfig_h) dependency.
+	(clean): Don't delete $(BUILT_SRC_FROM_COMMON) if building in
+	source tree.
+
+Tue Nov 11 13:28:02 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-events.c (sim_events_process): Re-compute the time -
+ 	update_time_from_event - as each event is processed. Reverses
+ 	previous change.
+
+Fri Nov  7 00:37:36 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* callback.c (os_poll_quit): Replace _WIN32 with _MSC_VER.
+
+Fri Nov  7 00:37:36 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-events.c (sim_events_process): Delete redundant call to
+ 	update_time_from_event.
+	(sim_events_slip): Always decrement time_from_event.
+	(sim_events_tick, sim_events_deschedule, update_time_from_event):
+ 	Delete assertion that time_from_event >=0 when work in queue, no
+ 	longer applicable.
+
+Thu Nov  6 12:06:46 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-options.c (STANDARD_OPTIONS): Change OPTION_* to an enum.
+	(standard_option_handler): Update.
+
+	* sim-options.h: Clarify documentation.
+ 	(OPTION_LONG_ONLY_P): Delete definition.
+	(OPTION_VALID_P): Define.
+	
+	* sim-options.c (sim_print_help): Allow short only options.
+	(sim_parse_args): Ditto.
+	(sim_args_command): Skip short only options.
+	(sim_parse_args): Allocate space for NUM_OPTS not just 256. Make
+ 	separate entries for short and long options in the HANDLERS and
+ 	ORIG_VAL tables.
+	(sim_parse_args): Disable argument permutation.
+
+Wed Nov  5 13:40:31 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.h (DECLARE_SIM_CORE_WRITE_N. DECLARE_SIM_CORE_READ_N):
+ 	Add argument M, size of data type.
+	(sim_core_read_misaligned_3, sim_core_write_misaligned_3):
+ 	Declare, ditto for 5, 6 & 7 byte transfers.
+	(sim_core_write_unaligned_1, sim_core_write_unaligned_1): Define
+ 	as aligned variant.
+	
+	* sim-n-core.h (sim_core_trace_M): Rename from
+ 	sim_core_trace_N. Add nr_bytes argument. Replace transfer argument
+ 	with transfer type. Print transfer direction.  Handle 1 and 2 byte
+ 	transfers.
+	(sim_core_read_unaligned_N, sim_core_write_unaligned_N): Trace
+ 	unaligned accesses.
+	(unsigned_M, T2H_M, H2T_M): Rename from unsigned_N, T2H_N, H2T_N.
+  	Update all functions.
+
+	* sim-core.c: Generate functions starting with 16 not 1.
+	(sim_core_read_unaligned_3): Generate. Ditto for 3 byte write and
+ 	all 5, 6 & 7 byte transfers.
+
+	* sim-n-core.h (sim_core_read_misaligned_N,
+ 	sim_core_write_misaligned_N): Implement.
+
+Mon Nov  3 15:03:04 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-endian.h (U16_8): Implement
+
+	* sim-endian.c (sim_endian_split_16, sim_endian_join_16): New functions
+
+	* sim-endian.h (VL8_16, VH8_16): Implement.
+
+	* sim-memopt.c (memory_option_handler): Typecast 64bit value to
+ 	long in printf.
+	(memory_option_handler): Only zalloc modulo bytes when non-zero.
+	(memory_option_handler): Skip comma in alias address list
+
+Fri Oct 31 13:03:33 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-memopt.c (do_memopt_add, do_memopt_delete): Add level and
+ 	space params.
+	(parse_size, parse_addr): New functions
+	(memory_option_handler, memory_options): Parse address & size
+ 	using new functions. Pass level, space, modulo to do_memopt_add &
+ 	do_memopt_del.
+
+	* sim-memopt.h (struct _sim_memopt): Add level & space fields.
+
+	* sim-core.h (sim_core_arrach, sim_core_detach): Replace
+ 	`attach_type attach' argument with `unsigned level' argument.
+  	Document.
+
+	* sim-core.c (new_sim_core_mapping, sim_core_map_attach,
+ 	sim_core_attach): Replace argument attach with level.  Update
+ 	verification of arguments.
+	(sim_core_map_detach, sim_core_detach): Replace argument attach
+ 	with level.
+
+	* sim-basics.h (enum _attach_type): Delete.
+
+Thu Oct 30 13:45:00 1997  Doug Evans  <devans@seba.cygnus.com>
+
+	* sim-core.h (sim_core_write_8): Define.
+
+Tue Oct 28 12:29:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-bits.h: Document ROTn macro.
+
+	* sim-endian.h (H2T): Handle 16 byte variables.
+
+	* sim-n-core.h (sim_core_read_unaligned_N): Return a dummy when an
+ 	error.
+
+	* sim-core.c: Do not generate sim_core_*_word.
+
+	* sim-n-core.h (sim_core_trace_N): Add line_nr argument.
+	(sim_core_write_aligned_N, sim_core_read_aligned_N): Update.
+
+	* sim-core.h (sim_core_read_unaligned_word,
+ 	sim_core_read_aligned_word, sim_core_read_word,
+ 	sim_core_write_unaligned_word, sim_core_write_aligned_word,
+ 	sim_core_write_word): Change to macros that map onto sim_core_*_N.
+
+Mon Oct 27 11:25:10 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* sim-n-endian.h: Add TAGS entrys for 16 byte versions.
+
+	* sim-endian.h: Disable 16 byte support.
+
+Mon Oct 27 12:00:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-endian.c (_SWAP_16): Define.  Generate 126 bit swap code.
+
+	* sim-n-core.h (sim_core_trace_N): New function.
+	(sim_core_read_aligned_N, sim_core_write_aligned_N): Use,
+	(sim_core_read_unaligned_N): Do not retyrn bogus value wden error.
+
+	* sim-endian.h:  Add 128 bit variant.
+
+	* sim-core.h, sim-core.c: Add 128 bit variant.
+
+	* sim-types.h: Add signed128 and unsigned128 types using a struct.
+
+Fri Oct 24 11:33:07 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-events.c (sim_events_process): Clear events->work_pending.
+	(sim_events_tickn, sim_events_tick): Accumulate, instead of
+ 	setting, nr_ticks_to_process.
+	(sim_events_preprocess): Allow nr_ticks_to_process to be non-zero
+ 	when the event queue isn't next.
+
+	* sim-events.h, sim-events.c (sim_events_slip): New function.
+
+Wed Oct 22 14:18:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-hload.c (sim_load): Pass lma_p==0 and do_load=sim_load.
+
+	* sim-utils.h, sim-load.c (sim_load_file): Add lma_p and do_load
+ 	arguments.
+
+Tue Oct 21 18:37:57 1997  Doug Evans  <devans@canuck.cygnus.com>
+
+	* nrun.c (main): Remove useless test of name != NULL.
+	Exit if bfd_openr fails.  Call bfd_check_format after bfd_openr.
+
+Tue Oct 21 10:42:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-fpu.c (EXPMAX): Type is unsigned.
+	(MIN_INT, MAX_INT): Type is signed64.
+	(i2fpu): Type of val is signed64.
+
+Tue Oct 21 10:42:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-profile.h (PROFILE_PC_BUCKET_SIZE): Treat a shift of zero as
+ 	a bucket size of zero.
+
+	* sim-profile.c (OPTION_PROFILE_PC_GRANULARITY,
+ 	OPTION_PROFILE_PC): Define.
+	(profile_option_handler): Add support for --profile-pc and
+ 	--profile-pc-granularity options.
+	(profile_pc_init): When possible, compute nr buckets from bucket
+ 	size.
+
+	* sim-profile.c (profile_pc_init): Align the profile-pc end
+ 	address with the profile-pc bucket size.
+
+	* sim-profile.h (PROFILE_PC_NR_BUCKETS): Rename PROFILE_PC_SIZE to
+ 	something less ambiguous.
+	(PROFILE_PC_BUCKET_SIZE): Ditto for PROFILE_PC_SAMPLE_SIZE.
+
+	* sim-profile.c (profile_pc_cleanup): New function. Move
+ 	profile_pc_uninstall code to here.
+	(profile_pc_uninstall): Call.
+	(profile_pc_init): Call.
+
+Mon Oct 20 17:23:58 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-profile.c (profile_print_pc): Dump pc profile to dmon.out
+ 	file using BSD gprof format.
+
+	* sim-bits.h (LSBIT, MSBIT, BIT): Force result to type
+ 	unsigned_word.
+	(LSBIT8, LSBIT16, LSBIT32, LSBIT64, MSBIT8, MSBIT16, MSBIT32,
+ 	MSBIT64): Force result to unsignedN.
+
+Thu Oct 16 11:38:56 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-alu.h (ALU16_BEGIN, ALU32_BEGIN, ALU64_BEGIN): Drop opening
+ 	brace from macro.
+	(ALU8_BEGIN, ALU8_SET, ALU8_ADD, ALU8_SUB, ALU8_NEGATE): Define.
+	(ALU16_ADD, ALU16_SUB, ALU16_NEGATE): Simplify arrithmetic.
+	(ALU32_ADD, ALU32_SUB, ALU32_NEGATE): Simplify arrithmetic.
+	(ALU64_ADD, ALU64_SUB, ALU64_NEGATE): Simplify arrithmetic.
+
+Wed Oct 15 09:24:19 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.h (struct _sim_core_mapping): Change free_buffer to
+ 	type void*.
+
+	* sim-core.c (sim_core_uninstall, new_sim_core_mapping,
+ 	sim_core_map_attach, sim_core_map_detach): Change free_buffer to
+ 	type void*.
+	(sim_core_attach): Rename buffer_freed to free_buffer, type
+ 	void*. Ensure that allocated buffer is alligned according to
+ 	region's address.
+
+Mon Oct 13 11:34:50 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-alu.h (ALU64_HAD_OVERFLOW): Define.
+	(ALU64_SUB): Define.
+
+	* Make-common.in (all): Build SIM_EXTRA_ALL first.
+	(.gdbinit): Remove dependencies, generate once per build.
+
+Tue Oct 14 19:20:09 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-n-core.h (sim_core_read_aligned_N,
+ 	sim_core_write_aligned_N): Make xaddr param type address_word not
+ 	unsigned_word.
+
+Fri Oct  3 09:49:18 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-fpu.h, sim-fpu.c: Rewrite.  Change sim_fpu object to an
+ 	unpacked floating point struct.  Pass sim_fpu object by reference.
+	Add preliminary support for rounding modes.
+	
+Fri Oct  3 09:28:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Thu Oct  2 19:43:52 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* aclocal.m4 (sim-bitsize): Fix typo, WITH_TARGET_WORD_BITSIZE not
+ 	WITH_TARGET_BITSIZE.
+
+Thu Sep 25 23:20:20 1997  Felix Lee  <flee@yin.cygnus.com>
+
+        * sim-profile.c (profile_print_core): label needs empty statement.
+
+Thu Sep 25 11:20:47 1997  Stu Grossman  <grossman@babylon-5.cygnus.com>
+
+	* sim-break.c (sim_set_breakpoint sim_clear_breakpoint):  Use ZALLOC
+	and zfree instead of xmalloc and free.  Prevents warnings.
+
+Wed Sep 24 17:38:57 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Sep 24 17:23:31 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Make-common.in (SIM_BITSIZE): Assign from configured value.
+	(CONFIG_CFLAGS): Add SIM_BITSIZE.
+
+	* aclocal.m4 (--enable-sim-bitsize): Developer option for
+ 	controling the bitsize/msb of the target.
+
+Wed Sep 24 17:41:40 1997  Stu Grossman  <grossman@babylon-5.cygnus.com>
+
+	* Make-common.in:  New files sim-break.c, sim-break.h.
+	* sim-base.h:  Add point to breakpoint list to sim_state_base.
+	* sim-break.c sim-break.h:  New modules that implement intrinsic
+	breakpoint support.
+	* sim-module.c:  Add breakpoint module.
+	
+Tue Sep 23 00:26:39 1997  Felix Lee  <flee@yin.cygnus.com>
+
+	* sim-events.c (SIM_EVENTS_POLL_RATE): poll more often than once
+ 	an hour.
+	* sim-n-core.h (WITH_XOR_ENDIAN): MSVC barfs on
+	if (0) { 1 % 0; }
+	* sim-core.c (sim_core_xor_write_buffer): WITH_XOR_ENDIAN + 1.
+	(SIGBUS) define for Windows.
+	* sim-trace.c (trace_printf,debug_printf): added ALMOST_STDC.
+	* sim-resume.c: define SIGTRAP for windows.
+	* sim-xcat.h: use token pasting if ALMOST_STDC.
+
+Tue Sep 23 11:04:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Make-common.in (SIM_SCACHE, SIM_DEFAULT_MODEL): Assign
+ 	configured values.
+ 	(CONFIG_CFLAGS): Add same.
+	
+Mon Sep 22 17:20:27 1997  Felix Lee  <flee@cygnus.com>
+
+	* sim-types.h (SIGNED64): ##i64 when _MSC_VER, not _WIN32.
+	(SIGNED32): use ##i32.
+
+Tue Sep 23 11:04:38 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Sep 23 10:07:47 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* aclocal.m4 (sim-endian): Simplify logic determining [default]
+ 	endian of target.
+
+	* Make-common.in (SIM_WARNINGS, SIM_ALIGNMENT, SIM_ENDIAN,
+ 	SIM_HOSTENDIAN, SIM_RESERVED_BITS, SIM_ASSERT, SIM_FLOAT,
+ 	SIM_HARDWARE, SIM_INLINE, SIM_PACKAGES, SIM_REGPARM, SIM_SMP,
+ 	SIM_STDCALL, SIM_XOR_ENDIAN): Assign configured values.
+	(CONFIG_CFLAGS): Add same.
+
+	* aclocal.m4: Perform AC_SUBST on optional options.
+
+Mon Sep 22 11:46:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-config.h (WITH_DEFAULT_ALIGNMENT): Don't hardwire any alignment.
+
+	* sim-options.c (standard_option_handler): Typo in warning message.
+
+	* sim-base.h (STATE_MODEL): Make conditional on SIM_HAVE_MODEL.
+
+	* sim-profile.c (profile_print_insn): Check 0 .. MAX_INSN for any
+ 	insn count.  Make count conditional on there being a valid
+ 	INSN_NAME.
+	(profile_pc_init): Make default PC profile frequency an arbitrary
+ 	256.
+
+	* sim-base.h: Ditto.
+
+	* sim-profile.h (WITH_PROFILE_MODEL_P): Only enable modeling when
+ 	SIM_HAVE_MODEL.
+
+	* sim-model.h (struct MACH): Depreciate, to be replaced by bfd
+	archure struct.
+
+Mon Sep 22 11:46:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Sep 22 11:45:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* aclocal.m4 (sim_alignment): Simplify logic for selecting the
+ 	configured alignment.
+
+Fri Sep 19 17:45:25 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Sep 19 17:26:14 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-config.c (sim_config): Check for default alignment.
+
+	* sim-options.c (standard_option_handler): Add alignment option.
+
+	* aclocal.m4 (sim_alignment): Allow configuration of hardwired and
+ 	default alignment requirements on memory accesses.
+	
+Fri Sep 19 11:51:35 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* sim-load.c (sim_load_file): Return failure if the executable
+	had no loadable sections.
+
+Wed Sep 17 13:33:28 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-events.c (ETRACE): Use trace_printf not sim_io_printf for
+ 	trace output.
+
+	* sim-core.c (sim_core_signal): When bad access halt simulator
+ 	SIGSEGV / SIGBUS instead of aborting.
+	(signal.h): Include.
+	
+	* sim-watch.c (sim_watchpoint_install): Handler for watchpoint
+ 	options was missing.
+
+	* sim-bits.h (MOVED): Define
+
+Wed Sep 17 10:33:28 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-alu.h (ALU32_HAD_OVERFLOW): Pacify GCC, Use MSBIT instead of
+ 	BIT.
+
+	* sim-bits.h (LSBIT, MSBIT): Check for overflow of shift value.
+
+	* sim-bits.c: Add 8 bit versions of bit macros.
+
+	* sim-bits.h: Ditto.
+
+Tue Sep 16 16:15:16 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-bits.c (LSSEXT, MSSEXT): Replace SEXT.
+	(LSINSERTED, MSINSERTED): Ditto for INSERTED.
+	
+	* sim-n-bits.h (MSSEXTn, LSSEXTn): Replace SEXTn.
+	(LSINSERTDn, MSINSERTEDN): Ditto for INSERTEDn.
+	
+	* sim-bits.h (SEXT*): Define as MSEXT/LSEXT.
+	(INSERTED*): Ditto for LSINSERTED/MSINSERTED.
+	
+Mon Sep 15 17:36:15 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* aclocal.m4 (SIM_AC_COMMON): Add optional config.h file argument.
+	configure.in: Output to cconfig.h instead of config.h.
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Mon Sep 15 15:39:28 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-utils.c (sim_analyze_program): Set STATE_ARCHITECTURE from
+ 	BFD if known.
+
+Tue Sep  9 21:46:46 1997  Felix Lee  <flee@cygnus.com>
+
+	* callback.c (os_write): divert stdout and stderr to their
+ 	respective hooks.
+
+Thu Sep 11 10:08:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-profile.c (profile_print_speed): Call
+ 	sim_events_elapsed_time instead of PROFILE_EXEC_TIME for moment.
+
+	* sim-events.c (sim_events_elapsed_time): New function return nr
+ 	host MS consumed by the simulator.
+	(sim_watch_valid): Use.
+
+	* sim-module.c (modules): Install sim_events very very early.
+
+	* sim-profile.c (profile_print): Call profile_print_pc.
+	(print_bar):
+	(profile_pc_init): New function, set up processor for PC
+ 	profiling.
+	(profile_print_pc): New function, print a PC profile.
+	(profile_pc_event): New function, sample PC.
+
+	* sim-profile.h (PROFILE_PC_COUNT, PROFILE_PC_START,
+ 	PROFILE_PC_END, PROFILE_PC_SHIFT, PROFILE_PC_SAMPLE_SIZE): Add to
+ 	profile struct.
+
+	* sim-options.c (sim_print_help): Pacify GCC.
+
+	* sim-n-core.h (sim_core_read_aligned_N,
+ 	sim_core_write_aligned_N): Add un-conditional profile call.
+	(sim_core_read_unaligned_N, sim_core_write_unaligned_N): Add
+ 	profile call when aligned read/write isn't used.
+
+	* sim-base.h: Include sim-profile, sim-model after sim-core &
+ 	sim-events allow sim-core to define useful values.
+
+	* sim-profile.c (OPTION_PROFILE_CORE): Define.
+	(profile_option_handler, profile_options): Add support for
+ 	--profile-core option.
+	(print_bar): Include when core profiling.
+	(profile_print_core): New function, print core profile.
+
+	* sim-config.c (print_sim_config): Print profile status.
+
+	* sim-profile.h (PROFILE_NEXT_IDX, PROFILE_core,
+ 	WITH_PROFILE_PC_P): Define.
+	(PROFILE_CORE_COUNT): Count each core-map/size separatly.
+	(PROFILE_COUNT_CORE): Define.
+
+Thu Sep 11 08:44:52 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-watch.c (handle_watchpoint): Pass a char** index into the
+ 	interrupt_names array as the data.
+	(sim-watch.h): Document.
+
+Wed Sep 10 16:15:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-options.c (sim_print_help): When the doc string is to long
+ 	word wrap it.
+
+	* sim-watch.c (sim_watchpoint_install): Use option.doc_name so
+ 	that only the first few the watch options are listed.  Generate
+ 	meanginful usage messages.
+
+	* sim-options.h (struct OPTION): Clarify use of doc_name field
+	
+Wed Sep 10 13:23:24 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-options.c (OPTION_ARCHITECTURE_INFO): New option.
+	(standard_option_handler): Handle --architecture-info.
+
+Tue Sep  9 21:46:46 1997  Felix Lee  <flee@cygnus.com>
+
+	* sim-core.h (sim_cpu_core): [WITH_XOR_ENDIAN + 1], to avoid
+	illegal zero-sized array.
+	* sim-core.c (sim_core_xor_read_buffer): same.
+
+Tue Sep  9 11:20:35 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* nltvals.def: Regenerate.
+
+Tue Sep  9 02:10:36 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-fpu.c (DP_FRACHIGH2): Define LL using SIGNED64.
+
+Mon Sep  8 12:22:20 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-bits.c (MASKED): Delete.
+	(EXTRACTED): Delete.
+	(LSEXTRACTED, MSEXTRACTED): New functions.
+
+	* sim-n-bits.h (MASKEDn): Delete, define as MSMASKED or LSMASKED.
+	(MSMASKEDn, LSMASKEDn): Add last argument.
+	(MSMASK*): Ditto.
+	
+	* sim-bits.h (EXTEND8, EXTEND16): Define.
+	(EXTRACTED64): Define as 64 bit extract, not 32 bit.
+
+	* sim-run.c (sim_engine_run): Use CPU_CIA macro.
+
+	* sim-engine.h (SIM_ENGINE_HALT_HOOK): Use CPU_CIA to get at
+ 	current instruction address.
+
+	* sim-inline.h (*_ENGINE): Define.
+
+Fri Sep  5 08:39:02 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.c (sim_core_attach): Fix checks of modulo/mask.
+
+	* sim-watch.c (delete_watchpoint): Delete by ident and type.
+	(watch_option_handler): Call delete_watchpoint with ident or type.
+	(sim_watchpoint_install): Create interrupt specific watchpoint
+ 	commands on the fly.
+	(do_watchpoint_create): New function, create a watch point using
+ 	type/int-nr info encoded in the option nr.
+	(do_watchpoint_info): New function.  List active watchpoints.
+
+	* sim-watch.h: Change data structure to a list.
+
+	* sim-memopt.c (memory_option_handler): Require explicit "all"
+ 	before deleting all memory regions.
+
+	* sim-utils.c (sim_do_commandf): New function, printf version of
+ 	sim_do_command.
+
+	* sim-basics.h (asprintf, vasprintf): Hack, define for CYGWIN32. 
+	
+	* sim-alu.h (ALU64_ADD): Use explicit MSEXTRACTED64, do not assume
+ 	bit endianness.
+	(SIGNED64, UNSIGNED64): Delete.
+	(ALU64_ADD): Don't rely on bit endianness.
+	(ALU64_BEGIN): Define.
+
+	* sim-n-bits.h (MSEXTRACTEDn, LSEXTRACTED): New functions.
+	(EXTRACTEDn): Delete, define as either LSEXTRACTED or MSEXTRACTED.
+
+	* sim-types.h (SIGNED64, UNSIGNED64): New macros, attach relevant
+ 	suffix - u64, LL - to 64 bit constants.
+
+Thu Sep  4 09:27:54 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-config.c (sim_config): Add assert for SIM_MAGIC_NUMBER.
+
+	* sim-utils.h (NZALLOC): Define - zalloc * N.
+
+	* sim-hrw.c (sim_read, sim_write): New file.  Provide generic
+ 	implementation of read/write functions.
+
+	* Make-common.in (sim-hrw.o): New target.
+
+	* sim-base.h (STATE_MEMOPT_P): Delete, simulators _always_ add
+ 	memory.
+
+	* sim-memopt.c (memory_option_handler): Implement memory-size
+ 	command. Implement memory-alias command.  Let memory-delete delete
+ 	all memory regions.
+	(add_memopt): New function.  Add a memory region.
+	(do_memopt_delete): New function. Delete a memory region.
+
+	* sim-utils.c (sim_elapsed_time_get): Never return zero.
+
+	* sim-core.c (sim_core_detach): New function.
+	(sim_core_map_detach): New function. Perform the actual detach.
+	(sim_core_init): Move initialization code from here.
+	(sim_core_install): To here.
+	(sim_core_uninstall): And here.
+
+	* sim-module.c: Add memopt module.
+
+	* sim-base.h (STATE_MEMOPT, STATE_MEMOPT_P): Add memopt to
+ 	simulator base type.
+
+	* Make-common.in (sim_main_headers): Add sim-memopt.h
+	(sim-memopt.o): New target.
+
+	* sim-core.c (sim_core_install): Add core_options to the option
+ 	table.
+
+	* sim-watch.c (watch_options): Make --delete-watch a synonym for
+ 	--watch-delete.
+
+	* sim-config.h (WITH_MODULO_MEMORY): Define as 0.  Update
+ 	comments.
+
+	* sim-core.h (struct _sim_core_mapping): Change nr_bytes to type
+ 	address_word, add mask member.
+	
+	* sim-core.h, sim-core.c (sim_core_attach): Make nr_bytes of type
+ 	address_word, allow for 64bit targets in 32bit host. Add modulo
+ 	argument.
+	(sim_core_map_attach): Ditto.
+	(new_sim_core_mapping): Ditto.
+	(sim_core_translate): Mask address when modulo memory.
+
+Wed Sep  3 17:32:54 1997  Doug Evans  <dje@seba.cygnus.com>
+
+	* sim-hload.c (sim_load): Add assert for SIM_MAGIC_NUMBER.
+
+	* gdbinit.in: New file.
+	* aclocal.m4 (SIM_AC_OUTPUT): Build .gdbinit.
+	* Make-common.in (distclean): Delete .gdbinit.
+	(.gdbinit): Add rule for.
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+	* Make-common.in (cgen-run.o): Add rule for.
+
+Wed Sep  3 10:08:21 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-resume.c (sim_resume): Suspend/resume the simulator.
+
+	* sim-events.c (sim_watch_valid): Compute total elapsed time from
+ 	both resumed and previous elapsed time.
+	(sim_events_init): Set initial_wallclock and current_wallclock to
+ 	zero.
+	(sim_events_install): Install sim_events_suspend and
+ 	sim_events_resume.
+	(sim_events_watch_clock): Allow for suspended simulator when
+ 	computing the time of the clock event.
+
+	* sim-events.h (struct _sim_event): Add resume_wallclock, rename
+ 	initial_wallclock to elapsed_wallclock, set both to zero.
+	(sim_events_init, sim_events_uninstall): Delete prototypes.
+
+	* sim-module.h (MODULE_SUSPEND_FN, MODULE_RESUME_FN): Define types.
+	
+	* sim-module.c(sim_module_resume, sim_module_suspend): New
+ 	functions.
+
+Wed Sep  3 10:08:21 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.c (sim_core_map_attach): Clarify memory overlap error
+ 	message.
+
+Tue Sep  2 14:57:06 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (TAGS): Add support for "/* TAGS: foo */" marker.
+	* Make-common.in (TAGS): Likewise.
+	* sim-n-bits.h: Add TAGS comments for all functions.
+	* sim-n-core.h: Likewise.
+	* sim-n-endian.h: Likewise.
+
+Mon Sep  1 10:50:11 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-utils.c (sim_state_alloc): Set CPU backlinks, callback and
+ 	kind.
+  	
+	* sim-base.h (sim_state_alloc): Add callback and kind arguments.
+	
+	* sim-base.h (INVALID_INSTRUCTION_ADDRESS): Add default
+ 	definition.
+
+Sat Aug 30 09:47:21 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-fpu.c (DP_GARDMSB, ...): Make unsigned.
+	(DP_FRACHIGH, DP_FRACHIGH2, ..): Use MSMASK to avoid LL.
+
+Fri Aug 29 13:37:44 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.c (sim_core_map_attach): Cast attach enum to int.
+	(sim_core_xor_read_buffer, sim_core_xor_write_buffer): Make
+ 	nr_transfered and nr_this_transfer unsigned.
+
+	* sim-events.c (sim_events_tickn): N is signed, as limited to
+ 	MAXINT.
+
+	* sim-n-endian.h (offset_N): Change size to unsigned.
+
+	* callback.c (os_poll_quit): Add prototypes for kbhit and getkey.
+
+Fri Aug 29 10:10:53 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-utils.c (sim_copy_argv): Delete, replaced by dupargv.
+
+	* sim-options.c (sim_parse_args): Use dupargv.
+
+Thu Aug 28 10:36:34 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-options.c (standard_option_handler): Use xstrdup, not strdup.
+
+Thu Aug 28 12:09:15 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-base.h (STATE_ARCHITECTURE, STATE_TARGET): Add to simulator
+ 	base type.
+
+	* sim-options.c (standard_options): Add --architecture=MACHINE and
+ 	--target=TARGET options.
+	(OPTION_ARCHITECTURE, OPTION_TARGET): Define.
+	(standard_option_handler): Handle architecture and target options.
+	(bfd.h): Include.
+	
+	* sim-utils.c (sim_analyze_program): Pass STATE_TARGET to
+ 	bfd_openr.
+	(sim_analyze_program): Set prog_bfd architecture from
+ 	STATE_ARCHITECTURE if known.
+
+Wed Aug 27 18:13:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Wed Aug 27 18:11:30 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* aclocal.m4 (enable-sim-warnings): Remove comment stating
+ 	that option does not apply to certain files.
+
+Wed Aug 27 15:13:04 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-bits.h (LSBIT8, LSBIT16, LSBIT32, LSBIT64, LSBIT, MSBIT8,
+ 	MSBIT16, MSBIT32, MSBIT64, MSBIT): New macros - single bit as
+ 	offset from MSB/LSB.
+
+	* sim-endian.h (A1_8, A2_8, A4_8, A1_4, A2_4, A1_2): New macro,
+ 	access address of sub word quantity of a hosts 16, 32, 64 bit word
+ 	type.
+	(V1_2, V1_4, V2_4, V1_8, V2_8, V4_8): Ditto for values.
+	(U8_1, U8_2, U8_4, U4_1, U4_2, U2_1): Ditto for set of values.
+	(V2_H1, V2_L1, V4_H2, V4_L2, V8_L4, V8_H4): Given N byte argument,
+ 	return N*2 byte value with argument in Hi/Lo word.  Renamed from
+ 	V1_H2, V1_L2, V2_H4, V2_L4, V4_H8, V4_L8.
+ 	
+	* sim-alu.h (ALU32_HAD_OVERFLOW): Use 64 bit mask not 32bit.
+	(ALU16_HAD_CARRY, ALU32_HAD_CARRY, ALU16_HAD_OVERFLOW): Use MSBIT
+ 	so that bit offset is explicit.
+
+Wed Aug 27 11:55:35 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-utils.c (sim_analyze_program): Add prog_name argument.
+  	Update STATE_PROG_BFD when needed with a dup'd copy of the
+ 	program.
+
+	* sim-config.c (sim_config): Delete ABFD argument, use
+ 	STATE_PROG_BFD directly.
+
+Tue Aug 26 12:55:26 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* run.c (main): Pass the open ABFD to sim_create_inferior.
+	
+	* nrun.c (main): Determine prog_bfd.  Pass to sim_create_inferior
+ 	and sim_load.
+	(bfd.h): Include.
+	
+	* sim-hload.c (sim_load): New file. Implement generic sim_load for
+ 	hardware only simulator targets.
+
+	* Make-common.in (sim-hload.o): Add rule.
+
+Wed Aug 27 09:51:42 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-utils.c (sim_copy_argv): Rewrite to match malloc strategy
+ 	used by copyargv and freeargv.
+
+	* sim-options.c (sim_parse_args): Save a copy of PROG-ARGS in
+ 	STATE_PROG_ARGV, not just a pointer.
+
+Mon Aug 25 17:50:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Mon Aug 25 12:11:06 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* aclocal.m4 (sim-endian): Add second argument to
+ 	SIM_AC_OPTION_ENDIAN.  First is hardwired endian, second is
+ 	default endian when not hardwired.
+
+	* sim-config.h (WITH_DEFAULT_TARGET_BYTE_ORDER): New macro, if all
+ 	else failes value for target byte order.
+
+	* sim-config.c (sim_config): Add abfd arguments. Set
+ 	STATE_PROG_BFD accordingly.  Determine prefered_target_byte_order
+ 	from same.
+	(sim_config): Return SIM_RC, don't abort.
+	(bfd.h): Include.
+	
+	* run.c (main): Update call to sim_open - add ABFD argument.
+  	* nrun.c (main): Add NULL ABFD argument.
+
+Thu Aug 14 12:48:57 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* callback.c (os_poll_quit): Make static.
+	Call sim_cb_eprintf, not p->eprintf.
+	(sim_cb_printf, sim_cb_eprintf): New functions.
+	* sim-utils.h (sim_cb_printf, sim_cb_eprintf): Declare.
+
+	* sim-basics.h (zalloc,zfree,sim_add_commas,SIM_ELAPSED_TIME,
+	sim_elapsed_time_get,sim_elapsed_time_since): Move decls to
+	sim-utils.h. #include sim-utils.h.
+	* sim-utils.h: Above decls moved here.
+	(sim_analyze_program,sim_load_file): Use `struct _bfd', not `bfd'.
+
+	* sim-watch.c (action_watchpoint): Fix thinkos.
+
+Thu Jul 24 08:48:05 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* sim-types.h:  Fix defs of 64 bit data types for MSVC.
+
+Tue Jul 22 10:35:37 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-n-core.h (sim_core_write_unaligned_N): Add missing break
+	to FORCED_ALIGNMENT case.
+
+Thu Jun  5 13:48:37 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* callback.c (target_to_host_open): Handle hosts with O_BINARY.
+
+Thu Jun  5 08:47:10 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* Make-common.in (libsim.a): Fix typo.
+
+Thu Jun  5 13:48:37 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* nrun.c (main): Verify the structure returned before using it.
+
+Wed Jun  4 11:44:06 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-config.h (WITH_ENGINE): Enable the sim-engine module by
+ 	default.
+
+	* sim-engine.c (sim_engine_install): New function.  Install the
+ 	engine init functions.
+	(sim_engine_init): [Re]initialize the simulator engine.
+	
+	* sim-module.c: Add sim_engine to list of modules that always
+ 	install.
+
+Tue Jun  3 04:52:04 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-watch.c (schedule_watchpoint): Use sim_unschedule_watchpoint
+ 	to remove the old watchpoint, not delete_watchpoint.
+	(watch_option_handler): Action the correct watchpoint, not just
+ 	cycles.
+
+Wed May 28 14:47:41 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-n-core.h (sim_core_write_aligned_N): For 8byte reads, output
+ 	both low and high word.
+	(sim_core_write_aligned_N): Ditto.
+	
+	* sim-trace.c (set_trace_options): Delete code explicitly setting
+ 	core->trace.
+
+	* sim-options.c (sim_print_help): Call the list commands if not a
+ 	standalone simulator.
+	(sim_print_help): Advise that some options may not be applicable.
+	
+	* sim-trace.c (set_trace_options): Assume core present.
+
+	* sim-events.c (sim_events_schedule_after_signal): Overflow signal
+ 	buffer when full not almost full.
+
+Tue May 27 14:32:00 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-events.c (sim_events_process): Don't blat the event queue
+ 	when processing watchpoints.
+
+	* sim-watch.h: Make arg unsigned long - stop sign extension.
+
+	* sim-events.c (sim_watch_valid): rewrite so debugable.
+
+	* sim-config.h (WITH_XOR_ENDIAN): Default to zero.
+
+	* sim-watch.c (schedule_watchpoint): Add is_within option so that
+ 	inequality test is possible.
+	(handle_watchpoint): Re-pass is_within arg.
+	(watch_option_handler): When `!' prefix to pc-watchpoint arg pass
+ 	0 to schedule_watchpoint's is_within arg.
+	(sim_watchpoint_init): Re-pass is_within arg.
+
+	* sim-options.c (sim_print_help): Add is_command argument.  Don't
+ 	include -- prefix when called from the command line interpreter.
+
+	* sim-watch.c (schedule_watchpoint): Pass true is_within argument.
+
+	* sim-events.c (sim_events_watch_sim): Add is_within argument,
+ 	zero indicates that the test should be reversed.
+	(sim_events_watch_core): Ditto.
+	(WATCH_CORE): Compare range against is_within.
+	(WATCH_SIM): Ditto.
+
+Tue May 27 12:48:03 1997  Andrew Cagney  <cagney@b2.cygnus.com>
+
+	* sim-events.c (WATCH_CORE): Pass NULL cpu argument to
+ 	sim_core_read_buffer.  Check nr-bytes transfered.
+
+	* sim-core.h (sim_core_common): Define a new struct that contains
+ 	the common data.  to sd and cpu structures.
+	* sim-core.c (sim_core_attach): Update.
+	(sim_core_init): Update. Remember to copy initialized data to each
+ 	cpu.
+	(sim_core_find_mapping): Ditto.
+
+	* sim-core.c (sim_core_read_buffer): Add cpu argument.
+	(sim_core_write_buffer): Ditto.
+
+	* sim-n-core.h (sim_core_read_unaligned_N): When mis-aligned
+ 	transfer use xor version of read buffer.
+	(sim_core_write_unaligned_N): Ditto for write.
+	
+	* sim-core.c (sim_core_xor_read_buffer): New function implement
+ 	xor-endian data read breaking transfer up into xor-endian sized
+ 	blocks.
+	(sim_core_xor_write_buffer): Ditto for write.
+	(reverse_n): Reverse order of arbitrary number of bytes in buffer
+ 	- needed for xor-endian transfers.
+
+Fri May 23 14:24:31 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-inline.h: Review description.
+	
+	* sim-core.h, sim-core.c: Reduce number of functions being inlined
+ 	to just those involved in data transfers and configuration.
+	
+	* sim-xcat.h (XSTRING): New macro, map macro definition onto
+ 	string.
+	* sim-n-core.h (sim_core_read_aligned_N): Use.
+	(sim_core_read_unaligned_N): Ditto.
+	(sim_core_read_unaligned_N): Ditto..
+	(sim_core_write_unaligned_N): Ditto.
+	
+	* sim-core.h: Add xor endian bitmap to main structure.  *
+	
+ 	sim-n-core.h (sim_core_write_aligned_N): Add suport for xor
+ 	endian.
+	(sim_core_read_aligned_N): Ditto.
+
+	* sim-core.c (sim_core_set_xor_endian): New function.
+	(sim_core_attach): Don't overwrite the per-cpu xor map when
+ 	cloning the global core.
+
+Fri May 23 10:53:13 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-engine.h: Update below so that it is using an enumerated
+ 	type.
+
+Thu May 22 09:12:16 1997  Gavin Koch  <gavin@cygnus.com>
+
+	* sim-engine.c (sim_engine_restart): 
+	* sim-resume.c (sim_resume): Change longjmp param/setjmp 
+ 	return value used for simulator restart from 0 to 2.
+
+Wed May 21 08:47:30 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* cgen-scache.c (scache_option_handler): Add is_command arg.
+
+	* sim-model.c (model_option_handler): Add is_command argument.
+
+	* sim-profile.c (profile_option_handler): Add is_command arg.
+
+	* sim-events.c (sim_watch_valid): Use ub64, lb64 when 64bit value
+ 	involved.
+
+	* sim-module.c (sim_module_add_init_fn): Call init fn in the same
+ 	order that they are registered.
+
+	* sim-options.h (OPTION_HANDLER): Add argument to differentiate
+ 	between option and command line processing.
+
+	* sim-options.c: Include stdlib.h, ctype.h.
+
+	* Make-common.in (sim-watch.o): Add rule.
+	(sim_main_headers): Assume sim-assert.h included.
+	(sim-*.o): Simplify make rule.
+	
+	* sim-module.c: Add sim_watch_install to module list.
+
+Tue May 20 14:15:23 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-base.h (STATE_LOADED_P): New predicate. Set once everything
+ 	has been loaded.
+
+	* sim-trace.c (trace_install): Check magic. Include sim-assert.h.
+	* sim-events.c (sim_events_install): Ditto.
+	* sim-core.c (sim_core_install): Ditto.
+	* sim-model.c (model_install): Ditto.
+	* sim-options.c (standard_install): Ditto.
+	* sim-profile.c (profile_install): Ditto.
+	* sim-reason.c (sim_stop_reason): Ditto.
+	* sim-run.c (sim_engine_run): Ditto.
+	* sim-utils.c (sim_analyze_program): Ditto.
+
+	* sim-module.c (modules): Make profile_install and trace_install
+ 	optional.
+
+	* sim-base.h (STATE_MEM_BASE): Define for flat memory systems.
+
+	* sim-options.c (standard_option_handler): Set the byte order.
+
+	* sim-events.c (sim_events_process): Allow multi tick processing.
+	(sim_events_tickn): New function - multi cycle tick.
+	
+	* sim-events.h (sim_events_tickn, sim_events_timewarp): Add
+ 	prototypes.  Under development.
+	(sim_events): Replace processing with nr_ticks_to_process.
+
+Tue May 20 09:39:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* nrun.c (main): Pass callbacks to sim_open instead of using
+ 	sim_set_callbacks.
+
+	* run.c (main): Ditto.
+
+Mon May 19 12:07:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-events.c (sim_events_zalloc): Signal save memory allocator -
+ 	stop tk interrupting malloc calls.
+	(sim_events_zalloc): Converse.
+
+	* Make-common.in (sim_main_headers): Add sim-events.h.
+
+	* sim-events.c (sim_events_schedule_after_signal): Change return
+ 	type to void - signal events are strictly internal.
+	(sim_events_init): Allocate a finite buffer for signal events.
+	(sim_events_schedule_after_signal): Enter signal events into the
+ 	signal buffer.
+
+	* sim-engine.c (sim_engine_halt): Check SIM_DESC magic.
+	(sim_engine_restart): Ditto.
+	(sim_engine_abort): Ditto.
+	* sim-stop.c (sim_stop): Ditto.
+	(control_c_simulation): Ditto.
+	* sim-resume.c (sim_resume): Ditto.
+	(has_stepped): Ditto.
+	* sim-abort.c (sim_engine_abort): Ditto.
+
+	* sim-basics.h (transfer_type): New type.
+
+	* sim-core.c (sim_core_signal): New function. Print core signal
+ 	information.
+	(sim_core_find_mapping): Add transfer argument.
+
+	* sim-n-core.h (sim_core_{write,write}_unaligned_N): Call
+ 	SIM_CORE_SIGNAL if a recoverable abort.
+	* sim-core.c (sim_core_find_mapping): Ditto.
+
+Fri May 16 15:13:21 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.c (sim_core_find_mapping): Replace calls to
+ 	sim_io_error to more resiliant sim_engine_abort.
+
+	* sim-n-core.h (sim_core_read_unaligned_N): Ditto.
+	(sim_core_write_unaligned_N): Ditto.
+
+Tue May 13 13:50:06 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-module.c: Add sim_events_install to list.
+	
+	* sim-events.c (sim_events_install, sim_events_uninstall): Clonse
+ 	from sim_core_*.
+	(sim_events_init): Now returns SIG_RC.
+
+	* sim-run.c: New file. Generic sim_engine_run.
+	* sim-reason.c: New file. Generic sim_stop_reason.
+	* sim-stop.c: New file. Generic sim_stop.
+	* sim-resume.c: New file. Generic sim_resume.
+	
+	* Make-common.in (sim-engine.o): Add rule.
+	(sim-run.o, sim-reason.o, sim-stop.o, sim-resume.o): Ditto.
+	
+	* sim-engine.h, sim-engine.c: New file. Provide generic
+ 	implementation of sim_engine_halt, sim_engine_error. et.al.
+
+	* sim-base.h (sim_state_base): Add member halt.
+	(sim-engine.h): Include.
+
+	* sim-events.h (sim_event_handler): Always pass SIM_DESC to event
+ 	handlers.
+	* sim-events.c (sim_events_poll): Update event handler.
+
+Tue May 13 09:57:49 1997  Andrew Cagney  <cagney@b2.cygnus.com>
+
+	* sim-events.h, sim-events.c (sim_events_watch_clock): New
+ 	function.
+	(sim_events_watch_sim): New function.
+	(sim_events_watch_core): New function.
+	(sim_watch_valid): New function.
+	(sim_events_preprocess): New function.
+	(sim_events_process): Process the watchpoints as well as the timer
+ 	queue.
+	(sim_events_tick): Check WORK_PENDING instead of the hold queue.
+	(sim_events_deschedule): Check all the queues when removing an
+ 	event.
+	(sim_events_init): Ditto for cleaning.
+
+Mon May 19 12:07:22 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-fpu.c (is_ufpu_number): Comment out - currently unused.
+
+Mon May 19 11:23:03 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* callback.c (os_open): Type of arg flags is int.
+
+Fri May 16 22:26:43 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* sim-fpu.c (sim_fpu_is_{eq,ne,lt,le,gt,ge}): Compare Infinities
+	just like normal numbers as per IEEE rules.
+
+Wed May 14 21:20:38 1997  Bob Manson  <manson@charmed.cygnus.com>
+
+	* callback.c (os_close): Mark the descriptor as being
+	available if the close succeeded.
+	(os_open): Pass 0644 as the mode of the file being created.
+
+Thu May 15 10:58:52 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-fpu.c (pack_fpu, unpack_fpu): New functions - decode a
+ 	float.
+
+	* sim-inline.c (SIM_INLINE_C): Rename from _SIM_INLINE_C_.
+	* sim-lnline.h: Update.
+
+	* sim-fpu.h, sim-fpu.c (sim_fpu_[iu]{32,64}to): New int2fp
+ 	conversion functions.
+	(sim_fpu_to{32,64}[iu]): New fp2int functions.
+	
+	* sim-fpu.h, sim-fpu.c (sim_fpu_is_{lt,le,eq,ne,ge,gt}): New fp
+ 	compare functions.  Replacing.
+	(sim_fpu_cmp): This. Delete.
+	
+Mon May 12 14:49:05 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.c (sim_core_find_mapping): Call engine_error not
+ 	sim_io_error when possible.
+
+Mon May 12 08:55:07 1997  Andrew Cagney  <cagney@b2.cygnus.com>
+
+	* sim-endian.h (V1_H2): Add macro's to insert a word into a
+ 	high/low double word.
+
+	* sim-trace.h: Remove definition of attribute - defined in
+ 	sim_basics.h.
+
+Mon May 12 08:55:07 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-options.h (struct OPTION): Add doc_opt as the documenting
+ 	name of the option - or family of options.
+
+	* sim-options.c (sim_args_command): Match command `a-b c' with
+ 	option `--a-b-c' from option table.
+
+Thu May  8 12:40:07 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-options.c (sim_print_help): For optional arguments, wrap
+ 	them in [].
+
+	* sim-trace.c (set_trace_options): New function, handle optional
+ 	argument and multiple assignment.
+	(trace_option_handler): Update.
+
+	* sim-trace.c (trace_option_handler): Trace branch and not fpu
+ 	when branch tracing selected.
+
+Wed May  7 15:19:58 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-trace.c (trace_one_insn): Make a va-args function.
+
+	* sim-trace.c (trace_vprintf): New function, va-arg version of
+ 	trace_printf.
+
+Tue May  6 16:38:16 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-trace.c (trace_uninstall): Don't close a file twice.
+	* sim-profile.c (profile_uninstall): Likewise.
+
+Tue May  6 06:14:01 1997  Mike Meissner  <meissner@cygnus.com>
+
+	* sim-trace.c (toplevel): Include bfd.h.
+	(trace_options): Note that --trace-linenum also turns on
+	--trace-insn.  Add --trace-{branch,semantics}.
+	(trace_option_handler): If --trace-linenum, also turn on
+	--trace-insn.  Add --trace-branch support.  If --trace-semantics,
+	turn on ALU, FPU, branch, and memory tracing.
+	(trace_one_insn): New function to trace an instruction.  Support
+	--trace-linenum.
+	(OPTION_TRACE_*): Use an enum, rather than lots of defines.
+
+	* sim-trace.h (TRACE_{SEMANTICS,BRANCH}_IDX): Add new macros.
+	(MAX_TRACE_VALUES): Use 32, not 12 by default.
+	(TRACE_branch): Add new mask.
+	(TRACE_*_P): Define all possible trace_p macros.
+	(trace_one_insn): Declare function.
+
+Mon May  5 14:08:34 1997  Mike Meissner  <meissner@cygnus.com>
+
+	* sim-trace.h (__attribute__): Define as nothing if not GNU C or
+	GNU C doesn't support __attributes__.
+	({trace,debug}_printf): Add attribute's so -Wformat can check the
+	format strings.
+
+Mon May  5 11:16:12 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-config.h (FORCED_ALIGNMENT): New alignment option -
+ 	addresses are masked forcing them to be correctly aligned.
+	(WITH_ALIGNMENT): Make NONSTRICT_ALIGNMENT the default.
+	* sim-config.c (config_alignment_to_a): Update.
+
+	* sim-core.h (sim_cpu_core): New data type contains cpu specific
+ 	core data.
+	* sim-base.h (CPU_CORE): Add cpu specific core data to cpu base
+ 	type.
+	* sim-core.c (sim_core_attach): Add CPU argument.  Ready for
+ 	processor specific core maps.
+	(sim_core_map_attach): Copy the core map data to each of the
+ 	processor specific core data structures.
+	* sim-core.c (sim_core_find_mapping): Update.
+
+	* sim-n-core.h (sim_core_read_N, sim_core_write_N): Rename.
+	(sim_core_write_aligned_N, sim_core_write_aligned_N): New names.
+	(sim_core_write_unaligned_N, sim_core_write_unaligned_N): New
+ 	alternatives that handle unaligned addresses.
+	(sim_core_{read,write}_{,un}aligned_N): Drop SIM_DESC arg, replace
+ 	with just CPU arg.
+	* cgen-utils.c (sim_disassemble_insn): Update.
+
+Mon May  5 13:19:16 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-trace.h (TRACE_FPU_IDX): Add Floating-point specific
+ 	tracing.
+
+	* sim-fpu.h, sim-fpu.c: New files - prototype for generic target
+ 	fpu support.
+
+	* sim-inline.h, sim-inline.c: Add support for SIM_FPU.
+
+Fri May  2 17:59:42 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-core.c (sim_core_map_to_str): New function ascii equivalent
+ 	to map type.
+	
+	* sim-n-core.h (sim_core_read_N, sim_core_write_N): Use in trace
+ 	statement.
+
+Fri May  2 17:28:02 1997  Andrew Cagney  <cagney@b2.cygnus.com>
+
+	* cgen-trace.c: Prepend additional trace_printf argument.
+
+	* cgen-utils.c (sim_disassemble_insn): Add additional core
+ 	arguments.
+
+Fri May  2 11:40:23 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* nrun.c (main): Catch/report errorenous simulator states.
+
+	* sim-module.c: #include "libiberty.h" so that xmalloc is defined.
+  	* sim-trace.c: #include string.h/strings.h so that memset is
+ 	defined.
+	* sim-utils.c: Ditto.
+	* sim-profile.c: Ditto. And stdlib.h.
+	(print_bar): Only define when used by instruction or memory profiler.
+
+	* sim-options.c (standard_option_handler): Make ul more local.
+	
+	* sim-load.c (sim_load_file): Make the name constant.
+	(sim_load_file): Passify gcc.
+
+	* sim-utils.h: New file, pre-declare utilites in corresponding .c
+ 	file.
+	* sim-utils.c, sim-load.c: Include sim-utils.h.
+	
+	* sim-base.h (sim_cpu): Pre define here so available to all.
+
+	* sim-core.h (DECLARE_SIM_CORE_WRITE_N, DECLARE_SIM_CORE_READ_N):
+ 	Restore the sim_cpu and instruction_address arguments so that full
+ 	information is available to the abort function.
+	* sim-core.c (sim_core_find_mapping, sim_core_write_buffer): Ditto.
+	* sim-n-core.h (sim_core_write_N, sim_core_read_N): Update.
+
+	* sim-trace.h, sim-trace.c (trace_option_handler): Add interim
+ 	tracing support for sim-events and sim-core.
+	(trace_option_handler): Convert #if to if where possible so always
+ 	compiled/checked by C compiler.
+	* sim-n-core.h (sim_core_write_N, sim_core_read_N): Update.
+	
+	* sim-base.h: Adjust comment documenting how to define the cpu
+ 	structure.
+	(sim_state_base): Add sim_core and sim_events to simulator base
+ 	object.
+
+	* sim-trace.h, sim-trace.c (trace_printf): Add SIM_DESC argument.
+	* sim-core.c (sim_core_init, sim_core_attach,
+ 	sim_core_find_mapping): Update.
+	* sim-events.c (ETRACE, sim_events_init, sim_events_time,
+ 	update_time_from_event, insert_sim_event,
+ 	sim_events_schedule_after_signal, sim_events_deschedule,
+ 	sim_events_tick): Ditto.
+	
+	* sim-basics.h (sim-module.h, sim-trace.h, sim-profile.h,
+ 	sim-model.h): Move #includes from here.
+	* sim-base.h: To here.
+	(sim-core.h, sim-events.h, sim-io.h): Include also
+	
+Wed Apr 30 15:37:54 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* callback.c (default_callback): Missing initialisers.
+
+Thu May  1 10:40:47 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-utils.c (sim_add_commas): New function.
+	* sim-basics.h (sim_add_commas): Add prototype.
+	* cgen-scache.c (scache_print_profile): Print commas in numbers.
+	* sim-profile.c (COMMAS): New macro.
+	(print_*): Use it to print commas in numbers.
+
+	* configure: Regenerated.
+
+	* cgen-sim.h (sim_signal_type): Add SIM_SIGINT.
+	(cgen_state): New member run_fast_p.
+	(cgen_init): Add prototype.
+	(sim_disassemble_insn): New arg `cpu'.
+	* cgen-trace.c (trace_insn): Update call to sim_disassemble_insn.
+	* cgen-utils.c (cgen_init): New function.
+	(sim_disassemble_insn): New arg `cpu'.  Rewrite fetching of insn.
+	* genmloop.sh: Call engine_halt if loop exits.
+
+	* Makefile.in (sim-options_h): Define.
+	(sim-{module,options,trace,profile,utils}.o): Clean up dependencies.
+	(sim-model.o): Add new rule.
+	(cgen-{scache,trace,utils}.o): Add new rules.
+	* aclocal.m4 (SIM_AC_OPTION_{SCACHE,DEFAULT_MODEL}): Add.
+	* cgen-scache.c (scache_print_profile): Change `sd' arg to `cpu'.
+	Indent output by 2 spaces.
+	* cgen-scache.h (scache_print_profile): Update.
+	* cgen-trace.c (trace_insn_fini): Indent output by 2 spaces.
+	Use trace_printf, not fprintf.
+	(trace_extract): Use trace_printf, not cgen_trace_printf.
+	* genmloop.sh (!FAST case): Increment `insn_count'.
+	* sim-base.h (sim_state_base): Only include scache_size if WITH_SCACHE.
+	(sim_cpu_base): Rename member `sd' to `state' to be consistent with
+	access macro's name.
+	* sim-core.c (sim_core_init): Use EXTERN_SIM_CORE to define it.
+	Change return type to SIM_RC.
+	(sim_core_{install,uninstall}): New functions.
+	* sim-core.h (sim_core_{install,uninstall}): Declare.
+	(sim_core_init): Use EXTERN_SIM_CORE to define it.
+	Change return type to SIM_RC.
+	* sim-model.h (models,machs,model_install): Declare.
+	* sim-module.c (modules): Add scache_install, model_install.
+	(sim_post_argv_init): Set cpu->state backlinks.
+	* sim-options.c (standard_options): Delete --simcache-size,--max-insns.
+	(standard_option_handler): Likewise.
+	* sim-profile.c (PROFILE_{HISTOGRAM,LABEL}_WIDTH): Move to
+	sim-profile.h.
+	(*): Assume ANSI C.
+	(profile_options): Delete --profile-simcache.
+	(profile_option_handler): Likewise.
+	(profile_print_insn): Change `sd' arg to `cpu'.  Indent output 2
+	spaces.
+	(profile_print_{memory,model}): Likewise.
+	(profile_print_simcache): Delete.
+	(profile_print_speed): New function.
+	(profile_print): Rewrite.
+	* sim-profile.h (PROFILE_scache): Renamed from PROFILE_simcache.
+	(WITH_PROFILE_SCACHE_P): Renamed from WITH_PROFILE_SIMCACHE_P.
+	(PROFILE_DATA): Delete members simcache_{hits,misses}.
+	(PROFILE_COUNT_SIMCACHE_{HIT,MISS}): Delete.
+	(PROFILE_{CALLBACK,CPU_CALLBACK}): New types.
+	(profile_print): Update prototype.
+
+Wed Apr 30 11:34:14 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* cgen-scache.[ch], cgen-sim.h: New files.
+	* cgen-trace.[ch], cgen-types.h, cgen-utils.c, genmloop.sh: New files.
+	* sim-model.c: New file.
+
+	* Make-common.in (clean targets): Undo patch of Apr. 22.
+
+Fri Apr 25 15:28:32 1997  Mike Meissner  <meissner@cygnus.com>
+
+	* sim-n-bits.h (signed): If we have a standard compiler, undef
+	signed, so that signedN is defined correctly.
+
+Thu Apr 24 00:00:07 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-module.h, sim-model.h, sim-profile.h: New files.
+	* sim-module.c, sim-profile.c: New files.
+	* Make-common.in (SIM_PROFILE): Define
+	(CONFIG_CFLAGS): Add $(SIM_PROFILE).
+	(sim_main_headers): Add sim-module.h, sim-model.h, sim-profile.h.
+	(sim_module.o,sim-profile.o): Add rules for.
+	* aclocal.m4 (--enable-sim-trace): Allow symbolic arguments.
+	(--enable-sim-profile): Add.
+	* configure: Regenerated.
+	* sim-base.h (sim_state_base): New members init_list, uninstall_list,
+	model.  Move trace and profile support to sim-{trace,profile}.h.
+ 	New members trace_data, profile_data.
+	* sim-basics.h: #include sim-module.h, sim-model.h, sim-profile.h.
+	* sim-config.h: Provide default definition of WITH_PROFILE.
+	(WITH_TRACE): Change default to -1.
+	(MAX_NR_PROCESSORS): Always define.
+	* sim-options.c: Move trace and profile support to
+	sim-{trace,profile}.h.
+	(sim_pre_argv_init): Moved to sim-model.c.
+	(standard_install): New function.
+	* sim-options.h (sim_pre_argv_init): Move decl to sim-model.c.
+	(standard_install): Declare.
+	* sim-trace.c: Tracing option handling moved here from sim-options.c.
+	(trace_install, trace_uninstall): New functions.
+	(trace_printf): Update reference to TRACE_FILE.
+	* sim-trace.h (TRACE_FOO_IDX): Moved here from sim-base.h.
+	(TRACE_foo): Bit masks for symbolic arguments to --enable-sim-trace.
+	(WITH_TRACE_FOO_P): Define.
+	(trace_install): Declare.
+	(TRACE_DATA): New struct.
+
+Wed Apr 23 17:23:15 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* run.c: Undo last exec_bfd patch.
+	(main): Only pass -E ifdef SIM_HAVE_BIENDIAN.
+
+Wed Apr 23 17:54:27 1997  Mike Meissner  <meissner@cygnus.com>
+
+	* run.c (exec_bfd): Add back in.
+	(main): Set exec_bfd.
+
+Tue Apr 22 14:43:46 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-load.c (sim_load_file): #include <stdio.h> for NULL.
+
+Wed Apr 23 02:55:54 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-events.c (insert_sim_event): Call sim_io_error instead of
+ 	less well defined engine_error.
+	* sim-core.c: Ditto.
+
+Tue Apr 22 08:48:16 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* Make-common.in:  Change clean targets to use :: so that other
+	Makefiles can have their own clean targets.
+	* sim-load.c (xprintf eprintf):  Use ANSI_PROTOTYPES instead of
+	__STDC__ to control use of stdarg vs. varargs syntax.  Some
+	systems can't use __STDC__, but require stdarg.
+
+Fri Apr 18 11:14:43 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-options.c (standard_options): Add --endian.
+	(standard_option_handler): Likewise.
+
+	* nrun.c: #include <signal.h>.
+ 	(main, cntrl_c): Wrap calls to sim_resume in a SIGINT
+ 	handler that calls sim_stop ().
+
+Fri Apr 18 13:11:36 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* run.c (main, cntrl_c): Wrap calls to sim_resume in a SIGINT
+ 	handler that calls sim_stop ().  Simulators may still be
+ 	establishing their own handler.
+
+	* sim-events.c (sim_events_poll): Rename from
+ 	sim_events_at_large_int.  Poll IO.
+
+	* sim-io.c (sim_io_poll_quit): New function - pass on a polling
+ 	request.
+
+	* callback.c (os_poll_quit): New function poll for quit signal
+	where needed.
+	(default_callback): Include magic number.
+
+Thu Apr 17 02:25:11 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* aclocal.m4: Check for headers time.h, sys/time.h, sys/resource.h.
+	Check for functions getrusage, time.
+	* sim-basics.h (SIM_ELAPSED_TIME): New typedef.
+	(sim_elapsed_time_get, sim_elapsed_time_since): Add prototypes.
+	* sim-utils.c: #include time.h, sys/time.h, sys/resource.h if able.
+	(sim_elapsed_time_get, sim_elapsed_time_since): New functions.
+
+	* sim-utils.c (sim_copy_argv, sim_analyze_program): New functions.
+
+	* sim-options.c, sim-options.h: New files.
+	* sim-config.h (WITH_DEBUG): Provide default value of zero.
+	* Make-common.in (nrun.o): Add rules for.
+	* nrun.c: New file.
+
+	* run.c (main): Check return value of sim_open.
+
+	* Make-common.in (sim-options.o, sim-load.o, sim-trace.o): Add rules.
+	(sim_main_headers): Add sim-trace.h.
+	* run.c (exec_bfd, target_byte_order): Delete.
+	(main): Pass -E <endian> to sim_open.  Delete code to load sections,
+	call sim_load instead.  Check return code of sim_create_inferior.
+	* sim-base.h (CURRENT_STATE): Define.
+	(sim_state_base): Make typedef.  New members options, prog_argv,
+	prog_bfd, text_{section,start,end}, start_addr, simcache_size,
+	mem_size, memory [+ corresponding access macros].
+	(sim_cpu_base): New typedef.
+	* sim-trace.h: New file.
+	* sim-trace.c: New file.
+	* sim-basics.h: #include it.
+	* sim-load.c: New file.
+
+Tue Apr 15 15:10:13 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Make-common.in (INSTALL): Set to @INSTALL@.
+	(INSTALL_XFORM, INSTALL_XFORM1): Remove.
+	(install-common): Depend upon installdirs.  Use
+	$(program_transform_name) directly, rather than using
+	$(INSTALL_XFORM).
+	(installdirs): New target.
+	* Makefile.in (INSTALL): Set to @INSTALL@.
+	(INSTALL_XFORM, INSTALL_XFORM1): Remove.
+	(install-man): Depend upon installdirs.  Use
+	$(program_transform_name) directly, rather than using
+	$(INSTALL_XFORM).
+	(installdirs): New target.
+
+Tue Apr 15 15:08:12 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-assert.h (SIM_ASSERT, ASSERT): Allow these macros to
+	be overriden.
+
+Wed Apr  9 16:06:44 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-basics.h: Only bring in config.h and tconfig.h if
+ 	HAVE_CONFIG_H.
+
+Mon Apr  7 11:39:45 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-config.h (WITH_TARGET_WORD_MSB): New Macro. Define the bit
+ 	numbering convention of the target.
+	* sim-config.c (print_sim_config): Print WITH_TARGET_WORD_BITSIZE
+ 	and WITH_TARGET_WORD_MSB.
+	(sim_config): When possible, check for consistency with bitsize
+ 	and msb.
+
+	* sim-bits.h: Allow MSB to be other than zero.
+	* sim-bits.c: Ditto.
+	* sim-n-bits.h: Ditto.
+	
+	* sim-bits.h (MSMASK*): New macros - converce to LSMASK*.
+	* sim-n-bits.h (MSMASKEDn): Ditto.
+
+Mon Apr 14 16:29:21 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (INSTALL): Change install.sh to install-sh.
+
+Mon Apr  7 10:46:38 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-base.h (sim_state_base): Move `magic' to end of struct.
+
+Mon Apr  7 15:53:21 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* run.c (main): Check that a program to run was specified.
+
+Mon Apr  7 15:45:02 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* aclocal.m4 (AC_TYPE_SIGNAL): Add check.
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Wed Apr  2 15:06:28 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sim-endian.h: Move host {LITTLE,BIG}_ENDIAN support from here,
+	* sim-config.h: To here.
+
+	* Make-common.in (SIM_EXTRA_DEPS): New config var.
+	(sim_main_headers): Define.
+	(sim-*.o): Depend on $(SIM_EXTRA_DEPS).
+	(clean): Use it.
+	(sim-utils.o): Add rule for.
+	* sim-utils.o: New file.
+	* sim-basics.h: #include sim-base.h.
+	(zalloc): Make argument unsigned long.
+	* sim-base.h: New file.
+	* sim-inline.h (SIM_IO support): Delete.
+	* sim-io.h: Delete inline support.
+	* sim-io.c: Likewise.  sim-state.h renamed to sim-main.h.
+	* sim-config.c: sim-state.h renamed to sim-main.h.
+	* sim-core.c: Likewise.
+	* sim-events.c: Likewise.
+
+	* run.c (main): Pass SIM_OPEN_STANDALONE to sim_open.
+
+	* aclocal.m4: Check for stdlib.h, string.h, strings.h, unistd.h.
+	(sim-debug): Allow arguments.  Define WITH_DEBUG in addition to
+	-DDEBUG.
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Apr  2 14:34:19 1997 Andrew Cagney <cagney@kremvax.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Apr  2 11:08:11 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-config.h (WITH_ALIGNMENT, WITH_FLOATING_POINT,
+ 	WITH_XOR_ENDIAN, WITH_SMP, WITH_RESERVED_BITS): Assume that these
+ 	are defined by the configure.
+
+	* aclocal.m4 (sim-stdio): Add option stdio from ../ppc configure.
+	
+	* aclocal.m4 (floating-point, xor-endian, alignment, smp,
+ 	reserved-bits): Always define.
+	
+	* sim-config.h, sim-config.c (sim_config): New function - and new
+ 	file - co-ordinate the setting/checking of the common simulator
+ 	configuration options.
+
+	* Make-common.in (sim-config.o): Add rule.
+
+Fri Mar 28 15:32:00 1997  Mike Meissner  <meissner@cygnus.com>
+
+	* callback.c (os_{,e}vprintf_filtered): Change stdarg type to
+	va_list from void *, since va_list might not be a pointer type.
+
+Mon Mar 24 15:27:12 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-n-endian.h (offset_N): Correct assertion - word and sub word
+ 	in wrong order.
+	(offset_N): Correct computation of LE offset.
+
+	* sim-io.c (sim_io_error): Include a new line when reporting
+ 	errors.
+
+	* sim-assert.h (SIM_FILTER_PATH): Out by one when locating last
+ 	`/'.
+
+Thu Mar 20 22:31:06 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* run.c: Include alloca-conf.h.
+
+	* callback.c (os_evprintf_filtered): Fix typo.
+
+Fri Mar 21 13:36:20 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* run.c (string.h, strings.h, stdlib.h): Include.
+
+	* sim-events.c (sim_events_tick): Recent cleanup failed to return
+ 	0 when nothing pending.
+
+	* run.c (sim_size, sim_trace): Plicate GCC - these two functions
+ 	will soon be going away.
+	(getopt): Plicate GCC.
+
+	* sim-endian.c (sim-io.h): Plicate GCC.
+	* sim-bits.c (sim-io.h): Ditto.
+	* sim-n-bits.h (ROTn): Ditto.
+
+	* sim-io.c (sim_io_error): Correct check for NULL.
+
+	* sim-assert.h (SIM_FILTER_PATH): Separate out the code filtering
+ 	the __FILE__.
+	* sim-events.c: Use SIM_FILTER_PATH to filter out the filename
+ 	path.
+
+Wed Mar 19 01:12:06 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* aclocal.m4 (SIM_AC_OPTION_*: Move so that they are outside of
+ 	SIM_AC_COMMON - SIM_AC_COMMON was gobling arguments.
+
+Tue Mar 18 20:48:12 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-alu.h: Include sim-xcat.h.
+	
+Tue Mar 18 13:58:18 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* Make-common.in (sim-bits.c, sim-core.c, sim-endian.c,
+ 	sim-events.c, sim-inline.c, sim-io.c): Define rules for building
+ 	these.
+
+	* sim-events.c (sim_events_at_large_int): New function.  Just
+ 	schedules an event every large-int ticks.
+	(sim_events_init): Call.
+	(sim_events_tick, sim_events_process): Move async handing to
+ 	sim_events_process.  Move timer decrement so that it occures after
+ 	events have been processed.
+	
+	* sim-basics.h (struct _engine): Remove declaration.
+
+	* sim-events.h, sim-events.c: Rename type to sim_events.  Prefix
+ 	everything with same.  Rename global struct to SIM_DESC.
+	* sim-core.h, sim-core.c, sim-n-core.c: Ditto for sim_core.
+	* sim-io.h, sim-io.c: Ditto.
+	
+	* sim-assert.h: New file. Optional assertion checking macros.
+	* sim-io.c (sim_io_error): Make just this function tolerant to
+ 	null pointers.
+	
+	* sim-xcat.h: New file. Define concatenate macros.
+	* sim-basics.h (XCONCAT*): Move to sim-xcat.h.
+	* sim-n-core.h, sim-n-bits.h, sim-n-endian.h: Explicitly include
+ 	concat macros.
+	
+
+Tue Mar 18 12:44:55 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-bits.h (LSMASK): New macro. Create mask of LS bits.
+
+Mon Mar 17 18:10:05 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-inline.h: Add definitions for sim-types.
+	(ALL_BY_MODULE): New macro, encapsulate full inlining by the
+ 	module.
+
+Mon Mar 17 15:38:27 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+	
+	* sim-events.h: Remove defunct reference to callback struct.
+
+Mon Mar 17 15:10:07 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* configure: Re-generate.
+
+Mon Mar 17 15:04:47 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* Make-common.in (CSEARCH): Do not include the gdb directory in
+ 	the search path.
+
+Mon Mar 17 13:16:26 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* Make-common.in (SIM_ENDIAN, SIM_HOSTENDIAN, SIM_INLINE,
+ 	SIM_WARNING): Drop, requiring the simulator specific Makefile.in
+ 	to explicitly incorporate these.
+
+	* aclocal.m4 (--enable-sim-alignment); New option. Strongly
+ 	specify the alignment restrictions of the target architecture -
+ 	without this option all alignment restrictions are accomodated.
+ 	(--enable-sim-assert): New option.  Conditionally compile in
+ 	assertion statements.
+	(--enable-sim-float): New option. Strongly specify the target's
+ 	floating point support.
+	(--enable-sim-hardware): New option.  Specify the hardware devices
+ 	included in the simulation.
+	(--enable-sim-packages): New option.  Specify the hardware
+ 	packages included in the simulation.
+	(--enable-sim-regparm): New option.  Specify that parameters be
+ 	passed in registers instead of on the stack.
+	(--enable-sim-reserved-bits): New option. Specify that reserved
+ 	bits within an instruction are are correctly set.
+	(--enable-sim-smp): New option. Specify the level of SMP support
+ 	to be included in the simulator.
+	(--enable-sim-stdcall): New option.  Specify an alternative
+ 	function call convention.
+	(--enable-sim-xor-endian): New option.  Configure xor-endian
+ 	support used by some targets to implement bi-endian support.
+	
+Fri Mar 14 19:51:21 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* aclocal.m4 (--enable-sim-hostendian): New option.  Allow the
+ 	host endianness to be overridden.
+	(--enable-sim-endian): Allow the target platform's byte order
+	to be overridden.
+	(--enable-sim-inline): Control the inlining of common components.
+	(--enable-sim-bswap): For compatibility, also define WITH_BSWAP.
+	(--enable-sim-warnings): Enable additional GCC compiler checks.
+	* Make-common.in (SIM_ENDIAN, SIM_HOSTENDIAN, SIM_INLINE,
+	SIM_WARNINGS): Add.
+	
+	* sim-n-core.h, sim-n-bits.h, sim-n-endian.h: Rename from
+ 	sim-*-n.h so that the names are uniq on dos machines
+	* sim-core.c, sim-bits.c, sim-endian.c: Update.
+	
+Thu Mar 13 12:32:42 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* run.c: #include "libiberty.h".
+	(main): New locals sd,no_args,sim_argv.
+	Run buildargv on -a option.  Pass argv to sim_open, argv[0]
+	is program name.  Update call to sim_set_callbacks.
+	Record result of sim_open, pass to other sim_foo routines.
+
+Thu Mar 13 10:24:05 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* callback.c (os_printf_filtered): Do not call exit(1) or print a
+	final newline.
+
+Thu Mar  6 15:50:28 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* callback.c: Add os_flush_stdout and vprintf_filtered callbacks.
+  	Route stdout through buffered IO.
+
+	* callback.c: Add os_flush_stderr, os_write_stderr,
+ 	os_evprintf_filtered functions to route error output through
+ 	stderr.
+	
+	* sim-io.h, sim-io.c (sim_io_flush_stderr, sim_io_flush_stdout):
+ 	Correct return type - should be void.
+
+Fri Mar  7 20:14:37 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-basics.h: Clean up.  Many macro's moved to sim-inline.h.
+
+	* sim-config.h: Ditto.  For some options - eg WITH_DEVICES - do
+ 	not provide a default value as undefined indicates disable code.
+
+Thu Mar  6 15:50:28 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-core.h, sim-core-n.h, sim-core.c: Borrow code from ppc
+ 	directory.
+	* sim-events.h, sim-events.c: Ditto.
+	* sim-io.h, sim-io.c: Ditto.
+	
+Tue Mar  4 09:35:56 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+	
+	* sim-alu.h (ALU_SUB_CA, ALU*_SUB_CA): New alu operation.
+
+	* sim-bits.h, sim-bits-n.h, sim-bits.c (LSMASKED*): New macro's
+ 	extract the tail or least signifiant bits from an integer of the
+ 	specified size.
+	
+	* sim-bits.h, sim-bits.c: Clean up conditionally compiled #if
+ 	WITH_TARGET_BITSIZE so that the compilation will fail when an
+ 	unsupported bitsize value is defined.
+
+	(INSERTED*): Convert to functions.
+	(EXTRACTED*): Ditto.
+	
+	(SIGN_EXTEND, SEXT): Change to more terse name.
+	
+Tue Mar  4 09:35:56 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-inline.h: Allow explicit control over which .c files will be
+ 	included by their header.
+
+	* sim-inline.h: Allow explicit control over which .c files use the
+ 	alternative - REGPARM - parameter passing mechanism.
+	
+	* sim-inline.h, sim-inline.c: Don't attempt to include any of
+ 	icache.c, idecode.c, semantics.c or support.c.  Those names are
+ 	not generally applicable.
+	
+Thu Feb 27 10:17:23 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-bits.c, sim-bits-n.h (new): Split sim-bits.c into two parts
+ 	in a fashion similar to sim-endian-n.
+
+	* sim-endian.h: (H_word, L_word, AL_*, VL_*): Extend to include
+ 	both value and address macro's.
+
+Tue Feb 25 18:51:57 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* sim-alu.h (ALU16_BEGIN, ALU16_SET, ...): Fill in.
+
+	* sim-endian.h (L_word, H_word): Replace MS2W_4, LS2W_4 with more
+ 	generic L_word, H_word macro's.
+
+Thu Feb 20 18:36:55 1997  Andrew Cagney  <cagney@critters.cygnus.com>
+
+	* sim-basics.h: Borrow code from ppc directory.
+	* sim-bits.c: Ditto.
+	* sim-bits.h: Ditto.
+	* sim-config.h: Ditto.
+	* sim-endian-n.h: Ditto.
+	* sim-endian.c: Ditto.
+	* sim-endian.h: Ditto.
+	* sim-inline.c: Ditto.
+	* sim-inline.h: Ditto.
+	* sim-types.h: Ditto.
+
+Wed Feb 19 12:40:50 1997  Andrew Cagney  <cagney@critters.cygnus.com>
+
+	* sim-alu.h (ALU_SET16, ALU_SET32, ALU_SET64, etc): Make available
+ 	all the ALU size alternatives and then auto-configure a default.
+	
+	* sim-alu.h: Copy ppc/idecode_expression.h.
+
+Mon Feb 17 10:44:18 1997  Andrew Cagney  <cagney@critters.cygnus.com>
+
+	* bits.h, bits.c (SIGN_EXTEND32, SIGN_EXTEND64): New functions,
+ 	sign extend a bit within a value.
+
+	* sim-endian.h, sim-endian-n.h (offset_N): New functions - return
+ 	a pointer into the middle of a host word.
+	* sim-endian.h (MS2W_4, LS2W_4): Use this function.
+	
+Tue Feb 11 13:46:49 1997  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* callback.c: If HAVE_CONFIG_H is defined, include config.h from
+	autoconf.  If HAVE_UNISTD_H is defined, include unistd.h to get
+	appropriate definitions of read, write, etc.  Add prototype for
+	system.
+
+Tue Feb  4 13:24:44 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (libcommon.a): Delete.
+	(callback.o,targ-map.o): Delete, moved to Make-common.in.
+	(gentmap,targ-vals.h,targ-map.c): Likewise.
+	(run-autoconf): Delete.
+	* aclocal.m4 (SIM_AC_OUTPUT): Redo creation of Makefile.
+	(common makefile fragment): Moved back into ...
+	* Make-common.in: Resurrect.
+	* configure.in (AC_LINK_FILES): Delete, unnecessary now.
+	* configure: Regenerated.
+
+Fri Jan 31 07:16:49 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* aclocal.m4 (SIM_AC_COMMON): Move COMMON_MAKEFILE_FRAG from here.
+	(SIM_AC_OUTPUT): To here.
+
+Fri Jan 24 10:37:17 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* aclocal.m4 (COMMON_MAKEFILE_FRAG):  Quote a couple of $'s in
+	comments and single quotes.  Fixes a problem found on hpux.
+
+Thu Jan 23 13:35:03 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* aclocal.m4:  Remove Make-common.in from dependencies.
+	* (distclean):  Remove targ-vals.def.
+
+	* aclocal.m4 (SIM_AC_COMMON):  Move contents of Make-common.in
+	into here.  Makes insertion into makefiles easier.  Also, change
+	the way that callback.o, gentmap, targ-vals.h, targ-map.c,
+	targ-map.o, and run are built.  They are now built in the
+	individual simulator directories, taking sources from ../common as
+	necessary.  This replaces the merging of libcommon.a into
+	linsim.a, which was problematic for the WinGDB build process.
+	* run.c:  Include config.h from . instead of ../common.
+	* Make-common.in:  Remove.  It's no longer necessary.
+
+Mon Dec 16 15:02:33 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Make-common.in (ALL_CLAGS): Put CFLAGS at the end.
+	(.c.o): Put $(ALL_CFLAGS) before the file being compiled.
+
+Wed Dec 11 11:30:58 1996  Jim Wilson  <wilson@cygnus.com>
+
+	* run.c (main): Set target_byte_order before call to sim_open.
+
+Sun Dec  8 18:22:06 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* callback.c: #include <stdlib.h>
+	(os_error): New function.
+	(default_callback): Add os_error.
+
+Mon Nov 25 19:44:35 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Make-common.in (Makefile): Set CONFIG_HEADERS="".
+	* aclocal.m4: Mark the fact that --enable-sim-bswap isn't host
+	specific.
+	(SIM_AC_OUTPUT): Don't build Makefile if CONFIG_FILES="".
+
+Wed Nov 20 01:11:04 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* run.c: #include ../common/config.h, tconfig.h.
+	(myname): New static global.
+	(main): Recognize new options -a, -c.  Also recognize -h if h8/300.
+	Only process -c ifdef SIM_HAVE_SIMCACHE.
+	Only process -p/-s ifdef SIM_HAVE_PROFILE.
+	Parse program name from argv[0] and use in error messages.
+	Pass sim_args to sim_open.  Pass prog_args to sim_create_inferior.
+	Add support for incomplete h8/300 termination indicators.
+	(usage): Make more verbose.
+	* aclocal.m4,config.in,tconfig.in,configure.in,configure: New files.
+	* Makefile.in,Make-common.in,callback.c: New files.
+	* nltvals.def,gentmap.c,gentvals.sh: New files.
+
+Tue Nov 12 13:34:00 1996  Dawn Perchik  <dawn@cygnus.com>   
+
+	* run.c: Include stdarg.h if __STDC__.
+
+Tue Oct 15 11:16:31 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* run.c (main): Don't print out anything if the signal
+	number is zero (ie no signal).
+
+Tue Oct 15 11:20:44 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* run.c (main): Print out if the program raised a signal.
+
+Wed Sep 18 09:52:14 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* run.c (exec_bfd): Rename from sim_bfd, to use the gdb name.
+	(main): Ditto.
+
+Tue Sep 17 11:04:50 1996  James G. Smith  <jsmith@cygnus.co.uk>
+
+	* run.c (main): Explicitly cast malloc() parameter.
+
+Thu Sep 12 11:27:21 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* run.c (sim_bfd): New global to hold the bfd pointer for the
+	executable.
+	(main): Initialize sim_bfd.
+
 Fri Dec 15 16:27:49 1995  Ian Lance Taylor  <ian@cygnus.com>
 
 	* run.c (main): Use new bfd_big_endian macro.

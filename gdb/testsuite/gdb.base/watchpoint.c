@@ -75,6 +75,10 @@ func1 ()
 
 int main ()
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   struct1.val = 1;
   struct2.val = 2;
   ptr1 = &struct1;

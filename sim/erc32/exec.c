@@ -25,7 +25,8 @@
 #include <math.h>
 #include <stdio.h>
 
-extern int32    ext_irl, irqpend, iurev0, sis_verbose;
+extern int32    sis_verbose, sparclite;
+int ext_irl = 0;
 
 /* Load/store interlock delay */
 #define FLSTHOLD 1
@@ -183,13 +184,18 @@ extern int32    ext_irl, irqpend, iurev0, sis_verbose;
 #define STHA	0x16
 #define SWAP	0x0F
 #define SWAPA	0x1F
+#define FLUSH	0x3B
 
 /* # of cycles overhead when a trap is taken */
 #define TRAP_C  3
 
 int32           fpexec();
 extern struct estate ebase;
-extern int32    nfp;
+extern int32    nfp,ift;
+
+#ifdef ERRINJ
+extern uint32 errtt, errftt;
+#endif
 
 sub_cc(operand1, operand2, result, sregs)
     int32           operand1;
@@ -497,6 +503,11 @@ dispatch_instruction(sregs)
 		  uint32 result, remainder;
 		  int c0, ov, y31;
 
+		  if (!sparclite) {
+		     sregs->trap = TRAP_UNIMP;
+                     break;
+		  }
+
 		  sign = ((sregs->psr & PSR_V) != 0) ^ ((sregs->psr & PSR_N) != 0);
 
 		  remainder = (sregs->y << 1) | (rs1 >> 31);
@@ -547,6 +558,11 @@ dispatch_instruction(sregs)
 		  unsigned short ul, vl;
 		  short uh, vh;
 		  unsigned int pp1, pp2, pp4;
+
+		  if (!sparclite) {
+		     sregs->trap = TRAP_UNIMP;
+                     break;
+		  }
 
 		  ul = rs1;
 		  uh = rs1 >> 16;
@@ -658,6 +674,9 @@ dispatch_instruction(sregs)
 	    case SRA:
 		*rdd = ((int) rs1) >> (operand2 & 0x1f);
 		break;
+	    case FLUSH:
+		if (ift) sregs->trap = TRAP_UNIMP;
+		break;
 	    case SAVE:
 		new_cwp = ((sregs->psr & PSR_CWP) - 1) & PSR_CWP;
 		if (sregs->wim & (1 << new_cwp)) {
@@ -670,16 +689,6 @@ dispatch_instruction(sregs)
 		sregs->psr = (sregs->psr & ~PSR_CWP) | new_cwp;
 		break;
 	    case RESTORE:
-
-#ifdef IUREV0
-		if ((iurev0) && ((sregs->jmpltime + 1) == sregs->ninst)) {
-		    if (!(sregs->rett_err)) {
-			sregs->rett_err = 1;
-			if (sis_verbose)
-			    printf("IU rev.0 bug mode entered\n");
-		    }
-		}
-#endif
 
 		new_cwp = ((sregs->psr & PSR_CWP) + 1) & PSR_CWP;
 		if (sregs->wim & (1 << new_cwp)) {
@@ -697,19 +706,6 @@ dispatch_instruction(sregs)
 		    break;
 		}
 		*rdd = sregs->psr;
-#ifdef IUREV0
-
-		if (iurev0 & sregs->rett_err) {
-		    operand2 = sregs->psr;
-		    *rdd |= PSR_ET;
-		    *rdd &= ~(PSR_S);
-		    *rdd |= ((*rdd & PSR_PS) << 1);
-		    if (sis_verbose) {
-			if (operand2 != *rdd)
-			    printf("rdpsr failed: %08X -> %08X\n", operand2, *rdd);
-		    }
-		}
-#endif
 		break;
 	    case RDY:
 		if (!(sregs->psr & PSR_S)) {
@@ -763,10 +759,6 @@ dispatch_instruction(sregs)
 		break;
 	    case JMPL:
 
-#ifdef IUREV0
-		if (iurev0)
-		    sregs->jmpltime = sregs->ninst;
-#endif
 #ifdef STAT
 		sregs->nbranch++;
 #endif
@@ -779,14 +771,6 @@ dispatch_instruction(sregs)
 		npc = rs1 + operand2;
 		break;
 	    case RETT:
-#ifdef IUREV0
-		if (iurev0 && sregs->rett_err) {
-		    sregs->rett_err = 0;
-		    if (sis_verbose)
-			printf("IU rev.0 bug mode reset\n");
-		}
-#endif
-
 		address = rs1 + operand2;
 		new_cwp = ((sregs->psr & PSR_CWP) + 1) & PSR_CWP;
 		sregs->icnt = T_RETT;	/* RETT takes two cycles */
@@ -838,12 +822,6 @@ dispatch_instruction(sregs)
 		asi = 11;
 	    else
 		asi = 10;
-#ifdef IUREV0
-	    if (iurev0 && sregs->rett_err) {
-		asi &= ~0x1;
-		asi |= ((sregs->psr & PSR_PS) >> 6);
-	    }
-#endif
 	}
 
 	if (op3 & 4) {
@@ -1529,6 +1507,15 @@ fpexec(op3, rd, rs1, rs2, sregs)
 	sregs->fpstate == FP_EXC_PE;
     }
 
+#ifdef ERRINJ
+    if (errftt) {
+	sregs->fsr = (sregs->fsr & ~FSR_TT) | (errftt << 14);
+	sregs->fpstate = FP_EXC_PE;
+	if (sis_verbose) printf("Inserted fpu error %X\n",errftt);
+	errftt = 0;
+    }
+#endif
+
     accex = get_accex();
 
 #ifdef HOST_LITTLE_ENDIAN_FLOAT
@@ -1581,6 +1568,8 @@ execute_trap(sregs)
 	sregs->pc = 0;
 	sregs->npc = 4;
 	sregs->trap = 0;
+    } else if (sregs->trap == 257) {
+	    return (ERROR);
     } else {
 
 	if ((sregs->psr & PSR_ET) == 0)
@@ -1615,12 +1604,19 @@ void
 check_interrupts(sregs)
     struct pstate  *sregs;
 {
+#ifdef ERRINJ
+    if (errtt) {
+	sregs->trap = errtt;
+	if (sis_verbose) printf("Inserted error trap 0x%02X\n",errtt);
+	errtt = 0;
+    }
+#endif
+
     if ((ext_irl) && (sregs->psr & PSR_ET) &&
 	((ext_irl == 15) || (ext_irl > ((sregs->psr & PSR_PIL) >> 8)))) {
 	if (sregs->trap == 0) {
 	    sregs->trap = 16 + ext_irl;
 	    irqarr[ext_irl & 0x0f].callback(irqarr[ext_irl & 0x0f].arg);
-	    clear_int(ext_irl);
 	}
     }
 }
@@ -1643,7 +1639,6 @@ init_regs(sregs)
     sregs->ltime = 0;
     sregs->err_mode = 0;
     ext_irl = 0;
-    irqpend = 0;
     sregs->g[0] = 0;
 #ifdef HOST_LITTLE_ENDIAN_FLOAT
     sregs->fdp = (float32 *) sregs->fd;

@@ -35,9 +35,12 @@
 
 /* DEVICE
 
+
    cpu - Interface to a Processor
 
-   DESCRIPTION:
+
+   DESCRIPTION
+
 
    The CPU device provides the connection between the interrupt net
    (linking the devices and the interrupt controller) and the
@@ -51,12 +54,26 @@
    to device interrupt sources and its outputs (sreset, int, et.al.)
    connected to this device.
 
-   PROPERTIES:
+
+   PROPERTIES
+
 
    cpu-nr = <integer> (required)
 
+
    Specify the processor (1..N) that this cpu device node should
    control.
+
+
+   EXAMPLES
+
+   
+   Connect an OpenPIC interrupt controller interrupt ports to
+   processor zero.
+
+   | -o '/phb/opic@0 > irq0 int /cpus/cpu@0' \
+   | -o '/phb/opic@0 > init hreset /cpus/cpu@0' \
+
 
    */
 
@@ -78,8 +95,7 @@ static const device_interrupt_port_descriptor hw_cpu_interrupt_ports[] = {
 static void *
 hw_cpu_create(const char *name,
 	      const device_unit *unit_address,
-	      const char *args,
-	      device *parent)
+	      const char *args)
 {
   hw_cpu_device *hw_cpu = ZALLOC(hw_cpu_device);
   return hw_cpu;

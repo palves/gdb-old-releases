@@ -1,3 +1,166 @@
+Tue Dec  2 10:10:42 1997  Nick Clifton  <nickc@cygnus.com>
+
+	* configure.in (extra_subdirs): Add support for thumb target.
+
+	* configure (extra_subdirs): Add support for thumb target.
+
+Wed Oct  8 12:38:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (extra_subdirs): Add IGEN directory when MIPS
+ 	target.
+	* configure: Regenerate.
+	
+Mon Sep  1 16:48:23 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (testdir): When a testsuite directory, add that to
+ 	the list of confdirs.
+
+Tue Aug 19 11:17:46 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (extra_subdirs): Enable igen ready for V850.
+
+Tue Aug 26 15:14:48 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (w65-*-*, only_if_enabled): Set.
+	* configure: Re-generate.
+	
+Mon Aug 25 16:26:53 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (sparc*-*-*, only_if_enabled): Set
+ 	only_if_enabled=yes.  Check only_if_enabled before enabling a
+ 	simulator.
+	* configure: Regenerate.
+	
+Fri Jul 25 11:40:47 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure.in (sparc*-*-*): Don't build erc32.
+	* configure: Regenerate.
+
+Thu Apr 24 00:47:20 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure.in (m32r-*-*): New target.
+	* configure: Regenerate.
+
+	* Makefile.in (autoconf-common, autoconf-changelog): Change $* to $@.
+
+Mon Apr 21 22:57:55 1997  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (.NOEXPORT, MAKEOVERRIDES): Moved to end, BSD make
+ 	thought that .NOEXPORT was the default target.
+
+Fri Apr 11 17:18:07 1997  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (clean mostlyclean): Restore targets accidentally
+	deleted in earlier change.
+
+Thu Apr  3 12:20:32 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* Makefile.in (autoheader-common, autoheader-changelog,
+ 	autoheader-install): Perform autoheader in addition to autoconf.
+
+Wed Apr  2 15:09:05 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (autoconf-install): New target.
+	(autoconf-changelog): Try different way to obtain user name.
+
+Wed Apr  2 14:25:52 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* Makefile.in (autoconf-changelog): New target, update
+ 	ChangeLog for all subdirectories - normally used after
+ 	autoconf-common target.
+
+Wed Mar 19 14:26:21 1997  Andrew Cagney  <cagney@kremvax.cygnus.com>
+
+	* Makefile.in (RUNTEST, RUNTESTFLAGS): Borrow test rules from
+ 	../gdb/Makefile.in
+	(check): New rules - drive the testsuite.
+
+Mon Mar  3 13:01:00 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* configure.in: Add mn10200 configure lines accidentally
+	removed.
+	* configure: Regenerated.
+
+Wed Feb 19 10:34:20 1997  Andrew Cagney  <cagney@critters.cygnus.com>
+
+	* configure.in (extra_subdirs): Generalize common sub directory
+ 	into a list.
+Wed Feb 19 23:17:13 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* configure.in: Don't require GCC to build the mn10200
+	simulator anymore.
+	* configure: Rebuilt.
+
+Wed Feb  5 13:28:13 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure.in: Don't configure any subdirs if no simulator
+	is being built.  Don't use erc32 for sparc64.
+	* configure: Regenerated.
+
+Tue Feb  4 13:19:39 1997  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (autoconf-common): New target.
+	* configure.in: Do configure common.
+	* configure: Regenerated.
+
+Thu Jan 23 13:59:52 1997  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* configure configure.in:  Don't configure common anymore.  Files
+	from common are now built in the individual simualtor directories.
+	This fixes problems with the WinGDB build procedure.
+
+Mon Jan 13 13:16:42 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* configure: Enable the mn10200 simulator.
+
+Wed Nov 20 01:00:36 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure.in (configdirs): Add common.
+	* configure: Regenerated.
+
+Fri Nov  1 08:03:30 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* configure.in (powerpc*-*-linux*): Treat like the other powerpc
+	system V based targets.
+	* configure: Regenerate.
+
+Thu Oct 17 12:50:08 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* configure.in (--enable-sim-powerpc): Delete.
+	(--enable-sim): Add.
+	* configure: Regenerated.
+
+Fri Oct 11 21:13:43 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* configure.in: Only build the V850 simulator if
+	we are using gcc.
+	* configure: Rebuild.
+
+Sun Sep  8 17:22:50 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Do build erc32 for DOS and Windows hosts.
+	* configure: Rebuild.
+
+Wed Sep  4 18:11:27 1996  Stu Grossman  (grossman@critters.cygnus.com)
+
+	* Makefile.in erc32/Makefile.in:  Don't set srcroot.  This should
+	be inherited from the parent.  Remove INSTALL_XFORM and
+	INSTALL_XFORM1.  Make INSTALL be set from configure.
+
+Wed Sep  4 15:49:16 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Only build the MIPS simulator if we are using
+	gcc.
+	* configure: Rebuild.
+
+Wed Aug 28 19:05:23 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* configure.in (v850-*-*): Added V850 simulator.
+
+Thu Aug  1 17:08:41 1996  Martin M. Hunt  <hunt@pizza.cygnus.com>
+
+	* configure.in (d10v-*-*): Added D10V simulator.
+
 Wed Jun 26 12:33:57 1996  Jason Molenda  (crash@godzilla.cygnus.co.jp)
 
 	* Makefile.in (bindir, libdir, datadir, mandir, infodir, includedir,

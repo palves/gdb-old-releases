@@ -1,5 +1,5 @@
 /* Support for the generic parts of most COFF variants, for BFD.
-   Copyright 1995, 1996 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 1997 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -52,6 +52,7 @@ Most of this hacked by  Steve Chamberlain,
    wasting too much time.
 */
 
+#undef coff_bfd_print_private_bfd_data
 #define coff_bfd_print_private_bfd_data pe_print_private_bfd_data
 #define coff_mkobject pe_mkobject
 #define coff_mkobject_hook pe_mkobject_hook
@@ -193,7 +194,31 @@ Most of this hacked by  Steve Chamberlain,
 #define PUT_SCNHDR_LNNOPTR bfd_h_put_32
 #endif
 
-
+static void coff_swap_reloc_in PARAMS ((bfd *, PTR, PTR));
+static unsigned int coff_swap_reloc_out PARAMS ((bfd *, PTR, PTR));
+static void coff_swap_filehdr_in PARAMS ((bfd *, PTR, PTR));
+static unsigned int coff_swap_filehdr_out PARAMS ((bfd *, PTR, PTR));
+static void coff_swap_sym_in PARAMS ((bfd *, PTR, PTR));
+static unsigned int coff_swap_sym_out PARAMS ((bfd *, PTR, PTR));
+static void coff_swap_aux_in PARAMS ((bfd *, PTR, int, int, int, int, PTR));
+static unsigned int coff_swap_aux_out
+  PARAMS ((bfd *, PTR, int, int, int, int, PTR));
+static void coff_swap_lineno_in PARAMS ((bfd *, PTR, PTR));
+static unsigned int coff_swap_lineno_out PARAMS ((bfd *, PTR, PTR));
+static void coff_swap_aouthdr_in PARAMS ((bfd *, PTR, PTR));
+static void add_data_entry
+  PARAMS ((bfd *, struct internal_extra_pe_aouthdr *, int, char *, bfd_vma));
+static unsigned int coff_swap_aouthdr_out PARAMS ((bfd *, PTR, PTR));
+static void coff_swap_scnhdr_in PARAMS ((bfd *, PTR, PTR));
+static unsigned int coff_swap_scnhdr_out PARAMS ((bfd *, PTR, PTR));
+static boolean pe_print_idata PARAMS ((bfd *, PTR));
+static boolean pe_print_edata PARAMS ((bfd *, PTR));
+static boolean pe_print_pdata PARAMS ((bfd *, PTR));
+static boolean pe_print_reloc PARAMS ((bfd *, PTR));
+static boolean pe_print_private_bfd_data PARAMS ((bfd *, PTR));
+static boolean pe_mkobject PARAMS ((bfd *));
+static PTR pe_mkobject_hook PARAMS ((bfd *, PTR, PTR));
+static boolean pe_bfd_copy_private_bfd_data PARAMS ((bfd *, bfd *));
 
 /**********************************************************************/
 
@@ -753,47 +778,56 @@ coff_swap_aouthdr_in (abfd, aouthdr_ext1, aouthdr_int1)
     GET_AOUTHDR_DATA_START (abfd, (bfd_byte *) aouthdr_ext->data_start);
 
   a = &aouthdr_int->pe;
-  a->ImageBase = bfd_h_get_32 (abfd, src->ImageBase);
-  a->SectionAlignment = bfd_h_get_32 (abfd, src->SectionAlignment);
-  a->FileAlignment = bfd_h_get_32 (abfd, src->FileAlignment);
+  a->ImageBase = bfd_h_get_32 (abfd, (bfd_byte *) src->ImageBase);
+  a->SectionAlignment = bfd_h_get_32 (abfd, (bfd_byte *) src->SectionAlignment);
+  a->FileAlignment = bfd_h_get_32 (abfd, (bfd_byte *) src->FileAlignment);
   a->MajorOperatingSystemVersion = 
-    bfd_h_get_16 (abfd, src->MajorOperatingSystemVersion);
+    bfd_h_get_16 (abfd, (bfd_byte *) src->MajorOperatingSystemVersion);
   a->MinorOperatingSystemVersion = 
-    bfd_h_get_16 (abfd, src->MinorOperatingSystemVersion);
-  a->MajorImageVersion = bfd_h_get_16 (abfd, src->MajorImageVersion);
-  a->MinorImageVersion = bfd_h_get_16 (abfd, src->MinorImageVersion);
-  a->MajorSubsystemVersion = bfd_h_get_16 (abfd, src->MajorSubsystemVersion);
-  a->MinorSubsystemVersion = bfd_h_get_16 (abfd, src->MinorSubsystemVersion);
-  a->Reserved1 = bfd_h_get_32 (abfd, src->Reserved1);
-  a->SizeOfImage = bfd_h_get_32 (abfd, src->SizeOfImage);
-  a->SizeOfHeaders = bfd_h_get_32 (abfd, src->SizeOfHeaders);
-  a->CheckSum = bfd_h_get_32 (abfd, src->CheckSum);
-  a->Subsystem = bfd_h_get_16 (abfd, src->Subsystem);
-  a->DllCharacteristics = bfd_h_get_16 (abfd, src->DllCharacteristics);
-  a->SizeOfStackReserve = bfd_h_get_32 (abfd, src->SizeOfStackReserve);
-  a->SizeOfStackCommit = bfd_h_get_32 (abfd, src->SizeOfStackCommit);
-  a->SizeOfHeapReserve = bfd_h_get_32 (abfd, src->SizeOfHeapReserve);
-  a->SizeOfHeapCommit = bfd_h_get_32 (abfd, src->SizeOfHeapCommit);
-  a->LoaderFlags = bfd_h_get_32 (abfd, src->LoaderFlags);
-  a->NumberOfRvaAndSizes = bfd_h_get_32 (abfd, src->NumberOfRvaAndSizes);
+    bfd_h_get_16 (abfd, (bfd_byte *) src->MinorOperatingSystemVersion);
+  a->MajorImageVersion = bfd_h_get_16 (abfd, (bfd_byte *) src->MajorImageVersion);
+  a->MinorImageVersion = bfd_h_get_16 (abfd, (bfd_byte *) src->MinorImageVersion);
+  a->MajorSubsystemVersion = bfd_h_get_16 (abfd, (bfd_byte *) src->MajorSubsystemVersion);
+  a->MinorSubsystemVersion = bfd_h_get_16 (abfd, (bfd_byte *) src->MinorSubsystemVersion);
+  a->Reserved1 = bfd_h_get_32 (abfd, (bfd_byte *) src->Reserved1);
+  a->SizeOfImage = bfd_h_get_32 (abfd, (bfd_byte *) src->SizeOfImage);
+  a->SizeOfHeaders = bfd_h_get_32 (abfd, (bfd_byte *) src->SizeOfHeaders);
+  a->CheckSum = bfd_h_get_32 (abfd, (bfd_byte *) src->CheckSum);
+  a->Subsystem = bfd_h_get_16 (abfd, (bfd_byte *) src->Subsystem);
+  a->DllCharacteristics = bfd_h_get_16 (abfd, (bfd_byte *) src->DllCharacteristics);
+  a->SizeOfStackReserve = bfd_h_get_32 (abfd, (bfd_byte *) src->SizeOfStackReserve);
+  a->SizeOfStackCommit = bfd_h_get_32 (abfd, (bfd_byte *) src->SizeOfStackCommit);
+  a->SizeOfHeapReserve = bfd_h_get_32 (abfd, (bfd_byte *) src->SizeOfHeapReserve);
+  a->SizeOfHeapCommit = bfd_h_get_32 (abfd, (bfd_byte *) src->SizeOfHeapCommit);
+  a->LoaderFlags = bfd_h_get_32 (abfd, (bfd_byte *) src->LoaderFlags);
+  a->NumberOfRvaAndSizes = bfd_h_get_32 (abfd, (bfd_byte *) src->NumberOfRvaAndSizes);
 
   {
     int idx;
     for (idx=0; idx < 16; idx++)
       {
 	a->DataDirectory[idx].VirtualAddress =
-	  bfd_h_get_32 (abfd, src->DataDirectory[idx][0]);
+	  bfd_h_get_32 (abfd, (bfd_byte *) src->DataDirectory[idx][0]);
 	a->DataDirectory[idx].Size =
-	  bfd_h_get_32 (abfd, src->DataDirectory[idx][1]);
+	  bfd_h_get_32 (abfd, (bfd_byte *) src->DataDirectory[idx][1]);
       }
   }
 
   if (aouthdr_int->entry)
-    aouthdr_int->entry += a->ImageBase;
+    {
+      aouthdr_int->entry += a->ImageBase;
+      aouthdr_int->entry &= 0xffffffff;
+    }
   if (aouthdr_int->tsize) 
-    aouthdr_int->text_start += a->ImageBase;
+    {
+      aouthdr_int->text_start += a->ImageBase;
+      aouthdr_int->text_start &= 0xffffffff;
+    }
   if (aouthdr_int->dsize) 
-    aouthdr_int->data_start += a->ImageBase;
+    {
+      aouthdr_int->data_start += a->ImageBase;
+      aouthdr_int->data_start &= 0xffffffff;
+    }
 
 #ifdef POWERPC_LE_PE
   /* These three fields are normally set up by ppc_relocate_section.
@@ -819,7 +853,7 @@ static void add_data_entry (abfd, aout, idx, name, base)
   /* add import directory information if it exists */
   if (sec != NULL)
     {
-      aout->DataDirectory[idx].VirtualAddress = sec->vma - base;
+      aout->DataDirectory[idx].VirtualAddress = (sec->vma - base) & 0xffffffff;
       aout->DataDirectory[idx].Size = pei_section_data (abfd, sec)->virt_size;
       sec->flags |= SEC_DATA;
     }
@@ -840,11 +874,20 @@ coff_swap_aouthdr_out (abfd, in, out)
   bfd_vma ib = extra->ImageBase ;
 
   if (aouthdr_in->tsize) 
-    aouthdr_in->text_start -= ib;
+    {
+      aouthdr_in->text_start -= ib;
+      aouthdr_in->text_start &= 0xffffffff;
+    }
   if (aouthdr_in->dsize) 
-    aouthdr_in->data_start -= ib;
+    {
+      aouthdr_in->data_start -= ib;
+      aouthdr_in->data_start &= 0xffffffff;
+    }
   if (aouthdr_in->entry) 
-    aouthdr_in->entry -= ib;
+    {
+      aouthdr_in->entry -= ib;
+      aouthdr_in->entry &= 0xffffffff;
+    }
 
 #define FA(x)  (((x) + fa -1 ) & (- fa))
 #define SA(x)  (((x) + sa -1 ) & (- sa))
@@ -1017,6 +1060,7 @@ static void
   if (scnhdr_int->s_vaddr != 0) 
     {
       scnhdr_int->s_vaddr += pe_data (abfd)->pe_opthdr.ImageBase;
+      scnhdr_int->s_vaddr &= 0xffffffff;
     }
   if (strcmp (scnhdr_int->s_name, _BSS) == 0) 
     {
@@ -1040,8 +1084,9 @@ coff_swap_scnhdr_out (abfd, in, out)
   memcpy(scnhdr_ext->s_name, scnhdr_int->s_name, sizeof(scnhdr_int->s_name));
 
   PUT_SCNHDR_VADDR (abfd, 
-		    (scnhdr_int->s_vaddr 
-		     - pe_data(abfd)->pe_opthdr.ImageBase),
+		    ((scnhdr_int->s_vaddr 
+		      - pe_data(abfd)->pe_opthdr.ImageBase)
+		     & 0xffffffff),
 		    (bfd_byte *) scnhdr_ext->s_vaddr);
 
   /* NT wants the size data to be rounded up to the next NT_FILE_ALIGNMENT
@@ -1086,17 +1131,20 @@ coff_swap_scnhdr_out (abfd, in, out)
   /* FIXME: even worse, I don't see how to get the original alignment field*/
   /*        back...                                                        */
 
+  /* FIXME: Basing this on section names is bogus.  Also, this should
+     be in sec_to_styp_flags.  */
+
   {
     int flags = scnhdr_int->s_flags;
     if (strcmp (scnhdr_int->s_name, ".data")  == 0 ||
 	strcmp (scnhdr_int->s_name, ".CRT")   == 0 ||
-	strcmp (scnhdr_int->s_name, ".rsrc")  == 0 ||
 	strcmp (scnhdr_int->s_name, ".bss")   == 0)
       flags |= IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE;
     else if (strcmp (scnhdr_int->s_name, ".text") == 0)
       flags |= IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_EXECUTE;
     else if (strcmp (scnhdr_int->s_name, ".reloc") == 0)
-      flags = SEC_DATA| IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_DISCARDABLE;
+      flags = (SEC_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_DISCARDABLE
+	       | IMAGE_SCN_MEM_SHARED);
     else if (strcmp (scnhdr_int->s_name, ".idata") == 0)
       flags = IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE | SEC_DATA;     
     else if (strcmp (scnhdr_int->s_name, ".rdata") == 0
@@ -1107,24 +1155,21 @@ coff_swap_scnhdr_out (abfd, in, out)
 			  IMAGE_SCN_MEM_READ ;
     /* Remember this field is a max of 8 chars, so the null is _not_ there
        for an 8 character name like ".reldata". (yep. Stupid bug) */
-    else if (strncmp (scnhdr_int->s_name, ".reldata", strlen(".reldata")) == 0)
+    else if (strncmp (scnhdr_int->s_name, ".reldata", 8) == 0)
       flags =  IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_8BYTES |
 	       IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE ;
     else if (strcmp (scnhdr_int->s_name, ".ydata") == 0)
       flags =  IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_ALIGN_8BYTES |
 	       IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE ;
-    else if (strncmp (scnhdr_int->s_name, ".drectve", strlen(".drectve")) == 0)
+    else if (strncmp (scnhdr_int->s_name, ".drectve", 8) == 0)
       flags =  IMAGE_SCN_LNK_INFO | IMAGE_SCN_LNK_REMOVE ;
-#ifdef POWERPC_LE_PE
-    else if (strncmp (scnhdr_int->s_name, ".stabstr", strlen(".stabstr")) == 0)
-      {
-	flags =  IMAGE_SCN_LNK_INFO;
-      }
-    else if (strcmp (scnhdr_int->s_name, ".stab") == 0)
-      {
-	flags =  IMAGE_SCN_LNK_INFO;
-      }
-#endif
+    else if (strncmp (scnhdr_int->s_name, ".stab", 5) == 0)
+      flags |= (IMAGE_SCN_LNK_INFO | IMAGE_SCN_MEM_DISCARDABLE
+		| IMAGE_SCN_MEM_SHARED | IMAGE_SCN_MEM_READ);
+    else if (strcmp (scnhdr_int->s_name, ".rsrc")  == 0)
+      flags |= IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_SHARED;
+    else
+      flags |= IMAGE_SCN_MEM_READ;
 
     bfd_h_put_32(abfd, flags, (bfd_byte *) scnhdr_ext->s_flags);
   }
@@ -1177,10 +1222,10 @@ static char * dir_names[IMAGE_NUMBEROF_DIRECTORY_ENTRIES] =
 /**********************************************************************/
 static boolean
 pe_print_idata(abfd, vfile)
-     bfd*abfd;
-     void *vfile;
+     bfd *abfd;
+     PTR vfile;
 {
-  FILE *file = vfile;
+  FILE *file = (FILE *) vfile;
   bfd_byte *data = 0;
   asection *section = bfd_get_section_by_name (abfd, ".idata");
 
@@ -1280,7 +1325,7 @@ pe_print_idata(abfd, vfile)
       int idx;
       int j;
       char *dll;
-      int adj = extra->ImageBase - section->vma;
+      int adj = (extra->ImageBase - section->vma) & 0xffffffff;
 
       fprintf (file,
 	       " %04lx\t", 
@@ -1388,11 +1433,11 @@ pe_print_idata(abfd, vfile)
 }
 
 static boolean
-pe_print_edata(abfd, vfile)
-     bfd*abfd;
-     void *vfile;
+pe_print_edata (abfd, vfile)
+     bfd *abfd;
+     PTR vfile;
 {
-  FILE *file = vfile;
+  FILE *file = (FILE *) vfile;
   bfd_byte *data = 0;
   asection *section = bfd_get_section_by_name (abfd, ".edata");
 
@@ -1446,7 +1491,7 @@ pe_print_edata(abfd, vfile)
   edt.npt_addr       = bfd_get_32(abfd, data+32); 
   edt.ot_addr        = bfd_get_32(abfd, data+36);
 
-  adj = extra->ImageBase - section->vma;
+  adj = (extra->ImageBase - section->vma) & 0xffffffff;
 
 
   /* Dump the EDT first first */
@@ -1518,7 +1563,7 @@ pe_print_edata(abfd, vfile)
     {
       bfd_vma eat_member = bfd_get_32(abfd, 
 				      data + edt.eat_addr + (i*4) + adj);
-      bfd_vma eat_actual = extra->ImageBase + eat_member;
+      bfd_vma eat_actual = (extra->ImageBase + eat_member) & 0xffffffff;
       bfd_vma edata_start = bfd_get_section_vma(abfd,section);
       bfd_vma edata_end = edata_start + bfd_section_size (abfd, section);
 
@@ -1573,11 +1618,11 @@ pe_print_edata(abfd, vfile)
 }
 
 static boolean
-pe_print_pdata(abfd, vfile)
-     bfd*abfd;
-     void *vfile;
+pe_print_pdata (abfd, vfile)
+     bfd  *abfd;
+     PTR vfile;
 {
-  FILE *file = vfile;
+  FILE *file = (FILE *) vfile;
   bfd_byte *data = 0;
   asection *section = bfd_get_section_by_name (abfd, ".pdata");
   bfd_size_type datasize = 0;
@@ -1697,11 +1742,11 @@ static const char *tbl[6] =
 };
 
 static boolean
-pe_print_reloc(abfd, vfile)
-     bfd*abfd;
-     void *vfile;
+pe_print_reloc (abfd, vfile)
+     bfd *abfd;
+     PTR vfile;
 {
-  FILE *file = vfile;
+  FILE *file = (FILE *) vfile;
   bfd_byte *data = 0;
   asection *section = bfd_get_section_by_name (abfd, ".reloc");
   bfd_size_type datasize = 0;
@@ -1881,6 +1926,9 @@ pe_mkobject_hook (abfd, filehdr, aouthdr)
 
   pe->real_flags = internal_f->f_flags;
 
+  if ((internal_f->f_flags & F_DLL) != 0)
+    pe->dll = 1;
+
 #ifdef COFF_IMAGE_WITH_PE
   if (aouthdr) 
     {
@@ -1896,6 +1944,7 @@ pe_mkobject_hook (abfd, filehdr, aouthdr)
 /* Copy any private info we understand from the input bfd
    to the output bfd.  */
 
+#undef coff_bfd_copy_private_bfd_data
 #define coff_bfd_copy_private_bfd_data pe_bfd_copy_private_bfd_data
 
 static boolean
@@ -1907,7 +1956,8 @@ pe_bfd_copy_private_bfd_data (ibfd, obfd)
       || obfd->xvec->flavour != bfd_target_coff_flavour)
     return true;
 
-  pe_data(obfd)->pe_opthdr = pe_data (ibfd)->pe_opthdr;
+  pe_data (obfd)->pe_opthdr = pe_data (ibfd)->pe_opthdr;
+  pe_data (obfd)->dll = pe_data (ibfd)->dll;
 
   return true;
 }
@@ -1928,6 +1978,10 @@ pe_bfd_copy_private_section_data (ibfd, isec, obfd, osec)
      bfd *obfd;
      asection *osec;
 {
+  if (bfd_get_flavour (ibfd) != bfd_target_coff_flavour
+      || bfd_get_flavour (obfd) != bfd_target_coff_flavour)
+    return true;
+
   if (coff_section_data (ibfd, isec) != NULL
       && pei_section_data (ibfd, isec) != NULL)
     {

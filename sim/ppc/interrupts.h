@@ -93,6 +93,7 @@ typedef enum {
   illegal_instruction_program_interrupt,
   privileged_instruction_program_interrupt,
   trap_program_interrupt,
+  optional_instruction_program_interrupt, /* subset of illegal instruction */
   nr_program_interrupt_reasons
 } program_interrupt_reasons;
 

@@ -1,4 +1,4 @@
-# Copyright (C) 1995 Free Software Foundation, Inc.
+# Copyright (C) 1995, 1997 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
@@ -38,15 +38,15 @@ if  { [compile "${srcfile} -g -o ${binfile} ${CHILL_RT0} ${CHILL_LIB}"] != "" } 
 # fails, then we skip the other tests.
 
 proc set_lang_chill {} {
-    global prompt
+    global gdb_prompt
     global binfile objdir subdir
 
     verbose "loading file '$binfile'"
     gdb_load $binfile
 
-    send "set language chill\n"
-    expect {
-	-re ".*$prompt $" {}
+    send_gdb "set language chill\n"
+    gdb_expect {
+	-re ".*$gdb_prompt $" {}
 	timeout { fail "set language chill (timeout)" ; return 0 }
     }
 
@@ -63,13 +63,13 @@ gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 
-send "set print sevenbit-strings\n" ; expect -re ".*$prompt $"
+gdb_test "set print sevenbit-strings" ".*"
 
 if ![set_lang_chill] then {
     runto hugo_
 
-    send "set var \$i := d\n"
-    expect -re ".*$prompt $"
+    send_gdb "set var \$i := d\n"
+    gdb_expect -re ".*$gdb_prompt $"
     gdb_test "print \$i" { = d}
     gdb_test "print size (\$i)" { = 1}
     gdb_test "print b+c" { = 3}
@@ -79,7 +79,7 @@ if ![set_lang_chill] then {
     gdb_test "print a=a" { = TRUE}
     gdb_test "print a/=\$i" { = TRUE}
 
-# This is PR 8870:
-    send "break malloc\n"; expect -re ".*$prompt $"
+# This is PR 8870
+    gdb_test "break malloc" ".*"
     gdb_test {set var $j := m_set[b]} ".*invalid.*tuple.*"
 }

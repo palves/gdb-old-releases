@@ -1,6 +1,6 @@
 /* Utilities to execute a program in a subprocess (possibly linked by pipes
    with other subprocesses), and wait for it.
-   Copyright (C) 1996 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
 
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
@@ -23,11 +23,14 @@ Boston, MA 02111-1307, USA.  */
 /* This file lives in at least two places: libiberty and gcc.
    Don't change one without the other.  */
 
+#ifdef IN_GCC
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <errno.h>
 
 #ifdef IN_GCC
-#include "config.h"
 #include "gansidecl.h"
 /* ??? Need to find a suitable header file.  */
 #define PEXECUTE_FIRST   1
@@ -217,12 +220,16 @@ pwait (pid, status, flags)
 
 #endif /* MSDOS */
 
-#ifdef _WIN32
+#if defined (_WIN32)
 
 #include <process.h>
-/* ??? Why are these __spawnv{,p} and not _spawnv{,p}?  */
-extern int __spawnv ();
-extern int __spawnvp ();
+
+#ifdef __CYGWIN32__
+
+#define fix_argv(argvec) (argvec)
+
+extern int _spawnv ();
+extern int _spawnvp ();
 
 int
 pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
@@ -237,7 +244,8 @@ pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
 
   if ((flags & PEXECUTE_ONE) != PEXECUTE_ONE)
     abort ();
-  pid = (flags & PEXECUTE_SEARCH ? __spawnvp : __spawnv) (_P_NOWAIT, program, argv);
+  pid = (flags & PEXECUTE_SEARCH ? _spawnvp : _spawnv)
+    (_P_NOWAIT, program, fix_argv(argv));
   if (pid == -1)
     {
       *errmsg_fmt = install_error_msg;
@@ -255,11 +263,185 @@ pwait (pid, status, flags)
 {
   /* ??? Here's an opportunity to canonicalize the values in STATUS.
      Needed?  */
-  int pid = cwait (status, pid, WAIT_CHILD);
+  return cwait (status, pid, WAIT_CHILD);
+}
+
+#else /* ! __CYGWIN32__ */
+
+/* This is a kludge to get around the Microsoft C spawn functions' propensity
+   to remove the outermost set of double quotes from all arguments.  */
+
+const char * const *
+fix_argv (argvec)
+     char **argvec;
+{
+  int i;
+
+  for (i = 1; argvec[i] != 0; i++)
+    {
+      int len, j;
+      char *temp, *newtemp;
+
+      temp = argvec[i];
+      len = strlen (temp);
+      for (j = 0; j < len; j++)
+        {
+          if (temp[j] == '"')
+            {
+              newtemp = xmalloc (len + 2);
+              strncpy (newtemp, temp, j);
+              newtemp [j] = '\\';
+              strncpy (&newtemp [j+1], &temp [j], len-j);
+              newtemp [len+1] = 0;
+              temp = newtemp;
+              len++;
+              j++;
+            }
+        }
+
+        argvec[i] = temp;
+      }
+
+  return (const char * const *) argvec;
+}
+
+#include <io.h>
+#include <fcntl.h>
+#include <signal.h>
+
+/* mingw32 headers may not define the following.  */
+
+#ifndef _P_WAIT
+#  define _P_WAIT	0
+#  define _P_NOWAIT	1
+#  define _P_OVERLAY	2
+#  define _P_NOWAITO	3
+#  define _P_DETACH	4
+
+#  define WAIT_CHILD	0
+#  define WAIT_GRANDCHILD	1
+#endif
+
+/* Win32 supports pipes */
+int
+pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
+     const char *program;
+     char * const *argv;
+     const char *this_pname;
+     const char *temp_base;
+     char **errmsg_fmt, **errmsg_arg;
+     int flags;
+{
+  int pid;
+  int pdes[2], org_stdin, org_stdout;
+  int input_desc, output_desc;
+  int retries, sleep_interval;
+
+  /* Pipe waiting from last process, to be used as input for the next one.
+     Value is STDIN_FILE_NO if no pipe is waiting
+     (i.e. the next command is the first of a group).  */
+  static int last_pipe_input;
+
+  /* If this is the first process, initialize.  */
+  if (flags & PEXECUTE_FIRST)
+    last_pipe_input = STDIN_FILE_NO;
+
+  input_desc = last_pipe_input;
+
+  /* If this isn't the last process, make a pipe for its output,
+     and record it as waiting to be the input to the next process.  */
+  if (! (flags & PEXECUTE_LAST))
+    {
+      if (_pipe (pdes, 256, O_BINARY) < 0)
+	{
+	  *errmsg_fmt = "pipe";
+	  *errmsg_arg = NULL;
+	  return -1;
+	}
+      output_desc = pdes[WRITE_PORT];
+      last_pipe_input = pdes[READ_PORT];
+    }
+  else
+    {
+      /* Last process.  */
+      output_desc = STDOUT_FILE_NO;
+      last_pipe_input = STDIN_FILE_NO;
+    }
+
+  if (input_desc != STDIN_FILE_NO)
+    {
+      org_stdin = dup (STDIN_FILE_NO);
+      dup2 (input_desc, STDIN_FILE_NO);
+      close (input_desc); 
+    }
+
+  if (output_desc != STDOUT_FILE_NO)
+    {
+      org_stdout = dup (STDOUT_FILE_NO);
+      dup2 (output_desc, STDOUT_FILE_NO);
+      close (output_desc);
+    }
+
+  pid = (flags & PEXECUTE_SEARCH ? _spawnvp : _spawnv)
+    (_P_NOWAIT, program, fix_argv(argv));
+
+  if (input_desc != STDIN_FILE_NO)
+    {
+      dup2 (org_stdin, STDIN_FILE_NO);
+      close (org_stdin);
+    }
+
+  if (output_desc != STDOUT_FILE_NO)
+    {
+      dup2 (org_stdout, STDOUT_FILE_NO);
+      close (org_stdout);
+    }
+
+  if (pid == -1)
+    {
+      *errmsg_fmt = install_error_msg;
+      *errmsg_arg = program;
+      return -1;
+    }
+
   return pid;
 }
 
-#endif /* WIN32 */
+/* MS CRTDLL doesn't return enough information in status to decide if the
+   child exited due to a signal or not, rather it simply returns an
+   integer with the exit code of the child; eg., if the child exited with 
+   an abort() call and didn't have a handler for SIGABRT, it simply returns
+   with status = 3. We fix the status code to conform to the usual WIF*
+   macros. Note that WIFSIGNALED will never be true under CRTDLL. */
+
+int
+pwait (pid, status, flags)
+     int pid;
+     int *status;
+     int flags;
+{
+  int termstat;
+
+  pid = _cwait (&termstat, pid, WAIT_CHILD);
+
+  /* ??? Here's an opportunity to canonicalize the values in STATUS.
+     Needed?  */
+
+  /* cwait returns the child process exit code in termstat.
+     A value of 3 indicates that the child caught a signal, but not
+     which one.  Since only SIGABRT, SIGFPE and SIGINT do anything, we
+     report SIGABRT.  */
+  if (termstat == 3)
+    *status = SIGABRT;
+  else
+    *status = (((termstat) & 0xff) << 8);
+
+  return pid;
+}
+
+#endif /* ! defined (__CYGWIN32__) */
+
+#endif /* _WIN32 */
 
 #ifdef OS2
 
@@ -327,7 +509,7 @@ static int first_time = 1;
 int
 pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
      const char *program;
-     char * const *argv;
+     char **argv;
      const char *this_pname;
      const char *temp_base;
      char **errmsg_fmt, **errmsg_arg;
@@ -346,7 +528,7 @@ pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
 
   fputs ("If {Failed} == 0\n", stdout);
   /* If being verbose, output a copy of the command.  It should be
-     accurate enough and escaped enough to be "clickable". */
+     accurate enough and escaped enough to be "clickable".  */
   if (flags & PEXECUTE_VERBOSE)
     {
       fputs ("\tEcho ", stdout);
@@ -356,18 +538,14 @@ pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
       fputc (' ', stdout);
       for (i=1; argv[i]; i++)
 	{
+	  /* We have to quote every arg, so that when the echo is
+	     executed, the quotes are stripped and the original arg
+	     is left. */
 	  fputc ('\'', stdout);
-	  /* See if we have an argument that needs fixing. */
-	  if (strchr(argv[i], '/'))
-	    {
-	      tmpname = xmalloc (256);
-	      mpwify_filename (argv[i], tmpname);
-	      argv[i] = tmpname;
-	    }
 	  for (cp = argv[i]; *cp; cp++)
 	    {
-	      /* Write an Option-d escape char in front of special chars. */
-	      if (strchr("'+", *cp))
+	      /* Write an Option-d esc char in front of special chars.  */
+	      if (strchr ("\"'+", *cp))
 		fputc ('\266', stdout);
 	      fputc (*cp, stdout);
 	    }
@@ -382,20 +560,15 @@ pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
 
   for (i=1; argv[i]; i++)
     {
-      /* See if we have an argument that needs fixing. */
-      if (strchr(argv[i], '/'))
-	{
-	  tmpname = xmalloc (256);
-	  mpwify_filename (argv[i], tmpname);
-	  argv[i] = tmpname;
-	}
       if (strchr (argv[i], ' '))
 	fputc ('\'', stdout);
       for (cp = argv[i]; *cp; cp++)
 	{
-	  /* Write an Option-d escape char in front of special chars. */
-	  if (strchr("'+", *cp))
-	    fputc ('\266', stdout);
+	  /* Write an Option-d esc char in front of special chars.  */
+	  if (strchr ("\"'+", *cp))
+	    {
+	      fputc ('\266', stdout);
+	    }
 	  fputc (*cp, stdout);
 	}
       if (strchr (argv[i], ' '))
@@ -408,14 +581,14 @@ pexecute (program, argv, this_pname, temp_base, errmsg_fmt, errmsg_arg, flags)
   /* Output commands that arrange to clean up and exit if a failure occurs.
      We have to be careful to collect the status from the program that was
      run, rather than some other script command.  Also, we don't exit
-     immediately, since necessary cleanups are at the end of the script. */
+     immediately, since necessary cleanups are at the end of the script.  */
   fputs ("\tSet TmpStatus {Status}\n", stdout);
   fputs ("\tIf {TmpStatus} != 0\n", stdout);
   fputs ("\t\tSet Failed {TmpStatus}\n", stdout);
   fputs ("\tEnd\n", stdout);
   fputs ("End\n", stdout);
 
-  /* We're just composing a script, can't fail here. */
+  /* We're just composing a script, can't fail here.  */
   return 0;
 }
 
@@ -430,7 +603,7 @@ pwait (pid, status, flags)
 }
 
 /* Write out commands that will exit with the correct error code
-   if something in the script failed. */
+   if something in the script failed.  */
 
 void
 pfinish ()
@@ -440,11 +613,17 @@ pfinish ()
 
 #endif /* MPW */
 
-#if ! defined (__MSDOS__) && ! defined (_WIN32) && ! defined (OS2) \
-    && ! defined (MPW)
+/* include for Unix-like environments but not for Dos-like environments */
+#if ! defined (__MSDOS__) && ! defined (OS2) && ! defined (MPW) \
+    && ! defined (_WIN32)
 
+#ifdef VMS
+#define vfork() (decc$$alloc_vfork_blocks() >= 0 ? \
+               lib$get_current_invo_context(decc$$get_vfork_jmpbuf()) : -1)
+#else
 #ifdef USG
 #define vfork fork
+#endif
 #endif
 
 extern int execv ();
@@ -574,8 +753,12 @@ pwait (pid, status, flags)
 {
   /* ??? Here's an opportunity to canonicalize the values in STATUS.
      Needed?  */
+#ifdef VMS
+  pid = waitpid (-1, status, 0);
+#else
   pid = wait (status);
+#endif
   return pid;
 }
 
-#endif /* !MSDOS && !WIN32 && !OS2 && !MPW */
+#endif /* ! __MSDOS__ && ! OS2 && ! MPW && ! _WIN32 */

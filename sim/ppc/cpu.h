@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1995, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@
 #include "events.h"
 #include "interrupts.h"
 #include "psim.h"
-#include "icache.h"
+#include "idecode.h"
 #include "itable.h"
 #include "os_emul.h"
 #include "mon.h"
@@ -107,6 +107,13 @@ INLINE_CPU\
  unsigned_word nia,
  stop_reason reason,
  int signal);
+
+EXTERN_CPU\
+(void) cpu_error
+(cpu *processor,
+ unsigned_word cia,
+ const char *fmt,
+ ...) __attribute__ ((format (printf, 3, 4)));
 
 
 /* The processors local concept of time */
@@ -208,7 +215,8 @@ INLINE_CPU\
 
 INLINE_CPU\
 (void) cpu_synchronize_context
-(cpu *processor);
+(cpu *processor,
+ unsigned_word cia);
 
 #define IS_PROBLEM_STATE(PROCESSOR) \
 (CURRENT_ENVIRONMENT == OPERATING_ENVIRONMENT \

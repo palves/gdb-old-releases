@@ -1,6 +1,6 @@
-/* evax-alpha.c -- BFD back-end for ALPHA EVAX (openVMS/AXP) files.
-   Copyright 1996 Free Software Foundation, Inc.
-   Written by Klaus Kämpf (kkaempf@progis.de)
+/* evax-alpha.c -- BFD back-end for ALPHA EVAX (openVMS/Alpha) files.
+   Copyright 1996, 1997 Free Software Foundation, Inc.
+   Written by Klaus K"ampf (kkaempf@progis.de)
    of proGIS Softwareentwicklung, Aachen, Germany
 
 This program is free software; you can redistribute it and/or modify
@@ -78,7 +78,7 @@ static void evax_print_symbol
   PARAMS ((bfd *abfd, PTR file, asymbol *symbol, bfd_print_symbol_type how));
 static void evax_get_symbol_info
   PARAMS ((bfd *abfd, asymbol *symbol, symbol_info *ret));
-static boolean evax_bfd_is_local_label PARAMS ((bfd *abfd, asymbol *symbol));
+static boolean evax_bfd_is_local_label_name PARAMS ((bfd *abfd, const char *));
 static alent *evax_get_lineno PARAMS ((bfd *abfd, asymbol *symbol));
 static boolean evax_find_nearest_line
   PARAMS ((bfd *abfd, asection *section, asymbol **symbols, bfd_vma offset,
@@ -137,32 +137,20 @@ const bfd_target evax_alpha_vec =
   false,			/* data byte order is little */
   false,			/* header byte order is little */
 
-  (HAS_RELOC |			/* object flags */
-   HAS_LINENO | HAS_DEBUG |
-   HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
-
-  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* sect flags */
+  (HAS_RELOC | HAS_SYMS
+   | WP_TEXT | D_PAGED),	/* object flags */
+  (SEC_ALLOC | SEC_LOAD | SEC_RELOC
+   | SEC_READONLY | SEC_CODE | SEC_DATA
+   | SEC_HAS_CONTENTS | SEC_IN_MEMORY),		/* sect flags */
   0,				/* symbol_leading_char */
   ' ',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  bfd_getl64,			/* bfd_getx64 */
-  bfd_getl_signed_64,		/* bfd_getx_signed_64 */
-  bfd_putl64,			/* bfd_putx64 */
-  bfd_getl32,			/* bfd_getx32 */
-  bfd_getl_signed_32,		/* bfd_getx_signed_32 */
-  bfd_putl32,			/* bfd_putx32 */
-  bfd_getl16,			/* bfd_getx16 */
-  bfd_getl_signed_16,		/* bfd_getx_signed_16 */
-  bfd_putl16,			/* bfd_putx16 */
-  bfd_getl64,			/* bfd_h_getx64 */
-  bfd_getl_signed_64,		/* bfd_h_getx_signed_64 */
-  bfd_putl64,			/* bfd_h_putx64 */
-  bfd_getl32,			/* bfd_h_getx32 */
-  bfd_getl_signed_32,		/* bfd_h_getx_signed_32 */
-  bfd_putl32,			/* bfd_h_putx32 */
-  bfd_getl16,			/* bfd_h_getx16 */
-  bfd_getl_signed_16,		/* bfd_h_getx_signed_16 */
-  bfd_putl16,			/* bfd_h_putx16 */
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+  bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+  bfd_getl16, bfd_getl_signed_16, bfd_putl16,
+  bfd_getl64, bfd_getl_signed_64, bfd_putl64,
+  bfd_getl32, bfd_getl_signed_32, bfd_putl32,
+  bfd_getl16, bfd_getl_signed_16, bfd_putl16,
 
   {_bfd_dummy_target, evax_object_p,		/* bfd_check_format */
    evax_archive_p, _bfd_dummy_target},
@@ -208,7 +196,6 @@ evax_initialize (abfd)
   PRIV(buf_size) = 0;
   PRIV(rec_length) = 0;
   PRIV(file_format) = FF_UNKNOWN;
-  PRIV(filename) = NULL;
   PRIV(fixup_done) = false;
   PRIV(sections) = NULL;
 
@@ -247,11 +234,8 @@ evax_initialize (abfd)
       goto evax_init_no_mem2;
     }
 
-  for (i=0; i<EVAX_SECTION_COUNT; i++)
-    {
-      PRIV(evax_section_table)[i] = NULL;
-      PRIV(evax_reloc_table)[i] = NULL;
-    }
+  for (i = 0; i < EVAX_SECTION_COUNT; i++)
+    PRIV(evax_section_table)[i] = NULL;
 
   PRIV(output_buf) = (unsigned char *) malloc (MAX_OUTREC_SIZE);
   if (PRIV(output_buf) == 0)
@@ -545,12 +529,6 @@ evax_close_and_cleanup (abfd)
     }
   PRIV(buf_size) = 0;
 
-  if (PRIV(filename) != NULL)
-    {
-      free (PRIV(filename));
-      PRIV(filename) = NULL;
-    }
-
   if (PRIV(output_buf) != 0)
     {
       free (PRIV(output_buf));
@@ -599,15 +577,6 @@ evax_close_and_cleanup (abfd)
 	  es = es1;
 	}
       PRIV(evax_section_table)[i] = NULL;
-
-      er = PRIV(evax_reloc_table)[i];
-      while (er != NULL)
-	{
-	  er1 = er->next;
-	  free (er);
-	  er = er1;
-	}
-      PRIV(evax_reloc_table)[i] = NULL;
    }
 
   free (abfd->tdata.any);
@@ -1034,9 +1003,9 @@ evax_get_symtab (abfd, symbols)
   PRIV(symcache) = symbols;
   bfd_hash_traverse(PRIV(evax_symbol_table), copy_symbols, (PTR)abfd);
 
-  symbols[bfd_get_symcount(abfd)] = NULL;
+  symbols[PRIV(egsd_sym_count)] = NULL;
 
-  return bfd_get_symcount(abfd);
+  return PRIV(egsd_sym_count);
 }
 
 
@@ -1140,8 +1109,6 @@ evax_get_symbol_info (abfd, symbol, ret)
     ret->type = 'A';
   else if (bfd_is_und_section (sec))
     ret->type = 'U';
-  else if (bfd_is_abs_section (sec))
-    ret->type = 'A';
   else if (bfd_is_ind_section (sec))
     ret->type = 'I';
   else if (bfd_get_section_flags (abfd, sec) & SEC_CODE)
@@ -1167,14 +1134,14 @@ evax_get_symbol_info (abfd, symbol, ret)
    a compiler generated local label, else return false.  */
 
 static boolean
-evax_bfd_is_local_label (abfd, symbol)
+evax_bfd_is_local_label_name (abfd, name)
      bfd *abfd;
-     asymbol *symbol;
+     const char *name;
 {
 #if EVAX_DEBUG
-  evax_debug (1, "evax_bfd_is_local_label(%p, %p)\n", abfd, symbol);
+  evax_debug (1, "evax_bfd_is_local_label_name(%p, %s)\n", abfd, name);
 #endif
-  return false;
+  return name[0] == '$';
 }
 
 
@@ -1317,8 +1284,6 @@ reloc_nil (abfd, reloc, sym, data, sec, output_bfd, error_message)
      bfd *output_bfd;
      char **error_message;
 {
-  evax_reloc *er;
-
 #if EVAX_DEBUG
   evax_debug (1, "reloc_nil(abfd %p, output_bfd %p)\n", abfd, output_bfd);
   evax_debug (2, "In section %s, symbol %s\n",
@@ -1331,23 +1296,6 @@ reloc_nil (abfd, reloc, sym, data, sec, output_bfd, error_message)
 /*  _bfd_hexdump (2, data, bfd_get_reloc_size(reloc->howto),0); */
 #endif
 
-  er = (evax_reloc *)malloc (sizeof(evax_reloc));
-  if (er == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return bfd_reloc_notsupported;	/* FIXME */
-    }
-  er->section = sec;
-  er->reloc = reloc;
-  er->next = NULL;
-  if (PRIV(evax_reloc_table)[sec->index] == NULL)
-    {
-      PRIV(evax_reloc_table)[sec->index] = er;
-    }
-  else
-    {
-      er->next = PRIV(evax_reloc_table)[sec->index];
-    }
   return bfd_reloc_ok;
 }
 
@@ -1541,36 +1489,6 @@ static reloc_howto_type alpha_howto_table[] =
 	 0,			/* dst_mask */
 	 false),		/* pcrel_offset */
 
-  /* Switch table, 32bit relocation.  */
-  HOWTO (ALPHA_R_SWREL32,	/* type */
-	 0,			/* rightshift */
-	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 32,			/* bitsize */
-	 false,			/* pc_relative */
-	 0,			/* bitpos */
-	 complain_overflow_dont, /* complain_on_overflow */
-	 reloc_nil,		/* special_function */
-	 "SWREL32",		/* name */
-	 false,			/* partial_inplace */
-	 0xffffffff,		/* src_mask */
-	 0xffffffff,		/* dst_mask */
-	 false),		/* pcrel_offset */
-
-  /* Switch table, 64bit relocation.  */
-  HOWTO (ALPHA_R_SWREL64,	/* type */
-	 0,			/* rightshift */
-	 4,			/* size (0 = byte, 1 = short, 2 = long) */
-	 64,			/* bitsize */
-	 false,			/* pc_relative */
-	 0,			/* bitpos */
-	 complain_overflow_dont, /* complain_on_overflow */
-	 reloc_nil,		/* special_function */
-	 "SWREL64",		/* name */
-	 false,			/* partial_inplace */
-	 MINUS_ONE,		/* src_mask */
-	 MINUS_ONE,		/* dst_mask */
-	 false),			/* pcrel_offset */
-
   /* A 32 bit reference to a symbol.  */
   HOWTO (ALPHA_R_REFLONG,	/* type */
 	 0,			/* rightshift */
@@ -1582,6 +1500,21 @@ static reloc_howto_type alpha_howto_table[] =
 	 reloc_nil,		/* special_function */
 	 "REFLONG",		/* name */
 	 true,			/* partial_inplace */
+	 0xffffffff,		/* src_mask */
+	 0xffffffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* A 64 bit reference to a procedure, written as 32 bit value.  */
+  HOWTO (ALPHA_R_CODEADDR,	/* type */
+	 0,			/* rightshift */
+	 4,			/* size (0 = byte, 1 = short, 2 = long) */
+	 64,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_signed,/* complain_on_overflow */
+	 reloc_nil,		/* special_function */
+	 "CODEADDR",		/* name */
+	 false,			/* partial_inplace */
 	 0xffffffff,		/* src_mask */
 	 0xffffffff,		/* dst_mask */
 	 false),		/* pcrel_offset */
@@ -1614,15 +1547,7 @@ evax_bfd_reloc_type_lookup (abfd, code)
       case BFD_RELOC_32_PCREL:		alpha_type = ALPHA_R_SREL32;	break;
       case BFD_RELOC_64_PCREL:		alpha_type = ALPHA_R_SREL64;	break;
       case BFD_RELOC_ALPHA_LINKAGE:	alpha_type = ALPHA_R_LINKAGE;	break;
-      case BFD_RELOC_SWREL32:		alpha_type = ALPHA_R_SWREL32;	break;
-      case BFD_RELOC_SWREL64:		alpha_type = ALPHA_R_SWREL64;	break;
-#if 0
-      case ???:				alpha_type = ALPHA_R_OP_PUSH;	break;
-      case ???:				alpha_type = ALPHA_R_OP_STORE;	break;
-      case ???:				alpha_type = ALPHA_R_OP_PSUB;	break;
-      case ???:				alpha_type = ALPHA_R_OP_PRSHIFT;break;
-      case ???:				alpha_type = ALPHA_R_GPVALUE;	break;
-#endif
+      case BFD_RELOC_ALPHA_CODEADDR:	alpha_type = ALPHA_R_CODEADDR;	break;
       default:
 	(*_bfd_error_handler) ("reloc (%d) is *UNKNOWN*", code);
 	return (const struct reloc_howto_struct *) NULL;
@@ -1675,6 +1600,7 @@ evax_set_section_contents (abfd, section, location, offset, count)
 #if EVAX_DEBUG
   evax_debug (1, "evax_set_section_contents(%p, sec %s, loc %p, off %ld, count %d)\n",
 					abfd, section->name, location, (long int)offset, (int)count);
+  evax_debug (2, "secraw %d, seccooked %d\n", (int)section->_raw_size, (int)section->_cooked_size);
 #endif
   return _bfd_save_evax_section(abfd, section, location, offset, count);
 }

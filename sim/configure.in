@@ -26,17 +26,20 @@ else
 fi
 AC_SUBST(CC_FOR_BUILD)
 
-# The PowerPC simulator uses the GCC extension long long as well as
-# ANSI prototypes, so don't enable it for random host compilers
-# unless asked to.
-
-AC_ARG_ENABLE(sim-powerpc,
-[  --enable-sim-powerpc ],
+# If a cpu ever has more than one simulator to choose from, use
+# --enable-sim=... to choose.
+AC_ARG_ENABLE(sim,
+[  --enable-sim ],
 [case "${enableval}" in
-yes)	powerpc_sim=yes ;;
-no)	powerpc_sim=no ;;
-*)	AC_MSG_ERROR(bad value ${enableval} given for sim-powerpc option) ;;
-esac],[if test x"$GCC" != x""; then powerpc_sim=yes; else powerpc_sim=no; fi])
+yes | no) ;;
+*)	AC_MSG_ERROR(bad value ${enableval} given for --enable-sim option) ;;
+esac])
+
+# Assume simulator can be built with cc.
+# If the user passes --enable-sim built it regardless of $(CC).
+only_if_gcc=no
+only_if_enabled=no
+extra_subdirs=common
 
 # WHEN ADDING ENTRIES TO THIS MATRIX:
 #  Make sure that the left side always has two dashes.  Otherwise you
@@ -45,34 +48,95 @@ esac],[if test x"$GCC" != x""; then powerpc_sim=yes; else powerpc_sim=no; fi])
 
 case "${target}" in
   arm*-*-*)		sim_target=arm ;;
+  thumb*-*-*)           sim_target=arm ;;
+  d10v-*-*)		sim_target=d10v ;;
   h8300*-*-*)		sim_target=h8300 ;;
   h8500-*-*)		sim_target=h8500 ;;
-  mips*-*-*)		sim_target=mips ;;
-  sh*-*-*)		sim_target=sh ;; 
-  powerpc*-*-eabi* | powerpc*-*-solaris* | powerpc*-*-sysv4* | powerpc*-*-elf* )
-			if test x"$powerpc_sim" = x"yes"; then sim_target=ppc; fi ;;
-  w65-*-*)		sim_target=w65 ;;
+  m32r-*-*)		sim_target=m32r ;;
+  mips*-*-*)
+	# The MIPS simulator can only be compiled by gcc.
+	sim_target=mips
+	only_if_gcc=yes
+	extra_subdirs="${extra_subdirs} igen"
+	;;
+  mn10300*-*-*)
+	# The mn10300 simulator can only be compiled by gcc.
+	sim_target=mn10300
+	only_if_gcc=yes
+	;;
+  mn10200*-*-*)
+	sim_target=mn10200
+	;;
+  sh*-*-*)		sim_target=sh ;;
+  powerpc*-*-eabi* | powerpc*-*-solaris* | powerpc*-*-sysv4* | powerpc*-*-elf* | powerpc*-*-linux* )
+	# The PowerPC simulator uses the GCC extension long long as well as
+	# ANSI prototypes, so don't enable it for random host compilers
+	# unless asked to.
+	sim_target=ppc
+	only_if_gcc=yes
+	#extra_subdirs="${extra_subdirs}"
+	;;
+  v850-*-*)
+	# The V850 simulator can only be compiled by gcc.
+	sim_target=v850
+	extra_subdirs="${extra_subdirs} igen"
+	only_if_gcc=yes
+	;;
+  w65-*-*)
+	sim_target=w65
+	# The w65 is suffering from gradual decay.
+	only_if_enabled=yes
+	;;
   z8k*-*-*)		sim_target=z8k ;;
-  sparc*-*-*)		case "${host}" in	# don't build for non Unix systems
-			  *-*-go32)	sim_target=none ;;
-			  *-*-winnt)	sim_target=none ;;
-			  *-*-cygwin32)	sim_target=none ;;
-  			  *)
-				# The SPARC simulator can only be compiled
-				# by gcc.  Highly bogus, but just skip
-				# building it for now.
-				if test "${GCC}" = "yes"; then
-				  sim_target=erc32
-				else
-				  sim_target=non
-				fi
-				;;
-  			esac ;;
+  sparc64-*-*)
+	sim_target=none # Don't build erc32 if sparc64.
+	;;
+  sparc*-*-*)
+	# The SPARC simulator can only be compiled by gcc.
+	sim_target=erc32
+	only_if_gcc=yes
+	# Unfortunately erc32 won't build on many hosts, so only enable
+	# it if the user really really wants it.
+	only_if_enabled=yes
+	;;
   *)			sim_target=none ;;
 esac
 
-configdirs=${sim_target}
-AC_CONFIG_SUBDIRS($configdirs)
+
+# Is there a testsuite directory for the target?
+testdir=`echo ${target} | sed -e 's/-.*-/-/'`
+if test -r ${srcdir}/testsuite/${testdir}/configure ; then
+  extra_subdirs="${extra_subdirs} testsuite"
+fi
+
+
+case "${enable_sim}" in
+no)	sim_target=none ;;
+yes)
+	if test ${only_if_gcc} = yes ; then
+		if test "${GCC}" != yes ; then
+			echo "Can't enable simulator since not compiling with GCC."
+			sim_target=none
+		fi
+	fi
+	;;
+*)
+	if test ${only_if_enabled} = yes ; then
+		sim_target=none
+	else
+		if test ${only_if_gcc} = yes ; then
+			if test "${GCC}" != yes ; then
+				sim_target=none
+			fi
+		fi
+	fi
+	;;
+esac
+
+if test x"${sim_target}" != xnone ; then
+	configdirs="${extra_subdirs} ${sim_target}"
+	AC_CONFIG_SUBDIRS($configdirs)
+fi
 
 AC_OUTPUT(Makefile)
 

@@ -1,4 +1,4 @@
-# Copyright (C) 1992 Free Software Foundation, Inc.
+# Copyright (C) 92, 96, 1997 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,12 +12,13 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 
 # Please email any bugs, comments, and/or additions to this file to:
 # bug-gdb@prep.ai.mit.edu
 
 # This file was written by Fred Fish. (fnf@cygnus.com)
+# and modified by Bob Manson. (manson@cygnus.com)
 
 if $tracelevel then {
 	strace $tracelevel
@@ -26,65 +27,53 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set prototypes 0
 set testfile "callfuncs"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
-# build the first test case
-execute_anywhere "rm -f ${binfile}.ci"
-execute_anywhere "echo set prototypes 1 > ${binfile}.ci"
-if  { [compile "-g ${srcdir}/${subdir}/${srcfile} -o ${binfile} "] != "" } {
-    execute_anywhere "rm -f ${binfile}.ci"    
+set prototypes 1
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
+    set prototypes 0;
     # built the second test case since we can't use prototypes
     warning "Prototypes not supported, rebuilding with -DNO_PROTOTYPES"
-    execute_anywhere "echo set prototypes 0 > ${binfile}.ci"
-    if  { [compile "-g -DNO_PROTOTYPES ${srcdir}/${subdir}/${srcfile} -o ${binfile} "] != "" } {
-	perror "Couldn't compile ${testfile}.c"
-	return -1
+    if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug additional_flags=-DNO_PROTOTYPES}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
     }
 }
 
 # Create and source the file that provides information about the compiler
 # used to compile the test case.
-if  { [compile "-E ${srcdir}/${subdir}/compiler.c >> ${binfile}.ci"] != "" } {
-    perror "Couldn't make ${binfile}.ci"
-    return -1
+
+if [get_compiler_info ${binfile}] {
+    return -1;
 }
-source ${binfile}.ci
 
 # The a29k can't call functions, so don't even bother with this test.
-if [istarget "a29k-*-udi"] then {
-    setup_xfail "a29k-*-udi" 2416
-    fail "a29k-*-udi can not call functions"
+if [target_info exists gdb,cannot_call_functions] {
+    setup_xfail "*-*-*" 2416
+    fail "This target can not call functions"
     continue
 }
 
-# The h8300 simulator can't call functions, so don't even bother with this test.
-if [istarget "h8300*-*-*"] then {
-    setup_xfail "h8300*-*-*" 
-    fail "h8300*-*-* simulator can not call functions"
-    continue
-}
 # Set the current language to C.  This counts as a test.  If it
 # fails, then we skip the other tests.
 
 proc set_lang_c {} {
-    global prompt
+    global gdb_prompt
 
-    send "set language c\n"
-    expect {
-	-re ".*$prompt $" {}
-	timeout { fail "set language c (timeout)" ; return 0 }
+    send_gdb "set language c\n"
+    gdb_expect {
+	-re ".*$gdb_prompt $" {}
+	timeout { fail "set language c (timeout)" ; return 0; }
     }
 
-    send "show language\n"
-    expect {
-	-re ".* source language is \"c\".*$prompt $" {
+    send_gdb "show language\n"
+    gdb_expect {
+	-re ".* source language is \"c\".*$gdb_prompt $" {
 	    pass "set language to \"c\""
 	    return 1
 	}
-	-re ".*$prompt $" {
+	-re ".*$gdb_prompt $" {
 	    fail "setting language to \"c\""
 	    return 0
 	}
@@ -105,6 +94,8 @@ proc set_lang_c {} {
 proc do_function_calls {} {
     global prototypes
     global gcc_compiled
+    # We need to up this because this can be really slow on some boards.
+    set timeout 60;
 
     gdb_test "p t_char_values(0,0)" " = 0"
     gdb_test "p t_char_values('a','b')" " = 1"
@@ -130,31 +121,43 @@ proc do_function_calls {} {
     gdb_test "p t_long_values(789,long_val2)" " = 1"
     gdb_test "p t_long_values(long_val1,-321)" " = 1"
 
-    gdb_test "p t_float_values(0.0,0.0)" " = 0"
-    gdb_test "p t_float_values(3.14159,-2.3765)" " = 1"
-    gdb_test "p t_float_values(float_val1,float_val2)" " = 1"
-    gdb_test "p t_float_values(3.14159,float_val2)" " = 1"
-    gdb_test "p t_float_values(float_val1,-2.3765)" " = 1"
+    if ![target_info exists gdb,skip_float_tests] {
+	gdb_test "p t_float_values(0.0,0.0)" " = 0"
 
-    # Test passing of arguments which might not be widened.
-    gdb_test "p t_float_values2(0.0,0.0)" " = 0"
+	# These next four tests fail on the mn10300.
+	# The first value is passed in regs, the other in memory.
+	# Gcc emits different stabs for the two parameters; the first is
+	# claimed to be a float, the second a double.
+	# dbxout.c in gcc claims this is the desired behavior.
+	setup_xfail "mn10300-*-*"
+	gdb_test "p t_float_values(3.14159,-2.3765)" " = 1"
+	setup_xfail "mn10300-*-*"
+	gdb_test "p t_float_values(float_val1,float_val2)" " = 1"
+	setup_xfail "mn10300-*-*"
+	gdb_test "p t_float_values(3.14159,float_val2)" " = 1"
+	setup_xfail "mn10300-*-*"
+	gdb_test "p t_float_values(float_val1,-2.3765)" " = 1"
 
-    # Although PR 5318 mentions SunOS specifically, this seems
-    # to be a generic problem on quite a few platforms.
-    if $prototypes then {
-        setup_xfail "hppa*-*-*" "sparc-*-*" "mips*-*-*" 5318
-	if {!$gcc_compiled} then {
-	    setup_xfail "alpha-dec-osf2*" "i*86-*-sysv4*" 5318
+	# Test passing of arguments which might not be widened.
+	gdb_test "p t_float_values2(0.0,0.0)" " = 0"
+
+	# Although PR 5318 mentions SunOS specifically, this seems
+	# to be a generic problem on quite a few platforms.
+	if $prototypes then {
+	    setup_xfail "hppa*-*-*" "sparc-*-*" "mips*-*-*" 5318
+	    if {!$gcc_compiled} then {
+		setup_xfail "alpha-dec-osf2*" "i*86-*-sysv4*" 5318
+	    }
 	}
-    }
-    gdb_test "p t_float_values2(3.14159,float_val2)" " = 1"
-    gdb_test "p t_small_values(1,2,3,4,5,6,7,8,9,10)" " = 55"
+	gdb_test "p t_float_values2(3.14159,float_val2)" " = 1"
+	gdb_test "p t_small_values(1,2,3,4,5,6,7,8,9,10)" " = 55"
 
-    gdb_test "p t_double_values(0.0,0.0)" " = 0"
-    gdb_test "p t_double_values(45.654,-67.66)" " = 1"
-    gdb_test "p t_double_values(double_val1,double_val2)" " = 1"
-    gdb_test "p t_double_values(45.654,double_val2)" " = 1"
-    gdb_test "p t_double_values(double_val1,-67.66)" " = 1"
+	gdb_test "p t_double_values(0.0,0.0)" " = 0"
+	gdb_test "p t_double_values(45.654,-67.66)" " = 1"
+	gdb_test "p t_double_values(double_val1,double_val2)" " = 1"
+	gdb_test "p t_double_values(45.654,double_val2)" " = 1"
+	gdb_test "p t_double_values(double_val1,-67.66)" " = 1"
+    }
 
     gdb_test "p t_string_values(string_val2,string_val1)" " = 0"
     gdb_test "p t_string_values(string_val1,string_val2)" " = 1"
@@ -206,6 +209,8 @@ proc do_function_calls {} {
     gdb_test "p sum_args(2,{2,3})" " = 5"
     gdb_test "p sum_args(3,{2,3,4})" " = 9"
     gdb_test "p sum_args(4,{2,3,4,5})" " = 14"
+    # These tests are broken, so we'll skip them.
+
     gdb_test "p sum10 (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)" " = 55"
 
     gdb_test "p t_structs_c(struct_val1)" "= 120 'x'" \
@@ -218,13 +223,12 @@ proc do_function_calls {} {
 	"call inferior func with struct - returns long"
     setup_xfail "i*86-*-*"
     gdb_test "p t_structs_f(struct_val1)" "= 2.12.*" \
-	"call inferior func with struct - returns float"
+       	"call inferior func with struct - returns float"
     setup_xfail "i*86-*-*"
     gdb_test "p t_structs_d(struct_val1)" "= 9.87.*" \
-	"call inferior func with struct - returns double"
+    	"call inferior func with struct - returns double"
     gdb_test "p t_structs_a(struct_val1)" "= (.unsigned char .. )?\"foo\"" \
-	"call inferior func with struct - returns char *"
-
+    	"call inferior func with struct - returns char *"
 }
 
 # Start with a fresh gdb.
@@ -234,17 +238,19 @@ gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load ${binfile}
 
-send "set print sevenbit-strings\n" ; expect -re "$prompt $"
-send "set print address off\n" ; expect -re "$prompt $"
-send "set width 0\n" ; expect -re "$prompt $"
+gdb_test "set print sevenbit-strings" ""
+gdb_test "set print address off" ""
+gdb_test "set width 0" ""
 
-if [set_lang_c] then {
-    if [runto_main] then {
-	do_function_calls
-    } else {
-	fail "C function calling tests suppressed"
-    }
+if { ![set_lang_c] } {
+    gdb_suppress_tests;
 } else {
-    fail "C function calling tests suppressed"
+    if { ![runto_main] } {
+	gdb_suppress_tests;
+    }
 }
+
+gdb_test "next" ".*"
+do_function_calls
+
 return 0

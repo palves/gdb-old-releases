@@ -30,9 +30,6 @@
 
 #include "cpu.h"
 
-#include <stdio.h>
-#include <fcntl.h>
-
 #ifdef HAVE_STRING_H
 #include <string.h>
 #else
@@ -48,16 +45,15 @@
 #include <stdlib.h>
 #endif
 
-#if !defined(O_NDELAY) || !defined(F_GETFL) || !defined(F_SETFL)
-#undef WITH_STDIO
-#define WITH_STDIO DO_USE_STDIO
-#endif
 
 /* DEVICE
+
    
    pal - glue logic device containing assorted junk
+
    
    DESCRIPTION
+
    
    Typical hardware dependant hack.  This device allows the firmware
    to gain access to all the things the firmware needs (but the OS
@@ -104,12 +100,15 @@
    status register indicates the output fifo is not full by being
    nonzero, outputs the character written to the tty's output port.
 
+
    PROPERTIES
    
+
    reg = <address> <size> (required)
 
    Specify the address (within the parent bus) that this device is to
    live.
+
 
    */
 
@@ -135,6 +134,7 @@ typedef struct _hw_pal_console_buffer {
 typedef struct _hw_pal_device {
   hw_pal_console_buffer input;
   hw_pal_console_buffer output;
+  device *disk;
 } hw_pal_device;
 
 
@@ -142,51 +142,18 @@ typedef struct _hw_pal_device {
 static void
 scan_hw_pal(hw_pal_device *hw_pal)
 {
-  if (WITH_STDIO == DO_USE_STDIO) {
-    int c = getchar ();
-    if (c == EOF) {
-      hw_pal->input.buffer = 0;
-      hw_pal->input.status = 0;
-    } else {
-      hw_pal->input.buffer = c;
-      hw_pal->input.status = 1;
-    }
-
-  } else {
-#if !defined(O_NDELAY) || !defined(F_GETFL) || !defined(F_SETFL)
-    error ("O_NDELAY, F_GETFL, or F_SETFL not defined");
-
-#else
-    /* check for input */
-    int flags;
-    int status;
-    /* get the old status */
-    flags = fcntl(0, F_GETFL, 0);
-    if (flags == -1) {
-      perror("hw_pal");
-      return;
-    }
-    /* temp, disable blocking IO */
-    status = fcntl(0, F_SETFL, flags | O_NDELAY);
-    if (status == -1) {
-      perror("hw_pal");
-      return;
-    }
-    /* try for input */
-    status = read(0, &hw_pal->input.buffer, 1);
-    if (status == 1) {
-      hw_pal->input.status = 1;
-    }
-    else {
-      hw_pal->input.status = 0;
-    }
-    /* return to regular vewing */
-    flags = fcntl(0, F_SETFL, flags);
-    if (flags == -1) {
-      perror("hw_pal");
-      return;
-    }
-#endif
+  char c;
+  int count;
+  count = sim_io_read_stdin(&c, sizeof(c));
+  switch (count) {
+  case sim_io_not_ready:
+  case sim_io_eof:
+    hw_pal->input.buffer = 0;
+    hw_pal->input.status = 0;
+    break;
+  default:
+    hw_pal->input.buffer = c;
+    hw_pal->input.status = 1;
   }
 }
 
@@ -195,13 +162,7 @@ static void
 write_hw_pal(hw_pal_device *hw_pal,
 	     char val)
 {
-  if (WITH_STDIO == DO_USE_STDIO) {
-    putchar (val);
-
-  } else {
-    printf_filtered("%c", val) ;
-  }
-
+  sim_io_write_stdout(&val, 1);
   hw_pal->output.buffer = val;
   hw_pal->output.status = 1;
 }
@@ -221,25 +182,32 @@ hw_pal_io_read_buffer_callback(device *me,
   switch (addr & hw_pal_address_mask) {
   case hw_pal_cpu_nr_register:
     val = cpu_nr(processor);
+    DTRACE(pal, ("read - cpu-nr %d\n", val));
     break;
   case hw_pal_nr_cpu_register:
-    val = device_find_integer_property(me, "/openprom/options/smp");
+    val = tree_find_integer_property(me, "/openprom/options/smp");
+    DTRACE(pal, ("read - nr-cpu %d\n", val));
     break;
   case hw_pal_read_fifo:
     val = hw_pal->input.buffer;
+    DTRACE(pal, ("read - input-fifo %d\n", val));
     break;
   case hw_pal_read_status:
     scan_hw_pal(hw_pal);
     val = hw_pal->input.status;
+    DTRACE(pal, ("read - input-status %d\n", val));
     break;
   case hw_pal_write_fifo:
     val = hw_pal->output.buffer;
+    DTRACE(pal, ("read - output-fifo %d\n", val));
     break;
   case hw_pal_write_status:
     val = hw_pal->output.status;
+    DTRACE(pal, ("read - output-status %d\n", val));
     break;
   default:
     val = 0;
+    DTRACE(pal, ("read - ???\n"));
   }
   memset(dest, 0, nr_bytes);
   *(unsigned_1*)dest = val;
@@ -271,15 +239,19 @@ hw_pal_io_write_buffer_callback(device *me,
     break;
   case hw_pal_read_fifo:
     hw_pal->input.buffer = byte[0];
+    DTRACE(pal, ("write - input-fifo %d\n", byte[0]));
     break;
   case hw_pal_read_status:
     hw_pal->input.status = byte[0];
+    DTRACE(pal, ("write - input-status %d\n", byte[0]));
     break;
   case hw_pal_write_fifo:
     write_hw_pal(hw_pal, byte[0]);
+    DTRACE(pal, ("write - output-fifo %d\n", byte[0]));
     break;
   case hw_pal_write_status:
     hw_pal->output.status = byte[0];
+    DTRACE(pal, ("write - output-status %d\n", byte[0]));
     break;
   }
   return nr_bytes;
@@ -300,14 +272,8 @@ hw_pal_instance_read_callback(device_instance *instance,
 			      void *buf,
 			      unsigned_word len)
 {
-  char *buf_char = (char *)buf;
-  if (WITH_STDIO == DO_USE_STDIO) {
-    char *line = fgets (buf_char, len, stdin);
-    return ((!line) ? -1 : strlen (buf_char));
-
-  } else {
-    return read(0, buf_char, len);
-  }
+  DITRACE(pal, ("read - %s (%ld)", (const char*)buf, (long int)len));
+  return sim_io_read_stdin(buf, len);
 }
 
 static int
@@ -318,12 +284,10 @@ hw_pal_instance_write_callback(device_instance *instance,
   int i;
   const char *chp = buf;
   hw_pal_device *hw_pal = device_instance_data(instance);
+  DITRACE(pal, ("write - %s (%ld)", (const char*)buf, (long int)len));
   for (i = 0; i < len; i++)
     write_hw_pal(hw_pal, chp[i]);
-
-  if (WITH_STDIO == DO_USE_STDIO) {
-    fflush (stdout);
-  }
+  sim_io_flush_stdoutput();
   return i;
 }
 
@@ -350,14 +314,31 @@ static const device_interrupt_port_descriptor hw_pal_interrupt_ports[] = {
 };
 
 
+static void
+hw_pal_attach_address(device *me,
+		      attach_type attach,
+		      int space,
+		      unsigned_word addr,
+		      unsigned nr_bytes,
+		      access_type access,
+		      device *client)
+{
+  hw_pal_device *pal = (hw_pal_device*)device_data(me);
+  pal->disk = client;
+}
+
+
 static device_callbacks const hw_pal_callbacks = {
   { generic_device_init_address, },
-  { NULL, }, /* address */
+  { hw_pal_attach_address, }, /* address */
   { hw_pal_io_read_buffer_callback,
       hw_pal_io_write_buffer_callback, },
   { NULL, }, /* DMA */
   { NULL, NULL, hw_pal_interrupt_ports }, /* interrupt */
-  { NULL, }, /* unit */
+  { generic_device_unit_decode,
+    generic_device_unit_encode,
+    generic_device_address_to_attach_address,
+    generic_device_size_to_attach_size },
   hw_pal_create_instance,
 };
 
@@ -365,8 +346,7 @@ static device_callbacks const hw_pal_callbacks = {
 static void *
 hw_pal_create(const char *name,
 	      const device_unit *unit_address,
-	      const char *args,
-	      device *parent)
+	      const char *args)
 {
   /* create the descriptor */
   hw_pal_device *hw_pal = ZALLOC(hw_pal_device);

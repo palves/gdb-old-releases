@@ -39,6 +39,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    position independent code.  */
 #define EF_MIPS_CPIC		0x00000004
 
+/* Code in file uses new ABI (-n32 on Irix 6).  */
+#define EF_MIPS_ABI2		0x00000020
+
 /* Four bit MIPS architecture field.  */
 #define EF_MIPS_ARCH		0xf0000000
 
@@ -103,11 +106,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Section contains register usage information.  */
 #define SHT_MIPS_REGINFO	0x70000006
 
+/* Section contains interface information.  */
+#define SHT_MIPS_IFACE		0x7000000b
+
+/* Section contains description of contents of another section.  */
+#define SHT_MIPS_CONTENT	0x7000000c
+
 /* Section contains miscellaneous options.  */
 #define SHT_MIPS_OPTIONS	0x7000000d
 
 /* DWARF debugging section.  */
 #define SHT_MIPS_DWARF		0x7000001e
+
+/* I'm not sure what this is, but it appears on Irix 6.  */
+#define SHT_MIPS_SYMBOL_LIB	0x70000020
 
 /* Events section.  */
 #define SHT_MIPS_EVENTS		0x70000021
@@ -215,6 +227,24 @@ extern void bfd_mips_elf32_swap_reginfo_out
 
 /* This section must be in the global data area.  */
 #define SHF_MIPS_GPREL		0x10000000
+
+/* This section should be merged.  */
+#define SHF_MIPS_MERGE		0x20000000
+
+/* This section contains 32 bit addresses.  */
+#define SHF_MIPS_ADDR32		0x40000000
+
+/* This section contains 64 bit addresses.  */
+#define SHF_MIPS_ADDR64		0x80000000
+
+/* This section may not be stripped.  */
+#define SHF_MIPS_NOSTRIP	0x08000000
+
+/* This section is local to threads.  */
+#define SHF_MIPS_LOCAL		0x04000000
+
+/* Linker should generate implicit weak names for this section.  */
+#define SHF_MIPS_NAMES		0x02000000
 
 /* Processor specific program header types.  */
 
@@ -296,8 +326,11 @@ extern void bfd_mips_elf32_swap_reginfo_out
 #define STO_INTERNAL		0x01
 #define STO_HIDDEN		0x02
 #define STO_PROTECTED		0x03
+
+/* This value is used for a mips16 .text symbol.  */
+#define STO_MIPS16		0xf0
 
-/* The 64-bit MIPS ELF ABI uses an usual reloc format.  Each
+/* The 64-bit MIPS ELF ABI uses an unusual reloc format.  Each
    relocation entry specifies up to three actual relocations, all at
    the same address.  The first relocation which required a symbol
    uses the symbol in the r_sym field.  The second relocation which

@@ -23,7 +23,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "mmprivate.h"
 
-extern PTR sbrk ();
+static PTR sbrk_morecore PARAMS ((struct mdesc *, int));
+extern PTR sbrk PARAMS ((int));
 
 /* The mmalloc() package can use a single implicit malloc descriptor
    for mmalloc/mrealloc/mfree operations which do not supply an explicit

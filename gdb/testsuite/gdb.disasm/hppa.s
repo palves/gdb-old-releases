@@ -135,6 +135,7 @@
 	.EXPORT fmemLRbug_tests_1,CODE
 	.EXPORT fmemLRbug_tests_2,CODE
 	.EXPORT fmemLRbug_tests_3,CODE
+	.EXPORT fmemLRbug_tests_4,CODE
 	.EXPORT main,CODE
 	.EXPORT main,ENTRY,PRIV_LEV=3,RTNVAL=GR
 main

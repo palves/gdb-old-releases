@@ -36,9 +36,9 @@
    DESCRIPTION
 
    IOBUS provides a simple `local' bus for attaching (hanging)
-   programmed IO devices from.  All child devices are mapped into this
-   devices parent address space (after adjusting for the iobus's base
-   address).
+   programmed IO devices from.  All child devices are directly mapped
+   into this devices parent address space (after checking that the
+   attach address lies within the <<iobus>> address range.  address).
 
    PROPERTIES
 
@@ -48,32 +48,34 @@
 
 static void
 hw_iobus_attach_address_callback(device *me,
-			      const char *name,
-			      attach_type type,
-			      int space,
-			      unsigned_word addr,
-			      unsigned nr_bytes,
-			      access_type access,
-			      device *who) /*callback/default*/
+				 attach_type type,
+				 int space,
+				 unsigned_word addr,
+				 unsigned nr_bytes,
+				 access_type access,
+				 device *client) /*callback/default*/
 {
-  unsigned_word hw_iobus_addr;
+  int attach_space;
+  unsigned_word attach_address;
   /* sanity check */
   if (space != 0)
-    error("hw_iobus_attach_address_callback() no space for %s/%s\n",
-	  device_name(me), name);
+    device_error(me, "invalid space (%d) specified by %s",
+		 space, device_path(client));
   /* get the bus address */
-  if (device_unit_address(me)->nr_cells != 1)
-    error("hw_iobus_attach_address_callback() invalid address for %s\n",
-	  device_name(me));
-  hw_iobus_addr = device_unit_address(me)->cells[0];
+  device_address_to_attach_address(device_parent(me),
+				   device_unit_address(me),
+				   &attach_space,
+				   &attach_address,
+				   me);
+  if (addr < attach_address)
+    device_error(me, "Invalid attach address 0x%lx", (unsigned long)addr);
   device_attach_address(device_parent(me),
-			device_name(me),
 			type,
-			0 /*space*/,
-			hw_iobus_addr + addr,
+			attach_space,
+			addr,
 			nr_bytes,
 			access,
-			who);
+			client);
 }
 
 
@@ -84,7 +86,9 @@ static device_callbacks const hw_iobus_callbacks = {
   { NULL, }, /* DMA */
   { NULL, }, /* interrupt */
   { generic_device_unit_decode,
-    generic_device_unit_encode, }
+    generic_device_unit_encode,
+    generic_device_address_to_attach_address,
+    generic_device_size_to_attach_size }
 };
 
 

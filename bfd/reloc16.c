@@ -1,5 +1,5 @@
 /* 8 and 16 bit COFF relocation functions, for BFD.
-   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -36,7 +36,6 @@ Most of this hacked by  Steve Chamberlain,
 
 #include "bfd.h"
 #include "sysdep.h"
-#include "obstack.h"
 #include "libbfd.h"
 #include "bfdlink.h"
 #include "genlink.h"
@@ -223,11 +222,12 @@ bfd_coff_reloc16_relax_section (abfd, i, link_info, again)
 	  }
   
       } while (another_pass);
+
+      free((char *)shrinks);
     }
 
   input_section->_cooked_size -= shrink;  
   free((char *)reloc_vector);
-  free((char *)shrinks);
   return true;
 }
 

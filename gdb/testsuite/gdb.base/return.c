@@ -23,6 +23,10 @@ double tmp3;
 
 main ()
 {
+#ifdef usestubs
+  set_debug_traps();
+  breakpoint();
+#endif
   func1 ();
   printf("in main after func1\n");
   tmp2 = func2 ();

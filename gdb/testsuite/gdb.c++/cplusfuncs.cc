@@ -56,7 +56,20 @@ public:
   const char *ccpfoo;
 };
 
-main () {}
+#ifdef usestubs
+extern "C" { 
+   void set_debug_traps();
+   void breakpoint();
+};
+#endif
+
+main () {
+#ifdef usestubs
+   set_debug_traps();
+   breakpoint();
+#endif
+   int z=3;
+}
 
 foo::foo  (int i)                  { ifoo = i;}
 foo::foo  (int i, const char *ccp) { ifoo = i; ccpfoo = ccp; }

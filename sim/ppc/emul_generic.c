@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1996, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -11,11 +11,11 @@
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
- 
+
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- 
+
     */
 
 
@@ -38,7 +38,7 @@ emul_syscall_enter(emul_syscall *emul,
 {
   printf_filtered("%d:0x%lx:%s(",
 		  cpu_nr(processor) + 1,
-		  (long)cia, 
+		  (long)cia,
 		  emul->syscall_descriptor[call].name);
 }
 
@@ -260,8 +260,8 @@ emul_add_tree_options(device *tree,
   int little_endian = 0;
 
   /* sort out little endian */
-  if (device_find_property(tree, "/options/little-endian?"))
-    little_endian = device_find_boolean_property(tree, "/options/little-endian?");
+  if (tree_find_property(tree, "/options/little-endian?"))
+    little_endian = tree_find_boolean_property(tree, "/options/little-endian?");
   else {
 #ifdef bfd_little_endian	/* new bfd */
     little_endian = (image != NULL && bfd_little_endian(image));
@@ -269,80 +269,76 @@ emul_add_tree_options(device *tree,
     little_endian = (image != NULL &&
 		     !image->xvec->byteorder_big_p);
 #endif
-    device_tree_add_parsed(tree, "/options/little-endian? %s",
-			   little_endian ? "true" : "false");
+    tree_parse(tree, "/options/little-endian? %s",
+	       little_endian ? "true" : "false");
   }
 
   /* misc other stuff */
-  device_tree_add_parsed(tree, "/openprom/options/oea-memory-size 0x%x",
-			 OEA_MEMORY_SIZE);
-  device_tree_add_parsed(tree, "/openprom/options/oea-interrupt-prefix %d",
-			 oea_interrupt_prefix);
-  device_tree_add_parsed(tree, "/openprom/options/smp 1");
-  device_tree_add_parsed(tree, "/openprom/options/env %s", env);
-  device_tree_add_parsed(tree, "/openprom/options/os-emul %s", emul);
-  device_tree_add_parsed(tree, "/openprom/options/strict-alignment? %s",
-			 (WITH_ALIGNMENT == STRICT_ALIGNMENT || little_endian)
-			 ? "true" : "false");
-  device_tree_add_parsed(tree, "/openprom/options/floating-point? %s",
-			 WITH_FLOATING_POINT ? "true" : "false");
-  device_tree_add_parsed(tree, "/openprom/options/model \"%s",
-			 model_name[WITH_DEFAULT_MODEL]);
-  device_tree_add_parsed(tree, "/openprom/options/model-issue %d",
-			 MODEL_ISSUE_IGNORE);
+  tree_parse(tree, "/openprom/options/oea-memory-size 0x%x",
+	     OEA_MEMORY_SIZE);
+  tree_parse(tree, "/openprom/options/oea-interrupt-prefix %d",
+	     oea_interrupt_prefix);
+  tree_parse(tree, "/openprom/options/smp 1");
+  tree_parse(tree, "/openprom/options/env %s", env);
+  tree_parse(tree, "/openprom/options/os-emul %s", emul);
+  tree_parse(tree, "/openprom/options/strict-alignment? %s",
+	     ((WITH_ALIGNMENT == 0 && little_endian)
+	      || (WITH_ALIGNMENT == STRICT_ALIGNMENT))
+	     ? "true" : "false");
+  tree_parse(tree, "/openprom/options/floating-point? %s",
+	     WITH_FLOATING_POINT ? "true" : "false");
+  tree_parse(tree, "/openprom/options/use-stdio? %s",
+	     ((WITH_STDIO == DO_USE_STDIO
+	       || WITH_STDIO == 0)
+	      ? "true" : "false"));
+  tree_parse(tree, "/openprom/options/model \"%s",
+	     model_name[WITH_DEFAULT_MODEL]);
+  tree_parse(tree, "/openprom/options/model-issue %d",
+	     MODEL_ISSUE_IGNORE);
 
   /* useful options */
-  /* FIXME - need to check the OpenBoot powerpc bindings to see if
-     this is still used and if so what it should be */
-  device_tree_add_parsed(tree, "/options/load-base 0x80000");
 }
 
 INLINE_EMUL_GENERIC void
 emul_add_tree_hardware(device *root)
 {
   int i;
-  int nr_cpus = device_find_integer_property(root, "/openprom/options/smp");
+  int nr_cpus = tree_find_integer_property(root, "/openprom/options/smp");
+
+  /* sanity check the number of processors */
+  if (nr_cpus > MAX_NR_PROCESSORS)
+    error("Specified number of processors (%d) exceeds the number configured (%d).\n",
+	  nr_cpus, MAX_NR_PROCESSORS);
+
+  /* set the number of address cells (1 or 2) */
+  tree_parse(root, "#address-cells %d", WITH_TARGET_WORD_BITSIZE / 32);
 
   /* add some memory */
-  if (device_tree_find_device(root, "/memory") == NULL) {
+  if (tree_find_device(root, "/memory") == NULL) {
     unsigned_word memory_size =
-      device_find_integer_property(root, "/openprom/options/oea-memory-size");
-    device_tree_add_parsed(root, "/memory@0/reg { 0x0 0x%lx",
-			   (unsigned long)memory_size);
-    /* what about allocated? */
+      tree_find_integer_property(root, "/openprom/options/oea-memory-size");
+    const unsigned_word avail_start = 0x3000;
+    tree_parse(root, "/memory@0/reg 0x0 0x%lx",
+	       (unsigned long)memory_size);
+    /* reserve the first 0x3000 for the PowerPC interrupt table */
+    tree_parse(root, "/memory@0/available 0x%lx  0x%lx",
+	       (unsigned long)avail_start,
+	       (unsigned long)memory_size - avail_start);
   }
 
   /* our processors */
   for (i = 0; i < nr_cpus; i++) {
-    device_tree_add_parsed(root, "/cpus/cpu@%d/cpu-nr %d", i, i);
+    tree_parse(root, "/cpus/cpu@%d/cpu-nr %d", i, i);
   }
 
-  /* a fake eeprom - need to be able to write to it */
-  device_tree_add_parsed(root, "/openprom/memory@0xfff00000/reg { 0xfff00000 0x3000");
-
-
-  /* A local bus containing basic devices */
-  device_tree_add_parsed(root, "/iobus@0xf0000000/reg { 0xf0000000 0x0f000000");
-
-  /* NVRAM with clock */
-  device_tree_add_parsed(root, "/iobus/nvram@0x0/reg   { 0 0x1000");
-  device_tree_add_parsed(root, "/iobus/nvram/timezone 0");
-
-  /* the debugging pal. Wire interrupts up directly */
-  device_tree_add_parsed(root, "/iobus/pal@0x0x1000/reg  { 0x1000 32");
-  for (i = 0; i < nr_cpus; i++) {
-    device_tree_add_parsed(root, "/iobus/pal > int%d int /cpus/cpu@%d", i, i);
-  }
-
-  /* a disk containing zero's */
-  device_tree_add_parsed(root, "/iobus/disk@0x2000/reg { 0x2000 0x1000");
-  device_tree_add_parsed(root, "/iobus/disk/file \"/dev/zero");
+  /* the debugging pal - hide it in the openprom and don't attach it
+     to any bus */
+  tree_parse(root, "/openprom/pal");
 
   /* chosen etc */
-  device_tree_add_parsed(root, "/chosen/stdin */iobus/pal");
-  device_tree_add_parsed(root, "/chosen/stdout !/chosen/stdin");
-  device_tree_add_parsed(root, "/chosen/memory */memory");
-  device_tree_add_parsed(root, "/chosen/disk */iobus/disk");
+  tree_parse(root, "/chosen/stdin */openprom/pal");
+  tree_parse(root, "/chosen/stdout !/chosen/stdin");
+  tree_parse(root, "/chosen/memory */memory");
 }
 
 #endif /* _EMUL_GENERIC_C_ */

@@ -161,8 +161,8 @@ struct h8_opcode
 { code, 1, 2, name,	{imm,RD8,E},	{op00, op01, imm, RD8, E, 0, 0, 0, 0}, 0, 0, 0, 0},\
 { code, 1, 6, name,	{imm,RDIND,E},	{op10, op11, B30|RDIND, 0, op00,op01, imm, 0, E}, 0, 0, 0, 0},\
 { code, 1, 6, name,	{imm,ABS8DST,E},{op20, op21, ABS8DST, IGNORE, op00,op01, imm, 0,E}, 0, 0, 0, 0}\
-,{ code, 1, 6, name,	{imm,ABS16DST,E},{0x6,0xa,0x1,op30,ABS16DST,IGNORE,IGNORE,IGNORE, op00,op01, imm, 0,E}, 0, 0, 0, 0},\
-{ code, 1, 6, name,	{imm,ABS32DST,E},{0x6,0xa,0x3,op30,ABS32DST,IGNORE,IGNORE,IGNORE,IGNORE,IGNORE,IGNORE,IGNORE, op00,op01, imm, 0,E}, 0, 0, 0, 0}
+,{ code, 0, 6, name,	{imm,ABS16DST,E},{0x6,0xa,0x1,op30,ABS16DST,IGNORE,IGNORE,IGNORE, op00,op01, imm, 0,E}, 0, 0, 0, 0},\
+{ code, 0, 6, name,	{imm,ABS32DST,E},{0x6,0xa,0x3,op30,ABS32DST,IGNORE,IGNORE,IGNORE,IGNORE,IGNORE,IGNORE,IGNORE, op00,op01, imm, 0,E}, 0, 0, 0, 0}
 
 
 #define EBITOP(code, imm, name, op00, op01,op10,op11, op20,op21,op30)\
@@ -301,10 +301,12 @@ struct h8_opcode
 #define O_MAC 84
 #define O_LDM 85
 #define O_STM 86
-#define O_LAST 87
+#define O_STMAC 87
+#define O_LAST 88
 #define SB 0
 #define SW 1
 #define SL 2
+#define SN 3
 
 
 /* FIXME: Lots of insns have "E, 0, 0, 0, 0" in the nibble code sequences.
@@ -332,7 +334,7 @@ struct h8_opcode h8_opcodes[] =
   NEW_SOP(O(O_ANDC,SB),1,2,"andc"), {IMM8,CCR,E},{ 0x0,0x6,IMM8,IGNORE,E,0,0,0,0} EOP,
   NEW_SOP(O(O_ANDC,SB),1,2,"andc"), {IMM8,EXR,E},{ 0x0,0x1,0x4,0x1,0x0,0x6,IMM8,IGNORE,E,0,0,0,0} EOP,
 
-  BITOP(O(O_BAND,SB), IMM3,"band",0x7,0x6,0x7,0xC,0x7,0xE,0x0),
+  BITOP(O(O_BAND,SB), IMM3|B30,"band",0x7,0x6,0x7,0xC,0x7,0xE,0x0),
   BRANCH(O(O_BRA,SB),"bra",0x0),
   BRANCH(O(O_BRA,SB),"bt",0x0),
   BRANCH(O(O_BRN,SB),"brn",0x1),
@@ -354,7 +356,7 @@ struct h8_opcode h8_opcodes[] =
   BRANCH(O(O_BGT,SB),"bgt",0xE),
   BRANCH(O(O_BLE,SB),"ble",0xF),
 
-  EBITOP(O(O_BCLR,SB),IMM3,"bclr", 0x6,0x2,0x7,0xD,0x7,0xF,0x8),
+  EBITOP(O(O_BCLR,SB),IMM3|B30,"bclr", 0x6,0x2,0x7,0xD,0x7,0xF,0x8),
   BITOP(O(O_BIAND,SB),IMM3|B31,"biand",0x7,0x6,0x7,0xC,0x7,0xE,0x0),
   BITOP(O(O_BILD,SB), IMM3|B31,"bild", 0x7,0x7,0x7,0xC,0x7,0xE,0x0),
   BITOP(O(O_BIOR,SB), IMM3|B31,"bior", 0x7,0x4,0x7,0xC,0x7,0xE,0x0),
@@ -393,7 +395,7 @@ struct h8_opcode h8_opcodes[] =
   NEW_SOP(O(O_DIVS,SB),0,20,"divxs.b") ,{RS8,RD16,E },{0x0,0x1,0xD,0x0,0x5,0x1,RS8,RD16,E} EOP,
   NEW_SOP(O(O_DIVS,SW),0,02,"divxs.w") ,{RS16,RD32,E },{0x0,0x1,0xD,0x0,0x5,0x3,RS16,B30|RD32,E} EOP,
 
-  NEW_SOP(O(O_EEPMOV,SB),1,50,"eepmov"),{ E,0,0},{0x7,0xB,0x5,0xC,0x5,0x9,0x8,0xF,E}EOP,
+  NEW_SOP(O(O_EEPMOV,SB),1,50,"eepmov.b"),{E,0,0},{0x7,0xB,0x5,0xC,0x5,0x9,0x8,0xF,E}EOP,
   NEW_SOP(O(O_EEPMOV,SW),0,50,"eepmov.w"),{E,0,0},{0x7,0xB,0xD,0x4,0x5,0x9,0x8,0xF,E} EOP,
     
   NEW_SOP(O(O_EXTS,SW),0,2,"exts.w"),{OR16,E,0},{0x1,0x7,0xD,OR16,E   }EOP,
@@ -502,7 +504,7 @@ struct h8_opcode h8_opcodes[] =
   NEW_SOP(O(O_NEG,SW),0,2,"neg.w"),{ OR16,E,0},{ 0x1,0x7,0x9,OR16,E}EOP,
   NEW_SOP(O(O_NEG,SL),0,2,"neg.l"),{ OR32,E,0},{ 0x1,0x7,0xB,B30|OR32,E}EOP,
     
-  NEW_SOP(O(O_NOP,SB),1,2,"nop"),{E,0,0},{ 0x0,0x0,0x0,0x0,E,0,0,0,0}EOP,
+  NEW_SOP(O(O_NOP,SN),1,2,"nop"),{E,0,0},{ 0x0,0x0,0x0,0x0,E,0,0,0,0}EOP,
 
   /* ??? This can use UNOP3.  */
   NEW_SOP(O(O_NOT,SB),1,2,"not.b"),{ OR8,E, 0},{ 0x1,0x7,0x0,OR8,E,0,0,0,0}EOP,
@@ -529,16 +531,16 @@ struct h8_opcode h8_opcodes[] =
   UNOP3(O_ROTXL, "rotxl",0x1,0x2,0x0),
   UNOP3(O_ROTXR, "rotxr",0x1,0x3,0x0),
 
-  SOP(O(O_BPT,SB),  10,"bpt"),{E,0,0},{ 0x7,0xA,0xF,0xF,E,0,0,0,0}EOP,
-  SOP(O(O_RTE,SB),  10,"rte"),{E,0,0},{ 0x5,0x6,0x7,0x0,E,0,0,0,0}EOP,
-  SOP(O(O_RTS,SB),   8,"rts"),{E,0,0},{ 0x5,0x4,0x7,0x0,E,0,0,0,0}EOP,
+  SOP(O(O_BPT,SN),  10,"bpt"),{E,0,0},{ 0x7,0xA,0xF,0xF,E,0,0,0,0}EOP,
+  SOP(O(O_RTE,SN),  10,"rte"),{E,0,0},{ 0x5,0x6,0x7,0x0,E,0,0,0,0}EOP,
+  SOP(O(O_RTS,SN),   8,"rts"),{E,0,0},{ 0x5,0x4,0x7,0x0,E,0,0,0,0}EOP,
 
   UNOP3(O_SHAL,  "shal",0x1,0x0,0x8),
   UNOP3(O_SHAR,  "shar",0x1,0x1,0x8),
   UNOP3(O_SHLL,  "shll",0x1,0x0,0x0),
   UNOP3(O_SHLR,  "shlr",0x1,0x1,0x0),
 
-  SOP(O(O_SLEEP,SB),2,"sleep"),{E,0,0},{ 0x0,0x1,0x8,0x0,E,0,0,0,0} EOP,
+  SOP(O(O_SLEEP,SN),2,"sleep"),{E,0,0},{ 0x0,0x1,0x8,0x0,E,0,0,0,0} EOP,
 
   NEW_SOP(O(O_STC,SB), 1,2,"stc"),{CCR,RD8,E},{ 0x0,0x2,0x0,RD8,E,0,0,0,0} EOP,
 
@@ -584,9 +586,10 @@ struct h8_opcode h8_opcodes[] =
   SOP(O(O_XORC,SB),2,"xorc"),{IMM8,CCR,E},{ 0x0,0x5,IMM8,IGNORE,E,0,0,0,0}EOP,
   SOP(O(O_XORC,SB),2,"xorc"),{IMM8,EXR,E},{ 0x0,0x1,0x4,0x1,0x0,0x5,IMM8,IGNORE,E,0,0,0,0}EOP,
 
-  NEW_SOP(O(O_CLRMAC,SL),1,2,"clrmac"),{E, 0, 0},{0x0,0x1,0xa,0x0,E} EOP,
+  NEW_SOP(O(O_CLRMAC,SN),1,2,"clrmac"),{E, 0, 0},{0x0,0x1,0xa,0x0,E} EOP,
   NEW_SOP(O(O_MAC,SL),1,2,"mac"),{RSINC,RDINC,E},{0x0,0x1,0x6,0x0,0x6,0xd,B30|RSINC,B30|RDINC,E} EOP,
   NEW_SOP(O(O_LDMAC,SL),1,2,"ldmac"),{RS32,MACREG,E},{0x0,0x3,MACREG,RS32,E} EOP,
+  NEW_SOP(O(O_STMAC,SL),1,2,"stmac"),{MACREG,RD32,E},{0x0,0x2,MACREG,RD32,E} EOP,
   NEW_SOP(O(O_LDM,SL),0,6,"ldm.l"),{RSINC, RS32, E},{ 0x0,0x1,IGNORE,0x0,0x6,0xD,0x7,IGNORE,E}EOP,
   NEW_SOP(O(O_STM,SL),0,6,"stm.l"),{RS32, RDDEC, E},{0x0,0x1,IGNORE,0x0,0x6,0xD,0xF,IGNORE,E}EOP,
   0
