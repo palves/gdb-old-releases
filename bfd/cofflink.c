@@ -1,5 +1,5 @@
 /* COFF specific linker code.
-   Copyright 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+   Copyright 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -244,6 +244,8 @@ coff_link_check_ar_symbols (abfd, info, pneeded)
       bfd_coff_swap_sym_in (abfd, (PTR) esym, (PTR) &sym);
 
       if ((sym.n_sclass == C_EXT
+	   || sym.n_sclass == C_WEAKEXT
+	   || (obj_pe (abfd) && sym.n_sclass == C_NT_WEAK)
 #ifdef C_SYSTEM
 	   || sym.n_sclass == C_SYSTEM
 #endif
@@ -337,6 +339,8 @@ coff_link_add_symbols (abfd, info)
       bfd_coff_swap_sym_in (abfd, (PTR) esym, (PTR) &sym);
 
       if (sym.n_sclass == C_EXT
+	   || sym.n_sclass == C_WEAKEXT
+	   || (obj_pe (abfd) && sym.n_sclass == C_NT_WEAK)
 #ifdef C_SYSTEM
 	  || sym.n_sclass == C_SYSTEM
 #endif
@@ -384,6 +388,10 @@ coff_link_add_symbols (abfd, info)
 		value -= section->vma;
 	    }
 
+	  if (sym.n_sclass == C_WEAKEXT
+	      || (obj_pe (abfd) && sym.n_sclass == C_NT_WEAK))
+	    flags = BSF_WEAK;
+
 	  if (! (bfd_coff_link_add_one_symbol
 		 (info, abfd, name, flags, section, value,
 		  (const char *) NULL, copy, false,
@@ -403,7 +411,8 @@ coff_link_add_symbols (abfd, info)
 		   && (*sym_hash)->type == T_NULL)
 		  || sym.n_scnum != 0
 		  || (sym.n_value != 0
-		      && (*sym_hash)->root.type != bfd_link_hash_defined))
+		      && (*sym_hash)->root.type != bfd_link_hash_defined
+		      && (*sym_hash)->root.type != bfd_link_hash_defweak))
 		{
 		  (*sym_hash)->class = sym.n_sclass;
 		  if (sym.n_type != T_NULL)
@@ -411,7 +420,7 @@ coff_link_add_symbols (abfd, info)
 		      if ((*sym_hash)->type != T_NULL
 			  && (*sym_hash)->type != sym.n_type)
 			(*_bfd_error_handler)
-			  ("Warning: type of symbol `%s' changed from %d to %d in %s",
+			  (_("Warning: type of symbol `%s' changed from %d to %d in %s"),
 			   name, (*sym_hash)->type, sym.n_type,
 			   bfd_get_filename (abfd));
 		      (*sym_hash)->type = sym.n_type;
@@ -768,7 +777,7 @@ _bfd_coff_final_link (abfd, info)
 		  == bfd_target_coff_flavour))
 	    {
 	      sub = p->u.indirect.section->owner;
-	      if (! bfd_coff_link_output_has_begun (sub))
+	      if (! bfd_coff_link_output_has_begun (sub, & finfo))
 		{
 		  if (! _bfd_coff_link_input_bfd (&finfo, sub))
 		    goto error_return;
@@ -1329,6 +1338,8 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
       if (! skip)
 	{
 	  if (isym.n_sclass == C_EXT
+	      || isym.n_sclass == C_WEAKEXT
+	      || (obj_pe (input_bfd) && isym.n_sclass == C_NT_WEAK)
 #ifdef C_SYSTEM
 	      || isym.n_sclass == C_SYSTEM
 #endif
@@ -1336,10 +1347,10 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 	    {
 	      /* This is a global symbol.  Global symbols come at the
 		 end of the symbol table, so skip them for now.
-		 Function symbols, however, are an exception, and are
-		 not moved to the end.  */
+		 Locally defined function symbols, however, are an
+		 exception, and are not moved to the end.  */
 	      global = true;
-	      if (! ISFCN (isym.n_type))
+	      if (! ISFCN (isym.n_type) || isym.n_scnum == 0)
 		skip = true;
 	    }
 	  else
@@ -1648,7 +1659,10 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 	  /* If doing task linking, convert normal global function symbols to
 	     static functions. */
 
-	  if (finfo->info->task_link && isym.n_sclass == C_EXT)
+	  if (finfo->info->task_link
+	      && (isym.n_sclass == C_EXT
+		  || isym.n_sclass == C_WEAKEXT
+		  || (obj_pe (input_bfd) && isym.n_sclass == C_NT_WEAK)))
 	    isym.n_sclass = C_STAT;
 
 	  /* Output the symbol.  */
@@ -2076,7 +2090,7 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 	      && o->reloc_count != 0)
 	    {
 	      ((*_bfd_error_handler)
-	       ("%s: relocs in section `%s', but it has no contents",
+	       (_("%s: relocs in section `%s', but it has no contents"),
 		bfd_get_filename (input_bfd),
 		bfd_get_section_name (input_bfd, o)));
 	      bfd_set_error (bfd_error_no_contents);
@@ -2337,12 +2351,15 @@ _bfd_coff_write_global_sym (h, data)
   if (isym.n_sclass == C_NULL)
     isym.n_sclass = C_EXT;
 
-  /* If doing task linking and this is the pass where we convert defined globals to
-     statics, then do that conversion now.  If the symbol is not being converted,
-     just ignore it and it will be output during a later pass. */
+  /* If doing task linking and this is the pass where we convert
+     defined globals to statics, then do that conversion now.  If the
+     symbol is not being converted, just ignore it and it will be
+     output during a later pass. */
   if (finfo->global_to_static)
     {
-      if (isym.n_sclass != C_EXT)
+      if (isym.n_sclass != C_EXT
+	  && isym.n_sclass != C_WEAKEXT
+	  && (! obj_pe (output_bfd) || isym.n_sclass != C_NT_WEAK))
 	{
 	  return true;
 	}
@@ -2702,7 +2719,7 @@ _bfd_coff_generic_relocate_section (output_bfd, info, input_bfd,
 	  break;
 	case bfd_reloc_outofrange:
 	  (*_bfd_error_handler)
-	    ("%s: bad reloc address 0x%lx in section `%s'",
+	    (_("%s: bad reloc address 0x%lx in section `%s'"),
 	     bfd_get_filename (input_bfd),
 	     (unsigned long) rel->r_vaddr,
 	     bfd_get_section_name (input_bfd, input_section));

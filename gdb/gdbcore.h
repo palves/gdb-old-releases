@@ -63,6 +63,10 @@ extern LONGEST read_memory_integer PARAMS ((CORE_ADDR memaddr, int len));
 
 extern ULONGEST read_memory_unsigned_integer PARAMS ((CORE_ADDR memaddr, int len));
 
+/* Read a null-terminated string from the debuggee's memory, given address,
+ * a buffer into which to place the string, and the maximum available space */ 
+extern void read_memory_string PARAMS ((CORE_ADDR, char *, int));
+
 /* This takes a char *, not void *.  This is probably right, because
    passing in an int * or whatever is wrong with respect to
    byteswapping, alignment, different sizes for host vs. target types,
@@ -78,7 +82,12 @@ extern void generic_search PARAMS ((int len, char *data, char *mask,
 /* Hook for `exec_file_command' command to call.  */
 
 extern void (*exec_file_display_hook) PARAMS ((char *filename));
-   
+
+/* Hook for "file_command", which is more useful than above
+   (because it is invoked AFTER symbols are read, not before) */
+
+extern void (*file_changed_hook) PARAMS ((char *filename));
+
 extern void specify_exec_file_hook PARAMS ((void (*hook) (char *filename)));
 
 /* Binary File Diddlers for the exec and core files */
@@ -91,6 +100,8 @@ extern bfd *exec_bfd;
 extern int write_files;
 
 extern void core_file_command PARAMS ((char *filename, int from_tty));
+
+extern void exec_file_attach PARAMS ((char *filename, int from_tty));
 
 extern void exec_file_command PARAMS ((char *filename, int from_tty));
 

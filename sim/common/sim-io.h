@@ -78,4 +78,7 @@ void sim_io_error (SIM_DESC sd,
 
 void sim_io_poll_quit (SIM_DESC sd);
 
+/* Returns -1 and sets (host) EAGAIN if not ready. */
+int sim_io_poll_read (SIM_DESC sd, int, char *, int);
+
 #endif

@@ -102,7 +102,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Sequence of bytes for breakpoint instruction. (bkpt)  */
 
@@ -115,11 +115,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    from trace traps with certainty.) */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction. (rtn or rtnq) */
-
-#define ABOUT_TO_RETURN(pc) \
-    ((read_memory_integer (pc, 2) & 0xffe0) == 0x7c80)
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -281,7 +276,7 @@ extern struct value *value_of_trapped_internalvar ();
 /* We need the boundaries of the text in the exec file, as a kludge,
    for FRAMELESS_FUNCTION_INVOCATION and CALL_DUMMY_LOCATION. */
 
-#define	NEED_TEXT_START_END
+#define	NEED_TEXT_START_END 1
 
 /* A macro that tells us whether the function invocation represented
    by FI does not have a frame on the stack associated with it.  If it

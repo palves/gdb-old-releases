@@ -129,31 +129,30 @@ are greppable and appear in the TAGS file.
 Generating "configure" files
 ============================
 
-For target's using the common framework, "configure" can be generated
-by running autoconf.  This works because configure.in contains
-"sinclude(../common/aclocal.m4)".
+For targets using the common framework, "configure" can be generated
+by running `autoconf'.
 
 To regenerate the configure files for all targets using the common framework:
 
 	$  cd devo/sim
-	$  make -f Makefile.in autoconf-common
+	$  make -f Makefile.in SHELL=/bin/sh autoconf-common
 
 To add a change-log entry to the ChangeLog file for each updated
 directory (WARNING - check the modified new-ChangeLog files before
 renaming):
 
-	$  make -f Makefile.in autoconf-changelog
+	$  make -f Makefile.in SHELL=/bin/sh autoconf-changelog
 	$  more */new-ChangeLog
-	$  make -f Makefile.in autoconf-install
+	$  make -f Makefile.in SHELL=/bin/sh autoconf-install
 
 In a similar vein, both the configure and config.in files can be
 updated using the sequence:
 
 	$  cd devo/sim
-	$  make -f Makefile.in autoheader-common
-	$  make -f Makefile.in autoheader-changelog
+	$  make -f Makefile.in SHELL=/bin/sh autoheader-common
+	$  make -f Makefile.in SHELL=/bin/sh autoheader-changelog
 	$  more */new-ChangeLog
-	$  make -f Makefile.in autoheader-install
+	$  make -f Makefile.in SHELL=/bin/sh autoheader-install
 
 tconfig.in
 ==========
@@ -196,7 +195,7 @@ However, the user should be aware of the following:
 	o	An empty array (eg int a[0]) is not valid.
 
 When building with GCC it is effectivly a requirement that
---enable-sim-warnings be specified during configuration.
+--enable-build-warnings=,-Werror be specified during configuration.
 
 "dump" commands under gdb
 =========================
@@ -212,16 +211,44 @@ internal state pretty printed from gdb.
 
 FIXME: This can obviously be made more elaborate.  As needed it will be.
 
-"dump" commands under gdb
-=========================
+Rebuilding nltvals.def
+======================
 
-gdbinit.in contains the following
+Checkout a copy of the SIM and LIBGLOSS modules (Unless you've already
+got one to hand):
 
-define dump
-set sim_debug_dump ()
-end
+	$  mkdir /tmp/$$
+	$  cd /tmp/$$
+	$  cvs checkout sim-no-testsuite libgloss-no-testsuite newlib-no-testsuite
 
-Simulators that define the sim_debug_dump function can then have their
-internal state pretty printed from gdb.
+Configure things for an arbitrary simulator target (I've d10v for
+convenience):
 
-FIXME: This can obviously be made more elaborate.  As needed it will be.
+	$  mkdir /tmp/$$/build
+	$  cd /tmp/$$/build
+	$  /tmp/$$/devo/configure --target=d10v-elf
+
+In the sim/common directory rebuild the headers:
+
+	$  cd sim/common
+	$  make headers
+
+To add a new target:
+
+	devo/sim/common/gennltvals.sh
+
+		Add your new processor target (you'll need to grub
+		around to find where your syscall.h lives).
+
+	devo/sim/<processor>/Makefile.in
+
+		Add the definition:
+
+			``NL_TARGET = -DNL_TARGET_d10v''
+
+		just before the line COMMON_POST_CONFIG_FRAG.
+
+	devo/sim/<processor>/*.[ch]
+
+		Include targ-vals.h instead of syscall.h.
+

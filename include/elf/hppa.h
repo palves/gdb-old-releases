@@ -91,4 +91,97 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Millicode function entry point.  */
 #define STT_PARISC_MILLICODE	STT_LOPROC+0
 
+
+/* ELF/HPPA relocation types */
+
+#include "reloc-macros.h"
+
+START_RELOC_NUMBERS (elf32_hppa_reloc_type)
+     RELOC_NUMBER (R_PARISC_NONE,      0)	/* No reloc */
+     
+     /* These relocation types do simple base + offset relocations.  */
+
+     RELOC_NUMBER (R_PARISC_DIR32,  0x01)
+     RELOC_NUMBER (R_PARISC_DIR21L, 0x02)
+     RELOC_NUMBER (R_PARISC_DIR17R, 0x03)
+     RELOC_NUMBER (R_PARISC_DIR17F, 0x04)
+     RELOC_NUMBER (R_PARISC_DIR14R, 0x06)
+
+    /* PC-relative relocation types
+       Typically used for calls.
+       Note PCREL17C and PCREL17F differ only in overflow handling.
+       PCREL17C never reports a relocation error.
+
+       When supporting argument relocations, function calls must be
+       accompanied by parameter relocation information.  This information is 
+       carried in the ten high-order bits of the addend field.  The remaining
+       22 bits of of the addend field are sign-extended to form the Addend.
+
+       Note the code to build argument relocations depends on the 
+       addend being zero.  A consequence of this limitation is GAS
+       can not perform relocation reductions for function symbols.  */
+     
+     RELOC_NUMBER (R_PARISC_PCREL21L, 0x0a)
+     RELOC_NUMBER (R_PARISC_PCREL17R, 0x0b)
+     RELOC_NUMBER (R_PARISC_PCREL17F, 0x0c)
+     RELOC_NUMBER (R_PARISC_PCREL17C, 0x0d)
+     RELOC_NUMBER (R_PARISC_PCREL14R, 0x0e)
+     RELOC_NUMBER (R_PARISC_PCREL14F, 0x0f)
+
+    /* DP-relative relocation types.  */
+     RELOC_NUMBER (R_PARISC_DPREL21L, 0x12)
+     RELOC_NUMBER (R_PARISC_DPREL14R, 0x16)
+     RELOC_NUMBER (R_PARISC_DPREL14F, 0x17)
+
+    /* Data linkage table (DLT) relocation types
+
+       SOM DLT_REL fixup requests are used to for static data references
+       from position-independent code within shared libraries.  They are
+       similar to the GOT relocation types in some SVR4 implementations.  */
+
+     RELOC_NUMBER (R_PARISC_DLTREL21L, 0x1a)
+     RELOC_NUMBER (R_PARISC_DLTREL14R, 0x1e)
+     RELOC_NUMBER (R_PARISC_DLTREL14F, 0x1f)
+
+    /* DLT indirect relocation types  */
+     RELOC_NUMBER (R_PARISC_DLTIND21L, 0x22)
+     RELOC_NUMBER (R_PARISC_DLTIND14R, 0x26)
+     RELOC_NUMBER (R_PARISC_DLTIND14F, 0x27)
+
+    /* Base relative relocation types.  Ugh.  These imply lots of state */
+     RELOC_NUMBER (R_PARISC_SETBASE,    0x28)
+     RELOC_NUMBER (R_PARISC_BASEREL32,  0x29)
+     RELOC_NUMBER (R_PARISC_BASEREL21L, 0x2a)
+     RELOC_NUMBER (R_PARISC_BASEREL17R, 0x2b)
+     RELOC_NUMBER (R_PARISC_BASEREL17F, 0x2c)
+     RELOC_NUMBER (R_PARISC_BASEREL14R, 0x2e)
+     RELOC_NUMBER (R_PARISC_BASEREL14F, 0x2f)
+
+    /* Segment relative relocation types.  */
+     RELOC_NUMBER (R_PARISC_TEXTREL32, 0x31)
+     RELOC_NUMBER (R_PARISC_DATAREL32, 0x39)
+
+    /* Plabel relocation types.  */
+     RELOC_NUMBER (R_PARISC_PLABEL32,  0x41)
+     RELOC_NUMBER (R_PARISC_PLABEL21L, 0x42)
+     RELOC_NUMBER (R_PARISC_PLABEL14R, 0x46)
+
+    /* PLT relocations.  */
+     RELOC_NUMBER (R_PARISC_PLTIND21L, 0x82)
+     RELOC_NUMBER (R_PARISC_PLTIND14R, 0x86)
+     RELOC_NUMBER (R_PARISC_PLTIND14F, 0x87)
+
+    /* Misc relocation types.  */
+     RELOC_NUMBER (R_PARISC_COPY,     0x88)
+     RELOC_NUMBER (R_PARISC_GLOB_DAT, 0x89)
+     RELOC_NUMBER (R_PARISC_JMP_SLOT, 0x8a)
+     RELOC_NUMBER (R_PARISC_RELATIVE, 0x8b)
+     
+     EMPTY_RELOC (R_PARISC_UNIMPLEMENTED)
+END_RELOC_NUMBERS
+
+#ifndef RELOC_MACROS_GEN_FUNC
+typedef enum elf32_hppa_reloc_type elf32_hppa_reloc_type;
+#endif
+
 #endif /* _ELF_HPPA_H */

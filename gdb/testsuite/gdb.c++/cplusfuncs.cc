@@ -50,8 +50,8 @@ public:
   /**/  operator int    ();
   /**/  operator char*  ();
 
-  foofunc (int);
-  foofunc (int, signed char *);
+  int foofunc (int); // forced to have int return type, which is required
+  int foofunc (int, signed char *); // forced to have int return type, which is required
   int ifoo;
   const char *ccpfoo;
 };

@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -121,13 +121,13 @@ print_idecode_invalid (lf *file,
     }
   else if (options.gen.icache)
     {
-      lf_printf (file, "%s %sicache_%s (", result, options.prefix.global.name, name);
+      lf_printf (file, "%s %sicache_%s (", result, options.module.global.prefix.l, name);
       print_icache_function_actual (file, 0);
       lf_printf (file, ");\n");
     }
   else
     {
-      lf_printf (file, "%s %ssemantic_%s (", result, options.prefix.global.name, name);
+      lf_printf (file, "%s %ssemantic_%s (", result, options.module.global.prefix.l, name);
       print_semantic_function_actual (file, 0);
       lf_printf (file, ");\n");
     }
@@ -155,9 +155,9 @@ print_semantic_body (lf *file,
     lf_printf (file, "\n");
     lf_indent_suppress (file);
     lf_printf (file, "#if defined (%sPROFILE_COUNT_INSN)\n",
-	       options.prefix.itable.uname);
+	       options.module.itable.prefix.u);
     lf_printf (file, "%sPROFILE_COUNT_INSN (CPU, CIA, MY_INDEX);\n",
-	       options.prefix.itable.uname);
+	       options.module.itable.prefix.u);
     lf_indent_suppress (file);
     lf_printf (file, "#endif\n");
   }
@@ -189,7 +189,7 @@ print_semantic_body (lf *file,
     if (options.gen.nia == nia_is_invalid)
       {
 	lf_printf(file, "nia = %sINVALID_INSTRUCTION_ADDRESS;\n",
-		  options.prefix.global.uname);
+		  options.module.global.prefix.u);
       }
     else
       {
@@ -280,7 +280,7 @@ print_semantic_body (lf *file,
 		 instruction->line->line_nr);
       lf_printf (file, "(long) CIA, \\\n");
       lf_printf (file, "%sitable[MY_INDEX].name);\n",
-		 options.prefix.itable.name);
+		 options.module.itable.prefix.l);
       lf_indent (file, -indent);
       lf_print__internal_ref (file);
     }
@@ -323,7 +323,7 @@ print_c_semantic (lf *file,
 		      : do_not_use_icache),
 		     nr_prefetched_words);
   
-  lf_printf (file, "%sinstruction_address nia;\n", options.prefix.global.name);
+  lf_printf (file, "%sinstruction_address nia;\n", options.module.global.prefix.l);
   print_semantic_body (file,
 		       instruction,
 		       expanded_bits,

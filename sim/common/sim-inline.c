@@ -23,56 +23,74 @@
 #ifndef SIM_INLINE_C
 #define SIM_INLINE_C
 
+#undef SIM_INLINE_P
+#define SIM_INLINE_P 1
+
 #include "sim-inline.h"
+#include "sim-main.h"
 
 
-#if defined(SIM_BITS_INLINE)
-#if ((SIM_BITS_INLINE & INCLUDE_MODULE) \
-     && !(SIM_BITS_INLINE & INCLUDED_BY_MODULE))
+#if C_REVEALS_MODULE_P (SIM_BITS_INLINE)
 #include "sim-bits.c"
 #endif
-#endif
 
 
-#if defined(SIM_CORE_INLINE)
-#if ((SIM_CORE_INLINE & INCLUDE_MODULE) \
-     && !(SIM_CORE_INLINE & INCLUDED_BY_MODULE))
+#if C_REVEALS_MODULE_P (SIM_CORE_INLINE)
 #include "sim-core.c"
 #endif
-#endif
 
 
-#if defined(SIM_ENDIAN_INLINE)
-#if ((SIM_ENDIAN_INLINE & INCLUDE_MODULE) \
-     && !(SIM_ENDIAN_INLINE & INCLUDED_BY_MODULE))
+#if C_REVEALS_MODULE_P (SIM_ENDIAN_INLINE)
 #include "sim-endian.c"
 #endif
-#endif
 
 
-#if defined(SIM_EVENTS_INLINE)
-#if ((SIM_EVENTS_INLINE & INCLUDE_MODULE) \
-     && !(SIM_EVENTS_INLINE & INCLUDED_BY_MODULE))
+#if C_REVEALS_MODULE_P (SIM_EVENTS_INLINE)
 #include "sim-events.c"
 #endif
-#endif
 
 
-#if defined(SIM_FPU_INLINE)
-#if ((SIM_FPU_INLINE & INCLUDE_MODULE) \
-     && !(SIM_FPU_INLINE & INCLUDED_BY_MODULE))
+#if C_REVEALS_MODULE_P (SIM_FPU_INLINE)
 #include "sim-fpu.c"
 #endif
+
+
+#if C_REVEALS_MODULE_P (SIM_TYPES_INLINE)
+#include "sim-types.c"
 #endif
 
 
-#if defined(SIM_IO_INLINE)
-#if ((SIM_IO_INLINE & INCLUDE_MODULE) \
-     && !(SIM_IO_INLINE & INCLUDED_BY_MODULE))
-#include "sim-io.c"
-#endif
+#if C_REVEALS_MODULE_P (SIM_MAIN_INLINE)
+#include "sim-main.c"
 #endif
 
 
+#if C_REVEALS_MODULE_P (ENGINE_INLINE)
+/* #include "engine.c" - handled by generator */
+#endif
+
+
+#if C_REVEALS_MODULE_P (ICACHE_INLINE)
+/* #include "icache.c" - handled by generator */
+#endif
+
+
+#if C_REVEALS_MODULE_P (IDECODE_INLINE)
+/* #include "idecode.c" - handled by generator */
+#endif
+
+
+#if C_REVEALS_MODULE_P (SEMANTICS_INLINE)
+/* #include "semantics.c" - handled by generator */
+#endif
+
+
+#if C_REVEALS_MODULE_P (SUPPORT_INLINE)
+/* #include "support.c" - handled by generator */
+#endif
+
+
+#undef SIM_INLINE_P
+#define SIM_INLINE_P 0
 
 #endif

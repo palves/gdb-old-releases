@@ -1,6 +1,8 @@
 /* Simulator CPU header for m32r.
 
-Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
+THIS FILE IS MACHINE GENERATED WITH CGEN.
+
+Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of the GNU Simulators.
 
@@ -23,48 +25,44 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef M32R_CPUALL_H
 #define M32R_CPUALL_H
 
-extern const IMP_PROPERTIES m32r_imp_properties;
+/* Include files for each cpu family.  */
 
-extern const MODEL m32r_models[];
+#ifdef WANT_CPU_M32RBF
+#include "eng.h"
+#include "cgen-engine.h"
+#include "cpu.h"
+#include "decode.h"
+#endif
+
+#ifdef WANT_CPU_M32RXF
+#include "engx.h"
+#include "cgen-engine.h"
+#include "cpux.h"
+#include "decodex.h"
+#endif
+
+extern const MACH m32r_mach;
 
 #ifndef WANT_CPU
 /* The ARGBUF struct.  */
 struct argbuf {
   /* These are the baseclass definitions.  */
-  unsigned int length;
-  PCADDR addr;
-  const struct cgen_insn *opcode;
-  /* unsigned long insn; - no longer needed */
+  IADDR addr;
+  const IDESC *idesc;
+  char trace_p;
+  char profile_p;
   /* cpu specific data follows */
 };
 #endif
 
 #ifndef WANT_CPU
 /* A cached insn.
-   This is also used in the non-scache case.  In this situation we assume
-   the cache size is 1, and do a few things a little differently.  */
+
+   ??? SCACHE used to contain more than just argbuf.  We could delete the
+   type entirely and always just use ARGBUF, but for future concerns and as
+   a level of abstraction it is left in.  */
 
 struct scache {
-  IADDR next;
-  union {
-#if ! WITH_SEM_SWITCH_FULL
-    SEMANTIC_FN *sem_fn;
-#endif
-#if ! WITH_SEM_SWITCH_FAST
-#if WITH_SCACHE
-    SEMANTIC_CACHE_FN *sem_fast_fn;
-#else
-    SEMANTIC_FN *sem_fast_fn;
-#endif
-#endif
-#if WITH_SEM_SWITCH_FULL || WITH_SEM_SWITCH_FAST
-#ifdef __GNUC__
-    void *sem_case;
-#else
-    int sem_case;
-#endif
-#endif
-  } semantic;
   struct argbuf argbuf;
 };
 #endif

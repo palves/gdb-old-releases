@@ -36,8 +36,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "top.h"
 
 /* readline include files */
-#include "readline.h"
-#include "history.h"
+#include <readline/readline.h>
+#include <readline/history.h>
 
 /* readline defines this.  */
 #undef savestring
@@ -108,22 +108,6 @@ static void init_signals PARAMS ((void));
 
 static void set_verbose PARAMS ((char *, int, struct cmd_list_element *));
 
-static void set_endian PARAMS ((char *, int));
-
-static void set_endian_big PARAMS ((char *, int));
-
-static void set_endian_little PARAMS ((char *, int));
-
-static void set_endian_auto PARAMS ((char *, int));
-
-static void show_endian PARAMS ((char *, int));
-
-static void set_architecture PARAMS ((char *, int));
-
-static void show_architecture PARAMS ((char *, int));
-
-static void info_architecture PARAMS ((char *, int));
-
 static void show_history PARAMS ((char *, int));
 
 static void set_history PARAMS ((char *, int));
@@ -156,7 +140,7 @@ static void complete_command PARAMS ((char *, int));
 static void do_nothing PARAMS ((int));
 
 #ifdef SIGHUP
-static int quit_cover PARAMS ((char *));
+static int quit_cover PARAMS ((PTR));
 
 static void disconnect PARAMS ((int));
 #endif
@@ -219,6 +203,14 @@ struct cmd_list_element *enablelist;
 
 struct cmd_list_element *disablelist;
 
+/* Chain containing all defined toggle subcommands. */
+
+struct cmd_list_element *togglelist;
+
+/* Chain containing all defined stop subcommands. */
+
+struct cmd_list_element *stoplist;
+
 /* Chain containing all defined delete subcommands. */
 
 struct cmd_list_element *deletelist;
@@ -238,10 +230,6 @@ struct cmd_list_element *unsetlist;
 /* Chain containing all defined show subcommands.  */
 
 struct cmd_list_element *showlist;
-
-/* Chain containing the \"set endian\" commands.  */
-
-struct cmd_list_element *endianlist;
 
 /* Chain containing all defined \"set history\".  */
 
@@ -379,6 +367,9 @@ static void stop_sig PARAMS ((int));
    command file.  */
 
 void (*init_ui_hook) PARAMS ((char *argv0));
+#ifdef __CYGWIN32__
+void (*ui_loop_hook) PARAMS ((int));
+#endif
 
 /* Called instead of command_loop at top level.  Can be invoked via
    return_to_top_level.  */
@@ -388,7 +379,7 @@ void (*command_loop_hook) PARAMS ((void));
 
 /* Called instead of fputs for all output.  */
 
-void (*fputs_unfiltered_hook) PARAMS ((const char *linebuffer, FILE *stream));
+void (*fputs_unfiltered_hook) PARAMS ((const char *linebuffer, GDB_FILE *stream));
 
 /* Called when the target says something to the host, which may
    want to appear in a different window. */
@@ -403,9 +394,13 @@ void (*print_frame_info_listing_hook) PARAMS ((struct symtab *s, int line,
 
 int (*query_hook) PARAMS ((const char *, va_list));
 
+/* Replaces most of warning.  */
+
+void (*warning_hook) PARAMS ((const char *, va_list));
+
 /* Called from gdb_flush to flush output.  */
 
-void (*flush_hook) PARAMS ((FILE *stream));
+void (*flush_hook) PARAMS ((GDB_FILE *stream));
 
 /* These three functions support getting lines of text from the user.  They
    are used in sequence.  First readline_begin_hook is called with a text
@@ -439,6 +434,14 @@ void (*interactive_hook) PARAMS ((void));
 
 void (*registers_changed_hook) PARAMS ((void));
 
+/* Tell the GUI someone changed the register REGNO. -1 means
+   that the caller does not know which register changed or
+   that several registers have changed (see value_assign).*/
+void (*register_changed_hook) PARAMS ((int regno));
+
+/* Tell the GUI someone changed LEN bytes of memory at ADDR */
+void (*memory_changed_hook) PARAMS ((CORE_ADDR addr, int len));
+
 /* Called when going to wait for the target.  Usually allows the GUI to run
    while waiting for target events.  */
 
@@ -450,6 +453,9 @@ int (*target_wait_hook) PARAMS ((int pid, struct target_waitstatus *status));
 void (*call_command_hook) PARAMS ((struct cmd_list_element *c, char *cmd,
 				   int from_tty));
 
+/* Called when the current thread changes.  Argument is thread id.  */
+
+void (*context_hook) PARAMS ((int id));
 
 /* Takes control from error ().  Typically used to prevent longjmps out of the
    middle of the GUI.  Usually used in conjunction with a catch routine.  */
@@ -515,7 +521,7 @@ return_to_top_level (reason)
 
 int
 catch_errors (func, args, errstring, mask)
-     int (*func) PARAMS ((char *));
+     catch_errors_ftype *func;
      PTR args;
      char *errstring;
      return_mask mask;
@@ -586,7 +592,7 @@ int signo;
 
 static int
 quit_cover (s)
-char *s;
+     PTR s;
 {
   caution = 0;		/* Throw caution to the wind -- we're exiting.
 			   This prevents asking the user dumb questions.  */
@@ -628,7 +634,7 @@ read_command_file (stream)
 {
   struct cleanup *cleanups;
 
-  cleanups = make_cleanup (source_cleanup, instream);
+  cleanups = make_cleanup ((make_cleanup_func) source_cleanup, instream);
   instream = stream;
   command_loop ();
   do_cleanups (cleanups);
@@ -709,7 +715,7 @@ get_command_line (type, arg)
   /* Allocate and build a new command line structure.  */
   cmd = build_command_line (type, arg);
 
-  old_chain = make_cleanup (free_command_lines, &cmd);
+  old_chain = make_cleanup ((make_cleanup_func) free_command_lines, &cmd);
 
   /* Read in the body of this command.  */
   if (recurse_read_control_structure (cmd) == invalid_control)
@@ -826,7 +832,8 @@ execute_control_command (cmd)
       new_line = insert_args (cmd->line);
       if (!new_line)
 	return invalid_control;
-      old_chain = make_cleanup (free_current_contents, &new_line);
+      old_chain = make_cleanup ((make_cleanup_func) free_current_contents, 
+                                &new_line);
       execute_command (new_line, 0);
       ret = cmd->control_type;
       break;
@@ -844,9 +851,10 @@ execute_control_command (cmd)
 	new_line = insert_args (cmd->line);
 	if (!new_line)
 	  return invalid_control;
-	old_chain = make_cleanup (free_current_contents, &new_line);
+	old_chain = make_cleanup ((make_cleanup_func) free_current_contents, 
+                                  &new_line);
 	expr = parse_expression (new_line);
-	make_cleanup (free_current_contents, &expr);
+	make_cleanup ((make_cleanup_func) free_current_contents, &expr);
 	
 	ret = simple_control;
 	loop = 1;
@@ -904,10 +912,11 @@ execute_control_command (cmd)
 	new_line = insert_args (cmd->line);
 	if (!new_line)
 	  return invalid_control;
-	old_chain = make_cleanup (free_current_contents, &new_line);
+	old_chain = make_cleanup ((make_cleanup_func) free_current_contents, 
+                                  &new_line);
 	/* Parse the conditional for the if statement.  */
 	expr = parse_expression (new_line);
-	make_cleanup (free_current_contents, &expr);
+	make_cleanup ((make_cleanup_func) free_current_contents, &expr);
 
 	current = NULL;
 	ret = simple_control;
@@ -1020,7 +1029,7 @@ setup_user_args (p)
   args->next = user_args;
   user_args = args;
 
-  old_chain = make_cleanup (arg_cleanup, 0);
+  old_chain = make_cleanup ((make_cleanup_func) arg_cleanup, 0);
 
   if (p == NULL)
     return old_chain;
@@ -1184,7 +1193,7 @@ execute_user_command (c, args)
 
   /* Set the instream to 0, indicating execution of a
      user-defined function.  */
-  old_chain = make_cleanup (source_cleanup, instream);
+  old_chain = make_cleanup ((make_cleanup_func) source_cleanup, instream);
   instream = (FILE *) 0;
   while (cmdlines)
     {
@@ -1305,22 +1314,39 @@ command_loop ()
   int stdin_is_tty = ISATTY (stdin);
   long time_at_cmd_start;
 #ifdef HAVE_SBRK
-  long space_at_cmd_start;
+  long space_at_cmd_start = 0;
 #endif
   extern int display_time;
   extern int display_space;
 
   while (instream && !feof (instream))
     {
+#if defined(TUI)
+      extern int insert_mode;
+#endif
       if (window_hook && instream == stdin)
 	(*window_hook) (instream, prompt);
 
       quit_flag = 0;
       if (instream == stdin && stdin_is_tty)
 	reinitialize_more_filter ();
-      old_chain = make_cleanup (command_loop_marker, 0);
+      old_chain = make_cleanup ((make_cleanup_func) command_loop_marker, 0);
+
+#if defined(TUI)
+      /* A bit of paranoia: I want to make sure the "insert_mode" global
+       * is clear except when it is being used for command-line editing
+       * (see tuiIO.c, utils.c); otherwise normal output will
+       * get messed up in the TUI. So clear it before/after
+       * the command-line-input call. - RT
+       */
+      insert_mode = 0;
+#endif
+      /* Get a command-line. This calls the readline package. */
       command = command_line_input (instream == stdin ? prompt : (char *) NULL,
 				    instream == stdin, "prompt");
+#if defined(TUI)
+      insert_mode = 0;
+#endif
       if (command == 0)
 	return;
 
@@ -1431,7 +1457,15 @@ gdb_readline (prrompt)
 	}
 
       if (c == '\n')
+#ifndef CRLF_SOURCE_FILES
 	break;
+#else
+	{
+	  if (input_index > 0 && result[input_index - 1] == '\r')
+	    input_index--;
+	  break;
+	}
+#endif
 
       result[input_index++] = c;
       while (input_index >= result_size)
@@ -2489,7 +2523,8 @@ int from_tty;
       else
 	{
 	  head = next;
-	  old_chain = make_cleanup (free_command_lines, &head);
+	  old_chain = make_cleanup ((make_cleanup_func) free_command_lines, 
+                                    &head);
 	}
       tail = next;
     }
@@ -2798,6 +2833,7 @@ document_command (comname, from_tty)
   free_command_lines (&doclines);
 }
 
+/* Print the GDB banner. */
 void
 print_gdb_version (stream)
   GDB_FILE *stream;
@@ -2866,6 +2902,19 @@ get_prompt ()
 {
   return prompt;
 }
+
+void
+set_prompt (s)
+     char *s;
+{
+/* ??rehrauer: I don't know why this fails, since it looks as though
+   assignments to prompt are wrapped in calls to savestring...
+  if (prompt != NULL)
+    free (prompt);
+*/
+  prompt = savestring (s, strlen (s));
+}
+
 
 /* If necessary, make the user confirm that we should quit.  Return
    non-zero if we should quit, zero if we shouldn't.  */
@@ -2877,7 +2926,12 @@ quit_confirm ()
     {
       char *s;
 
-      if (attach_flag)
+      /* This is something of a hack.  But there's no reliable way to
+	 see if a GUI is running.  The `use_windows' variable doesn't
+	 cut it.  */
+      if (init_ui_hook)
+	s = "A debugging session is active.\nDo you still want to close the debugger?";
+      else if (attach_flag)
 	s = "The program is running.  Quit anyway (and detach it)? ";
       else
 	s = "The program is running.  Exit anyway? ";
@@ -2923,6 +2977,16 @@ quit_force (args, from_tty)
     write_history (history_filename);
 
   do_final_cleanups(ALL_CLEANUPS);	/* Do any final cleanups before exiting */
+
+#if defined(TUI)
+  /* tuiDo((TuiOpaqueFuncPtr)tuiCleanUp); */
+  /* The above does not need to be inside a tuiDo(), since
+   * it is not manipulating the curses screen, but rather,
+   * it is tearing it down.
+   */
+  if (tui_version)
+    tuiCleanUp();
+#endif
 
   exit (exit_code);
 }
@@ -3092,7 +3156,7 @@ source_command (args, from_tty)
     else
       return;
 
-  make_cleanup (fclose, stream);
+  make_cleanup ((make_cleanup_func) fclose, stream);
 
   old_lines.old_line = source_line_number;
   old_lines.old_file = source_file_name;
@@ -3165,240 +3229,6 @@ dont_repeat_command (ignored, from_tty)
 {
   *line = 0;		/* Can't call dont_repeat here because we're not
 			   necessarily reading from stdin.  */
-}
-
-/* Functions to manipulate the endianness of the target.  */
-
-#ifdef TARGET_BYTE_ORDER_SELECTABLE
-#ifndef TARGET_BYTE_ORDER_DEFAULT
-#define TARGET_BYTE_ORDER_DEFAULT BIG_ENDIAN
-#endif
-int target_byte_order = TARGET_BYTE_ORDER_DEFAULT;
-int target_byte_order_auto = 1;
-#else
-static int target_byte_order_auto = 0;
-#endif
-
-/* Called if the user enters ``set endian'' without an argument.  */
-static void
-set_endian (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  printf_unfiltered ("\"set endian\" must be followed by \"auto\", \"big\" or \"little\".\n");
-  show_endian (args, from_tty);
-}
-
-/* Called by ``set endian big''.  */
-static void
-set_endian_big (args, from_tty)
-     char *args;
-     int from_tty;
-{
-#ifdef TARGET_BYTE_ORDER_SELECTABLE
-  target_byte_order = BIG_ENDIAN;
-  target_byte_order_auto = 0;
-#else
-  printf_unfiltered ("Byte order is not selectable.");
-  show_endian (args, from_tty);
-#endif
-}
-
-/* Called by ``set endian little''.  */
-static void
-set_endian_little (args, from_tty)
-     char *args;
-     int from_tty;
-{
-#ifdef TARGET_BYTE_ORDER_SELECTABLE
-  target_byte_order = LITTLE_ENDIAN;
-  target_byte_order_auto = 0;
-#else
-  printf_unfiltered ("Byte order is not selectable.");
-  show_endian (args, from_tty);
-#endif
-}
-
-/* Called by ``set endian auto''.  */
-static void
-set_endian_auto (args, from_tty)
-     char *args;
-     int from_tty;
-{
-#ifdef TARGET_BYTE_ORDER_SELECTABLE
-  target_byte_order_auto = 1;
-#else
-  printf_unfiltered ("Byte order is not selectable.");
-  show_endian (args, from_tty);
-#endif
-}
-
-/* Called by ``show endian''.  */
-static void
-show_endian (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  const char *msg =
-    (target_byte_order_auto
-     ? "The target endianness is set automatically (currently %s endian)\n"
-     : "The target is assumed to be %s endian\n");
-  printf_unfiltered ((char *) msg, TARGET_BYTE_ORDER == BIG_ENDIAN ? "big" : "little");
-}
-
-/* Set the endianness from a BFD.  */
-void
-set_endian_from_file (abfd)
-     bfd *abfd;
-{
-#ifdef TARGET_BYTE_ORDER_SELECTABLE
-  int want;
-
-  if (bfd_big_endian (abfd))
-    want = BIG_ENDIAN;
-  else
-    want = LITTLE_ENDIAN;
-  if (target_byte_order_auto)
-    target_byte_order = want;
-  else if (target_byte_order != want)
-    warning ("%s endian file does not match %s endian target.",
-	     want == BIG_ENDIAN ? "big" : "little",
-	     TARGET_BYTE_ORDER == BIG_ENDIAN ? "big" : "little");
-
-#else /* ! defined (TARGET_BYTE_ORDER_SELECTABLE) */
-
-  if (bfd_big_endian (abfd)
-      ? TARGET_BYTE_ORDER != BIG_ENDIAN
-      : TARGET_BYTE_ORDER == BIG_ENDIAN)
-    warning ("%s endian file does not match %s endian target.",
-	     bfd_big_endian (abfd) ? "big" : "little",
-	     TARGET_BYTE_ORDER == BIG_ENDIAN ? "big" : "little");
-
-#endif /* ! defined (TARGET_BYTE_ORDER_SELECTABLE) */
-}
-
-/* Functions to manipulate the architecture of the target */
-
-int target_architecture_auto = 1;
-extern const bfd_arch_info_type bfd_default_arch_struct;
-const bfd_arch_info_type *target_architecture = &bfd_default_arch_struct;
-int (*target_architecture_hook) PARAMS ((const bfd_arch_info_type *ap));
-
-static void
-set_arch (arch)
-     const bfd_arch_info_type *arch;
-{
-  /* FIXME: Is it compatible with gdb? */
-  /* Check with the target on the setting */
-  if (target_architecture_hook != NULL
-      && !target_architecture_hook (arch))
-    printf_unfiltered ("Target does not support `%s' architecture.\n",
-		       arch->printable_name);
-  else
-    {
-      target_architecture_auto = 0;
-      target_architecture = arch;
-    }
-}
-
-
-/* Called if the user enters ``set architecture'' with or without an
-   argument. */
-static void
-set_architecture (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  if (args == NULL)
-    {
-      printf_unfiltered ("\"set architecture\" must be followed by \"auto\" or an architecture name.\n");
-    }
-  else if (strcmp (args, "auto") == 0)
-    {
-      target_architecture_auto = 1;
-    }
-  else
-    {
-      const bfd_arch_info_type *arch = bfd_scan_arch (args);
-      if (arch != NULL)
-	set_arch (arch);
-      else
-	printf_unfiltered ("Architecture `%s' not reconized.\n", args);
-    }
-}
-
-/* Called if the user enters ``show architecture'' without an argument. */
-static void
-show_architecture (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  const char *arch;
-  arch = target_architecture->printable_name;
-  if (target_architecture_auto)
-    printf_filtered ("The target architecture is set automatically (currently %s)\n", arch);
-  else
-    printf_filtered ("The target architecture is assumed to be %s\n", arch);
-}
-
-/* Called if the user enters ``info architecture'' without an argument. */
-static void
-info_architecture (args, from_tty)
-     char *args;
-     int from_tty;
-{
-  enum bfd_architecture a;
-  printf_filtered ("Available architectures are:\n");
-  for (a = bfd_arch_obscure + 1; a < bfd_arch_last; a++)
-    {
-      const bfd_arch_info_type *ap = bfd_lookup_arch (a, 0);
-      if (ap != NULL)
-	{
-	  do
-	    {
-	      printf_filtered (" %s", ap->printable_name);
-	      ap = ap->next;
-	    }
-	  while (ap != NULL);
-	  printf_filtered ("\n");
-	}
-    }
-}
-
-/* Set the architecture from arch/machine */
-void
-set_architecture_from_arch_mach (arch, mach)
-     enum bfd_architecture arch;
-     unsigned long mach;
-{
-  const bfd_arch_info_type *wanted = bfd_lookup_arch (arch, mach);
-  if (wanted != NULL)
-    set_arch (wanted);
-  else
-    fatal ("hardwired architecture/machine not reconized");
-}
-
-
-/* Set the architecture from a BFD */
-void
-set_architecture_from_file (abfd)
-     bfd *abfd;
-{
-  const bfd_arch_info_type *wanted = bfd_get_arch_info (abfd);
-  if (target_architecture_auto)
-    {
-      if (target_architecture_hook != NULL
-	  && !target_architecture_hook (wanted))
-	warning ("Target may not support %s architecture",
-		 wanted->printable_name);
-      target_architecture = wanted;
-    }
-  else if (wanted != target_architecture)
-    {
-      warning ("%s architecture file may be incompatible with %s target.",
-	       wanted->printable_name,
-	       target_architecture->printable_name);
-    }
 }
 
 /* Functions to manipulate command line editing control variables.  */
@@ -3565,12 +3395,13 @@ init_cmd_lists ()
   infolist = NULL;
   enablelist = NULL;
   disablelist = NULL;
+  togglelist = NULL;
+  stoplist = NULL;
   deletelist = NULL;
   enablebreaklist = NULL;
   setlist = NULL;
   unsetlist = NULL;
   showlist = NULL;
-  endianlist = NULL;
   sethistlist = NULL;
   showhistlist = NULL;
   unsethistlist = NULL;
@@ -3621,27 +3452,6 @@ init_main ()
 {
   struct cmd_list_element *c;
 
-  add_prefix_cmd ("endian", class_support, set_endian,
-		  "Set endianness of target.",
-		  &endianlist, "set endian ", 0, &setlist);
-  add_cmd ("big", class_support, set_endian_big,
-	   "Set target as being big endian.", &endianlist);
-  add_cmd ("little", class_support, set_endian_little,
-	   "Set target as being little endian.", &endianlist);
-  add_cmd ("auto", class_support, set_endian_auto,
-	   "Select target endianness automatically.", &endianlist);
-  add_cmd ("endian", class_support, show_endian,
-	   "Show endianness of target.", &showlist);
-
-  add_cmd ("architecture", class_support, set_architecture,
-	   "Set architecture of target.", &setlist);
-  add_alias_cmd ("processor", "architecture", class_support, 1, &setlist);
-  add_cmd ("architecture", class_support, show_architecture,
-	   "Show architecture of target.", &showlist);
-  add_cmd ("architecture", class_support, info_architecture,
-	   "List supported target architectures", &infolist);
-
-
 #ifdef DEFAULT_PROMPT
   prompt = savestring (DEFAULT_PROMPT, strlen(DEFAULT_PROMPT));
 #else
@@ -3674,7 +3484,8 @@ well documented as user commands.",
 The commands in this class are those defined by the user.\n\
 Use the \"define\" command to define a command.", &cmdlist);
   add_cmd ("support", class_support, NO_FUNCTION, "Support facilities.", &cmdlist);
-  add_cmd ("status", class_info, NO_FUNCTION, "Status inquiries.", &cmdlist);
+  if (!dbx_commands)
+    add_cmd ("status", class_info, NO_FUNCTION, "Status inquiries.", &cmdlist);
   add_cmd ("files", class_files, NO_FUNCTION, "Specifying and examining files.", &cmdlist);
   add_cmd ("breakpoints", class_breakpoint, NO_FUNCTION, "Making program stop at certain points.", &cmdlist);
   add_cmd ("data", class_vars, NO_FUNCTION, "Examining data.", &cmdlist);
@@ -3854,7 +3665,7 @@ is displayed.", &setlist),
     add_set_cmd ("remotetimeout", no_class, var_integer, (char *)&remote_timeout,
 		   "Set timeout limit to wait for target to respond.\n\
 This value is used to set the time limit for gdb to wait for a response\n\
-from he target.", &setlist),
+from the target.", &setlist),
 		     &showlist);
 
   c = add_set_cmd ("annotate", class_obscure, var_zinteger, 

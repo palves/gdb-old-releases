@@ -8,8 +8,10 @@
 #define PARAMS(paramlist) paramlist
 #endif
 
+typedef enum { FALSE, TRUE } bool;
+
 /* Entry Points: */
 
-void OverlayLoad PARAMS((int ovlyno));
-void OverlayUnload PARAMS((int ovlyno));
+bool OverlayLoad   PARAMS((unsigned long ovlyno));
+bool OverlayUnload PARAMS((unsigned long ovlyno));
 

@@ -1,5 +1,5 @@
 /* NLM (NetWare Loadable Module) executable support for BFD.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 94, 95, 1998 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, using ELF support as the
    template.
@@ -20,7 +20,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include <string.h>		/* For strrchr and friends */
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"

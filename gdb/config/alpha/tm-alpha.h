@@ -77,7 +77,7 @@ alpha_saved_pc_after_call PARAMS ((struct frame_info *));
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 #define BREAKPOINT {0x80, 0, 0, 0} /* call_pal bpt */
 
@@ -88,11 +88,6 @@ alpha_saved_pc_after_call PARAMS ((struct frame_info *));
 #ifndef DECR_PC_AFTER_BREAK
 #define DECR_PC_AFTER_BREAK 4
 #endif
-
-/* Nonzero if instruction at PC is a return instruction.
-   "ret $zero,($ra),1" on alpha. */
-
-#define ABOUT_TO_RETURN(pc) (read_memory_integer (pc, 4) == 0x6bfa8001)
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -305,12 +300,11 @@ alpha_frame_saved_pc PARAMS ((struct frame_info *));
 
 extern void alpha_find_saved_regs PARAMS ((struct frame_info *));
 
-#define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
+#define FRAME_INIT_SAVED_REGS(frame_info) \
   do { \
     if ((frame_info)->saved_regs == NULL) \
       alpha_find_saved_regs (frame_info); \
-    (frame_saved_regs) = *(frame_info)->saved_regs; \
-    (frame_saved_regs).regs[SP_REGNUM] = (frame_info)->frame; \
+    (frame_info)->saved_regs[SP_REGNUM] = (frame_info)->frame; \
   } while (0)
 
 
@@ -403,8 +397,7 @@ typedef struct alpha_extra_func_info {
 #define EXTRA_FRAME_INFO \
   int localoff; \
   int pc_reg; \
-  alpha_extra_func_info_t proc_desc; \
-  struct frame_saved_regs *saved_regs;
+  alpha_extra_func_info_t proc_desc;
 
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fci) init_extra_frame_info(fci)
 extern void
@@ -414,7 +407,7 @@ init_extra_frame_info PARAMS ((struct frame_info *));
   { \
     if (fi && fi->proc_desc && fi->proc_desc->pdr.framereg < NUM_REGS) \
       printf_filtered (" frame pointer is at %s+%d\n", \
-                       reg_names[fi->proc_desc->pdr.framereg], \
+                       REGISTER_NAME (fi->proc_desc->pdr.framereg), \
                                  fi->proc_desc->pdr.frameoffset); \
   }
 

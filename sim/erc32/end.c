@@ -1,3 +1,6 @@
+#include <stdio.h>
+
+int
 main()
 {
 
@@ -19,5 +22,5 @@ main()
 	puts("#define HOST_LITTLE_ENDIAN_FLOAT\n");
     else
 	puts("#define HOST_BIG_ENDIAN_FLOAT\n");
-    exit(0);
+    return 0;
 }

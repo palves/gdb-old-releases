@@ -1,8 +1,24 @@
+1999-01-04  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* configure.in: Requires autoconf 2.12.1 or higher.
+	* configure: Regenerated.
+
+1998-07-24  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	* mcalloc.c: #include <sys/types.h> before <string.h>.  HP/UX 11.0
+	needs this.
+
 Thu Apr 23 12:19:22 1998  Philippe De Muyter  <phdm@macqel.be>
 
         * mmalloc.h: Include sys/types.h and stdio.h #ifndef HAVE_STDDEF_H.
         * mmprivate.h: Do not handle HAVE_STDDEF_H here, since we include
         mmalloc.h.
+
+Tue Mar 24 17:07:02 1998  Stu Grossman  <grossman@bhuna.cygnus.co.uk>
+
+	* Makefile.in:  Get SHELL from configure.
+	* configure:  Regenerate with autoconf 2.12.1 to fix shell issues for
+	NT native builds.
 
 Mon Feb  7 13:06:45 1997  Philippe De Muyter  <phdm@macqel.be>
 

@@ -1,5 +1,5 @@
 /* Native support for the SGI Iris running IRIX version 5, for GDB.
-   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
+   Copyright 1988, 89, 90, 91, 92, 93, 94, 95, 96, 98, 1999
    Free Software Foundation, Inc.
    Contributed by Alessandro Forin(af@cs.cmu.edu) at CMU
    and by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin.
@@ -192,7 +192,8 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
     {
       memcpy ((char *)registers, core_reg_sect, core_reg_size);
     }
-  else if (core_reg_size == (2 * REGISTER_BYTES) && MIPS_REGSIZE == 4)
+  else if (MIPS_REGSIZE == 4 &&
+	   core_reg_size == (2 * MIPS_REGSIZE) * NUM_REGS)
     {
       /* This is a core file from a N32 executable, 64 bits are saved
 	 for all registers.  */
@@ -210,7 +211,20 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
 	      *dstp++ = *srcp++;
 	      *dstp++ = *srcp++;
 	      *dstp++ = *srcp++;
-	      srcp += 4;
+	      if (REGISTER_RAW_SIZE(regno) == 4)
+		{
+		  /* copying 4 bytes from eight bytes?
+		     I don't see how this can be right...  */
+		  srcp += 4;	
+		}
+	      else
+		{
+		  /* copy all 8 bytes (sizeof(double)) */
+		  *dstp++ = *srcp++;
+		  *dstp++ = *srcp++;
+		  *dstp++ = *srcp++;
+		  *dstp++ = *srcp++;
+		}
 	    }
 	  else
 	    {
@@ -352,8 +366,8 @@ xfer_link_map_member PARAMS ((struct so_list *, struct link_map *));
 static CORE_ADDR
 locate_base PARAMS ((void));
 
-static void
-solib_map_sections PARAMS ((struct so_list *));
+static int
+solib_map_sections PARAMS ((char *));
 
 /*
 
@@ -363,7 +377,7 @@ LOCAL FUNCTION
 
 SYNOPSIS
 
-	static void solib_map_sections (struct so_list *so)
+	static int solib_map_sections (struct so_list *so)
 
 DESCRIPTION
 
@@ -382,10 +396,11 @@ FIXMES
 	expansion stuff?).
  */
 
-static void
-solib_map_sections (so)
-     struct so_list *so;
+static int
+solib_map_sections (arg)
+     char *arg;
 {
+  struct so_list *so = (struct so_list *) arg;	/* catch_errors bogon */
   char *filename;
   char *scratch_pathname;
   int scratch_chan;
@@ -447,6 +462,8 @@ solib_map_sections (so)
 
   /* Free the file names, close the file now.  */
   do_cleanups (old_chain);
+
+  return (1);
 }
 
 /*
@@ -731,7 +748,9 @@ xfer_link_map_member (so_list_ptr, lm)
 #endif
     }
 
-  solib_map_sections (so_list_ptr);
+  catch_errors (solib_map_sections, (char *) so_list_ptr,
+		"Error while mapping shared library sections:\n",
+		RETURN_MASK_ALL);
 }
 
 
@@ -810,7 +829,7 @@ symbol_add_stub (arg)
 
   if (so -> textsection)
     text_addr = so -> textsection -> addr;
-  else
+  else if (so -> abfd != NULL)
     {
       asection *lowest_sect;
 
@@ -827,7 +846,7 @@ symbol_add_stub (arg)
   
   so -> objfile = symbol_file_add (so -> so_name, so -> from_tty,
 				   text_addr,
-				   0, 0, 0);
+				   0, 0, 0, 0, 0);
   return (1);
 }
 
@@ -1064,6 +1083,8 @@ clear_solib()
   struct so_list *next;
   char *bfd_filename;
   
+  disable_breakpoints_in_shlibs (1);
+
   while (so_list_head)
     {
       if (so_list_head -> sections)

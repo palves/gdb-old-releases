@@ -1,5 +1,5 @@
 /* General utility routines for GDB, the GNU debugger.
-   Copyright 1986, 89, 90, 91, 92, 95, 1996 Free Software Foundation, Inc.
+   Copyright 1986, 89, 90, 91, 92, 95, 96, 1998 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -24,6 +24,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_CURSES_H
+#include <curses.h>
+#endif
+#ifdef HAVE_TERM_H
+#include <term.h>
+#endif
+
+/* SunOS's curses.h has a '#define reg register' in it.  Thank you Sun. */
+#ifdef reg
+#undef reg
+#endif
+
 #include "signals.h"
 #include "gdbcmd.h"
 #include "serial.h"
@@ -34,16 +46,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "language.h"
 #include "annotate.h"
 
-#include "readline.h"
+#include <readline/readline.h>
 
 /* readline defines this.  */
 #undef savestring
 
+void (*error_begin_hook) PARAMS ((void));
+
 /* Prototypes for local functions */
 
-static void vfprintf_maybe_filtered PARAMS ((FILE *, const char *, va_list, int));
+static void vfprintf_maybe_filtered PARAMS ((GDB_FILE *, const char *,
+					     va_list, int));
 
-static void fputs_maybe_filtered PARAMS ((const char *, FILE *, int));
+static void fputs_maybe_filtered PARAMS ((const char *, GDB_FILE *, int));
 
 #if defined (USE_MMALLOC) && !defined (NO_MMCHECK)
 static void malloc_botch PARAMS ((void));
@@ -58,10 +73,17 @@ prompt_for_continue PARAMS ((void));
 static void 
 set_width_command PARAMS ((char *, int, struct cmd_list_element *));
 
+static void
+set_width PARAMS ((void));
+
 /* If this definition isn't overridden by the header files, assume
    that isatty and fileno exist on this system.  */
 #ifndef ISATTY
 #define ISATTY(FP)	(isatty (fileno (FP)))
+#endif
+
+#ifndef GDB_FILE_ISATTY
+#define GDB_FILE_ISATTY(GDB_FILE_PTR)   (gdb_file_isatty(GDB_FILE_PTR))   
 #endif
 
 /* Chain of cleanup actions established with make_cleanup,
@@ -120,6 +142,9 @@ char *quit_pre_print;
 /* String to be printed before warning messages, if any.  */
 
 char *warning_pre_print = "\nwarning: ";
+
+int pagination_enabled = 1;
+
 
 /* Add a new cleanup to the cleanup_chain,
    and return the previous chain pointer
@@ -353,10 +378,15 @@ warning (va_alist)
   va_start (args);
   string = va_arg (args, char *);
 #endif
-  warning_begin ();
-  vfprintf_unfiltered (gdb_stderr, string, args);
-  fprintf_unfiltered (gdb_stderr, "\n");
-  va_end (args);
+  if (warning_hook)
+    (*warning_hook) (string, args);
+  else
+  {
+    warning_begin ();
+    vfprintf_unfiltered (gdb_stderr, string, args);
+    fprintf_unfiltered (gdb_stderr, "\n");
+    va_end (args);
+  }
 }
 
 /* Start the printing of an error message.  Way to use this is to call
@@ -369,6 +399,9 @@ warning (va_alist)
 void
 error_begin ()
 {
+  if (error_begin_hook)
+    error_begin_hook ();
+
   target_terminal_ours ();
   wrap_here ("");			/* Force out any buffered output */
   gdb_flush (gdb_stdout);
@@ -547,7 +580,7 @@ perror_with_name (string)
   bfd_set_error (bfd_error_no_error);
   errno = 0;
 
-  error ("%s.", combined);
+  error ("%s.", combined); 
 }
 
 /* Print the system error message for ERRCODE, and also mention STRING
@@ -595,7 +628,7 @@ quit ()
   gdb_flush (gdb_stderr);
 
   /* 3.  The system-level buffer.  */
-  SERIAL_FLUSH_OUTPUT (gdb_stdout_serial);
+  SERIAL_DRAIN_OUTPUT (gdb_stdout_serial);
   SERIAL_UN_FDOPEN (gdb_stdout_serial);
 
   annotate_error_begin ();
@@ -952,10 +985,23 @@ mstrsave (md, ptr)
 void
 print_spaces (n, file)
      register int n;
-     register FILE *file;
+     register GDB_FILE *file;
 {
-  while (n-- > 0)
-    fputc (' ', file);
+  if (file->ts_streamtype == astring)
+    {
+      char *p;
+
+      gdb_file_adjust_strbuf (n, file);
+      p = file->ts_strbuf + strlen (file->ts_strbuf);
+
+      memset (p, ' ', n);
+      p[n] = '\000';
+    }
+  else
+    {
+      while (n-- > 0)
+	fputc (' ', file->ts_filestream);
+    }
 }
 
 /* Print a host address.  */
@@ -1035,21 +1081,43 @@ query (va_alist)
 	fputs_unfiltered ("\n", gdb_stdout);
 #endif /* MPW */
 
+      wrap_here("");
       gdb_flush (gdb_stdout);
-      answer = fgetc (stdin);
+
+#if defined(TUI)
+      if (!tui_version || cmdWin == tuiWinWithFocus())
+#endif
+	answer = fgetc (stdin);
+#if defined(TUI)
+      else
+
+        answer = (unsigned char)tuiBufferGetc();
+
+#endif
       clearerr (stdin);		/* in case of C-d */
       if (answer == EOF)	/* C-d */
         {
 	  retval = 1;
 	  break;
 	}
-      if (answer != '\n')	/* Eat rest of input line, to EOF or newline */
+      /* Eat rest of input line, to EOF or newline */
+      if ((answer != '\n') || (tui_version && answer != '\r'))
 	do 
 	  {
-	    ans2 = fgetc (stdin);
+#if defined(TUI)
+	    if (!tui_version || cmdWin == tuiWinWithFocus())
+#endif
+	      ans2 = fgetc (stdin);
+#if defined(TUI)
+	    else
+
+              ans2 = (unsigned char)tuiBufferGetc(); 
+#endif
 	    clearerr (stdin);
 	  }
-        while (ans2 != EOF && ans2 != '\n');
+        while (ans2 != EOF && ans2 != '\n' && ans2 != '\r');
+      TUIDO(((TuiOpaqueFuncPtr)tui_vStartNewLines, 1));
+
       if (answer >= 'a')
 	answer -= 040;
       if (answer == 'Y')
@@ -1161,7 +1229,7 @@ parse_escape (string_ptr)
 void
 gdb_printchar (c, stream, quoter)
      register int c;
-     FILE *stream;
+     GDB_FILE *stream;
      int quoter;
 {
 
@@ -1203,6 +1271,37 @@ gdb_printchar (c, stream, quoter)
     fprintf_filtered (stream, "%c", c);
   }
 }
+
+
+
+
+static char * hexlate = "0123456789abcdef" ;
+int fmthex(inbuf,outbuff,length,linelength)
+     unsigned char * inbuf ;
+     unsigned char * outbuff;
+     int length;
+     int linelength;
+{
+  unsigned char byte , nib ;
+  int outlength = 0 ;
+
+  while (length)
+    {
+      if (outlength >= linelength) break ;
+      byte = *inbuf ;
+      inbuf++ ;
+      nib = byte >> 4 ;
+      *outbuff++ = hexlate[nib] ;
+      nib = byte &0x0f ;
+      *outbuff++ = hexlate[nib] ;
+      *outbuff++ = ' ' ;
+      length-- ;
+      outlength += 3 ;
+    }
+  *outbuff = '\0' ; /* null terminate our output line */
+  return outlength ;
+}
+
 
 /* Number of lines per page or UINT_MAX if paging is disabled.  */
 static unsigned int lines_per_page;
@@ -1235,13 +1334,88 @@ static char *wrap_indent;
    is not in effect.  */
 static int wrap_column;
 
-/* ARGSUSED */
-static void 
-set_width_command (args, from_tty, c)
-     char *args;
-     int from_tty;
-     struct cmd_list_element *c;
+
+/* Inialize the lines and chars per page */
+void
+init_page_info()
 {
+#if defined(TUI)
+  if (tui_version && m_winPtrNotNull(cmdWin))
+    {
+      lines_per_page = cmdWin->generic.height;
+      chars_per_line = cmdWin->generic.width;
+    }
+  else
+#endif
+    {
+      /* These defaults will be used if we are unable to get the correct
+         values from termcap.  */
+#if defined(__GO32__)
+      lines_per_page = ScreenRows();
+      chars_per_line = ScreenCols();
+#else  
+      lines_per_page = 24;
+      chars_per_line = 80;
+
+#if !defined (MPW) && !defined (_WIN32)
+      /* No termcap under MPW, although might be cool to do something
+         by looking at worksheet or console window sizes. */
+      /* Initialize the screen height and width from termcap.  */
+      {
+        char *termtype = getenv ("TERM");
+
+        /* Positive means success, nonpositive means failure.  */
+        int status;
+
+        /* 2048 is large enough for all known terminals, according to the
+           GNU termcap manual.  */
+        char term_buffer[2048];
+
+        if (termtype)
+          {
+	    status = tgetent (term_buffer, termtype);
+	    if (status > 0)
+	      {
+	        int val;
+		int running_in_emacs = getenv ("EMACS") != NULL;
+	    
+	        val = tgetnum ("li");
+	        if (val >= 0 && !running_in_emacs)
+	          lines_per_page = val;
+	        else
+	          /* The number of lines per page is not mentioned
+		     in the terminal description.  This probably means
+		     that paging is not useful (e.g. emacs shell window),
+		     so disable paging.  */
+	          lines_per_page = UINT_MAX;
+	    
+	        val = tgetnum ("co");
+	        if (val >= 0)
+	          chars_per_line = val;
+	      }
+          }
+      }
+#endif /* MPW */
+
+#if defined(SIGWINCH) && defined(SIGWINCH_HANDLER)
+
+      /* If there is a better way to determine the window size, use it. */
+      SIGWINCH_HANDLER (SIGWINCH);
+#endif
+#endif
+      /* If the output is not a terminal, don't paginate it.  */
+      if (!GDB_FILE_ISATTY (gdb_stdout))
+        lines_per_page = UINT_MAX;
+  } /* the command_line_version */
+  set_width();
+}
+
+static void
+set_width()
+{
+  if (chars_per_line == 0)
+    init_page_info();
+
   if (!wrap_buffer)
     {
       wrap_buffer = (char *) xmalloc (chars_per_line + 2);
@@ -1249,7 +1423,17 @@ set_width_command (args, from_tty, c)
     }
   else
     wrap_buffer = (char *) xrealloc (wrap_buffer, chars_per_line + 2);
-  wrap_pointer = wrap_buffer;	/* Start it at the beginning */
+  wrap_pointer = wrap_buffer;   /* Start it at the beginning */
+}
+
+/* ARGSUSED */
+static void 
+set_width_command (args, from_tty, c)
+     char *args;
+     int from_tty;
+     struct cmd_list_element *c;
+{
+  set_width ();
 }
 
 /* Wait, so the user can read what's on the screen.  Prompt the user
@@ -1388,18 +1572,100 @@ begin_line ()
     }
 }
 
+int 
+gdb_file_isatty (stream)
+    GDB_FILE *stream;
+{
+
+  if (stream->ts_streamtype == afile)
+     return (isatty(fileno(stream->ts_filestream)));
+  else return 0;
+}
+
+GDB_FILE *
+gdb_file_init_astring (n)
+    int n;
+{
+  GDB_FILE *tmpstream;
+
+  tmpstream = xmalloc (sizeof(GDB_FILE));
+  tmpstream->ts_streamtype = astring;
+  tmpstream->ts_filestream = NULL;
+  if (n > 0)
+    {
+      tmpstream->ts_strbuf = xmalloc ((n + 1)*sizeof(char));
+      tmpstream->ts_strbuf[0] = '\0';
+    }
+  else
+     tmpstream->ts_strbuf = NULL;
+  tmpstream->ts_buflen = n;
+
+  return tmpstream;
+}
+
+void
+gdb_file_deallocate (streamptr)
+    GDB_FILE **streamptr;
+{
+  GDB_FILE *tmpstream;
+
+  tmpstream = *streamptr;
+  if ((tmpstream->ts_streamtype == astring) &&
+      (tmpstream->ts_strbuf != NULL)) 
+    {
+      free (tmpstream->ts_strbuf);
+    }
+
+  free (tmpstream);
+  *streamptr = NULL;
+}
+ 
+char *
+gdb_file_get_strbuf (stream)
+     GDB_FILE *stream;
+{
+  return (stream->ts_strbuf);
+}
+
+/* adjust the length of the buffer by the amount necessary
+   to accomodate appending a string of length N to the buffer contents */
+void
+gdb_file_adjust_strbuf (n, stream)
+     int n;
+     GDB_FILE *stream;
+{
+  int non_null_chars;
+  
+  non_null_chars = strlen(stream->ts_strbuf);
+ 
+  if (n > (stream->ts_buflen - non_null_chars - 1)) 
+    {
+      stream->ts_buflen = n + non_null_chars + 1;
+      stream->ts_strbuf = xrealloc (stream->ts_strbuf, stream->ts_buflen);
+    }  
+} 
 
 GDB_FILE *
 gdb_fopen (name, mode)
      char * name;
      char * mode;
 {
-  return fopen (name, mode);
+  int       gdb_file_size;
+  GDB_FILE *tmp;
+
+  gdb_file_size = sizeof(GDB_FILE);
+  tmp = (GDB_FILE *) xmalloc (gdb_file_size);
+  tmp->ts_streamtype = afile;
+  tmp->ts_filestream = fopen (name, mode);
+  tmp->ts_strbuf = NULL;
+  tmp->ts_buflen = 0;
+  
+  return tmp;
 }
 
 void
 gdb_flush (stream)
-     FILE *stream;
+     GDB_FILE *stream;
 {
   if (flush_hook
       && (stream == gdb_stdout
@@ -1409,7 +1675,18 @@ gdb_flush (stream)
       return;
     }
 
-  fflush (stream);
+  fflush (stream->ts_filestream);
+}
+
+void
+gdb_fclose(streamptr)
+     GDB_FILE **streamptr;
+{
+  GDB_FILE *tmpstream;
+
+  tmpstream = *streamptr;
+  fclose (tmpstream->ts_filestream);
+  gdb_file_deallocate (streamptr);
 }
 
 /* Like fputs but if FILTER is true, pause after every screenful.
@@ -1428,7 +1705,7 @@ gdb_flush (stream)
 static void
 fputs_maybe_filtered (linebuffer, stream, filter)
      const char *linebuffer;
-     FILE *stream;
+     GDB_FILE *stream;
      int filter;
 {
   const char *lineptr;
@@ -1532,7 +1809,7 @@ fputs_maybe_filtered (linebuffer, stream, filter)
 void
 fputs_filtered (linebuffer, stream)
      const char *linebuffer;
-     FILE *stream;
+     GDB_FILE *stream;
 {
   fputs_maybe_filtered (linebuffer, stream, 1);
 }
@@ -1552,7 +1829,7 @@ putchar_unfiltered (c)
 int
 fputc_unfiltered (c, stream)
      int c;
-     FILE * stream;
+     GDB_FILE * stream;
 {
   char buf[2];
 
@@ -1562,6 +1839,18 @@ fputc_unfiltered (c, stream)
   return c;
 }
 
+int
+fputc_filtered (c, stream)
+     int c;
+     GDB_FILE * stream;
+{
+  char buf[2];
+
+  buf[0] = c;
+  buf[1] = 0;
+  fputs_filtered (buf, stream);
+  return c;
+}
 
 /* puts_debug is like fputs_unfiltered, except it prints special
    characters in printable fashion.  */
@@ -1576,16 +1865,16 @@ puts_debug (prefix, string, suffix)
 
   /* Print prefix and suffix after each line.  */
   static int new_line = 1;
-  static int carriage_return = 0;
+  static int return_p = 0;
   static char *prev_prefix = "";
   static char *prev_suffix = "";
 
   if (*string == '\n')
-    carriage_return = 0;
+    return_p = 0;
 
   /* If the prefix is changing, print the previous suffix, a new line,
      and the new prefix.  */
-  if ((carriage_return || (strcmp(prev_prefix, prefix) != 0)) && !new_line)
+  if ((return_p || (strcmp(prev_prefix, prefix) != 0)) && !new_line)
     {
       fputs_unfiltered (prev_suffix, gdb_stderr);
       fputs_unfiltered ("\n", gdb_stderr);
@@ -1612,7 +1901,7 @@ puts_debug (prefix, string, suffix)
 	    fputc_unfiltered (ch, gdb_stderr);
 
 	  else
-	    fprintf_unfiltered (gdb_stderr, "\\%03o", ch);
+	    fprintf_unfiltered (gdb_stderr, "\\x%02x", ch & 0xff);
 	  break;
 
 	case '\\': fputs_unfiltered ("\\\\",  gdb_stderr);	break;
@@ -1625,7 +1914,7 @@ puts_debug (prefix, string, suffix)
 	case '\v': fputs_unfiltered ("\\v",   gdb_stderr);	break;
         }
 
-      carriage_return = ch == '\r';
+      return_p = ch == '\r';
     }
 
   /* Print suffix if we printed a newline.  */
@@ -1653,7 +1942,7 @@ puts_debug (prefix, string, suffix)
 
 static void
 vfprintf_maybe_filtered (stream, format, args, filter)
-     FILE *stream;
+     GDB_FILE *stream;
      const char *format;
      va_list args;
      int filter;
@@ -1675,7 +1964,7 @@ vfprintf_maybe_filtered (stream, format, args, filter)
 
 void
 vfprintf_filtered (stream, format, args)
-     FILE *stream;
+     GDB_FILE *stream;
      const char *format;
      va_list args;
 {
@@ -1684,7 +1973,7 @@ vfprintf_filtered (stream, format, args)
 
 void
 vfprintf_unfiltered (stream, format, args)
-     FILE *stream;
+     GDB_FILE *stream;
      const char *format;
      va_list args;
 {
@@ -1721,7 +2010,7 @@ vprintf_unfiltered (format, args)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-fprintf_filtered (FILE *stream, const char *format, ...)
+fprintf_filtered (GDB_FILE *stream, const char *format, ...)
 #else
 fprintf_filtered (va_alist)
      va_dcl
@@ -1731,11 +2020,11 @@ fprintf_filtered (va_alist)
 #ifdef ANSI_PROTOTYPES
   va_start (args, format);
 #else
-  FILE *stream;
+  GDB_FILE *stream;
   char *format;
 
   va_start (args);
-  stream = va_arg (args, FILE *);
+  stream = va_arg (args, GDB_FILE *);
   format = va_arg (args, char *);
 #endif
   vfprintf_filtered (stream, format, args);
@@ -1745,7 +2034,7 @@ fprintf_filtered (va_alist)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-fprintf_unfiltered (FILE *stream, const char *format, ...)
+fprintf_unfiltered (GDB_FILE *stream, const char *format, ...)
 #else
 fprintf_unfiltered (va_alist)
      va_dcl
@@ -1755,11 +2044,11 @@ fprintf_unfiltered (va_alist)
 #ifdef ANSI_PROTOTYPES
   va_start (args, format);
 #else
-  FILE *stream;
+  GDB_FILE *stream;
   char *format;
 
   va_start (args);
-  stream = va_arg (args, FILE *);
+  stream = va_arg (args, GDB_FILE *);
   format = va_arg (args, char *);
 #endif
   vfprintf_unfiltered (stream, format, args);
@@ -1772,7 +2061,7 @@ fprintf_unfiltered (va_alist)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-fprintfi_filtered (int spaces, FILE *stream, const char *format, ...)
+fprintfi_filtered (int spaces, GDB_FILE *stream, const char *format, ...)
 #else
 fprintfi_filtered (va_alist)
      va_dcl
@@ -1783,12 +2072,12 @@ fprintfi_filtered (va_alist)
   va_start (args, format);
 #else
   int spaces;
-  FILE *stream;
+  GDB_FILE *stream;
   char *format;
 
   va_start (args);
   spaces = va_arg (args, int);
-  stream = va_arg (args, FILE *);
+  stream = va_arg (args, GDB_FILE *);
   format = va_arg (args, char *);
 #endif
   print_spaces_filtered (spaces, stream);
@@ -1918,7 +2207,7 @@ n_spaces (n)
 void
 print_spaces_filtered (n, stream)
      int n;
-     FILE *stream;
+     GDB_FILE *stream;
 {
   fputs_filtered (n_spaces (n), stream);
 }
@@ -1932,7 +2221,7 @@ print_spaces_filtered (n, stream)
 
 void
 fprintf_symbol_filtered (stream, name, lang, arg_mode)
-     FILE *stream;
+     GDB_FILE *stream;
      char *name;
      enum language lang;
      int arg_mode;
@@ -2010,6 +2299,50 @@ strcmp_iw (string1, string2)
 }
 
 
+/*
+** subsetCompare()
+**    Answer whether stringToCompare is a full or partial match to
+**    templateString.  The partial match must be in sequence starting
+**    at index 0.
+*/
+int
+#ifdef _STDC__
+subsetCompare(
+    char *stringToCompare,
+    char *templateString)
+#else
+subsetCompare(stringToCompare, templateString)
+    char *stringToCompare;
+    char *templateString;
+#endif
+{
+    int    match = 0;
+
+    if (templateString != (char *)NULL && stringToCompare != (char *)NULL &&
+	strlen(stringToCompare) <= strlen(templateString))
+      match = (strncmp(templateString,
+		       stringToCompare,
+		       strlen(stringToCompare)) == 0);
+
+    return match;
+} /* subsetCompare */
+
+
+void pagination_on_command(arg, from_tty)
+  char *arg;
+  int from_tty;
+{
+  pagination_enabled = 1;
+}
+
+void pagination_off_command(arg, from_tty)
+  char *arg;
+  int from_tty;
+{
+  pagination_enabled = 0;
+}
+
+
 void
 initialize_utils ()
 {
@@ -2028,62 +2361,10 @@ initialize_utils ()
 		  "Set number of lines gdb thinks are in a page.", &setlist),
      &showlist);
   
-  /* These defaults will be used if we are unable to get the correct
-     values from termcap.  */
-#if defined(__GO32__)
-  lines_per_page = ScreenRows();
-  chars_per_line = ScreenCols();
-#else  
-  lines_per_page = 24;
-  chars_per_line = 80;
+  init_page_info ();
 
-#if !defined (MPW) && !defined (_WIN32)
-  /* No termcap under MPW, although might be cool to do something
-     by looking at worksheet or console window sizes. */
-  /* Initialize the screen height and width from termcap.  */
-  {
-    char *termtype = getenv ("TERM");
-
-    /* Positive means success, nonpositive means failure.  */
-    int status;
-
-    /* 2048 is large enough for all known terminals, according to the
-       GNU termcap manual.  */
-    char term_buffer[2048];
-
-    if (termtype)
-      {
-	status = tgetent (term_buffer, termtype);
-	if (status > 0)
-	  {
-	    int val;
-	    
-	    val = tgetnum ("li");
-	    if (val >= 0)
-	      lines_per_page = val;
-	    else
-	      /* The number of lines per page is not mentioned
-		 in the terminal description.  This probably means
-		 that paging is not useful (e.g. emacs shell window),
-		 so disable paging.  */
-	      lines_per_page = UINT_MAX;
-	    
-	    val = tgetnum ("co");
-	    if (val >= 0)
-	      chars_per_line = val;
-	  }
-      }
-  }
-#endif /* MPW */
-
-#if defined(SIGWINCH) && defined(SIGWINCH_HANDLER)
-
-  /* If there is a better way to determine the window size, use it. */
-  SIGWINCH_HANDLER ();
-#endif
-#endif
   /* If the output is not a terminal, don't paginate it.  */
-  if (!ISATTY (gdb_stdout))
+  if (!GDB_FILE_ISATTY (gdb_stdout))
     lines_per_page = UINT_MAX;
 
   set_width_command ((char *)NULL, 0, c);
@@ -2094,6 +2375,19 @@ initialize_utils ()
 		"Set demangling of encoded C++ names when displaying symbols.",
 		  &setprintlist),
      &showprintlist);
+
+  add_show_from_set
+    (add_set_cmd ("pagination", class_support,
+		  var_boolean, (char *)&pagination_enabled,
+		  "Set state of pagination.", &setlist),
+     &showlist);
+  if (xdb_commands)
+    {
+      add_com("am", class_support, pagination_on_command, 
+              "Enable pagination");
+      add_com("sm", class_support, pagination_off_command, 
+              "Disable pagination");
+    }
 
   add_show_from_set
     (add_set_cmd ("sevenbit-strings", class_support, var_boolean, 

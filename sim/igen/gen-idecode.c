@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -67,8 +67,8 @@ print_idecode_ifetch (lf *file,
        word_nr < current_nr_prefetched_words;
        word_nr ++)
     {
-      lf_printf (file, "instruction_word instruction_%d = IMEM_IMMED (cia, %d);\n",
-		 word_nr, word_nr);
+      lf_printf (file, "instruction_word instruction_%d = IMEM%d_IMMED (cia, %d);\n",
+		 word_nr, options.insn_bit_size, word_nr);
       
     }
 }

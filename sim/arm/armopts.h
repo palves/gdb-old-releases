@@ -21,10 +21,3 @@
 #define ARM60
 #endif
 #endif
-
-/* define for a little endian ARMulator */
-#ifndef LITTLEEND
-#ifndef BIGEND
-#define LITTLEEND
-#endif
-#endif

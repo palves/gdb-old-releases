@@ -215,7 +215,7 @@ CODE_FRAGMENT
 .           standard data. *}
 .#define SEC_CONSTRUCTOR 0x100
 .
-.        {* The section is a constuctor, and should be placed at the
+.        {* The section is a constructor, and should be placed at the
 .          end of the text, data, or bss section(?). *}
 .#define SEC_CONSTRUCTOR_TEXT 0x1100
 .#define SEC_CONSTRUCTOR_DATA 0x2100
@@ -304,6 +304,9 @@ CODE_FRAGMENT
 .	   else up the line will take care of it later.  *}
 .#define SEC_LINKER_CREATED 0x800000
 .
+.	{* This section should not be subject to garbage collection.  *}
+.#define SEC_KEEP 0x1000000
+.
 .	{*  End of section flags.  *}
 .
 .	{* Some internal packed boolean fields.  *}
@@ -316,6 +319,9 @@ CODE_FRAGMENT
 .
 .	{* A mark flag used by some of the linker backends.  *}
 .	unsigned int linker_mark : 1;
+.
+.	{* A mark flag used by some linker backends for garbage collection.  *}
+.	unsigned int gc_mark : 1;
 .
 .	{* End of internal packed boolean fields.  *}
 .
@@ -485,7 +491,7 @@ static const asymbol global_syms[] =
 #define STD_SECTION(SEC, FLAGS, SYM, NAME, IDX)	\
   const asymbol * const SYM = (asymbol *) &global_syms[IDX]; \
   const asection SEC = \
-    { NAME, 0, 0, FLAGS, 0, 0, 0, 0, 0, 0, 0, 0, (asection *) &SEC, \
+    { NAME, 0, 0, FLAGS, 0, 0, 0, 0, 0, 0, 0, 0, 0, (asection *) &SEC, \
       0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, \
       (asymbol *) &global_syms[IDX], (asymbol **) &SYM, 0, 0 }
 

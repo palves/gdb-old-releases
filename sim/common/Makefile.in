@@ -86,7 +86,7 @@ nltvals.def: Makefile gennltvals.sh gentvals.sh
 	cd $(srcdir) ; \
 	rm -f nltvals.new ; \
 	$(SHELL) $(srcdir)/gennltvals.sh $(SHELL) $(srcroot) "$(CPP_FOR_TARGET)" > nltvals.new ; \
-	$(srcroot)/move-if-change nltvals.new nltvals.def
+	$(SHELL) $(srcroot)/move-if-change nltvals.new nltvals.def
 
 .c.o:
 	$(CC) -c $< $(ALL_CFLAGS)
@@ -99,11 +99,12 @@ install-info:
 
 tags etags: TAGS
 
-# The regex is used to get the compile time computed symbols
-# like offset_[1248].
-# ??? The regex may need to be more selective.
+# Macros like EXTERN_SIM_CORE confuse tags.
+# And the sim-n-foo.h files create functions that can't be found either.
 TAGS: force
-	etags --regex '/^\/[*] TAGS: .*/' *.c *.h
+	cd $(srcdir) && \
+	etags --regex '/^\([a-z_]+\) (/\1/' --regex '/^\/[*] TAGS: .*/' \
+		*.[ch]
 
 clean:
 	rm -f *.[oa] *~ core

@@ -1,5 +1,5 @@
 /* DWARF 2 debugging format support for GDB.
-   Copyright 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+   Copyright 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
 
    Adapted by Gary Funck (gary@intrepid.com), Intrepid Technology,
    Inc.  with support from Florida State University (under contract
@@ -1002,15 +1002,17 @@ dwarf2_build_psymtabs_hard (objfile, section_offsets, mainline)
          If so, read the rest of the partial symbols from this comp unit.
          If not, there's no more debug_info for this comp unit. */
       if (comp_unit_die.has_children)
-         info_ptr = scan_partial_symbols (info_ptr, objfile, &lowpc, &highpc);
-
-      /* If the compilation unit didn't have an explicit address range,
-	 then use the information extracted from its child dies.  */
-      if (!comp_unit_has_pc_info)
 	{
-	  comp_unit_die.lowpc  = lowpc;
-	  comp_unit_die.highpc = highpc;
-        }
+	  info_ptr = scan_partial_symbols (info_ptr, objfile, &lowpc, &highpc);
+
+	  /* If the compilation unit didn't have an explicit address range,
+	     then use the information extracted from its child dies.  */
+	  if (!comp_unit_has_pc_info)
+	    {
+	      comp_unit_die.lowpc  = lowpc;
+	      comp_unit_die.highpc = highpc;
+	    }
+	}
       pst->textlow  = comp_unit_die.lowpc + baseaddr;
       pst->texthigh = comp_unit_die.highpc + baseaddr;
 
@@ -1148,8 +1150,8 @@ add_partial_symbol (pdi, objfile)
     case DW_TAG_subprogram:
       if (pdi->is_external)
 	{
-	  prim_record_minimal_symbol (pdi->name, pdi->lowpc + baseaddr,
-				      mst_text, objfile);
+	  /*prim_record_minimal_symbol (pdi->name, pdi->lowpc + baseaddr,
+				      mst_text, objfile);*/
 	  add_psymbol_to_list (pdi->name, strlen (pdi->name),
 			       VAR_NAMESPACE, LOC_BLOCK,
 			       &objfile->global_psymbols,
@@ -1157,8 +1159,8 @@ add_partial_symbol (pdi, objfile)
 	}
       else
 	{
-	  prim_record_minimal_symbol (pdi->name, pdi->lowpc + baseaddr,
-				      mst_file_text, objfile);
+	  /*prim_record_minimal_symbol (pdi->name, pdi->lowpc + baseaddr,
+				      mst_file_text, objfile);*/
 	  add_psymbol_to_list (pdi->name, strlen (pdi->name),
 			       VAR_NAMESPACE, LOC_BLOCK,
 			       &objfile->static_psymbols,
@@ -1195,8 +1197,8 @@ add_partial_symbol (pdi, objfile)
 	  if (pdi->locdesc == NULL)
 	    return;
 	  addr = decode_locdesc (pdi->locdesc, objfile);
-	  prim_record_minimal_symbol (pdi->name, addr + baseaddr,
-				      mst_file_data, objfile);
+	  /*prim_record_minimal_symbol (pdi->name, addr + baseaddr,
+				      mst_file_data, objfile);*/
 	  add_psymbol_to_list (pdi->name, strlen (pdi->name),
 			       VAR_NAMESPACE, LOC_STATIC,
 			       &objfile->static_psymbols,
@@ -1302,7 +1304,7 @@ psymtab_to_symtab_1 (pst)
   back_to = make_cleanup (dwarf2_free_tmp_obstack, NULL);
 
   buildsym_init ();
-  make_cleanup (really_free_pendings, NULL);
+  make_cleanup ((make_cleanup_func) really_free_pendings, NULL);
 
   /* read in the comp_unit header  */
   cu_header.length = read_4_bytes (abfd, info_ptr);
@@ -1320,7 +1322,7 @@ psymtab_to_symtab_1 (pst)
 
   dies = read_comp_unit (info_ptr, abfd);
 
-  make_cleanup (free_die_list, dies);
+  make_cleanup ((make_cleanup_func) free_die_list, dies);
 
   /* Do line number decoding in read_file_scope () */
   process_die (dies, objfile);
@@ -1513,6 +1515,8 @@ read_file_scope (die, objfile)
       set_cu_language (DW_UNSND (attr));
     }
 
+  /* We assume that we're processing GCC output. */
+  processing_gcc_compilation = 2;
 #if 0
     /* FIXME:Do something here.  */
     if (dip->at_producer != NULL)
@@ -2066,7 +2070,8 @@ dwarf2_add_member_fn (fip, die, type, objfile)
 		      (fip->nfnfields + DW_FIELD_ALLOC_CHUNK)
 		        * sizeof (struct fnfieldlist));
 	  if (fip->nfnfields == 0)
-	    make_cleanup (free_current_contents, &fip->fnfieldlists);
+	    make_cleanup ((make_cleanup_func) free_current_contents, 
+                          &fip->fnfieldlists);
 	}
       flp = &fip->fnfieldlists[fip->nfnfields];
       flp->name = fieldname;
@@ -2572,7 +2577,8 @@ read_array_type (die, objfile)
 		xrealloc (range_types, (ndim + DW_FIELD_ALLOC_CHUNK)
 				         * sizeof (struct type *));
 	      if (ndim == 0)
-		make_cleanup (free_current_contents, &range_types);
+		make_cleanup ((make_cleanup_func) free_current_contents, 
+                              &range_types);
 	    }
 	  range_types[ndim++] = create_range_type (NULL, index_type, low, high);
 	}
@@ -2799,8 +2805,11 @@ read_subroutine_type (die, objfile)
     }
   type = die_type (die, objfile);
   ftype = lookup_function_type (type);
+
+  /* All functions in C++ have prototypes.  */
   attr = dwarf_attr (die, DW_AT_prototyped);
-  if (attr && (DW_UNSND (attr) != 0))
+  if ((attr && (DW_UNSND (attr) != 0))
+      || cu_language == language_cplus)
     TYPE_FLAGS (ftype) |= TYPE_FLAG_PROTOTYPED;
 
   if (die->has_children)
@@ -3821,7 +3830,8 @@ dwarf_decode_lines (offset, comp_dir, abfd)
   line_ptr += 1;
   lh.standard_opcode_lengths = (unsigned char *)
     xmalloc (lh.opcode_base * sizeof (unsigned char));
-  back_to = make_cleanup (free_current_contents, &lh.standard_opcode_lengths);
+  back_to = make_cleanup ((make_cleanup_func) free_current_contents, 
+                          &lh.standard_opcode_lengths);
 
   lh.standard_opcode_lengths[0] = 1;
   for (i = 1; i < lh.opcode_base; ++i)
@@ -3840,7 +3850,7 @@ dwarf_decode_lines (offset, comp_dir, abfd)
 	    xrealloc (dirs.dirs,
 		      (dirs.num_dirs + DIR_ALLOC_CHUNK) * sizeof (char *));
 	  if (dirs.num_dirs == 0)
-	    make_cleanup (free_current_contents, &dirs.dirs);
+	    make_cleanup ((make_cleanup_func) free_current_contents, &dirs.dirs);
 	}
       dirs.dirs[dirs.num_dirs++] = cur_dir;
     }
@@ -3857,7 +3867,8 @@ dwarf_decode_lines (offset, comp_dir, abfd)
 		      (files.num_files + FILE_ALLOC_CHUNK)
 			* sizeof (struct fileinfo));
 	  if (files.num_files == 0)
-	    make_cleanup (free_current_contents, &files.files);
+	    make_cleanup ((make_cleanup_func) free_current_contents, 
+                          &files.files);
 	}
       files.files[files.num_files].name = cur_file;
       files.files[files.num_files].dir =
@@ -3927,7 +3938,8 @@ dwarf_decode_lines (offset, comp_dir, abfd)
 				  (files.num_files + FILE_ALLOC_CHUNK)
 				    * sizeof (struct fileinfo));
 		      if (files.num_files == 0)
-			make_cleanup (free_current_contents, &files.files);
+			make_cleanup ((make_cleanup_func) free_current_contents, 
+                                      &files.files);
 		    }
 		  files.files[files.num_files].name = cur_file;
 		  files.files[files.num_files].dir =
@@ -5332,10 +5344,10 @@ dwarf_stack_op_name (op)
 }
 
 static char *
-dwarf_bool_name (bool)
-     unsigned bool;
+dwarf_bool_name (mybool)
+     unsigned mybool;
 {
-  if (bool)
+  if (mybool)
     return "TRUE";
   else
     return "FALSE";
@@ -5446,7 +5458,7 @@ dump_die (die)
 	case DW_FORM_ref_addr:
 	case DW_FORM_addr:
 	  fprintf (stderr, "address: ");
-	  print_address_numeric (DW_ADDR (&die->attrs[i]), 1, stderr);
+	  print_address_numeric (DW_ADDR (&die->attrs[i]), 1, gdb_stderr);
 	  break;
 	case DW_FORM_block2:
 	case DW_FORM_block4:

@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -62,12 +62,12 @@ print_support_function_name (lf *file,
     {
       /* map the name onto a globally valid name */
       if (!is_function_definition
-	  && strcmp (options.prefix.global.name, "") != 0)
+	  && strcmp (options.module.support.prefix.l, "") != 0)
 	{
 	  lf_indent_suppress (file);
 	  lf_printf (file, "#define %s %s%s\n",
 		     function->name,
-		     options.prefix.global.name,
+		     options.module.support.prefix.l,
 		     function->name);
 	}
       lf_print__function_type (file,
@@ -75,16 +75,16 @@ print_support_function_name (lf *file,
 			       "INLINE_SUPPORT",
 			       (is_function_definition ? "\n" : " "));
       lf_printf (file, "%s%s\n(",
-		 options.prefix.global.name,
+		 options.module.support.prefix.l,
 		 function->name);
       if (options.gen.smp)
 	lf_printf (file,
 		   "sim_cpu *cpu, %sinstruction_address cia, int MY_INDEX",
-		   options.prefix.global.name);
+		   options.module.support.prefix.l);
       else
 	lf_printf (file,
 		   "SIM_DESC sd, %sinstruction_address cia, int MY_INDEX",
-		   options.prefix.global.name);
+		   options.module.support.prefix.l);
       if (function->param != NULL
 	  && strlen (function->param) > 0)
 	lf_printf (file, ", %s", function->param);
@@ -123,8 +123,8 @@ gen_support_h (lf *file,
       lf_printf(file, "#define CPU (STATE_CPU (sd, 0))\n");
       lf_printf(file, "#define CPU_ sd\n");
     }
-  lf_printf(file, "#define SD_ CPU_, cia, MY_INDEX\n");
-  lf_printf(file, "#define _SD SD_ /* deprecated */\n");
+
+  lf_printf(file, "#define CIA_ cia\n");
   if (options.gen.delayed_branch)
     {
       lf_printf(file, "#define CIA cia.ip\n");
@@ -136,6 +136,31 @@ gen_support_h (lf *file,
       lf_printf(file, "#define NIA nia\n");
     }
   lf_printf(file, "\n");
+
+  lf_printf(file, "#define SD_ CPU_, CIA_, MY_INDEX\n");
+  lf_printf(file, "#define _SD SD_ /* deprecated */\n");
+  lf_printf(file, "\n");
+
+  /* Map <PREFIX>_instruction_word and <PREFIX>_idecode_issue onto the
+     shorter instruction_word and idecode_issue.  Map defined here as,
+     name space problems are created when the name is defined in
+     idecode.h */
+  if (strcmp (options.module.idecode.prefix.l, "") != 0)
+    {
+      lf_indent_suppress (file);
+      lf_printf (file, "#define %s %s%s\n",
+		 "instruction_word",
+		 options.module.idecode.prefix.l,
+		 "instruction_word");
+      lf_printf (file, "\n");
+      lf_indent_suppress (file);
+      lf_printf (file, "#define %s %s%s\n",
+		 "idecode_issue",
+		 options.module.idecode.prefix.l,
+		 "idecode_issue");
+      lf_printf (file, "\n");
+    }
+
   /* output a declaration for all functions */
   function_entry_traverse (file, table->functions,
 			   support_h_function,
@@ -144,7 +169,7 @@ gen_support_h (lf *file,
   lf_printf(file, "#if defined(SUPPORT_INLINE)\n");
   lf_printf(file, "# if ((SUPPORT_INLINE & INCLUDE_MODULE)\\\n");
   lf_printf(file, "      && (SUPPORT_INLINE & INCLUDED_BY_MODULE))\n");
-  lf_printf(file, "#  include \"%ssupport.c\"\n", options.prefix.global.name);
+  lf_printf(file, "#  include \"%ssupport.c\"\n", options.module.support.prefix.l);
   lf_printf(file, "# endif\n");
   lf_printf(file, "#endif\n");
 }
@@ -182,9 +207,9 @@ gen_support_c (lf *file,
 	       insn_table *table)
 {
   lf_printf(file, "#include \"sim-main.h\"\n");
-  lf_printf(file, "#include \"%sidecode.h\"\n", options.prefix.idecode.name);
-  lf_printf(file, "#include \"%sitable.h\"\n", options.prefix.itable.name);
-  lf_printf(file, "#include \"%ssupport.h\"\n", options.prefix.support.name);
+  lf_printf(file, "#include \"%sidecode.h\"\n", options.module.idecode.prefix.l);
+  lf_printf(file, "#include \"%sitable.h\"\n", options.module.itable.prefix.l);
+  lf_printf(file, "#include \"%ssupport.h\"\n", options.module.support.prefix.l);
   lf_printf(file, "\n");
 
   /* output a definition (c-code) for all functions */

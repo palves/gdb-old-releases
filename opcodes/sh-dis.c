@@ -1,5 +1,5 @@
 /* Disassemble SH instructions.
-   Copyright (C) 1993, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1993, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -65,12 +65,12 @@ print_insn_shx (memaddr, info)
   for (op = sh_table; op->name; op++) 
     {
       int n;
-      int imm;
-      int rn;
-      int rm;
-      int rb;
+      int imm = 0;
+      int rn = 0;
+      int rm = 0;
+      int rb = 0;
       int disp_pc;
-      bfd_vma disp_pc_addr;
+      bfd_vma disp_pc_addr = 0;
 
       for (n = 0; n < 4; n++)
 	{
@@ -133,6 +133,10 @@ print_insn_shx (memaddr, info)
 	      break;
 	    case REG_M:
 	      rm = nibs[n];
+	      break;
+	    case REG_NM:
+	      rn = (nibs[n] & 0xc) >> 2;
+	      rm = (nibs[n] & 0x3);
 	      break;
 	    case REG_B:
 	      rb = nibs[n] & 0x07;
@@ -235,11 +239,39 @@ print_insn_shx (memaddr, info)
 	    case A_PR:
 	      fprintf_fn (stream, "pr");
 	      break;
+	    case A_SGR:
+	      fprintf_fn (stream, "sgr");
+	      break;
+	    case A_DBR:
+	      fprintf_fn (stream, "dbr");
+	      break;
+	    case FD_REG_N:
+	      if (0)
+		goto d_reg_n;
 	    case F_REG_N:
 	      fprintf_fn (stream, "fr%d", rn);
 	      break;
 	    case F_REG_M:
 	      fprintf_fn (stream, "fr%d", rm);
+	      break;
+	    case DX_REG_N:
+	      if (rn & 1)
+		{
+		  fprintf_fn (stream, "xd%d", rn & ~1);
+		  break;
+		}
+	    d_reg_n:
+	    case D_REG_N:
+	      fprintf_fn (stream, "dr%d", rn);
+	      break;
+	    case DX_REG_M:
+	      if (rm & 1)
+		{
+		  fprintf_fn (stream, "xd%d", rm & ~1);
+		  break;
+		}
+	    case D_REG_M:
+	      fprintf_fn (stream, "dr%d", rm);
 	      break;
 	    case FPSCR_M:
 	    case FPSCR_N:
@@ -251,6 +283,15 @@ print_insn_shx (memaddr, info)
 	      break;
 	    case F_FR0:
 	      fprintf_fn (stream, "fr0");
+	      break;
+	    case V_REG_N:
+	      fprintf_fn (stream, "fv%d", rn*4);
+	      break;
+	    case V_REG_M:
+	      fprintf_fn (stream, "fv%d", rm*4);
+	      break;
+	    case XMTRX_M4:
+	      fprintf_fn (stream, "xmtrx");
 	      break;
 	    default:
 	      abort();

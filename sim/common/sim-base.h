@@ -1,5 +1,5 @@
 /* Simulator pseudo baseclass.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997-1998 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -93,6 +93,7 @@ typedef struct _sim_cpu sim_cpu;
 #ifdef SIM_HAVE_BREAKPOINTS
 #include "sim-break.h"
 #endif
+#include "sim-cpu.h"
 
 /* Global pointer to current state while sim_resume is running.
    On a machine with lots of registers, it might be possible to reserve
@@ -131,6 +132,10 @@ typedef struct {
   struct host_callback_struct *callback;
 #define STATE_CALLBACK(sd) ((sd)->base.callback)
 
+  /* The type of simulation environment (user/operating).  */
+  enum sim_environment environment;
+#define STATE_ENVIRONMENT(sd) ((sd)->base.environment)
+
 #if 0 /* FIXME: Not ready yet.  */
   /* Stuff defined in sim-config.h.  */
   struct sim_config config;
@@ -138,17 +143,8 @@ typedef struct {
 #endif
 
   /* List of installed module `init' handlers.  */
-  MODULE_INIT_LIST *init_list;
-#define STATE_INIT_LIST(sd) ((sd)->base.init_list)
-  /* List of installed module `uninstall' handlers.  */
-  MODULE_UNINSTALL_LIST *uninstall_list;
-#define STATE_UNINSTALL_LIST(sd) ((sd)->base.uninstall_list)
-  /* List of installed module `resume' handlers.  */
-  MODULE_RESUME_LIST *resume_list;
-#define STATE_RESUME_LIST(sd) ((sd)->base.resume_list)
-  /* List of installed module `suspend' handlers.  */
-  MODULE_SUSPEND_LIST *suspend_list;
-#define STATE_SUSPEND_LIST(sd) ((sd)->base.suspend_list)
+  struct module_list *modules;
+#define STATE_MODULES(sd) ((sd)->base.modules)
 
   /* Supported options.  */
   struct option_list *options;
@@ -179,6 +175,10 @@ typedef struct {
   struct _bfd *prog_bfd;
 #define STATE_PROG_BFD(sd) ((sd)->base.prog_bfd)
 
+  /* Symbol table for prog_bfd */
+  struct symbol_cache_entry **prog_syms;
+#define STATE_PROG_SYMS(sd) ((sd)->base.prog_syms)
+
   /* The program's text section.  */
   struct sec *text_section;
   /* Starting and ending text section addresses from the bfd.  */
@@ -191,13 +191,11 @@ typedef struct {
   SIM_ADDR start_addr;
 #define STATE_START_ADDR(sd) ((sd)->base.start_addr)
 
-#if WITH_SCACHE
   /* Size of the simulator's cache, if any.
      This is not the target's cache.  It is the cache the simulator uses
      to process instructions.  */
   unsigned int scache_size;
 #define STATE_SCACHE_SIZE(sd) ((sd)->base.scache_size)
-#endif
 
   /* FIXME: Move to top level sim_state struct (as some struct)?  */
 #ifdef SIM_HAVE_FLATMEM
@@ -213,7 +211,7 @@ typedef struct {
 #define STATE_CORE(sd) (&(sd)->base.core)
   sim_core core;
 
-  /* memory-options for managing the core */
+  /* Record of memory sections added via the memory-options interface.  */
 #define STATE_MEMOPT(sd) ((sd)->base.memopt)
   sim_memopt *memopt;
 
@@ -233,6 +231,12 @@ typedef struct {
   struct sim_breakpoint *breakpoints;
 #define STATE_BREAKPOINTS(sd) ((sd)->base.breakpoints)
 
+#if WITH_HW
+  struct sim_hw *hw;
+#define STATE_HW(sd) ((sd)->base.hw)
+#endif
+
+
   /* Marker for those wanting to do sanity checks.
      This should remain the last member of this struct to help catch
      miscompilation errors.  */
@@ -241,62 +245,8 @@ typedef struct {
 #define STATE_MAGIC(sd) ((sd)->base.magic)
 } sim_state_base;
 
-
-/* Pseudo baseclass for each cpu.  */
-
-typedef struct {
-
-  /* Backlink to main state struct.  */
-  SIM_DESC state;
-#define CPU_STATE(cpu) ((cpu)->base.state)
-
-  /* Processor specific core data */
-  sim_cpu_core core;
-#define CPU_CORE(cpu) (& (cpu)->base.core)
-
-  /* Trace data.  See sim-trace.h.  */
-  TRACE_DATA trace_data;
-#define CPU_TRACE_DATA(cpu) (& (cpu)->base.trace_data)
-
-  /* Maximum number of debuggable entities.
-     This debugging is not intended for normal use.
-     It is only enabled when the simulator is configured with --with-debug
-     which shouldn't normally be specified.  */
-#ifndef MAX_DEBUG_VALUES
-#define MAX_DEBUG_VALUES 4
-#endif
-
-  /* Boolean array of specified debugging flags.  */
-  char debug_flags[MAX_DEBUG_VALUES];
-#define CPU_DEBUG_FLAGS(cpu) ((cpu)->base.debug_flags)
-  /* Standard values.  */
-#define DEBUG_INSN_IDX 0
-#define DEBUG_NEXT_IDX 2 /* simulator specific debug bits begin here */
-
-  /* Debugging output goes to this or stderr if NULL.
-     We can't store `stderr' here as stderr goes through a callback.  */
-  FILE *debug_file;
-#define CPU_DEBUG_FILE(cpu) ((cpu)->base.debug_file)
-
-  /* Profile data.  See sim-profile.h.  */
-  PROFILE_DATA profile_data;
-#define CPU_PROFILE_DATA(cpu) (& (cpu)->base.profile_data)
-
-#ifdef SIM_HAVE_MODEL
-  /* Machine tables for this cpu.  See sim-model.h.  */
-  const MACH *mach;
-#define CPU_MACH(cpu) ((cpu)->base.mach)
-  /* The selected model.  */
-  const MODEL *model;
-#define CPU_MODEL(cpu) ((cpu)->base.model)
-#endif
-
-} sim_cpu_base;
-
-
 /* Functions for allocating/freeing a sim_state.  */
 SIM_DESC sim_state_alloc PARAMS ((SIM_OPEN_KIND kind, host_callback *callback));
 void sim_state_free PARAMS ((SIM_DESC));
-
 
 #endif /* SIM_BASE_H */

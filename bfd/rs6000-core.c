@@ -1,5 +1,6 @@
 /* IBM RS/6000 "XCOFF" back-end for BFD.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    FIXME: Can someone provide a transliteration of this name into ASCII?
    Using the following chars caused a compiler warning on HIUX (so I replaced
    them with octal escapes), and isn't useful without an understanding of what
@@ -39,9 +40,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define RS6000COFF_C 1
 
 /* The AIX 4.1 kernel is obviously compiled with -D_LONG_LONG, so
-   we have to define _LONG_LONG for gcc to get the proper alignments
-   in the user structure.  */
-#ifndef _LONG_LONG
+   we have to define _LONG_LONG for older versions of gcc to get the
+   proper alignments in the user structure.  */
+#if defined(_AIX41) && !defined(_LONG_LONG)
 #define _LONG_LONG
 #endif
 
@@ -207,7 +208,7 @@ rs6000coff_core_p (abfd)
 
   /* Issue warning if the core file was truncated during writing.  */
   if (coredata.c_flag & CORE_TRUNC)
-    (*_bfd_error_handler) ("%s: warning core file truncated",
+    (*_bfd_error_handler) (_("%s: warning core file truncated"),
 			   bfd_get_filename (abfd));
 
   /* Allocate core file header.  */
@@ -361,7 +362,7 @@ rs6000coff_core_file_matches_executable_p (core_bfd, exec_bfd)
 {
   struct core_dump coredata;
   struct ld_info ldinfo;
-  int size;
+  bfd_size_type size;
   char *path, *s;
   size_t alloc;
   const char *str1, *str2;
@@ -452,7 +453,7 @@ rs6000coff_get_section_contents (abfd, section, location, offset, count)
      sec_ptr section;
      PTR location;
      file_ptr offset;
-     int count;
+     bfd_size_type count;
 {
     if (count == 0)
 	return true;
@@ -470,7 +471,7 @@ rs6000coff_get_section_contents (abfd, section, location, offset, count)
          whole section. */
       if (offset || count != (sizeof(mstatus.gpr) + (4 * NUM_OF_SPEC_REGS)))
         (*_bfd_error_handler)
-	  ("ERROR! in rs6000coff_get_section_contents()\n");
+	  (_("ERROR! in rs6000coff_get_section_contents()\n"));
 
       /* for `.reg' section, `filepos' is a pointer to the `mstsave' structure
          in the core file. */

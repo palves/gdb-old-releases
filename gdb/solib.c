@@ -1,5 +1,5 @@
 /* Handle SunOS and SVR4 shared libraries for GDB, the GNU Debugger.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 98, 1999
    Free Software Foundation, Inc.
    
 This file is part of GDB.
@@ -174,8 +174,7 @@ enable_break PARAMS ((void));
 static void
 info_sharedlibrary_command PARAMS ((char *, int));
 
-static int
-symbol_add_stub PARAMS ((char *));
+static int symbol_add_stub PARAMS ((PTR));
 
 static struct so_list *
 find_solib PARAMS ((struct so_list *));
@@ -186,8 +185,7 @@ first_link_map_member PARAMS ((void));
 static CORE_ADDR
 locate_base PARAMS ((void));
 
-static void
-solib_map_sections PARAMS ((struct so_list *));
+static int solib_map_sections PARAMS ((PTR));
 
 #ifdef SVR4_SHARED_LIBS
 
@@ -207,6 +205,8 @@ solib_add_common_symbols PARAMS ((struct rtc_symb *));
 
 #endif
 
+void _initialize_solib PARAMS ((void));
+
 /* If non-zero, this is a prefix that will be added to the front of the name
    shared libraries with an absolute filename for loading.  */
 static char *solib_absolute_prefix = NULL;
@@ -224,7 +224,7 @@ LOCAL FUNCTION
 
 SYNOPSIS
 
-	static void solib_map_sections (struct so_list *so)
+	static int solib_map_sections (struct so_list *so)
 
 DESCRIPTION
 
@@ -243,10 +243,11 @@ FIXMES
 	expansion stuff?).
  */
 
-static void
-solib_map_sections (so)
-     struct so_list *so;
+static int
+solib_map_sections (arg)
+     PTR arg;
 {
+  struct so_list *so = (struct so_list *) arg;	/* catch_errors bogon */
   char *filename;
   char *scratch_pathname;
   int scratch_chan;
@@ -343,6 +344,8 @@ solib_map_sections (so)
 
   /* Free the file names, close the file now.  */
   do_cleanups (old_chain);
+
+  return (1);
 }
 
 #ifndef SVR4_SHARED_LIBS
@@ -409,7 +412,7 @@ solib_add_common_symbols (rtc_symp)
     }
 
   init_minimal_symbol_collection ();
-  make_cleanup (discard_minimal_symbols, 0);
+  make_cleanup ((make_cleanup_func) discard_minimal_symbols, 0);
 
   while (rtc_symp)
     {
@@ -580,7 +583,7 @@ look_for_base (fd, baseaddr)
 
   if (fd == -1
       || (exec_bfd != NULL
-	  && fdmatch (fileno ((GDB_FILE *)(exec_bfd -> iostream)), fd)))
+	  && fdmatch (fileno ((FILE *)(exec_bfd -> iostream)), fd)))
     {
       return (0);
     }
@@ -966,7 +969,7 @@ find_solib (so_list_ptr)
 
 	  if (! solib_cleanup_queued)
 	    {
-	      make_run_cleanup (do_clear_solib);
+	      make_run_cleanup (do_clear_solib, NULL);
 	      solib_cleanup_queued = 1;
 	    }
 	  
@@ -986,12 +989,17 @@ find_solib (so_list_ptr)
 	  target_read_string ((CORE_ADDR) LM_NAME (new), &buffer,
 			      MAX_PATH_SIZE - 1, &errcode);
 	  if (errcode != 0)
-	    error ("find_solib: Can't read pathname for load map: %s\n",
-		   safe_strerror (errcode));
+	    {
+	      warning ("find_solib: Can't read pathname for load map: %s\n",
+		       safe_strerror (errcode));
+	      return (so_list_next);
+	    }
 	  strncpy (new -> so_name, buffer, MAX_PATH_SIZE - 1);
 	  new -> so_name[MAX_PATH_SIZE - 1] = '\0';
 	  free (buffer);
-	  solib_map_sections (new);
+	  catch_errors (solib_map_sections, new,
+			"Error while mapping shared library sections:\n",
+			RETURN_MASK_ALL);
 	}      
     }
   return (so_list_next);
@@ -1001,14 +1009,14 @@ find_solib (so_list_ptr)
 
 static int
 symbol_add_stub (arg)
-     char *arg;
+     PTR arg;
 {
   register struct so_list *so = (struct so_list *) arg;	/* catch_errs bogon */
   CORE_ADDR text_addr = 0;
 
   if (so -> textsection)
     text_addr = so -> textsection -> addr;
-  else
+  else if (so -> abfd != NULL)
     {
       asection *lowest_sect;
 
@@ -1032,7 +1040,7 @@ symbol_add_stub (arg)
   so -> objfile =
     symbol_file_add (so -> so_name, so -> from_tty,
 		     text_addr,
-		     0, 0, 0);
+		     0, 0, 0, 0, 1);
   return (1);
 }
 
@@ -1111,7 +1119,7 @@ solib_add (arg_string, from_tty, target)
 	     here, otherwise we dereference a potential dangling pointer
 	     for each call to target_read/write_memory within this routine.  */
 	  update_coreops = core_ops.to_sections == target->to_sections;
-	     
+          	     
 	  /* Reallocate the target's section table including the new size.  */
 	  if (target -> to_sections)
 	    {
@@ -1166,7 +1174,7 @@ solib_add (arg_string, from_tty, target)
 		}
 	    }
 	  else if (catch_errors
-		   (symbol_add_stub, (char *) so,
+		   (symbol_add_stub, so,
 		    "Error while reading shared library symbols:\n",
 		    RETURN_MASK_ALL))
 	    {
@@ -1319,7 +1327,7 @@ clear_solib()
       else
 	/* This happens for the executable on SVR4.  */
 	bfd_filename = NULL;
-      
+
       next = so_list_head -> next;
       if (bfd_filename)
 	free ((PTR)bfd_filename);
@@ -1602,9 +1610,7 @@ enable_break ()
       /* For whatever reason we couldn't set a breakpoint in the dynamic
 	 linker.  Warn and drop into the old code.  */
 bkpt_at_symbol:
-      warning ("Unable to find dynamic linker breakpoint function.");
-      warning ("GDB will be unable to debug shared library initializers");
-      warning ("and track explicitly loaded dynamic code.");
+      warning ("Unable to find dynamic linker breakpoint function.\nGDB will be unable to debug shared library initializers\nand track explicitly loaded dynamic code.");
     }
 #endif
 

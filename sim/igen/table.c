@@ -88,8 +88,7 @@ table_push (table *root,
 	    table_include *includes,
 	    const char *file_name)
 {
-  int fd;
-  struct stat stat_buf;
+  FILE *ff;
   open_table *file;
   table_include dummy;
   table_include *include = &dummy;
@@ -127,8 +126,9 @@ table_push (table *root,
       file->real_line.file_name = dup_name;
       file->pseudo_line.file_name = dup_name;
       /* open the file */
-      fd = open (dup_name, O_RDONLY, 0);
-      if (fd >= 0)
+
+      ff = fopen (dup_name, "rb");
+      if (ff)
 	break;
       /* zfree (dup_name); */
       if (include->next == NULL)
@@ -143,11 +143,9 @@ table_push (table *root,
 
 
   /* determine the size */
-  if (fstat (fd, &stat_buf) < 0) {
-    perror (file_name);
-    exit (1);
-  }
-  file->size = stat_buf.st_size;
+  fseek (ff, 0, SEEK_END);
+  file->size = ftell (ff);
+  fseek (ff, 0, SEEK_SET);
 
   /* allocate this much memory */
   file->buffer = (char*) zalloc (file->size + 1);
@@ -159,7 +157,7 @@ table_push (table *root,
   file->pos = file->buffer;
 
   /* read it all in */
-  if (read (fd, file->buffer, file->size) < file->size) {
+  if (fread (file->buffer, 1, file->size, ff) < file->size) {
     perror (file_name);
     exit (1);
   }
@@ -170,7 +168,7 @@ table_push (table *root,
   file->pseudo_line.line_nr = 1; /* specifies current line */
 
   /* done */
-  close (fd);
+  fclose (ff);
 }
 
 table *

@@ -1,5 +1,5 @@
 /* Matsushita 10300 specific support for 32-bit ELF
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 #include "elf-bfd.h"
+#include "elf/mn10300.h"
 
 struct elf32_mn10300_link_hash_entry
 {
@@ -33,13 +34,20 @@ struct elf32_mn10300_link_hash_entry
 
   /* For function symbols, the size of this function's stack
      (if <= 255 bytes).  We stuff this into "call" instructions
-     to this target when it's valid and profitable to do so.  */
+     to this target when it's valid and profitable to do so.
+
+     This does not include stack allocated by movm!  */
   unsigned char stack_size;
 
   /* For function symbols, arguments (if any) for movm instruction
      in the prologue.  We stuff this value into "call" instructions
      to the target when it's valid and profitable to do so.  */
   unsigned char movm_args;
+
+  /* For funtion symbols, the amount of stack space that would be allocated
+     by the movm instruction.  This is redundant with movm_args, but we
+     add it to the hash table to avoid computing it over and over.  */
+  unsigned char movm_stack_size;
 
 /* When set, convert all "call" instructions to this target into "calls"
    instructions.  */
@@ -91,6 +99,12 @@ static reloc_howto_type *bfd_elf32_bfd_reloc_type_lookup
   PARAMS ((bfd *abfd, bfd_reloc_code_real_type code));
 static void mn10300_info_to_howto
   PARAMS ((bfd *, arelent *, Elf32_Internal_Rela *));
+static boolean mn10300_elf_check_relocs
+  PARAMS ((bfd *, struct bfd_link_info *, asection *,
+	   const Elf_Internal_Rela *));
+static asection *mn10300_elf_gc_mark_hook
+  PARAMS ((bfd *, struct bfd_link_info *info, Elf_Internal_Rela *,
+	   struct elf_link_hash_entry *, Elf_Internal_Sym *));
 static boolean mn10300_elf_relax_delete_bytes
   PARAMS ((bfd *, asection *, bfd_vma, int));
 static boolean mn10300_elf_symbol_address_p
@@ -105,17 +119,6 @@ static void compute_function_info
    does absolutely nothing.  */
 #define USE_RELA
 
-enum reloc_type
-{
-  R_MN10300_NONE = 0,
-  R_MN10300_32,
-  R_MN10300_16,
-  R_MN10300_8,
-  R_MN10300_PCREL32,
-  R_MN10300_PCREL16,
-  R_MN10300_PCREL8,
-  R_MN10300_MAX
-};
 
 static reloc_howto_type elf_mn10300_howto_table[] =
 {
@@ -217,6 +220,52 @@ static reloc_howto_type elf_mn10300_howto_table[] =
 	 0xff,
 	 0xff,
 	 true),
+
+  /* GNU extension to record C++ vtable hierarchy */
+  HOWTO (R_MN10300_GNU_VTINHERIT, /* type */
+	 0,			/* rightshift */
+	 0,			/* size (0 = byte, 1 = short, 2 = long) */
+	 0,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 NULL,			/* special_function */
+	 "R_MN10300_GNU_VTINHERIT", /* name */
+	 false,			/* partial_inplace */
+	 0,			/* src_mask */
+	 0,			/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* GNU extension to record C++ vtable member usage */
+  HOWTO (R_MN10300_GNU_VTENTRY,	/* type */
+	 0,			/* rightshift */
+	 0,			/* size (0 = byte, 1 = short, 2 = long) */
+	 0,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 NULL,			/* special_function */
+	 "R_MN10300_GNU_VTENTRY", /* name */
+	 false,			/* partial_inplace */
+	 0,			/* src_mask */
+	 0,			/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* Standard 24 bit reloc.  */
+  HOWTO (R_MN10300_24,
+	 0,
+	 2,
+	 24,
+	 false,
+	 0,
+	 complain_overflow_bitfield,
+	 bfd_elf_generic_reloc,
+	 "R_MN10300_24",
+	 false,
+	 0xffffff,
+	 0xffffff,
+	 false),
+
 };
 
 struct mn10300_reloc_map
@@ -234,6 +283,9 @@ static const struct mn10300_reloc_map mn10300_reloc_map[] =
   { BFD_RELOC_32_PCREL, R_MN10300_PCREL32, },
   { BFD_RELOC_16_PCREL, R_MN10300_PCREL16, },
   { BFD_RELOC_8_PCREL, R_MN10300_PCREL8, },
+  { BFD_RELOC_24, R_MN10300_24, },
+  { BFD_RELOC_VTABLE_INHERIT, R_MN10300_GNU_VTINHERIT },
+  { BFD_RELOC_VTABLE_ENTRY, R_MN10300_GNU_VTENTRY },
 };
 
 static reloc_howto_type *
@@ -269,6 +321,109 @@ mn10300_info_to_howto (abfd, cache_ptr, dst)
   cache_ptr->howto = &elf_mn10300_howto_table[r_type];
 }
 
+/* Look through the relocs for a section during the first phase.
+   Since we don't do .gots or .plts, we just need to consider the
+   virtual table relocs for gc.  */
+
+static boolean
+mn10300_elf_check_relocs (abfd, info, sec, relocs)
+     bfd *abfd;
+     struct bfd_link_info *info;
+     asection *sec;
+     const Elf_Internal_Rela *relocs;
+{
+  Elf_Internal_Shdr *symtab_hdr;
+  struct elf_link_hash_entry **sym_hashes, **sym_hashes_end;
+  const Elf_Internal_Rela *rel;
+  const Elf_Internal_Rela *rel_end;
+
+  if (info->relocateable)
+    return true;
+
+  symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
+  sym_hashes = elf_sym_hashes (abfd);
+  sym_hashes_end = sym_hashes + symtab_hdr->sh_size/sizeof(Elf32_External_Sym);
+  if (!elf_bad_symtab (abfd))
+    sym_hashes_end -= symtab_hdr->sh_info;
+
+  rel_end = relocs + sec->reloc_count;
+  for (rel = relocs; rel < rel_end; rel++)
+    {
+      struct elf_link_hash_entry *h;
+      unsigned long r_symndx;
+
+      r_symndx = ELF32_R_SYM (rel->r_info);
+      if (r_symndx < symtab_hdr->sh_info)
+	h = NULL;
+      else
+	h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+
+      switch (ELF32_R_TYPE (rel->r_info))
+	{
+	/* This relocation describes the C++ object vtable hierarchy.
+	   Reconstruct it for later use during GC.  */
+	case R_MN10300_GNU_VTINHERIT:
+	  if (!_bfd_elf32_gc_record_vtinherit (abfd, sec, h, rel->r_offset))
+	    return false;
+	  break;
+
+	/* This relocation describes which C++ vtable entries are actually
+	   used.  Record for later use during GC.  */
+	case R_MN10300_GNU_VTENTRY:
+	  if (!_bfd_elf32_gc_record_vtentry (abfd, sec, h, rel->r_addend))
+	    return false;
+	  break;
+	}
+    }
+
+  return true;
+}
+
+/* Return the section that should be marked against GC for a given
+   relocation.  */
+
+static asection *
+mn10300_elf_gc_mark_hook (abfd, info, rel, h, sym)
+     bfd *abfd;
+     struct bfd_link_info *info;
+     Elf_Internal_Rela *rel;
+     struct elf_link_hash_entry *h;
+     Elf_Internal_Sym *sym;
+{
+  if (h != NULL)
+    {
+      switch (ELF32_R_TYPE (rel->r_info))
+	{
+	case R_MN10300_GNU_VTINHERIT:
+	case R_MN10300_GNU_VTENTRY:
+	  break;
+
+	default:
+	  switch (h->root.type)
+	    {
+	    case bfd_link_hash_defined:
+	    case bfd_link_hash_defweak:
+	      return h->root.u.def.section;
+
+	    case bfd_link_hash_common:
+	      return h->root.u.c.p->section;
+	    }
+	}
+    }
+  else
+    {
+      if (!(elf_bad_symtab (abfd)
+	    && ELF_ST_BIND (sym->st_info) != STB_LOCAL)
+	  && ! ((sym->st_shndx <= 0 || sym->st_shndx >= SHN_LORESERVE)
+		&& sym->st_shndx != SHN_COMMON))
+	{
+	  return bfd_section_from_elf_index (abfd, sym->st_shndx);
+	}
+    }
+
+  return NULL;
+}
+
 /* Perform a relocation as part of a final link.  */
 static bfd_reloc_status_type
 mn10300_elf_final_link_relocate (howto, input_bfd, output_bfd,
@@ -291,13 +446,23 @@ mn10300_elf_final_link_relocate (howto, input_bfd, output_bfd,
 
   switch (r_type)
     {
-
     case R_MN10300_NONE:
       return bfd_reloc_ok;
 
     case R_MN10300_32:
       value += addend;
       bfd_put_32 (input_bfd, value, hit_data);
+      return bfd_reloc_ok;
+
+    case R_MN10300_24:
+      value += addend;
+
+      if ((long)value > 0x7fffff || (long)value < -0x800000)
+	return bfd_reloc_overflow;
+
+      bfd_put_8 (input_bfd, value & 0xff, hit_data);
+      bfd_put_8 (input_bfd, (value >> 8) & 0xff, hit_data + 1);
+      bfd_put_8 (input_bfd, (value >> 16) & 0xff, hit_data + 2);
       return bfd_reloc_ok;
 
     case R_MN10300_16:
@@ -312,7 +477,7 @@ mn10300_elf_final_link_relocate (howto, input_bfd, output_bfd,
     case R_MN10300_8:
       value += addend;
 
-      if ((long)value > 0x7fff || (long)value < -0x8000)
+      if ((long)value > 0x7f || (long)value < -0x80)
 	return bfd_reloc_overflow;
 
       bfd_put_8 (input_bfd, value, hit_data);
@@ -349,6 +514,10 @@ mn10300_elf_final_link_relocate (howto, input_bfd, output_bfd,
       value += addend;
 
       bfd_put_32 (input_bfd, value, hit_data);
+      return bfd_reloc_ok;
+
+    case R_MN10300_GNU_VTINHERIT:
+    case R_MN10300_GNU_VTENTRY:
       return bfd_reloc_ok;
 
     default:
@@ -394,6 +563,11 @@ mn10300_elf_relocate_section (output_bfd, info, input_bfd, input_section,
       r_symndx = ELF32_R_SYM (rel->r_info);
       r_type = ELF32_R_TYPE (rel->r_info);
       howto = elf_mn10300_howto_table + r_type;
+
+      /* Just skip the vtable gc relocs.  */
+      if (r_type == R_MN10300_GNU_VTINHERIT
+	  || r_type == R_MN10300_GNU_VTENTRY)
+	continue;
 
       if (info->relocateable)
 	{
@@ -490,19 +664,19 @@ mn10300_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	      break;
 
 	    case bfd_reloc_outofrange:
-	      msg = "internal error: out of range error";
+	      msg = _("internal error: out of range error");
 	      goto common_error;
 
 	    case bfd_reloc_notsupported:
-	      msg = "internal error: unsupported relocation error";
+	      msg = _("internal error: unsupported relocation error");
 	      goto common_error;
 
 	    case bfd_reloc_dangerous:
-	      msg = "internal error: dangerous error";
+	      msg = _("internal error: dangerous error");
 	      goto common_error;
 
 	    default:
-	      msg = "internal error: unknown error";
+	      msg = _("internal error: unknown error");
 	      /* fall through */
 
 	    common_error:
@@ -525,7 +699,7 @@ elf32_mn10300_finish_hash_table_entry (gen_entry, in_args)
      PTR in_args;
 {
   struct elf32_mn10300_link_hash_entry *entry;
-  int byte_count = 0;
+  unsigned int byte_count = 0;
 
   entry = (struct elf32_mn10300_link_hash_entry *)gen_entry;
 
@@ -610,7 +784,7 @@ elf32_mn10300_finish_hash_table_entry (gen_entry, in_args)
 	We don't handle imm16->imm8 or d16->d8 as they're very rare
 	and somewhat more difficult to support.  */
 
-static boolean 
+static boolean
 mn10300_elf_relax_section (abfd, sec, link_info, again)
      bfd *abfd;
      asection *sec;
@@ -618,7 +792,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
      boolean *again;
 {
   Elf_Internal_Shdr *symtab_hdr;
-  Elf_Internal_Rela *internal_relocs;
+  Elf_Internal_Rela *internal_relocs = NULL;
   Elf_Internal_Rela *free_relocs = NULL;
   Elf_Internal_Rela *irel, *irelend;
   bfd_byte *contents = NULL;
@@ -742,8 +916,19 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 
 			  bfd_elf32_swap_symbol_in (input_bfd,
 						    extsyms + r_index, &isym);
-			  hdr = elf_elfsections (input_bfd)[isym.st_shndx];
-			  sym_sec = hdr->bfd_section;
+
+			  if (isym.st_shndx == SHN_UNDEF)
+			    sym_sec = bfd_und_section_ptr;
+			  else if (isym.st_shndx > 0
+				   && isym.st_shndx < SHN_LORESERVE)
+			    sym_sec
+			      = bfd_section_from_elf_index (input_bfd,
+							    isym.st_shndx);
+			  else if (isym.st_shndx == SHN_ABS)
+			    sym_sec = bfd_abs_section_ptr;
+			  else if (isym.st_shndx == SHN_COMMON)
+			    sym_sec = bfd_com_section_ptr;
+
 			  sym_name = bfd_elf_string_from_elf_section (input_bfd,
 							   symtab_hdr->sh_link,
 							   isym.st_name);
@@ -756,14 +941,18 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 
 			  /* Tack on an ID so we can uniquely identify this
 			     local symbol in the global hash table.  */
-			  new_name = alloca (strlen (sym_name) + 10);
+			  new_name = bfd_malloc (strlen (sym_name) + 10);
+			  if (new_name == 0)
+			    goto error_return;
+
 			  sprintf (new_name, "%s_%08x", sym_name, (int)sym_sec);
 			  sym_name = new_name;
-		
+
 			  hash = (struct elf32_mn10300_link_hash_entry *)
 				   elf_link_hash_lookup (&hash_table->static_hash_table->root,
 						         sym_name, true,
 						         true, false);
+			  free (new_name);
 			}
 		      else
 			{
@@ -779,7 +968,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 					contents + irel->r_offset - 1);
 		      if (code != 0xdd && code != 0xcd)
 			hash->flags |= MN10300_CONVERT_CALL_TO_CALLS;
-		
+
 		      /* If this is a jump/call, then bump the direct_calls
 			 counter.  Else force "call" to "calls" conversions.  */
 		      if (r_type == R_MN10300_PCREL32
@@ -798,7 +987,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 
 		  Elf32_External_Sym *esym, *esymend;
 		  int idx, shndx;
-		 
+
 		  shndx = _bfd_elf_section_from_bfd_section (input_bfd,
 							     section);
 
@@ -815,15 +1004,28 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 		      if (isym.st_shndx == shndx
 			  && ELF_ST_TYPE (isym.st_info) == STT_FUNC)
 			{
-			  hdr = elf_elfsections (input_bfd)[isym.st_shndx];
-			  sym_sec = hdr->bfd_section;
+			  if (isym.st_shndx == SHN_UNDEF)
+			    sym_sec = bfd_und_section_ptr;
+			  else if (isym.st_shndx > 0
+				   && isym.st_shndx < SHN_LORESERVE)
+			    sym_sec
+			      = bfd_section_from_elf_index (input_bfd,
+							    isym.st_shndx);
+			  else if (isym.st_shndx == SHN_ABS)
+			    sym_sec = bfd_abs_section_ptr;
+			  else if (isym.st_shndx == SHN_COMMON)
+			    sym_sec = bfd_com_section_ptr;
+
 			  sym_name = bfd_elf_string_from_elf_section (input_bfd,
 							symtab_hdr->sh_link,
 							isym.st_name);
 
 			  /* Tack on an ID so we can uniquely identify this
 			     local symbol in the global hash table.  */
-			  new_name = alloca (strlen (sym_name) + 10);
+			  new_name = bfd_malloc (strlen (sym_name) + 10);
+			  if (new_name == 0)
+			    goto error_return;
+
 			  sprintf (new_name, "%s_%08x", sym_name, (int)sym_sec);
 			  sym_name = new_name;
 
@@ -831,6 +1033,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 				    elf_link_hash_lookup (&hash_table->static_hash_table->root,
 						          sym_name, true,
 						          true, false);
+			  free (new_name);
 			  compute_function_info (input_bfd, hash,
 					         isym.st_value, contents);
 			}
@@ -940,16 +1143,9 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 	       section = section->next)
 	    {
 	      int shndx;
-	      struct elf32_mn10300_link_hash_entry *hash;
-	      Elf_Internal_Sym *sym;
-	      asection *sym_sec;
-	      const char *sym_name;
-	      Elf_Internal_Shdr *hdr;
-	      char *new_name;
 	      Elf32_External_Sym *esym, *esymend;
-	      bfd_vma value;
 	      int idx;
-	      
+
 	      /* Skip non-code sections and empty sections.  */
 	      if ((section->flags & SEC_CODE) == 0 || section->_raw_size == 0)
 		continue;
@@ -995,7 +1191,6 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 		{
 		  Elf_Internal_Sym isym;
 		  struct elf32_mn10300_link_hash_entry *sym_hash;
-		  int idx;
 		  asection *sym_sec;
 		  const char *sym_name;
 		  Elf_Internal_Shdr *hdr;
@@ -1006,15 +1201,25 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 		  if (isym.st_shndx != shndx)
 		    continue;
 
-		  hdr = elf_elfsections (input_bfd)[isym.st_shndx];
-		  sym_sec = hdr->bfd_section;
+		  if (isym.st_shndx == SHN_UNDEF)
+		    sym_sec = bfd_und_section_ptr;
+		  else if (isym.st_shndx > 0 && isym.st_shndx < SHN_LORESERVE)
+		    sym_sec
+		      = bfd_section_from_elf_index (input_bfd, isym.st_shndx);
+		  else if (isym.st_shndx == SHN_ABS)
+		    sym_sec = bfd_abs_section_ptr;
+		  else if (isym.st_shndx == SHN_COMMON)
+		    sym_sec = bfd_com_section_ptr;
+
 		  sym_name = bfd_elf_string_from_elf_section (input_bfd,
 							symtab_hdr->sh_link,
 							isym.st_name);
 
 		  /* Tack on an ID so we can uniquely identify this
 		     local symbol in the global hash table.  */
-		  new_name = alloca (strlen (sym_name) + 10);
+		  new_name = bfd_malloc (strlen (sym_name) + 10);
+		  if (new_name == 0)
+		    goto error_return;
 		  sprintf (new_name, "%s_%08x", sym_name, (int)sym_sec);
 		  sym_name = new_name;
 
@@ -1023,9 +1228,10 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 					          sym_name, false,
 					          false, false);
 
+		  free (new_name);
 		  if (sym_hash == NULL)
 		    continue;
-		      
+
 		  if (! ((sym_hash)->flags & MN10300_CONVERT_CALL_TO_CALLS)
 		      && ! ((sym_hash)->flags & MN10300_DELETED_PROLOGUE_BYTES))
 		    {
@@ -1264,8 +1470,15 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 				    extsyms + ELF32_R_SYM (irel->r_info),
 				    &isym);
 
-	  hdr = elf_elfsections (abfd)[isym.st_shndx];
-	  sym_sec = hdr->bfd_section;
+	  if (isym.st_shndx == SHN_UNDEF)
+	    sym_sec = bfd_und_section_ptr;
+	  else if (isym.st_shndx > 0 && isym.st_shndx < SHN_LORESERVE)
+	    sym_sec = bfd_section_from_elf_index (abfd, isym.st_shndx);
+	  else if (isym.st_shndx == SHN_ABS)
+	    sym_sec = bfd_abs_section_ptr;
+	  else if (isym.st_shndx == SHN_COMMON)
+	    sym_sec = bfd_com_section_ptr;
+
 	  symval = (isym.st_value
 		    + sym_sec->output_section->vma
 		    + sym_sec->output_offset);
@@ -1275,13 +1488,16 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 
 	  /* Tack on an ID so we can uniquely identify this
 	     local symbol in the global hash table.  */
-	  new_name = alloca (strlen (sym_name) + 10);
+	  new_name = bfd_malloc (strlen (sym_name) + 10);
+	  if (new_name == 0)
+	    goto error_return;
 	  sprintf (new_name, "%s_%08x", sym_name, (int)sym_sec);
 	  sym_name = new_name;
 
 	  h = (struct elf32_mn10300_link_hash_entry *)
 		elf_link_hash_lookup (&hash_table->static_hash_table->root,
 				      sym_name, false, false, false);
+	  free (new_name);
 	}
       else
 	{
@@ -1376,7 +1592,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 	      if (code == 0xdd)
 		{
 		  bfd_put_8 (abfd, h->movm_args, contents + irel->r_offset + 4);
-		  bfd_put_8 (abfd, h->stack_size,
+		  bfd_put_8 (abfd, h->stack_size + h->movm_stack_size,
 			     contents + irel->r_offset + 5);
 		}
 	    }
@@ -1491,7 +1707,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 	      if (code == 0xcd)
 		{
 		  bfd_put_8 (abfd, h->movm_args, contents + irel->r_offset + 2);
-		  bfd_put_8 (abfd, h->stack_size,
+		  bfd_put_8 (abfd, h->stack_size + h->movm_stack_size,
 			     contents + irel->r_offset + 3);
 		}
 	    }
@@ -1591,7 +1807,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 	    continue;
 
 	  /* Now make sure we are a conditional branch.  This may not
-	     be necessary, but why take the chance. 
+	     be necessary, but why take the chance.
 
 	     Note these checks assume that R_MN10300_PCREL8 relocs
 	     only occur on bCC and bCCx insns.  If they occured
@@ -1668,7 +1884,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 		break;
 	    }
 	  bfd_put_8 (abfd, code, contents + irel->r_offset - 1);
-	  
+
 	  /* Set the reloc type and symbol for the first branch
 	     from the second branch.  */
 	  irel->r_info = nrel->r_info;
@@ -1687,6 +1903,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 	  *again = true;
 	}
 
+
       /* Try to turn a 32bit immediate, displacement or absolute address
 	 into a 16bit immediate, displacement or absolute address.  */
       if (ELF32_R_TYPE (irel->r_info) == (int) R_MN10300_32)
@@ -1694,7 +1911,8 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 	  bfd_vma value = symval;
 	  value += irel->r_addend;
 
-	  /* See if the value will fit in 16 bits. 
+
+	  /* See if the value will fit in 16 bits.
 	     We allow any 16bit match here.  We prune those we can't
 	     handle below.  */
 	  if ((long)value < 0x7fff && (long)value > -0x8000)
@@ -1703,7 +1921,7 @@ mn10300_elf_relax_section (abfd, sec, link_info, again)
 
 	      /* Most insns which have 32bit operands are 6 bytes long;
 		 exceptions are pcrel insns and bit insns.
-		 
+
 		 We handle pcrel insns above.  We don't bother trying
 		 to handle the bit insns here.
 
@@ -2090,6 +2308,33 @@ compute_function_info (abfd, hash, addr, contents)
       byte2 = bfd_get_8 (abfd, contents + addr + 1);
     }
 
+  /* Now figure out how much stack space will be allocated by the movm
+     instruction.  We need this kept separate from the funtion's normal
+     stack space.  */
+  if (hash->movm_args)
+    {
+      /* Space for d2.  */
+      if (hash->movm_args & 0x80)
+	hash->movm_stack_size += 4;
+
+      /* Space for d3.  */
+      if (hash->movm_args & 0x40)
+	hash->movm_stack_size += 4;
+
+      /* Space for a2.  */
+      if (hash->movm_args & 0x20)
+	hash->movm_stack_size += 4;
+
+      /* Space for a3.  */
+      if (hash->movm_args & 0x10)
+	hash->movm_stack_size += 4;
+
+      /* "other" space.  d0, d1, a0, a1, mdr, lir, lar, 4 byte pad.  */
+      if (hash->movm_args & 0x08)
+	hash->movm_stack_size += 8 * 4;
+
+    }
+
   /* Now look for the two stack adjustment variants.  */
   if (byte1 == 0xf8 && byte2 == 0xfe)
     {
@@ -2104,9 +2349,16 @@ compute_function_info (abfd, hash, addr, contents)
       temp = ((temp & 0xffff) ^ (~0x7fff)) + 0x8000;
       temp = -temp;
 
-      if (temp <= 255)
+      if (temp < 255)
 	hash->stack_size = temp;
     }
+
+  /* If the total stack to be allocated by the call instruction is more
+     than 255 bytes, then we can't remove the stack adjustment by using
+     "call" (we might still be able to remove the "movm" instruction.  */
+  if (hash->stack_size + hash->movm_stack_size > 255)
+    hash->stack_size = 0;
+
   return;
 }
 
@@ -2414,6 +2666,7 @@ elf32_mn10300_link_hash_newfunc (entry, table, string)
     {
       ret->direct_calls = 0;
       ret->stack_size = 0;
+      ret->movm_stack_size = 0;
       ret->flags = 0;
       ret->movm_args = 0;
     }
@@ -2443,7 +2696,7 @@ elf32_mn10300_link_hash_table_create (abfd)
 
   ret->flags = 0;
   ret->static_hash_table
-    = ((struct elf_link_hash_table *)
+    = ((struct elf32_mn10300_link_hash_table *)
        bfd_alloc (abfd, sizeof (struct elf_link_hash_table)));
   if (ret->static_hash_table == NULL)
     {
@@ -2461,6 +2714,80 @@ elf32_mn10300_link_hash_table_create (abfd)
   return &ret->root.root;
 }
 
+static int
+elf_mn10300_mach (flags)
+     flagword flags;
+{
+  switch (flags & EF_MN10300_MACH)
+    {
+      case E_MN10300_MACH_MN10300:
+      default:
+        return bfd_mach_mn10300;
+
+    }
+}
+
+/* The final processing done just before writing out a MN10300 ELF object
+   file.  This gets the MN10300 architecture right based on the machine
+   number.  */
+
+/*ARGSUSED*/
+void
+_bfd_mn10300_elf_final_write_processing (abfd, linker)
+     bfd *abfd;
+     boolean linker;
+{
+  unsigned long val;
+  unsigned int i;
+  Elf_Internal_Shdr **hdrpp;
+  const char *name;
+  asection *sec;
+
+  switch (bfd_get_mach (abfd))
+    {
+      default:
+      case bfd_mach_mn10300:
+	val = E_MN10300_MACH_MN10300;
+	break;
+
+    }
+
+  elf_elfheader (abfd)->e_flags &= ~ (EF_MN10300_MACH);
+  elf_elfheader (abfd)->e_flags |= val;
+}
+
+boolean
+_bfd_mn10300_elf_object_p (abfd)
+     bfd *abfd;
+{
+  bfd_default_set_arch_mach (abfd, bfd_arch_mn10300,
+                             elf_mn10300_mach (elf_elfheader (abfd)->e_flags));
+  return true;
+}
+
+/* Merge backend specific data from an object file to the output
+   object file when linking.  */
+
+boolean
+_bfd_mn10300_elf_merge_private_bfd_data (ibfd, obfd)
+     bfd *ibfd;
+     bfd *obfd;
+{
+  if (bfd_get_flavour (ibfd) != bfd_target_elf_flavour
+      || bfd_get_flavour (obfd) != bfd_target_elf_flavour)
+    return true;
+
+  if (bfd_get_arch (obfd) == bfd_get_arch (ibfd)
+      && bfd_get_mach (obfd) < bfd_get_mach (ibfd))
+    {
+      if (! bfd_set_arch_mach (obfd, bfd_get_arch (ibfd),
+                               bfd_get_mach (ibfd)))
+        return false;
+    }
+
+  return true;
+}
+
 
 #define TARGET_LITTLE_SYM	bfd_elf32_mn10300_vec
 #define TARGET_LITTLE_NAME	"elf32-mn10300"
@@ -2468,9 +2795,12 @@ elf32_mn10300_link_hash_table_create (abfd)
 #define ELF_MACHINE_CODE	EM_CYGNUS_MN10300
 #define ELF_MAXPAGESIZE		0x1000
 
-#define elf_info_to_howto	mn10300_info_to_howto
-#define elf_info_to_howto_rel	0
-#define elf_backend_relocate_section mn10300_elf_relocate_section
+#define elf_info_to_howto		mn10300_info_to_howto
+#define elf_info_to_howto_rel		0
+#define elf_backend_can_gc_sections	1
+#define elf_backend_check_relocs	mn10300_elf_check_relocs
+#define elf_backend_gc_mark_hook	mn10300_elf_gc_mark_hook
+#define elf_backend_relocate_section	mn10300_elf_relocate_section
 #define bfd_elf32_bfd_relax_section	mn10300_elf_relax_section
 #define bfd_elf32_bfd_get_relocated_section_contents \
 				mn10300_elf_get_relocated_section_contents
@@ -2478,5 +2808,14 @@ elf32_mn10300_link_hash_table_create (abfd)
 				elf32_mn10300_link_hash_table_create
 
 #define elf_symbol_leading_char '_'
+
+/* So we can set bits in e_flags.  */
+#define elf_backend_final_write_processing \
+                                        _bfd_mn10300_elf_final_write_processing
+#define elf_backend_object_p            _bfd_mn10300_elf_object_p
+
+#define bfd_elf32_bfd_merge_private_bfd_data \
+                                        _bfd_mn10300_elf_merge_private_bfd_data
+
 
 #include "elf32-target.h"

@@ -40,6 +40,11 @@ gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load ${binfile}
 
+# make sure $pc is sane, in case we're talking to a board.
+if { ![runto_main] } {
+    gdb_suppress_tests;
+}
+
 #
 # Test gdb set and show commands.
 # Add tests here for show and set that don't fit neatly elsewhere.
@@ -96,6 +101,8 @@ gdb_test "show args" "Argument list to give program being debugged when it is st
 # Don't test if we can't pass args or if we're using a stub.
 if { ![target_info exists use_gdb_stub] && ![target_info exists noargs] } {
     #test passing args
+    gdb_test "cont" "Continuing.*" "continuing"
+    delete_breakpoints
     gdb_test "run" "Starting program:.*foo bar blup baz bubble.*" "passing args"
 }
 #test set check range on

@@ -40,18 +40,25 @@ sim_load (sd, prog_name, prog_bfd, from_tty)
   if (sim_analyze_program (sd, prog_name, prog_bfd) != SIM_RC_OK)
     return SIM_RC_FAIL;
   SIM_ASSERT (STATE_PROG_BFD (sd) != NULL);
+
   /* NOTE: For historical reasons, older hardware simulators
      incorrectly write the program sections at LMA interpreted as a
      virtual address.  This is still accommodated for backward
      compatibility reasons. */
-  /* Before you change this to lma_p=1, make sure the arm-pe simulator
-     still works.  */
+  /* FIXME: The following simulators use this file as of 980313:
+     m32r, mips, v850 [grep for sim-hload in all Makefile.in's].
+     Each of these should be properly using lma.  When this is confirmed,
+     SIM_HANDLES_LMA can go away.  */
+#ifndef SIM_HANDLES_LMA
+#define SIM_HANDLES_LMA 0
+#endif
+
   result_bfd = sim_load_file (sd, STATE_MY_NAME (sd),
 			      STATE_CALLBACK (sd),
-			      NULL,
+			      prog_name,
 			      STATE_PROG_BFD (sd),
 			      STATE_OPEN_KIND (sd) == SIM_OPEN_DEBUG,
-			      0/*lma_p*/, sim_write);
+			      SIM_HANDLES_LMA, sim_write);
   if (result_bfd == NULL)
     {
       bfd_close (STATE_PROG_BFD (sd));

@@ -1,5 +1,5 @@
 /* Core dump and executable file functions below target vector, for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
+   Copyright 1986, 87, 89, 91, 92, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include "frame.h"  /* required by inferior.h */
 #include "inferior.h"
 #include "symtab.h"
@@ -41,7 +42,7 @@ static struct core_fns *core_file_fns = NULL;
 static void core_files_info PARAMS ((struct target_ops *));
 
 #ifdef SOLIB_ADD
-static int solib_add_stub PARAMS ((char *));
+static int solib_add_stub PARAMS ((PTR));
 #endif
 
 static void core_open PARAMS ((char *, int));
@@ -55,6 +56,16 @@ static void get_core_registers PARAMS ((int));
 static void add_to_thread_list PARAMS ((bfd *, asection *, PTR));
 
 static int ignore PARAMS ((CORE_ADDR, char *));
+
+static char *core_file_to_sym_file PARAMS ((char *));
+
+static int core_file_thread_alive PARAMS ((int tid));
+
+static void init_core_ops PARAMS ((void));
+
+void _initialize_corelow PARAMS ((void));
+
+struct target_ops core_ops;
 
 /* Link a new core_fns into the global core_file_fns list.  Called on gdb
    startup by the _initialize routine in each core file register reader, to
@@ -108,7 +119,7 @@ core_close (quitting)
 
 static int 
 solib_add_stub (from_ttyp)
-     char *from_ttyp;
+     PTR from_ttyp;
 {
   SOLIB_ADD (NULL, *(int *)from_ttyp, &current_target);
   re_enable_breakpoints_in_shlibs ();
@@ -189,7 +200,7 @@ core_open (filename, from_tty)
       /* FIXME: should be checking for errors from bfd_close (for one thing,
 	 on error it does not free all the storage associated with the
 	 bfd).  */
-      make_cleanup (bfd_close, temp_bfd);
+      make_cleanup ((make_cleanup_func) bfd_close, temp_bfd);
       error ("\"%s\" is not a core dump: %s",
 	     filename, bfd_errmsg (bfd_get_error ()));
     }
@@ -199,7 +210,7 @@ core_open (filename, from_tty)
   discard_cleanups (old_chain);		/* Don't free filename any more */
   unpush_target (&core_ops);
   core_bfd = temp_bfd;
-  old_chain = make_cleanup (core_close, core_bfd);
+  old_chain = make_cleanup ((make_cleanup_func) core_close, core_bfd);
 
   validate_files ();
 
@@ -356,6 +367,69 @@ cant:
   registers_fetched ();
 }
 
+static char *
+core_file_to_sym_file (core)
+  char *  core;
+{
+  CONST char *  failing_command;
+  char *  p;
+  char *  temp;
+  bfd *  temp_bfd;
+  int  scratch_chan;
+
+  if (! core)
+    error ("No core file specified.");
+
+  core = tilde_expand (core);
+  if (core[0] != '/')
+    {
+      temp = concat (current_directory, "/", core, NULL);
+      core = temp;
+    }
+
+  scratch_chan = open (core, write_files ? O_RDWR : O_RDONLY, 0);
+  if (scratch_chan < 0)
+    perror_with_name (core);
+
+  temp_bfd = bfd_fdopenr (core, gnutarget, scratch_chan);
+  if (temp_bfd == NULL)
+    perror_with_name (core);
+
+  if (!bfd_check_format (temp_bfd, bfd_core))
+    {
+      /* Do it after the err msg */
+      /* FIXME: should be checking for errors from bfd_close (for one thing,
+	 on error it does not free all the storage associated with the
+	 bfd).  */
+      make_cleanup ((make_cleanup_func) bfd_close, temp_bfd);
+      error ("\"%s\" is not a core dump: %s",
+	     core, bfd_errmsg (bfd_get_error ()));
+    }
+
+  /* Find the data section */
+  if (build_section_table (temp_bfd, &core_ops.to_sections,
+			   &core_ops.to_sections_end))
+    error ("\"%s\": Can't find sections: %s",
+	   bfd_get_filename (temp_bfd), bfd_errmsg (bfd_get_error ()));
+
+  failing_command = bfd_core_file_failing_command (temp_bfd);
+
+  bfd_close (temp_bfd);
+
+  /* If we found a filename, remember that it is probably saved
+     relative to the executable that created it.  If working directory
+     isn't there now, we may not be able to find the executable.  Rather
+     than trying to be sauve about finding it, just check if the file
+     exists where we are now.  If not, then punt and tell our client
+     we couldn't find the sym file.
+     */
+  p = (char *) failing_command;
+  if ((p != NULL) && (access (p, F_OK) != 0))
+    p = NULL;
+
+  return p;
+}
+
 static void
 core_files_info (t)
   struct target_ops *t;
@@ -374,48 +448,50 @@ ignore (addr, contents)
   return 0;
 }
 
-struct target_ops core_ops = {
-  "core",			/* to_shortname */
-  "Local core dump file",	/* to_longname */
-  "Use a core file as a target.  Specify the filename of the core file.", /* to_doc */
-  core_open,			/* to_open */
-  core_close,			/* to_close */
-  find_default_attach,		/* to_attach */
-  core_detach,			/* to_detach */
-  0,				/* to_resume */
-  0,				/* to_wait */
-  get_core_registers,		/* to_fetch_registers */
-  0,				/* to_store_registers */
-  0,				/* to_prepare_to_store */
-  xfer_memory,			/* to_xfer_memory */
-  core_files_info,		/* to_files_info */
-  ignore,			/* to_insert_breakpoint */
-  ignore,			/* to_remove_breakpoint */
-  0,				/* to_terminal_init */
-  0,				/* to_terminal_inferior */
-  0,				/* to_terminal_ours_for_output */
-  0,				/* to_terminal_ours */
-  0,				/* to_terminal_info */
-  0,				/* to_kill */
-  0,				/* to_load */
-  0,				/* to_lookup_symbol */
-  find_default_create_inferior,	/* to_create_inferior */
-  0,				/* to_mourn_inferior */
-  0,				/* to_can_run */
-  0,				/* to_notice_signals */
-  0,				/* to_thread_alive */
-  0,				/* to_stop */
-  core_stratum,			/* to_stratum */
-  0,				/* to_next */
-  0,				/* to_has_all_memory */
-  1,				/* to_has_memory */
-  1,				/* to_has_stack */
-  1,				/* to_has_registers */
-  0,				/* to_has_execution */
-  0,				/* to_sections */
-  0,				/* to_sections_end */
-  OPS_MAGIC,			/* to_magic */
-};
+
+/* Okay, let's be honest: threads gleaned from a core file aren't
+   exactly lively, are they?  On the other hand, if we don't claim
+   that each & every one is alive, then we don't get any of them
+   to appear in an "info thread" command, which is quite a useful
+   behaviour.
+   */
+static int
+core_file_thread_alive (tid)
+  int  tid;
+{
+  return 1;
+}
+
+/* Fill in core_ops with its defined operations and properties.  */
+
+static void
+init_core_ops ()
+{
+  core_ops.to_shortname = "core";
+  core_ops.to_longname = "Local core dump file";
+  core_ops.to_doc =
+    "Use a core file as a target.  Specify the filename of the core file.";
+  core_ops.to_open = core_open;
+  core_ops.to_close = core_close;
+  core_ops.to_attach = find_default_attach;
+  core_ops.to_require_attach = find_default_require_attach;
+  core_ops.to_detach = core_detach;
+  core_ops.to_require_detach = find_default_require_detach;
+  core_ops.to_fetch_registers = get_core_registers;
+  core_ops.to_xfer_memory = xfer_memory;
+  core_ops.to_files_info = core_files_info;
+  core_ops.to_insert_breakpoint = ignore;
+  core_ops.to_remove_breakpoint = ignore;
+  core_ops.to_create_inferior = find_default_create_inferior;
+  core_ops.to_clone_and_follow_inferior = find_default_clone_and_follow_inferior;
+  core_ops.to_thread_alive = core_file_thread_alive;
+  core_ops.to_core_file_to_sym_file = core_file_to_sym_file;
+  core_ops.to_stratum = core_stratum;
+  core_ops.to_has_memory = 1;
+  core_ops.to_has_stack = 1;
+  core_ops.to_has_registers = 1;
+  core_ops.to_magic = OPS_MAGIC;	
+}
 
 /* non-zero if we should not do the add_target call in
    _initialize_corelow; not initialized (i.e., bss) so that
@@ -426,8 +502,10 @@ struct target_ops core_ops = {
 int coreops_suppress_target;
 
 void
-_initialize_corelow()
+_initialize_corelow ()
 {
+  init_core_ops ();
+
   if (!coreops_suppress_target)
     add_target (&core_ops);
 }

@@ -1,5 +1,6 @@
 /* BFD back-end for s-record objects.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -286,7 +287,7 @@ srec_bad_byte (abfd, lineno, c, error)
 	  buf[1] = '\0';
 	}
       (*_bfd_error_handler)
-	("%s:%d: Unexpected character `%s' in S-record file\n",
+	(_("%s:%d: Unexpected character `%s' in S-record file\n"),
 	 bfd_get_filename (abfd), lineno, buf);
       bfd_set_error (bfd_error_bad_value);
     }
@@ -406,7 +407,7 @@ srec_scan (abfd)
 	      while ((c = srec_get_byte (abfd, &error)) != EOF
 		     && ! isspace (c))
 		{
-		  if (p - symbuf >= alc)
+		  if ((unsigned int) (p - symbuf) >= alc)
 		    {
 		      char *n;
 
@@ -864,7 +865,7 @@ srec_set_section_contents (abfd, section, location, offset, bytes_to_do)
 
 	}
       else if ((section->lma + offset + bytes_to_do - 1) <= 0xffffff
-	       && tdata->type < 2)
+	       && tdata->type <= 2)
 	{
 	  tdata->type = 2;
 	}
@@ -1058,26 +1059,8 @@ srec_write_symbols (abfd)
       for (i = 0; i < count; i++)
 	{
 	  asymbol *s = table[i];
-#if 0
-	  int len = strlen (s->name);
-
-	  /* If this symbol has a .[ocs] in it, it's probably a file name
-	 and we'll output that as the module name */
-
-	  if (len > 3 && s->name[len - 2] == '.')
-	    {
-	      int l;
-	      sprintf (buffer, "$$ %s\r\n", s->name);
-	      l = strlen (buffer);
-	      if (bfd_write (buffer, l, 1, abfd) != l)
-		return false;
-	    }
-	  else
-#endif
-	    if (s->flags & (BSF_GLOBAL | BSF_LOCAL)
-		&& (s->flags & BSF_DEBUGGING) == 0
-		&& s->name[0] != '.'
-		&& s->name[0] != 't')
+	  if (! bfd_is_local_label (abfd, s)
+	      && (s->flags & BSF_DEBUGGING) == 0)
 	    {
 	      /* Just dump out non debug symbols */
 	      bfd_size_type l;
@@ -1273,6 +1256,7 @@ srec_print_symbol (ignore_abfd, afile, symbol, how)
 #define srec_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents
 #define srec_bfd_relax_section bfd_generic_relax_section
+#define srec_bfd_gc_sections bfd_generic_gc_sections
 #define srec_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define srec_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define srec_bfd_final_link _bfd_generic_final_link

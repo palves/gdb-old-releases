@@ -2,7 +2,7 @@
 #error "N must be #defined"
 #endif
 
-#include "sim-xcat.h"
+#include "symcat.h"
 
 /* NOTE: see end of file for #undef of these macros */
 #define unsignedN    XCONCAT2(unsigned,N)

@@ -336,6 +336,12 @@ ARMword ARMul_Emulate26(register ARMul_State *state)
        }
     if (state->EventSet)
        ARMul_EnvokeEvent(state) ;
+    
+#if 0
+    /* Enable this for a helpful bit of debugging when tracing is needed.  */
+    fprintf (stderr, "pc: %x, instr: %x\n", pc & ~1, instr);
+    if (instr == 0) abort ();
+#endif
 
     if (state->Exception) { /* Any exceptions */
        if (state->NresetSig == LOW) {
@@ -2531,7 +2537,7 @@ mainswitch:
                 ARMul_Abort(state,ARMul_PrefetchAbortV) ;
                 break ;
                 }
-
+    
              if (!ARMul_OSHandleSWI(state,BITS(0,23))) {
                 ARMul_Abort(state,ARMul_SWIV) ;
                 }
@@ -3330,8 +3336,8 @@ static unsigned Multiply64(ARMul_State *state,ARMword instr,int msigned,int scc)
       && nRs   != 15
       && nRm   != 15
       && nRdHi != nRdLo
-      && nRdHi != nRs
-      && nRdLo != nRs)
+      && nRdHi != nRm
+      && nRdLo != nRm)
     {
       ARMword lo, mid1, mid2, hi; /* intermediate results */
       int carry;
@@ -3384,7 +3390,8 @@ static unsigned Multiply64(ARMul_State *state,ARMword instr,int msigned,int scc)
       state->Reg[nRdHi] = RdHi;
       
     } /* else undefined result */
-
+  else fprintf (stderr, "MULTIPLY64 - INVALID ARGUMENTS\n");
+  
   if (scc)
     {
       if ((RdHi == 0) && (RdLo == 0))

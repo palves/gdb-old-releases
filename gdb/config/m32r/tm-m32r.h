@@ -83,7 +83,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define DECR_PC_AFTER_BREAK 0
 
 /* mvs_check  INNER_THAN */
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* mvs_check  SAVED_PC_AFTER_CALL */
 #define SAVED_PC_AFTER_CALL(fi) read_register (RP_REGNUM)
@@ -180,8 +180,8 @@ extern CORE_ADDR m32r_skip_prologue PARAMS ((CORE_ADDR pc));
 #define STORE_STRUCT_RETURN(STRUCT_ADDR, SP)	\
 	write_register (0, STRUCT_ADDR)
 
-#define USE_STRUCT_CONVENTION(GCC_P, TYPE) \
-	(TYPE_LENGTH (TYPE) > 8)
+extern use_struct_convention_fn m32r_use_struct_convention;
+#define USE_STRUCT_CONVENTION(GCC_P, TYPE) m32r_use_struct_convention (GCC_P, TYPE)
 
 #define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
   extract_address (REGBUF + REGISTER_BYTE (V0_REGNUM), \

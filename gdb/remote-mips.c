@@ -638,7 +638,8 @@ mips_getstring (string, n)
       c = SERIAL_READCHAR (mips_desc, 2);
 
       if (c == SERIAL_TIMEOUT) {
-        fprintf_unfiltered (stderr, "Failed to read %d characters from target (TIMEOUT)\n", n);
+        fprintf_unfiltered (gdb_stderr,
+			    "Failed to read %d characters from target (TIMEOUT)\n", n);
 	return 0;
       }
 
@@ -1260,7 +1261,7 @@ mips_request (cmd, addr, data, perr, timeout, buff)
   int rpid;
   char rcmd;
   int rerrflg;
-  int rresponse;
+  unsigned long rresponse;
 
   if (buff == (char *) NULL)
     buff = myBuff;
@@ -1285,7 +1286,7 @@ mips_request (cmd, addr, data, perr, timeout, buff)
   len = mips_receive_packet (buff, 1, timeout);
   buff[len] = '\0';
 
-  if (sscanf (buff, "0x%x %c 0x%x 0x%x",
+  if (sscanf (buff, "0x%x %c 0x%x 0x%lx",
 	      &rpid, &rcmd, &rerrflg, &rresponse) != 4
       || (cmd != '\0' && rcmd != cmd))
     mips_error ("Bad response from remote board");
@@ -1346,6 +1347,7 @@ mips_enter_debug ()
   else /* assume IDT monitor by default */
     mips_send_command ("db tty0\r", 0);
 
+  sleep(1);
   SERIAL_WRITE (mips_desc, "\r", sizeof "\r" - 1);
 
   /* We don't need to absorb any spurious characters here, since the
@@ -1384,18 +1386,6 @@ mips_exit_debug ()
   else
     mips_request ('x', (unsigned int) 0, (unsigned int) 0, &err,
                   mips_receive_wait, NULL);
-
-  if (mips_monitor == MON_IDT && !mips_expect ("Exiting remote debug"))
-    return -1;
-    
-  if (mips_monitor == MON_DDB)
-    {
-      if (!mips_expect ("\n"))
-        return -1;
-    }
-  else
-    if (!mips_expect ("\r\n"))
-      return -1;
 
   if (!mips_expect (mips_monitor_prompt))
     return -1;
@@ -1524,7 +1514,7 @@ mips_initialize ()
 
   /* Clear all breakpoints: */
   if ((mips_monitor == MON_IDT
-       && clear_breakpoint (BREAK_UNUSED, -1, 0) == 0)
+       && clear_breakpoint (-1, 0, BREAK_UNUSED) == 0)
       || mips_monitor == MON_LSI)
     monitor_supports_breakpoints = 1;
   else
@@ -1571,7 +1561,7 @@ device is attached to the target board (e.g., /dev/ttya).\n"
      optional local TFTP name.  */
   if ((argv = buildargv (name)) == NULL)
     nomem(0);
-  make_cleanup (freeargv, (char *) argv);
+  make_cleanup ((make_cleanup_func) freeargv, argv);
 
   serial_port_name = strsave (argv[0]);
   if (argv[1])				/* remote TFTP name specified? */
@@ -2174,7 +2164,7 @@ mips_xfer_memory (memaddr, myaddr, len, write, ignore)
 	  if (i % 256 == 255) 
 	    {
 	      printf_unfiltered ("*");
-	      fflush (stdout);
+	      gdb_flush (gdb_stdout);
 	    }
 	  if (status)
 	    {
@@ -2377,7 +2367,8 @@ pmon_insert_breakpoint (addr, contents_cache)
       tbuff[2] = '\0'; /* terminate the string */
       if (sscanf (tbuff, "%d", &bpnum) != 1)
         {
-          fprintf_unfiltered (stderr, "Invalid decimal breakpoint number from target: %s\n", tbuff);
+          fprintf_unfiltered (gdb_stderr,
+			      "Invalid decimal breakpoint number from target: %s\n", tbuff);
           return 1;
         }
 
@@ -2395,19 +2386,21 @@ pmon_insert_breakpoint (addr, contents_cache)
 
       if (sscanf (tbuff, "0x%08x", &bpaddr) != 1)
         {
-          fprintf_unfiltered (stderr, "Invalid hex address from target: %s\n", tbuff);
+          fprintf_unfiltered (gdb_stderr,
+			      "Invalid hex address from target: %s\n", tbuff);
           return 1;
         }
 
       if (bpnum >= PMON_MAX_BP)
         {
-          fprintf_unfiltered (stderr, "Error: Returned breakpoint number %d outside acceptable range (0..%d)\n",
+          fprintf_unfiltered (gdb_stderr,
+			      "Error: Returned breakpoint number %d outside acceptable range (0..%d)\n",
                               bpnum, PMON_MAX_BP - 1);
           return 1;
         }
 
       if (bpaddr != addr)
-        fprintf_unfiltered (stderr, "Warning: Breakpoint addresses do not match: 0x%x != 0x%x\n", addr, bpaddr);
+        fprintf_unfiltered (gdb_stderr, "Warning: Breakpoint addresses do not match: 0x%x != 0x%x\n", addr, bpaddr);
 
       mips_pmon_bp_info[bpnum] = bpaddr;
 
@@ -2438,7 +2431,7 @@ pmon_remove_breakpoint (addr, contents_cache)
 
       if (bpnum >= PMON_MAX_BP)
         {
-          fprintf_unfiltered (stderr,
+          fprintf_unfiltered (gdb_stderr,
 	    "pmon_remove_breakpoint: Failed to find breakpoint at address 0x%s\n",
 	    paddr_nz (addr));
           return 1;
@@ -2497,6 +2490,36 @@ calculate_mask (addr, len)
   mask = (unsigned long) 0xffffffff >> i;
 
   return mask;
+}
+
+
+/* Insert a hardware breakpoint.  This works only on LSI targets, which
+   implement ordinary breakpoints using hardware facilities.  */
+
+int
+remote_mips_insert_hw_breakpoint (addr, contents_cache)
+     CORE_ADDR addr;
+     char *contents_cache;
+{
+  if (strcmp (target_shortname, "lsi") == 0)
+    return mips_insert_breakpoint (addr, contents_cache);
+  else
+    return -1;
+}
+
+
+/* Remove a hardware breakpoint.  This works only on LSI targets, which
+   implement ordinary breakpoints using hardware facilities.  */
+
+int
+remote_mips_remove_hw_breakpoint (addr, contents_cache)
+     CORE_ADDR addr;
+     char *contents_cache;
+{
+  if (strcmp (target_shortname, "lsi") == 0)
+    return mips_remove_breakpoint (addr, contents_cache);
+  else
+    return -1;
 }
 
 /* Set a data watchpoint.  ADDR and LEN should be obvious.  TYPE is 0
@@ -2587,14 +2610,14 @@ check_lsi_error (addr, rerrflg)
 	      if ((err->code & rerrflg) == err->code)
 		{
 		  found = 1;
-		  fprintf_unfiltered (stderr,
+		  fprintf_unfiltered (gdb_stderr,
 				      "common_breakpoint (0x%s): Warning: %s\n",
 				      saddr,
 				      err->string);
 		}
 	    }
 	  if (!found)
-	    fprintf_unfiltered (stderr,
+	    fprintf_unfiltered (gdb_stderr,
 				"common_breakpoint (0x%s): Unknown warning: 0x%x\n",
 				saddr,
 				rerrflg);
@@ -2607,14 +2630,14 @@ check_lsi_error (addr, rerrflg)
     {
       if ((err->code & rerrflg) == err->code)
 	{
-	  fprintf_unfiltered (stderr,
+	  fprintf_unfiltered (gdb_stderr,
 			      "common_breakpoint (0x%s): Error: %s\n",
 			      saddr,
 			      err->string);
 	  return 1;
 	}
     }
-  fprintf_unfiltered (stderr,
+  fprintf_unfiltered (gdb_stderr,
 		      "common_breakpoint (0x%s): Unknown error: 0x%x\n",
 		      saddr,
 		      rerrflg);
@@ -2778,6 +2801,9 @@ common_breakpoint (set, addr, len, type)
 	    case BREAK_ACCESS:		/* read/write */
 	      flags = "rw";
 	      break;
+	    case BREAK_FETCH:		/* fetch */
+	      flags = "f";
+	      break;
 	    default:
 	      abort ();
 	    }
@@ -2811,7 +2837,8 @@ common_breakpoint (set, addr, len, type)
 	  if (mips_monitor == MON_DDB)
 	    rresponse = rerrflg;
 	  if (rresponse != 22) /* invalid argument */
-	    fprintf_unfiltered (stderr, "common_breakpoint (0x%s):  Got error: 0x%x\n",
+	    fprintf_unfiltered (gdb_stderr,
+				"common_breakpoint (0x%s):  Got error: 0x%x\n",
 				paddr_nz (addr), rresponse);
 	  return 1;
 	}
@@ -3051,11 +3078,13 @@ pmon_makeb64 (v, p, n, chksum)
   int count = (n / 6);
 
   if ((n % 12) != 0) {
-    fprintf_unfiltered(stderr,"Fast encoding bitcount must be a multiple of 12bits: %dbit%s\n",n,(n == 1)?"":"s");
+    fprintf_unfiltered(gdb_stderr,
+		       "Fast encoding bitcount must be a multiple of 12bits: %dbit%s\n",n,(n == 1)?"":"s");
     return(0);
   }
   if (n > 36) {
-    fprintf_unfiltered(stderr,"Fast encoding cannot process more than 36bits at the moment: %dbits\n",n);
+    fprintf_unfiltered(gdb_stderr,
+		       "Fast encoding cannot process more than 36bits at the moment: %dbits\n",n);
     return(0);
   }
 

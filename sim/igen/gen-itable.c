@@ -91,26 +91,26 @@ itable_print_enum (lf *file,
        elem = filter_next (set, elem))
     {
       lf_printf (file, "%sitable_%s_%s,\n",
-		 options.prefix.itable.name, name, elem);
-      if (strlen (options.prefix.itable.name) > 0)
+		 options.module.itable.prefix.l, name, elem);
+      if (strlen (options.module.itable.prefix.l) > 0)
 	{
 	  lf_indent_suppress (file);
 	  lf_printf (file, "#define itable_%s_%s %sitable_%s_%s\n",
-		     name, elem, options.prefix.itable.name, name, elem);
+		     name, elem, options.module.itable.prefix.l, name, elem);
 	}
     }
-  lf_printf (file, "nr_%sitable_%ss,\n", options.prefix.itable.name, name);
+  lf_printf (file, "nr_%sitable_%ss,\n", options.module.itable.prefix.l, name);
   
   lf_indent (file, -2);
-  lf_printf (file, "} %sitable_%ss;\n", options.prefix.itable.name, name);
-  if (strlen (options.prefix.itable.name) > 0)
+  lf_printf (file, "} %sitable_%ss;\n", options.module.itable.prefix.l, name);
+  if (strlen (options.module.itable.prefix.l) > 0)
     {
       lf_indent_suppress (file);
       lf_printf (file, "#define itable_%ss %sitable_%ss\n",
-		 name, options.prefix.itable.name, name);
+		 name, options.module.itable.prefix.l, name);
       lf_indent_suppress (file);
       lf_printf (file, "#define nr_itable_%ss nr_%sitable_%ss\n",
-		 name, options.prefix.itable.name, name);
+		 name, options.module.itable.prefix.l, name);
     }
 }
 
@@ -123,8 +123,8 @@ itable_print_names (lf *file,
 {
   char *elem;
   lf_printf (file, "const char *%sitable_%s_names[nr_%sitable_%ss + 1] = {\n",
-	     options.prefix.itable.name, name,
-	     options.prefix.itable.name, name);
+	     options.module.itable.prefix.l, name,
+	     options.module.itable.prefix.l, name);
   lf_indent (file, +2);
   for (elem = filter_next (set, "");
        elem != NULL;
@@ -146,32 +146,32 @@ gen_itable_h (lf *file,
   /* output an enumerated type for each instruction */
   lf_printf (file, "typedef enum {\n");
   insn_table_traverse_insn (file, isa, itable_h_insn, info);
-  lf_printf (file, "  nr_%sitable_entries,\n", options.prefix.itable.name);
-  lf_printf (file, "} %sitable_index;\n", options.prefix.itable.name);
+  lf_printf (file, "  nr_%sitable_entries,\n", options.module.itable.prefix.l);
+  lf_printf (file, "} %sitable_index;\n", options.module.itable.prefix.l);
   lf_printf (file, "\n");
 
   /* output an enumeration type for each flag */
   itable_print_enum (file, isa->flags, "flag");
   lf_printf (file, "extern const char *%sitable_flag_names[];\n",
-	     options.prefix.itable.name);
+	     options.module.itable.prefix.l);
   lf_printf (file, "\n");
     
   /* output an enumeration of all the possible options */
   itable_print_enum (file, isa->options, "option");
   lf_printf (file, "extern const char *%sitable_option_names[];\n",
-	     options.prefix.itable.name);
+	     options.module.itable.prefix.l);
   lf_printf (file, "\n");
 
   /* output an enumeration of all the processor models */
   itable_print_enum (file, isa->model->processors, "processor");
   lf_printf (file, "extern const char *%sitable_processor_names[];\n",
-	     options.prefix.itable.name);
+	     options.module.itable.prefix.l);
   lf_printf (file, "\n");
 
   /* output the table that contains the actual instruction info */
   lf_printf (file, "typedef struct _%sitable_instruction_info {\n",
-	     options.prefix.itable.name);
-  lf_printf (file, "  %sitable_index nr;\n", options.prefix.itable.name);
+	     options.module.itable.prefix.l);
+  lf_printf (file, "  %sitable_index nr;\n", options.module.itable.prefix.l);
   lf_printf (file, "  char *format;\n");
   lf_printf (file, "  char *form;\n");
   lf_printf (file, "  char *flags;\n");
@@ -179,37 +179,37 @@ gen_itable_h (lf *file,
   /* nr_itable_* may be zero, so we add 1 to avoid an
      illegal zero-sized array. */
   lf_printf (file, "  char flag[nr_%sitable_flags + 1];\n",
-	     options.prefix.itable.name);
+	     options.module.itable.prefix.l);
   lf_printf (file, "  char *options;\n");
   lf_printf (file, "  char option[nr_%sitable_options + 1];\n",
-	     options.prefix.itable.name);
+	     options.module.itable.prefix.l);
   lf_printf (file, "  char *processors;\n");
   lf_printf (file, "  char processor[nr_%sitable_processors + 1];\n",
-	     options.prefix.itable.name);
+	     options.module.itable.prefix.l);
   lf_printf (file, "  char *name;\n");
   lf_printf (file, "  char *file;\n");
   lf_printf (file, "  int line_nr;\n");
-  lf_printf (file, "} %sitable_info;\n", options.prefix.itable.name);
+  lf_printf (file, "} %sitable_info;\n", options.module.itable.prefix.l);
   lf_printf (file, "\n");
   lf_printf (file, "extern %sitable_info %sitable[nr_%sitable_entries];\n",
-	     options.prefix.itable.name, options.prefix.itable.name,
-	     options.prefix.itable.name);
-  if (strlen (options.prefix.itable.name) > 0)
+	     options.module.itable.prefix.l, options.module.itable.prefix.l,
+	     options.module.itable.prefix.l);
+  if (strlen (options.module.itable.prefix.l) > 0)
     {
       lf_indent_suppress (file);
       lf_printf (file, "#define itable %sitable\n",
-		 options.prefix.itable.name);
+		 options.module.itable.prefix.l);
     }
   lf_printf (file, "\n");
 
   /* output an enum defining the max size of various itable members */
   lf_printf (file, "enum {\n");
   lf_printf (file, "  sizeof_%sitable_form = %d,\n",
-	     options.prefix.itable.name, info->sizeof_form);
+	     options.module.itable.prefix.l, info->sizeof_form);
   lf_printf (file, "  sizeof_%sitable_name = %d,\n",
-	     options.prefix.itable.name, info->sizeof_name);
+	     options.module.itable.prefix.l, info->sizeof_name);
   lf_printf (file, "  sizeof_%sitable_file = %d,\n",
-	     options.prefix.itable.name, info->sizeof_file);
+	     options.module.itable.prefix.l, info->sizeof_file);
   lf_printf (file, "};\n");
 }
 
@@ -295,7 +295,7 @@ gen_itable_c (lf *file,
 	      insn_table *isa)
 {
   /* leader */
-  lf_printf(file, "#include \"%sitable.h\"\n", options.prefix.itable.name);
+  lf_printf(file, "#include \"%sitable.h\"\n", options.module.itable.prefix.l);
   lf_printf(file, "\n");
 
   /* FIXME - output model data??? */
@@ -308,9 +308,9 @@ gen_itable_c (lf *file,
 
   /* output the table that contains the actual instruction info */
   lf_printf (file, "%sitable_info %sitable[nr_%sitable_entries] = {\n",
-	     options.prefix.itable.name,
-	     options.prefix.itable.name,
-	     options.prefix.itable.name);
+	     options.module.itable.prefix.l,
+	     options.module.itable.prefix.l,
+	     options.module.itable.prefix.l);
   insn_table_traverse_insn (file, isa, itable_c_insn, NULL);
 
   lf_printf(file, "};\n");

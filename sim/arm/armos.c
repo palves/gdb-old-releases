@@ -27,10 +27,20 @@ fun, and definign VAILDATE will define SWI 1 to enter SVC mode, and SWI
 #include <time.h>
 #include <errno.h>
 #include <string.h>
+#include <fcntl.h>
 
+#ifndef O_RDONLY
 #define O_RDONLY 0
+#endif
+#ifndef O_WRONLY
 #define O_WRONLY 1
+#endif
+#ifndef O_RDWR
 #define O_RDWR   2
+#endif
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 #ifdef __STDC__
 #define unlink(s) remove(s)
@@ -50,9 +60,9 @@ extern int _fisatty(FILE *);
 #else
 #ifdef macintosh
 #include <ioctl.h>
-#define isatty_(f) (~ioctl((f)->_file,FIOINTERACTIVE,NULL))
+#define isatty_(f) (~ioctl ((f)->_file, FIOINTERACTIVE, NULL))
 #else
-#define isatty_(f) isatty(fileno(f))
+#define isatty_(f) isatty (fileno (f))
 #endif
 #endif
 #endif
@@ -107,7 +117,10 @@ struct OSblock {
 #define WRITEOP 4
 
 #ifdef macintosh
-#define FIXCRLF(t,c) ((t & BINARY)?c:((c=='\n'||c=='\r')?(c ^ 7):c))
+#define FIXCRLF(t,c) ((t & BINARY) ? \
+                      c : \
+                      ((c == '\n' || c == '\r' ) ? (c ^ 7) : c) \
+                     )
 #else                   
 #define FIXCRLF(t,c) c 
 #endif
@@ -132,7 +145,8 @@ static ARMword softvectorcode[] =
 *            Time for the Operating System to initialise itself.            *
 \***************************************************************************/
 
-unsigned ARMul_OSInit(ARMul_State *state)
+unsigned 
+ARMul_OSInit (ARMul_State *state)
 {
 #ifndef NOOS
 #ifndef VALIDATE
@@ -194,9 +208,10 @@ unsigned ARMul_OSInit(ARMul_State *state)
  return(TRUE) ;
 }
 
-void ARMul_OSExit(ARMul_State *state)
+void 
+ARMul_OSExit (ARMul_State *state)
 {
- free((char *)state->OSptr) ;
+ free((char *)state->OSptr);
 }
 
 
@@ -204,9 +219,145 @@ void ARMul_OSExit(ARMul_State *state)
 *                  Return the last Operating System Error.                  *
 \***************************************************************************/
 
-ARMword ARMul_OSLastErrorP(ARMul_State *state)
+ARMword 
+ARMul_OSLastErrorP (ARMul_State *state)
 {
   return ((struct OSblock *)state->OSptr)->ErrorP;
+}
+
+#if 1  /* CYGNUS LOCAL */
+/* This is the cygnus way of doing it, which makes it simple to do our tests */
+
+static int translate_open_mode[] =
+{
+  O_RDONLY,                          /* "r"   */
+  O_RDONLY+O_BINARY,                 /* "rb"  */
+  O_RDWR,                            /* "r+"  */
+  O_RDWR  +O_BINARY,                 /* "r+b" */
+  O_WRONLY         +O_CREAT+O_TRUNC, /* "w"   */
+  O_WRONLY+O_BINARY+O_CREAT+O_TRUNC, /* "wb"  */
+  O_RDWR           +O_CREAT+O_TRUNC, /* "w+"  */
+  O_RDWR  +O_BINARY+O_CREAT+O_TRUNC, /* "w+b" */
+  O_WRONLY         +O_APPEND+O_CREAT,/* "a"   */
+  O_WRONLY+O_BINARY+O_APPEND+O_CREAT,/* "ab"  */
+  O_RDWR           +O_APPEND+O_CREAT,/* "a+"  */
+  O_RDWR  +O_BINARY+O_APPEND+O_CREAT /* "a+b" */
+};
+
+static void 
+SWIWrite0 (ARMul_State *state, ARMword addr)
+{
+  ARMword temp;
+  struct OSblock* OSptr = (struct OSblock*) state->OSptr;
+
+  while ((temp = ARMul_ReadByte (state, addr++)) != 0)
+    (void) fputc ((char) temp, stderr);
+
+  OSptr->ErrorNo = errno;
+}
+
+static void 
+WriteCommandLineTo (ARMul_State *state, ARMword addr)
+{
+  ARMword temp;
+  char *cptr = state->CommandLine;
+  if (cptr == NULL)
+    cptr = "\0";
+  do {
+    temp = (ARMword) *cptr++;
+    ARMul_WriteByte (state, addr++, temp);
+  } while (temp != 0);
+}
+
+static void 
+SWIopen (ARMul_State *state, ARMword name, ARMword SWIflags)
+{
+  struct OSblock* OSptr = (struct OSblock*)state->OSptr;
+  char dummy[2000];
+  int flags;
+  int i;
+
+  for (i = 0; 
+       dummy[i] = ARMul_ReadByte (state, name + i);
+       i++)
+    ;
+
+  /* Now we need to decode the Demon open mode */
+  flags = translate_open_mode[SWIflags];
+
+  /* Filename ":tt" is special: it denotes stdin/out */
+  if (strcmp (dummy, ":tt") == 0)
+    {
+      if (flags == O_RDONLY) /* opening tty "r" */
+	state->Reg[0] = 0;  /* stdin */
+      else 
+	state->Reg[0] = 1; /* stdout */
+    }
+  else
+    {
+      state->Reg[0] = (int) open (dummy, flags);
+      OSptr->ErrorNo = errno;
+    }
+}
+
+static void 
+SWIread (ARMul_State *state, ARMword f, ARMword ptr, ARMword len)
+{
+  struct OSblock* OSptr = (struct OSblock*) state->OSptr;
+  int res;
+  int i;
+  char *local = malloc (len);
+
+  res = read (f, local, len);
+  if (res > 0)
+    for (i = 0; i < res; i++) 
+      ARMul_WriteByte (state, ptr + i, local[i]);
+  free (local);
+  state->Reg[0] = res == -1 ? -1 : len - res;
+  OSptr->ErrorNo = errno;
+}
+
+static void 
+SWIwrite (ARMul_State *state, ARMword f, ARMword ptr, ARMword len)
+{
+  struct OSblock* OSptr = (struct OSblock*) state->OSptr;
+  int res;
+  int i;
+  char *local = malloc (len);
+
+  for (i = 0; i < len; i++) 
+    {
+      local[i] = ARMul_ReadByte (state, ptr + i);
+    }
+  res = write (f, local, len);
+  state->Reg[0] = res == -1 ? -1 : len - res;
+  free (local);
+  OSptr->ErrorNo = errno;
+}
+
+static void 
+SWIflen (ARMul_State *state, ARMword fh)
+{
+  struct OSblock* OSptr = (struct OSblock*) state->OSptr;
+  ARMword addr;
+
+  if (fh == 0 || fh > FOPEN_MAX)
+    {
+      OSptr->ErrorNo = EBADF;
+      state->Reg[0] = -1L;
+      return;
+    }
+
+  addr = lseek (fh, 0, SEEK_CUR);
+  if (addr < 0)
+    state->Reg[0] = -1L;
+  else
+    {
+      state->Reg[0] = lseek (fh, 0L, SEEK_END);
+      (void) lseek (fh, addr, SEEK_SET);
+    }
+
+  OSptr->ErrorNo = errno;
 }
 
 /***************************************************************************\
@@ -214,73 +365,55 @@ ARMword ARMul_OSLastErrorP(ARMul_State *state)
 * parameter passed is the SWI number (lower 24 bits of the instruction).    *
 \***************************************************************************/
 
-#if 1
-/* This is the cygnus way of doing it, which makes it simple
-   to do our tests */
-
-unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
+unsigned 
+ARMul_OSHandleSWI (ARMul_State *state, ARMword number)
 {
-  ARMword addr, temp ;
-  char buffer[BUFFERSIZE], *cptr ;
-  FILE *fptr ;
-  struct OSblock* OSptr = (struct OSblock*)state->OSptr ;
+  ARMword addr, temp, fildes;
+  char buffer[BUFFERSIZE], *cptr;
+  FILE *fptr;
+  struct OSblock* OSptr = (struct OSblock*)state->OSptr;
 
   switch (number)
     {
     case SWI_Read:
-      {
-	int f = state->Reg[0];
-	int ptr = state->Reg[1];
-	int len = state->Reg[2];
-	int res;
-	int i;
-	char *local = malloc (len);
-	res = read (f,local, len);
-	if (res > 0)
-	  for (i = 0; i < res; i++) 
-	    ARMul_WriteByte(state, ptr + i, local[i]) ;
-	free (local);
-	state->Reg[0] = res == -1 ? -1 : len - res;
-	OSptr->ErrorNo = errno;
-	return TRUE;     
-      }
+	SWIread (state, state->Reg[0], state->Reg[1], state->Reg[2]);
+	return TRUE; 
 
     case SWI_Write:
-      {
-	int f = state->Reg[0];
-	int ptr = state->Reg[1];
-	int len = state->Reg[2];
-	int res;
-	int i;
-	char *local = malloc (len);
-	for (i = 0; i < len; i++) 
-	  {
-	    local[i] = ARMul_ReadByte(state, ptr + i);
-	  }
-	res = write (f, local, len);
-	state->Reg[0] = res == -1 ? -1 : len - res;
-	free (local);
-	OSptr->ErrorNo = errno;
+	SWIwrite (state, state->Reg[0], state->Reg[1], state->Reg[2]);
 	return TRUE;     
-      }
 
     case SWI_Open:
-      {
-	char dummy[2000];
-	int i;
-	for (i = 0; 
-	     dummy[i] = ARMul_ReadByte(state, state->Reg[0] + i);
-	     i++)
-	  ;
-	state->Reg[0] = open (dummy, state->Reg[1]);
-	OSptr->ErrorNo = errno;
+	SWIopen (state, state->Reg[0],state->Reg[1]);
 	return TRUE;
-      }
+
+    case SWI_Clock :
+       /* return number of centi-seconds... */
+       state->Reg[0] =
+#ifdef CLOCKS_PER_SEC
+          (CLOCKS_PER_SEC >= 100)
+             ? (ARMword) (clock() / (CLOCKS_PER_SEC / 100))
+             : (ARMword) ((clock() * 100) / CLOCKS_PER_SEC) ;
+#else
+     /* presume unix... clock() returns microseconds */
+          (ARMword) (clock() / 10000) ;
+#endif
+       OSptr->ErrorNo = errno ;
+       return(TRUE) ;
+
+    case SWI_Time :
+       state->Reg[0] = (ARMword)time(NULL) ;
+       OSptr->ErrorNo = errno ;
+       return(TRUE) ;
    
     case SWI_Close:
       state->Reg[0] = close (state->Reg[0]);
       OSptr->ErrorNo = errno;
       return TRUE;
+
+    case SWI_Flen :
+      SWIflen (state, state->Reg[0]);
+      return(TRUE) ;
 
     case SWI_Exit:
       state->Emulate = FALSE ;
@@ -288,9 +421,10 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
 
     case SWI_Seek:
       {
-	state->Reg[0] = lseek (state->Reg[0],
-			       state->Reg[1],
-			       state->Reg[2]);
+	/* We must return non-zero for failure */
+	state->Reg[0] = -1 >= lseek (state->Reg[0],
+				    state->Reg[1],
+				    SEEK_SET);
 	OSptr->ErrorNo = errno;
 	return TRUE;
       }
@@ -301,10 +435,7 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
       return(TRUE) ;
 
     case SWI_Write0 :
-      addr = state->Reg[0] ;
-      while ((temp = ARMul_ReadByte(state,addr++)) != 0)
-        (void)fputc((char)temp,stderr) ;
-      OSptr->ErrorNo = errno ;
+      SWIWrite0 (state, state->Reg[0]);
       return(TRUE) ;
 
     case SWI_GetErrno :
@@ -323,23 +454,146 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
        else
           state->Reg[1] = ADDRUSERSTACK ;
 
-       addr = state->Reg[0] ;
-       cptr = state->CommandLine ;
-       if (cptr == NULL)
-          cptr = "\0" ;
-       do {
-          temp = (ARMword)*cptr++ ;
-          ARMul_WriteByte(state,addr++,temp) ;
-          } while (temp != 0) ;
+       WriteCommandLineTo (state, state->Reg[0]);
        return(TRUE) ;
+
+       /* Handle Angel SWIs as well as Demon ones */
+    case AngelSWI_ARM:
+    case AngelSWI_Thumb:
+      /* R1 is almost always a parameter block */
+      addr = state->Reg[1];
+      /* R0 is a reason code */
+      switch (state->Reg[0])
+	{
+	  /* Unimplemented reason codes */
+	case AngelSWI_Reason_ReadC:
+	case AngelSWI_Reason_IsTTY:
+	case AngelSWI_Reason_TmpNam:
+	case AngelSWI_Reason_Remove:
+	case AngelSWI_Reason_Rename:
+	case AngelSWI_Reason_System:
+	case AngelSWI_Reason_EnterSVC:
+	default:
+	  state->Emulate = FALSE;
+	  return(FALSE);
+
+	case AngelSWI_Reason_Clock:
+       /* return number of centi-seconds... */
+	  state->Reg[0] =
+#ifdef CLOCKS_PER_SEC
+	    (CLOCKS_PER_SEC >= 100)
+	    ? (ARMword) (clock() / (CLOCKS_PER_SEC / 100))
+	    : (ARMword) ((clock() * 100) / CLOCKS_PER_SEC) ;
+#else
+	  /* presume unix... clock() returns microseconds */
+          (ARMword) (clock() / 10000) ;
+#endif
+	  OSptr->ErrorNo = errno;
+	  return (TRUE);
+
+	case AngelSWI_Reason_Time:
+	  state->Reg[0] = (ARMword) time (NULL);
+	  OSptr->ErrorNo = errno;
+	  return (TRUE);
+
+	case AngelSWI_Reason_WriteC:
+	  (void) fputc ((int) ARMul_ReadByte (state,addr), stderr);
+	  OSptr->ErrorNo = errno;
+	  return (TRUE);
+
+	case AngelSWI_Reason_Write0:
+	  SWIWrite0 (state, addr);
+	  return (TRUE);
+
+	case AngelSWI_Reason_Close:
+	  state->Reg[0] = close (ARMul_ReadWord (state, addr));
+	  OSptr->ErrorNo = errno;
+	  return (TRUE);
+
+	case AngelSWI_Reason_Seek:
+	  state->Reg[0] = -1 >= lseek (ARMul_ReadWord(state,addr),
+				       ARMul_ReadWord(state,addr+4),
+				       SEEK_SET);
+	  OSptr->ErrorNo = errno;
+	  return (TRUE);
+
+	case AngelSWI_Reason_FLen:
+	  SWIflen (state, ARMul_ReadWord (state, addr));
+	  return (TRUE);
+
+     	case AngelSWI_Reason_GetCmdLine:
+	  WriteCommandLineTo (state, ARMul_ReadWord (state, addr));
+	  return (TRUE);
+
+	case AngelSWI_Reason_HeapInfo:
+	  /* R1 is a pointer to a pointer */
+	  addr = ARMul_ReadWord (state, addr);
+
+	  /* Pick up the right memory limit */
+	  if (state->MemSize)
+	    temp = state->MemSize;
+	  else
+	    temp = ADDRUSERSTACK;
+
+	  ARMul_WriteWord (state, addr, 0);       /* Heap base */
+	  ARMul_WriteWord (state, addr+4, temp);    /* Heap limit */
+	  ARMul_WriteWord (state, addr+8, temp);    /* Stack base */
+	  ARMul_WriteWord (state, addr+12, temp);   /* Stack limit */
+	  return (TRUE);
+
+	case AngelSWI_Reason_ReportException:
+	  if (state->Reg[1] == ADP_Stopped_ApplicationExit)
+	    state->Reg[0] = 0;
+	  else
+	    state->Reg[0] = -1;
+	  state->Emulate = FALSE ;      
+	  return (TRUE);
+
+	case ADP_Stopped_ApplicationExit:
+	  state->Reg[0] = 0;
+	  state->Emulate = FALSE ;      
+	  return (TRUE);
+	  
+	case ADP_Stopped_RunTimeError:
+	  state->Reg[0] = -1;
+	  state->Emulate = FALSE ;      
+	  return (TRUE);
+
+	case AngelSWI_Reason_Errno:
+	  state->Reg[0] = OSptr->ErrorNo;
+	  return (TRUE);
+
+	case AngelSWI_Reason_Open:
+	  SWIopen(state,
+		  ARMul_ReadWord(state, addr),
+		  ARMul_ReadWord(state, addr+4));
+	  return TRUE;
+
+	case AngelSWI_Reason_Read:
+	  SWIread(state,
+		  ARMul_ReadWord(state, addr),
+		  ARMul_ReadWord(state, addr+4),
+		  ARMul_ReadWord(state, addr+8));
+	  return TRUE;
+
+	case AngelSWI_Reason_Write:
+	  SWIwrite(state,
+		  ARMul_ReadWord(state, addr),
+		  ARMul_ReadWord(state, addr+4),
+		  ARMul_ReadWord(state, addr+8));
+	  return TRUE;
+	}
 
     default :
       state->Emulate = FALSE ;      
       return(FALSE) ;
     }
 }
-#else
-unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
+
+#else  /* CYGNUS LOCAL: #if 1 */
+
+unsigned 
+ARMul_OSHandleSWI (ARMul_State *state, ARMword number)
 {
 #ifdef NOOS
  return(FALSE) ;
@@ -814,7 +1068,7 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
 #endif
 #endif
  }
-#endif
+#endif  /* CYGNUS LOCAL: #if 1 */
 
 #ifndef NOOS
 #ifndef ASIM
@@ -826,7 +1080,8 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
 * be ignored (so set state->Emulate to FALSE!).                             *
 \***************************************************************************/
 
-unsigned ARMul_OSException(ARMul_State *state, ARMword vector, ARMword pc)
+unsigned 
+ARMul_OSException (ARMul_State *state, ARMword vector, ARMword pc)
 { /* don't use this here */
  return(FALSE) ;
 }
@@ -837,7 +1092,8 @@ unsigned ARMul_OSException(ARMul_State *state, ARMword vector, ARMword pc)
 *                            Unwind a data abort                            *
 \***************************************************************************/
 
-static void UnwindDataAbort(ARMul_State *state, ARMword addr)
+static void 
+UnwindDataAbort (ARMul_State *state, ARMword addr)
 {
   ARMword instr = ARMul_ReadWord(state, addr);
   ARMword rn = BITS(16, 19);
@@ -868,10 +1124,13 @@ static void UnwindDataAbort(ARMul_State *state, ARMword addr)
 *           Copy a string from the debuggee's memory to the host's          *
 \***************************************************************************/
 
-static void getstring(ARMul_State *state, ARMword from, char *to)
-{do {
-    *to = (char)ARMul_ReadByte(state,from++) ;
-    } while (*to++ != '\0') ;
- }
+static void 
+getstring (ARMul_State *state, ARMword from, char *to)
+{
+  do 
+    {
+      *to = (char) ARMul_ReadByte (state, from++);
+    } while (*to++ != '\0');
+}
 
 #endif /* NOOS */

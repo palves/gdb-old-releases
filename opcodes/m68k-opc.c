@@ -1,5 +1,6 @@
 /* Opcode table for m680[012346]0/m6888[12]/m68851/mcf5200.
-   Copyright 1989, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation.
+   Copyright 1989, 91, 92, 93, 94, 95, 96, 97, 98, 1999
+   Free Software Foundation.
 
 This file is part of GDB, GAS, and the GNU binutils.
 
@@ -1305,10 +1306,10 @@ const struct m68k_opcode m68k_opcodes[] =
 {"movew",	one(0041300),	one(0177770), "CsDs", mcf5200 },
 {"movew",	one(0042300),	one(0177700), ";wCd", m68000up },
 {"movew",	one(0042300),	one(0177700), "DsCd", mcf5200 },
-{"movew",	one(0042374),	one(0177700), "#wCd", mcf5200 },
+{"movew",	one(0042374),	one(0177777), "#wCd", mcf5200 },
 {"movew",	one(0043300),	one(0177700), ";wSd", m68000up },
 {"movew",	one(0043300),	one(0177700), "DsSd", mcf5200 },
-{"movew",	one(0043374),	one(0177700), "#wSd", mcf5200 },
+{"movew",	one(0043374),	one(0177777), "#wSd", mcf5200 },
 
 {"movel",	one(0070000),	one(0170400), "MsDd", m68000up | mcf5200 },
 {"movel",	one(0020000),	one(0170000), "*l%d", m68000up },
@@ -1328,10 +1329,10 @@ const struct m68k_opcode m68k_opcodes[] =
 {"move",	one(0041300),	one(0177770), "CsDs", mcf5200 },
 {"move",	one(0042300),	one(0177700), ";wCd", m68000up },
 {"move",	one(0042300),	one(0177700), "DsCd", mcf5200 },
-{"move",	one(0042300),	one(0177700), "#wCd", mcf5200 },
+{"move",	one(0042374),	one(0177777), "#wCd", mcf5200 },
 {"move",	one(0043300),	one(0177700), ";wSd", m68000up },
 {"move",	one(0043300),	one(0177700), "DsSd", mcf5200 },
-{"move",	one(0043300),	one(0177700), "#wSd", mcf5200 },
+{"move",	one(0043374),	one(0177777), "#wSd", mcf5200 },
 
 {"move",	one(0047140),	one(0177770), "AsUd", m68000up },
 {"move",	one(0047150),	one(0177770), "UdAs", m68000up },
@@ -1351,20 +1352,12 @@ const struct m68k_opcode m68k_opcodes[] =
 
 {"mulsw",	one(0140700),		one(0170700), ";wDd", m68000up|mcf5200 },
 {"mulsl",	two(0046000,004000), two(0177700,0107770), ";lD1", m68020up|cpu32 },
-{"mulsl",	two(0046000,004000), two(0177700,0107770), "DsD1", mcf5200 },
-{"mulsl",	two(0046000,004000), two(0177700,0107770), "asD1", mcf5200 },
-{"mulsl",	two(0046000,004000), two(0177700,0107770), "+sD1", mcf5200 },
-{"mulsl",	two(0046000,004000), two(0177700,0107770), "-sD1", mcf5200 },
-{"mulsl",	two(0046000,004000), two(0177700,0107770), "dsD1", mcf5200 },
+{"mulsl",	two(0046000,004000), two(0177700,0107770), "qsD1", mcf5200 },
 {"mulsl",	two(0046000,006000), two(0177700,0107770), ";lD3D1",m68020up|cpu32 },
 
 {"muluw",	one(0140300),		one(0170700), ";wDd", m68000up|mcf5200 },
 {"mulul",	two(0046000,000000), two(0177700,0107770), ";lD1", m68020up|cpu32 },
-{"mulul",	two(0046000,000000), two(0177700,0107770), "DsD1", mcf5200 },
-{"mulul",	two(0046000,000000), two(0177700,0107770), "asD1", mcf5200 },
-{"mulul",	two(0046000,000000), two(0177700,0107770), "+sD1", mcf5200 },
-{"mulul",	two(0046000,000000), two(0177700,0107770), "-sD1", mcf5200 },
-{"mulul",	two(0046000,000000), two(0177700,0107770), "dsD1", mcf5200 },
+{"mulul",	two(0046000,000000), two(0177700,0107770), "qsD1", mcf5200 },
 {"mulul",	two(0046000,002000), two(0177700,0107770), ";lD3D1",m68020up|cpu32 },
 
 {"nbcd",	one(0044000),	one(0177700), "$s", m68000up },
@@ -1832,11 +1825,11 @@ TBL("tblunb", "tblunw", "tblunl", 0, 0),
 {"trapv",	one(0047166),	one(0177777), "", m68000up },
 
 {"tstb",	one(0045000),	one(0177700), ";b", m68020up|cpu32|mcf5200 },
-{"tstb",	one(0045000),	one(0177700), "@b", m68000up },
+{"tstb",	one(0045000),	one(0177700), "$b", m68000up },
 {"tstw",	one(0045100),	one(0177700), "*w", m68020up|cpu32|mcf5200 },
-{"tstw",	one(0045100),	one(0177700), "@w", m68000up },
+{"tstw",	one(0045100),	one(0177700), "$w", m68000up },
 {"tstl",	one(0045200),	one(0177700), "*l", m68020up|cpu32|mcf5200 },
-{"tstl",	one(0045200),	one(0177700), "@l", m68000up },
+{"tstl",	one(0045200),	one(0177700), "$l", m68000up },
 
 {"unlk",	one(0047130),	one(0177770), "As", m68000up | mcf5200 },
 

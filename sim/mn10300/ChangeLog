@@ -1,3 +1,369 @@
+1998-12-29  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* Makefile.in (WITH_COMMON_OBJS): Build also dv-sockser.o.
+	* interp.c (sim_open): Add stub mn103002 cache control memory regions.
+	Set OPERATING_ENVIRONMENT on "stdeval1" board.
+	(mn10300_core_signal): New function to intercept memory errors.
+	(program_interrupt): New function to dispatch to exception vector
+	(mn10300_exception_*): New functions to snapshot pre/post exception
+	state.
+	* sim-main.h (SIM_CORE_SIGNAL): Define hook - call mn10300_core_signal.
+	(SIM_ENGINE_HALT_HOOK): Do nothing. 
+	(SIM_CPU_EXCEPTION*): Define hooks to call mn10300_cpu_exception*().
+	(_sim_cpu): Add exc_* fields to store register value snapshots.	
+	* dv-mn103ser.c (*): Support dv-sockser backend for UART I/O.
+	Various endianness and warning fixes.
+	* mn10300.igen (illegal): Call program_interrupt on error.
+	(break): Call program_interrupt on breakpoint
+	
+	Several changes from <janczyn@cygnus.com> and <cagney@cygnus.com>
+	merged in:
+	* dv-mn103int.c (mn103int_ioctl): New function for NMI
+	generation. (mn103int_finish): Install it as ioctl handler.
+	* dv-mn103tim.c: Support timer 6 specially.  Endianness fixes.
+	
+Fri Aug 28 14:40:49 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* interp.c (sim_open): Check for invalid --board option, fix
+	indentation, allocate memory for mem control and DMA regs.
+
+Wed Aug 26 09:29:38 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* mn10300.igen (div,divu): Fix divide instructions so divide by 0
+	behaves like the hardware.
+
+Mon Aug 24 11:50:09 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* sim-main.h (SIM_HANDLES_LMA): Define SIM_HANDLES_LMA.
+
+Fri Jul 24 18:15:21 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* op_utils.c (do_syscall): Rewrite to use common/syscall.c.
+	(syscall_read_mem, syscall_write_mem): New functions for syscall
+	callbacks.
+	* mn10300_sim.h: Add prototypes for syscall_read_mem and
+	syscall_write_mem. 
+	* mn10300.igen: Change C++ style comments to C style comments.
+	Check for divide by zero in div and divu ops.
+
+Thu Jul  9 10:06:55 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* mn10300.igen: Fix Z bit for addc and subc instructions.
+	Minor fixes in multiply/divide patterns.
+
+
+Wed Jul  1 17:07:09 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* mn10300_sim.h (FETCH24): Define.
+
+
+Tue Jun 30 11:23:20 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* mn10300_sim.h: Include bfd.h
+	(struct state): Add more room for processor specific registers.
+
+Thu Jun 25 10:12:03 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* dv-mn103tim.c: Include sim-assert.h
+	* dv-mn103ser.c (do_polling_event): Check for incoming data on
+	serial line and schedule next polling event.
+	(read_status_reg): schedule events to check for incoming data on
+	serial line and issue interrupt if necessary.
+	
+Fri Jun 19 16:47:27 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* interp.c (sim_open): hook up serial 1 and 2 ports properly (typo).
+
+Fri Jun 19 11:59:26 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* interp.c (board): Rename am32 to stdeval1 as this is the name
+	consistently used to refer to the mn1030002 board.
+
+Thu June 18 14:37:14 1998  Joyce Janczyn  <janczyn@cygnus.com>
+	* interp.c (sim_open): Fix typo in address of EXTMD register
+	(0x34000280, not 0x3400280).
+
+Wed Jun 17 18:00:18 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* simops.c (syscall): Handle change in opcode # for syscall.
+	* mn10300.igen (syscall): Likewise.
+
+Tue June 16 09:36:21 1998  Joyce Janczyn  <janczyn@cygnus.com>
+	* dv-mn103int.c (mn103int_finish): Regular interrupts (not NMI or
+	reset) are not enabled on reset.
+	
+Sun June 14 17:04:00 1998  Joyce Janczyn  <janczyn@cygnus.com>
+	* dv-mn103iop.c (write_*_reg): Check for attempt to write r/o
+	register bits.
+	* dv-mn103ser.c: Fill in methods for reading and writing to serial
+	device registers.
+	* interp.c (sim_open): Make the serial device a polling device.
+	
+Fri June 12 16:24:00 1998  Joyce Janczyn  <janczyn@cygnus.com>
+	* dv-mn103iop.c: New file for handling am32 io ports.
+	* configure.in: Add mn103iop to hw_device list.
+	* configure: Re-generate.
+	* interp.c (sim_open): Create io port device.
+
+Wed June 10 14:34:00 1998  Joyce Janczyn  <janczyn@cygnus.com>
+	* dv-mn103int.c (external_group): Use enumerated types to access
+	correct group addresses.
+	* dv-mn103tim.c (do_counter_event): Underflow of cascaded timer
+	triggers an interrupt on the higher-numbered timer's port.
+
+Mon June 8 13:30:00 1998  Joyce Janczyn  <janczyn@cygnus.com>
+	* interp.c: (mn10300_option_handler): New function parses arguments
+	using sim-options.
+	* (board): Add --board option for specifying am32.
+	* (sim_open): Create new timer and serial devices and control
+	configuration of other am32 devices via board option.
+	* dv-mn103tim.c, dv-mn103ser.c: New files for timers and serial devices.
+	* dv-mn103cpu.c: Fix typos in opening comments.
+	* dv-mn103int.c: Adjust interrupt controller settings for am32 instead of am30.
+	* configure.in: Add mn103tim and mn103ser to hw_device list.
+	* configure: Re-generate.
+
+Mon May 25 20:50:35 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* dv-mn103int.c, dv-mn103cpu.c: Rename *_callback to *_method.
+
+	* dv-mn103cpu.c, dv-mn103int.c: Include hw-main.h and
+ 	sim-main.h. Declare a struct hw_descriptor instead of struct
+ 	hw_device_descriptor.
+
+Mon May 25 17:33:33 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* dv-mn103cpu.c (struct mn103cpu): Change type of pending_handler
+ 	to struct hw_event.
+
+Fri May 22 12:17:41 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (SIM_AC_OPTION_HARDWARE): Add argument "yes".
+
+Wed May  6 13:29:06 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_open): Create a polling PAL device.
+
+Fri May  1 16:39:15 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* dv-mn103int.c (mn103int_port_event): 
+	(mn103int_port_event): 
+	(mn103int_io_read_buffer): 
+	(mn103int_io_write_buffer): 
+
+	* dv-mn103cpu.c (deliver_mn103cpu_interrupt): Drop CPU/CIA args.
+	(mn103cpu_port_event): Ditto.
+	(mn103cpu_io_read_buffer): Ditto.
+	(mn103cpu_io_write_buffer): Ditto.
+
+Tue Apr 28 18:33:31 1998  Geoffrey Noer  <noer@cygnus.com>
+
+        * configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sun Apr 26 15:31:55 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Sun Apr 26 15:19:55 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* acconfig.h: New file.
+	* configure.in: Reverted change of Apr 24; use sinclude again.
+
+Fri Apr 24 14:16:40 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Fri Apr 24 11:19:07 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* configure.in: Don't call sinclude.
+
+Tue Apr 14 10:03:02 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mn10300_sim.h: Declare all functions in op_utils.c using
+ 	INLINE_SIM_MAIN.
+	* op_utils.c: Ditto.
+	* sim-main.c: New file.  Include op_utils.c.
+	
+	* mn10300.igen (mov, cmp): Use new igen operators `!' and `=' to
+ 	differentiate between MOV/CMP immediate/register instructions.
+
+	* configure.in (SIM_AC_OPTION_INLINE): Add and enable.
+	* configure: Regenerate.
+
+Sat Apr  4 20:36:25 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Mar 27 16:15:52 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (hw): Delete variable, moved to SIM_DESC.
+	(sim_open): Delete calls to hw_tree_create, hw_tree_finish.
+  	Handled by sim-module.
+	(sim_open): Do not anotate tree with trace properties, handled by
+ 	sim-hw.c
+	(sim_open): Call sim_hw_parse instead of hw_tree_parse.
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Thu Mar 26 20:46:18 1998  Stu Grossman  <grossman@bhuna.cygnus.co.uk>
+
+	* dv-mn103cpu.c (deliver_mn103cpu_interrupt):  Save the entire PC
+	on the stack when delivering interrupts (not just the lower
+	half)...
+	* mn10300.igen (mov (Di,Am),Dn):  Fix decode.  Registers were
+	specified in the wrong order.
+
+Fri Mar 27 00:56:40 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* dv-mn103cpu.c (deliver_mn103cpu_interrupt): Stop loss of
+ 	succeeding interrupts, clear pending_handler when the handler
+ 	isn't re-scheduled.
+
+Thu Mar 26 10:11:01 1998  Stu Grossman  <grossman@bhuna.cygnus.co.uk>
+
+	* Makefile.in (tmp-igen):  Prefix all usage of move-if-change
+	script with $(SHELL) to make NT native builds happy.
+	* configure:  Regenerate because of change to ../common/aclocal.m4.
+	
+Thu Mar 26 11:22:31 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in: Make --enable-sim-common the default.
+	* configure: Re-generate.
+	
+	* sim-main.h (CIA_GET, CIA_SET): Save/restore current instruction
+ 	address into Sate.regs[REG_PC] instead of common struct.
+
+Wed Mar 25 17:42:00 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* mn10300.igen (cmp imm8,An): Do not sign extend imm8 value.
+
+Wed Mar 25 12:08:00 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	* simops.c (OP_F0FD): Initialise variable 'sp'.
+
+Thu Mar 26 00:21:32 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* dv-mn103int.c (decode_group): A group register every 4 bytes not
+ 	8.
+	(write_icr): Rewrite equation updating request field.
+	(read_iagr): Fix check that interrupt is still pending.
+
+Wed Mar 25 16:14:50 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_open): Tidy up device creation.
+
+	* dv-mn103int.c (mn103int_port_event): Drive NMI with non-zero
+ 	value.
+	(mn103int_io_read_buffer): Convert absolute address to register
+ 	block offsets.
+	(read_icr, write_icr): Convert block offset into group offset.
+	
+Wed Mar 25 15:08:49 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_open): Create second 1mb memory region at
+ 	0x40000000.
+	(sim_open): Create a device tree.
+	(sim-hw.h): Include.
+	(do_interrupt): Delete, needs to use dv-mn103cpu.c
+
+	* dv-mn103int.c, dv-mn103cpu.c: New files.
+
+Wed Mar 25 08:47:38 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mn10300_sim.h (EXTRACT_PSW_LM, INSERT_PSW_LM, PSW_IE, PSW_LM):
+ 	Define.
+	(SP): Define.
+	
+Wed Mar 25 12:35:29 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 25 10:24:48 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim-options.h): Include.
+	(sim_kind, myname): Declare when not using common framework.
+
+	* mn10300_sim.h (do_syscall, generic*): Provide prototypes for
+ 	functions found in op_utils.c
+
+	* mn10300.igen (add): Discard unused variables.
+
+	* configure, config.in: Re-generate with autoconf 2.12.1.
+	
+Tue Mar 24 15:27:00 1998  Joyce Janczyn  <janczyn@cygnus.com>
+
+	Add support for --enable-sim-common option.
+	* Makefile.in (WITHOUT_COMMON_OBJS): Files included if
+	! --enable-sim-common
+	(WITH_COMMON_OBJS): Files included if --enable-sim-common.
+	(MN10300_OBJS,MN10300_INTERP_DEP): New variables.
+	(SIM_OBJS): Rewrite.
+	({WITHOUT,WITH}_COMMON_RUN_OBJS,SIM_RUN_OBJS): New variables.
+	(SIM_EXTRA_CFLAGS): New variable.
+	(clean-extra): Clean up igen files.
+	(../igen/igen,clean-igen,tmp-igen): New rules.
+	* configure.in: Add support for common framework via 
+	--enable-sim-common.
+	* configure: Regenerate.
+	* interp.c: #include sim-main if WITH_COMMON, not mn10300_sim.h.
+	(hash,dispatch,sim_size): Don't compile if ! WITH_COMMON.
+	(init_system,sim_write,compare_simops): Likewise.
+	(sim_set_profile,sim_set_profile_size): Likewise.
+	(sim_stop,sim_resume,sim_trace,sim_info): Likewise.
+	(sim_set_callbacks,sim_stop_reason,sim_read,sim_load): Likewise.
+	(enum interrupt_type): New enum.
+	(interrupt_names): New global.
+	(do_interrupt): New function.
+	(sim_open): Define differently if WITH_COMMON.
+	(sim_close,sim_create_inferior,sim_do_command): Likewise.
+	* mn10300_sim.h ({load,store}_{byte,half,word}): Define versions
+	for WITH_COMMON.
+	* mn10300.igen: New file.
+	* mn10300.dc: New file.
+	* op_utils.c: New file.
+	* sim-main.h: New file.
+
+Wed Mar 18 12:38:12 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Feb 27 18:36:04 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* simops.c (inc): Fix typo.
+
+Wed Feb 25 01:59:29 1998  Jeffrey A Law  (law@cygnus.com)
+
+        * simops.c (signed multiply instructions): Cast input operands to
+        signed32 before casting them to signed64 so that the sign bit
+        is propagated properly.
+
+Mon Feb 23 20:23:19 1998  Mark Alexander  <marka@cygnus.com>
+
+	* Makefile.in: Last change was bad.  Define NL_TARGET
+	so that targ-vals.h will be used instead of syscall.h.
+	* simops.c: Use targ-vals.h instead of syscall.h.
+	(OP_F020): Disable unsupported system calls.
+
+Mon Feb 23 09:44:38 1998  Mark Alexander  <marka@cygnus.com>
+
+	* Makefile.in: Get header files from libgloss/mn10300/sys.
+
+Sun Feb 22 16:02:24 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* simops.c: Include sim-types.h.
+
+Wed Feb 18 13:07:08 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* simops.c (multiply instructions): Cast input operands to a
+	signed64/unsigned64 type as appropriate.
+
+Tue Feb 17 12:47:16 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_store_register, sim_fetch_register): Pass in
+ 	length parameter.  Return -1.
+
 Sun Feb  1 16:47:51 1998  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* configure: Regenerated to track ../common/aclocal.m4 changes.

@@ -23,7 +23,7 @@
 #ifndef _SIM_ALU_H_
 #define _SIM_ALU_H_
 
-#include "sim-xcat.h"
+#include "symcat.h"
 
 
 /* INTEGER ALU MODULE:
@@ -336,6 +336,10 @@
 
 	        ! ( (X + Y) mod Un < X mod Un)
 
+   hence we get carry by computing in N bit unsigned arrithmetic.
+
+                carry <- (Xn + Yn) < Xn
+
 
 
    Subtraction - Introduction
@@ -517,7 +521,7 @@ alu32_v = 0
    arrithmetic, it is still used. */
 
 #define ALU64_BEGIN(VAL) \
-natural64 alu64_r = (VAL); \
+unsigned64 alu64_r = (VAL); \
 int alu64_c = 0; \
 int alu64_v = 0
 

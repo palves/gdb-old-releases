@@ -1,11 +1,9 @@
 /* Native support for SCO OpenServer 5
    Copyright 1996, 1998 Free Software Foundation, Inc.
-   Re-written by J. Kean Johnston <jkj@sco.com>
-
-   Originally by Robert Lipe <robertl@dgii.com>, 
-   based on work by Ian Lance Taylor <ian@cygnus.com> and 
+   Re-written by J. Kean Johnston <jkj@sco.com>.
+   Originally written by Robert Lipe <robertl@dgii.com>, based on 
+   work by Ian Lance Taylor <ian@cygnus.com> and 
    Martin Walker <maw@netcom.com>.
-
 
 This file is part of GDB.
 
@@ -37,3 +35,5 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define PTRACE_ATTACH 10
 #define PTRACE_DETACH 11
+
+

@@ -80,4 +80,11 @@ void sim_do_commandf (SIM_DESC sd, const char *fmt, ...);
 void sim_cb_printf (host_callback *, const char *, ...);
 void sim_cb_eprintf (host_callback *, const char *, ...);
 
+
+/* sim-basics.h defines a number of enumerations, convert each of them
+   to a string representation */
+const char *map_to_str (unsigned map);
+const char *access_to_str (unsigned access);
+const char *transfer_to_str (unsigned transfer);
+
 #endif

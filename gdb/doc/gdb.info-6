@@ -6,11 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is the Fifth Edition, April 1998, of `Debugging with GDB: the
-GNU Source-Level Debugger' for GDB Version .
+   This is the Seventh Edition, February 1999, of `Debugging with GDB:
+the GNU Source-Level Debugger' for GDB Version 4.18.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
-1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1988-1999 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -26,7 +25,345 @@ manual into another language, under the above conditions for modified
 versions.
 
 
-File: gdb.info,  Node: Target Commands,  Next: Remote,  Prev: Active Targets,  Up: Targets
+File: gdb.info,  Node: Files,  Next: Symbol Errors,  Prev: GDB Files,  Up: GDB Files
+
+Commands to specify files
+=========================
+
+   You may want to specify executable and core dump file names.  The
+usual way to do this is at start-up time, using the arguments to GDB's
+start-up commands (*note Getting In and Out of GDB: Invocation.).
+
+   Occasionally it is necessary to change to a different file during a
+GDB session.  Or you may run GDB and forget to specify a file you want
+to use.  In these situations the GDB commands to specify new files are
+useful.
+
+`file FILENAME'
+     Use FILENAME as the program to be debugged.  It is read for its
+     symbols and for the contents of pure memory.  It is also the
+     program executed when you use the `run' command.  If you do not
+     specify a directory and the file is not found in the GDB working
+     directory, GDB uses the environment variable `PATH' as a list of
+     directories to search, just as the shell does when looking for a
+     program to run.  You can change the value of this variable, for
+     both GDB and your program, using the `path' command.
+
+     On systems with memory-mapped files, an auxiliary file
+     `FILENAME.syms' may hold symbol table information for FILENAME.
+     If so, GDB maps in the symbol table from `FILENAME.syms', starting
+     up more quickly.  See the descriptions of the file options
+     `-mapped' and `-readnow' (available on the command line, and with
+     the commands `file', `symbol-file', or `add-symbol-file',
+     described below), for more information.
+
+`file'
+     `file' with no argument makes GDB discard any information it has
+     on both executable file and the symbol table.
+
+`exec-file [ FILENAME ]'
+     Specify that the program to be run (but not the symbol table) is
+     found in FILENAME.  GDB searches the environment variable `PATH'
+     if necessary to locate your program.  Omitting FILENAME means to
+     discard information on the executable file.
+
+`symbol-file [ FILENAME ]'
+     Read symbol table information from file FILENAME.  `PATH' is
+     searched when necessary.  Use the `file' command to get both symbol
+     table and program to run from the same file.
+
+     `symbol-file' with no argument clears out GDB information on your
+     program's symbol table.
+
+     The `symbol-file' command causes GDB to forget the contents of its
+     convenience variables, the value history, and all breakpoints and
+     auto-display expressions.  This is because they may contain
+     pointers to the internal data recording symbols and data types,
+     which are part of the old symbol table data being discarded inside
+     GDB.
+
+     `symbol-file' does not repeat if you press <RET> again after
+     executing it once.
+
+     When GDB is configured for a particular environment, it
+     understands debugging information in whatever format is the
+     standard generated for that environment; you may use either a GNU
+     compiler, or other compilers that adhere to the local conventions.
+     Best results are usually obtained from GNU compilers; for example,
+     using `gcc' you can generate debugging information for optimized
+     code.
+
+     For most kinds of object files, with the exception of old SVR3
+     systems using COFF, the `symbol-file' command does not normally
+     read the symbol table in full right away.  Instead, it scans the
+     symbol table quickly to find which source files and which symbols
+     are present.  The details are read later, one source file at a
+     time, as they are needed.
+
+     The purpose of this two-stage reading strategy is to make GDB
+     start up faster.  For the most part, it is invisible except for
+     occasional pauses while the symbol table details for a particular
+     source file are being read.  (The `set verbose' command can turn
+     these pauses into messages if desired.  *Note Optional warnings
+     and messages: Messages/Warnings.)
+
+     We have not implemented the two-stage strategy for COFF yet.  When
+     the symbol table is stored in COFF format, `symbol-file' reads the
+     symbol table data in full right away.  Note that "stabs-in-COFF"
+     still does the two-stage strategy, since the debug info is actually
+     in stabs format.
+
+`symbol-file FILENAME [ -readnow ] [ -mapped ]'
+`file FILENAME [ -readnow ] [ -mapped ]'
+     You can override the GDB two-stage strategy for reading symbol
+     tables by using the `-readnow' option with any of the commands that
+     load symbol table information, if you want to be sure GDB has the
+     entire symbol table available.
+
+     If memory-mapped files are available on your system through the
+     `mmap' system call, you can use another option, `-mapped', to
+     cause GDB to write the symbols for your program into a reusable
+     file.  Future GDB debugging sessions map in symbol information
+     from this auxiliary symbol file (if the program has not changed),
+     rather than spending time reading the symbol table from the
+     executable program.  Using the `-mapped' option has the same
+     effect as starting GDB with the `-mapped' command-line option.
+
+     You can use both options together, to make sure the auxiliary
+     symbol file has all the symbol information for your program.
+
+     The auxiliary symbol file for a program called MYPROG is called
+     `MYPROG.syms'.  Once this file exists (so long as it is newer than
+     the corresponding executable), GDB always attempts to use it when
+     you debug MYPROG; no special options or commands are needed.
+
+     The `.syms' file is specific to the host machine where you run
+     GDB.  It holds an exact image of the internal GDB symbol table.
+     It cannot be shared across multiple host platforms.
+
+`core-file [ FILENAME ]'
+     Specify the whereabouts of a core dump file to be used as the
+     "contents of memory".  Traditionally, core files contain only some
+     parts of the address space of the process that generated them; GDB
+     can access the executable file itself for other parts.
+
+     `core-file' with no argument specifies that no core file is to be
+     used.
+
+     Note that the core file is ignored when your program is actually
+     running under GDB.  So, if you have been running your program and
+     you wish to debug a core file instead, you must kill the
+     subprocess in which the program is running.  To do this, use the
+     `kill' command (*note Killing the child process: Kill Process.).
+
+`add-symbol-file FILENAME ADDRESS'
+`add-symbol-file FILENAME ADDRESS [ -readnow ] [ -mapped ]'
+     The `add-symbol-file' command reads additional symbol table
+     information from the file FILENAME.  You would use this command
+     when FILENAME has been dynamically loaded (by some other means)
+     into the program that is running.  ADDRESS should be the memory
+     address at which the file has been loaded; GDB cannot figure this
+     out for itself.  You can specify ADDRESS as an expression.
+
+     The symbol table of the file FILENAME is added to the symbol table
+     originally read with the `symbol-file' command.  You can use the
+     `add-symbol-file' command any number of times; the new symbol data
+     thus read keeps adding to the old.  To discard all old symbol data
+     instead, use the `symbol-file' command.
+
+     `add-symbol-file' does not repeat if you press <RET> after using
+     it.
+
+     You can use the `-mapped' and `-readnow' options just as with the
+     `symbol-file' command, to change how GDB manages the symbol table
+     information for FILENAME.
+
+`add-shared-symbol-file'
+     The `add-shared-symbol-file' command can be used only under
+     Harris' CXUX operating system for the Motorola 88k.  GDB
+     automatically looks for shared libraries, however if GDB does not
+     find yours, you can run `add-shared-symbol-file'.  It takes no
+     arguments.
+
+`section'
+     The `section' command changes the base address of section SECTION
+     of the exec file to ADDR.  This can be used if the exec file does
+     not contain section addresses, (such as in the a.out format), or
+     when the addresses specified in the file itself are wrong.  Each
+     section must be changed separately.  The "info files" command
+     lists all the sections and their addresses.
+
+`info files'
+`info target'
+     `info files' and `info target' are synonymous; both print the
+     current target (*note Specifying a Debugging Target: Targets.),
+     including the names of the executable and core dump files
+     currently in use by GDB, and the files from which symbols were
+     loaded.  The command `help target' lists all possible targets
+     rather than current ones.
+
+   All file-specifying commands allow both absolute and relative file
+names as arguments.  GDB always converts the file name to an absolute
+file name and remembers it that way.
+
+   GDB supports HP-UX, SunOS, SVr4, Irix 5, and IBM RS/6000 shared
+libraries.  GDB automatically loads symbol definitions from shared
+libraries when you use the `run' command, or when you examine a core
+file.  (Before you issue the `run' command, GDB does not understand
+references to a function in a shared library, however--unless you are
+debugging a core file).
+
+`info share'
+`info sharedlibrary'
+     Print the names of the shared libraries which are currently loaded.
+
+`sharedlibrary REGEX'
+`share REGEX'
+     Load shared object library symbols for files matching a Unix
+     regular expression.  As with files loaded automatically, it only
+     loads shared libraries required by your program for a core file or
+     after typing `run'.  If REGEX is omitted all shared libraries
+     required by your program are loaded.
+
+
+File: gdb.info,  Node: Symbol Errors,  Prev: Files,  Up: GDB Files
+
+Errors reading symbol files
+===========================
+
+   While reading a symbol file, GDB occasionally encounters problems,
+such as symbol types it does not recognize, or known bugs in compiler
+output.  By default, GDB does not notify you of such problems, since
+they are relatively common and primarily of interest to people
+debugging compilers.  If you are interested in seeing information about
+ill-constructed symbol tables, you can either ask GDB to print only one
+message about each such type of problem, no matter how many times the
+problem occurs; or you can ask GDB to print more messages, to see how
+many times the problems occur, with the `set complaints' command (*note
+Optional warnings and messages: Messages/Warnings.).
+
+   The messages currently printed, and their meanings, include:
+
+`inner block not inside outer block in SYMBOL'
+     The symbol information shows where symbol scopes begin and end
+     (such as at the start of a function or a block of statements).
+     This error indicates that an inner scope block is not fully
+     contained in its outer scope blocks.
+
+     GDB circumvents the problem by treating the inner block as if it
+     had the same scope as the outer block.  In the error message,
+     SYMBOL may be shown as "`(don't know)'" if the outer block is not a
+     function.
+
+`block at ADDRESS out of order'
+     The symbol information for symbol scope blocks should occur in
+     order of increasing addresses.  This error indicates that it does
+     not do so.
+
+     GDB does not circumvent this problem, and has trouble locating
+     symbols in the source file whose symbols it is reading.  (You can
+     often determine what source file is affected by specifying `set
+     verbose on'.  *Note Optional warnings and messages:
+     Messages/Warnings.)
+
+`bad block start address patched'
+     The symbol information for a symbol scope block has a start address
+     smaller than the address of the preceding source line.  This is
+     known to occur in the SunOS 4.1.1 (and earlier) C compiler.
+
+     GDB circumvents the problem by treating the symbol scope block as
+     starting on the previous source line.
+
+`bad string table offset in symbol N'
+     Symbol number N contains a pointer into the string table which is
+     larger than the size of the string table.
+
+     GDB circumvents the problem by considering the symbol to have the
+     name `foo', which may cause other problems if many symbols end up
+     with this name.
+
+`unknown symbol type `0xNN''
+     The symbol information contains new data types that GDB does not
+     yet know how to read.  `0xNN' is the symbol type of the
+     misunderstood information, in hexadecimal.
+
+     GDB circumvents the error by ignoring this symbol information.
+     This usually allows you to debug your program, though certain
+     symbols are not accessible.  If you encounter such a problem and
+     feel like debugging it, you can debug `gdb' with itself,
+     breakpoint on `complain', then go up to the function
+     `read_dbx_symtab' and examine `*bufp' to see the symbol.
+
+`stub type has NULL name'
+     GDB could not find the full definition for a struct or class.
+
+`const/volatile indicator missing (ok if using g++ v1.x), got...'
+     The symbol information for a C++ member function is missing some
+     information that recent versions of the compiler should have output
+     for it.
+
+`info mismatch between compiler and debugger'
+     GDB could not parse a type specification output by the compiler.
+
+
+File: gdb.info,  Node: Targets,  Next: Controlling GDB,  Prev: GDB Files,  Up: Top
+
+Specifying a Debugging Target
+*****************************
+
+   A "target" is the execution environment occupied by your program.
+Often, GDB runs in the same host environment as your program; in that
+case, the debugging target is specified as a side effect when you use
+the `file' or `core' commands.  When you need more flexibility--for
+example, running GDB on a physically separate host, or controlling a
+standalone system over a serial port or a realtime system over a TCP/IP
+connection--you can use the `target' command to specify one of the
+target types configured for GDB (*note Commands for managing targets:
+Target Commands.).
+
+* Menu:
+
+* Active Targets::              Active targets
+* Target Commands::             Commands for managing targets
+
+* Byte Order::                  Choosing target byte order
+* Remote::                      Remote debugging
+
+
+File: gdb.info,  Node: Active Targets,  Next: Target Commands,  Prev: Targets,  Up: Targets
+
+Active targets
+==============
+
+   There are three classes of targets: processes, core files, and
+executable files.  GDB can work concurrently on up to three active
+targets, one in each class.  This allows you to (for example) start a
+process and inspect its activity without abandoning your work on a core
+file.
+
+   For example, if you execute `gdb a.out', then the executable file
+`a.out' is the only active target.  If you designate a core file as
+well--presumably from a prior run that crashed and coredumped--then GDB
+has two active targets and uses them in tandem, looking first in the
+corefile target, then in the executable file, to satisfy requests for
+memory addresses.  (Typically, these two classes of target are
+complementary, since core files contain only a program's read-write
+memory--variables and so on--plus machine status, while executable
+files contain only the program text and initialized data.)
+
+   When you type `run', your executable file becomes an active process
+target as well.  When a process target is active, all GDB commands
+requesting memory addresses refer to that target; addresses in an
+active core file or executable file target are obscured while the
+process target is active.
+
+   Use the `core-file' and `exec-file' commands to select a new core
+file or executable target (*note Commands to specify files: Files.).
+To specify as a target a process that is already running, use the
+`attach' command (*note Debugging an already-running process: Attach.).
+
+
+File: gdb.info,  Node: Target Commands,  Next: Byte Order,  Prev: Active Targets,  Up: Targets
 
 Commands for managing targets
 =============================
@@ -54,11 +391,11 @@ Commands for managing targets
      select it.
 
 `set gnutarget ARGS'
-     GDBuses its own library BFD to read your files.  GDB knows whether
-     it is reading an "executable", a "core", or a ".o" file, however
-     you can specify the file format with the `set gnutarget' command.
-     Unlike most `target' commands, with `gnutarget' the `target'
-     refers to a program, not a machine.
+     GDB uses its own library BFD to read your files.  GDB knows
+     whether it is reading an "executable", a "core", or a ".o" file;
+     however, you can specify the file format with the `set gnutarget'
+     command.  Unlike most `target' commands, with `gnutarget' the
+     `target' refers to a program, not a machine.
 
      *Warning:* To specify a file format with `set gnutarget', you must
      know the actual BFD name.
@@ -68,7 +405,7 @@ Commands for managing targets
 `show gnutarget'
      Use the `show gnutarget' command to display what file format
      `gnutarget' is set to read.  If you have not set `gnutarget', GDB
-     will determine the file format for each file automatically and
+     will determine the file format for each file automatically, and
      `show gnutarget' displays `The current BDF target is "auto"'.
 
    Here are some common targets (available, or not, depending on the GDB
@@ -94,10 +431,14 @@ configuration):
 `target sim'
      CPU simulator.  *Note Simulated CPU Target: Simulator.
 
-`target udi KEYWORD'
-     Remote AMD29K target, using the AMD UDI protocol.  The KEYWORD
-     argument specifies which 29K board or simulator to use.  *Note The
-     UDI protocol for AMD29K: UDI29K Remote.
+   The following targets are all CPU-specific, and only available for
+specific configurations.
+
+`target abug DEV'
+     ABug ROM monitor for M68K.
+
+`target adapt DEV'
+     Adapt monitor for A29K.
 
 `target amd-eb DEV SPEED PROG'
      Remote PC-resident AMD EB29K board, attached over serial lines.
@@ -106,17 +447,98 @@ configuration):
      be debugged, as it appears to DOS on the PC.  *Note The EBMON
      protocol for AMD29K: EB29K Remote.
 
+`target array DEV'
+     Array Tech LSI33K RAID controller board.
+
+`target bug DEV'
+     BUG monitor, running on a MVME187 (m88k) board.
+
+`target cpu32bug DEV'
+     CPU32BUG monitor, running on a CPU32 (M68K) board.
+
+`target dbug DEV'
+     dBUG ROM monitor for Motorola ColdFire.
+
+`target ddb DEV'
+     NEC's DDB monitor for Mips Vr4300.
+
+`target dink32 DEV'
+     DINK32 ROM monitor for PowerPC.
+
+`target e7000 DEV'
+     E7000 emulator for Hitachi H8 and SH.
+
+`target es1800 DEV'
+     ES-1800 emulator for M68K.
+
+`target est DEV'
+     EST-300 ICE monitor, running on a CPU32 (M68K) board.
+
 `target hms DEV'
      A Hitachi SH, H8/300, or H8/500 board, attached via serial line to
      your host.  Use special commands `device' and `speed' to control
      the serial line and the communications speed used.  *Note GDB and
      Hitachi Microprocessors: Hitachi Remote.
 
+`target lsi DEV'
+     LSI ROM monitor for Mips.
+
+`target m32r DEV'
+     Mitsubishi M32R/D ROM monitor.
+
+`target mips DEV'
+     IDT/SIM ROM monitor for Mips.
+
+`target mon960 DEV'
+     MON960 monitor for Intel i960.
+
 `target nindy DEVICENAME'
      An Intel 960 board controlled by a Nindy Monitor.  DEVICENAME is
      the name of the serial device to use for the connection, e.g.
      `/dev/ttya'.  *Note GDB with a remote i960 (Nindy): i960-Nindy
      Remote.
+
+`target nrom DEV'
+     NetROM ROM emulator.  This target only supports downloading.
+
+`target op50n DEV'
+     OP50N monitor, running on an OKI HPPA board.
+
+`target pmon DEV'
+     PMON ROM monitor for Mips.
+
+`target ppcbug DEV'
+
+`target ppcbug1 DEV'
+     PPCBUG ROM monitor for PowerPC.
+
+`target r3900 DEV'
+     Densan DVE-R3900 ROM monitor for Toshiba R3900 Mips.
+
+`target rdi DEV'
+     ARM Angel monitor, via RDI library interface.
+
+`target rdp DEV'
+     ARM Demon monitor.
+
+`target rom68k DEV'
+     ROM 68K monitor, running on an M68K IDP board.
+
+`target rombug DEV'
+     ROMBUG ROM monitor for OS/9000.
+
+`target sds DEV'
+     SDS monitor, running on a PowerPC board (such as Motorola's ADS).
+
+`target sparclite DEV'
+     Fujitsu sparclite boards, used only for the purpose of loading.
+     You must use an additional command to debug the program.  For
+     example: target remote DEV using GDB standard remote protocol.
+
+`target sh3 DEV'
+
+`target sh3e DEV'
+     Hitachi SH-3 and SH-3E target systems.
 
 `target st2000 DEV SPEED'
      A Tandem ST2000 phone switch, running Tandem's STDBUG protocol.
@@ -125,54 +547,87 @@ configuration):
      if GDB is configured to connect to the ST2000 using TCP or Telnet.
      *Note GDB with a Tandem ST2000: ST2000 Remote.
 
+`target udi KEYWORD'
+     Remote AMD29K target, using the AMD UDI protocol.  The KEYWORD
+     argument specifies which 29K board or simulator to use.  *Note The
+     UDI protocol for AMD29K: UDI29K Remote.
+
 `target vxworks MACHINENAME'
      A VxWorks system, attached via TCP/IP.  The argument MACHINENAME
      is the target system's machine name or IP address.  *Note GDB and
      VxWorks: VxWorks Remote.
 
-`target bug DEV'
-     BUG monitor, running on a MVME187 (m88k) board.
-
-`target cpu32bug DEV'
-     CPU32BUG monitor, running on a CPU32 (M68K) board.
-
-`target op50n DEV'
-     OP50N monitor, running on an OKI HPPA board.
-
 `target w89k DEV'
      W89K monitor, running on a Winbond HPPA board.
-
-`target est DEV'
-     EST-300 ICE monitor, running on a CPU32 (M68K) board.
-
-`target rom68k DEV'
-     ROM 68K monitor, running on an IDP board.
-
-`target array DEV'
-     Array Tech LSI33K RAID controller board.
-
-`target sparclite DEV'
-     Fujitsu sparclite boards, used only for the purpose of loading.
-     You must use an additional command to debug the program.  For
-     example: target remote DEV using GDB standard remote protocol.
 
    Different targets are available on different configurations of GDB;
 your configuration may have more or fewer targets.
 
+   Many remote targets require you to download the executable's code
+once you've successfully established a connection.
+
+`load FILENAME'
+     Depending on what remote debugging facilities are configured into
+     GDB, the `load' command may be available.  Where it exists, it is
+     meant to make FILENAME (an executable) available for debugging on
+     the remote system--by downloading, or dynamic linking, for example.
+     `load' also records the FILENAME symbol table in GDB, like the
+     `add-symbol-file' command.
+
+     If your GDB does not have a `load' command, attempting to execute
+     it gets the error message "`You can't do that when your target is
+     ...'"
+
+     The file is loaded at whatever address is specified in the
+     executable.  For some object file formats, you can specify the
+     load address when you link the program; for other formats, like
+     a.out, the object file format specifies a fixed address.
+
+     On VxWorks, `load' links FILENAME dynamically on the current
+     target system as well as adding its symbols in GDB.
+
+     With the Nindy interface to an Intel 960 board, `load' downloads
+     FILENAME to the 960 as well as adding its symbols in GDB.
+
+     When you select remote debugging to a Hitachi SH, H8/300, or
+     H8/500 board (*note GDB and Hitachi Microprocessors: Hitachi
+     Remote.), the `load' command downloads your program to the Hitachi
+     board and also opens it as the current executable target for GDB
+     on your host (like the `file' command).
+
+     `load' does not repeat if you press <RET> again after using it.
+
+
+File: gdb.info,  Node: Byte Order,  Next: Remote,  Prev: Target Commands,  Up: Targets
+
 Choosing target byte order
 ==========================
 
-   You can now choose which byte order to use with a target system.
-Use the `set endian big' and `set endian little' commands.  Use the
-`set endian auto' command to instruct GDB to use the byte order
-associated with the executable.  You can see the current setting for
-byte order with the `show endian' command.
+   Some types of processors, such as the MIPS, PowerPC, and Hitachi SH,
+offer the ability to run either big-endian or little-endian byte
+orders.  Usually the executable or symbol will include a bit to
+designate the endian-ness, and you will not need to worry about which
+to use.  However, you may still find it useful to adjust GDB's idea of
+processor endian-ness manually.
 
-   *Warning:* Currently, only embedded MIPS configurations support
-dynamic selection of target byte order.
+`set endian big'
+     Instruct GDB to assume the target is big-endian.
+
+`set endian little'
+     Instruct GDB to assume the target is little-endian.
+
+`set endian auto'
+     Instruct GDB to use the byte order associated with the executable.
+
+`show endian'
+     Display GDB's current idea of the target byte order.
+
+   Note that these commands merely adjust interpretation of symbolic
+data on the host, and that they have absolutely no effect on the target
+system.
 
 
-File: gdb.info,  Node: Remote,  Prev: Target Commands,  Up: Targets
+File: gdb.info,  Node: Remote,  Prev: Byte Order,  Up: Targets
 
 Remote debugging
 ================
@@ -577,9 +1032,8 @@ list of commands, look in `gdb/remote.c.'):
      breakpoints.  This eliminates the need to fetch the entire
      register set for each instruction being stepped through.
 
-     The GDB remote serial protocol now implements a write-through
-     cache for registers.  GDB only re-reads the registers if the
-     target has run.
+     GDB now implements a write-through cache for registers and only
+     re-reads the registers if the target has run.
 
    If you have trouble with the serial connection, you can use the
 command `set remotedebug'.  This makes GDB report on all packets sent
@@ -769,526 +1223,4 @@ identifies the serial port you want to use.  You can, if you choose,
 simply start up with no Nindy connection by responding to the prompt
 with an empty line.  If you do this and later wish to attach to Nindy,
 use `target' (*note Commands for managing targets: Target Commands.).
-
-
-File: gdb.info,  Node: Nindy Options,  Next: Nindy Reset,  Prev: Nindy Startup,  Up: i960-Nindy Remote
-
-Options for Nindy
-.................
-
-   These are the startup options for beginning your GDB session with a
-Nindy-960 board attached:
-
-`-r PORT'
-     Specify the serial port name of a serial interface to be used to
-     connect to the target system.  This option is only available when
-     GDB is configured for the Intel 960 target architecture.  You may
-     specify PORT as any of: a full pathname (e.g. `-r /dev/ttya'), a
-     device name in `/dev' (e.g. `-r ttya'), or simply the unique
-     suffix for a specific `tty' (e.g. `-r a').
-
-`-O'
-     (An uppercase letter "O", not a zero.)  Specify that GDB should use
-     the "old" Nindy monitor protocol to connect to the target system.
-     This option is only available when GDB is configured for the Intel
-     960 target architecture.
-
-          *Warning:* if you specify `-O', but are actually trying to
-          connect to a target system that expects the newer protocol,
-          the connection fails, appearing to be a speed mismatch.  GDB
-          repeatedly attempts to reconnect at several different line
-          speeds.  You can abort this process with an interrupt.
-
-`-brk'
-     Specify that GDB should first send a `BREAK' signal to the target
-     system, in an attempt to reset it, before connecting to a Nindy
-     target.
-
-          *Warning:* Many target systems do not have the hardware that
-          this requires; it only works with a few boards.
-
-   The standard `-b' option controls the line speed used on the serial
-port.
-
-
-File: gdb.info,  Node: Nindy Reset,  Prev: Nindy Options,  Up: i960-Nindy Remote
-
-Nindy reset command
-...................
-
-`reset'
-     For a Nindy target, this command sends a "break" to the remote
-     target system; this is only useful if the target has been equipped
-     with a circuit to perform a hard reset (or some other interesting
-     action) when a break is detected.
-
-
-File: gdb.info,  Node: UDI29K Remote,  Next: EB29K Remote,  Prev: i960-Nindy Remote,  Up: Remote
-
-The UDI protocol for AMD29K
----------------------------
-
-   GDB supports AMD's UDI ("Universal Debugger Interface") protocol for
-debugging the a29k processor family.  To use this configuration with
-AMD targets running the MiniMON monitor, you need the program `MONTIP',
-available from AMD at no charge.  You can also use GDB with the
-UDI-conformant a29k simulator program `ISSTIP', also available from AMD.
-
-`target udi KEYWORD'
-     Select the UDI interface to a remote a29k board or simulator, where
-     KEYWORD is an entry in the AMD configuration file `udi_soc'.  This
-     file contains keyword entries which specify parameters used to
-     connect to a29k targets.  If the `udi_soc' file is not in your
-     working directory, you must set the environment variable `UDICONF'
-     to its pathname.
-
-
-File: gdb.info,  Node: EB29K Remote,  Next: VxWorks Remote,  Prev: UDI29K Remote,  Up: Remote
-
-The EBMON protocol for AMD29K
------------------------------
-
-   AMD distributes a 29K development board meant to fit in a PC,
-together with a DOS-hosted monitor program called `EBMON'.  As a
-shorthand term, this development system is called the "EB29K".  To use
-GDB from a Unix system to run programs on the EB29K board, you must
-first connect a serial cable between the PC (which hosts the EB29K
-board) and a serial port on the Unix system.  In the following, we
-assume you've hooked the cable between the PC's `COM1' port and
-`/dev/ttya' on the Unix system.
-
-* Menu:
-
-* Comms (EB29K)::               Communications setup
-* gdb-EB29K::                   EB29K cross-debugging
-* Remote Log::                  Remote log
-
-
-File: gdb.info,  Node: Comms (EB29K),  Next: gdb-EB29K,  Up: EB29K Remote
-
-Communications setup
-....................
-
-   The next step is to set up the PC's port, by doing something like
-this in DOS on the PC:
-
-     C:\> MODE com1:9600,n,8,1,none
-
-This example--run on an MS DOS 4.0 system--sets the PC port to 9600
-bps, no parity, eight data bits, one stop bit, and no "retry" action;
-you must match the communications parameters when establishing the Unix
-end of the connection as well.
-
-   To give control of the PC to the Unix side of the serial line, type
-the following at the DOS console:
-
-     C:\> CTTY com1
-
-(Later, if you wish to return control to the DOS console, you can use
-the command `CTTY con'--but you must send it over the device that had
-control, in our example over the `COM1' serial line).
-
-   From the Unix host, use a communications program such as `tip' or
-`cu' to communicate with the PC; for example,
-
-     cu -s 9600 -l /dev/ttya
-
-The `cu' options shown specify, respectively, the linespeed and the
-serial port to use.  If you use `tip' instead, your command line may
-look something like the following:
-
-     tip -9600 /dev/ttya
-
-Your system may require a different name where we show `/dev/ttya' as
-the argument to `tip'.  The communications parameters, including which
-port to use, are associated with the `tip' argument in the "remote"
-descriptions file--normally the system table `/etc/remote'.
-
-   Using the `tip' or `cu' connection, change the DOS working directory
-to the directory containing a copy of your 29K program, then start the
-PC program `EBMON' (an EB29K control program supplied with your board
-by AMD).  You should see an initial display from `EBMON' similar to the
-one that follows, ending with the `EBMON' prompt `#'--
-
-     C:\> G:
-     
-     G:\> CD \usr\joe\work29k
-     
-     G:\USR\JOE\WORK29K> EBMON
-     Am29000 PC Coprocessor Board Monitor, version 3.0-18
-     Copyright 1990 Advanced Micro Devices, Inc.
-     Written by Gibbons and Associates, Inc.
-     
-     Enter '?' or 'H' for help
-     
-     PC Coprocessor Type   = EB29K
-     I/O Base              = 0x208
-     Memory Base           = 0xd0000
-     
-     Data Memory Size      = 2048KB
-     Available I-RAM Range = 0x8000 to 0x1fffff
-     Available D-RAM Range = 0x80002000 to 0x801fffff
-     
-     PageSize              = 0x400
-     Register Stack Size   = 0x800
-     Memory Stack Size     = 0x1800
-     
-     CPU PRL               = 0x3
-     Am29027 Available     = No
-     Byte Write Available  = Yes
-     
-     # ~.
-
-   Then exit the `cu' or `tip' program (done in the example by typing
-`~.' at the `EBMON' prompt).  `EBMON' keeps running, ready for GDB to
-take over.
-
-   For this example, we've assumed what is probably the most convenient
-way to make sure the same 29K program is on both the PC and the Unix
-system: a PC/NFS connection that establishes "drive `G:'" on the PC as
-a file system on the Unix host.  If you do not have PC/NFS or something
-similar connecting the two systems, you must arrange some other
-way--perhaps floppy-disk transfer--of getting the 29K program from the
-Unix system to the PC; GDB does *not* download it over the serial line.
-
-
-File: gdb.info,  Node: gdb-EB29K,  Next: Remote Log,  Prev: Comms (EB29K),  Up: EB29K Remote
-
-EB29K cross-debugging
-.....................
-
-   Finally, `cd' to the directory containing an image of your 29K
-program on the Unix system, and start GDB--specifying as argument the
-name of your 29K program:
-
-     cd /usr/joe/work29k
-     gdb myfoo
-
-   Now you can use the `target' command:
-
-     target amd-eb /dev/ttya 9600 MYFOO
-
-In this example, we've assumed your program is in a file called
-`myfoo'.  Note that the filename given as the last argument to `target
-amd-eb' should be the name of the program as it appears to DOS.  In our
-example this is simply `MYFOO', but in general it can include a DOS
-path, and depending on your transfer mechanism may not resemble the
-name on the Unix side.
-
-   At this point, you can set any breakpoints you wish; when you are
-ready to see your program run on the 29K board, use the GDB command
-`run'.
-
-   To stop debugging the remote program, use the GDB `detach' command.
-
-   To return control of the PC to its console, use `tip' or `cu' once
-again, after your GDB session has concluded, to attach to `EBMON'.  You
-can then type the command `q' to shut down `EBMON', returning control
-to the DOS command-line interpreter.  Type `CTTY con' to return command
-input to the main DOS console, and type `~.' to leave `tip' or `cu'.
-
-
-File: gdb.info,  Node: Remote Log,  Prev: gdb-EB29K,  Up: EB29K Remote
-
-Remote log
-..........
-
-   The `target amd-eb' command creates a file `eb.log' in the current
-working directory, to help debug problems with the connection.
-`eb.log' records all the output from `EBMON', including echoes of the
-commands sent to it.  Running `tail -f' on this file in another window
-often helps to understand trouble with `EBMON', or unexpected events on
-the PC side of the connection.
-
-
-File: gdb.info,  Node: ST2000 Remote,  Next: Hitachi Remote,  Prev: VxWorks Remote,  Up: Remote
-
-GDB with a Tandem ST2000
-------------------------
-
-   To connect your ST2000 to the host system, see the manufacturer's
-manual.  Once the ST2000 is physically attached, you can run:
-
-     target st2000 DEV SPEED
-
-to establish it as your debugging environment.  DEV is normally the
-name of a serial device, such as `/dev/ttya', connected to the ST2000
-via a serial line.  You can instead specify DEV as a TCP connection
-(for example, to a serial line attached via a terminal concentrator)
-using the syntax `HOSTNAME:PORTNUMBER'.
-
-   The `load' and `attach' commands are *not* defined for this target;
-you must load your program into the ST2000 as you normally would for
-standalone operation.  GDB reads debugging information (such as
-symbols) from a separate, debugging version of the program available on
-your host computer.
-
-   These auxiliary GDB commands are available to help you with the
-ST2000 environment:
-
-`st2000 COMMAND'
-     Send a COMMAND to the STDBUG monitor.  See the manufacturer's
-     manual for available commands.
-
-`connect'
-     Connect the controlling terminal to the STDBUG command monitor.
-     When you are done interacting with STDBUG, typing either of two
-     character sequences gets you back to the GDB command prompt:
-     `<RET>~.' (Return, followed by tilde and period) or `<RET>~<C-d>'
-     (Return, followed by tilde and control-D).
-
-
-File: gdb.info,  Node: VxWorks Remote,  Next: ST2000 Remote,  Prev: EB29K Remote,  Up: Remote
-
-GDB and VxWorks
----------------
-
-   GDB enables developers to spawn and debug tasks running on networked
-VxWorks targets from a Unix host.  Already-running tasks spawned from
-the VxWorks shell can also be debugged.  GDB uses code that runs on
-both the Unix host and on the VxWorks target.  The program `gdb' is
-installed and executed on the Unix host.  (It may be installed with the
-name `vxgdb', to distinguish it from a GDB for debugging programs on
-the host itself.)
-
-`VxWorks-timeout ARGS'
-     All VxWorks-based targets now support the option `vxworks-timeout'.
-     This option is set by the user, and  ARGS represents the number of
-     seconds GDB waits for responses to rpc's.  You might use this if
-     your VxWorks target is a slow software simulator or is on the far
-     side of a thin network line.
-
-   The following information on connecting to VxWorks was current when
-this manual was produced; newer releases of VxWorks may use revised
-procedures.
-
-   To use GDB with VxWorks, you must rebuild your VxWorks kernel to
-include the remote debugging interface routines in the VxWorks library
-`rdb.a'.  To do this, define `INCLUDE_RDB' in the VxWorks configuration
-file `configAll.h' and rebuild your VxWorks kernel.  The resulting
-kernel contains `rdb.a', and spawns the source debugging task
-`tRdbTask' when VxWorks is booted.  For more information on configuring
-and remaking VxWorks, see the manufacturer's manual.
-
-   Once you have included `rdb.a' in your VxWorks system image and set
-your Unix execution search path to find GDB, you are ready to run GDB.
-From your Unix host, run `gdb' (or `vxgdb', depending on your
-installation).
-
-   GDB comes up showing the prompt:
-
-     (vxgdb)
-
-* Menu:
-
-* VxWorks Connection::          Connecting to VxWorks
-* VxWorks Download::            VxWorks download
-* VxWorks Attach::              Running tasks
-
-
-File: gdb.info,  Node: VxWorks Connection,  Next: VxWorks Download,  Up: VxWorks Remote
-
-Connecting to VxWorks
-.....................
-
-   The GDB command `target' lets you connect to a VxWorks target on the
-network.  To connect to a target whose host name is "`tt'", type:
-
-     (vxgdb) target vxworks tt
-
-   GDB displays messages like these:
-
-     Attaching remote machine across net...
-     Connected to tt.
-
-   GDB then attempts to read the symbol tables of any object modules
-loaded into the VxWorks target since it was last booted.  GDB locates
-these files by searching the directories listed in the command search
-path (*note Your program's environment: Environment.); if it fails to
-find an object file, it displays a message such as:
-
-     prog.o: No such file or directory.
-
-   When this happens, add the appropriate directory to the search path
-with the GDB command `path', and execute the `target' command again.
-
-
-File: gdb.info,  Node: VxWorks Download,  Next: VxWorks Attach,  Prev: VxWorks Connection,  Up: VxWorks Remote
-
-VxWorks download
-................
-
-   If you have connected to the VxWorks target and you want to debug an
-object that has not yet been loaded, you can use the GDB `load' command
-to download a file from Unix to VxWorks incrementally.  The object file
-given as an argument to the `load' command is actually opened twice:
-first by the VxWorks target in order to download the code, then by GDB
-in order to read the symbol table.  This can lead to problems if the
-current working directories on the two systems differ.  If both systems
-have NFS mounted the same filesystems, you can avoid these problems by
-using absolute paths.  Otherwise, it is simplest to set the working
-directory on both systems to the directory in which the object file
-resides, and then to reference the file by its name, without any path.
-For instance, a program `prog.o' may reside in `VXPATH/vw/demo/rdb' in
-VxWorks and in `HOSTPATH/vw/demo/rdb' on the host.  To load this
-program, type this on VxWorks:
-
-     -> cd "VXPATH/vw/demo/rdb"
-   v Then, in GDB, type:
-
-     (vxgdb) cd HOSTPATH/vw/demo/rdb
-     (vxgdb) load prog.o
-
-   GDB displays a response similar to this:
-
-     Reading symbol data from wherever/vw/demo/rdb/prog.o... done.
-
-   You can also use the `load' command to reload an object module after
-editing and recompiling the corresponding source file.  Note that this
-makes GDB delete all currently-defined breakpoints, auto-displays, and
-convenience variables, and to clear the value history.  (This is
-necessary in order to preserve the integrity of debugger data
-structures that reference the target system's symbol table.)
-
-
-File: gdb.info,  Node: VxWorks Attach,  Prev: VxWorks Download,  Up: VxWorks Remote
-
-Running tasks
-.............
-
-   You can also attach to an existing task using the `attach' command as
-follows:
-
-     (vxgdb) attach TASK
-
-where TASK is the VxWorks hexadecimal task ID.  The task can be running
-or suspended when you attach to it.  Running tasks are suspended at the
-time of attachment.
-
-
-File: gdb.info,  Node: Sparclet Remote,  Next: Simulator,  Prev: MIPS Remote,  Up: Remote
-
-GDB and Sparclet
-----------------
-
-   GDB enables developers to debug tasks running on Sparclet targets
-from a Unix host.  GDB uses code that runs on both the Unix host and on
-the Sparclet target.  The program `gdb' is installed and executed on
-the Unix host.
-
-`timeout ARGS'
-     GDB now supports the option `remotetimeout'.  This option is set
-     by the user, and  ARGS represents the number of seconds GDB waits
-     for responses.
-
-   When compiling for debugging, include the options "-g" to get debug
-information and "-Ttext" to relocate the program to where you wish to
-load it on the target.  You may also want to add the options "-n" or
-"-N" in order to reduce the size of the sections.
-
-     sparclet-aout-gcc prog.c -Ttext 0x12010000 -g -o prog -N
-
-   You can use objdump to verify that the addresses are what you
-intended.
-
-     sparclet-aout-objdump --headers --syms prog
-
-   Once you have set your Unix execution search path to find GDB, you
-are ready to run GDB.  From your Unix host, run `gdb' (or
-`sparclet-aout-gdb', depending on your installation).
-
-   GDB comes up showing the prompt:
-
-     (gdbslet)
-
-* Menu:
-
-* Sparclet File::                Setting the file to debug
-* Sparclet Connection::          Connecting to Sparclet
-* Sparclet Download::            Sparclet download
-* Sparclet Execution::           Running and debugging
-
-
-File: gdb.info,  Node: Sparclet File,  Next: Sparclet Connection,  Up: Sparclet Remote
-
-Setting file to debug
-.....................
-
-   The GDB command `file' lets you choose with program to debug.
-
-     (gdbslet) file prog
-
-   GDB then attempts to read the symbol table of `prog'.  GDB locates
-the file by searching the directories listed in the command search path.
-If the file was compiled with debug information (option "-g"), source
-files will be searched as well.  GDB locates the source files by
-searching the directories listed in the directory search path (*note
-Your program's environment: Environment.).  If it fails to find a file,
-it displays a message such as:
-
-     prog: No such file or directory.
-
-   When this happens, add the appropriate directories to the search
-paths with the GDB commands `path' and `dir', and execute the `target'
-command again.
-
-
-File: gdb.info,  Node: Sparclet Connection,  Next: Sparclet Download,  Prev: Sparclet File,  Up: Sparclet Remote
-
-Connecting to Sparclet
-......................
-
-   The GDB command `target' lets you connect to a Sparclet target.  To
-connect to a target on serial port "`ttya'", type:
-
-     (gdbslet) target sparclet /dev/ttya
-     Remote target sparclet connected to /dev/ttya
-     main () at ../prog.c:3
-
-   GDB displays messages like these:
-
-     Connected to ttya.
-
-
-File: gdb.info,  Node: Sparclet Download,  Next: Sparclet Execution,  Prev: Sparclet Connection,  Up: Sparclet Remote
-
-Sparclet download
-.................
-
-   Once connected to the Sparclet target, you can use the GDB `load'
-command to download the file from the host to the target.  The file
-name and load offset should be given as arguments to the `load' command.
-Since the file format is aout, the program must be loaded to the
-starting address.  You can use objdump to find out what this value is.
-The load offset is an offset which is added to the VMA (virtual memory
-address) of each of the file's sections.  For instance, if the program
-`prog' was linked to text address 0x1201000, with data at 0x12010160
-and bss at 0x12010170, in GDB, type:
-
-     (gdbslet) load prog 0x12010000
-     Loading section .text, size 0xdb0 vma 0x12010000
-
-   If the code is loaded at a different address then what the program
-was linked to, you may need to use the `section' and `add-symbol-file'
-commands to tell GDB where to map the symbol table.
-
-
-File: gdb.info,  Node: Sparclet Execution,  Prev: Sparclet Download,  Up: Sparclet Remote
-
-Running and debugging
-.....................
-
-   You can now begin debugging the task using GDB's execution control
-commands, `b', `step', `run', etc.  See the GDB manual for the list of
-commands.
-
-     (gdbslet) b main
-     Breakpoint 1 at 0x12010000: file prog.c, line 3.
-     (gdbslet) run
-     Starting program: prog
-     Breakpoint 1, main (argc=1, argv=0xeffff21c) at prog.c:3
-     3        char *symarg = 0;
-     (gdbslet) step
-     4        char *execarg = "hello!";
-     (gdbslet)
 

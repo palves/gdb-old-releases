@@ -1,5 +1,6 @@
 /* Support for the generic parts of COFF, for BFD.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -657,16 +658,18 @@ coff_renumber_symbols (bfd_ptr, first_undef)
       if ((symbol_ptr_ptr[i]->flags & BSF_NOT_AT_END) != 0
 	  || (!bfd_is_und_section (symbol_ptr_ptr[i]->section)
 	      && !bfd_is_com_section (symbol_ptr_ptr[i]->section)
-	      && ((symbol_ptr_ptr[i]->flags & (BSF_GLOBAL | BSF_FUNCTION))
-		  != BSF_GLOBAL)))
+	      && ((symbol_ptr_ptr[i]->flags & BSF_FUNCTION) != 0
+		  || ((symbol_ptr_ptr[i]->flags & (BSF_GLOBAL | BSF_WEAK))
+		      == 0))))
 	*newsyms++ = symbol_ptr_ptr[i];
 
     for (i = 0; i < symbol_count; i++)
       if ((symbol_ptr_ptr[i]->flags & BSF_NOT_AT_END) == 0
 	  && !bfd_is_und_section (symbol_ptr_ptr[i]->section)
 	  && (bfd_is_com_section (symbol_ptr_ptr[i]->section)
-	      || ((symbol_ptr_ptr[i]->flags & (BSF_GLOBAL | BSF_FUNCTION))
-		  == BSF_GLOBAL)))
+	      || ((symbol_ptr_ptr[i]->flags & BSF_FUNCTION) == 0
+		  && ((symbol_ptr_ptr[i]->flags & (BSF_GLOBAL | BSF_WEAK))
+		      != 0))))
 	*newsyms++ = symbol_ptr_ptr[i];
 
     *first_undef = newsyms - bfd_ptr->outsymbols;
@@ -1031,6 +1034,8 @@ coff_write_alien_symbol (abfd, symbol, written, string_size_p,
   native->u.syment.n_type = 0;
   if (symbol->flags & BSF_LOCAL)
     native->u.syment.n_sclass = C_STAT;
+  else if (symbol->flags & BSF_WEAK)
+    native->u.syment.n_sclass = obj_pe (abfd) ? C_NT_WEAK : C_WEAKEXT;
   else
     native->u.syment.n_sclass = C_EXT;
   native->u.syment.n_numaux = 0;
@@ -1416,8 +1421,8 @@ coff_pointerize_aux (abfd, table_base, symbol, indaux, auxent)
      unsigned int indaux;
      combined_entry_type *auxent;
 {
-  int type = symbol->u.syment.n_type;
-  int class = symbol->u.syment.n_sclass;
+  unsigned int type = symbol->u.syment.n_type;
+  unsigned int class = symbol->u.syment.n_sclass;
 
   if (coff_backend_info (abfd)->_bfd_coff_pointerize_aux_hook)
     {
@@ -1599,7 +1604,7 @@ _bfd_coff_read_string_table (abfd)
   if (strsize < STRING_SIZE_SIZE)
     {
       (*_bfd_error_handler)
-	("%s: bad string table size %lu", bfd_get_filename (abfd),
+	(_("%s: bad string table size %lu"), bfd_get_filename (abfd),
 	 (unsigned long) strsize);
       bfd_set_error (bfd_error_bad_value);
       return NULL;
@@ -2303,3 +2308,71 @@ coff_sizeof_headers (abfd, reloc)
   size += abfd->section_count * bfd_coff_scnhsz (abfd);
   return size;
 }
+
+/* Change the class of a coff symbol held by BFD.  */
+boolean
+bfd_coff_set_symbol_class (abfd, symbol, class)
+     bfd *         abfd;
+     asymbol *     symbol;
+     unsigned int  class;
+{
+  coff_symbol_type * csym;
+
+  csym = coff_symbol_from (abfd, symbol);
+  if (csym == NULL)
+    {
+      bfd_set_error (bfd_error_invalid_operation);
+      return false;
+    }
+  else if (csym->native == NULL)
+    {
+      /* This is an alien symbol which no native coff backend data.
+	 We cheat here by creating a fake native entry for it and
+	 then filling in the class.  This code is based on that in
+	 coff_write_alien_symbol().  */
+      
+      combined_entry_type * native;
+
+      native = (combined_entry_type *) bfd_alloc (abfd, sizeof (* native));
+      if (native == NULL)
+	return false;
+
+      memset (native, 0, sizeof (* native));
+      
+      native->u.syment.n_type   = T_NULL;
+      native->u.syment.n_sclass = class;
+      
+      if (bfd_is_und_section (symbol->section))
+	{
+	  native->u.syment.n_scnum = N_UNDEF;
+	  native->u.syment.n_value = symbol->value;
+	}
+      else if (bfd_is_com_section (symbol->section))
+	{
+	  native->u.syment.n_scnum = N_UNDEF;
+	  native->u.syment.n_value = symbol->value;
+	}
+      else
+	{
+	  native->u.syment.n_scnum =
+	    symbol->section->output_section->target_index;
+	  native->u.syment.n_value = (symbol->value
+				      + symbol->section->output_offset);
+	  if (! obj_pe (abfd))
+	    native->u.syment.n_value += symbol->section->output_section->vma;
+	  
+	  /* Copy the any flags from the the file header into the symbol.
+	     FIXME: Why?  */
+	  native->u.syment.n_flags = bfd_asymbol_bfd (& csym->symbol)->flags;
+	}
+      
+      csym->native = native;
+    }
+  else
+    {
+      csym->native->u.syment.n_sclass = class;
+    }
+  
+  return true;
+}
+

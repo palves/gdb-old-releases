@@ -1,5 +1,5 @@
 /* Java language support routines for GDB, the GNU debugger.
-   Copyright 1997 Free Software Foundation, Inc.
+   Copyright 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "c-lang.h"
 #include "jv-lang.h"
 #include "gdbcore.h"
+#include <ctype.h>
 
 struct type *java_int_type;
 struct type *java_byte_type;
@@ -43,21 +44,25 @@ struct type *java_float_type;
 struct type *java_double_type;
 struct type *java_void_type;
 
-struct type *java_object_type;
+static int java_demangled_signature_length PARAMS ((char*));
+static void java_demangled_signature_copy PARAMS ((char*, char*));
+
+static void java_emit_char PARAMS ((int c, GDB_FILE *stream, int quoter));
 
 /* This objfile contains symtabs that have been dynamically created
    to record dynamically loaded Java classes and dynamically
    compiled java methods. */
-struct objfile *dynamics_objfile = NULL;
 
-struct type *java_link_class_type PARAMS((struct type*, value_ptr));
+static struct objfile *dynamics_objfile = NULL;
 
-struct objfile *
+static struct type *java_link_class_type PARAMS ((struct type *, value_ptr));
+
+static struct objfile *
 get_dynamics_objfile ()
 {
   if (dynamics_objfile == NULL)
     {
-      dynamics_objfile = allocate_objfile (NULL, 0);
+      dynamics_objfile = allocate_objfile (NULL, 0, 0, 0);
     }
   return dynamics_objfile;
 }
@@ -133,7 +138,9 @@ add_class_symtab_symbol (sym)
   BLOCK_NSYMS (bl) = BLOCK_NSYMS (bl) + 1;
 }
 
-struct symbol *
+static struct symbol * add_class_symbol PARAMS ((struct type *type, CORE_ADDR addr));
+
+static struct symbol *
 add_class_symbol (type, addr)
      struct type *type;
      CORE_ADDR addr;
@@ -213,23 +220,17 @@ value_ptr
 java_class_from_object (obj_val)
      value_ptr obj_val;
 {
-  /* This is all rather inefficient, since the offsets of dtable and
+  /* This is all rather inefficient, since the offsets of vtable and
      class are fixed.  FIXME */
-  value_ptr dtable_val;
+  value_ptr vtable_val;
 
   if (TYPE_CODE (VALUE_TYPE (obj_val)) == TYPE_CODE_PTR
       && TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (obj_val))) == 0)
-    {
-      struct symbol *sym;
-      sym = lookup_symbol ("Hjava_lang_Object", NULL, STRUCT_NAMESPACE,
-			   (int *) 0, (struct symtab **) NULL);
-      if (sym != NULL)
-	obj_val = value_at (VALUE_TYPE (sym),
-			    value_as_pointer (obj_val), NULL);
-    }
+    obj_val = value_at (get_java_object_type (),
+			value_as_pointer (obj_val), NULL);
 
-  dtable_val = value_struct_elt (&obj_val, NULL, "dtable", NULL, "structure");
-  return value_struct_elt (&dtable_val, NULL, "class", NULL, "structure");
+  vtable_val = value_struct_elt (&obj_val, NULL, "vtable", NULL, "structure");
+  return value_struct_elt (&vtable_val, NULL, "class", NULL, "structure");
 }
 
 /* Check if CLASS_IS_PRIMITIVE(value of clas): */
@@ -237,12 +238,12 @@ int
 java_class_is_primitive (clas)
      value_ptr clas;
 {
-  value_ptr dtable = value_struct_elt (&clas, NULL, "dtable", NULL, "struct");
-  CORE_ADDR i = value_as_pointer (dtable);
+  value_ptr vtable = value_struct_elt (&clas, NULL, "vtable", NULL, "struct");
+  CORE_ADDR i = value_as_pointer (vtable);
   return (int) (i & 0x7fffffff) == (int) 0x7fffffff;
 }
 
-/* Read a Kaffe Class object, and generated a gdb (TYPE_CODE_STRUCT) type. */
+/* Read a GCJ Class object, and generated a gdb (TYPE_CODE_STRUCT) type. */
 
 struct type *
 type_from_class (clas)
@@ -284,7 +285,7 @@ type_from_class (clas)
     {
       value_ptr sig;
       temp = clas;
-      sig = value_struct_elt (&temp, NULL, "msize", NULL, "structure");
+      sig = value_struct_elt (&temp, NULL, "method_count", NULL, "structure");
       return java_primitive_type (value_as_long (sig));
     }
 
@@ -309,6 +310,12 @@ type_from_class (clas)
 
   if (name[0] == '[')
     {
+      char *signature = name;
+      int namelen = java_demangled_signature_length (signature);
+      if (namelen > strlen (name))
+	name = obstack_alloc (&objfile->type_obstack, namelen+1);
+      java_demangled_signature_copy (name, signature);
+      name[namelen] = '\0';
       is_array = 1;
       temp = clas;
       /* Set array element type. */
@@ -367,7 +374,7 @@ java_link_class_type (type, clas)
 #endif
   TYPE_N_BASECLASSES (type) = (tsuper == NULL ? 0 : 1) + ninterfaces;
   temp = clas;
-  nfields = value_as_long (value_struct_elt (&temp, NULL, "nfields", NULL, "structure"));
+  nfields = value_as_long (value_struct_elt (&temp, NULL, "field_count", NULL, "structure"));
   nfields += TYPE_N_BASECLASSES (type);
   nfields++;  /* Add one for dummy "class" field. */
   TYPE_NFIELDS (type) = nfields;
@@ -399,15 +406,16 @@ java_link_class_type (type, clas)
 	SET_TYPE_FIELD_PRIVATE (type, 0);
     }
 
-
-  if (name[0] == '[' && tsuper != NULL)
+  i = strlen (name);
+  if (i > 2 && name[i-1] == ']' && tsuper != NULL)
     {
+      /* FIXME */
       TYPE_LENGTH (type) = TYPE_LENGTH (tsuper) + 4;  /* size with "length" */
     }
   else
     {
       temp = clas;
-      temp = value_struct_elt (&temp, NULL, "bfsize", NULL, "structure");
+      temp = value_struct_elt (&temp, NULL, "size_in_bytes", NULL, "structure");
       TYPE_LENGTH (type) = value_as_long (temp);
     }
 
@@ -478,7 +486,7 @@ java_link_class_type (type, clas)
     }
 
   temp = clas;
-  nmethods = value_as_long (value_struct_elt (&temp, NULL, "nmethods",
+  nmethods = value_as_long (value_struct_elt (&temp, NULL, "method_count",
 					      NULL, "structure"));
   TYPE_NFN_FIELDS_TOTAL (type) = nmethods;
   j = nmethods * sizeof (struct fn_field);
@@ -559,10 +567,31 @@ java_link_class_type (type, clas)
   return type;
 }
 
-struct type*
+static struct type *java_object_type;
+
+struct type *
 get_java_object_type ()
 {
+  if (java_object_type == NULL)
+    {
+      struct symbol *sym;
+      sym = lookup_symbol ("java.lang.Object", NULL, STRUCT_NAMESPACE,
+			   (int *) 0, (struct symtab **) NULL);
+      if (sym == NULL)
+	error ("cannot find java.lang.Object");
+      java_object_type = SYMBOL_TYPE (sym);
+    }
   return java_object_type;
+}
+
+int
+get_java_object_header_size ()
+{
+  struct type *objtype = get_java_object_type ();
+  if (objtype == NULL)
+    return (2 * TARGET_PTR_BIT / TARGET_CHAR_BIT);
+  else
+    return TYPE_LENGTH (objtype);
 }
 
 int
@@ -582,7 +611,7 @@ is_object_type (type)
       if (name != NULL && strcmp (name, "java.lang.Object") == 0)
 	return 1;
       name = TYPE_NFIELDS (ttype) > 0 ? TYPE_FIELD_NAME (ttype, 0) : (char*)0;
-      if (name != NULL && strcmp (name, "dtable") == 0)
+      if (name != NULL && strcmp (name, "vtable") == 0)
 	{
 	  if (java_object_type == NULL)
 	    java_object_type = type;
@@ -592,7 +621,7 @@ is_object_type (type)
   return 0;
 }
 
-struct type*
+struct type *
 java_primitive_type (signature)
      int signature;
 {
@@ -611,15 +640,81 @@ java_primitive_type (signature)
   error ("unknown signature '%c' for primitive type", (char) signature);
 }
 
-/* Return the demangled name of the Java type signature string SIGNATURE,
-   as a freshly allocated copy. */
+/* If name[0 .. namelen-1] is the name of a primitive Java type,
+   return that type.  Otherwise, return NULL. */
 
-char *
-java_demangle_type_signature (signature)
+struct type *
+java_primitive_type_from_name (name, namelen)
+     char* name;
+     int namelen;
+{
+  switch (name[0])
+    {
+    case 'b':
+      if (namelen == 4 && memcmp (name, "byte", 4) == 0)
+	return java_byte_type;
+      if (namelen == 7 && memcmp (name, "boolean", 7) == 0)
+	return java_boolean_type;
+      break;
+    case 'c':
+      if (namelen == 4 && memcmp (name, "char", 4) == 0)
+	return java_char_type;
+    case 'd':
+      if (namelen == 6 && memcmp (name, "double", 6) == 0)
+	return java_double_type;
+      break;
+    case 'f':
+      if (namelen == 5 && memcmp (name, "float", 5) == 0)
+	return java_float_type;
+      break;
+    case 'i':
+      if (namelen == 3 && memcmp (name, "int", 3) == 0)
+	return java_int_type;
+      break;
+    case 'l':
+      if (namelen == 4 && memcmp (name, "long", 4) == 0)
+	return java_long_type;
+      break;
+    case 's':
+      if (namelen == 5 && memcmp (name, "short", 5) == 0)
+	return java_short_type;
+      break;
+    case 'v':
+      if (namelen == 4 && memcmp (name, "void", 4) == 0)
+	return java_void_type;
+      break;
+    }
+  return NULL;
+}
+
+/* Return the length (in bytes) of demangled name of the Java type
+   signature string SIGNATURE. */
+
+static int
+java_demangled_signature_length (signature)
      char *signature;
 {
   int array = 0;
-  char *result;
+  for (; *signature == '[';  signature++)
+    array += 2;  /* Two chars for "[]". */
+  switch (signature[0])
+    {
+    case 'L':
+      /* Subtract 2 for 'L' and ';'. */
+      return strlen (signature) - 2 + array;
+    default:
+      return strlen (TYPE_NAME (java_primitive_type (signature[0]))) + array;
+    }
+}
+
+/* Demangle the Java type signature SIGNATURE, leaving the result in RESULT. */
+
+static void
+java_demangled_signature_copy (result, signature)
+     char *result;
+     char *signature;
+{
+  int array = 0;
   char *ptr;
   int i;
   while (*signature == '[')
@@ -630,8 +725,7 @@ java_demangle_type_signature (signature)
   switch (signature[0])
     {
     case 'L':
-      /* Substract 2 for 'L' and ';', but add 1 for final nul. */
-      result = xmalloc (strlen (signature) - 1 + 2 * array);
+      /* Subtract 2 for 'L' and ';', but add 1 for final nul. */
       signature++;
       ptr = result;
       for ( ; *signature != ';' && *signature != '\0'; signature++)
@@ -645,7 +739,6 @@ java_demangle_type_signature (signature)
     default:
       ptr = TYPE_NAME (java_primitive_type (signature[0]));
       i = strlen (ptr);
-      result = xmalloc (i + 1 + 2 * array);
       strcpy (result, ptr);
       ptr = result + i;
       break;
@@ -655,7 +748,19 @@ java_demangle_type_signature (signature)
       *ptr++ = '[';
       *ptr++ = ']';
     }
-  *ptr = '\0';
+}
+
+/* Return the demangled name of the Java type signature string SIGNATURE,
+   as a freshly allocated copy. */
+
+char *
+java_demangle_type_signature (signature)
+     char *signature;
+{
+  int length = java_demangled_signature_length (signature);
+  char *result = xmalloc (length + 1);
+  java_demangled_signature_copy (result, signature);
+  result[length] = '\0';
   return result;
 }
 
@@ -667,7 +772,7 @@ java_lookup_type (signature)
     {
     case 'L':
     case '[':
-      error ("java_lookup_type not fully inmplemented");
+      error ("java_lookup_type not fully implemented");
     default:
       return java_primitive_type (signature[0]);
     }
@@ -681,9 +786,16 @@ java_array_type (type, dims)
      struct type *type;
      int dims;
 {
-  if (dims == 0)
-    return type;
-  error ("array types not implemented");
+  struct type *range_type;
+
+  while (dims-- > 0)
+    {
+      range_type = create_range_type (NULL, builtin_type_int, 0, 0);
+      /* FIXME  This is bogus!  Java arrays are not gdb arrays! */
+      type = create_array_type (NULL, type, range_type);
+    }
+
+  return type;
 }
 
 /* Create a Java string in the inferior from a (Utf8) literal. */
@@ -700,63 +812,40 @@ java_value_string (ptr, len)
    string whose delimiter is QUOTER.  Note that that format for printing
    characters and strings is language specific. */
 
-void
+static void
 java_emit_char (c, stream, quoter)
-     register int c;
+     int c;
      GDB_FILE *stream;
      int quoter;
 {
-  if (PRINT_LITERAL_FORM (c))
+  switch (c)
     {
-      if (c == '\\' || c == quoter)
-	{
-	  fputs_filtered ("\\", stream);
-	}
-      fprintf_filtered (stream, "%c", c);
+    case '\\':
+    case '\'':
+      fprintf_filtered (stream, "\\%c", c);
+      break;
+    case '\b':
+      fputs_filtered ("\\b", stream);
+      break;
+    case '\t':
+      fputs_filtered ("\\t", stream);
+      break;
+    case '\n':
+      fputs_filtered ("\\n", stream);
+      break;
+    case '\f':
+      fputs_filtered ("\\f", stream);
+      break;
+    case '\r':
+      fputs_filtered ("\\r", stream);
+      break;
+    default:
+      if (isprint (c))
+	fputc_filtered (c, stream);
+      else
+	fprintf_filtered (stream, "\\u%.4x", (unsigned int) c);
+      break;
     }
-  else
-    {
-      switch (c)
-	{
-	case '\n':
-	  fputs_filtered ("\\n", stream);
-	  break;
-	case '\b':
-	  fputs_filtered ("\\b", stream);
-	  break;
-	case '\t':
-	  fputs_filtered ("\\t", stream);
-	  break;
-	case '\f':
-	  fputs_filtered ("\\f", stream);
-	  break;
-	case '\r':
-	  fputs_filtered ("\\r", stream);
-	  break;
-	case '\033':
-	  fputs_filtered ("\\e", stream);
-	  break;
-	case '\007':
-	  fputs_filtered ("\\a", stream);
-	  break;
-	default:
-	  if (c < 256)
-	    fprintf_filtered (stream, "\\%.3o", (unsigned int) c);
-	  else
-	    fprintf_filtered (stream, "\\u%.4x", (unsigned int) c);
-	  break;
-	}
-    }
-}
-
-void
-java_printchar (c, stream)
-     int c;
-     GDB_FILE *stream;
-{
-  fputs_filtered ("'", stream);
-  java_emit_char (c, stream, '\'');
-  fputs_filtered ("'", stream);
 }
 
 static value_ptr
@@ -778,10 +867,12 @@ evaluate_subexp_java (expect_type, exp, pos, noside)
       if (noside == EVAL_SKIP)
 	goto standard;
       (*pos)++;
-      arg1 = evaluate_subexp_standard (expect_type, exp, pos, EVAL_NORMAL);
+      arg1 = evaluate_subexp_java (NULL_TYPE, exp, pos, EVAL_NORMAL);
       if (is_object_type (VALUE_TYPE (arg1)))
 	{
-	  struct type *type = type_from_class (java_class_from_object (arg1));
+	  struct type *type;
+
+	  type = type_from_class (java_class_from_object (arg1));
 	  arg1 = value_cast (lookup_pointer_type (type), arg1);
 	}
       if (noside == EVAL_SKIP)
@@ -800,42 +891,42 @@ evaluate_subexp_java (expect_type, exp, pos, noside)
       
       COERCE_REF (arg1);
       type = check_typedef (VALUE_TYPE (arg1));
-      name = TYPE_NAME (type);
       if (TYPE_CODE (type) == TYPE_CODE_PTR)
+	type = check_typedef (TYPE_TARGET_TYPE (type));
+      name = TYPE_NAME (type);
+      if (name == NULL)
+	name = TYPE_TAG_NAME (type);
+      i = name == NULL ? 0 : strlen (name);
+      if (TYPE_CODE (type) == TYPE_CODE_STRUCT
+	  && i > 2 && name [i - 1] == ']')
 	{
-	  type = check_typedef (TYPE_TARGET_TYPE (type));
-	  if (TYPE_CODE (type) == TYPE_CODE_STRUCT
-	      && TYPE_TAG_NAME (type) != NULL 
-	      && TYPE_TAG_NAME (type)[0] == '[')
-	    {
-	      CORE_ADDR address;
-	      long length, index;
-	      struct type *el_type;
-	      char buf4[4];
+	  CORE_ADDR address;
+	  long length, index;
+	  struct type *el_type;
+	  char buf4[4];
 
-	      value_ptr clas = java_class_from_object(arg1);
-	      value_ptr temp = clas;
-	      /* Get CLASS_ELEMENT_TYPE of the array type. */
-	      temp = value_struct_elt (&temp, NULL, "methods",
-				       NULL, "structure"); 
-	      VALUE_TYPE (temp) = VALUE_TYPE (clas);
-	      el_type = type_from_class (temp);
-	      if (TYPE_CODE (el_type) == TYPE_CODE_STRUCT)
-		el_type = lookup_pointer_type (el_type);
+	  value_ptr clas = java_class_from_object(arg1);
+	  value_ptr temp = clas;
+	  /* Get CLASS_ELEMENT_TYPE of the array type. */
+	  temp = value_struct_elt (&temp, NULL, "methods",
+				   NULL, "structure"); 
+	  VALUE_TYPE (temp) = VALUE_TYPE (clas);
+	  el_type = type_from_class (temp);
+	  if (TYPE_CODE (el_type) == TYPE_CODE_STRUCT)
+	    el_type = lookup_pointer_type (el_type);
 
-	      if (noside == EVAL_AVOID_SIDE_EFFECTS)
-		return value_zero (el_type, VALUE_LVAL (arg1));
-	      address = value_as_pointer (arg1);
-	      address += JAVA_OBJECT_SIZE;
-	      read_memory (address, buf4, 4);
-	      length = (long) extract_signed_integer (buf4, 4);
-	      index = (long) value_as_long (arg2);
-	      if (index >= length || index < 0)
-		error ("array index (%ld) out of bounds (length: %ld)",
-		       index, length);
-	      address = (address + 4) + index * TYPE_LENGTH (el_type);
-	      return value_at (el_type, address, NULL);
-	    }
+	  if (noside == EVAL_AVOID_SIDE_EFFECTS)
+	    return value_zero (el_type, VALUE_LVAL (arg1));
+	  address = value_as_pointer (arg1);
+	  address += JAVA_OBJECT_SIZE;
+	  read_memory (address, buf4, 4);
+	  length = (long) extract_signed_integer (buf4, 4);
+	  index = (long) value_as_long (arg2);
+	  if (index >= length || index < 0)
+	    error ("array index (%ld) out of bounds (length: %ld)",
+		   index, length);
+	  address = (address + 4) + index * TYPE_LENGTH (el_type);
+	  return value_at (el_type, address, NULL);
 	}
       else if (TYPE_CODE (type) == TYPE_CODE_ARRAY)
 	{
@@ -844,8 +935,6 @@ evaluate_subexp_java (expect_type, exp, pos, noside)
 	  else
 	    return value_subscript (arg1, arg2);
 	}
-      if (name == NULL)
-	name == TYPE_TAG_NAME (type);
       if (name)
 	error ("cannot subscript something of type `%s'", name);
       else
@@ -943,8 +1032,9 @@ const struct language_defn java_language_defn = {
   java_parse,
   java_error,
   evaluate_subexp_java,
-  java_printchar,		/* Print a character constant */
+  c_printchar,			/* Print a character constant */
   c_printstr,			/* Function to print string constant */
+  java_emit_char,		/* Function to print a single character */
   java_create_fundamental_type,	/* Create fundamental type in this language */
   java_print_type,		/* Print a type using appropriate syntax */
   java_val_print,		/* Print a value using appropriate syntax */
@@ -969,7 +1059,7 @@ _initialize_java_language ()
   java_long_type   = init_type (TYPE_CODE_INT,  8, 0, "long", NULL);
   java_byte_type   = init_type (TYPE_CODE_INT,  1, 0, "byte", NULL);
   java_boolean_type= init_type (TYPE_CODE_BOOL, 1, 0, "boolean", NULL);
-  java_char_type   = init_type (TYPE_CODE_CHAR, 2, 0, "char", NULL);
+  java_char_type   = init_type (TYPE_CODE_CHAR, 2, TYPE_FLAG_UNSIGNED, "char", NULL);
   java_float_type  = init_type (TYPE_CODE_FLT,  4, 0, "float", NULL);
   java_double_type = init_type (TYPE_CODE_FLT,  8, 0, "double", NULL);
   java_void_type   = init_type (TYPE_CODE_VOID, 1, 0, "void", NULL);

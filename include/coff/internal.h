@@ -215,6 +215,7 @@ struct internal_aouthdr
 #define C_ALIAS	 	105	/* duplicate tag		*/
 #define C_HIDDEN	106	/* ext symbol in dmert public lib */
 
+#define C_WEAKEXT	127	/* weak symbol -- GNU extension */
 
 /* New storage classes for WINDOWS_NT   */
 #define C_SECTION       104     /* section name */
@@ -260,11 +261,11 @@ struct internal_aouthdr
 #define C_ESTAT         (0x90)
 
 /* Storage classes for Thumb symbols */
-#define C_THUMBEXT      (128 + C_EXT)
-#define C_THUMBSTAT     (128 + C_STAT)
-#define C_THUMBLABEL    (128 + C_LABEL)
-#define C_THUMBEXTFUNC  (C_THUMBEXT  + 20)
-#define C_THUMBSTATFUNC (C_THUMBSTAT + 20)
+#define C_THUMBEXT      (128 + C_EXT)		/* 130 */
+#define C_THUMBSTAT     (128 + C_STAT)		/* 131 */
+#define C_THUMBLABEL    (128 + C_LABEL)		/* 134 */
+#define C_THUMBEXTFUNC  (C_THUMBEXT  + 20)	/* 150 */
+#define C_THUMBSTATFUNC (C_THUMBSTAT + 20)	/* 151 */
 
 /********************** SECTION HEADER **********************/
 
@@ -410,12 +411,16 @@ struct internal_syment
 
 #define BTYPE(x)	((x) & N_BTMASK)
 
-#define ISPTR(x)	(((x) & N_TMASK) == (DT_PTR << N_BTSHFT))
-#define ISFCN(x)	(((x) & N_TMASK) == (DT_FCN << N_BTSHFT))
-#define ISARY(x)	(((x) & N_TMASK) == (DT_ARY << N_BTSHFT))
-#define ISTAG(x)	((x)==C_STRTAG||(x)==C_UNTAG||(x)==C_ENTAG)
-#define DECREF(x) ((((x)>>N_TSHIFT)&~N_BTMASK)|((x)&N_BTMASK))
-
+#define ISPTR(x) \
+  (((unsigned long) (x) & N_TMASK) == ((unsigned long) DT_PTR << N_BTSHFT))
+#define ISFCN(x) \
+  (((unsigned long) (x) & N_TMASK) == ((unsigned long) DT_FCN << N_BTSHFT))
+#define ISARY(x) \
+  (((unsigned long) (x) & N_TMASK) == ((unsigned long) DT_ARY << N_BTSHFT))
+#define ISTAG(x) \
+  ((x) == C_STRTAG || (x) == C_UNTAG || (x) == C_ENTAG)
+#define DECREF(x) \
+  ((((x) >> N_TSHIFT) & ~ N_BTMASK) | ((x) & N_BTMASK))
 
 union internal_auxent
 {

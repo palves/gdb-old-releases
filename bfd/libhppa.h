@@ -1,5 +1,5 @@
 /* HP PA-RISC SOM object file format:  definitions internal to BFD.
-   Copyright (C) 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94 , 95, 1996 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -73,6 +73,7 @@ static INLINE  unsigned long hppa_rebuild_insn (bfd *, unsigned long,
 						unsigned long, unsigned long)
      __attribute__ ((__unused__));
 #endif /* gcc 2.7 or higher */
+
 
 /* The PA instruction set variants.  */
 enum pa_arch {pa10 = 10, pa11 = 11, pa20 = 20};
@@ -191,8 +192,43 @@ enum hppa_reloc_expr_type_alt
 #define HPPA_R_ARG_RELOC(a)	(((a) >> 22) & 0x3FF)
 #define HPPA_R_CONSTANT(a)	((((int)(a)) << 10) >> 10)
 #define HPPA_R_ADDEND(r,c)	(((r) << 22) + ((c) & 0x3FFFFF))
+#define HPPA_WIDE               (0) /* PSW W-bit, need to check! FIXME */
 
+/* These macros get bit fields using HP's numbering (MSB = 0),
+ * but note that "MASK" assumes that the LSB bits are what's
+ * wanted.
+ */
+#ifndef GET_FIELD
+#define GET_FIELD(X, FROM, TO) \
+  ((X) >> (31 - (TO)) & ((1 << ((TO) - (FROM) + 1)) - 1))
+#endif  
+#define GET_BIT( X, WHICH ) \
+  GET_FIELD( X, WHICH, WHICH )
+
+#define MASK( SIZE ) \
+  (~((-1) << SIZE))
+  
+#define CATENATE( X, XSIZE, Y, YSIZE ) \
+  (((X & MASK( XSIZE )) << YSIZE) | (Y & MASK( YSIZE )))
+
+#define ELEVEN( X ) \
+  CATENATE( GET_BIT( X, 10 ), 1, GET_FIELD( X, 0, 9 ), 10)
+  
 /* Some functions to manipulate PA instructions.  */
+
+/* NOTE: these use the HP convention that f{1} is the _left_ most
+ *       bit (MSB) of f; they sometimes have to impose an assumption
+ *       about the size of a field; and as far as I can tell, most
+ *       aren't used.
+ */
+
+static INLINE unsigned long
+sign_extend (x, len)
+     unsigned int x, len;
+{
+  return (int)(x >> (len - 1) ? (-1 << len) | x : x);
+}
+
 static INLINE unsigned int
 assemble_3 (x)
      unsigned int x;
@@ -208,11 +244,20 @@ dis_assemble_3 (x, r)
   *r = (((x & 4) >> 2) | ((x & 3) << 1)) & 7;
 }
 
+static INLINE unsigned int      /* PA 2.0 */
+assemble_6 (x, y)
+     unsigned int x, y;
+{
+  return (((x & 0x1) << 5) + (32 - (y & 0x1f)));
+}
+
 static INLINE unsigned int
 assemble_12 (x, y)
      unsigned int x, y;
 {
-  return (((y & 1) << 11) | ((x & 1) << 10) | ((x & 0x7fe) >> 1)) & 0xfff;
+  return CATENATE( CATENATE( y,                1,
+                             GET_BIT( x, 10 ), 1), 2,
+                   GET_FIELD( x, 0, 9 ),           9);
 }
 
 static INLINE void
@@ -224,17 +269,68 @@ dis_assemble_12 (as12, x, y)
   *x = ((as12 & 0x3ff) << 1) | ((as12 & 0x400) >> 10);
 }
 
+static INLINE unsigned long     /* PA 2.0 */
+assemble_16 (x, y)
+     unsigned int x, y;
+{
+  /* Depends on PSW W-bit !*/
+  unsigned int temp;
+
+  if( HPPA_WIDE ) {
+      temp = CATENATE( CATENATE( GET_BIT( y, 13 ), 1,
+                                 (GET_BIT( y, 13 )^GET_BIT( x, 0)), 1 ), 2,
+                       CATENATE( (GET_BIT( y, 13 )^GET_BIT( x, 1)), 1,
+                                 GET_FIELD( y, 0, 12 ), 13 ), 14 );
+  }
+  else { 
+      temp = CATENATE( CATENATE( GET_BIT( y, 13 ), 1,
+                                 GET_BIT( y, 13 ), 1 ), 2,
+                       CATENATE( GET_BIT( y, 13 ), 1,
+                                 GET_FIELD( y, 0, 12 ), 13 ), 14 );
+  }
+
+  return sign_extend( temp, 16 );
+}
+
+
+static INLINE unsigned long     /* PA 2.0 */
+assemble_16a (x, y, z)
+     unsigned int x, y, z;
+{
+  /* Depends on PSW W-bit !*/
+  unsigned int temp;
+
+  if( HPPA_WIDE ) {
+      temp = CATENATE( CATENATE( z,                   1,
+                                 (z^GET_BIT( x, 0 )), 1),  2,
+                                 
+                       CATENATE( (z^GET_BIT( x, 1 )), 1,
+                                 y,                   11), 12);
+  }
+  else {
+      temp = CATENATE( CATENATE( z, 1,
+                                 z, 1), 2,
+                       CATENATE( z, 1,
+                                 y, 11), 12);
+
+  }
+
+  return sign_extend( (temp << 2), 16 );
+}
+
 static INLINE unsigned long
 assemble_17 (x, y, z)
      unsigned int x, y, z;
 {
   unsigned long temp;
+  int           q;
 
-  temp = ((z & 1) << 16) |
-    ((x & 0x1f) << 11) |
-    ((y & 1) << 10) |
-    ((y & 0x7fe) >> 1);
-  return temp & 0x1ffff;
+  temp = CATENATE( CATENATE( z, q,
+                             x, q), q,
+                   CATENATE( GET_BIT( y, 1 ), 1,
+                             GET_FIELD( y, 0, 9 ), 10), 11);
+  
+  return temp;
 }
 
 static INLINE void
@@ -262,6 +358,20 @@ assemble_21 (x)
   return temp & 0x1fffff;
 }
 
+static INLINE unsigned long     /* PA 2.0 */
+assemble_22 (a,b,c,d)
+     unsigned int a,b,c,d;
+{
+  unsigned long temp;
+  
+  temp = CATENATE( CATENATE( d, 1,
+                             a, 5 ), 6,
+                   CATENATE( b, 5,
+                             ELEVEN( c ), 11 ), 16 );
+
+  return sign_extend( temp, 22 );
+}
+
 static INLINE void
 dis_assemble_21 (as21, x)
      unsigned int as21, *x;
@@ -275,13 +385,6 @@ dis_assemble_21 (as21, x)
   temp |= (as21 & 0x00007c) << 14;
   temp |= (as21 & 0x000003) << 12;
   *x = temp;
-}
-
-static INLINE unsigned long
-sign_extend (x, len)
-     unsigned int x, len;
-{
-  return (int)(x >> (len - 1) ? (-1 << len) | x : x);
 }
 
 static INLINE unsigned int

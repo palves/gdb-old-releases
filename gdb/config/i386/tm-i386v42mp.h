@@ -1,4 +1,4 @@
-/* Macro definitions for GDB on an Intel i386 running SVR4.
+/* Macro definitions for GDB on an Intel i386 running SVR4.2MP
    Copyright (C) 1991, 1994 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support (fnf@cygnus.com)
 
@@ -28,14 +28,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* procfs on this architecture has multiple fds (ctl, as, map, status)
 	including a control fd */
 
+#ifndef HAVE_MULTIPLE_PROC_FDS
 #define HAVE_MULTIPLE_PROC_FDS
-
-/* procfs on this architecture has a pstatus_t instead of prstatus_t */
-
-#define HAVE_PSTATUS_T
-
-/* procfs on this architecture has no prrun_t */
-#define HAVE_NO_PRRUN_T
+#endif
 
 /* procfs on this architecture communicates with read/write instead
 	of ioctl */

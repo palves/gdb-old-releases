@@ -57,6 +57,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 #define bfd_elfNN_sizeof_headers	_bfd_elf_sizeof_headers
 #define bfd_elfNN_write_object_contents _bfd_elf_write_object_contents
+#define bfd_elfNN_write_corefile_contents _bfd_elf_write_corefile_contents
 
 #define bfd_elfNN_get_section_contents_in_window \
   _bfd_generic_get_section_contents_in_window
@@ -91,6 +92,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef bfd_elfNN_bfd_relax_section
 #define bfd_elfNN_bfd_relax_section bfd_generic_relax_section
+#endif
+
+#ifndef elf_backend_can_gc_sections
+#define elf_backend_can_gc_sections 0
+#endif
+#ifndef elf_backend_gc_mark_hook
+#define elf_backend_gc_mark_hook	NULL
+#endif
+#ifndef elf_backend_gc_sweep_hook
+#define elf_backend_gc_sweep_hook	NULL
+#endif
+#ifndef bfd_elfNN_bfd_gc_sections
+#define bfd_elfNN_bfd_gc_sections _bfd_elfNN_gc_sections
 #endif
 
 #define bfd_elfNN_bfd_make_debug_symbol \
@@ -167,6 +181,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define bfd_elfNN_mkobject bfd_elf_mkobject
 #endif
 
+#ifndef bfd_elfNN_mkcorefile
+#define bfd_elfNN_mkcorefile bfd_elf_mkcorefile
+#endif
+
 #ifndef bfd_elfNN_mkarchive
 #define bfd_elfNN_mkarchive _bfd_generic_mkarchive
 #endif
@@ -205,6 +223,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 #ifndef elf_backend_symbol_table_processing
 #define elf_backend_symbol_table_processing	0
+#endif
+#ifndef elf_backend_get_symbol_type
+#define elf_backend_get_symbol_type 0
 #endif
 #ifndef elf_backend_section_processing
 #define elf_backend_section_processing	0
@@ -263,6 +284,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #ifndef elf_backend_ecoff_debug_swap
 #define elf_backend_ecoff_debug_swap	0
 #endif
+#ifndef elf_backend_got_header_size
+#define elf_backend_got_header_size	0
+#endif
+#ifndef elf_backend_plt_header_size
+#define elf_backend_plt_header_size	0
+#endif
 
 #ifndef ELF_MACHINE_ALT1
 #define ELF_MACHINE_ALT1 0
@@ -296,6 +323,7 @@ static CONST struct elf_backend_data elfNN_bed =
   elf_backend_object_p,
   elf_backend_symbol_processing,
   elf_backend_symbol_table_processing,
+  elf_backend_get_symbol_type,
   elf_backend_section_processing,
   elf_backend_section_from_shdr,
   elf_backend_fake_sections,
@@ -314,16 +342,21 @@ static CONST struct elf_backend_data elfNN_bed =
   elf_backend_final_write_processing,
   elf_backend_additional_program_headers,
   elf_backend_modify_segment_map,
+  elf_backend_gc_mark_hook,
+  elf_backend_gc_sweep_hook,
   elf_backend_ecoff_debug_swap,
   ELF_MACHINE_ALT1,
   ELF_MACHINE_ALT2,
   &elf_backend_size_info,
   elf_backend_got_symbol_offset,
+  elf_backend_got_header_size,
+  elf_backend_plt_header_size,
   elf_backend_want_got_plt,
   elf_backend_plt_readonly,
   elf_backend_want_plt_sym,
   elf_backend_plt_not_loaded,
-  elf_backend_plt_alignment
+  elf_backend_plt_alignment,
+  elf_backend_can_gc_sections
 };
 
 #ifdef TARGET_BIG_SYM
@@ -385,14 +418,14 @@ const bfd_target TARGET_BIG_SYM =
   { bfd_false,
     bfd_elfNN_mkobject,
     bfd_elfNN_mkarchive,
-    bfd_false
+    bfd_elfNN_mkcorefile
   },
 
   /* bfd_write_contents: write cached information into a file being written */
   { bfd_false,
     bfd_elfNN_write_object_contents,
     bfd_elfNN_write_archive_contents,
-    bfd_false
+    bfd_elfNN_write_corefile_contents,
   },
 
       BFD_JUMP_TABLE_GENERIC (bfd_elfNN),
@@ -473,14 +506,14 @@ const bfd_target TARGET_LITTLE_SYM =
   { bfd_false,
     bfd_elfNN_mkobject,
     bfd_elfNN_mkarchive,
-    bfd_false
+    bfd_elfNN_mkcorefile
   },
 
   /* bfd_write_contents: write cached information into a file being written */
   { bfd_false,
     bfd_elfNN_write_object_contents,
     bfd_elfNN_write_archive_contents,
-    bfd_false
+    bfd_elfNN_write_corefile_contents,
   },
 
       BFD_JUMP_TABLE_GENERIC (bfd_elfNN),

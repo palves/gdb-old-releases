@@ -1,4 +1,5 @@
-#   Copyright (C) 1988, 1990, 1991, 1992, 1994, 1997 Free Software Foundation, Inc.
+#   Copyright (C) 1988, 1990, 1991, 1992, 1994, 1997, 1998
+#   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,6 +34,7 @@ set bug_id 0
 set testfile "break"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
+
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug additional_flags=-w}] != "" } {
     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
@@ -49,9 +51,8 @@ if [target_info exists gdb_stub] {
 # test simple breakpoint setting commands
 #
 
-# Test deleting all breakpoints when there are none installed.
-# Between 4.15 and 4.16 a change made gdb stop prompting when
-# there are no user breakpoints installed.
+# Test deleting all breakpoints when there are none installed,
+# GDB should not prompt for confirmation.
 # Note that gdb-init.exp provides a "delete_breakpoints" proc
 # for general use elsewhere.
 
@@ -61,7 +62,6 @@ gdb_expect {
 	    send_gdb "y\n"
 	    gdb_expect {
 		-re "$gdb_prompt $" {
-		    setup_xfail "i*86-*-sysv4*" "sparc-sun-sunos4*" "alpha-dec-osf*" "mips-dec-ultrix*"
 		    fail "Delete all breakpoints when none (unexpected prompt)"
 		}
 		timeout	{ fail "Delete all breakpoints when none (timeout after unexpected prompt)" }
@@ -228,6 +228,429 @@ gdb_test  "tbreak $srcfile:66" "Breakpoint.*at.* file .*$srcfile, line 66.*" "Te
 #
 gdb_test "info break" "Num Type.*Disp Enb Address.*What.*\[\r\n\]\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:$main_line.*\[\r\n\]\[0-9\]+\[\t \]+breakpoint     del.*y.*in factorial at .*$srcfile:76.*\[\r\n\]\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:64.*\[\r\n\]\[0-9\]+\[\t \]+breakpoint     del.*y.*in main at .*$srcfile:70.*" "Temporary breakpoint info"
 
+
+#***********
+
+# Verify that catchpoints for fork, vfork and exec don't trigger
+# inappropriately.  (There are no calls to those system functions
+# in this test program.)
+#
+if ![runto_main] then { fail "break tests suppressed" }
+
+send_gdb "catch\n"
+gdb_expect {
+  -re "Catch requires an event name.*$gdb_prompt $"\
+          {pass "catch requires an event name"}
+  -re "$gdb_prompt $"\
+          {fail "catch requires an event name"}
+  timeout {fail "(timeout) catch requires an event name"}
+}
+
+
+set name "set catch fork, never expected to trigger"
+send_gdb "catch fork\n"
+gdb_expect {
+  -re "Catchpoint \[0-9\]* .fork..*$gdb_prompt $"
+          {pass $name}
+  -re "Catch of fork not yet implemented.*$gdb_prompt $"
+	  {pass $name}
+  -re "$gdb_prompt $"
+          {fail $name}
+  timeout {fail "(timeout) $name"}
+}
+
+
+set name "set catch vfork, never expected to trigger"
+send_gdb "catch vfork\n"
+
+# If we are on HP-UX 10.20, we expect an error message to be
+# printed if we type "catch vfork" at the gdb gdb_prompt.  This is
+# because on HP-UX 10.20, we cannot catch vfork events.
+
+if [istarget "hppa*-hp-hpux10.20"] then {
+    gdb_expect {
+	-re "Catch of vfork events not supported on HP-UX 10.20..*$gdb_prompt $"
+		{pass $name}
+	-re "$gdb_prompt $"
+		{fail $name}
+	timeout {fail "(timeout) $name"}
+    }
+} else {
+    gdb_expect {
+	-re "Catchpoint \[0-9\]* .vfork..*$gdb_prompt $"
+		{pass $name}
+	-re "Catch of vfork not yet implemented.*$gdb_prompt $"
+		{pass $name}
+	-re "$gdb_prompt $"
+		{fail $name}
+	timeout {fail "(timeout) $name"}
+    }
+}
+
+set name "set catch exec, never expected to trigger"
+send_gdb "catch exec\n"
+gdb_expect {
+  -re "Catchpoint \[0-9\]* .exec..*$gdb_prompt $"
+          {pass $name}
+  -re "Catch of exec not yet implemented.*$gdb_prompt $"
+	  {pass $name}
+  -re "$gdb_prompt $" {fail $name}
+  timeout {fail "(timeout) $name"}
+}
+
+# Verify that "until <location>" works.  (This is really just syntactic
+# sugar for "tbreak <location>; continue".)
+#
+send_gdb "until 64\n"
+gdb_expect {
+  -re "main .* at .*:64.*$gdb_prompt $"\
+          {pass "until 64"}
+  -re "$gdb_prompt $"\
+          {fail "until 64"}
+  timeout {fail "(timeout) until 64"}
+}
+
+# Verify that a malformed "until" is gracefully caught.
+#
+send_gdb "until 65 then stop\n"
+gdb_expect {
+  -re "Junk at end of arguments..*$gdb_prompt $"\
+          {pass "malformed until"}
+  -re "$gdb_prompt $"\
+          {fail "malformed until"}
+  timeout {fail "(timeout) malformed until"}
+}
+
+# Verify that GDB responds gracefully when asked to set a breakpoint
+# on a nonexistent source line.
+#
+send_gdb "break 999\n"
+gdb_expect {
+  -re "No line 999 in file .*$gdb_prompt $"\
+          {pass "break on non-existent source line"}
+  -re "$gdb_prompt $"\
+          {fail "break on non-existent source line"}
+  timeout {fail "(timeout) break on non-existent source line"}
+}
+
+# Verify that GDB allows one to just say "break", which is treated
+# as the "default" breakpoint.  Note that GDB gets cute when printing
+# the informational message about other breakpoints at the same
+# location.  We'll hit that bird with this stone too.
+#
+send_gdb "break\n"
+gdb_expect {
+  -re "Breakpoint \[0-9\]*.*$gdb_prompt $"\
+          {pass "break on default location, 1st time"}
+  -re "$gdb_prompt $"\
+          {fail "break on default location, 1st time"}
+  timeout {fail "(timeout) break on default location, 1st time"}
+}
+
+send_gdb "break\n"
+gdb_expect {
+  -re "Note: breakpoint \[0-9\]* also set at .*Breakpoint \[0-9\]*.*$gdb_prompt $"\
+          {pass "break on default location, 2nd time"}
+  -re "$gdb_prompt $"\
+          {fail "break on default location, 2nd time"}
+  timeout {fail "(timeout) break on default location, 2nd time"}
+}
+
+send_gdb "break\n"
+gdb_expect {
+  -re "Note: breakpoints \[0-9\]* and \[0-9\]* also set at .*Breakpoint \[0-9\]*.*$gdb_prompt $"\
+          {pass "break on default location, 3rd time"}
+  -re "$gdb_prompt $"\
+          {fail "break on default location, 3rd time"}
+  timeout {fail "(timeout) break on default location, 3rd time"}
+}
+
+send_gdb "break\n"
+gdb_expect {
+  -re "Note: breakpoints \[0-9\]*, \[0-9\]* and \[0-9\]* also set at .*Breakpoint \[0-9\]*.*$gdb_prompt $"\
+          {pass "break on default location, 4th time"}
+  -re "$gdb_prompt $"\
+          {fail "break on default location, 4th time"}
+  timeout {fail "(timeout) break on default location, 4th time"}
+}
+
+# Verify that a "silent" breakpoint can be set, and that GDB is indeed
+# "silent" about its triggering.
+#
+if ![runto_main] then { fail "break tests suppressed" }
+
+send_gdb "break 64\n"
+gdb_expect {
+  -re "Breakpoint (\[0-9\]*) at .*, line 64.*$gdb_prompt $"\
+          {pass "set to-be-silent break 64"}
+  -re "$gdb_prompt $"\
+          {fail "set to-be-silent break 64"}
+  timeout {fail "(timeout) set to-be-silent break 64"}
+}
+
+send_gdb "commands $expect_out(1,string)\n"
+send_gdb "silent\n"
+send_gdb "end\n"
+gdb_expect {
+  -re ".*$gdb_prompt $"\
+          {pass "set silent break 64"}
+  timeout {fail "(timeout) set silent break 64"}
+}
+
+send_gdb "info break $expect_out(1,string)\n"
+gdb_expect {
+  -re "\[0-9\]*\[ \t\]*breakpoint.*:64\r\n\[ \t\]*silent.*$gdb_prompt $"\
+          {pass "info silent break 64"}
+  -re "$gdb_prompt $"\
+          {fail "info silent break 64"}
+  timeout {fail "(timeout) info silent break 64"}
+}
+send_gdb "continue\n"
+gdb_expect {
+  -re "Continuing.\r\n$gdb_prompt $"\
+          {pass "hit silent break 64"}
+  -re "$gdb_prompt $"\
+          {fail "hit silent break 64"}
+  timeout {fail "(timeout) hit silent break 64"}
+}
+send_gdb "bt\n"
+gdb_expect {
+  -re "#0  main .* at .*:64.*$gdb_prompt $"\
+          {pass "stopped for silent break 64"}
+  -re "$gdb_prompt $"\
+          {fail "stopped for silent break 64"}
+  timeout {fail "(timeout) stopped for silent break 64"}
+}
+
+# Verify that GDB can at least parse a breakpoint with the
+# "thread" keyword.  (We won't attempt to test here that a
+# thread-specific breakpoint really triggers appropriately.
+# The gdb.threads subdirectory contains tests for that.)
+#
+send_gdb "break 65 thread 999\n"
+gdb_expect {
+  -re "Unknown thread 999.*$gdb_prompt $"\
+          {pass "thread-specific breakpoint on non-existent thread disallowed"}
+  -re "$gdb_prompt $"\
+          {fail "thread-specific breakpoint on non-existent thread disallowed"}
+  timeout {fail "(timeout) thread-specific breakpoint on non-existent thread disallowed"}
+}
+send_gdb "break 65 thread foo\n"
+gdb_expect {
+  -re "Junk after thread keyword..*$gdb_prompt $"\
+          {pass "thread-specific breakpoint on bogus thread ID disallowed"}
+  -re "$gdb_prompt $"\
+          {fail "thread-specific breakpoint on bogus thread ID disallowed"}
+  timeout {fail "(timeout) thread-specific breakpoint on bogus thread ID disallowed"}
+}
+
+# Verify that GDB responds gracefully to a breakpoint command with
+# trailing garbage.
+#
+send_gdb "break 65 foo\n"
+gdb_expect {
+  -re "Junk at end of arguments..*$gdb_prompt $"\
+          {pass "breakpoint with trailing garbage disallowed"}
+  -re "$gdb_prompt $"\
+          {fail "breakpoint with trailing garbage disallowed"}
+  timeout {fail "(timeout) breakpoint with trailing garbage disallowed"}
+}
+
+# Verify that GDB responds gracefully to a "clear" command that has
+# no matching breakpoint.  (First, get us off the current source line,
+# which we know has a breakpoint.)
+#
+send_gdb "next\n"
+gdb_expect {
+  -re ".*$gdb_prompt $"\
+          {pass "step over breakpoint"}
+  timeout {fail "(timeout) step over breakpoint"}
+}
+send_gdb "clear 66\n"
+gdb_expect {
+  -re "No breakpoint at 66..*$gdb_prompt $"\
+          {pass "clear line has no breakpoint disallowed"}
+  -re "$gdb_prompt $"\
+          {fail "clear line has no breakpoint disallowed"}
+  timeout {fail "(timeout) clear line has no breakpoint disallowed"}
+}
+send_gdb "clear\n"
+gdb_expect {
+  -re "No breakpoint at this line..*$gdb_prompt $"\
+          {pass "clear current line has no breakpoint disallowed"}
+  -re "$gdb_prompt $"\
+          {fail "clear current line has no breakpoint disallowed"}
+  timeout {fail "(timeout) clear current line has no breakpoint disallowed"}
+}
+
+# Verify that a breakpoint can be set via a convenience variable.
+#
+send_gdb "set \$foo=66\n"
+gdb_expect {
+  -re "$gdb_prompt $"\
+          {pass "set convenience variable \$foo to 66"}
+  timeout {fail "(timeout) set convenience variable \$foo to 66"}
+}
+send_gdb "break \$foo\n"
+gdb_expect {
+  -re "Breakpoint (\[0-9\]*) at .*, line 66.*$gdb_prompt $"\
+          {pass "set breakpoint via convenience variable"}
+  -re "$gdb_prompt $"\
+          {fail "set breakpoint via convenience variable"}
+  timeout {fail "(timeout) set breakpoint via convenience variable"}
+}
+
+# Verify that GDB responds gracefully to an attempt to set a
+# breakpoint via a convenience variable whose type is not integer.
+#
+send_gdb "set \$foo=66.5\n"
+gdb_expect {
+  -re "$gdb_prompt $"\
+          {pass "set convenience variable \$foo to 66.5"}
+  timeout {fail "(timeout) set convenience variable \$foo to 66.5"}
+}
+send_gdb "break \$foo\n"
+gdb_expect {
+  -re "Convenience variables used in line specs must have integer values..*$gdb_prompt $"\
+          {pass "set breakpoint via non-integer convenience variable disallowed"}
+  -re "$gdb_prompt $"\
+          {fail "set breakpoint via non-integer convenience variable disallowed"}
+  timeout {fail "(timeout) set breakpoint via non-integer convenience variable disallowed"}
+}
+
+# Verify that we can set and trigger a breakpoint in a user-called function.
+#
+send_gdb "break marker2\n"
+gdb_expect {
+  -re "Breakpoint (\[0-9\]*) at .*, line 42.*$gdb_prompt $"\
+          {pass "set breakpoint on to-be-called function"}
+  -re "$gdb_prompt $"\
+          {fail "set breakpoint on to-be-called function"}
+  timeout {fail "(timeout) set breakpoint on to-be-called function"}
+}
+send_gdb "print marker2(99)\n"
+gdb_expect {
+  -re "The program being debugged stopped while in a function called from GDB.\r\nWhen the function .marker2. is done executing, GDB will silently\r\nstop .instead of continuing to evaluate the expression containing\r\nthe function call...*$gdb_prompt $"\
+          {pass "hit breakpoint on called function"}
+  -re "$gdb_prompt $"\
+          {fail "hit breakpoint on called function"}
+  timeout {fail "(timeout) hit breakpoint on called function"}
+}
+
+# As long as we're stopped (breakpointed) in a called function,
+# verify that we can successfully backtrace & such from here.
+#
+if [istarget "hppa*-*-hpux*"] then {
+  send_gdb "bt\n"
+  gdb_expect {
+    -re "#0\[ \t\]*marker2.*:42\r\n#1.*_sr4export.*$gdb_prompt $"\
+            {pass "backtrace while in called function"}
+    -re "$gdb_prompt $"\
+            {fail "backtrace while in called function"}
+    timeout {fail "(timeout) backtrace while in called function"}
+  }
+  send_gdb "finish\n"
+  gdb_expect {
+    -re "Run till exit from .*marker2.* at .*42\r\n.* in _sr4export.*$gdb_prompt $"\
+            {pass "finish from called function"}
+    -re "$gdb_prompt $"\
+            {fail "finish from called function"}
+    timeout {fail "(timeout) finish from called function"}
+  }
+}
+
+# Verify that GDB responds gracefully to a "finish" command with
+# arguments.
+#
+if ![runto_main] then { fail "break tests suppressed" }
+
+send_gdb "finish 123\n"
+gdb_expect {
+  -re "The \"finish\" command does not take any arguments.\r\n$gdb_prompt $"\
+          {pass "finish with arguments disallowed"}
+  -re "$gdb_prompt $"\
+          {fail "finish with arguments disallowed"}
+  timeout {fail "(timeout) finish with arguments disallowed"}
+}
+
+# Verify that GDB responds gracefully to a request to "finish" from
+# the outermost frame.
+#
+send_gdb "finish\n"
+gdb_expect {
+  -re "\"finish\" not meaningful in the outermost frame.\r\n$gdb_prompt $"\
+          {pass "finish from outermost frame disallowed"}
+  -re "$gdb_prompt $"\
+          {fail "finish from outermost frame disallowed"}
+  timeout {fail "(timeout) finish from outermost frame disallowed"}
+}
+
+# Verify that we can explicitly ask GDB to stop on all shared library
+# events, and that it does so.
+#
+if [istarget "hppa*-*-hpux*"] then {
+  if ![runto_main] then { fail "break tests suppressed" }
+
+  send_gdb "set stop-on-solib-events 1\n"
+  gdb_expect {
+    -re "$gdb_prompt $"\
+            {pass "set stop-on-solib-events"}
+    timeout {fail "(timeout) set stop-on-solib-events"}
+  }
+
+  send_gdb "run\n"
+  gdb_expect {
+    -re ".*Start it from the beginning.*y or n. $"\
+            {send_gdb "y\n"
+             gdb_expect {
+               -re ".*Stopped due to shared library event.*$gdb_prompt $"\
+                       {pass "triggered stop-on-solib-events"}
+               -re "$gdb_prompt $"\
+                       {fail "triggered stop-on-solib-events"}
+               timeout {fail "(timeout) triggered stop-on-solib-events"}
+             }
+            }
+    -re "$gdb_prompt $"\
+            {fail "rerun for stop-on-solib-events"}
+    timeout {fail "(timeout) rerun for stop-on-solib-events"}
+  }
+
+  send_gdb "set stop-on-solib-events 0\n"
+  gdb_expect {
+    -re "$gdb_prompt $"\
+            {pass "reset stop-on-solib-events"}
+    timeout {fail "(timeout) reset stop-on-solib-events"}
+  }
+}
+
+# Hardware breakpoints are unsupported on HP-UX.  Verify that GDB
+# gracefully responds to requests to create them.
+#
+if [istarget "hppa*-*-hpux*"] then {
+  if ![runto_main] then { fail "break tests suppressed" }
+
+  send_gdb "hbreak\n"
+  gdb_expect {
+    -re "No hardware breakpoint support in the target.*$gdb_prompt $"\
+            {pass "hw breaks disallowed"}
+    -re "$gdb_prompt $"\
+            {fail "hw breaks disallowed"}
+    timeout {fail "(timeout) hw breaks disallowed"}
+  }
+
+  send_gdb "thbreak\n"
+  gdb_expect {
+    -re "No hardware breakpoint support in the target.*$gdb_prompt $"\
+            {pass "temporary hw breaks disallowed"}
+    -re "$gdb_prompt $"\
+            {fail "temporary hw breaks disallowed"}
+    timeout {fail "(timeout) temporary hw breaks disallowed"}
+  }
+}
+
+#********
+
+
 proc test_clear_command {} {
     gdb_test "break main" "Breakpoint.*at.*" "break main #1"
     gdb_test "break main" "Breakpoint.*at.*" "break main #2"
@@ -277,27 +700,22 @@ proc test_next_with_recursion {} {
 
     # Continue until we call factorial recursively with 5.
 
-    send_gdb "continue\n"
-    gdb_expect {
-	-re "Continuing.*Break.* factorial .value=5. .*$gdb_prompt $" {}
-	timeout { fail "continue to factorial(5) (timeout)" ; gdb_suppress_tests }
-    }
+    if [gdb_test "continue" \
+	"Continuing.*Break.* factorial .value=5. .*" \
+	"continue to factorial(5)"] then { gdb_suppress_tests }
 
     # Do a backtrace just to confirm how many levels deep we are.
 
-    set result [gdb_test "backtrace" \
-	    "#0\[ \t\]+ factorial .value=5..*" \
-	    "backtrace from factorial(5)"]
-    if $result!=0 then { gdb_suppress_tests }
+    if [gdb_test "backtrace" \
+	"#0\[ \t\]+ factorial .value=5..*" \
+	"backtrace from factorial(5)"] then { gdb_suppress_tests }
 
     # Now a "next" should position us at the recursive call, which
     # we will be performing with 4.
 
-    send_gdb "next\n"
-    gdb_expect {
-	-re ".* factorial .value - 1.;.*$gdb_prompt $" {}
-	timeout { fail "next to recursive call (timeout)" ; gdb_suppress_tests }
-    }
+    if [gdb_test "next" \
+	".* factorial .value - 1.;.*" \
+	"next to recursive call"] then { gdb_suppress_tests }
 
     # Disable the breakpoint at the entry to factorial by deleting them all.
     # The "next" should run until we return to the next line from this

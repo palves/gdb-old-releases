@@ -1,5 +1,5 @@
 /* GDB interface to ARM RDI library.
-   Copyright 1997 Free Software Foundation, Inc.
+   Copyright 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -16,7 +16,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
-
 
 #include "defs.h"
 #include "gdb_string.h"
@@ -42,6 +41,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "rdi-share/ardi.h"
 #include "rdi-share/adp.h"
 #include "rdi-share/hsys.h"
+
+extern int isascii PARAMS ((int));
 
 /* Prototypes for local functions */
 
@@ -93,7 +94,9 @@ static char *rdi_error_message PARAMS ((int err));
 
 static enum target_signal rdi_error_signal PARAMS ((int err));
 
-extern struct target_ops arm_rdi_ops;	/* Forward decl */
+/* Global variables.  */
+
+struct target_ops arm_rdi_ops;
 
 static struct Dbg_ConfigBlock gdb_config;
 
@@ -125,9 +128,9 @@ arm_rdi_start_remote (dummy)
    these to forward output from the target system and so forth.  */
 
 void
-voiddummy()
+voiddummy ()
 {
-  printf("void dummy\n");
+  fprintf_unfiltered (gdb_stdout, "void dummy\n");
 }
 
 static void
@@ -136,7 +139,7 @@ myprint (arg, format, ap)
      const char *format;
      va_list ap;
 {
-  vfprintf (stdout, format, ap);
+  vfprintf_unfiltered (gdb_stdout, format, ap);
 }
 
 static void
@@ -144,7 +147,8 @@ mywritec (arg, c)
      PTR arg;
      int c;
 {
-  fputc (c, (FILE *) arg);
+  if (isascii (c))
+    fputc_unfiltered (c, gdb_stdout);
 }
 
 static int
@@ -153,7 +157,20 @@ mywrite (arg, buffer, len)
      char const *buffer;
      int len;
 {
-  return fwrite (buffer, 1, len, stdout);
+  int i;
+  char *e;
+
+  e = (char *) buffer;
+  for (i = 0; i < len; i++)
+{
+      if (isascii ((int) *e))
+        {
+          fputc_unfiltered ((int) *e, gdb_stdout);
+          e++;
+        }
+}
+
+  return len;
 }
 
 static void
@@ -181,6 +198,9 @@ mygets (arg, buffer, len)
   return fgets(buffer, len, stdin);
 }
 
+/* Prevent multiple calls to angel_RDI_close().  */
+static int closed_already = 1;
+
 /* Open a connection to a remote debugger.  NAME is the filename used
    for communication.  */
 
@@ -198,12 +218,12 @@ device is attached to the remote system (e.g. /dev/ttya).");
 
   /* Make the basic low-level connection.  */
 
-  rslt = Adp_OpenDevice (NULL, NULL, 1);
+  rslt = Adp_OpenDevice (name, NULL, 1);
 
   if (rslt != adp_ok)
-    error ("Could not open port");
+    error ("Could not open device \"%s\"", name);
 
-  gdb_config.bytesex = 2 | (target_byte_order == BIG_ENDIAN ? 1 : 0);
+  gdb_config.bytesex = 2 | (TARGET_BYTE_ORDER == BIG_ENDIAN ? 1 : 0);
   gdb_config.fpe = 1;
   gdb_config.rditype = 2;
   gdb_config.heartbeat_on = 1;
@@ -211,12 +231,12 @@ device is attached to the remote system (e.g. /dev/ttya).");
 
   gdb_hostif.dbgprint = myprint;
   gdb_hostif.dbgpause = mypause;
-  gdb_hostif.dbgarg = stdout;
+  gdb_hostif.dbgarg = NULL;
   gdb_hostif.writec = mywritec;
   gdb_hostif.readc = myreadc;
   gdb_hostif.write = mywrite;
   gdb_hostif.gets = mygets;
-  gdb_hostif.hostosarg = stdout;
+  gdb_hostif.hostosarg = NULL;
   gdb_hostif.reset = voiddummy;
 
   rslt = angel_RDI_open (10, &gdb_config, &gdb_hostif, NULL);
@@ -252,28 +272,6 @@ device is attached to the remote system (e.g. /dev/ttya).");
     {
       printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
     }
-
-  /*
-  ** There's no point asking if the target's an ICEBreaker, unless
-  ** you're going to do something with the answer. All it does is provoke
-  ** an error message on non-ICE targets
-  rslt = angel_RDI_info (RDIInfo_Icebreaker, & arg1, & arg2);
-  if (rslt)
-    {
-      printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
-    }
-    */
-
-  /*
-  ** There's no point asking if the target can accept a configuration download,
-  ** unless you're going to do something with the answer. All it does is
-  ** provoke an error message on non-ICE targets
-  rslt = angel_RDI_info (RDIInfo_DownLoad, & arg1, & arg2);
-  if (rslt)
-    {
-      printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
-    }
-    */
 
   rslt = angel_RDI_info (RDIInfo_GetLoadSize, &arg1, &arg2);
   if (rslt)
@@ -318,6 +316,8 @@ device is attached to the remote system (e.g. /dev/ttya).");
   }
 
   printf_filtered ("Connected to ARM RDI target.\n");
+  closed_already = 0;
+  inferior_pid = 42;
 }
 
 /* Start an inferior process and set inferior_pid to its pid.
@@ -340,7 +340,7 @@ arm_rdi_create_inferior (exec_file, args, env)
   CORE_ADDR entry_point;
 
   if (exec_file == 0 || exec_bfd == 0)
-   error ("No exec file specified.");
+   error ("No executable file specified.");
 
   entry_point = (CORE_ADDR) bfd_get_start_address (exec_bfd);
 
@@ -358,22 +358,22 @@ arm_rdi_create_inferior (exec_file, args, env)
   inferior_pid = 42;
   insert_breakpoints ();  /* Needed to get correct instruction in cache */
 
-  if ( env != NULL)
+  if (env != NULL)
     {
       while (*env)
 	{
-	  if (strncmp(*env, "MEMSIZE=", sizeof("MEMSIZE=")-1)==0)
+	  if (strncmp (*env, "MEMSIZE=", sizeof ("MEMSIZE=") - 1) == 0)
 	    {
 	      unsigned long top_of_memory;
 	      char *end_of_num;
 
 	      /* Set up memory limit */
-	      top_of_memory = strtoul(*env + sizeof("MEMSIZE=")-1,
-				      &end_of_num, 0);
+	      top_of_memory = strtoul (*env + sizeof ("MEMSIZE=") - 1,
+				       &end_of_num, 0);
 	      printf_filtered ("Setting top-of-memory to 0x%x\n",
 			       top_of_memory);
 	  
-	      rslt=angel_RDI_info (RDIInfo_SetTopMem, &top_of_memory, &arg2);
+	      rslt = angel_RDI_info (RDIInfo_SetTopMem, &top_of_memory, &arg2);
 	      if (rslt)
 		{
 		  printf_filtered ("RDI_info: %s\n", rdi_error_message (rslt));
@@ -403,7 +403,7 @@ arm_rdi_detach (args, from_tty)
      char *args;
      int from_tty;
 {
-  /* (anything to do?) */
+  pop_target ();
 }
 
 /* Clean up connection to a remote debugger.  */
@@ -414,10 +414,15 @@ arm_rdi_close (quitting)
 {
   int rslt;
 
-  rslt = angel_RDI_close ();
-  if (rslt)
+  if (! closed_already)
     {
-      printf_filtered ("RDI_close: %s\n", rdi_error_message (rslt));
+      rslt = angel_RDI_close ();
+      if (rslt)
+	{
+	  printf_filtered ("RDI_close: %s\n", rdi_error_message (rslt));
+	}
+      closed_already = 1;
+      inferior_pid = 0;
     }
 }
 
@@ -498,11 +503,11 @@ arm_rdi_wait (pid, status)
      int pid;
      struct target_waitstatus *status;
 {
-  status->kind = execute_status == RDIError_NoError ?
-    TARGET_WAITKIND_EXITED : TARGET_WAITKIND_STOPPED;
+  status->kind = (execute_status == RDIError_NoError ?
+    TARGET_WAITKIND_EXITED : TARGET_WAITKIND_STOPPED);
 
   /* convert stopped code from target into right signal */
-  status->value.sig = rdi_error_signal ( execute_status );
+  status->value.sig = rdi_error_signal (execute_status);
 
   return inferior_pid;
 }
@@ -924,56 +929,45 @@ rdi_error_signal (err)
 
 /* Define the target operations structure.  */
 
-struct target_ops arm_rdi_ops = {
-  "rdi",			/* to_shortname */
-  "ARM RDI",			/* to_longname */
-  "Use a remote ARM-based computer, via the RDI library.\n\
-Specify the serial device it is connected to (e.g. /dev/ttya).",  /* to_doc */
-  arm_rdi_open,			/* to_open */
-  arm_rdi_close,		/* to_close */
-  NULL,				/* to_attach */
-  arm_rdi_detach,		/* to_detach */
-  arm_rdi_resume,		/* to_resume */
-  arm_rdi_wait,			/* to_wait */
-  arm_rdi_fetch_registers,	/* to_fetch_registers */
-  arm_rdi_store_registers,	/* to_store_registers */
-  arm_rdi_prepare_to_store,	/* to_prepare_to_store */
-  arm_rdi_xfer_memory,		/* to_xfer_memory */
-  arm_rdi_files_info,		/* to_files_info */
-  arm_rdi_insert_breakpoint,	/* to_insert_breakpoint */
-  arm_rdi_remove_breakpoint,	/* to_remove_breakpoint */
-  NULL,				/* to_terminal_init */
-  NULL,				/* to_terminal_inferior */
-  NULL,				/* to_terminal_ours_for_output */
-  NULL,				/* to_terminal_ours */
-  NULL,				/* to_terminal_info */
-  arm_rdi_kill,			/* to_kill */
-  generic_load,			/* to_load */
-  NULL,				/* to_lookup_symbol */
-  arm_rdi_create_inferior,	/* to_create_inferior */
-  arm_rdi_mourn_inferior,	/* to_mourn_inferior */
-  0,				/* to_can_run */
-  0,				/* to_notice_signals */
-  0,				/* to_thread_alive */
-  0,				/* to_stop */
-  process_stratum,		/* to_stratum */
-  NULL,				/* to_next */
-  1,				/* to_has_all_memory */
-  1,				/* to_has_memory */
-  1,				/* to_has_stack */
-  1,				/* to_has_registers */
-  1,				/* to_has_execution */
-  NULL,				/* sections */
-  NULL,				/* sections_end */
-  OPS_MAGIC			/* to_magic */
-};
+static void
+init_rdi_ops ()
+{
+  arm_rdi_ops.to_shortname = "rdi";	
+  arm_rdi_ops.to_longname = "ARM RDI";
+  arm_rdi_ops.to_doc = "Use a remote ARM-based computer; via the RDI library.\n\
+Specify the serial device it is connected to (e.g. /dev/ttya)." ; 
+  arm_rdi_ops.to_open = arm_rdi_open;		
+  arm_rdi_ops.to_close = arm_rdi_close;	
+  arm_rdi_ops.to_detach = arm_rdi_detach;	
+  arm_rdi_ops.to_resume = arm_rdi_resume;	
+  arm_rdi_ops.to_wait = arm_rdi_wait;	
+  arm_rdi_ops.to_fetch_registers = arm_rdi_fetch_registers;
+  arm_rdi_ops.to_store_registers = arm_rdi_store_registers;
+  arm_rdi_ops.to_prepare_to_store = arm_rdi_prepare_to_store;
+  arm_rdi_ops.to_xfer_memory = arm_rdi_xfer_memory;
+  arm_rdi_ops.to_files_info = arm_rdi_files_info;
+  arm_rdi_ops.to_insert_breakpoint = arm_rdi_insert_breakpoint;
+  arm_rdi_ops.to_remove_breakpoint = arm_rdi_remove_breakpoint;	
+  arm_rdi_ops.to_kill = arm_rdi_kill;		
+  arm_rdi_ops.to_load = generic_load;		
+  arm_rdi_ops.to_create_inferior = arm_rdi_create_inferior;
+  arm_rdi_ops.to_mourn_inferior = arm_rdi_mourn_inferior;
+  arm_rdi_ops.to_stratum = process_stratum;
+  arm_rdi_ops.to_has_all_memory = 1;	
+  arm_rdi_ops.to_has_memory = 1;	
+  arm_rdi_ops.to_has_stack = 1;	
+  arm_rdi_ops.to_has_registers = 1;	
+  arm_rdi_ops.to_has_execution = 1;	
+  arm_rdi_ops.to_magic = OPS_MAGIC;	
+}
 
 void
 _initialize_remote_rdi ()
 {
+  init_rdi_ops () ;
   add_target (&arm_rdi_ops);
 }
 
 /* A little dummy to make linking with the library succeed. */
 
-Fail() {}
+int Fail() { return 0; }

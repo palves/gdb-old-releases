@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1995, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1995,1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -32,6 +32,16 @@ void sim_io_printf_filtered
 
 void NORETURN error
 (const char *msg, ...);
+
+
+/* External environment:
+
+   Some HOST OS's require regular polling so that external events such
+   as GUI io can be handled. */
+
+void sim_io_poll_quit
+(void);
+
 
 
 /* Model I/O:

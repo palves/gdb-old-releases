@@ -242,6 +242,7 @@ load_decode_table(char *file_name)
 	    if (entry->nr_fields > field_nr + decode_cond_mask_field)
 	      set_bits (cond->mask, a2i (entry->field[field_nr + decode_cond_mask_field]));
 	    if (entry->nr_fields > field_nr + decode_cond_value_field)
+              {
 	      if (entry->field[field_nr + decode_cond_value_field][0] == '!')
 		{
 		  cond->is_equal = 0;
@@ -252,6 +253,7 @@ load_decode_table(char *file_name)
 		  cond->is_equal = 1;
 		  set_bits (cond->value, a2i (entry->field[field_nr + decode_cond_value_field]));
 		}
+              }
 	    if (entry->nr_fields > field_nr + decode_cond_word_nr_field)
 	      cond->word_nr = a2i (entry->field[field_nr + decode_cond_word_nr_field]);
 	    field_nr += nr_decode_cond_fields;

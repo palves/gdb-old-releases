@@ -1,5 +1,7 @@
 ## Process this file with automake to generate Makefile.in
 
+AUTOMAKE_OPTIONS = cygnus
+
 DOCFILES = aoutx.texi  archive.texi archures.texi \
 	bfdt.texi  cache.texi coffcode.texi \
 	core.texi elf.texi elfcode.texi  format.texi  libbfd.texi  \
@@ -39,8 +41,6 @@ SRCIPROT = $(srcdir)/../cache.c $(srcdir)/../libbfd.c \
 	$(srcdir)/../cpu-i960.c $(srcdir)/../archures.c \
 	$(srcdir)/../init.c
 
-STAGESTUFF = $(DOCFILES) *.info*
-
 TEXIDIR = $(srcdir)/../../texinfo/fsf
 
 info_TEXINFOS = bfd.texinfo
@@ -51,7 +51,7 @@ $(MKDOC): chew.o
 	$(CC_FOR_BUILD) -o $(MKDOC) chew.o $(LOADLIBES) $(LDFLAGS)
 
 chew.o: chew.c
-	$(CC_FOR_BUILD) -c -I.. -I$(srcdir)/.. -I$(srcdir)/../../include $(H_CFLAGS) $(CFLAGS) $(srcdir)/chew.c
+	$(CC_FOR_BUILD) -c -I.. -I$(srcdir)/.. -I$(srcdir)/../../include -I$(srcdir)/../../intl -I../../intl $(H_CFLAGS) $(CFLAGS) $(srcdir)/chew.c
 
 protos: libbfd.h libcoff.h bfd.h
 
@@ -239,7 +239,12 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	echo "#endif" >>bfd.h
 	echo "#endif" >>bfd.h
 
+noinst_TEXINFOS = bfdint.texi
 
 MOSTLYCLEANFILES = $(MKDOC) *.o
 
-CLEANFILES = $(STAGESTUFF) s-* *.p *.ip
+CLEANFILES = s-* *.p *.ip
+
+DISTCLEANFILES = bfd.?? bfd.??? bfd.h libbfd.h libcoff.h texput.log
+
+MAINTAINERCLEANFILES = $(DOCFILES)

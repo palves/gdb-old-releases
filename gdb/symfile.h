@@ -129,6 +129,14 @@ add_psymbol_to_list PARAMS ((char *, int, namespace_enum, enum address_class,
 			     struct psymbol_allocation_list *, long, CORE_ADDR,
 			     enum language, struct objfile *));
 
+extern void
+add_psymbol_with_dem_name_to_list PARAMS ((char *, int, char *, int, namespace_enum, 
+                                           enum address_class,
+                                           struct psymbol_allocation_list *, 
+                                           long, CORE_ADDR,
+                                           enum language, struct objfile *));
+
+
 extern void init_psymbol_list PARAMS ((struct objfile *, int));
 
 extern void
@@ -185,7 +193,16 @@ obconcat PARAMS ((struct obstack *obstackp, const char *, const char *,
 
 			/*   Variables   */
 
-/* whether to auto load solibs at startup time:  0/1. */
+/* whether to auto load solibs at startup time:  0/1. 
+
+   On all platforms, 0 means "don't auto load".
+
+   On HP-UX, > 0 means a threshhold, in megabytes, of symbol table which will
+   be auto loaded.  When the cumulative size of solib symbol table exceeds
+   this threshhold, solibs' symbol tables will not be loaded.
+
+   On other platforms, > 0 means, "always auto load".
+   */
 
 extern int auto_solib_add;
 
@@ -201,6 +218,8 @@ extern void
 discard_psymtab PARAMS ((struct partial_symtab *));
 
 extern void find_lowest_section PARAMS ((bfd *, asection *, PTR));
+
+extern bfd * symfile_bfd_open PARAMS ((char *));
 
 /* Remote targets may wish to use this as their load function.  */
 extern void generic_load PARAMS ((char *name, int from_tty));

@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,6 +26,10 @@
 #include "events.h"
 
 #include <signal.h>
+
+#if !defined (SIM_EVENTS_POLL_RATE)
+#define SIM_EVENTS_POLL_RATE 0x1000
+#endif
 
 
 
@@ -63,6 +67,17 @@ struct _event_queue {
   signed64 time_of_event;
   signed64 time_from_event;
 };
+
+
+STATIC_INLINE_EVENTS\
+(void)
+sim_events_poll (void *data)
+{
+  event_queue *queue = data;
+  /* just re-schedule in 1000 million ticks time */
+  event_queue_schedule (queue, SIM_EVENTS_POLL_RATE, sim_events_poll, queue);
+  sim_io_poll_quit ();
+}
 
 
 INLINE_EVENTS\
@@ -121,6 +136,9 @@ event_queue_init(event_queue *queue)
   queue->processing = 0;
   queue->time_of_event = 0;
   queue->time_from_event = -1;
+
+  /* schedule our initial counter event */
+  event_queue_schedule (queue, 0, sim_events_poll, queue);
 }
 
 INLINE_EVENTS\

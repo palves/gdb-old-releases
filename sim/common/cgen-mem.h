@@ -1,5 +1,5 @@
-/* Memory ops header for CGEN-based simlators.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+/* Memory ops header for CGEN-based simulators.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
 This file is part of the GNU Simulators.
@@ -21,26 +21,26 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef CGEN_MEM_H
 #define CGEN_MEM_H
 
-#include "sim-xcat.h"
-
 #ifdef MEMOPS_DEFINE_INLINE
 #define MEMOPS_INLINE
 #else
 #define MEMOPS_INLINE extern inline
 #endif
 
+/* Memory read support.  */
+
 #if defined (__GNUC__) || defined (MEMOPS_DEFINE_INLINE)
 #define DECLARE_GETMEM(mode, size) \
 MEMOPS_INLINE mode \
-XCONCAT2 (GETMEM,mode) (SIM_CPU *cpu, ADDR a) \
+XCONCAT2 (GETMEM,mode) (SIM_CPU *cpu, IADDR pc, ADDR a) \
 { \
   PROFILE_COUNT_READ (cpu, a, XCONCAT2 (MODE_,mode)); \
   /* Don't read anything into "unaligned" here.  Bad name choice.  */\
-  return XCONCAT2 (sim_core_read_unaligned_,size) (cpu, NULL_CIA, sim_core_read_map, a); \
+  return XCONCAT2 (sim_core_read_unaligned_,size) (cpu, pc, read_map, a); \
 }
 #else
 #define DECLARE_GETMEM(mode, size) \
-extern mode XCONCAT2 (GETMEM,mode) (SIM_CPU *, ADDR);
+extern mode XCONCAT2 (GETMEM,mode) (SIM_CPU *, IADDR, ADDR);
 #endif
 
 DECLARE_GETMEM (QI, 1)
@@ -55,17 +55,39 @@ DECLARE_GETMEM (UDI, 8)
 #undef DECLARE_GETMEM
 
 #if defined (__GNUC__) || defined (MEMOPS_DEFINE_INLINE)
+#define DECLARE_GETMEM(mode, size) \
+MEMOPS_INLINE mode \
+XCONCAT2 (GETMEM,mode) (SIM_CPU *cpu, IADDR pc, ADDR a) \
+{ \
+  PROFILE_COUNT_READ (cpu, a, XCONCAT2 (MODE_,mode)); \
+  /* Don't read anything into "unaligned" here.  Bad name choice.  */\
+  return XCONCAT2 (sim_core_read_unaligned_,size) (cpu, pc, read_map, a); \
+}
+#else
+#define DECLARE_GETMEM(mode, size) \
+extern mode XCONCAT2 (GETMEM,mode) (SIM_CPU *, IADDR, ADDR);
+#endif
+
+DECLARE_GETMEM (SF, 4)
+DECLARE_GETMEM (DF, 8)
+/*DECLARE_GETMEM (TF, 16)*/
+
+#undef DECLARE_GETMEM
+
+/* Memory write support.  */
+
+#if defined (__GNUC__) || defined (MEMOPS_DEFINE_INLINE)
 #define DECLARE_SETMEM(mode, size) \
 MEMOPS_INLINE void \
-XCONCAT2 (SETMEM,mode) (SIM_CPU *cpu, ADDR a, mode val) \
+XCONCAT2 (SETMEM,mode) (SIM_CPU *cpu, IADDR pc, ADDR a, mode val) \
 { \
   PROFILE_COUNT_WRITE (cpu, a, XCONCAT2 (MODE_,mode)); \
   /* Don't read anything into "unaligned" here.  Bad name choice.  */ \
-  XCONCAT2 (sim_core_write_unaligned_,size) (cpu, NULL_CIA, sim_core_write_map, a, val); \
+  XCONCAT2 (sim_core_write_unaligned_,size) (cpu, pc, write_map, a, val); \
 }
 #else
 #define DECLARE_SETMEM(mode, size) \
-extern void XCONCAT2 (SETMEM,mode) (SIM_CPU *, ADDR, mode);
+extern void XCONCAT2 (SETMEM,mode) (SIM_CPU *, IADDR, ADDR, mode);
 #endif
 
 DECLARE_SETMEM (QI, 1)
@@ -77,16 +99,24 @@ DECLARE_SETMEM (USI, 4)
 DECLARE_SETMEM (DI, 8)
 DECLARE_SETMEM (UDI, 8)
 
+/*
+DECLARE_SETMEM (SF, 4)
+DECLARE_SETMEM (DF, 8)
+DECLARE_SETMEM (TF, 16)
+*/
+
 #undef DECLARE_SETMEM
+
+/* Instruction read support.  */
 
 #if defined (__GNUC__) || defined (MEMOPS_DEFINE_INLINE)
 #define DECLARE_GETIMEM(mode, size) \
 MEMOPS_INLINE mode \
-XCONCAT2 (GETIMEM,mode) (SIM_CPU *cpu, ADDR a) \
+XCONCAT2 (GETIMEM,mode) (SIM_CPU *cpu, IADDR a) \
 { \
   /*PROFILE_COUNT_READ (cpu, a, XCONCAT2 (MODE_,mode));*/ \
   /* Don't read anything into "unaligned" here.  Bad name choice.  */\
-  return XCONCAT2 (sim_core_read_unaligned_,size) (cpu, NULL_CIA, sim_core_execute_map, a); \
+  return XCONCAT2 (sim_core_read_unaligned_,size) (cpu, a, exec_map, a); \
 }
 #else
 #define DECLARE_GETIMEM(mode, size) \
@@ -99,9 +129,10 @@ DECLARE_GETIMEM (USI, 4)
 DECLARE_GETIMEM (UDI, 8)
 
 #undef DECLARE_GETIMEM
-
+
 /* GETT<mode>: translate target value at P to host value.
-   ??? How inefficient is the current implementation?  */
+   This needn't be very efficient (i.e. can call memcpy) as this is
+   only used when interfacing with the outside world (e.g. gdb).  */
 
 #if defined (__GNUC__) || defined (MEMOPS_DEFINE_INLINE)
 #define DECLARE_GETT(mode, size) \
@@ -126,14 +157,21 @@ DECLARE_GETT (USI, 4)
 DECLARE_GETT (DI, 8)
 DECLARE_GETT (UDI, 8)
 
-#undef DECLARE_GETT
+/*
+DECLARE_GETT (SF, 4)
+DECLARE_GETT (DF, 8)
+DECLARE_GETT (TF, 16)
+*/
 
+#undef DECLARE_GETT
+
 /* SETT<mode>: translate host value to target value and store at P.
-   ??? How inefficient is the current implementation?  */
+   This needn't be very efficient (i.e. can call memcpy) as this is
+   only used when interfacing with the outside world (e.g. gdb).  */
 
 #if defined (__GNUC__) || defined (MEMOPS_DEFINE_INLINE)
 #define DECLARE_SETT(mode, size) \
-MEMOPS_INLINE mode \
+MEMOPS_INLINE void \
 XCONCAT2 (SETT,mode) (unsigned char *buf, mode val) \
 { \
   mode tmp; \
@@ -153,6 +191,12 @@ DECLARE_SETT (SI, 4)
 DECLARE_SETT (USI, 4)
 DECLARE_SETT (DI, 8)
 DECLARE_SETT (UDI, 8)
+
+/*
+DECLARE_SETT (SF, 4)
+DECLARE_SETT (DF, 8)
+DECLARE_SETT (TF, 16)
+*/
 
 #undef DECLARE_SETT
 

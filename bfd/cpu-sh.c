@@ -53,7 +53,6 @@ compatible (a,b)
 #define SH3_NEXT &arch_info_struct[1]
 #define SH3E_NEXT NULL
 
-
 static const bfd_arch_info_type arch_info_struct[] = 
 {
   {

@@ -101,7 +101,7 @@ proc gdb_unload {} {
     global gdb_prompt
     send_gdb "file\n"
     gdb_expect 60 {
-	-re "No exec file now\[^\r\n\]*\[\r\n\]" { exp_continue }
+	-re "No executable file now\[^\r\n\]*\[\r\n\]" { exp_continue }
 	-re "No symbol file now\[^\r\n\]*\[\r\n\]" { exp_continue }
 	-re "A program is being debugged already..*Kill it.*y or n. $"\
 	    { send_gdb "y\n"
@@ -313,22 +313,22 @@ proc runto_main { } {
     return 1
 }
 
+# gdb_test COMMAND PATTERN MESSAGE -- send a command to gdb; test the result.
 #
-# gdb_test -- send_gdb a command to gdb and test the result.
-#             Takes three parameters.
-#             Parameters:
-#                First one is the command to execute.  If this is the null string
-#		   then no command is sent.
-#                Second one is the pattern to match for a PASS, and must NOT include
-#		   the \r\n sequence immediately before the gdb prompt.
-#                Third one is an optional message to be printed. If this
-#                  a null string "", then the pass/fail messages use the command
-#		   string as the message.
-#             Returns:
-#                1 if the test failed,
-#                0 if the test passes,
-#               -1 if there was an internal error.
+# COMMAND is the command to execute, send to GDB with send_gdb.  If
+#   this is the null string no command is sent.
+# PATTERN is the pattern to match for a PASS, and must NOT include
+#   the \r\n sequence immediately before the gdb prompt.
+# MESSAGE is an optional message to be printed.  If this is
+#   omitted, then the pass/fail messages use the command string as the
+#   message.  (If this is the empty string, then sometimes we don't
+#   call pass or fail at all; I don't understand this at all.)
 #
+# Returns:
+#    1 if the test failed,
+#    0 if the test passes,
+#   -1 if there was an internal error.
+#  
 proc gdb_test { args } {
     global verbose
     global gdb_prompt
@@ -357,15 +357,41 @@ proc gdb_test { args } {
     }
 
     set result -1
-    if ![string match $command ""] {
-	if { [send_gdb "$command\n"] != "" } {
-	    global suppress_flag;
+    set string "${command}\n";
+    if { $command != "" } {
+	while { "$string" != "" } {
+	    set foo [string first "\n" "$string"];
+	    set len [string length "$string"];
+	    if { $foo < [expr $len - 1] } {
+		set str [string range "$string" 0 $foo];
+		if { [send_gdb "$str"] != "" } {
+		    global suppress_flag;
 
-	    if { ! $suppress_flag } {
-		perror "Couldn't send $command to GDB.";
+		    if { ! $suppress_flag } {
+			perror "Couldn't send $command to GDB.";
+		    }
+		    fail "$message";
+		    return $result;
+		}
+		gdb_expect 2 {
+		    -re "\[\r\n\]" { }
+		    timeout { }
+		}
+		set string [string range "$string" [expr $foo + 1] end];
+	    } else {
+		break;
 	    }
-	    fail "$message";
-	    return $result;
+	}
+	if { "$string" != "" } {
+	    if { [send_gdb "$string"] != "" } {
+		global suppress_flag;
+
+		if { ! $suppress_flag } {
+		    perror "Couldn't send $command to GDB.";
+		}
+		fail "$message";
+		return $result;
+	    }
 	}
     }
 
@@ -380,6 +406,13 @@ proc gdb_test { args } {
 	}
     }
     gdb_expect $tmt {
+	 -re "\\*\\*\\* DOSEXIT code.*" {
+	     if { $message != "" } {
+		 fail "$message";
+	     }
+	     gdb_suppress_entire_file "GDB died";
+	     return -1;
+	 }
 	 -re "Ending remote debugging.*$gdb_prompt$" {
 	    if ![isnative] then {
 		warning "Can`t communicate to remote target."
@@ -623,7 +656,7 @@ proc default_gdb_exit {} {
     if { [is_remote host] && [board_info host exists fileid] } {
 	send_gdb "quit\n";
 	gdb_expect 10 {
-	    -re "and kill it.*y or n. " {
+	    -re "y or n" {
 		send_gdb "y\n";
 		exp_continue;
 	    }
@@ -632,7 +665,9 @@ proc default_gdb_exit {} {
 	}
     }
 
-    remote_close host;
+    if ![is_remote host] {
+	remote_close host;
+    }
     unset gdb_spawn_id
 }
 
@@ -799,21 +834,125 @@ proc skip_chill_tests {} {
     return $skip_chill
 }
 
-proc get_compiler_info {binfile} {
+# skip all the tests in the file if you are not on an hppa running hpux target.
+# and you compiled with gcc
+proc skip_hp_tests {gcc_used} {
+  #  if ![info exists do_hp_tests] {
+  #	return 1;
+  #  }
+    eval set skip_hp [expr ![isnative] || ![istarget "hppa*-*-hpux*"] || $gcc_used!=0 ]
+    verbose "Skip hp tests is $skip_hp"
+    return $skip_hp
+}
+
+proc get_compiler_info {binfile args} {
     # Create and source the file that provides information about the compiler
     # used to compile the test case.
+    # Compiler_type can be null or c++. If null we assume c.
     global srcdir
     global subdir
     # These two come from compiler.c.
     global signed_keyword_not_used
     global gcc_compiled
 
-    if { [gdb_compile "${srcdir}/${subdir}/compiler.c" "${binfile}.ci" preprocess {}] != "" } {
-	perror "Couldn't make ${binfile}.ci file"
-	return 1;
+    if {![istarget "hppa*-*-hpux*"]} {
+	if { [llength $args] > 0 } {
+	    if {$args == "c++"} {
+	if { [gdb_compile "${srcdir}/${subdir}/compiler.cc" "${binfile}.ci" preprocess {}] != "" } {
+		    perror "Couldn't make ${binfile}.ci file"
+		    return 1;
+		}
+	    }
+	} else {
+	    if { [gdb_compile "${srcdir}/${subdir}/compiler.c" "${binfile}.ci" preprocess {}] != "" } {
+		perror "Couldn't make ${binfile}.ci file"
+		return 1;
+	    }
+	}
+    } else {
+	if { [llength $args] > 0 } {
+	    if {$args == "c++"} {
+		if { [eval gdb_preprocess \
+			[list "${srcdir}/${subdir}/compiler.cc" "${binfile}.ci"] \
+			$args] != "" } {
+		    perror "Couldn't make ${binfile}.ci file"
+		    return 1;
+		}
+	    }
+	} else {
+	    if { [eval gdb_preprocess \
+		    [list "${srcdir}/${subdir}/compiler.c" "${binfile}.ci"] \
+		    $args] != "" } {
+		perror "Couldn't make ${binfile}.ci file"
+		return 1;
+	    }
+	}
     }
+    
     source ${binfile}.ci
     return 0;
+}
+
+proc gdb_preprocess {source dest args} {
+    global CC_FOR_TARGET
+    global CXX_FOR_TARGET
+
+    if { [llength $args] == 0 } {
+        set which_compiler "c"
+    } else {
+        if { $args =="c++" } {
+            set which_compiler "c++"
+        } else {
+	    perror "Unknown compiler type supplied to gdb_preprocess"
+	    return 1;
+        }
+    }
+
+    if [info exists CC_FOR_TARGET] {
+	if { $which_compiler == "c"} {
+	    set compiler $CC_FOR_TARGET;
+	}
+    }
+ 
+    if [info exists CXX_FOR_TARGET] {
+	if { $which_compiler == "c++"} {
+	    set compiler $CXX_FOR_TARGET;
+	}
+    }
+
+    if { ![info exists compiler] } {
+        if { $which_compiler == "c" } {
+	    if {[info exists CC]} {
+		set compiler $CC;
+	    }
+	}
+        if { $which_compiler == "c++" } {
+	    if {[info exists CXX]} {
+		set compiler $CXX;
+	    }
+	}
+	if {![info exists compiler]} {
+	    set compiler [board_info [target_info name] compiler];
+	    if { $compiler == "" } {
+		puts "default_target_compile: No compiler to compile with";
+		return "default_target_compile: No compiler to compile with";
+	    }
+	}
+    }
+
+    set cmdline "$compiler -E $source > $dest"
+
+    verbose "Invoking $compiler -E $source > $dest"
+    verbose -log "Executing on local host: $cmdline" 2
+    set status [catch "exec ${cmdline}" exec_output]
+
+    set result [prune_warnings $exec_output]
+    regsub "\[\r\n\]*$" "$result" "" result;
+    regsub "^\[\r\n\]*" "$result" "" result;
+    if { $result != "" } {
+        clone_output "gdb compile failed, $result"
+    }
+    return $result;
 }
 
 proc gdb_compile {source dest type options} {
@@ -834,6 +973,7 @@ proc gdb_compile {source dest type options} {
     }
     verbose "options are $options"
     verbose "source is $source $dest $type $options"
+
     set result [target_compile $source $dest $type $options];
     regsub "\[\r\n\]*$" "$result" "" result;
     regsub "^\[\r\n\]*" "$result" "" result;
@@ -931,7 +1071,8 @@ proc gdb_suppress_entire_file { reason } {
 proc gdb_suppress_tests { args } {
     global suppress_flag;
 
-    return;  # fnf - disable pending review of results where testsuite ran better without this
+    return;  # fnf - disable pending review of results where
+             # testsuite ran better without this
     incr suppress_flag;
 
     if { $suppress_flag == 1 } {
@@ -1020,8 +1161,8 @@ proc gdb_finish { } {
 
 global debug_format
 
-# Run the gdb command "info source" and extract the debugging format information
-# from the output and save it in debug_format.
+# Run the gdb command "info source" and extract the debugging format
+# information from the output and save it in debug_format.
 
 proc get_debug_format { } {
     global gdb_prompt
@@ -1052,11 +1193,12 @@ proc get_debug_format { } {
     }
 }
 
-# Like setup_xfail, but takes the name of a debug format (DWARF 1, COFF, stabs, etc).
-# If that format matches the format that the current test was compiled with, then
-# the next test is expected to fail for any target.  Returns 1 if the next test or
-# set of tests is expected to fail, 0 otherwise (or if it is unknown).  Must
-# have previously called get_debug_format.
+# Like setup_xfail, but takes the name of a debug format (DWARF 1,
+# COFF, stabs, etc).  If that format matches the format that the
+# current test was compiled with, then the next test is expected to
+# fail for any target.  Returns 1 if the next test or set of tests is
+# expected to fail, 0 otherwise (or if it is unknown).  Must have
+# previously called get_debug_format.
 
 proc setup_xfail_format { format } {
     global debug_format
@@ -1126,3 +1268,67 @@ proc gdb_step_for_stub { } {
 	default {}
     }
 }
+
+### gdb_get_line_number TEXT [FILE]
+###
+### Search the source file FILE, and return the line number of a line
+### containing TEXT.  Use this function instead of hard-coding line
+### numbers into your test script.
+###
+### Specifically, this function uses GDB's "search" command to search
+### FILE for the first line containing TEXT, and returns its line
+### number.  Thus, FILE must be a source file, compiled into the
+### executable you are running.  If omitted, FILE defaults to the
+### value of the global variable `srcfile'; most test scripts set
+### `srcfile' appropriately at the top anyway.
+###
+### Use this function to keep your test scripts independent of the
+### exact line numbering of the source file.  Don't write:
+### 
+###   send_gdb "break 20"
+### 
+### This means that if anyone ever edits your test's source file, 
+### your test could break.  Instead, put a comment like this on the
+### source file line you want to break at:
+### 
+###   /* breakpoint spot: frotz.exp: test name */
+### 
+### and then write, in your test script (which we assume is named
+### frotz.exp):
+### 
+###   send_gdb "break [gdb_get_line_number "frotz.exp: test name"]\n"
+###
+### (Yes, Tcl knows how to handle the nested quotes and brackets.
+### Try this:
+### 	$ tclsh
+### 	% puts "foo [lindex "bar baz" 1]"
+### 	foo baz
+### 	% 
+### Tcl is quite clever, for a little stringy language.)
+
+proc gdb_get_line_number {text {file /omitted/}} {
+    global gdb_prompt;
+    global srcfile;
+
+    if {! [string compare $file /omitted/]} {
+	set file $srcfile
+    }
+
+    set result -1;
+    gdb_test "list ${file}:1,1" ".*" ""
+    send_gdb "search ${text}\n"
+    gdb_expect {
+        -re "\[\r\n\]+(\[0-9\]+)\[ \t\].*${text}.*$gdb_prompt $" {
+            set result $expect_out(1,string)
+        }
+        -re ".*$gdb_prompt $" {
+            fail "find line number containing \"${text}\""
+        }
+        timeout {
+            fail "find line number containing \"${text}\" (timeout)"
+        }
+    }
+    return $result;
+}
+
+

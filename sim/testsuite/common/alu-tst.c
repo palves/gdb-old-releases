@@ -1,6 +1,7 @@
 #define WITH_TARGET_WORD_MSB 0
 #define WITH_TARGET_WORD_BITSIZE 64
 #define WITH_HOST_WORD_BITSIZE (sizeof (int) * 8)
+#define WITH_TARGET_BYTE_ORDER BIG_ENDIAN /* does not matter */
 
 #define ASSERT(EXPRESSION) \
 { \
@@ -16,8 +17,6 @@
 #include <string.h>
 
 #include "sim-basics.h"
-#include "sim-types.h"
-#include "sim-bits.h"
 
 #include "sim-alu.h"
 

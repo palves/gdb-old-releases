@@ -1,5 +1,6 @@
 /* BFD back end for traditional Unix core files (U-area and raw sections)
-   Copyright 1988, 1989, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1988, 89, 91, 92, 93, 94, 95, 96, 1998
+   Free Software Foundation, Inc.
    Written by John Gilmore of Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -23,8 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "libbfd.h"
 #include "libaout.h"           /* BFD a.out internal data structures */
 
-#include <stdio.h>
-#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/dir.h>
 #include <signal.h>

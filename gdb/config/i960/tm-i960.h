@@ -62,11 +62,7 @@ extern CORE_ADDR saved_pc_after_call ();
 
 /* Stack grows upward */
 
-#define INNER_THAN >
-
-/* Nonzero if instruction at ip is a return instruction.  */
-
-#define ABOUT_TO_RETURN(ip) (read_memory_integer(ip,4) == 0x0a000000)
+#define INNER_THAN(lhs,rhs) ((lhs) > (rhs))
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -206,7 +202,8 @@ extern CORE_ADDR saved_pc_after_call ();
    On i960, a structure is returned in registers g0-g3, if it will fit.
    If it's more than 16 bytes long, g13 pointed to it on entry.  */
 
-#define USE_STRUCT_CONVENTION(gcc_p, type) (TYPE_LENGTH (type) > 16)
+extern use_struct_convention_fn i960_use_struct_convention;
+#define USE_STRUCT_CONVENTION(gcc_p, type) i960_use_struct_convention (gcc_p, type)
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,

@@ -56,6 +56,7 @@ table_open(const char *file_name,
   int fd;
   struct stat stat_buf;
   table *file;
+  int nr;
 
   /* create a file descriptor */
   file = ZALLOC(table);
@@ -88,10 +89,15 @@ table_open(const char *file_name,
   file->pos = file->buffer;
 
   /* read it in */
-  if (read(fd, file->buffer, file->size) < file->size) {
+#ifdef __CYGWIN32__
+  if ((file->size) && ((nr = read(fd, file->buffer, file->size)) <= 0)) {
+#else
+  if ((nr = read(fd, file->buffer, file->size)) < file->size) {
+#endif
     perror("table_open.read");
     exit(1);
   }
+  file->size = nr;
   file->buffer[file->size] = '\0';
 
   /* done */

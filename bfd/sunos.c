@@ -1,5 +1,5 @@
 /* BFD backend for SunOS binaries.
-   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 1997
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
    Written by Cygnus Support.
 
@@ -84,11 +84,16 @@ static boolean sunos_finish_dynamic_link
   (((mtype) == M_SPARC && bfd_lookup_arch (bfd_arch_sparc, 0) != NULL) \
    || ((mtype) == M_SPARCLET \
        && bfd_lookup_arch (bfd_arch_sparc, bfd_mach_sparc_sparclet) != NULL) \
+   || ((mtype) == M_SPARCLITE_LE \
+       && bfd_lookup_arch (bfd_arch_sparc, bfd_mach_sparc_sparclet) != NULL) \
    || (((mtype) == M_UNKNOWN || (mtype) == M_68010 || (mtype) == M_68020) \
        && bfd_lookup_arch (bfd_arch_m68k, 0) != NULL))
 
 /* Include the usual a.out support.  */
 #include "aoutf1.h"
+
+/* The SunOS 4.1.4 /usr/include/locale.h defines valid as a macro.  */
+#undef valid
 
 /* SunOS shared library support.  We store a pointer to this structure
    in obj_aout_dynamic_info (abfd).  */
@@ -1029,7 +1034,7 @@ sunos_add_dynamic_symbols (abfd, info, symsp, sym_countp, stringsp)
 	      return false;
 	    }
 
-	  if (p - namebuf >= alc)
+	  if ((size_t) (p - namebuf) >= alc)
 	    {
 	      char *n;
 
@@ -2430,6 +2435,7 @@ sunos_check_dynamic_reloc (info, input_bfd, input_section, harg, reloc,
   bfd *dynobj;
   boolean baserel;
   boolean jmptbl;
+  boolean pcrel;
   asection *s;
   bfd_byte *p;
   long indx;
@@ -2438,7 +2444,10 @@ sunos_check_dynamic_reloc (info, input_bfd, input_section, harg, reloc,
 
   dynobj = sunos_hash_table (info)->dynobj;
 
-  if (h != NULL && h->plt_offset != 0)
+  if (h != NULL
+      && h->plt_offset != 0
+      && (info->shared
+	  || (h->flags & SUNOS_DEF_REGULAR) == 0))
     {
       asection *splt;
 
@@ -2458,11 +2467,13 @@ sunos_check_dynamic_reloc (info, input_bfd, input_section, harg, reloc,
 	{
 	  baserel = (0 != (srel->r_type[0] & RELOC_STD_BITS_BASEREL_BIG));
 	  jmptbl = (0 != (srel->r_type[0] & RELOC_STD_BITS_JMPTABLE_BIG));
+	  pcrel = (0 != (srel->r_type[0] & RELOC_STD_BITS_PCREL_BIG));
 	}
       else
 	{
 	  baserel = (0 != (srel->r_type[0] & RELOC_STD_BITS_BASEREL_LITTLE));
 	  jmptbl = (0 != (srel->r_type[0] & RELOC_STD_BITS_JMPTABLE_LITTLE));
+	  pcrel = (0 != (srel->r_type[0] & RELOC_STD_BITS_PCREL_LITTLE));
 	}
     }
   else
@@ -2481,6 +2492,13 @@ sunos_check_dynamic_reloc (info, input_bfd, input_section, harg, reloc,
 		 || r_type == RELOC_BASE13
 		 || r_type == RELOC_BASE22);
       jmptbl = r_type == RELOC_JMP_TBL;
+      pcrel = (r_type == RELOC_DISP8
+	       || r_type == RELOC_DISP16
+	       || r_type == RELOC_DISP32
+	       || r_type == RELOC_WDISP30
+	       || r_type == RELOC_WDISP22);
+      /* We don't consider the PC10 and PC22 types to be PC relative,
+         because they are pcrel_offset.  */
     }
 
   if (baserel)
@@ -2718,6 +2736,8 @@ sunos_check_dynamic_reloc (info, input_bfd, input_section, harg, reloc,
 	  srel->r_index[1] = (bfd_byte)(indx >> 8);
 	  srel->r_index[0] = (bfd_byte)indx;
 	}
+      /* FIXME: We may have to change the addend for a PC relative
+         reloc.  */
     }
   else
     {
@@ -2740,6 +2760,16 @@ sunos_check_dynamic_reloc (info, input_bfd, input_section, harg, reloc,
 	  erel->r_index[2] = (bfd_byte)(indx >> 16);
 	  erel->r_index[1] = (bfd_byte)(indx >> 8);
 	  erel->r_index[0] = (bfd_byte)indx;
+	}
+      if (pcrel && h != NULL)
+	{
+	  /* Adjust the addend for the change in address.  */
+	  PUT_WORD (dynobj,
+		    (GET_WORD (dynobj, erel->r_addend)
+		     - (input_section->output_section->vma
+			+ input_section->output_offset
+			- input_section->vma)),
+		    erel->r_addend);
 	}
     }
 

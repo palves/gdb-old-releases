@@ -28,15 +28,26 @@ if $tracelevel then {
 set testfile "templates"
 set srcfile ${testfile}.cc
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
-     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
-}
 
 # Create and source the file that provides information about the compiler
 # used to compile the test case.
-if  { [gdb_compile "${srcdir}/${subdir}/compiler.cc" "${binfile}.ci" preprocess ""] != "" } {
+if [get_compiler_info ${binfile} "c++"] {
+    return -1
+}
+source ${binfile}.ci
+
+# if we are on HPUX and we are not compiled with gcc, then skip these tests.
+
+if [istarget hppa*-*-hpux*] {
+    if {!$gcc_compiled} {
+	continue 
+    }
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug c++}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
+
 source ${binfile}.ci
 
 #

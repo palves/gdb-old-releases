@@ -8,12 +8,20 @@
 
 /* -*-C-*-
  *
- * $Revision: 1.2 $
- *     $Date: 1998/01/08 11:12:13 $
+ * $Revision: 1.5 $
+ *     $Date: 1999/01/28 03:50:16 $
  *
  */
 #ifndef angsd_hostchan_h
 #define angsd_hostchan_h
+
+/* If under Cygwin, provide backwards compatibility with older
+   Cygwin compilers that don't define the current cpp define. */
+#ifdef __CYGWIN32__
+#ifndef __CYGWIN__
+#define __CYGWIN__
+#endif
+#endif
 
 /* struct timeval */
 #if defined(__unix) || defined(__CYGWIN32__)

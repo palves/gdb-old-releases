@@ -1,5 +1,5 @@
 /* Default profiling support.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -37,47 +37,47 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define COMMAS(n) sim_add_commas (comma_buf, sizeof (comma_buf), (n))
 
+static MODULE_INIT_FN profile_init;
 static MODULE_UNINSTALL_FN profile_uninstall;
-
-#if WITH_PROFILE_INSN_P || WITH_PROFILE_MEMORY_P || WITH_PROFILE_CORE_P || WITH_PROFILE_PC_P
-static void print_bar (SIM_DESC, unsigned int, unsigned int, unsigned int);
-#endif
 
 static DECLARE_OPTION_HANDLER (profile_option_handler);
 
-#define OPTION_PROFILE_INSN		(OPTION_START + 0)
-#define OPTION_PROFILE_MEMORY		(OPTION_START + 1)
-#define OPTION_PROFILE_MODEL		(OPTION_START + 2)
-#define OPTION_PROFILE_FILE		(OPTION_START + 3)
-#define OPTION_PROFILE_RANGE		(OPTION_START + 4)
-#define OPTION_PROFILE_CORE		(OPTION_START + 5)
-#define OPTION_PROFILE_PC		(OPTION_START + 6)
-#define OPTION_PROFILE_PC_RANGE		(OPTION_START + 7)
-#define OPTION_PROFILE_PC_GRANULARITY	(OPTION_START + 8)
+enum {
+  OPTION_PROFILE_INSN = OPTION_START,
+  OPTION_PROFILE_MEMORY,
+  OPTION_PROFILE_MODEL,
+  OPTION_PROFILE_FILE,
+  OPTION_PROFILE_CORE,
+  OPTION_PROFILE_PC,
+  OPTION_PROFILE_PC_RANGE,
+  OPTION_PROFILE_PC_GRANULARITY,
+  OPTION_PROFILE_RANGE,
+  OPTION_PROFILE_FUNCTION
+};
 
 static const OPTION profile_options[] = {
-  { {"profile", no_argument, NULL, 'p'},
-      'p', NULL, "Perform profiling",
+  { {"profile", optional_argument, NULL, 'p'},
+      'p', "on|off", "Perform profiling",
       profile_option_handler },
-  { {"profile-insn", no_argument, NULL, OPTION_PROFILE_INSN},
-      '\0', NULL, "Perform instruction profiling",
+  { {"profile-insn", optional_argument, NULL, OPTION_PROFILE_INSN},
+      '\0', "on|off", "Perform instruction profiling",
       profile_option_handler },
-  { {"profile-memory", no_argument, NULL, OPTION_PROFILE_MEMORY},
-      '\0', NULL, "Perform memory profiling",
+  { {"profile-memory", optional_argument, NULL, OPTION_PROFILE_MEMORY},
+      '\0', "on|off", "Perform memory profiling",
       profile_option_handler },
-  { {"profile-core", no_argument, NULL, OPTION_PROFILE_CORE},
-      '\0', NULL, "Perform CORE profiling",
+  { {"profile-core", optional_argument, NULL, OPTION_PROFILE_CORE},
+      '\0', "on|off", "Perform CORE profiling",
       profile_option_handler },
-  { {"profile-model", no_argument, NULL, OPTION_PROFILE_MODEL},
-      '\0', NULL, "Perform model profiling",
+  { {"profile-model", optional_argument, NULL, OPTION_PROFILE_MODEL},
+      '\0', "on|off", "Perform model profiling",
       profile_option_handler },
 
   { {"profile-file", required_argument, NULL, OPTION_PROFILE_FILE},
       '\0', "FILE NAME", "Specify profile output file",
       profile_option_handler },
 
-  { {"profile-pc", no_argument, NULL, OPTION_PROFILE_PC},
-      '\0', NULL, "Perform PC profiling",
+  { {"profile-pc", optional_argument, NULL, OPTION_PROFILE_PC},
+      '\0', "on|off", "Perform PC profiling",
       profile_option_handler },
   { {"profile-pc-frequency", required_argument, NULL, 'F'},
       'F', "PC PROFILE FREQUENCY", "Specified PC profiling frequency",
@@ -92,70 +92,149 @@ static const OPTION profile_options[] = {
       '\0', "BASE,BOUND", "Specify PC profiling address range",
       profile_option_handler },
 
-#if 0 /*FIXME:wip*/
+#ifdef SIM_HAVE_ADDR_RANGE
   { {"profile-range", required_argument, NULL, OPTION_PROFILE_RANGE},
-      0, NULL, "Specify range of addresses to profile",
+      '\0', "START,END", "Specify range of addresses for instruction and model profiling",
       profile_option_handler },
+#if 0 /*wip*/
+  { {"profile-function", required_argument, NULL, OPTION_PROFILE_FUNCTION},
+      '\0', "FUNCTION", "Specify function to profile",
+      profile_option_handler },
+#endif
 #endif
 
   { {NULL, no_argument, NULL, 0}, '\0', NULL, NULL, NULL }
 };
 
+/* Set/reset the profile options indicated in MASK.  */
+
+static SIM_RC
+set_profile_option_mask (SIM_DESC sd, const char *name, int mask, const char *arg)
+{
+  int profile_nr;
+  int cpu_nr;
+  int profile_val = 1;
+
+  if (arg != NULL)
+    {
+      if (strcmp (arg, "yes") == 0
+	  || strcmp (arg, "on") == 0
+	  || strcmp (arg, "1") == 0)
+	profile_val = 1;
+      else if (strcmp (arg, "no") == 0
+	       || strcmp (arg, "off") == 0
+	       || strcmp (arg, "0") == 0)
+	profile_val = 0;
+      else
+	{
+	  sim_io_eprintf (sd, "Argument `%s' for `--profile%s' invalid, one of `on', `off', `yes', `no' expected\n", arg, name);
+	  return SIM_RC_FAIL;
+	}
+    }
+
+  /* update applicable profile bits */
+  for (profile_nr = 0; profile_nr < MAX_PROFILE_VALUES; ++profile_nr)
+    {
+      if ((mask & (1 << profile_nr)) == 0)
+	continue;
+
+#if 0 /* see sim-trace.c, set flags in STATE here if/when there are any */
+      /* Set non-cpu specific values.  */
+      switch (profile_nr)
+	{
+	case ??? :
+	  break;
+	}
+#endif
+
+      /* Set cpu values.  */
+      for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; cpu_nr++)
+	{
+	  CPU_PROFILE_FLAGS (STATE_CPU (sd, cpu_nr))[profile_nr] = profile_val;
+	}
+    }
+
+  /* Re-compute the cpu profile summary.  */
+  if (profile_val)
+    {
+      for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; cpu_nr++)
+	CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))->profile_any_p = 1;
+    }
+  else
+    {
+      for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; cpu_nr++)
+	{
+	  CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))->profile_any_p = 0;
+	  for (profile_nr = 0; profile_nr < MAX_PROFILE_VALUES; ++profile_nr)
+	    {
+	      if (CPU_PROFILE_FLAGS (STATE_CPU (sd, cpu_nr))[profile_nr])
+		{
+		  CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))->profile_any_p = 1;
+		  break;
+		}
+	    }
+	}
+    }  
+
+  return SIM_RC_OK;
+}
+
+/* Set one profile option based on its IDX value.
+   Not static as cgen-scache.c uses it.  */
+
+SIM_RC
+sim_profile_set_option (SIM_DESC sd, const char *name, int idx, const char *arg)
+{
+  return set_profile_option_mask (sd, name, 1 << idx, arg);
+}
+
 static SIM_RC
 profile_option_handler (SIM_DESC sd,
+			sim_cpu *cpu,
 			int opt,
 			char *arg,
 			int is_command)
 {
-  int i,n;
+  int cpu_nr,prof_nr;
+
+  /* FIXME: Need to handle `cpu' arg.  */
 
   switch (opt)
     {
     case 'p' :
       if (! WITH_PROFILE)
-	sim_io_eprintf (sd, "Profiling not compiled in, -p option ignored\n");
+	sim_io_eprintf (sd, "Profiling not compiled in, `-p' ignored\n");
       else
-	{
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    for (i = 0; i < MAX_PROFILE_VALUES; ++i)
-	      CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[i] = 1;
-	}
+	return set_profile_option_mask (sd, "profile", PROFILE_USEFUL_MASK,
+					arg);
       break;
 
     case OPTION_PROFILE_INSN :
-#if WITH_PROFILE_INSN_P
-      for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_INSN_IDX] = 1;
-#else
-      sim_io_eprintf (sd, "Instruction profiling not compiled in, `--profile-insn' ignored\n");
-#endif
+      if (WITH_PROFILE_INSN_P)
+	return sim_profile_set_option (sd, "-insn", PROFILE_INSN_IDX, arg);
+      else
+	sim_io_eprintf (sd, "Instruction profiling not compiled in, `--profile-insn' ignored\n");
       break;
 
     case OPTION_PROFILE_MEMORY :
-#if WITH_PROFILE_MEMORY_P
-      for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_MEMORY_IDX] = 1;
-#else
-      sim_io_eprintf (sd, "Memory profiling not compiled in, `--profile-memory' ignored\n");
-#endif
+      if (WITH_PROFILE_MEMORY_P)
+	return sim_profile_set_option (sd, "-memory", PROFILE_MEMORY_IDX, arg);
+      else
+	sim_io_eprintf (sd, "Memory profiling not compiled in, `--profile-memory' ignored\n");
       break;
 
     case OPTION_PROFILE_CORE :
-#if WITH_PROFILE_CORE_P
-      for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_CORE_IDX] = 1;
-#else
-      sim_io_eprintf (sd, "CORE profiling not compiled in, `--profile-core' ignored\n");
-#endif
+      if (WITH_PROFILE_CORE_P)
+	return sim_profile_set_option (sd, "-core", PROFILE_CORE_IDX, arg);
+      else
+	sim_io_eprintf (sd, "CORE profiling not compiled in, `--profile-core' ignored\n");
       break;
 
     case OPTION_PROFILE_MODEL :
-#if WITH_PROFILE_MODEL_P
-      for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_MODEL_IDX] = 1;
-#else
-      sim_io_eprintf (sd, "Model profiling not compiled in, `--profile-model' ignored\n");
-#endif
+      if (WITH_PROFILE_MODEL_P)
+	return sim_profile_set_option (sd, "-model", PROFILE_MODEL_IDX, arg);
+      else
+	sim_io_eprintf (sd, "Model profiling not compiled in, `--profile-model' ignored\n");
       break;
 
     case OPTION_PROFILE_FILE :
@@ -172,17 +251,14 @@ profile_option_handler (SIM_DESC sd,
 	      sim_io_eprintf (sd, "Unable to open profile output file `%s'\n", arg);
 	      return SIM_RC_FAIL;
 	    }
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    PROFILE_FILE (CPU_PROFILE_DATA (STATE_CPU (sd, n))) = f;
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	    PROFILE_FILE (CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))) = f;
 	}
       break;
 
     case OPTION_PROFILE_PC:
       if (WITH_PROFILE_PC_P)
-	{
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_PC_IDX] = 1;
-	}
+	return sim_profile_set_option (sd, "-pc", PROFILE_PC_IDX, arg);
       else
 	sim_io_eprintf (sd, "PC profiling not compiled in, `--profile-pc' ignored\n");
       break;
@@ -191,11 +267,11 @@ profile_option_handler (SIM_DESC sd,
       if (WITH_PROFILE_PC_P)
 	{
 	  /* FIXME: Validate arg.  */
-	  i = atoi (arg);
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    PROFILE_PC_FREQ (CPU_PROFILE_DATA (STATE_CPU (sd, n))) = i;
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_PC_IDX] = 1;
+	  int val = atoi (arg);
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	    PROFILE_PC_FREQ (CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))) = val;
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	    CPU_PROFILE_FLAGS (STATE_CPU (sd, cpu_nr))[PROFILE_PC_IDX] = 1;
 	}
       else
 	sim_io_eprintf (sd, "PC profiling not compiled in, `--profile-pc-frequency' ignored\n");
@@ -205,11 +281,11 @@ profile_option_handler (SIM_DESC sd,
       if (WITH_PROFILE_PC_P)
 	{
 	  /* FIXME: Validate arg.  */
-	  i = atoi (arg);
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    PROFILE_PC_NR_BUCKETS (CPU_PROFILE_DATA (STATE_CPU (sd, n))) = i;
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_PC_IDX] = 1;
+	  int val = atoi (arg);
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	    PROFILE_PC_NR_BUCKETS (CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))) = val;
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	    CPU_PROFILE_FLAGS (STATE_CPU (sd, cpu_nr))[PROFILE_PC_IDX] = 1;
 	}
       else
 	sim_io_eprintf (sd, "PC profiling not compiled in, `--profile-pc-size' ignored\n");
@@ -219,14 +295,14 @@ profile_option_handler (SIM_DESC sd,
       if (WITH_PROFILE_PC_P)
 	{
 	  int shift;
-	  i = atoi (arg);
+	  int val = atoi (arg);
 	  /* check that the granularity is a power of two */
 	  shift = 0;
-	  while (i > (1 << shift))
+	  while (val > (1 << shift))
 	    {
 	      shift += 1;
 	    }
-	  if (i != (1 << shift))
+	  if (val != (1 << shift))
 	    {
 	      sim_io_eprintf (sd, "PC profiling granularity not a power of two\n");
 	      return SIM_RC_FAIL;
@@ -236,10 +312,10 @@ profile_option_handler (SIM_DESC sd,
 	      sim_io_eprintf (sd, "PC profiling granularity too small");
 	      return SIM_RC_FAIL;
 	    }
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    PROFILE_PC_SHIFT (CPU_PROFILE_DATA (STATE_CPU (sd, n))) = shift;
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_PC_IDX] = 1;
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	    PROFILE_PC_SHIFT (CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))) = shift;
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	    CPU_PROFILE_FLAGS (STATE_CPU (sd, cpu_nr))[PROFILE_PC_IDX] = 1;
 	}
       else
 	sim_io_eprintf (sd, "PC profiling not compiled in, `--profile-pc-granularity' ignored\n");
@@ -259,22 +335,53 @@ profile_option_handler (SIM_DESC sd,
 	      return SIM_RC_FAIL;
 	    }
 	  bound = strtoul (chp + 1, NULL, 0);
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
 	    {
-	      PROFILE_PC_START (CPU_PROFILE_DATA (STATE_CPU (sd, n))) = base;
-	      PROFILE_PC_END (CPU_PROFILE_DATA (STATE_CPU (sd, n))) = bound;
+	      PROFILE_PC_START (CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))) = base;
+	      PROFILE_PC_END (CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))) = bound;
 	    }	      
-	  for (n = 0; n < MAX_NR_PROCESSORS; ++n)
-	    CPU_PROFILE_FLAGS (STATE_CPU (sd, n))[PROFILE_PC_IDX] = 1;
+	  for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	    CPU_PROFILE_FLAGS (STATE_CPU (sd, cpu_nr))[PROFILE_PC_IDX] = 1;
 	}
       else
 	sim_io_eprintf (sd, "PC profiling not compiled in, `--profile-pc-range' ignored\n");
-
-
-#if 0 /* FIXME:wip */
-    case OPTION_PROFILE_RANGE :
       break;
-#endif
+
+#ifdef SIM_HAVE_ADDR_RANGE
+    case OPTION_PROFILE_RANGE :
+      if (WITH_PROFILE)
+	{
+	  char *chp = arg;
+	  unsigned long start,end;
+	  start = strtoul (chp, &chp, 0);
+	  if (*chp != ',')
+	    {
+	      sim_io_eprintf (sd, "--profile-range missing END argument\n");
+	      return SIM_RC_FAIL;
+	    }
+	  end = strtoul (chp + 1, NULL, 0);
+	  /* FIXME: Argument validation.  */
+	  if (cpu != NULL)
+	    sim_addr_range_add (PROFILE_RANGE (CPU_PROFILE_DATA (cpu)),
+				start, end);
+	  else
+	    for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; ++cpu_nr)
+	      sim_addr_range_add (PROFILE_RANGE (CPU_PROFILE_DATA (STATE_CPU (sd, cpu_nr))),
+				  start, end);
+	}
+      else
+	sim_io_eprintf (sd, "Profiling not compiled in, `--profile-range' ignored\n");
+      break;
+
+    case OPTION_PROFILE_FUNCTION :
+      if (WITH_PROFILE)
+	{
+	  /*wip: need to compute function range given name*/
+	}
+      else
+	sim_io_eprintf (sd, "Profiling not compiled in, `--profile-function' ignored\n");
+      break;
+#endif /* SIM_HAVE_ADDR_RANGE */
     }
 
   return SIM_RC_OK;
@@ -425,6 +532,9 @@ profile_print_pc (sim_cpu *cpu, int verbose)
   unsigned total;
   unsigned i;
 
+  if (PROFILE_PC_COUNT (profile) == 0)
+    return;
+
   sim_io_printf (sd, "Program Counter Statistics:\n\n");
 
   /* First pass over data computes various things.  */
@@ -472,9 +582,9 @@ profile_print_pc (sim_cpu *cpu, int verbose)
 	      sim_io_printf (sd, " %4.1f",
 			     (PROFILE_PC_COUNT (profile) [i] * 100.0) / total);
 	      sim_io_printf (sd, ": ");
-	      print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
-			 PROFILE_PC_COUNT (profile) [i],
-			 max_val);
+	      sim_profile_print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
+				     PROFILE_PC_COUNT (profile) [i],
+				     max_val);
 	      sim_io_printf (sd, "\n");
 	    }
 	}
@@ -536,6 +646,22 @@ profile_print_pc (sim_cpu *cpu, int verbose)
 
 #if WITH_PROFILE_INSN_P
 
+static SIM_RC
+profile_insn_init (SIM_DESC sd)
+{
+  int c;
+
+  for (c = 0; c < MAX_NR_PROCESSORS; ++c)
+    {
+      sim_cpu *cpu = STATE_CPU (sd, c);
+
+      if (CPU_MAX_INSNS (cpu) > 0)
+	PROFILE_INSN_COUNT (CPU_PROFILE_DATA (cpu)) = NZALLOC (unsigned int, CPU_MAX_INSNS (cpu));
+    }
+
+  return SIM_RC_OK;
+}
+
 static void
 profile_print_insn (sim_cpu *cpu, int verbose)
 {
@@ -544,25 +670,36 @@ profile_print_insn (sim_cpu *cpu, int verbose)
   PROFILE_DATA *data = CPU_PROFILE_DATA (cpu);
   char comma_buf[20];
 
-  sim_io_printf (sd, "Instruction Statistics:\n\n");
+  /* If MAX_INSNS not set, insn profiling isn't supported.  */
+  if (CPU_MAX_INSNS (cpu) == 0)
+    return;
+
+  sim_io_printf (sd, "Instruction Statistics");
+#ifdef SIM_HAVE_ADDR_RANGE
+  if (PROFILE_RANGE (data)->ranges)
+    sim_io_printf (sd, " (for selected address range(s))");
+#endif
+  sim_io_printf (sd, "\n\n");
 
   /* First pass over data computes various things.  */
   max_val = 0;
   total = 0;
   max_name_len = 0;
-  for (i = 0; i < MAX_INSNS; ++i)
+  for (i = 0; i < CPU_MAX_INSNS (cpu); ++i)
     {
-      if (INSN_NAME (i) == NULL)
+      const char *name = (*CPU_INSN_NAME (cpu)) (cpu, i);
+
+      if (name == NULL)
 	continue;
       total += PROFILE_INSN_COUNT (data) [i];
       if (PROFILE_INSN_COUNT (data) [i] > max_val)
 	max_val = PROFILE_INSN_COUNT (data) [i];
-      n = strlen (INSN_NAME (i));
+      n = strlen (name);
       if (n > max_name_len)
 	max_name_len = n;
     }
   /* set the total insn count, in case client is being lazy */
-  if (PROFILE_TOTAL_INSN_COUNT (data))
+  if (! PROFILE_TOTAL_INSN_COUNT (data))
     PROFILE_TOTAL_INSN_COUNT (data) = total;
 
   sim_io_printf (sd, "  Total: %s insns\n", COMMAS (total));
@@ -571,19 +708,21 @@ profile_print_insn (sim_cpu *cpu, int verbose)
     {
       /* Now we can print the histogram.  */
       sim_io_printf (sd, "\n");
-      for (i = 0; i < MAX_INSNS; ++i)
+      for (i = 0; i < CPU_MAX_INSNS (cpu); ++i)
 	{
-	  if (INSN_NAME (i) == NULL)
+	  const char *name = (*CPU_INSN_NAME (cpu)) (cpu, i);
+
+	  if (name == NULL)
 	    continue;
 	  if (PROFILE_INSN_COUNT (data) [i] != 0)
 	    {
 	      sim_io_printf (sd, "   %*s: %*s: ",
-			     max_name_len, INSN_NAME (i),
+			     max_name_len, name,
 			     max_val < 10000 ? 5 : 10,
 			     COMMAS (PROFILE_INSN_COUNT (data) [i]));
-	      print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
-			 PROFILE_INSN_COUNT (data) [i],
-			 max_val);
+	      sim_profile_print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
+				     PROFILE_INSN_COUNT (data) [i],
+				     max_val);
 	      sim_io_printf (sd, "\n");
 	    }
 	}
@@ -607,11 +746,11 @@ profile_print_memory (sim_cpu *cpu, int verbose)
   PROFILE_DATA *data = CPU_PROFILE_DATA (cpu);
   char comma_buf[20];
 
-  sim_io_printf (sd, "Memory Access Statistics:\n\n");
+  sim_io_printf (sd, "Memory Access Statistics\n\n");
 
   /* First pass over data computes various things.  */
   max_val = total_read = total_write = max_name_len = 0;
-  for (i = 0; i < MAX_MODES; ++i)
+  for (i = 0; i < MODE_TARGET_MAX; ++i)
     {
       total_read += PROFILE_READ_COUNT (data) [i];
       total_write += PROFILE_WRITE_COUNT (data) [i];
@@ -636,7 +775,7 @@ profile_print_memory (sim_cpu *cpu, int verbose)
 	 as the former swamps the latter.  */
       /* Now we can print the histogram.  */
       sim_io_printf (sd, "\n");
-      for (i = 0; i < MAX_MODES; ++i)
+      for (i = 0; i < MODE_TARGET_MAX; ++i)
 	{
 	  if (PROFILE_READ_COUNT (data) [i] != 0)
 	    {
@@ -644,9 +783,9 @@ profile_print_memory (sim_cpu *cpu, int verbose)
 			     max_name_len, MODE_NAME (i),
 			     max_val < 10000 ? 5 : 10,
 			     COMMAS (PROFILE_READ_COUNT (data) [i]));
-	      print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
-			 PROFILE_READ_COUNT (data) [i],
-			 max_val);
+	      sim_profile_print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
+				     PROFILE_READ_COUNT (data) [i],
+				     max_val);
 	      sim_io_printf (sd, "\n");
 	    }
 	  if (PROFILE_WRITE_COUNT (data) [i] != 0)
@@ -655,9 +794,9 @@ profile_print_memory (sim_cpu *cpu, int verbose)
 			     max_name_len, MODE_NAME (i),
 			     max_val < 10000 ? 5 : 10,
 			     COMMAS (PROFILE_WRITE_COUNT (data) [i]));
-	      print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
-			 PROFILE_WRITE_COUNT (data) [i],
-			 max_val);
+	      sim_profile_print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
+				     PROFILE_WRITE_COUNT (data) [i],
+				     max_val);
 	      sim_io_printf (sd, "\n");
 	    }
 	}
@@ -680,14 +819,14 @@ profile_print_core (sim_cpu *cpu, int verbose)
   PROFILE_DATA *data = CPU_PROFILE_DATA (cpu);
   char comma_buf[20];
 
-  sim_io_printf (sd, "CORE Statistics:\n\n");
+  sim_io_printf (sd, "CORE Statistics\n\n");
 
   /* First pass over data computes various things.  */
   {
-    sim_core_maps map;
+    unsigned map;
     total = 0;
     max_val = 0;
-    for (map = 0; map < nr_sim_core_maps; map++)
+    for (map = 0; map < nr_maps; map++)
       {
 	total += PROFILE_CORE_COUNT (data) [map];
 	if (PROFILE_CORE_COUNT (data) [map] > max_val)
@@ -701,33 +840,20 @@ profile_print_core (sim_cpu *cpu, int verbose)
 
   if (verbose && max_val != 0)
     {
-      sim_core_maps map;
+      unsigned map;
       /* Now we can print the histogram.  */
       sim_io_printf (sd, "\n");
-      for (map = 0; map < nr_sim_core_maps; map++)
+      for (map = 0; map < nr_maps; map++)
 	{
 	  if (PROFILE_CORE_COUNT (data) [map] != 0)
 	    {
-	      switch (map)
-		{
-		case sim_core_read_map:
-		  sim_io_printf (sd, "     read:");
-		  break;
-		case sim_core_write_map:
-		  sim_io_printf (sd, "    write:");
-		  break;
-		case sim_core_execute_map:
-		  sim_io_printf (sd, "     exec:");
-		  break;
-		case nr_sim_core_maps:
-		  ; /* ignore */
-		}
+	      sim_io_printf (sd, "%10s:", map_to_str (map));
 	      sim_io_printf (sd, "%*s: ",
 			     max_val < 10000 ? 5 : 10,
 			     COMMAS (PROFILE_CORE_COUNT (data) [map]));
-	      print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
-			 PROFILE_CORE_COUNT (data) [map],
-			 max_val);
+	      sim_profile_print_bar (sd, PROFILE_HISTOGRAM_WIDTH,
+				     PROFILE_CORE_COUNT (data) [map],
+				     max_val);
 	      sim_io_printf (sd, "\n");
 	    }
 	}
@@ -745,14 +871,18 @@ profile_print_model (sim_cpu *cpu, int verbose)
 {
   SIM_DESC sd = CPU_STATE (cpu);
   PROFILE_DATA *data = CPU_PROFILE_DATA (cpu);
-  unsigned long cti_stalls = PROFILE_MODEL_CTI_STALL_COUNT (data);
-  unsigned long load_stalls = PROFILE_MODEL_LOAD_STALL_COUNT (data);
-  unsigned long total = PROFILE_MODEL_CYCLE_COUNT (data)
-    + cti_stalls + load_stalls;
+  unsigned long cti_stall_cycles = PROFILE_MODEL_CTI_STALL_CYCLES (data);
+  unsigned long load_stall_cycles = PROFILE_MODEL_LOAD_STALL_CYCLES (data);
+  unsigned long total_cycles = PROFILE_MODEL_TOTAL_CYCLES (data);
   char comma_buf[20];
 
-  sim_io_printf (sd, "Model %s Timing Information\n\n",
+  sim_io_printf (sd, "Model %s Timing Information",
 		 MODEL_NAME (CPU_MODEL (cpu)));
+#ifdef SIM_HAVE_ADDR_RANGE
+  if (PROFILE_RANGE (data)->ranges)
+    sim_io_printf (sd, " (for selected address range(s))");
+#endif
+  sim_io_printf (sd, "\n\n");
   sim_io_printf (sd, "  %-*s %s\n",
 		 PROFILE_LABEL_WIDTH, "Taken branches:",
 		 COMMAS (PROFILE_MODEL_TAKEN_COUNT (data)));
@@ -761,24 +891,21 @@ profile_print_model (sim_cpu *cpu, int verbose)
 		 COMMAS (PROFILE_MODEL_UNTAKEN_COUNT (data)));
   sim_io_printf (sd, "  %-*s %s\n",
 		 PROFILE_LABEL_WIDTH, "Cycles stalled due to branches:",
-		 COMMAS (cti_stalls));
+		 COMMAS (cti_stall_cycles));
   sim_io_printf (sd, "  %-*s %s\n",
 		 PROFILE_LABEL_WIDTH, "Cycles stalled due to loads:",
-		 COMMAS (load_stalls));
+		 COMMAS (load_stall_cycles));
   sim_io_printf (sd, "  %-*s %s\n",
 		 PROFILE_LABEL_WIDTH, "Total cycles (*approximate*):",
-		 COMMAS (total));
+		 COMMAS (total_cycles));
   sim_io_printf (sd, "\n");
 }
 
 #endif
 
-
-#if WITH_PROFILE_INSN_P || WITH_PROFILE_MEMORY_P || WITH_PROFILE_CORE_P || WITH_PROFILE_PC_P
-
-static void
-print_bar (SIM_DESC sd, unsigned int width,
-	   unsigned int val, unsigned int max_val)
+void
+sim_profile_print_bar (SIM_DESC sd, unsigned int width,
+		       unsigned int val, unsigned int max_val)
 {
   unsigned int i, count;
 
@@ -787,8 +914,6 @@ print_bar (SIM_DESC sd, unsigned int width,
   for (i = 0; i < count; ++i)
     sim_io_printf (sd, "*");
 }
-
-#endif
 
 /* Print the simulator's execution speed for CPU.  */
 
@@ -807,7 +932,7 @@ profile_print_speed (sim_cpu *cpu)
     sim_io_printf (sd, "  Total instructions:   %s\n", COMMAS (total));
 
   if (milliseconds < 1000)
-    sim_io_printf (sd, "  Total Execution Time: < 1 second\n\n");
+    sim_io_printf (sd, "  Total execution time: < 1 second\n\n");
   else
     {
       /* The printing of the time rounded to 2 decimal places makes the speed
@@ -816,13 +941,34 @@ profile_print_speed (sim_cpu *cpu)
 	 better that the user not perceive there's a math error.  */
       double secs = (double) milliseconds / 1000;
       secs = ((double) (unsigned long) (secs * 100 + .5)) / 100;
-      sim_io_printf (sd, "  Total Execution Time: %.2f seconds\n", secs);
+      sim_io_printf (sd, "  Total execution time: %.2f seconds\n", secs);
       /* Don't confuse things with data that isn't useful.
 	 If we ran for less than 2 seconds, only use the data if we
 	 executed more than 100,000 insns.  */
       if (secs >= 2 || total >= 100000)
-	sim_io_printf (sd, "  Simulator Speed:      %s insns/second\n\n",
+	sim_io_printf (sd, "  Simulator speed:      %s insns/second\n\n",
 		       COMMAS ((unsigned long) ((double) total / secs)));
+    }
+}
+
+/* Print selected address ranges.  */
+
+static void
+profile_print_addr_ranges (sim_cpu *cpu)
+{
+  ADDR_SUBRANGE *asr = PROFILE_RANGE (CPU_PROFILE_DATA (cpu))->ranges;
+  SIM_DESC sd = CPU_STATE (cpu);
+
+  if (asr)
+    {
+      sim_io_printf (sd, "Selected address ranges\n\n");
+      while (asr != NULL)
+	{
+	  sim_io_printf (sd, "  0x%lx - 0x%lx\n",
+			 (long) asr->start, (long) asr->end);
+	  asr = asr->next;
+	}
+      sim_io_printf (sd, "\n");
     }
 }
 
@@ -838,14 +984,14 @@ profile_print_speed (sim_cpu *cpu)
    Note that results are indented two spaces to distinguish them from
    section titles.  */
 
-void
-profile_print (SIM_DESC sd, int verbose,
-	       PROFILE_CALLBACK *misc, PROFILE_CPU_CALLBACK *misc_cpu)
+static void
+profile_info (SIM_DESC sd, int verbose)
 {
   int i,c;
   int print_title_p = 0;
 
   /* Only print the title if some data has been collected.  */
+  /* ??? Why don't we just exit if no data collected?  */
   /* FIXME: If the number of processors can be selected on the command line,
      then MAX_NR_PROCESSORS will need to take an argument of `sd'.  */
 
@@ -874,9 +1020,6 @@ profile_print (SIM_DESC sd, int verbose,
 #if WITH_PROFILE_INSN_P
 	      || PROFILE_FLAGS (data) [PROFILE_INSN_IDX]
 #endif
-#if WITH_PROFILE_INSN_P
-	      || PROFILE_FLAGS (data) [PROFILE_INSN_IDX]
-#endif
 #if WITH_PROFILE_MEMORY_P
 	      || PROFILE_FLAGS (data) [PROFILE_MEMORY_IDX]
 #endif
@@ -896,6 +1039,13 @@ profile_print (SIM_DESC sd, int verbose,
 	{
 	  sim_io_printf (sd, "CPU %d\n\n", c);
 	}
+
+#ifdef SIM_HAVE_ADDR_RANGE
+      if (print_title_p
+	  && (PROFILE_INSN_P (cpu)
+	      || PROFILE_MODEL_P (cpu)))
+	profile_print_addr_ranges (cpu);
+#endif
 
 #if WITH_PROFILE_INSN_P
       if (PROFILE_FLAGS (data) [PROFILE_INSN_IDX])
@@ -928,8 +1078,8 @@ profile_print (SIM_DESC sd, int verbose,
 #endif
 
       /* Print cpu-specific data before the execution speed.  */
-      if (misc_cpu != NULL)
-	(*misc_cpu) (cpu, verbose);
+      if (PROFILE_INFO_CPU_CALLBACK (data) != NULL)
+	PROFILE_INFO_CPU_CALLBACK (data) (cpu, verbose);
 
       /* Always try to print execution time and speed.  */
       if (verbose
@@ -938,9 +1088,9 @@ profile_print (SIM_DESC sd, int verbose,
     }
 
   /* Finally print non-cpu specific miscellaneous data.  */
+  if (STATE_PROFILE_INFO_CALLBACK (sd))
+    STATE_PROFILE_INFO_CALLBACK (sd) (sd, verbose);
 
-  if (misc != NULL)
-    (*misc) (sd, verbose);
 }
 
 /* Install profiling support in the simulator.  */
@@ -951,15 +1101,49 @@ profile_install (SIM_DESC sd)
   int i;
 
   SIM_ASSERT (STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
-  sim_add_option_table (sd, profile_options);
+  sim_add_option_table (sd, NULL, profile_options);
   for (i = 0; i < MAX_NR_PROCESSORS; ++i)
     memset (CPU_PROFILE_DATA (STATE_CPU (sd, i)), 0,
 	    sizeof (* CPU_PROFILE_DATA (STATE_CPU (sd, i))));
+#if WITH_PROFILE_INSN_P
+  sim_module_add_init_fn (sd, profile_insn_init);
+#endif
 #if WITH_PROFILE_PC_P
   sim_module_add_uninstall_fn (sd, profile_pc_uninstall);
   sim_module_add_init_fn (sd, profile_pc_init);
 #endif
+  sim_module_add_init_fn (sd, profile_init);
   sim_module_add_uninstall_fn (sd, profile_uninstall);
+  sim_module_add_info_fn (sd, profile_info);
+  return SIM_RC_OK;
+}
+
+static SIM_RC
+profile_init (SIM_DESC sd)
+{
+#ifdef SIM_HAVE_ADDR_RANGE
+  /* Check if a range has been specified without specifying what to
+     collect.  */
+  {
+    int i;
+
+    for (i = 0; i < MAX_NR_PROCESSORS; ++i)
+      {
+	sim_cpu *cpu = STATE_CPU (sd, i);
+
+	if (ADDR_RANGE_RANGES (PROFILE_RANGE (CPU_PROFILE_DATA (cpu)))
+	    && ! (PROFILE_INSN_P (cpu)
+		  || PROFILE_MODEL_P (cpu)))
+	  {
+	    sim_io_eprintf_cpu (cpu, "Profiling address range specified without --profile-insn or --profile-model.\n");
+	    sim_io_eprintf_cpu (cpu, "Address range ignored.\n");
+	    sim_addr_range_delete (PROFILE_RANGE (CPU_PROFILE_DATA (cpu)),
+				   0, ~ (address_word) 0);
+	  }
+      }
+  }
+#endif
+
   return SIM_RC_OK;
 }
 
@@ -970,7 +1154,9 @@ profile_uninstall (SIM_DESC sd)
 
   for (i = 0; i < MAX_NR_PROCESSORS; ++i)
     {
-      PROFILE_DATA *data = CPU_PROFILE_DATA (STATE_CPU (sd, i));
+      sim_cpu *cpu = STATE_CPU (sd, i);
+      PROFILE_DATA *data = CPU_PROFILE_DATA (cpu);
+
       if (PROFILE_FILE (data) != NULL)
 	{
 	  /* If output from different cpus is going to the same file,
@@ -982,5 +1168,8 @@ profile_uninstall (SIM_DESC sd)
 	  if (i == j)
 	    fclose (PROFILE_FILE (data));
 	}
+
+      if (PROFILE_INSN_COUNT (data) != NULL)
+	zfree (PROFILE_INSN_COUNT (data));
     }
 }

@@ -1,3 +1,20 @@
+Tue Dec 22 10:07:58 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* hsuser.texinfo (Bash History Builtins): comment out btindex
+	commands.
+
+	* Import of Readline 2.2.1.
+	
+	New files: readline.0, readline.3, texi2dvi, texi2html.
+
+1998-12-17  Felix Lee  <flee@cygnus.com>
+
+	* inc-hist.texi: @node line "Using History" was wrong.
+
+Thu Jul  9 17:03:26 1998  Edith Epstein  <eepstein@sophia.cygnus.com>
+
+	* inc-hist.texi: one line change.
+
 Wed Sep 20 12:57:29 1995  Ian Lance Taylor  <ian@cygnus.com>
 
 	* Makefile.in (maintainer-clean): New synonym for realclean.

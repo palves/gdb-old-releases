@@ -15,14 +15,14 @@
  */
 
 /*
- * RCS $Revision: 1.2 $
- * Checkin $Date: 1998/01/08 11:11:51 $
+ * RCS $Revision: 1.3 $
+ * Checkin $Date: 1998/03/31 00:46:46 $
  */
 
 #ifndef dbg_hif__h
 #define dbg_hif__h
 
-#if defined __STDC__ || defined ALMOST_STDC
+#ifdef STDC_HEADERS
 #  include <stdarg.h>
 #else
 #  include <varargs.h>

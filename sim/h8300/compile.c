@@ -1816,11 +1816,12 @@ sim_read (sd, addr, buffer, size)
 #define TICK_REGNUM     12
 
 
-void
-sim_store_register (sd, rn, value)
+int
+sim_store_register (sd, rn, value, length)
      SIM_DESC sd;
      int rn;
      unsigned char *value;
+     int length;
 {
   int longval;
   int shortval;
@@ -1862,13 +1863,15 @@ sim_store_register (sd, rn, value)
       cpu.ticks = longval;
       break;
     }
+  return -1;
 }
 
-void
-sim_fetch_register (sd, rn, buf)
+int
+sim_fetch_register (sd, rn, buf, length)
      SIM_DESC sd;
      int rn;
      unsigned char *buf;
+     int length;
 {
   int v;
   int longreg = 0;
@@ -1920,6 +1923,7 @@ sim_fetch_register (sd, rn, buf)
       buf[0] = v >> 8;
       buf[1] = v;
     }
+  return -1;
 }
 
 void

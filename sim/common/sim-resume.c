@@ -65,9 +65,18 @@ sim_resume (SIM_DESC sd,
       int last_cpu_nr = sim_engine_last_cpu_nr (sd);
       int next_cpu_nr = sim_engine_next_cpu_nr (sd);
       int nr_cpus = sim_engine_nr_cpus (sd);
+
       sim_events_preprocess (sd, last_cpu_nr >= nr_cpus, next_cpu_nr >= nr_cpus);
       if (next_cpu_nr >= nr_cpus)
 	next_cpu_nr = 0;
+
+#ifdef SIM_CPU_EXCEPTION_RESUME
+      {
+	sim_cpu* cpu = STATE_CPU (sd, next_cpu_nr);
+	SIM_CPU_EXCEPTION_RESUME(sd, cpu, siggnal);
+      }
+#endif
+
       sim_engine_run (sd, next_cpu_nr, nr_cpus, siggnal);
     }
   engine->jmpbuf = NULL;

@@ -5,6 +5,7 @@
 #include "opcode/mn10300.h"
 #include <limits.h>
 #include "remote-sim.h"
+#include "bfd.h"
 
 #ifndef INLINE
 #ifdef __GNUC__
@@ -15,6 +16,7 @@
 #endif
 
 extern host_callback *mn10300_callback;
+extern SIM_DESC simulator;
 
 #define DEBUG_TRACE		0x00000001
 #define DEBUG_VALUES		0x00000002
@@ -68,23 +70,41 @@ struct simops
 
 struct _state
 {
-  reg_t regs[15];		/* registers, d0-d3, a0-a3, sp, pc, mdr, psw,
-				   lir, lar, mdrq */
+  reg_t regs[32];		/* registers, d0-d3, a0-a3, sp, pc, mdr, psw,
+				   lir, lar, mdrq, plus some room for processor
+				   specific regs.  */
   uint8 *mem;			/* main memory */
   int exception;
   int exited;
-} State;
 
+  /* All internal state modified by signal_exception() that may need to be
+     rolled back for passing moment-of-exception image back to gdb. */
+  reg_t exc_trigger_regs[32];
+  reg_t exc_suspend_regs[32];
+  int exc_suspended;
+
+#define SIM_CPU_EXCEPTION_TRIGGER(SD,CPU,CIA) mn10300_cpu_exception_trigger(SD,CPU,CIA)
+#define SIM_CPU_EXCEPTION_SUSPEND(SD,CPU,EXC) mn10300_cpu_exception_suspend(SD,CPU,EXC)
+#define SIM_CPU_EXCEPTION_RESUME(SD,CPU,EXC) mn10300_cpu_exception_resume(SD,CPU,EXC)
+};
+
+extern struct _state State;
 extern uint32 OP[4];
 extern struct simops Simops[];
 
-#define PC	(State.regs[9])
+#define PC	(State.regs[REG_PC])
+#define SP	(State.regs[REG_SP])
 
 #define PSW (State.regs[11])
 #define PSW_Z 0x1
 #define PSW_N 0x2
 #define PSW_C 0x4
 #define PSW_V 0x8
+#define PSW_IE LSBIT (11)
+#define PSW_LM LSMASK (10, 8)
+
+#define EXTRACT_PSW_LM LSEXTRACTED16 (PSW, 10, 8)
+#define INSERT_PSW_LM(l) LSINSERTED16 ((l), 10, 8)
 
 #define REG_D0 0
 #define REG_A0 4
@@ -96,6 +116,9 @@ extern struct simops Simops[];
 #define REG_LAR 13
 #define REG_MDRQ 14
 
+#if WITH_COMMON
+/* These definitions conflict with similar macros in common.  */
+#else
 #define SEXT3(x)	((((x)&0x7)^(~0x3))+0x4)	
 
 /* sign-extend a 4-bit number */
@@ -120,12 +143,49 @@ extern struct simops Simops[];
 #define MIN32	0xff80000000LL
 #define MASK32	0xffffffffLL
 #define MASK40	0xffffffffffLL
+#endif  /* not WITH_COMMON */
 
 #ifdef _WIN32
 #define SIGTRAP 5
 #define SIGQUIT 3
 #endif
 
+#if WITH_COMMON
+
+#define FETCH32(a,b,c,d) \
+ ((a)+((b)<<8)+((c)<<16)+((d)<<24))
+
+#define FETCH24(a,b,c) \
+ ((a)+((b)<<8)+((c)<<16))
+
+#define FETCH16(a,b) ((a)+((b)<<8))
+
+#define load_byte(ADDR) \
+sim_core_read_unaligned_1 (STATE_CPU (simulator, 0), PC, read_map, (ADDR))
+
+#define load_half(ADDR) \
+sim_core_read_unaligned_2 (STATE_CPU (simulator, 0), PC, read_map, (ADDR))
+
+#define load_word(ADDR) \
+sim_core_read_unaligned_4 (STATE_CPU (simulator, 0), PC, read_map, (ADDR))
+
+#define store_byte(ADDR, DATA) \
+sim_core_write_unaligned_1 (STATE_CPU (simulator, 0), \
+			    PC, write_map, (ADDR), (DATA))
+
+
+#define store_half(ADDR, DATA) \
+sim_core_write_unaligned_2 (STATE_CPU (simulator, 0), \
+			    PC, write_map, (ADDR), (DATA))
+
+
+#define store_word(ADDR, DATA) \
+sim_core_write_unaligned_4 (STATE_CPU (simulator, 0), \
+			    PC, write_map, (ADDR), (DATA))
+#endif  /* WITH_COMMON */
+
+#if WITH_COMMON
+#else
 #define load_mem_big(addr,len) \
   (len == 1 ? *((addr) + State.mem) : \
    len == 2 ? ((*((addr) + State.mem) << 8) \
@@ -286,6 +346,7 @@ store_word (addr, data)
   p[2] = data >> 16;
   p[3] = data >> 24;
 }
+#endif  /* not WITH_COMMON */
 
 /* Function declarations.  */
 
@@ -297,3 +358,26 @@ void put_half PARAMS ((uint8 *, uint16));
 void put_byte PARAMS ((uint8 *, uint8));
 
 extern uint8 *map PARAMS ((SIM_ADDR addr));
+
+INLINE_SIM_MAIN (void) genericAdd PARAMS ((unsigned long source, unsigned long destReg));
+INLINE_SIM_MAIN (void) genericSub PARAMS ((unsigned long source, unsigned long destReg));
+INLINE_SIM_MAIN (void) genericCmp PARAMS ((unsigned long leftOpnd, unsigned long rightOpnd));
+INLINE_SIM_MAIN (void) genericOr PARAMS ((unsigned long source, unsigned long destReg));
+INLINE_SIM_MAIN (void) genericXor PARAMS ((unsigned long source, unsigned long destReg));
+INLINE_SIM_MAIN (void) genericBtst PARAMS ((unsigned long leftOpnd, unsigned long rightOpnd));
+INLINE_SIM_MAIN (int) syscall_read_mem PARAMS ((host_callback *cb,
+						struct cb_syscall *sc,
+						unsigned long taddr,
+						char *buf,
+						int bytes)); 
+INLINE_SIM_MAIN (int) syscall_write_mem PARAMS ((host_callback *cb,
+						struct cb_syscall *sc,
+						unsigned long taddr,
+						const char *buf,
+						int bytes)); 
+INLINE_SIM_MAIN (void) do_syscall PARAMS ((void));
+void program_interrupt (SIM_DESC sd, sim_cpu *cpu, sim_cia cia, SIM_SIGNAL sig);
+
+void mn10300_cpu_exception_trigger(SIM_DESC sd, sim_cpu* cpu, address_word pc);
+void mn10300_cpu_exception_suspend(SIM_DESC sd, sim_cpu* cpu, int exception);
+void mn10300_cpu_exception_resume(SIM_DESC sd, sim_cpu* cpu, int exception);

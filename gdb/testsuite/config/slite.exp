@@ -1,4 +1,4 @@
-#   Copyright (C) 1993, 1997 Free Software Foundation, Inc.
+#   Copyright (C) 1993, 1997, 1998 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -50,20 +50,7 @@ proc gdb_load { arg } {
     set loadfile [file tail $arg]
     set loadpath [file dirname $arg]
 
-    send_gdb "file $arg\n"
-    gdb_expect {
-	 -re "A program is being debugged already..*Kill it.*y or n. $" {
-	    send_gdb "y\n"
-	    exp_continue
-	}
-         -re "Load new symbol table.*y or n. $" {
-	    send_gdb "y\n"
-	    exp_continue
-	}
-	 -re "Reading symbols from.*done..*$gdb_prompt $" {}
-	 -re "$gdb_prompt $" { perror "GDB couldn't read file" }
-	 timeout { perror "(timeout) read symbol file" ; return -1 }
-    }
+    gdb_file_cmd $arg
 
     if [target_info exists gdb_protocol] {
 	set protocol [target_info gdb_protocol];
@@ -118,6 +105,13 @@ proc gdb_load { arg } {
 	set offset "";
     }
     if { 1 } {
+	if [is_remote host] {
+	    set arg [remote_download host $arg];
+	    if { $arg == "" } {
+		error "download failed"
+		return -1;
+	    }
+	}
 	send_gdb "load $arg $offset\n"
 	verbose "Loading $arg into $GDB" 2
 	set timeout 2400

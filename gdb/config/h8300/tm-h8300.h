@@ -82,7 +82,7 @@ extern CORE_ADDR h8300_skip_prologue ();
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /*#define BREAKPOINT {0x7A, 0xFF}*/
 #define BREAKPOINT {0x01, 0x80}  /* Sleep */
@@ -91,12 +91,6 @@ extern CORE_ADDR h8300_skip_prologue ();
    define this before including this file.    */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction.  */
-/* Allow any of the return instructions, including a trapv and a return
-   from interupt.  */
-
-#define ABOUT_TO_RETURN(pc) ((read_memory_unsigned_integer (pc, 2) & ~0x3) == 0x4e74)
 
 /* Say how long registers are.  */
 
@@ -140,6 +134,11 @@ extern CORE_ADDR h8300_skip_prologue ();
 
 #define REGISTER_NAMES \
   {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "ccr","pc","cycles","tick","inst"}
+
+/* An array of names of registers. */
+
+extern char **h8300_register_names;
+#define REGISTER_NAME(i) h8300_register_names[i]
 
 /* Register numbers of various important registers.
    Note that some of these values are "real" register numbers,
@@ -207,7 +206,7 @@ CORE_ADDR h8300_frame_chain PARAMS ((struct frame_info *));
    the frame chain or following frames back into the startup code.
    See the comments in objfile.h */
 
-#define FRAME_CHAIN_VALID_ALTERNATE   
+#define FRAME_CHAIN_VALID(fp,fi) alternate_frame_chain_valid (fp, fi)
 
 /* Define other aspects of the stack frame.  */
 

@@ -3,19 +3,20 @@
 	.align 2
 	.globl _start
 _start:
+	ldi r0, 0
 	.endm
 
 
 	.macro exit47
-	ldi r6, 1
-	ldi r2, 47
+	ldi r4, 1
+	ldi r0, 47
 	trap 15
 	.endm
 
 
 	.macro exit0
-	ldi r6, 1
-	ldi r2, 0
+	ldi r4, 1
+	ldi r0, 0
 	trap 15
 	.endm
 
@@ -38,8 +39,8 @@ _start:
 	.macro check exit reg val
 	cmpeqi	\reg, #\val
 	brf0t 1f
-0:	ldi r6, 1
-	ldi r2, \exit
+0:	ldi r4, 1
+	ldi r0, \exit
 	trap 15
 1:
 	.endm
@@ -54,8 +55,8 @@ _start:
 	cmpeqi	r2, #\lo
 	brf0f	0f
 	bra	2f
-0:	ldi r6, 1
-	ldi r2, \exit
+0:	ldi r4, 1
+	ldi r0, \exit
 	trap 15
 	.data
 	.align 2
@@ -89,8 +90,8 @@ _start:
 	cmpeq	r2, r3
 	brf0f	0f
 	bra	4f
-0:	ldi r6, 1
-	ldi r2, \exit
+0:	ldi r4, 1
+	ldi r0, \exit
 	trap 15
 4:
 	.endm
@@ -106,8 +107,8 @@ _start:
 	mvfc	r2, cr0
 	cmpeqi	r2, #\val
 	brf0t	1f
-	ldi r6, 1
-	ldi r2, \exit
+	ldi r4, 1
+	ldi r0, \exit
 	trap 15
 1:
 	.endm
@@ -115,10 +116,10 @@ _start:
 
 	.macro hello
 	;; 4:write (1, string, strlen (string))
-	ldi r6, 4
-	ldi r2, 1
-	ldi r3, 1f
-	ldi r4, 2f-1f-1
+	ldi r4, 4
+	ldi r0, 1
+	ldi r1, 1f
+	ldi r2, 2f-1f-1
 	trap 15
 	.section	.rodata
 1:	.string "Hello World!\n"
@@ -143,3 +144,27 @@ _start:
 	PSW_F1 = 0x0004
 	PSW_14 = 0x0002
 	PSW_C  = 0x0001
+
+
+;;;
+
+	DMAP_MASK = 0x3fff
+	DMAP_BASE = 0x8000
+	DMAP_REG = 0xff04
+
+	IMAP0_REG = 0xff00
+	IMAP1_REG = 0xff02
+
+	MAP_INSN = 0x1000
+
+;;;
+
+	VEC_RI   = 0x3fc00
+	VEC_BAE  = 0x3fc04
+	VEC_RIE  = 0x3fc08
+	VEC_AE   = 0x3fc0c
+	VEC_TRAP = 0x3fc10
+	VEC_DBT  = 0x3ff50
+	VEC_SDBT = 0x3fff4
+	VEC_DBI  = 0x3ff58
+	VEC_EI   = 0x3ff5c

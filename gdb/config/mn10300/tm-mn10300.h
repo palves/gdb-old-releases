@@ -20,12 +20,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* The mn10300 is little endian.  */
-#define TARGET_BYTE_ORDER LITTLE_ENDIAN
+#define TARGET_BYTE_ORDER_DEFAULT LITTLE_ENDIAN
 
 /* All registers are 32bits (phew!).  */
 #define REGISTER_SIZE 4
 #define MAX_REGISTER_RAW_SIZE 4
-#define NUM_REGS 14
+#define NUM_REGS 32
 
 #define REGISTER_VIRTUAL_TYPE(REG) builtin_type_int
 
@@ -37,10 +37,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define REGISTER_BYTES (NUM_REGS * REGISTER_SIZE)
 
-#define REGISTER_NAMES \
-{ "d0", "d1", "d2", "d3", "a0", "a1", "a2", "a3", \
-  "sp", "pc", "mdr", "psw", "lir", "lar" }
+extern char **mn10300_register_names;
+#define REGISTER_NAME(i) mn10300_register_names[i]
 
+#define D2_REGNUM 2
+#define D3_REGNUM 3
+#define A2_REGNUM 6
+#define A3_REGNUM 7
 #define SP_REGNUM 8
 #define PC_REGNUM 9
 #define MDR_REGNUM 10
@@ -48,41 +51,34 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define LIR_REGNUM 12
 #define LAR_REGNUM 13
 
-#define FP_REGNUM 7
+/* Pseudo register that contains true address of executing stack frame */
+#define FP_REGNUM 31
 
-/* The breakpoint instruction must be the same size as the smallest
-   instruction in the instruction set.
-
-   The Matsushita mn10x00 processors have single byte instructions
-   so we need a single byte breakpoint.  Matsushita hasn't defined
-   one, so we defined it ourselves.  */
-#define BREAKPOINT {0xff}
+/* BREAKPOINT_FROM_PC uses the program counter value to determine the
+   breakpoint that should be used */
+extern breakpoint_from_pc_fn mn10300_breakpoint_from_pc;
+#define BREAKPOINT_FROM_PC(pcptr, lenptr) mn10300_breakpoint_from_pc (pcptr, lenptr)
 
 #define FUNCTION_START_OFFSET 0
 
 #define DECR_PC_AFTER_BREAK 0
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 #define SAVED_PC_AFTER_CALL(frame) \
   read_memory_integer (read_register (SP_REGNUM), 4)
 
 #ifdef __STDC__
 struct frame_info;
-struct frame_saved_regs;
 struct type;
 struct value;
 #endif
-
-#define EXTRA_FRAME_INFO struct frame_saved_regs fsr; int status; int stack_size;
 
 extern void mn10300_init_extra_frame_info PARAMS ((struct frame_info *));
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fi) mn10300_init_extra_frame_info (fi)
 #define INIT_FRAME_PC		/* Not necessary */
 
-extern void mn10300_frame_find_saved_regs PARAMS ((struct frame_info *,
-						   struct frame_saved_regs *));
-#define FRAME_FIND_SAVED_REGS(fi, regaddr) regaddr = fi->fsr
+#define FRAME_INIT_SAVED_REGS(fi) /* handled by init_extra_frame_info */
 
 extern CORE_ADDR mn10300_frame_chain PARAMS ((struct frame_info *));
 #define FRAME_CHAIN(fi) mn10300_frame_chain (fi)
@@ -152,12 +148,17 @@ mn10300_push_arguments PARAMS ((int, struct value **, CORE_ADDR,
 #define REG_STRUCT_HAS_ADDR(gcc_p,TYPE) \
 	(TYPE_LENGTH (TYPE) > 8)
 
-#define USE_STRUCT_CONVENTION(GCC_P, TYPE) \
-  	(TYPE_NFIELDS (TYPE) > 1 || TYPE_LENGTH (TYPE) > 8)
+extern use_struct_convention_fn mn10300_use_struct_convention;
+#define USE_STRUCT_CONVENTION(GCC_P, TYPE) mn10300_use_struct_convention (GCC_P, TYPE)
 
 /* override the default get_saved_register function with
    one that takes account of generic CALL_DUMMY frames */
 #define GET_SAVED_REGISTER
+
+/* Cons up virtual frame pointer for trace */
+extern void mn10300_virtual_frame_pointer PARAMS ((CORE_ADDR, long *, long *));
+#define TARGET_VIRTUAL_FRAME_POINTER(PC, REGP, OFFP) \
+	mn10300_virtual_frame_pointer ((PC), (REGP), (OFFP))
 
 /* Define this for Wingdb */
 

@@ -1,5 +1,5 @@
 /* Support code for various pieces of CGEN simulators.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -18,15 +18,18 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+#include "bfd.h"
 #include "sim-main.h"
 #include "dis-asm.h"
-#include "cpu-opc.h"
 
 #define MEMOPS_DEFINE_INLINE
 #include "cgen-mem.h"
 
 #define SEMOPS_DEFINE_INLINE
 #include "cgen-ops.h"
+
+#undef min
+#define min(a,b) ((a) < (b) ? (a) : (b))
 
 const char *mode_names[] = {
   "VM",
@@ -35,7 +38,6 @@ const char *mode_names[] = {
   "HI",
   "SI",
   "DI",
-  "UBI",
   "UQI",
   "UHI",
   "USI",
@@ -44,6 +46,54 @@ const char *mode_names[] = {
   "DF",
   "XF",
   "TF",
+  0, /* MODE_TARGET_MAX */
+  "INT",
+  "UINT",
+  "PTR"
+};
+
+/* Opcode table for virtual insns used by the simulator.  */
+
+#define V CGEN_ATTR_MASK (CGEN_INSN_VIRTUAL)
+
+static const CGEN_IBASE virtual_insn_entries[] =
+{
+  {
+    VIRTUAL_INSN_X_INVALID, "--invalid--", NULL, 0,
+    { CGEN_INSN_NBOOL_ATTRS, V, { 0 } }
+  },
+  {
+    VIRTUAL_INSN_X_BEFORE, "--before--", NULL, 0,
+    { CGEN_INSN_NBOOL_ATTRS, V, { 0 } }
+  },
+  {
+    VIRTUAL_INSN_X_AFTER, "--after--", NULL, 0,
+    { CGEN_INSN_NBOOL_ATTRS, V, { 0 } }
+  },
+  {
+    VIRTUAL_INSN_X_BEGIN, "--begin--", NULL, 0,
+    { CGEN_INSN_NBOOL_ATTRS, V, { 0 } }
+  },
+  {
+    VIRTUAL_INSN_X_CHAIN, "--chain--", NULL, 0,
+    { CGEN_INSN_NBOOL_ATTRS, V, { 0 } }
+  },
+  {
+    VIRTUAL_INSN_X_CTI_CHAIN, "--cti-chain--", NULL, 0,
+    { CGEN_INSN_NBOOL_ATTRS, V, { 0 } }
+  }
+};
+
+#undef V
+
+const CGEN_INSN cgen_virtual_insn_table[] =
+{
+  { & virtual_insn_entries[0] },
+  { & virtual_insn_entries[1] },
+  { & virtual_insn_entries[2] },
+  { & virtual_insn_entries[3] },
+  { & virtual_insn_entries[4] },
+  { & virtual_insn_entries[5] }
 };
 
 /* Initialize cgen things.
@@ -53,112 +103,57 @@ void
 cgen_init (SIM_DESC sd)
 {
   int i, c;
-  int run_fast_p = 1;
 
   /* If no profiling or tracing has been enabled, run in fast mode.  */
-  for (c = 0; c < MAX_NR_PROCESSORS; ++c)
-    {
-      sim_cpu *cpu = STATE_CPU (sd, c);
+  {
+    int run_fast_p = 1;
 
-      for (i = 0; i < MAX_PROFILE_VALUES; ++i)
-	if (CPU_PROFILE_FLAGS (cpu) [i])
-	  {
-	    run_fast_p = 0;
-	    break;
-	  }
-      for (i = 0; i < MAX_TRACE_VALUES; ++i)
-	if (CPU_TRACE_FLAGS (cpu) [i])
-	  {
-	    run_fast_p = 0;
-	    break;
-	  }
-      if (! run_fast_p)
-	break;
-    }
-  STATE_RUN_FAST_P (sd) = run_fast_p;
-}
-
-/* Disassembly support.
-   ??? While executing an instruction, the insn has been decoded and all its
-   fields have been extracted.  It is certainly possible to do the disassembly
-   with that data.  This seems simpler, but maybe in the future the already
-   extracted fields will be used.  */
+    for (c = 0; c < MAX_NR_PROCESSORS; ++c)
+      {
+	SIM_CPU *cpu = STATE_CPU (sd, c);
 
-/* Pseudo FILE object for strings.  */
-typedef struct {
-  char *buffer;
-  char *current;
-} SFILE;
-
-/* sprintf to a "stream" */
-
-static int
-disasm_sprintf VPARAMS ((SFILE *f, const char *format, ...))
-{
-#ifndef __STDC__
-  SFILE *f;
-  const char *format;
-#endif
-  int n;
-  va_list args;
-
-  VA_START (args, format);
-#ifndef __STDC__
-  f = va_arg (args, SFILE *);
-  format = va_arg (args, char *);
-#endif
-  vsprintf (f->current, format, args);
-  f->current += n = strlen (f->current);
-  va_end (args);
-  return n;
+	for (i = 0; i < MAX_PROFILE_VALUES; ++i)
+	  if (CPU_PROFILE_FLAGS (cpu) [i])
+	    {
+	      run_fast_p = 0;
+	      break;
+	    }
+	for (i = 0; i < MAX_TRACE_VALUES; ++i)
+	  if (CPU_TRACE_FLAGS (cpu) [i])
+	    {
+	      run_fast_p = 0;
+	      break;
+	    }
+	if (! run_fast_p)
+	  break;
+      }
+    STATE_RUN_FAST_P (sd) = run_fast_p;
+  }
 }
 
-void
-sim_disassemble_insn (SIM_CPU *cpu, const struct cgen_insn *insn,
-		      const struct argbuf *abuf, PCADDR pc, char *buf)
+/* Return the name of insn number I.  */
+
+const char *
+cgen_insn_name (SIM_CPU *cpu, int i)
 {
-  unsigned int length;
-  unsigned long insn_value;
-  struct disassemble_info disasm_info;
-  struct cgen_fields fields;
-  SFILE sfile;
-  char insn_buf[20];
-  SIM_DESC sd = CPU_STATE (cpu);
+  return CGEN_INSN_NAME ((* CPU_GET_IDATA (cpu)) ((cpu), (i)));
+}
 
-  sfile.buffer = sfile.current = buf;
-  INIT_DISASSEMBLE_INFO (disasm_info, (FILE *) &sfile,
-			 (fprintf_ftype) disasm_sprintf);
-  disasm_info.endian =
-    (bfd_big_endian (STATE_PROG_BFD (sd)) ? BFD_ENDIAN_BIG
-     : bfd_little_endian (STATE_PROG_BFD (sd)) ? BFD_ENDIAN_LITTLE
-     : BFD_ENDIAN_UNKNOWN);
+/* Return the maximum number of extra bytes required for a SIM_CPU struct.  */
 
-  switch (abuf->length)
-    {
-    case 1 :
-      insn_value = sim_core_read_aligned_1 (cpu, NULL_CIA, sim_core_read_map, pc);
-      break;
-    case 2 :
-      insn_value = sim_core_read_aligned_2 (cpu, NULL_CIA, sim_core_read_map, pc);
-      break;
-    case 4 :
-      insn_value = sim_core_read_aligned_4 (cpu, NULL_CIA, sim_core_read_map, pc);
-      break;
-    default:
-      abort ();
-    }
+int
+cgen_cpu_max_extra_bytes (void)
+{
+  int i;
+  int extra = 0;
 
-  length = (*CGEN_EXTRACT_FN (insn)) (insn, NULL, insn_value, &fields);
-  /* Result of extract fn is in bits.  */
-  if (length / 8 == abuf->length)
+  for (i = 0; sim_machs[i] != 0; ++i)
     {
-      (*CGEN_PRINT_FN (insn)) (&disasm_info, insn, &fields, pc, length);
+      int size = IMP_PROPS_SIM_CPU_SIZE (MACH_IMP_PROPS (sim_machs[i]));
+      if (size > extra)
+	extra = size;
     }
-  else
-    {
-      /* This shouldn't happen, but aborting is too drastic.  */
-      strcpy (buf, "***unknown***");
-    }
+  return extra;
 }
 
 #ifdef DI_FN_SUPPORT

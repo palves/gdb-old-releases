@@ -55,7 +55,7 @@ extern void m68k_find_saved_regs PARAMS ((struct frame_info *, struct frame_save
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Stack must be kept short aligned when doing function calls.  */
 
@@ -91,12 +91,6 @@ extern void m68k_find_saved_regs PARAMS ((struct frame_info *, struct frame_save
 #define DECR_PC_AFTER_BREAK 2
 #endif
 
-/* Nonzero if instruction at PC is a return instruction.  */
-/* Allow any of the return instructions, including a trapv and a return
-   from interupt.  */
-
-#define ABOUT_TO_RETURN(pc) ((read_memory_integer (pc, 2) & ~0x3) == 0x4e74)
-
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
    real way to know how big a register is.  */
@@ -109,6 +103,8 @@ extern void m68k_find_saved_regs PARAMS ((struct frame_info *, struct frame_save
 #ifndef NUM_REGS
 #define NUM_REGS 29
 #endif
+
+#define NUM_FREGS (NUM_REGS-24)
 
 #ifndef REGISTER_BYTES_OK
 #define REGISTER_BYTES_OK(b) \

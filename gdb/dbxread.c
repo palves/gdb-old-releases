@@ -1,5 +1,5 @@
 /* Read dbx symbol tables and convert to internal format, for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
+   Copyright 1986, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -109,18 +109,12 @@ struct symloc {
 #define FILE_STRING_OFFSET(p) (SYMLOC(p)->file_string_offset)
 
 
-/* Macro to determine which symbols to ignore when reading the first symbol
-   of a file.  Some machines override this definition. */
-#ifndef IGNORE_SYMBOL
-/* This code is used on Ultrix systems.  Ignore it */
-#define IGNORE_SYMBOL(type)  (type == (int)N_NSYMS)
-#endif
-
 /* Remember what we deduced to be the source language of this psymtab. */
 
 static enum language psymtab_language = language_unknown;
 
 /* Nonzero means give verbose info on gdb action.  From main.c.  */
+
 extern int info_verbose;
 
 /* The BFD for this file -- implicit parameter to next_symbol_text.  */
@@ -133,28 +127,31 @@ static bfd *symfile_bfd;
 
 static unsigned symbol_size;
 
-/* This is the offset of the symbol table in the executable file */
+/* This is the offset of the symbol table in the executable file. */
+
 static unsigned symbol_table_offset;
 
-/* This is the offset of the string table in the executable file */
+/* This is the offset of the string table in the executable file. */
+
 static unsigned string_table_offset;
 
 /* For elf+stab executables, the n_strx field is not a simple index
-   into the string table.  Instead, each .o file has a base offset
-   in the string table, and the associated symbols contain offsets
-   from this base.  The following two variables contain the base
-   offset for the current and next .o files. */
+   into the string table.  Instead, each .o file has a base offset in
+   the string table, and the associated symbols contain offsets from
+   this base.  The following two variables contain the base offset for
+   the current and next .o files. */
+
 static unsigned int file_string_table_offset;
 static unsigned int next_file_string_table_offset;
 
-/* .o and NLM files contain unrelocated addresses which are based at 0.  When
-   non-zero, this flag disables some of the special cases for Solaris elf+stab
-   text addresses at location 0. */
+/* .o and NLM files contain unrelocated addresses which are based at
+   0.  When non-zero, this flag disables some of the special cases for
+   Solaris elf+stab text addresses at location 0. */
 
 static int symfile_relocatable = 0;
 
-  /* If this is nonzero, N_LBRAC, N_RBRAC, and N_SLINE entries are relative
-     to the function start address.  */
+/* If this is nonzero, N_LBRAC, N_RBRAC, and N_SLINE entries are
+   relative to the function start address.  */
 
 static int block_address_function_relative = 0;
 
@@ -163,6 +160,7 @@ static int block_address_function_relative = 0;
    what address the program is actually going to be loaded at, so we
    need to make guesses based on the symbols (which *are* relocated to
    reflect the address it will be loaded at).  */
+
 static CORE_ADDR lowest_text_address;
 
 /* Non-zero if there is any line number info in the objfile.  Prevents
@@ -574,10 +572,10 @@ dbx_symfile_read (objfile, section_offsets, mainline)
   symbol_table_offset = DBX_SYMTAB_OFFSET (objfile);
 
   free_pending_blocks ();
-  back_to = make_cleanup (really_free_pendings, 0);
+  back_to = make_cleanup ((make_cleanup_func) really_free_pendings, 0);
 
   init_minimal_symbol_collection ();
-  make_cleanup (discard_minimal_symbols, 0);
+  make_cleanup ((make_cleanup_func) discard_minimal_symbols, 0);
 
   /* Now that the symbol table data of the executable file are all in core,
      process them and define symbols accordingly.  */
@@ -1254,7 +1252,7 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
 
   /* Init bincl list */
   init_bincl_list (20, objfile);
-  back_to = make_cleanup (free_bincl_list, objfile);
+  back_to = make_cleanup ((make_cleanup_func) free_bincl_list, objfile);
 
   last_source_file = NULL;
 
@@ -1338,12 +1336,16 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
 
   if (pst)
     {
+      /* Don't set pst->texthigh lower than it already is.  */
+      CORE_ADDR text_end =
+	(lowest_text_address == (CORE_ADDR)-1
+	 ? (text_addr + section_offsets->offsets[SECT_OFF_TEXT])
+	 : lowest_text_address)
+	+ text_size;
+
       end_psymtab (pst, psymtab_include_list, includes_used,
 		   symnum * symbol_size,
-		   (lowest_text_address == (CORE_ADDR)-1
-		    ? (text_addr + section_offsets->offsets[SECT_OFF_TEXT])
-		    : lowest_text_address)
-		   + text_size,
+		   text_end > pst->texthigh ? text_end : pst->texthigh,
 		   dependency_list, dependencies_used, textlow_not_set);
     }
 
@@ -1444,11 +1446,20 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
       if (p == NULL)
 	p = last_function_name;
       n = p - last_function_name;
-      p = alloca (n + 1);
+      p = alloca (n + 2);
       strncpy (p, last_function_name, n);
       p[n] = 0;
     
       minsym = lookup_minimal_symbol (p, pst->filename, objfile);
+      if (minsym == NULL)
+	{
+	  /* Sun Fortran appends an underscore to the minimal symbol name,
+	     try again with an appended underscore if the minimal symbol
+	     was not found.  */
+	  p[n] = '_';
+	  p[n + 1] = 0;
+	  minsym = lookup_minimal_symbol (p, pst->filename, objfile);
+	}
 
       if (minsym)
 	pst->texthigh = SYMBOL_VALUE_ADDRESS (minsym) + MSYMBOL_SIZE (minsym);
@@ -1602,7 +1613,7 @@ dbx_psymtab_to_symtab_1 (pst)
       /* Init stuff necessary for reading in symbols */
       stabsread_init ();
       buildsym_init ();
-      old_chain = make_cleanup (really_free_pendings, 0);
+      old_chain = make_cleanup ((make_cleanup_func) really_free_pendings, 0);
       file_string_table_offset = FILE_STRING_OFFSET (pst);
       symbol_size = SYMBOL_SIZE (pst);
 
@@ -1895,9 +1906,9 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 
   if (last_source_file == NULL && type != (unsigned char)N_SO)
     {
-      /* Ignore any symbols which appear before an N_SO symbol.  Currently
-	 no one puts symbols there, but we should deal gracefully with the
-	 case.  A complain()t might be in order (if !IGNORE_SYMBOL (type)),
+      /* Ignore any symbols which appear before an N_SO symbol.
+	 Currently no one puts symbols there, but we should deal
+	 gracefully with the case.  A complain()t might be in order,
 	 but this should not be an error ().  */
       return;
     }
@@ -1918,11 +1929,20 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 	  finish_block (new->name, &local_symbols, new->old_blocks,
 			new->start_addr, new->start_addr + valu,
 			objfile);
+
+	  /* May be switching to an assembler file which may not be using
+	     block relative stabs, so reset the offset.  */
+	  if (block_address_function_relative)
+	    function_start_offset = 0;
+
 	  break;
 	}
 
       /* Relocate for dynamic loading */
       valu += ANOFFSET (section_offsets, SECT_OFF_TEXT);
+#ifdef SMASH_TEXT_ADDRESS
+      SMASH_TEXT_ADDRESS (valu);
+#endif
       goto define_a_symbol;
 
     case N_LBRAC:
@@ -2071,6 +2091,9 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
       if (*name == '\000')
 	break;
 
+      if (block_address_function_relative)
+        function_start_offset = 0;
+
       start_stabs ();
       start_symtab (name, NULL, valu);
       record_debugformat ("stabs");
@@ -2104,8 +2127,10 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
       /* This type of "symbol" really just records
 	 one line-number -- core-address correspondence.
 	 Enter it in the line list for this symbol table.  */
+
       /* Relocate for dynamic loading and for ELF acc fn-relative syms.  */
       valu += function_start_offset;
+
 #ifdef SUN_FIXED_LBRAC_BUG
       last_pc_address = valu;	/* Save for SunOS bug circumcision */
 #endif
@@ -2250,12 +2275,22 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 		  if (p == NULL)
 		    p = name;
 		  n = p - name;
-		  p = alloca (n + 1);
+		  p = alloca (n + 2);
 		  strncpy (p, name, n);
 		  p[n] = 0;
 
 		  msym = lookup_minimal_symbol (p, last_source_file,
 						objfile);
+		  if (msym == NULL)
+		    {
+		      /* Sun Fortran appends an underscore to the minimal
+			 symbol name, try again with an appended underscore
+			 if the minimal symbol was not found.  */
+		      p[n] = '_';
+		      p[n + 1] = 0;
+		      msym = lookup_minimal_symbol (p, last_source_file,
+						    objfile);
+		    }
 		  if (msym)
 		    valu = SYMBOL_VALUE_ADDRESS (msym);
 		}
@@ -2371,6 +2406,7 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 		    file's symbols at once.  */
     case N_ENDM:		/* Solaris 2:  End of module */
     case N_MAIN:		/* Name of main routine.  */
+    case N_ALIAS:		/* SunPro F77: alias name, ignore for now.  */
       break;
     }
 

@@ -1,5 +1,5 @@
 /* Print SPARC instructions.
-   Copyright (C) 1989, 91-94, 1995, 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1989, 91-97, 1998 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "opcode/sparc.h"
 #include "dis-asm.h"
 #include "libiberty.h"
+#include "opintl.h"
 
 /* Bitmask of v9 architectures.  */
 #define MASK_V9 ((1 << SPARC_OPCODE_ARCH_V9) \
@@ -221,6 +222,7 @@ print_insn_sparc (memaddr, info)
   static int opcodes_initialized = 0;
   /* bfd mach number of last call.  */
   static unsigned long current_mach = 0;
+  bfd_vma (*getword) PARAMS ((const unsigned char *));
 
   if (!opcodes_initialized
       || info->mach != current_mach)
@@ -253,10 +255,14 @@ print_insn_sparc (memaddr, info)
       }
   }
 
-  if (info->endian == BFD_ENDIAN_BIG)
-    insn = bfd_getb32 (buffer);
+  /* On SPARClite variants such as DANlite (sparc86x), instructions
+     are always big-endian even when the machine is in little-endian mode. */
+  if (info->endian == BFD_ENDIAN_BIG || info->mach == bfd_mach_sparc_sparclite)
+    getword = bfd_getb32;
   else
-    insn = bfd_getl32 (buffer);
+    getword = bfd_getl32;
+
+  insn = getword (buffer);
 
   info->insn_info_valid = 1;			/* We do return this info */
   info->insn_type = dis_nonbranch;		/* Assume non branch insn */
@@ -672,10 +678,7 @@ print_insn_sparc (memaddr, info)
 	      errcode =
 		(*info->read_memory_func)
 		  (memaddr - 4, buffer, sizeof (buffer), info);
-	      if (info->endian == BFD_ENDIAN_BIG)
-		prev_insn = bfd_getb32 (buffer);
-	      else
-		prev_insn = bfd_getl32 (buffer);
+	      prev_insn = getword (buffer);
 
 	      if (errcode == 0)
 		{
@@ -692,10 +695,7 @@ print_insn_sparc (memaddr, info)
 		    {
 		      errcode = (*info->read_memory_func)
 			(memaddr - 8, buffer, sizeof (buffer), info);
-		      if (info->endian == BFD_ENDIAN_BIG)
-			prev_insn = bfd_getb32 (buffer);
-		      else
-			prev_insn = bfd_getl32 (buffer);
+		      prev_insn = getword (buffer);
 		    }
 		}
 
@@ -736,7 +736,7 @@ print_insn_sparc (memaddr, info)
     }
 
   info->insn_type = dis_noninsn;	/* Mark as non-valid instruction */
-  (*info->fprintf_func) (stream, "unknown");
+  (*info->fprintf_func) (stream, _("unknown"));
   return sizeof (buffer);
 }
 
@@ -754,6 +754,7 @@ compute_arch_mask (mach)
     case bfd_mach_sparc_sparclet :
       return SPARC_OPCODE_ARCH_MASK (SPARC_OPCODE_ARCH_SPARCLET);
     case bfd_mach_sparc_sparclite :
+    case bfd_mach_sparc_sparclite_le :
       /* sparclites insns are recognized by default (because that's how
 	 they've always been treated, for better or worse).  Kludge this by
 	 indicating generic v8 is also selected.  */
@@ -804,16 +805,22 @@ compare_opcodes (a, b)
      wrong with the opcode table.  */
   if (match0 & lose0)
     {
-      fprintf (stderr, "Internal error:  bad sparc-opcode.h: \"%s\", %#.8lx, %#.8lx\n",
-	       op0->name, match0, lose0);
+      fprintf
+	(stderr,
+	 /* xgettext:c-format */
+	 _("Internal error:  bad sparc-opcode.h: \"%s\", %#.8lx, %#.8lx\n"),
+	 op0->name, match0, lose0);
       op0->lose &= ~op0->match;
       lose0 = op0->lose;
     }
 
   if (match1 & lose1)
     {
-      fprintf (stderr, "Internal error: bad sparc-opcode.h: \"%s\", %#.8lx, %#.8lx\n",
-	       op1->name, match1, lose1);
+      fprintf
+	(stderr,
+	 /* xgettext:c-format */
+	 _("Internal error: bad sparc-opcode.h: \"%s\", %#.8lx, %#.8lx\n"),
+	 op1->name, match1, lose1);
       op1->lose &= ~op1->match;
       lose1 = op1->lose;
     }
@@ -860,7 +867,8 @@ compare_opcodes (a, b)
 	return i;
       else
 	fprintf (stderr,
-		 "Internal error: bad sparc-opcode.h: \"%s\" == \"%s\"\n",
+		 /* xgettext:c-format */
+		 _("Internal error: bad sparc-opcode.h: \"%s\" == \"%s\"\n"),
 		 op0->name, op1->name);
     }
 

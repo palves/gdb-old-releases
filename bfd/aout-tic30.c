@@ -30,6 +30,7 @@
 
 #define MY(OP) CAT(tic30_aout_,OP)
 #define TARGETNAME "a.out-tic30"
+#define NAME(x,y) CAT3(tic30_aout,_32_,y)
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -890,7 +891,7 @@ tic30_aout_set_arch_mach (abfd, arch, machine)
 #define MY_set_section_contents NAME(aout,set_section_contents)
 #endif
 #ifndef MY_get_section_contents
-#define MY_get_section_contents NAME(aout,get_section_contents)
+#define MY_get_section_contents aout_32_get_section_contents
 #endif
 #ifndef MY_get_section_contents_in_window
 #define MY_get_section_contents_in_window _bfd_generic_get_section_contents_in_window
@@ -937,6 +938,9 @@ tic30_aout_set_arch_mach (abfd, arch, machine)
 #endif
 #ifndef MY_bfd_relax_section
 #define MY_bfd_relax_section bfd_generic_relax_section
+#endif
+#ifndef MY_bfd_gc_sections
+#define MY_bfd_gc_sections bfd_generic_gc_sections
 #endif
 #ifndef MY_bfd_reloc_type_lookup
 #define MY_bfd_reloc_type_lookup tic30_aout_reloc_type_lookup

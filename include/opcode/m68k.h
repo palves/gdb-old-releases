@@ -203,7 +203,7 @@ struct m68k_opcode_alias
    o						(modes 6,7.0,7.1,7.3,7.4)
    p						(modes 0-5)
 
-   coldfire bset/bclr/btst operands:
+   coldfire bset/bclr/btst/mulsl/mulul operands:
    q						(modes 0,2-5)
    v						(modes 0,2-5,7.0,7.1)
 */

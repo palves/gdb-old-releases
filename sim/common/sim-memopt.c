@@ -1,5 +1,5 @@
 /* Simulator memory option handling.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996-1999 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -33,7 +33,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <stdlib.h>
 #endif
 
-/* "core" command line options. */
+/* Memory fill byte */
+static unsigned8 fill_byte_value;
+static int fill_byte_flag = 0;
+
+/* Memory command line options. */
 
 enum {
   OPTION_MEMORY_DELETE = OPTION_START,
@@ -42,6 +46,7 @@ enum {
   OPTION_MEMORY_INFO,
   OPTION_MEMORY_ALIAS,
   OPTION_MEMORY_CLEAR,
+  OPTION_MEMORY_FILL
 };
 
 static DECLARE_OPTION_HANDLER (memory_option_handler);
@@ -67,8 +72,12 @@ static const OPTION memory_options[] =
       '\0', "SIZE", "Add memory at address zero",
       memory_option_handler },
 
+  { {"memory-fill", required_argument, NULL, OPTION_MEMORY_FILL },
+      '\0', "VALUE", "Fill subsequently added memory regions",
+      memory_option_handler },
+
   { {"memory-clear", no_argument, NULL, OPTION_MEMORY_CLEAR },
-      '\0', NULL, "Clear all memory regions",
+      '\0', NULL, "Clear subsequently added memory regions",
       memory_option_handler },
 
   { {"memory-info", no_argument, NULL, OPTION_MEMORY_INFO },
@@ -92,9 +101,57 @@ do_memopt_add (SIM_DESC sd,
 	       sim_memopt **entry,
 	       void *buffer)
 {
-  sim_core_attach (sd, NULL,
-		   level, access_read_write_exec, space,
-		   addr, nr_bytes, modulo, NULL, buffer);
+  void *fill_buffer;
+  unsigned fill_length;
+  void *free_buffer;
+
+  if (buffer != NULL)
+    {
+      /* Buffer already given.  sim_memory_uninstall will free it. */
+      sim_core_attach (sd, NULL,
+		       level, access_read_write_exec, space,
+		       addr, nr_bytes, modulo, NULL, buffer);
+
+      free_buffer = buffer;
+      fill_buffer = buffer;
+      fill_length = (modulo == 0) ? nr_bytes : modulo;
+    }
+  else
+    {
+      /* Allocate new well-aligned buffer, just as sim_core_attach(). */
+      void *aligned_buffer;
+      int padding = (addr % sizeof (unsigned64));
+      unsigned long bytes = (modulo == 0 ? nr_bytes : modulo) + padding;
+
+      /* If filling with non-zero value, do not use clearing allocator. */
+
+      if (fill_byte_flag && fill_byte_value != 0)
+        free_buffer = xmalloc (bytes); /* don't clear */
+      else
+        free_buffer = zalloc (bytes); /* clear */
+
+      aligned_buffer = (char*) free_buffer + padding;
+
+      sim_core_attach (sd, NULL,
+		       level, access_read_write_exec, space,
+		       addr, nr_bytes, modulo, NULL, aligned_buffer);
+
+      fill_buffer = aligned_buffer;
+      fill_length = (modulo == 0) ? nr_bytes : modulo;
+
+      /* If we just used a clearing allocator, and are about to fill with
+         zero, truncate the redundant fill operation. */
+
+      if (fill_byte_flag && fill_byte_value == 0)
+         fill_length = 1; /* avoid boundary length=0 case */
+    }
+
+  if (fill_byte_flag)
+    {
+      ASSERT (fill_buffer != 0);
+      memset ((char*) fill_buffer, fill_byte_value, fill_length);
+    }
+
   while ((*entry) != NULL)
     entry = &(*entry)->next;
   (*entry) = ZALLOC (sim_memopt);
@@ -103,7 +160,8 @@ do_memopt_add (SIM_DESC sd,
   (*entry)->addr = addr;
   (*entry)->nr_bytes = nr_bytes;
   (*entry)->modulo = modulo;
-  (*entry)->buffer = buffer;
+  (*entry)->buffer = free_buffer;
+
   return (*entry);
 }
 
@@ -157,6 +215,13 @@ parse_size (char *chp,
   return chp;
 }
 
+static char *
+parse_ulong_value (char *chp,
+		     unsigned long *value)
+{
+  *value = strtoul (chp, &chp, 0);
+  return chp;
+}
 
 static char *
 parse_addr (char *chp,
@@ -165,11 +230,11 @@ parse_addr (char *chp,
 	    address_word *addr)
 {
   /* [ <space> ": " ] <addr> [ "@" <level> ] */
-  *addr = strtoul (chp, &chp, 0);
+  *addr = (unsigned long) strtoul (chp, &chp, 0);
   if (*chp == ':')
     {
       *space = *addr;
-      *addr = strtoul (chp + 1, &chp, 0);
+      *addr = (unsigned long) strtoul (chp + 1, &chp, 0);
     }
   if (*chp == '@')
     {
@@ -180,11 +245,8 @@ parse_addr (char *chp,
 
 
 static SIM_RC
-memory_option_handler (sd, opt, arg, is_command)
-     SIM_DESC sd;
-     int opt;
-     char *arg;
-     int is_command;
+memory_option_handler (SIM_DESC sd, sim_cpu *cpu, int opt,
+		       char *arg, int is_command)
 {
   switch (opt)
     {
@@ -253,7 +315,7 @@ memory_option_handler (sd, opt, arg, is_command)
 	/* try to attach/insert the main record */
 	entry = do_memopt_add (sd, level, space, addr, nr_bytes, modulo,
 			       &STATE_MEMOPT (sd),
-			       zalloc (modulo ? modulo : nr_bytes));
+			       NULL);
 	/* now attach all the aliases */
 	while (*chp == ',')
 	  {
@@ -284,25 +346,23 @@ memory_option_handler (sd, opt, arg, is_command)
 
     case OPTION_MEMORY_CLEAR:
       {
-	sim_memopt *entry;
-	for (entry = STATE_MEMOPT (sd); entry != NULL; entry = entry->next)
+	fill_byte_value = (unsigned8) 0;
+	fill_byte_flag = 1;
+	return SIM_RC_OK;
+	break;
+      }
+
+    case OPTION_MEMORY_FILL:
+      {
+	unsigned long fill_value;
+	parse_ulong_value (arg, &fill_value);
+	if (fill_value > 255)
 	  {
-	    sim_memopt *alias;
-	    for (alias = entry; alias != NULL; alias = alias->next)
-	      {
-		unsigned8 zero = 0;
-		address_word nr_bytes;
-		if (alias->modulo != 0)
-		  nr_bytes = alias->modulo;
-		else
-		  nr_bytes = alias->nr_bytes;
-		sim_core_write_buffer (sd, NULL, sim_core_write_map,
-				       &zero,
-				       alias->addr + nr_bytes,
-				       sizeof (zero));
-		
-	      }
+	    sim_io_eprintf (sd, "Missing fill value between 0 and 255\n");
+	    return SIM_RC_FAIL;
 	  }
+	fill_byte_value = (unsigned8) fill_value;
+	fill_byte_flag = 1;
 	return SIM_RC_OK;
 	break;
       }
@@ -345,7 +405,7 @@ memory_option_handler (sd, opt, arg, is_command)
       }
 
     default:
-      sim_io_eprintf (sd, "Unknown watch option %d\n", opt);
+      sim_io_eprintf (sd, "Unknown memory option %d\n", opt);
       return SIM_RC_FAIL;
 
     }
@@ -366,7 +426,7 @@ SIM_RC
 sim_memopt_install (SIM_DESC sd)
 {
   SIM_ASSERT (STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
-  sim_add_option_table (sd, memory_options);
+  sim_add_option_table (sd, NULL, memory_options);
   sim_module_add_uninstall_fn (sd, sim_memory_uninstall);
   sim_module_add_init_fn (sd, sim_memory_init);
   return SIM_RC_OK;
@@ -378,7 +438,28 @@ sim_memopt_install (SIM_DESC sd)
 static void
 sim_memory_uninstall (SIM_DESC sd)
 {
-  /* FIXME: free buffers, etc. */
+  sim_memopt **entry = &STATE_MEMOPT (sd);
+  sim_memopt *alias;
+
+  while ((*entry) != NULL)
+    {
+      /* delete any buffer */
+      if ((*entry)->buffer != NULL)
+	zfree ((*entry)->buffer);
+
+      /* delete it and its aliases */
+      alias = *entry;
+      while (alias != NULL)
+	{
+	  sim_memopt *dead = alias;
+	  alias = alias->alias;
+	  sim_core_detach (sd, NULL, dead->level, dead->space, dead->addr);
+	  zfree (dead);
+	}
+
+      /* next victim */
+      *entry = (*entry)->next;
+    }
 }
 
 

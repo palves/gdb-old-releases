@@ -1,4 +1,5 @@
-/* Remote debugging interface to m32r ROM monitor for GDB, the GNU debugger.
+/* Remote debugging interface to m32r and mon2000 ROM monitors for GDB, 
+   the GNU debugger.
    Copyright 1996 Free Software Foundation, Inc.
 
    Adapted by Michael Snyder of Cygnus Support.
@@ -33,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <time.h>	/* for time_t */
 #include "gdb_string.h"
 #include "objfiles.h"	/* for ALL_OBJFILES etc. */
+
 
 extern void report_transfer_performance PARAMS ((unsigned long, time_t, time_t));
 
@@ -186,6 +188,7 @@ m32r_load_gen (filename, from_tty)
 }
 
 static void m32r_open PARAMS ((char *args, int from_tty));
+static void mon2000_open PARAMS ((char *args, int from_tty));
 
 /* This array of registers needs to match the indexes used by GDB. The
    whole reason this exists is because the various ROM monitors use
@@ -272,65 +275,62 @@ m32r_supply_register (regname, regnamelen, val, vallen)
     }
 }
 
+/* m32r RevC board monitor */
+
 static struct target_ops m32r_ops;
 
 static char *m32r_inits[] = {"\r", NULL};
 
-static struct monitor_ops m32r_cmds =
+static struct monitor_ops m32r_cmds ;
+
+static void 
+init_m32r_cmds(void)
 {
-  MO_CLR_BREAK_USES_ADDR | MO_REGISTER_VALUE_FIRST,
-  m32r_inits,			/* Init strings */
-  "go\r",			/* continue command */
-  "step\r",			/* single step */
-  NULL,				/* interrupt command */
-  "%x +bp\r",			/* set a breakpoint */
-  "%x -bp\r",			/* clear a breakpoint */
-  "bpoff\r",			/* clear all breakpoints */
-  "%x %x %x fill\r",		/* fill (start length val) */
-  {
-    "%x 1 %x fill\r",		/* setmem.cmdb (addr, value) */
-    "%x 1 %x fillh\r",		/* setmem.cmdw (addr, value) */
-    "%x 1 %x fillw\r",		/* setmem.cmdl (addr, value) */
-    NULL,			/* setmem.cmdll (addr, value) */
-    NULL,			/* setmem.resp_delim */
-    NULL,			/* setmem.term */
-    NULL			/* setmem.term_cmd */
-  },
-  {
-    "%x %x dump\r",		/* getmem.cmdb (addr, len) */
-    NULL,			/* getmem.cmdw (addr, len) */
-    NULL,			/* getmem.cmdl (addr, len) */
-    NULL,			/* getmem.cmdll (addr, len) */
-    ": ",			/* getmem.resp_delim */
-    NULL,			/* getmem.term */
-    NULL			/* getmem.term_cmd */
-  },
-  {
-    "%x to %%%s\r",		/* setreg.cmd (name, value) */
-    NULL,			/* setreg.resp_delim */
-    NULL,			/* setreg.term */
-    NULL			/* setreg.term_cmd */
-  },
-  {
-    NULL,			/* getreg.cmd (name) */
-    NULL,			/* getreg.resp_delim */
-    NULL,			/* getreg.term */
-    NULL			/* getreg.term_cmd */
-  },
-  ".reg\r",			/* dump_registers */
-  "\\(\\w+\\) += \\([0-9a-fA-F]+\\b\\)", /* register_pattern */
-  m32r_supply_register,		/* supply_register */
-  NULL,				/* load_routine (defaults to SRECs) */
-  NULL,				/* download command */
-  NULL,				/* load response */
-  "ok ",			/* monitor command prompt */
-  "\r",				/* end-of-line terminator */
-  NULL,				/* optional command terminator */
-  &m32r_ops,			/* target operations */
-  SERIAL_1_STOPBITS,		/* number of stop bits */
-  m32r_regnames,		/* registers names */
-  MONITOR_OPS_MAGIC		/* magic */
-  };
+  m32r_cmds.flags =   MO_CLR_BREAK_USES_ADDR | MO_REGISTER_VALUE_FIRST;
+  m32r_cmds.init =   m32r_inits;		/* Init strings */
+  m32r_cmds.cont =   "go\r";			/* continue command */
+  m32r_cmds.step =   "step\r";			/* single step */
+  m32r_cmds.stop =   NULL;			/* interrupt command */
+  m32r_cmds.set_break =   "%x +bp\r";		/* set a breakpoint */
+  m32r_cmds.clr_break =   "%x -bp\r";		/* clear a breakpoint */
+  m32r_cmds.clr_all_break =   "bpoff\r";	/* clear all breakpoints */
+  m32r_cmds.fill =   "%x %x %x fill\r";		/* fill (start length val) */
+  m32r_cmds.setmem.cmdb =     "%x 1 %x fill\r";	/* setmem.cmdb (addr, value) */
+  m32r_cmds.setmem.cmdw =     "%x 1 %x fillh\r";/* setmem.cmdw (addr, value) */
+  m32r_cmds.setmem.cmdl =     "%x 1 %x fillw\r";/* setmem.cmdl (addr, value) */
+  m32r_cmds.setmem.cmdll =     NULL;		/* setmem.cmdll (addr, value) */
+  m32r_cmds.setmem.resp_delim =     NULL;	/* setmem.resp_delim */
+  m32r_cmds.setmem.term =     NULL;		/* setmem.term */
+  m32r_cmds.setmem.term_cmd =     NULL;		/* setmem.term_cmd */
+  m32r_cmds.getmem.cmdb =     "%x %x dump\r";	/* getmem.cmdb (addr, len) */
+  m32r_cmds.getmem.cmdw =     NULL;		/* getmem.cmdw (addr, len) */
+  m32r_cmds.getmem.cmdl =     NULL;		/* getmem.cmdl (addr, len) */
+  m32r_cmds.getmem.cmdll =     NULL;		/* getmem.cmdll (addr, len) */
+  m32r_cmds.getmem.resp_delim =     ": ";	/* getmem.resp_delim */
+  m32r_cmds.getmem.term =     NULL;		/* getmem.term */
+  m32r_cmds.getmem.term_cmd =     NULL	;	/* getmem.term_cmd */
+  m32r_cmds.setreg.cmd =     "%x to %%%s\r";	/* setreg.cmd (name, value) */
+  m32r_cmds.setreg.resp_delim =     NULL;	/* setreg.resp_delim */
+  m32r_cmds.setreg.term =     NULL;		/* setreg.term */
+  m32r_cmds.setreg.term_cmd =     NULL	;	/* setreg.term_cmd */
+  m32r_cmds.getreg.cmd =     NULL;		/* getreg.cmd (name) */
+  m32r_cmds.getreg.resp_delim =     NULL;	/* getreg.resp_delim */
+  m32r_cmds.getreg.term =     NULL;		/* getreg.term */
+  m32r_cmds.getreg.term_cmd =     NULL	;	/* getreg.term_cmd */
+  m32r_cmds.dump_registers =   ".reg\r";	/* dump_registers */
+  m32r_cmds.register_pattern =   "\\(\\w+\\) += \\([0-9a-fA-F]+\\b\\)"; /* register_pattern */
+  m32r_cmds.supply_register =   m32r_supply_register;	/* supply_register */
+  m32r_cmds.load_routine =   NULL;		/* load_routine (defaults to SRECs) */
+  m32r_cmds.load =   NULL;			/* download command */
+  m32r_cmds.loadresp =   NULL;			/* load response */
+  m32r_cmds.prompt =   "ok ";			/* monitor command prompt */
+  m32r_cmds.line_term =   "\r";			/* end-of-line terminator */
+  m32r_cmds.cmd_end =   NULL;			/* optional command terminator */
+  m32r_cmds.target =   &m32r_ops;		/* target operations */
+  m32r_cmds.stopbits =   SERIAL_1_STOPBITS;	/* number of stop bits */
+  m32r_cmds.regnames =   m32r_regnames;		/* registers names */
+  m32r_cmds.magic =   MONITOR_OPS_MAGIC	;	/* magic */
+} /* init_m32r_cmds */
 
 static void
 m32r_open(args, from_tty)
@@ -338,6 +338,68 @@ m32r_open(args, from_tty)
      int from_tty;
 {
   monitor_open (args, &m32r_cmds, from_tty);
+}
+
+/* Mon2000 monitor (MSA2000 board) */
+
+static struct target_ops mon2000_ops;
+static struct monitor_ops mon2000_cmds;
+
+static void 
+init_mon2000_cmds(void)
+{
+  mon2000_cmds.flags =   MO_CLR_BREAK_USES_ADDR | MO_REGISTER_VALUE_FIRST;
+  mon2000_cmds.init =   m32r_inits;		/* Init strings */
+  mon2000_cmds.cont =   "go\r";			/* continue command */
+  mon2000_cmds.step =   "step\r";			/* single step */
+  mon2000_cmds.stop =   NULL;			/* interrupt command */
+  mon2000_cmds.set_break =   "%x +bp\r";		/* set a breakpoint */
+  mon2000_cmds.clr_break =   "%x -bp\r";		/* clear a breakpoint */
+  mon2000_cmds.clr_all_break =   "bpoff\r";	/* clear all breakpoints */
+  mon2000_cmds.fill =   "%x %x %x fill\r";		/* fill (start length val) */
+  mon2000_cmds.setmem.cmdb =     "%x 1 %x fill\r";	/* setmem.cmdb (addr, value) */
+  mon2000_cmds.setmem.cmdw =     "%x 1 %x fillh\r";/* setmem.cmdw (addr, value) */
+  mon2000_cmds.setmem.cmdl =     "%x 1 %x fillw\r";/* setmem.cmdl (addr, value) */
+  mon2000_cmds.setmem.cmdll =     NULL;		/* setmem.cmdll (addr, value) */
+  mon2000_cmds.setmem.resp_delim =     NULL;	/* setmem.resp_delim */
+  mon2000_cmds.setmem.term =     NULL;		/* setmem.term */
+  mon2000_cmds.setmem.term_cmd =     NULL;		/* setmem.term_cmd */
+  mon2000_cmds.getmem.cmdb =     "%x %x dump\r";	/* getmem.cmdb (addr, len) */
+  mon2000_cmds.getmem.cmdw =     NULL;		/* getmem.cmdw (addr, len) */
+  mon2000_cmds.getmem.cmdl =     NULL;		/* getmem.cmdl (addr, len) */
+  mon2000_cmds.getmem.cmdll =     NULL;		/* getmem.cmdll (addr, len) */
+  mon2000_cmds.getmem.resp_delim =     ": ";	/* getmem.resp_delim */
+  mon2000_cmds.getmem.term =     NULL;		/* getmem.term */
+  mon2000_cmds.getmem.term_cmd =     NULL	;	/* getmem.term_cmd */
+  mon2000_cmds.setreg.cmd =     "%x to %%%s\r";	/* setreg.cmd (name, value) */
+  mon2000_cmds.setreg.resp_delim =     NULL;	/* setreg.resp_delim */
+  mon2000_cmds.setreg.term =     NULL;		/* setreg.term */
+  mon2000_cmds.setreg.term_cmd =     NULL	;	/* setreg.term_cmd */
+  mon2000_cmds.getreg.cmd =     NULL;		/* getreg.cmd (name) */
+  mon2000_cmds.getreg.resp_delim =     NULL;	/* getreg.resp_delim */
+  mon2000_cmds.getreg.term =     NULL;		/* getreg.term */
+  mon2000_cmds.getreg.term_cmd =     NULL	;	/* getreg.term_cmd */
+  mon2000_cmds.dump_registers =   ".reg\r";	/* dump_registers */
+  mon2000_cmds.register_pattern =   "\\(\\w+\\) += \\([0-9a-fA-F]+\\b\\)"; /* register_pattern */
+  mon2000_cmds.supply_register =   m32r_supply_register;	/* supply_register */
+  mon2000_cmds.load_routine =   NULL;		/* load_routine (defaults to SRECs) */
+  mon2000_cmds.load =   NULL;			/* download command */
+  mon2000_cmds.loadresp =   NULL;			/* load response */
+  mon2000_cmds.prompt =   "Mon2000>";			/* monitor command prompt */
+  mon2000_cmds.line_term =   "\r";			/* end-of-line terminator */
+  mon2000_cmds.cmd_end =   NULL;			/* optional command terminator */
+  mon2000_cmds.target =   &mon2000_ops;		/* target operations */
+  mon2000_cmds.stopbits =   SERIAL_1_STOPBITS;	/* number of stop bits */
+  mon2000_cmds.regnames =   m32r_regnames;		/* registers names */
+  mon2000_cmds.magic =   MONITOR_OPS_MAGIC	;	/* magic */
+} /* init_mon2000_cmds */
+
+static void
+mon2000_open(args, from_tty)
+     char *args;
+     int from_tty;
+{
+  monitor_open (args, &mon2000_cmds, from_tty);
 }
 
 #ifndef _MSC_VER
@@ -534,6 +596,8 @@ m32r_upload_command (args, from_tty)
 void
 _initialize_m32r_rom ()
 {
+  /* Initialize m32r RevC monitor target */
+  init_m32r_cmds () ;
   init_monitor_ops (&m32r_ops);
 
   m32r_ops.to_shortname = "m32r";
@@ -542,6 +606,19 @@ _initialize_m32r_rom ()
   m32r_ops.to_doc = "Debug via the m32r monitor.\n\
 Specify the serial device it is connected to (e.g. /dev/ttya).";
   m32r_ops.to_open = m32r_open;
+  add_target (&m32r_ops);
+
+  /* Initialize mon2000 monitor target */
+  init_mon2000_cmds ();
+  init_monitor_ops (&mon2000_ops);
+
+  mon2000_ops.to_shortname = "mon2000";
+  mon2000_ops.to_longname = "Mon2000 monitor";
+  mon2000_ops.to_load = m32r_load_gen;	/* monitor lacks a download command */
+  mon2000_ops.to_doc = "Debug via the Mon2000 monitor.\n\
+Specify the serial device it is connected to (e.g. /dev/ttya).";
+  mon2000_ops.to_open = mon2000_open;
+  add_target (&mon2000_ops);
 
 #ifndef _MSC_VER
   add_show_from_set
@@ -570,6 +647,4 @@ Specify the serial device it is connected to (e.g. /dev/ttya).";
 
   add_com ("tload", class_obscure, m32r_load, "test upload command.");
 #endif
-
-  add_target (&m32r_ops);
 }

@@ -1,5 +1,6 @@
 /* BFD back-end for PowerPC Microsoft Portable Executable files.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
 
    Original version pieced together by Kim Knuttila (krk@cygnus.com)
 
@@ -21,7 +22,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 /* Current State:
    - objdump works
@@ -86,7 +88,7 @@ extern void dump_toc PARAMS ((PTR));
  if (strcmp(addr->eye_catcher, EYE) != 0) \
   { \
     fprintf(stderr,\
-    "File %s, line %d, Hash check failure, bad eye %8s\n", \
+    _("File %s, line %d, Hash check failure, bad eye %8s\n"), \
     __FILE__, __LINE__, addr->eye_catcher); \
     abort(); \
  }
@@ -786,7 +788,7 @@ static reloc_howto_type ppc_coff_howto_table[] =
    if (i == 0)                                               \
      {                                                       \
        i = 1;                                                \
-       fprintf(stderr,"Unimplemented Relocation -- %s\n",x); \
+       fprintf(stderr,_("Unimplemented Relocation -- %s\n"),x); \
      }                                                       \
 }
 
@@ -927,7 +929,7 @@ ppc_record_toc_entry(abfd, info, sec, sym, toc_kind)
       local_syms = obj_coff_local_toc_table(abfd);
       if (local_syms == 0)
 	{
-	  int i;
+	  unsigned int i;
 	  /* allocate a table */
 	  local_syms = 
 	    (int *) bfd_zalloc (abfd, 
@@ -949,7 +951,7 @@ ppc_record_toc_entry(abfd, info, sec, sym, toc_kind)
 	  /* The size must fit in a 16bit displacment */
 	  if (global_toc_size > 65535)
 	    {
-	      (*_bfd_error_handler) ("TOC overflow");
+	      (*_bfd_error_handler) (_("TOC overflow"));
 	      bfd_set_error (bfd_error_file_too_big);
 	      return false;
 	    }
@@ -969,7 +971,7 @@ ppc_record_toc_entry(abfd, info, sec, sym, toc_kind)
 	  /* The size must fit in a 16bit displacment */
 	  if (global_toc_size >= 65535)
 	    {
-	      (*_bfd_error_handler) ("TOC overflow");
+	      (*_bfd_error_handler) (_("TOC overflow"));
 	      bfd_set_error (bfd_error_file_too_big);
 	      return false;
 	    }
@@ -1073,7 +1075,7 @@ pe_ppc_reloc (abfd, reloc_entry, symbol_in, data, input_section, output_bfd,
   if ((part1_consth_active) && (r_type != IMAGE_REL_PPC_PAIR)) 
     {
       part1_consth_active = false;
-      *error_message = (char *) "Missing PAIR";
+      *error_message = (char *) _("Missing PAIR");
       return(bfd_reloc_dangerous);
     }
 
@@ -1207,7 +1209,7 @@ coff_ppc_relocate_section (output_bfd, info, input_bfd, input_section,
 	{
 	default:
 	  (*_bfd_error_handler)
-	    ("%s: unsupported relocation type 0x%02x",
+	    (_("%s: unsupported relocation type 0x%02x"),
 	     bfd_get_filename (input_bfd), r_type);
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
@@ -1304,7 +1306,7 @@ coff_ppc_relocate_section (output_bfd, info, input_bfd, input_section,
 		    if (our_toc_offset >= 65535)
 		      {
 			(*_bfd_error_handler)
-			  ("%s: Relocation for %s of %x exceeds Toc size limit", 
+			  (_("%s: Relocation for %s of %x exceeds Toc size limit"), 
 			   bfd_get_filename (input_bfd), name, our_toc_offset);
 			bfd_set_error (bfd_error_bad_value);
 			return false;
@@ -1360,7 +1362,7 @@ coff_ppc_relocate_section (output_bfd, info, input_bfd, input_section,
 		our_toc_offset > toc_section->_raw_size)
 	      {
 		(*_bfd_error_handler)
-		  ("%s: Relocation exceeds allocated TOC (%x)", 
+		  (_("%s: Relocation exceeds allocated TOC (%x)"), 
 		   bfd_get_filename (input_bfd),
 		   toc_section->_raw_size);
 		bfd_set_error (bfd_error_bad_value);
@@ -1419,7 +1421,7 @@ coff_ppc_relocate_section (output_bfd, info, input_bfd, input_section,
 	      }
 
 	    fprintf(stderr, 
-		    "Warning: unsupported reloc %s <file %s, section %s>\n", 
+		    _("Warning: unsupported reloc %s <file %s, section %s>\n"), 
 		    howto->name,
 		    bfd_get_filename(input_bfd),
 		    input_section->name);
@@ -1439,7 +1441,7 @@ coff_ppc_relocate_section (output_bfd, info, input_bfd, input_section,
 	    my_name = h->root.root.root.string;
 
 	    (*_bfd_error_handler)
-	      ("%s: Out of order IMGLUE reloc for %s", 
+	      (_("%s: Out of order IMGLUE reloc for %s"), 
 	       bfd_get_filename (input_bfd), my_name);
 	    bfd_set_error (bfd_error_bad_value);
 	    return false;
@@ -1644,11 +1646,11 @@ struct list_ele *head;
 struct list_ele *tail;
 
 static char *
-h1 = "\n\t\t\tTOC MAPPING\n\n";
+h1 = N_("\n\t\t\tTOC MAPPING\n\n");
 static char *
-h2 = " TOC    disassembly  Comments       Name\n";
+h2 = N_(" TOC    disassembly  Comments       Name\n");
 static char *
-h3 = " Offset  spelling                   (if present)\n";
+h3 = N_(" Offset  spelling                   (if present)\n");
 
 void
 dump_toc (vfile)
@@ -1657,31 +1659,31 @@ dump_toc (vfile)
   FILE *file = (FILE *) vfile;
   struct list_ele *t;
 
-  fprintf(file, h1);
-  fprintf(file, h2);
-  fprintf(file, h3);
+  fprintf(file, _(h1));
+  fprintf(file, _(h2));
+  fprintf(file, _(h3));
 
   for(t = head; t != 0; t=t->next)
     {
-      char *cat;
+      const char *cat = "";
 
       if (t->cat == priv)
-	cat = "private       ";
+	cat = _("private       ");
       else if (t->cat == pub)
-	cat = "public        ";
+	cat = _("public        ");
       else if (t->cat == data)
-	cat = "data-in-toc   ";
+	cat = _("data-in-toc   ");
 
       if (t->offset > global_toc_size)
 	{
 	  if (t->offset <= global_toc_size + thunk_size)
-	    cat = "IAT reference ";
+	    cat = _("IAT reference ");
 	  else
 	    {
 	      fprintf(file,
-		      "**** global_toc_size %ld(%lx), thunk_size %ld(%lx)\n",
+		      _("**** global_toc_size %ld(%lx), thunk_size %ld(%lx)\n"),
 		      global_toc_size, global_toc_size, thunk_size, thunk_size);
-	      cat = "Out of bounds!";
+	      cat = _("Out of bounds!");
 	    }
 	}
 
@@ -2078,7 +2080,7 @@ ppc_coff_rtype2howto (relent, internal)
       break;
     default:
       fprintf(stderr, 
-	      "Warning: Unsupported reloc %s [%d] used -- it may not work.\n",
+	      _("Warning: Unsupported reloc %s [%d] used -- it may not work.\n"),
 	      ppc_coff_howto_table[r_type].name,
 	      r_type);
       howto = ppc_coff_howto_table + r_type;      
@@ -2153,7 +2155,7 @@ coff_ppc_rtype_to_howto (abfd, sec, rel, h, sym, addendp)
       break;
     default:
       fprintf(stderr, 
-	      "Warning: Unsupported reloc %s [%d] used -- it may not work.\n",
+	      _("Warning: Unsupported reloc %s [%d] used -- it may not work.\n"),
 	      ppc_coff_howto_table[r_type].name,
 	      r_type);
       howto = ppc_coff_howto_table + r_type;

@@ -1,5 +1,5 @@
 /* Hitachi SH specific support for 32-bit ELF
-   Copyright 1996 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998 Free Software Foundation, Inc.
    Contributed by Ian Lance Taylor, Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "bfdlink.h"
 #include "libbfd.h"
 #include "elf-bfd.h"
+#include "elf/sh.h"
 
 static bfd_reloc_status_type sh_elf_reloc
   PARAMS ((bfd *, arelent *, asymbol *, PTR, asection *, bfd *, char **));
@@ -46,33 +47,6 @@ static boolean sh_elf_relocate_section
 static bfd_byte *sh_elf_get_relocated_section_contents
   PARAMS ((bfd *, struct bfd_link_info *, struct bfd_link_order *,
 	   bfd_byte *, boolean, asymbol **));
-
-enum sh_reloc_type
-{
-  R_SH_NONE = 0,
-  R_SH_DIR32,
-  R_SH_REL32,
-  R_SH_DIR8WPN,
-  R_SH_IND12W,
-  R_SH_DIR8WPL,
-  R_SH_DIR8WPZ,
-  R_SH_DIR8BP,
-  R_SH_DIR8W,
-  R_SH_DIR8L,
-  FIRST_INVALID_RELOC,
-  LAST_INVALID_RELOC = 24,
-  /* The remaining relocs are a GNU extension used for relaxation.  We
-     use the same constants as COFF uses, not that it really matters.  */
-  R_SH_SWITCH16 = 25,
-  R_SH_SWITCH32,
-  R_SH_USES,
-  R_SH_COUNT,
-  R_SH_ALIGN,
-  R_SH_CODE,
-  R_SH_DATA,
-  R_SH_LABEL,
-  R_SH_max
-};
 
 static reloc_howto_type sh_elf_howto_table[] =
 {
@@ -389,7 +363,55 @@ static reloc_howto_type sh_elf_howto_table[] =
 	 false,			/* partial_inplace */
 	 0,			/* src_mask */
 	 0,			/* dst_mask */
-	 true)			/* pcrel_offset */
+	 true),			/* pcrel_offset */
+
+  /* An 8 bit switch table entry.  This is generated for an expression
+     such as ``.word L1 - L2''.  The offset holds the difference
+     between the reloc address and L2.  */
+  HOWTO (R_SH_SWITCH8,		/* type */
+	 0,			/* rightshift */
+	 0,			/* size (0 = byte, 1 = short, 2 = long) */
+	 8,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_unsigned, /* complain_on_overflow */
+	 sh_elf_ignore_reloc,	/* special_function */
+	 "R_SH_SWITCH8",	/* name */
+	 false,			/* partial_inplace */
+	 0,			/* src_mask */
+	 0,			/* dst_mask */
+	 true),			/* pcrel_offset */
+
+  /* GNU extension to record C++ vtable hierarchy */
+  HOWTO (R_SH_GNU_VTINHERIT, /* type */
+         0,                     /* rightshift */
+         2,                     /* size (0 = byte, 1 = short, 2 = long) */
+         0,                     /* bitsize */
+         false,                 /* pc_relative */
+         0,                     /* bitpos */
+         complain_overflow_dont, /* complain_on_overflow */
+         NULL,                  /* special_function */
+         "R_SH_GNU_VTINHERIT", /* name */
+         false,                 /* partial_inplace */
+         0,                     /* src_mask */
+         0,                     /* dst_mask */
+         false),                /* pcrel_offset */
+
+  /* GNU extension to record C++ vtable member usage */
+  HOWTO (R_SH_GNU_VTENTRY,     /* type */
+         0,                     /* rightshift */
+         2,                     /* size (0 = byte, 1 = short, 2 = long) */
+         0,                     /* bitsize */
+         false,                 /* pc_relative */
+         0,                     /* bitpos */
+         complain_overflow_dont, /* complain_on_overflow */
+         _bfd_elf_rel_vtable_reloc_fn,  /* special_function */
+         "R_SH_GNU_VTENTRY",   /* name */
+         false,                 /* partial_inplace */
+         0,                     /* src_mask */
+         0,                     /* dst_mask */
+         false),                /* pcrel_offset */
+
 };
 
 /* This function is used for normal relocs.  This is like the COFF
@@ -408,11 +430,11 @@ sh_elf_reloc (abfd, reloc_entry, symbol_in, data, input_section, output_bfd,
 {
   unsigned long insn;
   bfd_vma sym_value;
-  enum sh_reloc_type r_type;
+  enum elf_sh_reloc_type r_type;
   bfd_vma addr = reloc_entry->address;
   bfd_byte *hit_data = addr + (bfd_byte *) data;
 
-  r_type = (enum sh_reloc_type) reloc_entry->howto->type;
+  r_type = (enum elf_sh_reloc_type) reloc_entry->howto->type;
 
   if (output_bfd != NULL)
     {
@@ -508,6 +530,7 @@ static const struct elf_reloc_map sh_reloc_map[] =
   { BFD_RELOC_SH_PCDISP12BY2, R_SH_IND12W },
   { BFD_RELOC_SH_PCRELIMM8BY2, R_SH_DIR8WPZ },
   { BFD_RELOC_SH_PCRELIMM8BY4, R_SH_DIR8WPL },
+  { BFD_RELOC_8_PCREL, R_SH_SWITCH8 },
   { BFD_RELOC_SH_SWITCH16, R_SH_SWITCH16 },
   { BFD_RELOC_SH_SWITCH32, R_SH_SWITCH32 },
   { BFD_RELOC_SH_USES, R_SH_USES },
@@ -515,7 +538,9 @@ static const struct elf_reloc_map sh_reloc_map[] =
   { BFD_RELOC_SH_ALIGN, R_SH_ALIGN },
   { BFD_RELOC_SH_CODE, R_SH_CODE },
   { BFD_RELOC_SH_DATA, R_SH_DATA },
-  { BFD_RELOC_SH_LABEL, R_SH_LABEL }
+  { BFD_RELOC_SH_LABEL, R_SH_LABEL },
+  { BFD_RELOC_VTABLE_INHERIT, R_SH_GNU_VTINHERIT },
+  { BFD_RELOC_VTABLE_ENTRY, R_SH_GNU_VTENTRY },
 };
 
 /* Given a BFD reloc code, return the howto structure for the
@@ -550,7 +575,7 @@ sh_elf_info_to_howto (abfd, cache_ptr, dst)
   r = ELF32_R_TYPE (dst->r_info);
 
   BFD_ASSERT (r < (unsigned int) R_SH_max);
-  BFD_ASSERT (r < FIRST_INVALID_RELOC || r > LAST_INVALID_RELOC);
+  BFD_ASSERT (r < R_SH_FIRST_INVALID_RELOC || r > R_SH_LAST_INVALID_RELOC);
 
   cache_ptr->howto = &sh_elf_howto_table[r];
 }
@@ -563,7 +588,7 @@ sh_elf_info_to_howto (abfd, cache_ptr, dst)
    could be eliminated somehow.  Note in particular that although both
    functions use symbols like R_SH_CODE, those symbols have different
    values; in coff-sh.c they come from include/coff/sh.h, whereas here
-   they come from enum sh_reloc_type in this file.  */
+   they come from enum elf_sh_reloc_type in include/elf/sh.h.  */
 
 static boolean 
 sh_elf_relax_section (abfd, sec, link_info, again)
@@ -645,7 +670,7 @@ sh_elf_relax_section (abfd, sec, link_info, again)
       laddr = irel->r_offset + 4 + irel->r_addend;
       if (laddr >= sec->_raw_size)
 	{
-	  (*_bfd_error_handler) ("%s: 0x%lx: warning: bad R_SH_USES offset",
+	  (*_bfd_error_handler) (_("%s: 0x%lx: warning: bad R_SH_USES offset"),
 				 bfd_get_filename (abfd),
 				 (unsigned long) irel->r_offset);
 	  continue;
@@ -657,7 +682,7 @@ sh_elf_relax_section (abfd, sec, link_info, again)
       if ((insn & 0xf000) != 0xd000)
 	{
 	  ((*_bfd_error_handler)
-	   ("%s: 0x%lx: warning: R_SH_USES points to unrecognized insn 0x%x",
+	   (_("%s: 0x%lx: warning: R_SH_USES points to unrecognized insn 0x%x"),
 	    bfd_get_filename (abfd), (unsigned long) irel->r_offset, insn));
 	  continue;
 	}
@@ -674,7 +699,7 @@ sh_elf_relax_section (abfd, sec, link_info, again)
       if (paddr >= sec->_raw_size)
 	{
 	  ((*_bfd_error_handler)
-	   ("%s: 0x%lx: warning: bad R_SH_USES load offset",
+	   (_("%s: 0x%lx: warning: bad R_SH_USES load offset"),
 	    bfd_get_filename (abfd), (unsigned long) irel->r_offset));
 	  continue;
 	}
@@ -689,7 +714,7 @@ sh_elf_relax_section (abfd, sec, link_info, again)
       if (irelfn >= irelend)
 	{
 	  ((*_bfd_error_handler)
-	   ("%s: 0x%lx: warning: could not find expected reloc",
+	   (_("%s: 0x%lx: warning: could not find expected reloc"),
 	    bfd_get_filename (abfd), (unsigned long) paddr));
 	  continue;
 	}
@@ -726,7 +751,7 @@ sh_elf_relax_section (abfd, sec, link_info, again)
 	  if (isym.st_shndx != _bfd_elf_section_from_bfd_section (abfd, sec))
 	    {
 	      ((*_bfd_error_handler)
-	       ("%s: 0x%lx: warning: symbol in unexpected section",
+	       (_("%s: 0x%lx: warning: symbol in unexpected section"),
 		bfd_get_filename (abfd), (unsigned long) paddr));
 	      continue;
 	    }
@@ -848,7 +873,7 @@ sh_elf_relax_section (abfd, sec, link_info, again)
       if (irelcount >= irelend)
 	{
 	  ((*_bfd_error_handler)
-	   ("%s: 0x%lx: warning: could not find expected COUNT reloc",
+	   (_("%s: 0x%lx: warning: could not find expected COUNT reloc"),
 	    bfd_get_filename (abfd), (unsigned long) paddr));
 	  continue;
 	}
@@ -857,7 +882,7 @@ sh_elf_relax_section (abfd, sec, link_info, again)
          just deleted one.  */
       if (irelcount->r_addend == 0)
 	{
-	  ((*_bfd_error_handler) ("%s: 0x%lx: warning: bad count",
+	  ((*_bfd_error_handler) (_("%s: 0x%lx: warning: bad count"),
 				  bfd_get_filename (abfd),
 				  (unsigned long) paddr));
 	  continue;
@@ -1027,11 +1052,12 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
   /* Adjust all the relocs.  */
   for (irel = elf_section_data (sec)->relocs; irel < irelend; irel++)
     {
-      bfd_vma nraddr, start, stop;
+      bfd_vma nraddr, stop;
+      bfd_vma start = 0;
       int insn = 0;
       Elf_Internal_Sym sym;
       int off, adjust, oinsn;
-      bfd_signed_vma voff;
+      bfd_signed_vma voff = 0;
       boolean overflow;
 
       /* Get the new reloc address.  */
@@ -1056,7 +1082,7 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
 
       /* If this is a PC relative reloc, see if the range it covers
          includes the bytes we have deleted.  */
-      switch ((enum sh_reloc_type) ELF32_R_TYPE (irel->r_info))
+      switch ((enum elf_sh_reloc_type) ELF32_R_TYPE (irel->r_info))
 	{
 	default:
 	  break;
@@ -1070,7 +1096,7 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
 	  break;
 	}
 
-      switch ((enum sh_reloc_type) ELF32_R_TYPE (irel->r_info))
+      switch ((enum elf_sh_reloc_type) ELF32_R_TYPE (irel->r_info))
 	{
 	default:
 	  start = stop = addr;
@@ -1094,7 +1120,7 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
 
 		  val = bfd_get_32 (abfd, contents + nraddr);
 		  val += sym.st_value;
-		  if (val >= addr && val < toaddr)
+		  if (val > addr && val < toaddr)
 		    bfd_put_32 (abfd, val - count, contents + nraddr);
 		}
 	    }
@@ -1130,6 +1156,7 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
 	  stop = (start &~ (bfd_vma) 3) + 4 + off * 4;
 	  break;
 
+	case R_SH_SWITCH8:
 	case R_SH_SWITCH16:
 	case R_SH_SWITCH32:
 	  /* These relocs types represent
@@ -1155,6 +1182,8 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
 
 	  if (ELF32_R_TYPE (irel->r_info) == (int) R_SH_SWITCH16)
 	    voff = bfd_get_signed_16 (abfd, contents + nraddr);
+	  else if (ELF32_R_TYPE (irel->r_info) == (int) R_SH_SWITCH8)
+	    voff = bfd_get_8 (abfd, contents + nraddr);
 	  else
 	    voff = bfd_get_signed_32 (abfd, contents + nraddr);
 	  stop = (bfd_vma) ((bfd_signed_vma) start + voff);
@@ -1184,7 +1213,7 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
 	{
 	  oinsn = insn;
 	  overflow = false;
-	  switch ((enum sh_reloc_type) ELF32_R_TYPE (irel->r_info))
+	  switch ((enum elf_sh_reloc_type) ELF32_R_TYPE (irel->r_info))
 	    {
 	    default:
 	      abort ();
@@ -1239,7 +1268,7 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
 	  if (overflow)
 	    {
 	      ((*_bfd_error_handler)
-	       ("%s: 0x%lx: fatal: reloc overflow while relaxing",
+	       (_("%s: 0x%lx: fatal: reloc overflow while relaxing"),
 		bfd_get_filename (abfd), (unsigned long) irel->r_offset));
 	      bfd_set_error (bfd_error_bad_value);
 	      return false;
@@ -1317,7 +1346,7 @@ sh_elf_relax_delete_bytes (abfd, sec, addr, count)
 
 	      val = bfd_get_32 (abfd, ocontents + irelscan->r_offset);
 	      val += sym.st_value;
-	      if (val >= addr && val < toaddr)
+	      if (val > addr && val < toaddr)
 		bfd_put_32 (abfd, val - count,
 			    ocontents + irelscan->r_offset);
 	    }
@@ -1478,13 +1507,13 @@ sh_elf_swap_insns (abfd, sec, relocs, contents, addr)
   irelend = internal_relocs + sec->reloc_count;
   for (irel = internal_relocs; irel < irelend; irel++)
     {
-      enum sh_reloc_type type;
+      enum elf_sh_reloc_type type;
       int add;
 
       /* There are a few special types of relocs that we don't want to
          adjust.  These relocs do not apply to the instruction itself,
          but are only associated with the address.  */
-      type = (enum sh_reloc_type) ELF32_R_TYPE (irel->r_info);
+      type = (enum elf_sh_reloc_type) ELF32_R_TYPE (irel->r_info);
       if (type == R_SH_ALIGN
 	  || type == R_SH_CODE
 	  || type == R_SH_DATA
@@ -1576,7 +1605,7 @@ sh_elf_swap_insns (abfd, sec, relocs, contents, addr)
 	  if (overflow)
 	    {
 	      ((*_bfd_error_handler)
-	       ("%s: 0x%lx: fatal: reloc overflow while relaxing",
+	       (_("%s: 0x%lx: fatal: reloc overflow while relaxing"),
 		bfd_get_filename (abfd), (unsigned long) irel->r_offset));
 	      bfd_set_error (bfd_error_bad_value);
 	      return false;
@@ -1621,6 +1650,8 @@ sh_elf_relocate_section (output_bfd, info, input_bfd, input_section,
       bfd_vma relocation;
       bfd_reloc_status_type r;
 
+      r_symndx = ELF32_R_SYM (rel->r_info);
+
       if (info->relocateable)
 	{
 	  /* This is a relocateable link.  We don't have to change
@@ -1644,11 +1675,11 @@ sh_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 
       /* Many of the relocs are only used for relaxing, and are
          handled entirely by the relaxation code.  */
-      if (r_type > (int) LAST_INVALID_RELOC)
+      if (r_type > (int) R_SH_LAST_INVALID_RELOC)
 	continue;
 
       if (r_type < 0
-	  || r_type >= (int) FIRST_INVALID_RELOC)
+	  || r_type >= (int) R_SH_FIRST_INVALID_RELOC)
 	{
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
@@ -1661,8 +1692,6 @@ sh_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	continue;
 
       howto = sh_elf_howto_table + r_type;
-
-      r_symndx = ELF32_R_SYM (rel->r_info);
 
       /* This is a final link.  */
       h = NULL;
@@ -1887,6 +1916,115 @@ sh_elf_get_relocated_section_contents (output_bfd, link_info, link_order,
     free (sections);
   return NULL;
 }
+static asection *
+sh_elf_gc_mark_hook (abfd, info, rel, h, sym)
+       bfd *abfd;
+       struct bfd_link_info *info;
+       Elf_Internal_Rela *rel;
+       struct elf_link_hash_entry *h;
+       Elf_Internal_Sym *sym;
+{
+  if (h != NULL)
+    {
+      switch (ELF32_R_TYPE (rel->r_info))
+      {
+      case R_SH_GNU_VTINHERIT:
+      case R_SH_GNU_VTENTRY:
+        break;
+
+      default:
+        switch (h->root.type)
+          {
+          case bfd_link_hash_defined:
+          case bfd_link_hash_defweak:
+            return h->root.u.def.section;
+
+          case bfd_link_hash_common:
+            return h->root.u.c.p->section;
+          }
+       }
+     }
+   else
+     {
+       if (!(elf_bad_symtab (abfd)
+           && ELF_ST_BIND (sym->st_info) != STB_LOCAL)
+         && ! ((sym->st_shndx <= 0 || sym->st_shndx >= SHN_LORESERVE)
+                && sym->st_shndx != SHN_COMMON))
+          {
+            return bfd_section_from_elf_index (abfd, sym->st_shndx);
+          }
+      }
+  return NULL;
+}
+
+static boolean
+sh_elf_gc_sweep_hook (abfd, info, sec, relocs)
+     bfd *abfd;
+     struct bfd_link_info *info;
+     asection *sec;
+     const Elf_Internal_Rela *relocs;
+{
+  /* we don't use got and plt entries for sh. */
+  return true;
+}
+
+/* Look through the relocs for a section during the first phase.
+   Since we don't do .gots or .plts, we just need to consider the
+   virtual table relocs for gc.  */
+ 
+static boolean
+sh_elf_check_relocs (abfd, info, sec, relocs)
+     bfd *abfd;
+     struct bfd_link_info *info;
+     asection *sec;
+     const Elf_Internal_Rela *relocs;
+{
+  Elf_Internal_Shdr *symtab_hdr;
+  struct elf_link_hash_entry **sym_hashes, **sym_hashes_end;
+  const Elf_Internal_Rela *rel;
+  const Elf_Internal_Rela *rel_end;
+ 
+  if (info->relocateable)
+    return true;
+ 
+  symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
+  sym_hashes = elf_sym_hashes (abfd);
+  sym_hashes_end = sym_hashes + symtab_hdr->sh_size/sizeof(Elf32_External_Sym);
+  if (!elf_bad_symtab (abfd))
+    sym_hashes_end -= symtab_hdr->sh_info;
+ 
+  rel_end = relocs + sec->reloc_count;
+  for (rel = relocs; rel < rel_end; rel++)
+    {
+      struct elf_link_hash_entry *h;
+      unsigned long r_symndx;
+ 
+      r_symndx = ELF32_R_SYM (rel->r_info);
+      if (r_symndx < symtab_hdr->sh_info)
+        h = NULL;
+      else
+        h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+ 
+      switch (ELF32_R_TYPE (rel->r_info))
+        {
+        /* This relocation describes the C++ object vtable hierarchy.
+           Reconstruct it for later use during GC.  */
+        case R_SH_GNU_VTINHERIT:
+          if (!_bfd_elf32_gc_record_vtinherit (abfd, sec, h, rel->r_offset))
+            return false;
+          break;
+ 
+        /* This relocation describes which C++ vtable entries are actually
+           used.  Record for later use during GC.  */
+        case R_SH_GNU_VTENTRY:
+          if (!_bfd_elf32_gc_record_vtentry (abfd, sec, h, rel->r_addend))
+            return false;
+          break;
+        }
+    }
+ 
+  return true;
+}
 
 #define TARGET_BIG_SYM		bfd_elf32_sh_vec
 #define TARGET_BIG_NAME		"elf32-sh"
@@ -1905,4 +2043,9 @@ sh_elf_get_relocated_section_contents (output_bfd, link_info, link_order,
 #define bfd_elf32_bfd_get_relocated_section_contents \
 					sh_elf_get_relocated_section_contents
 
+#define elf_backend_gc_mark_hook        sh_elf_gc_mark_hook
+#define elf_backend_gc_sweep_hook       sh_elf_gc_sweep_hook
+#define elf_backend_check_relocs        sh_elf_check_relocs
+
+#define elf_backend_can_gc_sections 1
 #include "elf32-target.h"

@@ -1,5 +1,5 @@
 /* Generic simulator halt/restart.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -23,6 +23,31 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include "sim-main.h"
 #include "sim-assert.h"
 
+/* Get the run state.
+   REASON/SIGRC are the values returned by sim_stop_reason.
+   ??? Should each cpu have its own copy?  */
+
+void
+sim_engine_get_run_state (SIM_DESC sd, enum sim_stop *reason, int *sigrc)
+{
+  sim_engine *engine = STATE_ENGINE (sd);
+  ASSERT (STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
+  *reason = engine->reason;
+  *sigrc = engine->sigrc;
+}
+
+/* Set the run state to REASON/SIGRC.
+   REASON/SIGRC are the values returned by sim_stop_reason.
+   ??? Should each cpu have its own copy?  */
+
+void
+sim_engine_set_run_state (SIM_DESC sd, enum sim_stop reason, int sigrc)
+{
+  sim_engine *engine = STATE_ENGINE (sd);
+  ASSERT (STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
+  engine->reason = reason;
+  engine->sigrc = sigrc;
+}
 
 /* Generic halt */
 
@@ -43,7 +68,14 @@ sim_engine_halt (SIM_DESC sd,
       engine->next_cpu = next_cpu;
       engine->reason = reason;
       engine->sigrc = sigrc;
+
       SIM_ENGINE_HALT_HOOK (sd, last_cpu, cia);
+
+#ifdef SIM_CPU_EXCEPTION_SUSPEND
+      if (last_cpu != NULL && reason != sim_exited)
+	SIM_CPU_EXCEPTION_SUSPEND (sd, last_cpu, sim_signal_to_host (sd, sigrc));
+#endif
+
       longjmp (*halt_buf, sim_engine_halt_jmpval);
     }
   else
@@ -77,40 +109,45 @@ sim_engine_restart (SIM_DESC sd,
 /* Generic error code */
 
 void
+sim_engine_vabort (SIM_DESC sd,
+		   sim_cpu *cpu,
+		   sim_cia cia,
+		   const char *fmt,
+		   va_list ap)
+{
+  ASSERT (sd == NULL || STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
+  if (sd == NULL)
+    {
+      vfprintf (stderr, fmt, ap);
+      fprintf (stderr, "\nQuit\n");
+      abort ();
+    }
+  else if (STATE_ENGINE (sd)->jmpbuf == NULL)
+    {
+      sim_io_evprintf (sd, fmt, ap);
+      sim_io_eprintf (sd, "\n");
+      sim_io_error (sd, "Quit Simulator");
+    }
+  else
+    {
+      sim_io_evprintf (sd, fmt, ap);
+      sim_io_eprintf (sd, "\n");
+      sim_engine_halt (sd, cpu, NULL, cia, sim_stopped, SIM_SIGABRT);
+    }
+}
+
+void
 sim_engine_abort (SIM_DESC sd,
 		  sim_cpu *cpu,
 		  sim_cia cia,
 		  const char *fmt,
 		  ...)
 {
+  va_list ap;
   ASSERT (sd == NULL || STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
-  if (sd == NULL)
-    {
-      va_list ap;
-      va_start(ap, fmt);
-      vfprintf (stderr, fmt, ap);
-      va_end(ap);
-      fprintf (stderr, "\nQuit\n");
-      abort ();
-    }
-  else if (STATE_ENGINE (sd)->jmpbuf == NULL)
-    {
-      va_list ap;
-      va_start(ap, fmt);
-      sim_io_evprintf (sd, fmt, ap);
-      va_end(ap);
-      sim_io_eprintf (sd, "\n");
-      sim_io_error (sd, "Quit Simulator");
-    }
-  else
-    {
-      va_list ap;
-      va_start(ap, fmt);
-      sim_io_evprintf (sd, fmt, ap);
-      va_end(ap);
-      sim_io_eprintf (sd, "\n");
-      sim_engine_halt (sd, cpu, NULL, cia, sim_stopped, SIM_SIGABRT);
-    }
+  va_start(ap, fmt);
+  sim_engine_vabort (sd, cpu, cia, fmt, ap);
+  va_end (ap);
 }
 
 

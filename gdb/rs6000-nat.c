@@ -1,5 +1,5 @@
 /* IBM RS/6000 native-dependent code for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1994, 1995, 1996, 1997
+   Copyright 1986, 1987, 1989, 1991, 1992, 1994, 1995, 1996, 1997, 1998
 	     Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -110,8 +110,8 @@ fetch_inferior_registers (regno)
 	      FPR0+ii, 0);
 
     /* read special registers. */
-    for (ii=0; ii <= LAST_SP_REGNUM-FIRST_SP_REGNUM; ++ii)
-      *(int*)&registers[REGISTER_BYTE (FIRST_SP_REGNUM+ii)] = 
+    for (ii=0; ii <= LAST_UISA_SP_REGNUM-FIRST_UISA_SP_REGNUM; ++ii)
+      *(int*)&registers[REGISTER_BYTE (FIRST_UISA_SP_REGNUM+ii)] = 
 	ptrace (PT_READ_GPR, inferior_pid, (PTRACE_ARG3_TYPE) special_regs[ii],
 		0, 0);
 
@@ -130,13 +130,16 @@ fetch_inferior_registers (regno)
 	    (PTRACE_ARG3_TYPE) &registers [REGISTER_BYTE (regno)],
 	    (regno-FP0_REGNUM+FPR0), 0);
   }
-  else if (regno <= LAST_SP_REGNUM) {		/* a special register */
+  else if (regno <= LAST_UISA_SP_REGNUM) { /* a special register */
     *(int*)&registers[REGISTER_BYTE (regno)] =
 	ptrace (PT_READ_GPR, inferior_pid,
-		(PTRACE_ARG3_TYPE) special_regs[regno-FIRST_SP_REGNUM], 0, 0);
+		(PTRACE_ARG3_TYPE) special_regs[regno-FIRST_UISA_SP_REGNUM],
+		0, 0);
   }
   else
-    fprintf_unfiltered (gdb_stderr, "gdb error: register no %d not implemented.\n", regno);
+    fprintf_unfiltered (gdb_stderr, 
+			"gdb error: register no %d not implemented.\n",
+			regno);
 
   register_valid [regno] = 1;
 }
@@ -190,11 +193,12 @@ store_inferior_registers (regno)
 	}
 
       /* write special registers. */
-      for (ii=0; ii <= LAST_SP_REGNUM-FIRST_SP_REGNUM; ++ii)
+      for (ii=0; ii <= LAST_UISA_SP_REGNUM-FIRST_UISA_SP_REGNUM; ++ii)
 	{
 	  ptrace (PT_WRITE_GPR, inferior_pid,
 		  (PTRACE_ARG3_TYPE) special_regs[ii],
-		  *(int*)&registers[REGISTER_BYTE (FIRST_SP_REGNUM+ii)], 0);
+		  *(int*)&registers[REGISTER_BYTE (FIRST_UISA_SP_REGNUM+ii)],
+		  0);
 	  if (errno)
 	    {
 	      perror ("ptrace write_gpr");
@@ -218,15 +222,17 @@ store_inferior_registers (regno)
 	      regno - FP0_REGNUM + FPR0, 0);
     }
 
-  else if (regno <= LAST_SP_REGNUM)		/* a special register */
+  else if (regno <= LAST_UISA_SP_REGNUM) /* a special register */
     {
       ptrace (PT_WRITE_GPR, inferior_pid,
-	      (PTRACE_ARG3_TYPE) special_regs [regno-FIRST_SP_REGNUM],
+	      (PTRACE_ARG3_TYPE) special_regs [regno-FIRST_UISA_SP_REGNUM],
 	      *(int*)&registers[REGISTER_BYTE (regno)], 0);
     }
 
   else
-    fprintf_unfiltered (gdb_stderr, "Gdb error: register no %d not implemented.\n", regno);
+    fprintf_unfiltered (gdb_stderr,
+			"Gdb error: register no %d not implemented.\n",
+			regno);
 
   if (errno)
     {
@@ -248,8 +254,9 @@ exec_one_dummy_insn ()
   int status, pid;
   CORE_ADDR prev_pc;
 
-  /* We plant one dummy breakpoint into DUMMY_INSN_ADDR address. We assume that
-     this address will never be executed again by the real code. */
+  /* We plant one dummy breakpoint into DUMMY_INSN_ADDR address. We
+     assume that this address will never be executed again by the real
+     code. */
 
   target_insert_breakpoint (DUMMY_INSN_ADDR, shadow_contents);
 
@@ -294,8 +301,9 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
       /* then comes special registes. They are supposed to be in the same
 	 order in gdb template and bfd `.reg' section. */
       core_reg_sect += (32 * 4);
-      memcpy (&registers [REGISTER_BYTE (FIRST_SP_REGNUM)], core_reg_sect, 
-	      (LAST_SP_REGNUM - FIRST_SP_REGNUM + 1) * 4);
+      memcpy (&registers [REGISTER_BYTE (FIRST_UISA_SP_REGNUM)], 
+	      core_reg_sect, 
+	      (LAST_UISA_SP_REGNUM - FIRST_UISA_SP_REGNUM + 1) * 4);
     }
 
   /* fetch floating point registers from register section 2 in core bfd. */
@@ -303,7 +311,9 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
     memcpy (&registers [REGISTER_BYTE (FP0_REGNUM)], core_reg_sect, 32 * 8);
 
   else
-    fprintf_unfiltered (gdb_stderr, "Gdb error: unknown parameter to fetch_core_registers().\n");
+    fprintf_unfiltered 
+      (gdb_stderr, 
+       "Gdb error: unknown parameter to fetch_core_registers().\n");
 }
 
 /* handle symbol translation on vmapping */
@@ -427,7 +437,7 @@ add_vmap (ldi)
 	     objname, bfd_errmsg (bfd_get_error ()));
       /*NOTREACHED*/
     }
-  obj = allocate_objfile (vp->bfd, 0);
+  obj = allocate_objfile (vp->bfd, 0, 0, 0);
   vp->objfile = obj;
 
 #ifndef SOLIB_SYMBOLS_MANUAL
@@ -466,15 +476,24 @@ vmap_ldinfo (ldi)
     retried = 0;
 
     if (fstat (ldi->ldinfo_fd, &ii) < 0)
-      fatal ("cannot fstat(fd=%d) on %s", ldi->ldinfo_fd, name);
+      {
+	/* The kernel sets ld_info to -1, if the process is still using the
+	   object, and the object is removed. Keep the symbol info for the
+	   removed object and issue a warning.  */
+	warning ("%s (fd=%d) has disappeared, keeping its symbols",
+		 name, ldi->ldinfo_fd);
+        continue;
+      }
   retry:
     for (got_one = 0, vp = vmap; vp; vp = vp->nxt)
       {
+	struct objfile *objfile;
+
 	/* First try to find a `vp', which is the same as in ldinfo.
 	   If not the same, just continue and grep the next `vp'. If same,
 	   relocate its tstart, tend, dstart, dend values. If no such `vp'
 	   found, get out of this for loop, add this ldi entry as a new vmap
-	   (add_vmap) and come back, fins its `vp' and so on... */
+	   (add_vmap) and come back, find its `vp' and so on... */
 
 	/* The filenames are not always sufficient to match on. */
 
@@ -482,15 +501,17 @@ vmap_ldinfo (ldi)
 	    || (memb[0] && !STREQ(memb, vp->member)))
 	  continue;
 
-	/* See if we are referring to the same file. */
-	if (bfd_stat (vp->bfd, &vi) < 0)
-	  /* An error here is innocuous, most likely meaning that
-	     the file descriptor has become worthless.
-	     FIXME: What does it mean for a file descriptor to become
-	     "worthless"?  What makes it happen?  What error does it
-	     produce (ENOENT? others?)?  Should we at least provide
-	     a warning?  */
-	  continue;
+	/* See if we are referring to the same file.
+	   We have to check objfile->obfd, symfile.c:reread_symbols might
+	   have updated the obfd after a change.  */
+	objfile = vp->objfile == NULL ? symfile_objfile : vp->objfile;
+	if (objfile == NULL
+	    || objfile->obfd == NULL
+	    || bfd_stat (objfile->obfd, &vi) < 0)
+	  {
+	    warning ("Unable to stat %s, keeping its symbols", name);
+	    continue;
+	  }
 
 	if (ii.st_dev != vi.st_dev || ii.st_ino != vi.st_ino)
 	  continue;

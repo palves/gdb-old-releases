@@ -354,12 +354,12 @@ lf_print__file_start(lf *file)
   case lf_is_c:
     nr += lf_print__gnu_copyleft(file);
     nr += lf_printf(file, "\n");
-    nr += lf_printf(file, "#ifndef _");
+    nr += lf_printf(file, "#ifndef ");
     nr += lf_print__ucase_filename(file);
-    nr += lf_printf(file, "_\n");
-    nr += lf_printf(file, "#define _");
+    nr += lf_printf(file, "\n");
+    nr += lf_printf(file, "#define ");
     nr += lf_print__ucase_filename(file);
-    nr += lf_printf(file, "_\n");
+    nr += lf_printf(file, "\n");
     nr += lf_printf(file, "\n");
     break;
   default:

@@ -52,13 +52,13 @@ CORE_ADDR skip_prologue ();
    the new frame is not set up until the new function executes
    some instructions.  */
 
-#define SAVED_PC_AFTER_CALL(frame) ((frame->flags & TRANSPARENT) \
+#define SAVED_PC_AFTER_CALL(frame) ((frame->flags & TRANSPARENT_FRAME) \
 				    ? read_register (TPC_REGNUM) \
 				    : read_register (LR0_REGNUM))
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Stack must be aligned on 32-bit boundaries when synthesizing
    function calls. */
@@ -83,12 +83,6 @@ CORE_ADDR skip_prologue ();
    but not always.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction.
-   On the a29k, this is a "jmpi l0" instruction.  */
-
-#define ABOUT_TO_RETURN(pc) \
-  ((read_memory_integer (pc, 4) & 0xff0000ff) == 0xc0000080)
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -281,7 +275,8 @@ CORE_ADDR skip_prologue ();
 
 /* Should call_function allocate stack space for a struct return?  */
 /* On the a29k objects over 16 words require the caller to allocate space.  */
-#define USE_STRUCT_CONVENTION(gcc_p, type) (TYPE_LENGTH (type) > 16 * 4)
+extern use_struct_convention_fn a29k_use_struct_convention;
+#define USE_STRUCT_CONVENTION(gcc_p, type) a29k_use_struct_convention (gcc_p, type)
 
 /* Extract from an array REGBUF containing the (raw) register state
    a function return value of type TYPE, and copy that, in virtual format,
@@ -420,6 +415,8 @@ CORE_ADDR skip_prologue ();
 void read_register_stack ();
 long read_register_stack_integer ();
 
+#define FRAME_INIT_SAVED_REGS(fi) /*no-op*/
+
 #define EXTRA_FRAME_INFO  \
   CORE_ADDR saved_msp;    \
   unsigned int rsize;     \
@@ -427,8 +424,8 @@ long read_register_stack_integer ();
   unsigned char flags;
 
 /* Bits for flags in EXTRA_FRAME_INFO */
-#define TRANSPARENT	0x1		/* This is a transparent frame */
-#define MFP_USED	0x2		/* A memory frame pointer is used */
+#define TRANSPARENT_FRAME	0x1	/* This is a transparent frame */
+#define MFP_USED		0x2	/* A memory frame pointer is used */
 
 /* Because INIT_FRAME_PC gets passed fromleaf, that's where we init
    not only ->pc and ->frame, but all the extra stuff, when called from
@@ -465,7 +462,7 @@ void init_frame_pc ();
    : (thisframe)->frame + (thisframe)->rsize)
 
 /* Determine if the frame has a 'previous' and back-traceable frame. */
-#define FRAME_IS_UNCHAINED(frame)	((frame)->flags & TRANSPARENT)
+#define FRAME_IS_UNCHAINED(frame)	((frame)->flags & TRANSPARENT_FRAME)
 
 /* Find the previous frame of a transparent routine.
  * For now lets not try and trace through a transparent routine (we might 
@@ -676,7 +673,7 @@ extern void pop_frame ();
 /* Because of this, we need (as a kludge) to know the addresses of the
    text section.  */
 
-#define	NEED_TEXT_START_END
+#define	NEED_TEXT_START_END 1
 
 /* How to translate register numbers in the .stab's into gdb's internal register
    numbers.  We don't translate them, but we warn if an invalid register

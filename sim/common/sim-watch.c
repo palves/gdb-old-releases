@@ -275,11 +275,8 @@ do_watchpoint_create (SIM_DESC sd,
 
 
 static SIM_RC
-watchpoint_option_handler (sd, opt, arg, is_command)
-     SIM_DESC sd;
-     int opt;
-     char *arg;
-     int is_command;
+watchpoint_option_handler (SIM_DESC sd, sim_cpu *cpu, int opt,
+			   char *arg, int is_command)
 {
   if (opt >= OPTION_WATCH_OP)
     return do_watchpoint_create (sd, clock_watchpoint, opt, arg);
@@ -396,7 +393,7 @@ sim_watchpoint_install (SIM_DESC sd)
   SIM_ASSERT (STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
   /* the basic command set */
   sim_module_add_init_fn (sd, sim_watchpoint_init);
-  sim_add_option_table (sd, watchpoint_options);
+  sim_add_option_table (sd, NULL, watchpoint_options);
   /* fill in some details */
   if (watch->interrupt_names == NULL)
     watch->interrupt_names = default_interrupt_names;
@@ -455,7 +452,7 @@ sim_watchpoint_install (SIM_DESC sd)
     int_options[2].doc =
       "Watch the clock, take ACTION after MILLISECONDS (`+' for every MILLISECONDS)";
 
-    sim_add_option_table (sd, int_options);
+    sim_add_option_table (sd, NULL, int_options);
   }
   return SIM_RC_OK;
 }

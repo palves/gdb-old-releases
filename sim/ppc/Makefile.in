@@ -48,6 +48,10 @@ man9dir = $(mandir)/man9
 infodir = @infodir@
 includedir = @includedir@
 
+# This can be referenced by the gettext configuration code.
+top_builddir = ..
+
+EXEEXT = @EXEEXT@
 SHELL = /bin/sh
 
 INSTALL = @INSTALL@
@@ -147,6 +151,9 @@ INCLUDES	= -I. -I$(srcdir) $(LIB_INCLUDES) $(BFD_INCLUDES) $(GDB_INCLUDES)
 
 LIBIBERTY_LIB	= ../../libiberty/libiberty.a
 BFD_LIB		= ../../bfd/libbfd.a
+
+INTLLIBS = @INTLLIBS@
+INTLDEPS = @INTLDEPS@
 
 TARGETLIB	= libsim.a
 
@@ -314,12 +321,12 @@ PACKAGE_SRC = @sim_pk_src@
 PACKAGE_OBJ = @sim_pk_obj@
 
 
-psim: $(TARGETLIB) main.o $(LIBIBERTY_LIB) $(BFD_LIB) $(LIBS)
-	$(CC) $(CFLAGS) $(SIM_CFLAGS) $(LDFLAGS) -o psim main.o $(TARGETLIB) $(BFD_LIB) $(LIBIBERTY_LIB) $(LIBS)
+psim: $(TARGETLIB) main.o $(LIBIBERTY_LIB) $(BFD_LIB) $(LIBS) $(INTLDEPS)
+	$(CC) $(CFLAGS) $(SIM_CFLAGS) $(LDFLAGS) -o psim$(EXEEXT) main.o $(TARGETLIB) $(BFD_LIB) $(INTLLIBS) $(LIBIBERTY_LIB) $(LIBS)
 
 run: psim
-	rm -f run
-	ln psim run
+	rm -f run$(EXEEXT)
+	ln psim$(EXEEXT) run$(EXEEXT)
 
 $(TARGETLIB): tmp-igen tmp-dgen tmp-hw tmp-pk tmp-defines $(LIB_OBJ) $(GDB_OBJ)
 	rm -f $(TARGETLIB)
@@ -627,7 +634,7 @@ TAGS: $(BUILT_SRC)
 	etags $(srcdir)/*.h $(srcdir)/*.c $(BUILT_SRC)
 
 clean mostlyclean:
-	rm -f tmp-* *.[oasi] core psim run igen dgen $(BUILT_SRC_WO_CONFIG) gentmap
+	rm -f tmp-* *.[oasi] core psim$(EXEEXT) run$(EXEEXT) igen dgen $(BUILT_SRC_WO_CONFIG) gentmap
 
 distclean realclean: clean
 	rm -f TAGS Makefile config.cache config.status config.h defines.h stamp-h config.log
@@ -647,7 +654,7 @@ config.status: configure
 
 install: installdirs
 	n=`echo run | sed '$(program_transform_name)'`; \
-	$(INSTALL_PROGRAM) run $(bindir)/$$n
+	$(INSTALL_PROGRAM) run$(EXEEXT) $(bindir)/$$n$(EXEEXT)
 
 installdirs:
 	$(SHELL) $(srcdir)/../../mkinstalldirs $(bindir)

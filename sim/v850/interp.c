@@ -2,6 +2,7 @@
 #include "sim-options.h"
 #include "v850_sim.h"
 #include "sim-assert.h"
+#include "itable.h"
 
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
@@ -25,6 +26,7 @@
 #endif
 #endif
 
+static const char * get_insn_name (sim_cpu *, int);
 
 /* For compatibility */
 SIM_DESC simulator;
@@ -173,6 +175,14 @@ do_interrupt (sd, data)
 		    inttype);
 }
 
+/* Return name of an insn, used by insn profiling.  */
+
+static const char *
+get_insn_name (sim_cpu *cpu, int i)
+{
+  return itable[i].name;
+}
+
 /* These default values correspond to expected usage for the chip.  */
 
 uint32 OP[4];
@@ -198,6 +208,10 @@ sim_open (kind, cb, abfd, argv)
   STATE_WATCHPOINTS (sd)->sizeof_pc = sizeof (PC);
   STATE_WATCHPOINTS (sd)->interrupt_handler = do_interrupt;
   STATE_WATCHPOINTS (sd)->interrupt_names = interrupt_names;
+
+  /* Initialize the mechanism for doing insn profiling.  */
+  CPU_INSN_NAME (STATE_CPU (sd, 0)) = get_insn_name;
+  CPU_MAX_INSNS (STATE_CPU (sd, 0)) = nr_itable_entries;
 
   if (sim_pre_argv_init (sd, argv[0]) != SIM_RC_OK)
     return 0;
@@ -262,6 +276,16 @@ sim_open (kind, cb, abfd, argv)
   switch (mach)
     {
     case bfd_mach_v850:
+    case bfd_mach_v850e:
+      STATE_CPU (sd, 0)->psw_mask = (PSW_NP | PSW_EP | PSW_ID | PSW_SAT
+				     | PSW_CY | PSW_OV | PSW_S | PSW_Z);
+      break;
+    case bfd_mach_v850ea:
+      PSW |= PSW_US;
+      STATE_CPU (sd, 0)->psw_mask = (PSW_US
+				     | PSW_NP | PSW_EP | PSW_ID | PSW_SAT
+				     | PSW_CY | PSW_OV | PSW_S | PSW_Z);
+      break;
     }
 
   return sd;
@@ -276,21 +300,6 @@ sim_close (sd, quitting)
   sim_module_uninstall (sd);
 }
 
-int
-sim_stop (sd)
-     SIM_DESC sd;
-{
-  return 0;
-}
-
-void
-sim_info (sd, verbose)
-     SIM_DESC sd;
-     int verbose;
-{
-  profile_print (sd, STATE_VERBOSE_P (sd), NULL, NULL);
-}
-
 SIM_RC
 sim_create_inferior (sd, prog_bfd, argv, env)
      SIM_DESC sd;
@@ -301,25 +310,34 @@ sim_create_inferior (sd, prog_bfd, argv, env)
   memset (&State, 0, sizeof (State));
   if (prog_bfd != NULL)
     PC = bfd_get_start_address (prog_bfd);
+  /* For v850ea, set PSW[US] by default */
+  if (STATE_ARCHITECTURE (sd) != NULL
+      && STATE_ARCHITECTURE (sd)->arch == bfd_arch_v850
+      && STATE_ARCHITECTURE (sd)->mach == bfd_mach_v850ea)
+    PSW |= PSW_US;
   return SIM_RC_OK;
 }
 
-void
-sim_fetch_register (sd, rn, memory)
+int
+sim_fetch_register (sd, rn, memory, length)
      SIM_DESC sd;
      int rn;
      unsigned char *memory;
+     int length;
 {
   *(unsigned32*)memory = H2T_4 (State.regs[rn]);
+  return -1;
 }
  
-void
-sim_store_register (sd, rn, memory)
+int
+sim_store_register (sd, rn, memory, length)
      SIM_DESC sd;
      int rn;
      unsigned char *memory;
+     int length;
 {
   State.regs[rn] = T2H_4 (*(unsigned32*)memory);
+  return -1;
 }
 
 void

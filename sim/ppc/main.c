@@ -60,6 +60,12 @@ static psim *simulation = NULL;
 
 
 void
+sim_io_poll_quit (void)
+{
+  /* nothing to do */
+}
+
+void
 sim_io_printf_filtered(const char *msg, ...)
 {
   va_list ap;

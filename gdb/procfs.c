@@ -1,5 +1,5 @@
 /* Machine independent support for SVR4 /proc (process file system) for GDB.
-   Copyright 1991, 1992-97, 1998 Free Software Foundation, Inc.
+   Copyright 1991, 1992-98, 1999 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.  Changes for sysv4.2mp procfs
    compatibility by Geoffrey Noer at Cygnus Solutions.
 
@@ -91,11 +91,23 @@ regardless of whether or not the actual target has floating point hardware.
 #endif
 
 /* the name of the proc status struct depends on the implementation */
-#ifdef HAVE_PSTATUS_T
-  typedef pstatus_t gdb_prstatus_t;
-#else
+/* Wrap Light Weight Process member in THE_PR_LWP macro for clearer code */
+#ifndef HAVE_PSTATUS_T
   typedef prstatus_t gdb_prstatus_t;
+#define THE_PR_LWP(a)	a
+#else	/* HAVE_PSTATUS_T */
+  typedef pstatus_t gdb_prstatus_t;
+#define THE_PR_LWP(a)	a.pr_lwp
+#if !defined(HAVE_PRRUN_T) && defined(HAVE_MULTIPLE_PROC_FDS)
+  /* Fallback definitions - for using configure information directly */
+#ifndef UNIXWARE
+#define UNIXWARE	1
 #endif
+#if !defined(PROCFS_USE_READ_WRITE) && !defined(HAVE_PROCFS_PIOCSET)
+#define PROCFS_USE_READ_WRITE	1
+#endif
+#endif	/* !HAVE_PRRUN_T && HAVE_MULTIPLE_PROC_FDS */
+#endif	/* HAVE_PSTATUS_T */
 
 #define MAX_SYSCALLS	256	/* Maximum number of syscalls for table */
 
@@ -116,9 +128,28 @@ regardless of whether or not the actual target has floating point hardware.
 #  endif
 #endif /* HAVE_MULTIPLE_PROC_FDS */
 
+
+/* These #ifdefs are for sol2.x in particular.  sol2.x has
+   both a "gregset_t" and a "prgregset_t", which have
+   similar uses but different layouts.  sol2.x gdb tries to
+   use prgregset_t (and prfpregset_t) everywhere. */
+
+#ifdef GDB_GREGSET_TYPE
+  typedef GDB_GREGSET_TYPE gdb_gregset_t;
+#else
+  typedef gregset_t gdb_gregset_t;
+#endif
+
+#ifdef GDB_FPREGSET_TYPE
+  typedef GDB_FPREGSET_TYPE gdb_fpregset_t;
+#else
+  typedef fpregset_t gdb_fpregset_t;
+#endif
+
+
 #define MAX_PROC_NAME_SIZE sizeof("/proc/1234567890/status")
 
-extern struct target_ops procfs_ops;		/* Forward declaration */
+struct target_ops procfs_ops;
 
 int procfs_suppress_run = 0;	/* Non-zero if procfs should pretend not to
 				   be a runnable target.  Used by targets
@@ -149,13 +180,13 @@ struct proc_ctl {
 /* set general registers */
 struct greg_ctl {
         int             cmd;
-        gregset_t       gregset;
+        gdb_gregset_t	gregset;
 };
 
 /* set fp registers */
 struct fpreg_ctl {
         int             cmd;
-        fpregset_t      fpregset;
+        gdb_fpregset_t	fpregset;
 };
 
 /* set signals to be traced */
@@ -202,7 +233,7 @@ struct procinfo {
   int had_event;		/* poll/select says something happened */
   int was_stopped;		/* Nonzero if was stopped prior to attach */
   int nopass_next_sigstop;	/* Don't pass a sigstop on next resume */
-#ifndef HAVE_NO_PRRUN_T
+#ifdef HAVE_PRRUN_T
   prrun_t prrun;		/* Control state when it is run */
 #endif
   gdb_prstatus_t prstatus;	/* Current process status info */
@@ -221,6 +252,8 @@ struct procinfo {
 				   currently installed */
 				/* Pointer to list of syscall trap handlers */
   struct procfs_syscall_handler *syscall_handlers; 
+  int saved_rtnval;		/* return value and status for wait(), */
+  int saved_statval;		/*  as supplied by a syscall handler. */
   int new_child;		/* Non-zero if it's a new thread */
 };
 
@@ -513,7 +546,7 @@ static void procfs_attach PARAMS ((char *, int));
 
 static void proc_set_exec_trap PARAMS ((void));
 
-static int procfs_init_inferior PARAMS ((int));
+static void  procfs_init_inferior PARAMS ((int));
 
 static struct procinfo *create_procinfo PARAMS ((int));
 
@@ -632,17 +665,19 @@ struct procfs_syscall_handler
 static void procfs_resume PARAMS ((int pid, int step,
 				   enum target_signal signo));
 
+static void init_procfs_ops PARAMS ((void));
+
 /* External function prototypes that can't be easily included in any
    header file because the args are typedefs in system include files. */
 
-extern void supply_gregset PARAMS ((gregset_t *));
+extern void supply_gregset PARAMS ((gdb_gregset_t *));
 
-extern void fill_gregset PARAMS ((gregset_t *, int));
+extern void fill_gregset PARAMS ((gdb_gregset_t *, int));
 
 #ifdef FP0_REGNUM
-extern void supply_fpregset PARAMS ((fpregset_t *));
+extern void supply_fpregset PARAMS ((gdb_fpregset_t *));
 
-extern void fill_fpregset PARAMS ((fpregset_t *, int));
+extern void fill_fpregset PARAMS ((gdb_fpregset_t *, int));
 #endif
 
 /*
@@ -947,8 +982,9 @@ wait_fd ()
 		    printf_filtered ("LWP %d exited.\n", 
 				     (pi->pid >> 16) & 0xffff);
 		  close_proc_file (pi);
+		  i--;			/* don't skip deleted entry */
 		  if (num_fds != 0)
-		    continue;		/* already another event to process */
+		    break;		/* already another event to process */
 		  else
 		    goto wait_again; 	/* wait for another event */
 		}
@@ -1997,7 +2033,7 @@ procfs_store_registers (regno)
       procfs_read_status (pi);
       memcpy ((char *) &greg.gregset,
          (char *) &pi->prstatus.pr_lwp.pr_context.uc_mcontext.gregs,
-         sizeof (gregset_t));
+         sizeof (gdb_gregset_t));
     }
   fill_gregset (&greg.gregset, regno);
   greg.cmd = PCSREG;
@@ -2023,7 +2059,7 @@ procfs_store_registers (regno)
       procfs_read_status (pi);
       memcpy ((char *) &fpreg.fpregset,
           (char *) &pi->prstatus.pr_lwp.pr_context.uc_mcontext.fpregs,
-          sizeof (fpregset_t));
+          sizeof (gdb_fpregset_t));
     }
   fill_fpregset (&fpreg.fpregset, regno);
   fpreg.cmd = PCSFPREG;
@@ -2498,7 +2534,7 @@ LOCAL FUNCTION
 
 SYNOPSIS
 
-	int procfs_init_inferior (int pid)
+	void procfs_init_inferior (int pid)
 
 DESCRIPTION
 
@@ -2516,7 +2552,7 @@ NOTES
 
  */
 
-static int
+static void 
 procfs_init_inferior (pid)
      int pid;
 {
@@ -2542,8 +2578,6 @@ procfs_init_inferior (pid)
   /* One trap to exec the shell, one to exec the program being debugged.  */
   startup_inferior (2);
 #endif
-
-  return pid;
 }
 
 /*
@@ -2580,7 +2614,7 @@ procfs_notice_signals (pid)
 
   pi = find_procinfo (pid, 0);
 
-#ifdef UNIXWARE
+#ifndef HAVE_PRRUN_T
   premptyset (&sctl.sigset);
 #else
   sctl.sigset = pi->prrun.pr_trace;
@@ -2588,7 +2622,7 @@ procfs_notice_signals (pid)
 
   notice_signals (pi, &sctl);
 
-#ifndef UNIXWARE
+#ifdef HAVE_PRRUN_T
   pi->prrun.pr_trace = sctl.sigset;
 #endif
 }
@@ -2750,6 +2784,8 @@ proc_set_exec_trap ()
 
   modify_run_on_last_close_flag (fd, 1);
 
+#ifndef UNIXWARE	/* since this is a solaris-ism, we don't want it */
+			/* NOTE: revisit when doing thread support for UW */
 #ifdef PR_ASYNC
   {
     long pr_flags;
@@ -2769,6 +2805,7 @@ proc_set_exec_trap ()
 #endif
   }
 #endif	/* PR_ASYNC */
+#endif	/* !UNIXWARE */
 }
 
 /*
@@ -3115,11 +3152,7 @@ do_attach (pid)
       if ((pi = find_procinfo ((*lwps << 16) | pid, 1)) == 0)
 	pi = init_procinfo ((*lwps << 16) | pid, 0);
 
-#ifdef UNIXWARE
-      if (pi->prstatus.pr_lwp.pr_flags & (PR_STOPPED | PR_ISTOP))
-#else
-      if (pi->prstatus.pr_flags & (PR_STOPPED | PR_ISTOP))
-#endif
+      if (THE_PR_LWP(pi->prstatus).pr_flags & (PR_STOPPED | PR_ISTOP))
 	{
 	  pi->was_stopped = 1;
 	}
@@ -3279,11 +3312,8 @@ do_detach (signal)
 	}
       else
 	{
-#ifdef UNIXWARE
-	  if (signal || (pi->prstatus.pr_lwp.pr_flags & (PR_STOPPED | PR_ISTOP)))
-#else
-	  if (signal || (pi->prstatus.pr_flags & (PR_STOPPED | PR_ISTOP)))
-#endif
+	  if (signal
+	  || (THE_PR_LWP(pi->prstatus).pr_flags & (PR_STOPPED | PR_ISTOP)))
 	    {
 	      long cmd;
 	      struct proc_ctl pctl;
@@ -3356,36 +3386,62 @@ procfs_wait (pid, ourstatus)
   struct procinfo *pi;
   struct proc_ctl pctl;
 
-  if (pid != -1)		/* Non-specific process? */
-    pi = NULL;
-  else
-    for (pi = procinfo_list; pi; pi = pi->next)
-      if (pi->had_event)
-	break;
+scan_again:
+
+  /* handle all syscall events first, otherwise we might not
+     notice a thread was created until too late. */
+
+  for (pi = procinfo_list; pi; pi = pi->next)
+    {
+      if (!pi->had_event)
+	continue;
+
+      if (! (THE_PR_LWP(pi->prstatus).pr_flags & (PR_STOPPED | PR_ISTOP)) )
+	continue;
+
+      why = THE_PR_LWP(pi->prstatus).pr_why;
+      what = THE_PR_LWP(pi->prstatus).pr_what;
+      if (why == PR_SYSENTRY || why == PR_SYSEXIT)
+	{
+	  int i;
+	  int found_handler = 0;
+
+	  for (i = 0; i < pi->num_syscall_handlers; i++)
+	    if (pi->syscall_handlers[i].syscall_num == what)
+	      {
+		found_handler = 1;
+		pi->saved_rtnval = pi->pid;
+		pi->saved_statval = 0;
+		if (!pi->syscall_handlers[i].func
+		    (pi, what, why, &pi->saved_rtnval, &pi->saved_statval))
+		  pi->had_event = 0;
+		break;
+	      }
+
+	  if (!found_handler)
+	    {
+	      if (why == PR_SYSENTRY)
+		error ("PR_SYSENTRY, unhandled system call %d", what);
+	      else
+		error ("PR_SYSEXIT, unhandled system call %d", what);
+	    }
+	}
+    }
+
+  /* find a relevant process with an event */
+
+  for (pi = procinfo_list; pi; pi = pi->next)
+    if (pi->had_event && (pid == -1 || pi->pid == pid))
+      break;
 
   if (!pi)
     {
-    wait_again:
-
-      if (pi)
-	pi->had_event = 0;
-
-      pi = wait_fd ();
+      wait_fd ();
+      goto scan_again;
     }
 
-  if (pid != -1)
-    for (pi = procinfo_list; pi; pi = pi->next)
-      if (pi->pid == pid && pi->had_event)
-	break;
-
-  if (!pi && !checkerr)
-    goto wait_again;
-
-#ifdef UNIXWARE
-  if (!checkerr && !(pi->prstatus.pr_lwp.pr_flags & (PR_STOPPED | PR_ISTOP)))
-#else
-  if (!checkerr && !(pi->prstatus.pr_flags & (PR_STOPPED | PR_ISTOP)))
-#endif
+  if (!checkerr
+  && !(THE_PR_LWP(pi->prstatus).pr_flags & (PR_STOPPED | PR_ISTOP)))
     {
       if (!procfs_write_pcwstop (pi))
 	{
@@ -3412,21 +3468,15 @@ procfs_wait (pid, ourstatus)
 	  /* NOTREACHED */
 	}
     }
-#ifdef UNIXWARE
-  else if (pi->prstatus.pr_lwp.pr_flags & (PR_STOPPED | PR_ISTOP))
-#else
-  else if (pi->prstatus.pr_flags & (PR_STOPPED | PR_ISTOP))
-#endif
+  else if (THE_PR_LWP(pi->prstatus).pr_flags & (PR_STOPPED | PR_ISTOP))
     {
 #ifdef UNIXWARE
       rtnval = pi->prstatus.pr_pid;
-      why = pi->prstatus.pr_lwp.pr_why;
-      what = pi->prstatus.pr_lwp.pr_what;
 #else
       rtnval = pi->pid;
-      why = pi->prstatus.pr_why;
-      what = pi->prstatus.pr_what;
 #endif
+      why = THE_PR_LWP(pi->prstatus).pr_why;
+      what = THE_PR_LWP(pi->prstatus).pr_what;
 
       switch (why)
 	{
@@ -3435,27 +3485,8 @@ procfs_wait (pid, ourstatus)
 	  break;
 	case PR_SYSENTRY:
 	case PR_SYSEXIT:
-	  {
-	    int i;
-	    int found_handler = 0;
-
-	    for (i = 0; i < pi->num_syscall_handlers; i++)
-	      if (pi->syscall_handlers[i].syscall_num == what)
-		{
-		  found_handler = 1;
-		  if (!pi->syscall_handlers[i].func (pi, what, why,
-						     &rtnval, &statval))
-		    goto wait_again;
-
-		  break;
-		}
-
-	    if (!found_handler)
-	      if (why == PR_SYSENTRY)
-		error ("PR_SYSENTRY, unhandled system call %d", what);
-	      else
-		error ("PR_SYSEXIT, unhandled system call %d", what);
-	  }
+	  rtnval = pi->saved_rtnval;
+	  statval = pi->saved_statval;
 	  break;
 	case PR_REQUESTED:
 	  statval = (SIGSTOP << 8) | 0177;
@@ -3503,11 +3534,8 @@ procfs_wait (pid, ourstatus)
 	      /* Use the signal which the kernel assigns.  This is better than
 		 trying to second-guess it from the fault.  In fact, I suspect
 		 that FLTACCESS can be either SIGSEGV or SIGBUS.  */
-#ifdef UNIXWARE
-              statval = ((pi->prstatus.pr_lwp.pr_info.si_signo) << 8) | 0177;
-#else
-	      statval = ((pi->prstatus.pr_info.si_signo) << 8) | 0177;
-#endif
+              statval =
+		 ((THE_PR_LWP(pi->prstatus).pr_info.si_signo) << 8) | 0177;
 	      break;
 	    }
 	  break;
@@ -3560,11 +3588,7 @@ procfs_wait (pid, ourstatus)
   else
     {
       error ("PIOCWSTOP, stopped for unknown/unhandled reason, flags %#x",
-#ifdef UNIXWARE
-	     pi->prstatus.pr_lwp.pr_flags);
-#else
-	     pi->prstatus.pr_flags);
-#endif
+	     THE_PR_LWP(pi->prstatus).pr_flags);
     }
 
   store_waitstatus (ourstatus, statval);
@@ -3633,22 +3657,18 @@ set_proc_siginfo (pip, signo)
   /* With Alpha OSF/1 procfs, the kernel gets really confused if it
      receives a PIOCSSIG with a signal identical to the current signal,
      it messes up the current signal. Work around the kernel bug.  */
-#ifdef UNIXWARE
-  if (signo == pip -> prstatus.pr_lwp.pr_cursig)
-#else
-  if (signo == pip -> prstatus.pr_cursig)
-#endif
+  if (signo == THE_PR_LWP(pip->prstatus).pr_cursig)
     return;
 #endif
 
 #ifdef UNIXWARE
-  if (signo == pip->prstatus.pr_lwp.pr_info.si_signo)
+  if (signo == THE_PR_LWP(pip->prstatus).pr_info.si_signo)
     {
       memcpy ((char *) &sictl.siginfo, (char *) &pip->prstatus.pr_lwp.pr_info,
 		sizeof (siginfo_t));
     }
 #else
-  if (signo == pip -> prstatus.pr_info.si_signo)
+  if (signo == THE_PR_LWP(pip->prstatus).pr_info.si_signo)
     {
       sip = &pip -> prstatus.pr_info;
     }
@@ -3737,13 +3757,8 @@ procfs_resume (pid, step, signo)
        an inferior to continue running at the same time as gdb.  (FIXME?)  */
     signal_to_pass = 0;
   else if (signo == TARGET_SIGNAL_TSTP
-#ifdef UNIXWARE
-	   && pi->prstatus.pr_lwp.pr_cursig == SIGTSTP
-	   && pi->prstatus.pr_lwp.pr_action.sa_handler == SIG_DFL
-#else
-	   && pi->prstatus.pr_cursig == SIGTSTP
-	   && pi->prstatus.pr_action.sa_handler == SIG_DFL
-#endif
+	   && THE_PR_LWP(pi->prstatus).pr_cursig == SIGTSTP
+	   && THE_PR_LWP(pi->prstatus).pr_action.sa_handler == SIG_DFL
 	   )
 
     /* We are about to pass the inferior a SIGTSTP whose action is
@@ -4080,14 +4095,6 @@ open_proc_file (pid, pip, mode, control)
       return 0;
     }
 
-  sprintf (pip->pathname, MAP_PROC_NAME_FMT, tmp);
-  if ((pip->map_fd = open (pip->pathname, O_RDONLY)) < 0)
-    {
-      close (pip->status_fd);
-      close (pip->as_fd);
-      return 0;
-    }
-
   if (control)
     {
       sprintf (pip->pathname, CTL_PROC_NAME_FMT, tmp);
@@ -4216,19 +4223,10 @@ info_proc_stop (pip, summary)
   int why;
   int what;
 
-#ifdef UNIXWARE
-  why = pip -> prstatus.pr_lwp.pr_why;
-  what = pip -> prstatus.pr_lwp.pr_what;
-#else
-  why = pip -> prstatus.pr_why;
-  what = pip -> prstatus.pr_what;
-#endif
+  why = THE_PR_LWP(pip->prstatus).pr_why;
+  what = THE_PR_LWP(pip->prstatus).pr_what;
 
-#ifdef UNIXWARE
-  if (pip -> prstatus.pr_lwp.pr_flags & PR_STOPPED)
-#else
-  if (pip -> prstatus.pr_flags & PR_STOPPED)
-#endif
+  if (THE_PR_LWP(pip->prstatus).pr_flags & PR_STOPPED)
     {
       printf_filtered ("%-32s", "Reason for stopping:");
       if (!summary)
@@ -4319,22 +4317,12 @@ info_proc_siginfo (pip, summary)
 {
   struct siginfo *sip;
 
-#ifdef UNIXWARE
-  if ((pip -> prstatus.pr_lwp.pr_flags & PR_STOPPED) &&
-      (pip -> prstatus.pr_lwp.pr_why == PR_SIGNALLED ||
-       pip -> prstatus.pr_lwp.pr_why == PR_FAULTED))
-#else
-  if ((pip -> prstatus.pr_flags & PR_STOPPED) &&
-      (pip -> prstatus.pr_why == PR_SIGNALLED ||
-       pip -> prstatus.pr_why == PR_FAULTED))
-#endif
+  if ((THE_PR_LWP(pip->prstatus).pr_flags & PR_STOPPED) &&
+      (THE_PR_LWP(pip->prstatus).pr_why == PR_SIGNALLED ||
+       THE_PR_LWP(pip->prstatus).pr_why == PR_FAULTED))
     {
       printf_filtered ("%-32s", "Additional signal/fault info:");
-#ifdef UNIXWARE
-      sip = &pip -> prstatus.pr_lwp.pr_info;
-#else
-      sip = &pip -> prstatus.pr_info;
-#endif
+      sip = &(THE_PR_LWP(pip->prstatus).pr_info);
       if (summary)
 	{
 	  printf_filtered ("%s ", signalname (sip -> si_signo));
@@ -5348,7 +5336,7 @@ procfs_lwp_creation_handler (pi, syscall_num, why, rtnvalp, statvalp)
       pctl.cmd = PCRUN;
       pctl.data = PRCFAULT;
 
-      if (write(pi->ctl_fd, (char *)&pctl, sizeof (struct proc_ctl)) < 0)
+      if (write (pi->ctl_fd, (char *) &pctl, sizeof (struct proc_ctl)) < 0)
 	perror_with_name (pi->pathname);
 
       return 0;
@@ -5394,11 +5382,8 @@ procfs_lwp_creation_handler (pi, syscall_num, why, rtnvalp, statvalp)
      in the child and continue the parent.  */
 
   /* Third arg is pointer to new thread id. */
-#ifdef UNIXWARE
-  lwp_id = read_memory_integer (pi->prstatus.pr_lwp.pr_sysarg[2], sizeof (int));
-#else
-  lwp_id = read_memory_integer (pi->prstatus.pr_sysarg[2], sizeof (int));
-#endif
+  lwp_id = read_memory_integer (
+     THE_PR_LWP(pi->prstatus).pr_sysarg[2], sizeof (int));
 
   lwp_id = (lwp_id << 16) | PIDGET (pi->pid);
 
@@ -5429,11 +5414,7 @@ procfs_lwp_creation_handler (pi, syscall_num, why, rtnvalp, statvalp)
      SUSPENDED or RUNNABLE.  If runnable, we will simply signal it to run.
      If suspended, we flag it to be continued later, when it has an event.  */
 
-#ifdef UNIXWARE
-  if (childpi->prstatus.pr_lwp.pr_why == PR_SUSPENDED)
-#else
-  if (childpi->prstatus.pr_why == PR_SUSPENDED)
-#endif
+  if (THE_PR_LWP(childpi->prstatus).pr_why == PR_SUSPENDED)
     childpi->new_child = 1;	/* Flag this as an unseen child process */
   else
     {
@@ -5533,7 +5514,7 @@ procfs_create_inferior (exec_file, allargs, env)
     }
 
   fork_inferior (exec_file, allargs, env,
-		 proc_set_exec_trap, procfs_init_inferior, shell_file);
+		 proc_set_exec_trap, procfs_init_inferior, NULL, shell_file);
 
   /* We are at the first instruction we care about.  */
   /* Pedal to the metal... */
@@ -5711,49 +5692,46 @@ procfs_pid_to_str (pid)
   return buf;
 }
 #endif /* TIDGET */
+
 
-struct target_ops procfs_ops = {
-  "procfs",			/* to_shortname */
-  "Unix /proc child process",	/* to_longname */
-  "Unix /proc child process (started by the \"run\" command).",	/* to_doc */
-  procfs_open,			/* to_open */
-  0,				/* to_close */
-  procfs_attach,			/* to_attach */
-  procfs_detach, 		/* to_detach */
-  procfs_resume,			/* to_resume */
-  procfs_wait,			/* to_wait */
-  procfs_fetch_registers,	/* to_fetch_registers */
-  procfs_store_registers,	/* to_store_registers */
-  procfs_prepare_to_store,	/* to_prepare_to_store */
-  procfs_xfer_memory,		/* to_xfer_memory */
-  procfs_files_info,		/* to_files_info */
-  memory_insert_breakpoint,	/* to_insert_breakpoint */
-  memory_remove_breakpoint,	/* to_remove_breakpoint */
-  terminal_init_inferior,	/* to_terminal_init */
-  terminal_inferior, 		/* to_terminal_inferior */
-  terminal_ours_for_output,	/* to_terminal_ours_for_output */
-  terminal_ours,		/* to_terminal_ours */
-  child_terminal_info,		/* to_terminal_info */
-  procfs_kill_inferior,		/* to_kill */
-  0,				/* to_load */
-  0,				/* to_lookup_symbol */
-  procfs_create_inferior,	/* to_create_inferior */
-  procfs_mourn_inferior,	/* to_mourn_inferior */
-  procfs_can_run,		/* to_can_run */
-  procfs_notice_signals,	/* to_notice_signals */
-  procfs_thread_alive,		/* to_thread_alive */
-  procfs_stop,			/* to_stop */
-  process_stratum,		/* to_stratum */
-  0,				/* to_next */
-  1,				/* to_has_all_memory */
-  1,				/* to_has_memory */
-  1,				/* to_has_stack */
-  1,				/* to_has_registers */
-  1,				/* to_has_execution */
-  0,				/* sections */
-  0,				/* sections_end */
-  OPS_MAGIC			/* to_magic */
-};
+static void
+init_procfs_ops ()
+{
+  procfs_ops.to_shortname = "procfs";
+  procfs_ops.to_longname = "Unix /proc child process";
+  procfs_ops.to_doc = "Unix /proc child process (started by the \"run\" command).";
+  procfs_ops.to_open = procfs_open;
+  procfs_ops.to_attach = procfs_attach;
+  procfs_ops.to_detach = procfs_detach;
+  procfs_ops.to_resume = procfs_resume;
+  procfs_ops.to_wait = procfs_wait;
+  procfs_ops.to_fetch_registers = procfs_fetch_registers;
+  procfs_ops.to_store_registers = procfs_store_registers;
+  procfs_ops.to_prepare_to_store = procfs_prepare_to_store;
+  procfs_ops.to_xfer_memory = procfs_xfer_memory;
+  procfs_ops.to_files_info = procfs_files_info;
+  procfs_ops.to_insert_breakpoint = memory_insert_breakpoint;
+  procfs_ops.to_remove_breakpoint = memory_remove_breakpoint;
+  procfs_ops.to_terminal_init = terminal_init_inferior;
+  procfs_ops.to_terminal_inferior = terminal_inferior;
+  procfs_ops.to_terminal_ours_for_output = terminal_ours_for_output;
+  procfs_ops.to_terminal_ours = terminal_ours;
+  procfs_ops.to_terminal_info = child_terminal_info;
+  procfs_ops.to_kill = procfs_kill_inferior;
+  procfs_ops.to_create_inferior = procfs_create_inferior;
+  procfs_ops.to_mourn_inferior = procfs_mourn_inferior;
+  procfs_ops.to_can_run = procfs_can_run;
+  procfs_ops.to_notice_signals = procfs_notice_signals;
+  procfs_ops.to_thread_alive = procfs_thread_alive;
+  procfs_ops.to_stop = procfs_stop;
+  procfs_ops.to_stratum = process_stratum;
+  procfs_ops.to_has_all_memory = 1;
+  procfs_ops.to_has_memory = 1;
+  procfs_ops.to_has_stack = 1;
+  procfs_ops.to_has_registers = 1;
+  procfs_ops.to_has_execution = 1;
+  procfs_ops.to_magic = OPS_MAGIC;
+}
 
 void
 _initialize_procfs ()
@@ -5771,6 +5749,7 @@ _initialize_procfs ()
   close (fd);
 #endif
 
+  init_procfs_ops ();
   add_target (&procfs_ops);
 
   add_info ("processes", info_proc, 

@@ -1,17 +1,146 @@
-Fri Apr 24 15:28:03 1998  Jason Molenda  (crash@bugshack.cygnus.com)
+Thu Feb 11 18:00:59 1999  Stan Shebs  <shebs@andros.cygnus.com>
 
-	* Makefile.in (TEXIDIR): Don't use ../../texinfo's stuff.
-	(install): run install-info.
-	(install-info): Look for pregenerated info files in $(srcdir).
+	* gdb.texinfo: Update the credits.
+
+Mon Feb  8 17:33:57 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.texinfo: Fix mistakes noticed in printout of last
+	draft, add Alpha to discussion of heuristic fence post.
+
+Fri Feb  5 17:20:00 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.texinfo, remote.texi: Many changes; update to Seventh
+ 	Edition, merge some HP changes into mainline, describe some
+ 	previously undocumented features, describe more of the target
+ 	commands available, eliminate obsolete section on renamed
+ 	commands.
+	* all-cfg.texi, HPPA-cfg.texi: Remove some obsolete conditionals.
+
+Wed Jan 20 17:47:45 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.texinfo: Make many HPPA conditionals unconditional,
+	including catchpoint description, since now on for all configs.
+	* all-cfg.texi: @clear HPPA, since is mainly for very HP-specific
+	specializations.
+
+Thu Jan 14 17:10:12 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* Makefile.in (GDBvn.texi): Fix match expression to work with
+	current format of VERSION in gdb/Makefile.in.
+	* gdb.texinfo: Fix node ref to match new readline.
+
+Wed Jan 13 10:38:40 1999  Edith Epstein  <eepstein@sophia.cygnus.com>
+
+	* gdb.texinfo: Changes made as part of a project to merge in 
+	  changes made by HP. Documentation makes extensive use of 
+	  @ifclear HPPA and @ifset HPPA. The HP manual omits doumentation
+	  on remote debugging. There are differences in documentation
+ 	  (HP vs.  non-HP) on C++ support (aCC vs. gnu gcc++). Also,
+	  the HP manual discusses catchpoints, hardware watchpoints, and
+	  some HPUX specific limitations for shared library support.
+	  
+	  There are also a number of @node changes.
+
+1999-01-12  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* gdbint.texinfo (Formatting): Disambiguate a sentence.
+	(C Usage): Same.
+
+Wed Jan  6 11:55:34 1999  David Taylor  <taylor@texas.cygnus.com>
+
+	The following changes were made by Edith Epstein
+ 	<eepstein@cygnus.com> as part of a project to merge in changes
+ 	made by HP.
+	
+	* HPPA-cfg.texi: new file.
+
+	* all-cfg.texi: set HPPA for HP PA-RISC targets.
+
+	* refcard.tex: change documentation about catch.
+	  removed info catch.
+
+Mon Jan  4 18:29:18 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbint.texinfo: Expand on GDB's coding standards,
+	specify the use of arg names with prototypes.
+
+1998-12-14  J.T. Conklin  <jtc@redbacknetworks.com>
+
+	* gdb.texinfo: Fix tipo.
+
+Sun Dec 13 10:27:59 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbint.texinfo: Document TARGET_BYTE_ORDER_DEFAULT and
+ 	TARGET_BYTE_ORDER_SELECTABLE_P.
+
+Thu Dec 10 16:07:09 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbint.texinfo (FRAME_FIND_SAVED_REGS): Document.
+
+1998-12-09  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	* agentexpr.texi: New file.
+
+Wed Dec  9 21:13:57 1998  Andrew Cagney  <cagney@chook>
+
+	* gdbint.texinfo (REGISTER_NAME): Replace REGISTER_NAMES.
+
+1998-12-03  J.T. Conklin  <jtc@redbacknetworks.com>
+
+	* remote.texi: Changed wording that implied that the GDB remote
+	protocol caches register values instead of GDB itself.
+
+Tue Dec  1 17:45:43 1998  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbint.texinfo: Add some info about symbol readers.
+	(CHILL_PRODUCER, etc): Comment out descriptions, not useful.
+	(IN_SOLIB_CALL_TRAMPOLINE): Rename info from IN_SOLIB_TRAMPOLINE.
+	(IN_SOLIB_RETURN_TRAMPOLINE): Describe.
+	(KERNEL_DEBUGGING, MIPSEL): No info about these, remove.
+
+Mon Nov 30 11:32:21 1998  Andrew Cagney  <cagney@chook>
+
+	* gdbint.texinfo (FRAME_CHAIN_VALID_ALTERNATE): 
+
+Sat Nov 28 13:45:53 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbint.texinfo (INNER_THAN): Update, now takes parameters.
+
+Fri Nov 27 12:39:45 1998  Andrew Cagney  <cagney@chook>
+
+	* gdbint.texinfo (NO_SINGLE_STEP): Replace with
+ 	SOFTWARE_SINGLE_STEP_P and SOFTWARE_SINGLE_STEP.
+
+Wed Oct 14 10:02:40 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbint.texinfo: Fix minor typos.
+
+Wed Sep 30 18:03:19 1998  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbint.texinfo: Complete overhaul.  Group descriptions more
+	logically, add more info on generic algorithms, remove much
+	obsolete and/or wrong material.
+
+Fri Jul 24 17:51:38 1998  Ian Lance Taylor  <ian@cygnus.com>
+
+	* stabs.texinfo (Method Type Descriptor): Expand and correct.
+
+Mon May  4 10:37:12 1998  Brian Youmans (3diff@gnu.org)
+
+	* refcard.tex:  Copyright, address updates.
 
 Tue Apr 21 18:09:56 1998  Stan Shebs  <shebs@andros.cygnus.com>
 
 	* gdb.texinfo (EDITION, DATE): Update and change to use ordinals
 	for the edition instead of confusing GDB-version-like numbers.
 
+Mon Apr 13 14:05:00 1998  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.texinfo (hbreak, watch): Fix typo, "date" -> "data".
+
 Thu Apr  2 16:52:44 1998  Jason Molenda  (crash@bugshack.cygnus.com)
 
-	* LRS: Reformat a bit to keep text under 80 columns.
+        * LRS: Reformat a bit to keep text under 80 columns.
 
 Thu Apr  2 16:10:36 1998  Stan Shebs  <shebs@andros.cygnus.com>
 

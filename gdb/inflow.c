@@ -107,7 +107,7 @@ static char *inferior_thisrun_terminal;
    inferior's settings are in effect.  Ignored if !gdb_has_a_terminal
    ().  */
 
-static int terminal_is_ours;
+int terminal_is_ours;
 
 enum {yes, no, have_not_checked} gdb_has_a_terminal_flag = have_not_checked;
 

@@ -41,7 +41,9 @@ SIM_EXTRA_CFLAGS = \
 	-I$(srcdir)/../../newlib/libc/sys/sysnecv850
 SIM_EXTRA_CLEAN = clean-extra
 
-INCLUDE = $(sim_main_headers) $(SIM_EXTRA_DEPS)
+INCLUDE = $(sim_main_headers) $(SIM_EXTRA_DEPS) 
+
+NL_TARGET = -DNL_TARGET_v850
 
 ## COMMON_POST_CONFIG_FRAG
 
@@ -135,6 +137,6 @@ clean-extra: clean-igen
 	rm -f table.c simops.h gencode
 
 #interp.o: interp.c table.c $(INCLUDE)
-simops.o: simops.c $(INCLUDE)
+simops.o: simops.c $(INCLUDE) targ-vals.h
 #table.o: table.c
 semantics.o: $(INCLUDE)

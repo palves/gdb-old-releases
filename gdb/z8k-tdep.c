@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "dis-asm.h"
 #include "gdbcore.h"
 
+
 /* Return the saved PC from this frame.
 
    If the frame has a memory copy of SRP_REGNUM, use that.  If not,
@@ -79,10 +80,11 @@ skip_adjust (pc, size)
   return pc;
 }
 
-int
+static CORE_ADDR examine_frame PARAMS ((CORE_ADDR, CORE_ADDR *regs, CORE_ADDR));
+static CORE_ADDR
 examine_frame (pc, regs, sp)
      CORE_ADDR pc;
-     struct frame_saved_regs *regs;
+     CORE_ADDR *regs;
      CORE_ADDR sp;
 {
   int w = read_memory_short (pc);
@@ -90,20 +92,20 @@ examine_frame (pc, regs, sp)
   int regno;
 
   for (regno = 0; regno < NUM_REGS; regno++)
-    regs->regs[regno] = 0;
+    regs[regno] = 0;
 
   while (IS_PUSHW (w) || IS_PUSHL (w))
     {
       /* work out which register is being pushed to where */
       if (IS_PUSHL (w))
 	{
-	  regs->regs[w & 0xf] = offset;
-	  regs->regs[(w & 0xf) + 1] = offset + 2;
+	  regs[w & 0xf] = offset;
+	  regs[(w & 0xf) + 1] = offset + 2;
 	  offset += 4;
 	}
       else
 	{
-	  regs->regs[w & 0xf] = offset;
+	  regs[w & 0xf] = offset;
 	  offset += 2;
 	}
       pc += 2;
@@ -120,16 +122,16 @@ examine_frame (pc, regs, sp)
       /* Subtracting a value from the sp, so were in a function
        which needs stack space for locals, but has no fp.  We fake up
        the values as if we had an fp */
-      regs->regs[FP_REGNUM] = sp;
+      regs[FP_REGNUM] = sp;
     }
   else
     {
       /* This one didn't have an fp, we'll fake it up */
-      regs->regs[SP_REGNUM] = sp;
+      regs[SP_REGNUM] = sp;
     }
   /* stack pointer contains address of next frame */
-  /*  regs->regs[fp_regnum()] = fp;*/
-  regs->regs[SP_REGNUM] = sp;
+  /*  regs[fp_regnum()] = fp;*/
+  regs[SP_REGNUM] = sp;
   return pc;
 }
 
@@ -137,16 +139,16 @@ CORE_ADDR
 z8k_skip_prologue (start_pc)
      CORE_ADDR start_pc;
 {
-  struct frame_saved_regs dummy;
+  CORE_ADDR dummy[NUM_REGS];
 
-  return examine_frame (start_pc, &dummy, 0);
+  return examine_frame (start_pc, dummy, 0);
 }
 
 CORE_ADDR
-addr_bits_remove (x)
-     CORE_ADDR x;
+z8k_addr_bits_remove (addr)
+     CORE_ADDR addr;
 {
-  return x & PTR_MASK;
+  return (addr & PTR_MASK);
 }
 
 int
@@ -171,6 +173,7 @@ frame_chain (thisframe)
   return 0;
 }
 
+void
 init_frame_pc ()
 {
   abort ();
@@ -183,19 +186,17 @@ init_frame_pc ()
    the address we return for it IS the sp for the next frame.  */
 
 void
-get_frame_saved_regs (frame_info, frame_saved_regs)
+z8k_frame_init_saved_regs (frame_info)
      struct frame_info *frame_info;
-     struct frame_saved_regs *frame_saved_regs;
-
 {
   CORE_ADDR pc;
   int w;
 
-  memset (frame_saved_regs, '\0', sizeof (*frame_saved_regs));
+  frame_saved_regs_zalloc (frame_info);
   pc = get_pc_function_start (frame_info->pc);
 
-/* wander down the instruction stream */
-  examine_frame (pc, frame_saved_regs, frame_info->frame);
+  /* wander down the instruction stream */
+  examine_frame (pc, frame_info->saved_regs, frame_info->frame);
 
 }
 
@@ -238,6 +239,7 @@ NEXT_PROLOGUE_INSN (addr, lim, pword1)
   return 0;
 }
 
+#if 0
 /* Put here the code to store, into a struct frame_saved_regs,
    the addresses of the saved registers of frame described by FRAME_INFO.
    This includes special registers such as pc and fp saved in special
@@ -289,15 +291,17 @@ frame_find_saved_regs (fip, fsrp)
   fsrp->regs[FP_REGNUM] = fip->frame;
 
 }
+#endif
 
 int
 saved_pc_after_call ()
 {
-  return addr_bits_remove 
+  return ADDR_BITS_REMOVE 
     (read_memory_integer (read_register (SP_REGNUM), PTR_SIZE));
 }
 
 
+void
 extract_return_value (type, regbuf, valbuf)
      struct type *type;
      char *regbuf;

@@ -236,7 +236,7 @@ name2i (const char *names,
       /* find our name */
       char *end = strchr(name, ',');
       char *next;
-      int len;
+      unsigned len;
       if (end == NULL)
 	{
 	  end = strchr(name, '\0');
@@ -251,8 +251,8 @@ name2i (const char *names,
       curr = map;
       while (curr->name != NULL)
 	{
-	  if (strncmp(curr->name, name, len) == 0
-	      && strlen(curr->name) == len)
+	  if (strncmp (curr->name, name, len) == 0
+	      && strlen (curr->name) == len)
 	    return curr->i;
 	  curr++;
 	}

@@ -1,5 +1,5 @@
 /* GDB routines for manipulating the minimal symbol tables.
-   Copyright 1992, 1993, 1994, 1996, 1996 Free Software Foundation, Inc.
+   Copyright 1992, 93, 94, 96, 97, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
 This file is part of GDB.
@@ -142,7 +142,7 @@ lookup_minimal_symbol (name, sfile, objf)
 #endif
 		      break;
 
-		    case mst_solib_trampoline:
+                    case mst_solib_trampoline:
 
 		      /* If a trampoline symbol is found, we prefer to
 			 keep looking for the *real* symbol. If the
@@ -452,11 +452,20 @@ find_stab_function_addr (namestring, pst, objfile)
   if (p == NULL)
     p = namestring;
   n = p - namestring;
-  p = alloca (n + 1);
+  p = alloca (n + 2);
   strncpy (p, namestring, n);
   p[n] = 0;
 
   msym = lookup_minimal_symbol (p, pst->filename, objfile);
+  if (msym == NULL)
+    {
+      /* Sun Fortran appends an underscore to the minimal symbol name,
+	 try again with an appended underscore if the minimal symbol
+	 was not found.  */
+      p[n] = '_';
+      p[n + 1] = 0;
+      msym = lookup_minimal_symbol (p, pst->filename, objfile);
+    }
   return msym == NULL ? 0 : SYMBOL_VALUE_ADDRESS (msym);
 }
 #endif /* SOFUN_ADDRESS_MAYBE_MISSING */
@@ -585,7 +594,8 @@ prim_record_minimal_symbol_and_info (name, address, ms_type, info, section,
 }
 
 /* Compare two minimal symbols by address and return a signed result based
-   on unsigned comparisons, so that we sort into unsigned numeric order.  */
+   on unsigned comparisons, so that we sort into unsigned numeric order.  
+   Within groups with the same address, sort by name.  */
 
 static int
 compare_minimal_symbols (fn1p, fn2p)
@@ -600,15 +610,25 @@ compare_minimal_symbols (fn1p, fn2p)
 
   if (SYMBOL_VALUE_ADDRESS (fn1) < SYMBOL_VALUE_ADDRESS (fn2))
     {
-      return (-1);
+      return (-1);	/* addr 1 is less than addr 2 */
     }
   else if (SYMBOL_VALUE_ADDRESS (fn1) > SYMBOL_VALUE_ADDRESS (fn2))
     {
-      return (1);
+      return (1);	/* addr 1 is greater than addr 2 */
     }
-  else
+  else			/* addrs are equal: sort by name */
     {
-      return (0);
+      char *name1 = SYMBOL_NAME (fn1);
+      char *name2 = SYMBOL_NAME (fn2);
+
+      if (name1 && name2)	/* both have names */
+	return strcmp (name1, name2);
+      else if (name2)
+	return 1;	/* fn1 has no name, so it is "less" */
+      else if (name1)	/* fn2 has no name, so it is "less" */
+	return -1;
+      else
+	return (0);	/* neither has a name, so they're equal. */
     }
 }
 

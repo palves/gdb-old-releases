@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * $Revision: 1.2 $
- *     $Date: 1998/01/08 11:12:37 $
+ * $Revision: 1.6 $
+ *     $Date: 1999/01/28 03:50:16 $
  *
  */
 
@@ -88,12 +88,25 @@
 #define PARPORT2   "/dev/par1"
 #endif
 
-#ifdef _WIN32
+#if defined (__FreeBSD__) || defined (__NetBSD__) || defined (__OpenBSD__) || defined (bsdi)
+#define SERPORT1   "/dev/cuaa0"
+#define SERPORT2   "/dev/cuaa1"
+#define PARPORT1   "/dev/lpt0"
+#define PARPORT2   "/dev/lpt1"
+#endif
+
+
+#define SERIAL_PREFIX "/dev/tty"
+#if defined(_WIN32) || defined (__CYGWIN32__) 
 #define SERPORT1   "com1"
 #define SERPORT2   "com2"
 #define PARPORT1   "lpt1"
 #define PARPORT2   "lpt2"
+#undef SERIAL_PREFIX
+#define SERIAL_PREFIX "com"
 #endif
+
+
 
 /*
  * Parallel port output pins, used for signalling to target
@@ -121,7 +134,11 @@ extern const char *Unix_MatchValidSerialDevice(const char *name)
    */
 
   /* Accept /dev/tty* where * is limited */
-  if (strlen(name) == strlen(SERPORT1) && strncmp(name, "/dev/tty", 8) == 0) return name;
+  if (strlen(name) == strlen(SERPORT1)
+      && strncmp(name, SERIAL_PREFIX, strlen (SERIAL_PREFIX)) == 0)
+      {
+        return name;
+      }
 
   /* Accept "1" or "2" or "S" - S is equivalent to "1" */
   if (strcmp(name, "1") == 0 ||
@@ -224,7 +241,7 @@ extern int Unix_IsSerialInUse(void)
 
 extern int Unix_OpenSerial(const char *name)
 {
-#if defined(BSD)
+#if defined(BSD) || defined(__CYGWIN32__)
     serpfd = open(name, O_RDWR);
 #else
     serpfd = open(name, O_RDWR | O_NONBLOCK);

@@ -1,6 +1,7 @@
 /*  This file is part of the program psim.
 
     Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1998, Cygnus Solutions.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,6 +23,16 @@
 #include "sim-main.h"
 #include "sim-io.h"
 #include "targ-vals.h"
+
+#include <errno.h>
+#if HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 
 /* See the file include/callbacks.h for a description */
 
@@ -296,4 +307,73 @@ sim_io_poll_quit(SIM_DESC sd)
   if (STATE_CALLBACK (sd)->poll_quit != NULL)
     if (STATE_CALLBACK (sd)->poll_quit (STATE_CALLBACK (sd)))
       sim_stop (sd);
+}
+
+
+/* Based on gdb-4.17/sim/ppc/main.c:sim_io_read_stdin().
+
+   FIXME: Should not be calling fcntl() or grubbing around inside of
+   ->fdmap and ->errno.
+
+   FIXME: Some completly new mechanism for handling the general
+   problem of asynchronous IO is needed.
+
+   FIXME: This function does not supress the echoing (ECHO) of input.
+   Consequently polled input is always displayed.
+
+   FIXME: This function does not perform uncooked reads.
+   Consequently, data will not be read until an EOLN character has
+   been entered. A cntrl-d may force the early termination of a line */
+
+
+int
+sim_io_poll_read (SIM_DESC sd,
+		  int sim_io_fd,
+		  char *buf,
+		  int sizeof_buf)
+{
+#if defined(O_NDELAY) && defined(F_GETFL) && defined(F_SETFL)
+  int fd = STATE_CALLBACK (sd)->fdmap[sim_io_fd];
+  int flags;
+  int status;
+  int nr_read;
+  int result;
+  STATE_CALLBACK (sd)->last_errno = 0;
+  /* get the old status */
+  flags = fcntl (fd, F_GETFL, 0);
+  if (flags == -1)
+    {
+      perror ("sim_io_poll_read");
+      return 0;
+    }
+  /* temp, disable blocking IO */
+  status = fcntl (fd, F_SETFL, flags | O_NDELAY);
+  if (status == -1)
+    {
+      perror ("sim_io_read_stdin");
+      return 0;
+    }
+  /* try for input */
+  nr_read = read (fd, buf, sizeof_buf);
+  if (nr_read >= 0)
+    {
+      /* printf ("<nr-read=%d>\n", nr_read); */
+      result = nr_read;
+    }
+  else
+    { /* nr_read < 0 */
+      result = -1;
+      STATE_CALLBACK (sd)->last_errno = errno;
+    }
+  /* return to regular vewing */
+  status = fcntl (fd, F_SETFL, flags);
+  if (status == -1)
+    {
+      perror ("sim_io_read_stdin");
+      /* return 0; */
+    }
+  return result;
+#else
+  return sim_io_read (sd, sim_io_fd, buf, sizeof_buf);
+#endif
 }

@@ -1,10 +1,16 @@
+#include <stdio.h>
+#include "sis.h"
+
+void
 usage()
 {
 
     printf("usage: sis [-uart1 uart_device1] [-uart2 uart_device2]\n");
     printf("[-nfp] [-freq frequency] [-c batch_file] [files]\n");
+    printf("[-sparclite] [-dumbio]\n");
 }
 
+void
 gen_help()
 {
 
@@ -13,6 +19,7 @@ gen_help()
     printf(" -bp <num>             delete breakpoint <num>\n");
     printf(" bp                    print all breakpoints\n");
     printf(" cont [icnt]           continue execution for [icnt] instructions\n");
+    printf(" deb <level>           set debug level\n");
     printf(" dis [addr] [count]    disassemble [count] instructions at address [addr]\n");
     printf(" echo <string>         print <string> to the simulator window\n");
 #ifdef ERRINJ

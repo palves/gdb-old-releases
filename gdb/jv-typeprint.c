@@ -1,5 +1,5 @@
 /* Support for printing Java types for GDB, the GNU debugger.
-   Copyright 1997 Free Software Foundation, Inc.
+   Copyright 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "demangle.h"
 #include "jv-lang.h"
 #include "gdb_string.h"
+#include "typeprint.h"
 
 static void
 java_type_print_derivation_info (stream, type)
@@ -32,25 +33,30 @@ java_type_print_derivation_info (stream, type)
      struct type *type;
 {
   char *name;
-  int i = 0;
-  int n_bases = TYPE_N_BASECLASSES (type);
-  int prev = 0;
+  int i;
+  int n_bases;
+  int prev;
 
-  for (i = 0; i < n_bases; i++)
+  n_bases = TYPE_N_BASECLASSES (type);
+
+  for (i = 0, prev = 0; i < n_bases; i++)
     {
-      int kind = BASETYPE_VIA_VIRTUAL(type, i) ? 'I' : 'E';
+      int kind;
+
+      kind = BASETYPE_VIA_VIRTUAL(type, i) ? 'I' : 'E';
+
       fputs_filtered (kind == prev ? ", "
 		      : kind == 'I' ? " implements "
 		      : " extends ",
 		      stream);
       prev = kind;
       name = type_name_no_tag (TYPE_BASECLASS (type, i));
+
       fprintf_filtered (stream, "%s", name ? name : "(null)");
     }
+
   if (i > 0)
-    {
-      fputs_filtered (" ", stream);
-    }
+    fputs_filtered (" ", stream);
 }
 
 /* Print the name of the type (or the ultimate pointer target,
@@ -83,6 +89,7 @@ java_type_print_base (type, stream, show, level)
   QUIT;
 
   wrap_here ("    ");
+
   if (type == NULL)
     {
       fputs_filtered ("<type unknown>", stream);
@@ -109,21 +116,25 @@ java_type_print_base (type, stream, show, level)
 
     case TYPE_CODE_STRUCT:
       if (TYPE_TAG_NAME (type) != NULL && TYPE_TAG_NAME (type)[0] == '[')
-	{ /* array type */
+	{			/* array type */
 	  char *name = java_demangle_type_signature (TYPE_TAG_NAME (type));
-	  fputs (name, stream);
+	  fputs_filtered (name, stream);
 	  free (name);
 	  break;
 	}
+
       if (show >= 0)
 	fprintf_filtered (stream, "class ");
+
       if (TYPE_TAG_NAME (type) != NULL)
 	{
 	  fputs_filtered (TYPE_TAG_NAME (type), stream);
 	  if (show > 0)
 	    fputs_filtered (" ", stream);
 	}
+
       wrap_here ("    ");
+
       if (show < 0)
 	{
 	  /* If we just printed a tag name, no need to print anything else.  */
@@ -136,12 +147,10 @@ java_type_print_base (type, stream, show, level)
 	  
 	  fprintf_filtered (stream, "{\n");
 	  if ((TYPE_NFIELDS (type) == 0) && (TYPE_NFN_FIELDS (type) == 0))
-	    {
-	      if (TYPE_FLAGS (type) & TYPE_FLAG_STUB)
-		fprintfi_filtered (level + 4, stream, "<incomplete type>\n");
-	      else
-		fprintfi_filtered (level + 4, stream, "<no data fields>\n");
-	    }
+	    if (TYPE_FLAGS (type) & TYPE_FLAG_STUB)
+	      fprintfi_filtered (level + 4, stream, "<incomplete type>\n");
+	    else
+	      fprintfi_filtered (level + 4, stream, "<no data fields>\n");
 
 	  /* If there is a base class for this type,
 	     do not print the field that it occupies.  */
@@ -160,23 +169,22 @@ java_type_print_base (type, stream, show, level)
 		continue;
 
 	      print_spaces_filtered (level + 4, stream);
+
 	      if (HAVE_CPLUS_STRUCT (type))
-		{
-		  if (TYPE_FIELD_PROTECTED (type, i))
-		    fprintf_filtered (stream, "protected ");
-		  else if (TYPE_FIELD_PRIVATE (type, i))
-		    fprintf_filtered (stream, "private ");
-		  else
-		    fprintf_filtered (stream, "public ");
-		}
+		if (TYPE_FIELD_PROTECTED (type, i))
+		  fprintf_filtered (stream, "protected ");
+		else if (TYPE_FIELD_PRIVATE (type, i))
+		  fprintf_filtered (stream, "private ");
+		else
+		  fprintf_filtered (stream, "public ");
 
 	      if (TYPE_FIELD_STATIC (type, i))
-		{
-		  fprintf_filtered (stream, "static ");
-		}
+		fprintf_filtered (stream, "static ");
+
 	      java_print_type (TYPE_FIELD_TYPE (type, i),
-			    TYPE_FIELD_NAME (type, i),
-			    stream, show - 1, level + 4);
+			       TYPE_FIELD_NAME (type, i),
+			       stream, show - 1, level + 4);
+
 	      fprintf_filtered (stream, ";\n");
 	    }
 
@@ -189,15 +197,27 @@ java_type_print_base (type, stream, show, level)
 
 	  for (i = 0; i < len; i++)
 	    {
-	      struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
-	      int j, len2 = TYPE_FN_FIELDLIST_LENGTH (type, i);
-	      char *method_name = TYPE_FN_FIELDLIST_NAME (type, i);
-	      char *name = type_name_no_tag (type);
-	      int is_constructor = name && STREQ(method_name, name);
-	      for (j = 0; j < len2; j++)
+	      struct fn_field *f;
+	      int j;
+	      char *method_name;
+	      char *name;
+	      int is_constructor;
+	      int n_overloads;
+
+	      f = TYPE_FN_FIELDLIST1 (type, i);
+	      n_overloads = TYPE_FN_FIELDLIST_LENGTH (type, i);
+	      method_name = TYPE_FN_FIELDLIST_NAME (type, i);
+	      name = type_name_no_tag (type);
+	      is_constructor = name && STREQ (method_name, name);
+
+	      for (j = 0; j < n_overloads; j++)
 		{
-		  char *physname = TYPE_FN_FIELD_PHYSNAME (f, j);
-		  int is_full_physname_constructor = 
+		  char *physname;
+		  int is_full_physname_constructor;
+
+		  physname = TYPE_FN_FIELD_PHYSNAME (f, j);
+
+		  is_full_physname_constructor = 
 		    ((physname[0] == '_' && physname[1] == '_'
 		      && strchr ("0123456789Qt", physname[2]))
 		     || STREQN (physname, "__ct__", 6)
@@ -205,18 +225,27 @@ java_type_print_base (type, stream, show, level)
 		     || STREQN (physname, "__dt__", 6));
 
 		  QUIT;
+
 		  print_spaces_filtered (level + 4, stream);
+
 		  if (TYPE_FN_FIELD_PROTECTED (f, j))
 		    fprintf_filtered (stream, "protected ");
 		  else if (TYPE_FN_FIELD_PRIVATE (f, j))
 		    fprintf_filtered (stream, "private ");
-		  else
+		  else if (TYPE_FN_FIELD_PUBLIC (f, j))
 		    fprintf_filtered (stream, "public ");
 
-		  if (TYPE_FN_FIELD_VIRTUAL_P (f, j))
-		    fprintf_filtered (stream, "virtual ");
-		  else if (TYPE_FN_FIELD_STATIC_P (f, j))
+		  if (TYPE_FN_FIELD_ABSTRACT (f, j))
+		    fprintf_filtered (stream, "abstract ");
+		  if (TYPE_FN_FIELD_STATIC (f, j))
 		    fprintf_filtered (stream, "static ");
+		  if (TYPE_FN_FIELD_FINAL (f, j))
+		    fprintf_filtered (stream, "final ");
+		  if (TYPE_FN_FIELD_SYNCHRONIZED (f, j))
+		    fprintf_filtered (stream, "synchronized ");
+		  if (TYPE_FN_FIELD_NATIVE (f, j))
+		    fprintf_filtered (stream, "native ");
+
 		  if (TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)) == 0)
 		    {
 		      /* Keep GDB from crashing here.  */
@@ -230,6 +259,7 @@ java_type_print_base (type, stream, show, level)
 				  "", stream, -1);
 		      fputs_filtered (" ", stream);
 		    }
+
 		  if (TYPE_FN_FIELD_STUB (f, j))
 		    /* Build something we can demangle.  */
 		    mangled_name = gdb_mangle_name (type, i, j);
@@ -239,24 +269,31 @@ java_type_print_base (type, stream, show, level)
 		  demangled_name =
 		    cplus_demangle (mangled_name,
 				    DMGL_ANSI | DMGL_PARAMS | DMGL_JAVA);
+
 		  if (demangled_name == NULL)
-		    fprintf_filtered (stream, "<badly mangled name '%s'>",
-				      mangled_name);
-		  else
-		    {
-		      char *demangled_no_class = demangled_name;
-		      char *ptr = demangled_name;
-		      for ( ; ; )
-			{
-			  char c = *ptr++;
-			  if (c == 0 || c == '(')
-			    break;
-			  if (c == '.')
-			    demangled_no_class = ptr;
-			}
-		      fputs_filtered (demangled_no_class, stream);
-		      free (demangled_name);
-		    }
+		    demangled_name = strdup (mangled_name);
+
+		  {
+		    char *demangled_no_class;
+		    char *ptr;
+
+		    ptr = demangled_no_class = demangled_name;
+
+		    while (1)
+		      {
+			char c;
+
+			c = *ptr++;
+
+			if (c == 0 || c == '(')
+			  break;
+			if (c == '.')
+			  demangled_no_class = ptr;
+		      }
+
+		    fputs_filtered (demangled_no_class, stream);
+		    free (demangled_name);
+		  }
 
 		  if (TYPE_FN_FIELD_STUB (f, j))
 		    free (mangled_name);
@@ -284,6 +321,8 @@ java_print_type (type, varstring, stream, show, level)
      int show;
      int level;
 {
+  int demangled_args;
+
   java_type_print_base (type, stream, show, level);
 
   if (varstring != NULL && *varstring != '\0')
@@ -291,11 +330,10 @@ java_print_type (type, varstring, stream, show, level)
       fputs_filtered (" ", stream);
       fputs_filtered (varstring, stream);
     }
-#if 0
+
   /* For demangled function names, we have the arglist as part of the name,
      so don't print an additional pair of ()'s */
 
   demangled_args = strchr(varstring, '(') != NULL;
   c_type_print_varspec_suffix (type, stream, show, 0, demangled_args);
-#endif
 }

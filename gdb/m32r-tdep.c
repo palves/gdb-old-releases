@@ -28,6 +28,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdbcore.h"
 #include "symfile.h"
 
+/* Function: m32r_use_struct_convention
+   Return nonzero if call_function should allocate stack space for a
+   struct return? */
+int
+m32r_use_struct_convention (gcc_p, type)
+     int gcc_p;
+     struct type *type;
+{
+  return (TYPE_LENGTH (type) > 8);
+}
+
 /* Function: frame_find_saved_regs
    Return the frame_saved_regs structure for the frame.
    Doesn't really work for dummy frames, but it does pass back
@@ -40,6 +51,250 @@ m32r_frame_find_saved_regs (fi, regaddr)
 {
   memcpy(regaddr, &fi->fsr, sizeof(struct frame_saved_regs));
 }
+
+/* Turn this on if you want to see just how much instruction decoding
+   if being done, its quite a lot
+   */
+#if 0
+static void dump_insn(char * commnt,CORE_ADDR pc, int insn)
+{
+  printf_filtered("  %s %08x %08x ",
+		  commnt,(unsigned int)pc,(unsigned int) insn);
+  (*tm_print_insn)(pc,&tm_print_insn_info);
+  printf_filtered("\n");
+}
+#define insn_debug(args) { printf_filtered args; }
+#else
+#define dump_insn(a,b,c) {}
+#define insn_debug(args) {}
+#endif
+
+#define DEFAULT_SEARCH_LIMIT 44 
+
+/* Function: scan_prologue
+   This function decodes the target function prologue to determine
+   1) the size of the stack frame, and 2) which registers are saved on it.
+   It saves the offsets of saved regs in the frame_saved_regs argument,
+   and returns the frame size.  */
+
+/*
+  The sequence it currently generates is:
+  
+	if (varargs function) { ddi sp,#n }
+	push registers
+	if (additional stack <= 256) {	addi sp,#-stack	}
+	else if (additional stack < 65k) { add3 sp,sp,#-stack
+
+	} else if (additional stack) {
+	seth sp,#(stack & 0xffff0000)
+	or3 sp,sp,#(stack & 0x0000ffff)
+	sub sp,r4
+	}
+	if (frame pointer) {
+		mv sp,fp
+	}
+
+These instructions are scheduled like everything else, so you should stop at
+the first branch instruction.
+ 
+*/
+
+/* This is required by skip prologue and by m32r_init_extra_frame_info. 
+   The results of decoding a prologue should be cached because this
+   thrashing is getting nuts.
+   I am thinking of making a container class with two indexes, name and
+   address. It may be better to extend the symbol table.
+   */
+
+static void decode_prologue (start_pc, scan_limit, 
+			     pl_endptr, framelength, 
+			     fi, fsr)
+     CORE_ADDR start_pc;
+     CORE_ADDR scan_limit;
+     CORE_ADDR * pl_endptr;  /* var parameter */
+     unsigned long * framelength;
+     struct frame_info * fi;
+     struct frame_saved_regs * fsr;
+{
+  unsigned long framesize;
+  int insn;
+  int op1;
+  int maybe_one_more = 0;
+  CORE_ADDR after_prologue = 0;
+  CORE_ADDR after_stack_adjust = 0;
+  CORE_ADDR current_pc;
+
+
+  framesize = 0;
+  after_prologue = 0;
+  insn_debug(("rd prolog l(%d)\n",scan_limit - current_pc));
+
+  for (current_pc = start_pc; current_pc < scan_limit; current_pc += 2)
+    {
+
+      insn = read_memory_unsigned_integer (current_pc, 2);
+      dump_insn("insn-1",current_pc,insn);    /* MTZ */
+      
+       /* If this is a 32 bit instruction, we dont want to examine its
+	 immediate data as though it were an instruction */
+      if (current_pc & 0x02)
+	{ /* Clear the parallel execution bit from 16 bit instruction */
+	  if (maybe_one_more)
+	    { /* The last instruction was a branch, usually terminates
+		 the series, but if this is a parallel instruction,
+		 it may be a stack framing instruction */
+	      if (! (insn & 0x8000))
+		{ insn_debug(("Really done"));
+		  break; /* nope, we are really done */
+		}
+	    }
+	  insn &= 0x7fff;        /* decode this instruction further */
+	}
+      else
+	{
+	  if (maybe_one_more) 
+	    break; /* This isnt the one more */
+	  if (insn & 0x8000)
+	    {
+	      insn_debug(("32 bit insn\n"));
+	      if (current_pc == scan_limit)
+		scan_limit += 2; /* extend the search */
+	      current_pc += 2;   /* skip the immediate data */
+	      if (insn == 0x8faf)			/* add3 sp, sp, xxxx */
+		/* add 16 bit sign-extended offset */
+		{ insn_debug(("stack increment\n"));
+		framesize += -((short) read_memory_unsigned_integer (current_pc, 2));
+		}
+	      else
+		{
+		  if (((insn >> 8) == 0xe4) && /* ld24 r4, xxxxxx; sub sp, r4 */
+		      read_memory_unsigned_integer (current_pc + 2, 2) == 0x0f24)
+		    { /* subtract 24 bit sign-extended negative-offset */
+		      dump_insn("insn-2",current_pc+2,insn);
+		      insn = read_memory_unsigned_integer (current_pc - 2, 4);
+		      dump_insn("insn-3(l4)",current_pc -2,insn);
+		      if (insn & 0x00800000)	/* sign extend */
+			insn  |= 0xff000000;	/* negative */
+		      else
+			insn  &= 0x00ffffff;	/* positive */
+		      framesize += insn;
+		    }
+		}
+	      after_prologue = current_pc;
+	      continue;
+	    }
+	}
+      op1 = insn & 0xf000; /* isolate just the first nibble */
+      
+      if ((insn & 0xf0ff) == 0x207f)
+	{		/* st reg, @-sp */
+	  int regno;
+	  insn_debug(("push\n"));
+#if 0	/* No, PUSH FP is not an indication that we will use a frame pointer. */
+	  if (((insn & 0xffff) == 0x2d7f) && fi) 
+	    fi->using_frame_pointer = 1;
+#endif
+	  framesize  += 4;
+#if 0 
+/* Why should we increase the scan limit, just because we did a push? 
+   And if there is a reason, surely we would only want to do it if we
+   had already reached the scan limit... */
+	  if (current_pc == scan_limit)
+	    scan_limit += 2;
+#endif
+	  regno = ((insn >> 8) & 0xf);
+	  if (fsr)				/* save_regs offset */
+	    fsr->regs[regno] = framesize;
+	  after_prologue = 0;
+	    continue;
+	}
+      if ((insn >> 8) == 0x4f)  		/* addi sp, xx */
+	/* add 8 bit sign-extended offset */
+	{
+	  int stack_adjust = (char) (insn & 0xff);
+
+	  /* there are probably two of these stack adjustments:
+	     1) A negative one in the prologue, and
+	     2) A positive one in the epilogue.
+	     We are only interested in the first one.  */
+
+	  if (stack_adjust < 0)
+	    {
+	      framesize -= stack_adjust;
+	      after_prologue = 0;
+	      /* A frameless function may have no "mv fp, sp".
+		 In that case, this is the end of the prologue.  */
+	      after_stack_adjust = current_pc + 2;
+	    }
+	  continue;
+	}
+      if (insn == 0x1d8f) {	/* mv fp, sp */
+	if (fi) 
+	  fi->using_frame_pointer = 1;	/* fp is now valid */
+	insn_debug(("done fp found\n"));
+	after_prologue = current_pc + 2;
+	break;				/* end of stack adjustments */
+      }
+      if (insn ==  0x7000)  /* Nop looks like a branch, continue explicitly */
+	{ insn_debug(("nop\n"));
+	after_prologue = current_pc + 2;
+	continue; /* nop occurs between pushes */
+	}
+      /* End of prolog if any of these are branch instructions */
+      if ((op1 == 0x7000)
+	  || ( op1 == 0xb000)
+	  || (op1 == 0x7000))
+	{
+	  after_prologue = current_pc;
+	  insn_debug(("Done: branch\n"));
+	  maybe_one_more = 1;
+	  continue;
+	}
+      /* Some of the branch instructions are mixed with other types */
+      if (op1 == 0x1000)
+	{int subop = insn & 0x0ff0;
+	  if ((subop == 0x0ec0) || (subop == 0x0fc0))
+	    { insn_debug(("done: jmp\n"));
+	      after_prologue = current_pc;
+	      maybe_one_more = 1;
+	      continue; /* jmp , jl */
+	    }
+	}
+    }
+
+  if (current_pc >= scan_limit)
+    {
+      if (pl_endptr) 
+#if 1
+	if (after_stack_adjust != 0)
+	  /* We did not find a "mv fp,sp", but we DID find
+	     a stack_adjust.  Is it safe to use that as the
+	     end of the prologue?  I just don't know. */
+	  {
+	    *pl_endptr = after_stack_adjust;
+	    if (framelength)
+	      *framelength = framesize;
+	  }
+	else
+#endif
+      /* We reached the end of the loop without finding the end
+	 of the prologue.  No way to win -- we should report failure.  
+	 The way we do that is to return the original start_pc.
+	 GDB will set a breakpoint at the start of the function (etc.) */
+
+	*pl_endptr = start_pc;
+	
+      return;
+    }
+  if (after_prologue == 0) 
+    after_prologue = current_pc;
+
+  insn_debug((" framesize %d, firstline %08x\n",framesize,after_prologue));
+  if (framelength) 
+    *framelength = framesize;
+  if (pl_endptr) 
+    *pl_endptr = after_prologue;
+} /*  decode_prologue */
 
 /* Function: skip_prologue
    Find end of function prologue */
@@ -57,24 +312,27 @@ m32r_skip_prologue (pc)
     {
       sal = find_pc_line (func_addr, 0);
 
-      if (sal.line != 0 && sal.end < func_end)
-	return sal.end;
+      if (sal.line != 0 && sal.end <= func_end)
+	{
+	  
+	  insn_debug(("BP after prologue %08x\n",sal.end));
+	  func_end = sal.end;
+	}
       else
 	/* Either there's no line info, or the line after the prologue is after
 	   the end of the function.  In this case, there probably isn't a
 	   prologue.  */
-	return pc;
+	{
+	  insn_debug(("No line info, line(%x) sal_end(%x) funcend(%x)\n",
+		      sal.line,sal.end,func_end));
+	  func_end = min(func_end,func_addr + DEFAULT_SEARCH_LIMIT);
+	}
     }
-
-  /* We can't find the start of this function, so there's nothing we can do. */
-  return pc;
+  else 
+    func_end = pc + DEFAULT_SEARCH_LIMIT;
+  decode_prologue (pc, func_end, &sal.end, 0, 0, 0);
+  return sal.end;
 }
-
-/* Function: scan_prologue
-   This function decodes the target function prologue to determine
-   1) the size of the stack frame, and 2) which registers are saved on it.
-   It saves the offsets of saved regs in the frame_saved_regs argument,
-   and returns the frame size.  */
 
 static unsigned long
 m32r_scan_prologue (fi, fsr)
@@ -93,61 +351,24 @@ m32r_scan_prologue (fi, fsr)
       sal = find_pc_line (prologue_start, 0);
 
       if (sal.line == 0)		/* no line info, use current PC */
-	if (prologue_start != entry_point_address ())
-	  prologue_end = fi->pc;
-	else
-	  return 0;			/* _start has no frame or prologue */
-      else if (sal.end < prologue_end)	/* next line begins after fn end */
-	prologue_end = sal.end;		/* (probably means no prologue)  */
+	if (prologue_start == entry_point_address ())
+	  return 0;
     }
   else
-    prologue_end = prologue_start + 40; /* We're in the boondocks: allow for */
-					/* 16 pushes, an add, and "mv fp,sp" */
-
-  prologue_end = min (prologue_end, fi->pc);
-
-  /* Now, search the prologue looking for instructions that setup fp, save
-     rp (and other regs), adjust sp and such. */ 
-
-  framesize = 0;
-  for (current_pc = prologue_start; current_pc < prologue_end; current_pc += 2)
     {
-      int insn;
-      int regno;
-
-      insn = read_memory_unsigned_integer (current_pc, 2);
-      if (insn & 0x8000)			/* Four byte instruction? */
-	current_pc += 2;
-
-      if ((insn & 0xf0ff) == 0x207f) {		/* st reg, @-sp */
-	framesize += 4;
-	regno = ((insn >> 8) & 0xf);
-	if (fsr)				/* save_regs offset */
-	  fsr->regs[regno] = framesize;
-      }
-      else if ((insn >> 8) == 0x4f)  		/* addi sp, xx */
-	/* add 8 bit sign-extended offset */
-	framesize += -((char) (insn & 0xff));
-      else if (insn == 0x8faf)			/* add3 sp, sp, xxxx */
-	/* add 16 bit sign-extended offset */
-	framesize += -((short) read_memory_unsigned_integer (current_pc, 2));
-      else if (((insn >> 8) == 0xe4) &&	    /* ld24 r4, xxxxxx ;  sub sp, r4 */
-	       read_memory_unsigned_integer (current_pc + 2, 2) == 0x0f24)
-	{ /* subtract 24 bit sign-extended negative-offset */
-	  insn = read_memory_unsigned_integer (current_pc - 2, 4);
-	  if (insn & 0x00800000)	/* sign extend */
-	    insn  |= 0xff000000;	/* negative */
-	  else
-	    insn  &= 0x00ffffff;	/* positive */
-	  framesize += insn;
-	}
-      else if (insn == 0x1d8f) {	/* mv fp, sp */
-	fi->using_frame_pointer = 1;	/* fp is now valid */
-	break;				/* end of stack adjustments */
-      }
-      else
-	break;				/* anything else isn't prologue */
+      prologue_start = fi->pc;
+      prologue_end = prologue_start + 48; /* We're in the boondocks: 
+					      allow for 16 pushes, an add, 
+					      and "mv fp,sp" */
     }
+#if 0
+  prologue_end = min (prologue_end, fi->pc);
+#endif
+  insn_debug(("fipc(%08x) start(%08x) end(%08x)\n",
+	      fi->pc,prologue_start,prologue_end));
+  prologue_end = min(prologue_end, prologue_start + DEFAULT_SEARCH_LIMIT);
+  decode_prologue (prologue_start,prologue_end,&prologue_end,&framesize,
+		   fi,fsr);
   return framesize;
 }
 
@@ -184,7 +405,9 @@ m32r_init_extra_frame_info (fi)
 
       if (!fi->next)
 	if (fi->using_frame_pointer)
-	  fi->frame = read_register (FP_REGNUM);
+	  {
+	    fi->frame = read_register (FP_REGNUM);
+	  }
 	else
 	  fi->frame = read_register (SP_REGNUM);
       else 	/* fi->next means this is not the innermost frame */
@@ -194,6 +417,42 @@ m32r_init_extra_frame_info (fi)
       for (reg = 0; reg < NUM_REGS; reg++)
 	if (fi->fsr.regs[reg] != 0)
 	  fi->fsr.regs[reg] = fi->frame + fi->framesize - fi->fsr.regs[reg];
+    }
+}
+
+/* Function: mn10300_virtual_frame_pointer
+   Return the register that the function uses for a frame pointer, 
+   plus any necessary offset to be applied to the register before
+   any frame pointer offsets.  */
+
+void
+m32r_virtual_frame_pointer (pc, reg, offset)
+     CORE_ADDR pc;
+     long *reg;
+     long *offset;
+{
+  struct frame_info fi;
+
+  /* Set up a dummy frame_info. */
+  fi.next = NULL;
+  fi.prev = NULL;
+  fi.frame = 0;
+  fi.pc = pc;
+
+  /* Analyze the prolog and fill in the extra info.  */
+  m32r_init_extra_frame_info (&fi);
+
+
+  /* Results will tell us which type of frame it uses.  */
+  if (fi.using_frame_pointer)
+    {
+      *reg    = FP_REGNUM;
+      *offset = 0;
+    }
+  else
+    {
+      *reg    = SP_REGNUM;
+      *offset = 0;
     }
 }
 
@@ -243,6 +502,14 @@ m32r_frame_chain (fi)
   if (find_pc_partial_function (fi->pc, 0, &fn_start, 0))
     if (fn_start == entry_point_address ())
       return 0;		/* in _start fn, don't chain further */
+  if (fi->framesize == 0)
+    {
+      printf_filtered("cannot determine frame size @ %08x , pc(%08x)\n",
+		      (unsigned long) fi->frame,
+		      (unsigned long) fi->pc );
+      return 0;
+    }
+  insn_debug(("m32rx frame %08x\n",fi->frame+fi->framesize));
   return fi->frame + fi->framesize;
 }
 
@@ -422,7 +689,7 @@ m32r_push_arguments (nargs, args, sp, struct_return, struct_addr)
    has the responsability to insert the address of the actual code that
    is the target of the target function call.  */
 
-int
+void
 m32r_fix_call_dummy (dummy, pc, fun, nargs, args, type, gcc_p)
      char *dummy;
      CORE_ADDR pc;

@@ -6,7 +6,8 @@
 #endif
 #include "mn10300_sim.h"
 #include "simops.h"
-#include "sys/syscall.h"
+#include "sim-types.h"
+#include "targ-vals.h"
 #include "bfd.h"
 #include <errno.h>
 #include <sys/stat.h>
@@ -1432,8 +1433,8 @@ void OP_F240 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = ((signed long)State.regs[REG_D0 + REG0 (insn)]
-          *  (signed long)State.regs[REG_D0 + REG1 (insn)]);
+  temp = ((signed64)(signed32)State.regs[REG_D0 + REG0 (insn)]
+          *  (signed64)(signed32)State.regs[REG_D0 + REG1 (insn)]);
   State.regs[REG_D0 + REG0 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDR] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0 (insn)] == 0);
@@ -1449,8 +1450,8 @@ void OP_F250 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = (State.regs[REG_D0 + REG0 (insn)]
-          *  State.regs[REG_D0 + REG1 (insn)]);
+  temp = ((unsigned64)State.regs[REG_D0 + REG0 (insn)]
+          * (unsigned64)State.regs[REG_D0 + REG1 (insn)]);
   State.regs[REG_D0 + REG0 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDR] = (temp & 0xffffffff00000000LL) >> 32;
   z = (State.regs[REG_D0 + REG0 (insn)] == 0);
@@ -1511,7 +1512,7 @@ void OP_40 (insn, extension)
 
   z = (value == 0);
   n = (value & 0x80000000);
-  c = (reg1 < imm);
+  c = (value < imm);
   v = ((reg1 & 0x80000000) == (imm & 0x80000000)
        && (reg1 & 0x80000000) != (value & 0x80000000));
 
@@ -2845,6 +2846,7 @@ void OP_F0FD (insn, extension)
 {
   unsigned int sp, next_pc;
 
+  sp = State.regs[REG_SP];
   PSW = State.mem[sp] | (State.mem[sp + 1] << 8);
   State.regs[REG_PC] = (State.mem[sp+4] | (State.mem[sp+5] << 8)
 	      | (State.mem[sp+6] << 16) | (State.mem[sp+7] << 24));
@@ -2867,7 +2869,7 @@ void OP_F0FE (insn, extension)
 }
 
 /* syscall */
-void OP_F020 (insn, extension)
+void OP_F0C0 (insn, extension)
      unsigned long insn, extension;
 {
   /* We use this for simulated system calls; we may need to change
@@ -2898,38 +2900,42 @@ void OP_F020 (insn, extension)
   switch (FUNC)
     {
 #if !defined(__GO32__) && !defined(_WIN32)
-      case SYS_fork:
+#ifdef TARGET_SYS_fork
+      case TARGET_SYS_fork:
       RETVAL = fork ();
       break;
-    case SYS_execve:
+#endif
+#ifdef TARGET_SYS_execve
+    case TARGET_SYS_execve:
       RETVAL = execve (MEMPTR (PARM1), (char **) MEMPTR (PARM2),
 		       (char **)MEMPTR (PARM3));
       break;
-#ifdef SYS_execv
-    case SYS_execv:
+#endif
+#ifdef TARGET_SYS_execv
+    case TARGET_SYS_execv:
       RETVAL = execve (MEMPTR (PARM1), (char **) MEMPTR (PARM2), NULL);
       break;
 #endif
-#endif
+#endif	/* ! GO32 and ! WIN32 */
 
-    case SYS_read:
+    case TARGET_SYS_read:
       RETVAL = mn10300_callback->read (mn10300_callback, PARM1,
 				    MEMPTR (PARM2), PARM3);
       break;
-    case SYS_write:
+    case TARGET_SYS_write:
       RETVAL = (int)mn10300_callback->write (mn10300_callback, PARM1,
 					     MEMPTR (PARM2), PARM3);
       break;
-    case SYS_lseek:
+    case TARGET_SYS_lseek:
       RETVAL = mn10300_callback->lseek (mn10300_callback, PARM1, PARM2, PARM3);
       break;
-    case SYS_close:
+    case TARGET_SYS_close:
       RETVAL = mn10300_callback->close (mn10300_callback, PARM1);
       break;
-    case SYS_open:
+    case TARGET_SYS_open:
       RETVAL = mn10300_callback->open (mn10300_callback, MEMPTR (PARM1), PARM2);
       break;
-    case SYS_exit:
+    case TARGET_SYS_exit:
       /* EXIT - caller can look in PARM1 to work out the 
 	 reason */
       if (PARM1 == 0xdead)
@@ -2939,7 +2945,7 @@ void OP_F020 (insn, extension)
       State.exited = 1;
       break;
 
-    case SYS_stat:	/* added at hmsi */
+    case TARGET_SYS_stat:	/* added at hmsi */
       /* stat system call */
       {
 	struct stat host_stat;
@@ -2964,19 +2970,21 @@ void OP_F020 (insn, extension)
       }
       break;
 
-    case SYS_chown:
+#ifdef TARGET_SYS_chown
+    case TARGET_SYS_chown:
       RETVAL = chown (MEMPTR (PARM1), PARM2, PARM3);
       break;
-    case SYS_chmod:
+#endif
+    case TARGET_SYS_chmod:
       RETVAL = chmod (MEMPTR (PARM1), PARM2);
       break;
-#ifdef SYS_time
-    case SYS_time:
+#ifdef TARGET_SYS_time
+    case TARGET_SYS_time:
       RETVAL = time ((void*) MEMPTR (PARM1));
       break;
 #endif
-#ifdef SYS_times
-    case SYS_times:
+#ifdef TARGET_SYS_times
+    case TARGET_SYS_times:
       {
 	struct tms tms;
 	RETVAL = times (&tms);
@@ -2987,7 +2995,8 @@ void OP_F020 (insn, extension)
 	break;
       }
 #endif
-    case SYS_gettimeofday:
+#ifdef TARGET_SYS_gettimeofday
+    case TARGET_SYS_gettimeofday:
       {
 	struct timeval t;
 	struct timezone tz;
@@ -2998,8 +3007,9 @@ void OP_F020 (insn, extension)
 	store_word (PARM2 + 4, tz.tz_dsttime);
 	break;
       }
-#ifdef SYS_utime
-    case SYS_utime:
+#endif
+#ifdef TARGET_SYS_utime
+    case TARGET_SYS_utime:
       /* Cast the second argument to void *, to avoid type mismatch
 	 if a prototype is present.  */
       RETVAL = utime (MEMPTR (PARM1), (void *) MEMPTR (PARM2));
@@ -3052,8 +3062,8 @@ void OP_F600 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = ((signed long)State.regs[REG_D0 + REG0 (insn)]
-          *  (signed long)State.regs[REG_D0 + REG1 (insn)]);
+  temp = ((signed64)(signed32)State.regs[REG_D0 + REG0 (insn)]
+          *  (signed64)(signed32)State.regs[REG_D0 + REG1 (insn)]);
   State.regs[REG_D0 + REG0 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDRQ] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0 (insn)] == 0);
@@ -3069,8 +3079,8 @@ void OP_F90000 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = ((signed long)State.regs[REG_D0 + REG0_8 (insn)]
-          * (signed long)SEXT8 (insn & 0xff));
+  temp = ((signed64)(signed32)State.regs[REG_D0 + REG0_8 (insn)]
+          * (signed64)(signed32)SEXT8 (insn & 0xff));
   State.regs[REG_D0 + REG0_8 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDRQ] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0_8 (insn)] == 0);
@@ -3086,8 +3096,8 @@ void OP_FB000000 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = ((signed long)State.regs[REG_D0 + REG0_16 (insn)]
-          * (signed long)SEXT16 (insn & 0xffff));
+  temp = ((signed64)(signed32)State.regs[REG_D0 + REG0_16 (insn)]
+          * (signed64)(signed32)SEXT16 (insn & 0xffff));
   State.regs[REG_D0 + REG0_16 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDRQ] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0_16 (insn)] == 0);
@@ -3103,8 +3113,8 @@ void OP_FD000000 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = ((signed long)State.regs[REG_D0 + REG0_16 (insn)]
-          * (signed long)(((insn & 0xffff) << 16) + extension));
+  temp = ((signed64)(signed32)State.regs[REG_D0 + REG0_16 (insn)]
+          * (signed64)(signed32)(((insn & 0xffff) << 16) + extension));
   State.regs[REG_D0 + REG0_16 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDRQ] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0_16 (insn)] == 0);
@@ -3120,7 +3130,8 @@ void OP_F610 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = (State.regs[REG_D0 + REG0 (insn)] * State.regs[REG_D0 + REG1 (insn)]);
+  temp = ((unsigned64) State.regs[REG_D0 + REG0 (insn)]
+	  * (unsigned64) State.regs[REG_D0 + REG1 (insn)]);
   State.regs[REG_D0 + REG0 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDRQ] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0 (insn)] == 0);
@@ -3136,7 +3147,8 @@ void OP_F91400 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = (State.regs[REG_D0 + REG0_8 (insn)] * SEXT8 (insn & 0xff));
+  temp = ((unsigned64)State.regs[REG_D0 + REG0_8 (insn)]
+	  * (unsigned64)SEXT8 (insn & 0xff));
   State.regs[REG_D0 + REG0_8 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDRQ] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0_8 (insn)] == 0);
@@ -3152,7 +3164,8 @@ void OP_FB140000 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = (State.regs[REG_D0 + REG0_16 (insn)] * SEXT16 (insn & 0xffff));
+  temp = ((unsigned64)State.regs[REG_D0 + REG0_16 (insn)]
+	  * (unsigned64) SEXT16 (insn & 0xffff));
   State.regs[REG_D0 + REG0_16 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDRQ] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0_16 (insn)] == 0);
@@ -3168,8 +3181,8 @@ void OP_FD140000 (insn, extension)
   unsigned long long temp;
   int n, z;
 
-  temp = (State.regs[REG_D0 + REG0_16 (insn)]
-          * (((insn & 0xffff) << 16) + extension));
+  temp = ((unsigned64)State.regs[REG_D0 + REG0_16 (insn)]
+          * (unsigned64)(((insn & 0xffff) << 16) + extension));
   State.regs[REG_D0 + REG0_16 (insn)] = temp & 0xffffffff;
   State.regs[REG_MDRQ] = (temp & 0xffffffff00000000LL) >> 32;;
   z = (State.regs[REG_D0 + REG0_16 (insn)] == 0);

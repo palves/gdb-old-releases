@@ -1,5 +1,5 @@
 /* Tracing support for CGEN-based simulators.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -18,9 +18,13 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "sim-main.h"
+#include <errno.h>
+#include "dis-asm.h"
 #include "bfd.h"
-#include "cpu-opc.h"
+#include "sim-main.h"
+
+#undef min
+#define min(a,b) ((a) < (b) ? (a) : (b))
 
 #ifndef SIZE_INSTRUCTION
 #define SIZE_INSTRUCTION 16
@@ -46,122 +50,143 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define SIZE_TOTAL_CYCLE_COUNT 9
 #endif
 
+#ifndef SIZE_TRACE_BUF
+#define SIZE_TRACE_BUF 256
+#endif
+
+static void
+disassemble_insn (SIM_CPU *, const CGEN_INSN *,
+		  const struct argbuf *, IADDR, char *);
+
 /* Text is queued in TRACE_BUF because we want to output the insn's cycle
-   count first but that isn't known until after the insn has executed.  */
-static char trace_buf[1024];
+   count first but that isn't known until after the insn has executed.
+   This also handles the queueing of trace results, TRACE_RESULT may be
+   called multiple times for one insn.  */
+static char trace_buf[SIZE_TRACE_BUF];
 /* If NULL, output to stdout directly.  */
 static char *bufptr;
 
-/* For computing an instruction's cycle count.
-   FIXME: Need to move into cpu struct for smp case.  */
-static unsigned long last_cycle_count;
-
-void
-trace_insn_init (SIM_CPU *cpu)
-{
-  bufptr = trace_buf;
-  *bufptr = 0;
-}
-
-void
-trace_insn_fini (SIM_CPU *cpu)
-{
-  if (CPU_PROFILE_FLAGS (cpu) [PROFILE_MODEL_IDX])
-    {
-      unsigned long total = PROFILE_TOTAL_CYCLE_COUNT (CPU_PROFILE_DATA (cpu));
-      trace_printf (CPU_STATE (cpu), cpu, "%-*ld %-*ld ",
-		    SIZE_CYCLE_COUNT, total - last_cycle_count,
-		    SIZE_TOTAL_CYCLE_COUNT, total);
-      last_cycle_count = total;
-    }
-
-  trace_printf (CPU_STATE (cpu), cpu, "%s\n", trace_buf);
-}
+/* Non-zero if this is the first insn in a set of parallel insns.  */
+static int first_insn_p;
 
 /* For communication between trace_insn and trace_result.  */
 static int printed_result_p;
 
+/* Insn and its extracted fields.
+   Set by trace_insn, used by trace_insn_fini.
+   ??? Move to SIM_CPU to support heterogeneous multi-cpu case.  */
+static const struct cgen_insn *current_insn;
+static const struct argbuf *current_abuf;
+
 void
-trace_insn (SIM_CPU *cpu, const struct cgen_insn *opcode,
-	    const struct argbuf *abuf, PCADDR pc)
+trace_insn_init (SIM_CPU *cpu, int first_p)
 {
-  const char *filename;
-  const char *functionname;
-  unsigned int linenumber;
-  char *p, buf[256], disasm_buf[50];
+  bufptr = trace_buf;
+  *bufptr = 0;
+  first_insn_p = first_p;
 
-  if (! TRACE_P (cpu, TRACE_LINENUM_IDX))
-    {
-      cgen_trace_printf (cpu, "0x%.*x %-*s ",
-			 SIZE_PC, (unsigned) pc,
-			 SIZE_INSTRUCTION,
-			 CGEN_INSN_MNEMONIC (opcode));
-      printed_result_p = 0;
-      return;
-    }
-
-  buf[0] = 0;
-  
-  if (STATE_TEXT_SECTION (CPU_STATE (cpu))
-      && pc >= STATE_TEXT_START (CPU_STATE (cpu))
-      && pc < STATE_TEXT_END (CPU_STATE (cpu)))
-    {
-      filename = (const char *) 0;
-      functionname = (const char *) 0;
-      linenumber = 0;
-      if (bfd_find_nearest_line (STATE_PROG_BFD (CPU_STATE (cpu)),
-				 STATE_TEXT_SECTION (CPU_STATE (cpu)),
-				 (struct symbol_cache_entry **) 0,
-				 pc - STATE_TEXT_START (CPU_STATE (cpu)),
-				 &filename, &functionname, &linenumber))
-	{
-	  p = buf;
-	  if (linenumber)
-	    {
-	      sprintf (p, "#%-*d ", SIZE_LINE_NUMBER, linenumber);
-	      p += strlen (p);
-	    }
-	  else
-	    {
-	      sprintf (p, "%-*s ", SIZE_LINE_NUMBER+1, "---");
-	      p += SIZE_LINE_NUMBER+2;
-	    }
-
-	  if (functionname)
-	    {
-	      sprintf (p, "%s ", functionname);
-	      p += strlen (p);
-	    }
-	  else if (filename)
-	    {
-	      char *q = (char *) strrchr (filename, '/');
-	      sprintf (p, "%s ", (q) ? q+1 : filename);
-	      p += strlen (p);
-	    }
-
-	  if (*p == ' ')
-	    *p = '\0';
-	}
-    }
-
-  sim_disassemble_insn (cpu, opcode, abuf, pc, disasm_buf);
-
-  cgen_trace_printf (cpu, "0x%.*x %-*.*s %-*s ",
-		     SIZE_PC, (unsigned) pc,
-		     SIZE_LOCATION, SIZE_LOCATION, buf,
-		     SIZE_INSTRUCTION,
-#if 0
-		     CGEN_INSN_NAME (opcode)
-#else
-		     disasm_buf
-#endif
-		);
-
-  printed_result_p = 0;
+  /* Set to NULL so trace_insn_fini can know if trace_insn was called.  */
+  current_insn = NULL;
+  current_abuf = NULL;
 }
 
 void
-trace_extract (SIM_CPU *cpu, PCADDR pc, char *name, ...)
+trace_insn_fini (SIM_CPU *cpu, const struct argbuf *abuf, int last_p)
+{
+  SIM_DESC sd = CPU_STATE (cpu);
+
+  /* Was insn traced?  It might not be if trace ranges are in effect.  */
+  if (current_insn == NULL)
+    return;
+
+  /* The first thing printed is current and total cycle counts.  */
+
+  if (PROFILE_MODEL_P (cpu)
+      && ARGBUF_PROFILE_P (current_abuf))
+    {
+      unsigned long total = PROFILE_MODEL_TOTAL_CYCLES (CPU_PROFILE_DATA (cpu));
+      unsigned long this_insn = PROFILE_MODEL_CUR_INSN_CYCLES (CPU_PROFILE_DATA (cpu));
+
+      if (last_p)
+	{
+	  trace_printf (sd, cpu, "%-*ld %-*ld ",
+			SIZE_CYCLE_COUNT, this_insn,
+			SIZE_TOTAL_CYCLE_COUNT, total);
+	}
+      else
+	{
+	  trace_printf (sd, cpu, "%-*ld %-*s ",
+			SIZE_CYCLE_COUNT, this_insn,
+			SIZE_TOTAL_CYCLE_COUNT, "---");
+	}
+    }
+
+  /* Print the disassembled insn.  */
+
+  trace_printf (sd, cpu, "%s", TRACE_PREFIX (CPU_TRACE_DATA (cpu)));
+
+#if 0
+  /* Print insn results.  */
+  {
+    const CGEN_OPINST *opinst = CGEN_INSN_OPERANDS (current_insn);
+
+    if (opinst)
+      {
+	int i;
+	int indices[MAX_OPERAND_INSTANCES];
+
+	/* Fetch the operands used by the insn.  */
+	/* FIXME: Add fn ptr to CGEN_CPU_DESC.  */
+	CGEN_SYM (get_insn_operands) (CPU_CPU_DESC (cpu), current_insn,
+				      0, CGEN_FIELDS_BITSIZE (&insn_fields),
+				      indices);
+
+	for (i = 0;
+	     CGEN_OPINST_TYPE (opinst) != CGEN_OPINST_END;
+	     ++i, ++opinst)
+	  {
+	    if (CGEN_OPINST_TYPE (opinst) == CGEN_OPINST_OUTPUT)
+	      trace_result (cpu, current_insn, opinst, indices[i]);
+	  }
+      }
+  }
+#endif
+
+  /* Print anything else requested.  */
+
+  if (*trace_buf)
+    trace_printf (sd, cpu, " %s\n", trace_buf);
+  else
+    trace_printf (sd, cpu, "\n");
+}
+
+void
+trace_insn (SIM_CPU *cpu, const struct cgen_insn *opcode,
+	    const struct argbuf *abuf, IADDR pc)
+{
+  char disasm_buf[50];
+
+  printed_result_p = 0;
+  current_insn = opcode;
+  current_abuf = abuf;
+
+  if (CGEN_INSN_VIRTUAL_P (opcode))
+    {
+      trace_prefix (CPU_STATE (cpu), cpu, NULL_CIA, pc, 0,
+		    NULL, 0, CGEN_INSN_NAME (opcode));
+      return;
+    }
+
+  CPU_DISASSEMBLER (cpu) (cpu, opcode, abuf, pc, disasm_buf);
+  trace_prefix (CPU_STATE (cpu), cpu, NULL_CIA, pc, TRACE_LINENUM_P (cpu),
+		NULL, 0,
+		"%s%-*s",
+		first_insn_p ? " " : "|",
+		SIZE_INSTRUCTION, disasm_buf);
+}
+
+void
+trace_extract (SIM_CPU *cpu, IADDR pc, char *name, ...)
 {
   va_list args;
   int printed_one_p = 0;
@@ -169,7 +194,8 @@ trace_extract (SIM_CPU *cpu, PCADDR pc, char *name, ...)
 
   va_start (args, name);
 
-  trace_printf (CPU_STATE (cpu), cpu, "Extract: 0x%.*x: %s ", SIZE_PC, pc, name);
+  trace_printf (CPU_STATE (cpu), cpu, "Extract: 0x%.*lx: %s ",
+		SIZE_PC, pc, name);
 
   do {
     int type,ival;
@@ -206,6 +232,7 @@ trace_result (SIM_CPU *cpu, char *name, int type, ...)
   va_start (args, type);
   if (printed_result_p)
     cgen_trace_printf (cpu, ", ");
+
   switch (type)
     {
     case 'x' :
@@ -222,6 +249,7 @@ trace_result (SIM_CPU *cpu, char *name, int type, ...)
 	break;
       }
     }
+
   printed_result_p = 1;
   va_end (args);
 }
@@ -248,7 +276,139 @@ cgen_trace_printf (SIM_CPU *cpu, char *fmt, ...)
     {
       vsprintf (bufptr, fmt, args);
       bufptr += strlen (bufptr);
+      /* ??? Need version of SIM_ASSERT that is always enabled.  */
+      if (bufptr - trace_buf > SIZE_TRACE_BUF)
+	abort ();
     }
 
   va_end (args);
+}
+
+/* Disassembly support.  */
+
+/* sprintf to a "stream" */
+
+int
+sim_disasm_sprintf VPARAMS ((SFILE *f, const char *format, ...))
+{
+#ifndef __STDC__
+  SFILE *f;
+  const char *format;
+#endif
+  int n;
+  va_list args;
+
+  VA_START (args, format);
+#ifndef __STDC__
+  f = va_arg (args, SFILE *);
+  format = va_arg (args, char *);
+#endif
+  vsprintf (f->current, format, args);
+  f->current += n = strlen (f->current);
+  va_end (args);
+  return n;
+}
+
+/* Memory read support for an opcodes disassembler.  */
+
+int
+sim_disasm_read_memory (bfd_vma memaddr, bfd_byte *myaddr, int length,
+			struct disassemble_info *info)
+{
+  SIM_CPU *cpu = (SIM_CPU *) info->application_data;
+  SIM_DESC sd = CPU_STATE (cpu);
+  int length_read;
+
+  length_read = sim_core_read_buffer (sd, cpu, read_map, myaddr, memaddr,
+				      length);
+  if (length_read != length)
+    return EIO;
+  return 0;
+}
+
+/* Memory error support for an opcodes disassembler.  */
+
+void
+sim_disasm_perror_memory (int status, bfd_vma memaddr,
+			  struct disassemble_info *info)
+{
+  if (status != EIO)
+    /* Can't happen.  */
+    info->fprintf_func (info->stream, "Unknown error %d.", status);
+  else
+    /* Actually, address between memaddr and memaddr + len was
+       out of bounds.  */
+    info->fprintf_func (info->stream,
+			"Address 0x%x is out of bounds.",
+			(int) memaddr);
+}
+
+/* Disassemble using the CGEN opcode table.
+   ??? While executing an instruction, the insn has been decoded and all its
+   fields have been extracted.  It is certainly possible to do the disassembly
+   with that data.  This seems simpler, but maybe in the future the already
+   extracted fields will be used.  */
+
+void
+sim_cgen_disassemble_insn (SIM_CPU *cpu, const CGEN_INSN *insn,
+			   const ARGBUF *abuf, IADDR pc, char *buf)
+{
+  unsigned int length;
+  unsigned long insn_value;
+  struct disassemble_info disasm_info;
+  SFILE sfile;
+  union {
+    unsigned8 bytes[CGEN_MAX_INSN_SIZE];
+    unsigned16 shorts[8];
+    unsigned32 words[4];
+  } insn_buf;
+  SIM_DESC sd = CPU_STATE (cpu);
+  CGEN_CPU_DESC cd = CPU_CPU_DESC (cpu);
+  CGEN_EXTRACT_INFO ex_info;
+  CGEN_FIELDS *fields = alloca (CGEN_CPU_SIZEOF_FIELDS (cd));
+  int insn_bit_length = CGEN_INSN_BITSIZE (insn);
+  int insn_length = insn_bit_length / 8;
+
+  sfile.buffer = sfile.current = buf;
+  INIT_DISASSEMBLE_INFO (disasm_info, (FILE *) &sfile,
+			 (fprintf_ftype) sim_disasm_sprintf);
+  disasm_info.endian =
+    (bfd_big_endian (STATE_PROG_BFD (sd)) ? BFD_ENDIAN_BIG
+     : bfd_little_endian (STATE_PROG_BFD (sd)) ? BFD_ENDIAN_LITTLE
+     : BFD_ENDIAN_UNKNOWN);
+
+  length = sim_core_read_buffer (sd, cpu, read_map, &insn_buf, pc,
+				 insn_length);
+
+  switch (min (CGEN_BASE_INSN_SIZE, insn_length))
+    {
+    case 0 : return; /* fake insn, typically "compile" (aka "invalid") */
+    case 1 : insn_value = insn_buf.bytes[0]; break;
+    case 2 : insn_value = T2H_2 (insn_buf.shorts[0]); break;
+    case 4 : insn_value = T2H_4 (insn_buf.words[0]); break;
+    default: abort ();
+    }
+
+  disasm_info.buffer_vma = pc;
+  disasm_info.buffer = insn_buf.bytes;
+  disasm_info.buffer_length = length;
+
+  ex_info.dis_info = (PTR) &disasm_info;
+  ex_info.valid = (1 << length) - 1;
+  ex_info.insn_bytes = insn_buf.bytes;
+
+  length = (*CGEN_EXTRACT_FN (cd, insn)) (cd, insn, &ex_info, insn_value, fields, pc);
+  /* Result of extract fn is in bits.  */
+  /* ??? This assumes that each instruction has a fixed length (and thus
+     for insns with multiple versions of variable lengths they would each
+     have their own table entry).  */
+  if (length == insn_bit_length)
+    {
+      (*CGEN_PRINT_FN (cd, insn)) (cd, &disasm_info, insn, fields, pc, length);
+    }
+  else
+    {
+      /* This shouldn't happen, but aborting is too drastic.  */
+      strcpy (buf, "***unknown***");
+    }
 }

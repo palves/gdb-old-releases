@@ -63,7 +63,8 @@ extern CORE_ADDR skip_prologue ();
    to realize that those two bits are not really a part of the address
    of an instruction.  Shrug.  */
 
-#define ADDR_BITS_REMOVE(addr) ((addr) & ~3)
+extern CORE_ADDR m88k_addr_bits_remove PARAMS ((CORE_ADDR));
+#define ADDR_BITS_REMOVE(addr) m88k_addr_bits_remove (addr)
 
 /* Immediately after a function call, return the saved pc.
    Can't always go through the frames for this because on some machines
@@ -75,7 +76,7 @@ extern CORE_ADDR skip_prologue ();
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Sequence of bytes for breakpoint instruction.  */
 
@@ -90,11 +91,6 @@ extern CORE_ADDR skip_prologue ();
    but not always.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction.  */
-/* 'jmp r1' or 'jmp.n r1' is used to return from a subroutine. */
-
-#define ABOUT_TO_RETURN(pc) (read_memory_integer (pc, 2) == 0xF800)
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the

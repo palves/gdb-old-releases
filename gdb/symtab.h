@@ -1,5 +1,6 @@
 /* Symbol table definitions for GDB.
-   Copyright 1986, 1989, 1991, 1992, 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
+   Copyright 1986, 89, 91, 92, 93, 94, 95, 96, 1998
+             Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -84,7 +85,8 @@ struct general_symbol_info
 
   union
     {
-      struct cplus_specific      /* For C++ and Java */
+      struct cplus_specific      /* For C++ */
+				/*  and Java */
 	{
 	  char *demangled_name;
 	} cplus_specific;
@@ -136,7 +138,8 @@ extern CORE_ADDR symbol_overlayed_address PARAMS((CORE_ADDR, asection *));
   do {									\
     SYMBOL_LANGUAGE (symbol) = language;				\
     if (SYMBOL_LANGUAGE (symbol) == language_cplus			\
-	|| SYMBOL_LANGUAGE (symbol) == language_java)			\
+	|| SYMBOL_LANGUAGE (symbol) == language_java			\
+	)								\
       {									\
 	SYMBOL_CPLUS_DEMANGLED_NAME (symbol) = NULL;			\
       }									\
@@ -300,14 +303,17 @@ struct minimal_symbol
 
   struct general_symbol_info ginfo;
 
-  /* The info field is available for caching machine-specific information that
-     The AMD 29000 tdep.c uses it to remember things it has decoded from the
-     instructions in the function header, so it doesn't have to rederive the
-     info constantly (over a serial line).  It is initialized to zero and
-     stays that way until target-dependent code sets it.  Storage for any data
-     pointed to by this field should be allocated on the symbol_obstack for
-     the associated objfile.  The type would be "void *" except for reasons
-     of compatibility with older compilers.  This field is optional. */
+  /* The info field is available for caching machine-specific information
+     so it doesn't have to rederive the info constantly (over a serial line).
+     It is initialized to zero and stays that way until target-dependent code
+     sets it.  Storage for any data pointed to by this field should be allo-
+     cated on the symbol_obstack for the associated objfile.  
+     The type would be "void *" except for reasons of compatibility with older
+     compilers.  This field is optional.
+
+     Currently, the AMD 29000 tdep.c uses it to remember things it has decoded
+     from the instructions in the function header, and the MIPS-16 code uses
+     it to identify 16-bit procedures.  */
 
   char *info;
 
@@ -481,7 +487,24 @@ typedef enum
   /* LABEL_NAMESPACE may be used for names of labels (for gotos);
      currently it is not used and labels are not recorded at all.  */
 
-  LABEL_NAMESPACE
+  LABEL_NAMESPACE,
+
+  /* Searching namespaces. These overlap with VAR_NAMESPACE, providing
+     some granularity with the search_symbols function. */
+
+  /* Everything in VAR_NAMESPACE minus FUNCTIONS_-, TYPES_-, and
+     METHODS_NAMESPACE */
+  VARIABLES_NAMESPACE,
+
+  /* All functions -- for some reason not methods, though. */
+  FUNCTIONS_NAMESPACE,
+
+  /* All defined types */
+  TYPES_NAMESPACE,
+
+  /* All class methods -- why is this separated out? */
+  METHODS_NAMESPACE
+
 } namespace_enum;
 
 /* An address-class says where to find the value of a symbol.  */
@@ -597,10 +620,26 @@ enum address_class
 
   LOC_UNRESOLVED,
 
+  /* Value is at a thread-specific location calculated by a
+     target-specific method. */
+     
+  LOC_THREAD_LOCAL_STATIC,
+     
   /* The variable does not actually exist in the program.
      The value is ignored.  */
 
-  LOC_OPTIMIZED_OUT
+  LOC_OPTIMIZED_OUT,
+
+  /* The variable is static, but actually lives at * (address).
+   * I.e. do an extra indirection to get to it.
+   * This is used on HP-UX to get at globals that are allocated
+   * in shared libraries, where references from images other
+   * than the one where the global was allocated are done
+   * with a level of indirection.
+   */
+
+  LOC_INDIRECT
+
 };
 
 /* Linked list of symbol's live ranges. */
@@ -874,14 +913,6 @@ struct symtab
 
     struct objfile *objfile;
 
-    /* Anything extra for this symtab.  This is for target machines
-       with special debugging info of some sort (which cannot just
-       be represented in a normal symtab).  */
-
-#if defined (EXTRA_SYMTAB_INFO)
-    EXTRA_SYMTAB_INFO
-#endif
-
   };
 
 #define BLOCKVECTOR(symtab)	(symtab)->blockvector
@@ -1095,11 +1126,16 @@ find_pc_sect_function PARAMS ((CORE_ADDR, asection *));
   
 /* lookup function from address, return name, start addr and end addr */
 
-extern int find_pc_partial_function PARAMS ((CORE_ADDR, char **, 
+extern int 
+find_pc_partial_function PARAMS ((CORE_ADDR, char **,
 					     CORE_ADDR *, CORE_ADDR *));
 
 extern void
 clear_pc_function_cache PARAMS ((void));
+
+extern int 
+find_pc_sect_partial_function PARAMS ((CORE_ADDR, asection *, 
+                                       char **, CORE_ADDR *, CORE_ADDR *));
 
 /* from symtab.c: */
 
@@ -1146,6 +1182,10 @@ contained_in PARAMS ((struct block *, struct block *));
 
 extern void
 reread_symbols PARAMS ((void));
+
+extern struct type *
+lookup_transparent_type PARAMS ((const char *));
+
 
 /* Macro for name of symbol to indicate a file compiled with gcc. */
 #ifndef GCC_COMPILED_FLAG_SYMBOL
@@ -1240,6 +1280,41 @@ struct symtabs_and_lines
   int nelts;
 };
 
+
+
+/* Some types and macros needed for exception catchpoints.
+   Can't put these in target.h because symtab_and_line isn't
+   known there. This file will be included by breakpoint.c,
+   hppa-tdep.c, etc. */
+
+/* Enums for exception-handling support */
+enum exception_event_kind {
+  EX_EVENT_THROW,
+  EX_EVENT_CATCH
+};
+
+/* Type for returning info about an exception */
+struct exception_event_record {
+  enum exception_event_kind   kind;
+  struct symtab_and_line      throw_sal;
+  struct symtab_and_line      catch_sal;
+  /* This may need to be extended in the future, if
+     some platforms allow reporting more information,
+     such as point of rethrow, type of exception object,
+     type expected by catch clause, etc. */ 
+};
+
+#define CURRENT_EXCEPTION_KIND       (current_exception_event->kind)
+#define CURRENT_EXCEPTION_CATCH_SAL  (current_exception_event->catch_sal)
+#define CURRENT_EXCEPTION_CATCH_LINE (current_exception_event->catch_sal.line)
+#define CURRENT_EXCEPTION_CATCH_FILE (current_exception_event->catch_sal.symtab->filename)
+#define CURRENT_EXCEPTION_CATCH_PC   (current_exception_event->catch_sal.pc)
+#define CURRENT_EXCEPTION_THROW_SAL  (current_exception_event->throw_sal)
+#define CURRENT_EXCEPTION_THROW_LINE (current_exception_event->throw_sal.line)
+#define CURRENT_EXCEPTION_THROW_FILE (current_exception_event->throw_sal.symtab->filename)
+#define CURRENT_EXCEPTION_THROW_PC   (current_exception_event->throw_sal.pc)
+
+
 /* Given a pc value, return line number it is in.  Second arg nonzero means
    if pc is on the boundary use the previous statement's line number.  */
 
@@ -1260,8 +1335,8 @@ find_addr_symbol PARAMS ((CORE_ADDR, struct symtab **, CORE_ADDR *));
 
 /* Given a symtab and line number, return the pc there.  */
 
-extern CORE_ADDR
-find_line_pc PARAMS ((struct symtab *, int));
+extern int
+find_line_pc PARAMS ((struct symtab *, int, CORE_ADDR *));
 
 extern int 
 find_line_pc_range PARAMS ((struct symtab_and_line,
@@ -1320,7 +1395,7 @@ extern void
 clear_solib PARAMS ((void));
 
 extern struct objfile *
-symbol_file_add PARAMS ((char *, int, CORE_ADDR, int, int, int));
+symbol_file_add PARAMS ((char *, int, CORE_ADDR, int, int, int, int, int));
 
 /* source.c */
 
@@ -1338,6 +1413,9 @@ select_source_symtab PARAMS ((struct symtab *));
 
 extern char **make_symbol_completion_list PARAMS ((char *, char *));
 
+extern struct symbol **
+make_symbol_overload_list PARAMS ((struct symbol *));
+
 /* symtab.c */
 
 extern struct partial_symtab *
@@ -1348,10 +1426,10 @@ find_main_psymtab PARAMS ((void));
 extern struct blockvector *
 blockvector_for_pc PARAMS ((CORE_ADDR, int *));
 
-
 extern struct blockvector *
 blockvector_for_pc_sect PARAMS ((CORE_ADDR, asection *, int *, 
 				 struct symtab *));
+
 /* symfile.c */
 
 extern void
@@ -1367,5 +1445,33 @@ in_prologue PARAMS ((CORE_ADDR pc, CORE_ADDR func_start));
 
 extern struct symbol *
 fixup_symbol_section PARAMS ((struct symbol  *, struct objfile *));
+
+/* Symbol searching */
+
+/* When using search_symbols, a list of the following structs is returned.
+   Callers must free the search list using free_symbol_search! */
+struct symbol_search
+{
+  /* The block in which the match was found. Could be, for example,
+     STATIC_BLOCK or GLOBAL_BLOCK. */
+  int block;
+
+  /* Information describing what was found.
+
+     If symtab abd symbol are NOT NULL, then information was found
+     for this match. */
+  struct symtab *symtab;
+  struct symbol *symbol;
+
+  /* If msymbol is non-null, then a match was made on something for
+     which only minimal_symbols exist. */
+  struct minimal_symbol *msymbol;
+
+  /* A link to the next match, or NULL for the end. */
+  struct symbol_search *next;
+};
+
+extern void search_symbols PARAMS ((char *, namespace_enum, int, char **, struct symbol_search **));
+extern void free_search_symbols PARAMS ((struct symbol_search *));
 
 #endif /* !defined(SYMTAB_H) */

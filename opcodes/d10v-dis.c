@@ -1,5 +1,5 @@
 /* Disassemble D10V instructions.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -115,7 +115,9 @@ print_operand (oper, insn, op, memaddr, info)
       int i;
       int match=0;
       num += (oper->flags
-	      & (OPERAND_ACC|OPERAND_FFLAG|OPERAND_CFLAG|OPERAND_CONTROL));
+	      & (OPERAND_GPR|OPERAND_FFLAG|OPERAND_CFLAG|OPERAND_CONTROL));
+      if (oper->flags & (OPERAND_ACC0|OPERAND_ACC1))
+	num += num ? OPERAND_ACC1 : OPERAND_ACC0;
       for (i = 0; i < d10v_reg_name_cnt(); i++)
 	{
 	  if (num == d10v_predefined_registers[i].value)
@@ -132,7 +134,7 @@ print_operand (oper, insn, op, memaddr, info)
 	{
 	  /* this would only get executed if a register was not in the 
 	     register table */
-	  if (oper->flags & OPERAND_ACC)
+	  if (oper->flags & (OPERAND_ACC0|OPERAND_ACC1))
 	    (*info->fprintf_func) (info->stream, "a");
 	  else if (oper->flags & OPERAND_CONTROL)
 	    (*info->fprintf_func) (info->stream, "cr");

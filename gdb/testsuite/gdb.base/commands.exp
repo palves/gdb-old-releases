@@ -29,7 +29,7 @@ set bug_id 0
 
 set testfile "run"
 set srcfile ${testfile}.c
-set binfile ${objdir}/${subdir}/${testfile}
+set binfile ${objdir}/${subdir}/commands
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug additional_flags=-DFAKEARGV}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
@@ -161,8 +161,23 @@ proc infrun_breakpoint_command_test {} {
     gdb_test "p value=6" "" "set value to 6 in progvar_simple_if_test #1"
     delete_breakpoints
     gdb_test "break factorial if value == 5" "Breakpoint.*at.*"
-    gdb_test "commands\nstep\nstep\nstep\nstep\nbt\nend" \
-	"End with.*" "commands in infrun_breakpoint_command_test"
+
+# infrun_breakpoint_command_test - This test was broken into two parts 
+# to get around a synchronization problem in expect.
+# part1: issue the gdb command "commands"
+# part2: send the list of commands
+    send_gdb "commands\n"
+    gdb_expect {
+	-re "End with" {
+	    pass "commands in infrun_breakpoint_command_test #1"
+	}
+        default {
+	    fail "(timeout or eof) commands in infrun_breakpoint_command_test"
+	}
+    }
+    gdb_test "step\nstep\nstep\nstep\nbt\nend" "" \
+	"commands in infrun_breakpoint_command_test #2"
+    
     gdb_test "continue" "Breakpoint \[0-9\]*, factorial \\(value=5\\).*at.*
 \[0-9\]*\[ 	\]*if \\(value > 1\\) \{.*
 \[0-9\]*\[ 	\]*value \\*= factorial \\(value - 1\\);.*
@@ -192,7 +207,7 @@ proc breakpoint_command_test {} {
     delete_breakpoints
     gdb_test "break factorial" "Breakpoint.*at.*" "break factorial #2"
     gdb_test "commands\nprintf \"Now the value is %d\\n\", value\nend" \
-	"End with.*" "commands in breakpoint_command_test"
+	"Type commands.*\nEnd with.*" "commands in breakpoint_command_test"
     gdb_test "continue" "Breakpoint \[0-9\]*, factorial.*Now the value is 5" \
 	"continue in breakpoint_command_test"
     gdb_test "print value" " = 5" "print value in breakpoint_command_test"

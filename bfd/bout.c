@@ -335,11 +335,12 @@ b_out_write_object_contents (abfd)
 
 /** Some reloc hackery */
 
-#define CALLS	 0x66003800	/* Template for 'calls' instruction	*/
-#define BAL	 0x0b000000	/* Template for 'bal' instruction */
-#define BALX	 0x85000000	/* Template for 'balx' instruction	*/
-#define BAL_MASK 0x00ffffff
-#define CALL     0x09000000
+#define CALLS	  0x66003800	/* Template for 'calls' instruction	*/
+#define BAL	  0x0b000000	/* Template for 'bal' instruction */
+#define BAL_MASK  0x00ffffff
+#define BALX	  0x85f00000	/* Template for 'balx' instruction	*/
+#define BALX_MASK 0x0007ffff
+#define CALL      0x09000000
 #define PCREL13_MASK 0x1fff
 
 
@@ -368,7 +369,7 @@ calljx_callback (abfd, link_info, reloc_entry, src, dst, input_section)
       int inst = bfd_get_32 (abfd, (bfd_byte *) src-4);
       /* The next symbol should be an N_BALNAME */
       BFD_ASSERT (IS_BALNAME (balsym->other));
-      inst &= BAL_MASK;
+      inst &= BALX_MASK;
       inst |= BALX;
       bfd_put_32 (abfd, inst, (bfd_byte *) dst-4);
       symbol = balsym;
@@ -1446,6 +1447,7 @@ b_out_bfd_get_relocated_section_contents (output_bfd, link_info, link_order,
 #define b_out_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define b_out_bfd_final_link _bfd_generic_final_link
 #define b_out_bfd_link_split_section  _bfd_generic_link_split_section
+#define b_out_bfd_gc_sections  bfd_generic_gc_sections
 
 #define aout_32_get_section_contents_in_window \
   _bfd_generic_get_section_contents_in_window

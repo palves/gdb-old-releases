@@ -55,6 +55,8 @@ void remote_open PARAMS ((char *name));
 void remote_close PARAMS ((void));
 void write_ok PARAMS ((char *buf));
 void write_enn PARAMS ((char *buf));
+void enable_async_io PARAMS ((void));
+void disable_async_io PARAMS ((void));
 void convert_ascii_to_int PARAMS ((char *from, char *to, int n));
 void convert_int_to_ascii PARAMS ((char *from, char *to, int n));
 void prepare_resume_reply PARAMS ((char *buf, char status, unsigned char sig));

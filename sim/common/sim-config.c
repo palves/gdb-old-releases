@@ -28,13 +28,6 @@ int current_host_byte_order;
 int current_target_byte_order;
 int current_stdio;
 
-/* The currently selected environment.
-   This isn't used unless the choice is runtime selectable.
-   The proper way to determine the currently selected environment
-   is with the CURRENT_ENVIRONMENT macro.
-   This is set to ALL_ENVIRONMENT to indicate none has been selected yet.  */
-enum sim_environment current_environment = ALL_ENVIRONMENT;
-
 enum sim_alignments current_alignment;
 
 #if defined (WITH_FLOATING_POINT)
@@ -130,6 +123,18 @@ config_floating_point_to_a (int floating_point)
 }
 #endif
 
+/* Set the default environment, prior to parsing argv.  */
+
+void
+sim_config_default (SIM_DESC sd)
+{
+   /* Set the current environment to ALL_ENVIRONMENT to indicate none has been
+      selected yet.  This is so that after parsing argv, we know whether the
+      environment was explicitly specified or not.  */
+  STATE_ENVIRONMENT (sd) = ALL_ENVIRONMENT;
+}
+
+/* Complete and verify the simulation environment.  */
 
 SIM_RC
 sim_config (SIM_DESC sd)
@@ -228,24 +233,24 @@ sim_config (SIM_DESC sd)
   
   /* set the environment */
 #if (WITH_TREE_PROPERTIES)
-  if (current_environment == ALL_ENVIRONMENT)
+  if (STATE_ENVIRONMENT (sd) == ALL_ENVIRONMENT)
     {
       const char *env =
 	tree_find_string_property(root, "/openprom/options/env");
-      current_environment = ((strcmp(env, "user") == 0
-			      || strcmp(env, "uea") == 0)
-			     ? USER_ENVIRONMENT
-			     : (strcmp(env, "virtual") == 0
-				|| strcmp(env, "vea") == 0)
-			     ? VIRTUAL_ENVIRONMENT
-			     : (strcmp(env, "operating") == 0
-				|| strcmp(env, "oea") == 0)
-			     ? OPERATING_ENVIRONMENT
-			     : ALL_ENVIRONMENT);
+      STATE_ENVIRONMENT (sd) = ((strcmp(env, "user") == 0
+				 || strcmp(env, "uea") == 0)
+				? USER_ENVIRONMENT
+				: (strcmp(env, "virtual") == 0
+				   || strcmp(env, "vea") == 0)
+				? VIRTUAL_ENVIRONMENT
+				: (strcmp(env, "operating") == 0
+				   || strcmp(env, "oea") == 0)
+				? OPERATING_ENVIRONMENT
+				: ALL_ENVIRONMENT);
     }
 #endif
-  if (current_environment == ALL_ENVIRONMENT)
-    current_environment = DEFAULT_ENVIRONMENT;
+  if (STATE_ENVIRONMENT (sd) == ALL_ENVIRONMENT)
+    STATE_ENVIRONMENT (sd) = DEFAULT_ENVIRONMENT;
   
   
   /* set the alignment */

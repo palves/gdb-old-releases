@@ -166,10 +166,11 @@ void
 usage (int reason)
 {
   fprintf (stderr, "Usage:\n");
-  fprintf (stderr, "  bits-gen <nr-bits> <msb>\n");
+  fprintf (stderr, "  bits-gen <nr-bits> <msb> <byte-order>\n");
   fprintf (stderr, "Generate a test case for the simulator bit manipulation code\n");
   fprintf (stderr, "  <nr-bits> = { 32 | 64 }\n");
   fprintf (stderr, "  <msb> = { 0 | { 31 | 63 } }\n");
+  fprintf (stderr, "  <byte-order> = { big | little }\n");
 
   switch (reason)
     {
@@ -180,6 +181,9 @@ usage (int reason)
       break;
     case 3:
       fprintf (stderr, "Invalid <msb> argument\n");
+      break;
+    case 4:
+      fprintf (stderr, "Invalid <byte-order> argument\n");
       break;
     default:
     }
@@ -197,16 +201,18 @@ main (argc, argv)
   int bitsize;
   int msb;
   char *ms;
+  int big_endian;
 
-  /* parse the only argument */
-  if (argc != 3)
+  if (argc != 4)
     usage (1);
+
   if (strcmp (argv [1], "32") == 0)
     bitsize = 32;
   else if (strcmp (argv [1], "64") == 0)
     bitsize = 64;
   else
     usage (2);
+
   if (strcmp (argv [2], "0") == 0)
     msb = 0;
   else if (strcmp (argv [2], "31") == 0 && bitsize == 32)
@@ -219,18 +225,24 @@ main (argc, argv)
     ms = "MS";
   else
     ms = "LS";
-
+  
+  if (strcmp (argv [3], "big") == 0)
+    big_endian = 1;
+  else if (strcmp (argv [3], "little") == 0)
+    big_endian = 0;
+  else
+    usage (4);
+    
   printf ("#define WITH_TARGET_WORD_BITSIZE %d\n", bitsize);
   printf ("#define WITH_TARGET_WORD_MSB %d\n", msb);
   printf ("#define WITH_HOST_WORD_BITSIZE %d\n", sizeof (int) * 8);
+  printf ("#define WITH_TARGET_BYTE_ORDER %s\n", big_endian ? "BIG_ENDIAN" : "LITTLE_ENDIAN");
   printf ("\n");
-  printf ("#define SIM_BITS_INLINE (INCLUDE_MODULE | INCLUDED_BY_MODULE)\n");
+  printf ("#define SIM_BITS_INLINE (ALL_H_INLINE)\n");
   printf ("\n");
   printf ("#define ASSERT(X) do { if (!(X)) abort(); } while (0)\n");
   printf ("\n");
   printf ("#include \"sim-basics.h\"\n");
-  printf ("#include \"sim-types.h\"\n");
-  printf ("#include \"sim-bits.h\"\n");
 
   gen_struct ();
 

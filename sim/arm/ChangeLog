@@ -1,3 +1,107 @@
+Mon Sep 14 09:00:05 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* wrapper.c (sim_open): Set endianness according to BFD or command
+	line switch.
+
+	* tconfig.in: Define SIM_HAVE_BIENDIAN.
+
+Thu Aug 27 11:00:05 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* armemu.c (Multiply64): Test for Rm (rather than Rs) not being
+	the same as either RdHi or RdLo.
+
+Thu Jul  2 10:24:35 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* armos.c (ARMul_OSHandleSWI: AngelSWI_Reason_ReportException):
+	Set Reg[0] based on reason for for the exception.
+
+Thu Jun  4 15:22:03 1998  Jason Molenda  (crash@bugshack.cygnus.com)
+
+	* armos.c (SWIwrite0): New function.
+	(WriteCommandLineTo): New function.
+	(SWIopen): New function.
+	(SWIread): New function.
+	(SWIwrite): New function.
+	(SWIflen): New function.
+	(ARMul_OSHandleSWI): Call new functions instead of handling	
+	these here.
+	(ARMul_OSHandleSWI): Handle Angel SWIs correctly.
+	(*): Reformat spacing to be a bit more GNUly.
+	Most code taken from a patch by Anthony Thompson 
+	(athompso@cambridge.arm.com)
+
+Tue Jun  2 15:22:22 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* armos.h: Add Angel SWI and its reason codes.
+	* armos.c (ARMul_OSHandleSWI): Ignore Angel SWIs (for now).
+
+Mon Jun  1 17:14:19 1998  Anthony Thompson (athompso@cambridge.arm.com)
+
+	* armos.c (ARMul_OSHandleSWI::SWI_Open): Handle special case
+	of ":tt" to catch stdin in addition to stdout.
+	(ARMul_OSHandleSWI::SWI_Seek): Return 0 or 1 to indicate failure
+	or success of lseek().
+
+Wed May 20 17:36:25 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* armos.c (ARMul_OSHandleSWI): Special case code to catch attempts
+	to open stdout.
+
+Wed Apr 29 15:29:55 1998  Jeff Johnston  <jjohnstn@cygnus.com>
+
+	* armos.c (ARMul_OSHandleSWI): Added code for SWI_Clock,
+	SWI_Flen, and SWI_Time.  Also fixed SWI_Seek code to only
+	seek from offset 0 and not to use R2 for whence since it is
+	not passed as part of the SWI call.
+
+Tue Apr 28 18:33:31 1998  Geoffrey Noer  <noer@cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sun Apr 26 15:31:55 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Sun Apr 26 15:20:26 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* acconfig.h: New file.
+	* configure.in: Reverted change of Apr 24; use sinclude again.
+
+Fri Apr 24 14:16:40 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Fri Apr 24 11:20:19 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* configure.in: Don't call sinclude.
+
+Sat Apr  4 20:36:25 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Mar 27 16:15:52 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 25 12:35:29 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 18 12:38:12 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Mar 10 09:26:38 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* armopts.h: Remove definition of LITTLEND - it is not used.
+
+Tue Feb 17 12:35:54 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* wrapper.c (sim_store_register, sim_fetch_register): Pass in
+ 	length parameter. Return -1.
+
 Sun Feb  1 16:47:51 1998  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* configure: Regenerated to track ../common/aclocal.m4 changes.

@@ -92,9 +92,13 @@ sim_state_alloc (SIM_OPEN_KIND kind,
        Implementing this is trickier as one may not know what to allocate until
        one has parsed the args.  Parsing the args twice wouldn't be unreasonable,
        IMHO.  If the state struct ever does contain an array of pointers then we
-       can't do this here.  */
+       can't do this here.
+       ??? See also sim_post_argv_init*/
     for (cpu_nr = 0; cpu_nr < MAX_NR_PROCESSORS; cpu_nr++)
-      CPU_STATE (STATE_CPU (sd, cpu_nr)) = sd;
+      {
+	CPU_STATE (STATE_CPU (sd, cpu_nr)) = sd;
+	CPU_INDEX (STATE_CPU (sd, cpu_nr)) = cpu_nr;
+      }
   }
 #endif
 
@@ -119,6 +123,60 @@ sim_state_free (SIM_DESC sd)
   zfree (sd);
 }
 
+/* Return a pointer to the cpu data for CPU_NAME, or NULL if not found.  */
+
+sim_cpu *
+sim_cpu_lookup (SIM_DESC sd, const char *cpu_name)
+{
+  int i;
+
+  for (i = 0; i < MAX_NR_PROCESSORS; ++i)
+    if (strcmp (cpu_name, CPU_NAME (STATE_CPU (sd, i))) == 0)
+      return STATE_CPU (sd, i);
+  return NULL;
+}
+
+/* Return the prefix to use for a CPU specific message (typically an
+   error message).  */
+
+const char *
+sim_cpu_msg_prefix (sim_cpu *cpu)
+{
+#if MAX_NR_PROCESSORS == 1
+  return "";
+#else
+  static char *prefix;
+
+  if (prefix == NULL)
+    {
+      int maxlen = 0;
+      for (i = 0; i < MAX_NR_PROCESSORS; ++i)
+	{
+	  int len = strlen (CPU_NAME (STATE_CPU (sd, i)));
+	  if (len > maxlen)
+	    maxlen = len;
+	}
+      prefix = (char *) xmalloc (maxlen + 5);
+    }
+  sprintf (prefix, "%s: ", CPU_NAME (cpu));
+  return prefix;
+#endif
+}
+
+/* Cover fn to sim_io_eprintf.  */
+
+void
+sim_io_eprintf_cpu (sim_cpu *cpu, const char *fmt, ...)
+{
+  SIM_DESC sd = CPU_STATE (cpu);
+  va_list ap;
+
+  va_start (ap, fmt);
+  sim_io_eprintf (sd, sim_cpu_msg_prefix (cpu));
+  sim_io_evprintf (sd, fmt, ap);
+  va_end (ap);
+}
+
 /* Turn VALUE into a string with commas.  */
 
 char *
@@ -141,8 +199,25 @@ sim_add_commas (char *buf, int sizeof_buf, unsigned long value)
   return endbuf;
 }
 
-/* Analyze a prog_name/prog_bfd and set various fields in the state
-   struct.  */
+/* Analyze PROG_NAME/PROG_BFD and set these fields in the state struct:
+   STATE_ARCHITECTURE, if not set already and can be determined from the bfd
+   STATE_PROG_BFD
+   STATE_START_ADDR
+   STATE_TEXT_SECTION
+   STATE_TEXT_START
+   STATE_TEXT_END
+
+   PROG_NAME is the file name of the executable or NULL.
+   PROG_BFD is its bfd or NULL.
+
+   If both PROG_NAME and PROG_BFD are NULL, this function returns immediately.
+   If PROG_BFD is not NULL, PROG_NAME is ignored.
+
+   Implicit inputs: STATE_MY_NAME(sd), STATE_TARGET(sd),
+                    STATE_ARCHITECTURE(sd).
+
+   A new bfd is created so the app isn't required to keep its copy of the
+   bfd open.  */
 
 SIM_RC
 sim_analyze_program (sd, prog_name, prog_bfd)
@@ -270,3 +345,67 @@ sim_do_commandf (SIM_DESC sd,
   va_end (ap);
   free (buf);
 }
+
+
+/* sim-basics.h defines a number of enumerations, convert each of them
+   to a string representation */
+const char *
+map_to_str (unsigned map)
+{
+  switch (map)
+    {
+    case read_map: return "read";
+    case write_map: return "write";
+    case exec_map: return "exec";
+    case io_map: return "io";
+    default:
+      {
+	static char str[10];
+	sprintf (str, "(%ld)", (long) map);
+	return str;
+      }
+    }
+}
+
+const char *
+access_to_str (unsigned access)
+{
+  switch (access)
+    {
+    case access_invalid: return "invalid";
+    case access_read: return "read";
+    case access_write: return "write";
+    case access_exec: return "exec";
+    case access_io: return "io";
+    case access_read_write: return "read_write";
+    case access_read_exec: return "read_exec";
+    case access_write_exec: return "write_exec";
+    case access_read_write_exec: return "read_write_exec";
+    case access_read_io: return "read_io";
+    case access_write_io: return "write_io";
+    case access_read_write_io: return "read_write_io";
+    case access_exec_io: return "exec_io";
+    case access_read_exec_io: return "read_exec_io";
+    case access_write_exec_io: return "write_exec_io";
+    case access_read_write_exec_io: return "read_write_exec_io";
+    default:
+      {
+	static char str[10];
+	sprintf (str, "(%ld)", (long) access);
+	return str;
+      }
+    }
+}
+
+const char *
+transfer_to_str (unsigned transfer)
+{
+  switch (transfer)
+    {
+    case read_transfer: return "read";
+    case write_transfer: return "write";
+    default: return "(error)";
+    }
+}
+
+

@@ -1,5 +1,5 @@
 /* Semantics ops support for CGEN-based simulators.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
 This file is part of the GNU Simulators.
@@ -24,27 +24,15 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #define CGEN_SEM_OPS_H
 
 /* Semantic operations.
-   At one point this file was machine generated.  Maybe it will be again.
-   Things like ADDBI aren't too useful, but are left over from the
-   machine generation (where it was easier to not special case them).  */
+   At one point this file was machine generated.  Maybe it will be again.  */
 
-#define ADDBI(x, y) ((x) + (y))
-#define SUBBI(x, y) ((x) - (y))
-#define MULBI(x, y) ((x) * (y))
-#define DIVBI(x, y) ((BI) (x) / (BI) (y))
-#define UDIVBI(x, y) ((UBI) (x) / (UBI) (y))
-#define MODBI(x, y) ((BI) (x) % (BI) (y))
-#define UMODBI(x, y) ((UBI) (x) % (UBI) (y))
-#define SRABI(x, y) ((BI) (x) >> (y))
-#define SRLBI(x, y) ((UBI) (x) >> (y))
-#define SLLBI(x, y) ((UBI) (x) << (y))
-extern BI RORBI PARAMS ((BI, int));
-extern BI ROLBI PARAMS ((BI, int));
+/* These don't really have a mode.  */
+#define ANDIF(x, y) ((x) && (y))
+#define ORIF(x, y) ((x) || (y))
+
 #define ANDBI(x, y) ((x) & (y))
 #define ORBI(x, y) ((x) | (y))
 #define XORBI(x, y) ((x) ^ (y))
-#define ANDIFBI(x, y) ((BI) (x) && (BI) (y))
-#define ORIFBI(x, y) ((BI) (x) || (BI) (y))
 #define NEGBI(x) (- (x))
 #define NOTBI(x) (! (BI) (x))
 #define INVBI(x) (~ (x))
@@ -54,10 +42,10 @@ extern BI ROLBI PARAMS ((BI, int));
 #define LEBI(x, y) ((BI) (x) <= (BI) (y))
 #define GTBI(x, y) ((BI) (x) > (BI) (y))
 #define GEBI(x, y) ((BI) (x) >= (BI) (y))
-#define LTUBI(x, y) ((UBI) (x) < (UBI) (y))
-#define LEUBI(x, y) ((UBI) (x) <= (UBI) (y))
-#define GTUBI(x, y) ((UBI) (x) > (UBI) (y))
-#define GEUBI(x, y) ((UBI) (x) >= (UBI) (y))
+#define LTUBI(x, y) ((BI) (x) < (BI) (y))
+#define LEUBI(x, y) ((BI) (x) <= (BI) (y))
+#define GTUBI(x, y) ((BI) (x) > (BI) (y))
+#define GEUBI(x, y) ((BI) (x) >= (BI) (y))
 
 #define ADDQI(x, y) ((x) + (y))
 #define SUBQI(x, y) ((x) - (y))
@@ -74,8 +62,6 @@ extern QI ROLQI PARAMS ((QI, int));
 #define ANDQI(x, y) ((x) & (y))
 #define ORQI(x, y) ((x) | (y))
 #define XORQI(x, y) ((x) ^ (y))
-#define ANDIFQI(x, y) ((QI) (x) && (QI) (y))
-#define ORIFQI(x, y) ((QI) (x) || (QI) (y))
 #define NEGQI(x) (- (x))
 #define NOTQI(x) (! (QI) (x))
 #define INVQI(x) (~ (x))
@@ -105,8 +91,6 @@ extern HI ROLHI PARAMS ((HI, int));
 #define ANDHI(x, y) ((x) & (y))
 #define ORHI(x, y) ((x) | (y))
 #define XORHI(x, y) ((x) ^ (y))
-#define ANDIFHI(x, y) ((HI) (x) && (HI) (y))
-#define ORIFHI(x, y) ((HI) (x) || (HI) (y))
 #define NEGHI(x) (- (x))
 #define NOTHI(x) (! (HI) (x))
 #define INVHI(x) (~ (x))
@@ -136,8 +120,6 @@ extern SI ROLSI PARAMS ((SI, int));
 #define ANDSI(x, y) ((x) & (y))
 #define ORSI(x, y) ((x) | (y))
 #define XORSI(x, y) ((x) ^ (y))
-#define ANDIFSI(x, y) ((SI) (x) && (SI) (y))
-#define ORIFSI(x, y) ((SI) (x) || (SI) (y))
 #define NEGSI(x) (- (x))
 #define NOTSI(x) (! (SI) (x))
 #define INVSI(x) (~ (x))
@@ -168,8 +150,6 @@ extern DI ROLDI PARAMS ((DI, int));
 extern DI ANDDI PARAMS ((DI, DI));
 extern DI ORDI PARAMS ((DI, DI));
 extern DI XORDI PARAMS ((DI, DI));
-extern int ANDIFDI PARAMS ((DI, DI));
-extern int ORIFDI PARAMS ((DI, DI));
 extern DI NEGDI PARAMS ((DI));
 extern int NOTDI PARAMS ((DI));
 extern DI INVDI PARAMS ((DI));
@@ -199,8 +179,6 @@ extern DI ROLDI PARAMS ((DI, int));
 #define ANDDI(x, y) ((x) & (y))
 #define ORDI(x, y) ((x) | (y))
 #define XORDI(x, y) ((x) ^ (y))
-#define ANDIFDI(x, y) ((DI) (x) && (DI) (y))
-#define ORIFDI(x, y) ((DI) (x) || (DI) (y))
 #define NEGDI(x) (- (x))
 #define NOTDI(x) (! (DI) (x))
 #define INVDI(x) (~ (x))
@@ -409,13 +387,13 @@ extern TF EXTXFTF PARAMS ((XF));
 #else
 #define EXTXFTF(x) ((TF) (XF) (x))
 #endif
-#define ZEXTBIQI(x) ((QI) (UBI) (x))
-#define ZEXTBIHI(x) ((HI) (UBI) (x))
-#define ZEXTBISI(x) ((SI) (UBI) (x))
+#define ZEXTBIQI(x) ((QI) (BI) (x))
+#define ZEXTBIHI(x) ((HI) (BI) (x))
+#define ZEXTBISI(x) ((SI) (BI) (x))
 #if defined (DI_FN_SUPPORT)
 extern DI ZEXTBIDI PARAMS ((BI));
 #else
-#define ZEXTBIDI(x) ((DI) (UBI) (x))
+#define ZEXTBIDI(x) ((DI) (BI) (x))
 #endif
 #define ZEXTQIHI(x) ((HI) (UQI) (x))
 #define ZEXTQISI(x) ((SI) (UQI) (x))
@@ -490,26 +468,6 @@ extern DF TRUNCTFDF PARAMS ((TF));
 extern XF TRUNCTFXF PARAMS ((TF));
 #else
 #define TRUNCTFXF(x) ((XF) (TF) (x))
-#endif
-#if defined (SF_FN_SUPPORT)
-extern SF FLOATBISF PARAMS ((BI));
-#else
-#define FLOATBISF(x) ((SF) (BI) (x))
-#endif
-#if defined (DF_FN_SUPPORT)
-extern DF FLOATBIDF PARAMS ((BI));
-#else
-#define FLOATBIDF(x) ((DF) (BI) (x))
-#endif
-#if defined (XF_FN_SUPPORT)
-extern XF FLOATBIXF PARAMS ((BI));
-#else
-#define FLOATBIXF(x) ((XF) (BI) (x))
-#endif
-#if defined (TF_FN_SUPPORT)
-extern TF FLOATBITF PARAMS ((BI));
-#else
-#define FLOATBITF(x) ((TF) (BI) (x))
 #endif
 #if defined (SF_FN_SUPPORT)
 extern SF FLOATQISF PARAMS ((QI));
@@ -590,26 +548,6 @@ extern XF FLOATDIXF PARAMS ((DI));
 extern TF FLOATDITF PARAMS ((DI));
 #else
 #define FLOATDITF(x) ((TF) (DI) (x))
-#endif
-#if defined (SF_FN_SUPPORT)
-extern SF UFLOATBISF PARAMS ((BI));
-#else
-#define UFLOATBISF(x) ((SF) (UBI) (x))
-#endif
-#if defined (DF_FN_SUPPORT)
-extern DF UFLOATBIDF PARAMS ((BI));
-#else
-#define UFLOATBIDF(x) ((DF) (UBI) (x))
-#endif
-#if defined (XF_FN_SUPPORT)
-extern XF UFLOATBIXF PARAMS ((BI));
-#else
-#define UFLOATBIXF(x) ((XF) (UBI) (x))
-#endif
-#if defined (TF_FN_SUPPORT)
-extern TF UFLOATBITF PARAMS ((BI));
-#else
-#define UFLOATBITF(x) ((TF) (UBI) (x))
 #endif
 #if defined (SF_FN_SUPPORT)
 extern SF UFLOATQISF PARAMS ((QI));
@@ -792,11 +730,6 @@ extern DI FIXTFDI PARAMS ((TF));
 #define FIXTFDI(x) ((DI) (TF) (x))
 #endif
 #if defined (SF_FN_SUPPORT)
-extern BI UFIXSFBI PARAMS ((SF));
-#else
-#define UFIXSFBI(x) ((UBI) (SF) (x))
-#endif
-#if defined (SF_FN_SUPPORT)
 extern QI UFIXSFQI PARAMS ((SF));
 #else
 #define UFIXSFQI(x) ((UQI) (SF) (x))
@@ -815,11 +748,6 @@ extern SI UFIXSFSI PARAMS ((SF));
 extern DI UFIXSFDI PARAMS ((SF));
 #else
 #define UFIXSFDI(x) ((UDI) (SF) (x))
-#endif
-#if defined (DF_FN_SUPPORT)
-extern BI UFIXDFBI PARAMS ((DF));
-#else
-#define UFIXDFBI(x) ((UBI) (DF) (x))
 #endif
 #if defined (DF_FN_SUPPORT)
 extern QI UFIXDFQI PARAMS ((DF));
@@ -842,11 +770,6 @@ extern DI UFIXDFDI PARAMS ((DF));
 #define UFIXDFDI(x) ((UDI) (DF) (x))
 #endif
 #if defined (XF_FN_SUPPORT)
-extern BI UFIXXFBI PARAMS ((XF));
-#else
-#define UFIXXFBI(x) ((UBI) (XF) (x))
-#endif
-#if defined (XF_FN_SUPPORT)
 extern QI UFIXXFQI PARAMS ((XF));
 #else
 #define UFIXXFQI(x) ((UQI) (XF) (x))
@@ -865,11 +788,6 @@ extern SI UFIXXFSI PARAMS ((XF));
 extern DI UFIXXFDI PARAMS ((XF));
 #else
 #define UFIXXFDI(x) ((UDI) (XF) (x))
-#endif
-#if defined (TF_FN_SUPPORT)
-extern BI UFIXTFBI PARAMS ((TF));
-#else
-#define UFIXTFBI(x) ((UBI) (TF) (x))
 #endif
 #if defined (TF_FN_SUPPORT)
 extern QI UFIXTFQI PARAMS ((TF));
@@ -903,22 +821,22 @@ extern DI UFIXTFDI PARAMS ((TF));
 #endif
 
 SEMOPS_INLINE SI
-ADDCSI (SI a, SI b, UBI c)
+ADDCSI (SI a, SI b, BI c)
 {
   SI res = ADDSI (a, ADDSI (b, c));
   return res;
 }
 
-SEMOPS_INLINE UBI
-ADDCFSI (SI a, SI b, UBI c)
+SEMOPS_INLINE BI
+ADDCFSI (SI a, SI b, BI c)
 {
   SI tmp = ADDSI (a, ADDSI (b, c));
-  BI res = (USI) tmp < (USI) a || (USI) tmp < (USI) b;
+  BI res = ((USI) tmp < (USI) a) || (c && tmp == a);
   return res;
 }
 
-SEMOPS_INLINE UBI
-ADDOFSI (SI a, SI b, UBI c)
+SEMOPS_INLINE BI
+ADDOFSI (SI a, SI b, BI c)
 {
   SI tmp = ADDSI (a, ADDSI (b, c));
   BI res = (((a < 0) == (b < 0))
@@ -927,21 +845,21 @@ ADDOFSI (SI a, SI b, UBI c)
 }
 
 SEMOPS_INLINE SI
-SUBCSI (SI a, SI b, UBI c)
+SUBCSI (SI a, SI b, BI c)
 {
   SI res = SUBSI (a, ADDSI (b, c));
   return res;
 }
 
-SEMOPS_INLINE UBI
-SUBCFSI (SI a, SI b, UBI c)
+SEMOPS_INLINE BI
+SUBCFSI (SI a, SI b, BI c)
 {
-  BI res = ((USI) a < (USI) b) || ((a == b) && c);
+  BI res = ((USI) a < (USI) b) || (c && a == b);
   return res;
 }
 
-SEMOPS_INLINE UBI
-SUBOFSI (SI a, SI b, UBI c)
+SEMOPS_INLINE BI
+SUBOFSI (SI a, SI b, BI c)
 {
   SI tmp = SUBSI (a, ADDSI (b, c));
   BI res = (((a < 0) != (b < 0))
@@ -951,12 +869,12 @@ SUBOFSI (SI a, SI b, UBI c)
 
 #else
 
-SI ADDCSI (SI, SI, UBI);
-UBI ADDCFSI (SI, SI, UBI);
-UBI ADDOFSI (SI, SI, UBI);
-SI SUBCSI (SI, SI, UBI);
-UBI SUBCFSI (SI, SI, UBI);
-UBI SUBOFSI (SI, SI, UBI);
+SI ADDCSI (SI, SI, BI);
+UBI ADDCFSI (SI, SI, BI);
+UBI ADDOFSI (SI, SI, BI);
+SI SUBCSI (SI, SI, BI);
+UBI SUBCFSI (SI, SI, BI);
+UBI SUBOFSI (SI, SI, BI);
 
 #endif
 

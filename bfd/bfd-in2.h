@@ -1,5 +1,6 @@
 /* Main header file for the bfd library -- portable access to object files.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 ** NOTE: bfd.h and bfd-in2.h are GENERATED files.  Don't change them;
@@ -120,20 +121,24 @@ typedef long int file_ptr;
    use gcc's "long long" type.  Otherwise, BFD_HOST_64_BIT must be
    defined above.  */
 
+#ifndef BFD_HOST_64_BIT
+# if BFD_HOST_64BIT_LONG
+#  define BFD_HOST_64_BIT long
+#  define BFD_HOST_U_64_BIT unsigned long
+# else
+#  ifdef __GNUC__
+#   if __GNUC__ >= 2
+#    define BFD_HOST_64_BIT long long
+#    define BFD_HOST_U_64_BIT unsigned long long
+#   endif /* __GNUC__ >= 2 */
+#  endif /* ! defined (__GNUC__) */
+# endif /* ! BFD_HOST_64BIT_LONG */
+#endif /* ! defined (BFD_HOST_64_BIT) */
+
 #ifdef BFD64
 
 #ifndef BFD_HOST_64_BIT
-#if BFD_HOST_64BIT_LONG
-#define BFD_HOST_64_BIT long
-#define BFD_HOST_U_64_BIT unsigned long
-#else
-#ifdef __GNUC__
-#define BFD_HOST_64_BIT long long
-#define BFD_HOST_U_64_BIT unsigned long long
-#else /* ! defined (__GNUC__) */
  #error No 64 bit integer type available
-#endif /* ! defined (__GNUC__) */
-#endif /* ! BFD_HOST_64BIT_LONG */
 #endif /* ! defined (BFD_HOST_64_BIT) */
 
 typedef BFD_HOST_U_64_BIT bfd_vma;
@@ -174,7 +179,9 @@ typedef unsigned long bfd_size_type;
 /* Print a bfd_vma x on stream s.  */
 #define fprintf_vma(s,x) fprintf(s, "%08lx", x)
 #define sprintf_vma(s,x) sprintf(s, "%08lx", x)
+
 #endif /* not BFD64  */
+
 #define printf_vma(x) fprintf_vma(stdout,x)
 
 typedef unsigned int flagword;	/* 32 bits of flags */
@@ -606,6 +613,8 @@ extern boolean bfd_elf64_record_link_assignment
   PARAMS ((bfd *, struct bfd_link_info *, const char *, boolean));
 extern struct bfd_link_needed_list *bfd_elf_get_needed_list
   PARAMS ((bfd *, struct bfd_link_info *));
+extern boolean bfd_elf_get_bfd_needed_list
+  PARAMS ((bfd *, struct bfd_link_needed_list **));
 extern boolean bfd_elf32_size_dynamic_sections
   PARAMS ((bfd *, const char *, const char *, boolean, const char *,
 	   const char * const *, struct bfd_link_info *, struct sec **,
@@ -688,8 +697,32 @@ union internal_auxent;
 
 extern boolean bfd_coff_get_syment
   PARAMS ((bfd *, struct symbol_cache_entry *, struct internal_syment *));
+
 extern boolean bfd_coff_get_auxent
   PARAMS ((bfd *, struct symbol_cache_entry *, int, union internal_auxent *));
+
+extern boolean bfd_coff_set_symbol_class
+  PARAMS ((bfd *, struct symbol_cache_entry *, unsigned int));
+
+/* ARM Interworking support.  Called from linker.  */
+extern boolean bfd_arm_allocate_interworking_sections
+  PARAMS ((struct bfd_link_info *));
+
+extern boolean bfd_arm_process_before_allocation
+  PARAMS ((bfd *, struct bfd_link_info *, int));
+
+extern boolean bfd_arm_get_bfd_for_interworking
+  PARAMS ((bfd *, struct bfd_link_info *));
+
+/* ELF ARM Interworking support.  Called from linker.  */
+  extern boolean bfd_elf32_arm_allocate_interworking_sections
+    PARAMS ((struct bfd_link_info *));
+ 
+  extern boolean bfd_elf32_arm_process_before_allocation
+    PARAMS ((bfd *, struct bfd_link_info *));
+ 
+  extern boolean bfd_elf32_arm_get_bfd_for_interworking
+    PARAMS ((bfd *, struct bfd_link_info *));
 
 /* And more from the source.  */
 void 
@@ -715,6 +748,12 @@ bfd_close_all_done PARAMS ((bfd *));
 
 bfd *
 bfd_create PARAMS ((CONST char *filename, bfd *templ));
+
+boolean 
+bfd_make_writable PARAMS ((bfd *abfd));
+
+boolean 
+bfd_make_readable PARAMS ((bfd *abfd));
 
 
  /* Byte swapping macros for user section data.  */
@@ -859,7 +898,7 @@ typedef struct sec
            standard data. */
 #define SEC_CONSTRUCTOR 0x100
 
-         /* The section is a constuctor, and should be placed at the
+         /* The section is a constructor, and should be placed at the
           end of the text, data, or bss section(?). */
 #define SEC_CONSTRUCTOR_TEXT 0x1100
 #define SEC_CONSTRUCTOR_DATA 0x2100
@@ -948,6 +987,9 @@ typedef struct sec
           else up the line will take care of it later.  */
 #define SEC_LINKER_CREATED 0x800000
 
+        /* This section should not be subject to garbage collection.  */
+#define SEC_KEEP 0x1000000
+
         /*  End of section flags.  */
 
         /* Some internal packed boolean fields.  */
@@ -960,6 +1002,9 @@ typedef struct sec
 
         /* A mark flag used by some of the linker backends.  */
        unsigned int linker_mark : 1;
+
+        /* A mark flag used by some linker backends for garbage collection.  */
+       unsigned int gc_mark : 1;
 
         /* End of internal packed boolean fields.  */
 
@@ -1162,6 +1207,14 @@ enum bfd_architecture
   bfd_arch_unknown,    /* File arch not known */
   bfd_arch_obscure,    /* Arch known, not one of these */
   bfd_arch_m68k,       /* Motorola 68xxx */
+#define bfd_mach_m68000 1
+#define bfd_mach_m68008 2
+#define bfd_mach_m68010 3
+#define bfd_mach_m68020 4
+#define bfd_mach_m68030 5
+#define bfd_mach_m68040 6
+#define bfd_mach_m68060 7
+#define bfd_mach_cpu32  8
   bfd_arch_vax,        /* DEC Vax */   
   bfd_arch_i960,       /* Intel 960 */
      /* The order of the following is important.
@@ -1189,8 +1242,9 @@ enum bfd_architecture
 #define bfd_mach_sparc_sparclite       3
 #define bfd_mach_sparc_v8plus          4
 #define bfd_mach_sparc_v8plusa         5  /* with ultrasparc add'ns */
-#define bfd_mach_sparc_v9              6
-#define bfd_mach_sparc_v9a             7  /* with ultrasparc add'ns */
+#define bfd_mach_sparc_sparclite_le    6
+#define bfd_mach_sparc_v9              7
+#define bfd_mach_sparc_v9a             8  /* with ultrasparc add'ns */
  /* Nonzero if MACH has the v9 instruction set.  */
 #define bfd_mach_sparc_v9_p(mach) \
   ((mach) >= bfd_mach_sparc_v8plus && (mach) <= bfd_mach_sparc_v9a)
@@ -1212,6 +1266,7 @@ enum bfd_architecture
   bfd_arch_i386,       /* Intel 386 */
 #define bfd_mach_i386_i386 0
 #define bfd_mach_i386_i8086 1
+#define bfd_mach_i386_i386_intel_syntax 2
   bfd_arch_we32k,      /* AT&T WE32xxx */
   bfd_arch_tahoe,      /* CCI/Harris Tahoe */
   bfd_arch_i860,       /* Intel 860 */
@@ -1228,6 +1283,7 @@ enum bfd_architecture
   bfd_arch_rs6000,     /* IBM RS/6000 */
   bfd_arch_hppa,       /* HP PA RISC */
   bfd_arch_d10v,       /* Mitsubishi D10V */
+  bfd_arch_d30v,       /* Mitsubishi D30V */
   bfd_arch_z8k,        /* Zilog Z8000 */
 #define bfd_mach_z8001         1
 #define bfd_mach_z8002         2
@@ -1237,6 +1293,9 @@ enum bfd_architecture
 #define bfd_mach_sh3        0x30
 #define bfd_mach_sh3e       0x3e
   bfd_arch_alpha,      /* Dec Alpha */
+#define bfd_mach_alpha_ev4  0x10
+#define bfd_mach_alpha_ev5  0x20
+#define bfd_mach_alpha_ev6  0x30
   bfd_arch_arm,        /* Advanced Risc Machines ARM */
 #define bfd_mach_arm_2         1
 #define bfd_mach_arm_2a                2
@@ -1249,12 +1308,17 @@ enum bfd_architecture
   bfd_arch_tic30,      /* Texas Instruments TMS320C30 */
   bfd_arch_v850,       /* NEC V850 */
 #define bfd_mach_v850          0
+#define bfd_mach_v850e         'E'
+#define bfd_mach_v850ea        'A'
   bfd_arch_arc,        /* Argonaut RISC Core */
 #define bfd_mach_arc_base 0
   bfd_arch_m32r,       /* Mitsubishi M32R/D */
 #define bfd_mach_m32r          0  /* backwards compatibility */
   bfd_arch_mn10200,    /* Matsushita MN10200 */
   bfd_arch_mn10300,    /* Matsushita MN10300 */
+#define bfd_mach_mn10300               300
+  bfd_arch_fr30,
+#define bfd_mach_fr30          0x46523330
   bfd_arch_last
   };
 
@@ -1481,7 +1545,7 @@ struct reloc_howto_struct
     }                                          \
   }                                            \
 }
-int 
+unsigned int 
 bfd_get_reloc_size  PARAMS ((reloc_howto_type *));
 
 typedef struct relent_chain {
@@ -1649,6 +1713,9 @@ relocation types already defined. */
   BFD_RELOC_SPARC_M44,
   BFD_RELOC_SPARC_L44,
   BFD_RELOC_SPARC_REGISTER,
+
+/* SPARC little endian relocation */
+  BFD_RELOC_SPARC_REV32,
 
 /* Alpha ECOFF and ELF relocations.  Some of these treat the symbol or
 "addend" in some special way.
@@ -1896,7 +1963,53 @@ assumed to be 0. */
 assumed to be 0. */
   BFD_RELOC_D10V_18_PCREL,
 
+/* Mitsubishi D30V relocs.
+This is a 6-bit absolute reloc. */
+  BFD_RELOC_D30V_6,
 
+/* This is a 6-bit pc-relative reloc with 
+the right 3 bits assumed to be 0. */
+  BFD_RELOC_D30V_9_PCREL,
+
+/* This is a 6-bit pc-relative reloc with 
+the right 3 bits assumed to be 0. Same
+as the previous reloc but on the right side
+of the container. */
+  BFD_RELOC_D30V_9_PCREL_R,
+
+/* This is a 12-bit absolute reloc with the 
+right 3 bitsassumed to be 0. */
+  BFD_RELOC_D30V_15,
+
+/* This is a 12-bit pc-relative reloc with 
+the right 3 bits assumed to be 0. */
+  BFD_RELOC_D30V_15_PCREL,
+
+/* This is a 12-bit pc-relative reloc with 
+the right 3 bits assumed to be 0. Same
+as the previous reloc but on the right side
+of the container. */
+  BFD_RELOC_D30V_15_PCREL_R,
+
+/* This is an 18-bit absolute reloc with 
+the right 3 bits assumed to be 0. */
+  BFD_RELOC_D30V_21,
+
+/* This is an 18-bit pc-relative reloc with 
+the right 3 bits assumed to be 0. */
+  BFD_RELOC_D30V_21_PCREL,
+
+/* This is an 18-bit pc-relative reloc with 
+the right 3 bits assumed to be 0. Same
+as the previous reloc but on the right side
+of the container. */
+  BFD_RELOC_D30V_21_PCREL_R,
+
+/* This is a 32-bit absolute reloc. */
+  BFD_RELOC_D30V_32,
+
+/* This is a 32-bit pc-relative reloc. */
+  BFD_RELOC_D30V_32_PCREL,
 
 /* Mitsubishi M32R relocs.
 This is a 24 bit absolute address. */
@@ -1960,6 +2073,27 @@ data area pointer. */
 /* This is a 16 bit offset from the tiny data area pointer. */
   BFD_RELOC_V850_TDA_16_16_OFFSET,
 
+/* This is a 5 bit offset (of which only 4 bits are used) from the tiny
+data area pointer. */
+  BFD_RELOC_V850_TDA_4_5_OFFSET,
+
+/* This is a 4 bit offset from the tiny data area pointer. */
+  BFD_RELOC_V850_TDA_4_4_OFFSET,
+
+/* This is a 16 bit offset from the short data area pointer, with the
+bits placed non-contigously in the instruction. */
+  BFD_RELOC_V850_SDA_16_16_SPLIT_OFFSET,
+
+/* This is a 16 bit offset from the zero data area pointer, with the
+bits placed non-contigously in the instruction. */
+  BFD_RELOC_V850_ZDA_16_16_SPLIT_OFFSET,
+
+/* This is a 6 bit offset from the call table base pointer. */
+  BFD_RELOC_V850_CALLT_6_7_OFFSET,
+
+/* This is a 16 bit offset from the call table base pointer. */
+  BFD_RELOC_V850_CALLT_16_16_OFFSET,
+
 
 /* This is a 32bit pcrel reloc for the mn10300, offset by two bytes in the
 instruction. */
@@ -1973,6 +2107,57 @@ instruction. */
 significant 8 bits of a 24 bit word are placed into the least
 significant 8 bits of the opcode. */
   BFD_RELOC_TIC30_LDP,
+
+/* This is a 48 bit reloc for the FR30 that stores 32 bits. */
+  BFD_RELOC_FR30_48,
+
+/* This is a 32 bit reloc for the FR30 that stores 20 bits split up into
+two sections. */
+  BFD_RELOC_FR30_20,
+
+/* This is a 16 bit reloc for the FR30 that stores a 6 bit word offset in
+4 bits. */
+  BFD_RELOC_FR30_6_IN_4,
+
+/* This is a 16 bit reloc for the FR30 that stores an 8 bit byte offset
+into 8 bits. */
+  BFD_RELOC_FR30_8_IN_8,
+
+/* This is a 16 bit reloc for the FR30 that stores a 9 bit short offset
+into 8 bits. */
+  BFD_RELOC_FR30_9_IN_8,
+
+/* This is a 16 bit reloc for the FR30 that stores a 10 bit word offset
+into 8 bits. */
+  BFD_RELOC_FR30_10_IN_8,
+
+/* This is a 16 bit reloc for the FR30 that stores a 9 bit pc relative
+short offset into 8 bits. */
+  BFD_RELOC_FR30_9_PCREL,
+
+/* This is a 16 bit reloc for the FR30 that stores a 12 bit pc relative
+short offset into 11 bits. */
+  BFD_RELOC_FR30_12_PCREL,
+
+/* These two relocations are used by the linker to determine which of 
+the entries in a C++ virtual function table are actually used.  When
+the --gc-sections option is given, the linker will zero out the entries
+that are not used, so that the code for those functions need not be
+included in the output.
+
+VTABLE_INHERIT is a zero-space relocation used to describe to the
+linker the inheritence tree of a C++ virtual function table.  The
+relocation's symbol should be the parent class' vtable, and the
+relocation should be located at the child vtable.
+
+VTABLE_ENTRY is a zero-space relocation that describes the use of a
+virtual function table entry.  The reloc's symbol should refer to the
+table of the class mentioned in the code.  Off of that base, an offset
+describes the entry that is being used.  For Rela hosts, this offset 
+is stored in the reloc's addend.  For Rel hosts, we are forced to put
+this offset in the reloc's section offset. */
+  BFD_RELOC_VTABLE_INHERIT,
+  BFD_RELOC_VTABLE_ENTRY,
   BFD_RELOC_UNUSED };
 typedef enum bfd_reloc_code_real bfd_reloc_code_real_type;
 reloc_howto_type *
@@ -2269,6 +2454,7 @@ struct _bfd
       struct nlm_obj_tdata *nlm_obj_data;
       struct bout_data_struct *bout_data;
       struct sun_core_struct *sun_core_data;
+      struct sco5_core_struct *sco5_core_data;
       struct trad_core_struct *trad_core_data;
       struct som_data_struct *som_data;
       struct hpux_core_struct *hpux_core_data;
@@ -2421,6 +2607,9 @@ bfd_set_private_flags PARAMS ((bfd *abfd, flagword flags));
 #define bfd_relax_section(abfd, section, link_info, again) \
        BFD_SEND (abfd, _bfd_relax_section, (abfd, section, link_info, again))
 
+#define bfd_gc_sections(abfd, link_info) \
+       BFD_SEND (abfd, _bfd_gc_sections, (abfd, link_info))
+
 #define bfd_link_hash_table_create(abfd) \
        BFD_SEND (abfd, _bfd_link_hash_table_create, (abfd))
 
@@ -2508,6 +2697,7 @@ enum bfd_flavour {
   bfd_target_os9k_flavour,
   bfd_target_versados_flavour,
   bfd_target_msdos_flavour,
+  bfd_target_ovax_flavour,
   bfd_target_evax_flavour
 };
 
@@ -2715,7 +2905,8 @@ CAT(NAME,_bfd_relax_section),\
 CAT(NAME,_bfd_link_hash_table_create),\
 CAT(NAME,_bfd_link_add_symbols),\
 CAT(NAME,_bfd_final_link),\
-CAT(NAME,_bfd_link_split_section)
+CAT(NAME,_bfd_link_split_section),\
+CAT(NAME,_bfd_gc_sections)
   int        (*_bfd_sizeof_headers) PARAMS ((bfd *, boolean));
   bfd_byte * (*_bfd_get_relocated_section_contents) PARAMS ((bfd *,
                     struct bfd_link_info *, struct bfd_link_order *,
@@ -2739,7 +2930,10 @@ CAT(NAME,_bfd_link_split_section)
    /* Should this section be split up into smaller pieces during linking.  */
   boolean (*_bfd_link_split_section) PARAMS ((bfd *, struct sec *));
 
-  /* Routines to handle dynamic symbols and relocs.  */
+   /* Remove sections that are not referenced from the output.  */
+  boolean (*_bfd_gc_sections) PARAMS ((bfd *, struct bfd_link_info *));
+
+   /* Routines to handle dynamic symbols and relocs.  */
 #define BFD_JUMP_TABLE_DYNAMIC(NAME)\
 CAT(NAME,_get_dynamic_symtab_upper_bound),\
 CAT(NAME,_canonicalize_dynamic_symtab),\

@@ -56,7 +56,7 @@ extern CORE_ADDR saved_pc_after_call PARAMS ((void));
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Illegal instruction - used by the simulator for breakpoint
    detection */
@@ -67,12 +67,6 @@ extern CORE_ADDR saved_pc_after_call PARAMS ((void));
    define this before including this file.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-#if 0 /* never used */
-/* Nonzero if instruction at PC is a return instruction.  */
-
-#define ABOUT_TO_RETURN(pc) about_to_return(pc)
-#endif
 
 /* Say how long registers are.  */
 
@@ -257,7 +251,8 @@ extern void h8500_pop_frame PARAMS ((void));
 
 typedef unsigned short INSN_WORD;
 
-#define ADDR_BITS_REMOVE(addr) ((addr) & 0xffffff)
+extern CORE_ADDR h8500_addr_bits_remove PARAMS ((CORE_ADDR));
+#define ADDR_BITS_REMOVE(addr) h8500_addr_bits_remove (addr)
 
 #define read_memory_short(x)  (read_memory_integer(x,2) & 0xffff)
 

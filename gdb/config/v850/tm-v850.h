@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define TARGET_BYTE_ORDER LITTLE_ENDIAN
 
-#define NUM_REGS 65
+#define NUM_REGS 66
 
 #define REGISTER_NAMES \
 { "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", \
@@ -32,7 +32,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
   "sr8", "sr9", "sr10", "sr11", "sr12", "sr13", "sr14", "sr15", \
   "sr16", "sr17", "sr18", "sr19", "sr20", "sr21", "sr22", "sr23", \
   "sr24", "sr25", "sr26", "sr27", "sr28", "sr29", "sr30", "sr31", \
-  "pc" }
+    \
+  "pc", "fp" }
+
+/* Initializer for an array of names of registers.
+   Entries beyond the first NUM_REGS are ignored.  */
+
+extern char **v850_register_names;
+#define REGISTER_NAME(i) v850_register_names[i]
+
 
 #define REGISTER_BYTES (NUM_REGS * 4)
 
@@ -51,13 +59,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define R12_REGNUM 12
 #define SAVE2_START_REGNUM 20
 #define SAVE2_END_REGNUM 29
-#define FP_REGNUM 29
 #define EP_REGNUM 30
 #define SAVE3_START_REGNUM 31
 #define SAVE3_END_REGNUM 31
 #define RP_REGNUM 31
-#define PS_REGNUM 37
+#define SR0_REGNUM 32
+#define PS_REGNUM (SR0_REGNUM+5)
+#define CTBP_REGNUM (SR0_REGNUM+20)
 #define PC_REGNUM 64
+#define FP_REGNUM 65
+#define FP_RAW_REGNUM 29
+
+#define TARGET_READ_FP() read_register (FP_RAW_REGNUM)
+#define TARGET_WRITE_FP(VAL) write_register (FP_REGNUM, (VAL))
 
 #define REGISTER_VIRTUAL_TYPE(REG) builtin_type_int
 
@@ -73,7 +87,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define DECR_PC_AFTER_BREAK 0
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 #define SAVED_PC_AFTER_CALL(fi) read_register (RP_REGNUM)
 
@@ -148,8 +162,8 @@ v850_push_arguments PARAMS ((int nargs, struct value **args, CORE_ADDR sp,
 
 #define PC_IN_CALL_DUMMY(PC, SP, FP) generic_pc_in_call_dummy (PC, SP)
 
-#define USE_STRUCT_CONVENTION(GCC_P, TYPE) \
-  	(TYPE_NFIELDS (TYPE) > 1 || TYPE_LENGTH (TYPE) > 4)
+extern use_struct_convention_fn v850_use_struct_convention;
+#define USE_STRUCT_CONVENTION(GCC_P, TYPE) v850_use_struct_convention (GCC_P, TYPE);
 
 /* override the default get_saved_register function with
    one that takes account of generic CALL_DUMMY frames */

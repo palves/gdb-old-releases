@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 386 COFF files (go32 variant with a stub).
-   Copyright 1997 Free Software Foundation, Inc.
+   Copyright 1997, 1998 Free Software Foundation, Inc.
    Written by Robert Hoehne.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -393,7 +393,7 @@ create_go32_stub (abfd)
 	  goto stub_end;
 	}
       exe_start = _H (4) * 16;
-      if (lseek (f, exe_start, SEEK_SET) != exe_start)
+      if ((unsigned long) lseek (f, exe_start, SEEK_SET) != exe_start)
 	{
 	  close (f);
 	  goto stub_end;
@@ -416,7 +416,8 @@ create_go32_stub (abfd)
 	  return;
 	}
       lseek (f, 0L, SEEK_SET);
-      if (read (f, bfd_coff_go32stub (abfd), coff_start) != coff_start)
+      if ((unsigned long) read (f, bfd_coff_go32stub (abfd), coff_start)
+	  != coff_start)
 	{
 	  bfd_release (abfd, bfd_coff_go32stub (abfd));
 	  bfd_coff_go32stub (abfd) = NULL;

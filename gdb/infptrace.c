@@ -1,5 +1,6 @@
 /* Low level Unix child interface to ptrace, for GDB when running under Unix.
-   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
+   Copyright 1988, 89, 90, 91, 92, 93, 94, 95, 96, 1998 
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -34,13 +35,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <signal.h>
 #include <sys/ioctl.h>
 
-#ifndef NO_PTRACE_H
-#ifdef PTRACE_IN_WRONG_PLACE
-#include <ptrace.h>
+#ifdef HAVE_PTRACE_H
+# include <ptrace.h>
 #else
-#include <sys/ptrace.h>
+# ifdef HAVE_SYS_PTRACE_H
+#  include <sys/ptrace.h>
+# endif
 #endif
-#endif /* NO_PTRACE_H */
 
 #if !defined (PT_READ_I)
 #define PT_READ_I	1	/* Read word from text space */
@@ -104,6 +105,9 @@ static void fetch_register PARAMS ((int));
 static void store_register PARAMS ((int));
 #endif
 
+void _initialize_kernel_u_addr PARAMS ((void));
+void _initialize_infptrace PARAMS ((void));
+
 
 /* This function simply calls ptrace with the given arguments.  
    It exists so that all calls to ptrace are isolated in this 
@@ -114,14 +118,72 @@ call_ptrace (request, pid, addr, data)
      PTRACE_ARG3_TYPE addr;
      int data;
 {
-  return ptrace (request, pid, addr, data
+  int pt_status = 0;
+
+#if 0
+  int saved_errno;
+
+  printf ("call_ptrace(request=%d, pid=%d, addr=0x%x, data=0x%x)",
+	  request, pid, addr, data);
+#endif
+#if defined(PT_SETTRC)
+  /* If the parent can be told to attach to us, try to do it.  */
+  if (request == PT_SETTRC) {
+    errno = 0;
+    pt_status = ptrace (PT_SETTRC, pid, addr, data
+#if defined (FIVE_ARG_PTRACE)
+                       /* Deal with HPUX 8.0 braindamage.  We never use the
+                          calls which require the fifth argument.  */
+                       , 0
+#endif
+                       );
+
+     if (errno) perror_with_name ("ptrace");
+#if 0
+     printf (" = %d\n", pt_status);
+#endif
+     if (pt_status < 0)
+         return pt_status;
+     else
+         return parent_attach_all (pid, addr, data);
+  }
+#endif
+
+#if defined(PT_CONTIN1)
+  /* On HPUX, PT_CONTIN1 is a form of continue that preserves pending
+     signals.  If it's available, use it.  */
+  if (request == PT_CONTINUE)
+    request = PT_CONTIN1;
+#endif
+
+#if defined(PT_SINGLE1)
+  /* On HPUX, PT_SINGLE1 is a form of step that preserves pending
+     signals.  If it's available, use it.  */
+  if (request == PT_STEP)
+    request = PT_SINGLE1;
+#endif
+
+#if 0
+  saved_errno = errno;
+  errno = 0;
+#endif
+  pt_status = ptrace (request, pid, addr, data
 #if defined (FIVE_ARG_PTRACE)
 		 /* Deal with HPUX 8.0 braindamage.  We never use the
 		    calls which require the fifth argument.  */
 		 , 0
 #endif
 		 );
+#if 0
+  if (errno)
+    printf (" [errno = %d]", errno);
+
+  errno = saved_errno;
+  printf (" = 0x%x\n", pt_status);
+#endif
+  return pt_status;
 }
+
 
 #if defined (DEBUG_PTRACE) || defined (FIVE_ARG_PTRACE)
 /* For the rest of the file, use an extra level of indirection */
@@ -129,9 +191,26 @@ call_ptrace (request, pid, addr, data)
 #define ptrace call_ptrace
 #endif
 
+/* Wait for a process to finish, possibly running a target-specific
+   hook before returning.  */
+
+int
+ptrace_wait (pid, status)
+    int pid;
+    int *status;
+{
+  int wstate;
+
+  wstate = wait (status);
+  target_post_wait (wstate, *status);
+  return wstate;
+}
+
 void
 kill_inferior ()
 {
+  int status;
+
   if (inferior_pid == 0)
     return;
 
@@ -144,7 +223,7 @@ kill_inferior ()
      The kill call causes problems under hpux10, so it's been removed;
      if this causes problems we'll deal with them as they arise.  */
   ptrace (PT_KILL, inferior_pid, (PTRACE_ARG3_TYPE) 0, 0);
-  wait ((int *)0);
+  ptrace_wait (0, &status);
   target_mourn_inferior ();
 }
 
@@ -179,12 +258,11 @@ child_resume (pid, step, signal)
 
   if (step)
     {
-#ifdef NO_SINGLE_STEP
-      abort();  /* Make sure this doesn't happen. */
-#else
-      ptrace (PT_STEP,     pid, (PTRACE_ARG3_TYPE) 1,
-	      target_signal_to_host (signal));
-#endif          /* NO_SINGLE_STEP */
+      if (SOFTWARE_SINGLE_STEP_P)
+	abort();  /* Make sure this doesn't happen. */
+      else
+	ptrace (PT_STEP,     pid, (PTRACE_ARG3_TYPE) 1,
+		target_signal_to_host (signal));
     }
   else
     ptrace (PT_CONTINUE, pid, (PTRACE_ARG3_TYPE) 1,
@@ -303,7 +381,7 @@ fetch_register (regno)
       regaddr += sizeof (PTRACE_XFER_TYPE);
       if (errno != 0)
 	{
-	  sprintf (mess, "reading register %s (#%d)", reg_names[regno], regno);
+	  sprintf (mess, "reading register %s (#%d)", REGISTER_NAME (regno), regno);
 	  perror_with_name (mess);
 	}
     }
@@ -365,7 +443,7 @@ store_register (regno)
       regaddr += sizeof (PTRACE_XFER_TYPE);
       if (errno != 0)
 	{
-	  sprintf (mess, "writing register %s (#%d)", reg_names[regno], regno);
+	  sprintf (mess, "writing register %s (#%d)", REGISTER_NAME (regno), regno);
 	  perror_with_name (mess);
 	}
     }
@@ -462,7 +540,7 @@ child_xfer_memory (memaddr, myaddr, len, write, target)
 	  ptrace (PT_WRITE_D, inferior_pid, (PTRACE_ARG3_TYPE) addr,
 		  buffer[i]);
 	  if (errno)
-	    {
+            {
 	      /* Using the appropriate one (I or D) is necessary for
 		 Gould NP1, at least.  */
 	      errno = 0;

@@ -34,7 +34,7 @@
 #endif
 
 
-#include "sim-xcat.h"
+#include "symcat.h"
 
 /* NOTE: see end of file for #undef of these macros */
 
@@ -71,13 +71,13 @@ sim_core_trace_M (sim_cpu *cpu,
 		  sim_cia cia,
 		  int line_nr,
 		  transfer_type type,
-		  sim_core_maps map,
+		  unsigned map,
 		  address_word addr,
 		  unsigned_M val,
 		  int nr_bytes)
 {
-  char *transfer = (type == read_transfer ? "read" : "write");
-  char *direction = (type == read_transfer ? "->" : "<-");
+  const char *transfer = (type == read_transfer ? "read" : "write");
+  const char *direction = (type == read_transfer ? "->" : "<-");
 
   if (TRACE_DEBUG_P (cpu))
     trace_printf (CPU_STATE (cpu), cpu, "sim-n-core.h:%d: ", line_nr);
@@ -86,7 +86,7 @@ sim_core_trace_M (sim_cpu *cpu,
   trace_printf (CPU_STATE (cpu), cpu,
 		"%s-%d %s:0x%08lx %s 0x%08lx%08lx%08lx%08lx\n",
 		transfer, nr_bytes,
-		sim_core_map_to_str (map),
+		map_to_str (map),
 		(unsigned long) addr,
 		direction,
 		(unsigned long) V4_16 (val, 0),
@@ -98,7 +98,7 @@ sim_core_trace_M (sim_cpu *cpu,
   trace_printf (CPU_STATE (cpu), cpu,
 		"%s-%d %s:0x%08lx %s 0x%08lx%08lx\n",
 		transfer, nr_bytes,
-		sim_core_map_to_str (map),
+		map_to_str (map),
 		(unsigned long) addr,
 		direction,
 		(unsigned long) V4_8 (val, 0),
@@ -109,7 +109,7 @@ sim_core_trace_M (sim_cpu *cpu,
 		"%s-%d %s:0x%08lx %s 0x%08lx\n",
 		transfer,
 		nr_bytes,
-		sim_core_map_to_str (map),
+		map_to_str (map),
 		(unsigned long) addr,
 		direction,
 		(unsigned long) val);
@@ -119,7 +119,7 @@ sim_core_trace_M (sim_cpu *cpu,
 		"%s-%d %s:0x%08lx %s 0x%04lx\n",
 		transfer,
 		nr_bytes,
-		sim_core_map_to_str (map),
+		map_to_str (map),
 		(unsigned long) addr,
 		direction,
 		(unsigned long) val);
@@ -129,7 +129,7 @@ sim_core_trace_M (sim_cpu *cpu,
 		"%s-%d %s:0x%08lx %s 0x%02lx\n",
 		transfer,
 		nr_bytes,
-		sim_core_map_to_str (map),
+		map_to_str (map),
 		(unsigned long) addr,
 		direction,
 		(unsigned long) val);
@@ -146,7 +146,7 @@ sim_core_trace_M (sim_cpu *cpu,
 INLINE_SIM_CORE(unsigned_M)
 sim_core_read_aligned_N(sim_cpu *cpu,
 			sim_cia cia,
-			sim_core_maps map,
+			unsigned map,
 			address_word xaddr)
 {
   sim_cpu_core *cpu_core = CPU_CORE (cpu);
@@ -161,24 +161,38 @@ sim_core_read_aligned_N(sim_cpu *cpu,
 #endif
     addr = xaddr;
   mapping = sim_core_find_mapping (core, map, addr, N, read_transfer, 1 /*abort*/, cpu, cia);
+  do
+    {
 #if (WITH_DEVICES)
-  if (WITH_CALLBACK_MEMORY && mapping->device != NULL) {
-    unsigned_M data;
-    if (device_io_read_buffer (mapping->device, &data, mapping->space, addr, N) != N)
-      device_error (mapping->device, "internal error - %s - io_read_buffer should not fail",
-		    XSTRING (sim_core_read_aligned_N));
-    val = T2H_M (data);
-  }
-  else
+      if (WITH_CALLBACK_MEMORY && mapping->device != NULL)
+	{
+	  unsigned_M data;
+	  if (device_io_read_buffer (mapping->device, &data, mapping->space, addr, N, cpu, cia) != N)
+	    device_error (mapping->device, "internal error - %s - io_read_buffer should not fail",
+			  XSTRING (sim_core_read_aligned_N));
+	  val = T2H_M (data);
+	  break;
+	}
 #endif
-    val = T2H_M (*(unsigned_M*) sim_core_translate (mapping, addr));
+#if (WITH_HW)
+      if (WITH_CALLBACK_MEMORY && mapping->device != NULL)
+	{
+	  unsigned_M data;
+	  sim_cpu_hw_io_read_buffer (cpu, cia, mapping->device, &data, mapping->space, addr, N);
+	  val = T2H_M (data);
+	  break;
+	}
+#endif
+      val = T2H_M (*(unsigned_M*) sim_core_translate (mapping, addr));
+    }
+  while (0);
   PROFILE_COUNT_CORE (cpu, addr, N, map);
   if (TRACE_P (cpu, TRACE_CORE_IDX))
     sim_core_trace_M (cpu, cia, __LINE__, read_transfer, map, addr, val, N);
   return val;
 }
 #endif
-
+  
 /* TAGS: sim_core_read_unaligned_1 sim_core_read_unaligned_2 */
 /* TAGS: sim_core_read_unaligned_4 sim_core_read_unaligned_8 */
 /* TAGS: sim_core_read_unaligned_16 */
@@ -187,7 +201,7 @@ sim_core_read_aligned_N(sim_cpu *cpu,
 INLINE_SIM_CORE(unsigned_M)
 sim_core_read_unaligned_N(sim_cpu *cpu,
 			  sim_cia cia,
-			  sim_core_maps map,
+			  unsigned map,
 			  address_word addr)
 {
   int alignment = N - 1;
@@ -237,7 +251,7 @@ sim_core_read_unaligned_N(sim_cpu *cpu,
 INLINE_SIM_CORE(unsigned_M)
 sim_core_read_misaligned_N(sim_cpu *cpu,
 			  sim_cia cia,
-			  sim_core_maps map,
+			  unsigned map,
 			  address_word addr)
 {
   unsigned_M val = 0;
@@ -263,7 +277,7 @@ sim_core_read_misaligned_N(sim_cpu *cpu,
 INLINE_SIM_CORE(void)
 sim_core_write_aligned_N(sim_cpu *cpu,
 			 sim_cia cia,
-			 sim_core_maps map,
+			 unsigned map,
 			 address_word xaddr,
 			 unsigned_M val)
 {
@@ -278,16 +292,29 @@ sim_core_write_aligned_N(sim_cpu *cpu,
 #endif
     addr = xaddr;
   mapping = sim_core_find_mapping (core, map, addr, N, write_transfer, 1 /*abort*/, cpu, cia);
+  do
+    {
 #if (WITH_DEVICES)
-  if (WITH_CALLBACK_MEMORY && mapping->device != NULL) {
-    unsigned_M data = H2T_M (val);
-    if (device_io_write_buffer (mapping->device, &data, mapping->space, addr, N, cpu, cia) != N)
-      device_error (mapping->device, "internal error - %s - io_write_buffer should not fail",
-		    XSTRING (sim_core_write_aligned_N));
-  }
-  else
+      if (WITH_CALLBACK_MEMORY && mapping->device != NULL)
+	{
+	  unsigned_M data = H2T_M (val);
+	  if (device_io_write_buffer (mapping->device, &data, mapping->space, addr, N, cpu, cia) != N)
+	    device_error (mapping->device, "internal error - %s - io_write_buffer should not fail",
+			  XSTRING (sim_core_write_aligned_N));
+	  break;
+	}
 #endif
-    *(unsigned_M*) sim_core_translate (mapping, addr) = H2T_M (val);
+#if (WITH_HW)
+      if (WITH_CALLBACK_MEMORY && mapping->device != NULL)
+	{
+	  unsigned_M data = H2T_M (val);
+	  sim_cpu_hw_io_write_buffer (cpu, cia, mapping->device, &data, mapping->space, addr, N);
+	  break;
+	}
+#endif
+      *(unsigned_M*) sim_core_translate (mapping, addr) = H2T_M (val);
+    }
+  while (0);
   PROFILE_COUNT_CORE (cpu, addr, N, map);
   if (TRACE_P (cpu, TRACE_CORE_IDX))
     sim_core_trace_M (cpu, cia, __LINE__, write_transfer, map, addr, val, N);
@@ -302,7 +329,7 @@ sim_core_write_aligned_N(sim_cpu *cpu,
 INLINE_SIM_CORE(void)
 sim_core_write_unaligned_N(sim_cpu *cpu,
 			   sim_cia cia,
-			   sim_core_maps map,
+			   unsigned map,
 			   address_word addr,
 			   unsigned_M val)
 {
@@ -354,7 +381,7 @@ sim_core_write_unaligned_N(sim_cpu *cpu,
 INLINE_SIM_CORE(void)
 sim_core_write_misaligned_N(sim_cpu *cpu,
 			   sim_cia cia,
-			   sim_core_maps map,
+			   unsigned map,
 			   address_word addr,
 			   unsigned_M val)
 {

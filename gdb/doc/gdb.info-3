@@ -6,11 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is the Fifth Edition, April 1998, of `Debugging with GDB: the
-GNU Source-Level Debugger' for GDB Version .
+   This is the Seventh Edition, February 1999, of `Debugging with GDB:
+the GNU Source-Level Debugger' for GDB Version 4.18.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
-1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1988-1999 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -24,6 +23,372 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
+
+
+File: gdb.info,  Node: Break Commands,  Next: Breakpoint Menus,  Prev: Conditions,  Up: Breakpoints
+
+Breakpoint command lists
+------------------------
+
+   You can give any breakpoint (or watchpoint or catchpoint) a series of
+commands to execute when your program stops due to that breakpoint.  For
+example, you might want to print the values of certain expressions, or
+enable other breakpoints.
+
+`commands [BNUM]'
+`... COMMAND-LIST ...'
+`end'
+     Specify a list of commands for breakpoint number BNUM.  The
+     commands themselves appear on the following lines.  Type a line
+     containing just `end' to terminate the commands.
+
+     To remove all commands from a breakpoint, type `commands' and
+     follow it immediately with `end'; that is, give no commands.
+
+     With no BNUM argument, `commands' refers to the last breakpoint,
+     watchpoint, or catchpoint set (not to the breakpoint most recently
+     encountered).
+
+   Pressing <RET> as a means of repeating the last GDB command is
+disabled within a COMMAND-LIST.
+
+   You can use breakpoint commands to start your program up again.
+Simply use the `continue' command, or `step', or any other command that
+resumes execution.
+
+   Any other commands in the command list, after a command that resumes
+execution, are ignored.  This is because any time you resume execution
+(even with a simple `next' or `step'), you may encounter another
+breakpoint--which could have its own command list, leading to
+ambiguities about which list to execute.
+
+   If the first command you specify in a command list is `silent', the
+usual message about stopping at a breakpoint is not printed.  This may
+be desirable for breakpoints that are to print a specific message and
+then continue.  If none of the remaining commands print anything, you
+see no sign that the breakpoint was reached.  `silent' is meaningful
+only at the beginning of a breakpoint command list.
+
+   The commands `echo', `output', and `printf' allow you to print
+precisely controlled output, and are often useful in silent
+breakpoints.  *Note Commands for controlled output: Output.
+
+   For example, here is how you could use breakpoint commands to print
+the value of `x' at entry to `foo' whenever `x' is positive.
+
+     break foo if x>0
+     commands
+     silent
+     printf "x is %d\n",x
+     cont
+     end
+
+   One application for breakpoint commands is to compensate for one bug
+so you can test for another.  Put a breakpoint just after the erroneous
+line of code, give it a condition to detect the case in which something
+erroneous has been done, and give it commands to assign correct values
+to any variables that need them.  End with the `continue' command so
+that your program does not stop, and start with the `silent' command so
+that no output is produced.  Here is an example:
+
+     break 403
+     commands
+     silent
+     set x = y + 4
+     cont
+     end
+
+
+File: gdb.info,  Node: Breakpoint Menus,  Prev: Break Commands,  Up: Breakpoints
+
+Breakpoint menus
+----------------
+
+   Some programming languages (notably C++) permit a single function
+name to be defined several times, for application in different contexts.
+This is called "overloading".  When a function name is overloaded,
+`break FUNCTION' is not enough to tell GDB where you want a breakpoint.
+If you realize this is a problem, you can use something like `break
+FUNCTION(TYPES)' to specify which particular version of the function
+you want.  Otherwise, GDB offers you a menu of numbered choices for
+different possible breakpoints, and waits for your selection with the
+prompt `>'.  The first two options are always `[0] cancel' and `[1]
+all'.  Typing `1' sets a breakpoint at each definition of FUNCTION, and
+typing `0' aborts the `break' command without setting any new
+breakpoints.
+
+   For example, the following session excerpt shows an attempt to set a
+breakpoint at the overloaded symbol `String::after'.  We choose three
+particular definitions of that function name:
+
+     (gdb) b String::after
+     [0] cancel
+     [1] all
+     [2] file:String.cc; line number:867
+     [3] file:String.cc; line number:860
+     [4] file:String.cc; line number:875
+     [5] file:String.cc; line number:853
+     [6] file:String.cc; line number:846
+     [7] file:String.cc; line number:735
+     > 2 4 6
+     Breakpoint 1 at 0xb26c: file String.cc, line 867.
+     Breakpoint 2 at 0xb344: file String.cc, line 875.
+     Breakpoint 3 at 0xafcc: file String.cc, line 846.
+     Multiple breakpoints were set.
+     Use the "delete" command to delete unwanted
+      breakpoints.
+     (gdb)
+
+
+File: gdb.info,  Node: Continuing and Stepping,  Next: Signals,  Prev: Breakpoints,  Up: Stopping
+
+Continuing and stepping
+=======================
+
+   "Continuing" means resuming program execution until your program
+completes normally.  In contrast, "stepping" means executing just one
+more "step" of your program, where "step" may mean either one line of
+source code, or one machine instruction (depending on what particular
+command you use).  Either when continuing or when stepping, your
+program may stop even sooner, due to a breakpoint or a signal.  (If due
+to a signal, you may want to use `handle', or use `signal 0' to resume
+execution.  *Note Signals: Signals.)
+
+`continue [IGNORE-COUNT]'
+`c [IGNORE-COUNT]'
+`fg [IGNORE-COUNT]'
+     Resume program execution, at the address where your program last
+     stopped; any breakpoints set at that address are bypassed.  The
+     optional argument IGNORE-COUNT allows you to specify a further
+     number of times to ignore a breakpoint at this location; its
+     effect is like that of `ignore' (*note Break conditions:
+     Conditions.).
+
+     The argument IGNORE-COUNT is meaningful only when your program
+     stopped due to a breakpoint.  At other times, the argument to
+     `continue' is ignored.
+
+     The synonyms `c' and `fg' are provided purely for convenience, and
+     have exactly the same behavior as `continue'.
+
+   To resume execution at a different place, you can use `return'
+(*note Returning from a function: Returning.) to go back to the calling
+function; or `jump' (*note Continuing at a different address: Jumping.)
+to go to an arbitrary location in your program.
+
+   A typical technique for using stepping is to set a breakpoint (*note
+Breakpoints; watchpoints; and catchpoints: Breakpoints.) at the
+beginning of the function or the section of your program where a problem
+is believed to lie, run your program until it stops at that breakpoint,
+and then step through the suspect area, examining the variables that are
+interesting, until you see the problem happen.
+
+`step'
+     Continue running your program until control reaches a different
+     source line, then stop it and return control to GDB.  This command
+     is abbreviated `s'.
+
+          *Warning:* If you use the `step' command while control is
+          within a function that was compiled without debugging
+          information, execution proceeds until control reaches a
+          function that does have debugging information.  Likewise, it
+          will not step into a function which is compiled without
+          debugging information.  To step through functions without
+          debugging information, use the `stepi' command, described
+          below.
+
+     The `step' command now only stops at the first instruction of a
+     source line.  This prevents the multiple stops that used to occur
+     in switch statements, for loops, etc.  `step' continues to stop if
+     a function that has debugging information is called within the
+     line.
+
+     Also, the `step' command now only enters a subroutine if there is
+     line number information for the subroutine.  Otherwise it acts
+     like the `next' command.  This avoids problems when using `cc -gl'
+     on MIPS machines.  Previously, `step' entered subroutines if there
+     was any debugging information about the routine.
+
+`step COUNT'
+     Continue running as in `step', but do so COUNT times.  If a
+     breakpoint is reached, or a signal not related to stepping occurs
+     before COUNT steps, stepping stops right away.
+
+`next [COUNT]'
+     Continue to the next source line in the current (innermost) stack
+     frame.  This is similar to `step', but function calls that appear
+     within the line of code are executed without stopping.  Execution
+     stops when control reaches a different line of code at the
+     original stack level that was executing when you gave the `next'
+     command.  This command is abbreviated `n'.
+
+     An argument COUNT is a repeat count, as for `step'.
+
+     The `next' command now only stops at the first instruction of a
+     source line.  This prevents the multiple stops that used to occur
+     in switch statements, for loops, etc.
+
+`finish'
+     Continue running until just after function in the selected stack
+     frame returns.  Print the returned value (if any).
+
+     Contrast this with the `return' command (*note Returning from a
+     function: Returning.).
+
+`until'
+`u'
+     Continue running until a source line past the current line, in the
+     current stack frame, is reached.  This command is used to avoid
+     single stepping through a loop more than once.  It is like the
+     `next' command, except that when `until' encounters a jump, it
+     automatically continues execution until the program counter is
+     greater than the address of the jump.
+
+     This means that when you reach the end of a loop after single
+     stepping though it, `until' makes your program continue execution
+     until it exits the loop.  In contrast, a `next' command at the end
+     of a loop simply steps back to the beginning of the loop, which
+     forces you to step through the next iteration.
+
+     `until' always stops your program if it attempts to exit the
+     current stack frame.
+
+     `until' may produce somewhat counterintuitive results if the order
+     of machine code does not match the order of the source lines.  For
+     example, in the following excerpt from a debugging session, the `f'
+     (`frame') command shows that execution is stopped at line `206';
+     yet when we use `until', we get to line `195':
+
+          (gdb) f
+          #0  main (argc=4, argv=0xf7fffae8) at m4.c:206
+          206                 expand_input();
+          (gdb) until
+          195             for ( ; argc > 0; NEXTARG) {
+
+     This happened because, for execution efficiency, the compiler had
+     generated code for the loop closure test at the end, rather than
+     the start, of the loop--even though the test in a C `for'-loop is
+     written before the body of the loop.  The `until' command appeared
+     to step back to the beginning of the loop when it advanced to this
+     expression; however, it has not really gone to an earlier
+     statement--not in terms of the actual machine code.
+
+     `until' with no argument works by means of single instruction
+     stepping, and hence is slower than `until' with an argument.
+
+`until LOCATION'
+`u LOCATION'
+     Continue running your program until either the specified location
+     is reached, or the current stack frame returns.  LOCATION is any of
+     the forms of argument acceptable to `break' (*note Setting
+     breakpoints: Set Breaks.).  This form of the command uses
+     breakpoints, and hence is quicker than `until' without an argument.
+
+`stepi'
+`si'
+     Execute one machine instruction, then stop and return to the
+     debugger.
+
+     It is often useful to do `display/i $pc' when stepping by machine
+     instructions.  This makes GDB automatically display the next
+     instruction to be executed, each time your program stops.  *Note
+     Automatic display: Auto Display.
+
+     An argument is a repeat count, as in `step'.
+
+`nexti'
+`ni'
+     Execute one machine instruction, but if it is a function call,
+     proceed until the function returns.
+
+     An argument is a repeat count, as in `next'.
+
+
+File: gdb.info,  Node: Signals,  Next: Thread Stops,  Prev: Continuing and Stepping,  Up: Stopping
+
+Signals
+=======
+
+   A signal is an asynchronous event that can happen in a program.  The
+operating system defines the possible kinds of signals, and gives each
+kind a name and a number.  For example, in Unix `SIGINT' is the signal
+a program gets when you type an interrupt (often `C-c'); `SIGSEGV' is
+the signal a program gets from referencing a place in memory far away
+from all the areas in use; `SIGALRM' occurs when the alarm clock timer
+goes off (which happens only if your program has requested an alarm).
+
+   Some signals, including `SIGALRM', are a normal part of the
+functioning of your program.  Others, such as `SIGSEGV', indicate
+errors; these signals are "fatal" (kill your program immediately) if the
+program has not specified in advance some other way to handle the
+signal.  `SIGINT' does not indicate an error in your program, but it is
+normally fatal so it can carry out the purpose of the interrupt: to
+kill the program.
+
+   GDB has the ability to detect any occurrence of a signal in your
+program.  You can tell GDB in advance what to do for each kind of
+signal.
+
+   Normally, GDB is set up to ignore non-erroneous signals like
+`SIGALRM' (so as not to interfere with their role in the functioning of
+your program) but to stop your program immediately whenever an error
+signal happens.  You can change these settings with the `handle'
+command.
+
+`info signals'
+     Print a table of all the kinds of signals and how GDB has been
+     told to handle each one.  You can use this to see the signal
+     numbers of all the defined types of signals.
+
+     `info handle' is the new alias for `info signals'.
+
+`handle SIGNAL KEYWORDS...'
+     Change the way GDB handles signal SIGNAL.  SIGNAL can be the
+     number of a signal or its name (with or without the `SIG' at the
+     beginning).  The KEYWORDS say what change to make.
+
+   The keywords allowed by the `handle' command can be abbreviated.
+Their full names are:
+
+`nostop'
+     GDB should not stop your program when this signal happens.  It may
+     still print a message telling you that the signal has come in.
+
+`stop'
+     GDB should stop your program when this signal happens.  This
+     implies the `print' keyword as well.
+
+`print'
+     GDB should print a message when this signal happens.
+
+`noprint'
+     GDB should not mention the occurrence of the signal at all.  This
+     implies the `nostop' keyword as well.
+
+`pass'
+     GDB should allow your program to see this signal; your program can
+     handle the signal, or else it may terminate if the signal is fatal
+     and not handled.
+
+`nopass'
+     GDB should not allow your program to see this signal.
+
+   When a signal stops your program, the signal is not visible until you
+continue.  Your program sees the signal then, if `pass' is in effect
+for the signal in question *at that time*.  In other words, after GDB
+reports a signal, you can use the `handle' command with `pass' or
+`nopass' to control whether your program sees that signal when you
+continue.
+
+   You can also use the `signal' command to prevent your program from
+seeing a signal, or cause it to see a signal it normally would not see,
+or to give it any signal at any time.  For example, if your program
+stopped due to some sort of memory reference error, you might store
+correct values into the erroneous variables and continue, hoping to see
+more execution; but your program would probably terminate immediately as
+a result of the fatal signal once it saw the signal.  To prevent this,
+you can continue with `signal 0'.  *Note Giving your program a signal:
+Signaling.
 
 
 File: gdb.info,  Node: Thread Stops,  Prev: Signals,  Up: Stopping
@@ -76,6 +441,26 @@ continuing or even single-stepping.  This happens whenever some other
 thread runs into a breakpoint, a signal, or an exception before the
 first thread completes whatever you requested.
 
+   On some OSes, you can lock the OS scheduler and thus allow only a
+single thread to run.
+
+`set scheduler-locking MODE'
+     Set the scheduler locking mode.  If it is `off', then there is no
+     locking and any thread may run at any time.  If `on', then only the
+     current thread may run when the inferior is resumed.  The `step'
+     mode optimizes for single-stepping.  It stops other threads from
+     "seizing the prompt" by preempting the current thread while you are
+     stepping.  Other threads will only rarely (or never) get a chance
+     to run when you step.  They are more likely to run when you "next"
+     over a function call, and they are completely free to run when you
+     use commands like "continue", "until", or "finish".  However,
+     unless another thread hits a breakpoint during its timeslice, they
+     will never steal the GDB prompt away from the thread that you are
+     debugging.
+
+`show scheduler-locking'
+     Display the current scheduler locking mode.
+
 
 File: gdb.info,  Node: Stack,  Next: Source,  Prev: Stopping,  Up: Top
 
@@ -112,11 +497,10 @@ command (*note Information about a frame: Frame Info.).
 * Backtrace::                   Backtraces
 * Selection::                   Selecting a frame
 * Frame Info::                  Information on a frame
-
-* MIPS Stack::                  MIPS machines and the function stack
+* Alpha/MIPS Stack::            Alpha and MIPS machines and the function stack
 
 
-File: gdb.info,  Node: Frames,  Next: Backtrace,  Up: Stack
+File: gdb.info,  Node: Frames,  Next: Backtrace,  Prev: Stack,  Up: Stack
 
 Stack frames
 ============
@@ -293,7 +677,7 @@ Printing source lines: List.
      distracting.
 
 
-File: gdb.info,  Node: Frame Info,  Next: MIPS Stack,  Prev: Selection,  Up: Stack
+File: gdb.info,  Node: Frame Info,  Next: Alpha/MIPS Stack,  Prev: Selection,  Up: Stack
 
 Information about a frame
 =========================
@@ -355,17 +739,17 @@ selected stack frame.
      current stack frame at the current point of execution.  To see
      other exception handlers, visit the associated frame (using the
      `up', `down', or `frame' commands); then type `info catch'.  *Note
-     Breakpoints and exceptions: Exception Handling.
+     Setting catchpoints: Set Catchpoints.
 
 
-File: gdb.info,  Node: MIPS Stack,  Prev: Frame Info,  Up: Stack
+File: gdb.info,  Node: Alpha/MIPS Stack,  Prev: Frame Info,  Up: Stack
 
-MIPS machines and the function stack
-====================================
+MIPS/Alpha machines and the function stack
+==========================================
 
-   MIPS based computers use an unusual stack frame, which sometimes
-requires GDB to search backward in the object code to find the
-beginning of a function.
+   Alpha- and MIPS-based computers use an unusual stack frame, which
+sometimes requires GDB to search backward in the object code to find
+the beginning of a function.
 
    To improve response time (especially for embedded applications, where
 GDB may be restricted to a slow serial line for this search) you may
@@ -382,7 +766,7 @@ want to limit the size of this search, using one of these commands:
      Display the current limit.
 
 These commands are available *only* when GDB is configured for
-debugging programs on MIPS processors.
+debugging programs on Alpha or MIPS processors.
 
 
 File: gdb.info,  Node: Source,  Next: Data,  Prev: Stack,  Up: Top
@@ -412,7 +796,7 @@ Emacs..
 * Machine Code::                Source and machine code
 
 
-File: gdb.info,  Node: List,  Next: Search,  Up: Source
+File: gdb.info,  Node: List,  Next: Search,  Prev: Source,  Up: Source
 
 Printing source lines
 =====================
@@ -641,30 +1025,31 @@ variable `$_' (*note Convenience variables: Convenience Vars.).
      function surrounding this value.  Two arguments specify a range of
      addresses (first inclusive, second exclusive) to dump.
 
-   We can use `disassemble' to inspect the object code range shown in
-the last `info line' example (the example shows SPARC machine
-instructions):
+   The following example shows the disassembly of a range of addresses
+of HP PA-RISC 2.0 code:
 
-     (gdb) disas 0x63e4 0x6404
-     Dump of assembler code from 0x63e4 to 0x6404:
-     0x63e4 <builtin_init+5340>:     ble 0x63f8 <builtin_init+5360>
-     0x63e8 <builtin_init+5344>:     sethi %hi(0x4c00), %o0
-     0x63ec <builtin_init+5348>:     ld [%i1+4], %o0
-     0x63f0 <builtin_init+5352>:     b 0x63fc <builtin_init+5364>
-     0x63f4 <builtin_init+5356>:     ld [%o0+4], %o0
-     0x63f8 <builtin_init+5360>:     or %o0, 0x1a4, %o0
-     0x63fc <builtin_init+5364>:     call 0x9288 <path_search>
-     0x6400 <builtin_init+5368>:     nop
+     (gdb) disas 0x32c4 0x32e4
+     Dump of assembler code from 0x32c4 to 0x32e4:
+     0x32c4 <main+204>:      addil 0,dp
+     0x32c8 <main+208>:      ldw 0x22c(sr0,r1),r26
+     0x32cc <main+212>:      ldil 0x3000,r31
+     0x32d0 <main+216>:      ble 0x3f8(sr4,r31)
+     0x32d4 <main+220>:      ldo 0(r31),rp
+     0x32d8 <main+224>:      addil -0x800,dp
+     0x32dc <main+228>:      ldo 0x588(r1),r26
+     0x32e0 <main+232>:      ldil 0x3000,r31
      End of assembler dump.
 
-`set assembly-language INSTRUCTION-SET'
-     This command selects the instruction set to use when disassembling
-     the program via the `disassemble' or `x/i' commands.  It is useful
-     for architectures that have more than one native instruction set.
+   Some architectures have more than one commonly-used set of
+instruction mnemonics or other syntax.
 
-     Currently it is only defined for the Intel x86 family.  You can
-     set INSTRUCTION-SET to either `i386' or `i8086'.  The default is
-     `i386'.
+`set assembly-language INSTRUCTION-SET'
+     Select the instruction set to use when disassembling the program
+     via the `disassemble' or `x/i' commands.
+
+     Currently this command is only defined for the Intel x86 family.
+     You can set INSTRUCTION-SET to either `i386' or `i8086'.  The
+     default is `i386'.
 
 
 File: gdb.info,  Node: Data,  Next: Languages,  Prev: Source,  Up: Top
@@ -716,7 +1101,7 @@ rather than `print'. *Note Examining the Symbol Table: Symbols.
 * Floating Point Hardware::     Floating point hardware
 
 
-File: gdb.info,  Node: Expressions,  Next: Variables,  Up: Data
+File: gdb.info,  Node: Expressions,  Next: Variables,  Prev: Data,  Up: Data
 
 Expressions
 ===========
@@ -775,7 +1160,7 @@ in your program.
    Variables in expressions are understood in the selected stack frame
 (*note Selecting a frame: Selection.); they must be either:
 
-   * global (or static)
+   * global (or file-static)
 
 or
 
@@ -833,317 +1218,7 @@ built.  On exit, it usually also takes more than one machine
 instruction to destroy a stack frame; after you begin stepping through
 that group of instructions, local variable definitions may be gone.
 
-
-File: gdb.info,  Node: Arrays,  Next: Output Formats,  Prev: Variables,  Up: Data
-
-Artificial arrays
-=================
-
-   It is often useful to print out several successive objects of the
-same type in memory; a section of an array, or an array of dynamically
-determined size for which only a pointer exists in the program.
-
-   You can do this by referring to a contiguous span of memory as an
-"artificial array", using the binary operator `@'.  The left operand of
-`@' should be the first element of the desired array and be an
-individual object.  The right operand should be the desired length of
-the array.  The result is an array value whose elements are all of the
-type of the left argument.  The first element is actually the left
-argument; the second element comes from bytes of memory immediately
-following those that hold the first element, and so on.  Here is an
-example.  If a program says
-
-     int *array = (int *) malloc (len * sizeof (int));
-
-you can print the contents of `array' with
-
-     p *array@len
-
-   The left operand of `@' must reside in memory.  Array values made
-with `@' in this way behave just like other arrays in terms of
-subscripting, and are coerced to pointers when used in expressions.
-Artificial arrays most often appear in expressions via the value history
-(*note Value history: Value History.), after printing one out.
-
-   Another way to create an artificial array is to use a cast.  This
-re-interprets a value as if it were an array.  The value need not be in
-memory:
-     (gdb) p/x (short[2])0x12345678
-     $1 = {0x1234, 0x5678}
-
-   As a convenience, if you leave the array length out (as in
-`(TYPE)[])VALUE') gdb calculates the size to fill the value (as
-`sizeof(VALUE)/sizeof(TYPE)':
-     (gdb) p/x (short[])0x12345678
-     $2 = {0x1234, 0x5678}
-
-   Sometimes the artificial array mechanism is not quite enough; in
-moderately complex data structures, the elements of interest may not
-actually be adjacent--for example, if you are interested in the values
-of pointers in an array.  One useful work-around in this situation is
-to use a convenience variable (*note Convenience variables: Convenience
-Vars.) as a counter in an expression that prints the first interesting
-value, and then repeat that expression via <RET>.  For instance,
-suppose you have an array `dtab' of pointers to structures, and you are
-interested in the values of a field `fv' in each structure.  Here is an
-example of what you might type:
-
-     set $i = 0
-     p dtab[$i++]->fv
-     <RET>
-     <RET>
-     ...
-
-
-File: gdb.info,  Node: Output Formats,  Next: Memory,  Prev: Arrays,  Up: Data
-
-Output formats
-==============
-
-   By default, GDB prints a value according to its data type.  Sometimes
-this is not what you want.  For example, you might want to print a
-number in hex, or a pointer in decimal.  Or you might want to view data
-in memory at a certain address as a character string or as an
-instruction.  To do these things, specify an "output format" when you
-print a value.
-
-   The simplest use of output formats is to say how to print a value
-already computed.  This is done by starting the arguments of the
-`print' command with a slash and a format letter.  The format letters
-supported are:
-
-`x'
-     Regard the bits of the value as an integer, and print the integer
-     in hexadecimal.
-
-`d'
-     Print as integer in signed decimal.
-
-`u'
-     Print as integer in unsigned decimal.
-
-`o'
-     Print as integer in octal.
-
-`t'
-     Print as integer in binary.  The letter `t' stands for "two".  (1)
-
-`a'
-     Print as an address, both absolute in hexadecimal and as an offset
-     from the nearest preceding symbol.  You can use this format used
-     to discover where (in what function) an unknown address is located:
-
-          (gdb) p/a 0x54320
-          $3 = 0x54320 <_initialize_vx+396>
-
-`c'
-     Regard as an integer and print it as a character constant.
-
-`f'
-     Regard the bits of the value as a floating point number and print
-     using typical floating point syntax.
-
-   For example, to print the program counter in hex (*note
-Registers::.), type
-
-     p/x $pc
-
-Note that no space is required before the slash; this is because command
-names in GDB cannot contain a slash.
-
-   To reprint the last value in the value history with a different
-format, you can use the `print' command with just a format and no
-expression.  For example, `p/x' reprints the last value in hex.
-
-   ---------- Footnotes ----------
-
-   (1) `b' cannot be used because these format letters are also used
-with the `x' command, where `b' stands for "byte"; *note Examining
-memory: Memory..
-
-
-File: gdb.info,  Node: Memory,  Next: Auto Display,  Prev: Output Formats,  Up: Data
-
-Examining memory
-================
-
-   You can use the command `x' (for "examine") to examine memory in any
-of several formats, independently of your program's data types.
-
-`x/NFU ADDR'
-`x ADDR'
-`x'
-     Use the `x' command to examine memory.
-
-   N, F, and U are all optional parameters that specify how much memory
-to display and how to format it; ADDR is an expression giving the
-address where you want to start displaying memory.  If you use defaults
-for NFU, you need not type the slash `/'.  Several commands set
-convenient defaults for ADDR.
-
-N, the repeat count
-     The repeat count is a decimal integer; the default is 1.  It
-     specifies how much memory (counting by units U) to display.
-
-F, the display format
-     The display format is one of the formats used by `print', `s'
-     (null-terminated string), or `i' (machine instruction).  The
-     default is `x' (hexadecimal) initially.  The default changes each
-     time you use either `x' or `print'.
-
-U, the unit size
-     The unit size is any of
-
-    `b'
-          Bytes.
-
-    `h'
-          Halfwords (two bytes).
-
-    `w'
-          Words (four bytes).  This is the initial default.
-
-    `g'
-          Giant words (eight bytes).
-
-     Each time you specify a unit size with `x', that size becomes the
-     default unit the next time you use `x'.  (For the `s' and `i'
-     formats, the unit size is ignored and is normally not written.)
-
-ADDR, starting display address
-     ADDR is the address where you want GDB to begin displaying memory.
-     The expression need not have a pointer value (though it may); it
-     is always interpreted as an integer address of a byte of memory.
-     *Note Expressions: Expressions, for more information on
-     expressions.  The default for ADDR is usually just after the last
-     address examined--but several other commands also set the default
-     address: `info breakpoints' (to the address of the last breakpoint
-     listed), `info line' (to the starting address of a line), and
-     `print' (if you use it to display a value from memory).
-
-   For example, `x/3uh 0x54320' is a request to display three halfwords
-(`h') of memory, formatted as unsigned decimal integers (`u'), starting
-at address `0x54320'.  `x/4xw $sp' prints the four words (`w') of
-memory above the stack pointer (here, `$sp'; *note Registers::.) in
-hexadecimal (`x').
-
-   Since the letters indicating unit sizes are all distinct from the
-letters specifying output formats, you do not have to remember whether
-unit size or format comes first; either order works.  The output
-specifications `4xw' and `4wx' mean exactly the same thing.  (However,
-the count N must come first; `wx4' does not work.)
-
-   Even though the unit size U is ignored for the formats `s' and `i',
-you might still want to use a count N; for example, `3i' specifies that
-you want to see three machine instructions, including any operands.
-The command `disassemble' gives an alternative way of inspecting
-machine instructions; *note Source and machine code: Machine Code..
-
-   All the defaults for the arguments to `x' are designed to make it
-easy to continue scanning memory with minimal specifications each time
-you use `x'.  For example, after you have inspected three machine
-instructions with `x/3i ADDR', you can inspect the next seven with just
-`x/7'.  If you use <RET> to repeat the `x' command, the repeat count N
-is used again; the other arguments default as for successive uses of
-`x'.
-
-   The addresses and contents printed by the `x' command are not saved
-in the value history because there is often too much of them and they
-would get in the way.  Instead, GDB makes these values available for
-subsequent use in expressions as values of the convenience variables
-`$_' and `$__'.  After an `x' command, the last address examined is
-available for use in expressions in the convenience variable `$_'.  The
-contents of that address, as examined, are available in the convenience
-variable `$__'.
-
-   If the `x' command has a repeat count, the address and contents saved
-are from the last memory unit printed; this is not the same as the last
-address printed if several units were printed on the last line of
-output.
-
-
-File: gdb.info,  Node: Auto Display,  Next: Print Settings,  Prev: Memory,  Up: Data
-
-Automatic display
-=================
-
-   If you find that you want to print the value of an expression
-frequently (to see how it changes), you might want to add it to the
-"automatic display list" so that GDB prints its value each time your
-program stops.  Each expression added to the list is given a number to
-identify it; to remove an expression from the list, you specify that
-number.  The automatic display looks like this:
-
-     2: foo = 38
-     3: bar[5] = (struct hack *) 0x3804
-
-This display shows item numbers, expressions and their current values.
-As with displays you request manually using `x' or `print', you can
-specify the output format you prefer; in fact, `display' decides
-whether to use `print' or `x' depending on how elaborate your format
-specification is--it uses `x' if you specify a unit size, or one of the
-two formats (`i' and `s') that are only supported by `x'; otherwise it
-uses `print'.
-
-`display EXP'
-     Add the expression EXP to the list of expressions to display each
-     time your program stops.  *Note Expressions: Expressions.
-
-     `display' does not repeat if you press <RET> again after using it.
-
-`display/FMT EXP'
-     For FMT specifying only a display format and not a size or count,
-     add the expression EXP to the auto-display list but arrange to
-     display it each time in the specified format FMT.  *Note Output
-     formats: Output Formats.
-
-`display/FMT ADDR'
-     For FMT `i' or `s', or including a unit-size or a number of units,
-     add the expression ADDR as a memory address to be examined each
-     time your program stops.  Examining means in effect doing `x/FMT
-     ADDR'.  *Note Examining memory: Memory.
-
-   For example, `display/i $pc' can be helpful, to see the machine
-instruction about to be executed each time execution stops (`$pc' is a
-common name for the program counter; *note Registers::.).
-
-`undisplay DNUMS...'
-`delete display DNUMS...'
-     Remove item numbers DNUMS from the list of expressions to display.
-
-     `undisplay' does not repeat if you press <RET> after using it.
-     (Otherwise you would just get the error `No display number ...'.)
-
-`disable display DNUMS...'
-     Disable the display of item numbers DNUMS.  A disabled display
-     item is not printed automatically, but is not forgotten.  It may be
-     enabled again later.
-
-`enable display DNUMS...'
-     Enable display of item numbers DNUMS.  It becomes effective once
-     again in auto display of its expression, until you specify
-     otherwise.
-
-`display'
-     Display the current values of the expressions on the list, just as
-     is done when your program stops.
-
-`info display'
-     Print the list of expressions previously set up to display
-     automatically, each one with its item number, but without showing
-     the values.  This includes disabled expressions, which are marked
-     as such.  It also includes expressions which would not be
-     displayed right now because they refer to automatic variables not
-     currently available.
-
-   If a display expression refers to local variables, then it does not
-make sense outside the lexical context for which it was set up.  Such an
-expression is disabled when execution enters a context where one of its
-variables is not defined.  For example, if you give the command
-`display last_char' while inside a function with an argument
-`last_char', GDB displays this argument while your program continues to
-stop inside that function.  When it stops elsewhere--where there is no
-variable `last_char'--the display is disabled automatically.  The next
-time your program stops where `last_char' is meaningful, you can enable
-the display expression once again.
+   This may also happen when the compiler does significant
+optimizations.  To be sure of always seeing accurate values, turn off
+all optimization when compiling.
 

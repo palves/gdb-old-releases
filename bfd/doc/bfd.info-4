@@ -1,5 +1,5 @@
 This is Info file bfd.info, produced by Makeinfo version 1.68 from the
-input file ../../../devo/bfd/doc/bfd.texinfo.
+input file bfd.texinfo.
 
 START-INFO-DIR-ENTRY
 * Bfd: (bfd).                   The Binary File Descriptor library.
@@ -88,6 +88,7 @@ them both!
        bfd_target_os9k_flavour,
        bfd_target_versados_flavour,
        bfd_target_msdos_flavour,
+       bfd_target_ovax_flavour,
        bfd_target_evax_flavour
      };
      
@@ -320,7 +321,8 @@ zero.
      CAT(NAME,_bfd_link_hash_table_create),\
      CAT(NAME,_bfd_link_add_symbols),\
      CAT(NAME,_bfd_final_link),\
-     CAT(NAME,_bfd_link_split_section)
+     CAT(NAME,_bfd_link_split_section),\
+     CAT(NAME,_bfd_gc_sections)
        int        (*_bfd_sizeof_headers) PARAMS ((bfd *, boolean));
        bfd_byte * (*_bfd_get_relocated_section_contents) PARAMS ((bfd *,
                          struct bfd_link_info *, struct bfd_link_order *,
@@ -344,7 +346,10 @@ zero.
         /* Should this section be split up into smaller pieces during linking.  */
        boolean (*_bfd_link_split_section) PARAMS ((bfd *, struct sec *));
      
-       /* Routines to handle dynamic symbols and relocs.  */
+        /* Remove sections that are not referenced from the output.  */
+       boolean (*_bfd_gc_sections) PARAMS ((bfd *, struct bfd_link_info *));
+     
+        /* Routines to handle dynamic symbols and relocs.  */
      #define BFD_JUMP_TABLE_DYNAMIC(NAME)\
      CAT(NAME,_get_dynamic_symtab_upper_bound),\
      CAT(NAME,_canonicalize_dynamic_symtab),\
@@ -442,6 +447,14 @@ i960 KB, and 68020 and 68030 for Motorola 68020 and 68030.
        bfd_arch_unknown,    /* File arch not known */
        bfd_arch_obscure,    /* Arch known, not one of these */
        bfd_arch_m68k,       /* Motorola 68xxx */
+     #define bfd_mach_m68000 1
+     #define bfd_mach_m68008 2
+     #define bfd_mach_m68010 3
+     #define bfd_mach_m68020 4
+     #define bfd_mach_m68030 5
+     #define bfd_mach_m68040 6
+     #define bfd_mach_m68060 7
+     #define bfd_mach_cpu32  8
        bfd_arch_vax,        /* DEC Vax */
        bfd_arch_i960,       /* Intel 960 */
           /* The order of the following is important.
@@ -469,8 +482,9 @@ i960 KB, and 68020 and 68030 for Motorola 68020 and 68030.
      #define bfd_mach_sparc_sparclite       3
      #define bfd_mach_sparc_v8plus          4
      #define bfd_mach_sparc_v8plusa         5  /* with ultrasparc add'ns */
-     #define bfd_mach_sparc_v9              6
-     #define bfd_mach_sparc_v9a             7  /* with ultrasparc add'ns */
+     #define bfd_mach_sparc_sparclite_le    6
+     #define bfd_mach_sparc_v9              7
+     #define bfd_mach_sparc_v9a             8  /* with ultrasparc add'ns */
       /* Nonzero if MACH has the v9 instruction set.  */
      #define bfd_mach_sparc_v9_p(mach) \
        ((mach) >= bfd_mach_sparc_v8plus && (mach) <= bfd_mach_sparc_v9a)
@@ -492,6 +506,7 @@ i960 KB, and 68020 and 68030 for Motorola 68020 and 68030.
        bfd_arch_i386,       /* Intel 386 */
      #define bfd_mach_i386_i386 0
      #define bfd_mach_i386_i8086 1
+     #define bfd_mach_i386_i386_intel_syntax 2
        bfd_arch_we32k,      /* AT&T WE32xxx */
        bfd_arch_tahoe,      /* CCI/Harris Tahoe */
        bfd_arch_i860,       /* Intel 860 */
@@ -508,6 +523,7 @@ i960 KB, and 68020 and 68030 for Motorola 68020 and 68030.
        bfd_arch_rs6000,     /* IBM RS/6000 */
        bfd_arch_hppa,       /* HP PA RISC */
        bfd_arch_d10v,       /* Mitsubishi D10V */
+       bfd_arch_d30v,       /* Mitsubishi D30V */
        bfd_arch_z8k,        /* Zilog Z8000 */
      #define bfd_mach_z8001         1
      #define bfd_mach_z8002         2
@@ -517,6 +533,9 @@ i960 KB, and 68020 and 68030 for Motorola 68020 and 68030.
      #define bfd_mach_sh3        0x30
      #define bfd_mach_sh3e       0x3e
        bfd_arch_alpha,      /* Dec Alpha */
+     #define bfd_mach_alpha_ev4  0x10
+     #define bfd_mach_alpha_ev5  0x20
+     #define bfd_mach_alpha_ev6  0x30
        bfd_arch_arm,        /* Advanced Risc Machines ARM */
      #define bfd_mach_arm_2         1
      #define bfd_mach_arm_2a                2
@@ -529,12 +548,17 @@ i960 KB, and 68020 and 68030 for Motorola 68020 and 68030.
        bfd_arch_tic30,      /* Texas Instruments TMS320C30 */
        bfd_arch_v850,       /* NEC V850 */
      #define bfd_mach_v850          0
+     #define bfd_mach_v850e         'E'
+     #define bfd_mach_v850ea        'A'
        bfd_arch_arc,        /* Argonaut RISC Core */
      #define bfd_mach_arc_base 0
        bfd_arch_m32r,       /* Mitsubishi M32R/D */
      #define bfd_mach_m32r          0  /* backwards compatibility */
        bfd_arch_mn10200,    /* Matsushita MN10200 */
        bfd_arch_mn10300,    /* Matsushita MN10300 */
+     #define bfd_mach_mn10300               300
+       bfd_arch_fr30,
+     #define bfd_mach_fr30          0x46523330
        bfd_arch_last
        };
 
@@ -833,6 +857,34 @@ as such.
 Create a new BFD in the manner of `bfd_openw', but without opening a
 file. The new BFD takes the target from the target used by TEMPLATE. The
 format is always set to `bfd_object'.
+
+`bfd_make_writable'
+...................
+
+   *Synopsis*
+     boolean bfd_make_writable(bfd *abfd);
+   *Description*
+Takes a BFD as created by `bfd_create' and converts it into one like as
+returned by `bfd_openw'.  It does this by converting the BFD to
+BFD_IN_MEMORY.  It's assumed that you will call `bfd_make_readable' on
+this bfd later.
+
+   *Returns*
+`true' is returned if all is ok, otherwise `false'.
+
+`bfd_make_readable'
+...................
+
+   *Synopsis*
+     boolean bfd_make_readable(bfd *abfd);
+   *Description*
+Takes a BFD as created by `bfd_create' and `bfd_make_writable' and
+converts it into one like as returned by `bfd_openr'.  It does this by
+writing the contents out to the memory buffer, then reversing the
+direction.
+
+   *Returns*
+`true' is returned if all is ok, otherwise `false'.
 
 `bfd_alloc'
 ...........
@@ -1197,44 +1249,4 @@ the hash table entry initialization function.
    See `ecoff_link_add_externals' for an example of how to check the
 `creator' field before saving information (in this case, the ECOFF
 external symbol debugging information) in a hash table entry.
-
-
-File: bfd.info,  Node: Adding symbols from an object file,  Next: Adding symbols from an archive,  Prev: Differing file formats,  Up: Adding Symbols to the Hash Table
-
-Adding symbols from an object file
-..................................
-
-   When the `_bfd_link_add_symbols' routine is passed an object file,
-it must add all externally visible symbols in that object file to the
-hash table.  The actual work of adding the symbol to the hash table is
-normally handled by the function `_bfd_generic_link_add_one_symbol'.
-The `_bfd_link_add_symbols' routine is responsible for reading all the
-symbols from the object file and passing the correct information to
-`_bfd_generic_link_add_one_symbol'.
-
-   The `_bfd_link_add_symbols' routine should not use
-`bfd_canonicalize_symtab' to read the symbols.  The point of providing
-this routine is to avoid the overhead of converting the symbols into
-generic `asymbol' structures.
-
-   `_bfd_generic_link_add_one_symbol' handles the details of combining
-common symbols, warning about multiple definitions, and so forth.  It
-takes arguments which describe the symbol to add, notably symbol flags,
-a section, and an offset.  The symbol flags include such things as
-`BSF_WEAK' or `BSF_INDIRECT'.  The section is a section in the object
-file, or something like `bfd_und_section_ptr' for an undefined symbol
-or `bfd_com_section_ptr' for a common symbol.
-
-   If the `_bfd_final_link' routine is also going to need to read the
-symbol information, the `_bfd_link_add_symbols' routine should save it
-somewhere attached to the object file BFD.  However, the information
-should only be saved if the `keep_memory' field of the `info' argument
-is true, so that the `-no-keep-memory' linker switch is effective.
-
-   The a.out function which adds symbols from an object file is
-`aout_link_add_object_symbols', and most of the interesting work is in
-`aout_link_add_symbols'.  The latter saves pointers to the hash tables
-entries created by `_bfd_generic_link_add_one_symbol' indexed by symbol
-number, so that the `_bfd_final_link' routine does not have to call the
-hash table lookup routine to locate the entry.
 

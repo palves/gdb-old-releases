@@ -6,7 +6,7 @@
 #endif
 #include "mn10200_sim.h"
 #include "simops.h"
-#include "sys/syscall.h"
+#include "targ-vals.h"
 #include "bfd.h"
 #include <errno.h>
 #include <sys/stat.h>
@@ -2308,41 +2308,45 @@ void OP_F010 (insn, extension)
   switch (FUNC)
     {
 #if !defined(__GO32__) && !defined(_WIN32)
-      case SYS_fork:
+#ifdef TARGET_SYS_fork
+      case TARGET_SYS_fork:
       RETVAL = fork ();
       break;
-    case SYS_execve:
+#endif
+#ifdef TARGET_SYS_execve
+    case TARGET_SYS_execve:
       RETVAL = execve (MEMPTR (PARM1), (char **) MEMPTR (PARM (4, 4)),
 		       (char **)MEMPTR (PARM (8, 4)));
       break;
-#ifdef SYS_execv
-    case SYS_execv:
+#endif
+#ifdef TARGET_SYS_execv
+    case TARGET_SYS_execv:
       RETVAL = execve (MEMPTR (PARM1), (char **) MEMPTR (PARM (4, 4)), NULL);
       break;
 #endif
 #endif
 
-    case SYS_read:
+    case TARGET_SYS_read:
       RETVAL = mn10200_callback->read (mn10200_callback, PARM1, 
 				       MEMPTR (PARM (4, 4)), PARM (8, 4));
       break;
-    case SYS_write:
+    case TARGET_SYS_write:
       RETVAL = (int)mn10200_callback->write (mn10200_callback, PARM1,
 					     MEMPTR (PARM (4, 4)),
 					     PARM (8, 4));
       break;
-    case SYS_lseek:
+    case TARGET_SYS_lseek:
       RETVAL = mn10200_callback->lseek (mn10200_callback, PARM1,
 					PARM (4, 4), PARM (8, 2));
       break;
-    case SYS_close:
+    case TARGET_SYS_close:
       RETVAL = mn10200_callback->close (mn10200_callback, PARM1);
       break;
-    case SYS_open:
+    case TARGET_SYS_open:
       RETVAL = mn10200_callback->open (mn10200_callback, MEMPTR (PARM1),
 				       PARM (4, 2));
       break;
-    case SYS_exit:
+    case TARGET_SYS_exit:
       /* EXIT - caller can look in PARM1 to work out the 
 	 reason */
       if (PARM1 == 0xdead)
@@ -2352,7 +2356,7 @@ void OP_F010 (insn, extension)
       State.exited = 1;
       break;
 
-    case SYS_stat:	/* added at hmsi */
+    case TARGET_SYS_stat:	/* added at hmsi */
       /* stat system call */
       {
 	struct stat host_stat;
@@ -2377,19 +2381,21 @@ void OP_F010 (insn, extension)
       }
       break;
 
-    case SYS_chown:
+#ifdef TARGET_SYS_chown
+    case TARGET_SYS_chown:
       RETVAL = chown (MEMPTR (PARM1), PARM (4, 2), PARM (6, 2));
       break;
-    case SYS_chmod:
+#endif
+    case TARGET_SYS_chmod:
       RETVAL = chmod (MEMPTR (PARM1), PARM (4, 2));
       break;
-#ifdef SYS_time
-    case SYS_time:
-      RETVAL = time (MEMPTR (PARM1));
+#ifdef TARGET_SYS_time
+    case TARGET_SYS_time:
+      RETVAL = time ((time_t *)MEMPTR (PARM1));
       break;
 #endif
-#ifdef SYS_times
-    case SYS_times:
+#ifdef TARGET_SYS_times
+    case TARGET_SYS_times:
       {
 	struct tms tms;
 	RETVAL = times (&tms);
@@ -2400,7 +2406,8 @@ void OP_F010 (insn, extension)
 	break;
       }
 #endif
-    case SYS_gettimeofday:
+#ifdef TARGET_SYS_gettimeofday
+    case TARGET_SYS_gettimeofday:
       {
 	struct timeval t;
 	struct timezone tz;
@@ -2411,8 +2418,9 @@ void OP_F010 (insn, extension)
 	store_word (PARM (4, 4) + 4, tz.tz_dsttime);
 	break;
       }
-#ifdef SYS_utime
-    case SYS_utime:
+#endif
+#ifdef TARGET_SYS_utime
+    case TARGET_SYS_utime:
       /* Cast the second argument to void *, to avoid type mismatch
 	 if a prototype is present.  */
       RETVAL = utime (MEMPTR (PARM1), (void *) MEMPTR (PARM (4, 4)));

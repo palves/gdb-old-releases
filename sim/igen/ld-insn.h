@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994,1995,1996,1997 Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998 Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -110,18 +110,35 @@ enum {
 /* Macro definitions:
 
    <insn-macro> ::=
-       <expression>
-       ":" ( "define" | "undef" )
+       ":" "define"
        ":" <filter-flags>
        ":" <filter-models>
        ":" <name>
+       ":" <arg-list>
+       ":" <expression>
        <nl>
        ;
 
-   Macro define/undef is currently unimplemented. */
+   <arg-list> ::=
+       [ <name> { "," <arg-list> } ]
+       ;
+
+   */
+
+
+enum {
+  macro_name_field = 4,
+  macro_args_field,
+  macro_expr_field,
+  nr_macro_fields,
+};
+
 
 
 /* Functions and internal routins:
+
+   NB: <filter-models> and <function-models> are equivalent.
+
 
    <function> ::=
        ":" "function"
@@ -138,6 +155,12 @@ enum {
        <function-spec>
        ;
 
+   <function-model> ::=
+       "*" [ <processor-list> ]
+       ":"
+       <nl>
+       ;
+
    <function-spec> ::=
        ":" <filter-flags>
        ":" <filter-models>
@@ -145,6 +168,7 @@ enum {
        ":" <name>
        [ ":" <parameter-list> ]
        <nl>
+       [ <function-model> ]
        <code-block>
        ;
 
@@ -155,6 +179,11 @@ enum {
   function_name_field,
   function_param_field,
   nr_function_fields,
+};
+
+enum {
+  function_model_name_field = 0,
+  nr_function_model_fields = 1,
 };
 
 enum {
@@ -359,17 +388,17 @@ struct _model_table {
    <insn-word> ::=
        <insn-field> { "," <insn-field> } ;
 
-   <insn-word> ::=
+   <insn-field> ::=
        ( <binary-value-implying-width>
        | <field-name-implying-width>
        | [ <start-or-width> "." ] <field> 
        )
-       { "!" <excluded-value> }
+       { [ "!" | "=" ] [ <value> | <field-name> ] }
        ;
 
    <field> ::=
-       "*" +
-       | "/" +
+         { "*" }+
+       | { "/" }+
        | <field-name>
        | "0x" <hex-value>
        | "0b" <binary-value>
@@ -378,14 +407,27 @@ struct _model_table {
 
 */
 
-typedef struct _insn_field_exclusion insn_field_exclusion;
-struct _insn_field_exclusion {
-  char *string;
+typedef enum _insn_field_cond_type {
+  insn_field_cond_value,
+  insn_field_cond_field,
+} insn_field_cond_type;
+typedef enum _insn_field_cond_test {
+  insn_field_cond_eq,
+  insn_field_cond_ne,
+} insn_field_cond_test;
+typedef struct _insn_field_cond insn_field_cond;
+struct _insn_field_cond {
+  insn_field_cond_type type;
+  insn_field_cond_test test;
   insn_uint value;
-  insn_field_exclusion *next;
+  struct _insn_field_entry *field;
+  char *string;
+  insn_field_cond *next;
 };
 
-typedef enum {
+
+typedef enum _insn_field_type {
+  insn_field_invalid,
   insn_field_int,
   insn_field_reserved,
   insn_field_wild,
@@ -402,7 +444,7 @@ struct _insn_field_entry {
   insn_uint val_int;
   char *pos_string;
   char *val_string;
-  insn_field_exclusion *exclusions;
+  insn_field_cond *conditions;
   insn_field_entry *next;
   insn_field_entry *prev;
 };
@@ -441,7 +483,7 @@ struct _insn_word_entry {
 
    <insn-model> ::=
        "*" [ <processor-list> ]
-       ":" <function-unit-data>
+       ":" [ <function-unit-data> ]
        <nl>
        ;
 

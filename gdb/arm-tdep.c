@@ -1,5 +1,5 @@
 /* Target-dependent code for the Acorn Risc Machine, for GDB, the GNU Debugger.
-   Copyright (C) 1988, 1989, 1991, 1992, 1993, 1995, 1996, 1998
+   Copyright (C) 1988, 1989, 1991, 1992, 1993, 1995, 1996, 1998, 1999
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -27,6 +27,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdb_string.h"
 #include "coff/internal.h"	/* Internal format of COFF symbols in BFD */
 
+/*
+  The following macros are actually wrong.  Neither arm nor thumb can
+  or should set the lsb on addr.
+  The thumb addresses are mod 2, so (addr & 2) would be a good heuristic
+  to use when checking for thumb (see arm_pc_is_thumb() below).
+  Unfortunately, something else depends on these (incorrect) macros, so
+  fixing them actually breaks gdb.  I didn't have time to investigate. Z.R.
+*/
 /* Thumb function addresses are odd (bit 0 is set).  Here are some
    macros to test, set, or clear bit 0 of addresses.  */
 #define IS_THUMB_ADDR(addr)	((addr) & 1)
@@ -38,6 +46,25 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define ROUND_DOWN(n,a) 	((n) & ~((a) - 1))
 #define ROUND_UP(n,a) 		(((n) + (a) - 1) & ~((a) - 1))
   
+/* Should call_function allocate stack space for a struct return?  */
+/* The system C compiler uses a similar structure return convention to gcc */
+int
+arm_use_struct_convention (gcc_p, type)
+     int gcc_p;
+     struct type *type;
+{
+  return (TYPE_LENGTH (type) > 4);
+}
+
+int
+arm_frame_chain_valid (chain, thisframe)
+     CORE_ADDR chain;
+     struct frame_info *thisframe;
+{
+#define LOWEST_PC 0x20  /* the first 0x20 bytes are the trap vectors. */
+  return (chain != 0 && (FRAME_SAVED_PC (thisframe) >= LOWEST_PC));
+}
+
 /* Set to true if the 32-bit mode is in use. */
 
 int arm_apcs_32 = 1;
@@ -68,17 +95,11 @@ arm_pc_is_thumb (memaddr)
   if (IS_THUMB_ADDR (memaddr))
     return 1;
 
-  /* The storage class for minimal symbols is stored by coffread.c in
-     the info field.  Use this to decide if the function is Thumb or Arm.  */
+  /* Thumb function have a "special" bit set in minimal symbols */
   sym = lookup_minimal_symbol_by_pc (memaddr);
   if (sym)
     {
-      unsigned sclass = (unsigned) MSYMBOL_INFO (sym);	/* get storage class */
-      return (   sclass == C_THUMBEXT
-	      || sclass == C_THUMBSTAT
-	      || sclass == C_THUMBEXTFUNC
-	      || sclass == C_THUMBSTATFUNC
-	      || sclass == C_THUMBLABEL);
+      return (MSYMBOL_IS_SPECIAL(sym));
     }
   else
     return 0;
@@ -844,6 +865,15 @@ arm_push_arguments(nargs, args, sp, struct_return, struct_addr)
   int float_argreg;
   int argnum;
   int stack_offset;
+  struct stack_arg {
+      char *val;
+      int len;
+      int offset;
+    };
+  struct stack_arg *stack_args =
+      (struct stack_arg*)alloca (nargs * sizeof (struct stack_arg));
+  int nstack_args = 0;
+
 
   /* Initialize the integer and float register pointers.  */
   argreg = A1_REGNUM;
@@ -858,10 +888,9 @@ arm_push_arguments(nargs, args, sp, struct_return, struct_addr)
      This leaves room for the "home" area for register parameters.  */
   stack_offset = REGISTER_SIZE * 4;
 
-  /* Now load as many as possible of the first arguments into
-     registers, and push the rest onto the stack.  Loop thru args
-     from first to last.  */
-  for (argnum = 0; argnum < nargs; argnum++)
+  /* Process args from left to right.  Store as many as allowed in
+	registers, save the rest to be pushed on the stack */
+  for(argnum = 0; argnum < nargs; argnum++)
     {
       char *         val;
       value_ptr      arg = args[argnum];
@@ -870,6 +899,7 @@ arm_push_arguments(nargs, args, sp, struct_return, struct_addr)
       int            len = TYPE_LENGTH (arg_type);
       enum type_code typecode = TYPE_CODE (arg_type);
       CORE_ADDR      regval;
+      int newarg;
 
       val = (char *) VALUE_CONTENTS (arg);
 
@@ -884,6 +914,8 @@ arm_push_arguments(nargs, args, sp, struct_return, struct_addr)
 	    store_address (val, len, MAKE_THUMB_ADDR (regval));
 	}
 
+#define MAPCS_FLOAT 0	/* --mapcs-float not implemented by the compiler yet */
+#if MAPCS_FLOAT
       /* Up to four floating point arguments can be passed in floating
          point registers on ARM (not on Thumb).  */
       if (typecode == TYPE_CODE_FLT
@@ -896,36 +928,42 @@ arm_push_arguments(nargs, args, sp, struct_return, struct_addr)
 	  write_register (float_argreg++, regval);
 	}
       else
+#endif
 	{
 	  /* Copy the argument to general registers or the stack in
 	     register-sized pieces.  Large arguments are split between
 	     registers and stack.  */
 	  while (len > 0)
 	    {
-	      int partial_len = len < REGISTER_SIZE ? len : REGISTER_SIZE;
-
 	      if (argreg <= ARM_LAST_ARG_REGNUM)
 		{
+	          int partial_len = len < REGISTER_SIZE ? len : REGISTER_SIZE;
 		  regval = extract_address (val, partial_len);
 
 		  /* It's a simple argument being passed in a general
 		     register.  */
 		  write_register (argreg, regval);
 		  argreg++;
+	          len -= partial_len;
+	          val += partial_len;
 		}
 	      else
 		{
-		  /* Write this portion of the argument to the stack.  */
-		  partial_len = len;
-		  sp -= partial_len;
-		  write_memory (sp, val, partial_len);
+		  /* keep for later pushing */
+		  stack_args[nstack_args].val = val;
+		  stack_args[nstack_args++].len = len;
+		  break;
 		}
-    
-	      len -= partial_len;
-	      val += partial_len;
 	    }
 	}
     }
+    /* now do the real stack pushing, process args right to left */
+    while(nstack_args--)
+      {
+	sp -= stack_args[nstack_args].len;
+	write_memory(sp, stack_args[nstack_args].val,
+		stack_args[nstack_args].len);
+      }
 
   /* Return adjusted stack pointer.  */
   return sp;
@@ -976,14 +1014,37 @@ arm_float_info ()
     print_fpu_flags (status);
 }
 
+static char *original_register_names[] =
+{ "a1", "a2", "a3", "a4", /*  0  1  2  3 */
+  "v1", "v2", "v3", "v4", /*  4  5  6  7 */
+  "v5", "v6", "sl", "fp", /*  8  9 10 11 */
+  "ip", "sp", "lr", "pc", /* 12 13 14 15 */
+  "f0", "f1", "f2", "f3", /* 16 17 18 19 */
+  "f4", "f5", "f6", "f7", /* 20 21 22 23 */
+  "fps","ps" }            /* 24 25       */;
+
+/* These names are the ones which gcc emits, and 
+   I find them less confusing.  Toggle between them
+   using the `othernames' command. */
+static char *additional_register_names[] =
+{ "r0", "r1", "r2", "r3", /*  0  1  2  3 */
+  "r4", "r5", "r6", "r7", /*  4  5  6  7 */
+  "r8", "r9", "sl", "fp", /*  8  9 10 11 */
+  "ip", "sp", "lr", "pc", /* 12 13 14 15 */
+  "f0", "f1", "f2", "f3", /* 16 17 18 19 */
+  "f4", "f5", "f6", "f7", /* 20 21 22 23 */
+  "fps","ps" }            /* 24 25       */;
+
+char **arm_register_names = original_register_names;
+
+
 static void
 arm_othernames ()
 {
   static int toggle;
-  static char *original[] = ORIGINAL_REGISTER_NAMES;
-  static char *extra_crispy[] = ADDITIONAL_REGISTER_NAMES;
-
-  memcpy (reg_names, toggle ? extra_crispy : original, sizeof(original));
+  arm_register_names = (toggle
+			? additional_register_names
+			: original_register_names);
   toggle = !toggle;
 }
 
@@ -1383,23 +1444,60 @@ arm_get_next_pc (pc)
   return nextpc;
 }
 
+#include "bfd-in2.h"
+#include "libcoff.h"
+
 static int
 gdb_print_insn_arm (memaddr, info)
      bfd_vma memaddr;
      disassemble_info * info;
 {
-  /* Info flag bit 0, if set, tells the disassembler that this is
-     Thumb code.  FIXME: use a #define instead of a hardcoded constant
-     for the flag bit.  */
   if (arm_pc_is_thumb (memaddr))
     {
-      info->flags |= 1;
+      static asymbol *                  asym;
+      static combined_entry_type        ce;
+      static struct coff_symbol_struct  csym;
+      static struct _bfd                fake_bfd;
+      static bfd_target                 fake_target;
+
+      if (csym.native == NULL)
+	{
+	  /* Create a fake symbol vector containing a Thumb symbol.  This is
+	     solely so that the code in print_insn_little_arm() and
+	     print_insn_big_arm() in opcodes/arm-dis.c will detect the presence
+	     of a Thumb symbol and switch to decoding Thumb instructions.  */
+	     
+	  fake_target.flavour  = bfd_target_coff_flavour;
+	  fake_bfd.xvec        = & fake_target;
+	  ce.u.syment.n_sclass = C_THUMBEXTFUNC;
+	  csym.native          = & ce;
+	  csym.symbol.the_bfd  = & fake_bfd;
+	  csym.symbol.name     = "fake";
+	  asym                 = (asymbol *) & csym;
+	}
+      
       memaddr = UNMAKE_THUMB_ADDR (memaddr);
+      info->symbols = & asym;
     }
   else
-    info->flags &= ~1;
-  return print_insn_little_arm (memaddr, info);
+    info->symbols = NULL;
+  
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+    return print_insn_big_arm (memaddr, info);
+  else
+    return print_insn_little_arm (memaddr, info);
 }
+
+/* Sequence of bytes for breakpoint instruction.  */
+#define ARM_LE_BREAKPOINT {0xFE,0xDE,0xFF,0xE7} /* Recognized illegal opcodes */
+#define ARM_BE_BREAKPOINT {0xE7,0xFF,0xDE,0xFE} 
+#define THUMB_LE_BREAKPOINT {0xfe,0xdf}       
+#define THUMB_BE_BREAKPOINT {0xdf,0xfe}       
+
+/* The following has been superseded by BREAKPOINT_FOR_PC, but
+   is defined merely to keep mem-break.c happy.  */
+#define LITTLE_BREAKPOINT ARM_LE_BREAKPOINT
+#define BIG_BREAKPOINT    ARM_BE_BREAKPOINT
 
 /* This function implements the BREAKPOINT_FROM_PC macro.  It uses the program
    counter value to determine whether a 16- or 32-bit breakpoint should be
@@ -1413,27 +1511,39 @@ arm_breakpoint_from_pc (pcptr, lenptr)
      CORE_ADDR * pcptr;
      int * lenptr;
 {
-  CORE_ADDR sp = read_sp();
-
   if (arm_pc_is_thumb (*pcptr) || arm_pc_is_thumb_dummy (*pcptr))
     {
-      static char thumb_breakpoint[] = THUMB_BREAKPOINT;
-      
-      *pcptr = UNMAKE_THUMB_ADDR (*pcptr);
-      *lenptr = sizeof (thumb_breakpoint);
-      
-      return thumb_breakpoint;
+      if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+        {
+          static char thumb_breakpoint[] = THUMB_BE_BREAKPOINT;
+          *pcptr = UNMAKE_THUMB_ADDR (*pcptr);
+          *lenptr = sizeof (thumb_breakpoint);
+          return thumb_breakpoint;
+         }
+      else
+        {
+          static char thumb_breakpoint[] = THUMB_LE_BREAKPOINT;
+          *pcptr = UNMAKE_THUMB_ADDR (*pcptr);
+          *lenptr = sizeof (thumb_breakpoint);
+          return thumb_breakpoint;
+        }
     }
   else
     {
-      static char arm_breakpoint[] = ARM_BREAKPOINT;
-      
-      *lenptr = sizeof (arm_breakpoint);
-      
-      return arm_breakpoint;
+      if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+        {
+          static char arm_breakpoint[] = ARM_BE_BREAKPOINT;
+          *lenptr = sizeof (arm_breakpoint);
+          return arm_breakpoint;
+        }
+      else
+        {
+          static char arm_breakpoint[] = ARM_LE_BREAKPOINT;
+          *lenptr = sizeof (arm_breakpoint);
+          return arm_breakpoint;
+        }
     }
 }
-
 /* Return non-zero if the PC is inside a call thunk (aka stub or trampoline).
    This implements the IN_SOLIB_CALL_TRAMPOLINE macro.  */
 
@@ -1502,4 +1612,15 @@ _initialize_arm_tdep ()
 				  "Set usage of ARM 32-bit mode.\n", &setlist),
 		     & showlist);
 
+}
+
+/* Test whether the coff symbol specific value corresponds to a Thumb function */
+int
+coff_sym_is_thumb(int val)
+{
+	return (val == C_THUMBEXT ||
+      val == C_THUMBSTAT ||
+      val == C_THUMBEXTFUNC ||
+      val == C_THUMBSTATFUNC ||
+      val == C_THUMBLABEL);
 }

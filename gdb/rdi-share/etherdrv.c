@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * $Revision: 1.2 $
- *     $Date: 1998/01/08 11:12:06 $
+ * $Revision: 1.6 $
+ *     $Date: 1998/04/16 20:14:51 $
  *
  *
  * etherdrv.c - Ethernet Driver for Angel.
@@ -25,7 +25,7 @@
 #ifdef __hpux
 # define uint hide_HPs_uint
 #endif
-#ifdef __unix
+#ifdef STDC_HEADERS
 # include <unistd.h>
 # ifdef __hpux
 #   undef uint
@@ -62,7 +62,7 @@
 # include <netdb.h>
 # include <sys/time.h>
 # include <sys/ioctl.h>
-# if !defined(__hpux) && !defined(__linux__) && !defined(_WIN32)
+# ifdef HAVE_SYS_FILIO_H
 #   include <sys/filio.h>
 # endif
 # include <netinet/in.h>
@@ -79,10 +79,10 @@
 #include "ethernet.h"
 
 
-#ifndef COMPILING_ON_WINDOWS
-/* these two might not work for windows */
-  extern int sys_nerr;
-  extern char *sys_errlist[];
+#if !defined(COMPILING_ON_WINDOWS) && !defined(STDC_HEADERS)
+/* These two might not work for windows.  */
+extern int sys_nerr;
+extern char * sys_errlist[];
 #endif
 
 #ifndef UNUSED
@@ -662,12 +662,17 @@ static int EthernetWrite(DriverCall *dc)
 #ifdef DEBUG
             perror("sendto");
 #endif
+
 #ifdef COMPILING_ON_WINDOWS
             panic("ethernet send failure\n");
 #else
             /* might not work for Windows */
             panic("ethernet send failure [%s]\n",
+#ifdef STDC_HEADERS
+		  strerror(errno));
+#else
                   errno < sys_nerr ? sys_errlist[errno] : "unknown errno");
+#endif /* STDC_HEADERS */
 #endif
         }
 #ifdef DEBUG

@@ -48,9 +48,10 @@ struct inferior_status;
 #define MASK_21 0x1fffff
 
 /* This macro gets bit fields using HP's numbering (MSB = 0) */
-
+#ifndef GET_FIELD
 #define GET_FIELD(X, FROM, TO) \
   ((X) >> (31 - (TO)) & ((1 << ((TO) - (FROM) + 1)) - 1))
+#endif
 
 /* Watch out for NaNs */
 
@@ -62,8 +63,6 @@ struct inferior_status;
 
 #define REG_STRUCT_HAS_ADDR(gcc_p,type) \
   (TYPE_LENGTH (type) > 8)
-
-#define USE_STRUCT_CONVENTION(gcc_p,type) (TYPE_LENGTH (type) > 8)
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -80,6 +79,7 @@ extern CORE_ADDR skip_prologue PARAMS ((CORE_ADDR));
    where the function itself actually starts.  If not, return NULL.  */
 
 #define	SKIP_TRAMPOLINE_CODE(pc) skip_trampoline_code (pc, NULL)
+extern CORE_ADDR skip_trampoline_code PARAMS ((CORE_ADDR, char *));
 
 /* Return non-zero if we are in an appropriate trampoline. */
 
@@ -101,12 +101,19 @@ extern int in_solib_return_trampoline PARAMS ((CORE_ADDR, char *));
 extern CORE_ADDR saved_pc_after_call PARAMS ((struct frame_info *));
 
 /* Stack grows upward */
+#define INNER_THAN(lhs,rhs) ((lhs) > (rhs))
 
-#define INNER_THAN >
+/* elz: adjust the quantity to the next highest value which is 64-bit aligned.
+   This is used in valops.c, when the sp is adjusted.
+   On hppa the sp must always be kept 64-bit aligned*/
+
+#define STACK_ALIGN(arg) ( ((arg)%8) ? (((arg)+7)&-8) : (arg))
+#define NO_EXTRA_ALIGNMENT_NEEDED 1 
 
 /* Sequence of bytes for breakpoint instruction.  */
 
 #define BREAKPOINT {0x00, 0x01, 0x00, 0x04}
+#define BREAKPOINT32 0x10004
 
 /* Amount PC must be decremented by after a breakpoint.
    This is often the number of bytes in BREAKPOINT
@@ -115,6 +122,32 @@ extern CORE_ADDR saved_pc_after_call PARAMS ((struct frame_info *));
    Not on the PA-RISC */
 
 #define DECR_PC_AFTER_BREAK 0
+
+/* Sometimes we may pluck out a minimal symbol that has a negative
+   address.
+
+   An example of this occurs when an a.out is linked against a foo.sl.
+   The foo.sl defines a global bar(), and the a.out declares a signature
+   for bar().  However, the a.out doesn't directly call bar(), but passes
+   its address in another call.
+
+   If you have this scenario and attempt to "break bar" before running,
+   gdb will find a minimal symbol for bar() in the a.out.  But that
+   symbol's address will be negative.  What this appears to denote is
+   an index backwards from the base of the procedure linkage table (PLT)
+   into the data linkage table (DLT), the end of which is contiguous
+   with the start of the PLT.  This is clearly not a valid address for
+   us to set a breakpoint on.
+
+   Note that one must be careful in how one checks for a negative address.
+   0xc0000000 is a legitimate address of something in a shared text
+   segment, for example.  Since I don't know what the possible range
+   is of these "really, truly negative" addresses that come from the
+   minimal symbols, I'm resorting to the gross hack of checking the
+   top byte of the address for all 1's.  Sigh.
+   */
+#define PC_REQUIRES_RUN_BEFORE_USE(pc) \
+  (! target_has_stack && (pc & 0xFF000000))
 
 /* return instruction is bv r0(rp) or bv,n r0(rp)*/
 
@@ -131,24 +164,26 @@ extern CORE_ADDR saved_pc_after_call PARAMS ((struct frame_info *));
 #define NUM_REGS 128
 
 /* Initializer for an array of names of registers.
-   There should be NUM_REGS strings in this initializer.  */
+   There should be NUM_REGS strings in this initializer.
+   They are in rows of eight entries  */
 
 #define REGISTER_NAMES	\
- {"flags", "r1", "rp", "r3", "r4", "r5", "r6", "r7", "r8", "r9",	\
-  "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",	\
-  "r20", "r21", "r22", "r23", "r24", "r25", "r26", "dp", "ret0", "ret1", \
-  "sp", "r31", "sar", "pcoqh", "pcsqh", "pcoqt", "pcsqt", \
-  "eiem", "iir", "isr", "ior", "ipsw", "goto", "sr4", "sr0", "sr1", "sr2", \
-  "sr3", "sr5", "sr6", "sr7", "cr0", "cr8", "cr9", "ccr", "cr12", "cr13", \
-  "cr24", "cr25", "cr26", "mpsfu_high", "mpsfu_low", "mpsfu_ovflo", "pad", \
-  "fpsr", "fpe1", "fpe2", "fpe3", "fpe4", "fpe5", "fpe6", "fpe7", \
-  "fr4", "fr4R", "fr5", "fr5R", "fr6", "fr6R", "fr7", "fr7R", \
-  "fr8", "fr8R", "fr9", "fr9R", "fr10", "fr10R", "fr11", "fr11R", \
-  "fr12", "fr12R", "fr13", "fr13R", "fr14", "fr14R", "fr15", "fr15R", \
-  "fr16", "fr16R", "fr17", "fr17R", "fr18", "fr18R", "fr19", "fr19R", \
-  "fr20", "fr20R", "fr21", "fr21R", "fr22", "fr22R", "fr23", "fr23R", \
-  "fr24", "fr24R", "fr25", "fr25R", "fr26", "fr26R", "fr27", "fr27R", \
-  "fr28", "fr28R", "fr29", "fr29R", "fr30", "fr30R", "fr31", "fr31R"}
+ {"flags",  "r1",      "rp",      "r3",    "r4",     "r5",      "r6",     "r7",    \
+  "r8",     "r9",      "r10",     "r11",   "r12",    "r13",     "r14",    "r15",   \
+  "r16",    "r17",     "r18",     "r19",   "r20",    "r21",     "r22",    "r23",   \
+  "r24",    "r25",     "r26",     "dp",    "ret0",   "ret1",    "sp",     "r31",   \
+  "sar",    "pcoqh",   "pcsqh",   "pcoqt", "pcsqt",  "eiem",    "iir",    "isr",   \
+  "ior",    "ipsw",    "goto",    "sr4",   "sr0",    "sr1",     "sr2",    "sr3",   \
+  "sr5",    "sr6",     "sr7",     "cr0",   "cr8",    "cr9",     "ccr",    "cr12",  \
+  "cr13",   "cr24",    "cr25",    "cr26",  "mpsfu_high","mpsfu_low","mpsfu_ovflo","pad",\
+  "fpsr",    "fpe1",   "fpe2",    "fpe3",  "fpe4",   "fpe5",    "fpe6",   "fpe7",  \
+  "fr4",     "fr4R",   "fr5",     "fr5R",  "fr6",    "fr6R",    "fr7",    "fr7R",  \
+  "fr8",     "fr8R",   "fr9",     "fr9R",  "fr10",   "fr10R",   "fr11",   "fr11R", \
+  "fr12",    "fr12R",  "fr13",    "fr13R", "fr14",   "fr14R",   "fr15",   "fr15R", \
+  "fr16",    "fr16R",  "fr17",    "fr17R", "fr18",   "fr18R",   "fr19",   "fr19R", \
+  "fr20",    "fr20R",  "fr21",    "fr21R", "fr22",   "fr22R",   "fr23",   "fr23R", \
+  "fr24",    "fr24R",  "fr25",    "fr25R", "fr26",   "fr26R",   "fr27",   "fr27R", \
+  "fr28",    "fr28R",  "fr29",    "fr29R", "fr30",   "fr30R",   "fr31",   "fr31R"}
 
 /* Register numbers of various important registers.
    Note that some of these values are "real" register numbers,
@@ -177,8 +212,14 @@ extern CORE_ADDR saved_pc_after_call PARAMS ((struct frame_info *));
 #define RCR_REGNUM 51		/* Recover Counter (also known as cr0) */
 #define CCR_REGNUM 54		/* Coprocessor Configuration Register */
 #define TR0_REGNUM 57		/* Temporary Registers (cr24 -> cr31) */
-#define FP0_REGNUM 64		/* floating point reg. 0 */
+#define CR27_REGNUM 60          /* Base register for thread-local storage, cr27 */
+#define FP0_REGNUM 64		/* floating point reg. 0 (fspr)*/
 #define FP4_REGNUM 72
+
+#define ARG0_REGNUM 26          /* The first argument of a callee. */
+#define ARG1_REGNUM 25          /* The second argument of a callee. */
+#define ARG2_REGNUM 24          /* The third argument of a callee. */
+#define ARG3_REGNUM 23          /* The fourth argument of a callee. */
 
 /* compatibility with the rest of gdb. */
 #define PC_REGNUM PCOQ_HEAD_REGNUM
@@ -221,9 +262,16 @@ extern CORE_ADDR saved_pc_after_call PARAMS ((struct frame_info *));
 #define DO_REGISTERS_INFO(_regnum, fp) pa_do_registers_info (_regnum, fp)
 extern void pa_do_registers_info PARAMS ((int, int));
 
+#if 0
+#define STRCAT_REGISTER(regnum, fpregs, stream, precision) pa_do_strcat_registers_info (regnum, fpregs, stream, precision)
+extern void pa_do_strcat_registers_info PARAMS ((int, int, GDB_FILE *, enum precision_type));
+#endif
+
 /* PA specific macro to see if the current instruction is nullified. */
 #ifndef INSTRUCTION_NULLIFIED
-#define INSTRUCTION_NULLIFIED ((int)read_register (IPSW_REGNUM) & 0x00200000)
+#define INSTRUCTION_NULLIFIED \
+    (((int)read_register (IPSW_REGNUM) & 0x00200000) && \
+     !((int)read_register (FLAGS_REGNUM) & 0x2))
 #endif
 
 /* Number of bytes of storage in the actual machine representation
@@ -269,6 +317,10 @@ extern void pa_do_registers_info PARAMS ((int, int));
    a function return value of type TYPE, and copy that, in virtual format,
    into VALBUF. 
 
+   elz: changed what to return when length is > 4: the stored result is 
+   in register 28 and in register 29, with the lower order word being in reg 29, 
+   so we must start reading it from somehere in the middle of reg28
+
    FIXME: Not sure what to do for soft float here.  */
 
 #define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
@@ -280,9 +332,24 @@ extern void pa_do_registers_info PARAMS ((int, int));
     else \
       memcpy ((VALBUF), \
 	      (char *)(REGBUF) + REGISTER_BYTE (28) + \
-	      ((TYPE_LENGTH (TYPE) > 4 ? 8 : 4) - TYPE_LENGTH (TYPE)), \
+	      (TYPE_LENGTH (TYPE) > 4 ? (8 - TYPE_LENGTH (TYPE)) : (4 - TYPE_LENGTH (TYPE))), \
 	      TYPE_LENGTH (TYPE)); \
   }
+
+
+ /* elz: decide whether the function returning a value of type type
+    will put it on the stack or in the registers.
+    The pa calling convention says that:
+    register 28 (called ret0 by gdb) contains any ASCII char,
+    and any non_floating point value up to 32-bits.
+    reg 28 and 29 contain non-floating point up tp 64 bits and larger
+    than 32 bits. (higer order word in reg 28).
+    fr4: floating point up to 64 bits
+    sr1: space identifier (32-bit)
+    stack: any lager than 64-bit, with the address in r28
+ */
+extern use_struct_convention_fn hppa_use_struct_convention;
+#define USE_STRUCT_CONVENTION(gcc_p,type) hppa_use_struct_convention (gcc_p,type)
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.
@@ -306,6 +373,20 @@ extern void pa_do_registers_info PARAMS ((int, int));
 
 #define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) \
   (*(int *)((REGBUF) + REGISTER_BYTE (28)))
+
+/* elz: Return a large value, which is stored on the stack at addr.
+   This is defined only for the hppa, at this moment. 
+   The above macro EXTRACT_STRUCT_VALUE_ADDRESS is not called anymore,
+   because it assumes that on exit from a called function which returns
+   a large structure on the stack, the address of the ret structure is 
+   still in register 28. Unfortunately this register is usually overwritten
+   by the called function itself, on hppa. This is specified in the calling
+   convention doc. As far as I know, the only way to get the return value
+   is to have the caller tell us where it told the callee to put it, rather
+   than have the callee tell us.
+*/
+#define VALUE_RETURNED_FROM_STACK(valtype,addr) \
+  hppa_value_returned_from_stack (valtype, addr)
 
 /*
  * This macro defines the register numbers (from REGISTER_NAMES) that
@@ -346,9 +427,8 @@ extern void init_extra_frame_info PARAMS ((int, struct frame_info *));
 #define FRAME_CHAIN(thisframe) frame_chain (thisframe)
 extern CORE_ADDR frame_chain PARAMS ((struct frame_info *));
 
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  frame_chain_valid (chain, thisframe)
-extern int frame_chain_valid PARAMS ((CORE_ADDR, struct frame_info *));
+extern int hppa_frame_chain_valid PARAMS ((CORE_ADDR, struct frame_info *));
+#define FRAME_CHAIN_VALID(chain, thisframe) hppa_frame_chain_valid (chain, thisframe)
 
 #define FRAME_CHAIN_COMBINE(chain, thisframe) (chain)
 
@@ -520,6 +600,13 @@ call_dummy
 
 #define CALL_DUMMY_START_OFFSET 0
 
+/* If we've reached a trap instruction within the call dummy, then
+   we'll consider that to mean that we've reached the call dummy's
+   end after its successful completion. */
+#define CALL_DUMMY_HAS_COMPLETED(pc, sp, frame_address) \
+  (PC_IN_CALL_DUMMY((pc), (sp), (frame_address)) && \
+   (read_memory_integer((pc), 4) == BREAKPOINT32))
+
 /*
  * Insert the specified number of args and function address
  * into a call sequence of the above form stored at DUMMYNAME.
@@ -535,12 +622,6 @@ call_dummy
 extern CORE_ADDR
 hppa_fix_call_dummy PARAMS ((char *, CORE_ADDR, CORE_ADDR, int,
 			     struct value **, struct type *, int));
-
-/* Stack must be aligned on 32-bit boundaries when synthesizing
-   function calls.  We still need STACK_ALIGN, PUSH_ARGUMENTS does
-   not do all the work. */
-
-#define STACK_ALIGN(ADDR) (((ADDR) + 7) & -8)
 
 #define PUSH_ARGUMENTS(nargs, args, sp, struct_return, struct_addr) \
     sp = hppa_push_arguments((nargs), (args), (sp), (struct_return), (struct_addr))
@@ -568,35 +649,46 @@ struct unwind_table_entry {
   unsigned int region_start;
   unsigned int region_end;
 
-  unsigned int Cannot_unwind         :  1;
-  unsigned int Millicode             :  1;
-  unsigned int Millicode_save_sr0    :  1;
-  unsigned int Region_description    :  2;
-  unsigned int reserved1             :  1;
-  unsigned int Entry_SR              :  1;
-  unsigned int Entry_FR              :  4; /* number saved */
-  unsigned int Entry_GR              :  5; /* number saved */
-  unsigned int Args_stored           :  1;
-  unsigned int Variable_Frame	     :  1;
-  unsigned int Separate_Package_Body :  1;
-  unsigned int Frame_Extension_Millicode:1;
-  unsigned int Stack_Overflow_Check  :  1;
-  unsigned int Two_Instruction_SP_Increment:1;
-  unsigned int Ada_Region	     :  1;
-/* Use this field to store a stub unwind type.  */
-#define stub_type reserved2
-  unsigned int reserved2	     :  4;
-  unsigned int Save_SP               :  1;
-  unsigned int Save_RP               :  1;
-  unsigned int Save_MRP_in_frame     :  1;
-  unsigned int extn_ptr_defined      :  1;
-  unsigned int Cleanup_defined       :  1;
+  unsigned int Cannot_unwind         :  1;                      /* 0 */
+  unsigned int Millicode             :  1;                      /* 1 */
+  unsigned int Millicode_save_sr0    :  1;                      /* 2 */
+  unsigned int Region_description    :  2;                      /* 3..4 */
+  unsigned int reserved1             :  1;                      /* 5 */
+  unsigned int Entry_SR              :  1;                      /* 6 */
+  unsigned int Entry_FR              :  4; /* number saved */   /* 7..10 */
+  unsigned int Entry_GR              :  5; /* number saved */   /* 11..15 */
+  unsigned int Args_stored           :  1;                      /* 16 */
+  unsigned int Variable_Frame	     :  1;                      /* 17 */
+  unsigned int Separate_Package_Body :  1;                      /* 18 */
+  unsigned int Frame_Extension_Millicode:1;                     /* 19 */
+  unsigned int Stack_Overflow_Check  :  1;                      /* 20 */
+  unsigned int Two_Instruction_SP_Increment:1;                  /* 21 */
+  unsigned int Ada_Region	     :  1;                      /* 22 */
+  unsigned int cxx_info              :  1;                      /* 23 */
+  unsigned int cxx_try_catch         :  1;                      /* 24 */
+  unsigned int sched_entry_seq       :  1;                      /* 25 */
+  unsigned int reserved2	     :  1;                      /* 26 */
+  unsigned int Save_SP               :  1;                      /* 27 */
+  unsigned int Save_RP               :  1;                      /* 28 */
+  unsigned int Save_MRP_in_frame     :  1;                      /* 29 */
+  unsigned int extn_ptr_defined      :  1;                      /* 30 */
+  unsigned int Cleanup_defined       :  1;                      /* 31 */
 
-  unsigned int MPE_XL_interrupt_marker: 1;
-  unsigned int HP_UX_interrupt_marker:  1;
-  unsigned int Large_frame	     :  1;
-  unsigned int reserved4             :  2;
-  unsigned int Total_frame_size      : 27;
+  unsigned int MPE_XL_interrupt_marker: 1;                      /* 0 */
+  unsigned int HP_UX_interrupt_marker:  1;                      /* 1 */
+  unsigned int Large_frame	     :  1;                      /* 2 */
+  unsigned int Pseudo_SP_Set         :  1;                      /* 3 */
+  unsigned int reserved4             :  1;                      /* 4 */
+  unsigned int Total_frame_size      : 27;                      /* 5..31 */
+
+  /* This is *NOT* part of an actual unwind_descriptor in an object
+     file.  It is *ONLY* part of the "internalized" descriptors that
+     we create from those in a file.
+     */
+  struct {
+    unsigned int  stub_type          : 4;                       /* 0..3 */
+    unsigned int  padding            : 28;                      /* 4..31 */
+  } stub_unwind;
 };
 
 /* HP linkers also generate unwinds for various linker-generated stubs.
@@ -633,26 +725,47 @@ enum unwind_stub_types
   IMPORT = 11,
 };
 
-	
-/* Info about the unwind table associated with an object file.  This is hung
-   off of the objfile->obj_private pointer, and is allocated in the objfile's
-   psymbol obstack.  This allows us to have unique unwind info for each
-   executable and shared library that we are debugging.  */
-
+/* We use the objfile->obj_private pointer for two things:
+ *
+ * 1.  An unwind table;
+ *
+ * 2.  A pointer to any associated shared library object.
+ *
+ * #defines are used to help refer to these objects.
+ */
+ 
+/* Info about the unwind table associated with an object file.
+ *
+ * This is hung off of the "objfile->obj_private" pointer, and
+ * is allocated in the objfile's psymbol obstack.  This allows
+ * us to have unique unwind info for each executable and shared
+ * library that we are debugging.
+ */
 struct obj_unwind_info {
   struct unwind_table_entry *table; /* Pointer to unwind info */
   struct unwind_table_entry *cache; /* Pointer to last entry we found */
-  int last;			/* Index of last entry */
+  int last;		   	    /* Index of last entry */
 };
 
-#define OBJ_UNWIND_INFO(obj) ((struct obj_unwind_info *)obj->obj_private)
+typedef struct obj_private_struct {
+   struct obj_unwind_info *unwind_info; /* a pointer */
+   struct so_list         *so_info;     /* a pointer  */
+} obj_private_data_t;
 
+#if 0
+extern void target_write_pc PARAMS ((CORE_ADDR, int))
 extern CORE_ADDR target_read_pc PARAMS ((int));
-extern void target_write_pc PARAMS ((CORE_ADDR, int));
 extern CORE_ADDR skip_trampoline_code PARAMS ((CORE_ADDR, char *));
+#endif
 
 #define TARGET_READ_PC(pid) target_read_pc (pid)
+extern CORE_ADDR target_read_pc PARAMS ((int));
+
 #define TARGET_WRITE_PC(v,pid) target_write_pc (v,pid)
+extern void target_write_pc PARAMS ((CORE_ADDR, int));
+
+#define TARGET_READ_FP() target_read_fp (inferior_pid)
+extern CORE_ADDR  target_read_fp PARAMS ((int));
 
 /* For a number of horrible reasons we may have to adjust the location
    of variables on the stack.  Ugh.  */

@@ -1,5 +1,5 @@
 /* Generic simulator halt/resume.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -49,12 +49,17 @@ enum {
 };
 
 
+/* Get/set the run state of CPU to REASON/SIGRC.
+   REASON/SIGRC are the values returned by sim_stop_reason.  */
+void sim_engine_get_run_state (SIM_DESC sd, enum sim_stop *reason, int *sigrc);
+void sim_engine_set_run_state (SIM_DESC sd, enum sim_stop reason, int sigrc);
+
 
 /* Halt the simulator *now* */
 
 extern void sim_engine_halt
 (SIM_DESC sd,
- sim_cpu *last_cpu,
+ sim_cpu *last_cpu, /* NULL -> in event-mgr */
  sim_cpu *next_cpu, /* NULL -> succ (last_cpu) or event-mgr */
  sim_cia cia,
  enum sim_stop reason,
@@ -68,13 +73,18 @@ extern void sim_engine_halt
 if ((LAST_CPU) != NULL) CIA_SET (LAST_CPU, CIA)
 #endif
 
+/* NB: If a port uses the SIM_CPU_EXCEPTION_* hooks, the default 
+   SIM_ENGINE_HALT_HOOK and SIM_ENGINE_RESUME_HOOK must not be used.
+   They conflict in that the PC set by the HALT_HOOK may overwrite the
+   proper one, as intended to be saved by the EXCEPTION_TRIGGER
+   hook. */
 
 
 /* restart the simulator *now* */
 
 extern void sim_engine_restart
 (SIM_DESC sd,
- sim_cpu *last_cpu,
+ sim_cpu *last_cpu, /* NULL -> in event-mgr */
  sim_cpu *next_cpu, /* NULL -> succ (last_cpu) or event-mgr */
  sim_cia cia);
 
@@ -106,7 +116,14 @@ extern void sim_engine_abort
  sim_cpu *cpu,
  sim_cia cia,
  const char *fmt,
- ...);
+ ...) __attribute__ ((format (printf, 4, 5)));
+
+extern void sim_engine_vabort
+(SIM_DESC sd,
+ sim_cpu *cpu,
+ sim_cia cia,
+ const char *fmt,
+ va_list ap);
 
 /* No abort hook - when possible this function exits using the
    engine_halt function (and SIM_ENGINE_HALT_HOOK). */

@@ -40,12 +40,13 @@ static int there_is_a_visible_common_named PARAMS ((char *));
 static void info_common_command PARAMS ((char *, int));
 static void list_all_visible_commons PARAMS ((char *));
 static void f77_print_array PARAMS ((struct type *, char *, CORE_ADDR,
-				     FILE *, int, int, int,
+				     GDB_FILE *, int, int, int,
 				     enum val_prettyprint));
 static void f77_print_array_1 PARAMS ((int, int, struct type *, char *,
-				       CORE_ADDR, FILE *, int, int, int,
+				       CORE_ADDR, GDB_FILE *, int, int, int,
 				       enum val_prettyprint));
-static void f77_create_arrayprint_offset_tbl PARAMS ((struct type *, FILE *));
+static void f77_create_arrayprint_offset_tbl PARAMS ((struct type *,
+						      GDB_FILE *));
 static void f77_get_dynamic_length_of_aggregate PARAMS ((struct type *));
 
 int f77_array_offset_tbl[MAX_FORTRAN_DIMS+1][2];
@@ -231,7 +232,7 @@ f77_get_dynamic_length_of_aggregate (type)
 static void 
 f77_create_arrayprint_offset_tbl (type, stream)
      struct type *type;
-     FILE *stream;
+     GDB_FILE *stream;
 {
   struct type *tmp_type;
   int eltlen;
@@ -285,7 +286,7 @@ f77_print_array_1 (nss, ndimensions, type, valaddr, address,
      struct type *type;
      char *valaddr;
      CORE_ADDR address;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int deref_ref;
      int recurse;
@@ -311,6 +312,7 @@ f77_print_array_1 (nss, ndimensions, type, valaddr, address,
 	{
 	  val_print (TYPE_TARGET_TYPE (type),
 		     valaddr + i * F77_DIM_OFFSET (ndimensions),
+                     0,
 		     address + i * F77_DIM_OFFSET (ndimensions),
 		     stream, format, deref_ref, recurse, pretty); 
 
@@ -332,7 +334,7 @@ f77_print_array (type, valaddr, address, stream, format, deref_ref, recurse,
      struct type *type;
      char *valaddr;
      CORE_ADDR address;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int deref_ref;
      int recurse;
@@ -371,12 +373,13 @@ f77_print_array (type, valaddr, address, stream, format, deref_ref, recurse,
    The PRETTY parameter controls prettyprinting.  */
 
 int
-f_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
+f_val_print (type, valaddr, embedded_offset, address, stream, format, deref_ref, recurse,
 	     pretty)
      struct type *type;
      char *valaddr;
+     int embedded_offset;
      CORE_ADDR address;
-     FILE *stream;
+     GDB_FILE *stream;
      int format;
      int deref_ref;
      int recurse;
@@ -392,7 +395,7 @@ f_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
     {
     case TYPE_CODE_STRING: 
       f77_get_dynamic_length_of_aggregate (type);
-      LA_PRINT_STRING (stream, valaddr, TYPE_LENGTH (type), 0);
+      LA_PRINT_STRING (stream, valaddr, TYPE_LENGTH (type), 1, 0);
       break;
       
     case TYPE_CODE_ARRAY:
@@ -434,7 +437,7 @@ f_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	      && TYPE_CODE (elttype) == TYPE_CODE_INT
 	      && (format == 0 || format == 's')
 	      && addr != 0)
-	    i = val_print_string (addr, 0, stream);
+	    i = val_print_string (addr, -1, TYPE_LENGTH (elttype), stream);
 	  
 	  /* Return number of characters printed, plus one for the
 	     terminating null if we have "reached the end".  */
@@ -534,7 +537,7 @@ f_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	      {
 		/* Bash the type code temporarily.  */
 		TYPE_CODE (type) = TYPE_CODE_INT;
-		f_val_print (type, valaddr, address, stream, format, 
+		f_val_print (type, valaddr, 0, address, stream, format, 
 			     deref_ref, recurse, pretty); 
 		/* Restore the type code so later uses work as intended. */
 		TYPE_CODE (type) = TYPE_CODE_BOOL; 
@@ -568,7 +571,7 @@ f_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
     default:
       error ("Invalid F77 type code %d in symbol table.", TYPE_CODE (type));
     }
-  fflush (stream);
+  gdb_flush (stream);
   return 0;
 }
 
@@ -678,7 +681,7 @@ info_common_command (comname, from_tty)
       while (entry != NULL)
 	{
 	  printf_filtered ("%s = ",SYMBOL_NAME(entry->symbol)); 
-	  print_variable_value (entry->symbol,fi,stdout); 
+	  print_variable_value (entry->symbol, fi, gdb_stdout); 
 	  printf_filtered ("\n"); 
 	  entry = entry->next; 
 	}
@@ -757,5 +760,8 @@ void
 _initialize_f_valprint ()
 {
   add_info ("common", info_common_command,
+	    "Print out the values contained in a Fortran COMMON block.");
+  if (xdb_commands)
+    add_com("lc", class_info, info_common_command,
 	    "Print out the values contained in a Fortran COMMON block.");
 }

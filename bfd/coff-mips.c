@@ -1,5 +1,6 @@
 /* BFD back-end for MIPS Extended-Coff files.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Original version by Per Bothner.
    Full support added by Ian Lance Taylor, ian@cygnus.com.
 
@@ -871,7 +872,7 @@ mips_gprel_reloc (abfd,
 	      gp = 4;
 	      _bfd_set_gp_value (output_bfd, gp);
 	      *error_message =
-		(char *) "GP relative relocation when _gp not defined";
+		(char *) _("GP relative relocation when _gp not defined");
 	      return bfd_reloc_dangerous;
 	    }
 	}
@@ -1192,11 +1193,18 @@ mips_relocate_hi (refhi, reflo, input_bfd, input_section, contents, adjust,
   unsigned long val;
   unsigned long vallo;
 
+  if (refhi == NULL)
+    return;
+  
   insn = bfd_get_32 (input_bfd,
 		     contents + adjust + refhi->r_vaddr - input_section->vma);
-  vallo = (bfd_get_32 (input_bfd,
-		       contents + adjust + reflo->r_vaddr - input_section->vma)
-	   & 0xffff);
+  if (reflo == NULL)
+    vallo = 0;
+  else
+    vallo = (bfd_get_32 (input_bfd,
+			 contents + adjust + reflo->r_vaddr - input_section->vma)
+	     & 0xffff);
+ 
   val = ((insn & 0xffff) << 16) + vallo;
   val += relocation;
 
@@ -1312,7 +1320,7 @@ mips_relocate_section (output_bfd, info, input_bfd, input_section,
   for (i = 0; ext_rel < ext_rel_end; ext_rel++, i++)
     {
       struct internal_reloc int_rel;
-      boolean use_lo;
+      boolean use_lo = false;
       bfd_vma addend;
       reloc_howto_type *howto;
       struct ecoff_link_hash_entry *h = NULL;
@@ -1424,7 +1432,7 @@ mips_relocate_section (output_bfd, info, input_bfd, input_section,
 	  if (gp_undefined)
 	    {
 	      if (! ((*info->callbacks->reloc_dangerous)
-		     (info, "GP relative relocation when GP not defined",
+		     (info, _("GP relative relocation when GP not defined"),
 		      input_bfd, input_section,
 		      int_rel.r_vaddr - input_section->vma)))
 		return false;
@@ -2422,7 +2430,7 @@ bfd_mips_ecoff_create_embedded_relocs (abfd, info, datasec, relsec, errmsg)
       /* We can only relocate REFWORD relocs at run time.  */
       if (int_rel.r_type != MIPS_R_REFWORD)
 	{
-	  *errmsg = "unsupported reloc type";
+	  *errmsg = _("unsupported reloc type");
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
 	}
@@ -2459,7 +2467,7 @@ bfd_mips_ecoff_create_embedded_relocs (abfd, info, datasec, relsec, errmsg)
 	    default:
 	      /* No other sections should appear in -membedded-pic
                  code.  */
-	      *errmsg = "reloc against unsupported section";
+	      *errmsg = _("reloc against unsupported section");
 	      bfd_set_error (bfd_error_bad_value);
 	      return false;
 	    }
@@ -2467,7 +2475,7 @@ bfd_mips_ecoff_create_embedded_relocs (abfd, info, datasec, relsec, errmsg)
 
       if ((int_rel.r_offset & 3) != 0)
 	{
-	  *errmsg = "reloc not properly aligned";
+	  *errmsg = _("reloc not properly aligned");
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
 	}
@@ -2588,6 +2596,9 @@ static const struct ecoff_backend_data mips_ecoff_backend_data =
 
 /* Relaxing sections is MIPS specific.  */
 #define _bfd_ecoff_bfd_relax_section mips_relax_section
+
+/* GC of sections is not done.  */
+#define _bfd_ecoff_bfd_gc_sections bfd_generic_gc_sections
 
 const bfd_target ecoff_little_vec =
 {

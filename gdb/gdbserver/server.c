@@ -39,6 +39,8 @@ start_inferior (argv, statusptr)
   return mywait (statusptr);
 }
 
+extern int remote_debug;
+
 int
 main (argc, argv)
      int argc;
@@ -77,6 +79,9 @@ restart:
 	  ch = own_buf[i++];
 	  switch (ch)
 	    {
+	    case 'd':
+	      remote_debug = !remote_debug;
+	      break;
 	    case '!':
 	      extended_protocol = 1;
 	      prepare_resume_reply (own_buf, status, signal);

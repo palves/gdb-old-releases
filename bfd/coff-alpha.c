@@ -877,7 +877,7 @@ alpha_ecoff_get_relocated_section_contents (abfd, link_info, link_order,
 	  if (r == bfd_reloc_ok && gp_undefined)
 	    {
 	      r = bfd_reloc_dangerous;
-	      err = (char *) "GP relative relocation used when GP not defined";
+	      err = (char *) _("GP relative relocation used when GP not defined");
 	    }
 	  break;
 
@@ -914,7 +914,7 @@ alpha_ecoff_get_relocated_section_contents (abfd, link_info, link_order,
 	      {
 		r = bfd_reloc_dangerous;
 		err =
-		  (char *) "GP relative relocation used when GP not defined";
+		  (char *) _("GP relative relocation used when GP not defined");
 	      }
 	  }
 	  break;
@@ -1483,7 +1483,7 @@ alpha_relocate_section (output_bfd, info, input_bfd, input_section,
 	      if (gp && !ecoff_data (output_bfd)->issued_multiple_gp_warning)
 		{
 		  (*info->callbacks->warning) (info,
-					       "using multiple gp values",
+					       _("using multiple gp values"),
 					       (char *) NULL, output_bfd,
 					       (asection *) NULL, (bfd_vma) 0);
 		  ecoff_data (output_bfd)->issued_multiple_gp_warning = true;
@@ -1989,7 +1989,7 @@ alpha_relocate_section (output_bfd, info, input_bfd, input_section,
       if (gp_usedp && gp_undefined)
 	{
 	  if (! ((*info->callbacks->reloc_dangerous)
-		 (info, "GP relative relocation when GP not defined",
+		 (info, _("GP relative relocation when GP not defined"),
 		  input_bfd, input_section, r_vaddr - input_section->vma)))
 	    return false;
 	  /* Only give the error once per link.  */
@@ -2357,6 +2357,7 @@ static const struct ecoff_backend_data alpha_ecoff_backend_data =
 
 /* Relaxing sections is generic.  */
 #define _bfd_ecoff_bfd_relax_section bfd_generic_relax_section
+#define _bfd_ecoff_bfd_gc_sections bfd_generic_gc_sections
 
 const bfd_target ecoffalpha_little_vec =
 {

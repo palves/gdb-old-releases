@@ -1,5 +1,5 @@
 /* Shared code to pre-read a stab (dbx-style), when building a psymtab.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
+   Copyright 1986, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -601,8 +601,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif /* DBXREAD_ONLY */
 	      add_psymbol_to_list (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_BLOCK,
-				   &objfile->static_psymbols, CUR_SYMBOL_VALUE,
-				   0, psymtab_language, objfile);
+				   &objfile->static_psymbols,
+				   0, CUR_SYMBOL_VALUE,
+				   psymtab_language, objfile);
 	      continue;
 
 	      /* Global functions were ignored here, but now they
@@ -646,8 +647,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif /* DBXREAD_ONLY */
 	      add_psymbol_to_list (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_BLOCK,
-				   &objfile->global_psymbols, CUR_SYMBOL_VALUE,
-				   0, psymtab_language, objfile);
+				   &objfile->global_psymbols,
+				   0, CUR_SYMBOL_VALUE,
+				   psymtab_language, objfile);
 	      continue;
 
 	      /* Two things show up here (hopefully); static symbols of
@@ -793,6 +795,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 	case N_LBRAC:
 	case N_NSYMS:		/* Ultrix 4.0: symbol count */
 	case N_DEFD:		/* GNU Modula-2 */
+	case N_ALIAS:		/* SunPro F77: alias name, ignore for now.  */
 
 	case N_OBJ:		/* useless types from Solaris */
 	case N_OPT:

@@ -51,7 +51,7 @@ filter_parse (filter **filters,
       filter **last;
       /* break out a member of the filter list */
       const char *flag = filt;
-      int len;
+      unsigned /*size_t*/ len;
       filt = strchr (filt, ',');
       if (filt == NULL)
 	{
@@ -188,7 +188,7 @@ is_filtered_out (filter *filters,
     /* break the string up */
     char *end = strchr(flags, ',');
     char *next;
-    int len;
+    unsigned /*size_t*/ len;
     if (end == NULL) {
       end = strchr(flags, '\0');
       next = end;

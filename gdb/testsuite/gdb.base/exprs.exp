@@ -139,7 +139,12 @@ test_expr "set variable v_unsigned_short=0x7FFF" "print v_unsigned_short != 0" "
 test_expr "set variable v_unsigned_short=0x7FFF" "print v_unsigned_short < 0" "\\$\[0-9\]* = 0"  "print v_unsigned_short < 0x7FFF" "\\$\[0-9\]* = 0"  "print unsigned short <"
 test_expr "set variable v_unsigned_short=0x7FFF" "print v_unsigned_short > 0" "\\$\[0-9\]* = 1"  "print v_unsigned_short > 0x7FFF" "\\$\[0-9\]* = 0"  "print unsigned short >"
 # make short a minus
-test_expr "set variable v_unsigned_short=~0" "print v_unsigned_short == 0" "\\$\[0-9\]* = 0"  "print v_unsigned_short == ~0" "\\$\[0-9\]* = 0"  "print v_unsigned_short == (unsigned short)~0" "\\$\[0-9\]* = 1"  "print unsigned short == (~0)"
+# note that (unsigned short) ~0 == ~0 iff sizeof(short) == sizeof(int),
+# so we can't test v_unsigned_short != ~0
+test_expr "set variable v_unsigned_short=~0" \
+	"print v_unsigned_short == 0" "\\$\[0-9\]* = 0" \
+	"print v_unsigned_short == (unsigned short)~0" "\\$\[0-9\]* = 1" \
+	"print unsigned short == (~0)"
 test_expr "set variable v_unsigned_short=~0" "print v_unsigned_short != 0" "\\$\[0-9\]* = 1"  "print v_unsigned_short != (unsigned short)~0" "\\$\[0-9\]* = 0"  "print unsigned short != (~0)"
 test_expr "set variable v_unsigned_short=~0" "print v_unsigned_short < 0" "\\$\[0-9\]* = 0"  "print v_unsigned_short < 0x7FFF" "\\$\[0-9\]* = 0"  "print unsigned short < (~0)"
 test_expr "set variable v_unsigned_short=~0" "print v_unsigned_short > 0" "\\$\[0-9\]* = 1"  "print v_unsigned_short > 0x7FFF" "\\$\[0-9\]* = 1"  "print unsigned short > (~0)"

@@ -1,5 +1,5 @@
 /* Extract registers from a "standard" core file, for GDB.
-   Copyright (C) 1988-1995  Free Software Foundation, Inc.
+   Copyright (C) 1988-1998  Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -23,6 +23,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    more machine specific.  */
 
 #include "defs.h"
+
+#ifdef HAVE_PTRACE_H
+# include <ptrace.h>
+#else
+# ifdef HAVE_SYS_PTRACE_H
+#  include <sys/ptrace.h>
+# endif
+#endif
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include "gdbcore.h"
@@ -35,13 +44,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <sys/file.h>
 #include "gdb_stat.h"
 #include <sys/user.h>
-#ifndef NO_PTRACE_H
-# ifdef PTRACE_IN_WRONG_PLACE
-#  include <ptrace.h>
-# else /* !PTRACE_IN_WRONG_PLACE */
-#  include <sys/ptrace.h>
-# endif /* !PTRACE_IN_WRONG_PLACE */
-#endif /* NO_PTRACE_H */
 #endif
 
 #ifndef CORE_REGISTER_ADDR
@@ -53,6 +55,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 
 static void fetch_core_registers PARAMS ((char *, unsigned, int, CORE_ADDR));
+
+void _initialize_core_aout PARAMS ((void));
 
 /* Extract the register values out of the core file and store
    them where `read_register' will find them.
@@ -100,7 +104,7 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
     }
 
   if (bad_reg >= 0)
-    error ("Register %s not found in core file.", reg_names[bad_reg]);
+    error ("Register %s not found in core file.", REGISTER_NAME (bad_reg));
 }
 
 

@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -37,6 +37,35 @@
 
 
 static void
+print_engine_issue_prefix_hook (lf *file)
+{
+  lf_printf (file, "\n");
+  lf_indent_suppress (file);
+  lf_printf (file, "#if defined (%sENGINE_ISSUE_PREFIX_HOOK)\n",
+	     options.module.global.prefix.l);
+  lf_printf (file, "%sENGINE_ISSUE_PREFIX_HOOK();\n",
+	     options.module.global.prefix.l);
+  lf_indent_suppress (file);
+  lf_printf (file, "#endif\n");
+  lf_printf (file, "\n");
+}
+
+static void
+print_engine_issue_postfix_hook (lf *file)
+{
+  lf_printf (file, "\n");
+  lf_indent_suppress (file);
+  lf_printf (file, "#if defined (%sENGINE_ISSUE_POSTFIX_HOOK)\n",
+	     options.module.global.prefix.l);
+  lf_printf (file, "%sENGINE_ISSUE_POSTFIX_HOOK();\n",
+	     options.module.global.prefix.l);
+  lf_indent_suppress (file);
+  lf_printf (file, "#endif\n");
+  lf_printf (file, "\n");
+}
+
+
+static void
 print_run_body (lf *file,
 	        gen_entry *table)
 {
@@ -52,7 +81,7 @@ print_run_body (lf *file,
   lf_indent (file, +2);
   if (!options.gen.smp)
     {
-      lf_printf (file, "instruction_address cia;\n");
+      lf_printf (file, "%sinstruction_address cia;\n", options.module.global.prefix.l);
     }
   lf_printf (file, "int current_cpu = next_cpu_nr;\n");
   
@@ -98,32 +127,17 @@ cache. */
       lf_indent (file, +4);
       
       lf_printf (file, "%sinstruction_address nia;\n",
-		 options.prefix.global.name);
+		 options.module.global.prefix.l);
 
       lf_printf (file, "\n");
       if (!options.gen.icache)
 	{
-	  lf_printf (file, "%sinstruction_word instruction_0 = IMEM (cia);\n",
-		     options.prefix.global.name);
-	  lf_printf (file, "\n");
-	  lf_indent_suppress (file);
-	  lf_printf (file, "#if defined (%sENGINE_ISSUE_PREFIX_HOOK)\n",
-		     options.prefix.global.name);
-	  lf_printf (file, "%sENGINE_ISSUE_PREFIX_HOOK();\n",
-		     options.prefix.global.name);
-	  lf_indent_suppress (file);
-	  lf_printf (file, "#endif\n");
-	  lf_printf (file, "\n");
+	  lf_printf (file, "%sinstruction_word instruction_0 = IMEM%d (cia);\n",
+		     options.module.global.prefix.l,
+		     options.insn_bit_size);
+	  print_engine_issue_prefix_hook (file);
 	  print_idecode_body (file, table, "nia = ");
-	  lf_printf (file, "\n");
-	  lf_indent_suppress (file);
-	  lf_printf (file, "#if defined (%sENGINE_ISSUE_POSTFIX_HOOK)\n",
-		     options.prefix.global.name);
-	  lf_printf (file, "%sENGINE_ISSUE_POSTFIX_HOOK();\n",
-		     options.prefix.global.name);
-	  lf_indent_suppress (file);
-	  lf_printf (file, "#endif\n");
-	  lf_printf (file, "\n");
+	  print_engine_issue_postfix_hook (file);
 	}
       else
 	{
@@ -146,21 +160,26 @@ cache. */
 	    {
 	      lf_putstr (file, "idecode_semantic *semantic;\n");
 	    }
-	  lf_putstr (file, "instruction_word instruction = IMEM (cia);\n");
+	  lf_printf (file, "instruction_word instruction = IMEM%d (cia);\n",
+		     options.insn_bit_size);
 	  lf_putstr (file, "if (WITH_MON != 0)\n");
 	  lf_putstr (file, "  mon_event (mon_event_icache_miss, cpu, cia);\n");
 	  if (options.gen.semantic_icache)
 	    {
 	      lf_putstr (file, "{\n");
 	      lf_indent (file, +2);
+	      print_engine_issue_prefix_hook (file);
 	      print_idecode_body (file, table, "nia =");
+	      print_engine_issue_postfix_hook (file);
 	      lf_indent (file, -2);
 	      lf_putstr (file, "}\n");
 	    }
 	  else
 	    {
+	      print_engine_issue_prefix_hook (file);
 	      print_idecode_body (file, table, "semantic =");
 	      lf_putstr (file, "nia = semantic (cpu, cache_entry, cia);\n");
+	      print_engine_issue_postfix_hook (file);
 	    }
 	  lf_indent (file, -4);
 	  lf_putstr (file, "  }\n");
@@ -186,6 +205,7 @@ cache. */
       lf_putstr (file, "  {\n");
       lf_putstr (file, "    CIA_SET (CPU, cia);\n");
       lf_putstr (file, "    sim_events_process (sd);\n");
+      lf_putstr (file, "    cia = CIA_GET (CPU);\n");
       lf_putstr (file, "  }\n");
 
       lf_indent (file, -4);
@@ -221,9 +241,12 @@ after all the other CPU's and the event queue have been processed */
 
       if (!options.gen.icache)
 	{
-	  lf_putstr (file, "instruction_word instruction_0 = IMEM (cia);\n");
+	  lf_printf (file, "instruction_word instruction_0 = IMEM%d (cia);\n",
+		     options.insn_bit_size);
+	  print_engine_issue_prefix_hook (file);
 	  print_idecode_body (file, table, "cia =");
 	  lf_putstr (file, "CIA_SET (cpu, cia);\n");
+	  print_engine_issue_postfix_hook (file);
 	}
       
       if (options.gen.icache)
@@ -253,21 +276,26 @@ after all the other CPU's and the event queue have been processed */
 	      {
 		lf_putstr (file, "engine_semantic *semantic;\n");
 	      }
-	    lf_putstr (file, "instruction_word instruction = IMEM (cia);\n");
+	    lf_printf (file, "instruction_word instruction = IMEM%d (cia);\n",
+		       options.insn_bit_size);
 	    lf_putstr (file, "if (WITH_MON != 0)\n");
 	    lf_putstr (file, "  mon_event(mon_event_icache_miss, processors[current_cpu], cia);\n");
 	    if (options.gen.semantic_icache)
 	      {
 		lf_putstr (file, "{\n");
 		lf_indent (file, +2);
+		print_engine_issue_prefix_hook (file);
 		print_idecode_body(file, table, "cia =");
+		print_engine_issue_postfix_hook (file);
 		lf_indent (file, -2);
 		lf_putstr (file, "}\n");
 	      }
 	    else
 	      {
+		print_engine_issue_prefix_hook (file);
 		print_idecode_body(file, table, "semantic = ");
 		lf_putstr (file, "cia = semantic(processor, cache_entry, cia);\n");
+		print_engine_issue_postfix_hook (file);
 	      }
 	    /* tail */
 	    lf_putstr (file, "cpu_set_program_counter(processor, cia);\n");
@@ -625,10 +653,13 @@ print_jump_body (lf *file,
       lf_indent (file, +1);
     }
   
+	  print_engine_issue_prefix_hook (file);
   lf_putstr (file, "instruction\n");
   lf_putstr (file, "  = vm_instruction_map_read(cpu_instruction_map(processor),\n");
   lf_putstr (file, "                            processor, nia);\n");
+  print_engine_issue_prefix_hook (file);
   print_idecode_body (file, entry, "/*IGORE*/");
+  print_engine_issue_postfix_hook (file);
   
   /* print out a table of all the internals functions */
   function_entry_traverse (file, isa->functions,
@@ -736,15 +767,9 @@ gen_engine_c(lf *file,
 {
   gen_list *entry;
   /* the intro */
-  lf_printf (file, "#include \"sim-inline.c\"\n");
-  lf_printf (file, "\n");
-  lf_printf (file, "#include \"sim-main.h\"\n");
-  lf_printf (file, "#include \"itable.h\"\n");
-  lf_printf (file, "#include \"idecode.h\"\n");
-  lf_printf (file, "#include \"semantics.h\"\n");
-  lf_printf (file, "#include \"icache.h\"\n");
-  lf_printf (file, "#include \"engine.h\"\n");
-  lf_printf (file, "#include \"support.h\"\n");
+  print_includes (file);
+  print_include_inline (file, options.module.semantics);
+  print_include (file, options.module.engine);
   lf_printf (file, "\n");
   lf_printf (file, "#include \"sim-assert.h\"\n");
   lf_printf (file, "\n");

@@ -53,7 +53,7 @@ extern CORE_ADDR mz8k_skip_prologue PARAMS ((CORE_ADDR ip));
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Sequence of bytes for breakpoint instruction. */
 
@@ -63,12 +63,6 @@ extern CORE_ADDR mz8k_skip_prologue PARAMS ((CORE_ADDR ip));
    define this before including this file.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction.  */
-/* Allow any of the return instructions, including a trapv and a return
-   from interupt.  */
-
-#define ABOUT_TO_RETURN(pc) about_to_return(pc)
 
 /* Say how long registers are.  */
 
@@ -203,6 +197,11 @@ extern CORE_ADDR mz8k_skip_prologue PARAMS ((CORE_ADDR ip));
 
 #define FRAME_ARGS_SKIP 8
 
+#ifdef __STDC__
+struct frame_info;
+#endif
+extern void z8k_frame_init_saved_regs PARAMS ((struct frame_info *));
+#define FRAME_INIT_SAVED_REGS(fi) z8k_frame_init_saved_regs (fi)
 
 
 /* Things needed for making the inferior call functions.
@@ -269,7 +268,8 @@ extern void z8k_pop_frame PARAMS ((void));
 
 #define SP_ARG0 (1 * 4)
 
-#define ADDR_BITS_REMOVE(x) addr_bits_remove(x)
+extern CORE_ADDR z8k_addr_bits_remove PARAMS ((CORE_ADDR));
+#define ADDR_BITS_REMOVE(addr) z8k_addr_bits_remove (addr)
 int sim_z8001_mode;
 #define BIG (sim_z8001_mode)
 

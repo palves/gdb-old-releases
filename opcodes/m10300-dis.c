@@ -1,5 +1,5 @@
 /* Disassemble MN10300 instructions.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "ansidecl.h"
 #include "opcode/mn10300.h" 
 #include "dis-asm.h"
+#include "opintl.h"
 
 static void disassemble PARAMS ((bfd_vma, struct disassemble_info *,
 				 unsigned long insn, unsigned int));
@@ -66,7 +67,8 @@ print_insn_mn10300 (memaddr, info)
       || (insn & 0xfc) == 0xd0
       || (insn & 0xfc) == 0xd4
       || (insn & 0xfc) == 0xd8
-      || (insn & 0xf0) == 0xe0)
+      || (insn & 0xf0) == 0xe0
+      || (insn & 0xff) == 0xff)
     {
       consume = 1;
     }
@@ -236,7 +238,9 @@ disassemble (memaddr, info, insn, size)
 	mysize = 7;
 	
       if ((op->mask & insn) == op->opcode
-	  && size == mysize)
+	  && size == (unsigned int) mysize
+	  && (op->machine == 0
+	      || op->machine == info->mach))
 	{
 	  const unsigned char *opindex_ptr;
 	  unsigned int nocomma;
@@ -406,6 +410,7 @@ disassemble (memaddr, info, insn, size)
 
 	      operand = &mn10300_operands[*opindex_ptr];
 
+
 	      if ((operand->flags & MN10300_OPERAND_SPLIT) != 0)
 		{
 		  unsigned long temp;
@@ -426,7 +431,8 @@ disassemble (memaddr, info, insn, size)
 			   & ((1 << operand->bits) - 1));
 		}
 
-	      if ((operand->flags & MN10300_OPERAND_SIGNED) != 0)
+	      if ((operand->flags & MN10300_OPERAND_SIGNED) != 0
+		  )
 		value = ((long)(value << (32 - operand->bits))
 			  >> (32 - operand->bits));
 
@@ -460,6 +466,7 @@ disassemble (memaddr, info, insn, size)
 	      else if ((operand->flags & MN10300_OPERAND_MDR) != 0)
 		(*info->fprintf_func) (info->stream, "mdr");
 
+
 	      else if ((operand->flags & MN10300_OPERAND_PAREN) != 0)
 		{
 		  if (paren)
@@ -473,7 +480,7 @@ disassemble (memaddr, info, insn, size)
 		}
 
 	      else if ((operand->flags & MN10300_OPERAND_PCREL) != 0)
-		(*info->print_address_func) (value + memaddr, info);
+		(*info->print_address_func) ((long) value + memaddr, info);
 
 	      else if ((operand->flags & MN10300_OPERAND_MEMADDR) != 0)
 		(*info->print_address_func) (value, info);
@@ -520,6 +527,7 @@ disassemble (memaddr, info, insn, size)
 		      (*info->fprintf_func) (info->stream, "other");
 		      comma = 1;
 		    }
+
 		  (*info->fprintf_func) (info->stream, "]");
 		}
 
@@ -534,6 +542,7 @@ disassemble (memaddr, info, insn, size)
 
   if (!match)
     {
-	(*info->fprintf_func) (info->stream, "unknown\t0x%04x", insn);
+      /* xgettext:c-format */
+      (*info->fprintf_func) (info->stream, _("unknown\t0x%04x"), insn);
     }
 }

@@ -52,7 +52,8 @@ static SIM_RC resume_handler PARAMS ((SIM_DESC sd));
 static SIM_RC suspend_handler PARAMS ((SIM_DESC sd));
 
 
-/* Do the actual work of inserting a breakpoint into the instruction stream. */
+/* Do the actual work of inserting a breakpoint into the instruction
+   stream. */
 
 static void
 insert_breakpoint (sd, bp)
@@ -62,9 +63,9 @@ insert_breakpoint (sd, bp)
   if (bp->flags & (SIM_BREAK_INSERTED | SIM_BREAK_DISABLED))
     return;
 
-  sim_core_read_buffer (sd, NULL, sim_core_write_map, bp->loc_contents,
+  sim_core_read_buffer (sd, NULL, exec_map, bp->loc_contents,
 			bp->addr, SIM_BREAKPOINT_SIZE);
-  sim_core_write_buffer (sd, NULL, sim_core_write_map, sim_breakpoint,
+  sim_core_write_buffer (sd, NULL, exec_map, sim_breakpoint,
 			 bp->addr, SIM_BREAKPOINT_SIZE);
   bp->flags |= SIM_BREAK_INSERTED;
 }
@@ -79,9 +80,9 @@ remove_breakpoint (sd, bp)
   if (!(bp->flags & SIM_BREAK_INSERTED))
     return;
 
-  sim_core_write_buffer (sd, NULL, sim_core_write_map, bp->loc_contents,
+  sim_core_write_buffer (sd, NULL, exec_map, bp->loc_contents,
 			 bp->addr, SIM_BREAKPOINT_SIZE);
-  bp->flags &= SIM_BREAK_INSERTED;
+  bp->flags &= ~SIM_BREAK_INSERTED;
 }
 
 /* Come here when a breakpoint insn is hit.  If it's really a breakpoint, we
@@ -160,7 +161,7 @@ sim_set_breakpoint (sd, addr)
     if (bp->addr == addr)
       return SIM_RC_DUPLICATE_BREAKPOINT; /* Already there */
     else
-      break;
+      break; /* FIXME: why not scan all bp's? */
 
   bp = ZALLOC (struct sim_breakpoint);
 

@@ -219,3 +219,9 @@ extern void print_itrace
 extern void print_sim_engine_abort
 (lf *file,
  const char *message);
+
+
+extern void print_include (lf *file, igen_module module);
+extern void print_include_inline  (lf *file, igen_module module);
+extern void print_includes (lf *file);
+

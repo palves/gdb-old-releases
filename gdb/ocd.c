@@ -41,7 +41,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 static int ocd_read_bytes PARAMS ((CORE_ADDR memaddr,
 				      char *myaddr, int len));
 
-static int ocd_start_remote PARAMS ((char *dummy));
+static int ocd_start_remote PARAMS ((PTR dummy));
 
 static int readchar PARAMS ((int timeout));
 
@@ -74,10 +74,11 @@ static int last_run_status;
    other form of hairy serial connection, I would think 2 seconds would
    be plenty.  */
 
+#if 0
 /* FIXME: Change to allow option to set timeout value on a per target
-   basis.
-
+   basis. */
 static int remote_timeout = 2;
+#endif
 
 /* Descriptor for I/O to remote machine.  Initialize it to NULL so that
    ocd_open knows that we don't have a file open when the program
@@ -144,7 +145,7 @@ ocd_close (quitting)
 
 static int
 ocd_start_remote (dummy)
-     char *dummy;
+     PTR dummy;
 {
   unsigned char buf[10], *p;
   int pktlen;
@@ -153,7 +154,7 @@ ocd_start_remote (dummy)
   int speed;
   enum ocd_target_type target_type;
 
-  target_type = (enum ocd_target_type)dummy;
+  target_type = *(enum ocd_target_type*)dummy;
 
   immediate_quit = 1;		/* Allow user to interrupt it */
 
@@ -329,10 +330,13 @@ device the OCD device is attached to (e.g. /dev/ttya).");
   /* Start the remote connection; if error (0), discard this target.
      In particular, if the user quits, be sure to discard it
      (we'd be in an inconsistent state otherwise).  */
-  if (!catch_errors (ocd_start_remote, (char *)target_type,
+  if (!catch_errors (ocd_start_remote, &target_type,
 		     "Couldn't establish connection to remote target\n",
 		     RETURN_MASK_ALL))
-    pop_target();
+    {
+      pop_target();
+      error ("Failed to connect to OCD.");
+    }
 }
 
 /* This takes a program previously attached to and detaches it.  After
@@ -1285,7 +1289,9 @@ ocd_load (args, from_tty)
    not yet supported fully */
    
 #define BDM_BREAKPOINT {0x0,0x0,0x0,0x0} /* For ppc 8xx */
-/* #define BDM_BREAKPOINT {0x4a,0xfa} /* BGND insn used for CPU32 */
+#if 0
+#define BDM_BREAKPOINT {0x4a,0xfa} /* BGND insn used for CPU32 */
+#endif
 
 /* BDM (at least on CPU32) uses a different breakpoint */
 

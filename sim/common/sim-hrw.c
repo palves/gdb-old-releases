@@ -28,7 +28,7 @@ int
 sim_read (SIM_DESC sd, SIM_ADDR mem, unsigned char *buf, int length)
 {
   SIM_ASSERT (STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
-  return sim_core_read_buffer (sd, NULL, sim_core_read_map,
+  return sim_core_read_buffer (sd, NULL, read_map,
 			       buf, mem, length);
 }
 
@@ -36,6 +36,6 @@ int
 sim_write (SIM_DESC sd, SIM_ADDR mem, unsigned char *buf, int length)
 {
   SIM_ASSERT (STATE_MAGIC (sd) == SIM_MAGIC_NUMBER);
-  return sim_core_write_buffer (sd, NULL, sim_core_write_map,
+  return sim_core_write_buffer (sd, NULL, write_map,
 				buf, mem, length);
 }

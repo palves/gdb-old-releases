@@ -6,11 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is the Fifth Edition, April 1998, of `Debugging with GDB: the
-GNU Source-Level Debugger' for GDB Version .
+   This is the Seventh Edition, February 1999, of `Debugging with GDB:
+the GNU Source-Level Debugger' for GDB Version 4.18.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
-1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1988-1999 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -24,6 +23,528 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
+
+
+File: gdb.info,  Node: Nindy Options,  Next: Nindy Reset,  Prev: Nindy Startup,  Up: i960-Nindy Remote
+
+Options for Nindy
+.................
+
+   These are the startup options for beginning your GDB session with a
+Nindy-960 board attached:
+
+`-r PORT'
+     Specify the serial port name of a serial interface to be used to
+     connect to the target system.  This option is only available when
+     GDB is configured for the Intel 960 target architecture.  You may
+     specify PORT as any of: a full pathname (e.g. `-r /dev/ttya'), a
+     device name in `/dev' (e.g. `-r ttya'), or simply the unique
+     suffix for a specific `tty' (e.g. `-r a').
+
+`-O'
+     (An uppercase letter "O", not a zero.)  Specify that GDB should use
+     the "old" Nindy monitor protocol to connect to the target system.
+     This option is only available when GDB is configured for the Intel
+     960 target architecture.
+
+          *Warning:* if you specify `-O', but are actually trying to
+          connect to a target system that expects the newer protocol,
+          the connection fails, appearing to be a speed mismatch.  GDB
+          repeatedly attempts to reconnect at several different line
+          speeds.  You can abort this process with an interrupt.
+
+`-brk'
+     Specify that GDB should first send a `BREAK' signal to the target
+     system, in an attempt to reset it, before connecting to a Nindy
+     target.
+
+          *Warning:* Many target systems do not have the hardware that
+          this requires; it only works with a few boards.
+
+   The standard `-b' option controls the line speed used on the serial
+port.
+
+
+File: gdb.info,  Node: Nindy Reset,  Prev: Nindy Options,  Up: i960-Nindy Remote
+
+Nindy reset command
+...................
+
+`reset'
+     For a Nindy target, this command sends a "break" to the remote
+     target system; this is only useful if the target has been equipped
+     with a circuit to perform a hard reset (or some other interesting
+     action) when a break is detected.
+
+
+File: gdb.info,  Node: UDI29K Remote,  Next: EB29K Remote,  Prev: i960-Nindy Remote,  Up: Remote
+
+The UDI protocol for AMD29K
+---------------------------
+
+   GDB supports AMD's UDI ("Universal Debugger Interface") protocol for
+debugging the a29k processor family.  To use this configuration with
+AMD targets running the MiniMON monitor, you need the program `MONTIP',
+available from AMD at no charge.  You can also use GDB with the
+UDI-conformant a29k simulator program `ISSTIP', also available from AMD.
+
+`target udi KEYWORD'
+     Select the UDI interface to a remote a29k board or simulator, where
+     KEYWORD is an entry in the AMD configuration file `udi_soc'.  This
+     file contains keyword entries which specify parameters used to
+     connect to a29k targets.  If the `udi_soc' file is not in your
+     working directory, you must set the environment variable `UDICONF'
+     to its pathname.
+
+
+File: gdb.info,  Node: EB29K Remote,  Next: VxWorks Remote,  Prev: UDI29K Remote,  Up: Remote
+
+The EBMON protocol for AMD29K
+-----------------------------
+
+   AMD distributes a 29K development board meant to fit in a PC,
+together with a DOS-hosted monitor program called `EBMON'.  As a
+shorthand term, this development system is called the "EB29K".  To use
+GDB from a Unix system to run programs on the EB29K board, you must
+first connect a serial cable between the PC (which hosts the EB29K
+board) and a serial port on the Unix system.  In the following, we
+assume you've hooked the cable between the PC's `COM1' port and
+`/dev/ttya' on the Unix system.
+
+* Menu:
+
+* Comms (EB29K)::               Communications setup
+* gdb-EB29K::                   EB29K cross-debugging
+* Remote Log::                  Remote log
+
+
+File: gdb.info,  Node: Comms (EB29K),  Next: gdb-EB29K,  Up: EB29K Remote
+
+Communications setup
+....................
+
+   The next step is to set up the PC's port, by doing something like
+this in DOS on the PC:
+
+     C:\> MODE com1:9600,n,8,1,none
+
+This example--run on an MS DOS 4.0 system--sets the PC port to 9600
+bps, no parity, eight data bits, one stop bit, and no "retry" action;
+you must match the communications parameters when establishing the Unix
+end of the connection as well.
+
+   To give control of the PC to the Unix side of the serial line, type
+the following at the DOS console:
+
+     C:\> CTTY com1
+
+(Later, if you wish to return control to the DOS console, you can use
+the command `CTTY con'--but you must send it over the device that had
+control, in our example over the `COM1' serial line).
+
+   From the Unix host, use a communications program such as `tip' or
+`cu' to communicate with the PC; for example,
+
+     cu -s 9600 -l /dev/ttya
+
+The `cu' options shown specify, respectively, the linespeed and the
+serial port to use.  If you use `tip' instead, your command line may
+look something like the following:
+
+     tip -9600 /dev/ttya
+
+Your system may require a different name where we show `/dev/ttya' as
+the argument to `tip'.  The communications parameters, including which
+port to use, are associated with the `tip' argument in the "remote"
+descriptions file--normally the system table `/etc/remote'.
+
+   Using the `tip' or `cu' connection, change the DOS working directory
+to the directory containing a copy of your 29K program, then start the
+PC program `EBMON' (an EB29K control program supplied with your board
+by AMD).  You should see an initial display from `EBMON' similar to the
+one that follows, ending with the `EBMON' prompt `#'--
+
+     C:\> G:
+     
+     G:\> CD \usr\joe\work29k
+     
+     G:\USR\JOE\WORK29K> EBMON
+     Am29000 PC Coprocessor Board Monitor, version 3.0-18
+     Copyright 1990 Advanced Micro Devices, Inc.
+     Written by Gibbons and Associates, Inc.
+     
+     Enter '?' or 'H' for help
+     
+     PC Coprocessor Type   = EB29K
+     I/O Base              = 0x208
+     Memory Base           = 0xd0000
+     
+     Data Memory Size      = 2048KB
+     Available I-RAM Range = 0x8000 to 0x1fffff
+     Available D-RAM Range = 0x80002000 to 0x801fffff
+     
+     PageSize              = 0x400
+     Register Stack Size   = 0x800
+     Memory Stack Size     = 0x1800
+     
+     CPU PRL               = 0x3
+     Am29027 Available     = No
+     Byte Write Available  = Yes
+     
+     # ~.
+
+   Then exit the `cu' or `tip' program (done in the example by typing
+`~.' at the `EBMON' prompt).  `EBMON' keeps running, ready for GDB to
+take over.
+
+   For this example, we've assumed what is probably the most convenient
+way to make sure the same 29K program is on both the PC and the Unix
+system: a PC/NFS connection that establishes "drive `G:'" on the PC as
+a file system on the Unix host.  If you do not have PC/NFS or something
+similar connecting the two systems, you must arrange some other
+way--perhaps floppy-disk transfer--of getting the 29K program from the
+Unix system to the PC; GDB does *not* download it over the serial line.
+
+
+File: gdb.info,  Node: gdb-EB29K,  Next: Remote Log,  Prev: Comms (EB29K),  Up: EB29K Remote
+
+EB29K cross-debugging
+.....................
+
+   Finally, `cd' to the directory containing an image of your 29K
+program on the Unix system, and start GDB--specifying as argument the
+name of your 29K program:
+
+     cd /usr/joe/work29k
+     gdb myfoo
+
+   Now you can use the `target' command:
+
+     target amd-eb /dev/ttya 9600 MYFOO
+
+In this example, we've assumed your program is in a file called
+`myfoo'.  Note that the filename given as the last argument to `target
+amd-eb' should be the name of the program as it appears to DOS.  In our
+example this is simply `MYFOO', but in general it can include a DOS
+path, and depending on your transfer mechanism may not resemble the
+name on the Unix side.
+
+   At this point, you can set any breakpoints you wish; when you are
+ready to see your program run on the 29K board, use the GDB command
+`run'.
+
+   To stop debugging the remote program, use the GDB `detach' command.
+
+   To return control of the PC to its console, use `tip' or `cu' once
+again, after your GDB session has concluded, to attach to `EBMON'.  You
+can then type the command `q' to shut down `EBMON', returning control
+to the DOS command-line interpreter.  Type `CTTY con' to return command
+input to the main DOS console, and type `~.' to leave `tip' or `cu'.
+
+
+File: gdb.info,  Node: Remote Log,  Prev: gdb-EB29K,  Up: EB29K Remote
+
+Remote log
+..........
+
+   The `target amd-eb' command creates a file `eb.log' in the current
+working directory, to help debug problems with the connection.
+`eb.log' records all the output from `EBMON', including echoes of the
+commands sent to it.  Running `tail -f' on this file in another window
+often helps to understand trouble with `EBMON', or unexpected events on
+the PC side of the connection.
+
+
+File: gdb.info,  Node: ST2000 Remote,  Next: Hitachi Remote,  Prev: VxWorks Remote,  Up: Remote
+
+GDB with a Tandem ST2000
+------------------------
+
+   To connect your ST2000 to the host system, see the manufacturer's
+manual.  Once the ST2000 is physically attached, you can run:
+
+     target st2000 DEV SPEED
+
+to establish it as your debugging environment.  DEV is normally the
+name of a serial device, such as `/dev/ttya', connected to the ST2000
+via a serial line.  You can instead specify DEV as a TCP connection
+(for example, to a serial line attached via a terminal concentrator)
+using the syntax `HOSTNAME:PORTNUMBER'.
+
+   The `load' and `attach' commands are *not* defined for this target;
+you must load your program into the ST2000 as you normally would for
+standalone operation.  GDB reads debugging information (such as
+symbols) from a separate, debugging version of the program available on
+your host computer.
+
+   These auxiliary GDB commands are available to help you with the
+ST2000 environment:
+
+`st2000 COMMAND'
+     Send a COMMAND to the STDBUG monitor.  See the manufacturer's
+     manual for available commands.
+
+`connect'
+     Connect the controlling terminal to the STDBUG command monitor.
+     When you are done interacting with STDBUG, typing either of two
+     character sequences gets you back to the GDB command prompt:
+     `<RET>~.' (Return, followed by tilde and period) or `<RET>~<C-d>'
+     (Return, followed by tilde and control-D).
+
+
+File: gdb.info,  Node: VxWorks Remote,  Next: ST2000 Remote,  Prev: EB29K Remote,  Up: Remote
+
+GDB and VxWorks
+---------------
+
+   GDB enables developers to spawn and debug tasks running on networked
+VxWorks targets from a Unix host.  Already-running tasks spawned from
+the VxWorks shell can also be debugged.  GDB uses code that runs on
+both the Unix host and on the VxWorks target.  The program `gdb' is
+installed and executed on the Unix host.  (It may be installed with the
+name `vxgdb', to distinguish it from a GDB for debugging programs on
+the host itself.)
+
+`VxWorks-timeout ARGS'
+     All VxWorks-based targets now support the option `vxworks-timeout'.
+     This option is set by the user, and  ARGS represents the number of
+     seconds GDB waits for responses to rpc's.  You might use this if
+     your VxWorks target is a slow software simulator or is on the far
+     side of a thin network line.
+
+   The following information on connecting to VxWorks was current when
+this manual was produced; newer releases of VxWorks may use revised
+procedures.
+
+   To use GDB with VxWorks, you must rebuild your VxWorks kernel to
+include the remote debugging interface routines in the VxWorks library
+`rdb.a'.  To do this, define `INCLUDE_RDB' in the VxWorks configuration
+file `configAll.h' and rebuild your VxWorks kernel.  The resulting
+kernel contains `rdb.a', and spawns the source debugging task
+`tRdbTask' when VxWorks is booted.  For more information on configuring
+and remaking VxWorks, see the manufacturer's manual.
+
+   Once you have included `rdb.a' in your VxWorks system image and set
+your Unix execution search path to find GDB, you are ready to run GDB.
+From your Unix host, run `gdb' (or `vxgdb', depending on your
+installation).
+
+   GDB comes up showing the prompt:
+
+     (vxgdb)
+
+* Menu:
+
+* VxWorks Connection::          Connecting to VxWorks
+* VxWorks Download::            VxWorks download
+* VxWorks Attach::              Running tasks
+
+
+File: gdb.info,  Node: VxWorks Connection,  Next: VxWorks Download,  Up: VxWorks Remote
+
+Connecting to VxWorks
+.....................
+
+   The GDB command `target' lets you connect to a VxWorks target on the
+network.  To connect to a target whose host name is "`tt'", type:
+
+     (vxgdb) target vxworks tt
+
+   GDB displays messages like these:
+
+     Attaching remote machine across net...
+     Connected to tt.
+
+   GDB then attempts to read the symbol tables of any object modules
+loaded into the VxWorks target since it was last booted.  GDB locates
+these files by searching the directories listed in the command search
+path (*note Your program's environment: Environment.); if it fails to
+find an object file, it displays a message such as:
+
+     prog.o: No such file or directory.
+
+   When this happens, add the appropriate directory to the search path
+with the GDB command `path', and execute the `target' command again.
+
+
+File: gdb.info,  Node: VxWorks Download,  Next: VxWorks Attach,  Prev: VxWorks Connection,  Up: VxWorks Remote
+
+VxWorks download
+................
+
+   If you have connected to the VxWorks target and you want to debug an
+object that has not yet been loaded, you can use the GDB `load' command
+to download a file from Unix to VxWorks incrementally.  The object file
+given as an argument to the `load' command is actually opened twice:
+first by the VxWorks target in order to download the code, then by GDB
+in order to read the symbol table.  This can lead to problems if the
+current working directories on the two systems differ.  If both systems
+have NFS mounted the same filesystems, you can avoid these problems by
+using absolute paths.  Otherwise, it is simplest to set the working
+directory on both systems to the directory in which the object file
+resides, and then to reference the file by its name, without any path.
+For instance, a program `prog.o' may reside in `VXPATH/vw/demo/rdb' in
+VxWorks and in `HOSTPATH/vw/demo/rdb' on the host.  To load this
+program, type this on VxWorks:
+
+     -> cd "VXPATH/vw/demo/rdb"
+   v Then, in GDB, type:
+
+     (vxgdb) cd HOSTPATH/vw/demo/rdb
+     (vxgdb) load prog.o
+
+   GDB displays a response similar to this:
+
+     Reading symbol data from wherever/vw/demo/rdb/prog.o... done.
+
+   You can also use the `load' command to reload an object module after
+editing and recompiling the corresponding source file.  Note that this
+makes GDB delete all currently-defined breakpoints, auto-displays, and
+convenience variables, and to clear the value history.  (This is
+necessary in order to preserve the integrity of debugger data
+structures that reference the target system's symbol table.)
+
+
+File: gdb.info,  Node: VxWorks Attach,  Prev: VxWorks Download,  Up: VxWorks Remote
+
+Running tasks
+.............
+
+   You can also attach to an existing task using the `attach' command as
+follows:
+
+     (vxgdb) attach TASK
+
+where TASK is the VxWorks hexadecimal task ID.  The task can be running
+or suspended when you attach to it.  Running tasks are suspended at the
+time of attachment.
+
+
+File: gdb.info,  Node: Sparclet Remote,  Next: Simulator,  Prev: MIPS Remote,  Up: Remote
+
+GDB and Sparclet
+----------------
+
+   GDB enables developers to debug tasks running on Sparclet targets
+from a Unix host.  GDB uses code that runs on both the Unix host and on
+the Sparclet target.  The program `gdb' is installed and executed on
+the Unix host.
+
+`timeout ARGS'
+     GDB now supports the option `remotetimeout'.  This option is set
+     by the user, and  ARGS represents the number of seconds GDB waits
+     for responses.
+
+   When compiling for debugging, include the options "-g" to get debug
+information and "-Ttext" to relocate the program to where you wish to
+load it on the target.  You may also want to add the options "-n" or
+"-N" in order to reduce the size of the sections.
+
+     sparclet-aout-gcc prog.c -Ttext 0x12010000 -g -o prog -N
+
+   You can use objdump to verify that the addresses are what you
+intended.
+
+     sparclet-aout-objdump --headers --syms prog
+
+   Once you have set your Unix execution search path to find GDB, you
+are ready to run GDB.  From your Unix host, run `gdb' (or
+`sparclet-aout-gdb', depending on your installation).
+
+   GDB comes up showing the prompt:
+
+     (gdbslet)
+
+* Menu:
+
+* Sparclet File::                Setting the file to debug
+* Sparclet Connection::          Connecting to Sparclet
+* Sparclet Download::            Sparclet download
+* Sparclet Execution::           Running and debugging
+
+
+File: gdb.info,  Node: Sparclet File,  Next: Sparclet Connection,  Up: Sparclet Remote
+
+Setting file to debug
+.....................
+
+   The GDB command `file' lets you choose with program to debug.
+
+     (gdbslet) file prog
+
+   GDB then attempts to read the symbol table of `prog'.  GDB locates
+the file by searching the directories listed in the command search path.
+If the file was compiled with debug information (option "-g"), source
+files will be searched as well.  GDB locates the source files by
+searching the directories listed in the directory search path (*note
+Your program's environment: Environment.).  If it fails to find a file,
+it displays a message such as:
+
+     prog: No such file or directory.
+
+   When this happens, add the appropriate directories to the search
+paths with the GDB commands `path' and `dir', and execute the `target'
+command again.
+
+
+File: gdb.info,  Node: Sparclet Connection,  Next: Sparclet Download,  Prev: Sparclet File,  Up: Sparclet Remote
+
+Connecting to Sparclet
+......................
+
+   The GDB command `target' lets you connect to a Sparclet target.  To
+connect to a target on serial port "`ttya'", type:
+
+     (gdbslet) target sparclet /dev/ttya
+     Remote target sparclet connected to /dev/ttya
+     main () at ../prog.c:3
+
+   GDB displays messages like these:
+
+     Connected to ttya.
+
+
+File: gdb.info,  Node: Sparclet Download,  Next: Sparclet Execution,  Prev: Sparclet Connection,  Up: Sparclet Remote
+
+Sparclet download
+.................
+
+   Once connected to the Sparclet target, you can use the GDB `load'
+command to download the file from the host to the target.  The file
+name and load offset should be given as arguments to the `load' command.
+Since the file format is aout, the program must be loaded to the
+starting address.  You can use objdump to find out what this value is.
+The load offset is an offset which is added to the VMA (virtual memory
+address) of each of the file's sections.  For instance, if the program
+`prog' was linked to text address 0x1201000, with data at 0x12010160
+and bss at 0x12010170, in GDB, type:
+
+     (gdbslet) load prog 0x12010000
+     Loading section .text, size 0xdb0 vma 0x12010000
+
+   If the code is loaded at a different address then what the program
+was linked to, you may need to use the `section' and `add-symbol-file'
+commands to tell GDB where to map the symbol table.
+
+
+File: gdb.info,  Node: Sparclet Execution,  Prev: Sparclet Download,  Up: Sparclet Remote
+
+Running and debugging
+.....................
+
+   You can now begin debugging the task using GDB's execution control
+commands, `b', `step', `run', etc.  See the GDB manual for the list of
+commands.
+
+     (gdbslet) b main
+     Breakpoint 1 at 0x12010000: file prog.c, line 3.
+     (gdbslet) run
+     Starting program: prog
+     Breakpoint 1, main (argc=1, argv=0xeffff21c) at prog.c:3
+     3        char *symarg = 0;
+     (gdbslet) step
+     4        char *execarg = "hello!";
+     (gdbslet)
 
 
 File: gdb.info,  Node: Hitachi Remote,  Next: MIPS Remote,  Prev: ST2000 Remote,  Up: Remote
@@ -176,15 +697,15 @@ GDB also supports these special commands for MIPS targets:
 `show mipsfpu'
      If your target board does not support the MIPS floating point
      coprocessor, you should use the command `set mipsfpu none' (if you
-     need this, you may wish to put the command in your .gdbinit file).
-     This tells GDB how to find the return value of functions which
-     return floating point values.  It also allows GDB to avoid saving
-     the floating point registers when calling functions on the board.
-     If you are using a floating point coprocessor with only single
-     precision floating point support, as on the R4650 processor, use
-     the command `set mipsfpu single'.  The default double precision
-     floating point coprocessor may be selected using `set mipsfpu
-     double'.
+     need this, you may wish to put the command in your {No Value For
+     "GDBINIT"} file).  This tells GDB how to find the return value of
+     functions which return floating point values.  It also allows GDB
+     to avoid saving the floating point registers when calling
+     functions on the board.  If you are using a floating point
+     coprocessor with only single precision floating point support, as
+     on the R4650 processor, use the command `set mipsfpu single'.  The
+     default double precision floating point coprocessor may be
+     selected using `set mipsfpu double'.
 
      In previous versions the only choices were double precision or no
      floating point, so `set mipsfpu on' will select double precision
@@ -226,18 +747,19 @@ Simulated CPU target
 --------------------
 
    For some configurations, GDB includes a CPU simulator that you can
-use instead of a hardware CPU to debug your programs.  Currently, a
-simulator is available when GDB is configured to debug Zilog Z8000 or
-Hitachi microprocessor targets.
+use instead of a hardware CPU to debug your programs.  Currently,
+simulators are available for ARM, D10V, D30V, FR30, H8/300, H8/500,
+i960, M32R, MIPS, MN10200, MN10300, PowerPC, SH, Sparc, V850, W65, and
+Z8000.
 
    For the Z8000 family, `target sim' simulates either the Z8002 (the
 unsegmented variant of the Z8000 architecture) or the Z8001 (the
 segmented variant).  The simulator recognizes which architecture is
 appropriate by inspecting the object code.
 
-`target sim'
-     Debug programs on a simulated CPU (which CPU depends on the GDB
-     configuration)
+`target sim ARGS'
+     Debug programs on a simulated CPU.  If the simulator supports setup
+     options, specify them via ARGS.
 
 After specifying this target, you can debug programs for the simulated
 CPU in the same style as programs for your host computer; use the
@@ -245,7 +767,7 @@ CPU in the same style as programs for your host computer; use the
 your program, and so on.
 
    As well as making available all the usual machine registers (see
-`info reg'), this debugging target provides three additional items of
+`info reg'), the Z8000 simulator provides three additional items of
 information as specially named registers:
 
 `cycles'
@@ -281,7 +803,7 @@ settings: Print Settings.; other settings are described here.
 * Messages/Warnings::           Optional warnings and messages
 
 
-File: gdb.info,  Node: Prompt,  Next: Editing,  Up: Controlling GDB
+File: gdb.info,  Node: Prompt,  Next: Editing,  Prev: Controlling GDB,  Up: Controlling GDB
 
 Prompt
 ======
@@ -544,12 +1066,12 @@ for execution as a unit: user-defined commands and command files.
 * Menu:
 
 * Define::                      User-defined commands
-* Hooks::			User-defined command hooks
+* Hooks::                       User-defined command hooks
 * Command Files::               Command files
 * Output::                      Commands for controlled output
 
 
-File: gdb.info,  Node: Define,  Next: Hooks,  Up: Sequences
+File: gdb.info,  Node: Define,  Next: Hooks,  Prev: Sequences,  Up: Sequences
 
 User-defined commands
 =====================
@@ -680,14 +1202,14 @@ in a command file does nothing; it does not mean to repeat the last
 command, as it would from the terminal.
 
    When you start GDB, it automatically executes commands from its
-"init files".  These are files named `.gdbinit'.  GDB reads the init
-file (if any) in your home directory, then processes command line
-options and operands, and then reads the init file (if any) in the
-current working directory.  This is so the init file in your home
-directory can set options (such as `set complaints') which affect the
-processing of the command line options and operands.  The init files
-are not executed if you use the `-nx' option; *note Choosing modes:
-Mode Options..
+"init files".  These are files named `.gdbinit' on Unix, or `gdb.ini'
+on DOS/Windows.  GDB reads the init file (if any) in your home
+directory, then processes command line options and operands, and then
+reads the init file (if any) in the current working directory.  This is
+so the init file in your home directory can set options (such as `set
+complaints') which affect the processing of the command line options
+and operands.  The init files are not executed if you use the `-nx'
+option; *note Choosing modes: Mode Options..
 
    On some configurations of GDB, the init file is known by a different
 name (these are typically environments where a specialized form of GDB
@@ -777,538 +1299,4 @@ want.
      The only backslash-escape sequences that you can use in the format
      string are the simple ones that consist of backslash followed by a
      letter.
-
-
-File: gdb.info,  Node: Emacs,  Next: GDB Bugs,  Prev: Sequences,  Up: Top
-
-Using GDB under GNU Emacs
-*************************
-
-   A special interface allows you to use GNU Emacs to view (and edit)
-the source files for the program you are debugging with GDB.
-
-   To use this interface, use the command `M-x gdb' in Emacs.  Give the
-executable file you want to debug as an argument.  This command starts
-GDB as a subprocess of Emacs, with input and output through a newly
-created Emacs buffer.
-
-   Using GDB under Emacs is just like using GDB normally except for two
-things:
-
-   * All "terminal" input and output goes through the Emacs buffer.
-
-   This applies both to GDB commands and their output, and to the input
-and output done by the program you are debugging.
-
-   This is useful because it means that you can copy the text of
-previous commands and input them again; you can even use parts of the
-output in this way.
-
-   All the facilities of Emacs' Shell mode are available for interacting
-with your program.  In particular, you can send signals the usual
-way--for example, `C-c C-c' for an interrupt, `C-c C-z' for a stop.
-
-   * GDB displays source code through Emacs.
-
-   Each time GDB displays a stack frame, Emacs automatically finds the
-source file for that frame and puts an arrow (`=>') at the left margin
-of the current line.  Emacs uses a separate buffer for source display,
-and splits the screen to show both your GDB session and the source.
-
-   Explicit GDB `list' or search commands still produce output as
-usual, but you probably have no reason to use them from Emacs.
-
-     *Warning:* If the directory where your program resides is not your
-     current directory, it can be easy to confuse Emacs about the
-     location of the source files, in which case the auxiliary display
-     buffer does not appear to show your source.  GDB can find programs
-     by searching your environment's `PATH' variable, so the GDB input
-     and output session proceeds normally; but Emacs does not get
-     enough information back from GDB to locate the source files in
-     this situation.  To avoid this problem, either start GDB mode from
-     the directory where your program resides, or specify an absolute
-     file name when prompted for the `M-x gdb' argument.
-
-     A similar confusion can result if you use the GDB `file' command to
-     switch to debugging a program in some other location, from an
-     existing GDB buffer in Emacs.
-
-   By default, `M-x gdb' calls the program called `gdb'.  If you need
-to call GDB by a different name (for example, if you keep several
-configurations around, with different names) you can set the Emacs
-variable `gdb-command-name'; for example,
-
-     (setq gdb-command-name "mygdb")
-
-(preceded by `ESC ESC', or typed in the `*scratch*' buffer, or in your
-`.emacs' file) makes Emacs call the program named "`mygdb'" instead.
-
-   In the GDB I/O buffer, you can use these special Emacs commands in
-addition to the standard Shell mode commands:
-
-`C-h m'
-     Describe the features of Emacs' GDB Mode.
-
-`M-s'
-     Execute to another source line, like the GDB `step' command; also
-     update the display window to show the current file and location.
-
-`M-n'
-     Execute to next source line in this function, skipping all function
-     calls, like the GDB `next' command.  Then update the display window
-     to show the current file and location.
-
-`M-i'
-     Execute one instruction, like the GDB `stepi' command; update
-     display window accordingly.
-
-`M-x gdb-nexti'
-     Execute to next instruction, using the GDB `nexti' command; update
-     display window accordingly.
-
-`C-c C-f'
-     Execute until exit from the selected stack frame, like the GDB
-     `finish' command.
-
-`M-c'
-     Continue execution of your program, like the GDB `continue'
-     command.
-
-     *Warning:* In Emacs v19, this command is `C-c C-p'.
-
-`M-u'
-     Go up the number of frames indicated by the numeric argument
-     (*note Numeric Arguments: (Emacs)Arguments.), like the GDB `up'
-     command.
-
-     *Warning:* In Emacs v19, this command is `C-c C-u'.
-
-`M-d'
-     Go down the number of frames indicated by the numeric argument,
-     like the GDB `down' command.
-
-     *Warning:* In Emacs v19, this command is `C-c C-d'.
-
-`C-x &'
-     Read the number where the cursor is positioned, and insert it at
-     the end of the GDB I/O buffer.  For example, if you wish to
-     disassemble code around an address that was displayed earlier,
-     type `disassemble'; then move the cursor to the address display,
-     and pick up the argument for `disassemble' by typing `C-x &'.
-
-     You can customize this further by defining elements of the list
-     `gdb-print-command'; once it is defined, you can format or
-     otherwise process numbers picked up by `C-x &' before they are
-     inserted.  A numeric argument to `C-x &' indicates that you wish
-     special formatting, and also acts as an index to pick an element
-     of the list.  If the list element is a string, the number to be
-     inserted is formatted using the Emacs function `format'; otherwise
-     the number is passed as an argument to the corresponding list
-     element.
-
-   In any source file, the Emacs command `C-x SPC' (`gdb-break') tells
-GDB to set a breakpoint on the source line point is on.
-
-   If you accidentally delete the source-display buffer, an easy way to
-get it back is to type the command `f' in the GDB buffer, to request a
-frame display; when you run under Emacs, this recreates the source
-buffer if necessary to show you the context of the current frame.
-
-   The source files displayed in Emacs are in ordinary Emacs buffers
-which are visiting the source files in the usual way.  You can edit the
-files with these buffers if you wish; but keep in mind that GDB
-communicates with Emacs in terms of line numbers.  If you add or delete
-lines from the text, the line numbers that GDB knows cease to
-correspond properly with the code.
-
-
-File: gdb.info,  Node: GDB Bugs,  Next: Command Line Editing,  Prev: Emacs,  Up: Top
-
-Reporting Bugs in GDB
-*********************
-
-   Your bug reports play an essential role in making GDB reliable.
-
-   Reporting a bug may help you by bringing a solution to your problem,
-or it may not.  But in any case the principal function of a bug report
-is to help the entire community by making the next version of GDB work
-better.  Bug reports are your contribution to the maintenance of GDB.
-
-   In order for a bug report to serve its purpose, you must include the
-information that enables us to fix the bug.
-
-* Menu:
-
-* Bug Criteria::                Have you found a bug?
-* Bug Reporting::               How to report bugs
-
-
-File: gdb.info,  Node: Bug Criteria,  Next: Bug Reporting,  Up: GDB Bugs
-
-Have you found a bug?
-=====================
-
-   If you are not sure whether you have found a bug, here are some
-guidelines:
-
-   * If the debugger gets a fatal signal, for any input whatever, that
-     is a GDB bug.  Reliable debuggers never crash.
-
-   * If GDB produces an error message for valid input, that is a bug.
-
-   * If GDB does not produce an error message for invalid input, that
-     is a bug.  However, you should note that your idea of "invalid
-     input" might be our idea of "an extension" or "support for
-     traditional practice".
-
-   * If you are an experienced user of debugging tools, your suggestions
-     for improvement of GDB are welcome in any case.
-
-
-File: gdb.info,  Node: Bug Reporting,  Prev: Bug Criteria,  Up: GDB Bugs
-
-How to report bugs
-==================
-
-   A number of companies and individuals offer support for GNU products.
-If you obtained GDB from a support organization, we recommend you
-contact that organization first.
-
-   You can find contact information for many support companies and
-individuals in the file `etc/SERVICE' in the GNU Emacs distribution.
-
-   In any event, we also recommend that you send bug reports for GDB to
-one of these addresses:
-
-     bug-gdb@prep.ai.mit.edu
-     {ucbvax|mit-eddie|uunet}!prep.ai.mit.edu!bug-gdb
-
-   *Do not send bug reports to `info-gdb', or to `help-gdb', or to any
-newsgroups.* Most users of GDB do not want to receive bug reports.
-Those that do have arranged to receive `bug-gdb'.
-
-   The mailing list `bug-gdb' has a newsgroup `gnu.gdb.bug' which
-serves as a repeater.  The mailing list and the newsgroup carry exactly
-the same messages.  Often people think of posting bug reports to the
-newsgroup instead of mailing them.  This appears to work, but it has one
-problem which can be crucial: a newsgroup posting often lacks a mail
-path back to the sender.  Thus, if we need to ask for more information,
-we may be unable to reach you.  For this reason, it is better to send
-bug reports to the mailing list.
-
-   As a last resort, send bug reports on paper to:
-
-     GNU Debugger Bugs
-     Free Software Foundation Inc.
-     59 Temple Place - Suite 330
-     Boston, MA 02111-1307
-     USA
-
-   The fundamental principle of reporting bugs usefully is this:
-*report all the facts*.  If you are not sure whether to state a fact or
-leave it out, state it!
-
-   Often people omit facts because they think they know what causes the
-problem and assume that some details do not matter.  Thus, you might
-assume that the name of the variable you use in an example does not
-matter.  Well, probably it does not, but one cannot be sure.  Perhaps
-the bug is a stray memory reference which happens to fetch from the
-location where that name is stored in memory; perhaps, if the name were
-different, the contents of that location would fool the debugger into
-doing the right thing despite the bug.  Play it safe and give a
-specific, complete example.  That is the easiest thing for you to do,
-and the most helpful.
-
-   Keep in mind that the purpose of a bug report is to enable us to fix
-the bug if it is new to us.  Therefore, always write your bug reports on
-the assumption that the bug has not been reported previously.
-
-   Sometimes people give a few sketchy facts and ask, "Does this ring a
-bell?"  Those bug reports are useless, and we urge everyone to *refuse
-to respond to them* except to chide the sender to report bugs properly.
-
-   To enable us to fix the bug, you should include all these things:
-
-   * The version of GDB.  GDB announces it if you start with no
-     arguments; you can also print it at any time using `show version'.
-
-     Without this, we will not know whether there is any point in
-     looking for the bug in the current version of GDB.
-
-   * The type of machine you are using, and the operating system name
-     and version number.
-
-   * What compiler (and its version) was used to compile GDB--e.g.
-     "gcc-2.0".
-
-   * What compiler (and its version) was used to compile the program you
-     are debugging--e.g.  "gcc-2.0".
-
-   * The command arguments you gave the compiler to compile your
-     example and observe the bug.  For example, did you use `-O'?  To
-     guarantee you will not omit something important, list them all.  A
-     copy of the Makefile (or the output from make) is sufficient.
-
-     If we were to try to guess the arguments, we would probably guess
-     wrong and then we might not encounter the bug.
-
-   * A complete input script, and all necessary source files, that will
-     reproduce the bug.
-
-   * A description of what behavior you observe that you believe is
-     incorrect.  For example, "It gets a fatal signal."
-
-     Of course, if the bug is that GDB gets a fatal signal, then we will
-     certainly notice it.  But if the bug is incorrect output, we might
-     not notice unless it is glaringly wrong.  You might as well not
-     give us a chance to make a mistake.
-
-     Even if the problem you experience is a fatal signal, you should
-     still say so explicitly.  Suppose something strange is going on,
-     such as, your copy of GDB is out of synch, or you have encountered
-     a bug in the C library on your system.  (This has happened!)  Your
-     copy might crash and ours would not.  If you told us to expect a
-     crash, then when ours fails to crash, we would know that the bug
-     was not happening for us.  If you had not told us to expect a
-     crash, then we would not be able to draw any conclusion from our
-     observations.
-
-   * If you wish to suggest changes to the GDB source, send us context
-     diffs.  If you even discuss something in the GDB source, refer to
-     it by context, not by line number.
-
-     The line numbers in our development sources will not match those
-     in your sources.  Your line numbers would convey no useful
-     information to us.
-
-   Here are some things that are not necessary:
-
-   * A description of the envelope of the bug.
-
-     Often people who encounter a bug spend a lot of time investigating
-     which changes to the input file will make the bug go away and which
-     changes will not affect it.
-
-     This is often time consuming and not very useful, because the way
-     we will find the bug is by running a single example under the
-     debugger with breakpoints, not by pure deduction from a series of
-     examples.  We recommend that you save your time for something else.
-
-     Of course, if you can find a simpler example to report *instead*
-     of the original one, that is a convenience for us.  Errors in the
-     output will be easier to spot, running under the debugger will take
-     less time, and so on.
-
-     However, simplification is not vital; if you do not want to do
-     this, report the bug anyway and send us the entire test case you
-     used.
-
-   * A patch for the bug.
-
-     A patch for the bug does help us if it is a good one.  But do not
-     omit the necessary information, such as the test case, on the
-     assumption that a patch is all we need.  We might see problems
-     with your patch and decide to fix the problem another way, or we
-     might not understand it at all.
-
-     Sometimes with a program as complicated as GDB it is very hard to
-     construct an example that will make the program follow a certain
-     path through the code.  If you do not send us the example, we will
-     not be able to construct one, so we will not be able to verify
-     that the bug is fixed.
-
-     And if we cannot understand what bug you are trying to fix, or why
-     your patch should be an improvement, we will not install it.  A
-     test case will help us to understand.
-
-   * A guess about what the bug is or what it depends on.
-
-     Such guesses are usually wrong.  Even we cannot guess right about
-     such things without first using the debugger to find the facts.
-
-
-File: gdb.info,  Node: Command Line Editing,  Next: Using History Interactively,  Prev: GDB Bugs,  Up: Top
-
-Command Line Editing
-********************
-
-   This text describes GNU's command line editing interface.
-
-* Menu:
-
-* Introduction and Notation::	Notation used in this text.
-* Readline Interaction::	The minimum set of commands for editing a line.
-* Readline Init File::		Customizing Readline from a user's view.
-
-
-File: gdb.info,  Node: Introduction and Notation,  Next: Readline Interaction,  Up: Command Line Editing
-
-Introduction to Line Editing
-============================
-
-   The following paragraphs describe the notation we use to represent
-keystrokes.
-
-   The text <C-k> is read as `Control-K' and describes the character
-produced when the Control key is depressed and the <k> key is struck.
-
-   The text <M-k> is read as `Meta-K' and describes the character
-produced when the meta key (if you have one) is depressed, and the <k>
-key is struck.  If you do not have a meta key, the identical keystroke
-can be generated by typing <ESC> first, and then typing <k>.  Either
-process is known as "metafying" the <k> key.
-
-   The text <M-C-k> is read as `Meta-Control-k' and describes the
-character produced by "metafying" <C-k>.
-
-   In addition, several keys have their own names.  Specifically,
-<DEL>, <ESC>, <LFD>, <SPC>, <RET>, and <TAB> all stand for themselves
-when seen in this text, or in an init file (*note Readline Init
-File::., for more info).
-
-
-File: gdb.info,  Node: Readline Interaction,  Next: Readline Init File,  Prev: Introduction and Notation,  Up: Command Line Editing
-
-Readline Interaction
-====================
-
-   Often during an interactive session you type in a long line of text,
-only to notice that the first word on the line is misspelled.  The
-Readline library gives you a set of commands for manipulating the text
-as you type it in, allowing you to just fix your typo, and not forcing
-you to retype the majority of the line.  Using these editing commands,
-you move the cursor to the place that needs correction, and delete or
-insert the text of the corrections.  Then, when you are satisfied with
-the line, you simply press <RET>.  You do not have to be at the end of
-the line to press <RET>; the entire line is accepted regardless of the
-location of the cursor within the line.
-
-* Menu:
-
-* Readline Bare Essentials::	The least you need to know about Readline.
-* Readline Movement Commands::	Moving about the input line.
-* Readline Killing Commands::	How to delete text, and how to get it back!
-* Readline Arguments::		Giving numeric arguments to commands.
-
-
-File: gdb.info,  Node: Readline Bare Essentials,  Next: Readline Movement Commands,  Up: Readline Interaction
-
-Readline Bare Essentials
-------------------------
-
-   In order to enter characters into the line, simply type them.  The
-typed character appears where the cursor was, and then the cursor moves
-one space to the right.  If you mistype a character, you can use <DEL>
-to back up, and delete the mistyped character.
-
-   Sometimes you may miss typing a character that you wanted to type,
-and not notice your error until you have typed several other
-characters.  In that case, you can type <C-b> to move the cursor to the
-left, and then correct your mistake.  Aftwerwards, you can move the
-cursor to the right with <C-f>.
-
-   When you add text in the middle of a line, you will notice that
-characters to the right of the cursor get `pushed over' to make room
-for the text that you have inserted.  Likewise, when you delete text
-behind the cursor, characters to the right of the cursor get `pulled
-back' to fill in the blank space created by the removal of the text.  A
-list of the basic bare essentials for editing the text of an input line
-follows.
-
-<C-b>
-     Move back one character.
-
-<C-f>
-     Move forward one character.
-
-<DEL>
-     Delete the character to the left of the cursor.
-
-<C-d>
-     Delete the character underneath the cursor.
-
-Printing characters
-     Insert itself into the line at the cursor.
-
-<C-_>
-     Undo the last thing that you did.  You can undo all the way back
-     to an empty line.
-
-
-File: gdb.info,  Node: Readline Movement Commands,  Next: Readline Killing Commands,  Prev: Readline Bare Essentials,  Up: Readline Interaction
-
-Readline Movement Commands
---------------------------
-
-   The above table describes the most basic possible keystrokes that
-you need in order to do editing of the input line.  For your
-convenience, many other commands have been added in addition to <C-b>,
-<C-f>, <C-d>, and <DEL>.  Here are some commands for moving more rapidly
-about the line.
-
-<C-a>
-     Move to the start of the line.
-
-<C-e>
-     Move to the end of the line.
-
-<M-f>
-     Move forward a word.
-
-<M-b>
-     Move backward a word.
-
-<C-l>
-     Clear the screen, reprinting the current line at the top.
-
-   Notice how <C-f> moves forward a character, while <M-f> moves
-forward a word.  It is a loose convention that control keystrokes
-operate on characters while meta keystrokes operate on words.
-
-
-File: gdb.info,  Node: Readline Killing Commands,  Next: Readline Arguments,  Prev: Readline Movement Commands,  Up: Readline Interaction
-
-Readline Killing Commands
--------------------------
-
-   "Killing" text means to delete the text from the line, but to save
-it away for later use, usually by "yanking" it back into the line.  If
-the description for a command says that it `kills' text, then you can
-be sure that you can get the text back in a different (or the same)
-place later.
-
-   Here is the list of commands for killing text.
-
-<C-k>
-     Kill the text from the current cursor position to the end of the
-     line.
-
-<M-d>
-     Kill from the cursor to the end of the current word, or if between
-     words, to the end of the next word.
-
-<M-DEL>
-     Kill from the cursor to the start of the previous word, or if
-     between words, to the start of the previous word.
-
-<C-w>
-     Kill from the cursor to the previous whitespace.  This is
-     different than <M-DEL> because the word boundaries differ.
-
-   And, here is how to "yank" the text back into the line.
-
-<C-y>
-     Yank the most recently killed text back into the buffer at the
-     cursor.
-
-<M-y>
-     Rotate the kill-ring, and yank the new top.  You can only do this
-     if the prior command is <C-y> or <M-y>.
-
-   When you use a kill command, the text is saved in a "kill-ring".
-Any number of consecutive kills save all of the killed text together, so
-that when you yank it back, you get it in one clean sweep.  The kill
-ring is not line specific; the text that you killed on a previously
-typed line is available to be yanked back later, when you are typing
-another line.
 

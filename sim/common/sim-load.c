@@ -133,9 +133,10 @@ sim_load_file (sd, myname, callback, prog, prog_bfd, verbose_p, lma_p, do_write)
 		lma = bfd_section_vma (result_bfd, s);
 	      if (verbose_p)
 		{
-		  xprintf (callback, "Loading section %s, size 0x%lx lma ",
+		  xprintf (callback, "Loading section %s, size 0x%lx %s ",
 			   bfd_get_section_name (result_bfd, s),
-			   (unsigned long) size);
+			   (unsigned long) size,
+			   (lma_p ? "lma" : "vma"));
 		  xprintf_bfd_vma (callback, lma);
 		  xprintf (callback, "\n");
 		}

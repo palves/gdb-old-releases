@@ -117,8 +117,12 @@ m88k_special_reloc (abfd, reloc_entry, symbol, data,
 	      bfd_put_16 (abfd, relocation, (unsigned char *) data + addr);
 	}
 
+      /* If we are not producing relocateable output, return an error if
+	 the symbol is not defined.  */
+      if (bfd_is_und_section (symbol->section) && output_bfd == (bfd *) NULL)
+	return bfd_reloc_undefined;
+
       return bfd_reloc_ok;
-      break;
 
     default:
       if (output_bfd != (bfd *) NULL)

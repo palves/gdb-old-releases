@@ -56,6 +56,14 @@ int ext_irl = 0;
 #define	FBUG	5
 #define	FBG 	6
 #define	FBU 	7
+#define FBA	8
+#define FBE	9
+#define FBUE	10
+#define FBGE	11
+#define FBUGE	12
+#define FBLE	13
+#define FBULE	14
+#define FBO	15
 
 #define	FCC_E 	0
 #define	FCC_L 	1
@@ -74,10 +82,12 @@ int ext_irl = 0;
 #define PSR_CWP 0x7
 #define PSR_PIL 0x0f00
 
-#define ICC_N	sregs->psr
-#define ICC_Z	(sregs->psr << 1)
-#define ICC_V	(sregs->psr << 2)
-#define ICC_C	(sregs->psr << 3)
+#define ICC_N	(icc >> 3)
+#define ICC_Z	(icc >> 2)
+#define ICC_V	(icc >> 1)
+#define ICC_C	(icc)
+
+#define FP_PRES	(sregs->fpu_pres)
 
 #define TRAP_IEXC 1
 #define TRAP_UNIMP 2
@@ -89,6 +99,7 @@ int ext_irl = 0;
 #define TRAP_FPEXC 8
 #define TRAP_DEXC 9
 #define TRAP_TAG 10
+#define TRAP_DIV0 0x2a
 
 #define FSR_TT		0x1C000
 #define FP_IEEE		0x04000
@@ -104,6 +115,13 @@ int ext_irl = 0;
 #define	BICC_NEG	6
 #define	BICC_BVS	7
 #define	BICC_BA		8
+#define	BICC_BNE	9
+#define	BICC_BG		10
+#define	BICC_BGE	11
+#define	BICC_BGU	12
+#define	BICC_BCC	13
+#define	BICC_POS	14
+#define	BICC_BVC	15
 
 #define INST_SIMM13 0x1fff
 #define INST_RS2    0x1f
@@ -113,7 +131,9 @@ int ext_irl = 0;
 #define ADDX 	0x08
 #define ADDXCC 	0x18
 #define TADDCC 	0x20
-#define TADDCCTV 	0x22
+#define TSUBCC  0x21
+#define TADDCCTV 0x22
+#define TSUBCCTV 0x23
 #define IAND 	0x01
 #define IANDCC 	0x11
 #define IANDN 	0x05
@@ -122,6 +142,12 @@ int ext_irl = 0;
 #define DIVScc 	0x1D
 #define SMUL	0x0B
 #define SMULCC	0x1B
+#define UMUL	0x0A
+#define UMULCC	0x1A
+#define SDIV	0x0F
+#define SDIVCC	0x1F
+#define UDIV	0x0E
+#define UDIVCC	0x1E
 #define IOR 	0x02
 #define IORCC 	0x12
 #define IORN 	0x06
@@ -144,6 +170,7 @@ int ext_irl = 0;
 #define RDPSR 	0x29
 #define RDWIM 	0x2A
 #define RDTBR 	0x2B
+#define SCAN 	0x2C
 #define WRY	0x30
 #define WRPSR	0x31
 #define WRWIM	0x32
@@ -186,10 +213,23 @@ int ext_irl = 0;
 #define SWAPA	0x1F
 #define FLUSH	0x3B
 
+#define SIGN_BIT 0x80000000
+
 /* # of cycles overhead when a trap is taken */
 #define TRAP_C  3
 
-int32           fpexec();
+/* Forward declarations */
+
+static uint32	sub_cc PARAMS ((uint32 psr, int32 operand1, int32 operand2,
+				int32 result));
+static uint32	add_cc PARAMS ((uint32 psr, int32 operand1, int32 operand2,
+				int32 result));
+static void	log_cc PARAMS ((int32 result, struct pstate *sregs));
+static int	fpexec PARAMS ((uint32 op3, uint32 rd, uint32 rs1, uint32 rs2,
+				struct pstate *sregs));
+static int	chk_asi PARAMS ((struct pstate *sregs, uint32 *asi, uint32 op3));
+
+
 extern struct estate ebase;
 extern int32    nfp,ift;
 
@@ -197,44 +237,45 @@ extern int32    nfp,ift;
 extern uint32 errtt, errftt;
 #endif
 
-sub_cc(operand1, operand2, result, sregs)
+static uint32
+sub_cc(psr, operand1, operand2, result)
+    uint32          psr;
     int32           operand1;
     int32           operand2;
     int32           result;
-    struct pstate  *sregs;
 {
-    sregs->psr = ((sregs->psr & ~PSR_N) | ((result >> 8) & PSR_N));
+    psr = ((psr & ~PSR_N) | ((result >> 8) & PSR_N));
     if (result)
-	sregs->psr &= ~PSR_Z;
+	psr &= ~PSR_Z;
     else
-	sregs->psr |= PSR_Z;
-    sregs->psr = (sregs->psr & ~PSR_V) | ((
-					 ((operand1 & ~operand2 & ~result) |
+	psr |= PSR_Z;
+    psr = (psr & ~PSR_V) | ((((operand1 & ~operand2 & ~result) |
 			   (~operand1 & operand2 & result)) >> 10) & PSR_V);
-    sregs->psr = (sregs->psr & ~PSR_C) | ((
-					   ((~operand1 & operand2) |
+    psr = (psr & ~PSR_C) | ((((~operand1 & operand2) |
 			 ((~operand1 | operand2) & result)) >> 11) & PSR_C);
+    return (psr);
 }
 
-add_cc(operand1, operand2, result, psr)
+uint32
+add_cc(psr, operand1, operand2, result)
+    uint32          psr;
     int32           operand1;
     int32           operand2;
     int32           result;
-    uint32         *psr;
 {
-    *psr = ((*psr & ~PSR_N) | ((result >> 8) & PSR_N));
+    psr = ((psr & ~PSR_N) | ((result >> 8) & PSR_N));
     if (result)
-	*psr &= ~PSR_Z;
+	psr &= ~PSR_Z;
     else
-	*psr |= PSR_Z;
-    *psr = (*psr & ~PSR_V) | ((
-			       ((operand1 & operand2 & ~result) |
+	psr |= PSR_Z;
+    psr = (psr & ~PSR_V) | ((((operand1 & operand2 & ~result) |
 			  (~operand1 & ~operand2 & result)) >> 10) & PSR_V);
-    *psr = (*psr & ~PSR_C) | ((
-			       ((operand1 & operand2) |
+    psr = (psr & ~PSR_C) | ((((operand1 & operand2) |
 			 ((operand1 | operand2) & ~result)) >> 11) & PSR_C);
+    return(psr);
 }
 
+static void
 log_cc(result, sregs)
     int32           result;
     struct pstate  *sregs;
@@ -245,25 +286,112 @@ log_cc(result, sregs)
 	sregs->psr |= PSR_Z;
 }
 
+/* Add two unsigned 32-bit integers, and calculate the carry out. */
+
+static uint32
+add32 (uint32 n1, uint32 n2, int *carry)
+{
+  uint32 result = n1 + n2;
+
+  *carry = result < n1 || result < n1;
+  return(result);
+}
+
+/* Multiply two 32-bit integers.  */
+
+static void
+mul64 (uint32 n1, uint32 n2, uint32 *result_hi, uint32 *result_lo, int msigned)
+{
+  uint32 lo, mid1, mid2, hi, reg_lo, reg_hi;
+  int carry;
+  int sign = 0;
+
+  /* If this is a signed multiply, calculate the sign of the result
+     and make the operands positive.  */
+  if (msigned)
+    {
+      sign = (n1 ^ n2) & SIGN_BIT;
+      if (n1 & SIGN_BIT)
+	n1 = -n1;
+      if (n2 & SIGN_BIT)
+	n2 = -n2;
+      
+    }
+  
+  /* We can split the 32x32 into four 16x16 operations. This ensures
+     that we do not lose precision on 32bit only hosts: */
+  lo =   ((n1 & 0xFFFF) * (n2 & 0xFFFF));
+  mid1 = ((n1 & 0xFFFF) * ((n2 >> 16) & 0xFFFF));
+  mid2 = (((n1 >> 16) & 0xFFFF) * (n2 & 0xFFFF));
+  hi =   (((n1 >> 16) & 0xFFFF) * ((n2 >> 16) & 0xFFFF));
+  
+  /* We now need to add all of these results together, taking care
+     to propogate the carries from the additions: */
+  reg_lo = add32 (lo, (mid1 << 16), &carry);
+  reg_hi = carry;
+  reg_lo = add32 (reg_lo, (mid2 << 16), &carry);
+  reg_hi += (carry + ((mid1 >> 16) & 0xFFFF) + ((mid2 >> 16) & 0xFFFF) + hi);
+
+  /* Negate result if necessary. */
+  if (sign)
+    {
+      reg_hi = ~ reg_hi;
+      reg_lo = - reg_lo;
+      if (reg_lo == 0)
+	reg_hi++;
+    }
+  
+  *result_lo = reg_lo;
+  *result_hi = reg_hi;
+}
+
+
+/* Divide a 64-bit integer by a 32-bit integer.  We cheat and assume
+   that the host compiler supports long long operations.  */
+
+static void
+div64 (uint32 n1_hi, uint32 n1_low, uint32 n2, uint32 *result, int msigned)
+{
+  uint64 n1;
+
+  n1 = ((uint64) n1_hi) << 32;
+  n1 |= ((uint64) n1_low) & 0xffffffff;
+
+  if (msigned)
+    {
+      int64 n1_s = (int64) n1;
+      int32 n2_s = (int32) n2;
+      n1_s = n1_s / n2_s;
+      n1 = (uint64) n1_s;
+    }
+  else
+    n1 = n1 / n2;
+
+  *result = (uint32) (n1 & 0xffffffff);
+}
+
+
 int
 dispatch_instruction(sregs)
     struct pstate  *sregs;
 {
 
-    uint32          cwp, op, op2, op3, opf, opc, asi, a, rd, cond, rs1,
+    uint32          cwp, op, op2, op3, asi, rd, cond, rs1,
                     rs2;
-    uint32          ldep;
-    int32           operand1, operand2, *rdd, result, i, disp22, eicc,
+    uint32          ldep, icc;
+    int32           operand1, operand2, *rdd, result, eicc,
                     new_cwp;
     int32           pc, npc, data, address, ws, mexc, fcc;
+    int32	    ddata[2];
 
     sregs->ninst++;
-    sregs->icnt = 1;
     cwp = ((sregs->psr & PSR_CWP) << 4);
     op = sregs->inst >> 30;
     pc = sregs->npc;
     npc = sregs->npc + 4;
-    if (op > 1) {
+    op3 = rd = rs1 = operand2 = eicc = 0;
+    rdd = 0;
+    if (op & 2) {
 
 	op3 = (sregs->inst >> 19) & 0x3f;
 	rs1 = (sregs->inst >> 14) & 0x1f;
@@ -272,14 +400,15 @@ dispatch_instruction(sregs)
 #ifdef LOAD_DEL
 
 	/* Check if load dependecy is possible */
-	ldep = ((ebase.simtime <= sregs->ildtime) && ((op3 & 0x38) != 0x28) &&
-		((op3 & 0x3e) != 0x34) && (sregs->ildreg != 0));
+	if (ebase.simtime <= sregs->ildtime)
+	    ldep = (((op3 & 0x38) != 0x28) && ((op3 & 0x3e) != 0x34) && (sregs->ildreg != 0));
+        else
+	    ldep = 0;
 	if (sregs->inst & INST_I) {
 	    if (ldep && (sregs->ildreg == rs1))
 		sregs->hold++;
-	    operand2 = sregs->inst & INST_SIMM13;
-	    if (operand2 > 0x0fff)
-		operand2 |= 0xfffff000;
+	    operand2 = sregs->inst;
+	    operand2 = ((operand2 << 19) >> 19);	/* sign extend */
 	} else {
 	    rs2 = sregs->inst & INST_RS2;
 	    if (rs2 > 7)
@@ -291,9 +420,8 @@ dispatch_instruction(sregs)
 	}
 #else
 	if (sregs->inst & INST_I) {
-	    operand2 = sregs->inst & INST_SIMM13;
-	    if (operand2 > 0x0fff)
-		operand2 |= 0xfffff000;
+	    operand2 = sregs->inst;
+	    operand2 = ((operand2 << 19) >> 19);	/* sign extend */
 	} else {
 	    rs2 = sregs->inst & INST_RS2;
 	    if (rs2 > 7)
@@ -328,8 +456,9 @@ dispatch_instruction(sregs)
 #ifdef STAT
 	    sregs->nbranch++;
 #endif
+	    icc = sregs->psr >> 20;
 	    cond = ((sregs->inst >> 25) & 0x0f);
-	    switch (cond & 0x7) {
+	    switch (cond) {
 	    case BICC_BN:
 		eicc = 0;
 		break;
@@ -354,20 +483,39 @@ dispatch_instruction(sregs)
 	    case BICC_BVS:
 		eicc = ICC_V;
 		break;
-	    }
-	    eicc &= PSR_N;
-	    if (sregs->inst & 0x10000000)
-		eicc = !eicc;
-	    a = sregs->inst & 0x20000000;
-	    if (eicc) {
-		operand1 = sregs->inst & 0x3fffff;
-		if (sregs->inst & 0x200000)
-		    operand1 |= 0xffc00000;
-		npc = sregs->pc + (operand1 << 2);
-		if ((cond == BICC_BA) && (a))
+	    case BICC_BA:
+		eicc = 1;
+		if (sregs->inst & 0x20000000)
 		    sregs->annul = 1;
+		break;
+	    case BICC_BNE:
+		eicc = ~(ICC_Z);
+		break;
+	    case BICC_BG:
+		eicc = ~(ICC_Z | (ICC_N ^ ICC_V));
+		break;
+	    case BICC_BGE:
+		eicc = ~(ICC_N ^ ICC_V);
+		break;
+	    case BICC_BGU:
+		eicc = ~(ICC_C | ICC_Z);
+		break;
+	    case BICC_BCC:
+		eicc = ~(ICC_C);
+		break;
+	    case BICC_POS:
+		eicc = ~(ICC_N);
+		break;
+	    case BICC_BVC:
+		eicc = ~(ICC_V);
+		break;
+	    }
+	    if (eicc & 1) {
+		operand1 = sregs->inst;
+		operand1 = ((operand1 << 10) >> 8);	/* sign extend */
+		npc = sregs->pc + operand1;
 	    } else {
-		if (a)
+		if (sregs->inst & 0x20000000)
 		    sregs->annul = 1;
 	    }
 	    break;
@@ -375,7 +523,7 @@ dispatch_instruction(sregs)
 #ifdef STAT
 	    sregs->nbranch++;
 #endif
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 		break;
 	    }
@@ -384,7 +532,7 @@ dispatch_instruction(sregs)
 	    }
 	    cond = ((sregs->inst >> 25) & 0x0f);
 	    fcc = (sregs->fsr >> 10) & 0x3;
-	    switch (cond & 0x7) {
+	    switch (cond) {
 	    case FBN:
 		eicc = 0;
 		break;
@@ -409,19 +557,39 @@ dispatch_instruction(sregs)
 	    case FBU:
 		eicc = (fcc == FCC_U);
 		break;
-	    }
-	    if (sregs->inst & 0x10000000)
-		eicc = !eicc;
-	    a = sregs->inst & 0x20000000;
-	    if (eicc) {
-		operand1 = sregs->inst & 0x3fffff;
-		if (sregs->inst & 0x200000)
-		    operand1 |= 0xffc00000;
-		npc = sregs->pc + (operand1 << 2);
-		if ((cond == FBA) && (a))
+	    case FBA:
+		eicc = 1;
+		if (sregs->inst & 0x20000000)
 		    sregs->annul = 1;
+		break;
+	    case FBE:
+		eicc = !(fcc != FCC_E);
+		break;
+	    case FBUE:
+		eicc = !((fcc == FCC_L) || (fcc == FCC_G));
+		break;
+	    case FBGE:
+		eicc = !((fcc == FCC_L) || (fcc == FCC_U));
+		break;
+	    case FBUGE:
+		eicc = !(fcc == FCC_L);
+		break;
+	    case FBLE:
+		eicc = !((fcc == FCC_G) || (fcc == FCC_U));
+		break;
+	    case FBULE:
+		eicc = !(fcc == FCC_G);
+		break;
+	    case FBO:
+		eicc = !(fcc == FCC_U);
+		break;
+	    }
+	    if (eicc) {
+		operand1 = sregs->inst;
+		operand1 = ((operand1 << 10) >> 8);	/* sign extend */
+		npc = sregs->pc + operand1;
 	    } else {
-		if (a)
+		if (sregs->inst & 0x20000000)
 		    sregs->annul = 1;
 	    }
 	    break;
@@ -441,7 +609,7 @@ dispatch_instruction(sregs)
 
     case 2:
 	if ((op3 >> 1) == 0x1a) {
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 	    } else {
 		rs1 = (sregs->inst >> 14) & 0x1f;
@@ -452,8 +620,9 @@ dispatch_instruction(sregs)
 
 	    switch (op3) {
 	    case TICC:
-		cond = ((sregs->inst >> 25) & 0x0f);
-		switch (cond & 0x7) {
+	        icc = sregs->psr >> 20;
+	        cond = ((sregs->inst >> 25) & 0x0f);
+	        switch (cond) {
 		case BICC_BN:
 		    eicc = 0;
 		    break;
@@ -478,11 +647,32 @@ dispatch_instruction(sregs)
 		case BICC_BVS:
 		    eicc = ICC_V;
 		    break;
+	        case BICC_BA:
+		    eicc = 1;
+		    break;
+	        case BICC_BNE:
+		    eicc = ~(ICC_Z);
+		    break;
+	        case BICC_BG:
+		    eicc = ~(ICC_Z | (ICC_N ^ ICC_V));
+		    break;
+	        case BICC_BGE:
+		    eicc = ~(ICC_N ^ ICC_V);
+		    break;
+	        case BICC_BGU:
+		    eicc = ~(ICC_C | ICC_Z);
+		    break;
+	        case BICC_BCC:
+		    eicc = ~(ICC_C);
+		    break;
+	        case BICC_POS:
+		    eicc = ~(ICC_N);
+		    break;
+	        case BICC_BVC:
+		    eicc = ~(ICC_V);
+		    break;
 		}
-		eicc &= PSR_N;
-		if (sregs->inst & 0x10000000)
-		    eicc = !eicc;
-		if (eicc) {
+		if (eicc & 1) {
 		    sregs->trap = (0x80 | ((rs1 + operand2) & 0x7f));
 		}
 		break;
@@ -495,13 +685,13 @@ dispatch_instruction(sregs)
 		    operand2 = 0;
 		*rdd = operand1 + operand2;
 		sregs->y = (rs1 << 31) | (sregs->y >> 1);
-		add_cc(operand1, operand2, *rdd, &sregs->psr);
+		sregs->psr = add_cc(sregs->psr, operand1, operand2, *rdd);
 		break;
 	    case DIVScc:
 		{
 		  int sign;
 		  uint32 result, remainder;
-		  int c0, ov, y31;
+		  int c0, y31;
 
 		  if (!sparclite) {
 		     sregs->trap = TRAP_UNIMP;
@@ -512,16 +702,22 @@ dispatch_instruction(sregs)
 
 		  remainder = (sregs->y << 1) | (rs1 >> 31);
 
+		  /* If true sign is positive, calculate remainder - divisor.
+		     Otherwise, calculate remainder + divisor.  */
 		  if (sign == 0)
-		    {
-		      result = remainder - operand2;
-		      c0 = (sregs->y & ~operand2 & 0x80000000) != 0;
-		    }
-		  else
-		    {
-		      result = remainder + operand2;
-		      c0 = (sregs->y & operand2 & 0x80000000) != 0;
-		    }
+		    operand2 = ~operand2 + 1;
+		  result = remainder + operand2;
+
+		  /* The SPARClite User's Manual is not clear on how
+		     the "carry out" of the above ALU operation is to
+		     be calculated.  From trial and error tests
+		     on the the chip itself, it appears that it is
+		     a normal addition carry, and not a subtraction borrow,
+		     even in cases where the divisor is subtracted
+		     from the remainder.  FIXME: get the true story
+		     from Fujitsu. */
+		  c0 = result < (uint32) remainder
+		       || result < (uint32) operand2;
 
 		  if (result & 0x80000000)
 		    sregs->psr |= PSR_N;
@@ -538,12 +734,12 @@ dispatch_instruction(sregs)
 		  sign = (sign && !y31) || (!c0 && (sign || !y31));
 
 		  if (sign ^ (result >> 31))
-		    sregs->psr != PSR_V;
+		    sregs->psr |= PSR_V;
 		  else
 		    sregs->psr &= ~PSR_V;
 
 		  if (!sign)
-		    sregs->psr != PSR_C;
+		    sregs->psr |= PSR_C;
 		  else
 		    sregs->psr &= ~PSR_C;
 
@@ -555,26 +751,144 @@ dispatch_instruction(sregs)
 		break;
 	    case SMUL:
 		{
-		  unsigned short ul, vl;
-		  short uh, vh;
-		  unsigned int pp1, pp2, pp4;
+		  mul64 (rs1, operand2, &sregs->y, rdd, 1);
+		}
+		break;
+	    case SMULCC:
+		{
+		  uint32 result;
 
-		  if (!sparclite) {
+		  mul64 (rs1, operand2, &sregs->y, &result, 1);
+
+		  if (result & 0x80000000)
+		    sregs->psr |= PSR_N;
+		  else
+		    sregs->psr &= ~PSR_N;
+
+		  if (result == 0)
+		    sregs->psr |= PSR_Z;
+		  else
+		    sregs->psr &= ~PSR_Z;
+
+		  *rdd = result;
+		}
+		break;
+	    case UMUL:
+		{
+		  mul64 (rs1, operand2, &sregs->y, rdd, 0);
+		}
+		break;
+	    case UMULCC:
+		{
+		  uint32 result;
+
+		  mul64 (rs1, operand2, &sregs->y, &result, 0);
+
+		  if (result & 0x80000000)
+		    sregs->psr |= PSR_N;
+		  else
+		    sregs->psr &= ~PSR_N;
+
+		  if (result == 0)
+		    sregs->psr |= PSR_Z;
+		  else
+		    sregs->psr &= ~PSR_Z;
+
+		  *rdd = result;
+		}
+		break;
+	    case SDIV:
+		{
+		  if (sparclite) {
 		     sregs->trap = TRAP_UNIMP;
                      break;
 		  }
 
-		  ul = rs1;
-		  uh = rs1 >> 16;
-		  vl = operand2;
-		  vh = operand2 >> 16;
+		  if (operand2 == 0) {
+		    sregs->trap = TRAP_DIV0;
+		    break;
+		  }
 
-		  pp1 = ul * vl;
-		  pp2 = uh * vl + vh * ul;
-		  pp4 = uh * vh;
+		  div64 (sregs->y, rs1, operand2, rdd, 1);
+		}
+		break;
+	    case SDIVCC:
+		{
+		  uint32 result;
 
-		  *rdd = (pp2 << 16) + pp1;
-		  sregs->y = pp4 + ((int)(pp2 + (pp1 >> 16)) >> 16);
+		  if (sparclite) {
+		     sregs->trap = TRAP_UNIMP;
+                     break;
+		  }
+
+		  if (operand2 == 0) {
+		    sregs->trap = TRAP_DIV0;
+		    break;
+		  }
+
+		  div64 (sregs->y, rs1, operand2, &result, 1);
+
+		  if (result & 0x80000000)
+		    sregs->psr |= PSR_N;
+		  else
+		    sregs->psr &= ~PSR_N;
+
+		  if (result == 0)
+		    sregs->psr |= PSR_Z;
+		  else
+		    sregs->psr &= ~PSR_Z;
+
+		  /* FIXME: should set overflow flag correctly.  */
+		  sregs->psr &= ~(PSR_C | PSR_V);
+
+		  *rdd = result;
+		}
+		break;
+	    case UDIV:
+		{
+		  if (sparclite) {
+		     sregs->trap = TRAP_UNIMP;
+                     break;
+		  }
+
+		  if (operand2 == 0) {
+		    sregs->trap = TRAP_DIV0;
+		    break;
+		  }
+
+		  div64 (sregs->y, rs1, operand2, rdd, 0);
+		}
+		break;
+	    case UDIVCC:
+		{
+		  uint32 result;
+
+		  if (sparclite) {
+		     sregs->trap = TRAP_UNIMP;
+                     break;
+		  }
+
+		  if (operand2 == 0) {
+		    sregs->trap = TRAP_DIV0;
+		    break;
+		  }
+
+		  div64 (sregs->y, rs1, operand2, &result, 0);
+
+		  if (result & 0x80000000)
+		    sregs->psr |= PSR_N;
+		  else
+		    sregs->psr &= ~PSR_N;
+
+		  if (result == 0)
+		    sregs->psr |= PSR_Z;
+		  else
+		    sregs->psr &= ~PSR_Z;
+
+		  /* FIXME: should set overflow flag correctly.  */
+		  sregs->psr &= ~(PSR_C | PSR_V);
+
+		  *rdd = result;
 		}
 		break;
 	    case IXNOR:
@@ -624,46 +938,65 @@ dispatch_instruction(sregs)
 		break;
 	    case SUBCC:
 		*rdd = rs1 - operand2;
-		sub_cc(rs1, operand2, *rdd, sregs);
+		sregs->psr = sub_cc(sregs->psr, rs1, operand2, *rdd);
 		break;
 	    case SUBX:
 		*rdd = rs1 - operand2 - ((sregs->psr >> 20) & 1);
 		break;
 	    case SUBXCC:
 		*rdd = rs1 - operand2 - ((sregs->psr >> 20) & 1);
-		sub_cc(rs1, operand2, *rdd, sregs);
+		sregs->psr = sub_cc(sregs->psr, rs1, operand2, *rdd);
 		break;
 	    case ADD:
 		*rdd = rs1 + operand2;
 		break;
 	    case ADDCC:
 		*rdd = rs1 + operand2;
-		add_cc(rs1, operand2, *rdd, &sregs->psr);
+		sregs->psr = add_cc(sregs->psr, rs1, operand2, *rdd);
 		break;
 	    case ADDX:
 		*rdd = rs1 + operand2 + ((sregs->psr >> 20) & 1);
 		break;
 	    case ADDXCC:
 		*rdd = rs1 + operand2 + ((sregs->psr >> 20) & 1);
-		add_cc(rs1, operand2, *rdd, &sregs->psr);
+		sregs->psr = add_cc(sregs->psr, rs1, operand2, *rdd);
 		break;
 	    case TADDCC:
 		*rdd = rs1 + operand2;
-		add_cc(rs1, operand2, *rdd, &sregs->psr);
+		sregs->psr = add_cc(sregs->psr, rs1, operand2, *rdd);
+		if ((rs1 | operand2) & 0x3)
+		    sregs->psr |= PSR_V;
+		break;
+	    case TSUBCC:
+		*rdd = rs1 - operand2;
+		sregs->psr = sub_cc (sregs->psr, rs1, operand2, *rdd);
 		if ((rs1 | operand2) & 0x3)
 		    sregs->psr |= PSR_V;
 		break;
 	    case TADDCCTV:
 		*rdd = rs1 + operand2;
-		result = 0;
-		add_cc(rs1, operand2, *rdd, &result);
+		result = add_cc(0, rs1, operand2, *rdd);
 		if ((rs1 | operand2) & 0x3)
 		    result |= PSR_V;
 		if (result & PSR_V) {
 		    sregs->trap = TRAP_TAG;
 		} else {
-		    sregs->psr = (sregs->psr & PSR_CC) | result;
+		    sregs->psr = (sregs->psr & ~PSR_CC) | result;
 		}
+		break;
+	    case TSUBCCTV:
+		*rdd = rs1 - operand2;
+		result = add_cc (0, rs1, operand2, *rdd);
+		if ((rs1 | operand2) & 0x3)
+		    result |= PSR_V;
+		if (result & PSR_V)
+		  {
+		      sregs->trap = TRAP_TAG;
+		  }
+		else
+		  {
+		      sregs->psr = (sregs->psr & ~PSR_CC) | result;
+		  }
 		break;
 	    case SLL:
 		*rdd = rs1 << (operand2 & 0x1f);
@@ -708,11 +1041,19 @@ dispatch_instruction(sregs)
 		*rdd = sregs->psr;
 		break;
 	    case RDY:
-		if (!(sregs->psr & PSR_S)) {
-		    sregs->trap = TRAP_PRIVI;
-		    break;
-		}
-		*rdd = sregs->y;
+                if (!sparclite)
+                    *rdd = sregs->y;
+                else {
+                    int rs1_is_asr = (sregs->inst >> 14) & 0x1f;
+                    if ( 0 == rs1_is_asr )
+                        *rdd = sregs->y;
+                    else if ( 17 == rs1_is_asr )
+                        *rdd = sregs->asr17;
+                    else {
+                        sregs->trap = TRAP_UNIMP;
+                        break;
+                    }
+                }
 		break;
 	    case RDWIM:
 		if (!(sregs->psr & PSR_S)) {
@@ -755,7 +1096,18 @@ dispatch_instruction(sregs)
 		    ((rs1 ^ operand2) & 0xfffff000);
 		break;
 	    case WRY:
-		sregs->y = (rs1 ^ operand2);
+                if (!sparclite)
+                    sregs->y = (rs1 ^ operand2);
+                else {
+                    if ( 0 == rd )
+                        sregs->y = (rs1 ^ operand2);
+                    else if ( 17 == rd )
+                        sregs->asr17 = (rs1 ^ operand2);
+                    else {
+                        sregs->trap = TRAP_UNIMP;
+                        break;
+                    }
+                }
 		break;
 	    case JMPL:
 
@@ -796,6 +1148,28 @@ dispatch_instruction(sregs)
 		npc = address;
 		break;
 
+	    case SCAN:
+		{
+		  uint32 result, mask;
+		  int i;
+
+		  if (!sparclite) {
+		     sregs->trap = TRAP_UNIMP;
+                     break;
+		  }
+		  mask = (operand2 & 0x80000000) | (operand2 >> 1);
+		  result = rs1 ^ mask;
+
+		  for (i = 0; i < 32; i++) {
+		    if (result & 0x80000000)
+		      break;
+		    result <<= 1;
+		  }
+
+		  *rdd = i == 32 ? 63 : i;
+		}
+		break;
+
 	    default:
 		sregs->trap = TRAP_UNIMP;
 		break;
@@ -806,23 +1180,10 @@ dispatch_instruction(sregs)
 
 	address = rs1 + operand2;
 
-	/* Check for load/store to alternate address space */
-
-	if ((op3 >> 4) == 1) {
-	    if (!(sregs->psr & PSR_S)) {
-		sregs->trap = TRAP_PRIVI;
-		break;
-	    } else if (sregs->inst & INST_I) {
-		sregs->trap = TRAP_UNIMP;
-		break;
-	    } else
-		asi = (sregs->inst >> 5) & 0x0ff;
-	} else {
-	    if (sregs->psr & PSR_S)
-		asi = 11;
-	    else
-		asi = 10;
-	}
+	if (sregs->psr & PSR_S)
+	    asi = 11;
+	 else
+	    asi = 10;
 
 	if (op3 & 4) {
 	    sregs->icnt = T_ST;	/* Set store instruction count */
@@ -840,6 +1201,7 @@ dispatch_instruction(sregs)
 
 	switch (op3) {
 	case LDDA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
 	case LDD:
 	    if (address & 0x7) {
 		sregs->trap = TRAP_UNALI;
@@ -852,34 +1214,28 @@ dispatch_instruction(sregs)
 		else
 		    rdd = &(sregs->g[rd]);
 	    }
-	    mexc = memory_read(asi, address, &data, &ws);
-	    sregs->hold += ws;
+	    mexc = memory_read(asi, address, ddata, 3, &ws);
+	    sregs->hold += ws * 2;
 	    sregs->icnt = T_LDD;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
 	    } else {
-		rdd[0] = data;
-		address += 4;
-		mexc = memory_read(asi, address, &data, &ws);
-		sregs->hold += ws;
+		rdd[0] = ddata[0];
+		rdd[1] = ddata[1];
 #ifdef STAT
 		sregs->nload++;	/* Double load counts twice */
 #endif
-		if (mexc) {
-		    sregs->trap = TRAP_DEXC;
-		} else {
-		    rdd[1] = data;
-		}
 	    }
 	    break;
 
 	case LDA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
 	case LD:
 	    if (address & 0x3) {
 		sregs->trap = TRAP_UNALI;
 		break;
 	    }
-	    mexc = memory_read(asi, address, &data, &ws);
+	    mexc = memory_read(asi, address, &data, 2, &ws);
 	    sregs->hold += ws;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
@@ -887,16 +1243,16 @@ dispatch_instruction(sregs)
 		*rdd = data;
 	    }
 	    break;
-	case LDSTUB:
 	case LDSTUBA:
-	    mexc = memory_read(asi, address, &data, &ws);
+	    if (!chk_asi(sregs, &asi, op3)) break;
+	case LDSTUB:
+	    mexc = memory_read(asi, address, &data, 0, &ws);
 	    sregs->hold += ws;
 	    sregs->icnt = T_LDST;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
 		break;
 	    }
-	    data = (data >> ((3 - (address & 0x3)) << 3)) & 0x0ff;
 	    *rdd = data;
 	    data = 0x0ff;
 	    mexc = memory_write(asi, address, &data, 0, &ws);
@@ -910,42 +1266,40 @@ dispatch_instruction(sregs)
 	    break;
 	case LDSBA:
 	case LDUBA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
 	case LDSB:
 	case LDUB:
-	    mexc = memory_read(asi, address, &data, &ws);
+	    mexc = memory_read(asi, address, &data, 0, &ws);
 	    sregs->hold += ws;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
 		break;
 	    }
-	    data = (data >> ((3 - (address & 0x3)) << 3)) & 0x0ff;
-	    if ((op3 == LDSB) && (data >> 7))
+	    if ((op3 == LDSB) && (data & 0x80))
 		data |= 0xffffff00;
 	    *rdd = data;
 	    break;
 	case LDSHA:
 	case LDUHA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
 	case LDSH:
 	case LDUH:
 	    if (address & 0x1) {
 		sregs->trap = TRAP_UNALI;
 		break;
 	    }
-	    mexc = memory_read(asi, address, &data, &ws);
+	    mexc = memory_read(asi, address, &data, 1, &ws);
 	    sregs->hold += ws;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
 		break;
 	    }
-	    if (!(address & 0x2))
-		data >>= 16;
-	    data &= 0x0ffff;
-	    if ((op3 == LDSH) && (data >> 15))
+	    if ((op3 == LDSH) && (data & 0x8000))
 		data |= 0xffff0000;
 	    *rdd = data;
 	    break;
 	case LDF:
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 		break;
 	    }
@@ -958,7 +1312,7 @@ dispatch_instruction(sregs)
 		    (sregs->frs2 == rd))
 		    sregs->fhold += (sregs->ftime - ebase.simtime);
 	    }
-	    mexc = memory_read(asi, address, &data, &ws);
+	    mexc = memory_read(asi, address, &data, 2, &ws);
 	    sregs->hold += ws;
 	    sregs->flrd = rd;
 	    sregs->ltime = ebase.simtime + sregs->icnt + FLSTHOLD +
@@ -970,7 +1324,7 @@ dispatch_instruction(sregs)
 	    }
 	    break;
 	case LDDF:
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 		break;
 	    }
@@ -984,34 +1338,28 @@ dispatch_instruction(sregs)
 		    ((sregs->frs2 >> 1) == (rd >> 1)))
 		    sregs->fhold += (sregs->ftime - ebase.simtime);
 	    }
-	    mexc = memory_read(asi, address, &data, &ws);
-	    sregs->hold += ws;
+	    mexc = memory_read(asi, address, ddata, 3, &ws);
+	    sregs->hold += ws * 2;
 	    sregs->icnt = T_LDD;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
 	    } else {
 		rd &= 0x1E;
 		sregs->flrd = rd;
-		sregs->fs[rd] = *((float32 *) & data);
-		mexc = memory_read(asi, address + 4, &data, &ws);
-		sregs->hold += ws;
+		sregs->fs[rd] = *((float32 *) & ddata[0]);
 #ifdef STAT
 		sregs->nload++;	/* Double load counts twice */
 #endif
-		if (mexc) {
-		    sregs->trap = TRAP_DEXC;
-		} else {
-		    sregs->fs[rd + 1] = *((float32 *) & data);
-		    sregs->ltime = ebase.simtime + sregs->icnt + FLSTHOLD +
-			sregs->hold + sregs->fhold;
-		}
+		sregs->fs[rd + 1] = *((float32 *) & ddata[1]);
+		sregs->ltime = ebase.simtime + sregs->icnt + FLSTHOLD +
+			       sregs->hold + sregs->fhold;
 	    }
 	    break;
 	case LDFSR:
 	    if (ebase.simtime < sregs->ftime) {
 		sregs->fhold += (sregs->ftime - ebase.simtime);
 	    }
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 		break;
 	    }
@@ -1019,7 +1367,7 @@ dispatch_instruction(sregs)
 		sregs->trap = TRAP_UNALI;
 		break;
 	    }
-	    mexc = memory_read(asi, address, &data, &ws);
+	    mexc = memory_read(asi, address, &data, 2, &ws);
 	    sregs->hold += ws;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
@@ -1030,7 +1378,7 @@ dispatch_instruction(sregs)
 	    }
 	    break;
 	case STFSR:
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 		break;
 	    }
@@ -1048,8 +1396,9 @@ dispatch_instruction(sregs)
 	    }
 	    break;
 
-	case ST:
 	case STA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
+	case ST:
 	    if (address & 0x3) {
 		sregs->trap = TRAP_UNALI;
 		break;
@@ -1060,16 +1409,18 @@ dispatch_instruction(sregs)
 		sregs->trap = TRAP_DEXC;
 	    }
 	    break;
-	case STB:
 	case STBA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
+	case STB:
 	    mexc = memory_write(asi, address, rdd, 0, &ws);
 	    sregs->hold += ws;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
 	    }
 	    break;
-	case STD:
 	case STDA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
+	case STD:
 	    if (address & 0x7) {
 		sregs->trap = TRAP_UNALI;
 		break;
@@ -1097,7 +1448,7 @@ dispatch_instruction(sregs)
 		sregs->trap = TRAP_UNIMP;
 		break;
 	    }
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 		break;
 	    }
@@ -1125,6 +1476,7 @@ dispatch_instruction(sregs)
 	    }
 	    break;
 	case STHA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
 	case STH:
 	    if (address & 0x1) {
 		sregs->trap = TRAP_UNALI;
@@ -1137,7 +1489,7 @@ dispatch_instruction(sregs)
 	    }
 	    break;
 	case STF:
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 		break;
 	    }
@@ -1156,7 +1508,7 @@ dispatch_instruction(sregs)
 	    }
 	    break;
 	case STDF:
-	    if (!((sregs->psr & PSR_EF) && chk_fp(sregs))) {
+	    if (!((sregs->psr & PSR_EF) && FP_PRES)) {
 		sregs->trap = TRAP_FPDIS;
 		break;
 	    }
@@ -1179,13 +1531,14 @@ dispatch_instruction(sregs)
 		sregs->trap = TRAP_DEXC;
 	    }
 	    break;
-	case SWAP:
 	case SWAPA:
+	    if (!chk_asi(sregs, &asi, op3)) break;
+	case SWAP:
 	    if (address & 0x3) {
 		sregs->trap = TRAP_UNALI;
 		break;
 	    }
-	    mexc = memory_read(asi, address, &data, &ws);
+	    mexc = memory_read(asi, address, &data, 2, &ws);
 	    sregs->hold += ws;
 	    if (mexc) {
 		sregs->trap = TRAP_DEXC;
@@ -1281,21 +1634,18 @@ dispatch_instruction(sregs)
 #define FsTOd	0xC9
 
 
-int
+static int
 fpexec(op3, rd, rs1, rs2, sregs)
     uint32          op3, rd, rs1, rs2;
     struct pstate  *sregs;
 {
     uint32          opf, tem, accex;
-    float32         ftmps;
-    float64         ftmpd;
     int32           fcc;
-    char           *res;
     uint32          ldadj;
 
     if (sregs->fpstate == FP_EXC_MODE) {
 	sregs->fsr = (sregs->fsr & ~FSR_TT) | FP_SEQ_ERR;
-	sregs->fpstate == FP_EXC_PE;
+	sregs->fpstate = FP_EXC_PE;
 	return (0);
     }
     if (sregs->fpstate == FP_EXC_PE) {
@@ -1341,6 +1691,11 @@ fpexec(op3, rd, rs1, rs2, sregs)
 
     /* SPARC is big-endian - swap double floats if host is little-endian */
     /* This is ugly - I know ... */
+
+    /* FIXME: should use (CURRENT_HOST_BYTE_ORDER == CURRENT_TARGET_BYTE_ORDER)
+       but what about machines where float values are different endianness
+       from integer values? */
+
 #ifdef HOST_LITTLE_ENDIAN_FLOAT
     rs1 &= 0x1f;
     switch (opf) {
@@ -1392,7 +1747,7 @@ fpexec(op3, rd, rs1, rs2, sregs)
 	sregs->ftime += T_FCMPs;
 	sregs->frd = 32;	/* rd ignored */
 	if ((fcc == 0) && (opf == FCMPEs)) {
-	    sregs->fpstate == FP_EXC_PE;
+	    sregs->fpstate = FP_EXC_PE;
 	    sregs->fsr = (sregs->fsr & ~0x1C000) | (1 << 14);
 	}
 	break;
@@ -1411,7 +1766,7 @@ fpexec(op3, rd, rs1, rs2, sregs)
 	sregs->ftime += T_FCMPd;
 	sregs->frd = 32;	/* rd ignored */
 	if ((fcc == 0) && (opf == FCMPEd)) {
-	    sregs->fpstate == FP_EXC_PE;
+	    sregs->fpstate = FP_EXC_PE;
 	    sregs->fsr = (sregs->fsr & ~FSR_TT) | FP_IEEE;
 	}
 	break;
@@ -1443,7 +1798,7 @@ fpexec(op3, rd, rs1, rs2, sregs)
 	break;
     case FSQRTs:
 	if (sregs->fs[rs2] < 0.0) {
-	    sregs->fpstate == FP_EXC_PE;
+	    sregs->fpstate = FP_EXC_PE;
 	    sregs->fsr = (sregs->fsr & ~FSR_TT) | FP_IEEE;
 	    sregs->fsr = (sregs->fsr & 0x1f) | 0x10;
 	    break;
@@ -1454,7 +1809,7 @@ fpexec(op3, rd, rs1, rs2, sregs)
 	break;
     case FSQRTd:
 	if (sregs->fd[rs2 >> 1] < 0.0) {
-	    sregs->fpstate == FP_EXC_PE;
+	    sregs->fpstate = FP_EXC_PE;
 	    sregs->fsr = (sregs->fsr & ~FSR_TT) | FP_IEEE;
 	    sregs->fsr = (sregs->fsr & 0x1f) | 0x10;
 	    break;
@@ -1504,7 +1859,7 @@ fpexec(op3, rd, rs1, rs2, sregs)
 
     default:
 	sregs->fsr = (sregs->fsr & ~FSR_TT) | FP_UNIMP;
-	sregs->fpstate == FP_EXC_PE;
+	sregs->fpstate = FP_EXC_PE;
     }
 
 #ifdef ERRINJ
@@ -1558,6 +1913,23 @@ fpexec(op3, rd, rs1, rs2, sregs)
 
 }
 
+static int
+chk_asi(sregs, asi, op3)
+    struct pstate  *sregs;
+    uint32 *asi, op3;
+
+{
+    if (!(sregs->psr & PSR_S)) {
+	sregs->trap = TRAP_PRIVI;
+	return (0);
+    } else if (sregs->inst & INST_I) {
+	sregs->trap = TRAP_UNIMP;
+	return (0);
+    } else
+	*asi = (sregs->inst >> 5) & 0x0ff;
+    return(1);
+}
+
 int
 execute_trap(sregs)
     struct pstate  *sregs;
@@ -1588,6 +1960,12 @@ execute_trap(sregs)
 	sregs->pc = sregs->tbr;
 	sregs->npc = sregs->tbr + 4;
 
+        if ( 0 != (1 & sregs->asr17) ) {
+            /* single vector trapping! */
+            sregs->pc = sregs->tbr & 0xfffff000;
+            sregs->npc = sregs->pc + 4;
+        }
+
 	/* Increase simulator time */
 	sregs->icnt = TRAP_C;
 
@@ -1600,7 +1978,7 @@ execute_trap(sregs)
 
 extern struct irqcell irqarr[16];
 
-void
+int
 check_interrupts(sregs)
     struct pstate  *sregs;
 {
@@ -1613,19 +1991,20 @@ check_interrupts(sregs)
 #endif
 
     if ((ext_irl) && (sregs->psr & PSR_ET) &&
-	((ext_irl == 15) || (ext_irl > ((sregs->psr & PSR_PIL) >> 8)))) {
+	((ext_irl == 15) || (ext_irl > (int) ((sregs->psr & PSR_PIL) >> 8)))) {
 	if (sregs->trap == 0) {
 	    sregs->trap = 16 + ext_irl;
 	    irqarr[ext_irl & 0x0f].callback(irqarr[ext_irl & 0x0f].arg);
+	    return(1);
 	}
     }
+    return(0);
 }
 
+void
 init_regs(sregs)
     struct pstate  *sregs;
 {
-    int32           i;
-
     sregs->pc = 0;
     sregs->npc = 4;
     sregs->trap = 0;
@@ -1654,12 +2033,9 @@ init_regs(sregs)
     sregs->ildreg = 0;
     sregs->ildtime = 0;
 
+    sregs->y = 0;
+    sregs->asr17 = 0;
+
     sregs->rett_err = 0;
     sregs->jmpltime = 0;
-}
-
-chk_fp(sregs)
-    struct pstate  *sregs;
-{
-    return (sregs->fpu_pres);
 }

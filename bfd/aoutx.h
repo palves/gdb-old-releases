@@ -1,5 +1,6 @@
 /* BFD semi-generic back-end for a.out binaries.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -119,10 +120,9 @@ DESCRIPTION
 
 #define KEEPIT udata.i
 
-#include <string.h>		/* For strchr and friends */
 #include <ctype.h>
 #include "bfd.h"
-#include <sysdep.h>
+#include "sysdep.h"
 #include "bfdlink.h"
 
 #include "libaout.h"
@@ -198,7 +198,7 @@ reloc_howto_type howto_table_ext[] =
   HOWTO(RELOC_SFA_BASE,0, 2, 	32, false, 0, complain_overflow_bitfield,0,"SFA_BASE", false, 0,0xffffffff, false),
   HOWTO(RELOC_SFA_OFF13,0,2, 	32, false, 0, complain_overflow_bitfield,0,"SFA_OFF13",false, 0,0xffffffff, false),
   HOWTO(RELOC_BASE10, 0,  2, 	10, false, 0, complain_overflow_dont,0,"BASE10",   false, 0,0x000003ff, false),
-  HOWTO(RELOC_BASE13, 0,  2,	13, false, 0, complain_overflow_bitfield,0,"BASE13",   false, 0,0x00001fff, false),
+  HOWTO(RELOC_BASE13, 0,  2,	13, false, 0, complain_overflow_signed,0,"BASE13",   false, 0,0x00001fff, false),
   HOWTO(RELOC_BASE22, 10, 2,	22, false, 0, complain_overflow_bitfield,0,"BASE22",   false, 0,0x003fffff, false),
   HOWTO(RELOC_PC10,   0,  2,	10, true,  0, complain_overflow_dont,0,"PC10",	false, 0,0x000003ff, true),
   HOWTO(RELOC_PC22,   10,  2,	22, true,  0, complain_overflow_signed,0,"PC22", false, 0,0x003fffff, true),
@@ -207,6 +207,10 @@ reloc_howto_type howto_table_ext[] =
   HOWTO(RELOC_GLOB_DAT,0, 2,	0,  false, 0, complain_overflow_bitfield,0,"GLOB_DAT",	false, 0,0x00000000, false),
   HOWTO(RELOC_JMP_SLOT,0, 2,	0,  false, 0, complain_overflow_bitfield,0,"JMP_SLOT",	false, 0,0x00000000, false),
   HOWTO(RELOC_RELATIVE,0, 2,	0,  false, 0, complain_overflow_bitfield,0,"RELATIVE",	false, 0,0x00000000, false),
+  HOWTO(0,  0, 0,    0,  false, 0, complain_overflow_dont, 0, "R_SPARC_NONE",    false,0,0x00000000,true),
+  HOWTO(0,  0, 0,    0,  false, 0, complain_overflow_dont, 0, "R_SPARC_NONE",    false,0,0x00000000,true),
+#define RELOC_SPARC_REV32 RELOC_WDISP19
+  HOWTO(RELOC_SPARC_REV32,    0,  2, 	32, false, 0, complain_overflow_dont,0,"R_SPARC_REV32",       false, 0,0xffffffff, false),
 };
 
 /* Convert standard reloc records to "arelent" format (incl byte swap).  */
@@ -285,6 +289,7 @@ NAME(aout,reloc_type_lookup) (abfd,code)
 	EXT (BFD_RELOC_SPARC_PC10, 17);
 	EXT (BFD_RELOC_SPARC_PC22, 18);
 	EXT (BFD_RELOC_SPARC_WPLT30, 19);
+	EXT (BFD_RELOC_SPARC_REV32, 26);
       default: return (reloc_howto_type *) NULL;
       }
   else
@@ -707,6 +712,7 @@ NAME(aout,machine_type) (arch, machine, unknown)
     if (machine == 0
 	|| machine == bfd_mach_sparc
 	|| machine == bfd_mach_sparc_sparclite
+	|| machine == bfd_mach_sparc_sparclite_le
 	|| machine == bfd_mach_sparc_v9)
       arch_flags = M_SPARC;
     else if (machine == bfd_mach_sparc_sparclet)
@@ -715,11 +721,11 @@ NAME(aout,machine_type) (arch, machine, unknown)
 
   case bfd_arch_m68k:
     switch (machine) {
-    case 0:		arch_flags = M_68010; break;
-    case 68000:		arch_flags = M_UNKNOWN;	*unknown = false; break;
-    case 68010:		arch_flags = M_68010; break;
-    case 68020:		arch_flags = M_68020; break;
-    default:		arch_flags = M_UNKNOWN; break;
+    case 0:		  arch_flags = M_68010; break;
+    case bfd_mach_m68000: arch_flags = M_UNKNOWN; *unknown = false; break;
+    case bfd_mach_m68010: arch_flags = M_68010; break;
+    case bfd_mach_m68020: arch_flags = M_68020; break;
+    default:		  arch_flags = M_UNKNOWN; break;
     }
     break;
 
@@ -738,14 +744,29 @@ NAME(aout,machine_type) (arch, machine, unknown)
   case bfd_arch_mips:
     switch (machine) {
     case 0:
-    case 2000:
-    case 3000:          arch_flags = M_MIPS1; break;
-    case 4000: /* mips3 */
-    case 4400:
-    case 8000: /* mips4 */
-      /* real mips2: */
-    case 6000:          arch_flags = M_MIPS2; break;
-    default:            arch_flags = M_UNKNOWN; break;
+    case bfd_mach_mips3000:
+    case bfd_mach_mips3900:
+      arch_flags = M_MIPS1;
+      break;
+    case bfd_mach_mips6000:
+      arch_flags = M_MIPS2;
+      break;
+    case bfd_mach_mips4000:
+    case bfd_mach_mips4010:
+    case bfd_mach_mips4100:
+    case bfd_mach_mips4300:
+    case bfd_mach_mips4400:
+    case bfd_mach_mips4600:
+    case bfd_mach_mips4650:
+    case bfd_mach_mips8000:
+    case bfd_mach_mips10000:
+    case bfd_mach_mips16:
+      /* FIXME: These should be MIPS3 or MIPS4.  */
+      arch_flags = M_MIPS2;
+      break;
+    default:
+      arch_flags = M_UNKNOWN;
+      break;
     }
     break;
 
@@ -1213,7 +1234,7 @@ NAME(aout,set_section_contents) (abfd, section, location, offset, count)
       && section != obj_datasec (abfd))
     {
       (*_bfd_error_handler)
-	("%s: can not represent section `%s' in a.out object file format",
+	(_("%s: can not represent section `%s' in a.out object file format"),
 	 bfd_get_filename (abfd), bfd_get_section_name (abfd, section));
       bfd_set_error (bfd_error_nonrepresentable_section);
       return false;
@@ -1597,9 +1618,9 @@ translate_to_native_sym_flags (abfd, cache_ptr, sym_pointer)
       /* This case occurs, e.g., for the *DEBUG* section of a COFF
 	 file.  */
       (*_bfd_error_handler)
-	("%s: can not represent section for symbol `%s' in a.out object file format",
+	(_("%s: can not represent section for symbol `%s' in a.out object file format"),
 	 bfd_get_filename (abfd), 
-	 cache_ptr->name != NULL ? cache_ptr->name : "*unknown*");
+	 cache_ptr->name != NULL ? cache_ptr->name : _("*unknown*"));
       bfd_set_error (bfd_error_nonrepresentable_section);
       return false;
     }
@@ -1627,7 +1648,7 @@ translate_to_native_sym_flags (abfd, cache_ptr, sym_pointer)
   else
     {
       (*_bfd_error_handler)
-	("%s: can not represent section `%s' in a.out object file format",
+	(_("%s: can not represent section `%s' in a.out object file format"),
 	 bfd_get_filename (abfd), bfd_get_section_name (abfd, sec));
       bfd_set_error (bfd_error_nonrepresentable_section);
       return false;
@@ -2678,6 +2699,7 @@ NAME(aout,find_nearest_line)
   CONST char *main_file_name = NULL;
   CONST char *current_file_name = NULL;
   CONST char *line_file_name = NULL; /* Value of current_file_name at line number. */
+  CONST char *line_directory_name = NULL; /* Value of directory_name at line number. */
   bfd_vma low_line_vma = 0;
   bfd_vma low_func_vma = 0;
   asymbol *func = 0;
@@ -2766,6 +2788,7 @@ NAME(aout,find_nearest_line)
 	    *line_ptr = q->desc;
 	    low_line_vma = q->symbol.value;
 	    line_file_name = current_file_name;
+	    line_directory_name = directory_name;
 	  }
 	break;
       case N_FUN:
@@ -2786,7 +2809,10 @@ NAME(aout,find_nearest_line)
 
  done:
   if (*line_ptr != 0)
-    main_file_name = line_file_name;
+    {
+      main_file_name = line_file_name;
+      directory_name = line_directory_name;
+    }
 
   if (main_file_name == NULL
       || main_file_name[0] == '/'
@@ -3638,7 +3664,7 @@ NAME(aout,final_link) (abfd, info, callback)
 		 work out the number of relocs needed, and then multiply
 		 by the reloc size.  */
 	      (*_bfd_error_handler)
-		("%s: relocateable link from %s to %s not supported",
+		(_("%s: relocateable link from %s to %s not supported"),
 		 bfd_get_filename (abfd),
 		 sub->xvec->name, abfd->xvec->name);
 	      bfd_set_error (bfd_error_invalid_operation);
@@ -4936,6 +4962,7 @@ aout_link_input_section_std (finfo, input_bfd, input_section, relocs,
 	  /* We are generating an executable, and must do a full
 	     relocation.  */
 	  hundef = false;
+
 	  if (r_extern)
 	    {
 	      h = sym_hashes[r_index];
@@ -5278,6 +5305,7 @@ aout_link_input_section_ext (finfo, input_bfd, input_section, relocs,
 	  /* We are generating an executable, and must do a full
 	     relocation.  */
 	  hundef = false;
+
 	  if (r_extern)
 	    {
 	      h = sym_hashes[r_index];
@@ -5398,10 +5426,21 @@ aout_link_input_section_ext (finfo, input_bfd, input_section, relocs,
 		return false;
 	    }
 
-	  r = MY_final_link_relocate (howto_table_ext + r_type,
-				      input_bfd, input_section,
-				      contents, r_addr, relocation,
-				      r_addend);
+	  if (r_type != RELOC_SPARC_REV32)
+	    r = MY_final_link_relocate (howto_table_ext + r_type,
+					input_bfd, input_section,
+					contents, r_addr, relocation,
+					r_addend);
+	  else
+	    {
+	      bfd_vma x;
+
+	      x = bfd_get_32 (input_bfd, contents + r_addr);
+	      x = x + relocation + r_addend;
+	      bfd_putl32 (/*input_bfd,*/ x, contents + r_addr);
+	      r = bfd_reloc_ok;
+	    }
+
 	  if (r != bfd_reloc_ok)
 	    {
 	      switch (r)

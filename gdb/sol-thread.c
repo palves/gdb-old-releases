@@ -46,17 +46,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    procfs.c.  */
 
 #include "defs.h"
-
-/* Undefine gregset_t and fpregset_t to avoid conflict with defs in xm file. */
-
-#ifdef gregset_t
-#undef gregset_t
-#endif
-
-#ifdef fpregset_t
-#undef fpregset_t
-#endif
-
 #include <thread.h>
 #include <proc_service.h>
 #include <thread_db.h>
@@ -75,6 +64,9 @@ extern struct target_ops sol_core_ops; /* Forward declaration */
 /* place to store core_ops before we overwrite it */
 static struct target_ops orig_core_ops;
 
+struct target_ops sol_thread_ops;
+struct target_ops sol_core_ops;
+
 extern int procfs_suppress_run;
 extern struct target_ops procfs_ops; /* target vector for procfs.c */
 extern struct target_ops core_ops; /* target vector for corelow.c */
@@ -91,8 +83,8 @@ extern char *procfs_pid_to_str PARAMS ((int pid));
 
 extern void supply_gregset PARAMS ((const prgregset_t));
 extern void fill_gregset PARAMS ((prgregset_t, int));
-extern void supply_fpregset PARAMS ((const prfpregset_t));
-extern void fill_fpregset PARAMS ((prfpregset_t, int));
+extern void supply_fpregset PARAMS ((const prfpregset_t *));
+extern void fill_fpregset PARAMS ((prfpregset_t *, int));
 
 /* This struct is defined by us, but mainly used for the proc_service interface.
    We don't have much use for it, except as a handy place to get a real pid
@@ -123,6 +115,9 @@ static void sol_thread_resume PARAMS ((int pid, int step,
 static int lwp_to_thread PARAMS ((int lwp));
 static int sol_thread_alive PARAMS ((int pid));
 static void sol_core_close PARAMS ((int quitting));
+
+static void init_sol_thread_ops PARAMS ((void));
+static void init_sol_core_ops PARAMS ((void));
 
 #define THREAD_FLAG 0x80000000
 #define is_thread(ARG) (((ARG) & THREAD_FLAG) != 0)
@@ -385,7 +380,7 @@ lwp_to_thread (lwp)
   if (val == TD_NOTHR)
     return -1;		/* thread must have terminated */
   else if (val != TD_OK)
-    error ("lwp_to_thread: td_thr_get_info: %s.", td_err_string (val));
+    error ("lwp_to_thread: td_ta_map_lwp2thr: %s.", td_err_string (val));
 
   val = p_td_thr_validate (&th);
   if (val == TD_NOTHR)
@@ -653,7 +648,7 @@ sol_thread_fetch_registers (regno)
    registers array.  */
 
   supply_gregset (gregset);
-  supply_fpregset (fpregset);
+  supply_fpregset (&fpregset);
 
 #if 0
 /* thread_db doesn't seem to handle this right */
@@ -739,7 +734,7 @@ sol_thread_store_registers (regno)
     }
 
   fill_gregset (regset, regno);
-  fill_fpregset (fpregset, regno);
+  fill_fpregset (&fpregset, regno);
 
   val = p_td_thr_setgregs (&thandle, regset);
   if (val != TD_OK)
@@ -822,7 +817,7 @@ static void
 sol_thread_notice_signals (pid)
      int pid;
 {
-  procfs_ops.to_notice_signals (pid);
+  procfs_ops.to_notice_signals (PIDGET (pid));
 }
 
 /* Fork an inferior process, and start debugging it with /proc.  */
@@ -956,37 +951,65 @@ sol_thread_stop ()
 /* These routines implement the lower half of the thread_db interface.  Ie: the
    ps_* routines.  */
 
+/* Various versions of <proc_service.h> have slightly
+   different function prototypes.  In particular, we have
+
+      NEWER		    	OLDER
+      struct ps_prochandle *  	const struct ps_prochandle *
+      void*			char*
+      const void*		char*
+      int			size_t
+
+   Which one you have depends on solaris version and what
+   patches you've applied.  On the theory that there are
+   only two major variants, we have configure check the
+   prototype of ps_pdwrite (), and use that info to make
+   appropriate typedefs here. */
+
+#ifdef PROC_SERVICE_IS_OLD
+typedef const struct ps_prochandle * gdb_ps_prochandle_t;
+typedef char * gdb_ps_read_buf_t;
+typedef char * gdb_ps_write_buf_t;
+typedef int gdb_ps_size_t;
+#else
+typedef struct ps_prochandle * gdb_ps_prochandle_t;
+typedef void * gdb_ps_read_buf_t;
+typedef const void * gdb_ps_write_buf_t;
+typedef size_t gdb_ps_size_t;
+#endif
+
+
 /* The next four routines are called by thread_db to tell us to stop and stop
    a particular process or lwp.  Since GDB ensures that these are all stopped
    by the time we call anything in thread_db, these routines need to do
    nothing.  */
 
 ps_err_e
-ps_pstop (const struct ps_prochandle *ph)
+ps_pstop (gdb_ps_prochandle_t ph)
 {
   return PS_OK;
 }
 
 ps_err_e
-ps_pcontinue (const struct ps_prochandle *ph)
+ps_pcontinue (gdb_ps_prochandle_t ph)
 {
   return PS_OK;
 }
 
 ps_err_e
-ps_lstop (const struct ps_prochandle *ph, lwpid_t lwpid)
+ps_lstop (gdb_ps_prochandle_t ph, lwpid_t lwpid)
 {
   return PS_OK;
 }
 
 ps_err_e
-ps_lcontinue (const struct ps_prochandle *ph, lwpid_t lwpid)
+ps_lcontinue (gdb_ps_prochandle_t ph, lwpid_t lwpid)
 {
   return PS_OK;
 }
 
 ps_err_e
-ps_pglobal_lookup (const struct ps_prochandle *ph, const char *ld_object_name,
+ps_pglobal_lookup (gdb_ps_prochandle_t ph, const char *ld_object_name,
 		   const char *ld_symbol_name, paddr_t *ld_symbol_addr)
 {
   struct minimal_symbol *ms;
@@ -1046,33 +1069,37 @@ rw_common (int dowrite, const struct ps_prochandle *ph, paddr_t addr,
 }
 
 ps_err_e
-ps_pdread (const struct ps_prochandle *ph, paddr_t addr, char *buf, int size)
+ps_pdread (gdb_ps_prochandle_t ph, paddr_t addr,
+	   gdb_ps_read_buf_t buf, gdb_ps_size_t size)
 {
   return rw_common (0, ph, addr, buf, size);
 }
 
 ps_err_e
-ps_pdwrite (const struct ps_prochandle *ph, paddr_t addr, char *buf, int size)
+ps_pdwrite (gdb_ps_prochandle_t ph, paddr_t addr,
+	    gdb_ps_write_buf_t buf, gdb_ps_size_t size)
 {
-  return rw_common (1, ph, addr, buf, size);
+  return rw_common (1, ph, addr, (char*) buf, size);
 }
 
 ps_err_e
-ps_ptread (const struct ps_prochandle *ph, paddr_t addr, char *buf, int size)
+ps_ptread (gdb_ps_prochandle_t ph, paddr_t addr,
+	   gdb_ps_read_buf_t buf, gdb_ps_size_t size)
 {
   return rw_common (0, ph, addr, buf, size);
 }
 
 ps_err_e
-ps_ptwrite (const struct ps_prochandle *ph, paddr_t addr, char *buf, int size)
+ps_ptwrite (gdb_ps_prochandle_t ph, paddr_t addr,
+	    gdb_ps_write_buf_t buf, gdb_ps_size_t size)
 {
-  return rw_common (1, ph, addr, buf, size);
+  return rw_common (1, ph, addr, (char*) buf, size);
 }
 
 /* Get integer regs */
 
 ps_err_e
-ps_lgetregs (const struct ps_prochandle *ph, lwpid_t lwpid,
+ps_lgetregs (gdb_ps_prochandle_t ph, lwpid_t lwpid,
 	     prgregset_t gregset)
 {
   struct cleanup *old_chain;
@@ -1095,7 +1122,7 @@ ps_lgetregs (const struct ps_prochandle *ph, lwpid_t lwpid,
 /* Set integer regs */
 
 ps_err_e
-ps_lsetregs (const struct ps_prochandle *ph, lwpid_t lwpid,
+ps_lsetregs (gdb_ps_prochandle_t ph, lwpid_t lwpid,
 	     const prgregset_t gregset)
 {
   struct cleanup *old_chain;
@@ -1128,7 +1155,7 @@ ps_plog (const char *fmt, ...)
 /* Get size of extra register set.  Currently a noop.  */
 
 ps_err_e
-ps_lgetxregsize (const struct ps_prochandle *ph, lwpid_t lwpid, int *xregsize)
+ps_lgetxregsize (gdb_ps_prochandle_t ph, lwpid_t lwpid, int *xregsize)
 {
 #if 0
   int lwp_fd;
@@ -1156,7 +1183,7 @@ ps_lgetxregsize (const struct ps_prochandle *ph, lwpid_t lwpid, int *xregsize)
 /* Get extra register set.  Currently a noop.  */
 
 ps_err_e
-ps_lgetxregs (const struct ps_prochandle *ph, lwpid_t lwpid, caddr_t xregset)
+ps_lgetxregs (gdb_ps_prochandle_t ph, lwpid_t lwpid, caddr_t xregset)
 {
 #if 0
   int lwp_fd;
@@ -1179,7 +1206,7 @@ ps_lgetxregs (const struct ps_prochandle *ph, lwpid_t lwpid, caddr_t xregset)
 /* Set extra register set.  Currently a noop.  */
 
 ps_err_e
-ps_lsetxregs (const struct ps_prochandle *ph, lwpid_t lwpid, caddr_t xregset)
+ps_lsetxregs (gdb_ps_prochandle_t ph, lwpid_t lwpid, caddr_t xregset)
 {
 #if 0
   int lwp_fd;
@@ -1202,7 +1229,7 @@ ps_lsetxregs (const struct ps_prochandle *ph, lwpid_t lwpid, caddr_t xregset)
 /* Get floating-point regs.  */
 
 ps_err_e
-ps_lgetfpregs (const struct ps_prochandle *ph, lwpid_t lwpid,
+ps_lgetfpregs (gdb_ps_prochandle_t ph, lwpid_t lwpid,
 	       prfpregset_t *fpregset)
 {
   struct cleanup *old_chain;
@@ -1215,7 +1242,7 @@ ps_lgetfpregs (const struct ps_prochandle *ph, lwpid_t lwpid,
     procfs_ops.to_fetch_registers (-1);
   else
     orig_core_ops.to_fetch_registers (-1);
-  fill_fpregset (*fpregset, -1);
+  fill_fpregset (fpregset, -1);
 
   do_cleanups (old_chain);
 
@@ -1225,7 +1252,7 @@ ps_lgetfpregs (const struct ps_prochandle *ph, lwpid_t lwpid,
 /* Set floating-point regs.  */
 
 ps_err_e
-ps_lsetfpregs (const struct ps_prochandle *ph, lwpid_t lwpid,
+ps_lsetfpregs (gdb_ps_prochandle_t ph, lwpid_t lwpid,
 	       const prfpregset_t *fpregset)
 {
   struct cleanup *old_chain;
@@ -1234,7 +1261,7 @@ ps_lsetfpregs (const struct ps_prochandle *ph, lwpid_t lwpid,
 
   inferior_pid = BUILD_LWP (lwpid, PIDGET (inferior_pid));
   
-  supply_fpregset (*fpregset);
+  supply_fpregset (fpregset);
   if (target_has_execution)
     procfs_ops.to_store_registers (-1);
   else
@@ -1257,8 +1284,8 @@ static int nldt_allocated = 0;
 static struct ssd *ldt_bufp = NULL;
 
 ps_err_e
-ps_lgetLDT (const struct ps_prochandle *ph, lwpid_t lwpid,
-	     struct ssd *pldt)
+ps_lgetLDT (gdb_ps_prochandle_t ph, lwpid_t lwpid,
+	    struct ssd *pldt)
 {
   gregset_t gregset;
   int lwp_fd;
@@ -1291,7 +1318,7 @@ ps_lgetLDT (const struct ps_prochandle *ph, lwpid_t lwpid,
   /* Search LDT for the LWP via register GS.  */
   for (i = 0; i < nldt; i++)
     {
-      if (ldt_bufp[i].sel == gregset[GS])
+      if (ldt_bufp[i].sel == (gregset[GS] & 0xffff))
 	{
 	  *pldt = ldt_bufp[i];
 	  return PS_OK;
@@ -1484,91 +1511,92 @@ ignore (addr, contents)
   return 0;
 }
 
-struct target_ops sol_thread_ops = {
-  "solaris-threads",		/* to_shortname */
-  "Solaris threads and pthread.", /* to_longname */
-  "Solaris threads and pthread support.", /* to_doc */
-  sol_thread_open,		/* to_open */
-  0,				/* to_close */
-  sol_thread_attach,		/* to_attach */
-  sol_thread_detach, 		/* to_detach */
-  sol_thread_resume,		/* to_resume */
-  sol_thread_wait,		/* to_wait */
-  sol_thread_fetch_registers,	/* to_fetch_registers */
-  sol_thread_store_registers,	/* to_store_registers */
-  sol_thread_prepare_to_store,	/* to_prepare_to_store */
-  sol_thread_xfer_memory,	/* to_xfer_memory */
-  sol_thread_files_info,	/* to_files_info */
-  memory_insert_breakpoint,	/* to_insert_breakpoint */
-  memory_remove_breakpoint,	/* to_remove_breakpoint */
-  terminal_init_inferior,	/* to_terminal_init */
-  terminal_inferior, 		/* to_terminal_inferior */
-  terminal_ours_for_output,	/* to_terminal_ours_for_output */
-  terminal_ours,		/* to_terminal_ours */
-  child_terminal_info,		/* to_terminal_info */
-  sol_thread_kill_inferior,	/* to_kill */
-  0,				/* to_load */
-  0,				/* to_lookup_symbol */
-  sol_thread_create_inferior,	/* to_create_inferior */
-  sol_thread_mourn_inferior,	/* to_mourn_inferior */
-  sol_thread_can_run,		/* to_can_run */
-  sol_thread_notice_signals,	/* to_notice_signals */
-  sol_thread_alive,		/* to_thread_alive */
-  sol_thread_stop,		/* to_stop */
-  process_stratum,		/* to_stratum */
-  0,				/* to_next */
-  1,				/* to_has_all_memory */
-  1,				/* to_has_memory */
-  1,				/* to_has_stack */
-  1,				/* to_has_registers */
-  1,				/* to_has_execution */
-  0,				/* sections */
-  0,				/* sections_end */
-  OPS_MAGIC			/* to_magic */
-};
 
-struct target_ops sol_core_ops = {
-  "solaris-core",		/* to_shortname */
-  "Solaris core threads and pthread.", /* to_longname */
-  "Solaris threads and pthread support for core files.", /* to_doc */
-  sol_core_open,		/* to_open */
-  sol_core_close,		/* to_close */
-  sol_thread_attach,		/* XXX to_attach */
-  sol_core_detach, 		/* to_detach */
-  0,				/* to_resume */
-  0,				/* to_wait */
-  sol_thread_fetch_registers,	/* to_fetch_registers */
-  0,				/* to_store_registers */
-  0,				/* to_prepare_to_store */
-  sol_thread_xfer_memory,	/* XXX to_xfer_memory */
-  sol_core_files_info,		/* to_files_info */
-  ignore,			/* to_insert_breakpoint */
-  ignore,			/* to_remove_breakpoint */
-  0,				/* to_terminal_init */
-  0,		 		/* to_terminal_inferior */
-  0,				/* to_terminal_ours_for_output */
-  0,				/* to_terminal_ours */
-  0,				/* to_terminal_info */
-  0,				/* to_kill */
-  0,				/* to_load */
-  0,				/* to_lookup_symbol */
-  sol_thread_create_inferior,	/* XXX to_create_inferior */
-  0,				/* to_mourn_inferior */
-  0,				/* to_can_run */
-  0,				/* to_notice_signals */
-  0,				/* to_thread_alive */
-  0,				/* to_stop */
-  core_stratum,			/* to_stratum */
-  0,				/* to_next */
-  0,				/* to_has_all_memory */
-  1,				/* to_has_memory */
-  1,				/* to_has_stack */
-  1,				/* to_has_registers */
-  0,				/* to_has_execution */
-  0,				/* sections */
-  0,				/* sections_end */
-  OPS_MAGIC			/* to_magic */
-};
+static void
+init_sol_thread_ops ()
+{
+  sol_thread_ops.to_shortname = "solaris-threads";
+  sol_thread_ops.to_longname = "Solaris threads and pthread.";
+  sol_thread_ops.to_doc = "Solaris threads and pthread support.";
+  sol_thread_ops.to_open = sol_thread_open;
+  sol_thread_ops.to_close = 0;
+  sol_thread_ops.to_attach = sol_thread_attach;
+  sol_thread_ops.to_detach = sol_thread_detach;
+  sol_thread_ops.to_resume = sol_thread_resume;
+  sol_thread_ops.to_wait = sol_thread_wait;
+  sol_thread_ops.to_fetch_registers = sol_thread_fetch_registers;
+  sol_thread_ops.to_store_registers = sol_thread_store_registers;
+  sol_thread_ops.to_prepare_to_store = sol_thread_prepare_to_store;
+  sol_thread_ops.to_xfer_memory = sol_thread_xfer_memory;
+  sol_thread_ops.to_files_info = sol_thread_files_info;
+  sol_thread_ops.to_insert_breakpoint = memory_insert_breakpoint;
+  sol_thread_ops.to_remove_breakpoint = memory_remove_breakpoint;
+  sol_thread_ops.to_terminal_init = terminal_init_inferior;
+  sol_thread_ops.to_terminal_inferior = terminal_inferior;
+  sol_thread_ops.to_terminal_ours_for_output = terminal_ours_for_output;
+  sol_thread_ops.to_terminal_ours = terminal_ours;
+  sol_thread_ops.to_terminal_info = child_terminal_info;
+  sol_thread_ops.to_kill = sol_thread_kill_inferior;
+  sol_thread_ops.to_load = 0;
+  sol_thread_ops.to_lookup_symbol = 0;
+  sol_thread_ops.to_create_inferior = sol_thread_create_inferior;
+  sol_thread_ops.to_mourn_inferior = sol_thread_mourn_inferior;
+  sol_thread_ops.to_can_run = sol_thread_can_run;
+  sol_thread_ops.to_notice_signals = sol_thread_notice_signals;
+  sol_thread_ops.to_thread_alive = sol_thread_alive;
+  sol_thread_ops.to_stop = sol_thread_stop;
+  sol_thread_ops.to_stratum = process_stratum;
+  sol_thread_ops.to_has_all_memory = 1;
+  sol_thread_ops.to_has_memory = 1;
+  sol_thread_ops.to_has_stack = 1;
+  sol_thread_ops.to_has_registers = 1;
+  sol_thread_ops.to_has_execution = 1;
+  sol_thread_ops.to_has_thread_control = tc_none;
+  sol_thread_ops.to_sections = 0;
+  sol_thread_ops.to_sections_end = 0;
+  sol_thread_ops.to_magic = OPS_MAGIC;
+}
+
+
+static void
+init_sol_core_ops ()
+{
+  sol_core_ops.to_shortname  = "solaris-core";
+  sol_core_ops.to_longname  = "Solaris core threads and pthread.";
+  sol_core_ops.to_doc  = "Solaris threads and pthread support for core files.";
+  sol_core_ops.to_open  = sol_core_open;
+  sol_core_ops.to_close  = sol_core_close;
+  sol_core_ops.to_attach  = sol_thread_attach;
+  sol_core_ops.to_detach  = sol_core_detach;
+  /* sol_core_ops.to_resume  = 0; */
+  /* sol_core_ops.to_wait  = 0;	 */
+  sol_core_ops.to_fetch_registers  = sol_thread_fetch_registers;
+  /* sol_core_ops.to_store_registers  = 0; */
+  /* sol_core_ops.to_prepare_to_store  = 0; */
+  sol_core_ops.to_xfer_memory  = sol_thread_xfer_memory;
+  sol_core_ops.to_files_info  = sol_core_files_info;
+  sol_core_ops.to_insert_breakpoint  = ignore;
+  sol_core_ops.to_remove_breakpoint  = ignore;
+  /* sol_core_ops.to_terminal_init  = 0; */
+  /* sol_core_ops.to_terminal_inferior  = 0; */
+  /* sol_core_ops.to_terminal_ours_for_output  = 0; */
+  /* sol_core_ops.to_terminal_ours  = 0; */
+  /* sol_core_ops.to_terminal_info  = 0; */
+  /* sol_core_ops.to_kill  = 0; */
+  /* sol_core_ops.to_load  = 0; */
+  /* sol_core_ops.to_lookup_symbol  = 0; */
+  sol_core_ops.to_create_inferior  = sol_thread_create_inferior;
+  sol_core_ops.to_stratum  = core_stratum;
+  sol_core_ops.to_has_all_memory  = 0;
+  sol_core_ops.to_has_memory  = 1;
+  sol_core_ops.to_has_stack  = 1;
+  sol_core_ops.to_has_registers  = 1;
+  sol_core_ops.to_has_execution  = 0;
+  sol_core_ops.to_has_thread_control  = tc_none;
+  sol_core_ops.to_sections  = 0;
+  sol_core_ops.to_sections_end  = 0;
+  sol_core_ops.to_magic  = OPS_MAGIC;
+}
 
 /* we suppress the call to add_target of core_ops in corelow because
    if there are two targets in the stratum core_stratum, find_core_target
@@ -1580,6 +1608,9 @@ void
 _initialize_sol_thread ()
 {
   void *dlhandle;
+
+  init_sol_thread_ops ();
+  init_sol_core_ops ();
 
   dlhandle = dlopen ("libthread_db.so.1", RTLD_NOW);
   if (!dlhandle)

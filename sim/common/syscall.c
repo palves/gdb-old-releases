@@ -1,5 +1,5 @@
 /* Remote target system call support.
-   Copyright 1997 Free Software Foundation, Inc.
+   Copyright 1997, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
    This file is part of GDB.
@@ -279,6 +279,8 @@ cb_syscall (cb, sc)
 					   ? count : FILE_XFR_SIZE));
 	    if (result == -1)
 	      goto ErrorFinish;
+	    if (result == 0)	/* EOF */
+	      break;
 	    bytes_written = (*sc->write_mem) (cb, sc, addr, buf, result);
 	    if (bytes_written != result)
 	      {
@@ -289,6 +291,9 @@ cb_syscall (cb, sc)
 	    bytes_read += result;
 	    count -= result;
 	    addr += result;
+	    /* If this is a short read, don't go back for more */
+	    if (result != FILE_XFR_SIZE)
+	      break;
 	  }
 	result = bytes_read;
       }

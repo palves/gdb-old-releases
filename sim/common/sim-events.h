@@ -19,8 +19,8 @@
     */
 
 
-#ifndef _SIM_EVENTS_H_
-#define _SIM_EVENTS_H_
+#ifndef SIM_EVENTS_H
+#define SIM_EVENTS_H
 
 
 /* Notes:
@@ -100,40 +100,49 @@ struct _sim_events {
 
 /* Install the "events" module.  */
 
-EXTERN_SIM_EVENTS\
-(SIM_RC) sim_events_install (SIM_DESC sd);
-
-
-/* Set Tracing Level */
-
-EXTERN_SIM_EVENTS\
-(void) sim_events_set_trace
-(SIM_DESC sd,
- int level);
+extern SIM_RC sim_events_install (SIM_DESC sd);
 
 
 /* Schedule an event DELTA_TIME ticks into the future */
 
-EXTERN_SIM_EVENTS\
-(sim_event *) sim_events_schedule
+extern sim_event *sim_events_schedule
 (SIM_DESC sd,
  signed64 delta_time,
  sim_event_handler *handler,
  void *data);
 
-EXTERN_SIM_EVENTS\
-(void) sim_events_schedule_after_signal
+extern sim_event *sim_events_schedule_tracef
+(SIM_DESC sd,
+ signed64 delta_time,
+ sim_event_handler *handler,
+ void *data,
+ const char *fmt,
+ ...) __attribute__ ((format (printf, 5, 6)));
+
+extern sim_event *sim_events_schedule_vtracef
+(SIM_DESC sd,
+ signed64 delta_time,
+ sim_event_handler *handler,
+ void *data,
+ const char *fmt,
+ va_list ap);
+
+
+extern void sim_events_schedule_after_signal
 (SIM_DESC sd,
  signed64 delta_time,
  sim_event_handler *handler,
  void *data);
+
+/* NB: signal level events can't have trace strings as malloc isn't
+   available */
+
 
 
 /* Schedule an event milli-seconds from NOW.  The exact interpretation
    of wallclock is host dependant. */
 
-EXTERN_SIM_EVENTS\
-(sim_event *) sim_events_watch_clock
+extern sim_event *sim_events_watch_clock
 (SIM_DESC sd,
  unsigned delta_ms_time,
  sim_event_handler *handler,
@@ -147,8 +156,7 @@ EXTERN_SIM_EVENTS\
    HOST_ADDR: pointer into the host address space.
    BYTE_ORDER: 0 - host endian; BIG_ENDIAN; LITTLE_ENDIAN */
 
-EXTERN_SIM_EVENTS\
-(sim_event*) sim_events_watch_sim
+extern sim_event *sim_events_watch_sim
 (SIM_DESC sd,
  void *host_addr,
  int nr_bytes,
@@ -167,11 +175,10 @@ EXTERN_SIM_EVENTS\
    CORE_ADDR/MAP: pointer into the target address space.
    BYTE_ORDER: 0 - current target endian; BIG_ENDIAN; LITTLE_ENDIAN */
 
-EXTERN_SIM_EVENTS\
-(sim_event*) sim_events_watch_core
+extern sim_event *sim_events_watch_core
 (SIM_DESC sd,
  address_word core_addr,
- sim_core_maps core_map,
+ unsigned map,
  int nr_bytes,
  int byte_order,
  int is_within,
@@ -182,8 +189,7 @@ EXTERN_SIM_EVENTS\
 
 /* Deschedule the specified event */
 
-EXTERN_SIM_EVENTS\
-(void) sim_events_deschedule
+extern void sim_events_deschedule
 (SIM_DESC sd,
  sim_event *event_to_remove);
 

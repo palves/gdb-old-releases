@@ -31,6 +31,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <signal.h>
 #include <fcntl.h>
 
+int remote_debug = 0;
+
 static int remote_desc;
 
 /* Open a connection to a remote debugger.
@@ -40,6 +42,8 @@ void
 remote_open (name)
      char *name;
 {
+  int save_fcntl_flags;
+
   if (!strchr (name, ':'))
     {
       remote_desc = open (name, O_RDWR);
@@ -147,8 +151,11 @@ remote_open (name)
 				    exits when the remote side dies.  */
     }
 
-  fcntl (remote_desc, F_SETFL, FASYNC);
-
+#if defined(F_SETFL) && defined (FASYNC)
+  save_fcntl_flags = fcntl (remote_desc, F_GETFL, 0);
+  fcntl (remote_desc, F_SETFL, save_fcntl_flags | FASYNC);
+  disable_async_io ();
+#endif /* FASYNC */
   fprintf (stderr, "Remote debugging using %s\n", name);
 }
 
@@ -213,6 +220,8 @@ putpkt (buf)
   *p++ = tohex ((csum >> 4) & 0xf);
   *p++ = tohex (csum & 0xf);
 
+  *p = '\0';
+
   /* Send it over and over until we get a positive ack.  */
 
   do
@@ -225,7 +234,11 @@ putpkt (buf)
 	  return -1;
 	}
 
+      if (remote_debug)
+	printf ("putpkt (\"%s\"); [looking for ack]\n", buf2);
       cc = read (remote_desc, buf3, 1);
+      if (remote_debug)
+	printf ("[received '%c' (0x%x)]\n", buf3[0], buf3[0]);
       if (cc <= 0)
 	{
 	  if (cc == 0)
@@ -324,6 +337,8 @@ getpkt (buf)
 	  c = readchar ();
 	  if (c == '$')
 	    break;
+	  if (remote_debug)
+	    printf ("[getpkt: discarding char '%c']\n", c);
 	  if (c < 0)
 	    return -1;
 	}
@@ -343,6 +358,7 @@ getpkt (buf)
 
       c1 = fromhex (readchar ());
       c2 = fromhex (readchar ());
+      
       if (csum == (c1 << 4) + c2)
 	break;
 
@@ -351,7 +367,13 @@ getpkt (buf)
       write (remote_desc, "-", 1);
     }
 
+  if (remote_debug)
+    printf ("getpkt (\"%s\");  [sending ack] \n", buf);
+
   write (remote_desc, "+", 1);
+
+  if (remote_debug)
+    printf ("[sent ack]\n");
   return bp - buf;
 }
 

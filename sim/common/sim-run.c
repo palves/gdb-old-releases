@@ -24,6 +24,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 /* Generic implementation of sim_engine_run that works within the
    sim_engine setjmp/longjmp framework. */
 
+#define IMEM XCONCAT
+
 void
 sim_engine_run (SIM_DESC sd,
 		int next_cpu_nr, /* ignore */
@@ -37,7 +39,7 @@ sim_engine_run (SIM_DESC sd,
   cia = CIA_GET (cpu);
   while (1)
     {
-      instruction_word insn = IMEM (cia);
+      instruction_word insn = IMEM32 (cia);
       cia = idecode_issue (sd, insn, cia);
       /* process any events */
       if (sim_events_tick (sd))

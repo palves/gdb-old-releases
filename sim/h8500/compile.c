@@ -2190,11 +2190,12 @@ sim_read (sd, addr, buffer, size)
 #define INST_REGNUM     23
 #define TICK_REGNUM     24
 
-void
-sim_store_register (sd, rn, value)
+int
+sim_store_register (sd, rn, value, length)
      SIM_DESC sd;
      int rn;
      unsigned char *value;
+     int length;
 {
   int seg = 0;
   int reg = -1;
@@ -2260,13 +2261,15 @@ sim_store_register (sd, rn, value)
     {
       cpu.regs[reg].s[LOW] = (value[0] << 8) | value[1];
     }
+  return -1;
 }
 
-void
-sim_fetch_register (sd, rn, buf)
+int
+sim_fetch_register (sd, rn, buf, length)
      SIM_DESC sd;
      int rn;
      unsigned char *buf;
+     int length;
 {
   init_pointers ();
 
@@ -2337,6 +2340,7 @@ sim_fetch_register (sd, rn, buf)
       buf[3] = cpu.insts >> 0;
       break;
     }
+  return -1;
 }
 
 int
@@ -2494,7 +2498,7 @@ sim_create_inferior (sd, abfd, argv, env)
   /* ??? We assume this is a 4 byte quantity.  */
   pc = start_address;
 
-  sim_store_register (sd, PC_REGNUM, (unsigned char *) &pc);
+  sim_store_register (sd, PC_REGNUM, (unsigned char *) &pc, 4);
   return SIM_RC_OK;
 }
 

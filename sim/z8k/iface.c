@@ -41,25 +41,29 @@ sim_size (n)
   /* Size is fixed.  */
 }
 
-void
-sim_store_register (sd, regno, value)
+int
+sim_store_register (sd, regno, value, length)
      SIM_DESC sd;
      int regno;
      unsigned char *value;
+     int length;
 {
   /* FIXME: Review the computation of regval.  */
   int regval = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | value[3];
 
   tm_store_register (regno, regval);
+  return -1;
 }
 
-void
-sim_fetch_register (sd, regno, buf)
+int
+sim_fetch_register (sd, regno, buf, length)
      SIM_DESC sd;
      int regno;
      unsigned char *buf;
+     int length;
 {
   tm_fetch_register (regno, buf);
+  return -1;
 }
 
 int

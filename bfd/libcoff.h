@@ -1,5 +1,5 @@
 /* BFD COFF object file private structure.
-   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 1997
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
    Written by Cygnus Support.
 
@@ -97,9 +97,10 @@ typedef struct coff_tdata
   /* Used by coff_find_nearest_line.  */
   PTR line_info;
 
-  /* Copy of some of the f_flags bits in the COFF filehdr structure, used by ARM code */
-  int flags;
-  
+  /* Copy of some of the f_flags bits in the COFF filehdr structure,
+     used by ARM code.  */
+  flagword flags;
+
 } coff_data_type;
 
 /* Tdata for pe image files. */
@@ -760,7 +761,8 @@ typedef struct
        struct bfd_link_hash_entry **hashp));
 
  boolean (*_bfd_coff_link_output_has_begun) PARAMS ((
-       bfd * abfd ));
+       bfd * abfd,
+       struct coff_final_link_info * pfinfo));
  boolean (*_bfd_coff_final_link_postscript) PARAMS ((
        bfd * abfd,
        struct coff_final_link_info * pfinfo));
@@ -879,8 +881,8 @@ typedef struct
         ((coff_backend_info (abfd)->_bfd_coff_link_add_one_symbol)\
          (info, abfd, name, flags, section, value, string, cp, coll, hashp))
 
-#define bfd_coff_link_output_has_begun(a) \
-        ((coff_backend_info (a)->_bfd_coff_link_output_has_begun) (a))
+#define bfd_coff_link_output_has_begun(a,p) \
+        ((coff_backend_info (a)->_bfd_coff_link_output_has_begun) (a,p))
 #define bfd_coff_final_link_postscript(a,p) \
         ((coff_backend_info (a)->_bfd_coff_final_link_postscript) (a,p))
 

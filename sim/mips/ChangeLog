@@ -1,3 +1,698 @@
+1999-02-05  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* dv-tx3904sio.c (tx3904sio_tickle): After a polled I/O from the
+ 	CPU, start periodic background I/O polls.
+	(tx3904sio_poll): New function: periodic I/O poller. 
+
+1998-12-30  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* mips.igen (BREAK): Call signal_exception instead of sim_engine_halt.
+	
+Tue Dec 29 16:03:53 1998  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in, configure (mips64vr5*-*-*): Added missing ;; in
+ 	case statement.
+
+1998-12-29  Frank Ch. Eigler  <fche@cygnus.com>
+	
+	* interp.c (sim_open): Allocate jm3904 memory in smaller chunks. 
+	(load_word): Call SIM_CORE_SIGNAL hook on error.
+	(signal_exception): Call SIM_CPU_EXCEPTION_TRIGGER hook before
+	starting.  For exception dispatching, pass PC instead of NULL_CIA.
+	(decode_coproc): Use COP0_BADVADDR to store faulting address.
+	* sim-main.h (COP0_BADVADDR): Define. 
+	(SIM_CORE_SIGNAL): Define hook to call mips_core_signal.
+	(SIM_CPU_EXCEPTION*): Define hooks to call mips_cpu_exception*().
+	(_sim_cpu): Add exc_* fields to store register value snapshots.	
+	* mips.igen (*): Replace memory-related SignalException* calls
+	with references to SIM_CORE_SIGNAL hook.
+	
+	* dv-tx3904irc.c (tx3904irc_port_event): printf format warning
+	fix.
+	* sim-main.c (*): Minor warning cleanups.
+	
+1998-12-24  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* m16.igen (DADDIU5): Correct type-o.
+
+Mon Dec 21 10:34:48 1998  Andrew Cagney  <cagney@chook>
+
+	* mips.igen (do_ddiv, do_ddivu): Pacify GCC. Update hi/lo via tmp
+ 	variables.
+
+Wed Dec 16 18:20:28 1998  Andrew Cagney  <cagney@chook>
+
+	* Makefile.in (SIM_EXTRA_CFLAGS): No longer need to add .../newlib
+ 	to include path.
+	(interp.o): Add dependency on itable.h
+	(oengine.c, gencode): Delete remaining references.
+	(BUILT_SRC_FROM_GEN): Clean up.
+	
+1998-12-16  Gavin Romig-Koch  <gavin@cygnus.com>
+	
+	* vr4run.c: New.
+	* Makefile.in (SIM_HACK_OBJ,HACK_OBJS,HACK_GEN_SRCS,libhack.a,
+	tmp-hack,tmp-m32-hack,tmp-m16-hack,tmp-itable-hack,
+	tmp-run-hack) : New.
+	* m16.igen (LD,DADDIU,DADDUI5,DADJSP,DADDIUSP,DADDI,DADDU,DSUBU,
+	DSLL,DSRL,DSRA,DSLLV,DSRAV,DMULT,DMULTU,DDIV,DDIVU,JALX32,JALX): 
+	Drop the "64" qualifier to get the HACK generator working.
+	Use IMMEDIATE rather than IMMED.  Use SHAMT rather than SHIFT.
+	* mips.igen (do_daddiu,do_ddiv,do_divu): Remove the 64-only
+	qualifier to get the hack generator working.
+	(do_dsll,do_dsllv,do_dsra,do_dsrl,do_dsrlv): New.
+	(DSLL): Use do_dsll.
+	(DSLLV): Use do_dsllv.
+	(DSRA): Use do_dsra.
+	(DSRL): Use do_dsrl.
+	(DSRLV): Use do_dsrlv.
+	(BC1): Move *vr4100 to get the HACK generator working.
+	(CxC1, DMxC1, MxC1,MACCU,MACCHI,MACCHIU): Rename to 
+	get the HACK generator working.
+	(MACC) Rename to get the HACK generator working.
+	(DMACC,MACCS,DMACCS): Add the 64.
+	
+1998-12-12  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* mips.igen (BC1): Renamed to BC1a and BC1b to avoid conflicts.
+	* sim-main.h (SizeFGR): Handle TARGET_ENABLE_FR.
+	
+1998-12-11  Gavin Romig-Koch  <gavin@cygnus.com>
+
+    * mips/interp.c (DEBUG): Cleanups.
+
+1998-12-10  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* dv-tx3904sio.c (tx3904sio_io_read_buffer): Endianness fixes.
+	(tx3904sio_tickle): fflush after a stdout character output.
+	
+1998-12-03  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* interp.c (sim_close): Uninstall modules.
+
+Wed Nov 25 13:41:03 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h, interp.c (sim_monitor): Change to global
+ 	function.
+
+Wed Nov 25 17:33:24 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (vr4100): Only include vr4100 instructions in
+ 	simulator.
+	* configure: Re-generate.
+	* m16.igen (*): Tag all mips16 instructions as also being vr4100.
+
+Mon Nov 23 18:20:36 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (SIM_CFLAGS): Do not define WITH_IGEN.
+	* sim-main.h, sim-main.c, interp.c: Delete #if WITH_IGEN keeping
+ 	true alternative.
+
+	* configure.in (sim_default_gen, sim_use_gen): Replace with
+ 	sim_gen.
+	(--enable-sim-igen): Delete config option. Always using IGEN.
+	* configure: Re-generate.
+	
+	* Makefile.in (gencode): Kill, kill, kill.
+	* gencode.c: Ditto.
+	
+Mon Nov 23 18:07:36 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in: Configure mips64vr4100-elf nee mips64vr41* as a 64
+ 	bit mips16 igen simulator.
+	* configure: Re-generate.
+
+	* mips.igen (check_div_hilo, check_mult_hilo, check_mf_hilo): Mark
+ 	as part of vr4100 ISA.
+	* vr.igen: Mark all instructions as 64 bit only.
+
+Mon Nov 23 17:07:37 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (get_cell, sim_monitor, fetch_str, CoProcPresent):
+ 	Pacify GCC.
+
+Mon Nov 23 13:23:40 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in: Configure mips-lsi-elf nee mips*lsi* as a
+ 	mipsIII/mips16 igen simulator.  Fix sim_gen VS sim_igen typos.
+	* configure: Re-generate.
+
+	* m16.igen (BREAK): Define breakpoint instruction.
+	(JALX32): Mark instruction as mips16 and not r3900.
+	* mips.igen (C.cond.fmt): Fix typo in instruction format.
+
+	* sim-main.h (PENDING_FILL): Wrap C statements in do/while.
+
+Sat Nov  7 09:54:38 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gencode.c (build_instruction - BREAK): For MIPS16, handle BREAK
+ 	insn as a debug breakpoint.
+
+	* sim-main.h (PENDING_SLOT_BIT): Fix, was incorrectly defined as
+ 	pending.slot_size.
+	(PENDING_SCHED): Clean up trace statement.
+	(PENDING_SCHED): Increment PENDING_IN and PENDING_TOTAL.
+	(PENDING_FILL): Delay write by only one cycle.
+	(PENDING_FILL): For FSRs, write fmt_uninterpreted to FPR_STATE.
+
+	* sim-main.c (pending_tick): Clean up trace statements. Add trace
+ 	of pending writes.
+	(pending_tick): Fix sizes in switch statements, 4 & 8 instead of
+ 	32 & 64.
+	(pending_tick): Move incrementing of index to FOR statement.
+	(pending_tick): Only update PENDING_OUT after a write has occured.
+	
+	* configure.in: Add explicit mips-lsi-* target.  Use gencode to
+ 	build simulator.
+	* configure: Re-generate.
+	
+	* interp.c (sim_engine_run OLD): Delete explicit call to
+ 	PENDING_TICK. Now called via ENGINE_ISSUE_PREFIX_HOOK.
+	
+Sat Oct 30 09:49:10 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* dv-tx3904cpu.c (deliver_tx3904cpu_interrupt): Add dummy
+	interrupt level number to match changed SignalExceptionInterrupt
+	macro.
+
+Fri Oct  9 18:02:25 1998  Doug Evans  <devans@canuck.cygnus.com>
+
+	* interp.c: #include "itable.h" if WITH_IGEN.
+	(get_insn_name): New function.
+	(sim_open): Initialize CPU_INSN_NAME,CPU_MAX_INSNS.
+	* sim-main.h (MAX_INSNS,INSN_NAME): Delete.
+
+Mon Sep 14 12:36:44 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* configure: Rebuilt to inhale new common/aclocal.m4.
+
+Tue Sep  1 15:39:18 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* dv-tx3904sio.c: Include sim-assert.h.
+
+Tue Aug 25 12:49:46 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* dv-tx3904sio.c: New file: tx3904 serial I/O module.
+	* configure.in: Add dv-tx3904sio, dv-sockser for tx39 target.
+	Reorganize target-specific sim-hardware checks.
+	* configure: rebuilt.
+	* interp.c (sim_open): For tx39 target boards, set
+	OPERATING_ENVIRONMENT, add tx3904sio devices.
+	* tconfig.in: For tx39 target, set SIM_HANDLES_LMA for loading
+	ROM executables.  Install dv-sockser into sim-modules list.
+	
+	* dv-tx3904irc.c: Compiler warning clean-up.
+	* dv-tx3904tmr.c: Compiler warning clean-up.  Remove particularly
+	frequent hw-trace messages.
+
+Fri Jul 31 18:14:16 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* vr.igen (MulAcc): Identify as a vr4100 specific function.
+
+Sat Jul 25 16:03:14 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (IGEN_INCLUDE): Add vr.igen.
+
+	* vr.igen: New file.
+	(MAC/MADD16, DMAC/DMADD16): Implement using code from gencode.c.
+	* mips.igen: Define vr4100 model. Include vr.igen.
+Mon Jun 29 09:21:07 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* mips.igen (check_mf_hilo): Correct check.
+
+Wed Jun 17 12:20:49 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (interrupt_event): Add prototype.
+
+	* dv-tx3904tmr.c (tx3904tmr_io_write_buffer): Delete unused
+ 	register_ptr, register_value.
+	(deliver_tx3904tmr_tick): Fix types passed to printf fmt.
+
+	* sim-main.h (tracefh): Make extern.
+
+Tue Jun 16 14:39:00 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* dv-tx3904tmr.c: Deschedule timer event after dispatching.
+	Reduce unnecessarily high timer event frequency.  
+	* dv-tx3904cpu.c: Ditto for interrupt event.
+	
+Wed Jun 10 13:22:32 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* interp.c (decode_coproc): For TX39, add stub COP0 register #7,
+ 	to allay warnings.
+	(interrupt_event): Made non-static.
+	
+	* dv-tx3904tmr.c (deliver_tx3904tmr_tick): Correct accidental
+ 	interchange of configuration values for external vs. internal
+ 	clock dividers.
+	
+Tue Jun  9 12:46:24 1998  Ian Carmichael  <iancarm@cygnus.com>
+
+	* mips.igen (BREAK): Moved code to here for 
+	simulator-reserved break instructions.
+	* gencode.c (build_instruction): Ditto.
+	* interp.c (signal_exception): Code moved from here.  Non-
+	reserved instructions now use exception vector, rather 
+	than halting sim.
+	* sim-main.h: Moved magic constants to here.
+
+Tue Jun  9 12:29:50 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* dv-tx3904cpu.c (deliver_*_interrupt,*_port_event): Set the CAUSE
+ 	register upon non-zero interrupt event level, clear upon zero
+ 	event value.
+	* dv-tx3904irc.c (*_port_event): Handle deactivated interrupt signal
+	by passing zero event value.
+	(*_io_{read,write}_buffer): Endianness fixes.
+	* dv-tx3904tmr.c (*_io_{read,write}_buffer): Endianness fixes.
+	(deliver_*_tick): Reduce sim event interval to 75% of count interval.
+
+	* interp.c (sim_open): Added jmr3904pal board type that adds PAL-based
+	serial I/O and timer module at base address 0xFFFF0000.
+	
+Tue Jun  9 11:52:29 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* mips.igen (SWC1) : Correct the handling of ReverseEndian 
+	and BigEndianCPU.
+
+Tue Jun  9 11:40:57 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* configure.in (mips_fpu_bitsize) : Set this correctly for 32-bit mips
+	parts.
+	* configure: Update.
+
+Thu Jun  4 15:37:33 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* dv-tx3904tmr.c: New file - implements tx3904 timer.
+	* dv-tx3904{irc,cpu}.c: Mild reformatting.
+	* configure.in: Include tx3904tmr in hw_device list.
+	* configure: Rebuilt.
+	* interp.c (sim_open): Instantiate three timer instances.
+	Fix address typo of tx3904irc instance.
+
+Tue Jun  2 15:48:02 1998  Ian Carmichael  <iancarm@cygnus.com>
+
+	* interp.c (signal_exception): SystemCall exception now uses
+	the exception vector.
+
+Mon Jun  1 18:18:26 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* interp.c (decode_coproc): For TX39, add stub COP0 register #3,
+	to allay warnings.
+
+Fri May 29 11:40:39 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (sim_igen_filter): Match mips*tx39 not mipst*tx39.
+
+Mon May 25 20:47:45 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* dv-tx3904cpu.c, dv-tx3904irc.c: Rename *_callback to *_method.
+
+	* dv-tx3904cpu.c, dv-tx3904irc.c: Include hw-main.h and
+ 	sim-main.h. Declare a struct hw_descriptor instead of struct
+ 	hw_device_descriptor.
+
+Mon May 25 12:41:38 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen (do_store_left, do_load_left): Compute nr of left and
+ 	right bits and then re-align left hand bytes to correct byte
+ 	lanes.  Fix incorrect computation in do_store_left when loading
+ 	bytes from second word.
+
+Fri May 22 13:34:20 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (SIM_AC_OPTION_HARDWARE): Only enable when tx3904.
+	* interp.c (sim_open): Only create a device tree when HW is
+ 	enabled.
+
+	* dv-tx3904irc.c (tx3904irc_finish): Pacify GCC.
+	* interp.c (signal_exception): Ditto.
+
+Thu May 21 14:24:11 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* gencode.c: Mark BEGEZALL as LIKELY.
+
+Thu May 21 18:57:19 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (ALU32_END): Sign extend 32 bit results.
+	* mips.igen (ADD, SUB, ADDI, DADD, DSUB): Trace.
+	
+Mon May 18 18:22:42 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* configure.in (SIM_AC_OPTION_HARDWARE): Added common hardware
+ 	modules.  Recognize TX39 target with "mips*tx39" pattern.
+	* configure: Rebuilt.
+	* sim-main.h (*): Added many macros defining bits in
+ 	TX39 control registers.
+	(SignalInterrupt): Send actual PC instead of NULL.
+	(SignalNMIReset): New exception type.
+	* interp.c (board): New variable for future use to identify
+	a particular board being simulated.
+	(mips_option_handler,mips_options): Added "--board" option.
+	(interrupt_event): Send actual PC.
+	(sim_open): Make memory layout conditional on board setting.
+	(signal_exception): Initial implementation of hardware interrupt
+ 	handling.  Accept another break instruction variant for simulator
+ 	exit.
+	(decode_coproc): Implement RFE instruction for TX39.
+	(mips.igen): Decode RFE instruction as such.
+	* configure.in (tx3904cpu,tx3904irc): Added devices for tx3904.
+	* interp.c: Define "jmr3904" and "jmr3904debug" board types and
+	bbegin to implement memory map.
+	* dv-tx3904cpu.c: New file.
+	* dv-tx3904irc.c: New file.
+
+Wed May 13 14:40:11 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* mips.igen (check_mt_hilo): Create a separate r3900 version.
+
+Wed May 13 14:11:46 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* tx.igen (madd,maddu):  Replace calls to check_op_hilo
+	with calls to check_div_hilo.
+
+Wed May 13 09:59:27 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* mips/mips.igen (check_op_hilo,check_mult_hilo,check_div_hilo):
+	Replace check_op_hilo with check_mult_hilo and check_div_hilo.
+	Add special r3900 version of do_mult_hilo.  
+	(do_dmultx,do_mult,do_multu): Replace calls to check_op_hilo
+	with calls to check_mult_hilo.
+	(do_ddiv,do_ddivu,do_div,do_divu): Replace calls to check_op_hilo
+	with calls to check_div_hilo.
+
+Tue May 12 15:22:11 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (SUBTARGET_R3900): Define for mipstx39 target.
+  	Document a replacement.
+
+Fri May  8 17:48:19 1998  Ian Carmichael  <iancarm@cygnus.com>
+
+	* interp.c (sim_monitor): Make mon_printf work.
+
+Wed May  6 19:42:19 1998  Doug Evans  <devans@canuck.cygnus.com>
+
+	* sim-main.h (INSN_NAME): New arg `cpu'.
+
+Tue Apr 28 18:33:31 1998  Geoffrey Noer  <noer@cygnus.com>
+
+        * configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sun Apr 26 15:31:55 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Sun Apr 26 15:20:01 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* acconfig.h: New file.
+	* configure.in: Reverted change of Apr 24; use sinclude again.
+
+Fri Apr 24 14:16:40 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Fri Apr 24 11:19:20 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* configure.in: Don't call sinclude.
+
+Fri Apr 24 11:35:01 1998  Andrew Cagney  <cagney@chook.cygnus.com>
+
+	* mips.igen (do_store_left): Pass 0 not NULL to store_memory.
+
+Tue Apr 21 11:59:50 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen (ERET): Implement.
+
+	* interp.c (decode_coproc): Return sign-extended EPC.
+
+	* mips.igen (ANDI, LUI, MFC0): Add tracing code.
+
+	* interp.c (signal_exception): Do not ignore Trap.
+	(signal_exception): On TRAP, restart at exception address.
+	(HALT_INSTRUCTION, HALT_INSTRUCTION_MASK): Define.
+	(signal_exception): Update.
+	(sim_open): Patch V_COMMON interrupt vector with an abort sequence
+ 	so that TRAP instructions are caught.
+
+Mon Apr 20 11:26:55 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (struct hilo_access, struct hilo_history): Define,
+ 	contains HI/LO access history.
+	(struct _sim_cpu): Make hiaccess and loaccess of type hilo_access.
+	(HIACCESS, LOACCESS): Delete, replace with
+	(HIHISTORY, LOHISTORY): New macros.
+	(CHECKHILO): Delete all, moved to mips.igen
+	
+	* gencode.c (build_instruction): Do not generate checks for
+ 	correct HI/LO register usage.
+
+	* interp.c (old_engine_run): Delete checks for correct HI/LO
+ 	register usage.
+
+	* mips.igen (check_mt_hilo, check_mf_hilo, check_op_hilo,
+ 	check_mf_cycles): New functions.
+	(do_mfhi, do_mflo, "mthi", "mtlo", do_ddiv, do_ddivu, do_div,
+ 	do_divu, domultx, do_mult, do_multu): Use.
+
+	* tx.igen ("madd", "maddu"): Use.
+	
+Wed Apr 15 18:31:54 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen (DSRAV): Use function do_dsrav.
+	(SRAV): Use new function do_srav.
+
+	* m16.igen (BEQZ, BNEZ): Compare GPR[TRX] not GPR[RX].
+	(B): Sign extend 11 bit immediate.
+	(EXT-B*): Shift 16 bit immediate left by 1.
+	(ADDIU*): Don't sign extend immediate value.
+
+Wed Apr 15 10:32:15 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* m16run.c (sim_engine_run): Restore CIA after handling an event.
+
+	* sim-main.h (DELAY_SLOT, NULLIFY_NEXT_INSTRUCTION): For IGEN, use
+ 	functions.
+
+	* mips.igen (delayslot32, nullify_next_insn): New functions.
+	(m16.igen): Always include.
+	(do_*): Add more tracing.
+
+	* m16.igen (delayslot16): Add NIA argument, could be called by a
+ 	32 bit MIPS16 instruction.
+	
+	* interp.c (ifetch16): Move function from here.
+	* sim-main.c (ifetch16): To here.
+	
+	* sim-main.c (ifetch16, ifetch32): Update to match current
+ 	implementations of LH, LW.
+	(signal_exception): Don't print out incorrect hex value of illegal
+ 	instruction.
+
+Wed Apr 15 00:17:25 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* m16run.c (sim_engine_run): Use IMEM16 and IMEM32 to fetch an
+ 	instruction.
+
+	* m16.igen: Implement MIPS16 instructions.
+	
+	* mips.igen (do_addiu, do_addu, do_and, do_daddiu, do_daddu,
+ 	do_ddiv, do_ddivu, do_div, do_divu, do_dmultx, do_dmultu, do_srav,
+ 	do_dsubu, do_mfhi, do_mflo, do_mult, do_multu, do_nor, do_or,
+ 	do_sll, do_sllv, do_slt, do_slti, do_sltiu, do_sltu, do_sra,
+ 	do_srl, do_srlv, do_subu, do_xor, do_xori): New functions.  Move
+ 	bodies of corresponding code from 32 bit insn to these.  Also used
+ 	by MIPS16 versions of functions.
+	
+	* sim-main.h (RAIDX, T8IDX, T8, SPIDX): Define.
+	(IMEM16): Drop NR argument from macro.
+
+Sat Apr  4 22:39:50 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (SIM_OBJS): Add sim-main.o.
+
+	* sim-main.h (address_translation, load_memory, store_memory,
+ 	cache_op, sync_operation, prefetch, ifetch32, pending_tick): Mark
+ 	as INLINE_SIM_MAIN.
+	(pr_addr, pr_uword64): Declare.
+	(sim-main.c): Include when H_REVEALS_MODULE_P.
+	
+	* interp.c (address_translation, load_memory, store_memory,
+ 	cache_op, sync_operation, prefetch, ifetch32, pending_tick): Move
+ 	from here.
+	* sim-main.c: To here. Fix compilation problems.
+	
+	* configure.in: Enable inlining.
+	* configure: Re-config.
+
+Sat Apr  4 20:36:25 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Apr  3 04:32:35 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen: Include tx.igen.
+	* Makefile.in (IGEN_INCLUDE): Add tx.igen.
+	* tx.igen: New file, contains MADD and MADDU.
+
+	* interp.c (load_memory): When shifting bytes, use LOADDRMASK not
+ 	the hardwired constant `7'.
+	(store_memory): Ditto.
+	(LOADDRMASK): Move definition to sim-main.h.
+
+	mips.igen (MTC0): Enable for r3900.
+	(ADDU): Add trace.
+
+	mips.igen (do_load_byte): Delete.
+	(do_load, do_store, do_load_left, do_load_write, do_store_left,
+ 	do_store_right): New functions.
+	(SW*, LW*, SD*, LD*, SH, LH, SB, LB): Use.
+
+	configure.in: Let the tx39 use igen again.
+	configure: Update.
+	
+Thu Apr  2 10:59:39 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_monitor): get_mem_info returns a 4 byte quantity,
+ 	not an address sized quantity.  Return zero for cache sizes.
+
+Wed Apr  1 23:47:53 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen (r3900): r3900 does not support 64 bit integer
+ 	operations.
+
+Mon Mar 30 14:46:05 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* configure.in (mipstx39*-*-*): Use gencode simulator rather
+	than igen one.
+	* configure : Rebuild.
+	
+Fri Mar 27 16:15:52 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Fri Mar 27 15:01:50 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (mips_option_handler): Iterate over MAX_NR_PROCESSORS.
+
+Wed Mar 25 16:44:27 1998  Ian Carmichael  <iancarm@cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 25 12:35:29 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 25 10:05:46 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (Max, Min): Comment out functions. Not yet used.
+
+Wed Mar 18 12:38:12 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Mar 17 19:05:20 1998  Frank Ch. Eigler  <fche@cygnus.com>
+
+	* Makefile.in (MIPS_EXTRA_LIBS, SIM_EXTRA_LIBS): Added
+ 	configurable settings for stand-alone simulator.
+	
+	* configure.in: Added X11 search, just in case.
+	
+	* configure: Regenerated.
+
+Wed Mar 11 14:09:10 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_write, sim_read, load_memory, store_memory):
+ 	Replace sim_core_*_map with read_map, write_map, exec_map resp.
+
+Tue Mar  3 13:58:43 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (GETFCC): Return an unsigned value.
+
+Tue Mar  3 13:21:37 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen (DIV): Fix check for -1 / MIN_INT.
+	(DADD): Result destination is RD not RT.
+
+Fri Feb 27 13:49:49 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (HIACCESS, LOACCESS): Always define.
+
+	* mdmx.igen (Maxi, Mini): Rename Max, Min.
+
+	* interp.c (sim_info): Delete.
+
+Fri Feb 27 18:41:01 1998  Doug Evans  <devans@canuck.cygnus.com>
+
+	* interp.c (DECLARE_OPTION_HANDLER): Use it.
+	(mips_option_handler): New argument `cpu'.
+	(sim_open): Update call to sim_add_option_table.
+
+Wed Feb 25 18:56:22 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* mips.igen (CxC1): Add tracing.
+
+Fri Feb 20 17:43:21 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* sim-main.h (Max, Min): Declare.
+
+	* interp.c (Max, Min): New functions.
+
+	* mips.igen (BC1): Add tracing.
+	
+Thu Feb 19 14:50:00 1998  John Metzler  <jmetzler@cygnus.com>
+	
+	* interp.c Added memory map for stack in vr4100
+	
+Thu Feb 19 10:21:21 1998  Gavin Koch  <gavin@cygnus.com>
+
+	* interp.c (load_memory): Add missing "break"'s.
+
+Tue Feb 17 12:45:35 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_store_register, sim_fetch_register): Pass in
+ 	length parameter.  Return -1.
+
+Tue Feb 10 11:57:40 1998  Ian Carmichael  <iancarm@cygnus.com>
+
+	* interp.c: Added hardware init hook, fixed warnings.
+
+Sat Feb  7 17:16:20 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* Makefile.in (itable.h itable.c): Depend on SIM_@sim_gen@_ALL.
+
+Tue Feb  3 11:36:02 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (ifetch16): New function.
+
+	* sim-main.h (IMEM32): Rename IMEM.
+	(IMEM16_IMMED): Define.
+	(IMEM16): Define.
+	(DELAY_SLOT): Update.
+	
+	* m16run.c (sim_engine_run): New file.
+	
+	* m16.igen: All instructions except LB.
+	(LB): Call do_load_byte.
+	* mips.igen (do_load_byte): New function.
+	(LB): Call do_load_byte.
+
+	* mips.igen: Move spec for insn bit size and high bit from here.
+	* Makefile.in (tmp-igen, tmp-m16): To here.
+
+	* m16.dc: New file, decode mips16 instructions.
+
+	* Makefile.in (SIM_NO_ALL): Define.
+	(tmp-m16): Generate both 16 bit and 32 bit simulator engines.
+
+Tue Feb  3 11:28:00 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (mips_fpu_bitsize): For tx39, restrict floating
+ 	point unit to 32 bit registers.
+	* configure: Re-generate.
+
 Sun Feb  1 15:47:14 1998  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* configure.in (sim_use_gen): Make IGEN the default simulator

@@ -84,10 +84,13 @@ static void
 set_type_range PARAMS ((void));
 
 static void
-unk_lang_printchar PARAMS ((int, GDB_FILE *));
+unk_lang_emit_char PARAMS ((int c, GDB_FILE *stream, int quoter));
 
 static void
-unk_lang_printstr PARAMS ((GDB_FILE *, char *, unsigned int, int));
+unk_lang_printchar PARAMS ((int c, GDB_FILE *stream));
+
+static void
+unk_lang_printstr PARAMS ((GDB_FILE *stream, char *string, unsigned int length, int width, int force_ellipses));
 
 static struct type *
 unk_lang_create_fundamental_type PARAMS ((struct objfile *, int));
@@ -96,7 +99,7 @@ static void
 unk_lang_print_type PARAMS ((struct type *, char *, GDB_FILE *, int, int));
 
 static int
-unk_lang_val_print PARAMS ((struct type *, char *, CORE_ADDR, GDB_FILE *,
+unk_lang_val_print PARAMS ((struct type *, char *, int, CORE_ADDR, GDB_FILE *,
 			    int, int, int, enum val_prettyprint));
 
 static int
@@ -163,9 +166,9 @@ show_language_command (ignore, from_tty)
 
    flang = get_frame_language();
    if (flang != language_unknown &&
-      language_mode == language_mode_manual &&
-      current_language->la_language != flang)
-      printf_filtered("%s\n",lang_frame_mismatch_warn);
+       language_mode == language_mode_manual &&
+       current_language->la_language != flang)
+     printf_filtered("%s\n",lang_frame_mismatch_warn);
 }
 
 /* Set command.  Change the current working language. */
@@ -345,13 +348,16 @@ set_type_range()
   set_range_str();
 }
 
-/* Set current language to (enum language) LANG.  */
+/* Set current language to (enum language) LANG.  Returns previous language. */
 
-void
+enum language
 set_language(lang)
    enum language lang;
 {
   int i;
+  enum language prev_language;
+
+  prev_language = current_language->la_language;
 
   for (i = 0; i < languages_size; i++) {
     if (languages[i]->la_language == lang) {
@@ -361,6 +367,8 @@ set_language(lang)
       break;
     }
   }
+
+  return prev_language;
 }
 
 /* This page contains functions that update the global vars
@@ -826,7 +834,7 @@ lang_bool_type ()
 	  if (type && TYPE_CODE (type) == TYPE_CODE_BOOL)
 	    return type;
 	}
-      /* ... else fall through ... */
+      return builtin_type_bool;
     default:
       return builtin_type_int;
     }
@@ -1115,6 +1123,21 @@ range_error (va_alist)
 
 /* This page contains miscellaneous functions */
 
+/* Return the language enum for a given language string. */
+
+enum language
+language_enum (str)
+     char *str;
+{
+  int i;
+
+  for (i = 0; i < languages_size; i++) 
+    if (STREQ (languages[i]->la_name, str))
+      return languages[i]->la_language;
+
+  return language_unknown;
+}
+
 /* Return the language struct for a given language enum. */
 
 const struct language_defn *
@@ -1208,6 +1231,15 @@ unk_lang_error (msg)
 }
 
 static void
+unk_lang_emit_char (c, stream, quoter)
+     register int c;
+     GDB_FILE *stream;
+     int quoter;
+{
+  error ("internal error - unimplemented function unk_lang_emit_char called.");
+}
+
+static void
 unk_lang_printchar (c, stream)
      register int c;
      GDB_FILE *stream;
@@ -1216,10 +1248,11 @@ unk_lang_printchar (c, stream)
 }
 
 static void
-unk_lang_printstr (stream, string, length, force_ellipses)
+unk_lang_printstr (stream, string, length, width, force_ellipses)
      GDB_FILE *stream;
      char *string;
      unsigned int length;
+     int width;
      int force_ellipses;
 {
   error ("internal error - unimplemented function unk_lang_printstr called.");
@@ -1245,10 +1278,11 @@ unk_lang_print_type (type, varstring, stream, show, level)
 }
 
 static int
-unk_lang_val_print (type, valaddr, address, stream, format, deref_ref,
+unk_lang_val_print (type, valaddr,  embedded_offset, address, stream, format, deref_ref,
 		    recurse, pretty)
      struct type *type;
      char *valaddr;
+     int embedded_offset;
      CORE_ADDR address;
      GDB_FILE *stream;
      int format;
@@ -1285,6 +1319,7 @@ const struct language_defn unknown_language_defn = {
   evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
+  unk_lang_emit_char,
   unk_lang_create_fundamental_type,
   unk_lang_print_type,		/* Print a type using appropriate syntax */
   unk_lang_val_print,		/* Print a value using appropriate syntax */
@@ -1312,6 +1347,7 @@ const struct language_defn auto_language_defn = {
   evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
+  unk_lang_emit_char,
   unk_lang_create_fundamental_type,
   unk_lang_print_type,		/* Print a type using appropriate syntax */
   unk_lang_val_print,		/* Print a value using appropriate syntax */
@@ -1338,6 +1374,7 @@ const struct language_defn local_language_defn = {
   evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
+  unk_lang_emit_char,
   unk_lang_create_fundamental_type,
   unk_lang_print_type,		/* Print a type using appropriate syntax */
   unk_lang_val_print,		/* Print a value using appropriate syntax */

@@ -1225,7 +1225,7 @@ h8300_bfd_link_add_symbols(abfd, info)
      additional space in the .vectors section as needed.  */
   for (sec = abfd->sections; sec; sec = sec->next)
     {
-      unsigned long reloc_size, reloc_count, i;
+      long reloc_size, reloc_count, i;
       asymbol **symbols;
       arelent **relocs;
 
@@ -1243,6 +1243,11 @@ h8300_bfd_link_add_symbols(abfd, info)
 	 saved in the above call.  */
       symbols = _bfd_generic_link_get_symbols(abfd);
       reloc_count = bfd_canonicalize_reloc (abfd, sec, relocs, symbols);
+      if (reloc_count <= 0)
+	{
+	  free (relocs);
+	  continue;
+	}
 
       /* Now walk through all the relocations in this section.  */
       for (i = 0; i < reloc_count; i++)

@@ -65,4 +65,17 @@
 	mvfc	r7, cr11
 	check 18 r7 0xbeee
 
+;;; Check that certain bits of the DPSW and BPSW are hardwired to zero
+
+	ldi	r6, 0xffff
+	mvtc	r6, bpsw
+	mvfc	r7, bpsw
+	check 18 r7 0xbfcd
+
+	ldi	r6, 0xffff
+	mvtc	r6, dpsw
+	mvfc	r7, dpsw
+	check 18 r7 0xbfcd
+
+
 	exit0

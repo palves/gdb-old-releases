@@ -1,4 +1,4 @@
-# Copyright (C) 1994, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1997, 1998 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -79,22 +79,20 @@ proc test_float_literal_types_accepted {} {
 
     # Test various floating point formats
 
-    if [target_info exists no_double] {
-	set real_size 4
-    } else {
-	set real_size 8
-    }
+    # this used to guess whether to look for "real*4" or
+    # "real*8" based on a target config variable, but noone
+    # maintained it properly.
 
-    gdb_test "pt .44" "type = real\\*$real_size"
-    gdb_test "pt 44.0" "type = real\\*$real_size"
-    gdb_test "pt 10D20" "type = real\\*$real_size"
-    gdb_test "pt 10D20" "type = real\\*$real_size"
-    gdb_test "pt 10d20" "type = real\\*$real_size"
-    gdb_test "pt 10d20" "type = real\\*$real_size"
-    gdb_test "pt 10E20" "type = real\\*$real_size"
-    gdb_test "pt 10E20" "type = real\\*$real_size"
-    gdb_test "pt 10e20" "type = real\\*$real_size"
-    gdb_test "pt 10e20" "type = real\\*$real_size"
+    gdb_test "pt .44" "type = real\\*\[0-9\]+"
+    gdb_test "pt 44.0" "type = real\\*\[0-9\]+"
+    gdb_test "pt 10D20" "type = real\\*\[0-9\]+"
+    gdb_test "pt 10D20" "type = real\\*\[0-9\]+"
+    gdb_test "pt 10d20" "type = real\\*\[0-9\]+"
+    gdb_test "pt 10d20" "type = real\\*\[0-9\]+"
+    gdb_test "pt 10E20" "type = real\\*\[0-9\]+"
+    gdb_test "pt 10E20" "type = real\\*\[0-9\]+"
+    gdb_test "pt 10e20" "type = real\\*\[0-9\]+"
+    gdb_test "pt 10e20" "type = real\\*\[0-9\]+"
 }
 
 # Start with a fresh gdb.

@@ -1,5 +1,5 @@
 /* Types for Cpu tools GENerated simulators.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -18,45 +18,69 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+/* This file is not included with cgen-sim.h as it defines types
+   needed by sim-base.h.  */
+
 #ifndef CGEN_TYPES_H
 #define CGEN_TYPES_H
+
+/* Miscellaneous cgen configury defined here as this file gets
+   included soon enough.  */
+
+/* Indicate we support --profile-model.  */
+#undef SIM_HAVE_MODEL
+#define SIM_HAVE_MODEL
+
+/* Indicate we support --{profile,trace}-{range,function}.  */
+#undef SIM_HAVE_ADDR_RANGE
+#define SIM_HAVE_ADDR_RANGE
 
 #ifdef __GNUC__
 #define HAVE_LONGLONG
 #undef DI_FN_SUPPORT
-#define SIM_INLINE extern inline
 #else
 #undef HAVE_LONGLONG
 #define DI_FN_SUPPORT
-#define SIM_INLINE
 #endif
 
+/* Mode support.  */
+
+/* Common mode types.  */
+/* ??? Target specific modes.  */
+typedef enum mode_type {
+  MODE_VM, MODE_BI,
+  MODE_QI, MODE_HI, MODE_SI, MODE_DI,
+  MODE_UQI, MODE_UHI, MODE_USI, MODE_UDI,
+  MODE_SF, MODE_DF, MODE_XF, MODE_TF,
+  MODE_TARGET_MAX /* = MODE_TF? */,
+  /* These are host modes.  */
+  MODE_INT, MODE_UINT, MODE_PTR, /*??? MODE_ADDR, MODE_IADDR,*/
+  MODE_MAX
+} MODE_TYPE;
+
+#define MAX_TARGET_MODES ((int) MODE_TARGET_MAX)
+#define MAX_MODES ((int) MODE_MAX)
+
 extern const char *mode_names[];
 #define MODE_NAME(m) (mode_names[m])
 
-#ifdef __STDC__
-typedef /*FIXME*/ signed char BI;
-typedef /*FIXME*/ signed char QI;
-#else
-typedef /*FIXME*/ char BI;
-typedef /*FIXME*/ char QI;
-#endif
-typedef short HI;
-typedef int SI;
-typedef unsigned char UBI;
-typedef unsigned char UQI;
-typedef unsigned short UHI;
-typedef unsigned int USI;
+typedef unsigned char BI;
+typedef signed8 QI;
+typedef signed16 HI;
+typedef signed32 SI;
+typedef unsigned8 UQI;
+typedef unsigned16 UHI;
+typedef unsigned32 USI;
 
 #ifdef HAVE_LONGLONG
-typedef long long DI;
-typedef unsigned long long UDI;
+typedef signed64 DI;
+typedef unsigned64 UDI;
 #define GETLODI(di) ((SI) (di))
-#define GETHIDI(di) ((SI) ((di) >> 32))
+#define GETHIDI(di) ((SI) ((UDI) (di) >> 32))
 #define SETLODI(di, val) ((di) = (((di) & 0xffffffff00000000LL) | (val)))
 #define SETHIDI(di, val) ((di) = (((di) & 0xffffffffLL) | (((DI) (val)) << 32)))
 #define SETDI(di, hi, lo) ((di) = MAKEDI (hi, lo))
-#define MAKEDI(hi, lo) ((((DI) (hi)) << 32) | ((DI) (lo)))
+#define MAKEDI(hi, lo) ((((DI) (SI) (hi)) << 32) | ((UDI) (USI) (lo)))
 #else
 /* DI mode support if "long long" doesn't exist.
    At one point CGEN supported K&R C compilers, and ANSI C compilers without
@@ -81,15 +105,12 @@ typedef double DF;
 typedef double XF; /* FIXME: configure, provide library */
 typedef double TF; /* FIXME: configure, provide library */
 
-/* This is used to record extracted raw data from an instruction, among other
-   things.  It must be a host data type, and not a target one so USI is
-   inappropriate.  */
+/* These are used to record extracted raw data from an instruction, among other
+   things.  It must be a host data type, and not a target one.  */
+typedef int INT;
 typedef unsigned int UINT;
 
-typedef unsigned long PCADDR;
-typedef unsigned long ADDR;
-typedef /*FIXME*/ unsigned long insn_t;
-
-struct cgen_insn;
+typedef unsigned_address ADDR;  /* FIXME: wip*/
+typedef unsigned_address IADDR; /* FIXME: wip*/
 
 #endif /* CGEN_TYPES_H */

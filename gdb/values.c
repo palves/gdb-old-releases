@@ -1,5 +1,5 @@
 /* Low level packing and unpacking of values for GDB, the GNU Debugger.
-   Copyright 1986, 1987, 1989, 1991, 1993, 1994, 1995, 1996, 1997
+   Copyright 1986, 87, 89, 91, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -32,7 +32,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "scm-lang.h"
 #include "demangle.h"
 
-/* Local function prototypes. */
+/* Prototypes for exported functions. */
+
+void _initialize_values PARAMS ((void));
+
+/* Prototypes for local functions. */
 
 static value_ptr value_headof PARAMS ((value_ptr, struct type *,
 				       struct type *));
@@ -82,6 +86,7 @@ allocate_value (type)
   VALUE_NEXT (val) = all_values;
   all_values = val;
   VALUE_TYPE (val) = type;
+  VALUE_ENCLOSING_TYPE (val) = type;
   VALUE_LVAL (val) = not_lval;
   VALUE_ADDRESS (val) = 0;
   VALUE_FRAME (val) = 0;
@@ -92,6 +97,8 @@ allocate_value (type)
   VALUE_LAZY (val) = 0;
   VALUE_OPTIMIZED_OUT (val) = 0;
   VALUE_BFD_SECTION (val) = NULL;
+  VALUE_EMBEDDED_OFFSET (val) = 0;
+  VALUE_POINTED_TO_OFFSET (val) = 0;
   val->modifiable = 1;
   return val;
 }
@@ -209,8 +216,9 @@ value_ptr
 value_copy (arg)
      value_ptr arg;
 {
-  register struct type *type = VALUE_TYPE (arg);
-  register value_ptr val = allocate_value (type);
+  register struct type *encl_type = VALUE_ENCLOSING_TYPE (arg);
+  register value_ptr val = allocate_value (encl_type);
+  VALUE_TYPE (val) = VALUE_TYPE (arg);
   VALUE_LVAL (val) = VALUE_LVAL (arg);
   VALUE_ADDRESS (val) = VALUE_ADDRESS (arg);
   VALUE_OFFSET (val) = VALUE_OFFSET (arg);
@@ -220,12 +228,15 @@ value_copy (arg)
   VALUE_REGNO (val) = VALUE_REGNO (arg);
   VALUE_LAZY (val) = VALUE_LAZY (arg);
   VALUE_OPTIMIZED_OUT (val) = VALUE_OPTIMIZED_OUT (arg);
+  VALUE_EMBEDDED_OFFSET (val) = VALUE_EMBEDDED_OFFSET (arg);
+  VALUE_POINTED_TO_OFFSET (val) = VALUE_POINTED_TO_OFFSET (arg);
   VALUE_BFD_SECTION (val) = VALUE_BFD_SECTION (arg);
   val->modifiable = arg->modifiable;
   if (!VALUE_LAZY (val))
     {
-      memcpy (VALUE_CONTENTS_RAW (val), VALUE_CONTENTS_RAW (arg),
-	      TYPE_LENGTH (VALUE_TYPE (arg)));
+      memcpy (VALUE_CONTENTS_ALL_RAW (val), VALUE_CONTENTS_ALL_RAW (arg),
+	      TYPE_LENGTH (VALUE_ENCLOSING_TYPE (arg)));
+
     }
   return val;
 }
@@ -661,12 +672,15 @@ unpack_double (type, valaddr, invp)
      char *valaddr;
      int *invp;
 {
-  register enum type_code code = TYPE_CODE (type);
-  register int len = TYPE_LENGTH (type);
-  register int nosign = TYPE_UNSIGNED (type);
+  enum type_code code;
+  int len;
+  int nosign;
 
   *invp = 0;			/* Assume valid.   */
   CHECK_TYPEDEF (type);
+  code = TYPE_CODE (type);
+  len = TYPE_LENGTH (type);
+  nosign = TYPE_UNSIGNED (type);
   if (code == TYPE_CODE_FLT)
     {
 #ifdef INVALID_FLOAT
@@ -737,9 +751,23 @@ value_static_field (type, fieldno)
       char *phys_name = TYPE_FIELD_STATIC_PHYSNAME (type, fieldno);
       struct symbol *sym = lookup_symbol (phys_name, 0, VAR_NAMESPACE, 0, NULL);
       if (sym == NULL)
-	return NULL;
-      addr = SYMBOL_VALUE_ADDRESS (sym);
-      sect = SYMBOL_BFD_SECTION (sym);
+	{
+	  /* With some compilers, e.g. HP aCC, static data members are reported
+	     as non-debuggable symbols */ 
+	  struct minimal_symbol * msym = lookup_minimal_symbol (phys_name, NULL, NULL);
+	  if (!msym)
+	    return NULL;
+	  else
+	    {     
+	      addr = SYMBOL_VALUE_ADDRESS (msym);
+	      sect = SYMBOL_BFD_SECTION (msym);
+	    }
+	}
+      else
+	{
+	  addr = SYMBOL_VALUE_ADDRESS (sym);
+	  sect = SYMBOL_BFD_SECTION (sym);
+	}
       SET_FIELD_PHYSADDR (TYPE_FIELD (type, fieldno), addr);
     }
   return value_at (TYPE_FIELD_TYPE (type, fieldno), addr, sect);
@@ -775,23 +803,43 @@ value_primitive_field (arg1, offset, fieldno, arg_type)
       VALUE_BITPOS (v) = TYPE_FIELD_BITPOS (arg_type, fieldno) % 8;
       VALUE_BITSIZE (v) = TYPE_FIELD_BITSIZE (arg_type, fieldno);
     }
+  else if (fieldno < TYPE_N_BASECLASSES (arg_type))
+    {
+      /* This field is actually a base subobject, so preserve the
+         entire object's contents for later references to virtual
+         bases, etc.  */
+      v = allocate_value (VALUE_ENCLOSING_TYPE (arg1));
+      VALUE_TYPE (v) = arg_type;
+      if (VALUE_LAZY (arg1))
+	VALUE_LAZY (v) = 1;
+      else
+	memcpy (VALUE_CONTENTS_ALL_RAW (v), VALUE_CONTENTS_ALL_RAW (arg1),
+		TYPE_LENGTH (VALUE_ENCLOSING_TYPE (arg1)));
+      VALUE_OFFSET (v) = VALUE_OFFSET (arg1);
+      VALUE_EMBEDDED_OFFSET (v)
+        = offset + 
+          VALUE_EMBEDDED_OFFSET (arg1) + 
+          TYPE_FIELD_BITPOS (arg_type, fieldno) / 8;
+    }
   else
     {
+      /* Plain old data member */
+      offset += TYPE_FIELD_BITPOS (arg_type, fieldno) / 8;
       v = allocate_value (type);
       if (VALUE_LAZY (arg1))
 	VALUE_LAZY (v) = 1;
       else
 	memcpy (VALUE_CONTENTS_RAW (v),
-		VALUE_CONTENTS_RAW (arg1) + offset
-		  + TYPE_FIELD_BITPOS (arg_type, fieldno) / 8,
+		VALUE_CONTENTS_RAW (arg1) + offset,
 		TYPE_LENGTH (type));
+      VALUE_OFFSET (v) = VALUE_OFFSET (arg1) + offset;
     }
   VALUE_LVAL (v) = VALUE_LVAL (arg1);
   if (VALUE_LVAL (arg1) == lval_internalvar)
     VALUE_LVAL (v) = lval_internalvar_component;
   VALUE_ADDRESS (v) = VALUE_ADDRESS (arg1);
-  VALUE_OFFSET (v) = VALUE_OFFSET (arg1) + offset
-		     + TYPE_FIELD_BITPOS (arg_type, fieldno) / 8;
+/*  VALUE_OFFSET (v) = VALUE_OFFSET (arg1) + offset
+		     + TYPE_FIELD_BITPOS (arg_type, fieldno) / 8; */
   return v;
 }
 
@@ -868,74 +916,182 @@ value_virtual_fn_field (arg1p, f, j, type, offset)
 {
   value_ptr arg1 = *arg1p;
   struct type *type1 = check_typedef (VALUE_TYPE (arg1));
-  struct type *entry_type;
-  /* First, get the virtual function table pointer.  That comes
-     with a strange type, so cast it to type `pointer to long' (which
-     should serve just fine as a function type).  Then, index into
-     the table, and convert final value to appropriate function type.  */
-  value_ptr entry, vfn, vtbl;
-  value_ptr vi = value_from_longest (builtin_type_int, 
-				     (LONGEST) TYPE_FN_FIELD_VOFFSET (f, j));
-  struct type *fcontext = TYPE_FN_FIELD_FCONTEXT (f, j);
-  struct type *context;
-  if (fcontext == NULL)
-   /* We don't have an fcontext (e.g. the program was compiled with
-      g++ version 1).  Try to get the vtbl from the TYPE_VPTR_BASETYPE.
-      This won't work right for multiple inheritance, but at least we
-      should do as well as GDB 3.x did.  */
-    fcontext = TYPE_VPTR_BASETYPE (type);
-  context = lookup_pointer_type (fcontext);
-  /* Now context is a pointer to the basetype containing the vtbl.  */
-  if (TYPE_TARGET_TYPE (context) != type1)
+
+  if (TYPE_HAS_VTABLE (type))
     {
-      arg1 = value_ind (value_cast (context, value_addr (arg1)));
-      type1 = check_typedef (VALUE_TYPE (arg1));
-    }
+      /* Deal with HP/Taligent runtime model for virtual functions */
+      value_ptr vp;
+      value_ptr argp;        /* arg1 cast to base */
+      CORE_ADDR vfunc_addr;  /* address of virtual method */
+      CORE_ADDR coreptr;     /* pointer to target address */ 
+      int class_index;       /* which class segment pointer to use */
+      struct type * ftype = TYPE_FN_FIELD_TYPE (f, j);   /* method type */
 
-  context = type1;
-  /* Now context is the basetype containing the vtbl.  */
+      argp = value_cast (type, *arg1p);
 
-  /* This type may have been defined before its virtual function table
-     was.  If so, fill in the virtual function table entry for the
-     type now.  */
-  if (TYPE_VPTR_FIELDNO (context) < 0)
-    fill_in_vptr_fieldno (context);
-
-  /* The virtual function table is now an array of structures
-     which have the form { int16 offset, delta; void *pfn; }.  */
-  vtbl = value_ind (value_primitive_field (arg1, 0, 
-					   TYPE_VPTR_FIELDNO (context),
-					   TYPE_VPTR_BASETYPE (context)));
-
-  /* Index into the virtual function table.  This is hard-coded because
-     looking up a field is not cheap, and it may be important to save
-     time, e.g. if the user has set a conditional breakpoint calling
-     a virtual function.  */
-  entry = value_subscript (vtbl, vi);
-  entry_type = check_typedef (VALUE_TYPE (entry));
-
-  if (TYPE_CODE (entry_type) == TYPE_CODE_STRUCT)
-    {
-      /* Move the `this' pointer according to the virtual function table. */
-      VALUE_OFFSET (arg1) += value_as_long (value_field (entry, 0));
+      if (VALUE_ADDRESS (argp) == 0)
+        error ("Address of object is null; object may not have been created.");
       
-      if (! VALUE_LAZY (arg1))
+      /* pai: FIXME -- 32x64 possible problem? */
+      /* First word (4 bytes) in object layout is the vtable pointer */
+      coreptr = * (CORE_ADDR *) (VALUE_CONTENTS (argp)); /* pai: (temp)  */
+                                 /* + offset + VALUE_EMBEDDED_OFFSET (argp)); */ 
+
+      if (!coreptr)
+        error ("Virtual table pointer is null for object; object may not have been created.");
+      
+      /* pai/1997-05-09
+       * FIXME: The code here currently handles only
+       * the non-RRBC case of the Taligent/HP runtime spec; when RRBC
+       * is introduced, the condition for the "if" below will have to
+       * be changed to be a test for the RRBC case.  */
+       
+      if (1)
+        {
+          /* Non-RRBC case; the virtual function pointers are stored at fixed
+           * offsets in the virtual table. */
+
+          /* Retrieve the offset in the virtual table from the debug
+           * info.  The offset of the vfunc's entry is in words from
+           * the beginning of the vtable; but first we have to adjust
+           * by HP_ACC_VFUNC_START to account for other entries */
+          
+          /* pai: FIXME: 32x64 problem here, a word may be 8 bytes in
+           * which case the multiplier should be 8 and values should be long */
+          vp = value_at (builtin_type_int,
+                         coreptr + 4 * (TYPE_FN_FIELD_VOFFSET (f, j) + HP_ACC_VFUNC_START), NULL);
+          
+          coreptr = * (CORE_ADDR *) (VALUE_CONTENTS (vp));
+          /* coreptr now contains the address of the virtual function */
+          /* (Actually, it contains the pointer to the plabel for the function. */
+        }
+      else
+        {
+          /* RRBC case; the virtual function pointers are found by double
+           * indirection through the class segment tables. */
+          
+          /* Choose class segment depending on type we were passed */ 
+          class_index = class_index_in_primary_list (type);
+      
+          /* Find class segment pointer.  These are in the vtable slots after
+           * some other entries, so adjust by HP_ACC_VFUNC_START for that. */
+          /* pai: FIXME 32x64 problem here, if words are 8 bytes long
+           * the multiplier below has to be 8 and value should be long. */
+          vp = value_at (builtin_type_int,
+                         coreptr + 4 * (HP_ACC_VFUNC_START + class_index), NULL);
+          /* Indirect once more, offset by function index */
+          /* pai: FIXME 32x64 problem here, again multiplier could be 8 and value long */
+          coreptr = * (CORE_ADDR *) (VALUE_CONTENTS (vp) + 4 * TYPE_FN_FIELD_VOFFSET (f, j));
+          vp = value_at (builtin_type_int, coreptr, NULL);
+          coreptr = * (CORE_ADDR *) (VALUE_CONTENTS (vp));
+          
+          /* coreptr now contains the address of the virtual function */
+          /* (Actually, it contains the pointer to the plabel for the function.) */
+          
+        }
+
+      if (!coreptr)
+        error ("Address of virtual function is null; error in virtual table?");
+
+      /* Wrap this addr in a value and return pointer */ 
+      vp = allocate_value (ftype);
+      VALUE_TYPE (vp) = ftype;
+      VALUE_ADDRESS (vp) = coreptr;
+      
+      /* pai: (temp) do we need the value_ind stuff in value_fn_field? */
+      return vp;
+    }
+  else  
+    { /* Not using HP/Taligent runtime conventions; so try to
+       * use g++ conventions for virtual table */
+      
+      struct type *entry_type;
+      /* First, get the virtual function table pointer.  That comes
+         with a strange type, so cast it to type `pointer to long' (which
+         should serve just fine as a function type).  Then, index into
+         the table, and convert final value to appropriate function type.  */
+      value_ptr entry, vfn, vtbl;
+      value_ptr vi = value_from_longest (builtin_type_int, 
+                                         (LONGEST) TYPE_FN_FIELD_VOFFSET (f, j));
+      struct type *fcontext = TYPE_FN_FIELD_FCONTEXT (f, j);
+      struct type *context;
+      if (fcontext == NULL)
+       /* We don't have an fcontext (e.g. the program was compiled with
+          g++ version 1).  Try to get the vtbl from the TYPE_VPTR_BASETYPE.
+          This won't work right for multiple inheritance, but at least we
+          should do as well as GDB 3.x did.  */
+        fcontext = TYPE_VPTR_BASETYPE (type);
+      context = lookup_pointer_type (fcontext);
+      /* Now context is a pointer to the basetype containing the vtbl.  */
+      if (TYPE_TARGET_TYPE (context) != type1)
+        {
+	  value_ptr tmp = value_cast (context, value_addr (arg1));
+	  VALUE_POINTED_TO_OFFSET (tmp) = 0;
+          arg1 = value_ind (tmp);
+          type1 = check_typedef (VALUE_TYPE (arg1));
+        }
+
+      context = type1;
+      /* Now context is the basetype containing the vtbl.  */
+
+      /* This type may have been defined before its virtual function table
+         was.  If so, fill in the virtual function table entry for the
+         type now.  */
+      if (TYPE_VPTR_FIELDNO (context) < 0)
+        fill_in_vptr_fieldno (context);
+
+      /* The virtual function table is now an array of structures
+         which have the form { int16 offset, delta; void *pfn; }.  */
+      vtbl = value_primitive_field (arg1, 0, TYPE_VPTR_FIELDNO (context),
+				    TYPE_VPTR_BASETYPE (context));
+      
+      /* With older versions of g++, the vtbl field pointed to an array
+	 of structures.  Nowadays it points directly to the structure. */
+      if (TYPE_CODE (VALUE_TYPE (vtbl)) == TYPE_CODE_PTR
+	  && TYPE_CODE (TYPE_TARGET_TYPE (VALUE_TYPE (vtbl))) == TYPE_CODE_ARRAY)
 	{
-	  VALUE_LAZY (arg1) = 1;
-	  value_fetch_lazy (arg1);
+	  /* Handle the case where the vtbl field points to an
+	     array of structures. */
+	  vtbl = value_ind (vtbl);
+
+	  /* Index into the virtual function table.  This is hard-coded because
+	     looking up a field is not cheap, and it may be important to save
+	     time, e.g. if the user has set a conditional breakpoint calling
+	     a virtual function.  */
+	  entry = value_subscript (vtbl, vi);
+	}
+      else
+	{
+	  /* Handle the case where the vtbl field points directly to a structure. */
+	  vtbl = value_add (vtbl, vi);
+	  entry = value_ind (vtbl);
 	}
 
-      vfn = value_field (entry, 2);
-    }
-  else if (TYPE_CODE (entry_type) == TYPE_CODE_PTR)
-    vfn = entry;
-  else
-    error ("I'm confused:  virtual function table has bad type");
-  /* Reinstantiate the function pointer with the correct type.  */
-  VALUE_TYPE (vfn) = lookup_pointer_type (TYPE_FN_FIELD_TYPE (f, j));
+      entry_type = check_typedef (VALUE_TYPE (entry));
 
-  *arg1p = arg1;
-  return vfn;
+      if (TYPE_CODE (entry_type) == TYPE_CODE_STRUCT)
+        {
+          /* Move the `this' pointer according to the virtual function table. */
+          VALUE_OFFSET (arg1) += value_as_long (value_field (entry, 0));
+
+          if (! VALUE_LAZY (arg1))
+            {
+              VALUE_LAZY (arg1) = 1;
+              value_fetch_lazy (arg1);
+            }
+
+          vfn = value_field (entry, 2);
+        }
+      else if (TYPE_CODE (entry_type) == TYPE_CODE_PTR)
+        vfn = entry;
+      else
+        error ("I'm confused:  virtual function table has bad type");
+      /* Reinstantiate the function pointer with the correct type.  */
+      VALUE_TYPE (vfn) = lookup_pointer_type (TYPE_FN_FIELD_TYPE (f, j));
+
+      *arg1p = arg1;
+      return vfn;
+    }
 }
 
 /* ARG is a pointer to an object we know to be at least
@@ -1180,8 +1336,11 @@ unpack_field_as_long (type, valaddr, fieldno)
   int bitpos = TYPE_FIELD_BITPOS (type, fieldno);
   int bitsize = TYPE_FIELD_BITSIZE (type, fieldno);
   int lsbcount;
+  struct type *field_type;
 
   val = extract_unsigned_integer (valaddr + bitpos / 8, sizeof (val));
+  field_type = TYPE_FIELD_TYPE (type, fieldno);
+  CHECK_TYPEDEF (field_type);
 
   /* Extract bits.  See comment above. */
 
@@ -1198,7 +1357,7 @@ unpack_field_as_long (type, valaddr, fieldno)
     {
       valmask = (((ULONGEST) 1) << bitsize) - 1;
       val &= valmask;
-      if (!TYPE_UNSIGNED (TYPE_FIELD_TYPE (type, fieldno)))
+      if (!TYPE_UNSIGNED (field_type))
 	{
 	  if (val & (valmask ^ (valmask >> 1)))
 	    {
@@ -1371,14 +1530,21 @@ value_being_returned (valtype, retbuf, struct_return)
    2.0-2.3.3.  This is somewhat unfortunate, but changing gcc2_compiled
    would cause more chaos than dealing with some struct returns being
    handled wrong.  */
-#if !defined (USE_STRUCT_CONVENTION)
-#define USE_STRUCT_CONVENTION(gcc_p, type)\
-  (!((gcc_p == 1) && (TYPE_LENGTH (value_type) == 1                \
-		      || TYPE_LENGTH (value_type) == 2             \
-		      || TYPE_LENGTH (value_type) == 4             \
-		      || TYPE_LENGTH (value_type) == 8             \
-		      )                                            \
-     ))
+
+int
+generic_use_struct_convention (gcc_p, value_type)
+     int gcc_p;
+     struct type *value_type;
+{     
+  return !((gcc_p == 1)
+	    && (TYPE_LENGTH (value_type) == 1
+		|| TYPE_LENGTH (value_type) == 2
+		|| TYPE_LENGTH (value_type) == 4
+		|| TYPE_LENGTH (value_type) == 8));
+}
+
+#ifndef USE_STRUCT_CONVENTION
+#define USE_STRUCT_CONVENTION(gcc_p,type) generic_use_struct_convention (gcc_p, type)
 #endif
 
 /* Some fundamental types (such as long double) are returned on the stack for

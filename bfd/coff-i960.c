@@ -132,7 +132,7 @@ optcall_callback (abfd, reloc_entry, symbol_in, data,
 	 bout file will cause this match to be true. Should I complain?  This
 	 will only work if the bout symbol is non leaf.  */
       *error_message =
-	(char *) "uncertain calling convention for non-COFF symbol";
+	(char *) _("uncertain calling convention for non-COFF symbol");
       result = bfd_reloc_dangerous;
     }
   else
@@ -481,7 +481,7 @@ coff_i960_relocate_section (output_bfd, info, input_bfd, input_section,
                  function.  */
 	      if (! ((*info->callbacks->reloc_dangerous)
 		     (info,
-		      "uncertain calling convention for non-COFF symbol",
+		      _("uncertain calling convention for non-COFF symbol"),
 		      input_bfd, input_section,
 		      rel->r_vaddr - input_section->vma)))
 		return false;

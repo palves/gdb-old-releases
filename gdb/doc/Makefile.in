@@ -1,4 +1,4 @@
-##Copyright (C) 1991, 1992 Free Software Foundation, Inc.
+##Copyright (C) 1991, 1992, 1999 Free Software Foundation, Inc.
 
 # Makefile for GDB documentation.
 # This file is part of GDB.
@@ -24,7 +24,7 @@ prefix = @prefix@
 
 infodir = @infodir@
 
-SHELL = /bin/sh
+SHELL = @SHELL@
 
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -34,7 +34,7 @@ INSTALL_DATA = @INSTALL_DATA@
 gdbdir = $(srcdir)/..
 
 # where to find texinfo; GDB dist should include a recent one
-#TEXIDIR=${gdbdir}/../texinfo
+TEXIDIR=${gdbdir}/../texinfo
 
 # where to find makeinfo, preferably one designed for texinfo-2
 MAKEINFO=makeinfo
@@ -89,18 +89,16 @@ SFILES_DOC = $(SFILES_LOCAL) \
 #### Host, target, and site specific Makefile fragments come in here.
 ###
 
-all:
-
-install: install-info
+all install:
 
 info: gdb.info gdbint.info stabs.info
 dvi: gdb.dvi gdbint.dvi stabs.dvi refcard.dvi
 ps: gdb.ps gdbint.ps stabs.ps refcard.ps
 all-doc: info dvi ps
 
-install-info:
-	for i in `cd $(srcdir) && echo *.info*` ; do \
-		$(INSTALL_DATA) $(srcdir)/$$i $(infodir)/$$i ; \
+install-info: info
+	for i in *.info* ; do \
+		$(INSTALL_DATA) $$i $(infodir)/$$i ; \
 	done
 
 STAGESTUFF = *.info* gdb-all.texi GDBvn.texi *.ps *.dvi
@@ -175,7 +173,7 @@ refcard.ps : refcard.dvi
 
 # File to record current GDB version number (copied from main dir Makefile.in)
 GDBvn.texi : ${gdbdir}/Makefile.in
-	echo "@set GDBVN `sed <$(srcdir)/../Makefile.in -n 's/VERSION = //p'`" > ./GDBvn.new
+	echo "@set GDBVN `sed <$(srcdir)/../Makefile.in -n 's/^VERSION *= *//p'`" > ./GDBvn.new
 	mv GDBvn.new GDBvn.texi
 
 # Updated atomically

@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * $Revision: 1.3 $
- *     $Date: 1998/01/10 15:01:03 $
+ * $Revision: 1.6 $
+ *     $Date: 1999/01/28 03:50:15 $
  *
  *
  * hostchan.c - Semi Synchronous Host side channel interface for Angel.
@@ -17,7 +17,7 @@
 
 #include <stdio.h>
 
-#if defined(__unix) || defined(__CYGWIN32__)
+#ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 #else
 #  include "winsock.h"

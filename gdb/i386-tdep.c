@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "floatformat.h"
 #include "symtab.h"
 #include "gdbcmd.h"
+#include "command.h"
 
 static long i386_get_frame_setup PARAMS ((CORE_ADDR));
 
@@ -37,6 +38,23 @@ static void codestream_read PARAMS ((unsigned char *, int));
 static void codestream_seek PARAMS ((CORE_ADDR));
 
 static unsigned char codestream_fill PARAMS ((int));
+
+CORE_ADDR skip_trampoline_code PARAMS ((CORE_ADDR, char *));
+
+static int gdb_print_insn_i386 (bfd_vma, disassemble_info *);
+
+void _initialize_i386_tdep PARAMS ((void));
+
+/* This is the variable the is set with "set disassembly-flavor",
+ and its legitimate values. */
+static char att_flavor[] = "att";
+static char intel_flavor[] = "intel";
+static char *valid_flavors[] = {
+  att_flavor,
+  intel_flavor,
+  NULL
+};
+static char *disassembly_flavor = att_flavor;
 
 /* Stdio style buffering was used to minimize calls to ptrace, but this
    buffering did not take into account that the code section being accessed
@@ -207,6 +225,39 @@ i386_get_frame_setup (pc)
       else if (memcmp (buf, proto2, 4) == 0)
 	pos += 4;
 
+      codestream_seek (pos);
+      op = codestream_get (); /* update next opcode */
+    }
+
+  if (op == 0x68 || op == 0x6a)
+    {
+      /*
+       * this function may start with
+       *
+       *   pushl constant
+       *   call _probe
+       *   addl $4, %esp
+       *      followed by 
+       *     pushl %ebp
+       *     etc.
+       */
+      int pos;
+      unsigned char buf[8];
+
+      /* Skip past the pushl instruction; it has either a one-byte 
+         or a four-byte operand, depending on the opcode.  */
+      pos = codestream_tell ();
+      if (op == 0x68)
+	pos += 4;
+      else
+	pos += 1;
+      codestream_seek (pos);
+
+      /* Read the following 8 bytes, which should be "call _probe" (6 bytes)
+         followed by "addl $4,%esp" (2 bytes).  */
+      codestream_read (buf, sizeof (buf));
+      if (buf[0] == 0xe8 && buf[6] == 0xc4 && buf[7] == 0x4)
+	pos += sizeof (buf);
       codestream_seek (pos);
       op = codestream_get (); /* update next opcode */
     }
@@ -712,10 +763,32 @@ skip_trampoline_code (pc, name)
   return 0;			/* not a trampoline */
 }
 
+static int
+gdb_print_insn_i386 (memaddr, info)
+     bfd_vma memaddr;
+     disassemble_info * info;
+{
+  if (disassembly_flavor == att_flavor)
+    return print_insn_i386_att (memaddr, info);
+  else if (disassembly_flavor == intel_flavor)
+    return print_insn_i386_intel (memaddr, info);
+}
 
 void
 _initialize_i386_tdep ()
 {
-  tm_print_insn = print_insn_i386;
+  tm_print_insn = gdb_print_insn_i386;
   tm_print_insn_info.mach = bfd_lookup_arch (bfd_arch_i386, 0)->mach;
+
+  /* Add the variable that controls the disassembly flavor */
+  add_show_from_set(
+	    add_set_enum_cmd ("disassembly-flavor", no_class,
+				  valid_flavors,
+				  (char *) &disassembly_flavor,
+				  "Set the disassembly flavor, the valid values are \"att\" and \"intel\", \
+and the default value is \"att\".",
+				  &setlist),
+	    &showlist);
+
+  
 }

@@ -1,5 +1,5 @@
 /* Instruction printing code for the ARC.
-   Copyright (C) 1994, 1995, 1997 Free Software Foundation, Inc. 
+   Copyright (C) 1994, 1995, 1997, 1998 Free Software Foundation, Inc. 
    Contributed by Doug Evans (dje@cygnus.com).
 
 This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "opcode/arc.h"
 #include "elf-bfd.h"
 #include "elf/arc.h"
+#include "opintl.h"
 
 static int print_insn_arc_base_little PARAMS ((bfd_vma, disassemble_info *));
 static int print_insn_arc_base_big PARAMS ((bfd_vma, disassemble_info *));
@@ -103,15 +104,19 @@ print_insn (pc, info, mach, big_p)
 
       for (syn = opcode->syntax; *syn; ++syn)
 	{
+	  int c;
+
 	  if (*syn != '%' || *++syn == '%')
 	    continue;
 	  mods = 0;
-	  while (ARC_MOD_P (arc_operands[arc_operand_map[*syn]].flags))
+	  c = *syn;
+	  while (ARC_MOD_P (arc_operands[arc_operand_map[c]].flags))
 	    {
-	      mods |= arc_operands[arc_operand_map[*syn]].flags & ARC_MOD_BITS;
+	      mods |= arc_operands[arc_operand_map[c]].flags & ARC_MOD_BITS;
 	      ++syn;
+	      c = *syn;
 	    }
-	  operand = arc_operands + arc_operand_map[*syn];
+	  operand = arc_operands + arc_operand_map[c];
 	  if (operand->extract)
 	    (*operand->extract) (insn, operand, mods,
 				 (const struct arc_operand_value **) NULL,
@@ -141,6 +146,8 @@ print_insn (pc, info, mach, big_p)
 
       for (syn = opcode->syntax; *syn; ++syn)
 	{
+	  int c;
+
 	  if (*syn != '%' || *++syn == '%')
 	    {
 	      (*func) (stream, "%c", *syn);
@@ -149,12 +156,14 @@ print_insn (pc, info, mach, big_p)
 
 	  /* We have an operand.  Fetch any special modifiers.  */
 	  mods = 0;
-	  while (ARC_MOD_P (arc_operands[arc_operand_map[*syn]].flags))
+	  c = *syn;
+	  while (ARC_MOD_P (arc_operands[arc_operand_map[c]].flags))
 	    {
-	      mods |= arc_operands[arc_operand_map[*syn]].flags & ARC_MOD_BITS;
+	      mods |= arc_operands[arc_operand_map[c]].flags & ARC_MOD_BITS;
 	      ++syn;
+	      c = *syn;
 	    }
-	  operand = arc_operands + arc_operand_map[*syn];
+	  operand = arc_operands + arc_operand_map[c];
 
 	  /* Extract the value from the instruction.  */
 	  opval = NULL;
@@ -219,7 +228,7 @@ print_insn (pc, info, mach, big_p)
       return got_limm_p ? 8 : 4;
     }
 
-  (*func) (stream, "*unknown*");
+  (*func) (stream, _("*unknown*"));
   return 4;
 }
 

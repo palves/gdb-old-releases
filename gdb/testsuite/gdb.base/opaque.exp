@@ -28,9 +28,23 @@ set bug_id 0
 
 set testfile "opaque"
 set binfile ${objdir}/${subdir}/opaque
-if  { [gdb_compile "${srcdir}/${subdir}/opaque0.c ${srcdir}/${subdir}/opaque1.c" "${binfile}" executable {debug}] != "" } {
+
+#if  { [gdb_compile "${srcdir}/${subdir}/opaque0.c ${srcdir}/${subdir}/opaque1.c" "${binfile}" executable {debug}] != "" } {
+#     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+#}
+
+if  { [gdb_compile "${srcdir}/${subdir}/opaque0.c" "${binfile}0.o" object {debug}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
+
+if  { [gdb_compile "${srcdir}/${subdir}/opaque1.c" "${binfile}1.o" object {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if  { [gdb_compile "${binfile}0.o ${binfile}1.o" ${binfile} executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
 
 # Create and source the file that provides information about the compiler
 # used to compile the test case.

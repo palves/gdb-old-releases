@@ -1,5 +1,6 @@
 /* Generic ECOFF (Extended-COFF) routines.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Original version by Per Bothner.
    Full support added by Ian Lance Taylor, ian@cygnus.com.
 
@@ -1304,7 +1305,7 @@ ecoff_type_to_string (abfd, fdr, indx)
       break;
 
     default:
-      sprintf (p1, "Unknown basic type %d", (int) basic_type);
+      sprintf (p1, _("Unknown basic type %d"), (int) basic_type);
       break;
     }
 
@@ -1576,17 +1577,17 @@ _bfd_ecoff_print_symbol (abfd, filep, symbol, how)
 
 	      case stFile:
 	      case stBlock:
-		fprintf (file, "\n      End+1 symbol: %ld",
+		fprintf (file, _("\n      End+1 symbol: %ld"),
 			 (long) (indx + sym_base));
 		break;
 
 	      case stEnd:
 		if (ecoff_ext.asym.sc == scText
 		    || ecoff_ext.asym.sc == scInfo)
-		  fprintf (file, "\n      First symbol: %ld",
+		  fprintf (file, _("\n      First symbol: %ld"),
 			   (long) (indx + sym_base));
 		else
-		  fprintf (file, "\n      First symbol: %ld", 
+		  fprintf (file, _("\n      First symbol: %ld"), 
 			   ((long)
 			    (AUX_GET_ISYM (bigendian,
 					   &aux_base[ecoff_ext.asym.index])
@@ -1598,14 +1599,14 @@ _bfd_ecoff_print_symbol (abfd, filep, symbol, how)
 		if (ECOFF_IS_STAB (&ecoff_ext.asym))
 		  ;
 		else if (ecoffsymbol (symbol)->local)
-		  fprintf (file, "\n      End+1 symbol: %-7ld   Type:  %s",
+		  fprintf (file, _("\n      End+1 symbol: %-7ld   Type:  %s"),
 			   ((long)
 			    (AUX_GET_ISYM (bigendian,
 					   &aux_base[ecoff_ext.asym.index])
 			     + sym_base)),
 			   ecoff_type_to_string (abfd, fdr, indx + 1));
 		else
-		  fprintf (file, "\n      Local symbol: %ld",
+		  fprintf (file, _("\n      Local symbol: %ld"),
 			   ((long) indx
 			    + (long) sym_base
 			    + (ecoff_data (abfd)
@@ -1613,23 +1614,23 @@ _bfd_ecoff_print_symbol (abfd, filep, symbol, how)
 		break;
 
 	      case stStruct:
-		fprintf (file, "\n      struct; End+1 symbol: %ld",
+		fprintf (file, _("\n      struct; End+1 symbol: %ld"),
 			 (long) (indx + sym_base));
 		break;
 
 	      case stUnion:
-		fprintf (file, "\n      union; End+1 symbol: %ld",
+		fprintf (file, _("\n      union; End+1 symbol: %ld"),
 			 (long) (indx + sym_base));
 		break;
 
 	      case stEnum:
-		fprintf (file, "\n      enum; End+1 symbol: %ld",
+		fprintf (file, _("\n      enum; End+1 symbol: %ld"),
 			 (long) (indx + sym_base));
 		break;
 
 	      default:
 		if (! ECOFF_IS_STAB (&ecoff_ext.asym))
-		  fprintf (file, "\n      Type: %s",
+		  fprintf (file, _("\n      Type: %s"),
 			   ecoff_type_to_string (abfd, fdr, indx));
 		break;
 	      }
@@ -3141,7 +3142,7 @@ _bfd_ecoff_write_armap (abfd, elength, map, orl_count, stridx)
 
   /* Ultrix appears to use as a hash table size the least power of two
      greater than twice the number of entries.  */
-  for (hashlog = 0; (1 << hashlog) <= 2 * orl_count; hashlog++)
+  for (hashlog = 0; ((unsigned int) 1 << hashlog) <= 2 * orl_count; hashlog++)
     ;
   hashsize = 1 << hashlog;
 

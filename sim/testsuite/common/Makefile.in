@@ -9,19 +9,19 @@ check: bits32m0.ok bits32m31.ok bits64m0.ok bits64m63.ok
 all: bits32m0 bits32m31 bits64m0 bits64m63
 
 bits32m0.c: bits-gen bits-tst.c
-	./bits-gen 32 0 > tmp-bits32m0.c
+	./bits-gen 32 0 big > tmp-bits32m0.c
 	cat bits-tst.c >> tmp-bits32m0.c
 	mv tmp-bits32m0.c bits32m0.c
 bits32m31.c: bits-gen bits-tst.c
-	./bits-gen 32 31 > tmp-bits32m31.c
+	./bits-gen 32 31 little > tmp-bits32m31.c
 	cat bits-tst.c >> tmp-bits32m31.c
 	mv tmp-bits32m31.c bits32m31.c
 bits64m0.c: bits-gen bits-tst.c
-	./bits-gen 64 0 > tmp-bits64m0.c
+	./bits-gen 64 0 big > tmp-bits64m0.c
 	cat bits-tst.c >> tmp-bits64m0.c
 	mv tmp-bits64m0.c bits64m0.c
 bits64m63.c: bits-gen bits-tst.c
-	./bits-gen 64 63 > tmp-bits64m63.c
+	./bits-gen 64 63 little > tmp-bits64m63.c
 	cat bits-tst.c >> tmp-bits64m63.c
 	mv tmp-bits64m63.c bits64m63.c
 

@@ -1,5 +1,5 @@
 /* BFD backend for MIPS BSD (a.out) binaries.
-   Copyright (C) 1993, 1994, 1995, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1993, 94, 95, 97, 1998 Free Software Foundation, Inc.
    Written by Ralph Campbell.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -45,7 +45,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define SET_ARCH_MACH(ABFD, EXEC) \
   MY(set_arch_mach)(ABFD, N_MACHTYPE (EXEC)); \
   MY(choose_reloc_size)(ABFD);
-void MY(set_arch_mach) PARAMS ((bfd *abfd, int machtype));
+static void MY(set_arch_mach) PARAMS ((bfd *abfd, int machtype));
 static void MY(choose_reloc_size) PARAMS ((bfd *abfd));
 
 #define MY_write_object_contents MY(write_object_contents)
@@ -66,7 +66,7 @@ static boolean MY(write_object_contents) PARAMS ((bfd *abfd));
 
 #include "aout-target.h"
 
-void
+static void
 MY(set_arch_mach) (abfd, machtype)
      bfd *abfd;
      int machtype;
@@ -127,11 +127,11 @@ MY(write_object_contents) (abfd)
   switch (bfd_get_arch(abfd)) {
   case bfd_arch_m68k:
     switch (bfd_get_mach(abfd)) {
-    case 68010:
+    case bfd_mach_m68010:
       N_SET_MACHTYPE(*execp, M_68010);
       break;
     default:
-    case 68020:
+    case bfd_mach_m68020:
       N_SET_MACHTYPE(*execp, M_68020);
       break;
     }

@@ -1,5 +1,5 @@
 /* Do various things to symbol tables (other than lookup), for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996
+   Copyright 1986, 87, 89, 91, 92, 93, 94, 95, 96, 1998
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -48,23 +48,24 @@ FILE *std_err;
 
 /* Prototypes for local functions */
 
-static void 
-dump_symtab PARAMS ((struct objfile *, struct symtab *, GDB_FILE *));
+static void dump_symtab PARAMS ((struct objfile *, struct symtab *, 
+                                 GDB_FILE *));
 
-static void 
-dump_psymtab PARAMS ((struct objfile *, struct partial_symtab *, GDB_FILE *));
+static void dump_psymtab PARAMS ((struct objfile *, struct partial_symtab *, 
+                                  GDB_FILE *));
 
-static void 
-dump_msymbols PARAMS ((struct objfile *, GDB_FILE *));
+static void dump_msymbols PARAMS ((struct objfile *, GDB_FILE *));
 
-static void 
-dump_objfile PARAMS ((struct objfile *));
+static void dump_objfile PARAMS ((struct objfile *));
 
-static int
-block_depth PARAMS ((struct block *));
+static int block_depth PARAMS ((struct block *));
 
-static void
-print_partial_symbols PARAMS ((struct partial_symbol **, int, char *, GDB_FILE *));
+static void print_partial_symbols PARAMS ((struct partial_symbol **, int, 
+                                           char *, GDB_FILE *));
+
+static void free_symtab_block PARAMS ((struct objfile *, struct block *));
+
+void _initialize_symmisc PARAMS ((void));
 
 struct print_symbol_args {
   struct symbol *symbol;
@@ -72,7 +73,7 @@ struct print_symbol_args {
   GDB_FILE *outfile;
 };
 
-static int print_symbol PARAMS ((char *));
+static int print_symbol PARAMS ((PTR));
 
 static void
 free_symtab_block PARAMS ((struct objfile *, struct block *));
@@ -182,16 +183,16 @@ print_objfile_statistics ()
 	printf_filtered ("  Number of \"stab\" symbols read: %d\n",
 			 OBJSTAT (objfile, n_stabs));
       if (OBJSTAT (objfile, n_minsyms) > 0)
-	printf_filtered ("  Number of \"minimal symbols read: %d\n",
+	printf_filtered ("  Number of \"minimal\" symbols read: %d\n",
 			 OBJSTAT (objfile, n_minsyms));
       if (OBJSTAT (objfile, n_psyms) > 0)
-	printf_filtered ("  Number of \"partial symbols read: %d\n",
+	printf_filtered ("  Number of \"partial\" symbols read: %d\n",
 			 OBJSTAT (objfile, n_psyms));
       if (OBJSTAT (objfile, n_syms) > 0)
-	printf_filtered ("  Number of \"full symbols read: %d\n",
+	printf_filtered ("  Number of \"full\" symbols read: %d\n",
 			 OBJSTAT (objfile, n_syms));
       if (OBJSTAT (objfile, n_types) > 0)
-	printf_filtered ("  Number of \"types defined: %d\n",
+	printf_filtered ("  Number of \"types\" defined: %d\n",
 			 OBJSTAT (objfile, n_types));
       if (OBJSTAT (objfile, sz_strtab) > 0)
 	printf_filtered ("  Space used by a.out string tables: %d\n",
@@ -524,7 +525,7 @@ Arguments missing: an output file name and an optional symbol file name");
     {
       nomem (0);
     }
-  cleanups = make_cleanup (freeargv, (char *) argv);
+  cleanups = make_cleanup ((make_cleanup_func) freeargv, (char *) argv);
 
   if (argv[0] != NULL)
     {
@@ -542,7 +543,7 @@ Arguments missing: an output file name and an optional symbol file name");
   outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
     perror_with_name (filename);
-  make_cleanup (fclose, (char *) outfile);
+  make_cleanup ((make_cleanup_func) gdb_fclose, (char *) &outfile);
 
   immediate_quit++;
   ALL_SYMTABS (objfile, s)
@@ -559,7 +560,7 @@ Arguments missing: an output file name and an optional symbol file name");
 
 static int
 print_symbol (args)
-     char *args;
+     PTR args;
 {
   struct symbol *symbol = ((struct print_symbol_args *)args)->symbol;
   int depth = ((struct print_symbol_args *)args)->depth;
@@ -640,6 +641,12 @@ print_symbol (args)
 			      bfd_section_name
 			      (SYMBOL_BFD_SECTION (symbol)->owner,
 			       SYMBOL_BFD_SECTION (symbol)));
+	  break;
+
+	case LOC_INDIRECT:
+	  fprintf_filtered (outfile, "extern global at *(");
+	  print_address_numeric (SYMBOL_VALUE_ADDRESS (symbol), 1,outfile);
+	  fprintf_filtered (outfile, "),");
 	  break;
 
 	case LOC_REGISTER:
@@ -738,7 +745,7 @@ maintenance_print_psymbols (args, from_tty)
      int from_tty;
 {
   char **argv;
-  GDB_FILE *outfile;
+  GDB_FILE  *outfile;
   struct cleanup *cleanups;
   char *symname = NULL;
   char *filename = DEV_TTY;
@@ -755,7 +762,7 @@ maintenance_print_psymbols (args, from_tty)
     {
       nomem (0);
     }
-  cleanups = make_cleanup (freeargv, (char *) argv);
+  cleanups = make_cleanup ((make_cleanup_func) freeargv, (char *) argv);
 
   if (argv[0] != NULL)
     {
@@ -773,7 +780,7 @@ maintenance_print_psymbols (args, from_tty)
   outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
     perror_with_name (filename);
-  make_cleanup (fclose, outfile);
+  make_cleanup ((make_cleanup_func) gdb_fclose, &outfile);
 
   immediate_quit++;
   ALL_PSYMTABS (objfile, ps)
@@ -827,6 +834,9 @@ print_partial_symbols (p, count, what, outfile)
 	  break;
 	case LOC_STATIC:
 	  fputs_filtered ("static", outfile);
+	  break;
+	case LOC_INDIRECT:
+	  fputs_filtered ("extern global", outfile);
 	  break;
 	case LOC_REGISTER:
 	  fputs_filtered ("register", outfile);
@@ -900,7 +910,7 @@ maintenance_print_msymbols (args, from_tty)
     {
       nomem (0);
     }
-  cleanups = make_cleanup (freeargv, argv);
+  cleanups = make_cleanup ((make_cleanup_func) freeargv, argv);
 
   if (argv[0] != NULL)
     {
@@ -918,7 +928,7 @@ maintenance_print_msymbols (args, from_tty)
   outfile = gdb_fopen (filename, FOPEN_WT);
   if (outfile == 0)
     perror_with_name (filename);
-  make_cleanup (fclose, outfile);
+  make_cleanup ((make_cleanup_func) gdb_fclose, &outfile);
 
   immediate_quit++;
   ALL_OBJFILES (objfile)
@@ -1005,9 +1015,9 @@ maintenance_check_symtabs (ignore, from_tty)
 	  printf_filtered ("Psymtab ");
 	  puts_filtered (ps->filename);
 	  printf_filtered (" covers bad range ");
-          print_address_numeric (ps->textlow, 1, stdout);
+          print_address_numeric (ps->textlow, 1, gdb_stdout);
 	  printf_filtered (" - ");
-          print_address_numeric (ps->texthigh, 1, stdout);
+          print_address_numeric (ps->texthigh, 1, gdb_stdout);
 	  printf_filtered ("\n");
 	  continue;
 	}
@@ -1018,13 +1028,13 @@ maintenance_check_symtabs (ignore, from_tty)
 	  printf_filtered ("Psymtab ");
 	  puts_filtered (ps->filename);
 	  printf_filtered (" covers ");
-          print_address_numeric (ps->textlow, 1, stdout);
+          print_address_numeric (ps->textlow, 1, gdb_stdout);
 	  printf_filtered (" - ");
-          print_address_numeric (ps->texthigh, 1, stdout);
+          print_address_numeric (ps->texthigh, 1, gdb_stdout);
 	  printf_filtered (" but symtab covers only ");
-          print_address_numeric (BLOCK_START (b), 1, stdout);
+          print_address_numeric (BLOCK_START (b), 1, gdb_stdout);
 	  printf_filtered (" - ");
-          print_address_numeric (BLOCK_END (b), 1, stdout);
+          print_address_numeric (BLOCK_END (b), 1, gdb_stdout);
 	  printf_filtered ("\n");
 	}
     }

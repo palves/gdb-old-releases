@@ -1,5 +1,6 @@
 /* Main header file for the bfd library -- portable access to object files.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 ** NOTE: bfd.h and bfd-in2.h are GENERATED files.  Don't change them;
@@ -120,20 +121,24 @@ typedef long int file_ptr;
    use gcc's "long long" type.  Otherwise, BFD_HOST_64_BIT must be
    defined above.  */
 
+#ifndef BFD_HOST_64_BIT
+# if BFD_HOST_64BIT_LONG
+#  define BFD_HOST_64_BIT long
+#  define BFD_HOST_U_64_BIT unsigned long
+# else
+#  ifdef __GNUC__
+#   if __GNUC__ >= 2
+#    define BFD_HOST_64_BIT long long
+#    define BFD_HOST_U_64_BIT unsigned long long
+#   endif /* __GNUC__ >= 2 */
+#  endif /* ! defined (__GNUC__) */
+# endif /* ! BFD_HOST_64BIT_LONG */
+#endif /* ! defined (BFD_HOST_64_BIT) */
+
 #ifdef BFD64
 
 #ifndef BFD_HOST_64_BIT
-#if BFD_HOST_64BIT_LONG
-#define BFD_HOST_64_BIT long
-#define BFD_HOST_U_64_BIT unsigned long
-#else
-#ifdef __GNUC__
-#define BFD_HOST_64_BIT long long
-#define BFD_HOST_U_64_BIT unsigned long long
-#else /* ! defined (__GNUC__) */
  #error No 64 bit integer type available
-#endif /* ! defined (__GNUC__) */
-#endif /* ! BFD_HOST_64BIT_LONG */
 #endif /* ! defined (BFD_HOST_64_BIT) */
 
 typedef BFD_HOST_U_64_BIT bfd_vma;
@@ -174,7 +179,9 @@ typedef unsigned long bfd_size_type;
 /* Print a bfd_vma x on stream s.  */
 #define fprintf_vma(s,x) fprintf(s, "%08lx", x)
 #define sprintf_vma(s,x) sprintf(s, "%08lx", x)
+
 #endif /* not BFD64  */
+
 #define printf_vma(x) fprintf_vma(stdout,x)
 
 typedef unsigned int flagword;	/* 32 bits of flags */
@@ -606,6 +613,8 @@ extern boolean bfd_elf64_record_link_assignment
   PARAMS ((bfd *, struct bfd_link_info *, const char *, boolean));
 extern struct bfd_link_needed_list *bfd_elf_get_needed_list
   PARAMS ((bfd *, struct bfd_link_info *));
+extern boolean bfd_elf_get_bfd_needed_list
+  PARAMS ((bfd *, struct bfd_link_needed_list **));
 extern boolean bfd_elf32_size_dynamic_sections
   PARAMS ((bfd *, const char *, const char *, boolean, const char *,
 	   const char * const *, struct bfd_link_info *, struct sec **,
@@ -688,7 +697,31 @@ union internal_auxent;
 
 extern boolean bfd_coff_get_syment
   PARAMS ((bfd *, struct symbol_cache_entry *, struct internal_syment *));
+
 extern boolean bfd_coff_get_auxent
   PARAMS ((bfd *, struct symbol_cache_entry *, int, union internal_auxent *));
+
+extern boolean bfd_coff_set_symbol_class
+  PARAMS ((bfd *, struct symbol_cache_entry *, unsigned int));
+
+/* ARM Interworking support.  Called from linker.  */
+extern boolean bfd_arm_allocate_interworking_sections
+  PARAMS ((struct bfd_link_info *));
+
+extern boolean bfd_arm_process_before_allocation
+  PARAMS ((bfd *, struct bfd_link_info *, int));
+
+extern boolean bfd_arm_get_bfd_for_interworking
+  PARAMS ((bfd *, struct bfd_link_info *));
+
+/* ELF ARM Interworking support.  Called from linker.  */
+  extern boolean bfd_elf32_arm_allocate_interworking_sections
+    PARAMS ((struct bfd_link_info *));
+ 
+  extern boolean bfd_elf32_arm_process_before_allocation
+    PARAMS ((bfd *, struct bfd_link_info *));
+ 
+  extern boolean bfd_elf32_arm_get_bfd_for_interworking
+    PARAMS ((bfd *, struct bfd_link_info *));
 
 /* And more from the source.  */

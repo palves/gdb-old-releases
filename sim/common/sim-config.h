@@ -19,8 +19,9 @@
     */
 
 
-#ifndef _PSIM_CONFIG_H_
-#define _PSIM_CONFIG_H_
+#ifndef SIM_CONFIG_H
+#define SIM_CONFIG_H
+
 
 /* Host dependant:
 
@@ -55,7 +56,6 @@
 
 #if defined(__linux__)
 # include <endian.h>
-# include <asm/byteorder.h>
 # if defined(__LITTLE_ENDIAN) && !defined(LITTLE_ENDIAN)
 #  define LITTLE_ENDIAN __LITTLE_ENDIAN
 # endif
@@ -334,16 +334,17 @@ extern int current_target_byte_order;
    setting these to specific values, the build process is able to
    eliminate non relevent environment code.
 
-   CURRENT_ENVIRONMENT specifies which of vea or oea is required for
+   STATE_ENVIRONMENT(sd) specifies which of vea or oea is required for
    the current runtime.
 
    ALL_ENVIRONMENT is used during configuration as a value for
    WITH_ENVIRONMENT to indicate the choice is runtime selectable.
    The default is then USER_ENVIRONMENT [since allowing the user to choose
    the default at configure time seems like featuritis and since people using
-   OPERATING_ENVIRONMENT have more to worry about than selecting the default].
-   ALL_ENVIRONMENT is also used to set `current_environment' to the
-   "unknown" state.  */
+   OPERATING_ENVIRONMENT have more to worry about than selecting the
+   default].
+   ALL_ENVIRONMENT is also used to set STATE_ENVIRONMENT to the
+   "uninitialized" state.  */
 
 enum sim_environment {
   ALL_ENVIRONMENT,
@@ -366,11 +367,6 @@ enum sim_environment {
 #define DEFAULT_ENVIRONMENT (WITH_ENVIRONMENT != ALL_ENVIRONMENT \
 			     ? WITH_ENVIRONMENT \
 			     : USER_ENVIRONMENT)
-
-extern enum sim_environment current_environment;
-#define CURRENT_ENVIRONMENT (WITH_ENVIRONMENT != ALL_ENVIRONMENT \
-			     ? WITH_ENVIRONMENT \
-			     : current_environment)
 
 
 /* Callback & Modulo Memory.
@@ -582,13 +578,17 @@ extern int current_stdio;
 #endif
 
 
-/* complete/verify/print the simulator configuration */
+/* Set the default state configuration, before parsing argv.  */
 
-extern SIM_RC sim_config
-(SIM_DESC sd);
+extern void sim_config_default (SIM_DESC sd);
 
+/* Complete and verify the simulator configuration.  */
+
+extern SIM_RC sim_config (SIM_DESC sd);
+
+/* Print the simulator configuration.  */
 
 extern void print_sim_config (SIM_DESC sd);
 
 
-#endif /* _PSIM_CONFIG_H */
+#endif

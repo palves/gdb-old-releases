@@ -30,8 +30,8 @@
 	brf0f	2f
 	cmpeq	r7, r11
 	brf0t	3f
-2:	ldi	r6, 1
-	ldi	r2, \s
+2:	ldi	r4, 1
+	ldi	r0, \s
 	trap	15
 3:
 	
@@ -40,8 +40,8 @@
 	and3	r6, r6, #1
 	cmpeqi	r6, #\c
 	brf0t	1f
-	ldi	r6, 1
-	ldi	r2, \s
+	ldi	r4, 1
+	ldi	r0, \s
 	trap	15
 1:
 	.endm

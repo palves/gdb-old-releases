@@ -1,5 +1,5 @@
 /* linker.c -- BFD linker routines
-   Copyright (C) 1993, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1993, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
    Written by Steve Chamberlain and Ian Lance Taylor, Cygnus Support
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -1958,6 +1958,12 @@ _bfd_generic_final_link (abfd, info)
 				   _bfd_generic_link_write_global_symbol,
 				   (PTR) &wginfo);
 
+  /* Make sure we have a trailing NULL pointer on OUTSYMBOLS.  We
+     shouldn't really need one, since we have SYMCOUNT, but some old
+     code still expects one.  */
+  if (! generic_add_output_symbol (abfd, &outsymalloc, NULL))
+    return false;
+
   if (info->relocateable)
     {
       /* Allocate space for the output relocs for each section.  */
@@ -2047,7 +2053,7 @@ _bfd_generic_final_link (abfd, info)
 	    }
 	}
     }
-
+  
   return true;
 }
 
@@ -2075,7 +2081,8 @@ generic_add_output_symbol (output_bfd, psymalloc, sym)
     }
 
   output_bfd->outsymbols[output_bfd->symcount] = sym;
-  ++output_bfd->symcount;
+  if (sym != NULL)
+    ++output_bfd->symcount;
 
   return true;
 }
@@ -2662,7 +2669,7 @@ default_indirect_link_order (output_bfd, info, output_section, link_order,
 	 types of object files.  Handling this case correctly is
 	 difficult, and sometimes impossible.  */
       (*_bfd_error_handler)
-	("Attempt to do relocateable link with %s input and %s output",
+	(_("Attempt to do relocateable link with %s input and %s output"),
 	 bfd_get_target (input_bfd), bfd_get_target (output_bfd));
       bfd_set_error (bfd_error_wrong_format);
       return false;

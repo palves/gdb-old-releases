@@ -89,6 +89,28 @@ class mixed_protection_class {
   int i;
 };
 
+class const_vol_method_class {
+public:
+  int a;
+  int b;
+  int foo (int &) const;
+  int bar (int &) volatile;
+  int baz (int &) const volatile;
+};
+
+int const_vol_method_class::foo (int & ir) const
+{
+  return ir + 3;
+}
+int const_vol_method_class::bar (int & ir) volatile
+{
+  return ir + 4;
+}
+int const_vol_method_class::baz (int & ir) const volatile
+{
+  return ir + 5;
+}
+
 // ========================= simple inheritance ==========================
 
 class A {
@@ -357,6 +379,13 @@ class Bar : public Base1, public Foo {
   Bar (int i, int j, int k) : Base1 (10*k), Foo (i, j) { z = k; }
 };
 
+class ClassWithEnum {
+public:
+  enum PrivEnum { red, green, blue, yellow = 42 };
+  PrivEnum priv_enum;
+  int x;
+};
+
 int Foo::operator! () { return !x; }
 
 int Foo::times (int y) { return x * y; }
@@ -418,10 +447,13 @@ class small {
   int x;
   int method ();
 };
+
+int
 small::method ()
 {
   return x + 5;
 }
+
 void marker_reg1 () {}
 
 int
@@ -445,13 +477,6 @@ register_class ()
   return v.x + 5;
 }
 
-#ifdef usestubs
-extern "C" {
-  void set_debug_traps();
-  void breakpoint();
-};
-#endif
-
 int
 main()
 {
@@ -471,10 +496,15 @@ main()
   /* Make sure the AIX linker doesn't remove the variable.  */
   v_tagless.one = 5;
 
+  /* Class with enumeration inside it */ 
+  ClassWithEnum obj_with_enum;
+  obj_with_enum.priv_enum = ClassWithEnum::green;
+
   return foo.*pmi;
 }
 
 /* Create an instance for some classes, otherwise they get optimized away.  */
+
 default_public_struct default_public_s;
 explicit_public_struct explicit_public_s;
 protected_struct protected_s;

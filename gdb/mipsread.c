@@ -1,5 +1,5 @@
 /* Read a symbol table in MIPS' format (Third-Eye).
-   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
+   Copyright 1986, 87, 89, 90, 91, 92, 93, 94, 95, 96, 1998
    Free Software Foundation, Inc.
    Contributed by Alessandro Forin (af@cs.cmu.edu) at CMU.  Major work
    by Per Bothner, John Gilmore and Ian Lance Taylor at Cygnus Support.
@@ -93,7 +93,7 @@ mipscoff_symfile_read (objfile, section_offsets, mainline)
   struct cleanup * back_to;
 
   init_minimal_symbol_collection ();
-  back_to = make_cleanup (discard_minimal_symbols, 0);
+  back_to = make_cleanup ((make_cleanup_func) discard_minimal_symbols, 0);
 
   /* Now that the executable file is positioned at symbol table,
      process it and define symbols accordingly.  */

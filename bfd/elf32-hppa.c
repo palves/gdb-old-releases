@@ -1212,7 +1212,7 @@ hppa_elf_reloc (abfd, reloc_entry, symbol_in, data, input_section, output_bfd,
     }
   else
     {
-      *error_message = (char *) "Unsupported call to hppa_elf_reloc";
+      *error_message = (char *) _("Unsupported call to hppa_elf_reloc");
       return bfd_reloc_notsupported;
     }
 }

@@ -23,14 +23,14 @@ class VB
 public:
     int vb;
     int fvb();
-    virtual vvb();
+    virtual int vvb();
 };
 
 class V : public VA, public VB
 {
 public:
     int f();
-    virtual vv();
+    virtual int vv();
     int w;
 };
 

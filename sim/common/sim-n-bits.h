@@ -24,7 +24,7 @@
 #error "N must be #defined"
 #endif
 
-#include "sim-xcat.h"
+#include "symcat.h"
 
 #if defined(__STDC__) && defined(signed)
 /* If signed were defined to be say __signed (ie, some versions of Linux),

@@ -1,3 +1,22 @@
+Sun Dec  6 21:36:37 1998  Mark Elbrecht  <snowball3@usa.net>
+
+	* internal.h (C_WEAKEXT): Define.
+
+Wed Jan 27 13:35:35 1999  Stan Cox  <scox@cygnus.com>
+
+	* coff/arm.h (F_PIC_INT, F_ARM_2, F_ARM_3, F_ARM_4, F_APCS26):
+	Changed values to avoid clashing with IMAGE_FILE_* coff header
+	flag values.
+	
+Wed Apr  1 16:06:15 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* internal.h: Document numbers associated with Thumb symbol
+	types. 
+
+Fri Mar 27 17:16:57 1998  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h (ISPTR, ISFCN, ISARY): Add casts to unsigned long.
+
 Mon Feb  2 17:10:38 1998  Steve Haworth  <steve@pm.cse.rmit.EDU.AU>
 
 	* tic30.h: New file.

@@ -45,6 +45,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <signal.h>
 #include "serial.h"
 
+extern void _initialize_remote_sds PARAMS ((void));
+
 /* Declarations of local functions. */
 
 static int sds_write_bytes PARAMS ((CORE_ADDR, char *, int));
@@ -62,7 +64,7 @@ static void sds_fetch_registers PARAMS ((int));
 
 static void sds_resume PARAMS ((int, int, enum target_signal));
 
-static int sds_start_remote PARAMS ((char *));
+static int sds_start_remote PARAMS ((PTR));
 
 static void sds_open PARAMS ((char *, int));
 
@@ -106,16 +108,19 @@ static int sds_insert_breakpoint PARAMS ((CORE_ADDR, char *));
 
 static int sds_remove_breakpoint PARAMS ((CORE_ADDR, char *));
 
+static void init_sds_ops PARAMS ((void));
 
-static struct target_ops sds_ops;	/* Forward decl */
+static void sds_command PARAMS ((char *args, int from_tty));
+
+/* Define the target operations vector. */
+
+static struct target_ops sds_ops;
 
 /* This was 5 seconds, which is a long time to sit and wait.
    Unless this is going though some terminal server or multiplexer or
    other form of hairy serial connection, I would think 2 seconds would
    be plenty.  */
 
-/* Changed to allow option to set timeout value.
-   was static int sds_timeout = 2; */
 static int sds_timeout = 2;
 
 /* Descriptor for I/O to remote machine.  Initialize it to NULL so
@@ -155,7 +160,7 @@ sds_close (quitting)
 
 static int
 sds_start_remote (dummy)
-     char *dummy;
+     PTR dummy;
 {
   char c;
   unsigned char buf[200];
@@ -167,7 +172,7 @@ sds_start_remote (dummy)
   SERIAL_WRITE (sds_desc, "{#}\r\n", 5);
 
   while ((c = readchar (1)) >= 0)
-    printf_unfiltered ("%c");
+    printf_unfiltered ("%c", c);
   printf_unfiltered ("\n");
 
   next_msg_id = 251;
@@ -237,7 +242,7 @@ device is attached to the remote system (e.g. /dev/ttya).");
   /* Start the remote connection; if error (0), discard this target.
      In particular, if the user quits, be sure to discard it (we'd be
      in an inconsistent state otherwise).  */
-  if (!catch_errors (sds_start_remote, (char *)0, 
+  if (!catch_errors (sds_start_remote, NULL, 
 		     "Couldn't establish connection to remote target\n",
 		     RETURN_MASK_ALL))
     pop_target ();
@@ -976,7 +981,7 @@ getmessage (buf, forever)
 	  if (c3 == '+')
 	    {
 	      message_pending = 1;
-	      return;
+	      return 0; /*????*/
 	    }
 	  continue;
 	}
@@ -1028,6 +1033,7 @@ getmessage (buf, forever)
   /* We have tried hard enough, and just can't receive the packet.  Give up. */
 
   printf_unfiltered ("Ignoring packet error, continuing...\n");
+  return 0;
 }
 
 static void
@@ -1119,52 +1125,37 @@ sds_remove_breakpoint (addr, contents_cache)
   return 0;
 }
 
-/* Define the target operations vector. */
-
-static struct target_ops sds_ops =
+static void 
+init_sds_ops ()
 {
-  "sds",			/* to_shortname */
-  "Remote serial target with SDS protocol",	/* to_longname */
-  "Use a remote computer via a serial line, using the SDS protocol.\n\
-Specify the serial device it is connected to (e.g. /dev/ttya).",  /* to_doc */
-  sds_open,			/* to_open */
-  sds_close,			/* to_close */
-  NULL,				/* to_attach */
-  sds_detach,			/* to_detach */
-  sds_resume,			/* to_resume */
-  sds_wait,			/* to_wait */
-  sds_fetch_registers,		/* to_fetch_registers */
-  sds_store_registers,		/* to_store_registers */
-  sds_prepare_to_store,		/* to_prepare_to_store */
-  sds_xfer_memory,		/* to_xfer_memory */
-  sds_files_info,		/* to_files_info */
-  sds_insert_breakpoint,	/* to_insert_breakpoint */
-  sds_remove_breakpoint,	/* to_remove_breakpoint */
-  NULL,				/* to_terminal_init */
-  NULL,				/* to_terminal_inferior */
-  NULL,				/* to_terminal_ours_for_output */
-  NULL,				/* to_terminal_ours */
-  NULL,				/* to_terminal_info */
-  sds_kill,			/* to_kill */
-  sds_load,			/* to_load */
-  NULL,				/* to_lookup_symbol */
-  sds_create_inferior,		/* to_create_inferior */
-  sds_mourn,			/* to_mourn_inferior */
-  0,				/* to_can_run */
-  0,				/* to_notice_signals */
-  0,				/* to_thread_alive */
-  0,				/* to_stop */
-  process_stratum,		/* to_stratum */
-  NULL,				/* to_next */
-  1,				/* to_has_all_memory */
-  1,				/* to_has_memory */
-  1,				/* to_has_stack */
-  1,				/* to_has_registers */
-  1,				/* to_has_execution */
-  NULL,				/* sections */
-  NULL,				/* sections_end */
-  OPS_MAGIC			/* to_magic */
-};
+  sds_ops.to_shortname = "sds";
+  sds_ops.to_longname = "Remote serial target with SDS protocol";
+  sds_ops.to_doc = "Use a remote computer via a serial line; using the SDS protocol.\n\
+Specify the serial device it is connected to (e.g. /dev/ttya).";
+  sds_ops.to_open = sds_open;
+  sds_ops.to_close = sds_close;
+  sds_ops.to_detach = sds_detach;
+  sds_ops.to_resume = sds_resume;
+  sds_ops.to_wait = sds_wait;
+  sds_ops.to_fetch_registers = sds_fetch_registers;
+  sds_ops.to_store_registers = sds_store_registers;
+  sds_ops.to_prepare_to_store = sds_prepare_to_store;
+  sds_ops.to_xfer_memory = sds_xfer_memory;
+  sds_ops.to_files_info = sds_files_info;
+  sds_ops.to_insert_breakpoint = sds_insert_breakpoint;
+  sds_ops.to_remove_breakpoint = sds_remove_breakpoint;
+  sds_ops.to_kill = sds_kill;
+  sds_ops.to_load = sds_load;
+  sds_ops.to_create_inferior = sds_create_inferior;
+  sds_ops.to_mourn_inferior = sds_mourn;
+  sds_ops.to_stratum = process_stratum;
+  sds_ops.to_has_all_memory = 1;
+  sds_ops.to_has_memory = 1;
+  sds_ops.to_has_stack = 1;
+  sds_ops.to_has_registers = 1;
+  sds_ops.to_has_execution = 1;
+  sds_ops.to_magic = OPS_MAGIC;
+}
 
 /* Put a command string, in args, out to the monitor and display the
    reply message.  */
@@ -1202,6 +1193,7 @@ sds_command (args, from_tty)
 void
 _initialize_remote_sds ()
 {
+  init_sds_ops ();
   add_target (&sds_ops);
 
   add_show_from_set (add_set_cmd ("sdstimeout", no_class,

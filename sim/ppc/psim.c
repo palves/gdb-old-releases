@@ -219,6 +219,28 @@ psim_usage(int verbose)
   error("");
 }
 
+/* Test "string" for containing a string of digits that form a number
+between "min" and "max".  The return value is the number of "err". */
+static
+int is_num( char *string, int min, int max, int err)
+{
+  int result = 0;
+
+  for ( ; *string; ++string)
+  {
+    if (!isdigit(*string))
+    {
+      result = err;
+      break;
+    }
+    result = result * 10 + (*string - '0');
+  }
+  if (result < min || result > max)
+    result = err;
+
+  return result;
+}
+
 INLINE_PSIM\
 (char **)
 psim_options(device *root,
@@ -294,7 +316,20 @@ psim_options(device *root,
 	break;
       case 'o':
 	param = find_arg("Missing <dev-spec> option for -o\n", &argp, argv);
-	current = tree_parse(current, "%s", param);
+#ifdef WITH_OPTION_MPC860C0
+	if (memcmp(param, "mpc860c0", 8) == 0)
+        {
+          if (param[8] == '\0')
+            tree_parse(root, "/options/mpc860c0 5");
+          else if (param[8] == '=' && is_num(param+9, 1, 10, 0))
+          {
+            tree_parse(root, "/options/mpc860c0 %s", param+9);
+          }
+          else error("Invalid mpc860c0 option for -o\n");
+        }
+	else
+#endif // WITH_OPTION_MPC860C0
+          current = tree_parse(current, "%s", param);
 	break;
       case 'r':
 	param = find_arg("Missing <ram-size> option for -r (oea-memory-size)\n", &argp, argv);
@@ -318,6 +353,10 @@ psim_options(device *root,
   device_ioctl(tree_find_device(root, "/openprom/trace"),
 	       NULL, 0,
 	       device_ioctl_set_trace);
+
+#ifdef WITH_OPTION_MPC860C0
+  semantic_init(root);
+#endif // WITH_OPTION_MPC860C0
 
   /* return where the options end */
   return argv + argp;

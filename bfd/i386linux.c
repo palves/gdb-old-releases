@@ -1,5 +1,5 @@
 /* BFD back-end for linux flavored i386 a.out binaries.
-   Copyright (C) 1992, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 94, 95, 96, 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -446,7 +446,7 @@ linux_tally_symbols (h, data)
 	alloc = (char *) bfd_malloc (strlen (name) + 1);
 
       if (p == NULL || alloc == NULL)
-	(*_bfd_error_handler) ("Output file requires shared library `%s'\n",
+	(*_bfd_error_handler) (_("Output file requires shared library `%s'\n"),
 			       name);
       else
 	{
@@ -454,7 +454,7 @@ linux_tally_symbols (h, data)
 	  p = strrchr (alloc, '_');
 	  *p++ = '\0';
 	  (*_bfd_error_handler)
-	    ("Output file requires shared library `%s.so.%s'\n",
+	    (_("Output file requires shared library `%s.so.%s'\n"),
 	     alloc, p);
 	  free (alloc);
 	}
@@ -642,7 +642,7 @@ linux_finish_dynamic_link (output_bfd, info)
 	  && f->h->root.root.type != bfd_link_hash_defweak)
 	{
 	  (*_bfd_error_handler)
-	    ("Symbol %s not defined for fixups\n",
+	    (_("Symbol %s not defined for fixups\n"),
 	     f->h->root.root.root.string);
 	  continue;
 	}
@@ -692,7 +692,7 @@ linux_finish_dynamic_link (output_bfd, info)
 	      && f->h->root.root.type != bfd_link_hash_defweak)
 	    {
 	      (*_bfd_error_handler)
-		("Symbol %s not defined for fixups\n",
+		(_("Symbol %s not defined for fixups\n"),
 		 f->h->root.root.root.string);
 	      continue;
 	    }
@@ -716,7 +716,7 @@ linux_finish_dynamic_link (output_bfd, info)
 
   if (linux_hash_table (info)->fixup_count != fixups_written)
     {
-      (*_bfd_error_handler) ("Warning: fixup count mismatch\n");
+      (*_bfd_error_handler) (_("Warning: fixup count mismatch\n"));
       while (linux_hash_table (info)->fixup_count > fixups_written)
 	{
 	  bfd_put_32 (output_bfd, 0, fixup_table);

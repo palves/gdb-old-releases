@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1994, 1995, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1994, 1995, 1997, 1998 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,9 +32,20 @@ set binfile ${objdir}/${subdir}/${testfile}
 # Need to download the header to the host.
 remote_download host ${srcdir}/${subdir}/list0.h list0.h
 
-if { [gdb_compile "${srcdir}/${subdir}/list0.c ${srcdir}/${subdir}/list1.c" ${binfile} executable {debug}] != "" } {
+
+if  { [gdb_compile "${srcdir}/${subdir}/list0.c" "${binfile}0.o" object {debug}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
+
+if  { [gdb_compile "${srcdir}/${subdir}/list1.c" "${binfile}1.o" object {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if  { [gdb_compile "${binfile}0.o ${binfile}1.o" ${binfile} executable {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+
 
 # Create and source the file that provides information about the compiler
 # used to compile the test case.
@@ -81,17 +92,12 @@ proc test_listsize {} {
     # Show the default lines
     # The second case is for optimized code, it is still correct.
     
-    # This doesn't work for COFF targets.
-    setup_xfail "a29k-*-udi"
     if ![isnative] {
-	if [target_info exists gdb,start_symbol] {
-	    set startsym [target_info gdb,start_symbol];
-	} else {
-	    set startsym "start";
-	}
-	gdb_test "set \$pc=$startsym" "" ""
+	runto_main;
+	unsupported "list default lines around main";
+    } else {
+	gdb_test "list" "(1\[ \t\]+#include \"list0.h\".*10\[ \t\]+x = 0;|2.*11\[ \t\]+foo .x\[+)\]+;)" "list default lines around main"
     }
-    gdb_test "list" "(1\[ \t\]+#include \"list0.h\".*10\[ \t\]+x = 0;|2.*11\[ \t\]+foo .x\[+)\]+;)" "list default lines around main"
 
     # Ensure we can limit printouts to one line
 

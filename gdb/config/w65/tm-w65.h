@@ -55,7 +55,7 @@ extern CORE_ADDR w65_skip_prologue ();
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Illegal instruction - used by the simulator for breakpoint
    detection */
@@ -65,14 +65,6 @@ extern CORE_ADDR w65_skip_prologue ();
 /* If your kernel resets the pc after the trap happens you may need to
    define this before including this file.  */
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction.  */
-
-#define ABOUT_TO_RETURN(pc) \
-  (read_memory_integer(pc,1) == RTL || read_memory_integer(pc,1) == RTS)
-
-#define RTL 0x6b
-#define RTS 0x60
 
 /* Return 1 if P points to an invalid floating point value.  */
 
@@ -199,7 +191,8 @@ extern CORE_ADDR w65_skip_prologue ();
 
 typedef unsigned short INSN_WORD;
 
-#define ADDR_BITS_REMOVE(addr) ((addr) & 0xffffff)
+extern CORE_ADDR w65_addr_bits_remove PARAMS ((CORE_ADDR));
+#define ADDR_BITS_REMOVE(addr) w65_addr_bits_remove (addr)
 
 #define CALL_DUMMY_LENGTH 10
 

@@ -62,7 +62,9 @@ extern CORE_ADDR skip_prologue PARAMS ((CORE_ADDR, int));
 
 /* We don't have a reliable single step facility.
    ??? We do have a cycle single step facility, but that won't work.  */
-#define NO_SINGLE_STEP
+#define SOFTWARE_SINGLE_STEP_P 1
+extern void arc_software_single_step PARAMS ((unsigned int, int));
+#define SOFTWARE_SINGLE_STEP(sig,bp_p) arc_software_single_step (sig, bp_p)
 
 /* FIXME: Need to set STEP_SKIPS_DELAY.  */
 
@@ -81,14 +83,7 @@ extern CORE_ADDR skip_prologue PARAMS ((CORE_ADDR, int));
 
 /* Stack grows upward */
 
-#define INNER_THAN <
-
-/* Nonzero if instruction at pc is a return instruction.
-   This is the "j [blink]" insn (with or without conditionals or delay
-   slots).  */
-
-#define ABOUT_TO_RETURN(pc) \
-  ((read_memory_integer(pc, 4) & 0xffffff80) == 0x380f8000)
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -270,7 +265,7 @@ extern CORE_ADDR skip_prologue PARAMS ((CORE_ADDR, int));
 
 /* FRAME_CHAIN_VALID returns zero if the given frame is the outermost one
    and has no caller.  */
-#define FRAME_CHAIN_VALID(chain, thisframe) ((chain) != 0)
+#define FRAME_CHAIN_VALID(chain, thisframe) nonnull_frame_chain_valid (chain, thisframe)
 
 /* A macro that tells us whether the function invocation represented
    by FI does not have a frame on the stack associated with it.  If it

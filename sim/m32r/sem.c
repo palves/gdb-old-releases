@@ -1,6 +1,8 @@
-/* Simulator instruction semantics for m32r.
+/* Simulator instruction semantics for m32rbf.
 
-Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
+THIS FILE IS MACHINE GENERATED WITH CGEN.
+
+Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of the GNU Simulators.
 
@@ -20,2188 +22,2523 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 */
 
-#define WANT_CPU
-#define WANT_CPU_M32R
+#define WANT_CPU m32rbf
+#define WANT_CPU_M32RBF
 
 #include "sim-main.h"
 #include "cgen-mem.h"
 #include "cgen-ops.h"
-#include "cpu-sim.h"
-
-#if ! defined (SCACHE_P) || (defined (SCACHE_P) && WITH_SCACHE)
 
 #undef GET_ATTR
-#define GET_ATTR(cpu, num, attr) CGEN_INSN_ATTR (abuf->opcode, CGEN_INSN_##attr)
+#define GET_ATTR(cpu, num, attr) CGEN_ATTR_VALUE (NULL, abuf->idesc->attrs, CGEN_INSN_##attr)
 
-/* Perform add: add $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,add) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* x-invalid: --invalid-- */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,x_invalid) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_empty.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ADDSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 0);
+
+  {
+#if WITH_SCACHE
+    /* Update the recorded pc in the cpu state struct.  */
+    SET_H_PC (pc);
 #endif
-  return new_pc;
+    sim_engine_invalid_insn (current_cpu, pc);
+    sim_io_error (CPU_STATE (current_cpu), "invalid insn not handled\n");
+    /* NOTREACHED */
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform add3: add3 $dr,$sr,#$slo16.  */
-CIA
-SEM_FN_NAME (m32r,add3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* x-after: --after-- */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,x_after) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_1_add3.f
+#define FLD(f) abuf->fields.fmt_empty.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ADDSI (* FLD (f_r2), FLD (f_simm16));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 0);
+
+  {
+#if WITH_SCACHE_PBB_M32RBF
+    m32rbf_pbb_after (current_cpu, sem_arg);
 #endif
-  return new_pc;
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform and: and $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,and) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* x-before: --before-- */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,x_before) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_empty.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ANDSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 0);
+
+  {
+#if WITH_SCACHE_PBB_M32RBF
+    m32rbf_pbb_before (current_cpu, sem_arg);
 #endif
-  return new_pc;
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform and3: and3 $dr,$sr,#$uimm16.  */
-CIA
-SEM_FN_NAME (m32r,and3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* x-cti-chain: --cti-chain-- */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,x_cti_chain) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_2_and3.f
+#define FLD(f) abuf->fields.fmt_empty.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ANDSI (* FLD (f_r2), FLD (f_uimm16));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 0);
+
+  {
+#if WITH_SCACHE_PBB_M32RBF
+#ifdef DEFINE_SWITCH
+    vpc = m32rbf_pbb_cti_chain (current_cpu, sem_arg,
+			       pbb_br_npc_ptr, pbb_br_npc);
+    BREAK (sem);
+#else
+    /* FIXME: Allow provision of explicit ifmt spec in insn spec.  */
+    vpc = m32rbf_pbb_cti_chain (current_cpu, sem_arg,
+			       CPU_PBB_BR_NPC_PTR (current_cpu),
+			       CPU_PBB_BR_NPC (current_cpu));
 #endif
-  return new_pc;
+#endif
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform or: or $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,or) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* x-chain: --chain-- */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,x_chain) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_empty.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ORSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 0);
+
+  {
+#if WITH_SCACHE_PBB_M32RBF
+    vpc = m32rbf_pbb_chain (current_cpu, sem_arg);
+#ifdef DEFINE_SWITCH
+    BREAK (sem);
 #endif
-  return new_pc;
+#endif
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform or3: or3 $dr,$sr,#$ulo16.  */
-CIA
-SEM_FN_NAME (m32r,or3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* x-begin: --begin-- */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,x_begin) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_3_or3.f
+#define FLD(f) abuf->fields.fmt_empty.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ORSI (* FLD (f_r2), FLD (f_uimm16));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 0);
+
+  {
+#if WITH_SCACHE_PBB_M32RBF
+#ifdef DEFINE_SWITCH
+    /* In the switch case FAST_P is a constant, allowing several optimizations
+       in any called inline functions.  */
+    vpc = m32rbf_pbb_begin (current_cpu, FAST_P);
+#else
+    vpc = m32rbf_pbb_begin (current_cpu, STATE_RUN_FAST_P (CPU_STATE (current_cpu)));
 #endif
-  return new_pc;
+#endif
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform xor: xor $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,xor) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* add: add $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,add) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_add.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = XORSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = ADDSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform xor3: xor3 $dr,$sr,#$uimm16.  */
-CIA
-SEM_FN_NAME (m32r,xor3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* add3: add3 $dr,$sr,$hash$slo16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,add3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_2_and3.f
+#define FLD(f) abuf->fields.fmt_add3.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = XORSI (* FLD (f_r2), FLD (f_uimm16));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = ADDSI (* FLD (i_sr), FLD (f_simm16));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform addi: addi $dr,#$simm8.  */
-CIA
-SEM_FN_NAME (m32r,addi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* and: and $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,and) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_4_addi.f
+#define FLD(f) abuf->fields.fmt_add.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ADDSI (* FLD (f_r1), FLD (f_simm8));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = ANDSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform addv: addv $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,addv) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* and3: and3 $dr,$sr,$uimm16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,and3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_and3.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = ANDSI (* FLD (i_sr), FLD (f_uimm16));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
+#undef FLD
+}
+
+/* or: or $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,or) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+{
+#define FLD(f) abuf->fields.fmt_add.f
+  ARGBUF *abuf = SEM_ARGBUF (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = ORSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
+#undef FLD
+}
+
+/* or3: or3 $dr,$sr,$hash$ulo16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,or3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+{
+#define FLD(f) abuf->fields.fmt_or3.f
+  ARGBUF *abuf = SEM_ARGBUF (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = ORSI (* FLD (i_sr), FLD (f_uimm16));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
+#undef FLD
+}
+
+/* xor: xor $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,xor) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+{
+#define FLD(f) abuf->fields.fmt_add.f
+  ARGBUF *abuf = SEM_ARGBUF (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = XORSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
+#undef FLD
+}
+
+/* xor3: xor3 $dr,$sr,$uimm16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,xor3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+{
+#define FLD(f) abuf->fields.fmt_and3.f
+  ARGBUF *abuf = SEM_ARGBUF (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = XORSI (* FLD (i_sr), FLD (f_uimm16));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
+#undef FLD
+}
+
+/* addi: addi $dr,$simm8 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,addi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+{
+#define FLD(f) abuf->fields.fmt_addi.f
+  ARGBUF *abuf = SEM_ARGBUF (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = ADDSI (* FLD (i_dr), FLD (f_simm8));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
+#undef FLD
+}
+
+/* addv: addv $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,addv) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+{
+#define FLD(f) abuf->fields.fmt_addv.f
+  ARGBUF *abuf = SEM_ARGBUF (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
   BI temp1;SI temp0;
-  temp0 = ADDSI (* FLD (f_r1), * FLD (f_r2));
-  temp1 = ADDOFSI (* FLD (f_r1), * FLD (f_r2), 0);
-* FLD (f_r1) = temp0;
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-  CPU (h_cond) = temp1;
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
+  temp0 = ADDSI (* FLD (i_dr), * FLD (i_sr));
+  temp1 = ADDOFSI (* FLD (i_dr), * FLD (i_sr), 0);
+  {
+    SI opval = temp0;
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+  {
+    BI opval = temp1;
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform addv3: addv3 $dr,$sr,#$simm16.  */
-CIA
-SEM_FN_NAME (m32r,addv3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* addv3: addv3 $dr,$sr,$simm16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,addv3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_5_addv3.f
+#define FLD(f) abuf->fields.fmt_addv3.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
 do {
   BI temp1;SI temp0;
-  temp0 = ADDSI (* FLD (f_r2), FLD (f_simm16));
-  temp1 = ADDOFSI (* FLD (f_r2), FLD (f_simm16), 0);
-* FLD (f_r1) = temp0;
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-  CPU (h_cond) = temp1;
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
+  temp0 = ADDSI (* FLD (i_sr), FLD (f_simm16));
+  temp1 = ADDOFSI (* FLD (i_sr), FLD (f_simm16), 0);
+  {
+    SI opval = temp0;
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+  {
+    BI opval = temp1;
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform addx: addx $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,addx) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* addx: addx $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,addx) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_6_addx.f
+#define FLD(f) abuf->fields.fmt_addx.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
   BI temp1;SI temp0;
-  temp0 = ADDCSI (* FLD (f_r1), * FLD (f_r2), CPU (h_cond));
-  temp1 = ADDCFSI (* FLD (f_r1), * FLD (f_r2), CPU (h_cond));
-* FLD (f_r1) = temp0;
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-  CPU (h_cond) = temp1;
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
+  temp0 = ADDCSI (* FLD (i_dr), * FLD (i_sr), CPU (h_cond));
+  temp1 = ADDCFSI (* FLD (i_dr), * FLD (i_sr), CPU (h_cond));
+  {
+    SI opval = temp0;
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+  {
+    BI opval = temp1;
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform bc8: bc $disp8.  */
-CIA
-SEM_FN_NAME (m32r,bc8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bc8: bc.s $disp8 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bc8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_7_bc8.f
+#define FLD(f) abuf->fields.cti.fields.fmt_bc8.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 if (CPU (h_cond)) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp8)));
-  taken_p = 1;
+  {
+    USI opval = FLD (i_disp8);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bc24: bc $disp24.  */
-CIA
-SEM_FN_NAME (m32r,bc24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bc24: bc.l $disp24 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bc24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_8_bc24.f
+#define FLD(f) abuf->fields.cti.fields.fmt_bc24.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
 if (CPU (h_cond)) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp24)));
-  taken_p = 1;
+  {
+    USI opval = FLD (i_disp24);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform beq: beq $src1,$src2,$disp16.  */
-CIA
-SEM_FN_NAME (m32r,beq) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* beq: beq $src1,$src2,$disp16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,beq) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_9_beq.f
+#define FLD(f) abuf->fields.cti.fields.fmt_beq.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-if (EQSI (* FLD (f_r1), * FLD (f_r2))) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp16)));
-  taken_p = 1;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (EQSI (* FLD (i_src1), * FLD (i_src2))) {
+  {
+    USI opval = FLD (i_disp16);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 3);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform beqz: beqz $src2,$disp16.  */
-CIA
-SEM_FN_NAME (m32r,beqz) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* beqz: beqz $src2,$disp16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,beqz) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_10_beqz.f
+#define FLD(f) abuf->fields.cti.fields.fmt_beqz.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-if (EQSI (* FLD (f_r2), 0)) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp16)));
-  taken_p = 1;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (EQSI (* FLD (i_src2), 0)) {
+  {
+    USI opval = FLD (i_disp16);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bgez: bgez $src2,$disp16.  */
-CIA
-SEM_FN_NAME (m32r,bgez) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bgez: bgez $src2,$disp16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bgez) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_10_beqz.f
+#define FLD(f) abuf->fields.cti.fields.fmt_beqz.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-if (GESI (* FLD (f_r2), 0)) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp16)));
-  taken_p = 1;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (GESI (* FLD (i_src2), 0)) {
+  {
+    USI opval = FLD (i_disp16);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bgtz: bgtz $src2,$disp16.  */
-CIA
-SEM_FN_NAME (m32r,bgtz) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bgtz: bgtz $src2,$disp16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bgtz) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_10_beqz.f
+#define FLD(f) abuf->fields.cti.fields.fmt_beqz.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-if (GTSI (* FLD (f_r2), 0)) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp16)));
-  taken_p = 1;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (GTSI (* FLD (i_src2), 0)) {
+  {
+    USI opval = FLD (i_disp16);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform blez: blez $src2,$disp16.  */
-CIA
-SEM_FN_NAME (m32r,blez) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* blez: blez $src2,$disp16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,blez) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_10_beqz.f
+#define FLD(f) abuf->fields.cti.fields.fmt_beqz.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-if (LESI (* FLD (f_r2), 0)) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp16)));
-  taken_p = 1;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (LESI (* FLD (i_src2), 0)) {
+  {
+    USI opval = FLD (i_disp16);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bltz: bltz $src2,$disp16.  */
-CIA
-SEM_FN_NAME (m32r,bltz) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bltz: bltz $src2,$disp16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bltz) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_10_beqz.f
+#define FLD(f) abuf->fields.cti.fields.fmt_beqz.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-if (LTSI (* FLD (f_r2), 0)) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp16)));
-  taken_p = 1;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (LTSI (* FLD (i_src2), 0)) {
+  {
+    USI opval = FLD (i_disp16);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bnez: bnez $src2,$disp16.  */
-CIA
-SEM_FN_NAME (m32r,bnez) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bnez: bnez $src2,$disp16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bnez) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_10_beqz.f
+#define FLD(f) abuf->fields.cti.fields.fmt_beqz.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-if (NESI (* FLD (f_r2), 0)) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp16)));
-  taken_p = 1;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (NESI (* FLD (i_src2), 0)) {
+  {
+    USI opval = FLD (i_disp16);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bl8: bl $disp8.  */
-CIA
-SEM_FN_NAME (m32r,bl8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bl8: bl.s $disp8 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bl8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_11_bl8.f
+#define FLD(f) abuf->fields.cti.fields.fmt_bl8.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
-  CPU (h_gr[14]) = ADDSI (ANDSI (CPU (h_pc), -4), 4);
-  TRACE_RESULT (current_cpu, "h-gr", 'x', CPU (h_gr[14]));
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp8)));
-  taken_p = 1;
+  {
+    SI opval = ADDSI (ANDSI (pc, -4), 4);
+    CPU (h_gr[((UINT) 14)]) = opval;
+    TRACE_RESULT (current_cpu, abuf, "gr-14", 'x', opval);
+  }
+  {
+    USI opval = FLD (i_disp8);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bl24: bl $disp24.  */
-CIA
-SEM_FN_NAME (m32r,bl24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bl24: bl.l $disp24 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bl24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_12_bl24.f
+#define FLD(f) abuf->fields.cti.fields.fmt_bl24.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
 do {
-  CPU (h_gr[14]) = ADDSI (CPU (h_pc), 4);
-  TRACE_RESULT (current_cpu, "h-gr", 'x', CPU (h_gr[14]));
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp24)));
-  taken_p = 1;
+  {
+    SI opval = ADDSI (pc, 4);
+    CPU (h_gr[((UINT) 14)]) = opval;
+    TRACE_RESULT (current_cpu, abuf, "gr-14", 'x', opval);
+  }
+  {
+    USI opval = FLD (i_disp24);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bnc8: bnc $disp8.  */
-CIA
-SEM_FN_NAME (m32r,bnc8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bnc8: bnc.s $disp8 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bnc8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_7_bc8.f
+#define FLD(f) abuf->fields.cti.fields.fmt_bc8.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 if (NOTBI (CPU (h_cond))) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp8)));
-  taken_p = 1;
+  {
+    USI opval = FLD (i_disp8);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bnc24: bnc $disp24.  */
-CIA
-SEM_FN_NAME (m32r,bnc24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bnc24: bnc.l $disp24 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bnc24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_8_bc24.f
+#define FLD(f) abuf->fields.cti.fields.fmt_bc24.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
 if (NOTBI (CPU (h_cond))) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp24)));
-  taken_p = 1;
+  {
+    USI opval = FLD (i_disp24);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bne: bne $src1,$src2,$disp16.  */
-CIA
-SEM_FN_NAME (m32r,bne) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bne: bne $src1,$src2,$disp16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bne) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_9_beq.f
+#define FLD(f) abuf->fields.cti.fields.fmt_beq.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-if (NESI (* FLD (f_r1), * FLD (f_r2))) {
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp16)));
-  taken_p = 1;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (NESI (* FLD (i_src1), * FLD (i_src2))) {
+  {
+    USI opval = FLD (i_disp16);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    written |= (1 << 3);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bra8: bra $disp8.  */
-CIA
-SEM_FN_NAME (m32r,bra8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bra8: bra.s $disp8 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bra8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_13_bra8.f
+#define FLD(f) abuf->fields.cti.fields.fmt_bra8.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp8)));
-  taken_p = 1;
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    USI opval = FLD (i_disp8);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
+
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform bra24: bra $disp24.  */
-CIA
-SEM_FN_NAME (m32r,bra24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* bra24: bra.l $disp24 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,bra24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_14_bra24.f
+#define FLD(f) abuf->fields.cti.fields.fmt_bra24.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_CACHE (sem_arg, FLD (f_disp24)));
-  taken_p = 1;
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    USI opval = FLD (i_disp24);
+    SEM_BRANCH_VIA_CACHE (current_cpu, sem_arg, opval, vpc, SEM_BRANCH_ADDR_CACHE (sem_arg));
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
+
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform cmp: cmp $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,cmp) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* cmp: cmp $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,cmp) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_cmp.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_cond) = LTSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    BI opval = LTSI (* FLD (i_src1), * FLD (i_src2));
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform cmpi: cmpi $src2,#$simm16.  */
-CIA
-SEM_FN_NAME (m32r,cmpi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* cmpi: cmpi $src2,$simm16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,cmpi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_16_cmpi.f
+#define FLD(f) abuf->fields.fmt_cmpi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_cond) = LTSI (* FLD (f_r2), FLD (f_simm16));
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    BI opval = LTSI (* FLD (i_src2), FLD (f_simm16));
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform cmpu: cmpu $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,cmpu) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* cmpu: cmpu $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,cmpu) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_cmp.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_cond) = LTUSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    BI opval = LTUSI (* FLD (i_src1), * FLD (i_src2));
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform cmpui: cmpui $src2,#$uimm16.  */
-CIA
-SEM_FN_NAME (m32r,cmpui) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* cmpui: cmpui $src2,$simm16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,cmpui) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_17_cmpui.f
+#define FLD(f) abuf->fields.fmt_cmpi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_cond) = LTUSI (* FLD (f_r2), FLD (f_uimm16));
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    BI opval = LTUSI (* FLD (i_src2), FLD (f_simm16));
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform div: div $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,div) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* div: div $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,div) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_18_div.f
+#define FLD(f) abuf->fields.fmt_div.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-if (NESI (* FLD (f_r2), 0)) {
-* FLD (f_r1) = DIVSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (NESI (* FLD (i_sr), 0)) {
+  {
+    SI opval = DIVSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  return vpc;
 #undef FLD
 }
 
-/* Perform divu: divu $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,divu) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* divu: divu $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,divu) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_18_div.f
+#define FLD(f) abuf->fields.fmt_div.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-if (NESI (* FLD (f_r2), 0)) {
-* FLD (f_r1) = UDIVSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (NESI (* FLD (i_sr), 0)) {
+  {
+    SI opval = UDIVSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  return vpc;
 #undef FLD
 }
 
-/* Perform rem: rem $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,rem) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* rem: rem $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,rem) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_18_div.f
+#define FLD(f) abuf->fields.fmt_div.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-if (NESI (* FLD (f_r2), 0)) {
-* FLD (f_r1) = MODSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (NESI (* FLD (i_sr), 0)) {
+  {
+    SI opval = MODSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  return vpc;
 #undef FLD
 }
 
-/* Perform remu: remu $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,remu) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* remu: remu $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,remu) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_18_div.f
+#define FLD(f) abuf->fields.fmt_div.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-if (NESI (* FLD (f_r2), 0)) {
-* FLD (f_r1) = UMODSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+if (NESI (* FLD (i_sr), 0)) {
+  {
+    SI opval = UMODSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    written |= (1 << 2);
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
 }
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  abuf->written = written;
+  return vpc;
 #undef FLD
 }
 
-/* Perform jl: jl $sr.  */
-CIA
-SEM_FN_NAME (m32r,jl) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* jl: jl $sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,jl) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_19_jl.f
+#define FLD(f) abuf->fields.cti.fields.fmt_jl.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
   USI temp1;SI temp0;
-  temp0 = ADDSI (ANDSI (CPU (h_pc), -4), 4);
-  temp1 = * FLD (f_r2);
-  CPU (h_gr[14]) = temp0;
-  TRACE_RESULT (current_cpu, "h-gr", 'x', CPU (h_gr[14]));
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_ADDR (sem_arg, temp1));
-  taken_p = 1;
+  temp0 = ADDSI (ANDSI (pc, -4), 4);
+  temp1 = ANDSI (* FLD (i_sr), -4);
+  {
+    SI opval = temp0;
+    CPU (h_gr[((UINT) 14)]) = opval;
+    TRACE_RESULT (current_cpu, abuf, "gr-14", 'x', opval);
+  }
+  {
+    USI opval = temp1;
+    SEM_BRANCH_VIA_ADDR (current_cpu, sem_arg, opval, vpc);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform jmp: jmp $sr.  */
-CIA
-SEM_FN_NAME (m32r,jmp) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* jmp: jmp $sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,jmp) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_20_jmp.f
+#define FLD(f) abuf->fields.cti.fields.fmt_jmp.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_ADDR (sem_arg, * FLD (f_r2)));
-  taken_p = 1;
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    USI opval = ANDSI (* FLD (i_sr), -4);
+    SEM_BRANCH_VIA_ADDR (current_cpu, sem_arg, opval, vpc);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
+
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform ld: ld $dr,@$sr.  */
-CIA
-SEM_FN_NAME (m32r,ld) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ld: ld $dr,@$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ld) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_21_ld.f
+#define FLD(f) abuf->fields.fmt_ld.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = GETMEMSI (current_cpu, * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = GETMEMSI (current_cpu, pc, * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ld-d: ld $dr,@($slo16,$sr).  */
-CIA
-SEM_FN_NAME (m32r,ld_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ld-d: ld $dr,@($slo16,$sr) */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ld_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_22_ld_d.f
+#define FLD(f) abuf->fields.fmt_ld_d.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = GETMEMSI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16)));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = GETMEMSI (current_cpu, pc, ADDSI (* FLD (i_sr), FLD (f_simm16)));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ldb: ldb $dr,@$sr.  */
-CIA
-SEM_FN_NAME (m32r,ldb) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ldb: ldb $dr,@$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ldb) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_23_ldb.f
+#define FLD(f) abuf->fields.fmt_ldb.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = EXTQISI (GETMEMQI (current_cpu, * FLD (f_r2)));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = EXTQISI (GETMEMQI (current_cpu, pc, * FLD (i_sr)));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ldb-d: ldb $dr,@($slo16,$sr).  */
-CIA
-SEM_FN_NAME (m32r,ldb_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ldb-d: ldb $dr,@($slo16,$sr) */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ldb_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_24_ldb_d.f
+#define FLD(f) abuf->fields.fmt_ldb_d.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = EXTQISI (GETMEMQI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16))));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = EXTQISI (GETMEMQI (current_cpu, pc, ADDSI (* FLD (i_sr), FLD (f_simm16))));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ldh: ldh $dr,@$sr.  */
-CIA
-SEM_FN_NAME (m32r,ldh) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ldh: ldh $dr,@$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ldh) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_25_ldh.f
+#define FLD(f) abuf->fields.fmt_ldh.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = EXTHISI (GETMEMHI (current_cpu, * FLD (f_r2)));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = EXTHISI (GETMEMHI (current_cpu, pc, * FLD (i_sr)));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ldh-d: ldh $dr,@($slo16,$sr).  */
-CIA
-SEM_FN_NAME (m32r,ldh_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ldh-d: ldh $dr,@($slo16,$sr) */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ldh_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_26_ldh_d.f
+#define FLD(f) abuf->fields.fmt_ldh_d.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = EXTHISI (GETMEMHI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16))));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = EXTHISI (GETMEMHI (current_cpu, pc, ADDSI (* FLD (i_sr), FLD (f_simm16))));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ldub: ldub $dr,@$sr.  */
-CIA
-SEM_FN_NAME (m32r,ldub) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ldub: ldub $dr,@$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ldub) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_23_ldb.f
+#define FLD(f) abuf->fields.fmt_ldb.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ZEXTQISI (GETMEMQI (current_cpu, * FLD (f_r2)));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = ZEXTQISI (GETMEMQI (current_cpu, pc, * FLD (i_sr)));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ldub-d: ldub $dr,@($slo16,$sr).  */
-CIA
-SEM_FN_NAME (m32r,ldub_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ldub-d: ldub $dr,@($slo16,$sr) */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ldub_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_24_ldb_d.f
+#define FLD(f) abuf->fields.fmt_ldb_d.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ZEXTQISI (GETMEMQI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16))));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = ZEXTQISI (GETMEMQI (current_cpu, pc, ADDSI (* FLD (i_sr), FLD (f_simm16))));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform lduh: lduh $dr,@$sr.  */
-CIA
-SEM_FN_NAME (m32r,lduh) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* lduh: lduh $dr,@$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,lduh) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_25_ldh.f
+#define FLD(f) abuf->fields.fmt_ldh.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ZEXTHISI (GETMEMHI (current_cpu, * FLD (f_r2)));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = ZEXTHISI (GETMEMHI (current_cpu, pc, * FLD (i_sr)));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform lduh-d: lduh $dr,@($slo16,$sr).  */
-CIA
-SEM_FN_NAME (m32r,lduh_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* lduh-d: lduh $dr,@($slo16,$sr) */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,lduh_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_26_ldh_d.f
+#define FLD(f) abuf->fields.fmt_ldh_d.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = ZEXTHISI (GETMEMHI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16))));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = ZEXTHISI (GETMEMHI (current_cpu, pc, ADDSI (* FLD (i_sr), FLD (f_simm16))));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ld-plus: ld $dr,@$sr+.  */
-CIA
-SEM_FN_NAME (m32r,ld_plus) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ld-plus: ld $dr,@$sr+ */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ld_plus) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_21_ld.f
+#define FLD(f) abuf->fields.fmt_ld_plus.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
   SI temp1;SI temp0;
-  temp0 = GETMEMSI (current_cpu, * FLD (f_r2));
-  temp1 = ADDSI (* FLD (f_r2), 4);
-* FLD (f_r1) = temp0;
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-* FLD (f_r2) = temp1;
-  TRACE_RESULT (current_cpu, "sr", 'x', * FLD (f_r2));
+  temp0 = GETMEMSI (current_cpu, pc, * FLD (i_sr));
+  temp1 = ADDSI (* FLD (i_sr), 4);
+  {
+    SI opval = temp0;
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+  {
+    SI opval = temp1;
+    * FLD (i_sr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "sr", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ld24: ld24 $dr,#$uimm24.  */
-CIA
-SEM_FN_NAME (m32r,ld24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ld24: ld24 $dr,$uimm24 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ld24) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_27_ld24.f
+#define FLD(f) abuf->fields.fmt_ld24.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = FLD (f_uimm24);
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = FLD (i_uimm24);
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ldi8: ldi $dr,#$simm8.  */
-CIA
-SEM_FN_NAME (m32r,ldi8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ldi8: ldi8 $dr,$simm8 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ldi8) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_28_ldi8.f
+#define FLD(f) abuf->fields.fmt_ldi8.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = FLD (f_simm8);
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = FLD (f_simm8);
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform ldi16: ldi $dr,$slo16.  */
-CIA
-SEM_FN_NAME (m32r,ldi16) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* ldi16: ldi16 $dr,$hash$slo16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,ldi16) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_29_ldi16.f
+#define FLD(f) abuf->fields.fmt_ldi16.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = FLD (f_simm16);
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = FLD (f_simm16);
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform lock: lock $dr,@$sr.  */
-CIA
-SEM_FN_NAME (m32r,lock) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* lock: lock $dr,@$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,lock) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_lock.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-do_lock (current_cpu, * FLD (f_r1), * FLD (f_r2));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+do {
+  {
+    BI opval = 1;
+    CPU (h_lock) = opval;
+    TRACE_RESULT (current_cpu, abuf, "lock-0", 'x', opval);
+  }
+  {
+    SI opval = GETMEMSI (current_cpu, pc, * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+} while (0);
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform machi: machi $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,machi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* machi: machi $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,machi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_30_machi.f
+#define FLD(f) abuf->fields.fmt_machi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = SRADI (SLLDI (ADDDI (CPU (h_accum), MULDI (EXTSIDI (ANDSI (* FLD (f_r1), 0xffff0000)), EXTHIDI (TRUNCSIHI (SRASI (* FLD (f_r2), 16))))), 8), 8);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = SRADI (SLLDI (ADDDI (GET_H_ACCUM (), MULDI (EXTSIDI (ANDSI (* FLD (i_src1), 0xffff0000)), EXTHIDI (TRUNCSIHI (SRASI (* FLD (i_src2), 16))))), 8), 8);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform maclo: maclo $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,maclo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* maclo: maclo $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,maclo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_30_machi.f
+#define FLD(f) abuf->fields.fmt_machi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = SRADI (SLLDI (ADDDI (CPU (h_accum), MULDI (EXTSIDI (SLLSI (* FLD (f_r1), 16)), EXTHIDI (TRUNCSIHI (* FLD (f_r2))))), 8), 8);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = SRADI (SLLDI (ADDDI (GET_H_ACCUM (), MULDI (EXTSIDI (SLLSI (* FLD (i_src1), 16)), EXTHIDI (TRUNCSIHI (* FLD (i_src2))))), 8), 8);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform macwhi: macwhi $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,macwhi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* macwhi: macwhi $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,macwhi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_30_machi.f
+#define FLD(f) abuf->fields.fmt_machi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = SRADI (SLLDI (ADDDI (CPU (h_accum), MULDI (EXTSIDI (* FLD (f_r1)), EXTHIDI (TRUNCSIHI (SRASI (* FLD (f_r2), 16))))), 8), 8);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = SRADI (SLLDI (ADDDI (GET_H_ACCUM (), MULDI (EXTSIDI (* FLD (i_src1)), EXTHIDI (TRUNCSIHI (SRASI (* FLD (i_src2), 16))))), 8), 8);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform macwlo: macwlo $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,macwlo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* macwlo: macwlo $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,macwlo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_30_machi.f
+#define FLD(f) abuf->fields.fmt_machi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = SRADI (SLLDI (ADDDI (CPU (h_accum), MULDI (EXTSIDI (* FLD (f_r1)), EXTHIDI (TRUNCSIHI (* FLD (f_r2))))), 8), 8);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = SRADI (SLLDI (ADDDI (GET_H_ACCUM (), MULDI (EXTSIDI (* FLD (i_src1)), EXTHIDI (TRUNCSIHI (* FLD (i_src2))))), 8), 8);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mul: mul $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,mul) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mul: mul $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mul) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_add.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = MULSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = MULSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mulhi: mulhi $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,mulhi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mulhi: mulhi $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mulhi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_mulhi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = SRADI (SLLDI (MULDI (EXTSIDI (ANDSI (* FLD (f_r1), 0xffff0000)), EXTHIDI (TRUNCSIHI (SRASI (* FLD (f_r2), 16)))), 16), 16);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = SRADI (SLLDI (MULDI (EXTSIDI (ANDSI (* FLD (i_src1), 0xffff0000)), EXTHIDI (TRUNCSIHI (SRASI (* FLD (i_src2), 16)))), 16), 16);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mullo: mullo $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,mullo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mullo: mullo $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mullo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_mulhi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = SRADI (SLLDI (MULDI (EXTSIDI (SLLSI (* FLD (f_r1), 16)), EXTHIDI (TRUNCSIHI (* FLD (f_r2)))), 16), 16);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = SRADI (SLLDI (MULDI (EXTSIDI (SLLSI (* FLD (i_src1), 16)), EXTHIDI (TRUNCSIHI (* FLD (i_src2)))), 16), 16);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mulwhi: mulwhi $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,mulwhi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mulwhi: mulwhi $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mulwhi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_mulhi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = SRADI (SLLDI (MULDI (EXTSIDI (* FLD (f_r1)), EXTHIDI (TRUNCSIHI (SRASI (* FLD (f_r2), 16)))), 8), 8);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = SRADI (SLLDI (MULDI (EXTSIDI (* FLD (i_src1)), EXTHIDI (TRUNCSIHI (SRASI (* FLD (i_src2), 16)))), 8), 8);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mulwlo: mulwlo $src1,$src2.  */
-CIA
-SEM_FN_NAME (m32r,mulwlo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mulwlo: mulwlo $src1,$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mulwlo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_mulhi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = SRADI (SLLDI (MULDI (EXTSIDI (* FLD (f_r1)), EXTHIDI (TRUNCSIHI (* FLD (f_r2)))), 8), 8);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = SRADI (SLLDI (MULDI (EXTSIDI (* FLD (i_src1)), EXTHIDI (TRUNCSIHI (* FLD (i_src2)))), 8), 8);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mv: mv $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,mv) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mv: mv $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mv) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_31_mv.f
+#define FLD(f) abuf->fields.fmt_mv.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = * FLD (f_r2);
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = * FLD (i_sr);
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mvfachi: mvfachi $dr.  */
-CIA
-SEM_FN_NAME (m32r,mvfachi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mvfachi: mvfachi $dr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mvfachi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_32_mvfachi.f
+#define FLD(f) abuf->fields.fmt_mvfachi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = TRUNCDISI (SRADI (CPU (h_accum), 32));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = TRUNCDISI (SRADI (GET_H_ACCUM (), 32));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mvfaclo: mvfaclo $dr.  */
-CIA
-SEM_FN_NAME (m32r,mvfaclo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mvfaclo: mvfaclo $dr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mvfaclo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_32_mvfachi.f
+#define FLD(f) abuf->fields.fmt_mvfachi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = TRUNCDISI (CPU (h_accum));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = TRUNCDISI (GET_H_ACCUM ());
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mvfacmi: mvfacmi $dr.  */
-CIA
-SEM_FN_NAME (m32r,mvfacmi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mvfacmi: mvfacmi $dr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mvfacmi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_32_mvfachi.f
+#define FLD(f) abuf->fields.fmt_mvfachi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = TRUNCDISI (SRADI (CPU (h_accum), 16));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = TRUNCDISI (SRADI (GET_H_ACCUM (), 16));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mvfc: mvfc $dr,$scr.  */
-CIA
-SEM_FN_NAME (m32r,mvfc) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mvfc: mvfc $dr,$scr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mvfc) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_33_mvfc.f
+#define FLD(f) abuf->fields.fmt_mvfc.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = m32r_h_cr_get (current_cpu, FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = GET_H_CR (FLD (f_r2));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mvtachi: mvtachi $src1.  */
-CIA
-SEM_FN_NAME (m32r,mvtachi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mvtachi: mvtachi $src1 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mvtachi) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_34_mvtachi.f
+#define FLD(f) abuf->fields.fmt_mvtachi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = ORDI (ANDDI (CPU (h_accum), MAKEDI (0, 0xffffffff)), SLLDI (EXTSIDI (* FLD (f_r1)), 32));
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = ORDI (ANDDI (GET_H_ACCUM (), MAKEDI (0, 0xffffffff)), SLLDI (EXTSIDI (* FLD (i_src1)), 32));
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mvtaclo: mvtaclo $src1.  */
-CIA
-SEM_FN_NAME (m32r,mvtaclo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mvtaclo: mvtaclo $src1 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mvtaclo) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_34_mvtachi.f
+#define FLD(f) abuf->fields.fmt_mvtachi.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  CPU (h_accum) = ORDI (ANDDI (CPU (h_accum), MAKEDI (0xffffffff, 0)), EXTSIDI (* FLD (f_r1)));
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    DI opval = ORDI (ANDDI (GET_H_ACCUM (), MAKEDI (0xffffffff, 0)), ZEXTSIDI (* FLD (i_src1)));
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform mvtc: mvtc $sr,$dcr.  */
-CIA
-SEM_FN_NAME (m32r,mvtc) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* mvtc: mvtc $sr,$dcr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,mvtc) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_35_mvtc.f
+#define FLD(f) abuf->fields.fmt_mvtc.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-m32r_h_cr_set (current_cpu, FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dcr", 'x', m32r_h_cr_get (current_cpu, FLD (f_r1)));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    USI opval = * FLD (i_sr);
+    SET_H_CR (FLD (f_r1), opval);
+    TRACE_RESULT (current_cpu, abuf, "dcr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform neg: neg $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,neg) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* neg: neg $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,neg) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_31_mv.f
+#define FLD(f) abuf->fields.fmt_mv.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = NEGSI (* FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = NEGSI (* FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform nop: nop.  */
-CIA
-SEM_FN_NAME (m32r,nop) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* nop: nop */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,nop) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_36_nop.f
+#define FLD(f) abuf->fields.fmt_nop.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 PROFILE_COUNT_FILLNOPS (current_cpu, abuf->addr);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform not: not $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,not) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* not: not $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,not) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_31_mv.f
+#define FLD(f) abuf->fields.fmt_mv.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = INVSI (* FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = INVSI (* FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform rac: rac.  */
-CIA
-SEM_FN_NAME (m32r,rac) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* rac: rac */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,rac) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_37_rac.f
+#define FLD(f) abuf->fields.fmt_rac.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
   DI tmp_tmp1;
-  tmp_tmp1 = ANDDI (CPU (h_accum), MAKEDI (16777215, 0xffffffff));
-if (ANDIFSI (GEDI (tmp_tmp1, MAKEDI (16383, 0xffff8000)), LEDI (tmp_tmp1, MAKEDI (8388607, 0xffffffff)))) {
-  tmp_tmp1 = MAKEDI (16383, 0xffff8000);
-} else {
-if (ANDIFSI (GEDI (tmp_tmp1, MAKEDI (8388608, 0)), LEDI (tmp_tmp1, MAKEDI (16760832, 0)))) {
-  tmp_tmp1 = MAKEDI (16760832, 0);
-} else {
-  tmp_tmp1 = ANDDI (ADDDI (CPU (h_accum), MAKEDI (0, 16384)), MAKEDI (16777215, 0xffff8000));
-}
-}
-  tmp_tmp1 = SLLDI (tmp_tmp1, 1);
-  CPU (h_accum) = SRADI (SLLDI (tmp_tmp1, 7), 7);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
+  tmp_tmp1 = SLLDI (GET_H_ACCUM (), 1);
+  tmp_tmp1 = ADDDI (tmp_tmp1, MAKEDI (0, 32768));
+  {
+    DI opval = (GTDI (tmp_tmp1, MAKEDI (32767, 0xffff0000))) ? (MAKEDI (32767, 0xffff0000)) : (LTDI (tmp_tmp1, MAKEDI (0xffff8000, 0))) ? (MAKEDI (0xffff8000, 0)) : (ANDDI (tmp_tmp1, MAKEDI (0xffffffff, 0xffff0000)));
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform rach: rach.  */
-CIA
-SEM_FN_NAME (m32r,rach) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* rach: rach */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,rach) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_37_rac.f
+#define FLD(f) abuf->fields.fmt_rac.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
   DI tmp_tmp1;
-  tmp_tmp1 = ANDDI (CPU (h_accum), MAKEDI (16777215, 0xffffffff));
-if (ANDIFSI (GEDI (tmp_tmp1, MAKEDI (16383, 0x80000000)), LEDI (tmp_tmp1, MAKEDI (8388607, 0xffffffff)))) {
+  tmp_tmp1 = ANDDI (GET_H_ACCUM (), MAKEDI (16777215, 0xffffffff));
+if (ANDIF (GEDI (tmp_tmp1, MAKEDI (16383, 0x80000000)), LEDI (tmp_tmp1, MAKEDI (8388607, 0xffffffff)))) {
   tmp_tmp1 = MAKEDI (16383, 0x80000000);
 } else {
-if (ANDIFSI (GEDI (tmp_tmp1, MAKEDI (8388608, 0)), LEDI (tmp_tmp1, MAKEDI (16760832, 0)))) {
+if (ANDIF (GEDI (tmp_tmp1, MAKEDI (8388608, 0)), LEDI (tmp_tmp1, MAKEDI (16760832, 0)))) {
   tmp_tmp1 = MAKEDI (16760832, 0);
 } else {
-  tmp_tmp1 = ANDDI (ADDDI (CPU (h_accum), MAKEDI (0, 1073741824)), MAKEDI (0xffffffff, 0x80000000));
+  tmp_tmp1 = ANDDI (ADDDI (GET_H_ACCUM (), MAKEDI (0, 1073741824)), MAKEDI (0xffffffff, 0x80000000));
 }
 }
   tmp_tmp1 = SLLDI (tmp_tmp1, 1);
-  CPU (h_accum) = SRADI (SLLDI (tmp_tmp1, 7), 7);
-  TRACE_RESULT (current_cpu, "accum", 'D', CPU (h_accum));
+  {
+    DI opval = SRADI (SLLDI (tmp_tmp1, 7), 7);
+    SET_H_ACCUM (opval);
+    TRACE_RESULT (current_cpu, abuf, "accum", 'D', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform rte: rte.  */
-CIA
-SEM_FN_NAME (m32r,rte) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* rte: rte */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,rte) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_36_nop.f
+#define FLD(f) abuf->fields.cti.fields.fmt_rte.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
-  CPU (h_sm) = CPU (h_bsm);
-  TRACE_RESULT (current_cpu, "h-sm", 'x', CPU (h_sm));
-  CPU (h_ie) = CPU (h_bie);
-  TRACE_RESULT (current_cpu, "h-ie", 'x', CPU (h_ie));
-  CPU (h_cond) = CPU (h_bcond);
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
-  BRANCH_NEW_PC (current_cpu, new_pc, SEM_BRANCH_VIA_ADDR (sem_arg, CPU (h_bpc)));
-  taken_p = 1;
-  TRACE_RESULT (current_cpu, "pc", 'x', CPU (h_pc));
+  {
+    USI opval = ANDSI (GET_H_CR (((UINT) 6)), -4);
+    SEM_BRANCH_VIA_ADDR (current_cpu, sem_arg, opval, vpc);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
+  {
+    USI opval = GET_H_CR (((UINT) 14));
+    SET_H_CR (((UINT) 6), opval);
+    TRACE_RESULT (current_cpu, abuf, "cr-6", 'x', opval);
+  }
+  {
+    UQI opval = CPU (h_bpsw);
+    SET_H_PSW (opval);
+    TRACE_RESULT (current_cpu, abuf, "psw-0", 'x', opval);
+  }
+  {
+    UQI opval = CPU (h_bbpsw);
+    CPU (h_bpsw) = opval;
+    TRACE_RESULT (current_cpu, abuf, "bpsw-0", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform seth: seth $dr,$hi16.  */
-CIA
-SEM_FN_NAME (m32r,seth) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* seth: seth $dr,$hash$hi16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,seth) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_38_seth.f
+#define FLD(f) abuf->fields.fmt_seth.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SLLSI (FLD (f_hi16), 16);
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = SLLSI (FLD (f_hi16), 16);
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform sll: sll $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,sll) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* sll: sll $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,sll) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_add.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SLLSI (* FLD (f_r1), ANDSI (* FLD (f_r2), 31));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = SLLSI (* FLD (i_dr), ANDSI (* FLD (i_sr), 31));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform sll3: sll3 $dr,$sr,#$simm16.  */
-CIA
-SEM_FN_NAME (m32r,sll3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* sll3: sll3 $dr,$sr,$simm16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,sll3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_5_addv3.f
+#define FLD(f) abuf->fields.fmt_sll3.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SLLSI (* FLD (f_r2), ANDSI (FLD (f_simm16), 31));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = SLLSI (* FLD (i_sr), ANDSI (FLD (f_simm16), 31));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform slli: slli $dr,#$uimm5.  */
-CIA
-SEM_FN_NAME (m32r,slli) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* slli: slli $dr,$uimm5 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,slli) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_39_slli.f
+#define FLD(f) abuf->fields.fmt_slli.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SLLSI (* FLD (f_r1), FLD (f_uimm5));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = SLLSI (* FLD (i_dr), FLD (f_uimm5));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform sra: sra $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,sra) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* sra: sra $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,sra) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_add.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SRASI (* FLD (f_r1), ANDSI (* FLD (f_r2), 31));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = SRASI (* FLD (i_dr), ANDSI (* FLD (i_sr), 31));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform sra3: sra3 $dr,$sr,#$simm16.  */
-CIA
-SEM_FN_NAME (m32r,sra3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* sra3: sra3 $dr,$sr,$simm16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,sra3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_5_addv3.f
+#define FLD(f) abuf->fields.fmt_sll3.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SRASI (* FLD (f_r2), ANDSI (FLD (f_simm16), 31));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = SRASI (* FLD (i_sr), ANDSI (FLD (f_simm16), 31));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform srai: srai $dr,#$uimm5.  */
-CIA
-SEM_FN_NAME (m32r,srai) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* srai: srai $dr,$uimm5 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,srai) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_39_slli.f
+#define FLD(f) abuf->fields.fmt_slli.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SRASI (* FLD (f_r1), FLD (f_uimm5));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = SRASI (* FLD (i_dr), FLD (f_uimm5));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform srl: srl $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,srl) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* srl: srl $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,srl) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_add.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SRLSI (* FLD (f_r1), ANDSI (* FLD (f_r2), 31));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = SRLSI (* FLD (i_dr), ANDSI (* FLD (i_sr), 31));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform srl3: srl3 $dr,$sr,#$simm16.  */
-CIA
-SEM_FN_NAME (m32r,srl3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* srl3: srl3 $dr,$sr,$simm16 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,srl3) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_5_addv3.f
+#define FLD(f) abuf->fields.fmt_sll3.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SRLSI (* FLD (f_r2), ANDSI (FLD (f_simm16), 31));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = SRLSI (* FLD (i_sr), ANDSI (FLD (f_simm16), 31));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform srli: srli $dr,#$uimm5.  */
-CIA
-SEM_FN_NAME (m32r,srli) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* srli: srli $dr,$uimm5 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,srli) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_39_slli.f
+#define FLD(f) abuf->fields.fmt_slli.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SRLSI (* FLD (f_r1), FLD (f_uimm5));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = SRLSI (* FLD (i_dr), FLD (f_uimm5));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform st: st $src1,@$src2.  */
-CIA
-SEM_FN_NAME (m32r,st) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* st: st $src1,@$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,st) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_st.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-SETMEMSI (current_cpu, * FLD (f_r2), * FLD (f_r1));
-  TRACE_RESULT (current_cpu, "h-memory", 'x', GETMEMSI (current_cpu, * FLD (f_r2)));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = * FLD (i_src1);
+    SETMEMSI (current_cpu, pc, * FLD (i_src2), opval);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform st-d: st $src1,@($slo16,$src2).  */
-CIA
-SEM_FN_NAME (m32r,st_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* st-d: st $src1,@($slo16,$src2) */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,st_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_40_st_d.f
+#define FLD(f) abuf->fields.fmt_st_d.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-SETMEMSI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16)), * FLD (f_r1));
-  TRACE_RESULT (current_cpu, "h-memory", 'x', GETMEMSI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16))));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    SI opval = * FLD (i_src1);
+    SETMEMSI (current_cpu, pc, ADDSI (* FLD (i_src2), FLD (f_simm16)), opval);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform stb: stb $src1,@$src2.  */
-CIA
-SEM_FN_NAME (m32r,stb) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* stb: stb $src1,@$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,stb) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_stb.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-SETMEMQI (current_cpu, * FLD (f_r2), * FLD (f_r1));
-  TRACE_RESULT (current_cpu, "h-memory", 'x', GETMEMQI (current_cpu, * FLD (f_r2)));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    QI opval = * FLD (i_src1);
+    SETMEMQI (current_cpu, pc, * FLD (i_src2), opval);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform stb-d: stb $src1,@($slo16,$src2).  */
-CIA
-SEM_FN_NAME (m32r,stb_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* stb-d: stb $src1,@($slo16,$src2) */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,stb_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_40_st_d.f
+#define FLD(f) abuf->fields.fmt_stb_d.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-SETMEMQI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16)), * FLD (f_r1));
-  TRACE_RESULT (current_cpu, "h-memory", 'x', GETMEMQI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16))));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    QI opval = * FLD (i_src1);
+    SETMEMQI (current_cpu, pc, ADDSI (* FLD (i_src2), FLD (f_simm16)), opval);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform sth: sth $src1,@$src2.  */
-CIA
-SEM_FN_NAME (m32r,sth) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* sth: sth $src1,@$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,sth) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_sth.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-SETMEMHI (current_cpu, * FLD (f_r2), * FLD (f_r1));
-  TRACE_RESULT (current_cpu, "h-memory", 'x', GETMEMHI (current_cpu, * FLD (f_r2)));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    HI opval = * FLD (i_src1);
+    SETMEMHI (current_cpu, pc, * FLD (i_src2), opval);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform sth-d: sth $src1,@($slo16,$src2).  */
-CIA
-SEM_FN_NAME (m32r,sth_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* sth-d: sth $src1,@($slo16,$src2) */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,sth_d) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_40_st_d.f
+#define FLD(f) abuf->fields.fmt_sth_d.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-SETMEMHI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16)), * FLD (f_r1));
-  TRACE_RESULT (current_cpu, "h-memory", 'x', GETMEMHI (current_cpu, ADDSI (* FLD (f_r2), FLD (f_simm16))));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+
+  {
+    HI opval = * FLD (i_src1);
+    SETMEMHI (current_cpu, pc, ADDSI (* FLD (i_src2), FLD (f_simm16)), opval);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform st-plus: st $src1,@+$src2.  */
-CIA
-SEM_FN_NAME (m32r,st_plus) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* st-plus: st $src1,@+$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,st_plus) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_st_plus.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
-* FLD (f_r2) = ADDSI (* FLD (f_r2), 4);
-  TRACE_RESULT (current_cpu, "src2", 'x', * FLD (f_r2));
-SETMEMSI (current_cpu, * FLD (f_r2), * FLD (f_r1));
-  TRACE_RESULT (current_cpu, "h-memory", 'x', GETMEMSI (current_cpu, * FLD (f_r2)));
+  SI tmp_new_src2;
+  tmp_new_src2 = ADDSI (* FLD (i_src2), 4);
+  {
+    SI opval = * FLD (i_src1);
+    SETMEMSI (current_cpu, pc, tmp_new_src2, opval);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+  {
+    SI opval = tmp_new_src2;
+    * FLD (i_src2) = opval;
+    TRACE_RESULT (current_cpu, abuf, "src2", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform st-minus: st $src1,@-$src2.  */
-CIA
-SEM_FN_NAME (m32r,st_minus) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* st-minus: st $src1,@-$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,st_minus) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_st_plus.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
-* FLD (f_r2) = SUBSI (* FLD (f_r2), 4);
-  TRACE_RESULT (current_cpu, "src2", 'x', * FLD (f_r2));
-SETMEMSI (current_cpu, * FLD (f_r2), * FLD (f_r1));
-  TRACE_RESULT (current_cpu, "h-memory", 'x', GETMEMSI (current_cpu, * FLD (f_r2)));
+  SI tmp_new_src2;
+  tmp_new_src2 = SUBSI (* FLD (i_src2), 4);
+  {
+    SI opval = * FLD (i_src1);
+    SETMEMSI (current_cpu, pc, tmp_new_src2, opval);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+  {
+    SI opval = tmp_new_src2;
+    * FLD (i_src2) = opval;
+    TRACE_RESULT (current_cpu, abuf, "src2", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform sub: sub $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,sub) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* sub: sub $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,sub) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_add.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-* FLD (f_r1) = SUBSI (* FLD (f_r1), * FLD (f_r2));
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+  {
+    SI opval = SUBSI (* FLD (i_dr), * FLD (i_sr));
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform subv: subv $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,subv) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* subv: subv $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,subv) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_0_add.f
+#define FLD(f) abuf->fields.fmt_addv.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
   BI temp1;SI temp0;
-  temp0 = SUBSI (* FLD (f_r1), * FLD (f_r2));
-  temp1 = SUBOFSI (* FLD (f_r1), * FLD (f_r2), 0);
-* FLD (f_r1) = temp0;
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-  CPU (h_cond) = temp1;
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
+  temp0 = SUBSI (* FLD (i_dr), * FLD (i_sr));
+  temp1 = SUBOFSI (* FLD (i_dr), * FLD (i_sr), 0);
+  {
+    SI opval = temp0;
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+  {
+    BI opval = temp1;
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform subx: subx $dr,$sr.  */
-CIA
-SEM_FN_NAME (m32r,subx) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* subx: subx $dr,$sr */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,subx) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_6_addx.f
+#define FLD(f) abuf->fields.fmt_addx.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
 do {
   BI temp1;SI temp0;
-  temp0 = SUBCSI (* FLD (f_r1), * FLD (f_r2), CPU (h_cond));
-  temp1 = SUBCFSI (* FLD (f_r1), * FLD (f_r2), CPU (h_cond));
-* FLD (f_r1) = temp0;
-  TRACE_RESULT (current_cpu, "dr", 'x', * FLD (f_r1));
-  CPU (h_cond) = temp1;
-  TRACE_RESULT (current_cpu, "condbit", 'x', CPU (h_cond));
+  temp0 = SUBCSI (* FLD (i_dr), * FLD (i_sr), CPU (h_cond));
+  temp1 = SUBCFSI (* FLD (i_dr), * FLD (i_sr), CPU (h_cond));
+  {
+    SI opval = temp0;
+    * FLD (i_dr) = opval;
+    TRACE_RESULT (current_cpu, abuf, "dr", 'x', opval);
+  }
+  {
+    BI opval = temp1;
+    CPU (h_cond) = opval;
+    TRACE_RESULT (current_cpu, abuf, "condbit", 'x', opval);
+  }
 } while (0);
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_mark_set_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+
+  return vpc;
 #undef FLD
 }
 
-/* Perform trap: trap #$uimm4.  */
-CIA
-SEM_FN_NAME (m32r,trap) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* trap: trap $uimm4 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,trap) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_41_trap.f
+#define FLD(f) abuf->fields.cti.fields.fmt_trap.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-  int taken_p = 0;
-do_trap (current_cpu, FLD (f_uimm4));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_profile_cti_insn (current_cpu, abuf, taken_p);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_BRANCH_INIT
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+do {
+  {
+    USI opval = GET_H_CR (((UINT) 6));
+    SET_H_CR (((UINT) 14), opval);
+    TRACE_RESULT (current_cpu, abuf, "cr-14", 'x', opval);
+  }
+  {
+    USI opval = ADDSI (pc, 4);
+    SET_H_CR (((UINT) 6), opval);
+    TRACE_RESULT (current_cpu, abuf, "cr-6", 'x', opval);
+  }
+  {
+    UQI opval = CPU (h_bpsw);
+    CPU (h_bbpsw) = opval;
+    TRACE_RESULT (current_cpu, abuf, "bbpsw-0", 'x', opval);
+  }
+  {
+    UQI opval = GET_H_PSW ();
+    CPU (h_bpsw) = opval;
+    TRACE_RESULT (current_cpu, abuf, "bpsw-0", 'x', opval);
+  }
+  {
+    UQI opval = ANDQI (GET_H_PSW (), 128);
+    SET_H_PSW (opval);
+    TRACE_RESULT (current_cpu, abuf, "psw-0", 'x', opval);
+  }
+  {
+    SI opval = m32r_trap (current_cpu, pc, FLD (f_uimm4));
+    SEM_BRANCH_VIA_ADDR (current_cpu, sem_arg, opval, vpc);
+    TRACE_RESULT (current_cpu, abuf, "pc", 'x', opval);
+  }
+} while (0);
+
+  SEM_BRANCH_FINI (vpc);
+  return vpc;
 #undef FLD
 }
 
-/* Perform unlock: unlock $src1,@$src2.  */
-CIA
-SEM_FN_NAME (m32r,unlock) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
+/* unlock: unlock $src1,@$src2 */
+
+SEM_PC
+SEM_FN_NAME (m32rbf,unlock) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
 {
-#define FLD(f) abuf->fields.fmt_15_cmp.f
+#define FLD(f) abuf->fields.fmt_unlock.f
   ARGBUF *abuf = SEM_ARGBUF (sem_arg);
-  CIA new_pc = SEM_NEXT_PC (sem_arg);
-do_unlock (current_cpu, * FLD (f_r1), * FLD (f_r2));
-#if WITH_PROFILE_MODEL_P
-  if (PROFILE_MODEL_P (current_cpu))
-    {
-      m32r_model_mark_get_h_gr (current_cpu, abuf);
-      m32r_model_profile_insn (current_cpu, abuf);
-    }
-#endif
-  return new_pc;
+  int UNUSED written = 0;
+  IADDR UNUSED pc = abuf->addr;
+  SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 2);
+
+do {
+if (CPU (h_lock)) {
+  {
+    SI opval = * FLD (i_src1);
+    SETMEMSI (current_cpu, pc, * FLD (i_src2), opval);
+    written |= (1 << 4);
+    TRACE_RESULT (current_cpu, abuf, "memory", 'x', opval);
+  }
+}
+  {
+    BI opval = 0;
+    CPU (h_lock) = opval;
+    TRACE_RESULT (current_cpu, abuf, "lock-0", 'x', opval);
+  }
+} while (0);
+
+  abuf->written = written;
+  return vpc;
 #undef FLD
 }
 
-/* FIXME: Add "no return" attribute to illegal insn handlers.
-   They all call longjmp.  */
-
-PCADDR
-SEM_FN_NAME (m32r,illegal) (SIM_CPU *current_cpu, SEM_ARG sem_arg)
-{
-  sim_engine_illegal_insn (current_cpu, NULL_CIA /*FIXME*/);
-  return 0;
-}
-
-#endif /* ! defined (SCACHE_P) || (defined (SCACHE_P) && WITH_SCACHE) */

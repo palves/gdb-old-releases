@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -61,9 +61,9 @@ print_semantic_function_formal (lf *file,
     {
       nr += lf_printf (file, "SIM_DESC sd,\n");
       nr += lf_printf (file, "%sidecode_cache *cache_entry,\n",
-		       options.prefix.global.name);
+		       options.module.global.prefix.l);
       nr += lf_printf (file, "%sinstruction_address cia",
-		       options.prefix.global.name);
+		       options.module.global.prefix.l);
     }
   else if (options.gen.smp)
     {
@@ -71,11 +71,11 @@ print_semantic_function_formal (lf *file,
       for (word_nr = 0; word_nr < nr_prefetched_words; word_nr++)
 	{
 	  nr += lf_printf (file, "%sinstruction_word instruction_%d,\n",
-			   options.prefix.global.name,
+			   options.module.global.prefix.l,
 			   word_nr);
 	}
       nr += lf_printf (file, "%sinstruction_address cia",
-		       options.prefix.global.name);
+		       options.module.global.prefix.l);
     }
   else
     {
@@ -83,11 +83,11 @@ print_semantic_function_formal (lf *file,
       for (word_nr = 0; word_nr < nr_prefetched_words; word_nr++)
 	{
 	  nr += lf_printf (file, "%sinstruction_word instruction_%d,\n",
-			   options.prefix.global.name,
+			   options.module.global.prefix.l,
 			   word_nr);
 	}
       nr += lf_printf (file, "%sinstruction_address cia",
-		       options.prefix.global.name);
+		       options.module.global.prefix.l);
     }
   return nr;
 }
@@ -120,7 +120,7 @@ print_semantic_function_type (lf *file)
 {
   int nr = 0;
   nr += lf_printf (file, "%sinstruction_address",
-		   options.prefix.global.name);
+		   options.module.global.prefix.l);
   return nr;
 }
 
@@ -139,11 +139,11 @@ print_icache_function_formal (lf *file,
       nr += lf_printf (file, "SIM_DESC sd,\n");
   for (word_nr = 0; word_nr < nr_prefetched_words; word_nr++)
     nr += lf_printf (file, " %sinstruction_word instruction_%d,\n",
-		     options.prefix.global.name, word_nr);
+		     options.module.global.prefix.l, word_nr);
   nr += lf_printf (file, " %sinstruction_address cia,\n",
-		   options.prefix.global.name);
+		   options.module.global.prefix.l);
   nr += lf_printf (file, " %sidecode_cache *cache_entry",
-		   options.prefix.global.name);
+		   options.module.global.prefix.l);
   return nr;
 }
 
@@ -174,7 +174,7 @@ print_icache_function_type (lf *file)
   else
     {
       nr = lf_printf (file, "%sidecode_semantic *",
-		      options.prefix.global.name);
+		      options.module.global.prefix.l);
     }
   return nr;
 }
@@ -241,22 +241,22 @@ print_function_name (lf *file,
   switch (prefix)
     {
     case function_name_prefix_semantics:
-      nr += lf_printf (file, "%s", options.prefix.semantics.name);
+      nr += lf_printf (file, "%s", options.module.semantics.prefix.l);
       nr += lf_printf (file, "semantic_");
       break;
     case function_name_prefix_idecode:
-      nr += lf_printf (file, "%s", options.prefix.idecode.name);
+      nr += lf_printf (file, "%s", options.module.idecode.prefix.l);
       nr += lf_printf (file, "idecode_");
       break;
     case function_name_prefix_itable:
-      nr += lf_printf (file, "%sitable_", options.prefix.itable.name);
+      nr += lf_printf (file, "%sitable_", options.module.itable.prefix.l);
       break;
     case function_name_prefix_icache:
-      nr += lf_printf (file, "%s", options.prefix.icache.name);
+      nr += lf_printf (file, "%s", options.module.icache.prefix.l);
       nr += lf_printf (file, "icache_");
       break;
     case function_name_prefix_engine:
-      nr += lf_printf (file, "%s", options.prefix.engine.name);
+      nr += lf_printf (file, "%s", options.module.engine.prefix.l);
       nr += lf_printf (file, "engine_");
     default:
       break;
@@ -333,18 +333,15 @@ print_my_defines (lf *file,
 
 
 static int
-print_itrace_prefix (lf *file,
-		     const char *phase_lc)
+print_itrace_prefix (lf *file)
 {
-  const char *prefix = "trace_one_insn (";
+  const char *prefix = "trace_prefix (";
   int indent = strlen (prefix);
-  lf_printf (file, "%sSD, CPU, %s, TRACE_LINENUM_P (CPU), \\\n",
-	     prefix, (options.gen.delayed_branch ? "cia.ip" : "cia"));
+  lf_printf (file, "%sSD, CPU, cia, CIA, TRACE_LINENUM_P (CPU), \\\n", prefix);
   lf_indent (file, +indent);
-  lf_printf (file, "%sitable[MY_INDEX].file, \\\n", options.prefix.itable.name);
-  lf_printf (file, "%sitable[MY_INDEX].line_nr, \\\n", options.prefix.itable.name);
-  lf_printf (file, "\"%s\", \\\n", phase_lc);
-  lf_printf (file, "\"%%-18s - ");
+  lf_printf (file, "%sitable[MY_INDEX].file, \\\n", options.module.itable.prefix.l);
+  lf_printf (file, "%sitable[MY_INDEX].line_nr, \\\n", options.module.itable.prefix.l);
+  lf_printf (file, "\"");
   return indent;
 }
 
@@ -360,12 +357,6 @@ print_itrace_format (lf *file,
     {
       const char *chp = assembler->format;
       chp++; /* skip the leading quote */
-      /* prefix the format with the insn `name' */
-      if (pass == 2)
-	{
-	  lf_printf (file, ", \\\n");
-	  lf_printf (file, "%sitable[MY_INDEX].name", options.prefix.itable.name);
-	}
       /* write out the format/args */
       while (*chp != '\0')
 	{
@@ -436,7 +427,7 @@ print_itrace_format (lf *file,
 		    lf_printf (file, "%%s");
 		  else
 		    {
-		      lf_printf (file, "%sstr_", options.prefix.global.name);
+		      lf_printf (file, "%sstr_", options.module.global.prefix.l);
 		      lf_write (file, func, strlen_func);
 		      lf_printf (file, " (SD_, ");
 		      lf_write (file, param, strlen_param);
@@ -485,78 +476,82 @@ print_itrace (lf *file,
 	      insn_entry *insn,
 	      int idecode)
 {
-  /* NB: Here we escape each eoln. This is so that the the compiler
+  /* NB: Here we escape each EOLN. This is so that the the compiler
      treats a trace function call as a single line.  Consequently any
      errors in the line are refered back to the same igen assembler
      source line */
   const char *phase = (idecode) ? "DECODE" : "INSN";
-  const char *phase_lc = (idecode) ? "decode" : "insn";
   lf_printf (file, "\n");
   lf_indent_suppress (file);
   lf_printf (file, "#if defined (WITH_TRACE)\n");
-  lf_printf (file, "/* trace the instructions execution if enabled */\n");
-  lf_printf (file, "if (TRACE_%s_P (CPU))\n", phase);
-  if (insn->mnemonics != NULL)
-    {
-      insn_mnemonic_entry *assembler = insn->mnemonics;
-      int is_first = 1;
-      lf_printf (file, "  {\n");
-      lf_indent (file, +4);
-      do
-	{
-	  if (assembler->condition != NULL)
-	    {
-	      int indent;
-	      lf_printf (file, "%sif (%s)\n",
-			 is_first ? "" : "else ",
-			 assembler->condition);
-	      lf_indent (file, +2);
-	      lf_print__line_ref (file, assembler->line);
-	      indent = print_itrace_prefix (file, phase_lc);
-	      print_itrace_format (file, assembler);
-	      lf_print__internal_ref (file);
-	      lf_indent (file, -indent);
-	      lf_indent (file, -2);
-	      if (assembler->next == NULL)
-		error (assembler->line, "Missing final unconditional assembler\n");
-	    }
-	  else
-	    {
-	      int indent;
-	      if (!is_first)
-		{
-		  lf_printf (file, "else\n");
-		  lf_indent (file, +2);
-		}
-	      lf_print__line_ref (file, assembler->line);
-	      indent = print_itrace_prefix (file, phase_lc);
-	      print_itrace_format (file, assembler);
-	      lf_print__internal_ref (file);
-	      lf_indent (file, -indent);
-	      if (!is_first)
+  lf_printf (file, "/* generate a trace prefix if any tracing enabled */\n");
+  lf_printf (file, "if (TRACE_ANY_P (CPU))\n");
+  lf_printf (file, "  {\n");
+  lf_indent (file, +4);
+  {
+    if (insn->mnemonics != NULL)
+      {
+	insn_mnemonic_entry *assembler = insn->mnemonics;
+	int is_first = 1;
+	do
+	  {
+	    if (assembler->condition != NULL)
+	      {
+		int indent;
+		lf_printf (file, "%sif (%s)\n",
+			   is_first ? "" : "else ",
+			   assembler->condition);
+		lf_indent (file, +2);
+		lf_print__line_ref (file, assembler->line);
+		indent = print_itrace_prefix (file);
+		print_itrace_format (file, assembler);
+		lf_print__internal_ref (file);
+		lf_indent (file, -indent);
 		lf_indent (file, -2);
-	      if (assembler->next != NULL)
-		error (assembler->line, "Unconditional assembler is not last\n");
-	    }
-	  is_first = 0;
-	  assembler = assembler->next;
-	}
-      while (assembler != NULL);
-      lf_indent (file, -4);
-      lf_printf (file, "  }\n");
-    }
-  else
-    {
-      int indent;
-      lf_indent (file, +2);
-      lf_print__line_ref (file, insn->line);
-      indent = print_itrace_prefix (file, phase_lc);
-      lf_printf (file, "?\", \\\n");
-      lf_printf (file, "itable[MY_INDEX].name);\n");
-      lf_print__internal_ref (file);
-      lf_indent (file, -indent);
-      lf_indent (file, -2);
-    }
+		if (assembler->next == NULL)
+		  error (assembler->line, "Missing final unconditional assembler\n");
+	      }
+	    else
+	      {
+		int indent;
+		if (!is_first)
+		  {
+		    lf_printf (file, "else\n");
+		    lf_indent (file, +2);
+		  }
+		lf_print__line_ref (file, assembler->line);
+		indent = print_itrace_prefix (file);
+		print_itrace_format (file, assembler);
+		lf_print__internal_ref (file);
+		lf_indent (file, -indent);
+		if (!is_first)
+		  lf_indent (file, -2);
+		if (assembler->next != NULL)
+		  error (assembler->line, "Unconditional assembler is not last\n");
+	      }
+	    is_first = 0;
+	    assembler = assembler->next;
+	  }
+	while (assembler != NULL);
+      }
+    else
+      {
+	int indent;
+	lf_indent (file, +2);
+	lf_print__line_ref (file, insn->line);
+	indent = print_itrace_prefix (file);
+	lf_printf (file, "%%s\", \\\n");
+	lf_printf (file, "itable[MY_INDEX].name);\n");
+	lf_print__internal_ref (file);
+	lf_indent (file, -indent);
+	lf_indent (file, -2);
+      }
+    lf_printf (file, "/* trace the instruction execution if enabled */\n");
+    lf_printf (file, "if (TRACE_%s_P (CPU))\n", phase);
+    lf_printf (file, "  trace_generic (SD, CPU, TRACE_%s_IDX, \" %%s\", itable[MY_INDEX].name);\n", phase);
+  }
+  lf_indent (file, -4);
+  lf_printf (file, "  }\n");
   lf_indent_suppress (file);
   lf_printf (file, "#endif\n");
 }
@@ -569,6 +564,37 @@ print_sim_engine_abort (lf *file,
   lf_printf (file, "sim_engine_abort (SD, CPU, cia, ");
   lf_printf (file, "\"%s\"", message);
   lf_printf (file, ");\n");
+}
+
+
+void
+print_include (lf *file,
+	       igen_module module)
+{
+  lf_printf (file, "#include \"%s%s.h\"\n", module.prefix.l, module.suffix.l);
+}
+
+void
+print_include_inline (lf *file,
+		      igen_module module)
+{
+  lf_printf (file, "#if C_REVEALS_MODULE_P (%s_INLINE)\n", module.suffix.u);
+  lf_printf (file, "#include \"%s%s.c\"\n", module.prefix.l, module.suffix.l);
+  lf_printf (file, "#else\n");
+  print_include (file, module);
+  lf_printf (file, "#endif\n");
+  lf_printf (file, "\n");
+}
+
+void
+print_includes (lf *file)
+{
+  lf_printf (file, "\n");
+  lf_printf (file, "#include \"sim-inline.c\"\n");
+  lf_printf (file, "\n");
+  print_include_inline (file, options.module.itable);
+  print_include_inline (file, options.module.idecode);
+  print_include_inline (file, options.module.support);
 }
 
 
@@ -587,7 +613,7 @@ gen_semantics_h (lf *file,
       lf_printf (file, "typedef ");
       print_semantic_function_type (file);
       lf_printf (file, " %sidecode_semantic",
-		 options.prefix.global.name);
+		 options.module.global.prefix.l);
       if (word_nr >= 0)
 	lf_printf (file, "_%d", word_nr);
       lf_printf (file, "\n(");
@@ -627,17 +653,10 @@ gen_semantics_c (lf *file,
   if (options.gen.code == generate_calls)
     {
       insn_list *semantic;
+      print_includes (file);
+      print_include (file, options.module.semantics);
       lf_printf (file, "\n");
-      lf_printf (file, "#include \"sim-main.h\"\n");
-      lf_printf (file, "#include \"%sitable.h\"\n",
-		 options.prefix.itable.name);
-      lf_printf (file, "#include \"%sidecode.h\"\n",
-		 options.prefix.idecode.name);
-      lf_printf (file, "#include \"%ssemantics.h\"\n",
-		 options.prefix.semantics.name);
-      lf_printf (file, "#include \"%ssupport.h\"\n",
-		 options.prefix.support.name);
-      lf_printf (file, "\n");
+
       for (semantic = semantics; semantic != NULL; semantic = semantic->next)
 	{
 	  /* Ignore any special/internal instructions */
@@ -673,7 +692,7 @@ gen_icache_h (lf *file,
       lf_printf (file, "typedef ");
       print_icache_function_type(file);
       lf_printf (file, " %sidecode_icache_%d\n(",
-		 options.prefix.global.name,
+		 options.module.global.prefix.l,
 		 word_nr);
       print_icache_function_formal(file, word_nr);
       lf_printf (file, ");\n");
@@ -751,27 +770,27 @@ gen_idecode_h (lf *file,
 	       cache_entry *cache_rules)
 {
   lf_printf (file, "typedef unsigned%d %sinstruction_word;\n",
-	     options.insn_bit_size, options.prefix.global.name);
+	     options.insn_bit_size, options.module.global.prefix.l);
   if (options.gen.delayed_branch)
     {
       lf_printf (file, "typedef struct _%sinstruction_address {\n",
-		 options.prefix.global.name);
+		 options.module.global.prefix.l);
       lf_printf (file, "  address_word ip; /* instruction pointer */\n");
       lf_printf (file, "  address_word dp; /* delayed-slot pointer */\n");
-      lf_printf (file, "} %sinstruction_address;\n", options.prefix.global.name);
+      lf_printf (file, "} %sinstruction_address;\n", options.module.global.prefix.l);
     }
   else
     {
       lf_printf (file, "typedef address_word %sinstruction_address;\n",
-		 options.prefix.global.name);
+		 options.module.global.prefix.l);
       
     }
   if (options.gen.nia == nia_is_invalid
-      && strlen (options.prefix.global.uname) > 0)
+      && strlen (options.module.global.prefix.u) > 0)
     {
       lf_indent_suppress (file);
       lf_printf (file, "#define %sINVALID_INSTRUCTION_ADDRESS ",
-		 options.prefix.global.uname);
+		 options.module.global.prefix.u);
       lf_printf (file, "INVALID_INSTRUCTION_ADDRESS\n");
     }
   lf_printf (file, "\n");
@@ -811,12 +830,8 @@ gen_idecode_c (lf *file,
 	       cache_entry *cache_rules)
 {
   /* the intro */
-  lf_printf (file, "#include \"sim-main.h\"\n");
-  lf_printf (file, "#include \"%sidecode.h\"\n", options.prefix.global.name);
-  lf_printf (file, "#include \"%ssemantics.h\"\n", options.prefix.global.name);
-  lf_printf (file, "#include \"%sicache.h\"\n", options.prefix.global.name);
-  lf_printf (file, "#include \"%ssupport.h\"\n", options.prefix.global.name);
-  lf_printf (file, "\n");
+  print_includes (file);
+  print_include_inline (file, options.module.semantics);
   lf_printf (file, "\n");
 
   print_idecode_globals (file);
@@ -843,7 +858,7 @@ gen_idecode_c (lf *file,
 		lf_printf (file, "{\n");
 		lf_indent (file, +2);
 		lf_printf (file, "%sinstruction_address nia;\n",
-			   options.prefix.global.name);
+			   options.module.global.prefix.l);
 		print_idecode_body (file, entry->table, "nia =");
 		lf_printf (file, "return nia;");
 		lf_indent (file, -2);
@@ -1000,7 +1015,7 @@ main (int argc,
   int ch;
   lf *standard_out = lf_open ("-", "stdout", lf_omit_references, lf_is_text, "igen");
 
-  INIT_OPTIONS (options);
+  INIT_OPTIONS ();
 
   if (argc == 1)
     {
@@ -1044,12 +1059,20 @@ main (int argc,
       printf ("\n");
       printf ("  -P <prefix>\n");
       printf ("\t Prepend global names (except itable) with the string <prefix>.\n");
-      printf ("\t Specify -P <module>=<prefix> to set the <modules> prefix.\n");
+      printf ("\t Specify -P <module>=<prefix> to set a specific <module>'s prefix.\n");
+      printf ("\n");
+      printf ("  -S <suffix>\n");
+      printf ("\t Replace a global name (suffix) (except itable) with the string <suffix>.\n");
+      printf ("\t Specify -S <module>=<suffix> to change a specific <module>'s name (suffix).\n");
       printf ("\n");
       printf ("  -Werror\n");
       printf ("\t Make warnings errors\n");
       printf ("  -Wnodiscard\n");
-      printf ("\t Suppress warnings about discarded instructions\n");
+      printf ("\t Suppress warnings about discarded functions and instructions\n");
+      printf ("  -Wnowidth\n");
+      printf ("\t Suppress warnings about instructions with invalid widths\n");
+      printf ("  -Wnounimplemented\n");
+      printf ("\t Suppress warnings about unimplemented instructions\n");
       printf ("\n");
       printf ("  -G [!]<gen-option>\n");
       printf ("\t Any of the following options:\n");
@@ -1082,14 +1105,17 @@ main (int argc,
       printf ("\t trace-entries          - report entries after a rules application\n");
       printf ("\t trace-rule-rejection   - report each rule as rejected\n");
       printf ("\t trace-rule-selection   - report each rule as selected\n");
+      printf ("\t trace-insn-insertion   - report each instruction as it is inserted into a decode table\n");
+      printf ("\t trace-rule-expansion   - report each instruction as it is expanded (before insertion into a decode table)\n");
+      printf ("\t trace-all              - enable all trace options\n");
       printf ("\n");
-      printf ("\t field-widths          - instruction formats specify widths (depreciated)\n");
-      printf ("\t                         By default, an instruction format specifies bit\n");
-      printf ("\t                         positions\n");
-      printf ("\t                         This option can now be set directly in the\n");
-      printf ("\t                         instruction table\n");
-      printf ("\t jumps                 - use jumps instead of function calls\n");
-      printf ("\t omit-line-numbers     - do not include line number information in the output\n");
+      printf ("\t field-widths           - instruction formats specify widths (depreciated)\n");
+      printf ("\t                          By default, an instruction format specifies bit\n");
+      printf ("\t                          positions\n");
+      printf ("\t                          This option can now be set directly in the\n");
+      printf ("\t                          instruction table\n");
+      printf ("\t jumps                  - use jumps instead of function calls\n");
+      printf ("\t omit-line-numbers      - do not include line number information in the output\n");
       printf ("\n");
       printf ("Input options:\n");
       printf ("\n");
@@ -1184,68 +1210,88 @@ main (int argc,
 	  break;
 	  
 	case 'P':
+	case 'S':
 	  {
-	    igen_prefix_name *names;
+	    igen_module *names;
+	    igen_name *name;
 	    char *chp;
 	    chp = strchr (optarg, '=');
 	    if (chp == NULL)
 	      {
-		names = &options.prefix.global;
+		names = &options.module.global;
 		chp = optarg;
 	      }
 	    else
 	      {
 		chp = chp + 1; /* skip `=' */
+		names = NULL;
 		if (strncmp (optarg, "global=", chp - optarg) == 0)
 		  {
-		    names = &options.prefix.global;
+		    names = &options.module.global;
 		  }
 		if (strncmp (optarg, "engine=", chp - optarg) == 0)
 		  {
-		    names = &options.prefix.engine;
+		    names = &options.module.engine;
 		  }
 		if (strncmp (optarg, "icache=", chp - optarg) == 0)
 		  {
-		    names = &options.prefix.icache;
+		    names = &options.module.icache;
 		  }
 		if (strncmp (optarg, "idecode=", chp - optarg) == 0)
 		  {
-		    names = &options.prefix.idecode;
+		    names = &options.module.idecode;
 		  }
 		if (strncmp (optarg, "itable=", chp - optarg) == 0)
 		  {
-		    names = &options.prefix.itable;
+		    names = &options.module.itable;
 		  }
 		if (strncmp (optarg, "semantics=", chp - optarg) == 0)
 		  {
-		    names = &options.prefix.semantics;
+		    names = &options.module.semantics;
 		  }
 		if (strncmp (optarg, "support=", chp - optarg) == 0)
 		  {
-		    names = &options.prefix.support;
+		    names = &options.module.support;
 		  }
-		else
+		if (names == NULL)
 		  {
-		    names = NULL;
 		    error (NULL, "Prefix `%s' unreconized\n", optarg);
 		  }
 	      }
-	    names->name = strdup (chp);
-	    names->uname = strdup (chp);
-	    chp = names->uname;
+	    switch (ch)
+	      {
+	      case 'P':
+		name = &names->prefix;
+		break;
+	      case 'S':
+		name = &names->suffix;
+		break;
+	      }
+	    name->u = strdup (chp);
+	    name->l = strdup (chp);
+	    chp = name->u;
 	    while (*chp) {
 	      if (islower(*chp))
 		*chp = toupper(*chp);
 	      chp++;
 	    }
-	    if (names == &options.prefix.global)
+	    if (name == &options.module.global.prefix)
 	      {
-		options.prefix.engine = options.prefix.global;
-		options.prefix.icache = options.prefix.global;
-		options.prefix.idecode = options.prefix.global;
-		/* options.prefix.itable = options.prefix.global; */
-		options.prefix.semantics = options.prefix.global;
-		options.prefix.support = options.prefix.global;
+		options.module.engine.prefix = options.module.global.prefix;
+		options.module.icache.prefix = options.module.global.prefix;
+		options.module.idecode.prefix = options.module.global.prefix;
+		/* options.module.itable.prefix = options.module.global.prefix; */
+		options.module.semantics.prefix = options.module.global.prefix;
+		options.module.support.prefix = options.module.global.prefix;
+	      }
+	    if (name == &options.module.global.suffix)
+	      {
+		options.module.engine.suffix = options.module.global.suffix;
+		options.module.icache.suffix = options.module.global.suffix;
+		options.module.idecode.suffix = options.module.global.suffix;
+		/* options.module.itable.suffix = options.module.global.suffix; */
+		options.module.semantics.suffix = options.module.global.suffix;
+		options.module.support.suffix = options.module.global.suffix;
 	      }
 	    break;
 	  }
@@ -1258,6 +1304,14 @@ main (int argc,
 	      options.warn.discard = 0;
 	    else if (strcmp (optarg, "discard") == 0)
 	      options.warn.discard = 1;
+	    else if (strcmp (optarg, "nowidth") == 0)
+	      options.warn.width = 0;
+	    else if (strcmp (optarg, "width") == 0)
+	      options.warn.width = 1;
+	    else if (strcmp (optarg, "nounimplemented") == 0)
+	      options.warn.unimplemented = 0;
+	    else if (strcmp (optarg, "unimplemented") == 0)
+	      options.warn.unimplemented = 1;
 	    else
 	      error (NULL, "Unknown -W argument `%s'\n", optarg);
 	    break;
@@ -1403,6 +1457,10 @@ main (int argc,
 	      {
 		options.gen.nia = nia_is_void;
 	      }
+	    else if (strcmp (argp, "trace-all") == 0)
+	      {
+		memset (&options.trace, enable_p, sizeof (options.trace));
+	      }
 	    else if (strcmp (argp, "trace-combine") == 0)
 	      {
 		options.trace.combine = enable_p;
@@ -1418,6 +1476,14 @@ main (int argc,
 	    else if (strcmp (argp, "trace-rule-selection") == 0)
 	      {
 		options.trace.rule_selection = enable_p;
+	      }
+	    else if (strcmp (argp, "trace-insn-insertion") == 0)
+	      {
+		options.trace.insn_insertion = enable_p;
+	      }
+	    else if (strcmp (argp, "trace-insn-expansion") == 0)
+	      {
+		options.trace.insn_expansion = enable_p;
 	      }
 	    else if (strcmp (argp, "jumps") == 0)
 	      {

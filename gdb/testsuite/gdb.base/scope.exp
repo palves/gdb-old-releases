@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1994, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1994, 1997, 1998 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,7 +28,17 @@ set bug_id 0
 
 set testfile "scope"
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [gdb_compile "${srcdir}/${subdir}/scope0.c ${srcdir}/${subdir}/scope1.c" "${binfile}" executable {debug}] != "" } {
+
+
+if  { [gdb_compile "${srcdir}/${subdir}/scope0.c" "${binfile}0.o" object {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/scope1.c" "${binfile}1.o" object {debug}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+if  { [gdb_compile "${binfile}0.o ${binfile}1.o" ${binfile} executable {debug}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
@@ -548,22 +558,13 @@ gdb_test "print 'scope0.c'::filelocal_ro" "= 201"
 # randomly fail.  We've already put remote-pa on the target stack,
 # so we actually read memory from the board.  Problem is crt0.o
 # is responsible for clearing bss and that hasnt' happened yet.
-setup_xfail "hppa*-*-*pro*"
-send_gdb "print 'scope0.c'::filelocal_bss\n"
-gdb_expect {
-    -re " = 0\r\n$gdb_prompt $" {
-	pass "print 'scope0.c'::filelocal_bss before run"
-    }
-    -re "Cannot access memory.*$gdb_prompt $" {
-	setup_xfail "*-*-*"
-	fail "print 'scope0.c'::filelocal_bss before run"
-    }
-    -re ".*$gdb_prompt $" {
-	fail "print 'scope0.c'::filelocal_bss before run"
-    }
-    default {
-	fail "print 'scope0.c'::filelocal_bss before run"
-    }
+#
+# This is a problem for all non-native targets. -- manson
+if ![isnative] {
+    unsupported "print 'scope0.c'::filelocal_bss before run"
+} else {
+    gdb_test "print 'scope0.c'::filelocal_bss" "= 0" \
+	"print 'scope0.c'::filelocal_bss before run"
 }
 
 gdb_test "print 'scope0.c'::filelocal" "= 1" \

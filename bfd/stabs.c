@@ -1,5 +1,5 @@
 /* Stabs in sections linking support.
-   Copyright 1996, 1997 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -566,7 +566,7 @@ _bfd_write_section_stabs (output_bfd, psinfo, stabsec, psecinfo, contents)
 	}
     }
 
-  BFD_ASSERT (tosym - contents == stabsec->_cooked_size);
+  BFD_ASSERT ((bfd_size_type) (tosym - contents) == stabsec->_cooked_size);
 
   return bfd_set_section_contents (output_bfd, stabsec->output_section,
 				   contents, stabsec->output_offset,
@@ -586,6 +586,12 @@ _bfd_write_stab_strings (output_bfd, psinfo)
 
   if (sinfo == NULL)
     return true;
+
+  if (bfd_is_abs_section (sinfo->stabstr->output_section))
+    {
+      /* The section was discarded from the link.  */
+      return true;
+    }
 
   BFD_ASSERT ((sinfo->stabstr->output_offset
 	       + _bfd_stringtab_size (sinfo->strings))

@@ -1,5 +1,5 @@
 /* Header file for simulator argument handling.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB, the GNU debugger.
@@ -29,14 +29,15 @@ with this program; if not, write to the Free Software Foundation, Inc.,
    sim_open handles the large majority of them and it also parses the
    options when invoked by gdb [or any external program].
 
-   For OPTION_HANDLER: arg#2 is the option index; arg#3 is the
-   option's argument, NULL if optional and missing; arg#4 is nonzero
-   if a command is being interpreted. */
+   For OPTION_HANDLER: arg#2 is the processor to apply to option to
+   (all if NULL); arg#3 is the option index; arg#4 is the option's
+   argument, NULL if optional and missing; arg#5 is nonzero if a
+   command is being interpreted. */
 
-typedef SIM_RC (OPTION_HANDLER) PARAMS ((SIM_DESC, int, char *, int));
+typedef SIM_RC (OPTION_HANDLER) PARAMS ((SIM_DESC, sim_cpu *, int, char *, int));
 
 /* Declare option handlers with a macro so it's usable on k&r systems.  */
-#define DECLARE_OPTION_HANDLER(fn) SIM_RC fn PARAMS ((SIM_DESC, int, char *, int))
+#define DECLARE_OPTION_HANDLER(fn) SIM_RC fn PARAMS ((SIM_DESC, sim_cpu *, int, char *, int))
 
 typedef struct {
 
@@ -127,8 +128,9 @@ typedef struct option_list {
 } OPTION_LIST;
 
 /* Add a set of options to the simulator.
+   CPU is the cpu the options apply to or NULL for all cpus.
    TABLE is an array of OPTIONS terminated by a NULL `opt.name' entry.  */
-SIM_RC sim_add_option_table PARAMS ((SIM_DESC sd, const OPTION *table));
+SIM_RC sim_add_option_table PARAMS ((SIM_DESC sd, sim_cpu *cpu, const OPTION *table));
 
 /* Install handler for the standard options.  */
 MODULE_INSTALL_FN standard_install;

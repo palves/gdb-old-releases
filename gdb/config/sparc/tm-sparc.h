@@ -20,6 +20,12 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+#ifdef __STDC__
+struct frame_info;
+struct type;
+struct value;
+#endif
+
 #define TARGET_BYTE_ORDER BIG_ENDIAN
 
 /* Floating point is IEEE compatible.  */
@@ -104,7 +110,7 @@ extern CORE_ADDR sparc_pc_adjust PARAMS ((CORE_ADDR));
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Stack must be aligned on 64-bit boundaries when synthesizing
    function calls. */
@@ -120,14 +126,6 @@ extern CORE_ADDR sparc_pc_adjust PARAMS ((CORE_ADDR));
    but not always.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction.  */
-/* For SPARC, this is either a "jmpl %o7+8,%g0" or "jmpl %i7+8,%g0".
-
-   Note: this does not work for functions returning structures under SunOS.
-   v9 does not have such critters though.  */
-#define ABOUT_TO_RETURN(pc) \
-  ((read_memory_integer (pc, 4)|0x00040000) == 0x81c7e008)
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -245,7 +243,8 @@ extern CORE_ADDR sparc_pc_adjust PARAMS ((CORE_ADDR));
 #define CANNOT_STORE_REGISTER(regno) ((regno) == G0_REGNUM)
 
 /* Store the address of the place in which to copy the structure the
-   subroutine will return.  This is called from call_function. */
+   subroutine will return.  This is called from call_function_by_hand. 
+   The ultimate mystery is, tho, what is the value "16"?  */
 
 #define STORE_STRUCT_RETURN(ADDR, SP) \
   { char val[4]; \
@@ -256,35 +255,16 @@ extern CORE_ADDR sparc_pc_adjust PARAMS ((CORE_ADDR));
    a function return value of type TYPE, and copy that, in virtual format,
    into VALBUF.  */
 
-#define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF)	      \
-  {      	       	       	       	       	       	       	           \
-    if (TYPE_CODE (TYPE) == TYPE_CODE_FLT)		       		   \
-      {							       		   \
-	memcpy ((VALBUF), ((int *)(REGBUF))+FP0_REGNUM, TYPE_LENGTH(TYPE));\
-      }							       		   \
-    else						       		   \
-      memcpy ((VALBUF),						   	   \
-	      (char *)(REGBUF) + REGISTER_RAW_SIZE (O0_REGNUM) * 8 +	   \
-	      (TYPE_LENGTH(TYPE) >= REGISTER_RAW_SIZE (O0_REGNUM)	   \
-	       ? 0 : REGISTER_RAW_SIZE (O0_REGNUM) - TYPE_LENGTH(TYPE)),   \
-	      TYPE_LENGTH(TYPE));					   \
-  }
+#define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
+  sparc_extract_return_value(TYPE, REGBUF, VALBUF)
+extern void
+sparc_extract_return_value PARAMS ((struct type *, char [], char *));
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format.  */
-/* On sparc, values are returned in register %o0.  */
 #define STORE_RETURN_VALUE(TYPE,VALBUF) \
-  {    	       	       	       	       	       	       	       	       	     \
-    if (TYPE_CODE (TYPE) == TYPE_CODE_FLT)				     \
-      /* Floating-point values are returned in the register pair */          \
-      /* formed by %f0 and %f1 (doubles are, anyway).  */                    \
-      write_register_bytes (REGISTER_BYTE (FP0_REGNUM), (VALBUF),	     \
-			    TYPE_LENGTH (TYPE));			     \
-    else								     \
-      /* Other values are returned in register %o0.  */                      \
-      write_register_bytes (REGISTER_BYTE (O0_REGNUM), (VALBUF),	     \
-			    TYPE_LENGTH (TYPE));  \
-  }
+  sparc_store_return_value(TYPE, VALBUF)
+extern void sparc_store_return_value PARAMS ((struct type *, char *));
 
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
@@ -339,12 +319,9 @@ sparc_extract_struct_value_address PARAMS ((char [REGISTER_BYTES]));
    have been stashed (the frame is of variable size, so their location
    is not fixed), it's convenient to record them in the frame info.  */
 
-#ifdef __STDC__
-struct frame_info;
-#endif
-
 #define EXTRA_FRAME_INFO  \
   CORE_ADDR bottom;  \
+  int in_prologue; \
   int flat;  \
   /* Following fields only relevant for flat frames.  */ \
   CORE_ADDR pc_addr;  \
@@ -352,6 +329,8 @@ struct frame_info;
   /* Add this to ->frame to get the value of the stack pointer at the */ \
   /* time of the register saves.  */ \
   int sp_offset;
+
+#define FRAME_INIT_SAVED_REGS(fp) /*no-op*/
 
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fci) \
   sparc_init_extra_frame_info (fromleaf, fci)
@@ -482,116 +461,65 @@ extern CORE_ADDR sparc_frame_saved_pc PARAMS ((struct frame_info *));
 #define POP_FRAME	sparc_pop_frame ()
 
 void sparc_push_dummy_frame PARAMS ((void)), sparc_pop_frame PARAMS ((void));
+
+#ifndef CALL_DUMMY
 /* This sequence of words is the instructions
 
-   save %sp,-0x140,%sp
-   std	%f30,[%fp-0x08]
-   std	%f28,[%fp-0x10]
-   std	%f26,[%fp-0x18]
-   std	%f24,[%fp-0x20]
-   std	%f22,[%fp-0x28]
-   std	%f20,[%fp-0x30]
-   std	%f18,[%fp-0x38]
-   std	%f16,[%fp-0x40]
-   std	%f14,[%fp-0x48]
-   std	%f12,[%fp-0x50]
-   std	%f10,[%fp-0x58]
-   std	%f8,[%fp-0x60]
-   std	%f6,[%fp-0x68]
-   std	%f4,[%fp-0x70]
-   std	%f2,[%fp-0x78]
-   std	%f0,[%fp-0x80]
-   std	%g6,[%fp-0x88]
-   std	%g4,[%fp-0x90]
-   std	%g2,[%fp-0x98]
-   std	%g0,[%fp-0xa0]
-   std	%i6,[%fp-0xa8]
-   std	%i4,[%fp-0xb0]
-   std	%i2,[%fp-0xb8]
-   std	%i0,[%fp-0xc0]
-   nop ! stcsr	[%fp-0xc4]
-   nop ! stfsr	[%fp-0xc8]
-   nop ! wr	%npc,[%fp-0xcc]
-   nop ! wr	%pc,[%fp-0xd0]
-   rd	%tbr,%o0
-   st	%o0,[%fp-0xd4]
-   rd	%wim,%o1
-   st	%o0,[%fp-0xd8]
-   rd	%psr,%o0
-   st	%o0,[%fp-0xdc]
-   rd	%y,%o0
-   st	%o0,[%fp-0xe0]
+   0:   bc 10 00 01     mov  %g1, %fp
+   4:   9d e3 80 00     save  %sp, %g0, %sp
+   8:   bc 10 00 02     mov  %g2, %fp
+   c:   be 10 00 03     mov  %g3, %i7
+  10:   da 03 a0 58     ld  [ %sp + 0x58 ], %o5
+  14:   d8 03 a0 54     ld  [ %sp + 0x54 ], %o4
+  18:   d6 03 a0 50     ld  [ %sp + 0x50 ], %o3
+  1c:   d4 03 a0 4c     ld  [ %sp + 0x4c ], %o2
+  20:   d2 03 a0 48     ld  [ %sp + 0x48 ], %o1
+  24:   40 00 00 00     call  <fun>
+  28:   d0 03 a0 44     ld  [ %sp + 0x44 ], %o0
+  2c:   01 00 00 00     nop 
+  30:   91 d0 20 01     ta  1
+  34:   01 00 00 00     nop
 
-     /..* The arguments are pushed at this point by GDB;
-	no code is needed in the dummy for this.
-	The CALL_DUMMY_START_OFFSET gives the position of
-	the following ld instruction.  *../
+   NOTES:
+	* the first four instructions are necessary only on the simulator.
+	* this is a multiple of 8 (not only 4) bytes.
+	* the `call' insn is a relative, not an absolute call.
+	* the `nop' at the end is needed to keep the trap from
+	  clobbering things (if NPC pointed to garbage instead).
+*/
 
-   ld	[%sp+0x58],%o5
-   ld	[%sp+0x54],%o4
-   ld	[%sp+0x50],%o3
-   ld	[%sp+0x4c],%o2
-   ld	[%sp+0x48],%o1
-   call 0x00000000
-   ld	[%sp+0x44],%o0
-   nop
-   ta 1
-   nop
+#define CALL_DUMMY { 0xbc100001, 0x9de38000, 0xbc100002, 0xbe100003,	\
+		     0xda03a058, 0xd803a054, 0xd603a050, 0xd403a04c,	\
+		     0xd203a048, 0x40000000, 0xd003a044, 0x01000000,	\
+		     0x91d02001, 0x01000000 }
 
-   note that this is 192 bytes, which is a multiple of 8 (not only 4) bytes.
-   note that the `call' insn is a relative, not an absolute call.
-   note that the `nop' at the end is needed to keep the trap from
-        clobbering things (if NPC pointed to garbage instead).
 
-We actually start executing at the `sethi', since the pushing of the
-registers (as arguments) is done by PUSH_DUMMY_FRAME.  If this were
-real code, the arguments for the function called by the CALL would be
-pushed between the list of ST insns and the CALL, and we could allow
-it to execute through.  But the arguments have to be pushed by GDB
-after the PUSH_DUMMY_FRAME is done, and we cannot allow these ST
-insns to be performed again, lest the registers saved be taken for
-arguments.  */
+/* Size of the call dummy in bytes. */
 
-#define CALL_DUMMY { 0x9de3bee0, 0xfd3fbff8, 0xf93fbff0, 0xf53fbfe8,	\
-		     0xf13fbfe0, 0xed3fbfd8, 0xe93fbfd0, 0xe53fbfc8,	\
-		     0xe13fbfc0, 0xdd3fbfb8, 0xd93fbfb0, 0xd53fbfa8,	\
-		     0xd13fbfa0, 0xcd3fbf98, 0xc93fbf90, 0xc53fbf88,	\
-		     0xc13fbf80, 0xcc3fbf78, 0xc83fbf70, 0xc43fbf68,	\
-		     0xc03fbf60, 0xfc3fbf58, 0xf83fbf50, 0xf43fbf48,	\
-		     0xf03fbf40, 0x01000000, 0x01000000, 0x01000000,	\
-		     0x01000000, 0x91580000, 0xd027bf50, 0x93500000,	\
-		     0xd027bf4c, 0x91480000, 0xd027bf48, 0x91400000,	\
-		     0xd027bf44, 0xda03a058, 0xd803a054, 0xd603a050,	\
-		     0xd403a04c, 0xd203a048, 0x40000000, 0xd003a044,	\
-		     0x01000000, 0x91d02001, 0x01000000, 0x01000000}
+#define CALL_DUMMY_LENGTH 0x38
 
-#define CALL_DUMMY_LENGTH 192
+/* Offset within call dummy of first instruction to execute. */
 
-#define CALL_DUMMY_START_OFFSET 148
+#define CALL_DUMMY_START_OFFSET 0
 
-#define CALL_DUMMY_BREAKPOINT_OFFSET (CALL_DUMMY_START_OFFSET + (8 * 4))
+/* Offset within CALL_DUMMY of the 'call' instruction. */
+
+#define CALL_DUMMY_CALL_OFFSET (CALL_DUMMY_START_OFFSET + 0x24)
+
+/* Offset within CALL_DUMMY of the 'ta 1' instruction. */
+
+#define CALL_DUMMY_BREAKPOINT_OFFSET (CALL_DUMMY_START_OFFSET + 0x30)
 
 #define CALL_DUMMY_STACK_ADJUST 68
 
+#endif
 /* Insert the specified number of args and function address
-   into a call sequence of the above form stored at DUMMYNAME.
+   into a call sequence of the above form stored at DUMMYNAME.  */
 
-   For structs and unions, if the function was compiled with Sun cc,
-   it expects 'unimp' after the call.  But gcc doesn't use that
-   (twisted) convention.  So leave a nop there for gcc (FIX_CALL_DUMMY
-   can assume it is operating on a pristine CALL_DUMMY, not one that
-   has already been customized for a different function).  */
-
-#define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, type, gcc_p)	\
-{									\
-  store_unsigned_integer (dummyname + 168, 4,				\
-			  (0x40000000					\
-			   | (((fun - (pc + 168)) >> 2) & 0x3fffffff))); \
-  if (!gcc_p								\
-      && (TYPE_CODE (type) == TYPE_CODE_STRUCT				\
-	  || TYPE_CODE (type) == TYPE_CODE_UNION))			\
-    store_unsigned_integer (dummyname + 176, 4, TYPE_LENGTH (type) & 0x1fff); \
-}
+#define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, type, gcc_p) \
+ sparc_fix_call_dummy (dummyname, pc, fun, type, gcc_p)
+void sparc_fix_call_dummy PARAMS ((char *dummy, CORE_ADDR pc, CORE_ADDR fun,
+				   struct type *value_type, int using_gcc));
 
 /* The Sparc returns long doubles on the stack.  */
 
@@ -601,7 +529,9 @@ arguments.  */
 
 /* Sparc has no reliable single step ptrace call */
 
-#define NO_SINGLE_STEP 1
+#define SOFTWARE_SINGLE_STEP_P 1
+extern void sparc_software_single_step PARAMS ((unsigned int, int));
+#define SOFTWARE_SINGLE_STEP(sig,bp_p) sparc_software_single_step (sig,bp_p)
 
 /* We need more arguments in a frame specification for the
    "frame" or "info frame" command.  */
@@ -609,19 +539,15 @@ arguments.  */
 #define SETUP_ARBITRARY_FRAME(argc, argv) setup_arbitrary_frame (argc, argv)
 extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
 
-/* To print every pair of float registers as a double, we use this hook.  */
+/* To print every pair of float registers as a double, we use this hook.
+   We also print the condition code registers in a readable format
+   (FIXME: can expand this to all control regs).  */
 
+#undef 	PRINT_REGISTER_HOOK
 #define	PRINT_REGISTER_HOOK(regno)	\
-  if (((regno) >= FP0_REGNUM)		\
-   && ((regno) <  FP0_REGNUM + 32)	\
-   && (0 == ((regno) & 1))) {		\
-    char doublereg[8];		/* two float regs */	\
-    if (!read_relative_register_raw_bytes ((regno)  , doublereg  )	\
-     && !read_relative_register_raw_bytes ((regno)+1, doublereg+4)) {	\
-      printf("\t");			\
-      print_floating (doublereg, builtin_type_double, stdout);	\
-    }					\
-  }
+  sparc_print_register_hook (regno)
+extern void sparc_print_register_hook PARAMS ((int regno));
+
 
 /* Optimization for storing registers to the inferior.  The hook
    DO_DEFERRED_STORES
@@ -648,3 +574,11 @@ extern int deferred_stores;
 /* Select the sparc disassembler */
 
 #define TM_PRINT_INSN_MACH bfd_mach_sparc
+
+/* Arguments smaller than an int must promoted to ints when synthesizing
+   function calls.  */
+
+#define PUSH_ARGUMENTS(nargs, args, sp, struct_return, struct_addr) \
+    sp = sparc_push_arguments((nargs), (args), (sp), (struct_return), (struct_addr))
+extern CORE_ADDR
+sparc_push_arguments PARAMS ((int, struct value **, CORE_ADDR, int, CORE_ADDR));

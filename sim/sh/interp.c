@@ -61,7 +61,7 @@ typedef union
 
   struct
   {
-
+    int pad_dummy;
     int regs[16];
     int pc;
     int pr;
@@ -111,7 +111,7 @@ typedef union
     unsigned char *memory;
   }
   asregs;
-  int asints[28];
+  int asints[40];
 } saved_state_type;
 
 saved_state_type saved_state;
@@ -1168,32 +1168,38 @@ sim_read (sd, addr, buffer, size)
   return size;
 }
 
-void
-sim_store_register (sd, rn, memory)
+/* We have to add one to RN as an index into asints because of the padding
+   added at the start of asregs.  */
+int
+sim_store_register (sd, rn, memory, length)
      SIM_DESC sd;
      int rn;
      unsigned char *memory;
+     int length;
 {
   int little_endian;
   init_pointers ();
   little_endian = target_little_endian;
-  if (&saved_state.asints[rn]
+  if (&saved_state.asints[rn+1]
       == &saved_state.asregs.fpscr)
     set_fpscr1 (RLAT(0));
   else
-    saved_state.asints[rn] = RLAT(0);
+    saved_state.asints[rn+1] = RLAT(0);
+  return -1;
 }
 
-void
-sim_fetch_register (sd, rn, memory)
+int
+sim_fetch_register (sd, rn, memory, length)
      SIM_DESC sd;
      int rn;
      unsigned char *memory;
+     int length;
 {
   int little_endian;
   init_pointers ();
   little_endian = target_little_endian;
-  WLAT (0, saved_state.asints[rn]);
+  WLAT (0, saved_state.asints[rn+1]);
+  return -1;
 }
 
 int
@@ -1281,6 +1287,7 @@ sim_open (kind, cb, abfd, argv)
      char **argv;
 {
   char **p;
+  int endian_set = 0;
 
   sim_kind = kind;
   myname = argv[0];
@@ -1299,10 +1306,14 @@ sim_open (kind, cb, abfd, argv)
 	      return 0;
 	    }
 	  target_little_endian = strcmp (*p, "big") != 0;
+          endian_set = 1;
 	}
       else if (isdigit (**p))
 	parse_and_set_memory_size (*p);
     }
+
+  if (abfd != NULL && ! endian_set)
+      target_little_endian = ! bfd_big_endian (abfd);
 
   /* fudge our descriptor for now */
   return (SIM_DESC) 1;

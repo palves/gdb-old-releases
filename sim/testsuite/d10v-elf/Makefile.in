@@ -40,6 +40,7 @@ RPATH_ENVVAR = @RPATH_ENVVAR@
 TESTS = \
 	exit47.ko \
 	hello.hi \
+	t-dbt.ok \
 	t-mac.ok \
 	t-mvtac.ok \
 	t-mvtc.ok \
@@ -47,8 +48,11 @@ TESTS = \
 	t-mulxu.ok \
 	t-rac.ok \
 	t-rachi.ok \
+	t-rdt.ok \
 	t-rep.ok \
 	t-rte.ok \
+	t-sadd.ok \
+	t-sp.ok \
 	t-sub2w.ok \
 	t-sub.ok \
 	t-subi.ok \

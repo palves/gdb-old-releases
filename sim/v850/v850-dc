@@ -10,6 +10,8 @@
 # for opcode 60,124
 
   switch,combine        :   4 :   0 :    :    :    :    1 : V,VII       :
+  switch,combine        :   4 :   0 :    :    :    :    1 : V,XIII      : v850e
+  switch,combine        :   4 :   0 :    :    :    :    1 : V,XIII      : v850ea
 
 
 # for opcode 63, 127, 1087 et.al.
@@ -21,6 +23,7 @@
 # for opcode 40 et.al.
 
   switch,combine        :   4 :   0 :    :    :    :    0 : III,IV      :
+  switch,combine        :   4 :   0 :    :    :    :    0 : III,IV,XIV  : v850ea
 
 # for opcode 66 - divh/break
 

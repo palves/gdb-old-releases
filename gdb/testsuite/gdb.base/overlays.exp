@@ -31,10 +31,8 @@ set prms_id 0
 set bug_id 0
 
 if [istarget "d10v-*-*"] then {
-    set ovlymgr  d10vovly
     set linker_script "${srcdir}/${subdir}/d10v.ld";
 } elseif [istarget "m32r-*-*"] then {
-    set ovlymgr  m32rovly
     set linker_script "${srcdir}/${subdir}/m32r.ld";
 } else {
     verbose "Skipping overlay test -- not implemented for this target."
@@ -52,7 +50,7 @@ set grbx    ${srcdir}/${subdir}/grbx.c
 if {[gdb_compile "${srcfile}" "${testfile}.o" object {debug}] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
-if {[gdb_compile "${srcdir}/${subdir}/${ovlymgr}.c" ${ovlymgr}.o object ""] != ""} then {
+if {[gdb_compile "${srcdir}/${subdir}/ovlymgr.c" ovlymgr.o object {debug}] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 if {[gdb_compile "${foo}" foo.o object {debug} ] != ""} then {
@@ -68,11 +66,11 @@ if {[gdb_compile "${baz}" baz.o object {debug}] != ""} then {
 if {[gdb_compile "${grbx}" grbx.o object {debug}] != ""} then {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
-if  { [gdb_compile "${testfile}.o ${ovlymgr}.o foo.o bar.o baz.o grbx.o -T${linker_script}" ${binfile} executable {debug}] != "" } {
+if  {[gdb_compile "${testfile}.o ovlymgr.o foo.o bar.o baz.o grbx.o" ${binfile} executable "ldscript=-Wl,-T$linker_script"] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
-remote_exec build "mv ${testfile}.o foo.o bar.o baz.o grbx.o ${ovlymgr}.o ${objdir}/${subdir}"
+remote_exec build "mv ${testfile}.o foo.o bar.o baz.o grbx.o ovlymgr.o ${objdir}/${subdir}"
 
 
 gdb_start

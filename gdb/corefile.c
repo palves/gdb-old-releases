@@ -33,6 +33,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdbcore.h"
 #include "dis-asm.h"
 #include "language.h"
+#include "gdb_stat.h"
+#include "symfile.h"
+#include "objfiles.h"
 
 extern char registers[];
 
@@ -75,7 +78,29 @@ core_file_command (filename, from_tty)
     if (!filename)
       (t->to_detach) (filename, from_tty);
     else
-      (t->to_open) (filename, from_tty);
+      {
+        /* Yes, we were given the path of a core file.  Do we already
+           have a symbol file?  If not, can we determine it from the
+           core file?  If we can, do so.
+           */
+#ifdef HPUXHPPA
+        if (symfile_objfile == NULL)
+          {
+            char *  symfile;
+            symfile = t->to_core_file_to_sym_file (filename);
+            if (symfile)
+              {
+                char *  symfile_copy = strdup (symfile);
+
+                make_cleanup (free, symfile_copy);
+                symbol_file_command (symfile_copy, from_tty);
+              }
+            else
+              warning ("Unknown symbols for '%s'; use the 'symbol-file' command.", filename);
+          }
+#endif
+        (t->to_open) (filename, from_tty);
+      }
   else
     error ("GDB can't read core files on this machine.");
 }
@@ -149,6 +174,24 @@ reopen_exec_file ()
 #if 0 /* FIXME */
   if (exec_bfd)
     bfd_reopen (exec_bfd);
+#else
+  char *filename;
+  int res;
+  struct stat st;
+  long mtime;
+
+  /* Don't do anything if the current target isn't exec. */
+  if (exec_bfd == NULL || strcmp (target_shortname, "exec") != 0)
+    return;
+ 
+  /* If the timestamp of the exec file has changed, reopen it. */
+  filename = strdup (bfd_get_filename (exec_bfd));
+  make_cleanup (free, filename);
+  mtime = bfd_get_mtime(exec_bfd);
+  res = stat (filename, &st);
+
+  if (mtime && mtime != st.st_mtime)
+    exec_file_command (filename, 0);
 #endif
 }
 
@@ -306,6 +349,37 @@ read_memory_unsigned_integer (memaddr, len)
   read_memory (memaddr, buf, len);
   return extract_unsigned_integer (buf, len);
 }
+
+void
+read_memory_string (memaddr, buffer, max_len)
+     CORE_ADDR memaddr;
+     char * buffer;
+     int max_len;
+{
+  register char * cp;
+  register int i;
+  int cnt;
+
+  cp = buffer;
+  while (1)
+    {
+      if (cp - buffer >= max_len)
+        {
+          buffer[max_len - 1] = '\0';
+          break;
+        }
+      cnt = max_len - (cp - buffer);
+      if (cnt > 8)
+	cnt = 8;
+      read_memory (memaddr + (int) (cp - buffer), cp, cnt);
+      for (i = 0; i < cnt && *cp; i++, cp++)
+        ; /* null body */
+
+      if (i < cnt && !*cp)
+        break;
+    }
+}
+
 
 #if 0
 /* Enable after 4.12.  It is not tested.  */

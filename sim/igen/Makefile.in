@@ -48,7 +48,7 @@ man9dir = $(mandir)/man9
 infodir = @infodir@
 includedir = @includedir@
 
-SHELL = /bin/sh
+SHELL = @SHELL@
 
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -65,7 +65,7 @@ CC_FOR_BUILD = @CC_FOR_BUILD@
 CFLAGS_FOR_BUILD = @CFLAGS_FOR_BUILD@
 RANLIB_FOR_BUILD = @RANLIB_FOR_BUILD@
 
-SIM_WARNINGS = @sim_warnings@
+SIM_WARNINGS = @build_warnings@
 
 BISON = bison
 MAKEINFO = makeinfo

@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * $Revision: 1.2 $
- *     $Date: 1998/01/08 11:12:31 $
+ * $Revision: 1.4 $
+ *     $Date: 1999/01/28 03:50:16 $
  *
  *
  * serdrv.c - Synchronous Serial Driver for Angel.

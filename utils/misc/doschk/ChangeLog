@@ -1,3 +1,8 @@
+Tue Mar 24 17:31:47 1998  Stu Grossman  <grossman@bhuna.cygnus.co.uk>
+
+	* configure:  Regenerate with autoconf 2.12.1 to fix shell issues for
+	NT native builds.
+
 Fri Mar 28 17:17:08 1997  Ian Lance Taylor  <ian@cygnus.com>
 
 	* configure: Rebuild with autoconf 2.12.

@@ -338,8 +338,50 @@ static reloc_howto_type howto_table[] =
       cache_ptr->addend += asect->vma;				\
   }
 
-/* We use the special COFF backend linker.  */
+/* We use the special COFF backend linker.  For normal i386 COFF, we
+   can use the generic relocate_section routine.  For PE, we need our
+   own routine.  */
+
+#ifndef COFF_WITH_PE
+
 #define coff_relocate_section _bfd_coff_generic_relocate_section
+
+#else /* COFF_WITH_PE */
+
+/* The PE relocate section routine.  The only difference between this
+   and the regular routine is that we don't want to do anything for a
+   relocateable link.  */
+
+static boolean coff_pe_i386_relocate_section
+  PARAMS ((bfd *, struct bfd_link_info *, bfd *, asection *, bfd_byte *,
+	   struct internal_reloc *, struct internal_syment *, asection **));
+
+static boolean
+coff_pe_i386_relocate_section (output_bfd, info, input_bfd,
+			       input_section, contents, relocs, syms,
+			       sections)
+     bfd *output_bfd;
+     struct bfd_link_info *info;
+     bfd *input_bfd;
+     asection *input_section;
+     bfd_byte *contents;
+     struct internal_reloc *relocs;
+     struct internal_syment *syms;
+     asection **sections;
+{
+  if (info->relocateable)
+    return true;
+
+  return _bfd_coff_generic_relocate_section (output_bfd, info, input_bfd,
+					     input_section, contents,
+					     relocs, syms, sections);
+}
+
+#define coff_relocate_section coff_pe_i386_relocate_section
+
+#endif /* COFF_WITH_PE */
+
+/* Convert an rtype to howto for the COFF backend linker.  */
 
 static reloc_howto_type *
 coff_i386_rtype_to_howto (abfd, sec, rel, h, sym, addendp)

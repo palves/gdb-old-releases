@@ -89,8 +89,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* FIXME.  On a pyr, Data Stack grows downward; control stack goes upwards. 
    Which direction should we use for INNER_THAN, PC_INNER_THAN ?? */
 
-#define INNER_THAN <
-#define PC_INNER_THAN >
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* Stack must be aligned on 32-bit boundaries when synthesizing
    function calls. */
@@ -106,15 +105,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    but not always.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction. 
-   On a pyr, this is either "ret" or "retd".
-   It would be friendly to check that any "retd" always had an
-   argument of 0, since anything else is invalid. */
-
-#define ABOUT_TO_RETURN(pc) \
-(((read_memory_integer (pc, 2) & 0x3ff0) == 0x3090) || \
- ((read_memory_integer (pc, 2) & 0x0ff0) == 0x00a0))
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the

@@ -185,17 +185,29 @@ proc do_function_calls {} {
     # the RS6000.
     setup_xfail "rs6000*-*-*"
     setup_xfail "powerpc*-*-*"
-    gdb_test "p t_func_values(add,func_val2)" " = 1"
+    if {!$gcc_compiled && [istarget hppa*-*-hpux*]} then {
+	gdb_test "p t_func_values(add,func_val2)" "You cannot.*ignored.*"
+    } else {
+	gdb_test "p t_func_values(add,func_val2)" " = 1"
+    }
 
     setup_xfail "rs6000*-*-*"
     setup_xfail "powerpc*-*-*"
-    gdb_test "p t_func_values(func_val1,doubleit)" " = 1"
+    if {!$gcc_compiled && [istarget hppa*-*-hpux*]} then {
+	gdb_test "p t_func_values(func_val1,doubleit)" "You cannot.*ignored.*"
+    } else {
+	gdb_test "p t_func_values(func_val1,doubleit)" " = 1"
+    }
 
     gdb_test "p t_call_add(func_val1,3,4)" " = 7"
 
     setup_xfail "rs6000*-*-*"
     setup_xfail "powerpc*-*-*"
-    gdb_test "p t_call_add(add,3,4)" " = 7"
+    if {!$gcc_compiled && [istarget hppa*-*-hpux*]} then {
+	gdb_test "p t_call_add(add,3,4)" "You cannot.*ignored.*"
+    } else {
+	gdb_test "p t_call_add(add,3,4)" " = 7"
+    }
 
     gdb_test "p t_enum_value1(enumval1)" " = 1"
     gdb_test "p t_enum_value1(enum_val1)" " = 1"
@@ -209,9 +221,10 @@ proc do_function_calls {} {
     gdb_test "p sum_args(2,{2,3})" " = 5"
     gdb_test "p sum_args(3,{2,3,4})" " = 9"
     gdb_test "p sum_args(4,{2,3,4,5})" " = 14"
-    # These tests are broken, so we'll skip them.
 
     gdb_test "p sum10 (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)" " = 55"
+
+    gdb_test "p cmp10 (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)" " = 1"
 
     gdb_test "p t_structs_c(struct_val1)" "= 120 'x'" \
 	"call inferior func with struct - returns char"

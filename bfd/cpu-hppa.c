@@ -37,6 +37,23 @@ static const bfd_arch_info_type bfd_hppa10_arch =
   0,
 };
 
+/* PA2.0 in narrow mode */
+static const bfd_arch_info_type bfd_hppa20_arch =
+{
+  32,				/* 32 bits in a word */
+  32,				/* 32 bits in an address */
+  8,				/* 8 bits in a byte */
+  bfd_arch_hppa,
+  20,				/* By convention PA1.0 = 10 */
+  "hppa",
+  "hppa2.0",
+  3,
+  false,			/* Unless we use 1.1 specific features */
+  bfd_default_compatible, 
+  bfd_default_scan ,
+  &bfd_hppa10_arch,
+};
+
 const bfd_arch_info_type bfd_hppa_arch =
 {
   32,				/* 32 bits in a word */
@@ -50,5 +67,5 @@ const bfd_arch_info_type bfd_hppa_arch =
   false,			/* 1.1 specific features used */
   bfd_default_compatible, 
   bfd_default_scan ,
-  &bfd_hppa10_arch,
+  &bfd_hppa20_arch,
 };

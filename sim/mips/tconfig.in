@@ -1,5 +1,19 @@
 /* mips target configuration file.  */
 
+/* See sim-hload.c.  We properly handle LMA.  */
+#ifdef TARGET_TX3904
+#define SIM_HANDLES_LMA 1
+
+/* FIXME: This is unnecessarily necessary: */
+#include "ansidecl.h"
+#include "callback.h"
+#include "remote-sim.h"
+#include "sim-module.h"
+
+MODULE_INSTALL_FN dv_sockser_install;
+#define MODULE_LIST dv_sockser_install,
+#endif
+
 /* Define this if the simulator supports profiling.
    See the mips simulator for an example.
    This enables the `-p foo' and `-s bar' options.

@@ -46,7 +46,7 @@ man9dir =	$(mandir)/man9
 infodir =	@infodir@
 includedir =	@includedir@
 
-SHELL =		/bin/sh
+SHELL =		@SHELL@
 
 INSTALL =	@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@

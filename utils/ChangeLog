@@ -1,6 +1,6 @@
 Fri Apr 24 12:51:21 1998  Jason Molenda  (crash@bugshack.cygnus.com)
 
-	* Makefile.in (dvi): Do nothing target.
+        * Makefile.in (dvi): Do nothing target.
 
 Mon Apr 14 16:30:30 1997  Ian Lance Taylor  <ian@cygnus.com>
 

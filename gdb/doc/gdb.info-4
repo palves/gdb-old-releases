@@ -6,11 +6,10 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is the Fifth Edition, April 1998, of `Debugging with GDB: the
-GNU Source-Level Debugger' for GDB Version .
+   This is the Seventh Edition, February 1999, of `Debugging with GDB:
+the GNU Source-Level Debugger' for GDB Version 4.18.
 
-   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
-1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1988-1999 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -24,6 +23,320 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
+
+
+File: gdb.info,  Node: Arrays,  Next: Output Formats,  Prev: Variables,  Up: Data
+
+Artificial arrays
+=================
+
+   It is often useful to print out several successive objects of the
+same type in memory; a section of an array, or an array of dynamically
+determined size for which only a pointer exists in the program.
+
+   You can do this by referring to a contiguous span of memory as an
+"artificial array", using the binary operator `@'.  The left operand of
+`@' should be the first element of the desired array and be an
+individual object.  The right operand should be the desired length of
+the array.  The result is an array value whose elements are all of the
+type of the left argument.  The first element is actually the left
+argument; the second element comes from bytes of memory immediately
+following those that hold the first element, and so on.  Here is an
+example.  If a program says
+
+     int *array = (int *) malloc (len * sizeof (int));
+
+you can print the contents of `array' with
+
+     p *array@len
+
+   The left operand of `@' must reside in memory.  Array values made
+with `@' in this way behave just like other arrays in terms of
+subscripting, and are coerced to pointers when used in expressions.
+Artificial arrays most often appear in expressions via the value history
+(*note Value history: Value History.), after printing one out.
+
+   Another way to create an artificial array is to use a cast.  This
+re-interprets a value as if it were an array.  The value need not be in
+memory:
+     (gdb) p/x (short[2])0x12345678
+     $1 = {0x1234, 0x5678}
+
+   As a convenience, if you leave the array length out (as in
+`(TYPE)[])VALUE') gdb calculates the size to fill the value (as
+`sizeof(VALUE)/sizeof(TYPE)':
+     (gdb) p/x (short[])0x12345678
+     $2 = {0x1234, 0x5678}
+
+   Sometimes the artificial array mechanism is not quite enough; in
+moderately complex data structures, the elements of interest may not
+actually be adjacent--for example, if you are interested in the values
+of pointers in an array.  One useful work-around in this situation is
+to use a convenience variable (*note Convenience variables: Convenience
+Vars.) as a counter in an expression that prints the first interesting
+value, and then repeat that expression via <RET>.  For instance,
+suppose you have an array `dtab' of pointers to structures, and you are
+interested in the values of a field `fv' in each structure.  Here is an
+example of what you might type:
+
+     set $i = 0
+     p dtab[$i++]->fv
+     <RET>
+     <RET>
+     ...
+
+
+File: gdb.info,  Node: Output Formats,  Next: Memory,  Prev: Arrays,  Up: Data
+
+Output formats
+==============
+
+   By default, GDB prints a value according to its data type.  Sometimes
+this is not what you want.  For example, you might want to print a
+number in hex, or a pointer in decimal.  Or you might want to view data
+in memory at a certain address as a character string or as an
+instruction.  To do these things, specify an "output format" when you
+print a value.
+
+   The simplest use of output formats is to say how to print a value
+already computed.  This is done by starting the arguments of the
+`print' command with a slash and a format letter.  The format letters
+supported are:
+
+`x'
+     Regard the bits of the value as an integer, and print the integer
+     in hexadecimal.
+
+`d'
+     Print as integer in signed decimal.
+
+`u'
+     Print as integer in unsigned decimal.
+
+`o'
+     Print as integer in octal.
+
+`t'
+     Print as integer in binary.  The letter `t' stands for "two".  (1)
+
+`a'
+     Print as an address, both absolute in hexadecimal and as an offset
+     from the nearest preceding symbol.  You can use this format used
+     to discover where (in what function) an unknown address is located:
+
+          (gdb) p/a 0x54320
+          $3 = 0x54320 <_initialize_vx+396>
+
+`c'
+     Regard as an integer and print it as a character constant.
+
+`f'
+     Regard the bits of the value as a floating point number and print
+     using typical floating point syntax.
+
+   For example, to print the program counter in hex (*note
+Registers::.), type
+
+     p/x $pc
+
+Note that no space is required before the slash; this is because command
+names in GDB cannot contain a slash.
+
+   To reprint the last value in the value history with a different
+format, you can use the `print' command with just a format and no
+expression.  For example, `p/x' reprints the last value in hex.
+
+   ---------- Footnotes ----------
+
+   (1) `b' cannot be used because these format letters are also used
+with the `x' command, where `b' stands for "byte"; *note Examining
+memory: Memory..
+
+
+File: gdb.info,  Node: Memory,  Next: Auto Display,  Prev: Output Formats,  Up: Data
+
+Examining memory
+================
+
+   You can use the command `x' (for "examine") to examine memory in any
+of several formats, independently of your program's data types.
+
+`x/NFU ADDR'
+`x ADDR'
+`x'
+     Use the `x' command to examine memory.
+
+   N, F, and U are all optional parameters that specify how much memory
+to display and how to format it; ADDR is an expression giving the
+address where you want to start displaying memory.  If you use defaults
+for NFU, you need not type the slash `/'.  Several commands set
+convenient defaults for ADDR.
+
+N, the repeat count
+     The repeat count is a decimal integer; the default is 1.  It
+     specifies how much memory (counting by units U) to display.
+
+F, the display format
+     The display format is one of the formats used by `print', `s'
+     (null-terminated string), or `i' (machine instruction).  The
+     default is `x' (hexadecimal) initially.  The default changes each
+     time you use either `x' or `print'.
+
+U, the unit size
+     The unit size is any of
+
+    `b'
+          Bytes.
+
+    `h'
+          Halfwords (two bytes).
+
+    `w'
+          Words (four bytes).  This is the initial default.
+
+    `g'
+          Giant words (eight bytes).
+
+     Each time you specify a unit size with `x', that size becomes the
+     default unit the next time you use `x'.  (For the `s' and `i'
+     formats, the unit size is ignored and is normally not written.)
+
+ADDR, starting display address
+     ADDR is the address where you want GDB to begin displaying memory.
+     The expression need not have a pointer value (though it may); it
+     is always interpreted as an integer address of a byte of memory.
+     *Note Expressions: Expressions, for more information on
+     expressions.  The default for ADDR is usually just after the last
+     address examined--but several other commands also set the default
+     address: `info breakpoints' (to the address of the last breakpoint
+     listed), `info line' (to the starting address of a line), and
+     `print' (if you use it to display a value from memory).
+
+   For example, `x/3uh 0x54320' is a request to display three halfwords
+(`h') of memory, formatted as unsigned decimal integers (`u'), starting
+at address `0x54320'.  `x/4xw $sp' prints the four words (`w') of
+memory above the stack pointer (here, `$sp'; *note Registers::.) in
+hexadecimal (`x').
+
+   Since the letters indicating unit sizes are all distinct from the
+letters specifying output formats, you do not have to remember whether
+unit size or format comes first; either order works.  The output
+specifications `4xw' and `4wx' mean exactly the same thing.  (However,
+the count N must come first; `wx4' does not work.)
+
+   Even though the unit size U is ignored for the formats `s' and `i',
+you might still want to use a count N; for example, `3i' specifies that
+you want to see three machine instructions, including any operands.
+The command `disassemble' gives an alternative way of inspecting
+machine instructions; *note Source and machine code: Machine Code..
+
+   All the defaults for the arguments to `x' are designed to make it
+easy to continue scanning memory with minimal specifications each time
+you use `x'.  For example, after you have inspected three machine
+instructions with `x/3i ADDR', you can inspect the next seven with just
+`x/7'.  If you use <RET> to repeat the `x' command, the repeat count N
+is used again; the other arguments default as for successive uses of
+`x'.
+
+   The addresses and contents printed by the `x' command are not saved
+in the value history because there is often too much of them and they
+would get in the way.  Instead, GDB makes these values available for
+subsequent use in expressions as values of the convenience variables
+`$_' and `$__'.  After an `x' command, the last address examined is
+available for use in expressions in the convenience variable `$_'.  The
+contents of that address, as examined, are available in the convenience
+variable `$__'.
+
+   If the `x' command has a repeat count, the address and contents saved
+are from the last memory unit printed; this is not the same as the last
+address printed if several units were printed on the last line of
+output.
+
+
+File: gdb.info,  Node: Auto Display,  Next: Print Settings,  Prev: Memory,  Up: Data
+
+Automatic display
+=================
+
+   If you find that you want to print the value of an expression
+frequently (to see how it changes), you might want to add it to the
+"automatic display list" so that GDB prints its value each time your
+program stops.  Each expression added to the list is given a number to
+identify it; to remove an expression from the list, you specify that
+number.  The automatic display looks like this:
+
+     2: foo = 38
+     3: bar[5] = (struct hack *) 0x3804
+
+This display shows item numbers, expressions and their current values.
+As with displays you request manually using `x' or `print', you can
+specify the output format you prefer; in fact, `display' decides
+whether to use `print' or `x' depending on how elaborate your format
+specification is--it uses `x' if you specify a unit size, or one of the
+two formats (`i' and `s') that are only supported by `x'; otherwise it
+uses `print'.
+
+`display EXP'
+     Add the expression EXP to the list of expressions to display each
+     time your program stops.  *Note Expressions: Expressions.
+
+     `display' does not repeat if you press <RET> again after using it.
+
+`display/FMT EXP'
+     For FMT specifying only a display format and not a size or count,
+     add the expression EXP to the auto-display list but arrange to
+     display it each time in the specified format FMT.  *Note Output
+     formats: Output Formats.
+
+`display/FMT ADDR'
+     For FMT `i' or `s', or including a unit-size or a number of units,
+     add the expression ADDR as a memory address to be examined each
+     time your program stops.  Examining means in effect doing `x/FMT
+     ADDR'.  *Note Examining memory: Memory.
+
+   For example, `display/i $pc' can be helpful, to see the machine
+instruction about to be executed each time execution stops (`$pc' is a
+common name for the program counter; *note Registers::.).
+
+`undisplay DNUMS...'
+`delete display DNUMS...'
+     Remove item numbers DNUMS from the list of expressions to display.
+
+     `undisplay' does not repeat if you press <RET> after using it.
+     (Otherwise you would just get the error `No display number ...'.)
+
+`disable display DNUMS...'
+     Disable the display of item numbers DNUMS.  A disabled display
+     item is not printed automatically, but is not forgotten.  It may be
+     enabled again later.
+
+`enable display DNUMS...'
+     Enable display of item numbers DNUMS.  It becomes effective once
+     again in auto display of its expression, until you specify
+     otherwise.
+
+`display'
+     Display the current values of the expressions on the list, just as
+     is done when your program stops.
+
+`info display'
+     Print the list of expressions previously set up to display
+     automatically, each one with its item number, but without showing
+     the values.  This includes disabled expressions, which are marked
+     as such.  It also includes expressions which would not be
+     displayed right now because they refer to automatic variables not
+     currently available.
+
+   If a display expression refers to local variables, then it does not
+make sense outside the lexical context for which it was set up.  Such an
+expression is disabled when execution enters a context where one of its
+variables is not defined.  For example, if you give the command
+`display last_char' while inside a function with an argument
+`last_char', GDB displays this argument while your program continues to
+stop inside that function.  When it stops elsewhere--where there is no
+variable `last_char'--the display is disabled automatically.  The next
+time your program stops where `last_char' is meaningful, you can enable
+the display expression once again.
 
 
 File: gdb.info,  Node: Print Settings,  Next: Value History,  Prev: Auto Display,  Up: Data
@@ -257,6 +570,9 @@ These settings are of interest when debugging C++ programs:
           Decode based on the GNU C++ compiler (`g++') encoding
           algorithm.  This is the default.
 
+    `hp'
+          Decode based on the HP ANSI C++ (`aCC') encoding algorithm.
+
     `lucid'
           Decode based on the Lucid C++ compiler (`lcc') encoding
           algorithm.
@@ -267,8 +583,7 @@ These settings are of interest when debugging C++ programs:
           allow debugging `cfront'-generated executables.  GDB would
           require further enhancement to permit that.
 
-    `foo'
-          Show the list of formats.
+     If you omit STYLE, you will see a list of possible formats.
 
 `show demangle-style'
      Display the encoding style currently in use for decoding C++
@@ -592,7 +907,7 @@ language you use to build expressions is called the "working language".
 * Support::                     Supported languages
 
 
-File: gdb.info,  Node: Setting,  Next: Show,  Up: Languages
+File: gdb.info,  Node: Setting,  Next: Show,  Prev: Languages,  Up: Languages
 
 Switching between source languages
 ==================================
@@ -627,7 +942,7 @@ C code.
 * Automatically::               Having GDB infer the source language
 
 
-File: gdb.info,  Node: Filenames,  Next: Manually,  Up: Setting
+File: gdb.info,  Node: Filenames,  Next: Manually,  Prev: Setting,  Up: Setting
 
 List of filename extensions and languages
 -----------------------------------------
@@ -635,29 +950,36 @@ List of filename extensions and languages
    If a source file name ends in one of the following extensions, then
 GDB infers that its language is the one indicated.
 
-`.mod'
-     Modula-2 source file
-
 `.c'
      C source file
 
 `.C'
 `.cc'
-`.cxx'
-`.cpp'
 `.cp'
+`.cpp'
+`.cxx'
 `.c++'
      C++ source file
+
+`.f'
+`.F'
+     Fortran source file
 
 `.ch'
 `.c186'
 `.c286'
      CHILL source file.
 
+`.mod'
+     Modula-2 source file
+
 `.s'
 `.S'
      Assembler source file.  This actually behaves almost like C, but
      GDB does not skip over function prologues when stepping.
+
+   In addition, you may set the language associated with a filename
+extension.  *Note Displaying the language: Show.
 
 
 File: gdb.info,  Node: Manually,  Next: Automatically,  Prev: Filenames,  Up: Setting
@@ -734,6 +1056,17 @@ working language, and also what language source files were written in.
      the Symbol Table: Symbols, to identify the other information
      listed here.
 
+   In unusual circumstances, you may have source files with extensions
+not in the standard list.  You can then set the extension associated
+with a language explicitly:
+
+`set extension-language .EXT LANGUAGE'
+     Set source files with extension .EXT to be assumed to be in the
+     source language LANGUAGE.
+
+`info extensions'
+     List all the filename extensions and the associated languages.
+
 
 File: gdb.info,  Node: Checks,  Next: Support,  Prev: Show,  Up: Languages
 
@@ -766,7 +1099,7 @@ settings of supported languages.
 * Range Checking::              An overview of range checking
 
 
-File: gdb.info,  Node: Type Checking,  Next: Range Checking,  Up: Checks
+File: gdb.info,  Node: Type Checking,  Next: Range Checking,  Prev: Checks,  Up: Checks
 
 An overview of type checking
 ----------------------------
@@ -893,10 +1226,11 @@ File: gdb.info,  Node: Support,  Prev: Checks,  Up: Languages
 Supported languages
 ===================
 
-   GDB 4 supports C, C++, and Modula-2.  Some GDB features may be used
-in expressions regardless of the language you use: the GDB `@' and `::'
-operators, and the `{type}addr' construct (*note Expressions:
-Expressions.) can be used with the constructs of any supported language.
+   GDB supports C, C++, Fortran, Chill, assembly, and Modula-2.  Some
+GDB features may be used in expressions regardless of the language you
+use: the GDB `@' and `::' operators, and the `{type}addr' construct
+(*note Expressions: Expressions.) can be used with the constructs of
+any supported language.
 
    The following sections detail to what degree each source language is
 supported by GDB.  These sections are not meant to be language
@@ -921,15 +1255,15 @@ C and C++
 to both languages.  Whenever this is the case, we discuss those
 languages together.
 
-   The C++ debugging facilities are jointly implemented by the GNU C++
+   The C++ debugging facilities are jointly implemented by the C++
 compiler and GDB.  Therefore, to debug your C++ code effectively, you
-must compile your C++ programs with the GNU C++ compiler, `g++'.
+must compile your C++ programs with a supported C++ compiler, such as
+GNU `g++', or the HP ANSI C++ compiler (`aCC').
 
-   For best results when debugging C++ programs, use the stabs debugging
-format.  You can select that format explicitly with the `g++'
-command-line options `-gstabs' or `-gstabs+'.  See *Note Options for
-Debugging Your Program or GNU CC: (gcc.info)Debugging Options, for more
-information.
+   For best results when using GNU C++, use the stabs debugging format.
+You can select that format explicitly with the `g++' command-line
+options `-gstabs' or `-gstabs+'.  See *Note Options for Debugging Your
+Program or GNU CC: (gcc.info)Debugging Options, for more information.
 
 * Menu:
 
@@ -941,365 +1275,5 @@ information.
 * C Checks::                    C and C++ type and range checks
 
 * Debugging C::                 GDB and C
-* Debugging C plus plus::       Special features for C++
-
-
-File: gdb.info,  Node: C Operators,  Next: C Constants,  Up: C
-
-C and C++ operators
-...................
-
-   Operators must be defined on values of specific types.  For instance,
-`+' is defined on numbers, but not on structures.  Operators are often
-defined on groups of types.
-
-   For the purposes of C and C++, the following definitions hold:
-
-   * *Integral types* include `int' with any of its storage-class
-     specifiers; `char'; and `enum'.
-
-   * *Floating-point types* include `float' and `double'.
-
-   * *Pointer types* include all types defined as `(TYPE *)'.
-
-   * *Scalar types* include all of the above.
-
-The following operators are supported.  They are listed here in order
-of increasing precedence:
-
-`,'
-     The comma or sequencing operator.  Expressions in a
-     comma-separated list are evaluated from left to right, with the
-     result of the entire expression being the last expression
-     evaluated.
-
-`='
-     Assignment.  The value of an assignment expression is the value
-     assigned.  Defined on scalar types.
-
-`OP='
-     Used in an expression of the form `A OP= B', and translated to
-     `A = A OP B'.  `OP=' and `=' have the same precendence.  OP is any
-     one of the operators `|', `^', `&', `<<', `>>', `+', `-', `*',
-     `/', `%'.
-
-`?:'
-     The ternary operator.  `A ? B : C' can be thought of as:  if A
-     then B else C.  A should be of an integral type.
-
-`||'
-     Logical OR.  Defined on integral types.
-
-`&&'
-     Logical AND.  Defined on integral types.
-
-`|'
-     Bitwise OR.  Defined on integral types.
-
-`^'
-     Bitwise exclusive-OR.  Defined on integral types.
-
-`&'
-     Bitwise AND.  Defined on integral types.
-
-`==, !='
-     Equality and inequality.  Defined on scalar types.  The value of
-     these expressions is 0 for false and non-zero for true.
-
-`<, >, <=, >='
-     Less than, greater than, less than or equal, greater than or equal.
-     Defined on scalar types.  The value of these expressions is 0 for
-     false and non-zero for true.
-
-`<<, >>'
-     left shift, and right shift.  Defined on integral types.
-
-`@'
-     The GDB "artificial array" operator (*note Expressions:
-     Expressions.).
-
-`+, -'
-     Addition and subtraction.  Defined on integral types,
-     floating-point types and pointer types.
-
-`*, /, %'
-     Multiplication, division, and modulus.  Multiplication and
-     division are defined on integral and floating-point types.
-     Modulus is defined on integral types.
-
-`++, --'
-     Increment and decrement.  When appearing before a variable, the
-     operation is performed before the variable is used in an
-     expression; when appearing after it, the variable's value is used
-     before the operation takes place.
-
-`*'
-     Pointer dereferencing.  Defined on pointer types.  Same precedence
-     as `++'.
-
-`&'
-     Address operator.  Defined on variables.  Same precedence as `++'.
-
-     For debugging C++, GDB implements a use of `&' beyond what is
-     allowed in the C++ language itself: you can use `&(&REF)' (or, if
-     you prefer, simply `&&REF') to examine the address where a C++
-     reference variable (declared with `&REF') is stored.
-
-`-'
-     Negative.  Defined on integral and floating-point types.  Same
-     precedence as `++'.
-
-`!'
-     Logical negation.  Defined on integral types.  Same precedence as
-     `++'.
-
-`~'
-     Bitwise complement operator.  Defined on integral types.  Same
-     precedence as `++'.
-
-`., ->'
-     Structure member, and pointer-to-structure member.  For
-     convenience, GDB regards the two as equivalent, choosing whether
-     to dereference a pointer based on the stored type information.
-     Defined on `struct' and `union' data.
-
-`[]'
-     Array indexing.  `A[I]' is defined as `*(A+I)'.  Same precedence
-     as `->'.
-
-`()'
-     Function parameter list.  Same precedence as `->'.
-
-`::'
-     C++ scope resolution operator.  Defined on `struct', `union', and
-     `class' types.
-
-`::'
-     Doubled colons also represent the GDB scope operator (*note
-     Expressions: Expressions.).  Same precedence as `::', above.
-
-
-File: gdb.info,  Node: C Constants,  Next: Cplus expressions,  Prev: C Operators,  Up: C
-
-C and C++ constants
-...................
-
-   GDB allows you to express the constants of C and C++ in the
-following ways:
-
-   * Integer constants are a sequence of digits.  Octal constants are
-     specified by a leading `0' (i.e. zero), and hexadecimal constants
-     by a leading `0x' or `0X'.  Constants may also end with a letter
-     `l', specifying that the constant should be treated as a `long'
-     value.
-
-   * Floating point constants are a sequence of digits, followed by a
-     decimal point, followed by a sequence of digits, and optionally
-     followed by an exponent.  An exponent is of the form:
-     `e[[+]|-]NNN', where NNN is another sequence of digits.  The `+'
-     is optional for positive exponents.
-
-   * Enumerated constants consist of enumerated identifiers, or their
-     integral equivalents.
-
-   * Character constants are a single character surrounded by single
-     quotes (`''), or a number--the ordinal value of the corresponding
-     character (usually its ASCII value).  Within quotes, the single
-     character may be represented by a letter or by "escape sequences",
-     which are of the form `\NNN', where NNN is the octal representation
-     of the character's ordinal value; or of the form `\X', where `X'
-     is a predefined special character--for example, `\n' for newline.
-
-   * String constants are a sequence of character constants surrounded
-     by double quotes (`"').
-
-   * Pointer constants are an integral value.  You can also write
-     pointers to constants using the C operator `&'.
-
-   * Array constants are comma-separated lists surrounded by braces `{'
-     and `}'; for example, `{1,2,3}' is a three-element array of
-     integers, `{{1,2}, {3,4}, {5,6}}' is a three-by-two array, and
-     `{&"hi", &"there", &"fred"}' is a three-element array of pointers.
-
-
-File: gdb.info,  Node: Cplus expressions,  Next: C Defaults,  Prev: C Constants,  Up: C
-
-C++ expressions
-...............
-
-   GDB expression handling has a number of extensions to interpret a
-significant subset of C++ expressions.
-
-     *Warning:* GDB can only debug C++ code if you compile with the GNU
-     C++ compiler.  Moreover, C++ debugging depends on the use of
-     additional debugging information in the symbol table, and thus
-     requires special support.  GDB has this support *only* with the
-     stabs debug format.  In particular, if your compiler generates
-     a.out, MIPS ECOFF, RS/6000 XCOFF, or ELF with stabs extensions to
-     the symbol table, these facilities are all available.  (With GNU
-     CC, you can use the `-gstabs' option to request stabs debugging
-     extensions explicitly.)  Where the object code format is standard
-     COFF or DWARF in ELF, on the other hand, most of the C++ support
-     in GDB does *not* work.
-
-  1. Member function calls are allowed; you can use expressions like
-
-          count = aml->GetOriginal(x, y)
-
-  2. While a member function is active (in the selected stack frame),
-     your expressions have the same namespace available as the member
-     function; that is, GDB allows implicit references to the class
-     instance pointer `this' following the same rules as C++.
-
-  3. You can call overloaded functions; GDB resolves the function call
-     to the right definition, with one restriction--you must use
-     arguments of the type required by the function that you want to
-     call.  GDB does not perform conversions requiring constructors or
-     user-defined type operators.
-
-  4. GDB understands variables declared as C++ references; you can use
-     them in expressions just as you do in C++ source--they are
-     automatically dereferenced.
-
-     In the parameter list shown when GDB displays a frame, the values
-     of reference variables are not displayed (unlike other variables);
-     this avoids clutter, since references are often used for large
-     structures.  The *address* of a reference variable is always
-     shown, unless you have specified `set print address off'.
-
-  5. GDB supports the C++ name resolution operator `::'--your
-     expressions can use it just as expressions in your program do.
-     Since one scope may be defined in another, you can use `::'
-     repeatedly if necessary, for example in an expression like
-     `SCOPE1::SCOPE2::NAME'.  GDB also allows resolving name scope by
-     reference to source files, in both C and C++ debugging (*note
-     Program variables: Variables.).
-
-
-File: gdb.info,  Node: C Defaults,  Next: C Checks,  Prev: Cplus expressions,  Up: C
-
-C and C++ defaults
-..................
-
-   If you allow GDB to set type and range checking automatically, they
-both default to `off' whenever the working language changes to C or
-C++.  This happens regardless of whether you or GDB selects the working
-language.
-
-   If you allow GDB to set the language automatically, it recognizes
-source files whose names end with `.c', `.C', or `.cc', and when GDB
-enters code compiled from one of these files, it sets the working
-language to C or C++.  *Note Having GDB infer the source language:
-Automatically, for further details.
-
-
-File: gdb.info,  Node: C Checks,  Next: Debugging C,  Prev: C Defaults,  Up: C
-
-C and C++ type and range checks
-...............................
-
-   By default, when GDB parses C or C++ expressions, type checking is
-not used.  However, if you turn type checking on, GDB considers two
-variables type equivalent if:
-
-   * The two variables are structured and have the same structure,
-     union, or enumerated tag.
-
-   * The two variables have the same type name, or types that have been
-     declared equivalent through `typedef'.
-
-   Range checking, if turned on, is done on mathematical operations.
-Array indices are not checked, since they are often used to index a
-pointer that is not itself an array.
-
-
-File: gdb.info,  Node: Debugging C,  Next: Debugging C plus plus,  Prev: C Checks,  Up: C
-
-GDB and C
-.........
-
-   The `set print union' and `show print union' commands apply to the
-`union' type.  When set to `on', any `union' that is inside a `struct'
-or `class' is also printed.  Otherwise, it appears as `{...}'.
-
-   The `@' operator aids in the debugging of dynamic arrays, formed
-with pointers and a memory allocation function.  *Note Expressions:
-Expressions.
-
-
-File: gdb.info,  Node: Debugging C plus plus,  Prev: Debugging C,  Up: C
-
-GDB features for C++
-....................
-
-   Some GDB commands are particularly useful with C++, and some are
-designed specifically for use with C++.  Here is a summary:
-
-`breakpoint menus'
-     When you want a breakpoint in a function whose name is overloaded,
-     GDB breakpoint menus help you specify which function definition
-     you want.  *Note Breakpoint menus: Breakpoint Menus.
-
-`rbreak REGEX'
-     Setting breakpoints using regular expressions is helpful for
-     setting breakpoints on overloaded functions that are not members
-     of any special classes.  *Note Setting breakpoints: Set Breaks.
-
-`catch EXCEPTIONS'
-`info catch'
-     Debug C++ exception handling using these commands.  *Note
-     Breakpoints and exceptions: Exception Handling.
-
-`ptype TYPENAME'
-     Print inheritance relationships as well as other information for
-     type TYPENAME.  *Note Examining the Symbol Table: Symbols.
-
-`set print demangle'
-`show print demangle'
-`set print asm-demangle'
-`show print asm-demangle'
-     Control whether C++ symbols display in their source form, both when
-     displaying code as C++ source and when displaying disassemblies.
-     *Note Print settings: Print Settings.
-
-`set print object'
-`show print object'
-     Choose whether to print derived (actual) or declared types of
-     objects.  *Note Print settings: Print Settings.
-
-`set print vtbl'
-`show print vtbl'
-     Control the format for printing virtual function tables.  *Note
-     Print settings: Print Settings.
-
-`Overloaded symbol names'
-     You can specify a particular definition of an overloaded symbol,
-     using the same notation that is used to declare such symbols in
-     C++: type `SYMBOL(TYPES)' rather than just SYMBOL.  You can also
-     use the GDB command-line word completion facilities to list the
-     available choices, or to finish the type list for you.  *Note
-     Command completion: Completion, for details on how to do this.
-
-
-File: gdb.info,  Node: Modula-2,  Prev: C,  Up: Support
-
-Modula-2
---------
-
-   The extensions made to GDB to support Modula-2 only support output
-from the GNU Modula-2 compiler (which is currently being developed).
-Other Modula-2 compilers are not currently supported, and attempting to
-debug executables produced by them is most likely to give an error as
-GDB reads in the executable's symbol table.
-
-* Menu:
-
-* M2 Operators::                Built-in operators
-* Built-In Func/Proc::           Built-in functions and procedures
-* M2 Constants::                Modula-2 constants
-* M2 Defaults::                 Default settings for Modula-2
-* Deviations::                  Deviations from standard Modula-2
-* M2 Checks::                   Modula-2 type and range checks
-* M2 Scope::                    The scope operators `::' and `.'
-* GDB/M2::                      GDB and Modula-2
+* Debugging C plus plus::       GDB features for C++
 

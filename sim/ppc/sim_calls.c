@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1996, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1996,1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -50,8 +50,24 @@
 
 static psim *simulator;
 static device *root_device;
-static const char *register_names[] = REGISTER_NAMES;
 static host_callback *callbacks;
+
+/* We use GDB's reg_names array to map GDB register numbers onto
+   names, which we can then look up in the register table.
+
+   We used to just use the REGISTER_NAMES macro, from GDB's
+   target-dependent header files.  That was kind of nice, because it
+   meant that libsim.a had only a compile-time dependency on GDB;
+   using reg_names directly means that there are now link-time and
+   run-time dependencies too.
+
+   However, the GDB PPC back-end now modifies the reg_names array when
+   the user runs the `set processor' command, which affects the
+   meanings of the register numbers.  So the sim needs to see the
+   register names GDB is actually using.
+
+   Perhaps the host_callback structure could contain a pointer to the
+   register name table; that would be cleaner.  */
 
 SIM_DESC
 sim_open (SIM_OPEN_KIND kind,
@@ -148,30 +164,52 @@ sim_write (SIM_DESC sd, SIM_ADDR mem, unsigned char *buf, int length)
 }
 
 
-void
-sim_fetch_register (SIM_DESC sd, int regno, unsigned char *buf)
+int
+sim_fetch_register (SIM_DESC sd, int regno, unsigned char *buf, int length)
 {
+  char *regname;
+
   if (simulator == NULL) {
-    return;
+    return 0;
   }
+
+  /* GDB will sometimes ask for the contents of a register named "";
+     we ignore such requests, and leave garbage in *BUF.  In
+     REG_NAMES, the empty string means "the register with this
+     number is not present in the currently selected architecture
+     variant."  That's following the kludge we're using for the MIPS
+     processors.  But there are loops that just walk through the
+     entire list of names and try to get everything.  */
+  regname = REGISTER_NAME (regno);
+  if (! regname || regname[0] == '\0')
+    return -1;
+
   TRACE(trace_gdb, ("sim_fetch_register(regno=%d(%s), buf=0x%lx)\n",
-		    regno, register_names[regno], (long)buf));
+		    regno, regname, (long)buf));
   psim_read_register(simulator, MAX_NR_PROCESSORS,
-		     buf, register_names[regno],
-		     raw_transfer);
+		     buf, regname, raw_transfer);
+  return -1;
 }
 
 
-void
-sim_store_register (SIM_DESC sd, int regno, unsigned char *buf)
+int
+sim_store_register (SIM_DESC sd, int regno, unsigned char *buf, int length)
 {
+  char *regname;
+
   if (simulator == NULL)
-    return;
+    return 0;
+
+  /* See comments in sim_fetch_register, above.  */
+  regname = REGISTER_NAME (regno);
+  if (! regname || regname[0] == '\0')
+    return -1;
+
   TRACE(trace_gdb, ("sim_store_register(regno=%d(%s), buf=0x%lx)\n",
-		    regno, register_names[regno], (long)buf));
+		    regno, regname, (long)buf));
   psim_write_register(simulator, MAX_NR_PROCESSORS,
-		      buf, register_names[regno],
-		      raw_transfer);
+		      buf, regname, raw_transfer);
+  return -1;
 }
 
 
@@ -279,6 +317,20 @@ sim_do_command (SIM_DESC sd, char *cmd)
     freeargv(argv);
   }
 }
+
+
+/* Polling, if required */
+
+void
+sim_io_poll_quit (void)
+{
+  if (callbacks->poll_quit != NULL)
+    {
+      if (callbacks->poll_quit (callbacks))
+	psim_stop (simulator);
+    }
+}
+
 
 
 /* Map simulator IO operations onto the corresponding GDB I/O

@@ -411,14 +411,14 @@ FUNCTION
 	bfd_get_reloc_size
 
 SYNOPSIS
-	int bfd_get_reloc_size (reloc_howto_type *);
+	unsigned int bfd_get_reloc_size (reloc_howto_type *);
 
 DESCRIPTION
 	For a reloc_howto_type that operates on a fixed number of bytes,
 	this returns the number of bytes operated on.
  */
 
-int
+unsigned int
 bfd_get_reloc_size (howto)
      reloc_howto_type *howto;
 {
@@ -492,7 +492,8 @@ bfd_check_overflow (how, bitsize, rightshift, relocation)
     case complain_overflow_signed:
       {
 	/* Assumes two's complement.  */
-	bfd_signed_vma reloc_signed_max = (1 << (bitsize - 1)) - 1;
+	bfd_signed_vma reloc_signed_max =
+	  ((bfd_signed_vma) 1 << (bitsize - 1)) - 1;
 	bfd_signed_vma reloc_signed_min = ~reloc_signed_max;
 
 	/* The above right shift is incorrect for a signed value.
@@ -513,7 +514,8 @@ bfd_check_overflow (how, bitsize, rightshift, relocation)
 	/* Assumes two's complement.  This expression avoids
 	   overflow if `bitsize' is the number of bits in
 	   bfd_vma.  */
-	bfd_vma reloc_unsigned_max = (((1 << (bitsize - 1)) - 1) << 1) | 1;
+	bfd_vma reloc_unsigned_max =
+	  ((((bfd_vma) 1 << (bitsize - 1)) - 1) << 1) | 1;
 
 	if ((bfd_vma) check > reloc_unsigned_max)
 	  flag = bfd_reloc_overflow;
@@ -1523,7 +1525,8 @@ _bfd_relocate_contents (howto, input_bfd, relocation, location)
 	case complain_overflow_signed:
 	  {
 	    /* Assumes two's complement.  */
-	    bfd_signed_vma reloc_signed_max = (1 << (howto->bitsize - 1)) - 1;
+	    bfd_signed_vma reloc_signed_max =
+	      ((bfd_signed_vma) 1 << (howto->bitsize - 1)) - 1;
 	    bfd_signed_vma reloc_signed_min = ~reloc_signed_max;
 
 	    if (signed_check > reloc_signed_max
@@ -1537,7 +1540,7 @@ _bfd_relocate_contents (howto, input_bfd, relocation, location)
 	       overflow if howto->bitsize is the number of bits in
 	       bfd_vma.  */
 	    bfd_vma reloc_unsigned_max =
-	    (((1 << (howto->bitsize - 1)) - 1) << 1) | 1;
+	      ((((bfd_vma) 1 << (howto->bitsize - 1)) - 1) << 1) | 1;
 
 	    if (check > reloc_unsigned_max)
 	      overflow = true;
@@ -1866,6 +1869,11 @@ ENUMDOC
   SPARC64 relocations
 
 ENUM
+  BFD_RELOC_SPARC_REV32
+ENUMDOC
+  SPARC little endian relocation
+
+ENUM
   BFD_RELOC_ALPHA_GPDISP_HI16
 ENUMDOC
   Alpha ECOFF and ELF relocations.  Some of these treat the symbol or
@@ -2007,6 +2015,7 @@ ENUMX
   BFD_RELOC_MIPS_CALL_HI16
 ENUMX
   BFD_RELOC_MIPS_CALL_LO16
+COMMENT
 ENUMDOC
   MIPS ELF relocations.
 
@@ -2232,7 +2241,6 @@ ENUMDOC
   stored in the instruction.  The high 24 bits are installed in bits 23
   through 0.
 
-COMMENT
 ENUM
   BFD_RELOC_D10V_10_PCREL_R
 ENUMDOC
@@ -2257,9 +2265,66 @@ ENUM
 ENUMDOC
   This is an 18-bit reloc with the right 2 bits
   assumed to be 0.
-COMMENT
 
-COMMENT
+ENUM
+  BFD_RELOC_D30V_6
+ENUMDOC
+  Mitsubishi D30V relocs.
+  This is a 6-bit absolute reloc.
+ENUM
+  BFD_RELOC_D30V_9_PCREL
+ENUMDOC
+  This is a 6-bit pc-relative reloc with 
+  the right 3 bits assumed to be 0.  
+ENUM
+  BFD_RELOC_D30V_9_PCREL_R
+ENUMDOC
+  This is a 6-bit pc-relative reloc with 
+  the right 3 bits assumed to be 0. Same
+  as the previous reloc but on the right side
+  of the container.  
+ENUM
+  BFD_RELOC_D30V_15
+ENUMDOC
+  This is a 12-bit absolute reloc with the 
+  right 3 bitsassumed to be 0.  
+ENUM
+  BFD_RELOC_D30V_15_PCREL
+ENUMDOC
+  This is a 12-bit pc-relative reloc with 
+  the right 3 bits assumed to be 0.  
+ENUM
+  BFD_RELOC_D30V_15_PCREL_R
+ENUMDOC
+  This is a 12-bit pc-relative reloc with 
+  the right 3 bits assumed to be 0. Same
+  as the previous reloc but on the right side
+  of the container.  
+ENUM
+  BFD_RELOC_D30V_21
+ENUMDOC
+  This is an 18-bit absolute reloc with 
+  the right 3 bits assumed to be 0.
+ENUM
+  BFD_RELOC_D30V_21_PCREL
+ENUMDOC
+  This is an 18-bit pc-relative reloc with 
+  the right 3 bits assumed to be 0.
+ENUM
+  BFD_RELOC_D30V_21_PCREL_R
+ENUMDOC
+  This is an 18-bit pc-relative reloc with 
+  the right 3 bits assumed to be 0. Same
+  as the previous reloc but on the right side
+  of the container.
+ENUM
+  BFD_RELOC_D30V_32
+ENUMDOC
+  This is a 32-bit absolute reloc.
+ENUM
+  BFD_RELOC_D30V_32_PCREL
+ENUMDOC
+  This is a 32-bit pc-relative reloc.
 
 ENUM
   BFD_RELOC_M32R_24
@@ -2344,6 +2409,34 @@ ENUM
 ENUMDOC
   This is a 16 bit offset from the tiny data area pointer.
 COMMENT
+ENUM
+  BFD_RELOC_V850_TDA_4_5_OFFSET
+ENUMDOC
+  This is a 5 bit offset (of which only 4 bits are used) from the tiny
+  data area pointer.
+ENUM
+  BFD_RELOC_V850_TDA_4_4_OFFSET
+ENUMDOC
+  This is a 4 bit offset from the tiny data area pointer.
+ENUM
+  BFD_RELOC_V850_SDA_16_16_SPLIT_OFFSET
+ENUMDOC
+  This is a 16 bit offset from the short data area pointer, with the
+  bits placed non-contigously in the instruction.
+ENUM
+  BFD_RELOC_V850_ZDA_16_16_SPLIT_OFFSET
+ENUMDOC
+  This is a 16 bit offset from the zero data area pointer, with the
+  bits placed non-contigously in the instruction.
+ENUM
+  BFD_RELOC_V850_CALLT_6_7_OFFSET
+ENUMDOC
+  This is a 6 bit offset from the call table base pointer.
+ENUM
+  BFD_RELOC_V850_CALLT_16_16_OFFSET
+ENUMDOC
+  This is a 16 bit offset from the call table base pointer.
+COMMENT
 
 ENUM
   BFD_RELOC_MN10300_32_PCREL
@@ -2362,6 +2455,69 @@ ENUMDOC
   This is a 8bit DP reloc for the tms320c30, where the most
   significant 8 bits of a 24 bit word are placed into the least
   significant 8 bits of the opcode.
+
+ENUM
+  BFD_RELOC_FR30_48
+ENUMDOC
+  This is a 48 bit reloc for the FR30 that stores 32 bits.
+ENUM
+  BFD_RELOC_FR30_20
+ENUMDOC
+  This is a 32 bit reloc for the FR30 that stores 20 bits split up into
+  two sections.
+ENUM
+  BFD_RELOC_FR30_6_IN_4
+ENUMDOC
+  This is a 16 bit reloc for the FR30 that stores a 6 bit word offset in
+  4 bits.
+ENUM
+  BFD_RELOC_FR30_8_IN_8
+ENUMDOC
+  This is a 16 bit reloc for the FR30 that stores an 8 bit byte offset
+  into 8 bits.
+ENUM
+  BFD_RELOC_FR30_9_IN_8
+ENUMDOC
+  This is a 16 bit reloc for the FR30 that stores a 9 bit short offset
+  into 8 bits.
+ENUM
+  BFD_RELOC_FR30_10_IN_8
+ENUMDOC
+  This is a 16 bit reloc for the FR30 that stores a 10 bit word offset
+  into 8 bits.
+ENUM
+  BFD_RELOC_FR30_9_PCREL
+ENUMDOC
+  This is a 16 bit reloc for the FR30 that stores a 9 bit pc relative
+  short offset into 8 bits.
+ENUM
+  BFD_RELOC_FR30_12_PCREL
+ENUMDOC
+  This is a 16 bit reloc for the FR30 that stores a 12 bit pc relative
+  short offset into 11 bits.
+  
+ENUM
+  BFD_RELOC_VTABLE_INHERIT
+ENUMX
+  BFD_RELOC_VTABLE_ENTRY
+ENUMDOC
+  These two relocations are used by the linker to determine which of 
+  the entries in a C++ virtual function table are actually used.  When
+  the --gc-sections option is given, the linker will zero out the entries
+  that are not used, so that the code for those functions need not be
+  included in the output.
+
+  VTABLE_INHERIT is a zero-space relocation used to describe to the
+  linker the inheritence tree of a C++ virtual function table.  The
+  relocation's symbol should be the parent class' vtable, and the
+  relocation should be located at the child vtable.
+
+  VTABLE_ENTRY is a zero-space relocation that describes the use of a
+  virtual function table entry.  The reloc's symbol should refer to the
+  table of the class mentioned in the code.  Off of that base, an offset
+  describes the entry that is being used.  For Rela hosts, this offset 
+  is stored in the reloc's addend.  For Rel hosts, we are forced to put
+  this offset in the reloc's section offset.
 
 ENDSENUM
   BFD_RELOC_UNUSED
@@ -2486,6 +2642,28 @@ bfd_generic_relax_section (abfd, section, link_info, again)
      boolean *again;
 {
   *again = false;
+  return true;
+}
+
+/*
+INTERNAL_FUNCTION
+	bfd_generic_gc_sections
+
+SYNOPSIS
+	boolean bfd_generic_gc_sections
+	 (bfd *, struct bfd_link_info *);
+
+DESCRIPTION
+	Provides default handling for relaxing for back ends which
+	don't do section gc -- i.e., does nothing.
+*/
+
+/*ARGSUSED*/
+boolean
+bfd_generic_gc_sections (abfd, link_info)
+     bfd *abfd;
+     struct bfd_link_info *link_info;
+{
   return true;
 }
 

@@ -32,6 +32,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    the opcodes table.  */
 
 #define UBD     INSN_UNCOND_BRANCH_DELAY
+#define BR      MIPS16_INSN_BRANCH
 
 #define WR_x	MIPS16_INSN_WRITE_X
 #define WR_y	MIPS16_INSN_WRITE_Y
@@ -79,10 +80,10 @@ const struct mips_opcode mips16_opcodes[] = {
 {"addu",    "x,P,V",	0x0800, 0xf800, WR_x|RD_PC },
 {"addu",    "x,S,V",	0x0000, 0xf800, WR_x|RD_SP },
 {"and",	    "x,y",	0xe80c, 0xf81f, WR_x|RD_x|RD_y },
-{"b",	    "q",	0x1000, 0xf800, 0 },
+{"b",	    "q",	0x1000, 0xf800, BR},
 {"beq",	    "x,y,p",	0, (int) M_BEQ, INSN_MACRO },
 {"beq",     "x,U,p",	0, (int) M_BEQ_I, INSN_MACRO },
-{"beqz",    "x,p",	0x2000, 0xf800, RD_x },
+{"beqz",    "x,p",	0x2000, 0xf800, BR|RD_x },
 {"bge",	    "x,y,p",	0, (int) M_BGE, INSN_MACRO },
 {"bge",     "x,8,p",	0, (int) M_BGE_I, INSN_MACRO },
 {"bgeu",    "x,y,p",	0, (int) M_BGEU, INSN_MACRO },
@@ -101,10 +102,10 @@ const struct mips_opcode mips16_opcodes[] = {
 {"bltu",    "x,8,p",	0, (int) M_BLTU_I, INSN_MACRO },
 {"bne",	    "x,y,p",	0, (int) M_BNE, INSN_MACRO },
 {"bne",     "x,U,p",	0, (int) M_BNE_I, INSN_MACRO },
-{"bnez",    "x,p",	0x2800, 0xf800, RD_x },
+{"bnez",    "x,p",	0x2800, 0xf800, BR|RD_x },
 {"break",   "6",	0xe805, 0xf81f, TRAP },
-{"bteqz",   "p",	0x6000, 0xff00, RD_T },
-{"btnez",   "p",	0x6100, 0xff00, RD_T },
+{"bteqz",   "p",	0x6000, 0xff00, BR|RD_T },
+{"btnez",   "p",	0x6100, 0xff00, BR|RD_T },
 {"cmpi",    "x,U",	0x7000, 0xf800, WR_T|RD_x },
 {"cmp",	    "x,y",	0xe80a, 0xf81f, WR_T|RD_x|RD_y },
 {"cmp",     "x,U",	0x7000, 0xf800, WR_T|RD_x },

@@ -1,12 +1,12 @@
 This is Info file standards.info, produced by Makeinfo version 1.68
-from the input file ../../devo/etc/standards.texi.
+from the input file ./standards.texi.
 
 START-INFO-DIR-ENTRY
 * Standards: (standards).        GNU coding standards.
 END-INFO-DIR-ENTRY
 
-   GNU Coding Standards Copyright (C) 1992, 1993, 1994, 1995, 1996 Free
-Software Foundation, Inc.
+   GNU Coding Standards Copyright (C) 1992, 1993, 1994, 1995, 1996,
+1997, 1998 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -28,7 +28,7 @@ File: standards.info,  Node: Top,  Next: Preface,  Prev: (dir),  Up: (dir)
 Version
 *******
 
-   Last updated 16 January 1997.
+   Last updated March 13, 1998.
 
 * Menu:
 
@@ -54,14 +54,14 @@ programs written in C, but many of the rules and principles are useful
 even if you write in another programming language.  The rules often
 state reasons for writing in a certain way.
 
-   Corrections or suggestions regarding this document should be sent to
-`gnu@prep.ai.mit.edu'.  If you make a suggestion, please include a
-suggested new wording for it; our time is limited.  We prefer a context
-diff to the `standards.texi' or `make-stds.texi' files, but if you
-don't have those files, please mail your suggestion anyway.
+   Corrections or suggestions for this document should be sent to
+<gnu@gnu.org>.  If you make a suggestion, please include a suggested
+new wording for it; our time is limited.  We prefer a context diff to
+the `standards.texi' or `make-stds.texi' files, but if you don't have
+those files, please mail your suggestion anyway.
 
-   This release of the GNU Coding Standards was last updated 16 January
-1997.
+   This release of the GNU Coding Standards was last updated March 13,
+1998.
 
 
 File: standards.info,  Node: Intellectual Property,  Next: Design Advice,  Prev: Preface,  Up: Top
@@ -126,14 +126,18 @@ papers we will need to get from you.  *Each* significant contributor to
 a program must sign some sort of legal papers in order for us to have
 clear title to the program.  The main author alone is not enough.
 
-   So, before adding in any contributions from other people, tell us so
-we can arrange to get the papers.  Then wait until we tell you that we
-have received the signed papers, before you actually use the
+   So, before adding in any contributions from other people, please tell
+us, so we can arrange to get the papers.  Then wait until we tell you
+that we have received the signed papers, before you actually use the
 contribution.
 
    This applies both before you release the program and afterward.  If
 you receive diffs to fix a bug, and they make significant changes, we
-need legal papers for it.
+need legal papers for that change.
+
+   This also applies to comments and documentation files.  For copyright
+law, comments and code are just text.  Copyright applies to all kinds of
+text, so we need legal papers for all kinds.
 
    You don't need papers for changes of a few lines here or there, since
 they are not significant for copyright purposes.  Also, you don't need
@@ -149,6 +153,10 @@ that code out again!
    The very worst thing is if you forget to tell us about the other
 contributor.  We could be very embarrassed in court some day as a
 result.
+
+   We have more detailed advice for maintainers of programs; if you have
+reached the stage of actually maintaining a program for GNU (whether
+released or not), please ask us for a copy.
 
 
 File: standards.info,  Node: Design Advice,  Next: Program Behavior,  Prev: Intellectual Property,  Up: Top
@@ -198,8 +206,6 @@ completely with something totally different and better.  (For example,
 feature as well.  (There is a free `vi' clone, so we offer it.)
 
    Additional useful features not in Berkeley Unix are welcome.
-Additional programs with no counterpart in Unix may be useful, but our
-first priority is usually to duplicate what Unix already has.
 
 
 File: standards.info,  Node: Using Extensions,  Next: ANSI C,  Prev: Compatibility,  Up: Design Advice
@@ -284,13 +290,16 @@ Using Languages Other Than C
    Using a language other than C is like using a non-standard feature:
 it will cause trouble for users.  Even if GCC supports the other
 language, users may find it inconvenient to have to install the
-compiler for that other language in order to build your program.  So
-please write in C.
+compiler for that other language in order to build your program.  For
+example, if you write your program in C++, people will have to install
+the C++ compiler in order to compile your program.  Thus, it is better
+if you write in C.
 
-   There are three exceptions for this rule:
+   But there are three situations when there is no disadvantage in using
+some other language:
 
-   * It is okay to use a special language if the same program contains
-     an interpreter for that language.
+   * It is okay to use another language if your program contains an
+     interpreter for that language.
 
      For example, if your program links with GUILE, it is ok to write
      part of the program in Scheme or another language supported by
@@ -302,9 +311,13 @@ please write in C.
      This is okay because the only people who want to build the tool
      will be those who have installed the other language anyway.
 
-   * If an application is not of extremely widespread interest, then
+   * If an application is of interest to a narrow community, then
      perhaps it's not important if the application is inconvenient to
      install.
+
+   C has one other advantage over C++ and other compiled languages: more
+people know C, so more people will find it easy to read and modify the
+program if it is written in C.
 
 
 File: standards.info,  Node: Program Behavior,  Next: Writing C,  Prev: Design Advice,  Up: Top
@@ -566,10 +579,10 @@ among GNU utilities, and fewer idiosyncracies for users to remember.
      info for each library you want to mention.  Use the same format
      for these lines as for the first line.
 
-     Please don't mention all the libraries that the program uses "just
-     for completeness"--that would produce a lot of unhelpful clutter.
-     Please mention library version numbers only if you find in
-     practice that they are very important to you in debugging.
+     Please do not mention all of the libraries that the program uses
+     "just for completeness"--that would produce a lot of unhelpful
+     clutter.  Please mention library version numbers only if you find
+     in practice that they are very important to you in debugging.
 
      The following line, after the version number line or lines, should
      be a copyright notice.  If more than one copyright notice is
@@ -588,10 +601,12 @@ among GNU utilities, and fewer idiosyncracies for users to remember.
 
           GNU Emacs 19.34.5
           Copyright (C) 1996 Free Software Foundation, Inc.
-          GNU Emacs comes with NO WARRANTY, to the extent permitted by law.
+          GNU Emacs comes with NO WARRANTY,
+          to the extent permitted by law.
           You may redistribute copies of GNU Emacs
           under the terms of the GNU General Public License.
-          For more information about these matters, see the files named COPYING.
+          For more information about these matters,
+          see the files named COPYING.
 
      You should adapt this to your program, of course, filling in the
      proper year, copyright holder, name of program, and the references
@@ -624,8 +639,8 @@ Table of Long Options
    Here is a table of long options used by GNU programs.  It is surely
 incomplete, but we aim to list all the options that a new program might
 want to be compatible with.  If you use names not already in the table,
-please send `gnu@prep.ai.mit.edu' a list of them, with their meanings,
-so we can update the table.
+please send <gnu@gnu.org> a list of them, with their meanings, so we
+can update the table.
 
 `after-date'
      `-N' in `tar'.
@@ -1097,7 +1112,7 @@ so we can update the table.
 
 `machine'
      No listing of which programs already use this; someone should
-     check to see if any actually do and tell `gnu@prep.ai.mit.edu'.
+     check to see if any actually do, and tell <gnu@gnu.org>.
 
 `macro-name'
      `-M' in `ptx'.
@@ -1880,6 +1895,9 @@ sense* of the code that follows.  For example:
      #else /* not foo */
        ...
      #endif /* not foo */
+     #ifdef foo
+       ...
+     #endif /* foo */
 
 but, by contrast, write the comments this way for a `#ifndef':
 
@@ -1888,6 +1906,9 @@ but, by contrast, write the comments this way for a `#ifndef':
      #else /* foo */
        ...
      #endif /* foo */
+     #ifndef foo
+       ...
+     #endif /* not foo */
 
 
 File: standards.info,  Node: Syntactic Conventions,  Next: Names,  Prev: Comments,  Up: Writing C
@@ -2300,7 +2321,7 @@ independently:
               : gettext ("%d file processed")),
              nfiles);
 
-This can any method of forming the plural of the word for "file", and
+This can be any method of forming the plural of the word for "file", and
 also handles languages that require agreement in the word for
 "processed".
 
@@ -2805,8 +2826,8 @@ parts of the package:
      The package PACKAGE will be installed, so configure this package
      to work with PACKAGE.
 
-     Possible values of PACKAGE include `x', `x-toolkit', `gnu-as' (or
-     `gas'), `gnu-ld', `gnu-libc', and `gdb'.
+     Possible values of PACKAGE include `gnu-as' (or `gas'), `gnu-ld',
+     `gnu-libc', `gdb', `x', and `x-toolkit'.
 
      Do not use a `--with' option to specify the file name to use to
      find certain files.  That is outside the scope of what `--with'
@@ -3037,8 +3058,9 @@ need to replace them with other programs.
    Each program-name variable should come with an options variable that
 is used to supply options to the program.  Append `FLAGS' to the
 program-name variable name to get the options variable name--for
-example, `BISONFLAGS'.  (The name `CFLAGS' is an exception to this
-rule, but we keep it because it is standard.)  Use `CPPFLAGS' in any
+example, `BISONFLAGS'.  (The names `CFLAGS' for the C compiler,
+`YFLAGS' for yacc, and `LFLAGS' for lex, are exceptions to this rule,
+but we keep them because they are standard.)  Use `CPPFLAGS' in any
 compilation command that runs the preprocessor, and use `LDFLAGS' in
 any compilation command that does linking as well as in any direct use
 of `ld'.
@@ -3065,6 +3087,9 @@ value of `CFLAGS' as well.
 containing compiler options, so the user can use `CFLAGS' to override
 the others.
 
+   `CFLAGS' should be used in every invocation of the C compiler, both
+those which do compilation and those which do linking.
+
    Every Makefile should define the variable `INSTALL', which is the
 basic command for installing a file into the system.
 
@@ -3076,6 +3101,16 @@ Use these variables as follows:
 
      $(INSTALL_PROGRAM) foo $(bindir)/foo
      $(INSTALL_DATA) libfoo.a $(libdir)/libfoo.a
+
+   Optionally, you may prepend the value of `DESTDIR' to the target
+filename.  Doing this allows the installer to create a snapshot of the
+installation to be copied onto the real target filesystem later.  Do not
+set the value of `DESTDIR' in your Makefile, and do not include it in
+any installed files.  With support for `DESTDIR', the above examples
+become:
+
+     $(INSTALL_PROGRAM) foo $(DESTDIR)$(bindir)/foo
+     $(INSTALL_DATA) libfoo.a $(DESTDIR)$(libdir)/libfoo.a
 
 Always use a file name, not a directory name, as the second argument of
 the installation commands.  Use a separate command for each file to be
@@ -3104,6 +3139,9 @@ and nothing should be directly installed into these two directories.
      will be empty and `/usr' will be a symbolic link to `/'.  (If you
      are using Autoconf, write it as `@prefix@'.)
 
+     Running `make install' with a different value of `prefix' from the
+     one used to build the program should NOT recompile the program.
+
 `exec_prefix'
      A prefix used in constructing the default values of some of the
      variables listed below.  The default value of `exec_prefix' should
@@ -3114,6 +3152,10 @@ and nothing should be directly installed into these two directories.
      machine-specific files (such as executables and subroutine
      libraries), while `$(prefix)' is used directly for other
      directories.
+
+     Running `make install' with a different value of `exec_prefix'
+     from the one used to build the program should NOT recompile the
+     program.
 
    Executable programs are installed in one of the following
 directories.
@@ -3172,9 +3214,9 @@ directories:
      `/usr/local/etc', but write it as `$(prefix)/etc'.  (If you are
      using Autoconf, write it as `@sysconfdir@'.)
 
-     Do not install executables in this directory (they probably belong
-     in `$(libexecdir)' or `$(sbindir)').  Also do not install files
-     that are modified in the normal course of their use (programs
+     Do not install executables here in this directory (they probably
+     belong in `$(libexecdir)' or `$(sbindir)').  Also do not install
+     files that are modified in the normal course of their use (programs
      whose purpose is to change the configuration of the system
      excluded).  Those probably belong in `$(localstatedir)'.
 
@@ -3227,12 +3269,12 @@ directories:
      `@includedir@'.)
 
      Most compilers other than GCC do not look for header files in
-     `/usr/local/include'.  So installing the header files this way is
-     only useful with GCC.  Sometimes this is not a problem because some
-     libraries are only really intended to work with GCC.  But some
-     libraries are intended to work with other compilers.  They should
-     install their header files in two places, one specified by
-     `includedir' and one specified by `oldincludedir'.
+     directory `/usr/local/include'.  So installing the header files
+     this way is only useful with GCC.  Sometimes this is not a problem
+     because some libraries are only really intended to work with GCC.
+     But some libraries are intended to work with other compilers.
+     They should install their header files in two places, one
+     specified by `includedir' and one specified by `oldincludedir'.
 
 `oldincludedir'
      The directory for installing `#include' header files for use with
@@ -3374,12 +3416,12 @@ Makefiles:
      entry for the given Info file; it is part of the Texinfo package.
      Here is a sample rule to install an Info file:
 
-          $(infodir)/foo.info: foo.info
+          $(DESTDIR)$(infodir)/foo.info: foo.info
                   $(POST_INSTALL)
           # There may be a newer info file in . than in srcdir.
                   -if test -f foo.info; then d=.; \
                    else d=$(srcdir); fi; \
-                  $(INSTALL_DATA) $$d/foo.info $@; \
+                  $(INSTALL_DATA) $$d/foo.info $(DESTDIR)$@; \
           # Run install-info only if it exists.
           # Use `if' instead of just prepending `-' to the
           # line so we notice real errors from install-info.
@@ -3387,8 +3429,8 @@ Makefiles:
           # fail gracefully when there is an unknown command.
                   if $(SHELL) -c 'install-info --version' \
                      >/dev/null 2>&1; then \
-                    install-info --dir-file=$(infodir)/dir \
-                                 $(infodir)/foo.info; \
+                    install-info --dir-file=$(DESTDIR)$(infodir)/dir \
+                                 $(DESTDIR)$(infodir)/foo.info; \
                   else true; fi
 
      When writing the `install' target, you must classify all the
@@ -3674,9 +3716,9 @@ File: standards.info,  Node: Releases,  Prev: Makefile Conventions,  Up: Managin
 Making Releases
 ===============
 
-   Package the distribution of Foo version 69.96 in a gzipped tar file
-named `foo-69.96.tar.gz'.  It should unpack into a subdirectory named
-`foo-69.96'.
+   Package the distribution of `Foo version 69.96' up in a gzipped tar
+file with the name `foo-69.96.tar.gz'.  It should unpack into a
+subdirectory named `foo-69.96'.
 
    Building and installing the program should never modify any of the
 files contained in the distribution.  This means that all the files
@@ -3738,53 +3780,53 @@ know what other files to get.
 
 
 Tag Table:
-Node: Top989
-Node: Preface1533
-Node: Intellectual Property2575
-Node: Reading Non-Free Code2950
-Node: Contributions4682
-Node: Design Advice6280
-Node: Compatibility6797
-Node: Using Extensions8441
-Node: ANSI C9943
-Node: Source Language11179
-Node: Program Behavior12313
-Node: Semantics13022
-Node: Libraries16776
-Node: Errors18011
-Node: User Interfaces19234
-Node: Option Table25956
-Node: Memory Usage40060
-Node: Writing C41054
-Node: Formatting41893
-Node: Comments45165
-Node: Syntactic Conventions48360
-Node: Names51298
-Node: System Portability53034
-Node: CPU Portability54810
-Node: System Functions56971
-Node: Internationalization62075
-Node: Mmap65220
-Node: Documentation65925
-Node: GNU Manuals66483
-Node: Manual Structure Details70370
-Node: NEWS File71700
-Node: Change Logs72381
-Node: Change Log Concepts73098
-Node: Style of Change Logs74866
-Node: Simple Changes76420
-Node: Conditional Changes77611
-Node: Man Pages78988
-Node: Reading other Manuals80607
-Node: Managing Releases81391
-Node: Configuration82127
-Node: Makefile Conventions89067
-Node: Makefile Basics89747
-Node: Utilities in Makefiles92916
-Node: Command Variables95052
-Node: Directory Variables97888
-Node: Standard Targets108458
-Node: Install Command Categories118958
-Node: Releases123531
+Node: Top988
+Node: Preface1531
+Node: Intellectual Property2558
+Node: Reading Non-Free Code2933
+Node: Contributions4665
+Node: Design Advice6659
+Node: Compatibility7176
+Node: Using Extensions8687
+Node: ANSI C10189
+Node: Source Language11425
+Node: Program Behavior12918
+Node: Semantics13627
+Node: Libraries17381
+Node: Errors18616
+Node: User Interfaces19839
+Node: Option Table26586
+Node: Memory Usage40675
+Node: Writing C41669
+Node: Formatting42508
+Node: Comments45780
+Node: Syntactic Conventions49078
+Node: Names52016
+Node: System Portability53752
+Node: CPU Portability55528
+Node: System Functions57689
+Node: Internationalization62793
+Node: Mmap65941
+Node: Documentation66646
+Node: GNU Manuals67204
+Node: Manual Structure Details71091
+Node: NEWS File72421
+Node: Change Logs73102
+Node: Change Log Concepts73819
+Node: Style of Change Logs75587
+Node: Simple Changes77141
+Node: Conditional Changes78332
+Node: Man Pages79709
+Node: Reading other Manuals81328
+Node: Managing Releases82112
+Node: Configuration82848
+Node: Makefile Conventions89788
+Node: Makefile Basics90468
+Node: Utilities in Makefiles93637
+Node: Command Variables95773
+Node: Directory Variables99274
+Node: Standard Targets110151
+Node: Install Command Categories120691
+Node: Releases125264
 
 End Tag Table

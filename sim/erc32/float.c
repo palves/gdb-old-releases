@@ -34,6 +34,12 @@
 
 #include "sis.h"
 
+/* Forward declarations */
+
+extern uint32	_get_sw PARAMS ((void));
+extern uint32	_get_cw PARAMS ((void));
+static void	__setfpucw PARAMS ((unsigned short fpu_control));
+
 /* This host dependent routine should return the accrued exceptions */
 int
 get_accex()
@@ -55,7 +61,7 @@ get_accex()
 }
 
 /* How to clear the accrued exceptions */
-int
+void
 clear_accex()
 {
 #ifdef sparc
@@ -72,7 +78,7 @@ clear_accex()
 }
 
 /* How to map SPARC FSR onto the host */
-int
+void
 set_fsr(fsr)
 uint32 fsr;
 {
@@ -181,7 +187,7 @@ _get_cw:
 #define _FPU_DEFAULT  0x1372 
 #define _FPU_RESERVED 0xF0C0  /* Reserved bits in cw */
 
-void
+static void
 __setfpucw(unsigned short fpu_control)
 {
   volatile unsigned short cw;

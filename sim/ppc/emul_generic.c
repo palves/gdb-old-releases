@@ -282,8 +282,7 @@ emul_add_tree_options(device *tree,
   tree_parse(tree, "/openprom/options/env %s", env);
   tree_parse(tree, "/openprom/options/os-emul %s", emul);
   tree_parse(tree, "/openprom/options/strict-alignment? %s",
-	     ((WITH_ALIGNMENT == 0 && little_endian)
-	      || (WITH_ALIGNMENT == STRICT_ALIGNMENT))
+	     (WITH_ALIGNMENT == STRICT_ALIGNMENT)
 	     ? "true" : "false");
   tree_parse(tree, "/openprom/options/floating-point? %s",
 	     WITH_FLOATING_POINT ? "true" : "false");

@@ -1,5 +1,5 @@
 /* BFD back-end for Hitachi Super-H COFF binaries.
-   Copyright 1993, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1993, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
    Written by Steve Chamberlain, <sac@cygnus.com>.
    Relaxing code written by Ian Lance Taylor, <ian@cygnus.com>.
@@ -971,11 +971,12 @@ sh_relax_delete_bytes (abfd, sec, addr, count)
   /* Adjust all the relocs.  */
   for (irel = coff_section_data (abfd, sec)->relocs; irel < irelend; irel++)
     {
-      bfd_vma nraddr, start, stop;
+      bfd_vma nraddr, stop;
+      bfd_vma start = 0;
       int insn = 0;
       struct internal_syment sym;
       int off, adjust, oinsn;
-      bfd_signed_vma voff;
+      bfd_signed_vma voff = 0;
       boolean overflow;
 
       /* Get the new reloc address.  */
@@ -1038,7 +1039,7 @@ sh_relax_delete_bytes (abfd, sec, addr, count)
 
 	      val = bfd_get_32 (abfd, contents + nraddr);
 	      val += sym.n_value;
-	      if (val >= addr && val < toaddr)
+	      if (val > addr && val < toaddr)
 		bfd_put_32 (abfd, val - count, contents + nraddr);
 	    }
 	  start = stop = addr;
@@ -1274,7 +1275,7 @@ sh_relax_delete_bytes (abfd, sec, addr, count)
 
 	      val = bfd_get_32 (abfd, ocontents + irelscan->r_vaddr - o->vma);
 	      val += sym.n_value;
-	      if (val >= addr && val < toaddr)
+	      if (val > addr && val < toaddr)
 		bfd_put_32 (abfd, val - count,
 			    ocontents + irelscan->r_vaddr - o->vma);
 
@@ -1921,11 +1922,20 @@ sh_insn_uses_freg (insn, op, freg)
 
   f = op->flags;
 
+  /* We can't tell if this is a double-precision insn, so just play safe
+     and assume that it might be.  So not only have we test FREG against
+     itself, but also even FREG against FREG+1 - if the using insn uses
+     just the low part of a double precision value - but also an odd
+     FREG against FREG-1 -  if the setting insn sets just the low part
+     of a double precision value.
+     So what this all boils down to is that we have to ignore the lowest
+     bit of the register number.  */
+     
   if ((f & USESF1) != 0
-      && ((insn & 0x0f00) >> 8) == freg)
+      && ((insn & 0x0e00) >> 8) == (freg & 0xe))
     return true;
   if ((f & USESF2) != 0
-      && ((insn & 0x00f0) >> 4) == freg)
+      && ((insn & 0x00e0) >> 4) == (freg & 0xe))
     return true;
   if ((f & USESF0) != 0
       && freg == 0)
@@ -1950,6 +1960,12 @@ sh_insns_conflict (i1, op1, i2, op2)
 
   f1 = op1->flags;
   f2 = op2->flags;
+
+  /* Load of fpscr conflicts with floating point operations.
+     FIXME: shouldn't test raw opcodes here.  */
+  if (((i1 & 0xf0ff) == 0x4066 && (i2 & 0xf000) == 0xf000)
+      || ((i2 & 0xf0ff) == 0x4066 && (i1 & 0xf000) == 0xf000))
+    return true;
 
   if ((f1 & (BRANCH | DELAY)) != 0
       || (f2 & (BRANCH | DELAY)) != 0)
@@ -2460,7 +2476,8 @@ sh_relocate_section (output_bfd, info, input_bfd, input_section, contents,
 	}
       else
 	{    
-	  if (symndx < 0 || symndx >= obj_raw_syment_count (input_bfd))
+	  if (symndx < 0
+	      || (unsigned long) symndx >= obj_raw_syment_count (input_bfd))
 	    {
 	      (*_bfd_error_handler)
 		("%s: illegal symbol index %ld in relocs",

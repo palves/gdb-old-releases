@@ -161,7 +161,7 @@ chill_val_print_array_elements (type, valaddr, address, stream,
 	  chill_print_type_scalar (index_type, low_bound + i + reps - 1,
 				   stream);
 	  fputs_filtered ("): ", stream);
-	  val_print (elttype, valaddr + i * eltlen, 0, stream, format,
+	  val_print (elttype, valaddr + i * eltlen, 0, 0, stream, format,
 		     deref_ref, recurse + 1, pretty);
 
 	  i = rep1 - 1;
@@ -170,7 +170,7 @@ chill_val_print_array_elements (type, valaddr, address, stream,
       else
 	{
 	  fputs_filtered ("): ", stream);
-	  val_print (elttype, valaddr + i * eltlen, 0, stream, format,
+	  val_print (elttype, valaddr + i * eltlen, 0, 0, stream, format,
 		     deref_ref, recurse + 1, pretty);
 	  annotate_elt ();
 	  things_printed++;
@@ -197,10 +197,11 @@ chill_val_print_array_elements (type, valaddr, address, stream,
    The PRETTY parameter controls prettyprinting.  */
 
 int
-chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
-		 pretty)
+chill_val_print (type, valaddr, embedded_offset, address,
+                 stream, format, deref_ref, recurse, pretty)
      struct type *type;
      char *valaddr;
+     int embedded_offset;
      CORE_ADDR address;
      GDB_FILE *stream;
      int format;
@@ -329,9 +330,8 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	  && /* If print_max is UINT_MAX, the alloca below will fail.
 		In that case don't try to print the string.  */
 	  print_max < UINT_MAX)
-	  {
-	    i = val_print_string (addr, 0, stream);
-	  }
+	i = val_print_string (addr, -1, TYPE_LENGTH (elttype), stream);
+
       /* Return number of characters printed, plus one for the
 	 terminating null if we have "reached the end".  */
       return (i + (print_max && i != print_max));
@@ -339,7 +339,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 
     case TYPE_CODE_STRING:
       i = TYPE_LENGTH (type);
-      LA_PRINT_STRING (stream, valaddr, i, 0);
+      LA_PRINT_STRING (stream, valaddr, i, 1, 0);
       /* Return number of characters printed, plus one for the terminating
 	 null if we have "reached the end".  */
       return (i + (print_max && i != print_max));
@@ -432,7 +432,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 		     segfault.  */
 		  return length;
 		}
-	      LA_PRINT_STRING (stream, data_addr, length, 0);
+	      LA_PRINT_STRING (stream, data_addr, length, 1, 0);
 	      return length;
 	    default:
 	      break;
@@ -467,6 +467,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 		   NULL);
 	      val_print (VALUE_TYPE (deref_val),
 			 VALUE_CONTENTS (deref_val),
+                         0,
 			 VALUE_ADDRESS (deref_val), stream, format,
 			 deref_ref, recurse + 1, pretty);
 	    }
@@ -476,13 +477,13 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       break;
 
     case TYPE_CODE_ENUM:
-      c_val_print (type, valaddr, address, stream, format,
+      c_val_print (type, valaddr, 0, address, stream, format,
 		   deref_ref, recurse, pretty);
       break;
 
     case TYPE_CODE_RANGE:
       if (TYPE_TARGET_TYPE (type))
-	chill_val_print (TYPE_TARGET_TYPE (type), valaddr, address, stream,
+	chill_val_print (TYPE_TARGET_TYPE (type), valaddr, 0, address, stream,
 			 format, deref_ref, recurse, pretty);
       break;
 
@@ -494,7 +495,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
     default:
       /* Let's defer printing to the C printer, rather than
 	 print an error message.  FIXME! */
-      c_val_print (type, valaddr, address, stream, format,
+      c_val_print (type, valaddr, 0, address, stream, format,
 		   deref_ref, recurse, pretty);
     }
   gdb_flush (stream);
@@ -563,13 +564,13 @@ chill_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 	      v = value_from_longest (TYPE_FIELD_TYPE (type, i),
 				      unpack_field_as_long (type, valaddr, i));
 
-	      chill_val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v), 0,
+	      chill_val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v), 0, 0,
 			       stream, format, 0, recurse + 1, pretty);
 	    }
 	  else
 	    {
 	      chill_val_print (TYPE_FIELD_TYPE (type, i), 
-			       valaddr + TYPE_FIELD_BITPOS (type, i) / 8,
+			       valaddr + TYPE_FIELD_BITPOS (type, i) / 8, 0,
 			       0, stream, format, 0, recurse + 1, pretty);
 	    }
 	}
@@ -616,13 +617,13 @@ chill_value_print (val, stream, format, pretty)
 	      fprintf_filtered (stream, ")");
 	    }
 	  fprintf_filtered (stream, "(");
-	  i = val_print (type, valaddr, VALUE_ADDRESS (val),
+	  i = val_print (type, valaddr, 0, VALUE_ADDRESS (val),
 			 stream, format, 1, 0, pretty);
 	  fprintf_filtered (stream, ")");
 	  return i;
 	}
     }
-  return (val_print (type, VALUE_CONTENTS (val),
+  return (val_print (type, VALUE_CONTENTS (val), 0,
 		     VALUE_ADDRESS (val), stream, format, 1, 0, pretty));
 }
 

@@ -30,6 +30,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 #include <sys/user.h>
 
+/* Prototypes for local functions. */
+
 static void fetch_osf_core_registers PARAMS ((char *,
 					      unsigned, int, CORE_ADDR));
 static void fetch_elf_core_registers PARAMS ((char *,
@@ -131,7 +133,7 @@ fetch_osf_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
     }
   if (bad_reg >= 0)
     {
-      error ("Register %s not found in core file.", reg_names[bad_reg]);
+      error ("Register %s not found in core file.", REGISTER_NAME (bad_reg));
     }
 }
 

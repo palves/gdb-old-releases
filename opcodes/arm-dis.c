@@ -1,5 +1,5 @@
 /* Instruction printing code for the ARM
-   Copyright (C) 1994, 95, 96, 1997 Free Software Foundation, Inc. 
+   Copyright (C) 1994, 95, 96, 97, 1998 Free Software Foundation, Inc. 
    Contributed by Richard Earnshaw (rwe@pegasus.esprit.ec.org)
    Modification by James G. Smith (jsmith@cygnus.co.uk)
 
@@ -24,6 +24,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "arm-opc.h"
 #include "coff/internal.h"
 #include "libcoff.h"
+#include "opintl.h"
+
+/* FIXME: This shouldn't be done here */
+#include "elf-bfd.h"
+#include "elf/internal.h"
+#include "elf/arm.h"
 
 static char *arm_conditional[] =
 {"eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc",
@@ -81,15 +87,16 @@ print_insn_arm (pc, info, given)
      struct disassemble_info *info;
      long given;
 {
-  struct arm_opcode *insn;
-  void *stream = info->stream;
-  fprintf_ftype func = info->fprintf_func;
+  struct arm_opcode *  insn;
+  void *               stream = info->stream;
+  fprintf_ftype        func   = info->fprintf_func;
 
   for (insn = arm_opcodes; insn->assembler; insn++)
     {
       if ((given & insn->mask) == insn->value)
 	{
-	  char *c;
+	  char * c;
+	  
 	  for (c = insn->assembler; *c; c++)
 	    {
 	      if (*c == '%')
@@ -105,10 +112,35 @@ print_insn_arm (pc, info, given)
 			  && ((given & 0x02000000) == 0))
 			{
 			  int offset = given & 0xfff;
-			  if ((given & 0x00800000) == 0)
-			    offset = -offset;
-			  (*info->print_address_func)
-			    (offset + pc + 8, info);
+			  
+			  func (stream, "[pc");
+ 
+			  if (given & 0x01000000)
+			    {
+			      if ((given & 0x00800000) == 0)
+				offset = - offset;
+			  
+			      /* pre-indexed */
+			      func (stream, ", #%x]", offset);
+
+			      offset += pc + 8;
+
+			      /* Cope with the possibility of write-back being used.
+				 Probably a very dangerous thing for the programmer
+				 to do, but who are we to argue ?  */
+			      if (given & 0x00200000)
+				func (stream, "!");
+			    }
+			  else
+			    {
+			      /* post indexed */
+			      func (stream, "], #%x", offset);
+
+			      offset = pc + 8;  /* ie ignore the offset */
+			    }
+			  
+			  func (stream, "\t; ");
+			  info->print_address_func (offset, info);
 			}
 		      else
 			{
@@ -308,8 +340,11 @@ print_insn_arm (pc, info, given)
 		    case 'C':
 		      switch (given & 0x00090000)
 			{
-			case 0:
+			default:
 			  func (stream, "_???");
+			  break;
+			case 0x90000:
+			  func (stream, "_all");
 			  break;
 			case 0x10000:
 			  func (stream, "_ctl");
@@ -350,7 +385,7 @@ print_insn_arm (pc, info, given)
 			  func (stream, "e");
 			  break;
 			default:
-			  func (stream, "<illegal precision>");
+			  func (stream, _("<illegal precision>"));
 			  break;
 			}
 		      break;
@@ -639,7 +674,11 @@ print_insn_thumb (pc, info, given)
                                       break;
 
                                     case 'a':
-                                      info->print_address_func (((pc + 4) & ~1) + (reg << 2), info);
+				      /* PC-relative address -- the bottom two
+					 bits of the address are dropped before
+					 the calculation.  */
+                                      info->print_address_func
+					(((pc + 4) & ~3) + (reg << 2), info);
                                       break;
 
                                     case 'x':
@@ -709,17 +748,30 @@ print_insn_big_arm (pc, info)
   unsigned char      b[4];
   long               given;
   int                status;
-  asymbol *          saved_symbol;
-  coff_symbol_type * cs;
+  coff_symbol_type   *cs;
+  elf_symbol_type    *es;
   int                is_thumb;
   
-  cs = coffsymbol (info->symbol);
-  is_thumb = (cs != NULL) &&
-     (   cs->native->u.syment.n_sclass == C_THUMBEXT
-      || cs->native->u.syment.n_sclass == C_THUMBSTAT
-      || cs->native->u.syment.n_sclass == C_THUMBLABEL
-      || cs->native->u.syment.n_sclass == C_THUMBEXTFUNC
-      || cs->native->u.syment.n_sclass == C_THUMBSTATFUNC);
+  is_thumb = false;
+  if (info->symbols != NULL)
+    {
+    if (bfd_asymbol_flavour (*info->symbols) == bfd_target_coff_flavour)
+     {
+       cs = coffsymbol (*info->symbols);
+       is_thumb = (cs->native->u.syment.n_sclass == C_THUMBEXT
+                   || cs->native->u.syment.n_sclass == C_THUMBSTAT
+                   || cs->native->u.syment.n_sclass == C_THUMBLABEL
+                   || cs->native->u.syment.n_sclass == C_THUMBEXTFUNC
+                   || cs->native->u.syment.n_sclass == C_THUMBSTATFUNC);
+  
+     }
+    else if (bfd_asymbol_flavour (*info->symbols) == bfd_target_elf_flavour)
+     {
+       es = *(elf_symbol_type **)(info->symbols);
+       is_thumb = ELF_ST_TYPE (es->internal_elf_sym.st_info) ==
+	 STT_ARM_TFUNC;
+      }
+   }
 
   info->bytes_per_chunk = 4;
   info->display_endian = BFD_ENDIAN_BIG;
@@ -767,8 +819,6 @@ print_insn_big_arm (pc, info)
       status = print_insn_arm (pc, info, given);
     }
 
-  info->symbol = saved_symbol; /* Stop displayed symbols from resetting the stored symbol */
-  
   return status;
 }
 
@@ -780,17 +830,30 @@ print_insn_little_arm (pc, info)
   unsigned char      b[4];
   long               given;
   int                status;
-  asymbol *          saved_symbol;
-  coff_symbol_type * cs;
+  coff_symbol_type   *cs;
+  elf_symbol_type    *es;
   int                is_thumb;
+
+  is_thumb = false;
+  if (info->symbols != NULL)
+    {
+    if (bfd_asymbol_flavour (*info->symbols) == bfd_target_coff_flavour)
+     {
+       cs = coffsymbol (*info->symbols);
+       is_thumb = (cs->native->u.syment.n_sclass == C_THUMBEXT
+                   || cs->native->u.syment.n_sclass == C_THUMBSTAT
+                   || cs->native->u.syment.n_sclass == C_THUMBLABEL
+                   || cs->native->u.syment.n_sclass == C_THUMBEXTFUNC
+                   || cs->native->u.syment.n_sclass == C_THUMBSTATFUNC);
   
-  cs = coffsymbol (info->symbol);
-  is_thumb = (cs != NULL) && 
-     (   cs->native->u.syment.n_sclass == C_THUMBEXT
-      || cs->native->u.syment.n_sclass == C_THUMBSTAT
-      || cs->native->u.syment.n_sclass == C_THUMBLABEL
-      || cs->native->u.syment.n_sclass == C_THUMBEXTFUNC
-      || cs->native->u.syment.n_sclass == C_THUMBSTATFUNC);
+     }
+    else if (bfd_asymbol_flavour (*info->symbols) == bfd_target_elf_flavour)
+     {
+       es = *(elf_symbol_type **)(info->symbols);
+       is_thumb = ELF_ST_TYPE (es->internal_elf_sym.st_info) ==
+	 STT_ARM_TFUNC;
+      }
+   }
 
   info->bytes_per_chunk = 4;
   info->display_endian = BFD_ENDIAN_LITTLE;
@@ -811,8 +874,6 @@ print_insn_little_arm (pc, info)
 
   given = (b[0]) | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
 
-  saved_symbol = info->symbol;
-  
   if (is_thumb)
     {
       status = print_insn_thumb (pc, info, given);
@@ -821,8 +882,6 @@ print_insn_little_arm (pc, info)
     {
       status = print_insn_arm (pc, info, given);
     }
-
-  info->symbol = saved_symbol; /* Stop displayed symbols from resetting the stored symbol */
 
   return status;
 }

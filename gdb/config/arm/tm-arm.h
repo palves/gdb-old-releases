@@ -77,21 +77,12 @@ extern CORE_ADDR arm_saved_pc_after_call PARAMS ((struct frame_info *));
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
-
-/* Sequence of bytes for breakpoint instruction.  */
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 /* !!!! if we're using RDP, then we're inserting breakpoints and storing
    their handles instread of what was in memory.  It is nice that
    this is the same size as a handle - otherwise remote-rdp will
    have to change. */
-
-#define ARM_BREAKPOINT {0x00,0x00,0x18,0xef} /* BKPT_SWI from <sys/ptrace.h> */
-#define THUMB_BREAKPOINT {0x18,0xdf}	/* swi 24 */
-
-/* The following macro has been superseded by BREAKPOINT_FOR_PC, but
-   is defined merely to keep mem-break.c happy.  */
-#define BREAKPOINT ARM_BREAKPOINT
 
 /* BREAKPOINT_FROM_PC uses the program counter value to determine whether a
    16- or 32-bit breakpoint should be used.  It returns a pointer
@@ -100,7 +91,7 @@ extern CORE_ADDR arm_saved_pc_after_call PARAMS ((struct frame_info *));
    point to the actual memory location where the breakpoint should be
    inserted.  */
 
-unsigned char * arm_breakpoint_from_pc PARAMS ((CORE_ADDR * pcptr, int * lenptr));
+extern breakpoint_from_pc_fn arm_breakpoint_from_pc;
 #define BREAKPOINT_FROM_PC(pcptr, lenptr) arm_breakpoint_from_pc (pcptr, lenptr)
 
 /* Amount PC must be decremented by after a breakpoint.
@@ -108,12 +99,6 @@ unsigned char * arm_breakpoint_from_pc PARAMS ((CORE_ADDR * pcptr, int * lenptr)
    but not always.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction.  */
-
-#define ABOUT_TO_RETURN(pc) \
-      ((read_memory_integer(pc, 4) & 0x0fffffff == 0x01b0f00e) || \
-       (read_memory_integer(pc, 4) & 0x0ffff800 == 0x09eba800))
 
 /* code to execute to print interesting information about the
  * floating point processor (if any)
@@ -134,35 +119,10 @@ unsigned char * arm_breakpoint_from_pc PARAMS ((CORE_ADDR * pcptr, int * lenptr)
 
 #define NUM_REGS 26
 
-/* Initializer for an array of names of registers.
-   There should be NUM_REGS strings in this initializer.  */
+/* An array of names of registers. */
 
-#define ORIGINAL_REGISTER_NAMES \
-{ "a1", "a2", "a3", "a4", /*  0  1  2  3 */ \
-  "v1", "v2", "v3", "v4", /*  4  5  6  7 */ \
-  "v5", "v6", "sl", "fp", /*  8  9 10 11 */ \
-  "ip", "sp", "lr", "pc", /* 12 13 14 15 */ \
-  "f0", "f1", "f2", "f3", /* 16 17 18 19 */ \
-  "f4", "f5", "f6", "f7", /* 20 21 22 23 */ \
-  "fps","ps" }            /* 24 25       */
-
-/* These names are the ones which gcc emits, and 
-   I find them less confusing.  Toggle between them
-   using the `othernames' command. */
-
-#define ADDITIONAL_REGISTER_NAMES \
-{ "r0", "r1", "r2", "r3", /*  0  1  2  3 */ \
-  "r4", "r5", "r6", "r7", /*  4  5  6  7 */ \
-  "r8", "r9", "sl", "fp", /*  8  9 10 11 */ \
-  "ip", "sp", "lr", "pc", /* 12 13 14 15 */ \
-  "f0", "f1", "f2", "f3", /* 16 17 18 19 */ \
-  "f4", "f5", "f6", "f7", /* 20 21 22 23 */ \
-  "fps","ps" }            /* 24 25       */
-
-#define REGISTER_NAMES ADDITIONAL_REGISTER_NAMES
-#ifndef REGISTER_NAMES
-#define REGISTER_NAMES ORIGINAL_REGISTER_NAMES
-#endif
+extern char **arm_register_names;
+#define REGISTER_NAME(i) arm_register_names[i]
 
 /* Register numbers of various important registers.
    Note that some of these values are "real" register numbers,
@@ -274,8 +234,8 @@ unsigned char * arm_breakpoint_from_pc PARAMS ((CORE_ADDR * pcptr, int * lenptr)
  (((unsigned)(N) - F0_REGNUM) < 8 ? builtin_type_double : builtin_type_int)
 
 /* The system C compiler uses a similar structure return convention to gcc */
-
-#define USE_STRUCT_CONVENTION(gcc_p, type) (TYPE_LENGTH (type) > 4)
+extern use_struct_convention_fn arm_use_struct_convention;
+#define USE_STRUCT_CONVENTION(gcc_p, type) arm_use_struct_convention (gcc_p, type)
 
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function. */
@@ -347,10 +307,8 @@ CORE_ADDR arm_target_read_fp PARAMS ((void));
 #define FRAME_CHAIN(thisframe) (CORE_ADDR) arm_frame_chain (thisframe)
 extern CORE_ADDR arm_frame_chain PARAMS ((struct frame_info *));
 
-#define LOWEST_PC 0x20  /* the first 0x20 bytes are the trap vectors. */
-
-#define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && (FRAME_SAVED_PC (thisframe) >= LOWEST_PC))
+extern int arm_frame_chain_valid PARAMS ((CORE_ADDR, struct frame_info *));
+#define FRAME_CHAIN_VALID(chain, thisframe) arm_frame_chain_valid (chain, thisframe)
 
 /* Define other aspects of the stack frame.  */
 
@@ -423,11 +381,11 @@ void arm_pop_frame PARAMS ((void));
 
      mov 	lr,pc
      mov	pc,r4
-     swi	bkpt_swi
+     illegal
 
    Note this is 12 bytes.  */
 
-#define CALL_DUMMY {0xe1a0e00f, 0xe1a0f004, 0xef180000}
+#define CALL_DUMMY {0xe1a0e00f, 0xe1a0f004, 0xE7FFDEFE}
 
 #define CALL_DUMMY_START_OFFSET 0  /* Start execution at beginning of dummy */
 
@@ -458,3 +416,38 @@ extern int arm_pc_is_thumb PARAMS ((bfd_vma memaddr));
 /* Function to determine whether MEMADDR is in a call dummy called from
    a Thumb function.  */
 extern int arm_pc_is_thumb_dummy PARAMS ((bfd_vma memaddr));
+
+/* Macros for setting and testing a bit in a minimal symbol that
+   marks it as Thumb function.  The MSB of the minimal symbol's
+   "info" field is used for this purpose. This field is already
+   being used to store the symbol size, so the assumption is
+   that the symbol size cannot exceed 2^31.
+ 
+   COFF_MAKE_MSYMBOL_SPECIAL
+   ELF_MAKE_MSYMBOL_SPECIAL	tests whether the COFF or ELF symbol corresponds 
+                        to a thumb function, and sets a "special" bit in a
+                        minimal symbol to indicate that it does
+   MSYMBOL_SET_SPECIAL	actually sets the "special" bit
+   MSYMBOL_IS_SPECIAL   tests the "special" bit in a minimal symbol
+   MSYMBOL_SIZE         returns the size of the minimal symbol, i.e.
+                        the "info" field with the "special" bit masked out
+*/
+ 
+extern int coff_sym_is_thumb(int val);
+#define MSYMBOL_SET_SPECIAL(msym) \
+    MSYMBOL_INFO (msym) = (char *) (((long) MSYMBOL_INFO (msym)) | 0x80000000)
+#define MSYMBOL_IS_SPECIAL(msym) \
+  (((long) MSYMBOL_INFO (msym) & 0x80000000) != 0)
+#define MSYMBOL_SIZE(msym) \
+  ((long) MSYMBOL_INFO (msym) & 0x7fffffff)
+
+/* Thumb symbol are of type STT_LOPROC, (synonymous with STT_ARM_TFUNC) */
+#define ELF_MAKE_MSYMBOL_SPECIAL(sym,msym) \
+ { if(ELF_ST_TYPE(((elf_symbol_type *)(sym))->internal_elf_sym.st_info) == STT_LOPROC) \
+	MSYMBOL_SET_SPECIAL(msym); }
+  
+#define COFF_MAKE_MSYMBOL_SPECIAL(val,msym) \
+ { if(coff_sym_is_thumb(val)) MSYMBOL_SET_SPECIAL(msym); }
+
+#undef  IN_SIGTRAMP
+#define IN_SIGTRAMP(pc, name) 0

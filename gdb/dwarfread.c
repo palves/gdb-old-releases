@@ -1,5 +1,5 @@
 /* DWARF debugging format support for GDB.
-   Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996
+   Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1998
    Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.  Portions based on dbxread.c,
    mipsread.c, coffread.c, and dwarfread.c from a Data General SVR4 gdb port.
@@ -1503,10 +1503,8 @@ read_tag_pointer_type (dip)
       TYPE_POINTER_TYPE (type) = utype;
 
       /* We assume the machine has only one representation for pointers!  */
-      /* FIXME:  This confuses host<->target data representations, and is a
-	 poor assumption besides. */
-      
-      TYPE_LENGTH (utype) = sizeof (char *);
+      /* FIXME:  Possably a poor assumption  */
+      TYPE_LENGTH (utype) = TARGET_PTR_BIT / TARGET_CHAR_BIT ;
       TYPE_CODE (utype) = TYPE_CODE_PTR;
     }
 }
@@ -1904,10 +1902,17 @@ handle_producer (producer)
   /* If this compilation unit was compiled with g++ or gcc, then set the
      processing_gcc_compilation flag. */
 
-  processing_gcc_compilation =
-    STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER))
-      || STREQN (producer, CHILL_PRODUCER, strlen (CHILL_PRODUCER))
-      || STREQN (producer, GCC_PRODUCER, strlen (GCC_PRODUCER));
+  if (STREQN (producer, GCC_PRODUCER, strlen (GCC_PRODUCER)))
+    {
+      char version = producer[strlen (GCC_PRODUCER)];
+      processing_gcc_compilation = (version == '2' ? 2 : 1);
+    }
+  else
+    {
+      processing_gcc_compilation =
+	STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER))
+	|| STREQN (producer, CHILL_PRODUCER, strlen (CHILL_PRODUCER));
+    }
 
   /* Select a demangling style if we can identify the producer and if
      the current style is auto.  We leave the current style alone if it
@@ -2447,7 +2452,8 @@ psymtab_to_symtab_1 (pst)
 	  if (DBLENGTH (pst))		/* Otherwise it's a dummy */
 	    {
 	      buildsym_init ();
-	      old_chain = make_cleanup (really_free_pendings, 0);
+	      old_chain = make_cleanup ((make_cleanup_func) 
+                                        really_free_pendings, 0);
 	      read_ofile_symtab (pst);
 	      if (info_verbose)
 		{

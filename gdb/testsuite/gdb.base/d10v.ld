@@ -8,16 +8,16 @@ ENTRY(_start)
 SECTIONS
 {
   /* Overlay sections: */
-  .ovly0  0x1001000 : AT (0x8000) { foo.o(.text)  }
-  .ovly1  0x1001000 : AT (0x9000) { bar.o(.text)  }
-  .ovly2  0x1002000 : AT (0xa000) { baz.o(.text)  }
-  .ovly3  0x1002000 : AT (0xb000) { grbx.o(.text) }
-  .data00 0x2001000 : AT (0xc000) { foo.o(.data)  }
-  .data01 0x2001000 : AT (0xd000) { bar.o(.data)  }
-  .data02 0x2002000 : AT (0xe000) { baz.o(.data)  }
-  .data03 0x2002000 : AT (0xf000) { grbx.o(.data) }
-  /* Read-only sections, merged into text segment: */
-  . = 0x2000004;
+  .ovly0  0x01010000 : AT (0x12010000) { foo.o(.text)  }
+  .ovly1  0x01010000 : AT (0x12011000) { bar.o(.text)  }
+  .ovly2  0x01011000 : AT (0x12012000) { baz.o(.text)  }
+  .ovly3  0x01011000 : AT (0x12013000) { grbx.o(.text) }
+  .data00 0x00001000 : AT (0x12014000) { foo.o(.data)  }
+  .data01 0x00001000 : AT (0x12015000) { bar.o(.data)  }
+  .data02 0x00002000 : AT (0x12016000) { baz.o(.data)  }
+  .data03 0x00002000 : AT (0x12017000) { grbx.o(.data) }
+  /* Read-only sections, merged into data segment: */
+  . = 0x00000004;
   .interp     : { *(.interp) 	}
   .hash          : { *(.hash)		}
   .dynsym        : { *(.dynsym)		}
@@ -140,7 +140,7 @@ SECTIONS
   /* These must appear regardless of  .  */
   /* Hmmm, there's got to be a better way.  This sets the stack to the
      top of the simulator memory (i.e. top of 64K data space). */
-  .stack 0x2007FFE : { _stack = .; *(.stack) }
+  .stack 0x00007FFE : { _stack = .; *(.stack) }
   .text    0x1000000 :
   {
     *(.init)

@@ -1,7 +1,650 @@
-Thu Apr 23 12:58:02 1998  Jason Molenda  (crash@bugshack.cygnus.com)
+1999-03-23  Stan Shebs  <shebs@andros.cygnus.com>
 
-	* gdb.c++/virtfunc.cc: Declare extern "C" printf to return type
-	int, to match ISO C definition.
+	* gdb.c++/overload.cc: Pass string instead of char addr, always
+	init ccpfoo.
+	* gdb.c++/templates.cc: Fix syntax error.
+
+1999-03-09  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	* gdb.base/call-ar-st.c (main): Terminate char_array with a null
+ 	character, so GDB won't print garbage after its end.
+	
+	* gdb.base/call-ar-st.exp: Don't step into sum_array_print; set a
+	breakpoint there instead.  Sometimes GCC emits memcpy to handle
+	the large structures being passed by value, so we step into that
+	instead of sum_array_print, which obscures what we're really testing.
+	* gdb.base/step-test.exp: However, we do want a test that notices
+ 	the bizarre steps into memcpy, so do that here.  Add check for
+ 	stepping into function calls that pass large structures by value.
+  	("Is that a noun clause, or are you just happy to see me?")
+	Remove all references to specific line numbers.
+	* gdb.base/step-test.c (struct rhomboidal, large_struct_by_value):
+	New type and function.
+	(main): Call large_struct_by_value, passing it a large struct by value.
+	* lib/gdb.exp (gdb_get_line_number): New function.
+
+	* gdb.base/step-test.exp: Rewrite `stepi' and `nexti' tests to be
+	more portable.
+
+	* lib/gdb.exp: Doc fixes.
+
+	* gdb.base/display.exp: Don't exercise the "detach" and "kill"
+ 	commands.  They're not germane to this test, and they don't work
+ 	that way on remote targets.
+
+1999-02-25  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* gdb.base/call-ar-st.c: Include string.h, not strings.h.
+	* gdb.base/call-rt-st.c: Ditto.
+
+1999-02-23  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	* configure.in: Formatting fix.
+	* configure: Regenerated.
+
+1999-02-13  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	* gdb.threads/pthreads.exp (horiz): New variable.
+	(test_startup): Fix regexps that capture thread numbers.
+
+1999-02-10  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* gdb.base/smoke.exp: Disambiguate two test case names (both
+	called ``print'').
+
+Fri Feb  5 12:42:56 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.base/volatile.exp: Use gdb_test, add xfails for GCC
+ 	compilation.
+
+1999-02-04  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* gdb.base/miscexprs.exp: Change patterns to match GDB's
+	actual output formatting.
+	* gdb.base/smoke.exp: GDB removes leading 0's.
+	* gdb.base/volatile.exp: Don't check type of remuneration;
+	that variable is no longer defined in constvars.c.
+	* gdb.base/step-test.c (main): Exit with explicit exit code.
+	* gdb.base/step-test.exp: Remove two nexti checks--they are
+	not portable.
+
+1999-02-04  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* gdb.base/help.exp ("help delete display"): Fix test to match
+	gdb's output.
+
+	* gdb.base/long_long.c (known_types): Initialize values to zero.
+	* gdb.base/long_long.exp: Step one more line
+	so 'dec' is initialized in "get to known place".  GDB removes
+        leading zeros.  Explicitly ask for hex formatting.  Use 
+        unique test case names.
+
+Tue Feb  2 10:16:08 1999  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* lib/gdb.exp (gdb_preprocess): Remove 'puts' statement. 
+
+	* gdb.c++/method.exp: Add missing close brace.
+
+1999-01-30  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	* gdb.base/maint.exp: Use 'set height 0' to disable page
+	prompting, not 'set height 400'.
+
+	Fix a bunch of timeouts.
+	* gdb.base/maint.exp ("maint print objfiles"): Break this up into
+	four separate tests, so expect doesn't take forever to match a ton
+	of text against a regexp with lots of .* forms.
+	("maint print psymbols", "maint print symbols"): Make some of
+	these greps more selective, so that expect doesn't try to wade
+	through huge piles of output and time out.
+
+	* gdb.base/maint.exp ("maint print msymbols"): Fix pattern.
+
+	* gdb.base/maint.exp ("maint info breakpoints"): Split into two
+ 	tests: one which doesn't expect shlib events to be reported, and
+ 	another which does, but is XFAIL for all platforms other than
+ 	HP/UX.
+
+	* gdb.base/break.exp: Teach the test suite that the `catch
+	fork', `catch vfork', and `catch exec' commands produce error
+	messages on platforms that don't provide these features.
+
+Mon Jan 25 18:35:56 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.hp/gen-so-thresh.c, so-thresh.sh, so-thresh.exp,
+ 	so-thresh.linkopts, so-thresh.mk: Move to gdb.hp from gdb.base
+ 	(shortening names from solib_threshold.exp etc), won't run on
+ 	anything but HP-UX for the foreseeable future.
+	* gdb.hp/Makefile.in, gdb.base/Makefile.in (clean): Adjust to
+ 	reflect move.
+
+Thu Jan 21 15:46:49 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.base/Makefile.in, gdb.c++/Makefile.in,
+ 	gdb.trace/Makefile.in (clean): Remove all test executables.
+
+Tue Jan 19 17:20:09 1999  David Taylor  <taylor@texas.cygnus.com>
+
+	* gdb.base/shlib-call.exp: add test cases to verify that gdb
+	successfully re-sets breakpoints in shared libraries.
+	* gdb.base/shmain.c (main): return 0, don't fall off the end.
+
+Fri Jan 15 14:04:57 1999  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* gdb.hp/xdb3.exp: do not execute unless on hppa-hpux platform 
+	and compiled w/o GCC. 
+
+	* gdb.hp/watch-cmd.exp: ditto.
+
+	* gdb.hp/watch-hp.exp: ditto.
+
+	* gdb.hp/xdb1.exp: ditto.
+
+	* gdb.hp/xdb2.exp: ditto.
+
+	* gdb.hp/dbx.exp: ditto.
+
+Thu Jan 14 18:36:48 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* constvars.c: Remove C++-isms.
+	* constvars.exp: Use gdb_test everywhere, add xfails if compiled
+ 	with GCC.
+
+Mon Jan 11 10:08:03 1999  David Taylor  <taylor@texas.cygnus.com>
+
+	The following changes are part of the HP merge.
+
+	* gdb.base/break.exp: new tests to verify that catchpoints for
+	fork, vfork, and exec don't trigger inappropriately.
+
+	* gdb.base/opaque.exp: compile one file at a time, then link.
+
+	* gdb.base/signals.exp: be more restrictive about which hppa
+	systems receive a setup_xfail.  new tests.
+
+	* gdb.base/solib_threshold.build: new file.
+	* gdb.base/solib_threshold.exp: new file.
+	* gdb.base/solib_threshold.link_opts: new file.
+	* gdb.base/solib_threshold.mk: new file.
+	* gdb.base/gen_solib_threshold.c: new file.
+
+	* gdb.c++/classes.exp: if on HPUX and not using gcc, skip the
+	tests.  New tests for enums inside classes.
+
+	* gdb.c++/compiler.cc: indicate support of template debugging.
+
+	* gdb.c++/demangle.exp: run hp style demangling tests.
+
+	* gdb.c++/inherit.exp: if on HPUX and not using gcc, skip the
+	tests.
+
+	* gdb.c++/misc.cc: changes to support new tests.
+
+	* gdb.c++/templates.cc: changes to support HP's compiler; changes
+	to support new tests.
+
+	* gdb.c++/virtfunc.exp: if we are on HPUX and we are not using
+	gcc, then skip these tests.
+
+Sun Jan 10 23:44:11 1999  David Taylor  <taylor@texas.cygnus.com>
+
+	The following files are part of the HP merge; some had longer
+	names at HP, but have been renamed to be no more than 14
+	characters in length.
+
+	* gdb.hp/ambiguous.cc: new file.
+	* gdb.hp/ambiguous.exp: new file.
+	* gdb.hp/attach.exp: new file.
+	* gdb.hp/attach2.exp: new file.
+	* gdb.hp/classes-hp.exp: new file.
+	* gdb.hp/ctti.exp: new file.
+	* gdb.hp/ctti-add.cc: new file.
+	* gdb.hp/ctti-add1.cc: new file.
+	* gdb.hp/ctti-add2.cc: new file.
+	* gdb.hp/ctti-add3.cc: new file.
+	* gdb.hp/dbx.exp: new file.
+	* gdb.hp/exception.cc: new file.
+	* gdb.hp/exception.exp: new file.
+	* gdb.hp/foll-exec.c: new file.
+	* gdb.hp/foll-exec.exp: new file.
+	* gdb.hp/foll-fork.c: new file.
+	* gdb.hp/foll-fork.exp: new file.
+	* gdb.hp/foll-vfork.c: new file.
+	* gdb.hp/foll-vfork.exp: new file.
+	* gdb.hp/inherit-hp.exp: new file.
+	* gdb.hp/more-steps.exp: new file.
+	* gdb.hp/namespace.cc: new file.
+	* gdb.hp/namespace.exp: new file.
+	* gdb.hp/optimize.exp: new file.
+	* gdb.hp/pxdb.c: new file.
+	* gdb.hp/pxdb.exp: new file.
+	* gdb.hp/quicksort.exp: new file.
+	* gdb.hp/reg-test.exp: new file.
+	* gdb.hp/reg-test.s: new file.
+	* gdb.hp/sized-enum.c: new file.
+	* gdb.hp/sized-enum.exp: new file.
+	* gdb.hp/start-stop.exp: new file.
+	* gdb.hp/templ-hp.cc: new file.
+	* gdb.hp/templ-hp.exp: new file.
+	* gdb.hp/thr-lib.c: new file.
+	* gdb.hp/thr-lib.exp: new file.
+	* gdb.hp/thr-lib.h: new file.
+	* gdb.hp/thr-liblib.c: new file.
+	* gdb.hp/virtfun-hp.c: new file.
+	* gdb.hp/virtfun-hp.exp: new file.
+	* gdb.hp/watch-cmd.exp: new file.
+	* gdb.hp/watch-hp.exp: new file.
+	* gdb.hp/xdb1.exp: new file.
+	* gdb.hp/xdb2.exp: new file.
+	* gdb.hp/xdb3.exp: new file.
+
+Wed Jan  6 18:41:15 1999  David Taylor  <taylor@texas.cygnus.com>
+
+	The following files are part of the HP merge; some had longer
+	names at HP, but have been renamed to be no more than 14
+	characters in length.
+
+	* gdb.base/ss.h: new file.
+	* gdb.base/call-ar-st.c: new file.
+	* gdb.base/call-ar-st.exp: new file.
+	* gdb.base/call-rt-st.c: new file.
+	* gdb.base/call-rt-st-exp: new file.
+	* gdb.base/call-strs.exp: new file.
+	* gdb.base/ena-dis-br.exp: new file.
+	* gdb.base/environ.exp: new file.
+	* gdb.base/long_long.exp: new file.
+	* gdb.base/sect-cmd.exp: new file.
+	* gdb.base/shlib-cl2.exp: new file.
+	* gdb.base/smoke.exp: new file.
+	* gdb.base/so-impl-ld.c: new file.
+	* gdb.base/so-impl-ld.exp: new file.
+	* gdb.base/so-indr-cl.c: new file.
+	* gdb.base/so-indr-cl.exp: new file.
+	* gdb.base/varargs.exp: new file.
+	* gdb.base/volatile.exp: new file.
+	* gdb.base/whatis-exp.exp: new file.
+	* gdb.c++/derivation.exp: new file.
+	* gdb.c++/local.exp: new file.
+	* gdb.c++/member-ptr.exp: new file.
+	* gdb.c++/overload.exp: new file.
+	* gdb.c++/ovldbreak.exp: new file.
+	* gdb.c++/ref-types.exp: new file.
+	* gdb.c++/ref-types2.exp: new file.
+	* gdb.c++/userdef.exp: new file.
+	
+Wed Jan  6 13:50:57 1999  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.base/default.exp: Reflect wording change in remote.c.
+
+Tue Jan  5 19:14:51 1999  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* gdb.base/help.exp: Update to reflect current text.
+
+Tue Jan  5 13:05:32 1999  David Taylor  <taylor@texas.cygnus.com>
+
+	* gdb.c++/anon-union.cc: make foo and bar global, otherwise
+	they're stack variables and contain garbage.
+	* gdb.c++/anon-union.exp: new file.
+
+	The following changes were made by David Taylor
+ 	<taylor@cygnus.com>, Elena Zannoni <ezannoni@cygnus.com>, and
+ 	Edith Epstein <eepstein@cygnus.com> as part of a project to merge
+ 	in changes by HP.
+
+	* gdb.base/bitops.exp: new file.
+	* gdb.base/default.exp: change expected messages for catch and
+	info catch tests to reflect HP merge changes.
+	* gdb.base/enable-disable-break.exp
+	* gdb.base/ending-run.c: new file.
+	* gdb.base/long_long.c: new file.
+	* gdb.base/maint.exp: new file.
+	* gdb.base/pointers2.exp: new file.
+	* gdb.base/shlib-call2.exp: new file.
+	* gdb.base/solib.exp: new file.
+	* gdb.base/step-test.c: new file.
+	* gdb.c++/anon-union.cc: new file.
+	* gdb.c++/local.cc: new file.
+	* gdb.c++/member-pointer.cc: new file.
+	* gdb.c++/method.cc: new file.
+	* gdb.c++/ref-types.cc: new file.
+	* gdb.c++/ref-types2.cc: new file.
+	* gdb.c++/userdef.cc: new file.
+	
+	* gdb.base/scope.exp: compile one file at a time, then link.
+	* gdb.base/langs.exp: ditto.
+	* gdb.base/list.exp: ditto.
+	
+Mon Jan  4 10:06:43 1999  David Taylor  <taylor@texas.cygnus.com>
+
+	The following changes were made by David Taylor
+ 	<taylor@cygnus.com>, Elena Zannoni <ezannoni@cygnus.com>, and
+ 	Edith Epstein <eepstein@cygnus.com> as part of a project to merge
+ 	in changes by HP.
+	
+	* gdb.c++/inherit.exp: if on hppa*-*-hpux* and not using gcc,
+	skip tests.  When compiling pass c++ flag to gdb_compile.
+	* gdb.c++/
+	
+	* lib/gdb.exp (get_compiler_info): new, optional argument -- args;
+	test for on hppa*-*-hpux*; use args to see if c++ was specified.
+	(skip_hp_tests): new function.
+	(gdb_preprocess): new function.
+
+	* configure.in (hpdir): decide whether to configure gdb.hp.
+	* configure: regenerated.
+
+	* gdb.base/Makefile.in (MISCELLANEOUS): new macros -- extra things
+	to delete on clean.
+	(EXECUTABLES): update to reflect new additions.
+	* gdb.base/commands.exp: update message expected.
+	* gdb.base/default.exp: add copyright notice.
+	* gdb.base/funcargs.exp (timeout): if hpux, increase timeout.
+	* gdb.base/help.exp: update messages to reflect current text.
+	* gdb.base/recurse.exp: add hpppa*-*-bsd* to 'list' of enabled
+	targets for recurse tests.
+	* gdb.base/watchpoint.exp: if on hpux and not gcc compiled, then
+	skip this file.
+
+	* gdb.c++/Makefile.in (PROGS): update to reflect new executables.
+	* gdb.c++/cplusfuncs.exp: tell gdb_compile that it's a c++
+	compilation.
+	* gdb.c++/misc.exp: ditto.
+	* gdb.c++/templates.exp: if we're on hpux and it's not gcc, don't
+	run the tests.  tell gdb_compile that it's a c++ compilation.
+
+	* gdb.threads/pthreads.exp: fix typo in message.
+	
+	* gdb.base/all-bin.exp: new file.
+	* gdb.base/arithmet.exp: new file.
+	* gdb.base/assign.exp: new file.
+	* gdb.base/completion.exp: new file.
+	* gdb.base/cond-expr.exp: new file.
+	* gdb.base/condbreak.exp: new file.
+	* gdb.base/define.exp: new file.
+	* gdb.base/dollar.exp: new file.
+	* gdb.base/environment.exp: new file.
+	* gdb.base/eval-skip.exp: new file.
+	* gdb.base/jump.exp: new file.
+	* gdb.base/logical.exp: new file.
+	* gdb.base/pointers.exp: new file.
+	* gdb.base/relational.exp: new file.
+	* gdb.base/section_command.exp: new file.
+	* gdb.base/whatis-expr.exp: new file.
+
+	* gdb.base/all-types.c: new file.
+	* gdb.base/call-array-struct.c: new file.
+	* gdb.base/call-return-struct.c: new file.
+	* gdb.base/call-strings.c: new file.
+	* gdb.base/callfuncs2.c: new file.
+	* gdb.base/condbreak.c: new file.
+	* gdb.base/constvars.c: new file.
+	* gdb.base/display.c: new file.
+	* gdb.base/int-type.c: new file.
+	* gdb.base/jump.c: new file.
+	* gdb.base/miscexprs.c: new file.
+	* gdb.base/pointers.c: new file.
+	* gdb.base/pointers2.c: new file.
+	* gdb.base/shmain.c: new file.
+	* gdb.base/shr1.c: new file.
+	* gdb.base/shr2.c: new file.
+	* gdb.base/solib.c: new file.
+	* gdb.base/solib1.c: new file.
+	* gdb.base/solib2.c: new file.
+	* gdb.base/varargs.c: new file.
+	* gdb.c++/derivation.cc: new file.
+	* gdb.c++/overload.cc: new file.
+	* gdb.c++/ovldbreak.cc: new file.
+	* gdb.hp/attach.c: new file.
+	* gdb.hp/attach2.c: new file.
+	* gdb.hp/average.c: new file.
+	* gdb.hp/compiler.c: new file.
+	* gdb.hp/compiler.cc: new file.
+	* gdb.hp/execd-program.c: new file.
+	* gdb.hp/follow-exec.c: new file.
+	* gdb.hp/follow-fork.c: new file.
+	* gdb.hp/follow-vfork-and-exec.c: new file.
+	* gdb.hp/misc-hp.cc: new file.
+	* gdb.hp/more-steps.c: new file.
+	* gdb.hp/optimize.c: new file.
+	* gdb.hp/quicksort.c: new file.
+	* gdb.hp/run-hp.c: new file.
+	* gdb.hp/start-stop.c: new file.
+	* gdb.hp/sum.c: new file.
+	* gdb.hp/templates-hp.cc: new file.
+	* gdb.hp/thread-local-in-lib.c: new file.
+	* gdb.hp/thread-local-in-lib.h: new file.
+	* gdb.hp/thread-local-in-lib.lib.c: new file.
+	* gdb.hp/vforked-program.c: new file.
+	* gdb.hp/virtfunc-hp.cc: new file.
+	* gdb.hp/watchpoint-hp.c: new file.
+	* gdb.hp/xdb.c: new file.
+	* gdb.hp/xdb0.c: new file.
+	* gdb.hp/xdb0.h: new file.
+	* gdb.hp/xdb1.c: new file.
+
+Mon Dec 21 14:08:38 1998  David Taylor  <taylor@texas.cygnus.com>
+
+	The following change was made by Edith Epstein
+ 	<eepstein@cygnus.com> as part of a project to merge in changes
+ 	originally made by HP; HP did not create ChangeLog entries.
+
+	* gdb.c++/demangle.exp: changed the expected output for some
+	ARM-style mangling -- removed second reference to datatype.
+ 	For example, maint demangle __dt__11T1__pt__2_cFv
+                     T1<char>::~T1<char>(void)
+	becomes,
+	             maint demangle __dt__11T1__pt__2_cFv
+                     T1<char>::~T1(void)
+
+ 	(test_hp_style_demangling): new hp specific demangling test cases.
+	
+Mon Dec 14 15:07:03 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* gdb.trace/actions.exp: Ignore compiler warnings compiling actions.c
+	* gdb.trace/backtrace.exp: Likewise.
+	* gdb.trace/circ.exp: Likewise.
+	* gdb.trace/collection.exp: Likewise.
+	* gdb.trace/deltrace.exp: Likewise.
+	* gdb.trace/infotrace.exp: Likewise.
+	* gdb.trace/limits.exp: Likewise.
+	* gdb.trace/packetlen.exp: Likewise.
+	* gdb.trace/passc-dyn.exp: Likewise.
+	* gdb.trace/passcount.exp: Likewise.
+	* gdb.trace/report.exp: Likewise.
+	* gdb.trace/save-trace.exp: Likewise.
+	* gdb.trace/tfind.exp: Likewise.
+	* gdb.trace/tracecmd.exp: Likewise.
+	* gdb.trace/while-dyn.exp: Likewise.
+	* gdb.trace/while-stepping.exp: Likewise.
+
+1998-12-07  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	* gdb.base/restore.exp, gdb.base/restore.c: New tests.
+
+Wed Dec  2 20:03:53 1998  Stan Shebs  <shebs@andros.cygnus.com>
+
+	From Brendan Kehoe:
+	* gdb.c++/cplusfuncs.cc, misc.cc, virtfunc.cc: Add now-required
+	int return types.
+
+Sat Oct 24 18:04:22 1998  Felix Lee  <flee@cygnus.com>
+
+	* config/slite.exp (gdb_load): use gdb_file_cmd, so we can do
+ 	remote dos host testing right.
+
+Mon Oct 19 01:31:59 1998  Felix Lee  <flee@cygnus.com>
+
+	* gdb.base/corefile.exp: remove some xfails.
+
+Thu Oct 15 10:04:38 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdb.base/reread.exp: Sleep 1 - ensures that the two executables
+ 	have different timestamps.
+
+Thu Oct  1 20:56:14 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* lib/gdb.exp, gdb.base/default.exp, config/monitor.exp,
+ 	gdb.base/default.exp: Replace "exec" with "executable".
+
+Tue Sep 29 15:06:29 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdb.base/default.exp: Change else if to elseif from previous
+ 	delta.
+
+Mon Sep 28 13:21:43 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* gdb.base/default.exp: Add brace missing from previous delta.
+
+Mon Sep 21 14:39:27 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* gdb.base/default.exp: Support test for info float for all
+	varieties of arm toolchain.
+
+Fri Sep 18 14:07:44 1998  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* gdb.trace/*.exp: remove "remote_download" command.
+
+Wed Sep 16 11:38:21 1998  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* gdb.trace/*.exp: remove -gdwarf from compile.
+
+Wed Sep 16 01:23:11 1998  Felix Lee  <flee@cygnus.com>
+
+	* gdb.trace/configure.in(AC_INIT): typo
+	* gdb.trace/configure: regenerated
+
+Mon Sep 14 20:00:04 1998  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* config/m68k-emc.exp: New file.
+	* lib/<emc-support.exp trace-support.exp}: New files.
+	* configure.in: add new test directory gdb.trace.
+	* gdb.trace/{configure configure.in Makefile.in}: New files.
+	* gdb.trace/{actions.c actions.exp gdb_c_test.c}: New files.
+	* gdb.trace/{circ.c circ.exp limits.c limits.exp}: New files.
+	* gdb.trace/{collection.c collection.exp tfind.exp }: New files.
+	* gdb.trace/{backtrace.exp deltrace.exp infotrace.exp}: New files.
+	* gdb.trace/{packetlen.exp passc-dyn.exp passcount.exp}: New files.
+	* gdb.trace/{report.exp save-trace.exp tracecmd.exp}: New files.
+	* gdb.trace/{while-dyn.exp while-stepping.exp}: New files.
+	
+Fri Sep 11 13:58:02 1998  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* gdb.c++/classes.exp: Change all regular expressions to match
+	arbitrary combinations of newline/carriage-return, so that they
+	will work equally well on Unix and Windows.
+	* gdb.c++/inherit.exp: ditto.
+	* gdb.c++/virtfunc.exp: ditto.
+
+1998-08-11 Dawn Perchik  <dawn@cygnus.com>
+
+	* gdb.base/setshow.exp: Fix error introduced by call to runto_main.
+
+1998-07-11  Felix Lee  <flee@cygnus.com>
+
+	* gdb.base/callfuncs.exp: add cmp10 test.
+	* gdb.base/callfuncs.c (cmp10): new function.
+
+Thurs Jul 9 11:08:31 1998  Dawn Perchik  <dawn@cygnus.com>
+
+	* gdb.base/commands.exp: Break up infrun_breakpoint_command_test 
+	into two parts to get around a synchronization problem in expect.
+
+Fri Jun 26 14:52:47 1998  Peter Schauer  <pes@regent.e-technik.tu-muenchen.de>
+
+	* gdb.fortran/types.exp:  Escape brackets in expect patterns
+	for test_float_literal_types_accepted tests.
+	* gdb.base/scope.exp:  Remove extraneous newline in filelocal_bss
+	before run test.
+
+1998-06-25  Felix Lee  <flee@cygnus.com>
+
+	* gdb.base/setshow.exp: make sure $pc is sane.
+
+	* gdb.stabs/weird.exp: split expect patterns properly.
+
+Tue Jun 23 11:45:01 1998  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* gdb.base/funcargs.exp: simplify expect strings to ease pattern
+	match processing (and eliminate spurious timeouts when running).
+
+Fri Jun 12 17:28:22 1998  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* gdb.base/signals.exp (test_handle_all_print): put back Mach
+	exception test, but conditionalize it on target [mach | gnu].
+
+Wed Jun 10 10:40:03 1998  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* gdb.base/overlays.exp: fixup compile line for linker script.
+
+Thu Jun  4 21:54:15 1998  Felix Lee  <flee@zog.cygnus.com>
+
+	* gdb.fortran/types.exp: don't guess at float size.
+
+Thu May 21 02:28:37 1998  Felix Lee  <flee@zog.cygnus.com>
+
+	* gdb.base/exprs.exp: delete test that depends on int size.
+
+Sun May 17 17:10:22 1998  Bob Manson  <manson@charmed.cygnus.com>
+
+	* config/sim.exp: Removed checks for target triplets.
+	(gdb_target_sim): Use gdb,target_sim_options.
+
+Sat May 16 23:43:35 1998  Mark Alexander  <marka@cygnus.com>
+
+	* gdb.base/reread.exp: New file.
+	* gdb.base/reread1.c: New file.
+	* gdb.base/reread2.c: New file.
+
+Sat May 16 23:22:09 1998  Mark Alexander  <marka@cygnus.com>
+
+	* config/sim.exp: Use 'target sim -sparclite' when running
+	SPARClite programs.
+
+Sat May 16 18:48:08 1998  Doug Evans  <devans@canuck.cygnus.com>
+
+	* gdb.base/structs2.exp: New file.
+	* gdb.base/structs2.c: New file.
+
+Wed May 13 13:36:14 1998  Doug Evans  <devans@canuck.cygnus.com>
+
+	* gdb.asm/common.inc: New file.
+	* gdb.asm/d10v.inc: New file.
+	* asm-source.exp: Pass -I's to gas to find .inc files.
+	Update line numbers in expected output.
+	* asmsrc1.s: Rewrite.
+	* asmsrc2.s: Rewrite.
+	* configure.in: Create arch.inc symlink.
+	* configure: Regenerate.
+	* Makefile.in (distclean): Delete arch.inc.
+
+Wed May  6 10:30:54 1998  John Metzler  <jmetzler@cygnus.com>
+
+	*  callfuncs.c (t_enum_value1) : Cleanup return value warnings
+ 	(t_enum_value2): ditto
+ 	(t_enum_value3): ditto
+ 	(main): ditto
+Fri May  1 09:33:37 1998  Peter Schauer  <pes@regent.e-technik.tu-muenchen.de>
+
+	* gdb.base/break.exp:  Remove xfail for `deleting all breakpoints
+	when none' unexpected prompt case, fixed by breakpoint.c:delete_command
+	change.
+	Use gdb_test instead of send_gdb/gdb_expect sequences.
+
+Thu Apr 23 12:56:19 1998  Jason Molenda  (crash@bugshack.cygnus.com)
+
+	* gdb.c++/virtfunc.cc: Declare extern "C" printf to return int,
+	not void.
+
+Thu Apr 16 10:52:34 1998  John Metzler  <jmetzler@cygnus.com>
+
+	* gdb.base/branches.c: Code with lots of loops and
+ 	subroutines. Used to test gdbs ability to single step through PC
+ 	changes, especially to test mips-tdep.c:mips_next_pc
+
+Mon Apr 13 22:32:51 1998 Frank Ch. Eigler <fche@cygnus.com>
+
+	* gdb.c++/virtfunc.cc: Make extern "C" printf declaration pass
+	more rigorous EGCS C++ error checking.
 
 Fri Apr 10 22:38:12 1998 Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
 
@@ -18,6 +661,77 @@ Fri Apr 10 22:38:12 1998 Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
         Adjust expect pattern in `handle all print' test to match Apr 28 1997
         target.[ch] change.
 
+Tue Mar 31 00:40:32 1998  Bob Manson  <manson@charmed.cygnus.com>
+
+	* lib/gdb.exp(gdb_test): Send multiline commands one at a time; wait
+	for a newline from gdb before continuing.
+	(default_gdb_exit): Just look for y or n.
+	(gdb_test): Detect abnormal exit from GDB running on DOS; if
+	it does, fail the rests of the tests in the file.
+
+Tue Mar 24 22:44:52 1998  Bob Manson  <manson@charmed.cygnus.com>
+
+	* config/cygmon.exp: New file.
+
+Mon Mar 16 21:39:11 1998  Bob Manson  <manson@charmed.cygnus.com>
+
+	* gdb.base/list.exp: Fix problem with "list default lines around
+ 	main" test on remote targets.
+
+	* gdb.base/scope.exp: Fix problem with filelocal_bss before
+	run test on remote targets.
+
+Thu Mar 12 16:23:00 1998  Doug Evans  <devans@canuck.cygnus.com>
+
+	* gdb.asm: New directory.
+	* configure.in: Configure it.
+	* configure: Regenerate.
+	* gdb.asm/{Makefile.in,configure.in,configure}: New files.
+	* gdb.asm/{asm-source.exp,asmsrc1.s,asmsrc2.s}: New files.
+
+Mon Feb 23 08:22:44 1998  Mark Alexander  <marka@cygnus.com>
+
+	* config/mn10300-eval.exp: New file to support MN10300 eval board.
+
+Wed Feb 18 16:43:46 1998  Michael Snyder  (msnyder@cleaver.cygnus.com)
+ 
+        * gdb.base/overlays (several files): Merge the two overlay
+        managers into one.  Change variables (foox, barx, bazx, grbxx)
+        back into ints but force them to load in their proper sections.
+
+Thu Feb 12 13:49:30 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdb.base/d10vovly.c (D10VTranslate): Map IMAP0 to low 128k of
+ 	on-chip insn memory and IMAP1 to upper 128k.
+	(D10VCopy): Handle memory regions crossing 16k boundaries.
+	(D10VCopy): Transfer data in 32 bit chunks.
+
+Tue Feb 10 17:23:22 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdb.base/overlays.c (main): Exit normally when result is
+ 	correct.
+
+	* gdb.base/d10v.ld: Update LMAs to reflect current d10v address
+ 	map.  Include space for printf in .text segment.
+
+	* gdb.base/d10vovly.c (D10VTranslate): New function, handle
+ 	updated d10v memory VMA/LMA map.
+	(D10VCopy): Call D10VTranslate.
+	
+Fri Feb  6 14:13:12 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdb.base/m32rovly.c: Force variable _novlys into .data section.
+
+	* gdb.base/bar.c (barx, bar): Change variable to small array so
+ 	that it won't be put into the .sdata - small data -
+ 	section. Update reference.
+	* gdb.base/baz.c (bazx, baz): Ditto.
+	* gdb.base/foo.c (foox, foo): Ditto.
+	* gdb.base/grbx.c (grbxx, grbx): Ditto.
+
+	* gdb.base/overlays.exp: Expect variables barx, bazx, foox, grbxx
+ 	to be arrays.
+	
 Thu Jan 29 14:48:19 1998  Michael Snyder  (msnyder@cleaver.cygnus.com)
  
         * gdb.base/overlays.exp: fix up and get working again.

@@ -1,3 +1,34 @@
+1999-01-13  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* t-sadd.s: New file.
+	* Makefile.in (TESTS): Add t-sadd.
+
+Mon Feb 16 09:20:57 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* t-macros.i (VEC_*): Define.
+	(DMAP_REG, DMAP_BASE, DMAP_MASK): Define.
+	(IMAP[01]_REG): Define.
+
+	* t-rdt.s (test_tdt): New file.
+
+	* t-dbt.s (test_dbt): New file.
+
+	* Makefile.in (TESTS): Add t-rdt and t-dbt.
+	
+
+Fri Feb 13 16:21:13 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* t-sp.s: New test.
+	* Makefile.in (TESTS): Update.
+
+Wed Feb 11 17:58:50 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* t-macros.i: Update trap calls, func in r4, args in
+ 	r0...
+	(start): Force r0 to zero.
+
+	* t-sub2w.s: Ditto.
+
 Tue Dec  9 10:41:44 1997  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* t-rte.s (success): New file.

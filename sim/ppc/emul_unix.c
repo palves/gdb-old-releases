@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1996-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1996-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -107,10 +107,6 @@
 #ifdef HAVE_GETRUSAGE
 #include <sys/resource.h>
 int getrusage();
-#endif
-
-#if HAVE_SYS_MOUNT_H
-#include <sys/mount.h>
 #endif
 
 #if HAVE_DIRENT_H

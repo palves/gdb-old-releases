@@ -274,7 +274,7 @@ make_srec (srec, targ_addr, abfd, sect, sectoff, maxrecsize, flags)
   /* Output the header.  */
 
   sprintf (srec, formats[addr_size - 2], code_table[addr_size - 2],
-	   addr_size + payload_size + 1, targ_addr);
+	   addr_size + payload_size + 1, (int)targ_addr);
 
   /* Note that the checksum is calculated on the raw data, not the
      hexified data.  It includes the length, address and the data

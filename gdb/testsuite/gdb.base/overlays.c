@@ -25,6 +25,10 @@ int main ()
   OverlayLoad (7);
   d = grbx (1);
   e = a + b + c + d;
-  return e;
+  return (e != ('f' + 'o' +'o'
+		+ 'b' + 'a' + 'r'
+		+ 'b' + 'a' + 'z'
+		+ 'g' + 'r' + 'b' + 'x'));
+
 }
 

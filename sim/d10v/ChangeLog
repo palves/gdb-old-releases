@@ -1,3 +1,204 @@
+1999-01-26  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* simops.c (OP_5607): Correct saturation comparison/assignment.
+	(OP_1201, OP_1203, OP_17001200, OP_17001202, 
+         OP_2A00, OP_2800, OP_2C00, OP_3200, OP_3201, 
+         OP_1001, OP_1003, OP_17001000, OP_17001002): Ditto.
+
+1999-01-26  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* simops.c (OP_5605): Sign extend MIN32 and MAX32 before saturation
+        comparison.
+	(OP_5607): Ditto.
+	(OP_2A00): Ditto.
+	(OP_2800): Ditto.
+
+1999-01-13  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+	* simops.c (OP_1223): Sign extend MIN32 and MAX32 before saturation
+	comparison.
+
+Tue Nov 24 17:04:43 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* simops.c (sys/syscall.h): Include targ-vals.h instead.
+	(SYS_*): Replace with TARGET_SYS_*.
+
+	* Makefile.in: Add dependency on targ-vals.h.
+	(NL_TARGET): Define as NL_TARGET_d10v.
+
+Wed Sep 30 00:06:32 1998  Andrew Cagney  <cagney@amy.cygnus.com>
+
+	* interp.c (xfer_mem): Missing break, instruction memory case
+ 	flowed into unified memory case.
+
+Wed Sep 30 10:14:18 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* simops.c: If load instruction with auto increment/decrement
+	addressing is used when the destination register is the same as
+	the address register, then ignore the auto increment/decrement.
+
+Tue Apr 28 18:33:31 1998  Geoffrey Noer  <noer@cygnus.com>
+
+        * configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Sun Apr 26 15:31:55 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Sun Apr 26 15:20:23 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* acconfig.h: New file.
+	* configure.in: Reverted change of Apr 24; use sinclude again.
+
+Fri Apr 24 14:16:40 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Fri Apr 24 11:20:06 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* configure.in: Don't call sinclude.
+
+Fri Apr 24 11:04:46 1998  Andrew Cagney  <cagney@chook.cygnus.com>
+
+	* interp.c (struct hash_entry): OPCODE and MASK are unsigned.
+
+	* d10v_sim.h (remote-sim.h, sim-config.h): Include.
+	
+Sat Apr  4 20:36:25 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Apr  1 12:59:17 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* simops.c (trace_input_func): Use move_from_cr / CREGS to obtain
+ 	up-to-date CR value.
+	(OP_OP_1000000, add3): Trace inputs before performing add.
+	(OP_5F00, <*>): Trace input registers before making system call.
+	(OP_5F00, <kill>): Trace R0, R1 not REGn.
+	(OP_5F00, <getpid>): Always return 47.
+	
+	* d10v_sim.h (SLOT, SLOT_NR, SLOT_PEND_MASK, SLOT_PEND,
+ 	SLOT_DISCARD, SLOT_FLUSH): Define.  An implementation of write
+ 	back slots.
+	(struct _state): Add struct slot slot to global state variable.
+	(struct _state): Delete fields SM, EA, DB, DM, IE, RP, MD, FX, ST,
+ 	F0, F1, C from global State variable.
+	(struct _state): Add struct trace to global State variable.
+	(GPR, SET_GPR): Define.  SET_GPR uses SLOT_PEND.
+	(PSW*, SET_PSW*): Define. SET_PSW* uses SET_CREG.
+	(CREG, SET_CREG, SET_*): Define. SET_CREG uses func move_to_cr.
+	(INC_ADDR): Re-implement.  Use SET_GPR to update registers.
+	(JMP): Re-implement. Use SET_* to update registers.
+
+	* interp.c: Use new SET_* et.al. macros to fetch / store
+ 	registers.
+	(get_operands): Squirrel away trace values at start of each
+ 	operand decode.
+	(do_2_short): Flush pending writes before issuing second
+ 	instruction.
+	(sim_resume): Flush pending writes at end of instruction cycle.
+	(sim_fetch_register, sim_store_register, sim_create_inferior):
+ 	After scheduling updates to registers using SET_*, flush updates.
+	(sim_resume): Re-order handling of RPT/repeat and IBA/hbreak so
+ 	that each sets pc using SET_* and last SET_* eventually winds out.
+	
+	* simops.c: Use new SET_* et.al. macros to fetch / store
+ 	registers.
+	(move_to_cr): Add MASK argument for selective update of CREG bits.
+  	Re-implement using new SET_* macros.
+	(trace_output_func, trace_output): Delete. Replace with.
+	(do_trace_output_flush, trace_output_finish, trace_output_40,
+ 	trace_output_32, trace_output_16, trace_output_void,
+ 	trace_output_flag): New functions.  Handle specific trace cases.
+	(OP_*): Re-write tracing to use new trace_output_* functions.
+	(OP_*): Re-write to use new SET_* et.al. macros.
+	(FUNC, PARM[1-4], RETVAL, RETVAL32): Redo definition.
+	(RETVAL_HIGH, RETVAL_LOW): Delete, use RETVAL32.
+	
+Wed Apr  1 12:55:18 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (SIM_AC_OPTION_WARNINGS): Add.
+	configure: Re-generate.
+
+Fri Mar 27 16:15:52 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 25 12:35:29 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Wed Mar 18 12:38:12 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+
+Tue Feb 17 12:38:42 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_store_register, sim_fetch_register): Pass in
+ 	length parameter.  Return -1.
+
+Mon Oct 27 14:43:33 1997  Fred Fish  <fnf@cygnus.com>
+
+	* (dmem_addr): If address is illegal or in I/O space, signal a bus
+ 	error.  Allocate unified memory on demand.  Fix DMEM address
+ 	calculations.
+	
+Mon Feb 16 10:27:53 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* simops.c (OP_5F20): Implement "dbt".
+	(OP_5F60): Implement "rtd".
+
+	* d10v_sim.h (DPC_CR): Define enum.
+	(DBT_VECTOR_START): Define
+	(DPSW, DPC): Define.
+
+Fri Feb 13 15:15:58 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* simops.c (move_to_cr): Sync regs[SP_IDX] with State.sp according
+ 	to PSW:SM.
+
+	* d10v_sim.h (struct _state): Add sp, as holding area for SPI/SPU.
+	(SP_IDX): Define.
+
+Wed Feb 11 16:53:49 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* simops.c (OP_5F00): Call error instead of abort for unknown
+ 	syscalls.
+
+	* d10v_sim.h (enum): Define DPSW_CR.
+
+	* simops.c (move_to_cr): Mask out hardwired zero bits in DPSW.
+
+Tue Feb 10 18:28:38 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c (sim_write_phys): Delete.
+	(sim_load): Call sim_load_file with sim_write and LMA.
+
+Mon Feb  9 12:05:01 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* interp.c: Rewrite xfer_mem so that it translates addresses as -
+ 	0x00... - DMAP translated memory, 0x01... IMAP translated memory,
+ 	0x10... - on-chip data, 0x11... - on-chip insn, 0x12... - unified
+ 	memory.
+	(pc_addr): Delete.
+	(imem_addr): New function - translate IMEM address.
+	(sim_resume): Use imem_addr to translate insn address, abort if
+ 	translation failed.
+	(sim_create_inferior): Write ARGV to memory using sim_write.  Pass
+ 	argc/argv using r0/r1 not r2/r3.
+	(sim_size): Do not initialize IMAP/DMAP here.
+	(sim_open): Call sim_create_inferior and sim_size to initialize
+ 	the system.
+	(sim_create_inferior): Initialize IMAP/DMAP to hardware reset
+ 	defaults.
+	(init_system): Delete.
+	(xfer_mem, sim_fetch_register, sim_store_register): Do not call
+ 	init_system.
+	(decode_pc): Check prog_bfd is defined before looking up .text
+ 	section.
+
 Sun Feb  1 16:47:51 1998  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* configure: Regenerated to track ../common/aclocal.m4 changes.

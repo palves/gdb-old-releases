@@ -1,5 +1,6 @@
 /* Assorted BFD support routines, only used internally.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -231,7 +232,25 @@ real_read (where, a,b, file)
      size_t b;
      FILE *file;
 {
+  /* FIXME - this looks like an optimization, but it's really to cover
+     up for a feature of some OSs (not solaris - sigh) that
+     ld/pe-dll.c takes advantage of (apparently) when it creates BFDs
+     internally and tries to link against them.  BFD seems to be smart
+     enough to realize there are no symbol records in the "file" that
+     doesn't exist but attempts to read them anyway.  On Solaris,
+     attempting to read zero bytes from a NULL file results in a core
+     dump, but on other platforms it just returns zero bytes read.
+     This makes it to something reasonable. - DJ */
+  if (a == 0 || b == 0)
+    return 0;
+
+#if defined (__VAX) && defined (VMS)
+  /* Apparently fread on Vax VMS does not keep the record length
+     information.  */
+  return read (fileno (file), where, a * b);
+#else
   return fread (where, a, b, file);
+#endif
 }
 
 /* Return value is amount read (FIXME: how are errors and end of file dealt
@@ -317,7 +336,6 @@ bfd_init_window (windowp)
 #undef HAVE_MPROTECT /* code's not tested yet */
 
 #if HAVE_MMAP || HAVE_MPROTECT || HAVE_MADVISE
-#include <sys/types.h>
 #include <sys/mman.h>
 #endif
 
@@ -460,10 +478,10 @@ bfd_get_file_window (abfd, offset, size, windowp, writable)
   else if (debug_windows)
     {
       if (ok_to_map)
-	fprintf (stderr, "not mapping: data=%lx mapped=%d\n",
+	fprintf (stderr, _("not mapping: data=%lx mapped=%d\n"),
 		 (unsigned long) i->data, (int) i->mapped);
       else
-	fprintf (stderr, "not mapping: env var not set\n");
+	fprintf (stderr, _("not mapping: env var not set\n"));
     }
 #else
   ok_to_map = 0;
@@ -522,7 +540,29 @@ bfd_write (ptr, size, nitems, abfd)
   long nwrote;
 
   if ((abfd->flags & BFD_IN_MEMORY) != 0)
-    abort ();
+    {
+      struct bfd_in_memory *bim = (struct bfd_in_memory *) (abfd->iostream);
+      size *= nitems;
+      if (abfd->where + size > bim->size)
+	{
+	  long newsize, oldsize = (bim->size + 127) & ~127;
+	  bim->size = abfd->where + size;
+	  /* Round up to cut down on memory fragmentation */
+	  newsize = (bim->size + 127) & ~127;
+	  if (newsize > oldsize)
+	    {
+	      bim->buffer = bfd_realloc (bim->buffer, newsize);
+	      if (bim->buffer == 0)
+		{
+		  bim->size = 0;
+		  return 0;
+		}
+	    }
+	}
+      memcpy (bim->buffer + abfd->where, ptr, size);
+      abfd->where += size;
+      return size;
+    }
 
   nwrote = fwrite (ptr, 1, (size_t) (size * nitems),
 		   bfd_cache_lookup (abfd));
@@ -687,9 +727,20 @@ bfd_seek (abfd, position, direction)
 
   if (result != 0)
     {
+      int hold_errno = errno;
+
       /* Force redetermination of `where' field.  */
       bfd_tell (abfd);
-      bfd_set_error (bfd_error_system_call);
+
+      /* An EINVAL error probably means that the file offset was
+         absurd.  */
+      if (hold_errno == EINVAL)
+	bfd_set_error (bfd_error_file_truncated);
+      else
+	{
+	  bfd_set_error (bfd_error_system_call);
+	  errno = hold_errno;
+	}
     }
   else
     {
@@ -832,7 +883,8 @@ DESCRIPTION
 
 /* Sign extension to bfd_signed_vma.  */
 #define COERCE16(x) (((bfd_signed_vma) (x) ^ 0x8000) - 0x8000)
-#define COERCE32(x) (((bfd_signed_vma) (x) ^ 0x80000000) - 0x80000000)
+#define COERCE32(x) \
+  ((bfd_signed_vma) (long) (((unsigned long) (x) ^ 0x80000000) - 0x80000000))
 #define EIGHT_GAZILLION (((BFD_HOST_64_BIT)0x80000000) << 32)
 #define COERCE64(x) \
   (((bfd_signed_vma) (x) ^ EIGHT_GAZILLION) - EIGHT_GAZILLION)
@@ -887,32 +939,52 @@ bfd_vma
 bfd_getb32 (addr)
      register const bfd_byte *addr;
 {
-  return (((((bfd_vma)addr[0] << 8) | addr[1]) << 8)
-	  | addr[2]) << 8 | addr[3];
+  unsigned long v;
+
+  v = (unsigned long) addr[0] << 24;
+  v |= (unsigned long) addr[1] << 16;
+  v |= (unsigned long) addr[2] << 8;
+  v |= (unsigned long) addr[3];
+  return (bfd_vma) v;
 }
 
 bfd_vma
 bfd_getl32 (addr)
      register const bfd_byte *addr;
 {
-  return (((((bfd_vma)addr[3] << 8) | addr[2]) << 8)
-	  | addr[1]) << 8 | addr[0];
+  unsigned long v;
+
+  v = (unsigned long) addr[0];
+  v |= (unsigned long) addr[1] << 8;
+  v |= (unsigned long) addr[2] << 16;
+  v |= (unsigned long) addr[3] << 24;
+  return (bfd_vma) v;
 }
 
 bfd_signed_vma
 bfd_getb_signed_32 (addr)
      register const bfd_byte *addr;
 {
-  return COERCE32((((((bfd_vma)addr[0] << 8) | addr[1]) << 8)
-		   | addr[2]) << 8 | addr[3]);
+  unsigned long v;
+
+  v = (unsigned long) addr[0] << 24;
+  v |= (unsigned long) addr[1] << 16;
+  v |= (unsigned long) addr[2] << 8;
+  v |= (unsigned long) addr[3];
+  return COERCE32 (v);
 }
 
 bfd_signed_vma
 bfd_getl_signed_32 (addr)
      register const bfd_byte *addr;
 {
-  return COERCE32((((((bfd_vma)addr[3] << 8) | addr[2]) << 8)
-		   | addr[1]) << 8 | addr[0]);
+  unsigned long v;
+
+  v = (unsigned long) addr[0];
+  v |= (unsigned long) addr[1] << 8;
+  v |= (unsigned long) addr[2] << 16;
+  v |= (unsigned long) addr[3] << 24;
+  return COERCE32 (v);
 }
 
 bfd_vma
@@ -1168,13 +1240,14 @@ DESCRIPTION
 	@var{x} of 1025 returns 11.
 */
 
-unsigned
-bfd_log2(x)
+unsigned int
+bfd_log2 (x)
      bfd_vma x;
 {
-  unsigned result = 0;
-  while ( (bfd_vma)(1<< result) < x)
-    result++;
+  unsigned int result = 0;
+
+  while ((((bfd_vma) 1) << result) < x)
+    ++result;
   return result;
 }
 

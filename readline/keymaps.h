@@ -23,12 +23,14 @@
 #ifndef _KEYMAPS_H_
 #define _KEYMAPS_H_
 
-/* CYGNUS LOCAL--bash 1.13 uses <readline/chardefs.h> which would require
-   GDB to add YET ANOTHER -I directive.  No thanks.  */
-#include "chardefs.h"
+#if defined (READLINE_LIBRARY)
+#  include "chardefs.h"
+#else
+#  include <readline/chardefs.h>
+#endif
 
-#if !defined (__FUNCTION_DEF)
-#  define __FUNCTION_DEF
+#if !defined (_FUNCTION_DEF)
+#  define _FUNCTION_DEF
 typedef int Function ();
 typedef void VFunction ();
 typedef char *CPFunction ();
@@ -37,9 +39,9 @@ typedef char **CPPFunction ();
 
 /* A keymap contains one entry for each key in the ASCII set.
    Each entry consists of a type and a pointer.
-   POINTER is the address of a function to run, or the
+   FUNCTION is the address of a function to run, or the
    address of a keymap to indirect through.
-   TYPE says which kind of thing POINTER is. */
+   TYPE says which kind of thing FUNCTION is. */
 typedef struct _keymap_entry {
   char type;
   Function *function;
@@ -68,24 +70,26 @@ extern KEYMAP_ENTRY_ARRAY vi_insertion_keymap, vi_movement_keymap;
 
 /* Return a new, empty keymap.
    Free it with free() when you are done. */
-Keymap rl_make_bare_keymap ();
+extern Keymap rl_make_bare_keymap ();
 
 /* Return a new keymap which is a copy of MAP. */
-Keymap rl_copy_keymap ();
+extern Keymap rl_copy_keymap ();
 
 /* Return a new keymap with the printing characters bound to rl_insert,
    the lowercase Meta characters bound to run their equivalents, and
    the Meta digits bound to produce numeric arguments. */
-Keymap rl_make_keymap ();
+extern Keymap rl_make_keymap ();
+
+extern void rl_discard_keymap ();
 
 /* Return the keymap corresponding to a given name.  Names look like
    `emacs' or `emacs-meta' or `vi-insert'. */
-Keymap rl_get_keymap_by_name ();
+extern Keymap rl_get_keymap_by_name ();
 
 /* Return the current keymap. */
-Keymap rl_get_keymap ();
+extern Keymap rl_get_keymap ();
 
 /* Set the current keymap to MAP. */
-void rl_set_keymap ();
+extern void rl_set_keymap ();
 
 #endif /* _KEYMAPS_H_ */

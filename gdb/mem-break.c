@@ -20,34 +20,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 
-/* Either BREAKPOINT should be defined, or both of LITTLE_BREAKPOINT,
-   BIG_BREAKPOINT should be defined.  */
-
-#if defined (BREAKPOINT) || (defined (LITTLE_BREAKPOINT) && defined (BIG_BREAKPOINT))
-
 /* This file is only useful if BREAKPOINT is set.  If not, we punt.  */
 
 #include "symtab.h"
 #include "breakpoint.h"
 #include "inferior.h"
 #include "target.h"
-
-/* If the target isn't bi-endian, just pretend it is.  */
-#if defined(BREAKPOINT) && !defined (LITTLE_BREAKPOINT) && !defined (BIG_BREAKPOINT)
-#define LITTLE_BREAKPOINT BREAKPOINT
-#define BIG_BREAKPOINT BREAKPOINT
-#endif
-
-/* This is the sequence of bytes we insert for a breakpoint.  On some
-   machines, breakpoints are handled by the target environment and we
-   don't have to worry about them here.  */
-
-static unsigned char big_break_insn[] = BIG_BREAKPOINT;
-static unsigned char little_break_insn[] = LITTLE_BREAKPOINT;
-
-
-/* FIXME: We assume big and little breakpoints are the same size.  */
-#define BREAKPOINT_LEN (sizeof (big_break_insn))
 
 
 /* Use the program counter to determine the contents and size
@@ -60,24 +38,39 @@ static unsigned char little_break_insn[] = LITTLE_BREAKPOINT;
    and optionally adjust the pc to point to the correct memory location
    for inserting the breakpoint.  */
 
-unsigned char *memory_breakpoint_from_pc (pcptr, lenptr)
+unsigned char *
+memory_breakpoint_from_pc (pcptr, lenptr)
      CORE_ADDR *pcptr;
      int *lenptr;
 {
-#ifdef BREAKPOINT_FROM_PC
-  return BREAKPOINT_FROM_PC(pcptr, lenptr);
-#else
+  /* {BIG_,LITTLE_}BREAKPOINT is the sequence of bytes we insert for a
+     breakpoint.  On some machines, breakpoints are handled by the
+     target environment and we don't have to worry about them here.  */
+#ifdef BIG_BREAKPOINT
   if (TARGET_BYTE_ORDER == BIG_ENDIAN)
     {
+      static unsigned char big_break_insn[] = BIG_BREAKPOINT;
       *lenptr = sizeof (big_break_insn);
       return big_break_insn;
     }
-  else
+#endif
+#ifdef LITTLE_BREAKPOINT
+  if (TARGET_BYTE_ORDER != BIG_ENDIAN)
     {
+      static unsigned char little_break_insn[] = LITTLE_BREAKPOINT;
       *lenptr = sizeof (little_break_insn);
       return little_break_insn;
     }
 #endif
+#ifdef BREAKPOINT
+  {
+    static unsigned char break_insn[] = BREAKPOINT;
+    *lenptr = sizeof (break_insn);
+    return break_insn;
+  }
+#endif
+  *lenptr = 0;
+  return NULL;
 }
 
 
@@ -99,7 +92,9 @@ memory_insert_breakpoint (addr, contents_cache)
   int bplen;
 
   /* Determine appropriate breakpoint contents and size for this address.  */
-  bp = memory_breakpoint_from_pc (&addr, &bplen);
+  bp = BREAKPOINT_FROM_PC (&addr, &bplen);
+  if (bp == NULL)
+    error ("Software breakpoints not implemented for this target.");
 
   /* Save the memory contents.  */
   val = target_read_memory (addr, contents_cache, bplen);
@@ -120,43 +115,10 @@ memory_remove_breakpoint (addr, contents_cache)
   unsigned char *bp;
   int bplen;
 
-  /* Determine appropriate breakpoint size for this address.  */
-  bp = memory_breakpoint_from_pc (&addr, &bplen);
+  /* Determine appropriate breakpoint contents and size for this address.  */
+  bp = BREAKPOINT_FROM_PC (&addr, &bplen);
+  if (bp == NULL)
+    error ("Software breakpoints not implemented for this target.");
 
   return target_write_memory (addr, contents_cache, bplen);
 }
-
-
-/* FIXME: This is a hack and should depend on the debugging target.
-   See comment in breakpoint.c where this is used.
-   NOTE: this has now been superseded by the memory_breakpoint_from_pc
-   function above, but has been left in for older code that depends on it.  */
-
-int memory_breakpoint_size = BREAKPOINT_LEN;
-
-
-#else  /* BREAKPOINT */
-
-char nogo[] = "Breakpoints not implemented for this target.";
-
-int
-memory_insert_breakpoint (addr, contents_cache)
-     CORE_ADDR addr;
-     char *contents_cache;
-{
-  error (nogo);
-  return 0;	/* lint */
-}
-
-int
-memory_remove_breakpoint (addr, contents_cache)
-     CORE_ADDR addr;
-     char *contents_cache;
-{
-  error (nogo);
-  return 0;	/* lint */
-}
-
-int memory_breakpoint_size = -1;
-
-#endif /* BREAKPOINT */

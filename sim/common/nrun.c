@@ -49,7 +49,7 @@ main (int argc, char **argv)
   char **prog_argv = NULL;
   struct _bfd *prog_bfd;
   enum sim_stop reason;
-  int sigrc;
+  int sigrc = 0;
   int single_step = 0;
   RETSIGTYPE (*prev_sigint) ();
 
@@ -126,10 +126,18 @@ main (int argc, char **argv)
 	  sim_resume (sd, 1/*step*/, 0);
 	  signal (SIGINT, prev_sigint);
 	  sim_stop_reason (sd, &reason, &sigrc);
+
+	  if ((reason == sim_stopped) &&
+	      (sigrc == sim_signal_to_host (sd, SIM_SIGINT)))
+	    break; /* exit on control-C */
 	}
-      while (reason == sim_stopped && sigrc == SIGTRAP);
+      /* remain on breakpoint or signals in oe mode*/
+      while (((reason == sim_signalled) &&
+	      (sigrc == sim_signal_to_host (sd, SIM_SIGTRAP))) ||
+	     ((reason == sim_stopped) && 
+	      (STATE_ENVIRONMENT (sd) == OPERATING_ENVIRONMENT)));
     }
-  else
+  else do
     {
 #if defined (HAVE_SIGACTION) && defined (SA_RESTART)
       struct sigaction sa, osa;
@@ -141,10 +149,17 @@ main (int argc, char **argv)
 #else
       prev_sigint = signal (SIGINT, cntrl_c);
 #endif
-      sim_resume (sd, 0, 0);
+      sim_resume (sd, 0, sigrc);
       signal (SIGINT, prev_sigint);
       sim_stop_reason (sd, &reason, &sigrc);
-    }
+
+      if ((reason == sim_stopped) &&
+	  (sigrc == sim_signal_to_host (sd, SIM_SIGINT)))
+	break; /* exit on control-C */
+
+      /* remain on signals in oe mode */
+    } while ((reason == sim_stopped) &&
+	     (STATE_ENVIRONMENT (sd) == OPERATING_ENVIRONMENT));
 
   /* Print any stats the simulator collected.  */
   sim_info (sd, 0);
@@ -191,3 +206,9 @@ usage ()
   fprintf (stderr, "Run `%s --help' for full list of options.\n", myname);
   exit (1);
 }
+
+
+#ifdef __CYGWIN32__
+/* no-op GUI update hook for standalone sim */
+void (*ui_loop_hook) PARAMS ((int)) = NULL;
+#endif

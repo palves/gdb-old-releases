@@ -1,5 +1,5 @@
 /* Generic BFD library interface and support routines.
-   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 1997
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
    Written by Cygnus Support.
 
@@ -167,6 +167,7 @@ CODE_FRAGMENT
 .      struct nlm_obj_tdata *nlm_obj_data;
 .      struct bout_data_struct *bout_data;
 .      struct sun_core_struct *sun_core_data;
+.      struct sco5_core_struct *sco5_core_data;
 .      struct trad_core_struct *trad_core_data;
 .      struct som_data_struct *som_data;
 .      struct hpux_core_struct *hpux_core_data;
@@ -270,25 +271,25 @@ CODE_FRAGMENT
 static bfd_error_type bfd_error = bfd_error_no_error;
 
 CONST char *CONST bfd_errmsgs[] = {
-                        "No error",
-                        "System call error",
-                        "Invalid bfd target",
-                        "File in wrong format",
-                        "Invalid operation",
-                        "Memory exhausted",
-                        "No symbols",
-			"Archive has no index; run ranlib to add one",
-                        "No more archived files",
-                        "Malformed archive",
-                        "File format not recognized",
-                        "File format is ambiguous",
-                        "Section has no contents",
-                        "Nonrepresentable section on output",
-			"Symbol needs debug section which does not exist",
-			"Bad value",
-			"File truncated",
-			"File too big",
-                        "#<Invalid error code>"
+                        N_("No error"),
+                        N_("System call error"),
+                        N_("Invalid bfd target"),
+                        N_("File in wrong format"),
+                        N_("Invalid operation"),
+                        N_("Memory exhausted"),
+                        N_("No symbols"),
+			N_("Archive has no index; run ranlib to add one"),
+                        N_("No more archived files"),
+                        N_("Malformed archive"),
+                        N_("File format not recognized"),
+                        N_("File format is ambiguous"),
+                        N_("Section has no contents"),
+                        N_("Nonrepresentable section on output"),
+			N_("Symbol needs debug section which does not exist"),
+			N_("Bad value"),
+			N_("File truncated"),
+			N_("File too big"),
+                        N_("#<Invalid error code>")
                        };
 
 /*
@@ -352,7 +353,7 @@ bfd_errmsg (error_tag)
        ((int)error_tag > (int)bfd_error_invalid_error_code)))
     error_tag = bfd_error_invalid_error_code;/* sanity check */
 
-  return bfd_errmsgs [(int)error_tag];
+  return _(bfd_errmsgs [(int)error_tag]);
 }
 
 /*
@@ -675,7 +676,7 @@ bfd_assert (file, line)
      const char *file;
      int line;
 {
-  (*_bfd_error_handler) ("bfd assertion fail %s:%d", file, line);
+  (*_bfd_error_handler) (_("bfd assertion fail %s:%d"), file, line);
 }
 
 
@@ -928,11 +929,11 @@ bfd_scan_vma (string, end, base)
     
 /* Speed could be improved with a table like hex_value[] in gas.  */
 #define HEX_VALUE(c) \
-  (isxdigit(c) ?				\
-    (isdigit(c) ?				\
-      (c - '0') :				\
-      (10 + c - (islower(c) ? 'a' : 'A'))) :	\
-    42)
+  (isxdigit ((unsigned char) c)					\
+   ? (isdigit ((unsigned char) c)				\
+      ? (c - '0')						\
+      : (10 + c - (islower ((unsigned char) c) ? 'a' : 'A')))	\
+   : 42)
 
   for (value = 0; (digit = HEX_VALUE(*string)) < base; string++)
     {
@@ -1043,6 +1044,9 @@ DESCRIPTION
 .
 .#define bfd_relax_section(abfd, section, link_info, again) \
 .       BFD_SEND (abfd, _bfd_relax_section, (abfd, section, link_info, again))
+.
+.#define bfd_gc_sections(abfd, link_info) \
+.	BFD_SEND (abfd, _bfd_gc_sections, (abfd, link_info))
 .
 .#define bfd_link_hash_table_create(abfd) \
 .	BFD_SEND (abfd, _bfd_link_hash_table_create, (abfd))

@@ -20,6 +20,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+#define HPUX_SNAP1
+#define HPUX_SNAP2
+
+#include "somsolib.h"
 
 /* Actually, for a PA running HPUX the kernel calls the signal handler
    without an intermediate trampoline.  Luckily the kernel always sets
@@ -65,6 +69,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 	(FSR)->regs[i] = TMP + i * 4; \
     } \
 }
+
+/* For HP-UX on PA-RISC we have an implementation
+   for the exception handling target op (in hppa-tdep.c) */
+#define CHILD_ENABLE_EXCEPTION_CALLBACK
+#define CHILD_GET_CURRENT_EXCEPTION_EVENT
 
 /* Mostly it's common to all HPPA's.  */
 #include "pa/tm-hppa.h"

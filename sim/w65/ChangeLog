@@ -1,3 +1,39 @@
+Sun Apr 26 15:31:55 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Sun Apr 26 15:19:08 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* acconfig.h: New file.
+	* configure.in: Reverted change of Apr 24; use sinclude again.
+	Don't call AC_C_CROSS.
+
+Fri Apr 24 14:16:40 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Fri Apr 24 11:17:46 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* acconfig.h: Removed.
+	* configure.in: Call CY_GNU_GETTEXT.
+	* Makefile.in (INTLLIBS): New macro.
+	(INTLDEPS): Likewise.
+	($(RUN_PROG)): Depend on INTLDEPS; link against INTLLIBS.
+	(top_builddir): New macro.
+
+Wed Apr 22 14:29:50 1998  Michael Meissner  <meissner@cygnus.com>
+
+	* configure: Regenerate with autoconf 2.12.1.
+
+Tue Feb 17 12:52:24 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* run.c (main): Pass length into sim_fetch_register.
+
+	* interp.c (sim_store_register, sim_fetch_register): Pass in
+ 	length parameter. Return -1.
+
 Tue Aug 26 10:43:11 1997  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* interp.c (sim_kill): Delete.

@@ -1,5 +1,5 @@
 /* BFD COFF object file private structure.
-   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 1997
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
    Written by Cygnus Support.
 
@@ -97,9 +97,10 @@ typedef struct coff_tdata
   /* Used by coff_find_nearest_line.  */
   PTR line_info;
 
-  /* Copy of some of the f_flags bits in the COFF filehdr structure, used by ARM code */
-  int flags;
-  
+  /* Copy of some of the f_flags bits in the COFF filehdr structure,
+     used by ARM code.  */
+  flagword flags;
+
 } coff_data_type;
 
 /* Tdata for pe image files. */

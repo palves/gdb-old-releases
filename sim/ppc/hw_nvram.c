@@ -161,6 +161,9 @@ hw_nvram_init_address(device *me)
 static int
 hw_nvram_bcd(int val)
 {
+  val = val % 100;
+  if (val < 0)
+    val += 100;
   return ((val / 10) << 4) + (val % 10);
 }
 

@@ -1,5 +1,5 @@
 This is Info file stabs.info, produced by Makeinfo version 1.68 from
-the input file ../../../devo/gdb/doc/stabs.texinfo.
+the input file ./stabs.texinfo.
 
 START-INFO-DIR-ENTRY
 * Stabs: (stabs).                 The "stabs" debugging information format.
@@ -7,7 +7,7 @@ END-INFO-DIR-ENTRY
 
    This document describes the stabs debugging symbol tables.
 
-   Copyright 1992, 93, 94, 95, 1997 Free Software Foundation, Inc.
+   Copyright 1992, 93, 94, 95, 97, 1998 Free Software Foundation, Inc.
 Contributed by Cygnus Support.  Written by Julia Menapace, Jim Kingdon,
 and David MacKenzie.
 

@@ -129,7 +129,7 @@ proc recurse_tests {} {
 
 # Only enabled for some targets merely because it has not been tested 
 # elsewhere.
-if {[istarget "sparc*-*-sunos4*"] || [istarget "hppa*-*-bsd*"] || [istarget "sparclet-*-*"] || [istarget "m32r-*-elf"] || [istarget "mn10200-*-*"] || [istarget "mn10300-*-*"]} then {
+if {[istarget "sparc*-*-sunos4*"] || [istarget "hppa*-*-bsd*"] || [istarget "hppa*-*-hpux*"] || [istarget "sparclet-*-*"] || [istarget "m32r-*-elf"] || [istarget "mn10200-*-*"] || [istarget "mn10300-*-*"]} then {
 
     # Preserve the old timeout, and set a new one that should be
     # sufficient to avoid timing out during this test.

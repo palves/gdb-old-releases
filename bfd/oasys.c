@@ -1,5 +1,6 @@
 /* BFD back-end for oasys objects.
-   Copyright 1990, 91, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 96, 97, 1998
+   Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support, <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -1009,10 +1010,10 @@ oasys_write_sections (abfd)
 
   for (s = abfd->sections; s != (asection *) NULL; s = s->next)
     {
-      if (!isdigit (s->name[0]))
+      if (!isdigit ((unsigned char) s->name[0]))
 	{
 	  (*_bfd_error_handler)
-	    ("%s: can not represent section `%s' in oasys",
+	    (_("%s: can not represent section `%s' in oasys"),
 	     bfd_get_filename (abfd), s->name);
 	  bfd_set_error (bfd_error_nonrepresentable_section);
 	  return false;
@@ -1474,6 +1475,7 @@ oasys_sizeof_headers (abfd, exec)
 #define oasys_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents
 #define oasys_bfd_relax_section bfd_generic_relax_section
+#define oasys_bfd_gc_sections bfd_generic_gc_sections
 #define oasys_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
 #define oasys_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define oasys_bfd_final_link _bfd_generic_final_link

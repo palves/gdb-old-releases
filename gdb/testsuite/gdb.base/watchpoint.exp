@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1994, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1994, 1997, 1998 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,6 +29,21 @@ set bug_id 0
 set testfile "watchpoint"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
+
+
+if [get_compiler_info ${binfile}] {
+    return -1
+}
+
+# if we are on HPUX and we are not compiled with gcc, then skip these tests.
+
+if [istarget hppa*-*-hpux*] {
+    if {!$gcc_compiled} {
+	continue 
+    }
+}
+
+
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }

@@ -1,5 +1,5 @@
 /* ELF executable support for BFD.
-   Copyright 1991, 92, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright 1991, 92, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
    in "UNIX System V Release 4, Programmers Guide: ANSI C and
@@ -124,6 +124,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define elf_bfd_final_link		NAME(bfd_elf,bfd_final_link)
 #define elf_create_pointer_linker_section NAME(bfd_elf,create_pointer_linker_section)
 #define elf_finish_pointer_linker_section NAME(bfd_elf,finish_pointer_linker_section)
+#define elf_gc_sections			NAME(_bfd_elf,gc_sections)
+#define elf_gc_common_finalize_got_offsets \
+  NAME(_bfd_elf,gc_common_finalize_got_offsets)
+#define elf_gc_common_final_link	NAME(_bfd_elf,gc_common_final_link)
+#define elf_gc_record_vtinherit		NAME(_bfd_elf,gc_record_vtinherit)
+#define elf_gc_record_vtentry		NAME(_bfd_elf,gc_record_vtentry)
 
 #if ARCH_SIZE == 64
 #define ELF_R_INFO(X,Y)	ELF64_R_INFO(X,Y)
@@ -517,6 +523,10 @@ elf_object_p (abfd)
   elf_debug_file (i_ehdrp);
 #endif
 
+  /* Reject ET_CORE (header indicates core file, not object file) */
+  if (i_ehdrp->e_type == ET_CORE)
+    goto got_wrong_format_error;
+
   /* If there is no section header table, we're hosed. */
   if (i_ehdrp->e_shoff == 0)
     goto got_wrong_format_error;
@@ -571,7 +581,11 @@ elf_object_p (abfd)
     abfd->flags |= D_PAGED;
 
   if (! bfd_default_set_arch_mach (abfd, ebd->arch, 0))
-    goto got_no_match;
+    {
+      /* It's OK if this fails for the generic target.  */
+      if (ebd->elf_machine_code != EM_NONE)
+	goto got_no_match;
+    }
 
   /* Remember the entry point specified in the ELF file header. */
   bfd_get_start_address (abfd) = i_ehdrp->e_entry;
@@ -687,10 +701,9 @@ elf_object_p (abfd)
 
   return (abfd->xvec);
 
-got_wrong_format_error:
+ got_wrong_format_error:
   bfd_set_error (bfd_error_wrong_format);
-  goto got_no_match;
-got_no_match:
+ got_no_match:
   if (new_tdata != NULL
       && new_tdata->elf_sect_ptr != NULL)
     bfd_release (abfd, new_tdata->elf_sect_ptr);
@@ -930,7 +943,7 @@ elf_slurp_symbol_table (abfd, symptrs, dynamic)
 {
   Elf_Internal_Shdr *hdr;
   Elf_Internal_Shdr *verhdr;
-  long symcount;		/* Number of external ELF symbols */
+  unsigned long symcount;	/* Number of external ELF symbols */
   elf_symbol_type *sym;		/* Pointer to current bfd symbol */
   elf_symbol_type *symbase;	/* Buffer for generated bfd symbols */
   Elf_Internal_Sym i_sym;
@@ -978,7 +991,7 @@ elf_slurp_symbol_table (abfd, symptrs, dynamic)
     sym = symbase = NULL;
   else
     {
-      long i;
+      unsigned long i;
 
       if (bfd_seek (abfd, hdr->sh_offset, SEEK_SET) == -1)
 	return -1;
@@ -1005,7 +1018,7 @@ elf_slurp_symbol_table (abfd, symptrs, dynamic)
 	  && verhdr->sh_size / sizeof (Elf_External_Versym) != symcount)
 	{
 	  (*_bfd_error_handler)
-	    ("%s: version count (%ld) does not match symbol count (%ld)",
+	    (_("%s: version count (%ld) does not match symbol count (%ld)"),
 	     abfd->filename,
 	     (long) (verhdr->sh_size / sizeof (Elf_External_Versym)),
 	     symcount);

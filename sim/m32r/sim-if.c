@@ -1,5 +1,5 @@
-/* Main simulator entry points for the M32R.
-   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
+/* Main simulator entry points specific to the M32R.
+   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This program is free software; you can redistribute it and/or modify
@@ -17,54 +17,36 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "sim-main.h"
-#include <signal.h>
+#include "sim-options.h"
+#include "libiberty.h"
+#include "bfd.h"
+
+#ifdef HAVE_STRING_H
+#include <string.h>
+#else
+#ifdef HAVE_STRINGS_H
+#include <strings.h>
+#endif
+#endif
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
-#include "libiberty.h"
-#include "bfd.h"
-#include "sim-core.h"
 
-static SIM_RC alloc_cpu (SIM_DESC, struct _bfd *, char **);
 static void free_state (SIM_DESC);
+static void print_m32r_misc_cpu (SIM_CPU *cpu, int verbose);
 
 /* Records simulator descriptor so utilities like m32r_dump_regs can be
    called from gdb.  */
 SIM_DESC current_state;
 
-/* Scan the args and bfd to see what kind of cpus are in use and allocate
-   space for them.  */
-
-static SIM_RC
-alloc_cpu (SIM_DESC sd, struct _bfd *abfd, char **argv)
-{
-  /* Compute the size of the SIM_CPU struct.
-     For now its the max of all the possible sizes.  */
-  int size = 0;
-  const MACH *mach;
-
-  for (mach = &machs[0]; MACH_NAME (mach) != NULL; ++mach)
-    {
-      int mach_size = IMP_PROPS_SIM_CPU_SIZE (MACH_IMP_PROPS (mach));
-      size = mach_size > size ? mach_size : size;
-    }
-  if (size == 0)
-    abort ();
-
-  /* `sizeof (SIM_CPU)' is the size of the generic part, and `size' is the
-     size of the cpu-specific part.  */
-  STATE_CPU (sd, 0) = zalloc (sizeof (SIM_CPU) + size);
-
-  return SIM_RC_OK;
-}
-
 /* Cover function of sim_state_free to free the cpu buffers as well.  */
 
 static void
 free_state (SIM_DESC sd)
 {
-  if (STATE_CPU (sd, 0))
-    zfree (STATE_CPU (sd, 0));
+  if (STATE_MODULES (sd) != NULL)
+    sim_module_uninstall (sd);
+  sim_cpu_free_all (sd);
   sim_state_free (sd);
 }
 
@@ -78,19 +60,38 @@ sim_open (kind, callback, abfd, argv)
      char **argv;
 {
   SIM_DESC sd = sim_state_alloc (kind, callback);
+  char c;
+  int i;
 
   /* The cpu data is kept in a separately allocated chunk of memory.  */
-  if (alloc_cpu (sd, abfd, argv) != SIM_RC_OK)
+  if (sim_cpu_alloc_all (sd, 1, cgen_cpu_max_extra_bytes ()) != SIM_RC_OK)
     {
       free_state (sd);
       return 0;
     }
+
+#if 0 /* FIXME: pc is in mach-specific struct */
+  /* FIXME: watchpoints code shouldn't need this */
+  {
+    SIM_CPU *current_cpu = STATE_CPU (sd, 0);
+    STATE_WATCHPOINTS (sd)->pc = &(PC);
+    STATE_WATCHPOINTS (sd)->sizeof_pc = sizeof (PC);
+  }
+#endif
 
   if (sim_pre_argv_init (sd, argv[0]) != SIM_RC_OK)
     {
       free_state (sd);
       return 0;
     }
+
+#ifdef HAVE_DV_SOCKSER /* FIXME: was done differently before */
+  if (dv_sockser_install (sd) != SIM_RC_OK)
+    {
+      free_state (sd);
+      return 0;
+    }
+#endif
 
 #if 0 /* FIXME: 'twould be nice if we could do this */
   /* These options override any module options.
@@ -100,36 +101,41 @@ sim_open (kind, callback, abfd, argv)
     sim_add_option_table (sd, extra_options);
 #endif
 
-  /* Allocate core managed memory */
-  sim_do_commandf (sd, "memory region 0,0x%lx", M32R_DEFAULT_MEM_SIZE);
-
-  /* Allocate a handler for the MSPR register.  */
-  sim_core_attach (sd, NULL,
-		   0 /*level*/,
-		   access_write,
-		   0 /*space ???*/,
-		   MSPR_ADDR, 1 /*nr_bytes*/, 0 /*modulo*/,
-		   &m32r_mspr_device,
-		   NULL /*buffer*/);
-
   /* getopt will print the error message so we just have to exit if this fails.
      FIXME: Hmmm...  in the case of gdb we need getopt to call
      print_filtered.  */
   if (sim_parse_args (sd, argv) != SIM_RC_OK)
     {
-      sim_module_uninstall (sd);
       free_state (sd);
       return 0;
     }
 
-  /* check for/establish the a reference program image */
+  /* Allocate a handler for the control registers and other devices
+     if no memory for that range has been allocated by the user.
+     All are allocated in one chunk to keep things from being
+     unnecessarily complicated.  */
+  if (sim_core_read_buffer (sd, NULL, read_map, &c, M32R_DEVICE_ADDR, 1) == 0)
+    sim_core_attach (sd, NULL,
+		     0 /*level*/,
+		     access_read_write,
+		     0 /*space ???*/,
+		     M32R_DEVICE_ADDR, M32R_DEVICE_LEN /*nr_bytes*/,
+		     0 /*modulo*/,
+		     &m32r_devices,
+		     NULL /*buffer*/);
+
+  /* Allocate core managed memory if none specified by user.
+     Use address 4 here in case the user wanted address 0 unmapped.  */
+  if (sim_core_read_buffer (sd, NULL, read_map, &c, 4, 1) == 0)
+    sim_do_commandf (sd, "memory region 0,0x%x", M32R_DEFAULT_MEM_SIZE);
+
+  /* check for/establish the reference program image */
   if (sim_analyze_program (sd,
 			   (STATE_PROG_ARGV (sd) != NULL
 			    ? *STATE_PROG_ARGV (sd)
 			    : NULL),
 			   abfd) != SIM_RC_OK)
     {
-      sim_module_uninstall (sd);
       free_state (sd);
       return 0;
     }
@@ -137,29 +143,42 @@ sim_open (kind, callback, abfd, argv)
   /* Establish any remaining configuration options.  */
   if (sim_config (sd) != SIM_RC_OK)
     {
-      sim_module_uninstall (sd);
       free_state (sd);
       return 0;
     }
 
   if (sim_post_argv_init (sd) != SIM_RC_OK)
     {
-      sim_module_uninstall (sd);
       free_state (sd);
       return 0;
     }
 
-  /* Initialize various cgen things not done by common framework.  */
+  /* Open a copy of the cpu descriptor table.  */
+  {
+    CGEN_CPU_DESC cd = m32r_cgen_cpu_open (STATE_ARCHITECTURE (sd)->mach,
+					   CGEN_ENDIAN_BIG);
+    for (i = 0; i < MAX_NR_PROCESSORS; ++i)
+      {
+	SIM_CPU *cpu = STATE_CPU (sd, i);
+	CPU_CPU_DESC (cpu) = cd;
+	CPU_DISASSEMBLER (cpu) = sim_cgen_disassemble_insn;
+      }
+    m32r_cgen_init_dis (cd);
+  }
+
+  /* Initialize various cgen things not done by common framework.
+     Must be done after m32r_cgen_cpu_open.  */
   cgen_init (sd);
 
-  {
-    int i;
-
-    /* Only needed for profiling, but the structure member is small.  */
-    for (i = 0; i < MAX_NR_PROCESSORS; ++i)
-      memset (& CPU_M32R_MISC_PROFILE (STATE_CPU (sd, i)), 0,
-	      sizeof (CPU_M32R_MISC_PROFILE (STATE_CPU (sd, i))));
-  }
+  for (c = 0; c < MAX_NR_PROCESSORS; ++c)
+    {
+      /* Only needed for profiling, but the structure member is small.  */
+      memset (CPU_M32R_MISC_PROFILE (STATE_CPU (sd, i)), 0,
+	      sizeof (* CPU_M32R_MISC_PROFILE (STATE_CPU (sd, i))));
+      /* Hook in callback for reporting these stats */
+      PROFILE_INFO_CPU_CALLBACK (CPU_PROFILE_DATA (STATE_CPU (sd, i)))
+	= print_m32r_misc_cpu;
+    }
 
   /* Store in a global so things like sparc32_dump_regs can be invoked
      from the gdb command line.  */
@@ -173,6 +192,7 @@ sim_close (sd, quitting)
      SIM_DESC sd;
      int quitting;
 {
+  m32r_cgen_cpu_close (CPU_CPU_DESC (STATE_CPU (sd, 0)));
   sim_module_uninstall (sd);
 }
 
@@ -185,14 +205,12 @@ sim_create_inferior (sd, abfd, argv, envp)
 {
   SIM_CPU *current_cpu = STATE_CPU (sd, 0);
   SIM_ADDR addr;
-  SI taddr;
 
   if (abfd != NULL)
     addr = bfd_get_start_address (abfd);
   else
     addr = 0;
-  taddr = endian_h2t_4 (addr);
-  sim_store_register (sd, PC_REGNUM, (unsigned char *) &taddr);
+  sim_pc_set (current_cpu, addr);
 
 #if 0
   STATE_ARGV (sd) = sim_copy_argv (argv);
@@ -200,33 +218,6 @@ sim_create_inferior (sd, abfd, argv, envp)
 #endif
 
   return SIM_RC_OK;
-}
-
-int
-sim_stop (SIM_DESC sd)
-{
-  switch (STATE_ARCHITECTURE (sd)->mach)
-    {
-    case bfd_mach_m32r :
-      return m32r_engine_stop (sd);
-    default :
-      abort ();
-    }
-}
-
-void
-sim_resume (sd, step, siggnal)
-     SIM_DESC sd;
-     int step, siggnal;
-{
-  switch (STATE_ARCHITECTURE (sd)->mach)
-    {
-    case bfd_mach_m32r :
-      m32r_engine_run (sd, step, siggnal);
-      break;
-    default :
-      abort ();
-    }
 }
 
 /* PROFILE_CPU_CALLBACK */
@@ -243,51 +234,7 @@ print_m32r_misc_cpu (SIM_CPU *cpu, int verbose)
       sim_io_printf (sd, "  %-*s %s\n\n",
 		     PROFILE_LABEL_WIDTH, "Fill nops:",
 		     sim_add_commas (buf, sizeof (buf),
-				     CPU_M32R_MISC_PROFILE (cpu).fillnop_count));
-    }
-}
-
-void
-sim_info (sd, verbose)
-     SIM_DESC sd;
-     int verbose;
-{
-  profile_print (sd, STATE_VERBOSE_P (sd), NULL, print_m32r_misc_cpu);
-}
-
-/* The contents of BUF are in target byte order.  */
-
-void
-sim_fetch_register (sd, rn, buf)
-     SIM_DESC sd;
-     int rn;
-     unsigned char *buf;
-{
-  switch (STATE_ARCHITECTURE (sd)->mach)
-    {
-    case bfd_mach_m32r :
-      m32r_fetch_register (sd, rn, buf);
-      break;
-    default :
-      abort ();
-    }
-}
- 
-/* The contents of BUF are in target byte order.  */
-
-void
-sim_store_register (sd, rn, buf)
-     SIM_DESC sd;
-     int rn;
-     unsigned char *buf;
-{
-  switch (STATE_ARCHITECTURE (sd)->mach)
-    {
-    case bfd_mach_m32r :
-      m32r_store_register (sd, rn, buf);
-      break;
-    default :
-      abort ();
+				     CPU_M32R_MISC_PROFILE (cpu)->fillnop_count));
     }
 }
 
@@ -296,17 +243,45 @@ sim_do_command (sd, cmd)
      SIM_DESC sd;
      char *cmd;
 { 
-  if (sim_args_command (sd, cmd) != SIM_RC_OK)
-    sim_io_eprintf (sd, "Unknown command `%s'\n", cmd);
-}
-
-/* The semantic code invokes this for illegal (unrecognized) instructions.  */
+  char **argv;
 
-void
-sim_engine_illegal_insn (current_cpu, pc)
-     SIM_CPU *current_cpu;
-     PCADDR pc;
-{
-  sim_engine_halt (CPU_STATE (current_cpu), current_cpu, NULL, pc,
-		   sim_stopped, SIM_SIGILL);
+  if (cmd == NULL)
+    return;
+
+  argv = buildargv (cmd);
+
+  if (argv[0] != NULL
+      && strcasecmp (argv[0], "info") == 0
+      && argv[1] != NULL
+      && strncasecmp (argv[1], "reg", 3) == 0)
+    {
+      SI val;
+
+      /* We only support printing bbpsw,bbpc here as there is no equivalent
+	 functionality in gdb.  */
+      if (argv[2] == NULL)
+	sim_io_eprintf (sd, "Missing register in `%s'\n", cmd);
+      else if (argv[3] != NULL)
+	sim_io_eprintf (sd, "Too many arguments in `%s'\n", cmd);
+      else if (strcasecmp (argv[2], "bbpsw") == 0)
+	{
+	  val = a_m32r_h_cr_get (STATE_CPU (sd, 0), H_CR_BBPSW);
+	  sim_io_printf (sd, "bbpsw 0x%x %d\n", val, val);
+	}
+      else if (strcasecmp (argv[2], "bbpc") == 0)
+	{
+	  val = a_m32r_h_cr_get (STATE_CPU (sd, 0), H_CR_BBPC);
+	  sim_io_printf (sd, "bbpc 0x%x %d\n", val, val);
+	}
+      else
+	sim_io_eprintf (sd, "Printing of register `%s' not supported with `sim info'\n",
+			argv[2]);
+    }
+  else
+    {
+      if (sim_args_command (sd, cmd) != SIM_RC_OK)
+	sim_io_eprintf (sd, "Unknown sim command `%s'\n", cmd);
+    }
+
+  freeargv (argv);
 }

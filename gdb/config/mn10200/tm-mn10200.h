@@ -86,10 +86,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define DECR_PC_AFTER_BREAK 0
 
 /* Stacks grow the normal way.  */
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 #define SAVED_PC_AFTER_CALL(frame) \
-  (read_memory_integer (read_register (SP_REGNUM), REGISTER_SIZE) & 0xffff)
+  (read_memory_integer (read_register (SP_REGNUM), REGISTER_SIZE) & 0xffffff)
 
 #ifdef __STDC__
 struct frame_info;
@@ -201,8 +201,8 @@ mn10200_push_arguments PARAMS ((int, struct value **, CORE_ADDR,
 #define REG_STRUCT_HAS_ADDR(gcc_p,TYPE) \
   	(TYPE_LENGTH (TYPE) > 8)
 
-#define USE_STRUCT_CONVENTION(GCC_P, TYPE) \
-  	(TYPE_NFIELDS (TYPE) > 1 || TYPE_LENGTH (TYPE) > 8)
+extern use_struct_convention_fn mn10200_use_struct_convention;
+#define USE_STRUCT_CONVENTION(GCC_P, TYPE) mn10200_use_struct_convention (GCC_P, TYPE)
 
 /* Override the default get_saved_register function with
    one that takes account of generic CALL_DUMMY frames.  */

@@ -86,20 +86,43 @@ struct tracepoint
      aborting, so you can back up to just before the abort.  */
   int hit_count;
 
-  /* Thread number for thread-specific breakpoint, or -1 if don't care */ 
+  /* Thread number for thread-specific tracepoint, or -1 if don't care */ 
   int thread;
+
+  /* BFD section, in case of overlays: 
+     no, I don't know if tracepoints are really gonna work with overlays.  */
+  asection *section;
 };
+
+enum actionline_type
+{
+  BADLINE  = -1,
+  GENERIC  =  0,
+  END      =  1,
+  STEPPING =  2
+};
+
 
 /* The tracepont chain of all tracepoints */
 
 extern struct tracepoint *tracepoint_chain;
 
+extern unsigned long trace_running_p;
+
 /* A hook used to notify the UI of tracepoint operations */
 
 void (*create_tracepoint_hook) PARAMS ((struct tracepoint *));
 void (*delete_tracepoint_hook) PARAMS ((struct tracepoint *));
+void (*modify_tracepoint_hook) PARAMS ((struct tracepoint *));
+void (*trace_find_hook) PARAMS ((char *arg, int from_tty));
+void (*trace_start_stop_hook) PARAMS ((int start, int from_tty));
 
 struct tracepoint *get_tracepoint_by_number PARAMS ((char **));
+int get_traceframe_number PARAMS ((void));
+void  free_actions PARAMS((struct tracepoint *));
+enum actionline_type validate_actionline PARAMS((char **,
+                                                        struct tracepoint *));
+
 
 /* Walk the following statement or block through all tracepoints.
    ALL_TRACEPOINTS_SAFE does so even if the statment deletes the current

@@ -1,5 +1,5 @@
 /* Matsushita 10200 specific support for 32-bit ELF
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -259,7 +259,7 @@ mn10200_elf_final_link_relocate (howto, input_bfd, output_bfd,
     case R_MN10200_8:
       value += addend;
 
-      if ((long)value > 0x7fff || (long)value < -0x8000)
+      if ((long)value > 0x7f || (long)value < -0x80)
 	return bfd_reloc_overflow;
 
       bfd_put_8 (input_bfd, value, hit_data);
@@ -452,19 +452,19 @@ mn10200_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	      break;
 
 	    case bfd_reloc_outofrange:
-	      msg = "internal error: out of range error";
+	      msg = _("internal error: out of range error");
 	      goto common_error;
 
 	    case bfd_reloc_notsupported:
-	      msg = "internal error: unsupported relocation error";
+	      msg = _("internal error: unsupported relocation error");
 	      goto common_error;
 
 	    case bfd_reloc_dangerous:
-	      msg = "internal error: dangerous error";
+	      msg = _("internal error: dangerous error");
 	      goto common_error;
 
 	    default:
-	      msg = "internal error: unknown error";
+	      msg = _("internal error: unknown error");
 	      /* fall through */
 
 	    common_error:

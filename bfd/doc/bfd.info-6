@@ -1,5 +1,5 @@
 This is Info file bfd.info, produced by Makeinfo version 1.68 from the
-input file ../../../devo/bfd/doc/bfd.texinfo.
+input file bfd.texinfo.
 
 START-INFO-DIR-ENTRY
 * Bfd: (bfd).                   The Binary File Descriptor library.
@@ -455,7 +455,8 @@ dependent COFF routines:
             struct bfd_link_hash_entry **hashp));
      
       boolean (*_bfd_coff_link_output_has_begun) PARAMS ((
-            bfd * abfd ));
+            bfd * abfd,
+            struct coff_final_link_info * pfinfo));
       boolean (*_bfd_coff_final_link_postscript) PARAMS ((
             bfd * abfd,
             struct coff_final_link_info * pfinfo));
@@ -574,8 +575,8 @@ dependent COFF routines:
              ((coff_backend_info (abfd)->_bfd_coff_link_add_one_symbol)\
               (info, abfd, name, flags, section, value, string, cp, coll, hashp))
      
-     #define bfd_coff_link_output_has_begun(a) \
-             ((coff_backend_info (a)->_bfd_coff_link_output_has_begun) (a))
+     #define bfd_coff_link_output_has_begun(a,p) \
+             ((coff_backend_info (a)->_bfd_coff_link_output_has_begun) (a,p))
      #define bfd_coff_final_link_postscript(a,p) \
              ((coff_backend_info (a)->_bfd_coff_final_link_postscript) (a,p))
 
@@ -717,6 +718,7 @@ Index
 * bfd_fdopenr:                           Opening and Closing.
 * bfd_find_target:                       bfd_target.
 * bfd_format_string:                     Formats.
+* bfd_generic_gc_sections:               howto manager.
 * bfd_generic_get_relocated_section_contents: howto manager.
 * bfd_generic_relax_section:             howto manager.
 * bfd_get_arch:                          Architectures.
@@ -732,8 +734,8 @@ Index
 * bfd_get_reloc_upper_bound:             BFD front end.
 * bfd_get_section_by_name:               section prototypes.
 * bfd_get_section_contents:              section prototypes.
-* bfd_get_size <1>:                      Internal.
-* bfd_get_size:                          BFD front end.
+* bfd_get_size <1>:                      BFD front end.
+* bfd_get_size:                          Internal.
 * bfd_get_symtab_upper_bound:            symbol handling functions.
 * bfd_h_put_size:                        Internal.
 * bfd_hash_allocate:                     Creating and Freeing a Hash Table.
@@ -753,9 +755,11 @@ Index
 * bfd_lookup_arch:                       Architectures.
 * bfd_make_debug_symbol:                 symbol handling functions.
 * bfd_make_empty_symbol:                 symbol handling functions.
+* bfd_make_readable:                     Opening and Closing.
 * bfd_make_section:                      section prototypes.
 * bfd_make_section_anyway:               section prototypes.
 * bfd_make_section_old_way:              section prototypes.
+* bfd_make_writable:                     Opening and Closing.
 * bfd_map_over_sections:                 section prototypes.
 * bfd_merge_private_bfd_data:            BFD front end.
 * bfd_open_file:                         File Caching.
@@ -847,6 +851,25 @@ Index
 * BFD_RELOC_D10V_10_PCREL_R:             howto manager.
 * BFD_RELOC_D10V_18:                     howto manager.
 * BFD_RELOC_D10V_18_PCREL:               howto manager.
+* BFD_RELOC_D30V_15:                     howto manager.
+* BFD_RELOC_D30V_15_PCREL:               howto manager.
+* BFD_RELOC_D30V_15_PCREL_R:             howto manager.
+* BFD_RELOC_D30V_21:                     howto manager.
+* BFD_RELOC_D30V_21_PCREL:               howto manager.
+* BFD_RELOC_D30V_21_PCREL_R:             howto manager.
+* BFD_RELOC_D30V_32:                     howto manager.
+* BFD_RELOC_D30V_32_PCREL:               howto manager.
+* BFD_RELOC_D30V_6:                      howto manager.
+* BFD_RELOC_D30V_9_PCREL:                howto manager.
+* BFD_RELOC_D30V_9_PCREL_R:              howto manager.
+* BFD_RELOC_FR30_10_IN_8:                howto manager.
+* BFD_RELOC_FR30_12_PCREL:               howto manager.
+* BFD_RELOC_FR30_20:                     howto manager.
+* BFD_RELOC_FR30_48:                     howto manager.
+* BFD_RELOC_FR30_6_IN_4:                 howto manager.
+* BFD_RELOC_FR30_8_IN_8:                 howto manager.
+* BFD_RELOC_FR30_9_IN_8:                 howto manager.
+* BFD_RELOC_FR30_9_PCREL:                howto manager.
 * BFD_RELOC_GPREL16:                     howto manager.
 * BFD_RELOC_GPREL32:                     howto manager.
 * BFD_RELOC_HI16:                        howto manager.
@@ -984,6 +1007,7 @@ Index
 * BFD_RELOC_SPARC_PLT64:                 howto manager.
 * BFD_RELOC_SPARC_REGISTER:              howto manager.
 * BFD_RELOC_SPARC_RELATIVE:              howto manager.
+* BFD_RELOC_SPARC_REV32:                 howto manager.
 * BFD_RELOC_SPARC_UA32:                  howto manager.
 * BFD_RELOC_SPARC_WDISP16:               howto manager.
 * BFD_RELOC_SPARC_WDISP19:               howto manager.
@@ -996,14 +1020,22 @@ Index
 * bfd_reloc_type_lookup:                 howto manager.
 * BFD_RELOC_V850_22_PCREL:               howto manager.
 * BFD_RELOC_V850_9_PCREL:                howto manager.
+* BFD_RELOC_V850_CALLT_16_16_OFFSET:     howto manager.
+* BFD_RELOC_V850_CALLT_6_7_OFFSET:       howto manager.
 * BFD_RELOC_V850_SDA_15_16_OFFSET:       howto manager.
 * BFD_RELOC_V850_SDA_16_16_OFFSET:       howto manager.
+* BFD_RELOC_V850_SDA_16_16_SPLIT_OFFSET: howto manager.
 * BFD_RELOC_V850_TDA_16_16_OFFSET:       howto manager.
+* BFD_RELOC_V850_TDA_4_4_OFFSET:         howto manager.
+* BFD_RELOC_V850_TDA_4_5_OFFSET:         howto manager.
 * BFD_RELOC_V850_TDA_6_8_OFFSET:         howto manager.
 * BFD_RELOC_V850_TDA_7_7_OFFSET:         howto manager.
 * BFD_RELOC_V850_TDA_7_8_OFFSET:         howto manager.
 * BFD_RELOC_V850_ZDA_15_16_OFFSET:       howto manager.
 * BFD_RELOC_V850_ZDA_16_16_OFFSET:       howto manager.
+* BFD_RELOC_V850_ZDA_16_16_SPLIT_OFFSET: howto manager.
+* BFD_RELOC_VTABLE_ENTRY:                howto manager.
+* BFD_RELOC_VTABLE_INHERIT:              howto manager.
 * bfd_scan_arch:                         Architectures.
 * bfd_scan_vma:                          BFD front end.
 * bfd_set_arch_info:                     Architectures.

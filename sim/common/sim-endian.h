@@ -407,8 +407,8 @@ do { \
 
 
 
-#if (SIM_ENDIAN_INLINE & INCLUDE_MODULE)
-# include "sim-endian.c"
+#if H_REVEALS_MODULE_P (SIM_ENDIAN_INLINE)
+#include "sim-endian.c"
 #endif
 
 #endif /* _SIM_ENDIAN_H_ */

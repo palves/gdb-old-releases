@@ -2,7 +2,7 @@
    of the floating point routines in libgcc1.c for targets without
    hardware floating point.  */
 
-/* Copyright (C) 1994,1997 Free Software Foundation, Inc.
+/* Copyright (C) 1994,1997-1998 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -110,11 +110,16 @@ typedef union {
    */
 
 #define NR_EXPBITS  (is_double ?   11 :   8)
-#define NR_FRACBITS (is_double ?   52 :  23)
+#define NR_FRACBITS (is_double ?   52 : 23)
 #define SIGNBIT     (is_double ? MSBIT64 (0) : MSBIT64 (32))
 
-#define EXPMAX      ((unsigned) (is_double ? 2047 : 255))
-#define EXPBIAS     (is_double ? 1023 : 127)
+#define EXPMAX32    (255)
+#define EXMPAX64    (2047)
+#define EXPMAX      ((unsigned) (is_double ? EXMPAX64 : EXPMAX32))
+
+#define EXPBIAS32   (127)
+#define EXPBIAS64   (1023)
+#define EXPBIAS     (is_double ? EXPBIAS64 : EXPBIAS32)
 
 #define QUIET_NAN   LSBIT64 (NR_FRACBITS - 1)
 
@@ -128,10 +133,16 @@ typedef union {
    64 bit - <IMPLICIT_1:1><FRACBITS:52><GUARDS:8><PAD:00>
    32 bit - <IMPLICIT_1:1><FRACBITS:23><GUARDS:7><PAD:30> */
 
-#define NR_PAD    (is_double ? 0 : 30)
-#define PADMASK   (is_double ? 0 : LSMASK64 (29, 0))
-#define NR_GUARDS  ((is_double ? 8 :  7 ) + NR_PAD)
+#define NR_PAD32    (30)
+#define NR_PAD64    (0)
+#define NR_PAD      (is_double ? NR_PAD64 : NR_PAD32)
+#define PADMASK     (is_double ? 0 : LSMASK64 (NR_PAD32 - 1, 0))
+
+#define NR_GUARDS32 (7 + NR_PAD32)
+#define NR_GUARDS64 (8 + NR_PAD64)
+#define NR_GUARDS  (is_double ? NR_GUARDS64 : NR_GUARDS32)
 #define GUARDMASK  LSMASK64 (NR_GUARDS - 1, 0)
+
 #define GUARDMSB   LSBIT64  (NR_GUARDS - 1)
 #define GUARDLSB   LSBIT64  (NR_PAD)
 #define GUARDROUND LSMASK64 (NR_GUARDS - 2, 0)
@@ -145,6 +156,9 @@ typedef union {
 #define FRAC32MASK LSMASK64 (63, NR_FRAC_GUARD - 32 + 1)
 
 #define NORMAL_EXPMIN (-(EXPBIAS)+1)
+
+#define NORMAL_EXPMAX32 (EXPBIAS32)
+#define NORMAL_EXPMAX64 (EXPBIAS64)
 #define NORMAL_EXPMAX (EXPBIAS)
 
 
@@ -163,6 +177,7 @@ typedef union {
 #define MAX_UINT  (is_64bit ? MAX_UINT64 : MAX_UINT32)
 #define NR_INTBITS (is_64bit ? 64 : 32)
 
+/* Squeese an unpacked sim_fpu struct into a 32/64 bit integer */
 STATIC_INLINE_SIM_FPU (unsigned64)
 pack_fpu (const sim_fpu *src,
 	  int is_double)
@@ -202,6 +217,7 @@ pack_fpu (const sim_fpu *src,
       fraction = 0;
       break;
     case sim_fpu_class_number:
+    case sim_fpu_class_denorm:
       ASSERT (src->fraction >= IMPLICIT_1);
       ASSERT (src->fraction < IMPLICIT_2);
       if (src->normal_exp < NORMAL_EXPMIN)
@@ -293,6 +309,7 @@ pack_fpu (const sim_fpu *src,
 }
 
 
+/* Unpack a 32/64 bit integer into a sim_fpu structure */
 STATIC_INLINE_SIM_FPU (void)
 unpack_fpu (sim_fpu *dst, unsigned64 packed, int is_double)
 {
@@ -315,7 +332,7 @@ unpack_fpu (sim_fpu *dst, unsigned64 packed, int is_double)
 	     so there isn't a leading implicit one - we'll shift it so
 	     it gets one.  */
 	  dst->normal_exp = exp - EXPBIAS + 1;
-	  dst->class = sim_fpu_class_number;
+	  dst->class = sim_fpu_class_denorm;
 	  dst->sign = sign;
 	  fraction <<= NR_GUARDS;
 	  while (fraction < IMPLICIT_1)
@@ -389,6 +406,7 @@ unpack_fpu (sim_fpu *dst, unsigned64 packed, int is_double)
 }
 
 
+/* Convert a floating point into an integer */
 STATIC_INLINE_SIM_FPU (int)
 fpu2i (signed64 *i,
        const sim_fpu *s,
@@ -488,6 +506,7 @@ fpu2i (signed64 *i,
   return status;
 }
 
+/* convert an integer into a floating point */
 STATIC_INLINE_SIM_FPU (int)
 i2fpu (sim_fpu *f, signed64 i, int is_64bit)
 {
@@ -559,6 +578,7 @@ i2fpu (sim_fpu *f, signed64 i, int is_64bit)
 }
 
 
+/* Convert a floating point into an integer */
 STATIC_INLINE_SIM_FPU (int)
 fpu2u (unsigned64 *u, const sim_fpu *s, int is_64bit)
 {
@@ -615,6 +635,7 @@ fpu2u (unsigned64 *u, const sim_fpu *s, int is_64bit)
   return 0;
 }
 
+/* Convert an unsigned integer into a floating point */
 STATIC_INLINE_SIM_FPU (int)
 u2fpu (sim_fpu *f, unsigned64 u, int is_64bit)
 {
@@ -688,6 +709,40 @@ sim_fpu_to64 (unsigned64 *u,
 	      const sim_fpu *f)
 {
   *u = pack_fpu (f, 1);
+}
+
+
+INLINE_SIM_FPU (void)
+sim_fpu_fractionto (sim_fpu *f,
+		    int sign,
+		    int normal_exp,
+		    unsigned64 fraction,
+		    int precision)
+{
+  int shift = (NR_FRAC_GUARD - precision);
+  f->class = sim_fpu_class_number;
+  f->sign = sign;
+  f->normal_exp = normal_exp;
+  /* shift the fraction to where sim-fpu expects it */
+  if (shift >= 0)
+    f->fraction = (fraction << shift);
+  else
+    f->fraction = (fraction >> -shift);
+  f->fraction |= IMPLICIT_1;
+}
+
+
+INLINE_SIM_FPU (unsigned64)
+sim_fpu_tofraction (const sim_fpu *d,
+		    int precision)
+{
+  /* we have NR_FRAC_GUARD bits, we want only PRECISION bits */
+  int shift = (NR_FRAC_GUARD - precision);
+  unsigned64 fraction = (d->fraction & ~IMPLICIT_1);
+  if (shift >= 0)
+    return fraction >> shift;
+  else
+    return fraction << -shift;
 }
 
 
@@ -831,6 +886,7 @@ do_round (sim_fpu *f,
       return sim_fpu_status_invalid_snan;
       break;
     case sim_fpu_class_number:
+    case sim_fpu_class_denorm:
       {
 	int status;
 	ASSERT (f->fraction < IMPLICIT_2);
@@ -846,10 +902,11 @@ do_round (sim_fpu *f,
 	    if (shift + NR_GUARDS <= NR_FRAC_GUARD + 1
 		&& !(denorm & sim_fpu_denorm_zero))
 	      {
-		
 		status = do_normal_round (f, shift + NR_GUARDS, round);
 		if (f->fraction == 0) /* rounding underflowed */
-		  status |= do_normal_underflow (f, is_double, round);
+		  {
+		    status |= do_normal_underflow (f, is_double, round);
+		  }
 		else if (f->normal_exp < NORMAL_EXPMIN) /* still underflow? */
 		  {
 		    status |= sim_fpu_status_denorm;
@@ -858,6 +915,8 @@ do_round (sim_fpu *f,
 		       before rounding, some after! */
 		    if (status & sim_fpu_status_inexact)
 		      status |= sim_fpu_status_underflow;
+		    /* Flag that resultant value has been denormalized */
+		    f->class = sim_fpu_class_denorm;
 		  }
 		else if ((denorm & sim_fpu_denorm_underflow_inexact))
 		  {
@@ -885,7 +944,8 @@ do_round (sim_fpu *f,
 	      /* oops! rounding caused overflow */
 	      status |= do_normal_overflow (f, is_double, round);
 	  }
-	ASSERT ((f->class == sim_fpu_class_number)
+	ASSERT ((f->class == sim_fpu_class_number
+		 || f->class == sim_fpu_class_denorm)
 		<= (f->fraction < IMPLICIT_2 && f->fraction >= IMPLICIT_1));
 	return status;
       }
@@ -1500,6 +1560,172 @@ sim_fpu_div (sim_fpu *f,
 
 
 INLINE_SIM_FPU (int)
+sim_fpu_max (sim_fpu *f,
+	     const sim_fpu *l,
+	     const sim_fpu *r)
+{
+  if (sim_fpu_is_snan (l))
+    {
+      *f = *l;
+      f->class = sim_fpu_class_qnan;
+      return sim_fpu_status_invalid_snan;
+    }
+  if (sim_fpu_is_snan (r))
+    {
+      *f = *r;
+      f->class = sim_fpu_class_qnan;
+      return sim_fpu_status_invalid_snan;
+    }
+  if (sim_fpu_is_qnan (l))
+    {
+      *f = *l;
+      return 0;
+    }
+  if (sim_fpu_is_qnan (r))
+    {
+      *f = *r;
+      return 0;
+    }
+  if (sim_fpu_is_infinity (l))
+    {
+      if (sim_fpu_is_infinity (r)
+	  && l->sign == r->sign)
+	{
+	  *f = sim_fpu_qnan;
+	  return sim_fpu_status_invalid_isi;
+	}
+      if (l->sign)
+	*f = *r; /* -inf < anything */
+      else
+	*f = *l; /* +inf > anthing */
+      return 0;
+    }
+  if (sim_fpu_is_infinity (r))
+    {
+      if (r->sign)
+	*f = *l; /* anything > -inf */
+      else
+	*f = *r; /* anthing < +inf */
+      return 0;
+    }
+  if (l->sign > r->sign)
+    {
+      *f = *r; /* -ve < +ve */
+      return 0;
+    }
+  if (l->sign < r->sign)
+    {
+      *f = *l; /* +ve > -ve */
+      return 0;
+    }
+  ASSERT (l->sign == r->sign);
+  if (l->normal_exp > r->normal_exp
+      || (l->normal_exp == r->normal_exp && 
+	  l->fraction > r->fraction))
+    {
+      /* |l| > |r| */
+      if (l->sign)
+	*f = *r; /* -ve < -ve */
+      else
+	*f = *l; /* +ve > +ve */
+      return 0;
+    }
+  else
+    {
+      /* |l| <= |r| */
+      if (l->sign)
+	*f = *l; /* -ve > -ve */
+      else
+	*f = *r; /* +ve < +ve */
+      return 0;
+    }
+}
+
+
+INLINE_SIM_FPU (int)
+sim_fpu_min (sim_fpu *f,
+	     const sim_fpu *l,
+	     const sim_fpu *r)
+{
+  if (sim_fpu_is_snan (l))
+    {
+      *f = *l;
+      f->class = sim_fpu_class_qnan;
+      return sim_fpu_status_invalid_snan;
+    }
+  if (sim_fpu_is_snan (r))
+    {
+      *f = *r;
+      f->class = sim_fpu_class_qnan;
+      return sim_fpu_status_invalid_snan;
+    }
+  if (sim_fpu_is_qnan (l))
+    {
+      *f = *l;
+      return 0;
+    }
+  if (sim_fpu_is_qnan (r))
+    {
+      *f = *r;
+      return 0;
+    }
+  if (sim_fpu_is_infinity (l))
+    {
+      if (sim_fpu_is_infinity (r)
+	  && l->sign == r->sign)
+	{
+	  *f = sim_fpu_qnan;
+	  return sim_fpu_status_invalid_isi;
+	}
+      if (l->sign)
+	*f = *l; /* -inf < anything */
+      else
+	*f = *r; /* +inf > anthing */
+      return 0;
+    }
+  if (sim_fpu_is_infinity (r))
+    {
+      if (r->sign)
+	*f = *r; /* anything > -inf */
+      else
+	*f = *l; /* anything < +inf */
+      return 0;
+    }
+  if (l->sign > r->sign)
+    {
+      *f = *l; /* -ve < +ve */
+      return 0;
+    }
+  if (l->sign < r->sign)
+    {
+      *f = *r; /* +ve > -ve */
+      return 0;
+    }
+  ASSERT (l->sign == r->sign);
+  if (l->normal_exp > r->normal_exp
+      || (l->normal_exp == r->normal_exp && 
+	  l->fraction > r->fraction))
+    {
+      /* |l| > |r| */
+      if (l->sign)
+	*f = *l; /* -ve < -ve */
+      else
+	*f = *r; /* +ve > +ve */
+      return 0;
+    }
+  else
+    {
+      /* |l| <= |r| */
+      if (l->sign)
+	*f = *r; /* -ve > -ve */
+      else
+	*f = *l; /* +ve < +ve */
+      return 0;
+    }
+}
+
+
+INLINE_SIM_FPU (int)
 sim_fpu_neg (sim_fpu *f,
 	     const sim_fpu *r)
 {
@@ -1864,7 +2090,17 @@ INLINE_SIM_FPU (double)
 sim_fpu_2d (const sim_fpu *s)
 {
   sim_fpu_map val;
-  val.i = pack_fpu (s, 1);
+  if (sim_fpu_is_snan (s))
+    {
+      /* gag SNaN's */
+      sim_fpu n = *s;
+      n.class = sim_fpu_class_qnan;
+      val.i = pack_fpu (&n, 1);
+    }
+  else
+    {
+      val.i = pack_fpu (s, 1);
+    }
   return val.d;
 }
 
@@ -1959,11 +2195,83 @@ sim_fpu_is_number (const sim_fpu *d)
 {
   switch (d->class)
     {
+    case sim_fpu_class_denorm:
     case sim_fpu_class_number:
       return 1;
     default:
       return 0;
     }
+}
+
+INLINE_SIM_FPU (int)
+sim_fpu_is_denorm (const sim_fpu *d)
+{
+  switch (d->class)
+    {
+    case sim_fpu_class_denorm:
+      return 1;
+    default:
+      return 0;
+    }
+}
+
+
+INLINE_SIM_FPU (int)
+sim_fpu_sign (const sim_fpu *d)
+{
+  return d->sign;
+}
+
+
+INLINE_SIM_FPU (int)
+sim_fpu_exp (const sim_fpu *d)
+{
+  return d->normal_exp;
+}
+
+
+
+INLINE_SIM_FPU (int)
+sim_fpu_is (const sim_fpu *d)
+{
+  switch (d->class)
+    {
+    case sim_fpu_class_qnan:
+      return SIM_FPU_IS_QNAN;
+    case sim_fpu_class_snan:
+      return SIM_FPU_IS_SNAN;
+    case sim_fpu_class_infinity:
+      if (d->sign)
+	return SIM_FPU_IS_NINF;
+      else
+	return SIM_FPU_IS_PINF;
+    case sim_fpu_class_number:
+      if (d->sign)
+	return SIM_FPU_IS_NNUMBER;
+      else
+	return SIM_FPU_IS_PNUMBER;
+    case sim_fpu_class_denorm:
+      if (d->sign)
+	return SIM_FPU_IS_NDENORM;
+      else
+	return SIM_FPU_IS_PDENORM;
+    case sim_fpu_class_zero:
+      if (d->sign)
+	return SIM_FPU_IS_NZERO;
+      else
+	return SIM_FPU_IS_PZERO;
+    default:
+      return -1;
+      abort ();
+    }
+}
+
+INLINE_SIM_FPU (int)
+sim_fpu_cmp (const sim_fpu *l, const sim_fpu *r)
+{
+  sim_fpu res;
+  sim_fpu_sub (&res, l, r);
+  return sim_fpu_is (&res);
 }
 
 INLINE_SIM_FPU (int)
@@ -2140,8 +2448,26 @@ sim_fpu_gt (int *is,
 
 /* A number of useful constants */
 
-const sim_fpu sim_fpu_zero = { sim_fpu_class_zero, };
-const sim_fpu sim_fpu_qnan = { sim_fpu_class_qnan, };
+#if EXTERN_SIM_FPU_P
+const sim_fpu sim_fpu_zero = {
+  sim_fpu_class_zero,
+};
+const sim_fpu sim_fpu_qnan = {
+  sim_fpu_class_qnan,
+};
+const sim_fpu sim_fpu_one = {
+  sim_fpu_class_number, 0, IMPLICIT_1, 1
+};
+const sim_fpu sim_fpu_two = {
+  sim_fpu_class_number, 0, IMPLICIT_1, 2
+};
+const sim_fpu sim_fpu_max32 = {
+  sim_fpu_class_number, 0, LSMASK64 (NR_FRAC_GUARD, NR_GUARDS32), NORMAL_EXPMAX32
+};
+const sim_fpu sim_fpu_max64 = {
+  sim_fpu_class_number, 0, LSMASK64 (NR_FRAC_GUARD, NR_GUARDS64), NORMAL_EXPMAX64
+};
+#endif
 
 
 /* For debugging */
@@ -2171,6 +2497,7 @@ sim_fpu_print_fpu (const sim_fpu *f,
       print (arg, "INF");
       break;
     case sim_fpu_class_number:
+    case sim_fpu_class_denorm:
       print (arg, "1.");
       print_bits (f->fraction, NR_FRAC_GUARD - 1, print, arg);
       print (arg, "*2^%+-5d", f->normal_exp);

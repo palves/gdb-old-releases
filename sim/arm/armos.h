@@ -58,9 +58,38 @@
 
 #define SWI_Breakpoint             0x180000 /* see gdb's tm-arm.h */
 
+#define AngelSWI_ARM		   0x123456
+#define AngelSWI_Thumb		   0xAB
+
+/* The reason codes: */
+#define AngelSWI_Reason_Open		(0x01)
+#define AngelSWI_Reason_Close		(0x02)
+#define AngelSWI_Reason_WriteC		(0x03)
+#define AngelSWI_Reason_Write0		(0x04)
+#define AngelSWI_Reason_Write		(0x05)
+#define AngelSWI_Reason_Read		(0x06)
+#define AngelSWI_Reason_ReadC		(0x07)
+#define AngelSWI_Reason_IsTTY		(0x09)
+#define AngelSWI_Reason_Seek		(0x0A)
+#define AngelSWI_Reason_FLen		(0x0C)
+#define AngelSWI_Reason_TmpNam		(0x0D)
+#define AngelSWI_Reason_Remove		(0x0E)
+#define AngelSWI_Reason_Rename		(0x0F)
+#define AngelSWI_Reason_Clock		(0x10)
+#define AngelSWI_Reason_Time		(0x11)
+#define AngelSWI_Reason_System		(0x12)
+#define AngelSWI_Reason_Errno		(0x13)
+#define AngelSWI_Reason_GetCmdLine 	(0x15)
+#define AngelSWI_Reason_HeapInfo 	(0x16)
+#define AngelSWI_Reason_EnterSVC 	(0x17)
+#define AngelSWI_Reason_ReportException (0x18)
+#define ADP_Stopped_ApplicationExit 	((2 << 16) + 38)
+#define ADP_Stopped_RunTimeError 	((2 << 16) + 34)
+
 #define FPESTART 0x2000L
 #define FPEEND 0x8000L
 #define FPEOLDVECT FPESTART + 0x100L + 8L * 16L + 4L /* stack + 8 regs + fpsr */
 #define FPENEWVECT(addr) 0xea000000L + ((addr) >> 2) - 3L /* branch from 4 to 0x2400 */
+
 extern unsigned long fpecode[] ;
 extern unsigned long fpesize ;

@@ -28,6 +28,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdbcore.h"
 #include "symfile.h"
 
+  	
+/* Should call_function allocate stack space for a struct return?  */
+int
+mn10200_use_struct_convention (gcc_p, type)
+     int gcc_p;
+     struct type *type;
+{
+  return (TYPE_NFIELDS (type) > 1 || TYPE_LENGTH (type) > 8);
+}
+
+
+
 /* The main purpose of this file is dealing with prologues to extract
    information about stack frames and saved registers.
 
@@ -123,7 +135,8 @@ mn10200_analyze_prologue (fi, pc)
   /* If we're in start, then give up.  */
   if (strcmp (name, "start") == 0)
     {
-      fi->status = NO_MORE_FRAMES;
+      if (fi)
+        fi->status = NO_MORE_FRAMES;
       return pc;
     }
 
@@ -327,7 +340,7 @@ mn10200_analyze_prologue (fi, pc)
 	}
       
       /* Get the PC this instruction will branch to.  */
-      temp = (extract_signed_integer (buf, 2) + addr) & 0xffffff;
+      temp = (extract_signed_integer (buf, 2) + addr + 3) & 0xffffff;
 
       /* Get the name of the function at the target address.  */
       status = find_pc_partial_function (temp, &name, NULL, NULL);
@@ -368,7 +381,7 @@ mn10200_analyze_prologue (fi, pc)
 	}
       
       /* Get the PC this instruction will branch to.  */
-      temp = (extract_signed_integer (buf, 3) + addr) & 0xffffff;
+      temp = (extract_signed_integer (buf, 3) + addr + 5) & 0xffffff;
 
       /* Get the name of the function at the target address.  */
       status = find_pc_partial_function (temp, &name, NULL, NULL);

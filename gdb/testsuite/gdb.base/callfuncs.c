@@ -69,19 +69,19 @@ enum enumtype enum_val1 = enumval1;
 enum enumtype enum_val2 = enumval2;
 enum enumtype enum_val3 = enumval3;
 
-t_enum_value1 (enum_arg)
+int t_enum_value1 (enum_arg)
 enum enumtype enum_arg;
 {
   return (enum_arg == enum_val1);
 }
 
-t_enum_value2 (enum_arg)
+int t_enum_value2 (enum_arg)
 enum enumtype enum_arg;
 {
   return (enum_arg == enum_val2);
 }
 
-t_enum_value3 (enum_arg)
+int t_enum_value3 (enum_arg)
 enum enumtype enum_arg;
 {
   return (enum_arg == enum_val3);
@@ -123,10 +123,21 @@ sum10 (i0, i1, i2, i3, i4, i5, i6, i7, i8, i9)
   return i0 + i1 + i2 + i3 + i4 + i5 + i6 + i7 + i8 + i9;
 }
 
+/* Test that args are passed in the right order. */
+int
+cmp10 (i0, i1, i2, i3, i4, i5, i6, i7, i8, i9)
+  int i0, i1, i2, i3, i4, i5, i6, i7, i8, i9;
+{
+  return
+    (i0 == 0) && (i1 == 1) && (i2 == 2) && (i3 == 3) && (i4 == 4) &&
+    (i5 == 5) && (i6 == 6) && (i7 == 7) && (i8 == 8) && (i9 == 9);
+}
+
+
 /* Gotta have a main to be able to generate a linked, runnable
    executable, and also provide a useful place to set a breakpoint. */
-
-main ()
+extern void * malloc() ;
+int main ()
 {
 #ifdef usestubs
   set_debug_traps();
@@ -134,6 +145,7 @@ main ()
 #endif
   malloc(1);
   t_structs_c(struct_val1);
+  return 0 ;
 }
 
 /* Functions that expect specific values to be passed and return 

@@ -64,9 +64,9 @@ struct pa_opcode
 
    In the args field, the following characters are unused:
 
-	'  "#$%    *+- ./   3      :; =   '
-	' B         L              [\] _'
-	'    e gh   lm   qr        { } '
+	'  "#$%    *+- ./          :;    '
+	'                          [\]  '
+	'                          { } '
 
    Here are all the characters:
 
@@ -161,6 +161,12 @@ And these (PJH) for PA-89 F.P. registers and instructions:
         (very similar to 'F')
 */
 
+
+/* List of characters not to put a space after.  Note that
+   "," is included, as the "spopN" operations use literal
+   commas in their completer sections. */
+static const char *const completer_chars = ",CcY<>?!@+&U~FfGHINnOoZMadu|/=0123%e$m}";
+
 /* The order of the opcodes in this table is significant:
 
    * The assembler requires that all instances of the same mnemonic must be
@@ -237,8 +243,8 @@ static const struct pa_opcode pa_opcodes[] =
 { "bl",		0xe8000000, 0xfc00e000, "nW,b", pa10},
 { "gate",	0xe8002000, 0xfc00e000, "nW,b", pa10},
 { "blr",	0xe8004000, 0xfc00e001, "nx,b", pa10},
-{ "bv",		0xe800c000, 0xfc00e001, "nx(b)", pa10},
-{ "bv",		0xe800c000, 0xfc00e001, "n(b)", pa10},
+{ "bv",		0xe800c000, 0xfc00fffd, "nx(b)", pa10},
+{ "bv",		0xe800c000, 0xfc00fffd, "n(b)", pa10},
 { "be",		0xe0000000, 0xfc000000, "nz(S,b)", pa10},
 { "ble",	0xe4000000, 0xfc000000, "nz(S,b)", pa10},
 { "movb",	0xc8000000, 0xfc000000, "|nx,b,w", pa10},
@@ -431,6 +437,7 @@ static const struct pa_opcode pa_opcodes[] =
 { "fmpyadd",	0x18000000, 0xfc000000, "H4,6,7,9,8", pa11},
 { "fmpysub",	0x98000000, 0xfc000000, "H4,6,7,9,8", pa11},
 { "ftest",      0x30002420, 0xffffffff, "", pa10},
+{ "fid",        0x30000000, 0xffffffff, "", pa11},
 
 
 /* Assist Instructions */

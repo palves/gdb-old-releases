@@ -179,7 +179,7 @@ aout_adobe_callback (abfd)
 
     default:
       (*_bfd_error_handler)
-	("%s: Unknown section type in a.out.adobe file: %x\n", 
+	(_("%s: Unknown section type in a.out.adobe file: %x\n"), 
 	 bfd_get_filename (abfd), ext->e_type[0]);
       goto no_more_sections;
     }
@@ -478,6 +478,7 @@ aout_adobe_sizeof_headers (ignore_abfd, ignore)
   bfd_generic_get_relocated_section_contents
 #define aout_32_get_section_contents_in_window _bfd_generic_get_section_contents_in_window
 #define aout_32_bfd_relax_section       bfd_generic_relax_section
+#define aout_32_bfd_gc_sections         bfd_generic_gc_sections
 #define aout_32_bfd_link_hash_table_create \
   _bfd_generic_link_hash_table_create
 #define aout_32_bfd_link_add_symbols	_bfd_generic_link_add_symbols

@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * $Revision: 1.2 $
- *     $Date: 1998/01/08 11:11:58 $
+ * $Revision: 1.3 $
+ *     $Date: 1998/09/25 19:04:45 $
  *
  */
 #include <stdio.h>
@@ -264,6 +264,10 @@ AdpErrs DevSW_Close(const DeviceDescr *device, const DevChanID type)
          pk != NULL;
          pk = Adp_removeFromQueue(&(ds->ds_readqueue[type])))
         DevSW_FreePacket(pk);
+
+    /* Free memory */
+    free ((char *) device->SwitcherState);
+    device->SwitcherState = 0x0;
 
     /* that's all */
     return adp_ok;

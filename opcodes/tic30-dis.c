@@ -370,7 +370,7 @@ print_par_insn (info, insn_word, insn)
      unsigned long insn_word;
      struct instruction *insn;
 {
-  int i;
+  size_t i, len;
   char *name1, *name2;
   char operand[2][3][13] =
   {
@@ -388,7 +388,9 @@ print_par_insn (info, insn_word, insn)
   /* Parse out the names of each of the parallel instructions from the
      q_insn1_insn2 format. */
   name1 = (char *) strdup (insn->ptm->name + 2);
-  for (i = 0; i < strlen (name1); i++)
+  name2 = "";
+  len = strlen (name1);
+  for (i = 0; i < len; i++)
     {
       if (name1[i] == '_')
 	{
@@ -545,23 +547,25 @@ print_branch (info, insn_word, insn)
 		      operand[1][0] ? ',' : ' ',
 		      operand[1][0] ? operand[1] : "");
   /* Print destination of branch in relation to current symbol. */
-  if (print_label && info->symbol)
+  if (print_label && info->symbols)
     {
+      asymbol *sym = *info->symbols;
+
       if ((insn->tm->opcode_modifier == PCRel) && (insn_word & PCRel))
 	{
-	  address = (_pc + 1 + (short) address) - ((info->symbol->section->vma + info->symbol->value) / 4);
+	  address = (_pc + 1 + (short) address) - ((sym->section->vma + sym->value) / 4);
 	  /* Check for delayed instruction, if so adjust destination. */
 	  if (insn_word & 0x00200000)
 	    address += 2;
 	}
       else
 	{
-	  address -= ((info->symbol->section->vma + info->symbol->value) / 4);
+	  address -= ((sym->section->vma + sym->value) / 4);
 	}
       if (address == 0)
-	info->fprintf_func (info->stream, " <%s>", info->symbol->name);
+	info->fprintf_func (info->stream, " <%s>", sym->name);
       else
-	info->fprintf_func (info->stream, " <%s %c %d>", info->symbol->name,
+	info->fprintf_func (info->stream, " <%s %c %d>", sym->name,
 			    ((short) address < 0) ? '-' : '+',
 			    abs (address));
     }
@@ -609,8 +613,11 @@ get_indirect_operand (fragment, size, buffer)
 	      }
 	    else
 	      {
-		int i, bufcnt;
-		for (i = 0, bufcnt = 0; i < strlen (current_ind->syntax); i++, bufcnt++)
+		size_t i, len;
+		int bufcnt;
+		
+		len = strlen (current_ind->syntax);
+		for (i = 0, bufcnt = 0; i < len; i++, bufcnt++)
 		  {
 		    buffer[bufcnt] = current_ind->syntax[i];
 		    if (buffer[bufcnt - 1] == 'a' && buffer[bufcnt] == 'r')

@@ -1,5 +1,5 @@
 /* BFD support for the NEC V850 processor
-   Copyright 1996, 1997 Free Software Foundation, Inc.
+   Copyright 1996, 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
+
+#include <ctype.h>
 
 static boolean 
 scan (info, string)
@@ -59,7 +61,7 @@ scan (info, string)
     }
 
   number = 0;
-  while (isdigit (*ptr_src))
+  while (isdigit ((unsigned char) *ptr_src))
     {
       number = number * 10 + * ptr_src  - '0';
       ptr_src++;
@@ -67,7 +69,8 @@ scan (info, string)
 
   switch (number) 
     {
-
+    case bfd_mach_v850e:  arch = bfd_arch_v850; break;
+    case bfd_mach_v850ea: arch = bfd_arch_v850; break;
     default:  
       return false;
     }
@@ -82,11 +85,19 @@ scan (info, string)
 }
 
 #define N(number, print, default, next)  \
-{  32, 32, 8, bfd_arch_v850, number, "v850", print, 2, default, bfd_default_compatible, scan, next }
+{  32, 32, 8, bfd_arch_v850, number, "v850", print, 2, default, \
+     bfd_default_compatible, scan, next }
 
-static const bfd_arch_info_type arch_info_struct[2] = 
+#define NEXT NULL
+
+static const bfd_arch_info_type arch_info_struct[] = 
 {
+  N (bfd_mach_v850e,  "v850e",  false, &arch_info_struct[1]),
+  N (bfd_mach_v850ea, "v850ea", false, NULL)
 };
 
+#undef NEXT
+#define NEXT &arch_info_struct[0]
+
 const bfd_arch_info_type bfd_v850_arch =
-  N( bfd_mach_v850, "v850", true, & arch_info_struct[0] );
+  N (bfd_mach_v850, "v850", true, NEXT);

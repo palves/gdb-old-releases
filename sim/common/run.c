@@ -81,7 +81,6 @@ main (ac, av)
 {
   RETSIGTYPE (*prev_sigint) ();
   bfd *abfd;
-  asection *s;
   int i;
   int verbose = 0;
   int trace = 0;
@@ -270,6 +269,12 @@ main (ac, av)
 
     case sim_exited:
       break;
+
+    case sim_running:
+    case sim_polling: /* these indicate a serious problem */
+      abort ();
+      break;
+
     }
 #endif
 

@@ -98,6 +98,13 @@ h8500_skip_prologue (start_pc)
   return start_pc;
 }
 
+CORE_ADDR
+h8500_addr_bits_remove (addr)
+     CORE_ADDR addr;
+{
+  return ((addr) & 0xffffff);
+}
+
 /* Given a GDB frame, determine the address of the calling function's frame.
    This will be used to create a new GDB frame struct, and then
    INIT_EXTRA_FRAME_INFO and INIT_FRAME_PC will be called for the new frame.
@@ -394,38 +401,6 @@ saved_pc_after_call ()
   x &= 0xffffff;
   return x;
 }
-
-#if 0  /* never called */
-/* Nonzero if instruction at PC is a return instruction.  */
-
-int
-about_to_return (pc)
-     CORE_ADDR pc;
-{
-  int b1 = read_memory_integer (pc, 1);
-
-  switch (b1)
-    {
-    case 0x14:			/* rtd #8 */
-    case 0x1c:			/* rtd #16 */
-    case 0x19:			/* rts */
-    case 0x1a:			/* rte */
-      return 1;
-    case 0x11:
-      {
-	int b2 = read_memory_integer (pc + 1, 1);
-	switch (b2)
-	  {
-	  case 0x18:		/* prts */
-	  case 0x14:		/* prtd #8 */
-	  case 0x16:		/* prtd #16 */
-	    return 1;
-	  }
-      }
-    }
-  return 0;
-}
-#endif
 
 void
 h8500_set_pointer_size (newsize)

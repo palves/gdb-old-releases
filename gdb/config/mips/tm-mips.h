@@ -34,8 +34,8 @@ struct value;
 #include "coff/sym.h"		/* Needed for PDR below.  */
 #include "coff/symconst.h"
 
-#if !defined (TARGET_BYTE_ORDER)
-#define TARGET_BYTE_ORDER LITTLE_ENDIAN
+#if !defined (TARGET_BYTE_ORDER_DEFAULT)
+#define TARGET_BYTE_ORDER_DEFAULT LITTLE_ENDIAN
 #endif
 
 #if !defined (GDB_TARGET_IS_MIPS64)
@@ -60,20 +60,6 @@ struct value;
 
 /* Floating point is IEEE compliant */
 #define IEEE_FLOAT
-
-/* Some MIPS boards are provided both with and without a floating
-   point coprocessor.  The MIPS R4650 chip has only single precision
-   floating point.  We provide a user settable variable to tell gdb
-   what type of floating point to use.  */
-
-enum mips_fpu_type
-{
-  MIPS_FPU_DOUBLE,	/* Full double precision floating point.  */
-  MIPS_FPU_SINGLE,	/* Single precision floating point (R4650).  */
-  MIPS_FPU_NONE		/* No floating point.  */
-};
-
-extern enum mips_fpu_type mips_fpu;
 
 /* The name of the usual type of MIPS processor that is in the target
    system.  */
@@ -102,8 +88,9 @@ extern CORE_ADDR mips_skip_prologue PARAMS ((CORE_ADDR addr, int lenient));
 
 /* Return non-zero if PC points to an instruction which will cause a step
    to execute both the instruction at PC and an instruction at PC+4.  */
-#define STEP_SKIPS_DELAY(pc) (mips_step_skips_delay (pc))
 extern int mips_step_skips_delay PARAMS ((CORE_ADDR));
+#define STEP_SKIPS_DELAY_P (1)
+#define STEP_SKIPS_DELAY(pc) (mips_step_skips_delay (pc))
 
 /* Immediately after a function call, return the saved pc.
    Can't always go through the frames for this because on some machines
@@ -119,22 +106,9 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 
 /* Stack grows downward.  */
 
-#define INNER_THAN <
+#define INNER_THAN(lhs,rhs) ((lhs) < (rhs))
 
 #define BIG_ENDIAN 4321
-
-/* Old-style breakpoint macros.
-   The IDT board uses an unusual breakpoint value, and sometimes gets
-   confused when it sees the usual MIPS breakpoint instruction.  */
-
-#define BIG_BREAKPOINT {0, 0x5, 0, 0xd}
-#define LITTLE_BREAKPOINT {0xd, 0, 0x5, 0}
-#define PMON_BIG_BREAKPOINT {0, 0, 0, 0xd}
-#define PMON_LITTLE_BREAKPOINT {0xd, 0, 0, 0}
-#define IDT_BIG_BREAKPOINT {0, 0, 0x0a, 0xd}
-#define IDT_LITTLE_BREAKPOINT {0xd, 0x0a, 0, 0}
-#define MIPS16_BIG_BREAKPOINT {0xe8, 0xa5}
-#define MIPS16_LITTLE_BREAKPOINT {0xa5, 0xe8}
 
 /* BREAKPOINT_FROM_PC uses the program counter value to determine whether a
    16- or 32-bit breakpoint should be used.  It returns a pointer
@@ -143,7 +117,7 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
    point to the actual memory location where the breakpoint should be
    inserted.  */
 
-unsigned char *mips_breakpoint_from_pc PARAMS ((CORE_ADDR *pcptr, int *lenptr));
+extern breakpoint_from_pc_fn mips_breakpoint_from_pc;
 #define BREAKPOINT_FROM_PC(pcptr, lenptr) mips_breakpoint_from_pc(pcptr, lenptr)
 
 /* Amount PC must be decremented by after a breakpoint.
@@ -151,11 +125,6 @@ unsigned char *mips_breakpoint_from_pc PARAMS ((CORE_ADDR *pcptr, int *lenptr));
    but not always.  */
 
 #define DECR_PC_AFTER_BREAK 0
-
-/* Nonzero if instruction at PC is a return instruction. "j ra" on mips. */
-
-int mips_about_to_return PARAMS ((CORE_ADDR pc));
-#define ABOUT_TO_RETURN(pc) mips_about_to_return (pc)
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -262,14 +231,14 @@ extern void mips_do_registers_info PARAMS ((int, int));
 #define REGISTER_BYTE(N) ((N) * MIPS_REGSIZE)
 
 /* Number of bytes of storage in the actual machine representation
-   for register N.  On mips, all regs are the same size.  */
+   for register N. */
 
-#define REGISTER_RAW_SIZE(N) MIPS_REGSIZE
+#define REGISTER_RAW_SIZE(N) REGISTER_VIRTUAL_SIZE(N)
 
 /* Number of bytes of storage in the program's representation
-   for register N.  On mips, all regs are the same size.  */
+   for register N. */
 
-#define REGISTER_VIRTUAL_SIZE(N) MIPS_REGSIZE
+#define REGISTER_VIRTUAL_SIZE(N) TYPE_LENGTH (REGISTER_VIRTUAL_TYPE (N))
 
 /* Largest value REGISTER_RAW_SIZE can have.  */
 
@@ -279,13 +248,15 @@ extern void mips_do_registers_info PARAMS ((int, int));
 
 #define MAX_REGISTER_VIRTUAL_SIZE 8
 
-/* Return the GDB type object for the "standard" data type
-   of data in register N.  */
+/* Return the GDB type object for the "standard" data type of data in
+   register N.  */
 
 #ifndef REGISTER_VIRTUAL_TYPE
 #define REGISTER_VIRTUAL_TYPE(N) \
-	(((N) >= FP0_REGNUM && (N) < FP0_REGNUM+32)  \
-	 ? builtin_type_float : builtin_type_int)
+	(((N) >= FP0_REGNUM && (N) < FP0_REGNUM+32) ? builtin_type_float \
+	 : ((N) == 32 /*SR*/) ? builtin_type_uint32 \
+	 : ((N) >= 70 && (N) <= 89) ? builtin_type_uint32 \
+	 : builtin_type_int)
 #endif
 
 /* All mips targets store doubles in a register pair with the least
@@ -348,14 +319,8 @@ extern void mips_store_return_value PARAMS ((struct type *, char *));
   (extract_address (REGBUF + REGISTER_BYTE (V0_REGNUM), \
 		    REGISTER_RAW_SIZE (V0_REGNUM)))
 
-#if MIPS_EABI
-#undef  USE_STRUCT_CONVENTION
-#define USE_STRUCT_CONVENTION(gcc_p, type) \
-  (TYPE_LENGTH (type) > 2 * MIPS_REGSIZE)
-#else
-/* Structures are returned by ref in extra arg0 */
-#define USE_STRUCT_CONVENTION(gcc_p, type)	1
-#endif
+extern use_struct_convention_fn mips_use_struct_convention;
+#define USE_STRUCT_CONVENTION(gcc_p, type) mips_use_struct_convention (gcc_p, type)
 
 /* Describe the pointer in each stack frame to the previous stack frame
    (its caller).  */
@@ -401,12 +366,11 @@ extern int mips_frame_num_args PARAMS ((struct frame_info *));
    ways in the stack frame.  sp is even more special:
    the address we return for it IS the sp for the next frame.  */
 
-#define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
+#define FRAME_INIT_SAVED_REGS(frame_info) \
   do { \
     if ((frame_info)->saved_regs == NULL) \
       mips_find_saved_regs (frame_info); \
-    (frame_saved_regs) = *(frame_info)->saved_regs; \
-    (frame_saved_regs).regs[SP_REGNUM] = (frame_info)->frame; \
+    (frame_info)->saved_regs[SP_REGNUM] = (frame_info)->frame; \
   } while (0)
 extern void mips_find_saved_regs PARAMS ((struct frame_info *));
 
@@ -445,7 +409,8 @@ extern void mips_pop_frame PARAMS ((void));
 
 #define CALL_DUMMY_LOCATION AT_ENTRY_POINT
 
-#define CALL_DUMMY_ADDRESS() (entry_point_address ())
+#define CALL_DUMMY_ADDRESS() (mips_call_dummy_address ())
+extern CORE_ADDR mips_call_dummy_address PARAMS ((void));
 
 /* There's a mess in stack frame creation.  See comments in blockframe.c
    near reference to INIT_FRAME_PC_FIRST.  */
@@ -475,8 +440,7 @@ typedef struct mips_extra_func_info {
 
 #define EXTRA_FRAME_INFO \
   mips_extra_func_info_t proc_desc; \
-  int num_args;\
-  struct frame_saved_regs *saved_regs;
+  int num_args;
 
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fci) init_extra_frame_info(fci)
 extern void init_extra_frame_info PARAMS ((struct frame_info *));
@@ -485,7 +449,7 @@ extern void init_extra_frame_info PARAMS ((struct frame_info *));
   { \
     if (fi && fi->proc_desc && fi->proc_desc->pdr.framereg < NUM_REGS) \
       printf_filtered (" frame pointer is at %s+%d\n", \
-                       reg_names[fi->proc_desc->pdr.framereg], \
+                       REGISTER_NAME (fi->proc_desc->pdr.framereg), \
                                  fi->proc_desc->pdr.frameoffset); \
   }
 
@@ -527,6 +491,11 @@ extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
 
 #define COERCE_FLOAT_TO_DOUBLE (current_language -> la_language == language_c)
 
+/* Select the default mips disassembler */
+
+#define TM_PRINT_INSN_MACH 0
+
+
 /* These are defined in mdebugread.c and are used in mips-tdep.c  */
 extern CORE_ADDR sigtramp_address, sigtramp_end;
 extern void fixup_sigtramp PARAMS ((void));
@@ -564,25 +533,25 @@ typedef unsigned long t_inst;	/* Integer big enough to hold an instruction */
 
 /* Macros for setting and testing a bit in a minimal symbol that
    marks it as 16-bit function.  The MSB of the minimal symbol's
-   "info" field is used for this purpose.  This field is already
+   "info" field is used for this purpose. This field is already
    being used to store the symbol size, so the assumption is
    that the symbol size cannot exceed 2^31.
 
-   SYMBOL_IS_SPECIAL	tests whether an ELF symbol is "special", i.e. refers
-			to a 16-bit function
-   MAKE_MSYMBOL_SPECIAL	sets a "special" bit in a minimal symbol to mark it
-   			as a 16-bit function
+   ELF_MAKE_MSYMBOL_SPECIAL
+			tests whether an ELF symbol is "special", i.e. refers
+			to a 16-bit function, and sets a "special" bit in a 
+			minimal symbol to mark it as a 16-bit function
    MSYMBOL_IS_SPECIAL	tests the "special" bit in a minimal symbol
    MSYMBOL_SIZE		returns the size of the minimal symbol, i.e.
 			the "info" field with the "special" bit masked out
 */
 
-#define SYMBOL_IS_SPECIAL(sym) \
-  (((elf_symbol_type *) sym) -> internal_elf_sym.st_other == STO_MIPS16)
-#define MAKE_MSYMBOL_SPECIAL(msym) \
+#define ELF_MAKE_MSYMBOL_SPECIAL(sym,msym) \
  { \
-  MSYMBOL_INFO (msym) = (char *) (((long) MSYMBOL_INFO (msym)) | 0x80000000); \
-  SYMBOL_VALUE_ADDRESS (msym) |= 1; \
+  if (((elf_symbol_type *)(sym))->internal_elf_sym.st_other == STO_MIPS16) { \
+    MSYMBOL_INFO (msym) = (char *) (((long) MSYMBOL_INFO (msym)) | 0x80000000); \
+    SYMBOL_VALUE_ADDRESS (msym) |= 1; \
+  } \
  }
    
 #define MSYMBOL_IS_SPECIAL(msym) \

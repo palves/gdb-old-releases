@@ -1,5 +1,5 @@
 This is Info file bfd.info, produced by Makeinfo version 1.68 from the
-input file ../../../devo/bfd/doc/bfd.texinfo.
+input file bfd.texinfo.
 
 START-INFO-DIR-ENTRY
 * Bfd: (bfd).                   The Binary File Descriptor library.
@@ -22,6 +22,46 @@ of a permission notice identical to this one.
    Permission is granted to copy and distribute translations of this
 manual into another language, under the above conditions for modified
 versions.
+
+
+File: bfd.info,  Node: Adding symbols from an object file,  Next: Adding symbols from an archive,  Prev: Differing file formats,  Up: Adding Symbols to the Hash Table
+
+Adding symbols from an object file
+..................................
+
+   When the `_bfd_link_add_symbols' routine is passed an object file,
+it must add all externally visible symbols in that object file to the
+hash table.  The actual work of adding the symbol to the hash table is
+normally handled by the function `_bfd_generic_link_add_one_symbol'.
+The `_bfd_link_add_symbols' routine is responsible for reading all the
+symbols from the object file and passing the correct information to
+`_bfd_generic_link_add_one_symbol'.
+
+   The `_bfd_link_add_symbols' routine should not use
+`bfd_canonicalize_symtab' to read the symbols.  The point of providing
+this routine is to avoid the overhead of converting the symbols into
+generic `asymbol' structures.
+
+   `_bfd_generic_link_add_one_symbol' handles the details of combining
+common symbols, warning about multiple definitions, and so forth.  It
+takes arguments which describe the symbol to add, notably symbol flags,
+a section, and an offset.  The symbol flags include such things as
+`BSF_WEAK' or `BSF_INDIRECT'.  The section is a section in the object
+file, or something like `bfd_und_section_ptr' for an undefined symbol
+or `bfd_com_section_ptr' for a common symbol.
+
+   If the `_bfd_final_link' routine is also going to need to read the
+symbol information, the `_bfd_link_add_symbols' routine should save it
+somewhere attached to the object file BFD.  However, the information
+should only be saved if the `keep_memory' field of the `info' argument
+is true, so that the `-no-keep-memory' linker switch is effective.
+
+   The a.out function which adds symbols from an object file is
+`aout_link_add_object_symbols', and most of the interesting work is in
+`aout_link_add_symbols'.  The latter saves pointers to the hash tables
+entries created by `_bfd_generic_link_add_one_symbol' indexed by symbol
+number, so that the `_bfd_final_link' routine does not have to call the
+hash table lookup routine to locate the entry.
 
 
 File: bfd.info,  Node: Adding symbols from an archive,  Prev: Adding symbols from an object file,  Up: Adding Symbols to the Hash Table

@@ -39,10 +39,10 @@ static serial_t scb_base;
    suitable for playback by gdbserver. */
 
 static char *serial_logfile = NULL;
-static FILE *serial_logfp = NULL;
+static GDB_FILE *serial_logfp = NULL;
 
 static struct serial_ops *serial_interface_lookup PARAMS ((char *));
-static void serial_logchar PARAMS ((int chtype, int ch, int timeout));
+static void serial_logchar PARAMS ((int, int, int));
 static char logbase_hex[] = "hex";
 static char logbase_octal[] = "octal";
 static char logbase_ascii[] = "ascii";
@@ -59,15 +59,15 @@ static int serial_current_type = 0;
 #define SERIAL_BREAK 1235
 
 static void
-serial_logchar (chtype, ch, timeout)
-     int chtype;
+serial_logchar (ch_type, ch, timeout)
+     int ch_type;
      int ch;
      int timeout;
 {
-  if (chtype != serial_current_type)
+  if (ch_type != serial_current_type)
     {
-      fprintf_unfiltered (serial_logfp, "\n%c ", chtype);
-      serial_current_type = chtype;
+      fprintf_unfiltered (serial_logfp, "\n%c ", ch_type);
+      serial_current_type = ch_type;
     }
 
   if (serial_logbase != logbase_ascii)
@@ -308,7 +308,8 @@ serial_close (scb, really_close)
       fputs_unfiltered ("\nEnd of log\n", serial_logfp);
       serial_current_type = 0;
 
-      fclose (serial_logfp);	/* XXX - What if serial_logfp == stdout or stderr? */
+      /* XXX - What if serial_logfp == gdb_stdout or gdb_stderr? */
+      gdb_fclose (&serial_logfp); 
       serial_logfp = NULL;
     }
 
@@ -507,17 +508,19 @@ _initialize_serial ()
 Use <CR>~. or <CR>~^D to break out.");
 #endif /* 0 */
 
-  add_show_from_set (add_set_cmd ("remotelogfile", no_class,
-				  var_filename, (char *)&serial_logfile,
-				  "Set filename for remote session recording.\n\
+  add_show_from_set 
+    (add_set_cmd ("remotelogfile", no_class,
+		  var_filename, (char *) &serial_logfile,
+		  "Set filename for remote session recording.\n\
 This file is used to record the remote session for future playback\n\
-by gdbserver.", &setlist),
-		     &showlist);
+by gdbserver.", 
+		  &setlist),
+     &showlist);
 
-  add_show_from_set (add_set_enum_cmd ("remotelogbase", no_class,
-				       logbase_enums,
-				       (char *)&serial_logbase,
-				       "Set ...",
-				       &setlist),
-			   &showlist);
+  add_show_from_set 
+    (add_set_enum_cmd ("remotelogbase", no_class,
+		       logbase_enums, (char *) &serial_logbase,
+		       "Set numerical base for remote session logging",
+		       &setlist),
+     &showlist);
 }

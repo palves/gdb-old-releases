@@ -1658,7 +1658,7 @@ xcoff_link_add_symbols (abfd, info)
 	      if (enclosing == NULL)
 		{
 		  (*_bfd_error_handler)
-		    ("%s: `%s' has line numbers but no enclosing section",
+		    (_("%s: `%s' has line numbers but no enclosing section"),
 		     bfd_get_filename (abfd), name);
 		  bfd_set_error (bfd_error_bad_value);
 		  goto error_return;
@@ -1710,7 +1710,7 @@ xcoff_link_add_symbols (abfd, info)
       if (sym.n_numaux == 0)
 	{
 	  (*_bfd_error_handler)
-	    ("%s: class %d symbol `%s' has no aux entries",
+	    (_("%s: class %d symbol `%s' has no aux entries"),
 	     bfd_get_filename (abfd), sym.n_sclass, name);
 	  bfd_set_error (bfd_error_bad_value);
 	  goto error_return;
@@ -1733,7 +1733,7 @@ xcoff_link_add_symbols (abfd, info)
 	{
 	default:
 	  (*_bfd_error_handler)
-	    ("%s: symbol `%s' has unrecognized csect type %d",
+	    (_("%s: symbol `%s' has unrecognized csect type %d"),
 	     bfd_get_filename (abfd), name, smtyp);
 	  bfd_set_error (bfd_error_bad_value);
 	  goto error_return;
@@ -1745,7 +1745,7 @@ xcoff_link_add_symbols (abfd, info)
 	      || aux.x_csect.x_scnlen.l != 0)
 	    {
 	      (*_bfd_error_handler)
-		("%s: bad XTY_ER symbol `%s': class %d scnum %d scnlen %d",
+		(_("%s: bad XTY_ER symbol `%s': class %d scnum %d scnlen %d"),
 		 bfd_get_filename (abfd), name, sym.n_sclass, sym.n_scnum,
 		 aux.x_csect.x_scnlen.l);
 	      bfd_set_error (bfd_error_bad_value);
@@ -1784,7 +1784,7 @@ xcoff_link_add_symbols (abfd, info)
 		  || aux.x_csect.x_scnlen.l != 0)
 		{
 		  (*_bfd_error_handler)
-		    ("%s: XMC_TC0 symbol `%s' is class %d scnlen %d",
+		    (_("%s: XMC_TC0 symbol `%s' is class %d scnlen %d"),
 		     bfd_get_filename (abfd), name, sym.n_sclass,
 		     aux.x_csect.x_scnlen.l);
 		  bfd_set_error (bfd_error_bad_value);
@@ -1908,7 +1908,7 @@ xcoff_link_add_symbols (abfd, info)
 		|| csect_name_by_class[aux.x_csect.x_smclas] == NULL)
 	      {
 		(*_bfd_error_handler)
-		  ("%s: symbol `%s' has unrecognized smclas %d",
+		  (_("%s: symbol `%s' has unrecognized smclas %d"),
 		   bfd_get_filename (abfd), name, aux.x_csect.x_smclas);
 		bfd_set_error (bfd_error_bad_value);
 		goto error_return;
@@ -1927,7 +1927,7 @@ xcoff_link_add_symbols (abfd, info)
 			> enclosing->vma + enclosing->_raw_size)))
 	      {
 		(*_bfd_error_handler)
-		  ("%s: csect `%s' not in enclosing section",
+		  (_("%s: csect `%s' not in enclosing section"),
 		   bfd_get_filename (abfd), name);
 		bfd_set_error (bfd_error_bad_value);
 		goto error_return;
@@ -2031,7 +2031,7 @@ xcoff_link_add_symbols (abfd, info)
 	    if (bad)
 	      {
 		(*_bfd_error_handler)
-		  ("%s: misplaced XTY_LD `%s'",
+		  (_("%s: misplaced XTY_LD `%s'"),
 		   bfd_get_filename (abfd), name);
 		bfd_set_error (bfd_error_bad_value);
 		goto error_return;
@@ -2342,7 +2342,7 @@ xcoff_link_add_symbols (abfd, info)
 	      if (*rel_csect == NULL)
 		{
 		  (*_bfd_error_handler)
-		    ("%s: reloc %s:%d not in csect",
+		    (_("%s: reloc %s:%d not in csect"),
 		     bfd_get_filename (abfd), o->name, i);
 		  bfd_set_error (bfd_error_bad_value);
 		  goto error_return;
@@ -2477,7 +2477,7 @@ xcoff_link_add_dynamic_symbols (abfd, info)
   if (info->hash->creator != abfd->xvec)
     {
       (*_bfd_error_handler)
-	("%s: XCOFF shared object when not producing XCOFF output",
+	(_("%s: XCOFF shared object when not producing XCOFF output"),
 	 bfd_get_filename (abfd));
       bfd_set_error (bfd_error_invalid_operation);
       return false;
@@ -2498,7 +2498,7 @@ xcoff_link_add_dynamic_symbols (abfd, info)
   if (lsec == NULL)
     {
       (*_bfd_error_handler)
-	("%s: dynamic object with no .loader section",
+	(_("%s: dynamic object with no .loader section"),
 	 bfd_get_filename (abfd));
       bfd_set_error (bfd_error_no_symbols);
       return false;
@@ -3138,7 +3138,7 @@ bfd_xcoff_link_count_reloc (output_bfd, info, name)
 				     false));
   if (h == NULL)
     {
-      (*_bfd_error_handler) ("%s: no such symbol", name);
+      (*_bfd_error_handler) (_("%s: no such symbol"), name);
       bfd_set_error (bfd_error_no_symbols);
       return false;
     }
@@ -3725,7 +3725,7 @@ xcoff_build_ldsyms (h, p)
       else
 	{
 	  (*_bfd_error_handler)
-	    ("warning: attempt to export undefined symbol `%s'",
+	    (_("warning: attempt to export undefined symbol `%s'"),
 	     h->root.root.string);
 	  h->ldsym = NULL;
 	  return true;
@@ -4701,7 +4701,7 @@ xcoff_link_input_bfd (finfo, input_bfd)
 	      if (tocval + 0x10000 < tocend)
 		{
 		  (*_bfd_error_handler)
-		    ("TOC overflow: 0x%lx > 0x10000; try -mminimal-toc when compiling",
+		    (_("TOC overflow: 0x%lx > 0x10000; try -mminimal-toc when compiling"),
 		     (unsigned long) (tocend - tocval));
 		  bfd_set_error (bfd_error_file_too_big);
 		  return false;
@@ -5526,7 +5526,7 @@ xcoff_link_input_bfd (finfo, input_bfd)
 		      else
 			{
 			  (*_bfd_error_handler)
-			    ("%s: loader reloc in unrecognized section `%s'",
+			    (_("%s: loader reloc in unrecognized section `%s'"),
 			     bfd_get_filename (input_bfd),
 			     sec->name);
 			  bfd_set_error (bfd_error_nonrepresentable_section);
@@ -5548,7 +5548,7 @@ xcoff_link_input_bfd (finfo, input_bfd)
 		      if (h->ldindx < 0 && ! quiet)
 			{
 			  (*_bfd_error_handler)
-			    ("%s: `%s' in loader reloc but not loader sym",
+			    (_("%s: `%s' in loader reloc but not loader sym"),
 			     bfd_get_filename (input_bfd),
 			     h->root.root.string);
 			  bfd_set_error (bfd_error_bad_value);
@@ -5563,7 +5563,7 @@ xcoff_link_input_bfd (finfo, input_bfd)
 		      && ! quiet)
 		    {
 		      (*_bfd_error_handler)
-			("%s: loader reloc in read-only section %s",
+			(_("%s: loader reloc in read-only section %s"),
 			 bfd_get_filename (input_bfd),
 			 bfd_get_section_name (finfo->output_bfd,
 					       o->output_section));
@@ -5882,7 +5882,7 @@ xcoff_write_global_symbol (h, p)
       else
 	{
 	  (*_bfd_error_handler)
-	    ("%s: loader reloc in unrecognized section `%s'",
+	    (_("%s: loader reloc in unrecognized section `%s'"),
 	     bfd_get_filename (output_bfd),
 	     esec->output_section->name);
 	  bfd_set_error (bfd_error_nonrepresentable_section);
@@ -5919,7 +5919,7 @@ xcoff_write_global_symbol (h, p)
       else
 	{
 	  (*_bfd_error_handler)
-	    ("%s: loader reloc in unrecognized section `%s'",
+	    (_("%s: loader reloc in unrecognized section `%s'"),
 	     bfd_get_filename (output_bfd),
 	     tsec->output_section->name);
 	  bfd_set_error (bfd_error_nonrepresentable_section);
@@ -6236,7 +6236,7 @@ xcoff_reloc_link_order (output_bfd, finfo, output_section, link_order)
       else
 	{
 	  (*_bfd_error_handler)
-	    ("%s: loader reloc in unrecognized section `%s'",
+	    (_("%s: loader reloc in unrecognized section `%s'"),
 	     bfd_get_filename (output_bfd), secname);
 	  bfd_set_error (bfd_error_nonrepresentable_section);
 	  return false;
@@ -6247,7 +6247,7 @@ xcoff_reloc_link_order (output_bfd, finfo, output_section, link_order)
       if (h->ldindx < 0)
 	{
 	  (*_bfd_error_handler)
-	    ("%s: `%s' in loader reloc but not loader sym",
+	    (_("%s: `%s' in loader reloc but not loader sym"),
 	     bfd_get_filename (output_bfd),
 	     h->root.root.string);
 	  bfd_set_error (bfd_error_bad_value);
@@ -6443,7 +6443,7 @@ _bfd_ppc_xcoff_relocate_section (output_bfd, info, input_bfd,
              not defined by the PowerOpen ABI.  */
 	default:
 	  (*_bfd_error_handler)
-	    ("%s: unsupported relocation type 0x%02x",
+	    (_("%s: unsupported relocation type 0x%02x"),
 	     bfd_get_filename (input_bfd), (unsigned int) rel->r_type);
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
@@ -6489,7 +6489,7 @@ _bfd_ppc_xcoff_relocate_section (output_bfd, info, input_bfd,
 	      if (h->toc_section == NULL)
 		{
 		  (*_bfd_error_handler)
-		    ("%s: TOC reloc at 0x%x to symbol `%s' with no TOC entry",
+		    (_("%s: TOC reloc at 0x%x to symbol `%s' with no TOC entry"),
 		     bfd_get_filename (input_bfd), rel->r_vaddr,
 		     h->root.root.string);
 		  bfd_set_error (bfd_error_bad_value);

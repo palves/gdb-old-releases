@@ -1,5 +1,5 @@
 # Makefile for regression testing the GNU debugger.
-# Copyright (C) 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1993, 1994, 1995, 1999 Free Software Foundation, Inc.
 
 # This file is part of GDB.
 
@@ -30,7 +30,7 @@ host_canonical = @host@
 target_canonical = @target@
 target_cpu = @gdb_target_cpu@
 
-SHELL = /bin/sh
+SHELL = @SHELL@
 SUBDIRS = @subdirs@
 RPATH_ENVVAR = @RPATH_ENVVAR@
 

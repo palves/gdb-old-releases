@@ -1,5 +1,5 @@
 /* M32R-specific support for 32-bit ELF.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -55,6 +55,21 @@ static boolean m32r_elf_relocate_section
 static boolean m32r_elf_relax_delete_bytes
   PARAMS ((bfd *, asection *, bfd_vma, int));
 #endif
+
+static bfd_reloc_status_type m32r_elf_final_sda_base
+  PARAMS ((bfd *, struct bfd_link_info *, const char **, bfd_vma *));
+static boolean m32r_elf_object_p
+  PARAMS ((bfd *));
+static void m32r_elf_final_write_processing
+  PARAMS ((bfd *, boolean));
+static boolean m32r_elf_set_private_flags
+  PARAMS ((bfd *, flagword));
+static boolean m32r_elf_copy_private_bfd_data
+  PARAMS ((bfd *, bfd *));
+static boolean m32r_elf_merge_private_bfd_data
+  PARAMS ((bfd *, bfd *));
+static boolean m32r_elf_print_private_bfd_data
+  PARAMS ((bfd *, PTR));
 
 #define NOP_INSN		0x7000
 #define MAKE_PARALLEL(insn)	((insn) | 0x8000)
@@ -153,7 +168,7 @@ static reloc_howto_type m32r_elf_howto_table[] =
   HOWTO (R_M32R_18_PCREL,	/* type */
 	 2,			/* rightshift */
 	 2,			/* size (0 = byte, 1 = short, 2 = long) */
-	 18,			/* bitsize */
+	 16,			/* bitsize */
 	 true,			/* pc_relative */
 	 0,			/* bitpos */
 	 complain_overflow_signed, /* complain_on_overflow */
@@ -242,6 +257,37 @@ static reloc_howto_type m32r_elf_howto_table[] =
 	 0x0000ffff,		/* src_mask */
 	 0x0000ffff,		/* dst_mask */
 	 false),		/* pcrel_offset */
+
+  /* GNU extension to record C++ vtable hierarchy */
+  HOWTO (R_M32R_GNU_VTINHERIT, /* type */
+         0,                     /* rightshift */
+         2,                     /* size (0 = byte, 1 = short, 2 = long) */
+         0,                     /* bitsize */
+         false,                 /* pc_relative */
+         0,                     /* bitpos */
+         complain_overflow_dont, /* complain_on_overflow */
+         NULL,                  /* special_function */
+         "R_M32R_GNU_VTINHERIT", /* name */
+         false,                 /* partial_inplace */
+         0,                     /* src_mask */
+         0,                     /* dst_mask */
+         false),                /* pcrel_offset */
+
+  /* GNU extension to record C++ vtable member usage */
+  HOWTO (R_M32R_GNU_VTENTRY,     /* type */
+         0,                     /* rightshift */
+         2,                     /* size (0 = byte, 1 = short, 2 = long) */
+         0,                     /* bitsize */
+         false,                 /* pc_relative */
+         0,                     /* bitpos */
+         complain_overflow_dont, /* complain_on_overflow */
+         _bfd_elf_rel_vtable_reloc_fn,  /* special_function */
+         "R_M32R_GNU_VTENTRY",   /* name */
+         false,                 /* partial_inplace */
+         0,                     /* src_mask */
+         0,                     /* dst_mask */
+         false),                /* pcrel_offset */
+
 };
 
 /* Handle the R_M32R_10_PCREL reloc.  */
@@ -520,10 +566,6 @@ m32r_elf_sda16_reloc (abfd, reloc_entry, symbol, data,
      bfd *output_bfd;
      char **error_message;
 {
-  bfd_vma sda_base;
-  unsigned long x;
-  reloc_howto_type *howto;
-
   /* This part is from bfd_elf_generic_reloc.  */
   if (output_bfd != (bfd *) NULL
       && (symbol->flags & BSF_SECTION_SYM) == 0
@@ -566,6 +608,8 @@ static const struct m32r_reloc_map m32r_reloc_map[] =
   { BFD_RELOC_M32R_HI16_SLO, R_M32R_HI16_SLO },
   { BFD_RELOC_M32R_LO16, R_M32R_LO16 },
   { BFD_RELOC_M32R_SDA16, R_M32R_SDA16 },
+  { BFD_RELOC_VTABLE_INHERIT, R_M32R_GNU_VTINHERIT },
+  { BFD_RELOC_VTABLE_ENTRY, R_M32R_GNU_VTENTRY },
 };
 
 static reloc_howto_type *
@@ -761,7 +805,7 @@ m32r_elf_final_sda_base (output_bfd, info, error_message, psb)
 	  /* Only get the error once.  */
 	  *psb = elf_gp (output_bfd) = 4;
 	  *error_message =
-	    (const char *) "SDA relocation when _SDA_BASE_ not defined";
+	    (const char *) _("SDA relocation when _SDA_BASE_ not defined");
 	  return bfd_reloc_dangerous;
 	}
     }
@@ -818,7 +862,6 @@ m32r_elf_relocate_section (output_bfd, info, input_bfd, input_section,
   Elf_Internal_Shdr *symtab_hdr = &elf_tdata (input_bfd)->symtab_hdr;
   struct elf_link_hash_entry **sym_hashes = elf_sym_hashes (input_bfd);
   Elf_Internal_Rela *rel, *relend;
-  bfd *dynobj = elf_hash_table (info)->dynobj;
   /* Assume success.  */
   boolean ret = true;
 
@@ -842,16 +885,21 @@ m32r_elf_relocate_section (output_bfd, info, input_bfd, input_section,
       bfd_reloc_status_type r;
       const char *errmsg = NULL;
 
+      h = NULL;
       r_type = ELF32_R_TYPE (rel->r_info);
       if (r_type < 0 || r_type >= (int) R_M32R_max)
 	{
-	  (*_bfd_error_handler) ("%s: unknown relocation type %d",
+	  (*_bfd_error_handler) (_("%s: unknown relocation type %d"),
 				 bfd_get_filename (input_bfd),
 				 (int) r_type);
 	  bfd_set_error (bfd_error_bad_value);
 	  ret = false;
 	  continue;
 	}
+
+      if (r_type == R_M32R_GNU_VTENTRY
+          || r_type == R_M32R_GNU_VTINHERIT)
+        continue;
 
       howto = m32r_elf_howto_table + r_type;
       r_symndx = ELF32_R_SYM (rel->r_info);
@@ -931,7 +979,6 @@ m32r_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	  bfd_vma relocation;
 
 	  /* This is a final link.  */
-	  h = NULL;
 	  sym = NULL;
 	  sec = NULL;
 
@@ -1050,7 +1097,7 @@ m32r_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		  }
 		else
 		  {
-		    (*_bfd_error_handler) ("%s: The target (%s) of an %s relocation is in the wrong section (%s)",
+		    (*_bfd_error_handler) (_("%s: The target (%s) of an %s relocation is in the wrong section (%s)"),
 					   bfd_get_filename (input_bfd),
 					   sym_name,
 					   m32r_elf_howto_table[(int) r_type].name,
@@ -1107,19 +1154,19 @@ m32r_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	      break;
 
 	    case bfd_reloc_outofrange:
-	      errmsg = "internal error: out of range error";
+	      errmsg = _("internal error: out of range error");
 	      goto common_error;
 
 	    case bfd_reloc_notsupported:
-	      errmsg = "internal error: unsupported relocation error";
+	      errmsg = _("internal error: unsupported relocation error");
 	      goto common_error;
 
 	    case bfd_reloc_dangerous:
-	      errmsg = "internal error: dangerous error";
+	      errmsg = _("internal error: dangerous error");
 	      goto common_error;
 
 	    default:
-	      errmsg = "internal error: unknown error";
+	      errmsg = _("internal error: unknown error");
 	      /* fall through */
 
 	    common_error:
@@ -1745,12 +1792,13 @@ m32r_elf_object_p (abfd)
   switch (elf_elfheader (abfd)->e_flags & EF_M32R_ARCH)
     {
     default:
-    case E_M32R_ARCH:   (void) bfd_default_set_arch_mach (abfd, bfd_arch_m32r, bfd_mach_m32r); break;
+    case E_M32R_ARCH:   (void) bfd_default_set_arch_mach (abfd, bfd_arch_m32r, bfd_mach_m32r);  break;
     }
+  return true;
 }
 
 /* Store the machine number in the flags field.  */
-void
+static void
 m32r_elf_final_write_processing (abfd, linker)
      bfd *   abfd;
      boolean linker;
@@ -1768,7 +1816,7 @@ m32r_elf_final_write_processing (abfd, linker)
 }
 
 /* Function to keep M32R specific file flags. */
-boolean
+static boolean
 m32r_elf_set_private_flags (abfd, flags)
      bfd *    abfd;
      flagword flags;
@@ -1782,7 +1830,7 @@ m32r_elf_set_private_flags (abfd, flags)
 }
 
 /* Copy backend specific data from one object module to another */
-boolean
+static boolean
 m32r_elf_copy_private_bfd_data (ibfd, obfd)
      bfd * ibfd;
      bfd * obfd;
@@ -1803,25 +1851,34 @@ m32r_elf_copy_private_bfd_data (ibfd, obfd)
 
 /* Merge backend specific data from an object file to the output
    object file when linking.  */
-boolean
+static boolean
 m32r_elf_merge_private_bfd_data (ibfd, obfd)
      bfd * ibfd;
      bfd * obfd;
 {
-  flagword old_flags;
-  flagword new_flags;
+  flagword out_flags;
+  flagword in_flags;
 
   if (   bfd_get_flavour (ibfd) != bfd_target_elf_flavour
       || bfd_get_flavour (obfd) != bfd_target_elf_flavour)
     return true;
 
-  new_flags = elf_elfheader (ibfd)->e_flags;
-  old_flags = elf_elfheader (obfd)->e_flags;
+  in_flags  = elf_elfheader (ibfd)->e_flags;
+  out_flags = elf_elfheader (obfd)->e_flags;
 
   if (! elf_flags_init (obfd))
     {
+      /* If the input is the default architecture then do not
+	 bother setting the flags for the output architecture,
+	 instead allow future merges to do this.  If no future
+	 merges ever set these flags then they will retain their
+	 unitialised values, which surprise surprise, correspond
+	 to the default values.  */
+      if (bfd_get_arch_info (ibfd)->the_default)
+	return true;
+      
       elf_flags_init (obfd) = true;
-      elf_elfheader (obfd)->e_flags = new_flags;
+      elf_elfheader (obfd)->e_flags = in_flags;
 
       if (bfd_get_arch (obfd) == bfd_get_arch (ibfd)
 	  && bfd_get_arch_info (obfd)->the_default)
@@ -1833,19 +1890,18 @@ m32r_elf_merge_private_bfd_data (ibfd, obfd)
     }
 
   /* Check flag compatibility.  */
-  if (new_flags == old_flags)
+  if (in_flags == out_flags)
     return true;
 
-  if ((new_flags & EF_M32R_ARCH) != (old_flags & EF_M32R_ARCH))
+  if ((in_flags & EF_M32R_ARCH) != (out_flags & EF_M32R_ARCH))
     {
-      if ((new_flags & EF_M32R_ARCH) != E_M32R_ARCH)
+      if ((in_flags & EF_M32R_ARCH) != E_M32R_ARCH)
 	{
-	  _bfd_error_handler ("%s: Instruction set mismatch with previous modules",
+	  _bfd_error_handler (_("%s: Instruction set mismatch with previous modules"),
 			      bfd_get_filename (ibfd));
-#if 1
+
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
-#endif
 	}
     }
 
@@ -1862,18 +1918,132 @@ m32r_elf_print_private_bfd_data (abfd, ptr)
   
   BFD_ASSERT (abfd != NULL && ptr != NULL)
   
-  fprintf (file, "private flags = %x", elf_elfheader (abfd)->e_flags);
+  _bfd_elf_print_private_bfd_data (abfd, ptr);
+  
+  fprintf (file, _("private flags = %lx"), elf_elfheader (abfd)->e_flags);
   
   switch (elf_elfheader (abfd)->e_flags & EF_M32R_ARCH)
     {
     default:
-    case E_M32R_ARCH:  fprintf (file, ": m32r instructions"); break;
+    case E_M32R_ARCH:  fprintf (file, _(": m32r instructions"));  break;
     }
   
   fputc ('\n', file);
   
   return true;
 }
+
+asection *
+m32r_elf_gc_mark_hook (abfd, info, rel, h, sym)
+       bfd *abfd;
+       struct bfd_link_info *info;
+       Elf_Internal_Rela *rel;
+       struct elf_link_hash_entry *h;
+       Elf_Internal_Sym *sym;
+{
+  if (h != NULL)
+    {
+      switch (ELF32_R_TYPE (rel->r_info))
+      {
+      case R_M32R_GNU_VTINHERIT:
+      case R_M32R_GNU_VTENTRY:
+        break;
+ 
+      default:
+        switch (h->root.type)
+          {
+          case bfd_link_hash_defined:
+          case bfd_link_hash_defweak:
+            return h->root.u.def.section;
+ 
+          case bfd_link_hash_common:
+            return h->root.u.c.p->section;
+          }
+       }
+     }
+   else
+     {
+       if (!(elf_bad_symtab (abfd)
+           && ELF_ST_BIND (sym->st_info) != STB_LOCAL)
+         && ! ((sym->st_shndx <= 0 || sym->st_shndx >= SHN_LORESERVE)
+                && sym->st_shndx != SHN_COMMON))
+          {
+            return bfd_section_from_elf_index (abfd, sym->st_shndx);
+          }
+      }
+  return NULL;
+}
+
+static boolean
+m32r_elf_gc_sweep_hook (abfd, info, sec, relocs)
+     bfd *abfd;
+     struct bfd_link_info *info;
+     asection *sec;
+     const Elf_Internal_Rela *relocs;
+{
+  /* we don't use got and plt entries for m32r */
+  return true;
+}
+
+
+/* Look through the relocs for a section during the first phase.
+   Since we don't do .gots or .plts, we just need to consider the
+   virtual table relocs for gc.  */
+ 
+static boolean
+m32r_elf_check_relocs (abfd, info, sec, relocs)
+     bfd *abfd;
+     struct bfd_link_info *info;
+     asection *sec;
+     const Elf_Internal_Rela *relocs;
+{
+  Elf_Internal_Shdr *symtab_hdr;
+  struct elf_link_hash_entry **sym_hashes, **sym_hashes_end;
+  const Elf_Internal_Rela *rel;
+  const Elf_Internal_Rela *rel_end;
+ 
+  if (info->relocateable)
+    return true;
+ 
+  symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
+  sym_hashes = elf_sym_hashes (abfd);
+  sym_hashes_end = sym_hashes + symtab_hdr->sh_size/sizeof(Elf32_External_Sym);
+  if (!elf_bad_symtab (abfd))
+    sym_hashes_end -= symtab_hdr->sh_info;
+ 
+  rel_end = relocs + sec->reloc_count;
+  for (rel = relocs; rel < rel_end; rel++)
+    {
+      struct elf_link_hash_entry *h;
+      unsigned long r_symndx;
+ 
+      r_symndx = ELF32_R_SYM (rel->r_info);
+      if (r_symndx < symtab_hdr->sh_info)
+        h = NULL;
+      else
+        h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+ 
+      switch (ELF32_R_TYPE (rel->r_info))
+        {
+        /* This relocation describes the C++ object vtable hierarchy.
+           Reconstruct it for later use during GC.  */
+        case R_M32R_GNU_VTINHERIT:
+          if (!_bfd_elf32_gc_record_vtinherit (abfd, sec, h, rel->r_offset))
+            return false;
+          break;
+ 
+        /* This relocation describes which C++ vtable entries are actually
+           used.  Record for later use during GC.  */
+        case R_M32R_GNU_VTENTRY:
+          if (!_bfd_elf32_gc_record_vtentry (abfd, sec, h, rel->r_offset))
+            return false;
+          break;
+        }
+    }
+ 
+  return true;
+}
+
 
 
 
@@ -1890,7 +2060,11 @@ m32r_elf_print_private_bfd_data (abfd, ptr)
 #define elf_backend_symbol_processing		_bfd_m32r_elf_symbol_processing
 #define elf_backend_add_symbol_hook		m32r_elf_add_symbol_hook
 #define elf_backend_relocate_section		m32r_elf_relocate_section
+#define elf_backend_gc_mark_hook                m32r_elf_gc_mark_hook
+#define elf_backend_gc_sweep_hook               m32r_elf_gc_sweep_hook
+#define elf_backend_check_relocs                m32r_elf_check_relocs
 
+#define elf_backend_can_gc_sections             1
 #if 0 /* not yet */
 /* relax support */
 #define bfd_elf32_bfd_relax_section		m32r_elf_relax_section

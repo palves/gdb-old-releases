@@ -735,22 +735,26 @@ sim_stop_reason (sd, reason, sigrc)
     *sigrc = State.exception;
 }
 
-void
-sim_fetch_register (sd, rn, memory)
+int
+sim_fetch_register (sd, rn, memory, length)
      SIM_DESC sd;
      int rn;
      unsigned char *memory;
+     int length;
 {
   put_word (memory, State.regs[rn]);
+  return -1;
 }
  
-void
-sim_store_register (sd, rn, memory)
+int
+sim_store_register (sd, rn, memory, length)
      SIM_DESC sd;
      int rn;
      unsigned char *memory;
+     int length;
 {
   State.regs[rn] = get_word (memory);
+  return -1;
 }
 
 int

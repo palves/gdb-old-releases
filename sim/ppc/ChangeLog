@@ -1,20 +1,159 @@
+1999-02-01  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	Make the simulator compatible with the MPC750.  It would be nicer
+	to make this a real multi-sim, but that's more work than we have
+	time for.
+	* emul_generic.c (emul_add_tree_options): Only require strict
+	alignment if it was explicitly requested at configuration time.
+	Don't make it the default for little-endian machines.
+	* ppc-spr-table (UMMCR0, UMMCR1, UPMC1, UPMC2, USIA, UPMC3, UPMC4,
+ 	MMCR0, PMC1, PMC2, SIA, MMCR1, PMC3, PMC4, L2CR, ICTC, THRM1,
+ 	THRM2, THRM3): Plop in the MPC750 SPR registers.
+	(DABR): This is weird.  This was HID5, but the PPC spec says this
+ 	should be DABR; why did some random processor use it for something
+ 	else?  The HID5 entry dates back to the original checkin of the
+	simulator code in 1995, so remove it.
+	* sim_calls.c (register_names): Delete this; since the user can
+	now change GDB's list of register names dynamically, we can't
+	pretend there's a static mapping here.
+	(sim_fetch_register, sim_store_register): Call GDB's REGISTER_NAME
+ 	function to get the register name.  That ought to be accurate.
+  	However, we're changing a compile-time dependency (using the
+ 	REGISTER_NAMES macro) into a link- and run-time dependency
+	(calling REGISTER_NAME, which happens to be a function call on the
+	PPC).
+
+1999-01-22  Jim Lemke <jlemke@cygnus.com>
+
+	* igen.c(gen_semantics_[ch]): setup/use of new option
+	(-o mpc860c0[=n]).
+	interrupts.[ch](mpc860c0_instruction_program_interrupt): added.
+	ppc-instructions(the four branch insn groups): detect problematic br's.
+	psim.c(is_num - added, psim_options): Parse and init new option.
+	These changes are currently under #ifdef WITH_OPTION_MPC860C0.
+
+1998-12-01  Ken Raeburn  <raeburn@cygnus.com>
+
+	* hw_nvram.c (hw_nvram_bcd): Force value to fit in 0..99.
+
+Fri Nov 20 12:17:28 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* main.c (sim_io_poll_quit): Stub function.
+
+	* events.c (SIM_EVENTS_POLL_RATE): Define.
+	(sim_events_poll): Copy function from common/sim-events.c.
+	(event_queue_init): Copy scheduling of sim_events_poll from same.
+
+	* sim_callbacks.h, sim_calls.c (sim_io_poll_quit): New function,
+ 	poll the external environment.
+
+1998-11-19  Michael Meissner  <meissner@cygnus.com>
+
+	* ppc-instructions (is_{NaN,inf}): Use unsigned64 to get the
+	fractional type, so that quiet NaN's aren't treated like
+	Infinities.
+
+Mon Sep 28 09:42:45 1998  Drew Moseley  <dmoseley@cygnus.com>
+
+	* table.c (table_open): For cygwin hosts, we need to use the
+ 	return value from the read routine as the number of bytes to
+ 	process.  This apparently is due to text-mode vs binary-mode.  If
+ 	the mounts are done text-mode, then the size returnedby fstat()
+ 	may be different than the number of bytes "read" in text mode.
+
+Sun Oct  4 00:50:47 1998  Felix Lee  <flee@cygnus.com>
+
+	* emul_netbsd.c (do_open): fix order-of-evaluation problem.
+	(do_close): ditto.
+	(do_fstat): ditto.
+	(do_lstat): ditto.
+
+1998-09-03  Michael Meissner  <meissner@cygnus.com>
+
+	* emul_{netbsd,unix}.c: Update copyright year.
+
+Mon Jun 29 10:57:36 1998  Michael Snyder  <msnyder@cleaver.cygnus.com>
+
+	* sim_calls.c (sim_fetch_register, sim_store_register):
+	return zero when nothing to do.
+
+1998-06-26  Michael Meissner  <meissner@cygnus.com>
+
+	* configure.in (AC_CHECK_HEADERS): Don't check for sys/mount.h.
+	* configure: Regenerate.
+	* emul_{netbsd,unix}.c (toplevel): No longer try to include
+	sys/mount.h. It conflicts on Linux when gnu libc2 is used.
+
+Tue May 12 12:10:33 PDT 1998  James Ingham  <jingham@leda.cygnus.com>
+
+	* Makefile.in: The run target depended on a target psim$(EXEEXT),
+	but there was no such target, only plain psim.  So I changed the
+	run target to depend on psim.
+
+Sat May  2 01:10:12 1998  Stu Grossman  <grossman@babylon-5.cygnus.com>
+
+	* aclocal.m4:  Remove defs of AM_EXEEXT and AM_CYGWIN32.  These are
+	now defined in ../common/aclocal.m4, and the double definition causes
+	problems with AC_SUBST of EXEEXT.
+	* configure:  Regenerate.
+	
+Wed Apr 29 15:44:52 1998  Geoffrey Noer  <noer@cygnus.com>
+
+	* aclocal.m4: new file for AM_EXEEXT macro
+	* configure.in: call AM_EXEEXT
+	* configure: regenerate with autoconf 2.12.1.
+	* Makefile.in: add EXEEXT support
+
+Sun Apr 26 15:31:55 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Sun Apr 26 15:19:51 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* acconfig.h: New file.
+	* configure.in: Reverted change of Apr 24; use sinclude again.
+	Don't call AC_C_CROSS.
+
+Fri Apr 24 14:16:40 1998  Tom Tromey  <tromey@creche>
+
+	* configure: Regenerated to track ../common/aclocal.m4 changes.
+	* config.in: Ditto.
+
+Fri Apr 24 11:18:46 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* Makefile.in (top_builddir): New macro.
+	(INTLLIBS): New macro.
+	(INTLDEPS): Likewise.
+	(psim): Depend on INTLDEPS; link against INTLLIBS.
+	* configure.in: Call CY_GNU_GETTEXT.
+
+Wed Apr 22 14:28:48 1998  Michael Meissner  <meissner@cygnus.com>
+
+	* configure: Regenerate with autoconf 2.12.1.
+
 Fri Mar 13 09:25:58 1998  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* psim.c (psim_read_register, psim_write_register): Handle updates
-	for FPSCR.
+ 	for FPSCR.
 
 	* registers.c (register_description): Reconize "FPSCR".
 
 	* emul_netbsd.c (emul_netbsd_create): When FP available, enable
-	MSR FP exception mode. Do not enable FPSCR bits.
+ 	MSR FP exception mode. Do not enable FPSCR bits.
 	* emul_unix.c (emul_unix_create): Ditto.
 
-Mon Mar  2 15:30:47 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+Tue Feb 17 12:48:58 1998  Andrew Cagney  <cagney@b1.cygnus.com>
 
-        * ppc-instructions (fdiv, fdivs): Check for divide by zero.
-        (is_invalid_zero_divide, invalid_zero_divide_operation): New
-        functions.
+	* sim_calls.c (sim_store_register, sim_fetch_register): Pass in
+ 	length parameter.  Return -1.
 
+Mon Feb  9 14:13:14 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* ppc-instructions (fdiv, fdivs): Check for divide by zero.
+	(is_invalid_zero_divide, invalid_zero_divide_operation): New
+ 	functions.
+	
 Wed Dec 10 17:38:28 1997  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	* sim_calls.c (sim_load): Do not parse PROG using buildargv, use

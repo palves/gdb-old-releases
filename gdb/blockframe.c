@@ -1,6 +1,6 @@
 /* Get info from stack frames;
    convert between frames, blocks, functions and pc values.
-   Copyright 1986, 1987, 1988, 1989, 1991, 1994, 1995, 1996, 1997
+   Copyright 1986, 87, 88, 89, 91, 94, 95, 96, 97, 1998
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -30,6 +30,47 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "target.h"		/* for target_has_stack */
 #include "inferior.h"		/* for read_pc */
 #include "annotate.h"
+
+/* Prototypes for exported functions. */
+
+void _initialize_blockframe PARAMS ((void));
+
+/* A default FRAME_CHAIN_VALID, in the form that is suitable for most
+   targets.  If FRAME_CHAIN_VALID returns zero it means that the given
+   frame is the outermost one and has no caller. */
+
+int
+default_frame_chain_valid (chain, thisframe)
+     CORE_ADDR chain;
+     struct frame_info *thisframe;
+{
+  return ((chain) != 0
+	  && !inside_main_func ((thisframe) -> pc)
+	  && !inside_entry_func ((thisframe) -> pc));
+}
+
+/* Use the alternate method of avoiding running up off the end of the
+   frame chain or following frames back into the startup code.  See
+   the comments in objfiles.h. */
+   
+int
+alternate_frame_chain_valid (chain, thisframe)
+     CORE_ADDR chain;
+     struct frame_info *thisframe;
+{
+  return ((chain) != 0
+	  && !inside_entry_file (FRAME_SAVED_PC (thisframe)));
+}
+
+/* A very simple method of determining a valid frame */
+   
+int
+nonnull_frame_chain_valid (chain, thisframe)
+     CORE_ADDR chain;
+     struct frame_info *thisframe;
+{
+  return ((chain) != 0);
+}
 
 /* Is ADDR inside the startup file?  Note that if your machine
    has a way to detect the bottom of the stack, there is no need
@@ -132,7 +173,24 @@ static struct frame_info *current_frame;
    inferior is stopped.  Control variables for the frame cache should
    be local to this module.  */
 
-struct obstack frame_cache_obstack;
+static struct obstack frame_cache_obstack;
+
+void *
+frame_obstack_alloc (size)
+     unsigned long size;
+{
+  return obstack_alloc (&frame_cache_obstack, size);
+}
+
+void
+frame_saved_regs_zalloc (fi)
+     struct frame_info *fi;
+{
+  fi->saved_regs = (CORE_ADDR*)
+    frame_obstack_alloc (SIZEOF_FRAME_SAVED_REGS);
+  memset (fi->saved_regs, 0, SIZEOF_FRAME_SAVED_REGS);
+}
+
 
 /* Return the innermost (currently executing) stack frame.  */
 
@@ -172,6 +230,7 @@ create_new_frame (addr, pc)
 		   sizeof (struct frame_info));
 
   /* Arbitrary frame */
+  fi->saved_regs = NULL;
   fi->next = NULL;
   fi->prev = NULL;
   fi->frame = addr;
@@ -369,6 +428,7 @@ get_prev_frame_info (next_frame)
     obstack_alloc (&frame_cache_obstack,
 		   sizeof (struct frame_info));
 
+  prev->saved_regs = NULL;
   if (next_frame)
     next_frame->prev = prev;
   prev->next = next_frame;
@@ -460,7 +520,10 @@ get_frame_pc (frame)
   return frame->pc;
 }
 
-#if defined (FRAME_FIND_SAVED_REGS)
+
+#ifdef FRAME_FIND_SAVED_REGS
+/* XXX - deprecated.  This is a compatibility function for targets
+   that do not yet implement FRAME_INIT_SAVED_REGS.  */
 /* Find the addresses in which registers are saved in FRAME.  */
 
 void
@@ -468,7 +531,22 @@ get_frame_saved_regs (frame, saved_regs_addr)
      struct frame_info *frame;
      struct frame_saved_regs *saved_regs_addr;
 {
-  FRAME_FIND_SAVED_REGS (frame, *saved_regs_addr);
+  if (frame->saved_regs == NULL)
+    {
+      frame->saved_regs = (CORE_ADDR*)
+	frame_obstack_alloc (SIZEOF_FRAME_SAVED_REGS);
+    }
+  if (saved_regs_addr == NULL)
+    {
+      struct frame_saved_regs saved_regs;
+      FRAME_FIND_SAVED_REGS (frame, saved_regs);
+      memcpy (frame->saved_regs, &saved_regs, SIZEOF_FRAME_SAVED_REGS);
+    }
+  else
+    {
+      FRAME_FIND_SAVED_REGS (frame, *saved_regs_addr);
+      memcpy (frame->saved_regs, saved_regs_addr, SIZEOF_FRAME_SAVED_REGS);
+    }
 }
 #endif
 
@@ -586,7 +664,7 @@ blockvector_for_pc_sect (pc, section, pindex, symtab)
   while (bot >= 0)
     {
       b = BLOCKVECTOR_BLOCK (bl, bot);
-      if (BLOCK_END (b) > pc)
+      if (BLOCK_END (b) >= pc)
 	{
 	  if (pindex)
 	    *pindex = bot;
@@ -704,27 +782,31 @@ find_pc_sect_partial_function (pc, section, name, address, endaddr)
   struct minimal_symbol *msymbol;
   struct partial_symbol *psb;
   struct obj_section    *osect;
+  int i;
+  CORE_ADDR mapped_pc;
 
+  mapped_pc = overlay_mapped_address (pc, section);
 
-  if (pc >= cache_pc_function_low && pc < cache_pc_function_high &&
+  if (mapped_pc >= cache_pc_function_low && 
+      mapped_pc < cache_pc_function_high &&
       section == cache_pc_function_section)
     goto return_cached_value;
 
   /* If sigtramp is in the u area, it counts as a function (especially
      important for step_1).  */
 #if defined SIGTRAMP_START
-  if (IN_SIGTRAMP (pc, (char *)NULL))
+  if (IN_SIGTRAMP (mapped_pc, (char *)NULL))
     {
-      cache_pc_function_low     = SIGTRAMP_START (pc);
-      cache_pc_function_high    = SIGTRAMP_END (pc);
+      cache_pc_function_low     = SIGTRAMP_START (mapped_pc);
+      cache_pc_function_high    = SIGTRAMP_END (mapped_pc);
       cache_pc_function_name    = "<sigtramp>";
       cache_pc_function_section = section;
       goto return_cached_value;
     }
 #endif
 
-  msymbol = lookup_minimal_symbol_by_pc_section (pc, section);
-  pst = find_pc_sect_psymtab (pc, section);
+  msymbol = lookup_minimal_symbol_by_pc_section (mapped_pc, section);
+  pst = find_pc_sect_psymtab (mapped_pc, section);
   if (pst)
     {
       /* Need to read the symbols to get a good value for the end address.  */
@@ -740,7 +822,7 @@ find_pc_sect_partial_function (pc, section, name, address, endaddr)
 	{
 	  /* Checking whether the msymbol has a larger value is for the
 	     "pathological" case mentioned in print_frame_info.  */
-	  f = find_pc_sect_function (pc, section);
+	  f = find_pc_sect_function (mapped_pc, section);
 	  if (f != NULL
 	      && (msymbol == NULL
 		  || (BLOCK_START (SYMBOL_BLOCK_VALUE (f))
@@ -758,7 +840,7 @@ find_pc_sect_partial_function (pc, section, name, address, endaddr)
 	  /* Now that static symbols go in the minimal symbol table, perhaps
 	     we could just ignore the partial symbols.  But at least for now
 	     we use the partial or minimal symbol, whichever is larger.  */
-	  psb = find_pc_sect_psymbol (pst, pc, section);
+	  psb = find_pc_sect_psymbol (pst, mapped_pc, section);
 
 	  if (psb
 	      && (msymbol == NULL ||
@@ -781,7 +863,7 @@ find_pc_sect_partial_function (pc, section, name, address, endaddr)
      of the text seg doesn't appear to be part of the last function in the
      text segment.  */
 
-  osect = find_pc_sect_section (pc, section);
+  osect = find_pc_sect_section (mapped_pc, section);
 
   if (!osect)
     msymbol = NULL;
@@ -803,24 +885,57 @@ find_pc_sect_partial_function (pc, section, name, address, endaddr)
   cache_pc_function_name    = SYMBOL_NAME (msymbol);
   cache_pc_function_section = section;
 
-  /* Use the lesser of the next minimal symbol, or the end of the section, as
-     the end of the function.  */
+  /* Use the lesser of the next minimal symbol in the same section, or
+     the end of the section, as the end of the function.  */
+  
+  /* Step over other symbols at this same address, and symbols in
+     other sections, to find the next symbol in this section with
+     a different address.  */
 
-  if (SYMBOL_NAME (msymbol + 1) != NULL
-      && SYMBOL_VALUE_ADDRESS (msymbol + 1) < osect->endaddr)
-    cache_pc_function_high = SYMBOL_VALUE_ADDRESS (msymbol + 1);
+  for (i=1; SYMBOL_NAME (msymbol+i) != NULL; i++)
+    {
+      if (SYMBOL_VALUE_ADDRESS (msymbol+i) != SYMBOL_VALUE_ADDRESS (msymbol) 
+	  && SYMBOL_BFD_SECTION (msymbol+i) == SYMBOL_BFD_SECTION (msymbol))
+	break;
+    }
+
+  if (SYMBOL_NAME (msymbol + i) != NULL
+      && SYMBOL_VALUE_ADDRESS (msymbol + i) < osect->endaddr)
+    cache_pc_function_high = SYMBOL_VALUE_ADDRESS (msymbol + i);
   else
     /* We got the start address from the last msymbol in the objfile.
        So the end address is the end of the section.  */
     cache_pc_function_high = osect->endaddr;
 
  return_cached_value:
+
   if (address)
-    *address = cache_pc_function_low;
+    {
+      if (pc_in_unmapped_range (pc, section))
+        *address = overlay_unmapped_address (cache_pc_function_low, section);
+      else
+        *address = cache_pc_function_low;
+    }
+    
   if (name)
     *name = cache_pc_function_name;
+
   if (endaddr)
-    *endaddr = cache_pc_function_high;
+    {
+      if (pc_in_unmapped_range (pc, section))
+        {
+	  /* Because the high address is actually beyond the end of
+	     the function (and therefore possibly beyond the end of
+	     the overlay), we must actually convert (high - 1)
+	     and then add one to that. */
+
+	  *endaddr = 1 + overlay_unmapped_address (cache_pc_function_high - 1, 
+						   section);
+        }
+      else
+        *endaddr = cache_pc_function_high;
+    }
+
   return 1;
 }
 
@@ -836,8 +951,6 @@ find_pc_partial_function (pc, name, address, endaddr)
   asection     *section;
 
   section = find_pc_overlay (pc);
-  if (pc_in_unmapped_range (pc, section))
-    pc = overlay_mapped_address (pc, section);
   return find_pc_sect_partial_function (pc, section, name, address, endaddr);
 }
 
@@ -934,11 +1047,11 @@ sigtramp_saved_pc (frame)
  * generic enough to be used by many targets.
  *
  * The cheapest and most generic way to do CALL_DUMMY on a new target
- * is probably to define CALL_DUMMY to be empty, CALL_DUMMY_LENGTH to zero,
- * and CALL_DUMMY_LOCATION to AT_ENTRY.  Then you must remember to define
- * PUSH_RETURN_ADDRESS, because no call instruction will be being
- * executed by the target.
- */
+ * is probably to define CALL_DUMMY to be empty, CALL_DUMMY_LENGTH to
+ * zero, and CALL_DUMMY_LOCATION to AT_ENTRY.  Then you must remember
+ * to define PUSH_RETURN_ADDRESS, because no call instruction will be
+ * being executed by the target.  Also FRAME_CHAIN_VALID as
+ * generic_frame_chain_valid.  */
 
 static struct dummy_frame *dummy_frame_stack = NULL;
 
@@ -1014,7 +1127,7 @@ generic_push_dummy_frame ()
 
   dummy_frame = dummy_frame_stack;
   while (dummy_frame)
-    if (dummy_frame->fp INNER_THAN fp)	/* stale -- destroy! */
+    if (INNER_THAN (dummy_frame->fp, fp))	/* stale -- destroy! */
       {
 	dummy_frame_stack = dummy_frame->next;
 	free (dummy_frame);
@@ -1032,6 +1145,21 @@ generic_push_dummy_frame ()
   dummy_frame_stack = dummy_frame;
 }
 
+/* Function: pop_frame
+   Restore the machine state from either the saved dummy stack or a
+   real stack frame. */
+
+void
+generic_pop_current_frame (pop)
+  void (*pop) PARAMS ((struct frame_info *frame));
+{
+  struct frame_info *frame = get_current_frame ();
+  if (PC_IN_CALL_DUMMY(frame->pc, frame->frame, frame->frame))
+    generic_pop_dummy_frame ();
+  else
+    pop (frame);
+}
+
 /* Function: pop_dummy_frame
    Restore the machine state from a saved dummy stack frame. */
 
@@ -1047,6 +1175,7 @@ generic_pop_dummy_frame ()
     error ("Can't pop dummy frame!");
   dummy_frame_stack = dummy_frame->next;
   write_register_bytes (0, dummy_frame->regs, REGISTER_BYTES);
+  flush_cached_frames ();
   free (dummy_frame);
 }
 
@@ -1063,7 +1192,7 @@ generic_frame_chain_valid (fp, fi)
     return 1;   /* don't prune CALL_DUMMY frames */
   else          /* fall back to default algorithm (see frame.h) */
     return (fp != 0
-	    && (fi->frame INNER_THAN fp || fi->frame == fp)
+	    && (INNER_THAN (fi->frame, fp) || fi->frame == fp)
 	    && !inside_entry_file (FRAME_SAVED_PC(fi)));
 }
  
@@ -1100,8 +1229,6 @@ generic_get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
      int regnum;
      enum lval_type *lval;
 {
-  struct frame_saved_regs fsr;
-
   if (!target_has_registers)
     error ("No registers.");
 
@@ -1131,8 +1258,9 @@ generic_get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 	      return;
 	}
 
-      FRAME_FIND_SAVED_REGS(frame, fsr);
-      if (fsr.regs[regnum] != 0)
+      FRAME_INIT_SAVED_REGS (frame);
+      if (frame->saved_regs != NULL
+	  && frame->saved_regs[regnum] != 0)
 	{
 	  if (lval)			/* found it saved on the stack */
 	    *lval = lval_memory;
@@ -1140,14 +1268,14 @@ generic_get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 	    {
 	      if (raw_buffer)		/* SP register treated specially */
 		store_address (raw_buffer, REGISTER_RAW_SIZE (regnum), 
-			       fsr.regs[regnum]);
+			       frame->saved_regs[regnum]);
 	    }
 	  else
 	    {
 	      if (addrp)		/* any other register */
-		*addrp = fsr.regs[regnum];
+		*addrp = frame->saved_regs[regnum];
 	      if (raw_buffer)
-		read_memory (fsr.regs[regnum], raw_buffer, 
+		read_memory (frame->saved_regs[regnum], raw_buffer, 
 			     REGISTER_RAW_SIZE (regnum));
 	    }
 	  return;

@@ -23,7 +23,7 @@
 #error "N must be #defined"
 #endif
 
-#include "sim-xcat.h"
+#include "symcat.h"
 
 /* NOTE: See end of file for #undef */
 #define unsigned_N XCONCAT2(unsigned_,N)

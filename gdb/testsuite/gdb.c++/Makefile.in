@@ -1,7 +1,9 @@
 VPATH = @srcdir@
 srcdir = @srcdir@
 
-PROGS = compiler cplusfuncs inherit misc templates virtfunc
+PROGS = anon-union compiler cplusfuncs derivation inherit local \
+	member-ptr method misc \
+        overload ovldbreak ref-types ref-types2 templates userdef virtfunc
 
 all: 
 	@echo "Nothing to be done for all..."

@@ -298,12 +298,15 @@ send_gdb "file $binfile\n"
 # that a filename won't contain a space and a warning message will.
 # But spaces following by backspaces aren't really spaces.
 gdb_expect 60 {
-    -re "^file (\[^ \]| +\008)*\r*\nReading symbols from $binfile\\.\\.\\.done\.\r*\n$gdb_prompt $" {
-	pass "weirdx.o read without error"
+    -re "^file (\[^ \]| +\008)*\r*\n" {
+	exp_continue
     }
     -re "A program is being debugged already.  Kill it\\? \\(y or n\\)" {
 	send_gdb "y\n"
 	exp_continue
+    }
+    -re "^Reading symbols from $binfile\\.\\.\\.done\.\r*\n$gdb_prompt $" {
+	pass "weirdx.o read without error"
     }
     -re ".*$gdb_prompt $" {
 	fail "Errors reading weirdx.o"

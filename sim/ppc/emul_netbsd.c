@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -59,10 +59,6 @@ int getrusage();
 
 #if HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
-#endif
-
-#if HAVE_SYS_MOUNT_H
-#include <sys/mount.h>
 #endif
 
 #if HAVE_DIRENT_H
@@ -390,12 +386,16 @@ do_open(os_emul_data *emul,
   char *path = emul_read_string(path_buf, path_addr, PATH_MAX, processor, cia);
   int flags = (int)cpu_registers(processor)->gpr[arg0+1];
   int mode = (int)cpu_registers(processor)->gpr[arg0+2];
+  int status;
 
   if (WITH_TRACE && ppc_trace[trace_os_emul])
     printf_filtered ("0x%lx [%s], 0x%x, 0x%x", (long)path_addr, path, flags, mode);
 
   SYS(open);
-  emul_write_status(processor, open(path, flags, mode), errno);
+
+  /* Can't combine these statements, cuz open sets errno. */
+  status = open(path, flags, mode);
+  emul_write_status(processor, status, errno);
 }
 
 
@@ -407,12 +407,16 @@ do_close(os_emul_data *emul,
 	 unsigned_word cia)
 {
   int d = (int)cpu_registers(processor)->gpr[arg0];
+  int status;
 
   if (WITH_TRACE && ppc_trace[trace_os_emul])
     printf_filtered ("%d", d);
 
   SYS(close);
-  emul_write_status(processor, close(d), errno);
+
+  /* Can't combine these statements, cuz close sets errno. */
+  status = close(d);
+  emul_write_status(processor, status, errno);
 }
 
 
@@ -810,8 +814,11 @@ do_fstat(os_emul_data *emul,
   int fd = cpu_registers(processor)->gpr[arg0];
   unsigned_word stat_buf_addr = cpu_registers(processor)->gpr[arg0+1];
   struct stat buf;
+  int status;
   SYS(fstat);
-  emul_write_status(processor, fstat(fd, &buf), errno);
+  /* Can't combine these statements, cuz fstat sets errno. */
+  status = fstat(fd, &buf);
+  emul_write_status(processor, status, errno);
   write_stat(stat_buf_addr, buf, processor, cia);
 }
 #endif
@@ -831,8 +838,11 @@ do_lstat(os_emul_data *emul,
   char *path = emul_read_string(path_buf, path_addr, PATH_MAX, processor, cia);
   unsigned_word stat_buf_addr = cpu_registers(processor)->gpr[arg0+1];
   struct stat buf;
+  int status;
   SYS(lstat);
-  emul_write_status(processor, stat(path, &buf), errno);
+  /* Can't combine these statements, cuz lstat sets errno. */
+  status = lstat(path, &buf);
+  emul_write_status(processor, status, errno);
   write_stat(stat_buf_addr, buf, processor, cia);
 }
 #endif

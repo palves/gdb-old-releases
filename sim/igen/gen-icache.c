@@ -1,6 +1,6 @@
 /*  This file is part of the program psim.
 
-    Copyright (C) 1994-1997, Andrew Cagney <cagney@highland.com.au>
+    Copyright (C) 1994-1998, Andrew Cagney <cagney@highland.com.au>
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -157,9 +157,16 @@ print_icache_extraction (lf *file,
       lf_printf (file, "#undef %s\n", entry_name);
       return;
     case define_variables:
-      /* Using direct access for this entry, define it */
+      /* Using direct access for this entry, clear any prior
+         definition, then define it */
       lf_indent_suppress (file);
-      lf_printf (file, "#define %s ", entry_name);
+      lf_printf (file, "#undef %s\n", entry_name);
+      /* Don't type cast pointer types! */
+      lf_indent_suppress (file);
+      if (strchr (entry_type, '*') != NULL)
+	lf_printf (file, "#define %s (", entry_name);
+      else
+	lf_printf (file, "#define %s ((%s) ", entry_name, entry_type);
       break;
     case declare_variables:
       /* using variables to define the value */
@@ -297,6 +304,8 @@ print_icache_extraction (lf *file,
   switch (what_to_declare)
     {
     case define_variables:
+      lf_printf (file, ")");
+      break;
     case undef_variables:
       break;
     case declare_variables:
@@ -377,10 +386,11 @@ print_icache_body (lf *file,
 		 word_nr++)
 	      {
 		/* FIXME - should be using print_icache_extraction? */
-		lf_printf (file, "%sinstruction_word instruction_%d = ",
-			   options.prefix.global.name,
+		lf_printf (file, "%sinstruction_word instruction_%d UNUSED = ",
+			   options.module.global.prefix.l,
 			   word_nr);
-		lf_printf (file, "IMEM_IMMED (cia, %d)", word_nr);
+		lf_printf (file, "IMEM%d_IMMED (cia, %d)",
+			   options.insn_bit_size, word_nr);
 		lf_printf (file, ";\n");
 	      }
 	  }
@@ -554,14 +564,14 @@ print_icache_struct (lf *file,
   
   lf_printf (file, "\n");
   lf_printf (file, "#define WITH_%sIDECODE_CACHE_SIZE %d\n",
-	     options.prefix.global.uname,
+	     options.module.global.prefix.u,
 	     (options.gen.icache ? options.gen.icache_size : 0));
   lf_printf (file, "\n");
   
   /* create an instruction cache if being used */
   if (options.gen.icache) {
     lf_printf (file, "typedef struct _%sidecode_cache {\n",
-	       options.prefix.global.name);
+	       options.module.global.prefix.l);
     lf_indent (file, +2);
     {
       form_fields *format;
@@ -634,14 +644,14 @@ print_icache_struct (lf *file,
       lf_printf (file, "} crack;\n");
     }
     lf_indent (file, -2);
-    lf_printf (file, "} %sidecode_cache;\n", options.prefix.global.name);
+    lf_printf (file, "} %sidecode_cache;\n", options.module.global.prefix.l);
   }
   else
     {
       /* alernativly, since no cache, emit a dummy definition for
 	 idecode_cache so that code refering to the type can still compile */
       lf_printf(file, "typedef void %sidecode_cache;\n",
-		options.prefix.global.name);
+		options.module.global.prefix.l);
     }
   lf_printf (file, "\n");
 }

@@ -1,5 +1,5 @@
 /* Perform arithmetic and other operations on values, for GDB.
-   Copyright 1986, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
+   Copyright 1986, 89, 91, 92, 93, 94, 95, 96, 97, 1998
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -36,6 +36,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 
 static value_ptr value_subscripted_rvalue PARAMS ((value_ptr, value_ptr, int));
+
+void _initialize_valarith PARAMS ((void));
 
 
 value_ptr
@@ -1067,18 +1069,19 @@ value_equal (arg1, arg2)
   code1 = TYPE_CODE (type1);
   code2 = TYPE_CODE (type2);
 
-  if (code1 == TYPE_CODE_INT && code2 == TYPE_CODE_INT)
+  if ((code1 == TYPE_CODE_INT || code1 == TYPE_CODE_BOOL) &&
+      (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
     return longest_to_int (value_as_long (value_binop (arg1, arg2,
 						       BINOP_EQUAL)));
-  else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT)
-	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT))
+  else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT || code1 == TYPE_CODE_BOOL)
+	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
     return value_as_double (arg1) == value_as_double (arg2);
 
   /* FIXME: Need to promote to either CORE_ADDR or LONGEST, whichever
      is bigger.  */
-  else if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_INT)
+  else if (code1 == TYPE_CODE_PTR && (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
     return value_as_pointer (arg1) == (CORE_ADDR) value_as_long (arg2);
-  else if (code2 == TYPE_CODE_PTR && code1 == TYPE_CODE_INT)
+  else if (code2 == TYPE_CODE_PTR && (code1 == TYPE_CODE_INT || code1 == TYPE_CODE_BOOL))
     return (CORE_ADDR) value_as_long (arg1) == value_as_pointer (arg2);
 
   else if (code1 == code2
@@ -1120,20 +1123,21 @@ value_less (arg1, arg2)
   code1 = TYPE_CODE (type1);
   code2 = TYPE_CODE (type2);
 
-  if (code1 == TYPE_CODE_INT && code2 == TYPE_CODE_INT)
+  if ((code1 == TYPE_CODE_INT || code1 == TYPE_CODE_BOOL) &&
+      (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
     return longest_to_int (value_as_long (value_binop (arg1, arg2,
 						       BINOP_LESS)));
-  else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT)
-	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT))
+  else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT || code1 == TYPE_CODE_BOOL)
+	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
     return value_as_double (arg1) < value_as_double (arg2);
   else if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_PTR)
     return value_as_pointer (arg1) < value_as_pointer (arg2);
 
   /* FIXME: Need to promote to either CORE_ADDR or LONGEST, whichever
      is bigger.  */
-  else if (code1 == TYPE_CODE_PTR && code2 == TYPE_CODE_INT)
+  else if (code1 == TYPE_CODE_PTR && (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_BOOL))
     return value_as_pointer (arg1) < (CORE_ADDR) value_as_long (arg2);
-  else if (code2 == TYPE_CODE_PTR && code1 == TYPE_CODE_INT)
+  else if (code2 == TYPE_CODE_PTR && (code1 == TYPE_CODE_INT || code1 == TYPE_CODE_BOOL))
     return (CORE_ADDR) value_as_long (arg1) < value_as_pointer (arg2);
 
   else
@@ -1159,7 +1163,7 @@ value_neg (arg1)
 
   if (TYPE_CODE (type) == TYPE_CODE_FLT)
     return value_from_double (result_type, - value_as_double (arg1));
-  else if (TYPE_CODE (type) == TYPE_CODE_INT)
+  else if (TYPE_CODE (type) == TYPE_CODE_INT || TYPE_CODE (type) == TYPE_CODE_BOOL)
     {
       /* Perform integral promotion for ANSI C/C++.
 	 FIXME: What about FORTRAN and chill ?  */
@@ -1180,14 +1184,16 @@ value_complement (arg1)
 {
   register struct type *type;
   register struct type *result_type = VALUE_TYPE (arg1);
+  int typecode; 
 
   COERCE_REF (arg1);
   COERCE_ENUM (arg1);
 
   type = check_typedef (VALUE_TYPE (arg1));
 
-  if (TYPE_CODE (type) != TYPE_CODE_INT)
-    error ("Argument to complement operation not an integer.");
+  typecode = TYPE_CODE (type);
+  if ((typecode != TYPE_CODE_INT) && (typecode != TYPE_CODE_BOOL))
+    error ("Argument to complement operation not an integer or boolean.");
 
   /* Perform integral promotion for ANSI C/C++.
      FIXME: What about FORTRAN ?  */

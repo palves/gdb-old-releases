@@ -1,5 +1,5 @@
 /* Target-dependent code for Hitachi Super-H, for GDB.
-   Copyright (C) 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -35,14 +35,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "inferior.h"		/* for BEFORE_TEXT_END etc. */
 #include "gdb_string.h"
 
-extern int remote_write_size;	/* in remote.c */
-
 /* A set of original names, to be used when restoring back to generic
    registers from a specific set.  */
 
-char *sh_generic_reg_names[] = REGISTER_NAMES;
+static char *sh_generic_reg_names[] = {
+  "r0",   "r1",   "r2",   "r3",   "r4",   "r5",   "r6",   "r7",
+  "r8",   "r9",   "r10",  "r11",  "r12",  "r13",  "r14",  "r15",
+  "pc",   "pr",   "gbr",  "vbr",  "mach", "macl", "sr",
+  "fpul", "fpscr",
+  "fr0",  "fr1",  "fr2",  "fr3",  "fr4",  "fr5",  "fr6",  "fr7",
+  "fr8",  "fr9",  "fr10", "fr11", "fr12", "fr13", "fr14", "fr15",
+  "ssr",  "spc",
+  "r0b0", "r1b0", "r2b0", "r3b0", "r4b0", "r5b0", "r6b0", "r7b0",
+  "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1",
+};
 
-char *sh_reg_names[] = {
+static char *sh_reg_names[] = {
   "r0",   "r1",   "r2",   "r3",   "r4",   "r5",   "r6",   "r7",
   "r8",   "r9",   "r10",  "r11",  "r12",  "r13",  "r14",  "r15",
   "pc",   "pr",   "gbr",  "vbr",  "mach", "macl", "sr",
@@ -54,7 +62,7 @@ char *sh_reg_names[] = {
   "",     "",     "",     "",     "",     "",     "",     "",
 };
 
-char *sh3_reg_names[] = {
+static char *sh3_reg_names[] = {
   "r0",   "r1",   "r2",   "r3",   "r4",   "r5",   "r6",   "r7",
   "r8",   "r9",   "r10",  "r11",  "r12",  "r13",  "r14",  "r15",
   "pc",   "pr",   "gbr",  "vbr",  "mach", "macl", "sr",
@@ -66,7 +74,7 @@ char *sh3_reg_names[] = {
   "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1"
 };
 
-char *sh3e_reg_names[] = {
+static char *sh3e_reg_names[] = {
   "r0",   "r1",   "r2",   "r3",   "r4",   "r5",   "r6",   "r7",
   "r8",   "r9",   "r10",  "r11",  "r12",  "r13",  "r14",  "r15",
   "pc",   "pr",   "gbr",  "vbr",  "mach", "macl", "sr",
@@ -77,6 +85,9 @@ char *sh3e_reg_names[] = {
   "r0b0", "r1b0", "r2b0", "r3b0", "r4b0", "r5b0", "r6b0", "r7b0",
   "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1",
 };
+
+char **sh_register_names = sh_generic_reg_names;
+
 
 struct {
   char **regnames;
@@ -103,6 +114,19 @@ struct {
 #define IS_MOV_R3(x) 		(((x) & 0xff00) == 0x1a00)
 #define IS_SHLL_R3(x)		((x) == 0x4300)
 #define IS_ADD_R3SP(x)		((x) == 0x3f3c)
+#define IS_FMOV(x)		(((x) & 0xf00f) == 0xf00b)
+#define FPSCR_SZ		(1 << 20)
+
+
+/* Should call_function allocate stack space for a struct return?  */
+int
+sh_use_struct_convention (gcc_p, type)
+     int gcc_p;
+     struct type *type;
+{
+  return (TYPE_LENGTH (type) > 1);
+}
+
 
 /* Skip any prologue before the guts of a function */
 
@@ -114,6 +138,7 @@ sh_skip_prologue (start_pc)
 
   w = read_memory_integer (start_pc, 2);
   while (IS_STS (w)
+	 || IS_FMOV (w)
 	 || IS_PUSH (w)
 	 || IS_MOV_SP_FP (w)
 	 || IS_MOV_R3 (w)
@@ -277,6 +302,19 @@ sh_frame_find_saved_regs (fi, fsr)
 	  pc += 2;
 	  depth -= ((insn & 0xff) ^ 0x80) - 0x80;
 	  insn = read_memory_integer (pc, 2);
+	}
+      else if (IS_FMOV (insn))
+	{
+	  pc += 2;
+	  insn = read_memory_integer (pc, 2);
+	  if (read_register (FPSCR_REGNUM) & FPSCR_SZ)
+	    {
+	      depth += 8;
+	    }
+	  else
+	    {
+	      depth += 4;
+	    }
 	}
       else
 	break;
@@ -572,8 +610,7 @@ sh_target_architecture_hook (ap)
     {
       if (sh_processor_type_table[i].mach == ap->mach)
 	{
-	  for (j = 0; j < NUM_REGS; ++j)
-	    reg_names[j] = sh_processor_type_table[i].regnames[j];
+	  sh_register_names = sh_processor_type_table[i].regnames;
 	  return 1;
 	}
     }
@@ -589,8 +626,8 @@ sh_show_regs (args, from_tty)
      int from_tty;
 {
   int cpu;
-  if (target_architecture->arch == bfd_arch_sh)
-    cpu = target_architecture->mach;
+  if (TARGET_ARCHITECTURE->arch == bfd_arch_sh)
+    cpu = TARGET_ARCHITECTURE->mach;
   else
     cpu = 0;
 

@@ -39,6 +39,21 @@ Mon Dec 22 21:51:53 1997  Mark Alexander  <marka@cygnus.com>
 
 	* remote-mips.c (_initialize_remote_mips): Fix DDB doc string.
 
+Sun Dec 21 17:00:06 1997  David Taylor  <taylor@texas.cygnus.com>
+
+	* d30v-tdep.c (d30v_frame_find_saved_regs): split most of
+	function off into d30v_frame_find_saved_regs_offsets;
+	(d30v_frame_find_saved_regs_offsets): new function.  Got
+	backtrace working when calling from framefull (unoptimized)
+	routines (.e.g, main) into frameless (optimized) routines
+	(e.g., printf).
+
+Fri Dec 19 09:49:49 1997  David Taylor  <taylor@texas.cygnus.com>
+
+	* d30v-tdep.c (d30v_frame_chain): test end_of_stack
+	(d30v_frame_find_saved_regs): set it.
+	* config/d30v/tm-d30v.h: improved FRAME_CHAIN_VALID
+
 Thu Dec 18 12:34:28 1997  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	From Gavin Koch <gavin@cygnus.com>: mips-tdep.c
@@ -87,6 +102,20 @@ Tue Dec 16 11:24:30 1997  Jeffrey A Law  (law@cygnus.com)
 	* remote-sim.c (gdbsim_open): Use "--architecture" instead of
 	ambigious short form.
 	
+Tue Dec 16 10:29:16 1997  David Taylor  <taylor@texas.cygnus.com>
+
+	* d30v-tdep.c (d30v_frame_chain): don't or in DMEM_START to
+	FP_REGNUM value before return; (prologue_find_regs): two sets
+	of offsets -- frame pointer and stack pointer, not just one that
+	tries to do double duty; (d30v_frame_find_saved_regs): stop once
+	we hit pc (in case we're stopped in the middle of the prologue)
+	and improve handling of frameless prologues; (d30v_push_arguments):
+	*ALL* arguments go on the stack until we run out of args registers,
+	force sp to be 8 byte aligned.
+
+	* config/tm-d30v.h (EXTRACT_STRUCT_VALUE_ADDRESS): fix, it's r2,
+	not r0; (FRAME_CHAIN_VALID): handle use of external memory;
+	(STACK_ALIGN): define.
 
 Mon Dec 15 15:13:57 1997  Andrew Cagney  <cagney@b1.cygnus.com>
 
@@ -120,6 +149,20 @@ Thu Dec 11 14:28:01 1997  Michael Snyder  (msnyder@cleaver.cygnus.com)
 	backwards thru the trace buffer in a loop.
 	* (struct tracepoint): delete unused field.
 
+Wed Dec 10 17:57:00 1997  David Taylor  <taylor@texas.cygnus.com>
+
+	* d30v-tdep.c : don't bury lots of magic numbers in the code
+	instead use defines for the opcodes and opcode masks; update
+	to use actual d30v patterns; fix register sizes to be 4 bytes
+	not 2 bytes; improve prologue testing now that we have a C
+	compiler; fix stack frame handling enough to get backtraces
+	working; initial changes to push and pop frames (so that gdb
+	can call functions in the inferior).
+
+	* config/d30v/tm-d30v.h: update DMEM_START, IMEM_START, and
+	STACK_START; change FR_REGNUM to 61 (was 11).  Reformat comment
+	about DUMMY FRAMES so that it is readable.  Fix SAVED_PC_AFTER_FRAME
+	macro.
 
 Wed Dec 10 17:41:07 1997  Jim Blandy  <jimb@zwingli.cygnus.com>
 
@@ -306,6 +349,18 @@ Fri Nov 14 13:04:34 1997  Jeffrey A Law  (law@cygnus.com)
 
 	* jv-exp.y (copy_exp, insert_exp): Avoid ANSI prototypes.
 
+Thu Nov 13 09:47:35 1997  Michael Meissner  <meissner@cygnus.com>
+
+	* d30v-tdep.c (d30v_print_flags): Function to print the d30v flags
+	in a human readable format.
+	(print_flags_command): Command wrapper to call d30v_print_flags.
+	(d30v_do_registers_info): When printing out all of the registers,
+	print out the flag values in a human readable fashion.
+	(_initialize_d30v_tdep): Add info flags command to print the
+	flags.
+
+	* config/d30v/tm-d30v.h (PSW_*): Add macros for each of the PSW
+	bits that are defined.
 
 Wed Nov 12 14:58:39 1997  Jeff Holcomb  <jeffh@cygnus.com>
 
@@ -334,7 +389,7 @@ Tue Nov  4 13:50:59 1997  Jim Blandy  <jimb@sendai.cygnus.com>
 	* jv-exp.y (ArrayAccess): Implement Name [ Expression ]; check the
  	code to see why this is not trivial.
 	(copy_exp, insert_exp): New functions.
-
+	
 Fri Oct 24 17:24:00 1997  Dawn Perchik  <dawn@cygnus.com>
 
 	* dwarf2read.c (dwarf2_build_psymtabs_hard): Handle the case
@@ -549,6 +604,10 @@ Wed Sep 24 18:12:47 1997  Stu Grossman  <grossman@babylon-5.cygnus.com>
 	* remote-sim.c:  New functions gdbsim_insert/remove_breakpoint.  Use
 	intrinsic simulator breakpoints if available, otherwise do it the
  	hard way.
+
+	* configure.tgt:  Add d30v.
+	* d30v-tdep.c:  New file.
+	* config/d30v/d30v.mt, config/d30v/tm-d30v.h:  New files.
 
 Tue Sep 23 11:24:13 1997  Stan Shebs  <shebs@andros.cygnus.com>
 
@@ -811,6 +870,9 @@ Mon Aug 18 17:29:54 1997  Ian Lance Taylor  <ian@cygnus.com>
 	(child_wait): Check the return value of handle_exception.  Set the
 	continue_status argument to ContinueDebugEvent accordingly.
 
+Mon Aug 18 11:14:15 1997  Nick Clifton  <nickc@cygnus.com>
+
+	* configure.tgt: Add support for v850ea target.
 
 Sun Aug 17 20:31:57 1997  Michael Snyder  (msnyder@cleaver.cygnus.com)
 
@@ -1660,8 +1722,9 @@ Mon Apr 28 18:21:20 1997  Michael Snyder  <msnyder@cleaver.cygnus.com>
 
 Mon Apr 28 17:27:40 1997  Michael Snyder  <msnyder@cleaver.cygnus.com>
 
-	* c-exp.y, java-exp.y: make parse_number reject "123DEADBEEF".
+	* c-exp.y: make parse_number reject "123DEADBEEF".
 	(fix by Bob Manson).
+	* java-exp.y: Ditto.
 	* top.c: change "to enable to enable" to "to enable" in a couple
 	of help strings.
 
@@ -1733,7 +1796,7 @@ Mon Apr 21 09:49:25 1997  Stu Grossman  (grossman@critters.cygnus.com)
 
 	* remote-pa.c:  Remove.  It's broken and no longer necessary.
 
-Sat Apr 19 11:56:10 1997  Per Bothner  <bothner@deneb.cygnus.com>
+	Sat Apr 19 11:56:10 1997  Per Bothner  <bothner@deneb.cygnus.com>
 
 	* java-exp.y:  Combine TRUE and FALSE into BOOLEAN_LITERAL.
 	(Avoids name clash with broken AIX header files.)
@@ -1829,10 +1892,10 @@ Fri Apr 18 16:52:41 1997  Andrew Cagney  <cagney@b1.cygnus.com>
 
 Thu Apr 17 14:30:04 1997  Per Bothner  <bothner@deneb.cygnus.com>
 
+	* objfiles.c (allocate_objfile):  Allow NULL bfd argument.
 	* defs.h (enum language):  Add language_java.
 	* java-exp.y, java-lang.c, java-lang.h, java-valprint.c:  New files.
 	* Makefile.in:  Update for new files.
-	* objfiles.c (allocate_objfile):  Allow NULL bfd argument.
 	* symfile.c (deduce_language_from_filename):  Recognize .java.
 
 Thu Apr 17 02:20:23 1997  Doug Evans  <dje@canuck.cygnus.com>

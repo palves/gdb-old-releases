@@ -1,5 +1,5 @@
 /* Read coff symbol tables and convert to internal format, for GDB.
-   Copyright 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1996, 1997
+   Copyright 1987, 88, 89, 90, 91, 92, 93, 94, 96, 97, 1998
              Free Software Foundation, Inc.
    Contributed by David D. Johnson, Brown University (ddj@cs.brown.edu).
 
@@ -697,7 +697,7 @@ coff_symfile_read (objfile, section_offsets, mainline)
   temp_sym = (char *) xmalloc
 	 (cdata->local_symesz + cdata->local_auxesz);
   temp_aux = temp_sym + cdata->local_symesz;
-  back_to = make_cleanup (free_current_contents, &temp_sym);
+  back_to = make_cleanup ((make_cleanup_func) free_current_contents, &temp_sym);
 
   /* We need to know whether this is a PE file, because in PE files,
      unlike standard COFF files, symbol values are stored as offsets
@@ -713,7 +713,7 @@ coff_symfile_read (objfile, section_offsets, mainline)
   info->max_lineno_offset = 0;
   bfd_map_over_sections (abfd, find_linenos, (PTR) info);
 
-  make_cleanup (free_linetab, 0);
+  make_cleanup ((make_cleanup_func) free_linetab, 0);
   val = init_lineno (abfd, info->min_lineno_offset, 
 		     info->max_lineno_offset - info->min_lineno_offset);
   if (val < 0)
@@ -721,13 +721,13 @@ coff_symfile_read (objfile, section_offsets, mainline)
 
   /* Now read the string table, all at once.  */
 
-  make_cleanup (free_stringtab, 0);
+  make_cleanup ((make_cleanup_func) free_stringtab, 0);
   val = init_stringtab (abfd, stringtab_offset);
   if (val < 0)
     error ("\"%s\": can't get string table", name);
 
   init_minimal_symbol_collection ();
-  make_cleanup (discard_minimal_symbols, 0);
+  make_cleanup ((make_cleanup_func) discard_minimal_symbols, 0);
 
   /* Now that the executable file is positioned at symbol table,
      process it and define symbols accordingly.  */
@@ -934,7 +934,14 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 	     it here allows gdb to see static functions when no debug
 	     info is available.  */
 	  case C_LABEL:
+	    /* However, labels within a function can make weird backtraces,
+	       so filter them out (from phdm@macqel.be). */
+	    if (within_function)
+	      break;
           case C_STAT:
+	  case C_THUMBLABEL:
+	  case C_THUMBSTAT:
+	  case C_THUMBSTATFUNC:
 	    if (cs->c_name[0] == '.')
 	      {
 		if (STREQ (cs->c_name, ".text")) {
@@ -966,6 +973,8 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 		 that look like this.  Ignore them.  */
 	      break;
 	    /* fall in for static symbols that don't start with '.' */
+	  case C_THUMBEXT:
+	  case C_THUMBEXTFUNC:
 	  case C_EXT:
 	    {
 	      /* Record it in the minimal symbols regardless of
@@ -992,13 +1001,16 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 		  /* The address has already been relocated; make sure that
 		     objfile_relocate doesn't relocate it again.  */
 		  sec = -2;
-		  ms_type = cs->c_sclass == C_EXT ? mst_bss : mst_file_bss;
+		  ms_type = cs->c_sclass == C_EXT
+			    || cs->c_sclass == C_THUMBEXT ?
+			       mst_bss : mst_file_bss;
 		}
 	      else
 		{
 		  sec = cs_to_section (cs, objfile);
 		  tmpaddr = cs->c_value;
-		  if (cs->c_sclass == C_EXT)
+		  if (cs->c_sclass == C_EXT || cs->c_sclass == C_THUMBEXTFUNC
+		      || cs->c_sclass == C_THUMBEXT)
 		    tmpaddr += ANOFFSET (section_offsets, sec);
 
 		  switch (sec)
@@ -1006,15 +1018,23 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 		    case SECT_OFF_TEXT:
 		    case SECT_OFF_RODATA:
 		      ms_type =
-			cs->c_sclass == C_EXT ? mst_text : mst_file_text;
+			cs->c_sclass == C_EXT || cs->c_sclass == C_THUMBEXTFUNC
+					|| cs->c_sclass == C_THUMBEXT ?
+					  mst_text : mst_file_text;
+#ifdef SMASH_TEXT_ADDRESS
+		      if (tmpaddr & 1)	/* FIXME: delete this line */
+			SMASH_TEXT_ADDRESS (tmpaddr);
+#endif
 		      break;
 		    case SECT_OFF_DATA:
 		      ms_type =
-			cs->c_sclass == C_EXT ? mst_data : mst_file_data;
+			cs->c_sclass == C_EXT || cs->c_sclass == C_THUMBEXT ?
+			  mst_data : mst_file_data;
 		      break;
 		    case SECT_OFF_BSS:
 		      ms_type =
-			cs->c_sclass == C_EXT ? mst_bss : mst_file_bss;
+			cs->c_sclass == C_EXT || cs->c_sclass == C_THUMBEXT ?
+			  mst_data : mst_file_data;
 		      break;
 		    default:
 		      ms_type = mst_unknown;
@@ -1023,9 +1043,17 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 		}
 
 	      if (cs->c_name[0] != '@' /* Skip tdesc symbols */)
-		prim_record_minimal_symbol_and_info
-		  (cs->c_name, tmpaddr, ms_type, NULL, sec, NULL, objfile);
+		{
+		  struct minimal_symbol *msym;
 
+		  msym = prim_record_minimal_symbol_and_info
+		  (cs->c_name, tmpaddr, ms_type, (char *)cs->c_sclass, sec,
+		   NULL, objfile);
+#ifdef COFF_MAKE_MSYMBOL_SPECIAL
+		  if(msym)
+		    COFF_MAKE_MSYMBOL_SPECIAL(cs->c_sclass, msym);		
+#endif
+		}
 	      if (SDB_TYPE (cs->c_type))
 		{
 		  struct symbol *sym;
@@ -1204,6 +1232,11 @@ read_one_sym (cs, sym, aux)
   if (!SDB_TYPE (cs->c_type))
     cs->c_type = 0;
 
+#if 0
+  if (cs->c_sclass & 128)
+    printf("thumb symbol %s, class 0x%x\n", cs->c_name, cs->c_sclass);
+#endif
+
   symnum += 1 + cs->c_naux;
 
   /* The PE file format stores symbol values as offsets within the
@@ -1216,10 +1249,15 @@ read_one_sym (cs, sym, aux)
       switch (cs->c_sclass)
 	{
 	case C_EXT:
+	case C_THUMBEXT:
+	case C_THUMBEXTFUNC:
 	case C_SECTION:
 	case C_NT_WEAK:
 	case C_STAT:
+	case C_THUMBSTAT:
+	case C_THUMBSTATFUNC:
 	case C_LABEL:
+	case C_THUMBLABEL:
 	case C_BLOCK:
 	case C_FCN:
 	case C_EFCN:
@@ -1548,9 +1586,11 @@ process_coff_symbol (cs, aux, section_offsets, objfile)
 	 lookup_function_type (decode_function_type (cs, cs->c_type, aux));
 
       SYMBOL_CLASS (sym) = LOC_BLOCK;
-      if (cs->c_sclass == C_STAT)
+      if (cs->c_sclass == C_STAT || cs->c_sclass == C_THUMBSTAT
+	  || cs->c_sclass == C_THUMBSTATFUNC)
 	add_symbol_to_list (sym, &file_symbols);
-      else if (cs->c_sclass == C_EXT)
+      else if (cs->c_sclass == C_EXT || cs->c_sclass == C_THUMBEXT
+	       || cs->c_sclass == C_THUMBEXTFUNC)
 	add_symbol_to_list (sym, &global_symbols);
     }
   else
@@ -1566,6 +1606,8 @@ process_coff_symbol (cs, aux, section_offsets, objfile)
 	    add_symbol_to_list (sym, &local_symbols);
 	    break;
 
+	  case C_THUMBEXT:
+	  case C_THUMBEXTFUNC:
 	  case C_EXT:
 	    SYMBOL_CLASS (sym) = LOC_STATIC;
 	    SYMBOL_VALUE_ADDRESS (sym) = (CORE_ADDR) cs->c_value;
@@ -1573,6 +1615,8 @@ process_coff_symbol (cs, aux, section_offsets, objfile)
 	    add_symbol_to_list (sym, &global_symbols);
 	    break;
 
+	  case C_THUMBSTAT:
+	  case C_THUMBSTATFUNC:
 	  case C_STAT:
 	    SYMBOL_CLASS (sym) = LOC_STATIC;
 	    SYMBOL_VALUE_ADDRESS (sym) = (CORE_ADDR) cs->c_value;
@@ -1596,6 +1640,7 @@ process_coff_symbol (cs, aux, section_offsets, objfile)
 	    add_symbol_to_list (sym, &local_symbols);
 	    break;
 
+	  case C_THUMBLABEL:
 	  case C_LABEL:
 	    break;
 

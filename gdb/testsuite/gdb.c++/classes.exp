@@ -20,6 +20,7 @@
 # This file was written by Fred Fish. (fnf@cygnus.com)
 
 set ws "\[\r\n\t \]+"
+set nl "\[\r\n\]+"
 
 if $tracelevel then {
 	strace $tracelevel
@@ -33,7 +34,23 @@ if $tracelevel then {
 set testfile "misc"
 set srcfile ${testfile}.cc
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
+
+# Create and source the file that provides information about the compiler
+# used to compile the test case.
+
+if [get_compiler_info ${binfile} "c++"] {
+    return -1
+}
+
+# if we are on HPUX and we are not compiled with gcc, then skip these tests.
+
+if [istarget hppa*-*-hpux*] {
+    if {!$gcc_compiled} {
+	continue 
+    }
+}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug c++}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
@@ -44,6 +61,7 @@ if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {deb
 proc test_ptype_class_objects {} {
     global gdb_prompt
     global ws
+    global nl
 
     # Note that struct members are public by default, so we don't print
     # "public:" for the public members of structs.
@@ -52,10 +70,10 @@ proc test_ptype_class_objects {} {
 
     send_gdb "ptype struct default_public_struct\n"
     gdb_expect {
-	-re "type = struct default_public_struct \{${ws}int a;${ws}int b;\r\n\}\r\n$gdb_prompt $" {
+	-re "type = struct default_public_struct \{${ws}int a;${ws}int b;$nl\}$nl$gdb_prompt $" {
 	    pass "ptype struct default_public_struct"
 	}
-	-re "type = class default_public_struct \{\r\n.*int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class default_public_struct \{$nl.*int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype struct default_public_struct"
 	}
@@ -70,10 +88,10 @@ proc test_ptype_class_objects {} {
 
     send_gdb "ptype struct explicit_public_struct\n"
     gdb_expect {
-	-re "type = struct explicit_public_struct \{${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = struct explicit_public_struct \{${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    pass "ptype struct explicit_public_struct"
 	}
-	-re "type = class explicit_public_struct \{\r\n.*int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class explicit_public_struct \{$nl.*int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype struct explicit_public_struct"
 	}
@@ -87,10 +105,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype struct protected_struct\n"
     gdb_expect {
-	-re "type = struct protected_struct \{${ws}protected:${ws}int a;${ws}int b;\r\n\}\r\n$gdb_prompt $" {
+	-re "type = struct protected_struct \{${ws}protected:${ws}int a;${ws}int b;$nl\}$nl$gdb_prompt $" {
 	    pass "ptype struct protected_struct (FIXME)"
 	}
-	-re "type = class protected_struct \{${ws}protected:${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class protected_struct \{${ws}protected:${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype struct protected_struct (FIXME)"
 	}
@@ -104,10 +122,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype struct private_struct\n"
     gdb_expect {
-	-re "type = struct private_struct \{${ws}private:${ws}int a;${ws}int b;\r\n\}\r\n$gdb_prompt $" {
+	-re "type = struct private_struct \{${ws}private:${ws}int a;${ws}int b;$nl\}$nl$gdb_prompt $" {
 	    pass "ptype struct private_struct (FIXME)"
 	}
-	-re "type = class private_struct \{${ws}private:${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" { 
+	-re "type = class private_struct \{${ws}private:${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" { 
 	    setup_xfail "*-*-*"
 	    fail "ptype struct private_struct (FIXME)"
 	}
@@ -121,10 +139,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype struct mixed_protection_struct\n"
     gdb_expect {
-	-re "type = struct mixed_protection_struct \{${ws}int a;${ws}int b;${ws}private:${ws}int c;${ws}int d;${ws}protected:${ws}int e;${ws}int f;${ws}public:${ws}int g;${ws}private:${ws}int h;${ws}protected:${ws}int i;\[\r\n\]+\}\[\r\n\]+$gdb_prompt $" {
+	-re "type = struct mixed_protection_struct \{${ws}int a;${ws}int b;${ws}private:${ws}int c;${ws}int d;${ws}protected:${ws}int e;${ws}int f;${ws}public:${ws}int g;${ws}private:${ws}int h;${ws}protected:${ws}int i;$nl\}$nl$gdb_prompt $" {
 	    pass "ptype struct mixed_protection_struct (FIXME)"
 	}
-	-re "type = class mixed_protection_struct \{${ws}public:${ws}int a;${ws}int b;${ws}private:${ws}int c;${ws}int d;${ws}protected:${ws}int e;${ws}int f;${ws}public:${ws}int g;${ws}private:${ws}int h;${ws}protected:${ws}int i;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class mixed_protection_struct \{${ws}public:${ws}int a;${ws}int b;${ws}private:${ws}int c;${ws}int d;${ws}protected:${ws}int e;${ws}int f;${ws}public:${ws}int g;${ws}private:${ws}int h;${ws}protected:${ws}int i;$nl.*\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype struct mixed_protection_struct (FIXME)"
 	}
@@ -137,10 +155,10 @@ proc test_ptype_class_objects {} {
 
     send_gdb "ptype class public_class\n"
     gdb_expect {
-	-re "type = class public_class \{${ws}public:${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class public_class \{${ws}public:${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    pass "ptype class public_class (FIXME)"
 	}
-	-re "type = struct public_class \{${ws}int a;${ws}int b;\r\n\}\r\n$gdb_prompt $" {
+	-re "type = struct public_class \{${ws}int a;${ws}int b;$nl\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class public_class (FIXME)"
 	}
@@ -150,10 +168,10 @@ proc test_ptype_class_objects {} {
 
     send_gdb "ptype class protected_class\n"
     gdb_expect {
-	-re "type = class protected_class \{${ws}protected:${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class protected_class \{${ws}protected:${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    pass "ptype class protected_class"
 	}
-	-re "type = struct protected_class \{${ws}int a;${ws}int b;\r\n\}\r\n$gdb_prompt $" {
+	-re "type = struct protected_class \{${ws}int a;${ws}int b;$nl\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class protected_class"
 	}
@@ -169,10 +187,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class default_private_class\n"
     gdb_expect {
-	-re "type = class default_private_class \{${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class default_private_class \{${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    pass "ptype class default_private_class (FIXME)"
 	}
-	-re "type = class default_private_class \{${ws}private:${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class default_private_class \{${ws}private:${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class default_private_class (FIXME)"
 	}
@@ -182,10 +200,10 @@ proc test_ptype_class_objects {} {
 
     send_gdb "ptype class explicit_private_class\n"
     gdb_expect {
-	-re "type = class explicit_private_class \{${ws}private:${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class explicit_private_class \{${ws}private:${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    pass "ptype class explicit_private_class"
 	}
-	-re "type = struct explicit_private_class \{${ws}int a;${ws}int b;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = struct explicit_private_class \{${ws}int a;${ws}int b;$nl.*\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class explicit_private_class"
 	}
@@ -195,10 +213,10 @@ proc test_ptype_class_objects {} {
 
     send_gdb "ptype class mixed_protection_class\n"
     gdb_expect {
-	-re "type = class mixed_protection_class \{${ws}public:${ws}int a;${ws}int b;${ws}private:${ws}int c;${ws}int d;${ws}protected:${ws}int e;${ws}int f;${ws}public:${ws}int g;${ws}private:${ws}int h;${ws}protected:${ws}int i;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = class mixed_protection_class \{${ws}public:${ws}int a;${ws}int b;${ws}private:${ws}int c;${ws}int d;${ws}protected:${ws}int e;${ws}int f;${ws}public:${ws}int g;${ws}private:${ws}int h;${ws}protected:${ws}int i;$nl.*\}$nl$gdb_prompt $" {
 	    pass "ptype class mixed_protection_class"
 	}
-	-re "type = struct mixed_protection_class \{${ws}int a;${ws}int b;${ws}int c;${ws}int d;${ws}int e;${ws}int f;${ws}int g;${ws}int h;${ws}int i;\r\n.*\}\r\n$gdb_prompt $" {
+	-re "type = struct mixed_protection_class \{${ws}int a;${ws}int b;${ws}int c;${ws}int d;${ws}int e;${ws}int f;${ws}int g;${ws}int h;${ws}int i;$nl.*\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class mixed_protection_class"
 	}
@@ -210,7 +228,7 @@ proc test_ptype_class_objects {} {
     # it to print as "struct".
     send_gdb "ptype class A\n"
     gdb_expect {
-	-re "type = (class|struct) A \{(${ws}public:|)${ws}int a;${ws}int x;((${ws}A & operator=\\(A const &\\);)|(${ws}A\\(A const &\\);)|(${ws}A\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = (class|struct) A \{(${ws}public:|)${ws}int a;${ws}int x;((${ws}A & operator=\\(A const &\\);)|(${ws}A\\(A const &\\);)|(${ws}A\\(void\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class A"
 	}
 	-re ".*$gdb_prompt $" {
@@ -225,10 +243,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class B\n"
     gdb_expect {
-	-re "type = class B : public A \{${ws}public:${ws}int b;${ws}int x;${ws}B & operator=\\(B const &\\);${ws}B\\(B const &\\);${ws}B\\(void\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class B : public A \{${ws}public:${ws}int b;${ws}int x;${ws}B & operator=\\(B const &\\);${ws}B\\(B const &\\);${ws}B\\(void\\);${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class B"
 	}
-	-re "type = class B : public A \{${ws}public:${ws}int b;${ws}int x;((${ws}B & operator=\\(B const &\\);)|(${ws}B\\(B const &\\);)|(${ws}B\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class B : public A \{${ws}public:${ws}int b;${ws}int x;((${ws}B & operator=\\(B const &\\);)|(${ws}B\\(B const &\\);)|(${ws}B\\(void\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class B (obsolescent gcc or gdb)"
 	}
 	-re ".*$gdb_prompt $" {
@@ -243,10 +261,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class C\n"
     gdb_expect {
-	-re "type = class C : public A \{${ws}public:${ws}int c;${ws}int x;${ws}C & operator=\\(C const &\\);${ws}C\\(C const &\\);${ws}C\\(void\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class C : public A \{${ws}public:${ws}int c;${ws}int x;${ws}C & operator=\\(C const &\\);${ws}C\\(C const &\\);${ws}C\\(void\\);${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class C"
 	}
-	-re "type = class C : public A \{${ws}public:${ws}int c;${ws}int x;((${ws}C & operator=\\(C const &\\);)|(${ws}C\\(C const &\\);)|(${ws}C\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class C : public A \{${ws}public:${ws}int c;${ws}int x;((${ws}C & operator=\\(C const &\\);)|(${ws}C\\(C const &\\);)|(${ws}C\\(void\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class C (obsolescent gcc or gdb)"
 	}
 	-re ".*$gdb_prompt $" {
@@ -261,10 +279,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class D\n"
     gdb_expect {
-	-re "type = class D : public B, public C \{${ws}public:${ws}int d;${ws}int x;${ws}D & operator=\\(D const &\\);${ws}D\\(D const &\\);${ws}D\\(void\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class D : public B, public C \{${ws}public:${ws}int d;${ws}int x;${ws}D & operator=\\(D const &\\);${ws}D\\(D const &\\);${ws}D\\(void\\);${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class D"
 	}
-	-re "type = class D : public B, public C \{${ws}public:${ws}int d;${ws}int x;((${ws}D & operator=\\(D const &\\);)|(${ws}D\\(D const &\\);)|(${ws}D\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class D : public B, public C \{${ws}public:${ws}int d;${ws}int x;((${ws}D & operator=\\(D const &\\);)|(${ws}D\\(D const &\\);)|(${ws}D\\(void\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class D (obsolescent gcc or gdb)"
 	}
 	-re ".*$gdb_prompt $" {
@@ -279,10 +297,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class E\n"
     gdb_expect {
-	-re "type = class E : public D \{${ws}public:${ws}int e;${ws}int x;${ws}E & operator=\\(E const &\\);${ws}E\\(E const &\\);${ws}E\\(void\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class E : public D \{${ws}public:${ws}int e;${ws}int x;${ws}E & operator=\\(E const &\\);${ws}E\\(E const &\\);${ws}E\\(void\\);${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class E"
 	}
-	-re "type = class E : public D \{${ws}public:${ws}int e;${ws}int x;((${ws}E & operator=\\(E const &\\);)|(${ws}E\\(E const &\\);)|(${ws}E\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class E : public D \{${ws}public:${ws}int e;${ws}int x;((${ws}E & operator=\\(E const &\\);)|(${ws}E\\(E const &\\);)|(${ws}E\\(void\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class E"
 	}
 	-re ".*$gdb_prompt $" {
@@ -296,10 +314,10 @@ proc test_ptype_class_objects {} {
 
     send_gdb "ptype class vA\n"
     gdb_expect {
-	-re "type = (class|struct) vA \{(${ws}public:|)${ws}int va;${ws}int vx;${ws}vA & operator=\\(vA const &\\);${ws}vA\\(vA const &\\);${ws}vA\\(void\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = (class|struct) vA \{(${ws}public:|)${ws}int va;${ws}int vx;${ws}vA & operator=\\(vA const &\\);${ws}vA\\(vA const &\\);${ws}vA\\(void\\);${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class vA"
 	}
-	-re "type = (class|struct) vA \{(${ws}public:|)${ws}int va;${ws}int vx;((${ws}vA & operator=\\(vA const &\\);)|(${ws}vA\\(vA const &\\);)|(${ws}vA\\(void\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = (class|struct) vA \{(${ws}public:|)${ws}int va;${ws}int vx;((${ws}vA & operator=\\(vA const &\\);)|(${ws}vA\\(vA const &\\);)|(${ws}vA\\(void\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class vA (obsolescent gcc or gdb)"
 	}
 	-re ".*$gdb_prompt $" {
@@ -318,11 +336,11 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class vB\n"
     gdb_expect {
-	-re "type = class vB : public virtual vA \{${ws}private:${ws}vA \\*_vb.vA;${ws}public:${ws}int vb;${ws}int vx;${ws}vB & operator=\\(vB const &\\);${ws}vB\\(int, vB const &\\);${ws}vB\\(int\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class vB : public virtual vA \{${ws}private:${ws}vA \\*_vb.vA;${ws}public:${ws}int vb;${ws}int vx;${ws}vB & operator=\\(vB const &\\);${ws}vB\\(int, vB const &\\);${ws}vB\\(int\\);${ws}\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class vB (FIXME: non-portable virtual table constructs)"
 	}
-	-re "type = class vB : public virtual vA \{${ws}private:${ws}vA \\*_vb.vA;${ws}public:${ws}int vb;${ws}int vx;((${ws}vB & operator=\\(vB const &\\);)|(${ws}vB\\(int, vB const &\\);)|(${ws}vB\\(int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class vB : public virtual vA \{${ws}private:${ws}vA \\*_vb.vA;${ws}public:${ws}int vb;${ws}int vx;((${ws}vB & operator=\\(vB const &\\);)|(${ws}vB\\(int, vB const &\\);)|(${ws}vB\\(int\\);))*${ws}\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class vB (FIXME) (obsolescent gcc or gdb)"
 	}
@@ -342,11 +360,11 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class vC\n"
     gdb_expect {
-	-re "type = class vC : public virtual vA \{${ws}private:${ws}vA \\*_vb.vA;${ws}public:${ws}int vc;${ws}int vx;${ws}vC & operator=\\(vC const &\\);${ws}vC\\(int, vC const &\\);${ws}vC\\(int\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class vC : public virtual vA \{${ws}private:${ws}vA \\*_vb.vA;${ws}public:${ws}int vc;${ws}int vx;${ws}vC & operator=\\(vC const &\\);${ws}vC\\(int, vC const &\\);${ws}vC\\(int\\);${ws}\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class vC (FIXME: non-portable virtual table constructs)"
 	}
-	-re "type = class vC : public virtual vA \{${ws}private:${ws}vA \\*_vb.vA;${ws}public:${ws}int vc;${ws}int vx;((${ws}vC & operator=\\(vC const &\\);)|(${ws}vC\\(int, vC const &\\);)|(${ws}vC\\(int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class vC : public virtual vA \{${ws}private:${ws}vA \\*_vb.vA;${ws}public:${ws}int vc;${ws}int vx;((${ws}vC & operator=\\(vC const &\\);)|(${ws}vC\\(int, vC const &\\);)|(${ws}vC\\(int\\);))*${ws}\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class vC (FIXME) (obsolescent gcc or gdb)"
 	}
@@ -366,11 +384,11 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class vD\n"
     gdb_expect {
-	-re "type = class vD : public virtual vB, public virtual vC \{${ws}private:${ws}vC \\*_vb.vC;${ws}vB \\*_vb.vB;${ws}public:${ws}int vd;${ws}int vx;${ws}vD & operator=\\(vD const &\\);${ws}vD\\(int, vD const &\\);${ws}vD\\(int\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class vD : public virtual vB, public virtual vC \{${ws}private:${ws}vC \\*_vb.vC;${ws}vB \\*_vb.vB;${ws}public:${ws}int vd;${ws}int vx;${ws}vD & operator=\\(vD const &\\);${ws}vD\\(int, vD const &\\);${ws}vD\\(int\\);${ws}\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class vD (FIXME: non-portable virtual table constructs)"
 	}
-	-re "type = class vD : public virtual vB, public virtual vC \{${ws}private:${ws}vC \\*_vb.vC;${ws}vB \\*_vb.vB;${ws}public:${ws}int vd;${ws}int vx;((${ws}vD & operator=\\(vD const &\\);)|(${ws}vD\\(int, vD const &\\);)|(${ws}vD\\(int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class vD : public virtual vB, public virtual vC \{${ws}private:${ws}vC \\*_vb.vC;${ws}vB \\*_vb.vB;${ws}public:${ws}int vd;${ws}int vx;((${ws}vD & operator=\\(vD const &\\);)|(${ws}vD\\(int, vD const &\\);)|(${ws}vD\\(int\\);))*${ws}\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class vD (FIXME) (obsolescent gcc or gdb)"
 	}
@@ -390,11 +408,11 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class vE\n"
     gdb_expect {
-	-re "type = class vE : public virtual vD \{${ws}private:${ws}vD \\*_vb.vD;${ws}public:${ws}int ve;${ws}int vx;${ws}vE & operator=\\(vE const &\\);${ws}vE\\(int, vE const &\\);${ws}vE\\(int\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class vE : public virtual vD \{${ws}private:${ws}vD \\*_vb.vD;${ws}public:${ws}int ve;${ws}int vx;${ws}vE & operator=\\(vE const &\\);${ws}vE\\(int, vE const &\\);${ws}vE\\(int\\);${ws}\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class vE (FIXME: non-portable virtual table constructs)"
 	}
-	-re "type = class vE : public virtual vD \{${ws}private:${ws}vD \\*_vb.vD;${ws}public:${ws}int ve;${ws}int vx;((${ws}vE & operator=\\(vE const &\\);)|(${ws}vE\\(int, vE const &\\);)|(${ws}vE\\(int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class vE : public virtual vD \{${ws}private:${ws}vD \\*_vb.vD;${ws}public:${ws}int ve;${ws}int vx;((${ws}vE & operator=\\(vE const &\\);)|(${ws}vE\\(int, vE const &\\);)|(${ws}vE\\(int\\);))*${ws}\}$nl$gdb_prompt $" {
 	    setup_xfail "*-*-*"
 	    fail "ptype class vE (FIXME) (obsolescent gcc or gdb)"
 	}
@@ -410,10 +428,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class Base1\n"
     gdb_expect {
-	-re "type = class Base1 \{${ws}public:${ws}int x;${ws}Base1 & operator=\\(Base1 const &\\);${ws}Base1\\(Base1 const &\\);${ws}Base1\\(int\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class Base1 \{${ws}public:${ws}int x;${ws}Base1 & operator=\\(Base1 const &\\);${ws}Base1\\(Base1 const &\\);${ws}Base1\\(int\\);${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class Base1"
 	}
-	-re "type = class Base1 \{${ws}public:${ws}int x;((${ws}Base1 & operator=\\(Base1 const &\\);)|(${ws}Base1\\(Base1 const &\\);)|(${ws}Base1\\(int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class Base1 \{${ws}public:${ws}int x;((${ws}Base1 & operator=\\(Base1 const &\\);)|(${ws}Base1\\(Base1 const &\\);)|(${ws}Base1\\(int\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class Base1 (obsolescent gcc or gdb)"
 	}
 	-re ".*$gdb_prompt $" {
@@ -428,10 +446,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class Foo\n"
     gdb_expect {
-	-re "type = class Foo \{${ws}public:${ws}int x;${ws}int y;${ws}static int st;${ws}Foo & operator=\\(Foo const &\\);${ws}Foo\\(Foo const &\\);${ws}Foo\\(int, int\\);${ws}int operator!\\(void\\);${ws}int operator int\\(void\\);${ws}int times\\(int\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class Foo \{${ws}public:${ws}int x;${ws}int y;${ws}static int st;${ws}Foo & operator=\\(Foo const &\\);${ws}Foo\\(Foo const &\\);${ws}Foo\\(int, int\\);${ws}int operator!\\(void\\);${ws}int operator int\\(void\\);${ws}int times\\(int\\);${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class Foo"
 	}
-	-re "type = class Foo \{${ws}public:${ws}int x;${ws}int y;${ws}static int st;((${ws}Foo & operator=\\(Foo const &\\);)|(${ws}Foo\\(Foo const &\\);)|(${ws}Foo\\(int, int\\);)|(${ws}int operator!\\(void\\);)|(${ws}int operator int\\(void\\);)|(${ws}int times\\(int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class Foo \{${ws}public:${ws}int x;${ws}int y;${ws}static int st;((${ws}Foo & operator=\\(Foo const &\\);)|(${ws}Foo\\(Foo const &\\);)|(${ws}Foo\\(int, int\\);)|(${ws}int operator!\\(void\\);)|(${ws}int operator int\\(void\\);)|(${ws}int times\\(int\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class Foo (obsolescent gcc or gdb)"
 	}
 	-re ".*$gdb_prompt $" {
@@ -446,10 +464,10 @@ proc test_ptype_class_objects {} {
     setup_xfail_format "DWARF 1"
     send_gdb "ptype class Bar\n"
     gdb_expect {
-	-re "type = class Bar : public Base1, public Foo \{${ws}public:${ws}int z;${ws}Bar & operator=\\(Bar const &\\);${ws}Bar\\(Bar const &\\);${ws}Bar\\(int, int, int\\);${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class Bar : public Base1, public Foo \{${ws}public:${ws}int z;${ws}Bar & operator=\\(Bar const &\\);${ws}Bar\\(Bar const &\\);${ws}Bar\\(int, int, int\\);${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class Bar"
 	}
-	-re "type = class Bar : public Base1, public Foo \{${ws}public:${ws}int z;((${ws}Bar & operator=\\(Bar const &\\);)|(${ws}Bar\\(Bar const &\\);)|(${ws}Bar\\(int, int, int\\);))*${ws}\}\r\n$gdb_prompt $" {
+	-re "type = class Bar : public Base1, public Foo \{${ws}public:${ws}int z;((${ws}Bar & operator=\\(Bar const &\\);)|(${ws}Bar\\(Bar const &\\);)|(${ws}Bar\\(int, int, int\\);))*${ws}\}$nl$gdb_prompt $" {
 	    pass "ptype class Bar (obsolescent gcc or gdb)"
 	}
 	-re ".*$gdb_prompt $" {
@@ -545,6 +563,7 @@ proc test_nonexistant_members {} {
 proc test_pointers_to_class_members {} {
     global gdb_prompt
     global decimal
+    global nl
 
     gdb_test "print Bar::z" ".* = .int\[ \]*\[( \]*Bar::&\[)\]+\[ \]*Bar::z" "print Bar::z"
 
@@ -554,7 +573,7 @@ proc test_pointers_to_class_members {} {
 
     send_gdb "print (int)&Bar::y == 2*sizeof(int)\n"
     gdb_expect {
-	-re ".* = true\r\n$gdb_prompt $" {
+	-re ".* = true$nl$gdb_prompt $" {
 	    pass "print (int)&Bar::y == 2*sizeof(int)"
 	}
 	-re "There is no field named y.*$gdb_prompt $" {
@@ -568,7 +587,7 @@ proc test_pointers_to_class_members {} {
     send_gdb "next\n"
     setup_xfail "*-*-*"
     gdb_expect {
-	-re "$decimal\[ \t\]+inheritance3 \[)(\]+;\r\n$gdb_prompt $" {}
+	-re "$decimal\[ \t\]+inheritance3 \[)(\]+;$nl$gdb_prompt $" {}
 	-re ".*$gdb_prompt $" { fail "next to inheritance3" ; return }
     }
     clear_xfail "*-*-*"
@@ -584,10 +603,11 @@ proc test_pointers_to_class_members {} {
 proc test_static_members {} {
     global gdb_prompt
     global hex
+    global nl
 
     send_gdb "print Foo::st\n"
     gdb_expect {
-	-re ".* = 100\r\n$gdb_prompt $" {
+	-re ".* = 100$nl$gdb_prompt $" {
 	    pass "print Foo::st"
 	}
 	-re "There is no field named st.*$gdb_prompt $" {
@@ -605,7 +625,7 @@ proc test_static_members {} {
 
     send_gdb "print bar.st\n"
     gdb_expect {
-	-re ".* = 200\r\n$gdb_prompt $" {
+	-re ".* = 200$nl$gdb_prompt $" {
 	    pass "print bar.st"
 	}
 	-re "There is no member( or method|) named st.*$gdb_prompt $" {
@@ -618,7 +638,7 @@ proc test_static_members {} {
 
     send_gdb "print &foo.st\n"
     gdb_expect {
-	-re ".* = .int \[*)\]+ $hex\r\n$gdb_prompt $" {
+	-re ".* = .int \[*)\]+ $hex$nl$gdb_prompt $" {
 	    pass "print &foo.st"
 	}
 	-re "There is no member( or method|) named st.*$gdb_prompt $" {
@@ -632,7 +652,7 @@ proc test_static_members {} {
     set got_bar_st 0
     send_gdb "print &Bar::st\n"
     gdb_expect {
-	-re ".* = .int \[*)\]+ $hex\r\n$gdb_prompt $" {
+	-re ".* = .int \[*)\]+ $hex$nl$gdb_prompt $" {
 	    pass "print &Bar::st"
 	    set got_bar_st 1
 	}
@@ -748,3 +768,83 @@ proc do_tests {} {
 }
 
 do_tests
+
+
+# Some additional tests for enums inside classes
+
+
+# set a breakpoint and go there
+send_gdb "break 498\n"   
+gdb_expect {   
+   -re "Breakpoint \[0-9\] at.*$gdb_prompt $" { pass "set break 498" }
+   -re "$gdb_prompt $"                     { fail "set break 498" }
+   timeout                             { fail "(timeout) set break 498" }
+}
+send_gdb "continue\n"   
+gdb_expect {   
+   -re "Continuing\\.\r\n\r\nBreakpoint \[0-9\]*, main....at.*misc\\.cc:498\r\n498.*\r\n$gdb_prompt $" { pass "continue" }
+   -re "$gdb_prompt $"                     { fail "continue" }
+   timeout                             { fail "(timeout) continue" }
+}
+
+# print the object
+send_gdb "print obj_with_enum\n"   
+gdb_expect {   
+   -re "\\$\[0-9\]* = \\{priv_enum = red, x = 0\\}.*$gdb_prompt $" { pass "print obj_with_enum (1)" }
+   -re "$gdb_prompt $"                     { fail "print obj_with_enum (1)" }
+   timeout                             { fail "(timeout) print obj_with_enum (1)" }
+}
+
+send_gdb "next\n"   
+gdb_expect {   
+   -re "$gdb_prompt $"                     { pass "next" }
+   timeout                             { fail "(timeout) next" }
+}
+
+# print the object again
+send_gdb "print obj_with_enum\n"   
+gdb_expect {   
+   -re "\\$\[0-9\]* = \\{priv_enum = green, x = 0\\}.*$gdb_prompt $" { pass "print obj_with_enum (2)" }
+   -re "$gdb_prompt $"                     { fail "print obj_with_enum (2)" }
+   timeout                             { fail "(timeout) print obj_with_enum (2)" }
+}
+
+# print out the enum member
+send_gdb "print obj_with_enum.priv_enum\n"   
+gdb_expect {   
+   -re "\\$\[0-9\]* = green.*$gdb_prompt $" { pass "print obj_with_enum.priv_enum" }
+   -re "$gdb_prompt $"                     { fail "print obj_with_enum.priv_enum" }
+   timeout                             { fail "(timeout) print obj_with_enum.priv_enum" }
+}
+
+# ptype on the enum member
+send_gdb "ptype obj_with_enum.priv_enum\n"   
+gdb_expect {   
+   -re "type = enum ClassWithEnum::PrivEnum \\{red, green, blue, yellow = 42\\}.*$gdb_prompt $" { pass "ptype obj_with_enum.priv_enum" }
+   -re "$gdb_prompt $"                     { fail "ptype obj_with_enum.priv_enum" }
+   timeout                             { fail "(timeout) ptype obj_with_enum.priv_enum" }
+}
+
+# ptype on the object
+send_gdb "ptype obj_with_enum\n"   
+gdb_expect {   
+   -re "type = class ClassWithEnum \\{\r\n\[ \t\]*public:\r\n\[ \t\]*enum ClassWithEnum::PrivEnum priv_enum;\r\n\[ \t\]*int x;\r\n\\}\r\n$gdb_prompt $" { pass "ptype obj_with_enum" }
+   -re "$gdb_prompt $"                     { fail "ptype obj_with_enum" }
+   timeout                             { fail "(timeout) ptype obj_with_enum" }
+}
+
+send_gdb "print (ClassWithEnum::PrivEnum) 42\n"   
+gdb_expect {   
+   -re "\\$\[0-9\]* = yellow.*$gdb_prompt $" { pass "print (ClassWithEnum::PrivEnum) 42" }
+   -re "$gdb_prompt $"                     { fail "print (ClassWithEnum::PrivEnum) 42" }
+   timeout                             { fail "(timeout) print (ClassWithEnum::PrivEnum) 42" }
+}
+
+
+send_gdb "maint demangle inheritance1__Fv\n"
+gdb_expect {
+   -re "inheritance1\\(void\\).*$gdb_prompt $" { pass "demangle" }
+   -re ".*$gdb_prompt $"   { fail "demangle" }
+   timeout           { fail "(timeout) demangle" }
+}
+

@@ -29,6 +29,3 @@ extern int kernel_u_size PARAMS ((void));
 
 /* Linux is svr4ish but not that much */
 #undef USE_PROC_FS      
-
-#define PT_ATTACH PTRACE_SUNATTACH
-#define PT_DETACH PTRACE_SUNDETACH

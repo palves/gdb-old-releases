@@ -1,5 +1,5 @@
 /* Support routines for decoding "stabs" debugging information format.
-   Copyright 1986, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 1997, 1998
+   Copyright 1986, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 1998
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -172,21 +172,18 @@ read_cfront_member_functions PARAMS ((struct field_info *, char **,
 
 /* end new functions added for cfront support */
 
-static void 
+static void
 add_live_range PARAMS ((struct objfile *, struct symbol *, 
 			CORE_ADDR, CORE_ADDR));
 
-static void 
+static int
 resolve_live_range PARAMS ((struct objfile *, struct symbol *, char *));
 
-static int 
+static int
 process_reference PARAMS ((char **string));
 
-static CORE_ADDR 
+static CORE_ADDR
 ref_search_value PARAMS ((int refnum));
-
-static void 
-ref_init PARAMS ((void));
 
 static int
 resolve_symbol_reference PARAMS ((struct objfile *, struct symbol *, char *));
@@ -203,43 +200,46 @@ static const char vb_name[] =   { '_','v','b',CPLUS_MARKER,'\0' };
 #define BELIEVE_PCC_PROMOTION 0
 #endif
 
-struct complaint invalid_cpp_abbrev_complaint =
+static struct complaint invalid_cpp_abbrev_complaint =
   {"invalid C++ abbreviation `%s'", 0, 0};
 
-struct complaint invalid_cpp_type_complaint =
+static struct complaint invalid_cpp_type_complaint =
   {"C++ abbreviated type name unknown at symtab pos %d", 0, 0};
 
-struct complaint member_fn_complaint =
+static struct complaint member_fn_complaint =
   {"member function type missing, got '%c'", 0, 0};
 
-struct complaint const_vol_complaint =
+static struct complaint const_vol_complaint =
   {"const/volatile indicator missing, got '%c'", 0, 0};
 
-struct complaint error_type_complaint =
+static struct complaint error_type_complaint =
   {"debug info mismatch between compiler and debugger", 0, 0};
 
-struct complaint invalid_member_complaint =
+static struct complaint invalid_member_complaint =
   {"invalid (minimal) member type data format at symtab pos %d.", 0, 0};
 
-struct complaint range_type_base_complaint =
+static struct complaint range_type_base_complaint =
   {"base type %d of range type is not defined", 0, 0};
 
-struct complaint reg_value_complaint =
+static struct complaint reg_value_complaint =
   {"register number %d too large (max %d) in symbol %s", 0, 0};
 
-struct complaint vtbl_notfound_complaint =
+static struct complaint vtbl_notfound_complaint =
   {"virtual function table pointer not found when defining class `%s'", 0, 0};
 
-struct complaint unrecognized_cplus_name_complaint =
+static struct complaint unrecognized_cplus_name_complaint =
   {"Unknown C++ symbol name `%s'", 0, 0};
 
-struct complaint rs6000_builtin_complaint =
+static struct complaint rs6000_builtin_complaint =
   {"Unknown builtin type %d", 0, 0};
 
-struct complaint unresolved_sym_chain_complaint =
+static struct complaint unresolved_sym_chain_complaint =
   {"%s: common block `%s' from global_sym_chain unresolved", 0, 0};
 
-struct complaint stabs_general_complaint =
+static struct complaint stabs_general_complaint =
+  {"%s", 0, 0};
+
+static struct complaint lrs_general_complaint =
   {"%s", 0, 0};
 
 /* Make a list of forward references which haven't been defined.  */
@@ -1044,7 +1044,7 @@ resolve_cfront_continuation (objfile, sym, p)
 
 
 /* This routine fixes up symbol references/aliases to point to the original
-   symbol definition.  */
+   symbol definition.  Returns 0 on failure, non-zero on success.  */
 
 static int
 resolve_symbol_reference (objfile, sym, p)
@@ -1079,8 +1079,10 @@ resolve_symbol_reference (objfile, sym, p)
   refnum = process_reference (&p);
   ref_sym = ref_search (refnum);
   if (!ref_sym)
-    error ("error: symbol for reference not found.\n");
-
+    {
+      complain (&lrs_general_complaint, "symbol for reference not found");
+      return 0;
+    }
 
   /* Parse the stab of the referencing symbol
      now that we have the referenced symbol.
@@ -1113,7 +1115,10 @@ resolve_symbol_reference (objfile, sym, p)
   alias = (struct alias_list *) obstack_alloc (&objfile->type_obstack,
 					       sizeof (struct alias_list));
   if (!alias)
-    error ("Unable to allocate alias list memory");
+    {
+      complain (&lrs_general_complaint, "Unable to allocate alias list memory");
+      return 0;
+    }
 
   alias->next = 0;
   alias->sym = sym;
@@ -1128,8 +1133,8 @@ resolve_symbol_reference (objfile, sym, p)
 
       /* Get to the end of the list.  */
       for (temp = SYMBOL_ALIASES (ref_sym);
-	   temp->next; 
-	   temp = temp->next);
+	   temp->next;
+	   temp = temp->next)
 	;
       temp->next = alias;
     }
@@ -1141,39 +1146,30 @@ resolve_symbol_reference (objfile, sym, p)
    SYMBOL_NAME (sym) = SYMBOL_NAME (ref_sym);
 
   /* Done!  */
-  return 0;  
+  return 1;
 }
-
-#define MAX_CHUNK_REFS 100	
-#define REF_CHUNK_SIZE \
-    MAX_CHUNK_REFS * sizeof (struct ref_map_s)
-#define REF_MAP_SIZE(ref_chunk) \
-    ref_chunk * REF_CHUNK_SIZE
 
 /* Structure for storing pointers to reference definitions for fast lookup 
    during "process_later". */
-static struct ref_map_s
+
+struct ref_map
 {
   char *stabs;
   CORE_ADDR value;
   struct symbol *sym;
-} *ref_map;	
+};
+
+#define MAX_CHUNK_REFS 100
+#define REF_CHUNK_SIZE (MAX_CHUNK_REFS * sizeof (struct ref_map))
+#define REF_MAP_SIZE(ref_chunk) ((ref_chunk) * REF_CHUNK_SIZE)
+
+static struct ref_map *ref_map;	
 
 /* Ptr to free cell in chunk's linked list. */
 static int ref_count = 0;	
 
 /* Number of chunks malloced. */
 static int ref_chunk = 0;
-
-/* Initialize our list of references.
-   This should be called before any symbol table is read.  */
-
-static void 
-ref_init ()
-{
-  ref_count = 0;
-  ref_chunk = 0;
-}
 
 /* Create array of pointers mapping refids to symbols and stab strings.
    Add pointers to reference definition symbols and/or their values as we 
@@ -1187,18 +1183,16 @@ ref_add (refnum, sym, stabs, value)
      CORE_ADDR value;
 {
   if (ref_count == 0)
-    ref_init ();
+    ref_chunk = 0;
   if (refnum >= ref_count)
     ref_count = refnum + 1;
   if (ref_count > ref_chunk * MAX_CHUNK_REFS)
     {
       int new_slots = ref_count - ref_chunk * MAX_CHUNK_REFS; 
       int new_chunks = new_slots / MAX_CHUNK_REFS + 1;
-      ref_map = (struct ref_map_s *)
-	xrealloc (ref_map, REF_MAP_SIZE(ref_chunk + new_chunks));
-      if (!ref_map) 
-	error ("no more free slots in chain\n");
-      memset (ref_map + REF_MAP_SIZE(ref_chunk), 0, new_chunks * REF_CHUNK_SIZE);
+      ref_map = (struct ref_map *)
+	xrealloc (ref_map, REF_MAP_SIZE (ref_chunk + new_chunks));
+      memset (ref_map + ref_chunk * MAX_CHUNK_REFS, 0, new_chunks * REF_CHUNK_SIZE);
       ref_chunk += new_chunks;
     }
   ref_map[refnum].stabs = stabs;
@@ -1398,7 +1392,8 @@ define_symbol (valu, string, desc, type, objfile)
       if (refnum >= 0)
 	  ref_add (refnum, sym, string, SYMBOL_VALUE (sym));
       else
-	resolve_symbol_reference (objfile, sym, string);
+	if (!resolve_symbol_reference (objfile, sym, string))
+	  return NULL;
 
       /* S..P contains the name of the symbol.  We need to store
 	 the correct name into SYMBOL_NAME.  */
@@ -1616,18 +1611,47 @@ define_symbol (valu, string, desc, type, objfile)
       /* fall into process_prototype_types */
 
     process_prototype_types:
-      /* Sun acc puts declared types of arguments here.  We don't care
-	 about their actual types (FIXME -- we should remember the whole
-	 function prototype), but the list may define some new types
-	 that we have to remember, so we must scan it now.  */
+      /* Sun acc puts declared types of arguments here.  */
       if (*p == ';')
 	{
-	  TYPE_FLAGS (SYMBOL_TYPE (sym)) |= TYPE_FLAG_PROTOTYPED;
+	  struct type *ftype = SYMBOL_TYPE (sym);
+	  int nsemi = 0;
+	  int nparams = 0;
+	  char *p1 = p;
 
-	  while (*p == ';') {
-	    p++;
-	    read_type (&p, objfile);
-	  }
+	  /* Obtain a worst case guess for the number of arguments
+	     by counting the semicolons.  */
+	  while (*p1)
+	    {
+	      if (*p1++ == ';')
+		nsemi++;
+	    }
+
+	  /* Allocate parameter information fields and fill them in. */
+	  TYPE_FIELDS (ftype) = (struct field *)
+	    TYPE_ALLOC (ftype, nsemi * sizeof (struct field));
+	  while (*p++ == ';')
+	    {
+	      struct type *ptype;
+
+	      /* A type number of zero indicates the start of varargs.
+         	 FIXME: GDB currently ignores vararg functions.  */
+	      if (p[0] == '0' && p[1] == '\0')
+		break;
+	      ptype = read_type (&p, objfile);
+
+	      /* The Sun compilers mark integer arguments, which should
+		 be promoted to the width of the calling conventions, with
+		 a type which references itself. This type is turned into
+		 a TYPE_CODE_VOID type by read_type, and we have to turn
+		 it back into builtin_type_int here.
+		 FIXME: Do we need a new builtin_type_promoted_int_arg ?  */
+	      if (TYPE_CODE (ptype) == TYPE_CODE_VOID)
+		ptype = builtin_type_int;
+	      TYPE_FIELD_TYPE (ftype, nparams++) = ptype;
+	    }
+	  TYPE_NFIELDS (ftype) = nparams;
+	  TYPE_FLAGS (ftype) |= TYPE_FLAG_PROTOTYPED;
 	}
       break;
 
@@ -2129,36 +2153,47 @@ define_symbol (valu, string, desc, type, objfile)
              the end of the stab string.  eg. "l(#1,#2);l(#3,#5)" */
 
 	  /* Resolve the live range and add it to SYM's live range list.  */
-	  resolve_live_range (objfile, sym, p);
+	  if (!resolve_live_range (objfile, sym, p))
+	    return NULL;
 
 	  /* Find end of live range info. */
 	  p = strchr (p, ')');
           if (!*p || *p != ')')
-            error ("Internal error: live range format not recognized.\n");
+	    {
+	      complain (&lrs_general_complaint, "live range format not recognized");
+	      return NULL;
+	    }
           p++;
        }
     }
   return sym;
 }
 
-/* Add the live range found in P to the symbol SYM in objfile OBJFILE.  */
+/* Add the live range found in P to the symbol SYM in objfile OBJFILE.  Returns
+   non-zero on success, zero otherwise.  */
 
-static void 
+static int
 resolve_live_range (objfile, sym, p)
-  struct objfile * objfile;
-  struct symbol *sym;
-  char *p;
+     struct objfile *objfile;
+     struct symbol *sym;
+     char *p;
 {
   int refnum;
   CORE_ADDR start, end;
 
   /* Sanity check the beginning of the stabs string.  */
   if (!*p || *p != 'l')
-    error ("Internal error: live range string.\n");
+    {
+      complain (&lrs_general_complaint, "live range string 1");
+      return 0;
+    }
   p++;
 
   if (!*p || *p != '(')
-    error ("Internal error: live range string.\n");
+    {
+      complain (&lrs_general_complaint, "live range string 2");
+      return 0;
+    }
   p++;
 	
   /* Get starting value of range and advance P past the reference id.
@@ -2168,10 +2203,16 @@ resolve_live_range (objfile, sym, p)
   refnum = process_reference (&p);
   start = ref_search_value (refnum);
   if (!start)
-    error ("Internal error: live range symbol not found.\n");
+    {
+      complain (&lrs_general_complaint, "Live range symbol not found 1");
+      return 0;
+    }
 
   if (!*p || *p != ',')
-    error ("Internal error: live range string.\n");
+    {
+      complain (&lrs_general_complaint, "live range string 3");
+      return 0;
+    }
   p++;
 
   /* Get ending value of range and advance P past the reference id.
@@ -2181,14 +2222,22 @@ resolve_live_range (objfile, sym, p)
   refnum = process_reference (&p);
   end = ref_search_value (refnum);
   if (!end)
-    error ("Internal error: live range symbol not found.\n");
+    {
+      complain (&lrs_general_complaint, "Live range symbol not found 2");
+      return 0;
+    }
 
   if (!*p || *p != ')')
-    error ("Internal error: live range string.\n");
+    {
+      complain (&lrs_general_complaint, "live range string 4");
+      return 0;
+    }
 
   /* Now that we know the bounds of the range, add it to the
      symbol.  */
   add_live_range (objfile, sym, start, end);
+
+  return 1;
 }
 
 /* Add a new live range defined by START and END to the symbol SYM
@@ -2196,28 +2245,29 @@ resolve_live_range (objfile, sym, p)
 
 static void
 add_live_range (objfile, sym, start, end)
-  struct objfile *objfile;
-  struct symbol *sym;
-  CORE_ADDR start, end;
+     struct objfile *objfile;
+     struct symbol *sym;
+     CORE_ADDR start, end;
 {
   struct range_list *r, *rs;
 
   if (start >= end)
-    error ("Internal error: end of live range follows start.\n");
+    {
+      complain (&lrs_general_complaint, "end of live range follows start");
+      return;
+    }
 
   /* Alloc new live range structure. */
   r = (struct range_list *)
-		obstack_alloc (&objfile->type_obstack, 
-				sizeof (struct range_list));
+    obstack_alloc (&objfile->type_obstack, 
+		   sizeof (struct range_list));
   r->start = start;
   r->end = end;
   r->next = 0;
 
   /* Append this range to the symbol's range list. */
   if (!SYMBOL_RANGES (sym))
-    {
-      SYMBOL_RANGES (sym) = r;
-    }
+    SYMBOL_RANGES (sym) = r;
   else
     {
       /* Get the last range for the symbol. */
@@ -2842,11 +2892,11 @@ rs6000_builtin_type (typenum)
       break;
     case 25:
       /* Complex type consisting of two IEEE single precision values.  */
-      rettype = init_type (TYPE_CODE_ERROR, 8, 0, "complex", NULL);
+      rettype = init_type (TYPE_CODE_COMPLEX, 8, 0, "complex", NULL);
       break;
     case 26:
       /* Complex type consisting of two IEEE double precision values.  */
-      rettype = init_type (TYPE_CODE_ERROR, 16, 0, "double complex", NULL);
+      rettype = init_type (TYPE_CODE_COMPLEX, 16, 0, "double complex", NULL);
       break;
     case 27:
       rettype = init_type (TYPE_CODE_INT, 1, 0, "integer*1", NULL);
@@ -3404,15 +3454,18 @@ read_one_struct_field (fip, pp, p, type, objfile)
 	 Note that forward refs cannot be packed,
 	 and treat enums as if they had the width of ints.  */
 
-      if (TYPE_CODE (FIELD_TYPE (fip->list->field)) != TYPE_CODE_INT
-	  && TYPE_CODE (FIELD_TYPE (fip->list->field)) != TYPE_CODE_BOOL
-	  && TYPE_CODE (FIELD_TYPE (fip->list->field)) != TYPE_CODE_ENUM)
+      struct type *field_type = check_typedef (FIELD_TYPE (fip->list->field));
+
+      if (TYPE_CODE (field_type) != TYPE_CODE_INT
+	  && TYPE_CODE (field_type) != TYPE_CODE_RANGE
+	  && TYPE_CODE (field_type) != TYPE_CODE_BOOL
+	  && TYPE_CODE (field_type) != TYPE_CODE_ENUM)
 	{
 	  FIELD_BITSIZE (fip->list->field) = 0;
 	}
       if ((FIELD_BITSIZE (fip->list->field) 
-	   == TARGET_CHAR_BIT * TYPE_LENGTH (FIELD_TYPE (fip->list->field))
-	   || (TYPE_CODE (FIELD_TYPE (fip->list->field)) == TYPE_CODE_ENUM
+	   == TARGET_CHAR_BIT * TYPE_LENGTH (field_type)
+	   || (TYPE_CODE (field_type) == TYPE_CODE_ENUM
 	       && FIELD_BITSIZE (fip->list->field) == TARGET_INT_BIT )
 	   )
 	  &&
@@ -4250,8 +4303,9 @@ read_enum_type (pp, type, objfile)
 /* Sun's ACC uses a somewhat saner method for specifying the builtin
    typedefs in every file (for int, long, etc):
 
-	type = b <signed> <width>; <offset>; <nbits>
-	signed = u or s.  Possible c in addition to u or s (for char?).
+	type = b <signed> <width> <format type>; <offset>; <nbits>
+	signed = u or s.
+	optional format type = c or b for char or boolean.
 	offset = offset from high order bit to start bit of type.
 	width is # bytes in object of this type, nbits is # bits in type.
 
@@ -4268,6 +4322,7 @@ read_sun_builtin_type (pp, typenums, objfile)
   int type_bits;
   int nbits;
   int signed_type;
+  enum type_code code = TYPE_CODE_INT;
 
   switch (**pp)
     {
@@ -4285,10 +4340,16 @@ read_sun_builtin_type (pp, typenums, objfile)
   /* For some odd reason, all forms of char put a c here.  This is strange
      because no other type has this honor.  We can safely ignore this because
      we actually determine 'char'acterness by the number of bits specified in
-     the descriptor.  */
+     the descriptor.
+     Boolean forms, e.g Fortran logical*X, put a b here.  */
 
   if (**pp == 'c')
     (*pp)++;
+  else if (**pp == 'b')
+    {
+      code = TYPE_CODE_BOOL;
+      (*pp)++;
+    }
 
   /* The first number appears to be the number of bytes occupied
      by this type, except that unsigned short is 4 instead of 2.
@@ -4321,7 +4382,7 @@ read_sun_builtin_type (pp, typenums, objfile)
 		      signed_type ? 0 : TYPE_FLAG_UNSIGNED, (char *)NULL,
 		      objfile);
   else
-    return init_type (TYPE_CODE_INT,
+    return init_type (code,
 		      type_bits / TARGET_CHAR_BIT,
 		      signed_type ? 0 : TYPE_FLAG_UNSIGNED, (char *)NULL,
 		      objfile);
@@ -4352,7 +4413,7 @@ read_sun_floating_type (pp, typenums, objfile)
       || details == NF_COMPLEX32)
     /* This is a type we can't handle, but we do know the size.
        We also will be able to give it a name.  */
-    return init_type (TYPE_CODE_ERROR, nbytes, 0, NULL, objfile);
+    return init_type (TYPE_CODE_COMPLEX, nbytes, 0, NULL, objfile);
 
   return init_type (TYPE_CODE_FLT, nbytes, 0, NULL, objfile);
 }
@@ -4556,20 +4617,28 @@ read_range_type (pp, typenums, objfile)
   if (self_subrange && n2 == 0 && n3 == 0)
     return init_type (TYPE_CODE_VOID, 1, 0, NULL, objfile);
 
-  /* If n3 is zero and n2 is positive, we want a floating type,
-     and n2 is the width in bytes.
+  /* If n3 is zero and n2 is positive, we want a floating type, and n2
+     is the width in bytes.
 
-     Fortran programs appear to use this for complex types also,
-     and they give no way to distinguish between double and single-complex!
+     Fortran programs appear to use this for complex types also.  To
+     distinguish between floats and complex, g77 (and others?)  seem
+     to use self-subranges for the complexes, and subranges of int for
+     the floats.
 
-     GDB does not have complex types.
-
-     Just return the complex as a float of that size.  It won't work right
-     for the complex values, but at least it makes the file loadable.  */
+     Also note that for complexes, g77 sets n2 to the size of one of
+     the member floats, not the whole complex beast.  My guess is that
+     this was to work well with pre-COMPLEX versions of gdb. */
 
   if (n3 == 0 && n2 > 0)
     {
-      return init_type (TYPE_CODE_FLT, n2, 0, NULL, objfile);
+      if (self_subrange)
+	{
+	  return init_type (TYPE_CODE_COMPLEX, 2 * n2, 0, NULL, objfile);
+	}
+      else
+	{
+	  return init_type (TYPE_CODE_FLT, n2, 0, NULL, objfile);
+	}
     }
 
   /* If the upper bound is -1, it must really be an unsigned int.  */

@@ -83,9 +83,8 @@ _bfd_elf_create_got_section (abfd, info)
 
   elf_hash_table (info)->hgot = h;
 
-  /* The first three global offset table entries after
-     '_GLOBAL_OFFSET_TABLE_' are reserved.  */
-  s->_raw_size += (3 << ptralign) + bed->got_symbol_offset;
+  /* The first bit of the global offset table is the header.  */
+  s->_raw_size += bed->got_header_size + bed->got_symbol_offset;
 
   return true;
 }
@@ -313,7 +312,7 @@ _bfd_elf_create_linker_section (abfd, info, which, defaults)
 	  s->_raw_size += lsect->hole_size;
 	  if (lsect->hole_offset > lsect->max_hole_offset)
 	    {
-	      (*_bfd_error_handler) ("%s: Section %s is already to large to put hole of %ld bytes in",
+	      (*_bfd_error_handler) (_("%s: Section %s is already to large to put hole of %ld bytes in"),
 				     bfd_get_filename (abfd),
 				     lsect->name,
 				     (long)lsect->hole_size);

@@ -1,3 +1,6 @@
+#ifndef SIM_MAIN_H
+#define SIM_MAIN_H
+
 /* General config options */
 
 #define WITH_CORE
@@ -14,12 +17,6 @@
 #include "sim-signal.h"
 
 typedef address_word sim_cia;
-
-/* Get the number of instructions.  FIXME: must be a more elegant way
-   of doing this.  */
-#include "itable.h"
-#define MAX_INSNS (nr_itable_entries)
-#define INSN_NAME(i) itable[(i)].name
 
 #include "sim-base.h"
 
@@ -138,9 +135,13 @@ nia = PC
 #define FEPSW (State.sregs[3])
 #define ECR   (State.sregs[4])
 #define PSW   (State.sregs[5])
+#define CTPC  (SR[16])
+#define CTPSW (SR[17])
 #define DBPC  (State.sregs[18])
 #define DBPSW (State.sregs[19])
+#define CTBP  (State.sregs[20])
 
+#define PSW_US BIT32 (8)
 #define PSW_NP 0x80
 #define PSW_EP 0x40
 #define PSW_ID 0x20
@@ -188,20 +189,20 @@ nia = PC
 
 /* Function declarations.  */
 
-#define IMEM(EA) \
-sim_core_read_aligned_2 (CPU, PC, sim_core_execute_map, (EA))
+#define IMEM16(EA) \
+sim_core_read_aligned_2 (CPU, PC, exec_map, (EA))
 
-#define IMEM_IMMED(EA,N) \
+#define IMEM16_IMMED(EA,N) \
 sim_core_read_aligned_2 (STATE_CPU (sd, 0), \
-			 PC, sim_core_execute_map, (EA) + (N) * 2)
+			 PC, exec_map, (EA) + (N) * 2)
 
 #define load_mem(ADDR,LEN) \
 sim_core_read_unaligned_##LEN (STATE_CPU (simulator, 0), \
-			       PC, sim_core_read_map, (ADDR))
+			       PC, read_map, (ADDR))
 
 #define store_mem(ADDR,LEN,DATA) \
 sim_core_write_unaligned_##LEN (STATE_CPU (simulator, 0), \
-				PC, sim_core_write_map, (ADDR), (DATA))
+				PC, write_map, (ADDR), (DATA))
 
 
 /* compare cccc field against PSW */
@@ -237,6 +238,13 @@ enum op_types
   OP_EX2,
   OP_LDSR,
   OP_STSR,
+  OP_BIT_CHANGE,
+  OP_REG_REG_REG,
+  OP_REG_REG3,
+  OP_IMM_REG_REG_REG,
+  OP_PUSHPOP1,
+  OP_PUSHPOP2,
+  OP_PUSHPOP3,
 };
 
 #ifdef DEBUG
@@ -248,65 +256,12 @@ extern int trace_num_values;
 extern unsigned32 trace_values[];
 extern unsigned32 trace_pc;
 extern const char *trace_name;
-extern const char *trace_module;
-
-#define TRACE_ALU_INPUT0() \
-do { \
-  if (TRACE_ALU_P (CPU)) { \
-    trace_module = "alu"; \
-    trace_pc = cia; \
-    trace_name = itable[MY_INDEX].name; \
-    trace_num_values = 0; \
-  } \
-} while (0)
-
-#define TRACE_ALU_INPUT1(IN1) \
-do { \
-  if (TRACE_ALU_P (CPU)) { \
-    trace_module = "alu"; \
-    trace_pc = cia; \
-    trace_name = itable[MY_INDEX].name; \
-    trace_values[0] = (IN1); \
-    trace_num_values = 1; \
-  } \
-} while (0)
-
-#define TRACE_ALU_INPUT2(IN1, IN2) \
-do { \
-  if (TRACE_ALU_P (CPU)) { \
-    trace_module = "alu"; \
-    trace_pc = cia; \
-    trace_name = itable[MY_INDEX].name; \
-    trace_values[0] = (IN1); \
-    trace_values[1] = (IN2); \
-    trace_num_values = 2; \
-  } \
-} while (0)
-
-#define TRACE_ALU_INPUT3(IN0, IN1, IN2) \
-do { \
-  if (TRACE_ALU_P (CPU)) { \
-    trace_module = "alu"; \
-    trace_pc = cia; \
-    trace_name = itable[MY_INDEX].name; \
-    trace_values[0] = (IN0); \
-    trace_values[1] = (IN1); \
-    trace_values[2] = (IN2); \
-    trace_num_values = 3; \
-  } \
-} while (0)
-
-#define TRACE_ALU_RESULT(RESULT) \
-do { \
-  if (TRACE_ALU_P (CPU)) { \
-    trace_result (1, (RESULT)); \
-  } \
-} while (0)
+extern int trace_module;
 
 #define TRACE_BRANCH0() \
 do { \
   if (TRACE_BRANCH_P (CPU)) { \
-    trace_module = "branch"; \
+    trace_module = TRACE_BRANCH_IDX; \
     trace_pc = cia; \
     trace_name = itable[MY_INDEX].name; \
     trace_num_values = 0; \
@@ -317,7 +272,7 @@ do { \
 #define TRACE_BRANCH1(IN1) \
 do { \
   if (TRACE_BRANCH_P (CPU)) { \
-    trace_module = "branch"; \
+    trace_module = TRACE_BRANCH_IDX; \
     trace_pc = cia; \
     trace_name = itable[MY_INDEX].name; \
     trace_values[0] = (IN1); \
@@ -329,7 +284,7 @@ do { \
 #define TRACE_BRANCH2(IN1, IN2) \
 do { \
   if (TRACE_BRANCH_P (CPU)) { \
-    trace_module = "branch"; \
+    trace_module = TRACE_BRANCH_IDX; \
     trace_pc = cia; \
     trace_name = itable[MY_INDEX].name; \
     trace_values[0] = (IN1); \
@@ -342,7 +297,7 @@ do { \
 #define TRACE_BRANCH3(IN1, IN2, IN3) \
 do { \
   if (TRACE_BRANCH_P (CPU)) { \
-    trace_module = "branch"; \
+    trace_module = TRACE_BRANCH_IDX; \
     trace_pc = cia; \
     trace_name = itable[MY_INDEX].name; \
     trace_values[0] = (IN1); \
@@ -356,9 +311,21 @@ do { \
 #define TRACE_LD(ADDR,RESULT) \
 do { \
   if (TRACE_MEMORY_P (CPU)) { \
-    trace_module = "memory"; \
+    trace_module = TRACE_MEMORY_IDX; \
     trace_pc = cia; \
     trace_name = itable[MY_INDEX].name; \
+    trace_values[0] = (ADDR); \
+    trace_num_values = 1; \
+    trace_result (1, (RESULT)); \
+  } \
+} while (0)
+
+#define TRACE_LD_NAME(NAME, ADDR,RESULT) \
+do { \
+  if (TRACE_MEMORY_P (CPU)) { \
+    trace_module = TRACE_MEMORY_IDX; \
+    trace_pc = cia; \
+    trace_name = (NAME); \
     trace_values[0] = (ADDR); \
     trace_num_values = 1; \
     trace_result (1, (RESULT)); \
@@ -368,7 +335,7 @@ do { \
 #define TRACE_ST(ADDR,RESULT) \
 do { \
   if (TRACE_MEMORY_P (CPU)) { \
-    trace_module = "memory"; \
+    trace_module = TRACE_MEMORY_IDX; \
     trace_pc = cia; \
     trace_name = itable[MY_INDEX].name; \
     trace_values[0] = (ADDR); \
@@ -400,3 +367,22 @@ do { \
 #endif
 
 
+extern void divun ( unsigned int       N,
+		    unsigned long int  als,
+		    unsigned long int  sfi,
+		    unsigned32 /*unsigned long int*/ *  quotient_ptr,
+		    unsigned32 /*unsigned long int*/ *  remainder_ptr,
+		    boolean *          overflow_ptr
+		    );
+extern void divn ( unsigned int       N,
+		   unsigned long int  als,
+		   unsigned long int  sfi,
+		   signed32 /*signed long int*/ *  quotient_ptr,
+		   signed32 /*signed long int*/ *  remainder_ptr,
+		   boolean *          overflow_ptr
+		   );
+extern int type1_regs[];
+extern int type2_regs[];
+extern int type3_regs[];
+
+#endif

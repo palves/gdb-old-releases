@@ -751,20 +751,20 @@ proc test_arm_style_demangling {} {
 	timeout { fail "show demangle-style timed out" }
     }
 
-    gdb_test_exact "maint demangle __dt__21T5__pt__11_PFiPPdPv_iFv" "T5<int (*)(int, double **, void *)>::~T5<int (*)(int, double **, void *)>(void)"
+    gdb_test_exact "maint demangle __dt__21T5__pt__11_PFiPPdPv_iFv" "T5<int (*)(int, double **, void *)>::~T5(void)"
 
     gdb_test_exact "maint demangle __ct__1cFi" "c::c(int)"
 
-    gdb_test_exact "maint demangle __dt__11T5__pt__2_iFv" "T5<int>::~T5<int>(void)"
+    gdb_test_exact "maint demangle __dt__11T5__pt__2_iFv" "T5<int>::~T5(void)"
 
-    gdb_test_exact "maint demangle __dt__11T5__pt__2_cFv" "T5<char>::~T5<char>(void)"
+    gdb_test_exact "maint demangle __dt__11T5__pt__2_cFv" "T5<char>::~T5(void)"
 
     gdb_test_exact "maint demangle __ct__2T2Fi" "T2::T2(int)"
     gdb_test_exact "maint demangle __dt__2T1Fv" "T1::~T1(void)"
 
-    gdb_test_exact "maint demangle __dt__12T5__pt__3_1xFv" "T5<x>::~T5<x>(void)"
+    gdb_test_exact "maint demangle __dt__12T5__pt__3_1xFv" "T5<x>::~T5(void)"
 
-    gdb_test_exact "maint demangle __dt__17T5__pt__8_PFcPv_iFv" "T5<int (*)(char, void *)>::~T5<int (*)(char, void *)>(void)"
+    gdb_test_exact "maint demangle __dt__17T5__pt__8_PFcPv_iFv" "T5<int (*)(char, void *)>::~T5(void)"
 
     gdb_test "maint dem g__FP1cPC1cT1" \
 	"g\[(\]+c *\[*\]+, (const c|c const) *\[*\]+, c *\[*\]+\[)\]+"
@@ -793,7 +793,7 @@ proc test_arm_style_demangling {} {
     gdb_test "maint dem g__F1RRcRCcT2" \
 	"g\[(\]+R, char &, (const char|char const) &, char &\[)\]+"
 
-    gdb_test_exact "maint demangle __ct__21T5__pt__11_PFiPPdPv_iFi" "T5<int (*)(int, double **, void *)>::T5<int (*)(int, double **, void *)>(int)"
+    gdb_test_exact "maint demangle __ct__21T5__pt__11_PFiPPdPv_iFi" "T5<int (*)(int, double **, void *)>::T5(int)"
 
     gdb_test "maint dem __gt__FRC2T2c" \
 	"operator>\[(\]+(const T2|T2 const) &, char\[)\]+"
@@ -855,9 +855,9 @@ proc test_arm_style_demangling {} {
 
     gdb_test_exact "maint demangle X__12T5__pt__3_1x" "T5<x>::X"
 
-    gdb_test_exact "maint demangle __ct__11T5__pt__2_iFi" "T5<int>::T5<int>(int)"
+    gdb_test_exact "maint demangle __ct__11T5__pt__2_iFi" "T5<int>::T5(int)"
 
-    gdb_test_exact "maint demangle __ct__11T5__pt__2_cFi" "T5<char>::T5<char>(int)"
+    gdb_test_exact "maint demangle __ct__11T5__pt__2_cFi" "T5<char>::T5(int)"
 
     gdb_test "maint dem __gt__FRC2T2T1" \
 	"operator>\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
@@ -920,7 +920,7 @@ proc test_arm_style_demangling {} {
 
     gdb_test_exact "maint demangle X__17T5__pt__8_PFcPv_i" "T5<int (*)(char, void *)>::X"
 
-    gdb_test_exact "maint demangle __ct__12T5__pt__3_1xFi" "T5<x>::T5<x>(int)"
+    gdb_test_exact "maint demangle __ct__12T5__pt__3_1xFi" "T5<x>::T5(int)"
 
     gdb_test "maint dem g__F1SRUlRCUlT2" \
 	"g\[(\]+S, unsigned long &, (const unsigned long|unsigned long const) &, unsigned long &\[)\]+"
@@ -1016,7 +1016,7 @@ proc test_arm_style_demangling {} {
     gdb_test "maint dem g__FcCcT1" \
 	"g\[(\]+char, (const char|char const), char\[)\]+"
 
-    gdb_test_exact "maint demangle __ct__17T5__pt__8_PFcPv_iFi" "T5<int (*)(char, void *)>::T5<int (*)(char, void *)>(int)"
+    gdb_test_exact "maint demangle __ct__17T5__pt__8_PFcPv_iFi" "T5<int (*)(char, void *)>::T5(int)"
 
     gdb_test_exact "maint demangle f__FicdPc" "f(int, char, double, char *)"
     gdb_test_exact "maint demangle __nw__FUi" "operator new(unsigned int)"
@@ -1033,19 +1033,19 @@ proc test_arm_style_demangling {} {
     gdb_test_exact "maint demangle get__2T1SFv" "T1::get(void) static"
     gdb_test_exact "maint demangle get__Q5_2T11a1b1c1dSFv" "T1::a::b::c::d::get(void) static"
 
-    gdb_test_exact "maint demangle __dt__11T1__pt__2_cFv" "T1<char>::~T1<char>(void)"
+    gdb_test_exact "maint demangle __dt__11T1__pt__2_cFv" "T1<char>::~T1(void)"
 
-    gdb_test_exact "maint demangle __dt__12T1__pt__3_1tFv" "T1<t>::~T1<t>(void)"
+    gdb_test_exact "maint demangle __dt__12T1__pt__3_1tFv" "T1<t>::~T1(void)"
 
     gdb_test_exact "maint demangle __dl__12T1__pt__3_1tSFPv" "T1<t>::operator delete(void *) static"
 
-    gdb_test_exact "maint demangle __ct__11T1__pt__2_cFi" "T1<char>::T1<char>(int)"
+    gdb_test_exact "maint demangle __ct__11T1__pt__2_cFi" "T1<char>::T1(int)"
 
-    gdb_test_exact "maint demangle __ct__11T1__pt__2_cFv" "T1<char>::T1<char>(void)"
+    gdb_test_exact "maint demangle __ct__11T1__pt__2_cFv" "T1<char>::T1(void)"
 
-    gdb_test_exact "maint demangle __ct__12T1__pt__3_1tFi" "T1<t>::T1<t>(int)"
+    gdb_test_exact "maint demangle __ct__12T1__pt__3_1tFi" "T1<t>::T1(int)"
 
-    gdb_test_exact "maint demangle __ct__12T1__pt__3_1tFv" "T1<t>::T1<t>(void)"
+    gdb_test_exact "maint demangle __ct__12T1__pt__3_1tFv" "T1<t>::T1(void)"
 
     gdb_test_exact "maint demangle __dl__11T1__pt__2_cSFPv" "T1<char>::operator delete(void *) static"
 
@@ -1066,12 +1066,12 @@ proc test_arm_style_demangling {} {
 
     gdb_test_exact "maint demangle elem__15vector__pt__2_iFi" "vector<int>::elem(int)"
 
-    gdb_test_exact "maint demangle __ct__15vector__pt__2_dFi" "vector<double>::vector<double>(int)"
+    gdb_test_exact "maint demangle __ct__15vector__pt__2_dFi" "vector<double>::vector(int)"
 
-    gdb_test_exact "maint demangle __ct__15vector__pt__2_iFi" "vector<int>::vector<int>(int)"
+    gdb_test_exact "maint demangle __ct__15vector__pt__2_iFi" "vector<int>::vector(int)"
 
     gdb_test_exact "maint demangle __ct__25DListNode__pt__9_R6RLabelFR6RLabelP25DListNode__pt__9_R6RLabelT2" \
-	"DListNode<RLabel &>::DListNode<RLabel &>(RLabel &, DListNode<RLabel &> *, DListNode<RLabel &> *)"
+	"DListNode<RLabel &>::DListNode(RLabel &, DListNode<RLabel &> *, DListNode<RLabel &> *)"
 
     gdb_test_exact "maint demangle bar__3fooFiT16FooBar" "foo::bar(int, int, FooBar)"
 
@@ -1080,6 +1080,410 @@ proc test_arm_style_demangling {} {
 
 }
 
+proc test_hp_style_demangling {} {
+    global gdb_prompt
+
+    # Set the demangling style to "hp" and then check to make sure
+    # it really got set.  Return if the style failed to get set for
+    # some reason.
+
+    send_gdb "set demangle-style hp\n"
+    gdb_expect {
+	-re "set demangle-style hp\[\r\n\]+$gdb_prompt $" {}
+	-re ".*$gdb_prompt $" { fail "set demangle-style hp failed" ; return }
+	timeout { fail "set demangle-style hp failed (timeout)" ; return }
+    }
+
+    send_gdb "show demangle-style\n"
+    gdb_expect {
+	-re "The current C\[+\]+ demangling style is \"hp\".\r\n$gdb_prompt $" {}
+	-re ".*$gdb_prompt $" { fail "demangling style not set to hp" }
+	timeout { fail "show demangle-style timed out (HP)" }
+    }
+
+    # HP aCC mangling style is based on ARM for all the basic stuff,
+    # so first we use some of the ARM tests here.  Later we have HP-specific
+    # tests.
+        
+    gdb_test "maint dem g__FP1cPC1cT1" \
+	"g\[(\]+c *\[*\]+, (const c|c const) *\[*\]+, c *\[*\]+\[)\]+"
+    gdb_test "maint dem g__FPUlPCUlT1" \
+	"g\[(\]+unsigned long \[*\]+, (const unsigned long|unsigned long const) \[*\]+, unsigned long \[*\]+\[)\]+"
+    gdb_test "maint dem g__FPUiPCUiT1" \
+	"g\[(\]+unsigned int \[*\]+, (const unsigned int|unsigned int const) \[*\]+, unsigned int \[*\]+\[)\]+"
+    gdb_test "maint dem g__FPUsPCUsT1" \
+	"g\[(\]+unsigned short \[*\]+, (const unsigned short|unsigned short const) \[*\]+, unsigned short \[*\]+\[)\]+"
+    gdb_test "maint dem g__FPUcPCUcT1" \
+	"g\[(\]+unsigned char \[*\]+, (const unsigned char|unsigned char const) \[*\]+, unsigned char \[*\]+\[)\]+"
+    gdb_test "maint dem g__F1TPlPClT2" \
+	"g\[(\]+T, long \[*\]+, (const long|long const) \[*\]+, long \[*\]+\[)\]+"
+    gdb_test "maint dem g__F1RRlRClT2" \
+	"g\[(\]+R, long &, (const long|long const) &, long &\[)\]+"
+    gdb_test "maint dem g__F1TPiPCiT2" \
+	"g\[(\]+T, int \[*\]+, (const int|int const) \[*\]+, int \[*\]+\[)\]+"
+    gdb_test "maint dem g__F1RRiRCiT2" \
+	"g\[(\]+R, int &, (const int|int const) &, int &\[)\]+"
+    gdb_test "maint dem g__F1TPsPCsT2" \
+	"g\[(\]+T, short \[*\]+, (const short|short const) \[*\]+, short \[*\]+\[)\]+"
+    gdb_test "maint dem g__F1RRsRCsT2" \
+	"g\[(\]+R, short &, (const short|short const) &, short &\[)\]+"
+    gdb_test "maint dem g__F1TPcPCcT2" \
+	"g\[(\]+T, char \[*\]+, (const char|char const) \[*\]+, char \[*\]+\[)\]+"
+    gdb_test "maint dem g__F1RRcRCcT2" \
+	"g\[(\]+R, char &, (const char|char const) &, char &\[)\]+"
+
+    gdb_test "maint dem __gt__FRC2T2c" \
+	"operator>\[(\]+(const T2|T2 const) &, char\[)\]+"
+    gdb_test "maint dem __ge__FRC2T2c" \
+	"operator>=\[(\]+(const T2|T2 const) &, char\[)\]+"
+    gdb_test "maint dem __lt__FRC2T2c" \
+	"operator<\[(\]+(const T2|T2 const) &, char\[)\]+"
+
+    gdb_test "maint dem __le__FRC2T2c" \
+	"operator<=\[(\]+(const T2|T2 const) &, char\[)\]+"
+    gdb_test "maint dem __ne__FRC2T2c" \
+	"operator!=\[(\]+(const T2|T2 const) &, char\[)\]+"
+    gdb_test "maint dem __eq__FRC2T2c" \
+	"operator==\[(\]+(const T2|T2 const) &, char\[)\]+"
+    gdb_test_exact "maint demangle __amd__FR2T2i" "operator%=(T2 &, int)"
+    gdb_test_exact "maint demangle __adv__FR2T2i" "operator/=(T2 &, int)"
+    gdb_test_exact "maint demangle __amu__FR2T2i" "operator*=(T2 &, int)"
+    gdb_test_exact "maint demangle __ami__FR2T2i" "operator-=(T2 &, int)"
+    gdb_test_exact "maint demangle __apl__FR2T2i" "operator+=(T2 &, int)"
+    gdb_test_exact "maint demangle __nw__2T1SFUi" "T1::operator new(unsigned int) static"
+    gdb_test_exact "maint demangle __dl__2T1SFPv" "T1::operator delete(void *) static"
+    gdb_test_exact "maint demangle put__2T7SFi" "T7::put(int) static"
+
+    gdb_test_exact "maint demangle h__FUc" "h(unsigned char)"
+    gdb_test_exact "maint demangle f__Fic" "f(int, char)"
+    gdb_test_exact "maint demangle h__FUi" "h(unsigned int)"
+    gdb_test_exact "maint demangle h__Fci" "h(char, int)"
+    gdb_test_exact "maint demangle h__FUl" "h(unsigned long)"
+    gdb_test_exact "maint demangle h__Fcl" "h(char, long)"
+    gdb_test_exact "maint demangle h__FUs" "h(unsigned short)"
+    gdb_test_exact "maint demangle h__Fcs" "h(char, short)"
+    gdb_test "maint dem __amd__FR2T2RC2T2" \
+	"operator%=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __adv__FR2T2RC2T2" \
+	"operator/=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __amu__FR2T2RC2T2" \
+	"operator\[*\]+=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __ami__FR2T2RC2T2" \
+	"operator-=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __apl__FR2T2RC2T2" \
+	"operator\[+\]+=\[(\]+T2 &, (const T2|T2 const) &\[)\]+"
+
+    gdb_test "maint dem g__F1SRPUlRPCUlT2" \
+	"g\[(\]+S, unsigned long \[*\]+&, (const unsigned long|unsigned long const) \[*\]+&, unsigned long \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1SRPUiRPCUiT2" \
+	"g\[(\]+S, unsigned int \[*\]+&, (const unsigned int|unsigned int const) \[*\]+&, unsigned int \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1SRPUsRPCUsT2" \
+	"g\[(\]+S, unsigned short \[*\]+&, (const unsigned short|unsigned short const) \[*\]+&, unsigned short \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1SRPUcRPCUcT2" \
+	"g\[(\]+S, unsigned char \[*\]+&, (const unsigned char|unsigned char const) \[*\]+&, unsigned char \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1T1SRPlRPClT3" \
+	"g\[(\]+T, S, long \[*\]+&, (const long|long const) \[*\]+&, long \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1T1SRPiRPCiT3" \
+	"g\[(\]+T, S, int \[*\]+&, (const int|int const) \[*\]+&, int \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1T1SRPcRPCcT3" \
+	"g\[(\]+T, S, char \[*\]+&, (const char|char const) \[*\]+&, char \[*\]+&\[)\]+"
+
+
+    gdb_test "maint dem __gt__FRC2T2T1" \
+	"operator>\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __ge__FRC2T2T1" \
+	"operator>=\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __lt__FRC2T2T1" \
+	"operator<\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __le__FRC2T2T1" \
+	"operator<=\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __ne__FRC2T2T1" \
+	"operator!=\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __eq__FRC2T2T1" \
+	"operator==\[(\]+(const T2|T2 const) &, (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem g__FcR1cRC1cT2" \
+	"g\[(\]+char, c &, (const c|c const) &, c &\[)\]+"
+    gdb_test "maint dem g__FcRPdRPCdT2" \
+	"g\[(\]+char, double *\[*\]+&, (const double|double const) *\[*\]+&, double *\[*\]+&\[)\]+"
+    gdb_test "maint dem g__FcRPfRPCfT2" \
+	"g\[(\]+char, float *\[*\]+&, (const float|float const) *\[*\]+&, float *\[*\]+&\[)\]+"
+    gdb_test_exact "maint demangle h__FcT1" "h(char, char)"
+    gdb_test_exact "maint demangle f__Ficd" "f(int, char, double)"
+    gdb_test "maint dem g__F1T1SdRPsRPCsT4" \
+	"g\[(\]+T, S, double, short \[*\]+&, (const short|short const) \[*\]+&, short \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1cC1cT1" \
+	"g\[(\]+c, (const c|c const), c\[)\]+"
+    gdb_test "maint dem g__FPdPCdT1" \
+	"g\[(\]+double *\[*\]+, (const double|double const) *\[*\]+, double *\[*\]+\[)\]+"
+    gdb_test "maint dem g__FPfPCfT1" \
+	"g\[(\]+float *\[*\]+, (const float|float const) *\[*\]+, float *\[*\]+\[)\]+"
+
+    gdb_test "maint dem g__FUlCUlT1" \
+	"g\[(\]+unsigned long, (const unsigned long|unsigned long const), unsigned long\[)\]+"
+    gdb_test "maint dem g__FPlPClT1" \
+	"g\[(\]+long \[*\]+, (const long|long const) \[*\]+, long \[*\]+\[)\]+"
+    gdb_test "maint dem g__FUiCUiT1" \
+	"g\[(\]+unsigned int, (const unsigned int|unsigned int const), unsigned int\[)\]+"
+    gdb_test "maint dem g__FPiPCiT1" \
+	"g\[(\]+int \[*\]+, (const int|int const) \[*\]+, int \[*\]+\[)\]+"
+    gdb_test "maint dem g__FUsCUsT1" \
+	"g\[(\]+unsigned short, (const unsigned short|unsigned short const), unsigned short\[)\]+"
+    gdb_test "maint dem g__FPsPCsT1" \
+	"g\[(\]+short \[*\]+, (const short|short const) \[*\]+, short \[*\]+\[)\]+"
+    gdb_test "maint dem g__FUcCUcT1" \
+	"g\[(\]+unsigned char, (const unsigned char|unsigned char const), unsigned char\[)\]+"
+    gdb_test "maint dem g__FPcPCcT1" \
+	"g\[(\]+char \[*\]+, (const char|char const) \[*\]+, char \[*\]+\[)\]+"
+    gdb_test "maint dem g__F1TlClT2" \
+	"g\[(\]+T, long, (const long|long const), long\[)\]+"
+    gdb_test "maint dem g__F1TiCiT2" \
+	"g\[(\]+T, int, (const int|int const), int\[)\]+"
+    gdb_test "maint dem g__F1TsCsT2" \
+	"g\[(\]+T, short, (const short|short const), short\[)\]+"
+    gdb_test "maint dem g__F1TcCcT2" \
+	"g\[(\]+T, char, (const char|char const), char\[)\]+"
+
+    gdb_test "maint dem printf__FPCce" \
+	"printf\[(\]+(const char|char const) \[*\]+,...\[)\]+"
+
+
+    gdb_test "maint dem g__F1SRUlRCUlT2" \
+	"g\[(\]+S, unsigned long &, (const unsigned long|unsigned long const) &, unsigned long &\[)\]+"
+    gdb_test "maint dem g__F1SRPlRPClT2" \
+	"g\[(\]+S, long \[*\]+&, (const long|long const) \[*\]+&, long \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1RRUiRCUiT2" \
+	"g\[(\]+R, unsigned int &, (const unsigned int|unsigned int const) &, unsigned int &\[)\]+"
+    gdb_test "maint dem g__F1SRPiRPCiT2" \
+	"g\[(\]+S, int \[*\]+&, (const int|int const) \[*\]+&, int \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1RRUsRCUsT2" \
+	"g\[(\]+R, unsigned short &, (const unsigned short|unsigned short const) &, unsigned short &\[)\]+"
+    gdb_test "maint dem g__F1SRPsRPCsT2" \
+	"g\[(\]+S, short \[*\]+&, (const short|short const) \[*\]+&, short \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1RRUcRCUcT2" \
+	"g\[(\]+R, unsigned char &, (const unsigned char|unsigned char const) &, unsigned char &\[)\]+"
+    gdb_test "maint dem g__F1SRPcRPCcT2" \
+	"g\[(\]+S, char \[*\]+&, (const char|char const) \[*\]+&, char \[*\]+&\[)\]+"
+    gdb_test "maint dem g__F1T1RRlRClT3" \
+	"g\[(\]+T, R, long &, (const long|long const) &, long &\[)\]+"
+    gdb_test "maint dem g__F1T1RRiRCiT3" \
+	"g\[(\]+T, R, int &, (const int|int const) &, int &\[)\]+"
+    gdb_test "maint dem g__F1T1RRsRCsT3" \
+	"g\[(\]+T, R, short &, (const short|short const) &, short &\[)\]+"
+    gdb_test "maint dem g__F1T1RRcRCcT3" \
+	"g\[(\]+T, R, char &, (const char|char const) &, char &\[)\]+"
+
+
+    gdb_test_exact "maint demangle f__FicdPcPFci_v" "f(int, char, double, char *, void (*)(char, int))"
+    gdb_test_exact "maint demangle f__FicdPcPFic_v" "f(int, char, double, char *, void (*)(int, char))"
+    gdb_test_exact "maint demangle get__2T7SFv" "T7::get(void) static"
+
+
+    gdb_test "maint dem g__FcRdRCdT2" \
+	"g\[(\]+char, double &, (const double|double const) &, double &\[)\]+"
+    gdb_test "maint dem g__FcRfRCfT2" \
+	"g\[(\]+char, float &, (const float|float const) &, float &\[)\]+"
+    gdb_test "maint dem __md__FC2T2i" \
+	"operator%\[(\]+(const T2|T2 const), int\[)\]+"
+    gdb_test "maint dem __dv__FC2T2i" \
+	"operator/\[(\]+(const T2|T2 const), int\[)\]+"
+    gdb_test "maint dem __ml__FC2T2i" \
+	"operator\[*\]+\[(\]+(const T2|T2 const), int\[)\]+"
+    gdb_test "maint dem __mi__FC2T2i" \
+	"operator-\[(\]+(const T2|T2 const), int\[)\]+"
+    gdb_test "maint dem __pl__FC2T2i" \
+	"operator\[+\]+\[(\]+(const T2|T2 const), int\[)\]+"
+
+
+    gdb_test_exact "maint demangle h__Fc" "h(char)"
+    gdb_test_exact "maint demangle h__Fd" "h(double)"
+    gdb_test_exact "maint demangle h__Ff" "h(float)"
+    gdb_test_exact "maint demangle h__Fi" "h(int)"
+    gdb_test_exact "maint demangle f__Fi" "f(int)"
+    gdb_test_exact "maint demangle h__Fl" "h(long)"
+
+    gdb_test_exact "maint demangle h__Fs" "h(short)"
+    gdb_test "maint dem __md__FC2T2RC2T2" \
+	"operator%\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __dv__FC2T2RC2T2" \
+	"operator/\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __ml__FC2T2RC2T2" \
+	"operator\[*\]+\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __mi__FC2T2RC2T2" \
+	"operator-\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem __pl__FC2T2RC2T2" \
+	"operator\[+\]+\[(\]+(const T2|T2 const), (const T2|T2 const) &\[)\]+"
+    gdb_test "maint dem g__FcRP1cRPC1cT2" \
+	"g\[(\]+char, c *\[*\]+&, (const c|c const) *\[*\]+&, c *\[*\]+&\[)\]+"
+
+
+    gdb_test "maint dem g__FdCdT1" \
+	"g\[(\]+double, (const double|double const), double\[)\]+"
+    gdb_test "maint dem g__FfCfT1" \
+	"g\[(\]+float, (const float|float const), float\[)\]+"
+    gdb_test "maint dem g__FlClT1" \
+	"g\[(\]+long, (const long|long const), long\[)\]+"
+    gdb_test "maint dem g__FiCiT1" \
+	"g\[(\]+int, (const int|int const), int\[)\]+"
+    gdb_test "maint dem g__FsCsT1" \
+	"g\[(\]+short, (const short|short const), short\[)\]+"
+    gdb_test "maint dem g__FcCcT1" \
+	"g\[(\]+char, (const char|char const), char\[)\]+"
+
+
+    gdb_test_exact "maint demangle f__FicdPc" "f(int, char, double, char *)"
+    gdb_test_exact "maint demangle __nw__FUi" "operator new(unsigned int)"
+    gdb_test_exact "maint demangle __ct__Q3_2T11a1bSFi" "T1::a::b::b(int) static"
+    gdb_test_exact "maint demangle __dt__Q3_2T11a1bSFi" "T1::a::b::~b(int) static"
+    gdb_test_exact "maint demangle put__Q3_2T11a1bSFi" "T1::a::b::put(int) static"
+    gdb_test_exact "maint demangle get__Q2_2T11aSFv" "T1::a::get(void) static"
+    gdb_test_exact "maint demangle put__2T1SFi" "T1::put(int) static"
+    gdb_test_exact "maint demangle put__Q5_2T11a1b1c1dSFi" "T1::a::b::c::d::put(int) static"
+    gdb_test_exact "maint demangle get__Q4_2T11a1b1cSFv" "T1::a::b::c::get(void) static"
+    gdb_test_exact "maint demangle put__Q2_2T11aSFi" "T1::a::put(int) static"
+    gdb_test_exact "maint demangle put__Q4_2T11a1b1cSFi" "T1::a::b::c::put(int) static"
+    gdb_test_exact "maint demangle get__Q3_2T11a1bSFv" "T1::a::b::get(void) static"
+    gdb_test_exact "maint demangle get__2T1SFv" "T1::get(void) static"
+    gdb_test_exact "maint demangle get__Q5_2T11a1b1c1dSFv" "T1::a::b::c::d::get(void) static"
+
+
+    gdb_test_exact "maint demangle bar__3fooFPv"       "foo::bar(void *)"
+    gdb_test "maint dem bar__3fooFPCv" \
+	     "foo::bar\[(\]+(const void|void const) *\[*\]+\[)\]+"
+    gdb_test_exact "maint demangle bar__3fooCFPv"      "foo::bar(void *) const"
+    gdb_test "maint dem bar__3fooCFPCv" \
+	    "foo::bar\[(\]+(const void|void const) *\[*\]+\[)\]+ const"
+    gdb_test_exact "maint demangle __eq__3fooFR3foo"   "foo::operator==(foo &)"
+    gdb_test "maint dem __eq__3fooFRC3foo" \
+	 "foo::operator==\[(\]+(const foo|foo const) &\[)\]+"
+    gdb_test_exact "maint demangle __eq__3fooCFR3foo"  "foo::operator==(foo &) const"
+    gdb_test "maint dem __eq__3fooCFRC3foo" \
+	"foo::operator==\[(\]+(const foo|foo const) &\[)\]+ const"
+
+    gdb_test_exact "maint demangle bar__3fooFiT16FooBar" "foo::bar(int, int, FooBar)"
+
+    gdb_test_exact "maint demangle bar__3fooFPiN51PdN37PcN211T1iN215" \
+      "foo::bar(int *, int *, int *, int *, int *, int *, double *, double *, double *, double *, char *, char *, char *, int *, int, int, int)"
+
+
+    # HP aCC specific tests. HP aCC demangling does not use __pt__ for
+    # template specifications.  There are other differences as well.
+
+    gdb_test_exact "maint demangle __dt__2T5XTPFiPPdPv_i__Fv" "T5<int (*)(int, double **, void *)>::~T5(void)"
+
+    gdb_test_exact "maint demangle __ct__1cFi" "c::c(int)"
+
+    gdb_test_exact "maint demangle __dt__2T5XTi__Fv" "T5<int>::~T5(void)"
+
+    gdb_test_exact "maint demangle __dt__2T5XTc__Fv" "T5<char>::~T5(void)"
+
+    gdb_test_exact "maint demangle __ct__2T2Fi" "T2::T2(int)"
+    gdb_test_exact "maint demangle __dt__2T1Fv" "T1::~T1(void)"
+
+    gdb_test_exact "maint demangle __dt__2T5XT1x__Fv" "T5<x>::~T5(void)"
+
+    gdb_test_exact "maint demangle __dt__2T5XTPFcPv_i__Fv" "T5<int (*)(char, void *)>::~T5(void)"
+    
+    gdb_test_exact "maint demangle __ct__2T5XTPFiPPdPv_i__Fi" "T5<int (*)(int, double **, void *)>::T5(int)"
+
+    gdb_test_exact "maint demangle __dl__2T5XT1x__SFPv" "T5<x>::operator delete(void *) static"
+    
+    gdb_test_exact "maint demangle X__2T5XT1x" "T5<x>::X"
+
+    gdb_test_exact "maint demangle __ct__2T5XTi__Fi" "T5<int>::T5(int)"
+
+    gdb_test_exact "maint demangle __ct__2T5XTc__Fi" "T5<char>::T5(int)"
+
+    gdb_test_exact "maint demangle __dl__2T5XTPFcPv_i__SFPv" "T5<int (*)(char, void *)>::operator delete(void *) static"
+
+    gdb_test_exact "maint demangle X__2T5XTPFcPv_i" "T5<int (*)(char, void *)>::X"
+
+    gdb_test_exact "maint demangle __ct__2T5XT1x__Fi" "T5<x>::T5(int)"
+
+    gdb_test_exact "maint demangle __dl__2T5XTPFiPPdPv_i__SFPv" "T5<int (*)(int, double **, void *)>::operator delete(void *) static"
+    gdb_test_exact "maint demangle X__2T5XTPFiPPdPv_i" "T5<int (*)(int, double **, void *)>::X"
+
+    gdb_test_exact "maint demangle __dl__2T5XTi__SFPv" "T5<int>::operator delete(void *) static"
+
+    gdb_test_exact "maint demangle __dl__2T5XTc__SFPv" "T5<char>::operator delete(void *) static"
+
+    gdb_test_exact "maint demangle X__2T5XTc" "T5<char>::X"
+
+    gdb_test_exact "maint demangle X__2T5XTi" "T5<int>::X"
+
+    gdb_test_exact "maint demangle __ct__2T5XTPFcPv_i__Fi" "T5<int (*)(char, void *)>::T5(int)"
+    
+    gdb_test_exact "maint demangle __dt__2T1XTc__Fv" "T1<char>::~T1(void)"
+
+    gdb_test_exact "maint demangle __dt__2T1XT1t__Fv" "T1<t>::~T1(void)"
+
+    gdb_test_exact "maint demangle __dl__2T1XT1t__SFPv" "T1<t>::operator delete(void *) static"
+
+    gdb_test_exact "maint demangle __ct__2T1XTc__Fi" "T1<char>::T1(int)"
+
+    gdb_test_exact "maint demangle __ct__2T1XTc__Fv" "T1<char>::T1(void)"
+
+    gdb_test_exact "maint demangle __ct__2T1XT1t__Fi" "T1<t>::T1(int)"
+
+    gdb_test_exact "maint demangle __ct__2T1XT1t__Fv" "T1<t>::T1(void)"
+
+    gdb_test_exact "maint demangle __dl__2T1XTc__SFPv" "T1<char>::operator delete(void *) static"
+
+    gdb_test_exact "maint demangle elem__6vectorXTd__Fi" "vector<double>::elem(int)"
+
+    gdb_test_exact "maint demangle elem__6vectorXTi__Fi" "vector<int>::elem(int)"
+
+    gdb_test_exact "maint demangle __ct__6vectorXTd__Fi" "vector<double>::vector(int)"
+
+    gdb_test_exact "maint demangle __ct__6vectorXTi__Fi" "vector<int>::vector(int)"
+
+    gdb_test_exact "maint demangle __ct__9DListNodeXTR6RLabel__FR6RLabelP9DListNodeXTR6RLabel_T2" \
+	"DListNode<RLabel &>::DListNode(RLabel &, DListNode<RLabel &> *, DListNode<RLabel &> *)"
+
+
+    # Absolute integer constants in template args
+
+    gdb_test_exact "maint demangle elem__6vectorXTiUP34__Fi" "vector<int,34U>::elem(int)"
+    gdb_test_exact "maint demangle elem__6vectorXUP2701Td__Fi" "vector<2701U,double>::elem(int)"
+    gdb_test_exact "maint demangle elem__6vectorXTiSP334__Fi" "vector<int,334>::elem(int)"
+    gdb_test_exact "maint demangle elem__6vectorXTiSN67__Fi" "vector<int,-67>::elem(int)"
+    gdb_test_exact "maint demangle elem__6vectorXTiSM__SCFPPd" "vector<int,-2147483648>::elem(double **) static const"
+    gdb_test_exact "maint demangle elem__6vectorXTiSN67UP4000TRs__Fi" "vector<int,-67,4000U,short &>::elem(int)"
+    gdb_test_exact "maint demangle elem__6vectorXTiSN67TRdTFPv_i__Fi" "vector<int,-67,double &,int (void *)>::elem(int)"
+    gdb_test_exact "maint demangle X__6vectorXTiSN67TdTPvUP5TRs" "vector<int,-67,double,void *,5U,short &>::X"
+
+    # Named constants in template args
+
+    gdb_test_exact "maint demangle elem__6vectorXTiA3foo__Fi" "vector<int,&foo>::elem(int)"
+    gdb_test_exact "maint demangle elem__6vectorXTiA3fooTPvA5Label__FiPPvT2" "vector<int,&foo,void *,&Label>::elem(int, void **, void **)"
+    gdb_test_exact "maint demangle elem__6vectorXTiSN42A3foo__Fi" "vector<int,-42,&foo>::elem(int)"
+
+    # Alternate entry points for functions
+
+    gdb_test_exact "maint demangle __ct__2T5XTPFcPv_i__Fi_2" "T5<int (*)(char, void *)>::T5(int)"
+    gdb_test_exact "maint demangle __ct__2T5XTPFcPv_i__Fi_19" "T5<int (*)(char, void *)>::T5(int)"
+    gdb_test_exact "maint demangle f__FicdPcPFci_v_34" "f(int, char, double, char *, void (*)(char, int))"
+
+
+    # Template partial specializations
+
+# FIXME!  The # characters don't go through expect, and backslashes don't seem to work.
+#    gdb_test_exact "maint demangle spec__13Spec<#1,#1.*>XTiTPi_FPi" "Spec<int,int *>::spec(int *)"
+#    gdb_test_exact "maint demangle spec__16Spec<#1,#1.&,#1>XTiTRiTi_FPi" "Spec<int,int &, int>::spec(int *)"
+# Fake test -- replace # with %
+    gdb_test_exact "maint demangle spec__13Spec<%1,%1.*>XTiTPi_FPi" "Spec<int,int *>::spec(int *)"
+    gdb_test_exact "maint demangle spec__16Spec<%1,%1.&,%1>XTiTRiTi_FPi" "Spec<int,int &,int>::spec(int *)"
+
+    # Global template functions
+
+    gdb_test_exact "maint demangle add__XTc_FcT1" "add<char>(char, char)"
+    gdb_test_exact "maint demangle add__XTcSP9A5label_FcPPlT1" "add<char,9,&label>(char, long **, char)"
+    gdb_test_exact "maint demangle add__XTPfTFPd_f_FcT1" "add<float *,float (double *)>(char, char)"
+
+    # Template for template arg
+
+    gdb_test_exact "maint demangle unLink__12basic_stringXTcT18string_char_traitsXTc_T9allocator_Fv" "basic_string<char,string_char_traits<char>,allocator>::unLink(void)"
+
+}
 # Test support for different demangling styles.  Note that this does
 # not depend upon running the test program and does not depend upon
 # gdb being able to lookup any C++ symbols.  It simply calls the 
@@ -1107,6 +1511,7 @@ proc do_tests {} {
     test_lucid_style_demangling
     test_gnu_style_demangling
     test_arm_style_demangling
+    test_hp_style_demangling
 }
 
 do_tests
