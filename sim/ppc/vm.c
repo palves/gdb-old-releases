@@ -171,10 +171,6 @@ enum _om_page_tlb_constants {
   nr_om_page_tlb_constants
 };
 
-enum {
-  invalid_tlb_vsid = MASK(0, 63),
-};
-
 typedef struct _om_page_tlb_entry {
   int protection;
   int changed;
@@ -965,6 +961,32 @@ vm_synchronize_context(vm *virtual,
       error("vm_synchronize_context() - unsuported change of byte order\n");
   }
 }
+
+/* update vm data structures due to a TLB operation */
+
+INLINE_VM\
+(void)
+vm_page_tlb_invalidate_entry(vm *memory,
+			     unsigned_word ea)
+{
+  int i = om_page_tlb_index(ea);
+  memory->instruction_tlb.entry[i].masked_virtual_segment_id = MASK(0, 63);
+  memory->data_tlb.entry[i].masked_virtual_segment_id = MASK(0, 63);
+  TRACE(trace_vm, ("ea=0x%lx - tlb invalidate entry\n", (long)ea));
+}
+
+INLINE_VM\
+(void)
+vm_page_tlb_invalidate_all(vm *memory)
+{
+  int i;
+  for (i = 0; i < nr_om_page_tlb_entries; i++) {
+    memory->instruction_tlb.entry[i].masked_virtual_segment_id = MASK(0, 63);
+    memory->data_tlb.entry[i].masked_virtual_segment_id = MASK(0, 63);
+  }
+  TRACE(trace_vm, ("tlb invalidate all\n"));
+}
+
 
 
 INLINE_VM\

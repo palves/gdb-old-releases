@@ -35,7 +35,7 @@
 #endif /* INLINE */
 
 /* The PA instruction set variants.  */
-enum pa_arch {pa10 = 10, pa11 = 11};
+enum pa_arch {pa10 = 10, pa11 = 11, pa20 = 20};
 
 /* HP PA-RISC relocation types */
 
@@ -50,12 +50,15 @@ enum hppa_reloc_field_selector_type
     R_HPPA_RDSEL = 0x6,
     R_HPPA_LRSEL = 0x7,
     R_HPPA_RRSEL = 0x8,
-    R_HPPA_PSEL = 0x9,
-    R_HPPA_LPSEL = 0xa,
-    R_HPPA_RPSEL = 0xb,
-    R_HPPA_TSEL = 0xc,
-    R_HPPA_LTSEL = 0xd,
-    R_HPPA_RTSEL = 0xe
+    R_HPPA_NSEL  = 0x9,
+    R_HPPA_NLSEL  = 0xa,
+    R_HPPA_NLRSEL  = 0xb,
+    R_HPPA_PSEL = 0xc,
+    R_HPPA_LPSEL = 0xd,
+    R_HPPA_RPSEL = 0xe,
+    R_HPPA_TSEL = 0xf,
+    R_HPPA_LTSEL = 0x10,
+    R_HPPA_RTSEL = 0x11
   };
 
 /* /usr/include/reloc.h defines these to constants.  We want to use
@@ -72,6 +75,9 @@ enum hppa_reloc_field_selector_type
 #undef e_rdsel
 #undef e_lrsel
 #undef e_rrsel
+#undef e_nsel
+#undef e_nlsel
+#undef e_nlrsel
 #undef e_psel
 #undef e_lpsel
 #undef e_rpsel
@@ -97,6 +103,9 @@ enum hppa_reloc_field_selector_type_alt
     e_rdsel = R_HPPA_RDSEL,
     e_lrsel = R_HPPA_LRSEL,
     e_rrsel = R_HPPA_RRSEL,
+    e_nsel = R_HPPA_NSEL,
+    e_nlsel = R_HPPA_NLSEL,
+    e_nlrsel = R_HPPA_NLRSEL,
     e_psel = R_HPPA_PSEL,
     e_lpsel = R_HPPA_LPSEL,
     e_rpsel = R_HPPA_RPSEL,
@@ -307,6 +316,7 @@ hppa_field_adjust (value, constant_value, r_field)
   switch (r_field)
     {
     case e_fsel:		/* F  : no change                      */
+    case e_nsel:		/* N  : no change		       */
       value += constant_value;
       break;
 
@@ -327,6 +337,7 @@ hppa_field_adjust (value, constant_value, r_field)
       break;
 
     case e_lsel:		/* L  : Arithmetic shift right 11 bits */
+    case e_nlsel:		/* NL  : Arithmetic shift right 11 bits */
       value += constant_value;
       value = (value & 0xfffff800) >> 11;
       break;
@@ -349,6 +360,7 @@ hppa_field_adjust (value, constant_value, r_field)
       break;
 
     case e_lrsel:		/* LR : L with "rounded" constant      */
+    case e_nlrsel:		/* NLR : NL with "rounded" constant      */
       value = value + ((constant_value + 0x1000) & 0xffffe000);
       value = (value & 0xfffff800) >> 11;
       break;

@@ -302,3 +302,8 @@ void zfree(void *data)
 {
   mfree(NULL, data);
 }
+
+void flush_stdoutput(void)
+{
+  gdb_flush (gdb_stdout);
+}

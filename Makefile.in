@@ -89,15 +89,14 @@ NM = nm
 # Not plain GZIP, since gzip looks there for extra command-line options.
 GZIPPROG = gzip
 
-# BISON: This line sed'ed to BISON = bison -y for FSF releases, don't remove.
-BISON = `if [ -f $$r/byacc/byacc ] ; \
-	    then echo $$r/byacc/byacc ; \
-	    else echo byacc ; \
-	fi`
+# These values are substituted by configure.
+DEFAULT_YACC = yacc
+DEFAULT_LEX = lex
 
+BISON = bison -y
 LEX = `if [ -f $$r/flex/flex ] ; \
 	then echo $$r/flex/flex ; \
-	else echo flex ; fi`
+	else echo ${DEFAULT_LEX} ; fi`
 
 M4 = `if [ -f $$r/m4/m4 ] ; \
 	then echo $$r/m4/m4 ; \
@@ -138,6 +137,19 @@ TARGET_SUBDIR = . # Changed by configure to $(target_alias) if cross.
 
 # This is set by the configure script to the arguments passed to configure.
 CONFIG_ARGUMENTS = 
+
+# This is set by configure to REALLY_SET_LIB_PATH if --enable-shared
+# was used.
+SET_LIB_PATH =
+
+# This is the name of the environment variable used for the path to
+# the libraries.  This may be changed by configure.in.
+RPATH_ENVVAR = LD_LIBRARY_PATH
+
+# configure.in sets SET_LIB_PATH to this if --enable-shared was used.
+REALLY_SET_LIB_PATH = \
+  $(RPATH_ENVVAR)=$$r/bfd:$$r/opcodes:$$$(RPATH_ENVVAR); \
+  export $(RPATH_ENVVAR);
 
 ALL = all.normal
 INSTALL_TARGET = install-dirs \
@@ -513,7 +525,6 @@ INSTALL_MODULES = \
 	install-sim \
 	install-tar \
 	install-tcl \
-	install-texinfo \
 	install-textutils \
 	install-tgas \
 	install-time \
@@ -633,6 +644,7 @@ $(DO_X):
 	@target=`echo $@ | sed -e 's/^do-//'`; \
 	r=`pwd`; export r; \
 	srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	$(SET_LIB_PATH) \
 	for i in $(SUBDIRS) -dummy-; do \
 	  if [ -f ./$$i/Makefile ]; then \
 	    case $$i in \
@@ -660,6 +672,7 @@ $(DO_X):
 	@target=`echo $@ | sed -e 's/^do-//'`; \
 	r=`pwd`; export r; \
 	srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	$(SET_LIB_PATH) \
 	for i in $(TARGET_CONFIGDIRS) -dummy-; do \
 	  if [ -f $(TARGET_SUBDIR)/$$i/Makefile ]; then \
 	    for flag in $(EXTRA_TARGET_FLAGS); do \
@@ -746,6 +759,7 @@ vault-install:
 install.all: install-no-fixedincludes
 	@if [ -f ./gcc/Makefile ] ; then \
 		r=`pwd` ; export r ; \
+		$(SET_LIB_PATH) \
 		(cd ./gcc; \
 		$(MAKE) $(FLAGS_TO_PASS) install-headers) ; \
 	else \
@@ -776,6 +790,7 @@ gcc-no-fixedincludes:
 	  rm -f gcc/stmp-headers gcc/stmp-int-hdrs; \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd` ; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd ./gcc; \
 	   $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
 	  rm -rf gcc/include; \
@@ -794,6 +809,7 @@ $(ALL_MODULES) all-gui all-libproc:
 	if [ -f ./$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) all); \
 	else \
 	  true; \
@@ -810,6 +826,7 @@ $(NATIVE_CHECK_MODULES):
 	  if [ -f ./$${dir}/Makefile ] ; then \
 	    r=`pwd`; export r; \
 	    srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	    $(SET_LIB_PATH) \
 	    (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) check); \
 	  else \
 	    true; \
@@ -821,6 +838,7 @@ $(CROSS_CHECK_MODULES):
 	if [ -f ./$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) check); \
 	else \
 	  true; \
@@ -834,6 +852,7 @@ $(INSTALL_MODULES): install-dirs
 	if [ -f ./$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) install); \
 	else \
 	  true; \
@@ -851,6 +870,7 @@ $(CONFIGURE_TARGET_MODULES):
 	    [ -d $(TARGET_SUBDIR)/$${dir} ] || mkdir $(TARGET_SUBDIR)/$${dir};\
 	    r=`pwd`; export r; \
 	    srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	    $(SET_LIB_PATH) \
 	    AR="$(AR_FOR_TARGET)"; export AR; \
 	    AS="$(AS_FOR_TARGET)"; export AS; \
 	    CC="$(CC_FOR_TARGET)"; export CC; \
@@ -912,6 +932,7 @@ $(ALL_TARGET_MODULES):
 	if [ -f $(TARGET_SUBDIR)/$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/$${dir}; $(MAKE) $(TARGET_FLAGS_TO_PASS) all); \
 	else \
 	  true; \
@@ -925,6 +946,7 @@ $(CHECK_TARGET_MODULES):
 	if [ -f $(TARGET_SUBDIR)/$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/$${dir};$(MAKE) $(TARGET_FLAGS_TO_PASS) check);\
 	else \
 	  true; \
@@ -939,6 +961,7 @@ $(INSTALL_TARGET_MODULES): install-dirs
 	if [ -f $(TARGET_SUBDIR)/$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/$${dir}; \
 	    $(MAKE) $(TARGET_FLAGS_TO_PASS) install); \
 	else \
@@ -953,6 +976,7 @@ $(ALL_X11_MODULES):
 	if [ -f ./$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $${dir}; \
 	   $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) all); \
 	else \
@@ -967,6 +991,7 @@ $(CHECK_X11_MODULES):
 	if [ -f ./$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $${dir}; \
 	   $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) check); \
 	else \
@@ -981,6 +1006,7 @@ $(INSTALL_X11_MODULES):
 	if [ -f ./$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $${dir}; \
 	   $(MAKE) $(FLAGS_TO_PASS) $(X11_FLAGS_TO_PASS) install); \
 	else \
@@ -993,6 +1019,7 @@ all-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) all); \
 	else \
 	  true; \
@@ -1003,6 +1030,7 @@ all-bootstrap:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) bootstrap); \
 	else \
 	  true; \
@@ -1013,6 +1041,7 @@ check-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) check); \
 	else \
 	  true; \
@@ -1023,6 +1052,7 @@ install-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd gcc; $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
 	else \
 	  true; \
@@ -1038,6 +1068,7 @@ install-dosrel: install-dirs info
 	if [ -f ./$${dir}/Makefile ] ; then \
 	  r=`pwd`; export r; \
 	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  $(SET_LIB_PATH) \
 	  (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) install); \
 	else \
 	  true; \
@@ -1071,15 +1102,15 @@ all-gcc: all-libiberty all-byacc all-binutils all-gas all-ld
 all-bootstrap: all-libiberty all-byacc all-binutils all-gas all-ld
 GDB_TK = all-tk all-tcl
 all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-byacc all-sim $(gdbnlmrequirements) $(GDB_TK)
-all-gprof: all-libiberty all-bfd
+all-gprof: all-libiberty all-bfd all-opcodes
 all-grep: all-libiberty
-all-grez: all-libiberty all-bfd
+all-grez: all-libiberty all-bfd all-opcodes
 all-gui: all-gdb all-libproc all-target-librx
 all-gzip: all-libiberty
 all-hello: all-libiberty
 all-indent:
 all-ispell: all-emacs19
-all-ld: all-libiberty all-bfd all-byacc all-flex
+all-ld: all-libiberty all-bfd all-opcodes all-byacc all-flex
 configure-target-libg++: $(ALL_GCC) configure-target-librx
 all-target-libg++: configure-target-libg++ all-gas all-ld all-gcc all-target-libiberty all-target-newlib all-target-libio all-target-librx all-target-libstdc++
 configure-target-libgloss: $(ALL_GCC)
@@ -1096,7 +1127,7 @@ all-make: all-libiberty
 all-mmalloc:
 configure-target-newlib: $(ALL_GCC)
 all-target-newlib: configure-target-newlib all-binutils all-gas all-gcc
-all-opcodes: all-bfd
+all-opcodes: all-bfd all-libiberty
 all-patch: all-libiberty
 all-prms: all-libiberty
 all-rcs:
@@ -1105,17 +1136,17 @@ all-recode: all-libiberty
 all-sed: all-libiberty
 all-send-pr: all-prms
 all-shellutils:
-all-sim: all-libiberty all-bfd
+all-sim: all-libiberty all-bfd all-opcodes
 all-tar: all-libiberty
 all-tcl:
 all-tclX: all-tcl all-tk
 all-tk: all-tcl
 all-texinfo: all-libiberty
 all-textutils:
-all-tgas: all-libiberty all-bfd
+all-tgas: all-libiberty all-bfd all-opcodes
 all-time:
 all-wdiff:
-all-target-winsup: all-target-newlib  configure-target-winsup 
+all-target-winsup: all-target-newlib all-target-libiberty configure-target-winsup 
 configure-target-winsup: configure-target-newlib
 all-uudecode: all-libiberty
 configure-target-libiberty: $(ALL_GCC)
@@ -1218,7 +1249,7 @@ taz: $(DEVO_SUPPORT) $(SUPPORT_FILES) \
 	./configure sun4
 	[ -z "$(CONFIGURE_TARGET_MODULES)" ] \
 	  || $(MAKE) $(CONFIGURE_TARGET_MODULES) ALL_GCC="" \
-	    CC_FOR_TARGET="$(CC) CXX_FOR_TARGET="$(CXX)"
+	    CC_FOR_TARGET="$(CC)" CXX_FOR_TARGET="$(CXX)"
 	# Make links, and run "make diststuff" or "make info" when needed.
 	rm -rf proto-toplev ; mkdir proto-toplev
 	set -e ; dirs="$(TOOL) $(DEVO_SUPPORT) $(SUPPORT_FILES)" ; \

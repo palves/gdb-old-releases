@@ -28,25 +28,6 @@
 #include "libaout.h"
 
 #if 0
-typedef struct msdos_data_struct
-  {
-#if 0
-    srec_data_list_type *head;
-    unsigned int type;
-
-    int done_symbol_read;
-    int count;
-    asymbol *symbols;
-    char *strings;
-    int symbol_idx;
-    int string_size;
-    int string_idx;
-#endif
-  }
-tdata_type;
-#endif
-
-#if 0
 struct exe_header
 {
 	unsigned short magic;
@@ -95,6 +76,8 @@ msdos_write_object_contents (abfd)
   /* Find the total size of the program on disk and in memory.  */
   for (sec = abfd->sections; sec != (asection *) NULL; sec = sec->next)
     {
+      if (bfd_get_section_size_before_reloc (sec) == 0)
+        continue;
       if (bfd_get_section_flags (abfd, sec) & SEC_ALLOC)
         {
 	  bfd_vma sec_vma = bfd_get_section_vma (abfd, sec)

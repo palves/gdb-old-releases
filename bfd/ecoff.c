@@ -2075,10 +2075,6 @@ ecoff_compute_section_file_positions (abfd)
 
       current = sorted_hdrs[i];
 
-      /* Only deal with sections which have contents */
-      if ((current->flags & (SEC_HAS_CONTENTS | SEC_LOAD)) == 0)
-	continue;
-
       /* For the Alpha ECOFF .pdata section the lnnoptr field is
 	 supposed to indicate the number of .pdata entries that are
 	 really in the section.  Each entry is 8 bytes.  We store this
@@ -2137,7 +2133,8 @@ ecoff_compute_section_file_positions (abfd)
 	  && (current->flags & SEC_ALLOC) != 0)
 	sofar += (current->vma - sofar) % round;
 
-      current->filepos = sofar;
+      if ((current->flags & (SEC_HAS_CONTENTS | SEC_LOAD)) != 0)
+	current->filepos = sofar;
 
       sofar += current->_raw_size;
 

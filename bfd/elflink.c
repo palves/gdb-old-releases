@@ -226,7 +226,6 @@ _bfd_elf_create_linker_section (abfd, info, which, defaults)
   if (!lsect)
     {
       asection *s;
-      static elf_linker_section_t zero_section;
 
       lsect = (elf_linker_section_t *)
 	bfd_alloc (dynobj, sizeof (elf_linker_section_t));

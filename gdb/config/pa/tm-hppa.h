@@ -621,3 +621,16 @@ extern CORE_ADDR skip_trampoline_code PARAMS ((CORE_ADDR, char *));
 #define HPREAD_ADJUST_STACK_ADDRESS(ADDR) hpread_adjust_stack_address(ADDR)
 
 extern int hpread_adjust_stack_address PARAMS ((CORE_ADDR));
+
+/* If the current gcc for for this target does not produce correct debugging
+   information for float parameters, both prototyped and unprototyped, then
+   define this macro.  This forces gdb to  always assume that floats are
+   passed as doubles and then converted in the callee.
+
+   For the pa, it appears that the debug info marks the parameters as
+   floats regardless of whether the function is prototyped, but the actual
+   values are passed as doubles for the non-prototyped case and floats for
+   the prototyped case.  Thus we choose to make the non-prototyped case work
+   and break the prototyped case.  (FIXME). */
+
+#define COERCE_FLOAT_TO_DOUBLE 1

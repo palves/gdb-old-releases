@@ -170,6 +170,11 @@ struct complaint not_row_major =
   "DIE @ 0x%x \"%s\", array not row major; not handled correctly", 0, 0
 };
 
+struct complaint missing_at_name =
+{
+  "DIE @ 0x%x, AT_name tag missing", 0, 0
+};
+
 typedef unsigned int DIE_REF;	/* Reference to a DIE */
 
 #ifndef GCC_PRODUCER
@@ -888,6 +893,33 @@ alloc_utype (die_ref, utypep)
     }
   return (utypep);
 }
+
+/*
+
+LOCAL FUNCTION
+
+	free_utypes -- free the utypes array and reset pointer & count
+
+SYNOPSIS
+
+	static void free_utypes (PTR dummy)
+
+DESCRIPTION
+
+	Called via do_cleanups to free the utypes array, reset the pointer to NULL,
+	and set numutypes back to zero.  This ensures that the utypes does not get
+	referenced after being freed.
+ */
+
+static void
+free_utypes (dummy)
+     PTR dummy;
+{
+  free (utypes);
+  utypes = NULL;
+  numutypes = 0;
+}
+
 
 /*
 
@@ -1807,6 +1839,16 @@ read_func_scope (dip, thisdie, enddie, objfile)
 {
   register struct context_stack *new;
   
+  /* AT_name is absent if the function is described with an
+     AT_abstract_origin tag.
+     Ignore the function description for now to avoid GDB core dumps.
+     FIXME: Add code to handle AT_abstract_origin tags properly.  */
+  if (dip -> at_name == NULL)
+    {
+      complain (&missing_at_name, DIE_ID);
+      return;
+    }
+
   if (objfile -> ei.entry_point >= dip -> at_low_pc &&
       objfile -> ei.entry_point <  dip -> at_high_pc)
     {
@@ -1920,7 +1962,7 @@ read_file_scope (dip, thisdie, enddie, objfile)
     }
   numutypes = (enddie - thisdie) / 4;
   utypes = (struct type **) xmalloc (numutypes * sizeof (struct type *));
-  back_to = make_cleanup (free, utypes);
+  back_to = make_cleanup (free_utypes, NULL);
   memset (utypes, 0, numutypes * sizeof (struct type *));
   memset (ftypes, 0, FT_NUM_MEMBERS * sizeof (struct type *));
   start_symtab (dip -> at_name, dip -> at_comp_dir, dip -> at_low_pc);
@@ -1933,8 +1975,6 @@ read_file_scope (dip, thisdie, enddie, objfile)
       symtab -> language = cu_language;
     }      
   do_cleanups (back_to);
-  utypes = NULL;
-  numutypes = 0;
 }
 
 /*
@@ -2546,10 +2586,10 @@ add_partial_symbol (dip, objfile)
   switch (dip -> die_tag)
     {
     case TAG_global_subroutine:
-      ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
-			   VAR_NAMESPACE, LOC_BLOCK,
-			   objfile -> global_psymbols,
-			   dip -> at_low_pc, cu_language, objfile);
+      ADD_PSYMBOL_ADDR_TO_LIST (dip -> at_name, strlen (dip -> at_name),
+				VAR_NAMESPACE, LOC_BLOCK,
+				objfile -> global_psymbols,
+				dip -> at_low_pc, cu_language, objfile);
       break;
     case TAG_global_variable:
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
@@ -2558,10 +2598,10 @@ add_partial_symbol (dip, objfile)
 			   0, cu_language, objfile);
       break;
     case TAG_subroutine:
-      ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
-			   VAR_NAMESPACE, LOC_BLOCK,
-			   objfile -> static_psymbols,
-			   dip -> at_low_pc, cu_language, objfile);
+      ADD_PSYMBOL_ADDR_TO_LIST (dip -> at_name, strlen (dip -> at_name),
+				VAR_NAMESPACE, LOC_BLOCK,
+				objfile -> static_psymbols,
+				dip -> at_low_pc, cu_language, objfile);
       break;
     case TAG_local_variable:
       ADD_PSYMBOL_TO_LIST (dip -> at_name, strlen (dip -> at_name),
@@ -2911,12 +2951,12 @@ new_symbol (dip, objfile)
       switch (dip -> die_tag)
 	{
 	case TAG_label:
-	  SYMBOL_VALUE (sym) = dip -> at_low_pc;
+	  SYMBOL_VALUE_ADDRESS (sym) = dip -> at_low_pc;
 	  SYMBOL_CLASS (sym) = LOC_LABEL;
 	  break;
 	case TAG_global_subroutine:
 	case TAG_subroutine:
-	  SYMBOL_VALUE (sym) = dip -> at_low_pc;
+	  SYMBOL_VALUE_ADDRESS (sym) = dip -> at_low_pc;
 	  SYMBOL_TYPE (sym) = lookup_function_type (SYMBOL_TYPE (sym));
 	  SYMBOL_CLASS (sym) = LOC_BLOCK;
 	  if (dip -> die_tag == TAG_global_subroutine)

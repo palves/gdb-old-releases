@@ -30,6 +30,8 @@
 
 #define HAVE_STDARG_H 1
 
+#define HAVE_VPRINTF 1
+
 #ifdef USE_MW_HEADERS
 
 #include <unix.h>

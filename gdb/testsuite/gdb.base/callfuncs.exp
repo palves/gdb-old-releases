@@ -136,9 +136,10 @@ proc do_function_calls {} {
     # Although PR 5318 mentions SunOS specifically, this seems
     # to be a generic problem on quite a few platforms.
     if $prototypes then {
-	setup_xfail "*-*-*" 5318
-	clear_xfail "rs6000-*-*"
-	if {$gcc_compiled} then { clear_xfail "alpha-dec-osf2*" }
+        setup_xfail "hppa*-*-*" "sparc-*-*" "mips*-*-*" 5318
+	if {!$gcc_compiled} then {
+	    setup_xfail "alpha-dec-osf2*" 5318
+	}
     }
     gdb_test "p t_float_values2(3.14159,float_val2)" " = 1"
     gdb_test "p t_small_values(1,2,3,4,5,6,7,8,9,10)" " = 55"

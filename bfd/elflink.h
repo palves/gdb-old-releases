@@ -380,15 +380,15 @@ elf_link_add_object_symbols (abfd, info)
       /* Find the name to use in a DT_NEEDED entry that refers to this
 	 object.  If the object has a DT_SONAME entry, we use it.
 	 Otherwise, if the generic linker stuck something in
-	 elf_dt_needed_name, we use that.  Otherwise, we just use the
-	 file name.  If the generic linker put a null string into
-	 elf_dt_needed_name, we don't make a DT_NEEDED entry at all,
-	 even if there is a DT_SONAME entry.  */
+	 elf_dt_name, we use that.  Otherwise, we just use the file
+	 name.  If the generic linker put a null string into
+	 elf_dt_name, we don't make a DT_NEEDED entry at all, even if
+	 there is a DT_SONAME entry.  */
       add_needed = true;
       name = bfd_get_filename (abfd);
-      if (elf_dt_needed_name (abfd) != NULL)
+      if (elf_dt_name (abfd) != NULL)
 	{
-	  name = elf_dt_needed_name (abfd);
+	  name = elf_dt_name (abfd);
 	  if (*name == '\0')
 	    add_needed = false;
 	}
@@ -420,7 +420,7 @@ elf_link_add_object_symbols (abfd, info)
 	      Elf_Internal_Dyn dyn;
 
 	      elf_swap_dyn_in (abfd, extdyn, &dyn);
-	      if (add_needed && dyn.d_tag == DT_SONAME)
+	      if (dyn.d_tag == DT_SONAME)
 		{
 		  name = bfd_elf_string_from_elf_section (abfd, link,
 							  dyn.d_un.d_val);
@@ -520,6 +520,12 @@ elf_link_add_object_symbols (abfd, info)
 	  if (! elf_add_dynamic_entry (info, DT_NEEDED, strindex))
 	    goto error_return;
 	}
+
+      /* Save the SONAME, if there is one, because sometimes the
+         linker emulation code will need to know it.  */
+      if (*name == '\0')
+	name = bfd_get_filename (abfd);
+      elf_dt_name (abfd) = name;
     }
 
   if (bfd_seek (abfd,
@@ -642,6 +648,9 @@ elf_link_add_object_symbols (abfd, info)
 	  if (h == NULL)
 	    goto error_return;
 	  *sym_hash = h;
+
+	  if (h->root.type == bfd_link_hash_new)
+	    h->elf_link_hash_flags &=~ ELF_LINK_NON_ELF;
 
 	  while (h->root.type == bfd_link_hash_indirect
 		 || h->root.type == bfd_link_hash_warning)
@@ -1231,6 +1240,9 @@ NAME(bfd_elf,record_link_assignment) (output_bfd, info, name, provide)
   if (h == NULL)
     return false;
 
+  if (h->root.type == bfd_link_hash_new)
+    h->elf_link_hash_flags &=~ ELF_LINK_NON_ELF;
+
   /* If this symbol is being provided by the linker script, and it is
      currently defined by a dynamic object, but not by a regular
      object, then mark it as undefined so that the generic linker will
@@ -1506,6 +1518,36 @@ elf_adjust_dynamic_symbol (h, data)
   struct elf_info_failed *eif = (struct elf_info_failed *) data;
   bfd *dynobj;
   struct elf_backend_data *bed;
+
+  /* If this symbol was mentioned in a non-ELF file, try to set
+     DEF_REGULAR and REF_REGULAR correctly.  This is the only way to
+     permit a non-ELF file to correctly refer to a symbol defined in
+     an ELF dynamic object.  */
+  if ((h->elf_link_hash_flags & ELF_LINK_NON_ELF) != 0)
+    {
+      if (h->root.type != bfd_link_hash_defined
+	  && h->root.type != bfd_link_hash_defweak)
+	h->elf_link_hash_flags |= ELF_LINK_HASH_REF_REGULAR;
+      else
+	{
+	  if (h->root.u.def.section->owner != NULL
+	      && (bfd_get_flavour (h->root.u.def.section->owner)
+		  == bfd_target_elf_flavour))
+	    h->elf_link_hash_flags |= ELF_LINK_HASH_REF_REGULAR;
+	  else
+	    h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
+	}
+
+      if ((h->elf_link_hash_flags & ELF_LINK_HASH_DEF_DYNAMIC) != 0
+	  || (h->elf_link_hash_flags & ELF_LINK_HASH_REF_DYNAMIC) != 0)
+	{
+	  if (! _bfd_elf_link_record_dynamic_symbol (eif->info, h))
+	    {
+	      eif->failed = true;
+	      return false;
+	    }
+	}
+    }
 
   /* If -Bsymbolic was used (which means to bind references to global
      symbols to the definition within the shared object), and this

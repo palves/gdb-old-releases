@@ -25,4 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define PTRACE_ARG3_TYPE char*
 
+#define FETCH_INFERIOR_REGISTERS
+
 #define ATTACH_DETACH

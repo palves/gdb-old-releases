@@ -496,6 +496,9 @@ extern boolean _bfd_ecoff_get_accumulated_pdr PARAMS ((PTR, bfd_byte *));
 extern boolean _bfd_ecoff_get_accumulated_sym PARAMS ((PTR, bfd_byte *));
 extern boolean _bfd_ecoff_get_accumulated_ss PARAMS ((PTR, bfd_byte *));
 
+extern bfd_vma _bfd_get_gp_value PARAMS ((bfd *));
+extern void _bfd_set_gp_value PARAMS ((bfd *, bfd_vma));
+
 /* And more follows */
 
 void 
@@ -606,7 +609,9 @@ static const char *const bfd_reloc_code_real_names[] = { "@@uninitialized@@",
   "BFD_RELOC_SPARC_WDISP16",
   "BFD_RELOC_SPARC_WDISP19",
   "BFD_RELOC_SPARC_GLOB_JMP",
-  "BFD_RELOC_SPARC_LO7",
+  "BFD_RELOC_SPARC_7",
+  "BFD_RELOC_SPARC_6",
+  "BFD_RELOC_SPARC_5",
   "BFD_RELOC_ALPHA_GPDISP_HI16",
   "BFD_RELOC_ALPHA_GPDISP_LO16",
   "BFD_RELOC_ALPHA_LITERAL",
@@ -621,6 +626,10 @@ static const char *const bfd_reloc_code_real_names[] = { "@@uninitialized@@",
   "BFD_RELOC_MIPS_LITERAL",
   "BFD_RELOC_MIPS_GOT16",
   "BFD_RELOC_MIPS_CALL16",
+  "BFD_RELOC_MIPS_GOT_HI16",
+  "BFD_RELOC_MIPS_GOT_LO16",
+  "BFD_RELOC_MIPS_CALL_HI16",
+  "BFD_RELOC_MIPS_CALL_LO16",
   "BFD_RELOC_386_GOT32",
   "BFD_RELOC_386_PLT32",
   "BFD_RELOC_386_COPY",

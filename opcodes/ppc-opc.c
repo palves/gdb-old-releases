@@ -1218,6 +1218,7 @@ extract_tbr (insn, invalid)
 
 /* Smaller names for the flags so each entry in the opcodes table will
    fit on a single line.  */
+#undef	PPC
 #define PPC	PPC_OPCODE_PPC | PPC_OPCODE_ANY
 #define PPCCOM	PPC_OPCODE_PPC | PPC_OPCODE_COMMON | PPC_OPCODE_ANY
 #define PPC32	PPC_OPCODE_PPC | PPC_OPCODE_32 | PPC_OPCODE_ANY

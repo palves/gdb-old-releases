@@ -1,3 +1,68 @@
+Sun Feb 18 11:39:12 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.base/signals.exp: Change setup_xfail for "alpha-*-osf2"
+	to "alpha-*-osf2*" and add comment.
+	* gdb.base/a1-selftest.exp (test_with_self): Remove "alpha-dec-osf2*"
+ 	setup_xfail for "step over execarg initialization" and
+ 	"step over corearg initialization".
+	* gdb.base/callfuncs.exp (do_function_calls): Restore setup_xfail
+	for "hppa*-*-*", "sparc-*-*", "mips*-*-*", and "alpha-dec-osf2*".
+	* gdb.base/corefile.exp: Add "alpha-dec-osf2*" setup_xfail when not
+ 	gcc compiled for "print coremaker_bss", "print coremaker_ro",
+	"print func2::coremaker_local", and "backtrace in corefile.exp".
+	* gdb.base/signals.exp: Build and source signals.ci.
+	Change "alpha-dec-osf2*" setup_xfail for "bt in signals.exp"
+	to be for gcc only.
+	* lib/gdb.exp: Move verbose statements outside conditionals.
+	
+Tue Feb 20 16:36:10 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.c++/misc.cc: Add test code from Mike Stump.
+	* gdb.c++/misc.exp: Add test to print s.a, for Mike Stump.
+
+Sat Feb 17 02:22:14 1996  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/sigall.exp:  Remove setup_xfail for irix4.  Fixed by
+	Feb 3 procfs.c change.
+
+Fri Feb 16 13:25:31 1996  Fred Fish  <fnf@cygnus.com>
+
+	* config/unix-gdb.exp: Remove extraneous newlines from end of file.
+
+Thu Feb 15 08:12:55 1996  Fred Fish  <fnf@cygnus.com>
+
+	* config/unix-gdb.exp: Default timeout in UNIX case to 30 seconds, up
+	from dejagnu's apparent default of 10 seconds, which gives random
+	results when running the tests over NFS on moderately loaded systems.
+	* lib/gdb.exp (gdb_run_cmd): Add "(timeout)" in timeout case.
+
+Mon Feb 12 16:50:28 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.base/callfuncs.exp: Remove setup_xfail for PR 5318.  Now fixed.
+	* gdb.base/a2-run.exp: Replace $binfile with $testfile in test
+ 	result reports.
+
+Fri Feb  9 15:56:51 1996  Fred Fish  <fnf@cygnus.com>
+
+	* configure.in (CY_AC_PATH_TCLH): Remove.
+	* configure: Regenerate.
+
+Fri Feb  9 08:21:31 1996  Fred Fish  <fnf@cygnus.com>
+
+	* gdb.c++/Makefile.in (clean): Add missing '{'.
+
+Fri Feb  2 10:19:40 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* lib/gdb.exp: Provide a default value for noinferior.
+
+	* lib/gdb.exp: Fix typos (LDLAGS -> LDFLAGS).
+	Load libgloss.exp.
+
+Thu Feb  1 20:20:14 1996  Jeffrey A Law  (law@cygnus.com)
+
+	* gdb.disasm/hppa.exp: Compile directly into an executable, use
+	the executable, not the .o to run the tests from.
+
 Wed Jan 31 14:21:09 1996  Jeffrey A Law  (law@cygnus.com)
 
 	* gdb.base/break.exp: Don't test for program exit or exit status

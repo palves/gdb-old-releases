@@ -719,17 +719,17 @@ console_create(const char *name,
 
 
 
-/* ICU device: icu@0x<address>,4
+/* ICU device: icu@<address>
 
-   Single 4 byte register.  Read returns processor number.  Write
-   interrupts specified processor.
+   <address> : read - processor nr
+   <address> : write - interrupt processor nr
+   <address> + 4 : read - nr processors
+
+   Single byte registers that control a simple ICU.
 
    Illustrates passing of events to parent device. Passing of
-   interrupts to parent bus.
+   interrupts to an interrupt destination. */
 
-   NB: For the sake of illustrating the passing of interrupts.  This
-   device doesn't pass interrupt events to its parent.  Instead it
-   passes them back to its self. */
 
 static unsigned
 icu_io_read_buffer_callback(device *me,
@@ -740,10 +740,16 @@ icu_io_read_buffer_callback(device *me,
 			    cpu *processor,
 			    unsigned_word cia)
 {
-  unsigned_1 val;
-  val = cpu_nr(processor);
   memset(dest, 0, nr_bytes);
-  *(unsigned_1*)dest = val;
+  switch (addr & 4) {
+  case 0:
+    *(unsigned_1*)dest = cpu_nr(processor);
+    break;
+  case 4:
+    *(unsigned_1*)dest =
+      device_find_integer_property(me, "/openprom/options/smp");
+    break;
+  }
   return nr_bytes;
 }
 
@@ -2209,6 +2215,7 @@ static device_callbacks const stack_callbacks = {
 device_descriptor device_table[] = {
   { "console", console_create, &console_callbacks },
   { "memory", NULL, &memory_callbacks },
+  { "eeprom", NULL, &memory_callbacks },
   { "vm", vea_vm_create, &vm_callbacks },
   { "halt", NULL, &halt_callbacks },
   { "icu", NULL, &icu_callbacks },

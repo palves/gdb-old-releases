@@ -633,7 +633,7 @@ value_binop (arg1, arg2, op)
       /* FIXME-if-picky-about-floating-accuracy: Should be doing this
 	 in target format.  real.c in GCC probably has the necessary
 	 code.  */
-      double v1, v2, v;
+      DOUBLEST v1, v2, v;
       v1 = value_as_double (arg1);
       v2 = value_as_double (arg2);
       switch (op)
@@ -658,7 +658,15 @@ value_binop (arg1, arg2, op)
 	  error ("Integer-only operation on floating point number.");
 	}
 
-      val = allocate_value (builtin_type_double);
+      /* If either arg was long double, make sure that value is also long
+	 double.  */
+
+      if (TYPE_LENGTH(type1) * 8 > TARGET_DOUBLE_BIT
+	  || TYPE_LENGTH(type2) * 8 > TARGET_DOUBLE_BIT)
+	val = allocate_value (builtin_type_long_double);
+      else
+	val = allocate_value (builtin_type_double);
+
       store_floating (VALUE_CONTENTS_RAW (val), TYPE_LENGTH (VALUE_TYPE (val)),
 		      v);
     }

@@ -1,3 +1,12 @@
+Mon Feb 19 01:55:56 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* sparc.h (R_SPARC_{PLT32,HIPLT22,LOPLT10,PCPLT32,PCPLT22,
+	PCPLT10,5,6}): Don't define ifdef SPARC64_OLD_RELOCS.
+
+Tue Feb  6 11:33:58 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* sparc.h (enum sparc_elf_reloc_type): Define.
+
 Wed Jan 17 09:09:16 1996  Doug Evans  <dje@canuck.cygnus.com>
 
 	* common.h: Define EM_SPARC32PLUS.

@@ -56,7 +56,7 @@ mpwify_filename(char *unixname, char *macname)
   /* Abs Unix path to abs Mac path. */
   if (*unixname == '/')
     {
-      if (strncmp (unixname, "/tmp/", 6) == 0)
+      if (strncmp (unixname, "/tmp/", 5) == 0)
 	{
 	  /* A temporary name, make a more Mac-flavored tmpname. */
 	  /* A better choice would be {Boot}Trash:foo, but that would

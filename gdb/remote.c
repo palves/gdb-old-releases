@@ -1137,7 +1137,7 @@ remote_read_bytes (memaddr, myaddr, len)
 
       /* FIXME-32x64: Need a version of print_address_numeric which puts the
 	 result in a buffer like sprintf.  */
-      sprintf (buf, "m%lx,%x", (unsigned long) memaddr, todo);
+      sprintf (buf, "m%lx,%x", (unsigned long) memaddr + done, todo);
       putpkt (buf);
       getpkt (buf, 0);
 
@@ -1160,7 +1160,7 @@ remote_read_bytes (memaddr, myaddr, len)
 	  if (p[0] == 0 || p[1] == 0)
 	    /* Reply is short.  This means that we were able to read only part
 	       of what we wanted to.  */
-	    break;
+	    return i + done;
 	  myaddr[i + done] = fromhex (p[0]) * 16 + fromhex (p[1]);
 	  p += 2;
 	}

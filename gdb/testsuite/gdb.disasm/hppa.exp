@@ -36,7 +36,7 @@ set bug_id 0
 set testfile "hppa"
 set srcfile ${srcdir}/${subdir}/${testfile}.s
 set binfile ${objdir}/${subdir}/${testfile}
-if  { [compile "${srcfile} -c -o ${binfile}.o"] != "" } {
+if  { [compile "${srcfile} -o ${binfile}"] != "" } {
     if [ regexp "Opcode not defined - DIAG" $exec_output] {
 	warning "HP assembler in use--skipping disasm tests"
 	return
@@ -44,11 +44,6 @@ if  { [compile "${srcfile} -c -o ${binfile}.o"] != "" } {
 	perror "Couldn't compile ${srcfile}"
 	return -1
     }
-}
-
-if  { [compile "${binfile}.o -o ${binfile}"] != "" } {
-    perror "Couldn't link ${binfile}"
-    return -1
 }
 
 proc all_integer_memory_tests { } {
@@ -1389,7 +1384,7 @@ proc fmemLRbug_tests { } {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $binfile.o
+gdb_load $binfile
 
 all_integer_memory_tests
 all_immediate_tests

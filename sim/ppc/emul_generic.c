@@ -215,17 +215,21 @@ emul_do_system_call(os_emul_data *emul_data,
 }
 
 
-/* Add options to the device tree */
+/* default size for the first bank of memory */
 
 #ifndef OEA_MEMORY_SIZE
 #define OEA_MEMORY_SIZE 0x100000
 #endif
 
+
+/* Add options to the device tree */
+
 INLINE_EMUL_GENERIC void
 emul_add_tree_options(device *tree,
 		      bfd *image,
 		      const char *emul,
-		      const char *env)
+		      const char *env,
+		      int oea_interrupt_prefix)
 {
   int little_endian = 0;
 
@@ -246,7 +250,9 @@ emul_add_tree_options(device *tree,
   /* misc other stuff */
   device_tree_add_parsed(tree, "/openprom/options/oea-memory-size 0x%x",
 			 OEA_MEMORY_SIZE);
-  device_tree_add_parsed(tree, "/openprom/options/smp %d", MAX_NR_PROCESSORS);
+  device_tree_add_parsed(tree, "/openprom/options/oea-interrupt-prefix %d",
+			 oea_interrupt_prefix);
+  device_tree_add_parsed(tree, "/openprom/options/smp 1");
   device_tree_add_parsed(tree, "/openprom/options/env %s", env);
   device_tree_add_parsed(tree, "/openprom/options/os-emul %s", emul);
   device_tree_add_parsed(tree, "/openprom/options/strict-alignment? %s",
@@ -267,16 +273,17 @@ emul_add_tree_hardware(device *root)
   if (device_tree_find_device(root, "/memory") == NULL) {
     unsigned_word memory_size =
       device_find_integer_property(root, "/openprom/options/oea-memory-size");
-    device_tree_add_parsed(root, "/memory@0");
     device_tree_add_parsed(root, "/memory@0/reg { 0x0 0x%lx",
 			   (unsigned long)memory_size);
     /* what about allocated? */
   }
+  /* an eeprom */
+  device_tree_add_parsed(root, "/openprom/eeprom@0xfff00000/reg { 0xfff00000 0x3000");
   /* the IO bus */
-  device_tree_add_parsed(root, "/iobus@0x400000/reg { 0x400000 0x400000");
+  device_tree_add_parsed(root, "/iobus@0x80000000/reg { 0x80000000 0x400000");
   device_tree_add_parsed(root, "/iobus/console@0x000000/reg { 0x000000 16");
   device_tree_add_parsed(root, "/iobus/halt@0x100000/reg    { 0x100000  4");
-  device_tree_add_parsed(root, "/iobus/icu@0x200000/reg     { 0x200000  4");
+  device_tree_add_parsed(root, "/iobus/icu@0x200000/reg     { 0x200000  8");
   device_tree_add_parsed(root, "/iobus/icu > 0 0 /iobus/icu");
   device_tree_add_parsed(root, "/iobus/icu > 1 1 /iobus/icu");
   /* chosen etc */

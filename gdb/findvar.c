@@ -228,7 +228,7 @@ store_address (addr, len, val)
    3.  We probably should have a LONGEST_DOUBLE or DOUBLEST or whatever
    we want to call it which is long double where available.  */
 
-double
+DOUBLEST
 extract_floating (addr, len)
      PTR addr;
      int len;
@@ -247,6 +247,13 @@ extract_floating (addr, len)
       SWAP_FLOATING (&retval, sizeof (retval));
       return retval;
     }
+  else if (len == sizeof (DOUBLEST))
+    {
+      DOUBLEST retval;
+      memcpy (&retval, addr, sizeof (retval));
+      SWAP_FLOATING (&retval, sizeof (retval));
+      return retval;
+    }
   else
     {
       error ("Can't deal with a floating point number of %d bytes.", len);
@@ -257,7 +264,7 @@ void
 store_floating (addr, len, val)
      PTR addr;
      int len;
-     double val;
+     DOUBLEST val;
 {
   if (len == sizeof (float))
     {
@@ -266,6 +273,13 @@ store_floating (addr, len, val)
       memcpy (addr, &floatval, sizeof (floatval));
     }
   else if (len == sizeof (double))
+    {
+      double doubleval = val;
+
+      SWAP_FLOATING (&doubleval, sizeof (doubleval));
+      memcpy (addr, &doubleval, sizeof (doubleval));
+    }
+  else if (len == sizeof (DOUBLEST))
     {
       SWAP_FLOATING (&val, sizeof (val));
       memcpy (addr, &val, sizeof (val));

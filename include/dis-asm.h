@@ -56,13 +56,6 @@ typedef struct disassemble_info {
   unsigned long flags;
   PTR private_data;
 
-  /* Non-zero if an instruction is to be displayed in raw form (eg: hex)
-     (along with the symbolic form which is always printed).
-     ??? Not all targets support this yet and not all have the same default
-     (which they should).  */
-#define DISASM_RAW_INSN_FLAG	0x10000
-#define DISASM_RAW_INSN(INFO)	((INFO)->flags & DISASM_RAW_INSN_FLAG)
-
   /* Function used to get bytes to disassemble.  MEMADDR is the
      address of the stuff to be disassembled, MYADDR is the address to
      put the bytes in, and LENGTH is the number of bytes to read.

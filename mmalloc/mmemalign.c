@@ -29,9 +29,7 @@ mmemalign (md, alignment, size)
   struct alignlist *l;
   struct mdesc *mdp;
 
-  size = ((size + alignment - 1) / alignment) * alignment;
-
-  if ((result = mmalloc (md, size)) != NULL)
+  if ((result = mmalloc (md, size + alignment - 1)) != NULL)
     {
       adj = RESIDUAL (result, alignment);
       if (adj != 0)
@@ -53,11 +51,11 @@ mmemalign (md, alignment, size)
 		  mfree (md, result);
 		  return (NULL);
 		}
+	      l -> next = mdp -> aligned_blocks;
+	      mdp -> aligned_blocks = l;
 	    }
 	  l -> exact = result;
 	  result = l -> aligned = (char *) result + alignment - adj;
-	  l -> next = mdp -> aligned_blocks;
-	  mdp -> aligned_blocks = l;
 	}
     }
   return (result);

@@ -1,3 +1,7 @@
+Wed Feb 21 12:16:41 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure: Regenerate with autoconf 2.7.
+
 Tue Dec  5 16:38:55 1995  Stu Grossman  (grossman@cygnus.com)
 
 	* gencode.c (mac.l):  Don't abort GDB if executing mac.l

@@ -1,5 +1,5 @@
 /* Basic, host-specific, and target-specific definitions for GDB.
-   Copyright (C) 1986, 1989, 1991, 1992, 1993, 1994, 1995
+   Copyright (C) 1986, 1989, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -79,6 +79,9 @@ typedef bfd_vma CORE_ADDR;
 /* The character GNU C++ uses to build identifiers that must be unique from
    the program's identifiers (such as $this and $$vptr).  */
 #define CPLUS_MARKER '$'	/* May be overridden to '.' for SysV */
+
+/* Check if a character is one of the commonly used C++ marker characters.  */
+extern int is_cplus_marker PARAMS ((int));
 
 extern int quit_flag;
 extern int immediate_quit;
@@ -816,9 +819,25 @@ extern void store_unsigned_integer PARAMS ((void *, int, unsigned LONGEST));
 
 extern void store_address PARAMS ((void *, int, CORE_ADDR));
 
-extern double extract_floating PARAMS ((void *, int));
+/* Use `long double' if the host compiler supports it.  (Note that this is not
+   necessarily any longer than `double'.  On SunOS/gcc, it's the same as
+   double.)  This is necessary because GDB internally converts all floating
+   point values to the widest type supported by the host.
 
-extern void store_floating PARAMS ((void *, int, double));
+   There are problems however, when the target `long double' is longer than the
+   host's `long double'.  In general, we'll probably reduce the precision of
+   any such values and print a warning.  */
+
+
+#ifdef HAVE_LONG_DOUBLE
+typedef long double DOUBLEST;
+#else
+typedef double DOUBLEST;
+#endif
+
+extern DOUBLEST extract_floating PARAMS ((void *, int));
+
+extern void store_floating PARAMS ((void *, int, DOUBLEST));
 
 /* On some machines there are bits in addresses which are not really
    part of the address, but are used by the kernel, the hardware, etc.

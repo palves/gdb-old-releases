@@ -1865,7 +1865,7 @@ elf32_hppa_backend_symbol_table_processing (abfd, esyms,symcnt)
     {
       symext_entryS se =
 	ELF32_PARISC_SX_GET (abfd,
-			     (symextn_hdr->contents
+			     ((unsigned char *)symextn_hdr->contents
 			      + i * ELF32_PARISC_SX_SIZE));
       unsigned int se_value = ELF32_PARISC_SX_VAL (se);
       unsigned int se_type = ELF32_PARISC_SX_TYPE (se);

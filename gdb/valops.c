@@ -32,6 +32,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <errno.h>
 #include "gdb_string.h"
 
+/* Default to coercing float to double in function calls only when there is
+   no prototype.  Otherwise on targets where the debug information is incorrect
+   for either the prototype or non-prototype case, we can force it by defining
+   COERCE_FLOAT_TO_DOUBLE in the target configuration file. */
+
+#ifndef COERCE_FLOAT_TO_DOUBLE
+#define COERCE_FLOAT_TO_DOUBLE (param_type == NULL)
+#endif
+
 /* Local functions.  */
 
 static int typecmp PARAMS ((int staticp, struct type *t1[], value_ptr t2[]));
@@ -887,10 +896,16 @@ value_arg_coerce (arg, param_type)
       if (TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_int))
 	type = builtin_type_int;
       break;
-    case TYPE_CODE_FLT:
-      if (TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_double))
-	type = builtin_type_double;
-      break;
+   case TYPE_CODE_FLT:
+     /* coerce float to double, unless the function prototype specifies float */
+     if (COERCE_FLOAT_TO_DOUBLE)
+       {
+	 if (TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_double))
+	   type = builtin_type_double;
+	 else if (TYPE_LENGTH (type) > TYPE_LENGTH (builtin_type_double))
+	   type = builtin_type_long_double;
+       }
+     break;
     case TYPE_CODE_FUNC:
       type = lookup_pointer_type (type);
       break;
@@ -1140,7 +1155,10 @@ call_function_by_hand (function, nargs, args)
 	     || TYPE_CODE (arg_type) == TYPE_CODE_ARRAY
 	     || TYPE_CODE (arg_type) == TYPE_CODE_STRING
 	     || TYPE_CODE (arg_type) == TYPE_CODE_BITSTRING
-	     || TYPE_CODE (arg_type) == TYPE_CODE_SET)
+	     || TYPE_CODE (arg_type) == TYPE_CODE_SET
+	     || (TYPE_CODE (arg_type) == TYPE_CODE_FLT
+		 && TYPE_LENGTH (arg_type) > 8)
+	     )
 	  && REG_STRUCT_HAS_ADDR (using_gcc, arg_type))
 	  {
 	    CORE_ADDR addr;

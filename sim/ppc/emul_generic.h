@@ -161,7 +161,8 @@ INLINE_EMUL_GENERIC void emul_add_tree_options
 (device *tree,
  bfd *image,
  const char *emul,
- const char *env);
+ const char *env,
+ int oea_interrupt_prefix);
 
 INLINE_EMUL_GENERIC void emul_add_tree_hardware
 (device *tree);

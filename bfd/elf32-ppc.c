@@ -108,6 +108,9 @@ static boolean ppc_elf_set_private_flags PARAMS ((bfd *, flagword));
 static boolean ppc_elf_copy_private_bfd_data PARAMS ((bfd *, bfd *));
 static boolean ppc_elf_merge_private_bfd_data PARAMS ((bfd *, bfd *));
 
+static int ppc_elf_additional_program_headers PARAMS ((bfd *));
+static boolean ppc_elf_modify_segment_map PARAMS ((bfd *));
+
 static boolean ppc_elf_section_from_shdr PARAMS ((bfd *,
 						  Elf32_Internal_Shdr *,
 						  char *));
@@ -1275,6 +1278,7 @@ ppc_elf_create_linker_section (abfd, info, which)
 	  defaults.bss_name	  = ".sbss2";
 	  defaults.sym_name	  = "_SDA2_BASE_";
 	  defaults.sym_offset	  = 32768;
+	  defaults.flags	 |= SEC_READONLY;
 	  break;
 	}
 
@@ -1284,6 +1288,38 @@ ppc_elf_create_linker_section (abfd, info, which)
   return lsect;
 }
 
+
+/* If we have a non-zero sized .sbss2 or .PPC.EMB.sbss0 sections, we need to bump up
+   the number of section headers.  */
+
+static int
+ppc_elf_additional_program_headers (abfd)
+     bfd *abfd;
+{
+  asection *s;
+  int ret;
+
+  ret = 0;
+
+  s = bfd_get_section_by_name (abfd, ".sbss2");
+  if (s != NULL && (s->flags & SEC_LOAD) != 0 && s->_raw_size > 0)
+    ++ret;
+
+  s = bfd_get_section_by_name (abfd, ".PPC.EMB.sbss0");
+  if (s != NULL && (s->flags & SEC_LOAD) != 0 && s->_raw_size > 0)
+    ++ret;
+
+  return ret;
+}
+
+/* Modify the segment map if needed */
+
+static boolean
+ppc_elf_modify_segment_map (abfd)
+     bfd *abfd;
+{
+  return true;
+}
 
 /* Adjust a symbol defined by a dynamic object and referenced by a
    regular object.  The current definition is in some section of the
@@ -1766,10 +1802,9 @@ ppc_elf_add_symbol_hook (abfd, info, sym, namep, flagsp, secp, valp)
     {
       /* Common symbols less than or equal to -G nn bytes are automatically
 	 put into .sdata.  */
-      bfd *dynobj = elf_hash_table (info)->dynobj;
-      elf_linker_section_t *sdata = elf_linker_section (dynobj, LINKER_SECTION_SDATA);
+      elf_linker_section_t *sdata = ppc_elf_create_linker_section (abfd, info, LINKER_SECTION_SDATA);
       if (!sdata->bss_section)
-	sdata->bss_section = bfd_make_section (dynobj, sdata->bss_name);
+	sdata->bss_section = bfd_make_section (elf_hash_table (info)->dynobj, sdata->bss_name);
       *secp = sdata->bss_section;
       (*secp)->flags |= SEC_IS_COMMON;
       *valp = sym->st_size;
@@ -2048,9 +2083,9 @@ ppc_elf_relocate_section (output_bfd, info, input_bfd, input_section,
   Elf_Internal_Shdr *symtab_hdr		  = &elf_tdata (input_bfd)->symtab_hdr;
   struct elf_link_hash_entry **sym_hashes = elf_sym_hashes (input_bfd);
   bfd *dynobj				  = elf_hash_table (info)->dynobj;
-  elf_linker_section_t *got		  = elf_linker_section (dynobj, LINKER_SECTION_GOT);
-  elf_linker_section_t *sdata		  = elf_linker_section (dynobj, LINKER_SECTION_SDATA);
-  elf_linker_section_t *sdata2		  = elf_linker_section (dynobj, LINKER_SECTION_SDATA2);
+  elf_linker_section_t *got		  = (dynobj) ? elf_linker_section (dynobj, LINKER_SECTION_GOT)    : NULL;
+  elf_linker_section_t *sdata		  = (dynobj) ? elf_linker_section (dynobj, LINKER_SECTION_SDATA)  : NULL;
+  elf_linker_section_t *sdata2		  = (dynobj) ? elf_linker_section (dynobj, LINKER_SECTION_SDATA2) : NULL;
   Elf_Internal_Rela *rel		  = relocs;
   Elf_Internal_Rela *relend		  = relocs + input_section->reloc_count;
   boolean ret				  = true;
@@ -2510,5 +2545,7 @@ ppc_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 #define elf_backend_finish_dynamic_symbol	ppc_elf_finish_dynamic_symbol
 #define elf_backend_finish_dynamic_sections	ppc_elf_finish_dynamic_sections
 #define elf_backend_fake_sections		ppc_elf_fake_sections
+#define elf_backend_additional_program_headers	ppc_elf_additional_program_headers
+#define elf_backend_modify_segment_map		ppc_elf_modify_segment_map
 
 #include "elf32-target.h"

@@ -126,6 +126,10 @@ struct elf_link_hash_entry
 #define ELF_LINK_HASH_NEEDS_COPY 040
   /* Symbol needs a procedure linkage table entry.  */
 #define ELF_LINK_HASH_NEEDS_PLT 0100
+  /* Symbol appears in a non-ELF input file.  */
+#define ELF_LINK_NON_ELF 0200
+  /* Note: If you add more flags, you must change the type of
+     elf_link_hash_flags.  */
 };
 
 /* ELF linker hash table.  */
@@ -446,9 +450,6 @@ struct elf_backend_data
   unsigned want_got_plt : 1;
   unsigned plt_readonly : 1;
   unsigned want_plt_sym : 1;
-
-  /* Put ELF and program headers in the first loadable segment.  */
-  unsigned want_hdr_in_seg : 1;
 };
 
 /* Information stored for each BFD section in an ELF file.  This
@@ -578,9 +579,13 @@ struct elf_obj_tdata
 
   /* The linker ELF emulation code needs to let the backend ELF linker
      know what filename should be used for a dynamic object if the
-     dynamic object is found using a search.  This field is used to
-     hold that information.  */
-  const char *dt_needed_name;
+     dynamic object is found using a search.  The emulation code then
+     sometimes needs to know what name was actually used.  Until the
+     file has been added to the linker symbol table, this field holds
+     the name the linker wants.  After it has been added, it holds the
+     name actually used, which will be the DT_SONAME entry if there is
+     one.  */
+  const char *dt_name;
 
   /* Irix 5 often screws up the symbol table, sorting local symbols
      after global symbols.  This flag is set if the symbol table in
@@ -624,7 +629,7 @@ struct elf_obj_tdata
 #define elf_sym_hashes(bfd)	(elf_tdata(bfd) -> sym_hashes)
 #define elf_local_got_offsets(bfd) (elf_tdata(bfd) -> local_got_offsets)
 #define elf_local_ptr_offsets(bfd) (elf_tdata(bfd) -> linker_section_pointers)
-#define elf_dt_needed_name(bfd)	(elf_tdata(bfd) -> dt_needed_name)
+#define elf_dt_name(bfd)	(elf_tdata(bfd) -> dt_name)
 #define elf_bad_symtab(bfd)	(elf_tdata(bfd) -> bad_symtab)
 #define elf_flags_init(bfd)	(elf_tdata(bfd) -> flags_init)
 #define elf_linker_section(bfd,n) (elf_tdata(bfd) -> linker_section[(int)n])

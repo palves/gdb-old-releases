@@ -141,6 +141,9 @@ case $os in
 	-windowsnt*)
 		os=`echo $os | sed -e 's/windowsnt/winnt/'`
 		;;
+	-psos*)
+		os=-psos
+		;;
 esac
 
 # Decode aliases for certain CPU-COMPANY combinations.
@@ -150,10 +153,10 @@ case $basic_machine in
 	tahoe | i[3456]86 | i860 | m68k | m68000 | m88k | ns32k | arm \
 		| arme[lb] | pyramid \
 		| tron | a29k | 580 | i960 | h8300 | hppa1.0 | hppa1.1 \
-		| alpha | we32k | ns16k | clipper | sparclite | i370 | sh \
-		| powerpc | powerpcle | sparc64 | 1750a | dsp16xx | mips64 | mipsel \
+		| alpha | we32k | ns16k | clipper | i370 | sh \
+		| powerpc | powerpcle | 1750a | dsp16xx | mips64 | mipsel \
 		| pdp11 | mips64el | mips64orion | mips64orionel \
-		| sparc)
+		| sparc | sparclet | sparclite | sparc64)
 		basic_machine=$basic_machine-unknown
 		;;
 	m88110 | m680[01234]0 | m683?2 | m68360 | z8k | v70 | h8500 | w65) # CYGNUS LOCAL
@@ -607,20 +610,6 @@ case $basic_machine in
 		basic_machine=sparclite-wrs
 		os=-vxworks
 		;;
-	sparcfrw)					# CYGNUS LOCAL
-		basic_machine=sparcfrw-sun
-		os=-sunos4
-		;;
-	sparcfrwcompat)					# CYGNUS LOCAL
-		basic_machine=sparcfrwcompat-sun
-		os=-sunos4
-		;;
-	sparclitefrw)					# CYGNUS LOCAL
-		basic_machine=sparclitefrw-fujitsu
-		;;
-	sparclitefrwcompat)				# CYGNUS LOCAL
-		basic_machine=sparclitefrwcompat-fujitsu
-		;;
 	sps7)
 		basic_machine=m68k-bull
 		os=-sysv2
@@ -824,19 +813,20 @@ case $os in
 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
 	      | -vms* | -sco* | -esix* | -isc* | -aix* | -sunos | -sunos[3456]* \
 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -solaris* | -sym* \
-	      | -amigados* | -msdos* | -moss* | -newsos* | -unicos* | -aos* \
+	      | -amigados* | -msdos* | -moss* | -newsos* | -unicos* | -aof* |-aos* \
 	      | -nindy* | -vxworks* | -ebmon* | -hms* | -mvs* | -clix* \
 	      | -riscos* | -linux* | -uniplus* | -iris* | -rtu* | -xenix* \
 	      | -hiux* | -386bsd* | -netbsd* | -freebsd* | -riscix* \
 	      | -lynxos* | -bosx* | -nextstep* | -cxux* | -aout* | -elf* \
 	      | -ptx* | -coff* | -ecoff* | -winnt* | -domain* | -vsta* \
-	      | -udi* | -eabi* | -lites* | -ieee* | -go32* | -aux*)
+	      | -udi* | -eabi* | -lites* | -ieee* | -go32* | -aux* \
+	      | -cygwin32* | -pe* | -psos*)
 	# Remember, each alternative MUST END IN *, to match a version number.
 		;;
 	# CYGNUS LOCAL
 	-sim | -es1800* | -hms* | -xray | -os68k* | -none* | -v88r* \
 	      | -windows* | -osx | -abug |  -netware* | -proelf | -os9* \
-	      | -macos* | -mpw* | -magic* | -pe* | -cygwin32)
+	      | -macos* | -mpw* | -magic*)
 		;;
 	-mac*)
 		os=`echo $os | sed -e 's|mac|macos|'`

@@ -187,9 +187,9 @@ reloc_type_lookup (abfd, code)
 static const bfd_byte elf_m68k_plt0_entry[PLT_ENTRY_SIZE] =
 {
   0x2f, 0x3b, 0x01, 0x70, /* move.l (%pc,addr),-(%sp) */
-  0, 0, 0, 0,		  /* replaced with address of .got + 4.  */
+  0, 0, 0, 0,		  /* replaced with offset to .got + 4.  */
   0x4e, 0xfb, 0x01, 0x71, /* jmp ([%pc,addr]) */
-  0, 0, 0, 0,		  /* replaced with address of .got + 8.  */
+  0, 0, 0, 0,		  /* replaced with offset to .got + 8.  */
   0, 0, 0, 0		  /* pad out to 20 bytes.  */
 };
 
@@ -197,8 +197,8 @@ static const bfd_byte elf_m68k_plt0_entry[PLT_ENTRY_SIZE] =
 
 static const bfd_byte elf_m68k_plt_entry[PLT_ENTRY_SIZE] =
 {
-  0x4e, 0xfb, 0x01, 0x71, /* jmp ([addr]) */
-  0, 0, 0, 0,		  /* replaced with address of this symbol in .got.  */
+  0x4e, 0xfb, 0x01, 0x71, /* jmp ([%pc,symbol@GOTPC]) */
+  0, 0, 0, 0,		  /* replaced with offset to symbol's .got entry.  */
   0x2f, 0x3c,		  /* move.l #offset,-(%sp) */
   0, 0, 0, 0,		  /* replaced with offset into relocation table.  */
   0x60, 0xff,		  /* bra.l .plt */
@@ -256,14 +256,14 @@ elf_m68k_check_relocs (abfd, info, sec, relocs)
 	case R_68K_GOT8:
 	case R_68K_GOT16:
 	case R_68K_GOT32:
+	  if (h != NULL
+	      && strcmp (h->root.root.string, "_GLOBAL_OFFSET_TABLE_") == 0)
+	    break;
+	  /* Fall through.  */
 	case R_68K_GOT8O:
 	case R_68K_GOT16O:
 	case R_68K_GOT32O:
 	  /* This symbol requires a global offset table entry.  */
-
-	  if (h != NULL
-	      && strcmp (h->root.root.string, "_GLOBAL_OFFSET_TABLE_") == 0)
-	    break;
 
 	  if (dynobj == NULL)
 	    {
@@ -355,19 +355,34 @@ elf_m68k_check_relocs (abfd, info, sec, relocs)
 	case R_68K_PLT8:
 	case R_68K_PLT16:
 	case R_68K_PLT32:
-	case R_68K_PLT8O:
-	case R_68K_PLT16O:
-	case R_68K_PLT32O:
 	  /* This symbol requires a procedure linkage table entry.  We
 	     actually build the entry in adjust_dynamic_symbol,
-	     because this might be a case of linking PIC code without
-	     linking in any dynamic objects, in which case we don't
-	     need to generate a procedure linkage table after all.  */
-	  
+             because this might be a case of linking PIC code which is
+             never referenced by a dynamic object, in which case we
+             don't need to generate a procedure linkage table entry
+             after all.  */
+
 	  /* If this is a local symbol, we resolve it directly without
 	     creating a procedure linkage table entry.  */
 	  if (h == NULL)
 	    continue;
+
+	  h->elf_link_hash_flags |= ELF_LINK_HASH_NEEDS_PLT;
+	  break;
+
+	case R_68K_PLT8O:
+	case R_68K_PLT16O:
+	case R_68K_PLT32O:
+	  /* This symbol requires a procedure linkage table entry.  */
+
+	  if (h == NULL)
+	    {
+	      /* It does not make sense to have this relocation for a
+		 local symbol.  FIXME: does it?  How to handle it if
+		 it does make sense?  */
+	      bfd_set_error (bfd_error_bad_value);
+	      return false;
+	    }
 
 	  /* Make sure this symbol is output as a dynamic symbol.  */
 	  if (h->dynindx == -1)
@@ -389,7 +404,13 @@ elf_m68k_check_relocs (abfd, info, sec, relocs)
 	case R_68K_16:
 	case R_68K_32:
 	  if (info->shared
-	      && (sec->flags & SEC_ALLOC) != 0)
+	      && (sec->flags & SEC_ALLOC) != 0
+	      && ((ELF32_R_TYPE (rel->r_info) != R_68K_PC8
+		   && ELF32_R_TYPE (rel->r_info) != R_68K_PC16
+		   && ELF32_R_TYPE (rel->r_info) != R_68K_PC32)
+		  || (!info->symbolic
+		      || (h->elf_link_hash_flags
+			  & ELF_LINK_HASH_DEF_REGULAR) == 0)))
 	    {
 	      /* When creating a shared object, we must copy these
 		 reloc types into the output file.  We create a reloc
@@ -472,15 +493,28 @@ elf_m68k_adjust_dynamic_symbol (info, h)
   if (h->type == STT_FUNC
       || (h->elf_link_hash_flags & ELF_LINK_HASH_NEEDS_PLT) != 0)
     {
-      if (!elf_hash_table (info)->dynamic_sections_created)
+      if (! info->shared
+	  && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_DYNAMIC) == 0
+	  && (h->elf_link_hash_flags & ELF_LINK_HASH_REF_DYNAMIC) == 0
+	  /* We must always create the plt entry if it was referenced
+	     by a PLTxxO relocation.  In this case we already recorded
+	     it as a dynamic symbol.  */
+	  && h->dynindx == -1)
 	{
-	  /* This case can occur if we saw a PLT32 reloc in an input
-	     file, but none of the input files were dynamic objects.
-	     In such a case, we don't actually need to build a
-	     procedure linkage table, and we can just do a PC32 reloc
-	     instead.  */
+	  /* This case can occur if we saw a PLTxx reloc in an input
+	     file, but the symbol was never referred to by a dynamic
+	     object.  In such a case, we don't actually need to build
+	     a procedure linkage table, and we can just do a PCxx
+	     reloc instead.  */
 	  BFD_ASSERT ((h->elf_link_hash_flags & ELF_LINK_HASH_NEEDS_PLT) != 0);
 	  return true;
+	}
+
+      /* Make sure this symbol is output as a dynamic symbol.  */
+      if (h->dynindx == -1)
+	{
+	  if (! bfd_elf32_link_record_dynamic_symbol (info, h))
+	    return false;
 	}
 
       s = bfd_get_section_by_name (dynobj, ".plt");
@@ -1019,7 +1053,7 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 					   + sgot->output_offset
 					   + off);
 			outrel.r_info = ELF32_R_INFO (0, R_68K_RELATIVE);
-			outrel.r_addend = 0;
+			outrel.r_addend = relocation;
 			bfd_elf32_swap_reloca_out (output_bfd, &outrel,
 						   (((Elf32_External_Rela *)
 						     srelgot->contents)
@@ -1050,7 +1084,7 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 	  /* Relocation is to the entry for this symbol in the
 	     procedure linkage table.  */
 
-	  /* Resolve a PLT32 reloc against a local symbol directly,
+	  /* Resolve a PLTxx reloc against a local symbol directly,
 	     without using the procedure linkage table.  */
 	  if (h == NULL)
 	    break;
@@ -1079,14 +1113,7 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 	case R_68K_PLT32O:
 	  /* Relocation is the offset of the entry for this symbol in
 	     the procedure linkage table.  */
-	  BFD_ASSERT (h != NULL);
-
-	  if (h->plt_offset == (bfd_vma) -1)
-	    {
-	      /* We didn't make a PLT entry for this symbol.  This
-		 happens when statically linking PIC code.  */
-	      break;
-	    }
+	  BFD_ASSERT (h != NULL && h->plt_offset == (bfd_vma) -1);
 
 	  if (splt == NULL)
 	    {
@@ -1111,9 +1138,16 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 	case R_68K_16:
 	case R_68K_32:
 	  if (info->shared
-	      && (input_section->flags & SEC_ALLOC) != 0)
+	      && (input_section->flags & SEC_ALLOC) != 0
+	      && ((r_type != R_68K_PC8
+		   && r_type != R_68K_PC16
+		   && r_type != R_68K_PC32)
+		  || (!info->symbolic
+		      || (h->elf_link_hash_flags
+			  & ELF_LINK_HASH_DEF_REGULAR) == 0)))
 	    {
 	      Elf_Internal_Rela outrel;
+	      int relocate;
 
 	      /* When generating a shared object, these relocations
 		 are copied into the output file to be resolved at run
@@ -1148,13 +1182,15 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 			  & ELF_LINK_HASH_DEF_REGULAR) == 0))
 		{
 		  BFD_ASSERT (h->dynindx != -1);
+		  relocate = false;
 		  outrel.r_info = ELF32_R_INFO (h->dynindx, r_type);
-		  outrel.r_addend = rel->r_addend;
+		  outrel.r_addend = relocation + rel->r_addend;
 		}
 	      else
 		{
 		  if (r_type == R_68K_32)
 		    {
+		      relocate = true;
 		      outrel.r_info = ELF32_R_INFO (0, R_68K_RELATIVE);
 		      outrel.r_addend = relocation + rel->r_addend;
 		    }
@@ -1188,6 +1224,7 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 			    abort ();
 			}
 
+		      relocate = false;
 		      outrel.r_info = ELF32_R_INFO (indx, r_type);
 		      outrel.r_addend = relocation + rel->r_addend;
 		    }
@@ -1200,8 +1237,11 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 	      ++sreloc->reloc_count;
 
 	      /* This reloc will be computed at runtime, so there's no
-                 need to do anything now.  */
-	      continue;
+                 need to do anything now, except for R_68K_32
+                 relocations that have been turned into
+                 R_68K_RELATIVE.  */
+	      if (!relocate)
+		continue;
 	    }
 
 	  break;
@@ -1363,14 +1403,19 @@ elf_m68k_finish_dynamic_symbol (output_bfd, info, h, sym)
       if (info->shared
 	  && info->symbolic
 	  && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR))
-	rela.r_info = ELF32_R_INFO (0, R_68K_RELATIVE);
+	{
+	  rela.r_info = ELF32_R_INFO (0, R_68K_RELATIVE);
+	  rela.r_addend = bfd_get_32 (output_bfd,
+				      sgot->contents + (h->got_offset & ~1));
+	}
       else
 	{
-	  bfd_put_32 (output_bfd, (bfd_vma) 0, sgot->contents + h->got_offset);
+	  bfd_put_32 (output_bfd, (bfd_vma) 0,
+		      sgot->contents + (h->got_offset & ~1));
 	  rela.r_info = ELF32_R_INFO (h->dynindx, R_68K_GLOB_DAT);
+	  rela.r_addend = 0;
 	}
 
-      rela.r_addend = 0;
       bfd_elf32_swap_reloca_out (output_bfd, &rela,
 				 ((Elf32_External_Rela *) srela->contents
 				  + srela->reloc_count));
@@ -1474,17 +1519,13 @@ elf_m68k_finish_dynamic_sections (output_bfd, info)
 	      break;
 
 	    case DT_RELASZ:
-	      /* My reading of the SVR4 ABI indicates that the
-		 procedure linkage table relocs (DT_JMPREL) should be
-		 included in the overall relocs (DT_RELA).  This is
-		 what Solaris does.  However, UnixWare can not handle
-		 that case.  Therefore, we override the DT_RELASZ entry
-		 here to make it not include the JMPREL relocs.  Since
-		 the linker script arranges for .rela.plt to follow all
+	      /* The procedure linkage table relocs (DT_JMPREL) should
+		 not be included in the overall relocs (DT_RELA).
+		 Therefore, we override the DT_RELASZ entry here to
+		 make it not include the JMPREL relocs.  Since the
+		 linker script arranges for .rela.plt to follow all
 		 other relocation sections, we don't have to worry
 		 about changing the DT_RELA entry.  */
-	      /* FIXME: This comment is from elf32-i386.c, what about
-		 the SVR4/m68k implementations? */
 	      s = bfd_get_section_by_name (output_bfd, ".rela.plt");
 	      if (s != NULL)
 		{

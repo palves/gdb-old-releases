@@ -1,3 +1,9 @@
+Tue Feb 13 13:22:23 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: On Solaris, put -export-dynamic in LD_FLAGS if the
+	linker supports it.
+	* configure: Regenerated.
+
 Thu Feb  1 09:57:19 1996  Tom Tromey  (tromey@gerbil.cygnus.com)
 
 	* configure.in: Test $CC against *gcc*, not just gcc.

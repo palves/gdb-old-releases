@@ -55,7 +55,11 @@
 #include <stdio.h>
 #include "defs.h"
 #include "serial.h"
+#ifdef ANSI_PROTOTYPES
+#include <stdarg.h>
+#else
 #include <varargs.h>
+#endif
 
 #if !defined (HAVE_TERMIOS) && !defined (HAVE_TERMIO) && !defined (HAVE_SGTTY)
 #define HAVE_SGTTY
@@ -103,15 +107,25 @@ static ninStrGet();
  *	suppressed.
  *****************************************************************************/
 
+/* VARARGS */
 static void
+#ifdef ANSI_PROTOTYPES
+say (char *fmt, ...)
+#else
 say (va_alist)
      va_dcl
+#endif
 {
   va_list args;
+#ifdef ANSI_PROTOTYPES
+  va_start(args, fmt);
+#else
   char *fmt;
 
   va_start (args);
   fmt = va_arg (args, char *);
+#endif
+
   if (!quiet)
     {
       vfprintf_unfiltered (gdb_stdout, fmt, args);

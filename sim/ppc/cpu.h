@@ -170,8 +170,18 @@ INLINE_CPU\
 (vm_instruction_map *) cpu_instruction_map
 (cpu *processor);
 
+INLINE_CPU\
+(void) cpu_page_tlb_invalidate_entry
+(cpu *processor,
+ unsigned_word ea);
+
+INLINE_CPU\
+(void) cpu_page_tlb_invalidate_all
+(cpu *processor);
+
 
 /* grant access to the reservation information */
+
 typedef struct _memory_reservation {
   int valid;
   unsigned_word addr;

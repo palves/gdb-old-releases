@@ -1,5 +1,5 @@
 /* Read a symbol table in MIPS' format (Third-Eye).
-   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
    Contributed by Alessandro Forin (af@cs.cmu.edu) at CMU.  Major work
    by Per Bothner, John Gilmore and Ian Lance Taylor at Cygnus Support.
@@ -108,10 +108,9 @@ mipscoff_symfile_read (objfile, section_offsets, mainline)
   mdebug_build_psymtabs (objfile, &ecoff_backend (abfd)->debug_swap,
 			 &ecoff_data (abfd)->debug_info, section_offsets);
 
-  /* Add the dynamic symbols if we are reading the main symbol table.  */
+  /* Add alpha coff dynamic symbols.  */
 
-  if (mainline)
-    read_alphacoff_dynamic_symtab (section_offsets, objfile);
+  read_alphacoff_dynamic_symtab (section_offsets, objfile);
 
   /* Install any minimal symbols that have been collected as the current
      minimal symbols for this objfile. */

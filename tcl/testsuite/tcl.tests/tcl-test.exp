@@ -86,7 +86,7 @@ expect {
 	exp_continue
     }
     -re "\[\r\n\]*\\+* \[a-z\]*-\[.0-9\]* FAILED\[\r\n\]*" {
-	fail [lindex $expect_out(0,string) 1]
+	fail [lindex $expect_out(0,string) 0]
 	exp_continue
     }
     -re "\[x\]+ \[a-i\]+ \[A-K\]+ \[0-9\]+ " {

@@ -18,6 +18,13 @@ if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
     return -1
 }
 
+execute_anywhere "rm -f ${binfile}.ci"
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
+    perror "Couldn't make ${testfile}.ci file"
+    return -1
+}
+source gdb.base/${testfile}.ci
+
 proc signal_tests_1 {} {
     global prompt
     if [runto_main] then {
@@ -357,7 +364,9 @@ if [runto_main] then {
 The program being debugged stopped while in a function called from GDB.*" \
 	"p func1 () #2 in signals.exp"
     # But we should be able to backtrace...
-    setup_xfail "alpha-*-osf2"
+    # On alpha-*-osf2.0 this test works when run manually but fails when
+    # run under dejagnu, making it very hard to debug the problem.  Weird...
+    if {$gcc_compiled} then { setup_xfail "alpha-*-osf2*" }
     gdb_test "bt" "#0.*handler.*#1.*#2.*main.*" "bt in signals.exp"
     # ...and continue...
     gdb_test "continue" "Continuing\\." "continue in signals.exp"

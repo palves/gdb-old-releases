@@ -617,3 +617,15 @@ extern unsigned long frame_saved_pc PARAMS ((struct frame_info *));
 /* RS6000/AIX does not support PT_STEP.  Has to be simulated.  */
 
 #define NO_SINGLE_STEP
+
+/* If the current gcc for for this target does not produce correct debugging
+   information for float parameters, both prototyped and unprototyped, then
+   define this macro.  This forces gdb to  always assume that floats are
+   passed as doubles and then converted in the callee.
+
+   For the PowerPC, it appears that the debug info marks the parameters as
+   floats regardless of whether the function is prototyped, but the actual
+   values are always passed in as doubles.  Thus by setting this to 1, both
+   types of calls will work. */
+
+#define COERCE_FLOAT_TO_DOUBLE 1

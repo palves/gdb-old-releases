@@ -1,3 +1,19 @@
+Tue Feb 27 12:00:50 1996  Raymond Jou  <rjou@mexican.cygnus.com>
+
+	* mpw.c (mpwify_filename): Change 6 to 5 in 
+	strncmp (unixname, "/tmp/", 5)
+	
+Tue Feb 20 10:55:53 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* cplus-dem.c (demangle_template): Initialize is_bool.  Correctly
+	handle 0 as a pointer value parameter.
+
+Mon Feb  5 16:41:44 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (all): Depend upon required-list.
+	(required-list): New target.
+	(clean): Remove required-list.
+
 Wed Jan 31 10:19:41 1996  Steve Chamberlain  <sac@slash.cygnus.com>
 
 	* win32.c: Deleted.

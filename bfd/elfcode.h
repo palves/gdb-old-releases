@@ -155,6 +155,7 @@ static boolean elf_slurp_reloc_table PARAMS ((bfd *, asection *, asymbol **));
  int _bfd_elf_symbol_from_bfd_symbol PARAMS ((bfd *,
 					     struct symbol_cache_entry **));
 
+static boolean validate_reloc PARAMS ((bfd *, arelent *));
 static void write_relocs PARAMS ((bfd *, asection *, PTR));
 
  boolean bfd_section_from_shdr PARAMS ((bfd *, unsigned int shindex));
@@ -660,8 +661,107 @@ got_no_match:
   return (NULL);
 }
 
-
 /* ELF .o/exec file writing */
+
+/* Try to convert a non-ELF reloc into an ELF one.  */
+
+static boolean
+validate_reloc (abfd, areloc)
+     bfd *abfd;
+     arelent *areloc;
+{
+  /* Check whether we really have an ELF howto. */
+
+  if ((*areloc->sym_ptr_ptr)->the_bfd->xvec != abfd->xvec) 
+    {
+      bfd_reloc_code_real_type code;
+      reloc_howto_type *howto;
+      
+      /* Alien reloc: Try to determine its type to replace it with an
+	 equivalent ELF reloc. */
+
+      if (areloc->howto->pc_relative)
+	{
+	  switch (areloc->howto->bitsize)
+	    {
+	    case 8:
+	      code = BFD_RELOC_8_PCREL; 
+	      break;
+	    case 12:
+	      code = BFD_RELOC_12_PCREL; 
+	      break;
+	    case 16:
+	      code = BFD_RELOC_16_PCREL; 
+	      break;
+	    case 24:
+	      code = BFD_RELOC_24_PCREL; 
+	      break;
+	    case 32:
+	      code = BFD_RELOC_32_PCREL; 
+	      break;
+	    case 64:
+	      code = BFD_RELOC_64_PCREL; 
+	      break;
+	    default:
+	      goto fail;
+	    }
+
+	  howto = bfd_reloc_type_lookup (abfd, code);
+
+	  if (areloc->howto->pcrel_offset != howto->pcrel_offset)
+	    {
+	      if (howto->pcrel_offset)
+		areloc->addend += areloc->address;
+	      else
+		areloc->addend -= areloc->address; /* addend is unsigned!! */
+	    }
+	}
+      else
+	{
+	  switch (areloc->howto->bitsize)
+	    {
+	    case 8:
+	      code = BFD_RELOC_8; 
+	      break;
+	    case 14:
+	      code = BFD_RELOC_14; 
+	      break;
+	    case 16:
+	      code = BFD_RELOC_16; 
+	      break;
+	    case 26:
+	      code = BFD_RELOC_26; 
+	      break;
+	    case 32:
+	      code = BFD_RELOC_32; 
+	      break;
+	    case 64:
+	      code = BFD_RELOC_64; 
+	      break;
+	    default:
+	      goto fail;
+	    }
+
+	  howto = bfd_reloc_type_lookup (abfd, code);
+	}
+
+      if (howto)
+	areloc->howto = howto;
+      else
+	goto fail;
+    }
+
+  return true;
+
+ fail:
+  (*_bfd_error_handler)
+    ("%s: unsupported relocation type %s",
+     bfd_get_filename (abfd), areloc->howto->name);
+  bfd_set_error (bfd_error_bad_value);
+  return false;
+}
+
+/* Write out the relocs.  */
 
 static void
 write_relocs (abfd, sec, data)
@@ -734,6 +834,14 @@ write_relocs (abfd, sec, data)
 	      last_sym = sym;
 	      last_sym_idx = n = _bfd_elf_symbol_from_bfd_symbol (abfd, &sym);
 	    }
+
+	  if ((*ptr->sym_ptr_ptr)->the_bfd->xvec != abfd->xvec
+	      && ! validate_reloc (abfd, ptr))
+	    {
+	      *failedp = true;
+	      return;
+	    }
+
 	  dst_rela.r_info = ELF_R_INFO (n, ptr->howto->type);
 
 	  dst_rela.r_addend = ptr->addend;
@@ -772,6 +880,14 @@ write_relocs (abfd, sec, data)
 	      last_sym = sym;
 	      last_sym_idx = n = _bfd_elf_symbol_from_bfd_symbol (abfd, &sym);
 	    }
+
+	  if ((*ptr->sym_ptr_ptr)->the_bfd->xvec != abfd->xvec
+	      && ! validate_reloc (abfd, ptr))
+	    {
+	      *failedp = true;
+	      return;
+	    }
+
 	  dst_rel.r_info = ELF_R_INFO (n, ptr->howto->type);
 
 	  elf_swap_reloc_out (abfd, &dst_rel, src_rel);

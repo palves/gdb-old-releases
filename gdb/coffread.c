@@ -1825,6 +1825,9 @@ decode_base_type (cs, c_type, aux)
       case T_DOUBLE:
 	return lookup_fundamental_type (current_objfile, FT_DBL_PREC_FLOAT);
 
+      case T_LNGDBL:
+	return lookup_fundamental_type (current_objfile, FT_EXT_PREC_FLOAT);
+
       case T_STRUCT:
 	if (cs->c_naux != 1)
 	  {

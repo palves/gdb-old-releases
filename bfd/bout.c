@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 960 b.out binaries.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -785,7 +785,7 @@ b_out_squirt_out_relocs (abfd, section)
 	/* Fill in symbol */
 
 	r_extern = 1;
-	r_idx =  stoi((*(g->sym_ptr_ptr))->flags);
+	r_idx = (*g->sym_ptr_ptr)->udata.i;
       }
     }
     else
@@ -929,6 +929,8 @@ b_out_set_arch_mach (abfd, arch, machine)
     case bfd_mach_i960_xa:
     case bfd_mach_i960_ca:
     case bfd_mach_i960_ka_sa:
+    case bfd_mach_i960_jx:
+    case bfd_mach_i960_hx:
     case 0:
       return true;
     default:

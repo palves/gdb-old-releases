@@ -130,7 +130,8 @@ proc do_tests {} {
     gdb_load $binfile
 
     deduce_language_of_main
-
+    # Check for fixes for PRs 8916 and 8630
+    gdb_test "print s.a" ".* = 0" "print s.a for foo struct"
 }
 
 do_tests

@@ -44,6 +44,9 @@
 
 extern char **environ;
 
+static psim *simulation;
+
+
 void
 printf_filtered(const char *msg, ...)
 {
@@ -54,12 +57,23 @@ printf_filtered(const char *msg, ...)
 }
 
 void
+flush_stdoutput(void)
+{
+  fflush (stdout);
+}
+
+void
 error (char *msg, ...)
 {
   va_list ap;
   va_start(ap, msg);
   vprintf(msg, ap);
   va_end(ap);
+
+  /* any final clean up */
+  if (ppc_trace[trace_print_info])
+    psim_print_info (simulation, ppc_trace[trace_print_info]);
+
   exit (1);
 }
 
@@ -82,7 +96,6 @@ zfree(void *chunk)
 int
 main(int argc, char **argv)
 {
-  psim *system;
   const char *name_of_file;
   char *arg_;
   psim_status status;
@@ -98,7 +111,7 @@ main(int argc, char **argv)
     print_options ();
 
   /* create the simulator */
-  system = psim_create(name_of_file, root);
+  simulation = psim_create(name_of_file, root);
 
   /* fudge the environment so that _=prog-name */
   arg_ = (char*)zalloc(strlen(argv[0]) + strlen("_=") + 1);
@@ -107,17 +120,17 @@ main(int argc, char **argv)
   putenv(arg_);
 
   /* initialize it */
-  psim_init(system);
-  psim_stack(system, argv, environ);
+  psim_init(simulation);
+  psim_stack(simulation, argv, environ);
 
-  psim_run(system);
+  psim_run(simulation);
 
   /* any final clean up */
   if (ppc_trace[trace_print_info])
-    psim_print_info (system, ppc_trace[trace_print_info]);
+    psim_print_info (simulation, ppc_trace[trace_print_info]);
 
   /* why did we stop */
-  status = psim_get_status(system);
+  status = psim_get_status(simulation);
   switch (status.reason) {
   case was_continuing:
     error("psim: continuing while stoped!\n");

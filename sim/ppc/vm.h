@@ -131,4 +131,16 @@ INLINE_VM\
  sreg *srs,
  msreg msr);
 
+
+/* update vm data structures due to a TLB operation */
+
+INLINE_VM\
+(void) vm_page_tlb_invalidate_entry
+(vm *memory,
+ unsigned_word ea);
+
+INLINE_VM\
+(void) vm_page_tlb_invalidate_all
+(vm *memory);
+
 #endif

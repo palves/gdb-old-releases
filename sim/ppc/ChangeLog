@@ -1,3 +1,202 @@
+Thu Feb 22 22:48:57 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* README, RUN, INSTALL: Update to reflect announcement
+	* psim: PSIM 1.0.1 released
+
+Thu Feb 22 14:01:56 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* emul_bugapi.c (emul_bugapi_do_read): New function to handle
+	reads.
+	(emul_bugapi_instruction_call): Add support for .INCHR/.INLN
+	system calls.
+
+	* emul_bugapi.c (emul_bugapi_do_write): Call flush_stdoutput.
+	* emul_netbsd.c (do_write): Call flush_stdoutput.
+
+	* main.c (flush_stdoutput): Do fflush (stdout).
+	* sim_calls.c (flush_stdoutput): Do gdb_flush (gdb_stdout);
+	* sim_callbacks.h (flush_stdoutput): Declare.
+
+Wed Feb 21 10:39:35 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* emul_bugapi.c (bug_mapping): New structure to map bug system
+	call numbers to a string.
+	(toplevel): Add remaining bugapi system calls.
+	(emul_bugapi_instruction_name): Map bugapi system call number to a
+	string.
+	(emul_bugapi_do_write): Common code to process write system calls.
+	(emul_bugapi_instruction_call): If os-emul tracing is on, trace
+	the system call.  Use the name to print unknown system call.
+	Correct implementation of _OUTLN.  Add support for _OUTSTR and
+	_PCRLR system calls.
+
+Wed Feb 21 17:07:27 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* NOTES: New file.  Ramblings on why things were done they way
+ 	they were.
+	
+	* psim.c (psim_options): Didn't enter the model value into the
+ 	device tree as a string.
+	
+  	* cpu.c (cpu_synchronize_context): Wrong test for conditional
+ 	flush of cache.
+
+	* emul_generic.c (emul_add_tree_hardware): reg value didn't match
+ 	bus address.
+	
+	* ppc-opcode-flat: new file. Generate an instruction decode
+ 	function like ppc-opcode-complex but use switch statements.
+
+	* INSTALL: document new opcode file, add example configurations.
+
+Tue Feb 20 18:42:31 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* main.c (main): rename psim instance (system) to simulation and
+ 	make global.
+	* main.c (error): print out performance even when an error occures.
+
+	* emul_bugapi.c (emul_bugapi_create): Fix argument passing.
+
+	* emul_generic.c (emul_add_tree_hardware): Move hardware devices
+ 	to 0x80000000 from 0x400000.
+
+Mon Feb 19 22:54:40 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* ppc-instructions (TLB Invalidate Entry, TLB Invalidate ALL):
+        Implement by passing on request to all processors.
+	* ppc-instructions (TLB Synchronize): Implement as empty, processor
+	tlb's are always in sync.
+
+	* cpu.c (cpu_page_tlb_invalidate_all): New function.  Pass on TLB
+        invalidate request to processors VM sub-system.
+	* cpu.c (cpu_page_tlb_invalidate_entry): Ditto.
+
+	* vm.c (vm_page_tlb_invalidate_all): New function. Mark all page
+        TLB entries as invalid.
+	* vm.c (vm_page_tlb_invalidate_entry): New function. Ditt but only
+	invalidate one TLB entry.
+
+	* psim.c (psim_init): Invalidate TLB's before (re)starting.
+
+Mon Feb 19 21:25:56 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* emul_generic.c (emul_add_tree_options): Add argument
+        oea_interrupt_prefix (0 or 1) that specifies the prefix MSR[IP]
+        and hence the location of the interrupt vectors.  Add this to the
+        device tree.
+
+	* emul_chirp.c (emul_chirp_create): Allow configuration of
+        floating-point and interrupt prefix (default 0) using the above.
+
+	* emul_netbsd.c (emul_netbsd_create): Pass dummy arg for
+        interrupt-prefix.
+
+	* emul_bugapi.c (emul_bugapi_create): Allow configuration of
+        interrupt prefix (default 1) and configure interrupt table traps
+        accordingly.
+
+	* emul_generic.c (emul_add_tree_hardware): Include a small eeprom
+        in the list of devices.
+
+	* device_table.c: For moment fake eeprom device by a memory
+        device.  In future will need a proper eeprom device.
+
+Tue Feb 20 17:01:26 1996  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* config.in: Regenerated.
+
+Fri Feb 16 10:42:27 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* psim.c: Include options.h so print_options is declared.
+
+Thu Feb 15 18:10:13 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* emul_netbsd.c (toplevel): Do not include sys/resource.h if the
+	system doesn't have it, and turn off getrusage processing.
+	(write_rusage): #ifdef out if we don't have getrusage.
+	(do_getrusage): Define as 0 if we don't have getrusage.
+
+Wed Feb 14 17:38:12 1996  J. T. Conklin  <jtc@cygnus.com>
+
+	* configure.in (AC_HEADER_DIRENT): Add, so that we can figure out
+	where the directory functions are declared.
+	* configure: Regenerate
+
+	* emul_netbsd.c: Use the macros defined by configure to find the
+	appropriate directory functions.
+
+Thu Feb  8 00:53:13 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* configure.in (xor_endian): Trace setting of xor-endian flag.
+
+Wed Feb  7 18:20:56 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* psim.c (psim_usage): Extend documentation.
+
+	* ppc-instructions (model-print): fix typo.
+
+Sun Feb  4 23:58:02 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* configure.in (with-smp): Default configuration allow up to
+	five processors (but enable only one).
+
+	* emul_bugapi.c (emul_bugapi_create): If floating-point is
+	allowed, enable the floating point instruction set in the
+	msr.
+
+Tue Jan 30 22:52:32 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* emul_chirp.c (chirp_emul_seek, chirp_emul_read,
+        chirp_emul_write): Tolerate invalid ihandles.
+
+	* device.c (device_instance_create, device_instance_delete):
+	init/delete instance name
+
+	* emul_chirp.c (emul_chirp_instruction_call): Read the nr args and
+        returns when determining the service.
+
+	* emul_chirp.c (chirp_read_t2h_args): Allow variable number of
+        args for the method "call-method".
+
+	* emul_chirp.c (chirp_emul_getprop): Tolerate a n_returns of zero
+        - should be one. Some OpenBoot code doesn't pass correct arg.
+
+	* emul_chirp.c (chirp_emul_getprop): Trace more property types.
+
+Tue Jan 30 19:12:29 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* RUN: New file. Describe how to run PSIM
+	* INSTALL: New file. Describe how to install PSIM
+	* README: New file. Overview PSIM.
+	* BUGS: New file. Briefly discuss bugs and limitations
+	
+Wed Jan 24 20:28:08 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* emul_bugapi.c (OEA_START_ADDRESS): Put it back to 0x100000,
+        wasn't correctly using GLD.
+
+Mon Jan 22 22:44:13 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* emul_generic.c (emul_add_tree_options): Make default number of
+	active processors 1 (even when SMP enabled).
+
+Mon Jan 22 22:37:34 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* device_table.c (icu_io_read_buffer_callback): Add extra register
+        (at addr + 4) that returns number of processors.
+
+	* emul_generic.c (emul_add_tree_hardware): Update device node to
+        match.
+
+Mon Jan 22 22:00:42 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* emul_bugapi.c (OEA_START_ADDRESS): Change to 0x4000 so that it
+        matches gas-960116/ld.
+
+Fri Jan 19 00:32:27 1996  Andrew Cagney  <cagney@highland.com.au>
+
+	* psim-960119 released - psim-1.0b01.
+
 Fri Jan 19 00:32:27 1996  Andrew Cagney - aka Noid  <cagney@highland.au.com>
 
 	* psim.c (psim_create): Re-order so that all options are set

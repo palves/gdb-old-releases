@@ -117,6 +117,7 @@ typedef enum ieee_record
   ieee_ty_record_enum = 0xf2,
   ieee_attribute_record_enum = 0xf1c9,
   ieee_atn_record_enum = 0xf1ce,
+  ieee_external_reference_info_record_enum = 0xf1d8,
   ieee_weak_external_reference_enum= 0xf4,
   ieee_repeat_data_enum = 0xf7,
   ieee_bb_record_enum = 0xf8,

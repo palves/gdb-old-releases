@@ -67,14 +67,18 @@ struct _os_emul_data {
   chirp_emul_state state;
   unsigned_word return_address;
   unsigned_word arguments;
+  unsigned_word n_args;
+  unsigned_word n_returns;
   chirp_services *service;
   device *root;
   chirp_services *services;
   /* configuration */
   unsigned_word memory_size;
-  unsigned_word little_endian;
-  unsigned_word real_mode;
   unsigned_word virt_base;
+  int little_endian;
+  int real_mode;
+  int floating_point_available;
+  int interrupt_prefix;
   /* hash table */
   unsigned_word nr_page_table_entry_groups;
   unsigned_word htab_ra;
@@ -98,7 +102,9 @@ struct _os_emul_data {
 
 
 /* Read/write the argument list making certain that all values are
-   converted to/from host byte order */
+   converted to/from host byte order.
+
+   In the below only n_args+n_returns is read/written */
 
 static int
 chirp_read_t2h_args(void *args,
@@ -109,33 +115,28 @@ chirp_read_t2h_args(void *args,
 		    cpu *processor,
 		    unsigned_word cia)
 {
-  struct base_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
-  } *base;
   unsigned32 *words;
   int i;
-  /* check we fit */
-  ASSERT(sizeof(unsigned32) * (n_args + n_returns) + sizeof(struct base_args)
-	 == sizeof_args);
+  /* check the number of arguments */
+  if ((n_args >= 0 && data->n_args != n_args)
+      || (n_returns >= 0 && data->n_returns != n_returns)) {
+    TRACE(trace_os_emul, ("%s - invalid nr of args - n_args=%ld, n_returns=%ld\n",
+			  data->service->name,
+			  (long)data->n_args,
+			  (long)data->n_returns));
+    return -1;
+  }
+  /* check that there is enough space */
+  if (sizeof(unsigned32) * (data->n_args + data->n_returns) > sizeof_args)
+    return -1;
   /* bring in the data */
-  emul_read_buffer(args, data->arguments,
-		   sizeof_args,
+  emul_read_buffer(args, data->arguments + 3 * sizeof(unsigned32),
+		   sizeof(unsigned32) * (data->n_args + data->n_returns),
 		   processor, cia);
-  /* convert to host everything */
+  /* convert all words to host format */
   words = args;
   for (i = 0; i < (sizeof_args / sizeof(unsigned32)); i++)
     words[i] = T2H_4(words[i]);
-  /* check the arguments */
-  base = (struct base_args*)args;
-  if (base->n_args != n_args || base->n_returns != n_returns) {
-    TRACE(trace_os_emul, ("%s - invalid nr of args - n_args=%ld, n_returns=%ld\n",
-			  data->service->name,
-			  (long)base->n_args,
-			  (long)base->n_returns));
-    return -1;
-  }
   return 0;
 }
 
@@ -153,8 +154,8 @@ chirp_write_h2t_args(void *args,
   for (i = 0; i < (sizeof_args / sizeof(unsigned32)); i++)
     words[i] = H2T_4(words[i]);
   /* bring in the data */
-  emul_write_buffer(args, data->arguments,
-		    sizeof_args,
+  emul_write_buffer(args, data->arguments + 3 * sizeof(unsigned32),
+		    sizeof(unsigned32) * (data->n_args + data->n_returns),
 		    processor, cia);
 }
 
@@ -169,9 +170,6 @@ chirp_emul_test(os_emul_data *data,
 		unsigned_word cia)
 {
   struct test_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 name; /*string*/
     /*out*/
@@ -213,9 +211,6 @@ chirp_emul_peer(os_emul_data *data,
 		unsigned_word cia)
 {
   struct peer_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 phandle;
     /*out*/
@@ -262,9 +257,6 @@ chirp_emul_child(os_emul_data *data,
 		 unsigned_word cia)
 {
   struct child_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 phandle;
     /*out*/
@@ -308,9 +300,6 @@ chirp_emul_parent(os_emul_data *data,
 		  unsigned_word cia)
 {
   struct parent_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 phandle;
     /*out*/
@@ -354,9 +343,6 @@ chirp_emul_instance_to_package(os_emul_data *data,
 			       unsigned_word cia)
 {
   struct instance_to_package_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 ihandle;
     /*out*/
@@ -400,9 +386,6 @@ chirp_emul_getproplen(os_emul_data *data,
 		      unsigned_word cia)
 {
   struct getproplen_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 phandle;
     unsigned32 name;
@@ -454,9 +437,6 @@ chirp_emul_getprop(os_emul_data *data,
 		   unsigned_word cia)
 {
   struct getprop_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 phandle;
     unsigned32 name;
@@ -467,8 +447,8 @@ chirp_emul_getprop(os_emul_data *data,
   } args;
   char name[32];
   device *phandle;
-  /* read in the args */
-  if (chirp_read_t2h_args(&args, sizeof(args), 4, 1, data, processor, cia))
+  /* read in the args, the return is optional */
+  if (chirp_read_t2h_args(&args, sizeof(args), 4, -1, data, processor, cia))
     return -1;
   phandle = external_to_device(data->root, args.phandle);
   emul_read_string(name,
@@ -502,8 +482,12 @@ chirp_emul_getprop(os_emul_data *data,
       args.size = size;
       switch (prop->type) {
       case string_property:
-	TRACE(trace_os_emul, ("getprop - value=`%s' (string)\n",
-			      (char*)prop->array));
+	TRACE(trace_os_emul, ("getprop - string `%s'\n",
+			      device_find_string_property(phandle, name)));
+	break;
+      case ihandle_property:
+	TRACE(trace_os_emul, ("getprop - ihandle 0x%lx\n",
+			      (unsigned long)device_find_ihandle_property(phandle, name)));
 	break;
       default:
 	break;
@@ -511,12 +495,17 @@ chirp_emul_getprop(os_emul_data *data,
     }
   }
   /* write back the result */
-  TRACE(trace_os_emul, ("getprop - out - size=%ld\n",
-			(unsigned long)args.size));
-  chirp_write_h2t_args(&args,
-		       sizeof(args),
-		       data,
-		       processor, cia);
+  if (data->n_returns == 0)
+    TRACE(trace_os_emul, ("getprop - out - size=%ld (not returned)\n",
+			  (unsigned long)args.size));
+  else {
+    TRACE(trace_os_emul, ("getprop - out - size=%ld\n",
+			  (unsigned long)args.size));
+    chirp_write_h2t_args(&args,
+			 sizeof(args),
+			 data,
+			 processor, cia);
+  }
   return 0;
 }
 
@@ -526,9 +515,6 @@ chirp_emul_nextprop(os_emul_data *data,
 		    unsigned_word cia)
 {
   struct nextprop_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 phandle;
     unsigned32 previous;
@@ -603,9 +589,6 @@ chirp_emul_canon(os_emul_data *data,
 		 unsigned_word cia)
 {
   struct canon_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 device_specifier;
     unsigned32 buf;
@@ -661,9 +644,6 @@ chirp_emul_finddevice(os_emul_data *data,
 		      unsigned_word cia)
 {
   struct finddevice_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 device_specifier;
     /*out*/
@@ -705,9 +685,6 @@ chirp_emul_instance_to_path(os_emul_data *data,
 			    unsigned_word cia)
 {
   struct instance_to_path_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 ihandle;
     unsigned32 buf;
@@ -754,9 +731,6 @@ chirp_emul_package_to_path(os_emul_data *data,
 			    unsigned_word cia)
 {
   struct package_to_path_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 phandle;
     unsigned32 buf;
@@ -799,10 +773,39 @@ chirp_emul_package_to_path(os_emul_data *data,
 
 static int
 chirp_emul_call_method(os_emul_data *data,
-			    cpu *processor,
-			    unsigned_word cia)
+		       cpu *processor,
+		       unsigned_word cia)
 {
-  error("chirp: call-method implemented\n");
+  struct call_method_args {
+    /*in*/
+    unsigned32 method;
+    unsigned32 ihandle;
+    /*in/out*/
+    unsigned32 stack[13]; /*6in + 6out + catch */
+  } args;
+  char method[32];
+  device_instance *ihandle;
+  /* read the args */
+  if (chirp_read_t2h_args(&args, sizeof(args), -1, -1, data, processor, cia))
+    return -1;
+  emul_read_string(method,
+		   args.method,
+		   sizeof(method),
+		   processor, cia);
+  ihandle = external_to_device_instance(data->root, args.ihandle);
+  TRACE(trace_os_emul, ("call-method - in - n_args=%ld n_returns=%ld method=`%s' ihandle=0x%lx(0x%lx`%s')\n",
+			(unsigned long)data->n_args,
+			(unsigned long)data->n_returns,
+			method,
+			(unsigned long)args.ihandle,
+			(unsigned long)ihandle,
+			(ihandle == NULL ? "" : device_instance_name(ihandle))));
+  printf_filtered("warning chirp: call-method %s not implemented\n", method);
+  args.stack[data->n_args-2+1] = 0;
+  chirp_write_h2t_args(&args,
+		       sizeof(args),
+		       data,
+		       processor, cia);
   return 0;
 }
 
@@ -815,9 +818,6 @@ chirp_emul_open(os_emul_data *data,
 		unsigned_word cia)
 {
   struct open_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 device_specifier;
     /*out*/
@@ -858,9 +858,6 @@ chirp_emul_close(os_emul_data *data,
 		 unsigned_word cia)
 {
   struct close_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 ihandle;
     /*out*/
@@ -892,9 +889,6 @@ chirp_emul_read(os_emul_data *data,
 		unsigned_word cia)
 {
   struct read_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 ihandle;
     unsigned32 addr;
@@ -915,6 +909,8 @@ chirp_emul_read(os_emul_data *data,
 			(ihandle == NULL ? "" : device_instance_name(ihandle)),
 			(unsigned long)args.addr,
 			(unsigned long)args.len));
+  if (ihandle == NULL)
+    return -1;
   /* do the read */
   actual = args.len;
   if (actual >= sizeof(buf))
@@ -948,9 +944,6 @@ chirp_emul_write(os_emul_data *data,
 		unsigned_word cia)
 {
   struct write_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 ihandle;
     unsigned32 addr;
@@ -978,6 +971,8 @@ chirp_emul_write(os_emul_data *data,
 			(unsigned long)ihandle,
 			(ihandle == NULL ? "" : device_instance_name(ihandle)),
 			buf, (long)actual));
+  if (ihandle == NULL)
+    return -1;
   /* write it out */
   actual = device_instance_write(ihandle, buf, actual);
   if (actual < 0)
@@ -1000,9 +995,6 @@ chirp_emul_seek(os_emul_data *data,
 		unsigned_word cia)
 {
   struct seek_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     unsigned32 ihandle;
     unsigned32 pos_hi;
@@ -1021,6 +1013,8 @@ chirp_emul_seek(os_emul_data *data,
 			(unsigned long)ihandle,
 			(ihandle == NULL ? "" : device_instance_name(ihandle)),
 			args.pos_hi, args.pos_lo));
+  if (ihandle == NULL)
+    return -1;
   /* seek it out */
   if (ihandle == NULL)
     return -1;
@@ -1135,9 +1129,6 @@ chirp_emul_milliseconds(os_emul_data *data,
 			unsigned_word cia)
 {
   struct test_args {
-    unsigned32 service;
-    unsigned32 n_args;
-    unsigned32 n_returns;
     /*in*/
     /*out*/
     unsigned32 ms;
@@ -1330,7 +1321,8 @@ emul_chirp_create(device *root,
 			     "gpl,clayton");
 
   /* default options */
-  emul_add_tree_options(root, image, "chirp", "oea");
+  emul_add_tree_options(root, image, "chirp", "oea",
+			0 /*oea-interrupt-prefix*/);
     
   /* hardware */
   emul_add_tree_hardware(root);
@@ -1341,6 +1333,11 @@ emul_chirp_create(device *root,
     = device_find_integer_property(root, "/openprom/options/oea-memory-size");
   chirp->little_endian
     = device_find_boolean_property(root, "/options/little-endian?");
+  chirp->floating_point_available
+    = device_find_boolean_property(root, "/openprom/options/floating-point?");
+  chirp->interrupt_prefix =
+    device_find_integer_property(root, "/openprom/options/oea-interrupt-prefix");
+
   chirp->root = root;
   chirp->services = services;
 
@@ -1397,8 +1394,13 @@ emul_chirp_create(device *root,
 				| msr_data_relocate))
 			  | (chirp->little_endian
 			     ? (msr_little_endian_mode
-				| msr_interrupt_little_endian_mode
-				)
+				| msr_interrupt_little_endian_mode)
+			     : 0)
+			  | (chirp->floating_point_available
+			     ? msr_floating_point_available
+			     : 0)
+			  | (chirp->interrupt_prefix
+			     ? msr_interrupt_prefix
 			     : 0)
 			  ));
   device_tree_add_parsed(root, "/openprom/init/register/sdr1 0x%lx",
@@ -1535,6 +1537,10 @@ emul_chirp_instruction_call(cpu *processor,
 				       processor, cia);
     service_name = emul_read_string(service_buf, service_name_addr,
 				    sizeof(service_buf), processor, cia);
+    emul_data->n_args = emul_read_word(emul_data->arguments + sizeof(unsigned32),
+				       processor, cia);
+    emul_data->n_returns = emul_read_word(emul_data->arguments + 2 * sizeof(unsigned32),
+					  processor, cia);
     TRACE(trace_os_emul, ("%s called from 0x%lx with args 0x%lx\n",
 			  service_name,
 			  (unsigned long)emul_data->return_address,

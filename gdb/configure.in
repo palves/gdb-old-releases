@@ -15,7 +15,7 @@ dnl GNU General Public License for more details.
 dnl 
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program; if not, write to the Free Software
-dnl Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+dnl Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 dnl Process this file with autoconf to produce a configure script.
 
@@ -36,7 +36,7 @@ AC_CANONICAL_SYSTEM
 AC_ARG_PROGRAM
 
 AC_HEADER_STDC
-AC_CHECK_HEADERS(memory.h string.h strings.h unistd.h termios.h termio.h sgtty.h stddef.h sys/procfs.h)
+AC_CHECK_HEADERS(limits.h memory.h string.h strings.h unistd.h termios.h termio.h sgtty.h stddef.h sys/procfs.h)
 AC_HEADER_STAT
 
 AC_MSG_CHECKING([for gregset_t type])
@@ -55,6 +55,19 @@ gdb_have_fpregset_t=yes, gdb_have_fpregset_t=no)])
 AC_MSG_RESULT($gdb_have_fpregset_t)
 if test $gdb_have_fpregset_t = yes; then
   AC_DEFINE(HAVE_FPREGSET_T)
+fi
+
+dnl See if compiler supports "long double" type.  Can't use AC_C_LONG_DOUBLE
+dnl because autoconf complains about cross-compilation issues.  However, this
+dnl code uses the same variables as the macro for compatibility.
+
+AC_MSG_CHECKING(for long double)
+AC_CACHE_VAL(ac_cv_c_long_double,
+[AC_TRY_COMPILE(, [long double foo;],
+ac_cv_c_long_double=yes, ac_cv_c_long_double=no)])
+AC_MSG_RESULT($ac_cv_c_long_double)
+if test $ac_cv_c_long_double = yes; then
+  AC_DEFINE(HAVE_LONG_DOUBLE)
 fi
 
 AC_FUNC_MMAP
@@ -287,6 +300,7 @@ m68*-hp-bsd*)		gdb_host=hp300bsd ;;
 m68*-hp-hpux*)		gdb_host=hp300hpux ;;
 m68*-isi-*)		gdb_host=isi ;;
 m68*-*-lynxos*)		gdb_host=m68klynx ;;
+m68*-*-netbsd*)		gdb_host=nbsd ;;
 m68*-*-sysv4*)		gdb_host=m68kv4 ;;
 m68*-motorola-*)	gdb_host=delta68 ;;
 m68*-sony-*)		gdb_host=news ;;
@@ -467,6 +481,7 @@ m68*-*-coff*)		gdb_target=monitor ;;
 m68*-*-elf*)		gdb_target=monitor ;;
 m68*-*-lynxos*)		gdb_target=m68klynx
 		configdirs="${configdirs} gdbserver" ;;
+m68*-*-netbsd*)		gdb_target=nbsd ;;
 m68*-*-os68k*)		gdb_target=os68k ;;
 m68*-*-sunos3*)		gdb_target=sun3os3 ;;
 m68*-*-sunos4*)		gdb_target=sun3os4 ;;
@@ -501,6 +516,7 @@ mips*-*-mach3*)		gdb_target=mach3 ;;
 mips*-*-sysv4*)		gdb_target=mipsv4 ;;
 mips*-*-sysv*)		gdb_target=bigmips ;;
 mips*-*-riscos*)	gdb_target=bigmips ;;
+mips*-*-vxworks*)       gdb_target=vxmips ;;
 
 none-*-*)		gdb_target=none ;;
 
@@ -547,6 +563,8 @@ sparc-*-sunos4*)	gdb_target=sun4os4 ;;
 sparc-*-sunos5*)	gdb_target=sun4sol2 ;;
 sparc-*-vxworks*)	gdb_target=vxsparc ;;
 sparc-*-*)		gdb_target=sun4os4 ;;
+# Use sparc-em for sparclet for now.
+sparclet-*-*)		gdb_target=sparc-em ;;
 sparclite*-*-*)		gdb_target=sparclite ;;
 sparc64-*-solaris2*)	gdb_target=sp64sol2 ;;
 sparc64-*-*)		gdb_target=sp64 ;;
@@ -673,3 +691,4 @@ nativefile=$nativefile
 ])
 
 exit 0
+

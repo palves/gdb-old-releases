@@ -531,6 +531,7 @@ extern const bfd_target ieee_vec;
 extern const bfd_target m68kaux_coff_vec;
 extern const bfd_target m68kcoff_vec;
 extern const bfd_target m68kcoffun_vec;
+extern const bfd_target m68klinux_vec;
 extern const bfd_target m68klynx_aout_vec;
 extern const bfd_target m68klynx_coff_vec;
 extern const bfd_target m68knetbsd_vec;
@@ -692,6 +693,11 @@ const bfd_target * const bfd_target_vector[] = {
 	&ieee_vec,
 	&m68kcoff_vec,
 	&m68kcoffun_vec,
+#if 0
+	/* Since a.out files lack decent magic numbers, no way to recognize
+	   which kind of a.out file it is.  */
+	&m68klinux_vec,
+#endif
 	&m68klynx_aout_vec,
 	&m68klynx_coff_vec,
 	&m68knetbsd_vec,

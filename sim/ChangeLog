@@ -1,3 +1,26 @@
+Thu Feb 22 11:31:50 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* Makefile.in (install): Fix typo.
+
+Wed Feb 21 11:59:57 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure: Regenerate with autoconf 2.7.
+
+	* Makefile.in (all): Simplify.
+	(clean, mostlyclean): SUBDIRS may contain whitespace; fix the loop
+	as in the all target.
+	(distclean, maintainer-clean, realclean): Likewise.
+	(install): Likewise.
+
+Thu Feb 15 18:37:00 1996  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (all): Remove extra '\' char from shell script.
+
+Wed Feb 14 16:43:59 1996  Mike Meissner  <meissner@tiktok.cygnus.com>
+
+	* Makefile.in (all): Avoid a for loop with zero elements, even if
+	the loop will not be executed because of an if statement.
+
 Wed Jan 31 21:48:34 1996  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (install): Add missing semicolon in "fi \".

@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
+#include "bcache.h"
 
 /* Don't do this; it means that if some .o's are compiled with GNU C
    and some are not (easy to do accidentally the way we configure
@@ -931,7 +932,7 @@ struct partial_symtab
    Note that this macro is g++ specific (FIXME). */
 
 #define OPNAME_PREFIX_P(NAME) \
-  ((NAME)[0] == 'o' && (NAME)[1] == 'p' && (NAME)[2] == CPLUS_MARKER)
+  ((NAME)[0] == 'o' && (NAME)[1] == 'p' && is_cplus_marker ((NAME)[2]))
 
 /* Macro that yields non-zero value iff NAME is the prefix for C++ vtbl
    names.  Note that this macro is g++ specific (FIXME).
@@ -939,15 +940,16 @@ struct partial_symtab
    style, using thunks (where '$' is really CPLUS_MARKER). */
 
 #define VTBL_PREFIX_P(NAME) \
-  ((NAME)[3] == CPLUS_MARKER && (NAME)[0] == '_' \
+  ((NAME)[0] == '_' \
    && (((NAME)[1] == 'V' && (NAME)[2] == 'T') \
-       || ((NAME)[1] == 'v' && (NAME)[2] == 't')))
+       || ((NAME)[1] == 'v' && (NAME)[2] == 't')) \
+   && is_cplus_marker ((NAME)[3]))
 
 /* Macro that yields non-zero value iff NAME is the prefix for C++ destructor
    names.  Note that this macro is g++ specific (FIXME).  */
 
 #define DESTRUCTOR_PREFIX_P(NAME) \
-  ((NAME)[0] == '_' && (NAME)[1] == CPLUS_MARKER && (NAME)[2] == '_')
+  ((NAME)[0] == '_' && is_cplus_marker ((NAME)[1]) && (NAME)[2] == '_')
 
 
 /* External variables and functions for the objects described above. */
@@ -1059,6 +1061,11 @@ lookup_minimal_symbol PARAMS ((const char *, const char *, struct objfile *));
 
 extern struct minimal_symbol *
 lookup_minimal_symbol_text PARAMS ((const char *, const char *, struct objfile *));
+
+struct minimal_symbol *
+lookup_minimal_symbol_solib_trampoline PARAMS ((const char *,
+						const char *,
+						struct objfile *));
 
 extern struct minimal_symbol *
 lookup_minimal_symbol_by_pc PARAMS ((CORE_ADDR));

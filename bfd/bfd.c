@@ -175,6 +175,7 @@ CODE_FRAGMENT
 .      struct osf_core_struct *osf_core_data;
 .      struct cisco_core_struct *cisco_core_data;
 .      struct versados_data_struct *versados_data;
+.      struct netbsd_core_struct *netbsd_core_data;
 .      PTR any;
 .      } tdata;
 .  
@@ -344,7 +345,19 @@ bfd_errmsg (error_tag)
   extern int errno;
 #endif
   if (error_tag == bfd_error_system_call)
-    return strerror (errno);
+    {
+      const char *errmsg;
+
+      errmsg = strerror (errno);
+      if (errmsg == NULL)
+	{
+	  static char buf[32];
+
+	  sprintf (buf, "Error %d", errno);
+	  errmsg = buf;
+	}
+      return errmsg;
+    }
 
   if ((((int)error_tag <(int) bfd_error_no_error) ||
        ((int)error_tag > (int)bfd_error_invalid_error_code)))
@@ -812,6 +825,39 @@ bfd_set_gp_size (abfd, i)
     ecoff_data (abfd)->gp_size = i;
   else if (abfd->xvec->flavour == bfd_target_elf_flavour)
     elf_gp_size (abfd) = i;
+}
+
+/* Get the GP value.  This is an internal function used by some of the
+   relocation special_function routines on targets which support a GP
+   register.  */
+
+bfd_vma
+_bfd_get_gp_value (abfd)
+     bfd *abfd;
+{
+  if (abfd->format == bfd_object)
+    {
+      if (abfd->xvec->flavour == bfd_target_ecoff_flavour)
+	return ecoff_data (abfd)->gp;
+      else if (abfd->xvec->flavour == bfd_target_elf_flavour)
+	return elf_gp (abfd);
+    }
+  return 0;
+}
+
+/* Set the GP value.  */
+
+void
+_bfd_set_gp_value (abfd, v)
+     bfd *abfd;
+     bfd_vma v;
+{
+  if (abfd->format != bfd_object)
+    return;
+  if (abfd->xvec->flavour == bfd_target_ecoff_flavour)
+    ecoff_data (abfd)->gp = v;
+  else if (abfd->xvec->flavour == bfd_target_elf_flavour)
+    elf_gp (abfd) = v;
 }
 
 /*

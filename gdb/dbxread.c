@@ -1212,8 +1212,8 @@ start_psymtab (objfile, section_offsets,
      char *filename;
      CORE_ADDR textlow;
      int ldsymoff;
-     struct partial_symbol *global_syms;
-     struct partial_symbol *static_syms;
+     struct partial_symbol **global_syms;
+     struct partial_symbol **static_syms;
 {
   struct partial_symtab *result =
       start_psymtab_common(objfile, section_offsets,

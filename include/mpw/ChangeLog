@@ -1,3 +1,7 @@
+Tue Feb 27 12:23:04 1996  Raymond Jou  <rjou@mexican.cygnus.com>
+
+	* mpw.h (HAVE_VPRINTF): Add and define to have the value 1.
+
 Fri Dec 29 14:40:46 1995  Stan Shebs  <shebs@andros.cygnus.com>
 
 	* mpw.h (HAVE_STDLIB_H, etc): Define to have the value 1.

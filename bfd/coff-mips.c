@@ -761,6 +761,7 @@ mips_gprel_reloc (abfd,
      char **error_message;
 {
   boolean relocateable;
+  bfd_vma gp;
   bfd_vma relocation;
   unsigned long val;
   unsigned long insn;
@@ -794,15 +795,16 @@ mips_gprel_reloc (abfd,
      BFD.  If we can't find it, we're stuck.  We cache it in the ECOFF
      target data.  We don't need to adjust the symbol value for an
      external symbol if we are producing relocateable output.  */
-  if (ecoff_data (output_bfd)->gp == 0
+  gp = _bfd_get_gp_value (output_bfd);
+  if (gp == 0
       && (relocateable == false
 	  || (symbol->flags & BSF_SECTION_SYM) != 0))
     {
       if (relocateable != false)
 	{
 	  /* Make up a value.  */
-	  ecoff_data (output_bfd)->gp =
-	    symbol->section->output_section->vma + 0x4000;
+	  gp = symbol->section->output_section->vma + 0x4000;
+	  _bfd_set_gp_value (output_bfd, gp);
 	}
       else
 	{
@@ -824,7 +826,8 @@ mips_gprel_reloc (abfd,
 		  name = bfd_asymbol_name (*sym);
 		  if (*name == '_' && strcmp (name, "_gp") == 0)
 		    {
-		      ecoff_data (output_bfd)->gp = bfd_asymbol_value (*sym);
+		      gp = bfd_asymbol_value (*sym);
+		      _bfd_set_gp_value (output_bfd, gp);
 		      break;
 		    }
 		}
@@ -833,7 +836,8 @@ mips_gprel_reloc (abfd,
 	  if (i >= count)
 	    {
 	      /* Only get the error once.  */
-	      ecoff_data (output_bfd)->gp = 4;
+	      gp = 4;
+	      _bfd_set_gp_value (output_bfd, gp);
 	      *error_message =
 		(char *) "GP relative relocation when _gp not defined";
 	      return bfd_reloc_dangerous;
@@ -864,7 +868,7 @@ mips_gprel_reloc (abfd,
      an external symbol.  */
   if (relocateable == false
       || (symbol->flags & BSF_SECTION_SYM) != 0)
-    val += relocation - ecoff_data (output_bfd)->gp;
+    val += relocation - gp;
 
   insn = (insn &~ 0xffff) | (val & 0xffff);
   bfd_put_32 (abfd, insn, (bfd_byte *) data + reloc_entry->address);
@@ -1237,7 +1241,7 @@ mips_relocate_section (output_bfd, info, input_bfd, input_section,
 
   sym_hashes = ecoff_data (input_bfd)->sym_hashes;
 
-  gp = ecoff_data (output_bfd)->gp;
+  gp = _bfd_get_gp_value (output_bfd);
   if (gp == 0)
     gp_undefined = true;
   else
@@ -1356,7 +1360,8 @@ mips_relocate_section (output_bfd, info, input_bfd, input_section,
 		      int_rel.r_vaddr - input_section->vma)))
 		return false;
 	      /* Only give the error once per link.  */
-	      ecoff_data (output_bfd)->gp = gp = 4;
+	      gp = 4;
+	      _bfd_set_gp_value (output_bfd, gp);
 	      gp_undefined = false;
 	    }
 	  if (! int_rel.r_extern)

@@ -38,3 +38,11 @@ mvalloc (md, size)
 
   return (mmemalign (md, pagesize, size));
 }
+
+
+PTR
+valloc (size)
+  size_t size;
+{
+  return mvalloc ((PTR) NULL, size);
+}

@@ -106,7 +106,7 @@ static boolean coff_m68k_aux_link_add_one_symbol
 
 
 
-#include "coff/aux.h"	/* override coff/internal.h and coff/m68k.h */
+#include "coff/aux-coff.h"  /* override coff/internal.h and coff/m68k.h */
 #include "coff-m68k.c"
 
 

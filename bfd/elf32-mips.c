@@ -154,7 +154,7 @@ static boolean mips_elf_add_symbol_hook
   PARAMS ((bfd *, struct bfd_link_info *, const Elf_Internal_Sym *,
 	   const char **, flagword *, asection **, bfd_vma *));
 static bfd_reloc_status_type mips_elf_final_gp
-  PARAMS ((bfd *, asymbol *, boolean, char **));
+  PARAMS ((bfd *, asymbol *, boolean, char **, bfd_vma *));
 static bfd_byte *elf32_mips_get_relocated_section_contents
   PARAMS ((bfd *, struct bfd_link_info *, struct bfd_link_order *,
 	   bfd_byte *, boolean, asymbol **));
@@ -759,6 +759,7 @@ mips_elf_hi16_reloc (abfd,
   if (strcmp (bfd_asymbol_name (symbol), "_gp_disp") == 0)
     {
       boolean relocateable;
+      bfd_vma gp;
 
       if (ret == bfd_reloc_undefined)
 	abort ();
@@ -772,11 +773,11 @@ mips_elf_hi16_reloc (abfd,
 	}
 
       ret = mips_elf_final_gp (output_bfd, symbol, relocateable,
-			       error_message);
+			       error_message, &gp);
       if (ret != bfd_reloc_ok)
 	return ret;
 
-      relocation = elf_gp (output_bfd) - reloc_entry->address;
+      relocation = gp - reloc_entry->address;
     }
   else
     {
@@ -870,15 +871,15 @@ mips_elf_lo16_reloc (abfd,
   else if (strcmp (bfd_asymbol_name (symbol), "_gp_disp") == 0)
     {
       bfd_reloc_status_type ret;
-      bfd_vma relocation;
+      bfd_vma gp, relocation;
 
       /* FIXME: Does this case ever occur?  */
 
-      ret = mips_elf_final_gp (output_bfd, symbol, true, error_message);
+      ret = mips_elf_final_gp (output_bfd, symbol, true, error_message, &gp);
       if (ret != bfd_reloc_ok)
 	return ret;
 
-      relocation = elf_gp (output_bfd) - reloc_entry->address;
+      relocation = gp - reloc_entry->address;
       relocation += symbol->section->output_section->vma;
       relocation += symbol->section->output_offset;
       relocation += reloc_entry->addend;
@@ -953,29 +954,30 @@ mips_elf_got16_reloc (abfd,
    external symbol if we are producing relocateable output.  */
 
 static bfd_reloc_status_type
-mips_elf_final_gp (output_bfd, symbol, relocateable, error_message)
+mips_elf_final_gp (output_bfd, symbol, relocateable, error_message, pgp)
      bfd *output_bfd;
      asymbol *symbol;
      boolean relocateable;
      char **error_message;
+     bfd_vma *pgp;
 {
   if (bfd_is_und_section (symbol->section)
       && ! relocateable)
-    return bfd_reloc_undefined;
+    {
+      *pgp = 0;
+      return bfd_reloc_undefined;
+    }
 
-  /* This doesn't work if the BFD is not ELF.  */
-  if (output_bfd->xvec->flavour != bfd_target_elf_flavour)
-    abort ();
-
-  if (elf_gp (output_bfd) == 0
+  *pgp = _bfd_get_gp_value (output_bfd);
+  if (*pgp == 0
       && (! relocateable
 	  || (symbol->flags & BSF_SECTION_SYM) != 0))
     {
       if (relocateable)
 	{
 	  /* Make up a value.  */
-	  elf_gp (output_bfd) =
-	    symbol->section->output_section->vma + 0x4000;
+	  *pgp = symbol->section->output_section->vma + 0x4000;
+	  _bfd_set_gp_value (output_bfd, *pgp);
 	}
       else
 	{
@@ -997,7 +999,8 @@ mips_elf_final_gp (output_bfd, symbol, relocateable, error_message)
 		  name = bfd_asymbol_name (*sym);
 		  if (*name == '_' && strcmp (name, "_gp") == 0)
 		    {
-		      elf_gp (output_bfd) = bfd_asymbol_value (*sym);
+		      *pgp = bfd_asymbol_value (*sym);
+		      _bfd_set_gp_value (output_bfd, *pgp);
 		      break;
 		    }
 		}
@@ -1006,7 +1009,8 @@ mips_elf_final_gp (output_bfd, symbol, relocateable, error_message)
 	  if (i >= count)
 	    {
 	      /* Only get the error once.  */
-	      elf_gp (output_bfd) = 4;
+	      *pgp = 4;
+	      _bfd_set_gp_value (output_bfd, *pgp);
 	      *error_message =
 		(char *) "GP relative relocation when _gp not defined";
 	      return bfd_reloc_dangerous;
@@ -1045,6 +1049,7 @@ mips_elf_gprel16_reloc (abfd,
 {
   boolean relocateable;
   bfd_reloc_status_type ret;
+  bfd_vma gp;
 
   /* If we're relocating, and this is an external symbol with no
      addend, we don't want to change anything.  We will only have an
@@ -1066,12 +1071,13 @@ mips_elf_gprel16_reloc (abfd,
       output_bfd = symbol->section->output_section->owner;
     }
 
-  ret = mips_elf_final_gp (output_bfd, symbol, relocateable, error_message);
+  ret = mips_elf_final_gp (output_bfd, symbol, relocateable, error_message,
+			   &gp);
   if (ret != bfd_reloc_ok)
     return ret;
 
   return gprel16_with_gp (abfd, symbol, reloc_entry, input_section,
-			  relocateable, data, elf_gp (output_bfd));
+			  relocateable, data, gp);
 }
 
 static bfd_reloc_status_type
@@ -1152,6 +1158,7 @@ mips_elf_gprel32_reloc (abfd,
 {
   boolean relocateable;
   bfd_reloc_status_type ret;
+  bfd_vma gp;
 
   /* If we're relocating, and this is an external symbol with no
      addend, we don't want to change anything.  We will only have an
@@ -1174,13 +1181,13 @@ mips_elf_gprel32_reloc (abfd,
       output_bfd = symbol->section->output_section->owner;
 
       ret = mips_elf_final_gp (output_bfd, symbol, relocateable,
-			       error_message);
+			       error_message, &gp);
       if (ret != bfd_reloc_ok)
 	return ret;
     }
 
   return gprel32_with_gp (abfd, symbol, reloc_entry, input_section,
-			  relocateable, data, elf_gp (output_bfd));
+			  relocateable, data, gp);
 }
 
 static bfd_reloc_status_type
@@ -1250,7 +1257,11 @@ static CONST struct elf_reloc_map mips_reloc_map[] =
   { BFD_RELOC_MIPS_GOT16, R_MIPS_GOT16 },
   { BFD_RELOC_16_PCREL, R_MIPS_PC16 },
   { BFD_RELOC_MIPS_CALL16, R_MIPS_CALL16 },
-  { BFD_RELOC_MIPS_GPREL32, R_MIPS_GPREL32 }
+  { BFD_RELOC_MIPS_GPREL32, R_MIPS_GPREL32 },
+  { BFD_RELOC_MIPS_GOT_HI16, R_MIPS_GOT_HI16 },
+  { BFD_RELOC_MIPS_GOT_LO16, R_MIPS_GOT_LO16 },
+  { BFD_RELOC_MIPS_CALL_HI16, R_MIPS_CALL_HI16 },
+  { BFD_RELOC_MIPS_CALL_LO16, R_MIPS_CALL_LO16 }
 };
 
 /* Given a BFD reloc type, return a howto structure.  */
@@ -2847,6 +2858,7 @@ mips_elf_create_procedure_table (handle, abfd, info, s, debug)
   rpdr = NULL;
   esym = NULL;
   ss = NULL;
+  sv = NULL;
 
   swap = get_elf_backend_data (abfd)->elf_backend_ecoff_debug_swap;
 
@@ -2889,9 +2901,9 @@ mips_elf_create_procedure_table (handle, abfd, info, s, debug)
 	goto error_return;
 
       count = hdr->ipdMax;
-      for (i = 0; i < count; i++, rp++, epdr++)
+      for (i = 0; i < count; i++, rp++)
 	{
-	  (*swap->swap_pdr_in) (abfd, (PTR) epdr, &pdr);
+	  (*swap->swap_pdr_in) (abfd, (PTR) (epdr + i), &pdr);
 	  (*swap->swap_sym_in) (abfd, (PTR) &esym[pdr.isym], &sym);
 	  rp->adr = sym.value;
 	  rp->regmask = pdr.regmask;
@@ -2919,7 +2931,7 @@ mips_elf_create_procedure_table (handle, abfd, info, s, debug)
   mips_elf_hash_table (info)->procedure_count = count + 2;
 
   erp = (struct rpdr_ext *) rtproc;
-  memset (rp, 0, sizeof (struct rpdr_ext));
+  memset (erp, 0, sizeof (struct rpdr_ext));
   erp++;
   str = (char *) rtproc + sizeof (struct rpdr_ext) * (count + 2);
   strcpy (str, no_name_func);
@@ -2940,11 +2952,16 @@ mips_elf_create_procedure_table (handle, abfd, info, s, debug)
      matters, but someday it might).  */
   s->link_order_head = (struct bfd_link_order *) NULL;
 
-  free (epdr);
-  free (rpdr);
-  free (esym);
-  free (ss);
-  free (sv);
+  if (epdr != NULL)
+    free (epdr);
+  if (rpdr != NULL)
+    free (rpdr);
+  if (esym != NULL)
+    free (esym);
+  if (ss != NULL)
+    free (ss);
+  if (sv != NULL)
+    free (sv);
 
   return true;
 
@@ -3763,6 +3780,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
   size_t extsymoff;
   asection *sgot, *sreloc, *scpt;
   bfd *dynobj;
+  bfd_vma gp;
   Elf_Internal_Rela *rel;
   Elf_Internal_Rela *relend;
   struct mips_got_info *g;
@@ -3788,6 +3806,8 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
       locsymcount = symtab_hdr->sh_info;
       extsymoff = symtab_hdr->sh_info;
     }
+
+  gp = _bfd_get_gp_value (output_bfd);
 
   rel = relocs;
   relend = relocs + input_section->reloc_count;
@@ -3838,7 +3858,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	addend = 0;
       else
 	{
-	  if (elf_gp (output_bfd) == 0)
+	  if (gp == 0)
 	    {
 	      if (! ((*info->callbacks->reloc_dangerous)
 		     (info,
@@ -3847,7 +3867,8 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		      rel->r_offset)))
 		return false;
 	      /* Only give the error once per link.  */
-	      elf_gp (output_bfd) = 4;
+	      gp = 4;
+	      _bfd_set_gp_value (output_bfd, gp);
 	    }
 
 	  if (r_symndx < extsymoff
@@ -3860,7 +3881,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		 must change this to be the difference between the
 		 final definition (which will end up in RELOCATION)
 		 and the GP value of OUTPUT_BFD (which is in GP).  */
-	      addend = elf_gp (input_bfd) - elf_gp (output_bfd);
+	      addend = elf_gp (input_bfd) - gp;
 	    }
 	  else if (! info->relocateable)
 	    {
@@ -3870,7 +3891,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		 hold the difference between the final definition of
 		 the symbol (which will end up in RELOCATION) and the
 		 GP value of OUTPUT_BFD (which is in GP).  */
-	      addend = - elf_gp (output_bfd);
+	      addend = - gp;
 	    }
 	  else
 	    {
@@ -3961,7 +3982,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		h = (struct elf_link_hash_entry *) h->root.u.i.link;
 	      if (strcmp (h->root.root.string, "_gp_disp") == 0)
 		{
-		  if (elf_gp (output_bfd) == 0)
+		  if (gp == 0)
 		    {
 		      if (! ((*info->callbacks->reloc_dangerous)
 			     (info,
@@ -3970,19 +3991,20 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 			      rel->r_offset)))
 			return false;
 		      /* Only give the error once per link.  */
-		      elf_gp (output_bfd) = 4;
+		      gp = 4;
+		      _bfd_set_gp_value (output_bfd, gp);
 		      relocation = 0;
 		    }
 		  else
 		    {
 		      sec = input_section;
 		      if (sec->output_section != NULL)
-			relocation = (elf_gp (output_bfd)
+			relocation = (gp
 				      - (rel->r_offset
 					 + sec->output_section->vma
 					 + sec->output_offset));
 		      else
-			relocation = elf_gp (output_bfd) - rel->r_offset;
+			relocation = gp - rel->r_offset;
 		      if (r_type == R_MIPS_LO16)
 			relocation += 4;
 		    }
@@ -4072,7 +4094,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	      bfd_put_32 (output_bfd, relocation + addend,
 			  sgot->contents + offset);
 	      offset = (sgot->output_section->vma + sgot->output_offset
-			+ offset - elf_gp (output_bfd));
+			+ offset - gp);
 	      mips_elf_relocate_global_got (input_bfd, rel, contents,
 					    offset);
 	      r = bfd_reloc_ok;
@@ -4097,7 +4119,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	      bfd_put_32 (output_bfd, relocation + addend,
 			  sgot->contents + offset);
 	      offset = (sgot->output_section->vma + sgot->output_offset
-			+ offset - elf_gp (output_bfd));
+			+ offset - gp);
 	      mips_elf_relocate_hi16 (input_bfd, rel, rel + 1, contents,
 				      offset);
 	      r = bfd_reloc_ok;
@@ -4247,7 +4269,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		case R_MIPS_LITERAL:
 		case R_MIPS_GPREL32:
 		  mips_elf_set_cr_type (cptrel, CRT_MIPS_GPHI_LO);
-		  cptrel.konst = elf_gp (output_bfd) - cptrel.vaddr;
+		  cptrel.konst = gp - cptrel.vaddr;
 		  mips_elf_set_cr_dist2to (cptrel, 4);
 		  cr = scpt->contents + sizeof (Elf32_External_compact_rel);
 		  bfd_elf32_swap_crinfo_out (output_bfd, &cptrel,
@@ -4353,6 +4375,7 @@ mips_elf_create_dynamic_sections (abfd, info)
 		  get_elf_backend_data (abfd)->collect,
 		  (struct bfd_link_hash_entry **) &h)))
 	    return false;
+	  h->elf_link_hash_flags &=~ ELF_LINK_NON_ELF;
 	  h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
 	  h->type = STT_SECTION;
 
@@ -4391,6 +4414,7 @@ mips_elf_create_dynamic_sections (abfd, info)
 	      get_elf_backend_data (abfd)->collect,
 	      (struct bfd_link_hash_entry **) &h)))
 	return false;
+      h->elf_link_hash_flags ^=~ ELF_LINK_NON_ELF;
       h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
       h->type = STT_SECTION;
 
@@ -4461,6 +4485,7 @@ mips_elf_create_got_section (abfd, info)
 	  get_elf_backend_data (abfd)->collect,
 	  (struct bfd_link_hash_entry **) &h)))
     return false;
+  h->elf_link_hash_flags &=~ ELF_LINK_NON_ELF;
   h->elf_link_hash_flags |= ELF_LINK_HASH_DEF_REGULAR;
   h->type = STT_OBJECT;
 
@@ -5835,6 +5860,5 @@ static const struct ecoff_debug_swap mips_elf_ecoff_debug_swap =
 					mips_elf_finish_dynamic_symbol
 #define elf_backend_finish_dynamic_sections \
 					mips_elf_finish_dynamic_sections
-#define elf_backend_want_hdr_in_seg	1
 
 #include "elf32-target.h"

@@ -8,7 +8,7 @@ all:
 #### host, target, and site specific Makefile frags come in here.
 
 clean mostlyclean:
-	-rm -f *.o $OBJS} ${PROGS} *~ core 
+	-rm -f *.o ${OBJS} ${PROGS} *~ core 
 
 distclean maintainer-clean realclean: clean
 	-rm -f Makefile config.status

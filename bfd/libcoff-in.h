@@ -2,6 +2,9 @@
    Copyright (C) 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
+** NOTE: libcoff.h is a GENERATED file.  Don't change it; instead,
+** change libcoff-in.h or coffcode.h.
+
 This file is part of BFD, the Binary File Descriptor library.
 
 This program is free software; you can redistribute it and/or modify

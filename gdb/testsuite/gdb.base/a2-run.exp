@@ -57,13 +57,13 @@ if [istarget "*-*-vxworks*"] then {
     set timeout 120
     expect {
 	-i $shell_id "Program exited normally" {
-	    unresolved "run \"$binfile\" with no args"
+	    unresolved "run \"$testfile\" with no args"
 	}
 	-i $shell_id -re "usage:  factorial <number>" {
-	    pass "run \"$binfile\" with no args"
+	    pass "run \"$testfile\" with no args"
 	}
 	timeout	{
-	    fail "(timeout) run \"$binfile\" with no args"
+	    fail "(timeout) run \"$testfile\" with no args"
 	}
     }
     set timeout 10
@@ -71,13 +71,13 @@ if [istarget "*-*-vxworks*"] then {
 } else {
     expect {
 	-re "Starting program.*usage:  factorial <number>.*Program exited with code 01.*$prompt $" {
-	    pass "run \"$binfile\" with no args"
+	    pass "run \"$testfile\" with no args"
 	}
 	-re ".*$prompt $" {
-	    fail "run \"$binfile\" with no args"
+	    fail "run \"$testfile\" with no args"
 	}
 	timeout	{
-	    fail "(timeout) run \"$binfile\" no args"
+	    fail "(timeout) run \"$testfile\" no args"
 	}
     }
 }
@@ -89,13 +89,13 @@ if [istarget "*-*-vxworks*"] then {
     set timeout 120
     expect {
 	-i $shell_id "Program exited normally" {
-	    unresolved "run \"$binfile\" with arg"
+	    unresolved "run \"$testfile\" with arg"
 	}
 	-i $shell_id "120" {
-	    pass "run \"$binfile\" with arg"
+	    pass "run \"$testfile\" with arg"
 	}
 	timeout {
-	    fail "(timeout) run \"$binfile\" with arg"
+	    fail "(timeout) run \"$testfile\" with arg"
 	}
     }
     set timeout 10
@@ -104,10 +104,10 @@ if [istarget "*-*-vxworks*"] then {
 	setup_xfail "mips-idt-*"
 	send "run 5\n"
 	expect {
-	    -re "Starting program.*$binfile.*120.*$prompt $"\
-				{ pass "run \"$binfile\" with arg" }
-	    -re ".*$prompt $"	{ fail "run \"$binfile\" with arg" }
-	    timeout		{ fail "(timeout) run \"$binfile\" with arg" }
+	    -re "Starting program.*$testfile.*120.*$prompt $"\
+				{ pass "run \"$testfile\" with arg" }
+	    -re ".*$prompt $"	{ fail "run \"$testfile\" with arg" }
+	    timeout		{ fail "(timeout) run \"$testfile\" with arg" }
 	}
 }
 
@@ -119,19 +119,19 @@ if [istarget "*-*-vxworks*"] then {
     set timeout 120
     expect {
 	-i $shell_id "Program exited normally" {
-	    unresolved "run \"$binfile\" again with same args"
+	    unresolved "run \"$testfile\" again with same args"
 	}
-	-i $shell_id "120" { pass "run \"$binfile\" again with same args" }
-	timeout { fail "(timeout) run \"$binfile\" again with same args" }
+	-i $shell_id "120" { pass "run \"$testfile\" again with same args" }
+	timeout { fail "(timeout) run \"$testfile\" again with same args" }
     }
     set timeout 10
     expect -re "$prompt $" {}
 } else {
     expect {
 	    -re "Starting program.*120.*$prompt $"\
-				{ pass "run \"$binfile\" again with same args" }
-	    -re ".*$prompt $"	{ fail "run \"$binfile\" again with same args" }
-	    timeout		{ fail "(timeout) run \"$binfile\" again with same args" }
+				{ pass "run \"$testfile\" again with same args" }
+	    -re ".*$prompt $"	{ fail "run \"$testfile\" again with same args" }
+	    timeout		{ fail "(timeout) run \"$testfile\" again with same args" }
 	}
 }
 
@@ -188,13 +188,13 @@ if [istarget "*-*-vxworks*"] then {
     set timeout 120
     expect {
 	-i $shell_id "Program exited normally" {
-	    unresolved "run \"$binfile\" again after setting args"
+	    unresolved "run \"$testfile\" again after setting args"
 	}
 	-i $shell_id "720" {
-	    pass "run \"$binfile\" again after setting args"
+	    pass "run \"$testfile\" again after setting args"
 	}
 	timeout {
-	    fail "(timeout) run \"$binfile\" again after setting args"
+	    fail "(timeout) run \"$testfile\" again after setting args"
 	}
     }
     set timeout 10
@@ -202,13 +202,13 @@ if [istarget "*-*-vxworks*"] then {
 } else {
     expect {
 	    -re "Starting program.*720.*$prompt $" {
-		pass "run \"$binfile\" again after setting args"
+		pass "run \"$testfile\" again after setting args"
 	    }
 	    -re ".*$prompt $" {
-		fail "run \"$binfile\" again after setting args"
+		fail "run \"$testfile\" again after setting args"
 	    }
 	    timeout {
-		fail "(timeout) run \"$binfile\" again after setting args"
+		fail "(timeout) run \"$testfile\" again after setting args"
 	    }
 	}
 }
@@ -219,13 +219,13 @@ if [isnative] then {
     send "run `echo 8`\n"
     expect {
 	-re "Starting program.*40320.*$prompt $" {
-	    pass "run \"$binfile\" with shell"
+	    pass "run \"$testfile\" with shell"
 	}
 	-re ".*$prompt $" {
-	    fail "run \"$binfile\" with shell"
+	    fail "run \"$testfile\" with shell"
 	}
 	timeout	{
-	    fail "(timeout) run \"$binfile\" with shell"
+	    fail "(timeout) run \"$testfile\" with shell"
 	}
     }
 }

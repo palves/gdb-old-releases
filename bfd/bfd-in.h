@@ -599,6 +599,7 @@ extern boolean bfd_elf64_size_dynamic_sections
   PARAMS ((bfd *, const char *, const char *, boolean,
 	   struct bfd_link_info *, struct sec **));
 extern void bfd_elf_set_dt_needed_name PARAMS ((bfd *, const char *));
+extern const char *bfd_elf_get_dt_soname PARAMS ((bfd *));
 
 /* SunOS shared library support routines for the linker.  */
 
@@ -612,7 +613,9 @@ extern boolean bfd_sunos_size_dynamic_sections
 
 /* Linux shared library support routines for the linker.  */
 
-extern boolean bfd_linux_size_dynamic_sections
+extern boolean bfd_i386linux_size_dynamic_sections
+  PARAMS ((bfd *, struct bfd_link_info *));
+extern boolean bfd_m68klinux_size_dynamic_sections
   PARAMS ((bfd *, struct bfd_link_info *));
 
 /* mmap hacks */

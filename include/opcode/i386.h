@@ -99,12 +99,12 @@ static const template i386_optab[] = {
 {"cmc", 0, 0xf5, _, NoModrm, { 0, 0, 0} },
 {"lahf", 0, 0x9f, _, NoModrm, { 0, 0, 0} },
 {"sahf", 0, 0x9e, _, NoModrm, { 0, 0, 0} },
-{"pushf", 0, 0x9c, _, NoModrm|Data32, { 0, 0, 0} },
-{"popf", 0, 0x9d, _, NoModrm|Data32, { 0, 0, 0} },
 {"pushfl", 0, 0x9c, _, NoModrm|Data32, { 0, 0, 0} },
 {"popfl", 0, 0x9d, _, NoModrm|Data32, { 0, 0, 0} },
 {"pushfw", 0, 0x9c, _, NoModrm|Data16, { 0, 0, 0} },
 {"popfw", 0, 0x9d, _, NoModrm|Data16, { 0, 0, 0} },
+{"pushf", 0, 0x9c, _, NoModrm, { 0, 0, 0} },
+{"popf", 0, 0x9d, _, NoModrm, { 0, 0, 0} },
 {"stc", 0, 0xf9, _, NoModrm, { 0, 0, 0} },
 {"std", 0, 0xfd, _, NoModrm, { 0, 0, 0} },
 {"sti", 0, 0xfb, _, NoModrm, { 0, 0, 0} },
@@ -823,6 +823,7 @@ static const reg_entry i386_regtab[] = {
   {"dr0", Debug, 0},   {"dr1", Debug, 1},   {"dr2", Debug, 2},
   {"dr3", Debug, 3},   {"dr6", Debug, 6},   {"dr7", Debug, 7},
   /* test registers */
+  {"tr3", Test, 3}, {"tr4", Test, 4}, {"tr5", Test, 5},
   {"tr6", Test, 6}, {"tr7", Test, 7},
   /* float registers */
   {"st(0)", FloatReg|FloatAcc, 0},

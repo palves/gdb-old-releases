@@ -586,6 +586,7 @@ device_instance_create(device *me,
   instance->data = data;
   instance->args = (spec.last_args == NULL ? NULL : strdup(spec.last_args));
   instance->path = strdup(device_specifier);
+  instance->name = strdup(spec.last_name);
   instance->permenant = permenant;
   /*instance->unit*/
   /*instance->parent*/
@@ -620,8 +621,12 @@ device_instance_delete(device_instance *instance)
   if (instance->permenant)
     error("device_instance_delete: attempt to delete a permenant instance\n");
   me->callback->instance_delete(instance);
-  zfree(instance->args);
-  zfree(instance->path);
+  if (instance->args != NULL)
+    zfree(instance->args);
+  if (instance->path != NULL)
+    zfree(instance->path);
+  if (instance->name != NULL)
+    zfree(instance->name);
   curr = &me->instances;
   while (*curr != NULL && *curr != instance)
     curr = &(*curr)->next;

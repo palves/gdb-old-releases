@@ -426,7 +426,7 @@ print_floating (valaddr, type, stream)
      struct type *type;
      GDB_FILE *stream;
 {
-  double doub;
+  DOUBLEST doub;
   int inv;
   unsigned len = TYPE_LENGTH (type);
   
@@ -504,9 +504,17 @@ print_floating (valaddr, type, stream)
 
   doub = unpack_double (type, valaddr, &inv);
   if (inv)
-    fprintf_filtered (stream, "<invalid float value>");
+    {
+      fprintf_filtered (stream, "<invalid float value>");
+      return;
+    }
+
+  if (len < sizeof (double))
+    fprintf_filtered (stream, "%.9g", (double) doub);
+  else if (len == sizeof (double))
+    fprintf_filtered (stream, "%.17g", (double) doub);
   else
-    fprintf_filtered (stream, len <= sizeof(float) ? "%.9g" : "%.17g", doub);
+    fprintf_filtered (stream, "%.35Lg", doub);
 }
 
 /* VALADDR points to an integer of LEN bytes.  Print it in hex on stream.  */

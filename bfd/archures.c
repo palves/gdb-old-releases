@@ -1,5 +1,5 @@
 /* BFD library support routines for architectures.
-   Copyright (C) 1990, 91-95, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Hacked by John Gilmore and Steve Chamberlain of Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -86,6 +86,8 @@ DESCRIPTION
 .#define bfd_mach_i960_mc        4
 .#define bfd_mach_i960_xa        5
 .#define bfd_mach_i960_ca        6
+.#define bfd_mach_i960_jx	 7
+.#define bfd_mach_i960_hx        8
 .
 .  bfd_arch_a29k,      {* AMD 29000 *}
 .  bfd_arch_sparc,     {* SPARC *}

@@ -828,7 +828,7 @@ model_print *::model-function::model_mon_info:model_data *model_ptr
 	  tail = tail->next;
 	  tail->count = model_ptr->nr_stalls_writeback;
 	  tail->name = "";
-	  tail->suffix_plural = "times a writeback slot was unavilable";
+	  tail->suffix_plural = "times a write-back slot was unavailable";
 	  tail->suffix_singular = "time a writeback was unavilable";
 	}
 
@@ -4591,11 +4591,37 @@ void::function::invalid_arithemetic_operation:cpu *processor, unsigned_word cia,
 0.31,6./,11./,16./,21.498,31./:X:64::SLB Invalidate All
 
 0.31,6./,11./,16.RB,21.306,31./:X:::TLB Invalidate Entry
+	if (IS_PROBLEM_STATE(processor))
+	  program_interrupt(processor, cia,
+	                    privileged_instruction_program_interrupt);
+	else {
+	  int nr = 0;
+	  cpu *proc;
+	  while (1) {
+	    proc = psim_cpu(cpu_system(processor), nr);
+	    if (proc == NULL) break;
+	    cpu_page_tlb_invalidate_entry(proc, *rB);
+	    nr++;
+	  }
+	}
 
 0.31,6./,11./,16./,21.370,31./:X:::TLB Invalidate All
+	if (IS_PROBLEM_STATE(processor))
+	  program_interrupt(processor, cia,
+	                    privileged_instruction_program_interrupt);
+	else {
+	  int nr = 0;
+	  cpu *proc;
+	  while (1) {
+	    proc = psim_cpu(cpu_system(processor), nr);
+	    if (proc == NULL) break;
+	    cpu_page_tlb_invalidate_all(proc);
+	    nr++;
+	  }
+	}
 
-0.31,6./,11./,16./,21.566,31./:X:::TLB Sychronize
-
+0.31,6./,11./,16./,21.566,31./:X:::TLB Synchronize
+	/* nothing happens here - always in sync */
 
 #
 # III.A.1.2 External Access Instructions

@@ -25,6 +25,9 @@
 void printf_filtered
 (const char *msg, ...) __attribute__ ((format (printf, 1, 2)));
 
+void flush_stdoutput
+(void);
+
 void NORETURN error
 (char *msg, ...);
 

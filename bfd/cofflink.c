@@ -1189,7 +1189,6 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 	  struct coff_debug_merge_element **epp;
 	  bfd_byte *esl, *eslend;
 	  struct internal_syment *islp;
-	  struct coff_debug_merge_type *mtl;
 
 	  name = _bfd_coff_internal_syment_name (input_bfd, &isym, buf);
 	  if (name == NULL)
@@ -1197,9 +1196,9 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 
 	  /* Ignore fake names invented by compiler; treat them all as
              the same name.  */
-	  if (*name == '~' || *name == '.'
+	  if (*name == '~' || *name == '.' || *name == '$'
 	      || (*name == bfd_get_symbol_leading_char (input_bfd)
-		  && (name[1] == '~' || name[1] == '.')))
+		  && (name[1] == '~' || name[1] == '.' || name[1] == '$')))
 	    name = "";
 
 	  mh = coff_debug_merge_hash_lookup (&finfo->debug_merge, name,
@@ -1293,42 +1292,50 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
 	    }
 
 	  /* See if we already have a definition which matches this
-             type.  */
-	  for (mtl = mh->types; mtl != NULL; mtl = mtl->next)
+             type.  We always output the type if it has no elements,
+             for simplicity.  */
+	  if (mt->elements == NULL)
+	    bfd_release (input_bfd, (PTR) mt);
+	  else
 	    {
-	      struct coff_debug_merge_element *me, *mel;
+	      struct coff_debug_merge_type *mtl;
 
-	      if (mtl->class != mt->class)
-		continue;
-
-	      for (me = mt->elements, mel = mtl->elements;
-		   me != NULL && mel != NULL;
-		   me = me->next, mel = mel->next)
+	      for (mtl = mh->types; mtl != NULL; mtl = mtl->next)
 		{
-		  if (strcmp (me->name, mel->name) != 0
-		      || me->type != mel->type
-		      || me->tagndx != mel->tagndx)
+		  struct coff_debug_merge_element *me, *mel;
+
+		  if (mtl->class != mt->class)
+		    continue;
+
+		  for (me = mt->elements, mel = mtl->elements;
+		       me != NULL && mel != NULL;
+		       me = me->next, mel = mel->next)
+		    {
+		      if (strcmp (me->name, mel->name) != 0
+			  || me->type != mel->type
+			  || me->tagndx != mel->tagndx)
+			break;
+		    }
+
+		  if (me == NULL && mel == NULL)
 		    break;
 		}
 
-	      if (me == NULL && mel == NULL)
-		break;
-	    }
-
-	  if (mtl == NULL || (bfd_size_type) mtl->indx >= syment_base)
-	    {
-	      /* This is the first definition of this type.  */
-	      mt->indx = output_index;
-	      mt->next = mh->types;
-	      mh->types = mt;
-	    }
-	  else
-	    {
-	      /* This is a redefinition which can be merged.  */
-	      bfd_release (input_bfd, (PTR) mt);
-	      *indexp = mtl->indx;
-	      add = (eslend - esym) / isymesz;
-	      skip = true;
+	      if (mtl == NULL || (bfd_size_type) mtl->indx >= syment_base)
+		{
+		  /* This is the first definition of this type.  */
+		  mt->indx = output_index;
+		  mt->next = mh->types;
+		  mh->types = mt;
+		}
+	      else
+		{
+		  /* This is a redefinition which can be merged.  */
+		  bfd_release (input_bfd, (PTR) mt);
+		  *indexp = mtl->indx;
+		  add = (eslend - esym) / isymesz;
+		  skip = true;
+		}
 	    }
 	}
 
@@ -1544,7 +1551,9 @@ _bfd_coff_link_input_bfd (finfo, input_bfd)
                              the index of the next symbol we are going
                              to include.  I don't know if this is
                              entirely right.  */
-			  while (finfo->sym_indices[indx] < 0
+			  while ((finfo->sym_indices[indx] < 0
+				  || ((bfd_size_type) finfo->sym_indices[indx]
+				      < syment_base))
 				 && indx < obj_raw_syment_count (input_bfd))
 			    ++indx;
 			  if (indx >= obj_raw_syment_count (input_bfd))

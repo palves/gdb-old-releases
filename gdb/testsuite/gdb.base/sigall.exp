@@ -51,9 +51,6 @@ proc test_one_sig {nextsig} {
     gdb_test "b handle_$thissig" "Breakpoint \[0-9\]+ .*"
     gdb_test "b gen_$nextsig" "Breakpoint \[0-9\]+ .*"
 
-    if {$thissig == "ALRM"} then {
-	setup_xfail "*-*-irix4*"
-    }
     set need_another_continue 1
     set missed_handler 0
     if $this_sig_supported then {

@@ -319,6 +319,21 @@ cpu_data_map(cpu *processor)
   return processor->data_map;
 }
 
+INLINE_CPU\
+(void)
+cpu_page_tlb_invalidate_entry(cpu *processor,
+			      unsigned_word ea)
+{
+  vm_page_tlb_invalidate_entry(processor->virtual, ea);
+}
+
+INLINE_CPU\
+(void)
+cpu_page_tlb_invalidate_all(cpu *processor)
+{
+  vm_page_tlb_invalidate_all(processor->virtual);
+}
+
 
 /* reservation access */
 
@@ -343,7 +358,7 @@ INLINE_CPU\
 (void)
 cpu_synchronize_context(cpu *processor)
 {
-#if (WITH_IDECODE_CACHE)
+#if (WITH_IDECODE_CACHE_SIZE)
   /* kill of the cache */
   cpu_flush_icache(processor);
 #endif

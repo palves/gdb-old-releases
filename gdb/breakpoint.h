@@ -417,4 +417,6 @@ extern void enable_breakpoint PARAMS ((struct breakpoint *));
 
 extern void create_solib_event_breakpoint PARAMS ((CORE_ADDR));
 
+extern void remove_solib_event_breakpoints PARAMS ((void));
+
 #endif /* !defined (BREAKPOINT_H) */

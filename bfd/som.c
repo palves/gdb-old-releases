@@ -430,8 +430,9 @@ static const struct fixup_format som_fixup_formats[256] =
   1,    "Lb4*=Mb1+L*=",	/* 0x2b */
   2,    "Lb4*=Md1+4*=",	/* 0x2c */
   3,    "Ld1+=Me1+=",	/* 0x2d */
-  /* R_RESERVED */
+  /* R_SHORT_PCREL_MODE */
   0,   	"",	        /* 0x2e */
+  /* R_LONG_PCREL_MODE */
   0,   	"",	        /* 0x2f */
   /* R_PCREL_CALL */
   0,    "L4=RD=Sb=",	/* 0x30 */
@@ -637,14 +638,21 @@ static const struct fixup_format som_fixup_formats[256] =
   1,    "P",	        /* 0xd4 */
   2,    "P",	        /* 0xd5 */
   3,    "P",	        /* 0xd6 */
-  /* R_RESERVED */
+  /* R_SEC_STMT */
   0,	"",		/* 0xd7 */
+  /* R_N0SEL */
   0,	"",		/* 0xd8 */
+  /* R_N1SEL */
   0,	"",		/* 0xd9 */
+  /* R_LINETAB */
   0,	"",		/* 0xda */
+  /* R_LINETAB_ESC */
   0,	"",		/* 0xdb */
+  /* R_LTP_OVERRIDE */
   0,	"",		/* 0xdc */
+  /* R_COMMENT */
   0,	"",		/* 0xdd */
+  /* R_RESERVED */
   0,	"",		/* 0xde */
   0,	"",		/* 0xdf */
   0,	"",		/* 0xe0 */
@@ -719,7 +727,7 @@ static const int comp3_opcodes[] =
   -1
 };
 
-/* These apparently are not in older versions of hpux reloc.h.  */
+/* These apparently are not in older versions of hpux reloc.h (hpux7).  */
 #ifndef R_DLT_REL
 #define R_DLT_REL 0x78
 #endif
@@ -730,6 +738,39 @@ static const int comp3_opcodes[] =
 
 #ifndef R_SEC_STMT
 #define R_SEC_STMT 0xd7
+#endif
+
+/* And these first appeared in hpux10.  */
+#ifndef R_SHORT_PCREL_MODE
+#define R_SHORT_PCREL_MODE 0x3e
+#endif
+
+#ifndef R_LONG_PCREL_MODE
+#define R_LONG_PCREL_MODE 0x3f
+#endif
+
+#ifndef R_N0SEL
+#define R_N0SEL 0xd8
+#endif
+
+#ifndef R_N1SEL
+#define R_N1SEL 0xd9
+#endif
+
+#ifndef R_LINETAB
+#define R_LINETAB 0xda
+#endif
+
+#ifndef R_LINETAB_ESC
+#define R_LINETAB_ESC 0xdb
+#endif
+
+#ifndef R_LTP_OVERRIDE
+#define R_LTP_OVERRIDE 0xdc
+#endif
+
+#ifndef R_COMMENT
+#define R_COMMENT 0xdd
 #endif
 
 static reloc_howto_type som_hppa_howto_table[] =
@@ -796,8 +837,8 @@ static reloc_howto_type som_hppa_howto_table[] =
   {R_PCREL_CALL, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_PCREL_CALL"},
   {R_PCREL_CALL, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_PCREL_CALL"},
   {R_PCREL_CALL, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_PCREL_CALL"},
-  {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
-  {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
+  {R_SHORT_PCREL_MODE, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_SHORT_PCREL_MODE"},
+  {R_LONG_PCREL_MODE, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_LONG_PCREL_MODE"},
   {R_ABS_CALL, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_ABS_CALL"},
   {R_ABS_CALL, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_ABS_CALL"},
   {R_ABS_CALL, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_ABS_CALL"},
@@ -950,12 +991,12 @@ static reloc_howto_type som_hppa_howto_table[] =
   {R_PREV_FIXUP, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_PREV_FIXUP"},
   {R_PREV_FIXUP, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_PREV_FIXUP"},
   {R_SEC_STMT, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_SEC_STMT"},
-  {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
-  {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
-  {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
-  {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
-  {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
-  {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
+  {R_N0SEL, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_N0SEL"},
+  {R_N1SEL, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_N1SEL"},
+  {R_LINETAB, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_LINETAB"},
+  {R_LINETAB_ESC, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_LINETAB_ESC"},
+  {R_LTP_OVERRIDE, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_LTP_OVERRIDE"},
+  {R_COMMENT, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_COMMENT"},
   {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
   {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
   {R_RESERVED, 0, 0, 32, false, 0, 0, hppa_som_reloc, "R_RESERVED"},
@@ -1486,6 +1527,34 @@ hppa_som_gen_reloc_type (abfd, base_type, format, field, sym_diff)
 	*final_types[0] = R_R_MODE;
 	final_types[1] = final_type;
 	final_types[2] = NULL;
+	*final_type = base_type;
+	break;
+
+      case e_nsel:
+	final_types[0] = (int *) bfd_alloc_by_size_t (abfd, sizeof (int));
+	if (!final_types[0])
+	  return NULL;
+	*final_types[0] = R_N1SEL;
+	final_types[1] = final_type;
+	final_types[2] = NULL;
+	*final_type = base_type;
+	break;
+
+      case e_nlsel:
+      case e_nlrsel:
+	final_types[0] = (int *) bfd_alloc_by_size_t (abfd, sizeof (int));
+	if (!final_types[0])
+	  return NULL;
+	*final_types[0] = R_N0SEL;
+	final_types[1] = (int *) bfd_alloc_by_size_t (abfd, sizeof (int));
+	if (!final_types[1])
+	  return NULL;
+	if (field == e_nlsel)
+	  *final_types[1] = R_N_MODE;
+	else
+	  *final_types[1] = R_R_MODE;
+	final_types[2] = final_type;
+	final_types[3] = NULL;
 	*final_type = base_type;
 	break;
     }
@@ -2578,6 +2647,8 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 		case R_COMP2:
 		case R_BEGIN_BRTAB:
 		case R_END_BRTAB:
+		case R_N0SEL:
+		case R_N1SEL:
 		  reloc_offset = bfd_reloc->address;
 		  break;
 
@@ -2709,6 +2780,8 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 		case R_RSEL:
 		case R_BEGIN_BRTAB:
 		case R_END_BRTAB:
+		case R_N0SEL:
+		case R_N1SEL:
 		  bfd_put_8 (abfd, bfd_reloc->howto->type, p);
 		  subspace_reloc_size += 1;
 		  p += 1;

@@ -114,7 +114,7 @@ FLAGS_TO_PASS = \
 	"RANLIB=$(RANLIB)" \
 	"SHELL=$(SHELL)"
 
-all: stamp-picdir $(TARGETLIB)
+all: stamp-picdir $(TARGETLIB) required-list
 	@if [ "$(RULE1)" != "not-used" ]; then \
 	  $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all; \
 	else true; \
@@ -236,6 +236,10 @@ dummy.o: $(srcdir)/dummy.c $(srcdir)/functions.def
 errors: dummy.o $(EXTRA_OFILES)
 	-($(ERRORS_CC) -o dummy $(CFLAGS) $(LDFLAGS) $(ERRORS_LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
 
+# required-list is used when building a shared bfd/opcodes/libiberty library.
+required-list: Makefile
+	echo $(REQUIRED_OFILES) > required-list
+
 $(HOST_OFILES) $(REQUIRED_OFILES) : config.h
 
 RULE1 = $(TARGETLIB)
@@ -284,7 +288,7 @@ mostlyclean:
 	rm -f $(CONFIG_H) $(NEEDED_LIST) stamp-picdir
 	@$(MULTICLEAN) multi-clean DO=mostlyclean
 clean: mostlyclean
-	rm -f *.a
+	rm -f *.a required-list
 	@$(MULTICLEAN) multi-clean DO=clean
 distclean: clean
 	rm -f *~ Makefile config.status alloca-conf.h xhost-mkfrag TAGS

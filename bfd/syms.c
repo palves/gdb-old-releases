@@ -483,13 +483,16 @@ static CONST struct section_to_type stt[] =
 {
   {"*DEBUG*", 'N'},
   {".bss", 'b'},
+  {"zerovars", 'b'},		/* MRI .bss */
   {".data", 'd'},
+  {"vars", 'd'},		/* MRI .data */
   {".rdata", 'r'},		/* Read only data.  */
   {".rodata", 'r'},		/* Read only data.  */
   {".sbss", 's'},		/* Small BSS (uninitialized data).  */
   {".scommon", 'c'},		/* Small common.  */
   {".sdata", 'g'},		/* Small initialized data.  */
   {".text", 't'},
+  {"code", 't'},		/* MRI .text */
   {0, 0}
 };
 

@@ -1,7 +1,8 @@
 /* BFD back-end for Hitachi Super-H COFF binaries.
-   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
    Written by Steve Chamberlain, <sac@cygnus.com>.
+   Relaxing code written by Ian Lance Taylor, <ian@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -946,7 +947,9 @@ sh_relax_delete_bytes (abfd, sec, addr, count)
 
 	case R_SH_USES:
 	  start = irel->r_vaddr - sec->vma;
-	  stop = (bfd_vma) ((bfd_signed_vma) start + (long) irel->r_offset);
+	  stop = (bfd_vma) ((bfd_signed_vma) start
+			    + (long) irel->r_offset
+			    + 4);
 	  break;
 	}
 

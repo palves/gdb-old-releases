@@ -190,6 +190,14 @@ exec_file_command (args, from_tty)
       if (!exec_bfd)
 	error ("\"%s\": could not open as an executable file: %s",
 	       scratch_pathname, bfd_errmsg (bfd_get_error ()));
+
+      /* At this point, scratch_pathname and exec_bfd->name both point to the
+	 same malloc'd string.  However exec_close() will attempt to free it
+	 via the exec_bfd->name pointer, so we need to make another copy and
+	 leave exec_bfd as the new owner of the original copy. */
+      scratch_pathname = strdup (scratch_pathname);
+      make_cleanup (free, scratch_pathname);
+      
       if (!bfd_check_format (exec_bfd, bfd_object))
 	{
 	  /* Make sure to close exec_bfd, or else "run" might try to use

@@ -148,9 +148,9 @@ LOCAL FUNCTION
 
 DESCRIPTION
 
-	Given pointer to two partial symbol table entries, compare
-	them by name and return -N, 0, or +N (ala strcmp).  Typically
-	used by sorting routines like qsort().
+	Given pointers to pointers to two partial symbol table entries,
+	compare them by name and return -N, 0, or +N (ala strcmp).
+	Typically used by sorting routines like qsort().
 
 NOTES
 
@@ -167,8 +167,8 @@ compare_psymbols (s1p, s2p)
      const PTR s1p;
      const PTR s2p;
 {
-  register char *st1 = SYMBOL_NAME ((struct partial_symbol *) s1p);
-  register char *st2 = SYMBOL_NAME ((struct partial_symbol *) s2p);
+  register char *st1 = SYMBOL_NAME (*(struct partial_symbol **) s1p);
+  register char *st2 = SYMBOL_NAME (*(struct partial_symbol **) s2p);
 
   if ((st1[0] - st2[0]) || !st1[0])
     {
@@ -191,7 +191,7 @@ sort_pst_symbols (pst)
   /* Sort the global list; don't sort the static list */
 
   qsort (pst -> objfile -> global_psymbols.list + pst -> globals_offset,
-	 pst -> n_global_syms, sizeof (struct partial_symbol),
+	 pst -> n_global_syms, sizeof (struct partial_symbol *),
 	 compare_psymbols);
 }
 
@@ -350,7 +350,7 @@ entry_point_address()
    If the vmas and sizes are equal, the last section is considered the
    lowest-addressed loadable section.  */
 
-static void
+void
 find_lowest_section (abfd, sect, obj)
      bfd *abfd;
      asection *sect;
@@ -923,6 +923,8 @@ generic_load (filename, from_tty)
   struct cleanup *old_cleanups;
   asection *s;
   bfd *loadfile_bfd;
+  time_t start_time, end_time;	/* Start and end times of download */
+  unsigned long data_count;	/* Number of bytes transferred to memory */
 
   loadfile_bfd = bfd_openr (filename, gnutarget);
   if (loadfile_bfd == NULL)
@@ -941,6 +943,8 @@ generic_load (filename, from_tty)
 	     bfd_errmsg (bfd_get_error ()));
     }
   
+  start_time = time (NULL);
+
   for (s = loadfile_bfd->sections; s; s = s->next) 
     {
       if (s->flags & SEC_LOAD) 
@@ -953,6 +957,8 @@ generic_load (filename, from_tty)
 	      char *buffer;
 	      struct cleanup *old_chain;
 	      bfd_vma vma;
+
+	      data_count += size;
 
 	      buffer = xmalloc (size);
 	      old_chain = make_cleanup (free, buffer);
@@ -976,6 +982,8 @@ generic_load (filename, from_tty)
 	}
     }
 
+  end_time = time (NULL);
+
   /* We were doing this in remote-mips.c, I suspect it is right
      for other targets too.  */
   write_pc (loadfile_bfd->start_address);
@@ -985,6 +993,9 @@ generic_load (filename, from_tty)
      commented out), making the call confuses GDB if more than one file is
      loaded in.  remote-nindy.c had no call to symbol_file_add, but remote-vx.c
      does.  */
+
+  printf_filtered ("Transfer rate: %d bits/sec.\n",
+		   (data_count * 8)/(end_time - start_time));
 
   do_cleanups (old_cleanups);
 }
@@ -1192,6 +1203,7 @@ reread_symbols ()
 	  objfile->static_psymbols.size = 0;
 
 	  /* Free the obstacks for non-reusable objfiles */
+	  obstack_free (&objfile -> psymbol_cache.cache, 0);
 	  obstack_free (&objfile -> psymbol_obstack, 0);
 	  obstack_free (&objfile -> symbol_obstack, 0);
 	  obstack_free (&objfile -> type_obstack, 0);
@@ -1211,6 +1223,8 @@ reread_symbols ()
 	  objfile -> md = NULL;
 	  /* obstack_specify_allocation also initializes the obstack so
 	     it is empty.  */
+	  obstack_specify_allocation (&objfile -> psymbol_cache.cache, 0, 0,
+				      xmalloc, free);
 	  obstack_specify_allocation (&objfile -> psymbol_obstack, 0, 0,
 				      xmalloc, free);
 	  obstack_specify_allocation (&objfile -> symbol_obstack, 0, 0,
@@ -1616,8 +1630,8 @@ start_psymtab_common (objfile, section_offsets,
      struct section_offsets *section_offsets;
      char *filename;
      CORE_ADDR textlow;
-     struct partial_symbol *global_syms;
-     struct partial_symbol *static_syms;
+     struct partial_symbol **global_syms;
+     struct partial_symbol **static_syms;
 {
   struct partial_symtab *psymtab;
 
@@ -1651,25 +1665,30 @@ add_psymbol_to_list (name, namelength, namespace, class, list, val, language,
      struct objfile *objfile;
 {
   register struct partial_symbol *psym;
-  register char *demangled_name;
+  char *buf = alloca (namelength + 1);
+  struct partial_symbol psymbol;
 
+  /* Create local copy of the partial symbol */
+  memcpy (buf, name, namelength);
+  buf[namelength] = '\0';
+  SYMBOL_NAME (&psymbol) = bcache (buf, namelength + 1, &objfile->psymbol_cache);
+  SYMBOL_VALUE (&psymbol) = val;
+  SYMBOL_SECTION (&psymbol) = 0;
+  SYMBOL_LANGUAGE (&psymbol) = language;
+  PSYMBOL_NAMESPACE (&psymbol) = namespace;
+  PSYMBOL_CLASS (&psymbol) = class;
+  SYMBOL_INIT_LANGUAGE_SPECIFIC (&psymbol, language);
+
+  /* Stash the partial symbol away in the cache */
+  psym = bcache (&psymbol, sizeof (struct partial_symbol), &objfile->psymbol_cache);
+
+  /* Save pointer to partial symbol in psymtab, growing symtab if needed. */
   if (list->next >= list->list + list->size)
     {
-      extend_psymbol_list (list,objfile);
+      extend_psymbol_list (list, objfile);
     }
-  psym = list->next++;
-  
-  SYMBOL_NAME (psym) =
-    (char *) obstack_alloc (&objfile->psymbol_obstack, namelength + 1);
-  memcpy (SYMBOL_NAME (psym), name, namelength);
-  SYMBOL_NAME (psym)[namelength] = '\0';
-  SYMBOL_VALUE (psym) = val;
-  SYMBOL_SECTION (psym) = 0;
-  SYMBOL_LANGUAGE (psym) = language;
-  PSYMBOL_NAMESPACE (psym) = namespace;
-  PSYMBOL_CLASS (psym) = class;
-  SYMBOL_INIT_LANGUAGE_SPECIFIC (psym, language);
-  OBJSTAT (objfile, psyms++);
+  *list->next++ = psym;
+  OBJSTAT (objfile, n_psyms++);
 }
 
 /* Add a symbol with a CORE_ADDR value to a psymtab. */
@@ -1687,25 +1706,30 @@ add_psymbol_addr_to_list (name, namelength, namespace, class, list, val,
      struct objfile *objfile;
 {
   register struct partial_symbol *psym;
-  register char *demangled_name;
+  char *buf = alloca (namelength + 1);
+  struct partial_symbol psymbol;
 
+  /* Create local copy of the partial symbol */
+  memcpy (buf, name, namelength);
+  buf[namelength] = '\0';
+  SYMBOL_NAME (&psymbol) = bcache (buf, namelength + 1, &objfile->psymbol_cache);
+  SYMBOL_VALUE_ADDRESS (&psymbol) = val;
+  SYMBOL_SECTION (&psymbol) = 0;
+  SYMBOL_LANGUAGE (&psymbol) = language;
+  PSYMBOL_NAMESPACE (&psymbol) = namespace;
+  PSYMBOL_CLASS (&psymbol) = class;
+  SYMBOL_INIT_LANGUAGE_SPECIFIC (&psymbol, language);
+
+  /* Stash the partial symbol away in the cache */
+  psym = bcache (&psymbol, sizeof (struct partial_symbol), &objfile->psymbol_cache);
+
+  /* Save pointer to partial symbol in psymtab, growing symtab if needed. */
   if (list->next >= list->list + list->size)
     {
-      extend_psymbol_list (list,objfile);
+      extend_psymbol_list (list, objfile);
     }
-  psym = list->next++;
-  
-  SYMBOL_NAME (psym) =
-    (char *) obstack_alloc (&objfile->psymbol_obstack, namelength + 1);
-  memcpy (SYMBOL_NAME (psym), name, namelength);
-  SYMBOL_NAME (psym)[namelength] = '\0';
-  SYMBOL_VALUE_ADDRESS (psym) = val;
-  SYMBOL_SECTION (psym) = 0;
-  SYMBOL_LANGUAGE (psym) = language;
-  PSYMBOL_NAMESPACE (psym) = namespace;
-  PSYMBOL_CLASS (psym) = class;
-  SYMBOL_INIT_LANGUAGE_SPECIFIC (psym, language);
-  OBJSTAT (objfile, psyms++);
+  *list->next++ = psym;
+  OBJSTAT (objfile, n_psyms++);
 }
 
 #endif /* !INLINE_ADD_PSYMBOL */
@@ -1735,13 +1759,13 @@ init_psymbol_list (objfile, total_symbols)
   objfile -> global_psymbols.size = total_symbols / 10;
   objfile -> static_psymbols.size = total_symbols / 10;
   objfile -> global_psymbols.next =
-    objfile -> global_psymbols.list = (struct partial_symbol *)
+    objfile -> global_psymbols.list = (struct partial_symbol **)
       xmmalloc (objfile -> md, objfile -> global_psymbols.size
-			     * sizeof (struct partial_symbol));
+			     * sizeof (struct partial_symbol *));
   objfile -> static_psymbols.next =
-    objfile -> static_psymbols.list = (struct partial_symbol *)
+    objfile -> static_psymbols.list = (struct partial_symbol **)
       xmmalloc (objfile -> md, objfile -> static_psymbols.size
-			     * sizeof (struct partial_symbol));
+			     * sizeof (struct partial_symbol *));
 }
 
 void

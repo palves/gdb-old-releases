@@ -599,6 +599,7 @@ extern boolean bfd_elf64_size_dynamic_sections
   PARAMS ((bfd *, const char *, const char *, boolean,
 	   struct bfd_link_info *, struct sec **));
 extern void bfd_elf_set_dt_needed_name PARAMS ((bfd *, const char *));
+extern const char *bfd_elf_get_dt_soname PARAMS ((bfd *));
 
 /* SunOS shared library support routines for the linker.  */
 
@@ -612,7 +613,9 @@ extern boolean bfd_sunos_size_dynamic_sections
 
 /* Linux shared library support routines for the linker.  */
 
-extern boolean bfd_linux_size_dynamic_sections
+extern boolean bfd_i386linux_size_dynamic_sections
+  PARAMS ((bfd *, struct bfd_link_info *));
+extern boolean bfd_m68klinux_size_dynamic_sections
   PARAMS ((bfd *, struct bfd_link_info *));
 
 /* mmap hacks */
@@ -1103,6 +1106,8 @@ enum bfd_architecture
 #define bfd_mach_i960_mc        4
 #define bfd_mach_i960_xa        5
 #define bfd_mach_i960_ca        6
+#define bfd_mach_i960_jx	 7
+#define bfd_mach_i960_hx        8
 
   bfd_arch_a29k,       /* AMD 29000 */
   bfd_arch_sparc,      /* SPARC */
@@ -1511,7 +1516,9 @@ relocation types already defined. */
   BFD_RELOC_SPARC_WDISP16,
   BFD_RELOC_SPARC_WDISP19,
   BFD_RELOC_SPARC_GLOB_JMP,
-  BFD_RELOC_SPARC_LO7,
+  BFD_RELOC_SPARC_7,
+  BFD_RELOC_SPARC_6,
+  BFD_RELOC_SPARC_5,
 
 /* Alpha ECOFF relocations.  Some of these treat the symbol or "addend"
 in some special way.
@@ -1586,6 +1593,10 @@ to compensate for the borrow when the low bits are added. */
   BFD_RELOC_MIPS_GOT16,
   BFD_RELOC_MIPS_CALL16,
 #define BFD_RELOC_MIPS_GPREL32 BFD_RELOC_GPREL32
+  BFD_RELOC_MIPS_GOT_HI16,
+  BFD_RELOC_MIPS_GOT_LO16,
+  BFD_RELOC_MIPS_CALL_HI16,
+  BFD_RELOC_MIPS_CALL_LO16,
 
 /* i386/elf relocations */
   BFD_RELOC_386_GOT32,
@@ -1966,6 +1977,7 @@ struct _bfd
       struct osf_core_struct *osf_core_data;
       struct cisco_core_struct *cisco_core_data;
       struct versados_data_struct *versados_data;
+      struct netbsd_core_struct *netbsd_core_data;
       PTR any;
       } tdata;
   

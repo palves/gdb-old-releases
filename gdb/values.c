@@ -1,5 +1,5 @@
 /* Low level packing and unpacking of values for GDB, the GNU Debugger.
-   Copyright 1986, 1987, 1989, 1991, 1993, 1994, 1995
+   Copyright 1986, 1987, 1989, 1991, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -238,14 +238,6 @@ record_latest_value (val)
      value_ptr val;
 {
   int i;
-
-  /* Check error now if about to store an invalid float.  We return -1
-     to the caller, but allow them to continue, e.g. to print it as "Nan". */
-  if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_FLT)
-    {
-      unpack_double (VALUE_TYPE (val), VALUE_CONTENTS (val), &i);
-      if (i) return -1;		/* Indicate value not saved in history */
-    }
 
   /* We don't want this value to have anything to do with the inferior anymore.
      In particular, "set $1 = 50" should not affect the variable from which
@@ -560,11 +552,11 @@ value_as_long (val)
   return unpack_long (VALUE_TYPE (val), VALUE_CONTENTS (val));
 }
 
-double
+DOUBLEST
 value_as_double (val)
      register value_ptr val;
 {
-  double foo;
+  DOUBLEST foo;
   int inv;
   
   foo = unpack_double (VALUE_TYPE (val), VALUE_CONTENTS (val), &inv);
@@ -655,7 +647,7 @@ unpack_long (type, valaddr)
    the returned double is OK to use.  Argument is in target
    format, result is in host format.  */
 
-double
+DOUBLEST
 unpack_double (type, valaddr, invp)
      struct type *type;
      char *valaddr;
@@ -1039,7 +1031,7 @@ vb_match (type, index, basetype)
   if (*name != '_')
     return 0;
   /* gcc 2.4 uses _vb$.  */
-  if (name[1] == 'v' && name[2] == 'b' && name[3] == CPLUS_MARKER)
+  if (name[1] == 'v' && name[2] == 'b' && is_cplus_marker (name[3]))
     field_class_name = name + 4;
   /* gcc 2.5 will use __vb_.  */
   if (name[1] == '_' && name[2] == 'v' && name[3] == 'b' && name[4] == '_')
@@ -1268,7 +1260,7 @@ value_from_longest (type, num)
 value_ptr
 value_from_double (type, num)
      struct type *type;
-     double num;
+     DOUBLEST num;
 {
   register value_ptr val = allocate_value (type);
   struct type *base_type = check_typedef (type);
@@ -1350,6 +1342,14 @@ value_being_returned (valtype, retbuf, struct_return)
      ))
 #endif
 
+/* Some fundamental types (such as long double) are returned on the stack for
+   certain architectures.  This macro should return true for any type besides
+   struct, union or array that gets returned on the stack.  */
+
+#ifndef RETURN_VALUE_ON_STACK
+#define RETURN_VALUE_ON_STACK(TYPE) 0
+#endif
+
 /* Return true if the function specified is using the structure returning
    convention on this machine to return arguments, or 0 if it is using
    the value returning convention.  FUNCTION is the value representing
@@ -1370,9 +1370,10 @@ using_struct_return (function, funcaddr, value_type, gcc_p)
   if (code == TYPE_CODE_ERROR)
     error ("Function return type unknown.");
 
-  if (code == TYPE_CODE_STRUCT ||
-      code == TYPE_CODE_UNION ||
-      code == TYPE_CODE_ARRAY)
+  if (code == TYPE_CODE_STRUCT
+      || code == TYPE_CODE_UNION
+      || code == TYPE_CODE_ARRAY
+      || RETURN_VALUE_ON_STACK (value_type))
     return USE_STRUCT_CONVENTION (gcc_p, value_type);
 
   return 0;

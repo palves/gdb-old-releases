@@ -1,5 +1,5 @@
 /* Support routines for decoding "stabs" debugging information format.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -291,7 +291,7 @@ Invalid symbol data: type number (%d,%d) out of range at symtab pos %d.",
 	    {
 	      type_vector_length = INITIAL_TYPE_VECTOR_LENGTH;
 	      type_vector = (struct type **)
-		malloc (type_vector_length * sizeof (struct type *));
+		xmalloc (type_vector_length * sizeof (struct type *));
 	    }
 	  while (index >= type_vector_length)
 	    {
@@ -565,7 +565,7 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_LINE(sym) = 0;			/* unknown */
     }
 
-  if (string[0] == CPLUS_MARKER)
+  if (is_cplus_marker (string[0]))
     {
       /* Special GNU C++ names.  */
       switch (string[1])
@@ -938,12 +938,12 @@ define_symbol (valu, string, desc, type, objfile)
 #endif /* !BELIEVE_PCC_PROMOTION.  */
 
     case 'P':
-      /* acc seems to use P to delare the prototypes of functions that
+      /* acc seems to use P to declare the prototypes of functions that
          are referenced by this file.  gdb is not prepared to deal
          with this extra information.  FIXME, it ought to.  */
       if (type == N_FUN)
 	{
-	  read_type (&p, objfile);
+	  SYMBOL_TYPE (sym) = read_type (&p, objfile);
 	  goto process_prototype_types;
 	}
       /*FALLTHROUGH*/
@@ -2000,7 +2000,7 @@ read_member_functions (fip, pp, type, objfile)
       make_cleanup (free, new_fnlist);
       memset (new_fnlist, 0, sizeof (struct next_fnfieldlist));
       
-      if ((*pp)[0] == 'o' && (*pp)[1] == 'p' && (*pp)[2] == CPLUS_MARKER)
+      if ((*pp)[0] == 'o' && (*pp)[1] == 'p' && is_cplus_marker ((*pp)[2]))
 	{
 	  /* This is a completely wierd case.  In order to stuff in the
 	     names that might contain colons (the usual name delimiter),
@@ -2535,12 +2535,9 @@ read_struct_fields (fip, pp, type, objfile)
       /* If is starts with CPLUS_MARKER it is a special abbreviation,
 	 unless the CPLUS_MARKER is followed by an underscore, in
 	 which case it is just the name of an anonymous type, which we
-	 should handle like any other type name.  We accept either '$'
-	 or '.', because a field name can never contain one of these
-	 characters except as a CPLUS_MARKER (we probably should be
-	 doing that in most parts of GDB).  */
+	 should handle like any other type name.  */
 
-      if ((*p == '$' || *p == '.') && p[1] != '_')
+      if (is_cplus_marker (p[0]) && p[1] != '_')
 	{
 	  if (!read_cpp_abbrev (fip, pp, type, objfile))
 	    return 0;
@@ -3512,7 +3509,7 @@ read_range_type (pp, typenums, objfile)
     return init_type (TYPE_CODE_INT, 1, 0, NULL, objfile);
 
   else if (current_symbol && SYMBOL_LANGUAGE (current_symbol) == language_chill
-      && SYMBOL_LINE (current_symbol) > 0)
+	   && !self_subrange)
     goto handle_true_range;
 
   /* We used to do this only for subrange of self or subrange of int.  */
@@ -3552,13 +3549,10 @@ read_range_type (pp, typenums, objfile)
      return a real pointer.  */
  handle_true_range:
 
-  /* At this point I don't have the faintest idea how to deal with
-     a self_subrange type; I'm going to assume that this is used
-     as an idiom, and that all of them are special cases.  So . . .  */
   if (self_subrange)
-    return error_type (pp, objfile);
-
-  index_type = *dbx_lookup_type (rangenums);
+    index_type = builtin_type_int;
+  else
+    index_type = *dbx_lookup_type (rangenums);
   if (index_type == NULL)
     {
       /* Does this actually ever happen?  Is that why we are worrying

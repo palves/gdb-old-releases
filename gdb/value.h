@@ -209,14 +209,14 @@ print_address_demangle PARAMS ((CORE_ADDR, GDB_FILE *, int));
 
 extern LONGEST value_as_long PARAMS ((value_ptr val));
 
-extern double value_as_double PARAMS ((value_ptr val));
+extern DOUBLEST value_as_double PARAMS ((value_ptr val));
 
 extern CORE_ADDR value_as_pointer PARAMS ((value_ptr val));
 
 extern LONGEST unpack_long PARAMS ((struct type *type, char *valaddr));
 
-extern double unpack_double PARAMS ((struct type *type, char *valaddr,
-				     int *invp));
+extern DOUBLEST unpack_double PARAMS ((struct type *type, char *valaddr,
+				       int *invp));
 
 extern CORE_ADDR unpack_pointer PARAMS ((struct type *type, char *valaddr));
 
@@ -225,7 +225,7 @@ extern LONGEST unpack_field_as_long PARAMS ((struct type *type, char *valaddr,
 
 extern value_ptr value_from_longest PARAMS ((struct type *type, LONGEST num));
 
-extern value_ptr value_from_double PARAMS ((struct type *type, double num));
+extern value_ptr value_from_double PARAMS ((struct type *type, DOUBLEST num));
 
 extern value_ptr value_at PARAMS ((struct type *type, CORE_ADDR addr));
 

@@ -1,5 +1,8 @@
 // Test various -*- C++ -*- things.
 
+typedef struct fleep fleep;
+struct fleep { int a; } s;
+
 // ====================== simple class structures  =======================
 
 struct default_public_struct {

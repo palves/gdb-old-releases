@@ -496,5 +496,8 @@ extern boolean _bfd_ecoff_get_accumulated_pdr PARAMS ((PTR, bfd_byte *));
 extern boolean _bfd_ecoff_get_accumulated_sym PARAMS ((PTR, bfd_byte *));
 extern boolean _bfd_ecoff_get_accumulated_ss PARAMS ((PTR, bfd_byte *));
 
+extern bfd_vma _bfd_get_gp_value PARAMS ((bfd *));
+extern void _bfd_set_gp_value PARAMS ((bfd *, bfd_vma));
+
 /* And more follows */
 

@@ -13,6 +13,10 @@ ac_default_prefix=/usr/local
 # Any additions from configure.in:
 ac_help="$ac_help
   --enable-targets        alternative target configurations"
+ac_help="$ac_help
+  --enable-shared         build shared opcodes library"
+ac_help="$ac_help
+  --enable-commonbfdlib   build shared BFD/opcodes/libiberty library"
 
 # Initialize some variables set by options.
 # The variables have the same names as the options, with
@@ -545,6 +549,24 @@ if test "${enable_targets+set}" = set; then
   *)        enable_targets=$enableval ;;
 esac
 fi
+# Check whether --enable-shared or --disable-shared was given.
+if test "${enable_shared+set}" = set; then
+  enableval="$enable_shared"
+  case "${enableval}" in
+  yes) shared=true ;;
+  no)  shared=false ;;
+  *)   { echo "configure: error: bad value ${enableval} for opcodes shared option" 1>&2; exit 1; } ;;
+esac
+fi
+# Check whether --enable-commonbfdlib or --disable-commonbfdlib was given.
+if test "${enable_commonbfdlib+set}" = set; then
+  enableval="$enable_commonbfdlib"
+  case "${enableval}" in
+  yes) commonbfdlib=true ;;
+  no)  commonbfdlib=false ;;
+  *)   { echo "configure: error: bad value ${enableval} for opcodes commonbfdlib option" 1>&2; exit 1; } ;;
+esac
+fi
 
 
 
@@ -656,10 +678,43 @@ test "$host_alias" != "$target_alias" &&
 if test -z "$target" ; then
     { echo "configure: error: Unrecognized target system type; please check config.sub." 1>&2; exit 1; }
 fi
+if test "$program_transform_name" = s,x,x,; then
+  program_transform_name=
+else
+  # Double any \ or $.  echo might interpret backslashes.
+  cat <<\EOF_SED > conftestsed
+s,\\,\\\\,g; s,\$,$$,g
+EOF_SED
+  program_transform_name="`echo $program_transform_name|sed -f conftestsed`"
+  rm -f conftestsed
+fi
+test "$program_prefix" != NONE &&
+  program_transform_name="s,^,${program_prefix},; $program_transform_name"
+# Use a double $ so make ignores it.
+test "$program_suffix" != NONE &&
+  program_transform_name="s,\$\$,${program_suffix},; $program_transform_name"
+
+# sed with no file args requires a program.
+test "$program_transform_name" = "" && program_transform_name="s,x,x,"
+
 
 # host-specific stuff:
 
-. ${srcdir}/../bfd/configure.host
+ALLLIBS='$(TARGETLIB)'
+PICFLAG=
+SHLIB=
+SHLINK=
+if test "${shared}" = "true"; then
+  ALLLIBS='$(TARGETLIB) $(SHLIB) $(SHLINK)'
+  PICFLAG=-fpic
+  if test "${commonbfdlib}" = "true"; then
+    SHLIB=../bfd/libbfd.so.`sed -e 's/[^0-9]*\([0-9.]*\).*/\1/' ${srcdir}/../bfd/VERSION`
+    SHLINK=../bfd/libbfd.so
+  else
+    SHLIB=libopcodes.so.`sed -e 's/[^0-9]*\([0-9.]*\).*/\1/' ${srcdir}/../bfd/VERSION`
+    SHLINK=libopcodes.so
+  fi
+fi
 
 # Extract the first word of "gcc", so it can be a program name with args.
 set dummy gcc; ac_word=$2
@@ -736,6 +791,8 @@ else
   test "${CFLAGS+set}" = set || CFLAGS="-g"
 fi
 
+
+. ${srcdir}/../bfd/configure.host
 
 
 # Extract the first word of "ar", so it can be a program name with args.
@@ -854,6 +911,32 @@ test -z "$INSTALL_PROGRAM" && INSTALL_PROGRAM='${INSTALL}'
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
 
+if test "${shared}" = "true"; then
+  if test "${GCC}" != "yes" && test "${shared_non_gcc}" != "yes"; then
+    echo "configure: warning: opcodes --enable-shared only supported when using gcc" 1>&2
+    shared=false
+    PICFLAG=
+    SHLIB=
+  fi
+fi
+
+
+
+
+
+
+if test "${commonbfdlib}" = "true"; then
+  COMMON_SHLIB=yes
+  # Rebuild the shared library if libiberty or libbfd changes.
+  SHLIB_DEP="../libiberty/libiberty.a ../bfd/libbfd.a"
+else
+  COMMON_SHLIB=
+  SHLIB_DEP=
+fi
+
+
+
+
 echo $ac_n "checking how to run the C preprocessor""... $ac_c" 1>&6
 # On Suns, sometimes $CPP names a directory.
 if test -n "$CPP" && test -d "$CPP"; then
@@ -869,7 +952,7 @@ else
   # On the NeXT, cc -E runs the code through the compiler's parser,
   # not just through cpp.
   cat > conftest.$ac_ext <<EOF
-#line 873 "configure"
+#line 956 "configure"
 #include "confdefs.h"
 #include <assert.h>
 Syntax Error
@@ -883,7 +966,7 @@ else
   rm -rf conftest*
   CPP="${CC-cc} -E -traditional-cpp"
   cat > conftest.$ac_ext <<EOF
-#line 887 "configure"
+#line 970 "configure"
 #include "confdefs.h"
 #include <assert.h>
 Syntax Error
@@ -916,7 +999,7 @@ if eval "test \"`echo '$''{'ac_cv_header_$ac_safe'+set}'`\" = set"; then
   echo $ac_n "(cached) $ac_c" 1>&6
 else
   cat > conftest.$ac_ext <<EOF
-#line 920 "configure"
+#line 1003 "configure"
 #include "confdefs.h"
 #include <$ac_hdr>
 EOF
@@ -1185,6 +1268,14 @@ s%@AR@%$AR%g
 s%@RANLIB@%$RANLIB%g
 s%@INSTALL_PROGRAM@%$INSTALL_PROGRAM%g
 s%@INSTALL_DATA@%$INSTALL_DATA%g
+s%@ALLLIBS@%$ALLLIBS%g
+s%@PICFLAG@%$PICFLAG%g
+s%@SHLIB@%$SHLIB%g
+s%@SHLIB_CC@%$SHLIB_CC%g
+s%@SHLIB_CFLAGS@%$SHLIB_CFLAGS%g
+s%@COMMON_SHLIB@%$COMMON_SHLIB%g
+s%@SHLIB_DEP@%$SHLIB_DEP%g
+s%@SHLINK@%$SHLINK%g
 s%@CPP@%$CPP%g
 s%@archdefs@%$archdefs%g
 s%@BFD_MACHINES@%$BFD_MACHINES%g

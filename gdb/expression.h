@@ -145,7 +145,7 @@ enum exp_opcode
      Thus, the operation occupies four exp_elements.  */
   OP_LONG,
 
-  /* OP_DOUBLE is similar but takes a double constant instead of a long.  */
+  /* OP_DOUBLE is similar but takes a DOUBLEST constant instead of a long.  */
   OP_DOUBLE,
 
   /* OP_VAR_VALUE takes one struct block * in the following element,
@@ -308,7 +308,7 @@ union exp_element
   enum exp_opcode opcode;
   struct symbol *symbol;
   LONGEST longconst;
-  double doubleconst;
+  DOUBLEST doubleconst;
   /* Really sizeof (union exp_element) characters (or less for the last
      element of a string).  */
   char string;

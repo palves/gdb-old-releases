@@ -35,6 +35,7 @@
 
 #include "cpu.h" /* includes psim.h */
 #include "idecode.h"
+#include "options.h"
 
 #ifdef HAVE_STRING_H
 #include <string.h>
@@ -117,24 +118,64 @@ psim_usage(int verbose)
 {
   printf_filtered("Usage:\n");
   printf_filtered("\n");
-  printf_filtered("  psim [ <option> ... ] <image> [ <image-arg> ... ]\n");
+  printf_filtered("\tpsim [ <psim-option> ... ] <image> [ <image-arg> ... ]\n");
   printf_filtered("\n");
-  printf_filtered("Where valid <option>s are:\n");
+  printf_filtered("Where\n");
   printf_filtered("\n");
-  printf_filtered("  -m <model>    specify the processor to model\n");
-  printf_filtered("                (default is a 604)\n");
-  printf_filtered("  -e <os-emul>  specify an OS or platform to model\n");
-  printf_filtered("                (normaly determined from <image>)\n");
-  printf_filtered("  -i            print basic performance analysis\n");
-  printf_filtered("  -I            print detailed performance analysis\n");
-  printf_filtered("  -r <size>     specify the size of physical memory in\n");
-  printf_filtered("                bytes. (oea environment only)\n");
-  printf_filtered("  -t [!]<trace> enable (disables) <trace> option\n");
-  printf_filtered("  -o <spec>     add device <spec> to the device tree\n");
-  printf_filtered("  -h -? -H      give more detailed usage\n");
+  printf_filtered("\t<image>       Name of the PowerPC program to run.\n");
+  if (verbose) {
+  printf_filtered("\t              This can either be a PowerPC binary or\n");
+  printf_filtered("\t              a text file containing a device tree\n");
+  printf_filtered("\t              specification.\n");
+  printf_filtered("\t              PSIM will attempt to determine from the\n");
+  printf_filtered("\t              specified <image> the intended emulation\n");
+  printf_filtered("\t              environment.\n");
+  printf_filtered("\t              If PSIM gets it wrong, the emulation\n");
+  printf_filtered("\t              environment can be specified using the\n");
+  printf_filtered("\t              `-e' option (described below).\n");
+  printf_filtered("\n"); }
+  printf_filtered("\t<image-arg>   Argument to be passed to <image>\n");
+  if (verbose) {
+  printf_filtered("\t              These arguments will be passed to\n");
+  printf_filtered("\t              <image> (as standard C argv, argc)\n");
+  printf_filtered("\t              when <image> is started.\n");
+  printf_filtered("\n"); }
+  printf_filtered("\t<psim-option> See below\n");
+  printf_filtered("\n");
+  printf_filtered("The following are valid <psim-option>s:\n");
+  printf_filtered("\n");
+  printf_filtered("\t-m <model>    Specify the processor to model (604)\n");
+  if (verbose) {
+  printf_filtered("\t              Selects the processor to use when\n");
+  printf_filtered("\t              modeling execution units.  Includes:\n");
+  printf_filtered("\t              604, 603 and 603e\n");
+  printf_filtered("\n"); }
+  printf_filtered("\t-e <os-emul>  specify an OS or platform to model\n");
+  if (verbose) {
+  printf_filtered("\t              Can be any of the following:\n");
+  printf_filtered("\t              bug - OEA + MOTO BUG ROM calls\n");
+  printf_filtered("\t              netbsd - UEA + NetBSD system calls\n");
+  printf_filtered("\t              chirp - OEA + a few OpenBoot calls\n");
+  printf_filtered("\n"); }
+  printf_filtered("\t-i            Print instruction counting statistics\n");
+  if (verbose) { printf_filtered("\n"); }
+  printf_filtered("\t-I            Print execution unit statistics\n");
+  if (verbose) { printf_filtered("\n"); }
+  printf_filtered("\t-r <size>     Set RAM size in bytes (OEA environments)\n");
+  if (verbose) { printf_filtered("\n"); }
+  printf_filtered("\t-t [!]<trace> Enable (disable) <trace> option\n");
+  if (verbose) { printf_filtered("\n"); }
+  printf_filtered("\t-o <spec>     add device <spec> to the device tree\n");
+  if (verbose) { printf_filtered("\n"); }
+  printf_filtered("\t-h -? -H      give more detailed usage\n");
+  if (verbose) { printf_filtered("\n"); }
   printf_filtered("\n");
   trace_usage(verbose);
   device_usage(verbose);
+  if (verbose > 1) {
+    printf_filtered("\n");
+    print_options();
+  }
   error("");
 }
 
@@ -178,7 +219,7 @@ psim_options(device *root,
 	break;
       case 'm':
 	param = find_arg("Missing <model> option for -m\n", &argp, argv);
-	device_tree_add_parsed(root, "/openprom/options/model %s", param);
+	device_tree_add_parsed(root, "/openprom/options/model \"%s", param);
 	break;
       case 'o':
 	param = find_arg("Missing <device> option for -o\n", &argp, argv);
@@ -424,8 +465,10 @@ psim_init(psim *system)
   device_tree_init(system->devices, system);
 
   /* now sync each cpu against the initialized state of its registers */
-  for (cpu_nr = 0; cpu_nr < system->nr_cpus; cpu_nr++)
+  for (cpu_nr = 0; cpu_nr < system->nr_cpus; cpu_nr++) {
     cpu_synchronize_context(system->processors[cpu_nr]);
+    cpu_page_tlb_invalidate_all(system->processors[cpu_nr]);
+  }
 
   /* force loop to restart */
   system->last_cpu = system->nr_cpus - 1;

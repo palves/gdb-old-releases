@@ -1630,6 +1630,7 @@ breakpoint_1 (bnum, allflag)
 			      "hw watchpoint", "read watchpoint",
 			      "acc watchpoint", "longjmp",
 			      "longjmp resume", "step resume",
+			      "sigtramp",
 			      "watchpoint scope", "call dummy",
 			      "shlib events" };
   static char *bpdisps[] = {"del", "dis", "keep"};
@@ -2029,6 +2030,16 @@ disable_longjmp_breakpoint()
 }
 
 #ifdef SOLIB_ADD
+void
+remove_solib_event_breakpoints ()
+{
+  register struct breakpoint *b;
+
+  ALL_BREAKPOINTS (b)
+    if (b->type == bp_shlib_event)
+      delete_breakpoint (b);
+}
+
 void
 create_solib_event_breakpoint (address)
      CORE_ADDR address;

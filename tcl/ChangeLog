@@ -1,3 +1,14 @@
+Tue Feb 27 20:40:56 1996  Rob Savoye  <rob@chinadoll.cygnus.com>
+
+	* unix/configure.in: Use -fpic for dltests, as gcc now support
+	shared libraries on HPUX.
+	* configure: Rebuild.
+
+Mon Feb 12 14:55:34 1996  Rob Savoye  <rob@chinadoll.cygnus.com>
+
+	* unix/configure.in: Set the shared lib flags so the dynamic
+	loading tests work for SunOS and Solaris when using GCC.
+
 Wed Jan 24 09:41:00 1996  Tom Tromey  <tromey@creche.cygnus.com>
 
 	* Makefile.in: Replaced realclean with maintainer-clean.
