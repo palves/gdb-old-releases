@@ -45,7 +45,7 @@ static boolean coff_a29k_adjust_symndx
 #define EXTRACT_HWORD(WORD) \
     ((((WORD) & 0x00ff0000) >> 8) | ((WORD)& 0xff))
 #define SIGN_EXTEND_HWORD(HWORD) \
-    ((HWORD) & 0x8000 ? (HWORD)|0xffff0000 : (HWORD))
+    ((HWORD) & 0x8000 ? (HWORD)|(~0xffffL) : (HWORD))
 
 /* Provided the symbol, returns the value reffed */
 static long
@@ -134,18 +134,23 @@ a29k_reloc (abfd, reloc_entry, symbol_in, data, input_section, output_bfd,
     signed_value = EXTRACT_HWORD(insn);
     signed_value = SIGN_EXTEND_HWORD(signed_value);
     signed_value <<= 2;
-    signed_value +=  sym_value + reloc_entry->addend;
-    if (((signed_value + reloc_entry->address) & ~0x3ffff) == 0)
+
+    /* See the note on the R_IREL reloc in coff_a29k_relocate_section.  */
+    if (signed_value == - (long) reloc_entry->address)
+      signed_value = 0;
+
+    signed_value += sym_value + reloc_entry->addend;
+    if ((signed_value & ~0x3ffff) == 0)
     {				/* Absolute jmp/call */
       insn |= (1<<24);		/* Make it absolute */
-      signed_value += reloc_entry->address;
       /* FIXME: Should we change r_type to R_IABS */
     } 
     else 
     {
       /* Relative jmp/call, so subtract from the value the
 	 address of the place we're coming from */
-      signed_value -= (input_section->output_section->vma
+      signed_value -= (reloc_entry->address
+		       + input_section->output_section->vma
 		       + input_section->output_offset);
       if (signed_value>0x1ffff || signed_value<-0x20000) 
        return(bfd_reloc_overflow);
@@ -189,24 +194,15 @@ a29k_reloc (abfd, reloc_entry, symbol_in, data, input_section, output_bfd,
    case R_BYTE:
     insn = bfd_get_8(abfd, hit_data); 
     unsigned_value = insn + sym_value + reloc_entry->addend;	
-    if (unsigned_value & 0xffffff00) {
-      fprintf(stderr,"Relocation problem : ");
-      fprintf(stderr,"byte value too large in module %s\n",
-	      abfd->filename); 
+    if (unsigned_value & 0xffffff00)
       return(bfd_reloc_overflow);
-    }
     bfd_put_8(abfd, unsigned_value, hit_data); 
     break;
    case R_HWORD:
     insn = bfd_get_16(abfd, hit_data); 
     unsigned_value = insn + sym_value + reloc_entry->addend;	
-    if (unsigned_value & 0xffff0000) {
-      fprintf(stderr,"Relocation problem : ");
-      fprintf(stderr,"hword value too large in module %s\n",
-	      abfd->filename); 
+    if (unsigned_value & 0xffff0000)
       return(bfd_reloc_overflow);
-    }
-
     bfd_put_16(abfd, insn, hit_data); 
     break;
    case R_WORD:
@@ -431,8 +427,29 @@ coff_a29k_relocate_section (output_bfd, info, input_bfd, input_section,
 	  signed_value = SIGN_EXTEND_HWORD (signed_value);
 	  signed_value <<= 2;
 
+	  /* Unfortunately, there are two different versions of COFF
+	     a29k.  In the original AMD version, the value stored in
+	     the field for the R_IREL reloc is a simple addend.  In
+	     the GNU version, the value is the negative of the address
+	     of the reloc within section.  We try to cope here by
+	     assuming the AMD version, unless the addend is exactly
+	     the negative of the address; in the latter case we assume
+	     the GNU version.  This means that something like
+	         .text
+		 nop
+		 jmp i-4
+	     will fail, because the addend of -4 will happen to equal
+	     the negative of the address within the section.  The
+	     compiler will never generate code like this.
+
+	     At some point in the future we may want to take out this
+	     check.  */
+
+	  if (signed_value == - (long) (rel->r_vaddr - input_section->vma))
+	    signed_value = 0;
+
 	  /* Determine the destination of the jump.  */
-	  signed_value += val + rel->r_vaddr - input_section->vma;
+	  signed_value += val;
 
 	  if ((signed_value & ~0x3ffff) == 0)
 	    {
@@ -568,8 +585,8 @@ const bfd_target a29kcoff_big_vec =
 {
   "coff-a29k-big",		/* name */
   bfd_target_coff_flavour,
-  true,				/* data byte order is big */
-  true,				/* header byte order is big */
+  BFD_ENDIAN_BIG,		/* data byte order is big */
+  BFD_ENDIAN_BIG,		/* header byte order is big */
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -581,7 +598,6 @@ const bfd_target a29kcoff_big_vec =
   '_',				/* leading underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  2,				/* minimum section alignment */
   /* data */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      bfd_getb32, bfd_getb_signed_32,   bfd_putb32,

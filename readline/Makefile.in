@@ -205,7 +205,7 @@ distclean: local-clean
 	@$(MAKE) $(FLAGS_TO_PASS) DO=$@ "DODIRS=$(SUBDIRS)" subdir_do
 	rm -f Makefile config.status sysdep.h
 
-realclean: local-clean
+realclean maintainer-clean: local-clean
 	@$(MAKE) $(FLAGS_TO_PASS) DO=$@ "DODIRS=$(SUBDIRS)" subdir_do
 	rm -f Makefile config.status sysdep.h
 

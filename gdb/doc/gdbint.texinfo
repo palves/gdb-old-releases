@@ -1,6 +1,6 @@
 \input texinfo
 @setfilename gdbint.info
-@c $Id: gdbint.texinfo,v 1.81 1995/05/17 23:13:33 jtc Exp $
+@c $Id: gdbint.texinfo,v 1.84 1996/01/11 20:08:19 fnf Exp $
 
 @ifinfo
 @format
@@ -42,7 +42,7 @@ regarded as a program in the language TeX).
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.81 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.84 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par
@@ -535,21 +535,21 @@ to do a "fork and exec" to start up a child process.
 This is the low level interface to inferior processes for systems
 using the Unix @code{ptrace} call in a vanilla way.
 
-@item coredep.c::fetch_core_registers()
+@item core-aout.c::fetch_core_registers()
 Support for reading registers out of a core file.  This routine calls
 @code{register_addr()}, see below.
 Now that BFD is used to read core files, virtually all machines should
-use @code{coredep.c}, and should just provide @code{fetch_core_registers} in
+use @code{core-aout.c}, and should just provide @code{fetch_core_registers} in
 @code{@var{xxx}-nat.c} (or @code{REGISTER_U_ADDR} in @code{nm-@var{xxx}.h}).
 
-@item coredep.c::register_addr()
+@item core-aout.c::register_addr()
 If your @code{nm-@var{xxx}.h} file defines the macro
 @code{REGISTER_U_ADDR(addr, blockend, regno)}, it should be defined to
 set @code{addr} to the offset within the @samp{user}
 struct of GDB register number @code{regno}.  @code{blockend} is the
 offset within the ``upage'' of @code{u.u_ar0}.
 If @code{REGISTER_U_ADDR} is defined,
-@file{coredep.c} will define the @code{register_addr()} function and use
+@file{core-aout.c} will define the @code{register_addr()} function and use
 the macro in it.  If you do not define @code{REGISTER_U_ADDR}, but you
 are using the standard @code{fetch_core_registers()}, you will need to
 define your own version of @code{register_addr()}, put it into your
@@ -579,7 +579,7 @@ around in.
 
 Then back in GDB, you need a matching routine called
 @code{fetch_core_registers()}.  If you can use the generic one, it's in
-@file{coredep.c}; if not, it's in your @file{@var{xxx}-nat.c} file.
+@file{core-aout.c}; if not, it's in your @file{@var{xxx}-nat.c} file.
 It will be passed a char pointer to the entire ``registers'' segment,
 its length, and a zero; or a char pointer to the entire ``regs2''
 segment, its length, and a 2.  The routine should suck out the supplied
@@ -814,13 +814,13 @@ distribution!
 From the top level directory (containing @file{gdb}, @file{bfd},
 @file{libiberty}, and so on):
 @example
-make -f Makefile.in gdb.tar.Z
+make -f Makefile.in gdb.tar.gz
 @end example
 
 This will properly configure, clean, rebuild any files that are
 distributed pre-built (e.g. @file{c-exp.tab.c} or @file{refcard.ps}),
 and will then make a tarfile.  (If the top level directory has already
-beenn configured, you can just do @code{make gdb.tar.Z} instead.)
+been configured, you can just do @code{make gdb.tar.gz} instead.)
 
 This procedure requires:
 @itemize @bullet
@@ -1552,6 +1552,13 @@ The default value of the prompt string (normally @code{"(gdb) "}).
 symmisc.c
 @item DO_REGISTERS_INFO
 infcmd.c
+
+@item FCLOSE_PROVIDED
+Define this if the system declares @code{fclose} in the headers included in
+@code{defs.h}.  This isn't needed unless your compiler is unusually anal.
+
+@sc{ANSI} definition.
+
 @item FILES_INFO_HOOK
 target.c
 @item FLOAT_INFO
@@ -1568,6 +1575,11 @@ dbxread.c
 symtab.c
 @item GCC_PRODUCER
 dwarfread.c
+
+@item GETENV_PROVIDED
+Define this if the system declares @code{getenv} in its headers included in
+@code{defs.h}. This isn't needed unless your compiler is unusually anal.
+
 @item GPLUS_PRODUCER
 dwarfread.c
 

@@ -417,6 +417,32 @@ bfd_hash_lookup (table, string, create, copy)
   return hashp;
 }
 
+/* Replace an entry in a hash table.  */
+
+void
+bfd_hash_replace (table, old, nw)
+     struct bfd_hash_table *table;
+     struct bfd_hash_entry *old;
+     struct bfd_hash_entry *nw;
+{
+  unsigned int index;
+  struct bfd_hash_entry **pph;
+
+  index = old->hash % table->size;
+  for (pph = &table->table[index];
+       (*pph) != (struct bfd_hash_entry *) NULL;
+       pph = &(*pph)->next)
+    {
+      if (*pph == old)
+	{
+	  *pph = nw;
+	  return;
+	}
+    }
+
+  abort ();
+}
+
 /* Base method for creating a new hash table entry.  */
 
 /*ARGSUSED*/
@@ -503,6 +529,9 @@ struct bfd_strtab_hash
   struct strtab_hash_entry *first;
   /* Last string in strtab.  */
   struct strtab_hash_entry *last;
+  /* Whether to precede strings with a two byte length, as in the
+     XCOFF .debug section.  */
+  boolean xcoff;
 };
 
 static struct bfd_hash_entry *strtab_hash_newfunc
@@ -524,10 +553,7 @@ strtab_hash_newfunc (entry, table, string)
     ret = ((struct strtab_hash_entry *)
 	   bfd_hash_allocate (table, sizeof (struct strtab_hash_entry)));
   if (ret == (struct strtab_hash_entry *) NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   /* Call the allocation method of the superclass.  */
   ret = ((struct strtab_hash_entry *)
@@ -556,12 +582,10 @@ _bfd_stringtab_init ()
 {
   struct bfd_strtab_hash *table;
 
-  table = (struct bfd_strtab_hash *) malloc (sizeof (struct bfd_strtab_hash));
+  table = ((struct bfd_strtab_hash *)
+	   bfd_malloc (sizeof (struct bfd_strtab_hash)));
   if (table == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   if (! bfd_hash_table_init (&table->table, strtab_hash_newfunc))
     {
@@ -572,8 +596,24 @@ _bfd_stringtab_init ()
   table->size = 0;
   table->first = NULL;
   table->last = NULL;
+  table->xcoff = false;
 
   return table;
+}
+
+/* Create a new strtab in which the strings are output in the format
+   used in the XCOFF .debug section: a two byte length precedes each
+   string.  */
+
+struct bfd_strtab_hash *
+_bfd_xcoff_stringtab_init ()
+{
+  struct bfd_strtab_hash *ret;
+
+  ret = _bfd_stringtab_init ();
+  if (ret != NULL)
+    ret->xcoff = true;
+  return ret;
 }
 
 /* Free a strtab.  */
@@ -631,6 +671,11 @@ _bfd_stringtab_add (tab, str, hash, copy)
     {
       entry->index = tab->size;
       tab->size += strlen (str) + 1;
+      if (tab->xcoff)
+	{
+	  entry->index += 2;
+	  tab->size += 2;
+	}
       if (tab->first == NULL)
 	tab->first = entry;
       else
@@ -658,7 +703,10 @@ _bfd_stringtab_emit (abfd, tab)
      register bfd *abfd;
      struct bfd_strtab_hash *tab;
 {
+  register boolean xcoff;
   register struct strtab_hash_entry *entry;
+
+  xcoff = tab->xcoff;
 
   for (entry = tab->first; entry != NULL; entry = entry->next)
     {
@@ -667,6 +715,17 @@ _bfd_stringtab_emit (abfd, tab)
 
       str = entry->root.string;
       len = strlen (str) + 1;
+
+      if (xcoff)
+	{
+	  bfd_byte buf[2];
+
+	  /* The output length includes the null byte.  */
+	  bfd_put_16 (abfd, len, buf);
+	  if (bfd_write ((PTR) buf, 1, 2, abfd) != 2)
+	    return false;
+	}
+
       if (bfd_write ((PTR) str, 1, len, abfd) != len)
 	return false;
     }

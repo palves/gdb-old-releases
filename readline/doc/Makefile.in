@@ -79,7 +79,7 @@ distclean: clean
 
 mostlyclean: clean
 
-realclean: distclean
+realclean maintainer-clean: distclean
 
 clean: clean-info clean-dvi
 

@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sim.h"
 #include "tm.h"
 #include "signal.h"
+#include "callback.h"
 #include "../../gdb/remote-sim.h"
 
 void
@@ -179,6 +180,14 @@ sim_kill ()
 void
 sim_do_command (cmd)
      char *cmd;
+{
+
+}
+
+
+void
+sim_set_callbacks (ptr)
+struct host_callback_struct *ptr;
 {
 
 }

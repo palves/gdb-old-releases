@@ -10,7 +10,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) upvar.test 1.7 94/12/17 16:20:32
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
@@ -48,7 +47,7 @@ test upvar-1.4 {reading variables with upvar} {
     }
     p1
 } {47 55 47}
-test upvar-1.4 {reading array elements with upvar} {
+test upvar-1.5 {reading array elements with upvar} {
     proc p1 {} {set a(0) zeroth; set a(1) first; p2}
     proc p2 {} {upvar a(0) x; set x}
     p1
@@ -272,6 +271,10 @@ test upvar-7.3 {upvar to same level} {
     }
     p1 xyz abc
 } {abc abc}
+test upvar-7.4 {upvar to same level: tricky problems when deleting variable table} {
+    proc tt {} {upvar #1 toto loc;  return $loc}
+    list [catch tt msg] $msg
+} {1 {can't read "loc": no such variable}}
 
 test upvar-8.1 {errors in upvar command} {
     list [catch upvar msg] $msg
@@ -284,17 +287,21 @@ test upvar-8.3 {errors in upvar command} {
     list [catch p1 msg] $msg
 } {1 {wrong # args: should be "upvar ?level? otherVar localVar ?otherVar localVar ...?"}}
 test upvar-8.4 {errors in upvar command} {
-    proc p1 {} {set a 33; upvar b a}
-    list [catch p1 msg] $msg
-} {1 {variable "a" already exists}}
-test upvar-8.5 {errors in upvar command} {
     proc p1 {} {upvar 0 b b}
     list [catch p1 msg] $msg
 } {1 {can't upvar from variable to itself}}
-test upvar-8.6 {errors in upvar command} {
+test upvar-8.5 {errors in upvar command} {
     proc p1 {} {upvar 0 a b; upvar 0 b a}
     list [catch p1 msg] $msg
 } {1 {can't upvar from variable to itself}}
+test upvar-8.6 {errors in upvar command} {
+    proc p1 {} {set a 33; upvar b a}
+    list [catch p1 msg] $msg
+} {1 {variable "a" already exists}}
+test upvar-8.7 {errors in upvar command} {
+    proc p1 {} {trace variable a w foo; upvar b a}
+    list [catch p1 msg] $msg
+} {1 {variable "a" has traces: can't use for upvar}}
 
 if {[info commands testupvar] != {}} {
     test upvar-9.1 {Tcl_UpVar2 procedure} {

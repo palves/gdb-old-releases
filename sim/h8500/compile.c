@@ -18,12 +18,19 @@
 
 */
 
+#include "config.h"
+
 #include <signal.h>
-#include <sys/times.h>
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
 #include <sys/param.h>
 #include <setjmp.h>
 #include "ansidecl.h"
-#include "sysdep.h"
+#include "callback.h"
 #include "remote-sim.h"
 
 #define O_RECOMPILE 85
@@ -591,8 +598,8 @@ find (pc, buffer, dst)
 		case ABS24:
 		  abs =
 		    (buffer[byte] << 16)
-		    | (buffer[byte + 1] << 8)
-		    | (buffer[byte + 2]);
+		      | (buffer[byte + 1] << 8)
+			| (buffer[byte + 2]);
 		  break;
 		case ABS16:
 		  abs = (buffer[byte] << 8) | (buffer[byte + 1]);
@@ -777,7 +784,7 @@ find (pc, buffer, dst)
 	    case PCREL16:
 	    case PCREL8:
 	      gotimm (p,
-		 ((pcrel + pc + opcode->length) & 0xffff) | (pc & 0xff0000),
+		      ((pcrel + pc + opcode->length) & 0xffff) | (pc & 0xff0000),
 		      R_HARD_0, JLONG);
 
 	    }
@@ -819,8 +826,8 @@ find (pc, buffer, dst)
 
 
 	  /* Some extra stuff with pre inc and post dec,
-	   make sure that if the same ea is there twice, only one of the
-	   ops is auto inc/dec */
+	     make sure that if the same ea is there twice, only one of the
+	     ops is auto inc/dec */
 
 	  fix_incdecs (dst);
 
@@ -848,8 +855,7 @@ find (pc, buffer, dst)
 	      dst->srcb.literal = pc + opcode->length;
 	      dst->srcb.type = eas.s.ea_imm.s.srcbword;
 	    }
-
-	  if (dst->opcode == exec_dispatch[O_MULXU])
+	  else if (dst->opcode == exec_dispatch[O_MULXU])
 	    {
 	      /* This is a multiply -fix the destination op */
 	      if (dst->dst.type == eas.s.ea_reg.s.dstword)
@@ -862,27 +868,27 @@ find (pc, buffer, dst)
 		}
 	      dst->dst.reg.bptr = regptr[rd][JWORD];
 	    }
-	  if (dst->opcode == exec_dispatch[O_DIVXU])
+	  else if (dst->opcode == exec_dispatch[O_DIVXU])
 	    {
 	      /* This is a wider than normal, fix the source operand */
 	      dst->srcb.type
 		= (dst->srcb.type == eas.s.ea_reg.s.srcbword)
-		? eas.s.ea_reg.s.srcblong
-		: eas.s.ea_reg.s.srcbword;
+		  ? eas.s.ea_reg.s.srcblong
+		    : eas.s.ea_reg.s.srcbword;
 
 	      dst->dst.type
 		= (dst->dst.type == eas.s.ea_reg.s.dstword)
-		? eas.s.ea_reg.s.dstlong
-		: eas.s.ea_reg.s.dstword;
+		  ? eas.s.ea_reg.s.dstlong
+		    : eas.s.ea_reg.s.dstword;
 
 	    }
 
-	  if (dst->opcode == exec_dispatch[O_LDM])
+	  else if (dst->opcode == exec_dispatch[O_LDM])
 	    {
 	      /* Turn of the stack ref */
 	      dst->srca.type = eas.s.ea_nop.s.srcabyte;
 	    }
-	  if (dst->opcode == exec_dispatch[O_STM])
+	  else if (dst->opcode == exec_dispatch[O_STM])
 	    {
 	      /* Turn of the stack ref */
 	      dst->srcb.type = eas.s.ea_nop.s.srcbbyte;
@@ -890,8 +896,8 @@ find (pc, buffer, dst)
 
 
 	  /* extends read one size and write another */
-	  if (dst->opcode == exec_dispatch[O_EXTS]
-	      || dst->opcode == exec_dispatch[O_EXTU])
+	  else if (dst->opcode == exec_dispatch[O_EXTS]
+		   || dst->opcode == exec_dispatch[O_EXTU])
 	    {
 	      dst->dst.type = eas.s.ea_reg.s.dstword;
 	      dst->dst.reg.bptr = regptr[rd][JWORD];
@@ -1157,6 +1163,10 @@ trap ()
     case 33:
       /* exit */
       cpu.exception = SIGQUIT;
+      break;
+    case 34:
+      /* abort */
+      cpu.exception = SIGABRT;
       break;
     case 6:
       /* print char in r0 */
@@ -1604,7 +1614,7 @@ sim_resume (step, siggnal)
 	    LABEL (O_BSR):
 	    LABEL (O_JSR):
 	    PUSHWORD (code->next_pc);
-	    pc = arga;
+	    pc = arga | (pc & 0xff0000);
 	    goto next;
 
 	    LABEL (O_BTST):
@@ -2425,4 +2435,12 @@ sim_do_command (cmd)
      char *cmd;
 {
   printf_filtered ("This simulator does not accept any commands.\n");
+}
+
+
+void
+sim_set_callbacks (ptr)
+struct host_callback_struct *ptr;
+{
+
 }

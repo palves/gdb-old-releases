@@ -19,22 +19,21 @@
 */
 
 #include <signal.h>
+
 #include "sysdep.h"
 #include "bfd.h"
 #include "remote-sim.h"
-#include <sys/syscall.h>
 
-#if !defined (SYS_wait) && defined (SYS_wait4)
-#define SYS_wait SYS_wait4	/* SunOS 4.1.3 for example */
-#endif
+#include "callback.h"
+/* This file is local - if newlib changes, then so should this.  */
+#include "syscall.h"
 
-#if !defined (SYS_utime) && defined (SYS_utimes)
-#define SYS_utime SYS_utimes	/* SunOS 4.1.3 for example */
-#endif
+#include <math.h>
 
 #ifndef SIGBUS
 #define SIGBUS SIGSEGV
 #endif
+
 #ifndef SIGQUIT
 #define SIGQUIT SIGTERM
 #endif
@@ -55,11 +54,15 @@
 #define SR0 	saved_state.asregs.regs[0]
 #define GBR 	saved_state.asregs.gbr
 #define VBR 	saved_state.asregs.vbr
+#define SSR	saved_state.asregs.ssr
+#define SPC	saved_state.asregs.spc
 #define MACH 	saved_state.asregs.mach
 #define MACL 	saved_state.asregs.macl
 #define M 	saved_state.asregs.sr.bits.m
 #define Q 	saved_state.asregs.sr.bits.q
 #define S 	saved_state.asregs.sr.bits.s
+#define FPSCR	saved_state.asregs.fpscr
+#define FPUL	saved_state.asregs.fpul
 
 #define GET_SR() (saved_state.asregs.sr.bits.t = T, saved_state.asregs.sr.word)
 #define SET_SR(x) {saved_state.asregs.sr.word = (x); T =saved_state.asregs.sr.bits.t;}
@@ -71,7 +74,6 @@ int
 fail ()
 {
   abort ();
-
 }
 
 #define BUSERROR(addr, mask) \
@@ -100,10 +102,14 @@ static void parse_and_set_memory_size PARAMS ((char *str));
 
 static int IOMEM PARAMS ((int addr, int write, int value));
 
+static host_callback *callback;
+
 /* These variables are at file scope so that functions other than
    sim_resume can use the fetch/store macros */
 
 static int  little_endian;
+
+
 
 #if 1
 static int maskl = ~0;
@@ -124,7 +130,6 @@ typedef union
     int mach;
     int macl;
 
-
     union
       {
 	struct
@@ -141,11 +146,18 @@ typedef union
 	int word;
       }
     sr;
+
+    int fpul;
+    float fpscr;
+    float fregs[16];
+
+    int ssr;
+    int spc;
+
     int ticks;
     int stalls;
     int cycles;
     int insts;
-
 
     int prevlock;
     int thislock;
@@ -156,11 +168,9 @@ typedef union
     int profile;
     unsigned short *profile_hist;
     unsigned char *memory;
-
   }
   asregs;
-  int asints[28];																     
-
+  int asints[28];
 } saved_state_type;
 saved_state_type saved_state;
 
@@ -458,24 +468,8 @@ trap (i, regs, memory, maskl, maskw, little_endian)
     case 2:
       saved_state.asregs.exception = SIGQUIT;
       break;
-#if 0
-    case 8:
-      trap8 (ptr (regs[4]));
-      break;
-    case 9:
-      trap9 (ptr (regs[4]));
-      break;
-    case 10:
-      trap10 ();
-      break;
-    case 11:
-      regs[0] = trap11 ();
-      break;
-    case 12:
-      regs[0] = trap12 ();
-      break;
-#endif
-    case 3:
+    case 3:			/* FIXME: for backwards compat, should be removed */
+    case 34:
       {
 	extern int errno;
 	int perrno = errno;
@@ -485,18 +479,15 @@ trap (i, regs, memory, maskl, maskw, little_endian)
 	  {
 
 #if !defined(__GO32__) && !defined(WIN32)
-
 	  case SYS_fork:
 	    regs[0] = fork ();
 	    break;
 	  case SYS_execve:
-	    regs[0] = execve (ptr (regs[5]), ptr (regs[6]), ptr (regs[7]));
+	    regs[0] = execve (ptr (regs[5]), (char **)ptr (regs[6]), (char **)ptr (regs[7]));
 	    break;
-#ifdef SYS_execv	/* May be implemented as execve(arg,arg,0) */
 	  case SYS_execv:
-	    regs[0] = execv (ptr (regs[5]), ptr (regs[6]));
+	    regs[0] = execve (ptr (regs[5]),(char **) ptr (regs[6]), 0);
 	    break;
-#endif
 	  case SYS_pipe:
 	    {
 	      char *buf;
@@ -518,19 +509,22 @@ trap (i, regs, memory, maskl, maskw, little_endian)
 #endif
 
 	  case SYS_read:
-	    regs[0] = read (regs[5], ptr (regs[6]), regs[7]);
+	    regs[0] = callback->read (callback, regs[5], ptr (regs[6]), regs[7]);
 	    break;
 	  case SYS_write:
-	    regs[0] = write (regs[5], ptr (regs[6]), regs[7]);
+	    if (regs[5] == 1)
+	      regs[0] = (int)callback->write_stdout (callback, ptr(regs[6]), regs[7]);
+	    else
+	      regs[0] = (int)callback->write (callback, regs[5], ptr (regs[6]), regs[7]);
 	    break;
 	  case SYS_lseek:
-	    regs[0] = lseek (regs[5], regs[6], regs[7]);
+	    regs[0] = callback->lseek (callback,regs[5], regs[6], regs[7]);
 	    break;
 	  case SYS_close:
-	    regs[0] = close (regs[5]);
+	    regs[0] = callback->close (callback,regs[5]);
 	    break;
 	  case SYS_open:
-	    regs[0] = open (ptr (regs[5]), regs[6]);
+	    regs[0] = callback->open (callback,ptr (regs[5]), regs[6]);
 	    break;
 	  case SYS_exit:
 	    /* EXIT - caller can look in r5 to work out the 
@@ -590,7 +584,9 @@ trap (i, regs, memory, maskl, maskw, little_endian)
 	    regs[0] = chmod (ptr (regs[5]), regs[6]);
 	    break;
 	  case SYS_utime:
-	    regs[0] = utime (ptr (regs[5]), ptr (regs[6]));
+	    /* Cast the second argument to void *, to avoid type mismatch
+	       if a prototype is present.  */
+	    regs[0] = utime (ptr (regs[5]), (void *) ptr (regs[6]));
 	    break;
 	  default:
 	    abort ();
@@ -598,7 +594,6 @@ trap (i, regs, memory, maskl, maskw, little_endian)
 	regs[1] = errno;
 	errno = perrno;
       }
-
       break;
 
     case 0xc3:
@@ -818,7 +813,7 @@ sim_size (power)
 }
 
 
-int target_byte_order;
+extern int target_byte_order;
 
 static void
 set_static_little_endian(x)
@@ -920,6 +915,7 @@ sim_resume (step, siggnal)
   register unsigned char *jump_table = sh_jump_table0;
 
   register int *R = &(saved_state.asregs.regs[0]);
+  register float *F = &(saved_state.asregs.fregs[0]);
   register int T;
   register int PR;
 
@@ -1114,8 +1110,18 @@ sim_stop_reason (reason, sigrc)
      enum sim_stop *reason;
      int *sigrc;
 {
-  *reason = sim_stopped;
-  *sigrc = saved_state.asregs.exception;
+  /* The SH simulator uses SIGQUIT to indicate that the program has
+     exited, so we must check for it here and translate it to exit.  */
+  if (saved_state.asregs.exception == SIGQUIT)
+    {
+      *reason = sim_exited;
+      *sigrc = saved_state.asregs.regs[5];
+    }
+  else
+    {
+      *reason = sim_stopped;
+      *sigrc = saved_state.asregs.exception;
+    }
 }
 
 
@@ -1126,19 +1132,24 @@ sim_info (verbose)
   double timetaken = (double) saved_state.asregs.ticks / (double) now_persec ();
   double virttime = saved_state.asregs.cycles / 36.0e6;
 
-  printf_filtered ("\n\n# instructions executed  %10d\n", saved_state.asregs.insts);
-  printf_filtered ("# cycles                 %10d\n", saved_state.asregs.cycles);
-  printf_filtered ("# pipeline stalls        %10d\n", saved_state.asregs.stalls);
-  printf_filtered ("# real time taken        %10.4f\n", timetaken);
-  printf_filtered ("# virtual time taken     %10.4f\n", virttime);
-  printf_filtered ("# profiling size         %10d\n", sim_profile_size);
-  printf_filtered ("# profiling frequency    %10d\n", saved_state.asregs.profile);
-  printf_filtered ("# profile maxpc          %10x\n", (1 << sim_profile_size) << PROFILE_SHIFT);
+  callback->printf_filtered (callback, 
+			      "\n\n# instructions executed  %10d\n", 
+			      saved_state.asregs.insts);
+  callback->  printf_filtered (callback, "# cycles                 %10d\n", saved_state.asregs.cycles);
+  callback->  printf_filtered (callback, "# pipeline stalls        %10d\n", saved_state.asregs.stalls);
+  callback->  printf_filtered (callback, "# real time taken        %10.4f\n", timetaken);
+  callback->  printf_filtered (callback, "# virtual time taken     %10.4f\n", virttime);
+  callback->  printf_filtered (callback, "# profiling size         %10d\n", sim_profile_size);
+  callback->  printf_filtered (callback, "# profiling frequency    %10d\n", saved_state.asregs.profile);
+  callback->  printf_filtered (callback, "# profile maxpc          %10x\n",
+			       (1 << sim_profile_size) << PROFILE_SHIFT);
 
   if (timetaken != 0)
     {
-      printf_filtered ("# cycles/second          %10d\n", (int) (saved_state.asregs.cycles / timetaken));
-      printf_filtered ("# simulation ratio       %10.4f\n", virttime / timetaken);
+      callback->printf_filtered (callback, "# cycles/second          %10d\n", 
+				 (int) (saved_state.asregs.cycles / timetaken));
+      callback->printf_filtered (callback, "# simulation ratio       %10.4f\n", 
+				 virttime / timetaken);
     }
 }
 
@@ -1180,7 +1191,7 @@ parse_and_set_memory_size (str)
   if (n > 0 && n <= 24)
     sim_memory_size = n;
   else
-    printf_filtered ("Bad memory size %d; must be 1 to 24, inclusive\n", n);
+    callback->printf_filtered (callback, "Bad memory size %d; must be 1 to 24, inclusive\n", n);
 }
 
 void
@@ -1227,11 +1238,18 @@ sim_do_command (cmd)
 
   else if (strcmp (cmd, "help") == 0)
     {
-	printf_filtered ("List of SH simulator commands:\n\n");
-	printf_filtered ("set-memory-size <n> -- Set the number of address bits to use\n");
-	printf_filtered ("\n");
+      callback->printf_filtered (callback,"List of SH simulator commands:\n\n");
+      callback->printf_filtered (callback,"set-memory-size <n> -- Set the number of address bits to use\n");
+      callback->printf_filtered (callback,"\n");
     }
   else
     fprintf (stderr, "Error: \"%s\" is not a valid SH simulator command.\n",
 	     cmd);
+}
+
+void
+sim_set_callbacks(p)
+     host_callback *p;
+{
+  callback = p;
 }

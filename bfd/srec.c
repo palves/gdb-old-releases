@@ -107,6 +107,7 @@ DESCRIPTION
 #include "sysdep.h"
 #include "libbfd.h"
 #include "libiberty.h"
+#include <ctype.h>
 
 static void srec_init PARAMS ((void));
 static boolean srec_mkobject PARAMS ((bfd *));
@@ -207,10 +208,7 @@ srec_mkobject (abfd)
     {
       tdata_type *tdata = (tdata_type *) bfd_alloc (abfd, sizeof (tdata_type));
       if (tdata == NULL)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
       abfd->tdata.srec_data = tdata;
       tdata->type = 1;
       tdata->head = NULL;
@@ -270,8 +268,9 @@ srec_bad_byte (abfd, lineno, c, error)
 	  buf[0] = c;
 	  buf[1] = '\0';
 	}
-      fprintf (stderr, "%s:%d: Unexpected character `%s' in S-record file\n",
-	       bfd_get_filename (abfd), lineno, buf);
+      (*_bfd_error_handler)
+	("%s:%d: Unexpected character `%s' in S-record file\n",
+	 bfd_get_filename (abfd), lineno, buf);
       bfd_set_error (bfd_error_bad_value);
     }
 }
@@ -288,10 +287,7 @@ srec_new_symbol (abfd, name, val)
 
   n = (struct srec_symbol *) bfd_alloc (abfd, sizeof (struct srec_symbol));
   if (n == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
 
   n->name = name;
   n->val = val;
@@ -465,12 +461,9 @@ srec_scan (abfd)
 	      {
 		if (buf != NULL)
 		  free (buf);
-		buf = (bfd_byte *) malloc (bytes * 2);
+		buf = (bfd_byte *) bfd_malloc (bytes * 2);
 		if (buf == NULL)
-		  {
-		    bfd_set_error (bfd_error_no_memory);
-		    goto error_return;
-		  }
+		  goto error_return;
 		bufsize = bytes * 2;
 	      }
 
@@ -528,6 +521,7 @@ srec_scan (abfd)
 		      goto error_return;
 		    sec->flags = SEC_HAS_CONTENTS | SEC_LOAD | SEC_ALLOC;
 		    sec->vma = address;
+		    sec->lma = address;
 		    sec->_raw_size = bytes;
 		    sec->filepos = pos;
 		  }
@@ -671,12 +665,9 @@ srec_read_section (abfd, section, contents)
 	{
 	  if (buf != NULL)
 	    free (buf);
-	  buf = (bfd_byte *) malloc (bytes * 2);
+	  buf = (bfd_byte *) bfd_malloc (bytes * 2);
 	  if (buf == NULL)
-	    {
-	      bfd_set_error (bfd_error_no_memory);
-	      goto error_return;
-	    }
+	    goto error_return;
 	  bufsize = bytes * 2;
 	}
 
@@ -764,10 +755,7 @@ srec_get_section_contents (abfd, section, location, offset, count)
       section->used_by_bfd = bfd_alloc (abfd, section->_raw_size);
       if (section->used_by_bfd == NULL
 	  && section->_raw_size != 0)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
 
       if (! srec_read_section (abfd, section, section->used_by_bfd))
 	return false;
@@ -795,10 +783,7 @@ srec_set_section_contents (abfd, section, location, offset, bytes_to_do)
   entry = ((srec_data_list_type *)
 	   bfd_alloc (abfd, sizeof (srec_data_list_type)));
   if (entry == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
 
   if (bytes_to_do
       && (section->flags & SEC_ALLOC)
@@ -806,10 +791,7 @@ srec_set_section_contents (abfd, section, location, offset, bytes_to_do)
     {
       bfd_byte *data = (bfd_byte *) bfd_alloc (abfd, bytes_to_do);
       if (data == NULL)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
       memcpy ((PTR) data, location, (size_t) bytes_to_do);
 
       if ((section->lma + offset + bytes_to_do - 1) <= 0xffff)
@@ -873,6 +855,7 @@ srec_write_record (abfd, type, address, data, end)
   CONST bfd_byte *src = data;
   char *dst = buffer;
   char *length;
+  bfd_size_type wrlen;
 
   *dst++ = 'S';
   *dst++ = '0' + type;
@@ -915,7 +898,8 @@ srec_write_record (abfd, type, address, data, end)
 
   *dst++ = '\r';
   *dst++ = '\n';
-  if (bfd_write ((PTR) buffer, 1, dst - buffer, abfd) != dst - buffer)
+  wrlen = dst - buffer;
+  if (bfd_write ((PTR) buffer, 1, wrlen, abfd) != wrlen)
     return false;
   return true;
 }
@@ -1031,8 +1015,7 @@ srec_write_symbols (abfd)
 		&& s->name[0] != 't')
 	    {
 	      /* Just dump out non debug symbols */
-
-	      int l;
+	      bfd_size_type l;
 	      char buf2[40], *p;
 
 	      sprintf_vma (buf2,
@@ -1146,10 +1129,7 @@ srec_get_symtab (abfd, alocation)
 
       csymbols = (asymbol *) bfd_alloc (abfd, symcount * sizeof (asymbol));
       if (csymbols == NULL && symcount != 0)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
       abfd->tdata.srec_data->csymbols = csymbols;
 
       for (s = abfd->tdata.srec_data->symbols, c = csymbols;
@@ -1222,6 +1202,9 @@ srec_print_symbol (ignore_abfd, afile, symbol, how)
   ((long (*) PARAMS ((bfd *, asection *, arelent **, asymbol **))) bfd_0l)
 #define srec_bfd_reloc_type_lookup _bfd_norelocs_bfd_reloc_type_lookup
 
+#define srec_get_section_contents_in_window \
+  _bfd_generic_get_section_contents_in_window
+
 #define srec_set_arch_mach bfd_default_set_arch_mach
 
 #define srec_bfd_get_relocated_section_contents \
@@ -1236,8 +1219,8 @@ const bfd_target srec_vec =
 {
   "srec",			/* name */
   bfd_target_srec_flavour,
-  true,				/* target byte order */
-  true,				/* target headers byte order */
+  BFD_ENDIAN_UNKNOWN,		/* target byte order */
+  BFD_ENDIAN_UNKNOWN,		/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -1246,7 +1229,6 @@ const bfd_target srec_vec =
   0,				/* leading underscore */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  1,				/* minimum alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
   bfd_getb32, bfd_getb_signed_32, bfd_putb32,
   bfd_getb16, bfd_getb_signed_16, bfd_putb16,	/* data */
@@ -1292,8 +1274,8 @@ const bfd_target symbolsrec_vec =
 {
   "symbolsrec",			/* name */
   bfd_target_srec_flavour,
-  true,				/* target byte order */
-  true,				/* target headers byte order */
+  BFD_ENDIAN_UNKNOWN,		/* target byte order */
+  BFD_ENDIAN_UNKNOWN,		/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -1302,7 +1284,6 @@ const bfd_target symbolsrec_vec =
   0,				/* leading underscore */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  1,				/* minimum alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
   bfd_getb32, bfd_getb_signed_32, bfd_putb32,
   bfd_getb16, bfd_getb_signed_16, bfd_putb16,	/* data */

@@ -180,6 +180,15 @@ union tu_link {
 enum colors {red, green, blue} color;
 enum cars {chevy, ford, porsche} clunker;
 
+/**** Enumeration bitfields, supported by GNU C *******/
+
+#ifdef __GNUC__
+enum senum {sm1 = -1, s1 = 1};
+struct senum_field {enum senum field:2; } sef;
+enum uenum {u1 = 1, u2 = 2};
+struct uenum_field {enum uenum field:2; } uef;
+#endif
+
 void
 dummy ()
 {
@@ -254,4 +263,9 @@ dummy ()
 
   v_struct2.v_int_member = v_struct1.v_int_member;
   v_union2.v_short_member = v_union.v_short_member;
+
+#ifdef __GNUC__
+  sef.field = s1;
+  uef.field = u1;
+#endif
 }

@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) scan.n 1.6 94/12/17 16:18:45
 '\" 
 .so man.macros
-.HS scan tcl
+.TH scan n "" Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -81,13 +80,13 @@ white-space character; the characters are copied to the variable.
 .TP 10
 \fBe\fR or \fBf\fR or \fBg\fR
 The input field must be a floating-point number consisting 
-of an optional sign, a string of decimal digits possibly con
-taining a decimal point, and an optional exponent consisting 
+of an optional sign, a string of decimal digits possibly
+containing a decimal point, and an optional exponent consisting 
 of an \fBe\fR or \fBE\fR followed by an optional sign and a string of 
 decimal digits.
 It is read in and stored in the variable as a floating-point string.
 .TP 10
-\fB[\fIchars\fB]
+\fB[\fIchars\fB]\fR
 The input field consists of any number of characters in 
 \fIchars\fR.
 The matching string is stored in the variable.
@@ -95,7 +94,7 @@ If the first character between the brackets is a \fB]\fR then
 it is treated as part of \fIchars\fR rather than the closing
 bracket for the set.
 .TP 10
-\fB[^\fIchars\fB]
+\fB[^\fIchars\fB]\fR
 The input field consists of any number of characters not in 
 \fIchars\fR.
 The matching string is stored in the variable.

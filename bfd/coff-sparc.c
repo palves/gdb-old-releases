@@ -163,7 +163,7 @@ coff_sparc_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
 {
-  int i;
+  unsigned int i;
   for (i = 0; i < sizeof (sparc_reloc_map) / sizeof (struct coff_reloc_map); i++)
     {
       if (sparc_reloc_map[i].bfd_reloc_val == code)
@@ -186,8 +186,9 @@ rtype2howto (cache_ptr, dst)
 
 #define SWAP_IN_RELOC_OFFSET	bfd_h_get_32
 #define SWAP_OUT_RELOC_OFFSET	bfd_h_put_32
-/* This is just like the standard one, except for the addition of the
-   last line, the adjustment of the addend.  */
+/* This is just like the standard one, except that we don't set up an
+   addend for relocs against global symbols (otherwise linking objects
+   created by -r fails), and we add in the reloc offset at the end.  */
 #define CALC_ADDEND(abfd, ptr, reloc, cache_ptr)                \
   {                                                             \
     coff_symbol_type *coffsym = (coff_symbol_type *) NULL;      \
@@ -200,7 +201,8 @@ rtype2howto (cache_ptr, dst)
         && coffsym->native->u.syment.n_scnum == 0)              \
       cache_ptr->addend = 0;                                    \
     else if (ptr && bfd_asymbol_bfd (ptr) == abfd               \
-             && ptr->section != (asection *) NULL)              \
+             && ptr->section != (asection *) NULL               \
+	     && (ptr->flags & BSF_GLOBAL) == 0)			\
       cache_ptr->addend = - (ptr->section->vma + ptr->value);   \
     else                                                        \
       cache_ptr->addend = 0;                                    \
@@ -235,8 +237,8 @@ const bfd_target
   "coff-sparc",			/* name */
 #endif
   bfd_target_coff_flavour,
-  true,			/* data byte order is big */
-  true,			/* header byte order is big */
+  BFD_ENDIAN_BIG,	/* data byte order is big */
+  BFD_ENDIAN_BIG,	/* header byte order is big */
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -247,7 +249,6 @@ const bfd_target
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
 
-  2,				/* minimum alignment power */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      bfd_getb32, bfd_getb_signed_32, bfd_putb32,
      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */

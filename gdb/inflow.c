@@ -30,13 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdb_string.h"
 #include <signal.h>
 #include <fcntl.h>
-
-#if !defined (HAVE_TERMIOS) && !defined (HAVE_TERMIO) && !defined (HAVE_SGTTY) && !defined (__GO32__) && !defined(WIN32)
-#define HAVE_SGTTY
-#endif
-
-#if defined (HAVE_TERMIOS)
-#include <termios.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
@@ -484,7 +478,7 @@ new_tty ()
 
   if (inferior_thisrun_terminal == 0)
     return;
-#if !defined(__GO32__) && !defined(WIN32)
+#if !defined(__GO32__) && !defined(__WIN32__)
 #ifdef TIOCNOTTY
   /* Disconnect the child process from our controlling terminal.  On some
      systems (SVR4 for example), this may cause a SIGTTOU, so temporarily

@@ -1,4 +1,5 @@
-# Commands covered:  set (plus basic command syntax)
+# Commands covered:  set (plus basic command syntax).  Also tests
+# the procedures in the file tclParse.c.
 #
 # This file contains a collection of tests for one or more of the Tcl
 # built-in commands.  Sourcing this file into Tcl runs the tests and
@@ -10,7 +11,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) parse.test 1.27 94/12/17 16:20:17
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
@@ -276,7 +276,7 @@ test parse-6.7 {backslash substitution} {
     eval "concat \\\na"
 } "a"
 test parse-6.8 {backslash substitution} {
-    eval "concat x\\\n   	\na"
+    eval "concat x\\\n   	a"
 } "x a"
 test parse-6.9 {backslash substitution} {
     eval "concat \\x"
@@ -284,6 +284,9 @@ test parse-6.9 {backslash substitution} {
 test parse-6.10 {backslash substitution} {
     eval "list a b\\\nc d"
 } {a b c d}
+test parse-6.11 {backslash substitution} {
+    eval "list a \"b c\"\\\nd e"
+} {a {b c} d e}
 
 # Semi-colon.
 
@@ -358,11 +361,6 @@ test parse-9.13 {syntax errors} {
  {b}]
     set a
 } {a b}
-test parse-9.14 {syntax errors} {catch "concat \{a\}\\\n{b}" msg} 1
-test parse-9.15 {syntax errors} {
-	catch "concat \{a\}\\\n{b}" msg
-	set msg
-} {extra characters after close-brace}
 
 # Long values (stressing storage management)
 
@@ -413,3 +411,82 @@ foreach j [concat 0000 1111 2222 3333 4444 5555 6666 7777 8888 9999 aaaa bbbb cc
 test parse-10.10 {test buffer overflow in backslashes in braces} {
     expr {"a" == {xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101\101}}
 } 0
+
+test parse-11.1 {comments} {
+    set a old
+    eval {  # set a new}
+    set a
+} {old}
+test parse-11.2 {comments} {
+    set a old
+    eval "  # set a new\nset a new"
+    set a
+} {new}
+test parse-11.3 {comments} {
+    set a old
+    eval "  # set a new\\\nset a new"
+    set a
+} {old}
+test parse-11.4 {comments} {
+    set a old
+    eval "  # set a new\\\\\nset a new"
+    set a
+} {new}
+
+test parse-12.1 {comments at the end of a bracketed script} {
+    set x "[
+expr 1+1
+# skip this!
+]"
+} {2}
+
+if {[info command testwordend] == "testwordend"} {
+    test parse-13.1 {TclWordEnd procedure} {
+	testwordend " 	\n abc"
+    } {c}
+    test parse-13.2 {TclWordEnd procedure} {
+	testwordend "   \\\n"
+    } {}
+    test parse-13.3 {TclWordEnd procedure} {
+	testwordend "   \\\n "
+    } { }
+    test parse-13.4 {TclWordEnd procedure} {
+	testwordend {"abc"}
+    } {"}
+    test parse-13.5 {TclWordEnd procedure} {
+	testwordend {{xyz}}
+    } \}
+    test parse-13.6 {TclWordEnd procedure} {
+	testwordend {{a{}b{}\}} xyz}
+    } "\} xyz"
+    test parse-13.7 {TclWordEnd procedure} {
+	testwordend {abc[this is a]def ghi}
+    } {f ghi}
+    test parse-13.8 {TclWordEnd procedure} {
+	testwordend "puts\\\n\n  "
+    } "s\\\n\n  "
+    test parse-13.9 {TclWordEnd procedure} {
+	testwordend "puts\\\n   	"
+    } "s\\\n   	"
+    test parse-13.10 {TclWordEnd procedure} {
+	testwordend "puts\\\n   	xyz"
+    } "s\\\n   	xyz"
+    test parse-13.11 {TclWordEnd procedure} {
+	testwordend {a$x.$y(a long index) foo}
+    } ") foo"
+    test parse-13.12 {TclWordEnd procedure} {
+	testwordend {abc; def}
+    } {; def}
+    test parse-13.13 {TclWordEnd procedure} {
+	testwordend {abc def}
+    } {c def}
+    test parse-13.14 {TclWordEnd procedure} {
+	testwordend {abc	def}
+    } {c	def}
+    test parse-13.15 {TclWordEnd procedure} {
+	testwordend "abc\ndef"
+    } "c\ndef"
+    test parse-13.16 {TclWordEnd procedure} {
+	testwordend "abc"
+    } {c}
+}

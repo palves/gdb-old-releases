@@ -1,0 +1,202 @@
+.\" Copyright (c) 1992, 1993 Free Software Foundation
+.\" See section COPYING for conditions for redistribution
+.TH makeinfo 1 "3mar1992" "GNU Tools" "GNU Tools"
+.de BP
+.sp
+.ti \-.2i
+\(**
+..
+
+.SH NAME
+makeinfo \- build GNU info files
+
+.SH SYNOPSIS
+.hy 0
+.na
+.TP
+.B makeinfo
+.RB [ "\-I \fIdir\fP" ]
+.RB [ "\-D \fIvar\fP" ]
+.RB [ "\-U \fIvar\fP" ]
+.RB [ "\-\-error\-limit\ \fInum\fP" "\ |\ " "\-e\ \fInum\fP" ]
+.RB [ "\-\-fill\-column\ \fInum\fP" "\ |\ " "\-f\ \fInum\fP" ]
+.RB [ "\-\-footnote\-style\ \fIstyle\fP" "\ |\ " "\-s\ \fIstyle\fP" ]
+.RB [ "\-\-no\-headers" ]
+.RB [ "\-\-no\-split" ]
+.RB [ "\-\-no\-validate" "\ |\ " "\-\-no\-pointer\-validate" ]
+.RB [ "\-\-no\-warn" ]
+.RB [ "\-\-no\-number\-footnotes" "\ |\ " "\-\-number\-footnotes" ]
+.RB [ "\-\-output\ \fIfile\fP" "\ |\ " "\-o \fIfile\fP" ]
+.RB [ "\-\-paragraph\-indent\ \fInum\fP" "\ |\ " "\-p\ \fInum\fP" ]
+.RB [ "\-\-reference\-limit\ \fInum\fP" "\ |\ " "\-r\ \fInum\fP" ]
+.RB [ "\-\-verbose" ]
+.RB [ "\-\-version" "\ |\ " "\-V" ]
+.ad b
+.hy 1
+.SH DESCRIPTION
+.B makeinfo
+is a program for converting 
+.I texinfo
+files into 
+.I info
+files.  Texinfo is a documentation language which allows a printed manual
+and online documentation (an info file) to be produced from a single source
+file.  
+.I info
+files contain structured markers to permit easy online navigation of the 
+documentat.
+
+See 
+.I Texinfo, the GNU Documentation Format
+for details on how to write a texinfo file.
+
+.SH OPTIONS
+
+.TP
+\fB\-I\fP \fIdir\fP
+Adds \fIdir\fP to the directory search list for finding files that are
+included using the `@include' command.  By default, \fBmakeinfo\fP searches only
+the current directory.
+
+.TP
+\fB\-D\fP \fIvar\fP
+Defines the texinfo flag \fIvar\fP.  This is equivalent to `@set \fIvar\fP' in
+the Texinfo file.
+
+.TP
+\fB\-U\fP \fIvar\fP
+Makes the texinfo flag \fIvar\fP undefined.  This is equivalent 
+to `@clear \fIvar\fP' in the Texinfo file.
+
+.TP
+\fB\-\-error\-limit\fP \fInum\fP | \fB\-e\fP \fInum\fP
+Sets the maximum number of errors that
+.B makeinfo
+prints before exiting
+(on the assumption that continuing would be useless).  The default number
+of errors that can be printed before \fBmakeinfo\fP gives up on processing the
+input file is 100.
+
+.TP
+\fB\-\-fill\-column\fP \fInum\fP | \fB\-f\fP \fInum\fP
+Specifies the maximum right-hand edge of a line.  Paragraphs that are
+filled will be filled to this width.  The default value for fill-column
+is 72.
+
+.TP
+\fB\-\-footnote\-style\fP \fIstyle\fP | \fB\-s\fP \fIstyle\fP
+Sets the footnote style to \c
+.I style\c
+\&.  \c
+.I style\c
+\& should either be `\fBseparate\fP' to have
+.B makeinfo
+create a separate node containing the footnotes for the current node,
+or `\fBend\fP' to have
+.B makeinfo
+place the footnotes at the end of the current node.
+
+.TP
+.B \-\-no\-headers
+Do not generate menus or node headers.  This option is useful together
+with the `\fB\-\-output\fP \fIfile\fP' and `\fB\-\-no-split\fP'
+options to produce a simple formatted file (suitable for printing on a
+dumb printer) from Texinfo source.  If you do not have TeX, these
+options may allow you to get readable hard copy.
+.TP
+.B \-\-no\-split
+Suppress the splitting stage of \fBmakeinfo\fP.  In general, large output
+files are split into smaller subfiles, each one approximately 50k
+bytes.  If you specify \c
+.B \-\-no-split\c
+\&, \fBmakeinfo\fP
+will not split up the output file.
+
+.TP
+\fB\-\-no\-validate\fP | \fB\-\-no\-pointer\-validate\fP
+Suppress the validation phase of \fBmakeinfo\fP.  Normally, after the file is
+processed, some consistency checks are made to ensure that cross references
+can be resolved, etc.  
+
+.TP
+.B \-\-no\-warn
+Suppress the output of warning messages.  This does \c
+.I not\c
+\& suppress the
+output of error messages, simply warnings.  You might want this if the file
+you are creating has texinfo examples in it, and the nodes that are
+referenced don't actually exist.
+
+.TP
+.B \-\-no\-number\-footnotes
+Supress the automatic numbering of footnotes.  The default is to number
+each footnote sequentially in a single node, resetting the current
+footnote number to 1 at the start of each node.
+
+.TP
+.B \-\-number\-footnotes
+Explicitly request that footnotes be numbered, as they are by default.
+
+.TP
+\fB\-\-output\fP \fIfile\fP | \fB\-o\fP \fIfile\fP
+Write the output in the \fIfile\fP specified, instead of in the name 
+specified in the texinfo file itself.  \fIfile\fP can be the special
+token `\fB\-\fP', which specifies standard output.
+
+.TP
+\fB\-\-paragraph\-indent\fP \fInum\fP | \fB\-p\fP \fInum\fP
+Sets the paragraph indentation to \c
+.I num\c
+\&.  The value of \c
+.I num\c
+\& is
+interpreted as follows:
+
+A value of 0 means don't change the existing indentation at the starts of
+paragraphs.
+
+A value less than zero means indent paragraph starts to column zero by
+deleting the existing indentation.
+
+A value greater than zero is the number of spaces to leave at the front of
+each paragraph start.
+
+.TP
+\fB\-\-reference\-limit\fP \fInum\fP | \fB\-r\fP \fInum\fP
+Issue a warning if any single node is referenced more than \fInum\fP times 
+in the info file.  The default \fInum\fP is 1000.
+
+.TP
+.B \-\-verbose
+Causes \fBmakeinfo\fP to inform you as to what it is doing.  Normally \fBmakeinfo\fP
+only outputs text if there are errors or warnings.
+
+.TP
+\fB\-\-version\fP | \fB\-V\fP
+Prints out the version number of \fBmakeinfo\fP.
+.PP
+.SH "SEE ALSO"
+.BR info ( 1 );
+the `\|\fBtexinfo\fP\|', `\|\fBinfo\fP\|', and `\|\fBmakeinfo\fP\|'
+info nodes; and 
+.I Texinfo, the GNU Documentation Format\c
+\&, by Robert Chassell and Richard Stallman.
+.SH AUTHOR
+Brian Fox wrote and maintains \fBmakeinfo\fP.
+.SH COPYING
+Copyright (c) 1992, 1993 Free Software Foundation, Inc.
+.PP
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+.PP
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+.PP
+Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be included in
+translations approved by the Free Software Foundation instead of in
+the original English.

@@ -1,85 +1,189 @@
 # button.tcl --
 #
-# This file contains Tcl procedures used to manage Tk buttons.
+# This file defines the default bindings for Tk label, button,
+# checkbutton, and radiobutton widgets and provides procedures
+# that help in implementing those bindings.
 #
-# $Header: /rel/cvsfiles/devo/tk/library/button.tcl,v 1.1 1994/06/03 23:44:27 rob Exp $ SPRITE (Berkeley)
 #
-# Copyright (c) 1992-1993 The Regents of the University of California.
-# All rights reserved.
+# Copyright (c) 1992-1994 The Regents of the University of California.
+# Copyright (c) 1994 Sun Microsystems, Inc.
 #
-# Permission is hereby granted, without written agreement and without
-# license or royalty fees, to use, copy, modify, and distribute this
-# software and its documentation for any purpose, provided that the
-# above copyright notice and the following two paragraphs appear in
-# all copies of this software.
-#
-# IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
-# DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT
-# OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-# CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-# AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-# ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-# PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
 
+#-------------------------------------------------------------------------
+# The code below creates the default class bindings for buttons.
+#-------------------------------------------------------------------------
+
+bind Button <FocusIn> {}
+bind Button <Enter> {
+    tkButtonEnter %W
+}
+bind Button <Leave> {
+    tkButtonLeave %W
+}
+bind Button <1> {
+    tkButtonDown %W
+}
+bind Button <ButtonRelease-1> {
+    tkButtonUp %W
+}
+bind Button <space> {
+    tkButtonInvoke %W
+}
+bind Button <Return> {
+    if !$tk_strictMotif {
+	tkButtonInvoke %W
+    }
+}
+
+bind Checkbutton <FocusIn> {}
+bind Checkbutton <Enter> {
+    tkButtonEnter %W
+}
+bind Checkbutton <Leave> {
+    tkButtonLeave %W
+}
+bind Checkbutton <1> {
+    tkCheckRadioInvoke %W
+}
+bind Checkbutton <space> {
+    tkCheckRadioInvoke %W
+}
+bind Checkbutton <Return> {
+    if !$tk_strictMotif {
+	tkCheckRadioInvoke %W
+    }
+}
+
+bind Radiobutton <FocusIn> {}
+bind Radiobutton <Enter> {
+    tkButtonEnter %W
+}
+bind Radiobutton <Leave> {
+    tkButtonLeave %W
+}
+bind Radiobutton <1> {
+    tkCheckRadioInvoke %W
+}
+bind Radiobutton <space> {
+    tkCheckRadioInvoke %W
+}
+bind Radiobutton <Return> {
+    if !$tk_strictMotif {
+	tkCheckRadioInvoke %W
+    }
+}
+
+# tkButtonEnter --
 # The procedure below is invoked when the mouse pointer enters a
 # button widget.  It records the button we're in and changes the
 # state of the button to active unless the button is disabled.
+#
+# Arguments:
+# w -		The name of the widget.
 
-proc tk_butEnter w {
-    global tk_priv tk_strictMotif
-    if {[lindex [$w config -state] 4] != "disabled"} {
-	if {!$tk_strictMotif} {
-	    $w config -state active
+proc tkButtonEnter {w} {
+    global tkPriv
+    if {[$w cget -state] != "disabled"} {
+	$w config -state active
+	if {$tkPriv(buttonWindow) == $w} {
+	    $w configure -state active -relief sunken
 	}
-	set tk_priv(window) $w
     }
+    set tkPriv(window) $w
 }
 
+# tkButtonLeave --
 # The procedure below is invoked when the mouse pointer leaves a
 # button widget.  It changes the state of the button back to
-# inactive.
+# inactive.  If we're leaving the button window with a mouse button
+# pressed (tkPriv(buttonWindow) == $w), restore the relief of the
+# button too.
+#
+# Arguments:
+# w -		The name of the widget.
 
-proc tk_butLeave w {
-    global tk_priv tk_strictMotif
-    if {[lindex [$w config -state] 4] != "disabled"} {
-	if {!$tk_strictMotif} {
-	    $w config -state normal
-	}
+proc tkButtonLeave w {
+    global tkPriv
+    if {[$w cget -state] != "disabled"} {
+	$w config -state normal
     }
-    set tk_priv(window) ""
+    if {$w == $tkPriv(buttonWindow)} {
+	$w configure -relief $tkPriv(relief)
+    }
+    set tkPriv(window) ""
 }
 
+# tkButtonDown --
 # The procedure below is invoked when the mouse button is pressed in
-# a button/radiobutton/checkbutton widget.  It records information
-# (a) to indicate that the mouse is in the button, and
-# (b) to save the button's relief so it can be restored later.
+# a button widget.  It records the fact that the mouse is in the button,
+# saves the button's relief so it can be restored later, and changes
+# the relief to sunken.
+#
+# Arguments:
+# w -		The name of the widget.
 
-proc tk_butDown w {
-    global tk_priv
-    set tk_priv(relief) [lindex [$w config -relief] 4]
-    set tk_priv(buttonWindow) $w
-    if {[lindex [$w config -state] 4] != "disabled"} {
+proc tkButtonDown w {
+    global tkPriv
+    set tkPriv(relief) [lindex [$w config -relief] 4]
+    if {[$w cget -state] != "disabled"} {
+	set tkPriv(buttonWindow) $w
 	$w config -relief sunken
     }
 }
 
+# tkButtonUp --
 # The procedure below is invoked when the mouse button is released
-# for a button/radiobutton/checkbutton widget.  It restores the
-# button's relief and invokes the command as long as the mouse
-# hasn't left the button.
+# in a button widget.  It restores the button's relief and invokes
+# the command as long as the mouse hasn't left the button.
+#
+# Arguments:
+# w -		The name of the widget.
 
-proc tk_butUp w {
-    global tk_priv
-    if {$w == $tk_priv(buttonWindow)} {
-	$w config -relief $tk_priv(relief)
-	if {($w == $tk_priv(window))
-		&& ([lindex [$w config -state] 4] != "disabled")} {
+proc tkButtonUp w {
+    global tkPriv
+    if {$w == $tkPriv(buttonWindow)} {
+	set tkPriv(buttonWindow) ""
+	$w config -relief $tkPriv(relief)
+	if {($w == $tkPriv(window))
+		&& ([$w cget -state] != "disabled")} {
 	    uplevel #0 [list $w invoke]
 	}
-	set tk_priv(buttonWindow) ""
+    }
+}
+
+# tkButtonInvoke --
+# The procedure below is called when a button is invoked through
+# the keyboard.  It simulate a press of the button via the mouse.
+#
+# Arguments:
+# w -		The name of the widget.
+
+proc tkButtonInvoke w {
+    if {[$w cget -state] != "disabled"} {
+	set oldRelief [$w cget -relief]
+	set oldState [$w cget -state]
+	$w configure -state active -relief sunken
+	update idletasks
+	after 100
+	$w configure -state $oldState -relief $oldRelief
+	uplevel #0 [list $w invoke]
+    }
+}
+
+# tkCheckRadioInvoke --
+# The procedure below is invoked when the mouse button is pressed in
+# a checkbutton or radiobutton widget, or when the widget is invoked
+# through the keyboard.  It invokes the widget if it
+# isn't disabled.
+#
+# Arguments:
+# w -		The name of the widget.
+
+proc tkCheckRadioInvoke w {
+    if {[$w cget -state] != "disabled"} {
+	uplevel #0 [list $w invoke]
     }
 }

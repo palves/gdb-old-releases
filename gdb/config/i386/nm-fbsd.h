@@ -1,5 +1,5 @@
 /* Native-dependent definitions for Intel 386 running BSD Unix, for GDB.
-   Copyright 1986, 1987, 1989, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1992, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -92,5 +92,10 @@ i386_register_u_addr PARAMS ((int, int));
 #define ldd		d_debug
 #define ld_un		d_un
 #define ld_2		d_sdt
+
+/* Return sizeof user struct to callers in less machine dependent routines */
+
+#define KERNEL_U_SIZE kernel_u_size()
+extern int kernel_u_size PARAMS ((void));
 
 #endif /* NM_FREEBSD_H */

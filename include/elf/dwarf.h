@@ -28,6 +28,9 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307
    UNIX International, 20 Waterview Boulevard, Parsippany, NJ, 07054.
 */
 
+#ifndef _ELF_DWARF_H
+#define _ELF_DWARF_H
+
 /* Tag names and codes.  */
 
 enum dwarf_tag {
@@ -312,3 +315,5 @@ enum dwarf_macinfo_record_type {
     MACINFO_define	= 'd',
     MACINFO_undef	= 'u'
 };
+
+#endif /* _ELF_DWARF_H */

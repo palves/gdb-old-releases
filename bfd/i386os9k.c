@@ -199,10 +199,7 @@ os9k_mkobject (abfd)
 
   rawptr = (struct bout_data_struct *) bfd_zalloc (abfd, sizeof (struct bout_data_struct));
   if (rawptr == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
 
   abfd->tdata.bout_data = rawptr;
   exec_hdr (abfd) = &rawptr->e;
@@ -323,6 +320,9 @@ os9k_sizeof_headers (ignore_abfd, ignore)
 
 #define aout_32_bfd_reloc_type_lookup _bfd_norelocs_bfd_reloc_type_lookup
 
+#define aout_32_get_section_contents_in_window \
+  _bfd_generic_get_section_contents_in_window
+
 #define os9k_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents
 #define os9k_bfd_relax_section bfd_generic_relax_section
@@ -335,14 +335,13 @@ const bfd_target i386os9k_vec =
 {
   "i386os9k",			/* name */
   bfd_target_os9k_flavour,
-  false,			/* data byte order is little */
-  false,			/* hdr byte order is big */
+  BFD_ENDIAN_LITTLE,		/* data byte order is little */
+  BFD_ENDIAN_LITTLE,		/* hdr byte order is little */
   (HAS_RELOC | EXEC_P | WP_TEXT),	/* object flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD),	/* section flags */
   0,				/* symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  2,				/* minumum alignment power */
 
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
   bfd_getl32, bfd_getl_signed_32, bfd_putl32,

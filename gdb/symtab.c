@@ -1,5 +1,5 @@
 /* Symbol table lookup for the GNU debugger, GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -29,12 +29,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "objfiles.h"
 #include "gdbcmd.h"
 #include "call-cmds.h"
-#include "regex.h"
+#include "gnu-regex.h"
 #include "expression.h"
 #include "language.h"
 #include "demangle.h"
 
-#include <obstack.h>
+#include "obstack.h"
 
 #include <sys/types.h>
 #include <fcntl.h>
@@ -84,7 +84,7 @@ static int find_line_common PARAMS ((struct linetable *, int, int *));
 
 static struct partial_symbol *
 lookup_partial_symbol PARAMS ((struct partial_symtab *, const char *,
-			       int, enum namespace));
+			       int, namespace_enum));
 
 static struct symtab *
 lookup_symtab_1 PARAMS ((char *));
@@ -110,6 +110,8 @@ void
 cplusplus_hint (name)
      char *name;
 {
+  while (*name == '\'')
+    name++;
   printf_filtered ("Hint: try '%s<TAB> or '%s<ESC-?>\n", name, name);
   printf_filtered ("(Note leading single quote.)\n");
 }
@@ -474,7 +476,7 @@ struct symbol *
 lookup_symbol (name, block, namespace, is_a_field_of_this, symtab)
      const char *name;
      register const struct block *block;
-     const enum namespace namespace;
+     const namespace_enum namespace;
      int *is_a_field_of_this;
      struct symtab **symtab;
 {
@@ -699,7 +701,7 @@ lookup_partial_symbol (pst, name, global, namespace)
      struct partial_symtab *pst;
      const char *name;
      int global;
-     enum namespace namespace;
+     namespace_enum namespace;
 {
   struct partial_symbol *start, *psym;
   struct partial_symbol *top, *bottom, *center;
@@ -811,7 +813,7 @@ struct symbol *
 lookup_block_symbol (block, name, namespace)
      register const struct block *block;
      const char *name;
-     const enum namespace namespace;
+     const namespace_enum namespace;
 {
   register int bot, top, inc;
   register struct symbol *sym;
@@ -991,7 +993,7 @@ find_pc_symtab (pc)
 	  /* For an objfile that has its functions reordered,
 	     find_pc_psymtab will find the proper partial symbol table
 	     and we simply return its corresponding symtab.  */
-	  if (objfile->flags & OBJF_REORDERED)
+	  if ((objfile->flags & OBJF_REORDERED) && objfile->psymtabs)
 	    {
 	      ps = find_pc_psymtab (pc);
 	      if (ps)
@@ -1634,7 +1636,7 @@ total_number_of_methods (type)
   int n;
   int count;
 
-  check_stub_type (type);
+  CHECK_TYPEDEF (type);
   count = TYPE_NFN_FIELDS_TOTAL (type);
 
   for (n = 0; n < TYPE_N_BASECLASSES (type); n++)
@@ -1671,7 +1673,7 @@ find_methods (t, name, sym_arr)
 				     (struct symtab **)NULL)))
     {
       int method_counter;
-      /* FIXME: Shouldn't this just be check_stub_type (t)?  */
+      /* FIXME: Shouldn't this just be CHECK_TYPEDEF (t)?  */
       t = SYMBOL_TYPE (sym_class);
       for (method_counter = TYPE_NFN_FIELDS (t) - 1;
 	   method_counter >= 0;
@@ -1915,9 +1917,10 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
   /* Maybe arg is FILE : LINENUM or FILE : FUNCTION */
 
   s = NULL;
-  is_quoted = (strchr(gdb_completer_quote_characters, **argptr) != NULL);
-  has_parens = (( pp = strchr(*argptr, '(')) != NULL  &&
-		 (pp = strchr(pp, ')')) != NULL);
+  is_quoted = (**argptr
+	       && strchr (gdb_completer_quote_characters, **argptr) != NULL);
+  has_parens = ((pp = strchr (*argptr, '(')) != NULL
+		 && (pp = strchr (pp, ')')) != NULL);
 
   for (p = *argptr; *p; p++)
     {
@@ -1957,12 +1960,14 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
 				     (struct symtab **)NULL);
        
 	  if (sym_class &&
-	      (   TYPE_CODE (SYMBOL_TYPE (sym_class)) == TYPE_CODE_STRUCT
-	       || TYPE_CODE (SYMBOL_TYPE (sym_class)) == TYPE_CODE_UNION))
+	      (t = check_typedef (SYMBOL_TYPE (sym_class)),
+	       (TYPE_CODE (t) == TYPE_CODE_STRUCT
+		|| TYPE_CODE (t) == TYPE_CODE_UNION)))
 	    {
 	      /* Arg token is not digits => try it as a function name
 		 Find the next token(everything up to end or next blank). */
-	      if (strchr(gdb_completer_quote_characters, **argptr) != NULL)
+	      if (**argptr
+		  && strchr (gdb_completer_quote_characters, **argptr) != NULL)
 		{
 		  p = skip_quoted(*argptr);
 		  *argptr = *argptr + 1;
@@ -1998,8 +2003,11 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
 		  copy = (char *) alloca (p - *argptr + 1 );
 		  memcpy (copy, *argptr, p - *argptr);
 		  copy[p - *argptr] = '\0';
-		  if (strchr(gdb_completer_quote_characters, copy[p-*argptr-1]) != NULL)
-		    copy[p - *argptr -1] = '\0';
+		  if (p != *argptr
+		      && copy[p - *argptr - 1]
+		      && strchr (gdb_completer_quote_characters,
+				 copy[p - *argptr - 1]) != NULL)
+		    copy[p - *argptr - 1] = '\0';
 		}
 
 	      /* no line number may be specified */
@@ -2008,7 +2016,6 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
 
 	      sym = 0;
 	      i1 = 0;		/*  counter for the symbol array */
-	      t = SYMBOL_TYPE (sym_class);
 	      sym_arr = (struct symbol **) alloca(total_number_of_methods (t)
 						  * sizeof(struct symbol *));
 
@@ -2211,7 +2218,8 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line, canonical)
   memcpy (copy, *argptr, p - *argptr);
   copy[p - *argptr] = '\0';
   if (p != *argptr
-      && (copy[0] == copy [p - *argptr - 1])
+      && copy[0]
+      && copy[0] == copy [p - *argptr - 1]
       && strchr (gdb_completer_quote_characters, copy[0]) != NULL)
     {
       copy [p - *argptr - 1] = '\0';
@@ -2871,6 +2879,13 @@ list_symbols (regexp, class, bpt, from_tty)
 					 (struct block *) NULL, VAR_NAMESPACE,
 					 0, (struct symtab **) NULL) == NULL)
 			{
+                          if (bpt)
+                            {
+                              break_command (SYMBOL_NAME (msymbol), from_tty);
+                              printf_filtered ("<function, no debug info> %s;\n",
+                                               SYMBOL_SOURCE_NAME (msymbol));
+                              continue;
+                            }
 			  if (!found_in_file)
 			    {
 			      printf_filtered ("\nNon-debugging symbols:\n");
@@ -3231,6 +3246,59 @@ make_symbol_completion_list (text, word)
     }
 
   return (return_val);
+}
+
+/* Determine if PC is in the prologue of a function.  The prologue is the area
+   between the first instruction of a function, and the first executable line.
+   Returns 1 if PC *might* be in prologue, 0 if definately *not* in prologue.
+
+   If non-zero, func_start is where we thing the prologue starts, possibly
+   by previous examination of symbol table information.
+ */
+
+int
+in_prologue (pc, func_start)
+     CORE_ADDR pc;
+     CORE_ADDR func_start;
+{
+  struct symtab_and_line sal;
+  CORE_ADDR func_addr, func_end;
+
+  if (!find_pc_partial_function (pc, NULL, &func_addr, &func_end))
+    goto nosyms;		/* Might be in prologue */
+
+  sal = find_pc_line (func_addr, 0);
+
+  if (sal.line == 0)
+    goto nosyms;
+
+  if (sal.end > func_addr
+      && sal.end <= func_end)	/* Is prologue in function? */
+    return pc < sal.end;	/* Yes, is pc in prologue? */
+
+  /* The line after the prologue seems to be outside the function.  In this
+     case, tell the caller to find the prologue the hard way.  */
+
+  return 1;
+
+/* Come here when symtabs don't contain line # info.  In this case, it is
+   likely that the user has stepped into a library function w/o symbols, or
+   is doing a stepi/nexti through code without symbols.  */
+
+ nosyms:
+
+/* If func_start is zero (meaning unknown) then we don't know whether pc is
+   in the prologue or not.  I.E. it might be. */
+
+  if (!func_start) return 1;
+
+/* We need to call the target-specific prologue skipping functions with the
+   function's start address because PC may be pointing at an instruction that
+   could be mistakenly considered part of the prologue.  */
+
+  SKIP_PROLOGUE (func_start);
+
+  return pc < func_start;
 }
 
 

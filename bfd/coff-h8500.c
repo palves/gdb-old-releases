@@ -102,7 +102,8 @@ rtype2howto(internal, dst)
   switch (dst->r_type)
     {
     default:
-      fprintf (stderr, "BAD 0x%x\n", dst->r_type);
+      abort ();
+      break;
     case R_H8500_IMM8:
       internal->howto = &r_imm8;
       break;
@@ -315,8 +316,8 @@ const bfd_target h8500coff_vec =
 {
   "coff-h8500",			/* name */
   bfd_target_coff_flavour,
-  true,				/* data byte order is big */
-  true,				/* header byte order is big */
+  BFD_ENDIAN_BIG,		/* data byte order is big */
+  BFD_ENDIAN_BIG,		/* header byte order is big */
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -326,7 +327,6 @@ const bfd_target h8500coff_vec =
   '_',				/* leading symbol underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  1,				/* minimum section alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      bfd_getb32, bfd_getb_signed_32, bfd_putb32,
      bfd_getb16, bfd_getb_signed_16, bfd_putb16,	/* data */

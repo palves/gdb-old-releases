@@ -1,5 +1,5 @@
 /* Target-dependent code for the HP PA architecture, for GDB.
-   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
@@ -487,7 +487,7 @@ read_unwind_info (objfile)
    contains a sorted list of struct unwind_table_entry.  Since we do a binary
    search of the unwind tables, we depend upon them to be sorted.  */
 
-static struct unwind_table_entry *
+struct unwind_table_entry *
 find_unwind_entry(pc)
      CORE_ADDR pc;
 {
@@ -1076,8 +1076,11 @@ frame_chain (frame)
 
 	  /* Abominable hack.  */
 	  if (current_target.to_has_execution == 0
-	      && saved_regs.regs[FLAGS_REGNUM]
-	      && (read_memory_integer (saved_regs.regs[FLAGS_REGNUM], 4) & 0x2))
+	      && ((saved_regs.regs[FLAGS_REGNUM]
+	           && (read_memory_integer (saved_regs.regs[FLAGS_REGNUM], 4)
+		       & 0x2))
+		  || (saved_regs.regs[FLAGS_REGNUM] == 0
+		      && read_register (FLAGS_REGNUM) & 0x2)))
 	    {
 	      u = find_unwind_entry (FRAME_SAVED_PC (frame));
 	      if (!u)
@@ -1091,6 +1094,29 @@ frame_chain (frame)
     }
   else
     {
+      struct frame_saved_regs saved_regs;
+
+      /* Get the innermost frame.  */
+      tmp_frame = frame;
+      while (tmp_frame->next != NULL)
+	tmp_frame = tmp_frame->next;
+
+      get_frame_saved_regs (tmp_frame, &saved_regs);
+      /* Abominable hack.  See above.  */
+      if (current_target.to_has_execution == 0
+	  && ((saved_regs.regs[FLAGS_REGNUM]
+	       && (read_memory_integer (saved_regs.regs[FLAGS_REGNUM], 4)
+		   & 0x2))
+	      || (saved_regs.regs[FLAGS_REGNUM] == 0
+		  && read_register (FLAGS_REGNUM)  & 0x2)))
+	{
+	  u = find_unwind_entry (FRAME_SAVED_PC (frame));
+	  if (!u)
+	    return read_memory_integer (saved_regs.regs[FP_REGNUM], 4);
+	   else
+	    return frame_base - (u->Total_frame_size << 3);
+	}
+	
       /* The value in %r3 was never saved into the stack (thus %r3 still
 	 holds the value of the previous frame pointer).  */
       return read_register (FP_REGNUM);
@@ -1703,27 +1729,28 @@ target_write_pc (v, pid)
    alignment required by their fields. */
 
 static int
-hppa_alignof (arg)
-     struct type *arg;
+hppa_alignof (type)
+     struct type *type;
 {
   int max_align, align, i;
-  switch (TYPE_CODE (arg))
+  CHECK_TYPEDEF (type);
+  switch (TYPE_CODE (type))
     {
     case TYPE_CODE_PTR:
     case TYPE_CODE_INT:
     case TYPE_CODE_FLT:
-      return TYPE_LENGTH (arg);
+      return TYPE_LENGTH (type);
     case TYPE_CODE_ARRAY:
-      return hppa_alignof (TYPE_FIELD_TYPE (arg, 0));
+      return hppa_alignof (TYPE_FIELD_TYPE (type, 0));
     case TYPE_CODE_STRUCT:
     case TYPE_CODE_UNION:
       max_align = 2;
-      for (i = 0; i < TYPE_NFIELDS (arg); i++)
+      for (i = 0; i < TYPE_NFIELDS (type); i++)
 	{
 	  /* Bit fields have no real alignment. */
-	  if (!TYPE_FIELD_BITPOS (arg, i))
+	  if (!TYPE_FIELD_BITPOS (type, i))
 	    {
-	      align = hppa_alignof (TYPE_FIELD_TYPE (arg, i));
+	      align = hppa_alignof (TYPE_FIELD_TYPE (type, i));
 	      max_align = max (max_align, align);
 	    }
 	}

@@ -67,6 +67,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  *
 #define P3	INSN_4650
 #define I4	INSN_ISA4
 #define L1	INSN_4010
+#define V1      INSN_4100
 
 /* The order of overloaded instructions matters.  Label arguments and
    register arguments look the same. Instructions that can have either
@@ -308,6 +309,7 @@ const struct mips_opcode mips_opcodes[] = {
 {"dli",     "t,j",      0x24000000, 0xffe00000, WR_t|I3		}, /* addiu */
 {"dli",	    "t,i",	0x34000000, 0xffe00000, WR_t|I3		}, /* ori */
 {"dli",     "t,I",	3,    (int) M_DLI,	INSN_MACRO	},
+{"dmadd16", "s,t",      0x00000029, 0xfc00ffff, RD_s|RD_t|WR_LO|RD_LO|V1 },
 {"dmfc0",   "t,G",	0x40200000, 0xffe007ff, LCD|WR_t|RD_C0|I3 },
 {"dmtc0",   "t,G",	0x40a00000, 0xffe007ff, COD|RD_t|WR_C0|WR_CC|I3 },
 {"dmfc1",   "t,S",	0x44200000, 0xffe007ff, LCD|WR_t|RD_S|I3 },
@@ -355,6 +357,7 @@ const struct mips_opcode mips_opcodes[] = {
 {"flushi",  "",		0xbc010000, 0xffffffff, L1		},
 {"flushd",  "",		0xbc020000, 0xffffffff, L1		},
 {"flushid", "",		0xbc030000, 0xffffffff, L1		},
+{"hibernate","",        0x42000023, 0xffffffff, V1              },
 {"jr",      "s",	0x00000008, 0xfc1fffff,	UBD|RD_s	},
 {"j",       "s",	0x00000008, 0xfc1fffff,	UBD|RD_s	}, /* jr */
 /* SVR4 PIC code requires special handling for j, so it must be a
@@ -445,6 +448,7 @@ const struct mips_opcode mips_opcodes[] = {
 {"madd.s",  "D,R,S,T",	0x4c000020, 0xfc00003f, RD_R|RD_S|RD_T|WR_D|I4 },
 {"madd",    "s,t",	0x0000001c, 0xfc00ffff,	RD_s|RD_t|WR_HI|WR_LO|L1 },
 {"maddu",   "s,t",	0x0000001d, 0xfc00ffff,	RD_s|RD_t|WR_HI|WR_LO|L1 },
+{"madd16",  "s,t",      0x00000028, 0xfc00ffff, RD_s|RD_t|WR_HI|WR_LO|RD_HI|RD_LO|V1 },
 {"mfc0",    "t,G",	0x40000000, 0xffe007ff,	LCD|WR_t|RD_C0	},
 {"mfc1",    "t,S",	0x44000000, 0xffe007ff,	LCD|WR_t|RD_S	},
 {"mfc1",    "t,G",	0x44000000, 0xffe007ff,	LCD|WR_t|RD_S	},
@@ -589,12 +593,14 @@ const struct mips_opcode mips_opcodes[] = {
 {"srlv",    "d,t,s",	0x00000006, 0xfc0007ff,	WR_d|RD_t|RD_s	},
 {"srl",     "d,w,s",	0x00000006, 0xfc0007ff,	WR_d|RD_t|RD_s	}, /* srlv */
 {"srl",     "d,w,<",	0x00000002, 0xffe0003f,	WR_d|RD_t	},
+{"standby", "",         0x42000021, 0xffffffff, V1              },
 {"sub",     "d,v,t",	0x00000022, 0xfc0007ff,	WR_d|RD_s|RD_t	},
 {"sub",     "d,v,I",	0,    (int) M_SUB_I,	INSN_MACRO	},
 {"sub.d",   "D,V,T",	0x46200001, 0xffe0003f,	WR_D|RD_S|RD_T	},     
 {"sub.s",   "D,V,T",	0x46000001, 0xffe0003f,	WR_D|RD_S|RD_T	},
 {"subu",    "d,v,t",	0x00000023, 0xfc0007ff,	WR_d|RD_s|RD_t	},
 {"subu",    "d,v,I",	0,    (int) M_SUBU_I,	INSN_MACRO	},
+{"suspend", "",         0x42000022, 0xffffffff, V1              },
 {"sw",      "t,o(b)",	0xac000000, 0xfc000000,	SM|RD_t|RD_b	},
 {"sw",      "t,A(b)",	0,    (int) M_SW_AB,	INSN_MACRO	},
 {"swc0",    "E,o(b)",	0xe0000000, 0xfc000000,	SM|RD_C0|RD_b	},
@@ -658,19 +664,19 @@ const struct mips_opcode mips_opcodes[] = {
 {"trunc.w.s", "D,S,x",	0x4600000d, 0xffff003f,	WR_D|RD_S|I2	},
 {"trunc.w.s", "D,S,t",	0,    (int) M_TRUNCWS,	INSN_MACRO	},
 {"uld",     "t,o(b)",	3,    (int) M_ULD,	INSN_MACRO	},
-{"uld",     "t,A",	3,    (int) M_ULD_A,	INSN_MACRO	},
+{"uld",     "t,A(b)",	3,    (int) M_ULD_A,	INSN_MACRO	},
 {"ulh",     "t,o(b)",	0,    (int) M_ULH,	INSN_MACRO	},
-{"ulh",     "t,A",	0,    (int) M_ULH_A,	INSN_MACRO	},
+{"ulh",     "t,A(b)",	0,    (int) M_ULH_A,	INSN_MACRO	},
 {"ulhu",    "t,o(b)",	0,    (int) M_ULHU,	INSN_MACRO	},
-{"ulhu",    "t,A",	0,    (int) M_ULHU_A,	INSN_MACRO	},
+{"ulhu",    "t,A(b)",	0,    (int) M_ULHU_A,	INSN_MACRO	},
 {"ulw",     "t,o(b)",	0,    (int) M_ULW,	INSN_MACRO	},
-{"ulw",     "t,A",	0,    (int) M_ULW_A,	INSN_MACRO	},
+{"ulw",     "t,A(b)",	0,    (int) M_ULW_A,	INSN_MACRO	},
 {"usd",     "t,o(b)",	3,    (int) M_USD,	INSN_MACRO	},
-{"usd",     "t,A",	3,    (int) M_USD_A,	INSN_MACRO	},
+{"usd",     "t,A(b)",	3,    (int) M_USD_A,	INSN_MACRO	},
 {"ush",     "t,o(b)",	0,    (int) M_USH,	INSN_MACRO	},
-{"ush",     "t,A",	0,    (int) M_USH_A,	INSN_MACRO	},
+{"ush",     "t,A(b)",	0,    (int) M_USH_A,	INSN_MACRO	},
 {"usw",     "t,o(b)",	0,    (int) M_USW,	INSN_MACRO	},
-{"usw",     "t,A",	0,    (int) M_USW_A,	INSN_MACRO	},
+{"usw",     "t,A(b)",	0,    (int) M_USW_A,	INSN_MACRO	},
 {"xor",     "d,v,t",	0x00000026, 0xfc0007ff,	WR_d|RD_s|RD_t	},
 {"xor",     "t,r,I",	0,    (int) M_XOR_I,	INSN_MACRO	},
 {"xori",    "t,r,i",	0x38000000, 0xfc000000,	WR_t|RD_s	},

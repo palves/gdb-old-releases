@@ -32,6 +32,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define GDB_TARGET_IS_MIPS64 0
 #endif
 
+#if !defined (TARGET_MONITOR_PROMPT)
+#define TARGET_MONITOR_PROMPT "<IDT>"
+#endif
+
 /* Floating point is IEEE compliant */
 #define IEEE_FLOAT
 

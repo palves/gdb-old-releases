@@ -1,8 +1,13 @@
 #define DEBUG
 
-#define MPOWER 18
-#define MSIZE (1<<MPOWER)
+#define H8300_MSIZE (1<<16)
+
+/* This value coincides with the default linker script.
+   Don't change either without considering the effect on the other.  */
+#define H8300H_MSIZE (1<<18)
+
 #define CSIZE 1000
+
 /* Local register names */
 typedef enum
 {

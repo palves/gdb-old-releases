@@ -1,17 +1,12 @@
 '\"
 '\" Copyright (c) 1991-1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) library.n 1.12 94/12/17 16:18:18
-'
 .so man.macros
-.de UL
-\\$1\l'|0\(ul'\\$2
-..
-.HS library tcl
+.TH library n "" Tcl "Tcl Built-In Commands"
 .BS
 .SH NAME
 library \- standard library of Tcl procedures
@@ -22,8 +17,6 @@ library \- standard library of Tcl procedures
 \fBauto_mkindex \fIdir pattern pattern ...\fR
 \fBauto_reset\fR
 \fBparray \fIarrayName\fR
-\fBunknown \fIcmd \fR?\fIarg arg ...\fR?
-.fi
 .BE
 
 .SH INTRODUCTION
@@ -43,12 +36,14 @@ For example, the location of the Tk library is kept in the variable
 To access the procedures in the Tcl library, an application should
 source the file \fBinit.tcl\fR in the library, for example with
 the Tcl command
-.DS
-\fBsource [info library]/init.tcl
-.DE
-This will define the \fBunknown\fR procedure and arrange for the
-other procedures to be loaded on-demand using the auto-load
-mechanism defined below.
+.CS
+\fBsource [info library]/init.tcl\fR
+.CE
+If the library procedure \fBTcl_Init\fR is invoked from an application's
+\fBTcl_AppInit\fR procedure, this happens automatically.
+The code in \fBinit.tcl\fR will define the \fBunknown\fR procedure
+and arrange for the other procedures to be loaded on-demand using
+the auto-load mechanism defined below.
 
 .SH "COMMAND PROCEDURES"
 .PP
@@ -57,7 +52,7 @@ The following procedures are provided in the Tcl library:
 \fBauto_execok \fIcmd\fR
 Determines whether there is an executable file by the name \fIcmd\fR.
 This command examines the directories in the current search path
-(given by the PATH enviornment variable) to see if there is an
+(given by the PATH environment variable) to see if there is an
 executable file named \fIcmd\fR in any of those directories.
 If so, it returns 1;  if not it returns 0.  \fBAuto_exec\fR
 remembers information about previous searches in an array
@@ -114,9 +109,9 @@ procedures defined in all the matching files, and stores the
 index information in a file named \fBtclIndex\fR in \fIdir\fR.
 For example, the command
 .RS
-.DS
+.CS
 \fBauto_mkindex foo *.tcl\fR
-.DE
+.CE
 .LP
 will read all the \fB.tcl\fR files in subdirectory \fBfoo\fR
 and generate a new index file \fBfoo/tclIndex\fR.
@@ -144,41 +139,6 @@ Prints on standard output the names and values of all the elements
 in the array \fIarrayName\fR.
 \fBArrayName\fR must be an array accessible to the caller of \fBparray\fR.
 It may be either local or global.
-.TP
-\fBunknown \fIcmd \fR?\fIarg arg ...\fR?
-This procedure is invoked automatically by the Tcl interpreter
-whenever the name of a command doesn't exist.
-The \fBunknown\fR procedure receives as its arguments the
-name and arguments of the missing command.
-.VS
-\fBUnknown\fR first calls \fBauto_load\fR to load the command.
-.VE
-If this succeeds, then it executes the original command with its
-original arguments.
-If the auto-load fails then \fBunknown\fR calls \fBauto_execok\fR
-to see if there is an executable file by the name \fIcmd\fR.
-If so, it invokes the Tcl \fBexec\fR command
-with \fIcmd\fR and all the \fIargs\fR as arguments.
-If \fIcmd\fR can't be auto-executed, \fBunknown\fR checks to
-see if the command was invoked at top-level and outside of any
-script.  If so, then \fBunknown\fR takes takes two additional steps.
-First, it sees if \fIcmd\fR has one of the following three forms:
-\fB!!\fR, \fB!\fIevent\fR, or \fB^\fIold\fB^\fInew\fR?\fB^\fR?.
-If so, then \fBunknown\fR carries out history substitution
-in the same way that \fBcsh\fR would for these constructs.
-Second, and last, \fBunknown\fR checks to see if \fIcmd\fR is
-a unique abbreviation for an existing Tcl command.
-If so, it expands the command name and executes the command with
-the original arguments.
-If none of the above efforts has been able to execute
-the command, \fBunknown\fR generates an error return.
-If the global variable \fBauto_noload\fR is defined, then the auto-load
-step is skipped.
-If the global variable \fBauto_noexec\fR is defined then the
-auto-exec step is skipped.
-Under normal circumstances the return value from \fBunknown\fR
-is the return value from the command that was eventually
-executed.
 
 .SH "VARIABLES"
 .PP

@@ -1,26 +1,13 @@
+'\"
 '\" Copyright (c) 1990 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/GetCursor.3,v 1.1 1994/06/03 23:42:02 rob Exp $ SPRITE (Berkeley)
 '\" 
 .so man.macros
-.HS Tk_GetCursor tkc
+.TH Tk_GetCursor 3 4.0 Tk "Tk Library Procedures"
 .BS
 .SH NAME
 Tk_GetCursor, Tk_GetCursorFromData, Tk_NameOfCursor, Tk_FreeCursor \- maintain database of cursors
@@ -35,11 +22,9 @@ Cursor
 \fBTk_GetCursorFromData(\fIinterp, tkwin, source, mask, width, height, xHot, yHot, fg, bg\fB)\fR
 .sp
 char *
-.VS
 \fBTk_NameOfCursor(\fIdisplay, cursor\fB)\fR
 .sp
 \fBTk_FreeCursor(\fIdisplay, cursor\fB)\fR
-.VE
 .SH ARGUMENTS
 .AS "unsigned long" *pixelPtr
 .AP Tcl_Interp *interp in
@@ -52,13 +37,15 @@ Description of cursor;  see below for possible values.
 Data for cursor bitmap, in standard bitmap format.
 .AP char *mask in
 Data for mask bitmap, in standard bitmap format.
-.AP "unsigned int" width in
+.AP "int" width in
+.VS
 Width of \fIsource\fR and \fImask\fR.
-.AP "unsigned int" height in
+.AP "int" height in
 Height of \fIsource\fR and \fImask\fR.
-.AP "unsigned int" xHot in
+.AP "int" xHot in
 X-location of cursor hot-spot.
-.AP "unsigned int" yHot in
+.AP "int" yHot in
+.VE
 Y-location of cursor hot-spot.
 .AP Tk_Uid fg in
 Textual description of foreground color for cursor.
@@ -66,8 +53,6 @@ Textual description of foreground color for cursor.
 Textual description of background color for cursor.
 .AP Display *display in
 Display for which \fIcursor\fR was allocated.
-.VS
-.VE
 .AP Cursor cursor in
 X identifier for cursor.  If passed to\fBTk_FreeCursor\fR, must
 have been returned by some previous call to \fBTk_GetCursor\fR or
@@ -87,7 +72,7 @@ description.  It re-uses an existing cursor if possible and
 creates a new one otherwise.  \fINameId\fR must be a standard Tcl
 list with one of the following forms:
 .TP
-\fIname\fR\ \ [\fIfgColor\fR\ \ [\fIbgColor\fR]]
+\fIname\fR\0[\fIfgColor\fR\0[\fIbgColor\fR]]
 \fIName\fR is the name of a cursor in the standard X cursor font,
 i.e., any of the names defined in \fBcursorfont.h\fR, without
 the \fBXC_\fR.  Some example values are \fBX_cursor\fR, \fBhand2\fR,
@@ -102,8 +87,7 @@ If no colors are specified, then the cursor
 will use black for its foreground color and white for its background
 color.
 .TP
-\fB@\fIsourceName\ \ maskName\ \ fgColor\ \ bgColor\fR
-.br
+\fB@\fIsourceName\0maskName\0fgColor\0bgColor\fR
 In this form, \fIsourceName\fR and \fImaskName\fR are the names of
 files describing bitmaps for the cursor's source bits and mask.
 Each file must be in standard X11 or X10 bitmap format.
@@ -111,8 +95,7 @@ Each file must be in standard X11 or X10 bitmap format.
 indicate the colors to use for the
 cursor, in any of the forms acceptable to \fBTk_GetColor\fR.
 .TP
-\fB@\fIsourceName\ \ fgColor\fR
-.br
+\fB@\fIsourceName\0fgColor\fR
 This form is similar to the one above, except that the source is
 used as mask also.  This means that the cursor's background is transparent.
 .PP
@@ -130,16 +113,14 @@ suitable for \fBTk_GetColor\fR may be used).  Typically, the
 arguments to \fBTk_GetCursorFromData\fR are created by including
 a cursor file directly into the source code for a program, as in
 the following example:
-.nf
-.RS
-\fCCursor cursor;
+.CS
+Cursor cursor;
 #include "source.cursor"
 #include "mask.cursor"
 cursor = Tk_GetCursorFromData(interp, tkwin, source_bits,
 	mask_bits, source_width, source_height, source_x_hot,
-	source_y_hot, Tk_GetUid("red"), Tk_GetUid("blue"));\fR
-.RE
-.fi
+	source_y_hot, Tk_GetUid("red"), Tk_GetUid("blue"));
+.CE
 .PP
 Under normal conditions, \fBTk_GetCursor\fR and \fBTk_GetCursorFromData\fR
 will return an identifier for the requested cursor.  If an error

@@ -10,9 +10,15 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) exec.test 1.36 94/12/17 16:19:53
 
 if {[string compare test [info procs test]] == 1} then {source defs}
+
+# If exec is not defined just return with no error
+# Some platforms like the Macintosh do not have the exec command
+if {[info commands exec] == ""} {
+    puts "exec not implemented for this machine"
+    return
+}
 
 # Basic operations.
 
@@ -200,12 +206,16 @@ test exec-9.3 {commands returning errors} {
     list [catch {exec sleep 1 | sh -c "exit 43" | sleep 1} msg] $msg
 } {1 {child process exited abnormally}}
 test exec-9.4 {commands returning errors} {
+    list [catch {exec sh -c "exit 43" | echo "foo bar"} msg] $msg
+} {1 {foo bar
+child process exited abnormally}}
+test exec-9.5 {commands returning errors} {
     list [catch {exec gorp456 | echo a b c} msg] [string tolower $msg]
 } {1 {couldn't execute "gorp456": no such file or directory}}
-test exec-9.5 {commands returning errors} {
+test exec-9.6 {commands returning errors} {
     list [catch {exec sh -c "echo error msg 1>&2"} msg] $msg
 } {1 {error msg}}
-test exec-9.6 {commands returning errors} {
+test exec-9.7 {commands returning errors} {
     list [catch {exec sh -c "echo error msg 1>&2" | sh -c "echo error msg 1>&2"} msg] $msg
 } {1 {error msg
 error msg}}
@@ -267,13 +277,19 @@ test exec-10.17 {errors in exec invocation} {
 set f [open gorp.file w]
 test exec-10.18 {errors in exec invocation} {
     list [catch {exec cat <@ $f} msg] $msg
-} "1 {\"$f\" wasn't opened for reading}"
+} "1 {file \"$f\" wasn't opened for reading}"
 close $f
 set f [open gorp.file r]
 test exec-10.19 {errors in exec invocation} {
     list [catch {exec cat >@ $f} msg] $msg
-} "1 {\"$f\" wasn't opened for writing}"
+} "1 {file \"$f\" wasn't opened for writing}"
 close $f
+test exec-10.20 {errors in exec invocation} {
+    list [catch {exec ~non_existent_user/foo/bar} msg] $msg
+} {1 {user "non_existent_user" doesn't exist}}
+test exec-10.21 {errors in exec invocation} {
+    list [catch {exec true | ~xyzzy_bad_user/x | false} msg] $msg
+} {1 {user "xyzzy_bad_user" doesn't exist}}
 
 # Commands in background.
 
@@ -343,10 +359,10 @@ test exec-13.2 {setting errorCode variable} {
     list [catch {exec cat > a/b/c} msg] [string tolower $errorCode]
 } {1 {posix enoent {no such file or directory}}}
 test exec-13.3 {setting errorCode variable} {
-    set x [catch {exec _weirdo_command_} msg]
+    set x [catch {exec _weird_cmd_} msg]
     list $x [string tolower $msg] [lindex $errorCode 0] \
 	    [string tolower [lrange $errorCode 2 end]]
-} {1 {couldn't execute "_weirdo_command_": no such file or directory} POSIX {{no such file or directory}}}
+} {1 {couldn't execute "_weird_cmd_": no such file or directory} POSIX {{no such file or directory}}}
 
 # Switches before the first argument
 

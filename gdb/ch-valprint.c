@@ -78,6 +78,7 @@ chill_print_type_scalar (type, val, stream)
     case TYPE_CODE_CHAR:
     case TYPE_CODE_BOOL:
     case TYPE_CODE_COMPLEX:
+    case TYPE_CODE_TYPEDEF:
     default:
       break;
     }
@@ -114,7 +115,7 @@ chill_val_print_array_elements (type, valaddr, address, stream,
   unsigned int reps;
   LONGEST low_bound =  TYPE_FIELD_BITPOS (range_type, 0);
       
-  elttype = TYPE_TARGET_TYPE (type);
+  elttype = check_typedef (TYPE_TARGET_TYPE (type));
   eltlen = TYPE_LENGTH (elttype);
   len = TYPE_LENGTH (type) / eltlen;
 
@@ -175,6 +176,49 @@ chill_val_print_array_elements (type, valaddr, address, stream,
     }
 }
 
+/* In certain cases it could happen, that an array type doesn't
+   have a length (this have to do with seizing). The reason is
+   shown in the following stabs:
+
+   .stabs "m_x:Tt81=s36i:1,0,32;ar:82=ar80;0;1;83=xsm_struct:,32,256;;",128,0,25,0
+  
+   .stabs "m_struct:Tt83=s16f1:9,0,16;f2:85=*84,32,32;f3:84,64,64;;",128,0,10,0
+
+   When processing t81, the array ar80 doesn't have a length, cause
+   struct m_struct is specified extern at thse moment. Afterwards m_struct
+   gets specified and updated, but not the surrounding type.
+
+   So we walk through array's till we find a type with a length and
+   calculate the array length.
+
+   FIXME: Where may this happen too ?
+   */
+
+static void
+calculate_array_length (type)
+     struct type *type;
+{
+  struct type *target_type;
+  struct type *range_type;
+  LONGEST lower_bound, upper_bound;
+
+  if (TYPE_CODE (type) != TYPE_CODE_ARRAY)
+    /* not an array, stop processing */
+    return;
+
+  target_type = TYPE_TARGET_TYPE (type);
+  range_type = TYPE_FIELD_TYPE (type, 0);
+  lower_bound = TYPE_FIELD_BITPOS (range_type, 0);
+  upper_bound = TYPE_FIELD_BITPOS (range_type, 1);
+
+  if (TYPE_LENGTH (target_type) == 0 &&
+      TYPE_CODE (target_type) == TYPE_CODE_ARRAY)
+    /* we've got another array */
+    calculate_array_length (target_type);
+
+  TYPE_LENGTH (type) = (upper_bound - lower_bound + 1) * TYPE_LENGTH (target_type);
+}
+
 /* Print data of type TYPE located at VALADDR (within GDB), which came from
    the inferior at address ADDRESS, onto stdio stream STREAM according to
    FORMAT (a letter or 0 for natural format).  The data at VALADDR is in
@@ -205,9 +249,15 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
   struct type *elttype;
   CORE_ADDR addr;
 
+  CHECK_TYPEDEF (type);
+
   switch (TYPE_CODE (type))
     {
     case TYPE_CODE_ARRAY:
+      if (TYPE_LENGTH (type) == 0)
+	/* see comment function calculate_array_length */
+	calculate_array_length (type);
+
       if (TYPE_LENGTH (type) > 0 && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0)
 	{
 	  if (prettyprint_arrays)
@@ -289,7 +339,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	  break;
 	}
       addr = unpack_pointer (type, valaddr);
-      elttype = TYPE_TARGET_TYPE (type);
+      elttype = check_typedef (TYPE_TARGET_TYPE (type));
 
       /* We assume a NULL pointer is all zeros ... */
       if (addr == 0)
@@ -338,7 +388,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
     case TYPE_CODE_BITSTRING:
     case TYPE_CODE_SET:
       elttype = TYPE_INDEX_TYPE (type);
-      check_stub_type (elttype);
+      CHECK_TYPEDEF (elttype);
       if (TYPE_FLAGS (elttype) & TYPE_FLAG_STUB)
 	{
 	  fprintf_filtered (stream, "<incomplete type>");
@@ -347,8 +397,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	}
       {
 	struct type *range = elttype;
-	int low_bound = TYPE_LOW_BOUND (range);
-	int high_bound = TYPE_HIGH_BOUND (range);
+	LONGEST low_bound, high_bound;
 	int i;
 	int is_bitstring = TYPE_CODE (type) == TYPE_CODE_BITSTRING;
 	int need_comma = 0;
@@ -357,9 +406,23 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	  fputs_filtered ("B'", stream);
 	else
 	  fputs_filtered ("[", stream);
+
+	i = get_discrete_bounds (range, &low_bound, &high_bound);
+      maybe_bad_bstring:
+	if (i < 0)
+	  {
+	    fputs_filtered ("<error value>", stream);
+	    goto done;
+	  }
+
 	for (i = low_bound; i <= high_bound; i++)
 	  {
 	    int element = value_bit_index (type, valaddr, i);
+	    if (element < 0)
+	      {
+		i = element;
+		goto maybe_bad_bstring;
+	      }
 	    if (is_bitstring)
 	      fprintf_filtered (stream, "%d", element);
 	    else if (element)
@@ -381,6 +444,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 		  }
 	      }
 	  }
+      done:
 	if (is_bitstring)
 	  fputs_filtered ("'", stream);
 	else
@@ -391,7 +455,7 @@ chill_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
     case TYPE_CODE_STRUCT:
       if (chill_varying_type (type))
 	{
-	  struct type *inner = TYPE_FIELD_TYPE (type, 1);
+	  struct type *inner = check_typedef (TYPE_FIELD_TYPE (type, 1));
 	  long length = unpack_long (TYPE_FIELD_TYPE (type, 0), valaddr);
 	  char *data_addr = valaddr + TYPE_FIELD_BITPOS (type, 1) / 8;
 	  
@@ -495,7 +559,7 @@ chill_print_value_fields (type, valaddr, stream, format, recurse, pretty,
   int i, len;
   int fields_seen = 0;
 
-  check_stub_type (type);
+  CHECK_TYPEDEF (type);
 
   fprintf_filtered (stream, "[");
   len = TYPE_NFIELDS (type);
@@ -560,65 +624,41 @@ chill_value_print (val, stream, format, pretty)
      int format;
      enum val_prettyprint pretty;
 {
-  /* A "repeated" value really contains several values in a row.
-     They are made by the @ operator.
-     Print such values as if they were arrays.  */
+  struct type *type = VALUE_TYPE (val);
+  struct type *real_type = check_typedef  (type);
 
-  if (VALUE_REPEATED (val))
+  /* If it is a pointer, indicate what it points to.
+
+     Print type also if it is a reference. */
+
+  if (TYPE_CODE (real_type) == TYPE_CODE_PTR ||
+      TYPE_CODE (real_type) == TYPE_CODE_REF)
     {
-      register unsigned int n = VALUE_REPETITIONS (val);
-      register unsigned int typelen = TYPE_LENGTH (VALUE_TYPE (val));
-      fprintf_filtered (stream, "[");
-      /* Print arrays of characters using string syntax.  */
-      if (typelen == 1 && TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_INT
-	  && format == 0)
-	LA_PRINT_STRING (stream, VALUE_CONTENTS (val), n, 0);
-      else
+      char *valaddr = VALUE_CONTENTS (val);
+      CORE_ADDR addr = unpack_pointer (type, valaddr);
+      if (TYPE_CODE (type) != TYPE_CODE_PTR || addr != 0)
 	{
-	  value_print_array_elements (val, stream, format, pretty);
-	}
-      fprintf_filtered (stream, "]");
-      return (n * typelen);
-    }
-  else
-    {
-      struct type *type = VALUE_TYPE (val);
-
-      /* If it is a pointer, indicate what it points to.
-
-	 Print type also if it is a reference.
-
-         C++: if it is a member pointer, we will take care
-	 of that when we print it.  */
-      if (TYPE_CODE (type) == TYPE_CODE_PTR ||
-	  TYPE_CODE (type) == TYPE_CODE_REF)
-	{
-	  char *valaddr = VALUE_CONTENTS (val);
-	  CORE_ADDR addr = unpack_pointer (type, valaddr);
-          if (TYPE_CODE (type) != TYPE_CODE_PTR || addr != 0)
+	  int i;
+	  char *name = TYPE_NAME (type);
+	  if (name)
+	    fputs_filtered (name, stream);
+	  else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_VOID)
+	    fputs_filtered ("PTR", stream);
+	  else
 	    {
-	      int i;
-	      char *name = TYPE_NAME (type);
-	      if (name)
-		fputs_filtered (name, stream);
-	      else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_VOID)
-		fputs_filtered ("PTR", stream);
-	      else
-		{
-		  fprintf_filtered (stream, "(");
-		  type_print (type, "", stream, -1);
-		  fprintf_filtered (stream, ")");
-		}
 	      fprintf_filtered (stream, "(");
-	      i = val_print (type, valaddr, VALUE_ADDRESS (val),
-			     stream, format, 1, 0, pretty);
+	      type_print (type, "", stream, -1);
 	      fprintf_filtered (stream, ")");
-	      return i;
 	    }
+	  fprintf_filtered (stream, "(");
+	  i = val_print (type, valaddr, VALUE_ADDRESS (val),
+			 stream, format, 1, 0, pretty);
+	  fprintf_filtered (stream, ")");
+	  return i;
 	}
-      return (val_print (type, VALUE_CONTENTS (val),
-			 VALUE_ADDRESS (val), stream, format, 1, 0, pretty));
     }
+  return (val_print (type, VALUE_CONTENTS (val),
+		     VALUE_ADDRESS (val), stream, format, 1, 0, pretty));
 }
 
 

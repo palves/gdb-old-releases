@@ -17,14 +17,23 @@ You should have received a copy of the GNU General Public License
 along with Z8KZIM; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+#include "config.h"
+
 #include <ansidecl.h>
 #include <signal.h>
 
-#include "sysdep.h"
 #include "tm.h"
 #include "sim.h"
 #include "mem.h"
+#include <stdio.h>
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
+#ifdef HAVE_SYS_TIMES_H
 #include <sys/times.h>
+#endif
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/param.h>
 #include "remote-sim.h"
 #include "syscall.h"
@@ -39,10 +48,14 @@ int sim_z8001_mode;
 static int
 get_now ()
 {
+#ifdef HAVE_SYS_TIMES_H
   struct tms b;
 
   times (&b);
   return b.tms_utime + b.tms_stime;
+#else
+  return time (0);
+#endif
 }
 
 static int

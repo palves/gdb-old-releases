@@ -1,5 +1,5 @@
 /* Generic target-file-type support for the BFD library.
-   Copyright 1990, 91, 92, 93, 94, 1995 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -145,11 +145,14 @@ DESCRIPTION
 .  bfd_target_oasys_flavour,
 .  bfd_target_tekhex_flavour,
 .  bfd_target_srec_flavour,
+.  bfd_target_ihex_flavour,
 .  bfd_target_som_flavour,
 .  bfd_target_os9k_flavour,
 .  bfd_target_versados_flavour,
 .  bfd_target_msdos_flavour
 .};
+.
+.enum bfd_endian { BFD_ENDIAN_BIG, BFD_ENDIAN_LITTLE, BFD_ENDIAN_UNKNOWN };
 .
 .{* Forward declaration.  *}
 .typedef struct bfd_link_info _bfd_link_info;
@@ -168,11 +171,11 @@ of a file.
 
 The order of bytes within the data area of a file.
 
-.  boolean byteorder_big_p;
+.  enum bfd_endian byteorder;
 
 The order of bytes within the header parts of a file.
 
-.  boolean header_byteorder_big_p;
+.  enum bfd_endian header_byteorder;
 
 A mask of all the flags which an executable may have set -
 from the set <<NO_FLAGS>>, <<HAS_RELOC>>, ...<<D_PAGED>>.
@@ -196,10 +199,6 @@ The pad character for file names within an archive header.
 The maximum number of characters in an archive header.
 
 .  unsigned short ar_max_namelen;
-
-The minimum alignment restriction for any section.
-
-.  unsigned int align_power_min;
 
 Entries for byte swapping for data. These are different from the other
 entry points, since they don't take a BFD asthe first argument.
@@ -250,7 +249,9 @@ The general target vector.
 .CAT(NAME,_close_and_cleanup),\
 .CAT(NAME,_bfd_free_cached_info),\
 .CAT(NAME,_new_section_hook),\
-.CAT(NAME,_get_section_contents)
+.CAT(NAME,_get_section_contents),\
+.CAT(NAME,_get_section_contents_in_window)
+.
 .  {* Called when the BFD is being closed to do any necessary cleanup.  *}
 .  boolean       (*_close_and_cleanup) PARAMS ((bfd *));
 .  {* Ask the BFD to free all cached information.  *}
@@ -260,6 +261,9 @@ The general target vector.
 .  {* Read the contents of a section.  *}
 .  boolean       (*_bfd_get_section_contents) PARAMS ((bfd *, sec_ptr, PTR, 
 .                                            file_ptr, bfd_size_type));
+.  boolean       (*_bfd_get_section_contents_in_window)
+.                          PARAMS ((bfd *, sec_ptr, bfd_window *,
+.                                   file_ptr, bfd_size_type));
 .
 .  {* Entry points to copy private data.  *}
 .#define BFD_JUMP_TABLE_COPY(NAME)\
@@ -267,7 +271,8 @@ The general target vector.
 .CAT(NAME,_bfd_merge_private_bfd_data),\
 .CAT(NAME,_bfd_copy_private_section_data),\
 .CAT(NAME,_bfd_copy_private_symbol_data),\
-.CAT(NAME,_bfd_set_private_flags)
+.CAT(NAME,_bfd_set_private_flags),\
+.CAT(NAME,_bfd_print_private_bfd_data)\
 .  {* Called to copy BFD general private data from one object file
 .     to another.  *}
 .  boolean	 (*_bfd_copy_private_bfd_data) PARAMS ((bfd *, bfd *));
@@ -285,6 +290,9 @@ The general target vector.
 .  {* Called to set private backend flags *}
 .  boolean	 (*_bfd_set_private_flags) PARAMS ((bfd *, flagword));
 .
+.  {* Called to print private BFD data *}
+.  boolean       (*_bfd_print_private_bfd_data) PARAMS ((bfd *, PTR));
+.
 .  {* Core file entry points.  *}
 .#define BFD_JUMP_TABLE_CORE(NAME)\
 .CAT(NAME,_core_file_failing_command),\
@@ -301,7 +309,9 @@ The general target vector.
 .CAT(NAME,_construct_extended_name_table),\
 .CAT(NAME,_truncate_arname),\
 .CAT(NAME,_write_armap),\
+.CAT(NAME,_read_ar_hdr),\
 .CAT(NAME,_openr_next_archived_file),\
+.CAT(NAME,_get_elt_at_index),\
 .CAT(NAME,_generic_stat_arch_elt),\
 .CAT(NAME,_update_armap_timestamp)
 .  boolean  (*_bfd_slurp_armap) PARAMS ((bfd *));
@@ -314,7 +324,10 @@ The general target vector.
 .                              struct orl *map,
 .                              unsigned int orl_count, 
 .                              int stridx));
+.  PTR (*_bfd_read_ar_hdr_fn) PARAMS ((bfd *));
 .  bfd *    (*openr_next_archived_file) PARAMS ((bfd *arch, bfd *prev));
+.#define bfd_get_elt_at_index(b,i) BFD_SEND(b, _bfd_get_elt_at_index, (b,i))
+.  bfd *    (*_bfd_get_elt_at_index) PARAMS ((bfd *, symindex));
 .  int      (*_bfd_stat_arch_elt) PARAMS ((bfd *, struct stat *));
 .  boolean  (*_bfd_update_armap_timestamp) PARAMS ((bfd *));
 .
@@ -459,6 +472,8 @@ extern const bfd_target aout_mips_big_vec;
 extern const bfd_target aout_mips_little_vec;
 extern const bfd_target aout0_big_vec;
 extern const bfd_target apollocoff_vec;
+extern const bfd_target armcoff_little_vec;
+extern const bfd_target armcoff_big_vec;
 extern const bfd_target armpe_little_vec;
 extern const bfd_target armpe_big_vec;
 extern const bfd_target armpei_little_vec;
@@ -496,6 +511,10 @@ extern const bfd_target i386dynix_vec;
 extern const bfd_target i386freebsd_vec;
 extern const bfd_target i386os9k_vec;
 extern const bfd_target i386coff_vec;
+extern const bfd_target bfd_powerpc_pe_vec;
+extern const bfd_target bfd_powerpcle_pe_vec;
+extern const bfd_target bfd_powerpc_pei_vec;
+extern const bfd_target bfd_powerpcle_pei_vec;
 extern const bfd_target i386pe_vec;
 extern const bfd_target i386pei_vec;
 extern const bfd_target go32coff_vec;
@@ -505,14 +524,17 @@ extern const bfd_target i386lynx_coff_vec;
 extern const bfd_target i386mach3_vec;
 extern const bfd_target i386msdos_vec;
 extern const bfd_target i386netbsd_vec;
+extern const bfd_target i860coff_vec;
 extern const bfd_target icoff_big_vec;
 extern const bfd_target icoff_little_vec;
 extern const bfd_target ieee_vec;
+extern const bfd_target m68kaux_coff_vec;
 extern const bfd_target m68kcoff_vec;
 extern const bfd_target m68kcoffun_vec;
 extern const bfd_target m68klynx_aout_vec;
 extern const bfd_target m68klynx_coff_vec;
 extern const bfd_target m68knetbsd_vec;
+extern const bfd_target m68k4knetbsd_vec;
 extern const bfd_target m88kbcs_vec;
 extern const bfd_target m88kmach3_vec;
 extern const bfd_target newsos3_vec;
@@ -524,6 +546,7 @@ extern const bfd_target pc532netbsd_vec;
 extern const bfd_target oasys_vec;
 extern const bfd_target pc532machaout_vec;
 extern const bfd_target riscix_vec;
+extern const bfd_target pmac_xcoff_vec;
 extern const bfd_target rs6000coff_vec;
 extern const bfd_target shcoff_vec;
 extern const bfd_target shlcoff_vec;
@@ -544,6 +567,9 @@ extern const bfd_target symbolsrec_vec;
 
 /* binary is always included.  */
 extern const bfd_target binary_vec;
+
+/* ihex is always included.  */
+extern const bfd_target ihex_vec;
 
 /* All of the xvecs for core files.  */
 extern const bfd_target aix386_core_vec;
@@ -633,6 +659,11 @@ const bfd_target * const bfd_target_vector[] = {
 	&i386bsd_vec,
 	&i386coff_vec,
 	&i386freebsd_vec,
+	&i860coff_vec,
+	&bfd_powerpc_pe_vec,
+	&bfd_powerpcle_pe_vec,
+	&bfd_powerpc_pei_vec,
+	&bfd_powerpcle_pei_vec,
 	&go32coff_vec,
 #if 0
 	/* Since a.out files lack decent magic numbers, no way to recognize
@@ -650,6 +681,8 @@ const bfd_target * const bfd_target_vector[] = {
 	&i386os9k_vec,
 	&i386pe_vec,
 	&i386pei_vec,
+	&armcoff_little_vec,
+	&armcoff_big_vec,
 	&armpe_little_vec,
 	&armpe_big_vec,
 	&armpei_little_vec,
@@ -686,6 +719,10 @@ const bfd_target * const bfd_target_vector[] = {
 	&aout_arm_little_vec,
 	&riscix_vec,
 #endif
+#if 0
+	/* This has the same magic number as RS/6000. */
+	&pmac_xcoff_vec,
+#endif
 	&rs6000coff_vec,
 	&shcoff_vec,
 	&shlcoff_vec,
@@ -708,6 +745,8 @@ const bfd_target * const bfd_target_vector[] = {
 	&tekhex_vec,
 /* Likewise for binary output.  */
 	&binary_vec,
+/* Likewise for ihex.  */
+	&ihex_vec,
 
 /* Add any required traditional-core-file-handler.  */
 
@@ -817,7 +856,7 @@ const char **
 bfd_target_list ()
 {
   int vec_length= 0;
-#ifdef NATIVE_HPPAHPUX_COMPILER
+#if defined (HOST_HPPAHPUX) && ! defined (__STDC__)
   /* The native compiler on the HP9000/700 has a bug which causes it
      to loop endlessly when compiling this file.  This avoids it.  */
   volatile
@@ -831,10 +870,8 @@ bfd_target_list ()
   name_ptr = name_list = (CONST char **)
     bfd_zmalloc ((vec_length + 1) * sizeof (char **));
 
-  if (name_list == NULL) {
-    bfd_set_error (bfd_error_no_memory);
+  if (name_list == NULL)
     return NULL;
-  }
 
   for (target = &bfd_target_vector[0]; *target != NULL; target++)
     *(name_ptr++) = (*target)->name;

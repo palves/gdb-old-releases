@@ -28,6 +28,15 @@ DCL j r1 := 4;
 
 DCL i INT;
 
+newmode vstruct = struct (a, b long, 
+			  case b of 
+			   (42): ch8 chars(20),
+			   (52): i long
+			   else  ch1 char
+                         esac);
+
+DCL vstr vstruct := [ .a: 10, .b: 52, .i: 100 ];
+
 i := 0;
 
 END x;
@@ -54,3 +63,24 @@ printdow( w );
 printdow( dow[LOWER(dow) : UPPER(dow)] );
 
 END setmode;
+
+PR8643: MODULE
+
+SYNMODE m_set = SET (a, b, c, d);
+SYNMODE m_ps = POWERSET m_set;
+
+SYNMODE m_s1 = STRUCT (str CHARS(40) VARYING, i INT, ps m_ps);
+DCL vs1 m_s1;
+
+SYNMODE m_s2 = STRUCT (i LONG, s m_s1);
+DCL vs2 m_s2;
+
+SYNMODE m_arr = ARRAY (1:3) BYTE;
+SYNMODE m_s3 = STRUCT (i LONG, a m_arr);
+DCL vs3 m_s3;
+
+DCL i LONG;
+
+i := 24;
+
+END PR8643;

@@ -95,10 +95,6 @@ extern void validate_files PARAMS ((void));
 
 extern unsigned int register_addr PARAMS ((int regno, int blockend));
 
-extern void fetch_core_registers PARAMS ((char *core_reg_sect,
-					  unsigned core_reg_size,
-					  int which, unsigned int reg_addr));
-
 extern void registers_fetched PARAMS ((void));
 
 #if !defined (KERNEL_U_ADDR)
@@ -115,5 +111,45 @@ extern struct target_ops core_ops;
 extern char *gnutarget;
 
 extern void set_gnutarget PARAMS ((char *));
+
+/* Structure to keep track of core register reading functions for
+   various core file types.  */
+
+struct core_fns {
+
+  /* BFD flavour that we handle.  Note that bfd_target_unknown_flavour matches
+     anything, and if there is no better match, this function will be called
+     as the default. */
+
+  enum bfd_flavour core_flavour;
+
+  /* Extract the register values out of the core file and store them where
+     `read_register' will find them.
+
+     CORE_REG_SECT points to the register values themselves, read into
+     memory.
+
+     CORE_REG_SIZE is the size of that area.
+
+     WHICH says which set of registers we are handling (0 = int, 2 = float on
+     machines where they are discontiguous).
+
+     REG_ADDR is the offset from u.u_ar0 to the register values relative to
+     core_reg_sect.  This is used with old-fashioned core files to locate the
+     registers in a large upage-plus-stack ".reg" section.  Original upage
+     address X is at location core_reg_sect+x+reg_addr. */
+
+  void (*core_read_registers) PARAMS ((char *core_reg_sect, unsigned core_reg_size,
+				  int which, unsigned reg_addr));
+
+  /* Finds the next struct core_fns.  They are allocated and initialized
+     in whatever module implements the functions pointed to; an 
+     initializer calls add_core_fns to add them to the global chain.  */
+
+  struct core_fns *next;
+
+};
+
+extern void add_core_fns PARAMS ((struct core_fns *cf));
 
 #endif	/* !defined (GDBCORE_H) */

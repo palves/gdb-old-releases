@@ -270,15 +270,9 @@ ecoff_add_bytes (buf, bufend, need)
       if (want < ALLOC_SIZE)
 	want = ALLOC_SIZE;
     }
-  if (*buf == NULL)
-    newbuf = (char *) malloc (have + want);
-  else
-    newbuf = (char *) realloc (*buf, have + want);
+  newbuf = (char *) bfd_realloc (*buf, have + want);
   if (newbuf == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   *buf = newbuf;
   *bufend = *buf + have + want;
   return true;
@@ -318,10 +312,7 @@ string_hash_newfunc (entry, table, string)
     ret = ((struct string_hash_entry *)
 	   bfd_hash_allocate (table, sizeof (struct string_hash_entry)));
   if (ret == (struct string_hash_entry *) NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   /* Call the allocation method of the superclass.  */
   ret = ((struct string_hash_entry *)
@@ -426,7 +417,7 @@ add_file_shuffle (ainfo, head, tail, input_bfd, offset, size)
   if (*tail != (struct shuffle *) NULL
       && (*tail)->filep
       && (*tail)->u.file.input_bfd == input_bfd
-      && (*tail)->u.file.offset + (*tail)->size == offset)
+      && (*tail)->u.file.offset + (*tail)->size == (unsigned long) offset)
     {
       /* Just merge this entry onto the existing one.  */
       (*tail)->size += size;
@@ -506,12 +497,9 @@ bfd_ecoff_debug_init (output_bfd, output_debug, output_swap, info)
 {
   struct accumulate *ainfo;
 
-  ainfo = (struct accumulate *) malloc (sizeof (struct accumulate));
+  ainfo = (struct accumulate *) bfd_malloc (sizeof (struct accumulate));
   if (!ainfo)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
   if (! bfd_hash_table_init_n (&ainfo->fdr_hash.table, string_hash_newfunc,
 			       1021))
     return NULL;
@@ -655,6 +643,7 @@ bfd_ecoff_debug_accumulate (handle, output_bfd, output_debug, output_swap,
   SET (".rodata", scRData);
   SET (".init", scInit);
   SET (".fini", scFini);
+  SET (".rconst", scRConst);
 
 #undef SET
 
@@ -722,12 +711,9 @@ bfd_ecoff_debug_accumulate (handle, output_bfd, output_debug, output_swap,
 	     information that should not be merged.  */
 	  name = input_debug->ss + fdr.issBase + fdr.rss;
 
-	  lookup = (char *) malloc (strlen (name) + 20);
+	  lookup = (char *) bfd_malloc (strlen (name) + 20);
 	  if (lookup == NULL)
-	    {
-	      bfd_set_error (bfd_error_no_memory);
-	      return false;
-	    }
+	    return false;
 	  sprintf (lookup, "%s %lx", name, fdr.csym);
 
 	  fh = string_hash_lookup (&ainfo->fdr_hash, lookup, true, true);
@@ -992,8 +978,8 @@ bfd_ecoff_debug_accumulate (handle, output_bfd, output_debug, output_swap,
 	  output_symhdr->issMax += fdr.cbSs;
 	}
 
-      if ((output_bfd->xvec->header_byteorder_big_p
-	   == input_bfd->xvec->header_byteorder_big_p)
+      if ((output_bfd->xvec->header_byteorder
+	   == input_bfd->xvec->header_byteorder)
 	  && input_debug->adjust == (struct ecoff_value_adjust *) NULL)
 	{
 	  /* The two BFD's have the same endianness, and we don't have
@@ -1225,10 +1211,7 @@ bfd_ecoff_debug_accumulate_other (handle, output_bfd, output_debug,
     return false;
   symbols = (asymbol **) bfd_alloc (output_bfd, symsize);
   if (symbols == (asymbol **) NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   symcount = bfd_canonicalize_symtab (input_bfd, symbols);
   if (symcount < 0)
     return false;
@@ -1387,7 +1370,7 @@ bfd_ecoff_debug_one_external (abfd, debug, swap, name, esym)
 
   namelen = strlen (name);
 
-  if (debug->ssext_end - debug->ssext
+  if ((size_t) (debug->ssext_end - debug->ssext)
       < symhdr->issExtMax + namelen + 1)
     {
       if (ecoff_add_bytes ((char **) &debug->ssext,
@@ -1396,7 +1379,8 @@ bfd_ecoff_debug_one_external (abfd, debug, swap, name, esym)
 	  == false)
 	return false;
     }
-  if ((char *) debug->external_ext_end - (char *) debug->external_ext
+  if ((size_t) ((char *) debug->external_ext_end
+		- (char *) debug->external_ext)
       < (symhdr->iextMax + 1) * external_ext_size)
     {
       if (ecoff_add_bytes ((char **) &debug->external_ext,
@@ -1562,12 +1546,9 @@ ecoff_write_symhdr (abfd, debug, swap, where)
   SET (cbExtOffset, iextMax, swap->external_ext_size);
 #undef SET
 
-  buff = (PTR) malloc ((size_t) swap->external_hdr_size);
+  buff = (PTR) bfd_malloc ((size_t) swap->external_hdr_size);
   if (buff == NULL && swap->external_hdr_size != 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      goto error_return;
-    }
+    goto error_return;
 
   (*swap->swap_hdr_out) (abfd, symhdr, buff);
   if (bfd_write (buff, 1, swap->external_hdr_size, abfd)
@@ -1602,7 +1583,8 @@ bfd_ecoff_write_debug (abfd, debug, swap, where)
     return false;
 
 #define WRITE(ptr, count, size, offset) \
-  BFD_ASSERT (symhdr->offset == 0 || bfd_tell (abfd) == symhdr->offset); \
+  BFD_ASSERT (symhdr->offset == 0 \
+	      || (bfd_vma) bfd_tell (abfd) == symhdr->offset); \
   if (bfd_write ((PTR) debug->ptr, size, symhdr->count, abfd) \
       != size * symhdr->count) \
     return false;
@@ -1659,16 +1641,13 @@ ecoff_write_shuffle (abfd, swap, shuffle, space)
 
   if ((total & (swap->debug_align - 1)) != 0)
     {
-      int i;
+      unsigned int i;
       bfd_byte *s;
 
       i = swap->debug_align - (total & (swap->debug_align - 1));
-      s = (bfd_byte *) malloc (i);
+      s = (bfd_byte *) bfd_malloc (i);
       if (s == NULL && i != 0)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
 
       memset ((PTR) s, 0, i);
       if (bfd_write ((PTR) s, 1, i, abfd) != i)
@@ -1700,12 +1679,9 @@ bfd_ecoff_write_accumulated_debug (handle, abfd, debug, swap, info, where)
   if (! ecoff_write_symhdr (abfd, debug, swap, where))
     goto error_return;
 
-  space = (PTR) malloc (ainfo->largest_file_shuffle);
+  space = (PTR) bfd_malloc (ainfo->largest_file_shuffle);
   if (space == NULL && ainfo->largest_file_shuffle != 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      goto error_return;
-    }
+    goto error_return;
 
   if (! ecoff_write_shuffle (abfd, swap, ainfo->line, space)
       || ! ecoff_write_shuffle (abfd, swap, ainfo->pdr, space)
@@ -1748,16 +1724,13 @@ bfd_ecoff_write_accumulated_debug (handle, abfd, debug, swap, info, where)
 
       if ((total & (swap->debug_align - 1)) != 0)
 	{
-	  int i;
+	  unsigned int i;
 	  bfd_byte *s;
 
 	  i = swap->debug_align - (total & (swap->debug_align - 1));
-	  s = (bfd_byte *) malloc (i);
+	  s = (bfd_byte *) bfd_malloc (i);
 	  if (s == NULL && i != 0)
-	    {
-	      bfd_set_error (bfd_error_no_memory);
-	      goto error_return;
-	    }
+	    goto error_return;
 	  memset ((PTR) s, 0, i);
 	  if (bfd_write ((PTR) s, 1, i, abfd) != i)
 	    {
@@ -1771,21 +1744,18 @@ bfd_ecoff_write_accumulated_debug (handle, abfd, debug, swap, info, where)
   /* The external strings and symbol are not converted over to using
      shuffles.  FIXME: They probably should be.  */
   if (bfd_write (debug->ssext, 1, debug->symbolic_header.issExtMax, abfd)
-      != debug->symbolic_header.issExtMax)
+      != (bfd_size_type) debug->symbolic_header.issExtMax)
     goto error_return;
   if ((debug->symbolic_header.issExtMax & (swap->debug_align - 1)) != 0)
     {
-      int i;
+      unsigned int i;
       bfd_byte *s;
 
       i = (swap->debug_align
 	   - (debug->symbolic_header.issExtMax & (swap->debug_align - 1)));
-      s = (bfd_byte *) malloc (i);
+      s = (bfd_byte *) bfd_malloc (i);
       if (s == NULL && i != 0)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  goto error_return;
-	}
+	goto error_return;
       memset ((PTR) s, 0, i);
       if (bfd_write ((PTR) s, 1, i, abfd) != i)
 	{
@@ -1800,7 +1770,8 @@ bfd_ecoff_write_accumulated_debug (handle, abfd, debug, swap, info, where)
     goto error_return;
 
   BFD_ASSERT (debug->symbolic_header.cbExtOffset == 0
-	      || debug->symbolic_header.cbExtOffset == bfd_tell (abfd));
+	      || (debug->symbolic_header.cbExtOffset
+		  == (bfd_vma) bfd_tell (abfd)));
 
   if (bfd_write (debug->external_ext, swap->external_ext_size,
 		 debug->symbolic_header.iextMax, abfd)
@@ -1876,10 +1847,7 @@ mk_fdrtab (abfd, debug_info, debug_swap, line_info)
 		       bfd_zalloc (abfd,
 				   len * sizeof (struct ecoff_fdrtab_entry)));
   if (line_info->fdrtab == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   line_info->fdrtab_len = len;
 
   tab = line_info->fdrtab;
@@ -2171,7 +2139,7 @@ _bfd_ecoff_locate_line (abfd, section, offset, debug_info, debug_swap,
       while (line_ptr < line_end)
 	{
 	  int delta;
-	  int count;
+	  unsigned int count;
 
 	  delta = *line_ptr >> 4;
 	  if (delta >= 0x8)
@@ -2236,12 +2204,21 @@ _bfd_ecoff_locate_line (abfd, section, offset, debug_info, debug_swap,
       const char *line_file_name;
       bfd_vma low_func_vma;
       bfd_vma low_line_vma;
-      boolean done;
+      boolean past_line;
+      boolean past_fn;
       char *sym_ptr, *sym_ptr_end;
       size_t len, funclen;
       char *buffer = NULL;
 
-      /* This file uses stabs debugging information.  */
+      /* This file uses stabs debugging information.  When gcc is not
+	 optimizing, it will put the line number information before
+	 the function name stabs entry.  When gcc is optimizing, it
+	 will put the stabs entry for all the function first, followed
+	 by the line number information.  (This appears to happen
+	 because of the two output files used by the -mgpopt switch,
+	 which is implied by -O).  This means that we must keep
+	 looking through the symbols until we find both a line number
+	 and a function name which are beyond the address we want.  */
 
       *filename_ptr = NULL;
       *functionname_ptr = NULL;
@@ -2254,14 +2231,17 @@ _bfd_ecoff_locate_line (abfd, section, offset, debug_info, debug_swap,
       line_file_name = NULL;
       low_func_vma = 0;
       low_line_vma = 0;
-      done = false;
+      past_line = false;
+      past_fn = false;
 
       external_sym_size = debug_swap->external_sym_size;
 
       sym_ptr = ((char *) debug_info->external_sym
 		 + (fdr_ptr->isymBase + 2) * external_sym_size);
       sym_ptr_end = sym_ptr + (fdr_ptr->csym - 2) * external_sym_size;
-      for (; sym_ptr < sym_ptr_end && ! done; sym_ptr += external_sym_size)
+      for (;
+	   sym_ptr < sym_ptr_end && (! past_line || ! past_fn);
+	   sym_ptr += external_sym_size)
 	{
 	  SYMR sym;
 
@@ -2289,7 +2269,7 @@ _bfd_ecoff_locate_line (abfd, section, offset, debug_info, debug_swap,
 			{
  			  directory_name = current_file_name;
 			  main_file_name = current_file_name =
-			    debug_info->ss + fdr_ptr->issBase + sym.iss;
+			    debug_info->ss + fdr_ptr->issBase + nextsym.iss;
 			  sym_ptr += external_sym_size;
 			}
 		    }
@@ -2301,12 +2281,8 @@ _bfd_ecoff_locate_line (abfd, section, offset, debug_info, debug_swap,
 		  break;
 
 		case N_FUN:
-		  if (sym.value > offset + section->vma)
-		    {
-		      /* We have gone entirely past the function we
-                         are looking for, and can get out.  */
-		      done = true;
-		    }
+		  if (sym.value > offset)
+		    past_fn = true;
 		  else if (sym.value >= low_func_vma)
 		    {
 		      low_func_vma = sym.value;
@@ -2318,8 +2294,9 @@ _bfd_ecoff_locate_line (abfd, section, offset, debug_info, debug_swap,
 	    }
 	  else if (sym.st == stLabel && sym.index != indexNil)
 	    {
-	      if (sym.value >= low_line_vma
-		  && sym.value <= offset + section->vma)
+	      if (sym.value > offset)
+		past_line = true;
+	      else if (sym.value >= low_line_vma)
 		{
 		  low_line_vma = sym.value;
 		  line_file_name = current_file_name;
@@ -2348,12 +2325,9 @@ _bfd_ecoff_locate_line (abfd, section, offset, debug_info, debug_swap,
 	{
 	  if (line_info->find_buffer != NULL)
 	    free (line_info->find_buffer);
-	  buffer = (char *) malloc (len);
+	  buffer = (char *) bfd_malloc (len);
 	  if (buffer == NULL)
-	    {
-	      bfd_set_error (bfd_error_no_memory);
-	      return false;
-	    }
+	    return false;
 	  line_info->find_buffer = buffer;
 	}
 
@@ -2379,6 +2353,99 @@ _bfd_ecoff_locate_line (abfd, section, offset, debug_info, debug_swap,
 	      *filename_ptr = buffer + funclen;
 	    }
 	}
+    }
+
+  return true;
+}
+
+/* These routines copy symbolic information into a memory buffer.
+
+   FIXME: The whole point of the shuffle code is to avoid storing
+   everything in memory, since the linker is such a memory hog.  This
+   code makes that effort useless.  It is only called by the MIPS ELF
+   code when generating a shared library, so it is not that big a
+   deal, but it should be fixed eventually.  */
+
+/* Collect a shuffle into a memory buffer.  */
+
+static boolean ecoff_collect_shuffle PARAMS ((struct shuffle *, bfd_byte *));
+
+static boolean
+ecoff_collect_shuffle (l, buff)
+     struct shuffle *l;
+     bfd_byte *buff;
+{
+  unsigned long total;
+
+  total = 0;
+  for (; l != (struct shuffle *) NULL; l = l->next)
+    {
+      if (! l->filep)
+	memcpy (buff, l->u.memory, l->size);
+      else
+	{
+	  if (bfd_seek (l->u.file.input_bfd, l->u.file.offset, SEEK_SET) != 0
+	      || bfd_read (buff, 1, l->size, l->u.file.input_bfd) != l->size)
+	    return false;
+	}
+      total += l->size;
+      buff += l->size;
+    }
+
+  return true;
+}
+
+/* Copy PDR information into a memory buffer.  */
+
+boolean
+_bfd_ecoff_get_accumulated_pdr (handle, buff)
+     PTR handle;
+     bfd_byte *buff;
+{
+  struct accumulate *ainfo = (struct accumulate *) handle;
+
+  return ecoff_collect_shuffle (ainfo->pdr, buff);
+}
+
+/* Copy symbol information into a memory buffer.  */
+
+boolean
+_bfd_ecoff_get_accumulated_sym (handle, buff)
+     PTR handle;
+     bfd_byte *buff;
+{
+  struct accumulate *ainfo = (struct accumulate *) handle;
+
+  return ecoff_collect_shuffle (ainfo->sym, buff);
+}
+
+/* Copy the string table into a memory buffer.  */
+
+boolean
+_bfd_ecoff_get_accumulated_ss (handle, buff)
+     PTR handle;
+     bfd_byte *buff;
+{
+  struct accumulate *ainfo = (struct accumulate *) handle;
+  struct string_hash_entry *sh;
+  unsigned long total;
+
+  /* The string table is written out from the hash table if this is a
+     final link.  */
+  BFD_ASSERT (ainfo->ss == (struct shuffle *) NULL);
+  *buff++ = '\0';
+  total = 1;
+  BFD_ASSERT (ainfo->ss_hash == NULL || ainfo->ss_hash->val == 1);
+  for (sh = ainfo->ss_hash;
+       sh != (struct string_hash_entry *) NULL;
+       sh = sh->next)
+    {
+      size_t len;
+
+      len = strlen (sh->root.string);
+      memcpy (buff, (PTR) sh->root.string, len + 1);
+      total += len + 1;
+      buff += len + 1;
     }
 
   return true;

@@ -1,75 +1,75 @@
 '\"
 '\" Copyright (c) 1990 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/bind.n,v 1.1 1994/06/03 23:42:49 rob Exp $ SPRITE (Berkeley)
-'/" 
+'\" 
 .so man.macros
-.HS bind tk
+.TH bind n 4.0 Tk "Tk Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
-bind \- Arrange for X events to invoke Tcl commands
+bind \- Arrange for X events to invoke Tcl scripts
 .SH SYNOPSIS
-\fBbind\fI windowSpec\fR
-.br
-\fBbind\fI windowSpec sequence\fR
-.br
-\fBbind\fI windowSpec sequence command\fR
-.br
-\fBbind\fI windowSpec sequence \fB+\fIcommand\fR
+\fBbind\fI tag\fR
+.sp
+\fBbind\fI tag sequence\fR
+.sp
+\fBbind\fI tag sequence script\fR
+.sp
+\fBbind\fI tag sequence \fB+\fIscript\fR
 .BE
 
-.SH DESCRIPTION
+.SH INTRODUCTION
 .PP
+The \fBbind\fR command associates Tcl scripts with X events.
 If all three arguments are specified, \fBbind\fR will
-arrange for \fIcommand\fR (a Tcl
-command) to be executed whenever the sequence of events given
-.VS
-by \fIsequence\fR occurs in the window(s) identified by \fIwindowSpec\fR.
-.VE
-If \fIcommand\fR is prefixed with a ``+'', then it is appended to
-any existing binding for \fIsequence\fR;  otherwise \fIcommand\fR replaces
-the existing binding, if any.  If \fIcommand\fR
-is an empty string then the current binding for \fIsequence\fR
-is destroyed, leaving \fIsequence\fR unbound.  In all of the cases
-where a \fIcommand\fR argument is provided, \fBbind\fR returns
-an empty string.
+arrange for \fIscript\fR (a Tcl script) to be evaluated whenever
+the event(s) given by \fIsequence\fR occur in the window(s)
+identified by \fItag\fR.
+If \fIscript\fR is prefixed with a ``+'', then it is appended to
+any existing binding for \fIsequence\fR;  otherwise \fIscript\fR replaces
+any existing binding.
+If \fIscript\fR is an empty string then the current binding for
+\fIsequence\fR is destroyed, leaving \fIsequence\fR unbound.
+In all of the cases where a \fIscript\fR argument is provided,
+\fBbind\fR returns an empty string.
 .PP
-If \fIsequence\fR is specified without a \fIcommand\fR, then the
-command currently bound to \fIsequence\fR is returned, or
-an empty string if there is no binding for \fIsequence\fR.  If
-neither \fIsequence\fR nor \fIcommand\fR is specified, then the
+If \fIsequence\fR is specified without a \fIscript\fR, then the
+script currently bound to \fIsequence\fR is returned, or
+an empty string is returned if there is no binding for \fIsequence\fR.
+If neither \fIsequence\fR nor \fIscript\fR is specified, then the
 return value is a list whose elements are all the sequences
 .VS
-for which there exist bindings for \fIwindowSpec\fR.
+for which there exist bindings for \fItag\fR.
 .PP
-The \fIwindowSpec\fR argument selects which window(s) the binding
-applies to.
-It may have one of three forms.
-If \fIwindowSpec\fR is the path name for a window, then the binding
-applies to that particular window.
-If \fIwindowSpec\fR is the name of a class of widgets, then the
-binding applies to all widgets in that class.
-Lastly, \fIwindowSpec\fR may have the value \fBall\fR, in which case
+The \fItag\fR argument determines which window(s) the binding applies to.
+If \fItag\fR begins with a dot, as in \fB.a.b.c\fR, then it must
+be the path name for a window; otherwise it may be an arbitrary
+string.
+Each window has an associated list of tags, and a binding applies
+to a particular window if its tag is among those specified for
+the window.
+Although the \fBbindtags\fR command may be used to assign an
+arbitrary set of binding tags to a window, the default binding
+tags provide the following behavior:
+.IP
+If a tag is the name of an internal window the binding applies
+to that window.
+.IP
+If the tag is the name of a toplevel window the binding applies
+to the toplevel window and all its internal windows.
+.IP
+If the tag is the name of a class of widgets, such as \fBButton\fR,
+the binding applies to all widgets in that class;
+.IP
+If \fItag\fR has the value \fBall\fR,
 the binding applies to all windows in the application.
 .VE
+
+.SH "EVENT PATTERNS"
 .PP
 The \fIsequence\fR argument specifies a sequence of one or more
 event patterns, with optional white space between the patterns.  Each
@@ -80,44 +80,57 @@ may not be a space character or the character \fB<\fR.  This form of
 pattern matches a \fBKeyPress\fR event for the particular
 character.  The second form of pattern is longer but more general.
 It has the following syntax:
-.DS C
+.CS
 \fB<\fImodifier-modifier-type-detail\fB>\fR
-.DE
+.CE
 The entire event pattern is surrounded by angle brackets.
 Inside the angle brackets are zero or more modifiers, an event
 type, and an extra piece of information (\fIdetail\fR) identifying
 a particular button or keysym.  Any of the fields may be omitted,
 as long as at least one of \fItype\fR and \fIdetail\fR is present.
 The fields must be separated by white space or dashes.
-.LP
-Modifiers may consist of any of the values in the following list:
+
+.SH "MODIFIERS"
+.PP
+.VS
+Modifiers consist of any of the following values:
 .DS
 .ta 6c
-\fBControl\fR	\fBAny\fR
-\fBShift\fR	\fBDouble\fR	
-\fBLock\fR	\fBTriple\fR
-.VS
-\fBButton1, B1\fR	\fBMod1, M1, Meta, M\fR	
-\fBButton2, B2\fR	\fBMod2, M2, Alt\fR
-.VE
-\fBButton3, B3\fR	\fBMod3, M3\fR
-\fBButton4, B4\fR	\fBMod4, M4\fR
-\fBButton5, B5\fR	\fBMod5, M5\fR
+\fBControl\fR	\fBMod2, M2\fR
+\fBShift\fR	\fBMod3, M3\fR	
+\fBLock\fR	\fBMod4, M4\fR
+\fBButton1, B1\fR	\fBMod5, M5\fR	
+\fBButton2, B2\fR	\fBMeta, M\fR
+\fBButton3, B3\fR	\fBAlt\fR
+\fBButton4, B4\fR	\fBDouble\fR
+\fBButton5, B5\fR	\fBTriple\fR
+\fBMod1, M1\fR
 .DE
 Where more than one value is listed, separated by commas, the values
-are equivalent.   All of the modifiers except \fBAny\fR,
-\fBDouble\fR, and \fBTriple\fR have
-the obvious X meanings.  For example, \fBButton1\fR requires that
-button 1 be depressed when the event occurs.  Under normal conditions
-the button and modifier state at the time of the event must
-match exactly those specified in the \fBbind\fR command.  If
-no modifiers are specified, then events will match only if no modifiers
-are present.  If the \fBAny\fR modifier is specified, then additional
-modifiers may be present besides those specified explicitly.  For
-example, if button 1 is pressed while the shift and control keys
-are down, the specifier \fB<Any-Control-Button-1>\fR will match
-the event, but the specifier \fB<Control-Button-1>\fR will not.
-.LP
+are equivalent.
+Most of the modifiers have the obvious X meanings.
+For example, \fBButton1\fR requires that
+button 1 be depressed when the event occurs.
+For a binding to match a given event, the modifiers in the event
+must include all of those specified in the event pattern.
+An event may also contain additional modifiers not specified in
+the binding.
+For example, if button 1 is pressed while the shift and control keys
+are down, the pattern \fB<Control-Button-1>\fR will match
+the event, but \fB<Mod1-Button-1>\fR will not.
+If no modifiers are specified, then any combination of modifiers may
+be present in the event.
+.PP
+\fBMeta\fR and \fBM\fR refer to whichever of the
+\fBM1\fR through \fBM5\fR modifiers is associated with the meta
+key(s) on the keyboard (keysyms \fBMeta_R\fR and \fBMeta_L\fR).
+If there are no meta keys, or if they are not associated with any
+modifiers, then \fBMeta\fR and \fBM\fR will not match any events.
+Similarly, the \fBAlt\fR modifier refers to whichever modifier
+is associated with the alt key(s) on the keyboard (keysyms
+\fBAlt_L\fR and \fBAlt_R\fR).
+.VE
+.PP
 The \fBDouble\fR and \fBTriple\fR modifiers are a convenience
 for specifying double mouse clicks and other repeated
 events. They cause a particular event pattern to be
@@ -128,25 +141,25 @@ in time and without substantial mouse motion in between.
 For example, \fB<Double-Button-1>\fR
 is equivalent to \fB<Button-1><Button-1>\fR with the extra
 time and space requirement.
-.LP
+
+.SH "EVENT TYPES"
+.PP
 The \fItype\fR field may be any of the standard X event types, with a
 few extra abbreviations.  Below is a list of all the valid types;
-where two name appear together, they are synonyms.
+where two names appear together, they are synonyms.
 .DS C
 .ta 5c 10c
-\fBButtonPress, Button	Expose	Leave
-ButtonRelease	FocusIn	Map
-Circulate	FocusOut	Property
-CirculateRequest	Gravity	Reparent
-Colormap	Keymap	ResizeRequest
-Configure	KeyPress, Key	Unmap
 .VS
+\fBButtonPress, Button	Expose	Map
+ButtonRelease	FocusIn	Motion
+Circulate	FocusOut	Property	
+Colormap	Gravity	Reparent
+Configure	KeyPress, Key	Unmap
+Destroy	KeyRelease	Visibility
 .VE
-ConfigureRequest	KeyRelease	Visibility
-Destroy	MapRequest
-Enter	Motion\fR
+Enter	Leave\fR
 .DE
-.LP
+.PP
 The last part of a long event specification is \fIdetail\fR.  In the
 case of a \fBButtonPress\fR or \fBButtonRelease\fR event, it is the
 number of a button (1-5).  If a button number is given, then only an
@@ -159,7 +172,7 @@ depressed when the matching event occurs.  If a button
 number is given then \fItype\fR may be omitted:  if will default
 to \fBButtonPress\fR.  For example, the specifier \fB<1>\fR
 is equivalent to \fB<ButtonPress-1>\fR.
-.LP
+.PP
 If the event type is \fBKeyPress\fR or \fBKeyRelease\fR, then
 \fIdetail\fR may be specified in the form of an X keysym.  Keysyms
 are textual specifications for particular keys on the keyboard;
@@ -169,23 +182,26 @@ non-alphanumeric characters (``comma'' is the keysym for the comma
 character), plus descriptions for all the non-ASCII keys on the
 keyboard (``Shift_L'' is the keysm for the left shift key, and
 ``F1'' is the keysym for the F1 function key, if it exists).  The
-complete list of keysyms is not presented here;  it should be
-available in other X documentation.  If necessary, you can use the
-\fB%K\fR notation described below to print out the keysym name for
-an arbitrary key.  If a keysym \fIdetail\fR is given, then the
+complete list of keysyms is not presented here;  it is
+available in other X documentation and may vary from system to
+system.
+If necessary, you can use the \fB%K\fR notation described below
+to print out the keysym name for a particular key.
+If a keysym \fIdetail\fR is given, then the
 \fItype\fR field may be omitted;  it will default to \fBKeyPress\fR.
 For example, \fB<Control-comma>\fR is equivalent to
-\fB<Control-KeyPress-comma>\fR.  If a keysym \fIdetail\fR is specified
-then the \fBShift\fR modifier need not be specified and will be
-ignored if specified:  each keysym already implies a particular
-state for the shift key.
-.LP
-The \fIcommand\fR argument to \fBbind\fR is a Tcl command string,
+\fB<Control-KeyPress-comma>\fR.
+
+.SH "BINDING SCRIPTS AND SUBSTITUTIONS"
+.PP
+The \fIscript\fR argument to \fBbind\fR is a Tcl script,
 which will be executed whenever the given event sequence occurs.
 \fICommand\fR will be executed in the same interpreter that the
-\fBbind\fR command was executed in.  If \fIcommand\fR contains
-any \fB%\fR characters, then the command string will not be
-executed directly.  Instead, a new command string will be
+\fBbind\fR command was executed in, and it will run at global
+level (only global variables will be accessible).
+If \fIscript\fR contains
+any \fB%\fR characters, then the script will not be
+executed directly.  Instead, a new script will be
 generated by replacing each \fB%\fR, and the character following
 it, with information from the current event.  The replacement
 depends on the character following the \fB%\fR, as defined in the
@@ -197,31 +213,27 @@ the current event.
 Some of the substitutions are only valid for
 certain types of events;  if they are used for other types of events
 the value substituted is undefined.
-.TP
-\fB%%\fR
+.IP \fB%%\fR 5
 Replaced with a single percent.
-.TP
-\fB%#\fR
+.IP \fB%#\fR 5
 The number of the last client request processed by the server
 (the \fIserial\fR field from the event).  Valid for all event
 types.
-.TP
-\fB%a\fR
-The \fIabove\fR field from the event.
-Valid only for \fBConfigureNotify\fR events.
-.TP
-\fB%b\fR
+.IP \fB%a\fR 5
+The \fIabove\fR field from the event,
+.VS
+formatted as a hexadecimal number.
+.VE
+Valid only for \fBConfigure\fR events.
+.IP \fB%b\fR 5
 The number of the button that was pressed or released.  Valid only
 for \fBButtonPress\fR and \fBButtonRelease\fR events.
-.TP
-\fB%c\fR
-The \fIcount\fR field from the event.  Valid only for \fBExpose\fR,
-\fBGraphicsExpose\fR, and \fBMappingNotify\fR events.
-.TP
-\fB%d\fR
+.IP \fB%c\fR 5
+The \fIcount\fR field from the event.  Valid only for \fBExpose\fR events.
+.IP \fB%d\fR 5
 The \fIdetail\fR field from the event.  The \fB%d\fR is replaced by
-a string identifying the detail.  For \fBEnterNotify\fR,
-\fBLeaveNotify\fR, \fBFocusIn\fR, and \fBFocusOut\fR events,
+a string identifying the detail.  For \fBEnter\fR,
+\fBLeave\fR, \fBFocusIn\fR, and \fBFocusOut\fR events,
 the string will be one of the following:
 .RS
 .DS
@@ -231,122 +243,86 @@ NotifyDetailNone	NotifyPointer
 NotifyInferior	NotifyPointerRoot
 NotifyNonlinear	NotifyVirtual\fR
 .DE
-For \fBConfigureRequest\fR events, the substituted string will be
-one of the following:
-.DS
-.ta 6c
-\fBAbove	Opposite
-Below	TopIf
-BottomIf\fR
-.DE
 For events other than these, the substituted string is undefined.
 .RE
-.TP
-\fB%f\fR
+.IP \fB%f\fR 5
 The \fIfocus\fR field from the event (\fB0\fR or \fB1\fR).  Valid only
-for \fBEnterNotify\fR and \fBLeaveNotify\fR events.
-.TP
-\fB%h\fR
+for \fBEnter\fR and \fBLeave\fR events.
+.IP \fB%h\fR 5
 The \fIheight\fR field from the event.  Valid only for \fBConfigure\fR,
-\fBConfigureNotify\fR, \fBExpose\fR, \fBGraphicsExpose\fR, and
-\fBResizeRequest\fR events.
-.TP
-\fB%k\fR
+\fBExpose\fR, and \fBGraphicsExpose\fR events.
+.IP \fB%k\fR 5
 The \fIkeycode\fR field from the event.  Valid only for \fBKeyPress\fR
 and \fBKeyRelease\fR events.
-.TP
-\fB%m\fR
+.IP \fB%m\fR 5
 The \fImode\fR field from the event.  The substituted string is one of
 \fBNotifyNormal\fR, \fBNotifyGrab\fR, \fBNotifyUngrab\fR, or
 \fBNotifyWhileGrabbed\fR.  Valid only for \fBEnterWindow\fR,
 \fBFocusIn\fR, \fBFocusOut\fR, and \fBLeaveWindow\fR events.
-.TP
-\fB%o\fR
+.IP \fB%o\fR 5
 The \fIoverride_redirect\fR field from the event.  Valid only for
-\fBCreateNotify\fR, \fBMapNotify\fR, \fBReparentNotify\fR,
-and \fBConfigureNotify\fR events.
-.TP
-\fB%p\fR
+\fBMap\fR, \fBReparent\fR, and \fBConfigure\fR events.
+.IP \fB%p\fR 5
 The \fIplace\fR field from the event, substituted as one of the
 strings \fBPlaceOnTop\fR or \fBPlaceOnBottom\fR.  Valid only
-for \fBCirculateNotify\fR and \fBCirculateRequest\fR events.
-.TP
-\fB%s\fR
+for \fBCirculate\fR events.
+.IP \fB%s\fR 5
 The \fIstate\fR field from the event.  For \fBButtonPress\fR,
-\fBButtonRelease\fR, \fBEnterNotify\fR, \fBKeyPress\fR, \fBKeyRelease\fR,
-\fBLeaveNotify\fR, and \fBMotionNotify\fR events,
+\fBButtonRelease\fR, \fBEnter\fR, \fBKeyPress\fR, \fBKeyRelease\fR,
+\fBLeave\fR, and \fBMotion\fR events,
 .VS
 a decimal string
 .VE
-is substituted.  For \fBVisibilityNotify\fR, one of the strings
+is substituted.  For \fBVisibility\fR, one of the strings
 \fBVisibilityUnobscured\fR, \fBVisibilityPartiallyObscured\fR,
 and \fBVisibilityFullyObscured\fR is substituted.
-.TP
-\fB%t\fR
+.IP \fB%t\fR 5
 The \fItime\fR field from the event.  Valid only for events that
 contain a \fItime\fR field.
-.TP
-\fB%v\fR
-The \fIvalue_mask\fR field from the event.  Valid only for
-\fBConfigureRequest\fR events.
-.TP
-\fB%w\fR
+.IP \fB%w\fR 5
 The \fIwidth\fR field from the event.  Valid only for
-\fBConfigure\fR, \fBConfigureRequest\fR, \fBExpose\fR,
-\fBGraphicsExpose\fR, and \fBResizeRequest\fR events.
-.TP
-\fB%x\fR
+\fBConfigure\fR, \fBExpose\fR, and \fBGraphicsExpose\fR events.
+.IP \fB%x\fR 5
 The \fIx\fR field from the event.  Valid only for events containing
 an \fIx\fR field.
-.TP
-\fB%y\fR
+.IP \fB%y\fR 5
 The \fIy\fR field from the event.  Valid only for events containing
 a \fIy\fR field.
-.TP
-\fB%A\fR
+.IP \fB%A\fR 5
 Substitutes the ASCII character corresponding to the event, or
 the empty string if the event doesn't correspond to an ASCII character
 (e.g. the shift key was pressed).  \fBXLookupString\fR does all the
 work of translating from the event to an ASCII character.
 Valid only for \fBKeyPress\fR and \fBKeyRelease\fR events.
-.TP
-\fB%B\fR
+.IP \fB%B\fR 5
 The \fIborder_width\fR field from the event.  Valid only for
-\fBConfigureNotify\fR and \fBCreateWindow\fR events.
-.TP
-\fB%D\fR
-The \fIdisplay\fR field from the event.  Valid for all event types.
-.TP
-\fB%E\fR
+\fBConfigure\fR events.
+.IP \fB%E\fR 5
 The \fIsend_event\fR field from the event.  Valid for all event types.
-.TP
-\fB%K\fR
+.IP \fB%K\fR 5
 The keysym corresponding to the event, substituted as a textual
 string.  Valid only for \fBKeyPress\fR and \fBKeyRelease\fR events.
-.TP
-\fB%N\fR
+.IP \fB%N\fR 5
 The keysym corresponding to the event, substituted as
 .VS
 a decimal
 .VE
 number.  Valid only for \fBKeyPress\fR and \fBKeyRelease\fR events.
-.TP
-\fB%R\fR
+.IP \fB%R\fR 5
 The \fIroot\fR window identifier from the event.  Valid only for
 events containing a \fIroot\fR field.
-.TP
-\fB%S\fR
-The \fIsubwindow\fR window identifier from the event.  Valid only for
-events containing a \fIsubwindow\fR field.
-.TP
-\fB%T\fR
+.IP \fB%S\fR 5
+The \fIsubwindow\fR window identifier from the event,
+.VS
+formatted as a hexadecimal number.
+.VE
+Valid only for events containing a \fIsubwindow\fR field.
+.IP \fB%T\fR 5
 The \fItype\fR field from the event.  Valid for all event types.
-.TP
-\fB%W\fR
+.IP \fB%W\fR 5
 The path name of the window to which the event was reported (the
 \fIwindow\fR field from the event).  Valid for all event types.
-.TP
-\fB%X\fR
+.IP \fB%X\fR 5
 The \fIx_root\fR field from the event.
 .VS
 If a virtual-root window manager is being used then the substituted
@@ -354,9 +330,8 @@ value is the corresponding x-coordinate in the virtual root.
 .VE
 Valid only for
 \fBButtonPress\fR, \fBButtonRelease\fR, \fBKeyPress\fR, \fBKeyRelease\fR,
-and \fBMotionNotify\fR events.
-.TP
-\fB%Y\fR
+and \fBMotion\fR events.
+.IP \fB%Y\fR 5
 The \fIy_root\fR field from the event.
 .VS
 If a virtual-root window manager is being used then the substituted
@@ -364,58 +339,84 @@ value is the corresponding y-coordinate in the virtual root.
 .VE
 Valid only for
 \fBButtonPress\fR, \fBButtonRelease\fR, \fBKeyPress\fR, \fBKeyRelease\fR,
-and \fBMotionNotify\fR events.
+and \fBMotion\fR events.
 .LP
-If the replacement string
 .VS
-for a %-replacement contains characters that are interpreted
-specially by the Tcl parser (such as backslashes or square
-brackets or spaces) additional backslashes are added
-during replacement so that the result after parsing is the original
-replacement string.
-For example, if \fIcommand\fR is
-.DS
+The replacement string for a %-replacement is formatted as a proper
+Tcl list element.
+This means that it will be surrounded with braces
+if it contains spaces, or special characters such as \fB$\fR and
+\fB{\fR may be preceded by backslashes.
+This guarantees that the string will be passed through the Tcl
+parser when the binding script is evaluated.
+Most replacements are numbers or well-defined strings such
+as \fBAbove\fR;  for these replacements no special formatting
+is ever necessary.
+The most common case where reformatting occurs is for the \fB%A\fR
+substitution.  For example, if \fIscript\fR is
+.CS
 \fBinsert\0%A\fR
-.DE
-and the character typed is an open square bracket, then the command
+.CE
+and the character typed is an open square bracket, then the script
 actually executed will be
-.DS
+.CS
 \fBinsert\0\e[\fR
-.DE
+.CE
 This will cause the \fBinsert\fR to receive the original replacement
 string (open square bracket) as its first argument.
 If the extra backslash hadn't been added, Tcl would not have been
-able to parse the command correctly.
+able to parse the script correctly.
 .VE
-.LP
-At most one binding will trigger for any given X event.
-If several bindings match the recent events, the most specific binding
-is chosen and its command will be executed.
+
+.SH MULTIPLE MATCHES
+.PP
+.VS
+It is possible for several bindings to match a given X event.
+If the bindings are associated with different \fItag\fR's,
+then each of the bindings will be executed, in order.
+By default, a binding for the widget will be executed first, followed
+by a class binding, a binding for its toplevel, and
+an \fBall\fR binding.
+The \fBbindtags\fR command may be used to change this order for
+a particular window or to associate additional binding tags with
+the window.
+.PP
+The \fBcontinue\fR and \fBbreak\fR commands may be used inside a
+binding script to control the processing of matching scripts.
+If \fBcontinue\fR is invoked, then the current binding script
+is terminated but Tk will continue processing binding scripts
+associated with other \fItag\fR's.
+If the \fBbreak\fR command is invoked within a binding script,
+then that script terminates and no other scripts will be invoked
+for the event.
+.PP
+If more than one binding matches a particular event and they
+have the same \fItag\fR, then the most specific binding
+is chosen and its script is evaluated.
 The following tests are applied, in order, to determine which of
 several matching sequences is more specific:
-.VS
-(a) a binding whose \fIwindowSpec\fR names a particular window is
-more specific than a binding for a class,
-which is more specific than a binding whose \fIwindowSpec\fR is
-\fBall\fR;
-.VE
-(b) a longer sequence (in terms of number
+(a) a longer sequence (in terms of number
 of events matched) is more specific than a shorter sequence;
-(c) an event pattern that specifies a specific button or key is more specific
-than one that doesn't;  (e) an event pattern that requires a particular
-modifier is more specific than one that doesn't require the modifier;
-(e) an event pattern specifying the \fBAny\fR modifier is less specific
-than one that doesn't.  If the matching sequences contain more than
+(b) an event pattern that specifies a specific button or key is more specific
+than one that doesn't;
+(c) if the modifiers specified in one pattern are a subset of the
+modifiers in another pattern, then the pattern with more modifiers
+is more specific.
+.VE
+If the matching sequences contain more than
 one event, then tests (c)-(e) are applied in order from the most
 recent event to the least recent event in the sequences.  If these
 tests fail to determine a winner, then the most recently registered
 sequence is the winner.
-.LP
+.PP
 If an X event does not match any of the existing bindings, then the
-event is ignored (an unbound event is not considered to be an error).
-.LP
+event is ignored.
+An unbound event is not considered to be an error.
+
+.SH "MULTI-EVENT SEQUENCES AND IGNORED EVENTS"
+.PP
 When a \fIsequence\fR specified in a \fBbind\fR command contains
-more than one event pattern, then its command is executed whenever
+more than one event pattern, then its script is executed whenever
 the recent events (leading up to and including the current event)
 match the given sequence.  This means, for example, that if button 1 is
 clicked repeatedly the sequence \fB<Double-ButtonPress-1>\fR will match
@@ -426,7 +427,7 @@ of an event sequence then the extraneous events are
 ignored unless they are \fBKeyPress\fR or \fBButtonPress\fR events.
 For example, \fB<Double-ButtonPress-1>\fR will match a sequence of
 presses of button 1, even though there will be \fBButtonRelease\fR
-events (and possibly \fBMotionNotify\fR events) between the
+events (and possibly \fBMotion\fR events) between the
 \fBButtonPress\fR events.
 Furthermore, a \fBKeyPress\fR event may be preceded by any number
 of other \fBKeyPress\fR events for modifier keys without the
@@ -436,14 +437,16 @@ For example, the event sequence \fBaB\fR will match a press of the
 key, and a press of the \fBb\fR key:  the press of \fBShift\fR is
 ignored because it is a modifier key.
 .VE
-Finally, if several \fBMotionNotify\fR events occur in a row, only
+Finally, if several \fBMotion\fR events occur in a row, only
 the last one is used for purposes of matching binding sequences.
-.LP
-If an error occurs in executing the command for a binding then the
+
+.SH ERRORS
+.PP
+If an error occurs in executing the script for a binding then the
 \fBtkerror\fR mechanism is used to report the error.
 .VS
-The command will be executed at global level (outside the context
-of any Tcl procedure).
+The \fBtkerror\fR command will be executed at global level
+(outside the context of any Tcl procedure).
 .VE
 
 .SH "SEE ALSO"

@@ -1255,6 +1255,7 @@ system_control_tests
 	mfsp %sr0,%r4
 	mfctl %cr10,%r4
 	sync
+	syncdma
 	diag 1234
 
 probe_tests
@@ -1268,6 +1269,7 @@ lpa_tests
 	lpa,m %r4(%sr0,%r5),%r6
 	lha %r4(%sr0,%r5),%r6
 	lha,m %r4(%sr0,%r5),%r6
+	lci %r4(%sr0,%r5),%r6
 
 purge_tests
 	pdtlb %r4(%sr0,%r5)

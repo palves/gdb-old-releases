@@ -356,10 +356,7 @@ nlm_i386_read_import (abfd, sym)
   sym -> symbol.the_bfd = abfd;
   name = bfd_alloc (abfd, symlength + 1);
   if (name == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   if (bfd_read (name, symlength, 1, abfd) != symlength)
     return false;
   name[symlength] = '\0';
@@ -373,10 +370,7 @@ nlm_i386_read_import (abfd, sym)
   nlm_relocs = ((struct nlm_relent *)
 		bfd_alloc (abfd, rcount * sizeof (struct nlm_relent)));
   if (!nlm_relocs)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   sym -> relocs = nlm_relocs;
   sym -> rcnt = 0;
   while (sym -> rcnt < rcount)
@@ -403,7 +397,7 @@ nlm_i386_write_external (abfd, count, sym, relocs)
      asymbol *sym;
      struct reloc_and_sec *relocs;
 {
-  int i;
+  unsigned int i;
   bfd_byte len;
   unsigned char temp[NLM_TARGET_LONG_SIZE];
 

@@ -26,14 +26,13 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "watchpoint"
-set srcfile $binfile.c
-
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+set testfile "watchpoint"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
 }
-
 
 # Prepare for watchpoint tests by setting up two breakpoints and one
 # watchpoint.
@@ -128,6 +127,7 @@ proc test_simple_watchpoint {} {
     global prompt
     global hex
     global decimal
+    global noresults
 
     # Ensure that the watchpoint is disabled when we startup.
 
@@ -231,6 +231,8 @@ Continuing.*\[Ww\]atchpoint.*ival3.*Old value = -1.*New value = 0.*ival3 = count
 
     # Run until process exits.
 
+    if $noresults==1 then { return }
+
     gdb_test "cont" "Continuing.*Program exited normally.*" \
 	"continue to exit in test_simple_watchpoint"
 }
@@ -243,6 +245,7 @@ proc test_disabling_watchpoints {} {
     global srcfile
     global decimal
     global hex
+    global noresults
 
     # Ensure that the watchpoint is disabled when we startup.
 
@@ -321,6 +324,8 @@ proc test_disabling_watchpoints {} {
     gdb_test "cont" "Continuing.*Breakpoint.*marker2 \\(\\).*" \
 	"disabled watchpoint skipped"
     
+    if $noresults==1 then { return }
+
     gdb_test "cont" "Continuing.*Program exited normally.*" \
 	"continue to exit in test_disabling_watchpoints"
 }
@@ -425,6 +430,7 @@ proc test_stepping {} {
 proc test_watchpoint_triggered_in_syscall {} {
     global prompt
     global noinferiorio
+    global noresults
 
     if $noinferiorio {
 	verbose "Skipping test_watchpoint_triggered_in_syscall due to noinferiorio"
@@ -506,6 +512,8 @@ proc test_watchpoint_triggered_in_syscall {} {
 	# Disable everything so we can finish the program at full speed
 	gdb_test "disable" "" "disable in test_watchpoint_triggered_in_syscall"
 
+        if $noresults==1 then { return }
+
 	gdb_test "cont" "Continuing.*Program exited normally.*" \
 	    "continue to exit in test_watchpoint_triggered_in_syscall"
     }
@@ -516,6 +524,7 @@ proc test_watchpoint_triggered_in_syscall {} {
 
 proc test_complex_watchpoint {} {
     global prompt
+    global noresults
 
     if [runto marker4] then {
 	gdb_test "watch ptr1->val" ".*\[Ww\]atchpoint \[0-9\]*: ptr1->val"
@@ -532,6 +541,8 @@ proc test_complex_watchpoint {} {
 	# Disable everything so we can finish the program at full speed
 	gdb_test "disable" "" "disable in test_complex_watchpoint"
 
+        if $noresults==1 then { return }
+
 	gdb_test "cont" "Continuing.*Program exited normally.*" \
 	    "continue to exit in test_complex_watchpoint"
     }
@@ -542,7 +553,7 @@ proc test_complex_watchpoint {} {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load $binfile
 
 if [initialize] then {
 
@@ -555,7 +566,7 @@ if [initialize] then {
 	gdb_exit
 	gdb_start
 	gdb_reinitialize_dir $srcdir/$subdir
-	gdb_load $objdir/$subdir/$binfile
+	gdb_load $binfile
 	initialize
     }
 
@@ -566,7 +577,7 @@ if [initialize] then {
 	gdb_exit
 	gdb_start
 	gdb_reinitialize_dir $srcdir/$subdir
-	gdb_load $objdir/$subdir/$binfile
+	gdb_load $binfile
 	initialize
     }
 
@@ -577,7 +588,7 @@ if [initialize] then {
 	gdb_exit
 	gdb_start
 	gdb_reinitialize_dir $srcdir/$subdir
-	gdb_load $objdir/$subdir/$binfile
+	gdb_load $binfile
 	initialize
     }
 
@@ -594,7 +605,7 @@ if [initialize] then {
 	gdb_exit
 	gdb_start
 	gdb_reinitialize_dir $srcdir/$subdir
-	gdb_load $objdir/$subdir/$binfile
+	gdb_load $binfile
 	initialize
     }
 

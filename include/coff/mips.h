@@ -151,12 +151,6 @@ struct external_reloc {
 #define MIPS_MARK_STAB ECOFF_MARK_STAB
 #define MIPS_UNMARK_STAB ECOFF_UNMARK_STAB
 
-#define DEFAULT_DATA_SECTION_ALIGNMENT 4
-#define DEFAULT_BSS_SECTION_ALIGNMENT 4
-#define DEFAULT_TEXT_SECTION_ALIGNMENT 16
-/* For new sections we havn't heard of before */
-#define DEFAULT_SECTION_ALIGNMENT 4
-
 /********************** SYMBOLIC INFORMATION **********************/
 
 /* Written by John Gilmore.  */
@@ -258,6 +252,22 @@ struct pdr_ext {
 	unsigned char	p_lnLow[4];
 	unsigned char	p_lnHigh[4];
 	unsigned char	p_cbLineOffset[4];
+};
+
+/* Runtime procedure table */
+
+struct rpdr_ext {
+	unsigned char	p_adr[4];
+	unsigned char	p_regmask[4];
+	unsigned char	p_regoffset[4];
+	unsigned char	p_fregmask[4];
+	unsigned char	p_fregoffset[4];
+	unsigned char	p_frameoffset[4];
+	unsigned char	p_framereg[2];
+	unsigned char	p_pcreg[2];
+	unsigned char	p_irpss[4];
+	unsigned char	p_reserved[4];
+	unsigned char	p_exception_info[4];
 };
 
 /* Line numbers */

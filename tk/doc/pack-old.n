@@ -1,27 +1,13 @@
 '\"
-'\" Copyright (c) 1990-1992 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1990-1994 The Regents of the University of California.
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/pack-old.n,v 1.1 1994/06/03 23:43:25 rob Exp $ SPRITE (Berkeley)
-'/" 
+'\" 
 .so man.macros
-.HS pack-old tk
+.TH pack-old n 4.0 Tk "Tk Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -33,15 +19,13 @@ pack \- Obsolete syntax for packer geometry manager
 .sp
 \fBpack before \fIsibling \fIwindow options\fR ?\fIwindow options \fR...?
 .sp
-\fBpack info \fIparent\fR
-.sp
 \fBpack unpack \fIwindow\fR
 .BE
 
 .SH DESCRIPTION
 .PP
 \fINote: this manual entry describes the syntax for the \fBpack\fI
-command as it before Tk version 3.3.
+command as it existed before Tk version 3.3.
 Although this syntax continues to be supported for backward
 compatibility, it is obsolete and should not be used anymore.
 At some point in the future it may cease to be supported.\fR
@@ -68,12 +52,10 @@ its parent, it is removed from its current position in the packing
 order and repositioned as indicated by the command.  All of these
 commands return an empty string as result.
 .PP
-.VS
 The \fBunpack\fR form of the \fBpack\fR command removes \fIwindow\fR
 from the packing order of its parent and unmaps it.  After the
 execution of this command the packer will no longer manage
 \fIwindow\fR's geometry.
-.VE
 .PP
 The placement of each child is actually a four-step process;
 the \fIoptions\fR argument following each \fIwindow\fR consists of
@@ -133,7 +115,7 @@ other children, and may be zero.  If several windows have all specified
 \fBexpand\fR then the extra width will be divided equally among all the
 \fBleft\fR and \fBright\fR windows that specified \fBexpand\fR and
 the extra height will be divided equally among all the \fBtop\fR and
-\fBbottom\fR windows that specified \fBexpand.
+\fBbottom\fR windows that specified \fBexpand\fR.
 .LP
 If the desired width or height for a parcel is larger than the corresponding
 dimension of the cavity, then the cavity's dimension is used instead.
@@ -198,17 +180,6 @@ the parcel.
 \fBframe nw\fR
 Position the window with its upper-left corner at the upper-left corner
 of the parcel.
-.PP
-The \fBpack info\fR command may be used to retrieve information about
-the packing order for a parent.  It returns a list in the form
-.DS C
-\fIwindow options window options ...\fR
-.DE
-Each \fIwindow\fR is a name of a window packed in \fIparent\fR,
-and the following \fIoptions\fR describes all of the options for that
-window, just as they would be typed to \fBpack append\fR.
-The order of the list is the same as the packing order for
-\fIparent\fR.
 .PP
 The packer manages the mapped/unmapped state of all the packed
 children windows.  It automatically maps the windows when it packs

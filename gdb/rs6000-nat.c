@@ -1,5 +1,6 @@
 /* IBM RS/6000 native-dependent code for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1994 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1994, 1995, 1996
+	     Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -237,7 +238,15 @@ exec_one_dummy_insn ()
   target_insert_breakpoint (DUMMY_INSN_ADDR, shadow_contents);
 
   errno = 0;
-  ptrace (PT_CONTINUE, inferior_pid, (PTRACE_ARG3_TYPE) DUMMY_INSN_ADDR, 0, 0);
+
+  /* You might think this could be done with a single ptrace call, and
+     you'd be correct for just about every platform I've ever worked
+     on.  However, rs6000-ibm-aix4.1.3 seems to have screwed this up --
+     the inferior never hits the breakpoint (it's also worth noting
+     powerpc-ibm-aix4.1.3 works correctly).  */
+  write_pc (DUMMY_INSN_ADDR);
+  ptrace (PT_CONTINUE, inferior_pid, (PTRACE_ARG3_TYPE)1, 0, 0);
+
   if (errno)
     perror ("pt_continue");
 
@@ -248,7 +257,7 @@ exec_one_dummy_insn ()
   target_remove_breakpoint (DUMMY_INSN_ADDR, shadow_contents);
 }
 
-void
+static void
 fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
      char *core_reg_sect;
      unsigned core_reg_size;
@@ -500,6 +509,16 @@ vmap_ldinfo (ldi)
 	if (vp->objfile == NULL)
 	  got_exec_file = 1;
 
+#ifdef DONT_RELOCATE_SYMFILE_OBJFILE
+	if (vp->objfile == symfile_objfile
+	    || vp->objfile == NULL)
+	  {
+	    ldi->ldinfo_dataorg = 0;
+	    vp->dstart = (CORE_ADDR) 0;
+	    vp->dend = ldi->ldinfo_datasize;
+	  }
+#endif
+
 	/* relocate symbol table(s). */
 	vmap_symtab (vp);
 
@@ -707,6 +726,14 @@ xcoff_relocate_core (target)
       vp->dstart = (CORE_ADDR) ldip->ldinfo_dataorg;
       vp->dend = vp->dstart + ldip->ldinfo_datasize;
 
+#ifdef DONT_RELOCATE_SYMFILE_OBJFILE
+      if (vp == vmap)
+	{
+	  vp->dstart = (CORE_ADDR) 0;
+	  vp->dend = ldip->ldinfo_datasize;
+	}
+#endif
+
       if (vp->tadj != 0)
 	{
 	  vp->tstart += vp->tadj;
@@ -719,6 +746,11 @@ xcoff_relocate_core (target)
 	{
 	  int count;
 	  struct section_table *stp;
+	  int update_coreops;
+
+	  /* We must update the to_sections field in the core_ops structure
+	     now to avoid dangling pointer dereferences.  */
+	  update_coreops = core_ops.to_sections == target->to_sections;
 	  
 	  count = target->to_sections_end - target->to_sections;
 	  count += 2;
@@ -726,6 +758,14 @@ xcoff_relocate_core (target)
 	    xrealloc (target->to_sections,
 		      sizeof (struct section_table) * count);
 	  target->to_sections_end = target->to_sections + count;
+
+	  /* Update the to_sections field in the core_ops structure
+	     if needed.  */
+	  if (update_coreops)
+	    {
+	      core_ops.to_sections = target->to_sections;
+	      core_ops.to_sections_end = target->to_sections_end;
+	    }
 	  stp = target->to_sections_end - 2;
 
 	  /* "Why do we add bfd_section_vma?", I hear you cry.
@@ -754,4 +794,26 @@ xcoff_relocate_core (target)
   vmap_exec ();
   breakpoint_re_set ();
   do_cleanups (old);
+}
+
+int
+kernel_u_size ()
+{
+  return (sizeof (struct user));
+}
+
+
+/* Register that we are able to handle rs6000 core file formats. */
+
+static struct core_fns rs6000_core_fns =
+{
+  bfd_target_coff_flavour,
+  fetch_core_registers,
+  NULL
+};
+
+void
+_initialize_core_rs6000 ()
+{
+  add_core_fns (&rs6000_core_fns);
 }

@@ -1,5 +1,5 @@
 /* Handle SunOS and SVR4 shared libraries for GDB, the GNU Debugger.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
    
 This file is part of GDB.
@@ -45,12 +45,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "command.h"
 #include "target.h"
 #include "frame.h"
-#include "regex.h"
+#include "gnu-regex.h"
 #include "inferior.h"
+#include "environ.h"
 #include "language.h"
 #include "gdbcmd.h"
 
-#define MAX_PATH_SIZE 256		/* FIXME: Should be dynamic */
+#define MAX_PATH_SIZE 512		/* FIXME: Should be dynamic */
 
 /* On SVR4 systems, for the initial implementation, use some runtime startup
    symbol as the "startup mapping complete" breakpoint address.  The models
@@ -91,17 +92,6 @@ static char *main_name_list[] = {
 };
 
 /* local data declarations */
-
-/* If true, then shared library symbols will be added automatically
-   when the inferior is created.  This is almost always what users
-   will want to have happen; but for very large programs, the startup
-   time will be excessive, and so if this is a problem, the user can
-   clear this flag and then add the shared library symbols as needed.
-   Note that there is a potential for confusion, since if the shared
-   library symbols are not loaded, commands like "info fun" will *not*
-   report all the functions that are actually present.  */
-   
-int auto_solib_add_at_startup = 1;
 
 #ifndef SVR4_SHARED_LIBS
 
@@ -238,12 +228,13 @@ solib_map_sections (so)
   filename = tilde_expand (so -> so_name);
   old_chain = make_cleanup (free, filename);
   
-  scratch_chan = openp (getenv ("PATH"), 1, filename, O_RDONLY, 0,
-			&scratch_pathname);
+  scratch_chan = openp (get_in_environ (inferior_environ, "PATH"), 
+		        1, filename, O_RDONLY, 0, &scratch_pathname);
   if (scratch_chan < 0)
     {
-      scratch_chan = openp (getenv ("LD_LIBRARY_PATH"), 1, filename,
-			    O_RDONLY, 0, &scratch_pathname);
+      scratch_chan = openp (get_in_environ 
+			    (inferior_environ, "LD_LIBRARY_PATH"), 
+			    1, filename, O_RDONLY, 0, &scratch_pathname);
     }
   if (scratch_chan < 0)
     {
@@ -261,6 +252,12 @@ solib_map_sections (so)
   /* Leave bfd open, core_xfer_memory and "info files" need it.  */
   so -> abfd = abfd;
   abfd -> cacheable = true;
+
+  /* copy full path name into so_name, so that later symbol_file_add can find
+     it */
+  if (strlen (scratch_pathname) >= MAX_PATH_SIZE)
+    error ("Full path name length of shared library exceeds MAX_PATH_SIZE in so_list structure.");
+  strcpy (so->so_name, scratch_pathname);
 
   if (!bfd_check_format (abfd, bfd_object))
     {
@@ -942,15 +939,15 @@ symbol_add_stub (arg)
 static int match_main (soname)
     char *soname;
 {
-char **mainp;
+  char **mainp;
 
-for (mainp = main_name_list; *mainp != NULL; mainp++)
-  {
-    if (strcmp (soname, *mainp) == 0)
+  for (mainp = main_name_list; *mainp != NULL; mainp++)
+    {
+      if (strcmp (soname, *mainp) == 0)
 	return (1);
-  }
+    }
 
-return (0);
+  return (0);
 }
 
 /*
@@ -1005,6 +1002,13 @@ solib_add (arg_string, from_tty, target)
       
       if (count)
 	{
+	  int update_coreops;
+
+	  /* We must update the to_sections field in the core_ops structure
+	     here, otherwise we dereference a potential dangling pointer
+	     for each call to target_read/write_memory within this routine.  */
+	  update_coreops = core_ops.to_sections == target->to_sections;
+	     
 	  /* Reallocate the target's section table including the new size.  */
 	  if (target -> to_sections)
 	    {
@@ -1021,6 +1025,14 @@ solib_add (arg_string, from_tty, target)
 	    }
 	  target -> to_sections_end = target -> to_sections + (count + old);
 	  
+	  /* Update the to_sections field in the core_ops structure
+	     if needed.  */
+	  if (update_coreops)
+	    {
+	      core_ops.to_sections = target->to_sections;
+	      core_ops.to_sections_end = target->to_sections_end;
+	    }
+
 	  /* Add these section table entries to the target's table.  */
 	  while ((so = find_solib (so)) != NULL)
 	    {
@@ -1135,7 +1147,7 @@ GLOBAL FUNCTION
 
 SYNOPSIS
 
-	int solib_address (CORE_ADDR address)
+	char * solib_address (CORE_ADDR address)
 
 DESCRIPTION
 
@@ -1151,7 +1163,7 @@ DESCRIPTION
 	mapped in.
  */
 
-int
+char *
 solib_address (address)
      CORE_ADDR address;
 {
@@ -1163,9 +1175,7 @@ solib_address (address)
 	{
 	  if ((address >= (CORE_ADDR) LM_ADDR (so)) &&
 	      (address < (CORE_ADDR) so -> lmend))
-	    {
-	      return (1);
-	    }
+	    return (so->so_name);
 	}
     }
   return (0);
@@ -1503,7 +1513,7 @@ solib_create_inferior_hook()
       warning ("shared library handler failed to disable breakpoint");
     }
 
-  if (auto_solib_add_at_startup)
+  if (auto_solib_add)
     solib_add ((char *) 0, 0, (struct target_ops *) 0);
 }
 
@@ -1609,10 +1619,11 @@ _initialize_solib()
 
   add_show_from_set
     (add_set_cmd ("auto-solib-add", class_support, var_zinteger,
-		  (char *) &auto_solib_add_at_startup,
-		  "Set autoloading of shared library symbols at startup.\n\
+		  (char *) &auto_solib_add,
+		  "Set autoloading of shared library symbols.\n\
 If nonzero, symbols from all shared object libraries will be loaded\n\
-automatically when the inferior begins execution.  Otherwise, symbols\n\
+automatically when the inferior begins execution or when the dynamic linker\n\
+informs gdb that a new library has been loaded.  Otherwise, symbols\n\
 must be loaded manually, using `sharedlibrary'.",
 		  &setlist),
      &showlist);

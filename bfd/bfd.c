@@ -1,5 +1,5 @@
 /* Generic BFD library interface and support routines.
-   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -44,8 +44,10 @@ CODE_FRAGMENT
 .       includes `<<bfd.h>>', IOSTREAM has been declared as a "char
 .       *", and MTIME as a "long".  Their correct types, to which they
 .       are cast when used, are "FILE *" and "time_t".    The iostream
-.       is the result of an fopen on the filename. *}
-.    char *iostream;
+.       is the result of an fopen on the filename.  However, if the
+.       BFD_IN_MEMORY flag is set, then iostream is actually a pointer
+.       to a bfd_in_memory struct.  *}
+.    PTR iostream;
 .
 .    {* Is the file descriptor being cached?  That is, can it be closed as
 .       needed, and re-opened when accessed later?  *}
@@ -127,7 +129,7 @@ CODE_FRAGMENT
 .    struct symbol_cache_entry  **outsymbols;             
 .
 .    {* Pointer to structure which contains architecture information*}
-.    struct bfd_arch_info *arch_info;
+.    const struct bfd_arch_info *arch_info;
 .
 .    {* Stuff only useful for archives:*}
 .    PTR arelt_data;              
@@ -152,10 +154,13 @@ CODE_FRAGMENT
 .      struct _oasys_data *oasys_obj_data;
 .      struct _oasys_ar_data *oasys_ar_data;
 .      struct coff_tdata *coff_obj_data;
+.      struct pe_tdata *pe_obj_data;
+.      struct xcoff_tdata *xcoff_obj_data;
 .      struct ecoff_tdata *ecoff_obj_data;
 .      struct ieee_data_struct *ieee_data;
 .      struct ieee_ar_data_struct *ieee_ar_data;
 .      struct srec_data_struct *srec_data;
+.      struct ihex_data_struct *ihex_data;
 .      struct tekhex_data_struct *tekhex_data;
 .      struct elf_obj_tdata *elf_obj_data;
 .      struct nlm_obj_tdata *nlm_obj_data;
@@ -200,6 +205,7 @@ CODE_FRAGMENT
 #undef obj_symbols
 #include "elf-bfd.h"
 
+#include <ctype.h>
 
 /* provide storage for subsystem, stack and heap data which may have been
    passed in on the command line.  Ld puts this data into a bfd_link_info
@@ -207,9 +213,7 @@ CODE_FRAGMENT
    it to the following struct so that the data will be available in coffcode.h
    where it is needed.  The typedef's used are defined in bfd.h */
 
-enum bfd_link_subsystem NT_subsystem;
 
-bfd_link_stack_heap NT_stack_heap;
 
 /*
 SECTION
@@ -643,11 +647,11 @@ return true;
 }
 
 void
-bfd_assert(file, line)
-char *file;
-int line;
+bfd_assert (file, line)
+     const char *file;
+     int line;
 {
-  fprintf(stderr, "bfd assertion fail %s:%d\n",file,line);
+  (*_bfd_error_handler) ("bfd assertion fail %s:%d", file, line);
 }
 
 
@@ -745,6 +749,9 @@ bfd_get_size (abfd)
 {
   FILE *fp;
   struct stat buf;
+
+  if ((abfd->flags & BFD_IN_MEMORY) != 0)
+    return ((struct bfd_in_memory *) abfd->iostream)->size;
 
   fp = bfd_cache_lookup (abfd);
   if (0 != fstat (fileno (fp), &buf))
@@ -995,6 +1002,9 @@ DESCRIPTION
 .#define bfd_get_dynamic_symtab_upper_bound(abfd) \
 .	BFD_SEND (abfd, _bfd_get_dynamic_symtab_upper_bound, (abfd))
 .
+.#define bfd_print_private_bfd_data(abfd, file)\
+.	BFD_SEND (abfd, _bfd_print_private_bfd_data, (abfd, file))
+.
 .#define bfd_canonicalize_dynamic_symtab(abfd, asymbols) \
 .	BFD_SEND (abfd, _bfd_canonicalize_dynamic_symtab, (abfd, asymbols))
 .
@@ -1038,4 +1048,51 @@ bfd_get_relocated_section_contents (abfd, link_info, link_order, data,
   fn = abfd2->xvec->_bfd_get_relocated_section_contents;
 
   return (*fn) (abfd, link_info, link_order, data, relocateable, symbols);
+}
+
+/* Record information about an ELF program header.  */
+
+boolean
+bfd_record_phdr (abfd, type, flags_valid, flags, at_valid, at,
+		 includes_filehdr, includes_phdrs, count, secs)
+     bfd *abfd;
+     unsigned long type;
+     boolean flags_valid;
+     flagword flags;
+     boolean at_valid;
+     bfd_vma at;
+     boolean includes_filehdr;
+     boolean includes_phdrs;
+     unsigned int count;
+     asection **secs;
+{
+  struct elf_segment_map *m, **pm;
+
+  if (bfd_get_flavour (abfd) != bfd_target_elf_flavour)
+    return true;
+
+  m = ((struct elf_segment_map *)
+       bfd_alloc (abfd,
+		  (sizeof (struct elf_segment_map)
+		   + (count - 1) * sizeof (asection *))));
+  if (m == NULL)
+    return false;
+
+  m->next = NULL;
+  m->p_type = type;
+  m->p_flags = flags;
+  m->p_paddr = at;
+  m->p_flags_valid = flags_valid;
+  m->p_paddr_valid = at_valid;
+  m->includes_filehdr = includes_filehdr;
+  m->includes_phdrs = includes_phdrs;
+  m->count = count;
+  if (count > 0)
+    memcpy (m->sections, secs, count * sizeof (asection *));
+
+  for (pm = &elf_tdata (abfd)->segment_map; *pm != NULL; pm = &(*pm)->next)
+    ;
+  *pm = m;
+
+  return true;
 }

@@ -25,29 +25,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 int bfd_default_scan_num_mach();
 
 
-#define N(name, print,d)  \
-{  32, 32, 8, bfd_arch_m68k, name, "m68k",print,2,d,bfd_default_compatible,bfd_default_scan, 0, }
+#define N(name, print,d,next)  \
+{  32, 32, 8, bfd_arch_m68k, name, "m68k",print,2,d,bfd_default_compatible,bfd_default_scan, next, }
 
-static bfd_arch_info_type arch_info_struct[] =
+static const bfd_arch_info_type arch_info_struct[] =
 { 
-  N(68000,"m68k:68000",false),
-  N(68008,"m68k:68008",false),
-  N(68010,"m68k:68010",false),
-  N(68020,"m68k:68020",true), /* the word m68k will match this too */
-  N(68030,"m68k:68030",false),
-  N(68040,"m68k:68040",false),
-  N(68070,"m68k:68070",false),
-  { 0 },
-}
-;
+  N(68008,"m68k:68008",false, &arch_info_struct[1]),
+  N(68010,"m68k:68010",false, &arch_info_struct[2]),
+  N(68020,"m68k:68020",true, &arch_info_struct[3]),
+  N(68030,"m68k:68030",false, &arch_info_struct[4]),
+  N(68040,"m68k:68040",false, &arch_info_struct[5]),
+  N(68070,"m68k:68070",false, 0),
+};
 
-
-void
-bfd_m68k_arch ()
-{
-  unsigned int i;
-  for (i = 0; arch_info_struct[i].bits_per_word; i++)
-      {
-	bfd_arch_linkin(&arch_info_struct[i]);
-      }
-}
+const bfd_arch_info_type bfd_m68k_arch =
+  N(68000,"m68k:68000",false, &arch_info_struct[0]);

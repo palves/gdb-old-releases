@@ -611,6 +611,19 @@ extern void target_link PARAMS ((char *, CORE_ADDR *));
 extern char *normal_pid_to_str PARAMS ((int pid));
 #endif
 
+/* Hook to call target-dependant code after reading in a new symbol table. */
+
+#ifndef TARGET_SYMFILE_POSTREAD
+#define TARGET_SYMFILE_POSTREAD(OBJFILE)
+#endif
+
+/* Hook to call target dependant code just after inferior target process has
+   started.  */
+
+#ifndef TARGET_CREATE_INFERIOR_HOOK
+#define TARGET_CREATE_INFERIOR_HOOK(PID)
+#endif
+
 /* Hardware watchpoint interfaces.  */
 
 /* Returns non-zero if we were stopped by a hardware watchpoint (memory read or

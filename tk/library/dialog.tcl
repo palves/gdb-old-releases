@@ -3,27 +3,12 @@
 # This file defines the procedure tk_dialog, which creates a dialog
 # box containing a bitmap, a message, and one or more buttons.
 #
-# $Header: /rel/cvsfiles/devo/tk/library/dialog.tcl,v 1.1 1994/06/03 23:44:29 rob Exp $ SPRITE (Berkeley)
 #
 # Copyright (c) 1992-1993 The Regents of the University of California.
-# All rights reserved.
+# Copyright (c) 1994-1995 Sun Microsystems, Inc.
 #
-# Permission is hereby granted, without written agreement and without
-# license or royalty fees, to use, copy, modify, and distribute this
-# software and its documentation for any purpose, provided that the
-# above copyright notice and the following two paragraphs appear in
-# all copies of this software.
-#
-# IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
-# DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT
-# OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-# CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-# AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-# ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-# PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
 
 #
@@ -43,7 +28,7 @@
 #		bottom of the dialog box.
 
 proc tk_dialog {w title text bitmap default args} {
-    global tk_priv
+    global tkPriv
 
     # 1. Create the top-level window and divide it into top
     # and bottom parts.
@@ -52,36 +37,40 @@ proc tk_dialog {w title text bitmap default args} {
     toplevel $w -class Dialog
     wm title $w $title
     wm iconname $w Dialog
+    wm protocol $w WM_DELETE_WINDOW { }
+    wm transient $w [winfo toplevel [winfo parent $w]]
     frame $w.top -relief raised -bd 1
     pack $w.top -side top -fill both
     frame $w.bot -relief raised -bd 1
     pack $w.bot -side bottom -fill both
 
-    # 2. Fill the top part with bitmap and message.
+    # 2. Fill the top part with bitmap and message (use the option
+    # database for -wraplength so that it can be overridden by
+    # the caller).
 
-    message $w.msg -width 3i -text $text \
-	    -font -Adobe-Times-Medium-R-Normal-*-180-*
-    pack $w.msg -in $w.top -side right -expand 1 -fill both -padx 5m -pady 5m
+    option add *Dialog.msg.wrapLength 3i widgetDefault
+    label $w.msg -justify left -text $text \
+	    -font -Adobe-Times-Medium-R-Normal--*-180-*-*-*-*-*-*
+    pack $w.msg -in $w.top -side right -expand 1 -fill both -padx 3m -pady 3m
     if {$bitmap != ""} {
 	label $w.bitmap -bitmap $bitmap
-	pack $w.bitmap -in $w.top -side left -padx 5m -pady 5m
+	pack $w.bitmap -in $w.top -side left -padx 3m -pady 3m
     }
 
     # 3. Create a row of buttons at the bottom of the dialog.
 
     set i 0
     foreach but $args {
-	button $w.button$i -text $but -command "set tk_priv(button) $i"
+	button $w.button$i -text $but -command "set tkPriv(button) $i"
 	if {$i == $default} {
 	    frame $w.default -relief sunken -bd 1
 	    raise $w.button$i $w.default
 	    pack $w.default -in $w.bot -side left -expand 1 -padx 3m -pady 2m
-	    pack $w.button$i -in $w.default -padx 2m -pady 2m \
-		    -ipadx 2m -ipady 1m
-	    bind $w <Return> "$w.button$i flash; set tk_priv(button) $i"
+	    pack $w.button$i -in $w.default -padx 2m -pady 2m
+	    bind $w <Return> "$w.button$i flash; set tkPriv(button) $i"
 	} else {
 	    pack $w.button$i -in $w.bot -side left -expand 1 \
-		    -padx 3m -pady 3m -ipadx 2m -ipady 1m
+		    -padx 3m -pady 2m
 	}
 	incr i
     }
@@ -102,14 +91,32 @@ proc tk_dialog {w title text bitmap default args} {
     # 5. Set a grab and claim the focus too.
 
     set oldFocus [focus]
+    set oldGrab [grab current $w]
+    if {$oldGrab != ""} {
+	set grabStatus [grab status $oldGrab]
+    }
     grab $w
-    focus $w
+    if {$default >= 0} {
+	focus $w.button$default
+    } else {
+	focus $w
+    }
 
     # 6. Wait for the user to respond, then restore the focus and
-    # return the index of the selected button.
+    # return the index of the selected button.  Restore the focus
+    # before deleting the window, since otherwise the window manager
+    # may take the focus away so we can't redirect it.  Finally,
+    # restore any grab that was in effect.
 
-    tkwait variable tk_priv(button)
+    tkwait variable tkPriv(button)
+    catch {focus $oldFocus}
     destroy $w
-    focus $oldFocus
-    return $tk_priv(button)
+    if {$oldGrab != ""} {
+	if {$grabStatus == "global"} {
+	    grab -global $oldGrab
+	} else {
+	    grab $oldGrab
+	}
+    }
+    return $tkPriv(button)
 }

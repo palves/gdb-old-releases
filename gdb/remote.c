@@ -1,5 +1,5 @@
 /* Remote target communications for serial-line targets in custom GDB protocol
-   Copyright 1988, 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1988, 1991, 1992, 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -130,8 +130,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 					targets.
 	or...		XAA		The process terminated with signal
 					AA.
-	or...         	Otext		Send text to stdout.  This can happen
-					at any time while the program is
+        or...           OXX..XX	XX..XX  is hex encoding of ASCII data. This
+					can happen at any time while the program is
 					running and the debugger should
 					continue to wait for 'W', 'T', etc.
 
@@ -182,7 +182,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "symfile.h"
 #include "target.h"
 #include "wait.h"
-#include "terminal.h"
+/*#include "terminal.h"*/
 #include "gdbcmd.h"
 #include "objfiles.h"
 #include "gdb-stabs.h"
@@ -273,6 +273,13 @@ extern struct target_ops extended_remote_ops;	/* Forward decl */
    be plenty.  */
 
 static int remote_timeout = 2;
+
+/* This variable chooses whether to send a ^C or a break when the user
+   requests program interruption.  Although ^C is usually what remote
+   systems expect, and that is the default here, sometimes a break is
+   preferable instead.  */
+
+static int remote_break;
 
 /* Descriptor for I/O to remote machine.  Initialize it to NULL so that
    remote_open knows that we don't have a file open when the program
@@ -472,7 +479,7 @@ remote_open (name, from_tty)
 }
 
 /* Open a connection to a remote debugger using the extended
-   remote gdb protocol.  NAME is hte filename used for communication.  */
+   remote gdb protocol.  NAME is the filename used for communication.  */
 
 static void
 extended_remote_open (name, from_tty)
@@ -592,7 +599,7 @@ fromhex (a)
     return a - '0';
   else if (a >= 'a' && a <= 'f')
     return a - 'a' + 10;
-  else
+  else 
     error ("Reply contains invalid hex digit %d", a);
 }
 
@@ -656,7 +663,11 @@ remote_interrupt (signo)
   if (remote_debug)
     printf_unfiltered ("remote_interrupt called\n");
 
-  SERIAL_WRITE (remote_desc, "\003", 1); /* Send a ^C */
+  /* Send a break or a ^C, depending on user preference.  */
+  if (remote_break)
+    SERIAL_SEND_BREAK (remote_desc);
+  else
+    SERIAL_WRITE (remote_desc, "\003", 1);
 }
 
 static void (*ofunc)();
@@ -741,7 +752,6 @@ remote_wait (pid, status)
 	      {
 		unsigned char *p1;
 		char *p_temp;
-		unsigned LONGEST val;
 
 		regno = strtol ((const char *) p, &p_temp, 16); /* Read the register number */
 		p1 = (unsigned char *)p_temp;
@@ -773,16 +783,13 @@ Packet: '%s'\n",
 Packet: '%s'\n",
 			       regno, p, buf);
 
-		    val = 0L;
 		    for (i = 0; i < REGISTER_RAW_SIZE (regno); i++)
 		      {
 			if (p[0] == 0 || p[1] == 0)
 			  warning ("Remote reply is too short: %s", buf);
-			val = val * 256 + fromhex (p[0]) * 16 + fromhex (p[1]);
+			regs[i] = fromhex (p[0]) * 16 + fromhex (p[1]);
 			p += 2;
-
 		      }
-    	   	    store_unsigned_integer (regs, REGISTER_RAW_SIZE (regno), val);
 		    supply_register (regno, regs);
 		  }
 
@@ -812,7 +819,17 @@ Packet: '%s'\n",
 
 	  goto got_status;
 	case 'O':		/* Console output */
-	  fputs_filtered ((char *)(buf + 1), gdb_stdout);
+ 	  for (p = buf + 1; *p; p +=2) 
+ 	    {
+ 	      char tb[2];
+ 	      char c = fromhex (p[0]) * 16 + fromhex (p[1]);
+ 	      tb[0] = c;
+ 	      tb[1] = 0;
+ 	      if (target_output_hook)
+ 		target_output_hook (tb);
+ 	      else 
+ 		fputs_filtered (tb, gdb_stdout);
+ 	    }
 	  continue;
 	case '\0':
 	  if (last_sent_signal != TARGET_SIGNAL_0)
@@ -1042,33 +1059,45 @@ remote_write_bytes (memaddr, myaddr, len)
   char buf[PBUFSIZ];
   int i;
   char *p;
+  int done;
+  /* Chop the transfer down if necessary */
 
-  /* FIXME-32x64: Need a version of print_address_numeric which puts the
-     result in a buffer like sprintf.  */
-  sprintf (buf, "M%lx,%x:", (unsigned long) memaddr, len);
-
-  /* We send target system values byte by byte, in increasing byte addresses,
-     each byte encoded as two hex characters.  */
-
-  p = buf + strlen (buf);
-  for (i = 0; i < len; i++)
+  done = 0;
+  while (done < len)
     {
-      *p++ = tohex ((myaddr[i] >> 4) & 0xf);
-      *p++ = tohex (myaddr[i] & 0xf);
-    }
-  *p = '\0';
+      int todo = len - done;
+      int cando = PBUFSIZ /2 - 32; /* number of bytes that will fit. */
+      if (todo > cando)
+	todo = cando;
 
-  putpkt (buf);
-  getpkt (buf, 0);
+      /* FIXME-32x64: Need a version of print_address_numeric which puts the
+	 result in a buffer like sprintf.  */
+      sprintf (buf, "M%lx,%x:", (unsigned long) memaddr + done, todo);
 
-  if (buf[0] == 'E')
-    {
-      /* There is no correspondance between what the remote protocol uses
-	 for errors and errno codes.  We would like a cleaner way of
-	 representing errors (big enough to include errno codes, bfd_error
-	 codes, and others).  But for now just return EIO.  */
-      errno = EIO;
-      return 0;
+      /* We send target system values byte by byte, in increasing byte addresses,
+	 each byte encoded as two hex characters.  */
+
+      p = buf + strlen (buf);
+      for (i = 0; i < todo; i++)
+	{
+	  *p++ = tohex ((myaddr[i + done] >> 4) & 0xf);
+	  *p++ = tohex (myaddr[i + done] & 0xf);
+	}
+      *p = '\0';
+
+      putpkt (buf);
+      getpkt (buf, 0);
+
+      if (buf[0] == 'E')
+	{
+	  /* There is no correspondance between what the remote protocol uses
+	     for errors and errno codes.  We would like a cleaner way of
+	     representing errors (big enough to include errno codes, bfd_error
+	     codes, and others).  But for now just return EIO.  */
+	  errno = EIO;
+	  return 0;
+	}
+      done += todo;
     }
   return len;
 }
@@ -1090,40 +1119,54 @@ remote_read_bytes (memaddr, myaddr, len)
   char buf[PBUFSIZ];
   int i;
   char *p;
+  int done;
+  /* Chop transfer down if neccessary */
 
+#if 0
+  /* FIXME: This is wrong for larger packets */
   if (len > PBUFSIZ / 2 - 1)
     abort ();
-
-  /* FIXME-32x64: Need a version of print_address_numeric which puts the
-     result in a buffer like sprintf.  */
-  sprintf (buf, "m%lx,%x", (unsigned long) memaddr, len);
-  putpkt (buf);
-  getpkt (buf, 0);
-
-  if (buf[0] == 'E')
+#endif
+  done = 0;
+  while (done < len)
     {
-      /* There is no correspondance between what the remote protocol uses
-	 for errors and errno codes.  We would like a cleaner way of
-	 representing errors (big enough to include errno codes, bfd_error
-	 codes, and others).  But for now just return EIO.  */
-      errno = EIO;
-      return 0;
-    }
+      int todo = len - done;
+      int cando = PBUFSIZ / 2 - 32; /* number of bytes that will fit. */
+      if (todo > cando)
+	todo = cando;
+
+      /* FIXME-32x64: Need a version of print_address_numeric which puts the
+	 result in a buffer like sprintf.  */
+      sprintf (buf, "m%lx,%x", (unsigned long) memaddr, todo);
+      putpkt (buf);
+      getpkt (buf, 0);
+
+      if (buf[0] == 'E')
+	{
+	  /* There is no correspondance between what the remote protocol uses
+	     for errors and errno codes.  We would like a cleaner way of
+	     representing errors (big enough to include errno codes, bfd_error
+	     codes, and others).  But for now just return EIO.  */
+	  errno = EIO;
+	  return 0;
+	}
 
   /* Reply describes memory byte by byte,
      each byte encoded as two hex characters.  */
 
-  p = buf;
-  for (i = 0; i < len; i++)
-    {
-      if (p[0] == 0 || p[1] == 0)
-	/* Reply is short.  This means that we were able to read only part
-	   of what we wanted to.  */
-	break;
-      myaddr[i] = fromhex (p[0]) * 16 + fromhex (p[1]);
-      p += 2;
+      p = buf;
+      for (i = 0; i < todo; i++)
+	{
+	  if (p[0] == 0 || p[1] == 0)
+	    /* Reply is short.  This means that we were able to read only part
+	       of what we wanted to.  */
+	    break;
+	  myaddr[i + done] = fromhex (p[0]) * 16 + fromhex (p[1]);
+	  p += 2;
+	}
+      done += todo;
     }
-  return i;
+  return len;
 }
 
 /* Read or write LEN bytes from inferior memory at MEMADDR, transferring
@@ -1139,30 +1182,7 @@ remote_xfer_memory(memaddr, myaddr, len, should_write, target)
      int should_write;
      struct target_ops *target;			/* ignored */
 {
-  int xfersize;
-  int bytes_xferred;
-  int total_xferred = 0;
-
-  while (len > 0)
-    {
-      if (len > MAXBUFBYTES)
-	xfersize = MAXBUFBYTES;
-      else
-	xfersize = len;
-
-      bytes_xferred = dcache_xfer_memory (remote_dcache, memaddr,
-					  myaddr, xfersize, should_write);
-
-      /* If we get an error, we are done xferring.  */
-      if (bytes_xferred == 0)
-	break;
-
-      memaddr += bytes_xferred;
-      myaddr  += bytes_xferred;
-      len     -= bytes_xferred;
-      total_xferred += bytes_xferred;
-    }
-  return total_xferred;
+  return dcache_xfer_memory (remote_dcache, memaddr, myaddr, len, should_write);
 }
 
    
@@ -1722,10 +1742,8 @@ Specify the serial device it is connected to (e.g. /dev/ttya).",  /* to_doc */
   remote_prepare_to_store,	/* to_prepare_to_store */
   remote_xfer_memory,		/* to_xfer_memory */
   remote_files_info,		/* to_files_info */
-
   remote_insert_breakpoint,	/* to_insert_breakpoint */
   remote_remove_breakpoint,	/* to_remove_breakpoint */
-
   NULL,				/* to_terminal_init */
   NULL,				/* to_terminal_inferior */
   NULL,				/* to_terminal_ours_for_output */
@@ -1803,4 +1821,14 @@ _initialize_remote ()
 {
   add_target (&remote_ops);
   add_target (&extended_remote_ops);
+
+  add_show_from_set (add_set_cmd ("remotetimeout", no_class,
+				  var_integer, (char *)&remote_timeout,
+				  "Set timeout value for remote read.\n", &setlist),
+		     &showlist);
+
+  add_show_from_set (add_set_cmd ("remotebreak", no_class,
+				  var_integer, (char *)&remote_break,
+				  "Set whether to send break if interrupted.\n", &setlist),
+		     &showlist);
 }

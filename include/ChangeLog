@@ -1,3 +1,71 @@
+Tue Jan 23 09:21:47 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* dis-asm.h (INIT_DISASSEMBLE_INFO): Set endian to BFD_ENDIAN_UNKNOWN.
+	New argument FPRINTF_FUNC.
+
+Mon Jan 22 16:37:59 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* dis-asm.h (disassemble_info): New members arch, mach, endian.
+	(INIT_DISASSEMBLE_INFO): Initialize them.
+	(DISASM_RAW_INSN{,FLAG}): Define.
+
+Thu Jan 18 11:32:38 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* demangle.h (cplus_demangle_opname): Change opname parameter to
+	const char *.
+	(cplus_mangle_opname): Change return type and opname parameter to
+	const char *.
+
+Fri Jan  5 00:01:22 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* ieee.h (enum ieee_record): Add ieee_asn_record_enum,
+	ieee_at_record_enum, ieee_ty_record_enum, ieee_atn_record_enum,
+	ieee_bb_record_enum, and ieee_be_record_enum.
+
+Wed Jan  3 13:12:09 1996  Fred Fish  <fnf@cygnus.com>
+
+	* obstack.h: Update copyright to 1996.
+	(_obstack_memory_used): Declare.
+	(obstack_memory_used): Define macro.
+	
+Thu Dec 28 11:42:12 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* libiberty.h (xstrdup): Declare.
+
+Thu Dec 21 14:47:17 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* wait.h: Protect all macros with #ifndef.
+
+Tue Oct 24 21:45:40 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* bfdlink.h (struct bfd_link_info): Add static_link field.
+
+Tue Sep 12 16:28:04 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* bfdlink.h (struct bfd_link_callbacks): Add symbol parameter to
+	warning callback.
+
+Fri Sep  1 13:11:51 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* bfdlink.h (struct bfd_link_callbacks): Change warning callback
+	to take BFD, section, and address arguments.
+
+Thu Aug 31 16:45:12 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* bfdlink.h (struct bfd_link_info): Remove PE stuff.
+
+Tue Aug 22 03:18:23 1995  Ken Raeburn  <raeburn@kr-laptop.cygnus.com>
+
+	* libiberty.h: Declare xstrerror.  From Pat Rankin.
+
+Mon Aug 21 18:11:36 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* bfdlink.h (struct bfd_link_info): Remove PE stuff.
+
+Wed Aug  2 08:14:12 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* dis-asm.h (print_insn_sparc64): Declare.
+
 Mon Jul 10 13:26:49 1995  Eric Youngdale  <eric@aib.com>
 
 	* bfdlink.h (struct bfd_link_info): Add new field symbolic.

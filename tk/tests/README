@@ -20,3 +20,9 @@ messages will appear.
 
 For more details on the testing environment, see the README
 file in the Tcl test directory.
+
+You can also run a set of visual tests, which create various screens
+that you can verify visually for appropriate behavior.  The visual
+tests are available through the "visual" script:  if you invoke this
+script, it creates a main window with a bunch of menus.  Each menu
+runs a particular test.

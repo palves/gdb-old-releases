@@ -1,5 +1,5 @@
 /* Read a symbol table in ECOFF format (Third-Eye).
-   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
    Original version contributed by Alessandro Forin (af@cs.cmu.edu) at
    CMU.  Major work by Per Bothner, John Gilmore and Ian Lance Taylor
@@ -49,11 +49,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "buildsym.h"
 #include "stabsread.h"
 #include "complaints.h"
-
-#if !defined (SEEK_SET)
-#define SEEK_SET 0
-#define SEEK_CUR 1
-#endif
 
 /* These are needed if the tm.h file does not contain the necessary
    mips specific definitions.  */
@@ -202,6 +197,9 @@ static struct complaint unexpected_type_code_complaint =
 static struct complaint unable_to_cross_ref_complaint =
 {"unable to cross ref btTypedef for %s", 0, 0};
 
+static struct complaint bad_indirect_xref_complaint =
+{"unable to cross ref btIndirect for %s", 0, 0};
+
 static struct complaint illegal_forward_tq0_complaint =
 {"illegal tq0 in forward typedef for %s", 0, 0};
 
@@ -348,7 +346,7 @@ static struct type *
 parse_type PARAMS ((int, union aux_ext *, unsigned int, int *, int, char *));
 
 static struct symbol *
-mylookup_symbol PARAMS ((char *, struct block *, enum namespace,
+mylookup_symbol PARAMS ((char *, struct block *, namespace_enum,
 			 enum address_class));
 
 static struct block *
@@ -382,10 +380,10 @@ static struct linetable *
 shrink_linetable PARAMS ((struct linetable *));
 
 static void
-handle_psymbol_enumerators PARAMS ((struct objfile *, FDR *, int));
+handle_psymbol_enumerators PARAMS ((struct objfile *, FDR *, int, CORE_ADDR));
 
 static char *
-mdebug_next_symbol_text PARAMS ((void));
+mdebug_next_symbol_text PARAMS ((struct objfile *));
 
 /* Address bounds for the signal trampoline in inferior, if any */
 
@@ -933,8 +931,11 @@ parse_symbol (sh, ax, ext_sh, bigend, section_offsets)
 		if (nfields == 0 && type_code == TYPE_CODE_UNDEF)
 		  /* If the type of the member is Nil (or Void),
 		     without qualifiers, assume the tag is an
-		     enumeration. */
-		  if (tsym.index == indexNil)
+		     enumeration.
+		     Alpha cc -migrate enums are recognized by a zero
+		     index and a zero symbol value.  */
+		  if (tsym.index == indexNil
+		      || (tsym.index == 0 && sh->value == 0))
 		    type_code = TYPE_CODE_ENUM;
 		  else
 		    {
@@ -1060,6 +1061,8 @@ parse_symbol (sh, ax, ext_sh, bigend, section_offsets)
 
 	if (type_code == TYPE_CODE_ENUM)
 	  {
+	    int unsigned_enum = 1;
+
 	    /* This is a non-empty enum. */
 
 	    /* DEC c89 has the number of enumerators in the sh.value field,
@@ -1067,8 +1070,11 @@ parse_symbol (sh, ax, ext_sh, bigend, section_offsets)
 	       incompatibility quirk.
 	       This might do the wrong thing for an enum with one or two
 	       enumerators and gcc -gcoff -fshort-enums, but these cases
-	       are hopefully rare enough.  */
-	    if (TYPE_LENGTH (t) == TYPE_NFIELDS (t))
+	       are hopefully rare enough.
+	       Alpha cc -migrate has a sh.value field of zero, we adjust
+	       that too.  */
+	    if (TYPE_LENGTH (t) == TYPE_NFIELDS (t)
+		|| TYPE_LENGTH (t) == 0)
 	      TYPE_LENGTH (t) = TARGET_INT_BIT / HOST_CHAR_BIT;
 	    for (ext_tsym = ext_sh + external_sym_size;
 		 ;
@@ -1096,12 +1102,16 @@ parse_symbol (sh, ax, ext_sh, bigend, section_offsets)
 		SYMBOL_TYPE (enum_sym) = t;
 		SYMBOL_NAMESPACE (enum_sym) = VAR_NAMESPACE;
 		SYMBOL_VALUE (enum_sym) = tsym.value;
+		if (SYMBOL_VALUE (enum_sym) < 0)
+		  unsigned_enum = 0;
 		add_symbol (enum_sym, top_stack->cur_block);
 
 		/* Skip the stMembers that we've handled. */
 		count++;
 		f++;
 	      }
+	    if (unsigned_enum)
+	      TYPE_FLAGS (t) |= TYPE_FLAG_UNSIGNED;
 	  }
 	/* make this the current type */
 	top_stack->cur_type = t;
@@ -1481,6 +1491,11 @@ parse_type (fd, ax, aux_index, bs, bigend, sym_name)
 	case btSet:
 	  type_code = TYPE_CODE_SET;
 	  break;
+	case btIndirect:
+	  /* alpha cc -migrate uses this for typedefs. The true type will
+	     be obtained by crossreferencing below.  */
+	  type_code = TYPE_CODE_ERROR;
+	  break;
 	case btTypedef:
 	  /* alpha cc uses this for typedefs. The true type will be
 	     obtained by crossreferencing below.  */
@@ -1497,15 +1512,57 @@ parse_type (fd, ax, aux_index, bs, bigend, sym_name)
 
   if (t->fBitfield)
     {
+      int width = AUX_GET_WIDTH (bigend, ax);
+
       /* Inhibit core dumps with some cfront generated objects that
 	 corrupt the TIR.  */
       if (bs == (int *)NULL)
 	{
-	  complain (&bad_fbitfield_complaint, sym_name);
+	  /* Alpha cc -migrate encodes char and unsigned char types
+	     as short and unsigned short types with a field width of 8.
+	     Enum types also have a field width which we ignore for now.  */
+	  if (t->bt == btShort && width == 8)
+	    tp = mdebug_type_char;
+	  else if (t->bt == btUShort && width == 8)
+	    tp = mdebug_type_unsigned_char;
+	  else if (t->bt == btEnum)
+	    ;
+	  else
+	    complain (&bad_fbitfield_complaint, sym_name);
+	}
+      else
+        *bs = width;
+      ax++;
+    }
+
+  /* A btIndirect entry cross references to an aux entry containing
+     the type.  */
+  if (t->bt == btIndirect)
+    {
+      RNDXR rn[1];
+      int rf;
+      FDR *xref_fh;
+      int xref_fd;
+
+      (*debug_swap->swap_rndx_in) (bigend, &ax->a_rndx, rn);
+      ax++;
+      if (rn->rfd == 0xfff)
+	{
+	  rf = AUX_GET_ISYM (bigend, ax);
+	  ax++;
+	}
+      else
+	rf = rn->rfd;
+
+      if (rf == -1)
+	{
+	  complain (&bad_indirect_xref_complaint, sym_name);
 	  return mdebug_type_int;
 	}
-      *bs = AUX_GET_WIDTH (bigend, ax);
-      ax++;
+      xref_fh = get_rfd (fd, rf);
+      xref_fd = xref_fh - debug_info->fdr;
+      tp = parse_type (xref_fd, debug_info->external_aux + xref_fh->iauxBase,
+		       rn->index, (int *) NULL, xref_fh->fBigendian, sym_name);
     }
 
   /* All these types really point to some (common) MIPS type
@@ -1575,10 +1632,8 @@ parse_type (fd, ax, aux_index, bs, bigend, sym_name)
   /* All these types really point to some (common) MIPS type
      definition, and only the type-qualifiers fully identify
      them.  We'll make the same effort at sharing.
-     FIXME: btIndirect cannot happen here as it is handled by the
-     switch t->bt above.  And we are not doing any guessing on range types.  */
-  if (t->bt == btIndirect ||
-      t->bt == btRange)
+     FIXME: We are not doing any guessing on range types.  */
+  if (t->bt == btRange)
     {
       char *name;
 
@@ -1725,7 +1780,8 @@ upgrade_type (fd, tpp, tq, ax, bigend, sym_name)
 	}
       fh = get_rfd (fd, rf);
 
-      indx = parse_type (fd, debug_info->external_aux + fh->iauxBase,
+      indx = parse_type (fh - debug_info->fdr,
+			 debug_info->external_aux + fh->iauxBase,
 			 id, (int *) NULL, bigend, sym_name);
 
       /* The bounds type should be an integer type, but might be anything
@@ -1763,6 +1819,13 @@ upgrade_type (fd, tpp, tq, ax, bigend, sym_name)
 	 ignore the erroneous bitsize from the auxiliary entry safely.
 	 dbx seems to ignore it too.  */
 
+      /* TYPE_FLAG_TARGET_STUB now takes care of the zero TYPE_LENGTH
+	 problem.  */
+      if (TYPE_LENGTH (*tpp) == 0)
+	{
+	  TYPE_FLAGS (t) |= TYPE_FLAG_TARGET_STUB;
+	}
+
       *tpp = t;
       return 4 + off;
 
@@ -1792,14 +1855,14 @@ upgrade_type (fd, tpp, tq, ax, bigend, sym_name)
    to look for the function which contains the MIPS_EFI_SYMBOL_NAME symbol
    in question, or NULL to use top_stack->cur_block.  */
 
-static void parse_procedure PARAMS ((PDR *, struct symtab *, unsigned long,
+static void parse_procedure PARAMS ((PDR *, struct symtab *, CORE_ADDR,
 				     struct partial_symtab *));
 
 static void
-parse_procedure (pr, search_symtab, first_off, pst)
+parse_procedure (pr, search_symtab, lowest_pdr_addr, pst)
      PDR *pr;
      struct symtab *search_symtab;
-     unsigned long first_off;
+     CORE_ADDR lowest_pdr_addr;
      struct partial_symtab *pst;
 {
   struct symbol *s, *i;
@@ -1905,7 +1968,7 @@ parse_procedure (pr, search_symtab, first_off, pst)
       e = (struct mips_extra_func_info *) SYMBOL_VALUE (i);
       e->pdr = *pr;
       e->pdr.isym = (long) s;
-      e->pdr.adr += pst->textlow - first_off;
+      e->pdr.adr += pst->textlow - lowest_pdr_addr;
 
       /* Correct incorrect setjmp procedure descriptor from the library
 	 to make backtrace through setjmp work.  */
@@ -2054,20 +2117,20 @@ parse_external (es, bigend, section_offsets)
    with that and do not need to reorder our linetables */
 
 static void parse_lines PARAMS ((FDR *, PDR *, struct linetable *, int,
-				 struct partial_symtab *));
+				 struct partial_symtab *, CORE_ADDR));
 
 static void
-parse_lines (fh, pr, lt, maxlines, pst)
+parse_lines (fh, pr, lt, maxlines, pst, lowest_pdr_addr)
      FDR *fh;
      PDR *pr;
      struct linetable *lt;
      int maxlines;
      struct partial_symtab *pst;
+     CORE_ADDR lowest_pdr_addr;
 {
   unsigned char *base;
   int j, k;
   int delta, count, lineno = 0;
-  unsigned long first_off = pr->adr;
 
   if (fh->cbLine == 0)
     return;
@@ -2076,8 +2139,8 @@ parse_lines (fh, pr, lt, maxlines, pst)
   k = 0;
   for (j = 0; j < fh->cpd; j++, pr++)
     {
-      long l;
-      unsigned long adr;
+      CORE_ADDR l;
+      CORE_ADDR adr;
       unsigned char *halt;
 
       /* No code for this one */
@@ -2094,7 +2157,7 @@ parse_lines (fh, pr, lt, maxlines, pst)
  	halt = base + fh->cbLine;
       base += pr->cbLineOffset;
 
-      adr = pst->textlow + pr->adr - first_off;
+      adr = pst->textlow + pr->adr - lowest_pdr_addr;
 
       l = adr >> 2;		/* in words */
       for (lineno = pr->lnLow; base < halt; )
@@ -2735,7 +2798,7 @@ parse_partial_symbols (objfile, section_offsets)
 					   sh.value,
 					   psymtab_language, objfile);
 		    }
-		  handle_psymbol_enumerators (objfile, fh, sh.st);
+		  handle_psymbol_enumerators (objfile, fh, sh.st, sh.value);
 
 		  /* Skip over the block */
 		  new_sdx = sh.index;
@@ -2858,6 +2921,9 @@ parse_partial_symbols (objfile, section_offsets)
 					   psymtab_include_list, includes_used,
 					   -1, save_pst->texthigh,
 					   dependency_list, dependencies_used);
+      includes_used = 0;
+      dependencies_used = 0;
+
       if (objfile->ei.entry_point >= save_pst->textlow &&
 	  objfile->ei.entry_point < save_pst->texthigh)
 	{
@@ -2955,10 +3021,11 @@ parse_partial_symbols (objfile, section_offsets)
    all the the enum constants to the partial symbol table.  */
 
 static void
-handle_psymbol_enumerators (objfile, fh, stype)
+handle_psymbol_enumerators (objfile, fh, stype, svalue)
      struct objfile *objfile;
      FDR *fh;
      int stype;
+     CORE_ADDR svalue;
 {
   const bfd_size_type external_sym_size = debug_swap->external_sym_size;
   void (* const swap_sym_in) PARAMS ((bfd *, PTR, SYMR *))
@@ -2976,12 +3043,15 @@ handle_psymbol_enumerators (objfile, fh, stype)
     case stBlock:
       /* It is an enumerated type if the next symbol entry is a stMember
 	 and its auxiliary index is indexNil or its auxiliary entry
-	 is a plain btNil or btVoid.  */
+	 is a plain btNil or btVoid.
+	 Alpha cc -migrate enums are recognized by a zero index and
+	 a zero symbol value.  */
       (*swap_sym_in) (cur_bfd, ext_sym, &sh);
       if (sh.st != stMember)
 	return;
 
-      if (sh.index == indexNil)
+      if (sh.index == indexNil
+	  || (sh.index == 0 && svalue == 0))
 	break;
       (*debug_swap->swap_tir_in) (fh->fBigendian,
 				  &(debug_info->external_aux
@@ -3015,7 +3085,8 @@ handle_psymbol_enumerators (objfile, fh, stype)
 }
 
 static char *
-mdebug_next_symbol_text ()
+mdebug_next_symbol_text (objfile)
+     struct objfile *objfile;	/* argument objfile is currently unused */
 {
   SYMR sh;
 
@@ -3051,6 +3122,7 @@ psymtab_to_symtab_1 (pst, filename)
   struct symtab *st;
   FDR *fh;
   struct linetable *lines;
+  CORE_ADDR lowest_pdr_addr = 0;
 
   if (pst->readin)
     return;
@@ -3124,10 +3196,6 @@ psymtab_to_symtab_1 (pst, filename)
 
   if (processing_gcc_compilation != 0)
     {
-      char *pdr_ptr;
-      char *pdr_end;
-      int first_pdr;
-      unsigned long first_off = 0;
 
       /* This symbol table contains stabs-in-ecoff entries.  */
 
@@ -3203,7 +3271,7 @@ psymtab_to_symtab_1 (pst, filename)
 	  else
 	    complain (&stab_unknown_complaint, name);
 	}
-      st = end_symtab (pst->texthigh, 0, 0, pst->objfile, SECT_OFF_TEXT);
+      st = end_symtab (pst->texthigh, pst->objfile, SECT_OFF_TEXT);
       end_stabs ();
 
       /* Sort the symbol table now, we are done adding symbols to it.
@@ -3217,21 +3285,42 @@ psymtab_to_symtab_1 (pst, filename)
 	 generated via asm statements.  */
 
       /* Fill in procedure info next.  */
-      first_pdr = 1;
-      pdr_ptr = ((char *) debug_info->external_pdr
-		 + fh->ipdFirst * external_pdr_size);
-      pdr_end = pdr_ptr + fh->cpd * external_pdr_size;
-      for (; pdr_ptr < pdr_end; pdr_ptr += external_pdr_size)
+      if (fh->cpd > 0)
 	{
-	  PDR pr;
+	  PDR *pr_block;
+	  struct cleanup *old_chain;
+	  char *pdr_ptr;
+	  char *pdr_end;
+	  PDR *pdr_in;
+	  PDR *pdr_in_end;
 
-	  (*swap_pdr_in) (cur_bfd, pdr_ptr, &pr);
-	  if (first_pdr)
+	  pr_block = (PDR *) xmalloc (fh->cpd * sizeof (PDR));
+	  old_chain = make_cleanup (free, pr_block);
+
+	  pdr_ptr = ((char *) debug_info->external_pdr
+		     + fh->ipdFirst * external_pdr_size);
+	  pdr_end = pdr_ptr + fh->cpd * external_pdr_size;
+	  pdr_in = pr_block;
+	  for (;
+	       pdr_ptr < pdr_end;
+	       pdr_ptr += external_pdr_size, pdr_in++)
 	    {
-	      first_off = pr.adr;
-	      first_pdr = 0;
+	      (*swap_pdr_in) (cur_bfd, pdr_ptr, pdr_in);
+
+	      /* Determine lowest PDR address, the PDRs are not always
+		 sorted.  */
+	      if (pdr_in == pr_block)
+		lowest_pdr_addr = pdr_in->adr;
+	      else if (pdr_in->adr < lowest_pdr_addr)
+		lowest_pdr_addr = pdr_in->adr;
 	    }
-	  parse_procedure (&pr, st, first_off, pst);
+
+	  pdr_in = pr_block;
+	  pdr_in_end = pdr_in + fh->cpd;
+	  for (; pdr_in < pdr_in_end; pdr_in++)
+	    parse_procedure (pdr_in, st, lowest_pdr_addr, pst);
+
+	  do_cleanups (old_chain);
 	}
     }
   else
@@ -3324,9 +3413,18 @@ psymtab_to_symtab_1 (pst, filename)
 	      for (;
 		   pdr_ptr < pdr_end;
 		   pdr_ptr += external_pdr_size, pdr_in++)
-		(*swap_pdr_in) (cur_bfd, pdr_ptr, pdr_in);
+		{
+		  (*swap_pdr_in) (cur_bfd, pdr_ptr, pdr_in);
 
-	      parse_lines (fh, pr_block, lines, maxlines, pst);
+		  /* Determine lowest PDR address, the PDRs are not always
+		     sorted.  */
+		  if (pdr_in == pr_block)
+		    lowest_pdr_addr = pdr_in->adr;
+		  else if (pdr_in->adr < lowest_pdr_addr)
+		    lowest_pdr_addr = pdr_in->adr;
+		}
+
+	      parse_lines (fh, pr_block, lines, maxlines, pst, lowest_pdr_addr);
 	      if (lines->nitems < fh->cline)
 		lines = shrink_linetable (lines);
 
@@ -3334,7 +3432,7 @@ psymtab_to_symtab_1 (pst, filename)
 	      pdr_in = pr_block;
 	      pdr_in_end = pdr_in + fh->cpd;
 	      for (; pdr_in < pdr_in_end; pdr_in++)
-		parse_procedure (pdr_in, 0, pr_block->adr, pst);
+		parse_procedure (pdr_in, 0, lowest_pdr_addr, pst);
 
 	      do_cleanups (old_chain);
 	    }
@@ -3460,7 +3558,7 @@ cross_ref (fd, ax, tpp, type_code, pname, bigend, sym_name)
     }
 
   /* mips cc uses a rf of -1 for opaque struct definitions.
-     Set TYPE_FLAG_STUB for these types so that check_stub_type will
+     Set TYPE_FLAG_STUB for these types so that check_typedef will
      resolve them if the struct gets defined in another compilation unit.  */
   if (rf == -1)
     {
@@ -3537,9 +3635,9 @@ cross_ref (fd, ax, tpp, type_code, pname, bigend, sym_name)
 		For these the type will be void. This is a bad design decision
 		as cross referencing across compilation units is impossible
 		due to the missing name.
-	     b) forward declarations of structs/unions/enums which are defined
-		later in this file or in another file in the same compilation
-		unit. Irix5 cc uses a stIndirect symbol for this.
+	     b) forward declarations of structs/unions/enums/typedefs which
+		are defined later in this file or in another file in the same
+		compilation unit. Irix5 cc uses a stIndirect symbol for this.
 		Simply cross reference those again to get the true type.
 	     The forward references are not entered in the pending list and
 	     in the symbol table.  */
@@ -3566,6 +3664,23 @@ cross_ref (fd, ax, tpp, type_code, pname, bigend, sym_name)
 			  + fh->iauxBase + sh.index + 1),
 			 tpp, type_code, pname,
 			 fh->fBigendian, sym_name);
+	      break;
+
+	    case btTypedef:
+	      /* Follow a forward typedef. This might recursively
+		 call cross_ref till we get a non typedef'ed type.
+		 FIXME: This is not correct behaviour, but gdb currently
+		 cannot handle typedefs without type copying. Type
+		 copying is impossible as we might have mutual forward
+		 references between two files and the copied type would not
+		 get filled in when we later parse its definition.  */
+	      *tpp = parse_type (xref_fd,
+				 debug_info->external_aux + fh->iauxBase,
+				 sh.index,
+				 (int *)NULL,
+				 fh->fBigendian,
+				 debug_info->ss + fh->issBase + sh.iss);
+	      add_pending (fh, esh, *tpp);
 	      break;
 
 	    default:
@@ -3616,7 +3731,7 @@ static struct symbol *
 mylookup_symbol (name, block, namespace, class)
      char *name;
      register struct block *block;
-     enum namespace namespace;
+     namespace_enum namespace;
      enum address_class class;
 {
   register int bot, top, inc;

@@ -131,7 +131,7 @@ static reloc_howto_type howto_8_pcrel
 
 static reloc_howto_type *
 local_bfd_reloc_type_lookup (arch, code)
-     CONST struct bfd_arch_info *arch;
+     const struct bfd_arch_info *arch;
      bfd_reloc_code_real_type code;
 {
     switch (code)
@@ -154,8 +154,8 @@ int bfd_default_scan_num_mach ();
 
 static boolean
 h8300_scan (info, string)
-     CONST struct bfd_arch_info *info;
-     CONST char *string;
+     const struct bfd_arch_info *info;
+     const char *string;
 {
   if (*string != 'h' && *string != 'H')
     return false;
@@ -194,10 +194,10 @@ h8300_scan (info, string)
    machine which would be compatible with both and returns a pointer
    to its info structure */
 
-static CONST bfd_arch_info_type *
+static const bfd_arch_info_type *
 compatible (in, out)
-     CONST bfd_arch_info_type * in;
-     CONST bfd_arch_info_type * out;
+     const bfd_arch_info_type * in;
+     const bfd_arch_info_type * out;
 {
   /* If the output is non-H and the input is -H, that's bad */
   if (in->mach == bfd_mach_h8300h &&
@@ -210,7 +210,7 @@ compatible (in, out)
   return out;
 }
 
-static bfd_arch_info_type h8300_info_struct =
+static const bfd_arch_info_type h8300_info_struct =
 {
   16,				/* 16 bits in a word */
   16,				/* 16 bits in an address */
@@ -223,13 +223,12 @@ static bfd_arch_info_type h8300_info_struct =
   true,				/* the default machine */
   compatible,
   h8300_scan,
-  0,
 /*    local_bfd_reloc_type_lookup, */
   0,
 };
 
 
-static bfd_arch_info_type h8300h_info_struct =
+const bfd_arch_info_type bfd_h8300_arch =
 {
   32,				/* 32 bits in a word */
   32,				/* 32 bits in an address */
@@ -242,14 +241,6 @@ static bfd_arch_info_type h8300h_info_struct =
   false,			/* the default machine */
   compatible,
   h8300_scan,
-  0,
 /*    local_bfd_reloc_type_lookup, */
-  0,
+  &h8300_info_struct,
 };
-
-void
-bfd_h8300_arch()
-{
-  bfd_arch_linkin (&h8300_info_struct);
-  bfd_arch_linkin (&h8300h_info_struct);
-}

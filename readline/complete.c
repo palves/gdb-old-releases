@@ -35,7 +35,7 @@ extern int errno;
 
 /* These next are for filename completion.  Perhaps this belongs
    in a different place. */
-#if !defined(__MSDOS__) && !defined(WIN32)
+#if !defined(__MSDOS__) && !defined(_MSC_VER)
 #include <pwd.h>
 #endif /* __MSDOS__ */
 #if defined (USG) && !defined (isc386) && !defined (sgi)
@@ -1047,7 +1047,7 @@ filename_completion_function (text, state)
      int state;
      char *text;
 {
-#ifndef WIN32
+#if !defined(__WIN32__) && !defined(_MSC_VER)
   static DIR *directory;
   static char *filename = (char *)NULL;
   static char *dirname = (char *)NULL;
@@ -1190,6 +1190,8 @@ filename_completion_function (text, state)
 	}
       return (temp);
     }
+#else
+    return NULL;
 #endif
 }
 

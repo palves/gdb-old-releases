@@ -1,5 +1,5 @@
 /* BFD back-end for FreeBSD/386 a.out-ish binaries.
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1996 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -20,13 +20,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 #define	BYTES_IN_WORD	4
 #undef TARGET_IS_BIG_ENDIAN_P
 
-#if 0
-#define	PAGE_SIZE	4096
-#endif
-#define	SEGMENT_SIZE	PAGE_SIZE
+#define	TARGET_PAGE_SIZE	4096
+#define	SEGMENT_SIZE	TARGET_PAGE_SIZE
 
 #define	DEFAULT_ARCH	bfd_arch_i386
-#define MACHTYPE_OK(mtype) ((mtype) == M_386 || (mtype) == M_386_NETBSD || (mtype) == M_UNKNOWN)
+#define MACHTYPE_OK(mtype) ((mtype) == M_386_NETBSD || (mtype) == M_UNKNOWN)
 
 #define MY(OP) CAT(i386freebsd_,OP)
 /* This needs to start with a.out so GDB knows it is an a.out variant.  */

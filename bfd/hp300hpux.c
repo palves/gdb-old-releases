@@ -1,5 +1,5 @@
 /* BFD backend for hp-ux 9000/300
-   Copyright (C) 1990, 1991, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1994, 1995 Free Software Foundation, Inc.
    Written by Glenn Engel.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -215,6 +215,10 @@ MY (callback) (abfd)
   obj_datasec (abfd)->vma = N_DATADDR (*execp);
   obj_bsssec (abfd)->vma = N_BSSADDR (*execp);
 
+  obj_textsec (abfd)->lma = obj_textsec (abfd)->vma;
+  obj_datasec (abfd)->lma = obj_datasec (abfd)->vma;
+  obj_bsssec (abfd)->lma = obj_bsssec (abfd)->vma;
+
   /* The file offsets of the sections */
   obj_textsec (abfd)->filepos = N_TXTOFF (*execp);
   obj_datasec (abfd)->filepos = N_DATOFF (*execp);
@@ -379,13 +383,35 @@ convert_sym_type (sym_pointer, cache_ptr, abfd)
 	  break;
 
 	default:
-	  fprintf (stderr, "unknown symbol type encountered: %x", name_type);
+	  abort ();
+	  break;
 	}
       if (name_type & HP_SYMTYPE_EXTERNAL)
 	new_type |= N_EXT;
 
       if (name_type & HP_SECONDARY_SYMBOL)
-	new_type = (new_type & ~N_TYPE) | N_INDR;
+	{
+	  switch (new_type)
+	    {
+	    default:
+	      abort ();
+	    case N_UNDF | N_EXT:
+	      new_type = N_WEAKU;
+	      break;
+	    case N_ABS | N_EXT:
+	      new_type = N_WEAKA;
+	      break;
+	    case N_TEXT | N_EXT:
+	      new_type = N_WEAKT;
+	      break;
+	    case N_DATA | N_EXT:
+	      new_type = N_WEAKD;
+	      break;
+	    case N_BSS | N_EXT:
+	      new_type = N_WEAKB;
+	      break;
+	    }
+	}
     }
   cache_ptr->type = new_type;
 
@@ -450,10 +476,7 @@ NAME (aout,swap_exec_header_in) (abfd, raw_bytes, execp)
       rawptr = (struct aout_data_struct *) bfd_zalloc (abfd, sizeof (*rawptr));
 
       if (rawptr == NULL)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return;
-	}
+	return;
       abfd->tdata.aout_data = rawptr;
       obj_aout_subformat (abfd) = gnu_encap_format;
     }
@@ -495,7 +518,6 @@ MY (slurp_symbol_table) (abfd)
   char *strings;
   aout_symbol_type *cached;
   unsigned num_syms = 0;
-  unsigned num_secondary = 0;
 
   /* If there's no work to be done, don't do any */
   if (obj_aout_symbols (abfd) != (aout_symbol_type *) NULL)
@@ -505,10 +527,7 @@ MY (slurp_symbol_table) (abfd)
   strings = (char *) bfd_alloc (abfd,
 				symbol_bytes + SYM_EXTRA_BYTES);
   if (!strings)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   syms = (struct external_nlist *) (strings + SYM_EXTRA_BYTES);
   if (bfd_seek (abfd, obj_sym_filepos (abfd), SEEK_SET) != 0
       || bfd_read ((PTR) syms, symbol_bytes, 1, abfd) != symbol_bytes)
@@ -523,30 +542,24 @@ MY (slurp_symbol_table) (abfd)
   /* first, march thru the table and figure out how many symbols there are */
   for (sym_pointer = syms; sym_pointer < sym_end; sym_pointer++, num_syms++)
     {
-      if (bfd_get_8 (abfd, sym_pointer->e_type) & HP_SECONDARY_SYMBOL)
-	num_secondary++;
       /* skip over the embedded symbol. */
       sym_pointer = (struct external_nlist *) (((char *) sym_pointer) +
 					       sym_pointer->e_length[0]);
     }
 
   /* now that we know the symbol count, update the bfd header */
-  bfd_get_symcount (abfd) = num_syms + num_secondary;
+  bfd_get_symcount (abfd) = num_syms;
 
   cached = ((aout_symbol_type *)
 	    bfd_zalloc (abfd,
 			bfd_get_symcount (abfd) * sizeof (aout_symbol_type)));
   if (cached == NULL && bfd_get_symcount (abfd) != 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
 
   /* as we march thru the hp symbol table, convert it into a list of
      null terminated strings to hold the symbol names.  Make sure any
      assignment to the strings pointer is done after we're thru using
      the nlist so we don't overwrite anything important. */
-  num_secondary = 0;
 
   /* OK, now walk the new symtable, cacheing symbol properties */
   {
@@ -588,34 +601,6 @@ MY (slurp_symbol_table) (abfd)
 	  }
 	else
 	  cache_ptr->symbol.name = (char *) NULL;
-
-	/**********************************************************/
-	/* this is a bit of a kludge, but a secondary hp symbol   */
-	/* gets translated into a gnu indirect symbol.  When this */
-	/* happens, we need to create a "dummy" record to which   */
-	/* we can point the indirect symbol to.                   */
-	/**********************************************************/
-	if ((cache_ptr->type | N_EXT) == (N_INDR | N_EXT))
-	  {
-	    aout_symbol_type *cache_ptr2 = cached + num_syms + num_secondary;
-
-	    num_secondary++;
-
-	    /* aoutx.h assumes the "next" value is the indirect sym  */
-	    /* since we don't want to disturb the order by inserting */
-	    /* a new symbol, we tack on the created secondary syms   */
-	    /* at the end.                                           */
-	    cache_ptr->symbol.value = (bfd_vma) (cache_ptr2);
-	    *cache_ptr2 = cache_save;
-	    cache_ptr2->symbol.name = strings;
-	    memcpy (strings, cache_ptr->symbol.name, length);
-	    strcpy (strings + length, ":secondry");	/* 9 max chars + null */
-	    strings += length + 10;
-	    cache_ptr2->type &= ~HP_SECONDARY_SYMBOL;	/* clear secondary */
-	    convert_sym_type (sym_pointer, cache_ptr2, abfd);
-	    if (!translate_from_native_sym_flags (abfd, cache_ptr2))
-	      return false;
-	  }
 
 	/* skip over the embedded symbol. */
 	sym_pointer = (struct external_nlist *) (((char *) sym_pointer) +
@@ -672,8 +657,8 @@ MY (swap_std_reloc_in) (abfd, bytes, cache_ptr, symbols, symcount)
     case HP_RSEGMENT_NOOP:
       break;
     default:
-      fprintf (stderr, "illegal relocation segment type: %x\n",
-	       (bytes->r_type[0]));
+      abort ();
+      break;
     }
 
   switch (bytes->r_length[0])
@@ -688,8 +673,8 @@ MY (swap_std_reloc_in) (abfd, bytes, cache_ptr, symbols, symcount)
       r_length = 2;
       break;
     default:
-      fprintf (stderr, "illegal relocation length: %x\n", bytes->r_length[0]);
-      r_length = 0;
+      abort ();
+      break;
     }
 
   cache_ptr->howto = howto_table_std + r_length + 4 * r_pcrel;
@@ -756,17 +741,13 @@ doit:
   reloc_cache = (arelent *) bfd_zalloc (abfd, (size_t) (count * sizeof
 							(arelent)));
   if (!reloc_cache && count != 0)
-    {
-    nomem:
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
 
   relocs = (PTR) bfd_alloc (abfd, reloc_size);
   if (!relocs && reloc_size != 0)
     {
       bfd_release (abfd, reloc_cache);
-      goto nomem;
+      return false;
     }
 
   if (bfd_read (relocs, 1, reloc_size, abfd) != reloc_size)

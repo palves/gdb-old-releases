@@ -1,5 +1,5 @@
 /* Generic serial interface routines
-   Copyright 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -19,6 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
 #include "serial.h"
+#include "gdb_string.h"
+#include "gdbcmd.h"
 
 /* Linked list of serial I/O handlers */
 
@@ -31,6 +33,110 @@ static serial_t last_serial_opened = NULL;
 /* Pointer to list of scb's. */
 
 static serial_t scb_base;
+
+/* Non-NULL gives filename which contains a recording of the remote session,
+   suitable for playback by gdbserver. */
+
+char *serial_logfile = NULL;
+FILE *serial_logfp = NULL;
+
+
+static int serial_reading = 0;
+static int serial_writing = 0;
+
+void
+serial_log_command (cmd)
+     const char *cmd;
+{
+  if (serial_reading || serial_writing)
+    {
+      fputc_unfiltered ('\n', serial_logfp);
+      serial_reading = 0;
+      serial_writing = 0;
+    }
+  fprintf_unfiltered (serial_logfp, "c %s\n", cmd);
+  /* Make sure that the log file is as up-to-date as possible,
+     in case we are getting ready to dump core or something. */
+  fflush (serial_logfp);
+}
+
+static void
+serial_logchar (ch)
+     int ch;
+{
+  switch (ch)
+    {
+    case '\\':	fputs_unfiltered ("\\\\", serial_logfp); break;	
+    case '\b':	fputs_unfiltered ("\\b", serial_logfp); break;	
+    case '\f':	fputs_unfiltered ("\\f", serial_logfp); break;	
+    case '\n':	fputs_unfiltered ("\\n", serial_logfp); break;	
+    case '\r':	fputs_unfiltered ("\\r", serial_logfp); break;	
+    case '\t':	fputs_unfiltered ("\\t", serial_logfp); break;	
+    case '\v':	fputs_unfiltered ("\\v", serial_logfp); break;	
+    default:	fprintf_unfiltered (serial_logfp, isprint (ch) ? "%c" : "\\x%02x", ch & 0xFF); break;
+    }
+}
+
+int
+serial_write (scb, str, len)
+     serial_t scb;
+     const char *str;
+     int len;
+{
+  int count;
+
+  if (serial_logfp != NULL)
+    {
+      if (serial_reading)
+	{
+	  fputc_unfiltered ('\n', serial_logfp);
+	  serial_reading = 0;
+	}
+      if (!serial_writing)
+	{
+	  serial_logchar ('w');
+	  serial_logchar (' ');
+	  serial_writing = 1;
+	}
+      for (count = 0; count < len; count++)
+	{
+	  serial_logchar (str[count]);
+	}
+      /* Make sure that the log file is as up-to-date as possible,
+	 in case we are getting ready to dump core or something. */
+      fflush (serial_logfp);
+    }
+  return (scb -> ops -> write (scb, str, len));
+}
+
+int
+serial_readchar (scb, timeout)
+     serial_t scb;
+     int timeout;
+{
+  int ch;
+
+  ch = scb -> ops -> readchar (scb, timeout);
+  if (serial_logfp != NULL)
+    {
+      if (serial_writing)
+	{
+	  fputc_unfiltered ('\n', serial_logfp);
+	  serial_writing = 0;
+	}
+      if (!serial_reading)
+	{
+	  serial_logchar ('r');
+	  serial_logchar (' ');
+	  serial_reading = 1;
+	}
+      serial_logchar (ch);
+      /* Make sure that the log file is as up-to-date as possible,
+	 in case we are getting ready to dump core or something. */
+      fflush (serial_logfp);
+    }
+  return (ch);
+}
 
 static struct serial_ops *
 serial_interface_lookup (name)
@@ -73,6 +179,8 @@ serial_open (name)
     ops = serial_interface_lookup ("pc");
   else if (strchr (name, ':'))
     ops = serial_interface_lookup ("tcp");
+  else if (strncmp (name, "lpt", 3) == 0)
+    ops = serial_interface_lookup ("parallel");
   else
     ops = serial_interface_lookup ("hardwire");
 
@@ -98,6 +206,15 @@ serial_open (name)
   scb_base = scb;
 
   last_serial_opened = scb;
+
+  if (serial_logfile != NULL)
+    {
+      serial_logfp = fopen (serial_logfile, "w");
+      if (serial_logfp == NULL)
+	{
+	  perror_with_name (serial_logfile);
+	}
+    }
 
   return scb;
 }
@@ -148,6 +265,18 @@ serial_close(scb, really_close)
   serial_t tmp_scb;
 
   last_serial_opened = NULL;
+
+  if (serial_logfp)
+    {
+      if (serial_reading || serial_writing)
+	{
+	  fputc_unfiltered ('\n', serial_logfp);
+	  serial_reading = 0;
+	  serial_writing = 0;
+	}
+      fclose (serial_logfp);
+      serial_logfp = NULL;
+    }
 
 /* This is bogus.  It's not our fault if you pass us a bad scb...!  Rob, you
    should fix your code instead.  */
@@ -306,6 +435,35 @@ connect_command (args, fromtty)
 }
 #endif /* 0 */
 
+/* VARARGS */
+void
+#ifdef ANSI_PROTOTYPES
+serial_printf (serial_t desc, const char *format, ...)
+#else
+serial_printf (va_alist)
+     va_dcl
+#endif
+{
+  va_list args;
+  char *buf;
+#ifdef ANSI_PROTOTYPES
+  va_start (args, format);
+#else
+  serial_t desc;
+  char *format;
+
+  va_start (args);
+  desc = va_arg (args, serial_t);
+  format = va_arg (args, char *);
+#endif
+
+  vasprintf (&buf, format, args);
+  SERIAL_WRITE (desc, buf, strlen (buf));
+
+  free (buf);
+  va_end (args);
+}
+
 void
 _initialize_serial ()
 {
@@ -314,4 +472,12 @@ _initialize_serial ()
 	   "Connect the terminal directly up to the command monitor.\n\
 Use <CR>~. or <CR>~^D to break out.");
 #endif /* 0 */
+
+  add_show_from_set (add_set_cmd ("remotelogfile", no_class,
+				  var_filename, (char *)&serial_logfile,
+				  "Set filename for remote session recording.\n\
+This file is used to record the remote session for future playback\n\
+by gdbserver.", &setlist),
+		     &showlist);
+
 }

@@ -14,63 +14,99 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111, USA.  */
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+
+/* This file provides the interface between the simulator and run.c and gdb
+   (when the simulator is linked with gdb).
+   All simulator interaction should go through this file.
+
+   Functions that begin with sim_ belong to the standard simulator interface.
+   Functions that begin with ARMul_ belong to the ARM simulator.
+   Functions that begin with arm_sim_ are additional functions necessary to
+   implement the interface.
+*/
 
 #include <stdio.h>
 #include <stdarg.h>
-#include <armdefs.h>
 #include <bfd.h>
 #include <signal.h>
+#include "callback.h"
 #include "remote-sim.h"
+#include "armdefs.h"
+#include "armemu.h"
+#include "dbg_rdi.h"
+
 static struct ARMul_State *state;
+
+/* Memory size (log2 (n)).  */
+static int mem_size = 21;
+
+/* Non-zero to display start up banner, and maybe other things.  */
+static int verbosity;
 
 static void 
 init ()
 {
   static int done;
+
   if (!done)
     {
       ARMul_EmulateInit();
       state = ARMul_NewState ();
-      ARMul_MemoryInit(state, 1<<21);
+      ARMul_MemoryInit(state, 1 << mem_size);
       ARMul_OSInit(state);
       ARMul_CoProInit(state); 
+      state->verbose = verbosity;
       done = 1;
     }
-
 }
+
+/* Must be called before initializing simulator.  */
+
+void
+arm_sim_set_verbosity (v)
+     int v;
+{
+  verbosity = v;
+}
+
+/* Must be called before initializing simulator.  */
+
+void 
+arm_sim_set_mem_size (size)
+     int size;
+{
+  mem_size = size;
+}
+
+void 
+arm_sim_set_profile ()
+{
+}
+
+void 
+arm_sim_set_profile_size ()
+{
+}
+
 void 
 ARMul_ConsolePrint (ARMul_State * state, const char *format,...)
 {
   va_list ap;
-  va_start (ap, format);
-  vprintf (format, ap);
-  va_end (ap);
+
+  if (state->verbose)
+    {
+      va_start (ap, format);
+      vprintf (format, ap);
+      va_end (ap);
+    }
 }
 
 ARMword 
 ARMul_Debug (ARMul_State * state, ARMword pc, ARMword instr)
 {
 
-}
-
-void 
-sim_size (size)
-     int size;
-{
-  init ();
-  ARMul_MemoryInit (state, 1 << size);
-}
-
-
-void 
-sim_set_profile ()
-{
-}
-void 
-sim_set_profile_size ()
-{
 }
 
 int
@@ -108,20 +144,24 @@ sim_trace ()
 {
 }
 
-static int rc;
 void
 sim_resume (step, siggnal)
      int step, siggnal;
 {
+  state->EndCondition = 0;
+
   if (step)
     {
-      rc = SIGTRAP;
-state->Reg[15] =       ARMul_DoInstr (state);
+      state->Reg[15] = ARMul_DoInstr (state);
+      if (state->EndCondition == 0)
+	state->EndCondition = RDIError_BreakpointReached;
     }
   else
     {
-state->Reg[15] =       ARMul_DoProg (state);
+      state->Reg[15] = ARMul_DoProg (state);
     }
+
+  FLUSHPIPE;
 }
 
 void
@@ -233,9 +273,21 @@ sim_stop_reason (reason, sigrc)
      enum sim_stop *reason;
      int *sigrc;
 {
-  *reason = sim_stopped;
-  *sigrc = rc;
+  if (state->EndCondition == 0)
+    {
+      *reason = sim_exited;
+      *sigrc = state->Reg[0] & 255;
+    }
+  else
+    {
+      *reason = sim_stopped;
+      if (state->EndCondition == RDIError_BreakpointReached)
+	*sigrc = SIGTRAP;
+      else
+	*sigrc = 0;
+    }
 }
+
 void
 sim_kill ()
 {
@@ -247,4 +299,12 @@ sim_do_command (cmd)
      char *cmd;
 {
   printf_filtered ("This simulator does not accept any commands.\n");
+}
+
+
+void
+sim_set_callbacks (ptr)
+struct host_callback_struct *ptr;
+{
+
 }

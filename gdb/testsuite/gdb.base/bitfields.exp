@@ -26,12 +26,12 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "bitfields"
-set srcfile $binfile.c
-
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+set testfile "bitfields"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
 }
 
 #
@@ -264,7 +264,7 @@ proc bitfield_signedness {} {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 send "set print sevenbit-strings\n" ; expect -re "$prompt $"
 bitfield_uniqueness
@@ -273,7 +273,7 @@ if [istarget "mips-idt-*"] then {
     gdb_exit
     gdb_start
     gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $objdir/$subdir/$binfile
+    gdb_load ${binfile}
 }
 bitfield_containment
 if [istarget "mips-idt-*"] then {
@@ -281,7 +281,7 @@ if [istarget "mips-idt-*"] then {
     gdb_exit
     gdb_start
     gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $objdir/$subdir/$binfile
+    gdb_load ${binfile}
 }
 bitfield_unsignedness
 if [istarget "mips-idt-*"] then {
@@ -289,6 +289,6 @@ if [istarget "mips-idt-*"] then {
     gdb_exit
     gdb_start
     gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $objdir/$subdir/$binfile
+    gdb_load ${binfile}
 }
 bitfield_signedness

@@ -117,6 +117,7 @@ struct ARMul_State {
 
    const struct Dbg_HostosInterface *hostif;
 
+   int verbose; /* non-zero means print various messages like the banner */
  } ;
 
 #define ResetPin NresetSig

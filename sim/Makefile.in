@@ -56,11 +56,13 @@ INSTALL_DATA = $(INSTALL)
 INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
 INSTALL_XFORM1 = $(INSTALL_XFORM) -b=.1
 
-AR = ar
+AR = @AR@
 AR_FLAGS = rc
-CFLAGS = -g
+CC = @CC@
+CFLAGS = @CFLAGS@
+CC_FOR_BUILD = @CC_FOR_BUILD@
 MAKEINFO = makeinfo
-RANLIB = ranlib
+RANLIB = @RANLIB@
 
 SUBDIRS = @subdirs@
 
@@ -117,7 +119,7 @@ clean mostlyclean:
 		done ; \
 	else true; fi
 
-distclean realclean:
+distclean maintainer-clean realclean:
 	@if [ x"${SUBDIRS}" != x ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		srcroot=`cd $(srcdir); pwd`; export srcroot; \
@@ -136,7 +138,7 @@ install:
 		for dir in ${SUBDIRS}; do \
 			if [ -d $$dir ]; then \
 				(cd $$dir; $(MAKE) $(FLAGS_TO_PASS) install); \
-			else true; fi \
+			else true; fi; \
 		done; \
 	else true; fi
 

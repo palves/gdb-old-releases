@@ -1,3 +1,34 @@
+Wed Jan 17 09:09:16 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* common.h: Define EM_SPARC32PLUS.
+	* sparc.h: New file.
+
+Thu Jan 11 16:27:34 1996  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc.h (SHF_EXCLUDE, SHT_ORDERED): New fields from the abi.
+
+Thu Nov 30 16:47:18 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h (struct elf_segment_map): Add includes_filehdr and
+	includes_phdrs fields.
+
+Tue Nov 28 16:58:10 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h (struct elf_segment_map): Define.
+
+Tue Oct 31 15:19:36 1995  Fred Fish  <fnf@cygnus.com>
+
+	* common.h, dwarf.h, external.h, hppa.h, internal.h,
+	mips.h, ppc.h:  Protect against multiple inclusions.
+
+Thu Sep 21 13:51:58 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc.h (EF_PPC_RELOCATABLE_LIB): Add new flag bit.
+
+Fri Sep  1 15:32:17 1995  Kazumoto Kojima  <kkojima@info.kanagawa-u.ac.jp>
+
+	* mips.h: Add some definitions used on Irix 5.
+
 Tue Jun 20 10:18:28 1995  Jeff Law  (law@snake.cs.utah.edu)
 
 	* hppa.h (CPU_PA_RISC1_0): Protect from redefinitions.

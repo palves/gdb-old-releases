@@ -21,13 +21,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-/* To use this file on a particular host, configure the host with these
-   parameters in the config/h-HOST file:
-
-	HDEFINES=-DAIX386_CORE=1
-	HDEPFILES=aix386-core.o
- */
-
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
@@ -101,10 +94,7 @@ aix386_core_file_p (abfd)
 
   mergem = (struct mergem *)bfd_zalloc (abfd, sizeof (struct mergem));
   if (mergem == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return 0;
-    }
+    return 0;
 
   core = &mergem->internal_core;
 
@@ -125,7 +115,6 @@ aix386_core_file_p (abfd)
   if (core_regsec (abfd) == NULL)
     {
     loser:
-      bfd_set_error (bfd_error_no_memory);
       bfd_release (abfd, (char *)mergem);
       return 0;
     }
@@ -258,8 +247,8 @@ const bfd_target aix386_core_vec =
   {
     "aix386-core",
     bfd_target_unknown_flavour,
-    true,			/* target byte order */
-    true,			/* target headers byte order */
+    BFD_ENDIAN_BIG,		/* target byte order */
+    BFD_ENDIANG_BIG,		/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT),
@@ -268,7 +257,6 @@ const bfd_target aix386_core_vec =
     0,						/* leading underscore */
     ' ',					/* ar_pad_char */
     16,						/* ar_max_namelen */
-    3,						/* minimum alignment power */
     NO_GET, NO_GETS, NO_PUT,
     NO_GET, NO_GETS, NO_PUT,
     NO_GET, NO_GETS, NO_PUT, /* data */

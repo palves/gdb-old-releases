@@ -1,7 +1,6 @@
 Tcl Test Suite
 --------------
 
-@(#) README 1.1 94/08/09 12:59:51
 
 This directory contains a set of validation tests for the Tcl
 commands.  Each of the files whose name ends in ".test" is

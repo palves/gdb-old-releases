@@ -22,8 +22,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define N_SHARED_LIB(x) 0
 
 #define TEXT_START_ADDR 0
-#define PAGE_SIZE 4096
-#define SEGMENT_SIZE PAGE_SIZE
+#define TARGET_PAGE_SIZE 4096
+#define SEGMENT_SIZE TARGET_PAGE_SIZE
 #define DEFAULT_ARCH bfd_arch_sparc
 
 #endif
@@ -248,7 +248,7 @@ static CONST struct aout_backend_data sparclynx_aout_backend =
 
 #define TARGET_IS_BIG_ENDIAN_P
 
-#ifdef HOST_LYNX
+#ifdef LYNX_CORE
 
 char *lynx_core_file_failing_command ();
 int lynx_core_file_failing_signal ();
@@ -260,6 +260,6 @@ const bfd_target *lynx_core_file_p ();
 #define	MY_core_file_matches_executable_p lynx_core_file_matches_executable_p
 #define	MY_core_file_p lynx_core_file_p
 
-#endif /* HOST_LYNX */
+#endif /* LYNX_CORE */
 
 #include "aout-target.h"

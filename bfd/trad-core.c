@@ -18,14 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-/* To use this file on a particular host, configure the host with these
-   parameters in the config/h-HOST file:
-
-	HDEFINES=-DTRAD_CORE
-	HDEPFILES=trad-core.o
-
- */
-
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
@@ -38,15 +30,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <signal.h>
 
 #include <sys/user.h>		/* After a.out.h  */
-#if 0
-/* file.h is included by std-host.h.  So we better not try to include it
-   twice; on some systems (dpx2) it is not protected against multiple
-   inclusion.  I have checked that all the hosts which use this file
-   include sys/file.h in the hosts file.  */
-#include <sys/file.h>
-#endif
 
-#include <errno.h>
+#ifdef TRAD_HEADER
+#include TRAD_HEADER
+#endif
 
   struct trad_core_struct 
     {
@@ -54,7 +41,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
       asection *stack_section;
       asection *reg_section;
       struct user u;
-    } *rawptr;
+    };
 
 #define core_upage(bfd) (&((bfd)->tdata.trad_core_data->u))
 #define core_datasec(bfd) ((bfd)->tdata.trad_core_data->data_section)
@@ -79,6 +66,7 @@ trad_unix_core_file_p (abfd)
 {
   int val;
   struct user u;
+  struct trad_core_struct *rawptr;
 
 #ifdef TRAD_CORE_USER_OFFSET
   /* If defined, this macro is the file position of the user struct.  */
@@ -148,10 +136,8 @@ trad_unix_core_file_p (abfd)
      a single free() will free them both.  */
   rawptr = (struct trad_core_struct *)
 		bfd_zmalloc (sizeof (struct trad_core_struct));
-  if (rawptr == NULL) {
-    bfd_set_error (bfd_error_no_memory);
+  if (rawptr == NULL)
     return 0;
-  }
   
   abfd->tdata.trad_core_data = rawptr;
 
@@ -160,24 +146,15 @@ trad_unix_core_file_p (abfd)
   /* Create the sections.  This is raunchy, but bfd_close wants to free
      them separately.  */
 
-  core_stacksec(abfd) = (asection *) bfd_zmalloc (sizeof (asection));
-  if (core_stacksec (abfd) == NULL) {
-  loser:
-    bfd_set_error (bfd_error_no_memory);
-    free ((void *)rawptr);
-    return 0;
-  }
-  core_datasec (abfd) = (asection *) bfd_zmalloc (sizeof (asection));
-  if (core_datasec (abfd) == NULL) {
-  loser1:
-    free ((void *)core_stacksec (abfd));
-    goto loser;
-  }
-  core_regsec (abfd) = (asection *) bfd_zmalloc (sizeof (asection));
-  if (core_regsec (abfd) == NULL) {
-    free ((void *)core_datasec (abfd));
-    goto loser1;
-  }
+  core_stacksec(abfd) = (asection *) bfd_zalloc (abfd, sizeof (asection));
+  if (core_stacksec (abfd) == NULL)
+    return NULL;
+  core_datasec (abfd) = (asection *) bfd_zalloc (abfd, sizeof (asection));
+  if (core_datasec (abfd) == NULL)
+    return NULL;
+  core_regsec (abfd) = (asection *) bfd_zalloc (abfd, sizeof (asection));
+  if (core_regsec (abfd) == NULL)
+    return NULL;
 
   core_stacksec (abfd)->name = ".stack";
   core_datasec (abfd)->name = ".data";
@@ -223,7 +200,7 @@ trad_unix_core_file_p (abfd)
      0 is at the place pointed to by u_ar0 (by setting the vma of the start
      of the section to -u_ar0).  GDB uses this info to locate the regs,
      using minor trickery to get around the offset-or-absolute-addr problem. */
-  core_regsec (abfd)->vma = 0 - (int) u.u_ar0;
+  core_regsec (abfd)->vma = 0 - (bfd_vma) u.u_ar0;
 
   core_datasec (abfd)->filepos = NBPG * UPAGES;
   core_stacksec (abfd)->filepos = (NBPG * UPAGES) + NBPG * u.u_dsize
@@ -294,8 +271,8 @@ const bfd_target trad_core_vec =
   {
     "trad-core",
     bfd_target_unknown_flavour,
-    true,			/* target byte order */
-    true,			/* target headers byte order */
+    BFD_ENDIAN_UNKNOWN,		/* target byte order */
+    BFD_ENDIAN_UNKNOWN,		/* target headers byte order */
     (HAS_RELOC | EXEC_P |	/* object flags */
      HAS_LINENO | HAS_DEBUG |
      HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -303,7 +280,6 @@ const bfd_target trad_core_vec =
     0,			                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */
     16,							   /* ar_max_namelen */
-    3,							   /* minimum alignment power */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 64 bit data */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 32 bit data */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 16 bit data */

@@ -1,5 +1,8 @@
-#!/usr/local/bin/wish -f
-#
+#!/bin/sh
+# the next line restarts using wish \
+exec wish "$0" "$@"
+
+# square --
 # This script generates a demo application containing only
 # a "square" widget.  It's only usable if Tk has been compiled
 # with tkSquare.c and with the -DSQUARE_DEMO compiler switch.
@@ -7,6 +10,7 @@
 # 
 # Button-1 press/drag:		moves square to mouse
 # "a":				toggle size animation on/off
+#
 
 square .s
 pack .s -expand yes -fill both

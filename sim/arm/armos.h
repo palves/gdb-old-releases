@@ -56,6 +56,8 @@
 #define SWI_InstallHandler         0x70
 #define SWI_GenerateError          0x71
 
+#define SWI_Breakpoint             0x180000 /* see gdb's tm-arm.h */
+
 #define FPESTART 0x2000L
 #define FPEEND 0x8000L
 #define FPEOLDVECT FPESTART + 0x100L + 8L * 16L + 4L /* stack + 8 regs + fpsr */

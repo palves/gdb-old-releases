@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) info.n 1.3 94/12/17 16:18:12
 '\" 
 .so man.macros
-.HS info tcl 7.0
+.TH info n 7.5 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -88,17 +87,11 @@ levels mean.
 \fBinfo library\fR
 Returns the name of the library directory in which standard Tcl
 scripts are stored.
-The default value for the library is compiled into Tcl, but it
-may be overridden by setting the TCL_LIBRARY environment variable.
-If there is no TCL_LIBRARY variable and no compiled-in value then
-and error is generated.
-See the \fBlibrary\fR manual entry for details of the facilities
-provided by the Tcl script library.
-Normally each application will have its own application-specific
-script library in addition to the Tcl script library;  I suggest that
-each application set a global variable with a name like
-\fB$\fIapp\fB_library\fR (where \fIapp\fR is the application's name)
-to hold the location of that application's library directory.
+.VS
+This is actually the value of the \fBtcl_library\fR
+variable and may be changed by setting \fBtcl_library\fR.
+See the \fBtclvars\fR manual entry for more information.
+.VE
 .TP
 \fBinfo locals \fR?\fIpattern\fR?
 If \fIpattern\fR isn't specified, returns a list of all the names
@@ -109,12 +102,16 @@ will not be returned.
 If \fIpattern\fR is specified, only those names matching \fIpattern\fR
 are returned.  Matching is determined using the same rules as for
 \fBstring match\fR.
+.VS br
+.TP
+\fBinfo nameofexecutable\fR
+Returns the full path name of the binary file from which the application
+was invoked.  If Tcl was unable to identify the file, then an empty
+string is returned.
 .TP
 \fBinfo patchlevel\fR
-.VS
-Returns a decimal integer giving the current patch level for Tcl.
-The patch level is incremented for each new release or patch, and
-it uniquely identifies an official version of Tcl.
+Returns the value of the global variable \fBtcl_patchLevel\fR; see
+the \fBtclvars\fR manual entry for more information.
 .VE
 .TP
 \fBinfo procs \fR?\fIpattern\fR?
@@ -130,12 +127,18 @@ call to \fBTcl_EvalFile\fR active or there is an active invocation
 of the \fBsource\fR command), then this command returns the name
 of the innermost file being processed.  Otherwise the command returns an
 empty string.
+.VS br
+.TP
+\fBinfo sharedlibextension\fR
+Returns the extension used on this platform for the names of files
+containing shared libraries (for example, \fB.so\fR under Solaris).
+If shared libraries aren't supported on this platform then an empty
+string is returned.
 .TP
 \fBinfo tclversion\fR
-Returns the version number for this version of Tcl in the form \fIx.y\fR,
-where changes to \fIx\fR represent major changes with probable
-incompatibilities and changes to \fIy\fR represent small enhancements and
-bug fixes that retain backward compatibility.
+Returns the value of the global variable \fBtcl_version\fR; see
+the \fBtclvars\fR manual entry for more information.
+.VE
 .TP
 \fBinfo vars\fR ?\fIpattern\fR?
 If \fIpattern\fR isn't specified,

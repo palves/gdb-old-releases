@@ -4,7 +4,7 @@ XM_FILE= xm-i386v4.h
 XDEPFILES= 
 
 NAT_FILE= nm-i386v4.h
-NATDEPFILES= core-svr4.o procfs.o fork-child.o i386v4-nat.o corelow.o
+NATDEPFILES= core-regset.o procfs.o fork-child.o i386v4-nat.o corelow.o
 
 # SVR4 comes standard with terminfo, and in some implementations, the
 # old termcap descriptions are incomplete.  So ensure that we use the

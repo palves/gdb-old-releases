@@ -123,8 +123,10 @@ alpha_saved_pc_after_call PARAMS ((struct frame_info *));
    but serves to get the desired value when passed to read_register.  */
 
 #define V0_REGNUM 0		/* Function integer return value */
+#define T7_REGNUM 8		/* Return address register for OSF/1 __add* */
 #define GCC_FP_REGNUM 15	/* Used by gcc as frame register */
 #define A0_REGNUM 16		/* Loc of first arg during a subr call */
+#define T9_REGNUM 23		/* Return address register for OSF/1 __div* */
 #define T12_REGNUM 27		/* Contains start addr of current proc */
 #define SP_REGNUM 30		/* Contains address of top of stack */
 #define RA_REGNUM 26		/* Contains return address value */
@@ -401,6 +403,7 @@ typedef struct alpha_extra_func_info {
 
 #define EXTRA_FRAME_INFO \
   int localoff; \
+  int pc_reg; \
   alpha_extra_func_info_t proc_desc; \
   struct frame_saved_regs *saved_regs;
 
@@ -433,5 +436,9 @@ extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
 #ifndef VM_MIN_ADDRESS
 #define VM_MIN_ADDRESS (CORE_ADDR)0x120000000
 #endif
+
+/* If PC is in a shared library trampoline code, return the PC
+   where the function itself actually starts.  If not, return 0.  */
+#define SKIP_TRAMPOLINE_CODE(pc)  find_solib_trampoline_target (pc)
 
 #endif /* TM_ALPHA_H */

@@ -1,5 +1,3 @@
-#include "hosts/std-host.h"
-
 #define	NO_CORE_COMMAND		/* No command name in core file */
 
 #if 0

@@ -10,6 +10,7 @@
  * is provided ``as is'' without express or implied warranty.
  */
 
+
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -21,29 +22,20 @@
  * buffer overflows.
  */
 
-#undef P_tmpdir
+#ifdef P_tmpdir
+#   undef P_tmpdir
+#endif
 #define	P_tmpdir	"/tmp"
 
 char *
 tmpnam(s)
 	char *s;
 {
-	static char name[MAXPATHLEN+2];
+	static char name[50];
 	char *mktemp();
-
-#ifndef LYNX			/* The only OS I know like this. */
 
 	if (!s)
 		s = name;
 	(void)sprintf(s, "%s/XXXXXX", P_tmpdir);
 	return(mktemp(s));
-
-#else
-
-    name = mktemp (P_tmpdir "c@c%");
-    if (!s) return name;
-
-    strcpy (s, name);
-    return s;
-#endif
 }

@@ -31,18 +31,18 @@ global usestubs
 set prms_id 0
 set bug_id 0
 
-set binfile "break"
-set srcfile $binfile.c
-
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+set testfile "break"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
 }
 
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 if $usestubs {
     send "step\n"
@@ -56,28 +56,26 @@ if $usestubs {
 # test simple breakpoint setting commands
 #
 
-#
-# test deleting all breakpoints; note that gdb-init.exp provides a
-# "delete_breakpoints" proc for general use elsewhere
-#
+# Test deleting all breakpoints when there are none installed.
+# Between 4.15 and 4.16 a change made gdb stop prompting when
+# there are no user breakpoints installed.
+# Note that gdb-init.exp provides a "delete_breakpoints" proc
+# for general use elsewhere.
+
 send "delete breakpoints\n"
 expect {
     -re "Delete all breakpoints.*y or n. $"\
 	{ send "y\n"
 	    expect {
-		-re ".*$prompt $"\
-		    { send "info breakpoints\n"
-			expect {
-			    -re "No breakpoints or watchpoints..*$prompt $" { pass "Deleted all breakpoints" }
-			    -re ".*$prompt $"       { fail "Deleted all breakpoints" }
-			    timeout	            { fail "Deleted all breakpoints" }
-			}
-		    }
-		timeout	            { fail "Deleted all breakpoints" }	    
+		-re ".*$prompt $" {
+		    setup_xfail "i*86-*-sysv4*" "sparc-sun-sunos4*" "alpha-dec-osf2*"
+		    fail "Delete all breakpoints when none"
+		}
+		timeout	{ fail "Delete all breakpoints when none (timeout)" }
 	    }
 	}
-    -re ".*$prompt $"       { fail "Deleted all breakpoints" }
-    timeout	            { fail "Deleted all breakpoints" }
+    -re ".*$prompt $"       { pass "Delete all breakpoints when none" }
+    timeout	            { fail "Delete all breakpoints when none" }
 }
 
 #
@@ -278,6 +276,7 @@ proc test_clear_command {} {
 proc test_next_with_recursion {} { 
    global prompt
    global decimal
+   global noresults
 
 # FIXME: should be using runto
     send "kill\n"
@@ -349,6 +348,7 @@ proc test_next_with_recursion {} {
 			 "backtrace from factorial(5)"]
     if $result!=0 then { return }
 
+    if $noresults==1 then { return }
     # Continue until we exit.  Should not stop again.
     # Don't bother to check the output of the program, that may be
     # extremely tough for some remote systems.

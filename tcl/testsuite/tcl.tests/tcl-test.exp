@@ -28,7 +28,10 @@ if $tracelevel then {
 	}
 
 expect_before buffer_full { perror "Buffer full" }
-tcl_start
+if { [tcl_start] == "-1" } {
+    perror "Couldn't start the Tcl test shell" 0
+    return -1
+}
 
 set timeoutmsg "Timed out: Never got started, "
 set timeout 100
@@ -38,7 +41,12 @@ set timetol 0
 #
 # change to the dir where all the test live
 #
-send "cd $srcdir/../tests\r"
+if ![file exists ${srcdir}/../tests] {
+    perror "The source for the test cases is missing." 0
+    return -1
+}
+
+send "cd ${srcdir}/../tests\r"
 expect {
     -re "set VERBOSE 1\[\r\n\]*1\[\r\n\]*%" {
 	verbose "Set verbose flag for tests"
@@ -52,15 +60,25 @@ expect {
     }
     timeout {
 	perror "Couldn't change directories"
+	return -1
     }
-    }
+}
 
-send "source $file\n"
+set timetol 0
+if ![file exists ${srcdir}/../tests/${file}] {
+    perror "The source for the test case \"$file\" is missing" 0
+    return -1
+}
+send "source ${file}\n"
 expect {
     -re "source $file\[\r\n\]+\[$tprompt\]*" {
 	verbose "Sourced test $file ..."
 	set timeoutmsg "Never got to the end of "
 	exp_continue
+    }
+    "install Tcl or set your TCL_LIBRARY environment variable" {
+	perror "You need to set the TCL_LIBRARY environment variable"
+	return -1
     }
     -re "\[\r\n\]*\\+\\+\\+\\+ \[a-z\]*-\[.0-9\]* PASSED\[\r\n\]*" {
 	pass [lindex $expect_out(0,string) 1]
@@ -82,6 +100,9 @@ expect {
 	perror "Got a test case bug \"$tmp\""
 	exp_continue
     }
+    "Tests all done" {
+	verbose "Done" 2
+    }
     "*Error: bad option *" {
 	fail "Got a bad option"
     }
@@ -90,9 +111,11 @@ expect {
     }
     timeout {
 	warning "Timed out executing test case"
-	incr timetol
 	if { $timetol <= 2 } {
+	    incr timetol
 	    exp_continue
+	} else {
+	    return -1
 	}
     }
 }

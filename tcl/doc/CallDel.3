@@ -1,19 +1,16 @@
 '\"
 '\" Copyright (c) 1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) CallDel.3 1.4 94/12/17 16:17:08
 '\" 
 .so man.macros
-.HS Tcl_CallWhenDeleted tclc 7.0
+.TH Tcl_CallWhenDeleted 3 7.0 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
-.na
 Tcl_CallWhenDeleted, Tcl_DontCallWhenDeleted \- Arrange for callback when interpreter is deleted
-.ad
 .SH SYNOPSIS
 .nf
 \fB#include <tcl.h>\fR
@@ -40,17 +37,13 @@ is deleted, but the interpreter will still be valid at the
 time of the call.
 \fIProc\fR should have arguments and result that match the
 type \fBTcl_InterpDeleteProc\fR:
-.nf
-.RS
-typedef int Tcl_InterpDeleteProc(
-.RS
-ClientData \fIclientData\fR,
-Tcl_Interp *\fIinterp\fR);
-.RE
-.RE
-.fi
-The \fIclientData\fP and \fIinterp\fR parameters are
-copies of the \fIclientData\fP and \fIinterp\fR arguments given
+.CS
+typedef void Tcl_InterpDeleteProc(
+	ClientData \fIclientData\fR,
+	Tcl_Interp *\fIinterp\fR);
+.CE
+The \fIclientData\fR and \fIinterp\fR parameters are
+copies of the \fIclientData\fR and \fIinterp\fR arguments given
 to \fBTcl_CallWhenDeleted\fR.
 Typically, \fIclientData\fR points to an application-specific
 data structure that \fIproc\fR uses to perform cleanup when an

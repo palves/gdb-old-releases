@@ -5,7 +5,7 @@ XDEPFILES=
 XM_CLIBS= -lPW
 
 NAT_FILE= nm-i386sco4.h
-NATDEPFILES= infptrace.o inftarg.o fork-child.o coredep.o corelow.o i386v-nat.o
+NATDEPFILES= infptrace.o inftarg.o fork-child.o corelow.o core-aout.o i386v-nat.o
 
 # The cc compiler mishandles const in cases like 
 # struct type ** const (c_builtin_types[]) = 

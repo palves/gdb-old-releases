@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "command.h"
 #include "gdbcmd.h"
 #include "frame.h"
+#include "value.h"
 
 #include <sys/types.h>
 #include "gdb_string.h"
@@ -35,7 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <unistd.h>
 #endif
 #include "gdbcore.h"
-#include "regex.h"
+#include "gnu-regex.h"
 #include "symfile.h"
 #include "objfiles.h"
 #include "annotate.h"
@@ -306,9 +307,12 @@ mod_path (dirname, which_path)
 	  }
       }
 
+#ifndef WIN32 
+      /* On win32 h:\ is different to h: */
       if (SLASH_P (p[-1]))
 	/* Sigh. "foo/" => "foo" */
 	--p;
+#endif
       *p = '\0';
 
       while (p[-1] == '.')
@@ -341,7 +345,7 @@ mod_path (dirname, which_path)
 
       if (name[0] == '~')
 	name = tilde_expand (name);
-      else if (!SLASH_P (name[0]) && name[0] != '$') 
+      else if (!ROOTED_P (name) && name[0] != '$') 
 	  name = concat (current_directory, SLASH_STRING, name, NULL);
       else
 	name = savestring (name, p - name);
@@ -489,6 +493,10 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
   if (!path)
     path = ".";
 
+#ifdef WIN32
+  mode |= O_BINARY;
+#endif
+
   if (try_cwd_first || SLASH_P (string[0]))
     {
       int i;
@@ -497,8 +505,8 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
       if (fd >= 0)
 	goto done;
       for (i = 0; string[i]; i++)
-	if (SLASH_P(string[0]))
-	goto done;
+	if (SLASH_P (string[i]))
+	  goto done;
     }
 
   /* ./foo => foo */
@@ -517,7 +525,7 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
 	len = strlen (p);
 
       if (len == 4 && p[0] == '$' && p[1] == 'c'
-	           && p[2] == 'w' && p[3] == 'd') {
+	  && p[2] == 'w' && p[3] == 'd') {
 	/* Name is $cwd -- insert current directory name instead.  */
 	int newlen;
 
@@ -537,7 +545,7 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
 
       /* Remove trailing slashes */
       while (len > 0 && SLASH_P (filename[len-1]))
-       filename[--len] = 0;
+	filename[--len] = 0;
 
       strcat (filename+len, SLASH_STRING);
       strcat (filename, string);
@@ -728,7 +736,7 @@ find_source_lines (s, desc)
 
     /* Have to read it byte by byte to find out where the chars live */
 
-    line_charpos[0] = tell(desc);
+    line_charpos[0] = lseek (desc, 0, SEEK_CUR);
     nlines = 1;
     while (myread(desc, &c, 1)>0) 
       {
@@ -741,7 +749,7 @@ find_source_lines (s, desc)
 		  (int *) xmrealloc (s -> objfile -> md, (char *) line_charpos,
 				     sizeof (int) * lines_allocated);
 	      }
-	    line_charpos[nlines++] = tell(desc);
+	    line_charpos[nlines++] = lseek (desc, 0, SEEK_CUR);
 	  }
       }
   }

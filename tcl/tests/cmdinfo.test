@@ -1,17 +1,17 @@
 # Commands covered:  none
 #
 # This file contains a collection of tests for Tcl_GetCommandInfo,
-# Tcl_SetCommandInfo, Tcl_CreateCommand, and Tcl_DeleteCommand.
-# Sourcing this file into Tcl runs the tests and generates output for
-# errors.  No output means no errors were found.
+# Tcl_SetCommandInfo, Tcl_CreateCommand, Tcl_DeleteCommand, and
+# Tcl_NameOfCommand.  Sourcing this file into Tcl runs the tests
+# and generates output for errors.  No output means no errors were
+# found.
 #
 # Copyright (c) 1993 The Regents of the University of California.
-# Copyright (c) 1994 Sun Microsystems, Inc.
+# Copyright (c) 1994-1995 Sun Microsystems, Inc.
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) cmdinfo.test 1.2 94/12/17 16:19:46
 
 if {[info commands testcmdinfo] == {}} {
     puts "This application hasn't been compiled with the \"testcmdinfo\""
@@ -60,6 +60,14 @@ test cmdinfo-3.2 {Tcl_Get/SetCommandInfo return values} {
 test cmdinfo-3.3 {Tcl_Get/SetCommandInfo return values} {
     testcmdinfo modify non_existent
 } 0
+
+test cmdinfo-4.1 {Tcl_GetCommandName procedure} {
+    set x [testcmdtoken create x1]
+    rename x1 newName
+    set y [testcmdtoken name $x]
+    rename newName x1
+    lappend y [testcmdtoken name $x]
+} {newName x1}
 
 catch {rename x1 ""}
 concat {}

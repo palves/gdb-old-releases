@@ -17,11 +17,13 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#define TARGET_BYTE_ORDER LITTLE_ENDIAN
+#define TARGET_BYTE_ORDER_SELECTABLE
 
 /* IEEE format floating point */
 
 #define IEEE_FLOAT
+
+#define ADDR_BITS_REMOVE(val) ((val) &  0x03fffffc)
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -38,7 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    the new frame is not set up until the new function executes
    some instructions.  */
 
-#define SAVED_PC_AFTER_CALL(frame) (read_register (LR_REGNUM) & 0x03fffffc)
+#define SAVED_PC_AFTER_CALL(frame) (ADDR_BITS_REMOVE (read_register (LR_REGNUM)))
 
 /* I don't know the real values for these.  */
 #define TARGET_UPAGES UPAGES
@@ -53,6 +55,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define INNER_THAN <
 
 /* Sequence of bytes for breakpoint instruction.  */
+
+/* !!!! if we're using RDP, then we're inserting breakpoints and storing
+   their handles instread of what was in memory.  It is nice that
+   this is the same size as a handle - otherwise remote-rdp will
+   have to change. */
 
 #define BREAKPOINT {0x00,0x00,0x18,0xef} /* BKPT_SWI from <sys/ptrace.h> */
 
@@ -90,11 +97,32 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Initializer for an array of names of registers.
    There should be NUM_REGS strings in this initializer.  */
 
-#define REGISTER_NAMES \
-      { "a1", "a2", "a3", "a4",					\
-	"v1", "v2", "v3", "v4", "v5", "v6",			\
-        "sl", "fp", "ip", "sp", "lr", "pc",			\
-        "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "fps", "ps" }
+#define ORIGINAL_REGISTER_NAMES \
+{ "a1", "a2", "a3", "a4", /*  0  1  2  3 */ \
+  "v1", "v2", "v3", "v4", /*  4  5  6  7 */ \
+  "v5", "v6", "sl", "fp", /*  8  9 10 11 */ \
+  "ip", "sp", "lr", "pc", /* 12 13 14 15 */ \
+  "f0", "f1", "f2", "f3", /* 16 17 18 19 */ \
+  "f4", "f5", "f6", "f7", /* 20 21 22 23 */ \
+  "fps","ps" }            /* 24 25       */
+
+/* These names are the ones which gcc emits, and 
+   I find them less confusing.  Toggle between them
+   using the `othernames' command. */
+
+#define ADDITIONAL_REGISTER_NAMES \
+{ "r0", "r1", "r2", "r3", /*  0  1  2  3 */ \
+  "r4", "r5", "r6", "r7", /*  4  5  6  7 */ \
+  "r8", "r9", "sl", "fp", /*  8  9 10 11 */ \
+  "ip", "sp", "lr", "pc", /* 12 13 14 15 */ \
+  "f0", "f1", "f2", "f3", /* 16 17 18 19 */ \
+  "f4", "f5", "f6", "f7", /* 20 21 22 23 */ \
+  "fps","ps" }            /* 24 25       */
+
+#define REGISTER_NAMES ADDITIONAL_REGISTER_NAMES
+#ifndef REGISTER_NAMES
+#define REGISTER_NAMES ORIGINAL_REGISTER_NAMES
+#endif
 
 /* Register numbers of various important registers.
    Note that some of these values are "real" register numbers,
@@ -109,8 +137,32 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define LR_REGNUM 14		/* address to return to from a function call */
 #define PC_REGNUM 15		/* Contains program counter */
 #define F0_REGNUM 16		/* first floating point register */
+#define F7_REGNUM 23		/* last floating point register */
 #define FPS_REGNUM 24		/* floating point status register */
 #define PS_REGNUM 25		/* Contains processor status */
+
+#define INST_EQ		0x00000000
+#define INST_NE		0x10000000
+#define INST_CS		0x20000000
+#define INST_CC		0x30000000
+#define INST_MI		0x40000000
+#define INST_PL		0x50000000
+#define INST_VS		0x60000000
+#define INST_VC		0x70000000
+#define INST_HI		0x80000000
+#define INST_LS		0x90000000
+#define INST_GE		0xa0000000
+#define INST_LT		0xb0000000
+#define INST_GT		0xc0000000
+#define INST_LE		0xd0000000
+#define INST_AL		0xe0000000
+#define INST_NV		0xf0000000
+
+#define FLAG_N		0x80000000
+#define FLAG_Z		0x40000000
+#define FLAG_C		0x20000000
+#define FLAG_V		0x10000000
+
 
 
 /* Total amount of space needed to store our copies of the machine's
@@ -136,7 +188,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* Largest value REGISTER_RAW_SIZE can have.  */
 
-#define MAX_REGISTER_RAW_SIZE 12
+#define MAX_REGISTER_RAW_SIZE 12 
 
 /* Largest value REGISTER_VIRTUAL_SIZE can have.  */
 
@@ -225,13 +277,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* In the case of the ARM, the frame's nominal address is the FP value,
    and 12 bytes before comes the saved previous FP value as a 4-byte word.  */
 
+#define LOWEST_PC 0x20  /* the first 0x20 bytes are the trap vectors. */
+
 #define FRAME_CHAIN(thisframe)  \
-  ((thisframe)->pc >= 0x8000 ? \
+  ((thisframe)->pc >= LOWEST_PC ?    \
    read_memory_integer ((thisframe)->frame - 12, 4) :\
    0)
 
 #define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && (FRAME_SAVED_PC (thisframe) >= 0x8000))
+  (chain != 0 && (FRAME_SAVED_PC (thisframe) >= LOWEST_PC))
 
 /* Define other aspects of the stack frame.  */
 
@@ -251,7 +305,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Saved Pc.  */
 
 #define FRAME_SAVED_PC(FRAME) \
-  (read_memory_integer ((FRAME)->frame - 4, 4) & 0x03fffffc)
+  ADDR_BITS_REMOVE (read_memory_integer ((FRAME)->frame - 4, 4))
 
 #define FRAME_ARGS_ADDRESS(fi) (fi->frame)
 
@@ -274,7 +328,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 #define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
- arm_frame_find_saved_regs (frame_info, frame_saved_regs);
+ arm_frame_find_saved_regs (frame_info, &(frame_saved_regs));
 
 
 /* Things needed for making the inferior call functions.  */
@@ -353,3 +407,5 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
     *(char *) dummyname = (1 << nargs_in_registers) - 1 - struct_return;	\
     *(int *)((char *) dummyname + 8) =						\
 	(((fun - (pc + 16)) / 4) & 0x00ffffff) | 0xeb000000; }
+
+CORE_ADDR arm_get_next_pc PARAMS ((CORE_ADDR));

@@ -127,6 +127,8 @@ void ARMul_ConsolePrint(ARMul_State *state, const char *format, ...)
       MYwrite_char(kidmum[1], *str);
     wait_for_osreply(&junk);
   }
+
+  va_end (ap);
   return;
 
 /*   str = buf; */

@@ -1,27 +1,13 @@
 '\"
-'\" Copyright (c) 1990-1992 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1990-1994 The Regents of the University of California.
+'\" Copyright (c) 1994 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/pack.n,v 1.1 1994/06/03 23:43:26 rob Exp $ SPRITE (Berkeley)
-'/" 
+'\" 
 .so man.macros
-.HS pack tk
+.TH pack n 4.0 Tk "Tk Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -143,13 +129,14 @@ Removes each of the \fIslave\fRs from the packing order for its
 master and unmaps their windows.
 The slaves will no longer be managed by the packer.
 .TP
-\fBpack newinfo \fIslave\fR
+\fBpack info \fIslave\fR
+.VS
 Returns a list whose elements are the current configuration state of
 the slave given by \fIslave\fR in the same option-value form that
 might be specified to \fBpack configure\fR.
 The first two elements of the list are ``\fB\-in \fImaster\fR'' where
 \fImaster\fR is the slave's master.
-Starting with Tk 4.0 this option will be renamed "pack info".
+.VE
 .TP
 \fBpack propagate \fImaster\fR ?\fIboolean\fR?
 If \fIboolean\fR has a true boolean value such as \fB1\fR or \fBon\fR

@@ -1,5 +1,5 @@
 /* BFD back-end for oasys objects.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support, <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define UNDERSCORE_HACK 1
 #include "bfd.h"
 #include "sysdep.h"
+#include <ctype.h>
 #include "libbfd.h"
 #include "oasys.h"
 #include "liboasys.h"
@@ -117,10 +118,7 @@ oasys_slurp_symbol_table (abfd)
   data->strings = bfd_alloc (abfd, data->symbol_string_length);
 #endif
   if (!data->symbols || !data->strings)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
 
   dest_defined = data->symbols + abfd->symcount - 1;
 
@@ -309,10 +307,7 @@ oasys_archive_p (abfd)
     oasys_module_table_type record;
 
     if (!ar || !module)
-      {
-	bfd_set_error (bfd_error_no_memory);
-	return NULL;
-      }
+      return NULL;
 
     abfd->tdata.oasys_ar_data = ar;
     ar->module = module;
@@ -342,10 +337,7 @@ oasys_archive_p (abfd)
 
 	    module[i].name = bfd_alloc (abfd, 33);
 	    if (!module[i].name)
-	      {
-		bfd_set_error (bfd_error_no_memory);
-		return NULL;
-	      }
+	      return NULL;
 
 	    memcpy (module[i].name, record_ext.mod_name, 33);
 	    filepos +=
@@ -371,10 +363,7 @@ oasys_archive_p (abfd)
 
 	    module[i].name = bfd_alloc (abfd, record.module_name_size + 1);
 	    if (!module[i].name)
-	      {
-		bfd_set_error (bfd_error_no_memory);
-		return NULL;
-	      }
+	      return NULL;
 	    if (bfd_read ((PTR) module[i].name, 1, record.module_name_size,
 			  abfd)
 		!= record.module_name_size)
@@ -461,10 +450,7 @@ oasys_object_p (abfd)
 	      }
 	    buffer = bfd_alloc (abfd, 3);
 	    if (!buffer)
-	      {
-		bfd_set_error (bfd_error_no_memory);
-		goto fail;
-	      }
+	      goto fail;
 	    section_number = record.section.relb & RELOCATION_SECT_BITS;
 	    sprintf (buffer, "%u", section_number);
 	    s = bfd_make_section (abfd, buffer);
@@ -632,10 +618,7 @@ oasys_slurp_section_data (abfd)
 	      {
 		per->data = (bfd_byte *) bfd_zalloc (abfd, section->_raw_size);
 		if (!per->data)
-		  {
-		    bfd_set_error (bfd_error_no_memory);
-		    return false;
-		  }
+		  return false;
 		per->reloc_tail_ptr = (oasys_reloc_type **) & (section->relocation);
 		per->had_vma = false;
 		per->initialized = true;
@@ -702,10 +685,7 @@ oasys_slurp_section_data (abfd)
 				  bfd_alloc (abfd,
 					     sizeof (oasys_reloc_type));
 				  if (!r)
-				    {
-				      bfd_set_error (bfd_error_no_memory);
-				      return false;
-				    }
+				    return false;
 				  *(per->reloc_tail_ptr) = r;
 				  per->reloc_tail_ptr = &r->next;
 				  r->next = (oasys_reloc_type *) NULL;
@@ -749,10 +729,7 @@ oasys_slurp_section_data (abfd)
 				  bfd_alloc (abfd,
 					     sizeof (oasys_reloc_type));
 				  if (!r)
-				    {
-				      bfd_set_error (bfd_error_no_memory);
-				      return false;
-				    }
+				    return false;
 				  *(per->reloc_tail_ptr) = r;
 				  per->reloc_tail_ptr = &r->next;
 				  r->next = (oasys_reloc_type *) NULL;
@@ -818,10 +795,7 @@ oasys_new_section_hook (abfd, newsect)
   newsect->used_by_bfd = (PTR)
     bfd_alloc (abfd, sizeof (oasys_per_section_type));
   if (!newsect->used_by_bfd)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   oasys_per_section (newsect)->data = (bfd_byte *) NULL;
   oasys_per_section (newsect)->section = newsect;
   oasys_per_section (newsect)->offset = 0;
@@ -1037,6 +1011,9 @@ oasys_write_sections (abfd)
     {
       if (!isdigit (s->name[0]))
 	{
+	  (*_bfd_error_handler)
+	    ("%s: can not represent section `%s' in oasys",
+	     bfd_get_filename (abfd), s->name);
 	  bfd_set_error (bfd_error_nonrepresentable_section);
 	  return false;
 	}
@@ -1344,10 +1321,7 @@ oasys_set_section_contents (abfd, section, location, offset, count)
 	  oasys_per_section (section)->data =
 	    (bfd_byte *) (bfd_alloc (abfd, section->_cooked_size));
 	  if (!oasys_per_section (section)->data)
-	    {
-	      bfd_set_error (bfd_error_no_memory);
-	      return false;
-	    }
+	    return false;
 	}
       (void) memcpy ((PTR) (oasys_per_section (section)->data + offset),
 		     location,
@@ -1372,10 +1346,7 @@ oasys_make_empty_symbol (abfd)
   oasys_symbol_type *new =
   (oasys_symbol_type *) bfd_zalloc (abfd, sizeof (oasys_symbol_type));
   if (!new)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
   new->symbol.the_bfd = abfd;
   return &new->symbol;
 }
@@ -1483,6 +1454,8 @@ oasys_sizeof_headers (abfd, exec)
   ((boolean (*) \
     PARAMS ((bfd *, unsigned int, struct orl *, unsigned int, int))) \
    bfd_true)
+#define oasys_read_ar_hdr bfd_nullvoidptr
+#define oasys_get_elt_at_index _bfd_generic_get_elt_at_index
 #define oasys_update_armap_timestamp bfd_true
 
 #define oasys_bfd_is_local_label bfd_generic_is_local_label
@@ -1494,6 +1467,9 @@ oasys_sizeof_headers (abfd, exec)
 #define oasys_bfd_reloc_type_lookup _bfd_norelocs_bfd_reloc_type_lookup
 
 #define oasys_set_arch_mach bfd_default_set_arch_mach
+
+#define oasys_get_section_contents_in_window \
+  _bfd_generic_get_section_contents_in_window
 
 #define oasys_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents
@@ -1508,8 +1484,8 @@ const bfd_target oasys_vec =
 {
   "oasys",			/* name */
   bfd_target_oasys_flavour,
-  true,				/* target byte order */
-  true,				/* target headers byte order */
+  BFD_ENDIAN_BIG,		/* target byte order */
+  BFD_ENDIAN_BIG,		/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -1518,7 +1494,6 @@ const bfd_target oasys_vec =
   0,				/* leading underscore */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  1,				/* minimum alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
   bfd_getb32, bfd_getb_signed_32, bfd_putb32,
   bfd_getb16, bfd_getb_signed_16, bfd_putb16,	/* data */

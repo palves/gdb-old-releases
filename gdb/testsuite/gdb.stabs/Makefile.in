@@ -1,14 +1,15 @@
-srcdir = .
+srcdir = @srcdir@
 
-all: weird.o
+all: 
+	@echo "Nothing to be done for all..."
 
 #### host, target, and site specific Makefile frags come in here.
 
 clean mostlyclean:
-	-rm -f *.o ${PROGS} *~ core tmp.c tmp.s weird.s errs
+	-rm -f *.o *~ core tmp.c tmp.s weird.s errs
 
-distclean realclean: clean
+distclean maintainer-clean realclean: clean
 	-rm -f Makefile config.status
 
-Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
-	$(SHELL) ./config.status
+Makefile: $(srcdir)/Makefile.in $(srcdir)/configure.in
+	$(SHELL) ./config.status --recheck

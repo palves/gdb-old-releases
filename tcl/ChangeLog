@@ -1,3 +1,67 @@
+Wed Jan 24 09:41:00 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in: Replaced realclean with maintainer-clean.
+
+Mon Jan 22 14:42:47 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* tests/all: Print message when tests finished.
+
+	* Makefile.in (check): Use absolute directory when finding
+	TCL_LIBRARY.
+
+Fri Jan 19 10:35:16 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (check installcheck): Moved from unix/Makefile.in.
+
+Thu Jan 11 14:41:35 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (test): New target.
+
+Wed Jan 10 11:21:38 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (mostlyclean-recursive clean-recursive
+	distclean-recursive realclean-recursive): Separated out recursive
+	rules.
+
+Tue Jan  9 17:34:56 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in: New file.
+	* configure.in: New file.
+
+	* Updated to the tcl7.5a2 release, plus preserved our patches.
+	Entries past this point mostly likely refer to files in various
+	subdirectories.
+
+Fri Dec  1 10:18:01 1995  Rob Savoye  <rob@chinadoll.cygnus.com>
+
+	* Makefile.in, changes, configure, patchlevel.h, tcl.h,
+	tclBasic.c, tclCkalloc.c, tclCmdAH.c, tclCmdMZ.c, tclInt.h,
+	tclMain.c, tclPort.h, tclRegexp.h, tclUnixAZ.c, tclUnixStr.c,
+	tclUnixUtil.c, tclVar.c, README, compat/fixstrtod.c,
+	tests/lsort.test, testsuite/config/default.exp,
+	testsuite/tcl.tests/tcl-test.exp: Upgrade to Tcl7.4p3 to fix a few
+	bugs.
+
+Thu Nov 16 10:01:20 1995  Rob Savoye  <rob@chinadoll.cygnus.com>
+
+	* configure.in: Use AC_PROG_CC again since Cygnus configure now
+	does the sames thing.
+
+Sat Oct  7 20:51:29 1995  Michael Meissner  <meissner@cygnus.com>
+
+	* tcl.h (ckrealloc): Cast pointer argument to char * to silence
+	warnings.
+
+Sun Aug 20 00:43:51 1995  Jason Molenda  (crash@phydeaux.cygnus.com)
+
+	* configure.in: If the system has a functional strtod(), *don't*
+	provide one.
+
+Thu Aug 17 16:04:39 1995  Rob Savoye  <rob@darkstar.cygnus.com>
+
+	* tcl: Updated to the official tcl7.4 release, plus preserved
+	  our patches.
+
 Sun Aug  6 11:45:19 1995  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (distclean):  Remove config.cache & config.log

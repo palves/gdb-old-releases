@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) puts.n 1.2 94/12/17 16:18:38
 '\" 
 .so man.macros
-.HS puts tcl
+.TH puts n "" Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME

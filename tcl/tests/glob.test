@@ -10,7 +10,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) glob.test 1.28 94/12/17 16:19:59
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 

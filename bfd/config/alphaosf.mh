@@ -1,2 +1,0 @@
-HDEFINES= -DOSF_CORE
-HDEPFILES=osf-core.o

@@ -1,3 +1,0 @@
-HDEFINES = -G 4
-LDFLAGS = -lmalloc
-RANLIB=echo

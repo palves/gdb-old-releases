@@ -148,7 +148,7 @@ struct dcache_struct
   int cache_has_stuff;
 } ;
 
-int remote_dcache = 1;
+int remote_dcache = 0;
 
 DCACHE *last_cache; /* Used by info dcache */
 
@@ -357,7 +357,7 @@ dcache_peek (dcache, addr, data)
   int i;
   for (i = 0; i < sizeof (int); i++)
     {
-      if (!dcache_peek_byte (dcache, addr, dp + i))
+      if (!dcache_peek_byte (dcache, addr + i, dp + i))
 	return 0;
     }
   return 1;
@@ -435,7 +435,7 @@ dcache_poke (dcache, addr, data)
   int i;
   for (i = 0; i < sizeof (int); i++)
     {
-      if (!dcache_poke_byte (dcache, addr, dp + i))
+      if (!dcache_poke_byte (dcache, addr + i, dp + i))
 	return 0;
     }
   dcache_writeback (dcache);

@@ -1,14 +1,13 @@
 '\"
 '\" Copyright (c) 1989-1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) SplitList.3 1.14 94/12/17 16:17:31
 '\" 
 .so man.macros
-.HS Tcl_SplitList tclc
+.TH Tcl_SplitList 3 7.4 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
 Tcl_SplitList, Tcl_Merge, Tcl_ScanElement, Tcl_ConvertElement \- manipulate Tcl lists
@@ -30,7 +29,10 @@ int
 .SH ARGUMENTS
 .AS Tcl_Interp ***argvPtr
 .AP Tcl_Interp *interp out
-Interpreter to use for error reporting.
+.VS
+Interpreter to use for error reporting.  If NULL, then no error message
+is left.
+.VE
 .AP char *list in
 Pointer to a string with proper list structure.
 .AP int *argcPtr out
@@ -73,24 +75,26 @@ also holds copies of all the list elements.  It is the caller's
 responsibility to free up all of this storage.
 For example, suppose that you have called \fBTcl_SplitList\fR with
 the following code:
-.DS
-\fCint argc, code;
+.CS
+int argc, code;
 char *string;
 char **argv;
 \&...
-code = Tcl_SplitList(interp, string, &argc, &argv);\fR
-.DE
+code = Tcl_SplitList(interp, string, &argc, &argv);
+.CE
 Then you should eventually free the storage with a call like the
 following:
-.DS
-\fCfree((char *) argv);\fR
-.DE
+.CS
+free((char *) argv);
+.CE
 .PP
 \fBTcl_SplitList\fR normally returns \fBTCL_OK\fR, which means the list was
 successfully parsed.
 If there was a syntax error in \fIlist\fR, then \fBTCL_ERROR\fR is returned
 and \fIinterp->result\fR will point to an error message describing the
-problem.
+.VS
+problem (if \fIinterp\fR was not NULL).
+.VE
 If \fBTCL_ERROR\fR is returned then no memory is allocated and \fI*argvPtr\fR
 is not modified.
 .PP

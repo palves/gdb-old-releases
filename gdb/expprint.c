@@ -150,6 +150,13 @@ print_subexp (exp, pos, stream, prec)
       fputs_filtered (")", stream);
       return;
 
+    case OP_NAME:
+    case OP_EXPRSTRING:
+      nargs = longest_to_int (exp -> elts[pc + 1].longconst);
+      (*pos) += 3 + BYTES_TO_EXP_ELEM (nargs + 1);
+      fputs_filtered (&exp->elts[pc + 2].string, stream);
+      return;
+
     case OP_STRING:
       nargs = longest_to_int (exp -> elts[pc + 1].longconst);
       (*pos) += 3 + BYTES_TO_EXP_ELEM (nargs + 1);
@@ -292,6 +299,7 @@ print_subexp (exp, pos, stream, prec)
       fputs_filtered ("->", stream);
       fputs_filtered (&exp->elts[pc + 2].string, stream);
       return;
+
 
     case BINOP_SUBSCRIPT:
       print_subexp (exp, pos, stream, PREC_SUFFIX);
@@ -552,6 +560,7 @@ dump_expression (exp, stream, note)
 	  case BINOP_INCL: opcode_name = "BINOP_INCL"; break;
 	  case BINOP_EXCL: opcode_name = "BINOP_EXCL"; break;
 	  case BINOP_CONCAT: opcode_name = "BINOP_CONCAT"; break;
+	  case BINOP_RANGE: opcode_name = "BINOP_RANGE"; break;
 	  case BINOP_END: opcode_name = "BINOP_END"; break;
 	  case TERNOP_COND: opcode_name = "TERNOP_COND"; break;
 	  case TERNOP_SLICE: opcode_name = "TERNOP_SLICE"; break;

@@ -18,7 +18,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#if !defined(__GO32__) && !defined(WIN32)
+#if !defined(__GO32__) && !defined(__WIN32__) && !defined(MPW)
 #include <sys/ioctl.h>
 #include <sys/param.h>
 #include <pwd.h>
@@ -536,7 +536,7 @@ quit ()
 }
 
 
-#if defined(__GO32__)||defined(WIN32)
+#if defined(__GO32__)||defined(WINGDB)
 
 /* In the absence of signals, poll keyboard for a quit.
    Called from #define QUIT pollquit() in xm-go32.h. */
@@ -565,7 +565,7 @@ pollquit()
 
 
 #endif
-#if defined(__GO32__)||defined(WIN32)
+#if defined(__GO32__)||defined(WINGDB)
 void notice_quit()
 {
   if (kbhit ())
@@ -597,16 +597,16 @@ request_quit (signo)
      int signo;
 {
   quit_flag = 1;
-
   /* Restore the signal handler.  Harmless with BSD-style signals, needed
      for System V-style signals.  So just always do it, rather than worrying
      about USG defines and stuff like that.  */
   signal (signo, request_quit);
 
+
 #ifdef REQUEST_QUIT
   REQUEST_QUIT;
 #else
-  if (immediate_quit)
+  if (immediate_quit) 
     quit ();
 #endif
 }
@@ -1509,7 +1509,7 @@ vfprintf_maybe_filtered (stream, format, args, filter)
 void
 vfprintf_filtered (stream, format, args)
      FILE *stream;
-     char *format;
+     const char *format;
      va_list args;
 {
   vfprintf_maybe_filtered (stream, format, args, 1);
@@ -1518,7 +1518,7 @@ vfprintf_filtered (stream, format, args)
 void
 vfprintf_unfiltered (stream, format, args)
      FILE *stream;
-     char *format;
+     const char *format;
      va_list args;
 {
   char *linebuffer;
@@ -1537,7 +1537,7 @@ vfprintf_unfiltered (stream, format, args)
 
 void
 vprintf_filtered (format, args)
-     char *format;
+     const char *format;
      va_list args;
 {
   vfprintf_maybe_filtered (gdb_stdout, format, args, 1);
@@ -1545,7 +1545,7 @@ vprintf_filtered (format, args)
 
 void
 vprintf_unfiltered (format, args)
-     char *format;
+     const char *format;
      va_list args;
 {
   vfprintf_unfiltered (gdb_stdout, format, args);
@@ -1554,7 +1554,7 @@ vprintf_unfiltered (format, args)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-fprintf_filtered (FILE *stream, char *format, ...)
+fprintf_filtered (FILE *stream, const char *format, ...)
 #else
 fprintf_filtered (va_alist)
      va_dcl
@@ -1578,7 +1578,7 @@ fprintf_filtered (va_alist)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-fprintf_unfiltered (FILE *stream, char *format, ...)
+fprintf_unfiltered (FILE *stream, const char *format, ...)
 #else
 fprintf_unfiltered (va_alist)
      va_dcl
@@ -1605,7 +1605,7 @@ fprintf_unfiltered (va_alist)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-fprintfi_filtered (int spaces, FILE *stream, char *format, ...)
+fprintfi_filtered (int spaces, FILE *stream, const char *format, ...)
 #else
 fprintfi_filtered (va_alist)
      va_dcl
@@ -1634,7 +1634,7 @@ fprintfi_filtered (va_alist)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-printf_filtered (char *format, ...)
+printf_filtered (const char *format, ...)
 #else
 printf_filtered (va_alist)
      va_dcl
@@ -1657,7 +1657,7 @@ printf_filtered (va_alist)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-printf_unfiltered (char *format, ...)
+printf_unfiltered (const char *format, ...)
 #else
 printf_unfiltered (va_alist)
      va_dcl
@@ -1682,7 +1682,7 @@ printf_unfiltered (va_alist)
 /* VARARGS */
 void
 #ifdef ANSI_PROTOTYPES
-printfi_filtered (int spaces, char *format, ...)
+printfi_filtered (int spaces, const char *format, ...)
 #else
 printfi_filtered (va_alist)
      va_dcl
@@ -1711,14 +1711,14 @@ printfi_filtered (va_alist)
 
 void
 puts_filtered (string)
-     char *string;
+     const char *string;
 {
   fputs_filtered (string, gdb_stdout);
 }
 
 void
 puts_unfiltered (string)
-     char *string;
+     const char *string;
 {
   fputs_unfiltered (string, gdb_stdout);
 }
@@ -1860,7 +1860,7 @@ initialize_utils ()
   
   /* These defaults will be used if we are unable to get the correct
      values from termcap.  */
-#if defined(__GO32__) || defined(WIN32)
+#if defined(__GO32__) || defined(__WIN32__)
   lines_per_page = ScreenRows();
   chars_per_line = ScreenCols();
 #else  

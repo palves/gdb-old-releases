@@ -1,6 +1,47 @@
 		What has changed in GDB?
 	     (Organized release by release)
 
+*** Changes since GDB-4.15:
+
+* New native configurations
+
+Windows 95, Windows NT				i[345]86-*-win32
+
+* New targets
+
+ARM via RDP protocol				arm-*-*
+PowerPC via PPCBUG monitor			powerpc{,le}-*-eabi*
+PowerPC simulator				powerpc{,le}-*-eabi if building with GCC
+
+* Send break instead of ^C
+
+The standard remote protocol now includes an option to send a break
+rather than a ^C to the target in order to interrupt it.  By default,
+GDB will send ^C; to send a break, set the variable `remotebreak' to 1.
+
+* Automatic tracking of dynamic object loading (HPUX only at the moment).
+
+By default GDB will automatically keep track of objects as they are
+loaded and unloaded by the dynamic linker.  By using the command
+"set stop-on-solib-events 1" you can arrange for GDB to stop the
+inferior when shared library events occur, thus allowing you to
+set breakpoints in shared libraries which are explicitly loaded by
+the inferior.
+
+Note this feature does not work on hpux8.  On hpux9 you must link 
+/usr/lib/end.o into your program.  This feature should work automatically
+on hpux10.
+
+* Recording and replaying remote debug sessions
+
+If you set "remotelogfile" gdb will use that filename to make a
+"recording" of a remote debug session which can be replayed back to
+gdb using "gdbreplay".  See gdbserver/README for details.  This is
+useful when you have a problem with gdb while doing remote debugging.
+By making a recording of the session and sending it to the gdb
+maintainers, it is possible to recreate your problem without access to
+the remote hardware you are using.
+
 *** Changes in GDB-4.15:
 
 * Psymtabs for XCOFF

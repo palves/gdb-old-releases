@@ -2,7 +2,6 @@
 # tests.  Execute it by invoking "source all" when running tclTest
 # in this directory.
 #
-# @(#) all 1.5 94/08/10 10:26:33
 
 foreach i [lsort [glob *.test]] {
     if [string match l.*.test $i] {
@@ -10,5 +9,8 @@ foreach i [lsort [glob *.test]] {
 	continue
     }
     puts stdout $i
-    source $i
+    if [catch {source $i} msg] {
+	puts $msg
+    }	
 }
+puts "Tests all done"

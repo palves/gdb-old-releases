@@ -1,14 +1,13 @@
 '\"
 '\" Copyright (c) 1989-1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) TraceVar.3 1.16 94/12/17 16:17:36
 '\" 
 .so man.macros
-.HS Tcl_TraceVar tclc 7.4
+.TH Tcl_TraceVar 3 7.4 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
 Tcl_TraceVar, Tcl_TraceVar2, Tcl_UntraceVar, Tcl_UntraceVar2, Tcl_VarTraceInfo, Tcl_VarTraceInfo2 \- monitor accesses to a variable
@@ -40,8 +39,9 @@ Name of variable.  May refer to a scalar variable, to
 an array variable with no index, or to an array variable
 with a parenthesized index.
 .VS
-The name must be in writable memory:  Tcl may make
-temporary modifications to it while looking up the name.
+If the name references an element of an array, then it
+must be in writable memory:  Tcl will make temporary modifications 
+to it while looking up the name.
 .VE
 .AP int flags in
 OR-ed combination of the values TCL_TRACE_READS, TCL_TRACE_WRITES, and
@@ -101,19 +101,15 @@ Whenever one of the specified operations occurs on the variable,
 \fIproc\fR will be invoked.
 It should have arguments and result that match the type
 \fBTcl_VarTraceProc\fR:
-.nf
-.RS
+.CS
 typedef char *Tcl_VarTraceProc(
-.RS
-ClientData \fIclientData\fR,
-Tcl_Interp *\fIinterp\fR,
-char *\fIname1\fR,
-char *\fIname2\fR,
-int \fIflags\fR);
-.RE
-.RE
-.fi
-The \fIclientData\fP and \fIinterp\fP parameters will
+	ClientData \fIclientData\fR,
+	Tcl_Interp *\fIinterp\fR,
+	char *\fIname1\fR,
+	char *\fIname2\fR,
+	int \fIflags\fR);
+.CE
+The \fIclientData\fR and \fIinterp\fR parameters will
 have the same values as those passed to \fBTcl_TraceVar\fR when the
 trace was created.
 \fIClientData\fR typically points to an application-specific
@@ -149,7 +145,7 @@ has a trace set with \fIflags\fR, \fIproc\fR, and
 \fIclientData\fR, then the corresponding trace is removed.
 If no such trace exists, then the call to \fBTcl_UntraceVar\fR
 has no effect.
-The same bits are valid for \fIflags\fR as for calls to \fBTcl_TraceVars\fR.
+The same bits are valid for \fIflags\fR as for calls to \fBTcl_TraceVar\fR.
 .PP
 \fBTcl_VarTraceInfo\fR may be used to retrieve information about
 traces set on a given variable.
@@ -232,7 +228,7 @@ just as if the variable never existed.
 .PP
 When write tracing has been specified for a variable, the
 trace procedure will be invoked whenever the variable's value
-is modified.  This includes \fBset\fR commands\fR,
+is modified.  This includes \fBset\fR commands,
 commands that modify variables as side effects (such as
 \fBcatch\fR and \fBscan\fR), and calls to the \fBTcl_SetVar\fR
 and \fBTcl_SetVar2\fR procedures).
@@ -304,7 +300,7 @@ trace procedures will always be invoked.
 .SH "RESTRICTIONS"
 .PP
 A trace procedure can be called at any time, even when there
-is a partically-formed result in the interpreter's result area.  If
+is a partially-formed result in the interpreter's result area.  If
 the trace procedure does anything that could damage this result (such
 as calling \fBTcl_Eval\fR) then it must save the original values of
 the interpreter's \fBresult\fR and \fBfreeProc\fR fields and restore
@@ -319,13 +315,13 @@ If an undefined variable is traced and then unset, the unset will fail
 with an error (``no such variable''), but the trace
 procedure will still be invoked.
 
-.SH "TCL_TRACE_DELETED FLAG"
+.SH "TCL_TRACE_DESTROYED FLAG"
 .PP
-In an unset callback to \fIproc\fR, the TCL_TRACE_DELETED bit
+In an unset callback to \fIproc\fR, the TCL_TRACE_DESTROYED bit
 is set in \fIflags\fR if the trace is being removed as part
 of the deletion.
 Traces on a variable are always removed whenever the variable
-is deleted;  the only time TCL_TRACE_DELETED isn't set is for
+is deleted;  the only time TCL_TRACE_DESTROYED isn't set is for
 a whole-array trace invoked when only a single element of an
 array is unset.
 

@@ -151,7 +151,7 @@ OBS = utils.o $(GDBSERVER_DEPFILES) server.o remote-utils.o
 .c.o:
 	${CC} -c ${INTERNAL_CFLAGS} $<
 
-all: gdbserver
+all: gdbserver gdbreplay
 
 # Traditionally "install" depends on "all".  But it may be useful
 # not to; for example, if the user has made some trivial change to a 
@@ -204,7 +204,7 @@ distclean: clean
 	rm -f nm.h tm.h xm.h config.status
 	rm -f Makefile
 
-realclean: clean
+maintainer-clean realclean: clean
 	rm -f nm.h tm.h xm.h config.status
 	rm -f Makefile
 

@@ -18,11 +18,22 @@
 
 */
 
+#include "config.h"
+
+#include <stdio.h>
 #include <signal.h>
-#include "sysdep.h"
-#include <sys/times.h>
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #include <sys/param.h>
 #include "bfd.h"
+#include "callback.h"
 #include "remote-sim.h"
 #include "../../newlib/libc/sys/w65/sys/syscall.h"
 
@@ -362,4 +373,11 @@ sim_create_inferior (start_address, argv, env)
 
   pc = start_address;
   sim_store_register (16, (unsigned char *) &pc);
+}
+
+void
+sim_set_callbacks (ptr)
+struct host_callback_struct *ptr;
+{
+
 }

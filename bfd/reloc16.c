@@ -158,12 +158,9 @@ bfd_coff_reloc16_relax_section (abfd, i, link_info, again)
   if (reloc_size < 0)
     return false;
 
-  reloc_vector = (arelent **) malloc (reloc_size);
+  reloc_vector = (arelent **) bfd_malloc (reloc_size);
   if (!reloc_vector && reloc_size > 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
 
   /* Get the relocs and think about them */
   reloc_count =
@@ -230,12 +227,9 @@ bfd_coff_reloc16_get_relocated_section_contents(in_abfd,
     return NULL;
   
   
-  reloc_vector = (arelent **)malloc((size_t) reloc_size);
+  reloc_vector = (arelent **) bfd_malloc((size_t) reloc_size);
   if (!reloc_vector && reloc_size != 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
   
   reloc_count = bfd_canonicalize_reloc (input_bfd, 
 					input_section,
@@ -282,7 +276,7 @@ bfd_coff_reloc16_get_relocated_section_contents(in_abfd,
     
 	  if (reloc) 
 	    {
-	      bfd_coff_reloc16_extra_cases (in_abfd, link_info, link_order,
+	      bfd_coff_reloc16_extra_cases (input_bfd, link_info, link_order,
 					    reloc, data, &src_address,
 					    &dst_address);
 	    }    

@@ -1,0 +1,256 @@
+@c Copyright 1992, 1993 Free Software Foundation, Inc.
+@c This file contains the body of documentation about makeinfo;
+@c it is meant to be included from another Texinfo file.
+
+@menu
+* Formatting Control::	Controlling the appearance of the output file.
+* Invoking Makeinfo::	Command line options.
+* Validation::		What makes a `valid' info file.
+* Node Defaulting::	How Makeinfo can fill in the node fields for you.
+@end menu
+
+@node Formatting Control
+@section Controlling Paragraph Formats
+
+@cindex filling
+@cindex line breaking
+@cindex paragraphing
+In general, Makeinfo @dfn{fills} the paragraphs that it outputs to the info
+file.  Filling is the process of breaking up and connecting lines such that
+the output is nearly justified.  With Makeinfo, you can control:
+
+@itemize @bullet
+@item
+The width of each paragraph (the @dfn{fill-column}).
+@item
+The amount of indentation that the first line of the paragraph receives (the
+@dfn{paragraph-indentation}).
+@end itemize
+
+
+@node Invoking Makeinfo
+@section Command Line Options for Makeinfo
+
+The following command line options are available for Makeinfo.
+
+@cindex options, @code{makeinfo}
+@cindex @code{makeinfo} options
+@table @code
+@item -I @var{dir}
+Adds @var{dir} to the directory search list for finding files which are
+included with the @code{@@include} command.  By default, only the
+current directory is searched.
+
+@item -D @var{var}
+Defines the texinfo flag @var{var}.  This is equivalent to @samp{@@set
+@var{var}} in the texinfo file.
+
+@item -U @var{var}
+Makes the texinfo flag @var{var} undefined.  This is equivalent to
+@samp{@@clear @var{var}} in the texinfo file.
+
+@item --error-limit @var{num}
+Sets the maximum number of errors that Makeinfo will print before
+exiting (on the assumption that continuing would be useless).  The
+default number of errors printed before Makeinfo gives up on processing
+the input file is 100.
+
+@item --fill-column @var{num}
+Specifies the maximum right-hand edge of a line.  Paragraphs that are
+filled will be filled to this width.  The default value for
+@code{fill-column} is 72.
+
+@item --footnote-style @var{style}
+Sets the footnote style to @var{style}.  @var{style} should either be
+@samp{separate} to have Makeinfo create a separate node containing the
+footnotes which appear in the current node, or @samp{end} to have Makeinfo
+place the footnotes at the end of the current node.
+
+@cindex formatting without @TeX{}
+@cindex hard copy, simple
+@item --no-headers
+Suppress the generation of menus and node headers.  This option is useful
+together with the @samp{--output @var{file}} and @samp{--no-split}
+options (see below) to produce a simple formatted file (suitable for
+printing on a dumb printer) from texinfo source.  If you do not have
+@TeX{}, these two options may allow you to get readable hard copy.
+
+@cindex single output file, forcing
+@cindex splitting info files, avoiding
+@item --no-split
+Suppress the splitting stage of Makeinfo.  In general, large output files
+(where the size is greater than 70k bytes) are split into smaller subfiles,
+each one apporximately 50k bytes.  If you specify @samp{--no-split}, Makeinfo
+will not split up the output file.
+
+@item --no-pointer-validate
+@itemx --no-validate
+Suppress the validation phase of Makeinfo.  Normally, after the file is
+processed, some consistency checks are made to ensure that cross references
+can be resolved, etc.  @xref{Validation,,What Makes a Valid Info File?}.
+
+@item --no-warn
+Suppress the output of warning messages.  This does @emph{not} suppress the
+output of error messages, simply warnings.  You might want this if the file
+you are creating has texinfo examples in it, and the nodes that are
+referenced don't actually exist.
+
+@item --no-number-footnotes
+Suppress the automatic numbering of footnotes.  The default is to number
+each footnote sequentially in a single node, resetting the current
+footnote number to 1 at the start of each node.
+
+@item --output @var{file}
+@itemx -o @var{file}
+Specify that the output should be directed to @var{file} instead of the
+file name specified in the @code{@@setfilename} command found in the
+texinfo source.  @var{file} can be the special token @samp{-}, which
+specifies standard output.
+
+@item --paragraph-indent @var{num}
+Sets the paragraph indentation to @var{num}.  The value of @var{num} is
+interpreted as follows:
+
+@itemize @bullet
+@item A value of 0 (or @samp{none}) means not to change the existing
+indentation (in the source file) at the start of paragraphs.
+
+@item A value less than zero means to indent paragraph starts to column
+zero by deleting any existing indentation.
+
+@item A value greater than zero is the number of spaces to leave at the
+front of each paragraph start.
+@end itemize
+
+@item --reference-limit @var{num}
+When a node has many references in a single texinfo file, this may
+indicate an error in the structure of the file.  @var{num} is the number
+of times a given node may be referenced (with @code{@@prev},
+@code{@@next}, @code{@@note}, or appearing in an @code{@@menu}, for
+example) before Makeinfo prints a warning message about it.
+
+@item --verbose
+Causes Makeinfo to inform you as to what it is doing.  Normally Makeinfo
+only outputs text if there are errors or warnings.
+
+@item --version
+Displays the Makeinfo version number.
+@end table
+
+@node Validation
+@section What Makes a Valid Info File?
+
+@cindex valid info file
+If you have not used @w{@samp{--no-pointer-validate}} to suppress
+validation, Makeinfo will check the validity of the final info file.
+Mostly, this means ensuring that nodes you have referenced really exist.
+Here is a complete list of what is checked:
+
+@enumerate
+@item
+If a node reference such as @code{Prev}, @code{Next} or @code{Up} is a
+reference to a node in this file (i.e., not an external reference such
+as @samp{(DIR)}), then the referenced node must exist.
+
+@item
+In a given node, if the node referenced by the @code{Prev} is different
+than the node referenced by the @code{Up}, then the node referenced by
+the @code{Prev} must have a @code{Next} which references this node.
+
+@item
+Every node except @code{Top} must have an @code{Up} field.
+
+@item
+The node referenced by @code{Up} must contain a reference to this node,
+other than a @code{Next} reference.  Obviously, this includes menu items
+and followed references.
+
+@item
+If the @code{Next} reference is not the same as the @code{Next}
+reference of the @code{Up} reference, then the node referenced by
+@code{Next} must have a @code{Prev} reference pointing back at this
+node.  This rule still allows the last node in a section to point to the
+first node of the next chapter.
+@end enumerate
+
+@node Node Defaulting
+@section Defaulting the @code{Prev}, @code{Next}, and @code{Up}
+
+@cindex node pointer defaults
+If you write the @code{@@node} commands in your texinfo source file
+without @code{Next}, @code{Prev}, and @code{Up} pointers, Makeinfo will
+fill in the pointers from context (by reference to the menus in your
+source file).
+
+Although the definition of an info file allows a great deal of
+flexibility, there are some conventions that you are urged to follow.
+By letting Makeinfo default the @code{Next}, @code{Prev}, and @code{Up}
+pointers you can follow these conventions with a minimum of effort.
+
+A common error ocurrs when adding a new node to a menu; often the nodes
+which are referenced in the menu do not point to each other in the same
+order as they appear in the menu.
+
+Makeinfo node defaulting helps with this particular problem by not
+requiring any explicit information beyond adding the new node (so long
+as you do include it in a menu).
+
+The node to receive the defaulted pointers must be followed immediately by
+a sectioning command, such as @code{@@chapter} or @code{@@section}, and
+must appear in a menu that is one sectioning level or more above the
+sectioning level that this node is to have.
+
+Here is an example of how to use this feature.
+
+@smallexample
+@@setfilename default-nodes.info
+@@node Top
+@@chapter Introduction
+@@menu
+* foo::  the foo node
+* bar::  the bar node
+@@end menu
+
+@@node foo
+@@section foo
+this is the foo node.
+
+@@node bar
+@@section Bar
+This is the Bar node.
+@@bye
+
+@end smallexample
+
+@noindent
+produces
+
+@smallexample
+Info file default-nodes.info, produced by Makeinfo, -*- Text -*-
+from input file default-nodes.texinfo.
+
+File: default-nodes.info,  Node: Top
+
+Introduction
+************
+
+* Menu:
+
+* foo::  the foo node
+* bar::  the bar node
+
+File: default-nodes.info,  Node: foo,  Next: bar,  Up: Top
+
+foo
+===
+
+this is the foo node.
+
+File: default-nodes.info,  Node: bar,  Prev: foo,  Up: Top
+
+Bar
+===
+
+This is the Bar node.
+
+@end smallexample

@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) SetVar.3 1.17 94/12/17 16:17:30
 '\" 
 .so man.macros
-.HS Tcl_SetVar tclc 7.4
+.TH Tcl_SetVar 3 7.4 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
 Tcl_SetVar, Tcl_SetVar2, Tcl_GetVar, Tcl_GetVar2, Tcl_UnsetVar, Tcl_UnsetVar2 \- manipulate Tcl variables
@@ -41,8 +40,9 @@ Interpreter containing variable.
 Name of variable.  May refer to a scalar variable or an element of
 an array variable.
 .VS
-The name must be in writable memory:  Tcl may make
-temporary modifications to it while looking up the name.
+If the name references an element of an array, then it
+must be in writable memory:  Tcl will make temporary modifications 
+to it while looking up the name.
 .VE
 .AP char *newValue in
 New value for variable.
@@ -93,23 +93,27 @@ The \fIflags\fR argument may be used to specify any of several
 options to the procedures.
 It consists of an OR-ed combination of any of the following
 bits:
-.IP TCL_GLOBAL_ONLY
+.TP
+\fBTCL_GLOBAL_ONLY\fR
 Under normal circumstances the procedures look up variables
 at the current level of procedure call for \fIinterp\fR, or
 at global level if there is no call active.
 However, if this bit is set in \fIflags\fR then the variable
 is looked up at global level even if there is a procedure
 call active.
-.IP TCL_LEAVE_ERR_MSG
+.TP
+\fBTCL_LEAVE_ERR_MSG\fR
 If an error is returned and this bit is set in \fIflags\fR, then
 an error message will be left in \fI\%interp->result\fR.  If this
 flag bit isn't set then no error message is left (\fI\%interp->result\fR
 will not be modified).
-.IP TCL_APPEND_VALUE
+.TP
+\fBTCL_APPEND_VALUE\fR
 If this bit is set then \fInewValue\fR is appended to the current
 value, instead of replacing it.
 If the variable is currently undefined, then this bit is ignored.
-.IP TCL_LIST_ELEMENT
+.TP
+\fBTCL_LIST_ELEMENT\fR
 If this bit is set, then \fInewValue\fR is converted to a valid
 Tcl list element before setting (or appending to) the variable.
 A separator space is appended before the new list element unless

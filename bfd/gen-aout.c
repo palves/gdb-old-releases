@@ -69,10 +69,10 @@ main (argc, argv)
     page_size = PAGSIZ;
 #endif
   if (page_size != 0)
-    printf("#define PAGE_SIZE %d\n", page_size);
+    printf("#define TARGET_PAGE_SIZE %d\n", page_size);
   else
-    printf("/* #define PAGE_SIZE ??? */\n");
-  printf("#define SEGMENT_SIZE PAGE_SIZE\n");
+    printf("/* #define TARGET_PAGE_SIZE ??? */\n");
+  printf("#define SEGMENT_SIZE TARGET_PAGE_SIZE\n");
 
 #ifdef vax
   arch = "vax";

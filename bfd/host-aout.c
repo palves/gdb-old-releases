@@ -36,14 +36,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
    in the ./hosts/h-systemname.h file.  */
 
+#ifdef TRAD_HEADER
+#include TRAD_HEADER
+#endif
+
 #ifdef			HOST_PAGE_SIZE
-#define	PAGE_SIZE	HOST_PAGE_SIZE
+#define	TARGET_PAGE_SIZE	HOST_PAGE_SIZE
 #endif
 
 #ifdef			HOST_SEGMENT_SIZE
 #define	SEGMENT_SIZE	HOST_SEGMENT_SIZE
 #else
-#define	SEGMENT_SIZE	PAGE_SIZE
+#define	SEGMENT_SIZE	TARGET_PAGE_SIZE
 #endif
 
 #ifdef			HOST_TEXT_START_ADDR

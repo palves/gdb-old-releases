@@ -3,7 +3,6 @@
 # Default system startup file for Tcl-based applications.  Defines
 # "unknown" procedure and auto-load facilities.
 #
-# @(#) init.tcl 1.35 94/12/17 16:22:04
 #
 # Copyright (c) 1991-1993 The Regents of the University of California.
 # Copyright (c) 1994 Sun Microsystems, Inc.
@@ -12,7 +11,13 @@
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
 
-set auto_path [info library]
+set auto_path [list [info library]]
+if {[info commands exec] == ""} {
+    # Some machines, such as the Macintosh, do not have exec 
+    set auto_noexec 1
+}
+set errorCode ""
+set errorInfo ""
 
 # unknown:
 # Invoked when a Tcl command is invoked that doesn't exist in the
@@ -33,6 +38,12 @@ proc unknown args {
     global auto_noexec auto_noload env unknown_pending tcl_interactive
     global errorCode errorInfo
 
+    # Save the values of errorCode and errorInfo variables, since they
+    # may get modified if caught errors occur below.  The variables will
+    # be restored just before re-executing the missing command.
+
+    set savedErrorCode $errorCode
+    set savedErrorInfo $errorInfo
     set name [lindex $args 0]
     if ![info exists auto_noload] {
 	#
@@ -55,6 +66,8 @@ proc unknown args {
 	    unset unknown_pending
 	}
 	if $msg {
+	    set errorCode $savedErrorCode
+	    set errorInfo $savedErrorInfo
 	    set code [catch {uplevel $args} msg]
 	    if {$code ==  1} {
 		#
@@ -71,12 +84,17 @@ proc unknown args {
 	    }
 	}
     }
-    if {([info level] == 1) && ([info script] == "") && $tcl_interactive} {
+    if {([info level] == 1) && ([info script] == "") \
+	    && [info exists tcl_interactive] && $tcl_interactive} {
 	if ![info exists auto_noexec] {
 	    if [auto_execok $name] {
+		set errorCode $savedErrorCode
+		set errorInfo $savedErrorInfo
 		return [uplevel exec >&@stdout <@stdin $args]
 	    }
 	}
+	set errorCode $savedErrorCode
+	set errorInfo $savedErrorInfo
 	if {$name == "!!"} {
 	    return [uplevel {history redo}]
 	}
@@ -242,7 +260,7 @@ proc auto_mkindex {dir args} {
 	    while {[gets $f line] >= 0} {
 		if [regexp {^proc[ 	]+([^ 	]*)} $line match procName] {
 		    append index "set [list auto_index($procName)]"
-		    append index " \"source \$dir/$file\"\n"
+		    append index " \"source {\$dir/$file}\"\n"
 		}
 	    }
 	    close $f
@@ -255,8 +273,18 @@ proc auto_mkindex {dir args} {
 	    error $msg $info $code
 	}
     }
-    set f [open tclIndex w]
-    puts $f $index nonewline
-    close $f
-    cd $oldDir
+    set f ""
+    set error [catch {
+	set f [open tclIndex w]
+	puts $f $index nonewline
+	close $f
+	cd $oldDir
+    } msg]
+    if $error {
+	set code $errorCode
+	set info $errorInfo
+	catch {close $f}
+	cd $oldDir
+	error $msg $info $code
+    }
 }

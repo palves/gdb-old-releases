@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) list.n 1.3 94/12/17 16:18:24
 '\" 
 .so man.macros
-.HS list tcl
+.TH list n "" Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -33,17 +32,17 @@ its arguments.  \fBList\fR produces slightly different results than
 \fBconcat\fR:  \fBconcat\fR removes one level of grouping before forming
 the list, while \fBlist\fR works directly from the original arguments.
 For example, the command
-.DS
-\fBlist a b {c d e} {f {g h}}
-.DE
+.CS
+\fBlist a b {c d e} {f {g h}}\fR
+.CE
 will return
-.DS
-\fBa b {c d e} {f {g h}}
-.DE
+.CS
+\fBa b {c d e} {f {g h}}\fR
+.CE
 while \fBconcat\fR with the same arguments will return
-.DS
+.CS
 \fBa b c d e f {g h}\fR
-.DE
+.CE
 
 .SH KEYWORDS
 element, list

@@ -194,6 +194,7 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(srcdir)/../cpu-i960.c		\
 	$(srcdir)/../archures.c		\
 	$(srcdir)/../elfcode.h		\
+	$(srcdir)/proto.str		\
 	$(MKDOC)
 	cat $(srcdir)/../libbfd-in.h >libbfd.h 
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../init.c >>libbfd.h
@@ -207,7 +208,8 @@ libbfd.h: $(srcdir)/../libbfd-in.h	\
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../elfcode.h >>libbfd.h
 
 libcoff.h: $(srcdir)/../libcoff-in.h	\
-	$(srcdir)/../coffcode.h \
+	$(srcdir)/../coffcode.h		\
+	$(srcdir)/proto.str		\
 	$(MKDOC)
 	cat $(srcdir)/../libcoff-in.h >libcoff.h
 	$(MKDOC) -i -f $(srcdir)/proto.str  < $(srcdir)/../coffcode.h >>libcoff.h
@@ -225,6 +227,7 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	$(srcdir)/../corefile.c		\
 	$(srcdir)/../targets.c		\
 	$(srcdir)/../format.c		\
+	$(srcdir)/proto.str		\
 	$(MKDOC)
 	cat $(srcdir)/../bfd-in.h >bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../init.c >>bfd.h
@@ -239,6 +242,9 @@ bfd.h: $(srcdir)/../bfd-in.h 		\
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../corefile.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../targets.c >>bfd.h
 	$(MKDOC) -f $(srcdir)/proto.str<$(srcdir)/../format.c >>bfd.h	
+	echo "#ifdef __cplusplus" >>bfd.h
+	echo "}" >>bfd.h
+	echo "#endif" >>bfd.h
 	echo "#endif" >>bfd.h
 
 
@@ -254,7 +260,7 @@ clean: mostlyclean
 distclean: clean
 	rm -f Makefile config.status
 
-realclean: clean
+maintainer-clean realclean: clean
 	rm -f Makefile config.status
 
 bfd.info: $(DOCFILES) bfdsumm.texi bfd.texinfo
@@ -301,5 +307,5 @@ de-stage3: force
 force:
 
 Makefile: $(srcdir)/Makefile.in
-	cd .. && $(SHELL) ./config.status
+	cd .. && CONFIG_FILES=doc/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 

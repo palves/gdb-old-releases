@@ -1,17 +1,19 @@
 #### host, target, and site specific Makefile frags come in here.
 
-srcdir = .
-CFLAGS = -g
+srcdir = @srcdir@
 
 .PHONY: all clean mostlyclean distclean realclean
 
-all: $(EXECUTABLES)
+all: 
+	@echo "Nothing to be done for all..."	
 
 clean mostlyclean:
-	-rm -f *.o $(EXECUTABLES) *.diff *~ *.bad core foo twice-tmp.c errs
+	-rm -f *.o *.diff *~ *.bad core sh3 hppa
 
-distclean realclean: clean
+distclean maintainer-clean realclean: clean
 	-rm -f Makefile config.status
 
-Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
-	$(SHELL) ./config.status
+Makefile: $(srcdir)/Makefile.in $(srcdir)/configure.in
+	$(SHELL) ./config.status --recheck
+
+

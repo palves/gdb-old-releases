@@ -204,10 +204,8 @@ b_out_mkobject (abfd)
   struct bout_data_struct *rawptr;
 
   rawptr = (struct bout_data_struct *) bfd_zalloc (abfd, sizeof (struct bout_data_struct));
-  if (rawptr == NULL) {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+  if (rawptr == NULL)
+    return false;
 
   abfd->tdata.bout_data = rawptr;
   exec_hdr (abfd) = &rawptr->e;
@@ -502,16 +500,13 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
     return false;
   count = reloc_size / sizeof (struct relocation_info);
 
-  relocs = (struct relocation_info *) malloc (reloc_size);
-  if (!relocs && reloc_size != 0) {
-    bfd_set_error (bfd_error_no_memory);
+  relocs = (struct relocation_info *) bfd_malloc (reloc_size);
+  if (!relocs && reloc_size != 0)
     return false;
-  }
-  reloc_cache = (arelent *) malloc ((count+1) * sizeof (arelent));
+  reloc_cache = (arelent *) bfd_malloc ((count+1) * sizeof (arelent));
   if (!reloc_cache) {
     if (relocs != NULL)
       free ((char*)relocs);
-    bfd_set_error (bfd_error_no_memory);
     return false;
   }
 
@@ -524,7 +519,7 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
 
 
 
-  if (abfd->xvec->header_byteorder_big_p) {
+  if (bfd_header_big_endian (abfd)) {
     /* big-endian bit field allocation order */
     pcrel_mask  = 0x80;
     extern_mask = 0x10;
@@ -550,7 +545,7 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
     unsigned int symnum;
     cache_ptr->address = bfd_h_get_32 (abfd, raw + 0);
     cache_ptr->howto = 0;
-    if (abfd->xvec->header_byteorder_big_p)
+    if (bfd_header_big_endian (abfd))
     {
       symnum = (raw[4] << 16) | (raw[5] << 8) | raw[6];
     }
@@ -700,13 +695,11 @@ b_out_squirt_out_relocs (abfd, section)
   int extern_mask, pcrel_mask,  len_2, callj_mask;
   if (count == 0) return true;
   generic   = section->orelocation;
-  native = ((struct relocation_info *) malloc (natsize));
-  if (!native && natsize != 0) {
-    bfd_set_error (bfd_error_no_memory);
+  native = ((struct relocation_info *) bfd_malloc (natsize));
+  if (!native && natsize != 0)
     return false;
-  }
 
-  if (abfd->xvec->header_byteorder_big_p)
+  if (bfd_header_big_endian (abfd))
   {
     /* Big-endian bit field allocation order */
     pcrel_mask  = 0x80;
@@ -802,7 +795,7 @@ b_out_squirt_out_relocs (abfd, section)
       r_idx  = output_section->target_index;
     }
 
-    if (abfd->xvec->header_byteorder_big_p) {
+    if (bfd_header_big_endian (abfd)) {
       raw[4] = (unsigned char) (r_idx >> 16);
       raw[5] = (unsigned char) (r_idx >>  8);
       raw[6] = (unsigned char) (r_idx     );
@@ -893,10 +886,10 @@ b_out_get_reloc_upper_bound (abfd, asect)
 static boolean
 b_out_set_section_contents (abfd, section, location, offset, count)
      bfd *abfd;
-     sec_ptr section;
-     unsigned char *location;
+     asection *section;
+     PTR location;
      file_ptr offset;
-      int count;
+     bfd_size_type count;
 {
 
   if (abfd->output_has_begun == false) { /* set by bfd.c handler */
@@ -1156,12 +1149,9 @@ b_out_bfd_relax_section (abfd, i, link_info, again)
     {
       long reloc_count;
 
-      reloc_vector = (arelent **) malloc (reloc_size);
+      reloc_vector = (arelent **) bfd_malloc (reloc_size);
       if (reloc_vector == NULL && reloc_size != 0)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  goto error_return;
-	}
+	goto error_return;
 
       /* Get the relocs and think about them */
       reloc_count =
@@ -1232,12 +1222,9 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 						       data, relocateable,
 						       symbols);
 
-  reloc_vector = (arelent **) malloc (reloc_size);
+  reloc_vector = (arelent **) bfd_malloc (reloc_size);
   if (reloc_vector == NULL && reloc_size != 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      goto error_return;
-    }
+    goto error_return;
 
   input_section->reloc_done = 1;
 
@@ -1396,13 +1383,15 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 #define b_out_bfd_final_link _bfd_generic_final_link
 #define b_out_bfd_link_split_section  _bfd_generic_link_split_section
 
+#define aout_32_get_section_contents_in_window \
+  _bfd_generic_get_section_contents_in_window
 
 const bfd_target b_out_vec_big_host =
 {
   "b.out.big",			/* name */
   bfd_target_aout_flavour,
-  false,			/* data byte order is little */
-  true,				/* hdr byte order is big */
+  BFD_ENDIAN_LITTLE,		/* data byte order is little */
+  BFD_ENDIAN_BIG,		/* hdr byte order is big */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | BFD_IS_RELAXABLE ),
@@ -1410,7 +1399,6 @@ const bfd_target b_out_vec_big_host =
   '_',				/* symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  2,				/* minumum alignment power */
 
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
      bfd_getl32, bfd_getl_signed_32, bfd_putl32,
@@ -1443,8 +1431,8 @@ const bfd_target b_out_vec_little_host =
 {
   "b.out.little",		/* name */
   bfd_target_aout_flavour,
-  false,			/* data byte order is little */
-  false,			/* header byte order is little */
+  BFD_ENDIAN_LITTLE,		/* data byte order is little */
+  BFD_ENDIAN_LITTLE,		/* header byte order is little */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | BFD_IS_RELAXABLE ),
@@ -1452,7 +1440,6 @@ const bfd_target b_out_vec_little_host =
   '_',				/* symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  2,				/* minum align */
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
     bfd_getl32, bfd_getl_signed_32, bfd_putl32,
      bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */

@@ -1,21 +1,20 @@
 '\"
 '\" Copyright (c) 1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) switch.n 1.3 94/12/17 16:18:55
 '\" 
 .so man.macros
-.HS switch tcl 7.0
+.TH switch n 7.0 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
 switch \- Evaluate one of several scripts, depending on a given value
 .SH SYNOPSIS
 \fBswitch\fI \fR?\fIoptions\fR?\fI string \fIpattern body \fR?\fIpattern body \fR...?
-.br
+.sp
 \fBswitch\fI \fR?\fIoptions\fR?\fI string \fR{\fIpattern body \fR?\fIpattern body \fR...?}
 .BE
 
@@ -51,7 +50,7 @@ expression matching
 .TP 10
 \fB\-\|\-\fR
 Marks the end of options.  The argument following this one will
-be treated as \fIstring\fR even if it starts with a \fB\-.
+be treated as \fIstring\fR even if it starts with a \fB\-\fR.
 .PP
 Two syntaxes are provided for the \fIpattern\fR and \fIbody\fR arguments.
 The first uses a separate argument for each of the patterns and commands;
@@ -76,22 +75,20 @@ This feature makes it possible to share a single \fIbody\fR among
 several patterns.
 .PP
 Below are some examples of \fBswitch\fR commands:
-.DS
-\fBswitch\0abc\0a\0\-\0b\0{format 1}\0abc\0{format 2}\0default\0{format 3}
-.DE
+.CS
+\fBswitch\0abc\0a\0\-\0b\0{format 1}\0abc\0{format 2}\0default\0{format 3}\fR
+.CE
 will return \fB2\fR, 
-.DS
-.ta .5c 1c
+.CS
 \fBswitch\0\-regexp\0aaab {
 	^a.*b$\0\-
 	b\0{format 1}
 	a*\0{format 2}
 	default\0{format 3}
-}
-.DE
+}\fR
+.CE
 will return \fB1\fR, and
-.DS
-.ta .5c 1c
+.CS
 \fBswitch\0xyz {
 	a
 		\-
@@ -101,8 +98,8 @@ will return \fB1\fR, and
 		{format 2}
 	default
 		{format 3}
-}
-.DE
+}\fR
+.CE
 will return \fB3\fR.
 
 .SH KEYWORDS

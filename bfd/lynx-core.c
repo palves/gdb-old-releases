@@ -22,7 +22,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-#ifdef HOST_LYNX		/* Core files only work locally for now */
+#ifdef LYNX_CORE
+
+#include <sys/conf.h>
+#include <sys/kernel.h>
+/* sys/kernel.h should define this, but doesn't always, sigh. */
+#ifndef __LYNXOS
+#define __LYNXOS
+#endif
+#include <sys/mem.h>
+#include <sys/signal.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/itimer.h>
+#include <sys/file.h>
+#include <sys/proc.h>
 
 /* These are stored in the bfd's tdata */
 
@@ -104,10 +118,7 @@ lynx_core_file_p (abfd)
     bfd_zalloc (abfd, sizeof (struct lynx_core_struct));
 
   if (!core_hdr (abfd))
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   strncpy (core_command (abfd), pss.pname, PNMLEN + 1);
 
@@ -119,10 +130,7 @@ lynx_core_file_p (abfd)
 
   threadp = (core_st_t *)bfd_alloc (abfd, tcontext_size);
   if (!threadp)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   /* Save thread contexts */
 
@@ -147,10 +155,7 @@ lynx_core_file_p (abfd)
 			       pss.slimit,
 			       pagesize + tcontext_size);
   if (!newsect)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   newsect = make_bfd_asection (abfd, ".data",
 			       SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS,
@@ -168,10 +173,7 @@ lynx_core_file_p (abfd)
 #endif
 			       );
   if (!newsect)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
 /* And, now for the .reg/XXX pseudo sections.  Each thread has it's own
    .reg/XXX section, where XXX is the thread id (without leading zeros).  The
@@ -186,10 +188,7 @@ lynx_core_file_p (abfd)
 			       0,
 			       pagesize);
   if (!newsect)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   for (secnum = 0; secnum < pss.threadcnt; secnum++)
     {
@@ -202,10 +201,7 @@ lynx_core_file_p (abfd)
 				   0,
 				   pagesize + secnum * sizeof (core_st_t));
       if (!newsect)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return NULL;
-	}
+	return NULL;
     }
 
   return abfd->xvec;
@@ -234,4 +230,4 @@ lynx_core_file_matches_executable_p  (core_bfd, exec_bfd)
   return true;		/* FIXME, We have no way of telling at this point */
 }
 
-#endif /* HOST_LYNX */
+#endif /* LYNX_CORE */

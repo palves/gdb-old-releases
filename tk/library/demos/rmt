@@ -1,8 +1,12 @@
-#!/usr/local/bin/wish -f
-#
+#!/bin/sh
+# the next line restarts using wish \
+exec wish "$0" "$@"
+
+# rmt --
 # This script implements a simple remote-control mechanism for
 # Tk applications.  It allows you to select an application and
 # then type commands to that application.
+#
 
 wm title . "Tk Remote Controller"
 wm iconname . "Tk Remote"
@@ -31,51 +35,94 @@ frame .menu -relief raised -bd 2
 pack .menu -side top -fill x
 menubutton .menu.file -text "File" -menu .menu.file.m -underline 0
 menu .menu.file.m
-.menu.file.m add cascade -label "Select Application" -command fillAppsMenu \
+.menu.file.m add cascade -label "Select Application" \
 	-menu .menu.file.m.apps -underline 0
 .menu.file.m add command -label "Quit" -command "destroy ." -underline 0
-menu .menu.file.m.apps
+menu .menu.file.m.apps  -postcommand fillAppsMenu
 pack .menu.file -side left
-tk_menuBar .menu .menu.file
 
-# Create text window and scrollbar, and set up bindings for text
-# window to foward commands to a remote application.
+# Create text window and scrollbar.
 
-text .t -relief raised -bd 2 -yscrollcommand ".s set" -setgrid true
-scrollbar .s -relief flat -command ".t yview"
+text .t -relief sunken -bd 2 -yscrollcommand ".s set" -setgrid true
+scrollbar .s -command ".t yview"
 pack .s -side right -fill both
 pack .t -side left
 
-bind .t <1> {
-    set tk_priv(selectMode) char
-    %W mark set anchor @%x,%y
-    if {[lindex [%W config -state] 4] == "normal"} {focus %W}
+# Create a binding to forward commands to the target application,
+# plus modify many of the built-in bindings so that only information
+# in the current command can be deleted (can still set the cursor
+# earlier in the text and select and insert;  just can't delete).
+
+bindtags .t {.t Text . all}
+bind .t <Return> {
+    .t mark set insert {end - 1c}
+    .t insert insert \n
+    invoke
+    break
 }
-bind .t <Double-1> {
-    set tk_priv(selectMode) word
-    tk_textSelectTo %W @%x,%y
-}
-bind .t <Triple-1> {
-    set tk_priv(selectMode) line
-    tk_textSelectTo %W @%x,%y
-}
-bind .t <Control-u> {
-    .t delete {promptEnd + 1 char} insert
-    .t yview -pickplace insert
-}
-bind .t <Return> {.t insert insert \n; invoke}
-bind .t <BackSpace> backspace
-bind .t <Delete> backspace
-bind .t <Control-h> backspace
-bind .t <Control-v> {
-    .t insert insert [selection get]
-    .t yview -pickplace insert
-    if [string match *.0 [.t index insert]] {
-	invoke
+bind .t <Delete> {
+    catch {.t tag remove sel sel.first promptEnd}
+    if {[.t tag nextrange sel 1.0 end] == ""} {
+	if [.t compare insert < promptEnd] {
+	    break
+	}
     }
 }
+bind .t <BackSpace> {
+    catch {.t tag remove sel sel.first promptEnd}
+    if {[.t tag nextrange sel 1.0 end] == ""} {
+	if [.t compare insert <= promptEnd] {
+	    break
+	}
+    }
+}
+bind .t <Control-d> {
+    if [.t compare insert < promptEnd] {
+	break
+    }
+}
+bind .t <Control-k> {
+    if [.t compare insert < promptEnd] {
+	.t mark set insert promptEnd
+    }
+}
+bind .t <Control-t> {
+    if [.t compare insert < promptEnd] {
+	break
+    }
+}
+bind .t <Meta-d> {
+    if [.t compare insert < promptEnd] {
+	break
+    }
+}
+bind .t <Meta-BackSpace> {
+    if [.t compare insert <= promptEnd] {
+	break
+    }
+}
+bind .t <Control-h> {
+    if [.t compare insert <= promptEnd] {
+	break
+    }
+}
+auto_load tkTextInsert
+proc tkTextInsert {w s} {
+    if {$s == ""} {
+	return
+    }
+    catch {
+	if {[$w compare sel.first <= insert]
+		&& [$w compare sel.last >= insert]} {
+	    $w tag remove sel sel.first promptEnd
+	    $w delete sel.first sel.last
+	}
+    }
+    $w insert insert $s
+    $w see insert
+}
 
-.t tag configure bold -font *-Courier-Bold-R-Normal-*-120-*
+.t tag configure bold -font -*-Courier-Bold-R-Normal-*-120-*-*-*-*-*-*
 
 # The procedure below is used to print out a prompt at the
 # insertion point (which should be at the beginning of a line
@@ -84,7 +131,8 @@ bind .t <Control-v> {
 proc prompt {} {
     global app
     .t insert insert "$app: "
-    .t mark set promptEnd {insert - 1 char}
+    .t mark set promptEnd {insert}
+    .t mark gravity promptEnd left
     .t tag add bold {promptEnd linestart} promptEnd
 }
 
@@ -94,7 +142,7 @@ proc prompt {} {
 
 proc invoke {} {
     global app executing lastCommand
-    set cmd [.t get promptEnd+1c insert]
+    set cmd [.t get promptEnd insert]
     incr executing 1
     if [info complete $cmd] {
 	if {$cmd == "!!\n"} {
@@ -115,7 +163,7 @@ proc invoke {} {
 	    }
 	}
 	prompt
-	.t mark set promptEnd insert-1c
+	.t mark set promptEnd insert
     }
     incr executing -1
     .t yview -pickplace insert
@@ -131,21 +179,13 @@ proc newApp appName {
     global app executing
     set app $appName
     if !$executing {
+	.t mark gravity promptEnd right
 	.t delete "promptEnd linestart" promptEnd
-	.t insert promptEnd "$appName:"
+	.t insert promptEnd "$appName: "
 	.t tag add bold "promptEnd linestart" promptEnd
+	.t mark gravity promptEnd left
     }
     return {}
-}
-
-# The following procedure below handles backspaces, being careful not
-# to backspace over the prompt.
-
-proc backspace {} {
-    if {[.t index promptEnd] != [.t index {insert - 1 char}]} {
-	.t delete insert-1c insert
-	.t yview -pickplace insert
-    }
 }
 
 # The procedure below will fill in the applications sub-menu with a list

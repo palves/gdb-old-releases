@@ -5,12 +5,11 @@
 # generates output for errors.  No output means no errors were found.
 #
 # Copyright (c) 1991-1993 The Regents of the University of California.
-# Copyright (c) 1994 Sun Microsystems, Inc.
+# Copyright (c) 1994-1995 Sun Microsystems, Inc.
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) set.test 1.14 94/12/17 16:20:23
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
@@ -59,7 +58,7 @@ test set-2.5 {basic array operations} {
 } {1 {can't read "a(other)": no such element in array}}
 test set-2.6 {basic array operations} {
     list [catch {set a} msg] $msg
-} {1 {can't read "a": no such variable}}
+} {1 {can't read "a": variable is array}}
 test set-2.7 {basic array operations} {
     format %s $a(44)
 } 3
@@ -80,13 +79,10 @@ test set-2.11 {basic array operations} {
     list [catch {set b(123)} msg] $msg
 } {1 {can't read "b(123)": variable isn't array}}
 test set-2.12 {basic array operations} {
-    list [catch {set a} msg] $msg
-} {1 {can't read "a": no such variable}}
-test set-2.13 {basic array operations} {
     list [catch {set a 14} msg] $msg
 } {1 {can't set "a": variable is array}}
 unset a
-test set-2.14 {basic array operations} {
+test set-2.13 {basic array operations} {
     list [catch {set a(xyz)} msg] $msg
 } {1 {can't read "a(xyz)": no such variable}}
 
@@ -162,7 +158,7 @@ test set-5.4 {errors in reading variables} {
     catch {unset a}
     set a(6) 44
     list [catch {set a} msg] $msg
-} {1 {can't read "a": no such variable}}
+} {1 {can't read "a": variable is array}}
 
 # Errors and other special cases in writing variables
 
@@ -315,52 +311,64 @@ test set-8.11 {array command, exists option} {
     array exists a
 } {1}
 test set-8.12 {array command, get option} {
-    list [catch {array get a x} msg] $msg
-} {1 {wrong # args: should be "array get arrayName"}}
+    list [catch {array get} msg] $msg
+} {1 {wrong # args: should be "array option arrayName ?arg ...?"}}
 test set-8.13 {array command, get option} {
+    list [catch {array get a b c} msg] $msg
+} {1 {wrong # args: should be "array get arrayName ?pattern?"}}
+test set-8.14 {array command, get option} {
     catch {unset a}
     array get a
 } {}
-test set-8.14 {array command, get option} {
+test set-8.15 {array command, get option} {
     catch {unset a}
     set a(22) 3
     set {a(long name)} {}
     array get a
 } {22 3 {long name} {}}
-test set-8.15 {array command, get option (unset variable)} {
+test set-8.16 {array command, get option (unset variable)} {
     catch {unset a}
     set a(x) 3
     trace var a(y) w ignore
     array get a
 } {x 3}
-test set-8.16 {array command, names option} {
+test set-8.17 {array command, get option, with pattern} {
+    catch {unset a}
+    set a(x1) 3
+    set a(x2) 4
+    set a(x3) 5
+    set a(b1) 24
+    set a(b2) 25
+    array get a x*
+} {x1 3 x2 4 x3 5}
+test set-8.18 {array command, names option} {
     catch {unset a}
     set a(22) 3
     list [catch {array names a 4 5} msg] $msg
 } {1 {wrong # args: should be "array names arrayName ?pattern?"}}
-test set-8.17 {array command, names option} {
+test set-8.19 {array command, names option} {
     catch {unset a}
     array names a
 } {}
-test set-8.18 {array command, names option} {
+test set-8.20 {array command, names option} {
     catch {unset a}
     set a(22) 3; set a(Textual_name) 44; set "a(name with spaces)" xxx
     list [catch {lsort [array names a]} msg] $msg
 } {0 {22 Textual_name {name with spaces}}}
-test set-8.19 {array command, names option} {
+test set-8.21 {array command, names option} {
     catch {unset a}
     set a(22) 3; set a(33) 44;
     trace var a(xxx) w ignore
     list [catch {lsort [array names a]} msg] $msg
 } {0 {22 33}}
-test set-8.20 {array command, names option} {
+test set-8.22 {array command, names option} {
     catch {unset a}
     set a(22) 3; set a(33) 44;
     trace var a(xxx) w ignore
     set a(xxx) value
     list [catch {lsort [array names a]} msg] $msg
 } {0 {22 33 xxx}}
-test set-8.21 {array command, names option} {
+test set-8.23 {array command, names option} {
     catch {unset a}
     set a(axy) 3
     set a(bxy) 44
@@ -368,61 +376,61 @@ test set-8.21 {array command, names option} {
     set a(xxx) value
     list [lsort [array names a *xy]] [lsort [array names a]]
 } {{axy bxy} {axy bxy no xxx}}
-test set-8.22 {array command, nextelement option} {
+test set-8.24 {array command, nextelement option} {
     list [catch {array nextelement a} msg] $msg
 } {1 {wrong # args: should be "array nextelement arrayName searchId"}}
-test set-8.23 {array command, nextelement option} {
+test set-8.25 {array command, nextelement option} {
     catch {unset a}
     list [catch {array nextelement a b} msg] $msg
 } {1 {"a" isn't an array}}
-test set-8.24 {array command, set option} {
+test set-8.26 {array command, set option} {
     list [catch {array set a} msg] $msg
 } {1 {wrong # args: should be "array set arrayName list"}}
-test set-8.25 {array command, set option} {
+test set-8.27 {array command, set option} {
     list [catch {array set a 1 2} msg] $msg
 } {1 {wrong # args: should be "array set arrayName list"}}
-test set-8.26 {array command, set option} {
+test set-8.28 {array command, set option} {
     list [catch {array set a "a \{ c"} msg] $msg
 } {1 {unmatched open brace in list}}
-test set-8.27 {array command, set option} {
+test set-8.29 {array command, set option} {
     catch {unset a}
     set a 44
     list [catch {array set a {a b c d}} msg] $msg
-} {1 {can't set "a(c)": variable isn't array}}
-test set-8.28 {array command, set option} {
+} {1 {can't set "a(a)": variable isn't array}}
+test set-8.30 {array command, set option} {
     catch {unset a}
     set a(xx) yy
     array set a {b c d e}
     array get a
 } {d e xx yy b c}
-test set-8.29 {array command, size option} {
+test set-8.31 {array command, size option} {
     list [catch {array size a 4} msg] $msg
 } {1 {wrong # args: should be "array size arrayName"}}
-test set-8.30 {array command, size option} {
+test set-8.32 {array command, size option} {
     catch {unset a}
     array size a
 } {0}
-test set-8.31 {array command, size option} {
+test set-8.33 {array command, size option} {
     catch {unset a}
     set a(22) 3; set a(Textual_name) 44; set "a(name with spaces)" xxx
     list [catch {array size a} msg] $msg
 } {0 3}
-test set-8.32 {array command, size option} {
+test set-8.34 {array command, size option} {
     catch {unset a}
     set a(22) 3; set a(xx) 44; set a(y) xxx
     unset a(22) a(y) a(xx)
     list [catch {array size a} msg] $msg
 } {0 0}
-test set-8.33 {array command, size option} {
+test set-8.35 {array command, size option} {
     catch {unset a}
     set a(22) 3;
     trace var a(33) rwu ignore
     list [catch {array size a} msg] $msg
 } {0 1}
-test set-8.34 {array command, startsearch option} {
+test set-8.36 {array command, startsearch option} {
     list [catch {array startsearch a b} msg] $msg
 } {1 {wrong # args: should be "array startsearch arrayName"}}
-test set-8.35 {array command, startsearch option} {
+test set-8.37 {array command, startsearch option} {
     catch {unset a}
     list [catch {array startsearch a} msg] $msg
 } {1 {"a" isn't an array}}

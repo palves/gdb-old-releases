@@ -43,6 +43,7 @@ static reloc_howto_type *coff_i386_rtype_to_howto
 
 #define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (2)
 /* The page size is a guess based on ELF.  */
+
 #define COFF_PAGE_SIZE 0x1000
 
 /* For some reason when using i386 COFF the value stored in the .text
@@ -70,6 +71,7 @@ coff_i386_reloc (abfd, reloc_entry, symbol, data, input_section, output_bfd,
   if (output_bfd == (bfd *) NULL)
     return bfd_reloc_continue;
 
+
   if (bfd_is_com_section (symbol->section))
     {
       /* We are relocating a common symbol.  The current value in the
@@ -94,50 +96,69 @@ coff_i386_reloc (abfd, reloc_entry, symbol, data, input_section, output_bfd,
       diff = reloc_entry->addend;
     }
 
+
+#ifdef COFF_WITH_PE
+  if (reloc_entry->howto->type == 7)
+    {
+/*      diff -= coff_data(output_bfd)->link_info->pe_info.image_base.value;*/
+      exit(1);
+    }
+#endif
+
 #define DOIT(x) \
   x = ((x & ~howto->dst_mask) | (((x & howto->src_mask) + diff) & howto->dst_mask))
 
-  if (diff != 0)
-    {
-      reloc_howto_type *howto = reloc_entry->howto;
-      unsigned char *addr = (unsigned char *) data + reloc_entry->address;
+    if (diff != 0)
+      {
+	reloc_howto_type *howto = reloc_entry->howto;
+	unsigned char *addr = (unsigned char *) data + reloc_entry->address;
 
-      switch (howto->size)
-	{
-	case 0:
+	switch (howto->size)
 	  {
-	    char x = bfd_get_8 (abfd, addr);
-	    DOIT (x);
-	    bfd_put_8 (abfd, x, addr);
-	  }
-	  break;
+	  case 0:
+	    {
+	      char x = bfd_get_8 (abfd, addr);
+	      DOIT (x);
+	      bfd_put_8 (abfd, x, addr);
+	    }
+	    break;
 
-	case 1:
-	  {
-	    short x = bfd_get_16 (abfd, addr);
-	    DOIT (x);
-	    bfd_put_16 (abfd, x, addr);
-	  }
-	  break;
+	  case 1:
+	    {
+	      short x = bfd_get_16 (abfd, addr);
+	      DOIT (x);
+	      bfd_put_16 (abfd, x, addr);
+	    }
+	    break;
 
-	case 2:
-	  {
-	    long x = bfd_get_32 (abfd, addr);
-	    DOIT (x);
-	    bfd_put_32 (abfd, x, addr);
-	  }
-	  break;
+	  case 2:
+	    {
+	      long x = bfd_get_32 (abfd, addr);
+	      DOIT (x);
+	      bfd_put_32 (abfd, x, addr);
+	    }
+	    break;
 
-	default:
-	  abort ();
-	}
-    }
+	  default:
+	    abort ();
+	  }
+      }
 
   /* Now let bfd_perform_relocation finish everything up.  */
   return bfd_reloc_continue;
 }
 
+#ifdef COFF_WITH_PE
+/* Return true if this relocation should
+   appear in the output .reloc section. */
 
+static boolean in_reloc_p(abfd, howto)
+     bfd * abfd;
+     reloc_howto_type *howto;
+{
+  return ! howto->pc_relative && howto->type != R_IMAGEBASE;
+}     
+#endif
 
 #ifndef PCRELOFFSET
 #define PCRELOFFSET false
@@ -165,7 +186,7 @@ static reloc_howto_type howto_table[] =
 	 0xffffffff,            /* dst_mask */                             
 	 true),                /* pcrel_offset */
   /* {7}, */
-  HOWTO (7,               /* type */                                 
+  HOWTO (R_IMAGEBASE,            /* type */                                 
 	 0,	                /* rightshift */                           
 	 2,	                /* size (0 = byte, 1 = short, 2 = long) */ 
 	 32,	                /* bitsize */                   
@@ -173,7 +194,7 @@ static reloc_howto_type howto_table[] =
 	 0,	                /* bitpos */                               
 	 complain_overflow_bitfield, /* complain_on_overflow */
 	 coff_i386_reloc,       /* special_function */                     
-	 "dir32",               /* name */                                 
+	 "rva32",	           /* name */                                 
 	 true,	                /* partial_inplace */                      
 	 0xffffffff,            /* src_mask */                             
 	 0xffffffff,            /* dst_mask */                             
@@ -274,11 +295,6 @@ static reloc_howto_type howto_table[] =
 #define RTYPE2HOWTO(cache_ptr, dst) \
 	    (cache_ptr)->howto = howto_table + (dst)->r_type;
 
-/* On SCO Unix 3.2.2 the native assembler generates two .data
-   sections.  We handle that by renaming the second one to .data2.  It
-   does no harm to do this for any 386 COFF target.  */
-#define TWO_DATA_SECS
-
 /* For 386 COFF a STYP_NOLOAD | STYP_BSS section is part of a shared
    library.  On some other COFF targets STYP_BSS is normally
    STYP_NOLOAD.  */
@@ -353,12 +369,12 @@ coff_i386_rtype_to_howto (abfd, sec, rel, h, sym, addendp)
 
 
 #ifndef COFF_WITH_PE
- /* I think we *do* want to bypass this.  If we don't, I have seen some data
-    parameters get the wrong relcation address.  If I link two versions
-    with and without this section bypassed and then do a binary comparison,
-    the addresses which are different can be looked up in the map.  The 
-    case in which this section has been bypassed has addresses which correspond
-    to values I can find in the map */
+      /* I think we *do* want to bypass this.  If we don't, I have seen some data
+	 parameters get the wrong relcation address.  If I link two versions
+	 with and without this section bypassed and then do a binary comparison,
+	 the addresses which are different can be looked up in the map.  The 
+	 case in which this section has been bypassed has addresses which correspond
+	 to values I can find in the map */
       *addendp -= sym->n_value;
 #endif
     }
@@ -372,11 +388,41 @@ coff_i386_rtype_to_howto (abfd, sec, rel, h, sym, addendp)
 
 #ifdef COFF_WITH_PE
   if (howto->pc_relative)
-  *addendp -= 4;
+    *addendp -= 4;
+
+  if (rel->r_type == R_IMAGEBASE)
+    {
+      *addendp -= pe_data(sec->output_section->owner)->pe_opthdr.ImageBase;
+    }
 #endif
 
   return howto;
 }
+
+
+#define coff_bfd_reloc_type_lookup coff_i386_reloc_type_lookup
+
+
+static reloc_howto_type *
+coff_i386_reloc_type_lookup (abfd, code)
+     bfd *abfd;
+     bfd_reloc_code_real_type code;
+{
+  switch (code)
+    {
+    case BFD_RELOC_RVA:
+      return howto_table +R_IMAGEBASE;
+    case BFD_RELOC_32:
+      return howto_table + R_DIR32;
+    case BFD_RELOC_32_PCREL:
+      return howto_table + R_PCRLONG;
+    default:
+      BFD_FAIL ();
+      return 0;
+    }
+}
+
+
 
 #define coff_rtype_to_howto coff_i386_rtype_to_howto
 
@@ -402,8 +448,8 @@ const bfd_target
   "coff-i386",			/* name */
 #endif
   bfd_target_coff_flavour,
-  false,			/* data byte order is little */
-  false,			/* header byte order is little */
+  BFD_ENDIAN_LITTLE,		/* data byte order is little */
+  BFD_ENDIAN_LITTLE,		/* header byte order is little */
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -418,7 +464,6 @@ const bfd_target
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
 
-  2,				/* minimum alignment power */
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
      bfd_getl32, bfd_getl_signed_32, bfd_putl32,
      bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */

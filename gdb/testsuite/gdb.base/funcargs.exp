@@ -26,12 +26,18 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "funcargs"
-set srcfile $binfile.c
+set testfile "funcargs"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
+}
 
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+execute_anywhere "rm -f ${binfile}.ci"
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
+    perror "Couldn't make ${testfile}.ci file"
+    return -1
 }
 
 #
@@ -171,7 +177,6 @@ proc float_and_integral_args {} {
     send "break call2f\n" ; expect -re ".*$prompt $"
     send "break call2g\n" ; expect -re ".*$prompt $"
     send "break call2h\n" ; expect -re ".*$prompt $"
-    send "break call2i\n" ; expect -re ".*$prompt $"
 
     # Run; should stop at call2a and print actual arguments.
 
@@ -179,7 +184,7 @@ proc float_and_integral_args {} {
     # The a29k fails all of these tests, perhaps because the prologue
     # code is broken.
     setup_xfail "a29k-*-udi"
-    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" "mips-sgi-irix5*" "hppa*-*-hpux*" }
+    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" "mips-sgi-irix5*" }
     gdb_run_cmd
     expect {
 	-re ".* call2a \\(c=97 'a', f1=4, s=1, d1=5, i=2, f2=4, l=3, d2=5\\) .*$prompt $" { pass "run to call2a" }
@@ -234,6 +239,11 @@ proc float_and_integral_args {} {
     if [gdb_test "cont" ".* call2h \\(d2=5, c=97 'a', f1=4, s=1, d1=5, i=2, f2=4, l=3\\) .*" "continue to call2h"] {
 	return
     }
+
+    # monitor only allows 8 breakpoints; w89k board allows 10, so
+    # break them up into two groups.
+    delete_breakpoints
+    send "break call2i\n" ; expect -re ".*$prompt $"
 
     # Continue; should stop at call2i and print actual arguments.
     if [gdb_test "cont" ".* call2i \\(c1=97 'a', f1=4, c2=97 'a', c3=97 'a', d1=5, c4=97 'a', c5=97 'a', c6=97 'a', f2=4, s=1, c7=97 'a', d2=5\\) .*" "continue to call2i"] {
@@ -398,9 +408,6 @@ proc discard_and_shuffle {} {
     send "break call6f\n" ; expect -re ".*$prompt $"
     send "break call6g\n" ; expect -re ".*$prompt $"
     send "break call6h\n" ; expect -re ".*$prompt $"
-    send "break call6i\n" ; expect -re ".*$prompt $"
-    send "break call6j\n" ; expect -re ".*$prompt $"
-    send "break call6k\n" ; expect -re ".*$prompt $"
 
     # Run; should stop at call6a and print actual arguments.
     # Print backtrace.
@@ -416,7 +423,7 @@ proc discard_and_shuffle {} {
     }
 
     setup_xfail "rs6000-*-*"
-    if {!$gcc_compiled} then { setup_xfail "mips-sgi-irix5*" "hppa*-*-hpux*" }
+    if {!$gcc_compiled} then { setup_xfail "mips-sgi-irix5*" }
     send "backtrace 100\n"
     expect {
 	-re "backtrace 100\[\r\n\]+
@@ -595,6 +602,13 @@ $prompt $" { pass "backtrace from call6h" }
 	timeout { fail "(timeout) backtrace from call6h" ; return }
     }
 
+    # monitor only allows 8 breakpoints; w89k board allows 10, so
+    # break them up into two groups.
+    delete_breakpoints
+    send "break call6i\n" ; expect -re ".*$prompt $"
+    send "break call6j\n" ; expect -re ".*$prompt $"
+    send "break call6k\n" ; expect -re ".*$prompt $"
+
     # Continue; should stop at call6i and print actual arguments.
     # Print backtrace.
 
@@ -708,9 +722,6 @@ proc shuffle_round_robin {} {
     send "break call7f\n" ; expect -re ".*$prompt $"
     send "break call7g\n" ; expect -re ".*$prompt $"
     send "break call7h\n" ; expect -re ".*$prompt $"
-    send "break call7i\n" ; expect -re ".*$prompt $"
-    send "break call7j\n" ; expect -re ".*$prompt $"
-    send "break call7k\n" ; expect -re ".*$prompt $"
 
     # Run; should stop at call7a and print actual arguments.
     # Print backtrace.
@@ -728,7 +739,7 @@ proc shuffle_round_robin {} {
     }
 
     setup_xfail "i960-*-*" 1813
-    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" "mips-sgi-irix5*" "hppa*-*-hpux*" }
+    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" "mips-sgi-irix5*" }
     send "backtrace 100\n"
     expect {
 	-re "backtrace 100\[\r\n\]+
@@ -908,6 +919,13 @@ $prompt $" { pass "backtrace from call7h" }
 	timeout { fail "(timeout) backtrace from call7h" ; return }
     }
 
+    # monitor only allows 8 breakpoints; w89k board allows 10, so
+    # break them up into two groups.
+    delete_breakpoints
+    send "break call7i\n" ; expect -re ".*$prompt $"
+    send "break call7j\n" ; expect -re ".*$prompt $"
+    send "break call7k\n" ; expect -re ".*$prompt $"
+
     # Continue; should stop at call7i and print actual arguments.
     # Print backtrace.
 
@@ -1051,7 +1069,7 @@ proc funcargs_reload { } {
 	gdb_exit
 	gdb_start
 	gdb_reinitialize_dir $srcdir/$subdir
-	gdb_load $objdir/$subdir/$binfile
+	gdb_load ${binfile}
     }
 }
 
@@ -1247,9 +1265,9 @@ proc test_stepping_over_trampolines { } {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
-source gdb.base/funcargs.ci
+source ${binfile}.ci
 
 integral_args
 funcargs_reload

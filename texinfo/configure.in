@@ -1,0 +1,20 @@
+AC_PREREQ(2.0)
+AC_INIT(makeinfo/makeinfo.c)
+AC_PROG_GCC_TRADITIONAL
+AC_PROG_INSTALL
+AC_PROG_LN_S
+AC_ISC_POSIX
+AC_MINIX
+AC_HEADER_STDC
+AC_CHECK_HEADERS(termio.h varargs.h unistd.h string.h sys/time.h sys/fcntl.h sys/ptem.h sys/ttold.h)
+AC_CHECK_FUNCS(setvbuf getcwd bzero sigprocmask sigsetmask strerror vfprintf vsprintf)
+AC_STRUCT_TM
+AC_FUNC_SETVBUF_REVERSED
+AC_FUNC_ALLOCA
+TERMLIBS=""
+for termlib in curses termcap terminfo termlib ; do
+   AC_CHECK_LIB(${termlib}, tputs,
+     [TERMLIBS="${TERMLIBS} -l${termlib}"; break])
+done
+AC_SUBST(TERMLIBS)
+AC_OUTPUT(Makefile makeinfo/Makefile info/Makefile util/Makefile  )

@@ -1,3 +1,13 @@
+Fri Oct 27 17:47:16 1995  Niklas Hallqvist  <niklas@appli.se>
+
+	* aout64.h, host.h, hp300hpux.h, sun4.h: Changed PAGE_SIZE to
+	TARGET_PAGE_SIZE.
+
+Tue Sep 12 12:07:02 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* sun4.h (struct internal_sun4_dynamic_link): Change all fields
+	from long to unsigned long.
+
 Wed Jul 12 00:15:13 1995  Ken Raeburn  <raeburn@kr-pc.cygnus.com>
 
 	* sun4.h (PAGE_SIZE): Undefine before defining.

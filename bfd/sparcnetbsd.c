@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define BYTES_IN_WORD	4
 #define TARGET_IS_BIG_ENDIAN_P
 
-#define	PAGE_SIZE	4096
+#define	TARGET_PAGE_SIZE	4096
 #define	SEGMENT_SIZE	4096
 
 #define DEFAULT_ARCH	bfd_arch_sparc

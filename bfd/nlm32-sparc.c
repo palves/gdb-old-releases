@@ -123,7 +123,7 @@ nlm_sparc_read_reloc (abfd, sym, secp, rel)
      arelent *rel;
 {
   bfd_vma val, addend;
-  int index;
+  unsigned int index;
   unsigned int type;
   struct nlm32_sparc_reloc_ext tmp_reloc;
   asection *code_sec, *data_sec;
@@ -170,7 +170,7 @@ nlm_sparc_write_reloc (abfd, sec, rel)
 {
   bfd_vma val;
   struct nlm32_sparc_reloc_ext tmp_reloc;
-  int index;
+  unsigned int index;
   int type = -1;
   reloc_howto_type *tmp;
 
@@ -272,10 +272,7 @@ nlm_sparc_read_import (abfd, sym)
   sym -> symbol.the_bfd = abfd;
   name = bfd_alloc (abfd, symlength + 1);
   if (name == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   
   /*
    * Then read in the symbol
@@ -296,10 +293,7 @@ nlm_sparc_read_import (abfd, sym)
   nlm_relocs = ((struct nlm_relent *)
 		bfd_alloc (abfd, rcount * sizeof (struct nlm_relent)));
   if (!nlm_relocs)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   sym -> relocs = nlm_relocs;
   sym -> rcnt = 0;
   while (sym -> rcnt < rcount)
@@ -365,7 +359,7 @@ nlm_sparc_write_external (abfd, count, sym, relocs)
      asymbol *sym;
      struct reloc_and_sec *relocs;
 {
-  int i;
+  unsigned int i;
   bfd_byte len;
   unsigned char temp[NLM_TARGET_LONG_SIZE];
 

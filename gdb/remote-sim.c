@@ -34,11 +34,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdbcore.h"
 #include "remote-sim.h"
 #include "remote-utils.h"
+#include "callback.h"
 
 /* Naming convention:
 
    sim_* are the interface to the simulator (see remote-sim.h).
-
+   sim_callback_* are the stuff which the simulator can see inside GDB.
    gdbsim_* are stuff which is internal to gdb.  */
 
 /* Forward data declarations */
@@ -95,6 +96,7 @@ int regno;
     }
 }
 
+
 static void
 gdbsim_store_register (regno)
 int regno;
@@ -150,7 +152,7 @@ gdbsim_load (prog, fromtty)
   program_loaded = 1;
 
   if (sim_load (prog, fromtty) != 0)
-    gr_load_image (prog, fromtty);
+    generic_load (prog, fromtty);
 }
 
 
@@ -216,11 +218,13 @@ gdbsim_open (args, from_tty)
   if (sr_get_debug ())
     printf_filtered ("gdbsim_open: args \"%s\"\n", args ? args : "(null)");
 
+  sim_set_callbacks (&default_callback);
+  default_callback.init (&default_callback);
+
   sim_open (args);
 
   push_target (&gdbsim_ops);
   target_fetch_registers (-1);
-
   printf_filtered ("Connected to the simulator.\n");
 }
 

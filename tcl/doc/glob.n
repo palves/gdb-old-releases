@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) glob.n 1.4 94/12/17 16:18:03
 '\" 
 .so man.macros
-.HS glob tcl 7.0
+.TH glob n 7.0 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -34,7 +33,7 @@ switch an error is returned if the result list would be empty.
 .TP 15
 \fB\-\|\-\fR
 Marks the end of switches.  The argument following this one will
-be treated as a \fIpattern\fR even if it starts with a \fB\-.
+be treated as a \fIpattern\fR even if it starts with a \fB\-\fR.
 .VE
 .PP
 The \fIpattern\fR arguments may contain any of the following

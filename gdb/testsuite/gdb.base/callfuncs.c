@@ -133,6 +133,7 @@ main ()
   breakpoint();
 #endif
   malloc(1);
+  t_structs_c(struct_val1);
 }
 
 /* Functions that expect specific values to be passed and return 

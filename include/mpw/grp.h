@@ -1,5 +1,3 @@
-/* $Id: grp.h,v 1.1 1994/04/14 19:57:48 shebs Exp $ */
-
 #pragma once
 
 #include "sys/types.h"

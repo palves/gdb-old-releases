@@ -20,7 +20,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <stdio.h>
 #include "bfd.h"
 #include "tm.h"
-#include "sysdep.h"
 
 void usage();
 extern int optind;

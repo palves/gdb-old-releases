@@ -534,8 +534,8 @@ sunos4_core_file_p (abfd)
      bfd *abfd;
 {
   unsigned char longbuf[4];	/* Raw bytes of various header fields */
-  int core_size;
-  int core_mag;
+  bfd_size_type core_size;
+  unsigned long core_mag;
   struct internal_sunos_core *core;
   char *extcore;
   struct mergem
@@ -568,10 +568,7 @@ sunos4_core_file_p (abfd)
 
   mergem = (struct mergem *) bfd_zalloc (abfd, core_size + sizeof (struct mergem));
   if (mergem == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return 0;
-    }
+    return 0;
 
   extcore = mergem->external_core;
 
@@ -611,7 +608,6 @@ sunos4_core_file_p (abfd)
   if (core_stacksec (abfd) == NULL)
     {
     loser:
-      bfd_set_error (bfd_error_no_memory);
       bfd_release (abfd, (char *) mergem);
       return 0;
     }

@@ -241,7 +241,7 @@ fetch_register (regno)
  * struct ptrace_user is the first thing in the core file
  */
 
-void
+static void
 fetch_core_registers ()
 {
   register int regno;
@@ -250,7 +250,7 @@ fetch_core_registers ()
 
   for (regno = 0 ; regno < NUM_REGS; regno++) {
     if (!CANNOT_FETCH_REGISTER(regno)) {
-      val = bfd_seek (core_bfd, (file_ptr) register_addr (regno, 0), L_SET);
+      val = bfd_seek (core_bfd, (file_ptr) register_addr (regno, 0), SEEK_SET);
       if (val < 0 || (val = bfd_read (buf, sizeof buf, 1, core_bfd)) < 0) {
         char * buffer = (char *) alloca (strlen (reg_names[regno]) + 35);
         strcpy (buffer, "Reading core register ");
@@ -305,4 +305,19 @@ register_addr (regno,blockend)
   }
 }
 
+
+/* Register that we are able to handle ultra3 core file formats.
+   FIXME: is this really bfd_target_unknown_flavour? */
 
+static struct core_fns ultra3_core_fns =
+{
+  bfd_target_unknown_flavour,
+  fetch_core_registers,
+  NULL
+};
+
+void
+_initialize_core_ultra3 ()
+{
+  add_core_fns (&ultra3_core_fns);
+}

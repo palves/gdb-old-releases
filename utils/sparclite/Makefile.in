@@ -128,7 +128,7 @@ clean:		mostlyclean
 distclean:	clean
 	rm -f config.log config.cache
 
-realclean:	distclean
+maintainer-clean realclean:	distclean
 
 Makefile: Makefile.in config.status
 	$(SHELL) config.status

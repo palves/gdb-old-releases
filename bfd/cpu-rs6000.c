@@ -27,7 +27,33 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-static bfd_arch_info_type arch_info_struct = 
+/* The RS/6000 architecture is compatible with the PowerPC common
+   architecture.  */
+
+static const bfd_arch_info_type *rs6000_compatible
+  PARAMS ((const bfd_arch_info_type *, const bfd_arch_info_type *));
+
+static const bfd_arch_info_type *
+rs6000_compatible (a,b)
+     const bfd_arch_info_type *a;
+     const bfd_arch_info_type *b;
+{
+  BFD_ASSERT (a->arch == bfd_arch_rs6000);
+  switch (b->arch)
+    {
+    default:
+      return NULL;
+    case bfd_arch_rs6000:
+      return bfd_default_compatible (a, b);
+    case bfd_arch_powerpc:
+      if (b->mach == 0)
+	return b;
+      return NULL;
+    }
+  /*NOTREACHED*/
+}
+
+const bfd_arch_info_type bfd_rs6000_arch =
   {
     32,	/* 32 bits in a word */
     32,	/* 32 bits in an address */
@@ -38,13 +64,7 @@ static bfd_arch_info_type arch_info_struct =
     "rs6000:6000",
     3,
     true, /* the one and only */
-    bfd_default_compatible, 
-    bfd_default_scan ,
+    rs6000_compatible,
+    bfd_default_scan,
     0,
   };
-
-void
-bfd_rs6000_arch ()
-{
-  bfd_arch_linkin(&arch_info_struct);
-}

@@ -31,7 +31,13 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile $objdir/$subdir/interrupt
+set testfile interrupt
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
+}
 
 if $noinferiorio {
     verbose "Skipping interrupt.exp because of noinferiorio."
@@ -88,11 +94,10 @@ if ![file exists $binfile] then {
 		# don't use PRSABORT), but apparently also happens on
 		# other machines as well.
 
-		setup_xfail "sparc-*-solaris2*"
+		setup_xfail "sparc*-*-solaris2*"
 		setup_xfail "mips-*-ultrix*"
 		setup_xfail "hppa*-*-*"
 		setup_xfail "i386*-*-bsd*"
-		setup_xfail "i386*-*-freebsd*"
 		setup_xfail "*-*-sysv4*"
 		setup_xfail "vax-*-*"
 		setup_xfail "alpha-*-*"

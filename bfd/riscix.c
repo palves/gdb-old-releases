@@ -1,5 +1,5 @@
 /* BFD back-end for RISC iX (Acorn, arm) binaries.
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rwe@pegasus.esprit.ec.org)
    
 This file is part of BFD, the Binary File Descriptor library.
@@ -57,7 +57,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Only a pure OMAGIC file has the minimal header */
 #define N_TXTOFF(x)                     \
  ((x).a_info == OMAGIC ? 32             \
-  : (N_MAGIC(x) == ZMAGIC) ? PAGE_SIZE  \
+  : (N_MAGIC(x) == ZMAGIC) ? TARGET_PAGE_SIZE  \
   : 999)
 
 #define N_TXTADDR(x)                                                         \
@@ -66,7 +66,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
       text segments of the shared library programs.  Without looking this    \
       up we can't know exactly what the address will be.  A reasonable guess \
       is that a_entry will be in the first page of the executable.  */       \
-   : N_SHARED_LIB(x) ? ((x).a_entry & ~(PAGE_SIZE - 1))                      \
+   : N_SHARED_LIB(x) ? ((x).a_entry & ~(TARGET_PAGE_SIZE - 1))                      \
    : TEXT_START_ADDR)
 
 #define N_SYMOFF(x) \
@@ -75,8 +75,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define N_STROFF(x) (N_SYMOFF (x) + (x).a_syms)
 
 #define TEXT_START_ADDR 32768
-#define PAGE_SIZE 32768
-#define SEGMENT_SIZE PAGE_SIZE
+#define TARGET_PAGE_SIZE 32768
+#define SEGMENT_SIZE TARGET_PAGE_SIZE
 #define DEFAULT_ARCH bfd_arch_arm
 
 #define MY(OP) CAT(riscix_,OP)
@@ -349,7 +349,7 @@ riscix_swap_std_reloc_out (abfd, g, natptr)
     }
 
   /* now the fun stuff */
-  if (abfd->xvec->header_byteorder_big_p != false)
+  if (bfd_header_big_endian (abfd))
     {
       natptr->r_index[0] = r_index >> 16;
       natptr->r_index[1] = r_index >> 8;
@@ -390,10 +390,8 @@ riscix_squirt_out_relocs (abfd, section)
   each_size = obj_reloc_entry_size (abfd);
   natsize = each_size * count;
   native = (unsigned char *) bfd_zalloc (abfd, natsize);
-  if (!native) {
-    bfd_set_error (bfd_error_no_memory);
+  if (!native)
     return false;
-  }
 
   generic = section->orelocation;
 
@@ -479,10 +477,8 @@ riscix_some_aout_object_p (abfd, execp, callback_to_real_object_p)
   rawptr = ((struct aout_data_struct  *) 
 	    bfd_zalloc (abfd, sizeof (struct aout_data_struct )));
 
-  if (rawptr == NULL) {
-    bfd_set_error (bfd_error_no_memory);
+  if (rawptr == NULL)
     return 0;
-  }
 
   oldrawptr = abfd->tdata.aout_data;
   abfd->tdata.aout_data = rawptr;
@@ -584,7 +580,8 @@ riscix_some_aout_object_p (abfd, execp, callback_to_real_object_p)
    */
   {
     struct stat stat_buf;
-    if (abfd->iostream
+    if (abfd->iostream != NULL
+	&& (abfd->flags & BFD_IN_MEMORY) == 0
         && (fstat(fileno((FILE *) (abfd->iostream)), &stat_buf) == 0)
         && ((stat_buf.st_mode & 0111) != 0))
       abfd->flags |= EXEC_P;

@@ -54,9 +54,9 @@ extern int rl_pending_input;
 extern int _rl_meta_flag;
 
 #ifdef __STDC__
-extern void _rl_output_character_function (int);
+extern int _rl_output_character_function (int);
 #else
-extern void _rl_output_character_function ();
+extern int _rl_output_character_function ();
 #endif
 
 extern void free_undo_list ();
@@ -70,10 +70,6 @@ extern void free_undo_list ();
 /* This typedef is equivalant to the one for Function; it allows us
    to say SigHandler *foo = signal (SIGKILL, SIG_IGN); */
 typedef sighandler SigHandler ();
-
-#if defined (__GO32__)
-#  undef HANDLE_SIGNALS
-#endif /* __GO32__ */
 
 /* **************************************************************** */
 /*					        		    */

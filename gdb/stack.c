@@ -1,5 +1,5 @@
 /* Print and select stack frames for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -18,8 +18,9 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "gdb_string.h"
+
 #include "defs.h"
+#include "gdb_string.h"
 #include "value.h"
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -33,6 +34,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "demangle.h"
 #include "inferior.h"
 #include "annotate.h"
+#include "symfile.h"
+#include "objfiles.h"
 
 static void return_command PARAMS ((char *, int));
 
@@ -141,7 +144,7 @@ print_stack_frame (fi, level, source)
   args.source = source;
   args.args = 1;
 
-  catch_errors (print_stack_frame_stub, (char *)&args, "", RETURN_MASK_ERROR);
+  catch_errors (print_stack_frame_stub, (char *)&args, "", RETURN_MASK_ALL);
 }
 
 struct print_args_args {
@@ -283,11 +286,14 @@ print_frame_info (fi, level, source, args)
     }
   else
     {
-      register struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
-      if (msymbol != NULL)
+      if (find_pc_section (fi->pc))
 	{
-	  funname = SYMBOL_NAME (msymbol);
-	  funlang = SYMBOL_LANGUAGE (msymbol);
+	  struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
+	  if (msymbol != NULL)
+	    {
+	      funname = SYMBOL_NAME (msymbol);
+	      funlang = SYMBOL_LANGUAGE (msymbol);
+	    }
 	}
     }
 
@@ -316,7 +322,8 @@ print_frame_info (fi, level, source, args)
 	  struct print_args_args args;
 	  args.fi = fi;
 	  args.func = func;
-	  catch_errors (print_args_stub, (char *)&args, "", RETURN_MASK_ERROR);
+	  catch_errors (print_args_stub, (char *)&args, "", RETURN_MASK_ALL);
+	  QUIT;
 	}
       printf_filtered (")");
       if (sal.symtab && sal.symtab->filename)
@@ -342,6 +349,18 @@ print_frame_info (fi, level, source, args)
 	  annotate_frame_where ();
 	  wrap_here ("  ");
 	  printf_filtered (" from %s", PC_LOAD_SEGMENT (fi->pc));
+	}
+#endif
+#ifdef PC_SOLIB
+      if (!funname)
+	{
+	  char *lib = PC_SOLIB (fi->pc);
+	  if (lib)
+	    {
+	      annotate_frame_where ();
+	      wrap_here ("  ");
+	      printf_filtered (" from %s", lib);
+	    }
 	}
 #endif
       printf_filtered ("\n");
@@ -1385,6 +1404,8 @@ return_command (retval_exp, from_tty)
 
   if (from_tty)
     frame_command ("0", 1);
+  else
+    select_frame_command ("0", 0);
 }
 
 /* Gets the language of the current frame.  */

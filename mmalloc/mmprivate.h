@@ -26,31 +26,21 @@ Boston, MA 02111-1307, USA.
 #ifndef __MMPRIVATE_H
 #define __MMPRIVATE_H 1
 
-#ifdef	__STDC__
-#  include <stddef.h>
-#  define PTR void *
-#  define CONST const
-#  define PARAMS(paramlist) paramlist
+#include "mmalloc.h"
+
+#ifdef HAVE_LIMITS_H
 #  include <limits.h>
-#  ifndef NULL
-#    define NULL (void *) 0
-#  endif
 #else
-#  define PTR char *
-#  define CONST /* nothing */
-#  define PARAMS(paramlist) ()
-#  ifndef size_t
-#    define size_t unsigned int
-#  endif
 #  ifndef CHAR_BIT
 #    define CHAR_BIT 8
 #  endif
-#  ifndef NULL
-#    define NULL 0
-#  endif
 #endif
 
-#include "mmalloc.h"
+#ifdef HAVE_STDDEF_H
+#  include <stddef.h>
+#else
+#  include <sys/types.h>   /* hope for the best -- ANSI C is your friend */
+#endif
 
 #ifndef MIN
 #  define MIN(A, B) ((A) < (B) ? (A) : (B))

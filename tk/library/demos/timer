@@ -1,6 +1,10 @@
-#!/usr/local/bin/wish -f
-#
+#!/bin/sh
+# the next line restarts using wish \
+exec wish "$0" "$@"
+
+# timer --
 # This script generates a counter with start and stop buttons.
+#
 
 label .counter -text 0.00 -relief raised -width 10
 button .start -text Start -command {

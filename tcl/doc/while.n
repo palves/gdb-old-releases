@@ -5,16 +5,15 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) while.n 1.2 94/12/17 16:19:14
 '\" 
 .so man.macros
-.HS while tcl
+.TH while n "" Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
 while \- Execute script repeatedly as long as a condition is met
 .SH SYNOPSIS
-\fBwhile \fItest body
+\fBwhile \fItest body\fR
 .BE
 
 .SH DESCRIPTION

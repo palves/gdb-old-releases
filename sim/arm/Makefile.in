@@ -47,23 +47,25 @@ docdir = $(datadir)/doc
 
 SHELL = /bin/sh
 
-# FIXME: use autoconf's AC_PROG_INSTALL
 INSTALL = $(srcroot)/install.sh -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
 INSTALL_XFORM = $(INSTALL) -t='$(program_transform_name)'
 INSTALL_XFORM1= $(INSTALL_XFORM) -b=.1
 
-AR = ar
+AR = @AR@
 AR_FLAGS = rc
-CFLAGS = -g
+CC = @CC@
+CFLAGS = @CFLAGS@
 MAKEINFO = makeinfo
-RANLIB = ranlib
+RANLIB = @RANLIB@
+
+HDEFINES = @HDEFINES@
+TDEFINES =
 
 .NOEXPORT:
 MAKEOVERRIDES=
 
-CC_FOR_BUILD = cc
 X=xstuff.o
 XL=-lX11
 X=
@@ -72,10 +74,6 @@ XL=
 INCDIR = $(srcdir)/../../include 
 CSEARCH = -I. -I$(srcdir)  -I../../include  -I../../bfd -I$(INCDIR) -I$(srcdir)/../../bfd -I$(srcdir)/../../gdb
 DEP = mkdep
-
-#### Makefile fragments come in here.
-# @host_makefile_frag@
-###
 
 ARMOBJ=armcopro.o armemu26.o armemu32.o arminit.o armos.o  armsupp.o armvirt.o bag.o
 OUROBJ=wrapper.o 
@@ -128,11 +126,11 @@ tags etags: TAGS
 TAGS: force
 	etags $(INCDIR)/*.h $(srcdir)/*.h $(srcdir)/*.c
 
-clean:
+mostlyclean clean:
 	rm -f *.[oa] *~ core *.E *.p *.ip aout-params.h gen-aout
-	rm -f run libsim.a
+	rm -f run libsim.a config.log
 
-distclean mostlyclean realclean: clean
+distclean maintainer-clean realclean: clean
 	rm -f TAGS
 	rm -f Makefile config.cache config.log config.status
 
@@ -142,21 +140,13 @@ force:
 
 # Copy the files into directories where they will be run.
 install:
-	srcroot=`cd $(srcroot); pwd`; export srcroot; \
-	$(INSTALL_XFORM) run $(bindir)/run ;  \
-	n=`t='$(program_transform_name)'; echo run | sed -e "" $$t`; \
-	if [ -d $(tooldir) ] ; then \
-	  if [ -d $(tooldir)/bin ] ; then true ; else mkdir $(tooldir)/bin ; fi; \
-	  rm -f $(tooldir)/bin/run;  \
-	  ln $(bindir)/$$n $(tooldir)/bin/run \
-	   || $(INSTALL_PROGRAM) run $(tooldir)/bin/run; \
-	else true; fi
+	$(INSTALL_XFORM) run $(bindir)/run
 
 install-man: run.1
 	$(INSTALL_XFORM1) $(srcdir)/run.1 $(man1dir)/run.1
 
 
-Makefile: Makefile.in @frags@
+Makefile: Makefile.in
 	$(SHELL) ./config.status
 
 config.status: configure

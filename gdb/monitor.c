@@ -1,6 +1,8 @@
 /* Remote debugging interface for boot monitors, for GDB.
-   Copyright 1990, 1991, 1992, 1993, 1995 Free Software Foundation, Inc.
-   Contributed by Cygnus Support. Written by Rob Savoye for Cygnus.
+   Copyright 1990, 1991, 1992, 1993, 1995, 1996
+   Free Software Foundation, Inc.
+   Contributed by Cygnus Support.  Written by Rob Savoye for Cygnus.
+   Resurrected from the ashes by Stu Grossman.
 
 This file is part of GDB.
 
@@ -38,6 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <varargs.h>
 #endif
 #include <signal.h>
+#include <ctype.h>
 #include "gdb_string.h"
 #include <sys/types.h>
 #include "command.h"
@@ -45,22 +48,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "monitor.h"
 #include "gdbcmd.h"
 #include "inferior.h"
-#include "regex.h"
+#include "gnu-regex.h"
 #include "dcache.h"
+#include "srec.h"
 
 static int readchar PARAMS ((int timeout));
 
 static void monitor_command PARAMS ((char *args, int fromtty));
-static void monitor_load_srec PARAMS ((char *args));
-
-static int monitor_make_srec PARAMS ((char *buffer, int type,
-				      CORE_ADDR memaddr,
-				      unsigned char *myaddr, int len));
 
 static void monitor_fetch_register PARAMS ((int regno));
 static void monitor_store_register PARAMS ((int regno));
 
-static void monitor_close PARAMS ((int quitting));
 static void monitor_detach PARAMS ((char *args, int from_tty));
 static void monitor_resume PARAMS ((int pid, int step, enum target_signal sig));
 static void monitor_interrupt PARAMS ((int signo));
@@ -80,10 +78,13 @@ static void monitor_kill PARAMS ((void));
 static void monitor_load PARAMS ((char *file, int from_tty));
 static void monitor_mourn_inferior PARAMS ((void));
 static void monitor_stop PARAMS ((void));
+static void monitor_debug PARAMS ((char *prefix, char *string, char *suffix));
 
 static int monitor_read_memory PARAMS ((CORE_ADDR addr, char *myaddr,int len));
 static int monitor_write_memory PARAMS ((CORE_ADDR addr, char *myaddr,int len));
 
+static int monitor_expect_regexp PARAMS ((struct re_pattern_buffer *pat,
+					  char *buf, int buflen));
 static int from_hex PARAMS ((int a));
 static unsigned long get_hex_word PARAMS ((void));
 
@@ -106,18 +107,53 @@ static serial_t monitor_desc = NULL;
 /* Pointer to regexp pattern matching data */
 
 static struct re_pattern_buffer register_pattern;
+static char register_fastmap[256];
 
-/* Element 0 points to start of register name, and element 1 points to the
-   start of the register value.  */
-
-static struct re_registers register_strings;
-
-static char fastmap[256];
+static struct re_pattern_buffer getmem_resp_delim_pattern;
+static char getmem_resp_delim_fastmap[256];
 
 static int dump_reg_flag;	/* Non-zero means do a dump_registers cmd when
 				   monitor_wait wakes up.  */
 
 static DCACHE *remote_dcache;
+
+/* monitor_debug is like fputs_unfiltered, except it prints special
+   characters in printable fashion.  */
+
+static void
+monitor_debug (prefix, string, suffix)
+     char *prefix;
+     char *string;
+     char *suffix;
+{
+  int ch;
+
+  fputs_unfiltered (prefix, gdb_stderr);
+  while ((ch = *string++) != '\0')
+    {
+      switch (ch) {
+      default:
+	if (isprint (ch))
+	  fputc_unfiltered (ch, gdb_stderr);
+
+	else
+	  fprintf_unfiltered (gdb_stderr, "\\%03o", ch);
+
+	break;
+
+      case '\\': fputs_unfiltered ("\\\\",  gdb_stderr);	break;	
+      case '\b': fputs_unfiltered ("\\b",   gdb_stderr);	break;	
+      case '\f': fputs_unfiltered ("\\f",   gdb_stderr);	break;	
+      case '\n': fputs_unfiltered ("\\n\n", gdb_stderr);	break;	
+      case '\r': fputs_unfiltered ("\\r\n", gdb_stderr);	break;	
+      case '\t': fputs_unfiltered ("\\t",   gdb_stderr);	break;	
+      case '\v': fputs_unfiltered ("\\v",   gdb_stderr);	break;	
+      }
+    }
+
+  fputs_unfiltered (suffix, gdb_stderr);
+  fputs_unfiltered ("\n", gdb_stderr);
+}
 
 /* monitor_printf_noecho -- Send data to monitor, but don't expect an echo.
    Works just like printf.  */
@@ -145,7 +181,7 @@ monitor_printf_noecho (va_alist)
   vsprintf (sndbuf, pattern, args);
 
   if (remote_debug > 0)
-    fputs_unfiltered (sndbuf, gdb_stderr);
+    monitor_debug ("sent -->", sndbuf, "<--");
 
   len = strlen (sndbuf);
 
@@ -170,7 +206,6 @@ monitor_printf (va_alist)
   va_list args;
   char sndbuf[2000];
   int len;
-  int i, c;
 
 #ifdef ANSI_PROTOTYPES
   va_start (args, pattern);
@@ -183,7 +218,7 @@ monitor_printf (va_alist)
   vsprintf (sndbuf, pattern, args);
 
   if (remote_debug > 0)
-    fputs_unfiltered (sndbuf, gdb_stderr);
+    monitor_debug ("sent -->", sndbuf, "<--");
 
   len = strlen (sndbuf);
 
@@ -193,25 +228,11 @@ monitor_printf (va_alist)
   if (SERIAL_WRITE(monitor_desc, sndbuf, len))
     fprintf_unfiltered (stderr, "SERIAL_WRITE failed: %s\n", safe_strerror (errno));
 
-  for (i = 0; i < len; i++)
-    {
-    trycr:
-      c = readchar (timeout);
-
-      if (c != sndbuf[i])
-	{
-	  /* Don't fail if we sent a ^C, they're never echoed */
-	  if (sndbuf[i] == '\003')
-	    continue;
-#if 0
-	  if (sndbuf[i] == '\r'
-	      && c == '\n')
-	    goto trycr;
-#endif
-	  warning ("monitor_printf:  Bad echo.  Sent: \"%s\", Got: \"%.*s%c\".",
-		 sndbuf, i, sndbuf, c);
-	}
-    }
+  /* We used to expect that the next immediate output was the characters we
+     just output, but sometimes some extra junk appeared before the characters
+     we expected, like an extra prompt, or a portmaster sending telnet negotiations.
+     So, just start searching for what we sent, and skip anything unknown.  */
+  monitor_expect (sndbuf, (char *)0, 0);
 }
 
 /* Read a character from the remote system, doing all the fancy
@@ -222,14 +243,50 @@ readchar (timeout)
      int timeout;
 {
   int c;
+  static enum { last_random, last_nl, last_cr, last_crnl } state = last_random;
+  int looping;
 
-  c = SERIAL_READCHAR (monitor_desc, timeout);
+  do
+    {
+      looping = 0;
+      c = SERIAL_READCHAR (monitor_desc, timeout);
 
-  if (remote_debug > 0)
-    fputc_unfiltered (c, gdb_stderr);
+      if (c >= 0)
+	{
+	  c &= 0x7f;
+	  if (remote_debug > 0)
+	    {
+	      char buf[2];
+	      buf[0] = c;
+	      buf[1] = '\0';
+	      monitor_debug ("read -->", buf, "<--");
+	    }
+	}
+
+      /* Canonicialize \n\r combinations into one \r */
+      if ((current_monitor->flags & MO_HANDLE_NL) != 0)
+	{
+	  if ((c == '\r' && state == last_nl)
+	      || (c == '\n' && state == last_cr))
+	    {
+	      state = last_crnl;
+	      looping = 1;
+	    }
+	  else if (c == '\r')
+	    state = last_cr;
+	  else if (c != '\n')
+	    state = last_random;
+	  else
+	    {
+	      state = last_nl;
+	      c = '\r';
+	    }
+	}
+    }
+  while (looping);
 
   if (c >= 0)
-    return c & 0x7f;
+    return c;
 
   if (c == SERIAL_TIMEOUT)
 #ifdef MAINTENANCE_CMDS
@@ -275,14 +332,19 @@ monitor_expect (string, buf, buflen)
 	    }
 
 	  c = readchar (timeout);
+	  if (c == '\000')
+	    continue;
 	  *buf++ = c;
 	  buflen--;
 	}
       else
 	c = readchar (timeout);
 
-      if (c == *p++)
+      /* Don't expect any ^C sent to be echoed */
+	
+      if (*p == '\003' || c == *p)
 	{
+	  p++;
 	  if (*p == '\0')
 	    {
 	      immediate_quit = 0;
@@ -302,6 +364,48 @@ monitor_expect (string, buf, buflen)
 	  if (c == *p)
 	    p++;
 	}
+    }
+}
+
+/* Search for a regexp.  */
+
+static int
+monitor_expect_regexp (pat, buf, buflen)
+     struct re_pattern_buffer *pat;
+     char *buf;
+     int buflen;
+{
+  char *mybuf;
+  char *p;
+
+  if (buf)
+    mybuf = buf;
+  else
+    {
+      mybuf = alloca (1024);
+      buflen = 1024;
+    }
+
+  p = mybuf;
+  while (1)
+    {
+      int retval;
+
+      if (p - mybuf >= buflen)
+	{			/* Buffer about to overflow */
+
+/* On overflow, we copy the upper half of the buffer to the lower half.  Not
+   great, but it usually works... */
+
+	  memcpy (mybuf, mybuf + buflen / 2, buflen / 2);
+	  p = mybuf + buflen / 2;
+	}
+
+      *p++ = readchar (timeout);
+
+      retval = re_search (pat, mybuf, p - mybuf, 0, p - mybuf, NULL);
+      if (retval >= 0)
+	return 1;
     }
 }
 
@@ -355,6 +459,30 @@ get_hex_word ()
   return val;
 }
 
+static void
+compile_pattern (pattern, compiled_pattern, fastmap)
+     char *pattern;
+     struct re_pattern_buffer *compiled_pattern;
+     char *fastmap;
+{
+  int tmp;
+  char *val;
+
+  compiled_pattern->fastmap = fastmap;
+
+  tmp = re_set_syntax (RE_SYNTAX_EMACS);
+  val = re_compile_pattern (pattern,
+			    strlen (pattern),
+			    compiled_pattern);
+  re_set_syntax (tmp);
+
+  if (val)
+    error ("compile_pattern: Can't compile pattern string `%s': %s!", pattern, val);
+
+  if (fastmap)
+    re_compile_fastmap (compiled_pattern);
+}
+
 /* Open a connection to a remote debugger. NAME is the filename used
    for communication.  */
 
@@ -386,20 +514,12 @@ monitor_open (args, mon_ops, from_tty)
   /* Setup pattern for register dump */
 
   if (mon_ops->register_pattern)
-    {
-      int tmp;
-      char *val;
+    compile_pattern (mon_ops->register_pattern, &register_pattern,
+		     register_fastmap);
 
-      register_pattern.fastmap = fastmap;
-      tmp = re_set_syntax (RE_SYNTAX_EMACS);
-      val = re_compile_pattern (mon_ops->register_pattern,
-				strlen (mon_ops->register_pattern),
-				&register_pattern);
-      re_set_syntax (tmp);
-      if (val)
-	error ("Can't compiler register pattern string: %s!", val);
-      re_compile_fastmap (&register_pattern);
-    }
+  if (mon_ops->getmem.resp_delim)
+    compile_pattern (mon_ops->getmem.resp_delim, &getmem_resp_delim_pattern,
+		     getmem_resp_delim_fastmap);
 
   unpush_target (targ_ops);
 
@@ -443,6 +563,9 @@ monitor_open (args, mon_ops, from_tty)
   /* wake up the monitor and see if it's alive */
   for (p = mon_ops->init; *p != NULL; p++)
     {
+      /* Some of the characters we send may not be echoed,
+	 but we hope to get a prompt at the end of it all. */
+	 
       monitor_printf (*p);
       monitor_expect_prompt (NULL, 0);
     }
@@ -476,7 +599,7 @@ monitor_open (args, mon_ops, from_tty)
 /* Close out all files and local state before this target loses
    control.  */
 
-static void
+void
 monitor_close (quitting)
      int quitting;
 {
@@ -556,6 +679,9 @@ parse_register_dump (buf, len)
     {
       int regnamelen, vallen;
       char *regname, *val;
+/* Element 0 points to start of register name, and element 1 points to the
+   start of the register value.  */
+      struct re_registers register_strings;
 
       if (re_search (&register_pattern, buf, len, 0, len,
 		     &register_strings) == -1)
@@ -709,44 +835,39 @@ monitor_fetch_register (regno)
       return;
     }
 
- /* send the register examine command */
+  /* send the register examine command */
 
   monitor_printf (current_monitor->getreg.cmd, name);
 
-/* If RESP_DELIM is specified, we search for that as a leading delimiter for
-   the register value.  Otherwise, we just start searching from the start of
-   the buf.  */
+  /* If RESP_DELIM is specified, we search for that as a leading delimiter for
+     the register value.  Otherwise, we just start searching from the start of
+     the buf.  */
 
   if (current_monitor->getreg.resp_delim)
     monitor_expect (current_monitor->getreg.resp_delim, NULL, 0);
 
-/* Now, read the appropriate number of hex digits for this register, skipping
-   spaces.  */
+  /* Read upto the maximum number of hex digits for this register, skipping
+     spaces, but stop reading if something else is seen.  Some monitors
+     like to drop leading zeros.  */
 
   for (i = 0; i < REGISTER_RAW_SIZE (regno) * 2; i++)
     {
       int c;
+      c = readchar (timeout);
+      while (c == ' ')
+	c = readchar (timeout);
 
-      while (1)
-	{
-	  c = readchar (timeout);
-	  if (isxdigit (c))
-	    break;
-	  if (c == ' ')
-	    continue;
-
-	  error ("monitor_fetch_register (%d):  bad response from monitor: %.*s%c.",
-	 regno, i, regbuf, c);
-	}
+      if (!isxdigit (c))
+	break;
 
       regbuf[i] = c;
     }
 
   regbuf[i] = '\000';		/* terminate the number */
 
-/* If TERM is present, we wait for that to show up.  Also, (if TERM is
-   present), we will send TERM_CMD if that is present.  In any case, we collect
-   all of the output into buf, and then wait for the normal prompt.  */
+  /* If TERM is present, we wait for that to show up.  Also, (if TERM is
+     present), we will send TERM_CMD if that is present.  In any case, we collect
+     all of the output into buf, and then wait for the normal prompt.  */
 
   if (current_monitor->getreg.term)
     {
@@ -968,7 +1089,7 @@ monitor_read_memory_single (memaddr, myaddr, len)
    the buf.  */
 
   if (current_monitor->getmem.resp_delim)
-    monitor_expect (current_monitor->getmem.resp_delim, NULL, 0);
+    monitor_expect_regexp (&getmem_resp_delim_pattern, NULL, 0);
 
 /* Now, read the appropriate number of hex digits for this loc, skipping
    spaces.  */
@@ -1089,11 +1210,25 @@ monitor_read_memory (memaddr, myaddr, len)
 
   if (current_monitor->getmem.resp_delim)
     {
+      int retval, tmp;
+      struct re_registers resp_strings;
+
+      tmp = strlen (p);
+      retval = re_search (&getmem_resp_delim_pattern, p, tmp, 0, tmp,
+			  &resp_strings);
+
+      if (retval < 0)
+	error ("monitor_read_memory (0x%x):  bad response from monitor: %.*s.",
+	       memaddr, resp_len, buf);
+
+      p += resp_strings.end[0];
+#if 0
       p = strstr (p, current_monitor->getmem.resp_delim);
       if (!p)
 	error ("monitor_read_memory (0x%x):  bad response from monitor: %.*s.",
 	       memaddr, resp_len, buf);
       p += strlen (current_monitor->getmem.resp_delim);
+#endif
     }
 
   for (i = len; i > 0; i--)
@@ -1239,7 +1374,15 @@ monitor_load (file, from_tty)
   if (current_monitor->load_routine)
     current_monitor->load_routine (monitor_desc, file, hashmark);
   else
-    monitor_load_srec (file);
+    {				/* The default is ascii S-records */
+      monitor_printf (LOAD_CMD);	/* tell the monitor to load */
+      if (current_monitor->loadresp)
+	monitor_expect (current_monitor->loadresp, NULL, 0);
+
+      load_srec (monitor_desc, file, 32, SREC_ALL, hashmark);
+
+      monitor_expect_prompt (NULL, 0);
+    }
 
 /* Finally, make the PC point at the start address */
 
@@ -1290,213 +1433,6 @@ monitor_command (args, from_tty)
   resp_len = monitor_expect_prompt (buf, sizeof buf);
 
   fputs_unfiltered (buf, gdb_stdout); /* Output the response */
-}
-
-/*  Download a binary file by converting it to S records. */
-
-static void
-monitor_load_srec (args)
-     char *args;
-{
-  bfd *abfd;
-  asection *s;
-  char *buffer, srec[1024];
-  int i;
-  int srec_frame = 32;
-  int reclen;
-
-  buffer = alloca (srec_frame * 2 + 256);
-
-  abfd = bfd_openr (args, 0);
-  if (!abfd)
-    {
-      printf_filtered ("Unable to open file %s\n", args);
-      return;
-    }
-
-  if (bfd_check_format (abfd, bfd_object) == 0)
-    {
-      printf_filtered ("File is not an object file\n");
-      return;
-    }
-  
-  monitor_printf (LOAD_CMD);	/* tell the monitor to load */
-  if (current_monitor->loadresp)
-    monitor_expect (current_monitor->loadresp, NULL, 0);
-
-  for (s = abfd->sections; s; s = s->next)
-    {
-      if (s->flags & SEC_LOAD)
-	{
-	  int numbytes;
-
-	  printf_filtered ("%s\t: 0x%4x .. 0x%4x  ", s->name, s->vma,
-			   s->vma + s->_raw_size);
-	  gdb_flush (gdb_stdout);
-
-	  for (i = 0; i < s->_raw_size; i += numbytes)
-	    {
-	      numbytes = min (srec_frame, s->_raw_size - i);
-
-	      bfd_get_section_contents (abfd, s, buffer, i, numbytes);
-
-	      reclen = monitor_make_srec (srec, 'd', s->vma + i, buffer, numbytes);
-
-	      monitor_printf_noecho ("%.*s\r", reclen, srec);
-
-	      if (hashmark)
-		{
-		  putchar_unfiltered ('#');
-		  gdb_flush (gdb_stdout);
-		}
-	    } /* Per-packet (or S-record) loop */
-
-	  putchar_unfiltered ('\n');
-	} /* Loadable sections */
-    }
-  if (hashmark) 
-    putchar_unfiltered ('\n');
-  
-  /* Write a type 7 terminator record. no data for a type 7, and there
-     is no data, so len is 0.  */
-
-  reclen = monitor_make_srec (srec, 't', abfd->start_address, NULL, 0);
-
-  monitor_printf_noecho ("%.*s\r", reclen, srec);
-
-  monitor_printf_noecho ("\r\r"); /* Some monitors need these to wake up */
-
-  monitor_expect_prompt (NULL, 0);
-
-  SERIAL_FLUSH_INPUT (monitor_desc);
-}
-
-/*
- * monitor_make_srec -- make an srecord. This writes each line, one at a
- *	time, each with it's own header and trailer line.
- *	An srecord looks like this:
- *
- * byte count-+     address
- * start ---+ |        |       data        +- checksum
- *	    | |        |                   |
- *	  S01000006F6B692D746573742E73726563E4
- *	  S315000448600000000000000000FC00005900000000E9
- *	  S31A0004000023C1400037DE00F023604000377B009020825000348D
- *	  S30B0004485A0000000000004E
- *	  S70500040000F6
- *
- *	S<type><length><address><data><checksum>
- *
- *      Where
- *      - length
- *        is the number of bytes following upto the checksum. Note that
- *        this is not the number of chars following, since it takes two
- *        chars to represent a byte.
- *      - type
- *        is one of:
- *        0) header record
- *        1) two byte address data record
- *        2) three byte address data record
- *        3) four byte address data record
- *        7) four byte address termination record
- *        8) three byte address termination record
- *        9) two byte address termination record
- *       
- *      - address
- *        is the start address of the data following, or in the case of
- *        a termination record, the start address of the image
- *      - data
- *        is the data.
- *      - checksum
- *	  is the sum of all the raw byte data in the record, from the length
- *        upwards, modulo 256 and subtracted from 255.
- *
- * This routine returns the length of the S-record.
- *
- */
-
-static int
-monitor_make_srec (buffer, type, memaddr, myaddr, len)
-     char *buffer;
-     int type;
-     CORE_ADDR memaddr;
-     unsigned char *myaddr;
-     int len;
-{
-  unsigned char checksum;
-  int i;
-  char *buf;
-  static char hextab[] = "0123456789ABCDEF";
-  static char data_code_table[] = { 0,0,1,2,3};
-  static char term_code_table[] = { 0,0,9,8,7};
-  int addr_size; /* Number of bytes in the record */
-  int type_code;
-  buf = buffer;
-
-  checksum = 0;
-  
-  addr_size = 2;
-  if (memaddr >= 0xffffff)
-    addr_size = 4;
-  else if (memaddr >= 0xffffff)
-    addr_size = 3;
-  else
-    addr_size = 2;
-
-  switch (type)
-    {
-    case 't':
-      type_code = term_code_table[addr_size];
-      break;
-    case 'd':
-      type_code = data_code_table[addr_size];
-      break;
-    default:
-      abort();
-    }
-  /* Create the header for the srec. addr_size is the number of bytes in the address,
-     and 1 is the number of bytes in the count.  */
-
-  switch (addr_size) 
-    {
-    case 4:
-      sprintf (buf, "S%d%02X%08X", type_code, len + addr_size + 1, memaddr);
-      buf += 12;
-      break;
-    case 3:
-      sprintf (buf, "S%d%02X%06X", type_code, len + addr_size + 1, memaddr);
-      buf += 10;
-      break;
-    case 2:
-      sprintf (buf, "S%d%02X%04X", type_code, len + addr_size + 1, memaddr);
-      buf += 8;
-      break;
-    }
-
-/* Note that the checksum is calculated on the raw data, not the hexified
-   data.  It includes the length, address and the data portions of the
-   packet.  */
-
-  checksum += (len + addr_size + 1		/* Packet length */
-	       + (memaddr & 0xff)		/* Address... */
-	       + ((memaddr >>  8) & 0xff)
-	       + ((memaddr >> 16) & 0xff)
-	       + ((memaddr >> 24) & 0xff));
-  
-  /* build the srecord */
-  for (i = 0; i < len; i++)
-    {
-      *buf++ = hextab [myaddr[i] >> 4];
-      *buf++ = hextab [myaddr[i] & 0xf];
-      checksum += myaddr[i];
-    }
-
-  checksum = ~checksum;
-
-  *buf++ = hextab[checksum >> 4];
-  *buf++ = hextab[checksum & 0xf];
-
-  return buf - buffer;
 }
 
 /* Convert hex digit A to a number.  */

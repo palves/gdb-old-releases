@@ -123,14 +123,14 @@ extern char *term_mo;
 #ifdef __STDC__
 /* Provide prototype to silence type conversion warnings on systems
    that provide prototypes for tputs. */
-static void outchar (int);
+static int outchar (int);
 #endif
 
-static void
+static int
 outchar (c)
      int c;
 {
-  putc (c, rl_outstream);
+  return putc (c, rl_outstream);
 }
 
 /* Turn on/off the meta key depending on ON. */
@@ -144,7 +144,8 @@ control_meta_key (on)
       if (on && term_mm)
 	tputs (term_mm, 1, outchar);
       else if (!on && term_mo)
-	tputs (term_mo, 1, outchar);
+	tputs
+ (term_mo, 1, outchar);
     }
 }
 #endif /* !MINIMAL */

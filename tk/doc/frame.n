@@ -1,76 +1,72 @@
 '\"
-'\" Copyright (c) 1990 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1990-1994 The Regents of the University of California.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
 '\"
-'\" $Header: /rel/cvsfiles/devo/tk/doc/frame.n,v 1.1 1994/06/03 23:43:04 rob Exp $ SPRITE (Berkeley)
-'/" 
+'\" 
 .so man.macros
-.HS frame tk
+.TH frame n 4.0 Tk "Tk Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
 frame \- Create and manipulate frame widgets
 .SH SYNOPSIS
-\fBframe\fI \fIpathName \fR?\fB\-class \fIclassName\fR? ?\fIoptions\fR?
-.SH "STANDARD OPTIONS"
-.LP
-.nf
-.ta 4c 8c 12c
+\fBframe\fI \fIpathName ?\fIoptions\fR?
+.SO
 .VS
-\fBbackground\fR	\fBcursor\fR	\fBrelief\fR
+\-borderwidth	\-highlightbackground	\-highlightthickness	\-takefocus
 .VE
-\fBborderWidth\fR	\fBgeometry\fR
-.fi
-.LP
-See the ``options'' manual entry for details on the standard options.
+\-cursor	\-highlightcolor	\-relief
+.SE
 .SH "WIDGET-SPECIFIC OPTIONS"
-.LP
-.nf
-.VS
-Name:	\fBheight\fR
-Class:	\fBHeight\fR
-Command-Line Switch:	\fB\-height\fR
-.fi
-.IP
+.VS br
+.OP \-background background Background
+This option is the same as the standard \fBbackground\fR option
+except that its value may also be specified as an empty string.
+In this case, the widget will display no background or border, and
+no colors will be consumed from its colormap for its background
+and border.
+.OP \-class class Class
+Specifies a class for the window.
+This class will be used when querying the option database for
+the window's other options, and it will also be used later for
+other purposes such as bindings.
+The \fBclass\fR option may not be changed with the \fBconfigure\fR
+widget command.
+.OP \-colormap colormap Colormap
+Specifies a colormap to use for the window.
+The value may be either \fBnew\fR, in which case a new colormap is
+created for the window and its children, or the name of another
+window (which must be on the same screen and have the same visual
+as \fIpathName\fR), in which case the new window will use the colormap
+from the specified window.
+If the \fBcolormap\fR option is not specified, the new window
+uses the same colormap as its parent.
+This option may not be changed with the \fBconfigure\fR
+widget command.
+.VE
+.OP \-height height Height
 Specifies the desired height for the window in any of the forms
 acceptable to \fBTk_GetPixels\fR.
-This option is only used if the \fB\-geometry\fR option is
-unspecified.
-If this option is less than or equal to zero (and \fB\-geometry\fR
-is not specified) then the window will not request any size at
-all.
-.LP
-.nf
-Name:	\fBwidth\fR
-Class:	\fBWidth\fR
-Command-Line Switch:	\fB\-width\fR
-.fi
-.IP
+If this option is less than or equal to zero then the window will
+not request any size at all.
+.VS br
+.OP \-visual visual Visual
+Specifies visual information for the new window in any of the
+forms accepted by \fBTk_GetVisual\fR.
+If this option is not specified, the new window will use the same
+visual as its parent.
+The \fBvisual\fR option may not be modified with the \fBconfigure\fR
+widget command.
+.VE
+.OP \-width width Width
 Specifies the desired width for the window in any of the forms
 acceptable to \fBTk_GetPixels\fR.
-This option is only used if the \fB\-geometry\fR option is
-unspecified.
-If this option is less than or equal to zero (and \fB\-geometry\fR
-is not specified) then the window will not request any size at
-all.
-.VE
+If this option is less than or equal to zero then the window will
+not request any size at all.
 .BE
 
 .SH DESCRIPTION
@@ -88,19 +84,6 @@ A frame is a simple widget.  Its primary purpose is to act as a
 spacer or container for complex window layouts.  The only features
 of a frame are its background color and an optional 3-D border to make the
 frame appear raised or sunken.
-.PP
-In addition to the standard options listed above, a \fB\-class\fR
-option may be specified on the command line.  If it is specified, then
-the new widget's class will be set to \fIclassName\fR instead of
-\fBFrame\fR.  Changing the class of a frame widget may be useful
-in order to use a special class name in database options referring
-to this widget and its children.  Note:  \fB\-class\fR is handled
-differently than other command-line options and cannot be specified
-using the option database (it has to be processed
-before the other options are even looked up, since the new class
-name will affect the lookup of the other options).  In addition,
-the \fB\-class\fR option may not be queried or changed using the
-\fBconfig\fR command described below.
 
 .SH "WIDGET COMMAND"
 .PP
@@ -108,13 +91,21 @@ The \fBframe\fR command creates a new Tcl command whose
 name is the same as the path name of the frame's window.  This
 command may be used to invoke various
 operations on the widget.  It has the following general form:
-.DS C
+.CS
 \fIpathName option \fR?\fIarg arg ...\fR?
-.DE
+.CE
 \fIPathName\fR is the name of the command, which is the same as
 the frame widget's path name.  \fIOption\fR and the \fIarg\fRs
 determine the exact behavior of the command.  The following
 commands are possible for frame widgets:
+.TP
+\fIpathName \fBcget\fR \fIoption\fR
+.VS
+Returns the current value of the configuration option given
+by \fIoption\fR.
+\fIOption\fR may have any of the values accepted by the \fBframe\fR
+command.
+.VE
 .TP
 \fIpathName \fBconfigure\fR ?\fIoption\fR? \fI?value option value ...\fR?
 Query or modify the configuration options of the widget.

@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) open.n 1.2 94/12/17 16:18:35
 '\" 
 .so man.macros
-.HS open tcl 7.0
+.TH open n 7.0 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -89,7 +88,7 @@ Create the file if it doesn't already exist (without this flag it
 is an error for the file not to exist).
 .TP 15
 \fBEXCL\fR
-If \fBCREAT\fR is specified also, an error is returned if the
+If \fBCREAT\fR is also specified, an error is returned if the
 file already exists.
 .TP 15
 \fBNOCTTY\fR

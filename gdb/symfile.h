@@ -1,5 +1,6 @@
 /* Definitions for reading symbol files into GDB.
-   Copyright (C) 1990, 1991, 1992, 1993, 1994  Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -95,6 +96,8 @@ extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
 #define INLINE_ADD_PSYMBOL 1
 #endif
 
+#include "demangle.h"
+
 #if !INLINE_ADD_PSYMBOL
 
 /* Since one arg is a struct, we have to pass in a ptr and deref it (sigh) */
@@ -106,8 +109,6 @@ extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
   add_psymbol_addr_to_list (name, namelength, namespace, class, &list, value, language, objfile)
 
 #else	/* !INLINE_ADD_PSYMBOL */
-
-#include "demangle.h"
 
 #define	ADD_PSYMBOL_VT_TO_LIST(NAME,NAMELENGTH,NAMESPACE,CLASS,LIST,VALUE,VT,LANGUAGE, OBJFILE) \
   do {		        						\
@@ -121,10 +122,12 @@ extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
     memcpy (SYMBOL_NAME (psym), (NAME), (NAMELENGTH));			\
     SYMBOL_NAME (psym)[(NAMELENGTH)] = '\0';				\
     SYMBOL_NAMESPACE (psym) = (NAMESPACE);				\
+    SYMBOL_SECTION (psym) = 0;						\
     PSYMBOL_CLASS (psym) = (CLASS);					\
     VT (psym) = (VALUE); 						\
     SYMBOL_LANGUAGE (psym) = (LANGUAGE);				\
     SYMBOL_INIT_LANGUAGE_SPECIFIC (psym, LANGUAGE);			\
+    OBJSTAT (objfile, n_psyms++);					\
   } while (0)
 
 /* Add a symbol with an integer value to a psymtab. */
@@ -194,6 +197,10 @@ obconcat PARAMS ((struct obstack *obstackp, const char *, const char *,
 		  const char *));
 
 			/*   Variables   */
+
+/* whether to auto load solibs at startup time:  0/1. */
+
+extern int auto_solib_add;
 
 /* From symfile.c */
 

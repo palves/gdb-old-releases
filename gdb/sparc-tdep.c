@@ -34,9 +34,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "gdbcore.h"
 
 #ifdef GDB_TARGET_IS_SPARC64
-#define NUM_SPARC_FPREGS 64
+#define FP_REGISTER_BYTES (64 * 4)
 #else
-#define NUM_SPARC_FPREGS 32
+#define FP_REGISTER_BYTES (32 * 4)
+#endif
+
+/* If not defined, assume 32 bit sparc.  */
+#ifndef FP_MAX_REGNUM
+#define FP_MAX_REGNUM (FP0_REGNUM + 32)
 #endif
 
 #define SPARC_INTREG_SIZE (REGISTER_RAW_SIZE (G0_REGNUM))
@@ -615,19 +620,23 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
 	  && frame1->pc <= FRAME_FP (frame1))
 	{
 	  /* Dummy frame.  All but the window regs are in there somewhere. */
-	  /* FIXME: The offsets are wrong for sparc64 (eg: 0xa0).  */
 	  if (regnum >= G1_REGNUM && regnum < G1_REGNUM + 7)
 	    addr = frame1->frame + (regnum - G0_REGNUM) * SPARC_INTREG_SIZE
-	      - (NUM_SPARC_FPREGS * 4 + 8 * SPARC_INTREG_SIZE);
+	      - (FP_REGISTER_BYTES + 8 * SPARC_INTREG_SIZE);
 	  else if (regnum >= I0_REGNUM && regnum < I0_REGNUM + 8)
 	    addr = frame1->frame + (regnum - I0_REGNUM) * SPARC_INTREG_SIZE
-	      - (NUM_SPARC_FPREGS * 4 + 16 * SPARC_INTREG_SIZE);
-	  else if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM + NUM_SPARC_FPREGS)
+	      - (FP_REGISTER_BYTES + 16 * SPARC_INTREG_SIZE);
+	  else if (regnum >= FP0_REGNUM && regnum < FP0_REGNUM + 32)
 	    addr = frame1->frame + (regnum - FP0_REGNUM) * 4
-	      - (NUM_SPARC_FPREGS * 4);
+	      - (FP_REGISTER_BYTES);
+#ifdef GDB_TARGET_IS_SPARC64
+	  else if (regnum >= FP0_REGNUM + 32 && regnum < FP_MAX_REGNUM)
+	    addr = frame1->frame + 32 * 4 + (regnum - FP0_REGNUM - 32) * 8
+	      - (FP_REGISTER_BYTES);
+#endif
 	  else if (regnum >= Y_REGNUM && regnum < NUM_REGS)
 	    addr = frame1->frame + (regnum - Y_REGNUM) * SPARC_INTREG_SIZE
-	      - (NUM_SPARC_FPREGS * 4 + 24 * SPARC_INTREG_SIZE);
+	      - (FP_REGISTER_BYTES + 24 * SPARC_INTREG_SIZE);
 	}
       else if (frame1->flat)
 	{
@@ -743,11 +752,9 @@ sparc_push_dummy_frame ()
 		       &register_temp[16 * SPARC_INTREG_SIZE],
 		       SPARC_INTREG_SIZE * 8);
 
-  /* ??? The 32 here should be NUM_SPARC_FPREGS, but until we decide what
-     REGISTER_RAW_SIZE should be for fp regs, it's left as is.  */
   read_register_bytes (REGISTER_BYTE (FP0_REGNUM),
 		       &register_temp[24 * SPARC_INTREG_SIZE],
-		       REGISTER_RAW_SIZE (FP0_REGNUM) * 32);
+		       FP_REGISTER_BYTES);
 
   sp -= DUMMY_STACK_SIZE;
 
@@ -820,19 +827,25 @@ sparc_frame_find_saved_regs (fi, saved_regs_addr)
       for (regnum = G1_REGNUM; regnum < G1_REGNUM+7; regnum++)
 	saved_regs_addr->regs[regnum] =
 	  frame_addr + (regnum - G0_REGNUM) * SPARC_INTREG_SIZE
-	    - (NUM_SPARC_FPREGS * 4 + 8 * SPARC_INTREG_SIZE);
+	    - (FP_REGISTER_BYTES + 8 * SPARC_INTREG_SIZE);
       for (regnum = I0_REGNUM; regnum < I0_REGNUM+8; regnum++)
 	saved_regs_addr->regs[regnum] =
 	  frame_addr + (regnum - I0_REGNUM) * SPARC_INTREG_SIZE
-	    - (NUM_SPARC_FPREGS * 4 + 16 * SPARC_INTREG_SIZE);
+	    - (FP_REGISTER_BYTES + 16 * SPARC_INTREG_SIZE);
       for (regnum = FP0_REGNUM; regnum < FP0_REGNUM + 32; regnum++)
 	saved_regs_addr->regs[regnum] =
 	  frame_addr + (regnum - FP0_REGNUM) * 4
-	    - (NUM_SPARC_FPREGS * 4);
+	    - (FP_REGISTER_BYTES);
+#ifdef GDB_TARGET_IS_SPARC64
+      for (regnum = FP0_REGNUM + 32; regnum < FP_MAX_REGNUM; regnum++)
+	saved_regs_addr->regs[regnum] =
+	  frame_addr + 32 * 4 + (regnum - FP0_REGNUM - 32) * 8
+	    - (FP_REGISTER_BYTES);
+#endif
       for (regnum = Y_REGNUM; regnum < NUM_REGS; regnum++)
 	saved_regs_addr->regs[regnum] =
 	  frame_addr + (regnum - Y_REGNUM) * SPARC_INTREG_SIZE - 0xe0;
-	    - (NUM_SPARC_FPREGS * 4 + 24 * SPARC_INTREG_SIZE);
+	    - (FP_REGISTER_BYTES + 24 * SPARC_INTREG_SIZE);
       frame_addr = fi->bottom ?
 	fi->bottom : read_register (SP_REGNUM);
     }
@@ -910,9 +923,9 @@ sparc_pop_frame ()
   sparc_frame_find_saved_regs (frame, &fsr);
   if (fsr.regs[FP0_REGNUM])
     {
-      read_memory (fsr.regs[FP0_REGNUM], raw_buffer, NUM_SPARC_FPREGS * 4);
+      read_memory (fsr.regs[FP0_REGNUM], raw_buffer, FP_REGISTER_BYTES);
       write_register_bytes (REGISTER_BYTE (FP0_REGNUM),
-			    raw_buffer, NUM_SPARC_FPREGS * 4);
+			    raw_buffer, FP_REGISTER_BYTES);
     }
 #ifndef GDB_TARGET_IS_SPARC64
   if (fsr.regs[FPS_REGNUM])
@@ -1205,7 +1218,7 @@ prfpregset_t *fpregsetp;
   register int regi;
   char *from;
   
-  for (regi = FP0_REGNUM ; regi < FP0_REGNUM+32 ; regi++)
+  for (regi = FP0_REGNUM ; regi < FP_MAX_REGNUM ; regi++)
     {
       from = (char *) &fpregsetp->pr_fr.pr_regs[regi-FP0_REGNUM];
       supply_register (regi, from);
@@ -1228,9 +1241,7 @@ int regno;
   char *to;
   char *from;
 
-  /* ??? The 32 should probably be NUM_SPARC_FPREGS, but again we're
-     waiting on what REGISTER_RAW_SIZE should be for fp regs.  */
-  for (regi = FP0_REGNUM ; regi < FP0_REGNUM + 32 ; regi++)
+  for (regi = FP0_REGNUM ; regi < FP_MAX_REGNUM ; regi++)
     {
       if ((regno == -1) || (regno == regi))
 	{
@@ -1360,17 +1371,50 @@ sparc_print_register_hook (regno)
 {
   unsigned LONGEST val;
 
-  if (((unsigned) (regno) - FP0_REGNUM < FP_MAX_REGNUM - FP0_REGNUM)
-       && ((regno) & 1) == 0)
+  /* Handle double/quad versions of lower 32 fp regs.  */
+  if (regno >= FP0_REGNUM && regno < FP0_REGNUM + 32
+      && (regno & 1) == 0)
     {
-      char doublereg[8];		/* two float regs */
-      if (!read_relative_register_raw_bytes ((regno), doublereg))
+      char value[16];
+
+      if (!read_relative_register_raw_bytes (regno, value)
+	  && !read_relative_register_raw_bytes (regno + 1, value + 4))
 	{
-	  printf_unfiltered("\t");
-	  print_floating (doublereg, builtin_type_double, gdb_stdout);
+	  printf_unfiltered ("\t");
+	  print_floating (value, builtin_type_double, gdb_stdout);
+	}
+#if 0 /* FIXME: gdb doesn't handle long doubles */
+      if ((regno & 3) == 0)
+	{
+	  if (!read_relative_register_raw_bytes (regno + 2, value + 8)
+	      && !read_relative_register_raw_bytes (regno + 3, value + 12))
+	    {
+	      printf_unfiltered ("\t");
+	      print_floating (value, builtin_type_long_double, gdb_stdout);
+	    }
+	}
+#endif
+      return;
+    }
+
+#if 0 /* FIXME: gdb doesn't handle long doubles */
+  /* Print upper fp regs as long double if appropriate.  */
+  if (regno >= FP0_REGNUM + 32 && regno < FP_MAX_REGNUM
+      /* We test for even numbered regs and not a multiple of 4 because
+	 the upper fp regs are recorded as doubles.  */
+      && (regno & 1) == 0)
+    {
+      char value[16];
+
+      if (!read_relative_register_raw_bytes (regno, value)
+	  && !read_relative_register_raw_bytes (regno + 1, value + 8))
+	{
+	  printf_unfiltered ("\t");
+	  print_floating (value, builtin_type_long_double, gdb_stdout);
 	}
       return;
     }
+#endif
 
   /* FIXME: Some of these are priviledged registers.
      Not sure how they should be handled.  */

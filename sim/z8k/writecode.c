@@ -43,8 +43,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* steve chamberlain
    sac@cygnus.com */
 
+#include "config.h"
+
 #include <ansidecl.h>
-#include "sysdep.h"
+#include <stdio.h>
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#ifdef HAVE_STRING_H
+#include <string.h>
+#else
+#ifdef HAVE_STRINGS_H
+#include <strings.h>
+#endif
+#endif
 
 #define NICENAMES
 
@@ -611,7 +623,15 @@ break;
 	    break;
 
 	case CLASS_DISP8:
+	    /* We can't use `(char)' since char might be unsigned.
+	       We can't use `(signed char)' because the compiler might be K&R.
+	       This seems safe, since it only assumes that bytes are 8
+	       bits.  */
+	    emit ("register unsigned int oplval_dst=((ibytes_1 << (sizeof (int) * 8 - 8)) >> (sizeof (int) * 8 - 9)) + pc;\n");
+#if 0
+	    /* Original code: fails if characters are unsigned.  */
 	    emit ("register unsigned int oplval_dst=(((char)ibytes_1)<<1) + pc;\n");
+#endif
 	    nibs += 2;
 	    break;
 	case CLASS_CC:
@@ -1011,7 +1031,14 @@ shift (p, arith)
      int arith;
 {
 
+  /* We can't use `(char)' since char might be unsigned.
+     We can't use `(signed char)' because the compiler might be K&R.
+     This seems safe, since it only assumes that bytes are 8 bits.  */
+  emit ("op_src = (op_src << (sizeof (int) * 8 - 8)) >> (sizeof (int) * 8 - 8);\n");
+#if 0
+  /* Original code: fails if characters are unsigned.  */
   emit ("op_src = (char)op_src;\n");
+#endif
   emit ("if (op_src < 0) \n");
   emit ("{\n");
   emit ("op_src = -op_src;\n");

@@ -209,6 +209,8 @@ struct som_section_data_struct
 #define R_HPPA_ENTRY			R_ENTRY
 #define R_HPPA_EXIT			R_EXIT
 #define R_HPPA_COMPLEX			R_COMP1
+#define R_HPPA_BEGIN_BRTAB		R_BEGIN_BRTAB
+#define R_HPPA_END_BRTAB		R_END_BRTAB
 
 /* Exported functions, mostly for use by GAS.  */
 boolean bfd_som_set_section_attributes PARAMS ((asection *, int, int,

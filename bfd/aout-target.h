@@ -1,5 +1,5 @@
 /* Define a target vector and some small routines for a variant of a.out.
-   Copyright (C) 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -43,6 +43,10 @@ MY(callback) (abfd)
   obj_datasec (abfd)->vma = N_DATADDR(*execp);
   obj_bsssec  (abfd)->vma = N_BSSADDR(*execp);
 
+  obj_textsec (abfd)->lma = obj_textsec (abfd)->vma;
+  obj_datasec (abfd)->lma = obj_datasec (abfd)->vma;
+  obj_bsssec (abfd)->lma = obj_bsssec (abfd)->vma;
+
   /* The file offsets of the sections */
   obj_textsec (abfd)->filepos = N_TXTOFF (*execp);
   obj_datasec (abfd)->filepos = N_DATOFF (*execp);
@@ -85,11 +89,11 @@ MY(callback) (abfd)
   /* Don't set sizes now -- can't be sure until we know arch & mach.
      Sizes get set in set_sizes callback, later.  */
 #if 0
-  adata(abfd).page_size = PAGE_SIZE;
+  adata(abfd).page_size = TARGET_PAGE_SIZE;
 #ifdef SEGMENT_SIZE
   adata(abfd).segment_size = SEGMENT_SIZE;
 #else
-  adata(abfd).segment_size = PAGE_SIZE;
+  adata(abfd).segment_size = TARGET_PAGE_SIZE;
 #endif
   adata(abfd).exec_bytes_size = EXEC_BYTES_SIZE;
 #endif
@@ -170,11 +174,11 @@ MY(mkobject) (abfd)
     return false;
 #if 0 /* Sizes get set in set_sizes callback, later, after we know
 	 the architecture and machine.  */
-  adata(abfd).page_size = PAGE_SIZE;
+  adata(abfd).page_size = TARGET_PAGE_SIZE;
 #ifdef SEGMENT_SIZE
   adata(abfd).segment_size = SEGMENT_SIZE;
 #else
-  adata(abfd).segment_size = PAGE_SIZE;
+  adata(abfd).segment_size = TARGET_PAGE_SIZE;
 #endif
   adata(abfd).exec_bytes_size = EXEC_BYTES_SIZE;
 #endif
@@ -236,18 +240,18 @@ static boolean
 MY(set_sizes) (abfd)
      bfd *abfd;
 {
-  adata(abfd).page_size = PAGE_SIZE;
+  adata(abfd).page_size = TARGET_PAGE_SIZE;
 
 #ifdef SEGMENT_SIZE
   adata(abfd).segment_size = SEGMENT_SIZE;
 #else
-  adata(abfd).segment_size = PAGE_SIZE;
+  adata(abfd).segment_size = TARGET_PAGE_SIZE;
 #endif
 
 #ifdef ZMAGIC_DISK_BLOCK_SIZE
   adata(abfd).zmagic_disk_block_size = ZMAGIC_DISK_BLOCK_SIZE;
 #else
-  adata(abfd).zmagic_disk_block_size = PAGE_SIZE;
+  adata(abfd).zmagic_disk_block_size = TARGET_PAGE_SIZE;
 #endif
 
   adata(abfd).exec_bytes_size = EXEC_BYTES_SIZE;
@@ -267,6 +271,9 @@ MY(set_sizes) (abfd)
 #endif
 #ifndef MY_text_includes_header
 #define MY_text_includes_header 0
+#endif
+#ifndef MY_exec_header_not_counted
+#define MY_exec_header_not_counted 0
 #endif
 #ifndef MY_add_dynamic_symbols
 #define MY_add_dynamic_symbols 0
@@ -293,7 +300,7 @@ static CONST struct aout_backend_data MY(backend_data) = {
   MY_exec_hdr_flags,
   0,				/* text vma? */
   MY_set_sizes,
-  0,				/* exec header is counted */
+  MY_exec_header_not_counted,
   MY_add_dynamic_symbols,
   MY_add_one_symbol,
   MY_link_dynamic_object,
@@ -346,6 +353,9 @@ MY_bfd_final_link (abfd, info)
 #ifndef	MY_openr_next_archived_file
 #define	MY_openr_next_archived_file	bfd_generic_openr_next_archived_file
 #endif
+#ifndef MY_get_elt_at_index
+#define MY_get_elt_at_index		_bfd_generic_get_elt_at_index
+#endif
 #ifndef	MY_generic_stat_arch_elt
 #define	MY_generic_stat_arch_elt	bfd_generic_stat_arch_elt
 #endif
@@ -361,6 +371,9 @@ MY_bfd_final_link (abfd, info)
 #endif
 #ifndef	MY_write_armap
 #define	MY_write_armap		bsd_write_armap
+#endif
+#ifndef MY_read_ar_hdr
+#define MY_read_ar_hdr		_bfd_generic_read_ar_hdr
 #endif
 #ifndef	MY_truncate_arname
 #define	MY_truncate_arname		bfd_bsd_truncate_arname
@@ -409,6 +422,9 @@ MY_bfd_final_link (abfd, info)
 #endif
 #ifndef MY_get_section_contents
 #define MY_get_section_contents NAME(aout,get_section_contents)
+#endif
+#ifndef MY_get_section_contents_in_window
+#define MY_get_section_contents_in_window _bfd_generic_get_section_contents_in_window
 #endif
 #ifndef MY_new_section_hook
 #define MY_new_section_hook NAME(aout,new_section_hook)
@@ -488,6 +504,10 @@ MY_bfd_final_link (abfd, info)
 #define MY_bfd_copy_private_symbol_data _bfd_generic_bfd_copy_private_symbol_data
 #endif
 
+#ifndef MY_bfd_print_private_bfd_data
+#define MY_bfd_print_private_bfd_data _bfd_generic_bfd_print_private_bfd_data
+#endif
+
 #ifndef MY_bfd_set_private_flags
 #define MY_bfd_set_private_flags _bfd_generic_bfd_set_private_flags
 #endif
@@ -537,11 +557,11 @@ const bfd_target MY(vec) =
   TARGETNAME,		/* name */
   bfd_target_aout_flavour,
 #ifdef TARGET_IS_BIG_ENDIAN_P
-  true,				/* target byte order (big) */
-  true,				/* target headers byte order (big) */
+  BFD_ENDIAN_BIG,		/* target byte order (big) */
+  BFD_ENDIAN_BIG,		/* target headers byte order (big) */
 #else
-  false,			/* target byte order (little) */
-  false,			/* target headers byte order (little) */
+  BFD_ENDIAN_LITTLE,		/* target byte order (little) */
+  BFD_ENDIAN_LITTLE,		/* target headers byte order (little) */
 #endif
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -550,7 +570,6 @@ const bfd_target MY(vec) =
   MY_symbol_leading_char,
   AR_PAD_CHAR,			/* ar_pad_char */
   15,				/* ar_max_namelen */
-  3,				/* minimum alignment */
 #ifdef TARGET_IS_BIG_ENDIAN_P
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      bfd_getb32, bfd_getb_signed_32, bfd_putb32,

@@ -1,5 +1,5 @@
 /* BFD support for the SPARC architecture.
-   Copyright 1992 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -21,24 +21,91 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-static bfd_arch_info_type arch_info_struct = 
+/* Don't mix 32 bit and 64 bit files.  */
+
+static const bfd_arch_info_type *
+sparc_compatible (a, b)
+     const bfd_arch_info_type *a;
+     const bfd_arch_info_type *b;
+{
+  if (a->bits_per_word != b->bits_per_word)
+    return NULL;
+
+  return bfd_default_compatible (a, b);
+}
+
+static const bfd_arch_info_type arch_info_struct[] =
+{
   {
-    32,	/* 32 bits in a word */
-    32,	/* 32 bits in an address */
-    8,	/* 8 bits in a byte */
+    32,	/* bits in a word */
+    32,	/* bits in an address */
+    8,	/* bits in a byte */
     bfd_arch_sparc,
-    0,	/* only 1 machine */
+    bfd_mach_sparc_v8plus,
+    "sparc",
+    "sparc:v8plus",
+    3,
+    false,
+    sparc_compatible, 
+    bfd_default_scan,
+    &arch_info_struct[1],
+  },
+  {
+    32,	/* bits in a word */
+    32,	/* bits in an address */
+    8,	/* bits in a byte */
+    bfd_arch_sparc,
+    bfd_mach_sparc_v8plusa,
+    "sparc",
+    "sparc:v8plusa",
+    3,
+    false,
+    sparc_compatible, 
+    bfd_default_scan,
+    &arch_info_struct[2],
+  },
+  {
+    64,	/* bits in a word */
+    64,	/* bits in an address */
+    8,	/* bits in a byte */
+    bfd_arch_sparc,
+    bfd_mach_sparc_v9,
+    "sparc",
+    "sparc:v9",
+    3,
+    false,
+    sparc_compatible, 
+    bfd_default_scan,
+    &arch_info_struct[3],
+  },
+  {
+    64,	/* bits in a word */
+    64,	/* bits in an address */
+    8,	/* bits in a byte */
+    bfd_arch_sparc,
+    bfd_mach_sparc_v9a,
+    "sparc",
+    "sparc:v9a",
+    3,
+    false,
+    sparc_compatible, 
+    bfd_default_scan,
+    0,
+  }
+};
+
+const bfd_arch_info_type bfd_sparc_arch =
+  {
+    32,	/* bits in a word */
+    32,	/* bits in an address */
+    8,	/* bits in a byte */
+    bfd_arch_sparc,
+    bfd_mach_sparc,
     "sparc",
     "sparc",
     3,
-    true, /* the one and only */
-    bfd_default_compatible, 
-    bfd_default_scan ,
-    0,
+    true, /* the default */
+    sparc_compatible, 
+    bfd_default_scan,
+    &arch_info_struct[0],
   };
-
-void
-bfd_sparc_arch ()
-{
-  bfd_arch_linkin(&arch_info_struct);
-}

@@ -28,9 +28,7 @@
    
 
 /* This file can only be compiled on systems which use HPPA-BSD style
-   core files.  In the config/XXXXXX.mh file for such a system add
-   HDEFINES=-DHPPABSD_CORE
-   HDEPFILES=hppabsd-core.o
+   core files.
 
    I would not expect this to be of use to any other host/target, but
    you never know.  */
@@ -55,7 +53,7 @@
 
 static asection *make_bfd_asection PARAMS ((bfd *, CONST char *,
 					    flagword, bfd_size_type,
-					    bfd_vma, unsigned int));
+					    file_ptr, unsigned int));
 static asymbol *hppabsd_core_make_empty_symbol PARAMS ((bfd *));
 static const bfd_target *hppabsd_core_core_file_p PARAMS ((bfd *));
 static char *hppabsd_core_core_file_failing_command PARAMS ((bfd *));
@@ -83,12 +81,12 @@ struct hppabsd_core_struct
 #define core_regsec(bfd) (core_hdr(bfd)->reg_section)
 
 static asection *
-make_bfd_asection (abfd, name, flags, _raw_size, vma, alignment_power)
+make_bfd_asection (abfd, name, flags, _raw_size, offset, alignment_power)
      bfd *abfd;
      CONST char *name;
      flagword flags;
      bfd_size_type _raw_size;
-     bfd_vma vma;
+     file_ptr offset;
      unsigned int alignment_power;
 {
   asection *asect;
@@ -99,8 +97,7 @@ make_bfd_asection (abfd, name, flags, _raw_size, vma, alignment_power)
 
   asect->flags = flags;
   asect->_raw_size = _raw_size;
-  asect->vma = vma;
-  asect->filepos = bfd_tell (abfd);
+  asect->filepos = offset;
   asect->alignment_power = alignment_power;
 
   return asect;
@@ -177,10 +174,7 @@ hppabsd_core_core_file_p (abfd)
   coredata = (struct hppabsd_core_struct *)
     bfd_zalloc (abfd, sizeof (struct hppabsd_core_struct));
   if (!coredata)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   /* Make the core data and available via the tdata part of the BFD.  */
   abfd->tdata.hppabsd_core_data = coredata;
@@ -265,8 +259,8 @@ const bfd_target hppabsd_core_vec =
   {
     "hppabsd-core",
     bfd_target_unknown_flavour,
-    true,			/* target byte order */
-    true,			/* target headers byte order */
+    BFD_ENDIAN_BIG,		/* target byte order */
+    BFD_ENDIAN_BIG,		/* target headers byte order */
     (HAS_RELOC | EXEC_P |	/* object flags */
      HAS_LINENO | HAS_DEBUG |
      HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -274,7 +268,6 @@ const bfd_target hppabsd_core_vec =
     0,			                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */
     16,							   /* ar_max_namelen */
-    3,							   /* minimum alignment power */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 64 bit data */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 32 bit data */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 16 bit data */

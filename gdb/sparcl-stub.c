@@ -88,14 +88,15 @@
 
 #include <string.h>
 #include <signal.h>
+#include <sparclite.h>
 
 /************************************************************************
  *
  * external low-level support routines
  */
 
-extern putDebugChar();   /* write a single character      */
-extern getDebugChar();   /* read and return a single char */
+extern void putDebugChar (int c); /* write a single character      */
+extern int getDebugChar (void);	/* read and return a single char */
 
 /************************************************************************/
 /* BUFMAX defines the maximum number of characters in inbound/outbound buffers*/
@@ -104,10 +105,9 @@ extern getDebugChar();   /* read and return a single char */
 
 static int initialized = 0;	/* !0 means we've been initialized */
 
-extern void breakinst();
-static void hw_breakpoint();
-static void set_mem_fault_trap();
-static void get_in_break_mode();
+extern void breakinst ();
+static void set_mem_fault_trap (int enable);
+static void get_in_break_mode (void);
 
 static const char hexchars[]="0123456789abcdef";
 
@@ -132,6 +132,43 @@ enum regnames {G0, G1, G2, G3, G4, G5, G6, G7,
 
 extern void trap_low();
 
+/* Create private copies of common functions used by the stub.  This prevents
+   nasty interactions between app code and the stub (for instance if user steps
+   into strlen, etc..) */
+
+static int
+strlen (const char *s)
+{
+  const char *s1 = s;
+
+  while (*s1++ != '\000');
+
+  return s1 - s;
+}
+
+static char *
+strcpy (char *dst, const char *src)
+{
+  char *retval = dst;
+
+  while ((*dst++ = *src++) != '\000');
+
+  return retval;
+}
+
+static void *
+memcpy (void *vdst, const void *vsrc, int n)
+{
+  char *dst = vdst;
+  const char *src = vsrc;
+  char *retval = dst;
+
+  while (n-- > 0)
+    *dst++ = *src++;
+
+  return retval;
+}
+
 asm("
 	.reserve trapstack, 1000 * 4, \"bss\", 8
 
@@ -148,6 +185,18 @@ in_trap_handler:
 ! underflow) occurs.  It makes sure that the invalid register window is still
 ! available before jumping into C code.  It will also restore the world if you
 ! return from handle_exception.
+!
+! On entry, trap_low expects l1 and l2 to contain pc and npc respectivly.
+! Register usage throughout the routine is as follows:
+!
+!	l0 - psr
+!	l1 - pc
+!	l2 - npc
+!	l3 - wim
+!	l4 - scratch and y reg
+!	l5 - scratch and tbr
+!	l6 - unused
+!	l7 - unused
 
 	.globl _trap_low
 _trap_low:
@@ -226,7 +275,7 @@ recursive_trap:
 	std	%i2, [%sp + (24 + 10) * 4]
 	std	%i4, [%sp + (24 + 12) * 4]
 	std	%i6, [%sp + (24 + 14) * 4]
-					! F0->F31 not implemented
+
 	mov	%y, %l4
 	mov	%tbr, %l5
 	st	%l4, [%sp + (24 + 64) * 4] ! Y
@@ -235,50 +284,38 @@ recursive_trap:
 	st	%l5, [%sp + (24 + 67) * 4] ! TBR
 	st	%l1, [%sp + (24 + 68) * 4] ! PC
 	st	%l2, [%sp + (24 + 69) * 4] ! NPC
-					! CPSR and FPSR not impl
+
 	or	%l0, 0xf20, %l4
 	mov	%l4, %psr		! Turn on traps, disable interrupts
-	nop
-	nop
-	nop
- 	call 	_get_in_break_mode
- 	nop
-	nop
+
+	set	0x1000, %l1
+	btst	%l1, %l0		! FP enabled?
+	be	no_fpstore
 	nop
 
-	sethi	%hi(0xff00), %l5
-	or	%l5, %lo(0xff00), %l5
+! Must save fsr first, to flush the FQ.  This may cause a deferred fp trap, so
+! traps must be enabled to allow the trap handler to clean things up.
 
-	lda	[%l5]0x1, %l4
-	st 	%l4, [%sp + (24 + 72) * 4] ! DIA1, debug instr addr 1
-	add	%l5, 4, %l5
-	lda	[%l5]0x1, %l4
-	st 	%l4, [%sp + (24 + 73) * 4] ! DIA2, debug instr addr 2
-	add	%l5, 4, %l5
-	lda	[%l5]0x1, %l4
-	st 	%l4, [%sp + (24 + 74) * 4] ! DDA1, debug data addr 1
-	add	%l5, 4, %l5
-	lda	[%l5]0x1, %l4
-	st 	%l4, [%sp + (24 + 75) * 4] ! DDA2, debug data addr 2
-	add	%l5, 4, %l5
-	lda	[%l5]0x1, %l4
-	st 	%l4, [%sp + (24 + 76) * 4] ! DDV1, debug data val 1
-	add	%l5, 4, %l5
-	lda	[%l5]0x1, %l4
-	st 	%l4, [%sp + (24 + 77) * 4] ! DDV2, debug data val 2 
-	add	%l5, 4, %l5
-	lda	[%l5]0x1, %l4
-	st 	%l4, [%sp + (24 + 78) * 4] ! DCR, debug control reg 
-	add	%l5, 4, %l5
-	lda	[%l5]0x1, %l4
-	st 	%l4, [%sp + (24 + 79) * 4] ! DSR, debug status reg
-	nop
-        nop
-	or	%l0, 0xf20, %l4
-	mov	%l4, %psr		! Turn on traps, disable interrupts
-	nop
-        nop
-        nop
+	st	%fsr, [%sp + (24 + 70) * 4]
+
+	std	%f0, [%sp + (24 + 32) * 4]
+	std	%f2, [%sp + (24 + 34) * 4]
+	std	%f4, [%sp + (24 + 36) * 4]
+	std	%f6, [%sp + (24 + 38) * 4]
+	std	%f8, [%sp + (24 + 40) * 4]
+	std	%f10, [%sp + (24 + 42) * 4]
+	std	%f12, [%sp + (24 + 44) * 4]
+	std	%f14, [%sp + (24 + 46) * 4]
+	std	%f16, [%sp + (24 + 48) * 4]
+	std	%f18, [%sp + (24 + 50) * 4]
+	std	%f20, [%sp + (24 + 52) * 4]
+	std	%f22, [%sp + (24 + 54) * 4]
+	std	%f24, [%sp + (24 + 56) * 4]
+	std	%f26, [%sp + (24 + 58) * 4]
+	std	%f28, [%sp + (24 + 60) * 4]
+	std	%f30, [%sp + (24 + 62) * 4]
+no_fpstore:
+
 	call	_handle_exception
 	add	%sp, 24 * 4, %o0	! Pass address of registers
 
@@ -294,42 +331,34 @@ recursive_trap:
 	ldd	[%sp + (24 + 12) * 4], %i4
 	ldd	[%sp + (24 + 14) * 4], %i6
 
-        sethi	%hi(0xff00), %l2
-	or	%l2, %lo(0xff00), %l2
-	ldd 	[%sp + (24 + 72) * 4], %l4 ! DIA1, debug instr addr 1
-	stda	%l4, [%l2]0x1 
-	nop
-	nop
-	nop
-	nop
-	ldd	[%sp + (24 + 74) * 4], %l4 ! DDA1, debug data addr 1
-	add	%l2, 8, %l2
-        stda	%l4, [%l2]0x1 
-	nop
-	nop
-	nop
-	nop
-	ldd	[%sp + (24 + 76) * 4], %l4 ! DDV1, debug data value 1
-	add	%l2, 8, %l2
-	stda	%l4, [%l2]0x1 
-	nop
-	nop
-	nop
-	nop
-	ld	[%sp + (24 + 78) * 4], %l4 ! DCR, debug control reg 
-	ld	[%sp + (24 + 79) * 4], %l5 ! DSR, debug control reg 
-	add	%l2, 8, %l2
-	or	%l4, 0x200, %l4
-	sta	%l4, [%l2]0x1
-	add	%l2, 4, %l2
-	sta	%l5, [%l2]0x1
-	nop
-	nop
-	nop
-	nop
 
 	ldd	[%sp + (24 + 64) * 4], %l0 ! Y & PSR
 	ldd	[%sp + (24 + 68) * 4], %l2 ! PC & NPC
+
+	set	0x1000, %l5
+	btst	%l5, %l1		! FP enabled?
+	be	no_fpreload
+	nop
+
+	ldd	[%sp + (24 + 32) * 4], %f0
+	ldd	[%sp + (24 + 34) * 4], %f2
+	ldd	[%sp + (24 + 36) * 4], %f4
+	ldd	[%sp + (24 + 38) * 4], %f6
+	ldd	[%sp + (24 + 40) * 4], %f8
+	ldd	[%sp + (24 + 42) * 4], %f10
+	ldd	[%sp + (24 + 44) * 4], %f12
+	ldd	[%sp + (24 + 46) * 4], %f14
+	ldd	[%sp + (24 + 48) * 4], %f16
+	ldd	[%sp + (24 + 50) * 4], %f18
+	ldd	[%sp + (24 + 52) * 4], %f20
+	ldd	[%sp + (24 + 54) * 4], %f22
+	ldd	[%sp + (24 + 56) * 4], %f24
+	ldd	[%sp + (24 + 58) * 4], %f26
+	ldd	[%sp + (24 + 60) * 4], %f28
+	ldd	[%sp + (24 + 62) * 4], %f30
+
+	ld	[%sp + (24 + 70) * 4], %fsr
+no_fpreload:
 
 	restore				! Ensure that previous window is valid
 	save	%g0, %g0, %g0		!  by causing a window_underflow trap
@@ -448,8 +477,7 @@ putpacket(buffer)
 
       while (ch = buffer[count])
 	{
-	  if (! putDebugChar(ch))
-	    return;
+	  putDebugChar (ch);
 	  checksum += ch;
 	  count += 1;
 	}
@@ -541,16 +569,21 @@ static struct hard_trap_info
   unsigned char tt;		/* Trap type code for SPARClite */
   unsigned char signo;		/* Signal that we map this trap into */
 } hard_trap_info[] = {
-  {1, SIGSEGV},			/* instruction access error */
-  {2, SIGILL},			/* privileged instruction */
-  {3, SIGILL},			/* illegal instruction */
-  {4, SIGEMT},			/* fp disabled */
-  {36, SIGEMT},			/* cp disabled */
-  {7, SIGBUS},			/* mem address not aligned */
-  {9, SIGSEGV},			/* data access exception */
-  {10, SIGEMT},			/* tag overflow */
-  {128+1, SIGTRAP},		/* ta 1 - normal breakpoint instruction */
-  {255, SIGTRAP},		/* hardware breakpoint */
+  {0x01, SIGSEGV},		/* instruction access error */
+  {0x02, SIGILL},		/* privileged instruction */
+  {0x03, SIGILL},		/* illegal instruction */
+  {0x04, SIGEMT},		/* fp disabled */
+  {0x07, SIGBUS},		/* mem address not aligned */
+  {0x09, SIGSEGV},		/* data access exception */
+  {0x0a, SIGEMT},		/* tag overflow */
+  {0x20, SIGBUS},		/* r register access error */
+  {0x21, SIGBUS},		/* instruction access error */
+  {0x24, SIGEMT},		/* cp disabled */
+  {0x29, SIGBUS},		/* data access error */
+  {0x2a, SIGFPE},		/* divide by zero */
+  {0x2b, SIGBUS},		/* data store error */
+  {0x80+1, SIGTRAP},		/* ta 1 - normal breakpoint instruction */
+  {0xff, SIGTRAP},		/* hardware breakpoint */
   {0, 0}			/* Must be last */
 };
 
@@ -561,8 +594,13 @@ set_debug_traps()
 {
   struct hard_trap_info *ht;
 
-  for (ht = hard_trap_info; ht->tt && ht->signo; ht++)
-    exceptionHandler(ht->tt, trap_low);
+/* Only setup fp traps if the FP is disabled.  */
+
+  for (ht = hard_trap_info;
+       ht->tt != 0 && ht->signo != 0;
+       ht++)
+    if (ht->tt != 4 || ! (read_psr () & 0x1000))
+      exceptionHandler(ht->tt, trap_low);
 
   /* In case GDB is started before us, ack any packets (presumably
      "$?#xx") sitting there.  */
@@ -613,32 +651,15 @@ _dummy_hw_breakpoint:
 ");
 
 static void
-set_hw_breakpoint_trap(enable)
-     int enable;
+get_in_break_mode()
 {
   extern void dummy_hw_breakpoint();
 
-  if (enable)
-    exceptionHandler(255, dummy_hw_breakpoint);
-  else
-    exceptionHandler(255, trap_low);
-}
+  exceptionHandler (255, dummy_hw_breakpoint);
 
-static void
-get_in_break_mode()
-{
-  set_hw_breakpoint_trap(1);
+  asm ("ta 255");
 
-  asm("
-        sethi   %hi(0xff10), %l4
-        or      %l4, %lo(0xff10), %l4
-	sta 	%g0, [%l4]0x1	
-	nop
-	nop
-	nop
-      ");
-
-  set_hw_breakpoint_trap(0);
+  exceptionHandler (255, trap_low);
 }
 
 /* Convert the SPARC hardware trap type code to a unix signal number. */
@@ -690,7 +711,6 @@ hexToInt(char **ptr, int *intValue)
  * otherwise.
  */
 
-
 static void
 handle_exception (registers)
      unsigned long *registers;
@@ -723,6 +743,17 @@ handle_exception (registers)
 	restore
 ");
 
+  get_in_break_mode ();		/* Enable DSU register writes */
+
+  registers[DIA1] = read_asi (1, 0xff00);
+  registers[DIA2] = read_asi (1, 0xff04);
+  registers[DDA1] = read_asi (1, 0xff08);
+  registers[DDA2] = read_asi (1, 0xff0c);
+  registers[DDV1] = read_asi (1, 0xff10);
+  registers[DDV2] = read_asi (1, 0xff14);
+  registers[DCR] = read_asi (1, 0xff18);
+  registers[DSR] = read_asi (1, 0xff1c);
+
   if (registers[PC] == (unsigned long)breakinst)
     {
       registers[PC] = registers[NPC];
@@ -732,13 +763,9 @@ handle_exception (registers)
 
   dsr = (unsigned long)registers[DSR];
   if (dsr & 0x3c)
-    {
-      tt = 255;
-    }
+    tt = 255;
   else
-    {
-      tt = (registers[TBR] >> 4) & 0xff;
-    }
+    tt = (registers[TBR] >> 4) & 0xff;
 
   /* reply to host that an exception has occurred */
   sigval = computeSignal(tt);
@@ -801,33 +828,40 @@ handle_exception (registers)
 	  break;
 
 	case 'g':		/* return the value of the CPU registers */
-	  {
-	    ptr = remcomOutBuffer;
-	    ptr = mem2hex((char *)registers, ptr, 16 * 4, 0); /* G & O regs */
-	    ptr = mem2hex(sp + 0, ptr, 16 * 4, 0); /* L & I regs */
-	    memset(ptr, '0', 32 * 8); /* Floating point */
-	    ptr = mem2hex((char *)&registers[Y],
-		    ptr + 32 * 4 * 2,
-		    8 * 4,
-		    0);		/* Y, PSR, WIM, TBR, PC, NPC, FPSR, CPSR */
-	    mem2hex((char *)&registers[DIA1], ptr,
-		8 * 4, 0);    /* DIA1, DIA2, DDA1, DDA2, DDV1, DDV2, DCR, DSR */
-	  }
+	  memcpy (&registers[L0], sp, 16 * 4); /* Copy L & I regs from stack */
+	  mem2hex ((char *)registers, remcomOutBuffer, NUMREGBYTES, 0);
 	  break;
 
-	case 'G':	   /* set the value of the CPU registers - return OK */
+	case 'G':		/* Set the value of all registers */
+	case 'P':		/* Set the value of one register */
 	  {
 	    unsigned long *newsp, psr;
 
 	    psr = registers[PSR];
 
 	    ptr = &remcomInBuffer[1];
-	    hex2mem(ptr, (char *)registers, 16 * 4, 0); /* G & O regs */
-	    hex2mem(ptr + 16 * 4 * 2, sp + 0, 16 * 4, 0); /* L & I regs */
-	    hex2mem(ptr + 64 * 4 * 2, (char *)&registers[Y],
-		8 * 4, 0);    /* Y, PSR, WIM, TBR, PC, NPC, FPSR, CPSR */
-	    hex2mem(ptr + 72 * 4 * 2, (char *)&registers[DIA1],
-		8 * 4, 0);    /* DIA1, DIA2, DDA1, DDA2, DDV1, DDV2, DCR, DSR */
+
+	    if (remcomInBuffer[0] == 'P')
+	      {
+		int regno;
+
+		if (hexToInt (&ptr, &regno)
+		    && *ptr++ == '=')
+		  if (regno >= L0 && regno <= I7)
+		    hex2mem (ptr, sp + regno - L0, 4, 0);
+		  else
+		    hex2mem (ptr, (char *)&registers[regno], 4, 0);
+		else
+		  {
+		    strcpy (remcomOutBuffer, "P01");
+		    break;
+		  }
+	      }
+	    else
+	      {
+		hex2mem (ptr, (char *)registers, NUMREGBYTES, 0);
+		memcpy (sp, &registers[L0], 16 * 4); /* Copy L & I regs to stack */
+	      }
 
 	    /* See if the stack pointer has moved.  If so, then copy the saved
 	       locals and ins to the new location.  This keeps the window
@@ -898,7 +932,21 @@ handle_exception (registers)
    some location may have changed something that is in the instruction cache.
  */
 
-	  flush_i_cache();
+	  flush_i_cache ();
+
+	  if (!(registers[DSR] & 0x1) /* DSU enabled? */
+	      && !(registers[DCR] & 0x200)) /* Are we in break state? */
+	    {			/* Yes, set the DSU regs */
+	      write_asi (1, 0xff00, registers[DIA1]);
+	      write_asi (1, 0xff04, registers[DIA2]);
+	      write_asi (1, 0xff08, registers[DDA1]);
+	      write_asi (1, 0xff0c, registers[DDA2]);
+	      write_asi (1, 0xff10, registers[DDV1]);
+	      write_asi (1, 0xff14, registers[DDV2]);
+	      write_asi (1, 0xff1c, registers[DSR]);
+	      write_asi (1, 0xff18, registers[DCR] | 0x200); /* Clear break */
+	    }
+
 	  return;
 
 	  /* kill the program */
@@ -972,13 +1020,5 @@ breakpoint()
   asm("	.globl _breakinst
 
 	_breakinst: ta 1
-      ");
-}
-
-static void
-hw_breakpoint()
-{
-  asm("
-      ta 127
       ");
 }

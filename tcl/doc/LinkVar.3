@@ -1,19 +1,16 @@
 '\"
 '\" Copyright (c) 1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) LinkVar.3 1.5 94/12/17 16:17:25
 '\" 
 .so man.macros
-.HS Tcl_LinkVar tclc 7.0
+.TH Tcl_LinkVar 3 7.0 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
-.na
 Tcl_LinkVar, Tcl_UnlinkVar \- link Tcl variable to C variable
-.ad
 .SH SYNOPSIS
 .nf
 \fB#include <tcl.h>\fR
@@ -32,11 +29,9 @@ Name of global variable.
 .AP char *addr in
 Address of C variable that is to be linked to \fIvarName\fR.
 .AP int type in
-.na
 Type of C variable.  Must be one of TCL_LINK_INT, TCL_LINK_DOUBLE,
 TCL_LINK_BOOLEAN, or TCL_LINK_STRING, optionally OR'ed with
 TCL_LINK_READ_ONLY to make Tcl variable read-only.
-.ad
 .BE
 
 .SH DESCRIPTION
@@ -74,7 +69,7 @@ Tcl errors.
 The C variable is of type \fBint\fR.
 If its value is zero then it will read from Tcl as ``0'';
 otherwise it will read from Tcl as ``1''.
-Whenver \fIvarName\fR is
+Whenever \fIvarName\fR is
 modified, the C variable will be set to a 0 or 1 value.
 Any value written into the Tcl variable must have a proper boolean
 form acceptable to \fBTcl_GetBoolean\fR;  attempts to write
@@ -95,6 +90,10 @@ If the TCL_LINK_READ_ONLY flag is present in \fItype\fR then the
 variable will be read-only from Tcl, so that its value can only be
 changed by modifying the C variable.
 Attempts to write the variable from Tcl will be rejected with errors.
+.PP
+\fBTcl_UnlinkVar\fR removes the link previously set up for the
+variable given by \fIvarName\fR.  If there does not exist a link
+for \fIvarName\fR then the procedure has no effect.
 
 .SH KEYWORDS
 boolean, integer, link, read-only, real, string, variable

@@ -1,5 +1,5 @@
 /* Native-dependent code for SVR4 Unix running on i386's, for GDB.
-   Copyright 1988, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -16,6 +16,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+
+#ifdef HAVE_SYS_PROCFS_H
 
 #include "defs.h"
 #include <sys/procfs.h>
@@ -64,6 +66,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
  */
 
+#ifdef HAVE_GREGSET_T
+
 /* This is a duplicate of the table in i386-xdep.c. */
 
 static int regmap[] = 
@@ -74,6 +78,12 @@ static int regmap[] =
   DS, ES, FS, GS,
 };
 
+
+/*  FIXME:  These routine absolutely depends upon (NUM_REGS - NUM_FREGS)
+    being less than or equal to the number of registers that can be stored
+    in a gregset_t.  Note that with the current scheme there will typically
+    be more registers actually stored in a gregset_t that what we know
+    about.  This is bogus and should be fixed. */
 
 /*  Given a pointer to a general register set in /proc format (gregset_t *),
     unpack the register contents and supply them as gdb's idea of the current
@@ -87,7 +97,7 @@ supply_gregset (gregsetp)
   register greg_t *regp = (greg_t *) gregsetp;
   extern int regmap[];
 
-  for (regi = 0 ; regi < NUM_REGS ; regi++)
+  for (regi = 0 ; regi < (NUM_REGS - NUM_FREGS) ; regi++)
     {
       supply_register (regi, (char *) (regp + regmap[regi]));
     }
@@ -103,7 +113,7 @@ fill_gregset (gregsetp, regno)
   extern char registers[];
   extern int regmap[];
 
-  for (regi = 0 ; regi < NUM_REGS ; regi++)
+  for (regi = 0 ; regi < (NUM_REGS - NUM_FREGS) ; regi++)
     {
       if ((regno == -1) || (regno == regi))
 	{
@@ -112,7 +122,9 @@ fill_gregset (gregsetp, regno)
     }
 }
 
-#if defined (FP0_REGNUM)
+#endif	/* HAVE_GREGSET_T */
+
+#if defined (FP0_REGNUM) && defined (HAVE_FPREGSET_T)
 
 /*  Given a pointer to a floating point register set in /proc format
     (fpregset_t *), unpack the register contents and supply them as gdb's
@@ -145,4 +157,6 @@ fill_fpregset (fpregsetp, regno)
   /* FIXME: see m68k-tdep.c for an example, for the m68k. */
 }
 
-#endif	/* defined (FP0_REGNUM) */
+#endif	/* defined (FP0_REGNUM) && defined (HAVE_FPREGSET_T) */
+
+#endif	/* HAVE_SYS_PROCFS_H */

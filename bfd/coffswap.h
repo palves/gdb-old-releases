@@ -266,57 +266,6 @@ coff_swap_filehdr_out (abfd, in, out)
   bfd_h_put_16(abfd, filehdr_in->f_opthdr, (bfd_byte *) filehdr_out->f_opthdr);
   bfd_h_put_16(abfd, filehdr_in->f_flags, (bfd_byte *) filehdr_out->f_flags);
 
-#ifdef COFF_IMAGE_WITH_PE
-  /* put in extra dos header stuff.  This data remains essentially
-     constant, it just has to be tacked on to the beginning of all exes 
-     for NT */
-  bfd_h_put_16(abfd, filehdr_in->e_magic, (bfd_byte *) filehdr_out->e_magic);
-  bfd_h_put_16(abfd, filehdr_in->e_cblp, (bfd_byte *) filehdr_out->e_cblp);
-  bfd_h_put_16(abfd, filehdr_in->e_cp, (bfd_byte *) filehdr_out->e_cp);
-  bfd_h_put_16(abfd, filehdr_in->e_crlc, (bfd_byte *) filehdr_out->e_crlc);
-  bfd_h_put_16(abfd, filehdr_in->e_cparhdr, 
-                     (bfd_byte *) filehdr_out->e_cparhdr);
-  bfd_h_put_16(abfd, filehdr_in->e_minalloc, 
-                     (bfd_byte *) filehdr_out->e_minalloc);
-  bfd_h_put_16(abfd, filehdr_in->e_maxalloc, 
-                     (bfd_byte *) filehdr_out->e_maxalloc);
-  bfd_h_put_16(abfd, filehdr_in->e_ss, (bfd_byte *) filehdr_out->e_ss);
-  bfd_h_put_16(abfd, filehdr_in->e_sp, (bfd_byte *) filehdr_out->e_sp);
-  bfd_h_put_16(abfd, filehdr_in->e_csum, (bfd_byte *) filehdr_out->e_csum);
-  bfd_h_put_16(abfd, filehdr_in->e_ip, (bfd_byte *) filehdr_out->e_ip);
-  bfd_h_put_16(abfd, filehdr_in->e_cs, (bfd_byte *) filehdr_out->e_cs);
-  bfd_h_put_16(abfd, filehdr_in->e_lfarlc, (bfd_byte *) filehdr_out->e_lfarlc);
-  bfd_h_put_16(abfd, filehdr_in->e_ovno, (bfd_byte *) filehdr_out->e_ovno);
-  {
-    int idx;
-    for (idx=0; idx < 4; idx++)
-      bfd_h_put_16(abfd, filehdr_in->e_res[idx], 
-                         (bfd_byte *) filehdr_out->e_res[idx]);
-  }
-  bfd_h_put_16(abfd, filehdr_in->e_oemid, (bfd_byte *) filehdr_out->e_oemid);
-  bfd_h_put_16(abfd, filehdr_in->e_oeminfo,
-                     (bfd_byte *) filehdr_out->e_oeminfo);
-  {
-    int idx;
-    for (idx=0; idx < 10; idx++)
-      bfd_h_put_16(abfd, filehdr_in->e_res2[idx],
-                         (bfd_byte *) filehdr_out->e_res2[idx]);
-  }
-  bfd_h_put_32(abfd, filehdr_in->e_lfanew, (bfd_byte *) filehdr_out->e_lfanew);
-
-  {
-    int idx;
-    for (idx=0; idx < 16; idx++)
-      bfd_h_put_32(abfd, filehdr_in->dos_message[idx],
-                         (bfd_byte *) filehdr_out->dos_message[idx]);
-  }
-
-  /* also put in the NT signature */
-  bfd_h_put_32(abfd, filehdr_in->nt_signature, 
-                     (bfd_byte *) filehdr_out->nt_signature);
-
-
-#endif
   return sizeof(FILHDR);
 }
 
@@ -353,27 +302,6 @@ coff_swap_sym_in (abfd, ext1, in1)
   }
   in->n_sclass = bfd_h_get_8(abfd, ext->e_sclass);
   in->n_numaux = bfd_h_get_8(abfd, ext->e_numaux);
-
-#ifdef COFF_WITH_PE
-  /* The section symbols for the .idata$ sections have class 68, which MS
-     documentation indicates is a section symbol.  The problem is that the
-     value field in the symbol is simply a copy of the .idata section's flags
-     rather than something useful.  When these symbols are encountered, change
-     the value to 0 and the section number to 1 so that they will be handled
-     somewhat correctly in the bfd code. */
-  if (in->n_sclass == 0x68) {
-    in->n_value = 0x0;
-    in->n_scnum = 1;
-    /* I have tried setting the class to 3 and using the following to set
-       the section number.  This will put the address of the pointer to the
-       string kernel32.dll at addresses 0 and 0x10 off start of idata section
-       which is not correct */
-/*    if (strcmp (in->_n._n_name, ".idata$4") == 0) */
-/*      in->n_scnum = 3; */
-/*    else */
-/*      in->n_scnum = 2; */
-    }
-#endif
 }
 
 static unsigned int
@@ -479,20 +407,25 @@ coff_swap_aux_in (abfd, ext1, type, class, indx, numaux, in1)
   in->x_sym.x_tvndx = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_tvndx);
 #endif
 
-  if (ISARY(type)) {
+  if (class == C_BLOCK || ISFCN (type) || ISTAG (class))
+    {
+      in->x_sym.x_fcnary.x_fcn.x_lnnoptr = GET_FCN_LNNOPTR (abfd, ext);
+      in->x_sym.x_fcnary.x_fcn.x_endndx.l = GET_FCN_ENDNDX (abfd, ext);
+    }
+  else
+    {
 #if DIMNUM != E_DIMNUM
-    -> Error, we need to cope with truncating or extending DIMNUM!;
-#else
-    in->x_sym.x_fcnary.x_ary.x_dimen[0] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
-    in->x_sym.x_fcnary.x_ary.x_dimen[1] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
-    in->x_sym.x_fcnary.x_ary.x_dimen[2] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
-    in->x_sym.x_fcnary.x_ary.x_dimen[3] = bfd_h_get_16(abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
+ #error we need to cope with truncating or extending DIMNUM
 #endif
-  }
-  if (class == C_BLOCK || ISFCN(type) || ISTAG(class)) {
-    in->x_sym.x_fcnary.x_fcn.x_lnnoptr = GET_FCN_LNNOPTR(abfd, ext);
-    in->x_sym.x_fcnary.x_fcn.x_endndx.l = GET_FCN_ENDNDX(abfd, ext);
-  }
+      in->x_sym.x_fcnary.x_ary.x_dimen[0] =
+	bfd_h_get_16 (abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
+      in->x_sym.x_fcnary.x_ary.x_dimen[1] =
+	bfd_h_get_16 (abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
+      in->x_sym.x_fcnary.x_ary.x_dimen[2] =
+	bfd_h_get_16 (abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
+      in->x_sym.x_fcnary.x_ary.x_dimen[3] =
+	bfd_h_get_16 (abfd, (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
+    }
 
   if (ISFCN(type)) {
     in->x_sym.x_misc.x_fsize = bfd_h_get_32(abfd, (bfd_byte *) ext->x_sym.x_misc.x_fsize);
@@ -574,28 +507,35 @@ coff_swap_aux_out (abfd, inp, type, class, indx, numaux, extp)
   bfd_h_put_16(abfd, in->x_sym.x_tvndx , (bfd_byte *) ext->x_sym.x_tvndx);
 #endif
 
-  if (class == C_BLOCK || ISFCN(type) || ISTAG(class)) {
-    PUT_FCN_LNNOPTR(abfd,  in->x_sym.x_fcnary.x_fcn.x_lnnoptr, ext);
-    PUT_FCN_ENDNDX(abfd,  in->x_sym.x_fcnary.x_fcn.x_endndx.l, ext);
-  }
-
-  if (ISFCN(type)) {
-    PUTWORD(abfd, in->x_sym.x_misc.x_fsize, (bfd_byte *)  ext->x_sym.x_misc.x_fsize);
-  }
-  else {
-    if (ISARY(type)) {
-#if DIMNUM != E_DIMNUM
-      -> Error, we need to cope with truncating or extending DIMNUM!;
-#else
-      bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[0], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
-      bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[1], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
-      bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[2], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
-      bfd_h_put_16(abfd, in->x_sym.x_fcnary.x_ary.x_dimen[3], (bfd_byte *)ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
-#endif
+  if (class == C_BLOCK || ISFCN (type) || ISTAG (class))
+    {
+      PUT_FCN_LNNOPTR(abfd,  in->x_sym.x_fcnary.x_fcn.x_lnnoptr, ext);
+      PUT_FCN_ENDNDX(abfd,  in->x_sym.x_fcnary.x_fcn.x_endndx.l, ext);
     }
-    PUT_LNSZ_LNNO(abfd, in->x_sym.x_misc.x_lnsz.x_lnno, ext);
-    PUT_LNSZ_SIZE(abfd, in->x_sym.x_misc.x_lnsz.x_size, ext);
-  }
+  else
+    {
+#if DIMNUM != E_DIMNUM
+ #error we need to cope with truncating or extending DIMNUM
+#endif
+      bfd_h_put_16 (abfd, in->x_sym.x_fcnary.x_ary.x_dimen[0],
+		    (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[0]);
+      bfd_h_put_16 (abfd, in->x_sym.x_fcnary.x_ary.x_dimen[1],
+		    (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[1]);
+      bfd_h_put_16 (abfd, in->x_sym.x_fcnary.x_ary.x_dimen[2],
+		    (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[2]);
+      bfd_h_put_16 (abfd, in->x_sym.x_fcnary.x_ary.x_dimen[3],
+		    (bfd_byte *) ext->x_sym.x_fcnary.x_ary.x_dimen[3]);
+    }
+
+  if (ISFCN (type))
+    PUTWORD (abfd, in->x_sym.x_misc.x_fsize,
+	     (bfd_byte *)  ext->x_sym.x_misc.x_fsize);
+  else
+    {
+      PUT_LNSZ_LNNO (abfd, in->x_sym.x_misc.x_lnsz.x_lnno, ext);
+      PUT_LNSZ_SIZE (abfd, in->x_sym.x_misc.x_lnsz.x_size, ext);
+    }
+
   return sizeof(AUXENT);
 }
 
@@ -681,7 +621,9 @@ coff_swap_aouthdr_in (abfd, aouthdr_ext1, aouthdr_int1)
   aouthdr_int->o_algntext = bfd_h_get_16(abfd, aouthdr_ext->o_algntext);
   aouthdr_int->o_algndata = bfd_h_get_16(abfd, aouthdr_ext->o_algndata);
   aouthdr_int->o_modtype = bfd_h_get_16(abfd, aouthdr_ext->o_modtype);
+  aouthdr_int->o_cputype = bfd_h_get_16(abfd, aouthdr_ext->o_cputype);
   aouthdr_int->o_maxstack = bfd_h_get_32(abfd, aouthdr_ext->o_maxstack);
+  aouthdr_int->o_maxdata = bfd_h_get_32(abfd, aouthdr_ext->o_maxdata);
 #endif
 
 #ifdef MIPSECOFF
@@ -721,66 +663,26 @@ coff_swap_aouthdr_out (abfd, in, out)
 			  (bfd_byte *) aouthdr_out->text_start);
   PUT_AOUTHDR_DATA_START (abfd, aouthdr_in->data_start,
 			  (bfd_byte *) aouthdr_out->data_start);
-#ifdef COFF_WITH_PE
-  {
-    PEAOUTHDR *peaouthdr_out = (PEAOUTHDR *)aouthdr_out;
-  bfd_h_put_32 (abfd, aouthdr_in->ImageBase, 
-                (bfd_byte *) peaouthdr_out->ImageBase);
-  bfd_h_put_32 (abfd, aouthdr_in->SectionAlignment,
-                (bfd_byte *) peaouthdr_out->SectionAlignment);
-  bfd_h_put_32 (abfd, aouthdr_in->FileAlignment,
-                (bfd_byte *) peaouthdr_out->FileAlignment);
-  bfd_h_put_16 (abfd, aouthdr_in->MajorOperatingSystemVersion,
-                (bfd_byte *) peaouthdr_out->MajorOperatingSystemVersion);
-  bfd_h_put_16 (abfd, aouthdr_in->MinorOperatingSystemVersion,
-                (bfd_byte *) peaouthdr_out->MinorOperatingSystemVersion);
-  bfd_h_put_16 (abfd, aouthdr_in->MajorImageVersion,
-                (bfd_byte *) peaouthdr_out->MajorImageVersion);
-  bfd_h_put_16 (abfd, aouthdr_in->MinorImageVersion,
-                (bfd_byte *) peaouthdr_out->MinorImageVersion);
-  bfd_h_put_16 (abfd, aouthdr_in->MajorSubsystemVersion,
-                (bfd_byte *) peaouthdr_out->MajorSubsystemVersion);
-  bfd_h_put_16 (abfd, aouthdr_in->MinorSubsystemVersion,
-                (bfd_byte *) peaouthdr_out->MinorSubsystemVersion);
-  bfd_h_put_32 (abfd, aouthdr_in->Reserved1,
-                (bfd_byte *) peaouthdr_out->Reserved1);
-  bfd_h_put_32 (abfd, aouthdr_in->SizeOfImage,
-                (bfd_byte *) peaouthdr_out->SizeOfImage);
-  bfd_h_put_32 (abfd, aouthdr_in->SizeOfHeaders,
-                (bfd_byte *) peaouthdr_out->SizeOfHeaders);
-  bfd_h_put_32 (abfd, aouthdr_in->CheckSum,
-                (bfd_byte *) peaouthdr_out->CheckSum);
-  bfd_h_put_16 (abfd, aouthdr_in->Subsystem,
-                (bfd_byte *) peaouthdr_out->Subsystem);
-  bfd_h_put_16 (abfd, aouthdr_in->DllCharacteristics,
-                (bfd_byte *) peaouthdr_out->DllCharacteristics);
-  bfd_h_put_32 (abfd, aouthdr_in->SizeOfStackReserve,
-                (bfd_byte *) peaouthdr_out->SizeOfStackReserve);
-  bfd_h_put_32 (abfd, aouthdr_in->SizeOfStackCommit,
-                (bfd_byte *) peaouthdr_out->SizeOfStackCommit);
-  bfd_h_put_32 (abfd, aouthdr_in->SizeOfHeapReserve,
-                (bfd_byte *) peaouthdr_out->SizeOfHeapReserve);
-  bfd_h_put_32 (abfd, aouthdr_in->SizeOfHeapCommit,
-                (bfd_byte *) peaouthdr_out->SizeOfHeapCommit);
-  bfd_h_put_32 (abfd, aouthdr_in->LoaderFlags,
-                (bfd_byte *) peaouthdr_out->LoaderFlags);
-  bfd_h_put_32 (abfd, aouthdr_in->NumberOfRvaAndSizes,
-                (bfd_byte *) peaouthdr_out->NumberOfRvaAndSizes);
-  {
-    int idx;
-    for (idx=0; idx < 16; idx++)
-    {
-      bfd_h_put_32 (abfd, aouthdr_in->DataDirectory[idx].VirtualAddress,
-               (bfd_byte *) peaouthdr_out->DataDirectory[idx][0]);
-      bfd_h_put_32 (abfd, aouthdr_in->DataDirectory[idx].Size,
-                (bfd_byte *) peaouthdr_out->DataDirectory[idx][1]);
-    }
-  }
-}
-#endif
 
 #ifdef I960
   bfd_h_put_32(abfd, aouthdr_in->tagentries, (bfd_byte *) aouthdr_out->tagentries);
+#endif
+
+#ifdef RS6000COFF_C
+  bfd_h_put_32 (abfd, aouthdr_in->o_toc, aouthdr_out->o_toc);
+  bfd_h_put_16 (abfd, aouthdr_in->o_snentry, aouthdr_out->o_snentry);
+  bfd_h_put_16 (abfd, aouthdr_in->o_sntext, aouthdr_out->o_sntext);
+  bfd_h_put_16 (abfd, aouthdr_in->o_sndata, aouthdr_out->o_sndata);
+  bfd_h_put_16 (abfd, aouthdr_in->o_sntoc, aouthdr_out->o_sntoc);
+  bfd_h_put_16 (abfd, aouthdr_in->o_snloader, aouthdr_out->o_snloader);
+  bfd_h_put_16 (abfd, aouthdr_in->o_snbss, aouthdr_out->o_snbss);
+  bfd_h_put_16 (abfd, aouthdr_in->o_algntext, aouthdr_out->o_algntext);
+  bfd_h_put_16 (abfd, aouthdr_in->o_algndata, aouthdr_out->o_algndata);
+  bfd_h_put_16 (abfd, aouthdr_in->o_modtype, aouthdr_out->o_modtype);
+  bfd_h_put_16 (abfd, aouthdr_in->o_cputype, aouthdr_out->o_cputype);
+  bfd_h_put_32 (abfd, aouthdr_in->o_maxstack, aouthdr_out->o_maxstack);
+  bfd_h_put_32 (abfd, aouthdr_in->o_maxdata, aouthdr_out->o_maxdata);
+  memset (aouthdr_out->o_resv2, 0, sizeof aouthdr_out->o_resv2);
 #endif
 
 #ifdef MIPSECOFF
@@ -840,10 +742,6 @@ coff_swap_scnhdr_in (abfd, ext, in)
 #ifdef I960
   scnhdr_int->s_align = bfd_h_get_32(abfd, (bfd_byte *) scnhdr_ext->s_align);
 #endif
-
-  if (scnhdr_int->s_vaddr != 0) {
-    scnhdr_int->s_vaddr += IMAGE_BASE;
-  }
 }
 
 static unsigned int
@@ -858,77 +756,22 @@ coff_swap_scnhdr_out (abfd, in, out)
 
   memcpy(scnhdr_ext->s_name, scnhdr_int->s_name, sizeof(scnhdr_int->s_name));
 
-  if (scnhdr_int->s_vaddr != 0)
-    PUT_SCNHDR_VADDR (abfd, (scnhdr_int->s_vaddr - IMAGE_BASE),
-		    (bfd_byte *) scnhdr_ext->s_vaddr);
-  else
-    PUT_SCNHDR_VADDR (abfd, scnhdr_int->s_vaddr,
+  PUT_SCNHDR_VADDR (abfd, scnhdr_int->s_vaddr,
 		    (bfd_byte *) scnhdr_ext->s_vaddr);
 
-#ifdef COFF_IMAGE_WITH_PE
-  /* NT wants the physical address data to be the size (s_size data) of
-     the section */
-  PUT_SCNHDR_PADDR (abfd, scnhdr_int->s_size,
-		    (bfd_byte *) scnhdr_ext->s_paddr);
-  /* NT wants the size data to be rounded up to the next NT_FILE_ALIGNMENT
-     value except for the BSS section, its s_size should be 0 */
-  if (strcmp (scnhdr_int->s_name, _BSS) == 0)
-    PUT_SCNHDR_SIZE (abfd, 0, (bfd_byte *) scnhdr_ext->s_size);
-  else
-  {
-    bfd_vma rounded_size;
-    rounded_size = ((scnhdr_int->s_size + NT_FILE_ALIGNMENT - 1) / 
-                     NT_FILE_ALIGNMENT) *
-                      NT_FILE_ALIGNMENT;
-    PUT_SCNHDR_SIZE (abfd, rounded_size, (bfd_byte *) scnhdr_ext->s_size);
-  }
-#else
+
   PUT_SCNHDR_PADDR (abfd, scnhdr_int->s_paddr,
 		    (bfd_byte *) scnhdr_ext->s_paddr);
   PUT_SCNHDR_SIZE (abfd, scnhdr_int->s_size,
 		   (bfd_byte *) scnhdr_ext->s_size);
-#endif
+
   PUT_SCNHDR_SCNPTR (abfd, scnhdr_int->s_scnptr,
 		     (bfd_byte *) scnhdr_ext->s_scnptr);
   PUT_SCNHDR_RELPTR (abfd, scnhdr_int->s_relptr,
 		     (bfd_byte *) scnhdr_ext->s_relptr);
   PUT_SCNHDR_LNNOPTR (abfd, scnhdr_int->s_lnnoptr,
 		      (bfd_byte *) scnhdr_ext->s_lnnoptr);
-#ifdef COFF_IMAGE_WITH_PE
-  /* Extra flags must be set when dealing with NT.  All sections should also
-     have the IMAGE_SCN_MEM_READ (0x40000000) flag set.  In addition, the
-     .text section must have IMAGE_SCN_MEM_EXECUTE (0x20000000) and the data
-     sections (.idata, .data, .bss, .CRT) must have IMAGE_SCN_MEM_WRITE set
-     (this is especially important when dealing with the .idata section since
-     the addresses for routines from .dlls must be overwritten).  If .reloc
-     section data is ever generated, we must add IMAGE_SCN_MEM_DISCARDABLE
-     (0x02000000).  Also, the resource data should also be read and
-     writable.  */
-  if (strcmp (scnhdr_int->s_name, ".idata") == 0 ||
-      strcmp (scnhdr_int->s_name, ".data")  == 0 ||
-      strcmp (scnhdr_int->s_name, ".CRT")   == 0 ||
-      strcmp (scnhdr_int->s_name, ".rsrc")  == 0 ||
-      strcmp (scnhdr_int->s_name, ".bss")   == 0)
-    PUTWORD(abfd, 
-            scnhdr_int->s_flags + IMAGE_SCN_MEM_READ + IMAGE_SCN_MEM_WRITE,
-            (bfd_byte *) scnhdr_ext->s_flags);
-  else if (strcmp (scnhdr_int->s_name, ".text") == 0)
-    PUTWORD(abfd, 
-            scnhdr_int->s_flags + IMAGE_SCN_MEM_READ + IMAGE_SCN_MEM_EXECUTE,
-            (bfd_byte *) scnhdr_ext->s_flags);
-  else if (strcmp (scnhdr_int->s_name, ".reloc") == 0)
-    PUTWORD(abfd, 
-          scnhdr_int->s_flags + IMAGE_SCN_MEM_READ + IMAGE_SCN_MEM_DISCARDABLE,
-          (bfd_byte *) scnhdr_ext->s_flags);
-  else if (strcmp (scnhdr_int->s_name, ".rdata") == 0)
-    PUTWORD(abfd, 
-            scnhdr_int->s_flags + IMAGE_SCN_MEM_READ,
-            (bfd_byte *) scnhdr_ext->s_flags);
-  else 
-    PUTWORD(abfd, scnhdr_int->s_flags, (bfd_byte *) scnhdr_ext->s_flags);
-#else
   PUTWORD(abfd, scnhdr_int->s_flags, (bfd_byte *) scnhdr_ext->s_flags);
-#endif
 #if defined(M88)
   PUTWORD(abfd, scnhdr_int->s_nlnno, (bfd_byte *) scnhdr_ext->s_nlnno);
   PUTWORD(abfd, scnhdr_int->s_nreloc, (bfd_byte *) scnhdr_ext->s_nreloc);

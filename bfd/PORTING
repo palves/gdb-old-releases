@@ -72,10 +72,10 @@ TEXT_START_ADDR
 	The address of the start of the text segemnt in
 	virtual memory.  Normally, the same as the entry point.
 
-PAGE_SIZE
+TARGET_PAGE_SIZE
 
 SEGMENT_SIZE
-        Usually, the same as the PAGE_SIZE.
+        Usually, the same as the TARGET_PAGE_SIZE.
         Alignment needed for the data segment.
 
 TARGETNAME

@@ -26,12 +26,25 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "list"
-set srcfile $binfile.c
+set testfile "list"
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/list0.c -g -c -o ${binfile}0.o"] != "" } {
+    perror "Couldn't compile ${testfile}0.c to object"
+    return -1
+}
+if  { [compile "${srcdir}/${subdir}/list1.c -g -c -o ${binfile}1.o"] != "" } {
+    perror "Couldn't compile ${testfile}1.c to object"
+    return -1
+}
+if  { [compile "${binfile}0.o ${binfile}1.o -o ${binfile}"] != "" } {
+    perror "Couldn't link ${testfile}."
+    return -1
+}
 
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+execute_anywhere "rm -f ${binfile}.ci"
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
+    perror "Couldn't make ${testfile}.ci file"
+    return -1
 }
 
 #
@@ -537,7 +550,7 @@ proc test_list_function {} {
     # SunPRO cc is the third case.
     # FIXME This fails on DWARF
     setup_xfail "*-*-sysv4*"
-
+    setup_xfail "powerpc-*-*"
     if {$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     send "list foo\n"
     expect {
@@ -750,6 +763,7 @@ proc test_list_filename_and_function {} {
     # SunPRO cc is the third case.
     # FIXME This fails on DWARF
     setup_xfail "rs6000-*-*" 1804
+    setup_xfail "powerpc-*-*" 1804
     setup_xfail "*-*-sysv4*"
     # FIXME Fails for COFF as well, I think.
     setup_xfail "a29k-*-udi"
@@ -900,9 +914,9 @@ proc test_forward_search {} {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
-source gdb.base/list0.ci
+source ${binfile}.ci
 
 if $usestubs {
     send "step\n"

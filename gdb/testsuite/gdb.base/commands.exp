@@ -27,18 +27,19 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "run"
-
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+set testfile "run"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
 }
 
 gdb_exit
 gdb_start
 delete_breakpoints
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 proc gdbvar_simple_if_test {} {
     global prompt

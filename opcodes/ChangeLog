@@ -1,15 +1,419 @@
+Tue Jan 30 14:06:08 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* dis-buf.c: Include "sysdep.h" before "dis-asm.h".
+
+Thu Jan 25 20:24:07 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* sparc-opc.c (sparc_opcode_archs): Mark v8/sparclite as conflicting.
+
+Thu Jan 25 11:56:49 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* i386-dis.c (print_insn_i386): Only fetch the mod/reg/rm byte
+	when necessary.  From Ulrich Drepper
+	<drepper@myware.rz.uni-karlsruhe.de>.
+
+Thu Jan 25 03:39:10 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* sparc-dis.c (print_insn_sparc): NUMOPCODES replaced with
+	sparc_num_opcodes.  Update architecture enum values.
+	* sparc-opc.c (sparc_opcode_archs): Replaces architecture_pname.
+	(sparc_opcode_lookup_arch): New function.
+	(sparc_num_opcodes): Renamed from bfd_sparc_num_opcodes.
+	(sparc_opcodes): Add v9a shutdown insn.
+
+Mon Jan 22 08:29:59 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* sparc-dis.c (print_insn_sparc): Renamed from print_insn.
+	If DISASM_RAW_INSN, print insn in hex.  Handle v9a as opcode
+	architecture.
+	(print_insn_sparc64): Deleted.
+	* disassemble.c (disassembler, case bfd_arch_sparc): Always use
+	print_insn_sparc.
+
+	* sparc-opc.c (architecture_pname): Add v9a.
+
+Fri Jan 12 14:35:58 1996  David Mosberger-Tang  <davidm@AZStarNet.com>
+
+	* alpha-opc.h (alpha_insn_set): VAX floating point opcode was
+ 	incorrectly defined as 0x16 when it should be 0x15.
+	(FLOAT_FORMAT_MASK): function code is 11 bits, not just 7 bits!
+	(alpha_insn_set): added cvtst and cvttq float ops.  Also added
+ 	excb (exception barrier) which is defined in the Alpha
+ 	Architecture Handbook version 2.
+	* alpha-dis.c (print_insn_alpha): Fixed special-case decoding for
+ 	OPERATE_FORMAT_CODE type instructions.  The bug caused mulq to be
+ 	disassembled as or, for example.
+
+Wed Jan 10 12:37:22 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	* mips-dis.c (print_insn_arg): Print cases 'i' and 'u' in hex.
+	(_print_insn_mips): Change i from int to unsigned int.
+
+Thu Jan  4 17:21:10 1996  David Edelsohn  <edelsohn@mhpcc.edu>
+
+	* ppc-opc.c (powerpc_opcodes): tlbi POWER opcode form different
+	from tlbie PowerPC opcode.  Add PPC603 tlbld and tlbli.
+
+Thu Dec 28 13:29:19 1995  John Hassey  <hassey@rtp.dg.com>
+
+	* i386-dis.c: Added Pentium Pro instructions.
+
+Tue Dec 19 22:56:35 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc-opc.c (fsqrt{,.}): Duplicate for PowerPC in addition to
+	being for Power2.
+
+Fri Dec 15 14:14:15 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* sh-opc.h (sh_nibble_type): Added REG_B.
+	(sh_arg_type): Added A_REG_B.
+	(sh_table): Added pref and bank reg versions of ldc, ldc.l, stc
+ 	and stc.l opcodes.
+	* sh-dis.c (print_insn_shx): Added cases for REG_B and A_REG_B.
+
+Fri Dec 15 16:44:31 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* disassemble.c (disassembler): Use new bfd_big_endian macro.
+
+Tue Dec 12 12:22:24 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (distclean): Remove stamp-h.  From Ronald
+	F. Guilmette <rfg@monkeys.com>.
+
+Tue Dec  5 13:42:44 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	From David Mosberger-Tang  <davidm@azstarnet.com>:
+	* alpha-dis.c (print_insn_alpha): fixed decoding of cpys
+ 	instruction.
+
+Mon Dec  4 12:29:05 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* sh-opc.h (sh_arg_type): Added A_SSR and A_SPC.
+	(sh_table): Added many SH3 opcodes.
+	* sh-dis.c (print_insn_shx): Added cases for A_SSR and A_SPC.
+
+Fri Dec  1 07:42:18 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc-opc.c (subfc., subfco): Mark this PPCCOM, not PPC.
+	(subco,subco.): Mark this PPC, not PPCCOM.
+
+Mon Nov 27 13:09:52 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure: Rebuild with autoconf 2.7.
+
+Tue Nov 21 18:28:06 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure: Rebuild with autoconf 2.6.
+
+Wed Nov 15 19:02:53 1995  Ken Raeburn  <raeburn@cygnus.com>
+
+	* configure.in: Sort list of architectures.  Accept but do nothing
+	for alliant, convex, pyramid, romp, and tahoe.
+
+Wed Nov  8 20:18:59 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* a29k-dis.c (print_special): Change num to unsigned int.
+
+Wed Nov  8 20:10:35 1995  Eric Freudenthal <freudenthal@nyu.edu>
+
+	* a29k-dis.c (print_insn): Cast insn24 to unsigned long when
+	shifting it.
+
+Tue Nov  7 15:21:06 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Call AC_CHECK_PROG to find and cache AR.
+	* configure: Rebuilt.
+
+Mon Nov  6 17:39:47 1995  Harry Dolan  <dolan@ssd.intel.com>
+
+	* configure.in: Add case for bfd_i860_arch.
+	* configure: Rebuild.
+
+Fri Nov  3 12:45:31 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k-opc.c (m68k_opcodes): Correct fmoveml operands.
+	* m68k-dis.c (NEXTSINGLE): Change i to unsigned int.
+	(NEXTDOUBLE): Likewise.
+	(print_insn_m68k): Don't match fmoveml if there is more than one
+	register in the list.
+	(print_insn_arg): Handle a place of '8' for a type of 'L'.
+
+Thu Nov  2 23:06:33 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k-opc.c: Use #W rather than #w.
+	* m68k-dis.c (print_insn_arg): Handle new 'W' place.
+
+Wed Nov  1 13:30:24 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k-opc.c (m68k_opcode_aliases): Add dbfw as an alias for dbf,
+	and likewise for all the dbxx opcodes.
+
 Mon Oct 30 20:50:40 1995  Fred Fish  <fnf@cygnus.com>
 
 	* arc-dis.c: Include elf-bfd.h rather than libelf.h.
+
+Mon Oct 23 11:11:34 1995  James G. Smith  <jsmith@pasanda.cygnus.co.uk>
+
+	* mips-opc.c: Added shorthand (V1) for INSN_4100 manifest. Added
+ 	the VR4100 specific instructions to the mips_opcodes structure.
+
+Thu Oct 19 11:05:23 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mpw-config.in, mpw-make.sed: Remove ugly workaround for
+	ugly Metrowerks bug in CW6, is fixed in CW7.
+
+Mon Oct 16 12:59:01 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc-opc.c (whole file): Add flags for common/any support.
 
 Tue Oct 10 11:06:07 1995  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (BISON): Remove macro.
 	(FLAGS_TO_PASS): Remove BISON.
 
+Fri Oct  6 16:26:45 1995  Ken Raeburn  <raeburn@cygnus.com>
+
+	Mon Sep 25 22:49:32 1995  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* m68k-dis.c (print_insn_m68k): Recognize all two-word
+	instructions that take no args by looking at the match mask.
+  	(print_insn_arg): Always print "%" before register names.
+	[case 'c']: Use "nc" for the no-cache case, as recognized by gas.
+	[case '_']: Don't print "@#" before address.
+	[case 'J']: Use "%s" as format string, not register name.
+	[case 'B']: Treat place == 'C' like 'l' and 'L'.
+
+Thu Oct  5 22:16:20 1995  Ken Raeburn  <raeburn@cygnus.com>
+
+	* i386-dis.c: Describe cmpxchg8b operand, and spell the opcode
+	name correctly.
+
+Tue Oct  3 08:30:20 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	From David Mosberger-Tang  <davidm@azstarnet.com>
+
+	* alpha-opc.h (MEMORY_FUNCTION_FORMAT_MASK): added.
+  	(alpha_insn_set): added definitions for VAX floating point
+ 	instructions (Unix compilers don't generate these, but handcoded
+ 	assembly might still use them).
+
+	* alpha-dis.c (print_insn_alpha): added support for disassembling
+ 	the miscellaneous instructions in the Alpha instruction set.
+
+Tue Sep 26 18:47:20 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* mpw-config.in: Add m68k-opc.c.o to BFD_MACHINES for m68k,
+	no longer create sysdep.h, sed ppc-opc.c to work around a
+	serious Metrowerks C bug.
+	* mpw-make.in: Remove.
+	* mpw-make.sed: New file, used by mpw-configure to edit
+	Makefile.in into an MPW makefile.
+
+Wed Sep 20 12:55:28 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (maintainer-clean): New synonym for realclean.
+
+Tue Sep 19 15:28:36 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k-opc.c: Split pmove patterns which use 'P' into patterns
+	which use '0', '1', and '2' instead.  Specify the proper size for
+	a pmove immediate operand.  Correct the pmovefd patterns to be
+	moves to a register, not from a register.
+	* m68k-dis.c (print_insn_arg): Replace 'P' with '0', '1', '2'.
+
+Thu Sep 14 11:58:22 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-opc.c (sparc_opcodes): Mark all insns that reference
+	%psr, %wim, %tbr as F_NOTV9.
+
+Fri Sep  8 01:07:38 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (Makefile): Just rebuild Makefile when running
+	config.status.
+	(config.h, stamp-h): New targets.
+	* configure.in: Call AC_CONFIG_HEADER and AC_CANONICAL_SYSTEM
+	earlier.  Don't bother to call AC_ARG_PROGRAM.  Touch stamp-h when
+	rebuilding config.h.
+	* configure: Rebuild.
+
+	* mips-opc.c: Change unaligned loads and stores with "t,A"
+	operands to use "t,A(b)".
+
+Thu Sep  7 19:02:46 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* sh-dis.c (print_insn_shx): Add F_FR0 support.
+
+Thu Sep  7 19:02:46 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* sh-dis.c (print_insn_shx): Change loop over op->arg[n] to iterate
+	until 3 instead of until 2.
+
+Wed Sep  6 21:21:33 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (ALL_CFLAGS): Define.
+	(.c.o, disassemble.o): Use $(ALL_CFLAGS).
+	(MOSTLYCLEAN): Add config.log.
+	(distclean): Don't remove config.log.
+	* configure.in: Substitute HDEFINES.
+	* configure: Rebuild.
+
+Wed Sep  6 15:08:09 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* sh-opc.h (sh_arg_type): Add F_FR0.
+	(sh_table, case fmac): Add F_FR0 as first argument.
+	
+Wed Sep  6 15:08:09 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* sh-opc.h (sh_opcode_info): Increase arg array size to 4.
+
+Tue Sep  5 18:28:10 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-dis.c: Remove all references to NO_V9.
+
+Tue Sep  5 20:03:26 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* aclocal.m4: Just include ../bfd/aclocal.m4.
+	* configure: Rebuild.
+
+Tue Sep  5 16:09:59 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-dis.c (X_DISP19): Define.
+	(print_insn, case 'G'): Use it.
+	(print_insn, case 'L'): Sign extend displacement.
+
+Mon Sep  4 14:28:46 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Run ../bfd/configure.host before AC_PROG_CC.
+	Subsitute CFLAGS and AR.  Call AC_PROG_INSTALL.  Don't substitute
+	host_makefile_frag or frags.
+	* aclocal.m4: New file.
+	* configure: Rebuild.
+	* Makefile.in (INSTALL): Set to @INSTALL@.
+	(INSTALL_PROGRAM): Set to @INSTALL_PROGRAM@.
+	(INSTALL_DATA): Set to @INSTALL_DATA@.
+	(AR): Set to @AR@.
+	(AR_FLAGS): Set to rc rather than qc.
+	(CC): Define as @CC@.
+	(CFLAGS): Set to @CFLAGS@.
+	(@host_makefile_frag@): Remove.
+	(config.status): Remove dependency upon @frags@.
+
+	* configure.in: ../bfd/config.bfd now just sets shell variables.
+	Use them rather than looking through target Makefile fragments.
+	* configure: Rebuild.
+
+Thu Aug 31 12:35:32 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* sh-opc.h (ftrc): Change FPUL_N to FPUL_M.
+
+Wed Aug 30 13:52:28 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-opc.c (sparc_opcodes): Delete duplicate wr %y insn.
+	Add clrx, iprefetch, signx, clruw, cas, casl, casx, casxl synthetic
+	sparc64 insns.
+
+	* sparc-opc.c (sparc_opcodes): Fix prefetcha insn.
+	(lookup_{name,value}): New functions.
+	(prefetch_table): New static local.
+	(sparc_{encode,decode}_prefetch): New functions.
+	* sparc-dis.c (print_insn): Handle '*' arg (prefetch function).
+
+Wed Aug 30 11:11:58 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* sh-opc.h: Add blank lines to improve readabililty of sh3e
+	instructions.
+
+Wed Aug 30 11:09:38 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* sh-dis.c: Correct comment on first line of file.
+
+Tue Aug 29 15:37:18 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* disassemble.c (disassembler): Handle bfd_mach_sparc64.
+
+	* sparc-opc.c (asi, membar): New static locals.
+	(sparc_{encode,decode}_{asi,membar}): New functions.
+	(sparc_opcodes, membar insn): Fix.
+	* sparc-dis.c (print_insn): Call sparc_decode_asi.
+	Support decoding of membar masks.
+	(X_MEMBAR): Define.
+
+Sat Aug 26 21:22:48 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k-opc.c (m68k_opcode_aliases): Add br, brs, brb, brw, brl.
+
+Mon Aug 21 17:33:36 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k-opc.c (m68k_opcode_aliases): Add bhib as an alias for bhis,
+	and likewise for the other branches.  Add bhs as an alias for bcc,
+	and likewise for the size variants.  Add dbhs as an alias for
+	dbcc.
+
+Fri Aug 11 13:40:24 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* sh-opc.h (FP sts instructions): Update to match reality.
+
+Mon Aug  7 16:12:58 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k-dis.c: (fpcr_names): Add % before all register names.
+	(reg_names): Likewise.
+	(print_insn_arg): Don't explicitly print % before register names.
+	Add % before register names in static array names.  In case 'r',
+	print data registers as `@(Dn)', not `Dn@'.  When printing a
+	memory address, don't print @# before it.
+	(print_indexed): Change base_disp and outer_disp from int to
+	bfd_vma.  Print using MIT syntax, not mutant invalid Motorola
+	syntax.  Sign extend 8 byte displacement correctly.
+	(print_base): Print using MIT syntax.  Print zpc when appropriate.
+	Change parameter disp from int to bfd_vma.
+
+	* m68k-opc.c (m68k_opcode_aliases): Add jsrl and jsrs as aliases
+	for jsr.
+
+Mon Aug  7 02:21:40 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* sh-dis.c (print_insn_shx): Handle new operand types F_REG_N,
+	F_REG_M, FPSCR_M, FPSCR_N, FPUL_M and FPUL_N.
+	* sh-opc.h (sh_arg_type): Add new operand types.
+	(sh_table): Add new opcodes from SH3E Floating Point ISA.
+
 Sat Aug  5 16:50:14 1995  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (distclean): Remove generated file config.h.
+
+Sat Aug  5 16:50:14 1995  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (distclean): Remove generated file config.h.
+
+Wed Aug  2 18:33:40 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k-opc.c: New file, holding tables from include/opcode/m68k.h.
+	Clean up tables.
+	* m68k-dis.c: Remove BREAK_UP_BIG_DECL stuff.
+	(opcode): Remove.
+	(print_insn_m68k): Change d to be const.  Use m68k_numopcodes
+	rather than numopcodes.  Use m68k_opcodes rather than removed
+	opcode function.  Don't check F_ALIAS.
+	(print_insn_arg): Change first parameter to be const char *.
+	* Makefile.in (ALL_MACHINES): Add m68k-opc.o.
+	(m68k-opc.o): New target.
+	* configure.in: Build m68k-opc.o for bfd_m68k_arch.
+	* configure: Rebuild.
+
+Wed Aug  2 08:23:38 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc-dis.c (HASH_SIZE, HASH_INSN): Define.
+	(opcode_bits, opcode_hash_table): New variables.
+	(opcodes_initialized): Renamed from opcodes_sorted.
+	(build_hash_table): New function.
+	(is_delayed_branch): Use hash table.
+	(print_insn): Renamed from print_insn_sparc, made static.
+	Build and use hash table.  If !sparc64, ignore sparc64 insns,
+	and vice-versa if sparc64.
+	(print_insn_sparc, print_insn_sparc64): New functions.
+	(compare_opcodes): Move sparc64 opcodes to end.
+	Print commutative insns with constant second.
+	* sparc-opc.c (all non-v9 insns): Use flag F_NOTV9 instead of F_ALIAS.
 
 Tue Aug  1 00:12:49 1995  Ian Lance Taylor  <ian@cygnus.com>
 

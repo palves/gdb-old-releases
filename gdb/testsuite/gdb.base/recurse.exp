@@ -26,21 +26,20 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "recurse"
-set srcfile $binfile.c
-
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+set testfile "recurse"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
 }
-
 
 # Start with a fresh gdb.
 
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 # Only enabled for some targets merely because it has not been tested 
 # elsewhere.

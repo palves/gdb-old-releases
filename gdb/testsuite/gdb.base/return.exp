@@ -26,12 +26,12 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "return"
-set srcfile $binfile.c
-
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+set testfile "return"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
 }
 
 proc return_tests { } {
@@ -100,7 +100,7 @@ proc return_tests { } {
     #    the floating point `stack pointer' has to be updated too.
     #    Do not expect this to get fixed anytime soon.
 
-    # This test also fails for sparc Solaris 2.3 & 2.4
+    # This test also fails for sparc Solaris 2.3 & 2.4, but passes under 2.5
     # At the time the `next' is issued, the floating point unit for the
     # process is not yet initialized, and the storing of the floating
     # point value to the floating point return register is ignored.
@@ -109,7 +109,7 @@ proc return_tests { } {
     # process start, making this test pass, it will be for a version that
     # is not xfailed.
 
-    setup_xfail "i*86-*-*" "sparc-*-solaris2.*"
+    setup_xfail "i*86-*-*" "sparc-*-solaris2.3*" "sparc-*-solaris2.4*"
     gdb_test "p tmp3" ".* = 5" "correct value returned double test (known problem with i*86 and sparc solaris"
 }
 
@@ -119,6 +119,6 @@ proc return_tests { } {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 return_tests

@@ -118,5 +118,5 @@ if [set_lang_fortran] then {
     test_character_literal_types_accepted
     test_float_literal_types_accepted
 } else {
-    warning "$test_name tests suppressed."
+    warning "$test_name tests suppressed." 0
 }

@@ -1,74 +1,43 @@
 '\"
-'\" Copyright (c) 1990 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1990-1994 The Regents of the University of California.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/label.n,v 1.1 1994/06/03 23:43:08 rob Exp $ SPRITE (Berkeley)
-'/" 
+'\" 
 .so man.macros
-.HS label tk
+.TH label n 4.0 Tk "Tk Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
 label \- Create and manipulate label widgets
 .SH SYNOPSIS
 \fBlabel\fI \fIpathName \fR?\fIoptions\fR?
-.SH "STANDARD OPTIONS"
-.LP
-.nf
-.ta 4c 8c 12c
+.SO
 .VS
-\fBanchor	\fBborderWidth\fR	\fBforeground\fR	\fBrelief\fR
-\fBbackground\fR	\fBcursor\fR	\fBpadX\fR	\fBtext\fR
-\fBbitmap\fR	\fBfont\fR	\fBpadY\fR	\fBtextVariable\fR
+\-anchor	\-font	\-image	\-takefocus
+\-background	\-foreground	\-justify	\-text
+\-bitmap	\-highlightbackground	\-padx	\-textvariable
+\-borderwidth	\-highlightcolor	\-pady	\-underline
 .VE
-.fi
-.LP
-See the ``options'' manual entry for details on the standard options.
+\-cursor	\-highlightthickness	\-relief	\-wraplength
+.SE
 .SH "WIDGET-SPECIFIC OPTIONS"
-.LP
-.nf
-.VS
-Name:	\fBheight\fR
-Class:	\fBHeight\fR
-Command-Line Switch:	\fB\-height\fR
-.fi
-.IP
+.OP \-height height Height
 Specifies a desired height for the label.
-If a bitmap is being displayed in the label then the value is in
+If an image or bitmap is being displayed in the label then the value is in
 screen units (i.e. any of the forms acceptable to \fBTk_GetPixels\fR);
 for text it is in lines of text.
 If this option isn't specified, the label's desired height is computed
-from the size of the bitmap or text being displayed in it.
-.LP
-.nf
-Name:	\fBwidth\fR
-Class:	\fBWidth\fR
-Command-Line Switch:	\fB\-width\fR
-.fi
-.IP
+from the size of the image or bitmap or text being displayed in it.
+.OP \-width width Width
 Specifies a desired width for the label.
-If a bitmap is being displayed in the label then the value is in
+If an image or bitmap is being displayed in the label then the value is in
 screen units (i.e. any of the forms acceptable to \fBTk_GetPixels\fR);
 for text it is in characters.
 If this option isn't specified, the label's desired width is computed
-from the size of the bitmap or text being displayed in it.
-.VE
+from the size of the image or bitmap or text being displayed in it.
 .BE
 
 .SH DESCRIPTION
@@ -86,7 +55,12 @@ there must not exist a window named \fIpathName\fR, but
 .PP
 A label is a widget
 .VS
-that displays a textual string or bitmap.
+that displays a textual string, bitmap or image.
+If text is displayed, it must all be in a single font, but it
+can occupy multiple lines on the screen (if it contains newlines
+or if wrapping occurs because of the \fBwrapLength\fR option) and
+one of the characters may optionally be underlined using the
+\fBunderline\fR option.
 .VE
 The label can be manipulated in a few simple ways, such as
 changing its relief or text, using the commands described below.
@@ -97,12 +71,20 @@ The \fBlabel\fR command creates a new Tcl command whose
 name is \fIpathName\fR.  This
 command may be used to invoke various
 operations on the widget.  It has the following general form:
-.DS C
+.CS
 \fIpathName option \fR?\fIarg arg ...\fR?
-.DE
+.CE
 \fIOption\fR and the \fIarg\fRs
 determine the exact behavior of the command.  The following
 commands are possible for label widgets:
+.TP
+\fIpathName \fBcget\fR \fIoption\fR
+.VS
+Returns the current value of the configuration option given
+by \fIoption\fR.
+\fIOption\fR may have any of the values accepted by the \fBlabel\fR
+command.
+.VE
 .TP
 \fIpathName \fBconfigure\fR ?\fIoption\fR? ?\fIvalue option value ...\fR?
 Query or modify the configuration options of the widget.

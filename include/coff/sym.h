@@ -184,6 +184,11 @@ typedef struct pdr {
  * The structure of the runtime procedure descriptor created by the loader
  * for use by the static exception system.
  */
+/*
+ * If 0'd out because exception_info chokes Visual C++ and because there
+ * don't seem to be any references to this structure elsewhere in gdb.
+ */
+#if 0
 typedef struct runtime_pdr {
 	bfd_vma	adr;		/* memory address of start of procedure */
 	long	regmask;	/* save register mask */
@@ -199,6 +204,7 @@ typedef struct runtime_pdr {
 } RPDR, *pRPDR;
 #define cbRPDR sizeof(RPDR)
 #define rpdNil ((pRPDR) 0)
+#endif
 
 /*
  * Line Numbers

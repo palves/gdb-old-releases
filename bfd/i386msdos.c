@@ -180,6 +180,8 @@ msdos_set_section_contents (abfd, section, location, offset, count)
 #define msdos_bfd_free_cached_info _bfd_generic_bfd_free_cached_info
 #define msdos_new_section_hook _bfd_generic_new_section_hook
 #define msdos_get_section_contents _bfd_generic_get_section_contents
+#define msdos_get_section_contents_in_window \
+  _bfd_generic_get_section_contents_in_window
 #define msdos_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents
 #define msdos_bfd_relax_section bfd_generic_relax_section
@@ -208,15 +210,14 @@ const bfd_target i386msdos_vec =
 {
   "msdos",			/* name */
   bfd_target_msdos_flavour,
-  false,			/* target byte order */
-  false,			/* target headers byte order */
+  BFD_ENDIAN_LITTLE,		/* target byte order */
+  BFD_ENDIAN_LITTLE,		/* target headers byte order */
   (EXEC_P),			/* object flags */
   (SEC_CODE | SEC_DATA | SEC_HAS_CONTENTS
    | SEC_ALLOC | SEC_LOAD),	/* section flags */
   0,				/* leading underscore */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  1,				/* minimum alignment */
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
   bfd_getl32, bfd_getl_signed_32, bfd_putl32,
   bfd_getl16, bfd_getl_signed_16, bfd_putl16,	/* data */

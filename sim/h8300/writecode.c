@@ -22,8 +22,7 @@
    a large switch statement to understand the opcodes (with ifs if
    there is more than one opcode per case) and code to do the stuff  */
 
-#include "bfd.h"
-#include "sysdep.h"
+#include <stdio.h>
 
 #define DEFINE_TABLE
 #define INSIM

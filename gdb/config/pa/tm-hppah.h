@@ -36,14 +36,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    Within the hardware save state structure, registers are found in the
    same order as the register numbers in GDB.
 
-   The kernel apparently sets %r31 in the saved state structure to point
-   to the active instruction when the signal was taken.  Everything
-   else looks fairly reasonable.  (I assume the kernel fixes %r31 from
-   within _sigreturn?.  */
+   At one time we peeked at %r31 rather than the PC queues to determine
+   what instruction took the fault.  This was done on purpose, but I don't
+   remember why.  Looking at the PC queues is really the right way, and
+   I don't remember why that didn't work when this code was originally
+   written.  */
 
 #define FRAME_SAVED_PC_IN_SIGTRAMP(FRAME, TMP) \
 { \
-  *(TMP) = read_memory_integer ((FRAME)->frame + (41 * 4) , 4); \
+  *(TMP) = read_memory_integer ((FRAME)->frame + (43 * 4) , 4); \
 }
 
 #define FRAME_BASE_BEFORE_SIGTRAMP(FRAME, TMP) \

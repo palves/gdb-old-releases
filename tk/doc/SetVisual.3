@@ -1,32 +1,16 @@
 '\"
 '\" Copyright (c) 1992 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/SetVisual.3,v 1.1 1994/06/03 23:42:41 rob Exp $ SPRITE (Berkeley)
 '\" 
 .so man.macros
-.HS Tk_SetWindowVisual tkc
+.TH Tk_SetWindowVisual 3 4.0 Tk "Tk Library Procedures"
 .BS
 .SH NAME
-.na
 Tk_SetWindowVisual \- change visual characteristics of window
-.ad
 .SH SYNOPSIS
 .nf
 \fB#include <tk.h>\fR
@@ -34,12 +18,12 @@ Tk_SetWindowVisual \- change visual characteristics of window
 int
 \fBTk_SetWindowVisual\fR(\fItkwin, visual, depth, colormap\fR)
 .SH ARGUMENTS
-.AS "unsigned int" colormap
+.AS "Tk_Window int" colormap
 .AP Tk_Window tkwin in
 Token for window.
 .AP Visual *visual in
 New visual type to use for \fItkwin\fR.
-.AP "unsigned int" depth in
+.AP "int" depth in
 Number of bits per pixel desired for \fItkwin\fR.
 .AP Colormap colormap in
 New colormap for \fItkwin\fR, which must be compatible with

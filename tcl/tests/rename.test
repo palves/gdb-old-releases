@@ -10,7 +10,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) rename.test 1.8 94/12/17 16:20:21
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
@@ -71,4 +70,61 @@ test rename-3.5 {error conditions} {
 
 catch {rename unknown {}}
 catch {rename unknown.old unknown}
-concat
+
+if {[info command testdel] == "testdel"} {
+    test rename-4.1 {reentrancy issues with command deletion and renaming} {
+	set x {}
+	testdel {} foo {lappend x deleted; rename bar {}; lappend x [info command bar]}
+	rename foo bar
+	lappend x |
+	rename bar {}
+	set x
+    } {| deleted {}}
+    test rename-4.2 {reentrancy issues with command deletion and renaming} {
+	set x {}
+	testdel {} foo {lappend x deleted; rename foo bar}
+	rename foo {}
+	set x
+    } {deleted}
+    test rename-4.3 {reentrancy issues with command deletion and renaming} {
+	set x {}
+	testdel {} foo {lappend x deleted; testdel {} foo {lappend x deleted2}}
+	rename foo {}
+	lappend x |
+	rename foo {}
+	set x
+    } {deleted | deleted2}
+    test rename-4.4 {reentrancy issues with command deletion and renaming} {
+	set x {}
+	testdel {} foo {lappend x deleted; rename foo bar}
+	rename foo {}
+	lappend x | [info command bar]
+    } {deleted | {}}
+    test rename-4.5 {reentrancy issues with command deletion and renaming} {
+	set env(value) before
+	interp create foo
+	testdel foo cmd {set env(value) deleted}
+	interp delete foo
+	set env(value)
+    } {deleted}
+    test rename-4.6 {reentrancy issues with command deletion and renaming} {
+	proc kill args {
+	    interp delete foo
+	}
+	set env(value) before
+	interp create foo
+	foo alias kill kill
+	testdel foo cmd {set env(value) deleted; kill}
+	list [catch {foo eval {rename cmd {}}} msg] $msg $env(value)
+    } {1 {Interpreter foo was deleted while eval was in progress} deleted}
+    test rename-4.7 {reentrancy issues with command deletion and renaming} {
+	proc kill args {
+	    interp delete foo
+	}
+	set env(value) before
+	interp create foo
+	foo alias kill kill
+	testdel foo cmd {set env(value) deleted; kill}
+	list [catch {interp delete foo} msg] $msg $env(value)
+    } {0 {} deleted}
+}

@@ -23,8 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define BYTES_IN_WORD	4
 
 #define TEXT_START_ADDR 4096
-#define PAGE_SIZE	4096
-#define SEGMENT_SIZE	PAGE_SIZE
+#define TARGET_PAGE_SIZE	4096
+#define SEGMENT_SIZE	TARGET_PAGE_SIZE
 
 #include "aout/dynix3.h"
 

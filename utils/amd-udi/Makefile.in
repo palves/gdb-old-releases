@@ -16,8 +16,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
 #
-# 	$Id: Makefile.in,v 1.3 1994/06/07 18:13:26 ian Exp $
-#
 # Written by Jeffrey Wheat (cassidy@cygnus.com)
 #
 
@@ -121,13 +119,13 @@ clean mostlyclean:
 		fi; \
 	    done
 
-distclean realclean: clean
-	-rm -f *~ core
-	-rm -f Makefile config.status 
+distclean maintainer-clean realclean: clean
 	@for dir in ${SUBDIRS}; do \
 	    echo "$$dir:"; \
 	    (cd $$dir; $(MAKE) $@); \
 	done
+	-rm -f *~ core
+	-rm -f Makefile config.status 
 
 .c.o:
 	$(CC) -c $(CFLAGS) $(INCLUDE) $(CPPFLAGS) $(DEFS) $<

@@ -1,5 +1,5 @@
 /* Motorola 68k series support for 32-bit ELF
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -34,8 +34,6 @@ static boolean elf_m68k_check_relocs
 	   const Elf_Internal_Rela *));
 static boolean elf_m68k_adjust_dynamic_symbol
   PARAMS ((struct bfd_link_info *, struct elf_link_hash_entry *));
-static boolean elf_m68k_adjust_dynindx
-  PARAMS ((struct elf_link_hash_entry *, PTR));
 static boolean elf_m68k_size_dynamic_sections
   PARAMS ((bfd *, struct bfd_link_info *));
 static boolean elf_m68k_relocate_section
@@ -76,29 +74,29 @@ enum reloc_type {
 };
 
 static reloc_howto_type howto_table[] = {
-  HOWTO(R_68K_NONE,       0, 0, 0, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_NONE",      false, 0x00000000, 0x00000000,false),
-  HOWTO(R_68K_32,         0, 2,32, false,0, complain_overflow_bitfield, bfd_elf_generic_reloc, "R_68K_32",        false, 0xffffffff, 0xffffffff,false),
-  HOWTO(R_68K_16,         0, 1,16, false,0, complain_overflow_bitfield, bfd_elf_generic_reloc, "R_68K_16",        false, 0x0000ffff, 0x0000ffff,false),
-  HOWTO(R_68K_8,          0, 0, 8, false,0, complain_overflow_bitfield, bfd_elf_generic_reloc, "R_68K_8",         false, 0x000000ff, 0x000000ff,false),
-  HOWTO(R_68K_PC32,       0, 2,32, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PC32",      false, 0xffffffff, 0xffffffff,true),
-  HOWTO(R_68K_PC16,       0, 1,16, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PC16",      false, 0x0000ffff, 0x0000ffff,true),
-  HOWTO(R_68K_PC8,        0, 0, 8, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PC8",       false, 0x000000ff, 0x000000ff,true),
-  HOWTO(R_68K_GOT32,      0, 2,32, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT32",     false, 0xffffffff, 0xffffffff,true),
-  HOWTO(R_68K_GOT16,      0, 1,16, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT16",     false, 0x0000ffff, 0x0000ffff,true),
-  HOWTO(R_68K_GOT8,       0, 0, 8, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT8",      false, 0x000000ff, 0x000000ff,true),
-  HOWTO(R_68K_GOT32O,     0, 2,32, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT32O",    false, 0xffffffff, 0xffffffff,false),
-  HOWTO(R_68K_GOT16O,     0, 1,16, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT16O",    false, 0x0000ffff, 0x0000ffff,false),
-  HOWTO(R_68K_GOT8O,      0, 0, 8, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT8O",     false, 0x000000ff, 0x000000ff,false),
-  HOWTO(R_68K_PLT32,      0, 2,32, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT32",     false, 0xffffffff, 0xffffffff,true),
-  HOWTO(R_68K_PLT16,      0, 1,16, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT16",     false, 0x0000ffff, 0x0000ffff,true),
-  HOWTO(R_68K_PLT8,       0, 0, 8, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT8",      false, 0x000000ff, 0x000000ff,true),
-  HOWTO(R_68K_PLT32O,     0, 2,32, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT32O",    false, 0xffffffff, 0xffffffff,false),
-  HOWTO(R_68K_PLT16O,     0, 1,16, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT16O",    false, 0x0000ffff, 0x0000ffff,false),
-  HOWTO(R_68K_PLT8O,      0, 0, 8, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT8O",     false, 0x000000ff, 0x000000ff,false),
-  HOWTO(R_68K_COPY,       0, 0, 0, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_COPY",      false, 0xffffffff, 0xffffffff,false),
-  HOWTO(R_68K_GLOB_DAT,   0, 2,32, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_GLOB_DAT",  false, 0xffffffff, 0xffffffff,false),
-  HOWTO(R_68K_JMP_SLOT,   0, 2,32, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_JMP_SLOT",  false, 0xffffffff, 0xffffffff,false),
-  HOWTO(R_68K_RELATIVE,   0, 2,32, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_RELATIVE",  false, 0xffffffff, 0xffffffff,false),
+  HOWTO(R_68K_NONE,       0, 0, 0, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_NONE",      false, 0, 0x00000000,false),
+  HOWTO(R_68K_32,         0, 2,32, false,0, complain_overflow_bitfield, bfd_elf_generic_reloc, "R_68K_32",        false, 0, 0xffffffff,false),
+  HOWTO(R_68K_16,         0, 1,16, false,0, complain_overflow_bitfield, bfd_elf_generic_reloc, "R_68K_16",        false, 0, 0x0000ffff,false),
+  HOWTO(R_68K_8,          0, 0, 8, false,0, complain_overflow_bitfield, bfd_elf_generic_reloc, "R_68K_8",         false, 0, 0x000000ff,false),
+  HOWTO(R_68K_PC32,       0, 2,32, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PC32",      false, 0, 0xffffffff,true),
+  HOWTO(R_68K_PC16,       0, 1,16, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PC16",      false, 0, 0x0000ffff,true),
+  HOWTO(R_68K_PC8,        0, 0, 8, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PC8",       false, 0, 0x000000ff,true),
+  HOWTO(R_68K_GOT32,      0, 2,32, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT32",     false, 0, 0xffffffff,true),
+  HOWTO(R_68K_GOT16,      0, 1,16, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT16",     false, 0, 0x0000ffff,true),
+  HOWTO(R_68K_GOT8,       0, 0, 8, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT8",      false, 0, 0x000000ff,true),
+  HOWTO(R_68K_GOT32O,     0, 2,32, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT32O",    false, 0, 0xffffffff,false),
+  HOWTO(R_68K_GOT16O,     0, 1,16, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT16O",    false, 0, 0x0000ffff,false),
+  HOWTO(R_68K_GOT8O,      0, 0, 8, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_GOT8O",     false, 0, 0x000000ff,false),
+  HOWTO(R_68K_PLT32,      0, 2,32, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT32",     false, 0, 0xffffffff,true),
+  HOWTO(R_68K_PLT16,      0, 1,16, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT16",     false, 0, 0x0000ffff,true),
+  HOWTO(R_68K_PLT8,       0, 0, 8, true, 0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT8",      false, 0, 0x000000ff,true),
+  HOWTO(R_68K_PLT32O,     0, 2,32, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT32O",    false, 0, 0xffffffff,false),
+  HOWTO(R_68K_PLT16O,     0, 1,16, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT16O",    false, 0, 0x0000ffff,false),
+  HOWTO(R_68K_PLT8O,      0, 0, 8, false,0, complain_overflow_signed,   bfd_elf_generic_reloc, "R_68K_PLT8O",     false, 0, 0x000000ff,false),
+  HOWTO(R_68K_COPY,       0, 0, 0, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_COPY",      false, 0, 0xffffffff,false),
+  HOWTO(R_68K_GLOB_DAT,   0, 2,32, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_GLOB_DAT",  false, 0, 0xffffffff,false),
+  HOWTO(R_68K_JMP_SLOT,   0, 2,32, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_JMP_SLOT",  false, 0, 0xffffffff,false),
+  HOWTO(R_68K_RELATIVE,   0, 2,32, false,0, complain_overflow_dont,     bfd_elf_generic_reloc, "R_68K_RELATIVE",  false, 0, 0xffffffff,false),
 };
 
 static void
@@ -156,7 +154,7 @@ reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
 {
-  int i;
+  unsigned int i;
   for (i = 0; i < sizeof (reloc_map) / sizeof (reloc_map[0]); i++)
     {
       if (reloc_map[i].bfd_val == code)
@@ -243,7 +241,7 @@ elf_m68k_check_relocs (abfd, info, sec, relocs)
   rel_end = relocs + sec->reloc_count;
   for (rel = relocs; rel < rel_end; rel++)
     {
-      long r_symndx;
+      unsigned long r_symndx;
       struct elf_link_hash_entry *h;
 
       r_symndx = ELF32_R_SYM (rel->r_info);
@@ -325,15 +323,12 @@ elf_m68k_check_relocs (abfd, info, sec, relocs)
 	      if (local_got_offsets == NULL)
 		{
 		  size_t size;
-		  register int i;
+		  register unsigned int i;
 
 		  size = symtab_hdr->sh_info * sizeof (bfd_vma);
 		  local_got_offsets = (bfd_vma *) bfd_alloc (abfd, size);
 		  if (local_got_offsets == NULL)
-		    {
-		      bfd_set_error (bfd_error_no_memory);
-		      return false;
-		    }
+		    return false;
 		  elf_local_got_offsets (abfd) = local_got_offsets;
 		  for (i = 0; i < symtab_hdr->sh_info; i++)
 		    local_got_offsets[i] = (bfd_vma) -1;
@@ -384,12 +379,15 @@ elf_m68k_check_relocs (abfd, info, sec, relocs)
 	  h->elf_link_hash_flags |= ELF_LINK_HASH_NEEDS_PLT;
 	  break;
 
-	case R_68K_8:
-	case R_68K_16:
-	case R_68K_32:
 	case R_68K_PC8:
 	case R_68K_PC16:
 	case R_68K_PC32:
+	  if (h == NULL)
+	    break;
+	  /* Fall through.  */
+	case R_68K_8:
+	case R_68K_16:
+	case R_68K_32:
 	  if (info->shared
 	      && (sec->flags & SEC_ALLOC) != 0)
 	    {
@@ -460,6 +458,7 @@ elf_m68k_adjust_dynamic_symbol (info, h)
   /* Make sure we know what is going on here.  */
   BFD_ASSERT (dynobj != NULL
 	      && ((h->elf_link_hash_flags & ELF_LINK_HASH_NEEDS_PLT)
+		  || h->weakdef != NULL
 		  || ((h->elf_link_hash_flags
 		       & ELF_LINK_HASH_DEF_DYNAMIC) != 0
 		      && (h->elf_link_hash_flags
@@ -738,10 +737,7 @@ elf_m68k_size_dynamic_sections (output_bfd, info)
       /* Allocate memory for the section contents.  */
       s->contents = (bfd_byte *) bfd_alloc (dynobj, s->_raw_size);
       if (s->contents == NULL && s->_raw_size != 0)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
     }
 
   if (elf_hash_table (info)->dynamic_sections_created)
@@ -782,44 +778,6 @@ elf_m68k_size_dynamic_sections (output_bfd, info)
 	}
     }
 
-  /* If we are generating a shared library, we generate a section
-     symbol for each output section.  These are local symbols, which
-     means that they must come first in the dynamic symbol table.
-     That means we must increment the dynamic symbol index of every
-     other dynamic symbol.  */
-  if (info->shared)
-    {
-      int c, i;
-
-      c = bfd_count_sections (output_bfd);
-      elf_link_hash_traverse (elf_hash_table (info),
-			      elf_m68k_adjust_dynindx,
-			      (PTR) &c);
-      elf_hash_table (info)->dynsymcount += c;
-
-      for (i = 1, s = output_bfd->sections; s != NULL; s = s->next, i++)
-	{
-	  elf_section_data (s)->dynindx = i;
-	  /* These symbols will have no names, so we don't need to
-             fiddle with dynstr_index.  */
-	}
-    }
-
-  return true;
-}
-
-/* Increment the index of a dynamic symbol by a given amount.  Called
-   via elf_link_hash_traverse.  */
-
-static boolean
-elf_m68k_adjust_dynindx (h, cparg)
-     struct elf_link_hash_entry *h;
-     PTR cparg;
-{
-  int *cp = (int *) cparg;
-
-  if (h->dynindx != -1)
-    h->dynindx += *cp;
   return true;
 }
 
@@ -842,7 +800,6 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
   struct elf_link_hash_entry **sym_hashes;
   bfd_vma *local_got_offsets;
   asection *sgot;
-  asection *sgotplt;
   asection *splt;
   asection *sreloc;
   Elf_Internal_Rela *rel;
@@ -854,7 +811,6 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
   local_got_offsets = elf_local_got_offsets (input_bfd);
 
   sgot = NULL;
-  sgotplt = NULL;
   splt = NULL;
   sreloc = NULL;
 
@@ -864,7 +820,7 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
     {
       int r_type;
       reloc_howto_type *howto;
-      long r_symndx;
+      unsigned long r_symndx;
       struct elf_link_hash_entry *h;
       Elf_Internal_Sym *sym;
       asection *sec;
@@ -915,6 +871,9 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
       else
 	{
 	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+	  while (h->root.type == bfd_link_hash_indirect
+		 || h->root.type == bfd_link_hash_warning)
+	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
 	  if (h->root.type == bfd_link_hash_defined
 	      || h->root.type == bfd_link_hash_defweak)
 	    {
@@ -940,6 +899,9 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 			  || (h->elf_link_hash_flags
 			      & ELF_LINK_HASH_DEF_REGULAR) == 0))
 		  || (info->shared
+		      && (! info->symbolic
+			  || (h->elf_link_hash_flags
+			      & ELF_LINK_HASH_DEF_REGULAR) == 0)
 		      && (input_section->flags & SEC_ALLOC) != 0
 		      && (r_type == R_68K_8
 			  || r_type == R_68K_16
@@ -977,8 +939,8 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 	case R_68K_GOT8:
 	case R_68K_GOT16:
 	case R_68K_GOT32:
-	  /* Relocation is to the entry for this symbol in the global
-	     offset table.  */
+	  /* Relocation is to the address of the entry for this symbol
+	     in the global offset table.  */
 	  if (h != NULL
 	      && strcmp (h->root.root.string, "_GLOBAL_OFFSET_TABLE_") == 0)
 	    break;
@@ -989,105 +951,97 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 	  /* Relocation is the offset of the entry for this symbol in
 	     the global offset table.  */
 
-	  if (sgot == NULL)
-	    {
-	      sgot = bfd_get_section_by_name (dynobj, ".got");
-	      BFD_ASSERT (sgot != NULL);
-	    }
+	  {
+	    bfd_vma off;
+	    
+	    if (sgot == NULL)
+	      {
+		sgot = bfd_get_section_by_name (dynobj, ".got");
+		BFD_ASSERT (sgot != NULL);
+	      }
 
-	  if (sgotplt == NULL)
-	    {
-	      sgotplt = bfd_get_section_by_name (dynobj, ".got.plt");
-	      BFD_ASSERT (sgotplt != NULL);
-	    }
+	    if (h != NULL)
+	      {
+		off = h->got_offset;
+		BFD_ASSERT (off != (bfd_vma) -1);
 
-	  if (h != NULL)
-	    {
-	      bfd_vma off;
+		if (!elf_hash_table (info)->dynamic_sections_created
+		    || (info->shared
+			&& info->symbolic
+			&& (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR)))
+		  {
+		    /* This is actually a static link, or it is a
+		       -Bsymbolic link and the symbol is defined
+		       locally.  We must initialize this entry in the
+		       global offset table.  Since the offset must
+		       always be a multiple of 4, we use the least
+		       significant bit to record whether we have
+		       initialized it already.
 
-	      off = h->got_offset;
-	      BFD_ASSERT (off != (bfd_vma) -1);
+		       When doing a dynamic link, we create a .rela.got
+		       relocation entry to initialize the value.  This
+		       is done in the finish_dynamic_symbol routine.  */
+		    if ((off & 1) != 0)
+		      off &= ~1;
+		    else
+		      {
+			bfd_put_32 (output_bfd, relocation,
+				    sgot->contents + off);
+			h->got_offset |= 1;
+		      }
+		  }
+	      }
+	    else
+	      {
+		BFD_ASSERT (local_got_offsets != NULL
+			    && local_got_offsets[r_symndx] != (bfd_vma) -1);
 
-	      if (!elf_hash_table (info)->dynamic_sections_created
-		  || (info->shared
-		      && info->symbolic
-		      && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR)))
-		{
-		  /* This is actually a static link, or it is a
-                     -Bsymbolic link and the symbol is defined
-                     locally.  We must initialize this entry in the
-                     global offset table.  Since the offset must
-                     always be a multiple of 4, we use the least
-                     significant bit to record whether we have
-                     initialized it already.
+		off = local_got_offsets[r_symndx];
 
-		     When doing a dynamic link, we create a .rela.got
-		     relocation entry to initialize the value.  This
-		     is done in the finish_dynamic_symbol routine.  */
-		  if ((off & 1) != 0)
-		    off &= ~1;
-		  else
-		    {
-		      bfd_put_32 (output_bfd, relocation,
-				  sgot->contents + off);
-		      h->got_offset |= 1;
-		    }
-		}
+		/* The offset must always be a multiple of 4.  We use
+		   the least significant bit to record whether we have
+		   already generated the necessary reloc.  */
+		if ((off & 1) != 0)
+		  off &= ~1;
+		else
+		  {
+		    bfd_put_32 (output_bfd, relocation, sgot->contents + off);
 
-	      relocation = sgot->output_offset + off;
-	      if (r_type == R_68K_GOT8O
-		  || r_type == R_68K_GOT16O
-		  || r_type == R_68K_GOT32O)
-		relocation -= sgotplt->output_offset;
-	    }
-	  else
-	    {
-	      bfd_vma off;
+		    if (info->shared)
+		      {
+			asection *srelgot;
+			Elf_Internal_Rela outrel;
 
-	      BFD_ASSERT (local_got_offsets != NULL
-			  && local_got_offsets[r_symndx] != (bfd_vma) -1);
+			srelgot = bfd_get_section_by_name (dynobj, ".rela.got");
+			BFD_ASSERT (srelgot != NULL);
 
-	      off = local_got_offsets[r_symndx];
+			outrel.r_offset = (sgot->output_section->vma
+					   + sgot->output_offset
+					   + off);
+			outrel.r_info = ELF32_R_INFO (0, R_68K_RELATIVE);
+			outrel.r_addend = 0;
+			bfd_elf32_swap_reloca_out (output_bfd, &outrel,
+						   (((Elf32_External_Rela *)
+						     srelgot->contents)
+						    + srelgot->reloc_count));
+			++srelgot->reloc_count;
+		      }
 
-	      /* The offset must always be a multiple of 4.  We use
-		 the least significant bit to record whether we have
-		 already generated the necessary reloc.  */
-	      if ((off & 1) != 0)
-		off &= ~1;
-	      else
-		{
-		  bfd_put_32 (output_bfd, relocation, sgot->contents + off);
+		    local_got_offsets[r_symndx] |= 1;
+		  }
+	      }
 
-		  if (info->shared)
-		    {
-		      asection *srelgot;
-		      Elf_Internal_Rela outrel;
-
-		      srelgot = bfd_get_section_by_name (dynobj, ".rela.got");
-		      BFD_ASSERT (srelgot != NULL);
-
-		      outrel.r_offset = (sgot->output_section->vma
-					 + sgot->output_offset
-					 + off);
-		      outrel.r_info = ELF32_R_INFO (0, R_68K_RELATIVE);
-		      outrel.r_addend = 0;
-		      bfd_elf32_swap_reloca_out (output_bfd, &outrel,
-						 (((Elf32_External_Rela *)
-						   srelgot->contents)
-						  + srelgot->reloc_count));
-		      ++srelgot->reloc_count;
-		    }
-
-		  local_got_offsets[r_symndx] |= 1;
-		}
-
-	      relocation = sgot->output_offset + off;
-	      if (r_type == R_68K_GOT8O
-		  || r_type == R_68K_GOT16O
-		  || r_type == R_68K_GOT32O)
-		relocation -= sgotplt->output_offset;
-	    }
-
+	    relocation = sgot->output_offset + off;
+	    if (r_type == R_68K_GOT8O
+		|| r_type == R_68K_GOT16O
+		|| r_type == R_68K_GOT32O)
+	      {
+		/* This relocation does not use the addend.  */
+		rel->r_addend = 0;
+	      }
+	    else
+	      relocation += sgot->output_section->vma;
+	  }
 	  break;
 
 	case R_68K_PLT8:
@@ -1141,14 +1095,21 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 	    }
 
 	  relocation = h->plt_offset;
+
+	  /* This relocation does not use the addend.  */
+	  rel->r_addend = 0;
+
 	  break;
 
-	case R_68K_8:
-	case R_68K_16:
-	case R_68K_32:
 	case R_68K_PC8:
 	case R_68K_PC16:
 	case R_68K_PC32:
+	  if (h == NULL)
+	    break;
+	  /* Fall through.  */
+	case R_68K_8:
+	case R_68K_16:
+	case R_68K_32:
 	  if (info->shared
 	      && (input_section->flags & SEC_ALLOC) != 0)
 	    {
@@ -1181,7 +1142,10 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 	      outrel.r_offset = (rel->r_offset
 				 + input_section->output_section->vma
 				 + input_section->output_offset);
-	      if (h != NULL)
+	      if (h != NULL
+		  && (! info->symbolic
+		      || (h->elf_link_hash_flags
+			  & ELF_LINK_HASH_DEF_REGULAR) == 0))
 		{
 		  BFD_ASSERT (h->dynindx != -1);
 		  outrel.r_info = ELF32_R_INFO (h->dynindx, r_type);
@@ -1198,11 +1162,15 @@ elf_m68k_relocate_section (output_bfd, info, input_bfd, input_section,
 		    {
 		      long indx;
 
-		      sym = local_syms + r_symndx;
-
-		      BFD_ASSERT (ELF_ST_TYPE (sym->st_info) == STT_SECTION);
-
-		      sec = local_sections[r_symndx];
+		      if (h == NULL)
+			sec = local_sections[r_symndx];
+		      else
+			{
+			  BFD_ASSERT (h->root.type == bfd_link_hash_defined
+				      || (h->root.type
+					  == bfd_link_hash_defweak));
+			  sec = h->root.u.def.section;
+			}
 		      if (sec != NULL && bfd_is_abs_section (sec))
 			indx = 0;
 		      else if (sec == NULL || sec->owner == NULL)

@@ -20,7 +20,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define ushort_type unsigned short
 
 #include <ansidecl.h>
-#include "sysdep.h"
 #include "tm.h"
 #include "sim.h"
 #include "inlines.h"

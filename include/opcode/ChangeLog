@@ -1,3 +1,78 @@
+Mon Jan 29 12:43:39 1996  Ken Raeburn  <raeburn@cygnus.com>
+
+	* i386.h: Fix waiting forms of finit, fstenv, fsave, fstsw, fstcw,
+	and fclex.
+
+Wed Jan 24 22:36:59 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* sparc.h (enum sparc_opcode_arch_val): Replaces sparc_architecture.
+	(SPARC_OPCODE_CONFLICT_P): Renamed from ARCHITECTURES_CONFLICT_P.
+	(bfd_* defines): Delete.
+	(sparc_opcode_archs): Replaces architecture_pname.
+	(sparc_opcode_lookup_arch): Declare.
+	(NUMOPCODES): Delete.
+
+Mon Jan 22 08:24:32 1996  Doug Evans  <dje@charmed.cygnus.com>
+
+	* sparc.h (enum sparc_architecture): Add v9a.
+	(ARCHITECTURES_CONFLICT_P): Update.
+
+Thu Dec 28 13:27:53 1995  John Hassey  <hassey@rtp.dg.com>
+
+	* i386.h: Added Pentium Pro instructions.
+
+Thu Nov  2 22:59:22 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k.h: Document new 'W' operand place.
+
+Tue Oct 24 10:49:10 1995  Jeffrey A Law  (law@cygnus.com)
+
+	* hppa.h: Add lci and syncdma instructions.
+
+Mon Oct 23 11:09:16 1995  James G. Smith  <jsmith@pasanda.cygnus.co.uk>
+
+	* mips.h: Added INSN_4100 flag to mark NEC VR4100 specific
+ 	instructions.
+
+Mon Oct 16 10:28:15 1995  Michael Meissner  <meissner@tiktok.cygnus.com>
+
+	* ppc.h (PPC_OPCODE_{COMMON,ANY}): New opcode flags for
+	assembler's -mcom and -many switches.
+
+Wed Oct 11 16:56:33 1995  Ken Raeburn  <raeburn@cygnus.com>
+
+	* i386.h: Fix cmpxchg8b extension opcode description.
+
+Thu Oct  5 18:03:36 1995  Ken Raeburn  <raeburn@cygnus.com>
+
+	* i386.h: Add Pentium instructions wrmsr, rdtsc, rdmsr, cmpxchg8b,
+	and register cr4.
+
+Tue Sep 19 15:26:43 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68k.h: Change comment: split type P into types 0, 1 and 2.
+
+Wed Aug 30 13:50:55 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc.h (sparc_{encode,decode}_prefetch): Declare.
+
+Tue Aug 29 15:34:58 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc.h (sparc_{encode,decode}_{asi,membar}): Declare.
+
+Wed Aug  2 18:32:19 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* m68kmri.h: Remove.
+
+	* m68k.h: Move tables into opcodes/m68k-opc.c, leaving just the
+	declarations.  Remove F_ALIAS and flag field of struct
+	m68k_opcode.  Change arch field of struct m68k_opcode to unsigned
+	int.  Make name and args fields of struct m68k_opcode const.
+
+Wed Aug  2 08:16:46 1995  Doug Evans  <dje@canuck.cygnus.com>
+
+	* sparc.h (F_NOTV9): Define.
+
 Tue Jul 11 14:20:42 1995  Jeff Spiegel  <jeffs@lsil.com>
 
 	* mips.h (INSN_4010): Define.

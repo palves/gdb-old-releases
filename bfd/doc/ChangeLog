@@ -1,7 +1,36 @@
-Fri Nov  3 14:46:48 1995  Fred Fish  <fnf@rtl.cygnus.com>
+Tue Jan 30 14:10:46 1996  Ian Lance Taylor  <ian@cygnus.com>
+
+	From Ronald F. Guilmette <rfg@monkeys.com>:
+	* Makefile.in (libbfd.h): Depend upon proto.str.
+	(libcoff.h, bfd.h): Likewise.
+
+Fri Nov  3 14:46:48 1995  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (SRCDOC, SRCPROT, core.texi, bfd.h):  Use corefile.c, 
 	renamed from core.c.
+
+Wed Nov  1 14:28:23 1995  Manfred Hollstein KS/EF4A 60/1F/110 #40283  <manfred@lts.sel.alcatel.de>
+
+	* chew.c: Include <ctype.h>.
+
+Fri Oct  6 16:23:34 1995  Ken Raeburn  <raeburn@cygnus.com>
+
+	Mon Sep 25 22:49:32 1995  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* Makefile.in (Makefile): Only remake this Makefile.
+
+Wed Oct  4 15:51:05 1995  Ken Raeburn  <raeburn@cygnus.com>
+
+	* chew.c: Include <stdio.h>.
+
+Tue Sep 12 18:14:50 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (maintainer-clean): New target.
+
+Thu Aug 31 12:18:43 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (bfd.h): Add additional #endif at end of bfd.h if
+	__cplusplus is defined.
 
 Tue Nov 29 16:13:34 1994  Doug Evans  <dje@canuck.cygnus.com>
 

@@ -32,7 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <sys/types.h>
 #include "gdb_stat.h"
 #include <fcntl.h>
-#include <obstack.h>
+#include "obstack.h"
 #include "gdb_string.h"
 
 /* Prototypes for local functions */
@@ -208,7 +208,7 @@ allocate_objfile (abfd, mapped)
 
   if (mapped)
     {
-      warning ("this version of gdb does not support mapped symbol tables.");
+      warning ("mapped symbol tables are not supported on this machine; missing or broken mmap().");
 
       /* Turn off the global flag so we don't try to do mapped symbol tables
 	 any more, which shuts up gdb unless the user specifically gives the
@@ -855,6 +855,7 @@ map_to_address ()
 
 #else
 
+  warning ("need to recompile gdb with MMAP_BASE_ADDRESS and MMAP_INCREMENT defined");
   return (0);
 
 #endif

@@ -10,7 +10,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) lsort.test 1.5 94/12/17 16:20:13
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
@@ -120,3 +119,15 @@ test lsort-5.3 {lsort errors} {
 test lsort-5.4 {lsort errors} {
     list [catch {lsort -in {1 180.0 040 62 180 -42.7 33}} msg] $msg
 } {1 {bad switch "-in": must be -ascii, -integer, -real, -increasing -decreasing, or -command}}
+test lsort-5.5 {lsort errors: disallow recursion} {
+    proc x args {lsort {a b c}}
+    list [catch {lsort -command x {3 7}} msg] $msg $errorInfo
+} {1 {can't invoke "lsort" recursively} {can't invoke "lsort" recursively
+    while executing
+"lsort {a b c}"
+    (procedure "x" line 1)
+    invoked from within
+"x 3 7"
+    (user-defined comparison command)
+    invoked from within
+"lsort -command x {3 7}"}}

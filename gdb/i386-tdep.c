@@ -1,5 +1,5 @@
 /* Intel 386 target-dependent stuff.
-   Copyright (C) 1988, 1989, 1991, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1991, 1994, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -603,15 +603,14 @@ get_longjmp_target(pc)
 
 #endif /* GET_LONGJMP_TARGET */
 
-#ifdef I386_AIX_TARGET
-/* On AIX, floating point values are returned in floating point registers.  */
-
 void
 i386_extract_return_value(type, regbuf, valbuf)
      struct type *type;
      char regbuf[REGISTER_BYTES];
      char *valbuf;
 {
+/* On AIX, floating point values are returned in floating point registers.  */
+#ifdef I386_AIX_TARGET
   if (TYPE_CODE_FLT == TYPE_CODE(type))
     {
       double d;
@@ -622,11 +621,11 @@ i386_extract_return_value(type, regbuf, valbuf)
       store_floating (valbuf, TYPE_LENGTH (type), d);
     }
   else
+#endif /* I386_AIX_TARGET */
     { 
       memcpy (valbuf, regbuf, TYPE_LENGTH (type)); 
     }
 }
-#endif /* I386_AIX_TARGET */
 
 #ifdef I386V4_SIGTRAMP_SAVED_PC
 /* Get saved user PC for sigtramp from the pushed ucontext on the stack
@@ -655,6 +654,32 @@ i386v4_sigtramp_saved_pc (frame)
   return read_memory_integer (read_register (SP_REGNUM) + saved_pc_offset, 4);
 }
 #endif /* I386V4_SIGTRAMP_SAVED_PC */
+
+
+
+/* Stuff for WIN32 PE style DLL's but is pretty generic really. */
+
+CORE_ADDR
+skip_trampoline_code (pc, name)
+     CORE_ADDR pc;
+     char *name;
+{
+  if (pc && read_memory_unsigned_integer (pc, 2) == 0x25ff) /* jmp *(dest) */
+    {
+      unsigned long indirect = read_memory_unsigned_integer (pc+2, 4);
+      struct minimal_symbol *indsym =
+	indirect ? lookup_minimal_symbol_by_pc (indirect) : 0;
+      char *symname = indsym ? SYMBOL_NAME(indsym) : 0;
+
+      if (symname) 
+	{
+	  if (strncmp (symname,"__imp_", 7) == 0
+	      || strncmp (symname,"_imp_", 6) == 0)
+	    return name ? 1 : read_memory_unsigned_integer (indirect, 4);
+	}
+    }
+  return 0;			/* not a trampoline */
+}
 
 void
 _initialize_i386_tdep ()

@@ -230,12 +230,6 @@ struct external_reloc {
 
 #define RELSZ sizeof(struct external_reloc)
 
-#define DEFAULT_DATA_SECTION_ALIGNMENT 4
-#define DEFAULT_BSS_SECTION_ALIGNMENT 4
-#define DEFAULT_TEXT_SECTION_ALIGNMENT 4
-/* For new sections we havn't heard of before */
-#define DEFAULT_SECTION_ALIGNMENT 4
-
 /* Apollo specific STYP flags */
 
 #define STYP_RELOCATED_NOT_LOADED 0x00010000	/* Section is relocated normally during linking, but need

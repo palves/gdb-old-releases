@@ -111,7 +111,7 @@ struct hp300hpux_header_extension
 #define N_GNU_DRELOFF(x) (N_GNU_TRELOFF(x) + (x).a_trsize)
 #define N_GNU_SYMOFF(x)  (N_GNU_DRELOFF(x) + (x).a_drsize)
 
-#define PAGE_SIZE 0x1000
+#define TARGET_PAGE_SIZE 0x1000
 #define SEGMENT_SIZE 0x1000
 #define TEXT_START_ADDR 0
 

@@ -53,3 +53,8 @@ extern void xcoff_relocate_symtab PARAMS ((unsigned int));
 struct target_ops;
 #endif
 extern void xcoff_relocate_core PARAMS ((struct target_ops *));
+
+/* Return sizeof user struct to callers in less machine dependent routines */
+
+#define KERNEL_U_SIZE kernel_u_size()
+extern int kernel_u_size PARAMS ((void));

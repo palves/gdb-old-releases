@@ -1,5 +1,5 @@
 /* Build symbol tables in GDB's internal format.
-   Copyright (C) 1986-1991 Free Software Foundation, Inc.
+   Copyright (C) 1986-1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -180,11 +180,11 @@ struct subfile_stack
 
 EXTERN struct subfile_stack *subfile_stack;
 
-#define next_symbol_text() (*next_symbol_text_func)()
+#define next_symbol_text(objfile) (*next_symbol_text_func)(objfile)
 
 /* Function to invoke get the next symbol.  Return the symbol name. */
 
-EXTERN char *(*next_symbol_text_func) PARAMS ((void));
+EXTERN char *(*next_symbol_text_func) PARAMS ((struct objfile *));
 
 /* Vector of types defined so far, indexed by their type numbers.
    Used for both stabs and coff.
@@ -231,7 +231,7 @@ extern char *
 pop_subfile PARAMS ((void));
 
 extern struct symtab *
-end_symtab PARAMS ((CORE_ADDR, int, int, struct objfile *, int));
+end_symtab PARAMS ((CORE_ADDR, struct objfile *, int));
 
 extern void
 scan_file_globals PARAMS ((struct objfile *));

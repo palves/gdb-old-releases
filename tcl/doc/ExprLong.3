@@ -1,17 +1,16 @@
 '\"
 '\" Copyright (c) 1989-1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) ExprLong.3 1.12 94/12/17 16:17:21
 '\" 
 .so man.macros
-.HS Tcl_ExprLong tclc 7.0
+.TH Tcl_ExprLong 3 7.0 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
-Tcl_ExprLong, Tcl_ExprDouble, Tcl_ExprBool, Tcl_ExprString \- evaluate an expression
+Tcl_ExprLong, Tcl_ExprDouble, Tcl_ExprBoolean, Tcl_ExprString \- evaluate an expression
 .SH SYNOPSIS
 .nf
 \fB#include <tcl.h>\fR
@@ -59,7 +58,7 @@ is assumed to be initialized in the standard fashion when any
 of the procedures are invoked.
 .PP
 For all of these procedures the return value is a standard
-Tcl result:  \fBTCL_OK\fR means the expression was succesfully
+Tcl result:  \fBTCL_OK\fR means the expression was successfully
 evaluated, and \fBTCL_ERROR\fR means that an error occurred while
 evaluating the expression.  If \fBTCL_ERROR\fR is returned then
 \fIinterp->result\fR will hold a message describing the error.

@@ -1,13 +1,32 @@
+# tkerror.tcl --
+#
 # This file contains a default version of the tkError procedure.  It
 # posts a dialog box with the error message and gives the user a chance
 # to see a more detailed stack trace.
+#
+#
+# Copyright (c) 1992-1994 The Regents of the University of California.
+# Copyright (c) 1994-1995 Sun Microsystems, Inc.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+# tkerror --
+# This is the default version of tkerror.  It posts a dialog box containing
+# the error message and gives the user a chance to ask to see a stack
+# trace.
+# Arguments:
+# err -			The error message.
 
 proc tkerror err {
     global errorInfo
     set info $errorInfo
-    if {[tk_dialog .tkerrorDialog "Error in Tcl Script" \
-	    "Error: $err" error 0 OK "See Stack Trace"] == 0} {
+    set button [tk_dialog .tkerrorDialog "Error in Tcl Script" \
+	    "Error: $err" error 0 OK "Skip Messages" "Stack Trace"]
+    if {$button == 0} {
 	return
+    } elseif {$button == 1} {
+	return -code break
     }
 
     set w .tkerrorTrace
@@ -17,10 +36,10 @@ proc tkerror err {
     wm title $w "Stack Trace for Error"
     wm iconname $w "Stack Trace"
     button $w.ok -text OK -command "destroy $w"
-    text $w.text -relief raised -bd 2 -yscrollcommand "$w.scroll set" \
-	    -setgrid true -width 40 -height 10
-    scrollbar $w.scroll -relief flat -command "$w.text yview"
-    pack $w.ok -side bottom -padx 3m -pady 3m -ipadx 2m -ipady 1m
+    text $w.text -relief sunken -bd 2 -yscrollcommand "$w.scroll set" \
+	    -setgrid true -width 60 -height 20
+    scrollbar $w.scroll -relief sunken -command "$w.text yview"
+    pack $w.ok -side bottom -padx 3m -pady 2m
     pack $w.scroll -side right -fill y
     pack $w.text -side left -expand yes -fill both
     $w.text insert 0.0 $info
@@ -36,4 +55,12 @@ proc tkerror err {
 	    - [winfo vrooty [winfo parent $w]]]
     wm geom $w +$x+$y
     wm deiconify $w
+
+    # Be sure to release any grabs that might be present on the
+    # screen, since they could make it impossible for the user
+    # to interact with the stack trace.
+
+    if {[grab current .] != ""} {
+	grab release [grab current .]
+    }
 }

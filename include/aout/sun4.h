@@ -2,14 +2,14 @@
 
 /* Some systems, e.g., AIX, may have defined this in header files already
    included.  */
-#undef PAGE_SIZE
-#define PAGE_SIZE	0x2000		/* 8K.  aka NBPG in <sys/param.h> */
+#undef TARGET_PAGE_SIZE
+#define TARGET_PAGE_SIZE	0x2000		/* 8K.  aka NBPG in <sys/param.h> */
 /* Note that some SPARCs have 4K pages, some 8K, some others.  */
 
-#define SEG_SIZE_SPARC	PAGE_SIZE
+#define SEG_SIZE_SPARC	TARGET_PAGE_SIZE
 #define	SEG_SIZE_SUN3	0x20000		/* Resolution of r/w protection hw */
 
-#define TEXT_START_ADDR	PAGE_SIZE	/* Location 0 is not accessible */
+#define TEXT_START_ADDR	TARGET_PAGE_SIZE	/* Location 0 is not accessible */
 #define N_HEADER_IN_TEXT(x) 1
 
 /* Non-default definitions of the accessor macros... */
@@ -18,7 +18,7 @@
 
 #define N_SEGSIZE(x)	(N_MACHTYPE(x) == M_SPARC?	SEG_SIZE_SPARC:	\
 			 N_MACHTYPE(x) == M_68020?	SEG_SIZE_SUN3:	\
-			/* Guess? */			PAGE_SIZE)
+			/* Guess? */			TARGET_PAGE_SIZE)
 
 /* Virtual Address of text segment from the a.out file.  For OMAGIC,
    (almost always "unlinked .o's" these days), should be zero.
@@ -69,7 +69,7 @@ struct internal_sun4_dynamic_link
 {
   /* Linked list of loaded objects.  This is filled in at runtime by
      ld.so and probably by dlopen.  */
-  long ld_loaded;
+  unsigned long ld_loaded;
 
   /* The address of the list of names of shared objects which must be
      included at runtime.  Each entry in the list is 16 bytes: the 4
@@ -80,7 +80,7 @@ struct internal_sun4_dynamic_link
      the next entry in the list (zero if this is the last entry).  The
      version numbers seem to only be non-zero when doing library
      searching.  */
-  long ld_need;
+  unsigned long ld_need;
 
   /* The address of the path to search for the shared objects which
      must be included.  This points to a string in PATH format which
@@ -89,7 +89,7 @@ struct internal_sun4_dynamic_link
      beginning of this string and /lib:/usr/lib:/usr/local/lib to the
      end.  The string is terminated by a null byte.  This field is
      zero if there is no additional path.  */
-  long ld_rules;
+  unsigned long ld_rules;
 
   /* The address of the global offset table.  This appears to be a
      virtual address, not a file offset.  The first entry in the
@@ -98,7 +98,7 @@ struct internal_sun4_dynamic_link
      The global offset table is used for PIC code to hold the
      addresses of variables.  A dynamically linked file which does not
      itself contain PIC code has a four byte global offset table.  */
-  long ld_got;
+  unsigned long ld_got;
 
   /* The address of the procedure linkage table.  This appears to be a
      virtual address, not a file offset.
@@ -133,14 +133,14 @@ struct internal_sun4_dynamic_link
 
      The size of the procedure linkage table is given by the ld_plt_sz
      field.  */
-  long ld_plt;
+  unsigned long ld_plt;
 
   /* The address of the relocs.  These are in the same format as
      ordinary relocs.  Symbol index numbers refer to the symbols
      pointed to by ld_stab.  I think the only way to determine the
      number of relocs is to assume that all the bytes from ld_rel to
      ld_hash contain reloc entries.  */
-  long ld_rel;
+  unsigned long ld_rel;
 
   /* The address of a hash table of symbols.  The hash table has
      roughly the same number of entries as there are dynamic symbols;
@@ -169,33 +169,33 @@ struct internal_sun4_dynamic_link
      hash table entry) to move on to the next entry in this bucket.
      If the chain field is zero you have reached the end of the
      bucket, and the symbol is not in the hash table.  */ 
-  long ld_hash;
+  unsigned long ld_hash;
 
   /* The address of the symbol table.  This is a list of
      external_nlist structures.  The string indices are relative to
      the ld_symbols field.  I think the only way to determine the
      number of symbols is to assume that all the bytes between ld_stab
      and ld_symbols are external_nlist structures.  */
-  long ld_stab;
+  unsigned long ld_stab;
 
   /* I don't know what this is for.  It seems to always be zero.  */
-  long ld_stab_hash;
+  unsigned long ld_stab_hash;
 
   /* The number of buckets in the hash table.  */
-  long ld_buckets;
+  unsigned long ld_buckets;
 
   /* The address of the symbol string table.  The first string in this
      string table need not be the empty string.  */
-  long ld_symbols;
+  unsigned long ld_symbols;
 
   /* The size in bytes of the symbol string table.  */
-  long ld_symb_size;
+  unsigned long ld_symb_size;
 
   /* The size in bytes of the text segment.  */
-  long ld_text;
+  unsigned long ld_text;
 
   /* The size in bytes of the procedure linkage table.  */
-  long ld_plt_sz;
+  unsigned long ld_plt_sz;
 };
 
 /* The external form of the structure.  */

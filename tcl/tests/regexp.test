@@ -10,7 +10,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) regexp.test 1.18 94/12/17 16:20:20
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 

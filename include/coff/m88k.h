@@ -74,6 +74,7 @@ struct external_scnhdr
 #define _TEXT   ".text"
 #define _DATA   ".data"
 #define _BSS    ".bss"
+#define _COMMENT ".comment"
 
 /********************** LINE NUMBERS **********************/
 
@@ -213,7 +214,5 @@ struct external_reloc {
 
 #define RELOC struct external_reloc
 #define RELSZ  12
-
-#define DEFAULT_SECTION_ALIGNMENT 8 /* double word */
 
 #define NO_TVNDX

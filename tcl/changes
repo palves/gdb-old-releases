@@ -1,6 +1,5 @@
 Recent user-visible changes to Tcl:
 
-sccsid = @(#) changes 1.5 95/01/12 10:16:59
 
 1. No more [command1] [command2] construct for grouping multiple
 commands on a single command line.
@@ -1107,3 +1106,324 @@ both a label and a variable;  caused problems on several older compilers,
 making array command misbehave and causing many errors in Tcl test suite.
 
 ----------------- Released version 7.4b2, 1/12/95 ------------------
+
+288. 2/9/95 Modified Tcl_CreateCommand to return a token, and added
+Tcl_GetCommandName procedure.  Together, these procedures make it possible
+to track renames of a command.
+
+289. 2/13/95 Fixed bug in expr where "089" was interpreted as a
+floating-point number rather than a bogus octal number.
+*** POTENTIAL INCOMPATIBILITY ***
+
+290. 2/14/95 Added code to Tcl_GetInt and Tcl_GetDouble to check for
+overflows when reading in numbers.
+
+291. 2/18/95 Changed "array set" to stop after first error, rather than
+continuing after error.
+
+292. 2/20/95 Upgraded to use autoconf version 2.2.
+
+293. 2/20/95 Fixed core dump that could occur in "scan" command if a
+close bracket was omitted.
+
+294. 2/27/95 Changed Makefile to always use install-sh for installations:
+there's just too much variation among "install" system programs, which
+makes installation flakey.
+
+----------------- Released version 7.4b3, 3/24/95 ------------------
+
+3/25/95 (bug fix) Changed "install" to "./install" in Makefile so that
+"make install" will work even when "." isn't in the search path.
+
+3/29/95 (bug fix) Fixed bug where the auto-loading mechanism wasn't
+protecting the values of the errorCode and errorInfo variables.
+
+3/29/95 (new feature) Added optional pattern argument to "parray" procedure.
+
+3/29/95 (bug fix) Made the full functionality of
+    "return -code ... -errorcode ..."
+work not just inside procedures, but also in sourced files and at
+top level.
+
+4/6/95 (new feature) Added "pattern" option to "array names" command.
+
+4/18/95 (bug fix) Fixed bug in parser where it didn't allow backslash-newline
+immediately after an argument in braces or quotes.
+
+4/19/95 (new feature) Added tcl_library variable, which application can
+set to override default library directory.
+
+4/30/95 (bug fix) During trace callbacks for array elements, the variable
+name used in the original reference would be temporarily modified to
+separate the array name and element name;  if the trace callback used
+the same name string, it would get the wrong name (the array name without
+element).  Fixed to restore the variable name before making trace
+callbacks.
+
+4/30/95 (new feature) Added -nobackslashes, -nocommands, and -novariables
+switches to "subst" command.
+
+5/4/95 (new feature) Added TCL_EVAL_GLOBAL flag to Tcl_RecordAndEval.
+
+5/5/95 (bug fix)  Format command would overrun memory when printing
+integers with very large precision, as in "format %.1000d 0".
+
+5/5/95 (portability improvement) Changed to use BSDgettimeofday on
+IRIX machines, to avoid compilation problems with the gettimeofday
+declaration.
+
+5/6/95 (bug fix) Changed manual entries to use the standard .TH
+macro instead of a custom .HS macro;  the .HS macro confuses index
+generators like makewhatis.
+
+5/9/95 (bug fix) Modified configure script to check for Solaris bug
+that makes vfork unreliable (core dumps result if vforked child
+changes a signal handler);  will use fork instead of vfork if the
+bug is present.
+
+6/5/95 (bug fix) Modified "lsort" command to disallow recursive calls
+to lsort from a comparison function.  This is needed because qsort
+is not reentrant.
+
+6/5/95 (bug fix) Undid change 243 above:  changed TCL_VOLATILE and
+TCL_DYNAMIC back to integer constants rather than procedure addresses.
+This was needed because procedure addresses can have multiple values
+under some dynamic loading systems (e.g. SunOS 4.1 and Windows).
+
+6/8/95 (feature change) Modified interface to Tcl_Main to pass in the
+address of the application-specific initialization procedure.
+Tcl_AppInit is no longer hardwired into Tcl_Main.  This is needed
+in order to make Tcl a shared library. 
+
+6/8/95 (feature change) Modified Makefile so that the installed versions
+of tclsh and libtcl.a have version number in them (e.g. tclsh7.4 and
+libtcl7.4.a) and the library directory name also has an embedded version
+number (e.g., /usr/local/lib/tcl7.4).  This should make it easier for
+Tcl 7.4 to coexist with earlier versions.
+
+----------------- Released version 7.4b4, 6/16/95 ------------------
+
+6/19/95 (bug fix) Fixed bugs in tclCkalloc.c that caused core dumps
+if TCL_MEM_DEBUG was enabled on word-addressed machines such as Crays.
+
+6/21/95 (feature removal) Removed overflow checks for integer arithmetic:
+they just cause too much trouble (e.g. for random  number generators).
+
+6/28/95 (new features) Added tcl_patchLevel and tcl_version variables,
+for consistency with Tk.
+
+6/29/95 (bug fix) Fixed problem in Tcl_Eval where it didn't record
+the right termination character if a script ended with a comment.  This
+caused erroneous output for the following command, among others:
+puts "[
+expr 1+1
+# duh!
+]"
+
+6/29/95 (message change) Changed the error message for ECHILD slightly
+to provide a hint about why the problem is occurring.
+
+----------------- Released version 7.4, 7/1/95 ------------------
+
+7/18/95 (bug fix) Changed "lreplace" so that nothing is deleted if
+the last index is less than the first index or if the last index
+is < 0.
+
+7/18/95 (bug fix) Fixed bugs with backslashes in comments:
+Tcl_CommandComplete (and "info complete") didn't properly handle
+strings ending in backslash-newline, and neither Tcl_CommandComplete
+nor the Tcl parser handled other backslash sequences right, such
+as two backslashes before a newline.
+
+7/19/95 (bug fix) Modified Tcl_DeleteCommand to delete the hash table
+entry for the command before invoking its callback.  This is needed in
+order to deal with reentrancy.
+
+7/22/95 (bug fix) "exec" wasn't reaping processes correctly after
+certain errors (e.g. if the name of the executable was bogus, as
+in "exec foobar").
+
+7/27/95 (bug fix) Makefile.in wasn't using the LIBS variable provided
+by the "configure" script.  This caused problems on some SCO systems.
+
+7/27/95 (bug fix) The version of strtod in fixstrtod.c didn't properly
+handle the case where endPtr == NULL.
+
+----------------- Released patch 7.4p1, 7/29/95 -----------------------
+
+8/4/95 (bug fix) C-level trace callbacks for variables were sometimes
+receiving the PART1_NOT_PARSED flag, which could cause errors in
+subsequent Tcl library calls using the flags. (JO)
+
+8/4/95 (bug fix) Calls to toupper and tolower weren't using the
+UCHAR macros, which caused trouble in non-U.S. locales. (JO)
+
+8/10/95 (new feature) Added the "load" command for dynamic loading of
+binary packages, and the Tcl_PackageInitProc prototype for package
+initialization procedures. (JO)
+
+8/23/95 (new features) Added "info sharedlibextension" and
+"info nameofexecutable" commands, plus Tcl_FindExtension procedure. (JO)
+
+8/25/95 (bug fix) If the target of an "upvar" was non-existent but
+had traces set, the traces were silently lost.  Change to generate
+an error instead. (JO)
+
+8/25/95 (bug fix) Undid change from 7/19, so that commands can stay
+around while their deletion callbacks execute.  Added lots of code to
+handle all of the reentrancy problems that this opens up. (JO)
+
+8/25/95 (bug fix) Fixed core dump that could occur in TclDeleteVars
+if there was an upvar from one entry in the table to the next entry
+in the same table. (JO)
+
+8/28/95 (bug fix) Exec wasn't handling bad user names properly, as
+in "exec ~bogus_user/foo". (JO)
+
+8/29/95 (bug fixes) Changed backslash-newline handling to correct two
+problems:
+    - Only spaces and tabs following the backslash-newline are now
+      absorbed as part of the backslash-newline.  Newlinew are no
+      longer absorbed (add another backslash if you want to absorb
+      another newline).
+    - TclWordEnd returns the character just before the backslash in
+      the sequence as the end of the sequence;  it used to not consider
+      the backslash-newline as a word separator. (JO)
+
+8/31/95 (new feature) Changed man page installation (with "mkLinks"
+script) to create additional links for manual pages corresponding to
+each of the procedure and command names described in the pages. (JO)
+
+9/10/95 Reorganized Tcl sources for Windows and Mac ports.  All sources
+are now in subdirectories:  "generic" contains sources that work on all
+platforms, "windows", "mac", and "unix" directories contain platform-
+specific sources.  Some UNIX sources are also used on other platforms. (SS)
+
+9/10/95 (feature change) Eliminated exported global variables (they
+don't work with Windows DLLs).  Replaced tcl_AsyncReady and
+tcl_FileCloseProc with procedures Tcl_AsyncReady() and
+Tcl_SetFileCloseProc().  Replaced C variable tcl_RcFileName with
+a Tcl variable tcl_rcFileName. (SS)
+*** POTENTIAL INCOMPATIBILITY ***
+
+9/11/95 (new feature) Added procedure Tcl_SetPanicProc to override
+the default implementation of "panic". (SS)
+
+9/11/95 (new feature) Added "interp" command to allow creation of
+new interpreters and execution of untrusted scripts.  Added many new
+procedures, such as Tcl_CreateSlave, Tcl_CreateAlias,and Tcl_MakeSafe,
+to provide C-level access to the interpreter facility. This mechanism
+now provides almost all of the generic functions of Borenstein's and
+Rose's Safe-Tcl (but not any Tk or email-related stuff).  (JL)
+
+9/11/95 (feature change) Changed file management so that files are
+no longer shared between interpreters:  a file cannot normally be
+referenced in one interpreter if it was opened in another.  This
+feature is needed to support safe interpreters.  Added Tcl_ShareHandle()
+procedure for allowing files to be shared, and added "interp" argument
+to Tcl_FilePermissions procedure.
+*** POTENTIAL INCOMPATIBILITY ***
+
+9/11/95 (new feature) Added "AssocData" mechanism, whereby extensions
+can associate their own data with an interpreter and get called back
+when the interpreter is deleted.  This is visible at C level via the
+procedures Tcl_SetAssocData and Tcl_GetAssocData.  (JL)
+
+9/11/95 (new feature) Added Tcl_ErrnoMsg to translate an errno value
+into a human-readable string.  This is now used instead of calling
+strerror because strerror mesages vary dramatically from platform
+to platform, which messes up Tcl tests.  Tcl_ErrnoMsg uses the standard
+POSIX messages for all the common signals, and calls strerror for
+signals it doesn't understand.
+
+----------------- Released patch 7.5p2, 9/15/95 -----------------------
+
+----------------- Released 7.5a1, 9/15/95 -----------------------
+
+9/22/95 (bug fix) Changed auto_mkindex to create tclIndex files that
+handle directories whose paths might contain spaces. (RJ)
+
+9/27/95 (bug fix) The "format" command didn't check for huge or negative
+width specifiers, which could cause core dumps. (JO)
+
+9/27/95 (bug fix) Core dumps could occur if an interactive command typed
+to tclsh returned a very long result for tclsh to print out.  The bug is
+actually in printf (in Solaris 2.3 and 2.4, at least);  switched to use
+puts instead.  (JO)
+
+9/28/95 (bug fix) Changed makefile.bc to eliminate a false dependency
+for tcl1675.dll on the Borland run time library. (SS)
+
+9/28/95 (bug fix) Fixed tcl75.dll so it looks for tcl1675.dll instead
+of tcl16.dll. (SS)
+
+9/28/95 (bug fix) Tcl was not correctly detecting the difference
+between Win32s and Windows '95. (SS)
+
+9/28/95 (bug fix) "exec" was not passing environment changes to child
+processes under Windows. (SS)
+
+9/28/95 (bug fix) Changed Tcl to ensure that open files are not passed
+to child processes under Windows. (SS)
+
+9/28/95 (bug fix) Fixed Windows '95 and NT versions of exec so it can
+handle both console and windows apps.   (SS)
+
+9/28/95 (bug fix) Fixed Windows version of exec so it no longer leaves
+temp files lying around.  Also changed it so the temp files are
+created in the appropriate system dependent temp directory. (SS)
+
+9/28/95 (bug fix) Eliminated source dependency on the Win32s Universal
+Thunk header file, since it is not bundled with VC++. (SS)
+
+9/28/95 (bug fix) Under Windows, Tcl now constructs the HOME
+environment variable from HOMEPATH and HOMEDRIVE when HOME is not
+already set. (SS)
+
+9/28/95 (bug fix) Added support for "info nameofexecutable" and "info
+sharedlibextension" to the Windows version. (SS)
+
+9/28/95 (bug fix) Changed tclsh to correctly parse command line
+arguments so that backslashes are preserved under Windows. (SS)
+
+9/29/95 (bug fix) Tcl 7.5a1 treated either return or newline as end
+of line in "gets", which caused lines ending in CRLF to be treated as
+two separate lines.  Changed to allow only character as end-of-line:
+carriage return on Macs, newline elsewhere. (JO)
+
+9/29/95 (new feature) Changed to install "configInfo" file in same
+directory as library scripts.  It didn't used to get installed. (JO)
+
+9/29/95 (bug fix) Tcl was not converting Win32 errors into POSIX
+errors under some circumstances. (SS)
+
+10/2/95 (bug fix) Safe interpreters no longer get initialized with
+a call to Tcl_Init(). (JL)
+
+10/1/95 (new feature) Added "tcl_platform" global variable to provide
+environment information such as the instruction set and operating
+system. (JO)
+
+10/1/95 (bug fix) "exec" command wasn't always generating the
+"child process exited abnormally" message when it should have.  (JO)
+
+10/2/95 (bug fix) Changed "mkLinks.tcl" so that the scripts it generates
+won't create links that overwrite original manual entries (there was
+a problem where pack-old.n was overwriting pack.n).  (JO)
+
+10/2/95 (feature change) Changed to use -ldl for dynamic loading under
+Linux if it is available, but fall back to -ldld if it isn't.  (JO)
+
+10/2/95 (bug fix) File sharing was causing refcounts to reach 0
+prematurely for stdin, stdout and stderr, under some circumstances. (JL)
+
+10/2/95 (platform support) Added support for Visual C++ compiler on
+Windows, Windows '95 and Windows NT, code donated by Gordon Chaffee. (JL)
+
+10/3/95 (bug fix) Tcl now frees any libraries that it loads before it
+exits. (SS)
+
+10/03/95 (bug fix) Fixed bug in Macintosh ls command where the -l
+and -C options would fail in anything but the HOME directory. (RJ)
+
+----------------- Released 7.5a2, 10/6/95 -----------------------

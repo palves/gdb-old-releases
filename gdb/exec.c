@@ -185,8 +185,8 @@ exec_file_command (args, from_tty)
 			    &scratch_pathname);
       if (scratch_chan < 0)
 	perror_with_name (filename);
-
       exec_bfd = bfd_fdopenr (scratch_pathname, gnutarget, scratch_chan);
+
       if (!exec_bfd)
 	error ("\"%s\": could not open as an executable file: %s",
 	       scratch_pathname, bfd_errmsg (bfd_get_error ()));

@@ -24,10 +24,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "symtab.h"
 #include "target.h"
 #include "gdbcore.h"
-
+#include "symfile.h"
+#include "objfiles.h"
 #include "xcoffsolib.h"
-
-#include <a.out.h>
 
 extern struct obstack frame_cache_obstack;
 
@@ -47,19 +46,16 @@ static struct sstep_breaks {
 
 /* Static function prototypes */
 
-static CORE_ADDR
-find_toc_address PARAMS ((CORE_ADDR pc));
+static CORE_ADDR find_toc_address PARAMS ((CORE_ADDR pc));
 
-static CORE_ADDR
-branch_dest PARAMS ((int opcode, int instr, CORE_ADDR pc, CORE_ADDR safety));
+static CORE_ADDR branch_dest PARAMS ((int opcode, int instr, CORE_ADDR pc,
+				      CORE_ADDR safety));
 
-static void
-frame_get_cache_fsr PARAMS ((struct frame_info *fi,
-			     struct rs6000_framedata *fdatap));
+static void frame_get_cache_fsr PARAMS ((struct frame_info *fi,
+					 struct rs6000_framedata *fdatap));
 
-/*
- * Calculate the destination of a branch/jump.  Return -1 if not a branch.
- */
+/* Calculate the destination of a branch/jump.  Return -1 if not a branch.  */
+
 static CORE_ADDR
 branch_dest (opcode, instr, pc, safety)
      int opcode;
@@ -214,6 +210,7 @@ skip_prologue (pc, fdata)
   int cr_reg = 0;
   int reg;
   int framep = 0;
+  int minimal_toc_loaded = 0;
   static struct rs6000_framedata zero_frame;
 
   *fdata = zero_frame;
@@ -262,10 +259,12 @@ skip_prologue (pc, fdata)
 
       } else if ((op & 0xffff0000) == 0x3c000000) {	/* addis 0,0,NUM, used for >= 32k frames */
 	fdata->offset = (op & 0x0000ffff) << 16;
+	fdata->frameless = 0;
 	continue;
 
       } else if ((op & 0xffff0000) == 0x60000000) {	/* ori 0,0,NUM, 2nd half of >= 32k frames */
 	fdata->offset |= (op & 0x0000ffff);
+	fdata->frameless = 0;
 	continue;
 
       } else if ((op & 0xffff0000) == lr_reg) {		/* st Rx,NUM(r1) where Rx == lr */
@@ -282,6 +281,9 @@ skip_prologue (pc, fdata)
       } else if (op == 0x48000005) {			/* bl .+4 used in -mrelocatable */
 	continue;
 
+      } else if (op == 0x48000004) {			/* b .+4 (xlc) */
+	break;
+
       } else if (((op & 0xffff0000) == 0x801e0000 ||	/* lwz 0,NUM(r30), used in V.4 -mrelocatable */
 		  op == 0x7fc0f214) &&			/* add r30,r0,r30, used in V.4 -mrelocatable */
 		 lr_reg == 0x901e0000) {
@@ -293,6 +295,7 @@ skip_prologue (pc, fdata)
 
       } else if ((op & 0xfc000000) == 0x48000000) {	/* bl foo, to save fprs??? */
 
+	fdata->frameless = 0;
 	/* Don't skip over the subroutine call if it is not within the first
 	   three instructions of the prologue.  */
 	if ((pc - orig_pc) > 8)
@@ -312,16 +315,20 @@ skip_prologue (pc, fdata)
 
       /* update stack pointer */
       } else if ((op & 0xffff0000) == 0x94210000) {	/* stu r1,NUM(r1) */
+	fdata->frameless = 0;
 	fdata->offset = SIGNED_SHORT (op);
 	offset = fdata->offset;
 	continue;
 
       } else if (op == 0x7c21016e) {			/* stwux 1,1,0 */
+	fdata->frameless = 0;
 	offset = fdata->offset;
 	continue;
 
       /* Load up minimal toc pointer */
-      } else if ((op >> 22) == 0x20f) {			/* l r31,... or l r30,... */
+      } else if ((op >> 22) == 0x20f
+	         && ! minimal_toc_loaded) {	/* l r31,... or l r30,... */
+	minimal_toc_loaded = 1;
 	continue;
 
       /* store parameters in stack */
@@ -340,8 +347,16 @@ skip_prologue (pc, fdata)
       /* Set up frame pointer */
       } else if (op == 0x603f0000			/* oril r31, r1, 0x0 */
 		 || op == 0x7c3f0b78) {			/* mr r31, r1 */
+	fdata->frameless = 0;
 	framep = 1;
 	fdata->alloca_reg = 31;
+	continue;
+
+      /* Another way to set up the frame pointer.  */
+      } else if ((op & 0xfc1fffff) == 0x38010000) {	/* addi rX, r1, 0x0 */
+	fdata->frameless = 0;
+	framep = 1;
+	fdata->alloca_reg = (op & ~0x38010000) >> 21;
 	continue;
 
       } else {
@@ -376,7 +391,6 @@ skip_prologue (pc, fdata)
   }
 #endif /* 0 */
  
-  fdata->frameless = (pc == orig_pc);
   fdata->offset = - fdata->offset;
   return pc;
 }
@@ -425,6 +439,10 @@ push_dummy_frame ()
   /* Same thing, target byte order.  */
   char pc_targ[4];
   
+  /* Needed to figure out where to save the dummy link area.
+     FIXME: There should be an easier way to do this, no?  tiemann 9/9/95.  */
+  struct rs6000_framedata fdata;
+
   int ii;
 
   target_fetch_registers (-1);
@@ -443,6 +461,8 @@ push_dummy_frame ()
   pc = read_register(PC_REGNUM);
   store_address (pc_targ, 4, pc);
 
+  (void) skip_prologue (get_pc_function_start (pc) + FUNCTION_START_OFFSET, &fdata);
+
   dummy_frame_addr [dummy_frame_count++] = sp;
 
   /* Be careful! If the stack pointer is not decremented first, then kernel 
@@ -450,6 +470,10 @@ push_dummy_frame ()
      uses that area for IPC purposes when executing ptrace(2) calls. So 
      before writing register values into the new frame, decrement and update
      %sp first in order to secure your frame. */
+
+  /* FIXME: We don't check if the stack really has this much space.
+     This is a problem on the ppc simulator (which only grants one page
+     (4096 bytes) by default.  */
 
   write_register (SP_REGNUM, sp-DUMMY_FRAME_SIZE);
 
@@ -459,7 +483,8 @@ push_dummy_frame ()
   flush_cached_frames ();
 
   /* save program counter in link register's space. */
-  write_memory (sp+8, pc_targ, 4);
+  write_memory (sp + (fdata.lr_offset ? fdata.lr_offset : DEFAULT_LR_SAVE),
+	        pc_targ, 4);
 
   /* save all floating point and general purpose registers here. */
 
@@ -530,7 +555,7 @@ pop_dummy_frame ()
     		&registers[REGISTER_BYTE (FPLAST_REGNUM + ii)], 4);
 
   read_memory (sp-(DUMMY_FRAME_SIZE-8), 
-  				&registers [REGISTER_BYTE(PC_REGNUM)], 4);
+	       &registers [REGISTER_BYTE(PC_REGNUM)], 4);
 
   /* when a dummy frame was being pushed, we had to decrement %sp first, in 
      order to secure astack space. Thus, saved %sp (or %r1) value, is not the
@@ -610,12 +635,12 @@ pop_frame ()
    its argumets will be passed by gdb. */
 
 void
-fix_call_dummy(dummyname, pc, fun, nargs, type)
-  char *dummyname;
-  CORE_ADDR pc;
-  CORE_ADDR fun;
-  int nargs;					/* not used */
-  int type;					/* not used */
+fix_call_dummy (dummyname, pc, fun, nargs, type)
+     char *dummyname;
+     CORE_ADDR pc;
+     CORE_ADDR fun;
+     int nargs;					/* not used */
+     int type;					/* not used */
 {
 #define	TOC_ADDR_OFFSET		20
 #define	TARGET_ADDR_OFFSET	28
@@ -644,12 +669,13 @@ fix_call_dummy(dummyname, pc, fun, nargs, type)
   *(int*)((char*)dummyname + TARGET_ADDR_OFFSET+4) = ii;
 }
 
-/* Pass the arguments in either registers, or in the stack. In RS6000, the first
-   eight words of the argument list (that might be less than eight parameters if
-   some parameters occupy more than one word) are passed in r3..r11 registers.
-   float and double parameters are passed in fpr's, in addition to that. Rest of
-   the parameters if any are passed in user stack. There might be cases in which
-   half of the parameter is copied into registers, the other half is pushed into
+/* Pass the arguments in either registers, or in the stack. In RS6000,
+   the first eight words of the argument list (that might be less than
+   eight parameters if some parameters occupy more than one word) are
+   passed in r3..r11 registers.  float and double parameters are
+   passed in fpr's, in addition to that. Rest of the parameters if any
+   are passed in user stack. There might be cases in which half of the
+   parameter is copied into registers, the other half is pushed into
    stack.
 
    If the function is returning a structure, then the return address is passed
@@ -658,18 +684,19 @@ fix_call_dummy(dummyname, pc, fun, nargs, type)
 
 CORE_ADDR
 push_arguments (nargs, args, sp, struct_return, struct_addr)
-  int nargs;
-  value_ptr *args;
-  CORE_ADDR sp;
-  int struct_return;
-  CORE_ADDR struct_addr;
+     int nargs;
+     value_ptr *args;
+     CORE_ADDR sp;
+     int struct_return;
+     CORE_ADDR struct_addr;
 {
   int ii, len;
   int argno;					/* current argument number */
   int argbytes;					/* current argument byte */
   char tmp_buffer [50];
-  value_ptr arg;
   int f_argno = 0;				/* current floating point argno */
+  value_ptr arg;
+  struct type *type;
 
   CORE_ADDR saved_sp, pc;
 
@@ -689,9 +716,10 @@ push_arguments (nargs, args, sp, struct_return, struct_addr)
   for (argno=0, argbytes=0; argno < nargs && ii<8; ++ii) {
 
     arg = args[argno];
-    len = TYPE_LENGTH (VALUE_TYPE (arg));
+    type = check_typedef (VALUE_TYPE (arg));
+    len = TYPE_LENGTH (type);
 
-    if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FLT) {
+    if (TYPE_CODE (type) == TYPE_CODE_FLT) {
 
       /* floating point arguments are passed in fpr's, as well as gpr's.
          There are 13 fpr's reserved for passing parameters. At this point
@@ -743,7 +771,6 @@ ran_out_of_registers_for_arguments:
 
   if ((argno < nargs) || argbytes) {
     int space = 0, jj;
-    value_ptr val;
 
     if (argbytes) {
       space += ((len - argbytes + 3) & -4);
@@ -753,7 +780,7 @@ ran_out_of_registers_for_arguments:
       jj = argno;
 
     for (; jj < nargs; ++jj) {
-      val = args[jj];
+      value_ptr val = args[jj];
       space += ((TYPE_LENGTH (VALUE_TYPE (val))) + 3) & -4;
     }
 
@@ -782,11 +809,12 @@ ran_out_of_registers_for_arguments:
     for (; argno < nargs; ++argno) {
 
       arg = args[argno];
-      len = TYPE_LENGTH (VALUE_TYPE (arg));
+      type = check_typedef (VALUE_TYPE (arg));
+      len = TYPE_LENGTH (type);
 
 
       /* float types should be passed in fpr's, as well as in the stack. */
-      if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FLT && f_argno < 13) {
+      if (TYPE_CODE (type) == TYPE_CODE_FLT && f_argno < 13) {
 
         if (len > 8)
           printf_unfiltered (
@@ -822,10 +850,11 @@ ran_out_of_registers_for_arguments:
 
 void
 extract_return_value (valtype, regbuf, valbuf)
-  struct type *valtype;
-  char regbuf[REGISTER_BYTES];
-  char *valbuf;
+     struct type *valtype;
+     char regbuf[REGISTER_BYTES];
+     char *valbuf;
 {
+  int offset = 0;
 
   if (TYPE_CODE (valtype) == TYPE_CODE_FLT) {
 
@@ -843,9 +872,15 @@ extract_return_value (valtype, regbuf, valbuf)
       memcpy (valbuf, &ff, sizeof(float));
     }
   }
-  else
+  else {
     /* return value is copied starting from r3. */
-    memcpy (valbuf, &regbuf[REGISTER_BYTE (3)], TYPE_LENGTH (valtype));
+    if (TARGET_BYTE_ORDER == BIG_ENDIAN
+	&& TYPE_LENGTH (valtype) < REGISTER_RAW_SIZE (3))
+      offset = REGISTER_RAW_SIZE (3) - TYPE_LENGTH (valtype);
+
+    memcpy (valbuf, regbuf + REGISTER_BYTE (3) + offset,
+	    TYPE_LENGTH (valtype));
+  }
 }
 
 
@@ -867,7 +902,7 @@ CORE_ADDR rs6000_struct_return_address;
 
 CORE_ADDR
 skip_trampoline_code (pc)
-CORE_ADDR pc;
+     CORE_ADDR pc;
 {
   register unsigned int ii, op;
   CORE_ADDR solib_target_pc;
@@ -898,8 +933,8 @@ CORE_ADDR pc;
   return pc;
 }
 
-
 /* Determines whether the function FI has a frame on the stack or not.  */
+
 int
 frameless_function_invocation (fi)
      struct frame_info *fi;
@@ -926,6 +961,7 @@ frameless_function_invocation (fi)
 }
 
 /* Return the PC saved in a frame */
+
 unsigned long
 frame_saved_pc (fi)
      struct frame_info *fi;
@@ -1174,12 +1210,13 @@ add_text_to_loadinfo (textaddr, dataaddr)
 }
 
 
-/* Note that this assumes that the "textorg" and "dataorg" elements
-   of a member of this array are correlated with the "toc_offset"
-   element of the same member.  This is taken care of because the loops
-   which assign the former (in xcoff_relocate_symtab or xcoff_relocate_core)
-   and the latter (in scan_xcoff_symtab, via vmap_symtab, in vmap_ldinfo
-   or xcoff_relocate_core) traverse the same objfiles in the same order.  */
+/* Note that this assumes that the "textorg" and "dataorg" elements of
+   a member of this array are correlated with the "toc_offset" element
+   of the same member.  This is taken care of because the loops which
+   assign the former (in xcoff_relocate_symtab or xcoff_relocate_core)
+   and the latter (in scan_xcoff_symtab, via vmap_symtab, in
+   vmap_ldinfo or xcoff_relocate_core) traverse the same objfiles in
+   the same order.  */
 
 static CORE_ADDR
 find_toc_address (pc)
@@ -1187,13 +1224,32 @@ find_toc_address (pc)
 {
   int ii, toc_entry, tocbase = 0;
 
+  toc_entry = -1;
   for (ii=0; ii < loadinfotextindex; ++ii)
     if (pc > loadinfo[ii].textorg && loadinfo[ii].textorg > tocbase) {
       toc_entry = ii;
       tocbase = loadinfo[ii].textorg;
     }
 
+  if (toc_entry == -1)
+    error ("Unable to find TOC entry for pc 0x%x\n", pc);
   return loadinfo[toc_entry].dataorg + loadinfo[toc_entry].toc_offset;
+}
+
+/* Return nonzero if ADDR (a function pointer) is in the data space and
+   is therefore a special function pointer.  */
+
+int
+is_magic_function_pointer (addr)
+     CORE_ADDR addr;
+{
+  struct obj_section *s;
+
+  s = find_pc_section (addr);
+  if (s && s->the_bfd_section->flags & SEC_CODE)
+    return 0;
+  else
+    return 1;
 }
 
 #ifdef GDB_TARGET_POWERPC

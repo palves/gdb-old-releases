@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) concat.n 1.3 94/12/17 16:17:44
 '\" 
 .so man.macros
-.HS concat tcl
+.TH concat n "" Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -27,13 +26,13 @@ It also eliminates leading and trailing spaces in the \fIarg\fR's
 and adds a single separator space between \fIarg\fR's.
 It permits any number of arguments.  For example,
 the command
-.DS
+.CS
 \fBconcat a b {c d e} {f {g h}}\fR
-.DE
+.CE
 will return
-.DS
+.CS
 \fBa b c d e f {g h}\fR
-.DE
+.CE
 as its result.
 .PP
 .VS

@@ -1,5 +1,5 @@
 /* Table of opcodes for the PA-RISC.
-   Copyright (C) 1990, 1991, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1993, 1995 Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
    University of Utah (pa-gdb-bugs@cs.utah.edu).
@@ -327,6 +327,7 @@ static const struct pa_opcode pa_opcodes[] =
 { "mfsp",       0x000004a0, 0xffff1fe0, "S,t", pa10},
 { "mfctl",      0x000008a0, 0xfc1fffe0, "^,t", pa10},
 { "sync",       0x00000400, 0xffffffff, "", pa10},
+{ "syncdma",    0x00100400, 0xffffffff, "", pa10},
 { "prober",     0x04001180, 0xfc003fe0, "(s,b),x,t", pa10},
 { "prober",     0x04001180, 0xfc003fe0, "(b),x,t", pa10},
 { "proberi",    0x04003180, 0xfc003fe0, "(s,b),R,t", pa10},
@@ -339,6 +340,8 @@ static const struct pa_opcode pa_opcodes[] =
 { "lpa",        0x04001340, 0xfc003fc0, "Zx(b),t", pa10},
 { "lha",        0x04001300, 0xfc003fc0, "Zx(s,b),t", pa10},
 { "lha",        0x04001300, 0xfc003fc0, "Zx(b),t", pa10},
+{ "lci",        0x04001300, 0xfc003fe0, "x(s,b),t", pa10},
+{ "lci",        0x04001300, 0xfc003fe0, "x(b),t", pa10},
 { "pdtlb",      0x04001200, 0xfc003fdf, "Zx(s,b)", pa10},
 { "pdtlb",      0x04001200, 0xfc003fdf, "Zx(b)", pa10},
 { "pitlb",      0x04000200, 0xfc003fdf, "Zx(s,b)", pa10},

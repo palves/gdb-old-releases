@@ -21,10 +21,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Steve Chamberlain
    sac@cygnus.com */
 
+#include "config.h"
+
 #include <varargs.h>
 #include <stdio.h>
-#include "../../bfd/bfd.h"
-#include "sysdep.h"
+#include <signal.h>
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#include "getopt.h"
+#include "bfd.h"
 #include "remote-sim.h"
 
 void usage();
@@ -106,7 +112,15 @@ main (ac, av)
 	  if (verbose)
 	    sim_info (0);
 
-	  return 0;
+	  {
+	    enum sim_stop reason;
+	    int sigrc;
+
+	    sim_stop_reason (&reason, &sigrc);
+	    if (sigrc == SIGQUIT)
+	      return 0;
+	    return sigrc;
+	  }
 	}
     }
 

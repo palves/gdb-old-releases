@@ -22,22 +22,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-static bfd_arch_info_type arch_info_struct[] = 
+static const bfd_arch_info_type arch_info_struct[] = 
 {
-  {
-    32,	/* 32 bits in a word */
-    32,	/* 32 bits in an address */
-    8,	/* 8 bits in a byte */
-    bfd_arch_mips,
-    3000,
-    "mips",
-    "mips:3000",
-    3,
-    true,
-    bfd_default_compatible, 
-    bfd_default_scan,
-    0,
-  },
   {
     32,	/* 32 bits in a word */
     32,	/* 32 bits in an address */
@@ -50,7 +36,7 @@ static bfd_arch_info_type arch_info_struct[] =
     false,
     bfd_default_compatible, 
     bfd_default_scan,
-    0,
+    &arch_info_struct[1],
   },
   {
     64, /* 64 bits in a word */
@@ -64,7 +50,7 @@ static bfd_arch_info_type arch_info_struct[] =
     false,
     bfd_default_compatible, 
     bfd_default_scan ,
-    0,
+    &arch_info_struct[2],
   },
   {
     64, /* 64 bits in a word */
@@ -82,11 +68,18 @@ static bfd_arch_info_type arch_info_struct[] =
   }
 };
 
-void
-bfd_mips_arch ()
+const bfd_arch_info_type bfd_mips_arch =
 {
-  register int i;
-
-  for (i = 0; i < sizeof (arch_info_struct) / sizeof (*arch_info_struct); i++)
-    bfd_arch_linkin(&arch_info_struct[i]);
-}
+  32,	/* 32 bits in a word */
+  32,	/* 32 bits in an address */
+  8,	/* 8 bits in a byte */
+  bfd_arch_mips,
+  3000,
+  "mips",
+  "mips:3000",
+  3,
+  true,
+  bfd_default_compatible, 
+  bfd_default_scan,
+  &arch_info_struct[0],
+};

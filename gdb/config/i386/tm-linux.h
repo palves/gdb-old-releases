@@ -17,10 +17,19 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-/* number of traps that happen between exec'ing the shell
- * to run an inferior, and when we finally get to
- * the inferior code.  This is 2 on most implementations.
- */
-#define START_INFERIOR_TRAPS_EXPECTED 2
+#ifndef TM_LINUX_H
+#define TM_LINUX_H
 
-#include "i386/tm-i386v.h"
+/* FIXME:  If nothing else gets added to this file, it could be removed
+   and configure could just use tm-i386.h instead. -fnf */
+
+#include "i386/tm-i386.h"
+
+/* Offset to saved PC in sigcontext, from <linux/signal.h>.  */
+#define SIGCONTEXT_PC_OFFSET 38
+
+/* We need this file for the SOLIB_TRAMPOLINE stuff. */
+
+#include "tm-sysv4.h"
+
+#endif  /* #ifndef TM_LINUX_H */

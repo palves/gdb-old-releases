@@ -31,6 +31,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* The 64-bit stuff is kind of random.  Perhaps someone will publish a
    spec someday.  */
 
+#ifndef _ELF_EXTERNAL_H
+#define _ELF_EXTERNAL_H
+
 /* ELF Header (32-bit implementations) */
 
 typedef struct {
@@ -188,3 +191,5 @@ typedef struct {
     unsigned char	d_ptr[8];
   } d_un;
 } Elf64_External_Dyn;
+
+#endif /* _ELF_EXTERNAL_H */

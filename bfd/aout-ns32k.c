@@ -177,6 +177,9 @@ HOWTO(BFD_RELOC_32_PCREL, 0, 2, 32, true, 0, complain_overflow_signed, 0,
       "PCREL_32", true, 0xffffffff,0xffffffff, false),
 };
 
+
+#define CTOR_TABLE_RELOC_HOWTO(BFD) (MY(howto_table) + 14)
+
 #define RELOC_STD_BITS_NS32K_TYPE_BIG 0x06
 #define RELOC_STD_BITS_NS32K_TYPE_LITTLE 0x60
 #define RELOC_STD_BITS_NS32K_TYPE_SH_BIG 1
@@ -192,7 +195,7 @@ MY(reloc_howto)(abfd, rel, r_index, r_extern, r_pcrel)
 {
   unsigned int r_length;
   int r_ns32k_type;
-/*  BFD_ASSERT(abfd->xvec->header_byteorder_big_p == false); */
+/*  BFD_ASSERT(bfd_header_little_endian (abfd)); */
   *r_index =  ((rel->r_index[2] << 16)
 	       | (rel->r_index[1] << 8)
 	       |  rel->r_index[0] );
@@ -223,7 +226,7 @@ MY(put_reloc)(abfd, r_extern, r_index, value, howto, reloc)
   r_length = howto->size ;	/* Size as a power of two */
   r_pcrel  = (int) howto->pc_relative; /* Relative to PC? */
   r_ns32k_type = (howto - MY(howto_table) )/6;
-/*  BFD_ASSERT (abfd->xvec->header_byteorder_big_p == false); */
+/*  BFD_ASSERT (bfd_header_little_endian (abfd)); */
   reloc->r_index[2] = r_index >> 16;
   reloc->r_index[1] = r_index >> 8;
   reloc->r_index[0] = r_index;
@@ -298,9 +301,7 @@ MY_swap_std_reloc_in (abfd, bytes, cache_ptr, symbols, symcount)
 {
   int r_index;
   int r_extern;
-  unsigned int r_length;
   int r_pcrel;
-  int r_ns32k_type;
   struct aoutdata  *su = &(abfd->tdata.aout_data->a);
 
   cache_ptr->address = bfd_h_get_32 (abfd, bytes->r_address);
@@ -321,9 +322,6 @@ MY_swap_std_reloc_out (abfd, g, natptr)
   int r_index;
   asymbol *sym = *(g->sym_ptr_ptr);
   int r_extern;
-  unsigned int r_length;
-  int r_pcrel;
-  int r_ns32k_type;
   unsigned int r_addend;
   asection *output_section = sym->section->output_section;
 
@@ -354,8 +352,8 @@ MY_swap_std_reloc_out (abfd, g, natptr)
 	  /* Fill in symbol */
 	  r_extern = 1;
 #undef KEEPIT
-#define KEEPIT flags
-	  r_index =  stoi((*(g->sym_ptr_ptr))->KEEPIT);
+#define KEEPIT udata.i
+	  r_index =  (*(g->sym_ptr_ptr))->KEEPIT;
 #undef KEEPIT     
 	}
     }

@@ -72,7 +72,7 @@ install:
 clean mostlyclean:
 	-rm -f *.exe
 
-distclean realclean: clean
+distclean maintainer-clean realclean: clean
 	-rm -f *~ core
 	-rm -f Makefile config.status 
 

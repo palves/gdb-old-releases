@@ -3,7 +3,7 @@ the features of the Tk toolkit.  The programs are all scripts for
 "wish", a windowing shell.  If wish has been installed in /usr/local
 then you can invoke any of the programs in this directory just
 by typing its file name to your command shell.  Otherwise invoke
-wish on the file using the "-f" switch to wish, e.g. "wish -f hello".
+wish with the file as its first argument, e.g., "wish hello".
 The rest of this file contains a brief description of each program.
 Files with names ending in ".tcl" are procedure packages used by one
 or more of the demo programs;  they can't be used as programs by
@@ -43,19 +43,3 @@ browse -	A simple directory browser.  Invoke it with and argument
 		Double-click on files or subdirectories to browse them.
 		Control-c and control-q cause the program to exit.
 
-dialog -	Displays a simple dialog.  Click on any button and the
-		application exits.
-
-size -		Takes three arguments:  the name of an application, the
-		name of a widget in that application, and the name of an
-		integer-valued option for that widget.  Allows you to
-		interactively resize the given option.  For example,
-		start up the dialog demo, then type
-		"size dialog .bot.middle -pady" for an example.
-
-color -		Similar to "size", but modifies a color option.  Try
-		"color dialog .bot.middle -bg" for an example.
-
-tkSquare.c -	A very simple widget to provide an example of how to
-		implement a new widget.  When building a new widget you
-		may find it useful to start from this code.

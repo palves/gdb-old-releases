@@ -250,11 +250,4 @@ struct external_reloc {
 #define R_SH_ALIGN	29		/* .align pseudo-op */
 
 
-#define DEFAULT_DATA_SECTION_ALIGNMENT 4
-#define DEFAULT_BSS_SECTION_ALIGNMENT 4
-#define DEFAULT_TEXT_SECTION_ALIGNMENT 4
-/* For new sections we havn't heard of before */
-#define DEFAULT_SECTION_ALIGNMENT 4
-
-
 

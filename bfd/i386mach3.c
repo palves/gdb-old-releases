@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    from i386aout or i386bsd.  So this target is only useful if it is the
    default target.  */
 
-#define	PAGE_SIZE	1
+#define	TARGET_PAGE_SIZE	1
 #define	SEGMENT_SIZE	0x1000
 #define TEXT_START_ADDR	0x10000
 #define ARCH 32

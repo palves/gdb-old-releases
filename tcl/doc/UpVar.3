@@ -1,14 +1,13 @@
 '\"
 '\" Copyright (c) 1994 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) UpVar.3 1.2 94/12/17 16:17:37
 '\" 
 .so man.macros
-.HS Tcl_UpVar tclc 7.4
+.TH Tcl_UpVar 3 7.4 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
 Tcl_UpVar, Tcl_UpVar2 \- link one variable to another
@@ -64,7 +63,7 @@ The destination variable name is specified in a single string;  it
 may not be an array element.
 .PP
 Both procedures return either TCL_OK or TCL_ERROR, and they
-leave an error mesage in \fIinterp->result\fR if an error
+leave an error message in \fIinterp->result\fR if an error
 occurs.
 .PP
 As with the \fBupvar\fR command, the source variable need not exist;

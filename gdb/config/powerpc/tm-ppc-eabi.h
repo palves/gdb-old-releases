@@ -34,4 +34,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #undef TEXT_SEGMENT_BASE
 #define TEXT_SEGMENT_BASE 1
 
+/* return true if a given `pc' value is in `call dummy' function. */
+/* FIXME: This just checks for the end of the stack, which is broken
+   for things like stepping through gcc nested function stubs.  */
+#undef PC_IN_CALL_DUMMY
+#define	PC_IN_CALL_DUMMY(STOP_PC, STOP_SP, STOP_FRAME_ADDR)	\
+	(STOP_SP < STOP_PC)
+
 #endif /* TM_PPC_EABI_H */

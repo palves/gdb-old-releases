@@ -127,7 +127,9 @@ struct aout_backend_data
 
   /* Callback from the add symbols phase of the linker code to handle
      a dynamic object.  */
-  boolean (*add_dynamic_symbols) PARAMS ((bfd *, struct bfd_link_info *));
+  boolean (*add_dynamic_symbols) PARAMS ((bfd *, struct bfd_link_info *,
+					  struct external_nlist **,
+					  bfd_size_type *, char **));
 
   /* Callback from the add symbols phase of the linker code to handle
      adding a single symbol to the global linker hash table.  */
@@ -145,14 +147,17 @@ struct aout_backend_data
   boolean (*write_dynamic_symbol) PARAMS ((bfd *, struct bfd_link_info *,
 					   struct aout_link_hash_entry *));
 
-  /* This callback is called by the linker for each reloc against an
-     external symbol.  RELOC is a pointer to the unswapped reloc.  If
-     *SKIP is set to true, the reloc will be skipped.  */
+  /* If this callback is not NULL, the linker calls it for each reloc.
+     RELOC is a pointer to the unswapped reloc.  If *SKIP is set to
+     true, the reloc will be skipped.  *RELOCATION may be changed to
+     change the effects of the relocation.  */
   boolean (*check_dynamic_reloc) PARAMS ((struct bfd_link_info *info,
 					  bfd *input_bfd,
 					  asection *input_section,
 					  struct aout_link_hash_entry *h,
-					  PTR reloc, boolean *skip));
+					  PTR reloc, bfd_byte *contents,
+					  boolean *skip,
+					  bfd_vma *relocation));
 
   /* Called at the end of a link to finish up any dynamic linking
      information.  */
@@ -213,6 +218,7 @@ enum machine_type {
   M_ARM = 103,		/* Advanced Risc Machines ARM */
   M_386_NETBSD = 134,	/* NetBSD/i386 binary */
   M_68K_NETBSD = 135,	/* NetBSD/m68k binary */
+  M_68K4K_NETBSD = 136,	/* NetBSD/m68k4k binary */
   M_532_NETBSD = 137,	/* NetBSD/ns32k binary */
   M_SPARC_NETBSD = 138,	/* NetBSD/sparc binary */
   M_MIPS1 = 151,        /* MIPS R2000/R3000 binary */
@@ -328,15 +334,25 @@ struct aoutdata {
       n_magic
     } magic;
 
+  /* A buffer for find_nearest_line.  */
+  char *line_buf;
+
   /* The external symbol information.  */
   struct external_nlist *external_syms;
   bfd_size_type external_sym_count;
+  bfd_window sym_window;
   char *external_strings;
   bfd_size_type external_string_size;
+  bfd_window string_window;
   struct aout_link_hash_entry **sym_hashes;
 
   /* A pointer for shared library information.  */
   PTR dynamic_info;
+
+  /* A mapping from local symbols to offsets into the global offset
+     table, used when linking on SunOS.  This is indexed by the symbol
+     index.  */
+  bfd_vma *local_got_offsets;
 };
 
 struct  aout_data_struct {
@@ -357,8 +373,10 @@ struct  aout_data_struct {
 #define obj_aout_subformat(bfd)	(adata(bfd).subformat)
 #define obj_aout_external_syms(bfd) (adata(bfd).external_syms)
 #define obj_aout_external_sym_count(bfd) (adata(bfd).external_sym_count)
+#define obj_aout_sym_window(bfd) (adata(bfd).sym_window)
 #define obj_aout_external_strings(bfd) (adata(bfd).external_strings)
 #define obj_aout_external_string_size(bfd) (adata(bfd).external_string_size)
+#define obj_aout_string_window(bfd) (adata(bfd).string_window)
 #define obj_aout_sym_hashes(bfd) (adata(bfd).sym_hashes)
 #define obj_aout_dynamic_info(bfd) (adata(bfd).dynamic_info)
 

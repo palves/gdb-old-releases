@@ -1,137 +1,90 @@
 '\"
-'\" Copyright (c) 1990 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1990-1994 The Regents of the University of California.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/radiobutton.n,v 1.1 1994/06/03 23:43:29 rob Exp $ SPRITE (Berkeley)
-'/" 
+'\" 
 .so man.macros
-.HS radiobutton tk
+.TH radiobutton n 4.0 Tk "Tk Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
-radiobutton \- Create and manipulate radio-button widgets
+radiobutton \- Create and manipulate radiobutton widgets
 .SH SYNOPSIS
 \fBradiobutton\fI \fIpathName \fR?\fIoptions\fR?
-.SH "STANDARD OPTIONS"
-.LP
-.nf
-.ta 4c 8c 12c
+.SO
 .VS
-\fBactiveBackground\fR	\fBbitmap\fR	\fBfont\fR	\fBrelief\fR
-\fBactiveForeground\fR	\fBborderWidth\fR	\fBforeground\fR	\fBtext\fR
-\fBanchor\fR	\fBcursor\fR	\fBpadX\fR	\fBtextVariable\fR
-\fBbackground\fR	\fBdisabledForeground\fR	\fBpadX\fR
+\-activebackground	\-cursor	\-highlightthickness	\-takefocus
+\-activeforeground	\-disabledforeground	\-image	\-text
+\-anchor	\-font	\-justify	\-textvariable
+\-background	\-foreground	\-padx	\-underline
+\-bitmap	\-highlightbackground	\-pady	\-wraplength
 .VE
-.fi
-.LP
-See the ``options'' manual entry for details on the standard options.
+\-borderwidth	\-highlightcolor	\-relief
+.SE
 .SH "WIDGET-SPECIFIC OPTIONS"
-.ta 4c
-.LP
-.nf
-Name:	\fBcommand\fR
-Class:	\fBCommand\fR
-Command-Line Switch:	\fB\-command\fR
-.fi
-.IP
+.OP \-command command Command
 Specifies a Tcl command to associate with the button.  This command
 is typically invoked when mouse button 1 is released over the button
 window.  The button's global variable (\fB\-variable\fR option) will
 be updated before the command is invoked.
-.LP
-.nf
-.VS
-Name:	\fBheight\fR
-Class:	\fBHeight\fR
-Command-Line Switch:	\fB\-height\fR
-.fi
-.IP
+.OP \-height height Height
 Specifies a desired height for the button.
-If a bitmap is being displayed in the button then the value is in
+If an image or bitmap is being displayed in the button then the value is in
 screen units (i.e. any of the forms acceptable to \fBTk_GetPixels\fR);
 for text it is in lines of text.
 If this option isn't specified, the button's desired height is computed
-from the size of the bitmap or text being displayed in it.
+from the size of the image or bitmap or text being displayed in it.
+.VS br
+.OP \-indicatoron indicatorOn IndicatorOn
+Specifies whether or not the indicator should be drawn.  Must be a
+proper boolean value.  If false, the \fBrelief\fR option is
+ignored and the widget's relief is always sunken if the widget is
+selected and raised otherwise.
+.OP \-selectcolor selectColor Background
+Specifies a background color to use when the button is selected.
+If \fBindicatorOn\fR is true, the color applicies to the indicator.
+If \fBindicatorOn\fR is false, this color is used as the background
+for the entire widget, in place of \fBbackground\fR or \fBactiveBackground\fR,
+whenever the widget is selected.
+If specified as an empty string, no special color is used for
+displaying when the widget is selected.
+.OP \-selectimage selectImage SelectImage
+Specifies an image to display (in place of the \fBimage\fR option)
+when the radiobutton is selected.
+This option is ignored unless the \fBimage\fR option has been
+specified.
 .VE
-.LP
-.nf
-Name:	\fBselector\fR
-Class:	\fBForeground\fR
-Command-Line Switch:	\fB\-selector\fR
-.fi
-.IP
-Specifies the color to draw in the selector when this button is
-selected.
-.VS
-If specified as an empty string then no selector is drawn for the button.
-.LP
-.nf
-Name:	\fBstate\fR
-Class:	\fBState\fR
-Command-Line Switch:	\fB\-state\fR
-.fi
-.IP
-Specifies one of three states for the radio button:  \fBnormal\fR, \fBactive\fR,
-or \fBdisabled\fR.  In normal state the radio button is displayed using the
+.OP \-state state State
+Specifies one of three states for the radiobutton:  \fBnormal\fR, \fBactive\fR,
+or \fBdisabled\fR.  In normal state the radiobutton is displayed using the
 \fBforeground\fR and \fBbackground\fR options.  The active state is
-typically used when the pointer is over the radio button.  In active state
-the radio button is displayed using the \fBactiveForeground\fR and
-\fBactiveBackground\fR options.  Disabled state means that the radio button
-is insensitive:  it doesn't activate and doesn't respond to mouse
-button presses.  In this state the \fBdisabledForeground\fR and
-\fBbackground\fR options determine how the radio button is displayed.
+typically used when the pointer is over the radiobutton.  In active state
+the radiobutton is displayed using the \fBactiveForeground\fR and
+\fBactiveBackground\fR options.  Disabled state means that the radiobutton
+.VS
+should be insensitive:  the default bindings will refuse to activate
+the widget and will ignore mouse button presses.
 .VE
-.LP
-.nf
-Name:	\fBvalue\fR
-Class:	\fBValue\fR
-Command-Line Switch:	\fB\-value\fR
-.fi
-.IP
+In this state the \fBdisabledForeground\fR and
+\fBbackground\fR options determine how the radiobutton is displayed.
+.OP \-value value Value
 Specifies value to store in the button's associated variable whenever
-this button is selected.  Defaults to the name of the radio button.
-.LP
-.nf
-Name:	\fBvariable\fR
-Class:	\fBVariable\fR
-Command-Line Switch:	\fB\-variable\fR
-.fi
-.IP
+this button is selected.
+.OP \-variable variable Variable
 Specifies name of global variable to set whenever this button is
 selected.  Changes in this variable also cause the button to select
 or deselect itself.
 Defaults to the value \fBselectedButton\fR.
-.LP
-.nf
-.VS
-Name:	\fBwidth\fR
-Class:	\fBWidth\fR
-Command-Line Switch:	\fB\-width\fR
-.fi
-.IP
+.OP \-width width Width
 Specifies a desired width for the button.
-If a bitmap is being displayed in the button then the value is in
+If an image or bitmap is being displayed in the button, the value is in
 screen units (i.e. any of the forms acceptable to \fBTk_GetPixels\fR);
 for text it is in characters.
 If this option isn't specified, the button's desired width is computed
-from the size of the bitmap or text being displayed in it.
-.VE
+from the size of the image or bitmap or text being displayed in it.
 .BE
 
 .SH DESCRIPTION
@@ -141,46 +94,55 @@ The \fBradiobutton\fR command creates a new window (given by the
 Additional
 options, described above, may be specified on the command line
 or in the option database
-to configure aspects of the radio button such as its colors, font,
+to configure aspects of the radiobutton such as its colors, font,
 text, and initial relief.  The \fBradiobutton\fR command returns its
 \fIpathName\fR argument.  At the time this command is invoked,
 there must not exist a window named \fIpathName\fR, but
 \fIpathName\fR's parent must exist.
 .PP
-A radio button is a widget
+A radiobutton is a widget
 .VS
-that displays a textual string or bitmap
-and a diamond called a \fIselector\fR.
-A radio button has
+that displays a textual string, bitmap or image
+and a diamond called an \fIindicator\fR.
+If text is displayed, it must all be in a single font, but it
+can occupy multiple lines on the screen (if it contains newlines
+or if wrapping occurs because of the \fBwrapLength\fR option) and
+one of the characters may optionally be underlined using the
+\fBunderline\fR option.
+.VE
+A radiobutton has
 all of the behavior of a simple button: it can display itself in either
 of three different ways, according to the \fBstate\fR option;
-.VE
 it can be made to appear
 raised, sunken, or flat; it can be made to flash; and it invokes
 a Tcl command whenever mouse button 1 is clicked over the
 check button.
 .PP
-In addition, radio buttons can be \fIselected\fR.
-If a radio button is selected then a special highlight appears
-in the selector and a Tcl variable associated with the radio button
-is set to a particular value.
-If the radio button is not selected then the selector is drawn
-in a different fashion.
-Typically, several radio buttons share a single variable and the
-value of the variable indicates which radio button is to be selected.
+In addition, radiobuttons can be \fIselected\fR.
 .VS
-When a radio button is selected it sets the value of the variable to
-indicate that fact;  each radio button also monitors the value of
+If a radiobutton is selected, the indicator is normally
+drawn with a sunken relief and a special color, and
+a Tcl variable associated with the radiobutton is set to a particular
+value.
+If the radiobutton is not selected, the indicator is drawn with a
+raised relief and no special color.
+Typically, several radiobuttons share a single variable and the
+value of the variable indicates which radiobutton is to be selected.
+When a radiobutton is selected it sets the value of the variable to
+indicate that fact;  each radiobutton also monitors the value of
 the variable and automatically selects and deselects itself when the
 variable's value changes.
-.VE
 By default the variable \fBselectedButton\fR
 is used;  its contents give the name of the button that is
 selected, or the empty string if no button associated with that
 variable is selected.
-The name of the variable for a radio button,
+The name of the variable for a radiobutton,
 plus the variable to be stored into it, may be modified with options
-on the command line or in the option database.  By default a radio
+on the command line or in the option database.
+Configuration options may also be used to modify the way the
+indicator is displayed (or whether it is displayed at all).
+.VE
+By default a radio
 button is configured to select itself on button clicks.
 
 .SH "WIDGET COMMAND"
@@ -189,97 +151,82 @@ The \fBradiobutton\fR command creates a new Tcl command whose
 name is \fIpathName\fR.  This
 command may be used to invoke various
 operations on the widget.  It has the following general form:
-.DS C
+.CS
 \fIpathName option \fR?\fIarg arg ...\fR?
-.DE
+.CE
 \fIOption\fR and the \fIarg\fRs
 determine the exact behavior of the command.  The following
-commands are possible for radio-button widgets:
+commands are possible for radiobutton widgets:
 .TP
-\fIpathName \fBactivate\fR
-Change the radio button's state to \fBactive\fR and redisplay the button
-using its active foreground and background colors instead of normal
-colors.
+\fIpathName \fBcget\fR \fIoption\fR
 .VS
-This command is ignored if the radio button's state is \fBdisabled\fR.
-This command is obsolete and will eventually be removed;
-use ``\fIpathName \fBconfigure \-state active\fR'' instead.
+Returns the current value of the configuration option given
+by \fIoption\fR.
+\fIOption\fR may have any of the values accepted by the \fBradiobutton\fR
+command.
+.VE
 .TP
 \fIpathName \fBconfigure\fR ?\fIoption\fR? ?\fIvalue option value ...\fR?
 Query or modify the configuration options of the widget.
 If no \fIoption\fR is specified, returns a list describing all of
 the available options for \fIpathName\fR (see \fBTk_ConfigureInfo\fR for
 information on the format of this list).  If \fIoption\fR is specified
-with no \fIvalue\fR, then the command returns a list describing the
+with no \fIvalue\fR, the command returns a list describing the
 one named option (this list will be identical to the corresponding
 sublist of the value returned if no \fIoption\fR is specified).  If
-one or more \fIoption\-value\fR pairs are specified, then the command
+one or more \fIoption\-value\fR pairs are specified, the command
 modifies the given widget option(s) to have the given value(s);  in
 this case the command returns an empty string.
 \fIOption\fR may have any of the values accepted by the \fBradiobutton\fR
 command.
 .TP
-\fIpathName \fBdeactivate\fR
-Change the radio button's state to \fBnormal\fR and redisplay the button
-using its normal foreground and background colors.
-.VS
-This command is ignored if the radio button's state is \fBdisabled\fR.
-This command is obsolete and will eventually be removed;
-use ``\fIpathName \fBconfigure \-state normal\fR'' instead.
-.VE
-.TP
 \fIpathName \fBdeselect\fR
-Deselect the radio button:  redisplay it without a highlight in
-the selector and set the associated variable to an empty string.  If
-this radio button was not currently selected, then the command has
+Deselects the radiobutton and sets the associated variable to an
+empty string.
+If this radiobutton was not currently selected, the command has
 no effect.
 .TP
 \fIpathName \fBflash\fR
-Flash the radio button.  This is accomplished by redisplaying the radio button
+Flashes the radiobutton.  This is accomplished by redisplaying the radiobutton
 several times, alternating between active and normal colors.  At
-the end of the flash the radio button is left in the same normal/active
+the end of the flash the radiobutton is left in the same normal/active
 state as when the command was invoked.
-.VS
-This command is ignored if the radio button's state is \fBdisabled\fR.
-.VE
+This command is ignored if the radiobutton's state is \fBdisabled\fR.
 .TP
 \fIpathName \fBinvoke\fR
-.VS
-Does just what would have happened if the user invoked the radio button
-with the mouse: select the button and invoke
+Does just what would have happened if the user invoked the radiobutton
+with the mouse: selects the button and invokes
 its associated Tcl command, if there is one.
 The return value is the return value from the Tcl command, or an
-empty string if there is no command associated with the radio button.
-This command is ignored if the radio button's state is \fBdisabled\fR.
-.VE
+empty string if there is no command associated with the radiobutton.
+This command is ignored if the radiobutton's state is \fBdisabled\fR.
 .TP
 \fIpathName \fBselect\fR
-Select the radio button:  display it with a highlighted
-selector and set the associated variable to the value corresponding
-to this widget.
+Selects the radiobutton and sets the associated variable to the
+value corresponding to this widget.
 
 .SH BINDINGS
 .PP
-.VS
-Tk automatically creates class bindings for radio buttons that give them
+Tk automatically creates class bindings for radiobuttons that give them
 the following default behavior:
 .IP [1]
-The radio button activates whenever the mouse passes over it and deactivates
-whenever the mouse leaves the radio button.
+The radiobutton activates whenever the mouse passes over it and deactivates
+whenever the mouse leaves the radiobutton.
 .IP [2]
-The radio button's relief is changed to sunken whenever mouse button 1 is
-pressed over it, and the relief is restored to its original
-value when button 1 is later released.
+.VS
+When mouse button 1 is pressed over a radiobutton it is invoked (it
+becomes selected and the command associated with the button is
+invoked, if there is one).
 .IP [3]
-If mouse button 1 is pressed over the radio button and later released over
-the radio button, the radio button is invoked (i.e. it is selected
-and the command associated with the button is invoked,
-if there is one).  However, if the mouse is not
-over the radio button when button 1 is released, then no invocation occurs.
-.PP
-The behavior of radio buttons can be changed by defining new bindings for
-individual widgets or by redefining the class bindings.
+When a radiobutton has the input focus, the space key causes the radiobutton
+to be invoked.
 .VE
+.PP
+If the radiobutton's state is \fBdisabled\fR then none of the above
+actions occur:  the radiobutton is completely non-responsive.
+.PP
+The behavior of radiobuttons can be changed by defining new bindings for
+individual widgets or by redefining the class bindings.
 
 .SH KEYWORDS
-radio button, widget
+radiobutton, widget

@@ -1,3 +1,4 @@
+
 # Copyright (C) 1992 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -23,11 +24,32 @@ if $tracelevel then {
 	strace $tracelevel
 }
 
+if ![istarget "hppa*-*-*"] {
+    verbose "Tests ignored for all but hppa based targets."
+    return
+}
+
+global exec_output
 set prms_id 0
 set bug_id 0
 
-set binfile "hppa"
-set srcfile $binfile.s
+set testfile "hppa"
+set srcfile ${srcdir}/${subdir}/${testfile}.s
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcfile} -c -o ${binfile}.o"] != "" } {
+    if [ regexp "Opcode not defined - DIAG" $exec_output] {
+	warning "HP assembler in use--skipping disasm tests"
+	return
+    } else {
+	perror "Couldn't compile ${srcfile}"
+	return -1
+    }
+}
+
+if  { [compile "${binfile}.o -o ${binfile}"] != "" } {
+    perror "Couldn't link ${binfile}"
+    return -1
+}
 
 proc all_integer_memory_tests { } {
     global prompt
@@ -829,7 +851,7 @@ proc all_system_control_tests { } {
     global hex
     global decimal
 
-    send "x/13i system_control_tests\n"
+    send "x/14i system_control_tests\n"
     expect {
 	-re "
 .*break 5,c.*
@@ -844,6 +866,7 @@ proc all_system_control_tests { } {
 .*mfsp sr0,r4.*
 .*mfctl ccr,r4.*
 .*sync.*
+.*syncdma.*
 .*diag 4d2.*
 .*$prompt $" { pass "system_constrol_tests" }
 	-re "$prompt $" { fail "system_control_tests" }
@@ -862,13 +885,15 @@ proc all_system_control_tests { } {
 	timeout { file "(timeout) probe_tests" }
     }
 
-    send "x/4i lpa_tests\n"
+    # lci uses the same bit pattern as lha, so accept lha.
+    send "x/5i lpa_tests\n"
     expect {
 	-re "
 .*lpa r4\\(sr0,r5\\),r6.*
 .*lpa,m r4\\(sr0,r5\\),r6.*
 .*lha r4\\(sr0,r5\\),r6.*
 .*lha,m r4\\(sr0,r5\\),r6.*
+.*lha r4\\(sr0,r5\\),r6.*
 .*$prompt $" { pass "lpa_tests" }
 	-re "$prompt $" { fail "lpa_tests" }
 	timeout { file "(timeout) lpa_tests" }
@@ -1359,31 +1384,25 @@ proc fmemLRbug_tests { } {
     }
 }
 
-if ![file exists $objdir/$subdir/$binfile] then {
-    if $all_flag then {
-	warning "$objdir/$subdir/$binfile does not exist; tests suppressed"
-    }
-} else {
-    # Start with a fresh gdb.
+# Start with a fresh gdb.
 
-    gdb_exit
-    gdb_start
-    gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $objdir/$subdir/$binfile
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load $binfile.o
 
-    all_integer_memory_tests
-    all_immediate_tests
-    all_branch_tests
-    all_integer_computational_tests
-    all_system_control_tests
-    all_fpu_memory_tests
-    all_fpu_computational_tests
-    all_fpu_comparison_tests
-    all_special_tests
-    all_sfu_tests
-    all_copr_tests
-    all_copr_mem_tests
+all_integer_memory_tests
+all_immediate_tests
+all_branch_tests
+all_integer_computational_tests
+all_system_control_tests
+all_fpu_memory_tests
+all_fpu_computational_tests
+all_fpu_comparison_tests
+all_special_tests
+all_sfu_tests
+all_copr_tests
+all_copr_mem_tests
 
-    # Regression test for a bug Tege found.
-    fmemLRbug_tests
-}
+# Regression test for a bug Tege found.
+fmemLRbug_tests

@@ -1,3 +1,96 @@
+Mon Jan 29 00:05:01 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* builtins.ch, builtins.exp: Enhance test case.
+
+	* extstruct.ch, extstruct-grt.ch, extstruct.exp: New test case.
+
+Tue Jan 23 16:57:13 1996  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* enum.ch, enum.exp:  New test case (covers PRs 8869 and 8870).
+
+Thu Jan 11 17:34:01 1996  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* Makefile.in (PROGS):  Removed.
+	(clean mostlyclean):  Remove *.exe rather than ${PROGS}.
+
+	* pr-8742.ch, pr-8742.exp:  New test case.
+
+Tue Jan  9 04:47:27 1996  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* misc.ch, misc.exp: Enhance test case.
+
+Sat Dec 30 15:31:59 1995  Fred Fish  <fnf@cygnus.com>
+
+	* tests2.exp: Setup_xfail "i*86-*-linux" and 
+	"mips-sgi-irix*" for "real write 4" and "real write 8".
+	Conditionalize both tests for system specific value
+	of "infinity" string.
+
+Fri Dec 29 10:46:09 1995  Fred Fish  <fnf@cygnus.com>
+
+	* builtins.exp (test_size):  Alpha seems to have long builtins.
+	* tests1.exp: Setup xfail "*-*-*" for "ptype r2".
+	* tests2.exp: Add check to skip chill tests.
+	
+Mon Dec 11 16:53:40 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* tuples.ch, tuples.exp:  Exhance test cases (from PR 8643).
+
+Mon Dec 11 06:57:07 1995  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* builtins.exp, pr-5016.{ch,exp}, result.{ch,exp},
+	tests1.{ch,exp}: Enhance test cases.
+
+Thu Dec  7 05:16:34 1995  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* builtins.ch, builtins.exp, Makefile.in: New test case.
+
+Tue Dec  5 01:51:45 1995  Wilfried Moser (Alcatel)  <moser@rtl.cygnus.com>
+
+	* tests2.exp: Add compiling of the test case.
+
+Fri Dec  1 00:08:37 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* pr-8405.ch, pr-8405.exp, Makefile.in:  New test case.
+
+	* tests1.exp, tests2.exp (test_print_reject):  Remove;  causes
+	conflicts with later tests using test_print_reject in ../lib/gdb.exp.
+	(passcount):  Remove.
+	* tests2.exp (test_print_accept):  Removed.
+	(test_write):  Re-write to use gdb_test rather than test_print_accept.
+	* tests1.exp (test_print_accept_exact):  Removed.
+	(tests_locations):  Rewrite to use gdb_test and not above proc.
+	
+	* tests1.ch, tests1.exp, tests2.ch, tests2.exp, Makefile.in:
+	New (extensive) test cases.
+	* chexp.exp:  Fix relations to return TRUE or FALSE.
+
+Wed Nov 29 19:28:13 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* Makefile.in:  Add .exp.check rule.
+	* callch.ch:  Add missing "%." to format strings.
+	* callch.exp:  Fix argument to gdb_load.
+	* chexp.exp:  Add specific error messages to test_print_reject calls.
+	* misc.exp:  Add a test for PR 8496.
+	* pr-6632.exp, pr-8136.exp:  Link executables from two .o files.
+
+Sat Nov 25 20:49:27 1995  Fred Fish  <fnf@phydeaux.cygnus.com>
+
+	* pr-5016.exp: xfail "whatis i" for alpha-osf-dec-osf2*, same as linux.
+
+Sun Oct 29 17:58:01 1995  Fred Fish  <fnf@cygnus.com>
+
+	* pr-5016.exp: xfail "whatis i" for sparc-sun-sunos4*, same as linux.
+
+Wed Oct  4 18:20:53 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* pr-8136.{ch,exp}, pr-8134.exp, func1.ch, Makefile.in: New test cases.
+
+Wed Sep 27 11:51:50 1995  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* tuples.ch. tuples.exp:  Add new test for setting a variant record
+	using a tuple, and access the fields.
+
 Thu Aug  3 10:45:37 1995  Fred Fish  <fnf@cygnus.com>
 
 	* Update all FSF addresses except those in COPYING* files.

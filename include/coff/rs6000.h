@@ -45,23 +45,25 @@ typedef struct
   unsigned char	entry[4];	/* entry pt.			*/
   unsigned char	text_start[4];	/* base of text used for this file */
   unsigned char	data_start[4];	/* base of data used for this file */
-  unsigned char	o_toc[4];
-  unsigned char	o_snentry[2];
-  unsigned char	o_sntext[2];
-  unsigned char	o_sndata[2];
-  unsigned char	o_sntoc[2];
-  unsigned char	o_snloader[2];
-  unsigned char	o_snbss[2];
-  unsigned char	o_algntext[2];
-  unsigned char	o_algndata[2];
-  unsigned char	o_modtype[2];
-  unsigned char	o_resv1[2];
-  unsigned char	o_maxstack[4];
-  unsigned char	o_resv2[16];
+  unsigned char	o_toc[4];	/* address of TOC */
+  unsigned char	o_snentry[2];	/* section number of entry point */
+  unsigned char	o_sntext[2];	/* section number of .text section */
+  unsigned char	o_sndata[2];	/* section number of .data section */
+  unsigned char	o_sntoc[2];	/* section number of TOC */
+  unsigned char	o_snloader[2];	/* section number of .loader section */
+  unsigned char	o_snbss[2];	/* section number of .bss section */
+  unsigned char	o_algntext[2];	/* .text alignment */
+  unsigned char	o_algndata[2];	/* .data alignment */
+  unsigned char	o_modtype[2];	/* module type (??) */
+  unsigned char o_cputype[2];	/* cpu type */
+  unsigned char	o_maxstack[4];	/* max stack size (??) */
+  unsigned char o_maxdata[4];	/* max data size (??) */
+  unsigned char	o_resv2[12];	/* reserved */
 }
 AOUTHDR;
 
 #define AOUTSZ (sizeof(AOUTHDR))
+#define SMALL_AOUTSZ (28)
 
 #define	RS6K_AOUTHDR_OMAGIC	0x0107	/* old: text & data writeable */
 #define	RS6K_AOUTHDR_NMAGIC	0x0108	/* new: text r/o, data r/w */
@@ -90,13 +92,21 @@ struct external_scnhdr {
 #define _TEXT	".text"
 #define _DATA	".data"
 #define _BSS	".bss"
-
+#define _PAD	".pad"
+#define _LOADER	".loader"
 
 #define	SCNHDR	struct external_scnhdr
 #define	SCNHSZ	sizeof(SCNHDR)
 
+/* XCOFF uses a special .loader section with type STYP_LOADER.  */
+#define STYP_LOADER 0x1000
+
 /* XCOFF uses a special .debug section with type STYP_DEBUG.  */
 #define STYP_DEBUG 0x2000
+
+/* XCOFF handles line number or relocation overflow by creating
+   another section header with STYP_OVRFLO set.  */
+#define STYP_OVRFLO 0x8000
 
 /********************** LINE NUMBERS **********************/
 

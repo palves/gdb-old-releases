@@ -18,10 +18,7 @@ sizes ("return", "finish", and call function).
 Get crossload tests to use --enable-targets and reenable them.
 
 corefile.exp:
-1.  Print variables from the core file (data and stack), and text
-(from the exec file).  This tests whether the corefile sections are
-mapped to the right addresses.
-4.  Test ability to run program when there is a core target, then go
+Test ability to run program when there is a core target, then go
 back to the core file when the program exits.
 
 Test handling of floating point variables

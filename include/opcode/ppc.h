@@ -1,5 +1,5 @@
 /* ppc.h -- Header file for PowerPC opcode table
-   Copyright 1994 Free Software Foundation, Inc.
+   Copyright 1994, 1995 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support
 
 This file is part of GDB, GAS, and the GNU binutils.
@@ -76,6 +76,14 @@ extern const int powerpc_num_opcodes;
    is assumed to support all PowerPC (PPC_OPCODE_PPC) instructions,
    but it also supports many additional POWER instructions.  */
 #define PPC_OPCODE_601 (040)
+
+/* Opcode is supported in both the Power and PowerPC architectures
+   (ie, compiler's -mcpu=common or assembler's -mcom).  */
+#define PPC_OPCODE_COMMON (0100)
+
+/* Opcode is supported for any Power or PowerPC platform (this is
+   for the assembler's -many option, and it eliminates duplicates).  */
+#define PPC_OPCODE_ANY (0200)
 
 /* A macro to extract the major opcode from an instruction.  */
 #define PPC_OP(i) (((i) >> 26) & 0x3f)

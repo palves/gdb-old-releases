@@ -120,12 +120,6 @@ struct external_reloc {
 #define ALPHA_R_OP_PRSHIFT     15
 #define ALPHA_R_GPVALUE	       16
 
-#define DEFAULT_DATA_SECTION_ALIGNMENT 16
-#define DEFAULT_BSS_SECTION_ALIGNMENT 16
-#define DEFAULT_TEXT_SECTION_ALIGNMENT 16
-/* For new sections we havn't heard of before */
-#define DEFAULT_SECTION_ALIGNMENT 16
-
 /********************** SYMBOLIC INFORMATION **********************/
 
 /* Written by John Gilmore.  */

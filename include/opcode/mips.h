@@ -1,5 +1,5 @@
 /* mips.h.  Mips opcode list for GDB, the GNU debugger.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1995 Free Software Foundation, Inc.
    Contributed by Ralph Campbell and OSF
    Commented and modified by Ian Lance Taylor, Cygnus Support
 
@@ -246,6 +246,8 @@ struct mips_opcode
 #define INSN_ISA4		    0x40000000
 /* LSI R4010 instruction.  */
 #define INSN_4010		    0x50000000
+/* NEC VR4100 instruction. */
+#define INSN_4100                   0x60000000
 
 /* Instruction is actually a macro.  It should be ignored by the
    disassembler, and requires special treatment by the assembler.  */

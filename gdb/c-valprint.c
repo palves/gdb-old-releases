@@ -26,40 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "demangle.h"
 #include "valprint.h"
 #include "language.h"
-
-/* BEGIN-FIXME */
-
-extern int vtblprint;		/* Controls printing of vtbl's */
-
-extern void
-cp_print_class_member PARAMS ((char *, struct type *, GDB_FILE *, char *));
-
-extern void
-cp_print_class_method PARAMS ((char *, struct type *, GDB_FILE *));
-
-extern void
-cp_print_value_fields PARAMS ((struct type *, char *, GDB_FILE *, int, int,
-			       enum val_prettyprint, struct type **, int));
-
-extern int
-cp_is_vtbl_ptr_type PARAMS ((struct type *));
-
-extern int
-cp_is_vtbl_member PARAMS ((struct type *));
-
-/* END-FIXME */
-
-
-/* BEGIN-FIXME:  Hooks into c-typeprint.c */
-
-extern void
-c_type_print_varspec_prefix PARAMS ((struct type *, GDB_FILE *, int, int));
-
-extern void
-cp_type_print_method_args PARAMS ((struct type **, char *, char *, int,
-				   GDB_FILE *));
-/* END-FIXME */
-
+#include "c-lang.h"
 
 
 /* Print data of type TYPE located at VALADDR (within GDB), which came from
@@ -94,12 +61,13 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
   LONGEST val;
   CORE_ADDR addr;
 
+  CHECK_TYPEDEF (type);
   switch (TYPE_CODE (type))
     {
     case TYPE_CODE_ARRAY:
       if (TYPE_LENGTH (type) > 0 && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0)
 	{
-	  elttype = TYPE_TARGET_TYPE (type);
+	  elttype = check_typedef (TYPE_TARGET_TYPE (type));
 	  eltlen = TYPE_LENGTH (elttype);
 	  len = TYPE_LENGTH (type) / eltlen;
 	  if (prettyprint_arrays)
@@ -169,11 +137,12 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 				 stream, demangle);
 	  break;
 	}
-      if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD)
+      elttype = check_typedef (TYPE_TARGET_TYPE (type));
+      if (TYPE_CODE (elttype) == TYPE_CODE_METHOD)
 	{
 	  cp_print_class_method (valaddr, type, stream);
 	}
-      else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_MEMBER)
+      else if (TYPE_CODE (elttype) == TYPE_CODE_MEMBER)
 	{
 	  cp_print_class_member (valaddr,
 				 TYPE_DOMAIN_TYPE (TYPE_TARGET_TYPE (type)),
@@ -183,7 +152,6 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	{
 	  addr = unpack_pointer (type, valaddr);
 	print_unpacked_pointer:
-	  elttype = TYPE_TARGET_TYPE (type);
 
 	  if (TYPE_CODE (elttype) == TYPE_CODE_FUNC)
 	    {
@@ -266,10 +234,11 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       break;
 
     case TYPE_CODE_REF:
-      if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_MEMBER)
+      elttype = check_typedef (TYPE_TARGET_TYPE (type));
+      if (TYPE_CODE (elttype) == TYPE_CODE_MEMBER)
         {
 	  cp_print_class_member (valaddr,
-				 TYPE_DOMAIN_TYPE (TYPE_TARGET_TYPE (type)),
+				 TYPE_DOMAIN_TYPE (elttype),
 				 stream, "");
 	  break;
 	}
@@ -285,7 +254,7 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       /* De-reference the reference.  */
       if (deref_ref)
 	{
-	  if (TYPE_CODE (TYPE_TARGET_TYPE (type)) != TYPE_CODE_UNDEF)
+	  if (TYPE_CODE (elttype) != TYPE_CODE_UNDEF)
 	    {
 	      value_ptr deref_val =
 		value_at
@@ -318,10 +287,10 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
 	  print_address_demangle(*((int *) (valaddr +	/* FIXME bytesex */
 	      TYPE_FIELD_BITPOS (type, VTBL_FNADDR_OFFSET) / 8)),
 	      stream, demangle);
-	  break;
 	}
-      cp_print_value_fields (type, valaddr, stream, format, recurse, pretty,
-			     NULL, 0);
+      else
+	cp_print_value_fields (type, valaddr, address, stream, format,
+			       recurse, pretty, NULL, 0);
       break;
 
     case TYPE_CODE_ENUM:
@@ -366,8 +335,20 @@ c_val_print (type, valaddr, address, stream, format, deref_ref, recurse,
       break;
 
     case TYPE_CODE_BOOL:
-      /* Do something at least vaguely reasonable, for example if the
-	 language is set wrong.  */
+      format = format ? format : output_format;
+      if (format)
+	print_scalar_formatted (valaddr, type, format, 0, stream);
+      else
+	{
+	  val = unpack_long (type, valaddr);
+	  if (val == 0)
+	    fputs_filtered ("false", stream);
+	  else if (val == 1)
+	    fputs_filtered ("true", stream);
+	  else
+	    print_longest (stream, 'd', 0, val);
+	}
+      break;
 
     case TYPE_CODE_RANGE:
       /* FIXME: create_range_type does not set the unsigned bit in a
@@ -456,56 +437,33 @@ c_value_print (val, stream, format, pretty)
      int format;
      enum val_prettyprint pretty;
 {
-  /* A "repeated" value really contains several values in a row.
-     They are made by the @ operator.
-     Print such values as if they were arrays.  */
+  struct type *type = VALUE_TYPE (val);
 
-  if (VALUE_REPEATED (val))
+  /* If it is a pointer, indicate what it points to.
+
+     Print type also if it is a reference.
+
+     C++: if it is a member pointer, we will take care
+     of that when we print it.  */
+  if (TYPE_CODE (type) == TYPE_CODE_PTR ||
+      TYPE_CODE (type) == TYPE_CODE_REF)
     {
-      register unsigned int n = VALUE_REPETITIONS (val);
-      register unsigned int typelen = TYPE_LENGTH (VALUE_TYPE (val));
-      fprintf_filtered (stream, "{");
-      /* Print arrays of characters using string syntax.  */
-      if (typelen == 1 && TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_INT
-	  && format == 0)
-	LA_PRINT_STRING (stream, VALUE_CONTENTS (val), n, 0);
+      /* Hack:  remove (char *) for char strings.  Their
+	 type is indicated by the quoted string anyway. */
+      if (TYPE_CODE (type) == TYPE_CODE_PTR &&
+	  TYPE_NAME (type) == NULL &&
+	  TYPE_NAME (TYPE_TARGET_TYPE (type)) != NULL &&
+	  STREQ (TYPE_NAME (TYPE_TARGET_TYPE (type)), "char"))
+	{
+	  /* Print nothing */
+	}
       else
 	{
-	  value_print_array_elements (val, stream, format, pretty);
+	  fprintf_filtered (stream, "(");
+	  type_print (type, "", stream, -1);
+	  fprintf_filtered (stream, ") ");
 	}
-      fprintf_filtered (stream, "}");
-      return (n * typelen);
     }
-  else
-    {
-      struct type *type = VALUE_TYPE (val);
-
-      /* If it is a pointer, indicate what it points to.
-
-	 Print type also if it is a reference.
-
-         C++: if it is a member pointer, we will take care
-	 of that when we print it.  */
-      if (TYPE_CODE (type) == TYPE_CODE_PTR ||
-	  TYPE_CODE (type) == TYPE_CODE_REF)
-	{
-	  /* Hack:  remove (char *) for char strings.  Their
-	     type is indicated by the quoted string anyway. */
-          if (TYPE_CODE (type) == TYPE_CODE_PTR &&
-	      TYPE_NAME (type) == NULL &&
-	      TYPE_NAME (TYPE_TARGET_TYPE (type)) != NULL &&
-	      STREQ (TYPE_NAME (TYPE_TARGET_TYPE (type)), "char"))
-	    {
-		/* Print nothing */
-	    }
-	  else
-	    {
-	      fprintf_filtered (stream, "(");
-	      type_print (type, "", stream, -1);
-	      fprintf_filtered (stream, ") ");
-	    }
-	}
-      return (val_print (type, VALUE_CONTENTS (val),
-			 VALUE_ADDRESS (val), stream, format, 1, 0, pretty));
-    }
+  return (val_print (type, VALUE_CONTENTS (val),
+		     VALUE_ADDRESS (val), stream, format, 1, 0, pretty));
 }

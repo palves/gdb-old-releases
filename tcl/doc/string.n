@@ -1,14 +1,13 @@
 '\"
 '\" Copyright (c) 1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) string.n 1.3 94/12/17 16:18:51
 '\" 
 .so man.macros
-.HS string tcl 7.4
+.TH string n 7.4 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -119,13 +118,13 @@ If \fIchars\fR is not specified then white space is removed
 Returns the index of the character just after the last one in the
 word containing character \fIindex\fR of \fIstring\fR.
 A word is considered to be any contiguous range of alphanumeric
-or underscore chracters, or any single character other than these.
+or underscore characters, or any single character other than these.
 .TP
 \fBstring wordstart \fIstring index\fR
 Returns the index of the first character in the
 word containing character \fIindex\fR of \fIstring\fR.
 A word is considered to be any contiguous range of alphanumeric
-or underscore chracters, or any single character other than these.
+or underscore characters, or any single character other than these.
 .VE
 
 .SH KEYWORDS

@@ -7,7 +7,7 @@ gdb_start
 # test default actions of gdb commands
 #
 
-load_lib gdb.exp
+#load_lib gdb.exp
 
 gdb_test "add-symbol-file" "add-symbol-file takes a file name and an address"
 
@@ -709,8 +709,6 @@ expect {
 
 
 #test info float
-# Fails on freebsd because of missing corefile support?
-setup_xfail "i*86-*-freebsd*"
 send "info float\n"
 expect {
 	-re "No floating point info available for this processor..*$prompt $"\

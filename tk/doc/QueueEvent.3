@@ -1,0 +1,159 @@
+'\"
+'\" Copyright (c) 1995 Sun Microsystems, Inc.
+'\"
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+'\" 
+'\" 
+.so man.macros
+.TH Tk_QueueEvent 3 "" Tk "Tk Library Procedures"
+.BS
+.SH NAME
+Tk_QueueEvent, Tk_ServiceEvent, Tk_ServiceIdle, Tk_IdlePending \- add events to the Tk
+event queue and invoke event or idle handlers
+.SH SYNOPSIS
+.nf
+\fB#include <tk.h>\fR
+.sp
+\fBTk_QueueEvent\fR(\fIeventPtr\fR)
+.sp
+int
+\fBTk_ServiceEvent\fR(\fIflags\fR)
+.sp
+int
+\fBTk_ServiceIdle\fR()
+.sp
+int
+\fBTk_IdlePending\fR()
+.SH ARGUMENTS
+.AS Tk_Event *eventPtr
+.AP Tk_Event *eventPtr in
+Pointer to data structure containing information about the event that
+is to be added to the Tk event queue.  The data structure pointed to
+by \fIeventPtr\fR may be freed upon return.
+.AP int flags in
+This parameter may be an OR-ed combination of any of the following
+flag bits: TK_WINDOW_EVENTS, TK_FILE_EVENTS, TK_TIMER_EVENTS,
+TK_ALL_EVENTS.  It is normally passed TK_ALL_EVENTS.
+.BE
+
+.SH DESCRIPTION
+.PP
+These procedures represent Tk's half of the notifier interface.  The
+procedures are part of Tk, and they are called by the notifier to
+initiate the handling of events.  See the \fBTk_NotifyDisplay\fR
+manual entry for information on the notifier's half of the interface.
+Tk maintains a queue of pending events on which the notifier places
+new events as they arrive by calling \fBTk_QueueEvent\fR.  When the
+notifier is ready to initiate event handling, it calls the Tk
+procedure \fBTk_ServiceEvent\fR.  This two step interface allows Tk to
+manage the event queue and event priorities internally, thereby
+simplifying the job of the notifier.  It is also possible for the
+notifier to queue several events at once before calling
+\fBTk_ServiceEvent\fR.  This allows Tk to collapse events and give the
+notifier more control over the scheduling of event processing.
+.PP
+The procedures described here are responsible for putting events onto
+the Tk event queue and dispatching to event handlers created with the
+procedures \fBTk_CreateEventHandler\fR, \fBTk_CreateFileHandler\fR,
+\fBTk_CreateTimerHandler\fR, and \fBTk_DoWhenIdle\fR.  These
+procedures are typically called by the notifier routine
+\fBTk_DoOneEvent\fR whenever an event is detected, queued events need
+to be serviced, or the system is in an idle state.
+.PP
+\fBTk_QueueEvent\fR arranges for an event, described by the
+\fIeventPtr\fR argument, to be placed on the Tk event queue.  Tk will
+not invoke any event handlers at this point.  The structure pointed to
+by \fIeventPtr\fR contains information about the event to be queued:
+.CS
+typedef union {
+	int \fItype\fR;
+	Tk_FileEvent \fIfile\fR;
+	Tk_TimerEvent \fItimer\fR;
+	Tk_WindowEvent \fIwindow\fR;
+} Tk_Event
+
+typedef struct {
+	int \fItype\fR;
+	int \fIfd\fR;
+	int \fImask\fR;
+} Tk_FileEvent;
+
+typedef struct {
+	int \fItype\fR;
+	Tk_Time \fItime\fR;
+} Tk_TimerEvent;
+
+typedef struct {
+	int \fItype\fR;
+	XEvent \fIevent\fR;
+} Tk_WindowEvent;
+
+typedef struct Tk_Time {
+	long \fIsec\fR;
+	long \fIusec\fR;
+} Tk_Time;
+.CE
+The \fItype\fR field is one of three possible values:
+\fBTK_WINDOW_EVENTS\fR, \fBTK_FILE_EVENTS\fR, \fBTK_TIMER_EVENTS\fR.
+These values are the same as those used in \fBTk_DoOneEvent\fR and
+\fBTk_ServiceEvent\fR.  For file events, the \fIfd\fR is an integer
+identifier for an open file or device (such as returned by the \fBopen\fR
+system call).  \fImask\fR is the condition that was detected on the
+file represented by an OR-ed combination of \fBTK_READABLE\fR,
+\fBTK_WRITABLE\fR, and \fBTK_EXCEPTION\fR.  For timer events,
+\fItime\fR is the time when the timer event was generated.  The
+\fBTk_Time\fR structure expresses absolute times in elapsed seconds
+and microseconds since 00:00 GMT, January 1, 1970.  This corresponds
+to the times used by the \fBgettimeofday\fR procedure.  For window
+events, \fIevent\fR is the X event that occured.
+.PP
+\fBTk_ServiceEvent\fR causes Tk to process one event from its internal
+event queue.  It is called by \fBTk_DoOneEvent\fR when the
+notifier determines that it is safe to invoke event handlers.  If the
+\fIflags\fR argument is non-zero then it restricts the kinds of events
+that will be processed by \fBTk_ServiceEvent\fR; it is usually the
+same as the \fIflags\fR argument passed to \fBTk_DoOneEvent\fR, although
+some of the bits may be ignored.  \fIFlags\fR may be an OR-ed
+combination of any of the following bits:
+.TP 27
+\fBTK_WINDOW_EVENTS\fR \-
+Process window system events.
+.TP 27
+\fBTK_FILE_EVENTS\fR \-
+Process file events.
+.TP 27
+\fBTK_TIMER_EVENTS\fR \-
+Process timer events.
+.TP 27
+\fBTK_ALL_EVENTS\fR \-
+Process all kinds of events:  equivalent to OR-ing together all of the
+above flags.
+.PP
+\fBTk_ServiceEvent\fR searches the event queue, starting with the
+oldest event, until it finds an event which is can be handled.  If one
+is found, then it calls the handler(s) for the event and returns.  If
+there are no events pending, it iterates over the procedures
+registered by \fBTk_CreateFileHandler2\fR until one returns TK_FILE_HANDLED.
+\fBTk_ServiceEvent\fR returns 1 if it processed an event or 0 if no
+processing occured.
+.PP
+\fBTk_ServiceIdle\fR causes Tk to invoke all of the idle handlers
+registered by \fBTk_DoWhenIdle\fR since the previous call to
+\fBTk_ServiceIdle\fR.  \fBTk_ServiceIdle\fR normally returns 1, unless
+there were no pending idle handlers found, in which case it returns 0.
+.PP
+\fBTk_IdlePending\fR is used by the notifier subsystem to detect
+whether any idle handlers are currently registered.
+\fBTk_IdlePending\fR returns 1 if it detects any pending idle
+handlers, othwise it returns 0.
+.PP
+These procedures may be invoked recursively.  For example, it is
+possible to invoke \fBTk_DoOneEvent\fR recursively from a handler
+called by \fBTk_ServiceEvent\fR.  This sort of operation is useful in
+some modal situations, such as when a notifier has been popped up and
+an application wishes to wait for the user to click a button in the
+notifier before doing anything else.
+
+.SH KEYWORDS
+callback, event, handler, idle, timer, queue, service

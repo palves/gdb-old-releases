@@ -22,12 +22,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define N_TXTADDR(x) \
   ((N_MAGIC(x) == NMAGIC) ? 0x8000 : \
    (N_MAGIC(x) != ZMAGIC) ? 0 : \
-   (N_SHARED_LIB(x)) ? ((x).a_entry & ~(PAGE_SIZE - 1)) : \
+   (N_SHARED_LIB(x)) ? ((x).a_entry & ~(TARGET_PAGE_SIZE - 1)) : \
    TEXT_START_ADDR)
 
 #define TEXT_START_ADDR 0x8000
-#define PAGE_SIZE 0x8000
-#define SEGMENT_SIZE PAGE_SIZE
+#define TARGET_PAGE_SIZE 0x8000
+#define SEGMENT_SIZE TARGET_PAGE_SIZE
 #define DEFAULT_ARCH bfd_arch_arm
 
 #define MY(OP) CAT(aoutarm_,OP)
@@ -112,7 +112,7 @@ MY(reloc_howto)(abfd, rel, r_index, r_extern, r_pcrel)
   int index;
 
   *r_pcrel = 0;
-  if (abfd->xvec->header_byteorder_big_p)
+  if (bfd_header_big_endian (abfd))
     {
       *r_index     =  ((rel->r_index[0] << 16)
 		       | (rel->r_index[1] << 8)
@@ -166,7 +166,7 @@ MY(put_reloc)(abfd, r_extern, r_index, value, howto, reloc)
 
   r_pcrel  = howto->type & 4; 	/* PC Relative done? */
   r_neg = howto->type & 8;	/* Negative relocation */
-  if (abfd->xvec->header_byteorder_big_p)
+  if (bfd_header_big_endian (abfd))
     {
       reloc->r_index[0] = r_index >> 16;
       reloc->r_index[1] = r_index >> 8;
@@ -204,7 +204,7 @@ MY(relocatable_reloc)(howto, abfd, reloc, amount, r_addr)
   if (howto->type == 3)
     {
       if (reloc->r_type[0] 
-	  & (abfd->xvec->header_byteorder_big_p
+	  & (bfd_header_big_endian (abfd)
 	     ? RELOC_STD_BITS_EXTERN_BIG : RELOC_STD_BITS_EXTERN_LITTLE))
 	{
 	  /* The reloc is still external, so don't modify anything. */
@@ -215,7 +215,7 @@ MY(relocatable_reloc)(howto, abfd, reloc, amount, r_addr)
 	  *amount -= r_addr;
 	  /* Change the r_pcrel value -- on the ARM, this bit is set once the
 	     relocation is done.  */
-	  if (abfd->xvec->header_byteorder_big_p)
+	  if (bfd_header_big_endian (abfd))
 	    reloc->r_type[0] |= RELOC_STD_BITS_PCREL_BIG;
 	  else
 	    reloc->r_type[0] |= RELOC_STD_BITS_PCREL_LITTLE;
@@ -430,7 +430,7 @@ MY_swap_std_reloc_out (abfd, g, natptr)
 	{
 	  /* Fill in symbol */
 	  r_extern = 1;
-	  r_index =  stoi((*(g->sym_ptr_ptr))->flags);
+	  r_index = (*(g->sym_ptr_ptr))->KEEPIT;
 	}
     }
   else
@@ -441,7 +441,7 @@ MY_swap_std_reloc_out (abfd, g, natptr)
     }
 
   /* now the fun stuff */
-  if (abfd->xvec->header_byteorder_big_p != false)
+  if (bfd_header_big_endian (abfd))
     {
       natptr->r_index[0] = r_index >> 16;
       natptr->r_index[1] = r_index >> 8;
@@ -473,8 +473,8 @@ const bfd_target aout_arm_little_vec =
 {
   "a.out-arm-little",           /* name */
   bfd_target_aout_flavour,
-  false,                        /* target byte order (little) */
-  false,                        /* target headers byte order (little) */
+  BFD_ENDIAN_LITTLE,            /* target byte order (little) */
+  BFD_ENDIAN_LITTLE,            /* target headers byte order (little) */
   (HAS_RELOC | EXEC_P |         /* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
@@ -482,7 +482,6 @@ const bfd_target aout_arm_little_vec =
   MY_symbol_leading_char,
   AR_PAD_CHAR,                  /* ar_pad_char */
   15,                           /* ar_max_namelen */
-  3,                            /* minimum alignment */
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
      bfd_getl32, bfd_getl_signed_32, bfd_putl32,
      bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */
@@ -513,8 +512,8 @@ const bfd_target aout_arm_big_vec =
 {
   "a.out-arm-big",           /* name */
   bfd_target_aout_flavour,
-  true,                         /* target byte order (big) */
-  true,                         /* target headers byte order (big) */
+  BFD_ENDIAN_BIG,               /* target byte order (big) */
+  BFD_ENDIAN_BIG,               /* target headers byte order (big) */
   (HAS_RELOC | EXEC_P |         /* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
@@ -522,7 +521,6 @@ const bfd_target aout_arm_big_vec =
   MY_symbol_leading_char,
   AR_PAD_CHAR,                  /* ar_pad_char */
   15,                           /* ar_max_namelen */
-  3,                            /* minimum alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      bfd_getb32, bfd_getb_signed_32, bfd_putb32,
      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */

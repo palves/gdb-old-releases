@@ -180,8 +180,9 @@ aout_adobe_callback (abfd)
       goto no_more_sections;
 
     default:
-      fprintf (stderr, "Unknown section type in a.out.adobe file: %x\n", 
-	       ext->e_type[0]);
+      (*_bfd_error_handler)
+	("%s: Unknown section type in a.out.adobe file: %x\n", 
+	 bfd_get_filename (abfd), ext->e_type[0]);
       goto no_more_sections;
     }
 
@@ -201,10 +202,8 @@ aout_adobe_callback (abfd)
     /* Fix the name, if it is a sprintf'd name.  */
     if (sect->name == try_again) {
       newname = (char *) bfd_zalloc(abfd, strlen (sect->name));
-      if (newname == NULL) {
-	bfd_set_error (bfd_error_no_memory);
+      if (newname == NULL)
 	return 0;
-      }
       strcpy (newname, sect->name);
       sect->name = newname;
     }
@@ -255,10 +254,8 @@ aout_adobe_mkobject (abfd)
   struct bout_data_struct *rawptr;
 
   rawptr = (struct bout_data_struct *) bfd_zalloc (abfd, sizeof (struct bout_data_struct));
-  if (rawptr == NULL) {
-      bfd_set_error (bfd_error_no_memory);
+  if (rawptr == NULL)
       return false;
-    }
 
   abfd->tdata.bout_data = rawptr;
   exec_hdr (abfd) = &rawptr->e;
@@ -386,10 +383,10 @@ aout_adobe_write_section (abfd, sect)
 static boolean
 aout_adobe_set_section_contents (abfd, section, location, offset, count)
      bfd *abfd;
-     sec_ptr section;
-     unsigned char *location;
+     asection *section;
+     PTR location;
      file_ptr offset;
-      int count;
+     bfd_size_type count;
 {
   file_ptr section_start;
   sec_ptr sect;
@@ -481,6 +478,7 @@ aout_adobe_sizeof_headers (ignore_abfd, ignore)
 #define	aout_32_sizeof_headers		aout_adobe_sizeof_headers
 #define aout_32_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents
+#define aout_32_get_section_contents_in_window _bfd_generic_get_section_contents_in_window
 #define aout_32_bfd_relax_section       bfd_generic_relax_section
 #define aout_32_bfd_link_hash_table_create \
   _bfd_generic_link_hash_table_create
@@ -492,8 +490,8 @@ const bfd_target a_out_adobe_vec =
 {
   "a.out.adobe",		/* name */
   bfd_target_aout_flavour,
-  true,				/* data byte order is unknown (big assumed) */
-  true,				/* hdr byte order is big */
+  BFD_ENDIAN_BIG,		/* data byte order is unknown (big assumed) */
+  BFD_ENDIAN_BIG,		/* hdr byte order is big */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT ),
@@ -502,7 +500,6 @@ const bfd_target a_out_adobe_vec =
   '_',				/*  symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  2,				/* minumum alignment power */
 
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      bfd_getb32, bfd_getb_signed_32, bfd_putb32,

@@ -20,13 +20,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "bfd.h"
 #include "sysdep.h"
 
-
 #define TARGET_SYM i386pei_vec
 #define TARGET_NAME "pei-i386"
 #define IMAGE_BASE NT_IMAGE_BASE
 #define COFF_IMAGE_WITH_PE
 #define COFF_WITH_PE
 #define PCRELOFFSET true
+#define TARGET_UNDERSCORE '_'
 #include "coff-i386.c"
 
 

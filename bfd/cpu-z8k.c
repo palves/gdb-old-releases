@@ -135,7 +135,7 @@ static reloc_howto_type howto_8_pcrel
 
 static reloc_howto_type *
 local_bfd_reloc_type_lookup (arch, code)
-     CONST struct bfd_arch_info *arch;
+     const struct bfd_arch_info *arch;
      bfd_reloc_code_real_type code;
 {
   switch (code)
@@ -158,8 +158,8 @@ int bfd_default_scan_num_mach ();
 
 static boolean
 scan_mach (info, string)
-     CONST struct bfd_arch_info *info;
-     CONST char *string;
+     const struct bfd_arch_info *info;
+     const char *string;
 {
   if (strcmp (string, "z8001") == 0 || strcmp (string, "z8k") == 0)
     {
@@ -176,10 +176,10 @@ scan_mach (info, string)
 /* This routine is provided two arch_infos and returns whether
    they'd be compatible */
 
-static CONST bfd_arch_info_type *
+static const bfd_arch_info_type *
 compatible (a, b)
-     CONST bfd_arch_info_type *a;
-     CONST bfd_arch_info_type *b;
+     const bfd_arch_info_type *a;
+     const bfd_arch_info_type *b;
 {
   if (a->arch != b->arch || a->mach != b->mach)
     return NULL;
@@ -187,17 +187,12 @@ compatible (a, b)
 }
 
 
-static bfd_arch_info_type arch_info_struct[] =
+static const bfd_arch_info_type arch_info_struct[] =
 {
-  {32, 16, 8, bfd_arch_z8k, bfd_mach_z8002, "z8k", "z8002", 1, true, compatible, scan_mach, 0,},
   {32, 32, 8, bfd_arch_z8k, bfd_mach_z8001, "z8k", "z8001", 1, false, compatible, scan_mach, 0,},
 };
 
-
-
-void
-bfd_z8k_arch ()
+const bfd_arch_info_type bfd_z8k_arch =
 {
-  bfd_arch_linkin (&arch_info_struct[0]);
-  bfd_arch_linkin (&arch_info_struct[1]);
-}
+  32, 16, 8, bfd_arch_z8k, bfd_mach_z8002, "z8k", "z8002", 1, true, compatible, scan_mach, &arch_info_struct[0],
+};

@@ -1,10 +1,14 @@
 # Host: Intel 386 running Linux
 
 XM_FILE= xm-linux.h
-XDEPFILES= 
+XDEPFILES= ser-tcp.o
 
-# Needed for frexp() in libiberty.
+# Needed for frexp() in libiberty in some older versions.
 XM_CLIBS= -lm
 
 NAT_FILE= nm-linux.h
-NATDEPFILES= infptrace.o inftarg.o fork-child.o coredep.o i386v-nat.o corelow.o
+NATDEPFILES= infptrace.o solib.o inftarg.o fork-child.o corelow.o core-aout.o core-regset.o i386v-nat.o i386v4-nat.o
+
+GDBSERVER_DEPFILES= low-linux.o
+# Requires libbsd.a for bsd_ioctl, which is how ioctl is implemented.
+GDBSERVER_LIBS= -lbsd

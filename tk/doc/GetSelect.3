@@ -1,36 +1,22 @@
 '\"
-'\" Copyright (c) 1990 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1990-1994 The Regents of the University of California.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/GetSelect.3,v 1.1 1994/06/03 23:42:15 rob Exp $ SPRITE (Berkeley)
 '\" 
 .so man.macros
-.HS Tk_GetSelection tkc
+.TH Tk_GetSelection 3 4.0 Tk "Tk Library Procedures"
 .BS
 .SH NAME
-Tk_GetSelection \- retrieve the contents of the selection
+Tk_GetSelection \- retrieve the contents of a selection
 .SH SYNOPSIS
 .nf
 \fB#include <tk.h>\fR
 .sp
 int
-\fBTk_GetSelection\fR(\fIinterp, tkwin, target, proc, clientData\fR)
+\fBTk_GetSelection\fR(\fIinterp, tkwin, selection, target, proc, clientData\fR)
 .SH ARGUMENTS
 .AS Tk_GetSelProc clientData
 .AP Tcl_Interp *interp in
@@ -38,6 +24,10 @@ Interpreter to use for reporting errors.
 .AP Tk_Window tkwin in
 Window on whose behalf to retrieve the selection (determines
 display from which to retrieve).
+.AP Atom selection in
+.VS
+The name of the selection to be retrieved.
+.VE
 .AP Atom target in
 Form in which to retrieve selection.
 .AP Tk_GetSelProc *proc in
@@ -49,34 +39,33 @@ Arbitrary one-word value to pass to \fIproc\fR.
 
 .SH DESCRIPTION
 .PP
-\fBTk_GetSelection\fR retrieves the selection in the format
-specified by \fItarget\fR.  The selection may actually be
-retrieved in several pieces;  as each piece is retrieved,
-\fIproc\fR is called to process the piece.  \fIProc\fR should
-have arguments and result that match the type \fBTk_GetSelProc\fR:
-.nf
-.RS
+.VS
+\fBTk_GetSelection\fR retrieves the selection specified by the atom
+\fIselection\fR in the format specified by \fItarget\fR.  The
+selection may actually be retrieved in several pieces; as each piece
+is retrieved, \fIproc\fR is called to process the piece.  \fIProc\fR
+should have arguments and result that match the type
+.VE
+\fBTk_GetSelProc\fR:
+.CS
 typedef int Tk_GetSelProc(
-.RS
-ClientData \fIclientData\fR,
-Tcl_Interp *\fIinterp\fR,
-char *\fIportion\fR);
-.RE
-.RE
-.fi
-The \fIclientData\fP and \fIinterp\fR parameters to \fIproc\fR 
+	ClientData \fIclientData\fR,
+	Tcl_Interp *\fIinterp\fR,
+	char *\fIportion\fR);
+.CE
+The \fIclientData\fR and \fIinterp\fR parameters to \fIproc\fR 
 will be copies of the corresponding arguments to
 \fBTk_GetSelection\fR.  \fIPortion\fR will be a pointer to
 a string containing part or all of the selection.  For large
-selections, \fIproc\fR will be called several times with sucessive
+selections, \fIproc\fR will be called several times with successive
 portions of the selection.  The X Inter-Client Communication
-Conventions Manual allows the selection to be returned in formats
+Conventions Manual allows a selection to be returned in formats
 other than strings, e.g. as an array of atoms or integers.  If
 this happens, Tk converts the selection back into a string
-before calling \fIproc\fR.  If the selection is returned as an
+before calling \fIproc\fR.  If a selection is returned as an
 array of atoms, Tk converts it to a string containing the atom names
 separated by white space.  For any other format besides string,
-Tk converts the selection to a string containing hexadecimal
+Tk converts a selection to a string containing hexadecimal
 values separated by white space.
 .PP
 \fBTk_GetSelection\fR returns to its caller when the selection has

@@ -21,6 +21,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "gdb_string.h"
 #include "frame.h"
 #include "inferior.h"
 #include "symtab.h"
@@ -57,6 +58,12 @@ static void mips_show_processor_type_command PARAMS ((char *, int));
 
 static void reinit_frame_cache_sfunc PARAMS ((char *, int,
 					      struct cmd_list_element *));
+
+static mips_extra_func_info_t
+  find_proc_desc PARAMS ((CORE_ADDR pc, struct frame_info *next_frame));
+
+static CORE_ADDR after_prologue PARAMS ((CORE_ADDR pc,
+					 mips_extra_func_info_t proc_desc));
 
 /* This value is the model of MIPS in use.  It is derived from the value
    of the PrID register.  */
@@ -185,6 +192,44 @@ struct linked_proc_info
 } *linked_proc_desc_table = NULL;
 
 
+
+/* This returns the PC of the first inst after the prologue.  If we can't
+   find the prologue, then return 0.  */
+
+static CORE_ADDR
+after_prologue (pc, proc_desc)
+     CORE_ADDR pc;
+     mips_extra_func_info_t proc_desc;
+{
+  struct symtab_and_line sal;
+  CORE_ADDR func_addr, func_end;
+
+  if (!proc_desc)
+    proc_desc = find_proc_desc (pc, NULL);
+
+  if (proc_desc)
+    {
+      /* If function is frameless, then we need to do it the hard way.  I
+	 strongly suspect that frameless always means prologueless... */
+      if (PROC_FRAME_REG (proc_desc) == SP_REGNUM
+	  && PROC_FRAME_OFFSET (proc_desc) == 0)
+	return 0;
+    }
+
+  if (!find_pc_partial_function (pc, NULL, &func_addr, &func_end))
+    return 0;			/* Unknown */
+
+  sal = find_pc_line (func_addr, 0);
+
+  if (sal.end < func_end)
+    return sal.end;
+
+  /* The line after the prologue is after the end of the function.  In this
+     case, tell the caller to find the prologue the hard way.  */
+
+  return 0;
+}
+
 /* Guaranteed to set fci->saved_regs to some values (it never leaves it
    NULL).  */
 
@@ -256,6 +301,11 @@ mips_find_saved_regs (fci)
 
       /* In a dummy frame we know exactly where things are saved.  */
       && !PROC_DESC_IS_DUMMY (proc_desc)
+
+      /* Don't bother unless we are inside a function prologue.  Outside the
+	 prologue, we know where everything is. */
+
+      && in_prologue (fci->pc, PROC_LOW_ADDR (proc_desc))
 
       /* Not sure exactly what kernel_trap means, but if it means
 	 the kernel saves the registers without a prologue doing it,
@@ -665,11 +715,22 @@ init_extra_frame_info(fci)
 
       if (proc_desc == &temp_proc_desc)
 	{
-	  fci->saved_regs = (struct frame_saved_regs*)
-	    obstack_alloc (&frame_cache_obstack,
-			   sizeof (struct frame_saved_regs));
-	  *fci->saved_regs = temp_saved_regs;
-	  fci->saved_regs->regs[PC_REGNUM] = fci->saved_regs->regs[RA_REGNUM];
+	  char *name;
+
+	  /* Do not set the saved registers for a sigtramp frame,
+	     mips_find_saved_registers will do that for us.
+	     We can't use fci->signal_handler_caller, it is not yet set.  */
+	  find_pc_partial_function (fci->pc, &name,
+				    (CORE_ADDR *)NULL,(CORE_ADDR *)NULL);
+	  if (!IN_SIGTRAMP (fci->pc, name))
+	    {
+	      fci->saved_regs = (struct frame_saved_regs*)
+		obstack_alloc (&frame_cache_obstack,
+			       sizeof (struct frame_saved_regs));
+	      *fci->saved_regs = temp_saved_regs;
+	      fci->saved_regs->regs[PC_REGNUM]
+		= fci->saved_regs->regs[RA_REGNUM];
+	    }
 	}
 
       /* hack: if argument regs are saved, guess these contain args */
@@ -1026,7 +1087,7 @@ mips_do_registers_info (regnum, fpregs)
     }
   else
     {
-      int did_newline;
+      int did_newline = 0;
 
       for (regnum = 0; regnum < NUM_REGS; )
 	{
@@ -1117,6 +1178,19 @@ mips_skip_prologue (pc, lenient)
     int offset;
     int seen_sp_adjust = 0;
     int load_immediate_bytes = 0;
+    CORE_ADDR post_prologue_pc;
+
+    /* See if we can determine the end of the prologue via the symbol table.
+       If so, then return either PC, or the PC after the prologue, whichever
+       is greater.  */
+
+    post_prologue_pc = after_prologue (pc, NULL);
+
+    if (post_prologue_pc != 0)
+      return max (pc, post_prologue_pc);
+
+    /* Can't determine prologue from the symbol table, need to examine
+       instructions.  */
 
     /* Skip the typical prologue instructions. These are the stack adjustment
        instruction and the instructions that save registers on the stack

@@ -27,8 +27,8 @@ int bfd_default_scan_num_mach();
 
 static boolean 
 scan_mach (info, string)
-     CONST struct bfd_arch_info *info;
-     CONST char *string;
+     const struct bfd_arch_info *info;
+     const char *string;
 {
   if (strcmp(string,"w65") == 0) return true;
   if (strcmp(string,"w65816") == 0) return true;
@@ -37,31 +37,18 @@ scan_mach (info, string)
 
 
 
-static bfd_arch_info_type arch_info_struct[] = 
-{ 
-  {
-    16,				/* 16 bits in a word */
-    24,				/* 24 bits in an address */
-    8,				/* 8 bits in a byte */
-    bfd_arch_w65,
-    0,				/* only 1 machine */
-    "w65",			/* arch_name  */
-    "w65",			/* printable name */
-    1,
-    true,			/* the default machine */
-    bfd_default_compatible,
-    scan_mach,
-    0,
-    0,
-  },
-};
-
-
-
-void
-bfd_w65_arch ()
+const bfd_arch_info_type bfd_w65_arch =
 {
-  bfd_arch_linkin(&arch_info_struct[0]);
-}
-
-
+  16,				/* 16 bits in a word */
+  24,				/* 24 bits in an address */
+  8,				/* 8 bits in a byte */
+  bfd_arch_w65,
+  0,				/* only 1 machine */
+  "w65",			/* arch_name  */
+  "w65",			/* printable name */
+  1,
+  true,				/* the default machine */
+  bfd_default_compatible,
+  scan_mach,
+  0,
+};

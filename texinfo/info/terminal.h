@@ -1,0 +1,105 @@
+/* terminal.h -- The external interface to terminal I/O. */
+
+#if !defined (_TERMINAL_H_)
+#define _TERMINAL_H_
+
+/* We use the following data type to talk about pointers to functions. */
+#if !defined (__FUNCTION_DEF)
+#  define __FUNCTION_DEF
+typedef int Function ();
+typedef void VFunction ();
+#endif /* _FUNCTION_DEF */
+
+/* For almost every function externally visible from terminal.c, there is
+   a corresponding "hook" function which can be bound in order to replace
+   the functionality of the one found in terminal.c.  This is how we go
+   about implemented X window display. */
+
+/* The width and height of the terminal. */
+extern int screenwidth, screenheight;
+
+/* Non-zero means this terminal can't really do anything. */
+extern int terminal_is_dumb_p;
+
+/* Non-zero means that this terminal has a meta key. */
+extern int terminal_has_meta_p;
+
+/* Non-zero means that this terminal can produce a visible bell. */
+extern int terminal_has_visible_bell_p;
+
+/* Non-zero means to use that visible bell if at all possible. */
+extern int terminal_use_visible_bell_p;
+
+/* Non-zero means that this terminal can scroll lines up and down. */
+extern int terminal_can_scroll;
+
+/* Initialize the terminal which is known as TERMINAL_NAME.  If this terminal
+   doesn't have cursor addressability, TERMINAL_IS_DUMB_P becomes non-zero.
+   The variables SCREENHEIGHT and SCREENWIDTH are set to the dimensions that
+   this terminal actually has.  The variable TERMINAL_HAS_META_P becomes non-
+   zero if this terminal supports a Meta key. */
+extern void terminal_initialize_terminal ();
+extern VFunction *terminal_initialize_terminal_hook;
+
+/* Return the current screen width and height in the variables
+   SCREENWIDTH and SCREENHEIGHT. */
+extern void terminal_get_screen_size ();
+extern VFunction *terminal_get_screen_size_hook;
+
+/* Save and restore tty settings. */
+extern void terminal_prep_terminal (), terminal_unprep_terminal ();
+extern VFunction *terminal_prep_terminal_hook, *terminal_unprep_terminal_hook;
+
+/* Re-initialize the terminal to TERMINAL_NAME. */
+extern void terminal_new_terminal ();
+extern VFunction *terminal_new_terminal_hook;
+
+/* Move the cursor to the terminal location of X and Y. */
+extern void terminal_goto_xy ();
+extern VFunction *terminal_goto_xy_hook;
+
+/* Print STRING to the terminal at the current position. */
+extern void terminal_put_text ();
+extern VFunction *terminal_put_text_hook;
+
+/* Print NCHARS from STRING to the terminal at the current position. */
+extern void terminal_write_chars ();
+extern VFunction *terminal_write_chars_hook;
+
+/* Clear from the current position of the cursor to the end of the line. */
+extern void terminal_clear_to_eol ();
+extern VFunction *terminal_clear_to_eol_hook;
+
+/* Clear the entire terminal screen. */
+extern void terminal_clear_screen ();
+extern VFunction *terminal_clear_screen_hook;
+
+/* Move the cursor up one line. */
+extern void terminal_up_line ();
+extern VFunction *terminal_up_line_hook;
+
+/* Move the cursor down one line. */
+extern void terminal_down_line ();
+extern VFunction *terminal_down_line_hook;
+
+/* Turn on reverse video if possible. */
+extern void terminal_begin_inverse ();
+extern VFunction *terminal_begin_inverse_hook;
+
+/* Turn off reverse video if possible. */
+extern void terminal_end_inverse ();
+extern VFunction *terminal_end_inverse_hook;
+
+/* Scroll an area of the terminal, starting with the region from START
+   to END, AMOUNT lines.  If AMOUNT is negative, the lines are scrolled
+   towards the top of the screen, else they are scrolled towards the
+   bottom of the screen. */
+extern void terminal_scroll_terminal ();
+extern VFunction *terminal_scroll_terminal_hook;
+
+/* Ring the terminal bell.  The bell is run visibly if it both has one and
+   terminal_use_visible_bell_p is non-zero. */
+extern void terminal_ring_bell ();
+extern VFunction *terminal_ring_bell_hook;
+
+#endif /* !_TERMINAL_H_ */

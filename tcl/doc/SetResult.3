@@ -1,14 +1,13 @@
 '\"
 '\" Copyright (c) 1989-1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) SetResult.3 1.13 94/12/17 16:17:30
 '\" 
 .so man.macros
-.HS Tcl_SetResult tclc 7.0
+.TH Tcl_SetResult 3 7.0 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
 Tcl_SetResult, Tcl_AppendResult, Tcl_AppendElement, Tcl_ResetResult \- manipulate Tcl result string
@@ -34,7 +33,7 @@ Interpreter whose result is to be modified.
 .AP char *string in
 String value to become result for \fIinterp\fR or to be
 appended to existing result.
-.AP Tcl_FreeProc freeProc in
+.AP Tcl_FreeProc *freeProc in
 Address of procedure to call to release storage at
 \fIstring\fR, or \fBTCL_STATIC\fR, \fBTCL_DYNAMIC\fR, or
 \fBTCL_VOLATILE\fR.
@@ -70,13 +69,9 @@ This allows applications to use non-standard storage allocators.
 When Tcl no longer needs the storage for the string, it will
 call \fIfreeProc\fR.  \fIFreeProc\fR should have arguments and
 result that match the type \fBTcl_FreeProc\fR:
-.nf
-.RS
-
+.CS
 typedef void Tcl_FreeProc(char *\fIblockPtr\fR);
-
-.RE
-.fi
+.CE
 When \fIfreeProc\fR is called, its \fIblockPtr\fR will be set to
 the value of \fIstring\fR passed to \fBTcl_SetResult\fR.
 .PP

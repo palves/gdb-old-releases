@@ -2,17 +2,37 @@
 # normally sourced by the individual files in the test suite before
 # they run their tests.  This improved approach to testing was designed
 # and initially implemented by Mary Ann May-Pumphrey of Sun Microsystems.
+#
+# Copyright (c) 1994 Sun Microsystems, Inc.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
 
-set VERBOSE 0
-set TESTS {}
+if ![info exists VERBOSE] {
+    set VERBOSE 0
+}
+if ![info exists TESTS] {
+    set TESTS {}
+}
+
+tk appname tktest
+wm title . tktest
 
 # Some of the tests don't work on some system configurations due to
 # configuration quirks, not due to Tk problems;  in order to prevent
-# false alarms, these tests are only run in the master source directory
-# at Berkeley.  The presence of a file "Berkeley" in this directory is
-# used to indicate that these tests should be run.
+# false alarms, these tests are only run in the master development
+# directory for Tk.  The presence of a file "doAllTests" in this
+# directory is used to indicate that these tests should be run.
 
-set atBerkeley [file exists Berkeley]
+set doNonPortableTests [file exists doAllTests]
+
+# If there is no "memory" command (because memory debugging isn't
+# enabled), generate a dummy command that does nothing.
+
+if {[info commands memory] == ""} {
+    proc memory args {}
+}
 
 proc print_verbose {test_name test_description contents_of_test code answer} {
     puts stdout "\n"
@@ -53,6 +73,7 @@ proc test {test_name test_description contents_of_test passing_results} {
         }
 	if !$ok then return
     }
+    memory tag $test_name
     set code [catch {uplevel $contents_of_test} answer]
     if {$code != 0} {
 	print_verbose $test_name $test_description $contents_of_test \
@@ -87,4 +108,90 @@ proc dotests {file args} {
 if {![winfo ismapped .]} {
     wm geometry . +0+0
     update
+}
+
+# The following code can be used to perform tests involving a second
+# process running in the background.
+
+# Locate tktest executable
+
+set tktest [info nameofexecutable]
+if {$tktest == ""} {
+    set tktest {}
+    puts "Unable to find tktest executable, skipping multiple process tests."
+}
+
+# Create background process
+
+proc setupbg {{args ""}} {
+    global tktest fd bgData
+    if {$tktest == ""} {
+        error "you're not running tktest so setupbg should not have been called"
+    }
+    if {[info exists fd] && ($fd != "")} {
+	cleanupbg
+    }
+    set fd [open "|$tktest -geometry +0+0 -name tktest $args" r+]
+    puts $fd "puts foo; flush stdout"
+    flush $fd
+    if {[gets $fd data] < 0} {
+        error "unexpected EOF from \"$tktest\""
+    }
+    if [string compare $data foo] {
+        error "unexpected output from background process \"$data\""
+    }
+    fileevent $fd readable bgReady
+}
+
+# Send a command to the background process, catching errors and
+# flushing I/O channels
+proc dobg {command} {
+    global fd bgData bgDone
+    puts $fd "catch {$command} msg; update; puts \$msg; puts **DONE**; flush stdout"
+    flush $fd
+    set bgDone 0
+    set bgData {}
+    tkwait variable bgDone
+    set bgData
+}
+
+# Data arrived from background process.  Check for special marker
+# indicating end of data for this command, and make data available
+# to dobg procedure.
+proc bgReady {} {
+    global fd bgData bgDone
+    set x [gets $fd]
+    if [eof $fd] {
+	fileevent $fd readable {}
+	set bgDone 1
+    } elseif {$x == "**DONE**"} {
+	set bgDone 1
+    } else {
+	append bgData $x
+    }
+}
+
+# Exit the background process, and close the pipes
+proc cleanupbg {} {
+    global fd
+    catch {
+	puts $fd "exit"
+	close $fd
+    }
+    set fd ""
+}
+
+proc makeFile {contents name} {
+    set fd [open $name w]
+    puts $fd $contents
+    close $fd
+}
+
+proc removeFile {name} {
+    global env
+    if [info exists env(APPLE_M_FOLDER)] {
+	catch {rm -f $name}
+    } else {
+	catch {exec rm -f $name}
+    }
 }

@@ -247,8 +247,3 @@ struct external_reloc {
 #define RELOC struct external_reloc
 #define RELSZ 12
 
-#define DEFAULT_DATA_SECTION_ALIGNMENT 4
-#define DEFAULT_BSS_SECTION_ALIGNMENT 4
-#define DEFAULT_TEXT_SECTION_ALIGNMENT 16
-/* For new sections we havn't heard of before */
-#define DEFAULT_SECTION_ALIGNMENT 4

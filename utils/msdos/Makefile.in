@@ -86,13 +86,13 @@ clean mostlyclean:
 		fi; \
 	    done
 
-distclean realclean: clean
-	-rm -f *~ core
-	-rm -f Makefile config.status 
+distclean maintainer-clean realclean: clean
 	@for dir in ${SUBDIRS}; do \
 	    echo "$$dir:"; \
 	    (cd $$dir; $(MAKE) $@); \
 	done
+	-rm -f *~ core
+	-rm -f Makefile config.status 
 
 .PHONY: info install-info clean-info
 info:

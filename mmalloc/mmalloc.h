@@ -1,8 +1,12 @@
 #ifndef MMALLOC_H
 #define MMALLOC_H 1
 
-#ifdef __STDC__
-#include <stddef.h>
+/*  FIXME:  If <stddef.h> doesn't exist, you'll need to do something
+            to define size_t before including this file.  Like upgrading
+            to a system with an ANSI C environment. */
+
+#ifdef HAVE_STDDEF_H
+#  include <stddef.h>
 #endif
 
 #include "ansidecl.h"

@@ -19,7 +19,7 @@
 
 # This file was written by Rob Savoye. (rob@cygnus.com)
 
-set testdrv "tcltest"
+set testdrv "unix/tcltest"
 set tprompt "%"
 
 #
@@ -78,6 +78,8 @@ proc tcl_start { } {
     
     set testdrv "$objdir/$testdrv"
     set defs	"$srcdir/../tests/defs"
+    set timeout 100
+    set timetol 0
 
     spawn $testdrv
 
@@ -87,8 +89,8 @@ proc tcl_start { } {
     }
 
     verbose "Sourcing $defs..."
-    send "source $defs\n"
-    
+    send "source $defs\r\n"
+       
     expect {
 	-re ".*source $defs.*$" {
 	    verbose "Sourced $defs"
@@ -101,11 +103,17 @@ proc tcl_start { } {
 	    verbose "Got prompt, sourced $defs"
 	    }
 	timeout {
-	    perror "Timed out sourcing $defs."
-	    return 1
+	    warning "Timed out sourcing $defs."
+	    if { $timetol <= 3 } {
+		incr timetol
+		exp_continue
+	    } else {
+		return -1
+	    }
 	}
     }
 
+    set timetol 0
     sleep 2
     send "set VERBOSE 1\n"
     expect {
@@ -117,15 +125,12 @@ proc tcl_start { } {
 	}
 	timeout {
 	    perror "Timed out setting verbose flag."
+	    if { $timetol <= 3 } {
+		exp_continue
+	    } else {
+		return -1
+	    }
 	}
     }
     return $spawn_id
 }
-
-
-
-
-
-
-
-

@@ -111,6 +111,9 @@ enum exp_opcode
   /* For Chill and Pascal. */
   BINOP_IN, /* Returns 1 iff ARG1 IN ARG2. */
 
+  /* This is the "colon operator" used various places in Chill. */
+  BINOP_RANGE,
+
   /* This must be the highest BINOP_ value, for expprint.c.  */
   BINOP_END,
 
@@ -267,6 +270,7 @@ enum exp_opcode
   STRUCTOP_STRUCT,
   STRUCTOP_PTR,
 
+
   /* C++ */
   /* OP_THIS is just a placeholder for the class instance variable.
      It just comes in a tight (OP_THIS, OP_THIS) pair.  */
@@ -290,7 +294,13 @@ enum exp_opcode
   /* OP_TYPE is for parsing types, and used with the "ptype" command
      so we can look up types that are qualified by scope, either with
      the GDB "::" operator, or the Modula-2 '.' operator. */
-  OP_TYPE
+  OP_TYPE,
+
+  /* An un-looked-up identifier. */
+  OP_NAME,
+
+  /* An unparsed expression.  Used for Scheme (for now at least) */
+  OP_EXPRSTRING
 };
 
 union exp_element

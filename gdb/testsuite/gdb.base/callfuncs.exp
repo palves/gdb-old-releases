@@ -26,13 +26,32 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "callfuncs"
-set srcfile $binfile.c
+set prototypes 0
+set testfile "callfuncs"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
 
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist"
-    return 0
+# build the first test case
+execute_anywhere "echo set prototypes 1 > ${objdir}/${subdir}/callfuncs.tmp"
+if  { [compile "-g ${srcdir}/${subdir}/${srcfile} -o ${binfile} "] != "" } {
+    execute_anywhere "rm -f ${objdir}/${subdir}/callfuncs.tmp"    
+    # built the second test case since we can't use prototypes
+    warning "Prototypes not supported, rebuilding with -DNO_PROTOTYPES"
+    execute_anywhere "echo set prototypes 0 > ${objdir}/${subdir}/callfuncs.tmp"
+    if  { [compile "-g -DNO_PROTOTYPES ${srcdir}/${subdir}/${srcfile} -o ${binfile} "] != "" } {
+	perror "Couldn't compile ${testfile}.c"
+	return -1
+    }
 }
+
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c >> ${objdir}/${subdir}/callfuncs.tmp"] != "" } {
+    perror "Couldn't make ${testfile}.tmp"
+    return -1
+}
+
+execute_anywhere "mv ${objdir}/${subdir}/callfuncs.tmp ${binfile}.ci"
+
+source ${binfile}.ci
 
 # The a29k can't call functions, so don't even bother with this test.
 if [istarget "a29k-*-udi"] then {
@@ -115,7 +134,7 @@ proc do_function_calls {} {
     gdb_test "p t_float_values2(0.0,0.0)" " = 0"
 
     # Although PR 5318 mentions SunOS specifically, this seems
-    # to be a generic problem on all platforms except a few.
+    # to be a generic problem on quite a few platforms.
     if $prototypes then {
 	setup_xfail "*-*-*" 5318
 	clear_xfail "rs6000-*-*"
@@ -136,15 +155,10 @@ proc do_function_calls {} {
     gdb_test "p t_string_values(\"string 1\",string_val2)" " = 1"
     gdb_test "p t_string_values(string_val1,\"string 2\")" " = 1"
 
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p t_char_array_values(char_array_val2,char_array_val1)" " = 0"
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p t_char_array_values(char_array_val1,char_array_val2)" " = 1"
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p t_char_array_values(\"carray 1\",\"carray 2\")" " = 1"
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p t_char_array_values(\"carray 1\",char_array_val2)" " = 1"
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p t_char_array_values(char_array_val1,\"carray 2\")" " = 1"
 
     gdb_test "p doubleit(4)" " = 8"
@@ -160,14 +174,17 @@ proc do_function_calls {} {
     # to avoid such problems in the common case.  This may or may not help
     # the RS6000.
     setup_xfail "rs6000*-*-*"
+    setup_xfail "powerpc*-*-*"
     gdb_test "p t_func_values(add,func_val2)" " = 1"
 
     setup_xfail "rs6000*-*-*"
+    setup_xfail "powerpc*-*-*"
     gdb_test "p t_func_values(func_val1,doubleit)" " = 1"
 
     gdb_test "p t_call_add(func_val1,3,4)" " = 7"
 
     setup_xfail "rs6000*-*-*"
+    setup_xfail "powerpc*-*-*"
     gdb_test "p t_call_add(add,3,4)" " = 7"
 
     gdb_test "p t_enum_value1(enumval1)" " = 1"
@@ -178,37 +195,26 @@ proc do_function_calls {} {
     gdb_test "p t_enum_value2(enum_val2)" " = 1"
     gdb_test "p t_enum_value2(enum_val1)" " = 0"
 
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p sum_args(1,{2})" " = 2"
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p sum_args(2,{2,3})" " = 5"
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p sum_args(3,{2,3,4})" " = 9"
-    if {!$gcc_compiled} then { setup_xfail "hppa*-*-hpux*" }
     gdb_test "p sum_args(4,{2,3,4,5})" " = 14"
     gdb_test "p sum10 (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)" " = 55"
 
-    setup_xfail "rs6000-*-*"
     gdb_test "p t_structs_c(struct_val1)" "= 120 'x'" \
 	"call inferior func with struct - returns char"
-    setup_xfail "rs6000-*-*"
     gdb_test "p t_structs_s(struct_val1)" "= 87" \
 	"call inferior func with struct -  returns short"
-    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     gdb_test "p t_structs_i(struct_val1)" "= 76" \
 	"call inferior func with struct - returns int"
-    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     gdb_test "p t_structs_l(struct_val1)" "= 51" \
 	"call inferior func with struct - returns long"
     setup_xfail "i*86-*-*"
-    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     gdb_test "p t_structs_f(struct_val1)" "= 2.12.*" \
 	"call inferior func with struct - returns float"
     setup_xfail "i*86-*-*"
-    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     gdb_test "p t_structs_d(struct_val1)" "= 9.87.*" \
 	"call inferior func with struct - returns double"
-    if {!$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     gdb_test "p t_structs_a(struct_val1)" "= (.unsigned char .. )?\"foo\"" \
 	"call inferior func with struct - returns char *"
 
@@ -219,9 +225,7 @@ proc do_function_calls {} {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
-
-source gdb.base/callfuncs.ci
+gdb_load ${binfile}
 
 send "set print sevenbit-strings\n" ; expect -re "$prompt $"
 send "set print address off\n" ; expect -re "$prompt $"

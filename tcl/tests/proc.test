@@ -10,7 +10,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) proc.test 1.18 94/12/17 16:20:19
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
@@ -418,7 +417,7 @@ test proc-7.11 {return with special completion code} {
 	catch {open _bad_file_name r} msg
 	return -code error -errorinfo $errorInfo -errorcode $errorCode $msg
     }
-    string tolower [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    normalizeMsg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
 } {1 {couldn't open "_bad_file_name": no such file or directory} {couldn't open "_bad_file_name": no such file or directory
     while executing
 "open _bad_file_name r"
@@ -430,7 +429,7 @@ test proc-7.12 {return with special completion code} {
 	catch {open _bad_file_name r} msg
 	return -code error -errorcode $errorCode $msg
     }
-    string tolower [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    normalizeMsg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
 } {1 {couldn't open "_bad_file_name": no such file or directory} {couldn't open "_bad_file_name": no such file or directory
     while executing
 "tproc2"} {posix enoent {no such file or directory}}}
@@ -440,7 +439,7 @@ test proc-7.13 {return with special completion code} {
 	catch {open _bad_file_name r} msg
 	return -code error -errorinfo $errorInfo $msg
     }
-    string tolower [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    normalizeMsg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
 } {1 {couldn't open "_bad_file_name": no such file or directory} {couldn't open "_bad_file_name": no such file or directory
     while executing
 "open _bad_file_name r"
@@ -452,7 +451,7 @@ test proc-7.14 {return with special completion code} {
 	catch {open _bad_file_name r} msg
 	return -code error $msg
     }
-    string tolower [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    normalizeMsg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
 } {1 {couldn't open "_bad_file_name": no such file or directory} {couldn't open "_bad_file_name": no such file or directory
     while executing
 "tproc2"} none}

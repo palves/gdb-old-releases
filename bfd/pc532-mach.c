@@ -35,7 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 
 #define TEXT_START_ADDR 0x10000       /* from old ld */
-#define PAGE_SIZE 0x1000       /* from old ld,  032 & 532 are really 512/4k */
+#define TARGET_PAGE_SIZE 0x1000       /* from old ld,  032 & 532 are really 512/4k */
 
 /* Use a_entry of 0 to distinguish object files from OMAGIC executables */
 #define N_TXTADDR(x) \
@@ -44,14 +44,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    (N_MAGIC(x) == NMAGIC? TEXT_START_ADDR: \
     TEXT_START_ADDR + EXEC_BYTES_SIZE))
 
-#define	SEGMENT_SIZE	PAGE_SIZE
+#define	SEGMENT_SIZE	TARGET_PAGE_SIZE
 
 #define N_SHARED_LIB(x) 0
-#define SEGMENT_SIZE PAGE_SIZE
+#define SEGMENT_SIZE TARGET_PAGE_SIZE
 #define DEFAULT_ARCH bfd_arch_ns32k
   
 #define MY(OP) CAT(pc532machaout_,OP)
 
+/* Must be the same as aout-ns32k.c */
 #define NAME(x,y) CAT3(ns32kaout,_32_,y)
 
 #define TARGETNAME "a.out-pc532-mach"
@@ -70,21 +71,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #define MY_get_section_contents aout_32_get_section_contents
 
-/* Forward declaration. Defined in aout-target.h */
+#define MY_text_includes_header 1
 
-static boolean MY(set_sizes)();
-     
-static CONST struct aout_backend_data MY(backend_data) =
-{
-  0,				/* zmagic contiguous */
-  1,				/* text incl header */
-  0,
-  0,				/* text vma? */
-  MY(set_sizes),
-  1,				/* exec header is not counted */
-};
-     
-#define MY_backend_data &MY(backend_data)
+#define MY_exec_header_not_counted 1
      
 #define MYNSX(OP) CAT(ns32kaout_,OP)
 reloc_howto_type *

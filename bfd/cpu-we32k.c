@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-static bfd_arch_info_type arch_info_struct = 
+const bfd_arch_info_type bfd_we32k_arch =
   {
     32,	/* 32 bits in a word */
     32,	/* 32 bits in an address */
@@ -35,11 +35,5 @@ static bfd_arch_info_type arch_info_struct =
     true, /* the one and only */
     bfd_default_compatible, 
     bfd_default_scan ,
-    0, /* disassemble */
+    0,
   };
-
-void
-bfd_we32k_arch ()
-{
-  bfd_arch_linkin(&arch_info_struct);
-}

@@ -10,11 +10,12 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile $objdir/$subdir/signals
-
-if ![file exists $binfile] then {
-    perror "$binfile does not exist."
-    return 0
+set testfile signals
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
 }
 
 proc signal_tests_1 {} {
@@ -30,7 +31,7 @@ proc signal_tests_1 {} {
 	exec sleep 2
 
 	# i386 BSD currently fails the next test with a SIGTRAP.
-	setup_xfail "i*86-*-bsd*" "i*86-*-freebsd*"
+	setup_xfail "i*86-*-bsd*"
 	# But Dynix has a DECR_PC_AFTER_BREAK of zero, so the failure
 	# is shadowed by hitting the through_sigtramp_breakpoint.
 	clear_xfail "i*86-sequent-bsd*"
@@ -114,7 +115,6 @@ proc signal_tests_1 {} {
 	}
 
 	gdb_test "break handler" "Breakpoint \[0-9\]+ .*"
-	setup_xfail "i*86-*-freebsd*"
 	gdb_test "next" "\\+\\+count; /\\* second \\*/" \
 	    "next to 2nd ++count in signals_tests_1"
 	# An alarm has been signaled, give the signal time to get delivered.
@@ -122,7 +122,7 @@ proc signal_tests_1 {} {
 
 	set bash_bug 0
 	send "next\n"
-	setup_xfail "i*86-*-linux" "i*86-*-freebsd*"
+	setup_xfail "i*86-*-linux"
 	expect {
 	    -re "Breakpoint.*handler.*$prompt $" {
 		pass "next to handler in signals_tests_1"
@@ -142,7 +142,7 @@ proc signal_tests_1 {} {
 	# This doesn't test that main is frame #2, just that main is frame
 	# #2, #3, or higher.  At some point this should be fixed (but
 	# it quite possibly would introduce new FAILs on some systems).
-	setup_xfail "i*86-*-linux" "i*86-*-bsdi2.0" "i*86-*-freebsd*"
+	setup_xfail "i*86-*-linux" "i*86-*-bsdi2.0"
 	gdb_test "backtrace" "#0.*handler.*#1.*#2.*main.*" \
 	    "backtrace in signals_tests_1"
 
@@ -152,7 +152,7 @@ proc signal_tests_1 {} {
 	# Vax Ultrix and i386 BSD currently fail the next test with
 	# a SIGTRAP, but with different symptoms.
 	setup_xfail "vax-*-ultrix*"
-	setup_xfail "i*86-*-bsd*" "i*86-*-freebsd*"
+	setup_xfail "i*86-*-bsd*"
 	setup_xfail "i*86-*-linux"
 	send "continue\n"
 	expect {
@@ -231,8 +231,9 @@ proc signal_tests_1 {} {
 	# to tell gdb about `pass' signals).  So the fix would appear to
 	# be to just yank that one breakpoint when we step over it.
 
-	setup_xfail "sparc-*-*"
+	setup_xfail "sparc*-*-*"
 	setup_xfail "rs6000-*-*"
+	setup_xfail "powerpc-*-*"
 
 	# A faulty bash will not step the inferior into sigtramp on sun3.
 	if {$bash_bug} then {
@@ -339,8 +340,9 @@ if [runto_main] then {
 
     # Haven't investigated this xfail
     setup_xfail "rs6000-*-*"
+    setup_xfail "powerpc-*-*"
     gdb_test "p count" "= 2" "p count #1 in signals.exp"
-    if [istarget "rs6000-*-*"] { return 0 }
+    if { [istarget "rs6000-*-*"] || [istarget "powerpc-*-*"] } { return 0 }
 
     gdb_test "condition \$handler_breakpoint_number" "now unconditional\\."
     gdb_test "next" "alarm \\(.*" "next to alarm #2 in signals.exp"
@@ -355,6 +357,7 @@ if [runto_main] then {
 The program being debugged stopped while in a function called from GDB.*" \
 	"p func1 () #2 in signals.exp"
     # But we should be able to backtrace...
+    setup_xfail "alpha-*-osf2"
     gdb_test "bt" "#0.*handler.*#1.*#2.*main.*" "bt in signals.exp"
     # ...and continue...
     gdb_test "continue" "Continuing\\." "continue in signals.exp"

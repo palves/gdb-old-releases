@@ -65,6 +65,9 @@ extern int _fisatty(FILE *);
 #endif
 #endif
 
+/* For RDIError_BreakpointReached.  */
+#include "dbg_rdi.h"
+
 extern unsigned ARMul_OSInit(ARMul_State *state) ;
 extern void ARMul_OSExit(ARMul_State *state) ;
 extern unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number) ;
@@ -231,12 +234,11 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
 	int i;
 	char *local = malloc (len);
 	res = read (f,local, len);
-	for (i = 0; i < len; i++) 
-	  {
+	if (res > 0)
+	  for (i = 0; i < res; i++) 
 	    ARMul_WriteByte(state, ptr + i, local[i]) ;
-	  }
 	free (local);
-	state->Reg[0] = res;
+	state->Reg[0] = res == -1 ? -1 : len - res;
 	OSptr->ErrorNo = errno;
 	return TRUE;     
       }
@@ -253,7 +255,8 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
 	  {
 	    local[i] = ARMul_ReadByte(state, ptr + i);
 	  }
-	state->Reg[0] = write (f, local, len);
+	res = write (f, local, len);
+	state->Reg[0] = res == -1 ? -1 : len - res;
 	free (local);
 	OSptr->ErrorNo = errno;
 	return TRUE;     
@@ -297,6 +300,11 @@ unsigned ARMul_OSHandleSWI(ARMul_State *state,ARMword number)
 
     case SWI_GetErrno :
       state->Reg[0] = OSptr->ErrorNo ;
+      return(TRUE) ;
+
+    case SWI_Breakpoint :
+      state->EndCondition = RDIError_BreakpointReached ;
+      state->Emulate = FALSE ;
       return(TRUE) ;
 
     default :

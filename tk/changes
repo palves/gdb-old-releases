@@ -2,6 +2,7 @@ This file summarizes all changes made to Tk since version 1.0 was
 released on March 13, 1991.  Changes that aren't backward compatible
 are marked specially.
 
+
 3/16/91 (bug fix) Modified tkWindow.c to remove Tk's Tcl commands from
 the interpreter when the main window is deleted (otherwise there will
 be dangling pointers to the non-existent window).
@@ -1224,3 +1225,1444 @@ shortly after it was released.
 R_OK in call to "access".  Changed to eliminate call to "access".
 
 -------------------- Release 3.6, 11/26/93 -------------------------
+
+11/10/93 (bug fix) Packer and placer didn't always reposition a window
+correctly if it was managed inside a neice or lower descendant (using
+"-in" option) and the neice's parent moved.
+
+11/24/93 (bug fix) Fixed time problem in selection (retrievals could
+fail if retriever hasn't received any X events since selection was
+made, so that time of retrieval appears to be older than time of
+selection).  Selection code is now much less picky about times, both
+on retrieving and supplying sides.
+
+12/2/93 (new feature) Changed arrow-head drawing code for canvas
+lines to draw a 0-width outline in addition to filling the area:
+this produces much nicer, more symmetrical displays.
+
+12/2/93 (bug fix) When colors ran out, Tk was invoking "tkerror"
+when its state was internally inconsistent, which could cause
+core dumps in some situations (e.g. if tkerror used the same color
+that caused colors to run out).  Changed notification to occur
+as a when-idle handler.
+
+12/3/93 (bug fix) During a global grab, Tk wasn't including PointerMotion
+in the list of grabbed events, so pointer motion couldn't be tracked
+outside the grabbing application.
+
+12/3/93 (bug fix) Canvases didn't handle smoothed lines correctly
+when they only contained two points.
+
+12/3/93 (bug fix) Fixed bug in tkWindow.c where certain kinds of
+errors during window creation could cause Destroy events to be generated
+for a window that was never completely initialized.
+
+12/13/93 (bug fix) Fixed bug in tkTextDisp.c that resulted in core
+dumps at line 1467 under exmh.  The exact situation is that a text
+widget was being redisplayed at a time when it had a -yscrollcommand
+option but hadn't yet been mapped onto the screen.
+
+12/17/93 (bug fix) Fixed bug in tkWindow.c whereby new top-level windows
+with non-default visuals still inherited border pixmap from parent (root),
+which could cause visual clash and X error.
+
+12/17/93 (bug fix) Fixed bug in tkTextDisp.c that caused round-off
+error in the information passed to scroll commands.
+
+12/18/93 (bug fix) Fixed bug in tkPack.c that caused core dumps in
+some situations if a master with siblings packed "-in" it was deleted.
+
+12/18/93 (bug fix) Added "compat" directory to distribution, since it's
+referenced by tkConfig.h on some systems.
+
+12/18/93 (performance improvement) Improved performance of appending to
+a listbox, so that inserting N items doesn't take N**2 time.
+
+12/20/93 (bug fix) Fixed bug in canvas ovals that caused the fill color
+for the oval to stick out past the outline.
+
+1/2/94 (fixed Xlib bug) Added code to reuse X resource identifiers so
+that they won't run out in long running applications.  There are three
+new library procedures: Tk_FreeXId, Tk_GetPixmap, and Tk_FreePixmap.
+Modified all Tk code to use these procedures, so wish applications should
+now be able to run forever without running out of identifiers.
+
+1/10/94 (bug fix) tkCursor wasn't freeing pixmaps used to create
+cursors, which caused memory leaks in programs that changed cursors
+frequently.
+
+1/21/94 (bug fix) Fixed bug in scales that caused them to loop
+infinitely drawing tick-marks when -from and -to were the same.
+
+2/2/94 (bug fix) Fixed problem where messages that contained tabs
+didn't always compute the correct size, so that text spilled off
+the right edge.  The fix adds an extra "tabOrigin" parameter to
+the internal procedures TkMeasureChars, TkDisplayChars, and
+TkUnderlineChars.
+
+2/4/94 (bug fix) Fixed off-by-one problem in tkBind.c that caused
+it to read past the initialized part of dispPtr->modKeyCodes.
+
+2/7/94 (bug fix) Text widgets didn't handle grabs correctly, such
+that the "current" character got stuck if a grab occurred while a
+mouse button was down.  It would get unstuck until after the
+next button press and release.
+
+2/19/94 (bug fix) Fixed prolog.ps (prolog for Postscript printing from
+canvases) so that it correctly prints all of the characters in the
+ISO Latin-1 character set.
+
+2/19/94 (bug fix) Modified tkBind.c to save and restore the interpreter's
+result across the execution of binding scripts.  Otherwise if an event
+triggers in the middle of some other script (e.g. a destroy event during
+window creation, because there was an error in the creation command),
+the intepreter's result gets lost.
+
+2/19/94 (bug fix) Fixed bug in dealing with results of sent command
+that could cause them to get lost in some situations.
+
+2/21/94 (bug fix) Don't let user close a dialog window created by
+tk_dialog, since this would cause tk_dialog to hang:  force the user
+to select one of the dialog's buttons.
+
+2/21/94 (bug fix) Fixed bug in canvas polygons whereby they didn't
+correctly handle changes in the number of points (via "coords"
+widget command).
+
+2/23/94 (bug fix) Large bitmaps in canvases didn't print correctly
+because they overflowed the 64-KB limit on strings in Postscript.
+Changed canvas printing to split up large bitmaps into mutliple
+smaller ones for printing.
+
+2/25/94 (bug fix) The "." window was being set up with -width
+and -height options, which interfered with geometry management (any
+configuration change on "." causes the window to change size to
+200x200, then change back again).
+
+2/26/94 (bug fix) Fixed several bugs that occurred when a Destroy
+event handler for a window deleted the window's parent.
+
+3/3/94 (new features) Changes to binding mechanism:
+    - The modifiers for "Alt", "Meta", and "M" are now computed by
+      examining the modifier map, rather than being hardwired to
+      M2, M1, and M1.
+    - When processing events, one script is invoked for each object
+      in the list passed to Tk_BindEvent, rather than stopping as
+      soon as a script is invoked for some object.  The "break" and
+      "continue" commands can be used within a script to abort all
+      scripts for the event or the current one.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Added "bindtags" command so that new binding groups can be
+      defined for widgets and the evaluation order can be changed.
+    - When matching events to bindings, extra modifiers are now ignored,
+      as if "Any" were specified for every event.  The "Any" modifier
+      is still recognized, but it is ignored and is deprecated.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - In % sequences that print window identifiers (e.g. %a and %S), print
+      in hexadecimal rather than decimal, for consistence with "winfo id".
+      *** POTENTIAL INCOMPATIBILITY ***
+    - The "bind" command no longer supports the event types CirculateRequest,
+      ConfigureRequest, MapRequest, or ResizeRequest.  These event types
+      are somewhat dangerous, and they never worked anyway.
+
+3/13/94 (bug fix) Fixed numerous problems with the "wm iconwindow" command.
+It appears that this command never really worked at all, but it should
+work OK now.
+
+3/14/94 (feature changes) Removed several obsolete features:
+    - Eliminated "enable" and "disable" widget commands for menus.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Eliminated "activate" and "deactivate" widget commands for buttons,
+      checkbuttons, radiobuttons, and menubuttons.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Removed -geometry option for frames and toplevels:  it causes
+      problems when .Xdefaults files contain entries like
+      "*geometry: +0+0".  Must use -width and -height instead.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Desupported "tkVersion" variable: use "tk_version" instead.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+3/16/94 (feature changes) Changes to listboxes:
+    - Eliminated -geometry option (it causes problems when .Xdefaults
+      files contain entries like "*geometry: +0+0").  Added -width
+      and -height options to use instead.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+3/21/94 (bug fix) Fixed bug in tkOption.c where the option cache wasn't
+properly cleaned up after window deletion;  this could cause the wrong
+value from the option database to be used under some conditions.
+
+3/25/94 (new features) Changes to geometry management:
+    - Added Tk_MaintainGeometry and Tk_UnmaintainGeometry procedures
+      to solve problems with -in windows.  Modified the packer, the
+      placer, and canvases to use them.
+    - Changed 2nd argument to Tk_ManageGeometry from Tk_GeometryProc *
+      to a pointer to a structure with additional information about
+      the geometry manager, such as name and procedure to call when
+      slaves are stolen.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+3/28/94 (new feature) Overhauled event management:
+    - Added "cancel" option to the "after" command so that you can
+      cancel previously-scheduled commands.
+    - Separated X-specific stuff from generic event management.  The
+      file tkEvent.c can now be used stand-alone without the rest of Tk.
+      See the manual entry for Tk_EventInit for information on which
+      procedures are available this way.
+    - Added Tk_CreateFileHandler2 procedure, which provides a lower-level
+      and more powerful form of file event handler.
+    - Fixed bug in Tk_DoOneEvent where an infinite loop could occur if
+      the TK_FILE_EVENT and TK_DONT_WAIT flags were set simultaneously
+      (there were bugs with several other combinations too;  all should
+      be fixed now).
+
+3/28/94 (new feature) Added "fileevent" command, which allows event-
+driven I/O in the style of Mark Diekhans' "addinput" command.
+
+4/11/94 (new feature) Better support for colormaps and visuals:
+    - Added new -colormap and -visual options to toplevels and frames.
+    - Added "winfo visualsavailable" command.
+    - Added "wm colormapwindows" command, plus support for WM_COLORMAP_WINDOWS
+      to Tk_SetWindowColormap.
+    - Added new library procedures Tk_GetVisual, Tk_GetColormap,
+      and Tk_FreeColormap.
+
+4/11/94 (bug fix) Fixed core dump that used to occur when specifying
+an iconwindow ("wm iconwindow") for a toplevel on a different screen
+than the main window.
+
+4/23/94 (new feature) Added support for images, including the following:
+    - New "image" command for creating images.
+    - Built-in image type: bitmap.
+    - New "image" item type in canvases.
+    - Labels, buttons, checkbuttons, radiobuttons, menubuttons, and
+      menu entries now support a -image option for displaying images.
+    - Tk_CreateImageType and Tk_ImageChanged procedures, for defining
+      new types of images in C.
+    - Tk_GetImage, Tk_FreeImage, Tk_RedrawImage, and Tk_SizeOfImage
+      procedures, for using images in widgets.
+
+5/1/94 (new features) Added new procedures Tk_3DVerticalBevel and
+Tk_3DHorizontalBevel.
+
+5/11/94 (new features) Major overhaul of text widgets:
+    - Implemented embedded windows and "window" widget command.
+    - Added new configuration options for tags: -justify, -lmargin1,
+      -lmargin2, -rmargin, -offset, -spacing1, -spacing2, and -spacing3.
+      See the "Display styles" widget demo for examples.
+    - Added new configuration options for texts: -spacing1, -spacing2,
+      and -spacing3.
+    - Added "tagList" option to "insert" widget command to control
+      tags on new text.  Made tagged regions so they aren't sticky on
+      either side:  new characters get a tag only if the old chars. on
+      both sides had it.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Added gravity for marks, and "mark gravity" widget command.
+    - Added horizontal scrolling, "xview" widget command, -xscrollcommand
+      option.  Changed "scan" widget commands to support horizontal
+      scrolling.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Added "search" widget command for searching (either exact matches
+      or regular expressions).
+    - New widget commands: bbox, dlineinfo, and see.
+    - Changed implementation of bindings so that Enter and Leave
+      events are not generated unless the tag has just become present
+      (or just ceased to be present) on the current character.  Also
+      changed bindings to process separately for each tag, rather than
+      having high-priority tags override low-priority ones.
+    - The "end" index now refers to the character after the last newline
+      rather than the newline itself.  You can now tag the final newline
+      and set a mark after the final newline.
+    - Deletions of the "sel" tag and the "insert" and "current" marks
+      are now ignored silently, rather than generating errors.  This means
+      you can do things like "eval .t tag delete [.t tag names]".
+
+5/19/94 (bug fix) Canvases didn't generate proper Postscript for stippled
+text.
+
+5/20/94 (new feature) Added "bell" command to ring the display's bell.
+
+5/20/94 (new feature) Incorporated "square" demonstration widget into
+tktest application.
+
+5/20/94 (new features) Changed wish application (tkMain.c):
+    - wish no longer processes the -help option.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - The wish main program is now called Tk_Main;  tkAppInit.c has a
+      "main" procedure that calls Tk_Main.  This makes it easier to use
+      Tk with C++ programs, which need their own main programs, and it
+      also allows an application to prefilter the argument list before
+      calling Tk_Main.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - The application's class is now the same as its name (except the
+      first letter is capitalized), instead of "Tk".
+      *** POTENTIAL INCOMPATIBILITY ***
+    - The -file keyword is no longer required:  the script file name can
+      be provided as the first argument without being preceded by "-file",
+      as in tclsh.  For backward compatibility the "-file" keyword is
+      ignored if it is the first argument, but it is deprecated.
+
+5/26/94 (feature removed) Removed support for "fill" justify mode from
+Tk_GetJustify and from the TK_CONFIG_JUSTIFY configuration option.  None
+of the built-in widgets ever supported this mode anyway.
+*** POTENTIAL INCOMPATIBILITY ***
+
+5/27/94 (feature change) Changed Tk to use Tk_PrintDouble everywhere
+that it converts reals to strings.  This means that floating-point
+values will be generated in some cases where integer-like values were
+generated before.
+*** POTENTIAL INCOMPATIBILITY ***
+
+6/1/94 (feature change) Renamed "pack newinfo" command to "pack info".
+The old "pack info" command is no longer available.
+*** POTENTIAL INCOMPATIBILITY ***
+
+6/20/94 (feature changes) Overhaul of entry widgets:
+    - Added "-justify" option.
+    - Added "-show" option to make entries easier to use for passwords.
+    - Added "cget" widget command.
+    - Added "selection range" and "selection present" widget commands.
+    - Added "anchor" symbolic index.
+    - Changed "-scrollcommand" option to "-xscrollcommand", "view"
+      widget command to "xview", for compatibility with other widgets.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Changed sel.last to refer to character just *after* last one
+      selected, again for compatibility with other widgets.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - For "delete" widget command, second index now refers to character
+      just *after* last one to delete.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Overhauled bindings to be more Motif-compatible and to include
+      common Emacs bindings for editing.
+    - Changed -width option:  if specified as 0, widget sizes to fit
+      its current text.
+
+6/11/94 (new features) Improved Motif compatibility:
+    - Added "-highlightwidth" and "-highlightcolor" options to all widgets.
+
+6/27/94 (bug fix) Postscript generation for text items in canvases was
+not justifying the text properly when a -width was specified that was
+longer than the longest line.
+
+6/27/94 (bug fix) "winfo exists" used to report a window as existing
+if it was in the process of being destroyed (i.e., a destroy handler
+is in the middle of execution).  Changed to report it as non-existent
+under these conditions.
+*** POTENTIAL INCOMPATIBILITY ***
+
+7/11/94 (bug fix) Selections claimed via "selection own" weren't always
+being cleared properly when the selection was claimed away.  Also fixed
+bug where Tk wasn't properly claiming the selection, if there haven't
+been any recent X events at the time of the claim.
+
+7/13/94 (feature changes) Overhaul of scrollbar widgets:
+    - New widget commands: "activate", "cget", "fraction", and "identify".
+    - New options: -activebackground, -activerelief, -highlightcolor,
+      -jump, -highlightthickness, and -troughcolor.  What used to be
+      -background is now -troughcolor, -foreground is now -background,
+      and -activeforeground is now -activebackground.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Added new syntax for "set" command, "get" result, and generated
+      commands.  Changed other widgets to use the new syntax.
+    - Moved the bindings out of C and into Tcl scripts, using the new
+      options and widget commands.  Added support for all Motif
+      bindings, plus jump scrolling and cancelling of slider drags.
+
+7/16/94 (bug fix) Canvases assumed that the Leave event for one item
+didn't modify or delete the next current item;  this could cause core
+dumps under some conditions.
+
+7/23/94 (feature change) Modified Tk_BackgroundError so that tkerror
+is invoked as an idle handler.  If tkerror generates a break exception
+then all other queued reports are aborted.
+
+8/14/94 (bug fix) "cursorOffTime" and "cursorOnTime" were confused in
+canvases, resulting in the same time being used for both.
+
+8/16/94 (bug fix) "tkwait variable" command didn't detect errors in
+variable name, such as trying to wait for an entire array.
+
+9/2/94 (new features) Overhaul of scale widgets:
+    - Floating-point values are supported now, following Paul Mackerras'
+      "fscale" widget.  Added "-resolution" and "-digits" options.
+    - Added "-variable" option to link scale to variable, following
+      Henning Schulzrinne's implementation.
+    - Added focus highlight (-highlightthickness and -highlightcolor
+      options).
+    - Added new widget commands "cget",  "coords", "identify", plus
+      improved "get";  removed wired-in bindings, added complete set
+      of Motif bindings via Tcl scripts.
+    - Changed -sliderforeground option to -background, -background to
+      -troughColor, -activeforeground to -activebackground.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Moved value label from below horizontal scales to above the scale,
+      for Motif compliance.
+
+9/9/94 (bug fix) Fixed bug in tkWm.c that caused long delays in "raise"
+command under some conditions (window already at the top of the stack).
+
+9/10/94 (new features) Overhaul of label/button/checkbutton/radiobutton
+widgets:
+    - Added focus highlight (-highlightthickness and -highlightcolor
+      options).
+    - Added new widget command "cget".
+    - Changed -selector option to -selectcolor, and changed its meaning
+      too: empty no longer means don't draw the indicator;  it means
+      don't use a special color when selected.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Added -indicatoron (controls whether indicator is displayed) and
+      -selectimage (gives special image to display when selected) options.
+    - Modified bindings to be more Motif-like, added binding for space
+      key.
+    - Changed padding defaults to give widgets correct Motif appearance
+      by default.  Also, changed to ignore padding options when displaying
+      an image or bitmap.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Can now display text on multiple lines:  newlines cause line breaks,
+      and word wrapping can be requested with -wraplength option.  Also
+      added -justify and -underline options.
+    - The -value option for radiobuttons can now have an empty string as
+      its value;  it no longer defaults to the name of the widget.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+9/13/94 (new features) Modified both canvases and messages to support
+-highlightthickness and -highlightcolor options plus "cget" widget
+command.
+
+9/19/94 (new features) Added Tk_UnsetGrid procedure, modified widgets
+to use it.  Also changed Tk_SetGrid so that at most one window per
+toplevel can have gridding enabled.
+
+9/23/94 (new features) Major overhaul of listbox widgets:
+    - Added focus highlight (-highlightthickness and -highlightcolor
+      options).
+    - Added new widget command "cget".
+    - Revised selection commands to support single selections as well
+      as multiple disjoint selections;  syntax of "selection" widget
+      command has changed to support this.  Added new option -selectmode
+      for specifying which mode to use.  Default is single selection;
+      tk_listboxSingleSelect procedure no longer exists.  Selections
+      now return as items separated by newlines instead of a list whose
+      elements are the items.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Extended "get" widget command to allow many items to be retrieved
+      at once.
+    - Added "bbox" widget command for finding position of an element on
+      screen.
+    - Added "activate" command to mark element with traversal focus.
+    - Extended index mechanism to support new types of indices:
+      "active", "anchor", "@x,y".
+    - Added "see" widget command.
+    - Revised bindings to include all Motif features except for AddMode.
+    - If -width or -height option is <= 0, the widget requests a size just
+      large enough to hold all of its text.
+
+10/6/94 (new features) Overhaul of menubuttons:
+    - Added focus highlight (-highlightthickness and -highlightcolor
+      options).
+    - Added new widget command "cget".
+    - Added -indicatoron option to display option menu indicator.
+    - The -menu option must be a child of the menubutton.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+10/6/94 (new features) Overhaul of menu widgets:
+    - Added new widget commands "cget" and "entrycget".
+    - Changed the implementation of tear-off menus to be more
+      Motif-like;  added -tearoff option for specifying whether
+      tearoff entry is displayed.
+    - Changed interpretation of "@y" index:  it now returns the
+      closest entry, rather than "none" if y is outside the menu's
+      range.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - The -menu option for a cascade entry must now be a child of
+      the menu.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Added "type" widget command, so that you can query the type of
+      an entry.
+    - Added -foreground, -activeforeground, -selectcolor, -indicatoron,
+      -image, and -selectimage options to menu entries.
+    - Changed "selector" menu option to "selectColor" for Motif compliance.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Added -relief option for menus, just for consistency with other
+      widgets (it was implicitly "raised" before).
+
+10/6/94 (feature change) Completely overhauled the bindings for menus
+and menubuttons.  They now fit better with other Tk 4.0 facilities,
+such as the new binding mechanism, and they provide better Motif
+compliance (e.g. keyboard traversal of submenus).  Also, the bindings
+now support option menus, popup menus, and proper Motif tear-off
+menus.
+
+10/6/94 (obsolete features) The procedures tk_menuBar and
+tk_bindForTraversal are no longer needed in Tk 4.0.  They still exist
+for compability, but they do nothing.
+
+10/6/94 (new procedures) Added "tk_popup" procedure for posting a
+popup menu, and "tk_optionMenu" for creating an option menubutton
+and its associated menu.
+
+10/6/94 (change in name) The variable "tk_priv" has been renamed
+to "tkPriv" to reflect that fact that it is private to Tk now.
+This shouldn't cause any problems, since no-one except Tk should
+have been using it before anyway (right?).
+
+10/6/94 (bug fix) Fixed bug in texts where sometimes the text would
+stop tracking mouse motion (the "current" item wouldn't get updated)
+because the text widget missed a ButtonRelease event.
+
+10/20/94 (new features) Overhauled selection code to support multiple
+selections (primary, secondary, etc.) and multiple displays:
+    - Changed "selection" command to support new options such as
+      "-displayof" and "-selection".  Old command formats are still
+      supported for compatibility, but they are no longer documented
+      and are deprecated.
+    - Changed procedures Tk_GetSelection, Tk_CreateSelHandler, and
+      Tk_ClearSelection to take additional "selection" argument.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Selection targets APPLICATION and WINDOW_NAME have been replaced
+      by TK_APPLICATION and TK_WINDOW.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+10/20/94 (new features) Added support for clipboard:
+    - New "clipboard" command.
+    - C procedures Tk_ClipboardClear and Tk_ClipboardAppend.
+    - Bindings for "cut", "paste", and "copy" for text and entry widgets,
+      plus "copy" binding for listboxes.
+
+10/24/94 (bug fix) Button widgets weren't checking for errors when
+setting the values of associated variables.
+
+11/3/94 (bug fix) Fixed bug whereby Tk would hang if "exit" was invoked
+from inside a <Destroy> binding.
+
+11/15/94 (new features) Overhaul of focus mechanism:
+    - Added support for multiple displays:  separate focus windows are
+      kept for each display.
+    - Added support for keyboard traversal.
+    - Changed focus model so Tk keeps track of a focus window for each
+      top-level window and automatically sets the focus on Enter to the
+      top-level.  Tk no longer synthesizes FocusIn and FocusOut events,
+      but just uses the standard X mechanisms.  There is no "default"
+      focus window anymore; the focus reverts to top-levels by default.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Changed focus command:  eliminated "focus default" and "focus none",
+      added "-displayof" and "-lastfor" options.  An empty string is now
+      used to signify "no focus" instead of "none".
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Added library procedures tk_focusNext, tk_focusPrev, and
+      tk_focusFollowsMouse.
+    - Removed obsolete Tk_CreateFocusHandler:  must use FocusIn and
+      FocusOut events now.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+11/23/94 (new features) Overhaul of "send" command:
+    - Added support for multiple displays: -displayof option to "send".
+    - Added asynchronous sends: -async option to "send".
+    - Eliminated fixed timeouts on sends:  as long as the target
+      application appears to exist, the send will wait for it.
+    - Stale entries get removed from the application registry now,
+      so "winfo interps" should never return non-existent applications.
+    - Can change the name of an application with "tk appname" command.
+      This is also the preferred way of querying the application name
+      now.
+    - The errorCode and errorInfo variables are now propagated back to
+      the sender now, so a full stack trace is available.
+    - Tk checks display security on each send now, instead of just during
+      initialization, so changes in the security status are seen immediately
+      by all applications.
+    - The above changes required changes to the data formats used for
+      communication between source and target applications, so Tk 4.0
+      applications cannot send to, or be sent from, Tk 3.6 applications.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - The procedure Tk_RegisterInterp has been replaced with Tk_SetAppName.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+12/6/94 (cleanup) Eliminated "interp" argument to Tk_GetColorByValue,
+since it is no longer needed.
+*** POTENTIAL INCOMPATIBILITY ***
+
+12/7/94 (feature change) Changed the "wm" command so that top-level
+windows are now resizable by default.  You can no longer specify
+empty arguments to "wm maxsize" and "wm minsize".
+*** POTENTIAL INCOMPATIBILITY ***
+
+12/8/94 (new feature) Added new "photo" image type using code provided
+by Paul Mackerras:  currently supports only PPM "P6" format images.
+
+12/14/94 (new features) Canvas modifications:
+    - Modified the interfaces between generic canvas code and the item
+      types so that it's easy for people to write new item types outside
+      of Tk.
+    - Added support for transparent bitmap items:  just specify an
+      empty string as the background color.
+    - Changed the "xview" and "yview" commands for canvases to use the
+      new scrolling syntax.
+    - Eliminated -scrollincrement option.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+12/14/94 (bug fix) Fixed bug where the dimensions of canvas arrowheads
+scaled during a "scale" widget command, but the scaling was only
+temporary and got lost on the next re-configure of the item.  The
+correct behavior is for the arrowheads not to scale.
+
+-------------------- Release 4.0b1, 12/23/94 -------------------------
+
+12/26/94 (bug fix) Removed obsolete demos from Makefile (color, dialog,
+size), fixed "install" target.
+
+1/3/95 (bug fix) Fixed all procedure calls to explicitly cast arguments:
+implicit conversions from prototypes don't work when compiling under
+non-ANSI compilers.  Tk is now clean under gcc -Wconversion.
+
+1/4/95 (bug fix) Used "screenX" without ever setting it in DisplayText
+in tkCanvText.c:  caused tabs in canvas text items to get messed up.
+
+1/4/95 (bug fix) Canvases forgot to register the built-in types if
+Tk_CreateItemType was called before a canvas widget was created.
+
+1/4/95 (bug fixes) Fixed glitches in various text bindings:
+    - Up used to do nothing if the cursor was at 2.0.
+    - Right used to make the cursor invisible if it was just before
+      the final newline of the text.
+    - Control-t didn't conform to Emacs;  made it conform to GNU Emacs.
+    - Deleted Control-x binding, since it doesn't conform to anything and
+      is confusing for Emacs users.
+
+1/4/95 (bug fixes) Changed Control-t for entries just as for texts (see
+above) an deleted Control-x for entries (see above).
+
+1/4/95 (bug fix) The packer didn't map slaves unless the master was mapped;
+this could cause slaves to get "lost" so that they weren't mapped until the
+master resized.
+
+1/5/95 (bug fix) Scrollbars weren't executing the proper code the first time
+the mouse entered the widget;  this caused problems if tk_strictMotif was
+set.
+
+1/6/95 (bug fix) Fixed label/button/checkbutton/radiobutton/menubutton
+widgets to allow arbitrary screen distances when specifying -width and
+-height for an image or bitmap (the manual pages already documented this
+but the code didn't implement it).
+
+1/6/95 (new feature) Added very primitive support for input methods,
+as suggested by Martin Forssen.  This should be enough for European
+character sets (Compose key) but it isn't near enough for Asian
+character sets.
+
+1/8/95 (bug fix) Fixed problem in canvas "xview" and "yview" commands
+where divide-by-zero errors could sometimes occur.
+
+1/8/95 (bug fix) New event handler didn't properly handle files for
+which both TK_READABLE and TK_WRITABLE were specified.
+
+1/11/95 (bug fix) Fixed bug with text selections:  was returning count
+too high for data, causing bogus garbage to appear when selection was
+copied.
+
+-------------------- Release 4.0b2, 1/12/95 -------------------------
+
+1/27/95 (feature removal) Removed %D substitution from binding scripts:
+wasn't portable, shouldn't be used anyway.
+*** POTENTIAL INCOMPATIBILITY ***
+
+1/27/95 (new features) Added -displayof options to the commands
+"winfo atom", "winfo atomname", "winfo containing", "winfo interps",
+and "winfo pathname".
+
+1/27/95 (new feature) Added "idle" option to "after" command to run
+scripts as idle handlers.
+
+1/28/95 (new feature) Modified placer to make -x and -relx additive
+if you specify both.  Same for -y and -rely, -width and -relwidth,
+and -height and -relheight.  This makes it easy to make request such
+as "make .a 2 pixels larger than .b".
+*** POTENTIAL INCOMPATIBILITY ***
+
+1/28/95 (new feature) Improved auto-grab mechanism in canvases (which
+prevents current item from changing while a button is down):  changed
+to report Enter and Leave events for the current item while a button
+is down.  However, as before, no Enter events are reported for other
+items until the button goes up.
+
+1/28/95 (new feature) Bitmap images are now transparent if the -background
+is specified as an empty string (-maskdata and -maskfile are ignored in
+this case).  This is also the default.
+
+1/28/95 (bug fix) Tk didn't support manufacturer- or site-specific keysyms
+such as SunAudioMute.  Modified tkBind.c so that it uses XStringToKeysym
+in addition to its own hash table, so that all keysyms are now available.
+
+1/30/95 (feature change) Modified "clipboard append" so that it reclaims
+the clipboard selection if it had been previously lost, rather than just
+generating an error.  This handles certain race conditions more cleanly,
+and also allows the use of programs like "xclipboard".
+
+1/30/95 (new feature) Added -xscrollincrement and -yscrollincrement
+options to canvases.
+
+1/31/95 (bug fix) Geometry management was broken if a particular geometry
+manager claimed a slave away from itself.
+
+1/31/95 (bug fix) Fixed bug in tkVisual.c where a visual with fewer bits
+than requested was being selected in preference to one with just the right
+number of bits.
+
+1/31/95 (bug fix) Texts weren't redisplaying the padding region properly
+after changes in -padx or -pady.
+
+1/31/95 (new features) More text improvements:
+    - Extended "insert" widget command for texts to allow multiple
+      text-tagList pairs in the same command.
+    - Added -nocase option to "search" widget command.
+    - Added -overstrike option to tags.
+    - Added tab stops, via -tabs option for widget and for tags.
+
+2/10/95 (bug fix) Modified all widgets to allow renaming of widget
+commands.  Deleting a widget command will delete the widget.
+
+2/11/95 (new feature) Added -highlightbackground option to all widgets.
+
+2/14/95 (new feature) Added "insert" widget command for menus.
+
+2/15/95 (new feature) Modified text display code (for all widgets) to
+display well-known control characters like newline and backspace as
+\n or \b instead of \xa.
+
+2/15/95 (bug fix) Modified bitmap and photo image managers to delete
+the image command when the image is deleted.  Also modified them to
+allow renaming of the image command, and to delete the image if the
+image command is deleted.
+
+2/15/95 (bug fix) Fixed text widgets to allow horizontal scrolling
+even if wrapping was enabled, if a line isn't entirely visible due to
+a large character or embedded window.
+
+2/16/95 (feature change) Added "postcascade" widget command to menus,
+changed "invoke" and "activate" not to post or unpost submenus.  Also
+fixed bug in redisplay that tended to leave bits of garbage on menu
+when submenu unposted.
+*** POTENTIAL INCOMPATIBILITY ***
+
+2/16/95 (feature removal) Removed "snap back" behavior (slider
+snaps back to old position if you move the mouse outside the widet
+before releasing the button) from scrollbars and scales.
+
+2/16/95 (bug fix) The last line of a listbox wasn't being displayed if
+it was only partially visible.
+
+2/16/95 (new features) Added support for "-resolution 0" (no rounding
+of values) to scale widgets, plus smarter computation of how many digits
+to display.
+
+2/17/95 (bug fix) Fixed bug in text bindings for things like Shift-Left:
+didn't properly set the anchor position.
+
+2/20/95 (bug fix) Changed management of COLORMAP_WINDOWS property to
+add the toplevel implicitly to the end of the list if it wasn't already
+on the list somewhere.  Without this, some window managers implicitly
+put it at the front of the list, so that colormaps in internal windows
+are never used.
+
+2/20/95 (bug fix) Changed to use separate command procedures for
+button, checkbutton, label, and radiobutton commands.  This allows the
+class commands to be renamed without breaking their behavior.
+
+2/20/95 (removed feature) The "bind" command no longer supports
+"Keymap" events;  they never worked anyway.
+
+2/20/95 (bug fix) The text "search" widget command looped infinitely
+when searching an empty text.
+
+2/20/95 (bug fix) Canvases weren't redrawing their borders after
+configuration changes.
+
+2/20/95 (upgrade) Changed to use autoconf version 2.2.
+
+2/21/95 (bug fix) Fixed several bug fixes in menu bindings that occur
+when menus have no entries.
+
+2/21/95 (bug fix) Fixed bug in geometry management that caused windows
+packed -in siblings to not always be mapped and unmapped properly
+(particularly when the toplevel got unmapped and mapped).
+
+2/22/95 (bug fix) Fixed resource leak problem in tkTextDisp.c that
+caused embedded windows not to be unmapped when off-screen.
+
+2/23/95 (bug fix) "After cancel" dumped core when the script for an
+after event cancelled itself.
+
+2/24/95 (bug fix) Text and entry widgets weren't properly ignoring
+Alt-, Control-, and Meta- keystrokes, so a widget-specific binding
+for one of these resulted in the character also being inserted.
+
+2/24/95 (bug fix) Several widgets accidentally performed unsigned
+division on negative numbers, thereby losing the sign bit.  This
+mostly affected the display of images and bitmaps in buttons,
+menubuttons, and messages.
+
+2/24/95 (feature reversal) Restored old behavior of %A so that it
+returns non-printing characters as well as printing ones now.
+*** POTENTIAL INCOMPATIBILITY with Tk 4.0b2, but not with Tk 3.6 ***
+
+2/24/95 (bug fix) Duplicate "leave" events could occur for canvas
+items under some conditions, due to recursive calls to PickCurrentItem.
+Added code to detect and skip the nested calls.
+
+2/24/95 (bug fix) Fixed bug where an error could occur during the first
+keystroke in an application if its binding invoked "break".
+
+2/25/95 (new feature) Modified syntax of "search" widget command for
+texts.  The -nowrap switch and the "variable" final argument are no
+longer supported.  Instead, there is a -count switch to replace
+the final argument;  if the final argument is specified, it is now
+a stopping index for the search.  The features of -nowrap can be
+achieved now with the stopping index.
+*** POTENTIAL INCOMPATIBILITY with Tk 4.0b2, but not with Tk 3.6 ***
+
+2/27/95 (bug fix) Fixed problem that appears to prevent keyboard
+input for working under IRIX:  tkBind.c was ignoring XmbLookupString
+calls that returned a status of XLookupBoth.
+
+2/27/95 (new feature) Added Tk_GetItemTypes procedure to return
+information about available canvas item types.
+
+2/27/95 (feature change) Changed Makefile to always use install-sh
+for installations:  there's just too much variation among "install"
+system programs, which makes installation flakey.
+
+2/27/95 (bug fix) Fixed bug in tkSend.c that caused core dumps if
+the app's main window was destroyed by a destroy handler on a
+child.
+
+3/5/95 (feature change) Change separator character used in "bind +..."
+bindings from semi-colon to newline (permits bindings that are
+comments, for what that's worth).
+
+3/7/95 (bug fix/feature change) Overhauled focus code, both in C
+and in Tcl:
+    - Tk won't move the X focus in response to the "focus" command
+      unless either the application already has the focus or the
+      -force switch is specified.
+    - Tk no longer sets the X focus to anything other than top-levels;
+      it synthesizes events for FocusIn and FocusOut to children.
+    - A window no longer has to be viewable when focussed to;  Tk will
+      set the X focus later, when the window becomes viewable.
+    - Added -takefocus option to all widgets.
+    - Rewrote tk_focusPrev and tk_focusNext to use the -takefocus option.
+      These procedures no longer set the focus;  they just return the
+      next window in focus order.
+      *** POTENTIAL INCOMPATIBILITY with Tk 4.0b2, but not with Tk 3.6 ***
+    - Eliminated tk_focusContinue.
+      *** POTENTIAL INCOMPATIBILITY with Tk 4.0b2, but not with Tk 3.6 ***
+
+3/8/95 (new feature, bug fix) Added support for tk_strictMotif variable
+in C:  Tk_StrictMotif library procedure.  Modified buttons, menubuttons,
+menus to use it.  This fixes the problem with menus not supporting
+tk_strictMotif properly in Tk4.0b1 and b2.
+
+3/16/95 (feature overhaul) Overhauled color management:
+    - Changed Tk so it never denies a color request because a colormap
+      filled up.  Instead, it allocates the closest available color.
+    - Eliminated "color model" mechanism.  The "tk colormodel" command
+      is gone, as are the procedures Tk_GetColorModel and Tk_SetColorModel.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Changed 3D border implementation to allocate colors for shadows
+      lazily, so they're never allocated if they're never used.  Also
+      added new feature whereby stippling is used for borders when
+      the colormap has run out of entries.  Changed arguments to many
+      of Tk_3D C procedures to take a Tk_Window as argument instead of
+      a (Display *).  This is needed to do lazy color allocation.
+      *** POTENTIAL INCOMPATIBILITY ***
+    - Eliminated colormap argument to Tk_GetColor, Tk_GetColorByValue,
+      and Tk_Get3DBorder.
+      *** POTENTIAL INCOMPATIBILITY ***
+
+3/16/95 (feature change) Event bindings created from Tcl will now ignore
+Enter, Leave, FocusIn, and FocusOut events with detail NotifyInferior.
+This is done in anticipation of mega-widgets, so that the user of a
+mega-widget can create Enter/Leave bindings on the mega-widget without
+seeing spurious events as the mouse moves among the windows in the
+mega-widget.
+*** POTENTIAL INCOMPATIBILITY ***
+
+3/17/95 (feature change) Changed C interfaces throughout Tk to use ints
+instead of unsigneds:  the unsigneds turn out to cause subtle problems
+with arithmetic in some places, and using ints everywhere is just
+simpler.
+*** POTENTIAL INCOMPATIBILITY ***
+
+3/23/95 (bug fix) Selections longer than 4000 bytes were being
+truncated to 4000 bytes.
+
+-------------------- Release 4.0b3, 3/24/95 -------------------------
+
+3/25/95 (bug fix) Changed "install" to "./install" in Makefile so that
+"make install" will work even when "." isn't in the search path.
+
+3/25/95 (bug fix) Modified Tk's selection mechanism to prevent core
+dumps in other applications during retrievals of large selections
+(this is actually a bug in the other apps, but I've patched Tk to
+keep it from getting triggered).
+
+3/25/95 (bug fix) Fixed bug where X window for "." wasn't being
+deleted.
+
+3/27/95 (bug fix) Fixed many bugs associated with having more than
+one application in a single process.
+
+3/28/95 (bug fix) The "search" widget command for texts didn't
+return the correct index and count if there were embedded widgets
+on the same line as the returned range but before the end of
+the range.
+
+3/28/95 (bug fix) Changed pasting via button 2 in text and entries
+so that it inserts at the pointer location, not the location of
+the insertion cursor.
+
+3/28/95 (bug fix) Fixed several bugs related to <Destroy> bindings
+that delete ancestors in the window hierarchy.  Also eliminated
+extraneous calls to XDestroyWindow, which speeds up window deletion
+by about 3x.
+
+3/28/95 (bug fix) Several widgets (buttons, menubuttons, menus) didn't
+properly handle image deletions that occurred while the widget was
+being deleted (caused core dumps).
+
+3/29/95 (bug fix) When retrieving long selections from text widgets,
+parts of lines were getting duplicated in the selection information.
+
+4/1/95 (bug fix) Fixed bug that caused infinite loop in horizontal
+scales with 0 range.
+
+4/1/95 (bug fix) Fixed problem with -command option for scrollbars and
+-takefocus option that caused commands to be evaluated in the wrong
+context.
+
+4/1/95 (bug fix) Fixed problem with option database that caused it to
+sometimes use the wrong option (wasn't flushing the database properly
+after a change in a window's class).
+
+4/1/95 (bug fix) If a line in a text widget just barely fit in the window,
+Tk was allocating a second screen line just for the newline character.
+
+4/1/95 (new feature) When backspacing in an entry widget, when you reach
+the left edge of the widget, the insertion cursor gets recentered.
+
+4/1/95 (new features) Added "winfo pointerx" and "winfo pointery" commands
+to fetch the current pointer position.
+
+4/6/95 (bug fix) If the last line of a text widget was only partially
+visible, it was counted as visible for purposes of the scrollbar.  Now
+it is treated as if it were off-screen for scrolling purposes.
+
+4/6/95 (new feature) Modified "bell" command to reset screen saver as well.
+
+4/6/95 (feature change) Modified menu scanning (where menus pull down
+as you drag across their menubuttons) so it only works among menus
+in the same toplevel;  it used to work for any menubuttons in the
+application.
+
+4/6/95 (bug fix) Canvas text items weren't allowing real numbers in
+"@x,y" notation for specifying indices.
+
+4/7/95 (bug fix) Menus didn't display correctly when -activeborderwidth
+was large.
+
+4/7/95 (bug fix) Changed "clipboard append" command to support -- option
+and to always treat the last argument as data, even if it starts with
+"-".
+
+4/17/95 (new feature) Added -wrap option to text tags.
+
+4/18/95 (bug fix) Listboxes and texts weren't updating their grid information
+when -width or -height changed.
+
+4/18/95 (bug fix) "Down" didn't work right in text widgets if the last
+line was only partially visible in the window.
+
+4/19/95 (bug fix) Listboxes didn't handle partially visible last lines
+right:  couldn't scroll it into full visibility, for example.
+
+4/20/95 (bug fix) If a toplevel was positioned with a command like
+"wm geometry . -0-0", the window didn't reposition itself to maintain
+that geometry after a size change.
+
+4/21/95 (feature change) Changed order of binding tags so widget bindings
+fire before class bindings.  New order is: widget, class, toplevel, all.
+*** POTENTIAL INCOMPATIBILITY with Tk 4.0b3, but not with Tk 3.6 ***
+
+4/23/95 (new feature) Added "winfo colormapfull" command.
+
+4/23/95 (new feature) Buttons and radiobuttons and checkbuttons now
+treat Return the same as Space, unless tk_strictMotif is set.
+
+4/23/95 (bug fix) Modified menu tear-off procedure to duplicate the
+binding tags and bindings of the original in the copy.
+
+4/25/95 (bug fix and feature change) Modified mechanism for choosing
+"best" visual to fix a bug where depth wasn't really getting highest
+priority in all situations.
+
+4/28/95 (bug fix) Failed text searches starting at "end" could result
+in an infinite loop in Tk.
+
+4/30/95 (new feature) Added "wm resizable" command to enable and
+disable interactive resizing.
+
+4/30/95 (new feature) Added "window names" widget command to texts:
+returns a list of all embedded windows.
+
+5/2/95 (feature change) Changed text searches so that forward searches
+start at the given index, rather than the character just after the
+given index.
+*** POTENTIAL INCOMPATIBILITY with Tk 4.0b3, but not with Tk 3.6 ***
+
+5/4/95 (bug fix) Default bit gravity for windows was wrong (it was
+ForgetGravity) causing unnecessary flashing when windows were resized.
+
+5/4/95 (feature change) Modified Tk_DoOneEvent so that it doesn't
+sleep if there's nothing that will wake it up again (e.g. no file
+or timer handlers).  Returns 0 immediately.
+
+5/5/95 (configuration change) Changed to use BSDgettimeofday instead
+of gettimeofday on systems like IRIX where BSDgettimeofday is
+available.  This avoids compilation problems due to the different
+interface to gettimeofday provided by IRIX.
+
+5/5/95 (feature change) Changed binding mechanism so that all bindings
+are created immediately at initialization time, rather than waiting
+until the first FocusIn or Enter event for a class.
+
+5/6/95 (feature change) Changed default text for labels, buttons,
+checkbuttons, radiobuttons, menubuttons, and messages from " " to
+"".
+
+5/6/95 (bug fix) If the application was destroyed in the middle of
+an "update" command, Tk would dump core.
+
+5/6/95 (bug fix) Changed manual entries to use the standard .TH
+macro instead of a custom .HS macro;  the .HS macro confuses index
+generators like makewhatis.
+
+5/6/95 (bug fix) Change "wm iconwindow" command to disable button
+presses for the icon window.  This is needed so that the window
+manager can get those events (X only allows button presses to go
+to one client for a given window).
+
+5/9/95 (new feature) When specifying visuals, can now use "best"
+with a depth, e.g. "-visual {best 8}" to get the best 8-bit visual.
+
+5/18/95 (bug fix) Fixed bug with -spacing* options for text widget:
+screen distances weren't allowed, only integers.
+
+5/20/95 (bug fix) Eliminated memory leaks in tkTextDisp.c and elsewhere.
+
+5/22/95 (color change) Changed the Tk color palette to a gray scheme.
+Also added a library procedure tk_setPalette that makes it easy to
+change colors on the fly, and a procedure tk_bisque that restores the
+previous light brown scheme.
+
+5/28/95 (bug fix) Modified canvases so that the -width and -height
+options refer to the space inside the borders, not the total widget
+space.  Also changed "xview" and "yview" commands and scroll-increment
+rounding to use the pixel just inside the borders, rather than (0,0).
+
+5/28/95 (bug fix) Several widgets (e.g. entries, buttons, and menus)
+didn't properly handle unsets of variables they were tracing, if the
+variables were reference through upvars in procedures.
+
+6/4/95 (bug fix) The placer wasn't rounding window widths right when
+both -relx and -relwidth were specified (or -rely and -relheight) so
+that rounding errors accumulated.
+
+6/4/95 (feature improvement) Change parsing of text indices to handle
+weird mark and tag names better (e.g. any string ending with ".first"
+will now be parsed as a tag name, even if it contains embedded spaces,
+etc.).
+
+6/4/95 (feature change) If a font defines glyphs for control characters,
+they are now displayed, instead of translating the character to a
+backslash sequence (however, tabs and newlines are still treated
+specially;  glyphs are not displayed for these characters).
+
+6/4/95 (bug fix) Modify the implementation of "raise" and "lower" for
+toplevels so that it now works under olwm and olvwm.  It didn't use to
+work, and the problem is really in the window manager, but Tk now
+patches around it.  However, only "total" raises and lowers work:
+raising and lowering relative to a sibling still don't work under
+olvwm and olwm.
+
+6/4/95 (feature change) Modified tab code in texts so that a tab always
+occupies at least as much space as a space character.
+
+6/4/95 (bug fix) The "%t" substitution wasn't being made properly in
+Enter and Leave event bindings.
+
+6/7/95 (new feature) Added support for GIF images.  Unfortunately it's
+a bit fragile:  certain kinds of badly formed images can cause core
+dumps;  I don't know enough about the GIF reader (taken from giftoppm)
+to figure this out.
+
+6/7/95 (bug fix and feature change) Fixed PPM image reader to be more
+flexible about header formats, and added support for PGM images.
+
+6/7/95 (feature change) Added -outlinestipple option to canvas arc
+items, changed "-style arc" to use -outline as the color instead of
+-fill (the old approach was pretty quirky).
+*** POTENTIAL INCOMPATIBILITY ***
+
+6/8/95 (feature change) Modified interface to Tk_Main to pass in the
+address of the application-specific initialization procedure.
+Tcl_AppInit is no longer hardwired into Tk_Main.  This is needed
+in order to make Tcl a shared library.
+
+6/8/95 (feature change) Modified Makefile so that the installed versions
+of wish and libtk.a have version number in them (e.g. wish4.0 and
+libtk4.0.a) and the library directory name also has an embedded version
+number (e.g., /usr/local/lib/tk4.0).  This should make it easier for
+Tk 4.0 to coexist with earlier versions.
+
+6/9/95 (new feature) Added -outline and -width options to canvas polygon
+items.
+
+6/9/95 (feature changed) Renamed -decimate in photo widget to -subsample
+(decimate wasn't technically correct).
+*** POTENTIAL INCOMPATIBILITY with Tk 4.0b3, but not with Tk 3.6 ***
+
+-------------------- Release 4.0b4, 6/16/95 -------------------------
+
+6/19/95 (bug fix) Colors weren't being rounded correctly in canvas
+Postscript generation: caused "white" to appear slightly gray when
+the display of the canvas used only 8 bits per color.
+
+6/20/95 (bug fix) "bbox" widget command for texts didn't return
+proper width for tabs.
+
+6/20/95 (bug fix) Scrollbars didn't always work right for texts:
+couldn't scroll all the way to the bottom of the text in a single
+drag of the slider.
+
+6/20/95 (new feature) Added "delta" widget command for scrollbars
+(needed for above bug fix).
+
+6/23/95 (bug fix) Listboxes weren't properly redisplaying their
+borders when the were configured to a smaller size.
+
+6/23/95 (new feature) Added "winfo server" command.
+
+6/23/95 (bug fix) If a menu was posted, couldn't switch to another
+menu with an Alt- key.
+
+6/24/95 (new feature) Added "winfo pointerxy" command.
+
+6/25/95 (bug fix) Tk_ParseArgv referenced beyond the end of 0-length
+option names.
+
+6/25/95 (bug fix) Fixed problem in tkOption.c where "cachedWindow"
+could get garbage in it if the main window's class was changed by
+calling Tk_SetClass.
+
+6/25/95 (bug fix) Fixed two bugs in menus, one where errors in
+variable traces weren't propagated correctly and one where "invoke"
+was invoked at the wrong stack level, with the result that variable
+traces didn't have access to the right variables.
+
+6/27/95 (bug fix) tk3d.c wasn't using all the right information
+when deciding whether or not to stipple borders, so it stippled
+borders even on 16-bit true-color displays.
+
+6/28/95 (bug fix) Page up and down operations in texts could cause
+insertion cursor to drift to the right.  Changed tkTextScrollPages
+to use upper-left corner of current character, rather than center
+of character.
+
+6/28/95 (bug fix) Changed text widget so that you can't put the
+insertion cursor after the last newline in the text.
+
+6/28/95 (bug fix) Bitmap images didn't allow ~'s in file names.
+
+6/28/95 (bug fix) Fixed problem that could cause core dumps in the
+text widget when dealing with embedded windows (there were problems
+if the act of redisplaying caused the window layout to change, which
+can happen with embedded windows).
+
+6/28/95 (bug fix) Texts didn't handle indices with double negatives,
+such as ".t mark set insert {insert + -20 chars}".
+
+6/28/95 (bug fix) Fixed problem where focus didn't always revert to
+its prior window after a dialog box was dismissed.
+
+6/28/95 (bug fix) Fixed problem with "search" widget command returning
+incorrect length on some backwards regexp searches.
+
+6/28/95 (bug fix) Successive "wm iconbitmap . {}" commands could cause
+a core dump.
+
+6/29/95 (new feature) Added -elementborderwidth option for scrollbars
+so the -borderwidth can be set to 0 without flattening the arrows and
+slider.
+
+-------------------- Release 4.0, 7/1/95 -------------------------
+
+7/18/95 (bug fix) %t in event bindings didn't work properly for some
+events (e.g. PropertyNotify).
+
+7/18/95 (bug fix) Changed "exec wish" lines in demo scripts to
+"exec wish4.0" to avoid version conflicts.
+
+7/18/95 (bug fix) Fixed round-off errors in scrolling for texts,
+canvases, listboxes, and entries.  The error could cause the view
+to shift up in a command like "$w yview moveto [lindex [$w yview] 0]".
+
+7/19/95 (bug fix) Canvases weren't always redrawing borders correctly
+when they became unobscured.  There were also some problems with
+improper refresh after size changes.
+
+7/19/95 (bug fix) Fixed bug in text index processing that causes
+tests textIndex-11.1 and textIndex12.1 to fail on some platforms.
+
+7/19/95 (bug fix) Fixed bug where 2-second delays were ocurring during
+"raise" and "lower" commands for toplevel windows under some window
+managers (such as fvwm).
+
+7/20/95 (bug fix) Text searches were misbehaving when there were embedded
+windows on the starting line of the search.  The most common symptom is
+that Tk would fail to find a match at the starting position for the
+search.
+
+7/22/95 (bug fix) Fixed core dump that could occur in menus if a checkbutton
+entry's -variable option referred to an array (or couldn't be read
+by the menu C code for some other reason).
+
+7/22/95 (bug fix) Text widgets didn't update their scrollbars when
+changes were made to information that was off-screen.
+
+7/25/95 (bug fix) Fixed core-dump in tkListbox.c that used to happen
+in the command ".l bbox end" if the listbox was empty.
+
+7/25/95 (bug fix) Page-up and page-down bindings for listboxes didn't
+move active element to remain on the screen.
+
+7/25/95 (bug fix) Patched around H-P compiler problem that results in
+core-dumps in tkImgPhoto.c during image handling.
+
+7/25/95 (bug fix) Fixed bug in tkImgPhoto.c that caused core dumps
+(during Tk self-tests and other image uses) on AIX and other machines
+where "schar" in tkImgPhoto.c was being defined as "short" instead of
+"char".
+
+7/26/95 (bug fix) The PPM image reader couldn't handle maximum intensity
+values other than 255.
+
+7/26/95 (bug fix) Canvases didn't redraw their borders when the relief
+changed from raised to flat.
+
+7/27/95 (bug fix) Canvases didn't set the scrolling values correctly
+when no scroll region was specified.
+
+7/28/95 (bug fix) Modified menu and tk_dialog scripts to restore any
+old grab that might have been in effect before a menu or dialog was
+posted.
+
+----------------- Released patch 4.0p1, 7/29/95 ----------------------
+
+8/4/95 (bug fix) Calls to toupper and tolower weren't using the UCHAR
+macro, so they didn't always work in non-U.S. locales. (JO)
+
+8/14/95 (new feature) Added -tearoffcommand option for menus.
+
+8/16/95 (bug fix) Canvases didn't generate proper Enter and Leave
+events if the Leave handler for an item reconfigured the canvas in
+a way that made the old current item the new current item again. (JO)
+
+8/21/95 (bug fix/feature change) When -takefocus was a script, Tk
+was allowing window viewability to override it.  Changed so that
+viewability is now ignored when -takefocus is a script. (JO)
+
+8/21/95 (bug fixes) Fixed memory leaks in tkSend.c, tkSelect.c, and
+tkUnixWm.c (JO).
+
+8/21/95 (bug fix) Text widgets didn't handle commands like
+".t search -backwards foo end 1.0" properly:  never found foo. (JO)
+
+8/23/95 (new feature) Added Makefile and configure.in support for
+dynamic loading. (JO)
+
+8/25/95 (bug fix) The "frame" and "toplevel" commands couldn't safely
+be renamed, due to a kludgy way that they shared a single command
+procedure.  Split into separate procedures. (JO)
+
+8/25/95 (bug fix) Fixed bug in libary/menu.tcl that caused "grab
+window not visible" errors for popup menus (and perhaps elsewhere?). (JO)
+
+8/25/95 (bug fix / new feature) The "gray25" bitmap was really only
+12.5% on, not 25%.  Added new "gray12" bitmap that is the same as the
+old "gray25".  "Gray25" is still supported for compatibility, but its
+use is deprecated. (JO)
+
+8/25/95 (bug fix) Scrollbar bindings didn't properly handle case where
+B2 is clicked while B1 is already down. (JO)
+
+8/26/95 (bug fix) Menus were ignoring -activebackground if tk_strictMotif
+was set, but not -activeforeground.  Changed to ignore both. (JO)
+
+8/26/95 (bug fix) Scales and scrollbars didn't properly handle a
+-repeatdelay value of 0 (they shouldn't auto-repeat in this case). (JO)
+
+8/28/95 (bug fix) Tcl errors were occurring for tkPriv(oldGrab) when
+clicking on a disabled option menu. (JO)
+
+8/28/95 (bug fix) Changed event-handling code to use FD_SETSIZE instead
+of OPEN_MAX, since OPEN_MAX is incorrect on some systems (e.g., IRIX). (JO)
+
+8/28/95 (bug fix) Fixed bug in photo images that caused garbling of
+image data in the "put" and "copy" commands if the source data had
+only one scan line but had a width less than the width of the target
+image. (JO)
+
+8/29/95 (bug fix) Tk used to refuse to post menus if they had no
+entries.  This made it impossible for a menu to fill itself the first
+time it is posted.  Changed to allow menus with no entries to be
+posted. (JO)
+
+8/30/95 (bug fix) If there was extra space at the bottom of a menu,
+it wasn't being redisplayed properly.
+
+8/30/95 (new feature) Added -transient option to menus.
+
+8/30/95 (new features) Added proper button 2 support to both scrollbars
+and scales (it sets the slider position from the mouse position). (JO)
+
+8/30/95 (bug fix) Fixed potential core dump that could occur in
+photo images (ReadPPMFileHeader could overflow buffer under some bad
+inputs, such as certain GIF images). (JO)
+
+8/30/95 (bug fix) Errors of the form `syntax error in expression "!"'
+could occasionally happen in tkScaleDrag. (JO)
+
+8/31/95 (new feature) Changed man page installation (with "mkLinks"
+script) to create additional links for manual pages corresponding to
+each of the procedure and command names described in the pages. (JO)
+
+9/1/95 (new feature) Added "after info" command.  Also added checks
+so that one interpreter can't cancel another's "after" events. (JO)
+
+9/8/95 (bug fix) Fixed bug that could cause memory corruption and core
+dumps if a "fileevent" handler was deleted while the handler was
+active. (JO)
+
+9/11/95 Reorganized Tk sources for Windows and Mac ports.  All sources
+are now in subdirectories:  "generic" contains sources that work on all
+platforms, "windows", "mac", and "unix" directories contain platform-
+specific sources.  (SS)
+
+9/11/95 (new feature) Added new  "notifier" mechanism to allow multiple
+implementations of the mechanisms for finding out about events.  This
+change was necessary to support Mac and PC platforms, but it may also
+allow other goodies such as combining Xt and Tk widgets in a single
+application.  See the new manual entry Notifier.3 for details. (SS)
+
+9/11/95 (feature change) Changed interface to Tk_RestrictProc so that
+(a) it takes a clientData argument instead of display and arg, and
+(b) it returns a value that can ask for the event to be discarded as well
+as deferred or processed. (SS)
+*** POTENTIAL INCOMPATIBILITY ***
+
+9/11/95 (new feature) Added TK_WINDOW_EVENTS #define, which is equivalent
+to TK_X_EVENTS but is now preferred, since it applies to all platforms. (SS)
+
+9/11/95 (feature change) Can't export variables anymore because this doesn't
+work under Windows DLLs.  Eliminated tk_NumMainWindows variable and replaced
+with procedure Tk_GetNumMainWindows. (SS)
+*** POTENTIAL INCOMPATIBILITY ***
+
+9/11/95 (new feature) Added procedure Tk_PreserveColormap to increment
+the reference count on colormaps.  Used in photo widgets. (SS)
+
+----------------- Released patch 4.0p2, 9/15/95 ----------------------
+
+----------------- Released 4.1a1, 9/15/95 ----------------------
+
+9/22/95 (renamed files) Changed the names of the bitmap images in the
+$tk_library/demos/images directory to use the .bmap file extension.  (RJ)
+
+9/22/95 (bug fix) Fixed bug where text widgets could occasionally
+display the insertion cursor both at the end of one line and the
+beginning of the next. (JO)
+
+9/25/95 (bug fix) Fixed bug that could cause core dumps when an
+application uses multiple screens and a binding destroys the main
+window (bind code was using MainInfo structure after it had been
+freed). (JO)
+
+9/25/95 (bug fix) Text widgets sometimes scrolled backwards on
+occasion if you dragged down past the bottom of the scrollbar. (JO)
+
+9/25/95 (bug fix) Fixed bug in menus where a cascaded submenu posted
+from a torn-off menu could be left posted if mouse was pulled off the
+end of the cascade and released. (JO)
+
+9/25/95 (new feature) Added "--" switch to wish, so that you can
+pass arguments like -n through to a script without having wish
+interpret them. (JO)
+
+9/25/95 (bug fix) Fixed core dump that could occur for radiobuttons
+and selectbuttons if -selectcolor was an empty string. (JO)
+
+9/26/95 (bug fix) Entries didn't used to notice if a trace procedure
+on the -textvariable overrode a new value set by the entry.  This
+could cause the variable to get out of sync with the contents of the
+entry. (JO)
+
+9/26/95 (new feature) Added -sliderrelief option to scales, changed
+default bindings to change the slider's relief to sunken while it's
+being dragged with the mouse. (JO)
+
+9/26/95 (bug fix) TkColor.c wasn't computing colormap size correctly;
+could result in X Protocol error for QueryColors when colormaps run
+out of colors. (JO)
+
+9/26/95 (bug fix) Wish couldn't handle script files with spaces in
+their names. (JO)
+
+9/27/95 (cosmetic clean-up) Removed extraneous spaces to make error
+messages consistent: ":  should be" is now ": should be". (JO)
+
+9/27/95 (feature change)  Modified tk_dialog so that it uses the
+option database for the -wraplength option on the message.  This
+allows the option to be overridden by the caller. (JO)
+
+9/28/95 (bug fix) Wish incorrectly parsed the command line under
+Windows, causing backslashes to be substituted. (SS)
+
+9/28/95 (bug fix) Wish now sources wishrc.tcl instead of .wishrc. (SS)
+
+9/28/95 (bug fix) Tk_DoOneEvent returned 0 under some circumstances
+when it was possible to find more work to do.  For example, if a
+signal interrupted select(), but no event handlers were triggered, it
+would return 0 even though it could still detect events by reentering
+select().  (SS)
+
+9/29/95 (bug fix) "winfo interps" caused a crash under Windows. (SS)
+
+10/1/95 (feature change) Eliminated Tk_NotifyIdle interface in favor of
+Tk_IdlePending. (SS)
+
+10/1/95 (bug fix) Turned motion event collapsing into an idle handler
+so it will be easier to move the event loop into Tcl. (SS)
+
+10/1/95 (bug fix) Fixed several problems with negative coordinates
+in canvases.  One example:  dragging a canvas rectangle with a wide
+border and fractional coordinates could leave junk on the screen
+if the rectangle was in negative coordinate space. (JO)
+
+10/2/95 (bug fix) Tk was improperly handling Enter/Leave events
+during a button grab. (SS)
+
+10/2/95 (new feature) Added support for the Macintosh do script
+('dosc') event.  Available only on the Macintosh.  (RJ)
+
+10/4/95 (new feature) Added support for compiling with VC++.
+Resulting binaries work under Win32s through NT.
+
+----------------- Released 4.1a2, 10/6/95 ----------------------

@@ -1,5 +1,5 @@
 /* Data structures associated with breakpoints in GDB.
-   Copyright (C) 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -77,7 +77,17 @@ enum bptype {
      (Probably can solve this by noticing longjmp, "return", etc., it's
      similar to noticing when a watchpoint on a local variable goes out
      of scope (with hardware support for watchpoints)).  */
-  bp_call_dummy
+  bp_call_dummy,
+
+  /* Some dynamic linkers (HP, maybe Solaris) can arrange for special
+     code in the inferior to run when significant events occur in the
+     dynamic linker (for example a library is loaded or unloaded).
+
+     By placing a breakpoint in this magic code GDB will get control
+     when these significant events occur.  GDB can then re-examine
+     the dynamic linker's data structures to discover any newly loaded
+     dynamic libraries.  */
+  bp_shlib_event
 };
 
 /* States of enablement of breakpoint. */
@@ -260,6 +270,10 @@ enum bpstat_what_main_action {
      checking.  */
   BPSTAT_WHAT_THROUGH_SIGTRAMP,
 
+  /* Check the dynamic linker's data structures for new libraries, then
+     keep checking.  */
+  BPSTAT_WHAT_CHECK_SHLIBS,
+
   /* This is just used to keep track of how many enums there are.  */
   BPSTAT_WHAT_LAST
 };
@@ -400,5 +414,7 @@ extern void clear_displays PARAMS ((void));
 extern void disable_breakpoint PARAMS ((struct breakpoint *));
 
 extern void enable_breakpoint PARAMS ((struct breakpoint *));
+
+extern void create_solib_event_breakpoint PARAMS ((CORE_ADDR));
 
 #endif /* !defined (BREAKPOINT_H) */

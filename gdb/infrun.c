@@ -1,5 +1,5 @@
 /* Target-struct-independent code to start (run) and stop an inferior process.
-   Copyright 1986, 1987, 1988, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -72,6 +72,21 @@ static int hook_stop_stub PARAMS ((char *));
 #define	SKIP_TRAMPOLINE_CODE(pc)	0
 #endif
 
+/* Dynamic function trampolines are similar to solib trampolines in that they
+   are between the caller and the callee.  The difference is that when you
+   enter a dynamic trampoline, you can't determine the callee's address.  Some
+   (usually complex) code needs to run in the dynamic trampoline to figure out
+   the callee's address.  This macro is usually called twice.  First, when we
+   enter the trampoline (looks like a normal function call at that point).  It
+   should return the PC of a point within the trampoline where the callee's
+   address is known.  Second, when we hit the breakpoint, this routine returns
+   the callee's address.  At that point, things proceed as per a step resume
+   breakpoint.  */
+
+#ifndef DYNAMIC_TRAMPOLINE_NEXTPC
+#define DYNAMIC_TRAMPOLINE_NEXTPC(pc) 0
+#endif
+
 /* For SVR4 shared libraries, each call goes through a small piece of
    trampoline code in the ".plt" section.  IN_SOLIB_CALL_TRAMPOLINE evaluates
    to nonzero if we are current stopped in one of these. */
@@ -135,6 +150,10 @@ static struct symbol *step_start_function;
 /* Nonzero if we are expecting a trace trap and should proceed from it.  */
 
 static int trap_expected;
+
+/* Nonzero if we want to give control to the user when we're notified
+   of shared library events by the dynamic linker.  */
+static int stop_on_solib_events;
 
 #ifdef HP_OS_BUG
 /* Nonzero if the next time we try to continue the inferior, it will
@@ -1015,6 +1034,35 @@ wait_for_inferior ()
 	      another_trap = 1;
 	    break;
 
+#ifdef SOLIB_ADD
+	  case BPSTAT_WHAT_CHECK_SHLIBS:
+	    {
+	      extern int auto_solib_add;
+
+	      /* Check for any newly added shared libraries if we're
+		 supposed to be adding them automatically.  */
+	      if (auto_solib_add)
+		SOLIB_ADD (NULL, 0, NULL);
+
+	      /* If requested, stop when the dynamic linker notifies
+		 gdb of events.  This allows the user to get control
+		 and place breakpoints in initializer routines for
+		 dynamically loaded objects (among other things).  */
+	      if (stop_on_solib_events)
+		{
+		  stop_print_frame = 0;
+		  goto stop_stepping;
+		}
+	      else
+		{
+		  /* We want to step over this breakpoint, then keep going.  */
+		  another_trap = 1;
+		  remove_breakpoints_on_following_step = 1;
+		  break;
+		}
+	    }
+#endif
+
 	  case BPSTAT_WHAT_LAST:
 	    /* Not a real code, but listed here to shut up gcc -Wall.  */
 
@@ -1068,6 +1116,10 @@ wait_for_inferior ()
       /* If stepping through a line, keep going if still within it.  */
       if (stop_pc >= step_range_start
 	  && stop_pc < step_range_end
+#if 0
+/* I haven't a clue what might trigger this clause, and it seems wrong anyway,
+   so I've disabled it until someone complains.  -Stu 10/24/95 */
+
 	  /* The step range might include the start of the
 	     function, so if we are at the start of the
 	     step range and either the stack or frame pointers
@@ -1075,7 +1127,9 @@ wait_for_inferior ()
 	  && !(stop_pc == step_range_start
 	       && FRAME_FP (get_current_frame ())
 	       && (read_sp () INNER_THAN step_sp
-		   || FRAME_FP (get_current_frame ()) != step_frame_address)))
+		   || FRAME_FP (get_current_frame ()) != step_frame_address))
+#endif
+)
 	{
 	  /* We might be doing a BPSTAT_WHAT_SINGLE and getting a signal.
 	     So definately need to check for sigtramp here.  */
@@ -1131,7 +1185,13 @@ wait_for_inferior ()
 	  goto keep_going;
 	}
 
-#if 1
+#if 0
+      /* I disabled this test because it was too complicated and slow.  The
+	 SKIP_PROLOGUE was especially slow, because it caused unnecessary
+	 prologue examination on various architectures.  The code in the #else
+	 clause has been tested on the Sparc, Mips, PA, and Power
+	 architectures, so it's pretty likely to be correct.  -Stu 10/24/95 */
+
       /* See if we left the step range due to a subroutine call that
 	 we should proceed to the end of.  */
 
@@ -1196,13 +1256,16 @@ wait_for_inferior ()
 		 handling_longjmp stuff is working.  */
 	      ))
 #else
-/* This is experimental code which greatly simplifies the subroutine call
-   test.  I've actually tested on the Alpha, and it works great. -Stu */
+	/* This test is a much more streamlined, (but hopefully correct)
+	   replacement for the code above.  It's been tested on the Sparc,
+	   Mips, PA, and Power architectures with good results.  */
 
-	if (in_prologue (stop_pc, NULL)
-	    || (prev_func_start != 0
-		&& stop_func_start == 0))
+	if (stop_pc == stop_func_start /* Quick test */
+	    || in_prologue (stop_pc, stop_func_start)
+	    || IN_SOLIB_CALL_TRAMPOLINE (stop_pc, stop_func_name)
+	    || stop_func_start == 0)
 #endif
+
 	{
 	  /* It's a subroutine call.  */
 
@@ -1227,6 +1290,22 @@ wait_for_inferior ()
 	  tmp = SKIP_TRAMPOLINE_CODE (stop_pc);
 	  if (tmp != 0)
 	    stop_func_start = tmp;
+	  else
+	    {
+	      tmp = DYNAMIC_TRAMPOLINE_NEXTPC (stop_pc);
+	      if (tmp)
+		{
+		  struct symtab_and_line xxx;
+
+		  xxx.pc = tmp;
+		  xxx.symtab = NULL;
+		  xxx.line = 0;
+		  step_resume_breakpoint = 
+		    set_momentary_breakpoint (xxx, NULL, bp_step_resume);
+		  insert_breakpoints ();
+		  goto keep_going;
+		}
+	    }
 
 	  /* If we have line number information for the function we
 	     are thinking of stepping into, step into it.
@@ -1578,6 +1657,11 @@ Further execution is probably impossible.\n");
     goto done;
 
   target_terminal_ours ();
+
+  if (stop_bpstat
+      && stop_bpstat->breakpoint_at
+      && stop_bpstat->breakpoint_at->type == bp_shlib_event)
+    printf_filtered ("Stopped due to shared library event\n");
 
   /* Look up the hook_stop and run it if it exists.  */
 
@@ -2107,4 +2191,16 @@ of the program stops.", &cmdlist);
   signal_print[TARGET_SIGNAL_POLL] = 0;
   signal_stop[TARGET_SIGNAL_URG] = 0;
   signal_print[TARGET_SIGNAL_URG] = 0;
+
+#ifdef SOLIB_ADD
+  add_show_from_set
+    (add_set_cmd ("stop-on-solib-events", class_support, var_zinteger,
+                  (char *) &stop_on_solib_events,
+		  "Set stopping for shared library events.\n\
+If nonzero, gdb will give control to the user when the dynamic linker\n\
+notifies gdb of shared library events.  The most common event of interest\n\
+to the user would be loading/unloading of a new library.\n",
+                  &setlist),
+     &showlist);
+#endif
 }

@@ -5,16 +5,15 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) if.n 1.2 94/12/17 16:18:08
 '\" 
 .so man.macros
-.HS if tcl
+.TH if n "" Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
 if \- Execute scripts conditionally
 .SH SYNOPSIS
-\fBif \fIexpr1 \fR?\fBthen\fR? \fIbody1 \fBelseif \fIexpr2 \fR?\fBthen\fR? \fIbody2\fR \fBelseif\fR ... \fR?\fBelse\fR? ?\fIbodyN\fR?
+\fBif \fIexpr1 \fR?\fBthen\fR? \fIbody1 \fBelseif \fIexpr2 \fR?\fBthen\fR? \fIbody2\fR \fBelseif\fR ... ?\fBelse\fR? ?\fIbodyN\fR?
 .BE
 
 .SH DESCRIPTION

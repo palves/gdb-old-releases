@@ -103,7 +103,6 @@ static void readline_default_bindings ();
 
 #if defined (__GO32__)
 #  include <sys/pc.h>
-#  undef HANDLE_SIGNALS
 #endif /* __GO32__ */
 
 #if defined (STATIC_MALLOC)
@@ -1779,7 +1778,7 @@ rl_refresh_line ()
   _rl_move_vert (curr_line);
   _rl_move_cursor_relative (0, the_line);   /* XXX is this right */
 
-#if defined (WIN32)
+#if defined (__WIN32__) || defined (_MSC_VER)
   abort();
 #else
 #if defined (__GO32__)

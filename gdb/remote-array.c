@@ -34,17 +34,16 @@
 #include <varargs.h>
 #endif
 #include <signal.h>
-#include "gdb_string.h"
 #include <sys/types.h>
+#include "gdb_string.h"
 #include "command.h"
 #include "serial.h"
 #include "monitor.h"
 #include "remote-utils.h"
 
-static const char hexchars[]="0123456789abcdef";
-static char *hex2mem();
+extern int baud_rate;
 
-#define SREC_SIZE 160
+#define ARRAY_PROMPT ">> "
 
 #define SWAP_TARGET_AND_HOST(buffer,len) 				\
   do									\
@@ -397,7 +396,7 @@ static void
 expect_prompt(discard)
      int discard;
 {
-  expect (expect_prompt, discard);
+  expect (ARRAY_PROMPT, discard);
 }
 
 /*
@@ -557,6 +556,7 @@ array_create_inferior (execfile, args, env)
  * array_open -- open a connection to a remote debugger.
  *	NAME is the filename used for communication.
  */
+static int baudrate = 9600;
 static char dev_name[100];
 
 static void
@@ -574,6 +574,9 @@ array_open(args, name, from_tty)
 /*  if (is_open) */
     array_close(0);
 
+  target_preopen (from_tty);
+  unpush_target (&array_ops);
+
   tmp_mips_processor_type = "lsi33k";	/* change the default from r3051 */
   mips_set_processor_type_command ("lsi33k", 0);
 
@@ -583,15 +586,12 @@ array_open(args, name, from_tty)
   if (array_desc == NULL)
     perror_with_name(dev_name);
 
-  if (baud_rate == -1)
-    {
-      baud_rate = 4800;		/* this is the only supported baud rate */
-    }
-  else if (SERIAL_SETBAUDRATE (array_desc, baud_rate))
-    {
+  if (baud_rate != -1) {
+    if (SERIAL_SETBAUDRATE (array_desc, baud_rate)) {
       SERIAL_CLOSE (array_desc);
       perror_with_name (name);
     }
+  }
   
   SERIAL_RAW(array_desc);
 
@@ -611,16 +611,18 @@ array_open(args, name, from_tty)
      */
     debuglogs (3, "Trying to ACK the target's debug stub");
     /* unless your are on the new hardware, the old board won't initialize
-       because the '+' doesn't flush output like it does on the new ROMS.
+       because the '@' doesn't flush output like it does on the new ROMS.
      */
-    printf_monitor ("+");	/* ask for the last signal */
-    expect_prompt(1);		/* See if we get a expect_prompt */   
+    printf_monitor ("@");	/* ask for the last signal */
+    expect_prompt(1);		/* See if we get a expect_prompt */
+#ifdef TEST_ARRAY		/* skip packet for testing */
     make_gdb_packet (packet, "?");	/* ask for a bogus packet */
     if (array_send_packet (packet) == 0)
       error ("Couldn't transmit packet\n");
-    printf_monitor ("+\n");	/* force it to flush stdout */
+    printf_monitor ("@\n");	/* force it to flush stdout */
    expect_prompt(1);		/* See if we get a expect_prompt */
-
+#endif
+  push_target (&array_ops);
   if (from_tty)
     printf("Remote target %s connected to %s\n", array_ops.to_shortname, dev_name);
 }
@@ -697,9 +699,11 @@ array_resume (pid, step, sig)
   if (step) {
     printf_monitor ("s\n");
   } else {
-    printf_monitor ("go");
+    printf_monitor ("go\n");
   }
 }
+
+#define TMPBUFSIZ 5
 
 /*
  * array_wait -- Wait until the remote machine stops, then return,
@@ -711,6 +715,10 @@ array_wait (pid, status)
      struct target_waitstatus *status;
 {
   int old_timeout = timeout;
+  int result, i;
+  char c;
+  serial_t tty_desc;
+  serial_ttystate ttystate;
 
   debuglogs(1, "array_wait (), printing extraneous text.");
   
@@ -718,14 +726,48 @@ array_wait (pid, status)
   status->value.integer = 0;
 
   timeout = 0;		/* Don't time out -- user program is running. */
+ 
+#if !defined(__GO32__) && !defined(__MSDOS__) && !defined(__WIN32__)
+  tty_desc = SERIAL_FDOPEN (0);
+  ttystate = SERIAL_GET_TTY_STATE (tty_desc);
+  SERIAL_RAW (tty_desc);
 
- expect_prompt(0);    /* Wait for expect_prompt, outputting extraneous text */
+  i = 0;
+  /* poll on the serial port and the keyboard. */
+  while (1) {
+    c = readchar(timeout);
+    if (c > 0) {
+      if (c == *(ARRAY_PROMPT + i)) {
+	if (++i >= strlen (ARRAY_PROMPT)) { /* matched the prompt */
+	  debuglogs (4, "array_wait(), got the expect_prompt.");
+	  break;
+	}
+      } else {		/* not the prompt */
+	i = 0;
+      }
+      fputc_unfiltered (c, gdb_stdout);
+      fflush (stdout);
+    }
+    c = SERIAL_READCHAR(tty_desc, timeout);
+    if (c > 0) {
+      SERIAL_WRITE(array_desc, &c, 1);
+      /* do this so it looks like there's keyboard echo */
+      if (c == 3)		/* exit on Control-C */
+	break;
+#if 0
+      fputc_unfiltered (c, gdb_stdout);
+      fflush (stdout);
+#endif
+    }
+  }
+  SERIAL_SET_TTY_STATE (tty_desc, ttystate);
+#else
+  expect_prompt(1);
   debuglogs (4, "array_wait(), got the expect_prompt.");
+#endif
 
   status->kind = TARGET_WAITKIND_STOPPED;
   status->value.sig = TARGET_SIGNAL_TRAP;
-
-
 
   timeout = old_timeout;
 
@@ -843,7 +885,7 @@ static void
 array_files_info ()
 {
   printf ("\tAttached to %s at %d baud.\n",
-	  dev_name, baud_rate);
+	  dev_name, baudrate);
 }
 
 /*
@@ -903,21 +945,12 @@ array_read_inferior_memory(memaddr, myaddr, len)
      char *myaddr;
      int len;
 {
-  int i, j;
+  int j;
   char buf[20];
   char packet[PBUFSIZ];
-
-  /* Number of bytes read so far.  */
-  int count;
-
-  /* Starting address of this pass.  */
-  unsigned long startaddr;
-
-  /* Starting address of this pass.  */
-  unsigned long endaddr;
-
-  /* Number of bytes to read in this pass.  */
-  int len_this_pass;
+  int count;			/* Number of bytes read so far.  */
+  unsigned long startaddr;	/* Starting address of this pass.  */
+  int len_this_pass;		/* Number of bytes to read in this pass.  */
 
   debuglogs (1, "array_read_inferior_memory (memaddr=0x%x, myaddr=0x%x, len=%d)", memaddr, myaddr, len);
 
@@ -935,36 +968,46 @@ array_read_inferior_memory(memaddr, myaddr, len)
     return 0;
   }
   
-  startaddr = memaddr;
-  count = 0;
-  while (count < len) {
-    len_this_pass = 16;
-    if ((startaddr % 16) != 0)
-      len_this_pass -= startaddr % 16;
-    if (len_this_pass > (len - count))
-      len_this_pass = (len - count);
-    
-    debuglogs (3, "Display %d bytes at %x for Big Endian host", len_this_pass, startaddr);
-    
-    for (i = 0; i < len_this_pass; i++) {
+  for (count = 0, startaddr = memaddr; count < len; startaddr += len_this_pass)
+    {
+      /* Try to align to 16 byte boundry (why?) */
+      len_this_pass = 16;
+      if ((startaddr % 16) != 0)
+	{
+	  len_this_pass -= startaddr % 16;
+	}
+      /* Only transfer bytes we need */
+      if (len_this_pass > (len - count))
+	{
+	  len_this_pass = (len - count);
+	}
+      /* Fetch the bytes */
+      debuglogs (3, "read %d bytes from inferior address %x", len_this_pass,
+		 startaddr);
       sprintf (buf, "m%08x,%04x", startaddr, len_this_pass);
       make_gdb_packet (packet, buf);
       if (array_send_packet (packet) == 0)
-	error ("Couldn't transmit packet\n");
+	{
+	  error ("Couldn't transmit packet\n");
+	}
       if (array_get_packet (packet) == 0)
-	error ("Couldn't receive packet\n");  
+	{
+	  error ("Couldn't receive packet\n");  
+	}
       if (*packet == 0)
-	error ("Got no data in the GDB packet\n");
-      debuglogs (4, "array_read_inferior: Got a \"%s\" back\n", packet);
-      for (j = 0; j < len_this_pass ; j++) {		/* extract the byte values */
-	myaddr[count++] = from_hex (*(packet+(j*2))) * 16 + from_hex (*(packet+(j*2)+1));
-	debuglogs (5, "myaddr set to %x\n", myaddr[count-1]);
-      }
-      startaddr += 1;
+	{
+	  error ("Got no data in the GDB packet\n");
+	}
+      /* Pick packet apart and xfer bytes to myaddr */
+      debuglogs (4, "array_read_inferior_memory: Got a \"%s\" back\n", packet);
+      for (j = 0; j < len_this_pass ; j++)
+	{
+	  /* extract the byte values */
+	  myaddr[count++] = from_hex (*(packet+(j*2))) * 16 + from_hex (*(packet+(j*2)+1));
+	  debuglogs (5, "myaddr[%d] set to %x\n", count-1, myaddr[count-1]);
+	}
     }
-
-  }
-  return len;
+  return (count);
 }
 
 /* FIXME-someday!  merge these two.  */
@@ -1025,8 +1068,8 @@ array_insert_breakpoint (addr, shadow)
       if (sr_get_debug() > 4)
 	printf ("Breakpoint at %x\n", addr);
       array_read_inferior_memory(addr, shadow, memory_breakpoint_size);
-      printf_monitor("brk 0x%x\n", addr);
-     expect_prompt(1);
+      printf_monitor("b 0x%x\n", addr);
+      expect_prompt(1);
       return 0;
     }
   }
@@ -1051,8 +1094,8 @@ array_remove_breakpoint (addr, shadow)
     if (breakaddr[i] == addr) {
       breakaddr[i] = 0;
       /* some monitors remove breakpoints based on the address */
-      printf_monitor("unbrk %x\n", i);
-     expect_prompt(1);
+      printf_monitor("bd %x\n", i);
+      expect_prompt(1);
       return 0;
     }
   }
@@ -1196,12 +1239,12 @@ array_send_packet (packet)
 	return 1;
       case SERIAL_TIMEOUT:
 	debuglogs (3, "Timed out reading serial port\n");
-	printf_monitor("+");		/* resync with the monitor */
+	printf_monitor("@");		/* resync with the monitor */
        expect_prompt(1);		/* See if we get a expect_prompt */   
 	break;            /* Retransmit buffer */
       case '-':
 	debuglogs (3, "Got NAK\n");
-	printf_monitor("+");		/* resync with the monitor */
+	printf_monitor("@");		/* resync with the monitor */
        expect_prompt(1);		/* See if we get a expect_prompt */   
 	break;
       case '$':
@@ -1280,7 +1323,7 @@ array_get_packet (packet)
 	  debuglogs (3, "\nGDB packet checksum zero, must be a bogus packet\n");
 	if (csum == pktcsum) {
 	  debuglogs (3, "\nGDB packet checksum correct, packet data is \"%s\",\n", packet);
-	  printf_monitor ("+");
+	  printf_monitor ("@");
 	 expect_prompt (1);
 	  return 1;
 	}
@@ -1420,4 +1463,3 @@ _initialize_array ()
 {
   add_target (&array_ops);
 }
-

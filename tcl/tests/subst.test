@@ -10,16 +10,15 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) subst.test 1.5 94/12/17 16:20:27
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
 test subst-1.1 {basics} {
     list [catch {subst} msg] $msg
-} {1 {wrong # args: should be "subst string"}}
+} {1 {wrong # args: should be "subst ?-nobackslashes? ?-nocommands? ?-novariables? string"}}
 test subst-1.2 {basics} {
     list [catch {subst a b c} msg] $msg
-} {1 {wrong # args: should be "subst string"}}
+} {1 {wrong # args: should be "subst ?-nobackslashes? ?-nocommands? ?-novariables? string"}}
 
 test subst-2.1 {simple strings} {
     subst {}
@@ -78,3 +77,29 @@ test subst-6.1 {clear the result after command substitution} {
     catch {unset a}
     list [catch {subst {[concat foo] $a}} msg] $msg
 } {1 {can't read "a": no such variable}}
+
+test subst-7.1 {switches} {
+    list [catch {subst foo bar} msg] $msg
+} {1 {wrong # args: should be "subst ?-nobackslashes? ?-nocommands? ?-novariables? string"}}
+test subst-7.2 {switches} {
+    list [catch {subst -no bar} msg] $msg
+} {1 {bad switch "-no": must be -nobackslashes, -nocommands, or -novariables}}
+test subst-7.3 {switches} {
+    list [catch {subst -bogus bar} msg] $msg
+} {1 {bad switch "-bogus": must be -nobackslashes, -nocommands, or -novariables}}
+test subst-7.4 {switches} {
+    set x 123
+    subst -nobackslashes {abc $x [expr 1+2] \\\x41}
+} {abc 123 3 \\\x41}
+test subst-7.5 {switches} {
+    set x 123
+    subst -nocommands {abc $x [expr 1+2] \\\x41}
+} {abc 123 [expr 1+2] \A}
+test subst-7.6 {switches} {
+    set x 123
+    subst -novariables {abc $x [expr 1+2] \\\x41}
+} {abc $x 3 \A}
+test subst-7.7 {switches} {
+    set x 123
+    subst -nov -nob -noc {abc $x [expr 1+2] \\\x41}
+} {abc $x [expr 1+2] \\\x41}

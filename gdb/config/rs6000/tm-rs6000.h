@@ -608,7 +608,8 @@ extern unsigned long frame_saved_pc PARAMS ((struct frame_info *));
    To be able to call C++ virtual methods in the inferior (which are called
    via function pointers), find_function_addr uses this macro to
    get the function address from a function pointer.  */
-#define CONVERT_FROM_FUNC_PTR_ADDR(ADDR) read_memory_integer (ADDR, 4)
+#define CONVERT_FROM_FUNC_PTR_ADDR(ADDR) \
+  (is_magic_function_pointer (ADDR) ? read_memory_integer (ADDR, 4) : (ADDR))
 
 /* Flag for machine-specific stuff in shared files.  FIXME */
 #define IBM6000_TARGET

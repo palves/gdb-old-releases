@@ -1,5 +1,5 @@
 /* Object file "section" support for the BFD library.
-   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -258,6 +258,16 @@ CODE_FRAGMENT
 .           bfd_get_section_contents, and the data is retrieved from
 .           memory if appropriate.  *}
 .#define SEC_IN_MEMORY 0x20000
+.
+.        {* The contents of this section are to be excluded by the
+.	    linker for executable and shared objects unless those
+.	    objects are to be further relocated.  *}
+.#define SEC_EXCLUDE 0x40000
+.
+.	{* The contents of this section are to be sorted by the
+.	   based on the address specified in the associated symbol
+.	   table.  *}
+.#define SEC_SORT_ENTRIES 0x80000
 .
 .	{*  End of section flags.  *}
 .
@@ -561,10 +571,7 @@ bfd_make_section_anyway (abfd, name)
 
   newsect = (asection *) bfd_zalloc (abfd, sizeof (asection));
   if (newsect == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   newsect->name = name;
   newsect->index = abfd->section_count++;
@@ -732,7 +739,7 @@ bfd_map_over_sections (abfd, operation, user_storage)
      PTR user_storage;
 {
   asection *sect;
-  int i = 0;
+  unsigned int i = 0;
 
   for (sect = abfd->sections; sect != NULL; i++, sect = sect->next)
     (*operation) (abfd, sect, user_storage);
@@ -842,7 +849,7 @@ bfd_set_section_contents (abfd, section, location, offset, count)
       return false;
     }
   sz = bfd_get_section_size_now (abfd, section);
-  if (offset > sz
+  if ((bfd_size_type) offset > sz
       || count > sz
       || offset + count > sz)
     goto bad_val;
@@ -924,7 +931,7 @@ bfd_get_section_contents (abfd, section, location, offset, count)
   /* Even if reloc_done is true, this function reads unrelocated
      contents, so we want the raw size.  */
   sz = section->_raw_size;
-  if (offset > sz || count > sz || offset + count > sz)
+  if ((bfd_size_type) offset > sz || count > sz || offset + count > sz)
     goto bad_val;
 
   if (count == 0)

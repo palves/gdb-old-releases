@@ -357,8 +357,8 @@ h8300_reloc16_extra_cases (abfd, link_info, link_order, reloc, data, src_ptr,
 
     case R_W65_PCR16:
       {
-	int gap = bfd_coff_reloc16_get_value (reloc, link_info,
-					      input_section);
+	bfd_vma gap = bfd_coff_reloc16_get_value (reloc, link_info,
+						  input_section);
 	bfd_vma dot = link_order->offset 
 	  + dst_address 
 	    + link_order->u.indirect.section->output_section->vma;
@@ -408,8 +408,8 @@ bfd_target w65_vec =
 {
   "coff-w65",			/* name */
   bfd_target_coff_flavour,
-  false,			/* data byte order is big */
-  false,			/* header byte order is big */
+  BFD_ENDIAN_LITTLE,		/* data byte order is little */
+  BFD_ENDIAN_LITTLE,		/* header byte order is little */
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -418,7 +418,6 @@ bfd_target w65_vec =
   '_',				/* leading char */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  1,				/* minimum section alignment */
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
   bfd_getl32, bfd_getl_signed_32, bfd_putl32,
   bfd_getl16, bfd_getl_signed_16, bfd_putl16,	/* data */

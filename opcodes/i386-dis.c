@@ -524,7 +524,7 @@ struct dis386 dis386_twobyte[] = {
   /* 08 */
   { "invd" },
   { "wbinvd" },
-  { "(bad)" },  { "(bad)" },  
+  { "(bad)" },  { "ud2a" },  
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   /* 10 */
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
@@ -546,17 +546,17 @@ struct dis386 dis386_twobyte[] = {
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   /* 30 */
-  { "wrmsr" },  { "rdtsc" },  { "rdmsr" },  { "(bad)" },  
+  { "wrmsr" },  { "rdtsc" },  { "rdmsr" },  { "rdpmc" },  
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   /* 38 */
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   /* 40 */
-  { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
-  { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
+  { "cmovo", Gv,Ev }, { "cmovno", Gv,Ev }, { "cmovb", Gv,Ev }, { "cmovae", Gv,Ev },
+  { "cmove", Gv,Ev }, { "cmovne", Gv,Ev }, { "cmovbe", Gv,Ev }, { "cmova", Gv,Ev },
   /* 48 */
-  { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
-  { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
+  { "cmovs", Gv,Ev }, { "cmovns", Gv,Ev }, { "cmovp", Gv,Ev }, { "cmovnp", Gv,Ev },
+  { "cmovl", Gv,Ev }, { "cmovge", Gv,Ev }, { "cmovle", Gv,Ev }, { "cmovg", Gv,Ev },  
   /* 50 */
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
   { "(bad)" },  { "(bad)" },  { "(bad)" },  { "(bad)" },  
@@ -639,7 +639,7 @@ struct dis386 dis386_twobyte[] = {
   { "movzbS", Gv, Eb },
   { "movzwS", Gv, Ew },  
   /* b8 */
-  { "(bad)" },
+  { "ud2b" },
   { "(bad)" },
   { GRP8 },
   { "btcS", Ev, Gv },  
@@ -889,7 +889,7 @@ struct dis386 grps[][8] = {
   /* GRP9 */
   {
     { "(bad)" },
-    { "cmpxch8b" },
+    { "cmpxchg8b", Ev },
     { "(bad)" },
     { "(bad)" },
     { "(bad)" },
@@ -1063,15 +1063,17 @@ print_insn_i386 (pc, info)
     dp = &dis386[*codep];
   codep++;
 
-  /* Fetch the mod/reg/rm byte.  FIXME: We should be only fetching
-     this if we need it.  As it is, this code loses if there is a
-     one-byte instruction (without a mod/reg/rm byte) at the end of
-     the address space.  */
-
-  FETCH_DATA (info, codep + 1);
-  mod = (*codep >> 6) & 3;
-  reg = (*codep >> 3) & 7;
-  rm = *codep & 7;
+  /* Fetch the mod/reg/rm byte, but only if we need it.  */
+  if (dp->op1 != NULL
+      || dp->op2 != NULL
+      || dp->op3 != NULL
+      || dp->name == NULL)
+    {
+      FETCH_DATA (info, codep + 1);
+      mod = (*codep >> 6) & 3;
+      reg = (*codep >> 3) & 7;
+      rm = *codep & 7;
+    }
 
   if (dp->name == NULL && dp->bytemode1 == FLOATCODE)
     {
@@ -1270,10 +1272,10 @@ struct dis386 float_reg[][8] = {
   },
   /* da */
   {
-    { "(bad)" },
-    { "(bad)" },
-    { "(bad)" },
-    { "(bad)" },
+    { "fcmovb",	ST, STi },
+    { "fcmove",	ST, STi },
+    { "fcmovbe",ST, STi },
+    { "fcmovu",	ST, STi },
     { "(bad)" },
     { FGRPda_5 },
     { "(bad)" },
@@ -1281,13 +1283,13 @@ struct dis386 float_reg[][8] = {
   },
   /* db */
   {
-    { "(bad)" },
-    { "(bad)" },
-    { "(bad)" },
-    { "(bad)" },
+    { "fcmovnb",ST, STi },
+    { "fcmovne",ST, STi },
+    { "fcmovnbe",ST, STi },
+    { "fcmovnu",ST, STi },
     { FGRPdb_4 },
-    { "(bad)" },
-    { "(bad)" },
+    { "fucomi",	ST, STi },
+    { "fcomi",	ST, STi },
     { "(bad)" },
   },
   /* dc */
@@ -1330,8 +1332,8 @@ struct dis386 float_reg[][8] = {
     { "(bad)" },
     { "(bad)" },
     { FGRPdf_4 },
-    { "(bad)" },
-    { "(bad)" },
+    { "fucomip",ST, STi },
+    { "fcomip", ST, STi },
     { "(bad)" },
   },
 };

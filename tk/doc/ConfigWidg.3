@@ -1,30 +1,16 @@
 '\"
-'\" Copyright (c) 1990-1992 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1990-1994 The Regents of the University of California.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/ConfigWidg.3,v 1.1 1994/06/03 23:41:38 rob Exp $ SPRITE (Berkeley)
 '\" 
 .so man.macros
-.HS Tk_ConfigureWidget tkc 3.3
+.TH Tk_ConfigureWidget 3 4.0 Tk "Tk Library Procedures"
 .BS
 .SH NAME
-Tk_ConfigureWidget, Tk_Offset, Tk_ConfigureInfo, Tk_FreeOptions \- process configuration options for widgets
+Tk_ConfigureWidget, Tk_Offset, Tk_ConfigureInfo, Tk_ConfigureValue, Tk_FreeOptions \- process configuration options for widgets
 .SH SYNOPSIS
 .nf
 \fB#include <tk.h>\fR
@@ -39,8 +25,11 @@ int
 \fBTk_ConfigureInfo(\fIinterp, tkwin, specs, widgRec, argvName, flags\fB)\fR
 .sp
 .VS
-\fBTk_FreeOptions(\fIspecs, widgRec, display, flags\fB)\fR
+int
+\fBTk_ConfigureValue(\fIinterp, tkwin, specs, widgRec, argvName, flags\fB)\fR
 .VE
+.sp
+\fBTk_FreeOptions(\fIspecs, widgRec, display, flags\fB)\fR
 .SH ARGUMENTS
 .AS Tk_ConfigSpec *widgRec
 .AP Tcl_Interp *interp in
@@ -107,16 +96,13 @@ fashion.
 In the event of an error return, some of the fields of \fIwidgRec\fR
 could already have been set, if configuration information for them
 was successfully processed before the error occurred.
-.VS
 The other fields will be set to reasonable initial values so that
 \fBTk_FreeOptions\fR can be called for cleanup.
-.VE
 .PP
 The \fIspecs\fR array specifies the kinds of configuration options
 expected by the widget.  Each of its entries specifies one configuration
 option and has the following structure:
-.DS
-.ta 1c 2c 3c
+.CS
 typedef struct {
 	int \fItype\fR;
 	char *\fIargvName\fR;
@@ -125,12 +111,9 @@ typedef struct {
 	char *\fIdefValue\fR;
 	int \fIoffset\fR;
 	int \fIspecFlags\fR;
-.VS
 	Tk_CustomOption *\fIcustomPtr\fR;
-.VE
 } Tk_ConfigSpec;
-.DE
-.LP
+.CE
 The \fItype\fR field indicates what type of configuration option this is
 (e.g. TK_CONFIG_COLOR for a color value, or TK_CONFIG_INT for
 an integer value).  The \fItype\fR field indicates how to use the
@@ -188,7 +171,6 @@ legal values for \fItype\fR, and the corresponding actions, are:
 .TP
 \fBTK_CONFIG_ACTIVE_CURSOR\fR
 The value
-.VS
 must be an ASCII string identifying a cursor in a form
 suitable for passing to \fBTk_GetCursor\fR. 
 The value is converted to a \fBCursor\fR by calling
@@ -206,17 +188,14 @@ The value must be an ASCII string identifying an anchor point in one of the ways
 accepted by \fBTk_GetAnchor\fR.
 The string is converted to a \fBTk_Anchor\fR by calling
 \fBTk_GetAnchor\fR and the result is stored in the target.
-.VE
 .TP
 \fBTK_CONFIG_BITMAP\fR
 The value must be an ASCII string identifying a bitmap in a form
 suitable for passing to \fBTk_GetBitmap\fR.  The value is converted
 to a \fBPixmap\fR by calling \fBTk_GetBitmap\fR and the result
 is stored in the target.
-.VS
 If TK_CONFIG_NULL_OK is specified in \fIspecFlags\fR then the value
 may be an empty string, in which case the target is set to \fBNone\fR.
-.VE
 If the previous value of the target
 wasn't \fBNone\fR, then it is freed by passing it to \fBTk_FreeBitmap\fR.
 .TP
@@ -234,32 +213,26 @@ The value must be an ASCII string identifying a border color in a form
 suitable for passing to \fBTk_Get3DBorder\fR.  The value is converted
 to a (\fBTk_3DBorder *\fR) by calling \fBTk_Get3DBorder\fR and the result
 is stored in the target.
-.VS
 If TK_CONFIG_NULL_OK is specified in \fIspecFlags\fR then the value
 may be an empty string, in which case the target will be set to NULL.
-.VE
 If the previous value of the target
 wasn't NULL, then it is freed by passing it to \fBTk_Free3DBorder\fR.
 .TP
 \fBTK_CONFIG_CAP_STYLE\fR
 The value must be
-.VS
 an ASCII string identifying a cap style in one of the ways
 accepted by \fBTk_GetCapStyle\fR.
 The string is converted to an integer value corresponding
 to the cap style by calling
 \fBTk_GetCapStyle\fR and the result is stored in the target.
-.VE
 .TP
 \fBTK_CONFIG_COLOR\fR
 The value must be an ASCII string identifying a color in a form
 suitable for passing to \fBTk_GetColor\fR.  The value is converted
 to an (\fBXColor *\fR) by calling \fBTk_GetColor\fR and the result
 is stored in the target.
-.VS
 If TK_CONFIG_NULL_OK is specified in \fIspecFlags\fR then the value
 may be an empty string, in which case the target will be set to \fBNone\fR.
-.VE
 If the previous value of the target
 wasn't NULL, then it is freed by passing it to \fBTk_FreeColor\fR.
 .TP
@@ -268,12 +241,10 @@ This option is identical to \fBTK_CONFIG_ACTIVE_CURSOR\fR except
 that the new cursor is not made the active one for \fItkwin\fR.
 .TP
 \fBTK_CONFIG_CUSTOM\fR
-.VS
 This option allows applications to define new option types.
 The \fIcustomPtr\fR field of the entry points to a structure
 defining the new option type.
 See the section CUSTOM OPTION TYPES below for details.
-.VE
 .TP
 \fBTK_CONFIG_DOUBLE\fR
 The value must be an ASCII floating-point number in
@@ -291,10 +262,8 @@ The value must be an ASCII string identifying a font in a form
 suitable for passing to \fBTk_GetFontStruct\fR.  The value is converted
 to an (\fBXFontStruct *\fR) by calling \fBTk_GetFontStruct\fR and the result
 is stored in the target.
-.VS
 If TK_CONFIG_NULL_OK is specified in \fIspecFlags\fR then the value
 may be an empty string, in which case the target will be set to NULL.
-.VE
 If the previous value of the target
 wasn't NULL, then it is freed by passing it to \fBTk_FreeFontStruct\fR.
 .TP
@@ -307,7 +276,6 @@ value and the integer is stored in the target.
 .TP
 \fBTK_CONFIG_JOIN_STYLE\fR
 The value must be
-.VS
 an ASCII string identifying a join style in one of the ways
 accepted by \fBTk_GetJoinStyle\fR.
 The string is converted to an integer value corresponding
@@ -332,7 +300,6 @@ The value must specify screen units in one of the forms acceptable
 to \fBTk_GetPixels\fR.
 The string is converted to an integer distance in pixels and the
 value is stored in the target.
-.VE
 .TP
 \fBTK_CONFIG_RELIEF\fR
 The value must be an ASCII string identifying a relief in a form
@@ -342,7 +309,6 @@ is stored in the target.
 .TP
 \fBTK_CONFIG_STRING\fR
 A copy
-.VS
 of the value is made by allocating memory space with
 \fBmalloc\fR and copying the value into the dynamically-allocated
 space.  A pointer to the new string is stored in the target.
@@ -350,7 +316,6 @@ If TK_CONFIG_NULL_OK is specified in \fIspecFlags\fR then the value
 may be an empty string, in which case the target will be set to NULL.
 If the previous value of the target wasn't NULL, then it is
 freed by passing it to \fBfree\fR.
-.VE
 .TP
 \fBTK_CONFIG_SYNONYM\fR
 This \fItype\fR value identifies special entries in \fIspecs\fR that
@@ -367,14 +332,12 @@ a single configuration option, such as ``\-background'' and ``\-bg''.
 The value is translated to a \fBTk_Uid\fR
 (by passing it to \fBTk_GetUid\fR).  The resulting value
 is stored in the target.
-.VS
 If TK_CONFIG_NULL_OK is specified in \fIspecFlags\fR and the value
 is an empty string then the target will be set to NULL.
 .TP
 \fBTK_CONFIG_WINDOW\fR
 The value must be a window path name.  It is translated to a
 \fBTk_Window\fR token and the token is stored in the target.
-.VE
 
 .SH "GROUPED ENTRIES"
 .PP
@@ -413,7 +376,6 @@ leaving others in their current state, such as when a \fBconfigure\fR
 widget command is being processed.
 .PP
 Second, the \fIspecFlags\fR field of an entry in \fIspecs\fR may be used
-.VS
 to control the processing of that entry.  Each \fIspecFlags\fR
 field may consists of an OR-ed combination of the following values:
 .TP
@@ -459,7 +421,6 @@ entries where a value was specified in \fIargv\fR.
 It will be zero in all other entries.
 This bit provides a way for clients to determine which values
 actually changed in a call to \fBTk_ConfigureWidget\fR.
-.VE
 .PP
 The TK_CONFIG_MONO_ONLY and TK_CONFIG_COLOR_ONLY flags are typically
 used to specify different default values for
@@ -537,9 +498,23 @@ if \fIargvName\fR had been NULL.
 The \fIflags\fR argument to \fBTk_ConfigureInfo\fR is used to restrict
 the \fIspecs\fR entries to consider, just as for \fBTk_ConfigureWidget\fR.
 
-.SH TK_FREEOPTIONS
+.SH TK_CONFIGUREVALUE
 .PP
 .VS
+\fBTk_ConfigureValue\fR takes arguments similar to \fBTk_ConfigureInfo\fR;
+instead of returning a list of values, it just returns the current value
+of the option given by \fIargvName\fR (\fIargvName\fR must not be NULL).
+The value is returned in \fIinterp->result\fR and TCL_OK is
+normally returned as the procedure's result.
+If an error occurs in \fBTk_ConfigureValue\fR (e.g., \fIargvName\fR is
+not a valid option name), TCL_ERROR is returned and an error message
+is left in \fIinterp->result\fR.
+This procedure is typically called to implement \fBcget\fR widget
+commands.
+.VE
+
+.SH TK_FREEOPTIONS
+.PP
 The \fBTk_FreeOptions\fR procedure may be invoked during widget cleanup
 to release all of the resources associated with configuration options.
 It scans through \fIspecs\fR and for each entry corresponding to a
@@ -550,16 +525,13 @@ it contains a null pointer) then no resource is freed for that
 entry.
 After freeing a resource, \fBTk_FreeOptions\fR sets the
 corresponding field of the widget record to null.
-.VE
 
 .SH "CUSTOM OPTION TYPES"
 .PP
-.VS
 Applications can extend the built-in configuration types with additional
 configuration types by writing procedures to parse and print options
 of the a type and creating a structure pointing to those procedures:
-.DS
-.ta 1c 2c 3c
+.CS
 typedef struct Tk_CustomOption {
 	Tk_OptionParseProc *\fIparseProc\fR;
 	Tk_OptionPrintProc *\fIprintProc\fR;
@@ -580,14 +552,13 @@ typedef char *Tk_OptionPrintProc(
 	char *\fIwidgRec\fR,
 	int \fIoffset\fR,
 	Tcl_FreeProc **\fIfreeProcPtr\fR);
-.DE
-.LP
+.CE
 The Tk_CustomOption structure contains three fields, which are pointers
 to the two procedures and a \fIclientData\fR value to be passed to those
 procedures when they are invoked.  The \fIclientData\fR value typically
 points to a structure containing information that is needed by the
 procedures when they are parsing and printing options.
-.LP
+.PP
 The \fIparseProc\fR procedure is invoked by
 \fBTk_ConfigureWidget\fR to parse a string and store the resulting
 value in the widget record.
@@ -611,7 +582,7 @@ form is appropriate for the option and store the value in the widget
 record.  It should normally return TCL_OK, but if an error occurs
 in translating the string to a value then it should return TCL_ERROR
 and store an error message in \fIinterp->result\fR.
-.LP
+.PP
 The \fIprintProc\fR procedure is called
 by \fBTk_ConfigureInfo\fR to produce a string value describing an
 existing option.
@@ -627,13 +598,12 @@ a procedure to call to free the string's memory;  \fBTk_ConfigureInfo\fR
 will call this procedure when it is finished with the string.
 If the result string is stored in static memory then \fIprintProc\fR
 need not do anything with the \fIfreeProcPtr\fR argument.
-.LP
+.PP
 Once \fIparseProc\fR and \fIprintProc\fR have been defined and a
 Tk_CustomOption structure has been created for them, options of this
 new type may be manipulated with Tk_ConfigSpec entries whose \fItype\fR
 fields are TK_CONFIG_CUSTOM and whose \fIcustomPtr\fR fields point
 to the Tk_CustomOption structure.
-.VE
 
 .SH EXAMPLES
 .PP

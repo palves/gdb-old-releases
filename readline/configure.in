@@ -36,6 +36,7 @@ case "${host}" in
   *-*-sysv*)		host_makefile_frag=config/mh-sysv ;;
   *-*-m88kbcs*)		host_makefile_frag=config/mh-sysv ;;
   i[345]86-*-linux*)	host_makefile_frag=config/mh-posix ;;
+  powerpc-ibm-aix*)	host_makefile_frag=config/mh-sysv; files=sysdep-aix.h ;;
   rs6000-ibm-aix*)	host_makefile_frag=config/mh-sysv; files=sysdep-aix.h ;;
   rs6000-bull-bosx*)	host_makefile_frag=config/mh-sysv; files=sysdep-aix.h ;;
   *-ibm-aix*)		host_makefile_frag=config/mh-sysv ;;

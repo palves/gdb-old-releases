@@ -1,5 +1,5 @@
 /* Do various things to symbol tables (other than lookup), for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -151,6 +151,43 @@ free_symtab (s)
 }
 
 #if MAINTENANCE_CMDS
+
+void
+print_objfile_statistics ()
+{
+  struct objfile *objfile;
+
+  immediate_quit++;
+  ALL_OBJFILES (objfile)
+    {
+      printf_filtered ("Statistics for '%s':\n", objfile -> name);
+      if (OBJSTAT (objfile, n_stabs) > 0)
+	printf_filtered ("  Number of \"stab\" symbols read: %d\n",
+			 OBJSTAT (objfile, n_stabs));
+      if (OBJSTAT (objfile, n_minsyms) > 0)
+	printf_filtered ("  Number of \"minimal symbols read: %d\n",
+			 OBJSTAT (objfile, n_minsyms));
+      if (OBJSTAT (objfile, n_psyms) > 0)
+	printf_filtered ("  Number of \"partial symbols read: %d\n",
+			 OBJSTAT (objfile, n_psyms));
+      if (OBJSTAT (objfile, n_syms) > 0)
+	printf_filtered ("  Number of \"full symbols read: %d\n",
+			 OBJSTAT (objfile, n_syms));
+      if (OBJSTAT (objfile, n_types) > 0)
+	printf_filtered ("  Number of \"types defined: %d\n",
+			 OBJSTAT (objfile, n_types));
+      if (OBJSTAT (objfile, sz_strtab) > 0)
+	printf_filtered ("  Space used by a.out string tables: %d\n",
+			 OBJSTAT (objfile, sz_strtab));
+      printf_filtered ("  Total memory used for psymbol obstack: %d\n",
+		       obstack_memory_used (&objfile -> psymbol_obstack));
+      printf_filtered ("  Total memory used for symbol obstack: %d\n",
+		       obstack_memory_used (&objfile -> symbol_obstack));
+      printf_filtered ("  Total memory used for type obstack: %d\n",
+		       obstack_memory_used (&objfile -> type_obstack));
+    }
+  immediate_quit--;
+}
 
 static void 
 dump_objfile (objfile)
@@ -424,7 +461,7 @@ dump_symtab (objfile, symtab, outfile)
 	  s.depth = depth + 1;
 	  s.outfile = outfile;
 	  catch_errors (print_symbol, &s, "Error printing symbol:\n",
-			RETURN_MASK_ERROR);
+			RETURN_MASK_ALL);
 	}
     }
   fprintf_filtered (outfile, "\n");
@@ -546,13 +583,14 @@ print_symbol (args)
 	  break;
 
 	case LOC_CONST_BYTES:
-	  fprintf_filtered (outfile, "const %u hex bytes:",
-		   TYPE_LENGTH (SYMBOL_TYPE (symbol)));
 	  {
 	    unsigned i;
-	    for (i = 0; i < TYPE_LENGTH (SYMBOL_TYPE (symbol)); i++)
+	    struct type *type = check_typedef (SYMBOL_TYPE (symbol));
+	    fprintf_filtered (outfile, "const %u hex bytes:",
+			      TYPE_LENGTH (type));
+	    for (i = 0; i < TYPE_LENGTH (type); i++)
 	      fprintf_filtered (outfile, " %02x",
-			 (unsigned)SYMBOL_VALUE_BYTES (symbol) [i]);
+				(unsigned)SYMBOL_VALUE_BYTES (symbol) [i]);
 	    fprintf_filtered (outfile, ",");
 	  }
 	  break;
@@ -620,6 +658,10 @@ print_symbol (args)
 				 1,
 				 outfile);
 	  fprintf_filtered (outfile, ",");
+	  break;
+
+	case LOC_UNRESOLVED:
+	  fprintf_filtered (outfile, "unresolved");
 	  break;
 
 	case LOC_OPTIMIZED_OUT:
@@ -765,6 +807,9 @@ print_partial_symbol (p, count, what, outfile)
 	  break;
 	case LOC_LOCAL_ARG:
 	  fputs_filtered ("shuffled arg", outfile);
+	  break;
+	case LOC_UNRESOLVED:
+	  fputs_filtered ("unresolved", outfile);
 	  break;
 	case LOC_OPTIMIZED_OUT:
 	  fputs_filtered ("optimized out", outfile);

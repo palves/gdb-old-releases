@@ -373,9 +373,15 @@ void (*init_ui_hook) PARAMS ((void));
 
 void (*command_loop_hook) PARAMS ((void));
 
+
 /* Called instead of fputs for all output.  */
 
 void (*fputs_unfiltered_hook) PARAMS ((const char *linebuffer, FILE *stream));
+
+/* Called when the target says something to the host, which may
+   want to appear in a different window. */
+
+void (*target_output_hook) PARAMS ((char *));
 
 /* Called from print_frame_info to list the line we stopped in.  */
 
@@ -812,10 +818,10 @@ execute_control_command (cmd)
 	make_cleanup (free_current_contents, &expr);
 	
 	ret = simple_control;
-	loop = true;
+	loop = 1;
 
 	/* Keep iterating so long as the expression is true.  */
-	while (loop == true)
+	while (loop == 1)
 	  {
 	    /* Evaluate the expression.  */
 	    val = evaluate_expression (expr);
@@ -834,7 +840,7 @@ execute_control_command (cmd)
 		   looping.  */
 		if (ret == invalid_control || ret == break_control)
 		  {
-		    loop = false;
+		    loop = 0;
 		    break;
 		  }
 
@@ -1133,12 +1139,16 @@ execute_command (p, from_tty)
   register struct cmd_list_element *c;
   register enum language flang;
   static int warned = 0;
+  extern FILE *serial_logfp;
 
   free_all_values ();
 
   /* This can happen when command_line_input hits end of file.  */
   if (p == NULL)
       return;
+
+  if (serial_logfp != NULL)
+    serial_log_command (p);
 
   while (*p == ' ' || *p == '\t') p++;
   if (*p)
@@ -1148,6 +1158,15 @@ execute_command (p, from_tty)
       c = lookup_cmd (&p, cmdlist, "", 0, 1);
       /* Pass null arg rather than an empty one.  */
       arg = *p ? p : 0;
+
+      /* Clear off trailing whitespace, except for set and complete command.  */
+      if (arg && c->type != set_cmd && c->function.cfunc != complete_command)
+	{
+	  p = arg + strlen (arg) - 1;
+	  while (p >= arg && (*p == ' ' || *p == '\t'))
+	    p--;
+	  *(p + 1) = '\0';
+	}
 
       /* If this command has been hooked, run the hook first. */
       if (c->hook)
@@ -2026,16 +2045,11 @@ command_line_input (prrompt, repeat, annotation_suffix)
   /* If we just got an empty line, and that is supposed
      to repeat the previous command, return the value in the
      global buffer.  */
-  if (repeat)
-    {
-      if (p == linebuffer)
-	return line;
-      p1 = linebuffer;
-      while (*p1 == ' ' || *p1 == '\t')
-	p1++;
-      if (!*p1)
-	return line;
-    }
+  if (repeat && p == linebuffer)
+    return line;
+  for (p1 = linebuffer; *p1 == ' ' || *p1 == '\t'; p1++) ;
+  if (repeat && !*p1)
+    return line;
 
   *p = 0;
 
@@ -2050,36 +2064,8 @@ command_line_input (prrompt, repeat, annotation_suffix)
      out the command and then later fetch it from the value history
      and remove the '#'.  The kill ring is probably better, but some
      people are in the habit of commenting things out.  */
-  p1 = linebuffer;
-  while ((c = *p1++) != '\0')
-    {
-      if (c == '"')
-	while ((c = *p1++) != '"')
-	  {
-	    /* Make sure an escaped '"' doesn't make us think the string
-	       is ended.  */
-	    if (c == '\\')
-	      parse_escape (&p1);
-	    if (c == '\0')
-	      break;
-	  }
-      else if (c == '\'')
-	while ((c = *p1++) != '\'')
-	  {
-	    /* Make sure an escaped '\'' doesn't make us think the string
-	       is ended.  */
-	    if (c == '\\')
-	      parse_escape (&p1);
-	    if (c == '\0')
-	      break;
-	  }
-      else if (c == '#')
-	{
-	  /* Found a comment.  */
-	  p1[-1] = '\0';
-	  break;
-	}
-    }
+  if (*p1 == '#')
+    *p1 = '\0';  /* Found a comment. */
 
   /* Save into global buffer if appropriate.  */
   if (repeat)
@@ -2234,9 +2220,7 @@ recurse_read_control_structure (current_cmd)
   enum misc_command_type val;
   enum command_control_type ret;
   struct command_line **body_ptr, *child_tail, *next;
-  struct cleanup *old_chains, *tmp_chains;
 
-  old_chains = NULL;
   child_tail = NULL;
   current_body = 1;
 
@@ -2305,19 +2289,12 @@ recurse_read_control_structure (current_cmd)
 	}
       else
 	{
-	  /* We have just read the first line of the child's control
-	     structure.  From now on, arrange to throw away the line
-	     we have if we quit or get an error.  */
 	  body_ptr = current_cmd->body_list;
 	  for (i = 1; i < current_body; i++)
 	    body_ptr++;
 
 	  *body_ptr = next;
 
-	  tmp_chains = make_cleanup (free_command_lines, body_ptr);
-
-	  if (!old_chains)
-	    old_chains = tmp_chains;
 	}
 
       child_tail = next;
@@ -2337,10 +2314,6 @@ recurse_read_control_structure (current_cmd)
     }
 
   dont_repeat ();
-  if (ret == invalid_control && old_chains)
-    do_cleanups (old_chains);
-  else if (old_chains)
-    discard_cleanups (old_chains);
 
   return ret;
 }
@@ -2571,7 +2544,7 @@ validate_comname (comname)
   p = comname;
   while (*p)
     {
-      if (!isalnum(*p) && *p != '-')
+      if (!isalnum(*p) && *p != '-' && *p != '_')
 	error ("Junk in argument list: \"%s\"", p);
       p++;
     }
@@ -3018,6 +2991,15 @@ echo_command (text, from_tty)
   gdb_flush (gdb_stdout);
 }
 
+/* ARGSUSED */
+static void
+dont_repeat_command (ignored, from_tty)
+     char *ignored;
+     int from_tty;
+{
+  *line = 0;		/* Can't call dont_repeat here because we're not
+			   necessarily reading from stdin.  */
+}
 
 #ifdef TARGET_BYTE_ORDER_SELECTABLE
 
@@ -3093,7 +3075,7 @@ set_endian_from_file (abfd)
 #ifdef TARGET_BYTE_ORDER_SELECTABLE
   int want;
 
-  if (abfd->xvec->byteorder_big_p)
+  if (bfd_big_endian (abfd))
     want = BIG_ENDIAN;
   else
     want = LITTLE_ENDIAN;
@@ -3106,11 +3088,11 @@ set_endian_from_file (abfd)
 
 #else /* ! defined (TARGET_BYTE_ORDER_SELECTABLE) */
 
-  if (abfd->xvec->byteorder_big_p
+  if (bfd_big_endian (abfd)
       ? TARGET_BYTE_ORDER != BIG_ENDIAN
       : TARGET_BYTE_ORDER == BIG_ENDIAN)
     warning ("%s endian file does not match %s endian target.",
-	     abfd->xvec->byteorder_big_p ? "big" : "little",
+	     bfd_big_endian (abfd) ? "big" : "little",
 	     TARGET_BYTE_ORDER == BIG_ENDIAN ? "big" : "little");
 
 #endif /* ! defined (TARGET_BYTE_ORDER_SELECTABLE) */
@@ -3452,6 +3434,9 @@ when gdb is started.", &cmdlist);
   add_com_alias ("q", "quit", class_support, 1);
   add_com_alias ("h", "help", class_support, 1);
 
+  add_com ("dont-repeat", class_support, dont_repeat_command, "Don't repeat this command.\n\
+Primarily used inside of user-defined commands that should not be repeated when\n\
+hitting return.");
 
   c = add_set_cmd ("verbose", class_support, var_boolean, (char *)&info_verbose,
 		   "Set ",

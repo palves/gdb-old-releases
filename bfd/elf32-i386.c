@@ -1,5 +1,5 @@
 /* Intel 80386/80486-specific support for 32-bit ELF
-   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -275,7 +275,7 @@ elf_i386_check_relocs (abfd, info, sec, relocs)
   rel_end = relocs + sec->reloc_count;
   for (rel = relocs; rel < rel_end; rel++)
     {
-      long r_symndx;
+      unsigned long r_symndx;
       struct elf_link_hash_entry *h;
 
       r_symndx = ELF32_R_SYM (rel->r_info);
@@ -358,15 +358,12 @@ elf_i386_check_relocs (abfd, info, sec, relocs)
 	      if (local_got_offsets == NULL)
 		{
 		  size_t size;
-		  register int i;
+		  register unsigned int i;
 
 		  size = symtab_hdr->sh_info * sizeof (bfd_vma);
 		  local_got_offsets = (bfd_vma *) bfd_alloc (abfd, size);
 		  if (local_got_offsets == NULL)
-		    {
-		      bfd_set_error (bfd_error_no_memory);
-		      return false;
-		    }
+		    return false;
 		  elf_local_got_offsets (abfd) = local_got_offsets;
 		  for (i = 0; i < symtab_hdr->sh_info; i++)
 		    local_got_offsets[i] = (bfd_vma) -1;
@@ -394,21 +391,15 @@ elf_i386_check_relocs (abfd, info, sec, relocs)
 	case R_386_PLT32:
 	  /* This symbol requires a procedure linkage table entry.  We
              actually build the entry in adjust_dynamic_symbol,
-             because this might be a case of linking PIC code without
-             linking in any dynamic objects, in which case we don't
-             need to generate a procedure linkage table after all.  */
-	  
+             because this might be a case of linking PIC code which is
+             never referenced by a dynamic object, in which case we
+             don't need to generate a procedure linkage table entry
+             after all.  */
+
 	  /* If this is a local symbol, we resolve it directly without
              creating a procedure linkage table entry.  */
 	  if (h == NULL)
 	    continue;
-
-	  /* Make sure this symbol is output as a dynamic symbol.  */
-	  if (h->dynindx == -1)
-	    {
-	      if (! bfd_elf32_link_record_dynamic_symbol (info, h))
-		return false;
-	    }
 
 	  h->elf_link_hash_flags |= ELF_LINK_HASH_NEEDS_PLT;
 
@@ -417,7 +408,8 @@ elf_i386_check_relocs (abfd, info, sec, relocs)
 	case R_386_32:
 	case R_386_PC32:
 	  if (info->shared
-	      && (sec->flags & SEC_ALLOC) != 0)
+	      && (sec->flags & SEC_ALLOC) != 0
+	      && (ELF32_R_TYPE (rel->r_info) != R_386_PC32 || h != NULL))
 	    {
 	      /* When creating a shared object, we must copy these
                  reloc types into the output file.  We create a reloc
@@ -486,6 +478,7 @@ elf_i386_adjust_dynamic_symbol (info, h)
   /* Make sure we know what is going on here.  */
   BFD_ASSERT (dynobj != NULL
 	      && ((h->elf_link_hash_flags & ELF_LINK_HASH_NEEDS_PLT)
+		  || h->weakdef != NULL
 		  || ((h->elf_link_hash_flags
 		       & ELF_LINK_HASH_DEF_DYNAMIC) != 0
 		      && (h->elf_link_hash_flags
@@ -499,15 +492,24 @@ elf_i386_adjust_dynamic_symbol (info, h)
   if (h->type == STT_FUNC
       || (h->elf_link_hash_flags & ELF_LINK_HASH_NEEDS_PLT) != 0)
     {
-      if (! elf_hash_table (info)->dynamic_sections_created)
+      if (! info->shared
+	  && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_DYNAMIC) == 0
+	  && (h->elf_link_hash_flags & ELF_LINK_HASH_REF_DYNAMIC) == 0)
 	{
 	  /* This case can occur if we saw a PLT32 reloc in an input
-             file, but none of the input files were dynamic objects.
-             In such a case, we don't actually need to build a
-             procedure linkage table, and we can just do a PC32 reloc
-             instead.  */
+             file, but the symbol was never referred to by a dynamic
+             object.  In such a case, we don't actually need to build
+             a procedure linkage table, and we can just do a PC32
+             reloc instead.  */
 	  BFD_ASSERT ((h->elf_link_hash_flags & ELF_LINK_HASH_NEEDS_PLT) != 0);
 	  return true;
+	}
+
+      /* Make sure this symbol is output as a dynamic symbol.  */
+      if (h->dynindx == -1)
+	{
+	  if (! bfd_elf32_link_record_dynamic_symbol (info, h))
+	    return false;
 	}
 
       s = bfd_get_section_by_name (dynobj, ".plt");
@@ -723,14 +725,19 @@ elf_i386_size_dynamic_sections (output_bfd, info)
 	      /* Remember whether there are any reloc sections other
                  than .rel.plt.  */
 	      if (strcmp (name, ".rel.plt") != 0)
-		relocs = true;
+		{
+		  relocs = true;
 
-	      /* If this relocation section applies to a read only
-                 section, then we probably need a DT_TEXTREL entry.  */
-	      target = bfd_get_section_by_name (output_bfd, name + 4);
-	      if (target != NULL
-		  && (target->flags & SEC_READONLY) != 0)
-		reltext = true;
+		  /* If this relocation section applies to a read only
+		     section, then we probably need a DT_TEXTREL
+		     entry.  The entries in the .rel.plt section
+		     really apply to the .got section, which we
+		     created ourselves and so know is not readonly.  */
+		  target = bfd_get_section_by_name (output_bfd, name + 4);
+		  if (target != NULL
+		      && (target->flags & SEC_READONLY) != 0)
+		    reltext = true;
+		}
 
 	      /* We use the reloc_count field as a counter if we need
 		 to copy relocs into the output file.  */
@@ -760,10 +767,7 @@ elf_i386_size_dynamic_sections (output_bfd, info)
       /* Allocate memory for the section contents.  */
       s->contents = (bfd_byte *) bfd_alloc (dynobj, s->_raw_size);
       if (s->contents == NULL && s->_raw_size != 0)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
     }
 	  
   if (elf_hash_table (info)->dynamic_sections_created)
@@ -846,7 +850,7 @@ elf_i386_relocate_section (output_bfd, info, input_bfd, input_section,
     {
       int r_type;
       reloc_howto_type *howto;
-      long r_symndx;
+      unsigned long r_symndx;
       struct elf_link_hash_entry *h;
       Elf_Internal_Sym *sym;
       asection *sec;
@@ -901,6 +905,9 @@ elf_i386_relocate_section (output_bfd, info, input_bfd, input_section,
       else
 	{
 	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+	  while (h->root.type == bfd_link_hash_indirect
+		 || h->root.type == bfd_link_hash_warning)
+	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
 	  if (h->root.type == bfd_link_hash_defined
 	      || h->root.type == bfd_link_hash_defweak)
 	    {
@@ -915,6 +922,9 @@ elf_i386_relocate_section (output_bfd, info, input_bfd, input_section,
 			  || (h->elf_link_hash_flags
 			      & ELF_LINK_HASH_DEF_REGULAR) == 0))
 		  || (info->shared
+		      && (! info->symbolic
+			  || (h->elf_link_hash_flags
+			      & ELF_LINK_HASH_DEF_REGULAR) == 0)
 		      && (r_type == R_386_32
 			  || r_type == R_386_PC32)
 		      && (input_section->flags & SEC_ALLOC) != 0))
@@ -1099,9 +1109,14 @@ elf_i386_relocate_section (output_bfd, info, input_bfd, input_section,
 	case R_386_PC32:
 	  if (info->shared
 	      && (input_section->flags & SEC_ALLOC) != 0
-	      && (r_type != R_386_PC32 || h != NULL))
+	      && (r_type != R_386_PC32
+		  || (h != NULL
+		      && (! info->symbolic
+			  || (h->elf_link_hash_flags
+			      & ELF_LINK_HASH_DEF_REGULAR) == 0))))
 	    {
 	      Elf_Internal_Rel outrel;
+	      boolean relocate;
 
 	      /* When generating a shared object, these relocations
 		 are copied into the output file to be resolved at run
@@ -1133,15 +1148,23 @@ elf_i386_relocate_section (output_bfd, info, input_bfd, input_section,
 	      if (r_type == R_386_PC32)
 		{
 		  BFD_ASSERT (h != NULL && h->dynindx != -1);
+		  relocate = false;
 		  outrel.r_info = ELF32_R_INFO (h->dynindx, R_386_PC32);
 		}
 	      else
 		{
-		  if (h == NULL)
-		    outrel.r_info = ELF32_R_INFO (0, R_386_RELATIVE);
+		  if (h == NULL
+		      || (info->symbolic
+			  && (h->elf_link_hash_flags
+			      & ELF_LINK_HASH_DEF_REGULAR) != 0))
+		    {
+		      relocate = true;
+		      outrel.r_info = ELF32_R_INFO (0, R_386_RELATIVE);
+		    }
 		  else
 		    {
-		      BFD_ASSERT (h->dynindx != (bfd_vma) -1);
+		      BFD_ASSERT (h->dynindx != -1);
+		      relocate = false;
 		      outrel.r_info = ELF32_R_INFO (h->dynindx, R_386_32);
 		    }
 		}
@@ -1156,7 +1179,7 @@ elf_i386_relocate_section (output_bfd, info, input_bfd, input_section,
 		 not want to fiddle with the addend.  Otherwise, we
 		 need to include the symbol value so that it becomes
 		 an addend for the dynamic reloc.  */
-	      if (h != NULL)
+	      if (! relocate)
 		continue;
 	    }
 
@@ -1517,7 +1540,7 @@ elf_i386_finish_dynamic_sections (output_bfd, info)
 #define elf_backend_finish_dynamic_sections \
 					elf_i386_finish_dynamic_sections
 #define elf_backend_want_got_plt 1
-#define elf_backend_plt_readonly 0
+#define elf_backend_plt_readonly 1
 #define elf_backend_want_plt_sym 0
 
 #include "elf32-target.h"

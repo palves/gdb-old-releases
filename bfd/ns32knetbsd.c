@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 #define	BYTES_IN_WORD	4
 #undef TARGET_IS_BIG_ENDIAN_P
 
-#define	PAGE_SIZE	4096
+#define	TARGET_PAGE_SIZE	4096
 #define	SEGMENT_SIZE	4096
 
 #define	DEFAULT_ARCH	bfd_arch_ns32k
@@ -34,5 +34,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 #define TARGETNAME "a.out-ns32k-netbsd"
 
 #define ns32kaout_32_get_section_contents aout_32_get_section_contents
+
+#define MY_text_includes_header 1
+
+/* We can`t use the MYNS macro here for cpp reasons too subtle
+ * for me -- IWD
+ */
+#define MY_bfd_reloc_type_lookup ns32kaout_bfd_reloc_type_lookup
+
+#include "bfd.h"		/* To ensure following declaration is OK */
+
+CONST struct reloc_howto_struct *
+MY_bfd_reloc_type_lookup
+  PARAMS((bfd *abfd AND
+	  bfd_reloc_code_real_type code));
+
 
 #include "netbsd.h"

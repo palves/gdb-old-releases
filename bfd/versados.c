@@ -162,10 +162,7 @@ versados_mkobject (abfd)
     {
       tdata_type *tdata = (tdata_type *) bfd_alloc (abfd, sizeof (tdata_type));
       if (tdata == NULL)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
       abfd->tdata.versados_data = tdata;
       tdata->symbols = NULL;
       VDATA (abfd)->alert = 0x12345678;
@@ -387,7 +384,6 @@ process_otr (abfd, otr, pass)
      int pass;
 {
   unsigned long shift;
-  long val;
   unsigned char *srcp = otr->data;
   unsigned char *endp = (unsigned char *) otr + otr->size;
   unsigned int bits = (otr->map[0] << 24)
@@ -398,7 +394,7 @@ process_otr (abfd, otr, pass)
   struct esdid *esdid = &EDATA (abfd, otr->esdid - 1);
   unsigned char *contents = esdid->contents;
   int need_contents = 0;
-  int dst_idx = esdid->pc;
+  unsigned int dst_idx = esdid->pc;
 
   for (shift = (1 << 31); shift && srcp < endp; shift >>= 1)
     {
@@ -673,6 +669,9 @@ versados_get_section_contents (abfd, section, location, offset, count)
   return true;
 }
 
+#define versados_get_section_contents_in_window \
+  _bfd_generic_get_section_contents_in_window
+
 static boolean
 versados_set_section_contents (abfd, section, location, offset, bytes_to_do)
      bfd *abfd;
@@ -721,7 +720,7 @@ versados_get_symtab (abfd, alocation)
      asymbol **alocation;
 {
   unsigned int symcount = bfd_get_symcount (abfd);
-  int i;
+  unsigned int i;
   asymbol *s;
 
   versados_pass_2 (abfd);
@@ -787,7 +786,7 @@ versados_canonicalize_reloc (abfd, section, relptr, symbols)
      arelent **relptr;
      asymbol **symbols;
 {
-  int count;
+  unsigned int count;
   arelent *src;
 
   versados_pass_2 (abfd);
@@ -857,8 +856,8 @@ const bfd_target versados_vec =
 {
   "versados",			/* name */
   bfd_target_versados_flavour,
-  true,				/* target byte order */
-  true,				/* target headers byte order */
+  BFD_ENDIAN_BIG,		/* target byte order */
+  BFD_ENDIAN_BIG,		/* target headers byte order */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -867,7 +866,6 @@ const bfd_target versados_vec =
   0,				/* leading underscore */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-  1,				/* minimum alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
   bfd_getb32, bfd_getb_signed_32, bfd_putb32,
   bfd_getb16, bfd_getb_signed_16, bfd_putb16,	/* data */

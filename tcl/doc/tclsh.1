@@ -1,20 +1,19 @@
 '\"
 '\" Copyright (c) 1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) tclsh.1 1.5 94/12/17 16:18:57
-'/" 
+'\" 
 .so man.macros
-.HS tclsh tclcmds
+.TH tclsh 1 "" Tcl "Tcl Applications"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
 tclsh \- Simple shell containing Tcl interpreter
 .SH SYNOPSIS
-\fBtclsh\fR ?\fIfileName arg arg ...\fR?\fR
+\fBtclsh\fR ?\fIfileName arg arg ...\fR?
 .BE
 
 .SH DESCRIPTION
@@ -42,14 +41,45 @@ There is no automatic evaluation of \fB.tclshrc\fR in this
 case, but the script file can always \fBsource\fR it if desired.
 .PP
 If you create a Tcl script in a file whose first line is
-.DS
-\fB#!/usr/local/bin/tclsh
-.DE
+.CS
+\fB#!/usr/local/bin/tclsh\fR
+.CE
 then you can invoke the script file directly from your shell if
 you mark the file as executable.
 This assumes that \fBtclsh\fR has been installed in the default
 location in /usr/local/bin;  if it's installed somewhere else
 then you'll have to modify the above line to match.
+.VS
+Many UNIX systems do not allow the \fB#!\fR line to exceed about
+30 characters in length, so be sure that the \fBtclsh\fR
+executable can be accessed with a short file name.
+.PP
+An even better approach is to start your script files with the
+following three lines:
+.CS
+\fB#!/bin/sh
+# the next line restarts using tclsh \e
+exec tclsh "$0" "$@"\fR
+.CE
+This approach has three advantages over the approach in the previous
+paragraph.  First, the location of the \fBtclsh\fR binary doesn't have
+to be hard-wired into the script:  it can be anywhere in your shell
+search path.  Second, it gets around the 30-character file name limit
+in the previous approach.
+Third, this approach will work even if \fBtclsh\fR is
+itself a shell script (this is done on some systems in order to
+handle multiple architectures or operating systems:  the \fBtclsh\fR
+script selects one of several binaries to run).  The three lines
+cause both \fBsh\fR and \fBtclsh\fR to process the script, but the
+\fBexec\fR is only executed by \fBsh\fR.
+\fBsh\fR processes the script first;  it treats the second
+line as a comment and executes the third line.
+The \fBexec\fR statement cause the shell to stop processing and
+instead to start up \fBtclsh\fR to reprocess the entire script.
+When \fBtclsh\fR starts up, it treats all three lines as comments,
+since the backslash at the end of the second line causes the third
+line to be treated as part of the comment on the second line.
+.VE
 
 .SH "VARIABLES"
 .PP
@@ -71,7 +101,6 @@ Otherwise, contains the name by which \fBtclsh\fR was invoked.
 Contains 1 if \fBtclsh\fR is running interactively (no
 \fIfileName\fR was specified and standard input is a terminal-like
 device), 0 otherwise.
-.LP
 
 .SH PROMPTS
 .PP

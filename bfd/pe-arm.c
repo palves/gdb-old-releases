@@ -1,4 +1,4 @@
-/* BFD back-end for Intel arm PECOFF files.
+/* BFD back-end for ARM PECOFF files.
    Copyright 1995 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.

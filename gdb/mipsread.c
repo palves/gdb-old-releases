@@ -1,5 +1,5 @@
 /* Read a symbol table in MIPS' format (Third-Eye).
-   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
    Contributed by Alessandro Forin (af@cs.cmu.edu) at CMU.  Major work
    by Per Bothner, John Gilmore and Ian Lance Taylor at Cygnus Support.
@@ -117,6 +117,24 @@ mipscoff_symfile_read (objfile, section_offsets, mainline)
      minimal symbols for this objfile. */
 
   install_minimal_symbols (objfile);
+
+  /* If the entry_file bounds are still unknown after processing the
+     partial symbols, then try to set them from the minimal symbols
+     surrounding the entry_point.  */
+
+  if (mainline
+      && objfile->ei.entry_point != INVALID_ENTRY_POINT
+      && objfile->ei.entry_file_lowpc == INVALID_ENTRY_LOWPC)
+    {
+      struct minimal_symbol *m;
+
+      m = lookup_minimal_symbol_by_pc (objfile->ei.entry_point);
+      if (m && SYMBOL_NAME (m + 1))
+	{
+	  objfile->ei.entry_file_lowpc = SYMBOL_VALUE_ADDRESS (m);
+	  objfile->ei.entry_file_highpc = SYMBOL_VALUE_ADDRESS (m + 1);
+	}
+    }
 
   do_cleanups (back_to);
 }
@@ -309,12 +327,15 @@ read_alphacoff_dynamic_symtab (section_offsets, objfile)
 	break;
       else if (dyn_tag == DT_MIPS_LOCAL_GOTNO)
 	{
-	  dt_mips_local_gotno = bfd_h_get_32 (abfd,
-					      (bfd_byte *) x_dynp->d_un.d_val);
+	  if (dt_mips_local_gotno < 0)
+	    dt_mips_local_gotno
+	      = bfd_h_get_32 (abfd, (bfd_byte *) x_dynp->d_un.d_val);
 	}
       else if (dyn_tag == DT_MIPS_GOTSYM)
 	{
-	  dt_mips_gotsym = bfd_h_get_32 (abfd, (bfd_byte *) x_dynp->d_un.d_val);
+	  if (dt_mips_gotsym < 0)
+	    dt_mips_gotsym
+	      = bfd_h_get_32 (abfd, (bfd_byte *) x_dynp->d_un.d_val);
 	}
     }
   if (dt_mips_local_gotno < 0 || dt_mips_gotsym < 0)

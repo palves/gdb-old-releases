@@ -158,7 +158,7 @@ rtype2howto (internal, dst)
       internal->howto = howto_table + 13;
       break;
     default:
-      fprintf (stderr, "Bad reloc\n");
+      abort ();
       break;
     }
 }
@@ -602,8 +602,8 @@ const bfd_target h8300coff_vec =
 {
   "coff-h8300",			/* name */
   bfd_target_coff_flavour,
-  true,				/* data byte order is big */
-  true,				/* header byte order is big */
+  BFD_ENDIAN_BIG,		/* data byte order is big */
+  BFD_ENDIAN_BIG,		/* header byte order is big */
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -612,7 +612,6 @@ const bfd_target h8300coff_vec =
   '_',				/* leading char */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  1,				/* minimum section alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
   bfd_getb32, bfd_getb_signed_32, bfd_putb32,
   bfd_getb16, bfd_getb_signed_16, bfd_putb16,	/* data */

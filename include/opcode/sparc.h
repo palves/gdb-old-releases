@@ -1,9 +1,8 @@
 /* Definitions for opcode table for the sparc.
-	Copyright 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1991, 1992, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of GAS, the GNU Assembler, GDB, the GNU debugger, and
 the GNU Binutils.
-
 
 GAS/GDB is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,7 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GAS or GDB; see the file COPYING.	If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.	*/
+the Free Software Foundation, 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.  */
 
 /* The SPARC opcode table (and other related data) is defined in
    the opcodes library in sparc-opc.c.  If you change anything here, make
@@ -27,29 +27,46 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307
     instruction's name rather than the args.  This would make gas faster, pinsn
     slower, but would mess up some macros a bit.  xoxorich. */
 
-#define sparc_architecture	bfd_sparc_architecture
-#define architecture_pname	bfd_sparc_architecture_pname
-#define sparc_opcode		bfd_sparc_opcode
-#define sparc_opcodes		bfd_sparc_opcodes
+/* List of instruction sets variations.
+   These values are such that each element is either a superset of a
+   preceding each one or they conflict in which case SPARC_OPCODE_CONFLICT_P
+   returns non-zero.
+   The values are indices into `sparc_opcode_archs' defined in sparc-opc.c.
+   Don't change this without updating sparc-opc.c.  */
+/* ??? May wish to allow for anonymous architectures for variants that have
+   a common but unnamed subset.  */
 
-/*
- * Structure of an opcode table entry.
- * This enumerator must parallel the architecture_pname array
- * in bfd/opc-sparc.c.
- */
-enum sparc_architecture {
-	v6 = 0,
-	v7,
-	v8,
-	sparclite,
-	v9
+enum sparc_opcode_arch_val {
+  SPARC_OPCODE_ARCH_V6 = 0,
+  SPARC_OPCODE_ARCH_V7,
+  SPARC_OPCODE_ARCH_V8,
+  SPARC_OPCODE_ARCH_SPARCLITE,
+  /* v9 variants must appear last */
+  SPARC_OPCODE_ARCH_V9,
+  SPARC_OPCODE_ARCH_V9A, /* v9 with ultrasparc additions */
+  SPARC_OPCODE_ARCH_BAD /* error return from sparc_opcode_lookup_arch */
 };
 
-extern const char *architecture_pname[];
+/* The highest architecture in the table.  */
+#define SPARC_OPCODE_ARCH_MAX (SPARC_OPCODE_ARCH_BAD - 1)
 
-/* Sparclite and v9 are both supersets of v8; we can't bump between them.  */
+/* Table of cpu variants.  */
 
-#define ARCHITECTURES_CONFLICT_P(ARCH1, ARCH2) ((ARCH1) == sparclite && (ARCH2) == v9)
+struct sparc_opcode_arch {
+  const char *name;
+  int conflicts;
+};
+
+extern const struct sparc_opcode_arch sparc_opcode_archs[];
+
+extern enum sparc_opcode_arch_val sparc_opcode_lookup_arch ();
+
+/* Non-zero if ARCH1 conflicts with ARCH2.  */
+
+#define SPARC_OPCODE_CONFLICT_P(ARCH1, ARCH2) \
+((1 << (ARCH1)) & sparc_opcode_archs[ARCH2].conflicts)
+
+/* Structure of an opcode table entry.  */
 
 struct sparc_opcode {
 	const char *name;
@@ -58,7 +75,7 @@ struct sparc_opcode {
 	const char *args;
  /* This was called "delayed" in versions before the flags. */
 	char flags;
-	enum sparc_architecture architecture;
+	enum sparc_opcode_arch_val architecture;
 };
 
 #define	F_DELAYED	1	/* Delayed branch */
@@ -66,8 +83,10 @@ struct sparc_opcode {
 #define	F_UNBR		4	/* Unconditional branch */
 #define	F_CONDBR	8	/* Conditional branch */
 #define	F_JSR		16	/* Subroutine call */
+/* ??? One can argue this shouldn't be here and the architecture
+   field should be used instead.  */
+#define F_NOTV9		32	/* Doesn't exist in v9 */
 /* FIXME: Add F_ANACHRONISTIC flag for v9.  */
-/* FIXME: Add F_OBSOLETE flag for v9, for instructions that no longer exist? */
 
 /*
 
@@ -161,6 +180,7 @@ The following chars are unused: (note: ,[] are used as punctuation)
 #define RD(x)		(((x)&0x1f) << 25) /* destination register field */
 #define RS1(x)		(((x)&0x1f) << 14) /* rs1 field */
 #define ASI_RS2(x)	(SIMM13(x))
+#define MEMBAR(x)	((x)&0x7f)
 
 #define ANNUL	(1<<29)
 #define BPRED	(1<<19)	/* v9 */
@@ -170,9 +190,14 @@ The following chars are unused: (note: ,[] are used as punctuation)
 #define	RS2_G0	RS2(~0)
 
 extern struct sparc_opcode sparc_opcodes[];
-extern const int bfd_sparc_num_opcodes;
+extern const int sparc_num_opcodes;
 
-#define NUMOPCODES bfd_sparc_num_opcodes
+int sparc_encode_asi ();
+char *sparc_decode_asi ();
+int sparc_encode_membar ();
+char *sparc_decode_membar ();
+int sparc_encode_prefetch ();
+char *sparc_decode_prefetch ();
 
 /*
  * Local Variables:

@@ -368,7 +368,7 @@ sh_reloc (abfd, reloc_entry, symbol_in, data, input_section, output_bfd,
 	sym_value -= 0x1000;
       insn = (insn & 0xf000) | (sym_value & 0xfff);
       bfd_put_16 (abfd, insn, hit_data);
-      if (sym_value < -0x1000 || sym_value >= 0x1000)
+      if (sym_value < (bfd_vma) -0x1000 || sym_value >= 0x1000)
 	return bfd_reloc_overflow;
       break;
     default:
@@ -482,12 +482,9 @@ sh_relax_section (abfd, sec, link_info, again)
 	    contents = coff_section_data (abfd, sec)->contents;
 	  else
 	    {
-	      contents = (bfd_byte *) malloc (sec->_raw_size);
+	      contents = (bfd_byte *) bfd_malloc (sec->_raw_size);
 	      if (contents == NULL)
-		{
-		  bfd_set_error (bfd_error_no_memory);
-		  goto error_return;
-		}
+		goto error_return;
 	      free_contents = contents;
 
 	      if (! bfd_get_section_contents (abfd, sec, contents,
@@ -624,13 +621,9 @@ sh_relax_section (abfd, sec, link_info, again)
       if (coff_section_data (abfd, sec) == NULL)
 	{
 	  sec->used_by_bfd =
-	    ((struct coff_section_tdata *)
-	     bfd_zalloc (abfd, sizeof (struct coff_section_tdata)));
+	    ((PTR) bfd_zalloc (abfd, sizeof (struct coff_section_tdata)));
 	  if (sec->used_by_bfd == NULL)
-	    {
-	      bfd_set_error (bfd_error_no_memory);
-	      goto error_return;
-	    }
+	    goto error_return;
 	}
 
       coff_section_data (abfd, sec)->relocs = internal_relocs;
@@ -748,13 +741,9 @@ sh_relax_section (abfd, sec, link_info, again)
 	  if (coff_section_data (abfd, sec) == NULL)
 	    {
 	      sec->used_by_bfd =
-		((struct coff_section_tdata *)
-		 bfd_zalloc (abfd, sizeof (struct coff_section_tdata)));
+		((PTR) bfd_zalloc (abfd, sizeof (struct coff_section_tdata)));
 	      if (sec->used_by_bfd == NULL)
-		{
-		  bfd_set_error (bfd_error_no_memory);
-		  goto error_return;
-		}
+		goto error_return;
 	      coff_section_data (abfd, sec)->relocs = NULL;
 	    }
 	  coff_section_data (abfd, sec)->contents = contents;
@@ -877,8 +866,8 @@ sh_relax_delete_bytes (abfd, sec, addr, count)
 				&sym);
 	  if (sym.n_sclass != C_EXT
 	      && sym.n_scnum == sec->target_index
-	      && (sym.n_value <= addr
-		  || sym.n_value >= toaddr))
+	      && ((bfd_vma) sym.n_value <= addr
+		  || (bfd_vma) sym.n_value >= toaddr))
 	    {
 	      bfd_vma val;
 
@@ -1080,8 +1069,8 @@ sh_relax_delete_bytes (abfd, sec, addr, count)
 				&sym);
 	  if (sym.n_sclass != C_EXT
 	      && sym.n_scnum == sec->target_index
-	      && (sym.n_value <= addr
-		  || sym.n_value >= toaddr))
+	      && ((bfd_vma) sym.n_value <= addr
+		  || (bfd_vma) sym.n_value >= toaddr))
 	    {
 	      bfd_vma val;
 
@@ -1095,12 +1084,9 @@ sh_relax_delete_bytes (abfd, sec, addr, count)
                          Perhaps, if info->keep_memory is false, we
                          should free them, if we are permitted to,
                          when we leave sh_coff_relax_section.  */
-		      ocontents = (bfd_byte *) malloc (o->_raw_size);
+		      ocontents = (bfd_byte *) bfd_malloc (o->_raw_size);
 		      if (ocontents == NULL)
-			{
-			  bfd_set_error (bfd_error_no_memory);
-			  return false;
-			}
+			return false;
 		      if (! bfd_get_section_contents (abfd, o, ocontents,
 						      (file_ptr) 0,
 						      o->_raw_size))
@@ -1146,8 +1132,8 @@ sh_relax_delete_bytes (abfd, sec, addr, count)
       bfd_coff_swap_sym_in (abfd, (PTR) esym, (PTR) &isym);
 
       if (isym.n_scnum == sec->target_index
-	  && isym.n_value > addr
-	  && isym.n_value < toaddr)
+	  && (bfd_vma) isym.n_value > addr
+	  && (bfd_vma) isym.n_value < toaddr)
 	{
 	  isym.n_value -= count;
 
@@ -1391,21 +1377,15 @@ sh_coff_get_relocated_section_contents (output_bfd, link_info, link_order,
 	goto error_return;
 
       internal_syms = ((struct internal_syment *)
-		       malloc (obj_raw_syment_count (input_bfd)
-			       * sizeof (struct internal_syment)));
+		       bfd_malloc (obj_raw_syment_count (input_bfd)
+				   * sizeof (struct internal_syment)));
       if (internal_syms == NULL)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  goto error_return;
-	}
+	goto error_return;
 
-      sections = (asection **) malloc (obj_raw_syment_count (input_bfd)
-				       * sizeof (asection *));
+      sections = (asection **) bfd_malloc (obj_raw_syment_count (input_bfd)
+					   * sizeof (asection *));
       if (sections == NULL)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  goto error_return;
-	}
+	goto error_return;
 
       isymp = internal_syms;
       secpp = sections;
@@ -1461,8 +1441,8 @@ const bfd_target shcoff_vec =
 {
   "coff-sh",			/* name */
   bfd_target_coff_flavour,
-  true,				/* data byte order is big */
-  true,				/* header byte order is big */
+  BFD_ENDIAN_BIG,		/* data byte order is big */
+  BFD_ENDIAN_BIG,		/* header byte order is big */
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -1472,7 +1452,6 @@ const bfd_target shcoff_vec =
   '_',				/* leading symbol underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  2,				/* minimum section alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
   bfd_getb32, bfd_getb_signed_32, bfd_putb32,
   bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */
@@ -1504,8 +1483,8 @@ const bfd_target shlcoff_vec =
 {
   "coff-shl",			/* name */
   bfd_target_coff_flavour,
-  false,			/* data byte order is little */
-  false,			/* header byte order is little endian too*/
+  BFD_ENDIAN_LITTLE,		/* data byte order is little */
+  BFD_ENDIAN_LITTLE,		/* header byte order is little endian too*/
 
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
@@ -1515,7 +1494,6 @@ const bfd_target shlcoff_vec =
   '_',				/* leading symbol underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  2,				/* minimum section alignment */
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
   bfd_getl32, bfd_getl_signed_32, bfd_putl32,
   bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */
@@ -1523,11 +1501,8 @@ const bfd_target shlcoff_vec =
   bfd_getl32, bfd_getl_signed_32, bfd_putl32,
   bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* hdrs */
 
-  /* Note that we use a special archive recognizer.
-     This is so that we only use one archive format for both
-     object file types */
   {_bfd_dummy_target, coff_object_p, /* bfd_check_format */
-     _bfd_dummy_target, _bfd_dummy_target},   
+     bfd_generic_archive_p, _bfd_dummy_target},   
   {bfd_false, coff_mkobject, _bfd_generic_mkarchive, /* bfd_set_format */
      bfd_false},
   {bfd_false, coff_write_object_contents, /* bfd_write_contents */

@@ -16,7 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
 #
-# 	$Id: Makefile.in,v 1.2 1993/12/23 04:44:35 cassidy Exp $
+# 	$Id: Makefile.in,v 1.3 1995/09/20 17:47:45 ian Exp $
 #
 # Written by Jeffrey Wheat (cassidy@cygnus.com)
 #
@@ -96,7 +96,7 @@ install: all
 mostlyclean clean:
 	$(RM) -f *.o libdfe.a libtip.a
 
-distclean realclean: clean
+distclean maintainer-clean realclean: clean
 	$(RM) -f Makefile config.status
 
 .PHONY: check installcheck info install-info clean-info dvi

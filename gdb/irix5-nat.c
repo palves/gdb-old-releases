@@ -1,5 +1,5 @@
 /* Native support for the SGI Iris running IRIX version 5, for GDB.
-   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
+   Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
    Contributed by Alessandro Forin(af@cs.cmu.edu) at CMU
    and by Per Bothner(bothner@cs.wisc.edu) at U.Wisconsin.
@@ -159,7 +159,7 @@ get_longjmp_target (pc)
   return 1;
 }
 
-void
+static void
 fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
      char *core_reg_sect;
      unsigned core_reg_size;
@@ -196,9 +196,10 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
 #include "objfiles.h"
 #include "command.h"
 #include "frame.h"
-#include "regex.h"
+#include "gnu-regex.h"
 #include "inferior.h"
 #include "language.h"
+#include "gdbcmd.h"
 
 /* The symbol which starts off the list of shared libraries.  */
 #define DEBUG_BASE "__rld_obj_head"
@@ -621,6 +622,13 @@ solib_add (arg_string, from_tty, target)
       
       if (count)
 	{
+	  int update_coreops;
+
+	  /* We must update the to_sections field in the core_ops structure
+	     here, otherwise we dereference a potential dangling pointer
+	     for each call to target_read/write_memory within this routine.  */
+	  update_coreops = core_ops.to_sections == target->to_sections;
+	     
 	  /* Reallocate the target's section table including the new size.  */
 	  if (target -> to_sections)
 	    {
@@ -637,6 +645,14 @@ solib_add (arg_string, from_tty, target)
 	    }
 	  target -> to_sections_end = target -> to_sections + (count + old);
 	  
+	  /* Update the to_sections field in the core_ops structure
+	     if needed.  */
+	  if (update_coreops)
+	    {
+	      core_ops.to_sections = target->to_sections;
+	      core_ops.to_sections_end = target->to_sections_end;
+	    }
+
 	  /* Add these section table entries to the target's table.  */
 	  while ((so = find_solib (so)) != NULL)
 	    {
@@ -745,7 +761,7 @@ GLOBAL FUNCTION
 
 SYNOPSIS
 
-	int solib_address (CORE_ADDR address)
+	char *solib_address (CORE_ADDR address)
 
 DESCRIPTION
 
@@ -761,7 +777,7 @@ DESCRIPTION
 	mapped in.
  */
 
-int
+char *
 solib_address (address)
      CORE_ADDR address;
 {
@@ -773,9 +789,7 @@ solib_address (address)
 	{
 	  if ((address >= (CORE_ADDR) LM_ADDR (so)) &&
 	      (address < (CORE_ADDR) so -> lmend))
-	    {
-	      return (1);
-	    }
+	    return (so->lm.o_path);
 	}
     }
   return (0);
@@ -987,7 +1001,8 @@ solib_create_inferior_hook()
       and will put out an annoying warning.
       Delaying the resetting of stop_soon_quietly until after symbol loading
       suppresses the warning.  */
-  solib_add ((char *) 0, 0, (struct target_ops *) 0);
+  if (auto_solib_add)
+    solib_add ((char *) 0, 0, (struct target_ops *) 0);
   stop_soon_quietly = 0;
 }
 
@@ -1017,9 +1032,36 @@ int from_tty;
 void
 _initialize_solib()
 {
-  
   add_com ("sharedlibrary", class_files, sharedlibrary_command,
 	   "Load shared object library symbols for files matching REGEXP.");
   add_info ("sharedlibrary", info_sharedlibrary_command, 
 	    "Status of loaded shared object libraries.");
+
+  add_show_from_set
+    (add_set_cmd ("auto-solib-add", class_support, var_zinteger,
+		  (char *) &auto_solib_add,
+		  "Set autoloading of shared library symbols.\n\
+If nonzero, symbols from all shared object libraries will be loaded\n\
+automatically when the inferior begins execution or when the dynamic linker\n\
+informs gdb that a new library has been loaded.  Otherwise, symbols\n\
+must be loaded manually, using `sharedlibrary'.",
+		  &setlist),
+     &showlist);
+}
+
+
+/* Register that we are able to handle irix5 core file formats.
+   This really is bfd_target_unknown_flavour */
+
+static struct core_fns irix5_core_fns =
+{
+  bfd_target_unknown_flavour,
+  fetch_core_registers,
+  NULL
+};
+
+void
+_initialize_core_irix5 ()
+{
+  add_core_fns (&irix5_core_fns);
 }

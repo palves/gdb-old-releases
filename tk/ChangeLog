@@ -1,8 +1,60 @@
+Wed Jan 24 09:42:29 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in: Replaced realclean with maintainer-clean.
+
+Fri Jan 12 11:00:06 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* library/tclIndex: Removed all references to console.tcl.
+	(Hack).
+
+	* library/console.tcl (tkConsoleInvoke): Use "interp eval" with
+	history command, not nonexistent "interp record" command.
+	(tkConsoleHistory, tkConsolePrompt): Include pathname argument to
+	"interp eval".
+
+Wed Jan 10 12:49:00 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* configure.in, configure, Makefile.in, README.configure: New
+	files.
+
+	* Tk: Updated to Tk4.1a2.  Entries after this line mostly likely
+	apply to files in some subdirectory.
+
+Tue Dec 19 18:32:36 1995  Brendan Kehoe  <brendan@lisa.cygnus.com>
+
+	* Makefile.in (check, installcheck): New null rules.
+
+Wed Oct 25 20:12:01 1995  Brendan Kehoe  <brendan@lisa.cygnus.com>
+
+	* Makefile.in (prefix, exec_prefix): Set to @prefix@ and
+	@exec_prefix@, so configure can substitute them properly.
+
+Tue Oct 24 18:49:59 1995  Jason Molenda  (crash@phydeaux.cygnus.com)
+
+	* Makefile.in (X11_INCLUDES, X11_LIB_SWITCHES): switch to
+	X11_CFLAGS, X11_LDFLAGS and X11_LIBS.
+	(CC_SWITCHES): Use X11_CFLAGS.
+
+	* configure.in: Statically link X libraries on Solaris, SunOS,
+	and HPUX.
+
+Tue Oct 10 14:33:17 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* tkConfig.c (Tk_ConfigureInfo), tkSelect.c (HandleTclCommand
+	LostSelection):  Use free() instead of TCL_DYNAMIC in
+	interp->freeProc to prevent crashes.  Apparantly tcl7.4 changed
+	the result protocol around slightly.
+
 Sat Sep 30 09:39:11 1995  Jason Molenda  (crash@phydeaux.cygnus.com)
 
 	* configure.in:  Upgraded to autoconf v2, removed cruft which did a poor
         job of finding X location in favor of AC_PATH_X.
 	* configure: Regenerated.
+
+Sun Aug 20 00:15:51 1995  Jason Molenda  (crash@phydeaux.cygnus.com)
+
+	* tkMain.c:  make tcl_RcFileName defn an extern so it doesn't
+	conflict with the one in the new tcl/tclBasic.c.
 
 Mon Jun 12 17:09:28 1995  Stu Grossman  (grossman@cygnus.com)
 

@@ -971,6 +971,7 @@ symbol_read_needs_frame (sym)
 
     case LOC_BLOCK:
     case LOC_CONST_BYTES:
+    case LOC_UNRESOLVED:
     case LOC_OPTIMIZED_OUT:
       return 0;
     }
@@ -1098,6 +1099,17 @@ read_var_value (var, frame)
       }
       break;
 
+    case LOC_UNRESOLVED:
+      {
+	struct minimal_symbol *msym;
+
+	msym = lookup_minimal_symbol (SYMBOL_NAME (var), NULL, NULL);
+	if (msym == NULL)
+	  return 0;
+	addr = SYMBOL_VALUE_ADDRESS (msym);
+      }
+      break;
+
     case LOC_OPTIMIZED_OUT:
       VALUE_LVAL (v) = not_lval;
       VALUE_OPTIMIZED_OUT (v) = 1;
@@ -1126,11 +1138,14 @@ value_from_register (type, regnum, frame)
   CORE_ADDR addr;
   int optim;
   value_ptr v = allocate_value (type);
-  int len = TYPE_LENGTH (type);
   char *value_bytes = 0;
   int value_bytes_copied = 0;
   int num_storage_locs;
   enum lval_type lval;
+  int len;
+
+  CHECK_TYPEDEF (type);
+  len = TYPE_LENGTH (type);
 
   VALUE_REGNO (v) = regnum;
 

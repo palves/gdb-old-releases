@@ -1,6 +1,149 @@
+Tue Dec  5 16:38:55 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gencode.c (mac.l):  Don't abort GDB if executing mac.l
+	instruction (which is unimplimented).  Generate a SIGTRAP (in the
+	simulated target) instead.
+
+Mon Dec  4 12:22:24 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* gencode.c (tab): Added several sh3 opcodes.
+	(think): Added printonmatch for A_SSR and A_SPC.
+	* interp.c (SSR, SPC): Added definitions.
+	(saved_state_type): Added ssr and spc registers.
+
+Wed Nov 29 12:39:27 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* gencode.c (tab): In shad/shld definitions, negate R[m] before
+	the and operation instead of after.  For shad delete cast.  For shld
+	use UR instead of R and delete cast.
+
+Fri Nov 17 12:48:55 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* gencode.c (tab): Add explicit NaN support for ftrc instruction.
+
+Wed Nov 15 11:25:27 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* interp.c:  Make target_byte_order be extern to prevent SGI cc from
+	issuing warnings about the use of common symbols.
+
+Tue Nov 14 15:19:43 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gencode.c:  jsr, bsr and bsrf actually save pc+4 in pr, and rts
+	actually uses pr+0.
+
+Sat Oct 21 13:01:18 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* sh/interp.c (sim_stop_reason): Catch SIGQUIT and indicate
+	program exited.
+	(sim_get_quit_code): Delete.
+	
+	* gencode.c (gensim): Indicate SIGILL instead of calling abort for
+	default case.
+
+Mon Oct 16 18:24:03 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* interp.c (saved_state_type): Move FP registers to immediately
+	after SR.
+
 Tue Oct 10 11:12:15 1995  Fred Fish  <fnf@cygnus.com>
 
 	* Makefile.in (BISON): Remove macro.
+
+Fri Oct  6 12:08:18 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* interp.c (trap, case SYS_utime): Cast second arg of utime to
+	void * to avoid compiler error.
+	
+	* interp.c (callback): Remove last change.  It is initialized by
+	a sim_set_callbacks call.
+	
+Thu Oct  5 14:13:29 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* interp.c (callback): Initialize to default callback.
+
+Thu Sep 28 15:26:59 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* run.c: Moved to ../common.
+	* interp.c (trap): Use gdb's callback interface.
+	* Makefile.in: Updated.
+
+Wed Sep 20 13:35:13 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* Makefile.in (maintainer-clean): New synonym for realclean.
+
+Wed Sep 20 09:51:50 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* run.c (sim_callback_write_stdout):  New.
+	* interp.c (trap): Call sim_callback_write_stdout when needed.
+
+Mon Sep 18 18:42:27 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* interp.c (trap): Remove useless code.
+
+Fri Sep 15 19:30:05 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* syscall.h: Copy from newlib.
+
+Thu Sep 14 19:32:59 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* gencode.c:  Back up PC by 2 for breakpoints.
+	* interp.c:  Move fp regs beyond pc/pr/etc to avoid confusing GDB,
+	which expect pc to immediatly follow regs[].
+
+Fri Sep  8 14:18:13 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Define CC_FOR_BUILD.  Don't call AC_PROG_INSTALL.
+	* configure: Rebuild.
+	* Makefile.in (INSTALL): Revert to using install.sh.
+	(INSTALL_PROGRAM, INSTALL_DATA): Set to $(INSTALL).
+	(INSTALL_XFORM, INSTALL_XFORM1): Restore.
+	(CC_FOR_BUILD): Restore.
+	(gencode): Build using $(CC_FOR_BUILD).
+	(install): Don't install in $(tooldir).
+
+Thu Sep  7 15:02:31 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	(Try to) Update to new bfd autoconf scheme.
+	* run.c: Don't include sysdep.h.
+	* Makefile.in (INSTALL{,_PROGRAM,_DATA}): Use autoconf computed value.
+	(CC, CFLAGS, AR, RANLIB): Likewise.
+	(HDEFINES, TDEFINES): Define.
+	(CC_FOR_BUILD): Delete.
+	(host_makefile_frag): Delete.
+	(Makefile): Don't depend on frags.
+	* configure.in (sysdep.h): Don't create symlink.
+	(host_makefile_frag, frags): Deleted.
+	(CC, CFLAGS, AR, RANLIB, INSTALL): Compute values.
+	* configure: Regenerated.
+
+Thu Aug 31 12:39:07 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* interp.c: Include <math.h>.
+
+Wed Aug 30 22:05:17 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* Makefile.in (run): Link in math library too.
+	* gencode.c (gensim): abort if an unknown opcode is encountered.
+	* interp.c (FPSCR, FPUL): Define.
+	(struct save_state): Add fields for floating point registers,
+	FPSCR and FPUL.
+	(sim_resume): Add 'F' for accessing floating point registers
+	in the save state structure.
+	* gencode.c: Add sh3e opcodes.
+	(gensym): Define a buffer for int<->fp conversions.
+
+Tue Aug 22 14:16:46 1995  J.T. Conklin  <jtc@rtl.cygnus.com>
+
+	* interp.c (trap): Use trap vector 34 for host system interface.
+	* gencode.c: Add 34 to conditional which determines which traps
+	will be handled by simulator.
+
+Fri Aug 11 17:59:15 1995  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* run.c: Include <signal.h>.  Define SIGQUIT if not defined.
+	(main): New variables reason and sigrc.  After simulator exits,
+	check to see if it exited because of a signal, and if so, then
+	use the signal number as the return value.
 
 Thu Aug  3 10:45:37 1995  Fred Fish  <fnf@cygnus.com>
 

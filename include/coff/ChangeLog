@@ -1,3 +1,130 @@
+Wed Jan 31 13:11:54 1996  Richard Henderson  <rth@tamu.edu>
+
+	* aux.h: New file.
+	* internal.h, m68k.h: Protect against multiple inclusion.
+
+Wed Nov 22 13:48:39 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* ecoff.h (_RCONST, STYP_RCONST, RELOC_SECTION_RCONST): Define.
+	(NUM_RELOC_SECTIONS): Update.
+	* symconst.h (scRConst): Define.
+
+Tue Nov 14 18:54:29 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h (C_NT_WEAK): Define.
+
+Thu Nov  9 14:08:30 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* rs6000.h (STYP_OVRFLO): Define.
+
+Tue Nov  7 14:38:45 1995  Kim Knuttila  <krk@cygnus.com>
+
+	* coff/powerpc.h (IMAGE_NT_OPTIONAL_HDR_MAGIC): Added define.
+	* coff/pe.h: Added defines for file level flags
+
+Mon Nov  6 17:28:01 1995  Harry Dolan  <dolan@ssd.intel.com>
+
+	* i860.h: New file, based on i386.h.
+
+Wed Nov  1 15:25:18 1995  Manfred Hollstein KS/EF4A 60/1F/110 #40283  <manfred@lts.sel.alcatel.de>
+
+	* m68k.h (PAGEMAGICEXECSWAPPED): Define.
+	(PAGEMAGICPEXECSWAPPED): Define.
+	(PAGEMAGICPEXECTSHLIB): Define.
+	(PAGEMAGICPEXECPAGED): Define.
+	(_COMMENT): DEFINE.
+	* m88k.h (_COMMENT): Define.
+
+Wed Oct 18 18:36:19 1995  Geoffrey Noer  <noer@cygnus.com>
+
+	* sym.h: #if 0'd out runtime_pdr struct because it chokes 
+	Visual C++ and there aren't any references to it elsewhere in gdb.
+
+Mon Oct 16 11:12:24 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* rs6000.h (SMALL_AOUTSZ): Define.
+
+	* internal.h (XMC_TD): Define.
+
+Tue Oct 10 18:41:03 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h (struct internal_aouthdr): Add o_cputype field.
+	* rs6000.h (AOUTHDR): Rename o_resv1 to o_cputype.
+
+Mon Oct  9 14:45:46 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* rs6000.h (AOUTHDR): Add o_maxdata field.  Add comments.
+	(_PAD, _LOADER): Define.
+	(STYP_LOADER): Define.
+	* internal.h (struct internal_aouthdr): Add o_maxdata field.
+
+Thu Oct  5 10:02:57 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* ecoff.h: Define section name macros and STYP macros for various
+	Alpha sections: .got, .hash, .dynsym, .dynstr, .rel.dyn, .conflic,
+	.comment, .liblist, .dynamic.
+
+Wed Oct  4 10:56:35 1995  Kim Knuttila  <krk@cygnus.com>
+
+	* pe.h: Moved DOSMAGIC and NT_SIGNATURE defines here
+	* powerpc.h: removed DOSMAGIC, NT_SIGNATURE, and DEFAULT_* defines
+	Also removed other unused defines (various MAGIC ones)
+	* i386.h: removed DOSMAGIC, NT_SIGNATURE, and DEFAULT_* defines
+	* arm.h: removed DOSMAGIC, NT_SIGNATURE, and DEFAULT_* defines
+	* apollo.h: removed unused DEFAULT_* defines
+	* alpha.h: removed unused DEFAULT_* defines
+	* h8500.h: removed unused DEFAULT_* defines
+	* h8300.h: removed unused DEFAULT_* defines
+	* i960.h: removed unused DEFAULT_* defines
+	* m88k.h: removed unused DEFAULT_* defines
+	* we32k.h: removed unused DEFAULT_* defines
+	* rs6000.h: removed unused DEFAULT_* defines
+	* mips.h: removed unused DEFAULT_* defines
+	* m68k.h: removed unused DEFAULT_* defines
+	* z8k.h: removed unused DEFAULT_* defines
+	* w65.h: removed unused DEFAULT_* defines
+	* sparc.h: removed unused DEFAULT_* defines
+	* sh.h: removed unused DEFAULT_* defines
+
+Fri Sep 29 08:40:08 1995  Kim Knuttila  <krk@cygnus.com>
+
+	* powerpc.h: Reformatted to GNU coding conventions.
+
+Wed Sep 27 06:50:50 1995  Kim Knuttila  <krk@nellie>
+
+	* pe.h: added defines for more section characteristics
+	* powerpc.h (new file): base coff definitions for ppc PE
+
+Tue Sep 12 12:08:20 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* internal.h (struct internal_syment): Change n_numaux field from
+	char to unsigned char.
+
+Fri Sep  1 15:39:36 1995  Kazumoto Kojima  <kkojima@info.kanagawa-u.ac.jp>
+
+	* mips.h (struct rpdr_ext): Define.
+
+Thu Aug 31 16:51:50 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* internal.h (internal_aouthdr, internal_filehdr):
+	don't indirect the pe stuff.
+
+Tue Aug 29 14:16:07 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* i386.h (NT_DEF_RESERVE, NT_DEF_COMMIT): Make the same
+	as 'the other' compiler.
+	* internal.h (NT_IMAGE_BASE): Deleted.
+	(NT_EXE_IMAGE_BASE, NT_DLL_IMAGE_BASE): New.
+	(PE_DEF_SECTION_ALIGNMENT, PE_DEF_FILE_ALIGNMENT): New.
+	(R_IMAGEBASE): New.
+
+Mon Aug 21 18:12:19 1995  steve chamberlain  <sac@slash.cygnus.com>
+
+	* internal.h: (internal_filehdr): Moved PE stuff into
+	internal_extra_pe_filehdr.
+	(internal_aouthdr): Moved PE stuff into
+	interanl_extra_pe_aouthdr.
+
 Mon Jul 24 14:05:39 1995  Ian Lance Taylor  <ian@cygnus.com>
 
 	* internal.h: Move R_SH_* relocs from here...

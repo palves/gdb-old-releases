@@ -91,6 +91,10 @@ extern char *inferior_io_terminal;
 
 extern int inferior_pid;
 
+/* Inferior environment. */
+
+extern struct environ *inferior_environ;
+
 /* Character array containing an image of the inferior programs' registers.  */
 
 extern char registers[];

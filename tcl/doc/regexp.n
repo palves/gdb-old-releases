@@ -1,14 +1,13 @@
 '\"
 '\" Copyright (c) 1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) regexp.n 1.5 94/12/17 16:18:41
 '\" 
 .so man.macros
-.HS regexp tcl
+.TH regexp n "" Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -51,7 +50,7 @@ range of characters.
 .TP 10
 \fB\-\|\-\fR
 Marks the end of switches.  The argument following this one will
-be treated as \fIexp\fR even if it starts with a \fB\-.
+be treated as \fIexp\fR even if it starts with a \fB\-\fR.
 .VE
 .LP
 If there are more \fIsubMatchVar\fR's than parenthesized
@@ -102,15 +101,15 @@ To include a literal ``\-'', make it the first or last character.
 .PP
 In general there may be more than one way to match a regular expression
 to an input string.  For example, consider the command
-.DS
-\fBregexp  (a*)b*  aabaaabb  x  y
-.DE
+.CS
+\fBregexp  (a*)b*  aabaaabb  x  y\fR
+.CE
 Considering only the rules given so far, \fBx\fR and \fBy\fR could
 end up with the values \fBaabb\fR and \fBaa\fR, \fBaaab\fR and \fBaaa\fR,
 \fBab\fR and \fBa\fR, or any of several other combinations.
 To resolve this potential ambiguity \fBregexp\fR chooses among
 alternatives using the rule ``first then longest''.
-In other words, it consders the possible matches in order working
+In other words, it considers the possible matches in order working
 from left to right across the input string and the pattern, and it
 attempts to match longer pieces of the input string before shorter
 ones.  More specifically, the following rules apply in decreasing
@@ -132,9 +131,9 @@ In the example from above, \fB(a*)b*\fR matches \fBaab\fR:  the \fB(a*)\fR
 portion of the pattern is matched first and it consumes the leading
 \fBaa\fR; then the \fBb*\fR portion of the pattern consumes the
 next \fBb\fR.  Or, consider the following example:
-.DS
-\fBregexp  (ab|a)(b*)c  abc  x  y  z
-.DE
+.CS
+\fBregexp  (ab|a)(b*)c  abc  x  y  z\fR
+.CE
 After this command \fBx\fR will be \fBabc\fR, \fBy\fR will be
 \fBab\fR, and \fBz\fR will be an empty string.
 Rule 4 specifies that \fB(ab|a)\fR gets first shot at the input

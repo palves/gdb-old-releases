@@ -24,16 +24,39 @@ Loop
 	Shift 1
 End Loop
 
+If "{BuildTarget}" =~ /none/
+	Set BuildTarget "all"
+End If
+
 If {verify} == 1
 	Echo "#" Doing "{ThisScript}" "{BuildTarget}" in "`Directory`" ... 
 End If
+
+Set ranmake 0
 
 If "`Exists Makefile`" != ""
 	Echo "Set Echo 1" >{BuildTarget}.makeout
 	Make -f Makefile {BuildTarget} >>{BuildTarget}.makeout
 	{BuildTarget}.makeout
 	Delete {BuildTarget}.makeout
-Else If "{BuildTarget}" =~ /all/
+	Set ranmake 1
+End If
+
+If "`Exists Makefile.PPC`" != ""
+	Echo "Set Echo 1" >{BuildTarget}.makeout.ppc
+	Make -f Makefile.PPC {BuildTarget} >>{BuildTarget}.makeout.ppc
+	{BuildTarget}.makeout.ppc
+	Delete {BuildTarget}.makeout.ppc
+	Set ranmake 1
+End If
+
+If {ranmake} == 1
+	Exit
+End If
+
+# Dispatch on various pseudo-targets.
+
+If "{BuildTarget}" =~ /all/
 	Echo Started `Date`
 	"{ThisScript}" all-gcc
 	"{ThisScript}" all-ld
@@ -75,6 +98,11 @@ Else If "{BuildTarget}" =~ /all-gdb/
 	"{ThisScript}" all-opcodes
 	"{ThisScript}" all-byacc
 	"{ThisScript}" do-gdb
+Else If "{BuildTarget}" =~ /all-grez/
+	"{ThisScript}" all-libiberty
+	"{ThisScript}" all-bfd
+	"{ThisScript}" all-byacc
+	"{ThisScript}" do-grez
 Else If "{BuildTarget}" =~ /all-ld/
 	"{ThisScript}" all-libiberty
 	"{ThisScript}" all-bfd
@@ -84,11 +112,10 @@ Else If "{BuildTarget}" =~ /all-ld/
 	"{ThisScript}" do-ld
 Else If "{BuildTarget}" =~ /do-byacc/
 	SetDirectory :byacc:
-#	::mpw-build :Version.r
 	::mpw-build all
 Else If "{BuildTarget}" =~ /do-flex/
 	SetDirectory :flex:
-#	::mpw-build :Version.r
+	::mpw-build _bootstrap
 	::mpw-build all
 Else If "{BuildTarget}" =~ /do-bfd/
 	SetDirectory :bfd:
@@ -101,24 +128,26 @@ Else If "{BuildTarget}" =~ /do-opcodes/
 	::mpw-build all
 Else If "{BuildTarget}" =~ /do-binutils/
 	SetDirectory :binutils:
-#	::mpw-build :Version.r
+	::mpw-build stamps
 	::mpw-build all
 Else If "{BuildTarget}" =~ /do-gas/
 	SetDirectory :gas:
-	::mpw-build :config.h
-	::mpw-build :Version.r
+	::mpw-build stamps
 	::mpw-build all
 Else If "{BuildTarget}" =~ /do-gcc/
 	SetDirectory :gcc:
-	::mpw-build :Version.r
+	# Need separate step to build all the insn-... etc files.
+	::mpw-build stamps-h
+	::mpw-build stamps-c
 	::mpw-build all
 Else If "{BuildTarget}" =~ /do-gdb/
 	SetDirectory :gdb:
-	::mpw-build :Version.r
+	::mpw-build all
+Else If "{BuildTarget}" =~ /do-grez/
+	SetDirectory :grez:
 	::mpw-build all
 Else If "{BuildTarget}" =~ /do-ld/
 	SetDirectory :ld:
-	::mpw-build :Version.r
 	::mpw-build all
 Else If "{BuildTarget}" =~ /do-newlib/
 	SetDirectory :newlib:
@@ -141,6 +170,9 @@ Else If "{BuildTarget}" =~ /install-gcc/
 Else If "{BuildTarget}" =~ /install-gdb/
 	SetDirectory :gdb:
 	::mpw-build install
+Else If "{BuildTarget}" =~ /install-grez/
+	SetDirectory :grez:
+	::mpw-build install
 Else If "{BuildTarget}" =~ /install-ld/
 	SetDirectory :ld:
 	::mpw-build install
@@ -161,6 +193,9 @@ Else If "{BuildTarget}" =~ /install-only-gcc/
 	::mpw-build install-only
 Else If "{BuildTarget}" =~ /install-only-gdb/
 	SetDirectory :gdb:
+	::mpw-build install-only
+Else If "{BuildTarget}" =~ /install-only-grez/
+	SetDirectory :grez:
 	::mpw-build install-only
 Else If "{BuildTarget}" =~ /install-only-ld/
 	SetDirectory :ld:

@@ -1,5 +1,5 @@
 /* Tcl/Tk interface routines.
-   Copyright 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1994, 1995, 1996 Free Software Foundation, Inc.
 
    Written by Stu Grossman <grossman@cygnus.com> of Cygnus Support.
 
@@ -153,11 +153,16 @@ gdbtk_query (query, args)
      char *query;
      va_list args;
 {
-  char buf[200];
+  char buf[200], *merge[2];
+  char *command;
   long val;
 
   vsprintf (buf, query, args);
-  Tcl_VarEval (interp, "gdbtk_tcl_query ", "{", buf, "}", NULL);
+  merge[0] = "gdbtk_tcl_query";
+  merge[1] = buf;
+  command = Tcl_Merge (2, merge);
+  Tcl_Eval (interp, command);
+  free (command);
 
   val = atol (interp->result);
   return val;
@@ -277,6 +282,8 @@ breakpoint_notify(b, action)
   if (b->type != bp_breakpoint)
     return;
 
+  /* We ensure that ACTION contains no special Tcl characters, so we
+     can do this.  */
   sprintf (buf, "gdbtk_tcl_breakpoint %s %d", action, b->number);
 
   v = Tcl_Eval (interp, buf);
@@ -680,7 +687,7 @@ call_wrapper (clientData, interp, argc, argv)
 /* In case of an error, we may need to force the GUI into idle mode because
    gdbtk_call_command may have bombed out while in the command routine.  */
 
-      Tcl_VarEval (interp, "gdbtk_tcl_idle", NULL);
+      Tcl_Eval (interp, "gdbtk_tcl_idle");
     }
 
   do_cleanups (ALL_CLEANUPS);
@@ -789,16 +796,17 @@ gdb_disassemble (clientData, interp, argc, argv)
 {
   CORE_ADDR pc, low, high;
   int mixed_source_and_assembly;
-  static disassemble_info di = {
-    (fprintf_ftype) fprintf_filtered, /* fprintf_func */
-    gdb_stdout,			/* stream */
-    NULL,			/* application_data */
-    0,				/* flags */
-    NULL,			/* private_data */
-    NULL,			/* read_memory_func */
-    dis_asm_memory_error,	/* memory_error_func */
-    dis_asm_print_address	/* print_address_func */
-    };
+  static disassemble_info di;
+  static int di_initialized;
+
+  if (! di_initialized)
+    {
+      INIT_DISASSEMBLE_INFO (di, gdb_stdout,
+			     (fprintf_ftype) fprintf_unfiltered);
+      di.memory_error_func = dis_asm_memory_error;
+      di.print_address_func = dis_asm_print_address;
+      di_initialized = 1;
+    }
 
   if (argc != 3 && argc != 4)
     error ("wrong # args");
@@ -1068,9 +1076,9 @@ gdbtk_call_command (cmdblk, arg, from_tty)
 {
   if (cmdblk->class == class_run)
     {
-      Tcl_VarEval (interp, "gdbtk_tcl_busy", NULL);
+      Tcl_Eval (interp, "gdbtk_tcl_busy");
       (*cmdblk->function.cfunc)(arg, from_tty);
-      Tcl_VarEval (interp, "gdbtk_tcl_idle", NULL);
+      Tcl_Eval (interp, "gdbtk_tcl_idle");
     }
   else
     (*cmdblk->function.cfunc)(arg, from_tty);

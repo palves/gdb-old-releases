@@ -10,7 +10,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) file.test 1.25 94/12/17 16:19:56
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
@@ -56,9 +55,9 @@ foreach outer { a .a a. a.a } {
  
 catch {exec chmod 777 dir.file}
 catch {exec rm -f dir.file/gorp.file}
-catch {exec rm -f gorp.file}
+removeFile gorp.file
 catch {exec rmdir dir.file}
-catch {exec rm -f link.file}
+removeFile link.file
 test file-3.1 {exists option} {file exists gorp.file} 0
 test file-3.2 {exists option} {file exists dir.file/gorp.file} 0
 exec cat > gorp.file << abcde
@@ -220,7 +219,7 @@ if $doNonPortableTests {
     test file-12.3 {type option} {
 	file type link.file
     } link
-    exec rm link.file
+    removeFile link.file
 }
 test file-12.4 {errors in type option} {
     list [catch {file type a b} msg] $msg $errorCode
@@ -272,7 +271,7 @@ if $doNonPortableTests {
 		[string tolower $errorCode]
     } {1 {couldn't readlink "_bogus_": no such file or directory} {posix enoent {no such file or directory}}}
 
-    exec rm link.file
+    removeFile link.file
 }
 
 # Error conditions

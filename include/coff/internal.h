@@ -1,6 +1,9 @@
 /* Internal format of COFF object file data structures, for GNU BFD.
    This file is part of BFD, the Binary File Descriptor library.  */
 
+#ifndef GNU_COFF_INTERNAL_H
+#define GNU_COFF_INTERNAL_H 1
+
 /* First, make "signed char" work, even on old compilers. */
 #ifndef signed
 #ifndef __STDC__
@@ -10,31 +13,37 @@
 
 /********************** FILE HEADER **********************/
 
-struct internal_filehdr
+/* extra stuff in a PE header. */
+
+struct internal_extra_pe_filehdr
 {
   /* DOS header data follows for PE stuff */
-  unsigned short e_magic;      /* Magic number, 0x5a4d */
-  unsigned short e_cblp;       /* Bytes on last page of file, 0x90 */
-  unsigned short e_cp;         /* Pages in file, 0x3 */
-  unsigned short e_crlc;       /* Relocations, 0x0 */
-  unsigned short e_cparhdr;    /* Size of header in paragraphs, 0x4 */
-  unsigned short e_minalloc;   /* Minimum extra paragraphs needed, 0x0 */
-  unsigned short e_maxalloc;   /* Maximum extra paragraphs needed, 0xFFFF */
-  unsigned short e_ss;         /* Initial (relative) SS value, 0x0 */
-  unsigned short e_sp;         /* Initial SP value, 0xb8 */
-  unsigned short e_csum;       /* Checksum, 0x0 */
-  unsigned short e_ip;         /* Initial IP value, 0x0 */
-  unsigned short e_cs;         /* Initial (relative) CS value, 0x0 */
-  unsigned short e_lfarlc;     /* File address of relocation table, 0x40 */
-  unsigned short e_ovno;       /* Overlay number, 0x0 */
-  unsigned short e_res[4];     /* Reserved words, all 0x0 */
-  unsigned short e_oemid;      /* OEM identifier (for e_oeminfo), 0x0 */
-  unsigned short e_oeminfo;    /* OEM information; e_oemid specific, 0x0 */
-  unsigned short e_res2[10];   /* Reserved words, all 0x0 */
-  bfd_vma  e_lfanew;           /* File address of new exe header, 0x80 */
+  unsigned short e_magic;	/* Magic number, 0x5a4d */
+  unsigned short e_cblp;	/* Bytes on last page of file, 0x90 */
+  unsigned short e_cp;		/* Pages in file, 0x3 */
+  unsigned short e_crlc;	/* Relocations, 0x0 */
+  unsigned short e_cparhdr;	/* Size of header in paragraphs, 0x4 */
+  unsigned short e_minalloc;	/* Minimum extra paragraphs needed, 0x0 */
+  unsigned short e_maxalloc;	/* Maximum extra paragraphs needed, 0xFFFF */
+  unsigned short e_ss;		/* Initial (relative) SS value, 0x0 */
+  unsigned short e_sp;		/* Initial SP value, 0xb8 */
+  unsigned short e_csum;	/* Checksum, 0x0 */
+  unsigned short e_ip;		/* Initial IP value, 0x0 */
+  unsigned short e_cs;		/* Initial (relative) CS value, 0x0 */
+  unsigned short e_lfarlc;	/* File address of relocation table, 0x40 */
+  unsigned short e_ovno;	/* Overlay number, 0x0 */
+  unsigned short e_res[4];	/* Reserved words, all 0x0 */
+  unsigned short e_oemid;	/* OEM identifier (for e_oeminfo), 0x0 */
+  unsigned short e_oeminfo;	/* OEM information; e_oemid specific, 0x0 */
+  unsigned short e_res2[10];	/* Reserved words, all 0x0 */
+  bfd_vma  e_lfanew;		/* File address of new exe header, 0x80 */
   unsigned long dos_message[16]; /* text which always follows dos header */
   bfd_vma  nt_signature;   	/* required NT signature, 0x4550 */ 
+};
 
+struct internal_filehdr
+{
+  struct internal_extra_pe_filehdr pe;
 
   /* standard coff  internal info */
   unsigned short f_magic;	/* magic number			*/
@@ -57,6 +66,7 @@ struct internal_filehdr
  *	F_AR32W		file is 32-bit big-endian
  *	F_DYNLOAD	rs/6000 aix: dynamically loadable w/imports & exports
  *	F_SHROBJ	rs/6000 aix: file is a shared object
+ *      F_DLL           PE format DLL
  */
 
 #define	F_RELFLG	(0x0001)
@@ -68,6 +78,7 @@ struct internal_filehdr
 #define	F_AR32W     	(0x0200)
 #define	F_DYNLOAD	(0x1000)
 #define	F_SHROBJ	(0x2000)
+#define F_DLL           (0x2000)
 
 /* extra structure which is used in the optional header */
 typedef struct _IMAGE_DATA_DIRECTORY 
@@ -78,8 +89,51 @@ typedef struct _IMAGE_DATA_DIRECTORY
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES  16
 
 /* default image base for NT */
-#define NT_IMAGE_BASE 0x400000
+#define NT_EXE_IMAGE_BASE 0x400000
+#define NT_DLL_IMAGE_BASE 0x10000000
 
+/* Extra stuff in a PE aouthdr */
+
+#define PE_DEF_SECTION_ALIGNMENT 0x1000
+#define PE_DEF_FILE_ALIGNMENT 0x200
+
+struct internal_extra_pe_aouthdr 
+{
+  /* PE stuff  */
+  bfd_vma ImageBase;		/* address of specific location in memory that
+				   file is located, NT default 0x10000 */
+
+  bfd_vma SectionAlignment;	/* section alignment default 0x1000 */
+  bfd_vma FileAlignment;	/* file alignment default 0x200 */
+  short   MajorOperatingSystemVersion; /* minimum version of the operating */
+  short   MinorOperatingSystemVersion; /* system req'd for exe, default to 1*/
+  short   MajorImageVersion;	/* user defineable field to store version of */
+  short   MinorImageVersion;	/* exe or dll being created, default to 0 */ 
+  short   MajorSubsystemVersion; /* minimum subsystem version required to */
+  short   MinorSubsystemVersion; /* run exe; default to 3.1 */
+  long    Reserved1;		/* seems to be 0 */
+  long    SizeOfImage;		/* size of memory to allocate for prog */
+  long    SizeOfHeaders;	/* size of PE header and section table */
+  long    CheckSum;		/* set to 0 */
+  short   Subsystem;	
+
+  /* type of subsystem exe uses for user interface,
+     possible values:
+     1 - NATIVE   Doesn't require a subsystem
+     2 - WINDOWS_GUI runs in Windows GUI subsystem
+     3 - WINDOWS_CUI runs in Windows char sub. (console app)
+     5 - OS2_CUI runs in OS/2 character subsystem
+     7 - POSIX_CUI runs in Posix character subsystem */
+  short   DllCharacteristics;	/* flags for DLL init, use 0 */
+  bfd_vma SizeOfStackReserve;	/* amount of memory to reserve  */
+  bfd_vma SizeOfStackCommit;	/* amount of memory initially committed for 
+				   initial thread's stack, default is 0x1000 */
+  bfd_vma SizeOfHeapReserve;	/* amount of virtual memory to reserve and */
+  bfd_vma SizeOfHeapCommit;	/* commit, don't know what to defaut it to */
+  long    LoaderFlags;		/* can probably set to 0 */
+  long    NumberOfRvaAndSizes;	/* number of entries in next entry, 16 */
+  IMAGE_DATA_DIRECTORY DataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
+};
 
 /********************** AOUT "OPTIONAL HEADER" **********************/
 struct internal_aouthdr
@@ -107,7 +161,9 @@ struct internal_aouthdr
   short o_algntext;		/* max alignment for text	*/
   short o_algndata;		/* max alignment for data	*/
   short o_modtype;		/* Module type field, 1R,RE,RO	*/
+  short o_cputype;		/* Encoded CPU type		*/
   unsigned long o_maxstack;	/* max stack size allowed.	*/
+  unsigned long o_maxdata;	/* max data size allowed.	*/
 
   /* ECOFF stuff */
   bfd_vma bss_start;		/* Base of bss section.		*/
@@ -122,38 +178,7 @@ struct internal_aouthdr
   long vid[2];			/* Version id */
 
 
-  /* PE stuff  */
-  bfd_vma ImageBase;          /* address of specific location in memory that
-                                 file is located, NT default 0x10000 */
-  bfd_vma SectionAlignment;   /* section alignment default 0x1000 */
-  bfd_vma FileAlignment;      /* file alignment default 0x200 */
-  short   MajorOperatingSystemVersion;  /* minimum version of the operating */
-  short   MinorOperatingSystemVersion;  /* system req'd for exe, default to 1*/
-  short   MajorImageVersion;  /* user defineable field to store version of */
-  short   MinorImageVersion;  /* exe or dll being created, default to 0 */ 
-  short   MajorSubsystemVersion; /* minimum subsystem version required to */
-  short   MinorSubsystemVersion; /* run exe; default to 3.1 */
-  long    Reserved1;  /* seems to be 0 */
-  long    SizeOfImage; /* size of region from image base to end last section */
-  long    SizeOfHeaders; /* size of PE header and section table */
-  long    CheckSum;  /* set to 0 */
-  short   Subsystem; /* type of subsystem exe uses for user interface,
-                        possible values:
-                        1 - NATIVE   Doesn't require a subsystem
-                        2 - WINDOWS_GUI runs in Windows GUI subsystem
-                        3 - WINDOWS_CUI runs in Windows char sub. (console app)
-                        5 - OS2_CUI runs in OS/2 character subsystem
-                        7 - POSIX_CUI runs in Posix character subsystem */
-  short   DllCharacteristics; /* flags for DLL init, use 0 */
-  bfd_vma SizeOfStackReserve; /* amount of memory to reserve, def. 0x100000 */
-  bfd_vma SizeOfStackCommit; /* amount of memory initially committed for 
-                                initial thread's stack, default is 0x1000 */
-  bfd_vma SizeOfHeapReserve; /* amount of virtual memory to reserve and */
-  bfd_vma SizeOfHeapCommit;  /* commit, don't know what to defaut it to */
-  long    LoaderFlags; /* can probably set to 0 */
-  long    NumberOfRvaAndSizes; /* number of entries in next entry, 16 */
-  IMAGE_DATA_DIRECTORY DataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES];
-
+  struct internal_extra_pe_aouthdr pe;
 
 };
 
@@ -192,6 +217,7 @@ struct internal_aouthdr
 
 /* New storage classes for WINDOWS_NT   */
 #define C_SECTION       104     /* section name */
+#define C_NT_WEAK	105	/* weak external */
 
  /* New storage classes for 80960 */
 
@@ -318,8 +344,8 @@ struct internal_syment
   short n_scnum;		/* section number		*/
   unsigned short n_flags;	/* copy of flags from filhdr	*/
   unsigned short n_type;	/* type and derived type	*/
-  unsigned char n_sclass;		/* storage class		*/
-  char n_numaux;		/* number of aux. entries	*/
+  unsigned char n_sclass;	/* storage class		*/
+  unsigned char n_numaux;	/* number of aux. entries	*/
 };
 
 #define n_name		_n._n_name
@@ -481,7 +507,7 @@ union internal_auxent
 #define	XMC_UA	4		/* Read-write unclassified */
 #define	XMC_RW	5		/* Read-write data */
 #define	XMC_GL	6		/* Read-only global linkage */
-#define	XMC_XO	7		/* Read-only extended operation (simulated insn) */
+#define	XMC_XO	7		/* Read-only extended operation */
 #define	XMC_SV	8		/* Read-only supervisor call */
 #define	XMC_BS	9		/* Read-write BSS */
 #define	XMC_DS	10		/* Read-write descriptor csect */
@@ -489,8 +515,8 @@ union internal_auxent
 #define	XMC_TI	12		/* Read-only traceback index csect */
 #define	XMC_TB	13		/* Read-only traceback table csect */
 /* 		14	??? */
-#define	XMC_TC0	15		/* Read-write TOC anchor for TOC addressability */
-
+#define	XMC_TC0	15		/* Read-write TOC anchor */
+#define XMC_TD	16		/* Read-write data in TOC */
 
   /******************************************
    *  I960-specific *2nd* aux. entry formats
@@ -538,7 +564,7 @@ struct internal_reloc
 #define	R_PCLONG	020
 #define R_RELBYTE	017
 #define R_RELWORD	020
-
+#define R_IMAGEBASE     07
 
 
 #define R_PCR16L 128
@@ -614,3 +640,4 @@ struct internal_reloc
 
 #define R_W65_DP       10  /* direct page 8 bits only   */
 
+#endif /* GNU_COFF_INTERNAL_H */

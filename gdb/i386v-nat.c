@@ -1,5 +1,5 @@
 /* Intel 386 native support for SYSV systems (pre-SVR4).
-   Copyright (C) 1988, 1989, 1991, 1992, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1989, 1991, 1992, 1994, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -69,23 +69,34 @@ i386_register_u_addr (blockend, regnum)
      int blockend;
      int regnum;
 {
-#if 0
-  /* this will be needed if fp registers are reinstated */
-  /* for now, you can look at them with 'info float'
-   * sys5 wont let you change them with ptrace anyway
-   */
-  if (regnum >= FP0_REGNUM && regnum <= FP7_REGNUM) 
+  struct user u;
+  int fpstate;
+  int ubase;
+
+  ubase = blockend;
+  /* FIXME:  Should have better way to test floating point range */
+  if (regnum >= FP0_REGNUM && regnum <= (FP0_REGNUM + 7)) 
     {
-      int ubase, fpstate;
-      struct user u;
-      ubase = blockend + 4 * (SS + 1) - KSTKSZ;
-      fpstate = ubase + ((char *)&u.u_fpstate - (char *)&u);
+#ifdef KSTKSZ	/* SCO, and others? */
+      ubase += 4 * (SS + 1) - KSTKSZ;
+      fpstate = ubase + ((char *)&u.u_fps.u_fpstate - (char *)&u);
       return (fpstate + 0x1c + 10 * (regnum - FP0_REGNUM));
+#else
+      fpstate = ubase + ((char *)&u.i387.st_space - (char *)&u);
+      return (fpstate + 10 * (regnum - FP0_REGNUM));
+#endif
     } 
   else
-#endif
-    return (blockend + 4 * regmap[regnum]);
+    {
+      return (ubase + 4 * regmap[regnum]);
+    }
   
+}
+
+int
+kernel_u_size ()
+{
+  return (sizeof (struct user));
 }
 
 #ifdef TARGET_HAS_HARDWARE_WATCHPOINTS

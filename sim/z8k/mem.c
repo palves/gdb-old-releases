@@ -17,8 +17,13 @@ You should have received a copy of the GNU General Public License
 along with Z8KZIM; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+#include "config.h"
+
 #include <ansidecl.h>
-#include "sysdep.h"
+
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
 
 #include "tm.h"
 #include "mem.h"
@@ -44,9 +49,10 @@ get_page_and_offset (context, where, offset_ptr)
 
   if (context->memory == 0)
     {
-      context->memory  = (unsigned short *)calloc(64*1024*64,2);
-
+      /* Must allocate 16MB in order to run Z8001 programs.  */
+      context->memory  = (unsigned short *)calloc(64*1024*64,4);
     }
+
   *offset_ptr = sitoptr(where);
   return context->memory;
 }

@@ -1,5 +1,5 @@
 /* Functions specific to running gdb native on a SPARC running SunOS4.
-   Copyright 1989, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1989, 1992, 1993, 1994, 1996 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,11 +20,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "defs.h"
 #include "inferior.h"
 #include "target.h"
+#include "gdbcore.h"
 
 #include <signal.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <machine/reg.h>
+#include <sys/user.h>
 
 /* We don't store all registers immediately when requested, since they
    get sent over in large chunks anyway.  Instead, we accumulate most
@@ -237,7 +239,7 @@ store_inferior_registers (regno)
 }
 
 
-void
+static void
 fetch_core_registers (core_reg_sect, core_reg_size, which, ignore)
   char *core_reg_sect;
   unsigned core_reg_size;
@@ -295,3 +297,25 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, ignore)
   }
 }
 
+int
+kernel_u_size ()
+{
+  return (sizeof (struct user));
+}
+
+
+/* Register that we are able to handle sparc core file formats.
+   FIXME: is this really bfd_target_unknown_flavour? */
+
+static struct core_fns sparc_core_fns =
+{
+  bfd_target_unknown_flavour,
+  fetch_core_registers,
+  NULL
+};
+
+void
+_initialize_core_sparc ()
+{
+  add_core_fns (&sparc_core_fns);
+}

@@ -135,7 +135,7 @@ static reloc_howto_type howto_8_pcrel
 
 static reloc_howto_type *
 local_bfd_reloc_type_lookup (arch, code)
-     CONST struct bfd_arch_info *arch;
+     const struct bfd_arch_info *arch;
      bfd_reloc_code_real_type code;
 {
   switch (code) {
@@ -156,8 +156,8 @@ int bfd_default_scan_num_mach();
 
 static boolean 
 scan_mach (info, string)
-     CONST struct bfd_arch_info *info;
-     CONST char *string;
+     const struct bfd_arch_info *info;
+     const char *string;
 {
   if (strcmp(string,"h8/500") == 0) return true;
   if (strcmp(string,"H8/500") == 0) return true;
@@ -171,10 +171,10 @@ scan_mach (info, string)
 /* This routine is provided two arch_infos and returns whether
    they'd be compatible */
 
-static CONST bfd_arch_info_type *
+static const bfd_arch_info_type *
 compatible (a,b)
-     CONST bfd_arch_info_type *a;
-     CONST bfd_arch_info_type *b;
+     const bfd_arch_info_type *a;
+     const bfd_arch_info_type *b;
 {
   if (a->arch != b->arch || a->mach != b->mach)
    return NULL;
@@ -182,31 +182,18 @@ compatible (a,b)
 }
 #endif
 
-static bfd_arch_info_type arch_info_struct[] = 
-{ 
-  {
-    16,				/* 16 bits in a word */
-    24,				/* 24 bits in an address */
-    8,				/* 8 bits in a byte */
-    bfd_arch_h8500,
-    0,				/* only 1 machine */
-    "h8500",			/* arch_name  */
-    "h8500",			/* printable name */
-    1,
-    true,			/* the default machine */
-    bfd_default_compatible,
-    scan_mach,
-    0,
-    0,
-  },
-};
-
-
-
-void
-bfd_h8500_arch()
+const bfd_arch_info_type bfd_h8500_arch =
 {
-  bfd_arch_linkin(&arch_info_struct[0]);
-}
-
-
+  16,				/* 16 bits in a word */
+  24,				/* 24 bits in an address */
+  8,				/* 8 bits in a byte */
+  bfd_arch_h8500,
+  0,				/* only 1 machine */
+  "h8500",			/* arch_name  */
+  "h8500",			/* printable name */
+  1,
+  true,				/* the default machine */
+  bfd_default_compatible,
+  scan_mach,
+  0,
+};

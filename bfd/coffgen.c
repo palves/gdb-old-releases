@@ -1,5 +1,5 @@
 /* Support for the generic parts of COFF, for BFD.
-   Copyright 1990, 91, 92, 93, 94, 1995 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -41,13 +41,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
-static boolean coff_write_symbol PARAMS ((bfd *, asymbol *,
-					  combined_entry_type *,
-					  unsigned int *));
-static boolean coff_write_alien_symbol PARAMS ((bfd *, asymbol *,
-						unsigned int *));
-static boolean coff_write_native_symbol PARAMS ((bfd *, coff_symbol_type *,
-						 unsigned int *));
+static void coff_fix_symbol_name
+  PARAMS ((bfd *, asymbol *, combined_entry_type *, bfd_size_type *,
+	   asection **, bfd_size_type *));
+static boolean coff_write_symbol
+  PARAMS ((bfd *, asymbol *, combined_entry_type *, unsigned int *,
+	   bfd_size_type *, asection **, bfd_size_type *));
+static boolean coff_write_alien_symbol
+  PARAMS ((bfd *, asymbol *, unsigned int *, bfd_size_type *,
+	   asection **, bfd_size_type *));
+static boolean coff_write_native_symbol
+  PARAMS ((bfd *, coff_symbol_type *, unsigned int *, bfd_size_type *,
+	   asection **, bfd_size_type *));
+static void coff_pointerize_aux
+  PARAMS ((bfd *, combined_entry_type *, combined_entry_type *,
+	   unsigned int, combined_entry_type *));
 
 #define STRING_SIZE_SIZE (4)
 
@@ -65,30 +73,16 @@ make_a_section_from_file (abfd, hdr, target_index)
   /* Assorted wastage to null-terminate the name, thanks AT&T! */
   name = bfd_alloc (abfd, sizeof (hdr->s_name) + 1);
   if (name == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   strncpy (name, (char *) &hdr->s_name[0], sizeof (hdr->s_name));
   name[sizeof (hdr->s_name)] = 0;
 
-  return_section = bfd_make_section (abfd, name);
-  if (return_section == NULL)
-    return_section = bfd_coff_make_section_hook (abfd, name);
-
-  /* Handle several sections of the same name.  For example, if an executable
-     has two .bss sections, GDB better be able to find both of them
-     (PR 3562).  */
-  if (return_section == NULL)
-    return_section = bfd_make_section_anyway (abfd, name);
-
+  return_section = bfd_make_section_anyway (abfd, name);
   if (return_section == NULL)
     return false;
 
-  /* s_paddr is presumed to be = to s_vaddr */
-
   return_section->vma = hdr->s_vaddr;
-  return_section->lma = return_section->vma;
+  return_section->lma = hdr->s_paddr;
   return_section->_raw_size = hdr->s_size;
   return_section->filepos = hdr->s_scnptr;
   return_section->rel_filepos = hdr->s_relptr;
@@ -167,10 +161,7 @@ coff_real_object_p (abfd, nscns, internal_f, internal_a)
   readsize = nscns * scnhsz;
   external_sections = (char *) bfd_alloc (abfd, readsize);
   if (!external_sections)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      goto fail;
-    }
+    goto fail;
 
   if (bfd_read ((PTR) external_sections, 1, readsize, abfd) != readsize)
     goto fail;
@@ -330,6 +321,138 @@ coff_get_symtab (abfd, alocation)
   return bfd_get_symcount (abfd);
 }
 
+/* Get the name of a symbol.  The caller must pass in a buffer of size
+   >= SYMNMLEN + 1.  */
+
+const char *
+_bfd_coff_internal_syment_name (abfd, sym, buf)
+     bfd *abfd;
+     const struct internal_syment *sym;
+     char *buf;
+{
+  /* FIXME: It's not clear this will work correctly if sizeof
+     (_n_zeroes) != 4.  */
+  if (sym->_n._n_n._n_zeroes != 0
+      || sym->_n._n_n._n_offset == 0)
+    {
+      memcpy (buf, sym->_n._n_name, SYMNMLEN);
+      buf[SYMNMLEN] = '\0';
+      return buf;
+    }
+  else
+    {
+      const char *strings;
+
+      BFD_ASSERT (sym->_n._n_n._n_offset >= STRING_SIZE_SIZE);
+      strings = obj_coff_strings (abfd);
+      if (strings == NULL)
+	{
+	  strings = _bfd_coff_read_string_table (abfd);
+	  if (strings == NULL)
+	    return NULL;
+	}
+      return strings + sym->_n._n_n._n_offset;
+    }
+}
+
+/* Read in and swap the relocs.  This returns a buffer holding the
+   relocs for section SEC in file ABFD.  If CACHE is true and
+   INTERNAL_RELOCS is NULL, the relocs read in will be saved in case
+   the function is called again.  If EXTERNAL_RELOCS is not NULL, it
+   is a buffer large enough to hold the unswapped relocs.  If
+   INTERNAL_RELOCS is not NULL, it is a buffer large enough to hold
+   the swapped relocs.  If REQUIRE_INTERNAL is true, then the return
+   value must be INTERNAL_RELOCS.  The function returns NULL on error.  */
+
+struct internal_reloc *
+_bfd_coff_read_internal_relocs (abfd, sec, cache, external_relocs,
+				require_internal, internal_relocs)
+     bfd *abfd;
+     asection *sec;
+     boolean cache;
+     bfd_byte *external_relocs;
+     boolean require_internal;
+     struct internal_reloc *internal_relocs;
+{
+  bfd_size_type relsz;
+  bfd_byte *free_external = NULL;
+  struct internal_reloc *free_internal = NULL;
+  bfd_byte *erel;
+  bfd_byte *erel_end;
+  struct internal_reloc *irel;
+
+  if (coff_section_data (abfd, sec) != NULL
+      && coff_section_data (abfd, sec)->relocs != NULL)
+    {
+      if (! require_internal)
+	return coff_section_data (abfd, sec)->relocs;
+      memcpy (internal_relocs, coff_section_data (abfd, sec)->relocs,
+	      sec->reloc_count * sizeof (struct internal_reloc));
+      return internal_relocs;
+    }
+
+  relsz = bfd_coff_relsz (abfd);
+
+  if (external_relocs == NULL)
+    {
+      free_external = (bfd_byte *) bfd_malloc (sec->reloc_count * relsz);
+      if (free_external == NULL && sec->reloc_count > 0)
+	goto error_return;
+      external_relocs = free_external;
+    }
+
+  if (bfd_seek (abfd, sec->rel_filepos, SEEK_SET) != 0
+      || (bfd_read (external_relocs, relsz, sec->reloc_count, abfd)
+	  != relsz * sec->reloc_count))
+    goto error_return;
+
+  if (internal_relocs == NULL)
+    {
+      free_internal = ((struct internal_reloc *)
+		       bfd_malloc (sec->reloc_count
+				   * sizeof (struct internal_reloc)));
+      if (free_internal == NULL && sec->reloc_count > 0)
+	goto error_return;
+      internal_relocs = free_internal;
+    }
+
+  /* Swap in the relocs.  */
+  erel = external_relocs;
+  erel_end = erel + relsz * sec->reloc_count;
+  irel = internal_relocs;
+  for (; erel < erel_end; erel += relsz, irel++)
+    bfd_coff_swap_reloc_in (abfd, (PTR) erel, (PTR) irel);
+
+  if (free_external != NULL)
+    {
+      free (free_external);
+      free_external = NULL;
+    }
+
+  if (cache && free_internal != NULL)
+    {
+      if (coff_section_data (abfd, sec) == NULL)
+	{
+	  sec->used_by_bfd =
+	    (PTR) bfd_zalloc (abfd,
+			      sizeof (struct coff_section_tdata));
+	  if (sec->used_by_bfd == NULL)
+	    goto error_return;
+	  coff_section_data (abfd, sec)->contents = NULL;
+	}
+      coff_section_data (abfd, sec)->relocs = free_internal;
+    }
+
+  return internal_relocs;
+
+ error_return:
+  if (free_external != NULL)
+    free (free_external);
+  if (free_internal != NULL)
+    free (free_internal);
+  return NULL;
+}
+
 /* Set lineno_count for the output sections of a COFF file.  */
 
 int
@@ -362,7 +485,11 @@ coff_count_linenumbers (abfd)
 	{
 	  coff_symbol_type *q = coffsymbol (q_maybe);
 
-	  if (q->lineno != NULL)
+	  /* The AIX 4.1 compiler can sometimes generate line numbers
+             attached to debugging symbols.  We try to simply ignore
+             those here.  */
+	  if (q->lineno != NULL
+	      && q->symbol.section->owner != NULL)
 	    {
 	      /* This symbol has line numbers.  Increment the owning
 	         section's linenumber count.  */
@@ -476,37 +603,36 @@ coff_renumber_symbols (bfd_ptr, first_undef)
      I'm not certain.  [raeburn:19920508.1711EST]  */
   {
     asymbol **newsyms;
-    int i;
+    unsigned int i;
 
     newsyms = (asymbol **) bfd_alloc_by_size_t (bfd_ptr,
 						sizeof (asymbol *)
 						* (symbol_count + 1));
     if (!newsyms)
-      {
-	bfd_set_error (bfd_error_no_memory);
-	return false;
-      }
+      return false;
     bfd_ptr->outsymbols = newsyms;
     for (i = 0; i < symbol_count; i++)
-      if (!bfd_is_und_section (symbol_ptr_ptr[i]->section)
-	  && ((symbol_ptr_ptr[i]->flags & (BSF_GLOBAL
-					   | BSF_NOT_AT_END
-					   | BSF_FUNCTION))
-	      != BSF_GLOBAL))
+      if ((symbol_ptr_ptr[i]->flags & BSF_NOT_AT_END) != 0
+	  || (!bfd_is_und_section (symbol_ptr_ptr[i]->section)
+	      && !bfd_is_com_section (symbol_ptr_ptr[i]->section)
+	      && ((symbol_ptr_ptr[i]->flags & (BSF_GLOBAL | BSF_FUNCTION))
+		  != BSF_GLOBAL)))
 	*newsyms++ = symbol_ptr_ptr[i];
 
     for (i = 0; i < symbol_count; i++)
       if (!bfd_is_und_section (symbol_ptr_ptr[i]->section)
-	  && ((symbol_ptr_ptr[i]->flags & (BSF_GLOBAL
-					   | BSF_NOT_AT_END
-					   | BSF_FUNCTION))
-	      == BSF_GLOBAL))
+	  && (bfd_is_com_section (symbol_ptr_ptr[i]->section)
+	      || ((symbol_ptr_ptr[i]->flags & (BSF_GLOBAL
+					       | BSF_NOT_AT_END
+					       | BSF_FUNCTION))
+		  == BSF_GLOBAL)))
 	*newsyms++ = symbol_ptr_ptr[i];
 
     *first_undef = newsyms - bfd_ptr->outsymbols;
 
     for (i = 0; i < symbol_count; i++)
-      if (bfd_is_und_section (symbol_ptr_ptr[i]->section))
+      if ((symbol_ptr_ptr[i]->flags & BSF_NOT_AT_END) == 0
+	  && bfd_is_und_section (symbol_ptr_ptr[i]->section))
 	*newsyms++ = symbol_ptr_ptr[i];
     *newsyms = (asymbol *) NULL;
     symbol_ptr_ptr = bfd_ptr->outsymbols;
@@ -577,6 +703,18 @@ coff_mangle_symbols (bfd_ptr)
 		((combined_entry_type *) s->u.syment.n_value)->offset;
 	      s->fix_value = 0;
 	    }
+	  if (s->fix_line)
+	    {
+	      /* The value is the offset into the line number entries
+                 for the symbol's section.  On output, the symbol's
+                 section should be N_DEBUG.  */
+	      s->u.syment.n_value =
+		(coff_symbol_ptr->symbol.section->output_section->line_filepos
+		 + s->u.syment.n_value * bfd_coff_linesz (bfd_ptr));
+	      coff_symbol_ptr->symbol.section =
+		coff_section_from_bfd_index (bfd_ptr, N_DEBUG);
+	      BFD_ASSERT (coff_symbol_ptr->symbol.flags & BSF_DEBUGGING);
+	    }
 	  for (i = 0; i < s->u.syment.n_numaux; i++)
 	    {
 	      combined_entry_type *a = s + i + 1;
@@ -603,15 +741,15 @@ coff_mangle_symbols (bfd_ptr)
     }
 }
 
-static bfd_size_type string_size;
-static bfd_size_type debug_string_size;
-static asection *debug_string_section;
-
 static void
-coff_fix_symbol_name (abfd, symbol, native)
+coff_fix_symbol_name (abfd, symbol, native, string_size_p,
+		      debug_string_section_p, debug_string_size_p)
      bfd *abfd;
      asymbol *symbol;
      combined_entry_type *native;
+     bfd_size_type *string_size_p;
+     asection **debug_string_section_p;
+     bfd_size_type *debug_string_size_p;
 {
   unsigned int name_length;
   union internal_auxent *auxent;
@@ -625,7 +763,8 @@ coff_fix_symbol_name (abfd, symbol, native)
     }
   name_length = strlen (name);
 
-  if (native->u.syment.n_sclass == C_FILE)
+  if (native->u.syment.n_sclass == C_FILE
+      && native->u.syment.n_numaux > 0)
     {
       strncpy (native->u.syment._n._n_name, ".file", SYMNMLEN);
       auxent = &(native + 1)->u.auxent;
@@ -638,9 +777,9 @@ coff_fix_symbol_name (abfd, symbol, native)
 	    }
 	  else
 	    {
-	      auxent->x_file.x_n.x_offset = string_size + STRING_SIZE_SIZE;
+	      auxent->x_file.x_n.x_offset = *string_size_p + STRING_SIZE_SIZE;
 	      auxent->x_file.x_n.x_zeroes = 0;
-	      string_size += name_length + 1;
+	      *string_size_p += name_length + 1;
 	    }
 	}
       else
@@ -653,7 +792,7 @@ coff_fix_symbol_name (abfd, symbol, native)
 	}
     }
   else
-    {				/* NOT A C_FILE SYMBOL */
+    {
       if (name_length <= SYMNMLEN)
 	{
 	  /* This name will fit into the symbol neatly */
@@ -661,9 +800,10 @@ coff_fix_symbol_name (abfd, symbol, native)
 	}
       else if (!bfd_coff_symname_in_debug (abfd, &native->u.syment))
 	{
-	  native->u.syment._n._n_n._n_offset = string_size + STRING_SIZE_SIZE;
+	  native->u.syment._n._n_n._n_offset = (*string_size_p
+						+ STRING_SIZE_SIZE);
 	  native->u.syment._n._n_n._n_zeroes = 0;
-	  string_size += name_length + 1;
+	  *string_size_p += name_length + 1;
 	}
       else
 	{
@@ -675,26 +815,27 @@ coff_fix_symbol_name (abfd, symbol, native)
 	     and also followed by a null byte.  FIXME: We assume that
 	     the .debug section has already been created, and that it
 	     is large enough.  */
-	  if (debug_string_section == (asection *) NULL)
-	    debug_string_section = bfd_get_section_by_name (abfd, ".debug");
+	  if (*debug_string_section_p == (asection *) NULL)
+	    *debug_string_section_p = bfd_get_section_by_name (abfd, ".debug");
 	  filepos = bfd_tell (abfd);
 	  bfd_put_16 (abfd, name_length + 1, buf);
 	  if (!bfd_set_section_contents (abfd,
-					 debug_string_section,
+					 *debug_string_section_p,
 					 (PTR) buf,
-					 (file_ptr) debug_string_size,
+					 (file_ptr) *debug_string_size_p,
 					 (bfd_size_type) 2)
 	      || !bfd_set_section_contents (abfd,
-					    debug_string_section,
+					    *debug_string_section_p,
 					    (PTR) symbol->name,
-					    (file_ptr) debug_string_size + 2,
+					    ((file_ptr) *debug_string_size_p
+					     + 2),
 					    (bfd_size_type) name_length + 1))
 	    abort ();
 	  if (bfd_seek (abfd, filepos, SEEK_SET) != 0)
 	    abort ();
-	  native->u.syment._n._n_n._n_offset = debug_string_size + 2;
+	  native->u.syment._n._n_n._n_offset = *debug_string_size_p + 2;
 	  native->u.syment._n._n_n._n_zeroes = 0;
-	  debug_string_size += name_length + 3;
+	  *debug_string_size_p += name_length + 3;
 	}
     }
 }
@@ -708,11 +849,15 @@ coff_fix_symbol_name (abfd, symbol, native)
 /* Write a symbol out to a COFF file.  */
 
 static boolean
-coff_write_symbol (abfd, symbol, native, written)
+coff_write_symbol (abfd, symbol, native, written, string_size_p,
+		   debug_string_section_p, debug_string_size_p)
      bfd *abfd;
      asymbol *symbol;
      combined_entry_type *native;
      unsigned int *written;
+     bfd_size_type *string_size_p;
+     asection **debug_string_section_p;
+     bfd_size_type *debug_string_size_p;
 {
   unsigned int numaux = native->u.syment.n_numaux;
   int type = native->u.syment.n_type;
@@ -723,7 +868,8 @@ coff_write_symbol (abfd, symbol, native, written)
   if (native->u.syment.n_sclass == C_FILE)
     symbol->flags |= BSF_DEBUGGING;
 
-  if (symbol->flags & BSF_DEBUGGING)
+  if (symbol->flags & BSF_DEBUGGING
+      && bfd_is_abs_section (symbol->section))
     {
       native->u.syment.n_scnum = N_DEBUG;
     }
@@ -741,15 +887,13 @@ coff_write_symbol (abfd, symbol, native, written)
 	symbol->section->output_section->target_index;
     }
 
-  coff_fix_symbol_name (abfd, symbol, native);
+  coff_fix_symbol_name (abfd, symbol, native, string_size_p,
+			debug_string_section_p, debug_string_size_p);
 
   symesz = bfd_coff_symesz (abfd);
   buf = bfd_alloc (abfd, symesz);
   if (!buf)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   bfd_coff_swap_sym_out (abfd, &native->u.syment, buf);
   if (bfd_write (buf, 1, symesz, abfd) != symesz)
     return false;
@@ -763,10 +907,7 @@ coff_write_symbol (abfd, symbol, native, written)
       auxesz = bfd_coff_auxesz (abfd);
       buf = bfd_alloc (abfd, auxesz);
       if (!buf)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
       for (j = 0; j < native->u.syment.n_numaux; j++)
 	{
 	  bfd_coff_swap_aux_out (abfd,
@@ -794,10 +935,14 @@ coff_write_symbol (abfd, symbol, native, written)
    or we may be linking a non COFF file to a COFF file.  */
 
 static boolean
-coff_write_alien_symbol (abfd, symbol, written)
+coff_write_alien_symbol (abfd, symbol, written, string_size_p,
+			 debug_string_section_p, debug_string_size_p)
      bfd *abfd;
      asymbol *symbol;
      unsigned int *written;
+     bfd_size_type *string_size_p;
+     asection **debug_string_section_p;
+     bfd_size_type *debug_string_size_p;
 {
   combined_entry_type *native;
   combined_entry_type dummy;
@@ -848,16 +993,21 @@ coff_write_alien_symbol (abfd, symbol, written)
     native->u.syment.n_sclass = C_EXT;
   native->u.syment.n_numaux = 0;
 
-  return coff_write_symbol (abfd, symbol, native, written);
+  return coff_write_symbol (abfd, symbol, native, written, string_size_p,
+			    debug_string_section_p, debug_string_size_p);
 }
 
 /* Write a native symbol to a COFF file.  */
 
 static boolean
-coff_write_native_symbol (abfd, symbol, written)
+coff_write_native_symbol (abfd, symbol, written, string_size_p,
+			  debug_string_section_p, debug_string_size_p)
      bfd *abfd;
      coff_symbol_type *symbol;
      unsigned int *written;
+     bfd_size_type *string_size_p;
+     asection **debug_string_section_p;
+     bfd_size_type *debug_string_size_p;
 {
   combined_entry_type *native = symbol->native;
   alent *lineno = symbol->lineno;
@@ -865,7 +1015,7 @@ coff_write_native_symbol (abfd, symbol, written)
   /* If this symbol has an associated line number, we must store the
      symbol index in the line number field.  We also tag the auxent to
      point to the right place in the lineno table.  */
-  if (lineno && !symbol->done_lineno)
+  if (lineno && !symbol->done_lineno && symbol->symbol.section->owner != NULL)
     {
       unsigned int count = 0;
       lineno[count].u.offset = *written;
@@ -911,7 +1061,9 @@ coff_write_native_symbol (abfd, symbol, written)
 	count * bfd_coff_linesz (abfd);
     }
 
-  return coff_write_symbol (abfd, &(symbol->symbol), native, written);
+  return coff_write_symbol (abfd, &(symbol->symbol), native, written,
+			    string_size_p, debug_string_section_p,
+			    debug_string_size_p);
 }
 
 /* Write out the COFF symbols.  */
@@ -920,12 +1072,16 @@ boolean
 coff_write_symbols (abfd)
      bfd *abfd;
 {
+  bfd_size_type string_size;
+  asection *debug_string_section;
+  bfd_size_type debug_string_size;
   unsigned int i;
   unsigned int limit = bfd_get_symcount (abfd);
   unsigned int written = 0;
   asymbol **p;
 
   string_size = 0;
+  debug_string_section = NULL;
   debug_string_size = 0;
 
   /* Seek to the right place */
@@ -943,12 +1099,16 @@ coff_write_symbols (abfd)
       if (c_symbol == (coff_symbol_type *) NULL
 	  || c_symbol->native == (combined_entry_type *) NULL)
 	{
-	  if (!coff_write_alien_symbol (abfd, symbol, &written))
+	  if (!coff_write_alien_symbol (abfd, symbol, &written, &string_size,
+					&debug_string_section,
+					&debug_string_size))
 	    return false;
 	}
       else
 	{
-	  if (!coff_write_native_symbol (abfd, c_symbol, &written))
+	  if (!coff_write_native_symbol (abfd, c_symbol, &written,
+					 &string_size, &debug_string_section,
+					 &debug_string_size))
 	    return false;
 	}
     }
@@ -999,7 +1159,8 @@ coff_write_symbols (abfd)
 	         Don't write it into the string table.  */
 	      maxlen = name_length;
 	    }
-	  else if (c_symbol->native->u.syment.n_sclass == C_FILE)
+	  else if (c_symbol->native->u.syment.n_sclass == C_FILE
+		   && c_symbol->native->u.syment.n_numaux > 0)
 	    maxlen = FILNMLEN;
 	  else
 	    maxlen = SYMNMLEN;
@@ -1055,10 +1216,7 @@ coff_write_linenumbers (abfd)
   linesz = bfd_coff_linesz (abfd);
   buff = bfd_alloc (abfd, linesz);
   if (!buff)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
   for (s = abfd->sections; s != (asection *) NULL; s = s->next)
     {
       if (s->lineno_count)
@@ -1164,13 +1322,23 @@ coff_section_symbol (abfd, name)
    pointers to syments.  */
 
 static void
-coff_pointerize_aux (abfd, table_base, type, class, auxent)
+coff_pointerize_aux (abfd, table_base, symbol, indaux, auxent)
      bfd *abfd;
      combined_entry_type *table_base;
-     int type;
-     int class;
+     combined_entry_type *symbol;
+     unsigned int indaux;
      combined_entry_type *auxent;
 {
+  int type = symbol->u.syment.n_type;
+  int class = symbol->u.syment.n_sclass;
+
+  if (coff_backend_info (abfd)->_bfd_coff_pointerize_aux_hook)
+    {
+      if ((*coff_backend_info (abfd)->_bfd_coff_pointerize_aux_hook)
+	  (abfd, table_base, symbol, indaux, auxent))
+	return;
+    }
+
   /* Don't bother if this is a file or a section */
   if (class == C_STAT && type == T_NULL)
     return;
@@ -1184,8 +1352,7 @@ coff_pointerize_aux (abfd, table_base, type, class, auxent)
       && auxent->u.auxent.x_sym.x_fcnary.x_fcn.x_endndx.l > 0)
     {
       auxent->u.auxent.x_sym.x_fcnary.x_fcn.x_endndx.p =
-	(table_base
-	 + auxent->u.auxent.x_sym.x_fcnary.x_fcn.x_endndx.l);
+	table_base + auxent->u.auxent.x_sym.x_fcnary.x_fcn.x_endndx.l;
       auxent->fix_end = 1;
     }
   /* A negative tagndx is meaningless, but the SCO 3.2v4 cc can
@@ -1220,10 +1387,7 @@ build_debug_section (abfd)
   debug_section = (PTR) bfd_alloc (abfd,
 				   bfd_get_section_size_before_reloc (sect));
   if (debug_section == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
 
   /* Seek to the beginning of the `.debug' section and read it. 
      Save the current position first; it is needed by our caller.
@@ -1261,10 +1425,7 @@ copy_name (abfd, name, maxlen)
     }
 
   if ((newname = (PTR) bfd_alloc (abfd, len + 1)) == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return (NULL);
-    }
+    return (NULL);
   strncpy (newname, name, len);
   newname[len] = '\0';
   return newname;
@@ -1287,12 +1448,9 @@ _bfd_coff_get_external_symbols (abfd)
 
   size = obj_raw_syment_count (abfd) * symesz;
 
-  syms = malloc (size);
+  syms = (PTR) bfd_malloc (size);
   if (syms == NULL && size != 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
+    return false;
 
   if (bfd_seek (abfd, obj_sym_filepos (abfd), SEEK_SET) != 0
       || bfd_read (syms, size, 1, abfd) != size)
@@ -1345,12 +1503,18 @@ _bfd_coff_read_string_table (abfd)
 #endif
     }
 
-  strings = malloc (strsize);
-  if (strings == NULL)
+  if (strsize < STRING_SIZE_SIZE)
     {
-      bfd_set_error (bfd_error_no_memory);
+      (*_bfd_error_handler)
+	("%s: bad string table size %lu", bfd_get_filename (abfd),
+	 (unsigned long) strsize);
+      bfd_set_error (bfd_error_bad_value);
       return NULL;
     }
+
+  strings = (char *) bfd_malloc (strsize);
+  if (strings == NULL)
+    return NULL;
 
   if (bfd_read (strings + STRING_SIZE_SIZE,
 		strsize - STRING_SIZE_SIZE, 1, abfd)
@@ -1412,10 +1576,7 @@ coff_get_normalized_symtab (abfd)
   size = obj_raw_syment_count (abfd) * sizeof (combined_entry_type);
   internal = (combined_entry_type *) bfd_alloc (abfd, size);
   if (internal == NULL && size != 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return NULL;
-    }
+    return NULL;
   internal_end = internal + obj_raw_syment_count (abfd);
 
   if (! _bfd_coff_get_external_symbols (abfd))
@@ -1461,17 +1622,8 @@ coff_get_normalized_symtab (abfd)
 				symbol_ptr->u.syment.n_sclass,
 				i, symbol_ptr->u.syment.n_numaux,
 				&(internal_ptr->u.auxent));
-	  /* Remember that bal entries arn't pointerized */
-	  if (i != 1 || symbol_ptr->u.syment.n_sclass != C_LEAFPROC)
-	    {
-
-	      coff_pointerize_aux (abfd,
-				   internal,
-				   symbol_ptr->u.syment.n_type,
-				   symbol_ptr->u.syment.n_sclass,
-				   internal_ptr);
-	    }
-
+	  coff_pointerize_aux (abfd, internal, symbol_ptr, i,
+			       internal_ptr);
 	}
     }
 
@@ -1530,10 +1682,7 @@ coff_get_normalized_symtab (abfd)
 		}		/* possible lengths of this string. */
 
 	      if ((newstring = (PTR) bfd_alloc (abfd, ++i)) == NULL)
-		{
-		  bfd_set_error (bfd_error_no_memory);
-		  return (NULL);
-		}		/* on error */
+		return (NULL);
 	      memset (newstring, 0, i);
 	      strncpy (newstring, internal_ptr->u.syment._n._n_name, i - 1);
 	      internal_ptr->u.syment._n._n_n._n_offset = (long int) newstring;
@@ -1569,7 +1718,8 @@ coff_get_normalized_symtab (abfd)
     }
 
   obj_raw_syments (abfd) = internal;
-  BFD_ASSERT (obj_raw_syment_count (abfd) == internal_ptr - internal);
+  BFD_ASSERT (obj_raw_syment_count (abfd)
+	      == (unsigned int) (internal_ptr - internal));
 
   return (internal);
 }				/* coff_get_normalized_symtab() */
@@ -1593,10 +1743,7 @@ coff_make_empty_symbol (abfd)
 {
   coff_symbol_type *new = (coff_symbol_type *) bfd_alloc (abfd, sizeof (coff_symbol_type));
   if (new == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return (NULL);
-    }				/* on error */
+    return (NULL);
   memset (new, 0, sizeof *new);
   new->symbol.section = 0;
   new->native = 0;
@@ -1616,17 +1763,11 @@ coff_bfd_make_debug_symbol (abfd, ptr, sz)
 {
   coff_symbol_type *new = (coff_symbol_type *) bfd_alloc (abfd, sizeof (coff_symbol_type));
   if (new == NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return (NULL);
-    }				/* on error */
+    return (NULL);
   /* @@ This shouldn't be using a constant multiplier.  */
   new->native = (combined_entry_type *) bfd_zalloc (abfd, sizeof (combined_entry_type) * 10);
   if (!new->native)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return (NULL);
-    }				/* on error */
+    return (NULL);
   new->symbol.section = bfd_abs_section_ptr;
   new->symbol.flags = BSF_DEBUGGING;
   new->lineno = (alent *) NULL;
@@ -1643,6 +1784,15 @@ coff_get_symbol_info (abfd, symbol, ret)
      symbol_info *ret;
 {
   bfd_symbol_info (symbol, ret);
+  if (coffsymbol (symbol)->native != NULL
+      && coffsymbol (symbol)->native->fix_value)
+    {
+      combined_entry_type *psym;
+
+      psym = ((combined_entry_type *)
+	      coffsymbol (symbol)->native->u.syment.n_value);
+      ret->value = (bfd_vma) (psym - obj_raw_syments (abfd));
+    }
 }
 
 /* Print out information about COFF symbol.  */
@@ -1671,12 +1821,20 @@ coff_print_symbol (abfd, filep, symbol, how)
     case bfd_print_symbol_all:
       if (coffsymbol (symbol)->native)
 	{
+	  unsigned long val;
 	  unsigned int aux;
 	  combined_entry_type *combined = coffsymbol (symbol)->native;
 	  combined_entry_type *root = obj_raw_syments (abfd);
 	  struct lineno_cache_entry *l = coffsymbol (symbol)->lineno;
 
 	  fprintf (file, "[%3ld]", (long) (combined - root));
+
+	  if (! combined->fix_value)
+	    val = (unsigned long) combined->u.syment.n_value;
+	  else
+	    val = ((unsigned long)
+		   ((combined_entry_type *) combined->u.syment.n_value
+		    - root));
 
 	  fprintf (file,
 		   "(sec %2d)(fl 0x%02x)(ty %3x)(scl %3d) (nx %d) 0x%08lx %s",
@@ -1685,7 +1843,7 @@ coff_print_symbol (abfd, filep, symbol, how)
 		   combined->u.syment.n_type,
 		   combined->u.syment.n_sclass,
 		   combined->u.syment.n_numaux,
-		   (unsigned long) combined->u.syment.n_value,
+		   val,
 		   symbol->name);
 
 	  for (aux = 0; aux < combined->u.syment.n_numaux; aux++)
@@ -1699,6 +1857,10 @@ coff_print_symbol (abfd, filep, symbol, how)
 		tagndx = auxp->u.auxent.x_sym.x_tagndx.l;
 
 	      fprintf (file, "\n");
+
+	      if (bfd_coff_print_aux (abfd, file, root, combined, auxp, aux))
+		continue;
+
 	      switch (combined->u.syment.n_sclass)
 		{
 		case C_FILE:
@@ -1763,30 +1925,35 @@ coff_print_symbol (abfd, filep, symbol, how)
 
 /*ARGSUSED*/
 boolean
-coff_find_nearest_line (abfd, section, ignore_symbols, offset, filename_ptr,
+coff_find_nearest_line (abfd, section, symbols, offset, filename_ptr,
 			functionname_ptr, line_ptr)
      bfd *abfd;
      asection *section;
-     asymbol **ignore_symbols;
+     asymbol **symbols;
      bfd_vma offset;
      CONST char **filename_ptr;
      CONST char **functionname_ptr;
      unsigned int *line_ptr;
 {
-  static bfd *cache_abfd;
-  static asection *cache_section;
-  static bfd_vma cache_offset;
-  static unsigned int cache_i;
-  static CONST char *cache_function;
-  static unsigned int line_base = 0;
-
+  boolean found;
   unsigned int i;
+  unsigned int line_base;
   coff_data_type *cof = coff_data (abfd);
   /* Run through the raw syments if available */
   combined_entry_type *p;
   combined_entry_type *pend;
   alent *l;
+  struct coff_section_tdata *sec_data;
 
+  /* Before looking through the symbol table, try to use a .stab
+     section to find the information.  */
+  if (! _bfd_stab_section_find_nearest_line (abfd, symbols, section, offset,
+					     &found, filename_ptr,
+					     functionname_ptr, line_ptr,
+					     &coff_data (abfd)->line_info))
+    return false;
+  if (found)
+    return true;
 
   *filename_ptr = 0;
   *functionname_ptr = 0;
@@ -1837,8 +2004,8 @@ coff_find_nearest_line (abfd, section, ignore_symbols, offset, filename_ptr,
 	    }
 
 	  if (p2 < pend
-	      && offset >= p2->u.syment.n_value
-	      && offset - p2->u.syment.n_value < maxdiff)
+	      && offset >= (bfd_vma) p2->u.syment.n_value
+	      && offset - (bfd_vma) p2->u.syment.n_value < maxdiff)
 	    {
 	      *filename_ptr = (char *) p->u.syment._n._n_n._n_offset;
 	      maxdiff = offset - p2->u.syment.n_value;
@@ -1856,20 +2023,23 @@ coff_find_nearest_line (abfd, section, ignore_symbols, offset, filename_ptr,
     }
 
   /* Now wander though the raw linenumbers of the section */
-  /* If this is the same BFD as we were previously called with and
-     this is the same section, and the offset we want is further down
-     then we can prime the lookup loop.  */
-  if (abfd == cache_abfd &&
-      section == cache_section &&
-      offset >= cache_offset)
+  /* If we have been called on this section before, and the offset we
+     want is further down then we can prime the lookup loop.  */
+  sec_data = coff_section_data (abfd, section);
+  if (sec_data != NULL
+      && sec_data->i > 0
+      && offset >= sec_data->offset)
     {
-      i = cache_i;
-      *functionname_ptr = cache_function;
+      i = sec_data->i;
+      *functionname_ptr = sec_data->function;
+      line_base = sec_data->line_base;
     }
   else
     {
       i = 0;
+      line_base = 0;
     }
+
   l = &section->lineno[i];
 
   for (; i < section->lineno_count; i++)
@@ -1914,11 +2084,21 @@ coff_find_nearest_line (abfd, section, ignore_symbols, offset, filename_ptr,
       l++;
     }
 
-  cache_abfd = abfd;
-  cache_section = section;
-  cache_offset = offset;
-  cache_i = i;
-  cache_function = *functionname_ptr;
+  /* Cache the results for the next call.  */
+  if (sec_data == NULL && section->owner == abfd)
+    {
+      section->used_by_bfd =
+	((PTR) bfd_zalloc (abfd,
+			   sizeof (struct coff_section_tdata)));
+      sec_data = (struct coff_section_tdata *) section->used_by_bfd;
+    }
+  if (sec_data != NULL)
+    {
+      sec_data->offset = offset;
+      sec_data->i = i;
+      sec_data->function = *functionname_ptr;
+      sec_data->line_base = line_base;
+    }
 
   return true;
 }

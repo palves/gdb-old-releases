@@ -214,6 +214,7 @@ enum cars {bmw, porsche} sportscar;
 typedef enum {FALSE, TRUE} boolean;
 boolean v_boolean;
 typedef enum bvals {false, true} boolean2;
+boolean2 v_boolean2;
 
 enum misordered {two = 2, one = 1, zero = 0, three = 3};
 
@@ -221,6 +222,9 @@ enum misordered {two = 2, one = 1, zero = 0, three = 3};
 
 main ()
 {
+  /* Ensure that malloc is a pointer type; avoid use of "void" and any include files. */
+  extern char *malloc();
+
   /* Seems like we need a variable of this type to get the type to be put
      in the executable, at least for AIX xlc.  */
   enum misordered v_misordered = three;
@@ -305,4 +309,5 @@ main ()
   v_t_struct_p = 0;
 
   v_boolean = FALSE;
+  v_boolean2 = false;
 }

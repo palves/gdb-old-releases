@@ -1,14 +1,13 @@
 '\"
 '\" Copyright (c) 1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) history.n 1.2 94/12/17 16:18:06
 '\" 
 .so man.macros
-.HS history tcl
+.TH history n "" Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -35,7 +34,7 @@ A string:  selects the most recent event that matches the string.
 An event is considered to match the string either if the string is
 the same as the first characters of the event, or if the string
 matches the event in the sense of the \fBstring match\fR command.
-.LP
+.PP
 The \fBhistory\fR command can take any of the following forms:
 .TP
 \fBhistory\fR
@@ -105,9 +104,9 @@ the numeric forms \fB$\fR may be used
 to select the last word of a command.
 For example, suppose the most recent command in the history list is
 .RS
-.DS
+.CS
 \fBformat  {%s is %d years old} Alice [expr $ageInMonths/12]\fR
-.DE
+.CE
 Below are some history commands and the results they would produce:
 .DS
 .ta 4c
@@ -131,9 +130,9 @@ is modified to eliminate the history command and replace it with
 the result of the history command.
 For example, suppose that the most recent command in the history
 list is
-.DS
+.CS
 \fBset a [expr $b+2]\fR
-.DE
+.CE
 and suppose that the next command invoked is one of the ones on
 the left side of the table below.  The command actually recorded in
 the history event will be the corresponding one on the right side

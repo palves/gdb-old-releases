@@ -1,5 +1,5 @@
 /* Target definitions for NN-bit ELF
-   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -56,6 +56,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define bfd_elfNN_sizeof_headers	_bfd_elf_sizeof_headers
 #define bfd_elfNN_write_object_contents _bfd_elf_write_object_contents
 
+#define bfd_elfNN_get_section_contents_in_window \
+  _bfd_generic_get_section_contents_in_window
+
 #ifndef elf_backend_want_got_plt
 #define elf_backend_want_got_plt 0
 #endif
@@ -64,6 +67,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 #ifndef elf_backend_want_plt_sym
 #define elf_backend_want_plt_sym 0
+#endif
+
+#ifndef elf_backend_want_hdr_in_seg
+#define elf_backend_want_hdr_in_seg 0
 #endif
 
 #define bfd_elfNN_bfd_debug_info_start	bfd_void
@@ -81,15 +88,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef bfd_elfNN_bfd_copy_private_symbol_data
 #define bfd_elfNN_bfd_copy_private_symbol_data \
-  ((boolean (*) PARAMS ((bfd *, asymbol *, bfd *, asymbol *))) bfd_true)
+  _bfd_elf_copy_private_symbol_data
 #endif
+
 #ifndef bfd_elfNN_bfd_copy_private_section_data
 #define bfd_elfNN_bfd_copy_private_section_data \
-  ((boolean (*) PARAMS ((bfd *, asection *, bfd *, asection *))) bfd_true)
+  _bfd_elf_copy_private_section_data
 #endif
 #ifndef bfd_elfNN_bfd_copy_private_bfd_data
 #define bfd_elfNN_bfd_copy_private_bfd_data \
   ((boolean (*) PARAMS ((bfd *, bfd *))) bfd_true)
+#endif
+#ifndef bfd_elfNN_bfd_print_private_bfd_data
+#define bfd_elfNN_bfd_print_private_bfd_data \
+  _bfd_elf_print_private_bfd_data
 #endif
 #ifndef bfd_elfNN_bfd_merge_private_bfd_data
 #define bfd_elfNN_bfd_merge_private_bfd_data \
@@ -143,6 +155,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #ifndef elf_backend_collect
 #define elf_backend_collect false
+#endif
+#ifndef elf_backend_type_change_ok
+#define elf_backend_type_change_ok false
 #endif
 
 #ifndef elf_backend_sym_is_global
@@ -202,6 +217,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #ifndef elf_backend_final_write_processing
 #define elf_backend_final_write_processing	0
 #endif
+#ifndef elf_backend_additional_program_headers
+#define elf_backend_additional_program_headers	0
+#endif
+#ifndef elf_backend_modify_segment_map
+#define elf_backend_modify_segment_map	0
+#endif
 #ifndef elf_backend_ecoff_debug_swap
 #define elf_backend_ecoff_debug_swap	0
 #endif
@@ -227,6 +248,7 @@ static CONST struct elf_backend_data elfNN_bed =
   ELF_MACHINE_CODE,		/* elf_machine_code */
   ELF_MAXPAGESIZE,		/* maxpagesize */
   elf_backend_collect,
+  elf_backend_type_change_ok,
   elf_info_to_howto,
   elf_info_to_howto_rel,
   elf_backend_sym_is_global,
@@ -248,6 +270,8 @@ static CONST struct elf_backend_data elfNN_bed =
   elf_backend_finish_dynamic_sections,
   elf_backend_begin_write_processing,
   elf_backend_final_write_processing,
+  elf_backend_additional_program_headers,
+  elf_backend_modify_segment_map,
   elf_backend_ecoff_debug_swap,
   ELF_MACHINE_ALT1,
   ELF_MACHINE_ALT2,
@@ -255,6 +279,7 @@ static CONST struct elf_backend_data elfNN_bed =
   elf_backend_want_got_plt,
   elf_backend_plt_readonly,
   elf_backend_want_plt_sym,
+  elf_backend_want_hdr_in_seg,
 };
 
 #ifdef TARGET_BIG_SYM
@@ -266,11 +291,11 @@ const bfd_target TARGET_BIG_SYM =
   /* flavour: general indication about file */
   bfd_target_elf_flavour,
 
-  /* byteorder_big_p: data is big endian */
-  true,
+  /* byteorder: data is big endian */
+  BFD_ENDIAN_BIG,
 
-  /* header_byteorder_big_p: header is also big endian */
-  true,
+  /* header_byteorder: header is also big endian */
+  BFD_ENDIAN_BIG,
 
   /* object_flags: mask of all file flags */
   (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS |
@@ -278,7 +303,7 @@ const bfd_target TARGET_BIG_SYM =
   
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
-   SEC_CODE | SEC_DATA | SEC_DEBUGGING),
+   SEC_CODE | SEC_DATA | SEC_DEBUGGING | SEC_EXCLUDE | SEC_SORT_ENTRIES),
 
    /* leading_symbol_char: is the first char of a user symbol
       predictable, and if so what is it */
@@ -294,10 +319,6 @@ const bfd_target TARGET_BIG_SYM =
      of the archiver and should be independently tunable.  This value is
      a WAG (wild a** guess) */
   14,
-
-  /* align_power_min: minimum alignment restriction for any section
-     FIXME:  this value may be target machine dependent */
-  3,
 
   /* Routines to byte-swap various sized integers from the data sections */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
@@ -354,11 +375,11 @@ const bfd_target TARGET_LITTLE_SYM =
   /* flavour: general indication about file */
   bfd_target_elf_flavour,
 
-  /* byteorder_big_p: data is big endian */
-  false,		/* Nope -- this one's little endian */
+  /* byteorder: data is little endian */
+  BFD_ENDIAN_LITTLE,
 
-  /* header_byteorder_big_p: header is also big endian */
-  false,		/* Nope -- this one's little endian */
+  /* header_byteorder: header is also little endian */
+  BFD_ENDIAN_LITTLE,
 
   /* object_flags: mask of all file flags */
   (HAS_RELOC | EXEC_P | HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS |
@@ -366,7 +387,7 @@ const bfd_target TARGET_LITTLE_SYM =
   
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
-   SEC_CODE | SEC_DATA | SEC_DEBUGGING),
+   SEC_CODE | SEC_DATA | SEC_DEBUGGING | SEC_EXCLUDE | SEC_SORT_ENTRIES),
 
    /* leading_symbol_char: is the first char of a user symbol
       predictable, and if so what is it */
@@ -382,10 +403,6 @@ const bfd_target TARGET_LITTLE_SYM =
      of the archiver and should be independently tunable.  This value is
      a WAG (wild a** guess) */
   14,
-
-  /* align_power_min: minimum alignment restriction for any section
-     FIXME:  this value may be target machine dependent */
-  3,
 
   /* Routines to byte-swap various sized integers from the data sections */
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,

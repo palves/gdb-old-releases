@@ -1,0 +1,250 @@
+# This file is a Tcl script to test out Tk's "after" command.
+# It is organized in the standard fashion for Tcl tests.
+#
+# Copyright (c) 1994 The Regents of the University of California.
+# Copyright (c) 1994-1995 Sun Microsystems, Inc.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+
+if {[string compare test [info procs test]] == 1} {
+    source defs
+}
+
+test after-1.1 {after command} {
+    list [catch {after} msg] $msg
+} {1 {wrong # args: should be "after option ?arg arg ...?"}}
+test after-1.2 {after command} {
+    list [catch {after 2x} msg] $msg
+} {1 {expected integer but got "2x"}}
+test after-1.3 {after command} {
+    list [catch {after gorp} msg] $msg
+} {1 {bad argument "gorp": must be cancel, idle, info, or a number}}
+test after-1.4 {after command} {
+    set x before
+    after 400 {set x after}
+    after 200
+    update
+    set y $x
+    after 400
+    update
+    list $y $x
+} {before after}
+test after-1.5 {after command} {
+    set x before
+    after 300 set x after
+    after 200
+    update
+    set y $x
+    after 200
+    update
+    list $y $x
+} {before after}
+
+test after-2.1 {cancel option} {
+    list [catch {after cancel} msg] $msg
+} {1 {wrong # args: should be "after cancel id|command"}}
+test after-2.3 {cancel option} {
+    after cancel after#1
+} {}
+test after-2.4 {cancel option} {
+    after cancel {foo bar}
+} {}
+test after-2.5 {cancel option} {
+    set x before
+    set y [after 100 set x after]
+    after cancel $y
+    after 200
+    update
+    set x
+} {before}
+test after-2.6 {cancel option} {
+    set x before
+    after 100 set x after
+    after cancel {set x after}
+    after 200
+    update
+    set x
+} {before}
+test after-2.7 {cancel option} {
+    set x before
+    after 100 set x after
+    after 300 set x after
+    after cancel {set x after}
+    after 200
+    update
+    set y $x
+    set x cleared
+    after 200
+    update
+    list $y $x
+} {after cleared}
+test after-2.8 {cancel option} {
+    set x first
+    after idle lappend x second
+    after idle lappend x third
+    set i [after idle lappend x fourth]
+    after cancel {lappend x second}
+    after cancel $i
+    update idletasks
+    set x
+} {first third}
+test after-2.9 {cancel option, multiple arguments for command} {
+    set x first
+    after idle lappend x second
+    after idle lappend x third
+    set i [after idle lappend x fourth]
+    after cancel lappend x second
+    after cancel $i
+    update idletasks
+    set x
+} {first third}
+test after-2.10 {cancel option, cancel during handler, used to dump core} {
+    set id [
+	after 100 {
+	    set x done
+	    after cancel $id
+	}
+    ]
+    tkwait variable x
+} {}
+if {[info commands testfevent] == "testfevent"} {
+    testfevent create
+    set childId [testfevent cmd {after idle child}]
+    set ourId [after idle parent]
+    test after-2.11 {cancel option, multiple interpreters} {
+	set result ""
+	testfevent cmd "after cancel $ourId"
+	lappend result [after info]
+	after cancel child
+	lappend result [testfevent cmd {after info}]
+	testfevent cmd "after cancel child"
+	lappend result [testfevent cmd {after info}]
+	after cancel $ourId
+	lappend result [after info]
+    } "$ourId $childId {} {}"
+    testfevent delete
+    unset childId ourId
+}
+
+test after-3.1 {idle option} {
+    list [catch {after idle} msg] $msg
+} {1 {wrong # args: should be "after idle script script ..."}}
+test after-3.2 {idle option} {
+    set x before
+    after idle {set x after}
+    set y $x
+    update idletasks
+    list $y $x
+} {before after}
+test after-3.3 {idle option} {
+    set x before
+    after idle set x after
+    set y $x
+    update idletasks
+    list $y $x
+} {before after}
+
+set event1 [after idle event 1]
+set event2 [after 1000 event 2]
+if {[info commands testfevent] == "testfevent"} {
+    testfevent create
+    set childEvent [testfevent cmd {after idle event in child}]
+} else {
+    set childEvent none
+}
+test after-5.1 {info option} {
+    lsort [after info]
+} "$event1 $event2"
+test after-5.2 {info option} {
+    list [catch {after info a b} msg] $msg
+} {1 {wrong # args: should be "after info ?id?"}}
+test after-5.3 {info option} {
+    list [catch {after info $childEvent} msg] $msg
+} "1 {event \"$childEvent\" doesn't exist}"
+test after-5.4 {info option} {
+    list [after info $event1] [after info $event2]
+} {{{event 1} idle} {{event 2} timer}}
+after cancel $event1
+after cancel $event2
+if {[info commands testfevent] == "testfevent"} {
+    testfevent cmd "after cancel $childEvent"
+    testfevent delete
+}
+
+set event [after idle foo bar]
+scan $event after#%d id
+test after-4.1 {GetAfterEvent procedure} {
+    list [catch {after info xfter#$id} msg] $msg
+} "1 {event \"xfter#$id\" doesn't exist}"
+test after-4.2 {GetAfterEvent procedure} {
+    list [catch {after info afterx$id} msg] $msg
+} "1 {event \"afterx$id\" doesn't exist}"
+test after-4.3 {GetAfterEvent procedure} {
+    list [catch {after info after#ab} msg] $msg
+} {1 {event "after#ab" doesn't exist}}
+test after-4.4 {GetAfterEvent procedure} {
+    list [catch {after info after#} msg] $msg
+} {1 {event "after#" doesn't exist}}
+test after-4.5 {GetAfterEvent procedure} {
+    list [catch {after info after#${id}x} msg] $msg
+} "1 {event \"after#${id}x\" doesn't exist}"
+test after-4.6 {GetAfterEvent procedure} {
+    list [catch {after info afterx[expr $id+1]} msg] $msg
+} "1 {event \"afterx[expr $id+1]\" doesn't exist}"
+after cancel $event
+
+test after-4.1 {AfterProc procedure} {
+    set x before
+    proc foo {} {
+	set x untouched
+	after 100 {set x after}
+	after 200
+	update
+	return $x
+    }
+    list [foo] $x
+} {untouched after}
+test after-4.2 {AfterProc procedure} {
+    catch {rename tkerror {}}
+    proc tkerror msg {
+	global x errorInfo
+	set x [list $msg $errorInfo]
+    }
+    set x empty
+    after 100 {error "After error"}
+    after 200
+    set y $x
+    update
+    catch {rename tkerror {}}
+    list $y $x
+} {empty {{After error} {After error
+    while executing
+"error "After error""
+    ("after" script)}}}
+
+if {[info commands testfevent] == "testfevent"} {
+    test after-5.1 {TkEventCleanupProc procedure} {
+	testfevent create
+	testfevent cmd {after 200 {
+	    lappend x after
+	    puts "test after-4.1, part 1: this message should not appear"
+	}}
+	after 200 {lappend x after2}
+	testfevent cmd {after 200 {
+	    lappend x after3
+	    puts "test after-4.1, part 2: this message should not appear"
+	}}
+	after 200 {lappend x after4}
+	testfevent cmd {after 200 {
+	    lappend x after5
+	    puts "test after-4.1, part 3: this message should not appear"
+	}}
+	testfevent delete
+	set x before
+	after 300
+	update
+	set x
+    } {before after2 after4}
+}

@@ -88,10 +88,6 @@ struct value
       char *myaddr;
     } substring_addr;
 
-    /* If an lval is forced to repeat, a new value is created with
-       these fields set.  The new value is not an lval.  */
-    int repetitions;
-    short repeated;
     /* Register number if the value is from a register.  Is not kept
        if you take a field of a structure that is stored in a
        register.  Shouldn't it be?  */
@@ -142,8 +138,6 @@ extern int value_fetch_lazy PARAMS ((value_ptr val));
 #define VALUE_BITSIZE(val) (val)->bitsize
 #define VALUE_BITPOS(val) (val)->bitpos
 #define VALUE_NEXT(val) (val)->next
-#define VALUE_REPEATED(val) (val)->repeated
-#define VALUE_REPETITIONS(val) (val)->repetitions
 #define VALUE_REGNO(val) (val)->regno
 #define VALUE_OPTIMIZED_OUT(val) ((val)->optimized_out)
 
@@ -162,24 +156,24 @@ extern int value_fetch_lazy PARAMS ((value_ptr val));
    References are dereferenced.  */
 
 #define COERCE_ARRAY(arg)    \
-{ COERCE_REF(arg);							\
+do { COERCE_REF(arg);							\
   if (current_language->c_style_arrays					\
-      && (VALUE_REPEATED (arg)						\
-	  || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY))		\
+      && TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY)		\
     arg = value_coerce_array (arg);					\
   if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FUNC)                   \
     arg = value_coerce_function (arg);                                  \
-  if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ENUM)			\
-    arg = value_cast (builtin_type_unsigned_int, arg);			\
-}
+} while (0)
 
-#define COERCE_VARYING_ARRAY(arg)	\
-{ if (chill_varying_type (VALUE_TYPE (arg))) arg = varying_to_slice (arg); }
+#define COERCE_NUMBER(arg)  \
+  do { COERCE_ARRAY(arg);  COERCE_ENUM(arg); } while (0)
+
+#define COERCE_VARYING_ARRAY(arg, real_arg_type)	\
+{ if (chill_varying_type (real_arg_type))  \
+    arg = varying_to_slice (arg), real_arg_type = VALUE_TYPE (arg); }
 
 /* If ARG is an enum, convert it to an integer.  */
 
-#define COERCE_ENUM(arg)    \
-{ COERCE_REF (arg); \
+#define COERCE_ENUM(arg)   { \
   if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ENUM)			\
     arg = value_cast (builtin_type_unsigned_int, arg);			\
 }
@@ -482,7 +476,7 @@ clear_internalvars PARAMS ((void));
 
 extern value_ptr value_copy PARAMS ((value_ptr));
 
-extern int baseclass_offset PARAMS ((struct type *, int, value_ptr, int));
+extern int baseclass_offset PARAMS ((struct type *, int, char *, CORE_ADDR));
 
 /* From valops.c */
 

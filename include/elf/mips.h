@@ -24,6 +24,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* This file holds definitions specific to the MIPS ELF ABI.  Note
    that most of this is not actually implemented by BFD.  */
 
+#ifndef _ELF_MIPS_H
+#define _ELF_MIPS_H
+
 /* Processor specific flags for the ELF header e_flags field.  */
 
 /* At least one .noreorder directive appears in the source.  */
@@ -215,6 +218,9 @@ extern void bfd_mips_elf32_swap_reginfo_out
 
 /* Register usage information.  Identifies one .reginfo section.  */
 #define PT_MIPS_REGINFO		0x70000000
+
+/* Runtime procedure table.  */
+#define PT_MIPS_RTPROC		0x70000001
 
 /* Processor specific dynamic array tags.  */
 
@@ -265,3 +271,28 @@ extern void bfd_mips_elf32_swap_reginfo_out
 
 /* Address of run time loader map, used for debugging.  */
 #define DT_MIPS_RLD_MAP		0x70000016
+
+/* Flags which may appear in a DT_MIPS_FLAGS entry.  */
+
+/* No flags.  */
+#define RHF_NONE		0x00000000
+
+/* Uses shortcut pointers.  */
+#define RHF_QUICKSTART		0x00000001
+
+/* Hash size is not a power of two.  */
+#define RHF_NOTPOT		0x00000002
+
+/* Ignore LD_LIBRARY_PATH.  */
+#define RHS_NO_LIBRARY_REPLACEMENT \
+				0x00000004
+
+/* Special values for the st_other field in the symbol table.  These
+   are used in an Irix 5 dynamic symbol table.  */
+
+#define STO_DEFAULT		0x00
+#define STO_INTERNAL		0x01
+#define STO_HIDDEN		0x02
+#define STO_PROTECTED		0x03
+
+#endif /* _ELF_MIPS_H */

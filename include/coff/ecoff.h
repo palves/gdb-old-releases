@@ -44,11 +44,29 @@
 #define _FINI	".fini"
 #define _PDATA	".pdata"
 #define _XDATA	".xdata"
+#define _GOT	".got"
+#define _HASH	".hash"
+#define _DYNSYM	".dynsym"
+#define _DYNSTR	".dynstr"
+#define _RELDYN	".rel.dyn"
+#define _CONFLIC ".conflic"
+#define _COMMENT ".comment"
+#define _LIBLIST ".liblist"
+#define _DYNAMIC ".dynamic"
+#define _RCONST	".rconst"
 
 /* ECOFF uses some additional section flags.  */
 #define STYP_RDATA	     0x100
 #define STYP_SDATA	     0x200
 #define STYP_SBSS	     0x400
+#define STYP_GOT	    0x1000
+#define STYP_DYNAMIC	    0x2000
+#define STYP_DYNSYM	    0x4000
+#define STYP_RELDYN	    0x8000
+#define STYP_DYNSTR	   0x10000
+#define STYP_HASH	   0x20000
+#define STYP_LIBLIST	   0x40000
+#define STYP_CONFLIC	  0x100000
 #define STYP_ECOFF_FINI	 0x1000000
 #define STYP_EXTENDESC	 0x2000000 /* 0x02FFF000 bits => scn type, rest clr */
 #define STYP_LITA	 0x4000000
@@ -60,6 +78,7 @@
 
 /* extended section types */
 #define STYP_COMMENT	 0x2100000
+#define STYP_RCONST	 0x2200000
 #define STYP_XDATA	 0x2400000
 #define STYP_PDATA	 0x2800000
 
@@ -87,8 +106,9 @@
 #define RELOC_SECTION_FINI     12
 #define RELOC_SECTION_LITA     13
 #define RELOC_SECTION_ABS      14
+#define RELOC_SECTION_RCONST   15
 
-#define NUM_RELOC_SECTIONS     15
+#define NUM_RELOC_SECTIONS     16
 
 /********************** STABS **********************/
 

@@ -26,12 +26,12 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "printcmds"
-set srcfile $binfile.c
-
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist"
-    continue
+set testfile "printcmds"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/${srcfile} -g -o ${binfile}"] != "" } {
+    perror "Couldn't compile ${srcfile}"
+    return -1
 }
 
 # Set the current language to C.  This counts as a test.  If it
@@ -1004,7 +1004,7 @@ gdb_test "print \$pc" "No registers\\."
 # FIXME: should also test "print $pc" when there is an execfile but no
 # remote debugging target, process or corefile.
 
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 send "set print sevenbit-strings\n" ; expect -re "$prompt $"
 send "set print address off\n" ; expect -re "$prompt $"

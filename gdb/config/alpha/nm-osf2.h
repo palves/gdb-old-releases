@@ -40,3 +40,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define PROCFS_SIGPEND_OFFSET
 #define PROCFS_NEED_PIOCSSIG_FOR_KILL
 #define PROCFS_DONT_PIOCSSIG_CURSIG
+
+/* Return sizeof user struct to callers in less machine dependent routines */
+
+#define KERNEL_U_SIZE kernel_u_size()
+extern int kernel_u_size PARAMS ((void));
+

@@ -487,7 +487,7 @@ char * buffer;
       xmitcsum = hex(getDebugChar() & 0x7f) << 4;
       xmitcsum += hex(getDebugChar() & 0x7f);
       if ((remote_debug ) && (checksum != xmitcsum)) {
-        fprintf (gdb ,"bad checksum.  My count = 0x%x, sent=0x%x. buf=%s\n",
+        fprintf (stderr ,"bad checksum.  My count = 0x%x, sent=0x%x. buf=%s\n",
 		 checksum,xmitcsum,buffer);
       }
 
@@ -551,7 +551,7 @@ char * parm;
 }
 
 /* Address of a routine to RTE to if we get a memory fault.  */
-static volatile void (*mem_fault_routine)() = NULL;
+static void (*volatile mem_fault_routine)() = NULL;
 
 /* Indicate to caller of mem2hex or hex2mem that there has been an
    error.  */

@@ -20,11 +20,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* This file can only be compiled on systems which use Irix style core
-   files (namely, Irix 4 and Irix 5, so far).  In the config/XXXXXX.mh
-   file for such a system add
-      HDEFINES=-DIRIX_CORE
-      HDEPFILES=irix-core.o
-   */
+   files (namely, Irix 4 and Irix 5, so far).  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -220,8 +216,8 @@ const bfd_target irix_core_vec =
   {
     "irix-core",
     bfd_target_unknown_flavour,
-    true,			/* target byte order */
-    true,			/* target headers byte order */
+    BFD_ENDIAN_BIG,		/* target byte order */
+    BFD_ENDIAN_BIG,		/* target headers byte order */
     (HAS_RELOC | EXEC_P |	/* object flags */
      HAS_LINENO | HAS_DEBUG |
      HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -229,7 +225,6 @@ const bfd_target irix_core_vec =
     0,			                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */
     16,							   /* ar_max_namelen */
-    3,							   /* minimum alignment power */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 64 bit data */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 32 bit data */
     NO_GET, NO_SIGNED_GET, NO_PUT,	/* 16 bit data */

@@ -1704,9 +1704,17 @@ ENUMX
 ENUMX
   BFD_RELOC_16_GOTOFF
 ENUMX
+  BFD_RELOC_LO16_GOTOFF
+ENUMX
+  BFD_RELOC_HI16_GOTOFF
+ENUMX
+  BFD_RELOC_HI16_S_GOTOFF
+ENUMX
   BFD_RELOC_8_GOTOFF
 ENUMX
   BFD_RELOC_32_PLT_PCREL
+ENUMX
+  BFD_RELOC_24_PLT_PCREL
 ENUMX
   BFD_RELOC_16_PLT_PCREL
 ENUMX
@@ -1715,6 +1723,12 @@ ENUMX
   BFD_RELOC_32_PLTOFF
 ENUMX
   BFD_RELOC_16_PLTOFF
+ENUMX
+  BFD_RELOC_LO16_PLTOFF
+ENUMX
+  BFD_RELOC_HI16_PLTOFF
+ENUMX
+  BFD_RELOC_HI16_S_PLTOFF
 ENUMX
   BFD_RELOC_8_PLTOFF
 ENUMDOC
@@ -1734,7 +1748,15 @@ ENUM
 ENUMX
   BFD_RELOC_16_BASEREL
 ENUMX
+  BFD_RELOC_LO16_BASEREL
+ENUMX
+  BFD_RELOC_HI16_BASEREL
+ENUMX
+  BFD_RELOC_HI16_S_BASEREL
+ENUMX
   BFD_RELOC_8_BASEREL
+ENUMX
+  BFD_RELOC_RVA
 ENUMDOC
   Linkage-table relative.
 
@@ -2002,18 +2024,66 @@ ENUMDOC
 
 ENUM
   BFD_RELOC_PPC_B26
-ENUMDOC
-  PowerPC/POWER (RS/6000) relocs.
-  26 bit relative branch.  Low two bits must be zero.  High 24
-     bits installed in bits 6 through 29 of instruction.
-ENUM
+ENUMX
   BFD_RELOC_PPC_BA26
-ENUMDOC
-  26 bit absolute branch, like BFD_RELOC_PPC_B26 but absolute.
-ENUM
+ENUMX
   BFD_RELOC_PPC_TOC16
+ENUMX
+  BFD_RELOC_PPC_B16
+ENUMX
+  BFD_RELOC_PPC_B16_BRTAKEN
+ENUMX
+  BFD_RELOC_PPC_B16_BRNTAKEN
+ENUMX
+  BFD_RELOC_PPC_BA16
+ENUMX
+  BFD_RELOC_PPC_BA16_BRTAKEN
+ENUMX
+  BFD_RELOC_PPC_BA16_BRNTAKEN
+ENUMX
+  BFD_RELOC_PPC_COPY
+ENUMX
+  BFD_RELOC_PPC_GLOB_DAT
+ENUMX
+  BFD_RELOC_PPC_JMP_SLOT
+ENUMX
+  BFD_RELOC_PPC_RELATIVE
+ENUMX
+  BFD_RELOC_PPC_LOCAL24PC
+ENUMX
+  BFD_RELOC_PPC_EMB_NADDR32
+ENUMX
+  BFD_RELOC_PPC_EMB_NADDR16
+ENUMX
+  BFD_RELOC_PPC_EMB_NADDR16_LO
+ENUMX
+  BFD_RELOC_PPC_EMB_NADDR16_HI
+ENUMX
+  BFD_RELOC_PPC_EMB_NADDR16_HA
+ENUMX
+  BFD_RELOC_PPC_EMB_SDAI16
+ENUMX
+  BFD_RELOC_PPC_EMB_SDA2I16
+ENUMX
+  BFD_RELOC_PPC_EMB_SDA2REL
+ENUMX
+  BFD_RELOC_PPC_EMB_SDA21
+ENUMX
+  BFD_RELOC_PPC_EMB_MRKREF
+ENUMX
+  BFD_RELOC_PPC_EMB_RELSEC16
+ENUMX
+  BFD_RELOC_PPC_EMB_RELST_LO
+ENUMX
+  BFD_RELOC_PPC_EMB_RELST_HI
+ENUMX
+  BFD_RELOC_PPC_EMB_RELST_HA
+ENUMX
+  BFD_RELOC_PPC_EMB_BIT_FLD
+ENUMX
+  BFD_RELOC_PPC_EMB_RELSDA
 ENUMDOC
-  16 bit TOC relative reference.
+  Power(rs6000) and PowerPC relocations.
 
 ENUM
   BFD_RELOC_CTOR
@@ -2052,10 +2122,8 @@ ENUMDOC
   (at present) written to any object files.
 
 COMMENT
-
 ENDSENUM
   BFD_RELOC_UNUSED
-
 CODE_FRAGMENT
 .
 .typedef enum bfd_reloc_code_real bfd_reloc_code_real_type;
@@ -2220,12 +2288,9 @@ bfd_generic_get_relocated_section_contents (abfd, link_info, link_order, data,
   if (reloc_size < 0)
     goto error_return;
 
-  reloc_vector = (arelent **) malloc ((size_t) reloc_size);
+  reloc_vector = (arelent **) bfd_malloc ((size_t) reloc_size);
   if (reloc_vector == NULL && reloc_size != 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      goto error_return;
-    }
+    goto error_return;
 
   /* read in the section */
   if (!bfd_get_section_contents (input_bfd,

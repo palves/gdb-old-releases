@@ -5,10 +5,9 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) RegExp.3 1.3 94/12/17 16:17:28
 '\" 
 .so man.macros
-.HS Tcl_RegExpMatch tclc 7.4
+.TH Tcl_RegExpMatch 3 7.4 Tcl "Tcl Library Procedures"
 .BS
 .SH NAME
 Tcl_RegExpMatch, Tcl_RegExpCompile, Tcl_RegExpExec, Tcl_RegExpRange \- Pattern matching with regular expressions
@@ -26,7 +25,7 @@ Tcl_RegExp
 int
 \fBTcl_RegExpExec\fR(\fIinterp\fR, \fIregexp\fR, \fIstring\fR, \fIstart\fR)
 .sp
-\fBTcl_RegExpRange\fR(\fIinterp\fR, \fIindex\fR, \fIstartPtr\fR, \fIendPtr\fR)
+\fBTcl_RegExpRange\fR(\fIregexp\fR, \fIindex\fR, \fIstartPtr\fR, \fIendPtr\fR)
 .VE
 .SH ARGUMENTS
 .AS Tcl_Interp *interp
@@ -39,7 +38,7 @@ String in the form of a regular expression pattern.
 .AP Tcl_RegExp regexp in
 .VS
 Compiled regular expression.  Must have been returned previously
-by \fBTcl_RegExpComp\fR.
+by \fBTcl_RegExpCompile\fR.
 .AP char *start in
 If \fIstring\fR is just a portion of some other string, this argument
 identifies the beginning of the larger string.

@@ -49,7 +49,7 @@ extern CORE_ADDR sh_skip_prologue ();
    The return address is the value saved in the PR register + 4  */
 
 #define SAVED_PC_AFTER_CALL(frame) \
-  (ADDR_BITS_REMOVE(read_register(PR_REGNUM))+4)
+  (ADDR_BITS_REMOVE(read_register(PR_REGNUM)))
 
 /* Stack grows downward.  */
 
@@ -98,7 +98,10 @@ extern CORE_ADDR sh_skip_prologue ();
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
-#define REGISTER_VIRTUAL_TYPE(N) builtin_type_int
+#define REGISTER_VIRTUAL_TYPE(N) \
+	((((N) >= FP0_REGNUM && (N) < FP0_REGNUM+32)	\
+	  || (N) == FPUL_REGNUM)			\
+         ? builtin_type_float : builtin_type_int)
 
 /* Initializer for an array of names of registers.
    Entries beyond the first NUM_REGS are ignored.  */
@@ -106,9 +109,12 @@ extern CORE_ADDR sh_skip_prologue ();
 #define REGISTER_NAMES \
   {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", \
    "r8", "r9", "r10","r11","r12","r13","r14","r15",\
-   "pc", "pr","gbr","vbr","mach","macl","sr","ticks","stalls","cycles","insts" ,"plr","tlr"    }
+   "pc", "pr","gbr","vbr","mach","macl", "sr", "fpul", "fpscr", \
+   "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7", \
+   "fr8", "fr9", "fr10","fr11","fr12","fr13","fr14","fr15",\
+  }
 
-#define NUM_REGS 28
+#define NUM_REGS 41
 
 /* Register numbers of various important registers.
    Note that some of these values are "real" register numbers,
@@ -117,6 +123,7 @@ extern CORE_ADDR sh_skip_prologue ();
    to be actual register numbers as far as the user is concerned
    but do serve to get the desired values when passed to read_register.  */
 
+#define R0_REGNUM	0
 #define FP_REGNUM 	14
 #define SP_REGNUM 	15
 #define PC_REGNUM 	16
@@ -126,7 +133,12 @@ extern CORE_ADDR sh_skip_prologue ();
 #define MACH_REGNUM 	20
 #define MACL_REGNUM 	21
 #define SR_REGNUM 	22
-#define NUM_REALREGS     23
+#define NUM_REALREGS    23
+#define FPUL_REGNUM	23
+#define FP0_REGNUM	25
+#undef  NUM_REALREGS
+#define NUM_REALREGS    41
+
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function. 
 

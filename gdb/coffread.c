@@ -1,5 +1,5 @@
 /* Read coff symbol tables and convert to internal format, for GDB.
-   Copyright 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1996
              Free Software Foundation, Inc.
    Contributed by David D. Johnson, Brown University (ddj@cs.brown.edu).
 
@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "breakpoint.h"
 
 #include "bfd.h"
-#include <obstack.h>
+#include "obstack.h"
 
 #include "gdb_string.h"
 #include <ctype.h>
@@ -138,6 +138,12 @@ static struct symbol *opaque_type_chain[HASHSIZE];
 
 struct complaint ef_complaint = 
   {"Unmatched .ef symbol(s) ignored starting at symnum %d", 0, 0};
+
+struct complaint ef_stack_complaint = 
+  {"`.ef' symbol without matching `.bf' symbol ignored starting at symnum %d", 0, 0};
+
+struct complaint eb_stack_complaint = 
+  {"`.eb' symbol without matching `.bb' symbol ignored starting at symnum %d", 0, 0};
 
 struct complaint bf_no_aux_complaint =
   {"`.bf' symbol %d has no aux entry", 0, 0};
@@ -510,9 +516,7 @@ coff_end_symtab (objfile)
   subfiles->line_vector = line_vector;
   subfiles->name = last_source_file;
 
-  /* sort_pending is needed for amdcoff, at least.
-     sort_linevec is needed for the SCO compiler.  */
-  symtab = end_symtab (current_source_end_addr, 1, 1, objfile, 0);
+  symtab = end_symtab (current_source_end_addr, objfile, 0);
 
   if (symtab != NULL)
     free_named_symtabs (symtab->filename);
@@ -567,6 +571,11 @@ coff_symfile_init (objfile)
 				   sizeof (struct coff_symfile_info));
 
   memset (objfile->sym_private, 0, sizeof (struct coff_symfile_info));
+
+  /* COFF objects may be reordered, so set OBJF_REORDERED.  If we
+     find this causes a significant slowdown in gdb then we could
+     set it in the debug symbol readers only when necessary.  */
+  objfile->flags |= OBJF_REORDERED;
 
   init_entry_point_info (objfile);
 }
@@ -1029,6 +1038,14 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 		   not useful for gdb.  */
 		/* { main_aux.x_sym.x_misc.x_lnsz.x_lnno
 			    contains number of lines to '}' */
+
+		if (context_stack_depth <= 0)
+		  {		/* We attempted to pop an empty context stack */
+		    complain (&ef_stack_complaint, cs->c_symnum);
+		    within_function = 0;
+		    break;
+		  }
+
 		new = pop_context ();
 		/* Stack must be empty now.  */
 		if (context_stack_depth > 0 || new == NULL)
@@ -1082,6 +1099,12 @@ coff_symtab_read (symtab_offset, nsyms, section_offsets, objfile)
 	      }
 	    else if (STREQ (cs->c_name, ".eb"))
 	      {
+		if (context_stack_depth <= 0)
+		  {		/* We attempted to pop an empty context stack */
+		    complain (&eb_stack_complaint, cs->c_symnum);
+		    break;
+		  }
+
 		new = pop_context ();
 		if (depth-- != new->depth)
 		  {
@@ -1182,7 +1205,7 @@ init_stringtab (abfd, offset)
 
   val = bfd_read ((char *)lengthbuf, sizeof lengthbuf, 1, abfd);
   length = bfd_h_get_32 (symfile_bfd, lengthbuf);
-
+       
   /* If no string table is needed, then the file may end immediately
      after the symbols.  Just return with `stringtab' set to null. */
   if (val != sizeof lengthbuf || length < sizeof lengthbuf)

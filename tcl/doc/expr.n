@@ -1,18 +1,17 @@
 '\"
 '\" Copyright (c) 1993 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) expr.n 1.7 94/12/17 16:17:51
 '\" 
 .so man.macros
-.HS expr tcl 7.0
+.TH expr n 7.4 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
-expr \- Evalue an expression
+expr \- Evaluate an expression
 .SH SYNOPSIS
 \fBexpr \fIarg \fR?\fIarg arg ...\fR?
 .BE
@@ -29,9 +28,9 @@ same meaning and precedence as the corresponding C operators.
 Expressions almost always yield numeric results
 (integer or floating-point values).
 For example, the expression
-.DS
+.CS
 \fBexpr 8.2 + 6\fR
-.DE
+.CE
 evaluates to 14.2.
 Tcl expressions differ from C expressions in the way that
 operands are specified.  Also, Tcl expressions support
@@ -97,13 +96,13 @@ For some examples of simple expressions, suppose the variable
 the variable \fBb\fR has the value 6.
 Then the command on the left side of each of the lines below
 will produce the value on the right side of the line:
-.DS
+.CS
 .ta 6c
 \fBexpr 3.1 + $a	6.1
 expr 2 + "$a.$b"	5.6
 expr 4*[llength "6 2"]	8
 expr {{word one} < "word $a"}	0\fR
-.DE
+.CE
 .SH OPERATORS
 .PP
 The valid operators are listed below, grouped in decreasing order
@@ -130,6 +129,7 @@ Add and subtract.  Valid for any numeric operands.
 .TP 20
 \fB<<\0\0>>\fR
 Left and right shift.  Valid for integer operands only.
+A right shift always propogates the sign bit.
 .TP 20
 \fB<\0\0>\0\0<=\0\0>=\fR
 Boolean less, greater, less than or equal, and greater than or equal.
@@ -168,20 +168,20 @@ See the C manual for more details on the results
 produced by each operator.
 All of the binary operators group left-to-right within the same
 precedence level.  For example, the command
-.DS
+.CS
 \fBexpr 4*2 < 7\fR
-.DE
+.CE
 returns 0.
 .PP
-The \fB&&\fP, \fB||\fP, and \fB?:\fP operators have ``lazy
+The \fB&&\fR, \fB||\fR, and \fB?:\fR operators have ``lazy
 evaluation'', just as in C, 
 which means that operands are not evaluated if they are
 not needed to determine the outcome.  For example, in the command
-.DS
+.CS
 \fBexpr {$v ? [a] : [b]}\fR
-.DE
+.CE
 only one of \fB[a]\fR or \fB[b]\fR will actually be evaluated,
-depending on the value of \fB$v\fP.  Note, however, that this is
+depending on the value of \fB$v\fR.  Note, however, that this is
 only true if the entire expression is enclosed in braces;  otherwise
 the Tcl parser will evaluate both \fB[a]\fR and \fB[b]\fR before
 invoking the \fBexpr\fR command.
@@ -202,7 +202,7 @@ name;  see the manual entries for the library functions for details
 on what they do.  Tcl also implements the following functions for
 conversion between integers and floating-point numbers:
 .TP
-\fBabs(\fIarg\fB)\fI
+\fBabs(\fIarg\fB)\fR
 Returns the absolute value of \fIarg\fR.  \fIArg\fR may be either
 integer or floating-point, and the result is returned in the same form.
 .TP
@@ -218,14 +218,14 @@ If \fIarg\fR is an integer value, returns \fIarg\fR, otherwise converts
 If \fIarg\fR is an integer value, returns \fIarg\fR, otherwise converts
 \fIarg\fR to integer by rounding and returns the converted value.
 .PP
-In addition to these predifined functions, applications may
+In addition to these predefined functions, applications may
 define additional functions using \fBTcl_CreateMathFunc\fR().
 .VE
 .SH "TYPES, OVERFLOW, AND PRECISION"
 .PP
 All internal computations involving integers are done with the C type
-\fIlong\fP, and all internal computations involving floating-point are
-done with the C type \fIdouble\fP.
+\fIlong\fR, and all internal computations involving floating-point are
+done with the C type \fIdouble\fR.
 When converting a string to floating-point, exponent overflow is
 detected and results in a Tcl error.
 For conversion to integer from string, detection of overflow depends
@@ -241,22 +241,22 @@ and string operands is done automatically as needed.
 For arithmetic computations, integers are used until some
 floating-point number is introduced, after which floating-point is used.
 For example,
-.DS
+.CS
 \fBexpr 5 / 4\fR
-.DE
+.CE
 returns 1, while
-.DS
+.CS
 \fBexpr 5 / 4.0\fR
-\fBexpr 5 / ( [string length "abcd"] + 0.0 )
-.DE
+\fBexpr 5 / ( [string length "abcd"] + 0.0 )\fR
+.CE
 both return 1.25.
 .VS
 Floating-point values are always returned with a ``.''
 or an ``e'' so that they will not look like integer values.  For
 example,
-.DS
+.CS
 \fBexpr 20.0/5.0\fR
-.DE
+.CE
 returns ``4.0'', not ``4''.  The global variable \fBtcl_precision\fR
 determines the the number of significant digits that are retained
 when floating values are converted to strings (except that trailing
@@ -276,16 +276,23 @@ although the expression evaluator tries to do comparisons as integer
 or floating-point when it can.
 If one of the operands of a comparison is a string and the other
 has a numeric value, the numeric operand is converted back to
-a string using the C \fIsprintf\fP format specifier
+a string using the C \fIsprintf\fR format specifier
 \fB%d\fR for integers and \fB%g\fR for floating-point values.
 For example, the commands
-.DS
+.CS
 \fBexpr {"0x03" > "2"}\fR
 \fBexpr {"0y" < "0x12"}\fR
-.DE
+.CE
 both return 1.  The first comparison is done using integer
 comparison, and the second is done using string comparison after
 the second operand is converted to the string ``18''.
+.VS
+Because of Tcl's tendency to treat values as numbers whenever
+possible, it isn't generally a good idea to use operators like \fB==\fR
+when you really want string comparison and the values of the
+operands could be arbitrary;  it's better in these cases to use the
+\fBstring compare\fR command instead.
+.VE
 
 .SH KEYWORDS
 arithmetic, boolean, compare, expression

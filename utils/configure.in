@@ -31,3 +31,7 @@ case "${target}" in
 esac
 
 # post-target:
+
+sed -e "s|^SUBDIRS[ 	]*=.*$|SUBDIRS = $configdirs|" \
+    Makefile > Makefile.tem
+mv Makefile.tem Makefile

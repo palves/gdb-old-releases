@@ -58,7 +58,7 @@ static void reinit_frame_cache_sfunc PARAMS ((char *, int,
 static CORE_ADDR after_prologue PARAMS ((CORE_ADDR pc,
 					 alpha_extra_func_info_t proc_desc));
 
-static int in_prologue PARAMS ((CORE_ADDR pc,
+static int alpha_in_prologue PARAMS ((CORE_ADDR pc,
 				alpha_extra_func_info_t proc_desc));
 
 /* Heuristic_proc_start may hunt through the text section for a long
@@ -132,7 +132,7 @@ struct linked_proc_info
 } *linked_proc_desc_table = NULL;
 
 
-/* Guaranteed to set fci->saved_regs to some values (it never leaves it
+/* Guaranteed to set frame->saved_regs to some values (it never leaves it
    NULL).  */
 
 void
@@ -260,8 +260,7 @@ alpha_frame_saved_pc(frame)
   alpha_extra_func_info_t proc_desc = frame->proc_desc;
   /* We have to get the saved pc from the sigcontext
      if it is a signal handler frame.  */
-  int pcreg = frame->signal_handler_caller ? PC_REGNUM
-	      : (proc_desc ? PROC_PC_REG(proc_desc) : RA_REGNUM);
+  int pcreg = frame->signal_handler_caller ? PC_REGNUM : frame->pc_reg;
 
   if (proc_desc && PROC_DESC_IS_DUMMY(proc_desc))
       return read_memory_integer(frame->frame - 8, 8);
@@ -273,8 +272,18 @@ CORE_ADDR
 alpha_saved_pc_after_call (frame)
      struct frame_info *frame;
 {
-  alpha_extra_func_info_t proc_desc = find_proc_desc (frame->pc, frame->next);
-  int pcreg = proc_desc ? PROC_PC_REG (proc_desc) : RA_REGNUM;
+  CORE_ADDR pc = frame->pc;
+  CORE_ADDR tmp;
+  alpha_extra_func_info_t proc_desc;
+  int pcreg;
+
+  /* Skip over shared library trampoline if necessary.  */
+  tmp = SKIP_TRAMPOLINE_CODE (pc);
+  if (tmp != 0)
+    pc = tmp;
+
+  proc_desc = find_proc_desc (pc, frame->next);
+  pcreg = proc_desc ? PROC_PC_REG (proc_desc) : RA_REGNUM;
 
   return read_register (pcreg);
 }
@@ -350,6 +359,7 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
     int frame_size;
     int has_frame_reg = 0;
     unsigned long reg_mask = 0;
+    int pcreg = -1;
 
     if (start_pc == 0)
       return NULL;
@@ -379,17 +389,68 @@ heuristic_proc_desc(start_pc, limit_pc, next_frame)
 	    int reg = (word & 0x03e00000) >> 21;
 	    reg_mask |= 1 << reg;
 	    temp_saved_regs.regs[reg] = sp + (short)word;
+
+	    /* Starting with OSF/1-3.2C, the system libraries are shipped
+	       without local symbols, but they still contain procedure
+	       descriptors without a symbol reference. GDB is currently
+	       unable to find these procedure descriptors and uses
+	       heuristic_proc_desc instead.
+	       As some low level compiler support routines (__div*, __add*)
+	       use a non-standard return address register, we have to
+	       add some heuristics to determine the return address register,
+	       or stepping over these routines will fail.
+	       Usually the return address register is the first register
+	       saved on the stack, but assembler optimization might
+	       rearrange the register saves.
+	       So we recognize only a few registers (t7, t9, ra) within
+	       the procedure prologue as valid return address registers.
+
+	       FIXME: Rewriting GDB to access the procedure descriptors,
+	       e.g. via the minimal symbol table, might obviate this hack.  */
+	    if (pcreg == -1
+		&& cur_pc < (start_pc + 20)
+		&& (reg == T7_REGNUM || reg == T9_REGNUM || reg == RA_REGNUM))
+	      pcreg = reg;
 	  }
 	else if (word == 0x47de040f)			/* bis sp,sp fp */
 	  has_frame_reg = 1;
       }
+    if (pcreg == -1)
+      {
+	/* If we haven't found a valid return address register yet,
+	   keep searching in the procedure prologue.  */
+	while (cur_pc < (limit_pc + 20) && cur_pc < (start_pc + 20))
+	  {
+	    char buf[4];
+	    unsigned long word;
+	    int status;
+
+	    status = read_memory_nobpt (cur_pc, buf, 4); 
+	    if (status)
+	      memory_error (status, cur_pc);
+	    cur_pc += 4;
+	    word = extract_unsigned_integer (buf, 4);
+
+	    if ((word & 0xfc1f0000) == 0xb41e0000	/* stq reg,n($sp) */
+		&& (word & 0xffff0000) != 0xb7fe0000)	/* reg != $zero */
+	      {
+		int reg = (word & 0x03e00000) >> 21;
+		if (reg == T7_REGNUM || reg == T9_REGNUM || reg == RA_REGNUM)
+		  {
+		    pcreg = reg;
+		    break;
+		  }
+	      }
+	  }
+      }
+
     if (has_frame_reg)
       PROC_FRAME_REG(&temp_proc_desc) = GCC_FP_REGNUM;
     else
       PROC_FRAME_REG(&temp_proc_desc) = SP_REGNUM;
     PROC_FRAME_OFFSET(&temp_proc_desc) = frame_size;
     PROC_REG_MASK(&temp_proc_desc) = reg_mask;
-    PROC_PC_REG(&temp_proc_desc) = RA_REGNUM;
+    PROC_PC_REG(&temp_proc_desc) = (pcreg == -1) ? RA_REGNUM : pcreg;
     PROC_LOCALOFF(&temp_proc_desc) = 0;	/* XXX - bogus */
     return &temp_proc_desc;
 }
@@ -435,7 +496,7 @@ after_prologue (pc, proc_desc)
    are definatly *not* in a function prologue.  */
 
 static int
-in_prologue (pc, proc_desc)
+alpha_in_prologue (pc, proc_desc)
      CORE_ADDR pc;
      alpha_extra_func_info_t proc_desc;
 {
@@ -521,7 +582,7 @@ find_proc_desc (pc, next_frame)
 	proc_desc = (alpha_extra_func_info_t)SYMBOL_VALUE(sym);
 	if (next_frame == NULL)
 	  {
-	    if (PROC_DESC_IS_DUMMY (proc_desc) || in_prologue (pc, proc_desc))
+	    if (PROC_DESC_IS_DUMMY (proc_desc) || alpha_in_prologue (pc, proc_desc))
 	      {
 		alpha_extra_func_info_t found_heuristic =
 		  heuristic_proc_desc (PROC_LOW_ADDR (proc_desc),
@@ -530,6 +591,7 @@ find_proc_desc (pc, next_frame)
 		  {
 		    PROC_LOCALOFF (found_heuristic) =
 		      PROC_LOCALOFF (proc_desc);
+		    PROC_PC_REG (found_heuristic) = PROC_PC_REG (proc_desc);
 		    proc_desc = found_heuristic;
 		  }
 	      }
@@ -613,13 +675,16 @@ init_extra_frame_info (frame)
     frame->next ? cached_proc_desc : find_proc_desc(frame->pc, frame->next);
 
   frame->saved_regs = NULL;
-  frame->proc_desc =
-    proc_desc == &temp_proc_desc ? 0 : proc_desc;
+  frame->localoff = 0;
+  frame->pc_reg = RA_REGNUM;
+  frame->proc_desc = proc_desc == &temp_proc_desc ? 0 : proc_desc;
   if (proc_desc)
     {
-      /* Get the locals offset from the procedure descriptor, it is valid
-	 even if we are in the middle of the prologue.  */
+      /* Get the locals offset and the saved pc register from the
+	 procedure descriptor, they are valid even if we are in the
+	 middle of the prologue.  */
       frame->localoff = PROC_LOCALOFF(proc_desc);
+      frame->pc_reg = PROC_PC_REG(proc_desc);
 
       /* Fixup frame-pointer - only needed for top frame */
 
@@ -639,11 +704,22 @@ init_extra_frame_info (frame)
 
       if (proc_desc == &temp_proc_desc)
 	{
-	  frame->saved_regs = (struct frame_saved_regs*)
-	    obstack_alloc (&frame_cache_obstack,
-			   sizeof (struct frame_saved_regs));
-	  *frame->saved_regs = temp_saved_regs;
-	  frame->saved_regs->regs[PC_REGNUM] = frame->saved_regs->regs[RA_REGNUM];
+	  char *name;
+
+	  /* Do not set the saved registers for a sigtramp frame,
+	     alpha_find_saved_registers will do that for us.
+	     We can't use frame->signal_handler_caller, it is not yet set.  */
+	  find_pc_partial_function (frame->pc, &name,
+				    (CORE_ADDR *)NULL,(CORE_ADDR *)NULL);
+	  if (!IN_SIGTRAMP (frame->pc, name))
+	    {
+	      frame->saved_regs = (struct frame_saved_regs*)
+		obstack_alloc (&frame_cache_obstack,
+			       sizeof (struct frame_saved_regs));
+	      *frame->saved_regs = temp_saved_regs;
+	      frame->saved_regs->regs[PC_REGNUM]
+		= frame->saved_regs->regs[RA_REGNUM];
+	    }
 	}
     }
 }
@@ -705,21 +781,25 @@ alpha_push_arguments (nargs, args, sp, struct_return, struct_addr)
   for (i = 0, m_arg = alpha_args; i < nargs; i++, m_arg++)
     {
       value_ptr arg = args[i];
+      struct type *arg_type = check_typedef (VALUE_TYPE (arg));
       /* Cast argument to long if necessary as the compiler does it too.  */
-      switch (TYPE_CODE (VALUE_TYPE (arg)))
+      switch (TYPE_CODE (arg_type))
 	{
 	case TYPE_CODE_INT:
 	case TYPE_CODE_BOOL:
 	case TYPE_CODE_CHAR:
 	case TYPE_CODE_RANGE:
 	case TYPE_CODE_ENUM:
-	  if (TYPE_LENGTH (VALUE_TYPE (arg)) < TYPE_LENGTH (builtin_type_long))
-	    arg = value_cast (builtin_type_long, arg);
+	  if (TYPE_LENGTH (arg_type) < TYPE_LENGTH (builtin_type_long))
+	    {
+	      arg_type = builtin_type_long;
+	      arg = value_cast (arg_type, arg);
+	    }
 	  break;
 	default:
 	  break;
 	}
-      m_arg->len = TYPE_LENGTH (VALUE_TYPE (arg));
+      m_arg->len = TYPE_LENGTH (arg_type);
       m_arg->offset = accumulate_size;
       accumulate_size = (accumulate_size + m_arg->len + 7) & ~7;
       m_arg->contents = VALUE_CONTENTS(arg);

@@ -1,0 +1,172 @@
+Macintosh Tcl
+
+by Ray Johnson
+Sun Microsystems Laboratories
+rjohnson@eng.sun.com
+
+
+1. Introduction
+---------------
+
+This is the README file for the Macintosh version of the Tcl
+scripting language.  The file consists of information specific
+to the Macintosh version of Tcl.  For more general information
+please read the README file in the main Tcl directory.
+
+2. The Distribution
+-------------------
+
+Macintosh Tcl is distributed in three different forms.  This 
+should make it easier to only download what you need.  The 
+packages are as follows:
+
+mactk4.1a2.sea.hqx
+
+    This distribution is a "binary" only release.  It contains an
+    installer program that will install a 68k, PowerPC, or Fat
+    version of the "Wish" application.  In addition, in installs
+    the Tcl & Tk libraries in the Extensions folder inside your
+    System Folder.  (These are just text files - no inits are
+    installed.)  There is not a seprate "Tcl only" binary release
+    a this time.  (Let me know if you think there should be.)
+
+mactcltk-full-4.1a2.sea.hqx
+
+    This release contains the full release of Tcl and Tk for the
+    Macintosh plus the GUSI and More Files packages which both
+    Macintosh Tcl and Tk rely on.
+
+mactcl-source-7.5a2.sea.hqx
+
+    This release contains the complete source for Tcl 7.5.  In
+    addition, Metrowerks CodeWarrior libraries and project files
+    are included.  However, you must already have the More Files and
+    GUSI packages to compile this code.
+
+3. Documentation
+----------------
+
+The "doc" subdirectory contains reference in documentation in
+in the "man" format found on most UNIX machines.  Unfortunantly,
+there is not a suitable way to view these pages on the Macintosh.  
+A version suitable for viewing on the Macintosh has yet to be
+developed.  We are working are having better documentation for
+the Macintosh platform in the future.  However, if you have WWW 
+access you may access the Man pages at the following URL:
+
+	http://www.smli.com/research/tcl/man/
+
+Other documentation and sample Tcl scripts can be found at
+the Tcl ftp site: 
+
+	ftp://ftp.aud.alcatel.com/tcl/
+
+The internet news group comp.lang.tcl is also a valuable
+source of information about Tcl.  A mailing list is also
+available (see below).
+
+4. Compiling Tcl
+----------------
+
+In order to compile Macintosh Tcl you must have the 
+following items:
+
+	CodeWarrior 1.2.2
+	Mac Tcl 7.5 (source)
+	CWGUSI 1.6.0
+	More Files 1.3.1
+
+The project  files included with the Mac Tcl source should work 
+fine.  The only thing you may need to update are the access paths.
+
+5. Test suite
+-------------
+
+The Macintosh version of Tcl doesn't fully pass the test suite
+provided with this release.  This is mostly do to the UNIX 
+assumption made by most of the tests.  This will eventually
+be fixed.  The only test files that should fail are:
+
+	file.test
+	glob.test
+	open.test
+
+In addition, some files will print a message that they are
+being skipped because the function is not present.  Both the
+pid and exec commands are not defined for the Macintosh.
+
+6. Environment Variables
+------------------------
+
+Environment variables may be added to the system via three different 
+mechanisms. The first is automatic inclusion of system variables.  These 
+variables include things like the system folder path.  These variables are 
+determined at startup time (for the interpreter) but are not changed if 
+the system changes.  The following environment variables are created via 
+this method:
+	
+	LOGIN - holds the Chooser name of the Macintosh
+	USER - also holds the Chooser name of the Macintosh
+	SYS_FOLDER - path to the system directory
+	APPLE_M_FOLDER - path to the Apple Menu directory
+	CP_FOLDER - path to the control panels directory
+	DESK_FOLDER - path to the desk top directory
+	EXT_FOLDER - path to the system extensions directory
+	PREF_FOLDER - path to the preferences directory
+	PRINT_MON_FOLDER - path to the print monitor directory
+	SHARED_TRASH_FOLDER - path to the network trash directory
+	TRASH_FOLDER - path to the trash directory
+	START_UP_FOLDER - path to the start up directory
+	PWD - path to the application's default directory
+
+Environment variables may also be placed in a file.  A file named 
+"Tcl Environment Variables" may be placed in the preferences folder.  
+Each line of this file should be of the form "VAR_NAME=var_data".
+	
+For example,
+
+	PRINTER=Joe's LW
+	TCLLIBPATH=Lozoya:System Folder:Tcl Lib
+
+The last alternative is to place environment variables in a 'STR#' 
+resource named "Tcl Environment Variables" of the application.  This is 
+considered a little more "Mac like" than a Unix style Environment
+Variable file.  Each entry in the 'STR#' resource has the same format
+as above.  The source code file "tclMacEnv.c" contains the
+implementation of the env mechanisms.  This file contains many
+#define's that allow customization of the env mechanisms to fit your
+applications needs.
+
+6. Macintosh Tcl Mailing List
+-----------------------------
+
+A Mailing List has been set up to discuss Macintosh related Tcl issues
+including (but not limited to) MacTcl.  In order to use this Mailing
+List you must have access to the internet.  If you have access to the
+WWW the home page for this mailing list is located at the following
+URL:
+
+	http://www.smli.com/research/tcl/lists/mactcl-list.html
+
+The home page contains information about the list and an HTML archive
+of all the past messages on the list.  To subscribe send a message to:
+	
+	listserv@aic.lockheed.com
+	
+In the body of the message (the subject will be ignored) put:
+	
+	subscribe mactcl Joe Blow
+	
+Replacing Joe Blow with your real name, of course.  If you would just
+like to receive more information about the list without subscribing
+but the line:
+
+	information mactcl
+	
+in the body instead.
+
+
+
+If you have comments or Bug reports send them to:
+Ray Johnson
+rjohnson@eng.sun.com

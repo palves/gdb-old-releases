@@ -59,13 +59,13 @@ struct external_exec
 #define N_IS_QMAGIC(x) (0)
 #endif
 
-/* The difference between PAGE_SIZE and N_SEGSIZE is that PAGE_SIZE is
+/* The difference between TARGET_PAGE_SIZE and N_SEGSIZE is that TARGET_PAGE_SIZE is
    the finest granularity at which you can page something, thus it
    controls the padding (if any) before the text segment of a ZMAGIC
    file.  N_SEGSIZE is the resolution at which things can be marked as
    read-only versus read/write, so it controls the padding between the
    text segment and the data segment (in memory; on disk the padding
-   between them is PAGE_SIZE).  PAGE_SIZE and N_SEGSIZE are the same
+   between them is TARGET_PAGE_SIZE).  TARGET_PAGE_SIZE and N_SEGSIZE are the same
    for most machines, but different for sun3.  */
 
 /* By default, segment size is constant.  But some machines override this
@@ -97,7 +97,7 @@ struct external_exec
      * If N_HEADER_IN_TEXT(x) is false (which defaults to being the case when
        the entry point is less than EXEC_BYTES_SIZE into a page (e.g. page
        aligned)): (padding is needed so that text can start at a page boundary)
-       start at TEXT_START_ADDR, offset PAGE_SIZE, size as stated.
+       start at TEXT_START_ADDR, offset TARGET_PAGE_SIZE, size as stated.
 
     Specific configurations may want to hardwire N_HEADER_IN_TEXT,
     for efficiency or to allow people to play games with the entry point.
@@ -108,14 +108,14 @@ struct external_exec
     the entry point, perhaps with the ld -e flag.)
 
     * QMAGIC is always like a ZMAGIC for which N_HEADER_IN_TEXT is true,
-    and for which the starting address is PAGE_SIZE (or should this be
+    and for which the starting address is TARGET_PAGE_SIZE (or should this be
     SEGMENT_SIZE?) (TEXT_START_ADDR only applies to ZMAGIC, not to QMAGIC).
     */
 
 /* This macro is only relevant for ZMAGIC files; QMAGIC always has the header
    in the text.  */
 #ifndef N_HEADER_IN_TEXT
-#define N_HEADER_IN_TEXT(x) (((x).a_entry & (PAGE_SIZE-1)) >= EXEC_BYTES_SIZE)
+#define N_HEADER_IN_TEXT(x) (((x).a_entry & (TARGET_PAGE_SIZE-1)) >= EXEC_BYTES_SIZE)
 #endif
 
 /* Sun shared libraries, not linux.  This macro is only relevant for ZMAGIC
@@ -133,7 +133,7 @@ struct external_exec
 #define N_TXTADDR(x) \
     (/* The address of a QMAGIC file is always one page in, */ \
      /* with the header in the text.  */ \
-     N_IS_QMAGIC (x) ? PAGE_SIZE + EXEC_BYTES_SIZE : \
+     N_IS_QMAGIC (x) ? TARGET_PAGE_SIZE + EXEC_BYTES_SIZE : \
      N_MAGIC(x) != ZMAGIC ? 0 :	/* object file or NMAGIC */\
      N_SHARED_LIB(x) ? 0 :	\
      N_HEADER_IN_TEXT(x)  ?	\
@@ -144,16 +144,16 @@ struct external_exec
 
 /* If N_HEADER_IN_TEXT is not true for ZMAGIC, there is some padding
    to make the text segment start at a certain boundary.  For most
-   systems, this boundary is PAGE_SIZE.  But for Linux, in the
+   systems, this boundary is TARGET_PAGE_SIZE.  But for Linux, in the
    time-honored tradition of crazy ZMAGIC hacks, it is 1024 which is
-   not what PAGE_SIZE needs to be for QMAGIC.  */
+   not what TARGET_PAGE_SIZE needs to be for QMAGIC.  */
 
 #ifndef ZMAGIC_DISK_BLOCK_SIZE
-#define ZMAGIC_DISK_BLOCK_SIZE PAGE_SIZE
+#define ZMAGIC_DISK_BLOCK_SIZE TARGET_PAGE_SIZE
 #endif
 
 #define N_DISK_BLOCK_SIZE(x) \
-  (N_MAGIC(x) == ZMAGIC ? ZMAGIC_DISK_BLOCK_SIZE : PAGE_SIZE)
+  (N_MAGIC(x) == ZMAGIC ? ZMAGIC_DISK_BLOCK_SIZE : TARGET_PAGE_SIZE)
 
 /* Offset in an a.out of the start of the text section. */
 #ifndef N_TXTOFF

@@ -17,9 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#define	PAGE_SIZE	4096
+#define	TARGET_PAGE_SIZE	4096
 #define ZMAGIC_DISK_BLOCK_SIZE 1024
-#define	SEGMENT_SIZE	4096
+#define	SEGMENT_SIZE TARGET_PAGE_SIZE
 #define TEXT_START_ADDR	0x0
 #define N_SHARED_LIB(x) 0
 #define BYTES_IN_WORD 4
@@ -35,6 +35,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define DEFAULT_ARCH bfd_arch_i386
 #define MY(OP) CAT(i386linux_,OP)
 #define TARGETNAME "a.out-i386-linux"
+
+extern const bfd_target MY(vec);
 
 /* We always generate QMAGIC files in preference to ZMAGIC files.  It
    would be possible to make this a linker option, if that ever
@@ -219,10 +221,7 @@ linux_link_hash_table_create (abfd)
   ret = ((struct linux_link_hash_table *)
 	 bfd_alloc (abfd, sizeof (struct linux_link_hash_table)));
   if (ret == (struct linux_link_hash_table *) NULL)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return (struct bfd_link_hash_table *) NULL;
-    }
+    return (struct bfd_link_hash_table *) NULL;
   if (! NAME(aout,link_hash_table_init) (&ret->root, abfd,
 					 linux_link_hash_newfunc))
     {
@@ -439,19 +438,19 @@ linux_tally_symbols (h, data)
       name = h->root.root.root.string + sizeof NEEDS_SHRLIB - 1;
       p = strrchr (name, '_');
       if (p != NULL)
-	alloc = (char *) malloc (strlen (name) + 1);
+	alloc = (char *) bfd_malloc (strlen (name) + 1);
 
-      /* FIXME!  BFD should not call printf!  */
       if (p == NULL || alloc == NULL)
-	fprintf (stderr, "Output file requires shared library `%s'\n", name);
+	(*_bfd_error_handler) ("Output file requires shared library `%s'\n",
+			       name);
       else
 	{
 	  strcpy (alloc, name);
 	  p = strrchr (alloc, '_');
 	  *p++ = '\0';
-	  fprintf (stderr,
-		   "Output file requires shared library `%s.so.%s'\n",
-		   alloc, p);
+	  (*_bfd_error_handler)
+	    ("Output file requires shared library `%s.so.%s'\n",
+	     alloc, p);
 	  free (alloc);
 	}
 
@@ -549,6 +548,9 @@ bfd_linux_size_dynamic_sections (output_bfd, info)
   struct fixup *f;
   asection *s;
 
+  if (output_bfd->xvec != &MY(vec))
+    return true;
+
   /* First find the fixups... */
   linux_link_hash_traverse (linux_hash_table (info),
 			    linux_tally_symbols,
@@ -582,10 +584,7 @@ bfd_linux_size_dynamic_sections (output_bfd, info)
       s->_raw_size = 8 + linux_hash_table (info)->fixup_count * 8;
       s->contents = (bfd_byte *) bfd_alloc (output_bfd, s->_raw_size);
       if (s->contents == NULL)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+	return false;
       memset (s->contents, 0, (size_t) s->_raw_size);
     }
 
@@ -607,7 +606,7 @@ linux_finish_dynamic_link (output_bfd, info)
   struct fixup *f;
   unsigned int new_addr;
   int section_offset;
-  int fixups_written;
+  unsigned int fixups_written;
 
   if (linux_hash_table (info)->dynobj == NULL)
     return true;
@@ -637,10 +636,9 @@ linux_finish_dynamic_link (output_bfd, info)
       if (f->h->root.root.type != bfd_link_hash_defined
 	  && f->h->root.root.type != bfd_link_hash_defweak)
 	{
-	  /* FIXME!  */
-	  fprintf (stderr,
-		   "Symbol %s not defined for fixups\n",
-		   f->h->root.root.root.string);
+	  (*_bfd_error_handler)
+	    ("Symbol %s not defined for fixups\n",
+	     f->h->root.root.root.string);
 	  continue;
 	}
 
@@ -688,10 +686,9 @@ linux_finish_dynamic_link (output_bfd, info)
 	  if (f->h->root.root.type != bfd_link_hash_defined
 	      && f->h->root.root.type != bfd_link_hash_defweak)
 	    {
-	      /* FIXME!  */
-	      fprintf (stderr,
-		       "Symbol %s not defined for fixups\n",
-		       f->h->root.root.root.string);
+	      (*_bfd_error_handler)
+		("Symbol %s not defined for fixups\n",
+		 f->h->root.root.root.string);
 	      continue;
 	    }
 
@@ -714,8 +711,7 @@ linux_finish_dynamic_link (output_bfd, info)
 
   if (linux_hash_table (info)->fixup_count != fixups_written)
     {
-      /* FIXME!  */
-      fprintf (stderr, "Warning: fixup count mismatch\n");
+      (*_bfd_error_handler) ("Warning: fixup count mismatch\n");
       while (linux_hash_table (info)->fixup_count > fixups_written)
 	{
 	  bfd_put_32 (output_bfd, 0, fixup_table);

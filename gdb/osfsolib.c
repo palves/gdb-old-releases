@@ -1,5 +1,5 @@
 /* Handle OSF/1 shared libraries for GDB, the GNU Debugger.
-   Copyright 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995, 1996 Free Software Foundation, Inc.
    
 This file is part of GDB.
 
@@ -35,9 +35,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "command.h"
 #include "target.h"
 #include "frame.h"
-#include "regex.h"
+#include "gnu-regex.h"
 #include "inferior.h"
 #include "language.h"
+#include "gdbcmd.h"
 
 #define MAX_PATH_SIZE 1024		/* FIXME: Should be dynamic */
 
@@ -625,6 +626,13 @@ solib_add (arg_string, from_tty, target)
       
       if (count)
 	{
+	  int update_coreops;
+
+	  /* We must update the to_sections field in the core_ops structure
+	     here, otherwise we dereference a potential dangling pointer
+	     for each call to target_read/write_memory within this routine.  */
+	  update_coreops = core_ops.to_sections == target->to_sections;
+	     
 	  /* Reallocate the target's section table including the new size.  */
 	  if (target -> to_sections)
 	    {
@@ -641,6 +649,14 @@ solib_add (arg_string, from_tty, target)
 	    }
 	  target -> to_sections_end = target -> to_sections + (count + old);
 	  
+	  /* Update the to_sections field in the core_ops structure
+	     if needed.  */
+	  if (update_coreops)
+	    {
+	      core_ops.to_sections = target->to_sections;
+	      core_ops.to_sections_end = target->to_sections_end;
+	    }
+
 	  /* Add these section table entries to the target's table.  */
 	  while ((so = find_solib (so)) != NULL)
 	    {
@@ -754,7 +770,7 @@ GLOBAL FUNCTION
 
 SYNOPSIS
 
-	int solib_address (CORE_ADDR address)
+	char *solib_address (CORE_ADDR address)
 
 DESCRIPTION
 
@@ -770,7 +786,7 @@ DESCRIPTION
 	mapped in.
  */
 
-int
+char *
 solib_address (address)
      CORE_ADDR address;
 {
@@ -782,9 +798,7 @@ solib_address (address)
 	{
 	  if ((address >= (CORE_ADDR) so -> textsection -> addr) &&
 	      (address < (CORE_ADDR) so -> textsection -> endaddr))
-	    {
-	      return (1);
-	    }
+	    return (so->so_name);
 	}
     }
   return (0);
@@ -891,7 +905,8 @@ solib_create_inferior_hook()
       and will put out an annoying warning.
       Delaying the resetting of stop_soon_quietly until after symbol loading
       suppresses the warning.  */
-  solib_add ((char *) 0, 0, (struct target_ops *) 0);
+  if (auto_solib_add)
+    solib_add ((char *) 0, 0, (struct target_ops *) 0);
   stop_soon_quietly = 0;
 }
 
@@ -922,9 +937,19 @@ int from_tty;
 void
 _initialize_solib()
 {
-  
   add_com ("sharedlibrary", class_files, sharedlibrary_command,
 	   "Load shared object library symbols for files matching REGEXP.");
   add_info ("sharedlibrary", info_sharedlibrary_command, 
 	    "Status of loaded shared object libraries.");
+
+  add_show_from_set
+    (add_set_cmd ("auto-solib-add", class_support, var_zinteger,
+		  (char *) &auto_solib_add,
+		  "Set autoloading of shared library symbols.\n\
+If nonzero, symbols from all shared object libraries will be loaded\n\
+automatically when the inferior begins execution or when the dynamic linker\n\
+informs gdb that a new library has been loaded.  Otherwise, symbols\n\
+must be loaded manually, using `sharedlibrary'.",
+		  &setlist),
+     &showlist);
 }

@@ -1,5 +1,3 @@
-#include "hosts/std-host.h"
-
 #include <machine/vmparam.h>
 #include <sys/param.h>
 
@@ -20,14 +18,8 @@
 FIXME!! UPAGES is neither 2 nor 16
 #endif
 
-#define	HAVE_STRERROR
-
 #define	HOST_PAGE_SIZE		1
 #define	HOST_SEGMENT_SIZE	NBPG
 #define	HOST_MACHINE_ARCH	bfd_arch_i386
 #define	HOST_TEXT_START_ADDR	USRTEXT
 #define	HOST_STACK_END_ADDR	USRSTACK
-
-/* Not declared in errno.h on Mach3.  */
-
-extern int errno;

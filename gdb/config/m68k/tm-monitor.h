@@ -1,5 +1,5 @@
-/* Parameters for the Integrated Systems Rom68k boot monitor
-   Copyright (C) 1986, 1987, 1989, 199 Free Software Foundation, Inc.
+/* Target machine definitions for a generic m68k monitor/emulator.
+   Copyright (C) 1986, 1987, 1989, 1993, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,15 +17,22 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
+/* The definitions here are appropriate for several embedded m68k-based
+   targets, including IDP (rom68k), BCC (cpu32bug), and EST's emulator.  */
+
 /* GCC is probably the only compiler used on this configuration.  So
    get this right even if the code which detects gcc2_compiled. is
    still broken.  */
 
 #define BELIEVE_PCC_PROMOTION 1
 
+/* The target system handles breakpoints.  */
+
 #define DECR_PC_AFTER_BREAK 0
 
-#define NUM_REGS 18
+/* No float registers.  */
+
+/*#define NUM_REGS 18*/
 
 #include "m68k/tm-m68k.h"
 

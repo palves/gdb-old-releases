@@ -1,5 +1,5 @@
-			README for GDBserver
-			  by Stu Grossman
+		   README for GDBserver & GDBreplay
+		    by Stu Grossman and Fred Fish
 
 Introduction:
 
@@ -97,3 +97,31 @@ It's also possible that you may have a cross-compiler to Lynx.  In that case,
 you can skip the stuff about NFS.  You would replace steps 3 & 4 with:
 
 	make CC=lynx-target-compiler...
+
+Using GDBreplay:
+
+A special hacked down version of gdbserver can be used to replay remote
+debug log files created by gdb.  Before using the gdb "target" command to
+initiate a remote debug session, use "set remotelogfile <filename>" to tell
+gdb that you want to make a recording of the serial or tcp session.  Note
+that when replaying the session, gdb communicates with gdbreplay via tcp,
+regardless of whether the original session was via a serial link or tcp.
+
+Once you are done with the remote debug session, start gdbreplay and
+tell it the name of the log file and the host and port number that gdb
+should connect to (typically the same as the host running gdb):
+
+	$ gdbreplay logfile host:port
+
+Then start gdb (preferably in a different screen or window) and use the
+"target" command to connect to gdbreplay:
+
+	(gdb) target remote host:port
+
+Repeat the same sequence of user commands to gdb that you gave in the
+original debug session.  Gdb should not be able to tell that it is talking
+to gdbreplay rather than a real target, all other things being equal.  Note
+that gdbreplay echos the command lines to stderr, as well as the contents of
+the packets it sends and receives.  The last command echoed by gdbreplay is
+the next command that needs to be typed to gdb to continue the session in
+sync with the original session.

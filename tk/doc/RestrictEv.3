@@ -1,27 +1,13 @@
 '\"
 '\" Copyright (c) 1990 The Regents of the University of California.
-'\" All rights reserved.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
-'\" Permission is hereby granted, without written agreement and without
-'\" license or royalty fees, to use, copy, modify, and distribute this
-'\" documentation for any purpose, provided that the above copyright
-'\" notice and the following two paragraphs appear in all copies.
-'\"
-'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
-'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
-'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
-'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-'\"
-'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
-'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
-'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
-'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" See the file "license.terms" for information on usage and redistribution
+'\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" $Header: /rel/cvsfiles/devo/tk/doc/RestrictEv.3,v 1.1 1994/06/03 23:42:36 rob Exp $ SPRITE (Berkeley)
 '\" 
 .so man.macros
-.HS Tk_RestrictEvents tkc
+.TH Tk_RestrictEvents 3 "" Tk "Tk Library Procedures"
 .BS
 .SH NAME
 Tk_RestrictEvents \- filter and selectively delay X events
@@ -30,16 +16,18 @@ Tk_RestrictEvents \- filter and selectively delay X events
 \fB#include <tk.h>\fR
 .sp
 Tk_RestrictProc *
-\fBTk_RestrictEvents\fR(\fIproc, arg, prevArgPtr\fR)
+\fBTk_RestrictEvents\fR(\fIproc, clientData, prevClientDataPtr\fR)
 .SH ARGUMENTS
-.AS Tk_RestrictProc **prevArgPtr
+.AS Tk_RestrictProc **prevClientDataPtr
 .AP Tk_RestrictProc *proc in
 Predicate procedure to call to filter incoming X events.
 NULL means do not restrict events at all.
-.AP char *arg in
+.VS
+.AP ClientData clientData in
 Arbitrary argument to pass to \fIproc\fR.
-.AP char **prevArgPtr in/out
+.AP ClientData *prevClientDataPtr out
 Pointer to place to save argument to previous restrict procedure.
+.VE
 .BE
 
 .SH DESCRIPTION
@@ -49,42 +37,50 @@ are only prepared to receive certain X events.  After
 \fBTk_RestrictEvents\fR is called, \fBTk_DoOneEvent\fR (and
 hence \fBTk_MainLoop\fR) will filter X input events through
 \fIproc\fR.  \fIProc\fR indicates whether a
-given event is to be processed immediately or deferred until some
-later time (e.g. when the event restriction is lifted).  \fIProc\fR
-is a standard X predicate procedure, of the sort passed to
-\fBXCheckIfEvent\fR.  It must have arguments and result that match
+.VS
+given event is to be processed immediately, deferred until some
+later time (e.g. when the event restriction is lifted), or discarded.
+\fIProc\fR
+is a procedure with arguments and result that match
 the type \fBTk_RestrictProc\fR:
-.nf
-.RS
-typedef Bool Tk_RestrictProc(
-.RS
-Display *\fIdisplay\fR,
-XEvent *\fIeventPtr\fR,
-char *\fIarg\fR);
-.RE
-.RE
-.fi
-The \fIdisplay\fR argument to \fIproc\fR is the display from which
-\fIeventPtr\fR was received, and \fIeventPtr\fR points to an event
-under consideration.  The \fIarg\fR argument is a copy of the \fIarg\fR
-passed to \fBTk_RestrictEvents\fR;  it may be used to provide
-\fIproc\fR with information it needs to filter events.  \fIProc\fR
-must return \fBTrue\fR or \fBFalse\fR.  \fBTrue\fR means the event
-should be processed immediately and \fBFalse\fR means the event
-should not be processed now, but should be saved for some later
-time.
+.CS
+typedef Tk_RestrictAction Tk_RestrictProc(
+	ClientData \fIclientData\fR,
+	XEvent *\fIeventPtr\fR);
+.CE
+The \fIclientData\fR argument is a copy of the \fIclientData\fR passed
+to \fBTk_RestrictEvents\fR; it may be used to provide \fIproc\fR with
+information it needs to filter events.  The \fIeventPtr\fR points to
+an event under consideration.  \fIProc\fR returns a restrict action
+(enumerated type \fBTk_RestrictAction\fR) that indicates what
+\fBTk_DoOneEvent\fR should do with the event.  If the return value is
+\fBTK_PROCESS_EVENT\fR, then the event will be handled immediately.
+If the return value is \fBTK_DEFER_EVENT\fR, then the event will be
+left on the event queue for later processing.  If the return value is
+\fBTK_DISCARD_EVENT\fR, then the event will be removed from the event
+queue and discarded without being processed.
+.VE
 .PP
-\fBTk_RestrictEvents\fR uses its return value and \fIprevArgPtr\fR
+\fBTk_RestrictEvents\fR uses its return value and \fIprevClientDataPtr\fR
 to return information about the current event restriction procedure
 (a NULL return value means there are currently no restrictions).
 These values may be used to restore the previous restriction state
 when there is no longer any need for the current restriction.
 .PP
+.VS
 There are very few places where \fBTk_RestrictEvents\fR is needed.
-Please use it only where it is absolutely necessary.
-If only a local restriction is needed, it can probably
-be achieved more cleanly by changing event-to-Tcl bindings or by
-calling \fBTk_DeleteEventHandler\fR.
-
+In most cases, the best way to restrict events is by changing the
+bindings with the \fBbind\fR Tcl command or by calling
+\fBTk_CreateEventHandler\fR and \fBTk_DeleteEventHandler\fR from C.
+The main place where \fBTk_RestrictEvents\fR must be used is when
+performing synchronous actions (for example, if you need to wait
+for a particular event to occur on a particular window but you don't
+want to invoke any handlers for any other events).  The ``obvious''
+solution in these situations is to call \fBXNextEvent\fR or
+\fBXWindowEvent\fR, but these procedures cannot be used because
+Tk keeps its own event queue that is separate from the X event
+queue.  Instead, call \fBTk_RestrictEvents\fR to set up a filter,
+then call \fBTk_DoOneEvent\fR to retrieve the desired event(s).
+.VE
 .SH KEYWORDS
 delay, event, filter, restriction

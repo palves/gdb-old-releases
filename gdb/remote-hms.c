@@ -113,7 +113,7 @@ static struct monitor_ops hms_cmds =
     "\003",			/* getmem.term_cmd */
   },
   {
-    "\003r %s=%x\r",		/* setreg.cmd (name, value) */
+    "r %s=%x\r",		/* setreg.cmd (name, value) */
     NULL,			/* setreg.resp_delim */
     NULL,			/* setreg.term */
     NULL			/* setreg.term_cmd */
@@ -121,7 +121,7 @@ static struct monitor_ops hms_cmds =
   {
     "r %s\r",			/* getreg.cmd (name) */
     " (",			/* getreg.resp_delim */
-    "):",			/* getreg.term */
+    ":",			/* getreg.term */
     "\003",			/* getreg.term_cmd */
   },
   "r\r",			/* dump_registers */
@@ -1342,12 +1342,13 @@ by a serial line.",
   hms_insert_breakpoint, hms_remove_breakpoint,		/* Breakpoints */
   0, 0, 0, 0, 0,		/* Terminal handling */
   hms_kill,			/* FIXME, kill */
-  gr_load_image,
+  generic_load,
   0,				/* lookup_symbol */
   hms_create_inferior,		/* create_inferior */
   hms_mourn,			/* mourn_inferior FIXME */
   0,				/* can_run */
   0,				/* notice_signals */
+  0,				/* to_thread_alive */
   0,				/* to_stop */
   process_stratum, 0,		/* next */
   1, 1, 1, 1, 1,		/* all mem, mem, stack, regs, exec */

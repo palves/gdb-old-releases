@@ -1,5 +1,5 @@
 /* Read os9/os9k symbol tables and convert to internal format, for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -41,7 +41,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <fcntl.h>
 #endif
 
-#include <obstack.h>
+#include "obstack.h"
 #include <sys/param.h>
 #ifndef	NO_SYS_FILE
 #include <sys/file.h>
@@ -63,11 +63,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "complaints.h"
 #include "os9k.h"
 #include "stabsread.h"
-
-#if !defined (SEEK_SET)
-#define SEEK_SET 0
-#define SEEK_CUR 1
-#endif
 
 /* Each partial symbol table entry contains a pointer to private data for the
    read_symtab() function to use when expanding a partial symbol table entry
@@ -837,7 +832,7 @@ read_os9k_psymtab (section_offsets, objfile, text_addr, text_size)
 		      /* Check for and handle cretinous dbx symbol name
 			 continuation! 
 		      if (*p == '\\')
-			p = next_symbol_text ();
+			p = next_symbol_text (objfile);
 		      */
 
 		      /* Point to the character after the name
@@ -1414,8 +1409,7 @@ os9k_read_ofile_symtab (pst)
      which comes from pst->textlow is correct. */
   if (last_source_start_addr == 0)
     last_source_start_addr = text_offset;
-  pst->symtab = end_symtab (text_offset + text_size, 0, 0, objfile,
-			    SECT_OFF_TEXT);
+  pst->symtab = end_symtab (text_offset + text_size, objfile, SECT_OFF_TEXT);
   end_stabs ();
 }
 
@@ -1571,7 +1565,7 @@ os9k_process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 	      *p = '\0';
 	      if (symfile_depth++ == 0) {
 		if (last_source_file) {
-          	  end_symtab (valu, 0, 0, objfile, SECT_OFF_TEXT);
+          	  end_symtab (valu, objfile, SECT_OFF_TEXT);
 		  end_stabs ();
 		}
 		start_stabs ();

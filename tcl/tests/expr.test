@@ -10,7 +10,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) expr.test 1.42 94/12/17 16:19:54
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
@@ -457,74 +456,6 @@ test expr-26.19 {error conditions} {
 test expr-26.20 {error conditions} {
     list [catch expr msg] $msg
 } {1 {wrong # args: should be "expr arg ?arg ...?"}}
-if $doNonPortableTests {
-    test expr-26.21 {error conditions (integer overflow)} {
-	list [catch {expr 0x7fffffff + -1} msg] $msg
-    } {0 2147483646}
-    test expr-26.22 {error conditions (integer overflow)} {
-	list [catch {expr 0x7fffffff + 0} msg] $msg
-    } {0 2147483647}
-    test expr-26.23 {error conditions (integer overflow)} {
-	list [catch {expr 0x7fffffff + 1} msg] $msg
-    } {1 {integer overflow}}
-    test expr-26.24 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 + -1} msg] $msg
-    } {1 {integer overflow}}
-    test expr-26.25 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 + 0} msg] $msg
-    } {0 -2147483648}
-    test expr-26.26 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 + 1} msg] $msg
-    } {0 -2147483647}
-    test expr-26.27 {error conditions (integer overflow)} {
-	list [catch {expr 0x7fffffff - -1} msg] $msg
-    } {1 {integer overflow}}
-    test expr-26.28 {error conditions (integer overflow)} {
-	list [catch {expr 0x7fffffff - 0} msg] $msg
-    } {0 2147483647}
-    test expr-26.29 {error conditions (integer overflow)} {
-	list [catch {expr 0x7fffffff - 1} msg] $msg
-    } {0 2147483646}
-    test expr-26.30 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 - -1} msg] $msg
-    } {0 -2147483647}
-    test expr-26.31 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 - 0} msg] $msg
-    } {0 -2147483648}
-    test expr-26.32 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 - 1} msg] $msg
-    } {1 {integer overflow}}
-    test expr-26.33 {error conditions (integer overflow)} {
-	list [catch {expr -0x80000000} msg] $msg
-    } {1 {integer overflow}}
-    test expr-26.34 {error conditions (integer overflow)} {
-	list [catch {expr 0x3fff * 0x20000} msg] $msg
-    } {0 2147352576}
-    test expr-26.35 {error conditions (integer overflow)} {
-	list [catch {expr 0x4000 * 0x20000} msg] $msg
-    } {1 {integer overflow}}
-    test expr-26.36 {error conditions (integer overflow)} {
-	list [catch {expr -0x4000 * 0x20000} msg] $msg
-    } {0 -2147483648}
-    test expr-26.37 {error conditions (integer overflow)} {
-	list [catch {expr -0x4001 * 0x20000} msg] $msg
-    } {1 {integer overflow}}
-    test expr-26.38 {error conditions (integer overflow)} {
-	list [catch {expr -0x4000 * -0x20000} msg] $msg $errorCode
-    } {1 {integer overflow} {ARITH IOVERFLOW {integer overflow}}}
-    test expr-26.39 {error conditions (integer overflow)} {
-	list [catch {expr 0 * 0x20000} msg] $msg
-    } {0 0}
-    test expr-26.40 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 / -1} msg] $msg
-    } {1 {integer overflow}}
-    test expr-26.41 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 / 1} msg] $msg
-    } {0 -2147483648}
-    test expr-26.42 {error conditions (integer overflow)} {
-	list [catch {expr 0x80000000 % -1} msg] $msg
-    } {0 0}
-}
 
 # Cancelled evaluation.
 
@@ -911,6 +842,46 @@ catch {unset tcl_precision}
 test expr-35.8 {tcl_precision variable} {
     expr 2.0/3
 } 0.666667
+
+test expr-36.1 {ExprLooksLikeInt procedure} {
+    list [catch {expr 0289} msg] $msg
+} {1 {syntax error in expression "0289"}}
+test expr-36.2 {ExprLooksLikeInt procedure} {
+    set x 0289
+    list [catch {expr {$x+1}} msg] $msg
+} {1 {can't use non-numeric string as operand of "+"}}
+test expr-36.3 {ExprLooksLikeInt procedure} {
+    list [catch {expr 0289.1} msg] $msg
+} {0 289.1}
+test expr-36.4 {ExprLooksLikeInt procedure} {
+    set x 0289.1
+    list [catch {expr {$x+1}} msg] $msg
+} {0 290.1}
+test expr-36.5 {ExprLooksLikeInt procedure} {
+    set x {  +22}
+    list [catch {expr {$x+1}} msg] $msg
+} {0 23}
+test expr-36.6 {ExprLooksLikeInt procedure} {
+    set x {	-22}
+    list [catch {expr {$x+1}} msg] $msg
+} {0 -21}
+if $doNonPortableTests {
+    test expr-36.7 {ExprLooksLikeInt procedure} {
+	list [catch {expr nan} msg] $msg
+    } {1 {domain error: argument not in valid range}}
+}
+test expr-36.8 {ExprLooksLikeInt procedure} {
+    list [catch {expr 78e1} msg] $msg
+} {0 780.0}
+test expr-36.9 {ExprLooksLikeInt procedure} {
+    list [catch {expr 24E1} msg] $msg
+} {0 240.0}
+if $doNonPortableTests {
+    test expr-36.10 {ExprLooksLikeInt procedure} {
+	list [catch {expr 78e} msg] $msg
+    } {1 {syntax error in expression "78e"}}
+}
+
 
 # Special test for Pentium arithmetic bug of 1994:
 

@@ -1,6 +1,0 @@
-# Apollo cc can't get through all of bfd no matter what options you
-# give it. Use gcc instead.
-
-HDEFINES =
-RANLIB=echo >/dev/null
-CC= gcc

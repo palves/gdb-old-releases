@@ -125,7 +125,7 @@ $(TARGETLIB):	$(OFILES)
 		$(AR) $(AR_FLAGS) $@ $(OFILES)
 		$(RANLIB) $@
 
-$(OFILES) :	$(HFILES)
+$(OFILES) :	$(HFILES) Makefile
 
 .always.:
 # Do nothing.
@@ -186,7 +186,9 @@ distclean:	clean
 		rm -f config.cache config.log config.status
 		rm -f Makefile depend
 
-realclean:	clean 
+maintainer-clean realclean:	clean 
+		@echo "This command is intended for maintainers to use;"
+		@echo "it deletes files that may require special tools to rebuild."
 		rm -f config.cache config.log config.status
 		rm -f mmalloc.info
 		rm -f Makefile depend

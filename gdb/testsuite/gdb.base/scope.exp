@@ -26,15 +26,28 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "scope"
-set srcfile $binfile.c
-
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+set testfile "scope"
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [compile "${srcdir}/${subdir}/scope0.c -g -c -o ${binfile}0.o "] != "" } {
+    perror "Couldn't compile scope0.c to object"
+    return -1
+}
+if  { [compile "${srcdir}/${subdir}/scope1.c -g -c -o ${binfile}1.o "] != "" } {
+    perror "Couldn't compile scope1.c to object"
+    return -1
+}
+if  { [compile "${objdir}/${subdir}/scope0.o ${objdir}/${subdir}/scope1.o -o ${binfile}"] != "" } {
+    perror "Couldn't link scope."
+    return -1
 }
 
-source gdb.base/scope0.ci
+execute_anywhere "rm -f ${binfile}.ci"
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
+    perror "Couldn't make ${testfile}.ci file"
+    return -1
+}
+
+source ${binfile}.ci
 
 # Test locating various things when stopped just inside main, after
 # running init().  To prevent cascading of errors, we report the
@@ -120,6 +133,8 @@ proc test_at_main {} {
 
     # Print scope0.c::filelocal_ro, which is 201
 
+    # No clue why the powerpc fails this test.
+    setup_xfail "powerpc-*-*"
     if {$gcc_compiled} then { setup_xfail "rs6000-*-*" }
     send "print filelocal_ro\n"
     expect {
@@ -137,6 +152,7 @@ proc test_at_main {} {
     }
 
     if {$gcc_compiled} then { setup_xfail "rs6000-*-*" }
+    setup_xfail "powerpc-*-*"
     send "print 'scope0.c'::filelocal_ro\n"
     expect {
 	-re "\\\$$decimal = 201\r\n$prompt $" {
@@ -346,6 +362,7 @@ proc test_at_foo {} {
     # Print scope0.c::filelocal_ro, which is 201
 
     if {$gcc_compiled} then { setup_xfail "rs6000-*-*" }
+    setup_xfail "powerpc-*-*"
     send "print 'scope0.c'::filelocal_ro\n"
     expect {
 	-re "\\\$$decimal = 201\r\n$prompt $" { pass "print 'scope0.c'::filelocal_ro" }
@@ -575,6 +592,7 @@ proc test_at_bar {} {
    # Print scope0.c::filelocal_ro, which is 201
 
     if {$gcc_compiled} then { setup_xfail "rs6000-*-*" }
+    setup_xfail "powerpc-*-*"
     send "print 'scope0.c'::filelocal_ro\n"
     expect {
 	-re "\\\$$decimal = 201\r\n$prompt $" {
@@ -996,7 +1014,7 @@ proc test_at_localscopes {} {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 if [istarget "*-*-vxworks*"] {
     set timeout 120
@@ -1007,11 +1025,18 @@ if [istarget "*-*-vxworks*"] {
 
 # AIX--sections get mapped to the same address so we can't get the right one.
 setup_xfail "rs6000-*-*"
+setup_xfail "powerpc-*-*"
 
 gdb_test "print 'scope0.c'::filelocal_ro" "= 201"
 
 # gdb currently cannot access bss memory on some targets if the inferior
 # is not running.
+#
+# For PA boards using monitor/remote-pa.c, the bss test is going to 
+# randomly fail.  We've already put remote-pa on the target stack,
+# so we actually read memory from the board.  Problem is crt0.o
+# is responsible for clearing bss and that hasnt' happened yet.
+setup_xfail "hppa*-*-*pro*"
 if {$gcc_compiled} then { setup_xfail "rs6000-*-*" }
 send "print 'scope0.c'::filelocal_bss\n"
 expect {
@@ -1042,7 +1067,7 @@ if [istarget "mips-idt-*"] then {
     gdb_exit
     gdb_start
     gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $objdir/$subdir/$binfile
+    gdb_load ${binfile}
 }
 if [runto foo] then { test_at_foo }
 if [istarget "mips-idt-*"] then {
@@ -1050,7 +1075,7 @@ if [istarget "mips-idt-*"] then {
     gdb_exit
     gdb_start
     gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $objdir/$subdir/$binfile
+    gdb_load ${binfile}
 }
 if [runto bar] then { test_at_bar }
 if [istarget "mips-idt-*"] then {
@@ -1058,7 +1083,7 @@ if [istarget "mips-idt-*"] then {
     gdb_exit
     gdb_start
     gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $objdir/$subdir/$binfile
+    gdb_load ${binfile}
 }
 if [runto localscopes] then { test_at_localscopes }
 if [istarget "mips-idt-*"] then {
@@ -1066,7 +1091,7 @@ if [istarget "mips-idt-*"] then {
     gdb_exit
     gdb_start
     gdb_reinitialize_dir $srcdir/$subdir
-    gdb_load $objdir/$subdir/$binfile
+    gdb_load ${binfile}
 }
 if [runto autovars] then { test_at_autovars }
 

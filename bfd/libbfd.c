@@ -1,5 +1,5 @@
 /* Assorted BFD support routines, only used internally.
-   Copyright 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -155,22 +155,60 @@ _bfd_dummy_target (ignore_abfd)
   return 0;
 }
 
+/* Allocate memory using malloc.  */
 
-#ifndef bfd_zmalloc
-/* allocate and clear storage */
-
-char *
-bfd_zmalloc (size)
-     bfd_size_type size;
+PTR
+bfd_malloc (size)
+     size_t size;
 {
-  char *ptr = (char *) malloc ((size_t) size);
+  PTR ptr;
 
-  if (ptr && size)
-   memset(ptr, 0, (size_t) size);
+  ptr = (PTR) malloc (size);
+  if (ptr == NULL && size != 0)
+    bfd_set_error (bfd_error_no_memory);
+  return ptr;
+}
+
+/* Reallocate memory using realloc.  */
+
+PTR
+bfd_realloc (ptr, size)
+     PTR ptr;
+     size_t size;
+{
+  PTR ret;
+
+  if (ptr == NULL)
+    ret = malloc (size);
+  else
+    ret = realloc (ptr, size);
+
+  if (ret == NULL)
+    bfd_set_error (bfd_error_no_memory);
+
+  return ret;
+}
+
+/* Allocate memory using malloc and clear it.  */
+
+PTR
+bfd_zmalloc (size)
+     size_t size;
+{
+  PTR ptr;
+
+  ptr = (PTR) malloc (size);
+
+  if (size != 0)
+    {
+      if (ptr == NULL)
+	bfd_set_error (bfd_error_no_memory);
+      else
+	memset (ptr, 0, size);
+    }
 
   return ptr;
 }
-#endif /* bfd_zmalloc */
 
 /* Some IO code */
 
@@ -203,6 +241,24 @@ bfd_read (ptr, size, nitems, abfd)
      bfd *abfd;
 {
   int nread;
+
+  if ((abfd->flags & BFD_IN_MEMORY) != 0)
+    {
+      struct bfd_in_memory *bim;
+      bfd_size_type get;
+
+      bim = (struct bfd_in_memory *) abfd->iostream;
+      get = size * nitems;
+      if (abfd->where + get > bim->size)
+	{
+	  get = bim->size - abfd->where;
+	  bfd_set_error (bfd_error_file_truncated);
+	}
+      memcpy (ptr, bim->buffer + abfd->where, get);
+      abfd->where += get;
+      return get;
+    }
+
   nread = real_read (ptr, 1, (size_t)(size*nitems), bfd_cache_lookup(abfd));
 #ifdef FILE_OFFSET_IS_CHAR_INDEX
   if (nread > 0)
@@ -227,6 +283,236 @@ bfd_read (ptr, size, nitems, abfd)
   return nread;
 }
 
+/* The window support stuff should probably be broken out into
+   another file....  */
+/* The idea behind the next and refcount fields is that one mapped
+   region can suffice for multiple read-only windows or multiple
+   non-overlapping read-write windows.  It's not implemented yet
+   though.  */
+struct _bfd_window_internal {
+  struct _bfd_window_internal *next;
+  PTR data;
+  bfd_size_type size;
+  int refcount : 31;		/* should be enough... */
+  unsigned mapped : 1;		/* 1 = mmap, 0 = malloc */
+};
+
+void
+bfd_init_window (windowp)
+     bfd_window *windowp;
+{
+  windowp->data = 0;
+  windowp->i = 0;
+  windowp->size = 0;
+}
+
+#undef HAVE_MPROTECT /* code's not tested yet */
+
+#if HAVE_MMAP || HAVE_MPROTECT || HAVE_MADVISE
+#include <sys/types.h>
+#include <sys/mman.h>
+#endif
+
+#ifndef MAP_FILE
+#define MAP_FILE 0
+#endif
+
+static int debug_windows;
+
+/* Currently, if USE_MMAP is undefined, none if the window stuff is
+   used.  Okay, so it's mis-named.  At least the command-line option
+   "--without-mmap" is more obvious than "--without-windows" or some
+   such.  */
+#ifdef USE_MMAP
+
+void
+bfd_free_window (windowp)
+     bfd_window *windowp;
+{
+  bfd_window_internal *i = windowp->i;
+  windowp->i = 0;
+  windowp->data = 0;
+  if (i == 0)
+    return;
+  i->refcount--;
+  if (debug_windows)
+    fprintf (stderr, "freeing window @%p<%p,%lx,%p>\n",
+	     windowp, windowp->data, windowp->size, windowp->i);
+  if (i->refcount != 0)
+    return;
+
+  if (i->mapped)
+    {
+#ifdef HAVE_MMAP
+      munmap (i->data, i->size);
+      goto no_free;
+#else
+      abort ();
+#endif
+    }
+#ifdef HAVE_MPROTECT
+  mprotect (i->data, i->size, PROT_READ | PROT_WRITE);
+#endif
+  free (i->data);
+#ifdef HAVE_MMAP
+ no_free:
+#endif
+  i->data = 0;
+  /* There should be no more references to i at this point.  */
+  free (i);
+}
+#endif
+
+static int ok_to_map = 1;
+
+boolean
+bfd_get_file_window (abfd, offset, size, windowp, writable)
+     bfd *abfd;
+     file_ptr offset;
+     bfd_size_type size;
+     bfd_window *windowp;
+     boolean writable;
+{
+  static size_t pagesize;
+  bfd_window_internal *i = windowp->i;
+  size_t size_to_alloc = size;
+
+#ifndef USE_MMAP
+  abort ();
+#endif
+
+  if (debug_windows)
+    fprintf (stderr, "bfd_get_file_window (%p, %6ld, %6ld, %p<%p,%lx,%p>, %d)",
+	     abfd, (long) offset, (long) size,
+	     windowp, windowp->data, windowp->size, windowp->i,
+	     writable);
+
+  /* Make sure we know the page size, so we can be friendly to mmap.  */
+  if (pagesize == 0)
+    pagesize = getpagesize ();
+  if (pagesize == 0)
+    abort ();
+
+  if (i == 0)
+    {
+      windowp->i = i = (bfd_window_internal *) bfd_zmalloc (sizeof (bfd_window_internal));
+      if (i == 0)
+	return false;
+      i->data = 0;
+    }
+#ifdef HAVE_MMAP
+  if (ok_to_map
+      && (i->data == 0 || i->mapped == 1)
+      && (abfd->flags & BFD_IN_MEMORY) == 0)
+    {
+      file_ptr file_offset, offset2;
+      size_t real_size;
+      int fd;
+      FILE *f;
+
+      /* Find the real file and the real offset into it.  */
+      while (abfd->my_archive != NULL)
+	{
+	  offset += abfd->origin;
+	  abfd = abfd->my_archive;
+	}
+      f = bfd_cache_lookup (abfd);
+      fd = fileno (f);
+
+      /* Compute offsets and size for mmap and for the user's data.  */
+      offset2 = offset % pagesize;
+      if (offset2 < 0)
+	abort ();
+      file_offset = offset - offset2;
+      real_size = offset + size - file_offset;
+      real_size = real_size + pagesize - 1;
+      real_size -= real_size % pagesize;
+
+      /* If we're re-using a memory region, make sure it's big enough.  */
+      if (i->data && i->size < size)
+	{
+	  munmap (i->data, i->size);
+	  i->data = 0;
+	}
+      i->data = mmap (i->data, real_size,
+		      writable ? PROT_WRITE | PROT_READ : PROT_READ,
+		      (writable
+		       ? MAP_FILE | MAP_PRIVATE
+		       : MAP_FILE | MAP_SHARED),
+		      fd, file_offset);
+      if (i->data == (PTR) -1)
+	{
+	  /* An error happened.  Report it, or try using malloc, or
+	     something.  */
+	  bfd_set_error (bfd_error_system_call);
+	  i->data = 0;
+	  windowp->data = 0;
+	  if (debug_windows)
+	    fprintf (stderr, "\t\tmmap failed!\n");
+	  return false;
+	}
+      if (debug_windows)
+	fprintf (stderr, "\n\tmapped %ld at %p, offset is %ld\n",
+		 (long) real_size, i->data, (long) offset2);
+      i->size = real_size;
+      windowp->data = (PTR) ((bfd_byte *) i->data + offset2);
+      windowp->size = size;
+      i->mapped = 1;
+      return true;
+    }
+  else if (debug_windows)
+    {
+      if (ok_to_map)
+	fprintf (stderr, "not mapping: data=%lx mapped=%d\n",
+		 (unsigned long) i->data, (int) i->mapped);
+      else
+	fprintf (stderr, "not mapping: env var not set\n");
+    }
+#else
+  ok_to_map = 0;
+#endif
+
+#ifdef HAVE_MPROTECT
+  if (!writable)
+    {
+      size_to_alloc += pagesize - 1;
+      size_to_alloc -= size_to_alloc % pagesize;
+    }
+#endif
+  if (debug_windows)
+    fprintf (stderr, "\n\t%s(%6ld)",
+	     i->data ? "realloc" : " malloc", (long) size_to_alloc);
+  i->data = (PTR) bfd_realloc (i->data, size_to_alloc);
+  if (debug_windows)
+    fprintf (stderr, "\t-> %p\n", i->data);
+  i->refcount = 1;
+  if (i->data == NULL)
+    {
+      if (size_to_alloc == 0)
+	return true;
+      bfd_set_error (bfd_error_no_memory);
+      return false;
+    }
+  if (bfd_seek (abfd, offset, SEEK_SET) != 0)
+    return false;
+  i->size = bfd_read (i->data, size, 1, abfd);
+  if (i->size != size)
+    return false;
+  i->mapped = 0;
+#ifdef HAVE_MPROTECT
+  if (!writable)
+    {
+      if (debug_windows)
+	fprintf (stderr, "\tmprotect (%p, %ld, PROT_READ)\n", i->data,
+		 (long) i->size);
+      mprotect (i->data, i->size, PROT_READ);
+    }
+#endif
+  windowp->data = i->data;
+  windowp->size = i->size;
+  return true;
+}
+
 bfd_size_type
 bfd_write (ptr, size, nitems, abfd)
      CONST PTR ptr;
@@ -234,13 +520,18 @@ bfd_write (ptr, size, nitems, abfd)
      bfd_size_type nitems;
      bfd *abfd;
 {
-  int nwrote = fwrite (ptr, 1, (size_t) (size * nitems),
-		       bfd_cache_lookup (abfd));
+  long nwrote;
+
+  if ((abfd->flags & BFD_IN_MEMORY) != 0)
+    abort ();
+
+  nwrote = fwrite (ptr, 1, (size_t) (size * nitems),
+		   bfd_cache_lookup (abfd));
 #ifdef FILE_OFFSET_IS_CHAR_INDEX
   if (nwrote > 0)
     abfd->where += nwrote;
 #endif
-  if (nwrote != size * nitems)
+  if ((bfd_size_type) nwrote != size * nitems)
     {
 #ifdef ENOSPC
       if (nwrote >= 0)
@@ -281,6 +572,9 @@ bfd_tell (abfd)
 {
   file_ptr ptr;
 
+  if ((abfd->flags & BFD_IN_MEMORY) != 0)
+    return abfd->where;
+
   ptr = ftell (bfd_cache_lookup(abfd));
 
   if (abfd->my_archive)
@@ -293,6 +587,8 @@ int
 bfd_flush (abfd)
      bfd *abfd;
 {
+  if ((abfd->flags & BFD_IN_MEMORY) != 0)
+    return 0;
   return fflush (bfd_cache_lookup(abfd));
 }
 
@@ -305,6 +601,10 @@ bfd_stat (abfd, statbuf)
 {
   FILE *f;
   int result;
+
+  if ((abfd->flags & BFD_IN_MEMORY) != 0)
+    abort ();
+
   f = bfd_cache_lookup (abfd);
   if (f == NULL)
     {
@@ -337,6 +637,16 @@ bfd_seek (abfd, position, direction)
 
   if (direction == SEEK_CUR && position == 0)
     return 0;
+
+  if ((abfd->flags & BFD_IN_MEMORY) != 0)
+    {
+      if (direction == SEEK_SET)
+	abfd->where = position;
+      else
+	abfd->where += position;
+      return 0;
+    }
+
 #ifdef FILE_OFFSET_IS_CHAR_INDEX
   if (abfd->format != bfd_archive && abfd->my_archive == 0)
     {
@@ -784,6 +1094,51 @@ _bfd_generic_get_section_contents (abfd, section, location, offset, count)
         || bfd_read(location, (bfd_size_type)1, count, abfd) != count)
         return (false); /* on error */
     return (true);
+}
+
+boolean
+_bfd_generic_get_section_contents_in_window (abfd, section, w, offset, count)
+     bfd *abfd;
+     sec_ptr section;
+     bfd_window *w;
+     file_ptr offset;
+     bfd_size_type count;
+{
+#ifdef USE_MMAP
+  if (count == 0)
+    return true;
+  if (abfd->xvec->_bfd_get_section_contents != _bfd_generic_get_section_contents)
+    {
+      /* We don't know what changes the bfd's get_section_contents
+	 method may have to make.  So punt trying to map the file
+	 window, and let get_section_contents do its thing.  */
+      /* @@ FIXME : If the internal window has a refcount of 1 and was
+	 allocated with malloc instead of mmap, just reuse it.  */
+      bfd_free_window (w);
+      w->i = (bfd_window_internal *) bfd_zmalloc (sizeof (bfd_window_internal));
+      if (w->i == NULL)
+	return false;
+      w->i->data = (PTR) bfd_malloc ((size_t) count);
+      if (w->i->data == NULL)
+	{
+	  free (w->i);
+	  w->i = NULL;
+	  return false;
+	}
+      w->i->mapped = 0;
+      w->i->refcount = 1;
+      w->size = w->i->size = count;
+      w->data = w->i->data;
+      return bfd_get_section_contents (abfd, section, w->data, offset, count);
+    }
+  if ((bfd_size_type) (offset+count) > section->_raw_size
+      || (bfd_get_file_window (abfd, section->filepos + offset, count, w, true)
+	  == false))
+    return false;
+  return true;
+#else
+  abort ();
+#endif
 }
 
 /* This generic function can only be used in implementations where creating

@@ -1,14 +1,13 @@
 '\"
 '\" Copyright (c) 1993-1994 The Regents of the University of California.
-'\" Copyright (c) 1994 Sun Microsystems, Inc.
+'\" Copyright (c) 1994-1995 Sun Microsystems, Inc.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" @(#) array.n 1.3 94/12/17 16:17:39
 '\" 
 .so man.macros
-.HS array tcl 7.4
+.TH array n 7.4 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -52,12 +51,19 @@ Returns 1 if \fIarrayName\fR is an array variable, 0 if there
 is no variable by that name or if it is a scalar variable.
 .VE
 .TP
-\fBarray get \fIarrayName\fR
+\fBarray get \fIarrayName\fR ?\fIpattern\fR?
 .VS
 Returns a list containing pairs of elements.  The first
 element in each pair is the name of an element in \fIarrayName\fR
 and the second element of each pair is the value of the
 array element.  The order of the pairs is undefined.
+.VS
+If \fIpattern\fR is not specified, then all of the elements of the
+array are included in the result.
+If \fIpattern\fR is specified, then only those elements whose names
+match \fIpattern\fR (using the glob-style matching rules of
+\fBstring match\fR) are included.
+.VE
 If \fIarrayName\fR isn't the name of an array variable, or if
 the array contains no elements, then an empty list is returned.
 .VE

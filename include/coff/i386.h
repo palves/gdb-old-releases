@@ -32,10 +32,6 @@ struct external_filehdr {
 #define I386PTXMAGIC	0x154
 #define I386AIXMAGIC	0x175
 
-/* extra NT defines */
-#define DOSMAGIC       0x5a4d
-#define NT_SIGNATURE   0x00004550
-
 /* This is Lynx's all-platform magic number for executables. */
 
 #define LYNXCOFFMAGIC	0415
@@ -79,9 +75,9 @@ AOUTHDR;
 /* define some NT default values */
 /*  #define NT_IMAGE_BASE        0x400000 moved to internal.h */
 #define NT_SECTION_ALIGNMENT 0x1000
-#define NT_FILE_ALIGNMENT    0x200  /* 0x1000 */  /* 0x200 */
-#define NT_DEF_RESERVE       0x10000000
-#define NT_DEF_COMMIT        0x10000
+#define NT_FILE_ALIGNMENT    0x200
+#define NT_DEF_RESERVE       0x100000
+#define NT_DEF_COMMIT        0x1000
 
 /********************** SECTION HEADER **********************/
 
@@ -226,8 +222,3 @@ struct external_reloc {
 #define RELOC struct external_reloc
 #define RELSZ 10
 
-#define DEFAULT_DATA_SECTION_ALIGNMENT 4
-#define DEFAULT_BSS_SECTION_ALIGNMENT 4
-#define DEFAULT_TEXT_SECTION_ALIGNMENT 4
-/* For new sections we havn't heard of before */
-#define DEFAULT_SECTION_ALIGNMENT 4

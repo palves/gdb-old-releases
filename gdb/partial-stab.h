@@ -1,5 +1,5 @@
 /* Shared code to pre-read a stab (dbx-style), when building a psymtab.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -89,35 +89,23 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 	  SET_NAMESTRING();
 	  if ((namestring[0] == '-' && namestring[1] == 'l')
 	      || (namestring [(nsl = strlen (namestring)) - 1] == 'o'
-		  && namestring [nsl - 2] == '.')
-#ifdef GDB_TARGET_IS_HPPA
-              /* This braindamage is necessary for versions of GCC 2.6 and
-		 earlier; it will not be necessary for GCC 2.7.
-
-		 In a nutshell, we need a way to determine when we've hit
-		 the end of a file with debug symbols.  Most ports do this
-		 with a N_SO record with a NULL symbol name (as will GCC 2.7
-		 on the PA).  GCC 2.6 (and earlier) on the PA instead creates
-		 an N_TEXT symbol with the name "end_file."  */
-              || (namestring[0] == 'e' && STREQ (namestring, "end_file."))
-#endif
-	      )
+		  && namestring [nsl - 2] == '.'))
 	    {
-#ifndef GDB_TARGET_IS_HPPA
 	      if (objfile -> ei.entry_point <  CUR_SYMBOL_VALUE &&
 		  objfile -> ei.entry_point >= last_o_file_start)
 		{
 		  objfile -> ei.entry_file_lowpc = last_o_file_start;
 		  objfile -> ei.entry_file_highpc = CUR_SYMBOL_VALUE;
 		}
-#endif
 	      if (past_first_source_file && pst
 		  /* The gould NP1 uses low values for .o and -l symbols
 		     which are not the address.  */
 		  && CUR_SYMBOL_VALUE >= pst->textlow)
 		{
 		  END_PSYMTAB (pst, psymtab_include_list, includes_used,
-			       symnum * symbol_size, CUR_SYMBOL_VALUE,
+			       symnum * symbol_size,
+			       CUR_SYMBOL_VALUE > pst->texthigh
+				 ? CUR_SYMBOL_VALUE : pst->texthigh, 
 			       dependency_list, dependencies_used);
 		  pst = (struct partial_symtab *) 0;
 		  includes_used = 0;
@@ -228,7 +216,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 	      if (pst)
 		{
 		  END_PSYMTAB (pst, psymtab_include_list, includes_used,
-			       symnum * symbol_size, valu,
+			       symnum * symbol_size,
+			       valu > pst->texthigh ? valu : pst->texthigh,
 			       dependency_list, dependencies_used);
 		  pst = (struct partial_symtab *) 0;
 		  includes_used = 0;
@@ -379,6 +368,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 	  SET_NAMESTRING();
 
+#ifdef DBXREAD_ONLY
+	  /* See if this is an end of function stab.  */
+	  if (CUR_SYMBOL_TYPE == N_FUN && ! strcmp (namestring, ""))
+	    {
+	      unsigned long valu;
+
+	      /* It's value is the size (in bytes) of the function for
+		 function relative stabs, or the address of the function's
+		 end for old style stabs.  */
+	      valu = CUR_SYMBOL_VALUE + last_function_start;
+	      if (pst->texthigh == 0 || valu > pst->texthigh)
+		pst->texthigh = valu;
+	      break;
+	     }
+#endif
+
 	  p = (char *) strchr (namestring, ':');
 	  if (!p)
 	    continue;		/* Not a debugging symbol.   */
@@ -484,6 +489,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 	      if (*p++ == 'e')
 		{
+		  /* The aix4 compiler emits extra crud before the members.  */
+		  if (*p == '-')
+		    {
+		      /* Skip over the type (?).  */
+		      while (*p != ':')
+			p++;
+
+		      /* Skip over the colon.  */
+		      p++;
+		    }
+
 		  /* We have found an enumerated type.  */
 		  /* According to comments in read_enum_type
 		     a comma could end it instead of a semicolon.
@@ -496,7 +512,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 		      /* Check for and handle cretinous dbx symbol name
 			 continuation!  */
 		      if (*p == '\\' || (*p == '?' && p[1] == '\0'))
-			p = next_symbol_text ();
+			p = next_symbol_text (objfile);
 
 		      /* Point to the character after the name
 			 of the enum constant.  */
@@ -530,6 +546,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 	    case 'f':
 	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 #ifdef DBXREAD_ONLY
+	      /* Keep track of the start of the last function so we
+		 can handle end of function symbols.  */
+	      last_function_start = CUR_SYMBOL_VALUE;
 	      /* Kludges for ELF/STABS with Sun ACC */
 	      last_function_name = namestring;
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
@@ -544,6 +563,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 		startup_file_end = CUR_SYMBOL_VALUE;
 #endif
 	      /* End kludge.  */
+
+	      /* In reordered executables this function may lie outside
+		 the bounds created by N_SO symbols.  If that's the case
+		 use the address of this function as the low bound for
+		 the partial symbol table.  */
+	      if (pst->textlow == 0 || CUR_SYMBOL_VALUE < pst->textlow)
+		pst->textlow = CUR_SYMBOL_VALUE;
 #endif /* DBXREAD_ONLY */
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_BLOCK,
@@ -557,6 +583,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 	    case 'F':
 	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 #ifdef DBXREAD_ONLY
+	      /* Keep track of the start of the last function so we
+		 can handle end of function symbols.  */
+	      last_function_start = CUR_SYMBOL_VALUE;
 	      /* Kludges for ELF/STABS with Sun ACC */
 	      last_function_name = namestring;
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
@@ -571,6 +600,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 		startup_file_end = CUR_SYMBOL_VALUE;
 #endif
 	      /* End kludge.  */
+	      /* In reordered executables this function may lie outside
+		 the bounds created by N_SO symbols.  If that's the case
+		 use the address of this function as the low bound for
+		 the partial symbol table.  */
+	      if (pst->textlow == 0 || CUR_SYMBOL_VALUE < pst->textlow)
+		pst->textlow = CUR_SYMBOL_VALUE;
 #endif /* DBXREAD_ONLY */
 	      ADD_PSYMBOL_TO_LIST (namestring, p - namestring,
 				   VAR_NAMESPACE, LOC_BLOCK,

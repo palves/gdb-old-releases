@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#ifdef __GO32__
+#if defined(__GO32__) || defined(__WIN32__)
 #undef FD_SET
 #endif
 

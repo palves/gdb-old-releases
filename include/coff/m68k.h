@@ -1,5 +1,8 @@
 /*** coff information for M68K */
 
+#ifndef GNU_COFF_M68K_H
+#define GNU_COFF_M68K_H 1
+
 /********************** FILE HEADER **********************/
 
 struct external_filehdr {
@@ -36,6 +39,12 @@ struct external_filehdr {
 #define M68KBADMAG(x) (((x).f_magic!=MC68MAGIC) && ((x).f_magic!=MC68KWRMAGIC) && ((x).f_magic!=MC68TVMAGIC) && \
   ((x).f_magic!=MC68KROMAGIC) && ((x).f_magic!=MC68KPGMAGIC) && ((x).f_magic!=M68MAGIC) && ((x).f_magic!=M68TVMAGIC) && ((x).f_magic!=LYNXCOFFMAGIC) )
 
+/* Magic numbers for the a.out header.  */
+
+#define PAGEMAGICEXECSWAPPED  0407 /* executable (swapped) */
+#define PAGEMAGICPEXECSWAPPED 0410 /* pure executable (swapped) */
+#define PAGEMAGICPEXECTSHLIB  0443 /* pure executable (target shared library) */
+#define PAGEMAGICPEXECPAGED   0413 /* pure executable (paged) */
 
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)
@@ -83,7 +92,7 @@ struct external_scnhdr {
 #define _TEXT	".text"
 #define _DATA	".data"
 #define _BSS	".bss"
-
+#define _COMMENT ".comment"
 
 #define	SCNHDR	struct external_scnhdr
 #define	SCNHSZ	sizeof(SCNHDR)
@@ -209,8 +218,4 @@ struct external_reloc {
 
 #define RELSZ sizeof(struct external_reloc)
 
-#define DEFAULT_DATA_SECTION_ALIGNMENT 4
-#define DEFAULT_BSS_SECTION_ALIGNMENT 4
-#define DEFAULT_TEXT_SECTION_ALIGNMENT 4
-/* For new sections we havn't heard of before */
-#define DEFAULT_SECTION_ALIGNMENT 4
+#endif /* GNU_COFF_M68K_H */

@@ -5,16 +5,17 @@
 # generates output for errors.  No output means no errors were found.
 #
 # Copyright (c) 1991-1994 The Regents of the University of California.
-# Copyright (c) 1994 Sun Microsystems, Inc.
+# Copyright (c) 1994-1995 Sun Microsystems, Inc.
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# @(#) open.test 1.26 95/01/06 13:41:09
 
 if {[string compare test [info procs test]] == 1} then {source defs}
 
-catch {exec rm -f test1 test2 test3}
+removeFile test1
+removeFile test2
+removeFile test3
 exec cat > test1 << "Two lines: this one\nand this one\n"
 exec cat > test2 << "line1\nline2\nline3\nline4\nline5\n"
 
@@ -116,7 +117,7 @@ if {![file exists ~/_test_] && [file writable ~]} {
 	puts $f "Some text"
 	close $f
 	set x [file exists $env(HOME)/_test_]
-	exec rm -f $env(HOME)/_test_
+	removeFile $env(HOME)/_test_
 	set x
     } 1
 }
@@ -178,23 +179,23 @@ test open-5.4 {close command (files only)} {
 
 test open-6.1 {puts command} {
     list [catch {puts} msg] $msg $errorCode
-} {1 {wrong # args: should be "puts" ?-nonewline? ?fileId? string} NONE}
+} {1 {wrong # args: should be "puts ?-nonewline? ?fileId? string"} NONE}
 test open-6.2 {puts command} {
     list [catch {puts a b c d} msg] $msg $errorCode
-} {1 {wrong # args: should be "puts" ?-nonewline? ?fileId? string} NONE}
+} {1 {wrong # args: should be "puts ?-nonewline? ?fileId? string"} NONE}
 test open-6.3 {puts command} {
     list [catch {puts a b nonewlinx} msg] $msg $errorCode
 } {1 {bad argument "nonewlinx": should be "nonewline"} NONE}
 test open-6.4 {puts command} {
     list [catch {puts gorp "New text"} msg] $msg $errorCode
 } {1 {bad file identifier "gorp"} NONE}
+set f [open test3]
+set expect [list 1 [format "file \"%s\" wasn't opened for writing" $f] NONE]
 test open-6.5 {puts command} {
-    set f [open test3]
-    set x [list [catch {puts $f "New text"} msg] \
-	[string range $msg [string first " " $msg] end] $errorCode]
+    set x [list [catch {puts $f "New text"} msg] $msg $errorCode]
     close $f
     set x
-} {1 { wasn't opened for writing} NONE}
+} $expect
 test open-6.6 {puts command} {
     set f [open test3 w]
     puts -nonewline $f "Text1"
@@ -213,13 +214,13 @@ test open-7.2 {gets command} {
 test open-7.3 {gets command} {
     list [catch {gets a} msg] $msg $errorCode
 } {1 {bad file identifier "a"} NONE}
+set f [open test3 w]
+set expect [list 1 [format "file \"%s\" wasn't opened for reading" $f] NONE]
 test open-7.4 {gets command} {
-    set f [open test3 w]
-    set x [list [catch {gets $f} msg] \
-	    [string range $msg [string first " " $msg] end] $errorCode]
+    set x [list [catch {gets $f} msg] $msg $errorCode]
     close $f
     set x
-} {1 { wasn't opened for reading} NONE}
+} $expect
 set f [open test3 w]
 puts -nonewline $f "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 puts -nonewline $f "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -283,15 +284,15 @@ test open-8.5 {read command} {
     list [catch {read stdin foo} msg] $msg $errorCode
 } {1 {bad argument "foo": should be "nonewline"} NONE}
 test open-8.6 {read command} {
-    list [catch {read file10} msg] $msg $errorCode
-} {1 {file "file10" isn't open} NONE}
+    list [catch {read file107} msg] $msg $errorCode
+} {1 {file "file107" isn't open} NONE}
+set f [open test3 w]
+set expect [list 1 [format "file \"%s\" wasn't opened for reading" $f] NONE]
 test open-8.7 {read command} {
-    set f [open test3 w]
-    set x [list [catch {read $f} msg] \
-	    [string range $msg [string first " " $msg] end] $errorCode]
+    set x [list [catch {read $f} msg] $msg $errorCode]
     close $f
     set x
-} {1 { wasn't opened for reading} NONE}
+} $expect
 test open-8.8 {read command} {
     set f [open test1]
     set x [list [catch {read $f 12z} msg] $msg $errorCode]
@@ -428,13 +429,13 @@ test open-12.2 {flush command} {
 test open-12.3 {flush command} {
     list [catch {flush a} msg] $msg $errorCode
 } {1 {bad file identifier "a"} NONE}
+set f [open test3]
+set expect [list 1 [format "file \"%s\" wasn't opened for writing" $f] NONE]
 test open-12.4 {flush command} {
-    set f [open test3]
-    set x [list [catch {flush $f} msg] \
-	    [string range $msg [string first " " $msg] end] $errorCode]
+    set x [list [catch {flush $f} msg] $msg $errorCode]
     close $f
     set x
-} {1 { wasn't opened for writing} NONE}
+} $expect
 test open-12.5 {flush command} {
     set f [open test3 w]
     puts $f "Line 1"
@@ -462,7 +463,7 @@ test open-13.3 {I/O to command pipelines} {
     list [catch {open "| echo > test3" r+} msg] $msg $errorCode
 } {1 {can't read output from command: standard output was redirected} NONE}
 test open-13.4 {writing to command pipelines} {
-    exec rm test3
+    removeFile test3
     set f [open "| cat | cat > test3" w]
     puts $f "Line 1"
     puts $f "Line 2"
@@ -499,42 +500,34 @@ test open-13.8 {errors in command pipelines} {
     string tolower $x
 } {1 {error flushing " : broken pipe} {posix epipe {broken pipe}}}
 
+set f [open test1 RDONLY]
+set expect [list [format "file \"%s\" wasn't opened for writing" $f]]
 test open-14.1 {POSIX open access modes: RDONLY} {
-    set f [open test1 RDONLY]
     set x [list [gets $f] [catch {puts $f Test} msg] $msg]
     close $f
-
-    # The regsub is needed to avoid false errors if the file
-    # number varies from system to system.
-
-    regsub {"file[0-9]*"} $x {"file"} x
     set x
-} {{Two lines: this one} 1 {"file" wasn't opened for writing}}
+} "{Two lines: this one} 1 $expect"
 test open-14.2 {POSIX open access modes: RDONLY} {
-    catch {exec rm -f test3}
+    removeFile test3
     string tolower [list [catch {open test3 RDONLY} msg] $msg]
 } {1 {couldn't open "test3": no such file or directory}}
 test open-14.3 {POSIX open access modes: WRONLY} {
-    catch {exec rm -f test3}
+    removeFile test3
     string tolower [list [catch {open test3 WRONLY} msg] $msg]
 } {1 {couldn't open "test3": no such file or directory}}
+exec echo xyzzy > test3
+set f [open test3 WRONLY]
+set expect [list 1 [format "file \"%s\" wasn't opened for reading" $f] abzzy]
 test open-14.4 {POSIX open access modes: WRONLY} {
-    exec echo xyzzy > test3
-    set f [open test3 WRONLY]
     puts -nonewline $f "ab"
     seek $f 0 current
     set x [list [catch {gets $f} msg] $msg]
     close $f
     lappend x [exec cat test3]
-
-    # The regsub is needed to avoid false errors if the file
-    # number varies from system to system.
-
-    regsub {"file[0-9]*"} $x {"file"} x
     set x
-} {1 {"file" wasn't opened for reading} abzzy}
+} $expect
 test open-14.5 {POSIX open access modes: RDWR} {
-    catch {exec rm -f test3}
+    removeFile test3
     string tolower [list [catch {open test3 RDWR} msg] $msg]
 } {1 {couldn't open "test3": no such file or directory}}
 test open-14.6 {POSIX open access modes: RDWR} {
@@ -547,7 +540,7 @@ test open-14.6 {POSIX open access modes: RDWR} {
     lappend x [exec cat test3]
 } {zzy abzzy}
 test open-14.7 {POSIX open access modes: CREAT} {
-    catch {exec rm -f test3}
+    removeFile test3
     set f [open test3 {WRONLY CREAT} 0600]
     file stat test3 stats
     set x [format "0%o" [expr $stats(mode)&0777]]
@@ -557,7 +550,7 @@ test open-14.7 {POSIX open access modes: CREAT} {
 } {0600 {line 1}}
 if $doNonPortableTests {
     test open-14.8 {POSIX open access modes: CREAT} {
-	catch {exec rm -f test3}
+	removeFile test3
 	set f [open test3 {WRONLY CREAT}]
 	close $f
 	file stat test3 stats
@@ -589,7 +582,7 @@ test open-14.11 {POSIX open access modes: EXCL} {
     string tolower $msg
 } {1 {couldn't open "test3": file exists}}
 test open-14.12 {POSIX open access modes: EXCL} {
-    catch {exec rm -f test3}
+    removeFile test3
     set x [catch {set f [open test3 {WRONLY CREAT EXCL}]}]
     puts $f "A test line"
     close $f
@@ -604,7 +597,7 @@ test open-14.13 {POSIX open access modes: TRUNC} {
 } {abc}
 if $doNonPortableTests {
     test open-14.14 {POSIX open access modes: NONBLOCK} {
-	catch {exec rm -f test3}
+	removeFile test3
 	set f [open test3 {WRONLY NONBLOCK CREAT}]
 	puts $f "NONBLOCK test"
 	close $f
@@ -625,5 +618,7 @@ test open-14.17 {POSIX open access modes: errors} {
     list [catch {open test3 {TRUNC CREAT}} msg] $msg
 } {1 {access mode must include either RDONLY, WRONLY, or RDWR}}
 
-catch {exec rm -f test1 test2 test3}
+removeFile test1
+removeFile test2
+removeFile test3
 concat {}

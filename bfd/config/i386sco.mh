@@ -1,4 +1,0 @@
-# Host:  Intel 386 running SCO Unix.
-RANLIB = /bin/true
-HDEFINES=-DTRAD_CORE
-HDEPFILES=trad-core.o

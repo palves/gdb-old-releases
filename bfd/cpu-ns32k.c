@@ -23,7 +23,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-void bfd_ns32k_arch PARAMS ((void));
 long ns32k_get_displacement PARAMS ((bfd_byte *buffer, long offset, long size));
 int ns32k_put_displacement PARAMS ((long value, bfd_byte *buffer, long offset, long size));
 long ns32k_get_immediate PARAMS ((bfd_byte *buffer, long offset, long size));
@@ -57,26 +56,16 @@ bfd_reloc_status_type ns32k_relocate_contents  PARAMS ((reloc_howto_type *howto,
 
 int bfd_default_scan_num_mach();
 
-#define N(machine, printable, d)  \
-{  32, 32, 8, bfd_arch_ns32k, machine, "ns32k",printable,3,d,bfd_default_compatible,bfd_default_scan, 0, }
+#define N(machine, printable, d, next)  \
+{  32, 32, 8, bfd_arch_ns32k, machine, "ns32k",printable,3,d,bfd_default_compatible,bfd_default_scan, next, }
 
-static bfd_arch_info_type arch_info_struct[] =
+static const bfd_arch_info_type arch_info_struct[] =
 { 
-  N(32032,"ns32k:32032",false),
-  N(32532,"ns32k:32532",true), /* the word ns32k will match this too */
-  { 0 }
-}
-;
+  N(32532,"ns32k:32532",true, 0), /* the word ns32k will match this too */
+};
 
-
-void bfd_ns32k_arch()
-{
-  unsigned int i;
-  for (i = 0; arch_info_struct[i].bits_per_word; i++)
-      {
-	bfd_arch_linkin(&arch_info_struct[i]);
-      }
-}
+const bfd_arch_info_type bfd_ns32k_arch =
+  N(32032,"ns32k:32032",false, &arch_info_struct[0]);
 
 static long
 ns32k_sign_extend(value, bits)

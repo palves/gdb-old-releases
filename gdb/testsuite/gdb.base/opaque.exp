@@ -26,12 +26,25 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-set binfile "opaque"
-set srcfile $binfile.c
+set testfile "opaque"
+set binfile ${objdir}/${subdir}/opaque
+if  { [compile "${srcdir}/${subdir}/opaque0.c -g -c -o ${binfile}0.o"] != "" } {
+    perror "Couldn't compile opaque0.c to object"
+    return -1
+}
+if  { [compile "${srcdir}/${subdir}/opaque1.c -g -c -o ${binfile}1.o"] != "" } {
+    perror "Couldn't compile opaque1.c to object"
+    return -1
+}
+if  { [compile "${binfile}1.o ${binfile}0.o -o ${binfile}"] != "" } {
+    perror "Couldn't link opaque."
+    return -1
+}
 
-if ![file exists $objdir/$subdir/$binfile] then {
-    perror "$objdir/$subdir/$binfile does not exist."
-    return 0
+execute_anywhere "rm -f ${binfile}.ci"
+if  { [compile "-E ${srcdir}/${subdir}/compiler.c > ${binfile}.ci"] != "" } {
+    perror "Couldn't make ${testfile}.ci file"
+    return -1
 }
 
 # Start with a fresh gdb.
@@ -39,9 +52,9 @@ if ![file exists $objdir/$subdir/$binfile] then {
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
-source gdb.base/opaque0.ci
+source ${binfile}.ci
 
 #
 # Test basic opaque structure handling (statically).
@@ -131,7 +144,7 @@ if [istarget "mips-idt-*"] then {
     gdb_start
 }
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 # Run to main, where struct foo is incomplete.
 if ![runto_main] {
@@ -186,7 +199,7 @@ if [istarget "mips-idt-*"] then {
     gdb_start
 }
 gdb_reinitialize_dir $srcdir/$subdir
-gdb_load $objdir/$subdir/$binfile
+gdb_load ${binfile}
 
 # Run to getfoo, where struct foo is complete.
 if ![runto getfoo] {

@@ -1,7 +1,4 @@
 /* Symmetry running either dynix 3.1 (bsd) or ptx (sysv).  */
-#include "hosts/std-host.h"
-
-#include <string.h>
 
 #define NBPG 4096
 #define UPAGES 1
@@ -21,7 +18,3 @@
 #endif
 
 #define TRAD_CORE_DSIZE_INCLUDES_TSIZE
-
-/* The native cc under Dynix considers `shared' a reserved word.
-   Kludge around the use of `shared' in ../include/bfdlink.h.  */
-#define shared genshared

@@ -1,6 +1,7 @@
 /* Get info from stack frames;
    convert between frames, blocks, functions and pc values.
-   Copyright 1986, 1987, 1988, 1989, 1991, 1994 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1991, 1994, 1995
+             Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -68,10 +69,27 @@ int
 inside_main_func (pc)
 CORE_ADDR pc;
 {
+struct symbol *mainsym;
   if (pc == 0)
     return 1;
   if (symfile_objfile == 0)
     return 0;
+
+  /* If the addr range is not set up at symbol reading time, set it up now.
+     This is for FRAME_CHAIN_VALID_ALTERNATE. I do this for coff, because
+     it is unable to set it up and symbol reading time. */
+
+  if (symfile_objfile -> ei.main_func_lowpc == INVALID_ENTRY_LOWPC &&
+      symfile_objfile -> ei.main_func_highpc == INVALID_ENTRY_HIGHPC)
+    {
+      mainsym = lookup_symbol ("main", NULL, VAR_NAMESPACE, NULL, NULL);
+      if (mainsym && SYMBOL_CLASS(mainsym) == LOC_BLOCK)
+        {
+          symfile_objfile->ei.main_func_lowpc = BLOCK_START (SYMBOL_BLOCK_VALUE (mainsym));
+          symfile_objfile->ei.main_func_highpc = BLOCK_END (SYMBOL_BLOCK_VALUE (mainsym));
+        }
+
+    }
   return (symfile_objfile -> ei.main_func_lowpc  <= pc &&
 	  symfile_objfile -> ei.main_func_highpc > pc);
 }
@@ -725,25 +743,7 @@ find_pc_partial_function (pc, name, address, endaddr)
       return 0;
     }
 
-  /* See if we're in a transfer table for Sun shared libs.
-
-     Note the hack for Sun shared library transfer tables creates
-     problems for single stepping through the return path from a shared
-     library call if the return path includes trampoline code.
-
-     I don't really understand the reasoning behind the magic handling
-     for mst_trampoline symbols.  */
-
-#ifdef INHIBIT_SUNSOLIB_TRANSFER_TABLE_HACK
-    cache_pc_function_low = SYMBOL_VALUE_ADDRESS (msymbol);
-#else
-  if (msymbol -> type == mst_text || msymbol -> type == mst_file_text)
-    cache_pc_function_low = SYMBOL_VALUE_ADDRESS (msymbol);
-  else
-    /* It is a transfer table for Sun shared libraries.  */
-    cache_pc_function_low = pc - FUNCTION_START_OFFSET;
-#endif
-
+  cache_pc_function_low = SYMBOL_VALUE_ADDRESS (msymbol);
   cache_pc_function_name = SYMBOL_NAME (msymbol);
 
   /* Use the lesser of the next minimal symbol, or the end of the section, as

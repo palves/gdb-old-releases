@@ -1,12 +1,14 @@
-#!/usr/local/bin/wish -f
-#
+#!/bin/sh
+# the next line restarts using wish \
+exec wish "$0" "$@"
+
+# tcolor --
 # This script implements a simple color editor, where you can
 # create colors using either the RGB, HSB, or CYM color spaces
 # and apply the color to existing applications.
+#
 
 wm title . "Color Editor"
-tk_bindForTraversal .
-focus .
 
 # Global variables that control the program:
 #
@@ -59,7 +61,6 @@ menu .menu.file.m
 .menu.file.m add command -label "Exit program" -underline 0 \
 	-command "destroy ."
 pack .menu.file -side left
-tk_menuBar .menu .menu.file
 
 # Create the command entry window at the bottom of the window, along
 # with the update button.
@@ -68,7 +69,7 @@ frame .bot -relief raised -borderwidth 2
 pack .bot -side bottom -fill x
 label .commandLabel -text "Command:"
 entry .command -relief sunken -borderwidth 2 -textvariable command \
-	-font -Adobe-Courier-Medium-R-Normal-*-120-*
+	-font -Adobe-Courier-Medium-R-Normal--*-120-*-*-*-*-*-*
 button .update -text Update -command doUpdate
 pack .commandLabel -in .bot -side left
 pack .update -in .bot -side right -pady .1c -padx .25c
@@ -80,16 +81,16 @@ pack .command -in .bot -expand yes -fill x -ipadx 0.25c
 frame .middle -relief raised -borderwidth 2
 pack .middle -side top -fill both
 foreach i {/usr/local/lib/X11/rgb.txt /usr/lib/X11/rgb.txt
-	/X11/R5/lib/X11/rgb.txt /X11/R4/lib/rgb/rgb.txt} {
+	/X11/R5/lib/X11/rgb.txt /X11/R4/lib/rgb/rgb.txt
+	/usr/openwin/lib/X11/rgb.txt} {
     if ![file readable $i] {
 	continue;
     }
     set f [open $i]
     frame .middle.left
     pack .middle.left -side left -padx .25c -pady .25c
-    listbox .names -geometry 20x12 -yscrollcommand ".scroll set" \
+    listbox .names -width 20 -height 12 -yscrollcommand ".scroll set" \
 	    -relief sunken -borderwidth 2 -exportselection false
-    tk_listboxSingleSelect .names
     bind .names <Double-1> {
 	    tc_loadNamedColor [.names get [.names curselection]]
     }
@@ -103,7 +104,7 @@ foreach i {/usr/local/lib/X11/rgb.txt /usr/lib/X11/rgb.txt
 	}
     }
     close $f
-    break;
+    break
 }
 
 # Create the three scales for editing the color, and the entry for
@@ -119,19 +120,15 @@ pack .middle.middle.1 .middle.middle.2 .middle.middle.3 -side top -expand yes
 pack .middle.middle.4 -side top -expand yes -fill x
 foreach i {1 2 3} {
     label .label$i -textvariable label$i
-    scale .scale$i -from 0 -to 1000 -length 10c -orient horizontal \
+    scale .scale$i -from 0 -to 1000 -length 6c -orient horizontal \
 	    -command tc_scaleChanged
-    button .up$i -width 2 -text + -command "tc_inc $i 1"
-    button .down$i -width 2 -text - -command "tc_inc $i -1"
-    pack .label$i -in .middle.middle.$i -side top -anchor w
-    pack .down$i -in .middle.middle.$i -side left -padx .25c
-    pack .scale$i -in .middle.middle.$i -side left
-    pack .up$i -in .middle.middle.$i -side left -padx .25c
+    pack .scale$i .label$i -in .middle.middle.$i -side top -anchor w
 }
-label .nameLabel -text "Name of new color:"
-entry .name -relief sunken -borderwidth 2 -textvariable name -width 30 \
-	-font -Adobe-Courier-Medium-R-Normal-*-120-*
-pack .nameLabel .name -in .middle.middle.4 -side left
+label .nameLabel -text "Name:"
+entry .name -relief sunken -borderwidth 2 -textvariable name -width 10 \
+	-font -Adobe-Courier-Medium-R-Normal--*-120-*-*-*-*-*-*
+pack .nameLabel -in .middle.middle.4 -side left
+pack .name -in .middle.middle.4 -side right -expand 1 -fill x
 bind .name <Return> {tc_loadNamedColor $name}
 
 # Create the color display swatch on the right side of the window.
@@ -140,17 +137,9 @@ frame .middle.right
 pack .middle.right -side left -pady .25c -padx .25c -anchor s
 frame .swatch -width 2c -height 5c -background $color
 label .value -textvariable color -width 13 \
-	-font -Adobe-Courier-Medium-R-Normal-*-120-*
+	-font -Adobe-Courier-Medium-R-Normal--*-120-*-*-*-*-*-*
 pack .swatch -in .middle.right -side top -expand yes -fill both
 pack .value -in .middle.right -side bottom -pady .25c
-
-# The procedure below handles the "+" and "-" buttons next to
-# the adjustor scales.  They just increment or decrement the
-# appropriate scale value.
-
-proc tc_inc {scale inc} {
-    .scale$scale set [expr [.scale$scale get]+$inc]
-}
 
 # The procedure below is invoked when one of the scales is adjusted.
 # It propagates color information from the current scale readings
@@ -315,6 +304,9 @@ proc rgbToHsv {red green blue} {
 	    } else {
 		set hue [expr {.166667*(4 + $gc - $rc)}]
 	    }
+	}
+	if {$hue < 0.0} {
+	    set hue [expr $hue + 1.0]
 	}
     }
     return [list $hue $sat [expr {$max/65535}]]

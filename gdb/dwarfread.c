@@ -1,5 +1,6 @@
 /* DWARF debugging format support for GDB.
-   Copyright (C) 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996
+   Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.  Portions based on dbxread.c,
    mipsread.c, coffread.c, and dwarfread.c from a Data General SVR4 gdb port.
 
@@ -55,11 +56,6 @@ other things to work on, if you get bored. :-)
 
 #ifndef	NO_SYS_FILE
 #include <sys/file.h>
-#endif
-
-/* FIXME -- convert this to SEEK_SET a la POSIX, move to config files.  */
-#ifndef L_SET
-#define L_SET 0
 #endif
 
 /* Some macros to provide DIE info for complaints. */
@@ -731,7 +727,7 @@ dwarf_build_psymtabs (objfile, section_offsets, mainline, dbfoff, dbfsize,
   dbsize = dbfsize;
   dbbase = xmalloc (dbsize);
   dbroff = 0;
-  if ((bfd_seek (abfd, dbfoff, L_SET) != 0) ||
+  if ((bfd_seek (abfd, dbfoff, SEEK_SET) != 0) ||
       (bfd_read (dbbase, dbsize, 1, abfd) != dbsize))
     {
       free (dbbase);
@@ -1694,6 +1690,7 @@ enum_type (dip, objfile)
   unsigned short blocksz;
   struct symbol *sym;
   int nbytes;
+  int unsigned_enum = 1;
   
   if ((type = lookup_utype (dip -> die_ref)) == NULL)
     {
@@ -1754,6 +1751,8 @@ enum_type (dip, objfile)
 	  SYMBOL_CLASS (sym) = LOC_CONST;
 	  SYMBOL_TYPE (sym) = type;
 	  SYMBOL_VALUE (sym) = list -> field.bitpos;
+	  if (SYMBOL_VALUE (sym) < 0)
+	    unsigned_enum = 0;
 	  add_symbol_to_list (sym, list_in_scope);
 	}
       /* Now create the vector of fields, and record how big it is. This is
@@ -1763,6 +1762,8 @@ enum_type (dip, objfile)
 	 vector. */
       if (nfields > 0)
 	{
+	  if (unsigned_enum)
+	    TYPE_FLAGS (type) |= TYPE_FLAG_UNSIGNED;
 	  TYPE_NFIELDS (type) = nfields;
 	  TYPE_FIELDS (type) = (struct field *)
 	    obstack_alloc (&objfile->symbol_obstack, sizeof (struct field) * nfields);
@@ -1926,7 +1927,7 @@ read_file_scope (dip, thisdie, enddie, objfile)
   decode_line_numbers (lnbase);
   process_dies (thisdie + dip -> die_length, enddie, objfile);
 
-  symtab = end_symtab (dip -> at_high_pc, 0, 0, objfile, 0);
+  symtab = end_symtab (dip -> at_high_pc, objfile, 0);
   if (symtab != NULL)
     {
       symtab -> language = cu_language;
@@ -2296,7 +2297,7 @@ read_ofile_symtab (pst)
   foffset = DBFOFF(pst) + dbroff;
   base_section_offsets = pst->section_offsets;
   baseaddr = ANOFFSET (pst->section_offsets, 0);
-  if (bfd_seek (abfd, foffset, L_SET) ||
+  if (bfd_seek (abfd, foffset, SEEK_SET) ||
       (bfd_read (dbbase, dbsize, 1, abfd) != dbsize))
     {
       free (dbbase);
@@ -2312,7 +2313,7 @@ read_ofile_symtab (pst)
   lnbase = NULL;
   if (LNFOFF (pst))
     {
-      if (bfd_seek (abfd, LNFOFF (pst), L_SET) ||
+      if (bfd_seek (abfd, LNFOFF (pst), SEEK_SET) ||
 	  (bfd_read ((PTR) lnsizedata, sizeof (lnsizedata), 1, abfd) !=
 	   sizeof (lnsizedata)))
 	{
@@ -2321,7 +2322,7 @@ read_ofile_symtab (pst)
       lnsize = target_to_host (lnsizedata, SIZEOF_LINETBL_LENGTH,
 			       GET_UNSIGNED, pst -> objfile);
       lnbase = xmalloc (lnsize);
-      if (bfd_seek (abfd, LNFOFF (pst), L_SET) ||
+      if (bfd_seek (abfd, LNFOFF (pst), SEEK_SET) ||
 	  (bfd_read (lnbase, lnsize, 1, abfd) != lnsize))
 	{
 	  free (lnbase);
@@ -2891,6 +2892,7 @@ new_symbol (dip, objfile)
     {
       sym = (struct symbol *) obstack_alloc (&objfile -> symbol_obstack,
 					     sizeof (struct symbol));
+      OBJSTAT (objfile, n_syms++);
       memset (sym, 0, sizeof (struct symbol));
       SYMBOL_NAME (sym) = create_name (dip -> at_name,
 				       &objfile->symbol_obstack);
@@ -3041,6 +3043,7 @@ synthesize_typedef (dip, objfile, type)
     {
       sym = (struct symbol *)
 	obstack_alloc (&objfile -> symbol_obstack, sizeof (struct symbol));
+      OBJSTAT (objfile, n_syms++);
       memset (sym, 0, sizeof (struct symbol));
       SYMBOL_NAME (sym) = create_name (dip -> at_name,
 				       &objfile->symbol_obstack);

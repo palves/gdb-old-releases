@@ -271,7 +271,8 @@ print_formatted (val, format, size)
      register int format;
      int size;
 {
-  int len = TYPE_LENGTH (VALUE_TYPE (val));
+  struct type *type = check_typedef (VALUE_TYPE (val));
+  int len = TYPE_LENGTH (type);
 
   if (VALUE_LVAL (val) == lval_memory)
     next_address = VALUE_ADDRESS (val) + len;
@@ -296,14 +297,13 @@ print_formatted (val, format, size)
 
     default:
       if (format == 0
-	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_ARRAY
-	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_STRING
-	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_STRUCT
-	  || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_UNION
-	  || VALUE_REPEATED (val))
+	  || TYPE_CODE (type) == TYPE_CODE_ARRAY
+	  || TYPE_CODE (type) == TYPE_CODE_STRING
+	  || TYPE_CODE (type) == TYPE_CODE_STRUCT
+	  || TYPE_CODE (type) == TYPE_CODE_UNION)
 	value_print (val, gdb_stdout, format, Val_pretty_default);
       else
-	print_scalar_formatted (VALUE_CONTENTS (val), VALUE_TYPE (val),
+	print_scalar_formatted (VALUE_CONTENTS (val), type,
 				format, size, gdb_stdout);
     }
 }
@@ -684,6 +684,7 @@ do_examine (fmt, addr)
 
   while (count > 0)
     {
+      QUIT;
       print_address (next_address, gdb_stdout);
       printf_filtered (":");
       for (i = maxelts;
@@ -1012,6 +1013,21 @@ address_info (exp, from_tty)
       printf_filtered ("a function at address ");
       print_address_numeric (BLOCK_START (SYMBOL_BLOCK_VALUE (sym)), 1,
 			     gdb_stdout);
+      break;
+
+    case LOC_UNRESOLVED:
+      {
+	struct minimal_symbol *msym;
+
+	msym = lookup_minimal_symbol (SYMBOL_NAME (sym), NULL, NULL);
+	if (msym == NULL)
+	  printf_filtered ("unresolved");
+	else
+	  {
+	    printf_filtered ("static storage at address ");
+	    print_address_numeric (SYMBOL_VALUE_ADDRESS (msym), 1, gdb_stdout);
+	  }
+      }
       break;
 
     case LOC_OPTIMIZED_OUT:
@@ -1530,7 +1546,6 @@ print_frame_args (func, fi, num, stream)
       case LOC_REF_ARG:
 	{
 	  long current_offset = SYMBOL_VALUE (sym);
-
 	  arg_size = TYPE_LENGTH (SYMBOL_TYPE (sym));
 	  
 	  /* Compute address of next argument by adding the size of
@@ -1898,9 +1913,10 @@ printf_command (arg, from_tty)
  
 	if (argclass[nargs] == double_arg)
 	  {
-	    if (TYPE_LENGTH (VALUE_TYPE (val_args[nargs])) == sizeof (float))
+	    struct type *type = VALUE_TYPE (val_args[nargs]);
+	    if (TYPE_LENGTH (type) == sizeof (float))
 	      VALUE_TYPE (val_args[nargs]) = builtin_type_float;
-	    if (TYPE_LENGTH (VALUE_TYPE (val_args[nargs])) == sizeof (double))
+	    if (TYPE_LENGTH (type) == sizeof (double))
 	      VALUE_TYPE (val_args[nargs]) = builtin_type_double;
 	  }
 	nargs++;
@@ -2060,15 +2076,10 @@ print_insn (memaddr, stream)
 {
   disassemble_info info;
 
-#define GDB_INIT_DISASSEMBLE_INFO(INFO, STREAM) \
-  (INFO).fprintf_func = (fprintf_ftype)fprintf_filtered, \
-  (INFO).stream = (STREAM), \
-  (INFO).read_memory_func = dis_asm_read_memory, \
-  (INFO).memory_error_func = dis_asm_memory_error, \
-  (INFO).print_address_func = dis_asm_print_address, \
-  (INFO).insn_info_valid = 0
-
-  GDB_INIT_DISASSEMBLE_INFO(info, stream);
+  INIT_DISASSEMBLE_INFO (info, stream, (fprintf_ftype)fprintf_filtered);
+  info.read_memory_func = dis_asm_read_memory;
+  info.memory_error_func = dis_asm_memory_error;
+  info.print_address_func = dis_asm_print_address;
 
   /* If there's no disassembler, something is very wrong.  */
   if (tm_print_insn == NULL)

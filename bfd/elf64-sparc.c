@@ -1,5 +1,5 @@
 /* SPARC-specific support for 64-bit ELF
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1996 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -25,11 +25,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "libbfd.h"
 #include "elf-bfd.h"
 
-static bfd_reloc_status_type elf64_wdisp16_reloc
+static bfd_reloc_status_type sparc64_elf_wdisp16_reloc
   PARAMS ((bfd *, arelent *, asymbol *, PTR, asection *, bfd *, char **));
-static boolean elf64_sparc_relocate_section
+static boolean sparc64_elf_relocate_section
   PARAMS ((bfd *, struct bfd_link_info *, bfd *, asection *, bfd_byte *,
 	   Elf_Internal_Rela *, Elf_Internal_Sym *, asection **));
+static boolean sparc64_elf_object_p PARAMS ((bfd *));
 
 enum reloc_type
   {
@@ -121,7 +122,7 @@ static reloc_howto_type elf_sparc_howto_table[] =
   HOWTO (R_SPARC_PC_HH22, 42, 2, 22, true, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_HH22", false, 0, 0x003fffff, true),
   HOWTO (R_SPARC_PC_HM10, 32, 2, 10, true, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_HM10", false, 0, 0x000003ff, true),
   HOWTO (R_SPARC_PC_LM22, 10, 2, 22, true, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_LM22", false, 0, 0x003fffff, true),
-  HOWTO (R_SPARC_WDISP16, 2, 2, 16, true, 0, complain_overflow_signed, elf64_wdisp16_reloc, "R_SPARC_WDISP16", false, 0, 0, true),
+  HOWTO (R_SPARC_WDISP16, 2, 2, 16, true, 0, complain_overflow_signed, sparc64_elf_wdisp16_reloc, "R_SPARC_WDISP16", false, 0, 0, true),
   HOWTO (R_SPARC_WDISP19, 2, 2, 22, true, 0, complain_overflow_signed, bfd_elf_generic_reloc, "R_SPARC_WDISP19", false, 0, 0x0007ffff, true),
   HOWTO (R_SPARC_GLOB_JMP, 0, 0, 00, false, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_GLOB_DAT", false, 0, 0x00000000, true),
   HOWTO (R_SPARC_LO7, 0, 2, 7, false, 0, complain_overflow_dont, bfd_elf_generic_reloc, "R_SPARC_LO7", false, 0, 0x0000007f, true),
@@ -130,13 +131,13 @@ static reloc_howto_type elf_sparc_howto_table[] =
 /* Handle the WDISP16 reloc.  */
 
 static bfd_reloc_status_type
-elf64_wdisp16_reloc (abfd,
-		     reloc_entry,
-		     symbol,
-		     data,
-		     input_section,
-		     output_bfd,
-		     error_message)
+sparc64_elf_wdisp16_reloc (abfd,
+			   reloc_entry,
+			   symbol,
+			   data,
+			   input_section,
+			   output_bfd,
+			   error_message)
      bfd *abfd;
      arelent *reloc_entry;
      asymbol *symbol;
@@ -258,7 +259,7 @@ elf_info_to_howto (abfd, cache_ptr, dst)
 /* Relocate a SPARC64 ELF section.  */
 
 static boolean
-elf64_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
+sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 			      contents, relocs, local_syms, local_sections)
      bfd *output_bfd;
      struct bfd_link_info *info;
@@ -334,6 +335,9 @@ elf64_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
       else
 	{
 	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+	  while (h->root.type == bfd_link_hash_indirect
+		 || h->root.type == bfd_link_hash_warning)
+	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
 	  if (h->root.type == bfd_link_hash_defined
 	      || h->root.type == bfd_link_hash_defweak)
 	    {
@@ -416,12 +420,22 @@ elf64_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
   return true;
 }
 
+/* Set the right machine number for a SPARC64 ELF file.  */
+
+static boolean
+sparc64_elf_object_p (abfd)
+     bfd *abfd;
+{
+  return bfd_default_set_arch_mach (abfd, bfd_arch_sparc, bfd_mach_sparc_v9);
+}
+
 #define TARGET_BIG_SYM	bfd_elf64_sparc_vec
 #define TARGET_BIG_NAME	"elf64-sparc"
 #define ELF_ARCH	bfd_arch_sparc
 #define ELF_MACHINE_CODE EM_SPARC64
 #define ELF_MAXPAGESIZE 0x100000
 
-#define elf_backend_relocate_section	elf64_sparc_relocate_section
+#define elf_backend_relocate_section	sparc64_elf_relocate_section
+#define elf_backend_object_p		sparc64_elf_object_p
 
 #include "elf64-target.h"

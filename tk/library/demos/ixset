@@ -1,6 +1,8 @@
-#!/usr/local/bin/wish -f
+#!/bin/sh
+# the next line restarts using wish \
+exec wish "$0" "$@"
 
-#
+# ixset --
 # A nice interface to "xset" to change X server settings
 #
 # History :
@@ -195,8 +197,7 @@ proc createwindows {} {
     label .bell.label	-text "Bell Settings"
     scale .bell.vol \
 	    -from 0 -to 100 -length 200 -tickinterval 20 \
-	    -label "Volume (%)" -orient horizontal \
-	    -bg Bisque1 -activeforeground Gray
+	    -label "Volume (%)" -orient horizontal
 
     frame .bell.val
     labelentry .bell.val.pit "Pitch (Hz)"    6
@@ -217,12 +218,10 @@ proc createwindows {} {
     checkbutton .kbd.val.onoff \
 	    -text "On" \
 	    -onvalue "on" -offvalue "off" -variable kbdrep \
-	    -relief flat \
-	    -activebackground Bisque1
+	    -relief flat
     scale .kbd.val.cli \
 	    -from 0 -to 100 -length 200 -tickinterval 20 \
-	    -label "Click Volume (%)" -orient horizontal \
-	    -bg Bisque1 -activeforeground Gray
+	    -label "Click Volume (%)" -orient horizontal
     pack .kbd.val.onoff -side left -expand yes -fill both
     pack .kbd.val.cli -side left -expand yes
 
@@ -258,12 +257,10 @@ proc createwindows {} {
     frame .screen.val.rb
     radiobutton .screen.val.rb.blank \
 	    -variable screenblank -text "Blank" -relief flat \
-	    -value "blank" -variable screenbla \
-	    -activebackground Bisque1
+	    -value "blank" -variable screenbla
     radiobutton .screen.val.rb.pat \
 	    -variable screenblank -text "Pattern" -relief flat \
-	    -value "noblank" -variable screenbla \
-	    -activebackground Bisque1
+	    -value "noblank" -variable screenbla
     pack .screen.val.rb.blank .screen.val.rb.pat -side top -pady 2 -anchor w
     frame .screen.val.le
     labelentry .screen.val.le.tim "Timeout (s)" 5

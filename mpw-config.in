@@ -9,10 +9,10 @@ Set Exit 0
 Echo byacc is `Which byacc`
 Echo flex is `Which flex`
 Echo forward-include is `Which forward-include`
-Echo GCC version 1 is `Which gC1`
 Echo MoveIfChange is `Which MoveIfChange`
-Echo 'open-brace' is `Which open-brace`
+Echo open-brace is `Which open-brace`
 Echo sed is `Which sed`
+Echo mpw-touch is `Which mpw-touch`
 Echo 'tr-7to8' is `Which tr-7to8`
 Set Exit 1
 
@@ -24,6 +24,11 @@ Set target_libs "newlib"
 
 Set target_tools "examples"
 
+# Configure the resource compiler if targeting Macs.
+If {target_os} =~ /macos/ || {target_os} =~ /mpw/
+	Set host_tools "{host_tools} grez"
+End If
+	
 Set configdirs "{host_libs} {host_tools} {target_libs} {target_tools}"
 Export configdirs
 
@@ -62,6 +67,9 @@ forward-include "{srcroot}"include:coff:symconst.h "{edir}"'coff/symconst.h'
 If "`Exists "{srcroot}"include:coff:"{target_cpu}".h`" != ""
 	forward-include "{srcroot}"include:coff:"{target_cpu}".h "{edir}"'coff/'"{target_cpu}"'.h'
 End If
+If "{target_cpu}" =~ /powerpc/
+	forward-include "{srcroot}"include:coff:rs6000.h "{edir}"'coff/rs6000.h'
+End If
 
 forward-include "{srcroot}"include:elf:common.h "{edir}"'elf/common.h'
 forward-include "{srcroot}"include:elf:dwarf.h "{edir}"'elf/dwarf.h'
@@ -74,9 +82,15 @@ forward-include "{srcroot}"include:elf:mips.h "{edir}"'elf/mips.h'
 If "`Exists "{srcroot}"include:elf:"{target_cpu}".h`" != ""
 	forward-include "{srcroot}"include:elf:"{target_cpu}".h "{edir}"'elf/'"{target_cpu}"'.h'
 End If
+If "{target_cpu}" =~ /powerpc/
+	forward-include "{srcroot}"include:elf:ppc.h "{edir}"'elf/ppc.h'
+End If
 
 If "`Exists "{srcroot}"include:opcode:"{target_cpu}".h`" != ""
 	forward-include "{srcroot}"include:opcode:"{target_cpu}".h "{edir}"'opcode/'"{target_cpu}"'.h'
+End If
+If "{target_cpu}" =~ /powerpc/
+	forward-include "{srcroot}"include:opcode:ppc.h "{edir}"'opcode/ppc.h'
 End If
 
 # Add some bfd includes that get mentioned outside the bfd dir.

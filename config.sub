@@ -1,6 +1,6 @@
 #! /bin/sh
 # Configuration validation subroutine script, version 1.1.
-#   Copyright (C) 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+#   Copyright (C) 1991, 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
 # This file is (in principle) common to ALL GNU software.
 # The presence of a machine in this file suggests that SOME GNU software
 # can handle that machine.  It does not imply ALL GNU software can. 
@@ -17,7 +17,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
 
 # As a special exception to the GNU General Public License, if you
 # distribute this file as part of a program that contains a
@@ -101,6 +102,10 @@ case $os in
 	-hiux*)
 		os=-hiuxwe2
 		;;
+	-sco5)
+		os=sco3.2v5
+		basic_machine=`echo $1 | sed -e 's/86-.*/86-unknown/'`
+		;;
 	-sco4)
 		os=-sco3.2v4
 		basic_machine=`echo $1 | sed -e 's/86-.*/86-unknown/'`
@@ -142,8 +147,8 @@ esac
 case $basic_machine in
 	# Recognize the basic CPU types without company name.
 	# Some are omitted here because they have special meanings below.
-	tahoe | i[345]86 | i860 | m68k | m68000 | m88k | ns32k | arm | armeb \
-		| armel | pyramid \
+	tahoe | i[3456]86 | i860 | m68k | m68000 | m88k | ns32k | arm \
+		| arme[lb] | pyramid \
 		| tron | a29k | 580 | i960 | h8300 | hppa1.0 | hppa1.1 \
 		| alpha | we32k | ns16k | clipper | sparclite | i370 | sh \
 		| powerpc | powerpcle | sparc64 | 1750a | dsp16xx | mips64 | mipsel \
@@ -154,13 +159,19 @@ case $basic_machine in
 	m88110 | m680[01234]0 | m683?2 | m68360 | z8k | v70 | h8500 | w65) # CYGNUS LOCAL
 		basic_machine=$basic_machine-unknown
 		;;
+	mips64vr4300 | mips64vr4300el) # CYGNUS LOCAL jsmith/vr4300
+		basic_machine=$basic_machine-unknown
+		;;
+	mips64vr4100 | mips64vr4100el) # CYGNUS LOCAL jsmith/vr4100
+		basic_machine=$basic_machine-unknown
+		;;
 	# Object if more than one company name word.
 	*-*-*)
 		echo Invalid configuration \`$1\': machine \`$basic_machine\' not recognized 1>&2
 		exit 1
 		;;
 	# Recognize the basic CPU types with company name.
-	vax-* | tahoe-* | i[345]86-* | i860-* | m68k-* | m68000-* | m88k-* \
+	vax-* | tahoe-* | i[3456]86-* | i860-* | m68k-* | m68000-* | m88k-* \
 	      | sparc-* | ns32k-* | fx80-* | arm-* | arme[lb]-* | c[123]* \
 	      | mips-* | pyramid-* | tron-* | a29k-* | romp-* | rs6000-* | power-* \
 	      | none-* | 580-* | cray2-* | h8300-* | i960-* | xmp-* | ymp-* \
@@ -170,6 +181,10 @@ case $basic_machine in
 	      | mips64el-* | mips64orion-* | mips64orionel-*)
 		;;
 	m88110-* | m680[01234]0-* | m683?2-* | m68360-* | z8k-* | h8500-*) # CYGNUS LOCAL
+		;;
+	mips64vr4300-* | mips64vr4300el-*) # CYGNUS LOCAL jsmith/vr4300
+		;;
+	mips64vr4100-* | mips64vr4100el-*) # CYGNUS LOCAL jsmith/vr4100
 		;;
 	# Recognize the various machine names and aliases which stand
 	# for a CPU type and a company and sometimes even an OS.
@@ -225,8 +240,12 @@ case $basic_machine in
 		os=-bsd
 		;;
 	arm | armel | armeb)
-		basic_machine = arm-arm
+		basic_machine=arm-arm
 		os=-aout
+		;;
+	aux)
+		basic_machine=m68k-apple
+		os=-aux
 		;;
 	balance)
 		basic_machine=ns32k-sequent
@@ -378,19 +397,19 @@ case $basic_machine in
 		os=-mvs
 		;;
 # I'm not sure what "Sysv32" means.  Should this be sysv3.2?
-	i[345]86v32)
+	i[3456]86v32)
 		basic_machine=`echo $1 | sed -e 's/86.*/86-unknown/'`
 		os=-sysv32
 		;;
-	i[345]86v4*)
+	i[3456]86v4*)
 		basic_machine=`echo $1 | sed -e 's/86.*/86-unknown/'`
 		os=-sysv4
 		;;
-	i[345]86v)
+	i[3456]86v)
 		basic_machine=`echo $1 | sed -e 's/86.*/86-unknown/'`
 		os=-sysv
 		;;
-	i[345]86sol2)
+	i[3456]86sol2)
 		basic_machine=`echo $1 | sed -e 's/86.*/86-unknown/'`
 		os=-solaris2
 		;;
@@ -525,19 +544,23 @@ case $basic_machine in
         pc532 | pc532-*)
 		basic_machine=ns32k-pc532
 		;;
-	pentium | p5 | p6)
-		# We don't have specific support for the Intel Pentium (p6) followon yet, so just call it a Pentium
+	pentium | p5)
 		basic_machine=i586-intel
 		;;
-	pentium-* | p5-* | p6-*)
-		# We don't have specific support for the Intel Pentium (p6) followon yet, so just call it a Pentium
+	pentiumpro | p6)
+		basic_machine=i686-intel
+		;;
+	pentium-* | p5-*)
 		basic_machine=i586-`echo $basic_machine | sed 's/^[^-]*-//'`
+		;;
+	pentiumpro-* | p6-*)
+		basic_machine=i686-`echo $basic_machine | sed 's/^[^-]*-//'`
 		;;
 	k5)
 		# We don't have specific support for AMD's K5 yet, so just call it a Pentium
 		basic_machine=i586-amd
 		;;
-	nexgen)
+	nexen)
 		# We don't have specific support for Nexgen yet, so just call it a Pentium
 		basic_machine=i586-nexgen
 		;;
@@ -687,10 +710,10 @@ case $basic_machine in
 		basic_machine=m68k-wrs
 		os=-vxworks
 		;;
-        vxworks29k)					# CYGNUS LOCAL
-                basic_machine=a29k-wrs
-                os=-vxworks
-                ;;
+	vxworks29k)
+		basic_machine=a29k-wrs
+		os=-vxworks
+		;;
 	w65*)						# CYGNUS LOCAL
  		basic_machine=w65-wdc
  		os=-none
@@ -752,11 +775,11 @@ case $basic_machine in
 	orion105)
 		basic_machine=clipper-highlevel
 		;;
-	mac)						# CYGNUS LOCAL
+	mac | mpw | mac-mpw)				# CYGNUS LOCAL
 		basic_machine=m68k-apple
 		;;
-	mpw)						# CYGNUS LOCAL
-		basic_machine=m68k-apple
+	pmac | pmac-mpw)				# CYGNUS LOCAL
+		basic_machine=powerpc-apple
 		;;
 	*)
 		echo Invalid configuration \`$1\': machine \`$basic_machine\' not recognized 1>&2
@@ -796,33 +819,29 @@ case $os in
 		;;
 	# First accept the basic system types.
 	# The portable systems comes first.
-	# Each alternative must end in a *, to match a version number.
+	# Each alternative MUST END IN A *, to match a version number.
 	# -sysv* is not here because it comes later, after sysvr4.
 	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
-	      | -vms* | -sco* | -esix* | -isc* | -aix* | -sunos | -sunos[345]* \
+	      | -vms* | -sco* | -esix* | -isc* | -aix* | -sunos | -sunos[3456]* \
 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -solaris* | -sym* \
 	      | -amigados* | -msdos* | -moss* | -newsos* | -unicos* | -aos* \
 	      | -nindy* | -vxworks* | -ebmon* | -hms* | -mvs* | -clix* \
 	      | -riscos* | -linux* | -uniplus* | -iris* | -rtu* | -xenix* \
-	      | -hiux* | -386bsd* | -netbsd* | -freebsd* | -riscix*  | -lites* \
+	      | -hiux* | -386bsd* | -netbsd* | -freebsd* | -riscix* \
 	      | -lynxos* | -bosx* | -nextstep* | -cxux* | -aout* | -elf* \
-	      | -ptx* | -coff* | -ecoff* | -winnt* | -domain* | -vsta | -udi | -eabi*)
+	      | -ptx* | -coff* | -ecoff* | -winnt* | -domain* | -vsta* \
+	      | -udi* | -eabi* | -lites* | -ieee* | -go32* | -aux*)
+	# Remember, each alternative MUST END IN *, to match a version number.
 		;;
 	# CYGNUS LOCAL
-	-go32 | -sim | -es1800* | -hms* | -xray | -os68k* | -none* | -v88r* \
-	      | -windows* | -osx | -abug |  -netware* | -proelf | -os9*)
+	-sim | -es1800* | -hms* | -xray | -os68k* | -none* | -v88r* \
+	      | -windows* | -osx | -abug |  -netware* | -proelf | -os9* \
+	      | -macos* | -mpw* | -magic* | -pe* | -cygwin32)
 		;;
-	-macos*)					# CYGNUS LOCAL
-		;;
-	-mac*)						# CYGNUS LOCAL
+	-mac*)
 		os=`echo $os | sed -e 's|mac|macos|'`
 		;;
-	-mpw*)						# CYGNUS LOCAL
-		;;
-	-pe*)
-		;;
-	-win32)
-		;;
+	# END CYGNUS LOCAL
 	-sunos5*)
 		os=`echo $os | sed -e 's|sunos5|solaris2|'`
 		;;
@@ -849,6 +868,9 @@ case $os in
 		;;
 	-ctix* | -uts*)
 		os=-sysv
+		;;
+	-ns2 )
+	        os=-nextstep2
 		;;
 	# Preserve the version number of sinix5.
 	-sinix5.*)
@@ -908,6 +930,9 @@ else
 case $basic_machine in
 	*-acorn)
 		os=-riscix1.2
+		;;
+	arm*-semi)
+		os=-aout
 		;;
         pdp11-*)
 		os=-none
@@ -975,6 +1000,9 @@ case $basic_machine in
 	m88k-omron*)
 		os=-luna
 		;;
+	*-next )
+		os=-nextstep
+		;;
 	*-sequent)
 		os=-ptx
 		;;
@@ -1015,7 +1043,7 @@ case $basic_machine in
 		os=-coff
 		;;
 	*-apple)					# CYGNUS LOCAL
-		os=-macos7
+		os=-macos
 		;;
 	*)
 		os=-none
@@ -1070,6 +1098,9 @@ case $basic_machine in
 				;;
 			-vxworks*)
 				vendor=wrs
+				;;
+			-aux*)
+				vendor=apple
 				;;
 			-hms*)				# CYGNUS LOCAL
 				vendor=hitachi

@@ -40,11 +40,9 @@
 #define HAVE_BSD_SIGNALS
 /* #define USE_XON_XOFF */
 
-#if defined(__MSDOS__) || defined(WIN32)
+#if defined(__MSDOS__) || defined(_MSC_VER)
 #define NO_SYS_FILE
 #define SIGALRM 1234
-#undef NEW_TTY_DRIVER
-#undef HAVE_BSD_SIGNALS
 #undef NEW_TTY_DRIVER
 #undef HAVE_BSD_SIGNALS
 #define MINIMAL
@@ -58,6 +56,16 @@
 /* CYGNUS LOCAL accept __hpux as well as hpux for HP compiler in ANSI mode.  */
 #if defined (USG) && !(defined (hpux) || defined (__hpux))
 #  undef HAVE_BSD_SIGNALS
+#endif
+
+#if defined (__WIN32__) && !defined(_MSC_VER)
+#undef NEW_TTY_DRIVER
+#define MINIMAL
+#undef HAVE_BSD_SIGNALS
+#define TERMIOS_TTY_DRIVER
+#undef HANDLE_SIGNALS
+#include <termios.h>
+/*#define HAVE_POSIX_SIGNALS*/
 #endif
 
 /* System V machines use termio. */
@@ -174,6 +182,11 @@ extern char *strchr (), *strrchr ();
 /* This definition is needed by readline.c, rltty.c, and signals.c. */
 /* If on, then readline handles signals in a way that doesn't screw. */
 #define HANDLE_SIGNALS
+
+#if defined(__WIN32__) || defined(__MSDOS__)
+#undef HANDLE_SIGNALS
+#endif
+
 
 #if !defined (emacs_mode)
 #  define no_mode -1

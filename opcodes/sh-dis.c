@@ -1,4 +1,4 @@
-/* Disassemble h8500 instructions.
+/* Disassemble SH instructions.
    Copyright (C) 1993, 1995 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
@@ -70,6 +70,8 @@ print_insn_shx(memaddr, info)
       int imm;
       int rn;
       int rm;
+      int rb;
+
       for (n = 0; n < 4; n++) {
 	int i = op->nibbles[n];
 	if (i < 16) 
@@ -135,6 +137,9 @@ print_insn_shx(memaddr, info)
 	  case REG_M:
 	    rm = nibs[n];
 	    break;
+          case REG_B:
+            rb = nibs[n] & 0x07;
+            break;	
 	  default:
 	    abort();
 	  }
@@ -142,7 +147,7 @@ print_insn_shx(memaddr, info)
       }
     ok:
       fprintf(stream,"%s\t", op->name);
-      for (n = 0; n < 2 && op->arg[n] != A_END; n++) 
+      for (n = 0; n < 3 && op->arg[n] != A_END; n++) 
 	{
 	  if (n && op->arg[1] != A_END)
 	    fprintf(stream,",");
@@ -184,6 +189,9 @@ print_insn_shx(memaddr, info)
 	    case A_DISP_REG_M:
 	      fprintf(stream,"@(%d,r%d)",imm, rm);	
 	      break;
+            case A_REG_B:
+              fprintf(stream,"r%d_bank", rb);
+	      break;
 	    case A_DISP_PC:
 	      fprintf(stream,"0x%0x", imm+ 4+(memaddr&relmask));
 	      break;
@@ -212,6 +220,12 @@ print_insn_shx(memaddr, info)
 	    case A_VBR:
 	      fprintf(stream,"vbr");
 	      break;
+	    case A_SSR:
+	      fprintf(stream,"ssr");
+	      break;
+	    case A_SPC:
+	      fprintf(stream,"spc");
+	      break;
 	    case A_MACH:
 	      fprintf(stream,"mach");
 	      break;
@@ -220,6 +234,23 @@ print_insn_shx(memaddr, info)
 	      break;
 	    case A_PR:
 	      fprintf(stream,"pr");
+	      break;
+	    case F_REG_N:
+	      fprintf(stream,"fr%d", rn);
+	      break;
+	    case F_REG_M:
+	      fprintf(stream,"fr%d", rm);
+	      break;
+	    case FPSCR_M:
+	    case FPSCR_N:
+	      fprintf(stream,"fpscr");
+	      break;
+	    case FPUL_M:
+	    case FPUL_N:
+	      fprintf(stream,"fpul");
+	      break;
+	    case F_FR0:
+	      fprintf(stream,"fr0");
 	      break;
 	    default:
 	      abort();

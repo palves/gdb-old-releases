@@ -20,6 +20,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* This file holds definitions specific to the HPPA ELF ABI.  Note
    that most of this is not actually implemented by BFD.  */
 
+#ifndef _ELF_HPPA_H
+#define _ELF_HPPA_H
+
 /* Processor specific flags for the ELF header e_flags field.  */
 
 /* Target processor IDs to be placed in the low 16 bits of the flags
@@ -88,3 +91,4 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* Millicode function entry point.  */
 #define STT_PARISC_MILLICODE	STT_LOPROC+0
 
+#endif /* _ELF_HPPA_H */

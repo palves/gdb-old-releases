@@ -28,8 +28,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
     )
 #define N_DATADDR(x) (N_TXTADDR(x)+N_TXTSIZE(x))
 #define TEXT_START_ADDR 4096
-#define PAGE_SIZE 4096
-#define SEGMENT_SIZE PAGE_SIZE
+#define TARGET_PAGE_SIZE 4096
+#define SEGMENT_SIZE TARGET_PAGE_SIZE
 #define DEFAULT_ARCH bfd_arch_mips
 #define MACHTYPE_OK(mtype) ((mtype) == M_UNKNOWN \
 			    || (mtype) == M_MIPS1 || (mtype) == M_MIPS2)
@@ -377,7 +377,7 @@ static CONST struct aout_backend_data MY(backend_data) = {
   0,				/* zmagic contiguous */
   1,				/* text incl header */
   0,				/* exec_hdr_flags */
-  PAGE_SIZE,			/* text vma */
+  TARGET_PAGE_SIZE,			/* text vma */
   MY_set_sizes,
   0,				/* text size includes exec header */
   0,				/* add_dynamic_symbols */
@@ -392,8 +392,8 @@ const bfd_target aout_mips_little_vec =
 {
   "a.out-mips-little",		/* name */
   bfd_target_aout_flavour,
-  false,			/* target byte order (little) */
-  false,			/* target headers byte order (little) */
+  BFD_ENDIAN_LITTLE,		/* target byte order (little) */
+  BFD_ENDIAN_LITTLE,		/* target headers byte order (little) */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -401,7 +401,6 @@ const bfd_target aout_mips_little_vec =
   MY_symbol_leading_char,
   ' ',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  1,				/* minimum alignment */
   bfd_getl64, bfd_getl_signed_64, bfd_putl64,
      bfd_getl32, bfd_getl_signed_32, bfd_putl32,
      bfd_getl16, bfd_getl_signed_16, bfd_putl16, /* data */
@@ -432,8 +431,8 @@ const bfd_target aout_mips_big_vec =
 {
   "a.out-mips-big",		/* name */
   bfd_target_aout_flavour,
-  true,				/* target byte order (big) */
-  true,				/* target headers byte order (big) */
+  BFD_ENDIAN_BIG,		/* target byte order (big) */
+  BFD_ENDIAN_BIG,		/* target headers byte order (big) */
   (HAS_RELOC | EXEC_P |		/* object flags */
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | WP_TEXT | D_PAGED),
@@ -441,7 +440,6 @@ const bfd_target aout_mips_big_vec =
   MY_symbol_leading_char,
   ' ',				/* ar_pad_char */
   15,				/* ar_max_namelen */
-  1,				/* minimum alignment */
   bfd_getb64, bfd_getb_signed_64, bfd_putb64,
      bfd_getb32, bfd_getb_signed_32, bfd_putb32,
      bfd_getb16, bfd_getb_signed_16, bfd_putb16, /* data */

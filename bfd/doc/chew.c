@@ -84,6 +84,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include <ansidecl.h>
 #include "sysdep.h"
 #include <assert.h>
+#include <stdio.h>
+#include <ctype.h>
 
 #define DEF_SIZE 5000
 #define STACK 50

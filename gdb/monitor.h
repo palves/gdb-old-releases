@@ -1,8 +1,5 @@
 /* Remote debugging interface ROM monitors.
- *  Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
- *  Contributed by Cygnus Support. Written by Rob Savoye for Cygnus.
- *
- *  Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+ *  Copyright 1990, 1991, 1992, 1996 Free Software Foundation, Inc.
  *  Contributed by Cygnus Support. Written by Rob Savoye for Cygnus.
  *
  * This file is part of GDB.
@@ -23,12 +20,6 @@
  */
 
 #include "serial.h"
-
-struct rom_cmd_data {
-  char *cmd;			/* command to send */
-  char *delim;			/* the delimiter */
-  char *result;			/* the result */
-};
 
 /* This structure describes the strings necessary to give small command
    sequences to the monitor, and parse the response.
@@ -72,7 +63,8 @@ struct memrw_cmd
 struct regrw_cmd
 {
   char *cmd;			/* Command to send for reg read/write */
-  char *resp_delim;		/* String just prior to the desired value */
+  char *resp_delim;		/* String (actually a regexp if getmem) just
+				   prior to the desired value */
   char *term;			/* Terminating string to search for */
   char *term_cmd;		/* String to get out of sub-mode (if necessary) */
 };
@@ -116,17 +108,18 @@ struct monitor_ops
 
 /* Flag defintions */
 
-#define MO_CLR_BREAK_USES_ADDR 0x1 /* If set, then clear breakpoint command
-				      uses address, otherwise it uses an index
-				      returned by the monitor.  */
-#define MO_FILL_USES_ADDR 0x2	/* If set, then memory fill command uses
-				   STARTADDR, ENDADDR+1, VALUE as args, else it
-				   uses STARTADDR, LENGTH, VALUE as args. */
-#define MO_NEED_REGDUMP_AFTER_CONT 0x4 /* If set, then monitor doesn't auto-
-					  matically supply register dump when
-					  coming back after a continue.  */
-#define MO_GETMEM_NEEDS_RANGE 0x8 /* getmem needs start addr and end addr */
-#define MO_GETMEM_READ_SINGLE 0x10 /* getmem can only read one loc at a time */
+#define MO_CLR_BREAK_USES_ADDR 0x1	/* If set, then clear breakpoint command
+					   uses address, otherwise it uses an index
+					   returned by the monitor.  */
+#define MO_FILL_USES_ADDR 0x2		/* If set, then memory fill command uses
+					   STARTADDR, ENDADDR+1, VALUE as args, else it
+					   uses STARTADDR, LENGTH, VALUE as args. */
+#define MO_NEED_REGDUMP_AFTER_CONT 0x4	/* If set, then monitor doesn't auto-
+					   matically supply register dump when
+					   coming back after a continue.  */
+#define MO_GETMEM_NEEDS_RANGE 0x8	/* getmem needs start addr and end addr */
+#define MO_GETMEM_READ_SINGLE 0x10	/* getmem can only read one loc at a time */
+#define MO_HANDLE_NL 0x20		/* handle \r\n combinations */
 
 extern struct monitor_ops        *current_monitor;
 
@@ -169,6 +162,7 @@ extern struct monitor_ops        *current_monitor;
 #define REG_DELIM               (current_monitor->regset.delim)
 
 extern void monitor_open PARAMS ((char *args, struct monitor_ops *ops, int from_tty));
+extern void monitor_close PARAMS ((int quitting));
 extern char *monitor_supply_register PARAMS ((int regno, char *valstr));
 extern int monitor_expect PARAMS ((char *prompt, char *buf, int buflen));
 extern int monitor_expect_prompt PARAMS ((char *buf, int buflen));

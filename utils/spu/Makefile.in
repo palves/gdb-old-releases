@@ -117,7 +117,7 @@ clean:		mostlyclean
 distclean:	clean
 	rm -f Makefile config.status
 
-realclean:	distclean
+maintainer-clean realclean:	distclean
 
 Makefile: Makefile.in $(host_makefile_frag) $(target_makefile_frag)
 	$(SHELL) config.status
