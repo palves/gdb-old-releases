@@ -303,13 +303,28 @@ CORE_ADDR
 read_register (regno)
      int regno;
 {
-  REGISTER_TYPE reg;
+  unsigned short sval;
+  unsigned long lval;
 
   if (!register_valid[regno])
     target_fetch_registers (regno);
-  memcpy (&reg, &registers[REGISTER_BYTE (regno)], sizeof (REGISTER_TYPE));
-  SWAP_TARGET_AND_HOST (&reg, sizeof (REGISTER_TYPE));
-  return reg;
+
+  switch (REGISTER_RAW_SIZE(regno))
+    {
+    case sizeof (unsigned char):
+      return registers[REGISTER_BYTE (regno)];
+    case sizeof (sval):
+      memcpy (&sval, &registers[REGISTER_BYTE (regno)], sizeof (sval));
+      SWAP_TARGET_AND_HOST (&sval, sizeof (sval));
+      return sval;
+    case sizeof (lval):
+      memcpy (&lval, &registers[REGISTER_BYTE (regno)], sizeof (lval));
+      SWAP_TARGET_AND_HOST (&lval, sizeof (lval));
+      return lval;
+    default:
+      error ("Can't handle register size of %d for register %d\n",
+	     REGISTER_RAW_SIZE(regno), regno);
+    }
 }
 
 /* Registers we shouldn't try to store.  */
@@ -325,20 +340,34 @@ void
 write_register (regno, val)
      int regno, val;
 {
-  REGISTER_TYPE reg;
+  unsigned short sval;
+  unsigned long lval;
 
   /* On the sparc, writing %g0 is a no-op, so we don't even want to change
      the registers array if something writes to this register.  */
   if (CANNOT_STORE_REGISTER (regno))
     return;
 
-  reg = val;
-  SWAP_TARGET_AND_HOST (&reg, sizeof (REGISTER_TYPE));
-
   target_prepare_to_store ();
 
   register_valid [regno] = 1;
-  memcpy (&registers[REGISTER_BYTE (regno)], &reg, sizeof (REGISTER_TYPE));
+
+  switch (REGISTER_RAW_SIZE(regno))
+    {
+    case sizeof (unsigned char):
+      registers[REGISTER_BYTE (regno)] = val;
+      break;
+    case sizeof (sval):
+      sval = val;
+      SWAP_TARGET_AND_HOST (&sval, sizeof (sval));
+      memcpy (&registers[REGISTER_BYTE (regno)], &sval, sizeof (sval));
+      break;
+    case sizeof (lval):
+      lval = val;
+      SWAP_TARGET_AND_HOST (&lval, sizeof (lval));
+      memcpy (&registers[REGISTER_BYTE (regno)], &lval, sizeof (lval));
+      break;
+    }
 
   target_store_registers (regno);
 }
@@ -478,6 +507,7 @@ read_var_value (var, frame)
 
     case LOC_REGISTER:
     case LOC_REGPARM:
+    case LOC_REGPARM_ADDR:
       {
 	struct block *b;
 
@@ -487,17 +517,7 @@ read_var_value (var, frame)
 	
 	v = value_from_register (type, SYMBOL_VALUE (var), frame);
 
-	/* Nonzero if a struct which is located in a register or a LOC_ARG
-	   really contains
-	   the address of the struct, not the struct itself.  GCC_P is nonzero
-	   if the function was compiled with GCC.  */
-#if !defined (REG_STRUCT_HAS_ADDR)
-#define REG_STRUCT_HAS_ADDR(gcc_p) 0
-#endif
-
-	if (REG_STRUCT_HAS_ADDR (BLOCK_GCC_COMPILED (b))
-	    && (   (TYPE_CODE (type) == TYPE_CODE_STRUCT)
-	        || (TYPE_CODE (type) == TYPE_CODE_UNION)))
+	if (SYMBOL_CLASS (var) == LOC_REGPARM_ADDR)
 	  {
 	    addr = *(CORE_ADDR *)VALUE_CONTENTS (v);
 	    VALUE_LVAL (v) = lval_memory;
@@ -506,6 +526,11 @@ read_var_value (var, frame)
 	  return v;
       }
       break;
+
+    case LOC_OPTIMIZED_OUT:
+      VALUE_LVAL (v) = not_lval;
+      VALUE_OPTIMIZED_OUT (v) = 1;
+      return v;
 
     default:
       error ("Cannot look up value of a botched symbol.");
@@ -543,7 +568,11 @@ value_from_register (type, regnum, frame)
 		      ((len - 1) / REGISTER_RAW_SIZE (regnum)) + 1 :
 		      1);
 
-  if (num_storage_locs > 1)
+  if (num_storage_locs > 1
+#ifdef GDB_TARGET_IS_H8500
+      || TYPE_CODE (type) == TYPE_CODE_PTR
+#endif
+      )
     {
       /* Value spread across multiple storage locations.  */
       
@@ -557,33 +586,94 @@ value_from_register (type, regnum, frame)
 
       /* Copy all of the data out, whereever it may be.  */
 
-      for (local_regnum = regnum;
-	   value_bytes_copied < len;
-	   (value_bytes_copied += REGISTER_RAW_SIZE (local_regnum),
-	    ++local_regnum))
+#ifdef GDB_TARGET_IS_H8500
+/* This piece of hideosity is required because the H8500 treats registers
+   differently depending upon whether they are used as pointers or not.  As a
+   pointer, a register needs to have a page register tacked onto the front.
+   An alternate way to do this would be to have gcc output different register
+   numbers for the pointer & non-pointer form of the register.  But, it
+   doesn't, so we're stuck with this.  */
+
+      if (TYPE_CODE (type) == TYPE_CODE_PTR
+	  && len > 2)
 	{
-	  get_saved_register (value_bytes + value_bytes_copied,
+	  int page_regnum;
+
+	  switch (regnum)
+	    {
+	    case R0_REGNUM: case R1_REGNUM: case R2_REGNUM: case R3_REGNUM:
+	      page_regnum = SEG_D_REGNUM;
+	      break;
+	    case R4_REGNUM: case R5_REGNUM:
+	      page_regnum = SEG_E_REGNUM;
+	      break;
+	    case R6_REGNUM: case R7_REGNUM:
+	      page_regnum = SEG_T_REGNUM;
+	      break;
+	    }
+
+	  value_bytes[0] = 0;
+	  get_saved_register (value_bytes + 1,
 			      &optim,
 			      &addr,
 			      frame,
-			      local_regnum,
+			      page_regnum,
 			      &lval);
+
 	  if (lval == lval_register)
 	    reg_stor++;
 	  else
 	    {
 	      mem_stor++;
+	      first_addr = addr;
+	    }
+	  last_addr = addr;
 
-	      if (regnum == local_regnum)
-		first_addr = addr;
-	      
-	      mem_tracking =
-		(mem_tracking
-		 && (regnum == local_regnum
-		     || addr == last_addr));
+	  get_saved_register (value_bytes + 2,
+			      &optim,
+			      &addr,
+			      frame,
+			      regnum,
+			      &lval);
+
+	  if (lval == lval_register)
+	    reg_stor++;
+	  else
+	    {
+	      mem_stor++;
+	      mem_tracking = mem_tracking && (addr == last_addr);
 	    }
 	  last_addr = addr;
 	}
+      else
+#endif				/* GDB_TARGET_IS_H8500 */
+	for (local_regnum = regnum;
+	     value_bytes_copied < len;
+	     (value_bytes_copied += REGISTER_RAW_SIZE (local_regnum),
+	      ++local_regnum))
+	  {
+	    get_saved_register (value_bytes + value_bytes_copied,
+				&optim,
+				&addr,
+				frame,
+				local_regnum,
+				&lval);
+	    if (lval == lval_register)
+	      reg_stor++;
+	    else
+	      {
+		mem_stor++;
+
+		if (regnum == local_regnum)
+		  first_addr = addr;
+	      
+		mem_tracking =
+		  (mem_tracking
+		   && (regnum == local_regnum
+		       || addr == last_addr));
+	      }
+	    last_addr = addr;
+	  }
 
       if ((reg_stor && mem_stor)
 	  || (mem_stor && !mem_tracking))

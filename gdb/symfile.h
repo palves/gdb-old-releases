@@ -40,9 +40,9 @@ struct sym_fns {
 
   /* counts how many bytes of sym_name should be checked against the
      BFD target type of the file being read.  If an exact match is
-     desired, specify the number of characters in sym_name plus 1 for the
-     NUL.  If a prefix match is desired, specify the number of characters in
-     sym_name.  */
+     desired, specify the number of characters in sym_name plus 1 for
+     the '\0'.  If a prefix match is desired, specify the number of
+     characters in sym_name.  */
 
   int sym_namelen;
 

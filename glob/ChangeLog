@@ -1,3 +1,7 @@
+Wed Mar 24 02:07:53 1993  david d `zoo' zuhn  (zoo at poseidon.cygnus.com)
+
+	* Makefile.in: add installcheck & dvi targets
+
 Wed Nov 11 21:12:58 1992  John Gilmore  (gnu@cygnus.com)
 
 	* configure.in:  Reformat case for ease of reading.

@@ -20,8 +20,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <ansidecl.h>
 #include "sysdep.h"
-#include <stdio.h>
-#include "bfd.h"
+#include "dis-asm.h"
 #include "opcode/mips.h"
 
 /* FIXME: we need direct access to the swapping functions.  */
@@ -31,11 +30,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifdef HOST_64_BIT
  #error FIXME: bfd_vma will not match gdb expectations
 #endif
-
-/* This file is used both by gdb and by objdump.  A program which
-   wants to use this code must provide an external function
-   print_address.  */
-extern int print_address PARAMS ((bfd_vma, FILE *));
 
 /* Mips instructions are never longer than this many bytes.  */
 #define MAXLEN 4
@@ -62,123 +56,168 @@ static CONST char * CONST reg_names[] = REGISTER_NAMES;
 
 /* subroutine */
 static void
-print_insn_arg (d, l, stream, pc)
+print_insn_arg (d, l, pc, info)
      char *d;
      register unsigned long int l;
-     FILE *stream;
      bfd_vma pc;
+     struct disassemble_info *info;
 {
+  int delta;
+
   switch (*d)
     {
     case ',':
     case '(':
     case ')':
-      fputc (*d, stream);
+      (*info->fprintf_func) (info->stream, "%c", *d);
       break;
 
     case 's':
-      fprintf (stream, "$%s", reg_names[(l >> OP_SH_RS) & OP_MASK_RS]);
+      (*info->fprintf_func) (info->stream, "$%s",
+			     reg_names[(l >> OP_SH_RS) & OP_MASK_RS]);
       break;
 
     case 't':
-      fprintf (stream, "$%s", reg_names[(l >> OP_SH_RT) & OP_MASK_RT]);
+      (*info->fprintf_func) (info->stream, "$%s",
+			     reg_names[(l >> OP_SH_RT) & OP_MASK_RT]);
       break;
 
     case 'i':
-      fprintf (stream, "%d", (l >> OP_SH_IMMEDIATE) & OP_MASK_IMMEDIATE);
+      (*info->fprintf_func) (info->stream, "%d",
+			(l >> OP_SH_IMMEDIATE) & OP_MASK_IMMEDIATE);
       break;
 
     case 'j': /* same as i, but sign-extended */
-      fprintf (stream, "%d", (l >> OP_SH_DELTA) & OP_MASK_DELTA);
+      delta = (l >> OP_SH_DELTA) & OP_MASK_DELTA;
+      if (delta & 0x8000)
+	delta |= ~0xffff;
+      (*info->fprintf_func) (info->stream, "%d",
+			     delta);
       break;
 
     case 'a':
-      print_address (((pc & 0xF0000000)
-		      | (((l >> OP_SH_TARGET) & OP_MASK_TARGET) << 2)),
-		     stream);
+      (*info->print_address_func)
+	(((pc & 0xF0000000) | (((l >> OP_SH_TARGET) & OP_MASK_TARGET) << 2)),
+	 info);
       break;
 
     case 'b':
-      print_address ((((l >> OP_SH_DELTA) & OP_MASK_DELTA) << 2) + pc + 4,
-		     stream);
+      /* sign extend the displacement */
+      delta = (l >> OP_SH_DELTA) & OP_MASK_DELTA;
+      if (delta & 0x8000)
+	delta |= ~0xffff;
+      (*info->print_address_func)
+	((delta << 2) + pc + 4,
+	 info);
       break;
 
     case 'd':
-      fprintf (stream, "$%s", reg_names[(l >> OP_SH_RD) & OP_MASK_RD]);
+      (*info->fprintf_func) (info->stream, "$%s",
+			     reg_names[(l >> OP_SH_RD) & OP_MASK_RD]);
       break;
 
     case 'h':
-      fprintf (stream, "0x%x", (l >> OP_SH_SHAMT) & OP_MASK_SHAMT);
+      (*info->fprintf_func) (info->stream, "0x%x",
+			     (l >> OP_SH_SHAMT) & OP_MASK_SHAMT);
       break;
 
     case 'B':
-      fprintf (stream, "0x%x", (l >> OP_SH_CODE) & OP_MASK_CODE);
+      (*info->fprintf_func) (info->stream, "0x%x",
+			     (l >> OP_SH_CODE) & OP_MASK_CODE);
       break;
 
     case 'S':
-      fprintf (stream, "$f%d", (l >> OP_SH_FS) & OP_MASK_FS);
+      (*info->fprintf_func) (info->stream, "$f%d",
+			     (l >> OP_SH_FS) & OP_MASK_FS);
       break;
 
     case 'T':
-      fprintf (stream, "$f%d", (l >> OP_SH_FT) & OP_MASK_FT);
+      (*info->fprintf_func) (info->stream, "$f%d",
+			     (l >> OP_SH_FT) & OP_MASK_FT);
       break;
 
     case 'D':
-      fprintf (stream, "$f%d", (l >> OP_SH_FD) & OP_MASK_FD);
+      (*info->fprintf_func) (info->stream, "$f%d",
+			     (l >> OP_SH_FD) & OP_MASK_FD);
       break;
 
     default:
-      fprintf (stream, "# internal error, undefined modifier(%c)", *d);
+      (*info->fprintf_func) (info->stream,
+			     "# internal error, undefined modifier(%c)", *d);
       break;
     }
 }
 
 /* Print the mips instruction at address MEMADDR in debugged memory,
-   on STREAM.  Returns length of the instruction, in bytes, which is
+   on using INFO.  Returns length of the instruction, in bytes, which is
    always 4.  BIGENDIAN must be 1 if this is big-endian code, 0 if
    this is little-endian code.  */
 
 int
-print_insn_mips (memaddr, buffer, stream, bigendian)
+_print_insn_mips (memaddr, word, info)
      bfd_vma memaddr;
-     bfd_byte *buffer;
-     FILE *stream;
-     int bigendian;
+     struct disassemble_info *info;
+     unsigned long int word;
 {
   register int i;
   register char *d;
-  unsigned long int l;
-
-  /* FIXME: can't we export these functions from bfd?  */
-  if (bigendian)
-    l = _do_getb32 (buffer);
-  else
-    l = _do_getl32 (buffer);
 
   for (i = 0; i < NOPCODES; i++)
     {
       register unsigned int opcode = mips_opcodes[i].opcode;
       register unsigned int match = mips_opcodes[i].match;
-      if ((l & match) == opcode)
+      if ((word & match) == opcode)
 	break;
     }
 
   /* Handle undefined instructions.  */
   if (i == NOPCODES)
     {
-      fprintf (stream, "0x%x",l);
+      (*info->fprintf_func) (info->stream, "0x%x", word);
       return 4;
     }
 
-  fprintf (stream, "%s", mips_opcodes[i].name);
+  (*info->fprintf_func) (info->stream, "%s", mips_opcodes[i].name);
 
   if (!(d = mips_opcodes[i].args))
     return 4;
 
-  fputc (' ', stream);
+  (*info->fprintf_func) (info->stream, " ");
 
   while (*d)
-    print_insn_arg (d++, l, stream, memaddr);
+    print_insn_arg (d++, word, memaddr, info);
 
   return 4;
+}
+
+int
+print_insn_big_mips (memaddr, info)
+     bfd_vma memaddr;
+     struct disassemble_info *info;
+{
+  bfd_byte buffer[4];
+  int status = (*info->read_memory_func) (memaddr, buffer, 4, info);
+  if (status == 0)
+    return _print_insn_mips (memaddr, _do_getb32 (buffer), info);
+  else
+    {
+      (*info->memory_error_func) (status, memaddr, info);
+      return -1;
+    }
+}
+
+int
+print_insn_little_mips (memaddr, info)
+     bfd_vma memaddr;
+     struct disassemble_info *info;
+{
+  bfd_byte buffer[4];
+  int status = (*info->read_memory_func) (memaddr, buffer, 4, info);
+  if (status == 0)
+    return _print_insn_mips (memaddr, _do_getl32 (buffer), info);
+  else
+    {
+      (*info->memory_error_func) (status, memaddr, info);
+      return -1;
+    }
 }

@@ -115,12 +115,16 @@ bfd_target m88kbcs_vec =
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
-  0,				/* leading underscore */
+  '_',				/* leading underscore */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
   3,				/* default alignment power */
-  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
-  _do_getb64, _do_putb64,   _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
 
     {_bfd_dummy_target, coff_object_p, /* bfd_check_format */
        bfd_generic_archive_p, _bfd_dummy_target},
@@ -130,6 +134,5 @@ bfd_target m88kbcs_vec =
        _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(coff),
-  0, 0,
   COFF_SWAP_TABLE,
 };

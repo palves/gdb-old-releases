@@ -111,7 +111,7 @@ allocate_space_in_inferior (len)
 /* Cast value ARG2 to type TYPE and return as a value.
    More general than a C cast: accepts any two types of the same length,
    and if ARG2 is an lvalue it can be cast into anything at all.  */
-/* In C++, casts may change pointer representations.  */
+/* In C++, casts may change pointer or object representations.  */
 
 value
 value_cast (type, arg2)
@@ -132,6 +132,21 @@ value_cast (type, arg2)
   scalar = (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_FLT
 	    || code2 == TYPE_CODE_ENUM);
 
+  if (   code1 == TYPE_CODE_STRUCT
+      && code2 == TYPE_CODE_STRUCT
+      && TYPE_NAME (type) != 0)
+    {
+      /* Look in the type of the source to see if it contains the
+	 type of the target as a superclass.  If so, we'll need to
+	 offset the object in addition to changing its type.  */
+      value v = search_struct_field (type_name_no_tag (type),
+				     arg2, 0, VALUE_TYPE (arg2), 1);
+      if (v)
+	{
+	  VALUE_TYPE (v) = type;
+	  return v;
+	}
+    }
   if (code1 == TYPE_CODE_FLT && scalar)
     return value_from_double (type, value_as_double (arg2));
   else if ((code1 == TYPE_CODE_INT || code1 == TYPE_CODE_ENUM)
@@ -667,6 +682,13 @@ value_arg_coerce (arg)
   register struct type *type;
 
   COERCE_ENUM (arg);
+#if 1	/* FIXME:  This is only a temporary patch.  -fnf */
+  if (VALUE_REPEATED (arg)
+      || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY)
+    arg = value_coerce_array (arg);
+  if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FUNC)
+    arg = value_coerce_function (arg);
+#endif
 
   type = VALUE_TYPE (arg);
 
@@ -825,8 +847,8 @@ call_function_by_hand (function, nargs, args)
     SWAP_TARGET_AND_HOST (&dummy1[i], sizeof (REGISTER_TYPE));
 
 #ifdef GDB_TARGET_IS_HPPA
-  FIX_CALL_DUMMY (dummy1, start_sp, real_pc, funaddr, nargs, args,
-		  value_type, using_gcc);
+  real_pc = FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, args,
+			    value_type, using_gcc);
 #else
   FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, args,
 		  value_type, using_gcc);
@@ -1185,8 +1207,10 @@ search_struct_field (name, arg1, offset, type, looking_for_baseclass)
     {
       value v;
       /* If we are looking for baseclasses, this is what we get when we
-	 hit them.  */
+	 hit them.  But it could happen that the base part's member name
+	 is not yet filled in.  */
       int found_baseclass = (looking_for_baseclass
+			     && TYPE_BASECLASS_NAME (type, i) != NULL
 			     && STREQ (name, TYPE_BASECLASS_NAME (type, i)));
 
       if (BASETYPE_VIA_VIRTUAL (type, i))

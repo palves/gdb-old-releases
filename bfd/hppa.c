@@ -23,7 +23,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "bfd.h"
 #include "sysdep.h"
 
-#ifdef HOST_HPPAHPUX
+#if defined (HOST_HPPAHPUX) || defined (HOST_HPPABSD)
 
 #include "libbfd.h"
 #include "libhppa.h"
@@ -37,7 +37,35 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/user.h>           /* After a.out.h  */
 #include <sys/file.h>
 #include <errno.h>
- 
+
+/* Magic not defined in standard HP-UX header files until 8.0 */
+
+#ifndef CPU_PA_RISC1_0
+#define CPU_PA_RISC1_0 0x20B
+#endif /* CPU_PA_RISC1_0 */
+
+#ifndef CPU_PA_RISC1_1
+#define CPU_PA_RISC1_1 0x210
+#endif /* CPU_PA_RISC1_1 */
+
+#ifndef _PA_RISC1_0_ID
+#define _PA_RISC1_0_ID CPU_PA_RISC1_0
+#endif /* _PA_RISC1_0_ID */
+
+#ifndef _PA_RISC1_1_ID
+#define _PA_RISC1_1_ID CPU_PA_RISC1_1
+#endif /* _PA_RISC1_1_ID */
+
+#ifndef _PA_RISC_MAXID
+#define _PA_RISC_MAXID	0x2FF
+#endif /* _PA_RISC_MAXID */
+
+#ifndef _PA_RISC_ID
+#define _PA_RISC_ID(__m_num)		\
+    (((__m_num) == _PA_RISC1_0_ID) ||	\
+     ((__m_num) >= _PA_RISC1_1_ID && (__m_num) <= _PA_RISC_MAXID))
+#endif /* _PA_RISC_ID */
+
 struct container {
   struct header f;
   struct som_exec_auxhdr e;
@@ -294,8 +322,12 @@ hppa_object_p (abfd)
     case EXEC_MAGIC:
     case SHARE_MAGIC:
     case DEMAND_MAGIC:
+#ifdef DL_MAGIC
     case DL_MAGIC:
+#endif
+#ifdef SHL_MAGIC
     case SHL_MAGIC:
+#endif
       break;
     default:
       bfd_error = wrong_format;
@@ -496,6 +528,7 @@ make_bfd_asection (abfd, name, flags, _raw_size, vma, alignment_power)
   return asect;
 }
 
+#ifdef HOST_HPPAHPUX
 static bfd_target *
 hppa_core_file_p (abfd)
      bfd *abfd;
@@ -594,12 +627,21 @@ hppa_core_file_matches_executable_p  (core_bfd, exec_bfd)
 {
   return true;          /* FIXME, We have no way of telling at this point */
 }
+#endif /* HOST_HPPAHPUX */
+
+#ifdef HOST_HPPABSD
+  /* All the core file code for BSD needs to be rewritten cleanly.  For
+     now we do not support core files under BSD.  */
+
+#define hppa_core_file_p _bfd_dummy_target
+#define hppa_core_file_failing_command _bfd_dummy_core_file_failing_command
+#define hppa_core_file_failing_signal _bfd_dummy_core_file_failing_signal
+#define hppa_core_file_matches_executable_p _bfd_dummy_core_file_matches_executable_p
+#endif /* HOST_HPPABSD */
 
 #define hppa_bfd_debug_info_start        bfd_void
 #define hppa_bfd_debug_info_end          bfd_void
 #define hppa_bfd_debug_info_accumulate   (PROTO(void,(*),(bfd*, struct sec *))) bfd_void
-
-
 
 #define hppa_openr_next_archived_file    bfd_generic_openr_next_archived_file
 #define hppa_generic_stat_arch_elt       bfd_generic_stat_arch_elt
@@ -616,6 +658,10 @@ hppa_core_file_matches_executable_p  (core_bfd, exec_bfd)
  bfd_generic_get_relocated_section_contents
 #define hppa_bfd_relax_section bfd_generic_relax_section
 #define hppa_bfd_seclet_link bfd_generic_seclet_link
+#define hppa_bfd_reloc_type_lookup \
+  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
+#define hppa_bfd_make_debug_symbol \
+  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
 bfd_target hppa_vec =
 {
@@ -635,8 +681,12 @@ bfd_target hppa_vec =
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
     3,				/* minimum alignment */
-_do_getb64, _do_putb64, _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
-_do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+_do_getb64, _do_getb_signed_64, _do_putb64,
+    _do_getb32, _do_getb_signed_32, _do_putb32,
+    _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
+_do_getb64, _do_getb_signed_64, _do_putb64,
+    _do_getb32, _do_getb_signed_32, _do_putb32,
+    _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
   { _bfd_dummy_target,
      hppa_object_p,		/* bfd_check_format */
      bfd_generic_archive_p,
@@ -655,7 +705,8 @@ _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs
     bfd_false,
   },
 #undef hppa
-  JUMP_TABLE(hppa)
+  JUMP_TABLE(hppa),
+  (PTR) 0
 };
 
-#endif /* HOST_HPPAHPUX */
+#endif /* HOST_HPPAHPUX || HOST_HPPABSD */

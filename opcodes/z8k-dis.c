@@ -17,23 +17,27 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <ansidecl.h>
 #include "sysdep.h"
+#include "dis-asm.h"
 
 #define DEFINE_TABLE
 #include "z8k-opc.h"
 
-static void fetch_instr ();
-static int is_segmented;
+
+#include <setjmp.h>
 
-int z8k_lookup_instr ();
-static void output_instr ();
-static void unpack_instr ();
-static void unparse_instr ();
-
+
 typedef struct
 {
+  /* These are all indexed by nibble number (i.e only every other entry
+     of bytes is used, and every 4th entry of words).  */
   unsigned char nibbles[24];
   unsigned char bytes[24];
   unsigned short words[24];
+
+  /* Nibble number of first word not yet fetched.  */
+  int max_fetched;
+  bfd_vma insn_start;
+  jmp_buf bailout;
 
   long tabl_index;
   char instr_asmsrc[80];
@@ -46,8 +50,60 @@ typedef struct
   unsigned long flags;
   unsigned long interrupts;
 }
-
 instr_data_s;
+
+/* Make sure that bytes from INFO->PRIVATE_DATA->BUFFER (inclusive)
+   to ADDR (exclusive) are valid.  Returns 1 for success, longjmps
+   on error.  */
+#define FETCH_DATA(info, nibble) \
+  ((nibble) <= ((instr_data_s *)(info->private_data))->max_fetched \
+   ? 1 : fetch_data ((info), (nibble)))
+
+static int
+fetch_data (info, nibble)
+     struct disassemble_info *info;
+     int nibble;
+{
+  char mybuf[20];
+  int status;
+  instr_data_s *priv = (instr_data_s *)info->private_data;
+  bfd_vma start = priv->insn_start + priv->max_fetched / 2;
+
+  if ((nibble % 4) != 0)
+    abort ();
+  status = (*info->read_memory_func) (start,
+				      (bfd_byte *) mybuf,
+				      (nibble - priv->max_fetched) / 2,
+				      info);
+  if (status != 0)
+    {
+      (*info->memory_error_func) (status, start, info);
+      longjmp (priv->bailout, 1);
+    }
+
+  {
+    int i;
+    char *p = mybuf + priv->max_fetched / 2;
+    
+    for (i = priv->max_fetched; i < nibble;)
+      {
+	priv->words[i] = (p[0] << 8) | p[1];
+	
+	priv->bytes[i] = *p;
+	priv->nibbles[i++] = *p >> 4;
+	priv->nibbles[i++] = *p &0xf;
+
+	++p;
+	priv->bytes[i] = *p;
+	priv->nibbles[i++] = *p >> 4;
+	priv->nibbles[i++] = *p & 0xf;
+
+	++p;
+      }
+  }
+  priv->max_fetched = nibble;
+  return 1;
+}
 
 static char *codes[16] =
 {
@@ -69,76 +125,62 @@ static char *codes[16] =
   "nc/uge"
 };
 
+int z8k_lookup_instr PARAMS ((unsigned char*, disassemble_info *));
+static void output_instr
+  PARAMS ((instr_data_s *, unsigned long, disassemble_info *));
+static void unpack_instr PARAMS ((instr_data_s *, int, disassemble_info *));
+static void unparse_instr PARAMS ((instr_data_s *));
+
 static int
-print_insn_z8k (addr, in_buf, stream)
+print_insn_z8k (addr, info, is_segmented)
      unsigned long addr;
-     unsigned char *in_buf;
-     FILE *stream;
+     disassemble_info *info;
+     int is_segmented;
 {
   instr_data_s instr_data;
 
-  fetch_instr (in_buf, &instr_data);
-  instr_data.tabl_index = z8k_lookup_instr (instr_data.nibbles);
+  info->private_data = (PTR) &instr_data;
+  instr_data.max_fetched = 0;
+  instr_data.insn_start = addr;
+  if (setjmp (instr_data.bailout) != 0)
+    /* Error return.  */
+    return -1;
+
+  instr_data.tabl_index = z8k_lookup_instr (instr_data.nibbles, info);
   if (instr_data.tabl_index > 0)
     {
-      unpack_instr (&instr_data);
+      unpack_instr (&instr_data, is_segmented, info);
       unparse_instr (&instr_data);
-      output_instr (&instr_data, addr, stream);
+      output_instr (&instr_data, addr, info);
       return z8k_table[instr_data.tabl_index].length;
     }
   else
     {
-      fprintf (stream, ".word %02x%02x", in_buf[0], in_buf[1]);
+      FETCH_DATA (info, 4);
+      (*info->fprintf_func) (info->stream, ".word %02x%02x",
+			     instr_data.bytes[0], instr_data.bytes[2]);
       return 2;
     }
-
 }
 
-print_insn_z8001 (addr, in_buf, stream)
+print_insn_z8001 (addr, info)
      unsigned long addr;
-     unsigned char *in_buf;
-     FILE *stream;
+     disassemble_info *info;
 {
-  is_segmented = 1;
-  return print_insn_z8k (addr, in_buf, stream);
+  return print_insn_z8k (addr, info, 1);
 }
 
-print_insn_z8002 (addr, in_buf, stream)
+print_insn_z8002 (addr, info)
      unsigned long addr;
-     unsigned char *in_buf;
-     FILE *stream;
+     disassemble_info *info;
 {
-  is_segmented = 0;
-  return print_insn_z8k (addr, in_buf, stream);
-}
-
-static void
-fetch_instr (in_buf, instr_data)
-     unsigned char *in_buf;
-     instr_data_s *instr_data;
-{
-  int nibbles = 0;
-
-  for (nibbles = 0; nibbles < 20;)
-    {
-      instr_data->words[nibbles] = (in_buf[0] << 8) | in_buf[1];
-
-      instr_data->bytes[nibbles] = *in_buf;
-      instr_data->nibbles[nibbles++] = *in_buf >> 4;
-      instr_data->nibbles[nibbles++] = *in_buf & 0xf;
-
-      in_buf++;
-      instr_data->bytes[nibbles] = *in_buf;
-      instr_data->nibbles[nibbles++] = *in_buf >> 4;
-      instr_data->nibbles[nibbles++] = *in_buf & 0xf;
-
-      in_buf++;
-    }
+  return print_insn_z8k (addr, info, 0);
 }
 
 int
-z8k_lookup_instr (nibbles)
+z8k_lookup_instr (nibbles, info)
      unsigned char *nibbles;
+     disassemble_info *info;
 {
 
   int nibl_index, tabl_index;
@@ -153,6 +195,9 @@ z8k_lookup_instr (nibbles)
       nibl_matched = 1;
       for (nibl_index = 0; nibl_index < z8k_table[tabl_index].length * 2 && nibl_matched; nibl_index++)
 	{
+	  if ((nibl_index % 4) == 0)
+	    /* Fetch one word at a time.  */
+	    FETCH_DATA (info, nibl_index + 4);
 	  instr_nibl = nibbles[nibl_index];
 
 	  tabl_datum = z8k_table[tabl_index].byte_info[nibl_index];
@@ -215,10 +260,10 @@ z8k_lookup_instr (nibbles)
 }
 
 static void
-output_instr (instr_data, addr, stream)
+output_instr (instr_data, addr, info)
      instr_data_s *instr_data;
      unsigned long addr;
-     FILE *stream;
+     disassemble_info *info;
 {
   int loop, loop_limit;
   char tmp_str[20];
@@ -227,6 +272,7 @@ output_instr (instr_data, addr, stream)
   strcpy (out_str, "\t");
 
   loop_limit = z8k_table[instr_data->tabl_index].length * 2;
+  FETCH_DATA (info, loop_limit);
   for (loop = 0; loop < loop_limit; loop++)
     {
       sprintf (tmp_str, "%x", instr_data->nibbles[loop]);
@@ -240,12 +286,14 @@ output_instr (instr_data, addr, stream)
 
   strcat (out_str, instr_data->instr_asmsrc);
 
-  fprintf (stream, "%s", out_str);
+  (*info->fprintf_func) (info->stream, "%s", out_str);
 }
 
 static void
-unpack_instr (instr_data)
+unpack_instr (instr_data, is_segmented, info)
      instr_data_s *instr_data;
+     int is_segmented;
+     disassemble_info *info;
 {
   int nibl_count, loop;
   unsigned short instr_nibl, instr_byte, instr_word;
@@ -256,12 +304,10 @@ unpack_instr (instr_data)
   loop = 0;
   while (z8k_table[instr_data->tabl_index].byte_info[loop] != 0)
     {
-
+      FETCH_DATA (info, nibl_count + 4 - (nibl_count % 4));
       instr_nibl = instr_data->nibbles[nibl_count];
       instr_byte = instr_data->bytes[nibl_count];
       instr_word = instr_data->words[nibl_count];
-      instr_long = (instr_data->words[nibl_count] << 16)
-	| (instr_data->words[nibl_count + 4]);
 
       tabl_datum = z8k_table[instr_data->tabl_index].byte_info[loop];
       datum_class = tabl_datum & CLASS_MASK;
@@ -312,6 +358,9 @@ unpack_instr (instr_data)
 	      nibl_count += 3;
 	      break;
 	    case ARG_IMM32:
+	      FETCH_DATA (info, nibl_count + 8);
+	      instr_long = (instr_data->words[nibl_count] << 16)
+		| (instr_data->words[nibl_count + 4]);
 	      instr_data->immediate = instr_long;
 	      nibl_count += 7;
 	      break;
@@ -345,6 +394,9 @@ unpack_instr (instr_data)
 	    {
 	      if (instr_nibl & 0x8)
 		{
+		  FETCH_DATA (info, nibl_count + 8);
+		  instr_long = (instr_data->words[nibl_count] << 16)
+		    | (instr_data->words[nibl_count + 4]);
 		  instr_data->address = ((instr_word & 0x7f00) << 8) +
 		    (instr_long & 0xffff);
 		  nibl_count += 7;

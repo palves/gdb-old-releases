@@ -102,7 +102,6 @@ yyerror PARAMS ((char *));
 %union
   {
     LONGEST lval;
-    unsigned LONGEST ulval;
     struct {
       LONGEST val;
       struct type *type;
@@ -672,6 +671,7 @@ variable:	name_not_typename
 				case LOC_LABEL:
 				case LOC_BLOCK:
 				case LOC_CONST_BYTES:
+				case LOC_OPTIMIZED_OUT:
 
 				  /* In this case the expression can
 				     be evaluated regardless of what
@@ -962,7 +962,7 @@ parse_number (p, len, parsed_float, putithere)
   register int base = input_radix;
   int unsigned_p = 0;
   int long_p = 0;
-  LONGEST high_bit;
+  unsigned LONGEST high_bit;
   struct type *signed_type;
   struct type *unsigned_type;
 
@@ -1043,17 +1043,26 @@ parse_number (p, len, parsed_float, putithere)
      /* If the number is too big to be an int, or it's got an l suffix
 	then it's a long.  Work out if this has to be a long by
 	shifting right and and seeing if anything remains, and the
-	target int size is different to the target long size. */
+	target int size is different to the target long size.
 
-    if ((TARGET_INT_BIT != TARGET_LONG_BIT && (n >> TARGET_INT_BIT)) || long_p)
+	In the expression below, we could have tested
+        	(n >> TARGET_INT_BIT)
+	to see if it was zero,
+	but too many compilers warn about that, when ints and longs
+	are the same size.  So we shift it twice, with fewer bits
+	each time, for the same result.  */
+
+    if (   (TARGET_INT_BIT != TARGET_LONG_BIT 
+            && ((n >> 2) >> (TARGET_INT_BIT-2)))   /* Avoid shift warning */
+        || long_p)
       {
-         high_bit = ((LONGEST)1) << (TARGET_LONG_BIT-1);
+         high_bit = ((unsigned LONGEST)1) << (TARGET_LONG_BIT-1);
 	 unsigned_type = builtin_type_unsigned_long;
 	 signed_type = builtin_type_long;
       }
     else 
       {
-	 high_bit = ((LONGEST)1) << (TARGET_INT_BIT-1);
+	 high_bit = ((unsigned LONGEST)1) << (TARGET_INT_BIT-1);
 	 unsigned_type = builtin_type_unsigned_int;
 	 signed_type = builtin_type_int;
       }    

@@ -180,19 +180,25 @@ entry points, since they don't take BFD as first arg.  Certain other handlers
 could do the same.
 
 .  bfd_vma      (*bfd_getx64) PARAMS ((bfd_byte *));
+.  bfd_signed_vma (*bfd_getx_signed_64) PARAMS ((bfd_byte *));
 .  void         (*bfd_putx64) PARAMS ((bfd_vma, bfd_byte *));
 .  bfd_vma      (*bfd_getx32) PARAMS ((bfd_byte *));
+.  bfd_signed_vma (*bfd_getx_signed_32) PARAMS ((bfd_byte *));
 .  void         (*bfd_putx32) PARAMS ((bfd_vma, bfd_byte *));
 .  bfd_vma      (*bfd_getx16) PARAMS ((bfd_byte *));
+.  bfd_signed_vma (*bfd_getx_signed_16) PARAMS ((bfd_byte *));
 .  void         (*bfd_putx16) PARAMS ((bfd_vma, bfd_byte *));
 
 Byte swapping for the headers
 
 .  bfd_vma      (*bfd_h_getx64) PARAMS ((bfd_byte *));
+.  bfd_signed_vma (*bfd_h_getx_signed_64) PARAMS ((bfd_byte *));
 .  void         (*bfd_h_putx64) PARAMS ((bfd_vma, bfd_byte *));
 .  bfd_vma      (*bfd_h_getx32) PARAMS ((bfd_byte *));
+.  bfd_signed_vma (*bfd_h_getx_signed_32) PARAMS ((bfd_byte *));
 .  void         (*bfd_h_putx32) PARAMS ((bfd_vma, bfd_byte *));
 .  bfd_vma      (*bfd_h_getx16) PARAMS ((bfd_byte *));
+.  bfd_signed_vma (*bfd_h_getx_signed_16) PARAMS ((bfd_byte *));
 .  void         (*bfd_h_putx16) PARAMS ((bfd_vma, bfd_byte *));
 
 Format dependent routines: these are vectors of entry points
@@ -299,10 +305,8 @@ Symbols and relocations
 .       void *ptr,
 .       unsigned long size));
 
-Data for use by back-end routines; e.g., for a.out, includes whether
-this particular target maps ZMAGIC files contiguously or with text and
-data separated.  Could perhaps also be used to eliminate some of the
-above COFF-specific fields.
+Data for use by back-end routines, which isn't generic enough to belong
+in this structure.
 
 . PTR backend_data;
 .} bfd_target;
@@ -341,14 +345,17 @@ extern bfd_target aout_mips_big_vec;
 extern bfd_target sunos_big_vec;
 extern bfd_target demo_64_vec;
 extern bfd_target srec_vec;
+extern bfd_target symbolsrec_vec;
 extern bfd_target tekhex_vec;
 extern bfd_target a_out_adobe_vec;
 extern bfd_target b_out_vec_little_host;
 extern bfd_target b_out_vec_big_host;
 extern bfd_target icoff_little_vec;
 extern bfd_target icoff_big_vec;
-extern bfd_target elf_little_vec;
-extern bfd_target elf_big_vec;
+extern bfd_target elf32_sparc_vec;
+extern bfd_target elf32_i386_vec;
+extern bfd_target elf32_m68k_vec;
+extern bfd_target elf32_i860_vec;
 extern bfd_target ieee_vec;
 extern bfd_target oasys_vec;
 extern bfd_target m88kbcs_vec;
@@ -365,7 +372,9 @@ extern bfd_target h8300coff_vec;
 extern bfd_target h8500coff_vec;
 extern bfd_target z8kcoff_vec;
 extern bfd_target we32kcoff_vec;
-#ifdef HOST_HPPAHPUX
+extern bfd_target shcoff_vec;
+
+#if defined (HOST_HPPAHPUX) || defined (HOST_HPPABSD)
 extern bfd_target hppa_vec;
 #endif
 
@@ -377,8 +386,10 @@ extern bfd_target DEFAULT_VECTOR;
 bfd_target *target_vector[] = {
 
 #ifdef SELECT_VECS
-        SELECT_VECS,
-#else /* SELECT_VECS */
+
+	SELECT_VECS,
+
+#else /* not SELECT_VECS */
 
 #ifdef DEFAULT_VECTOR
 	&DEFAULT_VECTOR,
@@ -407,18 +418,21 @@ bfd_target *target_vector[] = {
 	&z8kcoff_vec,
 	&m88kbcs_vec,
 	&srec_vec,
+	&symbolsrec_vec,
 /*	&tekhex_vec,*/
 	&icoff_little_vec,
 	&icoff_big_vec,
-	&elf_little_vec,
-	&elf_big_vec,
+	&elf32_sparc_vec,
+	&elf32_i386_vec,
+	&elf32_m68k_vec,
+	&elf32_i860_vec,
 	&a_out_adobe_vec,
 	&b_out_vec_little_host,
 	&b_out_vec_big_host,
 	&m68kcoff_vec,
 	&a29kcoff_big_vec,
 	&rs6000coff_vec,
-#ifdef HOST_HPPAHPUX
+#if defined (HOST_HPPAHPUX) || defined (HOST_HPPABSD)
         &hppa_vec,
 #endif
 	&we32kcoff_vec,
@@ -433,7 +447,7 @@ bfd_target *target_vector[] = {
   &aix386_core_vec,
 #endif
 
-#endif /* SELECT_VECS */
+#endif /* not SELECT_VECS */
 	NULL, /* end of list marker */
 };
 

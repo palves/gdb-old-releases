@@ -994,6 +994,10 @@ DEFUN (tekhex_print_symbol, (ignore_abfd, filep, symbol, how),
 #define tekhex_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
 #define tekhex_bfd_relax_section bfd_generic_relax_section
 #define tekhex_bfd_seclet_link bfd_generic_seclet_link
+#define tekhex_bfd_reloc_type_lookup \
+  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
+#define tekhex_bfd_make_debug_symbol \
+  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
 bfd_target tekhex_vec =
 {
@@ -1010,10 +1014,12 @@ bfd_target tekhex_vec =
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
   1,				/* minimum alignment */
-  _do_getb64, _do_putb64, _do_getb32,
-  _do_putb32, _do_getb16, _do_putb16,	/* data */
-  _do_getb64, _do_putb64, _do_getb32,
-  _do_putb32, _do_getb16, _do_putb16,	/* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+    _do_getb32, _do_getb_signed_32,   _do_putb32,
+    _do_getb16, _do_getb_signed_16, _do_putb16,	/* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+    _do_getb32, _do_getb_signed_32,   _do_putb32,
+    _do_getb16, _do_getb_signed_16, _do_putb16,	/* hdrs */
 
   {
     _bfd_dummy_target,
@@ -1033,5 +1039,6 @@ bfd_target tekhex_vec =
     _bfd_write_archive_contents,
     bfd_false,
   },
-  JUMP_TABLE (tekhex)
+  JUMP_TABLE (tekhex),
+  (PTR) 0
 };

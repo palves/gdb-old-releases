@@ -637,7 +637,7 @@ unpack_long (type, valaddr)
 	  SWAP_TARGET_AND_HOST (&retval, sizeof (retval));
 	  return retval;
 	}
-#ifdef LONG_LONG
+#ifdef CC_HAS_LONG_LONG
       if (len == sizeof (long long))
 	{
 	  unsigned long long retval;
@@ -685,7 +685,7 @@ unpack_long (type, valaddr)
 	  return retval;
 	}
 
-#ifdef LONG_LONG
+#ifdef CC_HAS_LONG_LONG
       if (len == sizeof (long long))
 	{
 	  long long retval;
@@ -717,6 +717,15 @@ unpack_long (type, valaddr)
 	SWAP_TARGET_AND_HOST (&retval, len);
 	return retval;
       }
+#ifdef CC_HAS_LONG_LONG
+      else if (len == sizeof(long long))
+      {
+	unsigned long long retval;
+	memcpy (&retval, valaddr, len);
+	SWAP_TARGET_AND_HOST (&retval, len);
+	return retval;
+      }
+#endif
     }
   else if (code == TYPE_CODE_MEMBER)
     error ("not implemented: member types in unpack_long");
@@ -775,11 +784,7 @@ unpack_double (type, valaddr, invp)
     }
   else if (nosign) {
    /* Unsigned -- be sure we compensate for signed LONGEST.  */
-#ifdef LONG_LONG
-   return (unsigned long long) unpack_long (type, valaddr);
-#else
-   return (unsigned long     ) unpack_long (type, valaddr);
-#endif
+   return (unsigned LONGEST) unpack_long (type, valaddr);
   } else {
     /* Signed -- we are OK with unpack_long.  */
     return unpack_long (type, valaddr);
@@ -1393,10 +1398,8 @@ value_from_longest (type, num)
 	* (int *) VALUE_CONTENTS_RAW (val) = num;
       else if (len == sizeof (long))
 	* (long *) VALUE_CONTENTS_RAW (val) = num;
-#ifdef LONG_LONG
-      else if (len == sizeof (long long))
-	* (long long *) VALUE_CONTENTS_RAW (val) = num;
-#endif
+      else if (len == sizeof (LONGEST))
+	* (LONGEST *) VALUE_CONTENTS_RAW (val) = num;
       else
 	error ("Integer type encountered with unexpected data length.");
     }
@@ -1484,13 +1487,21 @@ value_being_returned (valtype, retbuf, struct_return)
 
    On most machines, the struct convention is used unless we are
    using gcc and the type is of a special size.  */
+/* As of about 31 Mar 93, GCC was changed to be compatible with the
+   native compiler.  GCC 2.3.3 was the last release that did it the
+   old way.  Since gcc2_compiled was not changed, we have no
+   way to correctly win in all cases, so we just do the right thing
+   for gcc1 and for gcc2 after this change.  Thus it loses for gcc
+   2.0-2.3.3.  This is somewhat unfortunate, but changing gcc2_compiled
+   would cause more chaos than dealing with some struct returns being
+   handled wrong.  */
 #if !defined (USE_STRUCT_CONVENTION)
 #define USE_STRUCT_CONVENTION(gcc_p, type)\
-  (!((gcc_p) && (TYPE_LENGTH (value_type) == 1                \
-		 || TYPE_LENGTH (value_type) == 2             \
-	         || TYPE_LENGTH (value_type) == 4             \
-		 || TYPE_LENGTH (value_type) == 8             \
-		 )                                            \
+  (!((gcc_p == 1) && (TYPE_LENGTH (value_type) == 1                \
+		      || TYPE_LENGTH (value_type) == 2             \
+		      || TYPE_LENGTH (value_type) == 4             \
+		      || TYPE_LENGTH (value_type) == 8             \
+		      )                                            \
      ))
 #endif
 

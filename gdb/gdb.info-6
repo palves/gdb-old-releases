@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.07, January 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.8.
+   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.9.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
 Foundation, Inc.
@@ -30,10 +30,199 @@ may be included in a translation approved by the Free Software
 Foundation instead of in the original English.
 
 
+File: gdb.info,  Node: gdb-EB29K,  Next: Remote Log,  Prev: Comms (EB29K),  Up: EB29K Remote
+
+EB29K cross-debugging
+---------------------
+
+   Finally, `cd' to the directory containing an image of your 29K
+program on the Unix system, and start GDB--specifying as argument the
+name of your 29K program:
+
+     cd /usr/joe/work29k
+     gdb myfoo
+
+   Now you can use the `target' command:
+
+     target amd-eb /dev/ttya 9600 MYFOO
+
+In this example, we've assumed your program is in a file called
+`myfoo'.  Note that the filename given as the last argument to `target
+amd-eb' should be the name of the program as it appears to DOS.  In our
+example this is simply `MYFOO', but in general it can include a DOS
+path, and depending on your transfer mechanism may not resemble the
+name on the Unix side.
+
+   At this point, you can set any breakpoints you wish; when you are
+ready to see your program run on the 29K board, use the GDB command
+`run'.
+
+   To stop debugging the remote program, use the GDB `detach' command.
+
+   To return control of the PC to its console, use `tip' or `cu' once
+again, after your GDB session has concluded, to attach to `EBMON'.  You
+can then type the command `q' to shut down `EBMON', returning control
+to the DOS command-line interpreter.  Type `CTTY con' to return command
+input to the main DOS console, and type `~.' to leave `tip' or `cu'.
+
+
+File: gdb.info,  Node: Remote Log,  Prev: gdb-EB29K,  Up: EB29K Remote
+
+Remote log
+----------
+
+   The `target amd-eb' command creates a file `eb.log' in the current
+working directory, to help debug problems with the connection.
+`eb.log' records all the output from `EBMON', including echoes of the
+commands sent to it.  Running `tail -f' on this file in another window
+often helps to understand trouble with `EBMON', or unexpected events on
+the PC side of the connection.
+
+
+File: gdb.info,  Node: ST2000 Remote,  Next: Hitachi Remote,  Prev: VxWorks Remote,  Up: Remote
+
+GDB with a Tandem ST2000
+------------------------
+
+   To connect your ST2000 to the host system, see the manufacturer's
+manual.  Once the ST2000 is physically attached, you can run
+
+     target st2000 DEV SPEED
+
+to establish it as your debugging environment.
+
+   The `load' and `attach' commands are *not* defined for this target;
+you must load your program into the ST2000 as you normally would for
+standalone operation.  GDB will read debugging information (such as
+symbols) from a separate, debugging version of the program available on
+your host computer.
+
+   These auxiliary GDB commands are available to help you with the
+ST2000 environment:
+
+`st2000 COMMAND'
+     Send a COMMAND to the STDBUG monitor.  See the manufacturer's
+     manual for available commands.
+
+`connect'
+     Connect the controlling terminal to the STDBUG command monitor.
+     When you are done interacting with STDBUG, typing either of two
+     character sequences will get you back to the GDB command prompt:
+     `RET~.' (Return, followed by tilde and period) or `RET~C-d'
+     (Return, followed by tilde and control-D).
+
+
+File: gdb.info,  Node: VxWorks Remote,  Next: ST2000 Remote,  Prev: EB29K Remote,  Up: Remote
+
+GDB and VxWorks
+---------------
+
+   GDB enables developers to spawn and debug tasks running on networked
+VxWorks targets from a Unix host.  Already-running tasks spawned from
+the VxWorks shell can also be debugged.  GDB uses code that runs on
+both the UNIX host and on the VxWorks target.  The program `gdb' is
+installed and executed on the UNIX host.
+
+   The following information on connecting to VxWorks was current when
+this manual was produced; newer releases of VxWorks may use revised
+procedures.
+
+   The remote debugging interface (RDB) routines are installed and
+executed on the VxWorks target.  These routines are included in the
+VxWorks library `rdb.a' and are incorporated into the system image when
+source-level debugging is enabled in the VxWorks configuration.
+
+   If you wish, you can define `INCLUDE_RDB' in the VxWorks
+configuration file `configAll.h' to include the RDB interface routines
+and spawn the source debugging task `tRdbTask' when VxWorks is booted.
+For more information on configuring and remaking VxWorks, see the
+manufacturer's manual.
+
+   Once you have included the RDB interface in your VxWorks system image
+and set your Unix execution search path to find GDB, you are ready to
+run GDB.  From your UNIX host, type:
+
+     % gdb
+
+   GDB will come up showing the prompt:
+
+     (gdb)
+
+* Menu:
+
+* VxWorks Connection::          Connecting to VxWorks
+* VxWorks Download::            VxWorks download
+* VxWorks Attach::              Running tasks
+
+
+File: gdb.info,  Node: VxWorks Connection,  Next: VxWorks Download,  Up: VxWorks Remote
+
+Connecting to VxWorks
+---------------------
+
+   The GDB command `target' lets you connect to a VxWorks target on the
+network.  To connect to a target whose host name is "`tt'", type:
+
+     (gdb) target vxworks tt
+
+   GDB will display a message similar to the following:
+
+     Attaching remote machine across net... Success!
+
+   GDB will then attempt to read the symbol tables of any object modules
+loaded into the VxWorks target since it was last booted.  GDB locates
+these files by searching the directories listed in the command search
+path (*note Your program's environment: Environment.); if it fails to
+find an object file, it will display a message such as:
+
+     prog.o: No such file or directory.
+
+   This will cause the `target' command to abort.  When this happens,
+you should add the appropriate directory to the search path, with the
+GDB command `path', and execute the `target' command again.
+
+
+File: gdb.info,  Node: VxWorks Download,  Next: VxWorks Attach,  Prev: VxWorks Connection,  Up: VxWorks Remote
+
+VxWorks download
+----------------
+
+   If you have connected to the VxWorks target and you want to debug an
+object that has not yet been loaded, you can use the GDB `load' command
+to download a file from UNIX to VxWorks incrementally.  The object file
+given as an argument to the `load' command is actually opened twice:
+first by the VxWorks target in order to download the code, then by GDB
+in order to read the symbol table.  This can lead to problems if the
+current working directories on the two systems differ.  It is simplest
+to set the working directory on both systems to the directory in which
+the object file resides, and then to reference the file by its name,
+without any path.  Thus, to load a program `prog.o', residing in
+`wherever/vw/demo/rdb', on VxWorks type:
+
+     -> cd "wherever/vw/demo/rdb"
+
+   On GDB type:
+
+     (gdb) cd wherever/vw/demo/rdb
+     (gdb) load prog.o
+
+   GDB will display a response similar to the following:
+
+     Reading symbol data from wherever/vw/demo/rdb/prog.o... done.
+
+   You can also use the `load' command to reload an object module after
+editing and recompiling the corresponding source file.  Note that this
+will cause GDB to delete all currently-defined breakpoints,
+auto-displays, and convenience variables, and to clear the value
+history.  (This is necessary in order to preserve the integrity of
+debugger data structures that reference the target system's symbol
+table.)
+
+
 File: gdb.info,  Node: VxWorks Attach,  Prev: VxWorks Download,  Up: VxWorks Remote
 
 Running tasks
-.............
+-------------
 
    You can also attach to an existing task using the `attach' command as
 follows:
@@ -45,100 +234,72 @@ or suspended when you attach to it.  If running, it will be suspended at
 the time of attachment.
 
 
-File: gdb.info,  Node: Hitachi H8/300 Remote,  Next: Simulator,  Prev: ST2000 Remote,  Up: Remote
+File: gdb.info,  Node: Hitachi Remote,  Next: MIPS Remote,  Prev: ST2000 Remote,  Up: Remote
 
-GDB and the Hitachi H8/300
---------------------------
+GDB and Hitachi Microprocessors
+-------------------------------
 
-   GDB needs to know these things to talk to your H8/300:
+   GDB needs to know these things to talk to your Hitachi SH, H8/300,
+or H8/500:
 
   1. that you want to use `target hms', the remote debugging interface
-     for the H8/300 (this is the default when GDB is configured
-     specifically for the H8/300);
+     for Hitachi microprocessors (this is the default when GDB is
+     configured specifically for the Hitachi SH, H8/300, or H8/500);
 
-  2. what serial device connects your host to your H8/300 (the first
-     serial device available on your host is the default);
+  2. what serial device connects your host to your Hitachi board (the
+     first serial device available on your host is the default);
 
 
-   GDB depends on an auxiliary terminate-and-stay-resident program
-called `asynctsr' to communicate with the H8/300 development board
+   Use the special `gdb' command `device PORT' if you need to
+explicitly set the serial device.  The default PORT is the first
+available port on your host.  This is only necessary on Unix hosts,
+where it is typically something like `/dev/ttya'.
+
+   `gdb' has another special command to set the communications speed:
+`speed BPS'.  This command also is only used from Unix hosts; on DOS
+hosts, set the line speed as usual from outside GDB with the DOS `mode'
+command (for instance, `mode com2:9600,n,8,1,p' for a 9600 bps
+connection).
+
+   The `device' and `speed' commands are available only when you use a
+Unix host to debug your Hitachi microprocessor programs.  If you use a
+DOS host, GDB depends on an auxiliary terminate-and-stay-resident
+program called `asynctsr' to communicate with the development board
 through a PC serial port.  You must also use the DOS `mode' command to
 set up the serial port on the DOS side.
 
-   The following sample session illustrates the steps needed to start a
-program under GDB control on your H8/300.  The example uses a sample
-H8/300 program called `t.x'.
+
+File: gdb.info,  Node: MIPS Remote,  Next: Simulator,  Prev: Hitachi Remote,  Up: Remote
 
-   First hook up your H8/300 development board.  In this example, we
-use a board attached to serial port `COM2'; if you use a different
-serial port, substitute its name in the argument of the `mode' command.
-When you call `asynctsr', the auxiliary comms program used by the
-degugger, you give it just the numeric part of the serial port's name;
-for example, `asyncstr 2' below runs `asyncstr' on `COM2'.
+GDB and remote MIPS boards
+--------------------------
 
-     (eg-C:\H8300\TEST) mode com2:9600,n,8,1,p
-     
-     Resident portion of MODE loaded
-     
-     COM2: 9600, n, 8, 1, p
-     
-     (eg-C:\H8300\TEST) asynctsr 2
+   GDB can use the MIPS remote debugging protocol to talk to a MIPS
+board attached to a serial line.  This is available when you configure
+GDB with `--target=mips-idt-ecoff'.
 
-     *Warning:* We have noticed a bug in PC-NFS that conflicts with
-     `asynctsr'.  If you also run PC-NFS on your DOS host, you may need
-     to disable it, or even boot without it, to use `asynctsr' to
-     control your H8/300 board.
+   To run a program on the board, start up `gdb' with the name of your
+program as the argument.  To connect to the board, use the command
+`target mips PORT', where PORT is the name of the serial port connected
+to the board.  If the program has not already been downloaded to the
+board, you may use the `load' command to download it.  You can then use
+all the usual GDB commands.
 
-   Now that serial communications are set up, and the H8/300 is
-connected, you can start up GDB.  Call `gdb' with the name of your
-program as the argument.  `gdb' prompts you, as usual, with the prompt
-`(gdb)'.  Use two special commands to begin your debugging session:
-`target hms' to specify cross-debugging to the Hitachi board, and the
-`load' command to download your program to the board. `load' displays
-the names of the program's sections, and a `*' for each 2K of data
-downloaded.  (If you want to refresh GDB data on symbols or on the
-executable file without downloading, use the GDB commands `file' or
-`symbol-file'.  These commands, and `load' itself, are described in
-*Note Commands to specify files: Files.)
+   You can see some debugging information about communications with the
+board by setting the `remotedebug' variable.  If you set it to 1 using
+`set remotedebug 1' every packet will be displayed.  If you set it to 2
+every character will be displayed.  You can check the current value at
+any time with the command `show remotedebug'.
 
-     (eg-C:\H8300\TEST) gdb t.x
-     GDB is free software and you are welcome to distribute copies
-      of it under certain conditions; type "show copying" to see
-      the conditions.
-     There is absolutely no warranty for GDB; type "show warranty"
-     for details.
-     GDB 4.8, Copyright 1992 Free Software Foundation, Inc...
-     (gdb) target hms
-     Connected to remote H8/300 HMS system.
-     (gdb) load t.x
-     .text   : 0x8000 .. 0xabde ***********
-     .data   : 0xabde .. 0xad30 *
-     .stack  : 0xf000 .. 0xf014 *
-
-   At this point, you're ready to run or debug your program.  From here
-on, you can use all the usual GDB commands.  The `break' command sets
-breakpoints; the `run' command starts your program; `print' or `x'
-display data; the `continue' command resumes execution after stopping
-at a breakpoint.  You can use the `help' command at any time to find
-out more about GDB commands.
-
-   Remember, however, that *operating system* facilities aren't
-available on your H8/300; for example, if your program hangs, you can't
-send an interrupt--but you can press the RESET switch!
-
-   Use the RESET button on the H8/300 board
-   * to interrupt your program (don't use `ctl-C' on the DOS host--it
-     has no way to pass an interrupt signal to the H8/300); and
-
-   * to return to the GDB command prompt after your program finishes
-     normally.  The communications protocol provides no other way for
-     GDB to detect program completion.
-
-   In either case, GDB will see the effect of a RESET on the H8/300
-board as a "normal exit" of your program.
+   If your target board does not support the MIPS floating point
+coprocessor, you should use the command `set mipsfpu off' (you may wish
+to put this in your .gdbinit file).  This will tell GDB how to find the
+return value of functions which return floating point values, and tell
+it to call functions on the board without saving the floating point
+registers.
 
 
-File: gdb.info,  Node: Simulator,  Prev: Hitachi H8/300 Remote,  Up: Remote
+File: gdb.info,  Node: Simulator,  Prev: MIPS Remote,  Up: Remote
 
 Simulated CPU target
 --------------------
@@ -146,7 +307,7 @@ Simulated CPU target
    For some configurations, GDB includes a CPU simulator that you can
 use instead of a hardware CPU to debug your programs.  Currently, a
 simulator is available when GDB is configured to debug Zilog Z8000 or
-Hitachi H8/300 targets.
+Hitachi microprocessor targets.
 
    For the Z8000 family, `target sim' simulates either the Z8002 (the
 unsegmented variant of the Z8000 architecture) or the Z8001 (the
@@ -324,10 +485,11 @@ Screen size
    Certain commands to GDB may produce large amounts of information
 output to the screen.  To help you read all of it, GDB pauses and asks
 you for input at the end of each page of output.  Type RET when you
-want to continue the output.  GDB also uses the screen width setting to
-determine when to wrap lines of output.  Depending on what is being
-printed, it tries to break the line at a readable place, rather than
-simply letting it overflow onto the following line.
+want to continue the output, or `q' to discard the remaining output.
+Also, the screen width setting determines when to wrap lines of output.
+Depending on what is being printed, GDB tries to break the line at a
+readable place, rather than simply letting it overflow onto the
+following line.
 
    Normally GDB knows the size of the screen from the termcap data base
 together with the value of the `TERM' environment variable and the
@@ -354,7 +516,7 @@ Numbers
 
    You can always enter numbers in octal, decimal, or hexadecimal in
 GDB by the usual conventions: octal numbers begin with `0', decimal
-numbers end with `.', and hexadecimal numbers begin with `0x'. Numbers
+numbers end with `.', and hexadecimal numbers begin with `0x'.  Numbers
 that begin with none of these are, by default, entered in base 10;
 likewise, the default display for numbers--when no particular format is
 specified--is base 10.  You can change the default base for both input
@@ -385,7 +547,7 @@ Optional warnings and messages
 
    By default, GDB is silent about its inner workings.  If you are
 running on a slow machine, you may want to use the `set verbose'
-command. It will make GDB tell you when it does a lengthy internal
+command.  It will make GDB tell you when it does a lengthy internal
 operation, so you will not think it has crashed.
 
    Currently, the messages controlled by `set verbose' are those which
@@ -436,9 +598,9 @@ commands, you can disable this "feature":
      Displays state of confirmation requests.
 
    Some systems allow individual object files that make up your program
-to be replaced without stopping and restarting your program. For
+to be replaced without stopping and restarting your program.  For
 example, in VxWorks you can simply recompile a defective object file
-and keep on running. If you are running on one of these systems, you
+and keep on running.  If you are running on one of these systems, you
 can allow GDB to reload the symbols for automatically relinked modules:
 
 `set symbol-reloading on'
@@ -534,14 +696,13 @@ command.  Whenever you run the command `foo', if the user-defined
 command `hook-foo' exists, it is executed (with no arguments) before
 that command.
 
-   In addition, a pseudo-command, `stop' exists.  Hooking this command
-will cause your hook to be executed every time execution stops in the
-inferior program, before breakpoint commands are run, displays are
-printed, or the stack frame is printed.
+   In addition, a pseudo-command, `stop' exists.  Defining
+(`hook-stop') makes the associated commands execute every time
+execution stops in your program: before breakpoint commands are run,
+displays are printed, or the stack frame is printed.
 
-   For example, to cause `SIGALRM' signals to be ignored while
-single-stepping, but cause them to be resumed during normal execution,
-you could do:
+   For example, to ignore `SIGALRM' signals while single-stepping, but
+treat them normally during normal execution, you could define:
 
      define hook-stop
      handle SIGALRM nopass
@@ -555,12 +716,12 @@ you could do:
      handle SIGLARM pass
      end
 
-   Any single-word command in GDB can be hooked.  Aliases for other
-commands cannot be hooked (you should hook the basic command name, e.g.
-`backtrace' rather than `bt').  If an error occurs during the execution
-of your hook, execution of GDB commands stops and you are returned to
-the GDB prompt (before the command that you actually typed had a chance
-to run).
+   You can define a hook for any single-word command in GDB, but not
+for command aliases; you should define a hook for the basic command
+name, e.g.  `backtrace' rather than `bt'.  If an error occurs during
+the execution of your hook, execution of GDB commands stops and GDB
+issues a prompt (before the command that you actually typed had a
+chance to run).
 
    If you try to define a hook which does not match any known command,
 you will get a warning from the `define' command.
@@ -571,7 +732,7 @@ File: gdb.info,  Node: Command Files,  Next: Output,  Prev: Hooks,  Up: Sequence
 Command files
 =============
 
-   A command file for GDB is a file of lines that are GDB commands. 
+   A command file for GDB is a file of lines that are GDB commands.
 Comments (lines starting with `#') may also be included.  An empty line
 in a command file does nothing; it does not mean to repeat the last
 command, as it would from the terminal.
@@ -580,8 +741,22 @@ command, as it would from the terminal.
 "init files".  These are files named `.gdbinit'.  GDB reads the init
 file (if any) in your home directory and then the init file (if any) in
 the current working directory.  (The init files are not executed if you
-use the `-nx' option; *note Choosing modes: Mode Options..)  You can
-also request the execution of a command file with the `source' command:
+use the `-nx' option; *note Choosing modes: Mode Options..)
+
+   On some configurations of GDB, the init file is known by a different
+name (these are typically environments where a specialized form of GDB
+may need to coexist with other forms, hence a different name for the
+specialized version's init file).  These are the environments with
+special init file names:
+
+   * VxWorks (Wind River Systems real-time OS): `.vxgdbinit'
+
+   * OS68K (Enea Data Systems real-time OS): `.os68gdbinit'
+
+   * ES-1800 (Ericsson Telecom AB M68000 emulator): `.esgdbinit'
+
+   You can also request the execution of a command file with the
+`source' command:
 
 `source FILENAME'
      Execute the command file FILENAME.
@@ -614,7 +789,7 @@ want.
      standard C escape sequences, a backslash followed by a space
      stands for a space.  This is useful for displaying a string with
      spaces at the beginning or the end, since leading and trailing
-     spaces are otherwise trimmed from all arguments. To print ` and
+     spaces are otherwise trimmed from all arguments.  To print ` and
      foo = ', use the command `echo \ and foo = \ '.
 
      A backslash at the end of TEXT can be used, as in C, to continue
@@ -642,7 +817,7 @@ want.
      more information.
 
 `printf STRING, EXPRESSIONS...'
-     Print the values of the EXPRESSIONS under the control of STRING. 
+     Print the values of the EXPRESSIONS under the control of STRING.
      The EXPRESSIONS are separated by commas and may be either numbers
      or pointers.  Their values are printed as specified by STRING,
      exactly as if your program were to execute
@@ -863,7 +1038,7 @@ one of these addresses:
      {ucbvax|mit-eddie|uunet}!prep.ai.mit.edu!bug-gdb
 
    *Do not send bug reports to `info-gdb', or to `help-gdb', or to any
-newsgroups.* Most users of GDB do not want to receive bug reports. 
+newsgroups.* Most users of GDB do not want to receive bug reports.
 Those that do, have arranged to receive `bug-gdb'.
 
    The mailing list `bug-gdb' has a newsgroup `gnu.gdb.bug' which
@@ -889,7 +1064,7 @@ leave it out, state it!
    Often people omit facts because they think they know what causes the
 problem and assume that some details do not matter.  Thus, you might
 assume that the name of the variable you use in an example does not
-matter. Well, probably it does not, but one cannot be sure.  Perhaps
+matter.  Well, probably it does not, but one cannot be sure.  Perhaps
 the bug is a stray memory reference which happens to fetch from the
 location where that name is stored in memory; perhaps, if the name were
 different, the contents of that location would fool the debugger into
@@ -918,10 +1093,10 @@ to respond to them* except to chide the sender to report bugs properly.
      and version number.
 
    * What compiler (and its version) was used to compile GDB--e.g.
-     "gcc--2.0".
+     "gcc-2.0".
 
    * What compiler (and its version) was used to compile the program you
-     are debugging--e.g.  "gcc--2.0".
+     are debugging--e.g.  "gcc-2.0".
 
    * The command arguments you gave the compiler to compile your
      example and observe the bug.  For example, did you use `-O'?  To
@@ -940,7 +1115,7 @@ to respond to them* except to chide the sender to report bugs properly.
      Of course, if the bug is that GDB gets a fatal signal, then we will
      certainly notice it.  But if the bug is incorrect output, we might
      not notice unless it is glaringly wrong.  We are human, after all.
-      You might as well not give us a chance to make a mistake.
+     You might as well not give us a chance to make a mistake.
 
      Even if the problem you experience is a fatal signal, you should
      still say so explicitly.  Suppose something strange is going on,
@@ -971,7 +1146,7 @@ to respond to them* except to chide the sender to report bugs properly.
      This is often time consuming and not very useful, because the way
      we will find the bug is by running a single example under the
      debugger with breakpoints, not by pure deduction from a series of
-     examples. We recommend that you save your time for something else.
+     examples.  We recommend that you save your time for something else.
 
      Of course, if you can find a simpler example to report *instead*
      of the original one, that is a convenience for us.  Errors in the
@@ -1085,7 +1260,7 @@ distribution.
 Info formatting programs, such as `texinfo-format-buffer' or `makeinfo'.
 
    If you have `makeinfo' installed, and are in the top level GDB
-source directory (`gdb-4.8', in the case of version 4.8), you can make
+source directory (`gdb-4.9', in the case of version 4.9), you can make
 the Info file by typing:
 
      cd gdb
@@ -1103,177 +1278,19 @@ use depends on your system; `lpr -d' is common; another (for PostScript
 devices) is `dvips'.  The DVI print command may require a file name
 without any extension or a `.dvi' extension.
 
-   TeX also requires a macro definitions file called `texinfo.tex'. 
+   TeX also requires a macro definitions file called `texinfo.tex'.
 This file tells TeX how to typeset a document written in Texinfo
 format.  On its own, TeX cannot read, much less typeset a Texinfo file.
- `texinfo.tex' is distributed with GDB and is located in the
+`texinfo.tex' is distributed with GDB and is located in the
 `gdb-VERSION-NUMBER/texinfo' directory.
 
    If you have TeX and a DVI printer program installed, you can typeset
 and print this manual.  First switch to the the `gdb' subdirectory of
-the main source directory (for example, to `gdb-4.8/gdb') and then type:
+the main source directory (for example, to `gdb-4.9/gdb') and then type:
 
      make gdb.dvi
 
    ---------- Footnotes ----------
 
-   (1)  In `gdb-4.8/gdb/refcard.ps' of the version 4.8 release.
+   (1)  In `gdb-4.9/gdb/refcard.ps' of the version 4.9 release.
 
-
-File: gdb.info,  Node: Installing GDB,  Next: Copying,  Prev: Formatting Documentation,  Up: Top
-
-Installing GDB
-**************
-
-   GDB comes with a `configure' script that automates the process of
-preparing GDB for installation; you can then use `make' to build the
-`gdb' program.
-
-   The GDB distribution includes all the source code you need for GDB in
-a single directory, whose name is usually composed by appending the
-version number to `gdb'.
-
-   For example, the GDB version 4.8 distribution is in the `gdb-4.8'
-directory.  That directory contains:
-
-`gdb-4.8/configure (and supporting files)'
-     script for configuring GDB and all its supporting libraries.
-
-`gdb-4.8/gdb'
-     the source specific to GDB itself
-
-`gdb-4.8/bfd'
-     source for the Binary File Descriptor library
-
-`gdb-4.8/include'
-     GNU include files
-
-`gdb-4.8/libiberty'
-     source for the `-liberty' free software library
-
-`gdb-4.8/opcodes'
-     source for the library of opcode tables and disassemblers
-
-`gdb-4.8/readline'
-     source for the GNU command-line interface
-
-`gdb-4.8/glob'
-     source for the GNU filename pattern-matching subroutine
-
-`gdb-4.8/mmalloc'
-     source for the GNU memory-mapped malloc package
-
-   The simplest way to configure and build GDB is to run `configure'
-from the `gdb-VERSION-NUMBER' source directory, which in this example
-is the `gdb-4.8' directory.
-
-   First switch to the `gdb-VERSION-NUMBER' source directory if you are
-not already in it; then run `configure'.  Pass the identifier for the
-platform on which GDB will run as an argument.
-
-   For example:
-
-     cd gdb-4.8
-     ./configure HOST
-     make
-
-where HOST is an identifier such as `sun4' or `decstation', that
-identifies the platform where GDB will run.
-
-   Running `configure HOST' followed by `make' builds the `bfd',
-`readline', `mmalloc', and `libiberty' libraries, then `gdb' itself. 
-The configured source files, and the binaries, are left in the
-corresponding source directories.
-
-   `configure' is a Bourne-shell (`/bin/sh') script; if your system
-does not recognize this automatically when you run a different shell,
-you may need to run `sh' on it explicitly:
-
-     sh configure HOST
-
-   If you run `configure' from a directory that contains source
-directories for multiple libraries or programs, such as the `gdb-4.8'
-source directory for version 4.8, `configure' creates configuration
-files for every directory level underneath (unless you tell it not to,
-with the `--norecursion' option).
-
-   You can run the `configure' script from any of the subordinate
-directories in the GDB distribution, if you only want to configure that
-subdirectory; but be sure to specify a path to it.
-
-   For example, with version 4.8, type the following to configure only
-the `bfd' subdirectory:
-
-     cd gdb-4.8/bfd
-     ../configure HOST
-
-   You can install `gdb' anywhere; it has no hardwired paths. However,
-you should make sure that the shell on your path (named by the `SHELL'
-environment variable) is publicly readable.  Remember that GDB uses the
-shell to start your program--some systems refuse to let GDB debug child
-processes whose programs are not readable.
-
-* Menu:
-
-* Separate Objdir::             Compiling GDB in another directory
-* Config Names::                Specifying names for hosts and targets
-* configure Options::           Summary of options for configure
-
-
-File: gdb.info,  Node: Separate Objdir,  Next: Config Names,  Up: Installing GDB
-
-Compiling GDB in another directory
-==================================
-
-   If you want to run GDB versions for several host or target machines,
-you need a different `gdb' compiled for each combination of host and
-target.  `configure' is designed to make this easy by allowing you to
-generate each configuration in a separate subdirectory, rather than in
-the source directory.  If your `make' program handles the `VPATH'
-feature (GNU `make' does), running `make' in each of these directories
-builds the `gdb' program specified there.
-
-   To build `gdb' in a separate directory, run `configure' with the
-`--srcdir' option to specify where to find the source. (You also need
-to specify a path to find `configure' itself from your working
-directory.  If the path to `configure' would be the same as the
-argument to `--srcdir', you can leave out the `--srcdir' option; it
-will be assumed.)
-
-   For example, with version 4.8, you can build GDB in a separate
-directory for a Sun 4 like this:
-
-     cd gdb-4.8
-     mkdir ../gdb-sun4
-     cd ../gdb-sun4
-     ../gdb-4.8/configure sun4
-     make
-
-   When `configure' builds a configuration using a remote source
-directory, it creates a tree for the binaries with the same structure
-(and using the same names) as the tree under the source directory.  In
-the example, you'd find the Sun 4 library `libiberty.a' in the
-directory `gdb-sun4/libiberty', and GDB itself in `gdb-sun4/gdb'.
-
-   One popular reason to build several GDB configurations in separate
-directories is to configure GDB for cross-compiling (where GDB runs on
-one machine--the host--while debugging programs that run on another
-machine--the target).  You specify a cross-debugging target by giving
-the `--target=TARGET' option to `configure'.
-
-   When you run `make' to build a program or library, you must run it
-in a configured directory--whatever directory you were in when you
-called `configure' (or one of its subdirectories).
-
-   The `Makefile' that `configure' generates in each source directory
-also runs recursively.  If you type `make' in a source directory such
-as `gdb-4.8' (or in a separate configured directory configured with
-`--srcdir=PATH/gdb-4.8'), you will build all the required libraries,
-and then build GDB.
-
-   When you have multiple hosts or targets configured in separate
-directories, you can run `make' on them in parallel (for example, if
-they are NFS-mounted on each of the hosts); they will not interfere
-with each other.
-
-

@@ -3,7 +3,7 @@
 @c
 @c %**start of header 
 @c makeinfo ignores cmds prev to setfilename, so its arg cannot make use
-@c of @set vars.  However, we can override filename with makeinfo -o.
+@c of @set vars.  However, you can override filename with makeinfo -o.
 @setfilename gdb.info
 @c
 @include gdb-config.texi
@@ -12,7 +12,7 @@
 @settitle Debugging with @value{GDBN}
 @end ifset
 @ifclear GENERIC
-@settitle Debugging with @value{GDBN} (@value{HOST})
+@settitle Debugging with @value{GDBN} (@value{TARGET})
 @end ifclear
 @setchapternewpage odd
 @c %**end of header
@@ -73,7 +73,7 @@ END-INFO-DIR-ENTRY
 This file documents the GNU debugger @value{GDBN}.
 
 @c !!set edition, date, version
-This is Edition 4.07, January 1993, 
+This is Edition 4.09, April 1993, 
 of @cite{Debugging with @value{GDBN}: the GNU Source-Level Debugger}
 for GDB Version @value{GDBVN}.
 
@@ -108,12 +108,12 @@ instead of in the original English.
 @title Debugging with @value{GDBN}
 @subtitle The GNU Source-Level Debugger
 @ifclear GENERIC
-@subtitle on @value{HOST} Systems
+@subtitle (@value{TARGET})
 @end ifclear
 @sp 1
 @c !!set edition, date, version
-@subtitle Edition 4.07, for @value{GDBN} version @value{GDBVN}
-@subtitle January 1993
+@subtitle Edition 4.09, for @value{GDBN} version @value{GDBVN}
+@subtitle April 1993
 @author by Richard M. Stallman and Roland H. Pesch
 @page
 @tex
@@ -154,12 +154,8 @@ instead of in the original English.
 This file describes @value{GDBN}, the GNU symbolic debugger.
 
 @c !!set edition, date, version
-This is Edition 4.07, January 1993, for GDB Version @value{GDBVN}.
+This is Edition 4.09, April 1993, for GDB Version @value{GDBVN}.
 
-@c Makeinfo node defaulting gets very confused by conditionals in menus,
-@c unfortunately.  Otherwise we would use the following ignored menu,
-@c which involves four switches:
-@ignore
 @menu
 * Summary::                     Summary of @value{GDBN}
 @ifset NOVEL
@@ -168,6 +164,7 @@ This is Edition 4.07, January 1993, for GDB Version @value{GDBVN}.
 @ifclear BARETARGET
 * Sample Session::              A sample @value{GDBN} session
 @end ifclear
+
 * Invocation::                  Getting in and out of @value{GDBN}
 * Commands::                    @value{GDBN} commands
 * Running::                     Running programs under @value{GDBN}
@@ -179,8 +176,10 @@ This is Edition 4.07, January 1993, for GDB Version @value{GDBVN}.
 * Languages::                   Using @value{GDBN} with different languages
 @end ifclear
 @ifset CONLY
-* C::                           C and C++
+* C::                           C language support
 @end ifset
+@c remnant makeinfo bug, blank line needed after two end-ifs?
+
 * Symbols::                     Examining the symbol table
 * Altering::                    Altering execution
 * GDB Files::                   @value{GDBN} files
@@ -190,563 +189,21 @@ This is Edition 4.07, January 1993, for GDB Version @value{GDBVN}.
 @ifclear DOSHOST
 * Emacs::                       Using @value{GDBN} under GNU Emacs
 @end ifclear
+
 * GDB Bugs::                    Reporting bugs in @value{GDBN}
 @ifset NOVEL
 * Renamed Commands::
 @end ifset
+@ifclear PRECONFIGURED
 * Formatting Documentation::    How to format and print GDB documentation
 * Installing GDB::              Installing GDB
+@end ifclear
+@ifclear AGGLOMERATION
 * Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ignore
-@c
-@c Since that does not work, we must unroll the above into 16 cases:
-@c
-@c Menu for NOVEL && !BARETARGET && !CONLY && !DOSHOST
-@ifset NOVEL
-@ifclear BARETARGET
-@ifclear CONLY
-@ifclear DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* New Features::                New features since GDB version 3.5
-* Sample Session::              A sample @value{GDBN} session
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* Languages::                   Using @value{GDBN} with different languages
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* Emacs::                       Using @value{GDBN} under GNU Emacs
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Renamed Commands::
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifclear
-@end ifclear
-@end ifclear
-@end ifset
-
-@c Menu for NOVEL && !BARETARGET && !CONLY && DOSHOST
-@ifset NOVEL
-@ifclear BARETARGET
-@ifclear CONLY
-@ifset DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* New Features::                New features since GDB version 3.5
-* Sample Session::              A sample @value{GDBN} session
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* Languages::                   Using @value{GDBN} with different languages
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Renamed Commands::
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifset
-@end ifclear
-@end ifclear
-@end ifset
-
-@c Menu for NOVEL && !BARETARGET && CONLY && !DOSHOST
-@ifset NOVEL
-@ifclear BARETARGET
-@ifset CONLY
-@ifclear DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* New Features::                New features since GDB version 3.5
-* Sample Session::              A sample @value{GDBN} session
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* C::                           C Language Support
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* Emacs::                       Using @value{GDBN} under GNU Emacs
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Renamed Commands::
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifclear
-@end ifset
-@end ifclear
-@end ifset
-
-@c Menu for NOVEL && !BARETARGET && CONLY && DOSHOST
-@ifset NOVEL
-@ifclear BARETARGET
-@ifset CONLY
-@ifset DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* New Features::                New features since GDB version 3.5
-* Sample Session::              A sample @value{GDBN} session
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* C::                           C Language Support
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Renamed Commands::
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifset
-@end ifset
-@end ifclear
-@end ifset
-
-@c Menu for NOVEL && BARETARGET && !CONLY && !DOSHOST
-@ifset NOVEL
-@ifset BARETARGET
-@ifclear CONLY
-@ifclear DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* New Features::                New features since GDB version 3.5
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* Languages::                   Using @value{GDBN} with different languages
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* Emacs::                       Using @value{GDBN} under GNU Emacs
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Renamed Commands::
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifclear
-@end ifclear
-@end ifset
-@end ifset
-
-@c Menu for NOVEL && BARETARGET && !CONLY && DOSHOST
-@ifset NOVEL
-@ifset BARETARGET
-@ifclear CONLY
-@ifset DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* New Features::                New features since GDB version 3.5
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* Languages::                   Using @value{GDBN} with different languages
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Renamed Commands::
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifset
-@end ifclear
-@end ifset
-@end ifset
-
-@c Menu for NOVEL && BARETARGET && CONLY && !DOSHOST
-@ifset NOVEL
-@ifset BARETARGET
-@ifset CONLY
-@ifclear DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* New Features::                New features since GDB version 3.5
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* C::                           C Language support
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* Emacs::                       Using @value{GDBN} under GNU Emacs
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Renamed Commands::
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifclear
-@end ifset
-@end ifset
-@end ifset
-
-@c Menu for NOVEL && BARETARGET && CONLY && DOSHOST
-@ifset NOVEL
-@ifset BARETARGET
-@ifset CONLY
-@ifset DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* New Features::                New features since GDB version 3.5
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* C::                           C Language support
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Renamed Commands::
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifset
-@end ifset
-@end ifset
-@end ifset
-
-@c Menu for !NOVEL && !BARETARGET && !CONLY && !DOSHOST
-@ifclear NOVEL
-@ifclear BARETARGET
-@ifclear CONLY
-@ifclear DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* Sample Session::              A sample @value{GDBN} session
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* Languages::                   Using @value{GDBN} with different languages
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* Emacs::                       Using @value{GDBN} under GNU Emacs
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifclear
-@end ifclear
-@end ifclear
 @end ifclear
 
-@c Menu for !NOVEL && !BARETARGET && !CONLY && DOSHOST
-@ifclear NOVEL
-@ifclear BARETARGET
-@ifclear CONLY
-@ifset DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* Sample Session::              A sample @value{GDBN} session
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* Languages::                   Using @value{GDBN} with different languages
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
 * Index::                       Index
 @end menu
-@end ifset
-@end ifclear
-@end ifclear
-@end ifclear
-
-@c Menu for !NOVEL && !BARETARGET && CONLY && !DOSHOST
-@ifclear NOVEL
-@ifclear BARETARGET
-@ifset CONLY
-@ifclear DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* Sample Session::              A sample @value{GDBN} session
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* C::                           C Language support
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* Emacs::                       Using @value{GDBN} under GNU Emacs
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifclear
-@end ifset
-@end ifclear
-@end ifclear
-
-@c Menu for !NOVEL && !BARETARGET && CONLY && DOSHOST
-@ifclear NOVEL
-@ifclear BARETARGET
-@ifset CONLY
-@ifset DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* Sample Session::              A sample @value{GDBN} session
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* C::                           C Language support
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifset
-@end ifset
-@end ifclear
-@end ifclear
-
-@c Menu for !NOVEL && BARETARGET && !CONLY && !DOSHOST
-@ifclear NOVEL
-@ifset BARETARGET
-@ifclear CONLY
-@ifclear DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* Languages::                   Using @value{GDBN} with different languages
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* Emacs::                       Using @value{GDBN} under GNU Emacs
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifclear
-@end ifclear
-@end ifset
-@end ifclear
-
-@c Menu for !NOVEL && BARETARGET && !CONLY && DOSHOST
-@ifclear NOVEL
-@ifset BARETARGET
-@ifclear CONLY
-@ifset DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* Languages::                   Using @value{GDBN} with different languages
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifset
-@end ifclear
-@end ifset
-@end ifclear
-
-@c Menu for !NOVEL && BARETARGET && CONLY && !DOSHOST
-@ifclear NOVEL
-@ifset BARETARGET
-@ifset CONLY
-@ifclear DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* C::                           C Language Support
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* Emacs::                       Using @value{GDBN} under GNU Emacs
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifclear
-@end ifset
-@end ifset
-@end ifclear
-
-@c Menu for !NOVEL && BARETARGET && CONLY && DOSHOST
-@ifclear NOVEL
-@ifset BARETARGET
-@ifset CONLY
-@ifset DOSHOST
-@menu
-* Summary::                     Summary of @value{GDBN}
-* Invocation::                  Getting in and out of @value{GDBN}
-* Commands::                    @value{GDBN} commands
-* Running::                     Running programs under @value{GDBN}
-* Stopping::                    Stopping and continuing
-* Stack::                       Examining the stack
-* Source::                      Examining source files
-* Data::                        Examining data
-* C::                           C Language Support
-* Symbols::                     Examining the symbol table
-* Altering::                    Altering execution
-* GDB Files::                   @value{GDBN} files
-* Targets::                     Specifying a debugging target
-* Controlling GDB::             Controlling @value{GDBN}
-* Sequences::                   Canned sequences of commands
-* GDB Bugs::                    Reporting bugs in @value{GDBN}
-* Formatting Documentation::    How to format and print GDB documentation
-* Installing GDB::              Installing GDB
-* Copying::                     GNU GENERAL PUBLIC LICENSE
-* Index::                       Index
-@end menu
-@end ifset
-@end ifset
-@end ifset
-@end ifclear
-
 @end ifinfo
 
 @node Summary
@@ -833,10 +290,12 @@ stability, and capabilities of the entire debugger.
 Richard Stallman, assisted at various times by Pete TerMaat, Chris
 Hanson, and Richard Mlynarik, handled releases through 2.8.
 
+@ifclear CONLY
 Michael Tiemann is the author of most of the GNU C++ support in GDB,
 with significant additional contributions from Per Bothner.  James
 Clark wrote the GNU C++ demangler.  Early work on C++ was by Peter
 TerMaat (who also did much general update work leading to release 3.0).
+@end ifclear
 
 GDB 4 uses the BFD subroutine library to examine multiple
 object-file formats; BFD was a joint project of David V.
@@ -876,8 +335,13 @@ Andrew Beers of SUNY Buffalo wrote the language-switching code and
 the Modula-2 support, and contributed the Languages chapter of this
 manual.
 
-Fred Fish wrote most of the support for Unix System Vr4, and enhanced
-the command-completion support to cover C++ overloaded symbols.
+Fred Fish wrote most of the support for Unix System Vr4.  
+@ifclear CONLY
+He also enhanced the command-completion support to cover C++ overloaded
+symbols.
+@end ifclear
+
+Hitachi America, Ltd. sponsored the support for Hitachi microprocessors.
 
 @ifset NOVEL
 @node New Features
@@ -1243,39 +707,19 @@ This chapter discusses how to start @value{GDBN}, and how to get out of it.
 (The essentials: type @samp{@value{GDBP}} to start GDB, and type @kbd{quit}
 or @kbd{C-d} to exit.)
 
-@ignore
-@c original form of menu, pre-unfolding:
-@menu
-* Invoking GDB::                How to start @value{GDBN}
-* Quitting GDB::                 How to quit @value{GDBN}
-@ifclear BARETARGET
-* Shell Commands::              How to use shell commands inside @value{GDBN}
-@end ifclear
-@end menu
-@end ignore
-
-@ifclear BARETARGET
 @menu
 * Invoking GDB::                How to start @value{GDBN}
 * Quitting GDB::                 How to quit @value{GDBN}
 * Shell Commands::              How to use shell commands inside @value{GDBN}
 @end menu
-@end ifclear
-
-@ifset BARETARGET
-@menu
-* Invoking GDB::                How to start @value{GDBN}
-* Quitting GDB::                 How to quit @value{GDBN}
-@end menu
-@end ifset
 
 @node Invoking GDB
 @section Invoking @value{GDBN}
 
-@ifset HviiiEXCLUSIVE
+@ifset H8EXCLUSIVE
 For details on starting up @value{GDBP} as a
-remote debugger attached to a Hitachi H8/300 board, see @ref{Hitachi
-H8/300 Remote,,@value{GDBN} and the Hitachi H8/300}.
+remote debugger attached to a Hitachi microprocessor, see @ref{Hitachi
+Remote,,@value{GDBN} and Hitachi Microprocessors}.
 @end ifset
 
 Invoke @value{GDBN} by running the program @code{@value{GDBP}}.  Once started,
@@ -1343,74 +787,39 @@ in sequential order.  The order makes a difference when the
 @samp{-x} option is used.
 
 
-@ignore
-@c original, intended form of this menu (pre-unfolding):
 @menu
 @ifclear GENERIC
 @ifset REMOTESTUB
 * Remote Serial::               @value{GDBN} remote serial protocol
 @end ifset
-@ifset Icmlx
+@ifset I960
 * i960-Nindy Remote::		@value{GDBN} with a remote i960 (Nindy)
 @end ifset
-@ifset AMDxxixK
+@ifset AMD29K
 * UDI29K Remote::               @value{GDBN} and the UDI protocol for AMD29K
 * EB29K Remote::		@value{GDBN} with a remote EB29K
 @end ifset
 @ifset VXWORKS
 * VxWorks Remote::		@value{GDBN} and VxWorks
 @end ifset
-@ifset STmm
+@ifset ST2000
 * ST2000 Remote::               @value{GDBN} with a Tandem ST2000
 @end ifset
-@ifset Hviii
-* Hitachi H8/300 Remote::       @value{GDBN} and the Hitachi H8/300
+@ifset H8
+* Hitachi Remote::              @value{GDBN} and Hitachi Microprocessors
+@end ifset
+@ifset MIPS
+* MIPS Remote::			@value{GDBN} and MIPS boards
 @end ifset
 @ifset SIMS
 * Simulator::                   Simulated CPU target
 @end ifset
 @end ifclear
+@c remnant makeinfo bug requires this blank line after *two* end-ifblahs:
+
 * File Options::                Choosing files
 * Mode Options::                Choosing modes
 @end menu
-@end ignore
-
-@c Unfolded form:
-@c Sigh--- GENERIC plus 7 switches mean 1+2^7 forms of this menu!  
-@c Add them only on demand; no point in including forms for which
-@c there's no defined config file.  Maybe by the time all are needed,
-@c makeinfo will be capable of dealing with menus like the above.
-
-@ifset GENERIC
-@menu
-* File Options::                Choosing files
-* Mode Options::                Choosing modes
-@end menu
-@end ifset
-
-@c Hviii config: !GENERIC && Hviii && nothing else
-@ifclear GENERIC
-@ifclear REMOTESTUB
-@ifclear Icmlx
-@ifclear AMDxxixK
-@ifclear VXWORKS
-@ifclear STmm
-@ifset Hviii
-@ifclear ZviiiK
-@menu
-* Hitachi H8/300 Remote::       @value{GDBN} and the Hitachi H8/300
-* Simulator::                   Simulated CPU target
-* File Options::                Choosing files
-* Mode Options::                Choosing modes
-@end menu
-@end ifclear
-@end ifset
-@end ifclear
-@end ifclear
-@end ifclear
-@end ifclear
-@end ifclear
-@end ifclear
 
 @ifclear GENERIC
 @include gdbinv-s.texi
@@ -1449,8 +858,13 @@ Read symbol table from file @var{file}.
 @item -exec=@var{file}
 @itemx -e @var{file}
 Use file @var{file} as the executable file to execute when
+@ifset BARETARGET
+appropriate.
+@end ifset
+@ifclear BARETARGET
 appropriate, and for examining pure data in conjunction with a core
 dump.
+@end ifclear
 
 @item -se=@var{file}
 Read symbol table from file @var{file} and use it as the executable
@@ -1485,9 +899,10 @@ Future @value{GDBN} debugging sessions will notice the presence of this file,
 and will quickly map in symbol information from it, rather than reading
 the symbol table from the executable program.
 
-The @file{.syms} file is specific to the host machine on which @value{GDBN} is run.
-It holds an exact image of the internal @value{GDBN} symbol table.  It cannot be
-shared across multiple host platforms.
+@c FIXME! Really host, not target?
+The @file{.syms} file is specific to the host machine where @value{GDBN}
+is run.  It holds an exact image of the internal @value{GDBN} symbol
+table.  It cannot be shared across multiple host platforms.
 @end ifclear
 
 @item -r
@@ -1560,6 +975,7 @@ as a client in the Energize environment.  Avoid this option when you run
 @value{GDBN} with Energize} for more discussion of using @value{GDBN} with Energize.
 @end ifset
 
+@ifclear DOSHOST
 @item -fullname
 @itemx -f
 Emacs sets this option when it runs @value{GDBN} as a subprocess.  It tells @value{GDBN}
@@ -1570,6 +986,7 @@ like two @samp{\032} characters, followed by the file name, line number
 and character position separated by colons, and a newline.  The
 Emacs-to-@value{GDBN} interface program uses the two @samp{\032} characters as
 a signal to display the source code for the frame.
+@end ifclear
 
 @ifset SERIAL
 @item -b @var{bps}
@@ -1608,7 +1025,6 @@ device, you can release it with the @code{detach} command
 (@pxref{Attach, ,Debugging an already-running process}).
 @end ifclear
 
-@ifclear BARETARGET
 @node Shell Commands
 @section Shell commands
 
@@ -1620,23 +1036,24 @@ just use the @code{shell} command.
 @item shell @var{command string}
 @kindex shell
 @cindex shell escape
-Directs @value{GDBN} to invoke an inferior shell to execute @var{command
-string}.  If it exists, the environment variable @code{SHELL} is used
-for the name of the shell to run.  Otherwise @value{GDBN} uses
-@code{/bin/sh}.
+Invoke a the standard shell to execute @var{command string}.
+@ifclear DOSHOST
+If it exists, the environment variable @code{SHELL} determines which
+shell to run.  Otherwise @value{GDBN} uses @code{/bin/sh}.
+@end ifclear
 @end table
 
 The utility @code{make} is often needed in development environments.
-You do not have to use the @code{shell} command for this purpose in @value{GDBN}:
+You do not have to use the @code{shell} command for this purpose in
+@value{GDBN}:
 
 @table @code
 @item make @var{make-args}
 @kindex make
 @cindex calling make
-Causes @value{GDBN} to execute an inferior @code{make} program with the specified
+Execute the @code{make} program with the specified
 arguments.  This is equivalent to @samp{shell make @var{make-args}}.
 @end table
-@end ifclear
 
 @node Commands
 @chapter @value{GDBN} Commands
@@ -1778,6 +1195,7 @@ parentheses or other characters that @value{GDBN} normally excludes from its
 notion of a word.  To permit word completion to work in this situation,
 you may enclose words in @code{'} (single quote marks) in @value{GDBN} commands.
 
+@ifclear CONLY
 The most likely situation where you might need this is in typing the
 name of a C++ function.  This is because C++ allows function overloading
 (multiple definitions of the same function, distinguished by argument
@@ -1811,6 +1229,7 @@ place:
 In general, @value{GDBN} can tell that a quote is needed (and inserts it) if
 you have not yet started typing the argument list when you ask for
 completion on an overloaded symbol.
+@end ifclear
 
 
 @node Help
@@ -1862,7 +1281,10 @@ Status inquiries.
 
 List of commands:
 
-show -- Generic command for showing things set with "set"
+@c Line break in "show" line falsifies real output, but needed
+@c to fit in smallbook page size.
+show -- Generic command for showing things set
+ with "set"
 info -- Generic command for printing status
 
 Type "help" followed by command name for full 
@@ -1940,13 +1362,13 @@ Display the GNU ``NO WARRANTY'' statement.
 @chapter Running Programs Under @value{GDBN}
 
 When you run a program under @value{GDBN}, you must first generate
-debugging information when you compile it.  You may start it with its
-arguments, if any, in an environment of your choice.  You may redirect
-your program's input and output, debug an already running process, or
-kill a child process.
+debugging information when you compile it.
+@ifclear BARETARGET
+You may start it with its arguments, if any, in an environment of your
+choice.  You may redirect your program's input and output, debug an
+already running process, or kill a child process.
+@end ifclear
 
-@ignore
-@c pre-unfolding:
 @menu
 * Compilation::                 Compiling for debugging
 * Starting::                    Starting your program
@@ -1960,28 +1382,6 @@ kill a child process.
 * Process Information::         Additional process information
 @end ifclear
 @end menu
-@end ignore
-
-@ifclear BARETARGET
-@menu
-* Compilation::                 Compiling for debugging
-* Starting::                    Starting your program
-* Arguments::                   Your program's arguments
-* Environment::                 Your program's environment
-* Working Directory::           Your program's working directory
-* Input/Output::                Your program's input and output
-* Attach::                      Debugging an already-running process
-* Kill Process::                Killing the child process
-* Process Information::         Additional process information
-@end menu
-@end ifclear
-
-@ifset BARETARGET
-@menu
-* Compilation::                 Compiling for debugging
-* Starting::                    Starting your program
-@end menu
-@end ifset
 
 @node Compilation
 @section Compiling for debugging
@@ -2127,8 +1527,9 @@ breakpoints.
 The arguments to your program can be specified by the arguments of the
 @code{run} command.  They are passed to a shell, which expands wildcard
 characters and performs redirection of I/O, and thence to your program.
-@value{GDBN} uses the shell indicated by your @code{SHELL} environment
-variable if it exists; otherwise, @value{GDBN} uses @code{/bin/sh}.
+Your @code{SHELL} environment variable (if it exists) specifies what
+shell @value{GDBN} if you do not define @code{SHELL}, @value{GDBN} uses
+@code{/bin/sh}.
 
 @code{run} with no arguments uses the same arguments used by the previous
 @code{run}, or those set by the @code{set args} command.
@@ -2218,6 +1619,15 @@ program.  This is different from @samp{set env @var{varname} =};
 rather than assigning it an empty value.
 @end table
 
+@emph{Warning:} @value{GDBN} runs your program using the shell indicated
+by your @code{SHELL} environment variable if it exists (or
+@code{/bin/sh} if not).  If your @code{SHELL} variable names a shell
+that runs an initialization file---such as @file{.cshrc} for C-shell, or
+@file{.bashrc} for BASH---any variables you set in that file will affect
+your program.  You may wish to move setting of environment variables to
+files that are only run when you sign on, such as @file{.login} or
+@file{.profile}.
+
 @node Working Directory
 @section Your program's working directory
 
@@ -2303,12 +1713,11 @@ for @value{GDBN} still comes from your terminal.
 
 @table @code
 @item attach @var{process-id}
-This command
-attaches to a running process---one that was started outside @value{GDBN}.
-(@code{info files} will show your active targets.)  The command takes as
-argument a process ID.  The usual way to find out the process-id of
-a Unix process is with the @code{ps} utility, or with the @samp{jobs -l}
-shell command.
+This command attaches to a running process---one that was started
+outside @value{GDBN}.  (@code{info files} will show your active
+targets.)  The command takes as argument a process ID.  The usual way to
+find out the process-id of a Unix process is with the @code{ps} utility,
+or with the @samp{jobs -l} shell command.
 
 @code{attach} will not repeat if you press @key{RET} a second time after
 executing the command.
@@ -2426,7 +1835,11 @@ program before it terminates; or so that, if your program runs into
 trouble, you can investigate and find out why.
 
 Inside @value{GDBN}, your program may stop for any of several reasons, such
-as a signal, a breakpoint, or reaching a new line after a @value{GDBN}
+as
+@ifclear BARETARGET
+a signal,
+@end ifclear
+a breakpoint, or reaching a new line after a @value{GDBN}
 command such as @code{step}.  You may then examine and change
 variables, set new breakpoints or remove old ones, and then continue
 execution.  Usually, the messages shown by @value{GDBN} provide ample
@@ -2437,11 +1850,13 @@ request this information at any time.
 @item info program
 @kindex info program
 Display information about the status of your program: whether it is
-running or not, what process it is, and why it stopped.
+running or not,
+@ifclear BARETARGET
+what process it is,
+@end ifclear
+and why it stopped.
 @end table
 
-@ignore
-@c original menu
 @menu
 @ifclear CONLY
 * Breakpoints::                 Breakpoints, watchpoints, and exceptions
@@ -2449,56 +1864,15 @@ running or not, what process it is, and why it stopped.
 @ifset CONLY
 * Breakpoints::                 Breakpoints and watchpoints
 @end ifset
+@c Remnant makeinfo bug requires blank line after *successful* end-if in menu:
+
 * Continuing and Stepping::     Resuming execution
 @ifset POSIX
 * Signals::                     Signals
 @end ifset
 @end menu
-@end ignore
 
-@c !CONLY && POSIX
-@ifclear CONLY
-@ifset POSIX
-@menu
-* Breakpoints::                 Breakpoints, watchpoints, and exceptions
-* Continuing and Stepping::     Resuming execution
-* Signals::                     Signals
-@end menu
-@end ifset
-@end ifclear
-
-@c CONLY && POSIX
-@ifset CONLY
-@ifset POSIX
-@menu
-* Breakpoints::                 Breakpoints and watchpoints
-* Continuing and Stepping::     Resuming execution
-* Signals::                     Signals
-@end menu
-@end ifset
-@end ifset
-
-@c !CONLY && !POSIX
-@ifclear CONLY
-@ifclear POSIX
-@menu
-* Breakpoints::                 Breakpoints, watchpoints, and exceptions
-* Continuing and Stepping::     Resuming execution
-@end menu
-@end ifclear
-@end ifclear
-
-@c CONLY && !POSIX
-@ifset CONLY
-@ifclear POSIX
-@menu
-* Breakpoints::                 Breakpoints and watchpoints
-* Continuing and Stepping::     Resuming execution
-@end menu
-@end ifclear
-@end ifset
-
-@c node-defaulting requires adjacency of @node and sectioning cmds
+@c makeinfo node-defaulting requires adjacency of @node and sectioning cmds
 @c ...hence distribute @node Breakpoints over two possible @if expansions.
 @c
 @ifclear CONLY
@@ -2551,13 +1925,20 @@ no effect on your program until you enable it again.
 @menu
 * Set Breaks::                  Setting breakpoints
 * Set Watchpoints::             Setting watchpoints
+@ifclear CONLY
 * Exception Handling::          Breakpoints and exceptions
+@end ifclear
+
 * Delete Breaks::               Deleting breakpoints
 * Disabling::                   Disabling breakpoints
 * Conditions::                  Break conditions
 * Break Commands::              Breakpoint command lists
+@ifclear CONLY
 * Breakpoint Menus::            Breakpoint menus
+@end ifclear
+@ifclear BARETARGET
 * Error in Breakpoints::        ``Cannot insert breakpoints''
+@end ifclear
 @end menu
 
 @node Set Breaks
@@ -2773,6 +2154,7 @@ This command prints a list of watchpoints and breakpoints; it is the
 same as @code{info break}.
 @end table
 
+@ifclear CONLY
 @node Exception Handling
 @subsection Breakpoints and exceptions
 @cindex exception handlers
@@ -2832,18 +2214,14 @@ which has the following ANSI C interface:
 @noindent
 To make the debugger catch all exceptions before any stack
 unwinding takes place, set a breakpoint on @code{__raise_exception}
-@ifclear CONLY
 (@pxref{Breakpoints, ,Breakpoints; watchpoints; and exceptions}).
-@end ifclear
-@ifset CONLY
-(@pxref{Breakpoints, ,Breakpoints and watchpoints}).
-@end ifset
 
 With a conditional breakpoint (@pxref{Conditions, ,Break conditions})
 that depends on the value of @var{id}, you can stop your program when
 a specific exception is raised.  You can use multiple conditional
 breakpoints to stop your program when any of a number of exceptions are
 raised.
+@end ifclear
 
 @node Delete Breaks
 @subsection Deleting breakpoints
@@ -3182,6 +2560,7 @@ break conditions without changing the terminal modes.  When you want
 to have nontrivial conditions for performing the side effects, the
 operators @samp{&&}, @samp{||} and @samp{?@dots{}:} may be useful.
 
+@ifclear CONLY
 @node Breakpoint Menus
 @subsection Breakpoint menus
 @cindex overloading
@@ -3224,7 +2603,9 @@ Multiple breakpoints were set.
 Use the "delete" command to delete unwanted breakpoints.
 (@value{GDBP})
 @end example
+@end ifclear
 
+@ifclear BARETARGET
 @node Error in Breakpoints
 @subsection ``Cannot insert breakpoints''
 
@@ -3257,6 +2638,7 @@ Relink your program so that the text segment is nonsharable, using the
 linker option @samp{-N}.  The operating system limitation may not apply
 to nonsharable executables.
 @end enumerate
+@end ifclear
 
 @node Continuing and Stepping
 @section Continuing and stepping
@@ -3323,8 +2705,11 @@ execution will proceed until control reaches another function.
 
 @item step @var{count}
 Continue running as in @code{step}, but do so @var{count} times.  If a
-breakpoint is reached or a signal not related to stepping occurs before
-@var{count} steps, stepping stops right away.
+breakpoint is reached,
+@ifclear BARETARGET
+or a signal not related to stepping occurs before @var{count} steps,
+@end ifclear
+stepping stops right away.
 
 @item next @r{[}@var{count}@r{]}
 @kindex next
@@ -3556,6 +2941,9 @@ command does (@pxref{Frame Info, ,Information about a frame}).
 * Backtrace::                   Backtraces
 * Selection::                   Selecting a frame
 * Frame Info::                  Information on a frame
+@ifset MIPS
+* MIPS Stack::                  MIPS machines and the function stack
+@end ifset
 @end menu
 
 @node Frames
@@ -3597,16 +2985,16 @@ they are assigned by @value{GDBN} to give you a way of designating stack
 frames in @value{GDBN} commands.
 
 @cindex frameless execution
-Some compilers allow functions to be compiled so that they operate
+Some compilers provide a way to compile functions so that they operate
 without stack frames.  (For example, the @code{@value{GCC}} option
 @samp{-fomit-frame-pointer} will generate functions without a frame.)
 This is occasionally done with heavily used library functions to save
-the frame setup time.  @value{GDBN} has limited facilities for dealing with
-these function invocations.  If the innermost function invocation has no
-stack frame, @value{GDBN} will nevertheless regard it as though it had a
-separate frame, which is numbered zero as usual, allowing correct
-tracing of the function call chain.  However, @value{GDBN} has no provision
-for frameless functions elsewhere in the stack.
+the frame setup time.  @value{GDBN} has limited facilities for dealing
+with these function invocations.  If the innermost function invocation
+has no stack frame, @value{GDBN} will nevertheless regard it as though
+it had a separate frame, which is numbered zero as usual, allowing
+correct tracing of the function call chain.  However, @value{GDBN} has
+no provision for frameless functions elsewhere in the stack.
 
 @node Backtrace
 @section Backtraces
@@ -3794,6 +3182,7 @@ Print the local variables of the selected frame, each on a separate
 line.  These are all variables (declared either static or automatic)
 accessible at the point of execution of the selected frame.
 
+@ifclear CONLY
 @item info catch
 @kindex info catch
 @cindex catch exceptions
@@ -3803,7 +3192,42 @@ current stack frame at the current point of execution.  To see other
 exception handlers, visit the associated frame (using the @code{up},
 @code{down}, or @code{frame} commands); then type @code{info catch}.
 @xref{Exception Handling, ,Breakpoints and exceptions}.
+@end ifclear
 @end table
+
+@ifset MIPS
+@node MIPS Stack
+@section MIPS machines and the function stack
+
+@cindex stack on MIPS
+@cindex MIPS stack
+MIPS based computers use an unusual stack frame, which sometimes
+requires @value{GDBN} to search backward in the object code to find the
+beginning of a function.
+
+@cindex response time, MIPS debugging
+To improve response time (especially for embedded applications, where
+@value{GDBN} may be restricted to a slow serial line for this search)
+you may want to limit the size of this search, using one of these
+commands:
+@c FIXME! So what happens when GDB does *not* find the beginning of a
+@c function?
+
+@cindex @code{heuristic-fence-post} (MIPS)
+@table @code
+@item set heuristic-fence-post @var{limit}
+Restrict @var{GDBN} to examining at most @var{limit} bytes in its search
+for the beginning of a function.  A value of @code{0} (the default)
+means there is no limit.
+
+@item show heuristic-fence-post
+Display the current limit.
+@end table
+
+@noindent
+These commands are available @emph{only} when @value{GDBN} is configured
+for debugging programs on MIPS processors.
+@end ifset
 
 @node Source
 @chapter Examining Source Files
@@ -3822,34 +3246,15 @@ Emacs facilities to view source; @pxref{Emacs, ,Using @value{GDBN} under GNU
 Emacs}.
 @end ifclear
 
-@ignore
-@c pre-unfolded menu
 @menu
 * List::                        Printing source lines
 @ifclear DOSHOST
 * Search::                      Searching source files
 @end ifclear
-* Source Path::                 Specifying source directories
-* Machine Code::                Source and machine code
-@end menu
-@end ignore
 
-@ifclear DOSHOST
-@menu
-* List::                        Printing source lines
-* Search::                      Searching source files
 * Source Path::                 Specifying source directories
 * Machine Code::                Source and machine code
 @end menu
-@end ifclear
-
-@ifset DOSHOST
-@menu
-* List::                        Printing source lines
-* Source Path::                 Specifying source directories
-* Machine Code::                Source and machine code
-@end menu
-@end ifset
 
 @node List
 @section Printing source lines
@@ -4111,6 +3516,10 @@ variables}).
 @table @code
 @kindex disassemble
 @item disassemble
+@cindex assembly instructions
+@cindex instructions, assembly
+@cindex machine instructions
+@cindex listing machine instructions
 This specialized command dumps a range of memory as machine
 instructions.  The default memory range is the function surrounding the
 program counter of the selected frame.  A single argument to this
@@ -4119,7 +3528,7 @@ will be dumped.  Two arguments specify a range of addresses (first
 inclusive, second exclusive) to dump.
 @end table
 
-@ifclear HviiiEXCLUSIVE
+@ifclear H8EXCLUSIVE
 We can use @code{disassemble} to inspect the object code
 range shown in the last @code{info line} example (the example
 shows SPARC machine instructions):
@@ -4140,7 +3549,7 @@ End of assembler dump.
 @end smallexample
 @end ifclear
 
-@ifset HviiiEXCLUSIVE
+@ifset H8EXCLUSIVE
 For example, here is the beginning of the output for the
 disassembly of a function @code{fact}:
 
@@ -4200,29 +3609,13 @@ It examines data in memory at a specified address and prints it in a
 specified format.  @xref{Memory, ,Examining memory}.
 
 If you are interested in information about types, or about how the fields
-of a struct or class are declared, use the @code{ptype @var{exp}}
+of a struct
+@ifclear CONLY
+or class
+@end ifclear
+are declared, use the @code{ptype @var{exp}}
 command rather than @code{print}. @xref{Symbols, ,Examining the Symbol Table}.
 
-@ignore
-@c pre-unfold
-@menu
-* Expressions::                 Expressions
-* Variables::                   Program variables
-* Arrays::                      Artificial arrays
-* Output formats::              Output formats
-* Memory::                      Examining memory
-* Auto Display::                Automatic display
-* Print Settings::              Print settings
-* Value History::               Value history
-* Convenience Vars::            Convenience variables
-* Registers::                   Registers
-@ifclear HviiiEXCLUSIVE
-* Floating Point Hardware::     Floating point hardware
-@end ifclear
-@end menu
-@end ignore
-
-@ifclear HviiiEXCLUSIVE
 @menu
 * Expressions::                 Expressions
 * Variables::                   Program variables
@@ -4234,24 +3627,10 @@ command rather than @code{print}. @xref{Symbols, ,Examining the Symbol Table}.
 * Value History::               Value history
 * Convenience Vars::            Convenience variables
 * Registers::                   Registers
+@ifclear HAVE-FLOAT
 * Floating Point Hardware::     Floating point hardware
-@end menu
 @end ifclear
-
-@ifset HviiiEXCLUSIVE
-@menu
-* Expressions::                 Expressions
-* Variables::                   Program variables
-* Arrays::                      Artificial arrays
-* Output Formats::              Output formats
-* Memory::                      Examining memory
-* Auto Display::                Automatic display
-* Print Settings::              Print settings
-* Value History::               Value history
-* Convenience Vars::            Convenience variables
-* Registers::                   Registers
 @end menu
-@end ifset
 
 @node Expressions
 @section Expressions
@@ -4375,17 +3754,17 @@ scope resolution operator in @value{GDBN} expressions.
 @cindex variable values, wrong
 @quotation
 @emph{Warning:} Occasionally, a local variable may appear to have the
-wrong value at certain points in a function---just after entry to the
-function, and just before exit.  You may see this problem when you are
-stepping by machine instructions.  This is because on most machines, it
-takes more than one instruction to set up a stack frame (including local
-variable definitions); if you are stepping by machine instructions,
-variables may appear to have the wrong values until the stack frame is
-completely built.  On function exit, it usually also takes more than one
-machine instruction to destroy a stack frame; after you begin stepping
-through that group of instructions, local variable definitions may be
-gone.
+wrong value at certain points in a function---just after entry to a new
+scope, and just before exit.
 @end quotation
+You may see this problem when you are stepping by machine instructions.
+This is because on most machines, it takes more than one instruction to
+set up a stack frame (including local variable definitions); if you are
+stepping by machine instructions, variables may appear to have the wrong
+values until the stack frame is completely built.  On exit, it usually
+also takes more than one machine instruction to destroy a stack frame;
+after you begin stepping through that group of instructions, local
+variable definitions may be gone.
 
 @node Arrays
 @section Artificial arrays
@@ -4767,7 +4146,7 @@ Show whether or not addresses are to be printed.
 @item set print array
 @itemx set print array on
 @kindex set print array
-@value{GDBN} will pretty print arrays.  This format is more convenient to read,
+@value{GDBN} will pretty-print arrays.  This format is more convenient to read,
 but uses more space.  The default is off.
 
 @item set print array off
@@ -4884,8 +4263,22 @@ and with @code{set print union off} in effect it would print
 @smallexample
 $1 = @{it = Tree, form = @{...@}@}
 @end smallexample
+
+@item set print max-symbolic-offset @var{maxoff}
+@kindex set print max-symbolic-offset
+Tell @value{GDBN} to only display the symbolic form of an address if the
+offset between the closest earlier symbol and the address is less than
+@var{maxoff}.  The default is 0, which means to always print the
+symbolic form of an address, if any symbol precedes it.
+
+@item show print max-symbolic-offset
+@kindex show print max-symbolic-offset
+Ask how large the maximum offset is that @value{GDBN} will print in a
+symbolic address.
+
 @end table
 
+@ifclear CONLY
 @noindent
 These settings are of interest when debugging C++ programs:
 
@@ -4930,11 +4323,11 @@ Decode based on the GNU C++ compiler (@code{g++}) encoding algorithm.
 @item lucid
 Decode based on the Lucid C++ compiler (@code{lcc}) encoding algorithm.
 
-@item cfront
+@item arm
 Decode using the algorithm in the @cite{C++ Annotated Reference Manual}.
-@strong{Warning:} despite the name, this setting alone is not sufficient
-to allow debugging @code{cfront}-generated executables.  @value{GDBN}
-would require further enhancement to permit that.
+@strong{Warning:} this setting alone is not sufficient to allow
+debugging @code{cfront}-generated executables.  @value{GDBN} would
+require further enhancement to permit that.
 @end table
 
 @item show demangle-style
@@ -4968,6 +4361,7 @@ Do not pretty print C++ virtual function tables.
 @kindex show print vtbl
 Show whether C++ virtual function tables are pretty printed, or not.
 @end table
+@end ifclear
 
 @node Value History
 @section Value history
@@ -5216,7 +4610,7 @@ code generated by your compiler.  If some registers are not saved, or if
 @value{GDBN} is unable to locate the saved registers, the selected stack
 frame will make no difference.
 
-@ifset AMDxxixK
+@ifset AMD29K
 @table @code
 @item set rstack_high_address @var{address}
 @kindex set rstack_high_address
@@ -5239,20 +4633,22 @@ processors.
 @end table
 @end ifset
 
-@ifclear HviiiEXCLUSIVE
+@ifclear HAVE-FLOAT
 @node Floating Point Hardware
 @section Floating point hardware
 @cindex floating point
 
+@c FIXME! Really host, not target?
 Depending on the host machine architecture, @value{GDBN} may be able to give
 you more information about the status of the floating point hardware.
 
 @table @code
 @item info float
 @kindex info float
-If available, provides hardware-dependent information about the floating
+Display hardware-dependent information about the floating
 point unit.  The exact contents and layout vary depending on the
-floating point chip.
+floating point chip; on some platforms, @samp{info float} is not
+available at all.
 @end table
 @c FIXME: this is a cop-out.  Try to get examples, explanations.  Only
 @c FIXME...supported currently on arm's and 386's.  Mark properly with
@@ -5986,7 +5382,11 @@ that is not itself an array.
 
 The @code{set print union} and @code{show print union} commands apply to
 the @code{union} type.  When set to @samp{on}, any @code{union} that is
-inside a @code{struct} or @code{class} will also be printed.
+inside a @code{struct}
+@ifclear CONLY
+or @code{class}
+@end ifclear
+will also be printed.
 Otherwise, it will appear as @samp{@{...@}}.
 
 The @code{@@} operator aids in the debugging of dynamic arrays, formed
@@ -6685,43 +6085,27 @@ experiment, using the @value{GDBN} features for altering execution of the
 program.
 
 For example, you can store new values into variables or memory
-locations, give your program a signal, restart it at a different address,
-or even return prematurely from a function to its caller.
-
-@ignore
-@c pre-unfold
-@menu
-* Assignment::                  Assignment to variables
-* Jumping::                     Continuing at a different address
+locations,
 @ifclear BARETARGET
-* Signaling::                   Giving your program a signal
+give your program a signal, restart it
 @end ifclear
-* Returning::                   Returning from a function
-* Calling::                     Calling your program's functions
-* Patching::                    Patching your program
-@end menu
-@end ignore
-
-@ifclear BARETARGET
-@menu
-* Assignment::                  Assignment to variables
-* Jumping::                     Continuing at a different address
-* Signaling::                   Giving your program a signal
-* Returning::                   Returning from a function
-* Calling::                     Calling your program's functions
-* Patching::                    Patching your program
-@end menu
-@end ifclear
-
 @ifset BARETARGET
+restart your program
+@end ifset
+at a different address, or even return prematurely from a function to
+its caller.
+
 @menu
 * Assignment::                  Assignment to variables
 * Jumping::                     Continuing at a different address
+@ifclear BARETARGET
+* Signaling::                   Giving your program a signal
+@end ifclear
+
 * Returning::                   Returning from a function
 * Calling::                     Calling your program's functions
 * Patching::                    Patching your program
 @end menu
-@end ifset
 
 @node Assignment
 @section Assignment to variables
@@ -6917,10 +6301,16 @@ the value history, if it is not void.
 @section Patching programs
 @cindex patching binaries
 @cindex writing into executables
+@ifclear BARETARGET
 @cindex writing into corefiles
+@end ifclear
 
 By default, @value{GDBN} opens the file containing your program's executable
-code (or the corefile) read-only.  This prevents accidental alterations
+code
+@ifclear BARETARGET
+(or the corefile)
+@end ifclear
+read-only.  This prevents accidental alterations
 to machine code; but it also prevents you from intentionally patching
 your program's binary.
 
@@ -6940,9 +6330,13 @@ and core
 files for both reading and writing; if you specify @samp{set write
 off} (the default), @value{GDBN} will open them read-only.
 
-If you have already loaded a file, you must load it
-again (using the @code{exec-file} or @code{core-file} command) after
-changing @code{set write}, for your new setting to take effect.
+If you have already loaded a file, you must load it again (using the
+@code{exec-file}
+@ifclear BARETARGET
+or @code{core-file}
+@end ifclear
+command) after changing @code{set write}, for your new setting to take
+effect.
 
 @item show write
 @kindex show write
@@ -7059,9 +6453,9 @@ being read.  (The @code{set verbose} command can turn these pauses
 into messages if desired.  @xref{Messages/Warnings, ,Optional warnings
 and messages}.) 
 
-When the symbol table is stored in COFF format, @code{symbol-file} does
-read the symbol table data in full right away.  We have not implemented
-the two-stage strategy for COFF yet.
+We have not implemented the two-stage strategy for COFF yet.  When the
+symbol table is stored in COFF format, @code{symbol-file} reads the
+symbol table data in full right away.
 
 @item symbol-file @var{filename} @r{[} -readnow @r{]} @r{[} -mapped @r{]}
 @itemx file @var{filename} @r{[} -readnow @r{]} @r{[} -mapped @r{]}
@@ -7096,7 +6490,7 @@ it when you debug @var{myprog}; no special options or commands are
 needed.
 
 The @file{.syms} file is specific to the host machine where you run
-@value{GDBN}.  It holds an exact image of the internal @value{GDB}
+@value{GDBN}.  It holds an exact image of the internal @value{GDBN}
 symbol table.  It cannot be shared across multiple host platforms.
 
 @c FIXME: for now no mention of directories, since this seems to be in
@@ -7145,21 +6539,29 @@ On VxWorks, @code{load} will dynamically link @var{filename} on the
 current target system as well as adding its symbols in @value{GDBN}.
 @end ifset
 
-@ifset Icmlx
+@ifset I960
 @cindex download to Nindy-960
 With the Nindy interface to an Intel 960 board, @code{load} will
 download @var{filename} to the 960 as well as adding its symbols in
 @value{GDBN}.
 @end ifset
 
-@ifset Hviii
-@cindex download to H8/300
-@cindex H8/300 download
-When you select remote debugging to a Hitachi H8/300 board (@pxref{Hitachi
-H8/300 Remote,,@value{GDBN} and the Hitachi H8/300}), the
-@code{load} command downloads your program to the H8/300 and also opens
-it as the current executable target for @value{GDBN} on your host (like the
-@code{file} command).  
+@ifset H8
+@cindex download to H8/300 or H8/500
+@cindex H8/300 or H8/500 download
+@c start-sanitize-Hitachi-SH
+@cindex download to Hitachi SH
+@cindex Hitachi SH download
+@c end-sanitize-Hitachi-SH
+When you select remote debugging to a Hitachi
+@c start-sanitize-Hitachi-SH
+SH,
+@c end-sanitize-Hitachi-SH
+H8/300, or H8/500 board
+(@pxref{Hitachi Remote,,@value{GDBN} and Hitachi Microprocessors}),
+the @code{load} command downloads your program to the Hitachi board and also
+opens it as the current executable target for @value{GDBN} on your host
+(like the @code{file} command).
 @end ifset
 
 @code{load} will not repeat if you press @key{RET} again after using it.
@@ -7193,11 +6595,17 @@ table information for @var{filename}.
 @kindex info files
 @kindex info target
 @code{info files} and @code{info target} are synonymous; both print
-the current targets (@pxref{Targets, ,Specifying a Debugging Target}),
-including the names of the executable and core dump files currently in
-use by @value{GDBN}, and the files from which symbols were loaded.  The command
-@code{help targets} lists all possible targets rather than current
-ones.
+the current target (@pxref{Targets, ,Specifying a Debugging Target}),
+including the
+@ifclear BARETARGET
+names of the executable and core dump files
+@end ifclear
+@ifset BARETARGET
+name of the executable file
+@end ifset
+currently in use by @value{GDBN}, and the files from which symbols were
+loaded.  The command @code{help targets} lists all possible targets
+rather than current ones.
 @end table
 
 All file-specifying commands allow both absolute and relative file names
@@ -7310,13 +6718,21 @@ debugging it, you can debug @code{@value{GDBP}} with itself, breakpoint on
 examine @code{*bufp} to see the symbol.
 
 @item stub type has NULL name
-@value{GDBN} could not find the full definition for a struct or class.
+@value{GDBN} could not find the full definition for
+@ifclear CONLY
+a struct or class.
+@end ifclear
+@ifset CONLY
+a struct.
+@end ifset
 
+@ifclear CONLY
 @item const/volatile indicator missing (ok if using g++ v1.x), got@dots{}
 
 The symbol information for a C++ member function is missing some
 information that recent versions of the compiler should have output
 for it.
+@end ifclear
 
 @item info mismatch between compiler and debugger
 
@@ -7401,14 +6817,19 @@ already-running process}).
 
 @table @code
 @item target @var{type} @var{parameters}
-Connects the @value{GDBN} host environment to a target machine or process.  A
-target is typically a protocol for talking to debugging facilities.  You
-use the argument @var{type} to specify the type or protocol of the
-target machine.
+Connects the @value{GDBN} host environment to a target
+@ifset BARETARGET
+machine.
+@end ifset
+@ifclear BARETARGET
+machine or process.  A target is typically a protocol for talking to
+debugging facilities.  You use the argument @var{type} to specify the
+type or protocol of the target machine.
 
 Further @var{parameters} are interpreted by the target protocol, but
 typically include things like device names or host names to connect
 with, process numbers, and baud rates.
+@end ifclear
 
 The @code{target} command will not repeat if you press @key{RET} again
 after executing the command.
@@ -7433,10 +6854,12 @@ configuration):
 An executable file.  @samp{target exec @var{program}} is the same as
 @samp{exec-file @var{program}}.
 
+@ifclear BARETARGET
 @item target core @var{filename}
 @kindex target core
 A core dump file.  @samp{target core @var{filename}} is the same as
 @samp{core-file @var{filename}}.
+@end ifclear
 
 @ifset REMOTESTUB
 @item target remote @var{dev}
@@ -7452,7 +6875,7 @@ specifies what serial device to use for the connection (e.g.
 CPU simulator.  @xref{Simulator,,Simulated CPU Target}.
 @end ifset
 
-@ifset AMDxxixK
+@ifset AMD29K
 @item target udi @var{keyword}
 @kindex target udi
 Remote AMD29K target, using the AMD UDI protocol.  The @var{keyword}
@@ -7469,16 +6892,23 @@ name of the program to be debugged, as it appears to DOS on the PC.
 @xref{EB29K Remote, ,@value{GDBN} with a remote EB29K}.
 
 @end ifset
-@ifset Hviii
+@ifset H8
 @item target hms
 @kindex target hms
-A Hitachi H8/300 board, attached via serial line to your host.  Use
-special commands @code{device} and @code{speed} to control the serial
-line and the communications speed used. @xref{Hitachi H8/300
-Remote,,@value{GDBN} and the Hitachi H8/300}.
+A Hitachi
+@c start-sanitize-Hitachi-SH
+SH,
+@c end-sanitize-Hitachi-SH
+H8/300, or H8/500 board, attached via serial line to your host.
+@ifclear H8EXCLUSIVE
+@c Unix only, not currently of interest for H8-only manual
+Use special commands @code{device} and @code{speed} to control the serial
+line and the communications speed used.
+@end ifclear
+@xref{Hitachi Remote,,@value{GDBN} and Hitachi Microprocessors}.
 
 @end ifset
-@ifset Icmlx
+@ifset I960
 @item target nindy @var{devicename}
 @kindex target nindy
 An Intel 960 board controlled by a Nindy Monitor.  @var{devicename} is
@@ -7486,7 +6916,7 @@ the name of the serial device to use for the connection, e.g.
 @file{/dev/ttya}.  @xref{i960-Nindy Remote, ,@value{GDBN} with a remote i960 (Nindy)}.
 
 @end ifset
-@ifset STmm
+@ifset ST2000
 @item target st2000 @var{dev} @var{speed}
 @kindex target st2000
 A Tandem ST2000 phone switch, running Tandem's STDBUG protocol.  @var{dev}
@@ -7534,47 +6964,32 @@ configuration of GDB; use @code{help targets} to list them.
 @c Text on starting up GDB in various specific cases; it goes up front
 @c in manuals configured for any of those particular situations, here
 @c otherwise.
-@ignore
-@c original, intended form of this menu (pre-unfolding):
 @menu
 @ifset REMOTESTUB
 * Remote Serial::               @value{GDBN} remote serial protocol
 @end ifset
-@ifset Icmlx
+@ifset I960
 * i960-Nindy Remote::		@value{GDBN} with a remote i960 (Nindy)
 @end ifset
-@ifset AMDxxixK
+@ifset AMD29K
 * UDI29K Remote::               @value{GDBN} and the UDI protocol for AMD29K
 * EB29K Remote::		@value{GDBN} with a remote EB29K
 @end ifset
 @ifset VXWORKS
 * VxWorks Remote::		@value{GDBN} and VxWorks
 @end ifset
-@ifset STmm
+@ifset ST2000
 * ST2000 Remote::               @value{GDBN} with a Tandem ST2000
 @end ifset
-@ifset Hviii
-* Hitachi H8/300 Remote::       @value{GDBN} and the Hitachi H8/300
+@ifset H8
+* Hitachi Remote::              @value{GDBN} and Hitachi Microprocessors
+@end ifset
+@ifset MIPS
+* MIPS Remote::			@value{GDBN} and MIPS boards
 @end ifset
 @ifset SIMS
 * Simulator::                   Simulated CPU target
 @end ifset
-@end menu
-@end ignore
-
-@c Unfolded menus:
-@c add as configs require, while unfolding remains necessary.
-@c
-@c All target details:
-@menu
-* Remote Serial::               @value{GDBN} remote serial protocol
-* i960-Nindy Remote::		@value{GDBN} with a remote i960 (Nindy)
-* UDI29K Remote::               @value{GDBN} and the UDI protocol for AMD29K
-* EB29K Remote::		@value{GDBN} with a remote EB29K
-* VxWorks Remote::		@value{GDBN} and VxWorks
-* ST2000 Remote::               @value{GDBN} with a Tandem ST2000
-* Hitachi H8/300 Remote::       @value{GDBN} and the Hitachi H8/300
-* Simulator::                   Simulated CPUs
 @end menu
 
 @include gdbinv-s.texi
@@ -7747,12 +7162,13 @@ Print ten commands just after the commands last printed.
 @cindex size of screen
 @cindex pauses in output
 
-Certain commands to @value{GDBN} may produce large amounts of information
-output to the screen.  To help you read all of it, @value{GDBN} pauses and
-asks you for input at the end of each page of output.  Type @key{RET}
-when you want to continue the output.  @value{GDBN} also uses the screen
-width setting to determine when to wrap lines of output.  Depending on
-what is being printed, it tries to break the line at a readable place,
+Certain commands to @value{GDBN} may produce large amounts of
+information output to the screen.  To help you read all of it,
+@value{GDBN} pauses and asks you for input at the end of each page of
+output.  Type @key{RET} when you want to continue the output, or @kbd{q}
+to discard the remaining output.  Also, the screen width setting
+determines when to wrap lines of output.  Depending on what is being
+printed, @value{GDBN} tries to break the line at a readable place,
 rather than simply letting it overflow onto the following line.
 
 Normally @value{GDBN} knows the size of the screen from the termcap data base
@@ -7992,14 +7408,15 @@ command.  Whenever you run the command @samp{foo}, if the user-defined
 command @samp{hook-foo} exists, it is executed (with no arguments)
 before that command.
 
-In addition, a pseudo-command, @samp{stop} exists.  Hooking this command
-will cause your hook to be executed every time execution stops in the
-inferior program, before breakpoint commands are run, displays are
-printed, or the stack frame is printed.
+In addition, a pseudo-command, @samp{stop} exists.  Defining
+(@samp{hook-stop}) makes the associated commands execute every time
+execution stops in your program: before breakpoint commands are run,
+displays are printed, or the stack frame is printed.
 
-For example, to cause @code{SIGALRM} signals to be ignored while
-single-stepping, but cause them to be resumed during normal execution,
-you could do:
+@ifclear BARETARGET
+For example, to ignore @code{SIGALRM} signals while
+single-stepping, but treat them normally during normal execution,
+you could define:
 
 @example
 define hook-stop
@@ -8014,12 +7431,16 @@ define hook-continue
 handle SIGLARM pass
 end
 @end example
+@end ifclear
 
-Any single-word command in GDB can be hooked.  Aliases for other commands
-cannot be hooked (you should hook the basic command name, e.g. @code{backtrace}
-rather than @code{bt}).  If an error occurs during the execution of your
-hook, execution of GDB commands stops and you are returned to the GDB
-prompt (before the command that you actually typed had a chance to run).
+You can define a hook for any single-word command in @value{GDBN}, but
+not for command aliases; you should define a hook for the basic command
+name, e.g.  @code{backtrace} rather than @code{bt}.
+@c FIXME!  So how does Joe User discover whether a command is an alias
+@c or not?
+If an error occurs during the execution of your hook, execution of
+@value{GDBN} commands stops and @value{GDBN} issues a prompt
+(before the command that you actually typed had a chance to run).
 
 If you try to define a hook which does not match any known command, you
 will get a warning from the @code{define} command.
@@ -8040,8 +7461,33 @@ When you start @value{GDBN}, it automatically executes commands from its
 the init file (if any) in your home directory and then the init file
 (if any) in the current working directory.  (The init files are not
 executed if you use the @samp{-nx} option; @pxref{Mode Options,
-,Choosing modes}.)  You can also request the execution of a command
-file with the @code{source} command:
+,Choosing modes}.)
+
+@ifset GENERIC
+@cindex init file name
+On some configurations of @value{GDBN}, the init file is known by a
+different name (these are typically environments where a specialized
+form of GDB may need to coexist with other forms, hence a different name
+for the specialized version's init file).  These are the environments
+with special init file names:
+
+@itemize @bullet
+@kindex .vxgdbinit
+@item
+VxWorks (Wind River Systems real-time OS): @samp{.vxgdbinit}
+
+@kindex .os68gdbinit
+@item
+OS68K (Enea Data Systems real-time OS): @samp{.os68gdbinit}
+
+@kindex .esgdbinit
+@item
+ES-1800 (Ericsson Telecom AB M68000 emulator): @samp{.esgdbinit}
+@end itemize
+@end ifset
+
+You can also request the execution of a command file with the
+@code{source} command:
 
 @table @code
 @item source @var{filename}
@@ -8363,7 +7809,8 @@ If you are not sure whether you have found a bug, here are some guidelines:
 @itemize @bullet
 @item
 @cindex fatal signal
-@cindex core dump
+@cindex debugger crash
+@cindex crash of debugger
 If the debugger gets a fatal signal, for any input whatever, that is a
 @value{GDBN} bug.  Reliable debuggers never crash.
 
@@ -8839,7 +8286,7 @@ make
 where @var{host} is an identifier such as @samp{sun4} or
 @samp{decstation}, that identifies the platform where GDB will run.
 
-Running @samp{configure @var{host}} followed by @code{make} builds the
+Running @samp{configure @var{host}} and then running @code{make} builds the
 @file{bfd}, @file{readline}, @file{mmalloc}, and @file{libiberty}
 libraries, then @code{gdb} itself.  The configured source files, and the
 binaries, are left in the corresponding source directories.
@@ -8956,9 +8403,9 @@ of information in the following pattern:
 @var{architecture}-@var{vendor}-@var{os}
 @end example
 
-For example, you can use the alias @code{sun4} as a @var{host} argument
-or in a @code{--target=@var{target}} option.  The equivalent full name
-is @samp{sparc-sun-sunos4}.
+For example, you can use the alias @code{sun4} as a @var{host} argument,
+or as the value for @var{target} in a @code{--target=@var{target}}
+option.  The equivalent full name is @samp{sparc-sun-sunos4}.
 
 The @code{configure} script accompanying GDB does not provide
 any query facility to list all supported host and target names or

@@ -27,7 +27,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.	*/
 #include "ansidecl.h"
 #include "opcode/sparc.h"
 
-const char *architecture_pname[] = {
+CONST char *architecture_pname[] = {
 	"v6",
 	"v7",
 	"v8",
@@ -620,8 +620,8 @@ struct sparc_opcode sparc_opcodes[] = {
 
 /* Define all the conditions, all the branches, all the traps.  */
 
-cond ("b",	"t",    CONDA, 0),
-cond ("ba",	"ta",   CONDA, F_ALIAS), /* for nothing */
+cond ("b",	"ta",   CONDA, 0),	/* Standard branch, trap mnemonics */
+cond ("ba",	"t",    CONDA, F_ALIAS), /* Alternative forms (not for disas) */
 cond ("bcc",	"tcc",  CONDCC, 0),
 cond ("bcs",	"tcs",  CONDCS, 0),
 cond ("be",	"te",   CONDE, 0),
@@ -647,6 +647,15 @@ cond ("bz",	"tz",   CONDZ, F_ALIAS), /* for e */
 #undef cond
 #undef br
 #undef tr
+
+
+
+
+
+
+
+
+
 
 
 
@@ -805,4 +814,4 @@ condfc("fbule",	"cb013", 0xe, 0),
 
 };
 
-const int bfd_sparc_num_opcodes = ((sizeof sparc_opcodes)/(sizeof sparc_opcodes[0]));
+CONST int bfd_sparc_num_opcodes = ((sizeof sparc_opcodes)/(sizeof sparc_opcodes[0]));

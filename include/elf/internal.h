@@ -88,7 +88,7 @@ typedef struct elf_internal_shdr {
   /* The internal rep also has some cached info associated with it. */
   void		*rawdata;		/* null if unused... */
   void		*contents;		/* null if unused... */
-  
+  unsigned	size;			/* size of contents (0 if unused) */
 } Elf_Internal_Shdr;
 
 /* Symbol table entry */
@@ -123,3 +123,13 @@ typedef struct elf_internal_rela {
   Elf_Word	r_info;		/* Index and Type of relocation */
   Elf_Sword	r_addend;	/* Constant addend used to compute value */
 } Elf_Internal_Rela;
+
+/* dynamic section structure */
+
+typedef struct {
+  Elf_Sword d_tag;		/* entry tag value */
+  union {
+    Elf_Word	d_val;
+    Elf_Addr	d_ptr;
+  } d_un;
+} Elf_Internal_Dyn;

@@ -165,6 +165,7 @@ set_language_command (ignore, from_tty)
     printf ("local or auto    Automatic setting based on source file\n");
     printf ("c                Use the C language\n");
     printf ("c++              Use the C++ language\n");
+    printf ("chill            Use the Chill language\n");
     printf ("modula-2         Use the Modula-2 language\n");
     /* Restore the silly string. */
     set_language(current_language->la_language);
@@ -457,6 +458,8 @@ binop_result_type(v1,v2)
 	 not needed. */
       return l1 > l2 ? VALUE_TYPE(v1) : VALUE_TYPE(v2);
       break;
+   case language_chill:
+      error ("Missing Chill support in function binop_result_check.");/*FIXME*/
    }
    abort();
    return (struct type *)0;	/* For lint */
@@ -522,6 +525,21 @@ local_octal_format_custom(pre)
    strcat (form, pre);
    strcat (form, local_octal_format_specifier ());
    strcat (form, local_octal_format_suffix ());
+   return form;
+}
+
+/* Returns the appropriate printf format for decimal numbers. */
+char *
+local_decimal_format_custom(pre)
+   char *pre;
+{
+   static char form[50];
+
+   strcpy (form, local_decimal_format_prefix ());
+   strcat (form, "%");
+   strcat (form, pre);
+   strcat (form, local_decimal_format_specifier ());
+   strcat (form, local_decimal_format_suffix ());
    return form;
 }
 
@@ -612,6 +630,8 @@ integral_type (type)
 	 (TYPE_CODE(type) != TYPE_CODE_ENUM) ? 0 : 1;
    case language_m2:
       return TYPE_CODE(type) != TYPE_CODE_INT ? 0 : 1;
+   case language_chill:
+      error ("Missing Chill support in function integral_type.");  /*FIXME*/
    default:
       error ("Language not supported.");
    }
@@ -639,6 +659,7 @@ character_type (type)
 {
    switch(current_language->la_language)
    {
+   case language_chill:
    case language_m2:
       return TYPE_CODE(type) != TYPE_CODE_CHAR ? 0 : 1;
 
@@ -659,6 +680,7 @@ string_type (type)
 {
    switch(current_language->la_language)
    {
+   case language_chill:
    case language_m2:
       return TYPE_CODE(type) != TYPE_CODE_STRING ? 0 : 1;
 
@@ -678,6 +700,7 @@ boolean_type (type)
 {
    switch(current_language->la_language)
    {
+   case language_chill:
    case language_m2:
       return TYPE_CODE(type) != TYPE_CODE_BOOL ? 0 : 1;
 
@@ -722,6 +745,8 @@ structured_type(type)
       return (TYPE_CODE(type) == TYPE_CODE_STRUCT) ||
 	 (TYPE_CODE(type) == TYPE_CODE_SET) ||
 	    (TYPE_CODE(type) == TYPE_CODE_ARRAY);
+   case language_chill:
+      error ("Missing Chill support in function structured_type.");  /*FIXME*/
    default:
       return (0);
    }
@@ -766,6 +791,8 @@ value_true(val)
       return 0;		/* BOOLEAN with value FALSE */
     break;
 
+  case language_chill:
+    error ("Missing Chill support in function value_type.");  /*FIXME*/
 
   default:
     error ("Language not supported.");
@@ -936,6 +963,10 @@ binop_type_check(arg1,arg2,op)
 	 }
 #endif
 
+#ifdef _LANG_chill
+       case language_chill:
+	 error ("Missing Chill support in function binop_type_check.");/*FIXME*/
+#endif
 
       }
    }

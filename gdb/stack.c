@@ -29,6 +29,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "breakpoint.h"
 #include "demangle.h"
+#include "inferior.h"
 
 static void
 return_command PARAMS ((char *, int));
@@ -139,36 +140,27 @@ print_frame_info (fi, level, source, args)
   struct symtab_and_line sal;
   struct symbol *func;
   register char *funname = 0;
+  enum language funlang = language_unknown;
   int numargs;
 
-#if 0	/* Symbol reading is fast enough now */
-  struct partial_symtab *pst;
-
-  /* Don't give very much information if we haven't readin the
-     symbol table yet.  */
-  pst = find_pc_psymtab (fi->pc);
-  if (pst && !pst->readin)
+  if (PC_IN_CALL_DUMMY (fi->pc, read_register (SP_REGNUM), fi->frame))
     {
-      /* Abbreviated information.  */
-      char *fname;
-
-      if (!find_pc_partial_function (fi->pc, &fname, 0))
-	fname = "??";
-	
-      printf_filtered ("#%-2d ", level);
-      if (addressprint)
-        printf_filtered ("%s in ", local_hex_string(fi->pc));
-
-      fputs_demangled (fname, stdout, 0);
-      fputs_filtered (" (...)\n", stdout);
-      
+      /* Do this regardless of SOURCE because we don't have any source
+	 to list for this frame.  */
+      if (level >= 0)
+	printf_filtered ("#%-2d ", level);
+      printf_filtered ("<function called from gdb>\n");
       return;
     }
-#endif
-
-#ifdef CORE_NEEDS_RELOCATION
-  CORE_NEEDS_RELOCATION(fi->pc);
-#endif
+  if (fi->signal_handler_caller)
+    {
+      /* Do this regardless of SOURCE because we don't have any source
+	 to list for this frame.  */
+      if (level >= 0)
+	printf_filtered ("#%-2d ", level);
+      printf_filtered ("<signal handler called>\n");
+      return;
+    }
 
   sal = find_pc_line (fi->pc, fi->next_frame);
   func = find_pc_function (fi->pc);
@@ -200,15 +192,22 @@ print_frame_info (fi, level, source, args)
 	     its address and name.  */
 	  func = 0;
 	  funname = SYMBOL_NAME (msymbol);
+	  funlang = SYMBOL_LANGUAGE (msymbol);
 	}
       else
-	funname = SYMBOL_NAME (func);
+	{
+	  funname = SYMBOL_NAME (func);
+	  funlang = SYMBOL_LANGUAGE (func);
+	}
     }
   else
     {
       register struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
       if (msymbol != NULL)
-	funname = SYMBOL_NAME (msymbol);
+	{
+	  funname = SYMBOL_NAME (msymbol);
+	  funlang = SYMBOL_LANGUAGE (msymbol);
+	}
     }
 
   if (source >= 0 || !sal.symtab)
@@ -218,7 +217,8 @@ print_frame_info (fi, level, source, args)
       if (addressprint)
 	if (fi->pc != sal.pc || !sal.symtab)
 	  printf_filtered ("%s in ", local_hex_string(fi->pc));
-      fputs_demangled (funname ? funname : "??", stdout, 0);
+      fprintf_symbol_filtered (stdout, funname ? funname : "??", funlang,
+			       DMGL_NO_OPTS);
       wrap_here ("   ");
       fputs_filtered (" (", stdout);
       if (args)
@@ -385,6 +385,7 @@ frame_info (addr_exp, from_tty)
   FRAME calling_frame;
   int i, count;
   char *funname = 0;
+  enum language funlang = language_unknown;
 
   if (!target_has_stack)
     error ("No inferior or core file.");
@@ -398,12 +399,18 @@ frame_info (addr_exp, from_tty)
   func = get_frame_function (frame);
   s = find_pc_symtab(fi->pc);
   if (func)
-    funname = SYMBOL_NAME (func);
+    {
+      funname = SYMBOL_NAME (func);
+      funlang = SYMBOL_LANGUAGE (func);
+    }
   else
     {
       register struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
       if (msymbol != NULL)
-	funname = SYMBOL_NAME (msymbol);
+	{
+	  funname = SYMBOL_NAME (msymbol);
+	  funlang = SYMBOL_LANGUAGE (msymbol);
+	}
     }
   calling_frame = get_prev_frame (frame);
 
@@ -423,7 +430,8 @@ frame_info (addr_exp, from_tty)
   if (funname)
     {
       printf_filtered (" in ");
-      fputs_demangled (funname, stdout, DMGL_ANSI | DMGL_PARAMS);
+      fprintf_symbol_filtered (stdout, funname, funlang,
+			       DMGL_ANSI | DMGL_PARAMS);
     }
   wrap_here ("   ");
   if (sal.symtab)
@@ -874,15 +882,24 @@ print_frame_arg_vars (frame, stream)
       if (SYMBOL_CLASS (sym) == LOC_ARG
 	  || SYMBOL_CLASS (sym) == LOC_LOCAL_ARG
 	  || SYMBOL_CLASS (sym) == LOC_REF_ARG
-	  || SYMBOL_CLASS (sym) == LOC_REGPARM)
+	  || SYMBOL_CLASS (sym) == LOC_REGPARM
+	  || SYMBOL_CLASS (sym) == LOC_REGPARM_ADDR)
 	{
 	  values_printed = 1;
 	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), stream);
 	  fputs_filtered (" = ", stream);
-	  /* We have to look up the symbol because arguments often have
-	     two entries (one a parameter, one a register) and the one
-	     we want is the register, which lookup_symbol will find for
-	     us.  */
+
+	  /* We have to look up the symbol because arguments can have
+	     two entries (one a parameter, one a local) and the one we
+	     want is the local, which lookup_symbol will find for us.
+	     This includes gcc1 (not gcc2) on the sparc when passing a
+	     small structure and gcc2 when the argument type is float
+	     and it is passed as a double and converted to float by
+	     the prologue (in the latter case the type of the LOC_ARG
+	     symbol is double and the type of the LOC_LOCAL symbol is
+	     float).  There are also LOC_ARG/LOC_REGISTER pairs which
+	     are not combined in symbol-reading.  */
+
 	  sym2 = lookup_symbol (SYMBOL_NAME (sym),
 			b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
 	  print_variable_value (sym2, frame, stream);

@@ -1,3 +1,28 @@
+Sat Apr 17 00:40:12 1993  Jim Kingdon  (kingdon at calvin)
+
+	* readline.c, history.c: Don't include sys/types.h; sysdep.h does.
+
+	* config/mh-sysv: Define TIOCGWINSZ_BROKEN.
+	readline.c: Check it.
+
+Wed Mar 24 02:06:15 1993  david d `zoo' zuhn  (zoo at poseidon.cygnus.com)
+
+	* Makefile.in: add installcheck & dvi targets
+
+Fri Mar 12 18:36:53 1993  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
+
+	* configure.in: recognize *-*-solaris2* instead of *-*-solaris* (a
+	number of people want to call SunOS 4.1.2 "solaris1.0"
+	and get it right)
+
+Tue Mar  2 21:25:36 1993  Fred Fish  (fnf@cygnus.com)
+
+	* sysdep-sysv4.h:  New file for SVR4.
+	* configure.in (*-*-sysv4*):  Use sysdep-sysv4.h.
+
+	* configure.in (*-*-ultrix2):  Add triplet from Michael Rendell
+	(michael@mercury.cs.mun.ca)
+
 Tue Dec 15 12:38:16 1992  Ian Lance Taylor  (ian@cygnus.com)
 
 	* configure.in (i[34]86-*-sco3.2v4*): use mh-sco4.

@@ -251,8 +251,15 @@ CODE_FRAGMENT
 .           ECOFF has two. *}
 .
 .#define SEC_IS_COMMON 0x8000
-.       
+.
+.       {*  The virtual memory address of the section - where it will be
+.           at run time - the symbols are relocated against this *}
 .   bfd_vma vma;
+.
+.       {*  The load address of the section - where it would be in a
+.           rom image, really only used for writing section header information *}
+.   bfd_vma lma;
+.
 .   boolean user_set_vma;
 .
 .        {* The size of the section in bytes, as it will be output.
@@ -358,6 +365,7 @@ CODE_FRAGMENT
 .#define BFD_ABS_SECTION_NAME "*ABS*"
 .#define BFD_UND_SECTION_NAME "*UND*"
 .#define BFD_COM_SECTION_NAME "*COM*"
+.#define BFD_IND_SECTION_NAME "*IND*"
 .
 .    {* the absolute section *}
 . extern   asection bfd_abs_section;
@@ -365,10 +373,13 @@ CODE_FRAGMENT
 . extern   asection bfd_und_section;
 .    {* Pointer to the common section *}
 . extern asection bfd_com_section;
+.    {* Pointer to the indirect section *}
+. extern asection bfd_ind_section;
 .
 . extern struct symbol_cache_entry *bfd_abs_symbol;
 . extern struct symbol_cache_entry *bfd_com_symbol;
 . extern struct symbol_cache_entry *bfd_und_symbol;
+. extern struct symbol_cache_entry *bfd_ind_symbol;
 .#define bfd_get_section_size_before_reloc(section) \
 .     (section->reloc_done ? (abort(),1): (section)->_raw_size)
 .#define bfd_get_section_size_after_reloc(section) \
@@ -382,18 +393,19 @@ static CONST asymbol global_syms[] = {
   { 0, BFD_COM_SECTION_NAME, 0, BSF_SECTION_SYM, &bfd_com_section },
   { 0, BFD_UND_SECTION_NAME, 0, BSF_SECTION_SYM, &bfd_und_section },
   { 0, BFD_ABS_SECTION_NAME, 0, BSF_SECTION_SYM, &bfd_abs_section },
+  { 0, BFD_IND_SECTION_NAME, 0, BSF_SECTION_SYM, &bfd_ind_section },
 };
 
 #define STD_SECTION(SEC, FLAGS, SYM, NAME, IDX)	\
   asymbol *SYM = (asymbol *) &global_syms[IDX]; \
-  asection SEC = { NAME, 0, 0, FLAGS, 0, (boolean) 0, 0, 0, 0, &SEC,\
+  asection SEC = { NAME, 0, 0, FLAGS, 0, 0, (boolean) 0, 0, 0, 0, &SEC,\
 		    0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, (boolean) 0, \
 		     (asymbol *) &global_syms[IDX], &SYM, }
 
-STD_SECTION (bfd_com_section, SEC_IS_COMMON, bfd_com_symbol,
-	     BFD_COM_SECTION_NAME, 0);
+STD_SECTION (bfd_com_section, SEC_IS_COMMON, bfd_com_symbol, BFD_COM_SECTION_NAME, 0);
 STD_SECTION (bfd_und_section, 0, bfd_und_symbol, BFD_UND_SECTION_NAME, 1);
 STD_SECTION (bfd_abs_section, 0, bfd_abs_symbol, BFD_ABS_SECTION_NAME, 2);
+STD_SECTION (bfd_ind_section, 0, bfd_ind_symbol, BFD_IND_SECTION_NAME, 3);
 #undef STD_SECTION
 
 /*
@@ -520,6 +532,11 @@ DEFUN(bfd_make_section,(abfd, name),
   if (strcmp(name, BFD_UND_SECTION_NAME) == 0) 
   {
     return &bfd_und_section;
+  }
+
+  if (strcmp(name, BFD_IND_SECTION_NAME) == 0) 
+  {
+    return &bfd_ind_section;
   }
   
   while (sect) {
@@ -741,7 +758,7 @@ DEFUN(bfd_set_section_contents,(abfd, section, location, offset, count),
 {
   bfd_size_type sz;
 
-  if (!(bfd_get_section_flags(abfd, section) & SEC_HAS_CONTENTS)) 
+  if (!bfd_get_section_flags(abfd, section) & SEC_HAS_CONTENTS) 
       {
         bfd_error = no_contents;
         return(false);

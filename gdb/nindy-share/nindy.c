@@ -80,6 +80,7 @@ static char rcsid[] =
 #include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>	/* Needed on Sys V */
+#include "defs.h" /* for xmalloc */
 #include "ttycntl.h"
 #include "block_io.h"
 #include "wait.h"
@@ -104,11 +105,10 @@ static char rcsid[] =
 #define ESC	0x1b
 
 
-#define REGISTER_BYTES	((36*4) + (4*8))
+#define NINDY_REGISTER_BYTES	((36*4) + (4*8))
 
 #define TIMEOUT		-1
 
-extern char *malloc();
 extern void free();
 
 static int quiet = 0;	/* 1 => stifle unnecessary messages */
@@ -270,7 +270,7 @@ exists( base, c1, c2, c3, env )
 		len += strlen(c3);
 	}
 
-	path = malloc( len );
+	path = xmalloc( len );
 
 	strcpy( path, base );
 	if ( c1 != NULL ){
@@ -400,7 +400,7 @@ rdnin(buf,n,timeout)
 		if ( mybuf ){
 			free( mybuf );
 		}
-		mybuf = (unsigned char *) malloc( mybuflen=n );
+		mybuf = (unsigned char *) xmalloc( mybuflen=n );
 	}
 
 
@@ -538,7 +538,7 @@ putpkt( msg, len )
 		if ( buf ){
 			free( buf );
 		}
-		buf = malloc( maxbuf=((2*len)+10) );
+		buf = xmalloc( maxbuf=((2*len)+10) );
 	}
 
 	/* Attention, NINDY!
@@ -951,7 +951,7 @@ ninConnect( name, baudrate, brk, silent, old_protocol )
 	quiet = silent;		/* Make global to this file */
 
 	for ( i=0; prefix[i] != NULL; i++ ){
-		p = malloc(strlen(prefix[i]) + strlen(name) + 1 );
+		p = xmalloc(strlen(prefix[i]) + strlen(name) + 1 );
 		strcpy( p, prefix[i] );
 		strcat( p, name );
 		nindy_fd = open(p,O_RDWR);
@@ -1268,7 +1268,7 @@ ninRegsGet( regp )
 ninRegsPut( regp )
     char *regp;		/* Pointer to desired values of registers */
 {
-	unsigned char buf[REGISTER_BYTES+10];
+	unsigned char buf[NINDY_REGISTER_BYTES+10];
 
 	if ( old_nindy ){
 		OninRegsPut( regp );
@@ -1276,8 +1276,8 @@ ninRegsPut( regp )
 	}
 
 	buf[0] = 'R';
-	bcopy( regp, buf+1, REGISTER_BYTES );
-	send( buf, REGISTER_BYTES+1, NULL );
+	bcopy( regp, buf+1, NINDY_REGISTER_BYTES );
+	send( buf, NINDY_REGISTER_BYTES+1, NULL );
 }
 
 

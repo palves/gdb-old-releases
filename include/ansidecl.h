@@ -24,10 +24,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    -----	---- - ----------	----------- - ----------
    PTR		`void *'		`char *'
    LONG_DOUBLE	`long double'		`double'
-   CONST	`const'			`'
    VOLATILE	`volatile'		`'
    SIGNED	`signed'		`'
    PTRCONST	`void *const'		`char *'
+
+   CONST is also defined, but is obsolete.  Just use const.
 
    DEFUN (name, arglist, args)
 
@@ -88,7 +89,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* LINTLIBRARY */
 
 
-#ifdef	__STDC__
+#if defined (__STDC__) || defined (_AIX)
+/* All known AIX compilers implement these things (but don't always define
+   __STDC__).  */
 
 #define	PTR		void *
 #define	PTRCONST	void *CONST
@@ -117,6 +120,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	AND		;
 #define	NOARGS
 #define	CONST
+#define	const
 #define	VOLATILE
 #define	SIGNED
 #define	DOTS

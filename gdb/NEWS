@@ -1,6 +1,51 @@
 		What has changed since GDB-3.5?
 		(Organized release by release)
 
+*** Changes in GDB-4.9:
+
+ * Testsuite
+
+This is the first GDB release which is accompanied by a matching testsuite.
+The testsuite requires installation of dejagnu, which should be available
+via ftp from most sites that carry GNU software.
+
+ * C++ demangling
+
+'Cfront' style demangling has had its name changed to 'ARM' style, to
+emphasize that it was written from the specifications in the C++ Annotated
+Reference Manual, not necessarily to be compatible with AT&T cfront.  Despite
+disclaimers, it still generated too much confusion with users attempting to
+use gdb with AT&T cfront.
+
+ * Simulators
+
+GDB now uses a standard remote interface to a simulator library.
+So far, the library contains simulators for the Zilog Z8001/2, the
+Hitachi H8/300, H8/500 and Super-H.
+
+ * New targets supported
+
+H8/300 simulator 			h8300-hitachi-hms or h8300hms
+H8/500 simulator 			h8500-hitachi-hms or h8500hms
+SH simulator				sh-hitachi-hms    or sh
+Z8000 simulator		  		z8k-zilog-none 	  or z8ksim
+IDT MIPS board over serial line		mips-idt-ecoff
+
+Cross-debugging to GO32 targets is supported.  It requires a custom
+version of the i386-stub.c module which is integrated with the 
+GO32 memory extender.
+
+ * New remote protocols
+
+MIPS remote debugging protocol.
+
+ * New source languages supported
+
+This version includes preliminary support for Chill, a Pascal like language
+used by telecommunications companies.  Chill support is also being integrated
+into the GNU compiler, but we don't know when it will be publically available.
+
+
 *** Changes in GDB-4.8:
 
  * HP Precision Architecture supported

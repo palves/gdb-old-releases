@@ -197,10 +197,9 @@ typedef unsigned int DIE_REF;	/* Reference to a DIE */
 #define LCC_PRODUCER "NCR C/C++"
 #endif
 
-#ifndef CFRONT_PRODUCER
-#define CFRONT_PRODUCER "CFRONT "	/* A wild a** guess... */
+#ifndef CHILL_PRODUCER
+#define CHILL_PRODUCER "GNU Chill "
 #endif
-
 
 /* Flags to target_to_host() that tell whether or not the data object is
    expected to be signed.  Used, for example, when fetching a signed
@@ -335,7 +334,8 @@ static int isreg;	/* Kludge to identify register variables */
 static int offreg;	/* Kludge to identify basereg references */
 
 /* This value is added to each symbol value.  FIXME:  Generalize to 
-   the section_offsets structure used by dbxread.  */
+   the section_offsets structure used by dbxread (once this is done,
+   pass the appropriate section number to end_symtab).  */
 static CORE_ADDR baseaddr;	/* Add to each symbol value */
 
 /* The section offsets used in the current psymtab or symtab.  FIXME,
@@ -671,6 +671,9 @@ set_cu_language (dip)
 	break;
       case LANG_C_PLUS_PLUS:
 	cu_language = language_cplus;
+	break;
+      case LANG_CHILL:
+	cu_language = language_chill;
 	break;
       case LANG_MODULA2:
 	cu_language = language_m2;
@@ -1543,30 +1546,39 @@ read_tag_string_type (dip)
   unsigned long lowbound = 0;
   unsigned long highbound;
 
-  if ((utype = lookup_utype (dip -> die_ref)) != NULL)
+  if (dip -> has_at_byte_size)
     {
-      /* Ack, someone has stuck a type in the slot we want.  Complain
-	 about it. */
-      complain (&dup_user_type_definition, DIE_ID, DIE_NAME);
+      /* A fixed bounds string */
+      highbound = dip -> at_byte_size - 1;
     }
   else
     {
-      if (dip -> has_at_byte_size)
-	{
-	  /* A fixed bounds string */
-	  highbound = dip -> at_byte_size - 1;
-	}
-      else
-	{
-	  /* A varying length string.  Stub for now.  (FIXME) */
-	  highbound = 1;
-	}
-      indextype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
-      rangetype = create_range_type ((struct type *) NULL, indextype,
-				     lowbound, highbound);
-      utype = create_string_type ((struct type *) NULL, rangetype);
-      alloc_utype (dip -> die_ref, utype);
+      /* A varying length string.  Stub for now.  (FIXME) */
+      highbound = 1;
     }
+  indextype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
+  rangetype = create_range_type ((struct type *) NULL, indextype, lowbound,
+				 highbound);
+      
+  utype = lookup_utype (dip -> die_ref);
+  if (utype == NULL)
+    {
+      /* No type defined, go ahead and create a blank one to use. */
+      utype = alloc_utype (dip -> die_ref, (struct type *) NULL);
+    }
+  else
+    {
+      /* Already a type in our slot due to a forward reference. Make sure it
+	 is a blank one.  If not, complain and leave it alone. */
+      if (TYPE_CODE (utype) != TYPE_CODE_UNDEF)
+	{
+	  complain (&dup_user_type_definition, DIE_ID, DIE_NAME);
+	  return;
+	}
+    }
+
+  /* Create the string type using the blank type we either found or created. */
+  utype = create_string_type (utype, rangetype);
 }
 
 /*
@@ -1887,6 +1899,7 @@ handle_producer (producer)
 
   processing_gcc_compilation =
     STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER))
+      || STREQN (producer, CHILL_PRODUCER, strlen (CHILL_PRODUCER))
       || STREQN (producer, GCC_PRODUCER, strlen (GCC_PRODUCER));
 
   /* Select a demangling style if we can identify the producer and if
@@ -1894,7 +1907,6 @@ handle_producer (producer)
      is not auto.  We also leave the demangling style alone if we find a
      gcc (cc1) producer, as opposed to a g++ (cc1plus) producer. */
 
-#if 1 /* Works, but is experimental.  -fnf */
   if (AUTO_DEMANGLING)
     {
       if (STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER)))
@@ -1905,12 +1917,7 @@ handle_producer (producer)
 	{
 	  set_demangling_style (LUCID_DEMANGLING_STYLE_STRING);
 	}
-      else if (STREQN (producer, CFRONT_PRODUCER, strlen (CFRONT_PRODUCER)))
-	{
-	  set_demangling_style (CFRONT_DEMANGLING_STYLE_STRING);
-	}
     }
-#endif
 }
 
 
@@ -1965,7 +1972,8 @@ read_file_scope (dip, thisdie, enddie, objfile)
   start_symtab (dip -> at_name, dip -> at_comp_dir, dip -> at_low_pc);
   decode_line_numbers (lnbase);
   process_dies (thisdie + dip -> die_length, enddie, objfile);
-  symtab = end_symtab (dip -> at_high_pc, 0, 0, objfile);
+
+  symtab = end_symtab (dip -> at_high_pc, 0, 0, objfile, 0);
   if (symtab != NULL)
     {
       symtab -> language = cu_language;

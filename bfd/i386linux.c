@@ -32,5 +32,5 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "libaout.h"           /* BFD a.out internal data structures */
 #define DEFAULT_ARCH bfd_arch_i386
 #define MY(OP) CAT(i386linux_,OP)
-#define TARGETNAME "a.out-i386(linux)"
+#define TARGETNAME "a.out-i386-linux"
 #include "aout-target.h"

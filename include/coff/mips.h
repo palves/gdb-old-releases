@@ -173,3 +173,13 @@ struct external_reloc {
 #define MIPS_MARK_STAB(code) ((code)+CODE_MASK)
 #define MIPS_UNMARK_STAB(code) ((code)-CODE_MASK)
 #define STABS_SYMBOL "@stabs"
+
+/********************** COFF **********************/
+
+/* gcc also uses mips-tfile to output COFF debugging information.
+   These are the values it uses when outputting the .type directive.
+   These should also be in a shared include file.  */
+#define N_BTMASK	(017)
+#define N_TMASK		(060)
+#define N_BTSHFT	(4)
+#define N_TSHIFT	(2)

@@ -79,6 +79,11 @@ typedef struct {
   	   *stack_section,
 	   *reg_section,	/* section for GPRs and special registers. */
 	   *reg2_section;	/* section for FPRs. */
+
+  /* This tells us where everything is mapped (shared libraries and so on).
+     GDB needs it.  */
+  asection *ldinfo_section;
+#define core_ldinfosec(bfd) (((Rs6kCorData *)(bfd->tdata.any))->ldinfo_section)
 } Rs6kCorData;
 
 
@@ -96,22 +101,79 @@ rs6000coff_core_p (abfd)
 
   /* Use bfd_xxx routines, rather than O/S primitives to read coredata. FIXMEmgo */
   fd = open (abfd->filename, O_RDONLY);
+  if (fd < 0)
+    {
+      bfd_error = system_call_error;
+      return NULL;
+    }
 
-  fstat (fd, &statbuf);
-  read (fd, &coredata, sizeof (struct core_dump));
+  if (fstat (fd, &statbuf) < 0)
+    {
+      bfd_error = system_call_error;
+      close (fd);
+      return NULL;
+    }
+  if (read (fd, &coredata, sizeof (struct core_dump))
+      != sizeof (struct core_dump))
+    {
+      bfd_error = wrong_format;
+      close (fd);
+      return NULL;
+    }
 
-  close (fd);
+  if (close (fd) < 0)
+    {
+      bfd_error = system_call_error;
+      return NULL;
+    }
 
+  /* If the core file ulimit is too small, the system will first
+     omit the data segment, then omit the stack, then decline to
+     dump core altogether (as far as I know UBLOCK_VALID and LE_VALID
+     are always set) (this is based on experimentation on AIX 3.2).
+     Now, the thing is that GDB users will be surprised
+     if segments just silently don't appear (well, maybe they would
+     think to check "info files", I don't know), but we have no way of
+     returning warnings (as opposed to errors).
+
+     For the data segment, we have no choice but to keep going if it's
+     not there, since the default behavior is not to dump it (regardless
+     of the ulimit, it's based on SA_FULLDUMP).  But for the stack segment,
+     if it's not there, we refuse to have anything to do with this core
+     file.  The usefulness of a core dump without a stack segment is pretty
+     limited anyway.  */
+     
+  if (!(coredata.c_flag & UBLOCK_VALID)
+      || !(coredata.c_flag & LE_VALID))
+    {
+      bfd_error = wrong_format;
+      return NULL;
+    }
+
+  if ((coredata.c_flag & CORE_TRUNC)
+      || !(coredata.c_flag & USTACK_VALID))
+    {
+      bfd_error = file_truncated;
+      return NULL;
+    }
+
+  if (((bfd_vma)coredata.c_stack + coredata.c_size
+       + ((coredata.c_flag & FULL_CORE) ? coredata.c_u.u_dsize : 0))
+      != statbuf.st_size)
+    {
+      /* If the size is wrong, it means we're misinterpreting something.  */
+      bfd_error = wrong_format;
+      return NULL;
+    }
+
+  /* Sanity check on the c_tab field.  */
   if ((u_long) coredata.c_tab < sizeof coredata ||
       (u_long) coredata.c_tab >= statbuf.st_size ||
-      (long) coredata.c_tab >= (long)coredata.c_stack ) {
-    return NULL;
-  }
-
-/*
-  If it looks like core file, then.....
-  read core file header..... (maybe you've done it above..)
-*/
+      (long) coredata.c_tab >= (long)coredata.c_stack)
+    {
+      bfd_error = wrong_format;
+      return NULL;
+    }
 
   /* maybe you should alloc space for the whole core chunk over here!! FIXMEmgo */
   tmpptr = (char*)bfd_zalloc (abfd, sizeof (Rs6kCorData));
@@ -158,12 +220,48 @@ rs6000coff_core_p (abfd)
   core_reg2sec (abfd)->filepos = 
   	(char*)&coredata.c_u.u_save.fpr[0] - (char*)&coredata;
 
+  if ((core_ldinfosec (abfd) = (asection*) bfd_zalloc (abfd, sizeof (asection)))
+       == NULL)  {
+    bfd_error = no_memory;
+    /* bfd_release (abfd, ???? ) */
+    return NULL;
+  }
+  core_ldinfosec (abfd)->name = ".ldinfo";
+  core_ldinfosec (abfd)->flags = SEC_ALLOC + SEC_LOAD;
+  /* To actually find out how long this section is in this particular
+     core dump would require going down the whole list of struct ld_info's.
+     See if we can just fake it.  */
+  core_ldinfosec (abfd)->_raw_size = 0x7fffffff;
+  /* Not relevant for ldinfo section.  */
+  core_ldinfosec (abfd)->vma = 0;
+  core_ldinfosec (abfd)->filepos = coredata.c_tab;
+
   /* set up section chain here. */
-  abfd->section_count = 3;
+  abfd->section_count = 4;
   abfd->sections = core_stacksec (abfd);
   core_stacksec (abfd)->next = core_regsec(abfd);
   core_regsec (abfd)->next = core_reg2sec (abfd);
-  core_reg2sec (abfd)->next = NULL;
+  core_reg2sec (abfd)->next = core_ldinfosec (abfd);
+  core_ldinfosec (abfd)->next = NULL;
+
+  if (coredata.c_flag & FULL_CORE)
+    {
+      asection *sec = (asection *) bfd_zalloc (abfd, sizeof (asection));
+      if (sec == NULL)
+	{
+	  bfd_error = no_memory;
+	  return NULL;
+	}
+      sec->name = ".data";
+      sec->flags = SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS;
+      sec->_raw_size = coredata.c_u.u_dsize;
+      sec->vma = CDATA_ADDR (coredata.c_u.u_dsize);
+      sec->filepos = (int)coredata.c_stack + coredata.c_size;
+
+      sec->next = abfd->sections;
+      abfd->sections = sec;
+      ++abfd->section_count;
+    }
 
   return abfd->xvec;				/* this is garbage for now. */
 }
@@ -184,6 +282,8 @@ rs6000coff_core_file_matches_executable_p (core_bfd, exec_bfd)
 
   /* Use bfd_xxx routines, rather than O/S primitives, do error checking!!
   								FIXMEmgo */
+  /* Actually should be able to use bfd_get_section_contents now that
+     we have a .ldinfo section.  */
   fd = fopen (core_bfd->filename, FOPEN_RB);
 
   fread (&coredata, sizeof (struct core_dump), 1, fd);
@@ -191,7 +291,6 @@ rs6000coff_core_file_matches_executable_p (core_bfd, exec_bfd)
   fread (&ldinfo, (char*)&ldinfo.ldinfo_filename[0] - (char*)&ldinfo.ldinfo_next,
 	 1, fd);
   fscanf (fd, "%s", pathname);
-  printf ("path: %s\n", pathname);
   
   str1 = strrchr (pathname, '/');
   str2 = strrchr (exec_bfd->filename, '/');

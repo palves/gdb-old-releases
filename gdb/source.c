@@ -106,13 +106,13 @@ static int last_line_listed;
 static int first_line_listed;
 
 
-/* Set the source file default for the "list" command, specifying a
-   symtab.  Sigh.  Behavior specification: If it is called with a
-   non-zero argument, that is the symtab to select.  If it is not,
-   first lookup "main"; if it exists, use the symtab and line it
-   defines.  If not, take the last symtab in the symtab lists (if it
-   exists) or the last symtab in the psymtab lists (if *it* exists).  If
-   none of this works, report an error.   */
+/* Set the source file default for the "list" command to be S.
+
+   If S is NULL, and we don't have a default, find one.  This
+   should only be called when the user actually tries to use the
+   default, since we produce an error if we can't find a reasonable
+   default.  Also, since this can cause symbols to be read, doing it
+   before we need to would make things slower than necessary.  */
 
 void
 select_source_symtab (s)
@@ -130,6 +130,9 @@ select_source_symtab (s)
       current_source_line = 1;
       return;
     }
+
+  if (current_source_symtab)
+    return;
 
   /* Make the default place to list be the function `main'
      if one exists.  */
@@ -188,9 +191,6 @@ select_source_symtab (s)
 	  current_source_symtab = PSYMTAB_TO_SYMTAB (cs_pst);
 	}
     }
-
-  if (current_source_symtab)
-    return;
 
   error ("Can't find a default source file");
 }
@@ -437,8 +437,13 @@ source_info (ignore, from_tty)
 
 /* Open a file named STRING, searching path PATH (dir names sep by colons)
    using mode MODE and protection bits PROT in the calls to open.
+
    If TRY_CWD_FIRST, try to open ./STRING before searching PATH.
-   (ie pretend the first element of PATH is ".")
+   (ie pretend the first element of PATH is ".").  This also indicates
+   that a slash in STRING disables searching of the path (this is
+   so that "exec-file ./foo" or "symbol-file ./foo" insures that you
+   get that particular version of foo or an error message).
+
    If FILENAMED_OPENED is non-null, set it to a newly allocated string naming
    the actual file opened (this string will always start with a "/".  We
    have to take special pains to avoid doubling the "/" between the directory
@@ -468,17 +473,17 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
   if (!path)
     path = ".";
 
-  /* ./foo => foo */
-  while (string[0] == '.' && string[1] == '/')
-    string += 2;
-
   if (try_cwd_first || string[0] == '/')
     {
       filename = string;
       fd = open (filename, mode, prot);
-      if (fd >= 0 || string[0] == '/')
+      if (fd >= 0 || string[0] == '/' || strchr (string, '/'))
 	goto done;
     }
+
+  /* ./foo => foo */
+  while (string[0] == '.' && string[1] == '/')
+    string += 2;
 
   alloclen = strlen (path) + strlen (string) + 2;
   filename = (char *) alloca (alloclen);

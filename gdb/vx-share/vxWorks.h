@@ -45,10 +45,6 @@ modification history
 #ifndef INCvxWorksh
 #define INCvxWorksh
 
-#if	!defined(NULL) || (NULL!=0)
-#define NULL		0
-#endif	
-
 #if	!defined(EOF) || (EOF!=(-1))
 #define EOF		(-1)
 #endif	
@@ -160,10 +156,6 @@ modification history
 		(sizeof (array) / sizeof ((array) [0]))
 
 #define FOREVER	for (;;)
-
-#define max(x, y)	(((x) < (y)) ? (y) : (x))
-#define min(x, y)	(((x) < (y)) ? (x) : (y))
-
 
 /* storage class specifier definitions */
 

@@ -103,6 +103,7 @@ struct so_list {
   struct section_table *sections;
   struct section_table *sections_end;
   struct section_table *textsection;
+  bfd *bfd;
 };
 
 static struct so_list *so_list_head;	/* List of known shared objects */
@@ -210,8 +211,8 @@ solib_map_sections (so)
   if (scratch_chan < 0)
     {
       perror_with_name (filename);
-    }  
-  make_cleanup (free, scratch_pathname);
+    }
+  /* Leave scratch_pathname allocated.  bfd->name will point to it.  */
 
   abfd = bfd_fdopenr (scratch_pathname, NULL, scratch_chan);
   if (!abfd)
@@ -220,8 +221,9 @@ solib_map_sections (so)
       error ("Could not open `%s' as an executable file: %s",
 	     scratch_pathname, bfd_errmsg (bfd_error));
     }
-
-  make_cleanup (bfd_close, abfd);	/* Zap bfd, close scratch_chan. */
+  /* Leave bfd open, core_xfer_memory and "info files" need it.  */
+  so -> bfd = abfd;
+  abfd -> cacheable = true;
 
   if (!bfd_check_format (abfd, bfd_object))
     {
@@ -231,7 +233,7 @@ solib_map_sections (so)
   if (build_section_table (abfd, &so -> sections, &so -> sections_end))
     {
       error ("Can't find the file sections in `%s': %s", 
-	     exec_bfd -> filename, bfd_errmsg (bfd_error));
+	     bfd_get_filename (exec_bfd), bfd_errmsg (bfd_error));
     }
 
   for (p = so -> sections; p < so -> sections_end; p++)
@@ -753,6 +755,7 @@ solib_add (arg_string, from_tty, target)
     {
       if (so -> so_name[0] && re_exec (so -> so_name))
 	{
+	  so -> from_tty = from_tty;
 	  if (so -> symbols_loaded)
 	    {
 	      if (from_tty)
@@ -760,14 +763,12 @@ solib_add (arg_string, from_tty, target)
 		  printf ("Symbols already loaded for %s\n", so -> so_name);
 		}
 	    }
-	  else
+	  else if (catch_errors
+		   (symbol_add_stub, (char *) so,
+		    "Error while reading shared library symbols:\n"))
 	    {
-	      catch_errors (symbol_add_stub, (char *) so,
-			    "Error while reading shared library symbols:\n");
-	      
 	      special_symbol_handling (so);
 	      so -> symbols_loaded = 1;
-	      so -> from_tty = from_tty;
 	    }
 	}
     }
@@ -922,6 +923,7 @@ void
 clear_solib()
 {
   struct so_list *next;
+  char *bfd_filename;
   
   while (so_list_head)
     {
@@ -929,8 +931,19 @@ clear_solib()
 	{
 	  free ((PTR)so_list_head -> sections);
 	}
+      if (so_list_head -> bfd)
+	{
+	  bfd_filename = bfd_get_filename (so_list_head -> bfd);
+	  bfd_close (so_list_head -> bfd);
+	}
+      else
+	/* This happens for the executable on SVR4.  */
+	bfd_filename = NULL;
+      
       next = so_list_head -> next;
-      free((PTR)so_list_head);
+      if (bfd_filename)
+	free ((PTR)bfd_filename);
+      free ((PTR)so_list_head);
       so_list_head = next;
     }
   debug_base = 0;

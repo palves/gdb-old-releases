@@ -89,6 +89,11 @@ DEFUN(make_a_section_from_file,(abfd, hdr, target_index),
 
   return_section->target_index = target_index;
 
+  /* At least on i386-coff, the line number count for a shared library
+     section must be ignored.  */
+  if ((return_section->flags & SEC_SHARED_LIBRARY) != 0)
+    return_section->lineno_count = 0;
+
   if (hdr->s_nreloc != 0)
     return_section->flags |= SEC_RELOC;
   /* FIXME: should this check 'hdr->s_size > 0' */
@@ -1125,7 +1130,7 @@ bfd            *abfd)
       internal_ptr->fix_tag = 0;
       internal_ptr->fix_end = 0;
       symbol_ptr = internal_ptr;
-    
+
       for (i = 0;
 	   i < symbol_ptr->u.syment.n_numaux;
 	   i++) 
@@ -1223,6 +1228,7 @@ bfd            *abfd)
   }
 
   obj_raw_syments(abfd) = internal;
+  obj_raw_syment_count(abfd) = internal_ptr - internal;
 
   return (internal);
 }				/* coff_get_normalized_symtab() */
@@ -1256,11 +1262,13 @@ DEFUN (coff_make_empty_symbol, (abfd),
   return &new->symbol;
 }
 
+/* Make a debugging symbol.  */
+
 asymbol *
-DEFUN (coff_make_debug_symbol, (abfd, ptr, sz),
-       bfd *abfd AND
-       PTR ptr AND
-       unsigned long sz)
+coff_bfd_make_debug_symbol (abfd, ptr, sz)
+     bfd *abfd;
+     PTR ptr;
+     unsigned long sz;
 {
   coff_symbol_type *new = (coff_symbol_type *) bfd_alloc(abfd, sizeof(coff_symbol_type));
   if (new == NULL) {
@@ -1403,14 +1411,14 @@ DEFUN(coff_find_nearest_line,(abfd,
   static asection *cache_section;
   static bfd_vma  cache_offset;
   static unsigned int cache_i;
-  static alent   *cache_l;
+  static CONST char *cache_function;
+  static unsigned int    line_base = 0;
 
   unsigned int    i = 0;
   coff_data_type *cof = coff_data(abfd);
   /* Run through the raw syments if available */
   combined_entry_type *p;
   alent          *l;
-  unsigned int    line_base = 0;
 
 
   *filename_ptr = 0;
@@ -1444,17 +1452,19 @@ DEFUN(coff_find_nearest_line,(abfd,
       section == cache_section &&
       offset >= cache_offset) {
     i = cache_i;
-    l = cache_l;
+    *functionname_ptr = cache_function;
   }
   else {
     i = 0;
-    l = section->lineno;
   }
+  l = &section->lineno[i];
 
   for (; i < section->lineno_count; i++) {
     if (l->line_number == 0) {
       /* Get the symbol this line number points at */
       coff_symbol_type *coff = (coff_symbol_type *) (l->u.sym);
+      if (coff->symbol.value > offset)
+	break;
       *functionname_ptr = coff->symbol.name;
       if (coff->native) {
 	combined_entry_type  *s = coff->native;
@@ -1468,13 +1478,14 @@ DEFUN(coff_find_nearest_line,(abfd,
 	    */
 	  union internal_auxent   *a = &((s + 1)->u.auxent);
 	  line_base = a->x_sym.x_misc.x_lnsz.x_lnno;
+	  *line_ptr = line_base;
 	}
       }
     }
     else {
       if (l->u.offset > offset)
 	break;
-      *line_ptr = l->line_number + line_base + 1;
+      *line_ptr = l->line_number + line_base - 1;
     }
     l++;
   }
@@ -1483,7 +1494,7 @@ DEFUN(coff_find_nearest_line,(abfd,
   cache_section = section;
   cache_offset = offset;
   cache_i = i;
-  cache_l = l;
+  cache_function = *functionname_ptr;
 
   return true;
 }

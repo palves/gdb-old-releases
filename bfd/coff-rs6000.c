@@ -1,5 +1,5 @@
 /* BFD back-end for IBM RS/6000 "XCOFF" files.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Metin G. Ozisik, Mimi Phûông-Thåo Võ, and John Gilmore.
    Archive support from Damon A. Permezel.
    Contributed by IBM Corporation and Cygnus Support.
@@ -326,8 +326,12 @@ bfd_target rs6000coff_vec =
   15,				/* ar_max_namelen??? FIXMEmgo */
   3,				/* default alignment power */
 
-  _do_getb64, _do_putb64, _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
-  _do_getb64, _do_putb64, _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
 
   {_bfd_dummy_target, coff_object_p, 	/* bfd_check_format */
      coff_archive_p,
@@ -343,6 +347,5 @@ bfd_target rs6000coff_vec =
      _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(coff),
-  0, 0,
   COFF_SWAP_TABLE,
 };

@@ -1,0 +1,1 @@
+TDEFAULTS = -DDEFAULT_VECTOR=hp300hpux_vec

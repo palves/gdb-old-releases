@@ -192,6 +192,24 @@ static const struct signal_info signal_table[] =
 #if defined (SIGLWP)
   SIGLWP, "SIGLWP", "Signal LWP",
 #endif
+#if defined (SIGDANGER)
+  SIGDANGER, "SIGDANGER", "Swap space dangerously low",
+#endif
+#if defined (SIGGRANT)
+  SIGGRANT, "SIGGRANT", "Monitor mode granted",
+#endif
+#if defined (SIGRETRACT)
+  SIGRETRACT, "SIGRETRACT", "Need to relinguish monitor mode",
+#endif
+#if defined (SIGMSG)
+  SIGMSG, "SIGMSG", "Monitor mode data available",
+#endif
+#if defined (SIGSOUND)
+  SIGSOUND, "SIGSOUND", "Sound completed",
+#endif
+#if defined (SIGSAK)
+  SIGSAK, "SIGSAK", "Secure attention",
+#endif
   0, NULL, NULL
 };
 
@@ -217,11 +235,8 @@ static char **sys_siglist;
 #else
 
 static int sys_nsig = NSIG;
-#ifdef __STDC__
-extern char * const sys_siglist[];
-#else
-extern char *sys_siglist[];
-#endif
+extern const char * const sys_siglist[];
+
 #endif
 
 

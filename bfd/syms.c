@@ -208,6 +208,10 @@ CODE_FRAGMENT
 .	   meaning. *}
 .#define BSF_DEBUGGING	0x40
 .
+.	{* The symbol denotes a function entry point.  Used in ELF,
+.	   perhaps others someday.  *}
+.#define BSF_FUNCTION    0x080
+.
 .	{* Used by the linker. *}
 .#define BSF_KEEP        0x10000
 .#define BSF_KEEP_G      0x80000
@@ -429,7 +433,7 @@ asymbol *symbol)
   
   if (bfd_is_com_section (symbol->section)) return 'C';
   if (symbol->section == &bfd_und_section) return 'U';
- 
+  if (symbol->section == &bfd_ind_section) return 'I';
    if ( flags & (BSF_GLOBAL|BSF_LOCAL) ) {
      if ( symbol->section == &bfd_abs_section)
       return (flags & BSF_GLOBAL) ? 'A' : 'a';

@@ -77,12 +77,10 @@ print_subexp (exp, pos, stream, prec)
     case OP_SCOPE:
       myprec = PREC_PREFIX;
       assoc = 0;
-      (*pos) += 3;
-      print_subexp (exp, pos, stream,
-		    (enum precedence) ((int) myprec + assoc));
-      fputs_filtered (" :: ", stream);
+      fputs_filtered (type_name_no_tag (exp->elts[pc + 1].type), stream);
+      fputs_filtered ("::", stream);
       nargs = longest_to_int (exp->elts[pc + 2].longconst);
-      (*pos) += 2 + BYTES_TO_EXP_ELEM (nargs + 1);
+      (*pos) += 4 + BYTES_TO_EXP_ELEM (nargs + 1);
       fputs_filtered (&exp->elts[pc + 3].string, stream);
       return;
 
@@ -312,6 +310,10 @@ print_subexp (exp, pos, stream, prec)
 	    op_str = op_print_tab[tem].string;
 	    break;
 	  }
+      if (op_print_tab[tem].opcode != opcode)
+	/* Not found; don't try to keep going because we don't know how
+	   to interpret further elements.  */
+	error ("Invalid expression");
       break;
 
     /* C++ ops */
@@ -402,6 +404,11 @@ print_subexp (exp, pos, stream, prec)
 	    assoc = op_print_tab[tem].right_assoc;
 	    break;
 	  }
+      if (op_print_tab[tem].opcode != opcode)
+	/* Not found; don't try to keep going because we don't know how
+	   to interpret further elements.  For example, this happens
+	   if opcode is OP_TYPE.  */
+	error ("Invalid expression");
    }
 
   if ((int) myprec < (int) prec)
@@ -582,7 +589,7 @@ dump_expression (exp, stream, note)
 	}
       fprintf_filtered (stream, "%20s  ", opcode_name);
       fprintf_filtered (stream,
-#if defined (LONG_LONG)
+#if defined (PRINTF_HAS_LONG_LONG)
 			"%ll16x  ",
 #else
 			"%l16x  ",

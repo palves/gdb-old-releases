@@ -402,15 +402,7 @@ proceed (addr, siggnal, step)
 	oneproc = 1;
     }
   else
-    {
-      write_register (PC_REGNUM, addr);
-#ifdef NPC_REGNUM
-      write_register (NPC_REGNUM, addr + 4);
-#ifdef NNPC_REGNUM
-      write_register (NNPC_REGNUM, addr + 8);
-#endif
-#endif
-    }
+    write_pc (addr);
 
   if (trap_expected_after_continue)
     {
@@ -602,6 +594,10 @@ wait_for_inferior ()
       
       stop_frame_address = FRAME_FP (get_current_frame ());
       stop_sp = read_register (SP_REGNUM);
+/* XXX - FIXME.  Need to figure out a better way to grab the stack seg reg. */
+#ifdef GDB_TARGET_IS_H8500
+      stop_sp |= read_register (SEG_T_REGNUM) << 16;
+#endif
       stop_func_start = 0;
       stop_func_name = 0;
       /* Don't care about return value; stop_func_start and stop_func_name
@@ -767,79 +763,81 @@ wait_for_inferior ()
       /* Handle cases caused by hitting a breakpoint.  */
 
       if (!random_signal)
-	if (bpstat_explains_signal (stop_bpstat))
-	  {
-	    CORE_ADDR jmp_buf_pc;
+	{
+	  CORE_ADDR jmp_buf_pc;
+	  enum bpstat_what what = bpstat_what (stop_bpstat);
 
-	    switch (stop_bpstat->breakpoint_at->type) /* FIXME */
-	      {
-		/* If we hit the breakpoint at longjmp, disable it for the
-		   duration of this command.  Then, install a temporary
-		   breakpoint at the target of the jmp_buf. */
-	      case bp_longjmp:
-		disable_longjmp_breakpoint();
-		remove_breakpoints ();
-		breakpoints_inserted = 0;
-		if (!GET_LONGJMP_TARGET(&jmp_buf_pc)) goto keep_going;
+	  switch (what)
+	    {
+	    case BPSTAT_WHAT_SET_LONGJMP_RESUME:
+	      /* If we hit the breakpoint at longjmp, disable it for the
+		 duration of this command.  Then, install a temporary
+		 breakpoint at the target of the jmp_buf. */
+	      disable_longjmp_breakpoint();
+	      remove_breakpoints ();
+	      breakpoints_inserted = 0;
+	      if (!GET_LONGJMP_TARGET(&jmp_buf_pc)) goto keep_going;
 
-		/* Need to blow away step-resume breakpoint, as it
-		   interferes with us */
-		remove_step_breakpoint ();
-		step_resume_break_address = 0;
-		stop_step_resume_break = 0;
+	      /* Need to blow away step-resume breakpoint, as it
+		 interferes with us */
+	      remove_step_breakpoint ();
+	      step_resume_break_address = 0;
+	      stop_step_resume_break = 0;
 
-#if 0				/* FIXME - Need to implement nested temporary breakpoints */
-		if (step_over_calls > 0)
-		  set_longjmp_resume_breakpoint(jmp_buf_pc,
-						get_current_frame());
-		else
+#if 0
+	      /* FIXME - Need to implement nested temporary breakpoints */
+	      if (step_over_calls > 0)
+		set_longjmp_resume_breakpoint(jmp_buf_pc,
+					      get_current_frame());
+	      else
 #endif				/* 0 */
-		  set_longjmp_resume_breakpoint(jmp_buf_pc, NULL);
-		handling_longjmp = 1; /* FIXME */
-		goto keep_going;
+		set_longjmp_resume_breakpoint(jmp_buf_pc, NULL);
+	      handling_longjmp = 1; /* FIXME */
+	      goto keep_going;
 
-	      case bp_longjmp_resume:
-		remove_breakpoints ();
-		breakpoints_inserted = 0;
-#if 0				/* FIXME - Need to implement nested temporary breakpoints */
-		if (step_over_calls
-		    && (stop_frame_address
-			INNER_THAN step_frame_address))
-		  {
-		    another_trap = 1;
-		    goto keep_going;
-		  }
+	    case BPSTAT_WHAT_CLEAR_LONGJMP_RESUME:
+	    case BPSTAT_WHAT_CLEAR_LONGJMP_RESUME_SINGLE:
+	      remove_breakpoints ();
+	      breakpoints_inserted = 0;
+#if 0
+	      /* FIXME - Need to implement nested temporary breakpoints */
+	      if (step_over_calls
+		  && (stop_frame_address
+		      INNER_THAN step_frame_address))
+		{
+		  another_trap = 1;
+		  goto keep_going;
+		}
 #endif				/* 0 */
-		disable_longjmp_breakpoint();
-		handling_longjmp = 0; /* FIXME */
+	      disable_longjmp_breakpoint();
+	      handling_longjmp = 0; /* FIXME */
+	      if (what == BPSTAT_WHAT_CLEAR_LONGJMP_RESUME)
 		break;
+	      /* else fallthrough */
 
-	      default:
-		fprintf(stderr, "Unknown breakpoint type %d\n",
-			stop_bpstat->breakpoint_at->type);
-	      case bp_watchpoint:
-	      case bp_breakpoint:
-	      case bp_until:
-	      case bp_finish:
-		/* Does a breakpoint want us to stop?  */
-		if (bpstat_stop (stop_bpstat))
-		  {
-		    stop_print_frame = bpstat_should_print (stop_bpstat);
-		    goto stop_stepping;
-		  }
-		/* Otherwise, must remove breakpoints and single-step
-		   to get us past the one we hit.  */
-		else
-		  {
-		    remove_breakpoints ();
-		    remove_step_breakpoint ();
-		    breakpoints_inserted = 0;
-		    another_trap = 1;
-		  }
-		break;
-	      }
-	  }
-	else if (stop_step_resume_break)
+	    case BPSTAT_WHAT_SINGLE:
+	      if (breakpoints_inserted)
+		remove_breakpoints ();
+	      remove_step_breakpoint ();
+	      breakpoints_inserted = 0;
+	      another_trap = 1;
+	      /* Still need to check other stuff, at least the case
+		 where we are stepping and step out of the right range.  */
+	      break;
+	      
+	    case BPSTAT_WHAT_STOP_NOISY:
+	      stop_print_frame = 1;
+	      goto stop_stepping;
+	      
+	    case BPSTAT_WHAT_STOP_SILENT:
+	      stop_print_frame = 0;
+	      goto stop_stepping;
+	      
+	    case BPSTAT_WHAT_KEEP_CHECKING:
+	      break;
+	    }
+
+	  if (stop_step_resume_break)
 	  {
 	    /* But if we have hit the step-resumption breakpoint,
 	       remove it.  It has done its job getting us here.
@@ -881,6 +879,7 @@ wait_for_inferior ()
 		  another_trap = 1;
 	      }
 	  }
+	}
 
       /* We come here if we hit a breakpoint but should not
 	 stop for it.  Possibly we also were stepping

@@ -727,6 +727,15 @@ static const template i386_optab[] = {
 {"repne", 0, 0xf2, _, NoModrm, 0, 0, 0},
 {"repnz", 0, 0xf2, _, NoModrm, 0, 0, 0},
 
+/* 486 extensions */
+
+{"bswap", 1, 0x0fc8, _, ShortForm, Reg32,0,0 },
+{"xadd", 2, 0x0fc0, _, DW|Modrm, Reg, Reg|Mem, 0 },
+{"cmpxchg", 2, 0x0fb0, _, DW|Modrm, Reg, Reg|Mem, 0 },
+{"invd", 0, 0x0f08, _, NoModrm, 0, 0, 0},
+{"wbinvd", 0, 0x0f09, _, NoModrm, 0, 0, 0},
+{"invlpg", 1, 0x0f01, 7, Modrm, Mem, 0, 0},
+
 {"", 0, 0, 0, 0, 0, 0, 0}	/* sentinal */
 };
 #undef _

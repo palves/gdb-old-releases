@@ -1,5 +1,5 @@
 /* Remote serial support interface definitions for GDB, the GNU Debugger.
-   Copyright 1992 Free Software Foundation, Inc.
+   Copyright 1992, 1993 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,71 +17,80 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#ifdef __GO32__
+/* Terminal state pointer.  This is specific to each type of interface. */
 
-/* Then you use the asynctsr */
+typedef PTR ttystate;
 
-#else
-#ifdef HAVE_TERMIO
-
-#include <termios.h>
-#include <unistd.h>
-
-struct ttystate
+struct _serial_t
 {
-  int flags;			/* Flags from fcntl F_GETFL */
-  struct termios termios;	/* old tty driver settings */
+  int fd;			/* File descriptor */
+  struct serial_ops *ops;	/* Function vector */
+  ttystate ttystate;		/* Not used (yet) */
+  int bufcnt;			/* Amount of data in receive buffer */
+  unsigned char *bufp;		/* Current byte */
+  unsigned char buf[BUFSIZ];	/* Da buffer itself */
+  int current_timeout;		/* (termio{s} only), last value of VTIME */
 };
 
-#else /* not HAVE_TERMIO */
+typedef struct _serial_t *serial_t;
 
-#include <sgtty.h>
-
-struct ttystate {
-  int flags;			/* Flags from fcntl F_GETFL */
-  struct sgttyb sgttyb;		/* old tty driver settings */
+struct serial_ops {
+  char *name;
+  struct serial_ops *next;
+  int (*open) PARAMS ((serial_t, const char *name));
+  void (*close) PARAMS ((serial_t));
+  int (*readchar) PARAMS ((serial_t, int timeout));
+  int (*write) PARAMS ((serial_t, const char *str, int len));
+  void (*go_raw) PARAMS ((serial_t));
+  void (*restore) PARAMS ((serial_t));
+  int (*setbaudrate) PARAMS ((serial_t, int rate));
 };
 
-#endif /* not HAVE_TERMIO */
-#endif
-/* Return a sensible default name for a serial device, something which
-   can be used as an argument to serial_open.  */
-   
-const char *serial_default_name PARAMS ((void));
+/* Add a new serial interface to the interface list */
 
-/* Try to open the serial device "name", return 1 if ok, 0 if not.  */
+void serial_add_interface PARAMS ((struct serial_ops *optable));
 
-int serial_open PARAMS ((const char *name));
+serial_t serial_open PARAMS ((const char *name));
 
-/* Turn the port into raw mode.  */
+/* For most routines, if a failure is indicated, then errno should be
+   examined.  */
 
-void serial_raw PARAMS ((int fd, struct ttystate *oldstate));
+/* Try to open NAME.  Returns a new serial_t on success, NULL on failure.
+ */
 
-/* Turn the port into normal mode.  */
+#define SERIAL_OPEN(NAME) serial_open(NAME)
 
-void serial_normal PARAMS ((void));
+/* Turn the port into raw mode. */
 
-/* Read one char from the serial device with <TO>-second timeout.
-   Returns char if ok, else EOF, -2 for timeout, -3 for anything else  */
+#define SERIAL_RAW(SERIAL_T) (SERIAL_T)->ops->go_raw((SERIAL_T))
 
-int serial_readchar PARAMS ((int to));
+/* Read one char from the serial device with TIMEOUT seconds timeout.
+   Returns char if ok, else one of the following codes.  Note that all
+   error codes are guaranteed to be < 0.  */
 
-/* Set the baudrate to the decimal value supplied, and return 1, or fail and
-   return 0.  */
+#define SERIAL_ERROR -1		/* General error, see errno for details */
+#define SERIAL_TIMEOUT -2
+#define SERIAL_EOF -3
 
-int serial_setbaudrate PARAMS ((int rate));
+#define SERIAL_READCHAR(SERIAL_T, TIMEOUT) ((SERIAL_T)->ops->readchar((SERIAL_T), TIMEOUT))
 
-/* Return the next rate in the sequence, or return 0 for failure.  */
+/* Set the baudrate to the decimal value supplied.  Returns 0 for success,
+   -1 for failure.  */
 
-/* Write some chars to the device, returns 0 for failure.  See errno for
-   details. */
+#define SERIAL_SETBAUDRATE(SERIAL_T, RATE) ((SERIAL_T)->ops->setbaudrate((SERIAL_T), RATE))
 
-int serial_write PARAMS ((const char *str, int len));
+/* Write LEN chars from STRING to the port SERIAL_T.  Returns 0 for success,
+   -1 for failure.  */
 
-/* Close the serial port */
+#define SERIAL_WRITE(SERIAL_T, STRING, LEN) ((SERIAL_T)->ops->write((SERIAL_T), STRING, LEN))
 
-void serial_close PARAMS ((void));
+/* Push out all buffers, close the device and destroy SERIAL_T. */
 
-/* Restore the serial port to the state saved in oldstate */
+void serial_close PARAMS ((serial_t));
 
-void serial_restore PARAMS ((int desc, struct ttystate *oldstate));
+#define SERIAL_CLOSE(SERIAL_T) serial_close(SERIAL_T)
+
+/* Restore the serial port to the state saved in oldstate.  XXX - currently
+   unused! */
+
+#define SERIAL_RESTORE(SERIAL_T) (SERIAL_T)->ops->restore((SERIAL_T))

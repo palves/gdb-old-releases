@@ -39,6 +39,11 @@ typedef struct ecoff_tdata
   /* The cached gp value.  This is used when relocating.  */
   bfd_vma gp;
 
+  /* The maximum size of objects to optimize using gp.  This is
+     typically set by the -G option to the compiler, assembler or
+     linker.  */
+  int gp_size;
+
   /* The register masks.  When linking, all the masks found in the
      input files are combined into the masks of the output file.  */
   unsigned long gprmask;
@@ -78,9 +83,14 @@ typedef struct ecoff_tdata
 
 } ecoff_data_type;
 
+/* This is a hack borrowed from coffcode.h; we need to save the index
+   of an external symbol when we write it out so that can set the
+   symbol index correctly when we write out the relocs.  */
+#define ecoff_get_sym_index(symbol) ((unsigned long) (symbol)->udata)
+#define ecoff_set_sym_index(symbol, idx) ((symbol)->udata = (PTR) (idx))
+
 /* Read in the ECOFF symbolic information.  FIXME: If there is ever
    another ECOFF target, this function, and the swapping functions,
    should be called via a target specific vector, as is done with the
    functions in bfd_coff_backend_data.  */
-
 extern boolean ecoff_slurp_symbolic_info PARAMS ((bfd *));

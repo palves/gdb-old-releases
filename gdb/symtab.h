@@ -37,31 +37,19 @@ struct general_symbol_info
 
   char *name;
 
-  /* Constant value, or address if static, or register number,
-     or offset in arguments, or offset in stack frame.  All of
-     these are in host byte order (though what they point to might
-     be in target byte order, e.g. LOC_CONST_BYTES).
-
-     Note that the address of a function is SYMBOL_VALUE_ADDRESS (pst)
-     in a partial symbol table, but BLOCK_START (SYMBOL_BLOCK_VALUE (st))
-     in a symbol table.  */
+  /* Value of the symbol.  Which member of this union to use, and what
+     it means, depends on what kind of symbol this is and its
+     SYMBOL_CLASS.  See comments there for more details.  All of these
+     are in host byte order (though what they point to might be in
+     target byte order, e.g. LOC_CONST_BYTES).  */
 
   union
     {
-      /* for LOC_CONST, LOC_REGISTER, LOC_ARG, LOC_REF_ARG, LOC_REGPARM,
-	 LOC_LOCAL */
-
       long value;
-
-      /* for LOC_BLOCK */
 
       struct block *block;
 
-      /* for LOC_CONST_BYTES */
-
       char *bytes;
-
-      /* for LOC_STATIC, LOC_LABEL */
 
       CORE_ADDR address;
 
@@ -91,8 +79,20 @@ struct general_symbol_info
 	    {
 	      char *demangled_name;
 	    } cplus_specific;
+	  /* For Chill */
+	  struct chill_specific
+	    {
+	      char *demangled_name;
+	    } chill_specific;
 	} lang_u;
     } lang_specific;
+
+  /* Which section is this symbol in?  This is an index into
+     section_offsets for this objfile.  Negative means that the symbol
+     does not get relocated relative to a section.  */
+  /* Disclaimer: currently this is just used for xcoff, so don't expect
+     all symbol-reading code to set it correctly.  */
+  int section;
 };
 
 #define SYMBOL_NAME(symbol)		(symbol)->ginfo.name
@@ -102,6 +102,7 @@ struct general_symbol_info
 #define SYMBOL_BLOCK_VALUE(symbol)	(symbol)->ginfo.value.block
 #define SYMBOL_VALUE_CHAIN(symbol)	(symbol)->ginfo.value.chain
 #define SYMBOL_LANGUAGE(symbol)		(symbol)->ginfo.lang_specific.language
+#define SYMBOL_SECTION(symbol)		(symbol)->ginfo.section
 
 #define SYMBOL_CPLUS_DEMANGLED_NAME(symbol)	\
   (symbol)->ginfo.lang_specific.lang_u.cplus_specific.demangled_name
@@ -118,6 +119,10 @@ extern int demangle;	/* We reference it, so go ahead and declare it. */
     if (SYMBOL_LANGUAGE (symbol) == language_cplus)			\
       {									\
 	SYMBOL_CPLUS_DEMANGLED_NAME (symbol) = NULL;			\
+      }									\
+    else if (SYMBOL_LANGUAGE (symbol) == language_chill)		\
+      {									\
+	SYMBOL_CHILL_DEMANGLED_NAME (symbol) = NULL;			\
       }									\
     else								\
       {									\
@@ -150,6 +155,28 @@ extern int demangle;	/* We reference it, so go ahead and declare it. */
 	      obsavestring (demangled, strlen (demangled), (obstack));	\
 	    free (demangled);						\
 	  }								\
+	else								\
+	  {								\
+	    SYMBOL_CPLUS_DEMANGLED_NAME (symbol) = NULL;		\
+	  }								\
+      }									\
+    if (demangled == NULL						\
+	&& (SYMBOL_LANGUAGE (symbol) == language_chill			\
+	    || SYMBOL_LANGUAGE (symbol) == language_auto))		\
+      {									\
+	demangled =							\
+	  chill_demangle (SYMBOL_NAME (symbol));			\
+	if (demangled != NULL)						\
+	  {								\
+	    SYMBOL_LANGUAGE (symbol) = language_chill;			\
+	    SYMBOL_CHILL_DEMANGLED_NAME (symbol) = 			\
+	      obsavestring (demangled, strlen (demangled), (obstack));	\
+	    free (demangled);						\
+	  }								\
+	else								\
+	  {								\
+	    SYMBOL_CHILL_DEMANGLED_NAME (symbol) = NULL;		\
+	  }								\
       }									\
     if (SYMBOL_LANGUAGE (symbol) == language_auto)			\
       {									\
@@ -163,8 +190,12 @@ extern int demangle;	/* We reference it, so go ahead and declare it. */
 #define SYMBOL_DEMANGLED_NAME(symbol)					\
   (SYMBOL_LANGUAGE (symbol) == language_cplus				\
    ? SYMBOL_CPLUS_DEMANGLED_NAME (symbol)				\
-   : NULL)
+   : (SYMBOL_LANGUAGE (symbol) == language_chill			\
+      ? SYMBOL_CHILL_DEMANGLED_NAME (symbol)				\
+      : NULL))
 
+#define SYMBOL_CHILL_DEMANGLED_NAME(symbol)				\
+  (symbol)->ginfo.lang_specific.lang_u.chill_specific.demangled_name
 
 /* Macro that returns the "natural source name" of a symbol.  In C++ this is
    the "demangled" form of the name if demangle is on and the "mangled" form
@@ -224,7 +255,10 @@ extern int demangle;	/* We reference it, so go ahead and declare it. */
 struct minimal_symbol
 {
 
-  /* The general symbol info required for all types of symbols. */
+  /* The general symbol info required for all types of symbols.
+
+     The SYMBOL_VALUE_ADDRESS contains the address that this symbol
+     corresponds to.  */
 
   struct general_symbol_info ginfo;
 
@@ -269,15 +303,15 @@ struct minimal_symbol
    Each block represents one name scope.
    Each lexical context has its own block.
 
-   The first two blocks in the blockvector are special.
-   The first one contains all the symbols defined in this compilation
+   The blockvector begins with some special blocks.
+   The GLOBAL_BLOCK contains all the symbols defined in this compilation
    whose scope is the entire program linked together.
-   The second one contains all the symbols whose scope is the
+   The STATIC_BLOCK contains all the symbols whose scope is the
    entire compilation excluding other separate compilations.
-   In C, these correspond to global symbols and static symbols.
+   Blocks starting with the FIRST_LOCAL_BLOCK are not special.
 
    Each block records a range of core addresses for the code that
-   is in the scope of the block.  The first two special blocks
+   is in the scope of the block.  The STATIC_BLOCK and GLOBAL_BLOCK
    give, for the range of code, the entire range of code produced
    by the compilation that the symbol segment belongs to.
 
@@ -308,40 +342,33 @@ struct blockvector
 struct block
 {
 
-  /* Addresses in the executable code that are in this block.
-     Note: in an unrelocated symbol segment in a file,
-     these are always zero.  They can be filled in from the
-     N_LBRAC and N_RBRAC symbols in the loader symbol table.  */
+  /* Addresses in the executable code that are in this block.  */
 
   CORE_ADDR startaddr;
   CORE_ADDR endaddr;
 
-  /* The symbol that names this block,
-     if the block is the body of a function;
-     otherwise, zero.
-     Note: In an unrelocated symbol segment in an object file,
-     this field may be zero even when the block has a name.
-     That is because the block is output before the name
-     (since the name resides in a higher block).
-     Since the symbol does point to the block (as its value),
-     it is possible to find the block and set its name properly.  */
+  /* The symbol that names this block, if the block is the body of a
+     function; otherwise, zero.  */
 
   struct symbol *function;
 
   /* The `struct block' for the containing block, or 0 if none.
-     Note that in an unrelocated symbol segment in an object file
-     this pointer may be zero when the correct value should be
-     the second special block (for symbols whose scope is one compilation).
-     This is because the compiler outputs the special blocks at the
-     very end, after the other blocks.   */
+
+     The superblock of a top-level local block (i.e. a function in the
+     case of C) is the STATIC_BLOCK.  The superblock of the
+     STATIC_BLOCK is the GLOBAL_BLOCK.  */
 
   struct block *superblock;
 
-  /* A flag indicating whether or not the function corresponding
-     to this block was compiled with gcc or not.  If there is no
-     function corresponding to this block, this meaning of this flag
-     is undefined.  (In practice it will be 1 if the block was created
-     while processing a file compiled with gcc and 0 when not). */
+  /* Version of GCC used to compile the function corresponding
+     to this block, or 0 if not compiled with GCC.  When possible,
+     GCC should be compatible with the native compiler, or if that
+     is not feasible, the differences should be fixed during symbol
+     reading.  As of 16 Apr 93, this flag is never used to distinguish
+     between gcc2 and the native compiler.
+
+     If there is no function corresponding to this block, this meaning
+     of this flag is undefined.  */
 
   unsigned char gcc_compile_flag;
 
@@ -368,12 +395,6 @@ struct block
 
 
 /* Represent one symbol name; a variable, constant, function or typedef.  */
-
-/* For a non-global symbol allocated statically,
-   the correct core address cannot be determined by the compiler.
-   The compiler puts an index number into the symbol's value field.
-   This index number can be matched with the "desc" field of
-   an entry in the loader symbol table.  */
 
 /* Different name spaces for symbols.  Looking up a symbol specifies a
    namespace and ignores symbol definitions in other name spaces. */
@@ -419,23 +440,40 @@ enum address_class
 
   LOC_STATIC,
 
-  /* Value is in register */
+  /* Value is in register.  SYMBOL_VALUE is the register number.  */
 
   LOC_REGISTER,
 
-  /* Value is at spec'd offset in arglist */
+  /* It's an argument; the value is at SYMBOL_VALUE offset in arglist.  */
 
   LOC_ARG,
 
-  /* Value address is at spec'd offset in arglist. */
+  /* Value address is at SYMBOL_VALUE offset in arglist.  */
 
   LOC_REF_ARG,
 
-  /* Value is at spec'd offset in register window */
+  /* Value is in register number SYMBOL_VALUE.  Just like LOC_REGISTER
+     except this is an argument.  Probably the cleaner way to handle
+     this would be to separate address_class (which would include
+     separate ARG and LOCAL to deal with FRAME_ARGS_ADDRESS versus
+     FRAME_LOCALS_ADDRESS), and an is_argument flag.
+
+     For some symbol formats (stabs, for some compilers at least),
+     the compiler generates two symbols, an argument and a register.
+     In some cases we combine them to a single LOC_REGPARM in symbol
+     reading, but currently not for all cases (e.g. it's passed on the
+     stack and then loaded into a register).  */
 
   LOC_REGPARM,
 
-  /* Value is at spec'd offset in stack frame */
+  /* Value is in specified register.  Just like LOC_REGPARM except the
+     register holds the address of the argument instead of the argument
+     itself. This is currently used for the passing of structs and unions
+     on sparc and hppa.  */
+
+  LOC_REGPARM_ADDR,
+
+  /* Value is a local variable at SYMBOL_VALUE offset in stack frame.  */
 
   LOC_LOCAL,
 
@@ -448,24 +486,29 @@ enum address_class
 
   LOC_LABEL,
 
-  /* Value is address SYMBOL_VALUE_BLOCK of a `struct block'.  Function names
-     have this class. */
+  /* In a symbol table, value is SYMBOL_BLOCK_VALUE of a `struct block'.
+     In a partial symbol table, SYMBOL_VALUE_ADDRESS is the start address
+     of the block.  Function names have this class. */
 
   LOC_BLOCK,
 
-  /* Value is a constant byte-sequence pointed to by SYMBOL_VALUE_ADDRESS, in
+  /* Value is a constant byte-sequence pointed to by SYMBOL_VALUE_BYTES, in
      target byte order.  */
 
   LOC_CONST_BYTES,
 
-  /* Value is arg at spec'd offset in stack frame. Differs from LOC_LOCAL in
-     that symbol is an argument; differs from LOC_ARG in that we find it
-     in the frame (FRAME_LOCALS_ADDRESS), not in the arglist
-     (FRAME_ARGS_ADDRESS).  Added for i960, which passes args in regs then
-     copies to frame.  */
+  /* Value is arg at SYMBOL_VALUE offset in stack frame. Differs from
+     LOC_LOCAL in that symbol is an argument; differs from LOC_ARG in
+     that we find it in the frame (FRAME_LOCALS_ADDRESS), not in the
+     arglist (FRAME_ARGS_ADDRESS).  Added for i960, which passes args
+     in regs then copies to frame.  */
 
-  LOC_LOCAL_ARG
+  LOC_LOCAL_ARG,
 
+  /* The variable does not actually exist in the program.
+     The value is ignored.  */
+
+  LOC_OPTIMIZED_OUT
 };
 
 struct symbol
@@ -567,18 +610,30 @@ struct sourcevector
 /* Each item represents a line-->pc (or the reverse) mapping.  This is
    somewhat more wasteful of space than one might wish, but since only
    the files which are actually debugged are read in to core, we don't
-   waste much space.
-
-   Each item used to be an int; either minus a line number, or a
-   program counter.  If it represents a line number, that is the line
-   described by the next program counter value.  If it is positive, it
-   is the program counter at which the code for the next line starts.  */
+   waste much space.  */
 
 struct linetable_entry
 {
   int line;
   CORE_ADDR pc;
 };
+
+/* The order of entries in the linetable is significant.
+
+   It should generally be in ascending line number order.  Line table
+   entries for a function at lines 10-40 should come before entries
+   for a function at lines 50-70.
+
+   A for statement looks like this
+
+   	10	0x100	- for the init/test part of a for stmt.
+   	20	0x200
+   	30	0x300
+   	10	0x400	- for the increment part of a for stmt.
+
+   FIXME: this description is incomplete.  coffread.c is said to get
+   the linetable order wrong (would arrange_linenos from xcoffread.c
+   work for normal COFF too?).  */
 
 struct linetable
 {
@@ -629,6 +684,17 @@ struct symtab
        Can be NULL if none.  */
 
     struct linetable *linetable;
+
+    /* Section in objfile->section_offsets for the blockvector and
+       the linetable.  */
+
+    int block_line_section;
+
+    /* If several symtabs share a blockvector, exactly one of them
+       should be designed the primary, so that the blockvector
+       is relocated exactly once by objfile_relocate.  */
+
+    int primary;
 
     /* Name of this source file.  */
 
@@ -793,20 +859,32 @@ struct partial_symtab
    DELTA is the amount which is added to the apparent object's base
    address in order to point to the actual object to which the
    virtual function should be applied.
-   PFN is a pointer to the virtual function.  */
+   PFN is a pointer to the virtual function.
+
+   Note that this macro is g++ specific (FIXME). */
   
 #define VTBL_FNADDR_OFFSET 2
 
 /* Macro that yields non-zero value iff NAME is the prefix for C++ operator
    names.  If you leave out the parenthesis here you will lose!
    Currently 'o' 'p' CPLUS_MARKER is used for both the symbol in the
-   symbol-file and the names in gdb's symbol table.  */
+   symbol-file and the names in gdb's symbol table.
+   Note that this macro is g++ specific (FIXME). */
 
 #define OPNAME_PREFIX_P(NAME) \
   ((NAME)[0] == 'o' && (NAME)[1] == 'p' && (NAME)[2] == CPLUS_MARKER)
 
+/* Macro that yields non-zero value iff NAME is the prefix for C++ vtbl
+   names.  Note that this macro is g++ specific (FIXME).  */
+
 #define VTBL_PREFIX_P(NAME) \
   ((NAME)[3] == CPLUS_MARKER && !strncmp ((NAME), "_vt", 3))
+
+/* Macro that yields non-zero value iff NAME is the prefix for C++ destructor
+   names.  Note that this macro is g++ specific (FIXME).  */
+
+#define DESTRUCTOR_PREFIX_P(NAME) \
+  ((NAME)[0] == '_' && (NAME)[1] == CPLUS_MARKER && (NAME)[2] == '_')
 
 
 /* External variables and functions for the objects described above. */
@@ -886,7 +964,7 @@ prim_record_minimal_symbol PARAMS ((const char *, CORE_ADDR,
 extern void
 prim_record_minimal_symbol_and_info PARAMS ((const char *, CORE_ADDR,
 					     enum minimal_symbol_type,
-					     char *info));
+					     char *info, int section));
 
 extern struct minimal_symbol *
 lookup_minimal_symbol PARAMS ((const char *, struct objfile *));

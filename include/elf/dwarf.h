@@ -296,6 +296,9 @@ enum dwarf_source_language {
     LANG_PASCAL83	= 0x00000009,
     LANG_MODULA2	= 0x0000000a,
 
+    /* GNU extensions */
+
+    LANG_CHILL		= 0x00009af3	/* random value for GNU Chill */
 };
 
 #define LANG_lo_user	0x00008000  /* implementation-defined range start */

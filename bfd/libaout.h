@@ -34,14 +34,18 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define GET_WORD bfd_h_get_64
 #define GET_SWORD (int64_type)GET_WORD
 #define PUT_WORD bfd_h_put_64
+#ifndef NAME
 #define NAME(x,y) CAT3(x,_64_,y)
+#endif
 #define JNAME(x) CAT(x,_64)
 #define BYTES_IN_WORD 8
 #else
 #define GET_WORD bfd_h_get_32
 #define GET_SWORD (int32_type)GET_WORD
 #define PUT_WORD bfd_h_put_32
+#ifndef NAME
 #define NAME(x,y) CAT3(x,_32_,y)
+#endif
 #define JNAME(x) CAT(x,_32)
 #define BYTES_IN_WORD 4
 #endif
@@ -189,6 +193,11 @@ struct aoutdata {
   unsigned exec_bytes_size;
   unsigned vma_adjusted : 1;
 
+  /* used when a bfd supports several highly similar formats */
+  enum {
+    default_format = 0,
+    gnu_encap_format } subformat;
+
   enum {
     undecided_magic = 0,
     z_magic,
@@ -211,6 +220,7 @@ struct  aout_data_struct {
 #define	obj_str_filepos(bfd)	(adata(bfd).str_filepos)
 #define	obj_reloc_entry_size(bfd) (adata(bfd).reloc_entry_size)
 #define	obj_symbol_entry_size(bfd) (adata(bfd).symbol_entry_size)
+#define obj_aout_subformat(bfd)	(adata(bfd).subformat)
 
 /* We take the address of the first element of an asymbol to ensure that the
    macro is only ever applied to an asymbol */

@@ -45,6 +45,7 @@ static char rcsid[] =
 #include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>	/* Needed on Sys V */
+#include "defs.h" /* needed for xmalloc */
 #include "ttycntl.h"
 #include "block_io.h"
 #include "wait.h"
@@ -70,9 +71,8 @@ static char rcsid[] =
 #define ERROR	-1
 #endif
 
-#define REGISTER_BYTES ((36*4) + (4*8))
+#define NINDY_REGISTER_BYTES ((36*4) + (4*8))
 
-extern char *malloc();
 extern void free ();
 
 static int quiet;	/* TRUE => stifle unnecessary messages */
@@ -240,7 +240,7 @@ exists( base, c1, c2, c3, env )
 		len += strlen(c3);
 	}
 
-	path = malloc( len );
+	path = xmalloc( len );
 
 	strcpy( path, base );
 	if ( c1 != NULL ){
@@ -676,7 +676,7 @@ OninConnect( name, baudrate, brk, silent )
 	quiet = silent;		/* Make global to this file */
 
 	for ( i=0; prefix[i] != NULL; i++ ){
-		p = malloc(strlen(prefix[i]) + strlen(name) + 1 );
+		p = xmalloc(strlen(prefix[i]) + strlen(name) + 1 );
 		strcpy( p, prefix[i] );
 		strcat( p, name );
 		nindy_fd = open(p,O_RDWR);
@@ -933,11 +933,11 @@ OninRegPut( regname, val )
 OninRegsGet( regp )
     char *regp;		/* Where to place the register dump */
 {
-	char buf[(2*REGISTER_BYTES)+10];   /* Registers in ASCII hex */
+	char buf[(2*NINDY_REGISTER_BYTES)+10];   /* Registers in ASCII hex */
 
 	strcpy( buf, "r" );
 	send( buf, FALSE );
-	hexbin( REGISTER_BYTES, buf, regp );
+	hexbin( NINDY_REGISTER_BYTES, buf, regp );
 }
 
 /******************************************************************************
@@ -953,11 +953,11 @@ OninRegsGet( regp )
 OninRegsPut( regp )
     char *regp;		/* Pointer to desired values of registers */
 {
-	char buf[(2*REGISTER_BYTES)+10];   /* Registers in ASCII hex */
+	char buf[(2*NINDY_REGISTER_BYTES)+10];   /* Registers in ASCII hex */
 
 	buf[0] = 'R';
-	binhex( REGISTER_BYTES, regp, buf+1 );
-	buf[ (2*REGISTER_BYTES)+1 ] = '\0';
+	binhex( NINDY_REGISTER_BYTES, regp, buf+1 );
+	buf[ (2*NINDY_REGISTER_BYTES)+1 ] = '\0';
 
 	send( buf, TRUE );
 }

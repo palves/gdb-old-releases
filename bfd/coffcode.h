@@ -338,6 +338,12 @@ DEFUN(sec_to_styp_flags, (sec_name, sec_flags),
   {
     styp_flags = STYP_LIB;
 #endif				/* _LIB */
+#ifdef _LIT
+  }
+  else if (!strcmp (sec_name, _LIT))
+  {
+    styp_flags = STYP_LIT;
+#endif /* _LIT */
 
   }
   /* Try and figure out what it should be */
@@ -413,11 +419,16 @@ DEFUN(styp_to_sec_flags, (abfd, hdr),
   }
   else if (styp_flags & STYP_BSS) 
   {
-    sec_flags |= SEC_ALLOC;
+#ifdef BSS_NOLOAD_IS_SHARED_LIBRARY
+    if (sec_flags & SEC_NEVER_LOAD)
+      sec_flags |= SEC_ALLOC | SEC_SHARED_LIBRARY;
+    else
+#endif
+      sec_flags |= SEC_ALLOC;
   }
   else if (styp_flags & STYP_INFO) 
   {
-    sec_flags |= SEC_NEVER_LOAD;
+    /* Nothing to do.  */
   }
   else
   {
@@ -910,6 +921,13 @@ DEFUN (coff_set_arch_mach_hook, (abfd, filehdr),
     break;
 #endif
 
+#ifdef SHMAGIC
+  case SHMAGIC:
+    arch = bfd_arch_sh;
+    machine = 0;
+    break;
+#endif
+
 #ifdef H8500MAGIC
   case H8500MAGIC:
     arch = bfd_arch_h8500;
@@ -1106,6 +1124,14 @@ DEFUN(coff_set_flags,(abfd, magicp, flagsp),
       return true;
       break;
 #endif
+
+#ifdef SHMAGIC
+  case bfd_arch_sh:
+      *magicp = SHMAGIC;
+      return true;
+      break;
+#endif
+
 #ifdef H8500MAGIC
     case bfd_arch_h8500:
       *magicp = H8500MAGIC;
@@ -1172,7 +1198,9 @@ DEFUN(coff_compute_section_file_positions,(abfd),
   asection       *current;
   asection	*previous = (asection *)NULL;
   file_ptr        sofar = FILHSZ;
+#ifndef I960
   file_ptr	old_sofar;
+#endif
   if (bfd_get_start_address(abfd)) 
   {
     /*  A start address may have been added to the original file. In this
@@ -1222,6 +1250,14 @@ DEFUN(coff_compute_section_file_positions,(abfd),
       old_sofar =  sofar;
       sofar = BFD_ALIGN(sofar, 1 << current->alignment_power);
       current->_raw_size += sofar - old_sofar ;
+#endif
+
+#ifdef _LIB
+      /* Force .lib sections to start at zero.  The vma is then
+	 incremented in coff_set_section_contents.  This is right for
+	 SVR3.2.  */
+      if (strcmp (current->name, _LIB) == 0)
+	bfd_set_section_vma (abfd, current, 0);
 #endif
 
       previous = current;
@@ -1422,8 +1458,8 @@ DEFUN(coff_write_object_contents,(abfd),
 	  section.s_vaddr = 0;
 	else
 #endif
-	  section.s_vaddr = current->vma + pad;
-	section.s_paddr = current->vma + pad;
+	section.s_vaddr = current->lma + pad;
+	section.s_paddr = current->lma + pad;
 	section.s_size = current->_raw_size - pad;
 	/*
 	  If this section has no size or is unloadable then the scnptr
@@ -1635,8 +1671,13 @@ DEFUN(coff_set_section_contents,(abfd, section, location, offset, count),
        right for SVR3.2.  Shared libraries should probably get more
        generic support.  Ian Taylor <ian@cygnus.com>.  */
     if (strcmp (section->name, _LIB) == 0)
-      ++section->vma;
+      ++section->lma;
 #endif
+
+    /* Don't write out bss sections - one way to do this is to 
+       see if the filepos has not been set. */ 
+    if (section->filepos == 0)
+      return true;
 
     bfd_seek(abfd, (file_ptr) (section->filepos + offset), SEEK_SET);
 
@@ -2182,9 +2223,19 @@ bfd *abfd;
 #endif
 
 #ifndef coff_reloc16_extra_cases
-#define coff_reloc16_extra_cases \
-  (void (*) PARAMS ((bfd *, bfd_seclet_type *, arelent *, bfd_byte *,\
-		     unsigned int *, unsigned int *))) abort
+#define coff_reloc16_extra_cases dummy_reloc16_extra_cases
+/* This works even if abort is not declared in any header file.  */
+static void
+dummy_reloc16_extra_cases (abfd, seclet, reloc, data, src_ptr, dst_ptr)
+     bfd *abfd;
+     struct bfd_seclet *seclet;
+     arelent *reloc;
+     bfd_byte *data;
+     unsigned int *src_ptr;
+     unsigned int *dst_ptr;
+{
+  abort ();
+}
 #endif
 
 static CONST bfd_coff_backend_data bfd_coff_std_swap_table = {
@@ -2223,3 +2274,5 @@ static CONST bfd_coff_backend_data bfd_coff_std_swap_table = {
 #define coff_bfd_get_relocated_section_contents  bfd_generic_get_relocated_section_contents
 #define coff_bfd_relax_section		bfd_generic_relax_section
 #define coff_bfd_seclet_link		bfd_generic_seclet_link
+#define coff_bfd_reloc_type_lookup \
+  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)

@@ -1,5 +1,5 @@
 /* BFD back-end for Motorola 68000 COFF binaries.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -107,8 +107,12 @@ bfd_target m68kcoff_vec =
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
   1,				/* minimum section alignment */
-  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
-  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
 
  {_bfd_dummy_target, coff_object_p, /* bfd_check_format */
    bfd_generic_archive_p, _bfd_dummy_target},
@@ -118,6 +122,5 @@ bfd_target m68kcoff_vec =
    _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(coff),
-     0, coff_make_debug_symbol,
   COFF_SWAP_TABLE
  };

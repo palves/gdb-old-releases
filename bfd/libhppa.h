@@ -20,8 +20,31 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#ifndef _LIBHPPA_H
+#define _LIBHPPA_H
+
+#include "../bfd/sysdep.h"
+
+#ifdef HOST_HPPAHPUX
+
 #include <sys/core.h>
 #include <sys/utsname.h>
+
+#endif /* HOST_HPPAHPUX */
+
+#ifdef HOST_HPPABSD
+
+/* Defining MAXCOMLEN avoids bringing in several (7 or 8) otherwise
+   useless include files which tend to clutter up the namespace.  
+
+   BSD uses a completely different scheme for object file identification.
+   so for now, define _PA_RISC_ID to accept any random value for a model
+   number.  */
+#include <a.out.h>
+#define MAXCOMLEN 16
+#define _PA_RISC_ID(__m_num) 1
+
+#endif /* HOST_HPPABSD */
 
 #define BYTES_IN_WORD 4
 
@@ -92,3 +115,94 @@ struct hppa_core_struct
 #define core_datasec(bfd) (core_hdr(bfd)->data_section)
 #define core_stacksec(bfd) (core_hdr(bfd)->stack_section)
 #define core_regsec(bfd) (core_hdr(bfd)->reg_section)
+
+/* HP PA-RISC relocation types */
+
+enum hppa_reloc_field_selector_type
+{
+	R_HPPA_FSEL	= 0x0,
+	R_HPPA_LSSEL	= 0x1,
+	R_HPPA_RSSEL	= 0x2,
+	R_HPPA_LSEL	= 0x3,
+	R_HPPA_RSEL	= 0x4,
+	R_HPPA_LDSEL	= 0x5,
+	R_HPPA_RDSEL	= 0x6,
+	R_HPPA_LRSEL	= 0x7,
+	R_HPPA_RRSEL	= 0x8,
+	R_HPPA_PSEL	= 0x9,	/* P'	: procedure address for shlib's	*/
+	R_HPPA_LPSEL	= 0xa,	/* LP'	: L' for procedure addresses	*/
+	R_HPPA_RPSEL	= 0xb,	/* RP'	: R' for procedure addresses	*/
+
+	R_HPPA_TSEL	= 0xc,	/* T'	: DLT-relative offset for shlib's	*/
+	R_HPPA_LTSEL	= 0xd,	/* LT'	: L' for DLT-relative offsets	*/
+	R_HPPA_RTSEL	= 0xe	/* RT'	: R' for DLT-relative offsets	*/
+
+};
+
+/* Need to undefine things defined in <machine/som.h> */
+
+#undef e_fsel
+#undef e_lssel
+#undef e_rssel
+#undef e_lsel
+#undef e_rsel
+#undef e_ldsel
+#undef e_rdsel
+#undef e_lrsel
+#undef e_rrsel
+#undef e_psel
+#undef e_lpsel
+#undef e_rpsel
+#undef e_tsel
+#undef e_ltsel
+#undef e_rtsel
+#undef e_one
+#undef e_two
+#undef e_pcrel
+#undef e_con
+#undef e_plabel
+#undef e_abs
+
+/* for compatibility */
+enum hppa_reloc_field_selector_type_alt
+{
+	e_fsel	= R_HPPA_FSEL,
+	e_lssel	= R_HPPA_LSSEL,
+	e_rssel	= R_HPPA_RSSEL,
+	e_lsel	= R_HPPA_LSEL,
+	e_rsel	= R_HPPA_RSEL,
+	e_ldsel	= R_HPPA_LDSEL,
+	e_rdsel	= R_HPPA_RDSEL,
+	e_lrsel	= R_HPPA_LRSEL,
+	e_rrsel	= R_HPPA_RRSEL,
+	e_psel	= R_HPPA_PSEL,	/* P'	: procedure address for shlib's	*/
+	e_lpsel	= R_HPPA_LPSEL,	/* LP'	: L' for procedure addresses	*/
+	e_rpsel	= R_HPPA_RPSEL,	/* RP'	: R' for procedure addresses	*/
+
+	e_tsel	= R_HPPA_TSEL,	/* T'	: DLT-relative offset for shlib's	*/
+	e_ltsel	= R_HPPA_LTSEL,	/* LT'	: L' for DLT-relative offsets	*/
+	e_rtsel	= R_HPPA_RTSEL	/* RT'	: R' for DLT-relative offsets	*/
+};
+
+enum hppa_reloc_expr_type
+{
+	R_HPPA_E_ONE	= 0,
+	R_HPPA_E_TWO	= 1,
+	R_HPPA_E_PCREL	= 2,
+	R_HPPA_E_CON	= 3,
+	R_HPPA_E_PLABEL	= 7,
+	R_HPPA_E_ABS	= 18
+};
+
+/* for compatibility */
+enum hppa_reloc_expr_type_alt
+{
+	e_one	= R_HPPA_E_ONE,
+	e_two	= R_HPPA_E_TWO,
+	e_pcrel	= R_HPPA_E_PCREL,
+	e_con	= R_HPPA_E_CON,
+	e_plabel = R_HPPA_E_PLABEL,
+	e_abs	= R_HPPA_E_ABS
+};
+
+#endif /* _LIBHPPA_H */

@@ -1,3 +1,15 @@
+Fri Apr  9 13:26:16 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* rs6k.h: Clean up instructions for primary opcode 19 (many were
+	simply wrong, ics, rfi, & rfsvc were missing).
+	Add "a" to opr_ext for "bb".  Doc fix.
+
+Thu Mar 18 13:45:31 1993  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* i386.h:  486 extensions from John Hassey (hassey@dg-rtp.dg.com).
+	* mips.h:  Add casts, to suppress warnings about shifting too much.
+	* m68k.h:  Document the placement code '9'.
+
 Thu Feb 18 02:03:14 1993  John Gilmore  (gnu@cygnus.com)
 
 	* m68k.h (BREAK_UP_BIG_DECL, AND_OTHER_PART):  Add kludge which

@@ -83,7 +83,9 @@ exec_close (quitting)
      int quitting;
 {
   if (exec_bfd) {
+    char *name = bfd_get_filename (exec_bfd);
     bfd_close (exec_bfd);
+    free (name);
     exec_bfd = NULL;
   }
   if (exec_ops.to_sections) {
@@ -155,6 +157,11 @@ exec_file_command (args, from_tty)
 				&exec_ops.to_sections_end))
 	error ("Can't find the file sections in `%s': %s", 
 		exec_bfd->filename, bfd_errmsg (bfd_error));
+
+      /* bfd is not yet able to figure out the section layout for some file
+	 formats, keep it from realigning the sections.  */
+      if (write_files)
+	exec_bfd->output_has_begun = true;
 
 #ifdef NEED_TEXT_START_END
       /* This is a KLUDGE (FIXME) because a few places in a few ports

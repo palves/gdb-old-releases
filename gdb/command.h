@@ -35,6 +35,11 @@ typedef enum var_types {
   /* Unsigned Integer.  *VAR is an unsigned int.  The user can type 0
      to mean "unlimited", which is stored in *VAR as UINT_MAX.  */
   var_uinteger,
+
+  /* Like var_uinteger but signed.  *VAR is an int.  The user can type 0
+     to mean "unlimited", which is stored in *VAR as INT_MAX.  */
+  var_integer,
+
   /* String which the user enters with escapes (e.g. the user types \n and
      it is a real newline in the stored string).
      *VAR is a malloc'd string, or NULL if the string is empty.  */

@@ -1,5 +1,5 @@
 /* Select target systems and architectures at runtime for GDB.
-   Copyright 1990, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1992, 1993 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB.
@@ -426,6 +426,7 @@ pop_target ()
     push_target (&dummy_target);
 }
 
+#undef	MIN
 #define MIN(A, B) (((A) <= (B)) ? (A) : (B))
 
 /* target_read_string -- read a null terminated string from MEMADDR in target.
@@ -683,7 +684,6 @@ find_core_target ()
   return(count == 1 ? runable : NULL);
 }
   
-
 static char targ_desc[] = 
     "Names of targets and files being debugged.\n\
 Shows the entire stack of targets currently in use (including the exec-file,\n\

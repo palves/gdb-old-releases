@@ -38,9 +38,22 @@ static reloc_howto_type r_imm16 =
 HOWTO (R_H8500_IMM16, 0, 1, 16, false, 0, true,
        true, 0, "r_imm16", true, 0x0000ffff, 0x0000ffff, false);
 
+static reloc_howto_type r_imm24 =
+HOWTO (R_H8500_IMM24, 0, 1, 24, false, 0, true,
+       true, 0, "r_imm24", true, 0x00ffffff, 0x00ffffff, false);
+
+static reloc_howto_type r_imm32 =
+HOWTO (R_H8500_IMM32, 0, 1, 32, false, 0, true,
+       true, 0, "r_imm32", true, 0xffffffff, 0xffffffff, false);
+
+
 static reloc_howto_type r_high8 =
 HOWTO (R_H8500_HIGH8, 0, 1, 8, false, 0, true,
-       true, 0, "r_high", true, 0x000000ff, 0x000000ff, false);
+       true, 0, "r_high8", true, 0x000000ff, 0x000000ff, false);
+
+static reloc_howto_type r_low16 =
+HOWTO (R_H8500_LOW16, 0, 1, 16, false, 0, true,
+       true, 0, "r_low16", true, 0x0000ffff, 0x0000ffff, false);
 
 static reloc_howto_type r_pcrel8 =
 HOWTO (R_H8500_PCREL8, 0, 1, 8, true, 0, true, true, 0, "r_pcrel8", true, 0, 0, true);
@@ -93,6 +106,12 @@ DEFUN (rtype2howto, (internal, dst),
     case R_H8500_IMM16:
       internal->howto = &r_imm16;
       break;
+    case R_H8500_IMM24:
+      internal->howto = &r_imm24;
+      break;
+    case R_H8500_IMM32:
+      internal->howto = &r_imm32;
+      break;
     case R_H8500_PCREL8:
       internal->howto = &r_pcrel8;
       break;
@@ -101,6 +120,9 @@ DEFUN (rtype2howto, (internal, dst),
       break;
     case R_H8500_HIGH8:
       internal->howto = &r_high8;
+      break;
+    case R_H8500_LOW16:
+      internal->howto = &r_low16;
       break;
     }
 }
@@ -152,28 +174,61 @@ extra_case (in_abfd, seclet, reloc, data, src_ptr, dst_ptr)
      unsigned int *src_ptr;
      unsigned int *dst_ptr;
 {
+bfd_byte *d = data+*dst_ptr;
   switch (reloc->howto->type)
     {
     case R_H8500_IMM8:
-      bfd_put_8 (in_abfd, bfd_coff_reloc16_get_value (reloc, seclet),
-		 data + *dst_ptr);
+      bfd_put_8 (in_abfd,
+		 bfd_coff_reloc16_get_value (reloc, seclet),
+		 d);
       (*dst_ptr) += 1;
       (*src_ptr) += 1;
       break;
 
     case R_H8500_HIGH8:
-      bfd_put_8 (in_abfd, bfd_coff_reloc16_get_value (reloc, seclet)>>16,
-		 data + *dst_ptr);
+      bfd_put_8 (in_abfd,
+		 (bfd_coff_reloc16_get_value (reloc, seclet)>>16),
+		 d );
       (*dst_ptr) += 1;
       (*src_ptr) += 1;
       break;
 
     case R_H8500_IMM16:
-      bfd_put_16 (in_abfd, bfd_coff_reloc16_get_value (reloc, seclet),
-		 data + *dst_ptr);
+      bfd_put_16 (in_abfd,
+		  bfd_coff_reloc16_get_value (reloc, seclet) ,
+		  d  );
       (*dst_ptr) += 2;
       (*src_ptr) += 2;
       break;
+
+    case R_H8500_LOW16:
+      bfd_put_16 (in_abfd,
+		  bfd_coff_reloc16_get_value (reloc, seclet) ,
+		  d);
+
+      (*dst_ptr) += 2;
+      (*src_ptr) += 2;
+      break;
+
+    case R_H8500_IMM24:
+     {
+       int v = bfd_coff_reloc16_get_value(reloc, seclet);
+       int o = bfd_get_32(in_abfd, data+ *dst_ptr -1);
+       v = (v & 0x00ffffff) | (o & 0xff00000);
+       bfd_put_32 (in_abfd, v, data  + *dst_ptr -1);
+       (*dst_ptr) +=3;
+       (*src_ptr)+=3;;
+     }
+      break;
+    case R_H8500_IMM32:
+     {
+       int v = bfd_coff_reloc16_get_value(reloc, seclet);
+       bfd_put_32 (in_abfd, v, data  + *dst_ptr);
+       (*dst_ptr) +=4;
+       (*src_ptr)+=4;;
+     }
+      break;
+
 
     case R_H8500_PCREL8:
       {
@@ -243,8 +298,12 @@ bfd_target h8500coff_vec =
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
   1,				/* minimum section alignment */
-  _do_getb64, _do_putb64, _do_getb32, _do_putb32, _do_getb16, _do_putb16,	/* data */
-  _do_getb64, _do_putb64, _do_getb32, _do_putb32, _do_getb16, _do_putb16,	/* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16,	/* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16,	/* hdrs */
 
   {_bfd_dummy_target, coff_object_p,	/* bfd_check_format */
    bfd_generic_archive_p, _bfd_dummy_target},
@@ -254,6 +313,5 @@ bfd_target h8500coff_vec =
    _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE (coff),
-  0, 0,
   COFF_SWAP_TABLE,
 };

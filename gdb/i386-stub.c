@@ -828,7 +828,11 @@ void handle_exception(int exceptionVector)
 
       /* kill the program */
       case 'k' :  /* do nothing */
+#if 0
+	/* Huh? This doesn't look like "nothing".
+	   m68k-stub.c and sparc-stub.c don't have it.  */
 		BREAKPOINT();
+#endif
                 break;
       } /* switch */
 

@@ -81,10 +81,16 @@ call_ptrace (request, pid, addr, data)
      PTRACE_ARG3_TYPE addr;
      int data;
 {
-  return ptrace (request, pid, addr, data);
+  return ptrace (request, pid, addr, data
+#if defined (FIVE_ARG_PTRACE)
+		 /* Deal with HPUX 8.0 braindamage.  We never use the
+		    calls which require the fifth argument.  */
+		 , 0
+#endif
+		 );
 }
 
-#ifdef DEBUG_PTRACE
+#if defined (DEBUG_PTRACE) || defined (FIVE_ARG_PTRACE)
 /* For the rest of the file, use an extra level of indirection */
 /* This lets us breakpoint usefully on call_ptrace. */
 #define ptrace call_ptrace

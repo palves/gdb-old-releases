@@ -973,6 +973,13 @@ This will be different from @file{.} if you have specified the
 @samp{--srcdir=@var{dir}} option.  @samp{srcdir} can indicate either an
 absolute path or a path relative to the build directory.
 
+@item package_makefile_frag
+@vindex package_makefile_frag
+If set in @file{configure.in}, this variable should be the name a file relative
+to @samp{srcdir} to be included in the resulting @file{Makefile}.  If the named
+file does not exist, @code{configure} will print a warning message.  This
+variable is not set by @code{configure}.
+
 @item host_makefile_frag
 @vindex host_makefile_frag
 If set in @file{configure.in}, this variable should be the name a file relative
@@ -1064,7 +1071,8 @@ target, and site-specific @file{Makefile} fragments if they exist.
 immediately after parsing command line arguments.  The variables
 @samp{srctrigger} and @samp{srcname} @emph{must} be set here.
 
-You might also want to set the variable @samp{configdirs} here.
+You might also want to set the variables @samp{configdirs} and
+@samp{package_makefile_frag} here.
 
 @c ---------------------------------------------------------------------
 @node per-host
@@ -1078,12 +1086,11 @@ begins with @w{@samp{# per-host:}} and ends before a line beginning with
 @w{@samp{# per-target:}}.  @code{configure} invokes the commands in the
 @dfn{per-host} section when determining host-specific information.
 
-This section usually contains a big @code{case} statement using the variables
-@samp{host_cpu}, @samp{host_vendor}, and @samp{host_os} to determine
-appropriate values for @samp{host_makefile_frag} and @samp{files}, although
-@samp{files} is not usually set here.  Usually, it is set at the end of the
-@dfn{per-target} section after determining the names of the target specific
-configuration files.
+This section usually contains a big @code{case} statement using the variable
+@samp{host} to determine appropriate values for @samp{host_makefile_frag} and
+@samp{files}, although @samp{files} is not usually set here.  Usually, it is
+set at the end of the @dfn{per-target} section after determining the names of
+the target specific configuration files.
 
 @c ---------------------------------------------------------------------
 @node per-target
@@ -1100,11 +1107,10 @@ invokes the commands in the @dfn{per-target} section when determining
 target-specific information, and before building any files, directories, or
 links.
 
-This section usually contains a big @code{case} statement using the variables
-called @samp{target_cpu}, @samp{target_vendor}, and @samp{target_os} to
-determine appropriate values for @samp{target_makefile_frag} and @samp{files}.
-The last lines in the @dfn{per-target} section normally set the variables
-@samp{files} and @samp{links}.
+This section usually contains a big @code{case} statement using the variable
+@samp{target} to determine appropriate values for @samp{target_makefile_frag}
+and @samp{files}.  The last lines in the @dfn{per-target} section normally set
+the variables @samp{files} and @samp{links}.
 
 @c ---------------------------------------------------------------------
 @node post-target
@@ -1144,8 +1150,8 @@ srctrigger=warshall.c
 srcname="bison"
 
 # per-host:
-case "$@{host_os@}" in
-m88kbcs)
+case "$@{host@}" in
+m88k-motorola-*)
         host_makefile_frag=config/mh-delta88
         ;;
 esac
@@ -1617,6 +1623,13 @@ Writing Makefiles, make, GNU Make}.
 @item Add Cygnus extensions to the @file{Makefile}
 These are described in @ref{Makefile extensions, , Extensions to the @sc{gnu}
 coding standards}.
+
+@item Collect package specific definitions in a single file
+Many packages are best configured using a common @file{Makefile} fragment which
+is included by all of the makefiles in the different directories of the
+package.  In order to accomplish this, set the variable
+@samp{package_makefile_fragment} to the name of the file.  It will be inserted
+into the final @file{Makefile} before the target-specific fragment.
 
 @item Move host support from @file{Makefile} to fragments
 This usually involves finding sections of the @file{Makefile} that say things

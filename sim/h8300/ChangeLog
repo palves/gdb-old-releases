@@ -1,0 +1,28 @@
+Mon Mar 15 15:48:31 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* h8300.mt (DO_INSTALL): Renamed from INSTALL.
+
+Wed Mar  3 15:06:53 1993  Steve Chamberlain  (sac@poseidon.cygnus.com)
+
+	* Makefile.in: Don't use cb or indent
+	* p1.c, state.h, writecode.c: lint
+
+Mon Feb  1 16:44:58 1993  John Gilmore  (gnu@cygnus.com)
+
+	* Makefile.in:  Make SunOS halfdone VPATH work.
+	* p1.c:  Lint picked up by HP native compiler.
+
+Mon Jan  4 12:32:35 1993  Steve Chamberlain  (sac@wahini.cygnus.com)
+
+	* p1.c (sim_resume): when running on dos, any character typed to
+	the keyboard will cause a simulated exception.
+
+Sun Jan  3 14:15:07 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* p1.c, p3.c, run.c, writecode.c: all used h8/300 opcodes in and
+	running
+
+Tue Dec 22 13:56:48 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* new 
+

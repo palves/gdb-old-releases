@@ -105,7 +105,9 @@ STAGESTUFF = *.o
 all: libreadline.a
 
 check:
+installcheck:
 info:
+dvi:
 
 clean-info: force
 	-rm -f *.info*

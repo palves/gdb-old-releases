@@ -249,6 +249,7 @@ struct m68k_opcode {
    6  third word, shifted 0
    7  second word, shifted 7
    8  second word, shifted 10
+   9  second word, shifted 5
    D  store in both place 1 and place 3; for divul and divsl.
    B  first word, low byte, for branch displacements
    W  second word (entire), for branch displacements

@@ -71,11 +71,11 @@ RM = rm -f
 all:
 	@echo "Glob doesn't make yet, but readline uses a piece of its src"
 
-.PHONY: check
-check:
+.PHONY: check installcheck
+check installcheck:
 
 install:
-info install-info clean-info:
+info install-info clean-info dvi:
 libglob.a: glob.o tilde.o
 	$(RM) -f $@
 	$(AR) $(AR_FLAGS) $@ glob.o tilde.o

@@ -135,6 +135,7 @@ create_new_frame (addr, pc)
   fci->frame = addr;
   fci->next_frame = 0;		/* Since arbitrary */
   fci->pc = pc;
+  fci->signal_handler_caller = 0;
 
 #ifdef INIT_EXTRA_FRAME_INFO
   INIT_EXTRA_FRAME_INFO (0, fci);
@@ -333,6 +334,7 @@ get_prev_frame_info (next_frame)
   prev->prev = (struct frame_info *) 0;
   prev->frame = address;
   prev->next_frame = prev->next ? prev->next->frame : 0;
+  prev->signal_handler_caller = 0;
 
 /* This change should not be needed, FIXME!  We should
    determine whether any targets *need* INIT_FRAME_PC to happen
@@ -349,7 +351,26 @@ get_prev_frame_info (next_frame)
    require INIT_EXTRA_FRAME_INFO before they can do INIT_FRAME_PC.  Phoo.
 
    We shouldn't need INIT_FRAME_PC_FIRST to add more complication to
-   an already overcomplicated part of GDB.   gnu@cygnus.com, 15Sep92.  */
+   an already overcomplicated part of GDB.   gnu@cygnus.com, 15Sep92.
+
+   To answer the question, yes the sparc needs INIT_FRAME_PC after
+   INIT_EXTRA_FRAME_INFO.  Suggested scheme:
+
+   SETUP_INNERMOST_FRAME()
+     Default version is just create_new_frame (read_register (FP_REGNUM),
+     read_pc ()).  Machines with extra frame info would do that (or the
+     local equivalent) and then set the extra fields.
+   SETUP_ARBITRARY_FRAME(argc, argv)
+     Only change here is that create_new_frame would no longer init extra
+     frame info; SETUP_ARBITRARY_FRAME would have to do that.
+   INIT_PREV_FRAME(fromleaf, prev)
+     Replace INIT_EXTRA_FRAME_INFO and INIT_FRAME_PC.
+   std_frame_pc(fromleaf, prev)
+     This is the default setting for INIT_PREV_FRAME.  It just does what
+     the default INIT_FRAME_PC does.  Some machines will call it from
+     INIT_PREV_FRAME (either at the beginning, the end, or in the middle).
+     Some machines won't use it.
+   kingdon@cygnus.com, 13Apr93.  */
 
 #ifdef INIT_FRAME_PC_FIRST
   INIT_FRAME_PC_FIRST (fromleaf, prev);

@@ -87,6 +87,10 @@ c_typedef_print (type, new, stream)
       type_print(type,"",stream,0);
       break;
 #endif
+#ifdef _LANG_chill
+   case language_chill:
+      error ("Missing Chill support in function c_typedef_print."); /*FIXME*/
+#endif
    default:
       error("Language not supported.");
    }
@@ -145,8 +149,8 @@ cp_type_print_method_args (args, prefix, varstring, staticp, stream)
 {
   int i;
 
-  fputs_demangled (prefix, stream, DMGL_ANSI | DMGL_PARAMS);
-  fputs_demangled (varstring, stream, DMGL_ANSI | DMGL_PARAMS);
+  fprintf_symbol_filtered (stream, prefix, language_cplus, DMGL_ANSI);
+  fprintf_symbol_filtered (stream, varstring, language_cplus, DMGL_ANSI);
   fputs_filtered (" (", stream);
   if (args && args[!staticp] && args[!staticp]->code != TYPE_CODE_VOID)
     {

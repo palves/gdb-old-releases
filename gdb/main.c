@@ -169,7 +169,8 @@ source_cleanup PARAMS ((FILE *));
 #ifndef	GDBINIT_FILENAME
 #define	GDBINIT_FILENAME	".gdbinit"
 #endif
-char gdbinit[] = GDBINIT_FILENAME;
+static char gdbinit[] = GDBINIT_FILENAME;
+static int inhibit_gdbinit = 0;
 
 #define	ALL_CLEANUPS	((struct cleanup *)0)
 
@@ -431,7 +432,6 @@ main (argc, argv)
      char **argv;
 {
   int count;
-  static int inhibit_gdbinit = 0;
   static int quiet = 0;
   static int batch = 0;
 
@@ -2043,9 +2043,10 @@ source_command (args, from_tty)
   struct cleanup *cleanups;
   char *file = args;
 
-  if (file == 0)
-    /* Let source without arguments read .gdbinit.  */
-    file = gdbinit;
+  if (file == NULL)
+    {
+      error ("source command requires pathname of file to source.");
+    }
 
   file = tilde_expand (file);
   make_cleanup (free, file);
@@ -2184,13 +2185,13 @@ set_history_size_command (args, from_tty, c)
      int from_tty;
      struct cmd_list_element *c;
 {
-  if (history_size == UINT_MAX)
+  if (history_size == INT_MAX)
     unstifle_history ();
   else if (history_size >= 0)
     stifle_history (history_size);
   else
     {
-      history_size = UINT_MAX;
+      history_size = INT_MAX;
       error ("History size must be non-negative");
     }
 }
@@ -2453,7 +2454,7 @@ Use \"on\" to enable to enable the saving, and \"off\" to disable it.\n\
 Without an argument, saving is enabled.", &sethistlist),
      &showhistlist);
 
-  c = add_set_cmd ("size", no_class, var_uinteger, (char *)&history_size,
+  c = add_set_cmd ("size", no_class, var_integer, (char *)&history_size,
 		   "Set the size of the command history, \n\
 ie. the number of previous commands to keep a record of.", &sethistlist);
   add_show_from_set (c, &showhistlist);

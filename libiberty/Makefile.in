@@ -65,6 +65,8 @@ BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
 
+MAKEOVERRIDES =
+
 XTRAFLAGS =
 
 TARGETLIB = libiberty.a
@@ -88,8 +90,8 @@ DO_ALSO = needed-list
 EXTRA_OFILES = 
 
 all:	$(TARGETLIB)
-.PHONY: check
-check:
+.PHONY: check installcheck
+check installcheck:
 
 
 #### Host, target, and site specific Makefile fragments come in here.
@@ -101,19 +103,21 @@ check:
 # The default target just invokes make recursively.
 # However, the automatic configuration (in config/mh_default).
 # first causes it to figure out the objects missing in libc.
-info install-info clean-info:
+info install-info clean-info dvi:
 
 # NOTE: If you add new files to the library, edit 'functions.def'
 #       and add them to this list (alphabetical order please)
 CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c concat.c \
 	 cplus-dem.c fdmatch.c getcwd.c getopt.c getopt1.c getpagesize.c \
-         index.c insque.c memchr.c memcmp.c memcpy.c memmove.c memset.c \
+         ieee-float.c index.c insque.c \
+	 memchr.c memcmp.c memcpy.c memmove.c memset.c \
          obstack.c random.c rename.c rindex.c sigsetmask.c spaces.c \
          strchr.c strdup.c strerror.c strrchr.c strsignal.c \
-         strstr.c strtol.c strtoul.c vfork.c vfprintf.c vprintf.c vsprintf.c
+         strstr.c strtod.c strtol.c strtoul.c tmpnam.c \
+	 vfork.c vfprintf.c vprintf.c vsprintf.c
 # These are always included in the library.
 REQUIRED_OFILES = argv.o basename.o concat.o cplus-dem.o fdmatch.o \
-	getopt.o getopt1.o obstack.o spaces.o strerror.o strsignal.o
+  getopt.o getopt1.o ieee-float.o obstack.o spaces.o strerror.o strsignal.o
 
 # Do we want/need any config overrides?
 #	 
@@ -128,7 +132,7 @@ install_to_libdir: all
 	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
 	-if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi
 	$(INSTALL_DATA) $(TARGETLIB) $(libdir)/$(TARGETLIB).n
-	$(RANLIB) $(libdir)/$(TARGETLIB).n
+	( cd $(libdir) ; $(RANLIB) $(libdir)/$(TARGETLIB).n )
 	mv -f $(libdir)/$(TARGETLIB).n $(libdir)/$(TARGETLIB)
 
 install_to_tooldir: all
@@ -137,7 +141,7 @@ install_to_tooldir: all
 	-if [ -d $(tooldir) ] ; then true ; else mkdir $(tooldir) ; fi
 	-if [ -d $(tooldir)/lib ] ; then true ; else mkdir $(tooldir)/lib ; fi
 	$(INSTALL_DATA) $(TARGETLIB) $(tooldir)/lib/$(TARGETLIB).n
-	$(RANLIB) $(tooldir)/lib/$(TARGETLIB).n
+	( cd $(tooldir) ; $(RANLIB) $(tooldir)/lib/$(TARGETLIB).n )
 	mv -f $(tooldir)/lib/$(TARGETLIB).n $(tooldir)/lib/$(TARGETLIB)
 
 # The default configuration adds to libiberty all those functions that are
@@ -219,7 +223,7 @@ TAGS: $(CFILES)
 
 demangle: ${srcdir}/cplus-dem.c
 	$(CC) -o $@ -DMAIN $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) \
-	  `echo $^ | sed 's,^\./,,'`
+	  `echo ${srcdir}/cplus-dem.c | sed 's,^\./,,'`
 
 ls:
 	@echo Makefile $(HFILES) $(CFILES)

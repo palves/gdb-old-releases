@@ -96,6 +96,9 @@ DEFUN(MY(object_p),(abfd),
   exec.a_info = bfd_h_get_32 (abfd, exec_bytes.e_info);
 
   if (N_BADMAG (exec)) return 0;
+#ifdef MACHTYPE_OK
+  if (!(MACHTYPE_OK (N_MACHTYPE (exec)))) return 0;
+#endif
 
   NAME(aout,swap_exec_header_in)(abfd, &exec_bytes, &exec);
   target = NAME(aout,some_aout_object_p) (abfd, &exec, MY(callback));
@@ -335,6 +338,11 @@ static CONST struct aout_backend_data MY(backend_data) = {
 #define MY_symbol_leading_char '_'
 #endif
 
+/* Aout archives normally use spaces for padding */
+#ifndef AR_PAD_CHAR
+#define AR_PAD_CHAR ' '
+#endif
+
 #ifndef MY_BFD_TARGET
 bfd_target MY(vec) =
 {
@@ -352,15 +360,23 @@ bfd_target MY(vec) =
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
   MY_symbol_leading_char,
-  ' ',				/* ar_pad_char */
+  AR_PAD_CHAR,			/* ar_pad_char */
   15,				/* ar_max_namelen */
   1,				/* minimum alignment */
 #ifdef TARGET_IS_BIG_ENDIAN_P
-  _do_getb64, _do_putb64,	_do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
-  _do_getb64, _do_putb64,	_do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
 #else
-  _do_getl64, _do_putl64,	_do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
-  _do_getl64, _do_putl64,	_do_getl32, _do_putl32, _do_getl16, _do_putl16, /* hdrs */
+  _do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
+  _do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* hdrs */
 #endif
     {_bfd_dummy_target, MY_object_p, /* bfd_check_format */
        bfd_generic_archive_p, MY_core_file_p},

@@ -28,6 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define obj_relocbase(bfd)	(coff_data(bfd)->relocbase)
 #define obj_raw_syments(bfd)	(coff_data(bfd)->raw_syments)
+#define obj_raw_syment_count(bfd)	(coff_data(bfd)->raw_syment_count)
 #define obj_convert(bfd)	(coff_data(bfd)->conversion_table)
 #define obj_conv_table_size(bfd) (coff_data(bfd)->conv_table_size)
 #if CFILE_STUFF
@@ -91,7 +92,8 @@ extern unsigned int coff_get_reloc_upper_bound PARAMS ((bfd *, sec_ptr));
 extern asymbol *coff_make_empty_symbol PARAMS ((bfd *));
 extern void coff_print_symbol PARAMS ((bfd *, PTR filep, asymbol *,
 				       bfd_print_symbol_type how));
-extern asymbol *coff_make_debug_symbol PARAMS ((bfd *, PTR, unsigned long));
+extern asymbol *coff_bfd_make_debug_symbol PARAMS ((bfd *, PTR,
+						    unsigned long));
 extern boolean coff_find_nearest_line PARAMS ((bfd *,
 					       asection *,
 					       asymbol **,

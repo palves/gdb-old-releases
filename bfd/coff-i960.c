@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 960 COFF files.
-   Copyright (C) 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -141,6 +141,9 @@ DEFUN (coff_i960_reloc_type_lookup, (abfd, code),
 
 #include "coffcode.h"
 
+#undef coff_bfd_reloc_type_lookup
+#define coff_bfd_reloc_type_lookup coff_i960_reloc_type_lookup
+
 bfd_target icoff_little_vec =
 {
   "coff-Intel-little",		/* name */
@@ -158,8 +161,12 @@ bfd_target icoff_little_vec =
   15,				/* ar_max_namelen */
 
   3,				/* minimum alignment power */
-  _do_getl64, _do_putl64, _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
-  _do_getl64, _do_putl64, _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* hdrs */
+  _do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
+  _do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* hdrs */
 
  {_bfd_dummy_target, coff_object_p, /* bfd_check_format */
    bfd_generic_archive_p, _bfd_dummy_target},
@@ -168,8 +175,6 @@ bfd_target icoff_little_vec =
  {bfd_false, coff_write_object_contents, /* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE(coff),
-  coff_i960_reloc_type_lookup,
-  coff_make_debug_symbol,
   COFF_SWAP_TABLE,
 };
 
@@ -191,8 +196,12 @@ bfd_target icoff_big_vec =
   15,				/* ar_max_namelen */
 
   3,				/* minimum alignment power */
-_do_getl64, _do_putl64,  _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
-_do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+_do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
+_do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
 
   {_bfd_dummy_target, coff_object_p, /* bfd_check_format */
      bfd_generic_archive_p, _bfd_dummy_target},
@@ -201,7 +210,5 @@ _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs
   {bfd_false, coff_write_object_contents,	/* bfd_write_contents */
      _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE(coff),
-  coff_i960_reloc_type_lookup,
-  coff_make_debug_symbol,
   COFF_SWAP_TABLE,
 };

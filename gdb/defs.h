@@ -72,6 +72,21 @@ enum command_class
   class_pseudo
 };
 
+/* Languages represented in the symbol table and elsewhere.
+   This should probably be in language.h, but since enum's can't
+   be forward declared to satisfy opaque references before their
+   actual definition, needs to be here. */
+
+enum language 
+{
+   language_unknown, 		/* Language not known */
+   language_auto,		/* Placeholder for automatic setting */
+   language_c, 			/* C */
+   language_cplus, 		/* C++ */
+   language_chill,		/* Chill */
+   language_m2			/* Modula-2 */
+};
+
 /* the cleanup list records things that have to be undone
    if an error happens (descriptors to be closed, memory to be freed, etc.)
    Each link in the chain records a function to call and an
@@ -100,6 +115,10 @@ inside_entry_file PARAMS ((CORE_ADDR addr));
 extern int
 inside_main_func PARAMS ((CORE_ADDR pc));
 
+/* From ch-lang.c, for the moment. (FIXME) */
+
+extern char *
+chill_demangle PARAMS ((const char *));
 
 /* From libiberty.a */
 
@@ -238,10 +257,7 @@ extern void
 gdb_printchar PARAMS ((int, FILE *, int));
 
 extern void
-fprint_symbol PARAMS ((FILE *, char *));
-
-extern void
-fputs_demangled PARAMS ((char *, FILE *, int));
+fprintf_symbol_filtered PARAMS ((FILE *, char *, enum language, int));
 
 extern void
 perror_with_name PARAMS ((char *));
@@ -343,20 +359,6 @@ extern unsigned output_radix;
 /* Baud rate specified for communication with serial target systems.  */
 extern char *baud_rate;
 
-/* Languages represented in the symbol table and elsewhere.
-   This should probably be in language.h, but since enum's can't
-   be forward declared to satisfy opaque references before their
-   actual definition, needs to be here. */
-
-enum language 
-{
-   language_unknown, 		/* Language not known */
-   language_auto,		/* Placeholder for automatic setting */
-   language_c, 			/* C */
-   language_cplus, 		/* C++ */
-   language_m2			/* Modula-2 */
-};
-
 /* Possibilities for prettyprint parameters to routines which print
    things.  Like enum language, this should be in value.h, but needs
    to be here for the same reason.  FIXME:  If we can eliminate this
@@ -432,20 +434,23 @@ enum val_prettyprint
 /* Defaults for system-wide constants (if not defined by xm.h, we fake it).  */
 
 #if !defined (UINT_MAX)
-#define UINT_MAX 0xffffffff
-#endif
-
-#if !defined (LONG_MAX)
-#define LONG_MAX 0x7fffffff
+#define	UINT_MAX ((unsigned int)(~0))		/* 0xFFFFFFFF for 32-bits */
 #endif
 
 #if !defined (INT_MAX)
-#define INT_MAX 0x7fffffff
+#define	INT_MAX (UINT_MAX >> 1)			/* 0x7FFFFFFF for 32-bits */
 #endif
 
 #if !defined (INT_MIN)
-/* Two's complement, 32 bit.  */
-#define INT_MIN -0x80000000
+#define INT_MIN (-INT_MAX - 1)			/* 0x80000000 for 32-bits */
+#endif
+
+#if !defined (ULONG_MAX)
+#define	ULONG_MAX ((unsigned long)(~0L))	/* 0xFFFFFFFF for 32-bits */
+#endif
+
+#if !defined (LONG_MAX)
+#define	LONG_MAX ((long)(ULONG_MAX >> 1))	/* 0x7FFFFFFF for 32-bits */
 #endif
 
 /* Number of bits in a char or unsigned char for the target machine.
@@ -504,29 +509,48 @@ enum val_prettyprint
 #define TARGET_PTR_BIT TARGET_INT_BIT
 #endif
 
-/* Convert a LONGEST to an int.  This is used in contexts (e.g. number
-   of arguments to a function, number in a value history, register
-   number, etc.) where the value must not be larger than can fit
-   in an int.  */
-#if !defined (longest_to_int)
-#if defined (LONG_LONG)
-#define longest_to_int(x) (((x) > INT_MAX || (x) < INT_MIN) \
-			   ? (error ("Value out of range."),0) : (int) (x))
-#else /* No LONG_LONG.  */
-/* Assume sizeof (int) == sizeof (long).  */
-#define longest_to_int(x) ((int) (x))
-#endif /* No LONG_LONG.  */
-#endif /* No longest_to_int.  */
+/* Default to support for "long long" if the host compiler being used is gcc.
+   Config files must define CC_HAS_LONG_LONG to use other host compilers
+   that are capable of supporting "long long", and to cause gdb to use that
+   support.  Not defining CC_HAS_LONG_LONG will suppress use of "long long"
+   regardless of what compiler is used.
 
-/* This should not be a typedef, because "unsigned LONGEST" needs
-   to work. LONG_LONG is defined if the host has "long long".  */
+   FIXME: For now, automatic selection of "long long" as the default when
+   gcc is used is disabled, pending further testing.  Concerns include the
+   impact on gdb performance and the universality of bugfree long long
+   support on platforms that do have gcc.  Compiling with FORCE_LONG_LONG
+   will select "long long" use for testing purposes.  -fnf */
+
+#ifndef CC_HAS_LONG_LONG
+#  if defined (__GNUC__) && defined (FORCE_LONG_LONG) /* See FIXME above */
+#    define CC_HAS_LONG_LONG 1
+#  endif
+#endif
+	
+/* LONGEST should not be a typedef, because "unsigned LONGEST" needs to work.
+   CC_HAS_LONG_LONG is defined if the host compiler supports "long long"
+   variables and we wish to make use of that support.  */
 
 #ifndef LONGEST
-# ifdef LONG_LONG
-#  define LONGEST long long
-# else
-#  define LONGEST long
-# endif
+#  ifdef CC_HAS_LONG_LONG
+#    define LONGEST long long
+#  else
+#    define LONGEST long
+#  endif
+#endif
+
+/* Convert a LONGEST to an int.  This is used in contexts (e.g. number of
+   arguments to a function, number in a value history, register number, etc.)
+   where the value must not be larger than can fit in an int.  */
+
+#ifndef longest_to_int
+#  ifdef CC_HAS_LONG_LONG
+#    define longest_to_int(x) (((x) > INT_MAX || (x) < INT_MIN) \
+			       ? (error ("Value out of range."),0) : (int) (x))
+#  else
+     /* Assume sizeof (int) == sizeof (long).  */
+#    define longest_to_int(x) ((int) (x))
+#  endif
 #endif
 
 /* If we picked up a copy of CHAR_BIT from a configuration file
@@ -651,7 +675,7 @@ strsignal PARAMS ((int));
 
 #ifndef PSIGNAL_IN_SIGNAL_H
 extern void
-psignal PARAMS ((unsigned, char *));
+psignal PARAMS ((unsigned, const char *));
 #endif
 
 /* For now, we can't include <stdlib.h> because it conflicts with

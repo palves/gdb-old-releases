@@ -22,6 +22,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "symtab.h"
 #include "target.h"
+#include "gdbcore.h"
+
+#include "xcoffsolib.h"
 
 #include <sys/param.h>
 #include <sys/dir.h>
@@ -47,14 +50,13 @@ int one_stepped;
 /* Breakpoint shadows for the single step instructions will be kept here. */
 
 static struct sstep_breaks {
-	int address;
-	int data;
+  /* Address, or 0 if this is not in use.  */
+  CORE_ADDR address;
+  /* Shadow contents.  */
+  char data[4];
 } stepBreaks[2];
 
 /* Static function prototypes */
-
-static void
-add_text_to_loadinfo PARAMS ((CORE_ADDR textaddr, CORE_ADDR dataaddr));
 
 static CORE_ADDR
 find_toc_address PARAMS ((CORE_ADDR pc));
@@ -104,8 +106,15 @@ branch_dest (opcode, instr, pc, safety)
 	  dest = read_register (LR_REGNUM) & ~3;
 
 	else if (ext_op == 528)			/* br cond to count reg */
-	  dest = read_register (CTR_REGNUM) & ~3;
+	  {
+	    dest = read_register (CTR_REGNUM) & ~3;
 
+	    /* If we are about to execute a system call, dest is something
+	       like 0x22fc or 0x3b00.  Upon completion the system call
+	       will return to the address in the link register.  */
+	    if (dest < TEXT_SEGMENT_BASE)
+	      dest = read_register (LR_REGNUM) & ~3;
+	  }
 	else return -1; 
 	break;
 	
@@ -125,15 +134,15 @@ single_step (signal)
 #define	INSNLEN(OPCODE)	 4
 
   static char breakp[] = BREAKPOINT;
-  int ii, insn, ret, loc;
-  int breaks[2], opcode;
+  int ii, insn;
+  CORE_ADDR loc;
+  CORE_ADDR breaks[2];
+  int opcode;
 
   if (!one_stepped) {
     loc = read_pc ();
 
-    ret = read_memory (loc, &insn, sizeof (int));
-    if (ret)
-      printf ("Error in single_step()!!\n");
+    read_memory (loc, (char *) &insn, 4);
 
     breaks[0] = loc + INSNLEN(insn);
     opcode = insn >> 26;
@@ -143,7 +152,7 @@ single_step (signal)
     if (breaks[1] == breaks[0])
       breaks[1] = -1;
 
-    stepBreaks[1].address = -1;
+    stepBreaks[1].address = 0;
 
     for (ii=0; ii < 2; ++ii) {
 
@@ -151,9 +160,9 @@ single_step (signal)
       if ( breaks[ii] == -1)
         continue;
 
-      read_memory (breaks[ii], &(stepBreaks[ii].data), sizeof(int));
+      read_memory (breaks[ii], stepBreaks[ii].data, 4);
 
-      ret = write_memory (breaks[ii], breakp, sizeof(int));
+      write_memory (breaks[ii], breakp, 4);
       stepBreaks[ii].address = breaks[ii];
     }  
 
@@ -162,13 +171,14 @@ single_step (signal)
 
     /* remove step breakpoints. */
     for (ii=0; ii < 2; ++ii)
-      if (stepBreaks[ii].address != -1)
+      if (stepBreaks[ii].address != 0)
         write_memory 
-           (stepBreaks[ii].address, &(stepBreaks[ii].data), sizeof(int));
+           (stepBreaks[ii].address, stepBreaks[ii].data, 4);
 
     one_stepped = 0;
   }
   errno = 0;			/* FIXME, don't ignore errors! */
+			/* What errors?  {read,write}_memory call error().  */
 }
 
 
@@ -319,7 +329,14 @@ extern int stop_stack_dummy;
 void
 push_dummy_frame ()
 {
-  int sp, pc;				/* stack pointer and link register */
+  /* stack pointer.  */
+  CORE_ADDR sp;
+
+  /* link register.  */
+  CORE_ADDR pc;
+  /* Same thing, target byte order.  */
+  char pc_targ[4];
+  
   int ii;
 
   target_fetch_registers (-1);
@@ -335,7 +352,8 @@ push_dummy_frame ()
   }
   
   sp = read_register(SP_REGNUM);
-  pc = read_register(PC_REGNUM);  
+  pc = read_register(PC_REGNUM);
+  memcpy (pc_targ, (char *) &pc, 4);
 
   dummy_frame_addr [dummy_frame_count++] = sp;
 
@@ -354,7 +372,7 @@ push_dummy_frame ()
   set_current_frame (create_new_frame (sp-DUMMY_FRAME_SIZE, pc));
 
   /* save program counter in link register's space. */
-  write_memory (sp+8, &pc, 4);
+  write_memory (sp+8, pc_targ, 4);
 
   /* save all floating point and general purpose registers here. */
 
@@ -379,7 +397,7 @@ push_dummy_frame ()
   sp -= DUMMY_FRAME_SIZE;
 
   /* And finally, this is the back chain. */
-  write_memory (sp+8, &pc, 4);
+  write_memory (sp+8, pc_targ, 4);
 }
 
 
@@ -446,7 +464,7 @@ pop_dummy_frame ()
 void
 pop_frame ()
 {
-  int pc, lr, sp, prev_sp;		/* %pc, %lr, %sp */
+  CORE_ADDR pc, lr, sp, prev_sp;		/* %pc, %lr, %sp */
   struct aix_framedata fdata;
   FRAME fr = get_current_frame ();
   int addr, ii;
@@ -466,11 +484,11 @@ pop_frame ()
   addr = get_pc_function_start (fr->pc) + FUNCTION_START_OFFSET;
   function_frame_info (addr, &fdata);
 
-  read_memory (sp, &prev_sp, 4);
+  prev_sp = read_memory_integer (sp, 4);
   if (fdata.frameless)
     lr = read_register (LR_REGNUM);
   else
-    read_memory (prev_sp+8, &lr, 4);
+    lr = read_memory_integer (prev_sp+8, 4);
 
   /* reset %pc value. */
   write_register (PC_REGNUM, lr);
@@ -823,7 +841,7 @@ ran_out_of_registers_for_arguments:
         ++f_argno;
       }
 
-      write_memory (sp+24+(ii*4), VALUE_CONTENTS (arg), len);
+      write_memory (sp+24+(ii*4), (char *) VALUE_CONTENTS (arg), len);
       ii += ((len + 3) & -4) / 4;
     }
   }
@@ -881,23 +899,6 @@ extract_return_value (valtype, regbuf, valbuf)
 CORE_ADDR rs6000_struct_return_address;
 
 
-/* Throw away this debugging code. FIXMEmgo. */
-void
-print_frame(fram)
-int fram;
-{
-  int ii, val;
-  for (ii=0; ii<40; ++ii) {
-    if ((ii % 4) == 0)
-      printf ("\n");
-    val = read_memory_integer (fram + ii * 4, 4);
-    printf ("0x%08x\t", val);
-  }
-  printf ("\n");
-}
-
-
-
 /* Indirect function calls use a piece of trampoline code to do context
    switching, i.e. to set the new TOC table. Skip such code if we are on
    its first instruction (as when we have single-stepped to here). 
@@ -924,7 +925,7 @@ CORE_ADDR pc;
   for (ii=0; trampoline_code[ii]; ++ii) {
     op  = read_memory_integer (pc + (ii*4), 4);
     if (op != trampoline_code [ii])
-      return NULL;
+      return 0;
   }
   ii = read_register (11);		/* r11 holds destination addr	*/
   pc = read_memory_integer (ii, 4);	/* (r11) value			*/
@@ -945,6 +946,10 @@ int pcsaved;
   CORE_ADDR func_start;
   struct aix_framedata fdata;
 
+  if (fi->next != NULL)
+    /* Don't even think about framelessness except on the innermost frame.  */
+    return 0;
+  
   func_start = get_pc_function_start (fi->pc) + FUNCTION_START_OFFSET;
 
   /* If we failed to find the start of the function, it is a mistake
@@ -1076,6 +1081,32 @@ frame_initial_stack_address (fi)
   return fi->initial_sp = read_register (fdata.alloca_reg);     
 }
 
+FRAME_ADDR
+rs6000_frame_chain (thisframe)
+     struct frame_info *thisframe;
+{
+  FRAME_ADDR fp;
+  if (inside_entry_file ((thisframe)->pc))
+    return 0;
+  if (thisframe->signal_handler_caller)
+    {
+      /* This was determined by experimentation on AIX 3.2.  Perhaps
+	 it corresponds to some offset in /usr/include/sys/user.h or
+	 something like that.  Using some system include file would
+	 have the advantage of probably being more robust in the face
+	 of OS upgrades, but the disadvantage of being wrong for
+	 cross-debugging.  */
+
+#define SIG_FRAME_FP_OFFSET 284
+      fp = read_memory_integer (thisframe->frame + SIG_FRAME_FP_OFFSET, 4);
+    }
+  else
+    fp = read_memory_integer ((thisframe)->frame, 4);
+
+  return fp;
+}
+
+
 /* xcoff_relocate_symtab -	hook for symbol table relocation.
    also reads shared libraries.. */
 
@@ -1107,7 +1138,10 @@ unsigned int pid;
     vmap_ldinfo(ldi);
 
    do {
-     add_text_to_loadinfo (ldi->ldinfo_textorg, ldi->ldinfo_dataorg);
+     /* We are allowed to assume CORE_ADDR == pointer.  This code is
+	native only.  */
+     add_text_to_loadinfo ((CORE_ADDR) ldi->ldinfo_textorg,
+			   (CORE_ADDR) ldi->ldinfo_dataorg);
     } while (ldi->ldinfo_next
 	     && (ldi = (void *) (ldi->ldinfo_next + (char *) ldi)));
 
@@ -1130,13 +1164,10 @@ struct loadinfo {
 
 #define	LOADINFOLEN	10
 
-/* FIXME Warning -- loadinfotextindex is used for a nefarious purpose by
-   tm-rs6000.h.  */
-
 static	struct loadinfo *loadinfo = NULL;
 static	int	loadinfolen = 0;
 static	int	loadinfotocindex = 0;
-int	loadinfotextindex = 0;
+static	int	loadinfotextindex = 0;
 
 
 void
@@ -1179,7 +1210,7 @@ xcoff_add_toc_to_loadinfo (unsigned long tocoff)
 }
 
 
-static void
+void
 add_text_to_loadinfo (textaddr, dataaddr)
      CORE_ADDR textaddr;
      CORE_ADDR dataaddr;

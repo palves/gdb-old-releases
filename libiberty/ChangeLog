@@ -1,3 +1,72 @@
+Tue May  4 20:31:59 1993  Fred Fish  (fnf@cygnus.com)
+
+	* cplus-dem.c (consume_count):  Return zero if arg does not
+	start with digit, and don't consume any input.
+
+Tue May  4 08:10:28 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* Makefile.in (demangle): Use ${srcdir} not $^.
+
+	* strtod.c: New file, needed at least for BSD 4.3.
+
+Sun May  2 11:30:42 1993  Fred Fish  (fnf@cygnus.com)
+
+	* strsignal.c (sys_siglist):  For ANSI compilations, type is
+	"const char *const".  Also remove conditionalization on __STDC__
+	since const is defined away for non-ANSI.
+
+Wed Apr 28 19:29:55 1993  Ken Raeburn  (raeburn@deneb.cygnus.com)
+
+	* configure.in: Recognize *-*-hpux.
+	* config/mh-hpux: New file.
+
+Tue Apr 27 15:22:19 1993  Per Bothner  (bothner@cygnus.com)
+
+	* tmpnam.c:  Added ANSI tmpnam() function.
+	* functions.def, Makefile.in:  Update accordingly.
+
+Tue Apr 27 13:38:38 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* cplus-dem.c (demangle_function_name): Get the demangling of
+	stop__1A right.
+
+Fri Apr 16 23:48:24 1993  Jim Kingdon  (kingdon at calvin)
+
+	* cplus-dem.c: Declare strstr return type.
+
+Fri Mar 26 12:01:26 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* strsignal.c: Add some AIX signals.
+
+Thu Mar 25 15:17:23 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* Makefile.in (MAKEOVERRIDES): Define to be empty.
+
+Wed Mar 24 01:59:25 1993  david d `zoo' zuhn  (zoo at poseidon.cygnus.com)
+
+	* Makefile.in: add installcheck & dvi targets
+
+Thu Mar 18 14:05:44 1993  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* ieee-float.c:  New file, moved from ../gdb (since it is
+	needed by ../opcode/m68k-dis.c).
+
+Tue Mar  2 17:47:31 1993  Fred Fish  (fnf@cygnus.com)
+
+	* cplus-dem.c:  Replace all references to cfront with ARM.
+
+Fri Feb 26 00:17:07 1993  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* cplus-dem.c:  Fix main program (when compiled with -DMAIN)
+	to be more useful as a filter.
+
+Sat Feb 20 21:41:39 1993  Brendan Kehoe  (brendan@lisa.cygnus.com)
+
+	* Makefile.in (install_to_libdir, install_to_tooldir): Go into the
+	destination directory before running $(RANLIB), in case that
+	program tries to create a file in the current directory as part of
+	its work.
+
 Thu Feb 18 23:00:19 1993  John Gilmore  (gnu@cygnus.com)
 
 	* strsignal.c (sys_siglist):  Remove yet another *%^&%&$# "const"

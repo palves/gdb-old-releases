@@ -34,6 +34,7 @@ fi
 #  convention, else the table becomes a real mess to understand and maintain.
 
 case "${target}" in
+  alpha-*-*)		bfd_target=alphaosf ;;
   a29k-*-ebmon)		bfd_target=a29k-coff ;;
   a29k-*-udi)		bfd_target=a29k-coff ;;
   a29k-*-aout)		bfd_target=a29k-aout ;;
@@ -41,8 +42,10 @@ case "${target}" in
   a29k-*-sym1)		bfd_target=a29k-coff ;;
   h8300-*-*)		bfd_target=h8300-coff ;;
   h8500-*-*)		bfd_target=h8500-coff ;;
-  hppa*-*-bsd)		bfd_target=hppabsd ;;
-  hppa*-*-hpux)		bfd_target=hppahpux ;;
+  sh-*-*)		bfd_target=sh-coff ;;
+  hppa*-*-bsd*)		bfd_target=hppabsd ;;
+  hppa*-*-hpux*)	bfd_target=hppahpux ;;
+  hppa*-*-osf)		bfd_target=hppa-elf ;;
   i[34]86-*-sysv4*)	bfd_target=i386-elf ;;
   i[34]86-*-sysv*)	bfd_target=i386-coff ;;
   i[34]86-*-isc*)	bfd_target=i386-coff ;;
@@ -50,24 +53,26 @@ case "${target}" in
   i[34]86-*-bsd*)	bfd_target=i386-bsd ;;
   i[34]86-*-aix*)	bfd_target=i386-coff ;;
   i[34]86-*-elf)	bfd_target=i386-elf ;;
+  i[34]86-*-linux*)	bfd_target=i386-linux ;;
   i[34]86-none-*)	bfd_target=i386-coff ;;
   i960-*-vxworks)	bfd_target=i960-bout ;;
   i960-*-aout)		bfd_target=i960-bout ;;
   i960-*-bout)		bfd_target=i960-bout ;;
-  m68*-hp-bsd)		bfd_target=hp300bsd ;;
+  m68*-hp-bsd*)		bfd_target=hp300bsd ;;
   m68*-*-aout)		bfd_target=m68k-aout ;;
   m68*-*-coff)		bfd_target=m68k-coff ;;
-  m68*-*-hpux)		bfd_target=hp300 ;;
+  m68*-*-hpux*)		bfd_target=hp300hpux ;;
   m68*-*-os68k)		bfd_target=m68k-aout ;;
   m68*-*-sunos*)	bfd_target=m68k-aout ;;
   m68*-*-vxworks*)	bfd_target=m68k-aout ;;
   m68*-ericsson-*)	bfd_target=m68k-aout ;;
   m68*-netx-*)		bfd_target=m68k-aout ;;
   m88k-*-*)		bfd_target=m88k-coff ;;
-  mips-big-*)		bfd_target=irix3 ;;
+  mips-big-*)		bfd_target=bigmips ;;
   mips-dec-bsd*)        bfd_target=mipsdecbsd ;;
   mips-dec-*)		bfd_target=decstation ;;
-  mips-sgi-*)		bfd_target=irix3 ;;
+  mips-*-ecoff)		bfd_target=bigmips ;;
+  mips-sgi-*)		bfd_target=bigmips ;;
   rs6000-*-*)		bfd_target=rs6000 ;;
   sparc-*-solaris2*)	bfd_target=sparc-elf ;;
   sparc-*-sysv4*)	bfd_target=sparc-elf ;;
@@ -79,11 +84,10 @@ case "${target}" in
   z8k*-*-*)		bfd_target=z8k-coff ;;
 
   *-*-aout)		bfd_target=${target_cpu}-aout ;;
-  *-*-bsd)		bfd_target=${target_cpu}-aout ;;
+  *-*-bsd*)		bfd_target=${target_cpu}-aout ;;
   *-*-sysv4*)		bfd_target=${target_cpu}-elf ;;
   *-*-solaris2*)	bfd_target=${target_cpu}-elf ;;
   *-*-go32)		bfd_target=${target_cpu}-aout ;;
-  *-*-linux*)		bfd_target=${target_cpu}-linux ;;
   *-*-sysv*)		bfd_target=${target_cpu}-coff ;;
 
   *-adobe-*)		bfd_target=adobe ;;

@@ -1,3 +1,153 @@
+Fri May  7 11:56:18 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdbinv-s.texi (Remote Serial): describe new ^C behavior in
+	target remote.
+
+	* gdb.texinfo (Machine Code): more index entries for disassemble
+
+Fri May  7 10:12:30 1993  Fred Fish  (fnf@cygnus.com)
+
+	* Clarify the intended use of the gdb-testers and gdb-patches
+	mailing lists, and shrink gzip comment.
+
+Thu May  6 16:39:50 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo (Shell Commands): do not mention SHELL env var in
+	DOSHOST configuration of manual.
+
+	* gdb.texinfo (MIPS Stack): new node.
+
+	* all-config.texi (MIPS) new switch.
+
+	* gdbinv-s.texi (Nindy Options) Remove two instances of future
+	tense; (MIPS Remote) new node.
+
+	* gdb.texinfo (passim) rephrases to work around makeinfo @value
+	bug; (Environment) less passive, other small cleanups in text about
+	.cshrc/.bashrc; (Invoking GDB) new MIPS Remote menu entry;
+	(Remote) new MIPS Remote menu entry.
+
+Thu May  6 08:51:35 1993  Fred Fish  (fnf@cygnus.com)
+
+	* snapshots.readme:  Add notes for UNIX make and GNU make.
+
+Mon May  3 17:06:45 1993  Fred Fish  (fnf@cygnus.com)
+
+	* snapshots.readme:  Clarify bison/byacc/yacc notes.
+
+Thu Apr 29 09:36:25 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stabs.texinfo: Many changes to include information from the
+	AIX documentation.
+
+	* gdb.texinfo (Environment): Mention pitfall with .cshrc.
+
+Tue Apr 27 14:02:57 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* gdbint.texinfo (new node Debugging GDB, elsewhere):
+	Move a bunch of information from ../README.
+	(Getting Started): New node.
+
+Fri Apr 23 17:21:13 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdbinv-s.texi, gdb.texinfo: include Hitachi SH target
+
+	* gdb.texinfo: advance manual revision dates to present
+
+	* gdbinv-s.texi, gdb.texinfo, all-config.texi, h8-config.texi:
+	stop using silly Roman numerals in @set variable names
+
+Fri Apr 23 07:30:01 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stabs.texinfo (Parameters): Keep trying to get this right.
+
+Wed Apr 21 15:18:47 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stabs.texinfo (Parameters): More on "local parameters".
+
+Mon Apr 19 08:00:51 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stabs.texinfo (Parameters): Re-do "local parameters" section.
+
+Sun Apr 18 09:47:45 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stabs.texinfo (Symbol descriptors): Re-do using @table and @xref.
+	(Parameters): Rewrite.
+	(xcoff-differences, Sun-differences): Minor changes.
+
+Thu Apr 15 02:35:24 1993  John Gilmore  (gnu@cacophony.cygnus.com)
+
+	* stabs.texinfo:  Minor cleanup.
+
+Wed Apr 14 17:31:00 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* gdbint.texinfo: Minor xcoff stuff.
+
+Wed Apr  7 14:11:07 1993  Fred Fish  (fnf@cygnus.com)
+
+	* gdbint.texinfo:  Update for new config directory structure.
+	Add info about internal type data structures.
+
+Mon Apr  5 09:06:30 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* Makefile.in (SFILES_INCLUDED): gdb-config.texi is no longer in
+	$(srcdir).
+	(gdb-config.texi): Depend on file in $(srcdir).
+
+Fri Apr  2 16:55:13 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stabs.texinfo: Fixes about N_SO.
+
+Fri Mar 26 18:00:35 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo: include list of nonstandard init file names
+
+	* *-config.texi: new switch GENERIC for text that applies *only*
+	to (usual) multiple-target version of manual
+
+	* gdb.texinfo, gdbinv-s.texi: Update conditional markup to correct
+	h8 config
+
+	* gdb.texinfo: depend on latest fixed makeinfo, use conditionals
+	in menus (rather than conditionally selected multiple alternative
+	menus).
+
+	* Makefile.in: define and use DOC_CONFIG var to select
+	configuration for GDB user manual.
+
+	* gdb-config.texi: delete from repository, generate from Makefile.
+
+	* all-config.texi: normal `generic' configuration file, formerly
+	stored as gdb-config.texi
+
+Wed Mar 24 14:03:19 1993  david d `zoo' zuhn  (zoo at poseidon.cygnus.com)
+
+	* Makefile.in: add dvi target to build all .dvi files
+
+Tue Mar 23 16:03:24 1993  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo, gdvinv-s.texinfo: formatting improvements.
+
+Fri Mar 19 21:46:50 1993  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Doc NO_MMALLOC and NO_MMALLOC_CHECK as
+	host conditionals.
+	* stabs.texinfo:  More array fixes inspired by Jim's.
+
+Fri Mar 19 10:23:34 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* stabs.texinfo: Fixes re arrays and continuations.
+
+	* gdbint.texinfo: Add XCOFF node.
+
+Mon Mar  8 15:52:18 1993  John Gilmore  (gnu@cygnus.com)
+
+	* gdb.texinfo:  Add `set print max-symbolic-offset' doc.
+
+Sun Feb 21 17:09:38 1993  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* stabs.texinfo:  Fix for array types to mention lower bounds.
+
 Thu Feb 18 01:19:49 1993  John Gilmore  (gnu@cygnus.com)
 
 	* gdbint.texinfo:  Update PTRACE_ARG3_TYPE doc, pull PT_*.

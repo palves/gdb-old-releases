@@ -30,7 +30,6 @@ static char *xmalloc (), *xrealloc ();
 #endif /* STATIC_MALLOC */
 
 #include "sysdep.h"
-#include <sys/types.h>
 #include <stdio.h>
 #include <fcntl.h>
 #ifndef	NO_SYS_FILE
@@ -2081,7 +2080,7 @@ init_terminal_io (terminal_name)
 #else
   extern char *tgetstr ();
   char *term, *buffer;
-#if defined (TIOCGWINSZ)
+#if defined (TIOCGWINSZ) && !defined (TIOCGWINSZ_BROKEN)
   struct winsize window_size;
 #endif
   int tty;
@@ -2138,7 +2137,7 @@ init_terminal_io (terminal_name)
     tty = 0;
 
   screenwidth = screenheight = 0;
-#if defined (TIOCGWINSZ)
+#if defined (TIOCGWINSZ) && !defined (TIOCGWINSZ_BROKEN)
   if (ioctl (tty, TIOCGWINSZ, &window_size) == 0)
     {
       screenwidth = (int) window_size.ws_col;

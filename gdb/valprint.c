@@ -263,14 +263,8 @@ val_print_type_code_int (type, valaddr, stream)
 	  if (len <= sizeof (LONGEST))
 	    {
 	      /* We can print it in decimal.  */
-	      fprintf_filtered
-		(stream, 
-#if defined (LONG_LONG)
-		 "%llu",
-#else
-		 "%lu",
-#endif
-		 unpack_long (BUILTIN_TYPE_LONGEST, first_addr));
+	      print_longest (stream, 'u', 0,
+			    unpack_long (BUILTIN_TYPE_LONGEST, first_addr));
 	    }
 	  else
 	    {
@@ -291,16 +285,129 @@ val_print_type_code_int (type, valaddr, stream)
 #ifdef PRINT_TYPELESS_INTEGER
       PRINT_TYPELESS_INTEGER (stream, type, unpack_long (type, valaddr));
 #else
-      fprintf_filtered (stream, TYPE_UNSIGNED (type) ?
-#if defined (LONG_LONG)
-			"%llu" : "%lld",
-#else
-			"%u" : "%d",
-#endif
-			unpack_long (type, valaddr));
+      print_longest (stream, TYPE_UNSIGNED (type) ? 'u' : 'd', 0,
+		     unpack_long (type, valaddr));
 #endif
     }
 }			
+
+/* Print a number according to FORMAT which is one of d,u,x,o,b,h,w,g.
+   The raison d'etre of this function is to consolidate printing of LONG_LONG's
+   into this one function.  Some platforms have long longs but don't have a
+   printf() that supports "ll" in the format string.  We handle these by seeing
+   if the number is actually a long, and if not we just bail out and print the
+   number in hex.  The format chars b,h,w,g are from
+   print_scalar_formatted().  USE_LOCAL says whether or not to call the
+   local formatting routine to get the format.  */
+
+void
+print_longest (stream, format, use_local, val_long)
+     FILE *stream;
+     int format;
+     int use_local;
+     LONGEST val_long;
+{
+#if defined (CC_HAS_LONG_LONG) && !defined (PRINTF_HAS_LONG_LONG)
+  long vtop, vbot;
+
+  vtop = val_long >> (sizeof (long) * HOST_CHAR_BIT);
+  vbot = (long) val_long;
+
+  if ((format == 'd' && (val_long < INT_MIN || val_long > INT_MAX))
+      || ((format == 'u' || format == 'x') && val_long > UINT_MAX))
+    {
+      fprintf_filtered (stream, "0x%x%08x", vtop, vbot);
+      return;
+    }
+#endif
+
+#ifdef PRINTF_HAS_LONG_LONG
+  switch (format)
+    {
+    case 'd':
+      fprintf_filtered (stream,
+			use_local ? local_decimal_format_custom ("ll")
+				  : "%lld",
+			val_long);
+      break;
+    case 'u':
+      fprintf_filtered (stream, "%llu", val_long);
+      break;
+    case 'x':
+      fprintf_filtered (stream,
+			use_local ? local_hex_format_custom ("ll")
+				  : "%llx",
+			val_long);
+      break;
+    case 'o':
+      fprintf_filtered (stream,
+			use_local ? local_octal_format_custom ("ll")
+				  : "%llo",
+      break;
+    case 'b':
+      fprintf_filtered (stream, local_hex_format_custom ("02ll"), val_long);
+      break;
+    case 'h':
+      fprintf_filtered (stream, local_hex_format_custom ("04ll"), val_long);
+      break;
+    case 'w':
+      fprintf_filtered (stream, local_hex_format_custom ("08ll"), val_long);
+      break;
+    case 'g':
+      fprintf_filtered (stream, local_hex_format_custom ("016ll"), val_long);
+      break;
+    default:
+      abort ();
+    }
+#else /* !PRINTF_HAS_LONG_LONG */
+  /* In the following it is important to coerce (val_long) to a long. It does
+     nothing if !LONG_LONG, but it will chop off the top half (which we know
+     we can ignore) if the host supports long longs.  */
+
+  switch (format)
+    {
+    case 'd':
+      fprintf_filtered (stream,
+			use_local ? local_decimal_format_custom ("l")
+				  : "%ld",
+			(long) val_long);
+      break;
+    case 'u':
+      fprintf_filtered (stream, "%lu", (unsigned long) val_long);
+      break;
+    case 'x':
+      fprintf_filtered (stream,
+			use_local ? local_hex_format_custom ("l")
+				  : "%lx",
+			(long) val_long);
+      break;
+    case 'o':
+      fprintf_filtered (stream,
+			use_local ? local_octal_format_custom ("l")
+				  : "%lo",
+			(long) val_long);
+      break;
+    case 'b':
+      fprintf_filtered (stream, local_hex_format_custom ("02l"),
+			(long) val_long);
+      break;
+    case 'h':
+      fprintf_filtered (stream, local_hex_format_custom ("04l"),
+			(long) val_long);
+      break;
+    case 'w':
+      fprintf_filtered (stream, local_hex_format_custom ("08l"),
+			(long) val_long);
+      break;
+    case 'g':
+      fprintf_filtered (stream, local_hex_format_custom ("016l"),
+			(long) val_long);
+      break;
+    default:
+      abort ();
+    }
+#endif /* !PRINTF_HAS_LONG_LONG */
+}
 
 /* Print a floating point value of type TYPE, pointed to in GDB by VALADDR,
    on STREAM.  */

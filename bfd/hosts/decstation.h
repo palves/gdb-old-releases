@@ -24,6 +24,9 @@
 #define	HOST_DATA_START_ADDR		USRDATA
 #define	HOST_STACK_END_ADDR		USRSTACK
 
+#define TRAD_UNIX_CORE_FILE_FAILING_SIGNAL(core_bfd) \
+  ((core_bfd)->tdata.trad_core_data->u.u_arg[0])
+
 #include "fopen-same.h"
 
 /* EXACT TYPES */

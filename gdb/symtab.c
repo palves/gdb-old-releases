@@ -241,7 +241,9 @@ char *name;
   return (NULL);
 }
 
-/* Demangle a GDB method stub type.  */
+/* Demangle a GDB method stub type.
+   Note that this function is g++ specific. */
+
 char *
 gdb_mangle_name (type, i, j)
      struct type *type;
@@ -255,8 +257,7 @@ gdb_mangle_name (type, i, j)
   char *physname = TYPE_FN_FIELD_PHYSNAME (f, j);
   char *newname = type_name_no_tag (type);
   int is_constructor = STREQ (field_name, newname);
-  int is_destructor = is_constructor && physname[0] == '_'
-      && physname[1] == CPLUS_MARKER && physname[2] == '_';
+  int is_destructor = is_constructor && DESTRUCTOR_PREFIX_P (physname);
   /* Need a new type prefix.  */
   char *const_prefix = method->is_const ? "C" : "";
   char *volatile_prefix = method->is_volatile ? "V" : "";
@@ -461,6 +462,10 @@ found:
       block = BLOCK_SUPERBLOCK (block);
     }
 
+  /* FIXME: this code is never executed--block is always NULL at this
+     point.  What is it trying to do, anyway?  We already should have
+     checked the STATIC_BLOCK above (it is the superblock of top-level
+     blocks).  Why is VAR_NAMESPACE special-cased?  */
   /* Don't need to mess with the psymtabs; if we have a block,
      that file is read in.  If we don't, then we deal later with
      all the psymtab stuff that needs checking.  */
@@ -885,7 +890,8 @@ lookup_block_symbol (block, name, namespace)
 	      if (SYMBOL_CLASS (sym) != LOC_ARG &&
 		  SYMBOL_CLASS (sym) != LOC_LOCAL_ARG &&
 		  SYMBOL_CLASS (sym) != LOC_REF_ARG &&
-		  SYMBOL_CLASS (sym) != LOC_REGPARM)
+		  SYMBOL_CLASS (sym) != LOC_REGPARM &&
+		  SYMBOL_CLASS (sym) != LOC_REGPARM_ADDR)
 		{
 		  break;
 		}
@@ -920,8 +926,11 @@ find_pc_symtab (pc)
   register struct block *b;
   struct blockvector *bv;
   register struct symtab *s = NULL;
+  register struct symtab *best_s = NULL;
   register struct partial_symtab *ps;
   register struct objfile *objfile;
+  int distance = 0;;
+
 
   /* Search all symtabs for one whose file contains our pc */
 
@@ -930,9 +939,17 @@ find_pc_symtab (pc)
       bv = BLOCKVECTOR (s);
       b = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
       if (BLOCK_START (b) <= pc
-	  && BLOCK_END (b) > pc)
-	return (s);
+	  && BLOCK_END (b) > pc
+	  && (distance == 0
+	      || BLOCK_END (b) - BLOCK_START (b) < distance))
+	{
+	  distance = BLOCK_END (b) - BLOCK_START (b);
+	  best_s = s;
+	}
     }
+
+  if (best_s != NULL)
+    return(best_s);
 
   s = NULL;
   ps = find_pc_psymtab (pc);
@@ -959,6 +976,13 @@ find_pc_symtab (pc)
    range, we must search all symtabs associated with this compilation unit, and
    find the one whose first PC is closer than that of the next line in this
    symtab.
+
+   FIXME:  We used to complain here about zero length or negative length line
+   tables, but there are two problems with this: (1) some symtabs may not have
+   any line numbers due to gcc -g1 compilation, and (2) this function is called
+   during single stepping, when we don't own the terminal and thus can't
+   produce any output.  One solution might be to implement a mechanism whereby
+   complaints can be queued until we regain control of the terminal.  -fnf
  */
 
 struct symtab_and_line
@@ -1023,10 +1047,8 @@ find_pc_line (pc, notcurrent)
       if (!l)
         continue;
       len = l->nitems;
-      if (len <= 0)
+      if (len <= 0)		  /* See FIXME above. */
 	{
-	  fprintf (stderr, "Inconsistent line number info for %s\n",
-		   s->filename);
 	  continue;
 	}
 
@@ -1318,6 +1340,7 @@ operator_chars (p, end)
  * Put matches in SYM_ARR (which better be big enough!).
  * These allocations seem to define "big enough":
  * sym_arr = (struct symbol **) alloca(TYPE_NFN_FIELDS_TOTAL (t) * sizeof(struct symbol*));
+ * Note that this function is g++ specific.
  */
 
 int
@@ -1375,6 +1398,9 @@ find_methods (t, name, sym_arr)
 		if (TYPE_FN_FIELD_STUB (f, field_counter))
 		  check_stub_method (t, method_counter, field_counter);
 		phys_name = TYPE_FN_FIELD_PHYSNAME (f, field_counter);
+		/* Destructor is handled by caller, dont add it to the list */
+		if (DESTRUCTOR_PREFIX_P (phys_name))
+		  continue;
 		sym_arr[i1] = lookup_symbol (phys_name,
 					     SYMBOL_BLOCK_VALUE (sym_class),
 					     VAR_NAMESPACE,
@@ -1384,7 +1410,8 @@ find_methods (t, name, sym_arr)
 		else
 		  {
 		    fputs_filtered("(Cannot find method ", stdout);
-		    fputs_demangled(phys_name, stdout, DMGL_PARAMS);
+		    fprintf_symbol_filtered (stdout, phys_name,
+					     language_cplus, DMGL_PARAMS);
 		    fputs_filtered(" - possibly inlined.)\n", stdout);
 		  }
 	      }
@@ -1593,7 +1620,15 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
 		  /* destructors are a special case.  */
 		  struct fn_field *f = TYPE_FN_FIELDLIST1 (t, 0);
 		  int len = TYPE_FN_FIELDLIST_LENGTH (t, 0) - 1;
+		  /* gcc 1.x puts destructor in last field,
+		     gcc 2.x puts destructor in first field.  */
 		  char *phys_name = TYPE_FN_FIELD_PHYSNAME (f, len);
+		  if (!DESTRUCTOR_PREFIX_P (phys_name))
+		    {
+		      phys_name = TYPE_FN_FIELD_PHYSNAME (f, 0);
+		      if (!DESTRUCTOR_PREFIX_P (phys_name))
+			phys_name = "";
+		    }
 		  sym_arr[i1] =
 		    lookup_symbol (phys_name, SYMBOL_BLOCK_VALUE (sym_class),
 				   VAR_NAMESPACE, 0, (struct symtab **)NULL);
@@ -2252,7 +2287,21 @@ list_symbols (regexp, class, bpt)
 		      {
 			/* Set a breakpoint here, if it's a function */
 			if (class == 1)
-			  break_command (SYMBOL_NAME(sym), 0);
+			  {
+			    /* There may be more than one function with the
+			       same name but in different files.  In order to
+			       set breakpoints on all of them, we must give
+			       both the file name and the function name to
+			       break_command.  */
+			    char *string =
+			      (char *) alloca (strlen (s->filename)
+					       + strlen (SYMBOL_NAME(sym))
+					       + 2);
+			    strcpy (string, s->filename);
+			    strcat (string, ":");
+			    strcat (string, SYMBOL_NAME(sym));
+			    break_command (string, 0);
+			  }
 		      }
 		    else if (!found_in_file)
 		      {

@@ -24,6 +24,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "ieee-float.h"
 
+#include "symfile.h" /* for objfiles.h */
+#include "objfiles.h" /* for find_pc_section */
+
 #ifdef	USE_PROC_FS
 #include <sys/procfs.h>
 #endif
@@ -232,7 +235,7 @@ setup_arbitrary_frame (argc, argv)
  * original contents of g1.  A * indicates that the actual value of
  * the instruction is modified below.
  */
-static int save_insn_opcodes[] = {
+static unsigned int save_insn_opcodes[] = {
   0x03000000, 0x82007ee0, 0x9de38001, 0x03000000,
   0x82007ee0, 0x91d02001, 0x01000000 };
 
@@ -283,7 +286,8 @@ do_save_insn (size)
  	t %g0,1
  	sethi %hi(0),%g0	*/
 
-static int restore_insn_opcodes[] = { 0x81e80000, 0x91d02001, 0x01000000 };
+static unsigned int restore_insn_opcodes[] = {
+  0x81e80000, 0x91d02001, 0x01000000 };
 
 static void
 do_restore_insn ()
@@ -835,3 +839,24 @@ get_longjmp_target(pc)
   return 1;
 }
 #endif /* GET_LONGJMP_TARGET */
+
+/* So far used only for sparc solaris.  In sparc solaris, we recognize
+   a trampoline by it's section name.  That is, if the pc is in a
+   section named ".plt" then we are in a trampline.  */
+
+int
+in_solib_trampoline(pc, name)
+     CORE_ADDR pc;
+     char *name;
+{
+  struct obj_section *s;
+  int retval = 0;
+  
+  s = find_pc_section(pc);
+  
+  retval = (s != NULL
+	    && s->sec_ptr->name != NULL
+	    && STREQ (s->sec_ptr->name, ".plt"));
+  return(retval);
+}
+

@@ -1,0 +1,1 @@
+TDEFINES = -DDEFAULT_VECTOR=elf_big_vec

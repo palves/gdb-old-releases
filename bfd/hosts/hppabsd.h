@@ -1,3 +1,6 @@
+#ifndef _HPPABSD_H
+#define _HPPABSD_H
+
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
@@ -7,8 +10,10 @@
 #include <string.h>
 #include <sys/file.h>
 
-void *malloc();
-void free();
+extern PTR  EXFUN(malloc,(unsigned));
+extern void EXFUN(free, (PTR));
+
+#define HOST_HPPABSD
 
 #ifndef O_ACCMODE
 #define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
@@ -44,3 +49,5 @@ typedef unsigned short uint16_type;
 typedef int int32_type;
 typedef unsigned int uint32_type;
 #include "fopen-same.h"
+
+#endif /* _HPPABSD_H */

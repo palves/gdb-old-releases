@@ -18,14 +18,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
-#include "ieee-float.h"
 #include "frame.h"
 #include "symtab.h"
-
-const struct ext_format ext_format_68881 = {
-/* tot sbyte smask expbyte manbyte */
-   12, 0,    0x80, 0,1,	   4,8		/* mc68881 */
-};
 
 
 /* Things needed for making the inferior call functions.

@@ -64,11 +64,25 @@ struct frame_info
        For the innermost frame, it's the current pc.
        For other frames, it is a pc saved in the next frame.  */
     CORE_ADDR pc;
-    /* The frame called by the frame we are describing, or 0.
-       This may be set even if there isn't a frame called by the one
-       we are describing (.->next == 0); in that case it is simply the
-       bottom of this frame */
+
+    /* Nonzero if this is a frame associated with calling a signal handler.
+
+       Set by machine-dependent code.  On some machines, if
+       the machine-dependent code fails to check for this, the backtrace
+       will look relatively normal.  For example, on the i386
+         #3  0x158728 in sighold ()
+       On other machines (e.g. rs6000), the machine-dependent code better
+       set this to prevent us from trying to print it like a normal frame.  */
+    int signal_handler_caller;
+
+    /* The frame called by the frame we are describing, or 0.  On the
+       innermost frame it is (FRAME_ADDR)0 and various parts of GDB
+       check for this.  Is this any different from checking ->next ==
+       0 (framelessness?).  It's possible it would make more sense to
+       change this to mean the bottom of this frame (read_register
+       (SP_REGNUM) in the innermost frame).  */
     FRAME_ADDR next_frame;
+
     /* Anything extra for this structure that may have been defined
        in the machine depedent files. */
 #ifdef EXTRA_FRAME_INFO

@@ -106,3 +106,13 @@ typedef struct {
   unsigned char	r_info[4];	/* index and type of relocation */
   unsigned char	r_addend[4];	/* Constant addend used to compute value */
 } Elf_External_Rela;
+
+/* dynamic section structure */
+
+typedef struct {
+  unsigned char	d_tag[4];		/* entry tag value */
+  union {
+    unsigned char	d_val[4];
+    unsigned char	d_ptr[4];
+  } d_un;
+} Elf_External_Dyn;

@@ -50,6 +50,12 @@ here.  */
 /* forward declaration */
 typedef struct _bfd bfd;
 
+/* To squelch erroneous compiler warnings ("illegal pointer
+   combination") from the SVR3 compiler, we would like to typedef
+   boolean to int (it doesn't like functions which return boolean.
+   Making sure they are never implicitly declared to return int
+   doesn't seem to help).  But this file is not configured based on
+   the host.  */
 /* General rules: functions which are boolean return true on success
    and false on failure (unless they're a predicate).   -- bfd.doc */
 /* I'm sure this is going to break something and someone is going to
@@ -68,29 +74,37 @@ typedef enum bfd_boolean {false, true} boolean;
 /* typedef off_t	file_ptr; */
 typedef long int file_ptr;
 
-/* Support for different sizes of target format ints and addresses */
+/* Support for different sizes of target format ints and addresses.
+   If the host implements--and wants BFD to use--64-bit values, it
+   defines HOST_64_BIT (in BFD and in every program that calls it --
+   since this affects declarations in bfd.h).  */
 
 #ifdef	HOST_64_BIT
-typedef HOST_64_BIT rawdata_offset;
-typedef HOST_64_BIT bfd_vma;
-typedef HOST_64_BIT bfd_word;
-typedef HOST_64_BIT bfd_offset;
-typedef HOST_64_BIT bfd_size_type;
-typedef HOST_64_BIT symvalue;
-typedef HOST_64_BIT bfd_64_type;
+typedef unsigned HOST_64_BIT bfd_vma;
+typedef HOST_64_BIT bfd_signed_vma;
+typedef unsigned HOST_64_BIT bfd_size_type;
+typedef unsigned HOST_64_BIT symvalue;
 #define fprintf_vma(s,x) \
 		fprintf(s,"%08x%08x", uint64_typeHIGH(x), uint64_typeLOW(x))
-#else
-typedef struct {int a,b;} bfd_64_type;
-typedef unsigned long rawdata_offset;
+#else /* not HOST_64_BIT.  */
+
+/* Represent a target address.  Also used as a generic unsigned type
+   which is guaranteed to be big enough to hold any arithmetic types
+   we need to deal with.  */
 typedef unsigned long bfd_vma;
-typedef unsigned long bfd_offset;
-typedef unsigned long bfd_word;
-typedef unsigned long bfd_size;
+
+/* A generic signed type which is guaranteed to be big enough to hold any
+   arithmetic types we need to deal with.  Can be assumed to be compatible
+   with bfd_vma in the same way that signed and unsigned ints are compatible
+   (as parameters, in assignment, etc).  */
+typedef long bfd_signed_vma;
+
 typedef unsigned long symvalue;
 typedef unsigned long bfd_size_type;
+
+/* Print a bfd_vma x on stream s.  */
 #define fprintf_vma(s,x) fprintf(s, "%08lx", x)
-#endif
+#endif /* not HOST_64_BIT.  */
 #define printf_vma(x) fprintf_vma(stdout,x)
 
 typedef unsigned int flagword;	/* 32 bits of flags */
@@ -195,7 +209,7 @@ typedef struct sec *sec_ptr;
 
 #define bfd_is_com_section(ptr) (((ptr)->flags & SEC_IS_COMMON) != 0)
 
-#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (val)), ((ptr)->user_set_vma = true), true)
+#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (ptr)->lma= (val)), ((ptr)->user_set_vma = true), true)
 #define bfd_set_section_alignment(bfd, ptr, val) (((ptr)->alignment_power = (val)),true)
 #define bfd_set_section_userdata(bfd, ptr, val) (((ptr)->userdata = (val)),true)
 
@@ -212,6 +226,10 @@ typedef enum bfd_error {
 	      file_ambiguously_recognized, no_contents,
 	      bfd_error_nonrepresentable_section,
 	      no_debug_section, bad_value,
+
+	      /* An input file is shorter than expected.  */
+	      file_truncated,
+	      
 	      invalid_error_code} bfd_ec;
 
 extern bfd_ec bfd_error;
@@ -290,7 +308,9 @@ CAT(NAME,_bfd_debug_info_end),\
 CAT(NAME,_bfd_debug_info_accumulate),\
 CAT(NAME,_bfd_get_relocated_section_contents),\
 CAT(NAME,_bfd_relax_section),\
-CAT(NAME,_bfd_seclet_link)
+CAT(NAME,_bfd_seclet_link),\
+CAT(NAME,_bfd_reloc_type_lookup),\
+CAT(NAME,_bfd_make_debug_symbol)
 
 #define COFF_SWAP_TABLE (PTR) &bfd_coff_std_swap_table
 

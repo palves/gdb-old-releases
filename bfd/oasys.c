@@ -1014,7 +1014,7 @@ DEFUN(oasys_write_data, (abfd),
 	    uint8e_type *mod = &processed_data.data[0];
 	    uint8e_type *dst = &processed_data.data[1];
 
-	    unsigned int i;
+	    unsigned int i = 0;
 	    *mod = 0;
 
 
@@ -1311,6 +1311,10 @@ return 0;
 #define oasys_bfd_get_relocated_section_contents bfd_generic_get_relocated_section_contents
 #define oasys_bfd_relax_section bfd_generic_relax_section
 #define oasys_bfd_seclet_link bfd_generic_seclet_link
+#define oasys_bfd_reloc_type_lookup \
+  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
+#define oasys_bfd_make_debug_symbol \
+  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
 /*SUPPRESS 460 */
 bfd_target oasys_vec =
@@ -1328,8 +1332,12 @@ bfd_target oasys_vec =
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
   1,				/* minimum alignment */
-  _do_getb64, _do_putb64, _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
-  _do_getb64, _do_putb64, _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+    _do_getb32, _do_getb_signed_32, _do_putb32,
+    _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+    _do_getb32, _do_getb_signed_32, _do_putb32,
+    _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
 
     {_bfd_dummy_target,
        oasys_object_p,		/* bfd_check_format */
@@ -1348,5 +1356,6 @@ bfd_target oasys_vec =
       _bfd_write_archive_contents,
       bfd_false,
     },
-  JUMP_TABLE(oasys)
+  JUMP_TABLE(oasys),
+  (PTR) 0
 };

@@ -60,6 +60,53 @@ struct objfile *symfile_objfile;	/* Main symbol table loaded from */
 
 int mapped_symbol_files;		/* Try to use mapped symbol files */
 
+/* Locate all mappable sections of a BFD file. 
+   objfile_p_char is a char * to get it through
+   bfd_map_over_sections; we cast it back to its proper type.  */
+
+static void
+add_to_objfile_sections (abfd, asect, objfile_p_char)
+     bfd *abfd;
+     sec_ptr asect;
+     PTR objfile_p_char;
+{
+  struct objfile *objfile = (struct objfile *) objfile_p_char;
+  struct obj_section section;
+  flagword aflag;
+
+  aflag = bfd_get_section_flags (abfd, asect);
+  /* FIXME, we need to handle BSS segment here...it alloc's but doesn't load */
+  if (!(aflag & SEC_LOAD))
+    return;
+  if (0 == bfd_section_size (abfd, asect))
+    return;
+  section.offset = 0;
+  section.objfile = objfile;
+  section.sec_ptr = asect;
+  section.addr = bfd_section_vma (abfd, asect);
+  section.endaddr = section.addr + bfd_section_size (abfd, asect);
+  obstack_grow (&objfile->psymbol_obstack, &section, sizeof(section));
+  objfile->sections_end = (struct obj_section *) (((int) objfile->sections_end) + 1);
+}
+
+/* Builds a section table for OBJFILE.
+   Returns 0 if OK, 1 on error.  */
+
+static int
+build_objfile_section_table (objfile)
+     struct objfile *objfile;
+{
+  if (objfile->sections)
+    abort();
+
+  objfile->sections_end = 0;
+  bfd_map_over_sections (objfile->obfd, add_to_objfile_sections, (char *)objfile);
+  objfile->sections = (struct obj_section *)
+    obstack_finish (&objfile->psymbol_obstack);
+  objfile->sections_end = objfile->sections + (int) objfile->sections_end;
+  return(0);
+}
+
 /* Given a pointer to an initialized bfd (ABFD) and a flag that indicates
    whether or not an objfile is to be mapped (MAPPED), allocate a new objfile
    struct, fill it in as best we can, link it into the list of all known
@@ -187,6 +234,14 @@ allocate_objfile (abfd, mapped)
     }
   objfile -> name = mstrsave (objfile -> md, bfd_get_filename (abfd));
   objfile -> mtime = bfd_get_mtime (abfd);
+
+  /* Build section table.  */
+
+  if (build_objfile_section_table (objfile))
+    {
+      error ("Can't find the file sections in `%s': %s", 
+	     objfile -> name, bfd_errmsg (bfd_error));
+    }
 
   /* Push this file onto the head of the linked list of other such files. */
 
@@ -341,7 +396,96 @@ free_all_objfiles ()
       free_objfile (objfile);
     }
 }
+
+/* Relocate OBJFILE to NEW_OFFSETS.  There should be OBJFILE->NUM_SECTIONS
+   entries in new_offsets.  */
+void
+objfile_relocate (objfile, new_offsets)
+     struct objfile *objfile;
+     struct section_offsets *new_offsets;
+{
+  struct section_offsets *delta = (struct section_offsets *) alloca
+    (sizeof (struct section_offsets)
+     + objfile->num_sections * sizeof (delta->offsets));
 
+  {
+    int i;
+    int something_changed = 0;
+    for (i = 0; i < objfile->num_sections; ++i)
+      {
+	ANOFFSET (delta, i) =
+	  ANOFFSET (new_offsets, i) - ANOFFSET (objfile->section_offsets, i);
+	if (ANOFFSET (delta, i) != 0)
+	  something_changed = 1;
+      }
+    if (!something_changed)
+      return;
+  }
+
+  /* OK, get all the symtabs.  */
+  {
+    struct symtab *s;
+
+    for (s = objfile->symtabs; s; s = s->next)
+      {
+	struct linetable *l;
+	struct blockvector *bv;
+	int i;
+	
+	/* First the line table.  */
+	l = LINETABLE (s);
+	if (l)
+	  {
+	    for (i = 0; i < l->nitems; ++i)
+	      l->item[i].pc += ANOFFSET (delta, s->block_line_section);
+	  }
+
+	/* Don't relocate a shared blockvector more than once.  */
+	if (!s->primary)
+	  continue;
+
+	bv = BLOCKVECTOR (s);
+	for (i = 0; i < BLOCKVECTOR_NBLOCKS (bv); ++i)
+	  {
+	    struct block *b;
+	    int j;
+	    
+	    b = BLOCKVECTOR_BLOCK (bv, i);
+	    BLOCK_START (b) += ANOFFSET (delta, s->block_line_section);
+	    BLOCK_END (b) += ANOFFSET (delta, s->block_line_section);
+
+	    for (j = 0; j < BLOCK_NSYMS (b); ++j)
+	      {
+		struct symbol *sym = BLOCK_SYM (b, j);
+		/* The RS6000 code from which this was taken skipped
+		   any symbols in STRUCT_NAMESPACE or UNDEF_NAMESPACE.
+		   But I'm leaving out that test, on the theory that
+		   they can't possibly pass the tests below.  */
+		if ((SYMBOL_CLASS (sym) == LOC_LABEL
+		     || SYMBOL_CLASS (sym) == LOC_STATIC)
+		    && SYMBOL_SECTION (sym) >= 0)
+		  {
+		    SYMBOL_VALUE_ADDRESS (sym) +=
+		      ANOFFSET (delta, SYMBOL_SECTION (sym));
+		  }
+	      }
+	  }
+      }
+  }
+
+  {
+    struct minimal_symbol *msym;
+    ALL_OBJFILE_MSYMBOLS (objfile, msym)
+      SYMBOL_VALUE_ADDRESS (msym) += ANOFFSET (delta, SYMBOL_SECTION (msym));
+  }
+
+  {
+    int i;
+    for (i = 0; i < objfile->num_sections; ++i)
+      ANOFFSET (objfile->section_offsets, i) = ANOFFSET (new_offsets, i);
+  }
+}
+
 /* Many places in gdb want to test just to see if we have any partial
    symbols available.  This function returns zero if none are currently
    available, nonzero otherwise. */
@@ -569,3 +713,21 @@ map_to_address ()
 }
 
 #endif	/* !defined(NO_MMALLOC) && defined(HAVE_MMAP) */
+
+/* Returns a section whose range includes PC or NULL if none found. */
+
+struct obj_section *
+find_pc_section(pc)
+     CORE_ADDR pc;
+{
+  struct obj_section *s;
+  struct objfile *objfile;
+  
+  ALL_OBJFILES (objfile)
+    for (s = objfile->sections; s < objfile->sections_end; ++s)
+      if (s->addr <= pc
+	  && pc < s->endaddr)
+	return(s);
+
+  return(NULL);
+}

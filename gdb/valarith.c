@@ -126,6 +126,8 @@ value_subscript (array, idx)
   value bound;
   struct type *range_type;
 
+  COERCE_REF (array);
+
   if (TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_ARRAY)
     {
       range_type = TYPE_FIELD_TYPE (VALUE_TYPE (array), 0);
@@ -598,6 +600,7 @@ value_binop (arg1, arg2, op)
 	      error ("Invalid operation on booleans.");
 	    }
 	  
+	  val = allocate_value (builtin_type_chill_bool);
 	  SWAP_TARGET_AND_HOST (&v, sizeof (v));
 	  *(LONGEST *) VALUE_CONTENTS_RAW (val) = v;
       }
@@ -640,6 +643,12 @@ value_binop (arg1, arg2, op)
 	    case BINOP_MOD:
 	      /* Knuth 1.2.4, integer only.  Note that unlike the C '%' op,
 	         v1 mod 0 has a defined value, v1. */
+	      /* Chill specifies that v2 must be > 0, so check for that. */
+	      if (current_language -> la_language == language_chill
+		  && value_as_long (arg2) <= 0)
+		{
+		  error ("Second operand of MOD must be greater than zero.");
+		}
 	      if (v2 == 0)
 		{
 		  v = v1;
@@ -727,6 +736,12 @@ value_binop (arg1, arg2, op)
 	    case BINOP_MOD:
 	      /* Knuth 1.2.4, integer only.  Note that unlike the C '%' op,
 	         X mod 0 has a defined value, X. */
+	      /* Chill specifies that v2 must be > 0, so check for that. */
+	      if (current_language -> la_language == language_chill
+		  && v2 <= 0)
+		{
+		  error ("Second operand of MOD must be greater than zero.");
+		}
 	      if (v2 == 0)
 		{
 		  v = v1;

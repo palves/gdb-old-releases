@@ -188,7 +188,13 @@ DEFUN(bfd_read,(ptr, size, nitems, abfd),
       bfd_size_type nitems AND
       bfd *abfd)
 {
-  return (bfd_size_type)real_read (ptr, 1, (int)(size*nitems), bfd_cache_lookup(abfd));
+  int nread;
+  nread = real_read (ptr, 1, (int)(size*nitems), bfd_cache_lookup(abfd));
+#ifdef FILE_OFFSET_IS_CHAR_INDEX
+  if (nread > 0)
+    abfd->where += nread;
+#endif
+  return nread;
 }
 
 bfd_size_type
@@ -198,7 +204,12 @@ DEFUN(bfd_write,(ptr, size, nitems, abfd),
       bfd_size_type nitems AND
       bfd *abfd)
 {
-  return fwrite (ptr, 1, (int)(size*nitems), bfd_cache_lookup(abfd));
+  int nwrote = fwrite (ptr, 1, (int)(size*nitems), bfd_cache_lookup(abfd));
+#ifdef FILE_OFFSET_IS_CHAR_INDEX
+  if (nwrote > 0)
+    abfd->where += nwrote;
+#endif
+  return nwrote;
 }
 
 /*
@@ -224,44 +235,94 @@ DEFUN(bfd_write_bigendian_4byte_int,(abfd, i),
   bfd_write((PTR)buffer, 4, 1, abfd);
 }
 
+long
+DEFUN(bfd_tell,(abfd),
+      bfd *abfd)
+{
+  file_ptr ptr;
+
+  ptr = ftell (bfd_cache_lookup(abfd));
+
+  if (abfd->my_archive)
+    ptr -= abfd->origin;
+  abfd->where = ptr;
+  return ptr;
+}
+
 int
 DEFUN(bfd_seek,(abfd, position, direction),
       bfd * CONST abfd AND
       CONST file_ptr position AND
       CONST int direction)
 {
-        /* For the time being, a BFD may not seek to it's end.  The
-           problem is that we don't easily have a way to recognize
-           the end of an element in an archive. */
+  int result;
+  FILE *f;
+  file_ptr file_position;
+  /* For the time being, a BFD may not seek to it's end.  The problem
+     is that we don't easily have a way to recognize the end of an
+     element in an archive. */
 
-        BFD_ASSERT(direction == SEEK_SET
-                   || direction == SEEK_CUR);
-        
-        if (direction == SEEK_SET && abfd->my_archive != NULL) 
-            {
-                    /* This is a set within an archive, so we need to
-                       add the base of the object within the archive */
-                    return(fseek(bfd_cache_lookup(abfd),
-                                 position + abfd->origin,
-                                 direction));
-            }
-        else 
-            {
-                    return(fseek(bfd_cache_lookup(abfd),  position, direction));
-            }   
-}
+  BFD_ASSERT (direction == SEEK_SET || direction == SEEK_CUR);
 
-long
-DEFUN(bfd_tell,(abfd),
-      bfd *abfd)
-{
-        file_ptr ptr;
+  if (direction == SEEK_CUR && position == 0)
+    return 0;
+#ifdef FILE_OFFSET_IS_CHAR_INDEX
+  if (abfd->format != bfd_archive && abfd->my_archive == 0)
+    {
+#ifndef NDEBUG
+      /* Explanation for this code: I'm only about 95+% sure that the above
+	 conditions are sufficient and that all i/o calls are properly
+	 adjusting the `where' field.  So this is sort of an `assert'
+	 that the `where' field is correct.  If we can go a while without
+	 tripping the abort, we can probably safely disable this code,
+	 so that the real optimizations happen.  */
+      file_ptr where_am_i_now;
+      where_am_i_now = ftell (bfd_cache_lookup (abfd));
+      if (abfd->my_archive)
+	where_am_i_now -= abfd->origin;
+      if (where_am_i_now != abfd->where)
+	abort ();
+#endif
+      if (direction == SEEK_SET && position == abfd->where)
+	return 0;
+    }
+  else
+    {
+      /* We need something smarter to optimize access to archives.
+	 Currently, anything inside an archive is read via the file
+	 handle for the archive.  Which means that a bfd_seek on one
+	 component affects the `current position' in the archive, as
+	 well as in any other component.
 
-        ptr = ftell (bfd_cache_lookup(abfd));
+	 It might be sufficient to put a spike through the cache
+	 abstraction, and look to the archive for the file position,
+	 but I think we should try for something cleaner.
 
-        if (abfd->my_archive)
-            ptr -= abfd->origin;
-        return ptr;
+	 In the meantime, no optimization for archives.  */
+    }
+#endif
+
+  f = bfd_cache_lookup (abfd);
+  file_position = position;
+  if (direction == SEEK_SET && abfd->my_archive != NULL)
+    file_position += abfd->origin;
+
+  result = fseek (f, file_position, direction);
+
+  if (result != 0)
+    /* Force redetermination of `where' field.  */
+    bfd_tell (abfd);
+  else
+    {
+#ifdef FILE_OFFSET_IS_CHAR_INDEX
+      /* Adjust `where' field.  */
+      if (direction == SEEK_SET)
+	abfd->where = position;
+      else
+	abfd->where += position;
+#endif
+    }
+  return result;
 }
 
 /** Make a string table */
@@ -339,25 +400,58 @@ DESCRIPTION
 	sections; each access (except for bytes) is vectored through
 	the target format of the BFD and mangled accordingly. The
 	mangling performs any necessary endian translations and
-	removes alignment restrictions. 
+	removes alignment restrictions.  Note that types accepted and
+	returned by these macros are identical so they can be swapped
+	around in macros--for example libaout.h defines GET_WORD to
+	either bfd_get_32 or bfd_get_64.
 
+	In the put routines, val must be a bfd_vma.  If we are on a
+	system without prototypes, the caller is responsible for making
+	sure that is true, with a cast if necessary.  We don't cast
+	them in the macro definitions because that would prevent lint
+	or gcc -Wall from detecting sins such as passing a pointer.
+	To detect calling these with less than a bfd_vma, use gcc
+	-Wconversion on a host with 64 bit bfd_vma's.
+
+.
+.{* Byte swapping macros for user section data.  *}
+.
 .#define bfd_put_8(abfd, val, ptr) \
-.                (*((char *)ptr) = (char)val)
+.                (*((unsigned char *)(ptr)) = (unsigned char)val)
+.#define bfd_put_signed_8 \
+.		bfd_put_8
 .#define bfd_get_8(abfd, ptr) \
-.                (*((char *)ptr))
+.                (*(unsigned char *)(ptr))
+.#define bfd_get_signed_8(abfd, ptr) \
+.		((*(unsigned char *)(ptr) ^ 0x80) - 0x80)
+.
 .#define bfd_put_16(abfd, val, ptr) \
-.                BFD_SEND(abfd, bfd_putx16, (val,ptr))
+.                BFD_SEND(abfd, bfd_putx16, ((val),(ptr)))
+.#define bfd_put_signed_16 \
+.		 bfd_put_16
 .#define bfd_get_16(abfd, ptr) \
 .                BFD_SEND(abfd, bfd_getx16, (ptr))
+.#define bfd_get_signed_16(abfd, ptr) \
+.         	 BFD_SEND (abfd, bfd_getx_signed_16, (ptr))
+.
 .#define bfd_put_32(abfd, val, ptr) \
-.                BFD_SEND(abfd, bfd_putx32, (val,ptr))
+.                BFD_SEND(abfd, bfd_putx32, ((val),(ptr)))
+.#define bfd_put_signed_32 \
+.		 bfd_put_32
 .#define bfd_get_32(abfd, ptr) \
 .                BFD_SEND(abfd, bfd_getx32, (ptr))
+.#define bfd_get_signed_32(abfd, ptr) \
+.		 BFD_SEND(abfd, bfd_getx_signed_32, (ptr))
+.
 .#define bfd_put_64(abfd, val, ptr) \
-.                BFD_SEND(abfd, bfd_putx64, (val, ptr))
+.                BFD_SEND(abfd, bfd_putx64, ((val), (ptr)))
+.#define bfd_put_signed_64 \
+.		 bfd_put_64
 .#define bfd_get_64(abfd, ptr) \
 .                BFD_SEND(abfd, bfd_getx64, (ptr))
-
+.#define bfd_get_signed_64(abfd, ptr) \
+.		 BFD_SEND(abfd, bfd_getx_signed_64, (ptr))
+.
 */ 
 
 /*
@@ -371,26 +465,53 @@ DESCRIPTION
 	bretherin, except that they are used for removing information
 	for the header records of object files. Believe it or not,
 	some object files keep their header records in big endian
-	order, and their data in little endan order.
-
+	order, and their data in little endian order.
+.
+.{* Byte swapping macros for file header data.  *}
+.
 .#define bfd_h_put_8(abfd, val, ptr) \
-.                (*((char *)ptr) = (char)val)
+.		bfd_put_8 (abfd, val, ptr)
+.#define bfd_h_put_signed_8(abfd, val, ptr) \
+.		bfd_put_8 (abfd, val, ptr)
 .#define bfd_h_get_8(abfd, ptr) \
-.                (*((char *)ptr))
+.		bfd_get_8 (abfd, ptr)
+.#define bfd_h_get_signed_8(abfd, ptr) \
+.		bfd_get_signed_8 (abfd, ptr)
+.
 .#define bfd_h_put_16(abfd, val, ptr) \
 .                BFD_SEND(abfd, bfd_h_putx16,(val,ptr))
+.#define bfd_h_put_signed_16 \
+.		 bfd_h_put_16
 .#define bfd_h_get_16(abfd, ptr) \
 .                BFD_SEND(abfd, bfd_h_getx16,(ptr))
+.#define bfd_h_get_signed_16(abfd, ptr) \
+.		 BFD_SEND(abfd, bfd_h_getx_signed_16, (ptr))
+.
 .#define bfd_h_put_32(abfd, val, ptr) \
 .                BFD_SEND(abfd, bfd_h_putx32,(val,ptr))
+.#define bfd_h_put_signed_32 \
+.		 bfd_h_put_32
 .#define bfd_h_get_32(abfd, ptr) \
 .                BFD_SEND(abfd, bfd_h_getx32,(ptr))
+.#define bfd_h_get_signed_32(abfd, ptr) \
+.		 BFD_SEND(abfd, bfd_h_getx_signed_32, (ptr))
+.
 .#define bfd_h_put_64(abfd, val, ptr) \
 .                BFD_SEND(abfd, bfd_h_putx64,(val, ptr))
+.#define bfd_h_put_signed_64 \
+.		 bfd_h_put_64
 .#define bfd_h_get_64(abfd, ptr) \
 .                BFD_SEND(abfd, bfd_h_getx64,(ptr))
-
+.#define bfd_h_get_signed_64(abfd, ptr) \
+.		 BFD_SEND(abfd, bfd_h_getx_signed_64, (ptr))
+.
 */ 
+
+/* Sign extension to bfd_signed_vma.  */
+#define COERCE16(x) ((bfd_signed_vma) (((x) ^ 0x8000) - 0x8000))
+#define COERCE32(x) ((bfd_signed_vma) (((x) ^ 0x80000000) - 0x80000000))
+#define COERCE64(x) ((bfd_signed_vma)\
+		     (((x) ^ 0x8000000000000000) - 0x8000000000000000))
 
 bfd_vma
 DEFUN(_do_getb16,(addr),
@@ -404,6 +525,20 @@ DEFUN(_do_getl16,(addr),
       register bfd_byte *addr)
 {
         return (addr[1] << 8) | addr[0];
+}
+
+bfd_signed_vma
+DEFUN(_do_getb_signed_16,(addr),
+      register bfd_byte *addr)
+{
+        return COERCE16((addr[0] << 8) | addr[1]);
+}
+
+bfd_signed_vma
+DEFUN(_do_getl_signed_16,(addr),
+      register bfd_byte *addr)
+{
+        return COERCE16((addr[1] << 8) | addr[0]);
 }
 
 void
@@ -425,8 +560,8 @@ DEFUN(_do_putl16,(data, addr),
 }
 
 bfd_vma
-DEFUN(_do_getb32,(addr),
-      register bfd_byte *addr)
+_do_getb32 (addr)
+     register bfd_byte *addr;
 {
         return ((((addr[0] << 8) | addr[1]) << 8) | addr[2]) << 8 | addr[3];
 }
@@ -438,12 +573,28 @@ _do_getl32 (addr)
         return ((((addr[3] << 8) | addr[2]) << 8) | addr[1]) << 8 | addr[0];
 }
 
+bfd_signed_vma
+_do_getb_signed_32 (addr)
+     register bfd_byte *addr;
+{
+        return COERCE32(((((addr[0] << 8) | addr[1]) << 8)
+			 | addr[2]) << 8 | addr[3]);
+}
+
+bfd_signed_vma
+_do_getl_signed_32 (addr)
+        register bfd_byte *addr;
+{
+        return COERCE32(((((addr[3] << 8) | addr[2]) << 8)
+			 | addr[1]) << 8 | addr[0]);
+}
+
 bfd_vma
 DEFUN(_do_getb64,(addr),
       register bfd_byte *addr)
 {
 #ifdef HOST_64_BIT
-  bfd_64_type low, high;
+  bfd_vma low, high;
 
   high= ((((((((addr[0]) << 8) |
               addr[1]) << 8) |
@@ -469,7 +620,7 @@ DEFUN(_do_getl64,(addr),
 {
 
 #ifdef HOST_64_BIT
-  bfd_64_type low, high;
+  bfd_vma low, high;
   high= (((((((addr[7] << 8) |
               addr[6]) << 8) |
             addr[5]) << 8) |
@@ -481,6 +632,56 @@ DEFUN(_do_getl64,(addr),
           addr[0]) );
 
   return high << 32 | low;
+#else
+  BFD_FAIL();
+  return 0;
+#endif
+
+}
+
+bfd_signed_vma
+DEFUN(_do_getb_signed_64,(addr),
+      register bfd_byte *addr)
+{
+#ifdef HOST_64_BIT
+  bfd_vma low, high;
+
+  high= ((((((((addr[0]) << 8) |
+              addr[1]) << 8) |
+            addr[2]) << 8) |
+          addr[3]) );
+
+  low = ((((((((addr[4]) << 8) |
+              addr[5]) << 8) |
+            addr[6]) << 8) |
+          addr[7]));
+
+  return COERCE64(high << 32 | low);
+#else
+  BFD_FAIL();
+  return 0;
+#endif
+
+}
+
+bfd_signed_vma
+DEFUN(_do_getl_signed_64,(addr),
+      register bfd_byte *addr)
+{
+
+#ifdef HOST_64_BIT
+  bfd_vma low, high;
+  high= (((((((addr[7] << 8) |
+              addr[6]) << 8) |
+            addr[5]) << 8) |
+          addr[4]));
+
+  low = (((((((addr[3] << 8) |
+              addr[2]) << 8) |
+            addr[1]) << 8) |
+          addr[0]) );
+
+  return COERCE64(high << 32 | low);
 #else
   BFD_FAIL();
   return 0;

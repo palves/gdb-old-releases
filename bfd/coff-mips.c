@@ -59,14 +59,8 @@ typedef struct ecoff_symbol_struct
    macro is only ever applied to an asymbol.  */
 #define ecoffsymbol(asymbol) ((ecoff_symbol_type *) (&((asymbol)->the_bfd)))
 
-/* This is a hack borrowed from coffcode.h; we need to save the index
-   of a symbol when we write it out so that can set the symbol index
-   correctly when we write out the relocs.  */
-#define ecoff_get_sym_index(symbol) ((unsigned long) (symbol)->udata)
-#define ecoff_set_sym_index(symbol, idx) ((symbol)->udata = (PTR) (idx))
-
 /* The page boundary used to align sections in the executable file.  */
-#define PAGE_SIZE 0x2000
+#define ROUND_SIZE 0x1000
 
 /* The linker needs a section to hold small common variables while
    linking.  There is no convenient way to create it when the linker
@@ -122,6 +116,12 @@ static bfd_reloc_status_type ecoff_refhi_reloc PARAMS ((bfd *abfd,
 							PTR data,
 							asection *section,
 							bfd *output_bfd));
+static bfd_reloc_status_type ecoff_reflo_reloc PARAMS ((bfd *abfd,
+							arelent *reloc,
+							asymbol *symbol,
+							PTR data,
+							asection *section,
+							bfd *output_bfd));
 static bfd_reloc_status_type ecoff_gprel_reloc PARAMS ((bfd *abfd,
 							arelent *reloc,
 							asymbol *symbol,
@@ -134,6 +134,8 @@ static unsigned int ecoff_canonicalize_reloc PARAMS ((bfd *abfd,
 						      asection *section,
 						      arelent **relptr,
 						      asymbol **symbols));
+static CONST struct reloc_howto_struct *ecoff_bfd_reloc_type_lookup
+  PARAMS ((bfd *abfd, bfd_reloc_code_real_type code));
 static boolean ecoff_find_nearest_line PARAMS ((bfd *abfd,
 						asection *section,
 						asymbol **symbols,
@@ -262,7 +264,7 @@ ecoff_mkobject (abfd)
      bfd *abfd;
 {
   abfd->tdata.ecoff_obj_data = ((struct ecoff_tdata *)
-				bfd_zalloc (abfd, sizeof(ecoff_data_type)));
+				bfd_zalloc (abfd, sizeof (ecoff_data_type)));
   if (abfd->tdata.ecoff_obj_data == NULL)
     {
       bfd_error = no_memory;
@@ -292,6 +294,7 @@ ecoff_mkobject_hook (abfd, filehdr, aouthdr)
     return NULL;
 
   ecoff = ecoff_data (abfd);
+  ecoff->gp_size = 8;
   ecoff->sym_filepos = internal_f->f_symptr;
 
   if (internal_a != (struct internal_aouthdr *) NULL)
@@ -616,6 +619,7 @@ ecoff_make_empty_symbol (abfd)
       bfd_error = no_memory;
       return (asymbol *) NULL;
     }
+  memset (new, 0, sizeof *new);
   new->symbol.section = (asection *) NULL;
   new->fdr = (FDR *) NULL;
   new->local = false;
@@ -646,8 +650,13 @@ ecoff_set_symbol_info (abfd, ecoff_sym, asym, ext)
     case stLabel:
     case stProc:
     case stStaticProc:
-    case stBlock:
+      break;
     case stNil:
+      if (MIPS_IS_STAB (ecoff_sym))
+	{
+	  asym->flags = BSF_DEBUGGING;
+	  return;
+	}
       break;
     default:
       asym->flags = BSF_DEBUGGING;
@@ -723,14 +732,10 @@ ecoff_set_symbol_info (abfd, ecoff_sym, asym, ext)
       asym->flags = BSF_DEBUGGING;
       break;
     case scCommon:
-      /* FIXME: We should take a -G argument, which gives the maximum
-	 size of objects to be put in the small common section.  Until
-	 we do, we put objects of sizes up to 8 in the small common
-	 section.  The assembler should do this for us, but the native
-	 assembler seems to get confused.  */
-      if (asym->value > 8)
+      if (asym->value > ecoff_data (abfd)->gp_size)
 	{
 	  asym->section = &bfd_com_section;
+	  asym->flags = 0;
 	  break;
 	}
       /* Fall through.  */
@@ -1490,10 +1495,11 @@ ecoff_swap_reloc_out (abfd, src, dst)
 
 /* ECOFF relocs are either against external symbols, or against
    sections.  If we are producing relocateable output, and the reloc
-   is against an external symbol, the resulting reloc will also be
-   against the same symbol.  In such a case, we don't want to change
-   anything about the way the reloc is handled, since it will all be
-   done at final link time.  Rather than put special case code into
+   is against an external symbol, and nothing has given us any
+   additional addend, the resulting reloc will also be against the
+   same symbol.  In such a case, we don't want to change anything
+   about the way the reloc is handled, since it will all be done at
+   final link time.  Rather than put special case code into
    bfd_perform_relocation, all the reloc types use this howto
    function.  It just short circuits the reloc if producing
    relocateable output against an external symbol.  */
@@ -1513,7 +1519,8 @@ ecoff_generic_reloc (abfd,
      bfd *output_bfd;
 {
   if (output_bfd != (bfd *) NULL
-      && (symbol->flags & BSF_SECTION_SYM) == 0)
+      && (symbol->flags & BSF_SECTION_SYM) == 0
+      && reloc_entry->addend == 0)
     {
       reloc_entry->address += input_section->output_offset;
       return bfd_reloc_ok;
@@ -1522,9 +1529,14 @@ ecoff_generic_reloc (abfd,
   return bfd_reloc_continue;
 }
 
-/* Do a REFHI relocation.  The next reloc must be the corresponding
-   REFLO.  This has to be done in a function so that carry is handled
-   correctly.  */
+/* Do a REFHI relocation.  This has to be done in combination with a
+   REFLO reloc, because there is a carry from the REFLO to the REFHI.
+   Here we just save the information we need; we do the actual
+   relocation when we see the REFLO.  ECOFF requires that the REFLO
+   immediately follow the REFHI, so this ought to work.  */
+
+static bfd_byte *ecoff_refhi_addr;
+static bfd_vma ecoff_refhi_addend;
 
 static bfd_reloc_status_type
 ecoff_refhi_reloc (abfd,
@@ -1541,16 +1553,13 @@ ecoff_refhi_reloc (abfd,
      bfd *output_bfd;
 {
   bfd_reloc_status_type ret;
-  arelent *rello;
   bfd_vma relocation;
-  unsigned long insn;
-  unsigned long val;
-  unsigned long vallo;
 
   /* If we're relocating, and this an external symbol, we don't want
      to change anything.  */
   if (output_bfd != (bfd *) NULL
-      && (symbol->flags & BSF_SECTION_SYM) == 0)
+      && (symbol->flags & BSF_SECTION_SYM) == 0
+      && reloc_entry->addend == 0)
     {
       reloc_entry->address += input_section->output_offset;
       return bfd_reloc_ok;
@@ -1560,10 +1569,6 @@ ecoff_refhi_reloc (abfd,
   if (symbol->section == &bfd_und_section
       && output_bfd == (bfd *) NULL)
     ret = bfd_reloc_undefined;
-
-  rello = reloc_entry + 1;
-  BFD_ASSERT (rello->howto->type == ECOFF_R_REFLO
-	      && *rello->sym_ptr_ptr == *reloc_entry->sym_ptr_ptr);
 
   if (bfd_is_com_section (symbol->section))
     relocation = 0;
@@ -1577,28 +1582,69 @@ ecoff_refhi_reloc (abfd,
   if (reloc_entry->address > input_section->_cooked_size)
     return bfd_reloc_outofrange;
 
-  insn = bfd_get_32 (abfd, (bfd_byte *) data + reloc_entry->address);
-  vallo = bfd_get_32 (abfd, (bfd_byte *) data + rello->address) & 0xffff;
-  val = ((insn & 0xffff) << 16) + vallo;
-  val += relocation;
+  /* Save the information, and let REFLO do the actual relocation.  */
+  ecoff_refhi_addr = (bfd_byte *) data + reloc_entry->address;
+  ecoff_refhi_addend = relocation;
 
-  /* The low order 16 bits are always treated as a signed value.
-     Therefore, a negative value in the low order bits requires an
-     adjustment in the high order bits.  We need to make this
-     adjustment in two ways: once for the bits we took from the data,
-     and once for the bits we are putting back in to the data.  */
-  if ((vallo & 0x8000) != 0)
-    val -= 0x10000;
-  if ((val & 0x8000) != 0)
-    val += 0x10000;
-
-  insn = (insn &~ 0xffff) | ((val >> 16) & 0xffff);
-  bfd_put_32 (abfd, insn, (bfd_byte *) data + reloc_entry->address);
-
-  if (output_bfd != (bfd *) NULL) 
+  if (output_bfd != (bfd *) NULL)
     reloc_entry->address += input_section->output_offset;
 
   return ret;
+}
+
+/* Do a REFLO relocation.  This is a straightforward 16 bit inplace
+   relocation; this function exists in order to do the REFHI
+   relocation described above.  */
+
+static bfd_reloc_status_type
+ecoff_reflo_reloc (abfd,
+		   reloc_entry,
+		   symbol,
+		   data,
+		   input_section,
+		   output_bfd)
+     bfd *abfd;
+     arelent *reloc_entry;
+     asymbol *symbol;
+     PTR data;
+     asection *input_section;
+     bfd *output_bfd;
+{
+  if (ecoff_refhi_addr != (bfd_byte *) NULL)
+    {
+      unsigned long insn;
+      unsigned long val;
+      unsigned long vallo;
+
+      /* Do the REFHI relocation.  Note that we actually don't need to
+	 know anything about the REFLO itself, except where to find
+	 the low 16 bits of the addend needed by the REFHI.  */
+      insn = bfd_get_32 (abfd, ecoff_refhi_addr);
+      vallo = (bfd_get_32 (abfd, (bfd_byte *) data + reloc_entry->address)
+	       & 0xffff);
+      val = ((insn & 0xffff) << 16) + vallo;
+      val += ecoff_refhi_addend;
+
+      /* The low order 16 bits are always treated as a signed value.
+	 Therefore, a negative value in the low order bits requires an
+	 adjustment in the high order bits.  We need to make this
+	 adjustment in two ways: once for the bits we took from the
+	 data, and once for the bits we are putting back in to the
+	 data.  */
+      if ((vallo & 0x8000) != 0)
+	val -= 0x10000;
+      if ((val & 0x8000) != 0)
+	val += 0x10000;
+
+      insn = (insn &~ 0xffff) | ((val >> 16) & 0xffff);
+      bfd_put_32 (abfd, insn, ecoff_refhi_addr);
+
+      ecoff_refhi_addr = (bfd_byte *) NULL;
+    }
+
+  /* Now do the REFLO reloc in the usual way.  */
+  return ecoff_generic_reloc (abfd, reloc_entry, symbol, data,
+			      input_section, output_bfd);
 }
 
 /* Do a GPREL relocation.  This is a 16 bit value which must become
@@ -1623,10 +1669,13 @@ ecoff_gprel_reloc (abfd,
   unsigned long val;
   unsigned long insn;
 
-  /* If we're relocating, and this an external symbol, we don't want
-     to change anything.  */
+  /* If we're relocating, and this is an external symbol with no
+     addend, we don't want to change anything.  We will only have an
+     addend if this is a newly created reloc, not read from an ECOFF
+     file.  */
   if (output_bfd != (bfd *) NULL
-      && (symbol->flags & BSF_SECTION_SYM) == 0)
+      && (symbol->flags & BSF_SECTION_SYM) == 0
+      && reloc_entry->addend == 0)
     {
       reloc_entry->address += input_section->output_offset;
       return bfd_reloc_ok;
@@ -1647,8 +1696,11 @@ ecoff_gprel_reloc (abfd,
   /* We have to figure out the gp value, so that we can adjust the
      symbol value correctly.  We look up the symbol _gp in the output
      BFD.  If we can't find it, we're stuck.  We cache it in the ECOFF
-     target data.  */
-  if (ecoff_data (output_bfd)->gp == 0)
+     target data.  We don't need to adjust the symbol value for an
+     external symbol if we are producing relocateable output.  */
+  if (ecoff_data (output_bfd)->gp == 0
+      && (relocateable == false
+	  || (symbol->flags & BSF_SECTION_SYM) != 0))
     {
       if (relocateable != false)
 	{
@@ -1702,15 +1754,17 @@ ecoff_gprel_reloc (abfd,
 
   insn = bfd_get_32 (abfd, (bfd_byte *) data + reloc_entry->address);
 
-  /* Set val to the offset into the section (if we are relocating
-     against an external symbol, insn & 0xffff will be zero and so
-     will reloc_entry->addend).  */
+  /* Set val to the offset into the section or symbol.  */
   val = ((insn & 0xffff) + reloc_entry->addend) & 0xffff;
   if (val & 0x8000)
     val -= 0x10000;
 
-  /* Adjust val for the final section location and GP value.  */
-  val += (relocation - ecoff_data (output_bfd)->gp);
+  /* Adjust val for the final section location and GP value.  If we
+     are producing relocateable output, we don't want to do this for
+     an external symbol.  */
+  if (relocateable == false
+      || (symbol->flags & BSF_SECTION_SYM) != 0)
+    val += relocation - ecoff_data (output_bfd)->gp;
 
   insn = (insn &~ 0xffff) | (val & 0xffff);
   bfd_put_32 (abfd, insn, (bfd_byte *) data + reloc_entry->address);
@@ -1821,7 +1875,7 @@ static reloc_howto_type ecoff_howto_table[] =
 	 0,			/* bitpos */
 	 false,			/* absolute (obsolete) */
 	 true,			/* complain_on_overflow */
-	 ecoff_generic_reloc,	/* special_function */
+	 ecoff_reflo_reloc,	/* special_function */
 	 "REFLO",		/* name */
 	 true,			/* partial_inplace */
 	 0xffff,		/* src_mask */
@@ -1862,6 +1916,9 @@ static reloc_howto_type ecoff_howto_table[] =
 	 0xffff,		/* dst_mask */
 	 false)			/* pcrel_offset */
 };
+
+#define ECOFF_HOWTO_COUNT \
+  (sizeof ecoff_howto_table / sizeof ecoff_howto_table[0])
 
 /* Read in the relocs for a section.  */
 
@@ -2010,6 +2067,42 @@ ecoff_canonicalize_reloc (abfd, section, relptr, symbols)
 
   return section->reloc_count;
 }
+
+/* Get the howto structure for a generic reloc type.  */
+
+static CONST struct reloc_howto_struct *
+ecoff_bfd_reloc_type_lookup (abfd, code)
+     bfd *abfd;
+     bfd_reloc_code_real_type code;
+{
+  int ecoff_type;
+
+  switch (code)
+    {
+    case BFD_RELOC_16:
+      ecoff_type = ECOFF_R_REFHALF;
+      break;
+    case BFD_RELOC_32:
+      ecoff_type = ECOFF_R_REFWORD;
+      break;
+    case BFD_RELOC_MIPS_JMP:
+      ecoff_type = ECOFF_R_JMPADDR;
+      break;
+    case BFD_RELOC_HI16_S:
+      ecoff_type = ECOFF_R_REFHI;
+      break;
+    case BFD_RELOC_LO16:
+      ecoff_type = ECOFF_R_REFLO;
+      break;
+    case BFD_RELOC_MIPS_GPREL:
+      ecoff_type = ECOFF_R_GPREL;
+      break;
+    default:
+      return (CONST struct reloc_howto_struct *) NULL;
+    }
+
+  return &ecoff_howto_table[ecoff_type];
+}
 
 /* Provided a BFD, a section and an offset into the section, calculate
    and return the name of the source file and the line nearest to the
@@ -2081,8 +2174,11 @@ ecoff_find_nearest_line (abfd,
   pdr_ptr = ecoff_data (abfd)->external_pdr + fdr_ptr->ipdFirst;
   pdr_end = pdr_ptr + fdr_ptr->cpd;
   ecoff_swap_pdr_in (abfd, pdr_ptr, &pdr);
-  if (offset < pdr.adr)
-    return false;
+
+  /* The address of the first PDR is an offset which applies to the
+     addresses of all the PDR's.  */
+  offset += pdr.adr;
+
   for (pdr_ptr++; pdr_ptr < pdr_end; pdr_ptr++)
     {
       ecoff_swap_pdr_in (abfd, pdr_ptr, &pdr);
@@ -2421,6 +2517,7 @@ ecoff_get_debug (output_bfd, seclet, section, relocateable)
   struct sym_ext *sym_out;
   ecoff_symbol_type *esym_ptr;
   ecoff_symbol_type *esym_end;
+  unsigned long pdr_off;
   FDR *fdr_ptr;
   FDR *fdr_end;
   struct fdr_ext *fdr_out;
@@ -2587,6 +2684,15 @@ ecoff_get_debug (output_bfd, seclet, section, relocateable)
       memcpy (output_ecoff->external_pdr + output_symhdr->ipdMax,
 	      input_ecoff->external_pdr,
 	      input_symhdr->ipdMax * sizeof (struct pdr_ext));
+      if (input_symhdr->ipdMax == 0)
+	pdr_off = 0;
+      else
+	{
+	  PDR pdr;
+
+	  ecoff_swap_pdr_in (input_bfd, input_ecoff->external_pdr, &pdr);
+	  pdr_off = pdr.adr;
+	}
       memcpy (output_ecoff->external_opt + output_symhdr->ioptMax,
 	      input_ecoff->external_opt,
 	      input_symhdr->ioptMax * sizeof (struct opt_ext));
@@ -2599,6 +2705,7 @@ ecoff_get_debug (output_bfd, seclet, section, relocateable)
       struct pdr_ext *pdr_in;
       struct pdr_ext *pdr_end;
       struct pdr_ext *pdr_out;
+      int first_pdr;
       struct opt_ext *opt_in;
       struct opt_ext *opt_end;
       struct opt_ext *opt_out;
@@ -2619,12 +2726,19 @@ ecoff_get_debug (output_bfd, seclet, section, relocateable)
       pdr_in = input_ecoff->external_pdr;
       pdr_end = pdr_in + input_symhdr->ipdMax;
       pdr_out = output_ecoff->external_pdr + output_symhdr->ipdMax;
+      first_pdr = 1;
+      pdr_off = 0;
       for (; pdr_in < pdr_end; pdr_in++, pdr_out++)
 	{
 	  PDR pdr;
 
 	  ecoff_swap_pdr_in (input_bfd, pdr_in, &pdr);
 	  ecoff_swap_pdr_out (output_bfd, &pdr, pdr_out);
+	  if (first_pdr)
+	    {
+	      pdr_off = pdr.adr;
+	      first_pdr = 0;
+	    }
 	}
       opt_in = input_ecoff->external_opt;
       opt_end = opt_in + input_symhdr->ioptMax;
@@ -2652,10 +2766,13 @@ ecoff_get_debug (output_bfd, seclet, section, relocateable)
       fdr = *fdr_ptr;
 
       /* The memory address for this fdr is the address for the seclet
-	 plus the offset to this fdr within input_bfd.  */
+	 plus the offset to this fdr within input_bfd.  For some
+	 reason the offset of the first procedure pointer is also
+	 added in.  */
       fdr.adr = (bfd_get_section_vma (output_bfd, section)
 		 + seclet->offset
-		 + (fdr_ptr->adr - input_ecoff->fdr->adr));
+		 + (fdr_ptr->adr - input_ecoff->fdr->adr)
+		 + pdr_off);
 
       fdr.issBase += output_symhdr->issMax;
       fdr.isymBase += output_symhdr->isymMax;
@@ -3074,7 +3191,7 @@ ecoff_compute_section_file_positions (abfd)
 	  && first_data != false
 	  && (current->flags & SEC_CODE) == 0)
 	{
-	  sofar = (sofar + PAGE_SIZE - 1) &~ (PAGE_SIZE - 1);
+	  sofar = (sofar + ROUND_SIZE - 1) &~ (ROUND_SIZE - 1);
 	  first_data = false;
 	}
 
@@ -3178,7 +3295,7 @@ ecoff_write_object_contents (abfd)
      be aligned to a page boundary.  FIXME: Is this true on other
      platforms?  */
   if ((abfd->flags & EXEC_P) != 0)
-    sym_base = (sym_base + PAGE_SIZE - 1) &~ (PAGE_SIZE - 1);
+    sym_base = (sym_base + ROUND_SIZE - 1) &~ (ROUND_SIZE - 1);
 
   ecoff_data (abfd)->sym_filepos = sym_base;
 
@@ -3326,10 +3443,10 @@ ecoff_write_object_contents (abfd)
 
   /* At least on Ultrix, these have to be rounded to page boundaries.
      FIXME: Is this true on other platforms?  */
-  internal_a.tsize = (text_size + PAGE_SIZE - 1) &~ (PAGE_SIZE - 1);
-  internal_a.text_start = text_start &~ (PAGE_SIZE - 1);
-  internal_a.dsize = (data_size + PAGE_SIZE - 1) &~ (PAGE_SIZE - 1);
-  internal_a.data_start = data_start &~ (PAGE_SIZE - 1);
+  internal_a.tsize = (text_size + ROUND_SIZE - 1) &~ (ROUND_SIZE - 1);
+  internal_a.text_start = text_start &~ (ROUND_SIZE - 1);
+  internal_a.dsize = (data_size + ROUND_SIZE - 1) &~ (ROUND_SIZE - 1);
+  internal_a.data_start = data_start &~ (ROUND_SIZE - 1);
 
   /* On Ultrix, the initial portions of the .sbss and .bss segments
      are at the end of the data section.  The bsize field in the
@@ -3405,8 +3522,25 @@ ecoff_write_object_contents (abfd)
 	  reloc = *reloc_ptr_ptr;
 	  sym = *reloc->sym_ptr_ptr;
 
+	  /* This must be an ECOFF reloc.  */
+	  BFD_ASSERT (reloc->howto != (reloc_howto_type *) NULL
+		      && reloc->howto >= ecoff_howto_table
+		      && (reloc->howto
+			  < (ecoff_howto_table + ECOFF_HOWTO_COUNT)));
+
 	  in.r_vaddr = reloc->address + bfd_get_section_vma (abfd, current);
 	  in.r_type = reloc->howto->type;
+
+	  /* If this is a REFHI reloc, the next one must be a REFLO
+	     reloc for the same symbol.  */
+	  BFD_ASSERT (in.r_type != ECOFF_R_REFHI
+		      || (reloc_ptr_ptr < reloc_end
+			  && (reloc_ptr_ptr[1]->howto
+			      != (reloc_howto_type *) NULL)
+			  && (reloc_ptr_ptr[1]->howto->type
+			      == ECOFF_R_REFLO)
+			  && (sym == *reloc_ptr_ptr[1]->sym_ptr_ptr)));
+
 	  if ((sym->flags & BSF_SECTION_SYM) == 0)
 	    {
 	      in.r_symndx = ecoff_get_sym_index (*reloc->sym_ptr_ptr);
@@ -3927,6 +4061,151 @@ ecoff_archive_p (abfd)
   return abfd->xvec;
 }
 
+#ifdef HOST_IRIX4
+
+#include <core.out.h>
+
+struct sgi_core_struct 
+{
+  int sig;
+  char cmd[CORE_NAMESIZE];
+};
+
+#define core_hdr(bfd) ((bfd)->tdata.sgi_core_data)
+#define core_signal(bfd) (core_hdr(bfd)->sig)
+#define core_command(bfd) (core_hdr(bfd)->cmd)
+
+static asection *
+make_bfd_asection (abfd, name, flags, _raw_size, vma, filepos)
+     bfd *abfd;
+     CONST char *name;
+     flagword flags;
+     bfd_size_type _raw_size;
+     bfd_vma vma;
+     file_ptr filepos;
+{
+  asection *asect;
+
+  asect = bfd_make_section (abfd, name);
+  if (!asect)
+    return NULL;
+
+  asect->flags = flags;
+  asect->_raw_size = _raw_size;
+  asect->vma = vma;
+  asect->filepos = filepos;
+  asect->alignment_power = 2;;
+
+  return asect;
+}
+
+static bfd_target *
+ecoff_core_file_p (abfd)
+     bfd *abfd;
+{
+  int val;
+  int i;
+  char *secname;
+  struct coreout coreout;
+  struct idesc *idg, *idf, *ids;
+
+  val = bfd_read ((PTR)&coreout, 1, sizeof coreout, abfd);
+  if (val != sizeof coreout)
+    return 0;
+
+  if (coreout.c_magic != CORE_MAGIC
+      || coreout.c_version != CORE_VERSION1)
+    return 0;
+
+  core_hdr (abfd) = (struct sgi_core_struct *) bfd_zalloc (abfd, sizeof (struct sgi_core_struct));
+  if (!core_hdr (abfd))
+    return NULL;
+
+  strncpy (core_command (abfd), coreout.c_name, CORE_NAMESIZE);
+  core_signal (abfd) = coreout.c_sigcause;
+
+  bfd_seek (abfd, coreout.c_vmapoffset, SEEK_SET);
+
+  for (i = 0; i < coreout.c_nvmap; i++)
+    {
+      struct vmap vmap;
+
+      val = bfd_read ((PTR)&vmap, 1, sizeof vmap, abfd);
+      if (val != sizeof vmap)
+	break;
+
+      switch (vmap.v_type)
+	{
+	case VDATA:
+	  secname = ".data";
+	  break;
+	case VSTACK:
+	  secname = ".stack";
+	  break;
+	default:
+	  continue;
+	}
+
+      if (!make_bfd_asection (abfd, secname,
+			      SEC_ALLOC+SEC_LOAD+SEC_HAS_CONTENTS,
+			      vmap.v_len,
+			      vmap.v_vaddr,
+			      vmap.v_offset,
+			      2))
+	return NULL;
+    }
+
+  /* Make sure that the regs are contiguous within the core file. */
+
+  idg = &coreout.c_idesc[I_GPREGS];
+  idf = &coreout.c_idesc[I_FPREGS];
+  ids = &coreout.c_idesc[I_SPECREGS];
+
+  if (idg->i_offset + idg->i_len != idf->i_offset
+      || idf->i_offset + idf->i_len != ids->i_offset)
+    return 0;			/* Can't deal with non-contig regs */
+
+  bfd_seek (abfd, idg->i_offset, SEEK_SET);
+
+  make_bfd_asection (abfd, ".reg",
+		     SEC_ALLOC+SEC_HAS_CONTENTS,
+		     idg->i_len + idf->i_len + ids->i_len,
+		     0,
+		     idg->i_offset);
+
+  /* OK, we believe you.  You're a core file (sure, sure).  */
+
+  return abfd->xvec;
+}
+
+static char *
+ecoff_core_file_failing_command (abfd)
+     bfd *abfd;
+{
+  return core_command (abfd);
+}
+
+static int
+ecoff_core_file_failing_signal (abfd)
+     bfd *abfd;
+{
+  return core_signal (abfd);
+}
+
+static boolean
+ecoff_core_file_matches_executable_p (core_bfd, exec_bfd)
+     bfd *core_bfd, *exec_bfd;
+{
+  return true;			/* XXX - FIXME */
+}
+#else /* not def HOST_IRIX4 */
+#define ecoff_core_file_p _bfd_dummy_target
+#define ecoff_core_file_failing_command	_bfd_dummy_core_file_failing_command
+#define ecoff_core_file_failing_signal _bfd_dummy_core_file_failing_signal
+#define ecoff_core_file_matches_executable_p \
+  _bfd_dummy_core_file_matches_executable_p
+#endif
+
 /* This is the COFF backend structure.  The backend_data field of the
    bfd_target structure is set to this.  The section reading code in
    coffgen.c uses this structure.  */
@@ -3955,10 +4234,6 @@ static CONST bfd_coff_backend_data bfd_ecoff_std_swap_table = {
 
 /* These bfd_target functions are defined in other files.  */
 
-#define ecoff_core_file_failing_command	_bfd_dummy_core_file_failing_command
-#define ecoff_core_file_failing_signal	_bfd_dummy_core_file_failing_signal
-#define ecoff_core_file_matches_executable_p \
-  _bfd_dummy_core_file_matches_executable_p
 #define ecoff_truncate_arname		bfd_dont_truncate_arname
 #define ecoff_openr_next_archived_file	bfd_generic_openr_next_archived_file
 #define ecoff_generic_stat_arch_elt	bfd_generic_stat_arch_elt
@@ -3972,6 +4247,8 @@ static CONST bfd_coff_backend_data bfd_ecoff_std_swap_table = {
 #define ecoff_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents
 #define ecoff_bfd_relax_section		bfd_generic_relax_section
+#define ecoff_bfd_make_debug_symbol \
+  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
 bfd_target ecoff_little_vec =
 {
@@ -3990,8 +4267,12 @@ bfd_target ecoff_little_vec =
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen */
   3,				/* minimum alignment power */
-  _do_getl64, _do_putl64,	_do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
-  _do_getl64, _do_putl64,	_do_getl32, _do_putl32, _do_getl16, _do_putl16, /* hdrs */
+  _do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
+  _do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* hdrs */
 
   {_bfd_dummy_target, coff_object_p, /* bfd_check_format */
      ecoff_archive_p, _bfd_dummy_target},
@@ -4000,7 +4281,6 @@ bfd_target ecoff_little_vec =
   {bfd_false, ecoff_write_object_contents, /* bfd_write_contents */
      _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE (ecoff),
-  0, 0,
   (PTR) &bfd_ecoff_std_swap_table
 };
 
@@ -4020,16 +4300,19 @@ bfd_target ecoff_big_vec =
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
   3,				/* minimum alignment power */
-  _do_getb64, _do_putb64,	_do_getb32, _do_putb32, _do_getb16, _do_putb16,
-  _do_getb64, _do_putb64,	_do_getb32, _do_putb32, _do_getb16, _do_putb16,
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16,
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16,
  {_bfd_dummy_target, coff_object_p, /* bfd_check_format */
-    ecoff_archive_p, _bfd_dummy_target},
+    ecoff_archive_p, ecoff_core_file_p},
  {bfd_false, ecoff_mkobject, _bfd_generic_mkarchive, /* bfd_set_format */
     bfd_false},
  {bfd_false, ecoff_write_object_contents, /* bfd_write_contents */
     _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE(ecoff),
-  0, 0,
   (PTR) &bfd_ecoff_std_swap_table
   /* Note that there is another bfd_target just above this one.  If
      you are adding initializers here, you should be adding them there

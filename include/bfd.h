@@ -50,6 +50,12 @@ here.  */
 /* forward declaration */
 typedef struct _bfd bfd;
 
+/* To squelch erroneous compiler warnings ("illegal pointer
+   combination") from the SVR3 compiler, we would like to typedef
+   boolean to int (it doesn't like functions which return boolean.
+   Making sure they are never implicitly declared to return int
+   doesn't seem to help).  But this file is not configured based on
+   the host.  */
 /* General rules: functions which are boolean return true on success
    and false on failure (unless they're a predicate).   -- bfd.doc */
 /* I'm sure this is going to break something and someone is going to
@@ -68,29 +74,37 @@ typedef enum bfd_boolean {false, true} boolean;
 /* typedef off_t	file_ptr; */
 typedef long int file_ptr;
 
-/* Support for different sizes of target format ints and addresses */
+/* Support for different sizes of target format ints and addresses.
+   If the host implements--and wants BFD to use--64-bit values, it
+   defines HOST_64_BIT (in BFD and in every program that calls it --
+   since this affects declarations in bfd.h).  */
 
 #ifdef	HOST_64_BIT
-typedef HOST_64_BIT rawdata_offset;
-typedef HOST_64_BIT bfd_vma;
-typedef HOST_64_BIT bfd_word;
-typedef HOST_64_BIT bfd_offset;
-typedef HOST_64_BIT bfd_size_type;
-typedef HOST_64_BIT symvalue;
-typedef HOST_64_BIT bfd_64_type;
+typedef unsigned HOST_64_BIT bfd_vma;
+typedef HOST_64_BIT bfd_signed_vma;
+typedef unsigned HOST_64_BIT bfd_size_type;
+typedef unsigned HOST_64_BIT symvalue;
 #define fprintf_vma(s,x) \
 		fprintf(s,"%08x%08x", uint64_typeHIGH(x), uint64_typeLOW(x))
-#else
-typedef struct {int a,b;} bfd_64_type;
-typedef unsigned long rawdata_offset;
+#else /* not HOST_64_BIT.  */
+
+/* Represent a target address.  Also used as a generic unsigned type
+   which is guaranteed to be big enough to hold any arithmetic types
+   we need to deal with.  */
 typedef unsigned long bfd_vma;
-typedef unsigned long bfd_offset;
-typedef unsigned long bfd_word;
-typedef unsigned long bfd_size;
+
+/* A generic signed type which is guaranteed to be big enough to hold any
+   arithmetic types we need to deal with.  Can be assumed to be compatible
+   with bfd_vma in the same way that signed and unsigned ints are compatible
+   (as parameters, in assignment, etc).  */
+typedef long bfd_signed_vma;
+
 typedef unsigned long symvalue;
 typedef unsigned long bfd_size_type;
+
+/* Print a bfd_vma x on stream s.  */
 #define fprintf_vma(s,x) fprintf(s, "%08lx", x)
-#endif
+#endif /* not HOST_64_BIT.  */
 #define printf_vma(x) fprintf_vma(stdout,x)
 
 typedef unsigned int flagword;	/* 32 bits of flags */
@@ -195,7 +209,7 @@ typedef struct sec *sec_ptr;
 
 #define bfd_is_com_section(ptr) (((ptr)->flags & SEC_IS_COMMON) != 0)
 
-#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (val)), ((ptr)->user_set_vma = true), true)
+#define bfd_set_section_vma(bfd, ptr, val) (((ptr)->vma = (ptr)->lma= (val)), ((ptr)->user_set_vma = true), true)
 #define bfd_set_section_alignment(bfd, ptr, val) (((ptr)->alignment_power = (val)),true)
 #define bfd_set_section_userdata(bfd, ptr, val) (((ptr)->userdata = (val)),true)
 
@@ -212,6 +226,10 @@ typedef enum bfd_error {
 	      file_ambiguously_recognized, no_contents,
 	      bfd_error_nonrepresentable_section,
 	      no_debug_section, bad_value,
+
+	      /* An input file is shorter than expected.  */
+	      file_truncated,
+	      
 	      invalid_error_code} bfd_ec;
 
 extern bfd_ec bfd_error;
@@ -290,7 +308,9 @@ CAT(NAME,_bfd_debug_info_end),\
 CAT(NAME,_bfd_debug_info_accumulate),\
 CAT(NAME,_bfd_get_relocated_section_contents),\
 CAT(NAME,_bfd_relax_section),\
-CAT(NAME,_bfd_seclet_link)
+CAT(NAME,_bfd_seclet_link),\
+CAT(NAME,_bfd_reloc_type_lookup),\
+CAT(NAME,_bfd_make_debug_symbol)
 
 #define COFF_SWAP_TABLE (PTR) &bfd_coff_std_swap_table
 
@@ -357,38 +377,84 @@ bfd_alloc_size PARAMS ((bfd *abfd));
 bfd *
 bfd_create PARAMS ((CONST char *filename, bfd *template));
 
+
+ /* Byte swapping macros for user section data.  */
+
 #define bfd_put_8(abfd, val, ptr) \
-                (*((char *)ptr) = (char)val)
+                (*((unsigned char *)(ptr)) = (unsigned char)val)
+#define bfd_put_signed_8 \
+		bfd_put_8
 #define bfd_get_8(abfd, ptr) \
-                (*((char *)ptr))
+                (*(unsigned char *)(ptr))
+#define bfd_get_signed_8(abfd, ptr) \
+		((*(unsigned char *)(ptr) ^ 0x80) - 0x80)
+
 #define bfd_put_16(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_putx16, (val,ptr))
+                BFD_SEND(abfd, bfd_putx16, ((val),(ptr)))
+#define bfd_put_signed_16 \
+		 bfd_put_16
 #define bfd_get_16(abfd, ptr) \
                 BFD_SEND(abfd, bfd_getx16, (ptr))
+#define bfd_get_signed_16(abfd, ptr) \
+         	 BFD_SEND (abfd, bfd_getx_signed_16, (ptr))
+
 #define bfd_put_32(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_putx32, (val,ptr))
+                BFD_SEND(abfd, bfd_putx32, ((val),(ptr)))
+#define bfd_put_signed_32 \
+		 bfd_put_32
 #define bfd_get_32(abfd, ptr) \
                 BFD_SEND(abfd, bfd_getx32, (ptr))
+#define bfd_get_signed_32(abfd, ptr) \
+		 BFD_SEND(abfd, bfd_getx_signed_32, (ptr))
+
 #define bfd_put_64(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_putx64, (val, ptr))
+                BFD_SEND(abfd, bfd_putx64, ((val), (ptr)))
+#define bfd_put_signed_64 \
+		 bfd_put_64
 #define bfd_get_64(abfd, ptr) \
                 BFD_SEND(abfd, bfd_getx64, (ptr))
+#define bfd_get_signed_64(abfd, ptr) \
+		 BFD_SEND(abfd, bfd_getx_signed_64, (ptr))
+
+
+ /* Byte swapping macros for file header data.  */
+
 #define bfd_h_put_8(abfd, val, ptr) \
-                (*((char *)ptr) = (char)val)
+		bfd_put_8 (abfd, val, ptr)
+#define bfd_h_put_signed_8(abfd, val, ptr) \
+		bfd_put_8 (abfd, val, ptr)
 #define bfd_h_get_8(abfd, ptr) \
-                (*((char *)ptr))
+		bfd_get_8 (abfd, ptr)
+#define bfd_h_get_signed_8(abfd, ptr) \
+		bfd_get_signed_8 (abfd, ptr)
+
 #define bfd_h_put_16(abfd, val, ptr) \
                 BFD_SEND(abfd, bfd_h_putx16,(val,ptr))
+#define bfd_h_put_signed_16 \
+		 bfd_h_put_16
 #define bfd_h_get_16(abfd, ptr) \
                 BFD_SEND(abfd, bfd_h_getx16,(ptr))
+#define bfd_h_get_signed_16(abfd, ptr) \
+		 BFD_SEND(abfd, bfd_h_getx_signed_16, (ptr))
+
 #define bfd_h_put_32(abfd, val, ptr) \
                 BFD_SEND(abfd, bfd_h_putx32,(val,ptr))
+#define bfd_h_put_signed_32 \
+		 bfd_h_put_32
 #define bfd_h_get_32(abfd, ptr) \
                 BFD_SEND(abfd, bfd_h_getx32,(ptr))
+#define bfd_h_get_signed_32(abfd, ptr) \
+		 BFD_SEND(abfd, bfd_h_getx_signed_32, (ptr))
+
 #define bfd_h_put_64(abfd, val, ptr) \
                 BFD_SEND(abfd, bfd_h_putx64,(val, ptr))
+#define bfd_h_put_signed_64 \
+		 bfd_h_put_64
 #define bfd_h_get_64(abfd, ptr) \
                 BFD_SEND(abfd, bfd_h_getx64,(ptr))
+#define bfd_h_get_signed_64(abfd, ptr) \
+		 BFD_SEND(abfd, bfd_h_getx_signed_64, (ptr))
+
 typedef struct sec 
 {
          /* The name of the section, the name isn't a copy, the pointer is
@@ -495,8 +561,15 @@ typedef struct sec
            ECOFF has two. */
 
 #define SEC_IS_COMMON 0x8000
-       
+
+        /*  The virtual memory address of the section - where it will be
+           at run time - the symbols are relocated against this */
    bfd_vma vma;
+
+        /*  The load address of the section - where it would be in a
+           rom image, really only used for writing section header information */
+   bfd_vma lma;
+
    boolean user_set_vma;
 
          /* The size of the section in bytes, as it will be output.
@@ -602,6 +675,7 @@ typedef struct sec
 #define BFD_ABS_SECTION_NAME "*ABS*"
 #define BFD_UND_SECTION_NAME "*UND*"
 #define BFD_COM_SECTION_NAME "*COM*"
+#define BFD_IND_SECTION_NAME "*IND*"
 
      /* the absolute section */
  extern   asection bfd_abs_section;
@@ -609,10 +683,13 @@ typedef struct sec
  extern   asection bfd_und_section;
      /* Pointer to the common section */
  extern asection bfd_com_section;
+     /* Pointer to the indirect section */
+ extern asection bfd_ind_section;
 
  extern struct symbol_cache_entry *bfd_abs_symbol;
  extern struct symbol_cache_entry *bfd_com_symbol;
  extern struct symbol_cache_entry *bfd_und_symbol;
+ extern struct symbol_cache_entry *bfd_ind_symbol;
 #define bfd_get_section_size_before_reloc(section) \
      (section->reloc_done ? (abort(),1): (section)->_raw_size)
 #define bfd_get_section_size_after_reloc(section) \
@@ -693,6 +770,8 @@ enum bfd_architecture
 #define bfd_mach_z8001		1
 #define bfd_mach_z8002		2
   bfd_arch_h8500,      /* Hitachi H8/500 */
+  bfd_arch_sh,         /* Hitachi SH */
+  bfd_arch_alpha,      /* Dec Alpha */
   bfd_arch_last
   };
 
@@ -770,7 +849,7 @@ typedef enum bfd_reloc_status
         /* The relocation was performed, but there was an overflow. */
   bfd_reloc_overflow,
 
-        /* The address to relocate was not within the section supplied*/
+        /* The address to relocate was not within the section supplied. */
   bfd_reloc_outofrange,
 
         /* Used by special functions */
@@ -779,10 +858,10 @@ typedef enum bfd_reloc_status
         /* Unused */
   bfd_reloc_notsupported,
 
-        /* Unsupported relocation size requested.  */
+        /* Unsupported relocation size requested. */
   bfd_reloc_other,
 
-        /* The symbol to relocate against was undefined.*/
+        /* The symbol to relocate against was undefined. */
   bfd_reloc_undefined,
 
         /* The relocation was performed, but may not be ok - presently
@@ -799,7 +878,7 @@ typedef struct reloc_cache_entry
   struct symbol_cache_entry **sym_ptr_ptr;
 
         /* offset in section */
-  rawdata_offset address;
+  bfd_size_type address;
 
         /* addend for relocation value */
   bfd_vma addend;    
@@ -872,13 +951,13 @@ typedef CONST struct reloc_howto_struct
           sun4 extended relocs, the value in the offset part of a
           relocating field is garbage so we never use it. In this case
           the mask would be 0x00000000. */
-  bfd_word src_mask;
+  bfd_vma src_mask;
 
         /* The dst_mask is what parts of the instruction are replaced
           into the instruction. In most cases src_mask == dst_mask,
           except in the above special case, where dst_mask would be
           0x000000ff, and src_mask would be 0x00000000.   */
-  bfd_word dst_mask;           
+  bfd_vma dst_mask;           
 
         /* When some formats create PC relative instructions, they leave
           the value of the pc of the place being relocated in the offset
@@ -997,6 +1076,9 @@ typedef enum bfd_reloc_code_real
         /* Low 16 bits.  */
   BFD_RELOC_LO16,
 
+	 /* 16 bit relocation relative to the global pointer.  */
+  BFD_RELOC_MIPS_GPREL,
+
    /* this must be the highest numeric value */
   BFD_RELOC_UNUSED
  } bfd_reloc_code_real_type;
@@ -1059,6 +1141,10 @@ typedef struct symbol_cache_entry
 	 /* The symbol is a debugging record. The value has an arbitary
 	   meaning. */
 #define BSF_DEBUGGING	0x40
+
+	 /* The symbol denotes a function entry point.  Used in ELF,
+	   perhaps others someday.  */
+#define BSF_FUNCTION    0x080
 
 	 /* Used by the linker. */
 #define BSF_KEEP        0x10000
@@ -1259,6 +1345,7 @@ struct _bfd
       struct trad_core_struct *trad_core_data;
       struct hppa_data_struct *hppa_data;
       struct hppa_core_struct *hppa_core_data;
+      struct sgi_core_struct *sgi_core_data;
       PTR any;
       } tdata;
   
@@ -1299,6 +1386,12 @@ bfd_get_mtime PARAMS ((bfd *));
 
 long 
 bfd_get_size PARAMS ((bfd *));
+
+int 
+bfd_get_gp_size PARAMS ((bfd *));
+
+void 
+bfd_set_gp_size PARAMS ((bfd *, int));
 
 #define bfd_sizeof_headers(abfd, reloc) \
      BFD_SEND (abfd, _bfd_sizeof_headers, (abfd, reloc))
@@ -1380,16 +1473,22 @@ typedef struct bfd_target
   unsigned short ar_max_namelen;
   unsigned int align_power_min;
   bfd_vma      (*bfd_getx64) PARAMS ((bfd_byte *));
+  bfd_signed_vma (*bfd_getx_signed_64) PARAMS ((bfd_byte *));
   void         (*bfd_putx64) PARAMS ((bfd_vma, bfd_byte *));
   bfd_vma      (*bfd_getx32) PARAMS ((bfd_byte *));
+  bfd_signed_vma (*bfd_getx_signed_32) PARAMS ((bfd_byte *));
   void         (*bfd_putx32) PARAMS ((bfd_vma, bfd_byte *));
   bfd_vma      (*bfd_getx16) PARAMS ((bfd_byte *));
+  bfd_signed_vma (*bfd_getx_signed_16) PARAMS ((bfd_byte *));
   void         (*bfd_putx16) PARAMS ((bfd_vma, bfd_byte *));
   bfd_vma      (*bfd_h_getx64) PARAMS ((bfd_byte *));
+  bfd_signed_vma (*bfd_h_getx_signed_64) PARAMS ((bfd_byte *));
   void         (*bfd_h_putx64) PARAMS ((bfd_vma, bfd_byte *));
   bfd_vma      (*bfd_h_getx32) PARAMS ((bfd_byte *));
+  bfd_signed_vma (*bfd_h_getx_signed_32) PARAMS ((bfd_byte *));
   void         (*bfd_h_putx32) PARAMS ((bfd_vma, bfd_byte *));
   bfd_vma      (*bfd_h_getx16) PARAMS ((bfd_byte *));
+  bfd_signed_vma (*bfd_h_getx_signed_16) PARAMS ((bfd_byte *));
   void         (*bfd_h_putx16) PARAMS ((bfd_vma, bfd_byte *));
   struct bfd_target * (*_bfd_check_format[bfd_type_end]) PARAMS ((bfd *));
   boolean             (*_bfd_set_format[bfd_type_end]) PARAMS ((bfd *));

@@ -33,6 +33,7 @@ struct objfile;
 /* #include "lang_def.h" */
 #define	_LANG_c
 #define	_LANG_m2
+#define	_LANG_chill
 
 /* range_mode ==
    range_mode_auto:   range_check set automatically to default of language.
@@ -212,7 +213,8 @@ extern enum language_mode
 
 /* "cast" really means conversion */
 /* FIXME -- should be a setting in language_defn */
-#define CAST_IS_CONVERSION (current_language->la_language == language_c)
+#define CAST_IS_CONVERSION (current_language->la_language == language_c  || \
+			    current_language->la_language == language_cplus)
 
 extern void
 language_info PARAMS ((int));
@@ -300,6 +302,9 @@ set_language PARAMS ((enum language));
    the local (language-specific) formats.  Result is static and is
    overwritten by the next call.  Takes printf options like "08" or "l"
    (to produce e.g. %08x or %lx).  */
+
+extern char *
+local_decimal_format_custom PARAMS ((char *));	/* language.c */
 
 extern char *
 local_octal_format_custom PARAMS ((char *));	/* language.c */

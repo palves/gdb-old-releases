@@ -102,7 +102,7 @@ struct value
     union {
       long contents[1];
       double force_double_align;
-#ifdef LONG_LONG
+#ifdef CC_HAS_LONG_LONG
       long long force_longlong_align;
 #endif
     } aligner;
@@ -476,6 +476,10 @@ type_print PARAMS ((struct type *type, char *varstring, FILE *stream,
 extern char *
 baseclass_addr PARAMS ((struct type *type, int index, char *valaddr,
 			value *valuep, int *errp));
+
+extern void
+print_longest PARAMS ((FILE *stream, int format, int use_local,
+		       LONGEST value));
 
 extern void
 print_floating PARAMS ((char *valaddr, struct type *type, FILE *stream));

@@ -24,15 +24,15 @@
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="mmalloc libiberty opcodes bfd readline tcl tk"
+host_libs="mmalloc libiberty opcodes bfd readline tcl tk tclX"
 
 # these tools are built for the host environment
 #
 host_tools="byacc flex bison binutils ld gas gcc gdb make patch
-	    send_pr gprof gdbtest tgas etc expect deja-gnu sim
+	    send-pr gprof gdbtest tgas etc expect deja-gnu dejagnu sim
             m4 autoconf ispell grep diff rcs cvs fileutils shellutils
 	    textutils wdiff find emacs uudecode hello tar gzip indent
-	    recode"
+	    recode package2 package"
 
 
 # these libraries are built for the target environment, and are built after
@@ -81,7 +81,7 @@ srcname="gnu development package"
 case "${host}" in
   m68k-apollo-sysv*)      host_makefile_frag=config/mh-apollo68 ;;
   m68k-apollo-bsd*)       host_makefile_frag=config/mh-a68bsd ;;
-  m88k-motorola-m88kbcs)  host_makefile_frag=config/mh-delta88;;
+  m88k-motorola-sysv*)    host_makefile_frag=config/mh-delta88;;
   m88k-dg-dgux*)	  host_makefile_frag=config/mh-dgux ;;
   mips-dec-ultrix*)       host_makefile_frag=config/mh-decstation ;;
   mips-sgi-irix4*)        host_makefile_frag=config/mh-irix4 ;;
@@ -91,8 +91,11 @@ case "${host}" in
   i[34]86-*-isc*)	  host_makefile_frag=config/mh-sysv ;;
   i[34]86-*-linux)        host_makefile_frag=config/mh-linux ;;
   i[34]86-*-solaris2*)    host_makefile_frag=config/mh-sysv4 ;;
+  i[34]86-*-aix*)	  host_makefile_frag=config/mh-aix386 ;;
+  vax-*-ultrix2*)         host_makefile_frag=config/mh-vaxult2 ;;
   *-ibm-aix*)             host_makefile_frag=config/mh-aix ;;
-  *-sun-solaris*)         host_makefile_frag=config/mh-solaris ;;
+  *-bull-bosx*)           host_makefile_frag=config/mh-aix ;;
+  *-sun-solaris2*)        host_makefile_frag=config/mh-solaris ;;
   *-sun-*)		  host_makefile_frag=config/mh-sun ;;
   *-hp-hpux)              host_makefile_frag=config/mh-hpux ;;
   *-*-sysv4*)             host_makefile_frag=config/mh-sysv4 ;;
@@ -101,15 +104,20 @@ esac
 
 # per-target:
 
-bfd_target=
+# some tools are so dependent upon X11 that if we're not building with X, 
+# it's not even worth trying to configure, much less build, that tool.
 
-case "${target}" in
-  a29k-amd-ebmon) bfd_target="ebmon29k"  ;;
-  a29k-amd-udi)   bfd_target="udi29k" ;;
-  a29k-amd-*)     echo "bad target_os for amd" 1>&2
-		  exit 1
-		  ;;
+case ${with_x} in
+  yes | "")  # the default value for this tree is that X11 is available
+	;;
+  no)
+    	configdirs=`echo ${configdirs} | sed -e 's/tk//'`
+	;;
+  *)
+    	echo "*** bad value \"${with_x}\" for -with-x flag; ignored" 1>&2
+    	;;
 esac
+
 
 
 # some tools are only suitable for building in a "native" situation.
@@ -136,33 +144,53 @@ fi
 # target this usually means that a port of the program doesn't
 # exist yet.
 
-#case "${host}" in
-#  hppa*-*-*)
-#    configdirs=`echo ${configdirs} | sed -e 's/emacs//'`
-#    ;;
-#esac
+case "${host}" in
+  i[34]86-*-go32)
+    configdirs=`echo ${configdirs} | sed -e 's/tcl//;s/expect//;s/deja-gnu//'`
+    configdirs=`echo ${configdirs} | sed -e 's/make//;s/texinfo//'`
+    configdirs=`echo ${configdirs} | sed -e 's/patch//;s/flex//;s/byacc//'`
+    configdirs=`echo ${configdirs} | sed -e 's/send-pr//;s/gprof//'`
+    configdirs=`echo ${configdirs} | sed -e 's/uudecode//'`
+    ;;
+esac
 
 case "${target}" in
-  mips-*-*)
-    configdirs=`echo ${configdirs} | sed -e 's/gas//'`
-    ;;
   rs6000-*-*)
-    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//;s/tk//'`
+    configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
+    ;;
+  hppa*-*-osf)
+# Do configure ld/binutils/gas for this case.
     ;;
   hppa*-*-*)
     configdirs=`echo ${configdirs} | sed -e 's/ld//;s/binutils//;s/gas//'`
     ;;
-  *-*-solaris2)
+  *-*-solaris2*)
     configdirs=`echo ${configdirs} | sed -e 's/ld//;s/gas//'`
+    ;;
+  *-*-vms)
+    configdirs=`echo ${configdirs} | sed -e 's/bfd//;s/ld//;s/binutils//'`
+    ;;
+  h8300-*-*)
+    configdirs=`echo ${configdirs} | sed -e 's/libg++//'`
+    ;;
+  h8500-*-*)
+    configdirs=`echo ${configdirs} | sed -e 's/libg++//'`
     ;;
 esac
 
-
-target_makefile_frag=config/mt-${bfd_target}
+# Set with_gnu_as and with_gnu_ld as appropriate.
+# This is commented out for now.
+#if [ x${with_gnu_as} != xyes ] && echo ${configdirs} | grep gas > /dev/null && [ -d ${srcdir}/gas ]; then
+#  with_gnu_as=yes
+#  withoptions="$withoptions -with-gnu-as"
+#fi
+#if [ x${with_gnu_ld} != xyes ] && echo ${configdirs} | grep ld > /dev/null && [ -d ${srcdir}/ld ]; then
+#  with_gnu_ld=yes
+#  withoptions="$withoptions -with-gnu-ld"
+#fi
 
 #
 # Local Variables:
 # fill-column: 131
 # End:
 #
-

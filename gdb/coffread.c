@@ -1,6 +1,7 @@
 /* Read coff symbol tables and convert to internal format, for GDB.
    Contributed by David D. Johnson, Brown University (ddj@cs.brown.edu).
-   Copyright 1987, 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1987, 1988, 1989, 1990, 1991, 1992, 1993
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
-
+
 #include "defs.h"
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -674,11 +675,7 @@ record_minimal_symbol (name, address, type)
   /* We don't want TDESC entry points in the minimal symbol table */
   if (name[0] == '@') return;
 
-  /* mst_text isn't true, but apparently COFF doesn't tell us what it really
-     is, so this guess is more useful than mst_unknown.  */
-  prim_record_minimal_symbol (savestring (name, strlen (name)),
-			     address,
-			     type);
+  prim_record_minimal_symbol (savestring (name, strlen (name)), address, type);
 }
 
 /* coff_symfile_init ()
@@ -913,6 +910,22 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
   if (!stream)
    perror_with_name(objfile->name);
 
+  /* Work around a stdio bug in SunOS4.1.1 (this makes me nervous....
+     it's hard to know I've really worked around it.  The fix should be
+     harmless, anyway).  The symptom of the bug is that the first
+     fread (in read_one_sym), will (in my example) actually get data
+     from file offset 268, when the fseek was to 264 (and ftell shows
+     264).  This causes all hell to break loose.  I was unable to
+     reproduce this on a short test program which operated on the same
+     file, performing (I think) the same sequence of operations.
+
+     It stopped happening when I put in this rewind().
+
+     FIXME: Find out if this has been reported to Sun, whether it has
+     been fixed in a later release, etc.  */
+
+  rewind (stream);
+
   /* Position to read the symbol table. */
   val = fseek (stream, (long)symtab_offset, 0);
   if (val < 0)
@@ -967,9 +980,7 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
       /* Typedefs should not be treated as symbol definitions.  */
       if (ISFCN (cs->c_type) && cs->c_sclass != C_TPDEF)
 	{
-	  /* record as a minimal symbol.  if we get '.bf' next,
-	   * then we undo this step
-	   */
+	  /* Record all functions -- external and static -- in minsyms. */
 	  record_minimal_symbol (cs->c_name, cs->c_value, mst_text);
 
 	  fcn_line_ptr = main_aux.x_sym.x_fcnary.x_fcn.x_lnnoptr;
@@ -1047,6 +1058,11 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 	      break;
 	    /* fall in for static symbols that don't start with '.' */
 	  case C_EXT:
+	    /* Record external symbols in minsyms if we don't have debug
+	       info for them.  FIXME, this is probably the wrong thing
+	       to do.  Why don't we record them even if we do have
+	       debug symbol info?  What really belongs in the minsyms
+	       anyway?  Fred!??  */
 	    if (!SDB_TYPE (cs->c_type)) {
 		/* FIXME: This is BOGUS Will Robinson! 
 	 	Coff should provide the SEC_CODE flag for executable sections,
@@ -1180,7 +1196,6 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
 
   if (last_source_file)
     coff_end_symtab (objfile);
-  fclose (stream);
 
   /* Patch up any opaque types (references to types that are not defined
      in the file where they are referenced, e.g. "struct foo *bar").  */
@@ -1657,17 +1672,17 @@ process_coff_symbol (cs, aux, objfile)
 	    add_param_to_type(&in_function_type,sym);
 #endif
 	    coff_add_symbol_to_list (sym, &coff_local_symbols);
-#if !defined (BELIEVE_PCC_PROMOTION)
+#if !defined (BELIEVE_PCC_PROMOTION) && (TARGET_BYTE_ORDER == BIG_ENDIAN)
 	    /* If PCC says a parameter is a short or a char,
-	       it is really an int.  */
+	       aligned on an int boundary, realign it to the "little end"
+	       of the int.  */
 	    temptype = lookup_fundamental_type (current_objfile, FT_INTEGER);
 	    if (TYPE_LENGTH (SYMBOL_TYPE (sym)) < TYPE_LENGTH (temptype)
-		&& TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_INT)
+		&& TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_INT
+		&& 0 == SYMBOL_VALUE (sym) % TYPE_LENGTH (temptype))
 		{
-		    SYMBOL_TYPE (sym) = TYPE_UNSIGNED (SYMBOL_TYPE (sym))
-			? lookup_fundamental_type (current_objfile,
-						   FT_UNSIGNED_INTEGER)
-			    : temptype;
+		    SYMBOL_VALUE (sym) += TYPE_LENGTH (temptype)
+				        - TYPE_LENGTH (SYMBOL_TYPE (sym));
 		}
 #endif
 	    break;
@@ -1677,6 +1692,8 @@ process_coff_symbol (cs, aux, objfile)
 	    SYMBOL_VALUE (sym) = SDB_REG_TO_REGNUM(cs->c_value);
 	    coff_add_symbol_to_list (sym, &coff_local_symbols);
 #if !defined (BELIEVE_PCC_PROMOTION)
+	/* FIXME:  This should retain the current type, since it's just
+	   a register value.  gnu@adobe, 26Feb93 */
 	    /* If PCC says a parameter is a short or a char,
 	       it is really an int.  */
 	    temptype = lookup_fundamental_type (current_objfile, FT_INTEGER);
@@ -2047,7 +2064,6 @@ coff_read_struct_type (index, length, lastsym)
 /* Read a definition of an enumeration type,
    and create and return a suitable type object.
    Also defines the symbols that represent the values of the type.  */
-/* Currently assumes it's sizeof (int) and doesn't use length.  */
 
 /* ARGSUSED */
 static struct type *
@@ -2107,7 +2123,10 @@ coff_read_enum_type (index, length, lastsym)
 
   /* Now fill in the fields of the type-structure.  */
 
-  TYPE_LENGTH (type) =  TARGET_INT_BIT / TARGET_CHAR_BIT;
+  if (length > 0)
+    TYPE_LENGTH (type) =  length;
+  else
+    TYPE_LENGTH (type) =  TARGET_INT_BIT / TARGET_CHAR_BIT;	/* Assume ints */
   TYPE_CODE (type) = TYPE_CODE_ENUM;
   TYPE_NFIELDS (type) = nsyms;
   TYPE_FIELDS (type) = (struct field *)

@@ -33,7 +33,6 @@ static char *xmalloc (), *xrealloc ();
 #include "sysdep.h"
 #include <stdio.h>
 #include <errno.h>
-#include <sys/types.h>
 #ifndef	NO_SYS_FILE
 #include <sys/file.h>
 #endif

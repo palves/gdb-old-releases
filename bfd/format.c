@@ -135,6 +135,10 @@ DEFUN(bfd_check_format,(abfd, format),
 
     abfd->xvec = *target;	/* Change BFD's target temporarily */
     bfd_seek (abfd, (file_ptr)0, SEEK_SET);
+    /* If _bfd_check_format neglects to set bfd_error, assume wrong_format.
+       We didn't used to even pay any attention to bfd_error, so I suspect
+       that some _bfd_check_format might have this problem.  */
+    bfd_error = wrong_format;
     temp = BFD_SEND_FMT (abfd, _bfd_check_format, (abfd));
     if (temp) {				/* This format checks out as ok! */
       right_targ = temp;
@@ -153,6 +157,10 @@ DEFUN(bfd_check_format,(abfd, format),
        */
       break;
 #endif
+    } else if (bfd_error != wrong_format) {
+      abfd->xvec = save_targ;
+      abfd->format = bfd_unknown;
+      return false;
     }
   }
 

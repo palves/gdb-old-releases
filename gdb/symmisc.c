@@ -1,5 +1,5 @@
 /* Do various things to symbol tables (other than lookup), for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -34,12 +34,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define DEV_TTY "/dev/tty"
 #endif
 
-/* Unfortunately for debugging, stderr is usually a macro.  Better if we
-   make a variable which has the same value and which is accessible when
-   debugging GDB with itself.  */
-FILE *std_in  = stdin;
-FILE *std_out = stdout;
-FILE *std_err = stderr;
+/* Unfortunately for debugging, stderr is usually a macro.  This is painful
+   when calling functions that take FILE *'s from the debugger.
+   So we make a variable which has the same value and which is accessible when
+   debugging GDB with itself.  Because stdin et al need not be constants,
+   we initialize them in the _initialize_symmisc function at the bottom
+   of the file.  */
+FILE *std_in;
+FILE *std_out;
+FILE *std_err;
 
 /* Prototypes for local functions */
 
@@ -506,6 +509,10 @@ print_symbol (symbol, depth, outfile)
 	  fprintf (outfile, "parameter register %ld,", SYMBOL_VALUE (symbol));
 	  break;
 
+	case LOC_REGPARM_ADDR:
+	  fprintf (outfile, "address parameter register %ld,", SYMBOL_VALUE (symbol));
+	  break;
+
 	case LOC_LOCAL:
 	  if (SYMBOL_BASEREG_VALID (symbol))
 	    {
@@ -529,6 +536,10 @@ print_symbol (symbol, depth, outfile)
 	  fprintf (outfile, "block (object 0x%x) starting at 0x%x,",
 		   (unsigned int) SYMBOL_BLOCK_VALUE (symbol),
 		   BLOCK_START (SYMBOL_BLOCK_VALUE (symbol)));
+	  break;
+
+	case LOC_OPTIMIZED_OUT:
+	  fprintf (outfile, "optimized out");
 	  break;
 
         default:
@@ -648,6 +659,9 @@ print_partial_symbol (p, count, what, outfile)
 	case LOC_REGPARM:
 	  fputs_filtered ("register parameter", outfile);
 	  break;
+	case LOC_REGPARM_ADDR:
+	  fputs_filtered ("register address parameter", outfile);
+	  break;
 	case LOC_LOCAL:
 	  fputs_filtered ("stack parameter", outfile);
 	  break;
@@ -665,6 +679,9 @@ print_partial_symbol (p, count, what, outfile)
 	  break;
 	case LOC_LOCAL_ARG:
 	  fputs_filtered ("shuffled arg", outfile);
+	  break;
+	case LOC_OPTIMIZED_OUT:
+	  fputs_filtered ("optimized out", outfile);
 	  break;
 	default:
 	  fputs_filtered ("<invalid location>", outfile);
@@ -787,4 +804,14 @@ extend_psymbol_list (listp, objfile)
      program works correctly */
   listp->next = listp->list + listp->size;
   listp->size = new_size;
+}
+
+
+/* Do early runtime initializations. */
+void
+_initialize_symmisc ()
+{
+  std_in  = stdin;
+  std_out = stdout;
+  std_err = stderr;
 }

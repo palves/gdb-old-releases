@@ -45,7 +45,9 @@ parse_binary_operation PARAMS ((char *));
 static void
 print_doc_line PARAMS ((FILE *, char *));
 
-/* Add element named NAME to command list *LIST.
+/* Add element named NAME.
+   CLASS is the top level category into which commands are broken down
+   for "help" purposes.
    FUN should be the function to execute the command;
    it will get a character string as argument, with leading
    and trailing blanks already eliminated.
@@ -53,7 +55,9 @@ print_doc_line PARAMS ((FILE *, char *));
    DOC is a documentation string for the command.
    Its first line should be a complete sentence.
    It should start with ? for a command that is an abbreviation
-   or with * for a command that most users don't need to know about.  */
+   or with * for a command that most users don't need to know about.
+
+   Add this command to command list *LIST.  */
 
 struct cmd_list_element *
 add_cmd (name, class, fun, doc, list)
@@ -1054,10 +1058,24 @@ do_setshow_command (arg, from_tty, c)
 	case var_uinteger:
 	  if (arg == NULL)
 	    error_no_arg ("integer to set it to.");
-	  *(int *) c->var = parse_and_eval_address (arg);
-	  if (*(int *) c->var == 0)
-	    *(int *) c->var = UINT_MAX;
+	  *(unsigned int *) c->var = parse_and_eval_address (arg);
+	  if (*(unsigned int *) c->var == 0)
+	    *(unsigned int *) c->var = UINT_MAX;
 	  break;
+	case var_integer:
+	  {
+	    unsigned int val;
+	    if (arg == NULL)
+	      error_no_arg ("integer to set it to.");
+	    val = parse_and_eval_address (arg);
+	    if (val == 0)
+	      *(int *) c->var = INT_MAX;
+	    else if (val >= INT_MAX)
+	      error ("integer %u out of range", val);
+	    else
+	      *(int *) c->var = val;
+	    break;
+	  }
 	case var_zinteger:
 	  if (arg == NULL)
 	    error_no_arg ("integer to set it to.");
@@ -1101,8 +1119,17 @@ do_setshow_command (arg, from_tty, c)
 	}
 	/* else fall through */
       case var_zinteger:
-	fprintf_filtered (stdout, "%d", *(unsigned int *) c->var);
+	fprintf_filtered (stdout, "%u", *(unsigned int *) c->var);
 	break;
+      case var_integer:
+	if (*(int *) c->var == INT_MAX)
+	  {
+	    fputs_filtered ("unlimited", stdout);
+	  }
+	else
+	  fprintf_filtered (stdout, "%d", *(int *) c->var);
+	break;
+	    
       default:
 	error ("gdb internal error: bad var_type in do_setshow_command");
       }
@@ -1136,13 +1163,17 @@ cmd_show_list (list, from_tty, prefix)
   }
 }
 
-#ifndef CANT_FORK
 /* ARGSUSED */
 static void
 shell_escape (arg, from_tty)
      char *arg;
      int from_tty;
 {
+#ifdef CANT_FORK
+  /* FIXME: what about errors (I don't know how GO32 system() handles
+     them)?  */
+  system (arg);
+#else /* Can fork.  */
   int rc, status, pid;
   char *p, *user_shell;
 
@@ -1171,10 +1202,9 @@ shell_escape (arg, from_tty)
       ;
   else
     error ("Fork failed");
+#endif /* Can fork.  */
 }
-#endif
 
-#ifndef CANT_FORK
 static void
 make_command (arg, from_tty)
      char *arg;
@@ -1193,7 +1223,6 @@ make_command (arg, from_tty)
   
   shell_escape (p, from_tty);
 }
-#endif
 
 static void
 show_user_1 (c, stream)
@@ -1205,10 +1234,13 @@ show_user_1 (c, stream)
   cmdlines = c->user_commands;
   if (!cmdlines)
     return;
-  fprintf_filtered (stream, "User command %s:\n", c->name);
+  fputs_filtered ("User command ", stream);
+  fputs_filtered (c->name, stream);
+  fputs_filtered (":\n", stream);
   while (cmdlines)
     {
-      fprintf_filtered (stream, "%s\n", cmdlines->line); 
+      fputs_filtered (cmdlines->line, stream); 
+      fputs_filtered ("\n", stream); 
       cmdlines = cmdlines->next;
     }
   fputs_filtered ("\n", stream);
@@ -1243,15 +1275,11 @@ show_user (args, from_tty)
 void
 _initialize_command ()
 {
-#ifndef CANT_FORK
   add_com ("shell", class_support, shell_escape,
 	   "Execute the rest of the line as a shell command.  \n\
 With no arguments, run an inferior shell.");
-#endif
-#ifndef CANT_FORK
   add_com ("make", class_support, make_command,
 	   "Run the ``make'' program using the rest of the line as arguments.");
-#endif
   add_cmd ("user", no_class, show_user, 
 	   "Show definitions of user defined commands.\n\
 Argument is the name of the user defined command.\n\

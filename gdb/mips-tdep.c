@@ -32,7 +32,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 #include <sys/param.h>
-#include <sys/dir.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 
@@ -55,6 +54,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/stat.h>
 
 
+/* Some MIPS boards don't support floating point, so we permit the
+   user to turn it off.  */
+int mips_fpu = 1;
+
+/* Heuristic_proc_start may hunt through the text section for a long
+   time across a 2400 baud serial line.  Allows the user to limit this
+   search.  */
+static unsigned int heuristic_fence_post = 0;
+
 #define PROC_LOW_ADDR(proc) ((proc)->pdr.adr) /* least address */
 #define PROC_HIGH_ADDR(proc) ((proc)->pdr.iline) /* upper address bound */
 #define PROC_FRAME_OFFSET(proc) ((proc)->pdr.frameoffset)
@@ -83,17 +91,18 @@ read_next_frame_reg(fi, regno)
      FRAME fi;
      int regno;
 {
-#define SIGFRAME_BASE   sizeof(struct sigcontext)
-#define SIGFRAME_PC_OFF (-SIGFRAME_BASE+ 2*sizeof(int))
-#define SIGFRAME_SP_OFF (-SIGFRAME_BASE+32*sizeof(int))
-#define SIGFRAME_RA_OFF (-SIGFRAME_BASE+34*sizeof(int))
+  /* If it is the frame for sigtramp we have a complete sigcontext
+     immediately below the frame and we get the saved registers from there.
+     If the stack layout for sigtramp changes we might have to change these
+     constants and the companion fixup_sigtramp in mipsread.c  */
+#define SIGFRAME_BASE		0x12c	/* sizeof(sigcontext) */
+#define SIGFRAME_PC_OFF		(-SIGFRAME_BASE + 2 * 4)
+#define SIGFRAME_REGSAVE_OFF	(-SIGFRAME_BASE + 3 * 4)
   for (; fi; fi = fi->next)
       if (in_sigtramp(fi->pc, 0)) {
-	  /* No idea if this code works. --PB. */
 	  int offset;
 	  if (regno == PC_REGNUM) offset = SIGFRAME_PC_OFF;
-	  else if (regno == RA_REGNUM) offset = SIGFRAME_RA_OFF;
-	  else if (regno == SP_REGNUM) offset = SIGFRAME_SP_OFF;
+	  else if (regno < 32) offset = SIGFRAME_REGSAVE_OFF + regno * 4;
 	  else return 0;
 	  return read_memory_integer(fi->frame + offset, 4);
       }
@@ -119,19 +128,43 @@ mips_frame_saved_pc(frame)
 static struct mips_extra_func_info temp_proc_desc;
 static struct frame_saved_regs temp_saved_regs;
 
+/* This fencepost looks highly suspicious to me.  Removing it also
+   seems suspicious as it could affect remote debugging across serial
+   lines.  */
+
 static CORE_ADDR
 heuristic_proc_start(pc)
     CORE_ADDR pc;
 {
     CORE_ADDR start_pc = pc;
-    CORE_ADDR fence = start_pc - 200;
+    CORE_ADDR fence = start_pc - heuristic_fence_post;
 
     if (start_pc == 0)	return 0;
-    if (fence < VM_MIN_ADDRESS) fence = VM_MIN_ADDRESS;
+
+    if (heuristic_fence_post == UINT_MAX
+	|| fence < VM_MIN_ADDRESS)
+      fence = VM_MIN_ADDRESS;
 
     /* search back for previous return */
     for (start_pc -= 4; ; start_pc -= 4)
-	if (start_pc < fence) return 0; 
+	if (start_pc < fence)
+	  {
+	    /* It's not clear to me why we reach this point when
+	       stop_soon_quietly, but with this test, at least we
+	       don't print out warnings for every child forked (eg, on
+	       decstation).  22apr93 rich@cygnus.com.  */
+	    if (!stop_soon_quietly)
+	      {
+		if (fence == VM_MIN_ADDRESS)
+		  warning("Hit beginning of text section without finding");
+		else
+		  warning("Hit heuristic-fence-post without finding");
+		
+		warning("enclosing function for pc 0x%x", pc);
+	      }
+
+	    return 0; 
+	  }
 	else if (ABOUT_TO_RETURN(start_pc))
 	    break;
 
@@ -475,7 +508,7 @@ mips_push_dummy_frame()
    *  (low memory)
    */
   PROC_REG_MASK(proc_desc) = GEN_REG_SAVE_MASK;
-  PROC_FREG_MASK(proc_desc) = FLOAT_REG_SAVE_MASK;
+  PROC_FREG_MASK(proc_desc) = mips_fpu ? FLOAT_REG_SAVE_MASK : 0;
   PROC_REG_OFFSET(proc_desc) = /* offset of (Saved R31) from FP */
       -sizeof(long) - 4 * SPECIAL_REG_SAVE_COUNT;
   PROC_FREG_OFFSET(proc_desc) = /* offset of (Saved D18) from FP */
@@ -489,8 +522,8 @@ mips_push_dummy_frame()
 	write_memory (save_address, (char *)&buffer, sizeof(REGISTER_TYPE));
 	save_address -= 4;
       }
-  /* save floating-points registers */
-  save_address = sp + PROC_FREG_OFFSET(proc_desc);
+  /* save floating-points registers starting with high order word */
+  save_address = sp + PROC_FREG_OFFSET(proc_desc) + 4;
   for (ireg = 32; --ireg >= 0; )
     if (PROC_FREG_MASK(proc_desc) & (1 << ireg))
       {
@@ -507,9 +540,11 @@ mips_push_dummy_frame()
   write_memory (sp - 8, (char *)&buffer, sizeof(REGISTER_TYPE));
   buffer = read_register (LO_REGNUM);
   write_memory (sp - 12, (char *)&buffer, sizeof(REGISTER_TYPE));
-  buffer = read_register (FCRCS_REGNUM);
+  buffer = read_register (mips_fpu ? FCRCS_REGNUM : ZERO_REGNUM);
   write_memory (sp - 16, (char *)&buffer, sizeof(REGISTER_TYPE));
-  sp -= 4 * (GEN_REG_SAVE_COUNT+FLOAT_REG_SAVE_COUNT+SPECIAL_REG_SAVE_COUNT);
+  sp -= 4 * (GEN_REG_SAVE_COUNT
+	     + (mips_fpu ? FLOAT_REG_SAVE_COUNT : 0)
+	     + SPECIAL_REG_SAVE_COUNT);
   write_register (SP_REGNUM, sp);
   PROC_LOW_ADDR(proc_desc) = sp - CALL_DUMMY_SIZE + CALL_DUMMY_START_OFFSET;
   PROC_HIGH_ADDR(proc_desc) = sp;
@@ -568,7 +603,8 @@ mips_pop_frame()
 
       write_register (HI_REGNUM, read_memory_integer(new_sp - 8, 4));
       write_register (LO_REGNUM, read_memory_integer(new_sp - 12, 4));
-      write_register (FCRCS_REGNUM, read_memory_integer(new_sp - 16, 4));
+      if (mips_fpu)
+	write_register (FCRCS_REGNUM, read_memory_integer(new_sp - 16, 4));
     }
 }
 
@@ -697,9 +733,10 @@ isa_NAN(p, len)
   else return 1;
 }
 
-/* To skip prologues, I use this predicate. Returns either PC
-   itself if the code at PC does not look like a function prologue,
-   PC+4 if it does (our caller does not need anything more fancy). */
+/* To skip prologues, I use this predicate.  Returns either PC
+   itself if the code at PC does not look like a function prologue;
+   otherwise returns an address that (if we're lucky) follows
+   the prologue. */
 
 CORE_ADDR
 mips_skip_prologue(pc)
@@ -709,18 +746,36 @@ mips_skip_prologue(pc)
     struct block *b;
     unsigned long inst;
     int offset;
+    int seen_sp_adjust = 0;
 
-    /* For -g modules and most functions anyways the
-       first instruction adjusts the stack.
-       But we allow some number of stores before the stack adjustment.
-       (These are emitted by varags functions compiled by gcc-2.0. */
+    /* Skip the typical prologue instructions. These are the stack adjustment
+       instruction and the instructions that save registers on the stack
+       or in the gcc frame.  */
     for (offset = 0; offset < 100; offset += 4) {
 	inst = read_memory_integer(pc + offset, 4);
-	if ((inst & 0xffff0000) == 0x27bd0000) /* addiu $sp,$sp,offset */
-	    return pc + offset + 4;
-	if ((inst & 0xFFE00000) != 0xAFA00000) /* sw reg,n($sp) */
+	if ((inst & 0xffff0000) == 0x27bd0000)	/* addiu $sp,$sp,offset */
+	    seen_sp_adjust = 1;
+	else if ((inst & 0xFFE00000) == 0xAFA00000 && (inst & 0x001F0000))
+	    continue;				/* sw reg,n($sp) */
+						/* reg != $zero */
+	else if ((inst & 0xFFE00000) == 0xE7A00000) /* swc1 freg,n($sp) */
+	    continue;
+	else if ((inst & 0xF3E00000) == 0xA3C00000 && (inst & 0x001F0000))
+						/* sx reg,n($s8) */
+	    continue;				/* reg != $zero */
+	else if (inst == 0x03A0F021)		/* move $s8,$sp */
+	    continue;
+	else
 	    break;
     }
+    return pc + offset;
+
+/* FIXME schauer. The following code seems no longer necessary if we
+   always skip the typical prologue instructions.  */
+
+#if 0
+    if (seen_sp_adjust)
+      return pc + offset;
 
     /* Well, it looks like a frameless. Let's make sure.
        Note that we are not called on the current PC,
@@ -742,4 +797,28 @@ mips_skip_prologue(pc)
 	return pc + 4;
 
     return pc;
+#endif
+}
+
+/* Let the user turn off floating point and set the fence post for
+   heuristic_proc_start.  */
+
+void
+_initialize_mips_tdep ()
+{
+  add_show_from_set
+    (add_set_cmd ("mipsfpu", class_support, var_boolean,
+		  (char *) &mips_fpu,
+		  "Set use of floating point coprocessor.\n\
+Turn off to avoid using floating point instructions when calling functions\n\
+or dealing with return values.", &setlist),
+     &showlist);
+
+  add_show_from_set
+    (add_set_cmd ("heuristic-fence-post", class_support, var_uinteger,
+		  (char *) &heuristic_fence_post,
+		  "Set the distance searched for the start of a function.\n\
+Set number of bytes to be searched backward to find the beginning of a\n\
+function without symbols.", &setlist),
+     &showlist);
 }

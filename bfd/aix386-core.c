@@ -42,6 +42,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <errno.h>
 
+#if defined (_AIX) && defined (_I386)
+#define NOCHECKS		/* this is for coredump.h */
+#define _h_USER			/* avoid including user.h from coredump.h */
+#include <uinfo.h>
+#include <sys/i386/coredump.h>
+#endif /* _AIX && _I386 */
+
 /* maybe this could work on some other i386 but I have not tried it
  * mtranle@paris - Tue Sep 24 12:49:35 1991
  */
@@ -282,6 +289,10 @@ DEFUN(aix386_core_file_matches_executable_p, (core_bfd, exec_bfd),
 #define aix386_bfd_relax_section bfd_generic_relax_section
 #define aix386_bfd_seclet_link \
   ((boolean (*) PARAMS ((bfd *, PTR, boolean))) bfd_false)
+#define aix386_bfd_reloc_type_lookup \
+  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
+#define aix386_bfd_make_debug_symbol \
+  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
 /* If somebody calls any byte-swapping routines, shoot them.  */
 void
@@ -290,6 +301,7 @@ swap_abort()
   abort(); /* This way doesn't require any declaration for ANSI to fuck up */
 }
 #define	NO_GET	((PROTO(bfd_vma, (*), (         bfd_byte *))) swap_abort )
+#define NO_GETS ((PROTO(bfd_signed_vma (*), (   bfd_byte *))) swap_abort )
 #define	NO_PUT	((PROTO(void,    (*), (bfd_vma, bfd_byte *))) swap_abort )
 
 bfd_target aix386_core_vec =
@@ -307,8 +319,12 @@ bfd_target aix386_core_vec =
     ' ',					/* ar_pad_char */
     16,						/* ar_max_namelen */
     3,						/* minimum alignment power */
-    NO_GET, NO_PUT, NO_GET, NO_PUT, NO_GET, NO_PUT, /* data */
-    NO_GET, NO_PUT, NO_GET, NO_PUT, NO_GET, NO_PUT, /* hdrs */
+    NO_GET, NO_GETS, NO_PUT,
+    NO_GET, NO_GETS, NO_PUT,
+    NO_GET, NO_GETS, NO_PUT, /* data */
+    NO_GET, NO_GETS, NO_PUT,
+    NO_GET, NO_GETS, NO_PUT,
+    NO_GET, NO_GETS, NO_PUT, /* hdrs */
 
     {_bfd_dummy_target, _bfd_dummy_target,
      _bfd_dummy_target, aix386_core_file_p},
@@ -318,6 +334,5 @@ bfd_target aix386_core_vec =
      bfd_false, bfd_false},
     
     JUMP_TABLE(aix386),
+    (PTR) 0
 };
-
-

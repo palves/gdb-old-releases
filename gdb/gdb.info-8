@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.07, January 1993, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.8.
+   This is Edition 4.09, April 1993, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.9.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993 Free Software
 Foundation, Inc.
@@ -42,6 +42,9 @@ Index
 * $_:                                   Convenience Vars.
 * $__:                                  Convenience Vars.
 * .:                                    M2 Scope.
+* .esgdbinit:                           Command Files.
+* .os68gdbinit:                         Command Files.
+* .vxgdbinit:                           Command Files.
 * /proc:                                Process Information.
 * @:                                    Arrays.
 * # in Modula-2:                        GDB/M2.
@@ -51,6 +54,8 @@ Index
 * $_, $__, and value history:           Memory.
 * $:                                    Value History.
 * breakpoint subroutine, remote:        Stub Contents.
+* heuristic-fence-post (MIPS):          MIPS Stack.
+* remotedebug, MIPS protocol:           MIPS Remote.
 * .gdbinit:                             Command Files.
 * COFF versus C++:                      Cplus expressions.
 * ECOFF and C++:                        Cplus expressions.
@@ -69,6 +74,7 @@ Index
 * AMD29K via UDI:                       UDI29K Remote.
 * arguments (to your program):          Arguments.
 * artificial array:                     Arrays.
+* assembly instructions:                Machine Code.
 * assignment:                           Assignment.
 * attach:                               Attach.
 * attach:                               Attach.
@@ -114,8 +120,8 @@ Index
 * clear:                                Delete Breaks.
 * clearing breakpoints, watchpoints:    Delete Breaks.
 * colon, doubled as scope operator:     M2 Scope.
-* colon-colon:                          M2 Scope.
 * colon-colon:                          Variables.
+* colon-colon:                          M2 Scope.
 * command files:                        Hooks.
 * command files:                        Command Files.
 * command line editing:                 Editing.
@@ -136,11 +142,12 @@ Index
 * controlling terminal:                 Input/Output.
 * convenience variables:                Convenience Vars.
 * core:                                 Files.
-* core dump:                            Bug Criteria.
 * core dump file:                       Files.
 * core-file:                            Files.
 * CPU simulator:                        Simulator.
+* crash of debugger:                    Bug Criteria.
 * d:                                    Delete Breaks.
+* debugger crash:                       Bug Criteria.
 * debugging optimized code:             Compilation.
 * debugging stub, example:              Protocol.
 * debugging target:                     Targets.
@@ -151,7 +158,7 @@ Index
 * delete environment:                   Renamed Commands.
 * deleting breakpoints, watchpoints:    Delete Breaks.
 * detach:                               Attach.
-* device:                               Hitachi H8/300 Remote.
+* device:                               Hitachi Remote.
 * directories for source files:         Source Path.
 * directory:                            Source Path.
 * dis:                                  Disabling.
@@ -167,7 +174,8 @@ Index
 * documentation:                        Formatting Documentation.
 * down:                                 Selection.
 * down-silently:                        Selection.
-* download to H8/300:                   Files.
+* download to H8/300 or H8/500:         Files.
+* download to Hitachi SH:               Files.
 * download to Nindy-960:                Files.
 * download to VxWorks:                  VxWorks Download.
 * dynamic linking:                      Files.
@@ -204,13 +212,14 @@ Index
 * flinching:                            Messages/Warnings.
 * floating point:                       Floating Point Hardware.
 * floating point registers:             Registers.
+* floating point, MIPS remote:          MIPS Remote.
 * flush_i_cache:                        Bootstrapping.
 * foo:                                  Symbol Errors.
 * format options:                       Print Settings.
 * formatted output:                     Output Formats.
 * forward-search:                       Search.
-* frame:                                Selection.
 * frame:                                Frames.
+* frame:                                Selection.
 * frame number:                         Frames.
 * frame pointer:                        Frames.
 * frameless execution:                  Frames.
@@ -219,8 +228,8 @@ Index
 * getDebugChar:                         Bootstrapping.
 * GNU C++:                              C.
 * h:                                    Help.
-* H8/300 download:                      Files.
-* H8/300 simulator:                     Simulator.
+* H8/300 or H8/500 download:            Files.
+* H8/300 or H8/500 simulator:           Simulator.
 * handle:                               Signals.
 * handle_exception:                     Stub Contents.
 * handling signals:                     Signals.
@@ -233,6 +242,8 @@ Index
 * history save:                         History.
 * history size:                         History.
 * history substitution:                 History.
+* Hitachi SH download:                  Files.
+* Hitachi SH simulator:                 Simulator.
 * i:                                    Help.
 * i/o:                                  Input/Output.
 * i36-stub.c:                           Remote Serial.
@@ -287,12 +298,15 @@ Index
 * info watchpoints:                     Set Watchpoints.
 * inheritance:                          Debugging C plus plus.
 * init file:                            Command Files.
+* init file name:                       Command Files.
 * initial frame:                        Frames.
 * innermost frame:                      Frames.
 * inspect:                              Data.
 * installation:                         Installing GDB.
+* instructions, assembly:               Machine Code.
 * internal GDB breakpoints:             Set Breaks.
 * interrupt:                            Quitting GDB.
+* interrupting remote programs:         Debug Session.
 * invalid input:                        Bug Criteria.
 * jump:                                 Jumping.
 * kill:                                 Kill Process.
@@ -302,10 +316,12 @@ Index
 * leaving GDB:                          Quitting GDB.
 * linespec:                             List.
 * list:                                 List.
+* listing machine instructions:         Machine Code.
 * load:                                 Files.
 * log file for EB29K:                   Remote Log.
 * lost output:                          Break Commands.
 * m68-stub.c:                           Remote Serial.
+* machine instructions:                 Machine Code.
 * maint info breakpoints:               Set Breaks.
 * maint print psymbols:                 Symbols.
 * maint print symbols:                  Symbols.
@@ -316,6 +332,9 @@ Index
 * memory, viewing as typed object:      Expressions.
 * memory-mapped symbol file:            Files.
 * memset:                               Bootstrapping.
+* MIPS boards:                          MIPS Remote.
+* MIPS remote floating point:           MIPS Remote.
+* MIPS stack:                           MIPS Stack.
 * Modula-2:                             Modula-2.
 * Modula-2 built-ins:                   M2 Operators.
 * Modula-2 checks:                      M2 Checks.
@@ -376,6 +395,7 @@ Index
 * regular expression:                   Set Breaks.
 * reloading symbols:                    Messages/Warnings.
 * remote debugging:                     Remote.
+* remote programs, interrupting:        Debug Session.
 * remote serial debugging summary:      Debug Session.
 * remote serial debugging, overview:    Remote Serial.
 * remote serial protocol:               Protocol.
@@ -388,6 +408,7 @@ Index
 * repeating commands:                   Command Syntax.
 * reporting bugs in GDB:                GDB Bugs.
 * reset:                                Nindy Reset.
+* response time, MIPS debugging:        MIPS Stack.
 * resuming execution:                   Continuing and Stepping.
 * RET:                                  Command Syntax.
 * return:                               Returning.
@@ -404,7 +425,8 @@ Index
 * searching:                            Search.
 * selected frame:                       Stack.
 * serial connections, debugging:        Protocol.
-* serial device for H8/300:             Hitachi H8/300 Remote.
+* serial device, Hitachi micros:        Hitachi Remote.
+* serial line speed, Hitachi micros:    Hitachi Remote.
 * serial protocol, GDB remote:          Protocol.
 * set addressprint:                     Renamed Commands.
 * set args:                             Arguments.
@@ -412,8 +434,8 @@ Index
 * set arrayprint:                       Renamed Commands.
 * set asm-demangle:                     Renamed Commands.
 * set caution:                          Renamed Commands.
-* set check:                            Range Checking.
 * set check:                            Type Checking.
+* set check:                            Range Checking.
 * set check range:                      Range Checking.
 * set check type:                       Type Checking.
 * set complaints:                       Messages/Warnings.
@@ -430,12 +452,14 @@ Index
 * set history write:                    Renamed Commands.
 * set language:                         Manually.
 * set listsize:                         List.
+* set mipsfpu off:                      MIPS Remote.
 * set prettyprint:                      Renamed Commands.
 * set print address:                    Print Settings.
 * set print array:                      Print Settings.
 * set print asm-demangle:               Print Settings.
 * set print demangle:                   Print Settings.
 * set print elements:                   Print Settings.
+* set print max-symbolic-offset:        Print Settings.
 * set print object:                     Print Settings.
 * set print pretty:                     Print Settings.
 * set print sevenbit-strings:           Print Settings.
@@ -494,6 +518,7 @@ Index
 * show print asm-demangle:              Print Settings.
 * show print demangle:                  Print Settings.
 * show print elements:                  Print Settings.
+* show print max-symbolic-offset:       Print Settings.
 * show print object:                    Print Settings.
 * show print pretty:                    Print Settings.
 * show print sevenbit-strings:          Print Settings.
@@ -521,15 +546,18 @@ Index
 * silent:                               Break Commands.
 * sim:                                  Simulator.
 * simulator:                            Simulator.
-* simulator, H8/300:                    Simulator.
+* simulator, H8/300 or H8/500:          Simulator.
+* simulator, Hitachi SH:                Simulator.
 * simulator, Z8000:                     Simulator.
 * size of screen:                       Screen Size.
 * source:                               Command Files.
 * source path:                          Source Path.
 * sparc-stub.c:                         Remote Serial.
+* speed:                                Hitachi Remote.
 * st2000 CMD:                           ST2000 Remote.
 * ST2000 auxiliary commands:            ST2000 Remote.
 * stack frame:                          Frames.
+* stack on MIPS:                        MIPS Stack.
 * stacking targets:                     Active Targets.
 * starting:                             Starting.
 * STDBUG commands (ST2000):             ST2000 Remote.
@@ -550,10 +578,11 @@ Index
 * target core:                          Target Commands.
 * target exec:                          Target Commands.
 * target hms:                           Target Commands.
+* target mips PORT:                     MIPS Remote.
 * target nindy:                         Target Commands.
 * target remote:                        Target Commands.
-* target sim:                           Simulator.
 * target sim:                           Target Commands.
+* target sim:                           Simulator.
 * target st2000:                        Target Commands.
 * target udi:                           Target Commands.
 * target vxworks:                       Target Commands.

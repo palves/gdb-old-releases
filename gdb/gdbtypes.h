@@ -503,20 +503,27 @@ extern struct type *builtin_type_m2_card;
 extern struct type *builtin_type_m2_real;
 extern struct type *builtin_type_m2_bool;
 
+/* Chill types */
 
-/* LONG_LONG is defined if the host has "long long".  */
+extern struct type *builtin_type_chill_bool;
+extern struct type *builtin_type_chill_char;
+extern struct type *builtin_type_chill_long;
+extern struct type *builtin_type_chill_ulong;
+extern struct type *builtin_type_chill_real;
 
-#ifdef LONG_LONG
+/* CC_HAS_LONG_LONG is defined if the host has "long long".  */
+
+#ifdef CC_HAS_LONG_LONG
 
 #define BUILTIN_TYPE_LONGEST builtin_type_long_long
 #define BUILTIN_TYPE_UNSIGNED_LONGEST builtin_type_unsigned_long_long
 
-#else /* not LONG_LONG.  */
+#else /* not CC_HAS_LONG_LONG.  */
 
 #define BUILTIN_TYPE_LONGEST builtin_type_long
 #define BUILTIN_TYPE_UNSIGNED_LONGEST builtin_type_unsigned_long
 
-#endif /* not LONG_LONG.  */
+#endif /* not CC_HAS_LONG_LONG.  */
 
 /* Maximum and minimum values of built-in types */
 

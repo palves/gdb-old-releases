@@ -77,6 +77,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define EM_88K		5		/* Motorola m88k family */
 #define EM_860		7		/* Intel 80860 */
 #define EM_MIPS		8		/* MIPS R3000 */
+/* Has this one been officially allocated?  */
+#define EM_HPPA		9		/* HP PA-RISC */
 
 /* Values for e_version */
 
@@ -134,6 +136,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define NT_FPREGSET	2		/* Contains copy of fpregset struct */
 #define NT_PRPSINFO	3		/* Contains copy of prpsinfo struct */
 
+/* Values of note segment descriptor types for object files.  */
+/* (Only for hppa right now.  Should this be moved elsewhere?)  */
+
+#define NT_VERSION	1		/* Contains a version string.  */
+
 /* These three macros disassemble and assemble a symbol table st_info field,
    which contains the symbol binding and symbol type.  The STB_ and STT_
    defines identify the binding and type. */
@@ -141,6 +148,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define ELF_ST_BIND(val)		(((unsigned int)(val)) >> 4)
 #define ELF_ST_TYPE(val)		((val) & 0xF)
 #define ELF_ST_INFO(bind,type)		(((bind) << 4) + ((type) & 0xF))
+
+#define STN_UNDEF	0		/* undefined symbol index */
 
 #define STB_LOCAL	0		/* Symbol not visible outside obj */
 #define STB_GLOBAL	1		/* Symbol visible outside obj */
@@ -172,3 +181,32 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define ELF_R_SYM(i)	((i)>>8)
 #define ELF_R_TYPE(i)	((unsigned char)(i))
 #define ELF_R_INFO(s,t)	(((s)<<8)+(unsigned char)(t))
+
+/* Dynamic section tags */
+
+#define DT_NULL		0
+#define DT_NEEDED	1
+#define DT_PLTRELSZ	2
+#define DT_PLTGOT	3
+#define DT_HASH		4
+#define DT_STRTAB	5
+#define DT_SYMTAB	6
+#define DT_RELA		7
+#define DT_RELASZ	8
+#define DT_RELAENT	9
+#define DT_STRSZ	10
+#define DT_SYMENT	11
+#define DT_INIT		12
+#define DT_FINI		13
+#define DT_SONAME	14
+#define DT_RPATH	15
+#define DT_SYMBOLIC	16
+#define DT_REL		17
+#define DT_RELSZ	18
+#define DT_RELENT	19
+#define DT_PLTREL	20
+#define DT_DEBUG	21
+#define DT_TEXTREL	22
+#define DT_JMPREL	23
+#define DT_LOPROC	0x70000000
+#define DT_HIPROC	0x7fffffff

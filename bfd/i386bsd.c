@@ -31,6 +31,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	PAGE_SIZE	4096
 #define	SEGMENT_SIZE	PAGE_SIZE
 #define	DEFAULT_ARCH	bfd_arch_i386
+#define MACHTYPE_OK(mtype) ((mtype) == M_386 || (mtype) == M_UNKNOWN)
 
 #define MY(OP) CAT(i386bsd_,OP)
 #define TARGETNAME "a.out-i386-bsd"

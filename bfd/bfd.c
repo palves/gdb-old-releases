@@ -157,6 +157,7 @@ CODE_FRAGMENT
 .      struct trad_core_struct *trad_core_data;
 .      struct hppa_data_struct *hppa_data;
 .      struct hppa_core_struct *hppa_core_data;
+.      struct sgi_core_struct *sgi_core_data;
 .      PTR any;
 .      } tdata;
 .  
@@ -175,6 +176,8 @@ CODE_FRAGMENT
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
+#include "coff/sym.h"
+#include "libecoff.h"
 
 #undef strerror
 extern char *strerror();
@@ -196,7 +199,8 @@ CONST short _bfd_host_big_endian = 0x0100;
 
 bfd_ec bfd_error = no_error;
 
-CONST char *CONST bfd_errmsgs[] = { "No error",
+CONST char *CONST bfd_errmsgs[] = {
+                        "No error",
                         "System call error",
                         "Invalid target",
                         "File in wrong format",
@@ -213,6 +217,7 @@ CONST char *CONST bfd_errmsgs[] = { "No error",
                         "Nonrepresentable section on output",
 			"Symbol needs debug section which does not exist",
 			"Bad value",
+			"File truncated",
                         "#<Invalid error code>"
                        };
 
@@ -563,6 +568,50 @@ bfd_get_size (abfd)
     return 0;
 
   return buf.st_size;
+}
+
+/*
+FUNCTION
+	The bfd_get_gp_size function
+
+SYNOPSIS
+	int bfd_get_gp_size(bfd *);
+
+DESCRIPTION
+	Get the maximum size of objects to be optimized using the GP
+	register under MIPS ECOFF.  This is typically set by the -G
+	argument to the compiler, assembler or linker.
+*/
+
+int
+bfd_get_gp_size (abfd)
+     bfd *abfd;
+{
+  if (abfd->xvec->flavour == bfd_target_ecoff_flavour)
+    return ecoff_data (abfd)->gp_size;
+  return 0;
+}
+
+/*
+FUNCTION
+	The bfd_set_gp_size function
+
+SYNOPSIS
+	void bfd_set_gp_size(bfd *, int);
+
+DESCRIPTION
+	Set the maximum size of objects to be optimized using the GP
+	register under MIPS ECOFF.  This is typically set by the -G
+	argument to the compiler, assembler or linker.
+*/
+
+void
+bfd_set_gp_size (abfd, i)
+     bfd *abfd;
+     int i;
+{
+  if (abfd->xvec->flavour == bfd_target_ecoff_flavour)
+    ecoff_data (abfd)->gp_size = i;
 }
 
 /*

@@ -108,13 +108,13 @@ struct mips_opcode
    "D" distination register
 */
 
-#define one(x) (x << OP_SH_OP)
-#define op_func(x, y) ((x << OP_SH_OP) | y)
-#define op_cond(x, y) ((x << OP_SH_OP) | (y << OP_SH_RT))
-#define op_rs_func(x, y, z) ((x << OP_SH_OP) | (y << OP_SH_RS) | z)
-#define op_rs_b11(x, y, z) ((x << OP_SH_OP) | (y << OP_SH_FMT) | z)
-#define op_o16(x, y) ((x << OP_SH_OP) | (y << OP_SH_RT))
-#define op_bc(x, y, z) ((x << OP_SH_OP) | (y << OP_SH_RS) | (z << OP_SH_RT))
+#define one(x) ((unsigned)(x) << OP_SH_OP)
+#define op_func(x, y) (one(x) | y)
+#define op_cond(x, y) (one(x) | (y << OP_SH_RT))
+#define op_rs_func(x, y, z) (one(x) | (y << OP_SH_RS) | z)
+#define op_rs_b11(x, y, z) (one(x) | (y << OP_SH_FMT) | z)
+#define op_o16(x, y) (one(x) | (y << OP_SH_RT))
+#define op_bc(x, y, z) (one(x) | (y << OP_SH_RS) | (z << OP_SH_RT))
 
 struct mips_opcode mips_opcodes[] = 
 {

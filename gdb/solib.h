@@ -54,4 +54,3 @@ solib_create_inferior_hook PARAMS((void));	/* solib.c */
 
 extern int
 solib_address PARAMS ((CORE_ADDR));		/* solib.c */
-

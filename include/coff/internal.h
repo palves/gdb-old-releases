@@ -79,7 +79,8 @@ struct internal_aouthdr
 
 /********************** STORAGE CLASSES **********************/
 
-#define C_EFCN		-1	/* physical end of function	*/
+/* This used to be defined as -1, but now n_sclass is unsigned.  */
+#define C_EFCN		0xff	/* physical end of function	*/
 #define C_NULL		0
 #define C_AUTO		1	/* automatic variable		*/
 #define C_EXT		2	/* external symbol		*/
@@ -122,27 +123,31 @@ struct internal_aouthdr
 #define C_PRAGMA	111	/* Advice to compiler or linker	*/
 #define C_SEGMENT	112	/* 80960 segment name		*/
 
+  /* Storage classes for m88k */
+#define C_SHADOW        107     /* shadow symbol                */
+#define C_VERSION       108     /* coff version symbol          */
+
  /* New storage classes for RS/6000 */
 #define C_HIDEXT        107	/* Un-named external symbol */
 #define C_BINCL         108	/* Marks beginning of include file */
 #define C_EINCL         109	/* Marks ending of include file */
 
  /* storage classes for stab symbols for RS/6000 */
-#define C_GSYM          ((signed char)0x80)
-#define C_LSYM          ((signed char)0x81)
-#define C_PSYM          ((signed char)0x82)
-#define C_RSYM          ((signed char)0x83)
-#define C_RPSYM         ((signed char)0x84)
-#define C_STSYM         ((signed char)0x85)
-#define C_TCSYM         ((signed char)0x86)
-#define C_BCOMM         ((signed char)0x87)
-#define C_ECOML         ((signed char)0x88)
-#define C_ECOMM         ((signed char)0x89)
-#define C_DECL          ((signed char)0x8c)
-#define C_ENTRY         ((signed char)0x8d)
-#define C_FUN           ((signed char)0x8e)
-#define C_BSTAT         ((signed char)0x8f)
-#define C_ESTAT         ((signed char)0x90)
+#define C_GSYM          (0x80)
+#define C_LSYM          (0x81)
+#define C_PSYM          (0x82)
+#define C_RSYM          (0x83)
+#define C_RPSYM         (0x84)
+#define C_STSYM         (0x85)
+#define C_TCSYM         (0x86)
+#define C_BCOMM         (0x87)
+#define C_ECOML         (0x88)
+#define C_ECOMM         (0x89)
+#define C_DECL          (0x8c)
+#define C_ENTRY         (0x8d)
+#define C_FUN           (0x8e)
+#define C_BSTAT         (0x8f)
+#define C_ESTAT         (0x90)
 
 /********************** SECTION HEADER **********************/
 struct internal_scnhdr
@@ -227,7 +232,7 @@ struct internal_syment
   short n_scnum;		/* section number		*/
   unsigned short n_flags;	/* copy of flags from filhdr	*/
   unsigned short n_type;	/* type and derived type	*/
-  signed char n_sclass;		/* storage class		*/
+  unsigned char n_sclass;		/* storage class		*/
   char n_numaux;		/* number of aux. entries	*/
 };
 
@@ -484,9 +489,36 @@ struct internal_reloc
 
 /* H8500 modes */
 
-#define R_H8500_IMM8  1		/*  8 bit immediate 	*/
-#define R_H8500_IMM16 2		/* 16 bit immediate	*/
-#define R_H8500_PCREL8 3		/*  8 bit pcrel 	*/
+#define R_H8500_IMM8  	1		/*  8 bit immediate 	*/
+#define R_H8500_IMM16 	2		/* 16 bit immediate	*/
+#define R_H8500_PCREL8 	3		/*  8 bit pcrel 	*/
 #define R_H8500_PCREL16 4		/* 16 bit pcrel 	*/
-#define R_H8500_HIGH8  5		/* high 8 bits of 24 bit address */
+#define R_H8500_HIGH8  	5		/* high 8 bits of 24 bit address */
+#define R_H8500_LOW16 	7		/* low 16 bits of 24 bit immediate */
+#define R_H8500_IMM24	6		/* 24 bit immediate */
+#define R_H8500_IMM32   8               /* 32 bit immediate */
+
+
+/* SH modes */
+
+#define R_SH_PCREL8 	3		/*  8 bit pcrel 	*/
+#define R_SH_PCREL16 	4		/* 16 bit pcrel 	*/
+#define R_SH_HIGH8  	5		/* high 8 bits of 24 bit address */
+#define R_SH_LOW16 	7		/* low 16 bits of 24 bit immediate */
+#define R_SH_IMM24	6		/* 24 bit immediate */
+#define R_SH_PCDISP8BY4	9  		/* PC rel 8 bits *4 +ve */
+#define R_SH_PCDISP8BY2	10  		/* PC rel 8 bits *2 +ve */
+#define R_SH_PCDISP8    11  		/* 8 bit branch */
+#define R_SH_PCDISP     12  		/* 12 bit branch */
+#define R_SH_IMM32      14    		/* 32 bit immediate */
+#define R_SH_IMM8   	16
+#define R_SH_IMM8BY2    17
+#define R_SH_IMM8BY4    18
+#define R_SH_IMM4   	19
+#define R_SH_IMM4BY2    20
+#define R_SH_IMM4BY4    21
+#define R_SH_PCRELIMM8BY2   22
+#define R_SH_PCRELIMM8BY4   23
+
+
 

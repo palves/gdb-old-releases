@@ -146,8 +146,9 @@ DEFUN(local_bfd_reloc_type_lookup,(arch, code),
     return &howto_8;
   case BFD_RELOC_8_PCREL:
     return &howto_8_pcrel;
+  default:
+    return (reloc_howto_type *)NULL;
   }
-  return (reloc_howto_type *)NULL;
 }
 
 int bfd_default_scan_num_mach();

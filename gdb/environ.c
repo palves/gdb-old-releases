@@ -106,8 +106,7 @@ get_in_environ (e, var)
   register char *s;
 
   for (; (s = *vector) != NULL; vector++)
-    if (!strncmp (s, var, len)
-	&& s[len] == '=')
+    if (STREQN (s, var, len) && s[len] == '=')
       return &s[len + 1];
 
   return 0;
@@ -127,8 +126,7 @@ set_in_environ (e, var, value)
   register char *s;
 
   for (i = 0; (s = vector[i]) != NULL; i++)
-    if (!strncmp (s, var, len)
-	&& s[len] == '=')
+    if (STREQN (s, var, len) && s[len] == '=')
       break;
 
   if (s == 0)
@@ -175,13 +173,18 @@ unset_in_environ (e, var)
   register char *s;
 
   for (; (s = *vector) != NULL; vector++)
-    if (!strncmp (s, var, len)
-	&& s[len] == '=')
-      {
-	free (s);
-	memcpy (vector, vector + 1,
-		(e->allocated - (vector - e->vector)) * sizeof (char *));
-	e->vector[e->allocated - 1] = 0;
-	return;
-      }
+    {
+      if (STREQN (s, var, len) && s[len] == '=')
+	{
+	  free (s);
+	  /* Walk through the vector, shuffling args down by one, including
+	     the NULL terminator.  Can't use memcpy() here since the regions
+	     overlap, and memmove() might not be available. */
+	  while ((vector[0] = vector[1]) != NULL)
+	    {
+	      vector++;
+	    }
+	  break;
+	}
+    }
 }

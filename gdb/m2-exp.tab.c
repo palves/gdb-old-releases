@@ -151,7 +151,7 @@ extern int yyerrflag;
 YYSTYPE yylval, yyval;
 # define YYERRCODE 256
 
-# line 667 "./m2-exp.y"
+# line 668 "./m2-exp.y"
 
 
 #if 0  /* FIXME! */
@@ -1825,6 +1825,7 @@ case 80:
 				case LOC_LABEL:	/* maybe should go above? */
 				case LOC_BLOCK:
 				case LOC_CONST_BYTES:
+				case LOC_OPTIMIZED_OUT:
 				  /* These are listed so gcc -Wall will reveal
 				     un-handled cases.  */
 				  break;
@@ -1864,7 +1865,7 @@ case 80:
 			    }
 			} break;
 case 81:
-# line 662 "./m2-exp.y"
+# line 663 "./m2-exp.y"
 { yyval.tval = lookup_typename (copy_name (yypvt[-0].sval),
 						expression_context_block, 0); } break;
 	}

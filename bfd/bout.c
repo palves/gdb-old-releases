@@ -660,7 +660,7 @@ b_out_squirt_out_relocs (abfd, section)
 {
 
   arelent **generic;
-  int r_extern;
+  int r_extern = 0;
   int r_idx;
   int incode_mask;  
   int len_1;
@@ -1302,6 +1302,9 @@ DEFUN(b_out_get_relocated_section_contents,(in_abfd,
 #define aout_32_bfd_get_relocated_section_contents  b_out_get_relocated_section_contents
 #define aout_32_bfd_relax_section                   b_out_relax_section
 #define aout_32_bfd_seclet_link			    bfd_generic_seclet_link
+#define aout_32_bfd_reloc_type_lookup		    b_out_reloc_type_lookup
+#define aout_32_bfd_make_debug_symbol \
+  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
 bfd_target b_out_vec_big_host =
 {
@@ -1318,8 +1321,12 @@ bfd_target b_out_vec_big_host =
   16,				/* ar_max_namelen */
   2,				/* minumum alignment power */
 
-  _do_getl64, _do_putl64,  _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
-  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+  _do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
  {_bfd_dummy_target, b_out_object_p, /* bfd_check_format */
    bfd_generic_archive_p, _bfd_dummy_target},
  {bfd_false, b_out_mkobject,	/* bfd_set_format */
@@ -1328,7 +1335,7 @@ bfd_target b_out_vec_big_host =
    _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(aout_32),
-  b_out_reloc_type_lookup,
+  (PTR) 0,
 };
 
 
@@ -1346,8 +1353,12 @@ bfd_target b_out_vec_little_host =
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
      2,				/* minum align */
-_do_getl64, _do_putl64, _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
-_do_getl64, _do_putl64, _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* hdrs */
+_do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* data */
+_do_getl64, _do_getl_signed_64, _do_putl64,
+     _do_getl32, _do_getl_signed_32, _do_putl32,
+     _do_getl16, _do_getl_signed_16, _do_putl16, /* hdrs */
 	 
     {_bfd_dummy_target, b_out_object_p, /* bfd_check_format */
        bfd_generic_archive_p, _bfd_dummy_target},
@@ -1356,5 +1367,5 @@ _do_getl64, _do_putl64, _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* hdrs 
     {bfd_false, b_out_write_object_contents,	/* bfd_write_contents */
        _bfd_write_archive_contents, bfd_false},
   JUMP_TABLE(aout_32),
-  b_out_reloc_type_lookup,
+  (PTR) 0
 };

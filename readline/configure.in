@@ -15,8 +15,8 @@ links=sysdep.h
 case "${host}" in
   *-*-irix*)		host_makefile_frag=config/mh-sysv; files=sysdep-irix.h;;
   i[34]86-ncr-sysv4*)	host_makefile_frag=config/mh-ncr3000 ;;
-  *-*-sysv4*)		host_makefile_frag=config/mh-sysv4 ;;
-  *-*-solaris*)		host_makefile_frag=config/mh-sysv4 ;;
+  *-*-sysv4*)		host_makefile_frag=config/mh-sysv4 ; files=sysdep-sysv4.h;;
+  *-*-solaris2*)	host_makefile_frag=config/mh-sysv4 ;;
   i[34]86-*-sco3.2v4*)	host_makefile_frag=config/mh-sco4; files=sysdep-sco.h ;;
   i[34]86-*-sco*)	host_makefile_frag=config/mh-sco; files=sysdep-sco.h ;;
   m68k-apollo-sysv*)	host_makefile_frag=config/mh-apollo68v ;;    
@@ -29,6 +29,7 @@ case "${host}" in
   *-*-bsd*)						files=sysdep-obsd.h ;;
   *-*-mach*)						files=sysdep-obsd.h ;;
   *-*-sunos3*)						files=sysdep-obsd.h ;;
+  *-*-ultrix2*)						files=sysdep-obsd.h ;;
 esac
 
 # per-target:

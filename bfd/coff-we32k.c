@@ -1,5 +1,5 @@
 /* BFD back-end for we32k COFF files.
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993 Free Software Foundation, Inc.
    Contributed by Brendan Kehoe (brendan@cs.widener.edu).
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -82,8 +82,12 @@ bfd_target we32kcoff_vec =
   15,				/* ar_max_namelen */
 
   3,				/* minimum alignment power */
-  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
-  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
 
  {_bfd_dummy_target, coff_object_p, /* bfd_check_format */
    bfd_generic_archive_p, _bfd_dummy_target},
@@ -93,6 +97,5 @@ bfd_target we32kcoff_vec =
    _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(coff),
-  0, 0,
   COFF_SWAP_TABLE,
 };

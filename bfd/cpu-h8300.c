@@ -82,7 +82,7 @@ CONST bfd_byte *data AND
 FILE *stream)
 {
   /* Find the first entry in the table for this opcode */
-  CONST static char *regnames[] = {
+  static CONST char *regnames[] = {
     "r0h","r1h","r2h","r3h","r4h","r5h","r6h","r7h",
     "r0l","r1l","r2l","r3l","r4l","r5l","r6l","r7l" };
 
@@ -397,8 +397,9 @@ DEFUN(local_bfd_reloc_type_lookup,(arch, code),
     return &howto_8;
   case BFD_RELOC_8_PCREL:
     return &howto_8_pcrel;
+  default:
+    return (reloc_howto_type *)NULL;
   }
-  return (reloc_howto_type *)NULL;
 }
 
 int bfd_default_scan_num_mach();

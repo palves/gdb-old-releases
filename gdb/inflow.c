@@ -436,7 +436,7 @@ new_tty ()
     { close (2); dup (tty); }
   if (tty > 2)
     close(tty);
-#endif /* !go32*/o
+#endif /* !go32 */
 }
 
 /* Kill the inferior process.  Make us have no inferior.  */
@@ -447,9 +447,10 @@ kill_command (arg, from_tty)
      char *arg;
      int from_tty;
 {
+  /* Shouldn't this be target_has_execution?  FIXME.  */
   if (inferior_pid == 0)
     error ("The program is not being run.");
-  if (!query ("Kill the inferior process? "))
+  if (!query ("Kill the program being debugged? "))
     error ("Not confirmed.");
   target_kill ();
 

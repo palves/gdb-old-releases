@@ -25,6 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "value.h"
 #include "command.h"
 #include "gdbcmd.h"
+#include "demangle.h"
 
 int vtblprint;			/* Controls printing of vtbl's */
 int objectprint;		/* Controls looking up an object's derived type
@@ -115,6 +116,8 @@ cp_print_class_method (valaddr, type, stream)
 	  for (j = 0; j < len2; j++)
 	    {
 	      QUIT;
+	      if (TYPE_FN_FIELD_STUB (f, j))
+		check_stub_method (domain, i, j);
 	      if (STREQ (SYMBOL_NAME (sym), TYPE_FN_FIELD_PHYSNAME (f, j)))
 		{
 		  goto common;
@@ -259,14 +262,20 @@ cp_print_value_fields (type, valaddr, stream, format, recurse, pretty,
 		fputs_filtered ("\"( ptr \"", stream);
 	      else
 		fputs_filtered ("\"( nodef \"", stream);
-	      fprint_symbol (stream, TYPE_FIELD_NAME (type, i));
+	      fprintf_symbol_filtered (stream, TYPE_FIELD_NAME (type, i),
+				       language_cplus,
+				       DMGL_PARAMS | DMGL_ANSI);
 	      fputs_filtered ("\" \"", stream);
-	      fprint_symbol (stream, TYPE_FIELD_NAME (type, i));
+	      fprintf_symbol_filtered (stream, TYPE_FIELD_NAME (type, i),
+				       language_cplus,
+				       DMGL_PARAMS | DMGL_ANSI);
 	      fputs_filtered ("\") \"", stream);
 	    }
 	  else
 	    {
-	      fprint_symbol (stream, TYPE_FIELD_NAME (type, i));
+	      fprintf_symbol_filtered (stream, TYPE_FIELD_NAME (type, i),
+				       language_cplus,
+				       DMGL_PARAMS | DMGL_ANSI);
 	      fputs_filtered (" = ", stream);
 	    }
 	  if (TYPE_FIELD_PACKED (type, i))

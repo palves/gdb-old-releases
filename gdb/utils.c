@@ -38,12 +38,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Prototypes for local functions */
 
-#if !defined (NO_MALLOC_CHECK)
+#if defined (NO_MMALLOC) || defined (NO_MMALLOC_CHECK)
+#else
 
 static void
 malloc_botch PARAMS ((void));
 
-#endif /* NO_MALLOC_CHECK  */
+#endif /* NO_MMALLOC, etc */
 
 static void
 fatal_dump_core ();	/* Can't prototype with <varargs.h> usage... */
@@ -413,8 +414,32 @@ quit ()
 #else
   error ("Quit (expect signal %d when inferior is resumed)", SIGINT);
 #endif /* TIOCGPGRP */
+#else
+  error ("Quit");
 #endif
 }
+
+
+#ifdef __GO32__
+
+/* In the absence of signals, poll keyboard for a quit.
+   Called from #define QUIT pollquit() in xm-go32.h. */
+
+void
+pollquit()
+{
+  if (kbhit ())
+    {
+      int k = getkey ();
+      if (k == 1)
+	quit_flag = 1;
+      else if (k == 2)
+	immediate_quit = 1;
+      quit ();
+    }
+}
+
+#endif
 
 /* Control C comes here */
 
@@ -918,9 +943,24 @@ prompt_for_continue ()
   reinitialize_more_filter ();
 
   immediate_quit++;
-  ignore = gdb_readline ("---Type <return> to continue---");
+  /* On a real operating system, the user can quit with SIGINT.
+     But not on GO32.
+
+     'q' is provided on all systems so users don't have to change habits
+     from system to system, and because telling them what to do in
+     the prompt is more user-friendly than expecting them to think of
+     SIGINT.  */
+  ignore =
+    gdb_readline ("---Type <return> to continue, or q <return> to quit---");
   if (ignore)
-    free (ignore);
+    {
+      char *p = ignore;
+      while (*p == ' ' || *p == '\t')
+	++p;
+      if (p[0] == 'q')
+	request_quit (SIGINT);
+      free (ignore);
+    }
   immediate_quit--;
 
   /* Now we have to do this again, so that GDB will know that it doesn't
@@ -1111,82 +1151,6 @@ fputs_filtered (linebuffer, stream)
     }
 }
 
-
-/* fputs_demangled is a variant of fputs_filtered that
-   demangles g++ names.*/
-
-void
-fputs_demangled (linebuffer, stream, arg_mode)
-     char *linebuffer;
-     FILE *stream;
-     int arg_mode;
-{
-#define SYMBOL_MAX 1024
-
-#define SYMBOL_CHAR(c) (isascii(c) \
-  && (isalnum(c) || (c) == '_' || (c) == CPLUS_MARKER))
-
-  char buf[SYMBOL_MAX+1];
-# define DMSLOP 5		/* How much room to leave in buf */
-  char *p;
-
-  if (linebuffer == NULL)
-    return;
-
-  /* If user wants to see raw output, no problem.  */
-  if (!demangle) {
-    fputs_filtered (linebuffer, stream);
-    return;
-  }
-
-  p = linebuffer;
-
-  while ( *p != (char) 0 ) {
-    int i = 0;
-
-    /* collect non-interesting characters into buf */
-    while (*p != (char) 0 && !SYMBOL_CHAR(*p) && i < (int)sizeof(buf)-DMSLOP ) {
-      buf[i++] = *p;
-      p++;
-    }
-    if (i > 0) {
-      /* output the non-interesting characters without demangling */
-      buf[i] = (char) 0;
-      fputs_filtered(buf, stream);
-      i = 0;  /* reset buf */
-    }
-
-    /* and now the interesting characters */
-    while (i < SYMBOL_MAX
-     && *p != (char) 0
-     && SYMBOL_CHAR(*p)
-     && i < (int)sizeof(buf) - DMSLOP) {
-      buf[i++] = *p;
-      p++;
-    }
-    buf[i] = (char) 0;
-    if (i > 0) {
-      char *result = NULL;
-
-      /* Lacking a better method to determine what language this symbol may
-	 have been mangled for, switch on the current_language.  (FIXME) */
-      switch (current_language -> la_language)
-	{
-	  case language_cplus:
-	    result = cplus_demangle (buf, arg_mode);
-	    break;
-	}
-      if (result != NULL ) {
-	fputs_filtered(result, stream);
-	free(result);
-      }
-      else {
-	fputs_filtered(buf, stream);
-      }
-    }
-  }
-}
-
 /* Print a variable number of ARGS using format FORMAT.  If this
    information is going to put the amount written (since the last call
    to REINITIALIZE_MORE_FILTER or the last page break) over the page size,
@@ -1371,33 +1335,47 @@ print_spaces_filtered (n, stream)
 
 /* C++ demangler stuff.  */
 
-/* Print NAME on STREAM, demangling if necessary.  */
+/* fprintf_symbol_filtered attempts to demangle NAME, a symbol in language
+   LANG, using demangling args ARG_MODE, and print it filtered to STREAM.
+   If the name is not mangled, or the language for the name is unknown, or
+   demangling is off, the name is printed in its "raw" form. */
+
 void
-fprint_symbol (stream, name)
+fprintf_symbol_filtered (stream, name, lang, arg_mode)
      FILE *stream;
      char *name;
+     enum language lang;
+     int arg_mode;
 {
-  char *demangled = NULL;
+  char *demangled;
 
-  if (demangle)
+  if (name != NULL)
     {
-      /* Lacking a better method of knowing what demangler to use, pick
-	 one appropriate for whatever the current language is.  (FIXME) */
-      switch (current_language -> la_language)
+      /* If user wants to see raw output, no problem.  */
+      if (!demangle)
 	{
-	  case language_cplus:
-	    demangled = cplus_demangle (name, DMGL_PARAMS | DMGL_ANSI);
-	    break;
+	  fputs_filtered (name, stream);
 	}
-    }
-  if (demangled == NULL)
-    {
-      fputs_filtered (name, stream);
-    }
-  else
-    {
-      fputs_filtered (demangled, stream);
-      free (demangled);
+      else
+	{
+	  switch (lang)
+	    {
+	    case language_cplus:
+	      demangled = cplus_demangle (name, arg_mode);
+	      break;
+	    case language_chill:
+	      demangled = chill_demangle (name);
+	      break;
+	    default:
+	      demangled = NULL;
+	      break;
+	    }
+	  fputs_filtered (demangled ? demangled : name, stream);
+	  if (demangled != NULL)
+	    {
+	      free (demangled);
+	    }
+	}
     }
 }
 
@@ -1539,3 +1517,4 @@ _initialize_utils ()
 #ifdef  SIGWINCH_HANDLER_BODY
         SIGWINCH_HANDLER_BODY
 #endif
+

@@ -65,7 +65,7 @@ CODE_FRAGMENT
 .       {* The relocation was performed, but there was an overflow. *}
 .  bfd_reloc_overflow,
 .
-.       {* The address to relocate was not within the section supplied*}
+.       {* The address to relocate was not within the section supplied. *}
 .  bfd_reloc_outofrange,
 .
 .       {* Used by special functions *}
@@ -74,10 +74,10 @@ CODE_FRAGMENT
 .       {* Unused *}
 .  bfd_reloc_notsupported,
 .
-.       {* Unsupported relocation size requested.  *}
+.       {* Unsupported relocation size requested. *}
 .  bfd_reloc_other,
 .
-.       {* The symbol to relocate against was undefined.*}
+.       {* The symbol to relocate against was undefined. *}
 .  bfd_reloc_undefined,
 .
 .       {* The relocation was performed, but may not be ok - presently
@@ -94,7 +94,7 @@ CODE_FRAGMENT
 .  struct symbol_cache_entry **sym_ptr_ptr;
 .
 .       {* offset in section *}
-.  rawdata_offset address;
+.  bfd_size_type address;
 .
 .       {* addend for relocation value *}
 .  bfd_vma addend;    
@@ -316,13 +316,13 @@ CODE_FRAGMENT
 .          sun4 extended relocs, the value in the offset part of a
 .          relocating field is garbage so we never use it. In this case
 .          the mask would be 0x00000000. *}
-.  bfd_word src_mask;
+.  bfd_vma src_mask;
 .
 .       {* The dst_mask is what parts of the instruction are replaced
 .          into the instruction. In most cases src_mask == dst_mask,
 .          except in the above special case, where dst_mask would be
 .          0x000000ff, and src_mask would be 0x00000000.   *}
-.  bfd_word dst_mask;           
+.  bfd_vma dst_mask;           
 .
 .       {* When some formats create PC relative instructions, they leave
 .          the value of the pc of the place being relocated in the offset
@@ -434,7 +434,7 @@ DEFUN(bfd_perform_relocation,(abfd,
 {
   bfd_vma relocation;
   bfd_reloc_status_type flag = bfd_reloc_ok;
-  bfd_vma addr = reloc_entry->address ;
+  bfd_size_type addr = reloc_entry->address ;
   bfd_vma output_base = 0;
   reloc_howto_type *howto = reloc_entry->howto;
   asection *reloc_target_output_section ;
@@ -760,6 +760,9 @@ CODE_FRAGMENT
 .       {* Low 16 bits.  *}
 .  BFD_RELOC_LO16,
 .
+.	{* 16 bit relocation relative to the global pointer.  *}
+.  BFD_RELOC_MIPS_GPREL,
+.
 .  {* this must be the highest numeric value *}
 .  BFD_RELOC_UNUSED
 . } bfd_reloc_code_real_type;
@@ -801,7 +804,7 @@ INTERNAL_FUNCTION
 
 SYNOPSIS
 	CONST struct reloc_howto_struct *bfd_default_reloc_type_lookup
-	(CONST struct bfd_arch_info *,
+	(bfd *abfd AND
          bfd_reloc_code_real_type  code);
 
 DESCRIPTION
@@ -809,17 +812,18 @@ DESCRIPTION
 
 
 */
+
 CONST struct reloc_howto_struct *
-DEFUN(bfd_default_reloc_type_lookup,(arch,  code),
-     CONST struct bfd_arch_info *arch AND
-      bfd_reloc_code_real_type  code)
+DEFUN(bfd_default_reloc_type_lookup, (abfd, code),
+      bfd *abfd AND
+      bfd_reloc_code_real_type code)
 {
   switch (code) 
     {
     case BFD_RELOC_CTOR:
       /* The type of reloc used in a ctor, which will be as wide as the
 	 address - so either a 64, 32, or 16 bitter.. */
-      switch (arch->bits_per_address) {
+      switch (bfd_get_arch_info (abfd)->bits_per_address) {
       case 64:
 	BFD_FAIL();
       case 32:

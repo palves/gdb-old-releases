@@ -22,7 +22,7 @@
 %You are forbidden to forbid anyone else to use, share and improve
 %what you give them.   Help stamp out software-hoarding!
 
-\def\texinfoversion{2.100}
+\def\texinfoversion{2.107}
 \message{Loading texinfo package [Version \texinfoversion]:}
 \message{}
 
@@ -179,6 +179,7 @@
 % If the next token is an obeyed space (from an @example environment or
 % the like), remove it and recurse.  Otherwise, we're done.
 \def\parseargx{%
+  % \obeyedspace is defined far below, after the definition of \sepspaces.
   \ifx\obeyedspace\temp
     \expandafter\parseargdiscardspace
   \else
@@ -189,8 +190,6 @@
 % Remove a single space (as the delimiter token to the macro call).
 {\obeyspaces %
  \gdef\parseargdiscardspace {\futurelet\temp\parseargx}}
-
-\def\obeyedspace{\ }
 
 {\obeylines %
   \gdef\parseargline#1^^M{%
@@ -354,17 +353,25 @@
     \errmessage{@group invalid in context where filling is enabled}%
   \fi
   %
-  % The \vtop we start below produces a box with large depth; thus, TeX
-  % puts \baselineskip glue before it, and (when the next line of text
-  % is done) \lineskip glue after it.  (See p.82 of the TeXbook.)  But
-  % the next line of text also gets us \parskip glue.  Final result:
-  % space below is slightly more than space above.
+  % The \vtop we start below produces a box with normal height and large
+  % depth; thus, TeX puts \baselineskip glue before it, and (when the
+  % next line of text is done) \lineskip glue after it.  (See p.82 of
+  % the TeXbook.)  But the next line of text also gets us \parskip glue.
+  % Final result: space below is slightly more than space above.
   \def\Egroup{%
     \egroup           % End the \vtop.
     \endgroup         % End the \group.
   }%
   %
   \vtop\bgroup
+    % We have to put a strut on the last line in case the @group is in
+    % the midst of an example, rather than completely enclosing it.
+    % Otherwise, the interline space between the last line of the group
+    % and the first line afterwards is too small.  But we can't put the
+    % strut in \Egroup, since there it would be on a line by itself.
+    % Hence this just inserts a strut at the beginning of each line.
+    \everypar = {\strut}%
+    %
     % We do @comment here in case we are called inside an environment,
     % such as @example, where each end-of-line in the input causes an
     % end-of-line in the output.  We don't want the end-of-line after
@@ -463,8 +470,13 @@ where each line of input produces a line of output.}
 % @include file    insert text of that file as input.
 
 \def\include{\parsearg\includezzz}
-\def\includezzz #1{\def\thisfile{#1}\input #1
-\def\thisfile{}}
+%Use \input\thisfile to avoid blank after \input, which may be an active
+%char (in which case the blank would become the \input argument).
+%The grouping keeps the value of \thisfile correct even when @include
+%is nested.
+\def\includezzz #1{\begingroup
+\def\thisfile{#1}\input\thisfile
+\endgroup}
 
 \def\thisfile{}
 
@@ -545,9 +557,16 @@ where each line of input produces a line of output.}
   \let\defvr = \relax
   \let\ref = \relax
   \let\xref = \relax
+  \let\printindex = \relax
   \let\pxref = \relax
   \let\settitle = \relax
   \let\include = \relax
+  \let\lowersections = \relax
+  \let\down = \relax
+  \let\raisesections = \relax
+  \let\up = \relax
+  \let\set = \relax
+  \let\clear = \relax
 }
 
 % Ignore @ignore ... @end ignore.
@@ -1027,7 +1046,25 @@ where each line of input produces a line of output.}
   }%
   \null
 }
-\let\code=\tclose
+
+% We *must* turn on hyphenation at `-' and `_' in \code.
+% Otherwise, it is too hard to avoid overful hboxes
+% in the Emacs manual, the Library manual, etc.
+
+% Unfortunately, TeX uses one parameter (\hyphenchar) to control
+% both hyphenation at - and hyphenation within words.
+% We must therefore turn them both off (\tclose does that)
+% and arrange explicitly to hyphenate an a dash.
+%  -- rms.
+{
+\catcode `\-=\active
+\catcode `\_=\active
+\global\def\code{\begingroup \catcode `\-=\active \let-\codedash \let_\codeunder \codex}
+}
+\def\codedash{-\discretionary{}{}{}}
+\def\codeunder{\normalunderscore\discretionary{}{}{}}
+\def\codex #1{\tclose{#1}\endgroup}
+
 %\let\exp=\tclose  %Was temporary
 
 % @kbd is like @code, except that if the argument is just one @key command, 
@@ -1062,7 +1099,6 @@ where each line of input produces a line of output.}
 % First the title page.  Must do @settitle before @titlepage.
 \def\titlefont#1{{\titlerm #1}}
 
-\newtoks\realeverypar
 \newif\ifseenauthor
 \newif\iffinishedtitlepage
 
@@ -2745,6 +2781,11 @@ July\or August\or September\or October\or November\or December\fi
 {\obeyspaces %
 \gdef\sepspaces{\obeyspaces\let =\tie}}
 
+% Define \obeyedspace to be our active space, whatever it is.  This is
+% for use in \parsearg.
+{\sepspaces %
+\global\let\obeyedspace= }
+
 % This space is always present above and below environments.
 \newskip\envskipamount \envskipamount = 0pt
 
@@ -3584,6 +3625,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \catcode `\\=\other
 \openin 1 \jobname.aux
 \ifeof 1 \else \closein 1 \input \jobname.aux \global\havexrefstrue
+\global\warnedobstrue
 \fi
 % Open the new aux file.  Tex will close it automatically at exit.
 \openout \auxfile=\jobname.aux
@@ -3606,20 +3648,50 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \let\ptexfootnote=\footnote
 
 {\catcode `\@=11
-\long\gdef\footnote #1{\global\advance \footnoteno by \@ne
-\unskip
-\edef\thisfootno{$^{\the\footnoteno}$}%
-\let\@sf\empty
-\ifhmode\edef\@sf{\spacefactor\the\spacefactor}\/\fi
-\thisfootno\@sf \footnotezzz{#1}}
-% \parsearg\footnotezzz}
+%
+% Auto-number footnotes.  Otherwise like plain.
+\gdef\footnote{%
+  \global\advance\footnoteno by \@ne
+  \edef\thisfootno{$^{\the\footnoteno}$}%
+  %
+  % In case the footnote comes at the end of a sentence, preserve the
+  % extra spacing after we do the footnote number.
+  \let\@sf\empty
+  \ifhmode\edef\@sf{\spacefactor\the\spacefactor}\/\fi
+  %
+  % Remove inadvertent blank space before typesetting the footnote number.
+  \unskip
+  \thisfootno\@sf
+  \footnotezzz
+}%
 
-\long\gdef\footnotezzz #1{\insert\footins{
-\interlinepenalty\interfootnotelinepenalty
-\splittopskip\ht\strutbox % top baseline for broken footnotes
-\splitmaxdepth\dp\strutbox \floatingpenalty\@MM
-\leftskip\z@skip \rightskip\z@skip \spaceskip\z@skip \xspaceskip\z@skip
-\footstrut\parindent=\defaultparindent\hang\textindent{\thisfootno}#1\strut}}
+% Don't bother with the trickery in plain.tex to not require the
+% footnote text as a parameter.  Our footnotes don't need to be so general.
+% 
+\long\gdef\footnotezzz#1{\insert\footins{%
+  % We want to typeset this text as a normal paragraph, even if the
+  % footnote reference occurs in (for example) a display environment.
+  % So reset some parameters.
+  \interlinepenalty\interfootnotelinepenalty
+  \splittopskip\ht\strutbox % top baseline for broken footnotes
+  \splitmaxdepth\dp\strutbox
+  \floatingpenalty\@MM
+  \leftskip\z@skip
+  \rightskip\z@skip
+  \spaceskip\z@skip
+  \xspaceskip\z@skip
+  \parindent\defaultparindent
+  %
+  % Hang the footnote text off the number.
+  \hang
+  \textindent{\thisfootno}%
+  %
+  % Don't crash into the line above the footnote text.  Since this
+  % expands into a box, it must come within the paragraph, lest it
+  % provide a place where TeX can split the footnote.
+  \footstrut
+  #1\strut}%
+}
 
 }%end \catcode `\@=11
 

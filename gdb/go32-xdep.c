@@ -27,3 +27,15 @@ static void uerror(char *s)
 
 re_comp(){uerror("attempt to call re_comp()");}
 re_exec(){uerror("attempt to call re_exec()");}
+
+sigsetmask()
+{
+}
+
+void
+strlwr(str)
+     char *str;
+{
+  for (; *str; str++)
+    *str = tolower(*str);
+}

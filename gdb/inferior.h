@@ -326,7 +326,7 @@ extern CORE_ADDR text_end;
    && (pc) <= text_end + CALL_DUMMY_LENGTH + DECR_PC_AFTER_BREAK)
 #else /* On stack.  */
 #define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
-  ((sp) INNER_THAN (pc) && (pc) INNER_THAN (frame_address))
+  ((sp) INNER_THAN (pc) && (frame_address != 0) && (pc) INNER_THAN (frame_address))
 #endif /* On stack.  */
 #endif /* Not before text_end.  */
 #endif /* No PC_IN_CALL_DUMMY.  */

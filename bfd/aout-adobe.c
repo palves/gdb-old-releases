@@ -277,7 +277,7 @@ aout_adobe_write_object_contents (abfd)
      bfd *abfd;
 {
   struct external_exec swapped_hdr;
-  static struct external_segdesc sentinel[1] = {0};
+  static struct external_segdesc sentinel[1];	/* Initialized to zero */
   asection *sect;
 
   exec_hdr (abfd)->a_info = ZMAGIC;
@@ -477,6 +477,10 @@ DEFUN(aout_adobe_sizeof_headers,(ignore_abfd, ignore),
 #define aout_32_bfd_get_relocated_section_contents  bfd_generic_get_relocated_section_contents
 #define aout_32_bfd_relax_section                   bfd_generic_relax_section
 #define aout_32_bfd_seclet_link			    bfd_generic_seclet_link
+#define aout_32_bfd_reloc_type_lookup \
+  ((CONST struct reloc_howto_struct *(*) PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
+#define aout_32_bfd_make_debug_symbol \
+  ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
 bfd_target a_out_adobe_vec =
 {
@@ -494,8 +498,12 @@ bfd_target a_out_adobe_vec =
   16,				/* ar_max_namelen */
   2,				/* minumum alignment power */
 
-  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* data */
-  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* data */
+  _do_getb64, _do_getb_signed_64, _do_putb64,
+     _do_getb32, _do_getb_signed_32, _do_putb32,
+     _do_getb16, _do_getb_signed_16, _do_putb16, /* hdrs */
  {_bfd_dummy_target, aout_adobe_object_p, /* bfd_check_format */
    bfd_generic_archive_p, _bfd_dummy_target},
  {bfd_false, aout_adobe_mkobject, /* bfd_set_format */
@@ -503,6 +511,6 @@ bfd_target a_out_adobe_vec =
  {bfd_false, aout_adobe_write_object_contents, /* bfd_write_contents */
    _bfd_write_archive_contents, bfd_false},
 
-  JUMP_TABLE(aout_32)
- };
-
+  JUMP_TABLE(aout_32),
+  (PTR) 0
+};

@@ -114,6 +114,41 @@ struct entry_info
 };
 
 
+/* Sections in an objfile.
+
+   It is strange that we have both this notion of "sections"
+   and the one used by section_offsets.  Section as used
+   here, (currently at least) means a BFD section, and the sections
+   are set up from the BFD sections in allocate_objfile.
+
+   The sections in section_offsets have their meaning determined by
+   the symbol format, and they are set up by the sym_offsets function
+   for that symbol file format.
+
+   I'm not sure this could or should be changed, however.  */
+
+struct obj_section {
+  CORE_ADDR	addr;	 /* lowest address in section */
+  CORE_ADDR	endaddr; /* 1+highest address in section */
+
+  /* This field is being used for nefarious purposes by syms_from_objfile.
+     It is said to be redundant with section_offsets; it's not really being
+     used that way, however, it's some sort of hack I don't understand
+     and am not going to try to eliminate (yet, anyway).  FIXME.
+
+     It was documented as "offset between (end)addr and actual memory
+     addresses", but that's not true; addr & endaddr are actual memory
+     addresses.  */
+  CORE_ADDR offset;
+     
+  sec_ptr	sec_ptr; /* BFD section pointer */
+
+  /* Objfile this section is part of.  Not currently used, but I'm sure
+     that someone will want the bfd that the sec_ptr goes with or something
+     like that before long.  */
+  struct objfile *objfile;
+};
+
 /* Master structure for keeping track of each input file from which
    gdb reads symbols.  One of these is allocated for each such file we
    access, e.g. the exec_file, symbol_file, and any shared library object
@@ -245,6 +280,26 @@ struct objfile
      gets freed automatically when reading a new object file. */
 
   PTR obj_private;
+
+  /* Set of relocation offsets to apply to each section.
+     Currently on the psymbol_obstack (which makes no sense, but I'm
+     not sure it's harming anything).
+
+     These offsets indicate that all symbols (including partial and
+     minimal symbols) which have been read have been relocated by this
+     much.  Symbols which are yet to be read need to be relocated by
+     it.  */
+
+  struct section_offsets *section_offsets;
+  int num_sections;
+
+  /* set of section begin and end addresses used to map pc addresses
+     into sections.  Currently on the psymbol_obstack (which makes no
+     sense, but I'm not sure it's harming anything).  */
+
+  struct obj_section
+    *sections,
+    *sections_end;
 };
 
 /* Defines for the objfile flag word. */
@@ -306,6 +361,9 @@ free_objfile PARAMS ((struct objfile *));
 extern void
 free_all_objfiles PARAMS ((void));
 
+extern void
+objfile_relocate PARAMS ((struct objfile *, struct section_offsets *));
+
 extern int
 have_partial_symbols PARAMS ((void));
 
@@ -318,6 +376,8 @@ have_full_symbols PARAMS ((void));
 extern int
 have_minimal_symbols PARAMS ((void));
 
+extern struct obj_section *
+find_pc_section PARAMS((CORE_ADDR pc));
 
 /* Traverse all object files.  ALL_OBJFILES_SAFE works even if you delete
    the objfile during the traversal.  */

@@ -1,3 +1,2 @@
-# Target:  Motorola 68000 using ELF.
-TDEFAULTS = -DDEFAULT_VECTOR=elf_big_vec
-
+# Target:  Intel 860 using ELF.
+TDEFAULTS = -DDEFAULT_VECTOR=elf32_i860_vec

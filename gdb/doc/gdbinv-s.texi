@@ -91,9 +91,9 @@ subroutines:
 @item set_debug_traps
 @kindex set_debug_traps
 @cindex remote serial stub, initialization
-This routine arranges to transfer control to @code{handle_exception}
-when your program stops.  You must call this subroutine explicitly near
-the beginning of your program.
+This routine arranges for @code{handle_exception} to run when your
+program stops.  You must call this subroutine explicitly near the
+beginning of your program.
 
 @item handle_exception
 @kindex handle_exception
@@ -191,8 +191,10 @@ steps.
 @enumerate
 @item
 Make sure you have the supporting low-level routines:
-@code{getDebugChar}, @code{putDebugChar}, @code{flush_i_cache},
-@code{memset}.
+@display
+@code{getDebugChar}, @code{putDebugChar},
+@code{flush_i_cache}, @code{memset}.
+@end display
 
 @item
 Insert these lines near the top of your program:
@@ -235,7 +237,6 @@ if the serial line is connected to the device named @file{/dev/ttyb}.
 @c seen an example...  pesch 4sep1992
 This will stop the remote machine if it is not already stopped.
 @end ignore
-
 @end enumerate
 
 Now you can use all the usual commands to examine and change data and to
@@ -243,6 +244,24 @@ step and continue the remote program.
 
 To resume the remote program and stop debugging it, use the @code{detach}
 command.
+
+@cindex interrupting remote programs
+@cindex remote programs, interrupting
+Whenever @value{GDBN} is waiting for the remote program, if you type the
+interrupt character (often @key{C-C}), @value{GDBN} attempts to stop the
+program.  This may or may not succeed, depending in part on the hardware
+and the serial drivers the remote system uses.  If you type the
+interrupt character once again, @value{GDBN} displays this prompt:
+
+@example
+Interrupted while waiting for the program.
+Give up (and stop debugging it)?  (y or n)
+@end example
+
+If you type @kbd{y}, @value{GDBN} abandons the remote debugging session.
+(If you decide you want to try again later, you can use @samp{target
+remote} again to connect once more.)  If you type @kbd{n}, @value{GDBN}
+goes back to waiting.
 
 @node Protocol
 @subsubsection Outline of the communication protocol
@@ -337,7 +356,7 @@ stream.  @code{set remotedebug off} turns it off, and @code{show
 remotedebug} will show you its current state.
 @end ifset
 
-@ifset Icmlx
+@ifset I960
 @node i960-Nindy Remote
 @subsection @value{GDBN} with a remote i960 (Nindy)
 
@@ -409,8 +428,8 @@ target architecture.
 @quotation
 @emph{Warning:} if you specify @samp{-O}, but are actually trying to
 connect to a target system that expects the newer protocol, the connection
-will fail, appearing to be a speed mismatch.  @value{GDBN} will repeatedly
-attempt to reconnect at several different line speeds.  You can abort
+fails, appearing to be a speed mismatch.  @value{GDBN} repeatedly
+attempts to reconnect at several different line speeds.  You can abort
 this process with an interrupt.
 @end quotation
 
@@ -442,26 +461,26 @@ a break is detected.
 @c @end group
 @end ifset
 
-@ifset AMDxxixK
+@ifset AMD29K
 @node UDI29K Remote
 @subsection @value{GDBN} and the UDI protocol for AMD29K
 
 @cindex UDI
 @cindex AMD29K via UDI
 @value{GDBN} supports AMD's UDI (``Universal Debugger Interface'')
-protocol for debugging the 29k processor family.  To use this
+protocol for debugging the a29k processor family.  To use this
 configuration with AMD targets running the MiniMON monitor, you need the
 program @code{MONTIP}, available from AMD at no charge.  You can also
-use @value{GDBN} with the UDI conformant 29k simulator program
+use @value{GDBN} with the UDI conformant a29k simulator program
 @code{ISSTIP}, also available from AMD.
 
 @table @code
 @item target udi @var{keyword}
 @kindex udi
-Select the UDI interface to a remote 29K board or simulator, where
+Select the UDI interface to a remote a29k board or simulator, where
 @var{keyword} is an entry in the AMD configuration file @file{udi_soc}.
 This file contains keyword entries which specify parameters used to
-connect to 29k targets.  If the @file{udi_soc} file is not in your
+connect to a29k targets.  If the @file{udi_soc} file is not in your
 working directory, you must set the environment variable @samp{UDICONF}
 to its pathname.
 @end table
@@ -653,7 +672,7 @@ unexpected events on the PC side of the connection.
 
 @end ifset
 
-@ifset STmm
+@ifset ST2000
 @node ST2000 Remote
 @subsection @value{GDBN} with a Tandem ST2000
 
@@ -834,20 +853,21 @@ or suspended when you attach to it.  If running, it will be suspended at
 the time of attachment.
 @end ifset
 
-@ifset Hviii
-@node Hitachi H8/300 Remote
-@subsection @value{GDBN} and the Hitachi H8/300
-@value{GDBN} needs to know these things to talk to your H8/300: 
+@ifset H8
+@node Hitachi Remote
+@subsection @value{GDBN} and Hitachi Microprocessors
+@value{GDBN} needs to know these things to talk to your
+Hitachi SH, H8/300, or H8/500: 
 
 @enumerate
 @item
-that you want to use @samp{target hms}, the remote debugging
-interface for the H8/300 (this is the default when
-GDB is configured specifically for the H8/300);
+that you want to use @samp{target hms}, the remote debugging interface
+for Hitachi microprocessors (this is the default when GDB is configured
+specifically for the Hitachi SH, H8/300, or H8/500);
 
 @item
-what serial device connects your host to your H8/300 (the first serial
-device available on your host is the default);
+what serial device connects your host to your Hitachi board (the first
+serial device available on your host is the default);
 
 @ignore
 @c this is only for Unix hosts, not currently of interest.
@@ -856,34 +876,39 @@ what speed to use over the serial device.
 @end ignore
 @end enumerate
 
-@kindex device
-@cindex serial device for H8/300
-@ignore
+@ifclear H8EXCLUSIVE
 @c only for Unix hosts
-Use the special @code{gdb83} command @samp{device @var{port}} if you
+@kindex device
+@cindex serial device, Hitachi micros
+Use the special @code{@value{GDBP}} command @samp{device @var{port}} if you
 need to explicitly set the serial device.  The default @var{port} is the
 first available port on your host.  This is only necessary on Unix
 hosts, where it is typically something like @file{/dev/ttya}.
 
 @kindex speed
-@cindex serial line speed for H8/300
-@code{gdb83} has another special command to set the communications speed
-for the H8/300: @samp{speed @var{bps}}.  This command also is only used
-from Unix hosts; on DOS hosts, set the line speed as usual from outside
-GDB with the DOS @kbd{mode} command (for instance, @w{@samp{mode
+@cindex serial line speed, Hitachi micros
+@code{@value{GDBP}} has another special command to set the communications
+speed: @samp{speed @var{bps}}.  This command also is only used from Unix
+hosts; on DOS hosts, set the line speed as usual from outside GDB with
+the DOS @kbd{mode} command (for instance, @w{@samp{mode
 com2:9600,n,8,1,p}} for a 9600 bps connection).
-@end ignore
 
+The @samp{device} and @samp{speed} commands are available only when you
+use a Unix host to debug your Hitachi microprocessor programs.  If you
+use a DOS host,
+@end ifclear
 @value{GDBN} depends on an auxiliary terminate-and-stay-resident program
-called @code{asynctsr} to communicate with the H8/300 development board
+called @code{asynctsr} to communicate with the development board
 through a PC serial port.  You must also use the DOS @code{mode} command
 to set up the serial port on the DOS side.
 
+@ifset DOSHOST
 The following sample session illustrates the steps needed to start a
-program under @value{GDBN} control on your H8/300.  The example uses a sample
-H8/300 program called @file{t.x}.
+program under @value{GDBN} control on an H8/300.  The example uses a
+sample H8/300 program called @file{t.x}.  The procedure is the same for
+the Hitachi SH and the H8/500.
 
-First hook up your H8/300 development board.  In this example, we use a
+First hook up your development board.  In this example, we use a
 board attached to serial port @code{COM2}; if you use a different serial
 port, substitute its name in the argument of the @code{mode} command.
 When you call @code{asynctsr}, the auxiliary comms program used by the
@@ -905,21 +930,22 @@ COM2: 9600, n, 8, 1, p
 @emph{Warning:} We have noticed a bug in PC-NFS that conflicts with
 @code{asynctsr}.  If you also run PC-NFS on your DOS host, you may need to
 disable it, or even boot without it, to use @code{asynctsr} to control
-your H8/300 board.
+your development board.
 @end quotation
 
-Now that serial communications are set up, and the H8/300 is connected,
-you can start up @value{GDBN}.  Call @code{@value{GDBP}} with the name of your
-program as the argument.  @code{@value{GDBP}} prompts you, as usual, with the
-prompt @samp{(@value{GDBP})}.  Use two special commands to begin your debugging
-session: @samp{target hms} to specify cross-debugging to the Hitachi board,
-and the @code{load} command to download your program to the board.
-@code{load} displays the names of the
-program's sections, and a @samp{*} for each 2K of data downloaded.  (If
-you want to refresh @value{GDBN} data on symbols or on the executable file
-without downloading, use the @value{GDBN} commands @code{file} or
-@code{symbol-file}.  These commands, and @code{load} itself, are
-described in @ref{Files,,Commands to specify files}.)
+@kindex target hms
+Now that serial communications are set up, and the development board is
+connected, you can start up @value{GDBN}.  Call @code{@value{GDBP}} with
+the name of your program as the argument.  @code{@value{GDBP}} prompts
+you, as usual, with the prompt @samp{(@value{GDBP})}.  Use two special
+commands to begin your debugging session: @samp{target hms} to specify
+cross-debugging to the Hitachi board, and the @code{load} command to
+download your program to the board.  @code{load} displays the names of
+the program's sections, and a @samp{*} for each 2K of data downloaded.
+(If you want to refresh @value{GDBN} data on symbols or on the
+executable file without downloading, use the @value{GDBN} commands
+@code{file} or @code{symbol-file}.  These commands, and @code{load}
+itself, are described in @ref{Files,,Commands to specify files}.)
 
 @smallexample
 (eg-C:\H8300\TEST) @value{GDBP} t.x
@@ -945,14 +971,14 @@ resumes execution after stopping at a breakpoint.  You can use the
 @code{help} command at any time to find out more about @value{GDBN} commands.
 
 Remember, however, that @emph{operating system} facilities aren't
-available on your H8/300; for example, if your program hangs, you can't
-send an interrupt---but you can press the @sc{reset} switch!  
+available on your development board; for example, if your program hangs,
+you can't send an interrupt---but you can press the @sc{reset} switch!
 
-Use the @sc{reset} button on the H8/300 board
+Use the @sc{reset} button on the development board
 @itemize @bullet
 @item
 to interrupt your program (don't use @kbd{ctl-C} on the DOS host---it has
-no way to pass an interrupt signal to the H8/300); and
+no way to pass an interrupt signal to the development board); and
 
 @item
 to return to the @value{GDBN} command prompt after your program finishes
@@ -961,7 +987,45 @@ to detect program completion.
 @end itemize
 
 In either case, @value{GDBN} will see the effect of a @sc{reset} on the
-H8/300 board as a ``normal exit'' of your program.
+development board as a ``normal exit'' of your program.
+@end ifset
+@end ifset
+
+@ifset MIPS
+@node MIPS Remote
+@subsection @value{GDBN} and remote MIPS boards
+
+@cindex MIPS boards
+@value{GDBN} can use the MIPS remote debugging protocol to talk to a
+MIPS board attached to a serial line.  This is available when
+you configure @value{GDBN} with @samp{--target=mips-idt-ecoff}.
+
+@kindex target mips @var{port}
+To run a program on the board, start up @code{@value{GDBP}} with the
+name of your program as the argument.  To connect to the board, use the
+command @samp{target mips @var{port}}, where @var{port} is the name of
+the serial port connected to the board.  If the program has not already
+been downloaded to the board, you may use the @code{load} command to
+download it.  You can then use all the usual @value{GDBN} commands.
+
+@cindex @code{remotedebug}, MIPS protocol
+@c FIXME! For this to be useful, you must know something about the MIPS
+@c FIXME...protocol.  Where is it described?
+You can see some debugging information about communications with the board
+by setting the @code{remotedebug} variable.  If you set it to 1 using
+@samp{set remotedebug 1} every packet will be displayed.  If you set it
+to 2 every character will be displayed.  You can check the current value
+at any time with the command @samp{show remotedebug}.
+
+@kindex set mipsfpu off
+@cindex MIPS remote floating point
+@cindex floating point, MIPS remote
+If your target board does not support the MIPS floating point
+coprocessor, you should use the command @samp{set mipsfpu off} (you may
+wish to put this in your @value{GDBINIT} file).  This will tell
+@value{GDBN} how to find the return value of functions which return
+floating point values, and tell it to call functions on the board
+without saving the floating point registers.
 @end ifset
 
 @ifset SIMS
@@ -971,25 +1035,30 @@ H8/300 board as a ``normal exit'' of your program.
 @ifset GENERIC
 @cindex simulator
 @cindex simulator, Z8000
-@cindex simulator, H8/300
 @cindex Z8000 simulator
-@cindex H8/300 simulator
+@cindex simulator, H8/300 or H8/500
+@cindex H8/300 or H8/500 simulator
+@cindex simulator, Hitachi SH
+@cindex Hitachi SH simulator
 @cindex CPU simulator
 For some configurations, @value{GDBN} includes a CPU simulator that you
 can use instead of a hardware CPU to debug your programs.  Currently,
 a simulator is available when @value{GDBN} is configured to debug Zilog
-Z8000 or Hitachi H8/300 targets.
+Z8000 or Hitachi microprocessor targets.
 @end ifset
 
 @ifclear GENERIC
-@ifset Hviii
-@cindex simulator, H8/300
-@cindex Hitachi H8/300 simulator
-When configured for debugging Hitachi H8/300 targets, @value{GDBN} includes
-an H8/300 CPU simulator.
+@ifset H8
+@cindex simulator, H8/300 or H8/500
+@cindex Hitachi H8/300 or H8/500 simulator
+@cindex simulator, Hitachi SH
+@cindex Hitachi SH simulator
+When configured for debugging Hitachi microprocessor targets,
+@value{GDBN} includes a CPU simulator for the target chip (a Hitachi SH,
+H8/300, or H8/500).
 @end ifset
 
-@ifset ZviiiK
+@ifset Z8K
 @cindex simulator, Z8000
 @cindex Zilog Z8000 simulator
 When configured for debugging Zilog Z8000 targets, @value{GDBN} includes
@@ -997,7 +1066,7 @@ a Z8000 simulator.
 @end ifset
 @end ifclear
 
-@ifset ZviiiK
+@ifset Z8K
 For the Z8000 family, @samp{target sim} simulates either the Z8002 (the
 unsegmented variant of the Z8000 architecture) or the Z8001 (the
 segmented variant).  The simulator recognizes which architecture is

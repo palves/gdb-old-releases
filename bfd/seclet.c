@@ -79,10 +79,7 @@ DEFUN(rel,(abfd, seclet, output_section, data, relocateable),
       PTR data AND
       boolean relocateable)
 {
-
-  if (output_section->flags & SEC_HAS_CONTENTS 
-      && !(output_section->flags & SEC_NEVER_LOAD)
-      && (output_section->flags & SEC_LOAD)
+  if ((output_section->flags & SEC_HAS_CONTENTS) != 0
       && seclet->size)
   {
     data = (PTR) bfd_get_relocated_section_contents(abfd, seclet, data,
@@ -127,6 +124,11 @@ DEFUN(seclet_dump_seclet,(abfd, seclet, section, data, relocateable),
 	for (i = 1; i < seclet->size; i+=2) {
 	  d[i] = seclet->u.fill.value ;
 	}
+	/* Don't bother to fill in empty sections */
+	if (!(bfd_get_section_flags(abfd, section) & SEC_HAS_CONTENTS))
+	  {
+	    return true;
+	  }
 	return bfd_set_section_contents(abfd, section, d, seclet->offset,
 					seclet->size);
       }

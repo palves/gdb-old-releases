@@ -5,6 +5,7 @@
 
 /* This is the layout on disk of the 32-bit or 64-bit exec header. */
 
+#ifndef external_exec
 struct external_exec 
 {
   bfd_byte e_info[4];		/* magic number and stuff		*/
@@ -34,6 +35,7 @@ struct external_exec
 #define N_BADMAG(x)	  (N_MAGIC(x) != OMAGIC		\
 			&& N_MAGIC(x) != NMAGIC		\
   			&& N_MAGIC(x) != ZMAGIC)
+#endif
 
 /* By default, segment size is constant.  But some machines override this
    to be a function of the a.out header (e.g. machine type).  */
@@ -129,13 +131,24 @@ struct external_exec
 
 /* Offsets of the various portions of the file after the text segment.  */
 
+#ifndef N_DATOFF
 #define N_DATOFF(x)	( N_TXTOFF(x) + N_TXTSIZE(x) )
+#endif
+#ifndef N_TRELOFF
 #define N_TRELOFF(x)	( N_DATOFF(x) + (x).a_data )
+#endif
+#ifndef N_DRELOFF
 #define N_DRELOFF(x)	( N_TRELOFF(x) + (x).a_trsize )
+#endif
+#ifndef N_SYMOFF
 #define N_SYMOFF(x)	( N_DRELOFF(x) + (x).a_drsize )
+#endif
+#ifndef N_STROFF
 #define N_STROFF(x)	( N_SYMOFF(x) + (x).a_syms )
+#endif
 
 /* Symbols */
+#ifndef external_nlist
 struct external_nlist {
   bfd_byte e_strx[BYTES_IN_WORD];	/* index into string table of name */
   bfd_byte e_type[1];			/* type of symbol */
@@ -143,8 +156,8 @@ struct external_nlist {
   bfd_byte e_desc[2];			/* description field */
   bfd_byte e_value[BYTES_IN_WORD];	/* value of symbol */
 };
-
 #define EXTERNAL_NLIST_SIZE (BYTES_IN_WORD+4+BYTES_IN_WORD)
+#endif
 
 struct internal_nlist {
   unsigned long n_strx;			/* index into string table of name */

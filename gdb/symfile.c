@@ -1,5 +1,5 @@
 /* Generic symbol file reading for the GNU debugger, GDB.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
 This file is part of GDB.
@@ -131,11 +131,6 @@ compare_symbols (s1p, s2p)
   s1 = (struct symbol **) s1p;
   s2 = (struct symbol **) s2p;
 
-  /* Compare the initial characters.  */
-  namediff = SYMBOL_NAME (*s1)[0] - SYMBOL_NAME (*s2)[0];
-  if (namediff != 0) return namediff;
-
-  /* If they match, compare the rest of the names.  */
   namediff = STRCMP (SYMBOL_NAME (*s1), SYMBOL_NAME (*s2));
   if (namediff != 0) return namediff;
 
@@ -429,48 +424,53 @@ syms_from_objfile (objfile, addr, mainline, verbo)
 	addr -= bfd_section_vma (objfile->obfd, lowest_sect);
     }
 
-  {
-  /* Debugging check inserted for testing elimination of NAMES_HAVE_UNDERSCORE.
-     Complain if the dynamic setting of NAMES_HAVE_UNDERSCORE from BFD
-     doesn't match the static setting from the GDB config files, but only
-     if we are using the first BFD target (the default target selected by
-     the same configuration that decided whether NAMES_HAVE_UNDERSCORE is
-     defined or not).  For other targets (such as when the user sets GNUTARGET
-     or we are reading a "foreign" object file), it is likely that the value
-     of bfd_get_symbol_leading_char has no relation to the value of
-     NAMES_HAVE_UNDERSCORE for the target for which this gdb was built.
-     Hack alert: the only way to currently do this with bfd is to ask it to
-     produce a list of known target names and compare the first one in the
-     list with the one for the bfd we are using.
-     FIXME:  Remove this check after a round of testing.  
-						-- gnu@cygnus.com, 16dec92 */
-    CONST char **targets = bfd_target_list ();
-    if (targets != NULL && *targets != NULL)
-      {
-	if (bfd_get_symbol_leading_char (objfile->obfd) !=
-#ifdef NAMES_HAVE_UNDERSCORE
-	    '_'
-#else
-	    0
-#endif
-	    && STREQ (bfd_get_target (objfile->obfd), *targets))
-	  {
-	    fprintf (stderr, "GDB internal error!  NAMES_HAVE_UNDERSCORE set wrong for %s BFD:\n%s\n",
-		     bfd_get_target (objfile->obfd),
-		     bfd_get_filename (objfile->obfd));
-	  }
-	free (targets);
-      }
-    /* End of debugging check.  FIXME.  */
-  }
-
   /* Initialize symbol reading routines for this objfile, allow complaints to
      appear for this new file, and record how verbose to be, then do the
      initial symbol reading for this file. */
 
   (*objfile -> sf -> sym_init) (objfile);
   clear_complaints (1, verbo);
+
+  /* If objfile->sf->sym_offsets doesn't set this, we don't care
+     (currently).  */
+  objfile->num_sections = 0;  /* krp-FIXME: why zero? */
   section_offsets = (*objfile -> sf -> sym_offsets) (objfile, addr);
+  objfile->section_offsets = section_offsets;
+
+#ifndef IBM6000_TARGET
+  /* This is a SVR4/SunOS specific hack, I think.  In any event, it
+     screws RS/6000.  sym_offsets should be doing this sort of thing,
+     because it knows the mapping between bfd sections and
+     section_offsets.  */
+  /* This is a hack.  As far as I can tell, section offsets are not
+     target dependent.  They are all set to addr with a couple of
+     exceptions.  The exceptions are sysvr4 shared libraries, whose
+     offsets are kept in solib structures anyway and rs6000 xcoff
+     which handles shared libraries in a completely unique way.
+
+     Section offsets are built similarly, except that they are built
+     by adding addr in all cases because there is no clear mapping
+     from section_offsets into actual sections.  Note that solib.c
+     has a different algorythm for finding section offsets.
+
+     These should probably all be collapsed into some target
+     independent form of shared library support.  FIXME.  */
+
+  if (addr)
+    {
+      struct obj_section *s;
+
+      for (s = objfile->sections; s < objfile->sections_end; ++s)
+	{
+	  s->addr -= s->offset;
+	  s->addr += addr;
+	  s->endaddr -= s->offset;
+	  s->endaddr += addr;
+	  s->offset += addr;
+	}
+    }
+#endif /* not IBM6000_TARGET */
+
   (*objfile -> sf -> sym_read) (objfile, section_offsets, mainline);
 
   /* Don't allow char * to have a typename (else would get caddr_t.)  */
@@ -971,6 +971,8 @@ deduce_language_from_filename (filename)
     return language_c;
   else if(STREQ(c,".cc") || STREQ(c,".C"))
     return language_cplus;
+  else if(STREQ(c,".ch") || STREQ(c,".c186") || STREQ(c,".c286"))
+    return language_chill;
 
   return language_unknown;		/* default */
 }

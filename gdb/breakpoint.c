@@ -691,30 +691,19 @@ top:
   discard_cleanups (old_chain);
 }
 
-/* Print a message indicating what happened.  Returns nonzero to
-   say that only the source line should be printed after this (zero
-   return means print the frame as well as the source line).  */
+/* This is the normal print_it function for a bpstat.  In the future,
+   much of this logic could (should?) be moved to bpstat_stop_status,
+   by having it set different print_it functions.  */
 
-int
-bpstat_print (bs)
+static int
+print_it_normal (bs)
      bpstat bs;
 {
   /* bs->breakpoint_at can be NULL if it was a momentary breakpoint
      which has since been deleted.  */
-  if (bs == NULL
-      || bs->breakpoint_at == NULL
+  if (bs->breakpoint_at == NULL
       || (bs->breakpoint_at->type != bp_breakpoint
 	  && bs->breakpoint_at->type != bp_watchpoint))
-    return 0;
-  
-  /* If bpstat_stop_status says don't print, OK, we won't.  An example
-     circumstance is when we single-stepped for both a watchpoint and
-     for a "stepi" instruction.  The bpstat says that the watchpoint
-     explains the stop, but we shouldn't print because the watchpoint's
-     value didn't change -- and the real reason we are stopping here
-     rather than continuing to step (as the watchpoint would've had us do)
-     is because of the "stepi".  */
-  if (!bs->print)
     return 0;
 
   if (bs->breakpoint_at->type == bp_breakpoint)
@@ -737,9 +726,29 @@ bpstat_print (bs)
       printf_filtered ("\n");
       value_free (bs->old_val);
       bs->old_val = NULL;
-      return 1;
+      return 0;
     }
+  /* We can't deal with it.  Maybe another member of the bpstat chain can.  */
+  return -1;
+}
 
+/* Print a message indicating what happened.  Returns nonzero to
+   say that only the source line should be printed after this (zero
+   return means print the frame as well as the source line).  */
+/* Currently we always return zero.  */
+int
+bpstat_print (bs)
+     bpstat bs;
+{
+  int val;
+  
+  if (bs == NULL)
+    return 0;
+
+  val = (*bs->print_it) (bs);
+  if (val >= 0)
+    return val;
+  
   /* Maybe another breakpoint in the chain caused us to stop.
      (Currently all watchpoints go on the bpstat whether hit or
      not.  That probably could (should) be changed, provided care is taken
@@ -747,7 +756,7 @@ bpstat_print (bs)
   if (bs->next)
     return bpstat_print (bs->next);
 
-  fprintf_filtered (stderr, "gdb internal error: in bpstat_print\n");
+  /* We reached the end of the chain without printing anything.  */
   return 0;
 }
 
@@ -777,9 +786,217 @@ bpstat_alloc (b, cbs)
   bs->breakpoint_at = b;
   /* If the condition is false, etc., don't do the commands.  */
   bs->commands = NULL;
-  bs->momentary = b->disposition == delete;
   bs->old_val = NULL;
+  bs->print_it = print_it_normal;
   return bs;
+}
+
+/* Return the frame which we can use to evaluate the expression
+   whose valid block is valid_block, or NULL if not in scope.
+
+   This whole concept is probably not the way to do things (it is incredibly
+   slow being the main reason, not to mention fragile (e.g. the sparc
+   frame pointer being fetched as 0 bug causes it to stop)).  Instead,
+   introduce a version of "struct frame" which survives over calls to the
+   inferior, but which is better than FRAME_ADDR in the sense that it lets
+   us evaluate expressions relative to that frame (on some machines, it
+   can just be a FRAME_ADDR).  Save one of those instead of (or in addition
+   to) the exp_valid_block, and then use it to evaluate the watchpoint
+   expression, with no need to do all this backtracing every time.
+
+   Or better yet, what if it just copied the struct frame and its next
+   frame?  Off the top of my head, I would think that would work
+   because things like (a29k) rsize and msize, or (sparc) bottom just
+   depend on the frame, and aren't going to be different just because
+   the inferior has done something.  Trying to recalculate them
+   strikes me as a lot of work, possibly even impossible.  Saving the
+   next frame is needed at least on a29k, where get_saved_register
+   uses fi->next->saved_msp.  For figuring out whether that frame is
+   still on the stack, I guess this needs to be machine-specific (e.g.
+   a29k) but I think
+
+      read_register (FP_REGNUM) INNER_THAN watchpoint_frame->frame
+
+   would generally work.
+
+   Of course the scope of the expression could be less than a whole
+   function; perhaps if the innermost frame is the one which the
+   watchpoint is relative to (another machine-specific thing, usually
+
+      FRAMELESS_FUNCTION_INVOCATION (get_current_frame(), fromleaf)
+      read_register (FP_REGNUM) == wp_frame->frame
+      && !fromleaf
+
+   ), *then* it could do a
+
+      contained_in (get_current_block (), wp->exp_valid_block).
+
+      */
+
+FRAME
+within_scope (valid_block)
+     struct block *valid_block;
+{
+  FRAME fr = get_current_frame ();
+  struct frame_info *fi = get_frame_info (fr);
+  CORE_ADDR func_start;
+
+  /* If caller_pc_valid is true, we are stepping through
+     a function prologue, which is bounded by callee_func_start
+     (inclusive) and callee_prologue_end (exclusive).
+     caller_pc is the pc of the caller.
+
+     Yes, this is hairy.  */
+  static int caller_pc_valid = 0;
+  static CORE_ADDR caller_pc;
+  static CORE_ADDR callee_func_start;
+  static CORE_ADDR callee_prologue_end;
+  
+  find_pc_partial_function (fi->pc, (PTR)NULL, &func_start);
+  func_start += FUNCTION_START_OFFSET;
+  if (fi->pc == func_start)
+    {
+      /* We just called a function.  The only other case I
+	 can think of where the pc would equal the pc of the
+	 start of a function is a frameless function (i.e.
+	 no prologue) where we branch back to the start
+	 of the function.  In that case, SKIP_PROLOGUE won't
+	 find one, and we'll clear caller_pc_valid a few lines
+	 down.  */
+      caller_pc_valid = 1;
+      caller_pc = SAVED_PC_AFTER_CALL (fr);
+      callee_func_start = func_start;
+      SKIP_PROLOGUE (func_start);
+      callee_prologue_end = func_start;
+    }
+  if (caller_pc_valid)
+    {
+      if (fi->pc < callee_func_start
+	  || fi->pc >= callee_prologue_end)
+	caller_pc_valid = 0;
+    }
+	  
+  if (contained_in (block_for_pc (caller_pc_valid
+				  ? caller_pc
+				  : fi->pc),
+		    valid_block))
+    {
+      return fr;
+    }
+  fr = get_prev_frame (fr);
+	  
+  /* If any active frame is in the exp_valid_block, then it's
+     OK.  Note that this might not be the same invocation of
+     the exp_valid_block that we were watching a little while
+     ago, or the same one as when the watchpoint was set (e.g.
+     we are watching a local variable in a recursive function.
+     When we return from a recursive invocation, then we are
+     suddenly watching a different instance of the variable).
+
+     At least for now I am going to consider this a feature.  */
+  for (; fr != NULL; fr = get_prev_frame (fr))
+    {
+      fi = get_frame_info (fr);
+      if (contained_in (block_for_pc (fi->pc),
+			valid_block))
+	{
+	  return fr;
+	}
+    }
+  return NULL;
+}
+
+/* Possible return values for watchpoint_check (this can't be an enum
+   because of check_errors).  */
+/* The watchpoint has been disabled.  */
+#define WP_DISABLED 1
+/* The value has changed.  */
+#define WP_VALUE_CHANGED 2
+/* The value has not changed.  */
+#define WP_VALUE_NOT_CHANGED 3
+
+/* Check watchpoint condition.  */
+static int
+watchpoint_check (p)
+     char *p;
+{
+  bpstat bs = (bpstat) p;
+  FRAME fr;
+
+  int within_current_scope;
+  if (bs->breakpoint_at->exp_valid_block == NULL)
+    within_current_scope = 1;
+  else
+    {
+      fr = within_scope (bs->breakpoint_at->exp_valid_block);
+      within_current_scope = fr != NULL;
+      if (within_current_scope)
+	/* If we end up stopping, the current frame will get selected
+	   in normal_stop.  So this call to select_frame won't affect
+	   the user.  */
+	select_frame (fr, -1);
+    }
+      
+  if (within_current_scope)
+    {
+      /* We use value_{,free_to_}mark because it could be a
+         *long* time before we return to the command level and
+	 call free_all_values.  */
+      /* But couldn't we just call free_all_values instead?  */
+
+      value mark = value_mark ();
+      value new_val = evaluate_expression (bs->breakpoint_at->exp);
+      if (!value_equal (bs->breakpoint_at->val, new_val))
+	{
+	  release_value (new_val);
+	  value_free_to_mark (mark);
+	  bs->old_val = bs->breakpoint_at->val;
+	  bs->breakpoint_at->val = new_val;
+	  /* We will stop here */
+	  return WP_VALUE_CHANGED;
+	}
+      else
+	{
+	  /* Nothing changed, don't do anything.  */
+	  value_free_to_mark (mark);
+	  /* We won't stop here */
+	  return WP_VALUE_NOT_CHANGED;
+	}
+    }
+  else
+    {
+      /* This seems like the only logical thing to do because
+	 if we temporarily ignored the watchpoint, then when
+	 we reenter the block in which it is valid it contains
+	 garbage (in the case of a function, it may have two
+	 garbage values, one before and one after the prologue).
+	 So we can't even detect the first assignment to it and
+	 watch after that (since the garbage may or may not equal
+	 the first value assigned).  */
+      bs->breakpoint_at->enable = disabled;
+      printf_filtered ("\
+Watchpoint %d disabled because the program has left the block in\n\
+which its expression is valid.\n", bs->breakpoint_at->number);
+      return WP_DISABLED;
+    }
+}
+
+/* This is used when everything which needs to be printed has
+   already been printed.  But we still want to print the frame.  */
+static int
+print_it_done (bs)
+     bpstat bs;
+{
+  return 0;
+}
+
+/* This is used when nothing should be printed for this bpstat entry.  */
+
+static int
+print_it_noop (bs)
+     bpstat bs;
+{
+  return -1;
 }
 
 /* Determine whether we stopped at a breakpoint, etc, or whether we
@@ -807,8 +1024,6 @@ bpstat_stop_status (pc, frame_address)
      FRAME_ADDR frame_address;
 {
   register struct breakpoint *b;
-  int stop = 0;
-  int print = 0;
   CORE_ADDR bp_addr;
 #if DECR_PC_AFTER_BREAK != 0 || defined (SHIFT_INST_REGS)
   /* True if we've hit a breakpoint (as opposed to a watchpoint).  */
@@ -824,9 +1039,6 @@ bpstat_stop_status (pc, frame_address)
 
   ALL_BREAKPOINTS (b)
     {
-      int this_bp_stop;
-      int this_bp_print;
-
       if (b->enable == disabled)
 	continue;
 
@@ -837,59 +1049,41 @@ bpstat_stop_status (pc, frame_address)
 
       bs = bpstat_alloc (b, bs);	/* Alloc a bpstat to explain stop */
 
-      this_bp_stop = 1;
-      this_bp_print = 1;
+      bs->stop = 1;
+      bs->print = 1;
 
       if (b->type == bp_watchpoint)
 	{
-	  int within_current_scope;
-	  if (b->exp_valid_block != NULL)
-	    within_current_scope =
-	      contained_in (get_selected_block (), b->exp_valid_block);
-	  else
-	    within_current_scope = 1;
-
-	  if (within_current_scope)
+	  static char message1[] =
+	    "Error evaluating expression for watchpoint %d\n";
+	  char message[sizeof (message1) + 30 /* slop */];
+	  sprintf (message, message1, b->number);
+	  switch (catch_errors (watchpoint_check, (char *) bs, message))
 	    {
-	      /* We use value_{,free_to_}mark because it could be a
-		 *long* time before we return to the command level and
-		 call free_all_values.  */
-
-	      value mark = value_mark ();
-	      value new_val = evaluate_expression (b->exp);
-	      if (!value_equal (b->val, new_val))
-		{
-		  release_value (new_val);
-		  value_free_to_mark (mark);
-		  bs->old_val = b->val;
-		  b->val = new_val;
-		  /* We will stop here */
-		}
-	      else
-		{
-		  /* Nothing changed, don't do anything.  */
-		  value_free_to_mark (mark);
-		  continue;
-		  /* We won't stop here */
-		}
-	    }
-	  else
-	    {
-	      /* This seems like the only logical thing to do because
-		 if we temporarily ignored the watchpoint, then when
-		 we reenter the block in which it is valid it contains
-		 garbage (in the case of a function, it may have two
-		 garbage values, one before and one after the prologue).
-		 So we can't even detect the first assignment to it and
-		 watch after that (since the garbage may or may not equal
-		 the first value assigned).  */
-	      b->enable = disabled;
-	      printf_filtered ("\
-Watchpoint %d disabled because the program has left the block in\n\
-which its expression is valid.\n", b->number);
-	      /* We won't stop here */
-	      /* FIXME, maybe we should stop here!!! */
+	    case WP_DISABLED:
+	      /* We've already printed what needs to be printed.  */
+	      bs->print_it = print_it_done;
+	      /* Stop.  */
+	      break;
+	    case WP_VALUE_CHANGED:
+	      /* Stop.  */
+	      break;
+	    case WP_VALUE_NOT_CHANGED:
+	      /* Don't stop.  */
+	      bs->print_it = print_it_noop;
+	      bs->stop = 0;
 	      continue;
+	    default:
+	      /* Can't happen.  */
+	      /* FALLTHROUGH */
+	    case 0:
+	      /* Error from catch_errors.  */
+	      b->enable = disabled;
+	      printf_filtered ("Watchpoint %d disabled.\n", b->number);
+	      /* We've already printed what needs to be printed.  */
+	      bs->print_it = print_it_done;
+	      /* Stop.  */
+	      break;
 	    }
 	}
 #if DECR_PC_AFTER_BREAK != 0 || defined (SHIFT_INST_REGS)
@@ -898,7 +1092,7 @@ which its expression is valid.\n", b->number);
 #endif
 
       if (b->frame && b->frame != frame_address)
-	this_bp_stop = 0;
+	bs->stop = 0;
       else
 	{
 	  int value_is_zero;
@@ -916,12 +1110,12 @@ which its expression is valid.\n", b->number);
 	    }
 	  if (b->cond && value_is_zero)
 	    {
-	      this_bp_stop = 0;
+	      bs->stop = 0;
 	    }
 	  else if (b->ignore_count > 0)
 	    {
 	      b->ignore_count--;
-	      this_bp_stop = 0;
+	      bs->stop = 0;
 	    }
 	  else
 	    {
@@ -930,27 +1124,24 @@ which its expression is valid.\n", b->number);
 		b->enable = disabled;
 	      bs->commands = b->commands;
 	      if (b->silent)
-		this_bp_print = 0;
+		bs->print = 0;
 	      if (bs->commands && STREQ ("silent", bs->commands->line))
 		{
 		  bs->commands = bs->commands->next;
-		  this_bp_print = 0;
+		  bs->print = 0;
 		}
 	    }
 	}
-      if (this_bp_stop)
-	stop = 1;
-      if (this_bp_print)
-	print = 1;
+      /* Print nothing for this entry if we dont stop or if we dont print.  */
+      if (bs->stop == 0 || bs->print == 0)
+	bs->print_it = print_it_noop;
     }
 
   bs->next = NULL;		/* Terminate the chain */
   bs = root_bs->next;		/* Re-grab the head of the chain */
+#if DECR_PC_AFTER_BREAK != 0 || defined (SHIFT_INST_REGS)
   if (bs)
     {
-      bs->stop = stop;
-      bs->print = print;
-#if DECR_PC_AFTER_BREAK != 0 || defined (SHIFT_INST_REGS)
       if (real_breakpoint)
 	{
 	  *pc = bp_addr;
@@ -968,9 +1159,130 @@ which its expression is valid.\n", b->number);
 	  write_pc (bp_addr);
 #endif /* No SHIFT_INST_REGS.  */
 	}
-#endif /* DECR_PC_AFTER_BREAK != 0.  */
     }
+#endif /* DECR_PC_AFTER_BREAK != 0.  */
   return bs;
+}
+
+/* Tell what to do about this bpstat.  */
+enum bpstat_what
+bpstat_what (bs)
+     bpstat bs;
+{
+  /* Classify each bpstat as one of the following.  */
+  enum class {
+    /* There was a watchpoint, but we're not stopping.  */
+    wp_nostop = 0,
+
+    /* There was a watchpoint, stop but don't print.  */
+    wp_silent,
+
+    /* There was a watchpoint, stop and print.  */
+    wp_noisy,
+
+    /* There was a breakpoint but we're not stopping.  */
+    bp_nostop,
+
+    /* There was a breakpoint, stop but don't print.  */
+    bp_silent,
+
+    /* There was a breakpoint, stop and print.  */
+    bp_noisy,
+
+    /* We hit the longjmp breakpoint.  */
+    long_jump,
+
+    /* We hit the longjmp_resume breakpoint.  */
+    long_resume,
+
+    /* This is just used to count how many enums there are.  */
+    class_last
+    };
+
+  /* Here is the table which drives this routine.  So that we can
+     format it pretty, we define some abbreviations for the
+     enum bpstat_what codes.  */
+#define keep_c BPSTAT_WHAT_KEEP_CHECKING
+#define stop_s BPSTAT_WHAT_STOP_SILENT
+#define stop_n BPSTAT_WHAT_STOP_NOISY
+#define single BPSTAT_WHAT_SINGLE
+#define setlr BPSTAT_WHAT_SET_LONGJMP_RESUME
+#define clrlr BPSTAT_WHAT_CLEAR_LONGJMP_RESUME
+#define clrlrs BPSTAT_WHAT_CLEAR_LONGJMP_RESUME_SINGLE
+/* "Can't happen."  Might want to print an error message.
+   abort() is not out of the question, but chances are GDB is just
+   a bit confused, not unusable.  */
+#define err BPSTAT_WHAT_STOP_NOISY
+
+  /* Given an old action and a class, come up with a new action.  */
+  static const enum bpstat_what
+    table[(int)class_last][(int)BPSTAT_WHAT_LAST] =
+      {
+	/*                              old action */
+	/*       keep_c  stop_s  stop_n  single  setlr   clrlr   clrlrs */
+
+/*wp_nostop*/	{keep_c, stop_s, stop_n, single, setlr , clrlr , clrlrs},
+/*wp_silent*/	{stop_s, stop_s, stop_n, stop_s, stop_s, stop_s, stop_s},
+/*wp_noisy*/    {stop_n, stop_n, stop_n, stop_n, stop_n, stop_n, stop_n},
+/*bp_nostop*/	{single, stop_s, stop_n, single, setlr , clrlrs, clrlrs},
+/*bp_silent*/	{stop_s, stop_s, stop_n, stop_s, stop_s, stop_s, stop_s},
+/*bp_noisy*/    {stop_n, stop_n, stop_n, stop_n, stop_n, stop_n, stop_n},
+/*long_jump*/	{setlr , stop_s, stop_n, setlr , err   , err   , err   },
+/*long_resume*/	{clrlr , stop_s, stop_n, clrlrs, err   , err   , err   }
+	      };
+#undef keep_c
+#undef stop_s
+#undef stop_n
+#undef single
+#undef setlr
+#undef clrlr
+#undef clrlrs
+#undef err
+  enum bpstat_what current_action = BPSTAT_WHAT_KEEP_CHECKING;
+
+  for (; bs != NULL; bs = bs->next)
+    {
+      enum class bs_class;
+      if (bs->breakpoint_at == NULL)
+	/* I suspect this can happen if it was a momentary breakpoint
+	   which has since been deleted.  */
+	continue;
+      switch (bs->breakpoint_at->type)
+	{
+	case bp_breakpoint:
+	case bp_until:
+	case bp_finish:
+	  if (bs->stop)
+	    {
+	      if (bs->print)
+		bs_class = bp_noisy;
+	      else
+		bs_class = bp_silent;
+	    }
+	  else
+	    bs_class = bp_nostop;
+	  break;
+	case bp_watchpoint:
+	  if (bs->stop)
+	    {
+	      if (bs->print)
+		bs_class = wp_noisy;
+	      else
+		bs_class = wp_silent;
+	    }
+	  else
+	    bs_class = wp_nostop;
+	  break;
+	case bp_longjmp:
+	  bs_class = long_jump;
+	  break;
+	case bp_longjmp_resume:
+	  bs_class = long_resume;
+	  break;
+	}
+      current_action = table[(int)bs_class][(int)current_action];
+    }
+  return current_action;
 }
 
 /* Nonzero if we should step constantly (e.g. watchpoints on machines
@@ -1005,6 +1317,7 @@ breakpoint_1 (bnum, allflag)
 			      "longjmp", "longjmp resume"};
   static char *bpdisps[] = {"del", "dis", "keep"};
   static char bpenables[] = "ny";
+  char wrap_indent[80];
 
   if (!breakpoint_chain)
     {
@@ -1031,6 +1344,9 @@ breakpoint_1 (bnum, allflag)
 			 bptypes[(int)b->type],
 			 bpdisps[(int)b->disposition],
 			 bpenables[(int)b->enable]);
+	strcpy (wrap_indent, "                           ");
+	if (addressprint)
+	  strcat (wrap_indent, "           ");
 	switch (b->type)
 	  {
 	  case bp_watchpoint:
@@ -1052,6 +1368,7 @@ breakpoint_1 (bnum, allflag)
 		  {
 		    fputs_filtered ("in ", stdout);
 		    fputs_filtered (SYMBOL_SOURCE_NAME (sym), stdout);
+		    wrap_here (wrap_indent);
 		    fputs_filtered (" at ", stdout);
 		  }
 		fputs_filtered (b->symtab->filename, stdout);
@@ -1535,7 +1852,11 @@ break_command_1 (arg, tempflag, from_tty)
       b->number = breakpoint_count;
       b->type = bp_breakpoint;
       b->cond = cond;
-      
+
+      /* FIXME: We should add the filename if this is a static function
+	 and probably if it is a line number (the line numbers could
+	 have changed when we re-read symbols; possibly better to disable
+	 the breakpoint in that case).  */
       if (addr_start)
 	b->addr_string = savestring (addr_start, addr_end - addr_start);
       if (cond_start)
@@ -1611,6 +1932,8 @@ watch_command (arg, from_tty)
   exp_valid_block = innermost_block;
   val = evaluate_expression (exp);
   release_value (val);
+  if (VALUE_LAZY (val))
+    value_fetch_lazy (val);
 
   /* Now set up the breakpoint.  */
   b = set_raw_breakpoint (sal);
@@ -1623,6 +1946,7 @@ watch_command (arg, from_tty)
   b->val = val;
   b->cond = 0;
   b->cond_string = NULL;
+  b->exp_string = savestring (arg, strlen (arg));
   mention (b);
 }
 
@@ -2141,6 +2465,8 @@ delete_breakpoint (bpt)
     free ((PTR)bpt->cond_string);
   if (bpt->addr_string != NULL)
     free ((PTR)bpt->addr_string);
+  if (bpt->exp_string != NULL)
+    free ((PTR)bpt->exp_string);
 
   if (xgdb_verbose && bpt->type == bp_breakpoint)
     printf ("breakpoint #%d deleted\n", bpt->number);
@@ -2218,6 +2544,8 @@ breakpoint_re_set_one (bint)
 	      if (b->cond_string != NULL)
 		{
 		  s = b->cond_string;
+		  if (b->cond)
+		    free ((PTR)b->cond);
 		  b->cond = parse_exp_1 (&s, block_for_pc (sals.sals[i].pc), 0);
 		}
 	  
@@ -2231,11 +2559,29 @@ breakpoint_re_set_one (bint)
       break;
 
     case bp_watchpoint:
+      innermost_block = NULL;
+      /* The issue arises of what context to evaluate this in.  The same
+	 one as when it was set, but what does that mean when symbols have
+	 been re-read?  We could save the filename and functionname, but
+	 if the context is more local than that, the best we could do would
+	 be something like how many levels deep and which index at that
+	 particular level, but that's going to be less stable than filenames
+	 or functionnames.  */
+      /* So for now, just use a global context.  */
+      b->exp = parse_expression (b->exp_string);
+      b->exp_valid_block = innermost_block;
+      b->val = evaluate_expression (b->exp);
+      release_value (b->val);
+      if (VALUE_LAZY (b->val))
+	value_fetch_lazy (b->val);
+
       if (b->cond_string != NULL)
 	{
 	  s = b->cond_string;
 	  b->cond = parse_exp_1 (&s, (struct block *)0, 0);
 	}
+      if (b->enable == enabled)
+	mention (b);
       break;
 
     default:
@@ -2260,13 +2606,6 @@ breakpoint_re_set ()
   static char message1[] = "Error in re-setting breakpoint %d:\n";
   char message[sizeof (message1) + 30 /* slop */];
   
-  /* If we have no current source symtab, and we have any breakpoints,
-     go through the work of making a source context.  */
-  if (current_source_symtab == NULL && breakpoint_chain != 0)
-    {
-      select_source_symtab (NULL);
-    }
-
   ALL_BREAKPOINTS_SAFE (b, temp)
     {
       sprintf (message, message1, b->number);	/* Format possible error msg */
@@ -2392,6 +2731,9 @@ static void
 enable_breakpoint (bpt)
      struct breakpoint *bpt;
 {
+  FRAME save_selected_frame;
+  int save_selected_frame_level = -1;
+  
   bpt->enable = enabled;
 
   if (xgdb_verbose && bpt->type == bp_breakpoint)
@@ -2400,19 +2742,31 @@ enable_breakpoint (bpt)
   check_duplicates (bpt->address);
   if (bpt->type == bp_watchpoint)
     {
-      if (bpt->exp_valid_block != NULL
-       && !contained_in (get_selected_block (), bpt->exp_valid_block))
+      if (bpt->exp_valid_block != NULL)
 	{
-	  printf_filtered ("\
+	  FRAME fr = within_scope (bpt->exp_valid_block);
+	  if (fr == NULL)
+	    {
+	      printf_filtered ("\
 Cannot enable watchpoint %d because the block in which its expression\n\
 is valid is not currently in scope.\n", bpt->number);
-	  return;
+	      bpt->enable = disabled;
+	      return;
+	    }
+	  save_selected_frame = selected_frame;
+	  save_selected_frame_level = selected_frame_level;
+	  select_frame (fr, -1);
 	}
 
       value_free (bpt->val);
 
       bpt->val = evaluate_expression (bpt->exp);
       release_value (bpt->val);
+      if (VALUE_LAZY (bpt->val))
+	value_fetch_lazy (bpt->val);
+
+      if (save_selected_frame_level >= 0)
+	select_frame (save_selected_frame, save_selected_frame_level);
     }
 }
 
@@ -2717,21 +3071,26 @@ an expression changes.");
 	    "Synonym for ``info breakpoints''.");
 }
 
+/* OK, when we call objfile_relocate, we need to relocate breakpoints
+   too.  breakpoint_re_set is not a good choice--for example, if
+   addr_string contains just a line number without a file name the
+   breakpoint might get set in a different file.  In general, there is
+   no need to go all the way back to the user's string (though this might
+   work if some effort were made to canonicalize it), since symtabs and
+   everything except addresses are still valid.
+
+   Probably the best way to solve this is to have each breakpoint save
+   the objfile and the section number that was used to set it (if set
+   by "*addr", probably it is best to use find_pc_line to get a symtab
+   and use the objfile and block_line_section for that symtab).  Then
+   objfile_relocate can call fixup_breakpoints with the objfile and
+   the new_offsets, and it can relocate only the appropriate breakpoints.  */
+
 #ifdef IBM6000_TARGET
-/* Where should this function go? It is used by AIX only. FIXME. */
+/* But for now, just kludge it based on the concept that before an
+   objfile is relocated the breakpoint is below 0x10000000, and afterwards
+   it is higher, so that way we only relocate each breakpoint once.  */
 
-/* Breakpoint address relocation used to be done in breakpoint_re_set(). That
-   approach the following problem:
-
-     before running the program, if a file is list, then a breakpoint is
-     set (just the line number), then if we switch into another file and run
-     the program, just a line number as a breakpoint address was not
-     descriptive enough and breakpoint was ending up in a different file's
-     similar line. 
-
-  I don't think any other platform has this breakpoint relocation problem, so this
-  is not an issue for other platforms. */
-   
 void
 fixup_breakpoints (low, high, delta)
   CORE_ADDR low;

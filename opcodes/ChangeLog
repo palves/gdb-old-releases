@@ -1,3 +1,113 @@
+Thu May  6 20:51:17 1993  Fred Fish  (fnf@cygnus.com)
+
+	* a29k-dis.c, alpha-dis.c, i960-dis.c, sparc-dis.c, z8k-dis.c:
+	Cast second arg to read_memory_func to "bfd_byte *", as necessary.
+
+Mon Apr 26 18:17:42 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* sh-dis.c, sh-opc.h: New files.
+
+Fri Apr 23 18:51:22 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* alpha-dis.c, alpha-opc.h: New files.
+
+Tue Apr  6 12:54:08 1993  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* mips-dis.c: Sign extend 'j' and 'b' arguments, delta is a signed
+	value.
+
+Mon Apr  5 17:37:37 1993  John Gilmore  (gnu@cygnus.com)
+
+	* sparc-dis.c: Make "ta" the default trap instruction, "t" the alias.
+
+Fri Apr  2 07:24:27 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* a29k-dis.c, sparc-dis.c, sparc-opc.c: Use CONST rather than
+	const.
+
+Thu Apr  1 11:20:43 1993  Jim Kingdon  (kingdon@cygnus.com)
+
+	* sparc-dis.c: Use fprintf_func a few places where I forgot,
+	and double percent signs a few places.
+
+	* a29k-dis.c, i960-dis.c: New, merged from gdb and binutils.
+
+	* i386-dis.c, m68k-dis.c, mips-dis.c, sparc-dis.c:
+	Use info->print_address_func not print_address.
+
+	* dis-buf.c (generic_print_address): New function.
+
+Wed Mar 31 10:07:04 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* Makefile.in: Add sparc-dis.c.
+	sparc-dis.c: New file, merges binutils and gdb versions as follows:
+	From GDB:
+	    Add `add' instruction to the set that get checked
+	    for a preceding `sethi' in order to print an absolute address.
+	    * (print_insn):  Disassembly prefers real instructions.
+	    (is_delayed_branch):  Speed up.
+	    * sparc-opcode.h: Add ALIAS bit to aliases.  Fix up opcode tables.
+	    Still missing some float ops, and needs testing.
+	    * sparc-pinsn.c (print_insn): Eliminate 'set' test, subsumed by
+	    F_ALIAS.  Use printf, not fprintf, when not passing a file
+	    pointer...
+	    (compare_opcodes): Check that identical instructions have
+	    identical opcodes, complain otherwise.
+	From binutils:
+	    * New 'm' arg.
+	    * Include reg_names.
+	From neither:
+	    Use dis-asm.h/read_memory_func interface.
+
+Wed Mar 31 20:49:06 1993  K. Richard Pixley  (rich@rtl.cygnus.com)
+
+	* h8500-dis.c, i386-dis.c, m68k-dis.c, z8k-dis.c (fetch_data):
+	  deliberately return non-zero to setjmp from longjmp.  Otherwise
+	  this code fails to compile.
+
+Wed Mar 31 17:04:31 1993  Stu Grossman  (grossman@cygnus.com)
+
+	* m68k-dis.c:  Fix prototype for fetch_arg().
+
+Wed Mar 31 10:07:04 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* dis-buf.c: New file, for new read_memory_func interface.
+	Makefile.in (OFILES): Include it.
+	m68k-dis.c, i386-dis.c, h8500-dis.c, mips-dis.c, z8k-dis.c:
+	Use new read_memory_func interface.
+
+Mon Mar 29 14:02:17 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* h8500-dis.c (print_insn_h8500): Get sign of fp offsets right.
+	* h8500-opc.h: Fix couple of opcodes.
+
+Wed Mar 24 02:03:36 1993  david d `zoo' zuhn  (zoo at poseidon.cygnus.com)
+
+	* Makefile.in: add dvi & installcheck targets
+
+Mon Mar 22 18:55:04 1993  John Gilmore  (gnu@cygnus.com)
+
+	* Makefile.in:  Update for h8500-dis.c.
+
+Fri Mar 19 14:27:17 1993  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* h8500-dis.c, h8500-opc.h: New files
+
+Thu Mar 18 14:12:37 1993  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* mips-dis.c, z8k-dis.c:  Converted to use interface defined in
+	../include/dis-asm.h.
+	* m68k-dis.c:  New file (merge of ../binutils/m68k-pinsn.c
+	and ../gdb/m68k-pinsn.c).
+	* i386-dis.c:  New file (merge of ../binutils/i386-pinsn.c
+	and ../gdb/i386-pinsn.c).
+	* m68881-ext.c:  New file.  Moved definition of
+	ext_format ext_format_68881 from ../gdb/m68k-tdep.c.
+	* Makefile.in:  Adjust for new files.
+	* i386-dis.c:  Patches from John Hassey (hassey@dg-rtp.dg.com).
+	* m68k-dis.c:  Recognize '9' placement code, so (say) pflush
+	can be dis-assembled.
+
 Wed Feb 17 09:19:47 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
 
 	* mips-dis.c (print_insn_arg): Now returns void.

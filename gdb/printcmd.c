@@ -31,6 +31,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "breakpoint.h"
 #include "demangle.h"
 
+/* These are just for containing_function_bounds.  It might be better
+   to move containing_function_bounds to blockframe.c or thereabouts.  */
+#include "bfd.h"
+#include "symfile.h"
+#include "objfiles.h"
+
 extern int asm_demangle;	/* Whether to demangle syms in asm printouts */
 extern int addressprint;	/* Whether to print hex addresses in HLL " */
 
@@ -62,8 +68,13 @@ static CORE_ADDR last_examine_address;
 
 static value last_examine_value;
 
+/* Largest offset between a symbolic value and an address, that will be
+   printed as `0x1234 <symbol+offset>'.  */
+
+static unsigned int max_symbolic_offset = UINT_MAX;
+
 /* Number of auto-display expression currently being displayed.
-   So that we can deleted it if we get an error or a signal within it.
+   So that we can disable it if we get an error or a signal within it.
    -1 when not doing one.  */
 
 int current_display_number;
@@ -207,7 +218,7 @@ decode_format (string_ptr, oformat, osize)
     {
       if (*p == 'b' || *p == 'h' || *p == 'w' || *p == 'g')
 	val.size = *p++;
-#ifdef LONG_LONG
+#ifdef CC_HAS_LONG_LONG
       else if (*p == 'l')
 	{
 	  val.size = 'g';
@@ -220,7 +231,7 @@ decode_format (string_ptr, oformat, osize)
 	break;
     }
 
-#ifndef LONG_LONG
+#ifndef CC_HAS_LONG_LONG
   /* Make sure 'g' size is not used on integer types.
      Well, actually, we can handle hex.  */
   if (val.size == 'g' && val.format != 'f' && val.format != 'x')
@@ -387,75 +398,33 @@ print_scalar_formatted (valaddr, type, format, size, stream)
       if (!size)
 	{
 	  /* no size specified, like in print.  Print varying # of digits. */
-#if defined (LONG_LONG)
-	  fprintf_filtered (stream, local_hex_format_custom("ll"), val_long);
-#else /* not LONG_LONG.  */
-	  fprintf_filtered (stream, local_hex_format_custom("l"), val_long);
-#endif /* not LONG_LONG.  */
+	  print_longest (stream, 'x', 1, val_long);
 	}
       else
-#if defined (LONG_LONG)
-      switch (size)
-	{
-	case 'b':
-	  fprintf_filtered (stream, local_hex_format_custom("02ll"), val_long);
-	  break;
-	case 'h':
-	  fprintf_filtered (stream, local_hex_format_custom("04ll"), val_long);
-	  break;
-	case 'w':
-	  fprintf_filtered (stream, local_hex_format_custom("08ll"), val_long);
-	  break;
-	case 'g':
-	  fprintf_filtered (stream, local_hex_format_custom("016ll"), val_long);
-	  break;
-	default:
-	  error ("Undefined output size \"%c\".", size);
-	}
-#else /* not LONG_LONG.  */
-      switch (size)
-	{
-	case 'b':
-	  fprintf_filtered (stream, local_hex_format_custom("02"), val_long);
-	  break;
-	case 'h':
-	  fprintf_filtered (stream, local_hex_format_custom("04"), val_long);
-	  break;
-	case 'w':
-	  fprintf_filtered (stream, local_hex_format_custom("08"), val_long);
-	  break;
-	case 'g':
-	  fprintf_filtered (stream, local_hex_format_custom("016"), val_long);
-	  break;
-	default:
-	  error ("Undefined output size \"%c\".", size);
-	}
-#endif /* not LONG_LONG */
+	switch (size)
+	  {
+	  case 'b':
+	  case 'h':
+	  case 'w':
+	  case 'g':
+	    print_longest (stream, size, 1, val_long);
+	    break;
+	  default:
+	    error ("Undefined output size \"%c\".", size);
+	  }
       break;
 
     case 'd':
-#ifdef LONG_LONG
-      fprintf_filtered (stream, local_decimal_format_custom("ll"), val_long);
-#else
-      fprintf_filtered (stream, local_decimal_format(), val_long);
-#endif
+      print_longest (stream, 'd', 1, val_long);
       break;
 
     case 'u':
-#ifdef LONG_LONG
-      fprintf_filtered (stream, "%llu", val_long);
-#else
-      fprintf_filtered (stream, "%u", val_long);
-#endif
+      print_longest (stream, 'u', 0, val_long);
       break;
 
     case 'o':
       if (val_long)
-#ifdef LONG_LONG
-	fprintf_filtered (stream, local_octal_format_custom("ll"), val_long);
-#else
-	fprintf_filtered (stream, local_octal_format(), val_long);
-#endif
+	print_longest (stream, 'o', 1, val_long);
       else
 	fprintf_filtered (stream, "0");
       break;
@@ -561,23 +530,54 @@ print_address_symbolic (addr, stream, do_demangle, leadin)
      int do_demangle;
      char *leadin;
 {
-  int name_location;
-  register struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (addr);
+  CORE_ADDR name_location;
+  register struct symbol *symbol;
+  char *name;
 
-  /* If nothing comes out, don't print anything symbolic.  */
+  /* First try to find the address in the symbol tables to find
+     static functions. If that doesn't succeed we try the minimal symbol
+     vector for symbols in non-text space.
+     FIXME: Should find a way to get at the static non-text symbols too.  */
   
-  if (msymbol == NULL)
+  symbol = find_pc_function (addr);
+  if (symbol)
+    {
+    name_location = BLOCK_START (SYMBOL_BLOCK_VALUE (symbol));
+    if (do_demangle)
+      name = SYMBOL_SOURCE_NAME (symbol);
+    else
+      name = SYMBOL_LINKAGE_NAME (symbol);
+    }
+  else
+    {
+    register struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (addr);
+
+    /* If nothing comes out, don't print anything symbolic.  */
+    if (msymbol == NULL)
+      return;
+    name_location = SYMBOL_VALUE_ADDRESS (msymbol);
+    if (do_demangle)
+      name = SYMBOL_SOURCE_NAME (msymbol);
+    else
+      name = SYMBOL_LINKAGE_NAME (msymbol);
+    }
+
+  /* If the nearest symbol is too far away, don't print anything symbolic.  */
+
+  /* For when CORE_ADDR is larger than unsigned int, we do math in
+     CORE_ADDR.  But when we detect unsigned wraparound in the
+     CORE_ADDR math, we ignore this test and print the offset,
+     because addr+max_symbolic_offset has wrapped through the end
+     of the address space back to the beginning, giving bogus comparison.  */
+  if (addr > name_location + max_symbolic_offset
+      && name_location + max_symbolic_offset > name_location)
     return;
 
   fputs_filtered (leadin, stream);
   fputs_filtered ("<", stream);
-  if (do_demangle)
-    fputs_filtered (SYMBOL_SOURCE_NAME (msymbol), stream);
-  else
-    fputs_filtered (SYMBOL_LINKAGE_NAME (msymbol), stream);
-  name_location = SYMBOL_VALUE_ADDRESS (msymbol);
-  if (addr - name_location)
-    fprintf_filtered (stream, "+%d>", addr - name_location);
+  fputs_filtered (name, stream);
+  if (addr != name_location)
+    fprintf_filtered (stream, "+%d>", (int)(addr - name_location));
   else
     fputs_filtered (">", stream);
 }
@@ -653,7 +653,7 @@ do_examine (fmt, addr)
   else if (size == 'w')
     val_type = builtin_type_long;
   else if (size == 'g')
-#ifndef LONG_LONG
+#ifndef CC_HAS_LONG_LONG
     val_type = builtin_type_double;
 #else
     val_type = builtin_type_long_long;
@@ -928,6 +928,10 @@ address_info (exp, from_tty)
     case LOC_REGPARM:
       printf ("an argument in register %s", reg_names[val]);
       break;
+
+   case LOC_REGPARM_ADDR:
+     printf ("address of an argument in register %s", reg_names[val]);
+     break;
       
     case LOC_ARG:
       if (SYMBOL_BASEREG_VALID (sym))
@@ -978,6 +982,10 @@ address_info (exp, from_tty)
 	      local_hex_string(BLOCK_START (SYMBOL_BLOCK_VALUE (sym))));
       break;
 
+    case LOC_OPTIMIZED_OUT:
+      printf_filtered ("optimized out");
+      break;
+      
     default:
       printf ("of unknown (botched) type");
       break;
@@ -1486,6 +1494,7 @@ print_frame_args (func, fi, num, stream)
       /* We care about types of symbols, but don't need to keep track of
 	 stack offsets in them.  */
       case LOC_REGPARM:
+      case LOC_REGPARM_ADDR:
       case LOC_LOCAL_ARG:
 	break;
 
@@ -1494,24 +1503,31 @@ print_frame_args (func, fi, num, stream)
 	continue;
       }
 
-      /* If the symbol name is non-null, 
-	 we have to re-look-up the symbol because arguments often have
-	 two entries (one a parameter, one a register or local), and the one
-	 we want is the non-parm, which lookup_symbol will find for
-	 us.  After this, sym could be any SYMBOL_CLASS... 
-
+      /* We have to look up the symbol because arguments can have
+	 two entries (one a parameter, one a local) and the one we
+	 want is the local, which lookup_symbol will find for us.
+	 This includes gcc1 (not gcc2) on the sparc when passing a
+	 small structure and gcc2 when the argument type is float
+	 and it is passed as a double and converted to float by
+	 the prologue (in the latter case the type of the LOC_ARG
+	 symbol is double and the type of the LOC_LOCAL symbol is
+	 float).  There are also LOC_ARG/LOC_REGISTER pairs which
+	 are not combined in symbol-reading.  */
+      /* But if the parameter name is null, don't try it.
 	 Null parameter names occur on the RS/6000, for traceback tables.
 	 FIXME, should we even print them?  */
 
       if (*SYMBOL_NAME (sym))
-        sym = lookup_symbol (SYMBOL_NAME (sym),
-		    b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
+        sym = lookup_symbol
+	  (SYMBOL_NAME (sym),
+	   b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
 
       /* Print the current arg.  */
       if (! first)
 	fprintf_filtered (stream, ", ");
       wrap_here ("    ");
-      fprint_symbol (stream, SYMBOL_SOURCE_NAME (sym));
+      fprintf_symbol_filtered (stream, SYMBOL_SOURCE_NAME (sym),
+			       SYMBOL_LANGUAGE (sym), DMGL_PARAMS | DMGL_ANSI);
       fputs_filtered ("=", stream);
 
       /* Avoid value_print because it will deref ref parameters.  We just
@@ -1777,11 +1793,11 @@ printf_command (arg, from_tty)
 	    argindex += sizeof (double);
 	  }
 	else
-#ifdef LONG_LONG
+#ifdef CC_HAS_LONG_LONG
 	  if (argclass[i] == long_long_arg)
 	    {
-	      *(long long *) &arg_bytes[argindex] = value_as_long (val_args[i]);
-	      argindex += sizeof (long long);
+	      *(LONGEST *) &arg_bytes[argindex] = value_as_long (val_args[i]);
+	      argindex += sizeof (LONGEST);
 	    }
 	  else
 #endif
@@ -1818,18 +1834,28 @@ static int
 containing_function_bounds (pc, low, high)
      CORE_ADDR pc, *low, *high;
 {
-  int scan;
+  CORE_ADDR scan;
+  CORE_ADDR limit;
+  struct obj_section *sec;
 
   if (!find_pc_partial_function (pc, 0, low))
     return 0;
 
+  sec = find_pc_section (pc);
+  if (sec == NULL)
+    return 0;
+  limit = sec->endaddr;
+  
   scan = *low;
-  do {
-    scan++;
-    if (!find_pc_partial_function (scan, 0, high))
-      return 0;
-  } while (*low == *high);
-
+  while (scan < limit)
+    {
+      ++scan;
+      if (!find_pc_partial_function (scan, 0, high))
+	return 0;
+      if (*low != *high)
+	return 1;
+    }
+  *high = limit;
   return 1;
 }
 
@@ -1882,8 +1908,10 @@ disassemble_command (arg, from_tty)
       printf_filtered ("for function %s:\n", name);
     }
   else
-    printf_filtered ("from %s ", local_hex_string(low));
-    printf_filtered ("to %s:\n", local_hex_string(high));
+    {
+      printf_filtered ("from %s ", local_hex_string(low));
+      printf_filtered ("to %s:\n", local_hex_string(high));
+    }
 
   /* Dump the specified range.  */
   for (pc = low; pc < high; )
@@ -1912,9 +1940,8 @@ _initialize_printcmd ()
 ADDRESS is an expression for the memory address to examine.\n\
 FMT is a repeat count followed by a format letter and a size letter.\n\
 Format letters are o(octal), x(hex), d(decimal), u(unsigned decimal),\n\
- f(float), a(address), i(instruction), c(char) and s(string).\n\
+  t(binary), f(float), a(address), i(instruction), c(char) and s(string).\n\
 Size letters are b(byte), h(halfword), w(word), g(giant, 8 bytes).\n\
-  g is meaningful only with f, for type double.\n\
 The specified number of objects of the specified size are printed\n\
 according to the format.\n\n\
 Defaults for format and size letters are those previously used.\n\
@@ -2031,4 +2058,11 @@ but no count or size letter (see \"x\" command).", NULL));
   add_com ("inspect", class_vars, inspect_command,
 "Same as \"print\" command, except that if you are running in the epoch\n\
 environment, the value is printed in its own window.");
+
+  add_show_from_set (
+      add_set_cmd ("max-symbolic-offset", no_class, var_uinteger,
+		   (char *)&max_symbolic_offset,
+	"Set the largest offset that will be printed in <symbol+1234> form.",
+		   &setprintlist),
+      &showprintlist);
 }

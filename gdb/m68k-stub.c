@@ -51,7 +51,7 @@
  *  The sole purpose of the routine _catchException is to compute the
  *  exception number and push it on the stack in place of the return address.
  *  The external function exceptionHandler() is
- *  used to attach a specific handler to a specific 68k exception.
+ *  used to attach a specific handler to a specific m68k exception.
  *  For 68020 machines, the ability to have a return address around just
  *  so the vector can be determined is not necessary because the '020 pushes an
  *  extra word onto the stack containing the vector offset

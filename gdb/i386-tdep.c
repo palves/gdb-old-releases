@@ -283,19 +283,26 @@ i386_get_frame_setup (pc)
 /* Return number of args passed to a frame.
    Can return -1, meaning no way to tell.  */
 
-/* on the 386, the instruction following the call could be:
- *  popl %ecx        -  one arg
- *  addl $imm, %esp  -  imm/4 args; imm may be 8 or 32 bits
- *  anything else    -  zero args
- */
-
 int
 i386_frame_num_args (fi)
      struct frame_info *fi;
 {
+#if 1
+  return -1;
+#else
+  /* This loses because not only might the compiler not be popping the
+     args right after the function call, it might be popping args from both
+     this call and a previous one, and we would say there are more args
+     than there really are.  */
+
   int retpc;						
   unsigned char op;					
   struct frame_info *pfi;
+
+  /* on the 386, the instruction following the call could be:
+     popl %ecx        -  one arg
+     addl $imm, %esp  -  imm/4 args; imm may be 8 or 32 bits
+     anything else    -  zero args  */
 
   int frameless;
 
@@ -346,6 +353,7 @@ i386_frame_num_args (fi)
 	  return 0;
 	}
     }
+#endif
 }
 
 /*

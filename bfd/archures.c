@@ -36,7 +36,7 @@ SECTION
 	The arch information is provided by each architecture package.
 	The set of default architectures is selected by the #define
 	<<SELECT_ARCHITECTURES>>.  This is normally set up in the
-	<<hosts/*.h>> file of your choice.  If the name is not
+	<<hosts/host.h>> file of your choice.  If the name is not
 	defined, then all the architectures supported are included. 
 
 	When BFD starts up, all the architectures are called with an
@@ -101,6 +101,8 @@ DESCRIPTION
 .#define bfd_mach_z8001		1
 .#define bfd_mach_z8002		2
 .  bfd_arch_h8500,     {* Hitachi H8/500 *}
+.  bfd_arch_sh,        {* Hitachi SH *}
+.  bfd_arch_alpha,     {* Dec Alpha *}
 .  bfd_arch_last
 .  };
 
@@ -404,7 +406,9 @@ unsigned int DEFUN(bfd_arch_bits_per_address, (abfd), bfd *abfd)
 
 
 extern void bfd_h8300_arch PARAMS ((void));
+extern void bfd_sh_arch PARAMS ((void));
 extern void bfd_h8500_arch PARAMS ((void));
+extern void bfd_alpha_arch PARAMS ((void));
 extern void bfd_i960_arch PARAMS ((void));
 extern void bfd_empty_arch PARAMS ((void));
 extern void bfd_sparc_arch PARAMS ((void));
@@ -429,6 +433,7 @@ static void (*archures_init_table[]) PARAMS ((void)) =
   bfd_mips_arch,
   bfd_h8300_arch,
   bfd_h8500_arch,
+  bfd_alpha_arch,
   bfd_i386_arch,
   bfd_m88k_arch,
   bfd_i960_arch,

@@ -386,7 +386,7 @@ vx_read_register (regno)
   ptrace_in.pid = inferior_pid;
   ptrace_out.info.more_data = (caddr_t) &out_data;
 #ifndef I80960
-  out_data.len   = 18 * REGISTER_RAW_SIZE (0);		/* FIXME 68k hack */
+  out_data.len   = 18 * REGISTER_RAW_SIZE (0);		/* FIXME m68k hack */
 #else
   out_data.len = (16 + 16 + 3) * REGISTER_RAW_SIZE (0);
 #endif
@@ -506,7 +506,7 @@ vx_write_register (regno)
 
   in_data.len = (16 + 16 + 3) * sizeof (REGISTER_TYPE);
 
-#else  /* not 960 -- assume 68k -- FIXME */
+#else  /* not 960 -- assume m68k -- FIXME */
 
   in_data.len = 18 * sizeof (REGISTER_TYPE);
 
@@ -536,7 +536,7 @@ vx_write_register (regno)
       in_data.bytes = &registers[REGISTER_BYTE (FP0_REGNUM)];
       in_data.len = 4 * REGISTER_RAW_SIZE (FP0_REGNUM);
 #endif
-#else  /* not 960 -- assume 68k -- FIXME */
+#else  /* not 960 -- assume m68k -- FIXME */
 
       in_data.bytes = &registers[REGISTER_BYTE (FP0_REGNUM)];
       in_data.len = (8 * REGISTER_RAW_SIZE (FP0_REGNUM)
@@ -843,15 +843,23 @@ net_connect (host)
 {
   struct sockaddr_in destAddr;
   struct hostent *destHost;
+  unsigned long addr;
+  
+  /* Get the internet address for the given host.  Allow a numeric
+     IP address or a hostname.  */
 
-  /* get the internet address for the given host */
-
-  if ((destHost = (struct hostent *) gethostbyname (host)) == NULL)
-      error ("Invalid hostname.  Couldn't find remote host address.");
+  addr = inet_addr (host);
+  if (addr == -1)
+    {
+      destHost = (struct hostent *) gethostbyname (host);
+      if (destHost == NULL)
+	error ("Invalid hostname.  Couldn't find remote host address.");
+      addr = * (unsigned long *) destHost->h_addr;
+    }
 
   bzero (&destAddr, sizeof (destAddr));
 
-  destAddr.sin_addr.s_addr = * (u_long *) destHost->h_addr;
+  destAddr.sin_addr.s_addr = addr;
   destAddr.sin_family      = AF_INET;
   destAddr.sin_port        = 0;	/* set to actual port that remote
 			           ptrace is listening on.  */

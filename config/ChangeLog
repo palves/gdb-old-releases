@@ -1,3 +1,13 @@
+Thu Apr  8 11:21:52 1993  Ian Lance Taylor  (ian@cygnus.com)
+
+	* mt-a29k, mt-ebmon29k, mt-os68k, mt-ose68000, mt-ose68k,
+	mt-vxworks68, mt-vxworks960: Removed obsolete, unused target
+	Makefile fragment files.
+
+Mon Mar  8 15:05:25 1993  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* mh-aix386: New file; old mh-aix, plus no-op RANLIB.
+
 Thu Oct  1 13:50:48 1992  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
 
 	* mh-solaris: INSTALL is NOT /usr/ucb/install

@@ -237,6 +237,10 @@ evaluate_subexp (expect_type, exp, pos, noside)
       (*pos) += 2;
       return value_of_register (longest_to_int (exp->elts[pc + 1].longconst));
 
+    case OP_BOOL:
+      (*pos) += 2;
+      return value_from_longest (builtin_type_chill_bool,
+				 exp->elts[pc + 1].longconst);
 
     case OP_INTERNALVAR:
       (*pos) += 2;
@@ -469,8 +473,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
-	return value_zero (lookup_struct_elt_type (TYPE_TARGET_TYPE
-						   (VALUE_TYPE (arg1)),
+	return value_zero (lookup_struct_elt_type (VALUE_TYPE (arg1),
 						   &exp->elts[pc + 2].string,
 						   0),
 			   lval_memory);
@@ -985,7 +988,9 @@ evaluate_subexp (expect_type, exp, pos, noside)
       return value_of_this (1);
 
     default:
-      error ("internal error: I do not know how to evaluate what you gave me");
+      /* This can happen at least in the case where the user types
+	 "print int".  */
+      error ("Invalid expression");
     }
 
  nosideret:

@@ -36,6 +36,7 @@ Cambridge, MA 02139, USA.  */
 
 extern char *xmalloc ();
 extern char *xrealloc ();
+extern char *strstr ();
 
 /* In order to allow a single demangler executable to demangle strings
    using various common values of CPLUS_MARKER, as well as any specific
@@ -184,7 +185,7 @@ typedef struct string		/* Beware: these aren't required to be */
 #define APPEND_BLANK(str)	{if (!STRING_EMPTY(str)) \
 				   string_append(str, " ");}
 
-#define ARM_VTABLE_STRING "__vtbl__"	/* Lucid/cfront virtual table prefix */
+#define ARM_VTABLE_STRING "__vtbl__"	/* Lucid/ARM virtual table prefix */
 #define ARM_VTABLE_STRLEN 8		/* strlen (ARM_VTABLE_STRING) */
 
 /* Prototypes for local functions */
@@ -220,7 +221,7 @@ static int
 gnu_special PARAMS ((struct work_stuff *, CONST char **, string *));
 
 static int
-cfront_special PARAMS ((struct work_stuff *, CONST char **, string *));
+arm_special PARAMS ((struct work_stuff *, CONST char **, string *));
 
 static void
 string_need PARAMS ((string *, int));
@@ -283,7 +284,9 @@ static void
 string_prepends PARAMS ((string *, string *));
 
 /*  Translate count to integer, consuming tokens in the process.
-    Conversion terminates on the first non-digit character. */
+    Conversion terminates on the first non-digit character.
+    Trying to consume something that isn't a count results in
+    no consumption of input and a return of 0. */
 
 static int
 consume_count (type)
@@ -291,12 +294,15 @@ consume_count (type)
 {
     int count = 0;
 
-    do
+    if (isdigit (**type))
       {
-	count *= 10;
-	count += **type - '0';
-	(*type)++;
-      } while (isdigit (**type));
+	do
+	  {
+	    count *= 10;
+	    count += **type - '0';
+	    (*type)++;
+	  } while (isdigit (**type));
+      }
     return (count);
 }
 
@@ -552,12 +558,12 @@ demangle_signature (work, mangled, declp)
 	    func_done = 1;
 	    (*mangled)++;
 
-	    /* For lucid/cfront style we have to forget any types we might
+	    /* For lucid/ARM style we have to forget any types we might
 	       have remembered up to this point, since they were not argument
 	       types.  GNU style considers all types seen as available for
 	       back references.  See comment in demangle_args() */
 
-	    if (LUCID_DEMANGLING || CFRONT_DEMANGLING)
+	    if (LUCID_DEMANGLING || ARM_DEMANGLING)
 	      {
 		forget_types (work);
 	      }
@@ -1025,8 +1031,8 @@ demangle_prefix (work, mangled, declp)
       /* Mangled name starts with "__".  Skip over any leading '_' characters,
 	 then find the next "__" that separates the prefix from the signature.
 	 */
-      if (!(CFRONT_DEMANGLING || LUCID_DEMANGLING)
-	  || (cfront_special (work, mangled, declp) == 0))
+      if (!(ARM_DEMANGLING || LUCID_DEMANGLING)
+	  || (arm_special (work, mangled, declp) == 0))
 	{
 	  while (*scan == '_')
 	    {
@@ -1171,18 +1177,18 @@ gnu_special (work, mangled, declp)
 
 LOCAL FUNCTION
 
-	cfront_special -- special handling of cfront/lucid mangled strings
+	arm_special -- special handling of ARM/lucid mangled strings
 
 SYNOPSIS
 
 	static int
-	cfront_special (struct work_stuff *work, const char **mangled,
+	arm_special (struct work_stuff *work, const char **mangled,
 			string *declp);
 
 
 DESCRIPTION
 
-	Process some special cfront style mangling forms that don't fit
+	Process some special ARM style mangling forms that don't fit
 	the normal pattern.  For example:
 
 		__vtbl__3foo		(foo virtual table)
@@ -1191,7 +1197,7 @@ DESCRIPTION
  */
 
 static int
-cfront_special (work, mangled, declp)
+arm_special (work, mangled, declp)
      struct work_stuff *work;
      CONST char **mangled;
      string *declp;
@@ -1203,7 +1209,7 @@ cfront_special (work, mangled, declp)
 
   if (strncmp (*mangled, ARM_VTABLE_STRING, ARM_VTABLE_STRLEN) == 0)
     {
-      /* Found a cfront style virtual table, get past ARM_VTABLE_STRING
+      /* Found a ARM style virtual table, get past ARM_VTABLE_STRING
          and create the decl.  Note that we consume the entire mangled
 	 input string, which means that demangle_signature has no work
 	 to do. */
@@ -1279,7 +1285,7 @@ demangle_qualified (work, mangled, result, isfuncname, append)
     {
       /* Assume success until we discover otherwise.  Skip over the 'Q', the
 	 qualifier count, and any '_' between the qualifier count and the
-	 first name (cfront qualified names). */
+	 first name (ARM qualified names). */
 
       success = 1;
       if ((*mangled)[2] == '_')
@@ -1823,7 +1829,7 @@ forget_types (work)
    DECLP must be already initialised, usually non-empty.  It won't be freed
    on failure.
 
-   Note that g++ differs significantly from cfront and lucid style mangling
+   Note that g++ differs significantly from ARM and lucid style mangling
    with regards to references to previously seen types.  For example, given
    the source fragment:
 
@@ -1840,15 +1846,15 @@ forget_types (work)
      __3fooiRT0iT2iT2
      foo__FiR3fooiT1iT1
 
-   while lcc (and presumably cfront as well) produces:
+   while lcc (and presumably other ARM style compilers as well) produces:
 
      foo__FiR3fooT1T2T1T2
      __ct__3fooFiR3fooT1T2T1T2
 
    Note that g++ bases it's type numbers starting at zero and counts all
-   previously seen types, while lucid/cfront bases it's type numbers starting
+   previously seen types, while lucid/ARM bases it's type numbers starting
    at one and only considers types after it has seen the 'F' character
-   indicating the start of the function args.  For lucid/cfront style, we
+   indicating the start of the function args.  For lucid/ARM style, we
    account for this difference by discarding any previously seen types when
    we see the 'F' character, and subtracting one from the type number
    reference.
@@ -1898,7 +1904,7 @@ demangle_args (work, mangled, declp)
 	    {
 	      return (0);
 	    }
-	  if (LUCID_DEMANGLING || CFRONT_DEMANGLING)
+	  if (LUCID_DEMANGLING || ARM_DEMANGLING)
 	    {
 	      t--;
 	    }
@@ -1988,7 +1994,7 @@ demangle_function_name (work, mangled, declp, scan)
 
   (*mangled) = scan + 2;
 
-  if (LUCID_DEMANGLING || CFRONT_DEMANGLING)
+  if (LUCID_DEMANGLING || ARM_DEMANGLING)
     {
 
       /* See if we have an ARM style constructor or destructor operator.
@@ -2061,7 +2067,8 @@ demangle_function_name (work, mangled, declp, scan)
 	  string_delete (&type);
 	}
     }
-  else if (declp->b[2] == 'o' && declp->b[3] == 'p')
+  else if (declp->b[0] == '_' && declp->b[1] == '_'
+	  && declp->b[2] == 'o' && declp->b[3] == 'p')
     {
       /* ANSI.  */
       /* type conversion operator.  */
@@ -2316,25 +2323,33 @@ xrealloc (oldmem, size)
   return (newmem);
 }
 
+#define MBUF_SIZE 512
+char mbuffer[MBUF_SIZE];
+
+int strip_underscore = 0;
+
 main (argc, argv)
   int argc;
   char **argv;
 {
-  char mangled_name[128];
   char *result;
   int c;
   extern char *optarg;
   extern int optind;
 
-  while ((c = getopt (argc, argv, "s:?")) != EOF)
+  while ((c = getopt (argc, argv, "_s:?")) != EOF)
     {
       switch (c)
 	{
 	  case '?':
-	    fprintf (stderr, "usage: demangle [-s style] [arg1 [arg2]] ...\n");
-	    fprintf (stderr, "style = { gnu, lucid, cfront }\n");
+	    fprintf (stderr, "usage: demangle [-_] [-s style] [arg1 [arg2]] ...\n");
+	    fprintf (stderr, "style = { gnu, lucid, arm }\n");
+	    fprintf (stderr, "-_ = strip initial underscore from indentifiers.\n");
 	    fprintf (stderr, "reads args from stdin if none supplied\n");
 	    exit (0);
+	    break;
+	  case '_':
+	    strip_underscore = 1;
 	    break;
 	  case 's':
 	    if (strcmp (optarg, "gnu") == 0)
@@ -2345,9 +2360,9 @@ main (argc, argv)
 	      {
 		current_demangling_style = lucid_demangling;
 	      }
-	    else if (strcmp (optarg, "cfront") == 0)
+	    else if (strcmp (optarg, "arm") == 0)
 	      {
-		current_demangling_style = cfront_demangling;
+		current_demangling_style = arm_demangling;
 	      }
 	    else
 	      {
@@ -2366,9 +2381,37 @@ main (argc, argv)
     }
   else
     {
-      while (gets (mangled_name))
+      int c;
+      for (;;)
 	{
-	  demangle_it (mangled_name);
+	  int i = 0;
+	  c = getchar ();
+	  /* Try to read a label. */
+	  while (c != EOF && (isalnum(c) || c == '_' || c == '$' || c == '.'))
+	    {
+	      if (i >= MBUF_SIZE-1)
+		break;
+	      mbuffer[i++] = c;
+	      c = getchar ();
+	    }
+	  if (i > 0)
+	    {
+	      int skip_first = strip_underscore && i > 1 && mbuffer[0] == '_';
+	      mbuffer[i] = 0;
+	      
+	      result = cplus_demangle (mbuffer+skip_first,
+				       DMGL_PARAMS | DMGL_ANSI);
+	      if (result)
+		{
+		  fputs (result, stdout);
+		  free (result);
+		}
+	      else
+		fputs (mbuffer + skip_first, stdout);
+	    }
+	  if (c == EOF)
+	    break;
+	  putchar (c);
 	}
     }
 

@@ -382,9 +382,32 @@ patch_block_stabs (symbols, stabs, objfile)
 	  sym = find_symbol_in_list (symbols, name, pp-name);
 	  if (!sym)
 	    {
-#ifndef IBM6000_TARGET
-	      printf ("ERROR! stab symbol not found!\n");	/* FIXME */
-#endif
+	      /* On xcoff, if a global is defined and never referenced,
+		 ld will remove it from the executable.  There is then
+		 a N_GSYM stab for it, but no regular (C_EXT) symbol.  */
+	      sym = (struct symbol *)
+		obstack_alloc (&objfile->symbol_obstack,
+			       sizeof (struct symbol));
+
+	      memset (sym, 0, sizeof (struct symbol));
+	      SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+	      SYMBOL_CLASS (sym) = LOC_OPTIMIZED_OUT;
+	      SYMBOL_NAME (sym) =
+		obstack_copy0 (&objfile->symbol_obstack, name, pp - name);
+	      pp += 2;
+	      if (*(pp-1) == 'F' || *(pp-1) == 'f')
+		{
+		  /* I don't think the linker does this with functions,
+		     so as far as I know this is never executed.
+		     But it doesn't hurt to check.  */
+		  SYMBOL_TYPE (sym) =
+		    lookup_function_type (read_type (&pp, objfile));
+		}
+	      else
+		{
+		  SYMBOL_TYPE (sym) = read_type (&pp, objfile);
+		}
+	      add_symbol_to_list (sym, &global_symbols);
 	    }
 	  else
 	    {
@@ -574,6 +597,8 @@ define_symbol (valu, string, desc, type, objfile)
 	    dbl_valu = (char *)
 	      obstack_alloc (&objfile -> symbol_obstack, sizeof (double));
 	    memcpy (dbl_valu, &d, sizeof (double));
+	    /* Put it in target byte order, but it's still in host
+	       floating point format.  */
 	    SWAP_TARGET_AND_HOST (dbl_valu, sizeof (double));
 	    SYMBOL_VALUE_BYTES (sym) = dbl_valu;
 	    SYMBOL_CLASS (sym) = LOC_CONST_BYTES;
@@ -604,7 +629,16 @@ define_symbol (valu, string, desc, type, objfile)
 	  }
 	  break;
 	default:
-	  error ("Invalid symbol data at symtab pos %d.", symnum);
+	  {
+	    static struct complaint msg =
+	      {"Unrecognized constant type", 0, 0};
+	    complain (&msg);
+	    SYMBOL_CLASS (sym) = LOC_CONST;
+	    /* This gives a second complaint, which is probably OK.
+	       We do want the skip to the end of symbol behavior (to
+	       deal with continuation).  */
+	    SYMBOL_TYPE (sym) = error_type (&p);
+	  }
 	}
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       add_symbol_to_list (sym, &file_symbols);
@@ -810,6 +844,7 @@ define_symbol (valu, string, desc, type, objfile)
 
 #endif /* no BELIEVE_PCC_PROMOTION_TYPE.  */
 
+    case 'R':
     case 'P':
       /* acc seems to use P to delare the prototypes of functions that
          are referenced by this file.  gdb is not prepared to deal
@@ -829,7 +864,6 @@ define_symbol (valu, string, desc, type, objfile)
       add_symbol_to_list (sym, &local_symbols);
       break;
 
-    case 'R':
     case 'r':
       /* Register variable (either global or local).  */
       SYMBOL_CLASS (sym) = LOC_REGISTER;
@@ -841,7 +875,31 @@ define_symbol (valu, string, desc, type, objfile)
 	}
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       if (within_function)
-        add_symbol_to_list (sym, &local_symbols);
+	{
+	  /* Sun cc uses a pair of symbols, one 'p' and one 'r' with the same
+	     name to represent an argument passed in a register.
+	     GCC uses 'P' for the same case.  So if we find such a symbol pair
+	     we combine it into one 'P' symbol.
+	     Note that this code illegally combines
+	       main(argc) int argc; { register int argc = 1; }
+	     but this case is considered pathological and causes a warning
+	     from a decent compiler.  */
+	  if (local_symbols
+	      && local_symbols->nsyms > 0)
+	    {
+	      struct symbol *prev_sym;
+	      prev_sym = local_symbols->symbol[local_symbols->nsyms - 1];
+	      if (SYMBOL_CLASS (prev_sym) == LOC_ARG
+		  && STREQ (SYMBOL_NAME (prev_sym), SYMBOL_NAME(sym)))
+		{
+		  SYMBOL_CLASS (prev_sym) = LOC_REGPARM;
+		  SYMBOL_VALUE (prev_sym) = SYMBOL_VALUE (sym);
+		  sym = prev_sym;
+		  break;
+		}
+	    }
+          add_symbol_to_list (sym, &local_symbols);
+	}
       else
         add_symbol_to_list (sym, &file_symbols);
       break;
@@ -942,6 +1000,23 @@ define_symbol (valu, string, desc, type, objfile)
     default:
       error ("Invalid symbol data: unknown symbol-type code `%c' at symtab pos %d.", deftype, symnum);
     }
+
+  /* When passing structures to a function, some systems sometimes pass
+     the address in a register, not the structure itself. 
+
+     If REG_STRUCT_HAS_ADDR yields non-zero we have to convert LOC_REGPARM
+     to LOC_REGPARM_ADDR for structures and unions.  */
+
+#if !defined (REG_STRUCT_HAS_ADDR)
+#define REG_STRUCT_HAS_ADDR(gcc_p) 0
+#endif
+
+  if (SYMBOL_CLASS (sym) == LOC_REGPARM
+      && REG_STRUCT_HAS_ADDR (processing_gcc_compilation)
+      && (   (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_STRUCT)
+	  || (TYPE_CODE (SYMBOL_TYPE (sym)) == TYPE_CODE_UNION)))
+    SYMBOL_CLASS (sym) = LOC_REGPARM_ADDR;
+
   return sym;
 }
 
@@ -1543,6 +1618,8 @@ read_member_functions (fip, pp, type, objfile)
 
 	  if (TYPE_FLAGS (new_sublist -> fn_field.type) & TYPE_FLAG_STUB)
 	    {
+	      if (!TYPE_DOMAIN_TYPE (new_sublist -> fn_field.type))
+		TYPE_DOMAIN_TYPE (new_sublist -> fn_field.type) = type;
 	      new_sublist -> fn_field.is_stub = 1;
 	    }
 	  new_sublist -> fn_field.physname = savestring (*pp, p - *pp);
@@ -2347,32 +2424,12 @@ read_struct_type (pp, type, objfile)
      member functions, attach them to the type, and then read any tilde
      field (baseclass specifier for the class holding the main vtable). */
 
-  if (!read_baseclasses (&fi, pp, type, objfile))
-    {
-      do_cleanups (back_to);
-      return (error_type (pp));
-    }
-  if (!read_struct_fields (&fi, pp, type, objfile))
-    {
-      do_cleanups (back_to);
-      return (error_type (pp));
-    }
-  if (!attach_fields_to_type (&fi, type, objfile))
-    {
-      do_cleanups (back_to);
-      return (error_type (pp));
-    }
-  if (!read_member_functions (&fi, pp, type, objfile))
-    {
-      do_cleanups (back_to);
-      return (error_type (pp));
-    }
-  if (!attach_fn_fields_to_type (&fi, type))
-    {
-      do_cleanups (back_to);
-      return (error_type (pp));
-    }
-  if (!read_tilde_fields (&fi, pp, type, objfile))
+  if (!read_baseclasses (&fi, pp, type, objfile)
+      || !read_struct_fields (&fi, pp, type, objfile)
+      || !attach_fields_to_type (&fi, type, objfile)
+      || !read_member_functions (&fi, pp, type, objfile)
+      || !attach_fn_fields_to_type (&fi, type)
+      || !read_tilde_fields (&fi, pp, type, objfile))
     {
       do_cleanups (back_to);
       return (error_type (pp));
@@ -2920,7 +2977,7 @@ read_range_type (pp, typenums, objfile)
 	       *dbx_lookup_type (rangenums) == lookup_fundamental_type (objfile, FT_INTEGER)))
     {
       /* an unsigned type */
-#ifdef LONG_LONG
+#ifdef CC_HAS_LONG_LONG
       if (n3 == - sizeof (long long))
 	return (lookup_fundamental_type (objfile, FT_UNSIGNED_LONG_LONG));
 #endif
@@ -2938,7 +2995,7 @@ read_range_type (pp, typenums, objfile)
       if (n3 == (unsigned char)~0L)
 	return (lookup_fundamental_type (objfile, FT_UNSIGNED_CHAR));
     }
-#ifdef LONG_LONG
+#ifdef CC_HAS_LONG_LONG
   else if (n3 == 0 && n2 == -sizeof (long long))
     return (lookup_fundamental_type (objfile, FT_LONG_LONG));
 #endif  

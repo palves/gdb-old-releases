@@ -88,6 +88,8 @@ all:		$(TARGETLIB)
 info:
 clean-info:
 install-info:
+dvi:
+installcheck:
 check:
 
 install:	all
@@ -159,6 +161,10 @@ ls:
 
 clean:
 		rm -f *.a *.o core errs *~ \#* TAGS *.E a.out errors 
+
+distclean:	clean 
+		rm -f config.status
+		rm -f Makefile depend
 
 force:
 
