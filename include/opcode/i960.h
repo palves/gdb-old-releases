@@ -138,6 +138,7 @@ struct i960_opcode {
 #define I_KX	0x10	/* 80960Kx instruction		*/
 #define I_MIL	0x20	/* Military instruction		*/
 #define I_CASIM	0x40	/* CA simulator instruction	*/
+#define I_CX2	0x80	/* other Cx instructions	*/
 
 /******************************************************************************
  *
@@ -431,10 +432,16 @@ const struct i960_opcode i960_opcodes[] = {
 
 	/* CX extensions */
 
-	{ R_3(0x5d8),	"eshro",	I_CX,	REG,	3, { RSL,RSL,RS } },
+	{ R_3(0x5d8),	"eshro",	I_CX2,	REG,	3, { RSL,RSL,RS } },
 	{ R_3(0x630),	"sdma",		I_CX,	REG,	3, { RSL,RSL,RL } },
 	{ R_3(0x631),	"udma",		I_CX,	REG,	0, { 0, 0, 0 }	},
-	{ R_3(0x659),	"sysctl",	I_CX,	REG,	3, { RSL,RSL,RL } },
+	{ R_3(0x659),	"sysctl",	I_CX2,	REG,	3, { RSL,RSL,RL } },
+
+
+
+
+
+
 
 
 	/* END OF TABLE */

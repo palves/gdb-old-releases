@@ -354,12 +354,16 @@ write_exp_bitstring (str)
   write_exp_elt_longcst ((LONGEST) bits);
 }
 
-/* Type that corresponds to the address given in a minimal symbol.  */
-
-static struct type *msymbol_addr_type;
-
 /* Add the appropriate elements for a minimal symbol to the end of
-   the expression.  */
+   the expression.  The rationale behind passing in text_symbol_type and
+   data_symbol_type was so that Modula-2 could pass in WORD for
+   data_symbol_type.  Perhaps it still is useful to have those types vary
+   based on the language, but they no longer have names like "int", so
+   the initial rationale is gone.  */
+
+static struct type *msym_text_symbol_type;
+static struct type *msym_data_symbol_type;
+static struct type *msym_unknown_symbol_type;
 
 void
 write_exp_msymbol (msymbol, text_symbol_type, data_symbol_type)
@@ -368,7 +372,7 @@ write_exp_msymbol (msymbol, text_symbol_type, data_symbol_type)
      struct type *data_symbol_type;
 {
   write_exp_elt_opcode (OP_LONG);
-  write_exp_elt_type (msymbol_addr_type);
+  write_exp_elt_type (lookup_pointer_type (builtin_type_void));
   write_exp_elt_longcst ((LONGEST) SYMBOL_VALUE_ADDRESS (msymbol));
   write_exp_elt_opcode (OP_LONG);
 
@@ -378,18 +382,18 @@ write_exp_msymbol (msymbol, text_symbol_type, data_symbol_type)
     case mst_text:
     case mst_file_text:
     case mst_solib_trampoline:
-      write_exp_elt_type (text_symbol_type);
+      write_exp_elt_type (msym_text_symbol_type);
       break;
 
     case mst_data:
     case mst_file_data:
     case mst_bss:
     case mst_file_bss:
-      write_exp_elt_type (data_symbol_type);
+      write_exp_elt_type (msym_data_symbol_type);
       break;
 
     default:
-      write_exp_elt_type (builtin_type_char);
+      write_exp_elt_type (msym_unknown_symbol_type);
       break;
     }
   write_exp_elt_opcode (UNOP_MEMVAL);
@@ -466,7 +470,13 @@ length_of_subexp (expr, endpos)
       oplen = 3;
       break;
 
+    case OP_COMPLEX:
+      oplen = 1; 
+      args = 2;
+      break; 
+
     case OP_FUNCALL:
+    case OP_F77_UNDETERMINED_ARGLIST:
       oplen = 3;
       args = 1 + longest_to_int (expr->elts[endpos - 2].longconst);
       break;
@@ -495,6 +505,7 @@ length_of_subexp (expr, endpos)
       args = 1;
       break;
 
+    case OP_LABELED:
     case STRUCTOP_STRUCT:
     case STRUCTOP_PTR:
       args = 1;
@@ -519,12 +530,14 @@ length_of_subexp (expr, endpos)
       break;
 
     case TERNOP_COND:
+    case TERNOP_SLICE:
+    case TERNOP_SLICE_COUNT:
       args = 3;
       break;
 
       /* Modula-2 */
    case MULTI_SUBSCRIPT:
-      oplen=3;
+      oplen = 3;
       args = 1 + longest_to_int (expr->elts[endpos- 2].longconst);
       break;
 
@@ -595,7 +608,13 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
       oplen = 3;
       break;
 
+    case OP_COMPLEX:
+      oplen = 1; 
+      args = 2; 
+      break; 
+
     case OP_FUNCALL:
+    case OP_F77_UNDETERMINED_ARGLIST:
       oplen = 3;
       args = 1 + longest_to_int (inexpr->elts[inend - 2].longconst);
       break;
@@ -625,6 +644,7 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
 
     case STRUCTOP_STRUCT:
     case STRUCTOP_PTR:
+    case OP_LABELED:
       args = 1;
       /* fall through */
     case OP_M2_STRING:
@@ -647,6 +667,8 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
       break;
 
     case TERNOP_COND:
+    case TERNOP_SLICE:
+    case TERNOP_SLICE_COUNT:
       args = 3;
       break;
 
@@ -657,7 +679,7 @@ prefixify_subexp (inexpr, outexpr, inend, outbeg)
 
       /* Modula-2 */
    case MULTI_SUBSCRIPT:
-      oplen=3;
+      oplen = 3;
       args = 1 + longest_to_int (inexpr->elts[inend - 2].longconst);
       break;
 
@@ -881,10 +903,14 @@ _initialize_parse ()
   type_stack = (union type_stack_elt *)
     xmalloc (type_stack_size * sizeof (*type_stack));
 
-  /* We don't worry too much about what the name of this type is
-     because the name should rarely appear in output to the user.  */
-
-  msymbol_addr_type =
-    init_type (TYPE_CODE_PTR, TARGET_PTR_BIT / HOST_CHAR_BIT, 0,
-	       "void *", NULL);
+  msym_text_symbol_type =
+    init_type (TYPE_CODE_FUNC, 1, 0, "<text variable, no debug info>", NULL);
+  TYPE_TARGET_TYPE (msym_text_symbol_type) = builtin_type_int;
+  msym_data_symbol_type =
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / HOST_CHAR_BIT, 0,
+	       "<data variable, no debug info>", NULL);
+  msym_unknown_symbol_type =
+    init_type (TYPE_CODE_INT, 1, 0,
+	       "<variable (not text or data), no debug info>",
+	       NULL);
 }

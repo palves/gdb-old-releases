@@ -295,9 +295,9 @@ linux_link_create_dynamic_sections (abfd, info)
   /* Note that we set the SEC_IN_MEMORY flag.  */
   flags = SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY;
 
-  /* We choose to use the name ".dynamic" for the fixup table.  Why
-     not? */
-  s = bfd_make_section (abfd, ".dynamic");
+  /* We choose to use the name ".linux-dynamic" for the fixup table.
+     Why not? */
+  s = bfd_make_section (abfd, ".linux-dynamic");
   if (s == NULL
       || ! bfd_set_section_flags (abfd, s, flags)
       || ! bfd_set_section_alignment (abfd, s, 2))
@@ -341,7 +341,9 @@ linux_add_one_symbol (info, abfd, name, flags, section, value, string,
 
   if (! info->relocateable
       && linux_hash_table (info)->dynobj == NULL
-      && strcmp (name, SHARABLE_CONFLICTS) == 0)
+      && strcmp (name, SHARABLE_CONFLICTS) == 0
+      && (flags & BSF_CONSTRUCTOR) != 0
+      && abfd->xvec == info->hash->creator)
     {
       if (! linux_link_create_dynamic_sections (abfd, info))
 	return false;
@@ -350,19 +352,25 @@ linux_add_one_symbol (info, abfd, name, flags, section, value, string,
     }
 
   if (bfd_is_abs_section (section)
-      && (IS_GOT_SYM (name) || IS_PLT_SYM (name)))
+      && abfd->xvec == info->hash->creator)
     {
       h = linux_link_hash_lookup (linux_hash_table (info), name, false,
 				  false, false);
       if (h != NULL
 	  && h->root.root.type == bfd_link_hash_defined)
 	{
-	  if (new_fixup (info, h, value, ! IS_PLT_SYM(name)) == NULL)
+	  struct fixup *f;
+
+	  if (hashp != NULL)
+	    *hashp = (struct bfd_link_hash_entry *) h;
+
+	  f = new_fixup (info, h, value, ! IS_PLT_SYM (name));
+	  if (f == NULL)
 	    return false;
+	  f->jump = IS_PLT_SYM (name);
+
 	  return true;
 	}
-      if (hashp != NULL)
-	*hashp = (struct bfd_link_hash_entry *) h;
     }
 
   /* Do the usual procedure for adding a symbol.  */
@@ -380,7 +388,7 @@ linux_add_one_symbol (info, abfd, name, flags, section, value, string,
       /* Here we do our special thing to add the pointer to the
 	 dynamic section in the SHARABLE_CONFLICTS set vector.  */
       s = bfd_get_section_by_name (linux_hash_table (info)->dynobj,
-				   ".dynamic");
+				   ".linux-dynamic");
       BFD_ASSERT (s != NULL);
 
       if (! (_bfd_generic_link_add_one_symbol
@@ -411,6 +419,7 @@ linux_tally_symbols (h, data)
   struct fixup *f, *f1;
   int is_plt;
   struct linux_link_hash_entry *h1, *h2;
+  boolean exists;
 
   /* If this symbol is not a PLT/GOT, we do not even need to look at it */
   is_plt = IS_PLT_SYM (h->root.root.root.string);
@@ -438,48 +447,61 @@ linux_tally_symbols (h, data)
 	 from different shared libraries */
       if (h1 != NULL
 	  && ((h1->root.root.type == bfd_link_hash_defined
-	       && ! bfd_is_abs_section (h->root.root.u.def.section))
+	       && ! bfd_is_abs_section (h1->root.root.u.def.section))
 	      || h2->root.root.type == bfd_link_hash_indirect))
 	{
-	  f = new_fixup (info, h1, h->root.root.u.def.value, 0);
-	  if (f == NULL)
-	    {
-	      /* FIXME: No way to return error.  */
-	      abort ();
-	    }
-	  f->jump = is_plt;
-
 	  /* See if there is a "builtin" fixup already present
 	     involving this symbol.  If so, convert it to a regular
 	     fixup.  In the end, this relaxes some of the requirements
 	     about the order of performing fixups.  */
+	  exists = false;
 	  for (f1 = linux_hash_table (info)->fixup_list;
 	       f1 != NULL;
 	       f1 = f1->next)
 	    {
-	      if (f1 == f)
+	      if ((f1->h != h && f1->h != h1)
+		  || (! f1->builtin && ! f1->jump))
 		continue;
-	      if (f1->h != h)
-		continue;
+	      if (f1->h == h1)
+		exists = true;
+	      if (! exists
+		  && bfd_is_abs_section (h->root.root.u.def.section))
+		{
+		  f = new_fixup (info, h1, f1->h->root.root.u.def.value, 0);
+		  f->jump = is_plt;
+		}
 	      f1->h = h1;
 	      f1->jump = is_plt;
 	      f1->builtin = 0;
+	      exists = true;
+	    }
+	  if (! exists
+	      && bfd_is_abs_section (h->root.root.u.def.section))
+	    {
+	      f = new_fixup (info, h1, h->root.root.u.def.value, 0);
+	      if (f == NULL)
+		{
+		  /* FIXME: No way to return error.  */
+		  abort ();
+		}
+	      f->jump = is_plt;
 	    }
 	}
 
       /* Quick and dirty way of stripping these symbols from the
 	 symtab. */
-      h->root.written = true;
+      if (bfd_is_abs_section (h->root.root.u.def.section))
+	h->root.written = true;
     }
 
   return true;
 }
 
-/* This is called to set the size of the .dynamic section is.  It is
-   called by the Linux linker emulation before_allocation routine.  We
-   have finished reading all of the input files, and now we just scan
-   the hash tables to find out how many additional fixups are
-   required.  */
+/* This is called to set the size of the .linux-dynamic section is.
+   It is called by the Linux linker emulation before_allocation
+   routine.  We have finished reading all of the input files, and now
+   we just scan the hash tables to find out how many additional fixups
+   are required.  */
 
 boolean
 bfd_linux_size_dynamic_sections (output_bfd, info)
@@ -515,7 +537,8 @@ bfd_linux_size_dynamic_sections (output_bfd, info)
     }
 
   /* Allocate memory for our fixup table.  We will fill it in later.  */
-  s = bfd_get_section_by_name (linux_hash_table (info)->dynobj, ".dynamic");
+  s = bfd_get_section_by_name (linux_hash_table (info)->dynobj,
+			       ".linux-dynamic");
   if (s != NULL)
     {
       s->_raw_size = 8 + linux_hash_table (info)->fixup_count * 8;
@@ -551,7 +574,8 @@ linux_finish_dynamic_link (output_bfd, info)
   if (linux_hash_table (info)->dynobj == NULL)
     return true;
 
-  s = bfd_get_section_by_name (linux_hash_table (info)->dynobj, ".dynamic");
+  s = bfd_get_section_by_name (linux_hash_table (info)->dynobj,
+			       ".linux-dynamic");
   BFD_ASSERT (s != NULL);
   os = s->output_section;
   fixups_written = 0;
@@ -694,5 +718,7 @@ linux_finish_dynamic_link (output_bfd, info)
 #define MY_bfd_link_hash_table_create linux_link_hash_table_create
 #define MY_add_one_symbol linux_add_one_symbol
 #define MY_finish_dynamic_link linux_finish_dynamic_link
+
+#define MY_zmagic_contiguous 1
 
 #include "aout-target.h"

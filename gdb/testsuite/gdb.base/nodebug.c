@@ -9,7 +9,7 @@ int
 inner (x)
      int x;
 {
-  return 2 * x;
+  return x + dataglobal + datalocal + bssglobal + bsslocal;
 }
 
 static int

@@ -1,5 +1,5 @@
 /* Remote debugging interface for AMD 29k interfaced via UDI, for GDB.
-   Copyright 1990, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1992, 1995 Free Software Foundation, Inc.
    Written by Daniel Mann.  Contributed by AMD.
 
 This file is part of GDB.
@@ -32,6 +32,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    	MiniMON interface with UDI-p interface.	  */
  
 #include "defs.h"
+#include "frame.h"
 #include "inferior.h"
 #include "wait.h"
 #include "value.h"
@@ -1138,8 +1139,13 @@ download(load_arg_string, from_tty)
   pbfd = bfd_openr (filename, gnutarget);
 
   if (!pbfd) 
+    /* FIXME: should be using bfd_errmsg, not assuming it was
+       bfd_error_system_call.  */
     perror_with_name (filename);
   
+  /* FIXME: should be checking for errors from bfd_close (for one thing,
+     on error it does not free all the storage associated with the
+     bfd).  */
   make_cleanup (bfd_close, pbfd);
 
   QUIT;
@@ -1281,18 +1287,23 @@ download(load_arg_string, from_tty)
   immediate_quit--;
 }
 
-/* User interface to download an image into the remote target.  See download()
- * for details on args.
- */
+/* Function to download an image into the remote target.  */
 
 static void
-udi_load(args, from_tty)
+udi_load (args, from_tty)
      char *args;
      int from_tty;
 {
   download (args, from_tty);
 
-  symbol_file_add (strtok (args, " \t"), from_tty, 0, 0, 0, 0);
+  /* As a convenience, pick up any symbol info that is in the program
+     being loaded.  Note that we assume that the program is the``mainline'';
+     if this is not always true, then this code will need to be augmented.  */
+  symbol_file_add (strtok (args, " \t"), from_tty, 0, 1, 0, 0);
+
+  /* Getting new symbols may change our opinion about what is
+     frameless.  */
+  reinit_frame_cache ();
 }
 
 /*************************************************** UDI_WRITE_INFERIOR_MEMORY
@@ -1320,7 +1331,7 @@ udi_write_inferior_memory (memaddr, myaddr, len)
 	if (Count > MAXDATA) Count = MAXDATA;
   	To.Offset = memaddr + nwritten;
         if(UDIWrite(From, To, Count, Size, &CountDone, HostEndian))
-    	{  error("UDIWrite() failed in udi_write_inferrior_memory");
+    	{  error("UDIWrite() failed in udi_write_inferior_memory");
 	   break;	
 	}
 	else
@@ -1357,7 +1368,7 @@ udi_read_inferior_memory(memaddr, myaddr, len)
 	if (Count > MAXDATA) Count = MAXDATA;
   	From.Offset = memaddr + nread;
         if(err = UDIRead(From, To, Count, Size, &CountDone, HostEndian))
-    	{  error("UDIRead() failed in udi_read_inferrior_memory");
+    	{  error("UDIRead() failed in udi_read_inferior_memory");
 	   break;	
 	}
 	else
@@ -1650,12 +1661,13 @@ Arguments are\n\
 	0,			/* terminal_ours */
 	0,			/* terminal_info */
         udi_kill,             	/* FIXME, kill */
-        udi_load,
+        udi_load,		/* to_load */
         0,                      /* lookup_symbol */
         udi_create_inferior,
         udi_mourn,		/* mourn_inferior FIXME */
 	0,			/* can_run */
 	0,			/* notice_signals */
+        0,			/* to_stop */
         process_stratum,
 	0,			/* next */
         1,			/* has_all_memory */

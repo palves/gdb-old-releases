@@ -405,12 +405,14 @@ const struct language_defn c_language_defn = {
   c_print_type,			/* Print a type using appropriate syntax */
   c_val_print,			/* Print a value using appropriate syntax */
   c_value_print,		/* Print a top-level value */
-  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
   {"",     "",    "",  ""},	/* Binary format info */
   {"0%lo",  "0",   "o", ""},	/* Octal format info */
   {"%ld",   "",    "d", ""},	/* Decimal format info */
   {"0x%lx", "0x",  "x", ""},	/* Hex format info */
   c_op_print_tab,		/* expression operators for printing */
+  1,				/* c-style arrays */
+  0,				/* String lower bound */
+  &builtin_type_char,		/* Type of string elements */ 
   LANG_MAGIC
 };
 
@@ -428,12 +430,14 @@ const struct language_defn cplus_language_defn = {
   c_print_type,			/* Print a type using appropriate syntax */
   c_val_print,			/* Print a value using appropriate syntax */
   c_value_print,		/* Print a top-level value */
-  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
   {"",      "",    "",   ""},	/* Binary format info */
   {"0%lo",   "0",   "o",  ""},	/* Octal format info */
   {"%ld",    "",    "d",  ""},	/* Decimal format info */
   {"0x%lx",  "0x",  "x",  ""},	/* Hex format info */
   c_op_print_tab,		/* expression operators for printing */
+  1,				/* c-style arrays */
+  0,				/* String lower bound */
+  &builtin_type_char,		/* Type of string elements */ 
   LANG_MAGIC
 };
 
@@ -451,12 +455,14 @@ const struct language_defn asm_language_defn = {
   c_print_type,			/* Print a type using appropriate syntax */
   c_val_print,			/* Print a value using appropriate syntax */
   c_value_print,		/* Print a top-level value */
-  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
   {"",     "",    "",  ""},	/* Binary format info */
   {"0%lo",  "0",   "o", ""},	/* Octal format info */
   {"%ld",   "",    "d", ""},	/* Decimal format info */
   {"0x%lx", "0x",  "x", ""},	/* Hex format info */
   c_op_print_tab,		/* expression operators for printing */
+  1,				/* c-style arrays */
+  0,				/* String lower bound */
+  &builtin_type_char,		/* Type of string elements */ 
   LANG_MAGIC
 };
 

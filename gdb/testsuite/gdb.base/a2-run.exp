@@ -32,9 +32,9 @@ set bug_id 0
 set binfile "run"
 
 if ![file exists $objdir/$subdir/$binfile] then {
-	perror "$objdir/$subdir/$binfile does not exist."
-	return 0
-	}
+    perror "$objdir/$subdir/$binfile does not exist."
+    return 0
+}
 
 gdb_exit
 gdb_start

@@ -43,26 +43,22 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Prototypes for local functions */
 
-static void
-signals_info PARAMS ((char *, int));
+static void signals_info PARAMS ((char *, int));
 
-static void
-handle_command PARAMS ((char *, int));
+static void handle_command PARAMS ((char *, int));
 
 static void sig_print_info PARAMS ((enum target_signal));
 
-static void
-sig_print_header PARAMS ((void));
+static void sig_print_header PARAMS ((void));
 
-static void
-resume_cleanups PARAMS ((int));
+static void resume_cleanups PARAMS ((int));
 
-static int
-hook_stop_stub PARAMS ((char *));
+static int hook_stop_stub PARAMS ((char *));
 
 /* GET_LONGJMP_TARGET returns the PC at which longjmp() will resume the
    program.  It needs to examine the jmp_buf argument and extract the PC
    from it.  The return value is non-zero on success, zero otherwise. */
+
 #ifndef GET_LONGJMP_TARGET
 #define GET_LONGJMP_TARGET(PC_ADDR) 0
 #endif
@@ -71,15 +67,24 @@ hook_stop_stub PARAMS ((char *));
 /* Some machines have trampoline code that sits between function callers
    and the actual functions themselves.  If this machine doesn't have
    such things, disable their processing.  */
+
 #ifndef SKIP_TRAMPOLINE_CODE
 #define	SKIP_TRAMPOLINE_CODE(pc)	0
 #endif
 
 /* For SVR4 shared libraries, each call goes through a small piece of
-   trampoline code in the ".plt" section.  IN_SOLIB_TRAMPOLINE evaluates
+   trampoline code in the ".plt" section.  IN_SOLIB_CALL_TRAMPOLINE evaluates
    to nonzero if we are current stopped in one of these. */
-#ifndef IN_SOLIB_TRAMPOLINE
-#define IN_SOLIB_TRAMPOLINE(pc,name)	0
+
+#ifndef IN_SOLIB_CALL_TRAMPOLINE
+#define IN_SOLIB_CALL_TRAMPOLINE(pc,name)	0
+#endif
+
+/* In some shared library schemes, the return path from a shared library
+   call may need to go through a trampoline too.  */
+
+#ifndef IN_SOLIB_RETURN_TRAMPOLINE
+#define IN_SOLIB_RETURN_TRAMPOLINE(pc,name)	0
 #endif
 
 /* On some systems, the PC may be left pointing at an instruction that  won't
@@ -347,6 +352,10 @@ The same program may be running in another process.");
 
   annotate_starting ();
 
+  /* Make sure that output from GDB appears before output from the
+     inferior.  */
+  gdb_flush (gdb_stdout);
+
   /* Resume inferior.  */
   resume (oneproc || step || bpstat_should_step (), stop_signal);
 
@@ -362,10 +371,8 @@ The same program may be running in another process.");
    to be preserved over calls to it and cleared when the inferior
    is started.  */
 static CORE_ADDR prev_pc;
-static CORE_ADDR prev_sp;
 static CORE_ADDR prev_func_start;
 static char *prev_func_name;
-static CORE_ADDR prev_frame_address;
 
 
 /* Start remote-debugging of a machine over a serial link.  */
@@ -373,6 +380,7 @@ static CORE_ADDR prev_frame_address;
 void
 start_remote ()
 {
+  init_thread_list ();
   init_wait_for_inferior ();
   clear_proceed_status ();
   stop_soon_quietly = 1;
@@ -388,10 +396,8 @@ init_wait_for_inferior ()
 {
   /* These are meaningless until the first time through wait_for_inferior.  */
   prev_pc = 0;
-  prev_sp = 0;
   prev_func_start = 0;
   prev_func_name = NULL;
-  prev_frame_address = 0;
 
   trap_expected_after_continue = 0;
   breakpoints_inserted = 0;
@@ -423,7 +429,6 @@ wait_for_inferior ()
   struct target_waitstatus w;
   int another_trap;
   int random_signal;
-  CORE_ADDR stop_sp = 0;
   CORE_ADDR stop_func_start;
   CORE_ADDR stop_func_end;
   char *stop_func_name;
@@ -436,6 +441,7 @@ wait_for_inferior ()
   struct breakpoint *step_resume_breakpoint = NULL;
   struct breakpoint *through_sigtramp_breakpoint = NULL;
   int pid;
+  int update_step_sp = 0;
 
   old_cleanups = make_cleanup (delete_breakpoint_current_contents,
 			       &step_resume_breakpoint);
@@ -462,7 +468,10 @@ wait_for_inferior ()
 
       registers_changed ();
 
-      pid = target_wait (-1, &w);
+      if (target_wait_hook)
+	pid = target_wait_hook (-1, &w);
+      else
+	pid = target_wait (-1, &w);
 
       flush_cached_frames ();
 
@@ -523,7 +532,14 @@ wait_for_inferior ()
 	  stop_signal = w.value.sig;
 	  target_terminal_ours ();	/* Must do this before mourn anyway */
 	  annotate_signalled ();
+
+	  /* This looks pretty bogus to me.  Doesn't TARGET_WAITKIND_SIGNALLED
+	     mean it is already dead?  This has been here since GDB 2.8, so
+	     perhaps it means rms didn't understand unix waitstatuses?
+	     For the moment I'm just kludging around this in remote.c
+	     rather than trying to change it here --kingdon, 5 Dec 1994.  */
 	  target_kill ();		/* kill mourns as well */
+
 	  printf_filtered ("\nProgram terminated with signal ");
 	  annotate_signal_name ();
 	  printf_filtered ("%s", target_signal_to_name (stop_signal));
@@ -569,7 +585,11 @@ wait_for_inferior ()
 	      target_resume (pid, 1, TARGET_SIGNAL_0); /* Single step */
 	      /* FIXME: What if a signal arrives instead of the single-step
 		 happening?  */
-	      target_wait (pid, &w);
+
+	      if (target_wait_hook)
+		target_wait_hook (pid, &w);
+	      else
+		target_wait (pid, &w);
 	      insert_breakpoints ();
 	      target_resume (pid, 0, TARGET_SIGNAL_0);
 	      continue;
@@ -640,7 +660,6 @@ wait_for_inferior ()
 	      through_sigtramp_breakpoint = NULL;
 	    }
 	  prev_pc = 0;
-	  prev_sp = 0;
 	  prev_func_name = NULL;
 	  step_range_start = 0;
 	  step_range_end = 0;
@@ -663,9 +682,6 @@ wait_for_inferior ()
 	  resume (1, 0);
 	  continue;
 	}
-
-      set_current_frame (create_new_frame (read_fp (), stop_pc));
-      select_frame (get_current_frame (), 0);
 
 #ifdef HAVE_STEPPABLE_WATCHPOINT
       /* It may not be necessary to disable the watchpoint to stop over
@@ -706,8 +722,6 @@ wait_for_inferior ()
       STOPPED_BY_WATCHPOINT (w);
 #endif
 
-      stop_frame_address = FRAME_FP (get_current_frame ());
-      stop_sp = read_sp ();
       stop_func_start = 0;
       stop_func_name = 0;
       /* Don't care about return value; stop_func_start and stop_func_name
@@ -768,7 +782,7 @@ wait_for_inferior ()
 	    {
 	      /* See if there is a breakpoint at the current PC.  */
 	      stop_bpstat = bpstat_stop_status
-		(&stop_pc, stop_frame_address,
+		(&stop_pc,
 #if DECR_PC_AFTER_BREAK
 		 /* Notice the case of stepping through a jump
 		    that lands just after a breakpoint.
@@ -792,7 +806,8 @@ wait_for_inferior ()
 	      = !(bpstat_explains_signal (stop_bpstat)
 		  || trap_expected
 #ifndef CALL_DUMMY_BREAKPOINT_OFFSET
-		  || PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address)
+		  || PC_IN_CALL_DUMMY (stop_pc, read_sp (),
+				       FRAME_FP (get_current_frame ()))
 #endif /* No CALL_DUMMY_BREAKPOINT_OFFSET.  */
 		  || (step_range_end && step_resume_breakpoint == NULL));
 	  else
@@ -803,7 +818,8 @@ wait_for_inferior ()
 		       news) give another signal besides SIGTRAP,
 		       so check here as well as above.  */
 #ifndef CALL_DUMMY_BREAKPOINT_OFFSET
-		    || PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address)
+		    || PC_IN_CALL_DUMMY (stop_pc, read_sp (),
+					 FRAME_FP (get_current_frame ()))
 #endif /* No CALL_DUMMY_BREAKPOINT_OFFSET.  */
 		    );
 	      if (!random_signal)
@@ -914,7 +930,7 @@ wait_for_inferior ()
 #if 0
 	    /* FIXME - Need to implement nested temporary breakpoints */
 	    if (step_over_calls
-		&& (stop_frame_address
+		&& (FRAME_FP (get_current_frame ())
 		    INNER_THAN step_frame_address))
 	      {
 		another_trap = 1;
@@ -960,7 +976,8 @@ wait_for_inferior ()
 	    break;
 
 	  case BPSTAT_WHAT_THROUGH_SIGTRAMP:
-	    delete_breakpoint (through_sigtramp_breakpoint);
+	    if (through_sigtramp_breakpoint)
+	      delete_breakpoint (through_sigtramp_breakpoint);
 	    through_sigtramp_breakpoint = NULL;
 
 	    /* If were waiting for a trap, hitting the step_resume_break
@@ -993,7 +1010,7 @@ wait_for_inferior ()
 	 just stop silently, unless the user was doing an si/ni, in which
 	 case she'd better know what she's doing.  */
 
-      if (PC_IN_CALL_DUMMY (stop_pc, stop_sp, stop_frame_address)
+      if (PC_IN_CALL_DUMMY (stop_pc, read_sp (), FRAME_FP (get_current_frame ()))
 	  && !step_range_end)
 	{
 	  stop_print_frame = 0;
@@ -1027,17 +1044,21 @@ wait_for_inferior ()
 	     step range and either the stack or frame pointers
 	     just changed, we've stepped outside */
 	  && !(stop_pc == step_range_start
-	       && stop_frame_address
-	       && (stop_sp INNER_THAN prev_sp
-		   || stop_frame_address != step_frame_address)))
+	       && FRAME_FP (get_current_frame ())
+	       && (read_sp () INNER_THAN step_sp
+		   || FRAME_FP (get_current_frame ()) != step_frame_address)))
 	{
 	  /* We might be doing a BPSTAT_WHAT_SINGLE and getting a signal.
 	     So definately need to check for sigtramp here.  */
 	  goto check_sigtramp2;
 	}
 
-      /* We stepped out of the stepping range.  See if that was due
-	 to a subroutine call that we should proceed to the end of.  */
+      /* We stepped out of the stepping range.  */
+
+      /* We can't update step_sp every time through the loop, because
+	 reading the stack pointer would slow down stepping too much.
+	 But we can update it every time we leave the step range.  */
+      update_step_sp = 1;
 
       /* Did we just take a signal?  */
       if (IN_SIGTRAMP (stop_pc, stop_func_name)
@@ -1062,8 +1083,7 @@ wait_for_inferior ()
 	    sr_sal.symtab = NULL;
 	    sr_sal.line = 0;
 	    /* We could probably be setting the frame to
-	       prev_frame_address; the reason we don't is that it didn't used
-	       to exist.  */
+	       step_frame_address; I don't think anyone thought to try it.  */
 	    step_resume_breakpoint =
 	      set_momentary_breakpoint (sr_sal, NULL, bp_step_resume);
 	    if (breakpoints_inserted)
@@ -1083,6 +1103,9 @@ wait_for_inferior ()
 	}
 
 #if 1
+      /* See if we left the step range due to a subroutine call that
+	 we should proceed to the end of.  */
+
       if (stop_func_start)
 	{
 	  struct symtab *s;
@@ -1106,7 +1129,7 @@ wait_for_inferior ()
 	   /* Might be a recursive call if either we have a prologue
 	      or the call instruction itself saves the PC on the stack.  */
 	   || prologue_pc != stop_func_start
-	   || stop_sp != prev_sp)
+	   || read_sp () != step_sp)
 	  && (/* PC is completely out of bounds of any known objfiles.  Treat
 		 like a subroutine call. */
 	      ! stop_func_start
@@ -1136,7 +1159,7 @@ wait_for_inferior ()
 		 call.  I'm not completely sure this is necessary now that we
 		 have the above checks with stop_func_start (and now that
 		 find_pc_partial_function is pickier).  */
-	      || IN_SOLIB_TRAMPOLINE (stop_pc, stop_func_name)
+	      || IN_SOLIB_CALL_TRAMPOLINE (stop_pc, stop_func_name)
 
 	      /* If none of the above apply, it is a jump within a function,
 		 or a return from a subroutine.  The other case is longjmp,
@@ -1203,7 +1226,7 @@ step_over_function:
 	    step_resume_breakpoint =
 	      set_momentary_breakpoint (sr_sal, get_current_frame (),
 					bp_step_resume);
-	    step_resume_breakpoint->frame = prev_frame_address;
+	    step_resume_breakpoint->frame = step_frame_address;
 	    if (breakpoints_inserted)
 	      insert_breakpoints ();
 	  }
@@ -1274,6 +1297,38 @@ step_into_function:
 	  break;
 	}
 
+      /* If we're in the return path from a shared library trampoline,
+	 we want to proceed through the trampoline when stepping.  */
+      if (IN_SOLIB_RETURN_TRAMPOLINE(stop_pc, stop_func_name))
+	{
+	  CORE_ADDR tmp;
+
+	  /* Determine where this trampoline returns.  */
+	  tmp = SKIP_TRAMPOLINE_CODE (stop_pc);
+
+	  /* Only proceed through if we know where it's going.  */
+	  if (tmp)
+	    {
+	      /* And put the step-breakpoint there and go until there. */
+	      struct symtab_and_line sr_sal;
+
+	      sr_sal.pc = tmp;
+	      sr_sal.symtab = NULL;
+	      sr_sal.line = 0;
+	      /* Do not specify what the fp should be when we stop
+		 since on some machines the prologue
+		 is where the new fp value is established.  */
+	      step_resume_breakpoint =
+		set_momentary_breakpoint (sr_sal, NULL, bp_step_resume);
+	      if (breakpoints_inserted)
+		insert_breakpoints ();
+
+	      /* Restart without fiddling with the step ranges or
+		 other state.  */
+	      goto keep_going;
+	    }
+	}
+	 
       if (sal.line == 0)
 	{
 	  /* We have no line number information.  That means to stop
@@ -1361,8 +1416,10 @@ step_into_function:
 					  been at the start of a
 					  function. */
       prev_func_name = stop_func_name;
-      prev_sp = stop_sp;
-      prev_frame_address = stop_frame_address;
+
+      if (update_step_sp)
+	step_sp = read_sp ();
+      update_step_sp = 0;
 
       /* If we did not do break;, it means we should keep
 	 running the inferior and not return to debugger.  */
@@ -1437,8 +1494,6 @@ step_into_function:
       prev_pc = read_pc ();
       prev_func_start = stop_func_start;
       prev_func_name = stop_func_name;
-      prev_sp = stop_sp;
-      prev_frame_address = stop_frame_address;
     }
   do_cleanups (old_cleanups);
 }
@@ -1512,6 +1567,8 @@ Further execution is probably impossible.\n");
      if we have one.  */
   if (!stop_stack_dummy)
     {
+      select_frame (get_current_frame (), 0);
+
       if (stop_print_frame)
 	{
 	  int source_only;
@@ -1519,7 +1576,7 @@ Further execution is probably impossible.\n");
 	  source_only = bpstat_print (stop_bpstat);
 	  source_only = source_only ||
 	        (   stop_step
-		 && step_frame_address == stop_frame_address
+		 && step_frame_address == FRAME_FP (get_current_frame ())
 		 && step_start_function == find_pc_function (stop_pc));
 
           print_stack_frame (selected_frame, -1, source_only? -1: 1);
@@ -1695,10 +1752,11 @@ handle_command (args, from_tty)
 	     anyway, and the common ones like SIGHUP, SIGINT, SIGALRM, etc.
 	     will work right anyway.  */
 
-	  sigfirst = siglast = atoi (*argv);
+	  sigfirst = siglast = (int) target_signal_from_command (atoi (*argv));
 	  if ((*argv)[digits] == '-')
 	    {
-	      siglast = atoi ((*argv) + digits + 1);
+	      siglast =
+		(int) target_signal_from_command (atoi ((*argv) + digits + 1));
 	    }
 	  if (sigfirst > siglast)
 	    {
@@ -1706,14 +1764,6 @@ handle_command (args, from_tty)
 	      signum = sigfirst;
 	      sigfirst = siglast;
 	      siglast = signum;
-	    }
-	  if (sigfirst < 0 || sigfirst >= nsigs)
-	    {
-	      error ("Signal %d not in range 0-%d", sigfirst, nsigs - 1);
-	    }
-	  if (siglast < 0 || siglast >= nsigs)
-	    {
-	      error ("Signal %d not in range 0-%d", siglast, nsigs - 1);
 	    }
 	}
       else
@@ -1801,20 +1851,9 @@ signals_info (signum_exp, from_tty)
       oursig = target_signal_from_name (signum_exp);
       if (oursig == TARGET_SIGNAL_UNKNOWN)
 	{
-	  /* Nope, maybe it's an address which evaluates to a signal
-	     number.  */
-	  /* The numeric signal refers to our own internal
-	     signal numbering from target.h, not to host/target signal number.
-	     This is a feature; users really should be using symbolic names
-	     anyway, and the common ones like SIGHUP, SIGINT, SIGALRM, etc.
-	     will work right anyway.  */
-	  int i = parse_and_eval_address (signum_exp);
-	  if (i >= (int)TARGET_SIGNAL_LAST
-	      || i < 0
-	      || i == (int)TARGET_SIGNAL_UNKNOWN
-	      || i == (int)TARGET_SIGNAL_DEFAULT)
-	    error ("Signal number out of bounds.");
-	  oursig = (enum target_signal)i;
+	  /* No, try numeric.  */
+	  oursig =
+	    target_signal_from_command (parse_and_eval_address (signum_exp));
 	}
       sig_print_info (oursig);
       return;
@@ -1848,7 +1887,6 @@ save_inferior_status (inf_status, restore_stack_info)
 {
   inf_status->stop_signal = stop_signal;
   inf_status->stop_pc = stop_pc;
-  inf_status->stop_frame_address = stop_frame_address;
   inf_status->stop_step = stop_step;
   inf_status->stop_stack_dummy = stop_stack_dummy;
   inf_status->stopped_by_random_signal = stopped_by_random_signal;
@@ -1878,7 +1916,7 @@ save_inferior_status (inf_status, restore_stack_info)
 }
 
 struct restore_selected_frame_args {
-  FRAME_ADDR frame_address;
+  CORE_ADDR frame_address;
   int level;
 };
 
@@ -1888,27 +1926,28 @@ static int restore_selected_frame PARAMS ((char *));
    restore_selected_frame_args * (declared as char * for catch_errors)
    telling us what frame to restore.  Returns 1 for success, or 0 for
    failure.  An error message will have been printed on error.  */
+
 static int
 restore_selected_frame (args)
      char *args;
 {
   struct restore_selected_frame_args *fr =
     (struct restore_selected_frame_args *) args;
-  FRAME fid;
+  struct frame_info *frame;
   int level = fr->level;
 
-  fid = find_relative_frame (get_current_frame (), &level);
+  frame = find_relative_frame (get_current_frame (), &level);
 
   /* If inf_status->selected_frame_address is NULL, there was no
      previously selected frame.  */
-  if (fid == 0 ||
-      FRAME_FP (fid) != fr->frame_address ||
+  if (frame == NULL ||
+      FRAME_FP (frame) != fr->frame_address ||
       level != 0)
     {
       warning ("Unable to restore previously selected frame.\n");
       return 0;
     }
-  select_frame (fid, fr->level);
+  select_frame (frame, fr->level);
   return(1);
 }
 
@@ -1918,7 +1957,6 @@ restore_inferior_status (inf_status)
 {
   stop_signal = inf_status->stop_signal;
   stop_pc = inf_status->stop_pc;
-  stop_frame_address = inf_status->stop_frame_address;
   stop_step = inf_status->stop_step;
   stop_stack_dummy = inf_status->stop_stack_dummy;
   stopped_by_random_signal = inf_status->stopped_by_random_signal;
@@ -1977,23 +2015,24 @@ _initialize_infrun ()
 
   add_info ("signals", signals_info,
 	    "What debugger does when program gets various signals.\n\
-Specify a signal number as argument to print info on that signal only.");
+Specify a signal as argument to print info on that signal only.");
   add_info_alias ("handle", "signals", 0);
 
   add_com ("handle", class_run, handle_command,
-	   "Specify how to handle a signal.\n\
-Args are signal numbers and actions to apply to those signals.\n\
-Signal numbers may be numeric (ex. 11) or symbolic (ex. SIGSEGV).\n\
-Numeric ranges may be specified with the form LOW-HIGH (ex. 14-21).\n\
+	   concat ("Specify how to handle a signal.\n\
+Args are signals and actions to apply to those signals.\n\
+Symbolic signals (e.g. SIGSEGV) are recommended but numeric signals\n\
+from 1-15 are allowed for compatibility with old versions of GDB.\n\
+Numeric ranges may be specified with the form LOW-HIGH (e.g. 1-5).\n\
 The special arg \"all\" is recognized to mean all signals except those\n\
-used by the debugger, typically SIGTRAP and SIGINT.\n\
-Recognized actions include \"stop\", \"nostop\", \"print\", \"noprint\",\n\
+used by the debugger, typically SIGTRAP and SIGINT.\n",
+"Recognized actions include \"stop\", \"nostop\", \"print\", \"noprint\",\n\
 \"pass\", \"nopass\", \"ignore\", or \"noignore\".\n\
 Stop means reenter debugger if this signal happens (implies print).\n\
 Print means print a message if this signal happens.\n\
 Pass means let program see this signal; otherwise program doesn't know.\n\
 Ignore is a synonym for nopass and noignore is a synonym for pass.\n\
-Pass and Stop may be combined.");
+Pass and Stop may be combined.", NULL));
 
   stop_command = add_cmd ("stop", class_obscure, not_just_help_class_command,
 	   "There is no `stop' command, but you can set a hook on `stop'.\n\

@@ -46,7 +46,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
     xcoff_relocate_symtab (inferior_pid); \
   else		\
     /* Core file.  */ \
-    xcoff_relocate_core ();
+    xcoff_relocate_core (c);
 
 extern void xcoff_relocate_symtab PARAMS ((unsigned int));
-extern void xcoff_relocate_core PARAMS ((void));
+#ifdef __STDC__
+struct target_ops;
+#endif
+extern void xcoff_relocate_core PARAMS ((struct target_ops *));

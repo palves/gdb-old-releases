@@ -1,5 +1,6 @@
 /* Definitions to make GDB run on a mips box under 4.3bsd.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995
+   Free Software Foundation, Inc.
    Contributed by Per Bothner (bothner@cs.wisc.edu) at U.Wisconsin
    and by Alessandro Forin (af@cs.cmu.edu) at CMU..
 
@@ -27,13 +28,31 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TARGET_BYTE_ORDER LITTLE_ENDIAN
 #endif
 
+#if !defined (GDB_TARGET_IS_MIPS64)
+#define GDB_TARGET_IS_MIPS64 0
+#endif
+
 /* Floating point is IEEE compliant */
 #define IEEE_FLOAT
 
 /* Some MIPS boards are provided both with and without a floating
-   point coprocessor; we provide a user settable variable to tell gdb
-   whether there is one or not.  */
-extern int mips_fpu;
+   point coprocessor.  The MIPS R4650 chip has only single precision
+   floating point.  We provide a user settable variable to tell gdb
+   what type of floating point to use.  */
+
+enum mips_fpu_type
+{
+  MIPS_FPU_DOUBLE,	/* Full double precision floating point.  */
+  MIPS_FPU_SINGLE,	/* Single precision floating point (R4650).  */
+  MIPS_FPU_NONE		/* No floating point.  */
+};
+
+extern enum mips_fpu_type mips_fpu;
+
+/* The name of the usual type of MIPS processor that is in the target
+   system.  */
+
+#define DEFAULT_MIPS_TYPE "generic"
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -83,10 +102,6 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 
 #define ABOUT_TO_RETURN(pc) (read_memory_integer (pc, 4) == 0x3e00008)
 
-/* This is taken care of in print_floating [IEEE_FLOAT].  */
-
-#define INVALID_FLOAT(p,l) 0
-
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
    real way to know how big a register is.  */
@@ -103,7 +118,7 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 
 /* Number of machine registers */
 
-#define NUM_REGS 80
+#define NUM_REGS 90
 
 /* Initializer for an array of names of registers.
    There should be NUM_REGS strings in this initializer.  */
@@ -118,8 +133,9 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 	"f8",   "f9",   "f10",  "f11",  "f12",  "f13",  "f14",  "f15", \
 	"f16",  "f17",  "f18",  "f19",  "f20",  "f21",  "f22",  "f23",\
 	"f24",  "f25",  "f26",  "f27",  "f28",  "f29",  "f30",  "f31",\
-	"fsr",  "fir",  "fp",   "inx",  "rand", "tlblo","ctxt", "tlbhi",\
-	"epc",  "prid"\
+	"fsr",  "fir",  "fp",	"", \
+	"",	"",	"",	"",	"",	"",	"",	"", \
+	"",	"",	"",	"",	"",	"",	"",	"", \
     }
 
 /* Register numbers of various important registers.
@@ -144,8 +160,9 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 #define FCRCS_REGNUM 70         /* FP control/status */
 #define FCRIR_REGNUM 71         /* FP implementation/revision */
 #define FP_REGNUM 72		/* Pseudo register that contains true address of executing stack frame */
-#define	FIRST_EMBED_REGNUM 73	/* First supervisor register for embedded use */
-#define	LAST_EMBED_REGNUM 79	/* Last one */
+#define	FIRST_EMBED_REGNUM 74	/* First CP0 register for embedded use */
+#define	PRID_REGNUM 89		/* Processor ID */
+#define	LAST_EMBED_REGNUM 89	/* Last one */
 
 /* Define DO_REGISTERS_INFO() to do machine-specific formatting
    of register dumps. */
@@ -154,6 +171,7 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 
 /* Total amount of space needed to store our copies of the machine's
    register state, the array `registers'.  */
+
 #define REGISTER_BYTES (NUM_REGS*MIPS_REGSIZE)
 
 /* Index within `registers' of the first byte of the space for
@@ -251,7 +269,7 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer. */
 
-#define FRAME_CHAIN(thisframe) (FRAME_ADDR)mips_frame_chain(thisframe)
+#define FRAME_CHAIN(thisframe) (CORE_ADDR) mips_frame_chain (thisframe)
 
 /* Define other aspects of the stack frame.  */
 
@@ -348,50 +366,69 @@ extern int in_sigtramp PARAMS ((CORE_ADDR, char *));
 /* Insert the specified number of args and function address
    into a call sequence of the above form stored at DUMMYNAME.  */
 
-#if TARGET_BYTE_ORDER == BIG_ENDIAN && ! defined (GDB_TARGET_IS_MIPS64)
 /* For big endian mips machines we need to switch the order of the
    words with a floating-point value (it was already coerced to a double
    by mips_push_arguments).  */
 #define FIX_CALL_DUMMY(dummyname, start_sp, fun, nargs, args, rettype, gcc_p) \
-  do {									\
-    ((int*)(dummyname))[11] |= ((unsigned long)(fun)) >> 16;		\
-    ((int*)(dummyname))[12] |= (unsigned short)(fun);			\
-    if (! mips_fpu) {							\
-      ((int *) (dummyname))[3] = 0; ((int *) (dummyname))[4] = 0;	\
-      ((int *) (dummyname))[5] = 0; ((int *) (dummyname))[6] = 0;	\
-    } else {								\
-      if (nargs > 0 &&							\
-	  TYPE_CODE(VALUE_TYPE(args[0])) == TYPE_CODE_FLT) {		\
-	if (TYPE_LENGTH(VALUE_TYPE(args[0])) > 8)			\
-	  error ("Can't pass floating point value of more than 8 bytes to a function"); \
-	((int *) (dummyname))[3] = MK_OP(OP_LDFPR,SP_REGNUM,12,4);	\
-	((int *) (dummyname))[4] = MK_OP(OP_LDFPR,SP_REGNUM,13,0);	\
-      }									\
-      if (nargs > 1 &&							\
-	  TYPE_CODE(VALUE_TYPE(args[1])) == TYPE_CODE_FLT) {		\
-	if (TYPE_LENGTH(VALUE_TYPE(args[1])) > 8)			\
-	  error ("Can't pass floating point value of more than 8 bytes to a function"); \
-	((int *) (dummyname))[5] = MK_OP(OP_LDFPR,SP_REGNUM,14,12);	\
-	((int *) (dummyname))[6] = MK_OP(OP_LDFPR,SP_REGNUM,15,8);	\
-      }									\
+  do									\
+    {									\
+      store_unsigned_integer						\
+	(dummyname + 11 * 4, 4,						\
+	 (extract_unsigned_integer (dummyname + 11 * 4, 4)		\
+	  | (((fun) >> 16) & 0xffff)));					\
+      store_unsigned_integer						\
+	(dummyname + 12 * 4, 4,						\
+	 (extract_unsigned_integer (dummyname + 12 * 4, 4)		\
+	  | ((fun) & 0xffff)));						\
+      if (mips_fpu == MIPS_FPU_NONE)					\
+	{								\
+	  store_unsigned_integer (dummyname + 3 * 4, 4,			\
+				  (unsigned LONGEST) 0);		\
+	  store_unsigned_integer (dummyname + 4 * 4, 4,			\
+				  (unsigned LONGEST) 0);		\
+	  store_unsigned_integer (dummyname + 5 * 4, 4,			\
+				  (unsigned LONGEST) 0);		\
+	  store_unsigned_integer (dummyname + 6 * 4, 4,			\
+				  (unsigned LONGEST) 0);		\
+	}								\
+      else if (mips_fpu == MIPS_FPU_SINGLE)				\
+	{								\
+	  /* This isn't right.  mips_push_arguments will call		\
+             value_arg_coerce, which will convert all float arguments	\
+             to doubles.  If the function prototype is float, though,	\
+             it will be expecting a float argument in a float		\
+             register.  */						\
+	  store_unsigned_integer (dummyname + 4 * 4, 4,			\
+				  (unsigned LONGEST) 0);		\
+	  store_unsigned_integer (dummyname + 6 * 4, 4,			\
+				  (unsigned LONGEST) 0);		\
+	}								\
+      else if (TARGET_BYTE_ORDER == BIG_ENDIAN				\
+	       && ! GDB_TARGET_IS_MIPS64)				\
+	{								\
+	  if (nargs > 0							\
+	      && TYPE_CODE (VALUE_TYPE (args[0])) == TYPE_CODE_FLT)	\
+	    {								\
+	      if (TYPE_LENGTH (VALUE_TYPE (args[0])) > 8)		\
+		error ("floating point value too large to pass to function");\
+	      store_unsigned_integer					\
+		(dummyname + 3 * 4, 4, MK_OP (OP_LDFPR, SP_REGNUM, 12, 4));\
+	      store_unsigned_integer					\
+		(dummyname + 4 * 4, 4, MK_OP (OP_LDFPR, SP_REGNUM, 13, 0));\
+	    }								\
+	  if (nargs > 1							\
+	      && TYPE_CODE (VALUE_TYPE (args[1])) == TYPE_CODE_FLT)	\
+	    {								\
+	      if (TYPE_LENGTH (VALUE_TYPE (args[1])) > 8)		\
+		error ("floating point value too large to pass to function");\
+	      store_unsigned_integer					\
+		(dummyname + 5 * 4, 4, MK_OP (OP_LDFPR, SP_REGNUM, 14, 12));\
+	      store_unsigned_integer					\
+		(dummyname + 6 * 4, 4, MK_OP (OP_LDFPR, SP_REGNUM, 15, 8));\
+	    }								\
+	}								\
     }									\
-  } while (0)
-#else
-#define FIX_CALL_DUMMY(dummyname, start_sp, fun, nargs,	args, rettype, gcc_p)\
-  do \
-    { \
-      ((int*)(dummyname))[11] |= ((unsigned long)(fun)) >> 16; \
-      ((int*)(dummyname))[12] |= (unsigned short)(fun); \
-      if (! mips_fpu) \
-	{ \
-	  ((int *) (dummyname))[3] = 0; \
-	  ((int *) (dummyname))[4] = 0; \
-	  ((int *) (dummyname))[5] = 0; \
-	  ((int *) (dummyname))[6] = 0; \
-	} \
-    } \
   while (0)
-#endif
 
 /* There's a mess in stack frame creation.  See comments in blockframe.c
    near reference to INIT_FRAME_PC_FIRST.  */
@@ -445,8 +482,6 @@ typedef struct mips_extra_func_info {
    but there is nothing we can do about that).  */
 
 #define SETUP_ARBITRARY_FRAME(argc, argv) setup_arbitrary_frame (argc, argv)
-/* FIXME:  Depends on equivalence between FRAME and "struct frame_info *",
-   and equivalence between CORE_ADDR and FRAME_ADDR. */
 extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
 
 /* Convert a dbx stab register number (from `r' declaration) to a gdb REGNUM */

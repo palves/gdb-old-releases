@@ -1,5 +1,6 @@
 /* Perform arithmetic and other operations on values, for GDB.
-   Copyright 1986, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -34,7 +35,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TRUNCATION_TOWARDS_ZERO ((-5 / 2) == -2)
 #endif
 
-static value_ptr value_subscripted_rvalue PARAMS ((value_ptr, value_ptr));
+static value_ptr value_subscripted_rvalue PARAMS ((value_ptr, value_ptr, int));
 
 
 value_ptr
@@ -93,13 +94,15 @@ value_sub (arg1, arg2)
 	     - (TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)))
 		* value_as_long (arg2)));
 	}
-      else if (VALUE_TYPE (arg1) == VALUE_TYPE (arg2))
+      else if (TYPE_CODE (VALUE_TYPE (arg2)) == TYPE_CODE_PTR
+	       && TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)))
+		  == TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg2))))
 	{
 	  /* pointer to <type x> - pointer to <type x>.  */
 	  return value_from_longest
 	    (builtin_type_long,		/* FIXME -- should be ptrdiff_t */
 	     (value_as_long (arg1) - value_as_long (arg2))
-	     / TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1))));
+	     / (LONGEST) (TYPE_LENGTH (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)))));
 	}
       else
 	{
@@ -124,27 +127,43 @@ value_subscript (array, idx)
 {
   int lowerbound;
   value_ptr bound;
-  struct type *range_type;
+  int c_style = current_language->c_style_arrays;
 
   COERCE_REF (array);
+  COERCE_VARYING_ARRAY (array);
 
   if (TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_ARRAY
       || TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_STRING)
     {
-      range_type = TYPE_FIELD_TYPE (VALUE_TYPE (array), 0);
-      lowerbound = TYPE_FIELD_BITPOS (range_type, 0);
+      struct type *range_type = TYPE_FIELD_TYPE (VALUE_TYPE (array), 0);
+      int lowerbound = TYPE_LOW_BOUND (range_type);
+      int upperbound = TYPE_HIGH_BOUND (range_type);
+
+      if (VALUE_LVAL (array) != lval_memory)
+	return value_subscripted_rvalue (array, idx, lowerbound);
+
+      if (c_style == 0)
+	{
+	  LONGEST index = value_as_long (idx);
+	  if (index >= lowerbound && index <= upperbound)
+	    return value_subscripted_rvalue (array, idx, lowerbound);
+	  warning ("array or string index out of range");
+	  /* fall doing C stuff */
+	  c_style = 1;
+	}
+
       if (lowerbound != 0)
 	{
 	  bound = value_from_longest (builtin_type_int, (LONGEST) lowerbound);
 	  idx = value_sub (idx, bound);
 	}
-      if (VALUE_LVAL (array) != lval_memory)
-	{
-	  return value_subscripted_rvalue (array, idx);
-	}
+
       array = value_coerce_array (array);
     }
-  return value_ind (value_add (array, idx));
+  if (c_style)
+    return value_ind (value_add (array, idx));
+  else
+    error ("not an array or string");
 }
 
 /* Return the value of EXPR[IDX], expr an aggregate rvalue
@@ -152,24 +171,29 @@ value_subscript (array, idx)
    to doubles, but no longer does.  */
 
 static value_ptr
-value_subscripted_rvalue (array, idx)
+value_subscripted_rvalue (array, idx, lowerbound)
      value_ptr array, idx;
+     int lowerbound;
 {
   struct type *elt_type = TYPE_TARGET_TYPE (VALUE_TYPE (array));
   int elt_size = TYPE_LENGTH (elt_type);
-  int elt_offs = elt_size * longest_to_int (value_as_long (idx));
+  LONGEST index = value_as_long (idx);
+  int elt_offs = elt_size * longest_to_int (index - lowerbound);
   value_ptr v;
 
-  if (elt_offs >= TYPE_LENGTH (VALUE_TYPE (array)))
+  if (index < lowerbound || elt_offs >= TYPE_LENGTH (VALUE_TYPE (array)))
     error ("no such vector element");
 
   v = allocate_value (elt_type);
-  memcpy (VALUE_CONTENTS (v), VALUE_CONTENTS (array) + elt_offs, elt_size);
+  if (VALUE_LAZY (array))
+    VALUE_LAZY (v) = 1;
+  else
+    memcpy (VALUE_CONTENTS (v), VALUE_CONTENTS (array) + elt_offs, elt_size);
 
   if (VALUE_LVAL (array) == lval_internalvar)
     VALUE_LVAL (v) = lval_internalvar_component;
   else
-    VALUE_LVAL (v) = not_lval;
+    VALUE_LVAL (v) = VALUE_LVAL (array);
   VALUE_ADDRESS (v) = VALUE_ADDRESS (array);
   VALUE_OFFSET (v) = VALUE_OFFSET (array) + elt_offs;
   VALUE_BITSIZE (v) = elt_size * 8;
@@ -616,16 +640,64 @@ value_binop (arg1, arg2, op)
   else
     /* Integral operations here.  */
     /* FIXME:  Also mixed integral/booleans, with result an integer. */
+    /* FIXME: This implements ANSI C rules (also correct for C++).
+       What about FORTRAN and chill?  */
     {
-      /* Should we promote to unsigned longest?  */
-      if ((TYPE_UNSIGNED (VALUE_TYPE (arg1))
-	   || TYPE_UNSIGNED (VALUE_TYPE (arg2)))
-	  && (TYPE_LENGTH (VALUE_TYPE (arg1)) >= sizeof (unsigned LONGEST)
-	      || TYPE_LENGTH (VALUE_TYPE (arg2)) >= sizeof (unsigned LONGEST)))
+      struct type *type1 = VALUE_TYPE (arg1);
+      struct type *type2 = VALUE_TYPE (arg2);
+      int promoted_len1 = TYPE_LENGTH (type1);
+      int promoted_len2 = TYPE_LENGTH (type2);
+      int is_unsigned1 = TYPE_UNSIGNED (type1);
+      int is_unsigned2 = TYPE_UNSIGNED (type2);
+      int result_len;
+      int unsigned_operation;
+
+      /* Determine type length and signedness after promotion for
+	 both operands.  */
+      if (promoted_len1 < TYPE_LENGTH (builtin_type_int))
+	{
+	  is_unsigned1 = 0;
+	  promoted_len1 = TYPE_LENGTH (builtin_type_int);
+	}
+      if (promoted_len2 < TYPE_LENGTH (builtin_type_int))
+	{
+	  is_unsigned2 = 0;
+	  promoted_len2 = TYPE_LENGTH (builtin_type_int);
+	}
+
+      /* Determine type length of the result, and if the operation should
+	 be done unsigned.
+	 Use the signedness of the operand with the greater length.
+	 If both operands are of equal length, use unsigned operation
+	 if one of the operands is unsigned.  */
+      if (promoted_len1 > promoted_len2)
+	{
+	  unsigned_operation = is_unsigned1;
+	  result_len = promoted_len1;
+	}
+      else if (promoted_len2 > promoted_len1)
+	{
+	  unsigned_operation = is_unsigned2;
+	  result_len = promoted_len2;
+	}
+      else
+	{
+	  unsigned_operation = is_unsigned1 || is_unsigned2;
+	  result_len = promoted_len1;
+	}
+
+      if (unsigned_operation)
 	{
 	  unsigned LONGEST v1, v2, v;
 	  v1 = (unsigned LONGEST) value_as_long (arg1);
 	  v2 = (unsigned LONGEST) value_as_long (arg2);
+
+	  /* Truncate values to the type length of the result.  */
+	  if (result_len < sizeof (unsigned LONGEST))
+	    {
+	      v1 &= ((LONGEST) 1 << HOST_CHAR_BIT * result_len) - 1;
+	      v2 &= ((LONGEST) 1 << HOST_CHAR_BIT * result_len) - 1;
+	    }
 	  
 	  switch (op)
 	    {
@@ -705,6 +777,14 @@ value_binop (arg1, arg2, op)
 	    case BINOP_MAX:
 	      v = v1 > v2 ? v1 : v2;
 	      break;
+
+	    case BINOP_EQUAL:
+	      v = v1 == v2;
+	      break;
+
+	    case BINOP_LESS:
+	      v = v1 < v2;
+	      break;
 	      
 	    default:
 	      error ("Invalid binary operation on numbers.");
@@ -720,7 +800,7 @@ value_binop (arg1, arg2, op)
 	  /* Can't just call init_type because we wouldn't know what
 	     name to give the type.  */
 	  val = allocate_value
-	    (sizeof (LONGEST) > TARGET_LONG_BIT / HOST_CHAR_BIT
+	    (result_len > TARGET_LONG_BIT / HOST_CHAR_BIT
 	     ? builtin_type_unsigned_long_long
 	     : builtin_type_unsigned_long);
 	  store_unsigned_integer (VALUE_CONTENTS_RAW (val),
@@ -815,6 +895,14 @@ value_binop (arg1, arg2, op)
 	    case BINOP_MAX:
 	      v = v1 > v2 ? v1 : v2;
 	      break;
+
+	    case BINOP_EQUAL:
+	      v = v1 == v2;
+	      break;
+
+	    case BINOP_LESS:
+	      v = v1 < v2;
+	      break;
 	      
 	    default:
 	      error ("Invalid binary operation on numbers.");
@@ -830,7 +918,7 @@ value_binop (arg1, arg2, op)
 	  /* Can't just call init_type because we wouldn't know what
 	     name to give the type.  */
 	  val = allocate_value
-	    (sizeof (LONGEST) > TARGET_LONG_BIT / HOST_CHAR_BIT
+	    (result_len > TARGET_LONG_BIT / HOST_CHAR_BIT
 	     ? builtin_type_long_long
 	     : builtin_type_long);
 	  store_signed_integer (VALUE_CONTENTS_RAW (val),
@@ -888,7 +976,8 @@ value_equal (arg1, arg2)
   code2 = TYPE_CODE (VALUE_TYPE (arg2));
 
   if (code1 == TYPE_CODE_INT && code2 == TYPE_CODE_INT)
-    return value_as_long (arg1) == value_as_long (arg2);
+    return longest_to_int (value_as_long (value_binop (arg1, arg2,
+						       BINOP_EQUAL)));
   else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT)
 	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT))
     return value_as_double (arg1) == value_as_double (arg2);
@@ -937,14 +1026,8 @@ value_less (arg1, arg2)
   code2 = TYPE_CODE (VALUE_TYPE (arg2));
 
   if (code1 == TYPE_CODE_INT && code2 == TYPE_CODE_INT)
-    {
-      if (TYPE_UNSIGNED (VALUE_TYPE (arg1))
-       || TYPE_UNSIGNED (VALUE_TYPE (arg2)))
-	return ((unsigned LONGEST) value_as_long (arg1)
-		< (unsigned LONGEST) value_as_long (arg2));
-      else
-	return value_as_long (arg1) < value_as_long (arg2);
-    }
+    return longest_to_int (value_as_long (value_binop (arg1, arg2,
+						       BINOP_LESS)));
   else if ((code1 == TYPE_CODE_FLT || code1 == TYPE_CODE_INT)
 	   && (code2 == TYPE_CODE_FLT || code2 == TYPE_CODE_INT))
     return value_as_double (arg1) < value_as_double (arg2);
@@ -1010,8 +1093,9 @@ value_bit_index (type, valaddr, index)
      int index;
 {
   struct type *range;
-  int low_bound, high_bound, bit_length;
+  int low_bound, high_bound;
   LONGEST word;
+  unsigned rel_index;
   range = TYPE_FIELD_TYPE (type, 0);
   if (TYPE_CODE (range) != TYPE_CODE_RANGE)
     return -2;
@@ -1019,28 +1103,13 @@ value_bit_index (type, valaddr, index)
   high_bound = TYPE_HIGH_BOUND (range);
   if (index < low_bound || index > high_bound)
     return -1;
-  bit_length = high_bound - low_bound + 1;
-  index -= low_bound;
-  if (bit_length <= TARGET_CHAR_BIT)
-    word = unpack_long (builtin_type_unsigned_char, valaddr);
-  else if (bit_length <= TARGET_SHORT_BIT)
-    word = unpack_long (builtin_type_unsigned_short, valaddr);
-  else
-    {
-      int word_start_index = (index / TARGET_INT_BIT) * TARGET_INT_BIT;
-      index -= word_start_index;
-      word = unpack_long (builtin_type_unsigned_int,
-			  valaddr + (word_start_index / HOST_CHAR_BIT));
-    }
-#if BITS_BIG_ENDIAN
-  if (bit_length <= TARGET_CHAR_BIT)
-    index = TARGET_CHAR_BIT - 1 - index;
-  else if (bit_length <= TARGET_SHORT_BIT)
-    index = TARGET_SHORT_BIT - 1 - index;
-  else
-    index = TARGET_INT_BIT - 1 - index;
-#endif
-  return (word >> index) & 1;
+  rel_index = index - low_bound;
+  word = unpack_long (builtin_type_unsigned_char,
+		      valaddr + (rel_index / TARGET_CHAR_BIT));
+  rel_index %= TARGET_CHAR_BIT;
+  if (BITS_BIG_ENDIAN)
+    rel_index = TARGET_CHAR_BIT - 1 - rel_index;
+  return (word >> rel_index) & 1;
 }
 
 value_ptr

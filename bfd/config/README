@@ -29,6 +29,5 @@ CFLAGS = cc flags that also get passed to mkdep and used to compile
 	gen-aout and subdirectories
 HDEFINES = host-specific cc flags for BFD
 HDEPFILES = .o files to add to libbfd.a (trad-core.o)
-INSTALL = install program
 LDFLAGS = used to compile chew in doc subdirectory (-lmalloc)
 RANLIB = ranlib program or dummy (echo or true, they're equivalent)

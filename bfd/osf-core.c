@@ -104,7 +104,6 @@ osf_core_core_file_p (abfd)
   int i;
   char *secname;
   struct core_filehdr core_header;
-  int dseccnt = 0;
 
   val = bfd_read ((PTR)&core_header, 1, sizeof core_header, abfd);
   if (val != sizeof core_header)

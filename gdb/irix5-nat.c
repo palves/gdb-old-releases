@@ -27,6 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "target.h"
 
+#include <string.h>
 #include <sys/time.h>
 #include <sys/procfs.h>
 #include <setjmp.h>		/* For JB_XXX.  */
@@ -173,7 +174,6 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
 
 #include <sys/types.h>
 #include <signal.h>
-#include <string.h>
 #include <sys/param.h>
 #include <fcntl.h>
 
@@ -193,21 +193,6 @@ fetch_core_registers (core_reg_sect, core_reg_size, which, reg_addr)
 #include "regex.h"
 #include "inferior.h"
 #include "language.h"
-
-/* We need to set a breakpoint at a point when we know that the
-   mapping of shared libraries is complete.  dbx simply breaks at main
-   (or, for FORTRAN, MAIN__), so we do the same.  We can not break at
-   the very beginning of main, because the startup code will jump into
-   main after the GP initialization instructions.  SOLIB_BKPT_OFFSET
-   is used to skip those instructions.  */
-
-#define SOLIB_BKPT_OFFSET 12
-
-static char *bkpt_names[] = {
-  "main",
-  "MAIN__",
-  NULL
-};
 
 /* The symbol which starts off the list of shared libraries.  */
 #define DEBUG_BASE "__rld_obj_head"
@@ -420,7 +405,7 @@ locate_base ()
   struct minimal_symbol *msymbol;
   CORE_ADDR address = 0;
 
-  msymbol = lookup_minimal_symbol (DEBUG_BASE, symfile_objfile);
+  msymbol = lookup_minimal_symbol (DEBUG_BASE, NULL, symfile_objfile);
   if ((msymbol != NULL) && (SYMBOL_VALUE_ADDRESS (msymbol) != 0))
     {
       address = SYMBOL_VALUE_ADDRESS (msymbol);
@@ -614,9 +599,7 @@ solib_add (arg_string, from_tty, target)
     }
   
   /* Add the shared library sections to the section table of the
-     specified target, if any. We have to do this before reading the
-     symbol files as symbol_file_add calls reinit_frame_cache and
-     creating a new frame might access memory in the shared library.  */
+     specified target, if any.  */
   if (target)
     {
       /* Count how many new section_table entries there are.  */
@@ -686,6 +669,11 @@ solib_add (arg_string, from_tty, target)
 	    }
 	}
     }
+
+  /* Getting new symbols may change our opinion about what is
+     frameless.  */
+  if (so_last)
+    reinit_frame_cache ();
 }
 
 /*
@@ -804,7 +792,9 @@ clear_solib()
       if (so_list_head -> abfd)
 	{
 	  bfd_filename = bfd_get_filename (so_list_head -> abfd);
-	  bfd_close (so_list_head -> abfd);
+	  if (!bfd_close (so_list_head -> abfd))
+	    warning ("cannot close \"%s\": %s",
+		     bfd_filename, bfd_errmsg (bfd_get_error ()));
 	}
       else
 	/* This happens for the executable on SVR4.  */
@@ -875,84 +865,22 @@ SYNOPSIS
 
 DESCRIPTION
 
-	Both the SunOS and the SVR4 dynamic linkers have, as part of their
-	debugger interface, support for arranging for the inferior to hit
-	a breakpoint after mapping in the shared libraries.  This function
-	enables that breakpoint.
-
-	For SunOS, there is a special flag location (in_debugger) which we
-	set to 1.  When the dynamic linker sees this flag set, it will set
-	a breakpoint at a location known only to itself, after saving the
-	original contents of that place and the breakpoint address itself,
-	in it's own internal structures.  When we resume the inferior, it
-	will eventually take a SIGTRAP when it runs into the breakpoint.
-	We handle this (in a different place) by restoring the contents of
-	the breakpointed location (which is only known after it stops),
-	chasing around to locate the shared libraries that have been
-	loaded, then resuming.
-
-	For SVR4, the debugger interface structure contains a member (r_brk)
-	which is statically initialized at the time the shared library is
-	built, to the offset of a function (_r_debug_state) which is guaran-
-	teed to be called once before mapping in a library, and again when
-	the mapping is complete.  At the time we are examining this member,
-	it contains only the unrelocated offset of the function, so we have
-	to do our own relocation.  Later, when the dynamic linker actually
-	runs, it relocates r_brk to be the actual address of _r_debug_state().
-
-	The debugger interface structure also contains an enumeration which
-	is set to either RT_ADD or RT_DELETE prior to changing the mapping,
-	depending upon whether or not the library is being mapped or unmapped,
-	and then set to RT_CONSISTENT after the library is mapped/unmapped.
-
-	Irix 5, on the other hand, has no such features.  Instead, we
-	set a breakpoint at main.
+	This functions inserts a breakpoint at the entry point of the
+	main executable, where all shared libraries are mapped in.
 */
 
 static int
 enable_break ()
 {
-  int success = 0;
-  struct minimal_symbol *msymbol;
-  char **bkpt_namep;
-  CORE_ADDR bkpt_addr;
-
-  /* Scan through the list of symbols, trying to look up the symbol and
-     set a breakpoint there.  Terminate loop when we/if we succeed. */
-
-  breakpoint_addr = 0;
-  for (bkpt_namep = bkpt_names; *bkpt_namep != NULL; bkpt_namep++)
+  if (symfile_objfile != NULL
+      && target_insert_breakpoint (symfile_objfile->ei.entry_point,
+				   shadow_contents) == 0)
     {
-      msymbol = lookup_minimal_symbol (*bkpt_namep, symfile_objfile);
-      if ((msymbol != NULL) && (SYMBOL_VALUE_ADDRESS (msymbol) != 0))
-	{
-	  bkpt_addr = SYMBOL_VALUE_ADDRESS (msymbol);
-#ifdef SOLIB_BKPT_OFFSET
-	  /* We only want to skip if bkpt_addr is currently pointing
-	     at a GP setting instruction.  */
-	  {
-	    char buf[4];
-
-	    if (target_read_memory (bkpt_addr, buf, 4) == 0)
-	      {
-		unsigned long insn;
-
-		insn = extract_unsigned_integer (buf, 4);
-		if ((insn & 0xffff0000) == 0x3c1c0000) /* lui $gp,n */
-		  bkpt_addr += SOLIB_BKPT_OFFSET;
-	      }
-	  }
-#endif
-	  if (target_insert_breakpoint (bkpt_addr, shadow_contents) == 0)
-	    {
-	      breakpoint_addr = bkpt_addr;
-	      success = 1;
-	      break;
-	    }
-	}
+      breakpoint_addr = symfile_objfile->ei.entry_point;
+      return 1;
     }
 
-  return (success);
+  return 0;
 }
   
 /*
@@ -1030,7 +958,6 @@ solib_create_inferior_hook()
       wait_for_inferior ();
     }
   while (stop_signal != SIGTRAP);
-  stop_soon_quietly = 0;
   
   /* We are now either at the "mapping complete" breakpoint (or somewhere
      else, a condition we aren't prepared to deal with anyway), so adjust
@@ -1048,7 +975,14 @@ solib_create_inferior_hook()
       warning ("shared library handler failed to disable breakpoint");
     }
 
+  /*  solib_add will call reinit_frame_cache.
+      But we are stopped in the startup code and we might not have symbols
+      for the startup code, so heuristic_proc_start could be called
+      and will put out an annoying warning.
+      Delaying the resetting of stop_soon_quietly until after symbol loading
+      suppresses the warning.  */
   solib_add ((char *) 0, 0, (struct target_ops *) 0);
+  stop_soon_quietly = 0;
 }
 
 /*

@@ -27,6 +27,10 @@ int create_inferior ();
 
 extern char registers[];
 int inferior_pid;
+extern int cont_thread;
+extern int general_thread;
+extern int thread_from_wait;
+extern int old_thread_from_wait;
 
 int remote_send ();
 int putpkt ();

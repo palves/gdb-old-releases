@@ -35,11 +35,16 @@ PTR realloc PARAMS ((PTR, size_t));
 /* The program name if set.  */
 static const char *name = "";
 
+/* The initial sbrk, set when the program name is set.  */
+static char *first_break = NULL;
+
 void
 xmalloc_set_program_name (s)
      const char *s;
 {
   name = s;
+  if (first_break == NULL)
+    first_break = (char *) sbrk (0);
 }
 
 PTR
@@ -53,9 +58,17 @@ xmalloc (size)
   newmem = malloc (size);
   if (!newmem)
     {
-      fprintf (stderr, "\n%s%sCan not allocate %lu bytes\n",
+      extern char **environ;
+      size_t allocated;
+
+      if (first_break != NULL)
+	allocated = (char *) sbrk (0) - first_break;
+      else
+	allocated = (char *) sbrk (0) - (char *) &environ;
+      fprintf (stderr,
+	       "\n%s%sCan not allocate %lu bytes after allocating %lu bytes\n",
 	       name, *name ? ": " : "",
-	       (unsigned long) size);
+	       (unsigned long) size, (unsigned long) allocated);
       xexit (1);
     }
   return (newmem);
@@ -76,9 +89,17 @@ xrealloc (oldmem, size)
     newmem = realloc (oldmem, size);
   if (!newmem)
     {
-      fprintf (stderr, "\n%s%sCan not reallocate %lu bytes\n",
+      extern char **environ;
+      size_t allocated;
+
+      if (first_break != NULL)
+	allocated = (char *) sbrk (0) - first_break;
+      else
+	allocated = (char *) sbrk (0) - (char *) &environ;
+      fprintf (stderr,
+	       "\n%s%sCan not reallocate %lu bytes after allocating %lu bytes\n",
 	       name, *name ? ": " : "",
-	       (unsigned long) size);
+	       (unsigned long) size, (unsigned long) allocated);
       xexit (1);
     }
   return (newmem);

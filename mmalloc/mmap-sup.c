@@ -30,7 +30,7 @@ Cambridge, MA 02139, USA.  */
 #define SEEK_SET 0
 #endif
 
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 extern int munmap PARAMS ((caddr_t, size_t));	/* Not in any header file */
 

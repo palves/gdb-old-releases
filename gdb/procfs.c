@@ -1,5 +1,5 @@
 /* Machine independent support for SVR4 /proc (process file system) for GDB.
-   Copyright 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.
 
 This file is part of GDB.
@@ -36,6 +36,8 @@ regardless of whether or not the actual target has floating point hardware.
 
 #include <sys/types.h>
 #include <time.h>
+#include <sys/fault.h>
+#include <sys/syscall.h>
 #include <sys/procfs.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -49,6 +51,7 @@ regardless of whether or not the actual target has floating point hardware.
 #include "target.h"
 #include "command.h"
 #include "gdbcore.h"
+#include "thread.h"
 
 #define MAX_SYSCALLS	256	/* Maximum number of syscalls for table */
 
@@ -127,45 +130,45 @@ struct trans {
 static struct trans pr_flag_table[] =
 {
 #if defined (PR_STOPPED)
-  PR_STOPPED, "PR_STOPPED", "Process is stopped",
+  { PR_STOPPED, "PR_STOPPED", "Process is stopped" },
 #endif
 #if defined (PR_ISTOP)
-  PR_ISTOP, "PR_ISTOP", "Stopped on an event of interest",
+  { PR_ISTOP, "PR_ISTOP", "Stopped on an event of interest" },
 #endif
 #if defined (PR_DSTOP)
-  PR_DSTOP, "PR_DSTOP", "A stop directive is in effect",
+  { PR_DSTOP, "PR_DSTOP", "A stop directive is in effect" },
 #endif
 #if defined (PR_ASLEEP)
-  PR_ASLEEP, "PR_ASLEEP", "Sleeping in an interruptible system call",
+  { PR_ASLEEP, "PR_ASLEEP", "Sleeping in an interruptible system call" },
 #endif
 #if defined (PR_FORK)
-  PR_FORK, "PR_FORK", "Inherit-on-fork is in effect",
+  { PR_FORK, "PR_FORK", "Inherit-on-fork is in effect" },
 #endif
 #if defined (PR_RLC)
-  PR_RLC, "PR_RLC", "Run-on-last-close is in effect",
+  { PR_RLC, "PR_RLC", "Run-on-last-close is in effect" },
 #endif
 #if defined (PR_PTRACE)
-  PR_PTRACE, "PR_PTRACE", "Process is being controlled by ptrace",
+  { PR_PTRACE, "PR_PTRACE", "Process is being controlled by ptrace" },
 #endif
 #if defined (PR_PCINVAL)
-  PR_PCINVAL, "PR_PCINVAL", "PC refers to an invalid virtual address",
+  { PR_PCINVAL, "PR_PCINVAL", "PC refers to an invalid virtual address" },
 #endif
 #if defined (PR_ISSYS)
-  PR_ISSYS, "PR_ISSYS", "Is a system process",
+  { PR_ISSYS, "PR_ISSYS", "Is a system process" },
 #endif
 #if defined (PR_STEP)
-  PR_STEP, "PR_STEP", "Process has single step pending",
+  { PR_STEP, "PR_STEP", "Process has single step pending" },
 #endif
 #if defined (PR_KLC)
-  PR_KLC, "PR_KLC", "Kill-on-last-close is in effect",
+  { PR_KLC, "PR_KLC", "Kill-on-last-close is in effect" },
 #endif
 #if defined (PR_ASYNC)
-  PR_ASYNC, "PR_ASYNC", "Asynchronous stop is in effect",
+  { PR_ASYNC, "PR_ASYNC", "Asynchronous stop is in effect" },
 #endif
 #if defined (PR_PCOMPAT)
-  PR_PCOMPAT, "PR_PCOMPAT", "Ptrace compatibility mode in effect",
+  { PR_PCOMPAT, "PR_PCOMPAT", "Ptrace compatibility mode in effect" },
 #endif
- 0, NULL, NULL
+  { 0, NULL, NULL }
 };
 
 /*  Translate values in the pr_why field of the prstatus struct. */
@@ -173,27 +176,27 @@ static struct trans pr_flag_table[] =
 static struct trans pr_why_table[] =
 {
 #if defined (PR_REQUESTED)
- PR_REQUESTED, "PR_REQUESTED", "Directed to stop via PIOCSTOP/PIOCWSTOP",
+  { PR_REQUESTED, "PR_REQUESTED", "Directed to stop via PIOCSTOP/PIOCWSTOP" },
 #endif
 #if defined (PR_SIGNALLED)
- PR_SIGNALLED, "PR_SIGNALLED", "Receipt of a traced signal",
+  { PR_SIGNALLED, "PR_SIGNALLED", "Receipt of a traced signal" },
 #endif
 #if defined (PR_FAULTED)
- PR_FAULTED, "PR_FAULTED", "Incurred a traced hardware fault",
+  { PR_FAULTED, "PR_FAULTED", "Incurred a traced hardware fault" },
 #endif
 #if defined (PR_SYSENTRY)
- PR_SYSENTRY, "PR_SYSENTRY", "Entry to a traced system call",
+  { PR_SYSENTRY, "PR_SYSENTRY", "Entry to a traced system call" },
 #endif
 #if defined (PR_SYSEXIT)
- PR_SYSEXIT, "PR_SYSEXIT", "Exit from a traced system call",
+  { PR_SYSEXIT, "PR_SYSEXIT", "Exit from a traced system call" },
 #endif
 #if defined (PR_JOBCONTROL)
- PR_JOBCONTROL, "PR_JOBCONTROL", "Default job control stop signal action",
+  { PR_JOBCONTROL, "PR_JOBCONTROL", "Default job control stop signal action" },
 #endif
 #if defined (PR_SUSPENDED)
- PR_SUSPENDED, "PR_SUSPENDED", "Process suspended",
+  { PR_SUSPENDED, "PR_SUSPENDED", "Process suspended" },
 #endif
- 0, NULL, NULL
+  { 0, NULL, NULL }
 };
 
 /*  Hardware fault translation table. */
@@ -201,39 +204,39 @@ static struct trans pr_why_table[] =
 static struct trans faults_table[] =
 {
 #if defined (FLTILL)
- FLTILL, "FLTILL", "Illegal instruction",
+  { FLTILL, "FLTILL", "Illegal instruction" },
 #endif
 #if defined (FLTPRIV)
- FLTPRIV, "FLTPRIV", "Privileged instruction",
+  { FLTPRIV, "FLTPRIV", "Privileged instruction" },
 #endif
 #if defined (FLTBPT)
- FLTBPT, "FLTBPT", "Breakpoint trap",
+  { FLTBPT, "FLTBPT", "Breakpoint trap" },
 #endif
 #if defined (FLTTRACE)
- FLTTRACE, "FLTTRACE", "Trace trap",
+  { FLTTRACE, "FLTTRACE", "Trace trap" },
 #endif
 #if defined (FLTACCESS)
- FLTACCESS, "FLTACCESS", "Memory access fault",
+  { FLTACCESS, "FLTACCESS", "Memory access fault" },
 #endif
 #if defined (FLTBOUNDS)
- FLTBOUNDS, "FLTBOUNDS", "Memory bounds violation",
+  { FLTBOUNDS, "FLTBOUNDS", "Memory bounds violation" },
 #endif
 #if defined (FLTIOVF)
- FLTIOVF, "FLTIOVF", "Integer overflow",
+  { FLTIOVF, "FLTIOVF", "Integer overflow" },
 #endif
 #if defined (FLTIZDIV)
- FLTIZDIV, "FLTIZDIV", "Integer zero divide",
+  { FLTIZDIV, "FLTIZDIV", "Integer zero divide" },
 #endif
 #if defined (FLTFPE)
- FLTFPE, "FLTFPE", "Floating-point exception",
+  { FLTFPE, "FLTFPE", "Floating-point exception" },
 #endif
 #if defined (FLTSTACK)
- FLTSTACK, "FLTSTACK", "Unrecoverable stack fault",
+  { FLTSTACK, "FLTSTACK", "Unrecoverable stack fault" },
 #endif
 #if defined (FLTPAGE)
- FLTPAGE, "FLTPAGE", "Recoverable page fault",
+  { FLTPAGE, "FLTPAGE", "Recoverable page fault" },
 #endif
- 0, NULL, NULL
+  { 0, NULL, NULL }
 };
 
 /* Translation table for signal generation information.  See UNIX System
@@ -246,209 +249,179 @@ static struct sigcode {
   char *desc;
 } siginfo_table[] = {
 #if defined (SIGILL) && defined (ILL_ILLOPC)
-  SIGILL, ILL_ILLOPC, "ILL_ILLOPC", "Illegal opcode",
+  { SIGILL, ILL_ILLOPC, "ILL_ILLOPC", "Illegal opcode" },
 #endif
 #if defined (SIGILL) && defined (ILL_ILLOPN)
-  SIGILL, ILL_ILLOPN, "ILL_ILLOPN", "Illegal operand",
+  { SIGILL, ILL_ILLOPN, "ILL_ILLOPN", "Illegal operand", },
 #endif
 #if defined (SIGILL) && defined (ILL_ILLADR)
-  SIGILL, ILL_ILLADR, "ILL_ILLADR", "Illegal addressing mode",
+  { SIGILL, ILL_ILLADR, "ILL_ILLADR", "Illegal addressing mode" },
 #endif
 #if defined (SIGILL) && defined (ILL_ILLTRP)
-  SIGILL, ILL_ILLTRP, "ILL_ILLTRP", "Illegal trap",
+  { SIGILL, ILL_ILLTRP, "ILL_ILLTRP", "Illegal trap" },
 #endif
 #if defined (SIGILL) && defined (ILL_PRVOPC)
-  SIGILL, ILL_PRVOPC, "ILL_PRVOPC", "Privileged opcode",
+  { SIGILL, ILL_PRVOPC, "ILL_PRVOPC", "Privileged opcode" },
 #endif
 #if defined (SIGILL) && defined (ILL_PRVREG)
-  SIGILL, ILL_PRVREG, "ILL_PRVREG", "Privileged register",
+  { SIGILL, ILL_PRVREG, "ILL_PRVREG", "Privileged register" },
 #endif
 #if defined (SIGILL) && defined (ILL_COPROC)
-  SIGILL, ILL_COPROC, "ILL_COPROC", "Coprocessor error",
+  { SIGILL, ILL_COPROC, "ILL_COPROC", "Coprocessor error" },
 #endif
 #if defined (SIGILL) && defined (ILL_BADSTK)
-  SIGILL, ILL_BADSTK, "ILL_BADSTK", "Internal stack error",
+  { SIGILL, ILL_BADSTK, "ILL_BADSTK", "Internal stack error" },
 #endif
 #if defined (SIGFPE) && defined (FPE_INTDIV)
-  SIGFPE, FPE_INTDIV, "FPE_INTDIV", "Integer divide by zero",
+  { SIGFPE, FPE_INTDIV, "FPE_INTDIV", "Integer divide by zero" },
 #endif
 #if defined (SIGFPE) && defined (FPE_INTOVF)
-  SIGFPE, FPE_INTOVF, "FPE_INTOVF", "Integer overflow",
+  { SIGFPE, FPE_INTOVF, "FPE_INTOVF", "Integer overflow" },
 #endif
 #if defined (SIGFPE) && defined (FPE_FLTDIV)
-  SIGFPE, FPE_FLTDIV, "FPE_FLTDIV", "Floating point divide by zero",
+  { SIGFPE, FPE_FLTDIV, "FPE_FLTDIV", "Floating point divide by zero" },
 #endif
 #if defined (SIGFPE) && defined (FPE_FLTOVF)
-  SIGFPE, FPE_FLTOVF, "FPE_FLTOVF", "Floating point overflow",
+  { SIGFPE, FPE_FLTOVF, "FPE_FLTOVF", "Floating point overflow" },
 #endif
 #if defined (SIGFPE) && defined (FPE_FLTUND)
-  SIGFPE, FPE_FLTUND, "FPE_FLTUND", "Floating point underflow",
+  { SIGFPE, FPE_FLTUND, "FPE_FLTUND", "Floating point underflow" },
 #endif
 #if defined (SIGFPE) && defined (FPE_FLTRES)
-  SIGFPE, FPE_FLTRES, "FPE_FLTRES", "Floating point inexact result",
+  { SIGFPE, FPE_FLTRES, "FPE_FLTRES", "Floating point inexact result" },
 #endif
 #if defined (SIGFPE) && defined (FPE_FLTINV)
-  SIGFPE, FPE_FLTINV, "FPE_FLTINV", "Invalid floating point operation",
+  { SIGFPE, FPE_FLTINV, "FPE_FLTINV", "Invalid floating point operation" },
 #endif
 #if defined (SIGFPE) && defined (FPE_FLTSUB)
-  SIGFPE, FPE_FLTSUB, "FPE_FLTSUB", "Subscript out of range",
+  { SIGFPE, FPE_FLTSUB, "FPE_FLTSUB", "Subscript out of range" },
 #endif
 #if defined (SIGSEGV) && defined (SEGV_MAPERR)
-  SIGSEGV, SEGV_MAPERR, "SEGV_MAPERR", "Address not mapped to object",
+  { SIGSEGV, SEGV_MAPERR, "SEGV_MAPERR", "Address not mapped to object" },
 #endif
 #if defined (SIGSEGV) && defined (SEGV_ACCERR)
-  SIGSEGV, SEGV_ACCERR, "SEGV_ACCERR", "Invalid permissions for object",
+  { SIGSEGV, SEGV_ACCERR, "SEGV_ACCERR", "Invalid permissions for object" },
 #endif
 #if defined (SIGBUS) && defined (BUS_ADRALN)
-  SIGBUS, BUS_ADRALN, "BUS_ADRALN", "Invalid address alignment",
+  { SIGBUS, BUS_ADRALN, "BUS_ADRALN", "Invalid address alignment" },
 #endif
 #if defined (SIGBUS) && defined (BUS_ADRERR)
-  SIGBUS, BUS_ADRERR, "BUS_ADRERR", "Non-existent physical address",
+  { SIGBUS, BUS_ADRERR, "BUS_ADRERR", "Non-existent physical address" },
 #endif
 #if defined (SIGBUS) && defined (BUS_OBJERR)
-  SIGBUS, BUS_OBJERR, "BUS_OBJERR", "Object specific hardware error",
+  { SIGBUS, BUS_OBJERR, "BUS_OBJERR", "Object specific hardware error" },
 #endif
 #if defined (SIGTRAP) && defined (TRAP_BRKPT)
-  SIGTRAP, TRAP_BRKPT, "TRAP_BRKPT", "Process breakpoint",
+  { SIGTRAP, TRAP_BRKPT, "TRAP_BRKPT", "Process breakpoint" },
 #endif
 #if defined (SIGTRAP) && defined (TRAP_TRACE)
-  SIGTRAP, TRAP_TRACE, "TRAP_TRACE", "Process trace trap",
+  { SIGTRAP, TRAP_TRACE, "TRAP_TRACE", "Process trace trap" },
 #endif
 #if defined (SIGCLD) && defined (CLD_EXITED)
-  SIGCLD, CLD_EXITED, "CLD_EXITED", "Child has exited",
+  { SIGCLD, CLD_EXITED, "CLD_EXITED", "Child has exited" },
 #endif
 #if defined (SIGCLD) && defined (CLD_KILLED)
-  SIGCLD, CLD_KILLED, "CLD_KILLED", "Child was killed",
+  { SIGCLD, CLD_KILLED, "CLD_KILLED", "Child was killed" },
 #endif
 #if defined (SIGCLD) && defined (CLD_DUMPED)
-  SIGCLD, CLD_DUMPED, "CLD_DUMPED", "Child has terminated abnormally",
+  { SIGCLD, CLD_DUMPED, "CLD_DUMPED", "Child has terminated abnormally" },
 #endif
 #if defined (SIGCLD) && defined (CLD_TRAPPED)
-  SIGCLD, CLD_TRAPPED, "CLD_TRAPPED", "Traced child has trapped",
+  { SIGCLD, CLD_TRAPPED, "CLD_TRAPPED", "Traced child has trapped" },
 #endif
 #if defined (SIGCLD) && defined (CLD_STOPPED)
-  SIGCLD, CLD_STOPPED, "CLD_STOPPED", "Child has stopped",
+  { SIGCLD, CLD_STOPPED, "CLD_STOPPED", "Child has stopped" },
 #endif
 #if defined (SIGCLD) && defined (CLD_CONTINUED)
-  SIGCLD, CLD_CONTINUED, "CLD_CONTINUED", "Stopped child had continued",
+  { SIGCLD, CLD_CONTINUED, "CLD_CONTINUED", "Stopped child had continued" },
 #endif
 #if defined (SIGPOLL) && defined (POLL_IN)
-  SIGPOLL, POLL_IN, "POLL_IN", "Input input available",
+  { SIGPOLL, POLL_IN, "POLL_IN", "Input input available" },
 #endif
 #if defined (SIGPOLL) && defined (POLL_OUT)
-  SIGPOLL, POLL_OUT, "POLL_OUT", "Output buffers available",
+  { SIGPOLL, POLL_OUT, "POLL_OUT", "Output buffers available" },
 #endif
 #if defined (SIGPOLL) && defined (POLL_MSG)
-  SIGPOLL, POLL_MSG, "POLL_MSG", "Input message available",
+  { SIGPOLL, POLL_MSG, "POLL_MSG", "Input message available" },
 #endif
 #if defined (SIGPOLL) && defined (POLL_ERR)
-  SIGPOLL, POLL_ERR, "POLL_ERR", "I/O error",
+  { SIGPOLL, POLL_ERR, "POLL_ERR", "I/O error" },
 #endif
 #if defined (SIGPOLL) && defined (POLL_PRI)
-  SIGPOLL, POLL_PRI, "POLL_PRI", "High priority input available",
+  { SIGPOLL, POLL_PRI, "POLL_PRI", "High priority input available" },
 #endif
 #if defined (SIGPOLL) && defined (POLL_HUP)
-  SIGPOLL, POLL_HUP, "POLL_HUP", "Device disconnected",
+  { SIGPOLL, POLL_HUP, "POLL_HUP", "Device disconnected" },
 #endif
-  0, 0, NULL, NULL
+  { 0, 0, NULL, NULL }
 };
 
 static char *syscall_table[MAX_SYSCALLS];
 
 /* Prototypes for local functions */
 
-static void
-set_proc_siginfo PARAMS ((struct procinfo *, int));
+static void set_proc_siginfo PARAMS ((struct procinfo *, int));
 
-static void
-init_syscall_table PARAMS ((void));
+static void init_syscall_table PARAMS ((void));
 
-static char *
-syscallname PARAMS ((int));
+static char *syscallname PARAMS ((int));
 
-static char *
-signalname PARAMS ((int));
+static char *signalname PARAMS ((int));
 
-static char *
-errnoname PARAMS ((int));
+static char *errnoname PARAMS ((int));
 
-static int
-proc_address_to_fd PARAMS ((struct procinfo *, CORE_ADDR, int));
+static int proc_address_to_fd PARAMS ((struct procinfo *, CORE_ADDR, int));
 
-static int
-open_proc_file PARAMS ((int, struct procinfo *, int));
+static int open_proc_file PARAMS ((int, struct procinfo *, int));
 
-static void
-close_proc_file PARAMS ((struct procinfo *));
+static void close_proc_file PARAMS ((struct procinfo *));
 
-static void
-unconditionally_kill_inferior PARAMS ((struct procinfo *));
+static void unconditionally_kill_inferior PARAMS ((struct procinfo *));
 
-static NORETURN void
-proc_init_failed PARAMS ((struct procinfo *, char *));
+static NORETURN void proc_init_failed PARAMS ((struct procinfo *, char *)) ATTR_NORETURN;
 
-static void
-info_proc PARAMS ((char *, int));
+static void info_proc PARAMS ((char *, int));
 
-static void
-info_proc_flags PARAMS ((struct procinfo *, int));
+static void info_proc_flags PARAMS ((struct procinfo *, int));
 
-static void
-info_proc_stop PARAMS ((struct procinfo *, int));
+static void info_proc_stop PARAMS ((struct procinfo *, int));
 
-static void
-info_proc_siginfo PARAMS ((struct procinfo *, int));
+static void info_proc_siginfo PARAMS ((struct procinfo *, int));
 
-static void
-info_proc_syscalls PARAMS ((struct procinfo *, int));
+static void info_proc_syscalls PARAMS ((struct procinfo *, int));
 
-static void
-info_proc_mappings PARAMS ((struct procinfo *, int));
+static void info_proc_mappings PARAMS ((struct procinfo *, int));
 
-static void
-info_proc_signals PARAMS ((struct procinfo *, int));
+static void info_proc_signals PARAMS ((struct procinfo *, int));
 
-static void
-info_proc_faults PARAMS ((struct procinfo *, int));
+static void info_proc_faults PARAMS ((struct procinfo *, int));
 
-static char *
-mappingflags PARAMS ((long));
+static char *mappingflags PARAMS ((long));
 
-static char *
-lookupname PARAMS ((struct trans *, unsigned int, char *));
+static char *lookupname PARAMS ((struct trans *, unsigned int, char *));
 
-static char *
-lookupdesc PARAMS ((struct trans *, unsigned int));
+static char *lookupdesc PARAMS ((struct trans *, unsigned int));
 
-static int
-do_attach PARAMS ((int pid));
+static int do_attach PARAMS ((int pid));
 
-static void
-do_detach PARAMS ((int siggnal));
+static void do_detach PARAMS ((int siggnal));
 
-static void
-procfs_create_inferior PARAMS ((char *, char *, char **));
+static void procfs_create_inferior PARAMS ((char *, char *, char **));
 
-static void
-procfs_notice_signals PARAMS ((int pid));
+static void procfs_notice_signals PARAMS ((int pid));
 
-static struct procinfo *
-find_procinfo PARAMS ((pid_t pid, int okfail));
+static struct procinfo *find_procinfo PARAMS ((pid_t pid, int okfail));
 
 /* External function prototypes that can't be easily included in any
    header file because the args are typedefs in system include files. */
 
-extern void
-supply_gregset PARAMS ((gregset_t *));
+extern void supply_gregset PARAMS ((gregset_t *));
 
-extern void
-fill_gregset PARAMS ((gregset_t *, int));
+extern void fill_gregset PARAMS ((gregset_t *, int));
 
-extern void
-supply_fpregset PARAMS ((fpregset_t *));
+extern void supply_fpregset PARAMS ((fpregset_t *));
 
-extern void
-fill_fpregset PARAMS ((fpregset_t *, int));
+extern void fill_fpregset PARAMS ((fpregset_t *, int));
 
 /*
 
@@ -570,8 +543,7 @@ wait_fd ()
   int num_fds;
   int i;
 
-  if (attach_flag)
-    set_sigint_trap ();	/* Causes SIGINT to be passed on to the
+  set_sigint_trap ();	/* Causes SIGINT to be passed on to the
 			   attached process. */
   set_sigio_trap ();
 
@@ -597,8 +569,7 @@ wait_fd ()
   pi->had_event = 1;
 #endif  
   
-  if (attach_flag)
-    clear_sigint_trap();
+  clear_sigint_trap ();
   clear_sigio_trap ();
 
 #ifndef LOSING_POLL
@@ -1279,7 +1250,28 @@ unconditionally_kill_inferior (pi)
   ppid = pi->prstatus.pr_ppid;
 
   signo = SIGKILL;
+
+#ifdef PROCFS_NEED_PIOCSSIG_FOR_KILL
+  /* Alpha OSF/1 procfs needs a PIOCSSIG call with a SIGKILL signal
+     to kill the inferior, otherwise it might remain stopped with a
+     pending SIGKILL.
+     We do not check the result of the PIOCSSIG, the inferior might have
+     died already.  */
+  {
+    struct siginfo newsiginfo;
+
+    memset ((char *) &newsiginfo, 0, sizeof (newsiginfo));
+    newsiginfo.si_signo = signo;
+    newsiginfo.si_code = 0;
+    newsiginfo.si_errno = 0;
+    newsiginfo.si_pid = getpid ();
+    newsiginfo.si_uid = getuid ();
+    ioctl (pi->fd, PIOCSSIG, &newsiginfo);
+  }
+#else
   ioctl (pi->fd, PIOCKILL, &signo);
+#endif
+
   close_proc_file (pi);
 
 /* Only wait() for our direct children.  Our grandchildren zombies are killed
@@ -1446,8 +1438,9 @@ create_procinfo (pid)
 {
   struct procinfo *pi;
 
-  if (find_procinfo (pid, 1))
-    return;			/* All done!  It already exists */
+  pi = find_procinfo (pid, 1);
+  if (pi != NULL)
+    return pi;			/* All done!  It already exists */
 
   pi = (struct procinfo *) xmalloc (sizeof (struct procinfo));
 
@@ -1466,6 +1459,14 @@ create_procinfo (pid)
   procfs_notice_signals (pid);
   prfillset (&pi->prrun.pr_fault);
   prdelset (&pi->prrun.pr_fault, FLTPAGE);
+
+#ifdef PROCFS_DONT_TRACE_IFAULT
+  /* Tracing T_IFAULT under Alpha OSF/1 causes a `floating point enable'
+     fault from which we cannot continue (except by disabling the
+     tracing). We rely on the delivery of a SIGTRAP signal (which is traced)
+     for the other T_IFAULT faults if tracing them is disabled.  */
+  prdelset (&pi->prrun.pr_fault, T_IFAULT);
+#endif
 
   if (ioctl (pi->fd, PIOCWSTOP, &pi->prstatus) < 0)
     proc_init_failed (pi, "PIOCWSTOP failed");
@@ -1511,8 +1512,12 @@ procfs_init_inferior (pid)
   create_procinfo (pid);
   add_thread (pid);		/* Setup initial thread */
 
+#ifdef START_INFERIOR_TRAPS_EXPECTED
+  startup_inferior (START_INFERIOR_TRAPS_EXPECTED);
+#else
   /* One trap to exec the shell, one to exec the program being debugged.  */
   startup_inferior (2);
+#endif
 }
 
 /*
@@ -1617,6 +1622,27 @@ proc_set_exec_trap ()
   premptyset (&exitset);
   premptyset (&entryset);
 
+#ifdef PIOCSSPCACT
+  /* Under Alpha OSF/1 we have to use a PIOCSSPCACT ioctl to trace
+     exits from exec system calls because of the user level loader.  */
+  {
+    int prfs_flags;
+
+    if (ioctl (fd, PIOCGSPCACT, &prfs_flags) < 0)
+      {
+	perror (procname);
+	gdb_flush (gdb_stderr);
+	_exit (127);
+      }
+    prfs_flags |= PRFS_STOPEXEC;
+    if (ioctl (fd, PIOCSSPCACT, &prfs_flags) < 0)
+      {
+	perror (procname);
+	gdb_flush (gdb_stderr);
+	_exit (127);
+      }
+  }
+#else
   /* GW: Rationale...
      Not all systems with /proc have all the exec* syscalls with the same
      names.  On the SGI, for example, there is no SYS_exec, but there
@@ -1638,6 +1664,7 @@ proc_set_exec_trap ()
       gdb_flush (gdb_stderr);
       _exit (127);
     }
+#endif
 
   praddset (&entryset, SYS_exit);
 
@@ -2039,6 +2066,15 @@ do_attach (pid)
   procfs_notice_signals (pid);
   prfillset (&pi->prrun.pr_fault);
   prdelset (&pi->prrun.pr_fault, FLTPAGE);
+
+#ifdef PROCFS_DONT_TRACE_IFAULT
+  /* Tracing T_IFAULT under Alpha OSF/1 causes a `floating point enable'
+     fault from which we cannot continue (except by disabling the
+     tracing). We rely on the delivery of a SIGTRAP signal (which is traced)
+     for the other T_IFAULT faults if tracing them is disabled.  */
+  prdelset (&pi->prrun.pr_fault, T_IFAULT);
+#endif
+
   if (ioctl (pi->fd, PIOCSFAULT, &pi->prrun.pr_fault))
     {
       print_sys_errmsg ("PIOCSFAULT failed", errno);
@@ -2130,6 +2166,11 @@ do_detach (signal)
 	  if (signal || !pi->was_stopped ||
 	      query ("Was stopped when attached, make it runnable again? "))
 	    {
+	      /* Clear any pending signal if we want to detach without
+		 a signal.  */
+	      if (signal == 0)
+		set_proc_siginfo (pi, signal);
+
 	      /* Clear any fault that might have stopped it.  */
 	      if (ioctl (pi->fd, PIOCCFAULT, 0))
 		{
@@ -2476,6 +2517,14 @@ set_proc_siginfo (pip, signo)
 {
   struct siginfo newsiginfo;
   struct siginfo *sip;
+
+#ifdef PROCFS_DONT_PIOCSSIG_CURSIG
+  /* With Alpha OSF/1 procfs, the kernel gets really confused if it
+     receives a PIOCSSSIG with a signal identical to the current signal,
+     it messes up the current signal. Work around the kernel bug.  */
+  if (signo == pip -> prstatus.pr_cursig)
+    return;
+#endif
 
   if (signo == pip -> prstatus.pr_info.si_signo)
     {
@@ -3082,7 +3131,7 @@ static char *
 signalname (signo)
      int signo;
 {
-  char *name;
+  const char *name;
   static char locbuf[32];
 
   name = strsigno (signo);
@@ -3101,7 +3150,7 @@ static char *
 errnoname (errnum)
      int errnum;
 {
-  char *name;
+  const char *name;
   static char locbuf[32];
 
   name = strerrno (errnum);
@@ -3144,9 +3193,19 @@ info_proc_signals (pip, summary)
 	  printf_filtered ("%-8s ",
 			   prismember (&pip -> prstatus.pr_sighold, signo)
 			   ? "on" : "off");
+
+#ifdef PROCFS_SIGPEND_OFFSET
+	  /* Alpha OSF/1 numbers the pending signals from 1.  */
+	  printf_filtered ("%-8s ",
+			   (signo ? prismember (&pip -> prstatus.pr_sigpend,
+						signo - 1)
+				  : 0)
+			   ? "yes" : "no");
+#else
 	  printf_filtered ("%-8s ",
 			   prismember (&pip -> prstatus.pr_sigpend, signo)
 			   ? "yes" : "no");
+#endif
 	  printf_filtered (" %s\n", safe_strsignal (signo));
 	}
       printf_filtered ("\n");
@@ -3195,7 +3254,11 @@ info_proc_mappings (pip, summary)
   if (!summary)
     {
       printf_filtered ("Mapped address spaces:\n\n");
+#ifdef BFD_HOST_64_BIT
+      printf_filtered ("  %18s %18s %10s %10s %7s\n",
+#else
       printf_filtered ("\t%10s %10s %10s %10s %7s\n",
+#endif
 		       "Start Addr",
 		       "  End Addr",
 		       "      Size",
@@ -3208,9 +3271,14 @@ info_proc_mappings (pip, summary)
 	    {
 	      for (prmap = prmaps; prmap -> pr_size; ++prmap)
 		{
-		  printf_filtered ("\t%#10x %#10x %#10x %#10x %7s\n",
-				   prmap -> pr_vaddr,
-				   prmap -> pr_vaddr + prmap -> pr_size - 1,
+#ifdef BFD_HOST_64_BIT
+		  printf_filtered ("  %#18lx %#18lx %#10x %#10x %7s\n",
+#else
+		  printf_filtered ("\t%#10lx %#10lx %#10x %#10x %7s\n",
+#endif
+				   (unsigned long)prmap -> pr_vaddr,
+				   (unsigned long)prmap -> pr_vaddr
+				     + prmap -> pr_size - 1,
 				   prmap -> pr_size,
 				   prmap -> pr_off,
 				   mappingflags (prmap -> pr_mflags));
@@ -3577,13 +3645,18 @@ static void
 procfs_mourn_inferior ()
 {
   struct procinfo *pi;
+  struct procinfo *next_pi;
 
-  for (pi = procinfo_list; pi; pi = pi->next)
-    unconditionally_kill_inferior (pi);
+  for (pi = procinfo_list; pi; pi = next_pi)
+    {
+      next_pi = pi->next;
+      unconditionally_kill_inferior (pi);
+    }
 
   unpush_target (&procfs_ops);
   generic_mourn_inferior ();
 }
+
 
 /* Mark our target-struct as eligible for stray "run" and "attach" commands.  */
 static int
@@ -3653,6 +3726,20 @@ procfs_stopped_by_watchpoint(pid)
 }
 #endif
 
+/* Send a SIGINT to the process group.  This acts just like the user typed a
+   ^C on the controlling terminal.
+
+   XXX - This may not be correct for all systems.  Some may want to use
+   killpg() instead of kill (-pgrp). */
+
+void
+procfs_stop ()
+{
+  extern pid_t inferior_process_group;
+
+  kill (-inferior_process_group, SIGINT);
+}
+
 
 struct target_ops procfs_ops = {
   "procfs",			/* to_shortname */
@@ -3683,6 +3770,7 @@ struct target_ops procfs_ops = {
   procfs_mourn_inferior,	/* to_mourn_inferior */
   procfs_can_run,		/* to_can_run */
   procfs_notice_signals,	/* to_notice_signals */
+  procfs_stop,			/* to_stop */
   process_stratum,		/* to_stratum */
   0,				/* to_next */
   1,				/* to_has_all_memory */
@@ -3698,6 +3786,19 @@ struct target_ops procfs_ops = {
 void
 _initialize_procfs ()
 {
+#ifdef HAVE_OPTIONAL_PROC_FS
+  char procname[32];
+  int fd;
+
+  /* If we have an optional /proc filesystem (e.g. under OSF/1),
+     don't add procfs support if we cannot access the running
+     GDB via /proc.  */
+  sprintf (procname, PROC_NAME_FMT, getpid ());
+  if ((fd = open (procname, O_RDONLY)) < 0)
+    return;
+  close (fd);
+#endif
+
   add_target (&procfs_ops);
 
   add_info ("proc", info_proc, 

@@ -1,4 +1,4 @@
-This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
+This is Info file ./gdb.info, produced by Makeinfo-1.55 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
@@ -7,10 +7,10 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.13.
+Source-Level Debugger' for GDB Version 4.14.
 
-   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
-Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
+Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -527,8 +527,8 @@ File: gdb.info,  Node: Floating Point Hardware,  Prev: Registers,  Up: Data
 Floating point hardware
 =======================
 
-   Depending on the host machine architecture, GDB may be able to give
-you more information about the status of the floating point hardware.
+   Depending on the configuration, GDB may be able to give you more
+information about the status of the floating point hardware.
 
 `info float'
      Display hardware-dependent information about the floating point
@@ -882,7 +882,7 @@ information.
 File: gdb.info,  Node: C Operators,  Next: C Constants,  Up: C
 
 C and C++ operators
--------------------
+...................
 
    Operators must be defined on values of specific types.  For instance,
 `+' is defined on numbers, but not on structures.  Operators are often
@@ -1017,7 +1017,7 @@ of increasing precedence:
 File: gdb.info,  Node: C Constants,  Next: Cplus expressions,  Prev: C Operators,  Up: C
 
 C and C++ constants
--------------------
+...................
 
    GDB allows you to express the constants of C and C++ in the
 following ways:
@@ -1059,7 +1059,7 @@ following ways:
 File: gdb.info,  Node: Cplus expressions,  Next: C Defaults,  Prev: C Constants,  Up: C
 
 C++ expressions
----------------
+...............
 
    GDB expression handling has a number of extensions to interpret a
 significant subset of C++ expressions.
@@ -1113,7 +1113,7 @@ significant subset of C++ expressions.
 File: gdb.info,  Node: C Defaults,  Next: C Checks,  Prev: Cplus expressions,  Up: C
 
 C and C++ defaults
-------------------
+..................
 
    If you allow GDB to set type and range checking automatically, they
 both default to `off' whenever the working language changes to C or
@@ -1129,7 +1129,7 @@ the source language: Automatically, for further details.
 File: gdb.info,  Node: C Checks,  Next: Debugging C,  Prev: C Defaults,  Up: C
 
 C and C++ type and range checks
--------------------------------
+...............................
 
    By default, when GDB parses C or C++ expressions, type checking is
 not used.  However, if you turn type checking on, GDB considers two
@@ -1149,7 +1149,7 @@ pointer that is not itself an array.
 File: gdb.info,  Node: Debugging C,  Next: Debugging C plus plus,  Prev: C Checks,  Up: C
 
 GDB and C
----------
+.........
 
    The `set print union' and `show print union' commands apply to the
 `union' type.  When set to `on', any `union' that is inside a `struct'
@@ -1163,7 +1163,7 @@ Expressions.
 File: gdb.info,  Node: Debugging C plus plus,  Prev: Debugging C,  Up: C
 
 GDB features for C++
---------------------
+....................
 
    Some GDB commands are particularly useful with C++, and some are
 designed specifically for use with C++.  Here is a summary:
@@ -1240,7 +1240,7 @@ GDB reads in the executable's symbol table.
 File: gdb.info,  Node: M2 Operators,  Next: Built-In Func/Proc,  Up: Modula-2
 
 Operators
----------
+.........
 
    Operators must be defined on values of specific types.  For instance,
 `+' is defined on numbers, but not on structures.  Operators are often

@@ -1,5 +1,5 @@
 /* Target-dependent code for the Acorn Risc Machine, for GDB, the GNU Debugger.
-   Copyright 1988, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992, 1993, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,8 +20,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
-#include "arm-opcode.h"
 
+#if 0
+#include "gdbcore.h"
 #include <sys/param.h>
 #include <sys/dir.h>
 #include <signal.h>
@@ -32,14 +33,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define N_TXTADDR(hdr) 0x8000
 #define N_DATADDR(hdr) (hdr.a_text + 0x8000)
 
-#include "gdbcore.h"
 #include <sys/user.h>		/* After a.out.h  */
 #include <sys/file.h>
 #include <sys/stat.h>
 
 #include <errno.h>
+#endif
 
 
+#if 0
 /* Work with core dump and executable files, for GDB. 
    This code would be in core.c if it weren't machine-dependent. */
 
@@ -156,7 +158,9 @@ exec_file_command (filename, from_tty)
   if (exec_file_display_hook)
     (*exec_file_display_hook) (filename);
 }
+#endif
 
+#if 0
 /* Read from the program's memory (except for inferior processes).
    This function is misnamed, since it only reads, never writes; and
    since it will use the core file and/or executable file as necessary.
@@ -318,6 +322,7 @@ xfer_core_file (memaddr, myaddr, len)
     }
   return returnval;
 }
+#endif
 
 /* APCS (ARM procedure call standard) defines the following prologue:
 
@@ -335,8 +340,9 @@ CORE_ADDR
 skip_prologue(pc)
 CORE_ADDR pc;
 {
-    union insn_fmt op;
     CORE_ADDR skip_pc = pc;
+#if 0
+    union insn_fmt op;
 
     op.ins = read_memory_integer(skip_pc, 4);
     /* look for the "mov ip,sp" */
@@ -373,7 +379,56 @@ CORE_ADDR pc;
 	op.arith.opcode != OPCODE_SUB ||
 	op.arith.dest != FP ||
 	op.arith.operand1 != SPTEMP) return pc;
+#endif
     return skip_pc + 4;
+}
+
+void
+arm_frame_find_saved_regs (frame_info, saved_regs_addr)
+     struct frame_info *frame_info;
+     struct frame_saved_regs *saved_regs_addr;
+{
+  register int regnum;
+  register int frame;
+  register int next_addr;
+  register int return_data_save;
+  register int saved_register_mask;
+
+  memset (saved_regs_addr, '\0', sizeof (*saved_regs_addr));
+  frame = frame_info->frame;
+  return_data_save = read_memory_integer (frame, 4) & 0x03fffffc - 12;
+  saved_register_mask = read_memory_integer (return_data_save, 4);
+  next_addr = frame - 12;
+  for (regnum = 4; regnum < 10; regnum++)
+    if (saved_register_mask & (1 << regnum))
+      {
+	next_addr -= 4;
+	saved_regs_addr->regs[regnum] = next_addr;
+      }
+  if (read_memory_integer (return_data_save + 4, 4) == 0xed6d7103)
+    {
+      next_addr -= 12;
+      saved_regs_addr->regs[F0_REGNUM + 7] = next_addr;
+    }
+  if (read_memory_integer (return_data_save + 8, 4) == 0xed6d6103)
+    {
+      next_addr -= 12;
+      saved_regs_addr->regs[F0_REGNUM + 6] = next_addr;
+    }
+  if (read_memory_integer (return_data_save + 12, 4) == 0xed6d5103)
+    {
+      next_addr -= 12;
+      saved_regs_addr->regs[F0_REGNUM + 5] = next_addr;
+    }
+  if (read_memory_integer(return_data_save + 16, 4) == 0xed6d4103)
+    {
+      next_addr -= 12;
+      saved_regs_addr->regs[F0_REGNUM + 4] = next_addr;
+    }
+  saved_regs_addr->regs[SP_REGNUM] = next_addr;
+  saved_regs_addr->regs[PC_REGNUM] = frame - 4;
+  saved_regs_addr->regs[PS_REGNUM] = frame - 4;
+  saved_regs_addr->regs[FP_REGNUM] = frame - 12;
 }
 
 static void
@@ -402,4 +457,10 @@ arm_float_info()
     print_fpu_flags(status >> 16);
     fputs("flags: ", stdout);
     print_fpu_flags(status);
+}
+
+void
+_initialize_arm_tdep ()
+{
+  tm_print_insn = print_insn_arm;
 }

@@ -114,6 +114,7 @@ EXECUTABLES =  \
 	run  \
 	scope  \
 	setvar  \
+	sigall \
 	signals  \
 	twice  \
 	watchpoint  \
@@ -138,7 +139,7 @@ CROSS_EXECUTABLES =  \
 	$(CC) -c $(CFLAGS) $<
 
 
-all:	$(EXECUTABLES) corefile
+all:	$(EXECUTABLES)
 
 run: run.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o run run.o $(LIBS)
@@ -169,6 +170,9 @@ break: break.o
 signals: signals.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o signals signals.o $(LIBS)
 
+sigall: sigall.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o sigall sigall.o $(LIBS)
+
 twice: twice.c
 	echo '#include "twice.c"' >twice-tmp.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -I$(srcdir) -o twice twice-tmp.c $(LIBS)
@@ -191,20 +195,6 @@ opaque opaque-info.exp: opaque0.o opaque1.o
 
 coremaker: coremaker.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o coremaker coremaker.o $(LIBS)
-
-# Create a core file named "corefile" rather than just "core", to
-# avoid problems with sys admin types that like to regularly prune all
-# files named "core" from the system.
-#
-# Some systems append "core" to the name of the program; others append
-# the name of the program to "core".
-corefile: coremaker
-	-rm -f core core.coremaker coremaker.core
-	-echo Expect a coredump from this next command...
-	-./coremaker >/dev/null 2>&1 || true
-	-if [ -f core ]; then mv core corefile; else true; fi
-	-if [ -f core.coremaker ]; then mv core.coremaker corefile; else true; fi
-	-if [ -f coremaker.core ]; then mv coremaker.core corefile; else true; fi
 
 nodebug: nodebug.o
 	$(CC) $(LDFLAGS) $(NODEBUG_FLAGS) -o nodebug nodebug.o $(LIBS)
@@ -318,7 +308,7 @@ just-check:
 
 clean mostlyclean:
 	-rm -f *~ *.o a.out xgdb *.x $(EXECUTABLES)
-	-rm -f core core.coremaker corefile
+	-rm -f core core.coremaker coremaker.core corefile
 
 distclean realclean: clean
 	-rm -f *~ core *.log *.plog *.sum *.psum site.*

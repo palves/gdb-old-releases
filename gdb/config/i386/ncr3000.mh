@@ -1,4 +1,4 @@
-# Host: Intel 386 running SVR4.
+# Host: NCR 3000 (Intel 386 running SVR4)
 
 # The NCR 3000 ships with a MetaWare compiler installed as /bin/cc.
 # This compiler not only emits obnoxious copyright messages every time
@@ -9,19 +9,11 @@
 CC = /usr/ccs/ATT/cc
 CFLAGS =
 
-SYSV_DEFINE=-DSYSV
-REGEX=regex.o
-REGEX1=regex.o
-
-# Need to compile and link in support for SVR4's /proc and i386 host dependent
-# routines.
+XM_FILE= xm-i386v4.h
 XDEPFILES= 
 
-# Use the i386 SVR4 host configuration file.
-XM_FILE= xm-i386v4.h
-
 NAT_FILE= nm-i386v4.h
-NATDEPFILES= corelow.o core-svr4.o exec.o procfs.o fork-child.o i386v4-nat.o
+NATDEPFILES= corelow.o core-svr4.o procfs.o fork-child.o i386v4-nat.o
 
 # SVR4 comes standard with terminfo, and in some implementations, the
 # old termcap descriptions are incomplete.  So ensure that we use the

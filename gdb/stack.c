@@ -1,5 +1,6 @@
 /* Print and select stack frames for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -32,60 +33,45 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "annotate.h"
 
-static void
-return_command PARAMS ((char *, int));
+static void return_command PARAMS ((char *, int));
 
-static void
-down_command PARAMS ((char *, int));
+static void down_command PARAMS ((char *, int));
 
-static void
-down_silently_command PARAMS ((char *, int));
+static void down_silently_command PARAMS ((char *, int));
 
-static void
-up_command PARAMS ((char *, int));
+static void up_command PARAMS ((char *, int));
 
-static void
-up_silently_command PARAMS ((char *, int));
+static void up_silently_command PARAMS ((char *, int));
 
-static void
-frame_command PARAMS ((char *, int));
+static void frame_command PARAMS ((char *, int));
 
-static void
-select_frame_command PARAMS ((char *, int));
+static void select_frame_command PARAMS ((char *, int));
 
-static void
-args_info PARAMS ((char *, int));
+static void args_info PARAMS ((char *, int));
 
-static void
-print_frame_arg_vars PARAMS ((FRAME, GDB_FILE *));
+static void print_frame_arg_vars PARAMS ((struct frame_info *, GDB_FILE *));
 
-static void
-catch_info PARAMS ((char *, int));
+static void catch_info PARAMS ((char *, int));
 
-static void
-locals_info PARAMS ((char *, int));
+static void locals_info PARAMS ((char *, int));
 
-static void
-print_frame_label_vars PARAMS ((FRAME, int, GDB_FILE *));
+static void print_frame_label_vars PARAMS ((struct frame_info *, int,
+					    GDB_FILE *));
 
-static void
-print_frame_local_vars PARAMS ((FRAME, GDB_FILE *));
+static void print_frame_local_vars PARAMS ((struct frame_info *, GDB_FILE *));
 
-static int
-print_block_frame_labels PARAMS ((struct block *, int *, GDB_FILE *));
+static int print_block_frame_labels PARAMS ((struct block *, int *,
+					     GDB_FILE *));
 
-static int
-print_block_frame_locals PARAMS ((struct block *, FRAME, GDB_FILE *));
+static int print_block_frame_locals PARAMS ((struct block *,
+					     struct frame_info *,
+					     GDB_FILE *));
 
-static void
-backtrace_command PARAMS ((char *, int));
+static void backtrace_command PARAMS ((char *, int));
 
-static FRAME
-parse_frame_specification PARAMS ((char *));
+static struct frame_info *parse_frame_specification PARAMS ((char *));
 
-static void
-frame_info PARAMS ((char *, int));
-
+static void frame_info PARAMS ((char *, int));
 
 extern int addressprint;	/* Print addresses, or stay symbolic only? */
 extern int info_verbose;	/* Verbosity of symbol reading msgs */
@@ -94,7 +80,7 @@ extern int lines_to_list;	/* # of lines "list" command shows by default */
 /* The "selected" stack frame is used by default for local and arg access.
    May be zero, for no selected frame.  */
 
-FRAME selected_frame;
+struct frame_info *selected_frame;
 
 /* Level of the selected frame:
    0 for innermost, 1 for its caller, ...
@@ -126,11 +112,12 @@ print_stack_frame_stub (args)
      char *args;
 {
   struct print_stack_frame_args *p = (struct print_stack_frame_args *)args;
+
   print_frame_info (p->fi, p->level, p->source, p->args);
   return 0;
 }
 
-/* Print a stack frame briefly.  FRAME should be the frame id
+/* Print a stack frame briefly.  FRAME_INFI should be the frame info
    and LEVEL should be its level in the stack (or -1 for level not defined).
    This prints the level, the function executing, the arguments,
    and the file name and line number.
@@ -141,14 +128,14 @@ print_stack_frame_stub (args)
    If SOURCE is -1, print ONLY the source line.  */
 
 void
-print_stack_frame (frame, level, source)
-     FRAME frame;
+print_stack_frame (fi, level, source)
+     struct frame_info *fi;
      int level;
      int source;
 {
   struct print_stack_frame_args args;
 
-  args.fi = get_frame_info (frame);
+  args.fi = fi;
   args.level = level;
   args.source = source;
   args.args = 1;
@@ -164,12 +151,14 @@ struct print_args_args {
 static int print_args_stub PARAMS ((char *));
 
 /* Pass the args the way catch_errors wants them.  */
+
 static int
 print_args_stub (args)
      char *args;
 {
   int numargs;
   struct print_args_args *p = (struct print_args_args *)args;
+
   FRAME_NUM_ARGS (numargs, (p->fi));
   print_frame_args (p->func, p->fi, numargs, gdb_stdout);
   return 0;
@@ -177,6 +166,7 @@ print_args_stub (args)
 
 /* LEVEL is the level of the frame, or -1 if it is the innermost frame
    but we don't want to print the level.  */
+
 void
 print_frame_info (fi, level, source, args)
      struct frame_info *fi;
@@ -370,7 +360,10 @@ print_frame_info (fi, level, source, args)
 	      print_address_numeric (fi->pc, 1, gdb_stdout);
 	      printf_filtered ("\t");
 	    }
-	  print_source_lines (sal.symtab, sal.line, sal.line + 1, 0);
+	  if (print_frame_info_listing_hook)
+	    print_frame_info_listing_hook (sal.symtab, sal.line, sal.line + 1, 0);
+	  else
+	    print_source_lines (sal.symtab, sal.line, sal.line + 1, 0);
 	}
       current_source_line = max (sal.line - lines_to_list/2, 1);
     }
@@ -382,12 +375,11 @@ print_frame_info (fi, level, source, args)
   gdb_flush (gdb_stdout);
 }
 
-/*
- * Read a frame specification in whatever the appropriate format is.
- * Call error() if the specification is in any way invalid (i.e.
- * this function never returns NULL).
- */
-static FRAME
+/* Read a frame specification in whatever the appropriate format is.
+   Call error() if the specification is in any way invalid (i.e.
+   this function never returns NULL).  */
+
+static struct frame_info *
 parse_frame_specification (frame_exp)
      char *frame_exp;
 {
@@ -433,8 +425,9 @@ parse_frame_specification (frame_exp)
     case 1:
       {
 	int level = args[0];
-	FRAME fid = find_relative_frame (get_current_frame (), &level);
-	FRAME tfid;
+	struct frame_info *fid =
+	  find_relative_frame (get_current_frame (), &level);
+	struct frame_info *tfid;
 
 	if (level == 0)
 	  /* find_relative_frame was successful */
@@ -460,13 +453,13 @@ parse_frame_specification (frame_exp)
 	   (s)he gets.  Still, give the highest one that matches.  */
 
 	for (fid = get_current_frame ();
-	     fid && FRAME_FP (fid) != args[0];
+	     fid && fid->frame != args[0];
 	     fid = get_prev_frame (fid))
 	  ;
 
 	if (fid)
 	  while ((tfid = get_prev_frame (fid)) &&
-		 (FRAME_FP (tfid) == args[0]))
+		 (tfid->frame == args[0]))
 	    fid = tfid;
 	  
 	/* We couldn't identify the frame as an existing frame, but
@@ -506,13 +499,12 @@ frame_info (addr_exp, from_tty)
      char *addr_exp;
      int from_tty;
 {
-  FRAME frame;
   struct frame_info *fi;
   struct frame_saved_regs fsr;
   struct symtab_and_line sal;
   struct symbol *func;
   struct symtab *s;
-  FRAME calling_frame;
+  struct frame_info *calling_frame_info;
   int i, count, numregs;
   char *funname = 0;
   enum language funlang = language_unknown;
@@ -520,16 +512,15 @@ frame_info (addr_exp, from_tty)
   if (!target_has_stack)
     error ("No stack.");
 
-  frame = parse_frame_specification (addr_exp);
-  if (!frame)
+  fi = parse_frame_specification (addr_exp);
+  if (fi == NULL)
     error ("Invalid frame specified.");
 
-  fi = get_frame_info (frame);
   sal = find_pc_line (fi->pc,
 		      fi->next != NULL
 		      && !fi->next->signal_handler_caller
 		      && !frame_in_dummy (fi->next));
-  func = get_frame_function (frame);
+  func = get_frame_function (fi);
   s = find_pc_symtab(fi->pc);
   if (func)
     {
@@ -545,22 +536,21 @@ frame_info (addr_exp, from_tty)
 	  funlang = SYMBOL_LANGUAGE (msymbol);
 	}
     }
-  calling_frame = get_prev_frame (frame);
+  calling_frame_info = get_prev_frame (fi);
 
   if (!addr_exp && selected_frame_level >= 0)
     {
       printf_filtered ("Stack level %d, frame at ", selected_frame_level);
-      print_address_numeric (FRAME_FP(frame), 1, gdb_stdout);
+      print_address_numeric (fi->frame, 1, gdb_stdout);
       printf_filtered (":\n");
     }
   else
     {
       printf_filtered ("Stack frame at ");
-      print_address_numeric (FRAME_FP(frame), 1, gdb_stdout);
+      print_address_numeric (fi->frame, 1, gdb_stdout);
       printf_filtered (":\n");
     }
-  printf_filtered (" %s = ",
-		   reg_names[PC_REGNUM]);
+  printf_filtered (" %s = ", reg_names[PC_REGNUM]);
   print_address_numeric (fi->pc, 1, gdb_stdout);
 
   wrap_here ("   ");
@@ -576,7 +566,7 @@ frame_info (addr_exp, from_tty)
   puts_filtered ("; ");
   wrap_here ("    ");
   printf_filtered ("saved %s ", reg_names[PC_REGNUM]);
-  print_address_numeric (FRAME_SAVED_PC (frame), 1, gdb_stdout);
+  print_address_numeric (FRAME_SAVED_PC (fi), 1, gdb_stdout);
   printf_filtered ("\n");
 
   {
@@ -588,12 +578,12 @@ frame_info (addr_exp, from_tty)
       printf_filtered (" (FRAMELESS),");
   }
 
-  if (calling_frame)
+  if (calling_frame_info)
     {
       printf_filtered (" called by frame at ");
-      print_address_numeric (FRAME_FP (calling_frame), 1, gdb_stdout);
+      print_address_numeric (calling_frame_info->frame, 1, gdb_stdout);
     }
-  if (fi->next && calling_frame)
+  if (fi->next && calling_frame_info)
     puts_filtered (",");
   wrap_here ("   ");
   if (fi->next)
@@ -601,7 +591,7 @@ frame_info (addr_exp, from_tty)
       printf_filtered (" caller of frame at ");
       print_address_numeric (fi->next->frame, 1, gdb_stdout);
     }
-  if (fi->next || calling_frame)
+  if (fi->next || calling_frame_info)
     puts_filtered ("\n");
   if (s)
     printf_filtered (" source language %s.\n", language_str (s->language));
@@ -675,6 +665,10 @@ frame_info (addr_exp, from_tty)
   if (count)
     puts_filtered ("\n");
 #else  /* Have FRAME_FIND_SAVED_REGS.  */
+  /* We could get some information about saved registers by calling
+     get_saved_register on each register.  Which info goes with which frame
+     is necessarily lost, however, and I suspect that the users don't care
+     whether they get the info.  */
   puts_filtered ("\n");
 #endif /* Have FRAME_FIND_SAVED_REGS.  */
 }
@@ -719,9 +713,8 @@ backtrace_command (count_exp, from_tty)
 {
   struct frame_info *fi;
   register int count;
-  register FRAME frame;
   register int i;
-  register FRAME trailing;
+  register struct frame_info *trailing;
   register int trailing_level;
 
   if (!target_has_stack)
@@ -738,7 +731,7 @@ backtrace_command (count_exp, from_tty)
       count = parse_and_eval_address (count_exp);
       if (count < 0)
 	{
-	  FRAME current;
+	  struct frame_info *current;
 
 	  count = -count;
 
@@ -775,24 +768,22 @@ backtrace_command (count_exp, from_tty)
 	 if people have strong opinions against reading symbols for
 	 backtrace this may have to be an option.  */
       i = count;
-      for (frame = trailing;
-	   frame != NULL && i--;
-	   frame = get_prev_frame (frame))
+      for (fi = trailing;
+	   fi != NULL && i--;
+	   fi = get_prev_frame (fi))
 	{
 	  QUIT;
-	  fi = get_frame_info (frame);
 	  ps = find_pc_psymtab (fi->pc);
 	  if (ps)
 	    PSYMTAB_TO_SYMTAB (ps);	/* Force syms to come in */
 	}
     }
 
-  for (i = 0, frame = trailing;
-       frame && count--;
-       i++, frame = get_prev_frame (frame))
+  for (i = 0, fi = trailing;
+       fi && count--;
+       i++, fi = get_prev_frame (fi))
     {
       QUIT;
-      fi = get_frame_info (frame);
 
       /* Don't use print_stack_frame; if an error() occurs it probably
 	 means further attempts to backtrace would fail (on the other
@@ -802,7 +793,7 @@ backtrace_command (count_exp, from_tty)
     }
 
   /* If we've stopped before the end, mention that.  */
-  if (frame && from_tty)
+  if (fi && from_tty)
     printf_filtered ("(More stack frames follow...)\n");
 }
 
@@ -810,9 +801,9 @@ backtrace_command (count_exp, from_tty)
    Return 1 if any variables were printed; 0 otherwise.  */
 
 static int
-print_block_frame_locals (b, frame, stream)
+print_block_frame_locals (b, fi, stream)
      struct block *b;
-     register FRAME frame;
+     register struct frame_info *fi;
      register GDB_FILE *stream;
 {
   int nsyms;
@@ -834,7 +825,7 @@ print_block_frame_locals (b, frame, stream)
 	  values_printed = 1;
 	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), stream);
 	  fputs_filtered (" = ", stream);
-	  print_variable_value (sym, frame, stream);
+	  print_variable_value (sym, fi, stream);
 	  fprintf_filtered (stream, "\n");
 	  break;
 
@@ -897,11 +888,11 @@ print_block_frame_labels (b, have_default, stream)
    on the function running in FRAME.  */
 
 static void
-print_frame_local_vars (frame, stream)
-     register FRAME frame;
+print_frame_local_vars (fi, stream)
+     register struct frame_info *fi;
      register GDB_FILE *stream;
 {
-  register struct block *block = get_frame_block (frame);
+  register struct block *block = get_frame_block (fi);
   register int values_printed = 0;
 
   if (block == 0)
@@ -912,7 +903,7 @@ print_frame_local_vars (frame, stream)
   
   while (block != 0)
     {
-      if (print_block_frame_locals (block, frame, stream))
+      if (print_block_frame_locals (block, fi, stream))
 	values_printed = 1;
       /* After handling the function's top-level block, stop.
 	 Don't continue to its superblock, the block of
@@ -931,17 +922,16 @@ print_frame_local_vars (frame, stream)
 /* Same, but print labels.  */
 
 static void
-print_frame_label_vars (frame, this_level_only, stream)
-     register FRAME frame;
+print_frame_label_vars (fi, this_level_only, stream)
+     register struct frame_info *fi;
      int this_level_only;
      register GDB_FILE *stream;
 {
   register struct blockvector *bl;
-  register struct block *block = get_frame_block (frame);
+  register struct block *block = get_frame_block (fi);
   register int values_printed = 0;
   int index, have_default = 0;
   char *blocks_printed;
-  struct frame_info *fi = get_frame_info (frame);
   CORE_ADDR pc = fi->pc;
 
   if (block == 0)
@@ -1023,11 +1013,11 @@ catch_info (ignore, from_tty)
 }
 
 static void
-print_frame_arg_vars (frame, stream)
-     register FRAME frame;
+print_frame_arg_vars (fi, stream)
+     register struct frame_info *fi;
      register GDB_FILE *stream;
 {
-  struct symbol *func = get_frame_function (frame);
+  struct symbol *func = get_frame_function (fi);
   register struct block *b;
   int nsyms;
   register int i;
@@ -1071,7 +1061,7 @@ print_frame_arg_vars (frame, stream)
 
 	  sym2 = lookup_symbol (SYMBOL_NAME (sym),
 			b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
-	  print_variable_value (sym2, frame, stream);
+	  print_variable_value (sym2, fi, stream);
 	  fprintf_filtered (stream, "\n");
 	  break;
 
@@ -1097,24 +1087,24 @@ args_info (ignore, from_tty)
   print_frame_arg_vars (selected_frame, gdb_stdout);
 }
 
-/* Select frame FRAME, and note that its stack level is LEVEL.
+/* Select frame FI, and note that its stack level is LEVEL.
    LEVEL may be -1 if an actual level number is not known.  */
 
 void
-select_frame (frame, level)
-     FRAME frame;
+select_frame (fi, level)
+     struct frame_info *fi;
      int level;
 {
   register struct symtab *s;
 
-  selected_frame = frame;
+  selected_frame = fi;
   selected_frame_level = level;
 
   /* Ensure that symbols for this frame are read in.  Also, determine the
      source language of this frame, and switch to it if desired.  */
-  if (frame)
+  if (fi)
   {
-    s = find_pc_symtab (get_frame_info (frame)->pc);
+    s = find_pc_symtab (fi->pc);
     if (s 
 	&& s->language != current_language->la_language
 	&& s->language != language_unknown
@@ -1129,10 +1119,10 @@ select_frame (frame, level)
 
 void
 record_selected_frame (frameaddrp, levelp)
-     FRAME_ADDR *frameaddrp;
+     CORE_ADDR *frameaddrp;
      int *levelp;
 {
-  *frameaddrp = selected_frame ? FRAME_FP (selected_frame) : 0;
+  *frameaddrp = selected_frame ? selected_frame->frame : 0;
   *levelp = selected_frame_level;
 }
 
@@ -1159,13 +1149,13 @@ get_selected_block ()
    but the final value of *LEVEL_OFFSET_PTR is nonzero and indicates
    how much farther the original request asked to go.  */
 
-FRAME
+struct frame_info *
 find_relative_frame (frame, level_offset_ptr)
-     register FRAME frame;
-     register int* level_offset_ptr;
+     register struct frame_info *frame;
+     register int *level_offset_ptr;
 {
-  register FRAME prev;
-  register FRAME frame1;
+  register struct frame_info *prev;
+  register struct frame_info *frame1;
 
   /* Going up is simple: just do get_prev_frame enough times
      or until initial frame is reached.  */
@@ -1203,7 +1193,7 @@ select_frame_command (level_exp, from_tty)
      char *level_exp;
      int from_tty;
 {
-  register FRAME frame, frame1;
+  register struct frame_info *frame, *frame1;
   unsigned int level = 0;
 
   if (!target_has_stack)
@@ -1249,7 +1239,7 @@ up_silently_command (count_exp, from_tty)
      char *count_exp;
      int from_tty;
 {
-  register FRAME frame;
+  register struct frame_info *fi;
   int count = 1, count1;
   if (count_exp)
     count = parse_and_eval_address (count_exp);
@@ -1258,10 +1248,10 @@ up_silently_command (count_exp, from_tty)
   if (target_has_stack == 0 || selected_frame == 0)
     error ("No stack.");
 
-  frame = find_relative_frame (selected_frame, &count1);
+  fi = find_relative_frame (selected_frame, &count1);
   if (count1 != 0 && count_exp == 0)
     error ("Initial frame selected; you cannot go up.");
-  select_frame (frame, selected_frame_level + count - count1);
+  select_frame (fi, selected_frame_level + count - count1);
 }
 
 static void
@@ -1282,7 +1272,7 @@ down_silently_command (count_exp, from_tty)
      char *count_exp;
      int from_tty;
 {
-  register FRAME frame;
+  register struct frame_info *frame;
   int count = -1, count1;
   if (count_exp)
     count = - parse_and_eval_address (count_exp);
@@ -1322,22 +1312,31 @@ return_command (retval_exp, from_tty)
      int from_tty;
 {
   struct symbol *thisfun;
-  FRAME_ADDR selected_frame_addr;
+  CORE_ADDR selected_frame_addr;
   CORE_ADDR selected_frame_pc;
-  FRAME frame;
+  struct frame_info *frame;
   value_ptr return_value = NULL;
 
   if (selected_frame == NULL)
     error ("No selected frame.");
   thisfun = get_frame_function (selected_frame);
   selected_frame_addr = FRAME_FP (selected_frame);
-  selected_frame_pc = (get_frame_info (selected_frame))->pc;
+  selected_frame_pc = selected_frame->pc;
 
   /* Compute the return value (if any -- possibly getting errors here).  */
 
   if (retval_exp)
     {
+      struct type *return_type = NULL;
+
       return_value = parse_and_eval (retval_exp);
+
+      /* Cast return value to the return type of the function.  */
+      if (thisfun != NULL)
+	return_type = TYPE_TARGET_TYPE (SYMBOL_TYPE (thisfun));
+      if (return_type == NULL)
+	return_type = builtin_type_int;
+      return_value = value_cast (return_type, return_value);
 
       /* Make sure we have fully evaluated it, since
 	 it might live in the stack frame we're about to pop.  */
@@ -1367,8 +1366,8 @@ return_command (retval_exp, from_tty)
      a POP_FRAME.  The pc comparison makes this work even if the
      selected frame shares its fp with another frame.  */
 
-  while ( selected_frame_addr != FRAME_FP (frame = get_current_frame())
-       || selected_frame_pc   != (get_frame_info (frame))->pc  )
+  while (selected_frame_addr != (frame = get_current_frame())->frame
+	 || selected_frame_pc != frame->pc)
     POP_FRAME;
 
   /* Then pop that frame.  */
@@ -1387,27 +1386,26 @@ return_command (retval_exp, from_tty)
     frame_command ("0", 1);
 }
 
-/* Gets the language of the current frame. */
+/* Gets the language of the current frame.  */
+
 enum language
 get_frame_language()
 {
-   register struct symtab *s;
-   FRAME fr;
-   enum language flang;		/* The language of the current frame */
+  register struct symtab *s;
+  enum language flang;		/* The language of the current frame */
    
-   fr = get_frame_info(selected_frame);
-   if(fr)
-   {
-      s = find_pc_symtab(fr->pc);
-      if(s)
-	 flang = s->language;
+  if (selected_frame)
+    {
+      s = find_pc_symtab(selected_frame->pc);
+      if (s)
+	flang = s->language;
       else
-	 flang = language_unknown;
-   }
-   else
-      flang = language_unknown;
+	flang = language_unknown;
+    }
+  else
+    flang = language_unknown;
 
-   return flang;
+  return flang;
 }
 
 void

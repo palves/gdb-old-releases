@@ -14,10 +14,13 @@ struct external_filehdr {
 
 
 
-#define	SH_ARCH_MAGIC	0x0500
+#define	SH_ARCH_MAGIC_BIG	0x0500
+#define	SH_ARCH_MAGIC_LITTLE	0x0550  /* Little endian SH */
 
 
-#define SHBADMAG(x) (((x).f_magic!=SH_ARCH_MAGIC))
+#define SHBADMAG(x) \
+ (((x).f_magic!=SH_ARCH_MAGIC_BIG) && \
+  ((x).f_magic!=SH_ARCH_MAGIC_LITTLE))
 
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)
@@ -187,7 +190,7 @@ union external_auxent {
 struct external_reloc {
   char r_vaddr[4];
   char r_symndx[4];
-  char r_offset[4];
+  char ignore_r_offset[4];
   char r_type[2];
   char r_stuff[2];
 };

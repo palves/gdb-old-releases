@@ -133,7 +133,7 @@ static reloc_howto_type howto_8_pcrel
   = NEWHOWTO(howto8_pcrel_callback,"pcrel8",0,false,true);
 
 
-static CONST struct reloc_howto_struct *
+static reloc_howto_type *
 local_bfd_reloc_type_lookup (arch, code)
      CONST struct bfd_arch_info *arch;
      bfd_reloc_code_real_type code;

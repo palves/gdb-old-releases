@@ -13,6 +13,15 @@
 
 #include <stdio.h>
 
+#ifdef __STDC__
+#include <stddef.h>
+#else
+#define size_t unsigned long
+#endif
+
+/* For systems with larger pointers than ints, this must be declared.  */
+PTR malloc PARAMS ((size_t));
+
 static void xatexit_cleanup PARAMS ((void));
 
 /* Pointer to function run by xexit.  */

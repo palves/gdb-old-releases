@@ -633,8 +633,7 @@ variable:	qualified_name
 			      break;
 			    }
 
-			  msymbol = lookup_minimal_symbol (name,
-				      (struct objfile *) NULL);
+			  msymbol = lookup_minimal_symbol (name, NULL, NULL);
 			  if (msymbol != NULL)
 			    {
 			      write_exp_msymbol (msymbol,
@@ -689,8 +688,8 @@ variable:	name_not_typename
 			      struct minimal_symbol *msymbol;
 			      register char *arg = copy_name ($1.stoken);
 
-			      msymbol = lookup_minimal_symbol (arg,
-					  (struct objfile *) NULL);
+			      msymbol =
+				lookup_minimal_symbol (arg, NULL, NULL);
 			      if (msymbol != NULL)
 				{
 				  write_exp_msymbol (msymbol,
@@ -1363,9 +1362,17 @@ yylex ()
   namelen = 0;
   for (c = tokstart[namelen];
        (c == '_' || c == '$' || (c >= '0' && c <= '9')
-	|| (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
-       c = tokstart[++namelen])
-    ;
+	|| (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '<');)
+    {
+       if (c == '<')
+	 {
+	   int i = namelen;
+	   while (tokstart[++i] && tokstart[i] != '>');
+	   if (tokstart[i] == '>')
+	     namelen = i;
+	  }
+       c = tokstart[++namelen];
+     }
 
   /* The token "if" terminates the expression and is NOT 
      removed from the input stream.  */
@@ -1574,11 +1581,17 @@ yylex ()
 		      struct symbol *cur_sym;
 		      /* As big as the whole rest of the expression, which is
 			 at least big enough.  */
-		      char *tmp = alloca (strlen (namestart)+1);
+		      char *ncopy = alloca (strlen (tmp)+strlen (namestart)+3);
+		      char *tmp1;
 
-		      memcpy (tmp, namestart, p - namestart);
-		      tmp[p - namestart] = '\0';
-		      cur_sym = lookup_symbol (tmp, expression_context_block,
+		      tmp1 = ncopy;
+		      memcpy (tmp1, tmp, strlen (tmp));
+		      tmp1 += strlen (tmp);
+		      memcpy (tmp1, "::", 2);
+		      tmp1 += 2;
+		      memcpy (tmp1, namestart, p - namestart);
+		      tmp1[p - namestart] = '\0';
+		      cur_sym = lookup_symbol (ncopy, expression_context_block,
 					       VAR_NAMESPACE, (int *) NULL,
 					       (struct symtab **) NULL);
 		      if (cur_sym)

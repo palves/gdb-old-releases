@@ -1,5 +1,5 @@
 /* BFD backend for MIPS BSD (a.out) binaries.
-   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
    Written by Ralph Campbell.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -284,18 +284,18 @@ static reloc_howto_type mips_howto_table_ext[] = {
   {MIPS_RELOC_JMP,     2, 2, 26, false, 0, complain_overflow_dont,
 	mips_fix_jmp_addr,
 	"MIPS_JMP", false, 0, 0x03ffffff, false},
-  {MIPS_RELOC_WDISP16, 2, 1, 16, true,  0, complain_overflow_signed, 0,
+  {MIPS_RELOC_WDISP16, 2, 2, 16, true,  0, complain_overflow_signed, 0,
 	"WDISP16",  false, 0, 0x0000ffff, false},
-  {MIPS_RELOC_HI16,   16, 1, 16, false, 0, complain_overflow_bitfield, 0,
+  {MIPS_RELOC_HI16,   16, 2, 16, false, 0, complain_overflow_bitfield, 0,
 	"HI16",     false, 0, 0x0000ffff, false},
-  {MIPS_RELOC_HI16_S, 16, 1, 16, false, 0, complain_overflow_bitfield,
+  {MIPS_RELOC_HI16_S, 16, 2, 16, false, 0, complain_overflow_bitfield,
         mips_fix_hi16_s,
         "HI16_S",   false, 0, 0x0000ffff, false},
-  {MIPS_RELOC_LO16,    0, 1, 16, false, 0, complain_overflow_dont, 0,
+  {MIPS_RELOC_LO16,    0, 2, 16, false, 0, complain_overflow_dont, 0,
 	"LO16",     false, 0, 0x0000ffff, false},
 };
 
-static const reloc_howto_type *
+static reloc_howto_type *
 MY(reloc_howto_type_lookup) (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
@@ -306,6 +306,7 @@ MY(reloc_howto_type_lookup) (abfd, code)
 
   switch (code)
     {
+    case BFD_RELOC_CTOR:
     case BFD_RELOC_32:
       return (&mips_howto_table_ext[MIPS_RELOC_32]);
     case BFD_RELOC_MIPS_JMP:

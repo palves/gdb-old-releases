@@ -49,7 +49,7 @@ all_targets=false
 
 for targ in $target $canon_targets
 do
-    bfd_target=`$srcdir/config.bfd $targ`
+    bfd_target=`${config_shell} $srcdir/config.bfd $targ`
 
     if [ "x$bfd_target" = "xall" ]; then
         all_targets=true
@@ -135,7 +135,7 @@ do
     case "$vec" in
     # This list is alphabetized to make it easy to compare
     # with the two vector lists in targets.c.
-    a29kcoff_big_vec)		tb="$tb coff-a29k.o" ;;
+    a29kcoff_big_vec)		tb="$tb coff-a29k.o cofflink.o" ;;
     a_out_adobe_vec)		tb="$tb aout-adobe.o aout32.o stab-syms.o" ;;
     aout0_big_vec)		tb="$tb aout0.o aout32.o stab-syms.o" ;;
     aout_mips_big_vec)		tb="$tb mipsbsd.o aout32.o stab-syms.o" ;;
@@ -175,34 +175,38 @@ do
     i386aout_vec)		tb="$tb i386aout.o aout32.o stab-syms.o" ;;
     i386bsd_vec)		tb="$tb i386bsd.o aout32.o stab-syms.o" ;;
     i386dynix_vec)		tb="$tb i386dynix.o aout32.o stab-syms.o" ;;
-    i386coff_vec)		tb="$tb coff-i386.o" ;;
+    i386coff_vec)		tb="$tb coff-i386.o cofflink.o" ;;
     i386linux_vec)		tb="$tb i386linux.o aout32.o stab-syms.o" ;;
     i386lynx_aout_vec)		tb="$tb i386lynx.o lynx-core.o aout32.o stab-syms.o" ;;
-    i386lynx_coff_vec)		tb="$tb cf-i386lynx.o lynx-core.o stab-syms.o" ;;
+    i386lynx_coff_vec)		tb="$tb cf-i386lynx.o cofflink.o lynx-core.o stab-syms.o" ;;
     i386mach3_vec)		tb="$tb i386mach3.o aout32.o stab-syms.o" ;;
+    i386netbsd_vec)		tb="$tb i386netbsd.o aout32.o stab-syms.o" ;;
     i386os9k_vec)		tb="$tb i386os9k.o aout32.o stab-syms.o" ;;
     icoff_big_vec)		tb="$tb coff-i960.o" ;;
     icoff_little_vec)		tb="$tb coff-i960.o" ;;
     ieee_vec)			tb="$tb ieee.o" ;;
-    m68kcoff_vec)		tb="$tb coff-m68k.o" ;;
-    m68kcoffun_vec)		tb="$tb coff-u68k.o coff-m68k.o" ;;
+    m68kcoff_vec)		tb="$tb coff-m68k.o cofflink.o" ;;
+    m68kcoffun_vec)		tb="$tb coff-u68k.o coff-m68k.o cofflink.o" ;;
     m68klynx_aout_vec)		tb="$tb m68klynx.o lynx-core.o aout32.o stab-syms.o" ;;
-    m68klynx_coff_vec)		tb="$tb cf-m68klynx.o coff-m68k.o lynx-core.o stab-syms.o" ;;
+    m68klynx_coff_vec)		tb="$tb cf-m68klynx.o coff-m68k.o cofflink.o lynx-core.o stab-syms.o" ;;
+    m68knetbsd_vec)		tb="$tb m68knetbsd.o aout32.o stab-syms.o" ;;
     m88kbcs_vec)		tb="$tb coff-m88k.o" ;;
-    netbsd386_vec)		tb="$tb netbsd386.o aout32.o stab-syms.o" ;;
-    netbsd532_vec)		tb="$tb netbsd532.o aout-ns32k.o stab-syms.o" ;;
     newsos3_vec)		tb="$tb newsos3.o aout32.o stab-syms.o" ;;
     nlm32_i386_vec)		tb="$tb nlm32-i386.o nlm32.o nlm.o" ;;
     nlm32_sparc_vec)		tb="$tb nlm32-sparc.o nlm32.o nlm.o" ;;
     nlm32_alpha_vec)		tb="$tb nlm32-alpha.o nlm32.o nlm.o"
 				target64=true ;;
+    riscix_vec)			tb="$tb aout32.o riscix.o stab-syms.o" ;;
     nlm32_powerpc_vec)		tb="$tb nlm32-ppc.o nlm32.o nlm.o" ;;
-    pc532mach_vec)		tb="$tb pc532-mach.o aout-ns32k.o stab-syms.o" ;;
+    pc532netbsd_vec)		tb="$tb ns32knetbsd.o aout-ns32k.o stab-syms.o" ;;
+    pc532machaout_vec)		tb="$tb pc532-mach.o aout-ns32k.o stab-syms.o" ;;
     rs6000coff_vec)		tb="$tb coff-rs6000.o" ;;
-    shcoff_vec)			tb="$tb coff-sh.o reloc16.o" ;;
+    shcoff_vec)			tb="$tb coff-sh.o cofflink.o" ;;
+    shlcoff_vec)		tb="$tb coff-sh.o cofflink.o" ;;
     som_vec)			tb="$tb som.o" ;;
     sparclynx_aout_vec)		tb="$tb sparclynx.o lynx-core.o aout32.o stab-syms.o" ;;
     sparclynx_coff_vec)		tb="$tb cf-sparclynx.o lynx-core.o stab-syms.o" ;;
+    sparcnetbsd_vec)		tb="$tb sparcnetbsd.o aout32.o stab-syms.o" ;;
     sparccoff_vec)		tb="$tb coff-sparc.o" ;;
     srec_vec)			tb="$tb srec.o" ;;
     sunos_big_vec)		tb="$tb sunos.o aout32.o stab-syms.o" ;;
@@ -210,6 +214,7 @@ do
     tekhex_vec)			tb="$tb tekhex.o" ;;
     we32kcoff_vec)		tb="$tb coff-we32k.o" ;;
     z8kcoff_vec)		tb="$tb coff-z8k.o reloc16.o" ;;
+    w65_vec)			tb="$tb coff-w65.o reloc16.o" ;;
 
     "")			;;
     *) echo "*** unknown target vector $vec" 1>&2; exit 1 ;;

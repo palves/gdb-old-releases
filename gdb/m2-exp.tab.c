@@ -277,7 +277,7 @@ static const short yyrline[] = { 0,
    418,   422,   426,   430,   432,   436,   440,   444,   448,   452,
    456,   460,   467,   473,   479,   486,   495,   503,   510,   514,
    520,   526,   533,   540,   544,   553,   565,   573,   580,   596,
-   646
+   647
 };
 
 static const char * const yytname[] = {   "$","error","$illegal.","INT","HEX",
@@ -1412,7 +1412,8 @@ case 80:
 			      struct minimal_symbol *msymbol;
 			      register char *arg = copy_name (yyvsp[0].sval);
 
-			      msymbol = lookup_minimal_symbol (arg, NULL);
+			      msymbol =
+				lookup_minimal_symbol (arg, NULL, NULL);
 			      if (msymbol != NULL)
 				{
 				  write_exp_msymbol
@@ -1429,7 +1430,7 @@ case 80:
 			;
     break;}
 case 81:
-#line 647 "./m2-exp.y"
+#line 648 "./m2-exp.y"
 { yyval.tval = lookup_typename (copy_name (yyvsp[0].sval),
 						expression_context_block, 0); ;
     break;}
@@ -1631,7 +1632,7 @@ yyerrhandle:
   yystate = yyn;
   goto yynewstate;
 }
-#line 652 "./m2-exp.y"
+#line 653 "./m2-exp.y"
 
 
 #if 0  /* FIXME! */
@@ -2070,7 +2071,7 @@ yylex ()
 
     if(sym)
     {
-       switch(sym->class)
+       switch(sym->aclass)
        {
        case LOC_STATIC:
        case LOC_REGISTER:

@@ -1,5 +1,5 @@
 /* BFD back-end for Motorola M68K COFF LynxOS files.
-   Copyright 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -28,19 +28,26 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define _bfd_m68kcoff_howto_table _bfd_m68klynx_howto_table	
 #define _bfd_m68kcoff_rtype2howto _bfd_m68klynx_rtype2howto	
 #define _bfd_m68kcoff_howto2rtype _bfd_m68klynx_howto2rtype	
+#define _bfd_m68kcoff_reloc_type_lookup _bfd_m68klynx_reloc_type_lookup
 
 #define LYNX_SPECIAL_FN _bfd_m68klynx_special_fn
 
 #include "bfd.h"
 #include "sysdep.h"
 
-static bfd_reloc_status_type _bfd_m68klynx_special_fn PARAMS ((bfd *abfd,
-						      arelent *reloc_entry,
-						      asymbol *symbol,
-						      PTR data,
-						      asection *input_section,
-						      bfd *output_bfd,
-						      char **error_message));
+#ifdef ANSI_PROTOTYPES
+struct internal_reloc;
+struct coff_link_hash_entry;
+struct internal_syment;
+#endif
+
+static bfd_reloc_status_type _bfd_m68klynx_special_fn
+  PARAMS ((bfd *, arelent *, asymbol *, PTR, asection *, bfd *, char **));
+static boolean lynx_link_add_symbols PARAMS ((bfd *, struct bfd_link_info *));
+static reloc_howto_type *coff_m68k_lynx_rtype_to_howto
+  PARAMS ((bfd *, asection *, struct internal_reloc *,
+	   struct coff_link_hash_entry *, struct internal_syment *,
+	   bfd_vma *));
 
 /* For some reason when using m68k COFF the value stored in the .text
    section for a reference to a common symbol is the value itself plus
@@ -53,8 +60,8 @@ static bfd_reloc_status_type _bfd_m68klynx_special_fn PARAMS ((bfd *abfd,
    reloc type to make any required adjustments.  */
 
 static bfd_reloc_status_type
-_bfd_m68klynx_special_fn (abfd, reloc_entry, symbol, data, input_section, output_bfd,
-			  error_message)
+_bfd_m68klynx_special_fn (abfd, reloc_entry, symbol, data, input_section,
+			  output_bfd, error_message)
      bfd *abfd;
      arelent *reloc_entry;
      asymbol *symbol;
@@ -97,7 +104,7 @@ _bfd_m68klynx_special_fn (abfd, reloc_entry, symbol, data, input_section, output
 
   if (diff != 0)
     {
-      const reloc_howto_type *howto = reloc_entry->howto;
+      reloc_howto_type *howto = reloc_entry->howto;
       unsigned char *addr = (unsigned char *) data + reloc_entry->address;
 
       switch (howto->size)
@@ -169,5 +176,81 @@ _bfd_m68klynx_special_fn (abfd, reloc_entry, symbol, data, input_section, output
       cache_ptr->addend += asect->vma;				\
   }
 
+#define coff_bfd_link_add_symbols lynx_link_add_symbols
+#define coff_rtype_to_howto coff_m68k_lynx_rtype_to_howto
 
 #include "coff-m68k.c"
+
+/* On Lynx, we may have a COFF archive which contains a.out elements.
+   This screws up the COFF linker, which expects that any archive it
+   gets contains COFF elements.  We override the add_symbols function
+   to check for this case.  */
+
+static boolean
+lynx_link_add_symbols (abfd, info)
+     bfd *abfd;
+     struct bfd_link_info *info;
+{
+  if (bfd_get_format (abfd) == bfd_archive)
+    {
+      bfd *first;
+
+      first = bfd_openr_next_archived_file (abfd, (bfd *) NULL);
+      if (first == NULL)
+	return false;
+      if (! bfd_check_format (first, bfd_object))
+	return false;
+      if (bfd_get_flavour (first) != bfd_target_coff_flavour)
+	{
+	  /* Treat the archive as though it were actually of the
+	     flavour of its first element.  This ought to work,
+	     since the archive support is fairly generic.  */
+	  return (*first->xvec->_bfd_link_add_symbols) (abfd, info);
+	}
+    }
+
+  return _bfd_coff_link_add_symbols (abfd, info);
+}
+
+/* coff-m68k.c uses the special COFF backend linker.  We need to
+   adjust common symbols.
+
+   We can't define this function until after we have included
+   coff-m68k.c, because it uses RTYPE2HOWTO.  */
+
+/*ARGSUSED*/
+static reloc_howto_type *
+coff_m68k_lynx_rtype_to_howto (abfd, sec, rel, h, sym, addendp)
+     bfd *abfd;
+     asection *sec;
+     struct internal_reloc *rel;
+     struct coff_link_hash_entry *h;
+     struct internal_syment *sym;
+     bfd_vma *addendp;
+{
+  arelent relent;
+  reloc_howto_type *howto;
+
+  RTYPE2HOWTO (&relent, rel);
+
+  howto = relent.howto;
+
+  if (sym != NULL && sym->n_scnum == 0 && sym->n_value != 0)
+    {
+      /* This is a common symbol.  The section contents include the
+	 size (sym->n_value) as an addend.  The relocate_section
+	 function will be adding in the final value of the symbol.  We
+	 need to subtract out the current size in order to get the
+	 correct result.  */
+      BFD_ASSERT (h != NULL);
+      *addendp -= sym->n_value;
+    }
+
+  /* If the output symbol is common (in which case this must be a
+     relocateable link), we need to add in the final size of the
+     common symbol.  */
+  if (h != NULL && h->root.type == bfd_link_hash_common)
+    *addendp += h->root.u.c.size;
+
+  return howto;
+}

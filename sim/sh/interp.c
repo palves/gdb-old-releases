@@ -27,7 +27,7 @@
 #include "../../newlib/libc/sys/sh/sys/syscall.h"
 #define O_RECOMPILE 85
 #define DEFINE_TABLE
-
+/*#define ACE_FAST*/
 #define DISASSEMBLER_TABLE
 
 #define SBIT(x) ((x)&sbit)
@@ -44,6 +44,7 @@
 #define MACL 	saved_state.asregs.macl
 #define M 	saved_state.asregs.sr.bits.m
 #define Q 	saved_state.asregs.sr.bits.q
+#define S 	saved_state.asregs.sr.bits.s
 
 #define GET_SR() (saved_state.asregs.sr.bits.t = T, saved_state.asregs.sr.word)
 #define SET_SR(x) {saved_state.asregs.sr.word = (x); T =saved_state.asregs.sr.bits.t;}
@@ -51,19 +52,21 @@
 #define PC pc
 #define C cycles
 
-char *fail()
+int 
+fail ()
 {
-
+  abort ();
 
 }
 
-
+#define BUSERROR(addr, mask) \
+  if (addr & ~mask)  { saved_state.asregs.exception = SIGBUS;}
 
 /* Define this to enable register lifetime checking.
-   The compiler generates "add #0,rn" insns to mark registers as invalid, 
+   The compiler generates "add #0,rn" insns to mark registers as invalid,
    the simulator uses this info to call fail if it finds a ref to an invalid
    register before a def
-   
+
    #define PARANOID
 */
 
@@ -78,61 +81,217 @@ int valid[16];
 #define UNDEF(x)
 #endif
 
+static int IOMEM PARAMS ((int addr, int write, int value));
 
-#ifdef TARGET_BIG_ENDIAN
-#if 0
-#define LMEM(x) 	*((long *)(memory+((x)&maskl)))
-#define BMEM(x) 	*((char *)(memory+((x)&maskb)))
-#define UWMEM(x) 	*((unsigned short *)(memory+((x)&maskw)))
-#define SWMEM(x) 	*((short *)(memory+((x)&maskw)))
-#define WLAT(x,value)  	(LMEM(x) = value)
-#define RLAT(x)  	(LMEM(x))
-#define WWAT(x,value)  	(UWMEM(x) = value)
-#define RSWAT(x)  	(SWMEM(x))
-#define RUWAT(x)  	(UWMEM(x))
-#define WBAT(x,value)  	(BMEM(x) = value)
-#define RBAT(x)  	(BMEM(x))
-#else
-#define LMEM(x) 	((x)&maskl ? fail() :  *((long *)(memory+((x)&maskl))))
-#define BMEM(x) 	((x) &maskb ? fail() : *((char *)(memory+((x)&maskb))))
-#define UWMEM(x) 	((x)&maskw ? fail() : *((unsigned short *)(memory+((x)&maskw))))
-#define SWMEM(x) 	((x)&maskw ? fail() : *((short *)(memory+((x)&maskw))))
-#define WLAT(x,value)  	(LMEM(x) = value)
-#define RLAT(x)  	(LMEM(x))
-#define WWAT(x,value)  	(UWMEM(x) = value)
-#define RSWAT(x)  	(SWMEM(x))
-#define RUWAT(x)  	(UWMEM(x))
-#define WBAT(x,value)  	(BMEM(x) = value)
-#define RBAT(x)  	(BMEM(x))
+/* These variables are at file scope so that functions other than
+   sim_resume can use the fetch/store macros */
+
+static int  little_endian;
+
+#if 1
+static int maskl = ~0;
+static int maskw = ~0;
 #endif
-#else
-/* For little endian or unknown host machines */
-#define WLAT(x,value)\
-{ int v = value; unsigned char *p = memory + ((x) & maskl);\
-  p[0] =v>>24;p[1] = v>>16;p[2]=v>>8;p[3]=v; }
+typedef union
+{
 
-#define WWAT(x,value)\
-{ int v = value; unsigned char *p = memory + (x & maskw);p[0] =v>>8;p[1] = v ;}
+  struct
+  {
 
-#define WBAT(x,value)\
-{ unsigned char *p = memory + (x & maskb);p[0] =value;}
+    int regs[16];
+    int pc;
+    int pr;
 
-#define RLAT(x)\
-  ((memory[x&maskl]<<24)|(memory[(x&maskl)+1]<<16)|(memory[(x&maskl)+2]<<8)| (memory[(x&maskl)+3]))
+    int gbr;
+    int vbr;
+    int mach;
+    int macl;
 
-#define RWAT(x)\
-  ((memory[x&maskw]<<8)|(memory[(x&maskw)+1]))
 
-#define RBAT(x)\
-  ((memory[x&maskb]))
+    union
+      {
+	struct
+	  {
+	    unsigned int d0:22;
+	    unsigned int m:1;
+	    unsigned int q:1;
+	    unsigned int i:4;
+	    unsigned int d1:2;
+	    unsigned int s:1;
+	    unsigned int t:1;
+	  }
+	bits;
+	int word;
+      }
+    sr;
+    int ticks;
+    int stalls;
+    int cycles;
+    int insts;
+
+
+    int prevlock;
+    int thislock;
+    int exception;
+    int msize;
+#define PROFILE_FREQ 1
+#define PROFILE_SHIFT 2
+    int profile;
+    unsigned short *profile_hist;
+    unsigned char *memory;
+
+  }
+  asregs;
+  int asints[28];
+
+} saved_state_type;
+saved_state_type saved_state;
+
+static void INLINE 
+wlat_little (memory, x, value, maskl)
+     unsigned char *memory;
+{
+  int v = value;
+  unsigned char *p = memory + ((x) & maskl);
+  BUSERROR(x, maskl);
+  p[3] = v >> 24;
+  p[2] = v >> 16;
+  p[1] = v >> 8;
+  p[0] = v;
+}
+
+static void INLINE 
+wwat_little (memory, x, value, maskw)
+     unsigned char *memory;
+{
+  int v = value;
+  unsigned char *p = memory + ((x) & maskw);
+  BUSERROR(x, maskw);
+
+  p[1] = v >> 8;
+  p[0] = v;
+}
+
+
+static void INLINE 
+wbat_any (memory, x, value, maskb)
+     unsigned char *memory;
+{
+  unsigned char *p = memory + (x & maskb);
+  if (x > 0x5000000)
+    IOMEM (x, 1, value);
+  BUSERROR(x, maskb);
+
+  p[0] = value;
+}
+
+
+
+static void INLINE 
+wlat_big (memory, x, value, maskl)
+     unsigned char *memory;
+{
+  int v = value;
+  unsigned char *p = memory + ((x) & maskl);
+  BUSERROR(x, maskl);
+
+  p[0] = v >> 24;
+  p[1] = v >> 16;
+  p[2] = v >> 8;
+  p[3] = v;
+}
+
+static void INLINE 
+wwat_big (memory, x, value, maskw)
+     unsigned char *memory;
+{
+  int v = value;
+  unsigned char *p = memory + ((x) & maskw);
+  BUSERROR(x, maskw);
+
+  p[0] = v >> 8;
+  p[1] = v;
+}
+
+
+static void INLINE 
+wbat_big (memory, x, value, maskb)
+     unsigned char *memory;
+{
+  unsigned char *p = memory + (x & maskb);
+  BUSERROR(x, maskb);
+
+  if (x > 0x5000000)
+    IOMEM (x, 1, value);
+  p[0] = value;
+}
+
+
+
+/* Read functions */
+static int INLINE 
+rlat_little (memory, x, maskl)
+     unsigned char *memory;
+{
+  unsigned char *p = memory + ((x) & maskl);
+  BUSERROR(x, maskl);
+
+  return (p[3] << 24) | (p[2] << 16) | (p[1] << 8) | p[0];
+
+}
+
+static int INLINE 
+rwat_little (memory, x, maskw)
+     unsigned char *memory;
+{
+  unsigned char *p = memory + ((x) & maskw);
+  BUSERROR(x, maskw);
+
+  return (p[1] << 8) | p[0];
+}
+
+static int INLINE 
+rbat_any (memory, x, maskb)
+     unsigned char *memory;
+{
+  unsigned char *p = memory + ((x) & maskb);
+  BUSERROR(x, maskb);
+
+  return p[0];
+}
+
+static int INLINE 
+rlat_big (memory, x, maskl)
+     unsigned char *memory;
+{
+  unsigned char *p = memory + ((x) & maskl);
+  BUSERROR(x, maskl);
+
+  return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+
+}
+
+static int INLINE 
+rwat_big (memory, x, maskw)
+     unsigned char *memory;
+{
+  unsigned char *p = memory + ((x) & maskw);
+  BUSERROR(x, maskw);
+
+  return (p[0] << 8) | p[1];
+}
+
+
+#define RWAT(x) 	(little_endian ? rwat_little(memory, x, maskw): rwat_big(memory, x, maskw))
+#define RLAT(x) 	(little_endian ? rlat_little(memory, x, maskl): rlat_big(memory, x, maskl))
+#define RBAT(x)         (rbat_any (memory, x, maskb))
+#define WWAT(x,v) 	(little_endian ? wwat_little(memory, x, v, maskw): wwat_big(memory, x, v, maskw))
+#define WLAT(x,v) 	(little_endian ? wlat_little(memory, x, v, maskl): wlat_big(memory, x, v, maskl))
+#define WBAT(x,v)       (wbat_any (memory, x, v, maskb))
 
 #define RUWAT(x)  (RWAT(x) & 0xffff)
 #define RSWAT(x)  ((short)(RWAT(x)))
 #define RSBAT(x)  (SEXT(RBAT(x)))
-
-#endif
-
-
 
 #define SEXT(x)     	(((x&0xff) ^ (~0x7f))+0x80)
 #define SEXTW(y)    	((int)((short)y))
@@ -154,69 +313,60 @@ int sim_memory_size = 24;
 
 static int sim_profile_size = 17;
 static int nsamples;
-static int sim_timeout;
 
-typedef union
+#undef TB
+#define TB(x,y)
+
+#define SMR1 (0x05FFFEC8)	/* Channel 1  serial mode register */
+#define BRR1 (0x05FFFEC9)	/* Channel 1  bit rate register */
+#define SCR1 (0x05FFFECA)	/* Channel 1  serial control register */
+#define TDR1 (0x05FFFECB)	/* Channel 1  transmit data register */
+#define SSR1 (0x05FFFECC)	/* Channel 1  serial status register */
+#define RDR1 (0x05FFFECD)	/* Channel 1  receive data register */
+
+#define SCI_RDRF  	 0x40	/* Recieve data register full */
+#define SCI_TDRE	0x80	/* Transmit data register empty */
+
+static int
+IOMEM (addr, write, value)
+     int addr;
+     int write;
+     int value;
 {
+  static int io;
+  static char ssr1;
+  int x;
+  static char lastchar;
 
-  struct
+  if (write)
     {
-
-      int regs[16];
-      int pc;
-      int pr;
-
-      int gbr;
-      int vbr;
-      int mach;
-      int macl;
-
-
-      union
+      switch (addr)
 	{
-	  struct
+	case TDR1:
+	  if (value != '\r')
 	    {
-	      unsigned int d0:22;
-	      unsigned int m:1;
-	      unsigned int q:1;
-	      unsigned int i:4;
-	      unsigned int d1:2;
-	      unsigned int s:1;
-	      unsigned int t:1;
+	      putchar (value);
+	      fflush (stdout);
 	    }
-	  bits;
-	  int word;
+	  break;
 	}
-      sr;
-      int ticks;
-      int stalls;
-      int cycles;
-      int insts;
-
-
-      int prevlock;
-      int thislock;
-      int exception;
-      int msize;
-#define PROFILE_FREQ 1
-#define PROFILE_SHIFT 2
-      int profile;
-      unsigned short *profile_hist;
-      unsigned char *memory;
-
     }
-  asregs;
-  int asints[28];
-
+  else
+    {
+      switch (addr)
+	{
+	case RDR1:
+	  return getchar ();
+	}
+    }
 }
 
-saved_state_type;
-saved_state_type saved_state;
+
 
 static int
 get_now ()
 {
-  return time((long*)0);
+  return time ((long *) 0);
 }
 
 static int
@@ -229,23 +379,19 @@ now_persec ()
 
 static FILE *profile_file;
 
-static void 
-swap (b, n)
-     unsigned char *b;
+static void
+swap (memory, n)
+     unsigned char *memory;
      int n;
 {
-  b[0] = n >> 24;
-  b[1] = n >> 16;
-  b[2] = n >> 8;
-  b[3] = n >> 0;
+  WLAT (0, n);
 }
-static void 
-swap16 (b, n)
-     unsigned char *b;
+static void
+swap16 (memory, n)
+     unsigned char *memory;
      int n;
 {
-  b[0] = n >> 8;
-  b[1] = n >> 0;
+  WWAT (0, n);
 }
 
 static void
@@ -279,32 +425,13 @@ ptr (x)
   return (char *) (x + saved_state.asregs.memory);
 }
 
-static char *wwat(ptr, val)
-char *ptr;
-int val;
-{
-  ptr[0] = val >> 8;
-  ptr[1] = val;
-  return ptr+2;
-}
-
-static char *wlat(ptr,val)
-char *ptr;
-int val;
-{
-  ptr[0] = val>> 24;
-  ptr[1] = val >> 16;
-  ptr[2] = val >>8;
-  ptr[3] = val;
-  return ptr+4;
-}
 
 /* Simulate a monitor trap, put the result into r0 and errno into r1 */
-
 static void
-trap (i, regs)
+trap (i, regs, memory, maskl, maskw, little_endian)
      int i;
      int *regs;
+     unsigned char *memory;
 {
   switch (i)
     {
@@ -314,6 +441,23 @@ trap (i, regs)
     case 2:
       saved_state.asregs.exception = SIGQUIT;
       break;
+#if 0
+    case 8:
+      trap8 (ptr (regs[4]));
+      break;
+    case 9:
+      trap9 (ptr (regs[4]));
+      break;
+    case 10:
+      trap10 ();
+      break;
+    case 11:
+      regs[0] = trap11 ();
+      break;
+    case 12:
+      regs[0] = trap12 ();
+      break;
+#endif
     case 3:
       {
 	extern int errno;
@@ -325,31 +469,32 @@ trap (i, regs)
 
 #ifndef __GO32__
 
-	  case SYS_fork: 
-	    regs[0] = fork();
+	  case SYS_fork:
+	    regs[0] = fork ();
 	    break;
 	  case SYS_execve:
-	    regs[0] = execve(ptr(regs[5]), ptr(regs[6]), ptr(regs[7]));
+	    regs[0] = execve (ptr (regs[5]), ptr (regs[6]), ptr (regs[7]));
 	    break;
 	  case SYS_execv:
-	    regs[0] = execv(ptr(regs[5]), ptr(regs[6]));
+	    regs[0] = execv (ptr (regs[5]), ptr (regs[6]));
 	    break;
 	  case SYS_pipe:
 	    {
-	      char* buf;
+	      char *buf;
 	      int host_fd[2];
 
-	      buf = ptr(regs[5]);
+	      buf = ptr (regs[5]);
 
-	      regs[0] = pipe(host_fd); 
+	      regs[0] = pipe (host_fd);
 
-	      buf = wlat(buf, host_fd[0]);
-	      buf = wlat(buf, host_fd[1]);
+	      WLAT (buf, host_fd[0]);
+	      buf += 4;
+	      WLAT (buf, host_fd[1]);
 	    }
 	    break;
 
-	  case SYS_wait: 
-            regs[0] = wait(ptr(regs[5]));	
+	  case SYS_wait:
+	    regs[0] = wait (ptr (regs[5]));
 	    break;
 #endif
 
@@ -369,52 +514,64 @@ trap (i, regs)
 	    regs[0] = open (ptr (regs[5]), regs[6]);
 	    break;
 	  case SYS_exit:
-	    /* EXIT */
+	    /* EXIT - caller can look in r5 to work out the 
+	       reason */
 	    saved_state.asregs.exception = SIGQUIT;
-	    errno = regs[5];
 	    break;
-	    
-	  case SYS_stat: 	/* added at hmsi */
+
+	  case SYS_stat:	/* added at hmsi */
 	    /* stat system call */
-	    {      
+	    {
 	      struct stat host_stat;
 	      char *buf;
 
-	      regs[0] = stat( ptr(regs[5]), &host_stat);
+	      regs[0] = stat (ptr (regs[5]), &host_stat);
 
-	      buf = ptr(regs[6]); 
+	      buf = ptr (regs[6]);
 
-	      buf = wwat(buf, host_stat.st_dev);
-	      buf = wwat(buf, host_stat.st_ino);
+	      WWAT (buf, host_stat.st_dev);
+	      buf += 2;
+	      WWAT (buf, host_stat.st_ino);
+	      buf += 2;
+	      WLAT (buf, host_stat.st_mode);
+	      buf += 4;
+	      WWAT (buf, host_stat.st_nlink);
+	      buf += 2;
+	      WWAT (buf, host_stat.st_uid);
+	      buf += 2;
+	      WWAT (buf, host_stat.st_gid);
+	      buf += 2;
+	      WWAT (buf, host_stat.st_rdev);
+	      buf += 2;
+	      WLAT (buf, host_stat.st_size);
+	      buf += 4;
+	      WLAT (buf, host_stat.st_atime);
+	      buf += 4;
+	      WLAT (buf, 0);
+	      buf += 4;
+	      WLAT (buf, host_stat.st_mtime);
+	      buf += 4;
+	      WLAT (buf, 0);
+	      buf += 4;
+	      WLAT (buf, host_stat.st_ctime);
+	      buf += 4;
+	      WLAT (buf, 0);
+	      buf += 4;
+	      WLAT (buf, 0);
+	      buf += 4;
+	      WLAT (buf, 0);
+	      buf += 4;
+	    }
+	    break;
 
-	      buf = wlat(buf, host_stat.st_mode);
-
-	      buf = wwat(buf, host_stat.st_nlink);
-	      buf = wwat(buf, host_stat.st_uid);
-	      buf = wwat(buf, host_stat.st_gid);
-	      buf = wwat(buf, host_stat.st_rdev);
-
-	      buf = wlat(buf, host_stat.st_size);
-	      buf = wlat(buf, host_stat.st_atime);
-	      buf = wlat(buf, 0);
-	      buf = wlat(buf, host_stat.st_mtime);
-	      buf = wlat(buf, 0);
-	      buf = wlat(buf, host_stat.st_ctime);
-
-	      buf = wlat(buf, 0);
-	      buf = wlat(buf, 0);
-	      buf = wlat(buf, 0);
-	    }   
-            break;    
-
-          case SYS_chown:
-	    regs[0] =  chown( ptr(regs[5]), regs[6], regs[7] );
+	  case SYS_chown:
+	    regs[0] = chown (ptr (regs[5]), regs[6], regs[7]);
 	    break;
 	  case SYS_chmod:
-	    regs[0] = chmod( ptr(regs[5]), regs[6]);
-            break;
-          case SYS_utime:
-	    regs[0] = utime (ptr(regs[5]), ptr(regs[6]));
+	    regs[0] = chmod (ptr (regs[5]), regs[6]);
+	    break;
+	  case SYS_utime:
+	    regs[0] = utime (ptr (regs[5]), ptr (regs[6]));
 	    break;
 	  default:
 	    abort ();
@@ -425,9 +582,9 @@ trap (i, regs)
 
       break;
 
+    case 0xc3:
     case 255:
       saved_state.asregs.exception = SIGTRAP;
-      saved_state.asregs.exception = 5;
       break;
     }
 
@@ -532,7 +689,7 @@ div1 (R, iRn2, iRn1, T)
 }
 
 
-static void 
+static void
 dmul (sign, rm, rn)
      int sign;
      unsigned int rm;
@@ -543,39 +700,72 @@ dmul (sign, rm, rn)
   unsigned long temp0, temp1, temp2, temp3;
   unsigned long Res2, Res1, Res0;
 
-
-  if (!sign)
+  RnL = rn & 0xffff;
+  RnH = (rn >> 16) & 0xffff;
+  RmL = rm & 0xffff;
+  RmH = (rm >> 16) & 0xffff;
+  temp0 = RmL * RnL;
+  temp1 = RmH * RnL;
+  temp2 = RmL * RnH;
+  temp3 = RmH * RnH;
+  Res2 = 0;
+  Res1 = temp1 + temp2;
+  if (Res1 < temp1)
+    Res2 += 0x00010000;
+  temp1 = (Res1 << 16) & 0xffff0000;
+  Res0 = temp0 + temp1;
+  if (Res0 < temp0)
+    Res2 += 1;
+  Res2 += ((Res1 >> 16) & 0xffff) + temp3;
+  
+  if (sign)
     {
-
-      RnL = rn & 0xffff;
-      RnH = (rn >> 16) & 0xffff;
-      RmL = rm & 0xffff;
-      RmH = (rm >> 16) & 0xffff;
-      temp0 = RmL * RnL;
-      temp1 = RmH * RnL;
-      temp2 = RmL * RnH;
-      temp3 = RmH * RnH;
-      Res2 = 0;
-      Res1 = temp1 + temp2;
-      if (Res1 < temp1)
-	Res2 += 0x00010000;
-      temp1 = (Res1 << 16) & 0xffff0000;
-      Res0 = temp0 + temp1;
-      if (Res0 < temp0)
-	Res2 += 1;
-      Res2 += ((Res1 >> 16) & 0xffff) + temp3;
-      MACH = Res2;
-      MACL = Res0;
-
+      if (rn & 0x80000000)
+	Res2 -= rm;
+      if (rm & 0x80000000)
+	Res2 -= rn;
     }
 
-  else
-    {
-      abort ();
-    }
-
+  MACH = Res2;
+  MACL = Res0;
 }
 
+static void
+macw (regs, memory, n, m)
+     int *regs;
+     unsigned char *memory;
+     int m, n;
+{
+  long tempm, tempn;
+  long prod, macl, sum;
+
+  tempm=RSWAT(regs[m]); regs[m]+=2;
+  tempn=RSWAT(regs[n]); regs[n]+=2;
+
+  macl = MACL;
+  prod = (long)(short) tempm * (long)(short) tempn;
+  sum = prod + macl;
+  if (S)
+    {
+      if ((~(prod ^ macl) & (sum ^ prod)) < 0)
+	{
+	  /* MACH's lsb is a sticky overflow bit.  */
+	  MACH |= 1;
+	  /* Store the smallest negative number in MACL if prod is
+	     negative, and the largest positive number otherwise.  */
+	  sum = 0x7fffffff + (prod < 0);
+	}
+    }
+  else
+    {
+      long mach;
+      /* Add to MACH the sign extended product, and carry from low sum.  */
+      mach = MACH + (-(prod < 0)) + ((unsigned long) sum < prod);
+      /* Sign extend at 10:th bit in MACH.  */
+      MACH = (mach & 0x1ff) | -(mach & 0x200);
+    }
+  MACL = sum;
+}
 
 /* Set the memory size to the power of two provided. */
 
@@ -600,7 +790,7 @@ sim_size (power)
   if (!saved_state.asregs.memory)
     {
       fprintf (stderr,
-	       "Not enough VM for simuation of %d bytes of RAM\n",
+	       "Not enough VM for simulation of %d bytes of RAM\n",
 	       saved_state.asregs.msize);
 
       saved_state.asregs.msize = 1;
@@ -609,11 +799,21 @@ sim_size (power)
 }
 
 
+extern int target_byte_order;
+
+static void
+set_static_little_endian(x)
+int x;
+{
+  little_endian = x;
+}
 
 static
 void
 init_pointers ()
 {
+  register int little_endian = target_byte_order == 1234;
+  set_static_little_endian (little_endian);
   if (saved_state.asregs.msize != 1 << sim_memory_size)
     {
       sim_size (sim_memory_size);
@@ -664,7 +864,7 @@ dump_profile ()
 
 }
 
-static int 
+static int
 gotcall (from, to)
      int from;
      int to;
@@ -675,6 +875,7 @@ gotcall (from, to)
 }
 
 #define MMASKB ((saved_state.asregs.msize -1) & ~0)
+
 
 void
 sim_resume (step, siggnal)
@@ -687,6 +888,11 @@ sim_resume (step, siggnal)
   register int prevlock;
   register int thislock;
   register unsigned int doprofile;
+#ifdef __GO32__
+  register int pollcount = 0;
+#endif
+  register int little_endian = target_byte_order == 1234;
+
 
   int tick_start = get_now ();
   void (*prev) ();
@@ -701,7 +907,7 @@ sim_resume (step, siggnal)
   register int maskb = ((saved_state.asregs.msize - 1) & ~0);
   register int maskw = ((saved_state.asregs.msize - 1) & ~1);
   register int maskl = ((saved_state.asregs.msize - 1) & ~3);
-  register unsigned char *memory ;
+  register unsigned char *memory;
   register unsigned int sbit = (1 << 31);
 
   prev = signal (SIGINT, control_c);
@@ -735,23 +941,38 @@ sim_resume (step, siggnal)
     {
       register unsigned int iword = RUWAT (pc);
       register unsigned int ult;
-
+#ifndef ACE_FAST
       insts++;
+#endif
     top:
 
 #include "code.c"
 
 
       pc += 2;
+
+#ifdef __GO32__
+      pollcount++;
+      if (pollcount > 1000)
+	{
+	  pollcount = 0;
+	  if (kbhit()) {
+	    int k = getkey();
+	    if (k == 1)
+	      saved_state.asregs.exception = SIGINT;	    
+	    
+	  }
+	}
+#endif
+
+#ifndef ACE_FAST
       prevlock = thislock;
       thislock = 30;
       cycles++;
 
       if (cycles >= doprofile)
 	{
-	  if (cycles > sim_timeout)
-	    saved_state.asregs.exception = SIGQUIT;
-	  
+
 	  saved_state.asregs.cycles += doprofile;
 	  cycles -= doprofile;
 	  if (saved_state.asregs.profile_hist)
@@ -766,10 +987,13 @@ sim_resume (step, siggnal)
 
 	    }
 	}
+#endif
     }
   while (!saved_state.asregs.exception);
 
-  if (saved_state.asregs.exception == SIGILL)
+  if (saved_state.asregs.exception == SIGILL
+      || saved_state.asregs.exception == SIGBUS
+      || (saved_state.asregs.exception == SIGTRAP && !step))
     {
       pc -= 2;
     }
@@ -832,21 +1056,21 @@ sim_read (addr, buffer, size)
 
 
 void
-sim_store_register (rn, value)
+sim_store_register (rn, memory)
      int rn;
-     unsigned char *value;
+     unsigned char *memory;
 {
-  saved_state.asregs.regs[rn] = (value[0] << 24) | (value[1] << 16) | (value[2] << 8) | (value[3]);
+  init_pointers();
+  saved_state.asregs.regs[rn]=RLAT(0);
 }
 
 void
-sim_fetch_register (rn, buf)
+sim_fetch_register (rn, memory)
      int rn;
-     unsigned char *buf;
+     unsigned char *memory;
 {
-  int value = ((int *) (&saved_state))[rn];
-
-  swap (buf, value);
+  init_pointers();
+  WLAT (0, saved_state.asregs.regs[rn]);
 }
 
 

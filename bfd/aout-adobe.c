@@ -472,7 +472,7 @@ aout_adobe_sizeof_headers (ignore_abfd, ignore)
   ((asymbol *(*) PARAMS ((bfd *, void *, unsigned long))) bfd_nullvoidptr)
 
 #define aout_32_bfd_reloc_type_lookup \
-  ((CONST struct reloc_howto_struct *(*) \
+  ((reloc_howto_type *(*) \
     PARAMS ((bfd *, bfd_reloc_code_real_type))) bfd_nullvoidptr)
 
 #define	aout_32_set_arch_mach		aout_adobe_set_arch_mach

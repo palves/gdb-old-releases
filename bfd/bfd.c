@@ -696,7 +696,7 @@ bfd_scan_vma (string, end, base)
 
   /* Let the host do it if possible.  */
   if (sizeof(bfd_vma) <= sizeof(unsigned long))
-    return (bfd_vma) strtoul (string, 0, base);
+    return (bfd_vma) strtoul (string, (char **) end, base);
 
   /* A negative base makes no sense, and we only need to go as high as hex.  */
   if ((base < 0) || (base > 16))
@@ -786,6 +786,9 @@ DESCRIPTION
 .
 .#define bfd_stat_arch_elt(abfd, stat) \
 .        BFD_SEND (abfd, _bfd_stat_arch_elt,(abfd, stat))
+.
+.#define bfd_update_armap_timestamp(abfd) \
+.        BFD_SEND (abfd, _bfd_update_armap_timestamp, (abfd))
 .
 .#define bfd_set_arch_mach(abfd, arch, mach)\
 .        BFD_SEND ( abfd, _bfd_set_arch_mach, (abfd, arch, mach))

@@ -1,5 +1,5 @@
 /* BFD backend for Extended Tektronix Hex Format  objects.
-   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
 
    Written by Steve Chamberlain of Cygnus Support <sac@cygnus.com>.
 
@@ -72,6 +72,7 @@ serial protocol, so big files are unlikely, so we keep a list of 8k chunks
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
+#include "libiberty.h"
 
 typedef struct
   {
@@ -87,23 +88,17 @@ typedef struct tekhex_symbol_struct
 
   } tekhex_symbol_type;
 
-static char digs[] = "0123456789ABCDEF";
+static const char digs[] = "0123456789ABCDEF";
 
 static char sum_block[256];
 
-/* Horrible ascii dependent macros for converting between hex and
-   binary */
-
-#define CHARS_IN_SET 256
-static char hex_value[CHARS_IN_SET];
-
 #define NOT_HEX 20
-#define NIBBLE(x) hex_value[x]
+#define NIBBLE(x) hex_value(x)
 #define HEX(buffer) ((NIBBLE((buffer)[0])<<4) + NIBBLE((buffer)[1]))
 #define TOHEX(d,x) \
 (d)[1] = digs[(x) & 0xf]; \
 (d)[0] = digs[((x)>>4)&0xf];
-#define	ISHEX(x)  (hex_value[x] != NOT_HEX)
+#define	ISHEX(x)  hex_p(x)
 
 /*
 Here's an example
@@ -223,24 +218,8 @@ tekhex_init ()
 
   if (inited == false)
     {
-
       inited = true;
-
-      for (i = 0; i < CHARS_IN_SET; i++)
-	{
-	  hex_value[i] = NOT_HEX;
-	}
-
-      for (i = 0; i < 10; i++)
-	{
-	  hex_value[i + '0'] = i;
-
-	}
-      for (i = 0; i < 6; i++)
-	{
-	  hex_value[i + 'a'] = i + 10;
-	  hex_value[i + 'A'] = i + 10;
-	}
+      hex_init ();
       val = 0;
       for (i = 0; i < 10; i++)
 	{
@@ -305,13 +284,13 @@ getvalue (srcp)
 {
   char *src = *srcp;
   bfd_vma value = 0;
-  unsigned int len = hex_value[*src++];
+  unsigned int len = hex_value(*src++);
 
   if (len == 0)
     len = 16;
   while (len--)
     {
-      value = value << 4 | hex_value[*src++];
+      value = value << 4 | hex_value(*src++);
     }
   *srcp = src;
   return value;
@@ -324,7 +303,7 @@ getsym (dstp, srcp)
 {
   char *src = *srcp;
   unsigned int i;
-  unsigned int len = hex_value[*src++];
+  unsigned int len = hex_value(*src++);
 
   if (len == 0)
     len = 16;
@@ -350,7 +329,6 @@ find_chunk (abfd, vma)
   if (!d)
     {
       char *sname = bfd_alloc (abfd, 12);
-      asection *s;
 
       /* No chunk for this address, so make one up */
       d = (struct data_struct *)
@@ -432,8 +410,6 @@ first_phase (abfd, type, src)
 	{
 	  switch (*src)
 	    {
-	      asection *s;
-
 	    case '1':		/* section range */
 	      src++;
 	      section->vma = getvalue (&src);
@@ -504,7 +480,6 @@ static void
       char buffer[MAXCHUNK];
       char *src = buffer;
       char type;
-      bfd_vma address = 0;
 
       /* Find first '%' */
       eof = (boolean) (bfd_read (src, 1, 1, abfd) != 1);
@@ -591,7 +566,6 @@ tekhex_object_p (abfd)
      bfd *abfd;
 {
   char b[4];
-  asection *section;
 
   tekhex_init ();
 
@@ -608,7 +582,7 @@ tekhex_object_p (abfd)
   return abfd->xvec;
 }
 
-static boolean
+static void
 move_section_contents (abfd, section, locationp, offset, count, get)
      bfd *abfd;
      asection *section;
@@ -804,12 +778,12 @@ out (abfd, type, start, end)
 
   for (s = start; s < end; s++)
     {
-      sum += sum_block[*s];
+      sum += sum_block[(unsigned char) *s];
     }
 
-  sum += sum_block[front[1]];	/*  length */
-  sum += sum_block[front[2]];
-  sum += sum_block[front[3]];	/* type */
+  sum += sum_block[(unsigned char) front[1]];	/*  length */
+  sum += sum_block[(unsigned char) front[2]];
+  sum += sum_block[(unsigned char) front[3]];	/* type */
   TOHEX (front + 4, sum);
   if (bfd_write (front, 1, 6, abfd) != 6)
     abort ();
@@ -825,8 +799,6 @@ tekhex_write_object_contents (abfd)
   int bytes_written;
   char buffer[100];
   asymbol **p;
-  tdata_type *tdata = abfd->tdata.tekhex_data;
-  tekhex_data_list_type *list;
   asection *s;
   struct data_struct *d;
 

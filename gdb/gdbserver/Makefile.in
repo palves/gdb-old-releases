@@ -82,13 +82,13 @@ INCLUDE_DEP = $$(INCLUDE_DIR)
 # ${MMALLOC_DIR}${subdir}.)
 # Note that mmalloc can still be used on systems without mmap().
 # To use your system malloc, comment out the following defines.
-MMALLOC_DIR = ${srcdir}/../mmalloc
+MMALLOC_DIR = ${srcdir}/../../mmalloc
 MMALLOC_DEP = $$(MMALLOC_DIR)
 # To use your system malloc, uncomment MMALLOC_DISABLE.
 #MMALLOC_DISABLE = -DNO_MMALLOC
 # To use mmalloc but disable corruption checking, uncomment MMALLOC_CHECK
 #MMALLOC_CHECK = -DNO_MMALLOC_CHECK
-MMALLOC_CFLAGS = ${MMALLOC_CHECK} ${MMALLOC_DISABLE}
+MMALLOC_CFLAGS = ${MMALLOC_CHECK} ${MMALLOC_DISABLE} -I${MMALLOC_DIR}
 
 # Where are the BFD library?
 BFD_DIR = ../../bfd

@@ -1,5 +1,5 @@
 /* MIPS-specific support for 32-bit ELF
-   Copyright 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
 
    Most of the information added by Ian Lance Taylor, Cygnus Support,
    <ian@cygnus.com>.
@@ -65,14 +65,14 @@ static bfd_reloc_status_type mips_elf_gprel16_reloc PARAMS ((bfd *abfd,
 							     asection *section,
 							     bfd *output_bfd,
 							     char **error));
-static const struct reloc_howto_struct *bfd_elf32_bfd_reloc_type_lookup
+static reloc_howto_type *bfd_elf32_bfd_reloc_type_lookup
   PARAMS ((bfd *, bfd_reloc_code_real_type));
 static void mips_info_to_howto_rel
   PARAMS ((bfd *, arelent *, Elf32_Internal_Rel *));
 static boolean mips_elf_sym_is_global PARAMS ((bfd *, asymbol *));
 static boolean mips_elf_object_p PARAMS ((bfd *));
 static void mips_elf_final_write_processing
-  PARAMS ((bfd *, struct bfd_link_info *));
+  PARAMS ((bfd *, boolean));
 static boolean mips_elf_section_from_shdr
   PARAMS ((bfd *, Elf32_Internal_Shdr *, char *));
 static boolean mips_elf_fake_sections
@@ -96,7 +96,7 @@ static void mips_elf_relocate_hi16
 	   bfd_vma));
 static boolean mips_elf_relocate_section
   PARAMS ((bfd *, struct bfd_link_info *, bfd *, asection *, bfd_byte *,
-	   Elf_Internal_Rela *, Elf_Internal_Sym *, asection **, char *));
+	   Elf_Internal_Rela *, Elf_Internal_Sym *, asection **));
 static boolean mips_elf_add_symbol_hook
   PARAMS ((bfd *, struct bfd_link_info *, const Elf_Internal_Sym *,
 	   const char **, flagword *, asection **, bfd_vma *));
@@ -112,6 +112,18 @@ enum reloc_type
   R_MIPS_GPREL16,	R_MIPS_LITERAL,
   R_MIPS_GOT16,		R_MIPS_PC16,
   R_MIPS_CALL16,	R_MIPS_GPREL32,
+  /* The remaining relocs are defined on Irix, although they are not
+     in the MIPS ELF ABI.  */
+  R_MIPS_UNUSED1,	R_MIPS_UNUSED2,
+  R_MIPS_UNUSED3,
+  R_MIPS_SHIFT5,	R_MIPS_SHIFT6,
+  R_MIPS_64,		R_MIPS_GOT_DISP,
+  R_MIPS_GOT_PAGE,	R_MIPS_GOT_OFST,
+  R_MIPS_GOT_HI16,	R_MIPS_GOT_LO16,
+  R_MIPS_SUB,		R_MIPS_INSERT_A,
+  R_MIPS_INSERT_B,	R_MIPS_DELETE,
+  R_MIPS_HIGHER,	R_MIPS_HIGHEST,
+  R_MIPS_CALL_HI16,	R_MIPS_CALL_LO16,
   R_MIPS_max
 };
 
@@ -316,6 +328,172 @@ static reloc_howto_type elf_mips_howto_table[] =
 	 true,			/* partial_inplace */
 	 0xffffffff,		/* src_mask */
 	 0xffffffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+    /* The remaining relocs are defined on Irix 5, although they are
+       not defined by the ABI.  */
+    { 13 },
+    { 14 },
+    { 15 },
+
+  /* A 5 bit shift field.  */
+  HOWTO (R_MIPS_SHIFT5,		/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 5,			/* bitsize */
+	 false,			/* pc_relative */
+	 6,			/* bitpos */
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_SHIFT5",	/* name */
+	 true,			/* partial_inplace */
+	 0x000007c0,		/* src_mask */
+	 0x000007c0,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* A 6 bit shift field.  */
+  /* FIXME: This is not handled correctly; a special function is
+     needed to put the most significant bit in the right place.  */
+  HOWTO (R_MIPS_SHIFT6,		/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 6,			/* bitsize */
+	 false,			/* pc_relative */
+	 6,			/* bitpos */
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_SHIFT6",	/* name */
+	 true,			/* partial_inplace */
+	 0x000007c4,		/* src_mask */
+	 0x000007c4,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* A 64 bit relocation.  Presumably not used in 32 bit ELF.  */
+  { R_MIPS_64 },
+
+  /* Displacement in the global offset table.  */
+  /* FIXME: Not handled correctly.  */
+  HOWTO (R_MIPS_GOT_DISP,	/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_GOT_DISP",	/* name */
+	 true,			/* partial_inplace */
+	 0x0000ffff,		/* src_mask */
+	 0x0000ffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* Displacement to page pointer in the global offset table.  */
+  /* FIXME: Not handled correctly.  */
+  HOWTO (R_MIPS_GOT_PAGE,	/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_GOT_PAGE",	/* name */
+	 true,			/* partial_inplace */
+	 0x0000ffff,		/* src_mask */
+	 0x0000ffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* Offset from page pointer in the global offset table.  */
+  /* FIXME: Not handled correctly.  */
+  HOWTO (R_MIPS_GOT_OFST,	/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_GOT_OFST",	/* name */
+	 true,			/* partial_inplace */
+	 0x0000ffff,		/* src_mask */
+	 0x0000ffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* High 16 bits of displacement in global offset table.  */
+  /* FIXME: Not handled correctly.  */
+  HOWTO (R_MIPS_GOT_HI16,	/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_GOT_HI16",	/* name */
+	 true,			/* partial_inplace */
+	 0x0000ffff,		/* src_mask */
+	 0x0000ffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* Low 16 bits of displacement in global offset table.  */
+  /* FIXME: Not handled correctly.  */
+  HOWTO (R_MIPS_GOT_LO16,	/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_GOT_LO16",	/* name */
+	 true,			/* partial_inplace */
+	 0x0000ffff,		/* src_mask */
+	 0x0000ffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* 64 bit subtraction.  Presumably not used in 32 bit ELF.  */
+  { R_MIPS_SUB },
+
+  /* Used to cause the linker to insert and delete instructions?  */
+  { R_MIPS_INSERT_A },
+  { R_MIPS_INSERT_B },
+  { R_MIPS_DELETE },
+
+  /* Get the higher values of a 64 bit addend.  Presumably not used in
+     32 bit ELF.  */
+  { R_MIPS_HIGHER },
+  { R_MIPS_HIGHEST },
+
+  /* High 16 bits of displacement in global offset table.  */
+  /* FIXME: Not handled correctly.  */
+  HOWTO (R_MIPS_CALL_HI16,	/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_CALL_HI16",	/* name */
+	 true,			/* partial_inplace */
+	 0x0000ffff,		/* src_mask */
+	 0x0000ffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
+  /* Low 16 bits of displacement in global offset table.  */
+  /* FIXME: Not handled correctly.  */
+  HOWTO (R_MIPS_CALL_LO16,	/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_MIPS_CALL_LO16",	/* name */
+	 true,			/* partial_inplace */
+	 0x0000ffff,		/* src_mask */
+	 0x0000ffff,		/* dst_mask */
 	 false)			/* pcrel_offset */
 };
 
@@ -670,7 +848,7 @@ static CONST struct elf_reloc_map mips_reloc_map[] =
 
 /* Given a BFD reloc type, return a howto structure.  */
 
-static const struct reloc_howto_struct *
+static reloc_howto_type *
 bfd_elf32_bfd_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
@@ -842,9 +1020,9 @@ mips_elf_object_p (abfd)
 
 /*ARGSUSED*/
 static void
-mips_elf_final_write_processing (abfd, info)
+mips_elf_final_write_processing (abfd, linker)
      bfd *abfd;
-     struct bfd_link_info *info;
+     boolean linker;
 {
   unsigned long val;
   unsigned int i;
@@ -881,8 +1059,8 @@ mips_elf_final_write_processing (abfd, info)
 	  const char *name;
 	  asection *sec;
 
-	  BFD_ASSERT ((*hdrpp)->rawdata != NULL);
-	  name = ((asection *) (*hdrpp)->rawdata)->name;
+	  BFD_ASSERT ((*hdrpp)->bfd_section != NULL);
+	  name = bfd_get_section_name (abfd, (*hdrpp)->bfd_section);
 	  BFD_ASSERT (name != NULL
 		      && strncmp (name, ".gptab.", sizeof ".gptab." - 1) == 0);
 	  sec = bfd_get_section_by_name (abfd, name + sizeof ".gptab" - 1);
@@ -916,6 +1094,10 @@ mips_elf_section_from_shdr (abfd, hdr, name)
       if (strcmp (name, ".liblist") != 0)
 	return false;
       break;
+    case SHT_MIPS_MSYM:
+      if (strcmp (name, ".msym") != 0)
+	return false;
+      break;
     case SHT_MIPS_CONFLICT:
       if (strcmp (name, ".conflict") != 0)
 	return false;
@@ -941,13 +1123,21 @@ mips_elf_section_from_shdr (abfd, hdr, name)
       if (strcmp (name, ".options") != 0)
 	return false;
       break;
+    case SHT_MIPS_DWARF:
+      if (strncmp (name, ".debug_", sizeof ".debug_" - 1) != 0)
+	return false;
+      break;
+    case SHT_MIPS_EVENTS:
+      if (strncmp (name, ".MIPS.events.", sizeof ".MIPS.events." - 1) != 0)
+	return false;
+      break;
     default:
       return false;
     }
 
   if (! _bfd_elf_make_section_from_shdr (abfd, hdr, name))
     return false;
-  newsect = (asection *) hdr->rawdata;
+  newsect = hdr->bfd_section;
 
   if (hdr->sh_type == SHT_MIPS_DEBUG)
     {
@@ -996,6 +1186,12 @@ mips_elf_fake_sections (abfd, hdr, sec)
       hdr->sh_info = sec->_raw_size / sizeof (Elf32_Lib);
       /* FIXME: Set the sh_link field.  */
     }
+  else if (strcmp (name, ".msym") == 0)
+    {
+      hdr->sh_type = SHT_MIPS_MSYM;
+      hdr->sh_entsize = 8;
+      /* FIXME: Set the sh_info field.  */
+    }
   else if (strcmp (name, ".conflict") == 0)
     hdr->sh_type = SHT_MIPS_CONFLICT;
   else if (strncmp (name, ".gptab.", sizeof ".gptab." - 1) == 0)
@@ -1026,6 +1222,10 @@ mips_elf_fake_sections (abfd, hdr, sec)
       hdr->sh_type = SHT_MIPS_OPTIONS;
       hdr->sh_entsize = 1;
     }
+  else if (strncmp (name, ".debug_", sizeof ".debug_" - 1) == 0)
+    hdr->sh_type = SHT_MIPS_DWARF;
+  else if (strncmp (name, ".MIPS.events.", sizeof ".MIPS.events." - 1) == 0)
+    hdr->sh_type = SHT_MIPS_EVENTS;
 
   return true;
 }
@@ -1045,8 +1245,11 @@ mips_elf_section_from_bfd_section (abfd, hdr, sec, retval)
       *retval = SHN_MIPS_SCOMMON;
       return true;
     }
-  if ((asection *) hdr->rawdata == sec)
-    return true;
+  if (strcmp (bfd_get_section_name (abfd, sec), ".acommon") == 0)
+    {
+      *retval = SHN_MIPS_ACOMMON;
+      return true;
+    }
   return false;
 }
 
@@ -1076,9 +1279,9 @@ mips_elf_section_processing (abfd, hdr)
 	return false;
     }
 
-  if (hdr->rawdata != NULL)
+  if (hdr->bfd_section != NULL)
     {
-      const char *name = ((asection *) hdr->rawdata)->name;
+      const char *name = bfd_get_section_name (abfd, hdr->bfd_section);
 
       if (strcmp (name, ".sdata") == 0)
 	{
@@ -1516,6 +1719,22 @@ mips_elf_output_extsym (h, data)
       h->esym.asym.index = indexNil;
     }
 
+  if (h->root.root.type == bfd_link_hash_common)
+    h->esym.asym.value = h->root.root.u.c.size;
+  else if (h->root.root.type == bfd_link_hash_defined)
+    {
+      asection *sec;
+
+      if (h->esym.asym.sc == scCommon)
+	h->esym.asym.sc = scBss;
+      else if (h->esym.asym.sc == scSCommon)
+	h->esym.asym.sc = scSBss;
+
+      sec = h->root.root.u.def.section;
+      h->esym.asym.value = (h->root.root.u.def.value
+			    + sec->output_offset
+			    + sec->output_section->vma);
+    }
 
   if (! bfd_ecoff_debug_one_external (einfo->abfd, einfo->debug, einfo->swap,
 				      h->root.root.root.string,
@@ -1610,8 +1829,12 @@ mips_elf_final_link (abfd, info)
 
 	      input_section = p->u.indirect.section;
 	      input_bfd = input_section->owner;
-	      BFD_ASSERT (input_section->_raw_size
-			  == sizeof (Elf32_External_RegInfo));
+
+	      /* The linker emulation code has probably clobbered the
+                 size to be zero bytes.  */
+	      if (input_section->_raw_size == 0)
+		input_section->_raw_size = sizeof (Elf32_External_RegInfo);
+
 	      if (! bfd_get_section_contents (input_bfd, input_section,
 					      (PTR) &ext,
 					      (file_ptr) 0,
@@ -2153,8 +2376,7 @@ mips_elf_relocate_hi16 (input_bfd, relhi, rello, contents, addend)
 
 static boolean
 mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
-			   contents, relocs, local_syms, local_sections,
-			   output_names)
+			   contents, relocs, local_syms, local_sections)
      bfd *output_bfd;
      struct bfd_link_info *info;
      bfd *input_bfd;
@@ -2163,7 +2385,6 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
      Elf_Internal_Rela *relocs;
      Elf_Internal_Sym *local_syms;
      asection **local_sections;
-     char *output_names;
 {
   Elf_Internal_Shdr *symtab_hdr;
   size_t locsymcount;
@@ -2189,7 +2410,7 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
   for (; rel < relend; rel++)
     {
       int r_type;
-      const reloc_howto_type *howto;
+      reloc_howto_type *howto;
       long r_symndx;
       bfd_vma addend;
       struct elf_link_hash_entry *h;
@@ -2377,7 +2598,9 @@ mips_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		  name = h->root.root.string;
 		else
 		  {
-		    name = output_names + sym->st_name;
+		    name = elf_string_from_elf_section (input_bfd,
+							symtab_hdr->sh_link,
+							sym->st_name);
 		    if (name == NULL)
 		      return false;
 		    if (*name == '\0')

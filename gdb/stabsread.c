@@ -1,5 +1,5 @@
 /* Support routines for decoding "stabs" debugging information format.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -185,6 +185,9 @@ struct complaint unrecognized_cplus_name_complaint =
 
 struct complaint rs6000_builtin_complaint =
   {"Unknown builtin type %d", 0, 0};
+
+struct complaint unresolved_sym_chain_complaint =
+  {"%s: `%s' from global_sym_chain unresolved", 0, 0};
 
 struct complaint stabs_general_complaint =
   {"%s", 0, 0};
@@ -867,11 +870,13 @@ define_symbol (valu, string, desc, type, objfile)
 #endif
       add_symbol_to_list (sym, &local_symbols);
 
-#if TARGET_BYTE_ORDER == LITTLE_ENDIAN
-      /* On little-endian machines, this crud is never necessary, and,
-	 if the extra bytes contain garbage, is harmful.  */
-      break;
-#else /* Big endian.  */
+      if (TARGET_BYTE_ORDER != BIG_ENDIAN)
+	{
+	  /* On little-endian machines, this crud is never necessary,
+	     and, if the extra bytes contain garbage, is harmful.  */
+	  break;
+	}
+
       /* If it's gcc-compiled, if it says `short', believe it.  */
       if (processing_gcc_compilation || BELIEVE_PCC_PROMOTION)
 	break;
@@ -950,7 +955,6 @@ define_symbol (valu, string, desc, type, objfile)
 #endif /* no BELIEVE_PCC_PROMOTION_TYPE.  */
       }
 #endif /* !BELIEVE_PCC_PROMOTION.  */
-#endif /* Big endian.  */
 
     case 'P':
       /* acc seems to use P to delare the prototypes of functions that
@@ -1043,6 +1047,18 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_STATIC;
       SYMBOL_VALUE_ADDRESS (sym) = valu;
+#ifdef STATIC_TRANSFORM_NAME
+      if (SYMBOL_NAME (sym)[0] == '$')
+      {
+	struct minimal_symbol *msym;
+	msym = lookup_minimal_symbol (SYMBOL_NAME (sym), NULL, objfile);
+	if (msym != NULL)
+	  {
+	    SYMBOL_NAME (sym) = STATIC_TRANSFORM_NAME (SYMBOL_NAME (sym));
+	    SYMBOL_VALUE_ADDRESS (sym) = SYMBOL_VALUE_ADDRESS (msym);
+	  }
+      }
+#endif
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       add_symbol_to_list (sym, &file_symbols);
       break;
@@ -1169,6 +1185,18 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_STATIC;
       SYMBOL_VALUE_ADDRESS (sym) = valu;
+#ifdef STATIC_TRANSFORM_NAME
+      if (SYMBOL_NAME (sym)[0] == '$')
+      {
+	struct minimal_symbol *msym;
+	msym = lookup_minimal_symbol (SYMBOL_NAME (sym), NULL, objfile);
+	if (msym != NULL)
+	  {
+	    SYMBOL_NAME (sym) = STATIC_TRANSFORM_NAME (SYMBOL_NAME (sym));
+	    SYMBOL_VALUE_ADDRESS (sym) = SYMBOL_VALUE_ADDRESS (msym);
+	  }
+      }
+#endif
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       if (os9k_stabs)
 	add_symbol_to_list (sym, &global_symbols);
@@ -1181,6 +1209,20 @@ define_symbol (valu, string, desc, type, objfile)
       SYMBOL_TYPE (sym) = read_type (&p, objfile);
       SYMBOL_CLASS (sym) = LOC_REF_ARG;
       SYMBOL_VALUE (sym) = valu;
+      SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
+      add_symbol_to_list (sym, &local_symbols);
+      break;
+
+    case 'a':
+      /* Reference parameter which is in a register.  */
+      SYMBOL_TYPE (sym) = read_type (&p, objfile);
+      SYMBOL_CLASS (sym) = LOC_REGPARM_ADDR;
+      SYMBOL_VALUE (sym) = STAB_REG_TO_REGNUM (valu);
+      if (SYMBOL_VALUE (sym) >= NUM_REGS)
+	{
+	  complain (&reg_value_complaint, SYMBOL_SOURCE_NAME (sym));
+	  SYMBOL_VALUE (sym) = SP_REGNUM;  /* Known safe, though useless */
+	}
       SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
       add_symbol_to_list (sym, &local_symbols);
       break;
@@ -1739,7 +1781,7 @@ read_type (pp, objfile)
 
   /* Size specified in a type attribute overrides any other size.  */
   if (type_size != -1)
-    TYPE_LENGTH (type) = type_size / TARGET_CHAR_BIT;
+    TYPE_LENGTH (type) = (type_size + TARGET_CHAR_BIT - 1) / TARGET_CHAR_BIT;
 
   return type;
 }
@@ -2750,17 +2792,6 @@ attach_fn_fields_to_type (fip, type)
 {
   register int n;
 
-  for (n = 0; n < TYPE_N_BASECLASSES (type); n++)
-    {
-      if (TYPE_CODE (TYPE_BASECLASS (type, n)) == TYPE_CODE_UNDEF)
-	{
-	  /* @@ Memory leak on objfile -> type_obstack?  */
-	  return 0;
-	}
-      TYPE_NFN_FIELDS_TOTAL (type) +=
-	TYPE_NFN_FIELDS_TOTAL (TYPE_BASECLASS (type, n));
-    }
-
   for (n = TYPE_NFN_FIELDS (type);
        fip -> fnlist != NULL;
        fip -> fnlist = fip -> fnlist -> next)
@@ -2989,12 +3020,8 @@ read_array_type (pp, type, objfile)
 
   /* If we have an array whose element type is not yet known, but whose
      bounds *are* known, record it to be adjusted at the end of the file.  */
-  /* FIXME: Why check for zero length rather than TYPE_FLAG_STUB?  I think
-     the two have the same effect except that the latter is cleaner and the
-     former would be wrong for types which really are zero-length (if we
-     have any).  */
 
-  if (TYPE_LENGTH (element_type) == 0 && !adjustable)
+  if ((TYPE_FLAGS (element_type) & TYPE_FLAG_STUB) && !adjustable)
     {
       TYPE_FLAGS (type) |= TYPE_FLAG_TARGET_STUB;
       add_undefined_type (type);
@@ -3093,12 +3120,11 @@ read_enum_type (pp, type, objfile)
      that in something like "enum {FOO, LAST_THING=FOO}" we print
      FOO, not LAST_THING.  */
 
-  for (syms = *symlist, n = 0; syms; syms = syms->next)
+  for (syms = *symlist, n = nsyms - 1; ; syms = syms->next)
     {
-      int j = 0;
-      if (syms == osyms)
-	j = o_nsyms;
-      for (; j < syms->nsyms; j++,n++)
+      int last = syms == osyms ? o_nsyms : 0;
+      int j = syms->nsyms;
+      for (; --j >= last; --n)
 	{
 	  struct symbol *xsym = syms->symbol[j];
 	  SYMBOL_TYPE (xsym) = type;
@@ -3801,22 +3827,46 @@ GDB internal error.  cleanup_undefined_types with bad type %d.", 0, 0};
 
 /* Scan through all of the global symbols defined in the object file,
    assigning values to the debugging symbols that need to be assigned
-   to.  Get these symbols from the minimal symbol table.  */
+   to.  Get these symbols from the minimal symbol table.
+   Return 1 if there might still be unresolved debugging symbols, else 0.  */
 
-void
-scan_file_globals (objfile)
+static int scan_file_globals_1 PARAMS ((struct objfile *));
+
+static int
+scan_file_globals_1 (objfile)
      struct objfile *objfile;
 {
   int hash;
   struct minimal_symbol *msymbol;
   struct symbol *sym, *prev;
 
+  /* Avoid expensive loop through all minimal symbols if there are
+     no unresolved symbols.  */
+  for (hash = 0; hash < HASHSIZE; hash++)
+    {
+      if (global_sym_chain[hash])
+	break;
+    }
+  if (hash >= HASHSIZE)
+    return 0;
+
   if (objfile->msymbols == 0)		/* Beware the null file.  */
-    return;
+    return 1;
 
   for (msymbol = objfile -> msymbols; SYMBOL_NAME (msymbol) != NULL; msymbol++)
     {
       QUIT;
+
+      /* Skip static symbols.  */
+      switch (MSYMBOL_TYPE (msymbol))
+	{
+	case mst_file_text:
+	case mst_file_data:
+	case mst_file_bss:
+	  continue;
+	default:
+	  break;
+	}
 
       prev = NULL;
 
@@ -3872,6 +3922,42 @@ scan_file_globals (objfile)
 	    }
 	}
     }
+  return 1;
+}
+
+/* Assign values to global debugging symbols.
+   Search the passed objfile first, then try the runtime common symbols.
+   Complain about any remaining unresolved symbols and remove them
+   from the chain.  */
+
+void
+scan_file_globals (objfile)
+     struct objfile *objfile;
+{
+  int hash;
+  struct symbol *sym, *prev;
+
+  if (scan_file_globals_1 (objfile) == 0)
+    return;
+  if (rt_common_objfile && scan_file_globals_1 (rt_common_objfile) == 0)
+    return;
+
+  for (hash = 0; hash < HASHSIZE; hash++)
+    {
+      sym = global_sym_chain[hash];
+      while (sym)
+	{
+	  complain (&unresolved_sym_chain_complaint,
+		    objfile->name, SYMBOL_NAME (sym));
+
+	  /* Change the symbol address from the misleading chain value
+	     to address zero.  */
+	  prev = sym;
+	  sym = SYMBOL_VALUE_CHAIN (sym);
+	  SYMBOL_VALUE_ADDRESS (prev) = 0;
+	}
+    }
+  memset (global_sym_chain, 0, sizeof (global_sym_chain));
 }
 
 /* Initialize anything that needs initializing when starting to read

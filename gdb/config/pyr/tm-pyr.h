@@ -114,13 +114,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 (((read_memory_integer (pc, 2) & 0x3ff0) == 0x3090) || \
  ((read_memory_integer (pc, 2) & 0x0ff0) == 0x00a0))
 
-/* Return 1 if P points to an invalid floating point value.
-   LEN is the length in bytes -- not relevant on the Vax.  */
-/* FIXME -- this is ok for a vax, bad for big-endian ieee format.
-   I would use the definition for a Sun; but it is no better! */
-
-#define INVALID_FLOAT(p, len) ((*(short *) p & 0xff80) == 0x8000)
-
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
    real way to know how big a register is.  */
@@ -265,7 +258,7 @@ extern unsigned int last_frame_offset;
    (its caller).  */
 
 #define EXTRA_FRAME_INFO \
-	FRAME_ADDR bottom;	\
+	CORE_ADDR bottom;	\
 	CORE_ADDR frame_cfp;	\
 	CORE_ADDR frame_window_addr;
 
@@ -383,8 +376,7 @@ do {								\
   register int first_insn;						\
   register CORE_ADDR prev_cf_addr;					\
   register int window_ptr;						\
-  FRAME fid = FRAME_INFO_ID (fi_p);					\
-  if (!fid) fatal ("Bad frame info struct in FRAME_FIND_SAVED_REGS");	\
+  if (!fi_p) fatal ("Bad frame info struct in FRAME_FIND_SAVED_REGS");	\
   memset (&(frame_saved_regs), '\0', sizeof (frame_saved_regs));		\
 									\
   window_ptr = prev_cf_addr = FRAME_FP(fi_p);				\

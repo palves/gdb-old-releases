@@ -355,14 +355,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    restoring all saved registers.  */
 
 #define POP_FRAME  \
-{ register FRAME frame = get_current_frame ();			 \
+{ register struct frame_info *frame = get_current_frame ();	 \
   register CORE_ADDR fp;					 \
   register int regnum;						 \
   struct frame_saved_regs fsr;					 \
   struct frame_info *fi;					 \
-  fi = get_frame_info (frame);					 \
-  fp = fi->frame;						 \
-  get_frame_saved_regs (fi, &fsr);				 \
+  fp = frame->frame;						 \
+  get_frame_saved_regs (frame, &fsr);				 \
   for (regnum = FP_REGNUM - 1; regnum >= 0; regnum--)		 \
     if (fsr.regs[regnum])					 \
       write_register (regnum, read_memory_integer (fsr.regs[regnum], 4)); \
@@ -372,8 +371,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   write_register (PC_REGNUM, read_memory_integer (fp + 4, 4));   \
   write_register (SP_REGNUM, fp + 8);				 \
   flush_cached_frames ();					 \
-  set_current_frame ( create_new_frame (read_register (FP_REGNUM),\
-					read_pc ())); }
+}
 
 /* This sequence of words is the instructions:
      halt

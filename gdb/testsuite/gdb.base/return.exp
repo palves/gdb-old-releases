@@ -30,7 +30,7 @@ set binfile "return"
 set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
-    # FIXME: should we warn if $all_flag like gdb.stabs/wierd.exp does?
+    perror "$objdir/$subdir/$binfile does not exist."
     return 0
 }
 

@@ -1,8 +1,161 @@
+Mon Jan 30 12:38:00 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	From "Logg, Ed" <elogg@ea.com>:
+	* ppc-opc.c (extract_bdm): Correct parenthezisation.
+	* ppc-dis.c (print_insn_powerpc): Print .long before unrecognized
+	value.
+
+Thu Jan 26 18:32:08 1995  Ian Lance Taylor  <ian@cygnus.com>
+
+	* ppc-opc.c: Changes based on patch from David Edelsohn
+	<edelsohn@mhpcc.edu>.
+	(powerpc_operands): Add operands SPRBAT and SPRG. Split TBR out of
+	SPR.
+	(FXM_MASK): Define.
+	(insert_tbr): New static function.
+	(extract_tbr): New static function.
+	(XFXFXM_MASK, XFXM): Define.
+	(XSPRBAT_MASK, XSPRG_MASK): Define.
+	(powerpc_opcodes): Add instructions to access special registers by
+	name.  Add mtcr and mftbu.
+
+Tue Jan 17 10:56:43 1995  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* mips-opc.c (P3): Define.
+	(mips_opcodes): Add mad and madu.
+
+Sun Jan 15 16:32:59 1995  Steve Chamberlain  <sac@splat>
+
+	* configure.in: Add W65 support.
+	* disassemble.c: Likewise.
+	* w65-opc.h, w65-dis.c: New files.
+
+Wed Dec 28 22:15:33 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* h8300-dis.c (bfd_h8_disassemble): Add support for 2 bit
+	immediates.
+
+
+Tue Dec 20 11:25:12 1994  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* mips-opc.c: Add dli as a synonym for li.
+
+
+Thu Dec  8 18:23:31 1994  Ken Raeburn  <raeburn@cujo.cygnus.com>
+
+	* alpha-dis.c (print_insn_alpha): Handle call_pal instruction, and
+	print something for reserved opcode values, even if it won't
+	assemble again.
+
+	* mips-dis.c (_print_insn_mips): When initializing, shift right
+	and mask, to avoid sign extension problems on the Alpha.
+
+	* m68k-dis.c (print_insn_arg, case 'J'): Handle buscr and pcr
+	control registers.
+
+
+Wed Nov 23 22:34:51 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* sh-opc.h (mov.l gbr): Get direction right.
+	* sh-dis.c (print_insn_shx): New function.
+	(print_insn_shl, print_insn_sh): Call print_insn_shx to
+	print opcodes with right byte order.
+
+Thu Nov  3 19:32:22 1994  Ken Raeburn  <raeburn@cujo.cygnus.com>
+
+	* ns32k-dis.c (struct ns32k_option): Renamed from struct option,
+	to avoid conflicts with getopt.
+
+Mon Oct 31 18:48:10 1994  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* hppa-dis.c (print_insn_hppa): Read the instruction using
+	bfd_getb32, so that it works on a little endian or 64 bit host.
+	Remove unused local variable op.
+
+Tue Oct 25 17:07:57 1994  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* mips-opc.c: Use or instead of addu for pseudo-op move, since
+	addu does not work correctly if -mips3.
+
+Wed Oct 19 13:40:16 1994  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* a29k-dis.c (print_special): Add special register names defined
+	on 29030, 29040 and 29050.
+	(print_insn): Handle new operand type 'I'.
+
+Wed Oct 12 11:59:55 1994  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* Makefile.in (INSTALL): Use top level install.sh script.
+
+Wed Oct  5 19:16:29 1994  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* sparc-dis.c: Rewrite to use bitfields, rather than a union, so
+	that it works on a little endian host.
+
+Tue Oct  4 12:14:21 1994  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* configure.in: Use ${config_shell} when running config.bfd.
+
+Wed Sep 21 18:49:12 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* mips-opc.c (mips_opcodes): "dabs" is only available with -mips3.
+
+Thu Sep 15 16:30:22 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* a29k-dis.c (print_insn): Print the opcode.
+
+Wed Sep 14 17:52:14 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* mips-opc.c (mips_opcodes): Set WR_t for sc and scd.
+
+Sun Sep 11 22:32:17 1994  Jeff Law  (law@snake.cs.utah.edu)
+
+	* hppa-dis.c (reg_names): Use r26-r23 for arg0-arg3.
+
+Tue Sep  6 11:37:12 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* mips-opc.c: Set INSN_STORE_MEMORY flag for all instructions
+	which store a value into memory.
+
+Sun Sep 04 17:58:10 1994  Richard Earnshaw (rwe@pegasus.esprit.ec.org)
+
+	* configure.in, Makefile.in, disassemble.c: Add support for the ARM.
+	* arm-dis.c, arm-opc.h: New files.
+
 Fri Aug  5 14:00:05 1994  Stan Shebs  (shebs@andros.cygnus.com)
 
 	* Makefile.in (ns32k-dis.o): Add dependency.
 	* ns32k-dis.c (print_insn_arg): Declare initialized local as
 	string, not as array of chars.
+
+Thu Jul 28 18:14:16 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* sparc-dis.c (print_insn_sparc): Handle new operand type 'x'.
+
+	* sparc-opc.c: Added sparclite extended FP operations, and
+	versions of v9 impdep* instructions permitting specification of
+	the OPF field.
+
+Tue Jul 26 16:36:03 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* i960-dis.c (reg_names): Now const.
+	(struct sparse_tabent): New type, copied from array type in mem
+	function.
+	(ctrl): Local static array ctrl_tab now const.
+	(cobr): Local static array cobr_tab now const.
+	(mem): Local variables reg1, reg2, reg3 now point to const.  Local
+	static variable mem_tab no longer explicitly initialized.  Changed
+	mem_init to const array of struct sparse_tabent.
+	(reg): Local static variable reg_tab no longer explicitly
+	initialized.  Changed reg_init to const array of struct
+	sparse_tabent.
+	(ea): Local static array scale_tab now const.
+
+
+Tue Jul 19 21:00:00 1994  DJ Delorie (dj@ctron.com)
+
+	* configure.bat: the disassember needs to be enabled for
+	"objdump -d" to work in djgpp.
 
 Wed Jul 13 18:01:58 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
 
@@ -26,7 +179,7 @@ Sun Jul 10 00:27:47 1994  Ian Dall  (dall@hfrd.dsto.gov.au)
 	from distribution. A ns32k-dis.c from a previous distribution has
 	been brought up to date and supports the new interface.
 
-	* disaaemble.c: define ARCH_ns32k and add case bfd_arch_ns32k.
+	* disassemble.c: define ARCH_ns32k and add case bfd_arch_ns32k.
 
 	* configure.in: add bfd_ns32k_arch target support.
 

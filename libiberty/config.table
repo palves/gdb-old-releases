@@ -5,6 +5,7 @@ case "${xhost-${host}}" in
                         frag=mh-aix
 			files=${xsrcdir}alloca-botch.h ;;
   rs6000-ibm-aix*)      files=${xsrcdir}alloca-botch.h ;;
+  arm-*-riscix*)	frag=mh-riscix ;;
   m68k-apollo-bsd*)	frag=mh-a68bsd ;;
   m68k-apollo-sysv*)	frag=mh-apollo68 ;;
   i[34]86-ncr-sysv4*)	frag=mh-ncr3000 ;;
@@ -31,3 +32,28 @@ case "${target}" in
 	fi
   ;;
 esac
+
+frags=$frag
+
+# If they didn't specify --enable-shared, don't generate shared libs.
+if [ "${enable_shared}" = "yes" ]; then
+  case "${xhost-${host}}" in
+    hppa*-*-*)	  frags="${frags} ../../libio/config/mt-papic" ;;
+    i[345]86-*-*) frags="${frags} ../../libio/config/mt-x86pic" ;;
+    *-*-*) 	  frags="${frags} ../../libio/config/mt-${target_cpu}pic" ;;
+  esac
+fi
+
+echo "# Warning: this fragment is automatically generated" > temp-frag
+
+for frag in ${frags}; do
+  frag=${srcdir}/${xsrcdir}config/$frag
+  if [ -f ${frag} ]; then
+    echo "Appending ${frag} to xhost-mkfrag"
+    echo "# Following fragment copied from ${frag}" >> temp-frag
+    cat ${frag} >> temp-frag
+  fi
+done
+
+frag=xhost-mkfrag
+${moveifchange} temp-frag xhost-mkfrag

@@ -1,5 +1,6 @@
 /* Target-vector operations for controlling Unix child processes, for GDB.
-   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995
+   Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB.
@@ -26,6 +27,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcore.h"
 #include "command.h"
 #include <signal.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
 static void
 child_prepare_to_store PARAMS ((void));
@@ -78,9 +81,8 @@ child_wait (pid, ourstatus)
   int status;
 
   do {
-    if (attach_flag)
-      set_sigint_trap();	/* Causes SIGINT to be passed on to the
-				   attached process. */
+    set_sigint_trap();	/* Causes SIGINT to be passed on to the
+			   attached process. */
     set_sigio_trap ();
 
     pid = proc_wait (inferior_pid, &status);
@@ -88,8 +90,7 @@ child_wait (pid, ourstatus)
 
     clear_sigio_trap ();
 
-    if (attach_flag)
-      clear_sigint_trap();
+    clear_sigint_trap();
 
     if (pid == -1)
       {
@@ -279,6 +280,20 @@ child_can_run ()
 {
   return(1);
 }
+
+/* Send a SIGINT to the process group.  This acts just like the user typed a
+   ^C on the controlling terminal.
+
+   XXX - This may not be correct for all systems.  Some may want to use
+   killpg() instead of kill (-pgrp). */
+
+void
+child_stop ()
+{
+  extern pid_t inferior_process_group;
+
+  kill (-inferior_process_group, SIGINT);
+}
 
 struct target_ops child_ops = {
   "child",			/* to_shortname */
@@ -309,6 +324,7 @@ struct target_ops child_ops = {
   child_mourn_inferior,		/* to_mourn_inferior */
   child_can_run,		/* to_can_run */
   0, 				/* to_notice_signals */
+  child_stop,			/* to_stop */
   process_stratum,		/* to_stratum */
   0,				/* to_next */
   1,				/* to_has_all_memory */
@@ -316,13 +332,30 @@ struct target_ops child_ops = {
   1,				/* to_has_stack */
   1,				/* to_has_registers */
   1,				/* to_has_execution */
-  0,				/* sections */
-  0,				/* sections_end */
+  0,				/* to_sections */
+  0,				/* to_sections_end */
   OPS_MAGIC			/* to_magic */
 };
 
 void
 _initialize_inftarg ()
 {
+#ifdef HAVE_OPTIONAL_PROC_FS
+  char procname[32];
+  int fd;
+
+  /* If we have an optional /proc filesystem (e.g. under OSF/1),
+     don't add ptrace support if we can access the running GDB via /proc.  */
+#ifndef PROC_NAME_FMT
+#define PROC_NAME_FMT "/proc/%05d"
+#endif
+  sprintf (procname, PROC_NAME_FMT, getpid ());
+  if ((fd = open (procname, O_RDONLY)) >= 0)
+    {
+      close (fd);
+      return;
+    }
+#endif
+
   add_target (&child_ops);
 }

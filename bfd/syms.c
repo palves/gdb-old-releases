@@ -262,12 +262,15 @@ CODE_FRAGMENT
 .
 .	{* A pointer to the section to which this symbol is
 .	   relative.  This will always be non NULL, there are special
-.          sections for undefined and absolute symbols *}
+.          sections for undefined and absolute symbols.  *}
 .  struct sec *section;
 .
-.	{* Back end special data. This is being phased out in favour
-.	   of making this a union. *}
-.  PTR udata;
+.	{* Back end special data.  *}
+.  union
+.    {
+.      PTR p;
+.      bfd_vma i;
+.    } udata;
 .
 .} asymbol;
 */
@@ -392,16 +395,17 @@ bfd_print_symbol_vandf (arg, symbol)
     }
 
   /* This presumes that a symbol can not be both BSF_DEBUGGING and
-     BSF_DYNAMIC.  */
+     BSF_DYNAMIC, nor both BSF_FUNCTION and BSF_FILE.  */
   fprintf (file, " %c%c%c%c%c%c%c",
-	   (type & BSF_LOCAL) ? 'l' : ' ',
-	   (type & BSF_GLOBAL) ? 'g' : ' ',
+	   ((type & BSF_LOCAL)
+	    ? (type & BSF_GLOBAL) ? '!' : 'l'
+	    : (type & BSF_GLOBAL) ? 'g' : ' '),
 	   (type & BSF_WEAK) ? 'w' : ' ',
 	   (type & BSF_CONSTRUCTOR) ? 'C' : ' ',
 	   (type & BSF_WARNING) ? 'W' : ' ',
 	   (type & BSF_INDIRECT) ? 'I' : ' ',
-	   (type & BSF_DEBUGGING) ? 'd'
-	   : (type & BSF_DYNAMIC) ? 'D' : ' ');
+	   (type & BSF_DEBUGGING) ? 'd' : (type & BSF_DYNAMIC) ? 'D' : ' ',
+	   (type & BSF_FUNCTION) ? 'F' : (type & BSF_FILE) ? 'f' : ' ');
 }
 
 
@@ -449,9 +453,11 @@ static CONST struct section_to_type stt[] =
   {"*DEBUG*", 'N'},
   {".bss", 'b'},
   {".data", 'd'},
-  {".sbss", 's'},		/* Small BSS (uninitialized data) */
-  {".scommon", 'c'},		/* Small common */
-  {".sdata", 'g'},		/* Small initialized data */
+  {".rdata", 'r'},		/* Read only data.  */
+  {".rodata", 'r'},		/* Read only data.  */
+  {".sbss", 's'},		/* Small BSS (uninitialized data).  */
+  {".scommon", 'c'},		/* Small common.  */
+  {".sdata", 'g'},		/* Small initialized data.  */
   {".text", 't'},
   {0, 0}
 };

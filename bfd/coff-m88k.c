@@ -26,6 +26,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/m88k.h"
 #include "coff/internal.h"
 #include "libcoff.h"
+
+#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (3)
+
 #undef HOWTO_PREPARE
 /* Provided the symbol, returns the value reffed */
 #define HOWTO_PREPARE(relocation, symbol) 	\
@@ -90,8 +93,8 @@ static reloc_howto_type howto_table[] =
    above howto table */
 #define RTYPE2HOWTO(cache_ptr, dst)					\
 	    if ((dst)->r_type >= R_PCR16L && (dst)->r_type <= R_VRT32) {\
-		cache_ptr->howto = howto_table + (dst)->r_type - R_PCR16L;\
-		cache_ptr->addend += (dst)->r_offset << 16;		\
+		(cache_ptr)->howto = howto_table + (dst)->r_type - R_PCR16L;\
+		(cache_ptr)->addend += (dst)->r_offset << 16;		\
 	    }								\
 	    else {							\
 		BFD_ASSERT(0);						\

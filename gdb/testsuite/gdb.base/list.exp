@@ -1,4 +1,4 @@
-# Copyright (C) 1992 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1994 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -476,13 +476,13 @@ proc test_list_filename_and_number {} {
 	-re ".*$prompt $" { fail "list list1.c:1" ; return }
 	timeout { fail "list list1.c:1" ; return }
     }
-    send "list list1.c:10\n"
+    send "list list1.c:12\n"
     expect {
-	-re "5\[ \t\]+printf \[(\]+.*\[)\]+;.*12\[ \t\]+\}\r\n$prompt $" {
+	-re "7\[ \t\]+long_line \[(\]+.*\[)\]+;.*14\[ \t\]+\}\r\n.*$prompt $" {
 	    incr testcnt 
 	}
-	-re ".*$prompt $" { fail "list list1.c:10" ; return }
-	timeout { fail "list list1.c:10" ; return }
+	-re ".*$prompt $" { fail "list list1.c:12" ; return }
+	timeout { fail "list list1.c:12" ; return }
     }
     pass "list filename:number ($testcnt tests)"
 }
@@ -510,10 +510,10 @@ proc test_list_function {} {
     # Ultrix gdb takes the second case below; it's also correct.
     send "list bar\n"
     expect {
-	-re "1\[ \t\]+void.*8\[ \t\]+static void\r\n$prompt $" {
+	-re "1\[ \t\]+void.*8\[ \t\]+\}\r\n$prompt $" {
 	    pass "list function in source file 2"
 	}
-	-re "1\[ \t\]+void.*7\[ \t\]*\r\n$prompt $" {
+	-re "1\[ \t\]+void.*7\[ \t\]*long_line ..;\r\n$prompt $" {
 	    pass "list function in source file 2"
 	}
 	-re ".*$prompt $" { fail "list bar" ; return }
@@ -750,13 +750,13 @@ proc test_list_filename_and_function {} {
     # a29k-amd-udi is the third case.
     send "list list1.c:bar\n"
     expect {
-	-re "1\[ \t\]+void.*8\[ \t\]+static void\r\n$prompt $" {
+	-re "1\[ \t\]+void.*8\[ \t\]+\}\r\n$prompt $" {
 	    incr testcnt
 	}
-	-re "1\[ \t\]+void.*7\[ \t\]*\r\n$prompt $" {
+	-re "1\[ \t\]+void.*7\[ \t\]*long_line ..;\r\n$prompt $" {
 	    incr testcnt
 	}
-	-re "1\[ \t\]+void.*9\[ \t\]*unused \[)(\]+\r\n$prompt $" {
+	-re "1\[ \t\]+void.*9\[ \t\]*\r\n$prompt $" {
 	    incr testcnt
 	}
 	-re ".*$prompt $" { fail "list list1.c:bar" }
@@ -770,10 +770,10 @@ proc test_list_filename_and_function {} {
     setup_xfail "rs6000-*-aix*"
     send "list list1.c:unused\n"
     expect {
-	-re "5\[ \t\]+printf \[(\]+.*\[)\]+;.*12\[ \t\]+\}\r\n$prompt $" {
+	-re "7\[ \t\]+long_line \[(\]\[)\];.*14\[ \t\]+\}\r\n.*$prompt $" {
 	    incr testcnt
 	}
-	-re "7.*12\[ \t\]+\}\r\n$prompt $" {
+	-re "9.*14\[ \t\]+\}\r\n.*$prompt $" {
 	    incr testcnt
 	}
 	-re ".*$prompt $" { fail "list list1.c:unused" }
@@ -848,6 +848,30 @@ proc test_list_filename_and_function {} {
 
 }
 
+proc test_forward_search {} {
+	global timeout
+
+	gdb_test "set listsize 4" ""
+	# On SunOS4, this gives us lines 19-22.  On AIX, it gives us
+	# lines 20-23.  This depends on whether the line number of a function
+	# is considered to be the openbrace or the first statement--either one
+	# is acceptable.
+	gdb_test "list long_line" "20\[ \t\]+long_line "
+
+	gdb_test "search 4321" " not found"
+
+	gdb_test "search 6789" "24\[ \t\]+oof .6789.;"
+
+	# We could look at the result of this, but dejagnu seems to
+	# fail, perhaps because expect's buffers are too small.
+	# In any case, we just want GDB to not crash if the line
+	# being searched is extremely long.
+
+	set oldtimeout $timeout
+	set timeout 30
+	gdb_test "search 1234" ""
+	set timeout $oldtimeout
+}
 
 # Start with a fresh gdb.
 
@@ -868,5 +892,5 @@ if [ set_listsize 10 ] then {
     test_list_backwards
     test_list_range
     test_list_filename_and_function
+    test_forward_search
 }
-

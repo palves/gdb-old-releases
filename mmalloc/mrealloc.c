@@ -22,7 +22,7 @@ Cambridge, MA 02139, USA.
 
 #include <string.h>	/* Prototypes for memcpy, memmove, memset, etc */
 
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 /* Resize the given region to the new size, returning a pointer
    to the (possibly moved) region.  This is optimized for speed;

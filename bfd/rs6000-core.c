@@ -198,7 +198,7 @@ rs6000coff_core_p (abfd)
     return NULL;
   }
   core_stacksec (abfd)->name = ".stack";
-  core_stacksec (abfd)->flags = SEC_ALLOC + SEC_LOAD;
+  core_stacksec (abfd)->flags = SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS;
   core_stacksec (abfd)->_raw_size = coredata.c_size;
   core_stacksec (abfd)->vma = STACK_END_ADDR - coredata.c_size;
   core_stacksec (abfd)->filepos = (int)coredata.c_stack;	/*???? */
@@ -238,14 +238,14 @@ rs6000coff_core_p (abfd)
     return NULL;
   }
   core_ldinfosec (abfd)->name = ".ldinfo";
-  core_ldinfosec (abfd)->flags = SEC_ALLOC + SEC_LOAD;
+  core_ldinfosec (abfd)->flags = SEC_HAS_CONTENTS;
   /* To actually find out how long this section is in this particular
      core dump would require going down the whole list of struct ld_info's.
      See if we can just fake it.  */
   core_ldinfosec (abfd)->_raw_size = 0x7fffffff;
   /* Not relevant for ldinfo section.  */
   core_ldinfosec (abfd)->vma = 0;
-  core_ldinfosec (abfd)->filepos = coredata.c_tab;
+  core_ldinfosec (abfd)->filepos = (file_ptr) coredata.c_tab;
 
   /* set up section chain here. */
   abfd->section_count = 4;
@@ -289,7 +289,7 @@ rs6000coff_core_file_matches_executable_p (core_bfd, exec_bfd)
   struct core_dump coredata;
   struct ld_info ldinfo;
   char pathname [1024];
-  char *str1, *str2;
+  const char *str1, *str2;
 
   /* Use bfd_xxx routines, rather than O/S primitives, do error checking!!
   								FIXMEmgo */

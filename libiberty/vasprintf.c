@@ -19,7 +19,13 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
+#include <string.h>
+#include <ansidecl.h>
+#ifdef __STDC__
+#include <stdarg.h>
+#else
 #include <varargs.h>
+#endif
 
 #ifdef TEST
 int global_total_width;
@@ -28,17 +34,19 @@ int global_total_width;
 unsigned long strtoul ();
 char *malloc ();
 
-int
-vasprintf (result, format, args)
+static int
+int_vasprintf (result, format, args)
      char **result;
-     char *format;
-     va_list args;
+     const char *format;
+     va_list *args;
 {
-  char *p = format;
+  const char *p = format;
   /* Add one to make sure that it is never zero, which might cause malloc
      to return NULL.  */
   int total_width = strlen (format) + 1;
-  va_list ap = args;
+  va_list ap;
+
+  memcpy ((PTR) &ap, (PTR) args, sizeof (va_list));
 
   while (*p != '\0')
     {
@@ -77,21 +85,21 @@ vasprintf (result, format, args)
 	    case 'x':
 	    case 'X':
 	    case 'c':
-	      va_arg (ap, int);
+	      (void) va_arg (ap, int);
 	      break;
 	    case 'f':
 	    case 'e':
 	    case 'E':
 	    case 'g':
 	    case 'G':
-	      va_arg (ap, double);
+	      (void) va_arg (ap, double);
 	      break;
 	    case 's':
 	      total_width += strlen (va_arg (ap, char *));
 	      break;
 	    case 'p':
 	    case 'n':
-	      va_arg (ap, char *);
+	      (void) va_arg (ap, char *);
 	      break;
 	    }
 	}
@@ -101,22 +109,40 @@ vasprintf (result, format, args)
 #endif
   *result = malloc (total_width);
   if (*result != NULL)
-    return vsprintf (*result, format, args);
+    return vsprintf (*result, format, *args);
   else
     return 0;
 }
 
+int
+vasprintf (result, format, args)
+     char **result;
+     const char *format;
+     va_list args;
+{
+  return int_vasprintf (result, format, &args);
+}
+
 #ifdef TEST
 void
-checkit (va_alist)
+checkit
+#ifdef __STDC__
+     (const char* format, ...)
+#else
+     (va_alist)
      va_dcl
+#endif
 {
   va_list args;
-  char *format;
   char *result;
 
+#ifdef __STDC__
+  va_start (args, format);
+#else
+  char *format;
   va_start (args);
   format = va_arg (args, char *);
+#endif
   vasprintf (&result, format, args);
   if (strlen (result) < global_total_width)
     printf ("PASS: ");

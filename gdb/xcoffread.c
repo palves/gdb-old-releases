@@ -1,5 +1,5 @@
 /* Read AIX xcoff symbol tables and convert to internal format, for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
    	     Free Software Foundation, Inc.
    Derived from coffread.c, dbxread.c, and a lot of hacking.
    Contributed by IBM Corporation.
@@ -32,6 +32,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/types.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <string.h>
 
 #include "obstack.h"
 #include <sys/param.h>
@@ -52,6 +53,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "buildsym.h"
 #include "stabsread.h"
 #include "complaints.h"
+
+#include "gdb-stabs.h"
 
 /* For interface with stabsread.c.  */
 #include "aout/stab_gnu.h"
@@ -186,6 +189,9 @@ free_linetab PARAMS ((void));
 static void
 find_linenos PARAMS ((bfd *, sec_ptr, PTR));
 
+static char *
+coff_getfilename PARAMS ((union internal_auxent *));
+
 static void
 read_symbol PARAMS ((struct internal_syment *, int));
 
@@ -204,6 +210,51 @@ read_xcoff_symtab PARAMS ((struct objfile *, int));
 static void
 add_stab_to_list PARAMS ((char *, struct pending_stabs **));
 
+
+#ifdef STATIC_NODEBUG_VARS
+/* Return the section_offsets* that CS points to.  */
+static int cs_to_section PARAMS ((struct coff_symbol *, struct objfile *));
+
+struct find_targ_sec_arg {
+  int targ_index;
+  int *resultp;
+};
+
+static void find_targ_sec PARAMS ((bfd *, asection *, void *));
+
+static void find_targ_sec (abfd, sect, obj)
+     bfd *abfd;
+     asection *sect;
+     PTR obj;
+{
+  struct find_targ_sec_arg *args = (struct find_targ_sec_arg *)obj;
+  if (sect->target_index == args->targ_index)
+    {
+      /* This is the section.  Figure out what SECT_OFF_* code it is.  */
+      if (bfd_get_section_flags (abfd, sect) & SEC_CODE)
+	*args->resultp = SECT_OFF_TEXT;
+      else if (bfd_get_section_flags (abfd, sect) & SEC_LOAD)
+	*args->resultp = SECT_OFF_DATA;
+      else
+	*args->resultp = SECT_OFF_BSS;
+    }
+}
+
+/* Return the section number (SECT_OFF_*) that CS points to.  */
+static int
+cs_to_section (cs, objfile)
+     struct coff_symbol *cs;
+     struct objfile *objfile;
+{
+  int off = SECT_OFF_TEXT;
+  struct find_targ_sec_arg args;
+  args.targ_index = cs->c_secnum;
+  args.resultp = &off;
+  bfd_map_over_sections (objfile->obfd, find_targ_sec, &args);
+  return off;
+}
+#endif /* STATIC_NODEBUG_VARS */
+
 /* add a given stab string into given stab vector. */
 
 static void
@@ -400,6 +451,7 @@ static int	  inclIndx;			/* last entry to table */
 static int	  inclLength;			/* table length */
 static int	  inclDepth;			/* nested include depth */
 
+static void allocate_include_entry PARAMS ((void));
 
 static void
 record_include_begin (cs)
@@ -418,26 +470,11 @@ struct coff_symbol *cs;
     }
   ++inclDepth;
 
-  /* allocate an include file, or make room for the new entry */
-  if (inclLength == 0) {
-    inclTable = (InclTable*) 
-	xmalloc (sizeof (InclTable) * INITIAL_INCLUDE_TABLE_LENGTH);
-    memset (inclTable, '\0', sizeof (InclTable) * INITIAL_INCLUDE_TABLE_LENGTH);
-    inclLength = INITIAL_INCLUDE_TABLE_LENGTH;
-    inclIndx = 0;
-  }
-  else if (inclIndx >= inclLength) {
-    inclLength += INITIAL_INCLUDE_TABLE_LENGTH;
-    inclTable = (InclTable*) 
-	xrealloc (inclTable, sizeof (InclTable) * inclLength);
-    memset (inclTable+inclLength-INITIAL_INCLUDE_TABLE_LENGTH, 
-			'\0', sizeof (InclTable)*INITIAL_INCLUDE_TABLE_LENGTH);
-  }
+  allocate_include_entry ();
 
   inclTable [inclIndx].name  = cs->c_name;
   inclTable [inclIndx].begin = cs->c_value;
 }
-
 
 static void
 record_include_end (cs)
@@ -451,6 +488,8 @@ struct coff_symbol *cs;
       complain (&msg);
     }
 
+  allocate_include_entry ();
+
   pTbl = &inclTable [inclIndx];
   pTbl->end = cs->c_value;
 
@@ -458,9 +497,30 @@ struct coff_symbol *cs;
   ++inclIndx;
 }
 
+static void
+allocate_include_entry ()
+{
+  if (inclTable == NULL)
+    {
+      inclTable = (InclTable *) 
+	xmalloc (sizeof (InclTable) * INITIAL_INCLUDE_TABLE_LENGTH);
+      memset (inclTable,
+	      '\0', sizeof (InclTable) * INITIAL_INCLUDE_TABLE_LENGTH);
+      inclLength = INITIAL_INCLUDE_TABLE_LENGTH;
+      inclIndx = 0;
+    }
+  else if (inclIndx >= inclLength)
+    {
+      inclLength += INITIAL_INCLUDE_TABLE_LENGTH;
+      inclTable = (InclTable *) 
+	xrealloc (inclTable, sizeof (InclTable) * inclLength);
+      memset (inclTable + inclLength - INITIAL_INCLUDE_TABLE_LENGTH, 
+	      '\0', sizeof (InclTable)*INITIAL_INCLUDE_TABLE_LENGTH);
+    }
+}
 
-/* given the start and end addresses of a compilation unit (or a csect, at times)
-   process its lines and create appropriate line vectors. */
+/* given the start and end addresses of a compilation unit (or a csect,
+   at times) process its lines and create appropriate line vectors. */
 
 static void
 process_linenos (start, end)
@@ -925,11 +985,11 @@ retrieve_traceback (abfd, textsec, cs, size)
 #define	RECORD_MINIMAL_SYMBOL(NAME, ADDR, TYPE, ALLOCED, SECTION, OBJFILE) \
 {						\
   char *namestr;				\
-  if (ALLOCED) 					\
-    namestr = (NAME) + 1;			\
-  else {					\
+  namestr = (NAME); \
+  if (namestr[0] == '.') ++namestr; \
+  if (!(ALLOCED)) {				\
     (NAME) = namestr = 				\
-    obstack_copy0 (&objfile->symbol_obstack, (NAME) + 1, strlen ((NAME)+1)); \
+    obstack_copy0 (&objfile->symbol_obstack, namestr, strlen (namestr)); \
     (ALLOCED) = 1;						\
   }								\
   prim_record_minimal_symbol_and_info (namestr, (ADDR), (TYPE), \
@@ -1055,7 +1115,8 @@ read_xcoff_symtab (objfile, nsyms)
 
   current_objfile = objfile;
 
-  /* Get the appropriate COFF "constants" related to the file we're handling. */
+  /* Get the appropriate COFF "constants" related to the file we're
+     handling. */
   N_TMASK = coff_data (abfd)->local_n_tmask;
   N_BTSHFT = coff_data (abfd)->local_n_btshft;
   local_symesz = coff_data (abfd)->local_symesz;
@@ -1085,484 +1146,584 @@ read_xcoff_symtab (objfile, nsyms)
   raw_symbol = symtbl;
 
   textsec = bfd_get_section_by_name (abfd, ".text");
-  if (!textsec) {
-    printf_unfiltered ("Unable to locate text section!\n");
-  }
+  if (!textsec)
+    {
+      printf_unfiltered ("Unable to locate text section!\n");
+    }
 
   next_symbol_text_func = xcoff_next_symbol_text;
 
-  while (symnum < nsyms) {
-
-    QUIT;			/* make this command interruptable.  */
-
-    /* READ_ONE_SYMBOL (symbol, cs, symname_alloced); */
-    /* read one symbol into `cs' structure. After processing the whole symbol
-       table, only string table will be kept in memory, symbol table and debug
-       section of xcoff will be freed. Thus we can mark symbols with names
-       in string table as `alloced'. */
+  while (symnum < nsyms)
     {
-      int ii;
 
-      /* Swap and align the symbol into a reasonable C structure.  */
-      bfd_coff_swap_sym_in (abfd, raw_symbol, symbol);
+      QUIT;			/* make this command interruptable.  */
 
-      cs->c_symnum = symnum;
-      cs->c_naux = symbol->n_numaux;
-      if (symbol->n_zeroes) {
-	symname_alloced = 0;
-	/* We must use the original, unswapped, name here so the name field
-	   pointed to by cs->c_name will persist throughout xcoffread.  If
-	   we use the new field, it gets overwritten for each symbol.  */
-	cs->c_name = ((struct external_syment *)raw_symbol)->e.e_name;
-	/* If it's exactly E_SYMNMLEN characters long it isn't
-	   '\0'-terminated.  */
-	if (cs->c_name[E_SYMNMLEN - 1] != '\0')
+      /* READ_ONE_SYMBOL (symbol, cs, symname_alloced); */
+      /* read one symbol into `cs' structure. After processing the
+	 whole symbol table, only string table will be kept in memory,
+	 symbol table and debug section of xcoff will be freed. Thus
+	 we can mark symbols with names in string table as
+	 `alloced'. */
+      {
+	int ii;
+
+	/* Swap and align the symbol into a reasonable C structure.  */
+	bfd_coff_swap_sym_in (abfd, raw_symbol, symbol);
+
+	cs->c_symnum = symnum;
+	cs->c_naux = symbol->n_numaux;
+	if (symbol->n_zeroes)
 	  {
-	    char *p;
-	    p = obstack_alloc (&objfile->symbol_obstack, E_SYMNMLEN + 1);
-	    strncpy (p, cs->c_name, E_SYMNMLEN);
-	    p[E_SYMNMLEN] = '\0';
-	    cs->c_name = p;
+	    symname_alloced = 0;
+	    /* We must use the original, unswapped, name here so the name field
+	       pointed to by cs->c_name will persist throughout xcoffread.  If
+	       we use the new field, it gets overwritten for each symbol.  */
+	    cs->c_name = ((struct external_syment *)raw_symbol)->e.e_name;
+	    /* If it's exactly E_SYMNMLEN characters long it isn't
+	       '\0'-terminated.  */
+	    if (cs->c_name[E_SYMNMLEN - 1] != '\0')
+	      {
+		char *p;
+		p = obstack_alloc (&objfile->symbol_obstack, E_SYMNMLEN + 1);
+		strncpy (p, cs->c_name, E_SYMNMLEN);
+		p[E_SYMNMLEN] = '\0';
+		cs->c_name = p;
+		symname_alloced = 1;
+	      }
+	  }
+	else if (symbol->n_sclass & 0x80)
+	  {
+	    cs->c_name = debugsec + symbol->n_offset;
+	    symname_alloced = 0;
+	  }
+	else
+	  {
+	    /* in string table */
+	    cs->c_name = strtbl + (int)symbol->n_offset;
 	    symname_alloced = 1;
 	  }
-      } else if (symbol->n_sclass & 0x80) {
-	cs->c_name = debugsec + symbol->n_offset;
-	symname_alloced = 0;
-      } else {	/* in string table */
-	cs->c_name = strtbl + (int)symbol->n_offset;
-	symname_alloced = 1;
-      }
-      cs->c_value = symbol->n_value;
-      cs->c_sclass = symbol->n_sclass;
-      cs->c_secnum = symbol->n_scnum;
-      cs->c_type = (unsigned)symbol->n_type;
+	cs->c_value = symbol->n_value;
+	cs->c_sclass = symbol->n_sclass;
+	cs->c_secnum = symbol->n_scnum;
+	cs->c_type = (unsigned)symbol->n_type;
 
-      raw_symbol += coff_data (abfd)->local_symesz;
-      ++symnum;
-
-      raw_auxptr = raw_symbol;		/* Save addr of first aux entry */
-
-      /* Skip all the auxents associated with this symbol.  */
-      for (ii = symbol->n_numaux; ii; --ii ) {
-        raw_symbol += coff_data (abfd)->local_auxesz;
+	raw_symbol += coff_data (abfd)->local_symesz;
 	++symnum;
+
+	/* Save addr of first aux entry.  */
+	raw_auxptr = raw_symbol;
+
+	/* Skip all the auxents associated with this symbol.  */
+	for (ii = symbol->n_numaux; ii; --ii)
+	  {
+	    raw_symbol += coff_data (abfd)->local_auxesz;
+	    ++symnum;
+	  }
       }
-    }
 
-    /* if symbol name starts with ".$" or "$", ignore it. */
-    if (cs->c_name[0] == '$' || (cs->c_name[1] == '$' && cs->c_name[0] == '.'))
-      continue;
+      /* if symbol name starts with ".$" or "$", ignore it. */
+      if (cs->c_name[0] == '$'
+	  || (cs->c_name[1] == '$' && cs->c_name[0] == '.'))
+	continue;
 
-    if (cs->c_symnum == next_file_symnum && cs->c_sclass != C_FILE) {
-      if (last_source_file)
+      if (cs->c_symnum == next_file_symnum && cs->c_sclass != C_FILE)
 	{
-	  end_symtab (cur_src_end_addr, 1, 0, objfile, textsec->target_index);
-	  end_stabs ();
+	  if (last_source_file)
+	    {
+	      end_symtab (cur_src_end_addr, 1, 0, objfile,
+			  textsec->target_index);
+	      end_stabs ();
+	    }
+
+	  start_stabs ();
+	  start_symtab ("_globals_", (char *)NULL, (CORE_ADDR)0);
+	  cur_src_end_addr = first_object_file_end;
+	  /* done with all files, everything from here on is globals */
 	}
 
-      start_stabs ();
-      start_symtab ("_globals_", (char *)NULL, (CORE_ADDR)0);
-      cur_src_end_addr = first_object_file_end;
-      /* done with all files, everything from here on is globals */
-    }
+      /* if explicitly specified as a function, treat is as one. */
+      if (ISFCN(cs->c_type) && cs->c_sclass != C_TPDEF)
+	{
+	  bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
+				0, cs->c_naux, &main_aux);
+	  goto function_entry_point;
+	}
 
-    /* if explicitly specified as a function, treat is as one. */
-    if (ISFCN(cs->c_type) && cs->c_sclass != C_TPDEF) {
-      bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
-			    0, cs->c_naux, &main_aux);
-      goto function_entry_point;
-    }
+      if ((cs->c_sclass == C_EXT || cs->c_sclass == C_HIDEXT)
+	  && cs->c_naux == 1)
+	{
+	  /* Dealing with a symbol with a csect entry.  */
 
-    if ((cs->c_sclass == C_EXT || cs->c_sclass == C_HIDEXT) && cs->c_naux == 1)
-    {
-	/* dealing with a symbol with a csect entry. */
+#define	CSECT(PP) ((PP)->x_csect)
+#define	CSECT_LEN(PP) (CSECT(PP).x_scnlen.l)
+#define	CSECT_ALIGN(PP) (SMTYP_ALIGN(CSECT(PP).x_smtyp))
+#define	CSECT_SMTYP(PP) (SMTYP_SMTYP(CSECT(PP).x_smtyp))
+#define	CSECT_SCLAS(PP) (CSECT(PP).x_smclas)
 
-#   define	CSECT(PP)	((PP)->x_csect)
-#   define	CSECT_LEN(PP)	(CSECT(PP).x_scnlen.l)
-#   define	CSECT_ALIGN(PP)	(SMTYP_ALIGN(CSECT(PP).x_smtyp))
-#   define	CSECT_SMTYP(PP)	(SMTYP_SMTYP(CSECT(PP).x_smtyp))
-#   define	CSECT_SCLAS(PP)	(CSECT(PP).x_smclas)
+	  /* Convert the auxent to something we can access.  */
+	  bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
+				0, cs->c_naux, &main_aux);
 
-	/* Convert the auxent to something we can access.  */
-        bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
-			      0, cs->c_naux, &main_aux);
+	  switch (CSECT_SMTYP (&main_aux))
+	    {
 
-	switch (CSECT_SMTYP (&main_aux)) {
-
-	case XTY_ER :
-	  continue;			/* ignore all external references. */
-
-	case XTY_SD :			/* a section description. */
-	  {
-	    switch (CSECT_SCLAS (&main_aux)) {
-
-	    case XMC_PR :			/* a `.text' csect.	*/
-	      {
-
-		/* A program csect is seen.  We have to allocate one
-		   symbol table for each program csect.  Normally gdb
-		   prefers one symtab for each source file.  In case
-		   of AIX, one source file might include more than one
-		   [PR] csect, and they don't have to be adjacent in
-		   terms of the space they occupy in memory. Thus, one
-		   single source file might get fragmented in the
-		   memory and gdb's file start and end address
-		   approach does not work!  GCC (and I think xlc) seem
-		   to put all the code in the unnamed program csect.  */
-
-		if (last_csect_name) {
-
-		  /* if no misc. function recorded in the last seen csect, enter
-		     it as a function. This will take care of functions like
-		     strcmp() compiled by xlc. */
-
-		  if (!misc_func_recorded) {
-		     int alloced = 0;
-		     RECORD_MINIMAL_SYMBOL (last_csect_name, last_csect_val,
-					    mst_text, alloced, last_csect_sec,
-					    objfile);
-		  }
-		    
-
-		  complete_symtab (filestring, file_start_addr);
-		  cur_src_end_addr = file_end_addr;
-		  end_symtab (file_end_addr, 1, 0, objfile,
-			      textsec->target_index);
-		  end_stabs ();
-		  start_stabs ();
-		  /* Give all csects for this source file the same
-		     name.  */
-		  start_symtab (filestring, (char *)NULL, (CORE_ADDR)0);
-		}
-
-		/* If this is the very first csect seen, basically `__start'. */
-		if (just_started) {
-		  first_object_file_end = cs->c_value + CSECT_LEN (&main_aux);
-		  just_started = 0;
-		}
-
-		file_start_addr = cs->c_value;
-		file_end_addr = cs->c_value + CSECT_LEN (&main_aux);
-
-		if (cs->c_name && cs->c_name[0] == '.') {
-		  last_csect_name = cs->c_name;
-		  last_csect_val = cs->c_value;
-		  last_csect_sec = cs->c_secnum;
-		}
-	      }
-	      misc_func_recorded = 0;
+	    case XTY_ER:
+	      /* Ignore all external references.  */
 	      continue;
 
-	    case XMC_RW :
+	    case XTY_SD:
+	      /* A section description.  */
+	      {
+		switch (CSECT_SCLAS (&main_aux))
+		  {
+
+		  case XMC_PR:
+		    {
+
+		      /* A program csect is seen.  We have to allocate one
+			 symbol table for each program csect.  Normally gdb
+			 prefers one symtab for each source file.  In case
+			 of AIX, one source file might include more than one
+			 [PR] csect, and they don't have to be adjacent in
+			 terms of the space they occupy in memory. Thus, one
+			 single source file might get fragmented in the
+			 memory and gdb's file start and end address
+			 approach does not work!  GCC (and I think xlc) seem
+			 to put all the code in the unnamed program csect.  */
+
+		      if (last_csect_name)
+			{
+
+			  /* If no misc. function recorded in the last
+			     seen csect, enter it as a function. This
+			     will take care of functions like strcmp()
+			     compiled by xlc.  */
+
+			  if (!misc_func_recorded)
+			    {
+			      int alloced = 0;
+			      RECORD_MINIMAL_SYMBOL
+				(last_csect_name, last_csect_val,
+				 mst_text, alloced, last_csect_sec,
+				 objfile);
+			    }
+
+			  complete_symtab (filestring, file_start_addr);
+			  cur_src_end_addr = file_end_addr;
+			  end_symtab (file_end_addr, 1, 0, objfile,
+				      textsec->target_index);
+			  end_stabs ();
+			  start_stabs ();
+			  /* Give all csects for this source file the same
+			     name.  */
+			  start_symtab (filestring, NULL, (CORE_ADDR)0);
+			}
+
+		      /* If this is the very first csect seen,
+			 basically `__start'. */
+		      if (just_started)
+			{
+			  first_object_file_end
+			    = cs->c_value + CSECT_LEN (&main_aux);
+			  just_started = 0;
+			}
+
+		      file_start_addr = cs->c_value;
+		      file_end_addr = cs->c_value + CSECT_LEN (&main_aux);
+
+		      if (cs->c_name && cs->c_name[0] == '.')
+			{
+			  last_csect_name = cs->c_name;
+			  last_csect_val = cs->c_value;
+			  last_csect_sec = cs->c_secnum;
+			}
+		    }
+		    misc_func_recorded = 0;
+		    continue;
+
+		  case XMC_RW :
+		    break;
+
+		    /* If the section is not a data description,
+		       ignore it. Note that uninitialized data will
+		       show up as XTY_CM/XMC_RW pair. */
+
+		  case XMC_TC0:
+		    if (toc_offset)
+		      warning ("More than one xmc_tc0 symbol found.");
+		    toc_offset = cs->c_value;
+		    continue;
+
+		  case XMC_TC:
+#ifdef STATIC_NODEBUG_VARS
+		    /* We need to process these symbols if they are C_HIDEXT,
+		       for static variables in files compiled without -g.  */
+		    if (cs->c_sclass == C_HIDEXT)
+		      break;
+		    else
+#endif
+		      continue;
+
+		  default:
+		    /* Ignore the symbol.  */
+		    continue;
+		  }
+	      }
 	      break;
 
-	      /* If the section is not a data description, ignore it. Note that
-		 uninitialized data will show up as XTY_CM/XMC_RW pair. */
+	    case XTY_LD:
 
-	    case XMC_TC0:
-	      if (toc_offset)
-	        warning ("More than one xmc_tc0 symbol found.");
-	      toc_offset = cs->c_value;
-	      continue;
+	      switch (CSECT_SCLAS (&main_aux))
+		{
+		case XMC_PR:
+		  /* a function entry point. */
+		function_entry_point:
+		  RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value, mst_text, 
+					 symname_alloced, cs->c_secnum,
+					 objfile);
 
-	    case XMC_TC	:		/* ignore toc entries	*/
-	    default	:		/* any other XMC_XXX	*/
-	      continue;
-	    }
-	  }
-	  break;			/* switch CSECT_SCLAS() */
+		  fcn_line_offset = main_aux.x_sym.x_fcnary.x_fcn.x_lnnoptr;
+		  fcn_start_addr = cs->c_value;
 
-	case XTY_LD :
-	  
-	  /* a function entry point. */
-	  if (CSECT_SCLAS (&main_aux) == XMC_PR) {
+		  /* save the function header info, which will be used
+		     when `.bf' is seen. */
+		  fcn_cs_saved = *cs;
+		  fcn_aux_saved = main_aux;
 
-function_entry_point:
-	    RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value, mst_text, 
-				   symname_alloced, cs->c_secnum, objfile);
+		  ptb = NULL;
 
-	    fcn_line_offset = main_aux.x_sym.x_fcnary.x_fcn.x_lnnoptr;
-	    fcn_start_addr = cs->c_value;
+		  /* If function has two auxent, then debugging information is
+		     already available for it. Process traceback table for
+		     functions with only one auxent. */
 
-	    /* save the function header info, which will be used
-	       when `.bf' is seen. */
-	    fcn_cs_saved = *cs;
-	    fcn_aux_saved = main_aux;
+		  if (cs->c_naux == 1)
+		    ptb = retrieve_tracebackinfo (abfd, textsec, cs);
 
+		  else if (cs->c_naux != 2)
+		    {
+		      static struct complaint msg =
+			{"Expected one or two auxents for function", 0, 0};
+		      complain (&msg);
+		    }
 
-	    ptb = NULL;
+		  /* If there is traceback info, create and add parameters
+		     for it. */
 
-	    /* If function has two auxent, then debugging information is
-	       already available for it. Process traceback table for
-	       functions with only one auxent. */
+		  if (ptb && (ptb->fixedparms || ptb->floatparms))
+		    {
 
-	    if (cs->c_naux == 1)
-	      ptb = retrieve_tracebackinfo (abfd, textsec, cs);
+		      int parmcnt = ptb->fixedparms + ptb->floatparms;
+		      char *parmcode = (char*) &ptb->parminfo;
 
-	    else if (cs->c_naux != 2)
-	      {
-		static struct complaint msg =
-		  {"Expected one or two auxents for function", 0, 0};
-		complain (&msg);
-	      }
+		      /* The link area is 0x18 bytes.  */
+		      int parmvalue = ptb->framesize + 0x18;
+		      unsigned int ii, mask;
 
-	    /* If there is traceback info, create and add parameters for it. */
+		      for (ii=0, mask = 0x80000000; ii <parmcnt; ++ii)
+			{
+			  struct symbol *parm;
 
-	    if (ptb && (ptb->fixedparms || ptb->floatparms)) {
-
-	      int parmcnt = ptb->fixedparms + ptb->floatparms;
-	      char *parmcode = (char*) &ptb->parminfo;
-	      int parmvalue = ptb->framesize + 0x18;	/* sizeof(LINK AREA) == 0x18 */
-	      unsigned int ii, mask;
-
-	      for (ii=0, mask = 0x80000000; ii <parmcnt; ++ii) {
-		struct symbol *parm;
-
-		if (ptb->parminfo & mask) {		/* float or double */
-		  mask = mask >> 1;
-		  if (ptb->parminfo & mask) {		/* double parm */
-		    ADD_PARM_TO_PENDING
-			(parm, parmvalue, builtin_type_double, local_symbols);
-		    parmvalue += sizeof (double);
-		  }
-		  else {				/* float parm */
-		    ADD_PARM_TO_PENDING
-			(parm, parmvalue, builtin_type_float, local_symbols);
-		    parmvalue += sizeof (float);
-		  }
- 		}
-		else {		/* fixed parm, use (int*) for hex rep. */
-		  ADD_PARM_TO_PENDING (parm, parmvalue,
-				       lookup_pointer_type (builtin_type_int),
-				       local_symbols);
-		  parmvalue += sizeof (int);
-		}
-		mask = mask >> 1;
-	      }
+			  if (ptb->parminfo & mask)
+			    {
+			      /* float or double */
+			      mask = mask >> 1;
+			      if (ptb->parminfo & mask)
+				{
+				  /* double parm */
+				  ADD_PARM_TO_PENDING
+				    (parm, parmvalue, builtin_type_double,
+				     local_symbols);
+				  parmvalue += sizeof (double);
+				}
+			      else
+				{
+				  /* float parm */
+				  ADD_PARM_TO_PENDING
+				    (parm, parmvalue, builtin_type_float,
+				     local_symbols);
+				  parmvalue += sizeof (float);
+				}
+			    }
+			  else
+			    {
+			      /* fixed parm, use (int*) for hex rep. */
+			      ADD_PARM_TO_PENDING
+				(parm, parmvalue,
+				 lookup_pointer_type (builtin_type_int),
+				 local_symbols);
+			      parmvalue += sizeof (int);
+			    }
+			  mask = mask >> 1;
+			}
 		
- 	      /* Fake this as a function. Needed in process_xcoff_symbol() */
-	      cs->c_type = 32;		
-	      				   
-	      finish_block(process_xcoff_symbol (cs, objfile), &local_symbols, 
-			   pending_blocks, cs->c_value,
-			   cs->c_value + ptb->fsize, objfile);
+		      /* Fake this as a function.  Needed in
+                         process_xcoff_symbol().  */
+		      cs->c_type = 32;
+
+		      finish_block
+			(process_xcoff_symbol (cs, objfile), &local_symbols, 
+			 pending_blocks, cs->c_value,
+			 cs->c_value + ptb->fsize, objfile);
+		    }
+		  continue;
+
+		case XMC_GL:
+		  /* shared library function trampoline code entry point. */
+
+		  /* record trampoline code entries as
+		     mst_solib_trampoline symbol.  When we lookup mst
+		     symbols, we will choose mst_text over
+		     mst_solib_trampoline. */
+		  RECORD_MINIMAL_SYMBOL
+		    (cs->c_name, cs->c_value,
+		     mst_solib_trampoline,
+		     symname_alloced, cs->c_secnum, objfile);
+		  continue;
+
+		case XMC_DS:
+		  /* The symbols often have the same names as debug symbols for
+		     functions, and confuse lookup_symbol.  */
+		  continue;
+
+		default:
+		  /* xlc puts each variable in a separate csect, so we get
+		     an XTY_SD for each variable.  But gcc puts several
+		     variables in a csect, so that each variable only gets
+		     an XTY_LD.  We still need to record them.  This will
+		     typically be XMC_RW; I suspect XMC_RO and XMC_BS might
+		     be possible too.  */
+		  break;
+		}
+
+	    default:
+	      break;
 	    }
-	    continue;
-	  }
-	  /* shared library function trampoline code entry point. */
-	  else if (CSECT_SCLAS (&main_aux) == XMC_GL) {
-
-	    /* record trampoline code entries as mst_solib_trampoline symbol.
-	       When we lookup mst symbols, we will choose mst_text over
-	       mst_solib_trampoline. */
-
-#if 1
-	    /* After the implementation of incremental loading of shared
-	       libraries, we don't want to access trampoline entries. This
-	       approach has a consequence of the necessity to bring the whole 
-	       shared library at first, in order do anything with it (putting
-	       breakpoints, using malloc, etc). On the other side, this is
-	       consistient with gdb's behaviour on a SUN platform. */
-
-	    /* Trying to prefer *real* function entry over its trampoline,
-	       by assigning `mst_solib_trampoline' type to trampoline entries
-	       fails.  Gdb treats those entries as chars. FIXME. */
-
-	    /* Recording this entry is necessary. Single stepping relies on
-	       this vector to get an idea about function address boundaries. */
-
-	    prim_record_minimal_symbol_and_info
-	      ("<trampoline>", cs->c_value, mst_solib_trampoline,
-	       (char *)NULL, cs->c_secnum, objfile);
-#else
-
-	    /* record trampoline code entries as mst_solib_trampoline symbol.
-	       When we lookup mst symbols, we will choose mst_text over
-	       mst_solib_trampoline. */
-
-	    RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value,
-				   mst_solib_trampoline,
-				   symname_alloced, objfile);
-#endif
-	    continue;
-	  }
-	  continue;
-
-	default :		/* all other XTY_XXXs */
-	  break;
-	}			/* switch CSECT_SMTYP() */    }
-
-    switch (cs->c_sclass) {
-
-    case C_FILE:
-
-      /* see if the last csect needs to be recorded. */
-
-      if (last_csect_name && !misc_func_recorded) {
-
-	  /* if no misc. function recorded in the last seen csect, enter
-	     it as a function. This will take care of functions like
-	     strcmp() compiled by xlc. */
-
-	  int alloced = 0;
-	  RECORD_MINIMAL_SYMBOL (last_csect_name, last_csect_val,
-				mst_text, alloced, last_csect_sec, objfile);
-      }
-
-      /* c_value field contains symnum of next .file entry in table
-	 or symnum of first global after last .file. */
-
-      next_file_symnum = cs->c_value;
-
-      /* complete symbol table for last object file containing
-	 debugging information. */
-
-      /* Whether or not there was a csect in the previous file, we have to call
-	 `end_stabs' and `start_stabs' to reset type_vector, 
-	 line_vector, etc. structures. */
-
-      complete_symtab (filestring, file_start_addr);
-      cur_src_end_addr = file_end_addr;
-      end_symtab (file_end_addr, 1, 0, objfile, textsec->target_index);
-      end_stabs ();
-
-      /* XCOFF, according to the AIX 3.2 documentation, puts the filename
-	 in cs->c_name.  But xlc 1.3.0.2 has decided to do things the
-	 standard COFF way and put it in the auxent.  We use the auxent if
-	 the symbol is ".file" and an auxent exists, otherwise use the symbol
-	 itself.  Simple enough.  */
-      if (!strcmp (cs->c_name, ".file") && cs->c_naux > 0)
-	filestring = coff_getfilename (&main_aux);
-      else
-	filestring = cs->c_name;
-
-      start_stabs ();
-      start_symtab (filestring, (char *)NULL, (CORE_ADDR)0);
-      last_csect_name = 0;
-
-      /* reset file start and end addresses. A compilation unit with no text
-         (only data) should have zero file boundaries. */
-      file_start_addr = file_end_addr = 0;
-      break;
-
-
-    case C_FUN:
-      fcn_stab_saved = *cs;
-      break;
-    
-
-    case C_FCN:
-      if (STREQ (cs->c_name, ".bf")) {
-
-        bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
-			      0, cs->c_naux, &main_aux);
-
-	within_function = 1;
-
-	mark_first_line (fcn_line_offset, cs->c_symnum);
-
-	new = push_context (0, fcn_start_addr);
-
-	new->name = define_symbol 
-		(fcn_cs_saved.c_value, fcn_stab_saved.c_name, 0, 0, objfile);
-	if (new->name != NULL)
-	  SYMBOL_SECTION (new->name) = cs->c_secnum;
-      }
-      else if (STREQ (cs->c_name, ".ef")) {
-
-        bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
-			      0, cs->c_naux, &main_aux);
-
-	/* the value of .ef is the address of epilogue code;
-	   not useful for gdb */
-	/* { main_aux.x_sym.x_misc.x_lnsz.x_lnno
-	   contains number of lines to '}' */
-
-	fcn_last_line = main_aux.x_sym.x_misc.x_lnsz.x_lnno;
-	new = pop_context ();
-	if (context_stack_depth != 0)
-	  error ("invalid symbol data; .bf/.ef/.bb/.eb symbol mismatch, at symbol %d.",
-	      symnum);
-
-	finish_block (new->name, &local_symbols, new->old_blocks,
-	    new->start_addr,
-	    fcn_cs_saved.c_value +
-	    fcn_aux_saved.x_sym.x_misc.x_fsize, objfile);
-	within_function = 0;
-      }
-      break;
-
-    case C_BSTAT	:		/* begin static block	*/
-      {
-	struct internal_syment symbol;
-	
-	read_symbol (&symbol, cs->c_value);
-	static_block_base = symbol.n_value;
-	static_block_section = symbol.n_scnum;
-      }
-      break;
-
-    case C_ESTAT	:		/* end of static block	*/
-      static_block_base = 0;
-      static_block_section = -1;
-      break;
-
-    case C_ARG		:		/* These are not implemented. */
-    case C_REGPARM	:
-    case C_TPDEF	:
-    case C_STRTAG	:
-    case C_UNTAG	:
-    case C_ENTAG	:
-      printf_unfiltered ("ERROR: Unimplemented storage class: %d.\n", cs->c_sclass);
-      break;
-
-    case C_HIDEXT	:		/* ignore these.. */
-    case C_LABEL	:
-    case C_NULL		:
-      break;
-
-    case C_BINCL	:		/* beginning of include file */
-
-	/* In xlc output, C_BINCL/C_EINCL pair doesn't show up in sorted
-	   order. Thus, when wee see them, we might not know enough info
-	   to process them. Thus, we'll be saving them into a table 
-	   (inclTable) and postpone their processing. */
-
-	record_include_begin (cs);
-	break;
-
-    case C_EINCL	:		/* end of include file */
-			/* see the comment after case C_BINCL. */
-	record_include_end (cs);
-	break;
-
-    case C_BLOCK	:
-      if (STREQ (cs->c_name, ".bb")) {
-	depth++;
-	new = push_context (depth, cs->c_value);
-      }
-      else if (STREQ (cs->c_name, ".eb")) {
-	new = pop_context ();
-	if (depth != new->depth)
-	  error ("Invalid symbol data: .bb/.eb symbol mismatch at symbol %d.",
-			 symnum);
-
-	depth--;
-	if (local_symbols && context_stack_depth > 0) {
-	  /* Make a block for the local symbols within.  */
-	  finish_block (new->name, &local_symbols, new->old_blocks,
-				  new->start_addr, cs->c_value, objfile);
 	}
-	local_symbols = new->locals;
-      }
-      break;
 
-    default		:
-      process_xcoff_symbol (cs, objfile);
-      break;
+      switch (cs->c_sclass)
+	{
+
+	case C_FILE:
+
+	  /* see if the last csect needs to be recorded. */
+
+	  if (last_csect_name && !misc_func_recorded)
+	    {
+
+	      /* If no misc. function recorded in the last seen csect, enter
+		 it as a function.  This will take care of functions like
+		 strcmp() compiled by xlc.  */
+
+	      int alloced = 0;
+	      RECORD_MINIMAL_SYMBOL
+		(last_csect_name, last_csect_val,
+		 mst_text, alloced, last_csect_sec, objfile);
+	    }
+
+	  /* c_value field contains symnum of next .file entry in table
+	     or symnum of first global after last .file. */
+
+	  next_file_symnum = cs->c_value;
+
+	  /* Complete symbol table for last object file containing
+	     debugging information. */
+
+	  /* Whether or not there was a csect in the previous file, we
+	     have to call `end_stabs' and `start_stabs' to reset
+	     type_vector, line_vector, etc. structures.  */
+
+	  complete_symtab (filestring, file_start_addr);
+	  cur_src_end_addr = file_end_addr;
+	  end_symtab (file_end_addr, 1, 0, objfile, textsec->target_index);
+	  end_stabs ();
+
+	  /* XCOFF, according to the AIX 3.2 documentation, puts the filename
+	     in cs->c_name.  But xlc 1.3.0.2 has decided to do things the
+	     standard COFF way and put it in the auxent.  We use the auxent if
+	     the symbol is ".file" and an auxent exists, otherwise use the symbol
+	     itself.  Simple enough.  */
+	  if (!strcmp (cs->c_name, ".file") && cs->c_naux > 0)
+	    {
+	      bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
+				    0, cs->c_naux, &main_aux);
+	      filestring = coff_getfilename (&main_aux);
+	    }
+	  else
+	    filestring = cs->c_name;
+
+	  start_stabs ();
+	  start_symtab (filestring, (char *)NULL, (CORE_ADDR)0);
+	  last_csect_name = 0;
+
+	  /* reset file start and end addresses. A compilation unit with no text
+	     (only data) should have zero file boundaries. */
+	  file_start_addr = file_end_addr = 0;
+	  break;
+
+	case C_FUN:
+	  fcn_stab_saved = *cs;
+	  break;
+
+	case C_FCN:
+	  if (STREQ (cs->c_name, ".bf"))
+	    {
+
+	      bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
+				    0, cs->c_naux, &main_aux);
+
+	      within_function = 1;
+
+	      mark_first_line (fcn_line_offset, cs->c_symnum);
+
+	      new = push_context (0, fcn_start_addr);
+
+	      new->name = define_symbol 
+		(fcn_cs_saved.c_value, fcn_stab_saved.c_name, 0, 0, objfile);
+	      if (new->name != NULL)
+		SYMBOL_SECTION (new->name) = cs->c_secnum;
+	    }
+	  else if (STREQ (cs->c_name, ".ef"))
+	    {
+
+	      bfd_coff_swap_aux_in (abfd, raw_auxptr, cs->c_type, cs->c_sclass,
+				    0, cs->c_naux, &main_aux);
+
+	      /* The value of .ef is the address of epilogue code;
+		 not useful for gdb.  */
+	      /* { main_aux.x_sym.x_misc.x_lnsz.x_lnno
+		 contains number of lines to '}' */
+
+	      fcn_last_line = main_aux.x_sym.x_misc.x_lnsz.x_lnno;
+	      new = pop_context ();
+	      if (context_stack_depth != 0)
+		error ("\
+  invalid symbol data; .bf/.ef/.bb/.eb symbol mismatch, at symbol %d.",
+		       symnum);
+
+	      finish_block (new->name, &local_symbols, new->old_blocks,
+			    new->start_addr,
+			    fcn_cs_saved.c_value +
+			    fcn_aux_saved.x_sym.x_misc.x_fsize, objfile);
+	      within_function = 0;
+	    }
+	  break;
+
+	case C_BSTAT:
+	  /* Begin static block.  */
+	  {
+	    struct internal_syment symbol;
+
+	    read_symbol (&symbol, cs->c_value);
+	    static_block_base = symbol.n_value;
+	    static_block_section = symbol.n_scnum;
+	  }
+	  break;
+
+	case C_ESTAT:
+	  /* End of static block.  */
+	  static_block_base = 0;
+	  static_block_section = -1;
+	  break;
+
+	case C_ARG:
+	case C_REGPARM:
+	case C_TPDEF:
+	case C_STRTAG:
+	case C_UNTAG:
+	case C_ENTAG:
+	  printf_unfiltered
+	    ("ERROR: Unimplemented storage class: %d.\n", cs->c_sclass);
+	  break;
+
+	case C_LABEL:
+	case C_NULL:
+	  /* Ignore these.  */
+	  break;
+
+	  /* This is wrong.  These symbols are XMC_TC, which means that
+	     the value of the symbol is the address of the TOC entry, not
+	     the address of the variable itself.  */
+	case C_HIDEXT:
+#ifdef STATIC_NODEBUG_VARS
+	  {
+	    /* This is the only place that static variables show up in files
+	       compiled without -g.  External variables also have a C_EXT,
+	       so that is why we record everything as mst_file_* here.  */
+	    enum minimal_symbol_type ms_type;
+	    CORE_ADDR tmpaddr;
+	    int sec;
+
+	    sec = cs_to_section (cs, objfile);
+	    tmpaddr = cs->c_value;
+
+	    switch (sec)
+	      {
+	      case SECT_OFF_TEXT:
+	      case SECT_OFF_RODATA:
+		ms_type = mst_file_text;
+		break;
+	      case SECT_OFF_DATA:
+		ms_type = mst_file_data;
+		break;
+	      case SECT_OFF_BSS:
+		ms_type = mst_file_bss;
+		break;
+	      default:
+		ms_type = mst_unknown;
+		break;
+	      }
+	    RECORD_MINIMAL_SYMBOL (cs->c_name, cs->c_value, ms_type,
+				   symname_alloced, cs->c_secnum, objfile);
+	  }
+#endif /* STATIC_NODEBUG_VARS */
+	  break;
+
+	case C_BINCL:
+	  /* beginning of include file */
+	  /* In xlc output, C_BINCL/C_EINCL pair doesn't show up in sorted
+	     order. Thus, when wee see them, we might not know enough info
+	     to process them. Thus, we'll be saving them into a table 
+	     (inclTable) and postpone their processing. */
+
+	  record_include_begin (cs);
+	  break;
+
+	case C_EINCL:
+	  /* End of include file.  */
+	  /* See the comment after case C_BINCL.  */
+	  record_include_end (cs);
+	  break;
+
+	case C_BLOCK:
+	  if (STREQ (cs->c_name, ".bb"))
+	    {
+	      depth++;
+	      new = push_context (depth, cs->c_value);
+	    }
+	  else if (STREQ (cs->c_name, ".eb"))
+	    {
+	      new = pop_context ();
+	      if (depth != new->depth)
+		error ("\
+  Invalid symbol data: .bb/.eb symbol mismatch at symbol %d.",
+		       symnum);
+
+	      depth--;
+	      if (local_symbols && context_stack_depth > 0)
+		{
+		  /* Make a block for the local symbols within.  */
+		  finish_block (new->name, &local_symbols, new->old_blocks,
+				new->start_addr, cs->c_value, objfile);
+		}
+	      local_symbols = new->locals;
+	    }
+	  break;
+
+	default:
+	  process_xcoff_symbol (cs, objfile);
+	  break;
+	}
     }
-
-  } /* while */
 
   if (last_source_file)
     {
@@ -1592,6 +1753,9 @@ function_entry_point:
   (ALLOCED) ? (NAME) : obstack_copy0 (&objfile->symbol_obstack, (NAME), strlen (NAME));
 
 
+static struct type *func_symbol_type;
+static struct type *var_symbol_type;
+
 /* process one xcoff symbol. */
 
 static struct symbol *
@@ -1618,147 +1782,178 @@ process_xcoff_symbol (cs, objfile)
   SYMBOL_NAMESPACE (sym) = VAR_NAMESPACE;
   SYMBOL_SECTION (sym) = cs->c_secnum;
 
-  if (ISFCN (cs->c_type)) {
-
-    /* At this point, we don't know the type of the function and assume it 
-       is int. This will be patched with the type from its stab entry later 
-       on in patch_block_stabs () */
-
-    SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
-    SYMBOL_TYPE (sym) = lookup_function_type (lookup_fundamental_type (objfile, FT_INTEGER));
-
-    SYMBOL_CLASS (sym) = LOC_BLOCK;
-    SYMBOL_DUP (sym, sym2);
-
-    if (cs->c_sclass == C_EXT)
-      add_symbol_to_list (sym2, &global_symbols);
-    else if (cs->c_sclass == C_HIDEXT || cs->c_sclass == C_STAT)
-      add_symbol_to_list (sym2, &file_symbols);
-  }
-
-  else {
-
-    /* in case we can't figure out the type, default is `int'. */
-    SYMBOL_TYPE (sym) = lookup_fundamental_type (objfile, FT_INTEGER);
-
-    switch (cs->c_sclass)
+  if (ISFCN (cs->c_type))
     {
+      /* At this point, we don't know the type of the function.  This
+	 will be patched with the type from its stab entry later on in
+	 patch_block_stabs (), unless the file was compiled without -g.  */
+
+      SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
+      SYMBOL_TYPE (sym) = func_symbol_type;
+
+      SYMBOL_CLASS (sym) = LOC_BLOCK;
+      SYMBOL_DUP (sym, sym2);
+
+      if (cs->c_sclass == C_EXT)
+	add_symbol_to_list (sym2, &global_symbols);
+      else if (cs->c_sclass == C_HIDEXT || cs->c_sclass == C_STAT)
+	add_symbol_to_list (sym2, &file_symbols);
+    }
+  else
+    {
+      /* In case we can't figure out the type, provide default. */
+      SYMBOL_TYPE (sym) = var_symbol_type;
+
+      switch (cs->c_sclass)
+	{
 #if 0
-    case C_FUN:
-      if (fcn_cs_saved.c_sclass == C_EXT)
-	add_stab_to_list (name, &global_stabs);
-      else
-	add_stab_to_list (name, &file_stabs);
-      break;
+	case C_FUN:
+	  if (fcn_cs_saved.c_sclass == C_EXT)
+	    add_stab_to_list (name, &global_stabs);
+	  else
+	    add_stab_to_list (name, &file_stabs);
+	  break;
 #endif
 
-    case C_GSYM:
-      add_stab_to_list (name, &global_stabs);
-      break;
+	case C_GSYM:
+	  add_stab_to_list (name, &global_stabs);
+	  break;
 
-    case C_BCOMM:
-      common_block_start (cs->c_name, objfile);
-      break;
+	case C_BCOMM:
+	  common_block_start (cs->c_name, objfile);
+	  break;
 
-    case C_ECOMM:
-      common_block_end (objfile);
-      break;
+	case C_ECOMM:
+	  common_block_end (objfile);
+	  break;
 
-    default:
-      complain (&storclass_complaint, cs->c_sclass);
-      /* FALLTHROUGH */
+	default:
+	  complain (&storclass_complaint, cs->c_sclass);
+	  /* FALLTHROUGH */
 
-    case C_DECL:
-    case C_PSYM:
-    case C_RPSYM:
-    case C_ECOML:
+	case C_DECL:
+	case C_PSYM:
+	case C_RPSYM:
+	case C_ECOML:
 
-      sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
-      if (sym != NULL)
-	{
-	  SYMBOL_SECTION (sym) = cs->c_secnum;
-	}
-      return sym;
-
-    case C_STSYM:
-
-      /* For xlc (not GCC), the 'V' symbol descriptor is used for all
-	 statics and we need to distinguish file-scope versus function-scope
-	 using within_function.  We do this by changing the string we pass
-	 to define_symbol to use 'S' where we need to, which is not necessarily
-	 super-clean, but seems workable enough.  */
-
-      if (*name == ':' || (pp = (char *) strchr(name, ':')) == NULL)
-	return NULL;
-
-      ++pp;
-      if (*pp == 'V' && !within_function)
-	*pp = 'S';
-      sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
-      if (sym != NULL)
-	{
-	  SYMBOL_VALUE (sym) += static_block_base;
-	  SYMBOL_SECTION (sym) = static_block_section;
-	}
-      return sym;
-
-    case C_LSYM:
-      sym = define_symbol (cs->c_value, cs->c_name, 0, N_LSYM, objfile);
-      if (sym != NULL)
-	{
-	  SYMBOL_SECTION (sym) = cs->c_secnum;
-	}
-      return sym;
-
-    case C_AUTO:
-      SYMBOL_CLASS (sym) = LOC_LOCAL;
-      SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
-      SYMBOL_SECTION (sym) = cs->c_secnum;
-      SYMBOL_DUP (sym, sym2);
-      add_symbol_to_list (sym2, &local_symbols);
-      break;
-
-    case C_EXT:
-      SYMBOL_CLASS (sym) = LOC_STATIC;
-      SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
-      SYMBOL_SECTION (sym) = cs->c_secnum;
-      SYMBOL_DUP (sym, sym2);
-      add_symbol_to_list (sym2, &global_symbols);
-      break;
-
-    case C_STAT:
-      SYMBOL_CLASS (sym) = LOC_STATIC;
-      SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
-      SYMBOL_SECTION (sym) = cs->c_secnum;
-      SYMBOL_DUP (sym, sym2);
-      add_symbol_to_list 
-	   (sym2, within_function ? &local_symbols : &file_symbols);
-      break;
-
-    case C_REG:
-      printf_unfiltered ("ERROR! C_REG is not fully implemented!\n");
-      SYMBOL_CLASS (sym) = LOC_REGISTER;
-      SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
-      SYMBOL_SECTION (sym) = cs->c_secnum;
-      SYMBOL_DUP (sym, sym2);
-      add_symbol_to_list (sym2, &local_symbols);
-      break;
-
-    case C_RSYM:
-	pp = (char*) strchr (name, ':');
-	if (pp) {
 	  sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
 	  if (sym != NULL)
-	    SYMBOL_SECTION (sym) = cs->c_secnum;
+	    {
+	      SYMBOL_SECTION (sym) = cs->c_secnum;
+	    }
 	  return sym;
-	}
-	else {
-	  complain (&rsym_complaint, name);
-	  return NULL;
+
+	case C_STSYM:
+
+	  /* For xlc (not GCC), the 'V' symbol descriptor is used for
+	     all statics and we need to distinguish file-scope versus
+	     function-scope using within_function.  We do this by
+	     changing the string we pass to define_symbol to use 'S'
+	     where we need to, which is not necessarily super-clean,
+	     but seems workable enough.  */
+
+	  if (*name == ':' || (pp = (char *) strchr(name, ':')) == NULL)
+	    return NULL;
+
+	  ++pp;
+	  if (*pp == 'V' && !within_function)
+	    *pp = 'S';
+	  sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
+	  if (sym != NULL)
+	    {
+	      SYMBOL_VALUE (sym) += static_block_base;
+	      SYMBOL_SECTION (sym) = static_block_section;
+	    }
+	  return sym;
+
+	case C_LSYM:
+	  sym = define_symbol (cs->c_value, cs->c_name, 0, N_LSYM, objfile);
+	  if (sym != NULL)
+	    {
+	      SYMBOL_SECTION (sym) = cs->c_secnum;
+	    }
+	  return sym;
+
+	case C_AUTO:
+	  SYMBOL_CLASS (sym) = LOC_LOCAL;
+	  SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
+	  SYMBOL_SECTION (sym) = cs->c_secnum;
+	  SYMBOL_DUP (sym, sym2);
+	  add_symbol_to_list (sym2, &local_symbols);
+	  break;
+
+	case C_EXT:
+	  SYMBOL_CLASS (sym) = LOC_STATIC;
+	  SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
+	  SYMBOL_SECTION (sym) = cs->c_secnum;
+	  SYMBOL_DUP (sym, sym2);
+	  add_symbol_to_list (sym2, &global_symbols);
+	  break;
+
+	case C_STAT:
+	  SYMBOL_CLASS (sym) = LOC_STATIC;
+	  SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
+	  SYMBOL_SECTION (sym) = cs->c_secnum;
+	  SYMBOL_DUP (sym, sym2);
+	  add_symbol_to_list 
+	    (sym2, within_function ? &local_symbols : &file_symbols);
+	  break;
+
+	case C_REG:
+	  printf_unfiltered ("ERROR! C_REG is not fully implemented!\n");
+	  SYMBOL_CLASS (sym) = LOC_REGISTER;
+	  SYMBOL_NAME (sym) = SYMNAME_ALLOC (name, symname_alloced);
+	  SYMBOL_SECTION (sym) = cs->c_secnum;
+	  SYMBOL_DUP (sym, sym2);
+	  add_symbol_to_list (sym2, &local_symbols);
+	  break;
+
+	case C_RSYM:
+	  pp = (char*) strchr (name, ':');
+	  if (pp)
+	    {
+	      sym = define_symbol (cs->c_value, cs->c_name, 0, 0, objfile);
+	      if (sym != NULL)
+		SYMBOL_SECTION (sym) = cs->c_secnum;
+	      return sym;
+	    }
+	  else
+	    {
+	      complain (&rsym_complaint, name);
+	      return NULL;
+	    }
 	}
     }
-  }
   return sym2;
+}
+
+/* Extract the file name from the aux entry of a C_FILE symbol.  Return
+   only the last component of the name.  Result is in static storage and
+   is only good for temporary use.  */
+
+static char *
+coff_getfilename (aux_entry)
+    union internal_auxent *aux_entry;
+{
+  static char buffer[BUFSIZ];
+  register char *temp;
+  char *result;
+
+  if (aux_entry->x_file.x_n.x_zeroes == 0)
+    strcpy (buffer, strtbl + aux_entry->x_file.x_n.x_offset);
+  else
+    {
+      strncpy (buffer, aux_entry->x_file.x_fname, FILNMLEN);
+      buffer[FILNMLEN] = '\0';
+    }
+  result = buffer;
+
+  /* FIXME: We should not be throwing away the information about what
+     directory.  It should go into dirname of the symtab, or some such
+     place.  */
+  if ((temp = strrchr (result, '/')) != NULL)
+    result = temp + 1;
+  return (result);
 }
 
 /* Set *SYMBOL to symbol number symno in symtbl.  */
@@ -2211,10 +2406,17 @@ _initialize_xcoffread ()
 {
   add_symtab_fns(&xcoff_sym_fns);
 
-  /* Initialize symbol template later used for arguments.  */
+  /* Initialize symbol template later used for arguments.  Its other
+     fields are zero, or are filled in later.  */
   SYMBOL_NAME (&parmsym) = "";
   SYMBOL_INIT_LANGUAGE_SPECIFIC (&parmsym, language_c);
   SYMBOL_NAMESPACE (&parmsym) = VAR_NAMESPACE;
   SYMBOL_CLASS (&parmsym) = LOC_ARG;
-  /* Its other fields are zero, or are filled in later.  */
+
+  func_symbol_type = init_type (TYPE_CODE_FUNC, 1, 0,
+				"<function, no debug info>", NULL);
+  TYPE_TARGET_TYPE (func_symbol_type) = builtin_type_int;
+  var_symbol_type =
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / HOST_CHAR_BIT, 0,
+	       "<variable, no debug info>", NULL);
 }

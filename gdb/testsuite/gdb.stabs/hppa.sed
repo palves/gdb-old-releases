@@ -18,6 +18,3 @@ s/\.end_common\(.*\)/.stabs \1,0xe4,0,0,0/
 s/\.align_it/.align 4/
 s/\.globl/.export/
 /^#/d
-/.if alpha/,/.endif alpha/d
-/.if/d
-/.endif/d

@@ -1,5 +1,5 @@
 /* Generic ECOFF (Extended-COFF) routines.
-   Copyright 1990, 1991, 1992, 1993 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Original version by Per Bothner.
    Full support added by Ian Lance Taylor, ian@cygnus.com.
 
@@ -25,6 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "libbfd.h"
 #include "aout/ar.h"
 #include "aout/ranlib.h"
+#include "aout/stab_gnu.h"
 
 /* FIXME: We need the definitions of N_SET[ADTB], but aout64.h defines
    some other stuff which we don't want and which conflicts with stuff
@@ -152,14 +153,17 @@ _bfd_ecoff_new_section_hook (abfd, section)
      asection *section;
 {
   /* For the .pdata section, which has a special meaning on the Alpha,
-     we set the alignment to 8.  We correct this later in
+     we set the alignment power to 3.  We correct this later in
      ecoff_compute_section_file_positions.  We do this hackery because
      we need to know the exact unaligned size of the .pdata section in
-     order to set the lnnoptr field correctly.  */
+     order to set the lnnoptr field correctly.  For every other
+     section we use an alignment power of 4; this could be made target
+     dependent by adding a field to ecoff_backend_data, but 4 appears
+     to be correct for both the MIPS and the Alpha.  */
   if (strcmp (section->name, _PDATA) == 0)
     section->alignment_power = 3;
   else
-    section->alignment_power = abfd->xvec->align_power_min;
+    section->alignment_power = 4;
 
   if (strcmp (section->name, _TEXT) == 0)
     section->flags |= SEC_CODE | SEC_LOAD | SEC_ALLOC;
@@ -340,9 +344,10 @@ ecoff_sec_to_styp_flags (name, flags)
 
 /*ARGSUSED*/
 flagword
-_bfd_ecoff_styp_to_sec_flags (abfd, hdr)
+_bfd_ecoff_styp_to_sec_flags (abfd, hdr, name)
      bfd *abfd;
      PTR hdr;
+     const char *name;
 {
   struct internal_scnhdr *internal_s = (struct internal_scnhdr *) hdr;
   long styp_flags = internal_s->s_flags;
@@ -856,7 +861,7 @@ ecoff_set_symbol_info (abfd, ecoff_sym, asym, ext, indirect_ptr_ptr)
   asym->the_bfd = abfd;
   asym->value = ecoff_sym->value;
   asym->section = &bfd_debug_section;
-  asym->udata = NULL;
+  asym->udata.i = 0;
 
   /* An indirect symbol requires two consecutive stabs symbols.  */
   if (*indirect_ptr_ptr != (asymbol *) NULL)
@@ -910,7 +915,19 @@ ecoff_set_symbol_info (abfd, ecoff_sym, asym, ext, indirect_ptr_ptr)
   if (ext)
     asym->flags = BSF_EXPORT | BSF_GLOBAL;
   else
-    asym->flags = BSF_LOCAL;
+    {
+      asym->flags = BSF_LOCAL;
+      /* Normally, a local stProc symbol will have a corresponding
+         external symbol.  We mark the local symbol as a debugging
+         symbol, in order to prevent nm from printing both out.
+         Similarly, we mark stLabel and stabs symbols as debugging
+         symbols.  In both cases, we do want to set the value
+         correctly based on the symbol class.  */
+      if (ecoff_sym->st == stProc
+	  || ecoff_sym->st == stLabel
+	  || ECOFF_IS_STAB (ecoff_sym))
+	asym->flags |= BSF_DEBUGGING;
+    }
   switch (ecoff_sym->sc)
     {
     case scNil:
@@ -1341,7 +1358,7 @@ ecoff_type_to_string (abfd, fdr, indx)
   } qualifiers[7];
   unsigned int basic_type;
   int i;
-  static char buffer1[1024];
+  char buffer1[1024];
   static char buffer2[1024];
   char *p1 = buffer1;
   char *p2 = buffer2;
@@ -2003,18 +2020,14 @@ _bfd_ecoff_find_nearest_line (abfd, section, ignore_symbols, offset,
 {
   const struct ecoff_debug_swap * const debug_swap
     = &ecoff_backend (abfd)->debug_swap;
+  struct ecoff_debug_info * const debug_info = &ecoff_data (abfd)->debug_info;
   FDR *fdr_ptr;
   FDR *fdr_start;
   FDR *fdr_end;
   FDR *fdr_hold;
-  bfd_size_type external_pdr_size;
-  char *pdr_ptr;
-  char *pdr_end;
-  PDR pdr;
-  bfd_vma first_off;
-  unsigned char *line_ptr;
-  unsigned char *line_end;
-  int lineno;
+  boolean stabs;
+
+  offset += section->vma;
 
   /* If we're not in the .text section, we don't have any line
      numbers.  */
@@ -2024,8 +2037,7 @@ _bfd_ecoff_find_nearest_line (abfd, section, ignore_symbols, offset,
     return false;
 
   /* Make sure we have the FDR's.  */
-  if (! _bfd_ecoff_slurp_symbolic_info (abfd, (asection *) NULL,
-					&ecoff_data (abfd)->debug_info)
+  if (! _bfd_ecoff_slurp_symbolic_info (abfd, (asection *) NULL, debug_info)
       || bfd_get_symcount (abfd) == 0)
     return false;
 
@@ -2034,8 +2046,8 @@ _bfd_ecoff_find_nearest_line (abfd, section, ignore_symbols, offset,
      memory order.  If speed is ever important, this can become a
      binary search.  We must ignore FDR's with no PDR entries; they
      will have the adr of the FDR before or after them.  */
-  fdr_start = ecoff_data (abfd)->debug_info.fdr;
-  fdr_end = fdr_start + ecoff_data (abfd)->debug_info.symbolic_header.ifdMax;
+  fdr_start = debug_info->fdr;
+  fdr_end = fdr_start + debug_info->symbolic_header.ifdMax;
   fdr_hold = (FDR *) NULL;
   for (fdr_ptr = fdr_start; fdr_ptr < fdr_end; fdr_ptr++)
     {
@@ -2049,112 +2061,289 @@ _bfd_ecoff_find_nearest_line (abfd, section, ignore_symbols, offset,
     return false;
   fdr_ptr = fdr_hold;
 
-  /* Each FDR has a list of procedure descriptors (PDR).  PDR's also
-     have an address, which is relative to the FDR address, and are
-     also stored in increasing memory order.  */
-  offset -= fdr_ptr->adr;
-  external_pdr_size = debug_swap->external_pdr_size;
-  pdr_ptr = ((char *) ecoff_data (abfd)->debug_info.external_pdr
-	     + fdr_ptr->ipdFirst * external_pdr_size);
-  pdr_end = pdr_ptr + fdr_ptr->cpd * external_pdr_size;
-  (*debug_swap->swap_pdr_in) (abfd, (PTR) pdr_ptr, &pdr);
-  if (offset < pdr.adr)
-    return false;
-
-  /* The address of the first PDR is an offset which applies to the
-     addresses of all the PDR's.  */
-  first_off = pdr.adr;
-
-  for (pdr_ptr += external_pdr_size;
-       pdr_ptr < pdr_end;
-       pdr_ptr += external_pdr_size)
+  /* Check whether this file has stabs debugging information.  In a
+     file with stabs debugging information, the second local symbol is
+     named @stabs.  */
+  stabs = false;
+  if (fdr_ptr->csym >= 2)
     {
+      char *sym_ptr;
+      SYMR sym;
+
+      sym_ptr = ((char *) debug_info->external_sym
+		 + (fdr_ptr->isymBase + 1) * debug_swap->external_sym_size);
+      (*debug_swap->swap_sym_in) (abfd, sym_ptr, &sym);
+      if (strcmp (debug_info->ss + fdr_ptr->issBase + sym.iss,
+		  STABS_SYMBOL) == 0)
+	stabs = true;
+    }
+
+  if (! stabs)
+    {
+      bfd_size_type external_pdr_size;
+      char *pdr_ptr;
+      char *pdr_end;
+      PDR pdr;
+      bfd_vma first_off;
+      unsigned char *line_ptr;
+      unsigned char *line_end;
+      int lineno;
+
+      /* This file uses ECOFF debugging information.  Each FDR has a
+	 list of procedure descriptors (PDR).  PDR's also have an
+	 address, which is relative to the FDR address, and are also
+	 stored in increasing memory order.  */
+      if (offset < fdr_ptr->adr)
+	return false;
+      offset -= fdr_ptr->adr;
+      external_pdr_size = debug_swap->external_pdr_size;
+      pdr_ptr = ((char *) debug_info->external_pdr
+		 + fdr_ptr->ipdFirst * external_pdr_size);
+      pdr_end = pdr_ptr + fdr_ptr->cpd * external_pdr_size;
       (*debug_swap->swap_pdr_in) (abfd, (PTR) pdr_ptr, &pdr);
-      if (offset < pdr.adr)
-	break;
-    }
 
-  /* Now we can look for the actual line number.  The line numbers are
-     stored in a very funky format, which I won't try to describe.
-     Note that right here pdr_ptr and pdr hold the PDR *after* the one
-     we want; we need this to compute line_end.  */
-  line_end = ecoff_data (abfd)->debug_info.line;
-  if (pdr_ptr == pdr_end)
-    line_end += fdr_ptr->cbLineOffset + fdr_ptr->cbLine;
-  else
-    line_end += fdr_ptr->cbLineOffset + pdr.cbLineOffset;
+      /* The address of the first PDR is an offset which applies to
+	 the addresses of all the PDR's.  */
+      first_off = pdr.adr;
 
-  /* Now change pdr and pdr_ptr to the one we want.  */
-  pdr_ptr -= external_pdr_size;
-  (*debug_swap->swap_pdr_in) (abfd, (PTR) pdr_ptr, &pdr);
-
-  offset -= pdr.adr - first_off;
-  lineno = pdr.lnLow;
-  line_ptr = (ecoff_data (abfd)->debug_info.line
-	      + fdr_ptr->cbLineOffset
-	      + pdr.cbLineOffset);
-  while (line_ptr < line_end)
-    {
-      int delta;
-      int count;
-
-      delta = *line_ptr >> 4;
-      if (delta >= 0x8)
-	delta -= 0x10;
-      count = (*line_ptr & 0xf) + 1;
-      ++line_ptr;
-      if (delta == -8)
+      for (pdr_ptr += external_pdr_size;
+	   pdr_ptr < pdr_end;
+	   pdr_ptr += external_pdr_size)
 	{
-	  delta = (((line_ptr[0]) & 0xff) << 8) + ((line_ptr[1]) & 0xff);
-	  if (delta >= 0x8000)
-	    delta -= 0x10000;
-	  line_ptr += 2;
+	  (*debug_swap->swap_pdr_in) (abfd, (PTR) pdr_ptr, &pdr);
+	  if (offset < pdr.adr - first_off)
+	    break;
 	}
-      lineno += delta;
-      if (offset < count * 4)
-	break;
-      offset -= count * 4;
-    }
 
-  /* If fdr_ptr->rss is -1, then this file does not have full symbols,
-     at least according to gdb/mipsread.c.  */
-  if (fdr_ptr->rss == -1)
-    {
-      *filename_ptr = NULL;
-      if (pdr.isym == -1)
-	*functionname_ptr = NULL;
+      /* Now we can look for the actual line number.  The line numbers
+	 are stored in a very funky format, which I won't try to
+	 describe.  Note that right here pdr_ptr and pdr hold the PDR
+	 *after* the one we want; we need this to compute line_end.  */
+      line_end = debug_info->line;
+      if (pdr_ptr == pdr_end)
+	line_end += fdr_ptr->cbLineOffset + fdr_ptr->cbLine;
+      else
+	line_end += fdr_ptr->cbLineOffset + pdr.cbLineOffset;
+
+      /* Now change pdr and pdr_ptr to the one we want.  */
+      pdr_ptr -= external_pdr_size;
+      (*debug_swap->swap_pdr_in) (abfd, (PTR) pdr_ptr, &pdr);
+
+      offset -= pdr.adr - first_off;
+      lineno = pdr.lnLow;
+      line_ptr = debug_info->line + fdr_ptr->cbLineOffset + pdr.cbLineOffset;
+      while (line_ptr < line_end)
+	{
+	  int delta;
+	  int count;
+
+	  delta = *line_ptr >> 4;
+	  if (delta >= 0x8)
+	    delta -= 0x10;
+	  count = (*line_ptr & 0xf) + 1;
+	  ++line_ptr;
+	  if (delta == -8)
+	    {
+	      delta = (((line_ptr[0]) & 0xff) << 8) + ((line_ptr[1]) & 0xff);
+	      if (delta >= 0x8000)
+		delta -= 0x10000;
+	      line_ptr += 2;
+	    }
+	  lineno += delta;
+	  if (offset < count * 4)
+	    break;
+	  offset -= count * 4;
+	}
+
+      /* If fdr_ptr->rss is -1, then this file does not have full
+	 symbols, at least according to gdb/mipsread.c.  */
+      if (fdr_ptr->rss == -1)
+	{
+	  *filename_ptr = NULL;
+	  if (pdr.isym == -1)
+	    *functionname_ptr = NULL;
+	  else
+	    {
+	      EXTR proc_ext;
+
+	      (*debug_swap->swap_ext_in)
+		(abfd,
+		 ((char *) debug_info->external_ext
+		  + pdr.isym * debug_swap->external_ext_size),
+		 &proc_ext);
+	      *functionname_ptr = debug_info->ssext + proc_ext.asym.iss;
+	    }
+	}
       else
 	{
-	  EXTR proc_ext;
+	  SYMR proc_sym;
 
-	  (*debug_swap->swap_ext_in)
+	  *filename_ptr = debug_info->ss + fdr_ptr->issBase + fdr_ptr->rss;
+	  (*debug_swap->swap_sym_in)
 	    (abfd,
-	     ((char *) ecoff_data (abfd)->debug_info.external_ext
-	      + pdr.isym * debug_swap->external_ext_size),
-	     &proc_ext);
-	  *functionname_ptr = (ecoff_data (abfd)->debug_info.ssext
-			       + proc_ext.asym.iss);
+	     ((char *) debug_info->external_sym
+	      + (fdr_ptr->isymBase + pdr.isym) * debug_swap->external_sym_size),
+	     &proc_sym);
+	  *functionname_ptr = debug_info->ss + fdr_ptr->issBase + proc_sym.iss;
 	}
+      if (lineno == ilineNil)
+	lineno = 0;
+      *retline_ptr = lineno;
     }
   else
     {
-      SYMR proc_sym;
+      bfd_size_type external_sym_size;
+      const char *directory_name;
+      const char *main_file_name;
+      const char *current_file_name;
+      const char *function_name;
+      const char *line_file_name;
+      bfd_vma low_func_vma;
+      bfd_vma low_line_vma;
+      char *sym_ptr, *sym_ptr_end;
+      size_t len, funclen;
+      char *buffer = NULL;
 
-      *filename_ptr = (ecoff_data (abfd)->debug_info.ss
-		       + fdr_ptr->issBase
-		       + fdr_ptr->rss);
-      (*debug_swap->swap_sym_in)
-	(abfd,
-	 ((char *) ecoff_data (abfd)->debug_info.external_sym
-	  + (fdr_ptr->isymBase + pdr.isym) * debug_swap->external_sym_size),
-	 &proc_sym);
-      *functionname_ptr = (ecoff_data (abfd)->debug_info.ss
-			   + fdr_ptr->issBase
-			   + proc_sym.iss);
+      /* This file uses stabs debugging information.  */
+
+      *filename_ptr = NULL;
+      *functionname_ptr = NULL;
+      *retline_ptr = 0;
+
+      directory_name = NULL;
+      main_file_name = NULL;
+      current_file_name = NULL;
+      function_name = NULL;
+      line_file_name = NULL;
+      low_func_vma = 0;
+      low_line_vma = 0;
+
+      external_sym_size = debug_swap->external_sym_size;
+
+      sym_ptr = ((char *) debug_info->external_sym
+		 + (fdr_ptr->isymBase + 2) * external_sym_size);
+      sym_ptr_end = sym_ptr + fdr_ptr->csym * external_sym_size;
+      for (; sym_ptr < sym_ptr_end; sym_ptr += external_sym_size)
+	{
+	  SYMR sym;
+
+	  (*debug_swap->swap_sym_in) (abfd, sym_ptr, &sym);
+
+	  if (ECOFF_IS_STAB (&sym))
+	    {
+	      switch (ECOFF_UNMARK_STAB (sym.index))
+		{
+		case N_SO:
+		  main_file_name = current_file_name =
+		    debug_info->ss + fdr_ptr->issBase + sym.iss;
+
+		  /* Check the next symbol to see if it is also an
+                     N_SO symbol.  */
+		  if (sym_ptr + external_sym_size < sym_ptr_end)
+		    {
+		      SYMR nextsym;
+
+		      (*debug_swap->swap_sym_in) (abfd,
+						  sym_ptr + external_sym_size,
+						  &nextsym);
+		      if (ECOFF_IS_STAB (&nextsym)
+			  && ECOFF_UNMARK_STAB (nextsym.index) == N_SO)
+			{
+ 			  directory_name = current_file_name;
+			  main_file_name = current_file_name =
+			    debug_info->ss + fdr_ptr->issBase + sym.iss;
+			  sym_ptr += external_sym_size;
+			}
+		    }
+		  break;
+
+		case N_SOL:
+		  current_file_name =
+		    debug_info->ss + fdr_ptr->issBase + sym.iss;
+		  break;
+
+		case N_FUN:
+		  if (sym.value >= low_func_vma
+		      && sym.value <= offset + section->vma)
+		    {
+		      low_func_vma = sym.value;
+		      function_name =
+			debug_info->ss + fdr_ptr->issBase + sym.iss;
+		    }
+		  break;
+		}
+	    }
+	  else if (sym.st == stLabel && sym.index != indexNil)
+	    {
+	      if (sym.value > offset + section->vma)
+		{
+		  /* We have passed the location in the file we are
+                     looking for, so we can get out of the loop.  */
+		  break;
+		}
+
+	      if (sym.value >= low_line_vma)
+		{
+		  low_line_vma = sym.value;
+		  line_file_name = current_file_name;
+		  *retline_ptr = sym.index;
+		}
+	    }
+	}
+
+      if (*retline_ptr != 0)
+	main_file_name = line_file_name;
+
+      /* We need to remove the stuff after the colon in the function
+         name.  We also need to put the directory name and the file
+         name together.  */
+      if (function_name == NULL)
+	len = funclen = 0;
+      else
+	len = funclen = strlen (function_name) + 1;
+
+      if (main_file_name != NULL
+	  && directory_name != NULL
+	  && main_file_name[0] != '/')
+	len += strlen (directory_name) + strlen (main_file_name) + 1;
+
+      if (len != 0)
+	{
+	  if (ecoff_data (abfd)->find_buffer != NULL)
+	    free (ecoff_data (abfd)->find_buffer);
+	  buffer = (char *) malloc (len);
+	  if (buffer == NULL)
+	    {
+	      bfd_set_error (bfd_error_no_memory);
+	      return false;
+	    }
+	  ecoff_data (abfd)->find_buffer = buffer;
+	}
+
+      if (function_name != NULL)
+	{
+	  char *colon;
+
+	  strcpy (buffer, function_name);
+	  colon = strchr (buffer, ':');
+	  if (colon != NULL)
+	    *colon = '\0';
+	  *functionname_ptr = buffer;
+	}
+
+      if (main_file_name != NULL)
+	{
+	  if (directory_name == NULL || main_file_name[0] == '/')
+	    *filename_ptr = main_file_name;
+	  else
+	    {
+	      sprintf (buffer + funclen, "%s%s", directory_name,
+		       main_file_name);
+	      *filename_ptr = buffer + funclen;
+	    }
+	}
     }
-  if (lineno == ilineNil)
-    lineno = 0;
-  *retline_ptr = lineno;
+
   return true;
 }
 
@@ -3673,6 +3862,9 @@ ecoff_link_add_archive_symbols (abfd, info)
 
   if (! bfd_has_map (abfd))
     {
+      /* An empty archive is a special case.  */
+      if (bfd_openr_next_archived_file (abfd, (bfd *) NULL) == NULL)
+	return true;
       bfd_set_error (bfd_error_no_symbols);
       return false;
     }
@@ -4792,7 +4984,7 @@ ecoff_reloc_link_order (output_bfd, info, output_section, link_order)
   rel.address = link_order->offset;
 
   rel.howto = bfd_reloc_type_lookup (output_bfd, link_order->u.reloc.p->reloc);
-  if (rel.howto == (const reloc_howto_type *) NULL)
+  if (rel.howto == 0)
     {
       bfd_set_error (bfd_error_bad_value);
       return false;

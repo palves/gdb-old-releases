@@ -444,20 +444,27 @@ class T5 {
 public:
     T5(int);
     T5(const T5<T>&);
+    ~T5();
     static void* operator new(size_t);
     static void operator delete(void *pointer);
+    int value();
     
     static T X;
     T x;
+    int val;
 };
 
 template<class T>
-T5<T>::T5(int)
-{}
+T5<T>::T5(int v)
+{ val = v; }
 
 template<class T>
 T5<T>::T5(const T5<T>&)
-{ }
+{}
+
+template<class T>
+T5<T>::~T5()
+{}
 
 template<class T>
 void*
@@ -469,35 +476,39 @@ void
 T5<T>::operator delete(void *pointer)
 { }
 
+template<class T>
+int
+T5<T>::value()
+{ return val; }
+
 #if ! defined(__GNUC__) || defined(GCC_BUG)
 template<class T>
 T5<T>::T T5<T>::X;
 #endif
 
-#ifdef GCC_TEMPLATE_BUG
-void
-useT5()
-{
-#endif
-    int i;
-    T5<char> t5c(i);
-    T5<int> t5i(i);
-    T5<int (*)(char, void *)> t5fi1(i);
-    T5<int (*)(int, double **, void *)> t5fi2(i);
+T5<char> t5c(1);
+T5<int> t5i(2);
+T5<int (*)(char, void *)> t5fi1(3);
+T5<int (*)(int, double **, void *)> t5fi2(4);
 
-    class x {
-    public:
-	int (*manage[5])(double,
-			 void *(*malloc)(unsigned size),
-			 void (*free)(void *pointer));
-	int (*device[5])(int open(const char *, unsigned mode, unsigned perms, int extra = 0), 
-			 int *(*read)(int fd, void *place, unsigned size),
-			 int *(*write)(int fd, void *place, unsigned size),
-			 void (*close)(int fd));
-    };
-    T5<x> t5x(i);
-#ifdef GCC_TEMPLATE_BUG
-}
+class x {
+public:
+    int (*manage[5])(double,
+		     void *(*malloc)(unsigned size),
+		     void (*free)(void *pointer));
+    int (*device[5])(int open(const char *, unsigned mode, unsigned perms, int extra = 0), 
+		     int *(*read)(int fd, void *place, unsigned size),
+		     int *(*write)(int fd, void *place, unsigned size),
+		     void (*close)(int fd));
+};
+T5<x> t5x(5);
+
+#if !defined(__GNUC__) || (__GNUC__ >= 2 && __GNUC_MINOR__ >= 6)
+template class T5<char>;
+template class T5<int>;
+template class T5<int (*)(char, void *)>;
+template class T5<int (*)(int, double **, void *)>;
+template class T5<x>;
 #endif
 
 class T7 {

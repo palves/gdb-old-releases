@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 960 b.out binaries.
-   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -41,7 +41,7 @@ static bfd_reloc_status_type calljx_callback
 	   asection *));
 static bfd_reloc_status_type callj_callback
   PARAMS ((bfd *, struct bfd_link_info *, arelent *, PTR data,
-	   unsigned int srcidx, unsigned int dstidx, asection *));
+	   unsigned int srcidx, unsigned int dstidx, asection *, boolean));
 static bfd_vma get_value PARAMS ((arelent *, struct bfd_link_info *,
 				  asection *));
 static int abs32code PARAMS ((bfd *, asection *, arelent *,
@@ -330,7 +330,7 @@ calljx_callback (abfd, link_info, reloc_entry, src, dst, input_section)
 /* Magic to turn call into callj */
 static bfd_reloc_status_type
 callj_callback (abfd, link_info, reloc_entry,  data, srcidx, dstidx,
-		input_section)
+		input_section, shrinking)
      bfd *abfd;
      struct bfd_link_info *link_info;
      arelent *reloc_entry;
@@ -338,6 +338,7 @@ callj_callback (abfd, link_info, reloc_entry,  data, srcidx, dstidx,
      unsigned int srcidx;
      unsigned int dstidx;
      asection *input_section;
+     boolean shrinking;
 {
   int word = bfd_get_32 (abfd, (bfd_byte *) data + srcidx);
   asymbol *symbol_in = *(reloc_entry->sym_ptr_ptr);
@@ -368,12 +369,21 @@ callj_callback (abfd, link_info, reloc_entry,  data, srcidx, dstidx,
 		     - output_addr (input_section))
 		    & BAL_MASK);
     }
+  else if ((symbol->symbol.flags & BSF_SECTION_SYM) != 0)
+    {
+      /* A callj against a symbol in the same section is a fully
+         resolved relative call.  We don't need to do anything here.
+         If the symbol is not in the same section, I'm not sure what
+         to do; fortunately, this case will probably never arise.  */
+      BFD_ASSERT (! shrinking);
+      BFD_ASSERT (symbol->symbol.section == input_section);
+    }
   else
     {
       word = CALL | (((word & BAL_MASK)
 		      + value
 		      + reloc_entry->addend
-		      - dstidx
+		      - (shrinking ? dstidx : 0)
 		      - output_addr (input_section))
 		     & BAL_MASK);
     }
@@ -425,7 +435,7 @@ static reloc_howto_type howto_done_align_table[] = {
   HOWTO (ALIGNDONE, 0xf, 0xf, 0, false, 0, complain_overflow_dont, 0, "donealign128", false, 0, 0, false),
 };
 
-static const reloc_howto_type *
+static reloc_howto_type *
 b_out_bfd_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
@@ -995,11 +1005,11 @@ perform_slip (abfd, slip, input_section, value)
       if (p->value > value)
       {
 	p->value -=slip;
-	if (p->udata != NULL)
+	if (p->udata.p != NULL)
 	  {
 	    struct generic_link_hash_entry *h;
 
-	    h = (struct generic_link_hash_entry *) p->udata;
+	    h = (struct generic_link_hash_entry *) p->udata.p;
 	    BFD_ASSERT (h->root.type == bfd_link_hash_defined);
 	    h->root.u.def.value -= slip;
 	    BFD_ASSERT (h->root.u.def.value == p->value);
@@ -1275,7 +1285,7 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 		  break;
 		case CALLJ:
 		  callj_callback (in_abfd, link_info, reloc, data, src_address,
-				  dst_address, input_section);
+				  dst_address, input_section, false);
 		  src_address+=4;
 		  dst_address+=4;
 		  break;
@@ -1290,7 +1300,8 @@ b_out_bfd_get_relocated_section_contents (in_abfd, link_info, link_order,
 		  /* This used to be a callx, but we've found out that a
 		     callj will reach, so do the right thing.  */
 		  callj_callback (in_abfd, link_info, reloc, data,
-				  src_address + 4, dst_address, input_section);
+				  src_address + 4, dst_address, input_section,
+				  true);
 		  dst_address+=4;
 		  src_address+=8;
 		  break;

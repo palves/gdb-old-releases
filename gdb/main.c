@@ -1,5 +1,5 @@
 /* Top level stuff for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -41,6 +41,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 /* Temporary variable for SET_TOP_LEVEL.  */
+
 static int top_level_val;
 
 /* Do a setjmp on error_return and quit_return.  catch_errors is
@@ -51,6 +52,14 @@ static int top_level_val;
   (((top_level_val = setjmp (error_return)) \
     ? (PTR) 0 : (PTR) memcpy (quit_return, error_return, sizeof (jmp_buf))) \
    , top_level_val)
+
+/* If nonzero, display time usage both at startup and for each command.  */
+
+int display_time;
+
+/* If nonzero, display space usage both at startup and for each command.  */
+
+int display_space;
 
 extern void gdb_init PARAMS ((void));
 
@@ -93,6 +102,10 @@ main (argc, argv)
 
   register int i;
 
+  long time_at_startup = get_run_time ();
+
+  START_PROGRESS (NULL, 0);
+
   /* This needs to happen before the first use of malloc.  */
   init_malloc ((PTR) NULL);
 
@@ -123,6 +136,7 @@ main (argc, argv)
   current_directory = gdb_dirbuf;
 
   /* Parse arguments and options.  */
+#ifndef WIN32
   {
     int c;
     /* When var field is 0, use flag field to record the equivalent
@@ -165,11 +179,16 @@ main (argc, argv)
 	{"tty", required_argument, 0, 't'},
 	{"baud", required_argument, 0, 'b'},
 	{"b", required_argument, 0, 'b'},
+	{"nw", no_argument, &use_windows, 0},
+	{"nowindows", no_argument, &use_windows, 0},
+	{"w", no_argument, &use_windows, 1},
+	{"windows", no_argument, &use_windows, 1},
+	{"statistics", no_argument, 0, 13},
 /* Allow machine descriptions to add more options... */
 #ifdef ADDITIONAL_OPTIONS
 	ADDITIONAL_OPTIONS
 #endif
-	{0, no_argument, 0, 0},
+	{0, no_argument, 0, 0}
       };
 
     while (1)
@@ -200,6 +219,11 @@ main (argc, argv)
 	  case 12:
 	    /* FIXME: what if the syntax is wrong (e.g. not digits)?  */
 	    annotation_level = atoi (optarg);
+	    break;
+	  case 13:
+	    /* Enable the display of both time and space usage.  */
+	    display_time = 1;
+	    display_space = 1;
 	    break;
 	  case 'f':
 	    annotation_level = 1;
@@ -289,6 +313,7 @@ main (argc, argv)
       quiet = 1;
   }
 
+#endif
   gdb_init ();
 
   /* Do these (and anything which might call wrap_here or *_filtered)
@@ -322,19 +347,26 @@ Options:\n\
   --quiet            Do not print version number on startup.\n\
   --fullname         Output information used by emacs-GDB interface.\n\
   --epoch            Output information used by epoch emacs-GDB interface.\n\
+", gdb_stdout);
+      fputs_unfiltered ("\
   --batch            Exit after processing options.\n\
   --nx               Do not read .gdbinit file.\n\
   --tty=TTY          Use TTY for input/output by the program being debugged.\n\
   --cd=DIR           Change current directory to DIR.\n\
   --directory=DIR    Search for source files in DIR.\n\
+", gdb_stdout);
+      fputs_unfiltered ("\
   --command=FILE     Execute GDB commands from FILE.\n\
   --symbols=SYMFILE  Read symbols from SYMFILE.\n\
   --exec=EXECFILE    Use EXECFILE as the executable.\n\
   --se=FILE          Use FILE as symbol file and executable file.\n\
+", gdb_stdout);
+      fputs_unfiltered ("\
   --core=COREFILE    Analyze the core dump COREFILE.\n\
   -b BAUDRATE        Set serial port baud rate used for remote debugging.\n\
   --mapped           Use mapped symbol files if supported on this system.\n\
   --readnow          Fully read symbol files on first access.\n\
+  --nw		     Do not use a window interface.\n\
 ", gdb_stdout);
 #ifdef ADDITIONAL_OPTION_HELP
       fputs_unfiltered (ADDITIONAL_OPTION_HELP, gdb_stdout);
@@ -392,7 +424,7 @@ GDB manual (available as on-line info or a printed manual).\n", gdb_stdout);
       stat (gdbinit, &cwdbuf); /* We'll only need this if
 				       homedir was set.  */
     }
-  
+
   /* Now perform all the actions indicated by the arguments.  */
   if (cdarg != NULL)
     {
@@ -501,18 +533,50 @@ GDB manual (available as on-line info or a printed manual).\n", gdb_stdout);
   BEFORE_MAIN_LOOP_HOOK;
 #endif
 
-  /* The command loop.  */
+  END_PROGRESS (NULL);
 
+  /* Show time and/or space usage.  */
+
+  if (display_time)
+    {
+      long init_time = get_run_time () - time_at_startup;
+
+      printf_unfiltered ("Startup time: %ld.%06ld\n",
+			 init_time / 1000000, init_time % 1000000);
+    }
+
+  if (display_space)
+    {
+      extern char **environ;
+      char *lim = (char *) sbrk (0);
+
+      printf_unfiltered ("Startup size: data size %ld\n",
+			 (long) (lim - (char *) &environ));
+    }
+
+  /* The default command loop. 
+     The WIN32 Gui calls this main to set up gdb's state, and 
+     has its own command loop. */
+#if !defined (WIN32)
   while (1)
     {
       if (!SET_TOP_LEVEL ())
 	{
 	  do_cleanups (ALL_CLEANUPS);		/* Do complete cleanup */
-	  command_loop ();
+	  /* GUIs generally have their own command loop, mainloop, or whatever.
+	     This is a good place to gain control because many error
+	     conditions will end up here via longjmp(). */
+	  if (command_loop_hook)
+	    command_loop_hook ();
+	  else
+	    command_loop ();
           quit_command ((char *)0, instream == stdin);
 	}
     }
+
   /* No exit -- exit is through quit_command.  */
+#endif
+
 }
 
 void
@@ -541,5 +605,16 @@ fputs_unfiltered (linebuffer, stream)
      const char *linebuffer;
      FILE *stream;
 {
+  if (fputs_unfiltered_hook)
+    {
+      /* FIXME: I think we should only be doing this for stdout or stderr.
+	 Either that or we should be passing stream to the hook so it can
+	 deal with it.  If that is cleaned up, this function can go back
+	 into utils.c and the fputs_unfiltered_hook can replace the current
+	 ability to avoid this function by not linking with main.c.  */
+      fputs_unfiltered_hook (linebuffer, stream);
+      return;
+    }
+
   fputs (linebuffer, stream);
 }

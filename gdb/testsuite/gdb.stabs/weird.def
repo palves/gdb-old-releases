@@ -7,19 +7,19 @@
 
 # Try all possible symbol descriptors.  Note that GDB should merely
 # complain() even though these strings are totally bogus.  This allows
-# us to define new syntaxes.
+# future compilers to define new syntaxes.
 .stabs "sym32:  !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~",N_LSYM,0,0,0
 
 # Type descriptors.
 .stabs "type32:t32=  !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~",N_LSYM,0,0,0
 
-# Note that a 'G', N_GSYM symbol needs no value.  The name of the stab is
-# used to look up a non-stab symbol with the same name.  On some machines,
-# the non-stab symbols will normally have underscores, but if they lack
-# the underscores, then GDB will simply put the symbol in the minimal
-# symbol table all the same.  So we can use them without underscores and
-# that way we don't need to worry about which machines
-# to add underscores and so on.
+# Note that a 'G', N_GSYM symbol needs no value.  The name of the stab
+# is used to look up a non-stab symbol with the same name.  On some
+# machines, the non-stab symbols will normally have underscores, but
+# if they lack the underscores, then GDB will simply put the symbol in
+# the minimal symbol table all the same.  So we can use them without
+# underscores and that way we don't need to worry about which machines
+# need underscores.
 
 # Type attributes.
 .stabs "attr104:G404=@h !#$%&'()*+,-./0123456789:<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~;1",N_GSYM,0,0, 0
@@ -915,32 +915,7 @@ var3:
 
 # Hacked version, without class names.
 
-.if alpha
-.stabs "v_comb:G448=s48!2,020,445=s24!1,120,444=s4x:1,0,32;;;$vb444:446=*444,0;a:/01,64,32;;;02128,447=s24!1,120,444;$vb444:446,0;b:/01,64,32;;;comb:/01,256,32;;", N_GSYM,0,0, 0
-	.globl v_comb
-	.align 3
-v_comb:
-# virtual base class pointer for inherit_path_a 
-	.quad v_comb_shared 
-# a 
-	.long 43 
-	.align 3
-# virtual base class pointer for inherit_path_b 
-	.quad v_comb_shared 
-# b 
-	.long 44 
-	.align 3
-# comb 
-	.long 45 
-	.align 3
-v_comb_shared:
-# x 
-	.long 42 
-	.align 3
-.endif alpha
-
-.if notalpha
-.stabs "v_comb:G448=s24!2,020,445=s12!1,120,444=s4x:1,0,32;;;$vb444:446=*444,0;a:/01,32,32;;;0264,447=s12!1,120,444;$vb444:446,0;b:/01,32,32;;;comb:/01,128,32;;", N_GSYM,0,0, 0
+.stabs "v_comb:G448=s24!2,020,445=s12!1,120,444=s4x:1,0,32;;;$vb444:446=@s32;*444,0;a:/01,32,32;;;0264,447=s12!1,120,444;$vb444:446,0;b:/01,32,32;;;comb:/01,128,32;;", N_GSYM,0,0, 0
 
 	.globl v_comb
 	.align 1
@@ -958,7 +933,6 @@ v_comb:
 v_comb_shared:
 # x 
 	.long 42 
-.endif notalpha
 
 .stabs "sym92:\ !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~",N_LSYM,0,0,0
 .stabs "type92:t92=\ !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~",N_LSYM,0,0,0

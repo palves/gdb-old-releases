@@ -19,8 +19,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-# Please email any bugs, comments, and/or additions to this file to:
+# Please report any problems running this configure script to
 # configure@cygnus.com
+# Please do not send reports about other problems to this address.  See
+# gdb/README, gas/README, etc., for info on where and how to report
+# problems about particular tools.
 
 # This file was written by K. Richard Pixley.
 
@@ -81,7 +84,7 @@ subdirs=
 target_alias=NOTARGET
 target_makefile_frag=
 undefs=NOUNDEFS
-version="$Revision: 1.189 $"
+version="$Revision: 1.199 $"
 x11=default
 
 ### we might need to use some other shell than /bin/sh for running subshells
@@ -141,7 +144,7 @@ do
 		;;
 # These options have mandatory values.  Since we didn't find an = sign,
 # the value must be in the next argument
-	--b* | --ex* | --ho* | --pre* | --program-p* | --program-s* | --program-t* | --si* | --sr* | --ta* | --tm* | --x-*)
+	--b* | --cache* | --ex* | --ho* | --pre* | --program-p* | --program-s* | --program-t* | --si* | --sr* | --ta* | --tm* | --x-*)
 		optarg=$1
 		shift
 		;;
@@ -157,6 +160,9 @@ do
 		   fatal=yes
 		   ;;
 		esac
+		;;
+# Accepted for compatibility with new autoconf; ignored.
+	--cache*)
 		;;
 	--disable-*)
 		enableopt=`echo ${option} | sed 's:^--disable-:enable_:;s:-:_:g'`
@@ -334,17 +340,7 @@ case "${fatal}" in
 				# assume we are running native, and force
 				# the same string for both target and host.
 				case $target_alias in
-				NOTARGET)
-					case $undefs in
-					NOUNDEFS) ;;
-					*)
-					    if expr $host_alias : $undefs >/dev/null
-					    then
-						host_alias=$undefs
-					    fi
-					    ;;
-					esac
-					;;
+				NOTARGET) ;;
 				*)
 					if expr $host_alias : $target_alias >/dev/null
 					then
@@ -384,29 +380,29 @@ esac
 
 if [ -n "${fatal}" -o "${host_alias}" = "help" ] ; then
 	exec 1>&2
-	echo Usage: configure [OPTIONS] HOST
+	echo Usage: configure [OPTIONS] [HOST]
 	echo
 	echo Options: [defaults in brackets]
-	echo ' --prefix=MYDIR		 configure for installation of host independent files into MYDIR. ["/usr/local"]'
-	echo ' --exec-prefix=MYDIR	 configure for installation of host dependent files into MYDIR. ["/usr/local"]'
-	echo ' --help			 print this message. [normal config]'
-	echo ' --build=BUILD		 configure for building on BUILD.  [BUILD=HOST]'
-	echo ' --host=HOST		 configure for HOST.  [determined via config.guess]'
-	echo ' --norecursion		 configure this directory only. [recurse]'
-	echo ' --program-prefix=FOO	 install programs with FOO prepended to their names. [ "" ]'
-	echo ' --program-suffix=FOO	 install programs with FOO appended to their names. [ "" ]'
-	echo ' --program-transform-name=FOO install programs with names transformed by sed pattern FOO. [ "" ]'
-	echo ' --site=SITE		 configure with site specific makefile for SITE'
-	echo ' --srcdir=DIR		 find the sources in DIR. ["." or ".."]'
-	echo ' --target=TARGET	 configure for TARGET.  [TARGET = HOST]'
-	echo ' --tmpdir=TMPDIR	 create temporary files in TMPDIR.  [ TMPDIR = "/tmp" ]'
-	echo ' --nfp			 configure the compilers default to soft floating point. [hard float]'
+	echo ' --prefix=MYDIR		 install into MYDIR [/usr/local]'
+	echo ' --exec-prefix=MYDIR	 install host-dependent files into MYDIR [/usr/local]'
+	echo ' --help			 print this message [normal config]'
+	echo ' --build=BUILD		 configure for building on BUILD [BUILD=HOST]'
+	echo ' --host=HOST		 configure for HOST [determined via config.guess]'
+	echo ' --norecursion		 configure this directory only [recurse]'
+	echo ' --program-prefix=FOO	 prepend FOO to installed program names [""]'
+	echo ' --program-suffix=FOO	 append FOO to installed program names [""]'
+	echo ' --program-transform-name=P transform installed names by sed pattern P [""]'
+	echo ' --site=SITE		 configure with site-specific makefile for SITE'
+	echo ' --srcdir=DIR		 find the sources in DIR [. or ..]'
+	echo ' --target=TARGET	 configure for TARGET [TARGET=HOST]'
+	echo ' --tmpdir=TMPDIR	 create temporary files in TMPDIR [/tmp]'
+	echo ' --nfp			 configure for software floating point [hard float]'
 	echo ' --with-FOO, --with-FOO=BAR package FOO is available (parameter BAR)'
 	echo ' --without-FOO		 package FOO is NOT available'
 	echo ' --enable-FOO, --enable-FOO=BAR include feature FOO (parameter BAR)'
 	echo ' --disable-FOO		 do not include feature FOO'
 	echo
-	echo 'Where HOST and TARGET are something like "sun4", "decstation", "encore", etc.'
+	echo 'Where HOST and TARGET are something like "sparc-sunos", "mips-sgi-irix5", etc.'
 	echo
 	if [ -r config.status ] ; then
 		cat config.status
@@ -492,8 +488,12 @@ esac
 
 # keep this filename short for &%*%$*# 14 char file names
 tmpfile=${TMPDIR}/cONf$$
-trap "rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos; exit 1" 1 2 15
-trap "rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos" 0
+# Note that under many versions of sh a trap handler for 0 will *override* any
+# exit status you explicitly specify!  At this point, the only non-error exit
+# is at the end of the script; these actions are duplicated there, minus
+# the "exit 1".  Don't use "exit 0" anywhere after this without resetting the
+# trap handler, or you'll lose.
+trap "rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos; exit 1" 0 1 2 15
 
 # split ${srcdir}/configure.in into common, per-host, per-target,
 # and post-target parts.  Post-target is optional.
@@ -523,16 +523,25 @@ esac
 case "${build_alias}" in
 "")	;;
 *)
-	result=`${configsub} ${build_alias}`
-        buildopt="--build=${build_alias}"
-	build_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
-	build_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
-	build_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
-	build=${build_cpu}-${build_vendor}-${build_os}
+	if result=`${config_shell} ${configsub} ${build_alias}` ; then
+	    buildopt="--build=${build_alias}"
+	    build_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
+	    build_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
+	    build_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
+	    build=${build_cpu}-${build_vendor}-${build_os}
+	else
+	    echo "Unrecognized build system name ${build_alias}." 1>&2
+	    exit 1
+	fi
 	;;
 esac
 
-result=`${configsub} ${host_alias}`
+if result=`${config_shell} ${configsub} ${host_alias}` ; then
+    true
+else
+    echo "Unrecognized host system name ${host_alias}." 1>&2
+    exit 1
+fi
 host_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
 host_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
 host_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
@@ -540,7 +549,12 @@ host=${host_cpu}-${host_vendor}-${host_os}
 
 . ${tmpfile}.hst
 
-result=`${configsub} ${target_alias}`
+if result=`${config_shell} ${configsub} ${target_alias}` ; then
+    true
+else
+    echo "Unrecognized target system name ${target_alias}." 1>&2
+    exit 1
+fi
 target_cpu=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\1/'`
 target_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
 target_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
@@ -584,10 +598,11 @@ if [ "${host_alias}" != "${target_alias}" ] ; then
     fi
 fi
 
-# Merge program_prefix and program_suffix onto program_transform_name
-# Use a double $ so that make ignores it
+# Merge program_prefix and program_suffix onto program_transform_name.
+# (program_suffix used to use $, but it's hard to preserve $ through both
+# make and sh.)
 if [ "${program_suffix}" != "" ] ; then
-    program_transform_name="-e s,\$\$,${program_suffix}, ${program_transform_name}"
+    program_transform_name="-e s,\\\\(.*\\\\),\\\\1${program_suffix}, ${program_transform_name}"
 fi
 
 if [ "${program_prefix}" != "" ] ; then
@@ -682,8 +697,8 @@ for subdir in . ${subdirs} ; do
                 .) ;;
                 *) cat > ${subdir}/.gdbinit <<EOF
 # ${NO_EDIT}
-dir .
 dir ${makesrcdir}
+dir .
 source ${makesrcdir}/.gdbinit
 EOF
                         ;;
@@ -985,6 +1000,11 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
                 fi
         done
 fi
+
+# Perform the same cleanup as the trap handler, minus the "exit 1" of course,
+# and reset the trap handler.
+rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos
+trap 0
 
 exit 0
 

@@ -27,6 +27,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "remote-sim.h"
 
+int target_byte_order;
+
 int
 main (ac, av)
      int ac;
@@ -39,7 +41,7 @@ main (ac, av)
   int verbose = 0;
   int trace = 0;
   char *name = "";
-  
+
   for (i = 1; i < ac; i++)
     {
       if (strcmp (av[i], "-v") == 0)
@@ -52,17 +54,17 @@ main (ac, av)
 	}
       else if (strcmp (av[i], "-p") == 0)
 	{
-	  sim_set_profile(atoi(av[i+1]));
+	  sim_set_profile (atoi (av[i + 1]));
 	  i++;
 	}
       else if (strcmp (av[i], "-s") == 0)
 	{
-	  sim_set_profile_size(atoi(av[i+1]));
+	  sim_set_profile_size (atoi (av[i + 1]));
 	  i++;
 	}
       else if (strcmp (av[i], "-m") == 0)
 	{
-	  sim_size(atoi(av[i+1]));
+	  sim_size (atoi (av[i + 1]));
 	  i++;
 	}
       else
@@ -74,10 +76,9 @@ main (ac, av)
     {
       printf ("run %s\n", name);
     }
-  abfd = bfd_openr (name, "coff-sh");
+  abfd = bfd_openr (name, 0);
   if (abfd)
     {
-
       if (bfd_check_format (abfd, bfd_object))
 	{
 
@@ -94,6 +95,9 @@ main (ac, av)
 
 	  start_address = bfd_get_start_address (abfd);
 	  sim_create_inferior (start_address, NULL, NULL);
+
+	  target_byte_order = abfd->xvec->byteorder_big_p ? 4321 : 1234;
+
 	  if (trace)
 	    {
 	      int done = 0;
@@ -109,13 +113,14 @@ main (ac, av)
 	  if (verbose)
 	    sim_info (0);
 
-	  /* Find out what was in r0 and return that */
+	  /* Assume we left through the exit system call,
+	     in which case r5 has the exit code */
 	  {
 	    unsigned char b[4];
-	    sim_fetch_register(0, b);
+	    sim_fetch_register (5, b);
 	    return b[3];
 	  }
-	  
+
 	}
     }
 

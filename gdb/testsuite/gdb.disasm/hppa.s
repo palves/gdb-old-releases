@@ -16,19 +16,28 @@
 	.EXPORT integer_load_short_memory,CODE
 	.EXPORT integer_store_short_memory,CODE
 	.EXPORT immediate_tests,CODE
-	.EXPORT branch_tests,CODE
+	.EXPORT branch_tests_1,CODE
+	.EXPORT branch_tests_2,CODE
 	.EXPORT movb_tests,CODE
 	.EXPORT movb_nullified_tests,CODE
 	.EXPORT movib_tests,CODE
 	.EXPORT movib_nullified_tests,CODE
-	.EXPORT comb_tests,CODE
-	.EXPORT comb_nullified_tests,CODE
-	.EXPORT comib_tests,CODE
-	.EXPORT comib_nullified_tests,CODE
-	.EXPORT addb_tests,CODE
-	.EXPORT addb_nullified_tests,CODE
-	.EXPORT addib_tests,CODE
-	.EXPORT addib_nullified_tests,CODE
+	.EXPORT comb_tests_1,CODE
+	.EXPORT comb_tests_2,CODE
+	.EXPORT comb_nullified_tests_1,CODE
+	.EXPORT comb_nullified_tests_2,CODE
+	.EXPORT comib_tests_1,CODE
+	.EXPORT comib_tests_2,CODE
+	.EXPORT comib_nullified_tests_1,CODE
+	.EXPORT comib_nullified_tests_2,CODE
+	.EXPORT addb_tests_1,CODE
+	.EXPORT addb_tests_2,CODE
+	.EXPORT addb_nullified_tests_1,CODE
+	.EXPORT addb_nullified_tests_2,CODE
+	.EXPORT addib_tests_1,CODE
+	.EXPORT addib_tests_2,CODE
+	.EXPORT addib_nullified_tests_1,CODE
+	.EXPORT addib_nullified_tests_2,CODE
 	.EXPORT bb_tests,CODE
 	.EXPORT add_tests,CODE
 	.EXPORT addl_tests,CODE
@@ -105,10 +114,16 @@
 	.EXPORT frem_tests,CODE
 	.EXPORT fcmp_sgl_tests_1,CODE
 	.EXPORT fcmp_sgl_tests_2,CODE
+	.EXPORT fcmp_sgl_tests_3,CODE
+	.EXPORT fcmp_sgl_tests_4,CODE
 	.EXPORT fcmp_dbl_tests_1,CODE
 	.EXPORT fcmp_dbl_tests_2,CODE
+	.EXPORT fcmp_dbl_tests_3,CODE
+	.EXPORT fcmp_dbl_tests_4,CODE
 	.EXPORT fcmp_quad_tests_1,CODE
 	.EXPORT fcmp_quad_tests_2,CODE
+	.EXPORT fcmp_quad_tests_3,CODE
+	.EXPORT fcmp_quad_tests_4,CODE
 	.EXPORT fmpy_addsub_tests,CODE
 	.EXPORT xmpyu_tests,CODE
 	.EXPORT special_tests,CODE
@@ -210,7 +225,7 @@ immediate_tests
 ; Lots of branch instructions.
 ; blr with %r0 as return pointer should really be just br <target>,
 ; but the assemblers can't handle it.
-branch_tests
+branch_tests_1
 	bl main,%r2
 	bl,n main,%r2
 	b main
@@ -221,6 +236,7 @@ branch_tests
 	blr,n %r4,%r2
 	blr %r4,%r0
 	blr,n %r4,%r0
+branch_tests_2
 	bv 0(%r2)
 	bv,n 0(%r2)
 	be 0x1234(%sr1,%r2)
@@ -267,149 +283,165 @@ movib_nullified_tests
 	movib,>=,n 5,%r26,movib_tests
 	movib,ev,n 5,%r26,movib_tests
 
-comb_tests
-	comb %r0,%r4,comb_tests
-	comb,= %r0,%r4,comb_tests
-	comb,< %r0,%r4,comb_tests
-	comb,<= %r0,%r4,comb_tests
-	comb,<< %r0,%r4,comb_tests
-	comb,<<= %r0,%r4,comb_tests
-	comb,sv %r0,%r4,comb_tests
-	comb,od %r0,%r4,comb_tests
-	comb,tr %r0,%r4,comb_tests
-	comb,<> %r0,%r4,comb_tests
-	comb,>= %r0,%r4,comb_tests
-	comb,> %r0,%r4,comb_tests
-	comb,>>= %r0,%r4,comb_tests
-	comb,>> %r0,%r4,comb_tests
-	comb,nsv %r0,%r4,comb_tests
-	comb,ev %r0,%r4,comb_tests
-comb_nullified_tests
-	comb,n %r0,%r4,comb_tests
-	comb,=,n %r0,%r4,comb_tests
-	comb,<,n %r0,%r4,comb_tests
-	comb,<=,n %r0,%r4,comb_tests
-	comb,<<,n %r0,%r4,comb_tests
-	comb,<<=,n %r0,%r4,comb_tests
-	comb,sv,n %r0,%r4,comb_tests
-	comb,od,n %r0,%r4,comb_tests
-	comb,tr,n %r0,%r4,comb_tests
-	comb,<>,n %r0,%r4,comb_tests
-	comb,>=,n %r0,%r4,comb_tests
-	comb,>,n %r0,%r4,comb_tests
-	comb,>>=,n %r0,%r4,comb_tests
-	comb,>>,n %r0,%r4,comb_tests
-	comb,nsv,n %r0,%r4,comb_tests
-	comb,ev,n %r0,%r4,comb_tests
+comb_tests_1
+	comb %r0,%r4,comb_tests_1
+	comb,= %r0,%r4,comb_tests_1
+	comb,< %r0,%r4,comb_tests_1
+	comb,<= %r0,%r4,comb_tests_1
+	comb,<< %r0,%r4,comb_tests_1
+	comb,<<= %r0,%r4,comb_tests_1
+	comb,sv %r0,%r4,comb_tests_1
+	comb,od %r0,%r4,comb_tests_1
 
-comib_tests
-	comib 0,%r4,comib_tests
-	comib,= 0,%r4,comib_tests
-	comib,< 0,%r4,comib_tests
-	comib,<= 0,%r4,comib_tests
-	comib,<< 0,%r4,comib_tests
-	comib,<<= 0,%r4,comib_tests
-	comib,sv 0,%r4,comib_tests
-	comib,od 0,%r4,comib_tests
-	comib,tr 0,%r4,comib_tests
-	comib,<> 0,%r4,comib_tests
-	comib,>= 0,%r4,comib_tests
-	comib,> 0,%r4,comib_tests
-	comib,>>= 0,%r4,comib_tests
-	comib,>> 0,%r4,comib_tests
-	comib,nsv 0,%r4,comib_tests
-	comib,ev 0,%r4,comib_tests
+comb_tests_2
+	comb,tr %r0,%r4,comb_tests_2
+	comb,<> %r0,%r4,comb_tests_2
+	comb,>= %r0,%r4,comb_tests_2
+	comb,> %r0,%r4,comb_tests_2
+	comb,>>= %r0,%r4,comb_tests_2
+	comb,>> %r0,%r4,comb_tests_2
+	comb,nsv %r0,%r4,comb_tests_2
+	comb,ev %r0,%r4,comb_tests_2
 
-comib_nullified_tests
-	comib,n 0,%r4,comib_tests
-	comib,=,n 0,%r4,comib_tests
-	comib,<,n 0,%r4,comib_tests
-	comib,<=,n 0,%r4,comib_tests
-	comib,<<,n 0,%r4,comib_tests
-	comib,<<=,n 0,%r4,comib_tests
-	comib,sv,n 0,%r4,comib_tests
-	comib,od,n 0,%r4,comib_tests
-	comib,tr,n 0,%r4,comib_tests
-	comib,<>,n 0,%r4,comib_tests
-	comib,>=,n 0,%r4,comib_tests
-	comib,>,n 0,%r4,comib_tests
-	comib,>>=,n 0,%r4,comib_tests
-	comib,>>,n 0,%r4,comib_tests
-	comib,nsv,n 0,%r4,comib_tests
-	comib,ev,n 0,%r4,comib_tests
+comb_nullified_tests_1
+	comb,n %r0,%r4,comb_tests_1
+	comb,=,n %r0,%r4,comb_tests_1
+	comb,<,n %r0,%r4,comb_tests_1
+	comb,<=,n %r0,%r4,comb_tests_1
+	comb,<<,n %r0,%r4,comb_tests_1
+	comb,<<=,n %r0,%r4,comb_tests_1
+	comb,sv,n %r0,%r4,comb_tests_1
+	comb,od,n %r0,%r4,comb_tests_1
 
+comb_nullified_tests_2
+	comb,tr,n %r0,%r4,comb_tests_2
+	comb,<>,n %r0,%r4,comb_tests_2
+	comb,>=,n %r0,%r4,comb_tests_2
+	comb,>,n %r0,%r4,comb_tests_2
+	comb,>>=,n %r0,%r4,comb_tests_2
+	comb,>>,n %r0,%r4,comb_tests_2
+	comb,nsv,n %r0,%r4,comb_tests_2
+	comb,ev,n %r0,%r4,comb_tests_2
 
+comib_tests_1
+	comib 0,%r4,comib_tests_1
+	comib,= 0,%r4,comib_tests_1
+	comib,< 0,%r4,comib_tests_1
+	comib,<= 0,%r4,comib_tests_1
+	comib,<< 0,%r4,comib_tests_1
+	comib,<<= 0,%r4,comib_tests_1
+	comib,sv 0,%r4,comib_tests_1
+	comib,od 0,%r4,comib_tests_1
 
-addb_tests
-	addb %r1,%r4,addb_tests
-	addb,= %r1,%r4,addb_tests
-	addb,< %r1,%r4,addb_tests
-	addb,<= %r1,%r4,addb_tests
-	addb,nuv %r1,%r4,addb_tests
-	addb,znv %r1,%r4,addb_tests
-	addb,sv %r1,%r4,addb_tests
-	addb,od %r1,%r4,addb_tests
-	addb,tr %r1,%r4,addb_tests
-	addb,<> %r1,%r4,addb_tests
-	addb,>= %r1,%r4,addb_tests
-	addb,> %r1,%r4,addb_tests
-	addb,uv %r1,%r4,addb_tests
-	addb,vnz %r1,%r4,addb_tests
-	addb,nsv %r1,%r4,addb_tests
-	addb,ev %r1,%r4,addb_tests
-addb_nullified_tests
-	addb,n %r1,%r4,addb_tests
-	addb,=,n %r1,%r4,addb_tests
-	addb,<,n %r1,%r4,addb_tests
-	addb,<=,n %r1,%r4,addb_tests
-	addb,nuv,n %r1,%r4,addb_tests
-	addb,znv,n %r1,%r4,addb_tests
-	addb,sv,n %r1,%r4,addb_tests
-	addb,od,n %r1,%r4,addb_tests
-	addb,tr,n %r1,%r4,addb_tests
-	addb,<>,n %r1,%r4,addb_tests
-	addb,>=,n %r1,%r4,addb_tests
-	addb,>,n %r1,%r4,addb_tests
-	addb,uv,n %r1,%r4,addb_tests
-	addb,vnz,n %r1,%r4,addb_tests
-	addb,nsv,n %r1,%r4,addb_tests
-	addb,ev,n %r1,%r4,addb_tests
+comib_tests_2
+	comib,tr 0,%r4,comib_tests_2
+	comib,<> 0,%r4,comib_tests_2
+	comib,>= 0,%r4,comib_tests_2
+	comib,> 0,%r4,comib_tests_2
+	comib,>>= 0,%r4,comib_tests_2
+	comib,>> 0,%r4,comib_tests_2
+	comib,nsv 0,%r4,comib_tests_2
+	comib,ev 0,%r4,comib_tests_2
 
-addib_tests
-	addib -1,%r4,addib_tests
-	addib,= -1,%r4,addib_tests
-	addib,< -1,%r4,addib_tests
-	addib,<= -1,%r4,addib_tests
-	addib,nuv -1,%r4,addib_tests
-	addib,znv -1,%r4,addib_tests
-	addib,sv -1,%r4,addib_tests
-	addib,od -1,%r4,addib_tests
-	addib,tr -1,%r4,addib_tests
-	addib,<> -1,%r4,addib_tests
-	addib,>= -1,%r4,addib_tests
-	addib,> -1,%r4,addib_tests
-	addib,uv -1,%r4,addib_tests
-	addib,vnz -1,%r4,addib_tests
-	addib,nsv -1,%r4,addib_tests
-	addib,ev -1,%r4,addib_tests
+comib_nullified_tests_1
+	comib,n 0,%r4,comib_tests_1
+	comib,=,n 0,%r4,comib_tests_1
+	comib,<,n 0,%r4,comib_tests_1
+	comib,<=,n 0,%r4,comib_tests_1
+	comib,<<,n 0,%r4,comib_tests_1
+	comib,<<=,n 0,%r4,comib_tests_1
+	comib,sv,n 0,%r4,comib_tests_1
+	comib,od,n 0,%r4,comib_tests_1
 
-addib_nullified_tests
-	addib,n -1,%r4,addib_tests
-	addib,=,n -1,%r4,addib_tests
-	addib,<,n -1,%r4,addib_tests
-	addib,<=,n -1,%r4,addib_tests
-	addib,nuv,n -1,%r4,addib_tests
-	addib,znv,n -1,%r4,addib_tests
-	addib,sv,n -1,%r4,addib_tests
-	addib,od,n -1,%r4,addib_tests
-	addib,tr,n -1,%r4,addib_tests
-	addib,<>,n -1,%r4,addib_tests
-	addib,>=,n -1,%r4,addib_tests
-	addib,>,n -1,%r4,addib_tests
-	addib,uv,n -1,%r4,addib_tests
-	addib,vnz,n -1,%r4,addib_tests
-	addib,nsv,n -1,%r4,addib_tests
-	addib,ev,n -1,%r4,addib_tests
+comib_nullified_tests_2
+	comib,tr,n 0,%r4,comib_tests_2
+	comib,<>,n 0,%r4,comib_tests_2
+	comib,>=,n 0,%r4,comib_tests_2
+	comib,>,n 0,%r4,comib_tests_2
+	comib,>>=,n 0,%r4,comib_tests_2
+	comib,>>,n 0,%r4,comib_tests_2
+	comib,nsv,n 0,%r4,comib_tests_2
+	comib,ev,n 0,%r4,comib_tests_2
+
+addb_tests_1
+	addb %r1,%r4,addb_tests_1
+	addb,= %r1,%r4,addb_tests_1
+	addb,< %r1,%r4,addb_tests_1
+	addb,<= %r1,%r4,addb_tests_1
+	addb,nuv %r1,%r4,addb_tests_1
+	addb,znv %r1,%r4,addb_tests_1
+	addb,sv %r1,%r4,addb_tests_1
+	addb,od %r1,%r4,addb_tests_1
+
+addb_tests_2
+	addb,tr %r1,%r4,addb_tests_2
+	addb,<> %r1,%r4,addb_tests_2
+	addb,>= %r1,%r4,addb_tests_2
+	addb,> %r1,%r4,addb_tests_2
+	addb,uv %r1,%r4,addb_tests_2
+	addb,vnz %r1,%r4,addb_tests_2
+	addb,nsv %r1,%r4,addb_tests_2
+	addb,ev %r1,%r4,addb_tests_2
+
+addb_nullified_tests_1
+	addb,n %r1,%r4,addb_tests_1
+	addb,=,n %r1,%r4,addb_tests_1
+	addb,<,n %r1,%r4,addb_tests_1
+	addb,<=,n %r1,%r4,addb_tests_1
+	addb,nuv,n %r1,%r4,addb_tests_1
+	addb,znv,n %r1,%r4,addb_tests_1
+	addb,sv,n %r1,%r4,addb_tests_1
+	addb,od,n %r1,%r4,addb_tests_1
+
+addb_nullified_tests_2
+	addb,tr,n %r1,%r4,addb_tests_2
+	addb,<>,n %r1,%r4,addb_tests_2
+	addb,>=,n %r1,%r4,addb_tests_2
+	addb,>,n %r1,%r4,addb_tests_2
+	addb,uv,n %r1,%r4,addb_tests_2
+	addb,vnz,n %r1,%r4,addb_tests_2
+	addb,nsv,n %r1,%r4,addb_tests_2
+	addb,ev,n %r1,%r4,addb_tests_2
+
+addib_tests_1
+	addib -1,%r4,addib_tests_1
+	addib,= -1,%r4,addib_tests_1
+	addib,< -1,%r4,addib_tests_1
+	addib,<= -1,%r4,addib_tests_1
+	addib,nuv -1,%r4,addib_tests_1
+	addib,znv -1,%r4,addib_tests_1
+	addib,sv -1,%r4,addib_tests_1
+	addib,od -1,%r4,addib_tests_1
+
+addib_tests_2
+	addib,tr -1,%r4,addib_tests_2
+	addib,<> -1,%r4,addib_tests_2
+	addib,>= -1,%r4,addib_tests_2
+	addib,> -1,%r4,addib_tests_2
+	addib,uv -1,%r4,addib_tests_2
+	addib,vnz -1,%r4,addib_tests_2
+	addib,nsv -1,%r4,addib_tests_2
+	addib,ev -1,%r4,addib_tests_2
+
+addib_nullified_tests_1
+	addib,n -1,%r4,addib_tests_1
+	addib,=,n -1,%r4,addib_tests_1
+	addib,<,n -1,%r4,addib_tests_1
+	addib,<=,n -1,%r4,addib_tests_1
+	addib,nuv,n -1,%r4,addib_tests_1
+	addib,znv,n -1,%r4,addib_tests_1
+	addib,sv,n -1,%r4,addib_tests_1
+	addib,od,n -1,%r4,addib_tests_1
+
+addib_nullified_tests_2
+	addib,tr,n -1,%r4,addib_tests_2
+	addib,<>,n -1,%r4,addib_tests_2
+	addib,>=,n -1,%r4,addib_tests_2
+	addib,>,n -1,%r4,addib_tests_2
+	addib,uv,n -1,%r4,addib_tests_2
+	addib,vnz,n -1,%r4,addib_tests_2
+	addib,nsv,n -1,%r4,addib_tests_2
+	addib,ev,n -1,%r4,addib_tests_2
 
 
 ; Needs to check lots of stuff (like corner bit cases)
@@ -1462,6 +1494,7 @@ fcmp_sgl_tests_1
 	fcmp,sgl,=T %fr4,%fr5
 	fcmp,sgl,?= %fr4,%fr5
 	fcmp,sgl,!<> %fr4,%fr5
+fcmp_sgl_tests_2
 	fcmp,sgl,!?>= %fr4,%fr5
 	fcmp,sgl,< %fr4,%fr5
 	fcmp,sgl,?< %fr4,%fr5
@@ -1470,7 +1503,7 @@ fcmp_sgl_tests_1
 	fcmp,sgl,<= %fr4,%fr5
 	fcmp,sgl,?<= %fr4,%fr5
 	fcmp,sgl,!> %fr4,%fr5
-fcmp_sgl_tests_2
+fcmp_sgl_tests_3
 	fcmp,sgl,!?<= %fr4,%fr5
 	fcmp,sgl,> %fr4,%fr5
 	fcmp,sgl,?> %fr4,%fr5
@@ -1479,6 +1512,7 @@ fcmp_sgl_tests_2
 	fcmp,sgl,>= %fr4,%fr5
 	fcmp,sgl,?>= %fr4,%fr5
 	fcmp,sgl,!< %fr4,%fr5
+fcmp_sgl_tests_4
 	fcmp,sgl,!?= %fr4,%fr5
 	fcmp,sgl,<> %fr4,%fr5
 	fcmp,sgl,!= %fr4,%fr5
@@ -1497,6 +1531,7 @@ fcmp_dbl_tests_1
 	fcmp,dbl,=T %fr4,%fr5
 	fcmp,dbl,?= %fr4,%fr5
 	fcmp,dbl,!<> %fr4,%fr5
+fcmp_dbl_tests_2
 	fcmp,dbl,!?>= %fr4,%fr5
 	fcmp,dbl,< %fr4,%fr5
 	fcmp,dbl,?< %fr4,%fr5
@@ -1505,7 +1540,7 @@ fcmp_dbl_tests_1
 	fcmp,dbl,<= %fr4,%fr5
 	fcmp,dbl,?<= %fr4,%fr5
 	fcmp,dbl,!> %fr4,%fr5
-fcmp_dbl_tests_2
+fcmp_dbl_tests_3
 	fcmp,dbl,!?<= %fr4,%fr5
 	fcmp,dbl,> %fr4,%fr5
 	fcmp,dbl,?> %fr4,%fr5
@@ -1514,6 +1549,7 @@ fcmp_dbl_tests_2
 	fcmp,dbl,>= %fr4,%fr5
 	fcmp,dbl,?>= %fr4,%fr5
 	fcmp,dbl,!< %fr4,%fr5
+fcmp_dbl_tests_4
 	fcmp,dbl,!?= %fr4,%fr5
 	fcmp,dbl,<> %fr4,%fr5
 	fcmp,dbl,!= %fr4,%fr5
@@ -1532,6 +1568,7 @@ fcmp_quad_tests_1
 	fcmp,quad,=T %fr4,%fr5
 	fcmp,quad,?= %fr4,%fr5
 	fcmp,quad,!<> %fr4,%fr5
+fcmp_quad_tests_2
 	fcmp,quad,!?>= %fr4,%fr5
 	fcmp,quad,< %fr4,%fr5
 	fcmp,quad,?< %fr4,%fr5
@@ -1540,7 +1577,7 @@ fcmp_quad_tests_1
 	fcmp,quad,<= %fr4,%fr5
 	fcmp,quad,?<= %fr4,%fr5
 	fcmp,quad,!> %fr4,%fr5
-fcmp_quad_tests_2
+fcmp_quad_tests_3
 	fcmp,quad,!?<= %fr4,%fr5
 	fcmp,quad,> %fr4,%fr5
 	fcmp,quad,?> %fr4,%fr5
@@ -1549,6 +1586,7 @@ fcmp_quad_tests_2
 	fcmp,quad,>= %fr4,%fr5
 	fcmp,quad,?>= %fr4,%fr5
 	fcmp,quad,!< %fr4,%fr5
+fcmp_quad_tests_4
 	fcmp,quad,!?= %fr4,%fr5
 	fcmp,quad,<> %fr4,%fr5
 	fcmp,quad,!= %fr4,%fr5

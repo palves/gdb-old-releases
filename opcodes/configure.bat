@@ -10,7 +10,8 @@ echo "/\.o[ 	]*:/ s/config.status//			">> config.sed
 echo "s/CC = cc/CC = gcc/				">> config.sed
 
 echo "/^###$/ i\					">> config.sed
-echo "BFD_MACHINES=i386-dis.o				">> config.sed
+echo "BFD_MACHINES=i386-dis.o\				">> config.sed
+echo "ARCHDEFS=-DARCH_i386				">> config.sed
 
 echo "s/^[ 	]*rm/	-rm/				">> config.sed
 

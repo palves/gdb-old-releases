@@ -13,6 +13,3 @@ s/\.end_common.*/.ec/
 s/\.align_it/.align 1/
 /\.data/d
 /^#/d
-/\.if alpha/,/\.endif alpha/d
-/\.if/d
-/\.endif/d

@@ -173,6 +173,35 @@ print_insn_alpha(pc, info)
 	  break;
 	}
     }
-    
+  if (!found)
+    switch (OPCODE (given))
+      {
+      case 0x00:
+	func (stream, "call_pal 0x%x", given);
+	break;
+      case 0x19:
+      case 0x1b:
+      case 0x1d:
+      case 0x1e:
+      case 0x1f:
+	func (stream, "PAL%X 0x%x", OPCODE (given), given & 0x3ffffff);
+	break;
+      case 0x01:
+      case 0x02:
+      case 0x03:
+      case 0x04:
+      case 0x05:
+      case 0x06:
+      case 0x07:
+      case 0x0a:
+      case 0x0c:
+      case 0x0d:
+      case 0x0e:
+      case 0x14:
+      case 0x1c:
+	func (stream, "OPC%02X 0x%x", OPCODE (given), given & 0x3ffffff);
+	break;
+      }
+
   return 4;
 }

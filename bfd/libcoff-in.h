@@ -1,5 +1,5 @@
 /* BFD COFF object file private structure.
-   Copyright (C) 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 1995 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include "bfdlink.h"
 
 /* Object file tdata; access macros */
 
@@ -31,12 +32,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define obj_raw_syment_count(bfd)	(coff_data(bfd)->raw_syment_count)
 #define obj_convert(bfd)	(coff_data(bfd)->conversion_table)
 #define obj_conv_table_size(bfd) (coff_data(bfd)->conv_table_size)
-#if CFILE_STUFF
-#define obj_symbol_slew(bfd)	(coff_data(bfd)->symbol_index_slew)
-#else
-#define obj_symbol_slew(bfd) 0
-#endif
 
+#define obj_coff_external_syms(bfd) (coff_data (bfd)->external_syms)
+#define obj_coff_strings(bfd)	(coff_data (bfd)->strings)
+#define obj_coff_sym_hashes(bfd) (coff_data (bfd)->sym_hashes)
 
 /* `Tdata' information kept for COFF files.  */
 
@@ -47,13 +46,8 @@ typedef struct coff_tdata
   int conv_table_size;
   file_ptr sym_filepos;
 
-  long symbol_index_slew;	/* used during read to mark whether a
-				   C_FILE symbol as been added. */
-
   struct coff_ptr_struct *raw_syments;
-  struct lineno *raw_linenos;
   unsigned int raw_syment_count;
-  unsigned short flags;
 
   /* These are only valid once writing has begun */
   long int relocbase;
@@ -68,11 +62,68 @@ typedef struct coff_tdata
   unsigned local_symesz;
   unsigned local_auxesz;
   unsigned local_linesz;
+
+  /* Used by the COFF backend linker.  */
+  PTR external_syms;
+  char *strings;
+  struct coff_link_hash_entry **sym_hashes;
 } coff_data_type;
 
 /* We take the address of the first element of a asymbol to ensure that the
  * macro is only ever applied to an asymbol.  */
 #define coffsymbol(asymbol) ((coff_symbol_type *)(&((asymbol)->the_bfd)))
+
+/* COFF linker hash table entries.  */
+
+struct coff_link_hash_entry
+{
+  struct bfd_link_hash_entry root;
+
+  /* Symbol index in output file.  Set to -1 initially.  Set to -2 if
+     there is a reloc against this symbol.  */
+  long indx;
+
+  /* Symbol type.  */
+  unsigned short type;
+
+  /* Symbol class.  */
+  unsigned char class;
+
+  /* Number of auxiliary entries.  */
+  char numaux;
+
+  /* BFD to take auxiliary entries from.  */
+  bfd *auxbfd;
+
+  /* Pointer to array of auxiliary entries, if any.  */
+  union internal_auxent *aux;
+};
+
+/* COFF linker hash table.  */
+
+struct coff_link_hash_table
+{
+  struct bfd_link_hash_table root;
+};
+
+/* Look up an entry in a COFF linker hash table.  */
+
+#define coff_link_hash_lookup(table, string, create, copy, follow)	\
+  ((struct coff_link_hash_entry *)					\
+   bfd_link_hash_lookup (&(table)->root, (string), (create),		\
+			 (copy), (follow)))
+
+/* Traverse a COFF linker hash table.  */
+
+#define coff_link_hash_traverse(table, func, info)			\
+  (bfd_link_hash_traverse						\
+   (&(table)->root,							\
+    (boolean (*) PARAMS ((struct bfd_link_hash_entry *, PTR))) (func),	\
+    (info)))
+
+/* Get the COFF linker hash table from a link_info structure.  */
+
+#define coff_hash_table(p) ((struct coff_link_hash_table *) ((p)->hash))
 
 /* Functions in coffgen.c.  */
 extern const bfd_target *coff_object_p PARAMS ((bfd *));
@@ -115,6 +166,18 @@ extern bfd_vma bfd_coff_reloc16_get_value PARAMS ((arelent *,
 extern void bfd_perform_slip PARAMS ((bfd *abfd, unsigned int slip,
 				      asection *input_section,
 				      bfd_vma val));
+
+/* Functions in cofflink.c.  */
+
+extern struct bfd_link_hash_table *_bfd_coff_link_hash_table_create
+  PARAMS ((bfd *));
+extern boolean _bfd_coff_link_add_symbols
+  PARAMS ((bfd *, struct bfd_link_info *));
+extern boolean _bfd_coff_final_link
+  PARAMS ((bfd *, struct bfd_link_info *));
+extern boolean _bfd_coff_generic_relocate_section
+  PARAMS ((bfd *, struct bfd_link_info *, bfd *, asection *, bfd_byte *,
+	   struct internal_reloc *, struct internal_syment *, asection **));
 
 /* And more taken from the source .. */
 

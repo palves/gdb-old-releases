@@ -23,6 +23,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "gdbcmd.h"
 #include "language.h"
+#include "symfile.h"
+#include "objfiles.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -40,22 +42,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define O_BINARY 0
 #endif
 
+#include "xcoffsolib.h"
+
+struct vmap *map_vmap PARAMS ((bfd *, bfd *));
+
 /* Prototypes for local functions */
 
-static void
-add_to_section_table PARAMS ((bfd *, sec_ptr, PTR));
+static void add_to_section_table PARAMS ((bfd *, sec_ptr, PTR));
 
-static void
-exec_close PARAMS ((int));
+static void exec_close PARAMS ((int));
 
-static void
-file_command PARAMS ((char *, int));
+static void file_command PARAMS ((char *, int));
 
-static void
-set_section_command PARAMS ((char *, int));
+static void set_section_command PARAMS ((char *, int));
 
-static void
-exec_files_info PARAMS ((struct target_ops *));
+static void exec_files_info PARAMS ((struct target_ops *));
 
 extern int info_verbose;
 
@@ -74,6 +75,8 @@ CORE_ADDR text_start = 0;
 CORE_ADDR text_end   = 0;
 #endif
 
+struct vmap *vmap;
+
 /* Forward decl */
 
 extern struct target_ops exec_ops;
@@ -83,17 +86,56 @@ static void
 exec_close (quitting)
      int quitting;
 {
-  if (exec_bfd) {
-    char *name = bfd_get_filename (exec_bfd);
-    bfd_close (exec_bfd);
-    free (name);
-    exec_bfd = NULL;
-  }
-  if (exec_ops.to_sections) {
-    free ((PTR)exec_ops.to_sections);
-    exec_ops.to_sections = NULL;
-    exec_ops.to_sections_end = NULL;
-  }
+  int need_symtab_cleanup = 0;
+  struct vmap *vp, *nxt;
+  
+  for (nxt = vmap; nxt != NULL; )
+    {
+      vp = nxt;
+      nxt = vp->nxt;
+
+      /* if there is an objfile associated with this bfd,
+	 free_objfile() will do proper cleanup of objfile *and* bfd. */
+		   
+      if (vp->objfile)
+	{
+	  free_objfile (vp->objfile);
+	  need_symtab_cleanup = 1;
+	}
+      else if (vp->bfd != exec_bfd)
+	/* FIXME-leak: We should be freeing vp->name too, I think.  */
+	if (!bfd_close (vp->bfd))
+	  warning ("cannot close \"%s\": %s",
+		   vp->name, bfd_errmsg (bfd_get_error ()));
+
+      /* FIXME: This routine is #if 0'd in symfile.c.  What should we
+	 be doing here?  Should we just free everything in
+	 vp->objfile->symtabs?  Should free_objfile do that?
+	 FIXME-as-well: free_objfile already free'd vp->name, so it isn't
+	 valid here.  */
+      free_named_symtabs (vp->name);
+      free (vp);
+    }
+
+  vmap = NULL;
+
+  if (exec_bfd)
+    {
+      char *name = bfd_get_filename (exec_bfd);
+
+      if (!bfd_close (exec_bfd))
+	warning ("cannot close \"%s\": %s",
+		 name, bfd_errmsg (bfd_get_error ()));
+      free (name);
+      exec_bfd = NULL;
+    }
+
+  if (exec_ops.to_sections)
+    {
+      free ((PTR)exec_ops.to_sections);
+      exec_ops.to_sections = NULL;
+      exec_ops.to_sections_end = NULL;
+    }
 }
 
 /*  Process the first arg in ARGS as the new exec file.
@@ -123,19 +165,17 @@ exec_file_command (args, from_tty)
       int scratch_chan;
       
       /* Scan through the args and pick up the first non option arg
-	 as the filename. */
+	 as the filename.  */
 
-      if ((argv = buildargv (args)) == NULL)
-	{
-	  nomem (0);
-	}
+      argv = buildargv (args);
+      if (argv == NULL)
+	nomem (0);
+
       make_cleanup (freeargv, (char *) argv);
 
       for (; (*argv != NULL) && (**argv == '-'); argv++) {;}
       if (*argv == NULL)
-	{
-	  error ("no exec file name was specified");
-	}
+	error ("no exec file name was specified");
 
       filename = tilde_expand (*argv);
       make_cleanup (free, filename);
@@ -148,16 +188,32 @@ exec_file_command (args, from_tty)
 
       exec_bfd = bfd_fdopenr (scratch_pathname, gnutarget, scratch_chan);
       if (!exec_bfd)
-	error ("Could not open `%s' as an executable file: %s",
+	error ("\"%s\": could not open as an executable file: %s",
 	       scratch_pathname, bfd_errmsg (bfd_get_error ()));
       if (!bfd_check_format (exec_bfd, bfd_object))
 	{
 	  /* Make sure to close exec_bfd, or else "run" might try to use
 	     it.  */
 	  exec_close (0);
-	  error ("\"%s\": not in executable format: %s.",
+	  error ("\"%s\": not in executable format: %s",
 		 scratch_pathname, bfd_errmsg (bfd_get_error ()));
 	}
+
+      /* FIXME - This should only be run for RS6000, but the ifdef is a poor
+	 way to accomplish.  */
+#ifdef IBM6000_TARGET
+      /* Setup initial vmap. */
+
+      map_vmap (exec_bfd, 0);
+      if (vmap == NULL)
+	{
+	  /* Make sure to close exec_bfd, or else "run" might try to use
+	     it.  */
+	  exec_close (0);
+	  error ("\"%s\": can't find the file sections: %s",
+		 scratch_pathname, bfd_errmsg (bfd_get_error ()));
+	}
+#endif /* IBM6000_TARGET */
 
       if (build_section_table (exec_bfd, &exec_ops.to_sections,
 				&exec_ops.to_sections_end))
@@ -165,8 +221,8 @@ exec_file_command (args, from_tty)
 	  /* Make sure to close exec_bfd, or else "run" might try to use
 	     it.  */
 	  exec_close (0);
-	  error ("Can't find the file sections in `%s': %s", 
-		 exec_bfd->filename, bfd_errmsg (bfd_get_error ()));
+	  error ("\"%s\": can't find the file sections: %s", 
+		 scratch_pathname, bfd_errmsg (bfd_get_error ()));
 	}
 
 #ifdef NEED_TEXT_START_END
@@ -180,6 +236,8 @@ exec_file_command (args, from_tty)
 	/* Set text_start to the lowest address of the start of any
 	   readonly code section and set text_end to the highest
 	   address of the end of any readonly code section.  */
+	/* FIXME: The comment above does not match the code.  The code
+	   checks for sections with are either code *or* readonly.  */
 
 	text_start = ~(CORE_ADDR)0;
 	text_end = (CORE_ADDR)0;
@@ -196,6 +254,8 @@ exec_file_command (args, from_tty)
 #endif
 
       validate_files ();
+
+      set_endian_from_file (exec_bfd);
 
       push_target (&exec_ops);
 
@@ -270,6 +330,70 @@ build_section_table (some_bfd, start, end)
   return 0;
 }
 
+static void
+bfdsec_to_vmap(abfd, sect, arg3) 
+     bfd *abfd;
+     sec_ptr sect;
+     PTR arg3;
+{
+  struct vmap_and_bfd *vmap_bfd = (struct vmap_and_bfd *) arg3;
+  struct vmap *vp;
+
+  vp = vmap_bfd->pvmap;
+
+  if ((bfd_get_section_flags (abfd, sect) & SEC_LOAD) == 0)
+    return;
+
+  if (STREQ (bfd_section_name (abfd, sect), ".text"))
+    {
+      vp->tstart = 0;
+      vp->tend = vp->tstart + bfd_section_size (abfd, sect);
+
+      /* When it comes to this adjustment value, in contrast to our previous
+	 belief shared objects should behave the same as the main load segment.
+	 This is the offset from the beginning of text section to the first
+	 real instruction. */
+
+      vp->tadj = sect->filepos - bfd_section_vma (abfd, sect);
+    }
+  else if (STREQ (bfd_section_name (abfd, sect), ".data"))
+    {
+      vp->dstart = 0;
+      vp->dend = vp->dstart + bfd_section_size (abfd, sect);
+    }
+  /* Silently ignore other types of sections. (FIXME?)  */
+}
+
+/* Make a vmap for ABFD which might be a member of the archive ARCH.
+   Return the new vmap.  */
+
+struct vmap *
+map_vmap (abfd, arch)
+     bfd *abfd;
+     bfd *arch;
+{
+  struct vmap_and_bfd vmap_bfd;
+  struct vmap *vp, **vpp;
+
+  vp = (struct vmap *) xmalloc (sizeof (*vp));
+  memset ((char *) vp, '\0', sizeof (*vp));
+  vp->nxt = 0;
+  vp->bfd = abfd;
+  vp->name = bfd_get_filename (arch ? arch : abfd);
+  vp->member = arch ? bfd_get_filename (abfd) : "";
+  
+  vmap_bfd.pbfd = arch;
+  vmap_bfd.pvmap = vp;
+  bfd_map_over_sections (abfd, bfdsec_to_vmap, &vmap_bfd);
+
+  /* Find the end of the list and append. */
+  for (vpp = &vmap; *vpp; vpp = &(*vpp)->nxt)
+    ;
+  *vpp = vp;
+
+  return vp;
+}
+
 /* Read or write the exec file.
 
    Args are address within a BFD file, address within gdb address-space,
@@ -305,7 +429,7 @@ xfer_memory (memaddr, myaddr, len, write, target)
     abort();
 
   memend = memaddr + len;
-  xfer_fn = write? bfd_set_section_contents: bfd_get_section_contents;
+  xfer_fn = write ? bfd_set_section_contents : bfd_get_section_contents;
   nextsectaddr = memend;
 
   for (p = target->to_sections; p < target->to_sections_end; p++)
@@ -314,7 +438,8 @@ xfer_memory (memaddr, myaddr, len, write, target)
 	if (p->endaddr >= memend)
 	  {
 	    /* Entire transfer is within this section.  */
-	    res = xfer_fn (p->bfd, p->the_bfd_section, myaddr, memaddr - p->addr, len);
+	    res = xfer_fn (p->bfd, p->the_bfd_section, myaddr,
+			   memaddr - p->addr, len);
 	    return (res != 0) ? len : 0;
 	  }
 	else if (p->endaddr <= memaddr)
@@ -326,7 +451,8 @@ xfer_memory (memaddr, myaddr, len, write, target)
 	  {
 	    /* This section overlaps the transfer.  Just do half.  */
 	    len = p->endaddr - memaddr;
-	    res = xfer_fn (p->bfd, p->the_bfd_section, myaddr, memaddr - p->addr, len);
+	    res = xfer_fn (p->bfd, p->the_bfd_section, myaddr,
+			   memaddr - p->addr, len);
 	    return (res != 0) ? len : 0;
 	  }
       else if (p->addr < nextsectaddr)
@@ -389,9 +515,25 @@ print_section_info (t, abfd)
 
 static void
 exec_files_info (t)
-  struct target_ops *t;
+     struct target_ops *t;
 {
   print_section_info (t, exec_bfd);
+
+  if (vmap)
+    {
+      struct vmap *vp;
+
+      printf_unfiltered ("\tMapping info for file `%s'.\n", vmap->name);
+      printf_unfiltered ("\t  %8.8s   %8.8s   %8.8s   %8.8s %8.8s %s\n",
+		       "tstart", "tend", "dstart", "dend", "section",
+		       "file(member)");
+
+    for (vp = vmap; vp; vp = vp->nxt)
+      printf_unfiltered ("\t0x%8.8x 0x%8.8x 0x%8.8x 0x%8.8x %s%s%s%s\n",
+			 vp->tstart, vp->tend, vp->dstart, vp->dend, vp->name,
+			 *vp->member ? "(" : "", vp->member,
+			 *vp->member ? ")" : "");
+    }
 }
 
 static void
@@ -446,26 +588,46 @@ ignore (addr, contents)
 }
 
 struct target_ops exec_ops = {
-	"exec", "Local exec file",
-	"Use an executable file as a target.\n\
-Specify the filename of the executable file.",
-	exec_file_command, exec_close, /* open, close */
-	find_default_attach, 0, 0, 0, /* attach, detach, resume, wait, */
-	0, 0, /* fetch_registers, store_registers, */
-	0, /* prepare_to_store, */
-	xfer_memory, exec_files_info,
-	ignore, ignore, /* insert_breakpoint, remove_breakpoint, */
-	0, 0, 0, 0, 0, /* terminal stuff */
-	0, 0, /* kill, load */
-	0, /* lookup sym */
-	find_default_create_inferior,
-	0, /* mourn_inferior */
-	0, /* can_run */
-	0, /* notice_signals */
-	file_stratum, 0, /* next */
-	0, 1, 0, 0, 0,	/* all mem, mem, stack, regs, exec */
-	0, 0,			/* section pointers */
-	OPS_MAGIC,		/* Always the last thing */
+  "exec",			/* to_shortname */
+  "Local exec file",		/* to_longname */
+  "Use an executable file as a target.\n\
+Specify the filename of the executable file.", /* to_doc */
+  exec_file_command,		/* to_open */
+  exec_close,			/* to_close */
+  find_default_attach,		/* to_attach */
+  0,				/* to_detach */
+  0,				/* to_resume */
+  0,				/* to_wait */
+  0,				/* to_fetch_registers */
+  0,				/* to_store_registers */
+  0,				/* to_prepare_to_store */
+  xfer_memory,			/* to_xfer_memory */
+  exec_files_info,		/* to_files_info */
+  ignore,			/* to_insert_breakpoint */
+  ignore,			/* to_remove_breakpoint */
+  0,				/* to_terminal_init */
+  0,				/* to_terminal_inferior */
+  0,				/* to_terminal_ours_for_output */
+  0,				/* to_terminal_ours */
+  0,				/* to_terminal_info */
+  0,				/* to_kill */
+  0,				/* to_load */
+  0,				/* to_lookup_symbol */
+  find_default_create_inferior,	/* to_create_inferior */
+  0,				/* to_mourn_inferior */
+  0,				/* to_can_run */
+  0,				/* to_notice_signals */
+  0,				/* to_stop */
+  file_stratum,			/* to_stratum */
+  0,				/* to_next */
+  0,				/* to_has_all_memory */
+  1,				/* to_has_memory */
+  0,				/* to_has_stack */
+  0,				/* to_has_registers */
+  0,				/* to_has_execution */
+  0,				/* to_sections */
+  0,				/* to_sections_end */
+  OPS_MAGIC,			/* to_magic */
 };
 
 void

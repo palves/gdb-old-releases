@@ -59,8 +59,8 @@ static bfd_arch_info_type arch_info_struct[] =
     8,				/* 8 bits in a byte */
     bfd_arch_sh,
     0,				/* only 1 machine */
-    "SH",			/* arch_name  */
-    "SH",			/* printable name */
+    "sh",			/* arch_name  */
+    "sh",			/* printable name */
     1,
     true,			/* the default machine */
     bfd_default_compatible,

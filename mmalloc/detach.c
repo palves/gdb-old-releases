@@ -22,7 +22,7 @@ Cambridge, MA 02139, USA.  */
 
 #include <sys/types.h>
 #include <fcntl.h> /* After sys/types.h, at least for dpx/2.  */
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 /* Terminate access to a mmalloc managed region by unmapping all memory pages
    associated with the region, and closing the file descriptor if it is one

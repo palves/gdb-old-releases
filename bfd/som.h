@@ -30,6 +30,12 @@
 #include <lst.h>
 #include <ar.h>
 
+/* The SOM BFD backend doesn't currently use anything from these
+   two include files, but it's likely to need them in the future.  */
+#ifdef R_DLT_REL
+#include <shl.h>
+#include <dl.h>
+#endif
 
 #if defined(HOST_HPPABSD) || defined (HOST_HPPAOSF)
 /* BSD uses a completely different scheme for object file identification.
@@ -45,9 +51,6 @@
 typedef struct som_symbol
   {
     asymbol symbol;
-    short desc;
-    char other;
-    unsigned char type;
     unsigned int som_type;
 
     /* Structured like the ELF tc_data union.  Allows more code sharing
@@ -68,11 +71,9 @@ typedef struct som_symbol
        reduce the size of the relocation stream for incomplete objects.  */
     int reloc_count;
 
-    /* The unwind descriptor bits associated with R_ENTRY relocations
-       for functions (not enough room in a BFD reloc to store all the
-       information, so we tack it onto the symbol associated with the
-       function.  */
-    char *unwind;
+    /* During object file writing, the offset of the name of this symbol
+       in the SOM string table. */
+    int stringtab_offset;
   }
 som_symbol_type;
 
@@ -106,11 +107,13 @@ struct somdata
     struct header *file_hdr;
     struct copyright_aux_hdr *copyright_aux_hdr;
     struct user_string_aux_hdr *version_aux_hdr;
+    struct som_exec_auxhdr *exec_hdr;
 
     /* Pointers to a saved copy of the symbol and string tables.  These
        need not be copied for objcopy or strip to work.  */
     som_symbol_type *symtab;
     char *stringtab;
+    asymbol **sorted_syms;
 
     /* We remember these offsets so that after check_file_format, we have
        no dependencies on the particular format of the exec_hdr.
@@ -174,6 +177,7 @@ struct som_section_data_struct
 #define somdata(bfd)			((bfd)->tdata.som_data->a)
 #define obj_som_exec_data(bfd)		(somdata(bfd).exec_data)
 #define obj_som_file_hdr(bfd)		(somdata(bfd).file_hdr)
+#define obj_som_exec_hdr(bfd)		(somdata(bfd).exec_hdr)
 #define obj_som_copyright_hdr(bfd)	(somdata(bfd).copyright_aux_hdr)
 #define obj_som_version_hdr(bfd)	(somdata(bfd).version_aux_hdr)
 #define obj_som_symtab(bfd)		(somdata(bfd).symtab)
@@ -182,6 +186,7 @@ struct som_section_data_struct
 #define obj_som_str_filepos(bfd)	(somdata(bfd).str_filepos)
 #define obj_som_stringtab_size(bfd)	(somdata(bfd).stringtab_size)
 #define obj_som_reloc_filepos(bfd)	(somdata(bfd).reloc_filepos)
+#define obj_som_sorted_syms(bfd)	(somdata(bfd).sorted_syms)
 #define som_section_data(sec) \
   ((struct som_section_data_struct *)sec->used_by_bfd)
 #define som_symbol_data(symbol)		((som_symbol_type *) symbol)
@@ -211,7 +216,6 @@ boolean bfd_som_set_section_attributes PARAMS ((asection *, int, int,
 boolean bfd_som_set_subsection_attributes PARAMS ((asection *, asection *,
 						   int, unsigned int, int));
 void bfd_som_set_symbol_type PARAMS ((asymbol *, unsigned int));
-void bfd_som_attach_unwind_info PARAMS ((asymbol *, char *));
 boolean bfd_som_attach_aux_hdr PARAMS ((bfd *, int, char *));
 int ** hppa_som_gen_reloc_type
   PARAMS ((bfd *, int, int, enum hppa_reloc_field_selector_type_alt));

@@ -74,6 +74,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define ABOUT_TO_RETURN(pc) (read_memory_integer (pc, 1) == 0x12)
 
+#if 0 /* Disable until fixed *correctly*.  */
 #ifndef INVALID_FLOAT
 #ifndef NaN
 #include <nan.h>
@@ -86,6 +87,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		NaF (*(float *) p) :	\
 		NaD (*(double *) p))
 #endif /* INVALID_FLOAT */
+#endif
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -327,14 +329,13 @@ extern CORE_ADDR ns32k_get_enter_addr ();
 /* Discard from the stack the innermost frame, restoring all registers.  */
 
 #define POP_FRAME  \
-{ register FRAME frame = get_current_frame ();			 \
+{ register struct frame_info *frame = get_current_frame ();	 \
   register CORE_ADDR fp;					 \
   register int regnum;						 \
   struct frame_saved_regs fsr;					 \
   struct frame_info *fi;						 \
-  fi = get_frame_info (frame);					 \
-  fp = fi->frame;						 \
-  get_frame_saved_regs (fi, &fsr);				 \
+  fp = frame->frame;						 \
+  get_frame_saved_regs (frame, &fsr);				 \
   for (regnum = 0; regnum < 8; regnum++)			 \
     if (fsr.regs[regnum])					 \
       write_register (regnum, read_memory_integer (fsr.regs[regnum], 4)); \
@@ -342,8 +343,7 @@ extern CORE_ADDR ns32k_get_enter_addr ();
   write_register (PC_REGNUM, read_memory_integer (fp + 4, 4));   \
   write_register (SP_REGNUM, fp + 8);				 \
   flush_cached_frames ();					 \
-  set_current_frame (create_new_frame (read_register (FP_REGNUM),\
-				       read_pc ())); }
+}
 
 /* This sequence of words is the instructions
      enter	0xff,0		82 ff 00

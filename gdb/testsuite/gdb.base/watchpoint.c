@@ -102,9 +102,6 @@ int main ()
      are not evaluating the watchpoint expression correctly.  */
   struct1.val = 5;
   marker5 ();
-  if (doread)
-    read (0, &buf[0], 5);
-  marker4 ();
 
   /* We have a watchpoint on ptr1->val.  It should be triggered if
      ptr1's value changes.  */

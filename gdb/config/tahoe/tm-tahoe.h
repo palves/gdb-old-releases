@@ -270,8 +270,7 @@ printf("POP_FRAME\n");							\
     if (regmask & 0x1000)                                            	\
       write_register (regnum, read_memory_integer (fp-=4, 4));		\
   flush_cached_frames ();						\
-  set_current_frame (create_new_frame (read_register (FP_REGNUM),	\
-					read_pc ())); }
+}
 
 /* This sequence of words is the instructions
      calls #69, @#32323232

@@ -1,5 +1,5 @@
 /* Definitions for values of C expressions, for GDB.
-   Copyright 1986, 1987, 1989, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -81,6 +81,13 @@ struct value
        variables or put into the value history are taken off this
        list.  */
     struct value *next;
+
+    /* ??? When is this used?  */
+    union {
+      CORE_ADDR memaddr;
+      char *myaddr;
+    } substring_addr;
+
     /* If an lval is forced to repeat, a new value is created with
        these fields set.  The new value is not an lval.  */
     short repeated;
@@ -105,6 +112,7 @@ struct value
       long contents[1];
       double force_double_align;
       LONGEST force_longlong_align;
+      char *literal_data;
     } aligner;
 
   };
@@ -155,14 +163,18 @@ extern int value_fetch_lazy PARAMS ((value_ptr val));
 
 #define COERCE_ARRAY(arg)    \
 { COERCE_REF(arg);							\
-  if (VALUE_REPEATED (arg)						\
-      || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY)		\
+  if (current_language->c_style_arrays					\
+      && (VALUE_REPEATED (arg)						\
+	  || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY))		\
     arg = value_coerce_array (arg);					\
   if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FUNC)                   \
     arg = value_coerce_function (arg);                                  \
   if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ENUM)			\
     arg = value_cast (builtin_type_unsigned_int, arg);			\
 }
+
+#define COERCE_VARYING_ARRAY(arg)	\
+{ if (chill_varying_type (VALUE_TYPE (arg))) arg = varying_to_slice (arg); }
 
 /* If ARG is an enum, convert it to an integer.  */
 
@@ -225,7 +237,6 @@ extern value_ptr value_at PARAMS ((struct type *type, CORE_ADDR addr));
 
 extern value_ptr value_at_lazy PARAMS ((struct type *type, CORE_ADDR addr));
 
-/* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
 extern value_ptr value_from_register PARAMS ((struct type *type, int regnum,
 					  struct frame_info * frame));
 
@@ -236,11 +247,9 @@ extern value_ptr value_of_register PARAMS ((int regnum));
 
 extern int symbol_read_needs_frame PARAMS ((struct symbol *));
 
-/* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
 extern value_ptr read_var_value PARAMS ((struct symbol *var,
 					 struct frame_info *frame));
 
-/* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
 extern value_ptr locate_var_value PARAMS ((struct symbol *var,
 				       struct frame_info *frame));
 
@@ -253,6 +262,7 @@ extern value_ptr value_mark PARAMS ((void));
 extern void value_free_to_mark PARAMS ((value_ptr mark));
 
 extern value_ptr value_string PARAMS ((char *ptr, int len));
+extern value_ptr value_bitstring PARAMS ((char *ptr, int len));
 
 extern value_ptr value_array PARAMS ((int lowbound, int highbound,
 				      value_ptr *elemvec));
@@ -406,7 +416,6 @@ write_register PARAMS ((int regno, LONGEST val));
 extern void
 supply_register PARAMS ((int regno, char *val));
 
-/* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
 extern void
 get_saved_register PARAMS ((char *raw_buffer, int *optimized,
 			    CORE_ADDR *addrp, struct frame_info *frame,
@@ -448,7 +457,6 @@ val_print PARAMS ((struct type *type, char *valaddr, CORE_ADDR address,
 extern int
 val_print_string PARAMS ((CORE_ADDR addr, unsigned int len, GDB_FILE *stream));
 
-/* FIXME:  Assumes equivalence of "struct frame_info *" and "FRAME" */
 extern void
 print_variable_value PARAMS ((struct symbol *var, struct frame_info *frame,
 			      GDB_FILE *stream));
@@ -458,7 +466,7 @@ extern value_ptr value_arg_coerce PARAMS ((value_ptr));
 extern int check_field PARAMS ((value_ptr, const char *));
 
 extern void
-c_typedef_print PARAMS ((struct type *type, struct symbol *new, GDB_FILE *stream));
+c_typedef_print PARAMS ((struct type *type, struct symbol *news, GDB_FILE *stream));
 
 extern char *
 internalvar_name PARAMS ((struct internalvar *var));
@@ -477,6 +485,12 @@ extern int baseclass_offset PARAMS ((struct type *, int, value_ptr, int));
 
 /* From valops.c */
 
+extern value_ptr varying_to_slice PARAMS ((value_ptr));
+
+extern value_ptr value_slice PARAMS ((value_ptr, int, int));
+
 extern value_ptr call_function_by_hand PARAMS ((value_ptr, int, value_ptr *));
+
+extern value_ptr value_literal_complex PARAMS ((value_ptr, value_ptr, struct type*));
 
 #endif	/* !defined (VALUE_H) */

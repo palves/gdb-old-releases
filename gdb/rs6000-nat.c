@@ -24,7 +24,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "xcoffsolib.h"
 #include "symfile.h"
 #include "objfiles.h"
-#include "libbfd.h"		/* BFD internals (sigh!)  FIXME */
+#include "libbfd.h"  /* For bfd_cache_lookup (FIXME) */
 #include "bfd.h"
 
 #include <sys/ptrace.h>
@@ -638,7 +638,8 @@ xcoff_relocate_symtab (pid)
    from the core file.  */
 
 void
-xcoff_relocate_core ()
+xcoff_relocate_core (target)
+     struct target_ops *target;
 {
 /* Offset of member MEMBER in a struct of type TYPE.  */
 #ifndef offsetof
@@ -731,13 +732,13 @@ xcoff_relocate_core ()
 	  int count;
 	  struct section_table *stp;
 	  
-	  count = core_ops.to_sections_end - core_ops.to_sections;
+	  count = target->to_sections_end - target->to_sections;
 	  count += 2;
-	  core_ops.to_sections = (struct section_table *)
-	    xrealloc (core_ops.to_sections,
+	  target->to_sections = (struct section_table *)
+	    xrealloc (target->to_sections,
 		      sizeof (struct section_table) * count);
-	  core_ops.to_sections_end = core_ops.to_sections + count;
-	  stp = core_ops.to_sections_end - 2;
+	  target->to_sections_end = target->to_sections + count;
+	  stp = target->to_sections_end - 2;
 
 	  /* "Why do we add bfd_section_vma?", I hear you cry.
 	     Well, the start of the section in the file is actually

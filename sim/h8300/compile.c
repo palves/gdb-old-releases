@@ -666,8 +666,8 @@ init_pointers ()
 
       cpu.memory = (unsigned char *) calloc (sizeof (char), MSIZE);
       cpu.cache_idx = (unsigned short *) calloc (sizeof (short), MSIZE);
-      cpu.mask = (1 << MPOWER) - 1;
 
+      cpu.mask = (1 << MPOWER) - 1;
       for (i = 0; i < 9; i++)
 	{
 	  cpu.regs[i] = 0;
@@ -832,7 +832,7 @@ sim_resume (step, siggnal)
   int bit;
   int pc;
   int c, nz, v, n;
-
+  int oldmask;
   init_pointers ();
 
   prev = signal (SIGINT, control_c);
@@ -849,7 +849,9 @@ sim_resume (step, siggnal)
   pc = cpu.pc;
 
   GETSR ();
-
+  oldmask = cpu.mask;
+  if (!h8300hmode)
+    cpu.mask = 0xffff;
   do
     {
       int cidx;
@@ -1525,10 +1527,10 @@ sim_resume (step, siggnal)
   cpu.ticks += get_now () - tick_start;
   cpu.cycles += cycles;
   cpu.insts += insts;
-
+  
   cpu.pc = pc;
   BUILDSR ();
-
+  cpu.mask = oldmask;
   signal (SIGINT, prev);
 }
 

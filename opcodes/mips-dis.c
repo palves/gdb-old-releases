@@ -201,7 +201,7 @@ _print_insn_mips (memaddr, word, info)
 	    {
 	      if (op->pinfo == INSN_MACRO)
 		continue;
-	      if ((i << OP_SH_OP) == (op->match & (OP_MASK_OP << OP_SH_OP)))
+	      if (i == ((op->match >> OP_SH_OP) & OP_MASK_OP))
 		{
 		  mips_hash[i] = op;
 		  break;

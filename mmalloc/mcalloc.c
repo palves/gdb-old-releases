@@ -18,7 +18,7 @@ Cambridge, MA 02139, USA.  */
 
 #include <string.h>	/* Prototypes for memcpy, memmove, memset, etc */
 
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 /* Allocate an array of NMEMB elements each SIZE bytes long.
    The entire array is initialized to zeros.  */

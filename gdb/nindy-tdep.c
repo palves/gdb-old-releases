@@ -34,7 +34,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 int
 nindy_frame_chain_valid (chain, curframe)
     unsigned int chain;
-    FRAME curframe;
+    struct frame_info *curframe;
 {
 	struct symbol *sym;
 	struct minimal_symbol *msymbol;
@@ -63,7 +63,7 @@ nindy_frame_chain_valid (chain, curframe)
 	if ( sym != 0 ){
 		a = SYMBOL_VALUE (sym);
 	} else {
-		msymbol = lookup_minimal_symbol (sf, (struct objfile *) NULL);
+		msymbol = lookup_minimal_symbol (sf, NULL, NULL);
 		if (msymbol == NULL)
 			return 0;
 		a = SYMBOL_VALUE_ADDRESS (msymbol);

@@ -1,5 +1,5 @@
 /* BFD library support routines for the Hitachi H8/300 architecture.
-   Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 1995 Free Software Foundation, Inc.
    Hacked by Steve Chamberlain of Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -129,7 +129,7 @@ static reloc_howto_type howto_8_FFnn
 static reloc_howto_type howto_8_pcrel
 = NEWHOWTO (howto8_pcrel_callback, "pcrel8", 0, false, true);
 
-static CONST struct reloc_howto_struct *
+static reloc_howto_type *
 local_bfd_reloc_type_lookup (arch, code)
      CONST struct bfd_arch_info *arch;
      bfd_reloc_code_real_type code;
@@ -217,8 +217,8 @@ static bfd_arch_info_type h8300_info_struct =
   8,				/* 8 bits in a byte */
   bfd_arch_h8300,
   bfd_mach_h8300,
-  "H8/300",			/* arch_name  */
-  "H8/300",			/* printable name */
+  "h8300",			/* arch_name  */
+  "h8300",			/* printable name */
   1,
   true,				/* the default machine */
   compatible,
@@ -236,8 +236,8 @@ static bfd_arch_info_type h8300h_info_struct =
   8,				/* 8 bits in a byte */
   bfd_arch_h8300,
   bfd_mach_h8300h,
-  "H8/300H",			/* arch_name  */
-  "H8/300H",			/* printable name */
+  "h8300h",			/* arch_name  */
+  "h8300h",			/* printable name */
   1,
   false,			/* the default machine */
   compatible,

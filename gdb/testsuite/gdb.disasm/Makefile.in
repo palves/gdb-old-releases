@@ -8,7 +8,7 @@ CFLAGS = -g
 all: $(EXECUTABLES)
 
 clean mostlyclean:
-	-rm -f *.o $(EXECUTABLES) *.diff *~ *.bad core foo twice-tmp.c
+	-rm -f *.o $(EXECUTABLES) *.diff *~ *.bad core foo twice-tmp.c errs
 
 distclean realclean: clean
 	-rm -f Makefile config.status

@@ -93,9 +93,9 @@ compatible (a,b)
      CONST bfd_arch_info_type *b;
 {
 
-  /* The i960 has two distinct subspecies which may not interbreed:
-     CORE CA          
-     CORE KA KB MC XA
+  /* The i960 has distinct subspecies which may not interbreed:
+	CORE CA          
+	CORE KA KB MC XA
      Any architecture on the same line is compatible, the one on
      the right is the least restrictive.  
      
@@ -108,9 +108,11 @@ compatible (a,b)
 #define MC 	bfd_mach_i960_mc    /*4*/
 #define XA 	bfd_mach_i960_xa    /*5*/
 #define CA 	bfd_mach_i960_ca    /*6*/
+#define MAX_ARCH ((int)CA)
 
 
-  static CONST char matrix[7][7] = 
+
+  static CONST char matrix[MAX_ARCH+1][MAX_ARCH+1] = 
     {
       { ERROR,	CORE,	KA,	KB,	MC,	XA,	CA },
       { CORE,	CORE,	KA,	KB,	MC,	XA,	CA },
@@ -118,7 +120,7 @@ compatible (a,b)
       { KB,	KB,	KB,	KB,	MC,	XA,	ERROR },
       { MC,	MC,	MC,	MC,	MC,	XA,	ERROR },
       { XA,	XA,	XA,	XA,	XA,	XA,	ERROR },
-      { CA,	CA,	ERROR,	ERROR,	ERROR,	ERROR,	CA }
+      { CA,	CA,	ERROR,	ERROR,	ERROR,	ERROR,	CA },
     };
 
 
@@ -140,13 +142,13 @@ int bfd_default_scan_num_mach();
 
 static bfd_arch_info_type arch_info_struct[] = 
 { 
-  N(bfd_mach_i960_core,"i960:core",true),
+  N(bfd_mach_i960_core, "i960:core", true),
   N(bfd_mach_i960_ka_sa,"i960:ka_sa",false),
   N(bfd_mach_i960_kb_sb,"i960:kb_sb",false),
-  N(bfd_mach_i960_mc,"i960:mc",false),
-  N(bfd_mach_i960_xa,"i960:xa",false),
-  N(bfd_mach_i960_ca,"i960:ca",false)
-  };
+  N(bfd_mach_i960_mc,   "i960:mc",   false),
+  N(bfd_mach_i960_xa,   "i960:xa",   false),
+  N(bfd_mach_i960_ca,   "i960:ca",   false),
+};
 
 
 void

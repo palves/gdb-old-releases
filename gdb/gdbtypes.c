@@ -451,7 +451,9 @@ create_string_type (result_type, range_type)
      struct type *result_type;
      struct type *range_type;
 {
-  result_type = create_array_type (result_type, builtin_type_char, range_type);
+  result_type = create_array_type (result_type,
+				   *current_language->string_char_type,
+				   range_type);
   TYPE_CODE (result_type) = TYPE_CODE_STRING;
   return (result_type);
 }
@@ -466,24 +468,23 @@ create_set_type (result_type, domain_type)
     {
       result_type = alloc_type (TYPE_OBJFILE (domain_type));
     }
-  domain_type = force_to_range_type (domain_type);
   TYPE_CODE (result_type) = TYPE_CODE_SET;
   TYPE_NFIELDS (result_type) = 1;
   TYPE_FIELDS (result_type) = (struct field *)
     TYPE_ALLOC (result_type, 1 * sizeof (struct field));
   memset (TYPE_FIELDS (result_type), 0, sizeof (struct field));
+
+  if (! (TYPE_FLAGS (domain_type) & TYPE_FLAG_STUB))
+    {
+      domain_type = force_to_range_type (domain_type);
+      low_bound = TYPE_LOW_BOUND (domain_type);
+      high_bound = TYPE_HIGH_BOUND (domain_type);
+      bit_length = high_bound - low_bound + 1;
+      TYPE_LENGTH (result_type)
+	= ((bit_length + TARGET_CHAR_BIT - 1) / TARGET_CHAR_BIT)
+	  * TARGET_CHAR_BIT;
+    }
   TYPE_FIELD_TYPE (result_type, 0) = domain_type;
-  low_bound = TYPE_LOW_BOUND (domain_type);
-  high_bound = TYPE_HIGH_BOUND (domain_type);
-  bit_length = high_bound - low_bound + 1;
-  if (bit_length <= TARGET_CHAR_BIT)
-    TYPE_LENGTH (result_type) = 1;
-  else if (bit_length <= TARGET_SHORT_BIT)
-    TYPE_LENGTH (result_type) = TARGET_SHORT_BIT / TARGET_CHAR_BIT;
-  else
-    TYPE_LENGTH (result_type)
-      = ((bit_length + TARGET_INT_BIT - 1) / TARGET_INT_BIT)
-	* TARGET_CHAR_BIT;
   return (result_type);
 }
 
@@ -1157,6 +1158,23 @@ can_dereference (t)
      && TYPE_CODE (TYPE_TARGET_TYPE (t)) != TYPE_CODE_VOID);
 }
 
+/* Chill varying string and arrays are represented as follows:
+
+   struct { int __var_length; ELEMENT_TYPE[MAX_SIZE] __var_data};
+
+   Return true if TYPE is such a Chill varying type. */
+
+int
+chill_varying_type (type)
+     struct type *type;
+{
+  if (TYPE_CODE (type) != TYPE_CODE_STRUCT
+      || TYPE_NFIELDS (type) != 2
+      || strcmp (TYPE_FIELD_NAME (type, 0), "__var_length") != 0)
+    return 0;
+  return 1;
+}
+
 #if MAINTENANCE_CMDS
 
 static void
@@ -1567,13 +1585,15 @@ _initialize_gdbtypes ()
 	       0,
 	       "long double", (struct objfile *) NULL);
   builtin_type_complex =
-    init_type (TYPE_CODE_FLT, TARGET_COMPLEX_BIT / TARGET_CHAR_BIT,
+    init_type (TYPE_CODE_COMPLEX, 2 * TARGET_FLOAT_BIT / TARGET_CHAR_BIT,
 	       0,
 	       "complex", (struct objfile *) NULL);
+  TYPE_TARGET_TYPE (builtin_type_complex) = builtin_type_float;
   builtin_type_double_complex =
-    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
+    init_type (TYPE_CODE_COMPLEX, 2 * TARGET_DOUBLE_BIT / TARGET_CHAR_BIT,
 	       0,
 	       "double complex", (struct objfile *) NULL);
+  TYPE_TARGET_TYPE (builtin_type_double_complex) = builtin_type_double;
   builtin_type_string =
     init_type (TYPE_CODE_STRING, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
 	       0,

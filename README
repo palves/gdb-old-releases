@@ -21,6 +21,19 @@ use the script ``config.sub'' to test whether a name is recognized; if
 it is, config.sub translates it to a triplet specifying CPU, vendor,
 and OS.)
 
+If you have more than one compiler on your system, it is often best to
+explicitly set CC in the environment before running configure, and to
+also set CC when running make.  For example (assuming sh/bash/ksh):
+
+	CC=gcc ./configure
+	make CC=gcc
+
+A similar example using csh:
+
+	setenv CC gcc
+	./configure
+	make CC=gcc
+
 See etc/cfg-paper.texi, etc/configure.texi, and/or the README files in
 various subdirectories, for more details.
 

@@ -1,4 +1,4 @@
-This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
+This is Info file ./gdb.info, produced by Makeinfo-1.55 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
@@ -7,10 +7,10 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.13.
+Source-Level Debugger' for GDB Version 4.14.
 
-   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
-Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
+Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -29,7 +29,7 @@ versions.
 File: gdb.info,  Node: Built-In Func/Proc,  Next: M2 Constants,  Prev: M2 Operators,  Up: Modula-2
 
 Built-in functions and procedures
----------------------------------
+.................................
 
    Modula-2 also makes available several built-in procedures and
 functions.  In describing these, the following metavariables are used:
@@ -136,7 +136,7 @@ below.
 File: gdb.info,  Node: M2 Constants,  Next: M2 Defaults,  Prev: Built-In Func/Proc,  Up: Modula-2
 
 Constants
----------
+.........
 
    GDB allows you to express the constants of Modula-2 in the following
 ways:
@@ -175,7 +175,7 @@ ways:
 File: gdb.info,  Node: M2 Defaults,  Next: Deviations,  Prev: M2 Constants,  Up: Modula-2
 
 Modula-2 defaults
------------------
+.................
 
    If type and range checking are set automatically by GDB, they both
 default to `on' whenever the working language changes to Modula-2.
@@ -191,7 +191,7 @@ Automatically, for further details.
 File: gdb.info,  Node: Deviations,  Next: M2 Checks,  Prev: M2 Defaults,  Up: Modula-2
 
 Deviations from standard Modula-2
----------------------------------
+.................................
 
    A few changes have been made to make Modula-2 programs easier to
 debug.  This is done primarily via loosening its type strictness:
@@ -217,7 +217,7 @@ debug.  This is done primarily via loosening its type strictness:
 File: gdb.info,  Node: M2 Checks,  Next: M2 Scope,  Prev: Deviations,  Up: Modula-2
 
 Modula-2 type and range checks
-------------------------------
+..............................
 
      *Warning:* in this release, GDB does not yet perform type or range
      checking.
@@ -241,7 +241,7 @@ array index bounds, and all built-in functions and procedures.
 File: gdb.info,  Node: M2 Scope,  Next: GDB/M2,  Prev: M2 Checks,  Up: Modula-2
 
 The scope operators `::' and `.'
---------------------------------
+................................
 
    There are a few subtle differences between the Modula-2 scope
 operator (`.') and the GDB scope operator (`::').  The two have similar
@@ -270,7 +270,7 @@ is not an identifier in MODULE.
 File: gdb.info,  Node: GDB/M2,  Prev: M2 Scope,  Up: Modula-2
 
 GDB and Modula-2
-----------------
+................
 
    Some GDB commands have little use when debugging Modula-2 programs.
 Five subcommands of `set print' and `show print' apply specifically to
@@ -1220,7 +1220,7 @@ added stubs.
 File: gdb.info,  Node: Stub Contents,  Next: Bootstrapping,  Up: Remote Serial
 
 What the stub can do for you
-----------------------------
+............................
 
    The debugging stub for your architecture supplies these three
 subroutines:

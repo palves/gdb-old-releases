@@ -24,7 +24,7 @@ Cambridge, MA 02139, USA.  */
 #include <fcntl.h> /* After sys/types.h, at least for dpx/2.  */
 #include <sys/stat.h>
 #include <string.h>
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 #ifndef SEEK_SET
 #define SEEK_SET 0

@@ -90,15 +90,16 @@ extern int rl_complete_with_tilde_expansion;
 void rl_dispatch ();
 void free_history_entry ();
 int _rl_output_character_function ();
-#if !defined (__GO32__)
+
+#if !defined (MINIMAL)
 void _rl_set_screen_size ();
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 
 void free_undo_list (), rl_add_undo ();
 
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
 static void readline_default_bindings ();
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 
 #if defined (__GO32__)
 #  include <sys/pc.h>
@@ -478,7 +479,7 @@ rl_unget_char (key)
 void
 rl_gather_tyi ()
 {
-#if defined (__GO32__)
+#if defined (MINIMAL)
   char input;
 
   if (isatty (0))
@@ -490,7 +491,7 @@ rl_gather_tyi ()
     }
   else if (kbhit () && ibuffer_space ())
     rl_stuff_char (getkey () & 0x7f);
-#else /* !__GO32__ */
+#else /* !MINIMAL */
 
   int tty = fileno (in_stream);
   register int tem, result = -1;
@@ -544,7 +545,7 @@ rl_gather_tyi ()
       if (chars_avail)
 	rl_stuff_char (input);
     }
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 }
 
 static int next_macro_key ();
@@ -966,10 +967,10 @@ readline_initialize_everything ()
   /* Initialize the terminal interface. */
   init_terminal_io ((char *)NULL);
 
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
   /* Bind tty characters to readline functions. */
   readline_default_bindings ();
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 
   /* Initialize the function names. */
   rl_initialize_funmap ();
@@ -988,13 +989,13 @@ readline_initialize_everything ()
 /* If this system allows us to look at the values of the regular
    input editing characters, then bind them to their readline
    equivalents, iff the characters are not bound to keymaps. */
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
 static void
 readline_default_bindings ()
 {
   rltty_set_default_bindings (_rl_keymap);
 }
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 
 
 /* **************************************************************** */
@@ -1148,12 +1149,12 @@ rl_reset_terminal (terminal_name)
    to the terminal.  If IGNORE_ENV is true, we do not pay attention to the
    values of $LINES and $COLUMNS.  The tests for TERM_STRING_BUFFER being
    non-null serve to check whether or not we have initialized termcap. */
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
 void
 _rl_set_screen_size (tty, ignore_env)
      int tty, ignore_env;
 {
-#ifndef __GO32__
+#ifndef MINIMAL
 #if defined (TIOCGWINSZ) && !defined (TIOCGWINSZ_BROKEN)
   struct winsize window_size;
 #endif /* TIOCGWINSZ */
@@ -1211,19 +1212,19 @@ _rl_set_screen_size (tty, ignore_env)
     screenwidth--;
 #endif
 }
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 
 init_terminal_io (terminal_name)
      char *terminal_name;
 {
-#if defined (__GO32__)
+#if defined (MINIMAL)
   screenwidth = ScreenCols ();
   screenheight = ScreenRows ();
   term_cr = "\r";
   term_im = term_ei = term_ic = term_IC = (char *)NULL;
   term_up = term_dc = term_DC = visible_bell = (char *)NULL;
 
-  /* Does the __GO32__ have a meta key?  I don't know. */
+  /* Does the MINIMAL have a meta key?  I don't know. */
   term_has_meta = 0;
   term_mm = term_mo = (char *)NULL;
 
@@ -1235,7 +1236,7 @@ init_terminal_io (terminal_name)
 #endif /* HACK_TERMCAP_MOTION */
   terminal_can_insert = term_xn = 0;
   return;
-#else /* !__GO32__ */
+#else /* !MINIMAL */
 
   char *term, *buffer;
   int tty;
@@ -1374,7 +1375,7 @@ init_terminal_io (terminal_name)
       if (!func || func == rl_do_lowercase_version)
 	rl_set_key (term_kl, rl_backward, _rl_keymap);
     }
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
   return 0;
 }
 
@@ -1401,12 +1402,12 @@ backspace (count)
 {
   register int i;
 
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
   if (term_backspace)
     for (i = 0; i < count; i++)
       tputs (term_backspace, 1, _rl_output_character_function);
   else
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
     for (i = 0; i < count; i++)
       putc ('\b', out_stream);
 }
@@ -1460,11 +1461,11 @@ ding ()
 {
   if (readline_echoing_p)
     {
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
       if (_rl_prefer_visible_bell && visible_bell)
 	tputs (visible_bell, 1, _rl_output_character_function);
       else
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 	{
 	  fprintf (stderr, "\007");
 	  fflush (stderr);
@@ -1778,6 +1779,9 @@ rl_refresh_line ()
   _rl_move_vert (curr_line);
   _rl_move_cursor_relative (0, the_line);   /* XXX is this right */
 
+#if defined (WIN32)
+  abort();
+#else
 #if defined (__GO32__)
   {
     int row, col, width, row_start;
@@ -1787,11 +1791,11 @@ rl_refresh_line ()
     row_start = ScreenPrimary + (row * width);
     memset (row_start + col, 0, (width - col) * 2);
   }
-#else /* !__GO32__ */
+#else /* !MINIMAL */
   if (term_clreol)
     tputs (term_clreol, 1, _rl_output_character_function);
-#endif /* !__GO32__ */
-
+#endif /* !MINIMAL */
+#endif
   rl_forced_update_display ();
   rl_display_fixed = 1;
 
@@ -1809,11 +1813,11 @@ rl_clear_screen ()
       return 0;
     }
 
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
   if (term_clrpag)
     tputs (term_clrpag, 1, _rl_output_character_function);
   else
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
     crlf ();
 
   rl_forced_update_display ();
@@ -3116,10 +3120,10 @@ rl_getc (stream)
   int result;
   unsigned char c;
 
-#if defined (__GO32__)
+#if defined (MINIMAL)
   if (isatty (0))
     return (getkey () & 0x7f);
-#endif /* __GO32__ */
+#endif /* MINIMAL */
 
   while (1)
     {
@@ -3166,13 +3170,13 @@ rl_getc (stream)
 	}
 #endif /* _POSIX_VERSION && EAGAIN && O_NONBLOCK */
 
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
       /* If the error that we received was SIGINT, then try again,
 	 this is simply an interrupted system call to read ().
 	 Otherwise, some error ocurred, also signifying EOF. */
       if (errno != EINTR)
 	return (EOF);
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
     }
 }
 

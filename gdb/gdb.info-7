@@ -1,4 +1,4 @@
-This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
+This is Info file ./gdb.info, produced by Makeinfo-1.55 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
@@ -7,10 +7,10 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.13.
+Source-Level Debugger' for GDB Version 4.14.
 
-   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
-Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
+Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -896,7 +896,7 @@ Key Bindings
 File: gdb.info,  Node: Commands For Moving,  Next: Commands For History,  Up: Readline Init Syntax
 
 Commands For Moving
--------------------
+...................
 
 `beginning-of-line (C-a)'
      Move to the start of the current line.
@@ -923,7 +923,7 @@ Commands For Moving
 File: gdb.info,  Node: Commands For History,  Next: Commands For Text,  Prev: Commands For Moving,  Up: Readline Init Syntax
 
 Commands For Manipulating The History
--------------------------------------
+.....................................
 
 `accept-line (Newline, Return)'
      Accept the line regardless of where the cursor is.  If this line is
@@ -955,7 +955,7 @@ Commands For Manipulating The History
 File: gdb.info,  Node: Commands For Text,  Next: Commands For Killing,  Prev: Commands For History,  Up: Readline Init Syntax
 
 Commands For Changing Text
---------------------------
+..........................
 
 `delete-char (C-d)'
      Delete the character under the cursor.  If the cursor is at the
@@ -1003,7 +1003,7 @@ Commands For Changing Text
 File: gdb.info,  Node: Commands For Killing,  Next: Numeric Arguments,  Prev: Commands For Text,  Up: Readline Init Syntax
 
 Killing And Yanking
--------------------
+...................
 
 `kill-line (C-k)'
      Kill the text from the current cursor position to the end of the
@@ -1040,7 +1040,7 @@ Killing And Yanking
 File: gdb.info,  Node: Numeric Arguments,  Next: Commands For Completion,  Prev: Commands For Killing,  Up: Readline Init Syntax
 
 Specifying Numeric Arguments
-----------------------------
+............................
 
 `digit-argument (M-0, M-1, ... M--)'
      Add this digit to the argument already accumulating, or start a new
@@ -1053,7 +1053,7 @@ Specifying Numeric Arguments
 File: gdb.info,  Node: Commands For Completion,  Next: Miscellaneous Commands,  Prev: Numeric Arguments,  Up: Readline Init Syntax
 
 Letting Readline Type For You
------------------------------
+.............................
 
 `complete (TAB)'
      Attempt to do completion on the text before point.  This is
@@ -1071,7 +1071,7 @@ Letting Readline Type For You
 File: gdb.info,  Node: Miscellaneous Commands,  Prev: Commands For Completion,  Up: Readline Init Syntax
 
 Some Miscellaneous Commands
----------------------------
+...........................
 
 `re-read-init-file (C-x C-r)'
      Read in the contents of your `~/.inputrc' file, and incorporate

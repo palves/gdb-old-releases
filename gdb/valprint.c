@@ -205,29 +205,41 @@ val_print_type_code_int (type, valaddr, stream)
 	     sizeof (LONGEST) ones.  */
 	  len = TYPE_LENGTH (type);
 	  
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-	  for (p = valaddr;
-	       len > sizeof (LONGEST) && p < valaddr + TYPE_LENGTH (type);
-	       p++)
-#else		/* Little endian.  */
-	  first_addr = valaddr;
-	  for (p = valaddr + TYPE_LENGTH (type) - 1;
-	       len > sizeof (LONGEST) && p >= valaddr;
-	       p--)
-#endif		/* Little endian.  */
+	  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
 	    {
-	      if (*p == 0)
+	      for (p = valaddr;
+		   len > sizeof (LONGEST) && p < valaddr + TYPE_LENGTH (type);
+		   p++)
 		{
-		  len--;
+		  if (*p == 0)
+		    {
+		      len--;
+		    }
+		  else
+		    {
+		      break;
+		    }
 		}
-	      else
+	      first_addr = p;
+	    }
+	  else
+	    {
+	      first_addr = valaddr;
+	      for (p = valaddr + TYPE_LENGTH (type) - 1;
+		   len > sizeof (LONGEST) && p >= valaddr;
+		   p--)
 		{
-		  break;
+		  if (*p == 0)
+		    {
+		      len--;
+		    }
+		  else
+		    {
+		      break;
+		    }
 		}
 	    }
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-	  first_addr = p;
-#endif
+
 	  if (len <= sizeof (LONGEST))
 	    {
 	      /* The most significant bytes are zero, so we can just get
@@ -452,13 +464,16 @@ print_floating (valaddr, type, stream)
 
 	/* Assume that floating point byte order is the same as
 	   integer byte order.  */
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-	low = extract_unsigned_integer (valaddr + 4, 4);
-	high = extract_unsigned_integer (valaddr, 4);
-#else
-	low = extract_unsigned_integer (valaddr, 4);
-	high = extract_unsigned_integer (valaddr + 4, 4);
-#endif
+	if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+	  {
+	    low = extract_unsigned_integer (valaddr + 4, 4);
+	    high = extract_unsigned_integer (valaddr, 4);
+	  }
+	else
+	  {
+	    low = extract_unsigned_integer (valaddr, 4);
+	    high = extract_unsigned_integer (valaddr + 4, 4);
+	  }
 	nonnegative = ((high & 0x80000000) == 0);
 	is_nan = (((high >> 20) & 0x7ff) == 0x7ff
 		  && ! ((((high & 0xfffff) == 0)) && (low == 0)));
@@ -506,17 +521,23 @@ print_hex_chars (stream, valaddr, len)
   /* FIXME: We should be not printing leading zeroes in most cases.  */
 
   fprintf_filtered (stream, local_hex_format_prefix ());
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-  for (p = valaddr;
-       p < valaddr + len;
-       p++)
-#else /* Little endian.  */
-  for (p = valaddr + len - 1;
-       p >= valaddr;
-       p--)
-#endif
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
     {
-      fprintf_filtered (stream, "%02x", *p);
+      for (p = valaddr;
+	   p < valaddr + len;
+	   p++)
+	{
+	  fprintf_filtered (stream, "%02x", *p);
+	}
+    }
+  else
+    {
+      for (p = valaddr + len - 1;
+	   p >= valaddr;
+	   p--)
+	{
+	  fprintf_filtered (stream, "%02x", *p);
+	}
     }
   fprintf_filtered (stream, local_hex_format_suffix ());
 }

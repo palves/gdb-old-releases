@@ -64,17 +64,11 @@ struct hpux_core_struct
 {
   int sig;
   char cmd[MAXCOMLEN + 1];
-  asection *data_section;
-  asection *stack_section;
-  asection *reg_section;
 };
 
 #define core_hdr(bfd) ((bfd)->tdata.hpux_core_data)
 #define core_signal(bfd) (core_hdr(bfd)->sig)
 #define core_command(bfd) (core_hdr(bfd)->cmd)
-#define core_datasec(bfd) (core_hdr(bfd)->data_section)
-#define core_stacksec(bfd) (core_hdr(bfd)->stack_section)
-#define core_regsec(bfd) (core_hdr(bfd)->reg_section)
 
 static asection *
 make_bfd_asection (abfd, name, flags, _raw_size, vma, alignment_power)
@@ -87,7 +81,7 @@ make_bfd_asection (abfd, name, flags, _raw_size, vma, alignment_power)
 {
   asection *asect;
 
-  asect = bfd_make_section (abfd, name);
+  asect = bfd_make_section_anyway (abfd, name);
   if (!asect)
     return NULL;
 
@@ -145,39 +139,33 @@ hpux_core_core_file_p (abfd)
 	case CORE_PROC:
 	  {
 	    struct proc_info proc_info;
-	    core_regsec (abfd) = make_bfd_asection (abfd, ".reg",
-						    SEC_HAS_CONTENTS,
-						    core_header.len,
-				(int) &proc_info - (int) &proc_info.hw_regs,
-						    2);
+	    if (!make_bfd_asection (abfd, ".reg",
+				    SEC_HAS_CONTENTS,
+				    core_header.len,
+				(int) &proc_info - (int) & proc_info.hw_regs,
+				    2))
+	      return NULL;
+
 	    if (bfd_read (&proc_info, 1, core_header.len, abfd)
 		!= core_header.len)
 	      break;
 	    core_signal (abfd) = proc_info.sig;
 	  }
-	  if (!core_regsec (abfd))
-	    return NULL;
 	  break;
+
 	case CORE_DATA:
-	  core_datasec (abfd) = make_bfd_asection (abfd, ".data",
-				    SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS,
-						   core_header.len,
-						   core_header.addr,
-						   2);
-	  if (!core_datasec (abfd))
-	    return NULL;
-	  bfd_seek (abfd, core_header.len, SEEK_CUR);
-	  break;
 	case CORE_STACK:
-	  core_stacksec (abfd) = make_bfd_asection (abfd, ".stack",
-				    SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS,
-						    core_header.len,
-						    core_header.addr,
-						    2);
-	  if (!core_stacksec (abfd))
+	case CORE_TEXT:
+	case CORE_MMF:
+	case CORE_SHM:
+	  if (!make_bfd_asection (abfd, ".data",
+				  SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS,
+				  core_header.len, core_header.addr, 2))
 	    return NULL;
+
 	  bfd_seek (abfd, core_header.len, SEEK_CUR);
 	  break;
+
 	default:
 	  /* Falling into here is an error and should prevent this
 	     target from matching.  That way systems which use hpux

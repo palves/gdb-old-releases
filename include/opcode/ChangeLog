@@ -1,3 +1,45 @@
+Mon Jan 23 16:45:43 1995  Ken Raeburn  <raeburn@cujo.cygnus.com>
+
+	Sat Jan 21 17:50:38 1995  Pat Rankin  (rankin@eql.caltech.edu)
+
+	* ../include/opcode/vax.h (struct vot_wot, field `args'):  make
+	it pointer to const char;
+	(struct vot, field `name'):  ditto.
+
+Thu Jan 19 14:47:53 1995  Ken Raeburn  <raeburn@cujo.cygnus.com>
+
+	* vax.h: Supply and properly group all values in end sentinel.
+
+Tue Jan 17 10:55:30 1995  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* mips.h (INSN_ISA, INSN_4650): Define.
+
+
+
+Wed Oct 19 13:34:17 1994  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* a29k.h: Add operand type 'I' for `inv' and `iretinv'.  On
+	systems with a separate instruction and data cache, such as the
+	29040, these instructions take an optional argument.
+
+Wed Sep 14 17:44:20 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* mips.h (INSN_STORE_MEMORY): Correct value to not conflict with
+	INSN_TRAP.
+
+Tue Sep  6 11:39:08 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* mips.h (INSN_STORE_MEMORY): Define.
+
+Thu Jul 28 19:28:07 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* sparc.h: Document new operand type 'x'.
+
+Tue Jul 26 17:48:05 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* i960.h (I_CX2): New instruction category.
+	(i960_opcodes): Put eshro and sysctl in I_CX2 category.
+
 Wed Jul 13 18:43:47 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
 
 	* ns32k.h (endop): Made pointer const too.

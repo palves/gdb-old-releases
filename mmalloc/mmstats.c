@@ -22,9 +22,9 @@ Cambridge, MA 02139, USA.
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation. */
 
-#include "mmalloc.h"
+#include "mmprivate.h"
 
-/* FIXME:  See the comment in mmalloc.h where struct mstats is defined.
+/* FIXME:  See the comment in mmprivate.h where struct mstats is defined.
    None of the internal mmalloc structures should be externally visible
    outside the library. */
 

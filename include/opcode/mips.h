@@ -220,10 +220,16 @@ struct mips_opcode
 #define INSN_WRITE_LO		    0x02000000
 /* Takes a trap (easier to keep out of delay slot).  */
 #define INSN_TRAP                   0x04000000
+/* Instruction stores value into memory.  */
+#define INSN_STORE_MEMORY	    0x08000000
+/* MIPS ISA field--CPU level at which insn is supported.  */
+#define INSN_ISA		    0x70000000
 /* MIPS ISA 2 instruction (R6000 or R4000).  */
 #define INSN_ISA2		    0x10000000
 /* MIPS ISA 3 instruction (R4000).  */
 #define INSN_ISA3		    0x20000000
+/* MIPS R4650 instruction.  */
+#define INSN_4650		    0x30000000
 
 /* Instruction is actually a macro.  It should be ignored by the
    disassembler, and requires special treatment by the assembler.  */

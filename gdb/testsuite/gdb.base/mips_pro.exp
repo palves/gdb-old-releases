@@ -9,12 +9,13 @@ gdb_reinitialize_dir $srcdir/$subdir
 set binfile $objdir/$subdir/mips_pro
 
 if ![file exists $binfile] then {
-    warning "$binfile does not exist; tests suppressed"
-} else {
-    gdb_load $binfile
-    if [runto middle] then {
-	# PR 3016
-	gdb_test "backtrace" "#0.*middle.*#1.*top.*#2.*main"
-    }
+    perror "$binfile does not exist."
+    return 0
+}
+
+gdb_load $binfile
+if [runto middle] then {
+    # PR 3016
+    gdb_test "backtrace" "#0.*middle.*#1.*top.*#2.*main"
 }
 return 0

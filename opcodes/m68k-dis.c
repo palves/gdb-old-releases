@@ -414,14 +414,14 @@ print_insn_arg (d, buffer, p0, addr, info)
 	static struct { char *name; int value; } names[]
 	  = {{"sfc", 0x000}, {"dfc", 0x001}, {"cacr", 0x002},
 	     {"tc",  0x003}, {"itt0",0x004}, {"itt1", 0x005},
-             {"dtt0",0x006}, {"dtt1",0x007},
+             {"dtt0",0x006}, {"dtt1",0x007}, {"buscr",0x008},
 	     {"usp", 0x800}, {"vbr", 0x801}, {"caar", 0x802},
 	     {"msp", 0x803}, {"isp", 0x804},
 
 	     /* Should we be calling this psr like we do in case 'Y'?  */
 	     {"mmusr",0x805},
 
-             {"urp", 0x806}, {"srp", 0x807}};
+             {"urp", 0x806}, {"srp", 0x807}, {"pcr", 0x808}};
 
 	val = fetch_arg (buffer, place, 12, info);
 	for (regno = sizeof names / sizeof names[0] - 1; regno >= 0; regno--)

@@ -17,7 +17,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "dis-asm.h"
 
-static char *reg_names[] = {
+static const char *const reg_names[] = {
 /*  0 */	"pfp", "sp",  "rip", "r3",  "r4",  "r5",  "r6",  "r7", 
 /*  8 */	"r8",  "r9",  "r10", "r11", "r12", "r13", "r14", "r15",
 /* 16 */	"g0",  "g1",  "g2",  "g3",  "g4",  "g5",  "g6",  "g7", 
@@ -108,6 +108,12 @@ struct tabent {
 	char	numops;
 };
 
+struct sparse_tabent {
+  int opcode;
+  char *name;
+  char numops;
+};
+
 static int
 pinsn( memaddr, word1, word2 )
     unsigned long memaddr;
@@ -157,7 +163,7 @@ ctrl( memaddr, word1, word2 )
     unsigned long word1, word2;
 {
 	int i;
-	static struct tabent ctrl_tab[] = {
+	static const struct tabent ctrl_tab[] = {
 		NULL,		0,	/* 0x00 */
 		NULL,		0,	/* 0x01 */
 		NULL,		0,	/* 0x02 */
@@ -226,7 +232,7 @@ cobr( memaddr, word1, word2 )
 	int src2;
 	int i;
 
-	static struct tabent cobr_tab[] = {
+	static const struct tabent cobr_tab[] = {
 		"testno",	1,	/* 0x20 */
 		"testg",	1,	/* 0x21 */
 		"teste",	1,	/* 0x22 */
@@ -314,7 +320,7 @@ mem( memaddr, word1, word2, noprint )
 	int len;
 	int mode;
 	int offset;
-	char *reg1, *reg2, *reg3;
+	const char *reg1, *reg2, *reg3;
 
 	/* This lookup table is too sparse to make it worth typing in, but not
 	   so large as to make a sparse array necessary.  We create the table
@@ -326,13 +332,13 @@ mem( memaddr, word1, word2, noprint )
 	 *	 2: 2 operands, load instruction
 	 *	-2: 2 operands, store instruction
 	 */
-	static struct tabent *mem_tab = NULL;
+	static struct tabent *mem_tab;
 /* Opcodes of 0x8X, 9X, aX, bX, and cX must be in the table.  */
 #define MEM_MIN	0x80
 #define MEM_MAX	0xcf
 #define MEM_SIZ	( * sizeof(struct tabent))
 
-	static struct { int opcode; char *name; char numops; } mem_init[] = {
+	static const struct sparse_tabent mem_init[] = {
 		0x80,	"ldob",	 2,
 		0x82,	"stob",	-2,
 		0x84,	"bx",	 1,
@@ -465,8 +471,8 @@ reg( word1 )
 	 *	opcode (the "F" is not printed).
 	 */
 
-	static struct tabent *reg_tab = NULL;
-	static struct { int opcode; char *name; char numops; } reg_init[] = {
+	static struct tabent *reg_tab;
+	static const struct sparse_tabent reg_init[] = {
 #define REG_MIN	0x580
 		0x580,	"notbit",	3,
 		0x581,	"and",		3,
@@ -687,14 +693,14 @@ reg( word1 )
  */
 static void
 ea( memaddr, mode, reg2, reg3, word1, word2 )
-    unsigned long memaddr;
-    int mode;
-    char *reg2, *reg3;
-int word1;
-    unsigned int word2;
+     unsigned long memaddr;
+     int mode;
+     char *reg2, *reg3;
+     int word1;
+     unsigned int word2;
 {
 	int scale;
-	static int scale_tab[] = { 1, 2, 4, 8, 16 };
+	static const int scale_tab[] = { 1, 2, 4, 8, 16 };
 
 	scale = (word1 >> 7) & 0x07;
 	if ( (scale > 4) || ((word1 >> 5) & 0x03 != 0) ){

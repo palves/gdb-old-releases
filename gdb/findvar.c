@@ -26,6 +26,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "target.h"
 
+static void write_register_pid PARAMS ((int regno, LONGEST val, int pid));
+
 /* Basic byte-swapping routines.  GDB has needed these for a long time...
    All extract a target-format integer at ADDR which is LEN bytes long.  */
 
@@ -54,20 +56,21 @@ That operation is not available on integers of more than %d bytes.",
 
   /* Start at the most significant end of the integer, and work towards
      the least significant.  */
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-  p = startaddr;
-#else
-  p = endaddr - 1;
-#endif
-  /* Do the sign extension once at the start.  */
-  retval = ((LONGEST)*p ^ 0x80) - 0x80;
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-  for (++p; p < endaddr; ++p)
-#else
-  for (--p; p >= startaddr; --p)
-#endif
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
     {
-      retval = (retval << 8) | *p;
+      p = startaddr;
+      /* Do the sign extension once at the start.  */
+      retval = ((LONGEST)*p ^ 0x80) - 0x80;
+      for (++p; p < endaddr; ++p)
+	retval = (retval << 8) | *p;
+    }
+  else
+    {
+      p = endaddr - 1;
+      /* Do the sign extension once at the start.  */
+      retval = ((LONGEST)*p ^ 0x80) - 0x80;
+      for (--p; p >= startaddr; --p)
+	retval = (retval << 8) | *p;
     }
   return retval;
 }
@@ -90,13 +93,15 @@ That operation is not available on integers of more than %d bytes.",
   /* Start at the most significant end of the integer, and work towards
      the least significant.  */
   retval = 0;
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-  for (p = startaddr; p < endaddr; ++p)
-#else
-  for (p = endaddr - 1; p >= startaddr; --p)
-#endif
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
     {
-      retval = (retval << 8) | *p;
+      for (p = startaddr; p < endaddr; ++p)
+	retval = (retval << 8) | *p;
+    }
+  else
+    {
+      for (p = endaddr - 1; p >= startaddr; --p)
+	retval = (retval << 8) | *p;
     }
   return retval;
 }
@@ -123,14 +128,21 @@ store_signed_integer (addr, len, val)
 
   /* Start at the least significant end of the integer, and work towards
      the most significant.  */
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-  for (p = endaddr - 1; p >= startaddr; --p)
-#else
-  for (p = startaddr; p < endaddr; ++p)
-#endif
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
     {
-      *p = val & 0xff;
-      val >>= 8;
+      for (p = endaddr - 1; p >= startaddr; --p)
+	{
+	  *p = val & 0xff;
+	  val >>= 8;
+	}
+    }
+  else
+    {
+      for (p = startaddr; p < endaddr; ++p)
+	{
+	  *p = val & 0xff;
+	  val >>= 8;
+	}
     }
 }
 
@@ -146,14 +158,21 @@ store_unsigned_integer (addr, len, val)
 
   /* Start at the least significant end of the integer, and work towards
      the most significant.  */
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-  for (p = endaddr - 1; p >= startaddr; --p)
-#else
-  for (p = startaddr; p < endaddr; ++p)
-#endif
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
     {
-      *p = val & 0xff;
-      val >>= 8;
+      for (p = endaddr - 1; p >= startaddr; --p)
+	{
+	  *p = val & 0xff;
+	  val >>= 8;
+	}
+    }
+  else
+    {
+      for (p = startaddr; p < endaddr; ++p)
+	{
+	  *p = val & 0xff;
+	  val >>= 8;
+	}
     }
 }
 
@@ -172,22 +191,23 @@ store_address (addr, len, val)
    the wrong way to do byte-swapping because it assumes that you have a way
    to have a host variable of exactly the right size.  Once extract_floating
    and store_floating have been fixed, this can go away.  */
-#if TARGET_BYTE_ORDER == HOST_BYTE_ORDER
-#define SWAP_TARGET_AND_HOST(buffer,len)
-#else /* Target and host byte order differ.  */
-#define SWAP_TARGET_AND_HOST(buffer,len) \
-  {	       	       	       	       	       	       	       	       	 \
-    char tmp;								 \
-    char *p = (char *)(buffer);						 \
-    char *q = ((char *)(buffer)) + len - 1;		   		 \
-    for (; p < q; p++, q--)				 		 \
-      {									 \
-        tmp = *q;							 \
-        *q = *p;							 \
-        *p = tmp;							 \
-      }									 \
-  }
-#endif /* Target and host byte order differ.  */
+#define SWAP_TARGET_AND_HOST(buffer,len) 				\
+  do									\
+    {									\
+      if (TARGET_BYTE_ORDER != HOST_BYTE_ORDER)				\
+	{								\
+	  char tmp;							\
+	  char *p = (char *)(buffer);					\
+	  char *q = ((char *)(buffer)) + len - 1;		   	\
+	  for (; p < q; p++, q--)				 	\
+	    {								\
+	      tmp = *q;							\
+	      *q = *p;							\
+	      *p = tmp;							\
+	    }								\
+	}								\
+    }									\
+  while (0)
 
 /* There are many problems with floating point cross-debugging.
 
@@ -261,16 +281,15 @@ store_floating (addr, len, val)
 
 CORE_ADDR
 find_saved_register (frame, regnum)
-     FRAME frame;
+     struct frame_info *frame;
      int regnum;
 {
-  struct frame_info *fi;
   struct frame_saved_regs saved_regs;
 
-  register FRAME frame1 = 0;
+  register struct frame_info *frame1 = NULL;
   register CORE_ADDR addr = 0;
 
-  if (frame == 0)		/* No regs saved if want current frame */
+  if (frame == NULL)		/* No regs saved if want current frame */
     return 0;
 
 #ifdef HAVE_REGISTER_WINDOWS
@@ -290,20 +309,17 @@ find_saved_register (frame, regnum)
      stack pointer saved for *this* frame; this is returned from the
      next frame.  */
      
-
   if (REGISTER_IN_WINDOW_P(regnum))
     {
       frame1 = get_next_frame (frame);
-      if (!frame1) return 0;	/* Registers of this frame are
-				   active.  */
+      if (!frame1) return 0;	/* Registers of this frame are active.  */
       
       /* Get the SP from the next frame in; it will be this
 	 current frame.  */
       if (regnum != SP_REGNUM)
 	frame1 = frame;	
 	  
-      fi = get_frame_info (frame1);
-      get_frame_saved_regs (fi, &saved_regs);
+      get_frame_saved_regs (frame1, &saved_regs);
       return saved_regs.regs[regnum];	/* ... which might be zero */
     }
 #endif /* HAVE_REGISTER_WINDOWS */
@@ -318,8 +334,7 @@ find_saved_register (frame, regnum)
       frame1 = get_prev_frame (frame1);
       if (frame1 == 0 || frame1 == frame)
 	break;
-      fi = get_frame_info (frame1);
-      get_frame_saved_regs (fi, &saved_regs);
+      get_frame_saved_regs (frame1, &saved_regs);
       if (saved_regs.regs[regnum])
 	addr = saved_regs.regs[regnum];
     }
@@ -347,11 +362,15 @@ get_saved_register (raw_buffer, optimized, addrp, frame, regnum, lval)
      char *raw_buffer;
      int *optimized;
      CORE_ADDR *addrp;
-     FRAME frame;
+     struct frame_info *frame;
      int regnum;
      enum lval_type *lval;
 {
   CORE_ADDR addr;
+
+  if (!target_has_registers)
+    error ("No registers.");
+
   /* Normal systems don't optimize out things with register numbers.  */
   if (optimized != NULL)
     *optimized = 0;
@@ -653,7 +672,7 @@ write_register (regno, val)
   target_store_registers (regno);
 }
 
-void
+static void
 write_register_pid (regno, val, pid)
      int regno;
      LONGEST val;
@@ -734,11 +753,11 @@ write_pc (val)
 #ifdef TARGET_WRITE_PC
   TARGET_WRITE_PC (val, inferior_pid);
 #else
-  write_register_pid (PC_REGNUM, (long) val, inferior_pid);
+  write_register_pid (PC_REGNUM, val, inferior_pid);
 #ifdef NPC_REGNUM
-  write_register_pid (NPC_REGNUM, (long) val + 4, inferior_pid);
+  write_register_pid (NPC_REGNUM, val + 4, inferior_pid);
 #ifdef NNPC_REGNUM
-  write_register_pid (NNPC_REGNUM, (long) val + 8, inferior_pid);
+  write_register_pid (NNPC_REGNUM, val + 8, inferior_pid);
 #endif
 #endif
 #endif
@@ -752,11 +771,11 @@ write_pc_pid (val, pid)
 #ifdef TARGET_WRITE_PC
   TARGET_WRITE_PC (val, pid);
 #else
-  write_register_pid (PC_REGNUM, (long) val, pid);
+  write_register_pid (PC_REGNUM, val, pid);
 #ifdef NPC_REGNUM
-  write_register_pid (NPC_REGNUM, (long) val + 4, pid);
+  write_register_pid (NPC_REGNUM, val + 4, pid);
 #ifdef NNPC_REGNUM
-  write_register_pid (NNPC_REGNUM, (long) val + 8, pid);
+  write_register_pid (NNPC_REGNUM, val + 8, pid);
 #endif
 #endif
 #endif
@@ -855,10 +874,9 @@ symbol_read_needs_frame (sym)
 value_ptr
 read_var_value (var, frame)
      register struct symbol *var;
-     FRAME frame;
+     struct frame_info *frame;
 {
   register value_ptr v;
-  struct frame_info *fi;
   struct type *type = SYMBOL_TYPE (var);
   CORE_ADDR addr;
   register int len;
@@ -867,7 +885,7 @@ read_var_value (var, frame)
   VALUE_LVAL (v) = lval_memory;	/* The most likely possibility.  */
   len = TYPE_LENGTH (type);
 
-  if (frame == 0) frame = selected_frame;
+  if (frame == NULL) frame = selected_frame;
 
   switch (SYMBOL_CLASS (var))
     {
@@ -898,26 +916,20 @@ read_var_value (var, frame)
       break;
 
     case LOC_ARG:
-      fi = get_frame_info (frame);
-      if (fi == NULL)
+      if (frame == NULL)
 	return 0;
-      addr = FRAME_ARGS_ADDRESS (fi);
+      addr = FRAME_ARGS_ADDRESS (frame);
       if (!addr)
-	{
-	  return 0;
-	}
+	return 0;
       addr += SYMBOL_VALUE (var);
       break;
 
     case LOC_REF_ARG:
-      fi = get_frame_info (frame);
-      if (fi == NULL)
+      if (frame == NULL)
 	return 0;
-      addr = FRAME_ARGS_ADDRESS (fi);
+      addr = FRAME_ARGS_ADDRESS (frame);
       if (!addr)
-	{
-	  return 0;
-	}
+	return 0;
       addr += SYMBOL_VALUE (var);
       addr = read_memory_unsigned_integer
 	(addr, TARGET_PTR_BIT / TARGET_CHAR_BIT);
@@ -925,10 +937,9 @@ read_var_value (var, frame)
 
     case LOC_LOCAL:
     case LOC_LOCAL_ARG:
-      fi = get_frame_info (frame);
-      if (fi == NULL)
+      if (frame == NULL)
 	return 0;
-      addr = FRAME_LOCALS_ADDRESS (fi);
+      addr = FRAME_LOCALS_ADDRESS (frame);
       addr += SYMBOL_VALUE (var);
       break;
 
@@ -997,7 +1008,7 @@ value_ptr
 value_from_register (type, regnum, frame)
      struct type *type;
      int regnum;
-     FRAME frame;
+     struct frame_info *frame;
 {
   char raw_buffer [MAX_REGISTER_RAW_SIZE];
   CORE_ADDR addr;
@@ -1182,13 +1193,11 @@ value_from_register (type, regnum, frame)
     {
       /* Raw and virtual formats are the same for this register.  */
 
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-      if (len < REGISTER_RAW_SIZE (regnum))
+      if (TARGET_BYTE_ORDER == BIG_ENDIAN && len < REGISTER_RAW_SIZE (regnum))
 	{
   	  /* Big-endian, and we want less than full size.  */
 	  VALUE_OFFSET (v) = REGISTER_RAW_SIZE (regnum) - len;
 	}
-#endif
 
       memcpy (VALUE_CONTENTS_RAW (v), raw_buffer + VALUE_OFFSET (v), len);
     }
@@ -1204,7 +1213,7 @@ value_from_register (type, regnum, frame)
 value_ptr
 locate_var_value (var, frame)
      register struct symbol *var;
-     FRAME frame;
+     struct frame_info *frame;
 {
   CORE_ADDR addr = 0;
   struct type *type = SYMBOL_TYPE (var);

@@ -76,6 +76,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    statically linking.  */
 #define SHT_MIPS_LIBLIST	0x70000000
 
+/* I'm not sure what this is, but it's used on Irix 5.  */
+#define SHT_MIPS_MSYM		0x70000001
+
 /* Section contains list of symbols whose definitions conflict with
    symbols defined in shared objects.  */
 #define SHT_MIPS_CONFLICT	0x70000002
@@ -96,6 +99,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Section contains miscellaneous options (used on Irix).  */
 #define SHT_MIPS_OPTIONS	0x7000000d
+
+/* DWARF debugging section (used on Irix 6).  */
+#define SHT_MIPS_DWARF		0x7000001e
+
+/* Events section.  This appears on Irix 6.  I don't know what it
+   means.  */
+#define SHT_MIPS_EVENTS		0x70000021
 
 /* A section of type SHT_MIPS_LIBLIST contains an array of the
    following structure.  The sh_link field is the section index of the

@@ -44,7 +44,7 @@ all_targets=false
 
 for targ in $target $canon_targets
 do
-    bfd_target=`$srcdir/../bfd/config.bfd $targ`
+    bfd_target=`${config_shell} $srcdir/../bfd/config.bfd $targ`
 
     if [ "x$bfd_target" = "xall" ]; then
         all_targets=true
@@ -90,6 +90,7 @@ if [ x${all_targets} = xfalse ]; then
 	case "$arch" in
 	bfd_a29k_arch)		ta="$ta a29k-dis.o" ;;
 	bfd_alpha_arch)		ta="$ta alpha-dis.o" ;;
+	bfd_arm_arch)		ta="$ta arm-dis.o" ;;
 	bfd_h8300_arch)		ta="$ta h8300-dis.o" ;;
 	bfd_h8500_arch)		ta="$ta h8500-dis.o" ;;
 	bfd_hppa_arch)		ta="$ta hppa-dis.o" ;;
@@ -106,6 +107,7 @@ if [ x${all_targets} = xfalse ]; then
 	bfd_vax_arch)		;;
 	bfd_we32k_arch)		;;
 	bfd_z8k_arch)		ta="$ta z8k-dis.o" ;;
+	bfd_w65_arch)		ta="$ta w65-dis.o" ;;
 
 	"")			;;
 	*) echo "*** unknown target architecture $arch" 1>&2; exit 1 ;;

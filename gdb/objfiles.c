@@ -1,5 +1,5 @@
 /* GDB routines for manipulating objfiles.
-   Copyright 1992 Free Software Foundation, Inc.
+   Copyright 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
 This file is part of GDB.
@@ -59,6 +59,7 @@ extern char *error_pre_print;
 struct objfile *object_files;		/* Linked list of all objfiles */
 struct objfile *current_objfile;	/* For symbol file being read in */
 struct objfile *symfile_objfile;	/* Main symbol table loaded from */
+struct objfile *rt_common_objfile;	/* For runtime common symbols */
 
 int mapped_symbol_files;		/* Try to use mapped symbol files */
 
@@ -123,6 +124,7 @@ allocate_objfile (abfd, mapped)
      int mapped;
 {
   struct objfile *objfile = NULL;
+  struct objfile *last_one = NULL;
 
   mapped |= mapped_symbol_files;
 
@@ -257,12 +259,40 @@ allocate_objfile (abfd, mapped)
 	     objfile -> name, bfd_errmsg (bfd_get_error ()));
     }
 
-  /* Push this file onto the head of the linked list of other such files. */
+  /* Add this file onto the tail of the linked list of other such files. */
 
-  objfile -> next = object_files;
-  object_files = objfile;
-
+  objfile -> next = NULL;
+  if (object_files == NULL)
+    object_files = objfile;
+  else
+    {
+      for (last_one = object_files;
+	   last_one -> next;
+	   last_one = last_one -> next);
+      last_one -> next = objfile;
+    }
   return (objfile);
+}
+
+/* Put OBJFILE at the front of the list.  */
+
+void
+objfile_to_front (objfile)
+     struct objfile *objfile;
+{
+  struct objfile **objp;
+  for (objp = &object_files; *objp != NULL; objp = &((*objp)->next))
+    {
+      if (*objp == objfile)
+	{
+	  /* Unhook it from where it is.  */
+	  *objp = objfile->next;
+	  /* Put it in the front.  */
+	  objfile->next = object_files;
+	  object_files = objfile;
+	  break;
+	}
+    }
 }
 
 /* Unlink OBJFILE from the list of known objfiles, if it is found in the
@@ -333,13 +363,21 @@ free_objfile (objfile)
   if (objfile -> obfd != NULL)
     {
       char *name = bfd_get_filename (objfile->obfd);
-      bfd_close (objfile -> obfd);
+      if (!bfd_close (objfile -> obfd))
+	warning ("cannot close \"%s\": %s",
+		 name, bfd_errmsg (bfd_get_error ()));
       free (name);
     }
 
   /* Remove it from the chain of all objfiles. */
 
   unlink_objfile (objfile);
+
+  /* If we are going to free the runtime common objfile, mark it
+     as unallocated.  */
+
+  if (objfile == rt_common_objfile)
+    rt_common_objfile = NULL;
 
   /* Before the symbol table code was redone to make it easier to
      selectively load and remove information particular to a specific
@@ -541,6 +579,9 @@ objfile_relocate (objfile, new_offsets)
       if (SYMBOL_SECTION (msym) >= 0)
 	SYMBOL_VALUE_ADDRESS (msym) += ANOFFSET (delta, SYMBOL_SECTION (msym));
   }
+  /* Relocating different sections by different amounts may cause the symbols
+     to be out of order.  */
+  msymbols_sort (objfile);
 
   {
     int i;
@@ -552,10 +593,10 @@ objfile_relocate (objfile, new_offsets)
     struct obj_section *s;
     bfd *abfd;
 
-    abfd = symfile_objfile->obfd;
+    abfd = objfile->obfd;
 
-    for (s = symfile_objfile->sections;
-	 s < symfile_objfile->sections_end; ++s)
+    for (s = objfile->sections;
+	 s < objfile->sections_end; ++s)
       {
 	flagword flags;
 

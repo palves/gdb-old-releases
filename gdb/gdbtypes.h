@@ -1,5 +1,5 @@
 /* Internal type definitions for GDB.
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
 This file is part of GDB.
@@ -80,9 +80,7 @@ enum type_code
   TYPE_CODE_FUNC,		/* Function type */
   TYPE_CODE_INT,		/* Integer type */
 
-  /* Floating type.  This is *NOT* a complex type.  Complex types, when
-     we have them, will have their own type code (or TYPE_CODE_ERROR if
-     we can parse a complex type but not manipulate it).  There are parts
+  /* Floating type.  This is *NOT* a complex type.  Beware, there are parts
      of GDB which bogusly assume that TYPE_CODE_FLT can mean complex.  */
   TYPE_CODE_FLT,
 
@@ -119,7 +117,10 @@ enum type_code
 
   /* Boolean type.  0 is false, 1 is true, and other values are non-boolean
      (e.g. FORTRAN "logical" used as unsigned int).  */
-  TYPE_CODE_BOOL
+  TYPE_CODE_BOOL,
+
+  /* Fortran */
+  TYPE_CODE_COMPLEX		/* Complex float */
 };
 
 /* For now allow source to use TYPE_CODE_CLASS for C++ classes, as an
@@ -182,6 +183,17 @@ struct type
 
   unsigned length;
 
+  /* FIXME, these should probably be restricted to a Fortran-specific
+     field in some fashion.  */
+#define BOUND_CANNOT_BE_DETERMINED   5
+#define BOUND_BY_REF_ON_STACK        4
+#define BOUND_BY_VALUE_ON_STACK      3
+#define BOUND_BY_REF_IN_REG          2
+#define BOUND_BY_VALUE_IN_REG        1
+#define BOUND_SIMPLE                 0
+  int upper_bound_type;
+  int lower_bound_type;
+
   /* Every type is now associated with a particular objfile, and the
      type is allocated on the type_obstack for that objfile.  One problem
      however, is that there are times when gdb allocates new types while
@@ -200,6 +212,7 @@ struct type
      For an array type, describes the type of the elements.
      For a function or method type, describes the type of the return value.
      For a range type, describes the type of the full range.
+     For a complex type, describes the type of each coordinate.
      Unused otherwise.  */
 
   struct type *target_type;
@@ -335,7 +348,7 @@ struct cplus_struct_type
 
   short nfn_fields;
 
-  /* Number of methods described for this type plus all the
+  /* Number of methods described for this type, not including the
      methods that it derives from.  */
 
   int nfn_fields_total;
@@ -480,11 +493,23 @@ allocate_cplus_struct_type PARAMS ((struct type *));
 #define TYPE_NFIELDS(thistype) (thistype)->nfields
 #define TYPE_FIELDS(thistype) (thistype)->fields
 
+#define TYPE_INDEX_TYPE(type) TYPE_FIELD_TYPE (type, 0)
 #define TYPE_LOW_BOUND(range_type) TYPE_FIELD_BITPOS (range_type, 0)
 #define TYPE_HIGH_BOUND(range_type) TYPE_FIELD_BITPOS (range_type, 1)
 /* If TYPE_DUMMY_RANGE is true for a range type, it was allocated
    by force_to_range_type. */
 #define TYPE_DUMMY_RANGE(type) ((type)->vptr_fieldno)
+
+/* Moto-specific stuff for FORTRAN arrays */
+
+#define TYPE_ARRAY_UPPER_BOUND_TYPE(thistype) (thistype)->upper_bound_type
+#define TYPE_ARRAY_LOWER_BOUND_TYPE(thistype) (thistype)->lower_bound_type
+
+#define TYPE_ARRAY_UPPER_BOUND_VALUE(arraytype) \
+   (TYPE_FIELD_BITPOS((TYPE_FIELD_TYPE((arraytype),0)),1))
+
+#define TYPE_ARRAY_LOWER_BOUND_VALUE(arraytype) \
+   (TYPE_FIELD_BITPOS((TYPE_FIELD_TYPE((arraytype),0)),0))
 
 /* C++ */
 
@@ -605,6 +630,23 @@ extern struct type *builtin_type_chill_long;
 extern struct type *builtin_type_chill_ulong;
 extern struct type *builtin_type_chill_real;
 
+/* Fortran (F77) types */
+
+extern struct type *builtin_type_f_character;
+extern struct type *builtin_type_f_integer;
+extern struct type *builtin_type_f_logical;
+extern struct type *builtin_type_f_logical_s1;
+extern struct type *builtin_type_f_logical_s2;
+extern struct type *builtin_type_f_integer; 
+extern struct type *builtin_type_f_integer_s2;
+extern struct type *builtin_type_f_real;
+extern struct type *builtin_type_f_real_s8;
+extern struct type *builtin_type_f_real_s16;
+extern struct type *builtin_type_f_complex_s8;
+extern struct type *builtin_type_f_complex_s16;
+extern struct type *builtin_type_f_complex_s32;
+extern struct type *builtin_type_f_void;
+
 /* Maximum and minimum values of built-in types */
 
 #define	MAX_OF_TYPE(t)	\
@@ -681,8 +723,9 @@ create_array_type PARAMS ((struct type *, struct type *, struct type *));
 extern struct type *
 create_string_type PARAMS ((struct type *, struct type *));
 
-extern struct type *
-create_set_type PARAMS ((struct type *, struct type *));
+extern struct type *create_set_type PARAMS ((struct type *, struct type *));
+
+extern int chill_varying_type PARAMS ((struct type*));
 
 extern struct type *
 lookup_unsigned_typename PARAMS ((char *));

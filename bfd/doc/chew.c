@@ -18,26 +18,72 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/*
- Yet another way of extracting documentation from source.
- No, I haven't finished it yet, but I hope you people like it better
- that the old way
+/* Yet another way of extracting documentation from source.
+   No, I haven't finished it yet, but I hope you people like it better
+   than the old way
   
- sac
+   sac
 
-Basically, this is a sort of string forth, maybe we should call it
-struth?
+   Basically, this is a sort of string forth, maybe we should call it
+   struth?
 
-You define new words thus:
-: <newword> <oldwords> ;
-There is  no
+   You define new words thus:
+   : <newword> <oldwords> ;
 
 */
 
+/* Primitives provided by the program:
+
+   Two stacks are provided, a string stack and an integer stack.
+
+   Internal state variables:
+	internal_wanted - indicates whether `-i' was passed
+	internal_mode - user-settable
+
+   Commands:
+	push_text
+	! - pop top of integer stack for address, pop next for value; store
+	@ - treat value on integer stack as the address of an integer; push
+		that integer on the integer stack after popping the "address"
+	hello - print "hello\n" to stdout
+	stdout - put stdout marker on TOS
+	stderr - put stderr marker on TOS
+	print - print TOS-1 on TOS (eg: "hello\n" stdout print)
+	skip_past_newline
+	catstr - fn icatstr
+	copy_past_newline - append input, up to and including newline into TOS
+	dup - fn other_dup
+	drop - discard TOS
+	idrop - ditto
+	remchar - delete last character from TOS
+	get_stuff_in_command
+	do_fancy_stuff - translate <<foo>> to @code{foo} in TOS
+	bulletize - if "o" lines found, prepend @itemize @bullet to TOS
+		and @item to each "o" line; append @end itemize
+	courierize - put @example around . and | lines, translate {* *} { }
+	exit - fn chew_exit
+	swap
+	outputdots - strip out lines without leading dots
+	paramstuff - convert full declaration into "PARAMS" form if not already
+	maybecatstr - do catstr if internal_mode == internal_wanted, discard
+		value in any case
+	translatecomments - turn {* and *} into comment delimiters
+	kill_bogus_lines - get rid of extra newlines
+	indent
+	internalmode - pop from integer stack, set `internalmode' to that value
+	print_stack_level - print current stack depth to stderr
+	strip_trailing_newlines - go ahead, guess...
+	[quoted string] - push string onto string stack
+	[word starting with digit] - push atol(str) onto integer stack
+
+   A command must be all upper-case, and alone on a line.
+
+   Foo.  */
 
 
 #include <ansidecl.h>
 #include "sysdep.h"
+#include <assert.h>
 
 #define DEF_SIZE 5000
 #define STACK 50
@@ -47,20 +93,31 @@ int internal_mode;
 
 int warning;
 
-
 /* Here is a string type ... */
 
 typedef struct buffer 
 {
-    char *ptr;
-    unsigned int write_idx;
-    unsigned int size;
+  char *ptr;
+  unsigned long write_idx;
+  unsigned long size;
 } string_type;
 
 
-
-
-
+#ifdef __STDC__
+static void init_string_with_size (string_type *, unsigned int);
+static void init_string (string_type *);
+static int find (string_type *, char *);
+static void write_buffer (string_type *, FILE *);
+static void delete_string (string_type *);
+static char *addr (string_type *, unsigned int);
+static char at (string_type *, unsigned int);
+static void catchar (string_type *, int);
+static void overwrite_string (string_type *, string_type *);
+static void catbuf (string_type *, char *, unsigned int);
+static void cattext (string_type *, char *);
+static void catstr (string_type *, string_type *);
+static unsigned int skip_white_and_starts (string_type *, unsigned int);
+#endif
 
 
 static void DEFUN(init_string_with_size,(buffer, size),
@@ -97,10 +154,11 @@ static int DEFUN(find, (str, what),
     
 }
 
-static void DEFUN(write_buffer,(buffer),
-	   string_type *buffer)
+static void DEFUN(write_buffer,(buffer, f),
+	   string_type *buffer AND
+	   FILE *f)
 {
-    fwrite(buffer->ptr, buffer->write_idx, 1, stdout);
+    fwrite(buffer->ptr, buffer->write_idx, 1, f);
 }
 
 
@@ -122,24 +180,22 @@ static char DEFUN(at,(buffer, pos),
 	   string_type *buffer AND
 	   unsigned int pos) 
 {
-    if ( pos >= buffer->write_idx) 
-    {
-	return 0;
-    }
-    return buffer->ptr[pos];
+  if (pos >= buffer->write_idx) 
+    return 0;
+  return buffer->ptr[pos];
 }
 
 static void DEFUN(catchar,(buffer, ch), 
 	   string_type *buffer AND
-	   char ch)
+	   int ch)
 {
-    if (buffer->write_idx == buffer->size) 
+  if (buffer->write_idx == buffer->size) 
     {
-	buffer->size *=2;
-	buffer->ptr = realloc(buffer->ptr, buffer->size);
+      buffer->size *=2;
+      buffer->ptr = realloc(buffer->ptr, buffer->size);
     }
 
-    buffer->ptr[buffer->write_idx ++ ] = ch;
+  buffer->ptr[buffer->write_idx ++ ] = ch;
 }
 
 
@@ -153,43 +209,34 @@ static void DEFUN(overwrite_string,(dst,   src),
     dst->ptr = src->ptr;
 }
 
-static void DEFUN(catstr,(dst, src),
-	   string_type *dst AND
-	   string_type *src)
-{
-    unsigned int i;
-    for (i = 0; i < src->write_idx; i++) 
-    {
-	catchar(dst, src->ptr[i]);
-    }
-}
-
-
-static void DEFUN(cattext,(buffer, string),
-	   string_type *buffer AND
-	   char *string)
-{
-    
-    while (*string) 
-    {
-	catchar(buffer, *string);
-	string++;
-    }
-}
-
 static void DEFUN(catbuf,(buffer, buf, len),
 	   string_type *buffer AND
 	   char *buf AND
 	   unsigned int len)
 {
-    
-    while (len--) 
+  if (buffer->write_idx + len >= buffer->size)
     {
-	catchar(buffer, *buf);
-	buf++;
+      while (buffer->write_idx + len >= buffer->size)
+	buffer->size *= 2;
+      buffer->ptr = realloc (buffer->ptr, buffer->size);
     }
+  memcpy (buffer->ptr + buffer->write_idx, buf, len);
+  buffer->write_idx += len;
 }
 
+static void DEFUN(cattext,(buffer, string),
+	   string_type *buffer AND
+	   char *string)
+{
+  catbuf (buffer, string, (unsigned int) strlen (string));
+}
+
+static void DEFUN(catstr,(dst, src),
+	   string_type *dst AND
+	   string_type *src)
+{
+  catbuf (dst, src->ptr, src->write_idx);
+}
 
 
 static unsigned int 
@@ -197,14 +244,18 @@ DEFUN(skip_white_and_stars,(src, idx),
       string_type *src AND
       unsigned int idx)
 {
-    while (isspace(at(src,idx)) 
-	   || (at(src,idx) == '*' && at(src,idx +1) !='/'
-	       && at(src,idx -1) != '\n')) 
-     idx++;
-    return idx;
-    
-
+  char c;
+  while ((c = at(src,idx)),
+	 isspace (c)
+	 || (c == '*'
+	     /* Don't skip past end-of-comment or star as first
+		character on its line.  */
+	     && at(src,idx +1) != '/'
+	     && at(src,idx -1) != '\n')) 
+    idx++;
+  return idx;
 }
+
 /***********************************************************************/
 
 
@@ -217,8 +268,8 @@ typedef void (*stinst_type)();
 stinst_type *pc;
 stinst_type sstack[STACK];
 stinst_type *ssp = &sstack[0];
-int istack[STACK];
-int *isp = &istack[0];
+long istack[STACK];
+long *isp = &istack[0];
 
 typedef int *word_type;
 
@@ -228,7 +279,7 @@ struct dict_struct
 {
     char *word;
     struct dict_struct *next;
-   stinst_type *code;
+    stinst_type *code;
     int code_length;
     int code_end;
     int var;
@@ -237,19 +288,78 @@ struct dict_struct
 typedef struct dict_struct dict_type;
 #define WORD(x) static void x()
 
+static void
+die (msg)
+     char *msg;
+{
+  fprintf (stderr, "%s\n", msg);
+  exit (1);
+}
+
+static void
+check_range ()
+{
+  if (tos < stack)
+    die ("underflow in string stack");
+  if (tos >= stack + STACK)
+    die ("overflow in string stack");
+}
+
+static void
+icheck_range ()
+{
+  if (isp < istack)
+    die ("underflow in integer stack");
+  if (isp >= istack + STACK)
+    die ("overflow in integer stack");
+}
+
+#ifdef __STDC__
+static void exec (dict_type *);
+static void call (void);
+static void remchar (void), strip_trailing_newlines (void), push_number (void);
+static void push_text (void);
+static void remove_noncomments (string_type *, string_type *);
+static void print_stack_level (void);
+static void paramstuff (void), translatecomments (void), manglecomments (void);
+static void outputdots (void), courierize (void), bulletize (void);
+static void do_fancy_stuff (void);
+static int iscommand (string_type *, unsigned int);
+static int copy_past_newline (string_type *, unsigned int, string_type *);
+static void icopy_past_newline (void), kill_bogus_lines (void), indent (void);
+static void get_stuff_in_command (void), swap (void), other_dup (void);
+static void drop (void), idrop (void);
+static void icatstr (void), skip_past_newline (void), internalmode (void);
+static void maybecatstr (void);
+static char *nextword (char *, char **);
+dict_type *lookup_word (char *);
+static void perform (void);
+dict_type *newentry (char *);
+unsigned int add_to_definition (dict_type *, stinst_type);
+void add_intrinsic (char *, void (*)());
+void add_var (char *);
+void compile (char *);
+static void bang (void);
+static void atsign (void);
+static void hello (void);
+static void stdout_ (void);
+static void stderr_ (void);
+static void print (void);
+static void read_in (string_type *, FILE *);
+static void usage (void);
+static void chew_exit (void);
+#endif
+
 static void DEFUN(exec,(word),
 		  dict_type *word)
 {
-    pc = word->code;
-    while (*pc) 
-    {
-	(*pc)();
-    }
-    
+  pc = word->code;
+  while (*pc) 
+    (*pc)();
 }
 WORD(call)
 {
-stinst_type *oldpc = pc;
+    stinst_type *oldpc = pc;
     dict_type *e;
     e =  (dict_type *)(pc [1]);
     exec(e);
@@ -259,27 +369,34 @@ stinst_type *oldpc = pc;
 
 WORD(remchar)
 {
+  if (tos->write_idx)
     tos->write_idx--;    
-    pc++;
-    
+  pc++;
+}
+
+static void
+strip_trailing_newlines ()
+{
+  while ((isspace (at (tos, tos->write_idx - 1))
+	  || at (tos, tos->write_idx - 1) == '\n')
+	 && tos->write_idx > 0)
+    tos->write_idx--;
+  pc++;
 }
 
 WORD(push_number)
 {
     isp++;
+    icheck_range ();
     pc++;
-    *isp = (int)(*pc);
+    *isp = (long)(*pc);
     pc++;
-    
 }
-
-
-
 
 WORD(push_text)
 {
-    
     tos++;
+    check_range ();
     init_string(tos);
     pc++;
     cattext(tos,*((char **)pc));
@@ -288,12 +405,10 @@ WORD(push_text)
 }
 
 
-   
 /* This function removes everything not inside comments starting on
    the first char of the line from the  string, also when copying
-   comments, removes blank space and leading *'s 
-   Blank lines are turned into one blank line
- */
+   comments, removes blank space and leading *'s.
+   Blank lines are turned into one blank line.  */
 
 static void 
 DEFUN(remove_noncomments,(src,dst),
@@ -345,6 +460,14 @@ DEFUN(remove_noncomments,(src,dst),
 	}
 	else idx++;
     }
+}
+
+static void
+print_stack_level ()
+{
+  fprintf (stderr, "current string stack depth = %d, ", tos - stack);
+  fprintf (stderr, "current integer stack depth = %d\n", isp - istack);
+  pc++;
 }
 
 /* turn:
@@ -426,7 +549,7 @@ WORD(translatecomments)
     {
 	if (at(tos,idx) == '{' && at(tos,idx+1) =='*') 
 	{
-	    cattext(&out,"	/*");
+	    cattext(&out,"/*");
 	    idx+=2;
 	}
 	else if (at(tos,idx) == '*' && at(tos,idx+1) =='}') 
@@ -494,23 +617,24 @@ DEFUN_VOID(outputdots)
     {
 	if (at(tos, idx) == '\n' && at(tos, idx+1) == '.') 
 	{
-	    idx += 2;
+	  char c, c2;
+	  idx += 2;
 	    
-	    while (at(tos, idx) && at(tos, idx)!='\n')
+	    while ((c = at(tos, idx)) && c != '\n')
 	    {
-		if (at(tos,idx) == '{' && at(tos,idx+1) =='*') 
+	      if (c == '{' && at(tos,idx+1) =='*') 
 		{
 		    cattext(&out," /*");
 		    idx+=2;
 		}
-		else if (at(tos,idx) == '*' && at(tos,idx+1) =='}') 
+	      else if (c == '*' && at(tos,idx+1) =='}') 
 		{
 		    cattext(&out,"*/");
 		    idx+=2;
 		}
-		else  
+	      else
 		{
-		    catchar(&out, at(tos, idx));
+		    catchar(&out, c);
 		    idx++;
 		}
 	    }
@@ -713,7 +837,7 @@ DEFUN( iscommand,(ptr, idx),
 	 }
 	    else if(at(ptr,idx) == '\n')
 	    {
-		if (len >4) return 1;
+		if (len > 3) return 1;
 		return 0;
 	    }
 	    else return 0;
@@ -743,6 +867,7 @@ DEFUN(copy_past_newline,(ptr, idx, dst),
 WORD(icopy_past_newline)
 {
     tos++;
+    check_range ();
     init_string(tos);
     idx = copy_past_newline(ptr, idx, tos);
     pc++;	
@@ -750,8 +875,6 @@ WORD(icopy_past_newline)
 
 /* indent
    Take the string at the top of the stack, do some prettying */
-
-
 
 
 WORD(kill_bogus_lines)
@@ -885,13 +1008,14 @@ WORD(indent)
 WORD(get_stuff_in_command)
 {
     tos++;
+    check_range ();
     init_string(tos);
 
     while (at(ptr, idx)) {
 	    if (iscommand(ptr, idx))  break;
 	    idx =   copy_past_newline(ptr, idx, tos);
 	}
-pc++;    
+    pc++;    
 }
 
 WORD(swap)
@@ -908,21 +1032,33 @@ WORD(swap)
 WORD(other_dup)
 {
     tos++;
+    check_range ();
     init_string(tos);
     catstr(tos, tos-1);
     pc++;
-    
 }
 
+WORD(drop)
+{
+  tos--;
+  check_range ();
+  pc++;
+}
 
+WORD(idrop)
+{
+  isp--;
+  icheck_range ();
+  pc++;
+}
 
 WORD(icatstr)
 {
-    catstr(tos-1, tos);
-    delete_string(tos);
     tos--;
+    check_range ();
+    catstr(tos, tos+1);
+    delete_string(tos+1);
     pc++;
-    
 }
 
 WORD(skip_past_newline)
@@ -939,6 +1075,7 @@ WORD(internalmode)
 {
     internal_mode = *(isp);
     isp--;
+    icheck_range ();
     pc++;
 }
 
@@ -950,8 +1087,8 @@ WORD(maybecatstr)
     }
     delete_string(tos);
     tos--;
+    check_range ();
     pc++;
-    
 }
 
 char *
@@ -979,22 +1116,23 @@ DEFUN(nextword,(string, word),
 	}
     if (!*string) return 0;
     
-    word_start = string;    	
+    word_start = string;
     if (*string == '"') 
-    {
-	string++;
-	length++;
-	
-	while (*string != '"') 
-	{
+      {
+	do
+	  {
 	    string++;
 	    length++;
-	}
-    }
+	    if (*string == '\\')
+	      {
+		string += 2;
+		length += 2;
+	      }
+	  }
+	while (*string != '"');
+      }
     else     
-    {
-	
-
+      {
 	while (!isspace(*string)) 
 	{
 	    string++;
@@ -1010,15 +1148,25 @@ DEFUN(nextword,(string, word),
 
 
     for (idx= 0; idx < length; idx++) 
-    {
-    
-	if (src[idx] == '\\' && src[idx+1] == 'n') 
-	{
-	    *dst++ = '\n';
-	    idx++;
-    
-	}
-	else *dst++ = src[idx];
+      {
+	if (src[idx] == '\\')
+	  switch (src[idx+1])
+	    {
+	    case 'n':
+	      *dst++ = '\n';
+	      idx++;
+	      break;
+	    case '"':
+	    case '\\':
+	      *dst++ = src[idx+1];
+	      idx++;
+	      break;
+	    default:
+	      *dst++ = '\\';
+	      break;
+	    }
+	else
+	  *dst++ = src[idx];
     }
     *dst++ = 0;
 
@@ -1138,12 +1286,6 @@ DEFUN(add_intrinsic,(name, func),
     add_to_definition(new, 0);
 }
 
-WORD(push_addr)
-{
-    
-
-}
-
 void
 DEFUN(add_var,(name),
       char *name)
@@ -1152,16 +1294,12 @@ DEFUN(add_var,(name),
     add_to_definition(new, push_number);
     add_to_definition(new, (stinst_type)(&(new->var)));
     add_to_definition(new,0);
-    
 }
-      
-
 
 
 void 
 DEFUN(compile, (string), 
       char *string)
-
 {
     int jstack[STACK];
     int *jptr = jstack;
@@ -1191,8 +1329,6 @@ else
 	    {
 		 switch (word[0]) 
 		 {
-		    
-		    
 		   case '"':
 		     /* got a string, embed magic push string
 			function */
@@ -1235,25 +1371,54 @@ else
  
 static void DEFUN_VOID(bang)
 {
-*(int *)((isp[0])) = isp[-1];
-isp-=2;
-pc++;
-
+  *(long *)((isp[0])) = isp[-1];
+  isp-=2;
+  icheck_range ();
+  pc++;
 }
 
 WORD(atsign)
 {
-    isp[0] = *(int *)(isp[0]);
+    isp[0] = *(long *)(isp[0]);
     pc++;
 }
 
 WORD(hello)
 {
-    
-    printf("hello\n");
-    pc++;    
+  printf("hello\n");
+  pc++;    
 }
 
+WORD(stdout_)
+{
+  isp++;
+  icheck_range ();
+  *isp = 1;
+  pc++;
+}
+
+WORD(stderr_)
+{
+  isp++;
+  icheck_range ();
+  *isp = 2;
+  pc++;
+}
+
+WORD(print)
+{
+  if (*isp == 1)
+    write_buffer (tos, stdout);
+  else if (*isp == 2)
+    write_buffer (tos, stderr);
+  else
+    fprintf (stderr, "print: illegal print destination `%d'\n", *isp);
+  isp--;
+  tos--;
+  icheck_range ();
+  check_range ();
+  pc++;
+}
 
 
 static void DEFUN(read_in, (str, file), 
@@ -1271,7 +1436,6 @@ static void DEFUN(read_in, (str, file),
     buff[0] = 0;
     
     catbuf(str, buff,1);
-    
 }
 
 
@@ -1310,10 +1474,15 @@ char *av[])
   add_intrinsic("!", bang);
   add_intrinsic("@", atsign);
   add_intrinsic("hello",hello);    
+  add_intrinsic("stdout",stdout_);    
+  add_intrinsic("stderr",stderr_);    
+  add_intrinsic("print",print);    
   add_intrinsic("skip_past_newline", skip_past_newline );
   add_intrinsic("catstr", icatstr );
   add_intrinsic("copy_past_newline", icopy_past_newline );
   add_intrinsic("dup", other_dup );
+  add_intrinsic("drop", drop);
+  add_intrinsic("idrop", idrop);
   add_intrinsic("remchar", remchar );
   add_intrinsic("get_stuff_in_command", get_stuff_in_command );
   add_intrinsic("do_fancy_stuff", do_fancy_stuff );
@@ -1331,6 +1500,8 @@ char *av[])
   add_intrinsic("kill_bogus_lines", kill_bogus_lines);
   add_intrinsic("indent", indent);
   add_intrinsic("internalmode", internalmode);
+  add_intrinsic("print_stack_level", print_stack_level);
+  add_intrinsic("strip_trailing_newlines", strip_trailing_newlines);
     
   /* Put a nl at the start */
   catchar(&buffer,'\n');
@@ -1353,8 +1524,7 @@ char *av[])
 	  fprintf(stderr,"Can't open the input file %s\n",av[i+1]);
 	  return 33;
 	}
-		
-		  
+
 	read_in(&b, f);
 	compile(b.ptr);
 	perform();	
@@ -1368,8 +1538,12 @@ char *av[])
 	warning = 1;
       }
     }
-
   }      
-  write_buffer(stack+0);
+  write_buffer(stack+0, stdout);
+  if (tos != stack)
+    {
+      fprintf (stderr, "finishing with current stack level %d\n", tos - stack);
+      return 1;
+    }
   return 0;
 }

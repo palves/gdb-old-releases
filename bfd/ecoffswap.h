@@ -283,9 +283,6 @@ ecoff_swap_fdr_out (abfd, intern_copy, ext_ptr)
 #endif
 }
 
-/* start-sanitize-mpw */
-#ifndef MPW_C
-/* end-sanitize-mpw */
 /* Swap in the procedure descriptor record.  */
 
 static void
@@ -403,81 +400,6 @@ ecoff_swap_pdr_out (abfd, intern_copy, ext_ptr)
     abort();
 #endif
 }
-/* start-sanitize-mpw */
-#else /* MPW_C */
-/* Same routines, but with ECOFF_64 code removed, so ^&%$#&! MPW C doesn't
-   corrupt itself and then freak out. */
-/* Swap in the procedure descriptor record.  */
-
-static void
-ecoff_swap_pdr_in (abfd, ext_copy, intern)
-     bfd *abfd;
-     PTR ext_copy;
-     PDR *intern;
-{
-  struct pdr_ext ext[1];
-
-  *ext = *(struct pdr_ext *) ext_copy;
-  
-  intern->adr           = ecoff_get_off (abfd, (bfd_byte *)ext->p_adr);
-  intern->isym          = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_isym);
-  intern->iline         = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_iline);
-  intern->regmask       = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_regmask);
-  intern->regoffset     = bfd_h_get_signed_32 (abfd,
-					       (bfd_byte *)ext->p_regoffset);
-  intern->iopt          = bfd_h_get_signed_32 (abfd, (bfd_byte *)ext->p_iopt);
-  intern->fregmask      = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_fregmask);
-  intern->fregoffset    = bfd_h_get_signed_32 (abfd,
-					       (bfd_byte *)ext->p_fregoffset);
-  intern->frameoffset   = bfd_h_get_signed_32 (abfd,
-					       (bfd_byte *)ext->p_frameoffset);
-  intern->framereg      = bfd_h_get_16 (abfd, (bfd_byte *)ext->p_framereg);
-  intern->pcreg         = bfd_h_get_16 (abfd, (bfd_byte *)ext->p_pcreg);
-  intern->lnLow         = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_lnLow);
-  intern->lnHigh        = bfd_h_get_32 (abfd, (bfd_byte *)ext->p_lnHigh);
-  intern->cbLineOffset  = ecoff_get_off (abfd, (bfd_byte *)ext->p_cbLineOffset);
-
-#ifdef TEST
-  if (memcmp ((char *)ext, (char *)intern, sizeof (*intern)) != 0)
-    abort();
-#endif
-}
-
-/* Swap out the procedure descriptor record.  */
-
-static void
-ecoff_swap_pdr_out (abfd, intern_copy, ext_ptr)
-     bfd *abfd;
-     const PDR *intern_copy;
-     PTR ext_ptr;
-{
-  struct pdr_ext *ext = (struct pdr_ext *) ext_ptr;
-  PDR intern[1];
-
-  *intern = *intern_copy;	/* Make it reasonable to do in-place.  */
-  
-  ecoff_put_off (abfd, intern->adr, (bfd_byte *)ext->p_adr);
-  bfd_h_put_32 (abfd, intern->isym, (bfd_byte *)ext->p_isym);
-  bfd_h_put_32 (abfd, intern->iline, (bfd_byte *)ext->p_iline);
-  bfd_h_put_32 (abfd, intern->regmask, (bfd_byte *)ext->p_regmask);
-  bfd_h_put_32 (abfd, intern->regoffset, (bfd_byte *)ext->p_regoffset);
-  bfd_h_put_32 (abfd, intern->iopt, (bfd_byte *)ext->p_iopt);
-  bfd_h_put_32 (abfd, intern->fregmask, (bfd_byte *)ext->p_fregmask);
-  bfd_h_put_32 (abfd, intern->fregoffset, (bfd_byte *)ext->p_fregoffset);
-  bfd_h_put_32 (abfd, intern->frameoffset, (bfd_byte *)ext->p_frameoffset);
-  bfd_h_put_16 (abfd, intern->framereg, (bfd_byte *)ext->p_framereg);
-  bfd_h_put_16 (abfd, intern->pcreg, (bfd_byte *)ext->p_pcreg);
-  bfd_h_put_32 (abfd, intern->lnLow, (bfd_byte *)ext->p_lnLow);
-  bfd_h_put_32 (abfd, intern->lnHigh, (bfd_byte *)ext->p_lnHigh);
-  ecoff_put_off (abfd, intern->cbLineOffset, (bfd_byte *)ext->p_cbLineOffset);
-
-#ifdef TEST
-  if (memcmp ((char *)ext, (char *)intern, sizeof (*intern)) != 0)
-    abort();
-#endif
-}
-#endif /* MPW_C */
-/* end-sanitize-mpw */
 /* Swap in a symbol record.  */
 
 static void
@@ -634,11 +556,19 @@ ecoff_swap_ext_out (abfd, intern_copy, ext_ptr)
 			| (intern->cobol_main ? EXT_BITS1_COBOL_MAIN_BIG : 0)
 			| (intern->weakext ? EXT_BITS1_WEAKEXT_BIG : 0));
     ext->es_bits2[0] = 0;
+#ifdef ECOFF_64
+    ext->es_bits2[1] = 0;
+    ext->es_bits2[2] = 0;
+#endif
   } else {
     ext->es_bits1[0] = ((intern->jmptbl ? EXT_BITS1_JMPTBL_LITTLE : 0)
 			| (intern->cobol_main ? EXT_BITS1_COBOL_MAIN_LITTLE : 0)
 			| (intern->weakext ? EXT_BITS1_WEAKEXT_LITTLE : 0));
     ext->es_bits2[0] = 0;
+#ifdef ECOFF_64
+    ext->es_bits2[1] = 0;
+    ext->es_bits2[2] = 0;
+#endif
   }
 
 #ifdef ECOFF_32

@@ -1530,9 +1530,6 @@ expect {
 			}
 		    }
 		    -re "print.*.\[0-9\]* = 0.*$prompt $" {
-# gdb currently compares all values as long, so this failure probably
-# applies to any configuration where LONGEST is bigger than a target int.
-			setup_xfail "alpha-*-*"
 			fail "print unsigned int == (~0)"
 			send "print v_unsigned_int == (unsigned int)~0\n"
 			expect {

@@ -128,7 +128,7 @@ outchar (c)
 }
 
 /* Turn on/off the meta key depending on ON. */
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
 static void
 control_meta_key (on)
      int on;
@@ -141,7 +141,7 @@ control_meta_key (on)
 	tputs (term_mo, 1, outchar);
     }
 }
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 
 /* **************************************************************** */
 /*								    */
@@ -253,7 +253,7 @@ prepare_terminal_settings (meta_flag, otio, tiop)
      int meta_flag;
      TIOTYPE otio, *tiop;
 {
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
   readline_echoing_p = (otio.sgttyb.sg_flags & ECHO);
 
   /* Copy the original settings to the structure we're going to use for
@@ -319,11 +319,11 @@ prepare_terminal_settings (meta_flag, otio, tiop)
   tiop->ltchars.t_dsuspc = -1;	/* C-y */
   tiop->ltchars.t_lnextc = -1;	/* C-v */
 #endif /* TIOCGLTC */
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 }
 #endif /* defined (NEW_TTY_DRIVER) */
 
-#if !defined (NEW_TTY_DRIVER) && !defined(__GO32__)
+#if !defined (NEW_TTY_DRIVER) && !defined(MINIMAL)
 
 #if !defined (VMIN)
 #  define VMIN VEOF
@@ -446,14 +446,14 @@ prepare_terminal_settings (meta_flag, otio, tiop)
 
 #endif /* TERMIOS_TTY_DRIVER && _POSIX_VDISABLE */
 }
-#endif /* !defined (NEW_TTY_DRIVER) && !defined(__GO32__) */
+#endif /* !defined (NEW_TTY_DRIVER) && !defined(MINIMAL) */
 
 /* Put the terminal in CBREAK mode so that we can detect key presses. */
 void
 rl_prep_terminal (meta_flag)
      int meta_flag;
 {
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
   int tty = fileno (rl_instream);
   TIOTYPE tio;
 
@@ -483,14 +483,14 @@ rl_prep_terminal (meta_flag)
   terminal_prepped = 1;
 
   release_sigint ();
-#endif /* !__GO32__ */
+#endif /* !MINIMAK */
 }
 
 /* Restore the terminal's normal settings and modes. */
 void
 rl_deprep_terminal ()
 {
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
   int tty = fileno (rl_instream);
 
   if (!terminal_prepped)
@@ -512,7 +512,7 @@ rl_deprep_terminal ()
   terminal_prepped = 0;
 
   release_sigint ();
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
 }
 
 /* **************************************************************** */
@@ -581,12 +581,11 @@ rl_stop_output (count, key)
 /*			Default Key Bindings			    */
 /*								    */
 /* **************************************************************** */
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
 void
 rltty_set_default_bindings (kmap)
      Keymap kmap;
 {
-#ifndef __GO32__
   TIOTYPE ttybuff;
   int tty = fileno (rl_instream);
 
@@ -668,6 +667,5 @@ rltty_set_default_bindings (kmap)
 #  endif /* VWERASE && TERMIOS_TTY_DRIVER */
     }
 #endif /* !NEW_TTY_DRIVER */
-#endif
 }
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */

@@ -19,6 +19,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "server.h"
 
+int cont_thread;
+int general_thread;
+int thread_from_wait;
+int old_thread_from_wait;
+
+int
 main (argc, argv)
      int argc;
      char *argv[];
@@ -51,12 +57,32 @@ main (argc, argv)
       setjmp(toplevel);
       while (getpkt (own_buf) > 0)
 	{
+	  unsigned char sig;
 	  i = 0;
 	  ch = own_buf[i++];
 	  switch (ch)
 	    {
 	    case '?':
 	      prepare_resume_reply (own_buf, status, signal);
+	      break;
+	    case 'H':
+	      switch (own_buf[1])
+		{
+		case 'g':
+		  general_thread = strtol (&own_buf[2], NULL, 16);
+		  write_ok (own_buf);
+		  fetch_inferior_registers (0);
+		  break;
+		case 'c':
+		  cont_thread = strtol (&own_buf[2], NULL, 16);
+		  write_ok (own_buf);
+		  break;
+		default:
+		  /* Silently ignore it so that gdb can extend the protocol
+		     without compatibility headaches.  */
+		  own_buf[0] = '\0';
+		  break;
+		}
 	      break;
 	    case 'g':
 	      convert_int_to_ascii (registers, own_buf, REGISTER_BYTES);
@@ -78,6 +104,18 @@ main (argc, argv)
 	      else
 		write_enn (own_buf);
 	      break;
+	    case 'C':
+	      convert_ascii_to_int (own_buf + 1, &sig, 1);
+	      myresume (0, sig);
+	      signal = mywait (&status);
+	      prepare_resume_reply (own_buf, status, signal);
+	      break;
+	    case 'S':
+	      convert_ascii_to_int (own_buf + 1, &sig, 1);
+	      myresume (1, sig);
+	      signal = mywait (&status);
+	      prepare_resume_reply (own_buf, status, signal);
+	      break;
 	    case 'c':
 	      myresume (0, 0);
 	      signal = mywait (&status);
@@ -91,18 +129,29 @@ main (argc, argv)
 	    case 'k':
 	      fprintf (stderr, "Killing inferior\n");
 	      kill_inferior ();
-	      inferior_pid = create_inferior (argv[2], &argv[2]);
-	      fprintf (stderr, "Process %s created; pid = %d\n", argv[2],
-		       inferior_pid);
-	      signal = mywait (&status); /* Wait till we are at 1st instr in prog */
+	      fprintf (stderr, "GDBserver exiting\n");
+	      exit (0);
 	      break;
 	    default:
-	      printf ("\nUnknown option chosen by master\n");
-	      write_enn (own_buf);
+	      /* It is a request we don't understand.  Respond with an
+		 empty packet so that gdb knows that we don't support this
+		 request.  */
+	      own_buf[0] = '\0';
 	      break;
 	    }
 
 	  putpkt (own_buf);
+
+	  if (status == 'W')
+	    fprintf (stderr,
+		     "\nChild exited with status %d\n", sig);
+	  if (status == 'X')
+	    fprintf (stderr, "\nChild terminated with signal = 0x%x\n", sig);
+	  if (status == 'W' || status == 'X')
+	    {
+	      fprintf (stderr, "GDBserver exiting\n");
+	      exit (0);
+	    }
 	}
 
       /* We come here when getpkt fails.  Close the connection, and re-open it

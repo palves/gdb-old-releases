@@ -132,23 +132,27 @@ OFILES = crt0.o hello.o salib.o sparcl-stub.o
 # sparclite gcc and gas, and then do `make all'.
 
 .PHONY: all info install install-info
-all: aload
+all: aload eload
 info:
 # This does not use INSTALL_XFORM or anything of the sort because there
 # only needs to be one aload.  Even if aload ends up being useful for more
 # than one target, perhaps one aload binary can be useful with all of them.
 install:
 	$(INSTALL_PROGRAM) aload $(bindir)/aload
+	$(INSTALL_PROGRAM) eload $(bindir)/eload
 
 install-info:
 
-progs:	aload hello
+progs:	aload eload hello
 
 hello:	$(OFILES)
 	$(LD) -N -Ttext 0x40000000 -o hello $(OFILES) -lc
 
 aload:	aload.o
 	$(CC) $(CFLAGS) -o aload aload.o $(CLIBS)
+
+eload:	eload.o
+	$(CC) $(CFLAGS) -o eload eload.o $(CLIBS)
 
 sparc-stub.o: ${srcdir}/../sparc-stub.c
 	$(CC) -c ${INTERNAL_CFLAGS} ${srcdir}/../sparc-stub.c
@@ -161,6 +165,8 @@ crt0.o:	crt0.s
 
 aload.o: aload.c
 
+eload.o: eload.c
+
 hello.o: hello.c
 
 salib.o: salib.c sparclite.h
@@ -168,7 +174,7 @@ salib.o: salib.c sparclite.h
 mostlyclean:
 
 clean:		mostlyclean
-	rm -f *.o aload hello
+	rm -f *.o aload eload hello
 
 distclean:	clean
 

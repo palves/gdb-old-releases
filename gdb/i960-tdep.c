@@ -1,5 +1,5 @@
 /* Target-machine dependent code for the Intel 960
-   Copyright (C) 1991 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Contributed by Intel Corporation.
    examine_prologue and other parts contributed by Wind River Systems.
 
@@ -19,16 +19,16 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* Miscellaneous i80960-dependent routines.
-   Most are called from macros defined in "tm-i960.h".  */
-
 #include "defs.h"
-#include <signal.h>
 #include "symtab.h"
 #include "value.h"
 #include "frame.h"
 #include "floatformat.h"
 #include "target.h"
+
+static CORE_ADDR next_insn PARAMS ((CORE_ADDR memaddr,
+				    unsigned long *pword1,
+				    unsigned long *pword2));
 
 /* gdb960 is always running on a non-960 host.  Check its characteristics.
    This routine must be called as part of gdb initialization.  */
@@ -126,7 +126,7 @@ static CORE_ADDR
 examine_prologue (ip, limit, frame_addr, fsr)
      register CORE_ADDR ip;
      register CORE_ADDR limit;
-     FRAME_ADDR frame_addr;
+     CORE_ADDR frame_addr;
      struct frame_saved_regs *fsr;
 {
   register CORE_ADDR next_ip;
@@ -299,7 +299,7 @@ skip_prologue (ip)
   sal = find_pc_line (ip, 0);
   limit = (sal.end) ? sal.end : 0xffffffff;
 
-  return (examine_prologue (ip, limit, (FRAME_ADDR) 0, &saved_regs_dummy));
+  return (examine_prologue (ip, limit, (CORE_ADDR) 0, &saved_regs_dummy));
 }
 
 /* Put here the code to store, into a struct frame_saved_regs,
@@ -385,7 +385,6 @@ CORE_ADDR
 frame_args_address (fi, must_be_correct)
      struct frame_info *fi;
 {
-  register FRAME frame;
   struct frame_saved_regs fsr;
   CORE_ADDR ap;
 
@@ -393,20 +392,20 @@ frame_args_address (fi, must_be_correct)
      the saved value.  If the frame is current and we are being sloppy,
      return the value of g14.  Otherwise, return zero.  */
 
-  frame = FRAME_INFO_ID (fi);
   get_frame_saved_regs (fi, &fsr);
   if (fsr.regs[G14_REGNUM])
     ap = read_memory_integer (fsr.regs[G14_REGNUM],4);
-  else {
-    if (must_be_correct)
-      return 0;			/* Don't cache this result */
-    if (get_next_frame (frame))
-      ap = 0;
-    else
-      ap = read_register (G14_REGNUM);
-    if (ap == 0)
-      ap = fi->frame;
-  }
+  else
+    {
+      if (must_be_correct)
+	return 0;			/* Don't cache this result */
+      if (get_next_frame (fi))
+	ap = 0;
+      else
+	ap = read_register (G14_REGNUM);
+      if (ap == 0)
+	ap = fi->frame;
+    }
   fi->arg_pointer = ap;		/* Cache it for next time */
   return ap;
 }
@@ -418,7 +417,6 @@ CORE_ADDR
 frame_struct_result_address (fi)
      struct frame_info *fi;
 {
-  register FRAME frame;
   struct frame_saved_regs fsr;
   CORE_ADDR ap;
 
@@ -430,16 +428,17 @@ frame_struct_result_address (fi)
      the function prologue, and only use the current value if we have
      no saved value and are at TOS?   -- gnu@cygnus.com */
 
-  frame = FRAME_INFO_ID (fi);
-  if (get_next_frame (frame)) {
-    get_frame_saved_regs (fi, &fsr);
-    if (fsr.regs[G13_REGNUM])
-      ap = read_memory_integer (fsr.regs[G13_REGNUM],4);
-    else
-      ap = 0;
-  } else {
+  if (get_next_frame (fi))
+    {
+      get_frame_saved_regs (fi, &fsr);
+      if (fsr.regs[G13_REGNUM])
+	ap = read_memory_integer (fsr.regs[G13_REGNUM],4);
+      else
+	ap = 0;
+    }
+  else
     ap = read_register (G13_REGNUM);
-  }
+
   return ap;
 }
 
@@ -508,16 +507,15 @@ leafproc_return (ip)
 
 CORE_ADDR
 saved_pc_after_call (frame)
-     FRAME frame;
+     struct frame_info *frame;
 {
   CORE_ADDR saved_pc;
-  CORE_ADDR get_frame_pc ();
 
   saved_pc = leafproc_return (get_frame_pc (frame));
   if (!saved_pc)
     saved_pc = FRAME_SAVED_PC (frame);
 
-  return (saved_pc);
+  return saved_pc;
 }
 
 /* Discard from the stack the innermost frame,
@@ -532,7 +530,7 @@ pop_frame ()
   struct frame_saved_regs fsr;
   char local_regs_buf[16 * 4];
 
-  current_fi = get_frame_info (get_current_frame ());
+  current_fi = get_current_frame ();
 
   /* First, undo what the hardware does when we return.
      If this is a non-leaf procedure, restore local registers from
@@ -543,7 +541,7 @@ pop_frame ()
   if (!leaf_return_addr)
     {
       /* Non-leaf procedure.  Restore local registers, incl IP.  */
-      prev_fi = get_frame_info (get_prev_frame (FRAME_INFO_ID (current_fi)));
+      prev_fi = get_prev_frame (current_fi);
       read_memory (prev_fi->frame, local_regs_buf, sizeof (local_regs_buf));
       write_register_bytes (REGISTER_BYTE (R0_REGNUM), local_regs_buf, 
 		            sizeof (local_regs_buf));
@@ -569,7 +567,6 @@ pop_frame ()
      and make it the current frame.  */
 
   flush_cached_frames ();
-  set_current_frame (create_new_frame (read_register (FP_REGNUM), read_pc ()));
 }
 
 /* Given a 960 stop code (fault or trace), return the signal which
@@ -587,15 +584,15 @@ i960_fault_to_signal (fault)
     case 3: return TARGET_SIGNAL_FPE; /* arithmetic fault */
     case 4: return TARGET_SIGNAL_FPE; /* floating point fault */
 
-       /* constraint fault.  This appears not to distinguish between
-	  a range constraint fault (which should be SIGFPE) and a privileged
-	  fault (which should be SIGILL).  */
+      /* constraint fault.  This appears not to distinguish between
+	 a range constraint fault (which should be SIGFPE) and a privileged
+	 fault (which should be SIGILL).  */
     case 5: return TARGET_SIGNAL_ILL;
 
     case 6: return TARGET_SIGNAL_SEGV; /* virtual memory fault */
 
-       /* protection fault.  This is for an out-of-range argument to
-	  "calls".  I guess it also could be SIGILL. */
+      /* protection fault.  This is for an out-of-range argument to
+	 "calls".  I guess it also could be SIGILL. */
     case 7: return TARGET_SIGNAL_SEGV;
 
     case 8: return TARGET_SIGNAL_BUS; /* machine fault */
@@ -617,10 +614,156 @@ i960_fault_to_signal (fault)
     }
 }
 
-/* Initialization stub */
+/****************************************/
+/* MEM format				*/
+/****************************************/
+
+struct tabent {
+	char	*name;
+	char	numops;
+};
+
+static int				/* returns instruction length: 4 or 8 */
+mem( memaddr, word1, word2, noprint )
+    unsigned long memaddr;
+    unsigned long word1, word2;
+    int noprint;		/* If TRUE, return instruction length, but
+				   don't output any text.  */
+{
+	int i, j;
+	int len;
+	int mode;
+	int offset;
+	const char *reg1, *reg2, *reg3;
+
+	/* This lookup table is too sparse to make it worth typing in, but not
+	 * so large as to make a sparse array necessary.  We allocate the
+	 * table at runtime, initialize all entries to empty, and copy the
+	 * real ones in from an initialization table.
+	 *
+	 * NOTE: In this table, the meaning of 'numops' is:
+	 *	 1: single operand
+	 *	 2: 2 operands, load instruction
+	 *	-2: 2 operands, store instruction
+	 */
+	static struct tabent *mem_tab = NULL;
+/* Opcodes of 0x8X, 9X, aX, bX, and cX must be in the table.  */
+#define MEM_MIN	0x80
+#define MEM_MAX	0xcf
+#define MEM_SIZ	((MEM_MAX-MEM_MIN+1) * sizeof(struct tabent))
+
+	static struct { int opcode; char *name; char numops; } mem_init[] = {
+		0x80,	"ldob",	 2,
+		0x82,	"stob",	-2,
+		0x84,	"bx",	 1,
+		0x85,	"balx",	 2,
+		0x86,	"callx", 1,
+		0x88,	"ldos",	 2,
+		0x8a,	"stos",	-2,
+		0x8c,	"lda",	 2,
+		0x90,	"ld",	 2,
+		0x92,	"st",	-2,
+		0x98,	"ldl",	 2,
+		0x9a,	"stl",	-2,
+		0xa0,	"ldt",	 2,
+		0xa2,	"stt",	-2,
+		0xb0,	"ldq",	 2,
+		0xb2,	"stq",	-2,
+		0xc0,	"ldib",	 2,
+		0xc2,	"stib",	-2,
+		0xc8,	"ldis",	 2,
+		0xca,	"stis",	-2,
+		0,	NULL,	0
+	};
+
+	if ( mem_tab == NULL ){
+		mem_tab = (struct tabent *) xmalloc( MEM_SIZ );
+		memset( mem_tab, '\0', MEM_SIZ );
+		for ( i = 0; mem_init[i].opcode != 0; i++ ){
+			j = mem_init[i].opcode - MEM_MIN;
+			mem_tab[j].name = mem_init[i].name;
+			mem_tab[j].numops = mem_init[i].numops;
+		}
+	}
+
+	i = ((word1 >> 24) & 0xff) - MEM_MIN;
+	mode = (word1 >> 10) & 0xf;
+
+	if ( (mem_tab[i].name != NULL)		/* Valid instruction */
+	&&   ((mode == 5) || (mode >=12)) ){	/* With 32-bit displacement */
+		len = 8;
+	} else {
+		len = 4;
+	}
+
+	if ( noprint ){
+		return len;
+	}
+	abort ();
+}
+
+/* Read the i960 instruction at 'memaddr' and return the address of 
+   the next instruction after that, or 0 if 'memaddr' is not the
+   address of a valid instruction.  The first word of the instruction
+   is stored at 'pword1', and the second word, if any, is stored at
+   'pword2'.  */
+
+static CORE_ADDR
+next_insn (memaddr, pword1, pword2)
+     unsigned long *pword1, *pword2;
+     CORE_ADDR memaddr;
+{
+  int len;
+  char buf[8];
+
+  /* Read the two (potential) words of the instruction at once,
+     to eliminate the overhead of two calls to read_memory ().
+     FIXME: Loses if the first one is readable but the second is not
+     (e.g. last word of the segment).  */
+
+  read_memory (memaddr, buf, 8);
+  *pword1 = extract_unsigned_integer (buf, 4);
+  *pword2 = extract_unsigned_integer (buf + 4, 4);
+
+  /* Divide instruction set into classes based on high 4 bits of opcode*/
+
+  switch ((*pword1 >> 28) & 0xf)
+    {
+    case 0x0:
+    case 0x1:	/* ctrl */
+
+    case 0x2:
+    case 0x3:	/* cobr */
+
+    case 0x5:
+    case 0x6:
+    case 0x7:	/* reg */
+      len = 4;
+      break;
+
+    case 0x8:
+    case 0x9:
+    case 0xa:
+    case 0xb:
+    case 0xc:
+      len = mem (memaddr, *pword1, *pword2, 1);
+      break;
+
+    default:	/* invalid instruction */
+      len = 0;
+      break;
+    }
+
+  if (len)
+    return memaddr + len;
+  else
+    return 0;
+}
 
 void
 _initialize_i960_tdep ()
 {
   check_host ();
+
+  tm_print_insn = print_insn_i960;
 }

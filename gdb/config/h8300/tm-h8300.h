@@ -79,7 +79,7 @@ extern CORE_ADDR h8300_skip_prologue ();
 
 /*#define BREAKPOINT {0x7A, 0xFF}*/
 #define BREAKPOINT {0x01, 0x80}  /* Sleep */
-
+#define REMOTE_BREAKPOINT { 0x57, 0x30}  /* trapa #3 */
 /* If your kernel resets the pc after the trap happens you may need to
    define this before including this file.    */
 
@@ -90,10 +90,6 @@ extern CORE_ADDR h8300_skip_prologue ();
    from interupt.  */
 
 #define ABOUT_TO_RETURN(pc) ((read_memory_unsigned_integer (pc, 2) & ~0x3) == 0x4e74)
-
-/* Return 1 if P points to an invalid floating point value.  */
-
-#define INVALID_FLOAT(p, len) 0   /* Just a first guess; not checked */
 
 /* Say how long registers are.  */
 
@@ -182,6 +178,10 @@ extern CORE_ADDR h8300_skip_prologue ();
 
    However, if FRAME_CHAIN_VALID returns zero,
    it means the given frame is the outermost one and has no caller.  */
+
+#define FRAME_CHAIN(FRAME) h8300_frame_chain(FRAME)
+struct frame_info ;
+CORE_ADDR h8300_frame_chain PARAMS ((struct frame_info *));
 
 /* In the case of the H8/300, the frame's nominal address
    is the address of a 2-byte word containing the calling frame's address.  */

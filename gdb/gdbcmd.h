@@ -94,6 +94,11 @@ execute_user_command PARAMS ((struct cmd_list_element *, char *));
 extern void
 execute_command PARAMS ((char *, int));
 
+enum command_control_type
+execute_control_command PARAMS ((struct command_line *));
+
+void print_command_line PARAMS ((struct command_line *, unsigned int));
+
 extern char **noop_completer PARAMS ((char *, char *));
 
 extern char **filename_completer PARAMS ((char *, char *));

@@ -128,6 +128,19 @@ class E : public D {
 
 E g_E;
 
+class class_with_anon_union
+{
+ public:
+  int one;
+  union
+  {
+    int a;
+    long b;
+  };
+};
+
+class_with_anon_union g_anon_union;
+
 void inheritance2 (void)
 {
 }
@@ -210,6 +223,9 @@ void inheritance1 (void)
   g_E.D::x = 30;
   g_E.E::e = 31;
   g_E.E::x = 32;
+
+  g_anon_union.one = 1;
+  g_anon_union.a = 2;
 
   inheritance2 ();	
 }

@@ -210,8 +210,11 @@ enum machine_type {
   M_386 = 100,
   M_29K = 101,          /* AMD 29000 */
   M_386_DYNIX = 102,	/* Sequent running dynix */
-  M_386_NETBSD = 134,		/* NetBSD/386 binary */
-  M_532_NETBSD = 137,	/* MetBSD/523 binary */
+  M_ARM = 103,		/* Advanced Risc Machines ARM */
+  M_386_NETBSD = 134,	/* NetBSD/i386 binary */
+  M_68K_NETBSD = 135,	/* NetBSD/m68k binary */
+  M_532_NETBSD = 137,	/* NetBSD/ns32k binary */
+  M_SPARC_NETBSD = 138,	/* NetBSD/sparc binary */
   M_MIPS1 = 151,        /* MIPS R2000/R3000 binary */
   M_MIPS2 = 152,        /* MIPS R4000/R6000 binary */
   M_HP200 = 200,	/* HP 200 (68010) BSD binary */

@@ -23,6 +23,86 @@ if $tracelevel then {
 	strace $tracelevel
 }
 
+set binfile "templates"
+set srcfile $binfile.cc
+
+#
+#  Test printing of the types of templates.
+#
+
+proc test_ptype_of_templates {} {
+    global prompt
+
+    send "ptype T5<int>\n"
+    expect {
+	-re "type = class T5<int> \{\[\r\n\t \]+public:\[\r\n\t \]+static int X;\[\r\n\t \]+int x;\[\r\n\t \]+int val;\[\r\n\t \]+void ~T5 \\(\\);\[\r\n\t \]+T5\\(T5<int> const &\\);\[\r\n\t \]+T5\\(int\\);\[\r\n\t \]+T5<int> & operator=\\(T5<int> const &\\);.*int value\\(void\\);\[\r\n\t \]+\}.*$prompt $" {
+	    pass "ptype T5<int>"
+	}
+	-re ".*$prompt $" { fail "ptype T5<int>" }
+	default { fail "ptype T5<int> (timeout)" }
+    }
+
+    send "ptype t5i\n"
+    expect {
+	-re "type = class T5<int> \{\[\r\n\t \]+public:\[\r\n\t \]+static int X;\[\r\n\t \]+int x;\[\r\n\t \]+int val;\[\r\n\t \]+void ~T5 \\(\\);\[\r\n\t \]+T5\\(T5<int> const &\\);\[\r\n\t \]+T5\\(int\\);\[\r\n\t \]+T5<int> & operator=\\(T5<int> const &\\);.*int value\\(void\\);\[\r\n\t \]+\}.*$prompt $" {
+	    pass "ptype t5i"
+	}
+	-re ".*$prompt $" { fail "ptype t5i" }
+	default { fail "ptype t5i (timeout)" }
+    }
+}
+
+#
+#  Test breakpoint setting on template methods.
+#
+
+proc test_template_breakpoints {} {
+    global prompt
+    global srcfile
+
+    send "break T5<int>::T5\n"
+    expect {
+	-re "0. cancel.*\r\n.1. all.*\r\n.2. T5<int>::T5\\(int\\) at .*\r\n.3. T5<int>::T5\\(T5<int> const &\\) at .*\r\n> $" {
+	    gdb_test "0" \
+		"cancelled" \
+		"constructor breakpoint"
+	}
+	-re ".*$prompt $" { fail "constructor breakpoint" }
+	default { fail "constructor breakpoint (timeout)" }
+    }
+
+    gdb_test "break T5<int>::~T5" \
+	"Breakpoint.*at.* file .*$srcfile, line" \
+	"destructor breakpoint"
+
+    gdb_test "break T5<int>::value" \
+	"Breakpoint.*at.* file .*$srcfile, line" \
+	"value method breakpoint"
+
+    delete_breakpoints
+}
+
+#
+#  Test calling of template methods.
+#
+
+proc test_template_calls {} {
+    global prompt
+
+    send "print t5i.value()\n"
+    expect {
+	-re ".* = 2\r\n$prompt $" { pass "print t5i.value()" }
+	-re "Cannot invoke functions on this machine.*$prompt $" {
+	    fail "print t5i.value()"
+	}
+	-re ".*$prompt $" { fail "print t5i.value()" }
+	default { fail "print t5i.value() (timeout)" }
+    }
+}
+
+
+source gdb.c++/templ-info.exp
+
 proc do_tests {} {
     global prms_id
     global bug_id
@@ -31,6 +111,7 @@ proc do_tests {} {
     global srcdir
     global binfile
     global prompt
+    global supports_template_debugging
 
     set prms_id 0
     set bug_id 0
@@ -42,15 +123,22 @@ proc do_tests {} {
     gdb_reinitialize_dir $srcdir/$subdir
     gdb_load $objdir/$subdir/$binfile
 
-    # Calls to procs that do template tests go here.  (FIXME)
+    if {!$supports_template_debugging} then {
+	warning "compiler lacks debugging info for templates; tests suppressed."
+	return
+    }
+
+    test_ptype_of_templates
+    test_template_breakpoints
+
+    if [ runto main ] then {
+	test_template_calls
+    }
 }
 
 # Check to see if we have an executable to test.  If not, then either we
 # haven't tried to compile one, or the compilation failed for some reason.
 # In either case, just notify the user and skip the tests in this file.
-
-set binfile "templates"
-set srcfile $binfile.cc
 
 if ![file exists $objdir/$subdir/$binfile] then {
     if $all_flag then {

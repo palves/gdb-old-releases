@@ -42,7 +42,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #undef FLOAT_INFO	/* No float info yet */
 
-#define PTRACE_ARG3_TYPE char *
+/* As of LynxOS 2.2.2 (beta 8/15/94), this is int.  Previous versions seem to
+   have had no prototype, so I'm not sure why GDB used to define this to
+   char *.  */
+#define PTRACE_ARG3_TYPE int
 
 /* Override copies of {fetch,store}_inferior_registers in infptrace.c.  */
 

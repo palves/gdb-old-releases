@@ -238,8 +238,9 @@ if ![file exists $binfile] then {
 	# (we would prefer to be sure not to match any warning message).
 	# But \[^\n\]* doesn't seem to work, so instead use the heuristic
 	# that a filename won't contain a space and a warning message will.
+	# But spaces following by backspaces aren't really spaces.
 	expect {
-		-re "^file \[^ \]*\r*\nReading symbols from $binfile\.\.\.done\.\r*\n$prompt $" {
+		-re "^file (\[^ \]| +\008)*\r*\nReading symbols from $binfile\.\.\.done\.\r*\n$prompt $" {
 			pass "weird.o read without error"
 		}
 		-re "A program is being debugged already.  Kill it\? \(y or n\)" {

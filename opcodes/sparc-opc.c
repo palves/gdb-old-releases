@@ -1410,16 +1410,60 @@ condfc("fbule",	"cb013", 0xe, 0),
 { "fcmpes",	CMPFCC(2)|F3F(2, 0x35, 0x055), CMPFCC(~2)|F3F(~2, ~0x35, ~0x055),	 "8,e,f", 0, v9 },
 { "fcmpes",	CMPFCC(3)|F3F(2, 0x35, 0x055), CMPFCC(~3)|F3F(~2, ~0x35, ~0x055),	 "9,e,f", 0, v9 },
 
-/* FIXME These are marked F_ALIAS, so that they won't conflict with new v9
-   insns when v9 is present.  Otherwise, the F_ALIAS flag is ignored.  */
+/* These Extended FPop (FIFO) instructions are new in the Fujitsu
+   MB86934, replacing the CPop instructions from v6 and later
+   processors.  */
+
+#define EFPOP1_2(name, op, args) { name, F3F(2, 0x36, op), F3F(~2, ~0x36, ~op)|RS1_G0, args, 0, sparclite }
+#define EFPOP1_3(name, op, args) { name, F3F(2, 0x36, op), F3F(~2, ~0x36, ~op),        args, 0, sparclite }
+#define EFPOP2_2(name, op, args) { name, F3F(2, 0x37, op), F3F(~2, ~0x37, ~op)|RD_G0,  args, 0, sparclite }
+
+EFPOP1_2 ("efitod",	0x0c8, "f,H"),
+EFPOP1_2 ("efitos",	0x0c4, "f,g"),
+EFPOP1_2 ("efdtoi",	0x0d2, "B,g"),
+EFPOP1_2 ("efstoi",	0x0d1, "f,g"),
+EFPOP1_2 ("efstod",	0x0c9, "f,H"),
+EFPOP1_2 ("efdtos",	0x0c6, "B,g"),
+EFPOP1_2 ("efmovs",	0x001, "f,g"),
+EFPOP1_2 ("efnegs",	0x005, "f,g"),
+EFPOP1_2 ("efabss",	0x009, "f,g"),
+EFPOP1_2 ("efsqrtd",	0x02a, "B,H"),
+EFPOP1_2 ("efsqrts",	0x029, "f,g"),
+EFPOP1_3 ("efaddd",	0x042, "v,B,H"),
+EFPOP1_3 ("efadds",	0x041, "e,f,g"),
+EFPOP1_3 ("efsubd",	0x046, "v,B,H"),
+EFPOP1_3 ("efsubs",	0x045, "e,f,g"),
+EFPOP1_3 ("efdivd",	0x04e, "v,B,H"),
+EFPOP1_3 ("efdivs",	0x04d, "e,f,g"),
+EFPOP1_3 ("efmuld",	0x04a, "v,B,H"),
+EFPOP1_3 ("efmuls",	0x049, "e,f,g"),
+EFPOP1_3 ("efsmuld",	0x069, "e,f,H"),
+EFPOP2_2 ("efcmpd",	0x052, "v,B"),
+EFPOP2_2 ("efcmped",	0x056, "v,B"),
+EFPOP2_2 ("efcmps",	0x051, "e,f"),
+EFPOP2_2 ("efcmpes",	0x055, "e,f"),
+
+#undef EFPOP1_2
+#undef EFPOP1_3
+#undef EFPOP2_2
+
+/* FIXME These are marked F_ALIAS, so that they won't conflict with
+   new v9 or sparclite insns present.  Otherwise, the F_ALIAS flag is
+   ignored.  */
 { "cpop1",	F3(2, 0x36, 0), F3(~2, ~0x36, ~1), "[1+2],d", F_ALIAS, v6 },
 { "cpop2",	F3(2, 0x37, 0), F3(~2, ~0x37, ~1), "[1+2],d", F_ALIAS, v6 },
 
-{ "impdep1",	F3(2, 0x36, 0), F3(~2, ~0x36, ~0)|ASI(~0), "1,2,d", 0, v9 },
-{ "impdep1",	F3(2, 0x36, 1), F3(~2, ~0x36, ~1),	   "1,i,d", 0, v9 },
-{ "impdep2",	F3(2, 0x37, 0), F3(~2, ~0x37, ~0)|ASI(~0), "1,2,d", 0, v9 },
-{ "impdep2",	F3(2, 0x37, 1), F3(~2, ~0x37, ~1),	   "1,i,d", 0, v9 },
-    
+#define IMPDEP(name, code) \
+{ name,	F3(2, code, 0), F3(~2, ~code, ~0)|ASI(~0), "1,2,d", 0, v9 }, \
+{ name,	F3(2, code, 1), F3(~2, ~code, ~1),	   "1,i,d", 0, v9 }, \
+{ name, F3(2, code, 0), F3(~2, ~code, ~0),         "x,1,2,d", 0, v9 }, \
+{ name, F3(2, code, 0), F3(~2, ~code, ~0),         "x,e,f,g", 0, v9 }
+
+IMPDEP ("impdep1", 0x36),
+IMPDEP ("impdep2", 0x37),
+
+#undef IMPDEP
+
 { "casa",	F3(3, 0x3c, 0), F3(~3, ~0x3c, ~0), "[1]A,2,d", 0, v9 },
 { "casa",	F3(3, 0x3c, 1), F3(~3, ~0x3c, ~1), "[1]o,2,d", 0, v9 },
 { "casxa",	F3(3, 0x3e, 0), F3(~3, ~0x3e, ~0), "[1]A,2,d", 0, v9 },

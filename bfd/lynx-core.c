@@ -156,7 +156,17 @@ lynx_core_file_p (abfd)
 			       SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS,
 			       pss.data_len + pss.bss_len,
 			       pss.data_start,
-			       pagesize + tcontext_size + pss.ssize);
+			       pagesize + tcontext_size + pss.ssize
+#if defined (SPARC) || defined (__SPARC__)
+			       /* SPARC Lynx seems to start dumping
+                                  the .data section at a page
+                                  boundary.  It's OK to check a
+                                  #define like SPARC here because this
+                                  file can only be compiled on a Lynx
+                                  host.  */
+			       + pss.data_start % pagesize
+#endif
+			       );
   if (!newsect)
     {
       bfd_set_error (bfd_error_no_memory);

@@ -1,5 +1,5 @@
 /* opncls.c -- open and close a BFD.
-   Copyright (C) 1990 91, 92, 93, 94 Free Software Foundation, Inc.
+   Copyright (C) 1990 91, 92, 93, 94, 1995 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -22,6 +22,16 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 #include "obstack.h"
+
+#ifndef S_IXUSR
+#define S_IXUSR 0100	/* Execute by owner.  */
+#endif
+#ifndef S_IXGRP
+#define S_IXGRP 0010	/* Execute by group.  */
+#endif
+#ifndef S_IXOTH
+#define S_IXOTH 0001	/* Execute by others.  */
+#endif
 
 /* fdopen is a loser -- we should use stdio exclusively.  Unfortunately
    if we do that we can't use fcntl.  */
@@ -208,7 +218,7 @@ bfd_fdopenr (filename, target, fd)
     bfd_set_error (bfd_error_invalid_target);
     return NULL;
   }
-#if defined(VMS) || defined(__GO32__)
+#if defined(VMS) || defined(__GO32__) || defined (WIN32)
   nbfd->iostream = (char *)fopen(filename, FOPEN_RB);
 #else
   /* (O_ACCMODE) parens are to avoid Ultrix header file bug */
@@ -238,6 +248,52 @@ bfd_fdopenr (filename, target, fd)
   case O_RDWR: nbfd->direction = both_direction; break;
   default: abort ();
   }
+				
+  if (! bfd_cache_init (nbfd))
+    return NULL;
+
+  return nbfd;
+}
+
+/*
+FUNCTION
+	bfd_openstreamr
+
+SYNOPSIS
+	bfd *bfd_openstreamr();
+
+DESCRIPTION
+
+	Open a BFD for read access on an existing stdio stream.  When
+	the BFD is passed to <<bfd_close>>, the stream will be closed.
+*/
+
+bfd *
+bfd_openstreamr (filename, target, stream)
+     const char *filename;
+     const char *target;
+     FILE *stream;
+{
+  bfd *nbfd;
+  const bfd_target *target_vec;
+
+  nbfd = _bfd_new_bfd ();
+  if (nbfd == NULL)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return NULL;
+    }
+
+  target_vec = bfd_find_target (target, nbfd);
+  if (target_vec == NULL)
+    {
+      bfd_set_error (bfd_error_invalid_target);
+      return NULL;
+    }
+
+  nbfd->iostream = (char *) stream;
+  nbfd->filename = filename;
+  nbfd->direction = read_direction;
 				
   if (! bfd_cache_init (nbfd))
     return NULL;
@@ -329,35 +385,38 @@ bfd_close (abfd)
 {
   boolean ret;
 
-  if (!bfd_read_p(abfd))
-    if (BFD_SEND_FMT (abfd, _bfd_write_contents, (abfd)) != true)
-      return false;
+  if (!bfd_read_p (abfd))
+    {
+      if (! BFD_SEND_FMT (abfd, _bfd_write_contents, (abfd)))
+	return false;
+    }
 
-  if (BFD_SEND (abfd, _close_and_cleanup, (abfd)) != true) return false;
+  if (! BFD_SEND (abfd, _close_and_cleanup, (abfd)))
+    return false;
 
-  ret = bfd_cache_close(abfd);
+  ret = bfd_cache_close (abfd);
 
   /* If the file was open for writing and is now executable,
      make it so */
-  if (ret == true
+  if (ret
       && abfd->direction == write_direction
-      && abfd->flags & EXEC_P) {
-    struct stat buf;
-    stat(abfd->filename, &buf);
-#ifndef S_IXUSR
-#define S_IXUSR 0100	/* Execute by owner.  */
-#endif
-#ifndef S_IXGRP
-#define S_IXGRP 0010	/* Execute by group.  */
-#endif
-#ifndef S_IXOTH
-#define S_IXOTH 0001	/* Execute by others.  */
-#endif
+      && abfd->flags & EXEC_P)
+    {
+      struct stat buf;
 
-    chmod(abfd->filename, 0777  & (buf.st_mode | S_IXUSR | S_IXGRP | S_IXOTH));
-  }
+      if (stat (abfd->filename, &buf) == 0)
+	{
+ 	  int mask = umask (0);
+	  umask (mask);
+	  chmod (abfd->filename,
+		 (0777
+		  & (buf.st_mode | ((S_IXUSR | S_IXGRP | S_IXOTH) &~ mask))));
+	}
+    }
+
   (void) obstack_free (&abfd->memory, (PTR)0);
-  (void) free(abfd);
+  (void) free (abfd);
+
   return ret;
 }
 
@@ -390,27 +449,25 @@ bfd_close_all_done (abfd)
 {
   boolean ret;
 
-  ret = bfd_cache_close(abfd);
+  ret = bfd_cache_close (abfd);
 
   /* If the file was open for writing and is now executable,
      make it so */
-  if (ret == true
+  if (ret
       && abfd->direction == write_direction
-      && abfd->flags & EXEC_P) {
-    struct stat buf;
-    stat(abfd->filename, &buf);
-#ifndef S_IXUSR
-#define S_IXUSR 0100	/* Execute by owner.  */
-#endif
-#ifndef S_IXGRP
-#define S_IXGRP 0010	/* Execute by group.  */
-#endif
-#ifndef S_IXOTH
-#define S_IXOTH 0001	/* Execute by others.  */
-#endif
+      && abfd->flags & EXEC_P)
+    {
+      struct stat buf;
 
-    chmod(abfd->filename, 0x777 &(buf.st_mode | S_IXUSR | S_IXGRP | S_IXOTH));
-  }
+      if (stat (abfd->filename, &buf) == 0)
+	{
+	  int mask = umask (0);
+	  umask (mask);
+	  chmod (abfd->filename,
+		 (0x777
+		  & (buf.st_mode | ((S_IXUSR | S_IXGRP | S_IXOTH) &~ mask))));
+	}
+    }
   (void) obstack_free (&abfd->memory, (PTR)0);
   (void) free(abfd);
   return ret;
@@ -532,17 +589,5 @@ bfd_zalloc (abfd, size)
   res = bfd_alloc(abfd, size);
   if (res)
     memset(res, 0, (size_t)size);
-  return res;
-}
-
-PTR
-bfd_realloc (abfd, old, size)
-     bfd *abfd;
-     PTR old;
-     size_t size;
-{
-  PTR res = bfd_alloc(abfd, size);
-  if (res)
-    memcpy(res, old, (size_t)size);
   return res;
 }

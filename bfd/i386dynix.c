@@ -1,5 +1,5 @@
 /* BFD back-end for i386 a.out binaries under dynix.
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -33,21 +33,26 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define MY(OP) CAT(i386dynix_,OP)
 #define TARGETNAME "a.out-i386-dynix"
+#define NAME(x,y) CAT3(i386dynix,_32_,y)
+#define ARCH_SIZE 32
+#define NAME_swap_exec_header_in NAME(i386dynix_32_,swap_exec_header_in)
+#define MY_get_section_contents aout_32_get_section_contents
 
-#include "bfd.h"
-#include "sysdep.h"
-#include "libbfd.h"
-#include "libaout.h"
+/* aoutx.h requires definitions for NMAGIC, BMAGIC and QMAGIC.  */
+#define NMAGIC 0
+#define BMAGIC OMAGIC
+#define QMAGIC XMAGIC
+
+#include "aoutx.h"
 
 /* (Ab)use some fields in the internal exec header to be able to read
    executables that contain shared data.  */
 
 #define a_shdata a_tload
 #define a_shdrsize a_dload
-#define aout_32_swap_exec_header_in dynix_swap_exec_header_in
 
 void
-dynix_swap_exec_header_in (abfd, raw_bytes, execp)
+i386dynix_32_swap_exec_header_in (abfd, raw_bytes, execp)
      bfd *abfd;
      struct external_exec *raw_bytes;
      struct internal_exec *execp;

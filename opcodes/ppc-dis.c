@@ -232,7 +232,7 @@ print_insn_powerpc (memaddr, info, bigendian, dialect)
     }
 
   /* We could not find a match.  */
-  (*info->fprintf_func) (info->stream, "0x%lx", insn);
+  (*info->fprintf_func) (info->stream, ".long 0x%lx", insn);
 
   return 4;
 }

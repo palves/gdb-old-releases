@@ -21,6 +21,7 @@
 #include <signal.h>
 #include <sys/times.h>
 #include <sys/param.h>
+#include <setjmp.h>
 #include "ansidecl.h"
 #include "sysdep.h"
 #include "remote-sim.h"
@@ -1173,6 +1174,14 @@ control_c (sig, code, scp, addr)
   cpu.exception = SIGINT;
 }
 
+static jmp_buf jbuf;
+static void
+segv ()
+{
+  cpu.exception = SIGSEGV;
+  longjmp (jbuf, 1);
+}
+
 void
 sim_resume (step, siggnal)
 {
@@ -1188,6 +1197,7 @@ sim_resume (step, siggnal)
   int insts = 0;
   int tick_start = get_now ();
   void (*prev) ();
+  void (*prev_seg) ();
 
   if (!init1)
     {
@@ -1379,6 +1389,7 @@ sim_resume (step, siggnal)
     }
 
   prev = signal (SIGINT, control_c);
+  prev_seg = signal (SIGSEGV, segv);
 
   if (step)
     {
@@ -1393,675 +1404,678 @@ sim_resume (step, siggnal)
 
   GETSR ();
 
-  do
-    {
-      int cidx;
-      decoded_inst *code;
+  if (setjmp (jbuf) == 0) {
+    do
+      {
+	int cidx;
+	decoded_inst *code;
 
-    top:
-      cidx = cpu.cache_idx[pc];
-      code = cpu.cache + cidx;
+      top:
+	cidx = cpu.cache_idx[pc];
+	code = cpu.cache + cidx;
 
-      FETCH (arga, code->srca, 0);
-      FETCH (argb, code->srcb, 1);
+	FETCH (arga, code->srca, 0);
+	FETCH (argb, code->srcb, 1);
 
 
 	
 #ifdef DEBUG
-      if (debug)
-	{
-	  printf ("%x %d %s\n", pc, code->opcode,
-		  code->op ? code->op->name : "**");
-	}
+	if (debug)
+	  {
+	    printf ("%x %d %s\n", pc, code->opcode,
+		    code->op ? code->op->name : "**");
+	  }
 #endif
 
-      cycles += code->cycles;
-      insts++;
-      DISPATCH (code->opcode)
-      {
-      LABEL (O_RECOMPILE):
-	/* This opcode is a fake for when we get to an instruction which
-	     hasn't been compiled */
-	compile (pc);
-	goto top;
-	break;
-      LABEL (O_NEG):
-	arga = -arga;
-	argb = 0;
-	res = arga + argb;
-	break;
-      LABEL (O_SUBX):
-	arga += C;
-      LABEL (O_SUB):
-      LABEL (O_SUBS):
-	arga = -arga;
-      LABEL (O_ADD):
-      LABEL (O_ADDS):
-	res = arga + argb;
-	break;
-
-      LABEL (O_ADDX):
-	res = arga + argb + C;
-	break;
-
-      LABEL (O_AND):
-      LABEL (O_ANDC):
-	res = arga & argb;
-	break;
-	break;
-
-      LABEL (O_BCLR):
-	arga &= 0xf;
-	bit = (argb & (1 << arga));
-	res = argb & ~(1 << arga);
-	goto bitop;
-
-
-      LABEL (O_BRA):
-      LABEL (O_BT):
-	if (1)
-	  goto condtrue;
-
-      LABEL (O_BRN):
-      LABEL (O_BF):
-	if (0)
-	  goto condtrue;
-	break;
-
-      LABEL (O_BHI):
-	if ((C || Z) == 0)
-	  goto condtrue;
-	break;
-
-      LABEL (O_BLS):
-	if ((C || Z))
-	  goto condtrue;
-	break;
-
-      LABEL (O_BCS):
-      LABEL (O_BLO):
-	if ((C == 1))
-	  goto condtrue;
-	break;
-
-      LABEL (O_BCC):
-      LABEL (O_BHS):
-	if ((C == 0))
-	  goto condtrue;
-	break;
-
-      LABEL (O_BEQ):
-	if (Z)
-	  goto condtrue;
-	break;
-      LABEL (O_BGT):
-	if (((Z || (N ^ V)) == 0))
-	  goto condtrue;
-	break;
-
-
-      LABEL (O_BLE):
-	if (((Z || (N ^ V)) == 1))
-	  goto condtrue;
-	break;
-
-      LABEL (O_BGE):
-	if ((N ^ V) == 0)
-	  goto condtrue;
-	break;
-      LABEL (O_BLT):
-	if ((N ^ V))
-	  goto condtrue;
-	break;
-      LABEL (O_BMI):
-	if ((N))
-	  goto condtrue;
-	break;
-      LABEL (O_BNE):
-	if ((Z == 0))
-	  goto condtrue;
-	break;
-      LABEL (O_BPL):
-	if (N == 0)
-	  goto condtrue;
-	break;
-	break;
-      LABEL (O_BVC):
-	if ((V == 0))
-	  goto condtrue;
-	break;
-      LABEL (O_BVS):
-	if ((V == 1))
-	  goto condtrue;
-	break;
-
-      LABEL (O_BNOT):
-	bit = argb & (1<<(arga & 0xf));
-	res = argb ^ (1<<(arga & 0xf));
-        goto bitop;
-	break;
-
-      LABEL (O_BSET):
-	arga = 1 << (arga & 0xf);
-	bit = argb & arga;
-	res = argb | arga;
-	goto bitop;
-	break;
-
-      LABEL (O_PJMP):
-	pc = arga;
-	goto next;
-
-      LABEL (O_UNLK):
-	{
-	  int t;
-	  SET_NORMREG (R7, GET_NORMREG (R6));
-	  POPWORD (t);
-	  SET_NORMREG (R6, t);
-	  pc = code->next_pc;
-	  goto next;
-	}
-
-      LABEL (O_RTS):
-	{
-	  int cp = pc & 0xff0000;
-	  POPWORD (pc);
-	  pc |= cp;
-	  goto next;
-	}
-	break;
-
-      LABEL (O_PRTS):
-	{
-	  int cp;
-	  int off;
-	  POPWORD (cp);
-	  POPWORD (off);
-	  cp <<= 16;
-	  SET_SEGREG (R_CP, cp);
-	  pc = cp + off;
-	}
-	goto next;
-
-      LABEL (O_PJSR):
-	PUSHWORD (argb & 0xffff);
-	PUSHWORD (argb >> 16);
-	pc = (arga & 0xffffff);
-	goto next;
-
-      LABEL (O_BSR):
-      LABEL (O_JSR):
-	PUSHWORD (code->next_pc);
-	pc = arga;
-	goto next;
-
-      LABEL (O_BTST):
-	Z = (((argb >> (arga & 0xf)) & 1) == 0);
-	pc = code->next_pc;
-	goto next;
-
-      LABEL (O_CLR):
-	res = 0;
-	break;
-
-      LABEL (O_CMP):
-	arga = -arga;
-	res = arga + argb;
-	break;
-
-      LABEL (O_DADD):
-	res = arga + argb + C;
-	if (res > 99)
+	cycles += code->cycles;
+	insts++;
+	DISPATCH (code->opcode)
 	  {
-	    res -= 100;
-	    C = 1;
-	  }
-	else
-	  {
-	    C = 0;
-	  }
-	Z = Z && (res == 0);
-	break;
+	    LABEL (O_RECOMPILE):
+	    /* This opcode is a fake for when we get to an instruction which
+	       hasn't been compiled */
+	    compile (pc);
+	    goto top;
+	    break;
+	    LABEL (O_NEG):
+	    arga = -arga;
+	    argb = 0;
+	    res = arga + argb;
+	    break;
+	    LABEL (O_SUBX):
+	    arga += C;
+	    LABEL (O_SUB):
+	    LABEL (O_SUBS):
+	    arga = -arga;
+	    LABEL (O_ADD):
+	    LABEL (O_ADDS):
+	    res = arga + argb;
+	    break;
+
+	    LABEL (O_ADDX):
+	    res = arga + argb + C;
+	    break;
+
+	    LABEL (O_AND):
+	    LABEL (O_ANDC):
+	    res = arga & argb;
+	    break;
+	    break;
+
+	    LABEL (O_BCLR):
+	    arga &= 0xf;
+	    bit = (argb & (1 << arga));
+	    res = argb & ~(1 << arga);
+	    goto bitop;
 
 
-      LABEL (O_DSUB):
-	res = argb - arga - C;
-	if (res < 0)
-	  {
-	    res += 100;
-	    C = 1;
-	  }
-	else
-	  {
-	    C = 0;
-	  }
-	Z = Z && (res == 0);
-	break;
+	    LABEL (O_BRA):
+	    LABEL (O_BT):
+	    if (1)
+	      goto condtrue;
 
-      LABEL (O_EXTS):
-	res = SEXTCHAR (arga);
-	break;
+	    LABEL (O_BRN):
+	    LABEL (O_BF):
+	    if (0)
+	      goto condtrue;
+	    break;
 
-      LABEL (O_EXTU):
-	res = (unsigned char) arga;
-	break;
+	    LABEL (O_BHI):
+	    if ((C || Z) == 0)
+	      goto condtrue;
+	    break;
 
-      LABEL (O_JMP):
-	pc = arga | (pc & 0xff0000);
-	goto next;
-	break;
+	    LABEL (O_BLS):
+	    if ((C || Z))
+	      goto condtrue;
+	    break;
 
-      LABEL (O_LDM):
+	    LABEL (O_BCS):
+	    LABEL (O_BLO):
+	    if ((C == 1))
+	      goto condtrue;
+	    break;
 
-	for (tmp = 0; tmp < 7; tmp++)
-	  {
-	    if (argb & (1 << tmp))
-	      {
-		POPWORD (cpu.regs[tmp].s[LOW]);
-	      }
-	  }
-	if (argb & 0x80)
-	  POPWORD (tmp);	/* dummy ready for sp */
-	goto nextpc;
-	break;
+	    LABEL (O_BCC):
+	    LABEL (O_BHS):
+	    if ((C == 0))
+	      goto condtrue;
+	    break;
 
-      LABEL (O_LINK):
-	PUSHWORD (cpu.regs[R6].s[LOW]);
-	cpu.regs[R6].s[LOW] = cpu.regs[R7].s[LOW];
-	cpu.regs[R7].s[LOW] += argb;
-	goto nextpc;
+	    LABEL (O_BEQ):
+	    if (Z)
+	      goto condtrue;
+	    break;
+	    LABEL (O_BGT):
+	    if (((Z || (N ^ V)) == 0))
+	      goto condtrue;
+	    break;
 
-      LABEL (O_STC):
-      LABEL (O_LDC):
-      LABEL (O_MOVFPE):
-      LABEL (O_MOVTPE):
-      LABEL (O_MOV):
-      LABEL (O_TST):
-	res = arga;
-	break;
 
-      LABEL (O_TRAPA):
-	if (arga == 15)
-	  {
-	    trap ();
-	  }
-	else
-	  {
-	    PUSHWORD (pc & 0xffff);
-	    if (cpu.maximum)
-	      {
-		PUSHWORD (NORMAL_CP);
-	      }
-	    PUSHWORD (NORMAL_SR);
-	    if (cpu.maximum)
-	      {
-		arga = arga * 4 + 0x40;
-		SET_NORMAL_CPPC (longat (cpu.memory + arga));
-	      }
-	    else
-	      {
-		arga = arga * 2 + 0x20;
-		SET_NORMAL_CPPC (wordat (cpu.memory + arga));
-	      }
-	  }
-	break;
+	    LABEL (O_BLE):
+	    if (((Z || (N ^ V)) == 1))
+	      goto condtrue;
+	    break;
 
-      LABEL (O_OR):
-      LABEL (O_ORC):
-	res = arga | argb;
-	break;
+	    LABEL (O_BGE):
+	    if ((N ^ V) == 0)
+	      goto condtrue;
+	    break;
+	    LABEL (O_BLT):
+	    if ((N ^ V))
+	      goto condtrue;
+	    break;
+	    LABEL (O_BMI):
+	    if ((N))
+	      goto condtrue;
+	    break;
+	    LABEL (O_BNE):
+	    if ((Z == 0))
+	      goto condtrue;
+	    break;
+	    LABEL (O_BPL):
+	    if (N == 0)
+	      goto condtrue;
+	    break;
+	    break;
+	    LABEL (O_BVC):
+	    if ((V == 0))
+	      goto condtrue;
+	    break;
+	    LABEL (O_BVS):
+	    if ((V == 1))
+	      goto condtrue;
+	    break;
 
-      LABEL (O_XOR):
-      LABEL (O_XORC):
-	res = arga ^ argb;
-	break;
+	    LABEL (O_BNOT):
+	    bit = argb & (1<<(arga & 0xf));
+	    res = argb ^ (1<<(arga & 0xf));
+	    goto bitop;
+	    break;
 
-      LABEL (O_SCB_F):
-	{
-	scb_f:
-	  res = arga - 1;
-	  code->srca.reg.wptr[0] = res;
-	  if (res != -1)
+	    LABEL (O_BSET):
+	    arga = 1 << (arga & 0xf);
+	    bit = argb & arga;
+	    res = argb | arga;
+	    goto bitop;
+	    break;
+
+	    LABEL (O_PJMP):
+	    pc = arga;
+	    goto next;
+
+	    LABEL (O_UNLK):
 	    {
-	      pc = argb;
+	      int t;
+	      SET_NORMREG (R7, GET_NORMREG (R6));
+	      POPWORD (t);
+	      SET_NORMREG (R6, t);
+	      pc = code->next_pc;
 	      goto next;
 	    }
-	}
-	break;
 
-      LABEL (O_SCB_EQ):
-	if (Z == 1)
-	  break;
-	else
-	  goto scb_f;
+	    LABEL (O_RTS):
+	    {
+	      int cp = pc & 0xff0000;
+	      POPWORD (pc);
+	      pc |= cp;
+	      goto next;
+	    }
+	    break;
 
-      LABEL (O_SCB_NE):
-	if (Z == 0)
-	  break;
-	else
-	  goto scb_f;
+	    LABEL (O_PRTS):
+	    {
+	      int cp;
+	      int off;
+	      POPWORD (cp);
+	      POPWORD (off);
+	      cp <<= 16;
+	      SET_SEGREG (R_CP, cp);
+	      pc = cp + off;
+	    }
+	    goto next;
 
-      LABEL (O_NOP):
-	/* If only they were all as simple as this */
-	break;
+	    LABEL (O_PJSR):
+	    PUSHWORD (argb & 0xffff);
+	    PUSHWORD (argb >> 16);
+	    pc = (arga & 0xffffff);
+	    goto next;
 
-      LABEL (O_ROTL):
-	res = arga << 1;
-	C = (res >> argb) & 1;
-	res |= C;
-	break;
+	    LABEL (O_BSR):
+	    LABEL (O_JSR):
+	    PUSHWORD (code->next_pc);
+	    pc = arga;
+	    goto next;
 
+	    LABEL (O_BTST):
+	    Z = (((argb >> (arga & 0xf)) & 1) == 0);
+	    pc = code->next_pc;
+	    goto next;
 
-      LABEL (O_ROTR):
-	C = arga & 1;
-	res = arga >> 1;
-	res |= (C << (argb - 1));
-	break;
+	    LABEL (O_CLR):
+	    res = 0;
+	    break;
 
-      LABEL (O_ROTXL):
-	res = arga << 1;
-	res |= C;
-	C = (res >> argb) & 1;
-	break;
+	    LABEL (O_CMP):
+	    arga = -arga;
+	    res = arga + argb;
+	    break;
 
-      LABEL (O_ROTXR):
-	res = arga >> 1;
-	res |= (C << (argb - 1));
-	C = arga & 1;
-	break;
-
-      LABEL (O_SHAL):
-	res = arga << 1;
-	if (argb == 16)
-	  {
-	    C = (res >> (16)) & 1;
-	    Z = ((res & 0xffff) == 0);
-	    N = ((res & 0x8000) != 0);
-	  }
-
-	else
-	  {
-	    C = (res >> (8)) & 1;
-	    Z = ((res & 0xff) == 0);
-	    N = ((res & 0x80) != 0);
-
-	  }
-	V = C ^ N;
-	goto none;
-
-      LABEL (O_SHAR):
-	C = arga & 1;
-	if (argb == 16)
-	  {
-	    res = ((short) arga) >> 1;
-	  }
-	else
-	  {
-	    res = (SEXTCHAR (arga)) >> 1;
-	  }
-	break;
-
-      LABEL (O_SHLL):
-	res = arga << 1;
-	C = (res >> argb) & 1;
-	break;
-
-      LABEL (O_SHLR):
-	C = arga & 1;
-	res = arga >> 1;
-	break;
-
-      LABEL (O_DIVXU):
-	if (arga == 0)
-	  {
-	    N = V = C = 0;
-	    Z = 1;
-	    cpu.exception = SIGILL;
-	  }
-	else
-	  {
-	    int d = argb / arga;
-	    int m = argb % arga;
-	    if (code->dst.type == eas.s.ea_reg.s.dstlong)
+	    LABEL (O_DADD):
+	    res = arga + argb + C;
+	    if (res > 99)
 	      {
-		res = (m << 16) | (d & 0xffff);
+		res -= 100;
+		C = 1;
 	      }
 	    else
 	      {
-		res = (m << 8) | (d & 0xff);
+		C = 0;
 	      }
-
-	  }
-	break;
-
-      LABEL (O_MULXU):
-	res = arga * argb;
-	break;
-
-      LABEL (O_NOT):
-	res = ~arga;
-	break;
-
-      LABEL (O_SWAP):
-	res = ((arga >> 8) & 0xff) | ((arga << 8) & 0xff00);
-	break;
+	    Z = Z && (res == 0);
+	    break;
 
 
-      LABEL (O_STM):
-	for (tmp = 7; tmp >= 0; tmp--)
-	  {
-	    if (arga & (1 << tmp))
+	    LABEL (O_DSUB):
+	    res = argb - arga - C;
+	    if (res < 0)
 	      {
-		PUSHWORD (cpu.regs[tmp].s[LOW]);
+		res += 100;
+		C = 1;
 	      }
+	    else
+	      {
+		C = 0;
+	      }
+	    Z = Z && (res == 0);
+	    break;
+
+	    LABEL (O_EXTS):
+	    res = SEXTCHAR (arga);
+	    break;
+
+	    LABEL (O_EXTU):
+	    res = (unsigned char) arga;
+	    break;
+
+	    LABEL (O_JMP):
+	    pc = arga | (pc & 0xff0000);
+	    goto next;
+	    break;
+
+	    LABEL (O_LDM):
+
+	    for (tmp = 0; tmp < 7; tmp++)
+	      {
+		if (argb & (1 << tmp))
+		  {
+		    POPWORD (cpu.regs[tmp].s[LOW]);
+		  }
+	      }
+	    if (argb & 0x80)
+	      POPWORD (tmp);	/* dummy ready for sp */
+	    goto nextpc;
+	    break;
+
+	    LABEL (O_LINK):
+	    PUSHWORD (cpu.regs[R6].s[LOW]);
+	    cpu.regs[R6].s[LOW] = cpu.regs[R7].s[LOW];
+	    cpu.regs[R7].s[LOW] += argb;
+	    goto nextpc;
+
+	    LABEL (O_STC):
+	    LABEL (O_LDC):
+	    LABEL (O_MOVFPE):
+	    LABEL (O_MOVTPE):
+	    LABEL (O_MOV):
+	    LABEL (O_TST):
+	    res = arga;
+	    break;
+
+	    LABEL (O_TRAPA):
+	    if (arga == 15)
+	      {
+		trap ();
+	      }
+	    else
+	      {
+		PUSHWORD (pc & 0xffff);
+		if (cpu.maximum)
+		  {
+		    PUSHWORD (NORMAL_CP);
+		  }
+		PUSHWORD (NORMAL_SR);
+		if (cpu.maximum)
+		  {
+		    arga = arga * 4 + 0x40;
+		    SET_NORMAL_CPPC (longat (cpu.memory + arga));
+		  }
+		else
+		  {
+		    arga = arga * 2 + 0x20;
+		    SET_NORMAL_CPPC (wordat (cpu.memory + arga));
+		  }
+	      }
+	    break;
+
+	    LABEL (O_OR):
+	    LABEL (O_ORC):
+	    res = arga | argb;
+	    break;
+
+	    LABEL (O_XOR):
+	    LABEL (O_XORC):
+	    res = arga ^ argb;
+	    break;
+
+	    LABEL (O_SCB_F):
+	    {
+	    scb_f:
+	      res = arga - 1;
+	      code->srca.reg.wptr[0] = res;
+	      if (res != -1)
+		{
+		  pc = argb;
+		  goto next;
+		}
+	    }
+	    break;
+
+	    LABEL (O_SCB_EQ):
+	    if (Z == 1)
+	      break;
+	    else
+	      goto scb_f;
+
+	    LABEL (O_SCB_NE):
+	    if (Z == 0)
+	      break;
+	    else
+	      goto scb_f;
+
+	    LABEL (O_NOP):
+	    /* If only they were all as simple as this */
+	    break;
+
+	    LABEL (O_ROTL):
+	    res = arga << 1;
+	    C = (res >> argb) & 1;
+	    res |= C;
+	    break;
+
+
+	    LABEL (O_ROTR):
+	    C = arga & 1;
+	    res = arga >> 1;
+	    res |= (C << (argb - 1));
+	    break;
+
+	    LABEL (O_ROTXL):
+	    res = arga << 1;
+	    res |= C;
+	    C = (res >> argb) & 1;
+	    break;
+
+	    LABEL (O_ROTXR):
+	    res = arga >> 1;
+	    res |= (C << (argb - 1));
+	    C = arga & 1;
+	    break;
+
+	    LABEL (O_SHAL):
+	    res = arga << 1;
+	    if (argb == 16)
+	      {
+		C = (res >> (16)) & 1;
+		Z = ((res & 0xffff) == 0);
+		N = ((res & 0x8000) != 0);
+	      }
+
+	    else
+	      {
+		C = (res >> (8)) & 1;
+		Z = ((res & 0xff) == 0);
+		N = ((res & 0x80) != 0);
+
+	      }
+	    V = C ^ N;
+	    goto none;
+
+	    LABEL (O_SHAR):
+	    C = arga & 1;
+	    if (argb == 16)
+	      {
+		res = ((short) arga) >> 1;
+	      }
+	    else
+	      {
+		res = (SEXTCHAR (arga)) >> 1;
+	      }
+	    break;
+
+	    LABEL (O_SHLL):
+	    res = arga << 1;
+	    C = (res >> argb) & 1;
+	    break;
+
+	    LABEL (O_SHLR):
+	    C = arga & 1;
+	    res = arga >> 1;
+	    break;
+
+	    LABEL (O_DIVXU):
+	    if (arga == 0)
+	      {
+		N = V = C = 0;
+		Z = 1;
+		cpu.exception = SIGILL;
+	      }
+	    else
+	      {
+		int d = argb / arga;
+		int m = argb % arga;
+		if (code->dst.type == eas.s.ea_reg.s.dstlong)
+		  {
+		    res = (m << 16) | (d & 0xffff);
+		  }
+		else
+		  {
+		    res = (m << 8) | (d & 0xff);
+		  }
+
+	      }
+	    break;
+
+	    LABEL (O_MULXU):
+	    res = arga * argb;
+	    break;
+
+	    LABEL (O_NOT):
+	    res = ~arga;
+	    break;
+
+	    LABEL (O_SWAP):
+	    res = ((arga >> 8) & 0xff) | ((arga << 8) & 0xff00);
+	    break;
+
+
+	    LABEL (O_STM):
+	    for (tmp = 7; tmp >= 0; tmp--)
+	      {
+		if (arga & (1 << tmp))
+		  {
+		    PUSHWORD (cpu.regs[tmp].s[LOW]);
+		  }
+	      }
+	    goto nextpc;
+
+	    LABEL (O_TAS):
+	    C = 0;
+	    V = 0;
+	    Z = arga == 0;
+	    N = arga < 0;
+	    res = arga | 0x80;
+	    goto none;
+
+	    LABEL (O_PRTD):
+	    LABEL (O_XCH):
+	    LABEL (O_RTD):
+	    cpu.exception = SIGILL;
+	    goto next;
+
+	    LABEL (O_TRAP_VS):
+	    LABEL (O_SLEEP):
+	    LABEL (O_BPT):
+	    cpu.exception = SIGTRAP;
+	    goto next;
+	    break;
 	  }
-	goto nextpc;
 
-      LABEL (O_TAS):
-	C = 0;
-	V = 0;
-	Z = arga == 0;
-	N = arga < 0;
-	res = arga | 0x80;
-	goto none;
+	ENDDISPATCH;
 
-      LABEL (O_PRTD):
-      LABEL (O_XCH):
-      LABEL (O_RTD):
-	cpu.exception = SIGILL;
-	goto next;
+	DISPATCH (code->flags)
+	  {
+	  bitop:
+	    Z = (res & bit) == 0;
+	    pc = code->next_pc;
+	    break;
+	    LABEL (FLAG_multword):
+	    Z = (res & 0xffff) == 0;
+	    N = (res & 0x8000) != 0;
+	    V = 0;
+	    C = 0;
+	    pc = code->next_pc;
+	    break;
 
-      LABEL (O_TRAP_VS):
-      LABEL (O_SLEEP):
-      LABEL (O_BPT):
-	cpu.exception = SIGTRAP;
-	goto next;
-	break;
+	    LABEL (FLAG_multbyte):
+	    /* 8*8 -> 16 */
+	    Z = (res & 0xff) == 0;
+	    N = (res & 0x80) != 0;
+	    V = 0;
+	    C = 0;
+	    pc = code->next_pc;
+	    break;
+
+	    LABEL (FLAG_shiftword):
+	    N = (res & 0x8000) != 0;
+	    Z = (res & 0xffff) == 0;
+	    V = 0;
+	    pc = code->next_pc;
+	    break;
+
+	    LABEL (FLAG_shiftbyte):
+	    N = (res & 0x80) != 0;
+	    Z = (res & 0xff) == 0;
+	    V = 0;
+	    pc = code->next_pc;
+	    break;
+
+	    LABEL (FLAG_special):
+	    pc = code->next_pc;
+	    break;
+
+	    LABEL (FLAG_m):
+	    /* Move byte flags */
+	    /* after a logical instruction */
+	    N = (res & 0x80) != 0;
+	    Z = (res & 0xff) == 0;
+	    V = (((~arga & ~argb & res) | (arga & argb & ~res)) & 0x80) != 0;
+	    pc = code->next_pc;
+	    break;
+
+	    LABEL (FLAG_M):
+	    /* Move word flags */
+	    /* after a logical instruction */
+	    N = (res & 0x8000) != 0;
+	    Z = (res & 0xffff) == 0;
+	    V = (((~arga & ~argb & res) | (arga & argb & ~res)) & 0x8000) != 0;
+	    pc = code->next_pc;
+	    break;
+
+	    LABEL (FLAG_a):
+	    /* after byte sized arith */
+	    C = (res & 0x100) != 0;
+	    N = (res & 0x80) != 0;
+	    Z = (res & 0xff) == 0;
+	    V = (((~arga & ~argb & res) | (arga & argb & ~res)) & 0x80) != 0;
+	    pc = code->next_pc;
+	    break;
+
+	    LABEL (FLAG_A):
+	    /* after word sized arith */
+	    C = (res & 0x10000) != 0;
+	    N = (res & 0x8000) != 0;
+	    Z = (res & 0xffff) == 0;
+	    V = (((~arga & ~argb & res) | (arga & argb & ~res)) & 0x8000) != 0;
+	    pc = code->next_pc;
+	    break;
+
+	    LABEL (FLAG_NONE):
+	  none:;
+	    /* no flags but store */
+	    pc = code->next_pc;
+	    break;
+	    LABEL (FLAG_NOSTORE):
+	    /* no flags and no store */
+	    pc = code->next_pc;
+	    break;
+	    LABEL (FLAG_CLEAR):
+	    /* clear flags */
+	    N = 0;
+	    Z = 1;
+	    V = 0;
+	    C = 0;
+	    pc = code->next_pc;
+	    break;
+	  condtrue:
+	    pc = arga;
+	    goto next;
+	  }
+	ENDDISPATCH;
+
+	DISPATCH (code->dst.type)
+	  {
+	    unsigned char *lval;
+
+	    LABEL (STORE_CRB):
+	    (*(code->dst.reg.segptr)) = cpu.memory + (res << 16);
+	    break;
+
+	    LABEL (STORE_NOP):
+	    break;
+
+	    LABEL (STORE_REG_B):
+	    (*(code->dst.reg.bptr)) = res;
+	    break;
+
+	    LABEL (STORE_REG_W):
+	    (*(code->dst.reg.wptr)) = res;
+	    break;
+
+	    LABEL (STORE_REG_L):
+	    {
+	      int l, r;
+
+	      r = (union rtype *) (code->dst.reg.wptr) - &cpu.regs[0];
+	      r++;
+	      *(code->dst.reg.wptr) = res >> 16;
+	      cpu.regs[r].s[LOW] = res & 0xffff;
+
+	    }
+
+	    break;
+
+	    LABEL (STORE_DISP_W):
+	    lval = displval (code->dst);
+	    setwordat (lval, res);
+	    break;
+
+	    LABEL (STORE_DISP_B):
+	    lval = displval (code->dst);
+	    setbyteat (lval, res);
+	    break;
+
+	    LABEL (STORE_INC_B):
+	    lval = elval (code->dst, 0);
+	    setbyteat (lval, res);
+	    (*(code->dst.reg.wptr))++;
+	    break;
+
+	    LABEL (STORE_INC_W):
+	    lval = elval (code->dst, 0);
+	    setwordat (lval, res);
+	    (*(code->dst.reg.wptr)) += 2;
+	    break;
+
+	    LABEL (STORE_DEC_B):
+	    (*(code->dst.reg.wptr))--;
+	    lval = elval (code->dst, 0);
+	    setbyteat (lval, res);
+	    break;
+
+	    LABEL (STORE_CRW):
+	    /* Make an up to date sr from the flag state */
+	    cpu.regs[R_SR].s[LOW] = res;
+	    GETSR ();
+	    break;
+
+	    LABEL (STORE_DEC_W):
+	    (*(code->dst.reg.wptr)) -= 2;
+	    lval = elval (code->dst, 0);
+	    setwordat (lval, res);
+
+	    break;
+
+	  nextpc:
+	    pc = code->next_pc;
+
+	  }
+	ENDDISPATCH;
+      next:;
       }
+    while (!cpu.exception);
+  }
 
-      ENDDISPATCH;
-
-      DISPATCH (code->flags)
-      {
-      bitop:
-	Z = (res & bit) == 0;
-	pc = code->next_pc;
-	break;
-      LABEL (FLAG_multword):
-	Z = (res & 0xffff) == 0;
-	N = (res & 0x8000) != 0;
-	V = 0;
-	C = 0;
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_multbyte):
-	/* 8*8 -> 16 */
-	Z = (res & 0xff) == 0;
-	N = (res & 0x80) != 0;
-	V = 0;
-	C = 0;
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_shiftword):
-	N = (res & 0x8000) != 0;
-	Z = (res & 0xffff) == 0;
-	V = 0;
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_shiftbyte):
-	N = (res & 0x80) != 0;
-	Z = (res & 0xff) == 0;
-	V = 0;
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_special):
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_m):
-	/* Move byte flags */
-	/* after a logical instruction */
-	N = (res & 0x80) != 0;
-	Z = (res & 0xff) == 0;
-	V = (((~arga & ~argb & res) | (arga & argb & ~res)) & 0x80) != 0;
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_M):
-	/* Move word flags */
-	/* after a logical instruction */
-	N = (res & 0x8000) != 0;
-	Z = (res & 0xffff) == 0;
-	V = (((~arga & ~argb & res) | (arga & argb & ~res)) & 0x8000) != 0;
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_a):
-	/* after byte sized arith */
-	C = (res & 0x100) != 0;
-	N = (res & 0x80) != 0;
-	Z = (res & 0xff) == 0;
-	V = (((~arga & ~argb & res) | (arga & argb & ~res)) & 0x80) != 0;
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_A):
-	/* after word sized arith */
-	C = (res & 0x10000) != 0;
-	N = (res & 0x8000) != 0;
-	Z = (res & 0xffff) == 0;
-	V = (((~arga & ~argb & res) | (arga & argb & ~res)) & 0x8000) != 0;
-	pc = code->next_pc;
-	break;
-
-      LABEL (FLAG_NONE):
-      none:;
-	/* no flags but store */
-	pc = code->next_pc;
-	break;
-      LABEL (FLAG_NOSTORE):
-	/* no flags and no store */
-	pc = code->next_pc;
-	break;
-      LABEL (FLAG_CLEAR):
-	/* clear flags */
-	N = 0;
-	Z = 1;
-	V = 0;
-	C = 0;
-	pc = code->next_pc;
-	break;
-      condtrue:
-	pc = arga;
-	goto next;
-      }
-      ENDDISPATCH;
-
-      DISPATCH (code->dst.type)
-      {
-	unsigned char *lval;
-
-      LABEL (STORE_CRB):
-	(*(code->dst.reg.segptr)) = cpu.memory + (res << 16);
-	break;
-
-      LABEL (STORE_NOP):
-	break;
-
-      LABEL (STORE_REG_B):
-	(*(code->dst.reg.bptr)) = res;
-	break;
-
-      LABEL (STORE_REG_W):
-	(*(code->dst.reg.wptr)) = res;
-	break;
-
-      LABEL (STORE_REG_L):
-	{
-	  int l, r;
-
-	  r = (union rtype *) (code->dst.reg.wptr) - &cpu.regs[0];
-	  r++;
-	  *(code->dst.reg.wptr) = res >> 16;
-	  cpu.regs[r].s[LOW] = res & 0xffff;
-
-	}
-
-	break;
-
-      LABEL (STORE_DISP_W):
-	lval = displval (code->dst);
-	setwordat (lval, res);
-	break;
-
-      LABEL (STORE_DISP_B):
-	lval = displval (code->dst);
-	setbyteat (lval, res);
-	break;
-
-      LABEL (STORE_INC_B):
-	lval = elval (code->dst, 0);
-	setbyteat (lval, res);
-	(*(code->dst.reg.wptr))++;
-	break;
-
-      LABEL (STORE_INC_W):
-	lval = elval (code->dst, 0);
-	setwordat (lval, res);
-	(*(code->dst.reg.wptr)) += 2;
-	break;
-
-      LABEL (STORE_DEC_B):
-	(*(code->dst.reg.wptr))--;
-	lval = elval (code->dst, 0);
-	setbyteat (lval, res);
-	break;
-
-      LABEL (STORE_CRW):
-	/* Make an up to date sr from the flag state */
-	cpu.regs[R_SR].s[LOW] = res;
-	GETSR ();
-	break;
-
-      LABEL (STORE_DEC_W):
-	(*(code->dst.reg.wptr)) -= 2;
-	lval = elval (code->dst, 0);
-	setwordat (lval, res);
-
-	break;
-
-      nextpc:
-	pc = code->next_pc;
-
-      }
-      ENDDISPATCH;
-    next:;
-    }
-  while (!cpu.exception);
   cpu.ticks += get_now () - tick_start;
   cpu.cycles += cycles;
   cpu.insts += insts;
@@ -2069,6 +2083,7 @@ sim_resume (step, siggnal)
   BUILDSR ();
 
   signal (SIGINT, prev);
+  signal (SIGSEGV, prev_seg);
 }
 
 
@@ -2156,7 +2171,7 @@ sim_store_register (rn, value)
     {
     case PC_REGNUM:
       SET_SEGREG (R_CP, (value[1]<<16));
-      cpu.regs[rn].s[LOW] = (value[2] << 8) | value[3];
+      cpu.regs[R_PC].s[LOW] = (value[2] << 8) | value[3];
       break;
     case SEG_C_REGNUM:
     case SEG_D_REGNUM:

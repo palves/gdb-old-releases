@@ -130,13 +130,9 @@ proc test_simple_watchpoint {} {
 
     # Run until we get to the first marker function.
 
-    send "run\n"
+    gdb_run_cmd
     expect {
-	-re "The program .* has been started already.* \(y or n\) $" {
-	    send "y\n"
-	    exp_continue
-	}
-	-re "Starting program.*Breakpoint 1, marker1 .*$prompt $" {}
+	-re "Breakpoint 1, marker1 .*$prompt $" {}
 	-re ".*$prompt $" { fail "run until marker1 function hit" ; return }
 	timeout { fail "run until marker1 function hit (timeout)" ; return }
     }
@@ -151,7 +147,7 @@ proc test_simple_watchpoint {} {
     }
 
     gdb_test "break func1" "Breakpoint.*at"
-    gdb_test "set \\\$func1_breakpoint_number = \\\$bpnum" ""
+    gdb_test "set \$func1_breakpoint_number = \$bpnum" ""
 
     gdb_test "continue" "Continuing.*Breakpoint \[0-9\]*, func1" \
 	"continue to breakpoint at func1"
@@ -171,7 +167,7 @@ proc test_simple_watchpoint {} {
 	-re "Continuing.*Breakpoint.*func1.*$prompt $" {
 	    setup_xfail "m68*-*-*" 2597
 	    fail "thought it hit breakpoint at func1 twice"
-	    gdb_test "delete \\\$func1_breakpoint_number" ""
+	    gdb_test "delete \$func1_breakpoint_number" ""
 	    gdb_test "continue" "\
 Continuing.*\[Ww\]atchpoint.*ival3.*Old value = -1.*New value = 0.*ival3 = count;" \
 		"watchpoint hit, first time"
@@ -181,7 +177,7 @@ Continuing.*\[Ww\]atchpoint.*ival3.*Old value = -1.*New value = 0.*ival3 = count
 	eof { fail "run to first watchpoint (eof)" ; return }
     }
 
-    gdb_test "delete \\\$func1_breakpoint_number" ""
+    gdb_test "delete \$func1_breakpoint_number" ""
 
     # Continue until the next change, from 0 to 1.
     
@@ -281,13 +277,9 @@ proc test_disabling_watchpoints {} {
 
     # Run until we get to the first marker function.
 
-    send "run\n"
+    gdb_run_cmd
     expect {
-	-re "The program .* has been started already.* \(y or n\) $" {
-	    send "y\n"
-	    exp_continue
-	}
-	-re "Starting program.*Breakpoint 1, marker1 .*$prompt $" {}
+	-re "Breakpoint 1, marker1 .*$prompt $" {}
 	-re ".*$prompt $" { fail "run until marker1 function hit" ; return }
 	timeout { fail "run until marker1 function hit (timeout)" ; return }
     }
@@ -384,10 +376,10 @@ proc test_stepping {} {
 
 	# Well, let's not be too mundane.  It should be a *bit* of a challenge
 	gdb_test "break func2 if 0" "Breakpoint.*at"
-	gdb_test "p \\\$func2_breakpoint_number = \\\$bpnum" "="
+	gdb_test "p \$func2_breakpoint_number = \$bpnum" "="
 
-	# The HPPA has a problem here.
-	if [ istarget "hppa*-*-*" ] then {
+	# The HPPA has a problem here if it's not using hardware watchpoints
+	if {[ istarget "hppa*-*-*" ] && ![ istarget "hppa*-*-*bsd*" ]} then {
 	    # Don't actually try doing the call, if we do we can't continue.
 	    setup_xfail "*-*-*"
 	    fail "calling function with watchpoint enabled"
@@ -407,6 +399,7 @@ proc test_stepping {} {
 	    clear_xfail "alpha-*-*"
 	    clear_xfail "mips*-*-*"
 	    clear_xfail "sparc-*-*"
+	    clear_xfail "hppa*-*-*bsd*"
 	    gdb_test "p func1 ()" "= 73" \
 		"calling function with watchpoint enabled"
 	}
@@ -480,11 +473,11 @@ proc test_watchpoint_triggered_in_syscall {} {
     set y 0
     set testname "Watch buffer passed to read syscall"
     if [runto marker2] then {
-	gdb_test "watch buf\\\[0\\\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
-	gdb_test "watch buf\\\[1\\\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
-	gdb_test "watch buf\\\[2\\\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
-	gdb_test "watch buf\\\[3\\\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
-	gdb_test "watch buf\\\[4\\\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
+	gdb_test "watch buf\[0\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
+	gdb_test "watch buf\[1\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
+	gdb_test "watch buf\[2\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
+	gdb_test "watch buf\[3\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
+	gdb_test "watch buf\[4\]" ".*\[Ww\]atchpoint \[0-9\]*: buf"
 	gdb_test "break marker4" ".*Breakpoint.*"
 
 	send "set doread = 1\n"

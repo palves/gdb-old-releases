@@ -61,6 +61,13 @@ extern int strtoerrno PARAMS ((const char *));
 
 extern int signo_max PARAMS ((void));
 
+/* Return a signal message string for a signal number
+   (e.g., strsignal (SIGHUP) returns something like "Hangup").  */
+/* This is commented out as it can conflict with one in system headers.
+   We still document its existence though.  */
+
+/*extern const char *strsignal PARAMS ((int));*/
+
 /* Return the name of a signal number (e.g., strsigno (SIGHUP) returns
    "SIGHUP").  */
 
@@ -103,5 +110,16 @@ extern PTR xmalloc ();
    xmalloc.  */
 
 extern PTR xrealloc ();
+
+/* hex character manipulation routines */
+
+#define _hex_array_size 256
+#define _hex_bad	99
+extern char _hex_value[_hex_array_size];
+extern void hex_init PARAMS ((void));
+#define hex_p(c)	(hex_value (c) != _hex_bad)
+/* If you change this, note well: Some code relies on side effects in
+   the argument being performed exactly once.  */
+#define hex_value(c)	(_hex_value[(unsigned char) (c)])
 
 #endif /* ! defined (LIBIBERTY_H) */

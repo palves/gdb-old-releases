@@ -39,7 +39,6 @@ other things to work on, if you get bored. :-)
 */
 
 #include "defs.h"
-#include "bfd.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "symfile.h"
@@ -191,6 +190,11 @@ typedef unsigned int DIE_REF;	/* Reference to a DIE */
 
 #ifndef CHILL_PRODUCER
 #define CHILL_PRODUCER "GNU Chill "
+#endif
+
+/* Provide a default mapping from a DWARF register number to a gdb REGNUM.  */
+#ifndef DWARF_REG_TO_REGNUM
+#define DWARF_REG_TO_REGNUM(num) (num)
 #endif
 
 /* Flags to target_to_host() that tell whether or not the data object is
@@ -986,9 +990,7 @@ struct_type (dip, thisdie, enddie, objfile)
   int n;
   struct dieinfo mbr;
   char *nextdie;
-#if !BITS_BIG_ENDIAN
   int anonymous_size;
-#endif
   
   if ((type = lookup_utype (dip -> die_ref)) == NULL)
     {
@@ -1061,39 +1063,47 @@ struct_type (dip, thisdie, enddie, objfile)
 	  list -> field.bitpos = 8 * locval (mbr.at_location);
 	  /* Handle bit fields. */
 	  list -> field.bitsize = mbr.at_bit_size;
-#if BITS_BIG_ENDIAN
-	  /* For big endian bits, the at_bit_offset gives the additional
-	     bit offset from the MSB of the containing anonymous object to
-	     the MSB of the field.  We don't have to do anything special
-	     since we don't need to know the size of the anonymous object. */
-	  list -> field.bitpos += mbr.at_bit_offset;
-#else
-	  /* For little endian bits, we need to have a non-zero at_bit_size,
-	     so that we know we are in fact dealing with a bitfield.  Compute
-	     the bit offset to the MSB of the anonymous object, subtract off
-	     the number of bits from the MSB of the field to the MSB of the
-	     object, and then subtract off the number of bits of the field
-	     itself.  The result is the bit offset of the LSB of the field. */
-	  if (mbr.at_bit_size > 0)
+	  if (BITS_BIG_ENDIAN)
 	    {
-	      if (mbr.has_at_byte_size)
-		{
-		  /* The size of the anonymous object containing the bit field
-		     is explicit, so use the indicated size (in bytes). */
-		  anonymous_size = mbr.at_byte_size;
-		}
-	      else
-		{
-		  /* The size of the anonymous object containing the bit field
-		     matches the size of an object of the bit field's type.
-		     DWARF allows at_byte_size to be left out in such cases,
-		     as a debug information size optimization. */
-		  anonymous_size = TYPE_LENGTH (list -> field.type);
-		}
-	      list -> field.bitpos +=
-		anonymous_size * 8 - mbr.at_bit_offset - mbr.at_bit_size;
+	      /* For big endian bits, the at_bit_offset gives the
+		 additional bit offset from the MSB of the containing
+		 anonymous object to the MSB of the field.  We don't
+		 have to do anything special since we don't need to
+		 know the size of the anonymous object. */
+	      list -> field.bitpos += mbr.at_bit_offset;
 	    }
-#endif
+	  else
+	    {
+	      /* For little endian bits, we need to have a non-zero
+		 at_bit_size, so that we know we are in fact dealing
+		 with a bitfield.  Compute the bit offset to the MSB
+		 of the anonymous object, subtract off the number of
+		 bits from the MSB of the field to the MSB of the
+		 object, and then subtract off the number of bits of
+		 the field itself.  The result is the bit offset of
+		 the LSB of the field. */
+	      if (mbr.at_bit_size > 0)
+		{
+		  if (mbr.has_at_byte_size)
+		    {
+		      /* The size of the anonymous object containing
+			 the bit field is explicit, so use the
+			 indicated size (in bytes). */
+		      anonymous_size = mbr.at_byte_size;
+		    }
+		  else
+		    {
+		      /* The size of the anonymous object containing
+			 the bit field matches the size of an object
+			 of the bit field's type.  DWARF allows
+			 at_byte_size to be left out in such cases, as
+			 a debug information size optimization. */
+		      anonymous_size = TYPE_LENGTH (list -> field.type);
+		    }
+		  list -> field.bitpos +=
+		    anonymous_size * 8 - mbr.at_bit_offset - mbr.at_bit_size;
+		}
+	    }
 	  nfields++;
 	  break;
 	default:
@@ -2205,8 +2215,10 @@ locval (loc)
 	    break;
 	  case OP_REG:
 	    /* push register (number) */
-	    stack[++stacki] = target_to_host (loc, loc_value_size,
-					      GET_UNSIGNED, current_objfile);
+	    stack[++stacki]
+	      = DWARF_REG_TO_REGNUM (target_to_host (loc, loc_value_size,
+						     GET_UNSIGNED,
+						     current_objfile));
 	    loc += loc_value_size;
 	    isreg = 1;
 	    break;

@@ -108,14 +108,14 @@ proc test_gnu_style_demangling {} {
     gdb_test_exact "maint demangle VOrder__9ivTSolverUiRP12ivInteractorT2" "ivTSolver::VOrder(unsigned int, ivInteractor *&, ivInteractor *&)"
     gdb_test "maint dem Valid__7CatalogPCcRP4Tool" \
 	"Catalog::Valid\[(\]+(const char|char const) \[*\]+, Tool \[*\]+&\[)\]+"
-    gdb_test_exact "maint demangle _10PageButton\\\$__both" "PageButton::__both"
-    gdb_test_exact "maint demangle _3RNG\\\$singleMantissa" "RNG::singleMantissa"
-    gdb_test_exact "maint demangle _5IComp\\\$_release" "IComp::_release"
-    gdb_test_exact "maint demangle _\\\$_10BitmapComp" "BitmapComp::~BitmapComp(void)"
+    gdb_test_exact "maint demangle _10PageButton\$__both" "PageButton::__both"
+    gdb_test_exact "maint demangle _3RNG\$singleMantissa" "RNG::singleMantissa"
+    gdb_test_exact "maint demangle _5IComp\$_release" "IComp::_release"
+    gdb_test_exact "maint demangle _\$_10BitmapComp" "BitmapComp::~BitmapComp(void)"
 
-    gdb_test_exact "maint demangle _\\\$_9__io_defs" "__io_defs::~__io_defs(void)"
-    gdb_test_exact "maint demangle _\\\$_Q23foo3bar" "foo::bar::~bar(void)"
-    gdb_test_exact "maint demangle _\\\$_Q33foo3bar4bell" "foo::bar::bell::~bell(void)"
+    gdb_test_exact "maint demangle _\$_9__io_defs" "__io_defs::~__io_defs(void)"
+    gdb_test_exact "maint demangle _\$_Q23foo3bar" "foo::bar::~bar(void)"
+    gdb_test_exact "maint demangle _\$_Q33foo3bar4bell" "foo::bar::bell::~bell(void)"
     gdb_test_exact "maint demangle __10ivTelltaleiP7ivGlyph" "ivTelltale::ivTelltale(int, ivGlyph *)"
     gdb_test_exact "maint demangle __10ivViewportiP12ivInteractorUi" "ivViewport::ivViewport(int, ivInteractor *, unsigned int)"
     gdb_test_exact "maint demangle __10ostrstream" "ostrstream::ostrstream(void)"
@@ -220,8 +220,8 @@ proc test_gnu_style_demangling {} {
     # correctly demangle these even if newer compilers use a different form.
     gdb_test_exact "maint demangle _vt.foo" "foo virtual table"
     gdb_test_exact "maint demangle _vt.foo.bar" "foo::bar virtual table"
-    gdb_test_exact "maint demangle _vt\\\$foo" "foo virtual table"
-    gdb_test_exact "maint demangle _vt\\\$foo\\\$bar" "foo::bar virtual table"
+    gdb_test_exact "maint demangle _vt\$foo" "foo virtual table"
+    gdb_test_exact "maint demangle _vt\$foo\$bar" "foo::bar virtual table"
 
     gdb_test_exact "maint demangle append__7ivGlyphPT0" "ivGlyph::append(ivGlyph *)"
     gdb_test "maint dem arg__FRC7Complex" \
@@ -317,8 +317,8 @@ proc test_gnu_style_demangling {} {
     gdb_test_exact "maint demangle view__14DocumentViewerP8ItemViewP11TabularItem" "DocumentViewer::view(ItemView *, TabularItem *)"
     gdb_test_exact "maint demangle xy_extents__11ivExtensionffff" "ivExtension::xy_extents(float, float, float, float)"
     gdb_test_exact "maint demangle zero__8osMemoryPvUi" "osMemory::zero(void *, unsigned int)"
-    gdb_test_exact "maint demangle _2T4\\\$N" "T4::N"
-    gdb_test_exact "maint demangle _Q22T42t1\\\$N" "T4::t1::N"
+    gdb_test_exact "maint demangle _2T4\$N" "T4::N"
+    gdb_test_exact "maint demangle _Q22T42t1\$N" "T4::t1::N"
     gdb_test_exact "maint demangle get__2T1" "T1::get(void)"
     gdb_test_exact "maint demangle get__Q22T11a" "T1::a::get(void)"
     gdb_test_exact "maint demangle get__Q32T11a1b" "T1::a::b::get(void)"
@@ -347,8 +347,8 @@ proc test_gnu_style_demangling {} {
     gdb_test_exact "maint demangle elem__t6vector1Zii" "vector<int>::elem(int)"
     gdb_test_exact "maint demangle __t6vector1Zdi"     "vector<double>::vector(int)"
     gdb_test_exact "maint demangle __t6vector1Zii"     "vector<int>::vector(int)"
-    gdb_test_exact "maint demangle _\\\$_t6vector1Zdi"    "vector<double>::~vector(int)"
-    gdb_test_exact "maint demangle _\\\$_t6vector1Zii"    "vector<int>::~vector(int)"
+    gdb_test_exact "maint demangle _\$_t6vector1Zdi"    "vector<double>::~vector(int)"
+    gdb_test_exact "maint demangle _\$_t6vector1Zii"    "vector<int>::~vector(int)"
 
     gdb_test_exact "maint demangle __nw__t2T11ZcUi" "T1<char>::operator new(unsigned int)"
     gdb_test_exact "maint demangle __nw__t2T11Z1tUi" "T1<t>::operator new(unsigned int)"
@@ -404,9 +404,9 @@ proc test_gnu_style_demangling {} {
     gdb_test_exact "maint demangle next__Ct4List1Z10VHDLEntityRQ2t4List1Z10VHDLEntity3Pix" \
 	"List<VHDLEntity>::next(List<VHDLEntity>::Pix &) const"
 
-    gdb_test_exact "maint demangle _GLOBAL_\\\$D\\\$set" "global destructors keyed to set"
+    gdb_test_exact "maint demangle _GLOBAL_\$D\$set" "global destructors keyed to set"
 
-    gdb_test_exact "maint demangle _GLOBAL_\\\$I\\\$set" "global constructors keyed to set"
+    gdb_test_exact "maint demangle _GLOBAL_\$I\$set" "global constructors keyed to set"
 
     gdb_test_exact "maint demangle __as__t5ListS1ZUiRCt5ListS1ZUi" \
 	"ListS<unsigned int>::operator=(ListS<unsigned int> const &)"
@@ -436,7 +436,7 @@ proc test_gnu_style_demangling {} {
     gdb_test_exact "maint demangle __t8BDDHookV1ZPcRCPc" \
 	"BDDHookV<char *>::BDDHookV(char *const &)"
 
-    gdb_test_exact "maint demangle _vt\\\$t8BDDHookV1ZPc" "BDDHookV<char *> virtual table"
+    gdb_test_exact "maint demangle _vt\$t8BDDHookV1ZPc" "BDDHookV<char *> virtual table"
 
     gdb_test_exact "maint demangle __ne__FPvRCQ211BDDFunction4VixB" \
 	"operator!=(void *, BDDFunction::VixB const &)"
@@ -1071,6 +1071,11 @@ proc test_arm_style_demangling {} {
 
     gdb_test_exact "maint demangle __ct__25DListNode__pt__9_R6RLabelFR6RLabelP25DListNode__pt__9_R6RLabelT2" \
 	"DListNode<RLabel &>::DListNode<RLabel &>(RLabel &, DListNode<RLabel &> *, DListNode<RLabel &> *)"
+
+    gdb_test_exact "maint demangle bar__3fooFiT16FooBar" "foo::bar(int, int, FooBar)"
+
+    gdb_test_exact "maint demangle bar__3fooFPiN51PdN37PcN211T1iN215" \
+      "foo::bar(int *, int *, int *, int *, int *, int *, double *, double *, double *, double *, char *, char *, char *, int *, int, int, int)"
 
 }
 

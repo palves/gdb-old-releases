@@ -1,19 +1,80 @@
-/* Written by Ian Dall
- *            5-Jun-94
- * HISTORY
- * 05-Jun-94  Ian Dall (idall@eleceng.adelaide.edu.au) at University of Adelaide
- *	This code was formerly in aout-pc532-mach.c. This organisations
- *	is intended to allow multiple format support more easilly.
- *
- */
+/* BFD back-end for ns32k a.out-ish binaries.
+   Copyright (C) 1990, 1991, 1992, 1994, 1995 Free Software Foundation, Inc.
+   Contributed by Ian Dall (idall@eleceng.adelaide.edu.au).
+
+This file is part of BFD, the Binary File Descriptor library.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define BYTES_IN_WORD 4
 
 #include "bfd.h"
 #include "aout/aout64.h"
-#include "aout-ns32k.h"
-#define MY(OP) MYNS(OP)
 
+#define MYNS(OP) CAT(ns32kaout_,OP)
+reloc_howto_type *
+MYNS(bfd_reloc_type_lookup)
+  PARAMS((bfd *abfd AND
+	  bfd_reloc_code_real_type code));
+
+boolean
+MYNS(write_object_contents)
+  PARAMS((bfd *abfd));
+
+/* Avoid multiple definitions from aoutx if supporting standard a.out format(s)
+ * as well as this one
+ */
+#define NAME(x,y) CAT3(ns32kaout,_32_,y)
+
+void bfd_ns32k_arch PARAMS ((void));
+long ns32k_get_displacement PARAMS ((bfd_byte *buffer, long offset, long size));
+int ns32k_put_displacement PARAMS ((long value, bfd_byte *buffer, long offset, long size));
+long ns32k_get_immediate PARAMS ((bfd_byte *buffer, long offset, long size));
+int ns32k_put_immediate  PARAMS ((long value, bfd_byte *buffer, long offset, long size));
+bfd_reloc_status_type
+  ns32k_reloc_disp PARAMS ((bfd *abfd, arelent *reloc_entry,
+		   struct symbol_cache_entry *symbol,
+		   PTR data,
+		   asection *input_section,
+		   bfd *output_bfd,
+		   char **error_message));
+bfd_reloc_status_type
+  ns32k_reloc_imm  PARAMS ((bfd *abfd,
+		   arelent *reloc_entry,
+		   struct symbol_cache_entry *symbol,
+		   PTR data,
+		   asection *input_section,
+		   bfd *output_bfd,
+		   char **error_message));
+bfd_reloc_status_type
+  ns32k_final_link_relocate  PARAMS ((reloc_howto_type *howto,
+			     bfd *input_bfd,
+			     asection *input_section,
+			     bfd_byte *contents,
+			     bfd_vma address,
+			     bfd_vma value,
+			     bfd_vma addend ));
+bfd_reloc_status_type
+  ns32k_relocate_contents  PARAMS ((reloc_howto_type *howto,
+			   bfd *input_bfd,
+			   bfd_vma relocation,
+			   bfd_byte *location));
+
+#include "libaout.h"
+
+#define MY(OP) MYNS(OP)
 
 #define MY_swap_std_reloc_in MY(swap_std_reloc_in)
 #define MY_swap_std_reloc_out MY(swap_std_reloc_out)
@@ -23,9 +84,8 @@ MY_swap_std_reloc_in PARAMS ((bfd *abfd, struct reloc_std_external *bytes,
 			      arelent *cache_ptr, asymbol **symbols));
 
 static void
-MY_swap_std_reloc_out PARAMS((bfd *abfd, arelent *g,
-			      struct reloc_std_external *natptr));
-
+MY_swap_std_reloc_out PARAMS ((bfd *abfd, arelent *g,
+			       struct reloc_std_external *natptr));
 
 /* The ns32k series is ah, unusual, when it comes to relocation.
  * There are three storage methods for relocateable objects.  There
@@ -58,74 +118,47 @@ MY_swap_std_reloc_out PARAMS((bfd *abfd, arelent *g,
  * methods which are standard are not encoded the standard way.
  *
  */
- 
-
-bfd_reloc_status_type
- ns32k_reloc_disp(bfd *abfd, arelent *reloc_entry,
-		  struct symbol_cache_entry *symbol,
-		  PTR data,
-		  asection *input_section,
-		  bfd *output_bfd,
-		  char **error_message);
-bfd_reloc_status_type
-  ns32k_reloc_imm (bfd *abfd,
-		   arelent *reloc_entry,
-		   struct symbol_cache_entry *symbol,
-		   PTR data,
-		   asection *input_section,
-		   bfd *output_bfd,
-		   char **error_message);
-bfd_reloc_status_type
-  ns32k_reloc_contents_disp (const reloc_howto_type *howto,
-		    bfd *input_bfd,
-		    bfd_vma relocation,
-		    bfd_byte *location);
-bfd_reloc_status_type
-  ns32k_reloc_contents_imm (const reloc_howto_type *howto,
-		    bfd *input_bfd,
-		    bfd_vma relocation,
-		    bfd_byte *location);
 
 reloc_howto_type MY(howto_table)[] = 
 {
 /* ns32k immediate operands */
-HOWTO2(BFD_RELOC_NS32K_IMM_8, 0, 0, 8, false, 0, true,
-       ns32k_reloc_imm, ns32k_reloc_contents_imm,"NS32K_IMM_8",
+HOWTO(BFD_RELOC_NS32K_IMM_8, 0, 0, 8, false, 0, true,
+       ns32k_reloc_imm, "NS32K_IMM_8",
        true, 0x000000ff,0x000000ff, false),
-HOWTO2(BFD_RELOC_NS32K_IMM_16, 0, 1, 16, false, 0, true,
-       ns32k_reloc_imm, ns32k_reloc_contents_imm, "NS32K_IMM_16",
+HOWTO(BFD_RELOC_NS32K_IMM_16, 0, 1, 16, false, 0, true,
+       ns32k_reloc_imm,  "NS32K_IMM_16",
        true, 0x0000ffff,0x0000ffff, false),
-HOWTO2(BFD_RELOC_NS32K_IMM_32, 0, 2, 32, false, 0, true,
-       ns32k_reloc_imm, ns32k_reloc_contents_imm,"NS32K_IMM_32",
+HOWTO(BFD_RELOC_NS32K_IMM_32, 0, 2, 32, false, 0, true,
+       ns32k_reloc_imm, "NS32K_IMM_32",
        true, 0xffffffff,0xffffffff, false),
-HOWTO2(BFD_RELOC_NS32K_IMM_8_PCREL, 0, 0, 8, true, 0, false,
-       ns32k_reloc_imm, ns32k_reloc_contents_imm,"PCREL_NS32K_IMM_8",
+HOWTO(BFD_RELOC_NS32K_IMM_8_PCREL, 0, 0, 8, true, 0, false,
+       ns32k_reloc_imm, "PCREL_NS32K_IMM_8",
        true, 0x000000ff, 0x000000ff, false),
-HOWTO2(BFD_RELOC_NS32K_IMM_16_PCREL, 0, 1, 16, true, 0, false,
-       ns32k_reloc_imm, ns32k_reloc_contents_imm,"PCREL_NS32K_IMM_16",
+HOWTO(BFD_RELOC_NS32K_IMM_16_PCREL, 0, 1, 16, true, 0, false,
+       ns32k_reloc_imm, "PCREL_NS32K_IMM_16",
        true, 0x0000ffff,0x0000ffff, false),
-HOWTO2(BFD_RELOC_NS32K_IMM_32_PCREL, 0, 2, 32, true, 0, false,
-       ns32k_reloc_imm, ns32k_reloc_contents_imm,"PCREL_NS32K_IMM_32",
+HOWTO(BFD_RELOC_NS32K_IMM_32_PCREL, 0, 2, 32, true, 0, false,
+       ns32k_reloc_imm, "PCREL_NS32K_IMM_32",
        true, 0xffffffff,0xffffffff, false),
 
 /* ns32k displacements */
-HOWTO2(BFD_RELOC_NS32K_DISP_8, 0, 0, 8, false, 0, true,
-       ns32k_reloc_disp, ns32k_reloc_contents_disp,"NS32K_DISP_8",
+HOWTO(BFD_RELOC_NS32K_DISP_8, 0, 0, 8, false, 0, true,
+       ns32k_reloc_disp, "NS32K_DISP_8",
        true, 0x000000ff,0x000000ff, false),
-HOWTO2(BFD_RELOC_NS32K_DISP_16, 0, 1, 16, false, 0, true,
-       ns32k_reloc_disp, ns32k_reloc_contents_disp,"NS32K_DISP_16",
+HOWTO(BFD_RELOC_NS32K_DISP_16, 0, 1, 16, false, 0, true,
+       ns32k_reloc_disp, "NS32K_DISP_16",
        true, 0x0000ffff, 0x0000ffff, false),
-HOWTO2(BFD_RELOC_NS32K_DISP_32, 0, 2, 32, false, 0, true,
-       ns32k_reloc_disp, ns32k_reloc_contents_disp,"NS32K_DISP_32",
+HOWTO(BFD_RELOC_NS32K_DISP_32, 0, 2, 32, false, 0, true,
+       ns32k_reloc_disp, "NS32K_DISP_32",
        true, 0xffffffff, 0xffffffff, false),
-HOWTO2(BFD_RELOC_NS32K_DISP_8_PCREL, 0, 0, 8, true, 0, false,
-       ns32k_reloc_disp, ns32k_reloc_contents_disp,"PCREL_NS32K_DISP_8",
+HOWTO(BFD_RELOC_NS32K_DISP_8_PCREL, 0, 0, 8, true, 0, false,
+       ns32k_reloc_disp, "PCREL_NS32K_DISP_8",
        true, 0x000000ff,0x000000ff, false),
-HOWTO2(BFD_RELOC_NS32K_DISP_16_PCREL, 0, 1, 16, true, 0, false,
-       ns32k_reloc_disp, ns32k_reloc_contents_disp,"PCREL_NS32K_DISP_16",
+HOWTO(BFD_RELOC_NS32K_DISP_16_PCREL, 0, 1, 16, true, 0, false,
+       ns32k_reloc_disp, "PCREL_NS32K_DISP_16",
        true, 0x0000ffff,0x0000ffff, false),
-HOWTO2(BFD_RELOC_NS32K_DISP_32_PCREL, 0, 2, 32, true, 0, false,
-       ns32k_reloc_disp, ns32k_reloc_contents_disp,"PCREL_NS32K_DISP_32",
+HOWTO(BFD_RELOC_NS32K_DISP_32_PCREL, 0, 2, 32, true, 0, false,
+       ns32k_reloc_disp, "PCREL_NS32K_DISP_32",
        true, 0xffffffff,0xffffffff, false),
 
 /* Normal 2's complement */
@@ -143,55 +176,83 @@ HOWTO(BFD_RELOC_32_PCREL, 0, 2, 32, true, 0, complain_overflow_signed, 0,
       "PCREL_32", true, 0xffffffff,0xffffffff, false),
 };
 
-#define MY_reloc_howto(BFD,REL,IN,EX,PC) ({ \
-  unsigned int r_length; \
-  int r_ns32k_type; \
-  BFD_ASSERT((BFD)->xvec->header_byteorder_big_p == false); \
-  IN =  ((REL)->r_index[2] << 16) \
-    | ((REL)->r_index[1] << 8) \
-      |  (REL)->r_index[0]; \
-  EX  = (0 != ((REL)->r_type[0] & RELOC_STD_BITS_EXTERN_LITTLE)); \
-  PC   = (0 != ((REL)->r_type[0] & RELOC_STD_BITS_PCREL_LITTLE)); \
-  r_length  =       ((REL)->r_type[0] & RELOC_STD_BITS_LENGTH_LITTLE) \
-    >> RELOC_STD_BITS_LENGTH_SH_LITTLE; \
-  r_ns32k_type  =    ((REL)->r_type[0] & RELOC_STD_BITS_NS32K_TYPE_LITTLE) \
-    >> RELOC_STD_BITS_NS32K_TYPE_SH_LITTLE; \
-  MY(howto_table) + r_length + 3 * (PC) + 6 * r_ns32k_type;})
-
-#define MY_put_reloc(BFD, EXT, IDX, VAL, HOWTO, RELOC) {  \
-  unsigned int r_length; \
-  int r_pcrel; \
-  int r_ns32k_type; \
-  PUT_WORD ((BFD), (VAL), (RELOC)->r_address); \
-  r_length = (HOWTO)->size ;	/* Size as a power of two */ \
-  r_pcrel  = (int) (HOWTO)->pc_relative; /* Relative to PC? */ \
-  r_ns32k_type = ((HOWTO) - MY(howto_table) )/6; \
-  BFD_ASSERT ((BFD)->xvec->header_byteorder_big_p == false); \
-  (RELOC)->r_index[2] = (IDX) >> 16; \
-  (RELOC)->r_index[1] = (IDX) >> 8; \
-  (RELOC)->r_index[0] = (IDX); \
-  (RELOC)->r_type[0] = \
-    ((EXT)?    RELOC_STD_BITS_EXTERN_LITTLE: 0) \
-      | (r_pcrel?     RELOC_STD_BITS_PCREL_LITTLE: 0) \
-	| (r_length <<  RELOC_STD_BITS_LENGTH_SH_LITTLE) \
-	  | (r_ns32k_type <<  RELOC_STD_BITS_NS32K_TYPE_SH_LITTLE);}
-
-
 #define RELOC_STD_BITS_NS32K_TYPE_BIG 0x06
 #define RELOC_STD_BITS_NS32K_TYPE_LITTLE 0x60
 #define RELOC_STD_BITS_NS32K_TYPE_SH_BIG 1
 #define RELOC_STD_BITS_NS32K_TYPE_SH_LITTLE 5
 
+reloc_howto_type *
+MY(reloc_howto)(abfd, rel, r_index, r_extern, r_pcrel)
+     bfd *abfd;
+     struct reloc_std_external *rel;
+     int *r_index;
+     int *r_extern;
+     int *r_pcrel;
+{
+  unsigned int r_length;
+  int r_ns32k_type;
+/*  BFD_ASSERT(abfd->xvec->header_byteorder_big_p == false); */
+  *r_index =  ((rel->r_index[2] << 16)
+	       | (rel->r_index[1] << 8)
+	       |  rel->r_index[0] );
+  *r_extern  = (0 != (rel->r_type[0] & RELOC_STD_BITS_EXTERN_LITTLE));
+  *r_pcrel   = (0 != (rel->r_type[0] & RELOC_STD_BITS_PCREL_LITTLE));
+  r_length  =  ((rel->r_type[0] & RELOC_STD_BITS_LENGTH_LITTLE)
+		>> RELOC_STD_BITS_LENGTH_SH_LITTLE);
+  r_ns32k_type  =  ((rel->r_type[0] & RELOC_STD_BITS_NS32K_TYPE_LITTLE)
+		    >> RELOC_STD_BITS_NS32K_TYPE_SH_LITTLE);
+  return (MY(howto_table) + r_length + 3 * (*r_pcrel) + 6 * r_ns32k_type);
+}
+
+#define MY_reloc_howto(BFD,REL,IN,EX,PC) MY(reloc_howto)(BFD, REL, &IN, &EX, &PC)
+
+void
+MY(put_reloc)(abfd, r_extern, r_index, value, howto, reloc)
+     bfd *abfd;
+     int r_extern;
+     int r_index;
+     long value;
+     reloc_howto_type *howto;
+     struct reloc_std_external *reloc;
+{
+  unsigned int r_length;
+  int r_pcrel;
+  int r_ns32k_type;
+  PUT_WORD (abfd, value, reloc->r_address);
+  r_length = howto->size ;	/* Size as a power of two */
+  r_pcrel  = (int) howto->pc_relative; /* Relative to PC? */
+  r_ns32k_type = (howto - MY(howto_table) )/6;
+/*  BFD_ASSERT (abfd->xvec->header_byteorder_big_p == false); */
+  reloc->r_index[2] = r_index >> 16;
+  reloc->r_index[1] = r_index >> 8;
+  reloc->r_index[0] = r_index;
+  reloc->r_type[0] =
+    (r_extern?    RELOC_STD_BITS_EXTERN_LITTLE: 0)
+      | (r_pcrel?     RELOC_STD_BITS_PCREL_LITTLE: 0)
+	| (r_length <<  RELOC_STD_BITS_LENGTH_SH_LITTLE)
+	  | (r_ns32k_type <<  RELOC_STD_BITS_NS32K_TYPE_SH_LITTLE);
+}
+
+#define MY_put_reloc(BFD, EXT, IDX, VAL, HOWTO, RELOC) \
+  MY(put_reloc)(BFD, EXT, IDX, VAL, HOWTO, RELOC)
+
 #define STAT_FOR_EXEC
+
+#define MY_final_link_relocate ns32k_final_link_relocate
+#define MY_relocate_contents ns32k_relocate_contents
+
 #include <aoutx.h>
 
-CONST struct reloc_howto_struct *
-DEFUN(MY(bfd_reloc_type_lookup),(abfd,code),
-      bfd *abfd AND
-      bfd_reloc_code_real_type code)
+reloc_howto_type *
+  MY(bfd_reloc_type_lookup)(abfd,code)
+      bfd *abfd;
+      bfd_reloc_code_real_type code;
 {
+
 #define ENTRY(i,j)	case i: return &MY(howto_table)[j]
+
   int ext = obj_reloc_entry_size (abfd) == RELOC_EXT_SIZE;
+
   BFD_ASSERT(ext == 0);
   if (code == BFD_RELOC_CTOR)
     switch (bfd_get_arch_info (abfd)->bits_per_address)
@@ -220,18 +281,18 @@ DEFUN(MY(bfd_reloc_type_lookup),(abfd,code),
       ENTRY(BFD_RELOC_8_PCREL, 15);
       ENTRY(BFD_RELOC_16_PCREL, 16);
       ENTRY(BFD_RELOC_32_PCREL, 17);
-    default: return (CONST struct reloc_howto_struct *) 0;
+    default: return (reloc_howto_type *) NULL;
     }
 #undef ENTRY
 }
 
 
 static void
-DEFUN(MY_swap_std_reloc_in, (abfd, bytes, cache_ptr, symbols),
-  bfd *abfd AND
-  struct reloc_std_external *bytes AND
-  arelent *cache_ptr AND
-  asymbol **symbols)
+MY_swap_std_reloc_in (abfd, bytes, cache_ptr, symbols)
+     bfd *abfd;
+     struct reloc_std_external *bytes;
+     arelent *cache_ptr;
+     asymbol **symbols;
 {
   int r_index;
   int r_extern;
@@ -249,12 +310,11 @@ DEFUN(MY_swap_std_reloc_in, (abfd, bytes, cache_ptr, symbols),
   MOVE_ADDRESS(0);
 }
 
-
 static void
-DEFUN(MY_swap_std_reloc_out,(abfd, g, natptr),
-      bfd *abfd AND
-      arelent *g AND
-      struct reloc_std_external *natptr)
+MY_swap_std_reloc_out (abfd, g, natptr)
+     bfd *abfd;
+     arelent *g;
+     struct reloc_std_external *natptr;
 {
   int r_index;
   asymbol *sym = *(g->sym_ptr_ptr);
@@ -265,7 +325,6 @@ DEFUN(MY_swap_std_reloc_out,(abfd, g, natptr),
   unsigned int r_addend;
   asection *output_section = sym->section->output_section;
 
-
   r_addend = g->addend + (*(g->sym_ptr_ptr))->section->output_section->vma;
     
   /* name was clobbered by aout_write_syms to be symbol index */
@@ -275,29 +334,27 @@ DEFUN(MY_swap_std_reloc_out,(abfd, g, natptr),
 
      Absolute symbols can come in in two ways, either as an offset
      from the abs section, or as a symbol which has an abs value.
-     check for that here
-     */
-     
+     Check for that here.  */
 
   if (bfd_is_com_section (output_section)
       || output_section == &bfd_abs_section
       || output_section == &bfd_und_section) 
     {
       if (bfd_abs_section.symbol == sym)
-      {
-	/* Whoops, looked like an abs symbol, but is really an offset
-	   from the abs section */
-	r_index = 0;
-	r_extern = 0;
-       }
+	{
+	  /* Whoops, looked like an abs symbol, but is really an offset
+	     from the abs section */
+	  r_index = 0;
+	  r_extern = 0;
+	}
       else 
-      {
-	/* Fill in symbol */
-	r_extern = 1;
+	{
+	  /* Fill in symbol */
+	  r_extern = 1;
 #define KEEPIT flags
-	r_index =  stoi((*(g->sym_ptr_ptr))->KEEPIT);
+	  r_index =  stoi((*(g->sym_ptr_ptr))->KEEPIT);
 #undef KEEPIT     
-      }
+	}
     }
   else 
     {
@@ -306,5 +363,36 @@ DEFUN(MY_swap_std_reloc_out,(abfd, g, natptr),
       r_index  = output_section->target_index;      
     }
 
-  MY_put_reloc(abfd, r_extern, r_index, g->address, g->howto, natptr);
+  MY_put_reloc (abfd, r_extern, r_index, g->address, g->howto, natptr);
+}
+
+bfd_reloc_status_type
+ns32k_relocate_contents (howto, input_bfd, relocation, location)
+     reloc_howto_type *howto;
+     bfd *input_bfd;
+     bfd_vma relocation;
+     bfd_byte *location;
+{
+  int r_ns32k_type = (howto - MY(howto_table)) / 6;
+  long (*get_data)();
+  int (*put_data)();
+
+  switch (r_ns32k_type)
+    {
+    case 0:
+      get_data = ns32k_get_immediate;
+      put_data = ns32k_put_immediate;
+      break;
+    case 1:
+      get_data = ns32k_get_displacement;
+      put_data = ns32k_put_displacement;
+      break;
+    case 2:
+      return _bfd_relocate_contents (howto, input_bfd, relocation,
+				    location);
+      /* NOT REACHED */
+      break;
+    }
+  return do_ns32k_reloc_contents (howto, input_bfd, relocation,
+				 location, get_data, put_data);
 }

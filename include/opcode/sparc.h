@@ -137,9 +137,10 @@ Kinds of operands:
 	!	Privileged Register in rd (v9)
 	?	Privileged Register in rs1 (v9)
 	*	Prefetch function constant. (v9)
+	x	OPF field (v9 impdep).
 
 The following chars are unused: (note: ,[] are used as punctuation)
-[uxOUXY3450]
+[uOUXY3450]
 
 */
 

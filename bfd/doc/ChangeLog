@@ -1,3 +1,42 @@
+Tue Nov 29 16:13:34 1994  Doug Evans  <dje@canuck.cygnus.com>
+
+	* chew.c (write_buffer): New argument `f', all callers changed.
+	(stdout, stderr, print, drop, idrop): New forth words.
+	* proto.str (COMMENT): New command.
+	* doc.str (COMMENT): Likewise.
+
+Mon Sep 12 11:44:17 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* Makefile.in (DOCFILES): Remove ctor.texi.
+	(IPROTOS): Remove ctor.ip.
+	(SRCIPROT): Remove $(srcdir)/../ctor.c.
+	(ctor.texi): Remove target.
+	(libbfd.h): Remove dependency on $(srcdir)/../ctor.c.  Remove
+	$(MKDOC) run on $(srcdir)/../ctor.c.
+	* bfd.texinfo (Constructors): Remove section.
+
+Fri Sep  2 13:33:44 1994  Ken Raeburn  (raeburn@cujo.cygnus.com)
+
+	* chew.c: Include assert.h.  Added prototypes for most functions.
+	Changed most uses of int to long.  Do bounds checking on the
+	stacks.  Added comment at the beginning documenting most of the
+	intrinsics.  Lots of whitespace changes.  Re-ordered some
+	functions.
+	(die, check_range, icheck_range): New functions.
+	(strip_trailing_newlines, print_stack_level): New functions.
+	(translatecomments): Don't insert tab before "/*".
+	(iscommand): Minimum command length is now 4.
+	(nextword): Handle some \-sequences.
+	(push_addr): Deleted.
+	(main): Add new intrinsics strip_trailing_newlines and
+	print_stack_level.  Complain at end if stack contains more than
+	one element, or less.
+	(remchar): Make sure the string is not empty before chopping off a
+	character.
+
+	* doc.str, proto.str: Handle new commands SENUM, ENUM, ENUMX,
+	ENUMEQ, ENUMEQX, ENUMDOC.
+
 Wed Jan 12 18:37:12 1994  Ian Lance Taylor  (ian@tweedledumb.cygnus.com)
 
 	* bfd.texinfo: Added Linker Functions node.

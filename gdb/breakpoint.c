@@ -1,5 +1,5 @@
 /* Everything about breakpoints, for GDB.
-   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1989, 1990, 1991, 1992, 1993, 1994, 1995
              Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -59,13 +59,7 @@ static void
 disable_command PARAMS ((char *, int));
 
 static void
-disable_breakpoint PARAMS ((struct breakpoint *));
-
-static void
 enable_command PARAMS ((char *, int));
-
-static void
-enable_breakpoint PARAMS ((struct breakpoint *));
 
 static void
 map_breakpoint_numbers PARAMS ((char *,	void (*)(struct breakpoint *)));
@@ -180,7 +174,7 @@ int show_breakpoint_hit_counts = 1;
 
 /* Chain of all breakpoints defined.  */
 
-static struct breakpoint *breakpoint_chain;
+struct breakpoint *breakpoint_chain;
 
 /* Number of last breakpoint made.  */
 
@@ -320,6 +314,7 @@ condition_command (arg, from_tty)
 	    if (*arg)
 	      error ("Junk at end of expression");
 	  }
+	breakpoints_changed ();
 	return;
       }
 
@@ -526,7 +521,7 @@ insert_breakpoints ()
 	     && ! b->inserted
 	     && ! b->duplicate)
       {
-	FRAME saved_frame;
+	struct frame_info *saved_frame;
 	int saved_level, within_current_scope;
 	value_ptr mark = value_mark ();
 	value_ptr v;
@@ -541,10 +536,11 @@ insert_breakpoints ()
 	  within_current_scope = 1;
 	else
 	  {
-	    FRAME fr = find_frame_addr_in_frame_chain (b->watchpoint_frame);
-	    within_current_scope = (fr != NULL);
+	    struct frame_info *fi =
+	      find_frame_addr_in_frame_chain (b->watchpoint_frame);
+	    within_current_scope = (fi != NULL);
 	    if (within_current_scope)
-	      select_frame (fr, -1);
+	      select_frame (fi, -1);
 	  }
 	
 	if (within_current_scope)
@@ -753,7 +749,7 @@ breakpoint_here_p (pc)
 
 int
 frame_in_dummy (frame)
-     FRAME frame;
+     struct frame_info *frame;
 {
   struct breakpoint *b;
 
@@ -945,9 +941,9 @@ top:
     {
       while (bs->commands)
 	{
-	  char *line = bs->commands->line;
+	  struct command_line *cmd = bs->commands;
 	  bs->commands = bs->commands->next;
-	  execute_command (line, 0);
+	  execute_control_command (cmd);
 	  /* If the inferior is proceeded by the command, bomb out now.
 	     The bpstat chain has been blown away by wait_for_inferior.
 	     But since execution has stopped again, there is a new bpstat
@@ -1100,13 +1096,8 @@ watchpoint_check (p)
 {
   bpstat bs = (bpstat) p;
   struct breakpoint *b;
-  FRAME saved_frame, fr;
+  struct frame_info *saved_frame, *fr;
   int within_current_scope, saved_level;
-
-  /* Save the current frame and level so we can restore it after
-     evaluating the watchpoint expression on its own frame.  */
-  saved_frame = selected_frame;
-  saved_level = selected_frame_level;
 
   b = bs->breakpoint_at;
 
@@ -1114,6 +1105,10 @@ watchpoint_check (p)
     within_current_scope = 1;
   else
     {
+      /* There is no current frame at this moment.  If we're going to have
+	 any chance of handling watchpoints on local variables, we'll need
+	 the frame chain (so we can determine if we're in scope).  */
+      reinit_frame_cache();
       fr = find_frame_addr_in_frame_chain (b->watchpoint_frame);
       within_current_scope = (fr != NULL);
       if (within_current_scope)
@@ -1139,7 +1134,6 @@ watchpoint_check (p)
 	  bs->old_val = b->val;
 	  b->val = new_val;
 	  /* We will stop here */
-	  select_frame (saved_frame, saved_level);
 	  return WP_VALUE_CHANGED;
 	}
       else
@@ -1147,7 +1141,6 @@ watchpoint_check (p)
 	  /* Nothing changed, don't do anything.  */
 	  value_free_to_mark (mark);
 	  /* We won't stop here */
-	  select_frame (saved_frame, saved_level);
 	  return WP_VALUE_NOT_CHANGED;
 	}
     }
@@ -1168,7 +1161,6 @@ which its expression is valid.\n", bs->breakpoint_at->number);
 	delete_breakpoint (b->related_breakpoint);
       delete_breakpoint (b);
 
-      select_frame (saved_frame, saved_level);
       return WP_DELETED;
     }
 }
@@ -1192,7 +1184,7 @@ print_it_noop (bs)
 }
 
 /* Get a bpstat associated with having just stopped at address *PC
-   and frame address FRAME_ADDRESS.  Update *PC to point at the
+   and frame address CORE_ADDRESS.  Update *PC to point at the
    breakpoint (if we hit a breakpoint).  NOT_A_BREAKPOINT is nonzero
    if this is known to not be a real breakpoint (it could still be a
    watchpoint, though).  */
@@ -1214,9 +1206,8 @@ print_it_noop (bs)
  */
 
 bpstat
-bpstat_stop_status (pc, frame_address, not_a_breakpoint)
+bpstat_stop_status (pc, not_a_breakpoint)
      CORE_ADDR *pc;
-     FRAME_ADDR frame_address;
      int not_a_breakpoint;
 {
   register struct breakpoint *b;
@@ -1226,7 +1217,7 @@ bpstat_stop_status (pc, frame_address, not_a_breakpoint)
   int real_breakpoint = 0;
 #endif
   /* Root of the chain of bpstat's */
-  struct bpstat root_bs[1];
+  struct bpstats root_bs[1];
   /* Pointer to the last thing in the chain currently.  */
   bpstat bs = root_bs;
   static char message1[] =
@@ -1357,7 +1348,7 @@ bpstat_stop_status (pc, frame_address, not_a_breakpoint)
 	real_breakpoint = 1;
 #endif
 
-      if (b->frame && b->frame != frame_address)
+      if (b->frame && b->frame != (get_current_frame ())->frame)
 	bs->stop = 0;
       else
 	{
@@ -1779,8 +1770,8 @@ breakpoint_1 (bnum, allflag)
 	  {
 	    /* FIXME should make an annotation for this */
 
-	    printf_filtered ("\tbreakpoint already hit %d times\n",
-			     b->hit_count);
+	    printf_filtered ("\tbreakpoint already hit %d time%s\n",
+			     b->hit_count, (b->hit_count == 1 ? "" : "s"));
 	  }
 
 	if (b->ignore_count)
@@ -1796,9 +1787,7 @@ breakpoint_1 (bnum, allflag)
 
 	    while (l)
 	      {
-		fputs_filtered ("\t", gdb_stdout);
-		fputs_filtered (l->line, gdb_stdout);
-		fputs_filtered ("\n", gdb_stdout);
+		print_command_line (l, 4);
 		l = l->next;
 	      }
 	  }
@@ -1945,6 +1934,8 @@ set_raw_breakpoint (sal)
   else
     b->source_file = savestring (sal.symtab->filename,
 				 strlen (sal.symtab->filename));
+  b->language = current_language->la_language;
+  b->input_radix = input_radix;
   b->thread = -1;
   b->line_number = sal.line;
   b->enable = enabled;
@@ -1986,7 +1977,7 @@ create_longjmp_breakpoint(func_name)
     {
       struct minimal_symbol *m;
 
-      m = lookup_minimal_symbol(func_name, (struct objfile *)NULL);
+      m = lookup_minimal_symbol (func_name, NULL, (struct objfile *)NULL);
       if (m)
 	sal.pc = SYMBOL_VALUE_ADDRESS (m);
       else
@@ -2090,7 +2081,7 @@ hw_watchpoint_used_count(type, other_type_used)
 void
 set_longjmp_resume_breakpoint(pc, frame)
      CORE_ADDR pc;
-     FRAME frame;
+     struct frame_info *frame;
 {
   register struct breakpoint *b;
 
@@ -2100,7 +2091,7 @@ set_longjmp_resume_breakpoint(pc, frame)
 	b->address = pc;
 	b->enable = enabled;
 	if (frame != NULL)
-	  b->frame = FRAME_FP(frame);
+	  b->frame = frame->frame;
 	else
 	  b->frame = 0;
 	check_duplicates (b->address);
@@ -2115,7 +2106,7 @@ set_longjmp_resume_breakpoint(pc, frame)
 struct breakpoint *
 set_momentary_breakpoint (sal, frame, type)
      struct symtab_and_line sal;
-     FRAME frame;
+     struct frame_info *frame;
      enum bptype type;
 {
   register struct breakpoint *b;
@@ -2123,7 +2114,7 @@ set_momentary_breakpoint (sal, frame, type)
   b->type = type;
   b->enable = enabled;
   b->disposition = donttouch;
-  b->frame = (frame ? FRAME_FP (frame) : 0);
+  b->frame = (frame ? frame->frame : 0);
   return b;
 }
 
@@ -2148,6 +2139,14 @@ mention (b)
      struct breakpoint *b;
 {
   int say_where = 0;
+
+  /* FIXME: This is misplaced; mention() is called by things (like hitting a
+     watchpoint) other than breakpoint creation.  It should be possible to
+     clean this up and at the same time replace the random calls to
+     breakpoint_changed with this hook, as has already been done for
+     delete_breakpoint_hook and so on.  */
+  if (create_breakpoint_hook)
+    create_breakpoint_hook (b);
 
   switch (b->type)
     {
@@ -2417,7 +2416,7 @@ break_command_1 (arg, flag, from_tty)
 	b->cond_string = savestring (cond_start, cond_end - cond_start);
 				     
       b->enable = enabled;
-      b->disposition = tempflag ? delete : donttouch;
+      b->disposition = tempflag ? del : donttouch;
 
       mention (b);
     }
@@ -2496,7 +2495,7 @@ watch_command_1 (arg, accessflag, from_tty)
   struct expression *exp;
   struct block *exp_valid_block;
   struct value *val, *mark;
-  FRAME frame, prev_frame;
+  struct frame_info *frame, *prev_frame;
   char *exp_start = NULL;
   char *exp_end = NULL;
   char *tok, *end_tok;
@@ -2578,7 +2577,7 @@ watch_command_1 (arg, accessflag, from_tty)
   if (frame)
     {
       prev_frame = get_prev_frame (frame);
-      b->watchpoint_frame = FRAME_FP (frame);
+      b->watchpoint_frame = frame->frame;
     }
   else
     b->watchpoint_frame = (CORE_ADDR)0;
@@ -2610,7 +2609,7 @@ watch_command_1 (arg, accessflag, from_tty)
 	  scope_breakpoint->enable = enabled;
 
 	  /* Automatically delete the breakpoint when it hits.  */
-	  scope_breakpoint->disposition = delete;
+	  scope_breakpoint->disposition = del;
 
 	  /* Only break in the proper frame (help with recursion).  */
 	  scope_breakpoint->frame = prev_frame->frame;
@@ -2679,10 +2678,9 @@ static void awatch_command (arg, from_tty)
 }
 
 
-/*
- * Helper routine for the until_command routine in infcmd.c.  Here
- * because it uses the mechanisms of breakpoints.
- */
+/* Helper routine for the until_command routine in infcmd.c.  Here
+   because it uses the mechanisms of breakpoints.  */
+
 /* ARGSUSED */
 void
 until_break_command (arg, from_tty)
@@ -2691,7 +2689,7 @@ until_break_command (arg, from_tty)
 {
   struct symtabs_and_lines sals;
   struct symtab_and_line sal;
-  FRAME prev_frame = get_prev_frame (selected_frame);
+  struct frame_info *prev_frame = get_prev_frame (selected_frame);
   struct breakpoint *breakpoint;
   struct cleanup *old_chain;
 
@@ -2725,11 +2723,8 @@ until_break_command (arg, from_tty)
   
   if (prev_frame)
     {
-      struct frame_info *fi;
-      
-      fi = get_frame_info (prev_frame);
-      sal = find_pc_line (fi->pc, 0);
-      sal.pc = fi->pc;
+      sal = find_pc_line (prev_frame->pc, 0);
+      sal.pc = prev_frame->pc;
       breakpoint = set_momentary_breakpoint (sal, prev_frame, bp_until);
       make_cleanup(delete_breakpoint, breakpoint);
     }
@@ -2840,7 +2835,6 @@ get_catch_sals (this_level_only)
   register struct blockvector *bl;
   register struct block *block;
   int index, have_default = 0;
-  struct frame_info *fi;
   CORE_ADDR pc;
   struct symtabs_and_lines sals;
   struct sal_chain *sal_chain = 0;
@@ -2851,8 +2845,7 @@ get_catch_sals (this_level_only)
   if (selected_frame == NULL)
     error ("No selected frame.");
   block = get_frame_block (selected_frame);
-  fi = get_frame_info (selected_frame);
-  pc = fi->pc;
+  pc = selected_frame->pc;
 
   sals.nelts = 0;
   sals.sals = NULL;
@@ -3020,7 +3013,7 @@ catch_command_1 (arg, tempflag, from_tty)
       b->type = bp_breakpoint;
       b->cond = cond;
       b->enable = enabled;
-      b->disposition = tempflag ? delete : donttouch;
+      b->disposition = tempflag ? del : donttouch;
 
       mention (b);
     }
@@ -3031,6 +3024,22 @@ catch_command_1 (arg, tempflag, from_tty)
       printf_unfiltered ("Use the \"delete\" command to delete unwanted breakpoints.\n");
     }
   free ((PTR)sals.sals);
+}
+
+/* Used by the gui, could be made a worker for other things. */
+
+struct breakpoint *
+set_breakpoint_sal (sal)
+struct symtab_and_line sal;
+{
+  struct breakpoint *b;
+  b = set_raw_breakpoint (sal);
+  set_breakpoint_count (breakpoint_count + 1);
+  b->number = breakpoint_count;
+  b->type = bp_breakpoint;
+  b->cond = 0;
+  b->thread = -1;
+  return b;
 }
 
 #if 0
@@ -3167,7 +3176,7 @@ breakpoint_auto_delete (bs)
      bpstat bs;
 {
   for (; bs; bs = bs->next)
-    if (bs->breakpoint_at && bs->breakpoint_at->disposition == delete
+    if (bs->breakpoint_at && bs->breakpoint_at->disposition == del 
 	&& bs->stop)
       delete_breakpoint (bs->breakpoint_at);
 }
@@ -3180,6 +3189,9 @@ delete_breakpoint (bpt)
 {
   register struct breakpoint *b;
   register bpstat bs;
+
+  if (delete_breakpoint_hook)
+    delete_breakpoint_hook (bpt);
 
   if (bpt->inserted)
     remove_breakpoint (bpt);
@@ -3231,8 +3243,6 @@ delete_breakpoint (bpt)
     free (bpt->exp_string);
   if (bpt->source_file != NULL)
     free (bpt->source_file);
-
-  breakpoints_changed ();
 
   /* Be sure no bpstat's are pointing at it after it's been freed.  */
   /* FIXME, how can we find all bpstat's?
@@ -3294,6 +3304,8 @@ breakpoint_re_set_one (bint)
       save_enable = b->enable;
       b->enable = disabled;
 
+      set_language (b->language);
+      input_radix = b->input_radix;
       s = b->addr_string;
       sals = decode_line_1 (&s, 1, (struct symtab *)NULL, 0, (char ***)NULL);
       for (i = 0; i < sals.nelts; i++)
@@ -3400,15 +3412,21 @@ void
 breakpoint_re_set ()
 {
   struct breakpoint *b, *temp;
+  enum language save_language;
+  int save_input_radix;
   static char message1[] = "Error in re-setting breakpoint %d:\n";
   char message[sizeof (message1) + 30 /* slop */];
   
+  save_language = current_language->la_language;
+  save_input_radix = input_radix;
   ALL_BREAKPOINTS_SAFE (b, temp)
     {
       sprintf (message, message1, b->number);	/* Format possible error msg */
       catch_errors (breakpoint_re_set_one, (char *) b, message,
 		    RETURN_MASK_ALL);
     }
+  set_language (save_language);
+  input_radix = save_input_radix;
 
   create_longjmp_breakpoint("longjmp");
   create_longjmp_breakpoint("_longjmp");
@@ -3530,15 +3548,18 @@ map_breakpoint_numbers (args, function)
     }
 }
 
-static void
+void
 enable_breakpoint (bpt)
      struct breakpoint *bpt;
 {
-  FRAME save_selected_frame = NULL;
+  struct frame_info *save_selected_frame = NULL;
   int save_selected_frame_level = -1;
   int target_resources_ok, other_type_used;
   struct value *mark;
   
+  if (enable_breakpoint_hook)
+    enable_breakpoint_hook (bpt);
+
   if (bpt->type == bp_hardware_breakpoint)
     {
       int i;
@@ -3551,7 +3572,6 @@ enable_breakpoint (bpt)
         error ("Hardware breakpoints used exceeds limit.");
     }
   bpt->enable = enabled;
-  breakpoints_changed ();
   check_duplicates (bpt->address);
 
   if (bpt->type == bp_watchpoint || bpt->type == bp_hardware_watchpoint ||
@@ -3559,7 +3579,8 @@ enable_breakpoint (bpt)
     {
       if (bpt->exp_valid_block != NULL)
 	{
-	  FRAME fr = find_frame_addr_in_frame_chain (bpt->watchpoint_frame);
+	  struct frame_info *fr =
+	    find_frame_addr_in_frame_chain (bpt->watchpoint_frame);
 	  if (fr == NULL)
 	    {
 	      printf_filtered ("\
@@ -3634,7 +3655,7 @@ enable_command (args, from_tty)
     map_breakpoint_numbers (args, enable_breakpoint);
 }
 
-static void
+void
 disable_breakpoint (bpt)
      struct breakpoint *bpt;
 {
@@ -3644,9 +3665,10 @@ disable_breakpoint (bpt)
   if (bpt->type == bp_watchpoint_scope)
     return;
 
-  bpt->enable = disabled;
+  if (disable_breakpoint_hook)
+    disable_breakpoint_hook (bpt);
 
-  breakpoints_changed ();
+  bpt->enable = disabled;
 
   check_duplicates (bpt->address);
 }
@@ -3680,7 +3702,7 @@ static void
 enable_once_breakpoint (bpt)
      struct breakpoint *bpt;
 {
-  FRAME save_selected_frame = NULL;
+  struct frame_info *save_selected_frame = NULL;
   int save_selected_frame_level = -1;
   int target_resources_ok, other_type_used;
   struct value *mark;
@@ -3707,7 +3729,8 @@ enable_once_breakpoint (bpt)
     {
       if (bpt->exp_valid_block != NULL)
 	{
-	  FRAME fr = find_frame_addr_in_frame_chain (bpt->watchpoint_frame);
+	  struct frame_info *fr =
+	    find_frame_addr_in_frame_chain (bpt->watchpoint_frame);
 	  if (fr == NULL)
 	    {
 	      printf_filtered ("\
@@ -3769,7 +3792,7 @@ enable_delete_breakpoint (bpt)
      struct breakpoint *bpt;
 {
   bpt->enable = enabled;
-  bpt->disposition = delete;
+  bpt->disposition = del;
 
   check_duplicates (bpt->address);
   breakpoints_changed ();
@@ -3784,9 +3807,8 @@ enable_delete_command (args, from_tty)
   map_breakpoint_numbers (args, enable_delete_breakpoint);
 }
 
-/*
- * Use default_breakpoint_'s, or nothing if they aren't valid.
- */
+/* Use default_breakpoint_'s, or nothing if they aren't valid.  */
+
 struct symtabs_and_lines
 decode_line_spec_1 (string, funfirstline)
      char *string;
@@ -3919,66 +3941,66 @@ This command may be abbreviated \"delete\".",
 	   &deletelist);
 
   add_com ("clear", class_breakpoint, clear_command,
-	   "Clear breakpoint at specified line or function.\n\
+	   concat ("Clear breakpoint at specified line or function.\n\
 Argument may be line number, function name, or \"*\" and an address.\n\
 If line number is specified, all breakpoints in that line are cleared.\n\
 If function is specified, breakpoints at beginning of function are cleared.\n\
-If an address is specified, breakpoints at that address are cleared.\n\n\
-With no argument, clears all breakpoints in the line that the selected frame\n\
+If an address is specified, breakpoints at that address are cleared.\n\n",
+"With no argument, clears all breakpoints in the line that the selected frame\n\
 is executing in.\n\
 \n\
-See also the \"delete\" command which clears breakpoints by number.");
+See also the \"delete\" command which clears breakpoints by number.", NULL));
 
   add_com ("break", class_breakpoint, break_command,
-	   "Set breakpoint at specified line or function.\n\
+	   concat ("Set breakpoint at specified line or function.\n\
 Argument may be line number, function name, or \"*\" and an address.\n\
 If line number is specified, break at start of code for that line.\n\
 If function is specified, break at start of code for that function.\n\
-If an address is specified, break at that exact address.\n\
-With no arg, uses current execution address of selected stack frame.\n\
+If an address is specified, break at that exact address.\n",
+"With no arg, uses current execution address of selected stack frame.\n\
 This is useful for breaking on return to a stack frame.\n\
 \n\
 Multiple breakpoints at one place are permitted, and useful if conditional.\n\
 \n\
-Do \"help breakpoints\" for info on other commands dealing with breakpoints.");
+Do \"help breakpoints\" for info on other commands dealing with breakpoints.", NULL));
   add_com_alias ("b", "break", class_run, 1);
   add_com_alias ("br", "break", class_run, 1);
   add_com_alias ("bre", "break", class_run, 1);
   add_com_alias ("brea", "break", class_run, 1);
 
   add_info ("breakpoints", breakpoints_info,
-	    "Status of user-settable breakpoints, or breakpoint number NUMBER.\n\
+	    concat ("Status of user-settable breakpoints, or breakpoint number NUMBER.\n\
 The \"Type\" column indicates one of:\n\
 \tbreakpoint     - normal breakpoint\n\
 \twatchpoint     - watchpoint\n\
 The \"Disp\" column contains one of \"keep\", \"del\", or \"dis\" to indicate\n\
 the disposition of the breakpoint after it gets hit.  \"dis\" means that the\n\
 breakpoint will be disabled.  The \"Address\" and \"What\" columns indicate the\n\
-address and file/line number respectively.\n\n\
-Convenience variable \"$_\" and default examine address for \"x\"\n\
+address and file/line number respectively.\n\n",
+"Convenience variable \"$_\" and default examine address for \"x\"\n\
 are set to the address of the last breakpoint listed.\n\n\
 Convenience variable \"$bpnum\" contains the number of the last\n\
-breakpoint set.");
+breakpoint set.", NULL));
 
 #if MAINTENANCE_CMDS
 
   add_cmd ("breakpoints", class_maintenance, maintenance_info_breakpoints,
-	    "Status of all breakpoints, or breakpoint number NUMBER.\n\
+	    concat ("Status of all breakpoints, or breakpoint number NUMBER.\n\
 The \"Type\" column indicates one of:\n\
 \tbreakpoint     - normal breakpoint\n\
 \twatchpoint     - watchpoint\n\
 \tlongjmp        - internal breakpoint used to step through longjmp()\n\
 \tlongjmp resume - internal breakpoint at the target of longjmp()\n\
 \tuntil          - internal breakpoint used by the \"until\" command\n\
-\tfinish         - internal breakpoint used by the \"finish\" command\n\
-The \"Disp\" column contains one of \"keep\", \"del\", or \"dis\" to indicate\n\
+\tfinish         - internal breakpoint used by the \"finish\" command\n",
+"The \"Disp\" column contains one of \"keep\", \"del\", or \"dis\" to indicate\n\
 the disposition of the breakpoint after it gets hit.  \"dis\" means that the\n\
 breakpoint will be disabled.  The \"Address\" and \"What\" columns indicate the\n\
-address and file/line number respectively.\n\n\
-Convenience variable \"$_\" and default examine address for \"x\"\n\
+address and file/line number respectively.\n\n",
+"Convenience variable \"$_\" and default examine address for \"x\"\n\
 are set to the address of the last breakpoint listed.\n\n\
 Convenience variable \"$bpnum\" contains the number of the last\n\
-breakpoint set.",
+breakpoint set.", NULL),
 	   &maintenanceinfolist);
 
 #endif	/* MAINTENANCE_CMDS */

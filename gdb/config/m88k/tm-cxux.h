@@ -19,6 +19,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define HARRIS_TARGET 1
 
+#define CXUX_TARGET 1
+
 /* Type of X registers, as supplied by the OS */
 
 typedef struct {
@@ -36,6 +38,7 @@ typedef struct {
 /* Always allocate space for both, but recognize that the m88100 has no
    FP_REGS.  */
 
+#undef ARCH_NUM_REGS
 #define ARCH_NUM_REGS (target_is_m88110 ? (GP_REGS + FP_REGS) : (GP_REGS))
 
 /* Don't need this grotesquerie.  */

@@ -1,5 +1,5 @@
 /* Definitions for symbol file management in GDB.
-   Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -208,8 +208,8 @@ struct objfile
 
   struct partial_symtab *free_psymtabs;
 
-  /* The object file's BFD.  Can be null, in which case bfd_open (name) and
-     put the result here.  */
+  /* The object file's BFD.  Can be null if the objfile contains only
+     minimal symbols, e.g. the run time common symbols for SunOS4.  */
 
   bfd *obfd;
 
@@ -236,7 +236,7 @@ struct objfile
      by a "null symbol", one that has a NULL pointer for the name and a zero
      value for the address.  This makes it easy to walk through the array
      when passed a pointer to somewhere in the middle of it.  There is also
-     a count of the number of symbols, which does include the terminating
+     a count of the number of symbols, which does not include the terminating
      null symbol.  The array itself, as well as all the data that it points
      to, should be allocated on the symbol_obstack for this file. */
 
@@ -343,10 +343,23 @@ struct objfile
 
 #define OBJF_SYMS	(1 << 1)	/* Have tried to read symbols */
 
+/* When an object file has its functions reordered (currently Irix-5.2
+   shared libraries exhibit this behaviour), we will need an expensive
+   algorithm to locate a partial symtab or symtab via an address.
+   To avoid this penalty for normal object files, we use this flag,
+   whose setting is determined upon symbol table read in.  */
+
+#define OBJF_REORDERED	(2 << 1)	/* Functions are reordered */
+
 /* The object file that the main symbol table was loaded from (e.g. the
    argument to the "symbol-file" or "file" command).  */
 
 extern struct objfile *symfile_objfile;
+
+/* The object file that contains the runtime common minimal symbols
+   for SunOS4. Note that this objfile has no associated BFD.  */
+
+extern struct objfile *rt_common_objfile;
 
 /* When we need to allocate a new type, we need to know which type_obstack
    to allocate the type on, since there is one for each objfile.  The places
@@ -375,6 +388,8 @@ allocate_objfile PARAMS ((bfd *, int));
 
 extern int
 build_objfile_section_table PARAMS ((struct objfile *));
+
+extern void objfile_to_front PARAMS ((struct objfile *));
 
 extern void
 unlink_objfile PARAMS ((struct objfile *));

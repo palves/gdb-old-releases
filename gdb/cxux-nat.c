@@ -392,9 +392,11 @@ add_shared_symbol_files ()
 	 the symbols the user actually gets. */
       lm = lms.l_prev;
     }
-}
 
-int target_is_m88110;
+  /* Getting new symbols may change our opinion about what is
+     frameless.  */
+  reinit_frame_cache ();
+}
 
 #if defined(_ES_MP)
 

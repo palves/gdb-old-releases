@@ -1,4 +1,4 @@
-# Target:  NS32k series processor with aout format
-DEFAULT_VECTOR=pc532mach_vec
+# Target:  National NS32k with aout format
+
+DEFAULT_VECTOR=pc532machaout_vec
 SELECT_ARCHITECTURES=bfd_ns32k_arch
-SELECT_VECS=pc532mach_vec

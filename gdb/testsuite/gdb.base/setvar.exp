@@ -1873,12 +1873,21 @@ expect {
 }                         
 
 
+gdb_test "print v_struct1" \
+  "print.*.\[0-9\]* = \{.*v_char_member = 104 \'h\',.*v_short_member = 1,\
+.*v_int_member = 2,.*\
+v_long_member = 3,.*v_float_member = 4,.*v_double_member = 5.*\}" \
+  "set print structure #1"
 
-send "print v_struct1\n"
-expect {
-    -re "print.*.\[0-9\]* = \{.*v_char_member = 104 \'h\',.*v_short_member = 1,.*v_int_member = 2,.*\
-v_long_member = 3,.*v_float_member = 4,.*v_double_member = 5.*\}.*$prompt $"\
-	                                 { pass "set print structure" }
-    -re "$prompt $"                      { fail "set print structure" }
-    timeout                              { fail "(timeout) set print structure" }
-}
+# This is an error.  GCC extensions for structure constants *require*
+# the type of the structure to be specified, as in
+# v_struct1 = (struct t_struct) {32, 33, 34, 35, 36, 37}
+# GDB should do the same if it wants to provide this feature.
+gdb_test "set variable v_struct1 = {32, 33, 34, 35, 36, 37}" "Invalid"
+
+# And after the error the structure should be unchanged.
+gdb_test "print v_struct1" \
+  "print.*.\[0-9\]* = \{.*v_char_member = 104 \'h\',.*v_short_member = 1,\
+.*v_int_member = 2,.*\
+v_long_member = 3,.*v_float_member = 4,.*v_double_member = 5.*\}" \
+  "set print structure #2"

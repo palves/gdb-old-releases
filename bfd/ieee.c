@@ -625,7 +625,7 @@ ieee_slurp_external_symbols (abfd)
 
 	  symbol->symbol.the_bfd = abfd;
 	  symbol->symbol.name = read_id (&(ieee->h));
-	  symbol->symbol.udata = (PTR) NULL;
+	  symbol->symbol.udata.p = (PTR) NULL;
 	  symbol->symbol.flags = BSF_NO_FLAGS;
 	  break;
 	case ieee_external_symbol_enum:
@@ -641,7 +641,7 @@ ieee_slurp_external_symbols (abfd)
 
 	  symbol->symbol.the_bfd = abfd;
 	  symbol->symbol.name = read_id (&(ieee->h));
-	  symbol->symbol.udata = (PTR) NULL;
+	  symbol->symbol.udata.p = (PTR) NULL;
 	  symbol->symbol.flags = BSF_NO_FLAGS;
 	  break;
 	case ieee_attribute_record_enum >> 8:
@@ -724,7 +724,7 @@ ieee_slurp_external_symbols (abfd)
 
 	  symbol->symbol.the_bfd = abfd;
 	  symbol->symbol.name = read_id (&(ieee->h));
-	  symbol->symbol.udata = (PTR) NULL;
+	  symbol->symbol.udata.p = (PTR) NULL;
 	  symbol->symbol.section = bfd_und_section_ptr;
 	  symbol->symbol.value = (bfd_vma) 0;
 	  symbol->symbol.flags = 0;
@@ -3351,11 +3351,15 @@ ieee_bfd_debug_info_accumulate (abfd, section)
 
 #define ieee_slurp_armap bfd_true
 #define ieee_slurp_extended_name_table bfd_true
+#define ieee_construct_extended_name_table \
+  ((boolean (*) PARAMS ((bfd *, char **, bfd_size_type *, const char **))) \
+   bfd_true)
 #define ieee_truncate_arname bfd_dont_truncate_arname
 #define ieee_write_armap \
   ((boolean (*) \
     PARAMS ((bfd *, unsigned int, struct orl *, unsigned int, int))) \
    bfd_true)
+#define ieee_update_armap_timestamp bfd_true
 
 #define ieee_bfd_is_local_label bfd_generic_is_local_label
 #define ieee_get_lineno _bfd_nosymbols_get_lineno

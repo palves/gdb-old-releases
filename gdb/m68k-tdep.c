@@ -57,16 +57,15 @@ m68k_push_dummy_frame ()
 void
 m68k_pop_frame ()
 {
-  register FRAME frame = get_current_frame ();
+  register struct frame_info *frame = get_current_frame ();
   register CORE_ADDR fp;
   register int regnum;
   struct frame_saved_regs fsr;
   struct frame_info *fi;
   char raw_buffer[12];
 
-  fi = get_frame_info (frame);
-  fp = fi -> frame;
-  get_frame_saved_regs (fi, &fsr);
+  fp = FRAME_FP (frame);
+  get_frame_saved_regs (frame, &fsr);
   for (regnum = FP0_REGNUM + 7 ; regnum >= FP0_REGNUM ; regnum--)
     {
       if (fsr.regs[regnum])
@@ -90,8 +89,6 @@ m68k_pop_frame ()
   write_register (PC_REGNUM, read_memory_integer (fp + 4, 4));
   write_register (SP_REGNUM, fp + 8);
   flush_cached_frames ();
-  set_current_frame (create_new_frame (read_register (FP_REGNUM),
-				       read_pc ()));
 }
 
 
@@ -508,4 +505,10 @@ m68k_saved_pc_after_call(frame)
   else
 #endif /* SYSCALL_TRAP */
     return read_memory_integer (read_register (SP_REGNUM), 4);
+}
+
+void
+_initialize_m68k_tdep ()
+{
+  tm_print_insn = print_insn_m68k;
 }

@@ -43,10 +43,6 @@ extern char *corefile;
 #endif
 extern int inferior_pid;
 
-/* setpgrp() messes up controling terminal. The other version of it
-   requires libbsd.a. */
-#define	setpgrp(XX,YY)		setpgid (XX, YY)
-
 /* We are missing register descriptions in the system header files. Sigh! */
 
 struct regs {
@@ -167,10 +163,6 @@ function_frame_info PARAMS ((CORE_ADDR, struct aix_framedata *));
 
 #define ABOUT_TO_RETURN(pc)  \
    ((read_memory_integer (pc, 4) & 0xfe8007ff) == 0x4e800020)
-
-/* Return 1 if P points to an invalid floating point value.  */
-
-#define INVALID_FLOAT(p, len) 0   /* Just a first guess; not checked */
 
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
@@ -405,12 +397,22 @@ CORE_ADDR rs6000_frame_chain PARAMS ((struct frame_info *));
   fi->initial_sp = 0;		\
   fi->cache_fsr = 0; \
   if (fi->next != (CORE_ADDR)0 \
-      && read_memory_integer (fi->frame, 4) == 0 \
       && fi->pc < TEXT_SEGMENT_BASE) \
     /* We're in get_prev_frame_info */ \
     /* and this is a special signal frame.  */ \
-    /* (fi->pc will be something like 0x3f88 or 0x2790).  */ \
+    /* (fi->pc will be some low address in the kernel, */ \
+    /*  to which the signal handler returns).  */ \
     fi->signal_handler_caller = 1;
+
+/* If the kernel has to deliver a signal, it pushes a sigcontext
+   structure on the stack and then calls the signal handler, passing
+   the address of the sigcontext in an argument register. Usually
+   the signal handler doesn't save this register, so we have to
+   access the sigcontext structure via an offset from the signal handler
+   frame.
+   The following constants were determined by experimentation on AIX 3.2.  */
+#define SIG_FRAME_PC_OFFSET 96
+#define SIG_FRAME_FP_OFFSET 284
 
 /* Frameless function invocation in IBM RS/6000 is sometimes
    half-done. It perfectly sets up a new frame, e.g. a new frame (in
@@ -420,7 +422,9 @@ CORE_ADDR rs6000_frame_chain PARAMS ((struct frame_info *));
 #define FRAME_SAVED_PC(FRAME)					\
 	(frameless_function_invocation (FRAME, 1)		\
 	 ? SAVED_PC_AFTER_CALL (FRAME)				\
-	 : read_memory_integer (rs6000_frame_chain (FRAME)+8, 4))
+	 : (FRAME)->signal_handler_caller			\
+	   ? read_memory_integer ((FRAME)->frame + SIG_FRAME_PC_OFFSET, 4) \
+	   : read_memory_integer (rs6000_frame_chain (FRAME) + 8, 4))
 
 #define FRAME_ARGS_ADDRESS(FI)	\
   (((struct frame_info*)(FI))->initial_sp ?		\
@@ -557,6 +561,21 @@ CORE_ADDR rs6000_frame_chain PARAMS ((struct frame_info *));
 
 #define FIX_CALL_DUMMY(dummyname, pc, fun, nargs, args, type, using_gcc) \
 	fix_call_dummy(dummyname, pc, fun, nargs, type)
+
+/* Usually a function pointer's representation is simply the address of
+   the function. On the RS/6000 however, a function pointer is represented
+   by a pointer to a TOC entry. This TOC entry contains three words,
+   the first word is the address of the function, the second word is the
+   TOC pointer (r2), and the third word is the static chain value.
+   Throughout GDB it is currently assumed that a function pointer contains
+   the address of the function, which is not easy to fix.
+   In addition, the conversion of a function address to a function
+   pointer would require allocation of a TOC entry in the inferior's
+   memory space, with all its drawbacks.
+   To be able to call C++ virtual methods in the inferior (which are called
+   via function pointers), find_function_addr uses this macro to
+   get the function address from a function pointer.  */
+#define CONVERT_FROM_FUNC_PTR_ADDR(ADDR) read_memory_integer (ADDR, 4)
 
 /* Flag for machine-specific stuff in shared files.  FIXME */
 #define IBM6000_TARGET

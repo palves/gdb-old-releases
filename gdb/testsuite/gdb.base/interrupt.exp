@@ -5,13 +5,16 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-gdb_reinitialize_dir $srcdir/$subdir
 set binfile $objdir/$subdir/interrupt
 
 if ![file exists $binfile] then {
-    warning "$binfile does not exist; tests suppressed"
+    perror "$binfile does not exist."
+    return 0
 } else {
+    gdb_reinitialize_dir $srcdir/$subdir
     gdb_load $binfile
+    gdb_test "shell stty intr '^C'" "" \
+	"set interrupt character in interrupt.exp"
     if [runto main] then {
 	send "continue\n"
 	expect {
@@ -62,10 +65,14 @@ if ![file exists $binfile] then {
 		setup_xfail "*-*-irix*"
 		fail "call function when asleep (stays asleep)"
 		# Send a newline to wake it up
+		send "\n"
 		gdb_test "" " = 4" "call function after waking it"
 	    }
 	    eof { fail "call function when asleep (eof)" }
 	}
+
+	# Now try calling the function again.
+	gdb_test "p func1 ()" " = 4" "call function a second time"
 
 	# And the program should still be doing the same thing.
 	# The optional trailing \r\n is in case we sent a newline above

@@ -1,3 +1,3 @@
-# Target: SGI mips running Irix 5
-TDEPFILES= mips-pinsn.o mips-tdep.o exec.o
+# Target: MIPS SGI running Irix 5
+TDEPFILES= mips-tdep.o
 TM_FILE= tm-irix5.h

@@ -22,6 +22,12 @@
 	EXAMPLE 
 	;
 
+: COMMENT
+	skip_past_newline
+	get_stuff_in_command
+	drop
+	;
+
 : SYNOPSIS
 	skip_past_newline
 	"@strong{Synopsis}\n" catstr
@@ -112,3 +118,41 @@
 
 : TYPEDEF
 	FUNCTION ;
+
+: SENUM
+	skip_past_newline
+	"Here are the possible values for @code{enum "
+	copy_past_newline remchar catstr
+	"}:\n\n" catstr catstr
+	;
+: ENUM
+	skip_past_newline
+	"@deffn {} "
+	copy_past_newline catstr catstr
+	;
+: ENUMX
+	skip_past_newline
+	"@deffnx {} "
+	copy_past_newline catstr
+	catstr
+	;
+: ENUMEQ
+	skip_past_newline
+	"@deffn {} "
+	copy_past_newline catstr catstr
+	skip_past_newline
+	;
+: ENUMEQX
+	skip_past_newline
+	"@deffnx {} "
+	copy_past_newline catstr
+	catstr
+	skip_past_newline
+	;
+: ENUMDOC
+	skip_past_newline
+	get_stuff_in_command
+	strip_trailing_newlines
+	catstr
+	"\n@end deffn\n" catstr
+	;

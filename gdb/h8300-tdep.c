@@ -26,7 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "obstack.h"
 #include "symtab.h"
-#include <dis-asm.h>
+#include "dis-asm.h"
 #include "gdbcmd.h"
 #include "gdbtypes.h"
 
@@ -98,16 +98,14 @@ h8300_skip_prologue (start_pc)
 }
 
 int
-print_insn (memaddr, stream)
-     CORE_ADDR memaddr;
-     GDB_FILE *stream;
+gdb_print_insn_h8300 (memaddr, info)
+     bfd_vma memaddr;
+     disassemble_info *info;
 {
-  disassemble_info info;
-  GDB_INIT_DISASSEMBLE_INFO(info, stream);
   if (h8300hmode)
-    return print_insn_h8300h (memaddr, &info);
+    return print_insn_h8300h (memaddr, info);
   else
-    return print_insn_h8300 (memaddr, &info);
+    return print_insn_h8300 (memaddr, info);
 }
 
 /* Given a GDB frame, determine the address of the calling function's frame.
@@ -117,9 +115,9 @@ print_insn (memaddr, stream)
    For us, the frame address is its stack pointer value, so we look up
    the function prologue to determine the caller's sp value, and return it.  */
 
-FRAME_ADDR
-FRAME_CHAIN (thisframe)
-     FRAME thisframe;
+CORE_ADDR
+h8300_frame_chain (thisframe)
+     struct frame_info *thisframe;
 {
   frame_find_saved_regs (thisframe, (struct frame_saved_regs *) 0);
   return thisframe->fsr->regs[SP_REGNUM];
@@ -208,7 +206,7 @@ static CORE_ADDR
 examine_prologue (ip, limit, after_prolog_fp, fsr, fi)
      register CORE_ADDR ip;
      register CORE_ADDR limit;
-     FRAME_ADDR after_prolog_fp;
+     CORE_ADDR after_prolog_fp;
      struct frame_saved_regs *fsr;
      struct frame_info *fi;
 {
@@ -331,7 +329,7 @@ init_extra_frame_info (fromleaf, fi)
 
 CORE_ADDR
 frame_saved_pc (frame)
-     FRAME frame;
+     struct frame_info *frame;
 {
   return frame->from_pc;
 }
@@ -373,23 +371,16 @@ h8300_pop_frame ()
 {
   unsigned regnum;
   struct frame_saved_regs fsr;
-  struct frame_info *fi;
+  struct frame_info *frame = get_current_frame ();
 
-  FRAME frame = get_current_frame ();
-
-  fi = get_frame_info (frame);
-  get_frame_saved_regs (fi, &fsr);
+  get_frame_saved_regs (frame, &fsr);
 
   for (regnum = 0; regnum < 8; regnum++)
     {
       if (fsr.regs[regnum])
-	{
-	  write_register (regnum, read_memory_integer(fsr.regs[regnum]), BINWORD);
-	}
+	write_register (regnum, read_memory_integer(fsr.regs[regnum]), BINWORD);
 
       flush_cached_frames ();
-      set_current_frame (create_new_frame (read_register (FP_REGNUM),
-					   read_pc ()));
     }
 }
 
@@ -480,3 +471,8 @@ print_register_hook (regno)
     }
 }
 
+void
+_initialize_h8300_tdep ()
+{
+  tm_print_insn = gdb_print_insn_h8300;
+}

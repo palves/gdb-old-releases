@@ -26,6 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
+#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (3)
 
 static reloc_howto_type howto_table[] = 
 {
@@ -59,7 +60,7 @@ static reloc_howto_type howto_table[] =
 #define WE32K	1
 
 #define RTYPE2HOWTO(cache_ptr, dst) \
-	    cache_ptr->howto = howto_table + (dst)->r_type;
+	    (cache_ptr)->howto = howto_table + (dst)->r_type;
 
 #include "coffcode.h"
 

@@ -1,5 +1,5 @@
 /* Main header file for the bfd library -- portable access to object files.
-   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 ** NOTE: bfd.h and bfd-in2.h are GENERATED files.  Don't change them;
@@ -99,15 +99,16 @@ typedef enum bfd_boolean {bfd_false, bfd_true} boolean;
 /* typedef off_t	file_ptr; */
 typedef long int file_ptr;
 
-/* Support for different sizes of target format ints and addresses.  If the
-   host implements 64-bit values, it defines BFD_HOST_64_BIT to be the appropriate
-   type.  Otherwise, this code will fall back on gcc's "long long" type if gcc
-   is being used.  BFD_HOST_64_BIT must be defined in such a way as to be a valid
-   type name by itself or with "unsigned" prefixed.  It should be a signed
-   type by itself.
+/* Support for different sizes of target format ints and addresses.
+   If the host implements 64-bit values, it defines BFD_HOST_64_BIT to
+   be the appropriate type.  Otherwise, this code will fall back on
+   gcc's "long long" type if gcc is being used.  BFD_HOST_64_BIT must
+   be defined in such a way as to be a valid type name by itself or
+   with "unsigned" prefixed.  It should be a signed type by itself.
 
-   If neither is the case, then compilation will fail if 64-bit targets are
-   requested.  If you don't request any 64-bit targets, you should be safe. */
+   If neither is the case, then compilation will fail if 64-bit
+   targets are requested.  If you don't request any 64-bit targets,
+   you should be safe. */
 
 #ifdef	BFD64
 
@@ -159,6 +160,7 @@ typedef unsigned long bfd_size_type;
 #define printf_vma(x) fprintf_vma(stdout,x)
 
 typedef unsigned int flagword;	/* 32 bits of flags */
+typedef unsigned char bfd_byte;
 
 /** File formats */
 
@@ -213,7 +215,8 @@ typedef enum bfd_format {
 #define D_PAGED     	0x100
 
 /* BFD is relaxable (this means that bfd_relax_section may be able to
-   do something).  */
+   do something) (sometimes bfd_relax_section can do something even if
+   this is not set).  */
 #define BFD_IS_RELAXABLE 0x200
 
 /* This may be set before writing out a BFD to request using a
@@ -226,6 +229,9 @@ typedef enum bfd_format {
 
 /* A count of carsyms (canonical archive symbols).  */
 typedef unsigned long symindex;
+
+/* How to perform a relocation.  */
+typedef const struct reloc_howto_struct reloc_howto_type;
 
 #define BFD_NO_MORE_SYMBOLS ((symindex) ~0)
 
@@ -257,7 +263,6 @@ struct orl {			/* output ranlib */
   file_ptr pos;			/* bfd* or file position */
   int namidx;			/* index into string table */
 };
-
 
 
 /* Linenumber stuff */
@@ -270,7 +275,6 @@ typedef struct lineno_cache_entry {
 } alent;
 
 /* object and core file sections */
-
 
 #define	align_power(addr, align)	\
 	( ((addr) + ((1<<(align))-1)) & (-1 << (align)))
@@ -424,6 +428,18 @@ extern void bfd_hash_traverse PARAMS ((struct bfd_hash_table *,
 
 /* User program access to BFD facilities */
 
+/* Direct I/O routines, for programs which know more about the object
+   file than BFD does.  Use higher level routines if possible.  */
+
+extern bfd_size_type bfd_read
+  PARAMS ((PTR, bfd_size_type size, bfd_size_type nitems, bfd *abfd));
+extern bfd_size_type bfd_write
+  PARAMS ((const PTR, bfd_size_type size, bfd_size_type nitems, bfd *abfd));
+extern int bfd_seek PARAMS ((bfd *abfd, file_ptr fp, int direction));
+extern long bfd_tell PARAMS ((bfd *abfd));
+extern int bfd_flush PARAMS ((bfd *abfd));
+extern int bfd_stat PARAMS ((bfd *abfd, struct stat *));
+
 /* Cast from const char * to char * so that caller can assign to
    a char * without a warning.  */
 #define bfd_get_filename(abfd) ((char *) (abfd)->filename)
@@ -524,6 +540,9 @@ extern boolean bfd_ecoff_write_accumulated_debug
   PARAMS ((PTR handle, bfd *abfd, struct ecoff_debug_info *debug,
 	   const struct ecoff_debug_swap *swap,
 	   struct bfd_link_info *info, file_ptr where));
+extern boolean bfd_mips_ecoff_create_embedded_relocs
+  PARAMS ((bfd *, struct bfd_link_info *, struct sec *, struct sec *,
+	   char **));
 
 /* Externally visible ELF routines.  */
 
@@ -532,9 +551,11 @@ extern boolean bfd_elf32_record_link_assignment
 extern boolean bfd_elf64_record_link_assignment
   PARAMS ((bfd *, struct bfd_link_info *, const char *));
 extern boolean bfd_elf32_size_dynamic_sections
-  PARAMS ((bfd *, struct bfd_link_info *, struct sec **));
+  PARAMS ((bfd *, const char *, const char *, boolean,
+	   struct bfd_link_info *, struct sec **));
 extern boolean bfd_elf64_size_dynamic_sections
-  PARAMS ((bfd *, struct bfd_link_info *, struct sec **));
+  PARAMS ((bfd *, const char *, const char *, boolean,
+	   struct bfd_link_info *, struct sec **));
 extern void bfd_elf_set_dt_needed_name PARAMS ((bfd *, const char *));
 
 /* SunOS shared library support routines for the linker.  */

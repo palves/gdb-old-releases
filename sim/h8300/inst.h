@@ -1,6 +1,6 @@
 #define DEBUG
 
-#define MPOWER 16
+#define MPOWER 18
 #define MSIZE (1<<MPOWER)
 #define CSIZE 1000
 /* Local register names */

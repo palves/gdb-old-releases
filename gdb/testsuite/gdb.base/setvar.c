@@ -176,8 +176,13 @@ union tu_link {
 enum colors {red, green, blue} color;
 enum cars {chevy, ford, porsche} clunker;
 
-void dummy()
+void
+dummy ()
 {
+  /* setvar.exp wants to allocate memory for constants.  So make sure malloc
+     gets linked into the program.  */
+  malloc (1);
+
   /* Some linkers (e.g. on AIX) remove unreferenced variables,
      so make sure to reference them. */
   v_char = 0;

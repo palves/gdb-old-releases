@@ -175,15 +175,11 @@ static char *get_extended_arelt_filename PARAMS ((bfd *arch,
 						  const char *name));
 static boolean do_slurp_bsd_armap PARAMS ((bfd *abfd));
 static boolean do_slurp_coff_armap PARAMS ((bfd *abfd));
-static const char *normalize PARAMS ((const char *file));
-static boolean bfd_construct_extended_name_table PARAMS ((bfd *abfd,
-							  char **tabloc,
-							  unsigned int *));
+static const char *normalize PARAMS ((bfd *, const char *file));
 static struct areltdata *bfd_ar_hdr_from_filesystem PARAMS ((bfd *abfd,
 							     const char *));
 static boolean compute_and_write_armap PARAMS ((bfd *arch,
 						unsigned int elength));
-static boolean bsd_update_armap_timestamp PARAMS ((bfd *arch));
 
 boolean
 _bfd_generic_mkarchive (abfd)
@@ -1108,7 +1104,8 @@ _bfd_slurp_extended_name_table (abfd)
 /* Return a copy of the stuff in the filename between any :]> and a
    semicolon */
 static const char *
-normalize (file)
+normalize (abfd, file)
+     bfd *abfd;
      const char *file;
 {
   CONST char *first;
@@ -1130,10 +1127,12 @@ normalize (file)
       first--;
     }
 
-
-  copy = malloc (last - first + 1);
-  if (!copy)
-    return copy;
+  copy = (char *) bfd_alloc (abfd, last - first + 1);
+  if (copy == NULL)
+    {
+      bfd_set_error (bfd_error_no_memory);
+      return NULL;
+    }
 
   memcpy (copy, first, last - first);
   copy[last - first] = 0;
@@ -1143,10 +1142,11 @@ normalize (file)
 
 #else
 static const char *
-normalize (file)
+normalize (abfd, file)
+     bfd *abfd;
      const char *file;
 {
-  CONST char *filename = strrchr (file, '/');
+  const char *filename = strrchr (file, '/');
 
   if (filename != (char *) NULL)
     filename++;
@@ -1156,6 +1156,32 @@ normalize (file)
 }
 #endif
 
+/* Build a BFD style extended name table.  */
+
+boolean
+_bfd_archive_bsd_construct_extended_name_table (abfd, tabloc, tablen, name)
+     bfd *abfd;
+     char **tabloc;
+     bfd_size_type *tablen;
+     const char **name;
+{
+  *name = "ARFILENAMES/";
+  return _bfd_construct_extended_name_table (abfd, false, tabloc, tablen);
+}
+
+/* Build an SVR4 style extended name table.  */
+
+boolean
+_bfd_archive_coff_construct_extended_name_table (abfd, tabloc, tablen, name)
+     bfd *abfd;
+     char **tabloc;
+     bfd_size_type *tablen;
+     const char **name;
+{
+  *name = "//";
+  return _bfd_construct_extended_name_table (abfd, true, tabloc, tablen);
+}
+
 /* Follows archive_head and produces an extended name table if
    necessary.  Returns (in tabloc) a pointer to an extended name
    table, and in tablen the length of the table.  If it makes an entry
@@ -1164,11 +1190,12 @@ normalize (file)
    something went wrong.  A successful return may still involve a
    zero-length tablen!  */
 
-static boolean
-bfd_construct_extended_name_table (abfd, tabloc, tablen)
+boolean
+_bfd_construct_extended_name_table (abfd, trailing_slash, tabloc, tablen)
      bfd *abfd;
+     boolean trailing_slash;
      char **tabloc;
-     unsigned int *tablen;
+     bfd_size_type *tablen;
 {
   unsigned int maxname = abfd->xvec->ar_max_namelen;
   unsigned int total_namelen = 0;
@@ -1180,17 +1207,39 @@ bfd_construct_extended_name_table (abfd, tabloc, tablen)
   /* Figure out how long the table should be */
   for (current = abfd->archive_head; current != NULL; current = current->next)
     {
-      CONST char *normal = normalize (current->filename);
+      const char *normal;
       unsigned int thislen;
 
-      if (!normal)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+      normal = normalize (current, current->filename);
+      if (normal == NULL)
+	return false;
+
       thislen = strlen (normal);
       if (thislen > maxname)
-	total_namelen += thislen + 1;	/* leave room for \n */
+	{
+	  /* Add one to leave room for \n.  */
+	  total_namelen += thislen + 1;
+	  if (trailing_slash)
+	    {
+	      /* Leave room for trailing slash.  */
+	      ++total_namelen;
+	    }
+	}
+      else
+	{
+	  struct ar_hdr *hdr = arch_hdr (current);
+	  if (strncmp (normal, hdr->ar_name, thislen) != 0
+	      || (thislen < sizeof hdr->ar_name
+		  && hdr->ar_name[thislen] != ar_padchar (current)))
+	    {
+	      /* Must have been using extended format even though it
+	         didn't need to.  Fix it to use normal format.  */
+	      memcpy (hdr->ar_name, normal, thislen);
+	      if (thislen < maxname
+		  || (thislen == maxname && thislen < sizeof hdr->ar_name))
+		hdr->ar_name[thislen] = ar_padchar (current);
+	    }
+	}
     }
 
   if (total_namelen == 0)
@@ -1209,14 +1258,13 @@ bfd_construct_extended_name_table (abfd, tabloc, tablen)
   for (current = abfd->archive_head; current != NULL; current =
        current->next)
     {
-      CONST char *normal = normalize (current->filename);
+      const char *normal;
       unsigned int thislen;
 
-      if (!normal)
-	{
-	  bfd_set_error (bfd_error_no_memory);
-	  return false;
-	}
+      normal = normalize (current, current->filename);
+      if (normal == NULL)
+	return false;
+
       thislen = strlen (normal);
       if (thislen > maxname)
 	{
@@ -1225,7 +1273,13 @@ bfd_construct_extended_name_table (abfd, tabloc, tablen)
 	     generalise this hack. */
 	  struct ar_hdr *hdr = arch_hdr (current);
 	  strcpy (strptr, normal);
-	  strptr[thislen] = '\012';
+	  if (! trailing_slash)
+	    strptr[thislen] = '\012';
+	  else
+	    {
+	      strptr[thislen] = '/';
+	      strptr[thislen + 1] = '\012';
+	    }
 	  hdr->ar_name[0] = ar_padchar (current);
 	  /* We know there will always be enough room (one of the few
 	     cases where you may safely use sprintf). */
@@ -1239,6 +1293,8 @@ bfd_construct_extended_name_table (abfd, tabloc, tablen)
 		*temp = ' ';
 	  }
 	  strptr += thislen + 1;
+	  if (trailing_slash)
+	    ++strptr;
 	}
     }
 
@@ -1365,15 +1421,24 @@ bfd_dont_truncate_arname (abfd, pathname, arhdr)
 
   struct ar_hdr *hdr = (struct ar_hdr *) arhdr;
   int length;
-  CONST char *filename = normalize (pathname);
+  const char *filename;
   int maxlen = ar_maxnamelen (abfd);
+
+  filename = normalize (abfd, pathname);
+  if (filename == NULL)
+    {
+      /* FIXME */
+      abort ();
+    }
 
   length = strlen (filename);
 
   if (length <= maxlen)
     memcpy (hdr->ar_name, filename, length);
 
-  if (length < maxlen)
+  /* Add the padding character if there is room for it.  */
+  if (length < maxlen
+      || (length == maxlen && length < sizeof hdr->ar_name))
     (hdr->ar_name)[length] = ar_padchar (abfd);
 }
 
@@ -1460,7 +1525,8 @@ _bfd_write_archive_contents (arch)
 {
   bfd *current;
   char *etable = NULL;
-  unsigned int elength = 0;
+  bfd_size_type elength = 0;
+  const char *ename = NULL;
   boolean makemap = bfd_has_map (arch);
   boolean hasobjects = false;	/* if no .o's, don't bother to make a map */
   bfd_size_type wrote;
@@ -1501,7 +1567,8 @@ _bfd_write_archive_contents (arch)
 	}
     }
 
-  if (!bfd_construct_extended_name_table (arch, &etable, &elength))
+  if (!BFD_SEND (arch, _bfd_construct_extended_name_table,
+		 (arch, &etable, &elength, &ename)))
     return false;
 
   if (bfd_seek (arch, (file_ptr) 0, SEEK_SET) != 0)
@@ -1525,11 +1592,10 @@ _bfd_write_archive_contents (arch)
       struct ar_hdr hdr;
 
       memset ((char *) (&hdr), 0, sizeof (struct ar_hdr));
-      if (ar_padchar (arch) == '/')
-	sprintf (&(hdr.ar_name[0]), "//");
-      else
-	sprintf (&(hdr.ar_name[0]), "ARFILENAMES/");
-      sprintf (&(hdr.ar_size[0]), "%-10d", (int) elength);
+      strcpy (hdr.ar_name, ename);
+      /* Round size up to even number in archive header.  */
+      sprintf (&(hdr.ar_size[0]), "%-10d",
+	       (int) ((elength + 1) & ~1));
       strncpy (hdr.ar_fmag, ARFMAG, 2);
       for (i = 0; i < sizeof (struct ar_hdr); i++)
 	if (((char *) (&hdr))[i] == '\0')
@@ -1579,36 +1645,24 @@ _bfd_write_archive_contents (arch)
 	}
     }
 
-  /* Verify the timestamp in the archive file.  If it would not be
-     accepted by the linker, rewrite it until it would be.  If
-     anything odd happens, break out and just return.  (The Berkeley
-     linker checks the timestamp and refuses to read the
-     table-of-contents if it is >60 seconds less than the file's
-     modified-time.  That painful hack requires this painful hack.  */
-
-  tries = 1;
-  do
+  if (makemap && hasobjects)
     {
-      /* FIXME!  This kludge is to avoid adding a member to the xvec,
-	 while generating a small patch for Adobe.  FIXME!  The
-	 update_armap_timestamp function call should be in the xvec,
-	 thus:
-
-		if (bfd_update_armap_timestamp (arch) == true) break;
-                     ^
-
-         Instead, we check whether in a BSD archive, and call
-         directly. */
-
-      if (arch->xvec->write_armap != bsd_write_armap)
-	break;
-      if (bsd_update_armap_timestamp (arch) == true) /* FIXME!!!  Vector it */
-	break;
-      if (tries > 0)
-	fprintf (stderr,
-		 "Warning: writing archive was slow: rewriting timestamp\n");
+      /* Verify the timestamp in the archive file.  If it would not be
+	 accepted by the linker, rewrite it until it would be.  If
+	 anything odd happens, break out and just return.  (The
+	 Berkeley linker checks the timestamp and refuses to read the
+	 table-of-contents if it is >60 seconds less than the file's
+	 modified-time.  That painful hack requires this painful hack.  */
+      tries = 1;
+      do
+	{
+	  if (bfd_update_armap_timestamp (arch))
+	    break;
+	  fprintf (stderr,
+		   "Warning: writing archive was slow: rewriting timestamp\n");
+	}
+      while (++tries < 6);
     }
-  while (++tries < 6);
 
   return true;
 }
@@ -1773,14 +1827,14 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
      int stridx;
 {
   int padit = stridx & 1;
-  unsigned int ranlibsize = orl_count * sizeof (struct ranlib);
+  unsigned int ranlibsize = orl_count * BSD_SYMDEF_SIZE;
   unsigned int stringsize = stridx + padit;
   /* Include 8 bytes to store ranlibsize and stringsize in output. */
   unsigned int mapsize = ranlibsize + stringsize + 8;
   file_ptr firstreal;
   bfd *current = arch->archive_head;
   bfd *last_elt = current;	/* last element arch seen */
-  int temp;
+  bfd_byte temp[4];
   int count;
   struct ar_hdr hdr;
   struct stat statbuf;
@@ -1806,14 +1860,13 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
   if (bfd_write ((char *) &hdr, 1, sizeof (struct ar_hdr), arch)
       != sizeof (struct ar_hdr))
     return false;
-  bfd_h_put_32 (arch, (bfd_vma) ranlibsize, (PTR) &temp);
-  if (bfd_write (&temp, 1, sizeof (temp), arch) != sizeof (temp))
+  bfd_h_put_32 (arch, (bfd_vma) ranlibsize, temp);
+  if (bfd_write (temp, 1, sizeof (temp), arch) != sizeof (temp))
     return false;
 
   for (count = 0; count < orl_count; count++)
     {
-      struct symdef outs;
-      struct symdef *outp = &outs;
+      bfd_byte buf[BSD_SYMDEF_SIZE];
 
       if (((bfd *) (map[count]).pos) != last_elt)
 	{
@@ -1827,15 +1880,15 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
 	}			/* if new archive element */
 
       last_elt = current;
-      bfd_h_put_32 (arch, ((map[count]).namidx), (PTR) &outs.s.string_offset);
-      bfd_h_put_32 (arch, firstreal, (PTR) &outs.file_offset);
-      if (bfd_write ((char *) outp, 1, sizeof (outs), arch) != sizeof (outs))
+      bfd_h_put_32 (arch, map[count].namidx, buf);
+      bfd_h_put_32 (arch, firstreal, buf + BSD_SYMDEF_OFFSET_SIZE);
+      if (bfd_write (buf, BSD_SYMDEF_SIZE, 1, arch) != BSD_SYMDEF_SIZE)
 	return false;
     }
 
   /* now write the strings themselves */
-  bfd_h_put_32 (arch, stringsize, (PTR) &temp);
-  if (bfd_write ((PTR) &temp, 1, sizeof (temp), arch) != sizeof (temp))
+  bfd_h_put_32 (arch, stringsize, temp);
+  if (bfd_write (temp, 1, sizeof (temp), arch) != sizeof (temp))
     return false;
   for (count = 0; count < orl_count; count++)
     {
@@ -1862,8 +1915,8 @@ bsd_write_armap (arch, elength, map, orl_count, stridx)
    Return true if the timestamp was OK, or an unusual problem happened.
    Return false if we updated the timestamp.  */
 
-static boolean
-bsd_update_armap_timestamp (arch)
+boolean
+_bfd_archive_bsd_update_armap_timestamp (arch)
      bfd *arch;
 {
   struct stat archstat;
@@ -1892,6 +1945,8 @@ bsd_update_armap_timestamp (arch)
       (hdr.ar_date)[i] = ' ';
 
   /* Write it into the file.  */
+  bfd_ardata (arch)->armap_datepos = (SARMAG
+				      + offsetof (struct ar_hdr, ar_date[0]));
   if (bfd_seek (arch, bfd_ardata (arch)->armap_datepos, SEEK_SET) != 0
       || (bfd_write (hdr.ar_date, sizeof (hdr.ar_date), 1, arch)
 	  != sizeof (hdr.ar_date)))

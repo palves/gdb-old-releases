@@ -42,7 +42,7 @@ docdir = $(srcdir)/doc
 
 SHELL = /bin/sh
 
-INSTALL = install -c
+INSTALL = `cd $(srcdir)/..; pwd`/install.sh -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
 
@@ -67,7 +67,8 @@ TARGETLIB = libopcodes.a
 ALL_MACHINES = a29k-dis.o alpha-dis.o h8300-dis.o h8500-dis.o \
 	hppa-dis.o i386-dis.o i960-dis.o m68k-dis.o \
 	m88k-dis.o mips-dis.o mips-opc.o sh-dis.o sparc-dis.o \
-	sparc-opc.o z8k-dis.o ns32k-dis.o ppc-dis.o ppc-opc.o
+	sparc-opc.o z8k-dis.o ns32k-dis.o ppc-dis.o ppc-opc.o \
+	arm-dis.o
 
 # BFD_MACHINES is set by configure.in.
 OFILES = $(BFD_MACHINES) dis-buf.o disassemble.o
@@ -126,6 +127,7 @@ h8500-dis.o: h8500-dis.c h8500-opc.h $(INCDIR)/dis-asm.h
 h8300-dis.o: h8300-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/h8300.h
 i386-dis.o: i386-dis.c $(INCDIR)/dis-asm.h
 i960-dis.o: i960-dis.c $(INCDIR)/dis-asm.h
+w65-dis.o: w65-dis.c
 m68k-dis.o: m68k-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/floatformat.h \
 	$(INCDIR)/opcode/m68k.h
 mips-dis.o: mips-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/mips.h
@@ -140,6 +142,7 @@ sh-dis.o: sh-dis.c sh-opc.h $(INCDIR)/dis-asm.h
 alpha-dis.o: alpha-dis.c alpha-opc.h $(INCDIR)/dis-asm.h
 hppa-dis.o: hppa-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/hppa.h
 m88k-dis.o: m88k-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/opcode/m88k.h
+arm-dis.o: arm-dis.c arm-opc.h $(INCDIR)/dis-asm.h
 
 tags etags: TAGS
 

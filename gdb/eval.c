@@ -28,10 +28,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frame.h"
 #include "demangle.h"
 #include "language.h"	/* For CAST_IS_CONVERSION */
+#include "f-lang.h" /* for array bound stuff */
 
 /* Values of NOSIDE argument to eval_subexp.  */
+
 enum noside
-{ EVAL_NORMAL,
+{
+  EVAL_NORMAL,
   EVAL_SKIP,			/* Only effect is to increment pos.  */
   EVAL_AVOID_SIDE_EFFECTS	/* Don't modify any variables or
 				   call any functions.  The value
@@ -46,20 +49,17 @@ enum noside
 
 /* Prototypes for local functions. */
 
-static value_ptr
-evaluate_subexp_for_sizeof PARAMS ((struct expression *, int *));
+static value_ptr evaluate_subexp_for_sizeof PARAMS ((struct expression *,
+						     int *));
 
-static value_ptr
-evaluate_subexp_with_coercion PARAMS ((struct expression *, int *,
-				       enum noside));
+static value_ptr evaluate_subexp_with_coercion PARAMS ((struct expression *,
+							int *, enum noside));
 
-static value_ptr
-evaluate_subexp_for_address PARAMS ((struct expression *, int *,
-				     enum noside));
+static value_ptr evaluate_subexp_for_address PARAMS ((struct expression *,
+						      int *, enum noside));
 
-static value_ptr
-evaluate_subexp PARAMS ((struct type *, struct expression *, int *,
-			 enum noside));
+static value_ptr evaluate_subexp PARAMS ((struct type *, struct expression *,
+					  int *, enum noside));
 
 
 /* Parse the string EXP as a C expression, evaluate it,
@@ -152,6 +152,77 @@ evaluate_type (exp)
   return evaluate_subexp (NULL_TYPE, exp, &pc, EVAL_AVOID_SIDE_EFFECTS);
 }
 
+/* Helper function called by evaluate_subexp to initialize a field
+   a structure from a tuple in Chill.  This is recursive, to handle
+   more than one field name labels.
+
+   STRUCT_VAL is the structure value we are constructing.
+   (*FIELDNOP) is the field to set, if there is no label.
+   It is set to the field following this one.
+   EXP, POS, and NOSIDE are as for evaluate_subexp.
+
+   This function does not handle variant records.  FIXME */
+
+static value_ptr
+evaluate_labeled_field_init (struct_val, fieldnop, exp, pos, noside)
+     value_ptr struct_val;
+     int *fieldnop;
+     register struct expression *exp;
+     register int *pos;
+     enum noside noside;
+{
+  int fieldno = *fieldnop;
+  value_ptr val;
+  int bitpos, bitsize;
+  char *addr;
+  struct type *struct_type = VALUE_TYPE (struct_val);
+  if (exp->elts[*pos].opcode == OP_LABELED)
+    {
+      int pc = (*pos)++;
+      char *name = &exp->elts[pc + 2].string;
+      int tem = longest_to_int (exp->elts[pc + 1].longconst);
+      (*pos) += 3 + BYTES_TO_EXP_ELEM (tem + 1);
+      for (fieldno = 0; ; fieldno++)
+	{
+	  if (fieldno >= TYPE_NFIELDS (struct_type))
+	    error ("there is no field named %s", name);
+	  if (STREQ (TYPE_FIELD_NAME (struct_type, fieldno), name))
+	    break;
+	}
+      *fieldnop = fieldno;
+      val = evaluate_labeled_field_init (struct_val, fieldnop,
+					 exp, pos, noside);
+    }
+  else
+    {
+      fieldno = (*fieldnop)++;
+      if (fieldno >= TYPE_NFIELDS (struct_type))
+	error ("too many initializers");
+      val = evaluate_subexp (TYPE_FIELD_TYPE (struct_type, fieldno),
+			     exp, pos, noside);
+    }
+
+  /* Assign val to field fieldno. */
+  if (VALUE_TYPE (val) != TYPE_FIELD_TYPE (struct_type, fieldno))
+    val = value_cast (TYPE_FIELD_TYPE (struct_type, fieldno), val);
+#if 1
+  bitsize = TYPE_FIELD_BITSIZE (struct_type, fieldno);
+  bitpos = TYPE_FIELD_BITPOS (struct_type, fieldno);
+  addr = VALUE_CONTENTS (struct_val);
+  addr += bitpos / 8;
+  if (bitsize)
+    modify_field (addr, value_as_long (val),
+		  bitpos % 8, bitsize);
+  else
+    memcpy (addr, VALUE_CONTENTS (val),
+	    TYPE_LENGTH (VALUE_TYPE (val)));
+#else
+  value_assign (value_primitive_field (struct_val, 0, fieldno, struct_type),
+		val);
+#endif
+  return val;
+}
+
 static value_ptr
 evaluate_subexp (expect_type, exp, pos, noside)
      struct type *expect_type;
@@ -166,6 +237,23 @@ evaluate_subexp (expect_type, exp, pos, noside)
   struct type *type;
   int nargs;
   value_ptr *argvec;
+  struct symbol *tmp_symbol; 
+  int upper, lower, retcode; 
+  int code;
+  struct internalvar *var; 
+
+  /* This expect_type crap should not be used for C.  C expressions do
+     not have any notion of expected types, never has and (goddess
+     willing) never will.  The C++ code uses it for some twisted
+     purpose (I haven't investigated but I suspect it just the usual
+     combination of Stroustrup figuring out some crazy language
+     feature and Tiemann figuring out some crazier way to try to
+     implement it).  CHILL has the tuple stuff; I don't know enough
+     about CHILL to know whether expected types is the way to do it.
+     FORTRAN I don't know.  */
+  if (exp->language_defn->la_language != language_cplus
+      && exp->language_defn->la_language != language_chill)
+    expect_type = NULL_TYPE;
 
   pc = (*pos)++;
   op = exp->elts[pc].opcode;
@@ -238,8 +326,12 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
     case OP_BOOL:
       (*pos) += 2;
-      return value_from_longest (builtin_type_chill_bool,
-				 exp->elts[pc + 1].longconst);
+      if (current_language->la_language == language_fortran)
+	return value_from_longest (builtin_type_f_logical_s2,
+				   exp->elts[pc + 1].longconst);
+      else
+	return value_from_longest (builtin_type_chill_bool,
+				   exp->elts[pc + 1].longconst);
 
     case OP_INTERNALVAR:
       (*pos) += 2;
@@ -253,7 +345,12 @@ evaluate_subexp (expect_type, exp, pos, noside)
       return value_string (&exp->elts[pc + 2].string, tem);
 
     case OP_BITSTRING:
-      error ("support for OP_BITSTRING unimplemented");
+      tem = longest_to_int (exp->elts[pc + 1].longconst);
+      (*pos)
+	+= 3 + BYTES_TO_EXP_ELEM ((tem + HOST_CHAR_BIT - 1) / HOST_CHAR_BIT);
+      if (noside == EVAL_SKIP)
+	goto nosideret;
+      return value_bitstring (&exp->elts[pc + 2].string, tem);
       break;
 
     case OP_ARRAY:
@@ -261,6 +358,69 @@ evaluate_subexp (expect_type, exp, pos, noside)
       tem2 = longest_to_int (exp->elts[pc + 1].longconst);
       tem3 = longest_to_int (exp->elts[pc + 2].longconst);
       nargs = tem3 - tem2 + 1;
+
+      if (expect_type != NULL_TYPE && noside != EVAL_SKIP
+	  && TYPE_CODE (expect_type) == TYPE_CODE_STRUCT)
+	{
+	  value_ptr rec = allocate_value (expect_type);
+	  int fieldno = 0;
+	  memset (VALUE_CONTENTS_RAW (rec), '\0', TYPE_LENGTH (expect_type));
+	  for (tem = 0; tem < nargs; tem++)
+	    evaluate_labeled_field_init (rec, &fieldno, exp, pos, noside);
+	  return rec;
+	}
+
+      if (expect_type != NULL_TYPE && noside != EVAL_SKIP
+	  && TYPE_CODE (expect_type) == TYPE_CODE_ARRAY)
+	{
+	  struct type *range_type = TYPE_FIELD_TYPE (expect_type, 0);
+	  struct type *element_type = TYPE_TARGET_TYPE (expect_type);
+	  LONGEST low_bound =  TYPE_FIELD_BITPOS (range_type, 0);
+	  LONGEST high_bound = TYPE_FIELD_BITPOS (range_type, 1);
+	  int element_size = TYPE_LENGTH (element_type);
+	  value_ptr array = allocate_value (expect_type);
+	  if (nargs != (high_bound - low_bound + 1))
+	    error ("wrong number of initialiers for array type");
+	  for (tem = low_bound;  tem <= high_bound;  tem++)
+	    {
+	      value_ptr element = evaluate_subexp (element_type,
+						   exp, pos, noside);
+	      if (VALUE_TYPE (element) != element_type)
+		element = value_cast (element_type, element);
+	      memcpy (VALUE_CONTENTS_RAW (array)
+		      + (tem - low_bound) * element_size,
+		      VALUE_CONTENTS (element),
+		      element_size);
+	    }
+	  return array;
+	}
+
+      if (expect_type != NULL_TYPE && noside != EVAL_SKIP
+	  && TYPE_CODE (expect_type) == TYPE_CODE_SET)
+	{
+	  value_ptr set = allocate_value (expect_type);
+	  struct type *element_type = TYPE_INDEX_TYPE (expect_type);
+	  int low_bound = TYPE_LOW_BOUND (element_type);
+	  int high_bound = TYPE_HIGH_BOUND (element_type);
+	  char *valaddr = VALUE_CONTENTS_RAW (set);
+	  memset (valaddr, '\0', TYPE_LENGTH (expect_type));
+	  for (tem = 0; tem < nargs; tem++)
+	    {
+	      value_ptr element_val = evaluate_subexp (element_type,
+						       exp, pos, noside);
+	      LONGEST element = value_as_long (element_val);
+	      int bit_index;
+	      if (element < low_bound || element > high_bound)
+		error ("POWERSET tuple element out of range");
+	      element -= low_bound;
+	      bit_index = (unsigned) element % TARGET_CHAR_BIT;
+	      if (BITS_BIG_ENDIAN)
+		bit_index = TARGET_CHAR_BIT - 1 - bit_index;
+	      valaddr [(unsigned) element / TARGET_CHAR_BIT] |= 1 << bit_index;
+	    }
+	  return set;
+	}
+
       argvec = (value_ptr *) alloca (sizeof (value_ptr) * nargs);
       for (tem = 0; tem < nargs; tem++)
 	{
@@ -269,8 +429,27 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	}
       if (noside == EVAL_SKIP)
 	goto nosideret;
-      return (value_array (tem2, tem3, argvec));
-      break;
+      return value_array (tem2, tem3, argvec);
+
+    case TERNOP_SLICE:
+      {
+	value_ptr array = evaluate_subexp (NULL_TYPE, exp, pos, noside);
+	int lowbound
+	  = value_as_long (evaluate_subexp (NULL_TYPE, exp, pos, noside));
+	int upper
+	  = value_as_long (evaluate_subexp (NULL_TYPE, exp, pos, noside));
+	return value_slice (array, lowbound, upper - lowbound + 1);
+      }
+
+    case TERNOP_SLICE_COUNT:
+      {
+	value_ptr array = evaluate_subexp (NULL_TYPE, exp, pos, noside);
+	int lowbound
+	  = value_as_long (evaluate_subexp (NULL_TYPE, exp, pos, noside));
+	int length
+	  = value_as_long (evaluate_subexp (NULL_TYPE, exp, pos, noside));
+	return value_slice (array, lowbound, length);
+      }
 
     case TERNOP_COND:
       /* Skip third and second args to evaluate the first one.  */
@@ -292,7 +471,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       op = exp->elts[*pos].opcode;
       if (op == STRUCTOP_MEMBER || op == STRUCTOP_MPTR)
 	{
-	  int fnptr;
+	  LONGEST fnptr;
 
 	  nargs = longest_to_int (exp->elts[pc + 1].longconst) + 1;
 	  /* First, evaluate the structure into arg2 */
@@ -318,7 +497,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
 	  arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 
-	  fnptr = longest_to_int (value_as_long (arg1));
+	  fnptr = value_as_long (arg1);
 
 	  if (METHOD_PTR_IS_VIRTUAL(fnptr))
 	    {
@@ -445,6 +624,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  argvec[0] = arg1;
 	}
 
+    do_call_it:
+
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
@@ -465,6 +646,88 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	    error ("Expression of type other than \"Function returning ...\" used as function");
 	}
       return call_function_by_hand (argvec[0], nargs, argvec + 1);
+
+    case OP_F77_UNDETERMINED_ARGLIST: 
+
+      /* Remember that in F77, functions, substring ops and 
+         array subscript operations cannot be disambiguated 
+         at parse time.  We have made all array subscript operations, 
+         substring operations as well as function calls  come here 
+         and we now have to discover what the heck this thing actually was.  
+	 If it is a function, we process just as if we got an OP_FUNCALL. */
+
+      nargs = longest_to_int (exp->elts[pc+1].longconst);
+      (*pos) += 2;
+
+      /* First determine the type code we are dealing with.  */ 
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
+      code = TYPE_CODE (VALUE_TYPE (arg1)); 
+
+      switch (code) 
+	{
+	case TYPE_CODE_ARRAY:
+	  goto multi_f77_subscript;
+
+	case TYPE_CODE_STRING:
+	  goto op_f77_substr;
+
+	case TYPE_CODE_PTR:
+	case TYPE_CODE_FUNC:
+	  /* It's a function call. */
+	  /* Allocate arg vector, including space for the function to be
+	     called in argvec[0] and a terminating NULL */
+	  argvec = (value_ptr *) alloca (sizeof (value_ptr) * (nargs + 2));
+	  argvec[0] = arg1;
+	  tem = 1;
+	  for (; tem <= nargs; tem++)
+	    argvec[tem] = evaluate_subexp_with_coercion (exp, pos, noside);
+	  argvec[tem] = 0; /* signal end of arglist */
+	  goto do_call_it;
+
+	default:
+              error ("Cannot perform substring on this type"); 
+	}
+
+    op_f77_substr:
+      /* We have a substring operation on our hands here, 
+         let us get the string we will be dealing with */
+
+      /* Now evaluate the 'from' and 'to' */
+
+      arg2 = evaluate_subexp_with_coercion (exp, pos, noside);
+
+      if (TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_INT)
+         error ("Substring arguments must be of type integer");
+
+      if (nargs < 2)
+	return value_subscript (arg1, arg2);
+
+      arg3 = evaluate_subexp_with_coercion (exp, pos, noside);
+
+      if (TYPE_CODE (VALUE_TYPE (arg3)) != TYPE_CODE_INT)
+         error ("Substring arguments must be of type integer");
+
+      tem2 = *((int *) VALUE_CONTENTS_RAW (arg2)); 
+      tem3 = *((int *) VALUE_CONTENTS_RAW (arg3)); 
+
+      if ((tem2 < 1) || (tem2 > tem3))
+         error ("Bad 'from' value %d on substring operation", tem2); 
+
+      if ((tem3 < tem2) || (tem3 > (TYPE_LENGTH (VALUE_TYPE (arg1)))))
+         error ("Bad 'to' value %d on substring operation", tem3); 
+      
+      if (noside == EVAL_SKIP)
+        goto nosideret;
+      
+      return value_slice (arg1, tem2, tem3 - tem2 + 1);
+
+    case OP_COMPLEX:
+      /* We have a complex number, There should be 2 floating 
+	 point numbers that compose it */ 
+      arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
+      arg2 = evaluate_subexp (NULL_TYPE, exp, pos, noside); 
+
+      return value_literal_complex (arg1, arg2, builtin_type_f_complex_s16);
 
     case STRUCTOP_STRUCT:
       tem = longest_to_int (exp->elts[pc + 1].longconst);
@@ -677,7 +940,8 @@ evaluate_subexp (expect_type, exp, pos, noside)
 		}
 	    }
 	  
-	  if (binop_user_defined_p (op, arg1, arg2))
+	  if (binop_user_defined_p (op, arg1, arg2)
+	      && ! chill_varying_type (VALUE_TYPE (arg1)))
 	    {
 	      arg1 = value_x_binop (arg1, arg2, op, OP_NULL);
 	    }
@@ -687,6 +951,90 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	    }
 	}
       return (arg1);
+
+    multi_f77_subscript:
+      { 
+	int subscript_array[MAX_FORTRAN_DIMS+1]; /* 1-based array of 
+						    subscripts, max == 7 */
+	int array_size_array[MAX_FORTRAN_DIMS+1];
+	int ndimensions=1,i;
+	struct type *tmp_type; 
+	int offset_item;   /* The array offset where the item lives */ 
+	int fixed_subscript; 
+
+	if (nargs > MAX_FORTRAN_DIMS)
+	  error ("Too many subscripts for F77 (%d Max)", MAX_FORTRAN_DIMS);
+         
+	ndimensions = calc_f77_array_dims (VALUE_TYPE (arg1)); 
+
+	if (nargs != ndimensions)
+	  error ("Wrong number of subscripts");
+
+	/* Now that we know we have a legal array subscript expression 
+	   let us actually find out where this element exists in the array. */ 
+
+	tmp_type = VALUE_TYPE (arg1);
+	offset_item = 0; 
+	for (i = 1; i <= nargs; i++)
+	  {
+	    /* Evaluate each subscript, It must be a legal integer in F77 */ 
+	    arg2 = evaluate_subexp_with_coercion (exp, pos, noside);
+
+	    if (TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_INT)
+	      error ("Array subscripts must be of type integer");
+
+	    /* Fill in the subscript and array size arrays */ 
+
+	    subscript_array[i] = (* (unsigned int *) VALUE_CONTENTS(arg2)); 
+               
+	    retcode = f77_get_dynamic_upperbound (tmp_type, &upper);
+	    if (retcode == BOUND_FETCH_ERROR)
+	      error ("Cannot obtain dynamic upper bound"); 
+
+	    retcode = f77_get_dynamic_lowerbound (tmp_type, &lower); 
+	    if (retcode == BOUND_FETCH_ERROR)
+	      error("Cannot obtain dynamic lower bound"); 
+
+	    array_size_array[i] = upper - lower + 1;
+               
+	    /* Zero-normalize subscripts so that offsetting will work. */ 
+               
+	    subscript_array[i] -= lower;
+
+	    /* If we are at the bottom of a multidimensional 
+	       array type then keep a ptr to the last ARRAY
+	       type around for use when calling value_subscript()
+	       below. This is done because we pretend to value_subscript
+	       that we actually have a one-dimensional array 
+	       of base element type that we apply a simple 
+	       offset to. */ 
+
+	    if (i < nargs) 
+	      tmp_type = TYPE_TARGET_TYPE (tmp_type); 
+	  }
+
+	/* Now let us calculate the offset for this item */
+
+	offset_item = subscript_array[ndimensions]; 
+         
+	for (i = ndimensions - 1; i >= 1; i--)
+	  offset_item = 
+	    array_size_array[i] * offset_item + subscript_array[i];
+
+	/* Construct a value node with the value of the offset */
+
+	arg2 = value_from_longest (builtin_type_f_integer, offset_item); 
+
+	/* Let us now play a dirty trick: we will take arg1 
+	   which is a value node pointing to the topmost level
+	   of the multidimensional array-set and pretend
+	   that it is actually a array of the final element 
+	   type, this will ensure that value_subscript()
+	   returns the correct type value */
+
+	VALUE_TYPE (arg1) = tmp_type; 
+	return value_ind (value_add (value_coerce_array (arg1), arg2));
+      }
 
     case BINOP_LOGICAL_AND:
       arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
@@ -930,10 +1278,13 @@ evaluate_subexp (expect_type, exp, pos, noside)
 
     case UNOP_CAST:
       (*pos) += 2;
-      arg1 = evaluate_subexp (expect_type, exp, pos, noside);
+      type = exp->elts[pc + 1].type;
+      arg1 = evaluate_subexp (type, exp, pos, noside);
       if (noside == EVAL_SKIP)
 	goto nosideret;
-      return value_cast (exp->elts[pc + 1].type, arg1);
+      if (type != VALUE_TYPE (arg1))
+	arg1 = value_cast (type, arg1);
+      return arg1;
 
     case UNOP_MEMVAL:
       (*pos) += 2;
@@ -1027,7 +1378,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	 error messages.  */
 
       error ("\
-GDB does not (yet) know how to evaluated that kind of expression");
+GDB does not (yet) know how to evaluate that kind of expression");
     }
 
  nosideret:
@@ -1223,4 +1574,24 @@ parse_and_eval_type (p, length)
     if (expr->elts[0].opcode != UNOP_CAST)
 	error ("Internal error in eval_type.");
     return expr->elts[1].type;
+}
+
+int
+calc_f77_array_dims (array_type)
+     struct type *array_type;
+{
+  int ndimen = 1;
+  struct type *tmp_type;
+
+  if ((TYPE_CODE(array_type) != TYPE_CODE_ARRAY))
+    error ("Can't get dimensions for a non-array type");
+   
+  tmp_type = array_type; 
+
+  while (tmp_type = TYPE_TARGET_TYPE (tmp_type))
+    {
+      if (TYPE_CODE (tmp_type) == TYPE_CODE_ARRAY)
+	++ndimen;
+    }
+  return ndimen; 
 }

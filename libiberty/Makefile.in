@@ -60,7 +60,9 @@ INSTALL_DATA = $(INSTALL)
 AR = ar
 AR_FLAGS = rc
 
+ERRORS_CC = $(CC)
 CFLAGS = -g
+LIBCFLAGS = $(CFLAGS)
 BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
@@ -87,6 +89,21 @@ DO_ALSO = needed-list
 # even if they are in libc. (Perhaps the libc version is buggy.)
 EXTRA_OFILES = 
 
+# Flags to pass to a recursive make.  This is also used by xiberty.
+FLAGS_TO_PASS = \
+	"AR=$(AR)" \
+	"AR_FLAGS=$(AR_FLAGS)" \
+	"CC=$(CC)" \
+	"CFLAGS=$(CFLAGS)" \
+	"LIBCFLAGS=$(LIBCFLAGS)" \
+	"EXTRA_OFILES=$(EXTRA_OFILES)" \
+	"HDEFINES=$(HDEFINES)" \
+	"INCDIR=$(INCDIR)" \
+	"LDFLAGS=$(LDFLAGS)" \
+	"LOADLIBES=$(LOADLIBES)" \
+	"RANLIB=$(RANLIB)" \
+	"SHELL=$(SHELL)"
+
 all:	$(TARGETLIB)
 .PHONY: check installcheck
 check installcheck:
@@ -98,7 +115,7 @@ check installcheck:
 INCDIR=$(srcdir)/../include
 
 .c.o:
-	$(CC) -c $(CFLAGS) -I. -I$(INCDIR) $(HDEFINES) $<
+	$(CC) -c $(LIBCFLAGS) -I. -I$(INCDIR) $(HDEFINES) $<
 
 # The default target just invokes make recursively.
 # However, the automatic configuration (in config/mh_default).
@@ -110,7 +127,7 @@ info install-info clean-info dvi:
 CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c \
 	 clock.c concat.c cplus-dem.c fdmatch.c \
 	 getcwd.c getopt.c getopt1.c getpagesize.c getruntime.c \
-         floatformat.c index.c insque.c \
+         floatformat.c hex.c index.c insque.c \
 	 memchr.c memcmp.c memcpy.c memmove.c memset.c \
          obstack.c random.c rename.c rindex.c sigsetmask.c spaces.c \
 	 strcasecmp.c strncasecmp.c \
@@ -120,9 +137,9 @@ CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c \
 	 xatexit.c xexit.c xmalloc.c
 # These are always included in the library.
 REQUIRED_OFILES = argv.o basename.o concat.o cplus-dem.o fdmatch.o \
-  getopt.o getopt1.o getruntime.o \
+  getopt.o getopt1.o getruntime.o hex.o \
   floatformat.o obstack.o spaces.o strerror.o strsignal.o \
-  xatexit.o xexit.o xmalloc.o 
+  vasprintf.o xatexit.o xexit.o xmalloc.o 
 
 # Do we want/need any config overrides?
 #	 
@@ -159,6 +176,9 @@ lneeded-list: $(EXTRA_OFILES) needed.awk errors
 	    *) f="$$f $$i" ;; \
 	  esac ; \
 	done ; \
+	case $$f in \
+	    *alloca.o*) f="$$f xmalloc.o" ;; \
+	esac ; \
 	echo $$f >>lneeded-list
 
 # Generate an awk script that looks for functions in functions.def
@@ -194,17 +214,14 @@ dummy.o: $(srcdir)/dummy.c $(srcdir)/functions.def
 	$(CC) -c $(CFLAGS) -I. -I$(INCDIR) $(HDEFINES) $(srcdir)/dummy.c 2>/dev/null
 
 errors: dummy.o $(EXTRA_OFILES)
-	-($(CC) -o dummy $(CFLAGS) $(LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
+	-($(ERRORS_CC) -o dummy $(CFLAGS) $(LDFLAGS) $(ERRORS_LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
 
 $(HOST_OFILES) $(REQUIRED_OFILES) : config.h
 
 RULE1 = $(TARGETLIB)
 $(RULE1): $(REQUIRED_OFILES) $(DO_ALSO) .always.
-	@$(MAKE) RULE1=not-used RULE2=$(TARGETLIB) \
-	     HOST_OFILES="$(HOST_OFILES)" \
-	    "CC=$(CC)" "CFLAGS=$(CFLAGS)" \
-	    "AR=$(AR)" "AR_FLAGS=$(AR_FLAGS)" "RANLIB=$(RANLIB)" \
-	    "SHELL=$(SHELL)"
+	@$(MAKE) RULE1=not-used RULE2=$(TARGETLIB) $(FLAGS_TO_PASS) \
+		"HOST_OFILES=$(HOST_OFILES)"
 
 # Rule invoked by recursive make in $(RULE1).
 RULE2 = not-used
@@ -242,7 +259,7 @@ mostlyclean:
 clean: mostlyclean
 	rm -f *.a
 distclean: clean
-	rm -f *~ Makefile config.status alloca-conf.h TAGS
+	rm -f *~ Makefile config.status alloca-conf.h xhost-mkfrag TAGS
 realclean: distclean
 
 force:
@@ -258,6 +275,7 @@ fdmatch.o: $(INCDIR)/libiberty.h
 getopt.o: $(INCDIR)/getopt.h
 getopt1.o: $(INCDIR)/getopt.h
 getruntime.o: $(INCDIR)/libiberty.h
+hex.o: $(INCDIR)/libiberty.h
 floatformat.o: $(INCDIR)/floatformat.h
 obstack.o: $(INCDIR)/obstack.h
 spaces.o: $(INCDIR)/libiberty.h

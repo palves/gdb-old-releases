@@ -1102,12 +1102,9 @@ select_thread (task, thread_id, flag)
       CHK ("Could not abort system calls when selecting a thread", ret);
 
       stop_pc = read_pc();
-      set_current_frame (create_new_frame (read_register (FP_REGNUM),
-					   stop_pc));
+      flush_cached_frames ();
 
       select_frame (get_current_frame (), 0);
-
-      stop_frame_address = FRAME_FP (get_current_frame ());
     }
 
   return KERN_SUCCESS;
@@ -2465,7 +2462,7 @@ lookup_address_of_variable (name)
 
   if (! symaddr)
     {
-      msymbol = lookup_minimal_symbol (name, (struct objfile *) NULL);
+      msymbol = lookup_minimal_symbol (name, NULL, NULL);
 
       if (msymbol && msymbol->type == mst_data)
 	symaddr = SYMBOL_VALUE_ADDRESS (msymbol);
@@ -2728,7 +2725,6 @@ thread_list_command()
 	  if (ths.flags & TH_FLAGS_IDLE)
 	    strcat (buf, "I");
 
-	  /* FIXME: May run afloul of arbitrary limit in printf_filtered.  */
 	  printf_filtered (TL_FORMAT,
 			   slot,
 			   mid,
@@ -2756,7 +2752,6 @@ thread_list_command()
 	    continue; /* EMcM */
 #endif
 
-	  /* FIXME: May run afloul of arbitrary limit in printf_filtered.  */
 	  printf_filtered (TL_FORMAT,
 			   "-",
 			   -neworder,	/* Pseudo MID */
@@ -2828,7 +2823,6 @@ thread_list_command()
 	  if (ths.flags & TH_FLAGS_IDLE)
 	    strcat (buf, "I");
 
-	  /* FIXME: May run afloul of arbitrary limit in printf_filtered.  */
 	  printf_filtered (TL_FORMAT,
 			   slot,
 			   mid,
@@ -4524,6 +4518,12 @@ char	*p;
 }
 #endif  DUMP_SYSCALL
 
+static void
+m3_stop ()
+{
+  error ("to_stop target function not implemented");
+}
+
 struct target_ops m3_ops = {
   "mach",			/* to_shortname */
   "Mach child process",	/* to_longname */
@@ -4554,6 +4554,7 @@ struct target_ops m3_ops = {
   m3_mourn_inferior,	/* to_mourn_inferior */
   m3_can_run,		/* to_can_run */
   0,				/* to_notice_signals */
+  m3_stop,			/* to_stop */
   process_stratum,		/* to_stratum */
   0,				/* to_next */
   1,				/* to_has_all_memory */

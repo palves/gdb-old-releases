@@ -28,7 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 static const char *const reg_names[] = 
  {"flags", "r1", "rp", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
   "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
-  "r20", "r21", "r22", "arg3", "arg2", "arg1", "arg0", "dp", "ret0", "ret1",
+  "r20", "r21", "r22", "r23", "r24", "r25", "r26", "dp", "ret0", "ret1",
   "sp", "r31"};
 
 /* Floating point register names, indexed by the numbers which appear in the
@@ -355,18 +355,20 @@ print_insn_hppa (memaddr, info)
      bfd_vma memaddr;
      disassemble_info *info;
 {
-  unsigned int insn, i, op;
+  bfd_byte buffer[4];
+  unsigned int insn, i;
 
   {
     int status =
-      (*info->read_memory_func) (memaddr, (bfd_byte*) &insn, sizeof (insn),
-				 info);
+      (*info->read_memory_func) (memaddr, buffer, sizeof (buffer), info);
     if (status != 0)
       {
 	(*info->memory_error_func) (status, memaddr, info);
 	return -1;
       }
   }
+
+  insn = bfd_getb32 (buffer);
 
   for (i = 0; i < NUMOPCODES; ++i)
     {

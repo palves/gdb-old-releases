@@ -661,6 +661,7 @@ info_special (p, getdst, nostore, before, nosrc)
     case OPC_com:
     case OPC_comb:
     case OPC_adc:
+    case OPC_sbc:
     case OPC_nop:
     case OPC_adcb:
     case OPC_add:
@@ -863,12 +864,12 @@ info_fetch (p, getdst)
 }
 
 static void
-normal_flags (p, s)
+normal_flags (p, s, neg)
      opcode_entry_type *p;
      char *s;
 {
   emit (" %s;\n", s);
-  emit ("NORMAL_FLAGS(context,%d, tmp,  op_dst, op_src); \n", p->type);
+  emit ("NORMAL_FLAGS(context,%d, tmp,  op_dst, op_src,%d); \n", p->type,neg);
 }
 
 static void
@@ -891,7 +892,7 @@ test_normal_flags (p, s, opt)
 }
 
 static void
-optimize_normal_flags (p, s)
+optimize_normal_flags (p, s,neg)
      opcode_entry_type *p;
      char *s;
 {
@@ -899,7 +900,7 @@ optimize_normal_flags (p, s)
 #if 0
   emit ("context->broken_flags = CMP_FLAGS;\n");
 #else
-  emit ("NORMAL_FLAGS(context,%d, tmp,  op_dst, op_src); \n", p->type);
+  emit ("NORMAL_FLAGS(context,%d, tmp,  op_dst, op_src,%d); \n", p->type, neg);
 #endif
 }
 
@@ -1249,7 +1250,10 @@ info_docode (p)
       break;
     case OPC_adc:
     case OPC_adcb:
-      optimize_normal_flags (p, "tmp = op_dst + op_src + PSW_CARRY");
+      normal_flags (p, "op_src += COND(context,7);tmp = op_dst + op_src ;",0);
+      break;
+    case OPC_sbc:
+      normal_flags (p, "op_src +=  COND(context,7);tmp = op_dst - op_src ;",1);
       break;
     case OPC_nop:
       break;
@@ -1320,7 +1324,7 @@ info_docode (p)
     case OPC_addl:
     case OPC_inc:
     case OPC_incb:
-      optimize_normal_flags (p, "tmp = op_dst + op_src");
+      optimize_normal_flags (p, "tmp = op_dst + op_src",0);
       break;
     case OPC_testb:
     case OPC_test:
@@ -1330,14 +1334,14 @@ info_docode (p)
     case OPC_cp:
     case OPC_cpb:
     case OPC_cpl:
-      normal_flags (p, "op_src = -op_src; tmp = op_dst + op_src");
+      normal_flags (p, "tmp = op_dst - op_src",1);
       break;
     case OPC_negb:
     case OPC_neg:
       emit ("{\n");
       emit ("int op_src = -op_dst;\n");
       emit ("op_dst = 0;\n");
-      optimize_normal_flags (p, "tmp = op_dst + op_src;\n");
+      optimize_normal_flags (p, "tmp = op_dst + op_src;\n",1);
       emit ("}");
       break;
 
@@ -1346,7 +1350,7 @@ info_docode (p)
     case OPC_subl:
     case OPC_dec:
     case OPC_decb:
-      optimize_normal_flags (p, "op_src = -op_src ;tmp = op_dst + op_src");
+      optimize_normal_flags (p, "tmp = op_dst - op_src",1);
       break;
     case OPC_bpt:
       bpt ();

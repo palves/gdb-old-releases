@@ -30,6 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "language.h"
 
 #include <errno.h>
+#include <string.h>
 
 /* Local functions.  */
 
@@ -48,11 +49,13 @@ static value_ptr search_struct_method PARAMS ((char *, value_ptr *,
 					       value_ptr *,
 					       int, int *, struct type *));
 
-static int
-check_field_in PARAMS ((struct type *, const char *));
+static int check_field_in PARAMS ((struct type *, const char *));
 
-static CORE_ADDR
-allocate_space_in_inferior PARAMS ((int));
+static CORE_ADDR allocate_space_in_inferior PARAMS ((int));
+
+static value_ptr cast_into_complex PARAMS ((struct type *, value_ptr));
+
+#define VALUE_SUBSTRING_START(VAL) VALUE_FRAME(VAL)
 
 
 /* Allocate NBYTES of space in the inferior using the inferior's malloc
@@ -82,7 +85,7 @@ allocate_space_in_inferior (len)
     }
   else
     {
-      msymbol = lookup_minimal_symbol ("malloc", (struct objfile *) NULL);
+      msymbol = lookup_minimal_symbol ("malloc", NULL, NULL);
       if (msymbol != NULL)
 	{
 	  type = lookup_pointer_type (builtin_type_char);
@@ -120,6 +123,11 @@ value_cast (type, arg2)
   register enum type_code code2;
   register int scalar;
 
+  if (VALUE_TYPE (arg2) == type)
+    return arg2;
+
+  COERCE_VARYING_ARRAY (arg2);
+
   /* Coerce arrays but not enums.  Enums will work as-is
      and coercing them would cause an infinite recursion.  */
   if (TYPE_CODE (VALUE_TYPE (arg2)) != TYPE_CODE_ENUM)
@@ -127,8 +135,16 @@ value_cast (type, arg2)
 
   code1 = TYPE_CODE (type);
   code2 = TYPE_CODE (VALUE_TYPE (arg2));
+
+  if (code1 == TYPE_CODE_COMPLEX) 
+    return cast_into_complex (type, arg2); 
+  if (code1 == TYPE_CODE_BOOL) 
+    code1 = TYPE_CODE_INT; 
+  if (code2 == TYPE_CODE_BOOL) 
+    code2 = TYPE_CODE_INT; 
+
   scalar = (code2 == TYPE_CODE_INT || code2 == TYPE_CODE_FLT
-	    || code2 == TYPE_CODE_ENUM);
+	    || code2 == TYPE_CODE_ENUM || code2 == TYPE_CODE_RANGE);
 
   if (   code1 == TYPE_CODE_STRUCT
       && code2 == TYPE_CODE_STRUCT
@@ -147,7 +163,8 @@ value_cast (type, arg2)
     }
   if (code1 == TYPE_CODE_FLT && scalar)
     return value_from_double (type, value_as_double (arg2));
-  else if ((code1 == TYPE_CODE_INT || code1 == TYPE_CODE_ENUM)
+  else if ((code1 == TYPE_CODE_INT || code1 == TYPE_CODE_ENUM
+	    || code1 == TYPE_CODE_RANGE)
 	   && (scalar || code2 == TYPE_CODE_PTR))
     return value_from_longest (type, value_as_long (arg2));
   else if (TYPE_LENGTH (type) == TYPE_LENGTH (VALUE_TYPE (arg2)))
@@ -176,6 +193,40 @@ value_cast (type, arg2)
 	}
       VALUE_TYPE (arg2) = type;
       return arg2;
+    }
+  else if (chill_varying_type (type))
+    {
+      struct type *range1, *range2, *eltype1, *eltype2;
+      value_ptr val;
+      int count1, count2;
+      char *valaddr, *valaddr_data;
+      if (code2 == TYPE_CODE_BITSTRING)
+	error ("not implemented: converting bitstring to varying type");
+      if ((code2 != TYPE_CODE_ARRAY && code2 != TYPE_CODE_STRING)
+	  || (eltype1 = TYPE_TARGET_TYPE (TYPE_FIELD_TYPE (type, 1)),
+	      eltype2 = TYPE_TARGET_TYPE (VALUE_TYPE (arg2)),
+	      (TYPE_LENGTH (eltype1) != TYPE_LENGTH (eltype2)
+	       /* || TYPE_CODE (eltype1) != TYPE_CODE (eltype2) */ )))
+	error ("Invalid conversion to varying type");
+      range1 = TYPE_FIELD_TYPE (TYPE_FIELD_TYPE (type, 1), 0);
+      range2 = TYPE_FIELD_TYPE (VALUE_TYPE (arg2), 0);
+      count1 = TYPE_HIGH_BOUND (range1) - TYPE_LOW_BOUND (range1) + 1;
+      count2 = TYPE_HIGH_BOUND (range2) - TYPE_LOW_BOUND (range2) + 1;
+      if (count2 > count1)
+	error ("target varying type is too small");
+      val = allocate_value (type);
+      valaddr = VALUE_CONTENTS_RAW (val);
+      valaddr_data = valaddr + TYPE_FIELD_BITPOS (type, 1) / 8;
+      /* Set val's __var_length field to count2. */
+      store_signed_integer (valaddr, TYPE_LENGTH (TYPE_FIELD_TYPE (type, 0)),
+			    count2);
+      /* Set the __var_data field to count2 elements copied from arg2. */
+      memcpy (valaddr_data, VALUE_CONTENTS (arg2),
+	      count2 * TYPE_LENGTH (eltype2));
+      /* Zero the rest of the __var_data field of val. */
+      memset (valaddr_data + count2 * TYPE_LENGTH (eltype2), '\0',
+	      (count1 - count2) * TYPE_LENGTH (eltype2));
+      return val;
     }
   else if (VALUE_LVAL (arg2) == lval_memory)
     {
@@ -434,7 +485,7 @@ Can't handle bitfield which doesn't fit in a single register.");
 					+ MAX_REGISTER_RAW_SIZE);
 
 	int regno;
-	FRAME frame;
+	struct frame_info *frame;
 
 	/* Figure out which frame this is in currently.  */
 	for (frame = get_current_frame ();
@@ -549,15 +600,15 @@ value_of_variable (var, b)
      struct block *b;
 {
   value_ptr val;
-  FRAME fr;
+  struct frame_info *frame;
 
   if (b == NULL)
     /* Use selected frame.  */
-    fr = NULL;
+    frame = NULL;
   else
     {
-      fr = block_innermost_frame (b);
-      if (fr == NULL && symbol_read_needs_frame (var))
+      frame = block_innermost_frame (b);
+      if (frame == NULL && symbol_read_needs_frame (var))
 	{
 	  if (BLOCK_FUNCTION (b) != NULL
 	      && SYMBOL_NAME (BLOCK_FUNCTION (b)) != NULL)
@@ -567,7 +618,7 @@ value_of_variable (var, b)
 	    error ("No frame is currently executing in specified block");
 	}
     }
-  val = read_var_value (var, fr);
+  val = read_var_value (var, frame);
   if (val == 0)
     error ("Address of symbol \"%s\" is unknown.", SYMBOL_SOURCE_NAME (var));
   return val;
@@ -649,8 +700,9 @@ value_addr (arg1)
       VALUE_TYPE (arg2) = lookup_pointer_type (TYPE_TARGET_TYPE (type));
       return arg2;
     }
-  if (VALUE_REPEATED (arg1)
-      || TYPE_CODE (type) == TYPE_CODE_ARRAY)
+  if (current_language->c_style_arrays
+      && (VALUE_REPEATED (arg1)
+	  || TYPE_CODE (type) == TYPE_CODE_ARRAY))
     return value_coerce_array (arg1);
   if (TYPE_CODE (type) == TYPE_CODE_FUNC)
     return value_coerce_function (arg1);
@@ -769,8 +821,9 @@ value_arg_coerce (arg)
     arg = value_cast (builtin_type_unsigned_int, arg);
 
 #if 1	/* FIXME:  This is only a temporary patch.  -fnf */
-  if (VALUE_REPEATED (arg)
-      || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY)
+  if (current_language->c_style_arrays
+      && (VALUE_REPEATED (arg)
+	  || TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY))
     arg = value_coerce_array (arg);
   if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FUNC)
     arg = value_coerce_function (arg);
@@ -827,7 +880,15 @@ find_function_addr (function, retval_type)
       funaddr = value_as_pointer (function);
       if (TYPE_CODE (TYPE_TARGET_TYPE (ftype)) == TYPE_CODE_FUNC
 	  || TYPE_CODE (TYPE_TARGET_TYPE (ftype)) == TYPE_CODE_METHOD)
-	value_type = TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (ftype));
+	{
+#ifdef CONVERT_FROM_FUNC_PTR_ADDR
+	  /* FIXME: This is a workaround for the unusual function
+	     pointer representation on the RS/6000, see comment
+	     in config/rs6000/tm-rs6000.h  */
+	  funaddr = CONVERT_FROM_FUNC_PTR_ADDR (funaddr);
+#endif
+	  value_type = TYPE_TARGET_TYPE (TYPE_TARGET_TYPE (ftype));
+	}
       else
 	value_type = builtin_type_int;
     }
@@ -906,11 +967,11 @@ call_function_by_hand (function, nargs, args)
   old_sp = sp = read_sp ();
 
 #if 1 INNER_THAN 2		/* Stack grows down */
-  sp -= sizeof dummy;
+  sp -= sizeof dummy1;
   start_sp = sp;
 #else				/* Stack grows up */
   start_sp = sp;
-  sp += sizeof dummy;
+  sp += sizeof dummy1;
 #endif
 
   funaddr = find_function_addr (function, &value_type);
@@ -944,7 +1005,7 @@ call_function_by_hand (function, nargs, args)
 #endif
 
 #if CALL_DUMMY_LOCATION == ON_STACK
-  write_memory (start_sp, (char *)dummy1, sizeof dummy);
+  write_memory (start_sp, (char *)dummy1, sizeof dummy1);
 #endif /* On stack.  */
 
 #if CALL_DUMMY_LOCATION == BEFORE_TEXT_END
@@ -954,13 +1015,13 @@ call_function_by_hand (function, nargs, args)
     extern CORE_ADDR text_end;
     static checked = 0;
     if (!checked)
-      for (start_sp = text_end - sizeof dummy; start_sp < text_end; ++start_sp)
+      for (start_sp = text_end - sizeof dummy1; start_sp < text_end; ++start_sp)
 	if (read_memory_integer (start_sp, 1) != 0)
 	  error ("text segment full -- no place to put call");
     checked = 1;
     sp = old_sp;
-    real_pc = text_end - sizeof dummy;
-    write_memory (real_pc, (char *)dummy1, sizeof dummy);
+    real_pc = text_end - sizeof dummy1;
+    write_memory (real_pc, (char *)dummy1, sizeof dummy1);
   }
 #endif /* Before text_end.  */
 
@@ -970,7 +1031,7 @@ call_function_by_hand (function, nargs, args)
     int errcode;
     sp = old_sp;
     real_pc = text_end;
-    errcode = target_write_memory (real_pc, (char *)dummy1, sizeof dummy);
+    errcode = target_write_memory (real_pc, (char *)dummy1, sizeof dummy1);
     if (errcode != 0)
       error ("Cannot write text segment -- call_function failed");
   }
@@ -1240,9 +1301,21 @@ value_string (ptr, len)
      int len;
 {
   value_ptr val;
-  struct type *rangetype;
-  struct type *stringtype;
+  int lowbound = current_language->string_lower_bound;
+  struct type *rangetype = create_range_type ((struct type *) NULL,
+					      builtin_type_int,
+					      lowbound, len + lowbound - 1);
+  struct type *stringtype
+    = create_string_type ((struct type *) NULL, rangetype);
   CORE_ADDR addr;
+
+  if (current_language->c_style_arrays == 0)
+    {
+      val = allocate_value (stringtype);
+      memcpy (VALUE_CONTENTS_RAW (val), ptr, len);
+      return val;
+    }
+
 
   /* Allocate space to store the string in the inferior, and then
      copy LEN bytes from PTR in gdb to that address in the inferior. */
@@ -1250,14 +1323,23 @@ value_string (ptr, len)
   addr = allocate_space_in_inferior (len);
   write_memory (addr, ptr, len);
 
-  /* Create the string type and set up a string value to be evaluated
-     lazily. */
-
-  rangetype = create_range_type ((struct type *) NULL, builtin_type_int,
-				 0, len - 1);
-  stringtype = create_string_type ((struct type *) NULL, rangetype);
   val = value_at_lazy (stringtype, addr);
   return (val);
+}
+
+value_ptr
+value_bitstring (ptr, len)
+     char *ptr;
+     int len;
+{
+  value_ptr val;
+  struct type *domain_type = create_range_type (NULL, builtin_type_int,
+						0, len - 1);
+  struct type *type = create_set_type ((struct type*) NULL, domain_type);
+  TYPE_CODE (type) = TYPE_CODE_BITSTRING;
+  val = allocate_value (type);
+  memcpy (VALUE_CONTENTS_RAW (val), ptr, TYPE_LENGTH (type) / TARGET_CHAR_BIT);
+  return val;
 }
 
 /* See if we can pass arguments in T2 to a function which takes arguments
@@ -1369,6 +1451,17 @@ search_struct_field (name, arg1, offset, type, looking_for_baseclass)
 	    if (v == 0)
 	      error("there is no field named %s", name);
 	    return v;
+	  }
+	if (t_field_name && t_field_name[0] == '\0'
+	    && TYPE_CODE (TYPE_FIELD_TYPE (type, i)) == TYPE_CODE_UNION)
+	  {
+	    /* Look for a match through the fields of an anonymous union.  */
+	    value_ptr v;
+	    v = search_struct_field (name, arg1, offset,
+				     TYPE_FIELD_TYPE (type, i),
+				     looking_for_baseclass);
+	    if (v)
+	      return v;
 	  }
       }
 
@@ -1624,7 +1717,15 @@ destructor_name_p (name, type)
   if (name[0] == '~')
     {
       char *dname = type_name_no_tag (type);
-      if (!STREQ (dname, name+1))
+      char *cp = strchr (dname, '<');
+      int len;
+
+      /* Do not compare the template part for template classes.  */
+      if (cp == NULL)
+	len = strlen (dname);
+      else
+	len = cp - dname;
+      if (strlen (name + 1) != len || !STREQN (dname, name + 1, len))
 	error ("name of destructor must equal name of class");
       else
 	return 1;
@@ -1849,11 +1950,11 @@ value_struct_elt_for_reference (domain, offset, curtype, name, intype)
 /* C++: return the value of the class instance variable, if one exists.
    Flag COMPLAIN signals an error if the request is made in an
    inappropriate context.  */
+
 value_ptr
 value_of_this (complain)
      int complain;
 {
-  extern FRAME selected_frame;
   struct symbol *func, *sym;
   struct block *b;
   int i;
@@ -1895,4 +1996,122 @@ value_of_this (complain)
   if (this == 0 && complain)
     error ("`this' argument at unknown address");
   return this;
+}
+
+/* Create a slice (sub-string, sub-array) of ARRAY, that is LENGTH elements
+   long, starting at LOWBOUND.  The result has the same lower bound as
+   the original ARRAY.  */
+
+value_ptr
+value_slice (array, lowbound, length)
+     value_ptr array;
+     int lowbound, length;
+{
+  if (TYPE_CODE (VALUE_TYPE (array)) == TYPE_CODE_BITSTRING)
+    error ("not implemented - bitstring slice");
+  if (TYPE_CODE (VALUE_TYPE (array)) != TYPE_CODE_ARRAY
+      && TYPE_CODE (VALUE_TYPE (array)) != TYPE_CODE_STRING)
+    error ("cannot take slice of non-array");
+  else
+    {
+      struct type *slice_range_type, *slice_type;
+      value_ptr slice;
+      struct type *range_type = TYPE_FIELD_TYPE (VALUE_TYPE (array), 0);
+      struct type *element_type = TYPE_TARGET_TYPE (VALUE_TYPE (array));
+      int lowerbound = TYPE_LOW_BOUND (range_type);
+      int upperbound = TYPE_HIGH_BOUND (range_type);
+      int offset = (lowbound - lowerbound) * TYPE_LENGTH (element_type);
+      if (lowbound < lowerbound || length < 0
+	  || lowbound + length - 1 > upperbound)
+	error ("slice out of range");
+      slice_range_type = create_range_type ((struct type*) NULL,
+					    TYPE_TARGET_TYPE (range_type),
+					    lowerbound,
+					    lowerbound + length - 1);
+      slice_type = create_array_type ((struct type*) NULL, element_type,
+				      slice_range_type);
+      TYPE_CODE (slice_type) = TYPE_CODE (VALUE_TYPE (array));
+      slice = allocate_value (slice_type);
+      if (VALUE_LAZY (array))
+	VALUE_LAZY (slice) = 1;
+      else
+	memcpy (VALUE_CONTENTS (slice), VALUE_CONTENTS (array) + offset,
+		TYPE_LENGTH (slice_type));
+      if (VALUE_LVAL (array) == lval_internalvar)
+	VALUE_LVAL (slice) = lval_internalvar_component;
+      else
+	VALUE_LVAL (slice) = VALUE_LVAL (array);
+      VALUE_ADDRESS (slice) = VALUE_ADDRESS (array);
+      VALUE_OFFSET (slice) = VALUE_OFFSET (array) + offset;
+      return slice;
+    }
+}
+
+/* Assuming chill_varying_type (VARRAY) is true, return an equivalent
+   value as a fixed-length array. */
+
+value_ptr
+varying_to_slice (varray)
+     value_ptr varray;
+{
+  struct type *vtype = VALUE_TYPE (varray);
+  LONGEST length = unpack_long (TYPE_FIELD_TYPE (vtype, 0),
+				VALUE_CONTENTS (varray)
+				+ TYPE_FIELD_BITPOS (vtype, 0) / 8);
+  return value_slice (value_primitive_field (varray, 0, 1, vtype), 0, length);
+}
+
+/* Create a value for a FORTRAN complex number.  Currently most of 
+   the time values are coerced to COMPLEX*16 (i.e. a complex number 
+   composed of 2 doubles.  This really should be a smarter routine 
+   that figures out precision inteligently as opposed to assuming 
+   doubles. FIXME: fmb */ 
+
+value_ptr
+value_literal_complex (arg1, arg2, type)
+     value_ptr arg1;
+     value_ptr arg2;
+     struct type *type;
+{
+  register value_ptr val;
+  struct type *real_type = TYPE_TARGET_TYPE (type);
+
+  val = allocate_value (type);
+  arg1 = value_cast (real_type, arg1);
+  arg2 = value_cast (real_type, arg2);
+
+  memcpy (VALUE_CONTENTS_RAW (val),
+	  VALUE_CONTENTS (arg1), TYPE_LENGTH (real_type));
+  memcpy (VALUE_CONTENTS_RAW (val) + TYPE_LENGTH (real_type),
+	  VALUE_CONTENTS (arg2), TYPE_LENGTH (real_type));
+  return val;
+}
+
+/* Cast a value into the appropriate complex data type. */
+
+static value_ptr
+cast_into_complex (type, val)
+     struct type *type;
+     register value_ptr val;
+{
+  struct type *real_type = TYPE_TARGET_TYPE (type);
+  if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_COMPLEX)
+    {
+      struct type *val_real_type = TYPE_TARGET_TYPE (VALUE_TYPE (val));
+      value_ptr re_val = allocate_value (val_real_type);
+      value_ptr im_val = allocate_value (val_real_type);
+
+      memcpy (VALUE_CONTENTS_RAW (re_val),
+	      VALUE_CONTENTS (val), TYPE_LENGTH (val_real_type));
+      memcpy (VALUE_CONTENTS_RAW (im_val),
+	      VALUE_CONTENTS (val) + TYPE_LENGTH (val_real_type),
+	       TYPE_LENGTH (val_real_type));
+
+      return value_literal_complex (re_val, im_val, type);
+    }
+  else if (TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_FLT
+	   || TYPE_CODE (VALUE_TYPE (val)) == TYPE_CODE_INT)
+    return value_literal_complex (val, value_zero (real_type, not_lval), type);
+  else
+    error ("cannot cast non-number to complex");
 }

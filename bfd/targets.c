@@ -1,5 +1,5 @@
 /* Generic target-file-type support for the BFD library.
-   Copyright 1990, 91, 92, 93, 1994 Free Software Foundation, Inc.
+   Copyright 1990, 91, 92, 93, 94, 1995 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -283,21 +283,26 @@ The general target vector.
 .#define BFD_JUMP_TABLE_ARCHIVE(NAME)\
 .CAT(NAME,_slurp_armap),\
 .CAT(NAME,_slurp_extended_name_table),\
+.CAT(NAME,_construct_extended_name_table),\
 .CAT(NAME,_truncate_arname),\
 .CAT(NAME,_write_armap),\
 .CAT(NAME,_openr_next_archived_file),\
-.CAT(NAME,_generic_stat_arch_elt)
+.CAT(NAME,_generic_stat_arch_elt),\
+.CAT(NAME,_update_armap_timestamp)
 .  boolean  (*_bfd_slurp_armap) PARAMS ((bfd *));
 .  boolean  (*_bfd_slurp_extended_name_table) PARAMS ((bfd *));
+.  boolean  (*_bfd_construct_extended_name_table)
+.             PARAMS ((bfd *, char **, bfd_size_type *, const char **));
 .  void     (*_bfd_truncate_arname) PARAMS ((bfd *, CONST char *, char *));
 .  boolean  (*write_armap) PARAMS ((bfd *arch, 
 .                              unsigned int elength,
 .                              struct orl *map,
 .                              unsigned int orl_count, 
 .                              int stridx));
-.  bfd *      (*openr_next_archived_file) PARAMS ((bfd *arch, bfd *prev));
-.  int        (*_bfd_stat_arch_elt) PARAMS ((bfd *, struct stat *));
-. 
+.  bfd *    (*openr_next_archived_file) PARAMS ((bfd *arch, bfd *prev));
+.  int      (*_bfd_stat_arch_elt) PARAMS ((bfd *, struct stat *));
+.  boolean  (*_bfd_update_armap_timestamp) PARAMS ((bfd *));
+.
 .  {* Entry points used for symbols.  *}
 .#define BFD_JUMP_TABLE_SYMBOLS(NAME)\
 .CAT(NAME,_get_symtab_upper_bound),\
@@ -346,7 +351,7 @@ The general target vector.
 .  long  (*_bfd_canonicalize_reloc) PARAMS ((bfd *, sec_ptr, arelent **,
 .                                            struct symbol_cache_entry **));
 .  {* See documentation on reloc types.  *}
-.  CONST struct reloc_howto_struct *
+.  reloc_howto_type *
 .       (*reloc_type_lookup) PARAMS ((bfd *abfd,
 .                                     bfd_reloc_code_real_type code));
 .
@@ -453,13 +458,13 @@ extern const bfd_target i386aout_vec;
 extern const bfd_target i386bsd_vec;
 extern const bfd_target i386dynix_vec;
 extern const bfd_target i386os9k_vec;
-extern const bfd_target netbsd386_vec;
 extern const bfd_target i386coff_vec;
 extern const bfd_target go32coff_vec;
 extern const bfd_target i386linux_vec;
 extern const bfd_target i386lynx_aout_vec;
 extern const bfd_target i386lynx_coff_vec;
 extern const bfd_target i386mach3_vec;
+extern const bfd_target i386netbsd_vec;
 extern const bfd_target icoff_big_vec;
 extern const bfd_target icoff_little_vec;
 extern const bfd_target ieee_vec;
@@ -467,29 +472,37 @@ extern const bfd_target m68kcoff_vec;
 extern const bfd_target m68kcoffun_vec;
 extern const bfd_target m68klynx_aout_vec;
 extern const bfd_target m68klynx_coff_vec;
+extern const bfd_target m68knetbsd_vec;
 extern const bfd_target m88kbcs_vec;
 extern const bfd_target m88kmach3_vec;
-extern const bfd_target netbsd532_vec;
 extern const bfd_target newsos3_vec;
 extern const bfd_target nlm32_i386_vec;
 extern const bfd_target nlm32_sparc_vec;
 extern const bfd_target nlm32_alpha_vec;
 extern const bfd_target nlm32_powerpc_vec;
+extern const bfd_target pc532netbsd_vec;
 extern const bfd_target oasys_vec;
-extern const bfd_target pc532mach_vec;
+extern const bfd_target pc532machaout_vec;
+extern const bfd_target riscix_vec;
 extern const bfd_target rs6000coff_vec;
 extern const bfd_target shcoff_vec;
+extern const bfd_target shlcoff_vec;
 extern const bfd_target sparclynx_aout_vec;
 extern const bfd_target sparclynx_coff_vec;
+extern const bfd_target sparcnetbsd_vec;
 extern const bfd_target sparccoff_vec;
 extern const bfd_target sunos_big_vec;
 extern const bfd_target tekhex_vec;
 extern const bfd_target we32kcoff_vec;
+extern const bfd_target w65_vec;
 extern const bfd_target z8kcoff_vec;
 
 /* srec is always included.  */
 extern const bfd_target srec_vec;
 extern const bfd_target symbolsrec_vec;
+
+/* binary is always included.  */
+extern const bfd_target binary_vec;
 
 /* All of the xvecs for core files.  */
 extern const bfd_target aix386_core_vec;
@@ -590,6 +603,7 @@ const bfd_target * const bfd_target_vector[] = {
 	/* No distinguishing features for Mach 3 executables.  */
 	&i386mach3_vec,
 #endif
+	&i386netbsd_vec,
 	&i386os9k_vec,
 	&icoff_big_vec,
 	&icoff_little_vec,
@@ -598,16 +612,16 @@ const bfd_target * const bfd_target_vector[] = {
 	&m68kcoffun_vec,
 	&m68klynx_aout_vec,
 	&m68klynx_coff_vec,
+	&m68knetbsd_vec,
 	&m88kbcs_vec,
 	&m88kmach3_vec,
 	&newsos3_vec,
-	&netbsd386_vec,
-	&netbsd532_vec,
 	&nlm32_i386_vec,
 	&nlm32_sparc_vec,
 #ifdef BFD64
 	&nlm32_alpha_vec,
 #endif
+	&pc532netbsd_vec,
 #if 0
 	/* We have no oasys tools anymore, so we can't test any of this
 	   anymore. If you want to test the stuff yourself, go ahead...
@@ -617,15 +631,19 @@ const bfd_target * const bfd_target_vector[] = {
 	&oasys_vec,
 #endif
 	&pc532machaout_vec,
+#if 0
+	/* We have no way of distinguishing this from other a.out variants */
+	&riscix_vec,
+#endif
 	&rs6000coff_vec,
 	&shcoff_vec,
+	&shlcoff_vec,
 	&sparclynx_aout_vec,
 	&sparclynx_coff_vec,
+	&sparcnetbsd_vec,
 	&sunos_big_vec,
 	&aout0_big_vec,
-#if 0
 	&tekhex_vec,
-#endif
 	&we32kcoff_vec,
 	&z8kcoff_vec,
 
@@ -634,6 +652,9 @@ const bfd_target * const bfd_target_vector[] = {
 /* Always support S-records, for convenience.  */
 	&srec_vec,
 	&symbolsrec_vec,
+
+/* Likewise for binary output.  */
+	&binary_vec,
 
 /* Add any required traditional-core-file-handler.  */
 

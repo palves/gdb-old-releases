@@ -26,8 +26,9 @@ main (argc, argv)
 {
   struct exec my_exec;
   int page_size;
-  char *target = "unknown";
+  char *target = "unknown", *arch = "unknown";
   FILE *file = fopen("gen-aout", "r");
+
   if (file == NULL) {
       fprintf(stderr, "Cannot open gen-aout!\n");
       return -1;

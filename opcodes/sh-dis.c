@@ -22,9 +22,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sh-opc.h"
 #include "dis-asm.h"
 
+#define LITTLE_BIT 2
 
-int 
-print_insn_sh(memaddr, info)
+static int 
+print_insn_shx(memaddr, info)
      bfd_vma memaddr;
      struct disassemble_info *info;
 {
@@ -46,11 +47,24 @@ print_insn_sh(memaddr, info)
       return -1;
     }
 
-  nibs[0] = (insn[0] >> 4) & 0xf;
-  nibs[1] = insn[0] & 0xf;
 
-  nibs[2] = (insn[1] >> 4) & 0xf;
-  nibs[3] = insn[1] & 0xf;
+
+  if (info->flags & LITTLE_BIT) 
+    {
+      nibs[0] = (insn[1] >> 4) & 0xf;
+      nibs[1] = insn[1] & 0xf;
+
+      nibs[2] = (insn[0] >> 4) & 0xf;
+      nibs[3] = insn[0] & 0xf;
+    }
+  else 
+    {
+      nibs[0] = (insn[0] >> 4) & 0xf;
+      nibs[1] = insn[0] & 0xf;
+
+      nibs[2] = (insn[1] >> 4) & 0xf;
+      nibs[3] = insn[1] & 0xf;
+    }
 
   for (op = sh_table; op->name; op++) 
     {
@@ -214,16 +228,16 @@ print_insn_sh(memaddr, info)
 	    }
 	
 	}
-      if (!info->flags &&
+      if (!(info->flags & 1) &&
 	  op->name[0] == 'j'
 	  || (op->name[0] == 'b' && (op->name[1] == 'r' 
 				     || op->name[1] == 's'))
 	  || (op->name[0] == 'r' && op->name[1] == 't')
 	  || (op->name[0] == 'b' && op->name[2] == '.'))
 	{
-	  info->flags = 1;
-	  fprintf(stream,"\t(slot ");  print_insn_sh(memaddr +2, info);
-	  info->flags = 0;
+	  info->flags |= 1;
+	  fprintf(stream,"\t(slot ");  print_insn_shx(memaddr +2, info);
+	  info->flags &= ~1;
 	  fprintf(stream,")");
 	  return 4;
 	}
@@ -233,6 +247,29 @@ print_insn_sh(memaddr, info)
       ;
 
     }
-  fprintf(stream,".word 0x%02x%02x", insn[0], insn[1]);
+  fprintf(stream,".word 0x%x%x%x%x", nibs[0], nibs[1], nibs[2], nibs[3]);
   return 2;
+}
+
+
+int 
+print_insn_shl(memaddr, info)
+     bfd_vma memaddr;
+     struct disassemble_info *info;
+{
+  int r;
+  info->flags = LITTLE_BIT;
+  r =print_insn_shx (memaddr, info);
+  return r;
+}
+
+int 
+print_insn_sh(memaddr, info)
+     bfd_vma memaddr;
+     struct disassemble_info *info;
+{
+  int r;
+  info->flags = 0;
+  r =print_insn_shx (memaddr, info);
+  return r;
 }

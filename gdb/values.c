@@ -1,5 +1,6 @@
 /* Low level packing and unpacking of values for GDB, the GNU Debugger.
-   Copyright 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -27,6 +28,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "gdbcmd.h"
 #include "target.h"
+#include "language.h"
 #include "demangle.h"
 
 /* Local function prototypes. */
@@ -259,6 +261,18 @@ record_latest_value (val)
       if (i) return -1;		/* Indicate value not saved in history */
     }
 
+  /* We don't want this value to have anything to do with the inferior anymore.
+     In particular, "set $1 = 50" should not affect the variable from which
+     the value was taken, and fast watchpoints should be able to assume that
+     a value on the value history never changes.  */
+  if (VALUE_LAZY (val))
+    value_fetch_lazy (val);
+  /* We preserve VALUE_LVAL so that the user can find out where it was fetched
+     from.  This is a bit dubious, because then *&$1 does not just return $1
+     but the current contents of that location.  c'est la vie...  */
+  val->modifiable = 0;
+  release_value (val);
+
   /* Here we treat value_history_count as origin-zero
      and applying to the value being stored now.  */
 
@@ -274,18 +288,6 @@ record_latest_value (val)
     }
 
   value_history_chain->values[i] = val;
-
-  /* We don't want this value to have anything to do with the inferior anymore.
-     In particular, "set $1 = 50" should not affect the variable from which
-     the value was taken, and fast watchpoints should be able to assume that
-     a value on the value history never changes.  */
-  if (VALUE_LAZY (val))
-    value_fetch_lazy (val);
-  /* We preserve VALUE_LVAL so that the user can find out where it was fetched
-     from.  This is a bit dubious, because then *&$1 does not just return $1
-     but the current contents of that location.  c'est la vie...  */
-  val->modifiable = 0;
-  release_value (val);
 
   /* Now we regard value_history_count as origin-one
      and applying to the value just stored.  */
@@ -674,11 +676,13 @@ unpack_double (type, valaddr, invp)
   *invp = 0;			/* Assume valid.   */
   if (code == TYPE_CODE_FLT)
     {
+#ifdef INVALID_FLOAT
       if (INVALID_FLOAT (valaddr, len))
 	{
 	  *invp = 1;
 	  return 1.234567891011121314;
 	}
+#endif
       return extract_floating (valaddr, len);
     }
   else if (nosign)
@@ -1246,11 +1250,10 @@ unpack_field_as_long (type, valaddr, fieldno)
 
   /* Extract bits.  See comment above. */
 
-#if BITS_BIG_ENDIAN
-  lsbcount = (sizeof val * 8 - bitpos % 8 - bitsize);
-#else
-  lsbcount = (bitpos % 8);
-#endif
+  if (BITS_BIG_ENDIAN)
+    lsbcount = (sizeof val * 8 - bitpos % 8 - bitsize);
+  else
+    lsbcount = (bitpos % 8);
   val >>= lsbcount;
 
   /* If the field does not entirely fill a LONGEST, then zero the sign bits.
@@ -1297,9 +1300,8 @@ modify_field (addr, fieldval, bitpos, bitsize)
   oword = extract_signed_integer (addr, sizeof oword);
 
   /* Shifting for bit field depends on endianness of the target machine.  */
-#if BITS_BIG_ENDIAN
-  bitpos = sizeof (oword) * 8 - bitpos - bitsize;
-#endif
+  if (BITS_BIG_ENDIAN)
+    bitpos = sizeof (oword) * 8 - bitpos - bitsize;
 
   /* Mask out old value, while avoiding shifts >= size of oword */
   if (bitsize < 8 * sizeof (oword))
@@ -1465,8 +1467,6 @@ set_return_value (val)
      value_ptr val;
 {
   register enum type_code code = TYPE_CODE (VALUE_TYPE (val));
-  double dbuf;
-  LONGEST lbuf;
 
   if (code == TYPE_CODE_ERROR)
     error ("Function return type unknown.");
@@ -1475,19 +1475,7 @@ set_return_value (val)
       || code == TYPE_CODE_UNION)	/* FIXME, implement struct return.  */
     error ("GDB does not support specifying a struct or union return value.");
 
-  /* FIXME, this is bogus.  We don't know what the return conventions
-     are, or how values should be promoted.... */
-  if (code == TYPE_CODE_FLT)
-    {
-      dbuf = value_as_double (val);
-
-      STORE_RETURN_VALUE (VALUE_TYPE (val), (char *)&dbuf);
-    }
-  else
-    {
-      lbuf = value_as_long (val);
-      STORE_RETURN_VALUE (VALUE_TYPE (val), (char *)&lbuf);
-    }
+  STORE_RETURN_VALUE (VALUE_TYPE (val), VALUE_CONTENTS (val));
 }
 
 void

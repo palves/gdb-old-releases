@@ -1,6 +1,6 @@
 \input texinfo.tex
 @setfilename bfd.info
-@c $Id: bfd.texinfo,v 1.26 1994/03/17 22:32:24 pesch Exp $
+@c $Id: bfd.texinfo,v 1.27 1994/09/12 15:48:33 ian Exp $
 @tex
 % NOTE LOCAL KLUGE TO AVOID TOO MUCH WHITESPACE
 \global\long\def\example{%
@@ -67,7 +67,7 @@ into another language, under the above conditions for modified versions.
 
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.26 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.27 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill sac\@cygnus.com\par
@@ -227,7 +227,6 @@ IEEE-695.
 * Targets::
 * Architectures::
 * Opening and Closing::
-* Constructors::
 * Internal::
 * File Caching::
 * Linker Functions::
@@ -284,13 +283,10 @@ structures.
 @node Architectures, Opening and Closing, Targets, BFD front end
 @include  archures.texi
 
-@node Opening and Closing, Constructors, Architectures, BFD front end
+@node Opening and Closing, Internal, Architectures, BFD front end
 @include  opncls.texi
 
-@node Constructors, Internal, Opening and Closing, BFD front end
-@include  ctor.texi
-
-@node Internal, File Caching, Constructors, BFD front end
+@node Internal, File Caching, Opening and Closing, BFD front end
 @include  libbfd.texi
 
 @node File Caching, Linker Functions, Internal, BFD front end

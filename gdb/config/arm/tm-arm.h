@@ -23,10 +23,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define IEEE_FLOAT
 
-/* I provide my own xfer_core_file to cope with shared libraries */
-
-#define XFER_CORE_FILE
-
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
 
@@ -71,11 +67,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define ABOUT_TO_RETURN(pc) \
       ((read_memory_integer(pc, 4) & 0x0fffffff == 0x01b0f00e) || \
        (read_memory_integer(pc, 4) & 0x0ffff800 == 0x09eba800))
-
-/* Return 1 if P points to an invalid floating point value.
-   LEN is the length in bytes.  */
-
-#define INVALID_FLOAT(p, len) 0
 
 /* code to execute to print interesting information about the
  * floating point processor (if any)
@@ -207,7 +198,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define STORE_RETURN_VALUE(TYPE,VALBUF) \
   if (TYPE_CODE (TYPE) == TYPE_CODE_FLT) {				\
     char _buf[MAX_REGISTER_RAW_SIZE];					\
-    convert_to_extended(VALBUF, _buf);					\
+    convert_to_extended(VALBUF, _buf); 					\
     write_register_bytes (REGISTER_BYTE (F0_REGNUM), _buf, MAX_REGISTER_RAW_SIZE); \
   } else								\
     write_register_bytes (0, VALBUF, TYPE_LENGTH (TYPE))
@@ -237,12 +228,12 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    and 12 bytes before comes the saved previous FP value as a 4-byte word.  */
 
 #define FRAME_CHAIN(thisframe)  \
-  ((thisframe)->pc >= first_object_file_end ? \
+  ((thisframe)->pc >= 0x8000 ? \
    read_memory_integer ((thisframe)->frame - 12, 4) :\
    0)
 
 #define FRAME_CHAIN_VALID(chain, thisframe) \
-  (chain != 0 && (FRAME_SAVED_PC (thisframe) >= first_object_file_end))
+  (chain != 0 && (FRAME_SAVED_PC (thisframe) >= 0x8000))
 
 /* Define other aspects of the stack frame.  */
 
@@ -283,45 +274,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    ways in the stack frame.  sp is even more special:
    the address we return for it IS the sp for the next frame.  */
 
+struct frame_info;
+struct frame_saved_regs;
+void arm_frame_find_saved_regs PARAMS ((struct frame_info *,
+					       struct frame_saved_regs *));
 #define FRAME_FIND_SAVED_REGS(frame_info, frame_saved_regs) \
-{							      			\
-    register int regnum;							\
-    register int frame;								\
-    register int next_addr;							\
-    register int return_data_save;						\
-    register int saved_register_mask;						\
-    memset (&frame_saved_regs, '\0', sizeof frame_saved_regs);				\
-    frame = (frame_info)->frame;						\
-    return_data_save = read_memory_integer(frame, 4) & 0x03fffffc - 12;		\
-    saved_register_mask =							\
-	read_memory_integer(return_data_save, 4);				\
-    next_addr = frame - 12;							\
-    for (regnum = 4; regnum < 10; regnum++)					\
-	if (saved_register_mask & (1<<regnum)) {				\
-	    next_addr -= 4;							\
-	    (frame_saved_regs).regs[regnum] = next_addr;			\
-	}									\
-    if (read_memory_integer(return_data_save + 4, 4) == 0xed6d7103) {		\
-	next_addr -= 12;							\
-	(frame_saved_regs).regs[F0_REGNUM + 7] = next_addr;			\
-    }										\
-    if (read_memory_integer(return_data_save + 8, 4) == 0xed6d6103) {		\
-	next_addr -= 12;							\
-	(frame_saved_regs).regs[F0_REGNUM + 6] = next_addr;			\
-    }										\
-    if (read_memory_integer(return_data_save + 12, 4) == 0xed6d5103) {		\
-	next_addr -= 12;							\
-	(frame_saved_regs).regs[F0_REGNUM + 5] = next_addr;			\
-    }										\
-    if (read_memory_integer(return_data_save + 16, 4) == 0xed6d4103) {		\
-	next_addr -= 12;							\
-	(frame_saved_regs).regs[F0_REGNUM + 4] = next_addr;			\
-    }										\
-    (frame_saved_regs).regs[SP_REGNUM] = next_addr;				\
-    (frame_saved_regs).regs[PC_REGNUM] = frame - 4;				\
-    (frame_saved_regs).regs[PS_REGNUM] = frame - 4;				\
-    (frame_saved_regs).regs[FP_REGNUM] = frame - 12;				\
-}
+ arm_frame_find_saved_regs (frame_info, frame_saved_regs);
+
 
 /* Things needed for making the inferior call functions.  */
 
@@ -363,8 +322,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	    write_register (regnum, read_memory_integer(fp, 4));	\
 	}								\
     flush_cached_frames ();						\
-    set_current_frame (create_new_frame (read_register (FP_REGNUM),	\
-					 read_pc ()));			\
 }
 
 /* This sequence of words is the instructions

@@ -33,6 +33,7 @@ Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define CLD	INSN_COPROC_MEMORY_DELAY
 #define CBL	INSN_COND_BRANCH_LIKELY
 #define TRAP	INSN_TRAP
+#define SM	INSN_STORE_MEMORY
 
 #define WR_d    INSN_WRITE_GPR_D
 #define WR_t    INSN_WRITE_GPR_T
@@ -62,6 +63,7 @@ Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define I2	INSN_ISA2
 #define I3	INSN_ISA3
+#define P3	INSN_4650
 
 /* The order of overloaded instructions matters.  Label arguments and
    register arguments look the same. Instructions that can have either
@@ -81,10 +83,14 @@ const struct mips_opcode mips_opcodes[] = {
 {"li",      "t,j",      0x24000000, 0xffe00000, WR_t		}, /* addiu */
 {"li",	    "t,i",	0x34000000, 0xffe00000, WR_t		}, /* ori */
 {"li",      "t,I",	0,    (int) M_LI,	INSN_MACRO	},
-{"move",    "d,s",	0x00000021, 0xfc1f07ff,	WR_d|RD_s	}, /* addu */
-{"b",       "p",	0x10000000, 0xffff0000,	UBD		}, /* beq 0,0 */
-{"b",       "p",	0x04010000, 0xffff0000,	UBD		}, /* bgez 0 */
-{"bal",     "p",	0x04110000, 0xffff0000,	UBD|WR_31	}, /* bgezal 0 */
+/* dli is used on Irix 6 for a 64 bit load--our li can do that.  */
+{"dli",     "t,j",      0x24000000, 0xffe00000, WR_t		}, /* addiu */
+{"dli",	    "t,i",	0x34000000, 0xffe00000, WR_t		}, /* ori */
+{"dli",     "t,I",	0,    (int) M_LI,	INSN_MACRO	},
+{"move",    "d,s",	0x00000025, 0xfc1f07ff,	WR_d|RD_s	},/* or */
+{"b",       "p",	0x10000000, 0xffff0000,	UBD		},/* beq 0,0 */
+{"b",       "p",	0x04010000, 0xffff0000,	UBD		},/* bgez 0 */
+{"bal",     "p",	0x04110000, 0xffff0000,	UBD|WR_31	},/* bgezal 0*/
 
 {"abs",     "d,v",	0,    (int) M_ABS,	INSN_MACRO	},
 {"abs.s",   "D,V",	0x46000005, 0xffff003f,	WR_D|RD_S	},
@@ -233,7 +239,7 @@ const struct mips_opcode mips_opcodes[] = {
 {"cvt.s.w", "D,S",	0x46800020, 0xffff003f,	WR_D|RD_S	},
 {"cvt.w.d", "D,S",	0x46200024, 0xffff003f,	WR_D|RD_S	},
 {"cvt.w.s", "D,S",	0x46000024, 0xffff003f,	WR_D|RD_S	},
-{"dabs",    "d,v",	0,    (int) M_DABS,	INSN_MACRO	},
+{"dabs",    "d,v",	3,    (int) M_DABS,	INSN_MACRO	},
 {"dadd",    "d,v,t",	0x0000002c, 0xfc0007ff, WR_d|RD_s|RD_t|I3},
 {"dadd",    "t,r,I",	3,    (int) M_DADD_I,	INSN_MACRO	},
 {"daddi",   "t,r,j",	0x60000000, 0xfc000000, WR_t|RD_s|I3	},
@@ -386,6 +392,8 @@ const struct mips_opcode mips_opcodes[] = {
 {"flush",   "t,A(b)",	2,    (int) M_LWR_AB,	INSN_MACRO	}, /* as lwr */
 {"lwu",     "t,o(b)",	0x9c000000, 0xfc000000,	LDD|RD_b|WR_t|I3},
 {"lwu",     "t,A(b)",	3,    (int) M_LWU_AB,	INSN_MACRO	},
+{"mad",	    "s,t",	0x70000000, 0xfc00ffff,	RD_s|RD_t|WR_HI|WR_LO|RD_HI|RD_LO|P3},
+{"madu",    "s,t",	0x70000001, 0xfc00ffff,	RD_s|RD_t|WR_HI|WR_LO|RD_HI|RD_LO|P3},
 {"mfc0",    "t,G",	0x40000000, 0xffe007ff,	LCD|WR_t|RD_C0	},
 {"mfc1",    "t,S",	0x44000000, 0xffe007ff,	LCD|WR_t|RD_S	},
 {"mfc1",    "t,G",	0x44000000, 0xffe007ff,	LCD|WR_t|RD_S	},
@@ -420,7 +428,7 @@ const struct mips_opcode mips_opcodes[] = {
 /* nop is at the start of the table.  */
 {"nor",     "d,v,t",	0x00000027, 0xfc0007ff,	WR_d|RD_s|RD_t	},
 {"nor",     "t,r,I",	0,    (int) M_NOR_I,	INSN_MACRO	},
-{"not",     "d,v",	0x00000027, 0xfc0007ff,	WR_d|RD_s|RD_t	}, /* nor d,s,zero */
+{"not",     "d,v",	0x00000027, 0xfc0007ff,	WR_d|RD_s|RD_t	},/*nor d,s,0*/
 {"or",      "d,v,t",	0x00000025, 0xfc0007ff,	WR_d|RD_s|RD_t	},
 {"or",      "t,r,I",	0,    (int) M_OR_I,	INSN_MACRO	},
 {"ori",     "t,r,i",	0x34000000, 0xfc000000,	WR_t|RD_s	},
@@ -439,29 +447,29 @@ const struct mips_opcode mips_opcodes[] = {
 {"round.l.s", "D,S",	0x46000008, 0xffff003f, WR_D|RD_S|I3	},
 {"round.w.d", "D,S",	0x4620000c, 0xffff003f, WR_D|RD_S|I2	},
 {"round.w.s", "D,S",	0x4600000c, 0xffff003f, WR_D|RD_S|I2	},
-{"sb",      "t,o(b)",	0xa0000000, 0xfc000000,	RD_t|RD_b	},
+{"sb",      "t,o(b)",	0xa0000000, 0xfc000000,	SM|RD_t|RD_b	},
 {"sb",      "t,A(b)",	0,    (int) M_SB_AB,	INSN_MACRO	},
-{"sc",	    "t,o(b)",	0xe0000000, 0xfc000000, RD_t|RD_b|I2	},
+{"sc",	    "t,o(b)",	0xe0000000, 0xfc000000, SM|RD_t|WR_t|RD_b|I2 },
 {"sc",	    "t,A(b)",	2,    (int) M_SC_AB,	INSN_MACRO	},
-{"scd",	    "t,o(b)",	0xf0000000, 0xfc000000, RD_t|RD_b|I3	},
+{"scd",	    "t,o(b)",	0xf0000000, 0xfc000000, SM|RD_t|WR_t|RD_b|I3 },
 {"scd",	    "t,A(b)",	3,    (int) M_SCD_AB,	INSN_MACRO	},
-{"sd",	    "t,o(b)",	0xfc000000, 0xfc000000,	RD_t|RD_b|I3	},
+{"sd",	    "t,o(b)",	0xfc000000, 0xfc000000,	SM|RD_t|RD_b|I3	},
 {"sd",      "t,o(b)",	0,    (int) M_SD_OB,	INSN_MACRO	},
 {"sd",      "t,A(b)",	0,    (int) M_SD_AB,	INSN_MACRO	},
-{"sdc1",    "T,o(b)",	0xf4000000, 0xfc000000, RD_T|RD_b|I2	},
-{"sdc1",    "E,o(b)",	0xf4000000, 0xfc000000, RD_T|RD_b|I2	},
+{"sdc1",    "T,o(b)",	0xf4000000, 0xfc000000, SM|RD_T|RD_b|I2	},
+{"sdc1",    "E,o(b)",	0xf4000000, 0xfc000000, SM|RD_T|RD_b|I2	},
 {"sdc1",    "T,A(b)",	2,    (int) M_SDC1_AB,	INSN_MACRO	},
 {"sdc1",    "E,A(b)",	2,    (int) M_SDC1_AB,	INSN_MACRO	},
-{"sdc2",    "E,o(b)",	0xf8000000, 0xfc000000, RD_C2|RD_b|I2	},
+{"sdc2",    "E,o(b)",	0xf8000000, 0xfc000000, SM|RD_C2|RD_b|I2 },
 {"sdc2",    "E,A(b)",	2,    (int) M_SDC2_AB,	INSN_MACRO	},
-{"sdc3",    "E,o(b)",	0xfc000000, 0xfc000000, RD_C3|RD_b|I2	},
+{"sdc3",    "E,o(b)",	0xfc000000, 0xfc000000, SM|RD_C3|RD_b|I2 },
 {"sdc3",    "E,A(b)",	2,    (int) M_SDC3_AB,	INSN_MACRO	},
-{"s.d",     "T,o(b)",	0xf4000000, 0xfc000000, RD_T|RD_b|I2	},
+{"s.d",     "T,o(b)",	0xf4000000, 0xfc000000, SM|RD_T|RD_b|I2	},
 {"s.d",     "T,o(b)",	0,    (int) M_S_DOB,	INSN_MACRO	},
 {"s.d",     "T,A(b)",	0,    (int) M_S_DAB,	INSN_MACRO	},
-{"sdl",     "t,o(b)",	0xb0000000, 0xfc000000,	RD_t|RD_b|I3	},
+{"sdl",     "t,o(b)",	0xb0000000, 0xfc000000,	SM|RD_t|RD_b|I3	},
 {"sdl",     "t,A(b)",	3,    (int) M_SDL_AB,	INSN_MACRO	},
-{"sdr",     "t,o(b)",	0xb4000000, 0xfc000000,	RD_t|RD_b|I3	},
+{"sdr",     "t,o(b)",	0xb4000000, 0xfc000000,	SM|RD_t|RD_b|I3	},
 {"sdr",     "t,A(b)",	3,    (int) M_SDR_AB,	INSN_MACRO	},
 {"seq",     "d,v,t",	0,    (int) M_SEQ,	INSN_MACRO	},
 {"seq",     "d,v,I",	0,    (int) M_SEQ_I,	INSN_MACRO	},
@@ -473,7 +481,7 @@ const struct mips_opcode mips_opcodes[] = {
 {"sgt",     "d,v,I",	0,    (int) M_SGT_I,	INSN_MACRO	},
 {"sgtu",    "d,v,t",	0,    (int) M_SGTU,	INSN_MACRO	},
 {"sgtu",    "d,v,I",	0,    (int) M_SGTU_I,	INSN_MACRO	},
-{"sh",      "t,o(b)",	0xa4000000, 0xfc000000,	RD_t|RD_b	},
+{"sh",      "t,o(b)",	0xa4000000, 0xfc000000,	SM|RD_t|RD_b	},
 {"sh",      "t,A(b)",	0,    (int) M_SH_AB,	INSN_MACRO	},
 {"sle",     "d,v,t",	0,    (int) M_SLE,	INSN_MACRO	},
 {"sle",     "d,v,I",	0,    (int) M_SLE_I,	INSN_MACRO	},
@@ -504,25 +512,25 @@ const struct mips_opcode mips_opcodes[] = {
 {"sub.s",   "D,V,T",	0x46000001, 0xffe0003f,	WR_D|RD_S|RD_T	},
 {"subu",    "d,v,t",	0x00000023, 0xfc0007ff,	WR_d|RD_s|RD_t	},
 {"subu",    "d,v,I",	0,    (int) M_SUBU_I,	INSN_MACRO	},
-{"sw",      "t,o(b)",	0xac000000, 0xfc000000,	RD_t|RD_b	},
+{"sw",      "t,o(b)",	0xac000000, 0xfc000000,	SM|RD_t|RD_b	},
 {"sw",      "t,A(b)",	0,    (int) M_SW_AB,	INSN_MACRO	},
-{"swc0",    "E,o(b)",	0xe0000000, 0xfc000000,	RD_C0|RD_b	},
+{"swc0",    "E,o(b)",	0xe0000000, 0xfc000000,	SM|RD_C0|RD_b	},
 {"swc0",    "E,A(b)",	0,    (int) M_SWC0_AB,	INSN_MACRO	},
-{"swc1",    "T,o(b)",	0xe4000000, 0xfc000000,	RD_T|RD_b	},
-{"swc1",    "E,o(b)",	0xe4000000, 0xfc000000,	RD_T|RD_b	},
+{"swc1",    "T,o(b)",	0xe4000000, 0xfc000000,	SM|RD_T|RD_b	},
+{"swc1",    "E,o(b)",	0xe4000000, 0xfc000000,	SM|RD_T|RD_b	},
 {"swc1",    "T,A(b)",	0,    (int) M_SWC1_AB,	INSN_MACRO	},
 {"swc1",    "E,A(b)",	0,    (int) M_SWC1_AB,	INSN_MACRO	},
-{"s.s",     "T,o(b)",	0xe4000000, 0xfc000000,	RD_T|RD_b	}, /* swc1 */
+{"s.s",     "T,o(b)",	0xe4000000, 0xfc000000,	SM|RD_T|RD_b	}, /* swc1 */
 {"s.s",     "T,A(b)",	0,    (int) M_SWC1_AB,	INSN_MACRO	},
-{"swc2",    "E,o(b)",	0xe8000000, 0xfc000000,	RD_C2|RD_b	},
+{"swc2",    "E,o(b)",	0xe8000000, 0xfc000000,	SM|RD_C2|RD_b	},
 {"swc2",    "E,A(b)",	0,    (int) M_SWC2_AB,	INSN_MACRO	},
-{"swc3",    "E,o(b)",	0xec000000, 0xfc000000,	RD_C3|RD_b	},
+{"swc3",    "E,o(b)",	0xec000000, 0xfc000000,	SM|RD_C3|RD_b	},
 {"swc3",    "E,A(b)",	0,    (int) M_SWC3_AB,	INSN_MACRO	},
-{"swl",     "t,o(b)",	0xa8000000, 0xfc000000,	RD_t|RD_b	},
+{"swl",     "t,o(b)",	0xa8000000, 0xfc000000,	SM|RD_t|RD_b	},
 {"swl",     "t,A(b)",	0,    (int) M_SWL_AB,	INSN_MACRO	},
 {"scache",  "t,o(b)",	0xa8000000, 0xfc000000,	RD_t|RD_b|I2	}, /* same */
 {"scache",  "t,A(b)",	2,    (int) M_SWL_AB,	INSN_MACRO	}, /* as swl */
-{"swr",     "t,o(b)",	0xb8000000, 0xfc000000,	RD_t|RD_b	},
+{"swr",     "t,o(b)",	0xb8000000, 0xfc000000,	SM|RD_t|RD_b	},
 {"swr",     "t,A(b)",	0,    (int) M_SWR_AB,	INSN_MACRO	},
 {"invalidate", "t,o(b)",0xb8000000, 0xfc000000,	RD_t|RD_b|I2	}, /* same */
 {"invalidate", "t,A(b)",2,    (int) M_SWR_AB,	INSN_MACRO	}, /* as swr */

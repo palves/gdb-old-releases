@@ -1,5 +1,5 @@
 /* Definitions for reading symbol files into GDB.
-   Copyright (C) 1990, 1991, 1992  Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993, 1994  Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -124,7 +124,7 @@ extend_psymbol_list PARAMS ((struct psymbol_allocation_list *,
     PSYMBOL_CLASS (psym) = (CLASS);					\
     VT (psym) = (VALUE); 						\
     SYMBOL_LANGUAGE (psym) = (LANGUAGE);				\
-    SYMBOL_INIT_DEMANGLED_NAME (psym, &objfile->psymbol_obstack);	\
+    SYMBOL_INIT_LANGUAGE_SPECIFIC (psym, LANGUAGE);			\
   } while (0)
 
 /* Add a symbol with an integer value to a psymtab. */
@@ -233,18 +233,5 @@ elfmdebug_build_psymtabs PARAMS ((struct objfile *,
 
 extern void
 set_demangling_style PARAMS ((char *));
-
-
-/* Stuff shared between coffread.c and xcoffread.c.  Eventually we want
-   to merge coffread.c and xcoffread.c so this part of this header can
-   go away.  */
-
-#if 0
-extern char *coff_getfilename PARAMS ((union internal_auxent *));
-#else
-/* Don't declare the arguments; if union internal_auxent has not been
-   declared here, gcc1 will give warnings.  */
-extern char *coff_getfilename ();
-#endif
 
 #endif	/* !defined(SYMFILE_H) */

@@ -25,6 +25,13 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sim.h"
 
 #define INLINE
+static 
+long
+sitoptr (si)
+long si;
+{
+  return ((si & 0xff000000) >> 8) | (si & 0xffff);
+}
 
 static
 unsigned short *

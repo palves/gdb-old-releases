@@ -170,9 +170,17 @@ info_threads_command (arg, from_tty)
   struct thread_info *tp;
   int current_pid = inferior_pid;
 
+  /* Avoid coredumps which would happen if we tried to access a NULL
+     selected_frame.  */
+  if (!target_has_stack) error ("No stack.");
+
   for (tp = thread_list; tp; tp = tp->next)
     {
-      if (target_has_execution
+      /* FIXME: need to figure out a way to do this for remote too,
+	 or else the print_stack_frame below will fail with a bogus
+	 thread ID.  */
+      if (!STREQ (current_target.to_shortname, "remote")
+	  && target_has_execution
 	  && kill (tp->pid, 0) == -1)
  	{
 	  tp->pid = -1;	/* Mark it as dead */
@@ -207,8 +215,6 @@ thread_switch (pid)
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc();
-  set_current_frame (create_new_frame (read_fp (), stop_pc));
-  stop_frame_address = FRAME_FP (get_current_frame ());
   select_frame (get_current_frame (), 0);
 }
 

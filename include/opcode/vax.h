@@ -1,5 +1,5 @@
 /* Vax opcde list.
-   Copyright (C) 1989, Free Software Foundation, Inc.
+   Copyright (C) 1989, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB and GAS.
 
@@ -24,13 +24,13 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 struct vot_wot			/* vax opcode table: wot to do with this */
 				/* particular opcode */
 {
-  char *            args;	/* how to compile said opcode */
+  const char       *args;	/* how to compile said opcode */
   vax_opcodeT       code;	/* op-code (may be > 8 bits!) */
 };
 
 struct vot			/* vax opcode text */
 {
-  char *            name;	/* opcode name: lowercase string  [key]  */
+  const char       *name;	/* opcode name: lowercase string  [key]  */
   struct vot_wot    detail;	/* rest of opcode table          [datum] */
 };
 
@@ -375,7 +375,7 @@ votstrs[] =
 {    "bugw",	{"rw",			0xfeff	} },
                                         /* undefined opcodes here */
 
-{      ""       ,   ""          } /* empty is end sentinel */
+{      "",	{"", 0} }		/* empty is end sentinel */
 
 };				/* votstrs */
 

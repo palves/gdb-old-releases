@@ -274,8 +274,6 @@ static char stabs_symbol[] = STABS_SYMBOL;
    be using our own types thoughout this file, instead of sometimes using
    builtin_type_*.  */
 
-static struct type *mdebug_type_complex;
-static struct type *mdebug_type_double_complex;
 static struct type *mdebug_type_fixed_dec;
 static struct type *mdebug_type_float_dec;
 static struct type *mdebug_type_string;
@@ -716,7 +714,7 @@ parse_symbol (sh, ax, ext_sh, bigend, section_offsets)
       class = LOC_STATIC;
       b = top_stack->cur_block;
       s = new_symbol (name);
-      if (sh->sc == scCommon)
+      if (sh->sc == scCommon || sh->sc == scSCommon)
 	{
 	  /* It is a FORTRAN common block.  At least for SGI Fortran the
 	     address is not in the symbol; we need to fix it later in
@@ -886,7 +884,7 @@ parse_symbol (sh, ax, ext_sh, bigend, section_offsets)
 	goto structured_common;
 
     case stBlock:		/* Either a lexical block, or some type */
-	if (sh->sc != scInfo && sh->sc != scCommon)
+	if (sh->sc != scInfo && sh->sc != scCommon && sh->sc != scSCommon)
 	  goto case_stBlock_code;	/* Lexical block */
 
 	type_code = TYPE_CODE_UNDEF;	/* We have a type.  */
@@ -1140,7 +1138,7 @@ parse_symbol (sh, ax, ext_sh, bigend, section_offsets)
       break;
 
     case stEnd:		/* end (of anything) */
-      if (sh->sc == scInfo || sh->sc == scCommon)
+      if (sh->sc == scInfo || sh->sc == scCommon || sh->sc == scSCommon)
 	{
 	  /* Finished with type */
 	  top_stack->cur_type = 0;
@@ -1358,8 +1356,8 @@ parse_type (fd, ax, aux_index, bs, bigend, sym_name)
     0,				/* btTypedef */
     0,				/* btRange */
     0,				/* btSet */
-    &mdebug_type_complex,	/* btComplex */
-    &mdebug_type_double_complex,	/* btDComplex */
+    &builtin_type_complex,	/* btComplex */
+    &builtin_type_double_complex,/* btDComplex */
     0,				/* btIndirect */
     &mdebug_type_fixed_dec,	/* btFixedDec */
     &mdebug_type_float_dec,	/* btFloatDec */
@@ -1962,6 +1960,11 @@ parse_external (es, bigend, section_offsets)
       break;
     case stGlobal:
     case stLabel:
+      /* Global common symbols are resolved by the runtime loader,
+	 ignore them.  */
+      if (es->asym.sc == scCommon || es->asym.sc == scSCommon)
+	break;
+
       /* Note that the case of a symbol with indexNil must be handled
 	 anyways by parse_symbol().  */
       parse_symbol (&es->asym, ax, (char *) NULL, bigend, section_offsets);
@@ -2226,7 +2229,7 @@ parse_partial_symbols (objfile, section_offsets)
 	  svalue += ANOFFSET (section_offsets, SECT_OFF_TEXT);
 	  break;
 	case stGlobal:
-          if (ext_in->asym.sc == scCommon)
+          if (ext_in->asym.sc == scCommon || ext_in->asym.sc == scSCommon)
 	    {
 	      /* The value of a common symbol is its size, not its address.
 		 Ignore it.  */
@@ -2648,7 +2651,8 @@ parse_partial_symbols (objfile, section_offsets)
 		case stBlock:	/* { }, str, un, enum*/
 		  /* Do not create a partial symbol for cc unnamed aggregates
 		     and gcc empty aggregates. */
-		  if ((sh.sc == scInfo || sh.sc == scCommon)
+		  if ((sh.sc == scInfo
+		       || sh.sc == scCommon || sh.sc == scSCommon)
 		      && sh.iss != 0
 		      && sh.index != cur_sdx + 2)
 		    {
@@ -2758,6 +2762,11 @@ parse_partial_symbols (objfile, section_offsets)
 			    debug_info->ssext + psh->iss);
 		  /* Fall through, pretend it's global.  */
 		case stGlobal:
+		  /* Global common symbols are resolved by the runtime loader,
+		     ignore them.  */
+		  if (psh->sc == scCommon || psh->sc == scSCommon)
+		    continue;
+
 		  class = LOC_STATIC;
 		  break;
 		}
@@ -2781,6 +2790,35 @@ parse_partial_symbols (objfile, section_offsets)
 	{
 	  objfile->ei.entry_file_lowpc = save_pst->textlow;
 	  objfile->ei.entry_file_highpc = save_pst->texthigh;
+	}
+
+      /* The objfile has its functions reordered if this partial symbol
+	 table overlaps any other partial symbol table.
+	 We cannot assume a reordered objfile if a partial symbol table
+	 is contained within another partial symbol table, as partial symbol
+	 tables for include files with executable code are contained
+	 within the partial symbol table for the including source file,
+	 and we do not want to flag the objfile reordered for these cases.
+
+	 This strategy works well for Irix-5.2 shared libraries, but we
+	 might have to use a more elaborate (and slower) algorithm for
+	 other cases.  */
+      save_pst = fdr_to_pst[f_idx].pst;
+      if (save_pst != NULL
+	  && save_pst->textlow != 0
+	  && !(objfile->flags & OBJF_REORDERED))
+	{
+	  ALL_OBJFILE_PSYMTABS (objfile, pst)
+	    {
+	      if (save_pst != pst
+		  && save_pst->textlow >= pst->textlow
+		  && save_pst->textlow < pst->texthigh
+		  && save_pst->texthigh > pst->texthigh)
+		{
+		  objfile->flags |= OBJF_REORDERED;
+		  break;
+		}
+	    }
 	}
     }
 
@@ -3392,7 +3430,7 @@ cross_ref (fd, ax, tpp, type_code, pname, bigend, sym_name)
        || (sh.st != stBlock && sh.st != stTypedef && sh.st != stIndirect
 	   && sh.st != stStruct && sh.st != stUnion
 	   && sh.st != stEnum))
-      && (sh.sc != scCommon || sh.st != stBlock))
+      && (sh.st != stBlock || (sh.sc != scCommon && sh.sc != scSCommon)))
     {
       /* File indirect entry is corrupt.  */
       *pname = "<illegal>";
@@ -4023,17 +4061,6 @@ _initialize_mdebugread ()
     init_type (TYPE_CODE_STRING,
 	       TARGET_CHAR_BIT / TARGET_CHAR_BIT,
 	       0, "string",
-	       (struct objfile *) NULL);
-
-  mdebug_type_complex =
-    init_type (TYPE_CODE_ERROR,
-	       TARGET_COMPLEX_BIT / TARGET_CHAR_BIT,
-	       0, "complex",
-	       (struct objfile *) NULL);
-  mdebug_type_double_complex =
-    init_type (TYPE_CODE_ERROR,
-	       TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT,
-	       0, "double complex",
 	       (struct objfile *) NULL);
 
   /* We use TYPE_CODE_INT to print these as integers.  Does this do any

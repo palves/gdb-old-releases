@@ -163,8 +163,11 @@ print_subexp (exp, pos, stream, prec)
       return;
 
     case OP_BITSTRING:
-      error ("support for OP_BITSTRING unimplemented");
-      break;
+      nargs = longest_to_int (exp -> elts[pc + 1].longconst);
+      (*pos)
+	+= 3 + BYTES_TO_EXP_ELEM ((nargs + HOST_CHAR_BIT - 1) / HOST_CHAR_BIT);
+      fprintf (stream, "B'<unimplemented>'");
+      return;
 
     case OP_ARRAY:
       (*pos) += 3;
@@ -209,7 +212,8 @@ print_subexp (exp, pos, stream, prec)
 	}
       else
 	{
-	  fputs_filtered (" {", stream);
+	  int is_chill = exp->language_defn->la_language == language_chill;
+	  fputs_filtered (is_chill ? " [" : " {", stream);
 	  for (tem = 0; tem < nargs; tem++)
 	    {
 	      if (tem != 0)
@@ -218,8 +222,35 @@ print_subexp (exp, pos, stream, prec)
 		}
 	      print_subexp (exp, pos, stream, PREC_ABOVE_COMMA);
 	    }
-	  fputs_filtered ("}", stream);
+	  fputs_filtered (is_chill ? "]" : "}", stream);
 	}
+      return;
+
+    case OP_LABELED:
+      tem = longest_to_int (exp->elts[pc + 1].longconst);
+      (*pos) += 3 + BYTES_TO_EXP_ELEM (tem + 1);
+
+      if (exp->language_defn->la_language == language_chill)
+	{
+	  fputs_filtered (".", stream);
+	  fputs_filtered (&exp->elts[pc + 2].string, stream);
+	  fputs_filtered (exp->elts[*pos].opcode == OP_LABELED ? ", "
+			  : ": ",
+			  stream);
+	}
+      else
+	{
+	  /* Gcc support both these syntaxes.  Unsure which is preferred.  */
+#if 1
+	  fputs_filtered (&exp->elts[pc + 2].string, stream);
+	  fputs_filtered (": ", stream);
+#else
+	  fputs_filtered (".", stream);
+	  fputs_filtered (&exp->elts[pc + 2].string, stream);
+	  fputs_filtered ("=", stream);
+#endif
+	}
+      print_subexp (exp, pos, stream, PREC_SUFFIX);
       return;
 
     case TERNOP_COND:
@@ -236,6 +267,16 @@ print_subexp (exp, pos, stream, prec)
       print_subexp (exp, pos, stream, PREC_HYPER);
       if ((int) prec > (int) PREC_COMMA)
 	fputs_filtered (")", stream);
+      return;
+
+    case TERNOP_SLICE:
+    case TERNOP_SLICE_COUNT:
+      print_subexp (exp, pos, stream, PREC_SUFFIX);
+      fputs_filtered ("(", stream);
+      print_subexp (exp, pos, stream, PREC_ABOVE_COMMA);
+      fputs_filtered (opcode == TERNOP_SLICE ? " : " : " UP ", stream);
+      print_subexp (exp, pos, stream, PREC_ABOVE_COMMA);
+      fputs_filtered (")", stream);
       return;
 
     case STRUCTOP_STRUCT:
@@ -426,9 +467,18 @@ print_subexp (exp, pos, stream, prec)
     fputs_filtered ("(", stream);
   if ((int) opcode > (int) BINOP_END)
     {
-      /* Unary prefix operator.  */
-      fputs_filtered (op_str, stream);
-      print_subexp (exp, pos, stream, PREC_PREFIX);
+      if (assoc)
+	{
+	  /* Unary postfix operator.  */
+	  print_subexp (exp, pos, stream, PREC_SUFFIX);
+	  fputs_filtered (op_str, stream);
+	}
+      else
+	{
+	  /* Unary prefix operator.  */
+	  fputs_filtered (op_str, stream);
+	  print_subexp (exp, pos, stream, PREC_PREFIX);
+	}
     }
   else
     {
@@ -559,6 +609,8 @@ dump_expression (exp, stream, note)
 	  case BINOP_CONCAT: opcode_name = "BINOP_CONCAT"; break;
 	  case BINOP_END: opcode_name = "BINOP_END"; break;
 	  case TERNOP_COND: opcode_name = "TERNOP_COND"; break;
+	  case TERNOP_SLICE: opcode_name = "TERNOP_SLICE"; break;
+	  case TERNOP_SLICE_COUNT: opcode_name = "TERNOP_SLICE_COUNT"; break;
 	  case OP_LONG: opcode_name = "OP_LONG"; break;
 	  case OP_DOUBLE: opcode_name = "OP_DOUBLE"; break;
 	  case OP_VAR_VALUE: opcode_name = "OP_VAR_VALUE"; break;
@@ -599,6 +651,7 @@ dump_expression (exp, stream, note)
 	  case OP_THIS: opcode_name = "OP_THIS"; break;
 	  case OP_SCOPE: opcode_name = "OP_SCOPE"; break;
 	  case OP_TYPE: opcode_name = "OP_TYPE"; break;
+	  case OP_LABELED: opcode_name = "OP_LABELED"; break;
 	}
       fprintf_filtered (stream, "%20s  ", opcode_name);
       fprintf_filtered (stream,

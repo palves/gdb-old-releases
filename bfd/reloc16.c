@@ -24,7 +24,15 @@ Most of this hacked by  Steve Chamberlain,
 */
 
 /* These routines are used by coff-h8300 and coff-z8k to do
-   relocation.  */
+   relocation.
+
+   FIXME: This code should be rewritten to support the new COFF
+   linker.  Basically, they need to deal with COFF relocs rather than
+   BFD generic relocs.  They should store the relocs in some location
+   where coff_link_input_bfd can find them (and coff_link_input_bfd
+   should be changed to use this location rather than rereading the
+   file) (unless info->keep_memory is false, in which case they should
+   free up the relocs after dealing with them).  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -111,11 +119,11 @@ bfd_perform_slip(abfd, slip, input_section, value)
 	  if (p->value > value)
 	    {
 	      p->value -= slip;
-	      if (p->udata != NULL)
+	      if (p->udata.p != NULL)
 		{
 		  struct generic_link_hash_entry *h;
 
-		  h = (struct generic_link_hash_entry *) p->udata;
+		  h = (struct generic_link_hash_entry *) p->udata.p;
 		  BFD_ASSERT (h->root.type == bfd_link_hash_defined);
 		  h->root.u.def.value -= slip;
 		  BFD_ASSERT (h->root.u.def.value == p->value);

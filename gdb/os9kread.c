@@ -53,7 +53,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "command.h"
 #include "target.h"
 #include "gdbcore.h"		/* for bfd stuff */
-#include "libbfd.h"		/* FIXME Secret internal BFD stuff (bfd_read) */
 #include "libaout.h"	 	/* FIXME Secret internal BFD stuff for a.out */
 #include "symfile.h"
 #include "objfiles.h"
@@ -1081,7 +1080,7 @@ os9k_end_psymtab (pst, include_list, num_includes, capping_symbol_cnt,
     strncpy (p, last_function_name, n);
     p[n] = 0;
     
-    minsym = lookup_minimal_symbol (p, objfile);
+    minsym = lookup_minimal_symbol (p, NULL, objfile);
 
     if (minsym) {
       pst->texthigh = SYMBOL_VALUE_ADDRESS(minsym)+(long)MSYMBOL_INFO(minsym);

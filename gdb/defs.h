@@ -1,5 +1,6 @@
 /* Basic, host-specific, and target-specific definitions for GDB.
-   Copyright (C) 1986, 1989, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1989, 1991, 1992, 1993, 1994, 1995
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,8 +18,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#if !defined (DEFS_H)
-#define DEFS_H 1
+#ifndef DEFS_H
+#define DEFS_H
 
 #include <stdio.h>
 
@@ -26,6 +27,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    here and in all subsequent file inclusions.  */
 
 #include "ansidecl.h"
+
+#include "libiberty.h"
+
+/* libiberty.h can't declare this one, but evidently we can.  */
+extern char *strsignal PARAMS ((int));
+
+#include "progress.h"
+
+#include "mmalloc.h"
 
 /* For BFD64 and bfd_vma.  */
 #include "bfd.h"
@@ -58,10 +68,13 @@ extern int quit_flag;
 extern int immediate_quit;
 extern int sevenbit_strings;
 
-extern void
-quit PARAMS ((void));
+extern void quit PARAMS ((void));
 
-#define QUIT { if (quit_flag) quit (); }
+#define QUIT { \
+  if (quit_flag) quit (); \
+  if (interactive_hook) interactive_hook (); \
+  PROGRESS (1); \
+}
 
 /* Command classes are top-level categories into which commands are broken
    down for "help" purposes.  
@@ -92,6 +105,7 @@ enum language
    language_c, 			/* C */
    language_cplus, 		/* C++ */
    language_chill,		/* Chill */
+   language_fortran,		/* Fortran */
    language_m2,			/* Modula-2 */
    language_asm			/* Assembly language */
 };
@@ -113,75 +127,40 @@ struct cleanup
   PTR arg;
 };
 
+/* Needed for various prototypes */
+
+#ifdef __STDC__
+struct symtab;
+struct breakpoint;
+#endif
+
 /* From blockframe.c */
 
-extern int
-inside_entry_func PARAMS ((CORE_ADDR));
+extern int inside_entry_func PARAMS ((CORE_ADDR));
 
-extern int
-inside_entry_file PARAMS ((CORE_ADDR addr));
+extern int inside_entry_file PARAMS ((CORE_ADDR addr));
 
-extern int
-inside_main_func PARAMS ((CORE_ADDR pc));
+extern int inside_main_func PARAMS ((CORE_ADDR pc));
 
 /* From ch-lang.c, for the moment. (FIXME) */
 
-extern char *
-chill_demangle PARAMS ((const char *));
-
-/* From libiberty.a */
-
-extern char *
-cplus_demangle PARAMS ((const char *, int));
-
-extern char *
-cplus_mangle_opname PARAMS ((char *, int));
-
-/* From libmmalloc.a (memory mapped malloc library) */
-
-extern PTR
-mmalloc_attach PARAMS ((int, PTR));
-
-extern PTR
-mmalloc_detach PARAMS ((PTR));
-
-extern PTR
-mmalloc PARAMS ((PTR, long));
-
-extern PTR
-mrealloc PARAMS ((PTR, PTR, long));
-
-extern void
-mfree PARAMS ((PTR, PTR));
-
-extern int
-mmalloc_setkey PARAMS ((PTR, int, PTR));
-
-extern PTR
-mmalloc_getkey PARAMS ((PTR, int));
+extern char *chill_demangle PARAMS ((const char *));
 
 /* From utils.c */
 
-extern int
-strcmp_iw PARAMS ((const char *, const char *));
+extern int strcmp_iw PARAMS ((const char *, const char *));
 
-extern char *
-safe_strerror PARAMS ((int));
+extern char *safe_strerror PARAMS ((int));
 
-extern char *
-safe_strsignal PARAMS ((int));
+extern char *safe_strsignal PARAMS ((int));
 
-extern void
-init_malloc PARAMS ((void *));
+extern void init_malloc PARAMS ((void *));
 
-extern void
-request_quit PARAMS ((int));
+extern void request_quit PARAMS ((int));
 
-extern void
-do_cleanups PARAMS ((struct cleanup *));
+extern void do_cleanups PARAMS ((struct cleanup *));
 
-extern void
-discard_cleanups PARAMS ((struct cleanup *));
+extern void discard_cleanups PARAMS ((struct cleanup *));
 
 /* The bare make_cleanup function is one of those rare beasts that
    takes almost any type of function as the first arg and anything that
@@ -196,193 +175,163 @@ make_cleanup PARAMS ((void (*function) (void *), void *));
    since the type actually passed when the function is called would be
    wrong.  */
 
-extern struct cleanup *
-make_cleanup ();
+extern struct cleanup *make_cleanup ();
 
-extern struct cleanup *
-save_cleanups PARAMS ((void));
+extern struct cleanup *save_cleanups PARAMS ((void));
 
-extern void
-restore_cleanups PARAMS ((struct cleanup *));
+extern void restore_cleanups PARAMS ((struct cleanup *));
 
-extern void
-free_current_contents PARAMS ((char **));
+extern void free_current_contents PARAMS ((char **));
 
-extern void
-null_cleanup PARAMS ((char **));
+extern void null_cleanup PARAMS ((char **));
 
-extern int
-myread PARAMS ((int, char *, int));
+extern int myread PARAMS ((int, char *, int));
 
-extern int
-query ();
+extern int query ();
 
 /* Annotation stuff.  */
 
 extern int annotation_level; /* in stack.c */
 
-extern void
-begin_line PARAMS ((void));
+extern void begin_line PARAMS ((void));
 
-extern void
-wrap_here PARAMS ((char *));
+extern void wrap_here PARAMS ((char *));
 
-extern void
-reinitialize_more_filter PARAMS ((void));
+extern void reinitialize_more_filter PARAMS ((void));
 
 typedef FILE GDB_FILE;
 #define gdb_stdout stdout
 #define gdb_stderr stderr
 
-extern int
-print_insn PARAMS ((CORE_ADDR, GDB_FILE *));
+extern int print_insn PARAMS ((CORE_ADDR, GDB_FILE *));
 
-extern void
-gdb_flush PARAMS ((GDB_FILE *));
+extern void gdb_flush PARAMS ((GDB_FILE *));
 
-extern GDB_FILE *
-gdb_fopen PARAMS ((char * name, char * mode));
+extern GDB_FILE *gdb_fopen PARAMS ((char * name, char * mode));
 
-extern void
-fputs_filtered PARAMS ((const char *, GDB_FILE *));
+extern void fputs_filtered PARAMS ((const char *, GDB_FILE *));
 
-extern void
-fputs_unfiltered PARAMS ((const char *, GDB_FILE *));
+extern void fputs_unfiltered PARAMS ((const char *, GDB_FILE *));
 
-extern void
-fputc_unfiltered PARAMS ((int, GDB_FILE *));
+extern void fputc_unfiltered PARAMS ((int, GDB_FILE *));
 
-extern void
-putc_unfiltered PARAMS ((int));
+extern void putc_unfiltered PARAMS ((int));
 
 #define putchar_unfiltered(C)  putc_unfiltered(C)
 
-extern void
-puts_filtered PARAMS ((char *));
+extern void puts_filtered PARAMS ((char *));
 
-extern void
-puts_unfiltered PARAMS ((char *));
+extern void puts_unfiltered PARAMS ((char *));
 
-extern void
-vprintf_filtered ();
+extern void vprintf_filtered ();
 
-extern void
-vfprintf_filtered ();
+extern void vfprintf_filtered ();
 
-extern void
-fprintf_filtered ();
+extern void fprintf_filtered ();
 
-extern void
-fprintfi_filtered ();
+extern void fprintfi_filtered ();
 
-extern void
-printf_filtered ();
+extern void printf_filtered ();
 
-extern void
-printfi_filtered ();
+extern void printfi_filtered ();
 
-extern void
-vprintf_unfiltered ();
+extern void vprintf_unfiltered ();
 
-extern void
-vfprintf_unfiltered ();
+extern void vfprintf_unfiltered ();
 
-extern void
-fprintf_unfiltered ();
+extern void fprintf_unfiltered ();
 
-extern void
-printf_unfiltered ();
+extern void printf_unfiltered ();
 
-extern void
-print_spaces PARAMS ((int, GDB_FILE *));
+extern void print_spaces PARAMS ((int, GDB_FILE *));
 
-extern void
-print_spaces_filtered PARAMS ((int, GDB_FILE *));
+extern void print_spaces_filtered PARAMS ((int, GDB_FILE *));
 
-extern char *
-n_spaces PARAMS ((int));
+extern char *n_spaces PARAMS ((int));
 
-extern void
-gdb_printchar PARAMS ((int, GDB_FILE *, int));
+extern void gdb_printchar PARAMS ((int, GDB_FILE *, int));
 
-/* Print a host address.  */
 extern void gdb_print_address PARAMS ((void *, GDB_FILE *));
 
-extern void
-fprintf_symbol_filtered PARAMS ((GDB_FILE *, char *, enum language, int));
+extern void fprintf_symbol_filtered PARAMS ((GDB_FILE *, char *,
+					     enum language, int));
 
-extern void
-perror_with_name PARAMS ((char *));
+extern void perror_with_name PARAMS ((char *));
 
-extern void
-print_sys_errmsg PARAMS ((char *, int));
+extern void print_sys_errmsg PARAMS ((char *, int));
 
 /* From regex.c or libc.  BSD 4.4 declares this with the argument type as
    "const char *" in unistd.h, so we can't declare the argument
    as "char *".  */
 
-extern char *
-re_comp PARAMS ((const char *));
+extern char *re_comp PARAMS ((const char *));
 
 /* From symfile.c */
 
-extern void
-symbol_file_command PARAMS ((char *, int));
+extern void symbol_file_command PARAMS ((char *, int));
 
 /* From main.c */
 
-extern char *
-skip_quoted PARAMS ((char *));
+extern char *skip_quoted PARAMS ((char *));
 
-extern char *
-gdb_readline PARAMS ((char *));
+extern char *gdb_readline PARAMS ((char *));
 
-extern char *
-command_line_input PARAMS ((char *, int, char *));
+extern char *command_line_input PARAMS ((char *, int, char *));
 
-extern void
-print_prompt PARAMS ((void));
+extern void print_prompt PARAMS ((void));
 
-extern int
-input_from_terminal_p PARAMS ((void));
+extern int input_from_terminal_p PARAMS ((void));
 
 /* From printcmd.c */
 
-extern void
-set_next_address PARAMS ((CORE_ADDR));
+extern void set_next_address PARAMS ((CORE_ADDR));
 
-extern void
-print_address_symbolic PARAMS ((CORE_ADDR, GDB_FILE *, int, char *));
+extern void print_address_symbolic PARAMS ((CORE_ADDR, GDB_FILE *, int,
+					    char *));
 
-extern void
-print_address_numeric PARAMS ((CORE_ADDR, int, GDB_FILE *));
+extern void print_address_numeric PARAMS ((CORE_ADDR, int, GDB_FILE *));
 
-extern void
-print_address PARAMS ((CORE_ADDR, GDB_FILE *));
+extern void print_address PARAMS ((CORE_ADDR, GDB_FILE *));
 
 /* From source.c */
 
-extern int
-openp PARAMS ((char *, int, char *, int, int, char **));
+extern int openp PARAMS ((char *, int, char *, int, int, char **));
 
-extern void
-mod_path PARAMS ((char *, char **));
+extern void mod_path PARAMS ((char *, char **));
 
-extern void
-directory_command PARAMS ((char *, int));
+extern void directory_command PARAMS ((char *, int));
 
-extern void
-init_source_path PARAMS ((void));
+extern void init_source_path PARAMS ((void));
+
+extern char *symtab_to_filename PARAMS ((struct symtab *));
 
 /* From findvar.c */
 
-extern int
-read_relative_register_raw_bytes PARAMS ((int, char *));
+extern int read_relative_register_raw_bytes PARAMS ((int, char *));
 
 /* From readline (but not in any readline .h files).  */
 
-extern char *
-tilde_expand PARAMS ((char *));
+extern char *tilde_expand PARAMS ((char *));
+
+/* Control types for commands */
+
+enum misc_command_type
+{
+  ok_command,
+  end_command,
+  else_command,
+  nop_command
+};
+
+enum command_control_type
+{
+  simple_control,
+  break_control,
+  continue_control,
+  while_control,
+  if_control,
+  invalid_control
+};
 
 /* Structure for saved commands lines
    (for breakpoints, defined commands, etc).  */
@@ -391,13 +340,14 @@ struct command_line
 {
   struct command_line *next;
   char *line;
+  enum command_control_type control_type;
+  int body_count;
+  struct command_line **body_list;
 };
 
-extern struct command_line *
-read_command_lines PARAMS ((void));
+extern struct command_line *read_command_lines PARAMS ((void));
 
-extern void
-free_command_lines PARAMS ((struct command_line **));
+extern void free_command_lines PARAMS ((struct command_line **));
 
 /* String containing the current directory (what getwd would return).  */
 
@@ -431,6 +381,11 @@ enum val_prettyprint
    nm-*.h files, built by the `configure' script.  */
 
 #include "nm.h"
+
+/* Target machine definition.  This will be a symlink to one of the
+   tm-*.h files, built by the `configure' script.  */
+
+#include "tm.h"
 
 /* If the xm.h file did not define the mode string used to open the
    files, assume that binary files are opened the same way as text
@@ -466,31 +421,32 @@ enum val_prettyprint
 #endif /* STDC */
 #endif /* volatile */
 
-#if 1
-#define NORETURN /*nothing*/
-#else /* not 1 */
-/* FIXME: This is bogus.  Having "volatile void" mean a function doesn't
-   return is a gcc extension and should be based on #ifdef __GNUC__.
-   Also, as of Sep 93 I'm told gcc is changing the syntax for ansi
-   reasons (so declaring exit here as "volatile void" and as "void" in
-   a system header loses).  Using the new "__attributes__ ((noreturn));"
-   syntax would lose for old versions of gcc; using
-     typedef void exit_fn_type PARAMS ((int));
-     volatile exit_fn_type exit;
-   would win.  */
-/* Some compilers (many AT&T SVR4 compilers for instance), do not accept
-   declarations of functions that never return (exit for instance) as
-   "volatile void".  For such compilers "NORETURN" can be defined away
-   to keep them happy */
+/* The ability to declare that a function never returns is useful, but
+   not really required to compile GDB successfully, so the NORETURN and
+   ATTR_NORETURN macros normally expand into nothing.  */
+
+/* If compiling with older versions of GCC, a function may be declared
+   "volatile" to indicate that it does not return.  */
 
 #ifndef NORETURN
-# ifdef __lucid
-#   define NORETURN /*nothing*/
+# if defined(__GNUC__) \
+     && (__GNUC__ == 1 || (__GNUC__ == 2 && __GNUC_MINOR__ < 5))
+#  define NORETURN volatile
 # else
-#   define NORETURN volatile
+#  define NORETURN /* nothing */
 # endif
 #endif
-#endif /* not 1 */
+
+/* GCC 2.5 and later versions define a function attribute "noreturn",
+   which is the preferred way to declare that a function never returns.  */
+
+#ifndef ATTR_NORETURN
+# if defined(__GNUC__) && __GNUC__ >= 2 && __GNUC_MINOR__ >= 5
+#  define ATTR_NORETURN __attribute__ ((noreturn))
+# else
+#  define ATTR_NORETURN /* nothing */
+# endif
+#endif
 
 /* Defaults for system-wide constants (if not defined by xm.h, we fake it).  */
 
@@ -563,52 +519,25 @@ extern int longest_to_int PARAMS ((LONGEST));
 /* Assorted functions we can declare, now that const and volatile are 
    defined.  */
 
-extern char *
-savestring PARAMS ((const char *, int));
+extern char *savestring PARAMS ((const char *, int));
 
-extern char *
-msavestring PARAMS ((void *, const char *, int));
+extern char *msavestring PARAMS ((void *, const char *, int));
 
-extern char *
-strsave PARAMS ((const char *));
+extern char *strsave PARAMS ((const char *));
 
-extern char *
-mstrsave PARAMS ((void *, const char *));
+extern char *mstrsave PARAMS ((void *, const char *));
 
-extern char *
-concat PARAMS ((char *, ...));
+extern PTR xmalloc PARAMS ((long));
 
-extern PTR
-xmalloc PARAMS ((long));
+extern PTR xrealloc PARAMS ((PTR, long));
 
-extern PTR
-xrealloc PARAMS ((PTR, long));
+extern PTR xmmalloc PARAMS ((PTR, long));
 
-extern PTR
-xmmalloc PARAMS ((PTR, long));
+extern PTR xmrealloc PARAMS ((PTR, PTR, long));
 
-extern PTR
-xmrealloc PARAMS ((PTR, PTR, long));
+extern int parse_escape PARAMS ((char **));
 
-extern PTR
-mmalloc PARAMS ((PTR, long));
-
-extern PTR
-mrealloc PARAMS ((PTR, PTR, long));
-
-extern void
-mfree PARAMS ((PTR, PTR));
-
-extern int
-mmcheck PARAMS ((PTR, void (*) (void)));
-
-extern int
-mmtrace PARAMS ((void));
-
-extern int
-parse_escape PARAMS ((char **));
-
-extern const char * const reg_names[];
+extern char *reg_names[];
 
 /* Message to be printed before the error message, when an error occurs.  */
 
@@ -618,19 +547,13 @@ extern char *error_pre_print;
 
 extern char *warning_pre_print;
 
-extern NORETURN void			/* Does not return to the caller.  */
-error ();
+extern NORETURN void error () ATTR_NORETURN;
 
 extern void error_begin PARAMS ((void));
 
-extern NORETURN void			/* Does not return to the caller.  */
-fatal ();
+extern NORETURN void fatal () ATTR_NORETURN;
 
-extern NORETURN void			/* Not specified as volatile in ... */
-exit PARAMS ((int));			/* 4.10.4.3 */
-
-extern NORETURN void			/* Does not return to the caller.  */
-nomem PARAMS ((long));
+extern NORETURN void nomem PARAMS ((long)) ATTR_NORETURN;
 
 /* Reasons for calling return_to_top_level.  */
 enum return_reason {
@@ -646,132 +569,56 @@ enum return_reason {
 #define RETURN_MASK_ALL (RETURN_MASK_QUIT | RETURN_MASK_ERROR)
 typedef int return_mask;
 
-extern NORETURN void			/* Does not return to the caller.  */
-return_to_top_level PARAMS ((enum return_reason));
-
-extern int catch_errors PARAMS ((int (*) (char *), void *, char *,
-				 return_mask));
-
-extern void
-warning_setup PARAMS ((void));
-
-extern void
-warning ();
-
-/* Global functions from other, non-gdb GNU thingies (libiberty for
-   instance) */
-
-extern char *
-basename PARAMS ((char *));
-
-extern char *
-getenv PARAMS ((const char *));
-
-extern char **
-buildargv PARAMS ((char *));
-
-extern void
-freeargv PARAMS ((char **));
-
-extern char *
-strerrno PARAMS ((int));
-
-extern char *
-strsigno PARAMS ((int));
+extern NORETURN void
+return_to_top_level PARAMS ((enum return_reason)) ATTR_NORETURN;
 
 extern int
-errno_max PARAMS ((void));
+catch_errors PARAMS ((int (*) (char *), void *, char *, return_mask));
 
-extern int
-signo_max PARAMS ((void));
+extern void warning_setup PARAMS ((void));
 
-extern int
-strtoerrno PARAMS ((char *));
+extern void warning ();
 
-extern int
-strtosigno PARAMS ((char *));
+/* Global functions from other, non-gdb GNU thingies.
+   Libiberty thingies are no longer declared here.  We include libiberty.h
+   above, instead.  */
 
-extern char *
-strsignal PARAMS ((int));
+extern char *getenv PARAMS ((const char *));
 
 /* From other system libraries */
 
 #ifndef PSIGNAL_IN_SIGNAL_H
-extern void
-psignal PARAMS ((unsigned, const char *));
+extern void psignal PARAMS ((unsigned, const char *));
 #endif
 
-/* For now, we can't include <stdlib.h> because it conflicts with
-   "../include/getopt.h".  (FIXME)
-
-   However, if a function is defined in the ANSI C standard and a prototype
-   for that function is defined and visible in any header file in an ANSI
-   conforming environment, then that prototype must match the definition in
-   the ANSI standard.  So we can just duplicate them here without conflict,
-   since they must be the same in all conforming ANSI environments.  If
-   these cause problems, then the environment is not ANSI conformant. */
-   
 #ifdef __STDC__
 #include <stddef.h>
+#include <stdlib.h>
 #endif
 
-extern int
-fclose PARAMS ((GDB_FILE *stream));				/* 4.9.5.1 */
+extern int fclose ();
 
-extern void
-perror PARAMS ((const char *));				/* 4.9.10.4 */
-
-extern double
-atof PARAMS ((const char *nptr));			/* 4.10.1.1 */
-
-extern int
-atoi PARAMS ((const char *));				/* 4.10.1.2 */
+extern double atof ();
 
 #ifndef MALLOC_INCOMPATIBLE
 
-extern PTR
-malloc PARAMS ((size_t size));                          /* 4.10.3.3 */
+extern PTR malloc ();
 
-extern PTR
-realloc PARAMS ((void *ptr, size_t size));              /* 4.10.3.4 */
+extern PTR realloc ();
 
-extern void
-free PARAMS ((void *));					/* 4.10.3.2 */
+extern void free ();
 
-#endif	/* MALLOC_INCOMPATIBLE */
+#endif /* MALLOC_INCOMPATIBLE */
 
-extern void
-qsort PARAMS ((void *base, size_t nmemb,		/* 4.10.5.2 */
-	       size_t size,
-	       int (*compar)(const void *, const void *)));
+extern char *strchr ();
 
-#ifndef	MEM_FNS_DECLARED	/* Some non-ANSI use void *, not char *.  */
-extern PTR
-memcpy PARAMS ((void *, const void *, size_t));		/* 4.11.2.1 */
+extern char *strrchr ();
 
-extern int
-memcmp PARAMS ((const void *, const void *, size_t));	/* 4.11.4.1 */
-#endif
+extern char *strstr ();
 
-extern char *
-strchr PARAMS ((const char *, int));			/* 4.11.5.2 */
+extern char *strtok ();
 
-extern char *
-strrchr PARAMS ((const char *, int));			/* 4.11.5.5 */
-
-extern char *
-strstr PARAMS ((const char *, const char *));		/* 4.11.5.7 */
-
-extern char *
-strtok PARAMS ((char *, const char *));			/* 4.11.5.8 */
-
-#ifndef	MEM_FNS_DECLARED	/* Some non-ANSI use void *, not char *.  */
-extern PTR
-memset PARAMS ((void *, int, size_t));			/* 4.11.6.1 */
-#endif
-
-extern char *
-strerror PARAMS ((int));				/* 4.11.6.2 */
+extern char *strerror ();
 
 /* Various possibilities for alloca.  */
 #ifndef alloca
@@ -793,7 +640,7 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 # endif /* Not GNU C */
 #endif /* alloca not defined */
 
-/* TARGET_BYTE_ORDER and HOST_BYTE_ORDER must be defined to one of these.  */
+/* HOST_BYTE_ORDER must be defined to one of these.  */
 
 #if !defined (BIG_ENDIAN)
 #define BIG_ENDIAN 4321
@@ -805,10 +652,16 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 
 /* Target-system-dependent parameters for GDB. */
 
-/* Target machine definition.  This will be a symlink to one of the
-   tm-*.h files, built by the `configure' script.  */
+#ifdef TARGET_BYTE_ORDER_SELECTABLE
+/* The target endianness is selectable at runtime.  Define
+   TARGET_BYTE_ORDER to be a variable.  The user can use the `set
+   endian' command to change it.  */
+#undef TARGET_BYTE_ORDER
+#define TARGET_BYTE_ORDER target_byte_order
+extern int target_byte_order;
+#endif
 
-#include "tm.h"
+extern void set_endian_from_file PARAMS ((bfd *));
 
 /* Number of bits in a char or unsigned char for the target machine.
    Just like CHAR_BIT in <limits.h> but describes the target machine.  */
@@ -851,16 +704,6 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 #define TARGET_LONG_DOUBLE_BIT (2 * TARGET_DOUBLE_BIT)
 #endif
 
-/* Number of bits in a "complex" for the target machine. */
-#if !defined (TARGET_COMPLEX_BIT)
-#define TARGET_COMPLEX_BIT (2 * TARGET_FLOAT_BIT)
-#endif
-
-/* Number of bits in a "double complex" for the target machine. */
-#if !defined (TARGET_DOUBLE_COMPLEX_BIT)
-#define TARGET_DOUBLE_COMPLEX_BIT (2 * TARGET_DOUBLE_BIT)
-#endif
-
 /* Number of bits in a pointer for the target machine */
 #if !defined (TARGET_PTR_BIT)
 #define TARGET_PTR_BIT TARGET_INT_BIT
@@ -882,6 +725,8 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
    from byte/word byte order.  */
 
 #if !defined (BITS_BIG_ENDIAN)
+#ifndef TARGET_BYTE_ORDER_SELECTABLE
+
 #if TARGET_BYTE_ORDER == BIG_ENDIAN
 #define BITS_BIG_ENDIAN 1
 #endif /* Big endian.  */
@@ -889,19 +734,31 @@ strerror PARAMS ((int));				/* 4.11.6.2 */
 #if TARGET_BYTE_ORDER == LITTLE_ENDIAN
 #define BITS_BIG_ENDIAN 0
 #endif /* Little endian.  */
+
+#else /* defined (TARGET_BYTE_ORDER_SELECTABLE) */
+
+#define BITS_BIG_ENDIAN (TARGET_BYTE_ORDER == BIG_ENDIAN)
+
+#endif /* defined (TARGET_BYTE_ORDER_SELECTABLE) */
 #endif /* BITS_BIG_ENDIAN not defined.  */
 
 /* In findvar.c.  */
-LONGEST extract_signed_integer PARAMS ((void *, int));
-unsigned LONGEST extract_unsigned_integer PARAMS ((void *, int));
-CORE_ADDR extract_address PARAMS ((void *, int));
 
-void store_signed_integer PARAMS ((void *, int, LONGEST));
-void store_unsigned_integer PARAMS ((void *, int, unsigned LONGEST));
-void store_address PARAMS ((void *, int, CORE_ADDR));
+extern LONGEST extract_signed_integer PARAMS ((void *, int));
 
-double extract_floating PARAMS ((void *, int));
-void store_floating PARAMS ((void *, int, double));
+extern unsigned LONGEST extract_unsigned_integer PARAMS ((void *, int));
+
+extern CORE_ADDR extract_address PARAMS ((void *, int));
+
+extern void store_signed_integer PARAMS ((void *, int, LONGEST));
+
+extern void store_unsigned_integer PARAMS ((void *, int, unsigned LONGEST));
+
+extern void store_address PARAMS ((void *, int, CORE_ADDR));
+
+extern double extract_floating PARAMS ((void *, int));
+
+extern void store_floating PARAMS ((void *, int, double));
 
 /* On some machines there are bits in addresses which are not really
    part of the address, but are used by the kernel, the hardware, etc.
@@ -918,11 +775,9 @@ void store_floating PARAMS ((void *, int, double));
 
 /* From valops.c */
 
-extern CORE_ADDR
-push_bytes PARAMS ((CORE_ADDR, char *, int));
+extern CORE_ADDR push_bytes PARAMS ((CORE_ADDR, char *, int));
 
-extern CORE_ADDR
-push_word PARAMS ((CORE_ADDR, unsigned LONGEST));
+extern CORE_ADDR push_word PARAMS ((CORE_ADDR, unsigned LONGEST));
 
 /* Some parts of gdb might be considered optional, in the sense that they
    are not essential for being able to build a working, usable debugger
@@ -939,4 +794,55 @@ push_word PARAMS ((CORE_ADDR, unsigned LONGEST));
 #define MAINTENANCE_CMDS 1
 #endif
 
-#endif /* !defined (DEFS_H) */
+#include "dis-asm.h"		/* Get defs for disassemble_info */
+
+extern int dis_asm_read_memory PARAMS ((bfd_vma memaddr, bfd_byte *myaddr,
+					int len, disassemble_info *info));
+
+extern void dis_asm_memory_error PARAMS ((int status, bfd_vma memaddr,
+					  disassemble_info *info));
+
+extern void dis_asm_print_address PARAMS ((bfd_vma addr,
+					   disassemble_info *info));
+
+extern int (*tm_print_insn) PARAMS ((bfd_vma, disassemble_info*));
+
+/* Hooks for alternate command interfaces.  */
+
+#ifdef __STDC__
+struct target_waitstatus;
+struct cmd_list_element;
+#endif
+
+extern void (*init_ui_hook) PARAMS ((void));
+extern void (*command_loop_hook) PARAMS ((void));
+extern void (*fputs_unfiltered_hook) PARAMS ((const char *linebuffer,
+					      FILE *stream));
+extern void (*print_frame_info_listing_hook) PARAMS ((struct symtab *s,
+						      int line, int stopline,
+						      int noerror));
+extern int (*query_hook) PARAMS (());
+extern void (*flush_hook) PARAMS ((FILE *stream));
+extern void (*create_breakpoint_hook) PARAMS ((struct breakpoint *b));
+extern void (*delete_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
+extern void (*enable_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
+extern void (*disable_breakpoint_hook) PARAMS ((struct breakpoint *bpt));
+extern void (*interactive_hook) PARAMS ((void));
+extern void (*registers_changed_hook) PARAMS ((void));
+extern int (*dis_asm_read_memory_hook) PARAMS ((bfd_vma memaddr,
+						bfd_byte *myaddr, int len,
+						disassemble_info *info));
+
+extern int (*target_wait_hook) PARAMS ((int pid,
+					struct target_waitstatus *status));
+
+extern void (*call_command_hook) PARAMS ((struct cmd_list_element *c,
+					  char *cmd, int from_tty));
+
+extern NORETURN void (*error_hook) PARAMS (());
+
+/* Inhibit window interface if non-zero. */
+
+extern int use_windows;
+
+#endif /* #ifndef DEFS_H */

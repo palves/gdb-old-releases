@@ -23,17 +23,6 @@ if $tracelevel then {
 	strace $tracelevel
 }
 
-# Variables to keep track of number of passes, number of failures, and
-# a limit on the number of failures.  We periodically test to see how
-# many failures have occurred, and abandon a particular test if the
-# maximum has been exceeded.  Note that exactly how many failures are
-# allowed depends on the setting of max_dem_failcount, how often we
-# test it, and exactly where the errors occur with respect to the tests.
-
-set dem_passcount 0
-set dem_failcount 0
-set max_dem_failcount 20
-
 #
 #  Cause gdb to lookup a specific C++ function and print the demangled
 #  form.
@@ -41,22 +30,16 @@ set max_dem_failcount 20
 
 proc info_func { regex demangled } {
     global prompt
-    global dem_passcount
-    global dem_failcount
-    global xfail_flag
 
     send "info function $regex\n"
     expect {
 	-re "File .*:\r\n$demangled\r\n$prompt $" {
-	    incr dem_passcount
-	    if $xfail_flag then { pass "info function for \"$regex\"" }
+	    pass "info function for \"$regex\""
 	}
 	-re ".*$prompt $" {
-	    incr dem_failcount
 	    fail "info function for \"$regex\""
 	}
 	timeout {
-	    incr dem_failcount
 	    fail "info function for \"$regex\" (timeout)"
 	}
     }
@@ -71,42 +54,19 @@ proc info_func { regex demangled } {
 
 proc print_addr_of { arg } {
     global prompt
-    global dem_passcount
-    global dem_failcount
     global hex
-    global xfail_flag
 
+    set pattern [string_to_regexp $arg]
     send "print &'$arg'\n"
     expect {
-	-re ".* = .* $hex <" {}
+	-re ".* = .* $hex <$pattern>\r\n$prompt $" { pass "print &'$arg'" }
 	-re ".*$prompt $" {
-	    incr dem_failcount ; fail "print &'$arg'" ; return
+	    fail "print &'$arg'"
 	}
 	timeout {
-	    incr dem_failcount ; fail "print &'$arg' (timeout)" ; return
+	    fail "print &'$arg' (timeout)"
 	}
     }
-    set pattern [string_to_regexp $arg]
-    expect {
-	-re "$pattern" {}
-	-re ".*$prompt $" {
-	    incr dem_failcount ; fail "print &'$arg'" ; return
-	}
-	timeout {
-	    incr dem_failcount ; fail "print &'$arg' (timeout)" ; return
-	}
-    }
-    expect {
-	-re ">\r\n$prompt $" {}
-	-re ".*$prompt $" {
-	    incr dem_failcount ; fail "print &'$arg'" ; return
-	}
-	timeout {
-	    incr dem_failcount ; fail "print &'$arg' (timeout)" ; return
-	}
-    }
-    incr dem_passcount
-    if $xfail_flag then { pass "print &'$arg'" }
 }
 
 #
@@ -118,12 +78,6 @@ proc print_addr_of { arg } {
 #
 
 proc test_lookup_operator_functions {} {
-    global dem_passcount
-    global dem_failcount
-    global max_dem_failcount
-
-    set dem_passcount 0
-    set dem_failcount 0
 
     # These tests don't work for COFF targets; don't even try them
     if [istarget "a29k-*-udi"] then {
@@ -166,11 +120,6 @@ proc test_lookup_operator_functions {} {
     # FIXME: there seems to be no way to match a "^" anymore. rob
     info_func "operator^("  "void foo::operator.\[(\]+foo &\[)\]+;"
 
-    if $dem_failcount>$max_dem_failcount then {
-	fail "remaining tests suppressed after $dem_failcount failures..."
-	return
-    }
-
     info_func "operator>=("  "void foo::operator>=\[(\]+foo &\[)\]+;"
     info_func "operator>("  "void foo::operator>\[(\]+foo &\[)\]+;"
     info_func "operator<=("  "void foo::operator<=\[(\]+foo &\[)\]+;"
@@ -198,24 +147,16 @@ proc test_lookup_operator_functions {} {
     info_func "operator->\\*("  "void foo::operator\[->*(\]+foo &\[)\]+;"
     info_func "operator>>("  "void foo::operator\>\>\[(\]+foo &\[)\]+;"
 
-    # There doesn't appear to be anyway to get '[' and ']' treated as
-    # characters to match, rather than as regex special characters.
+    # GDB says "`operator \[\](' not supported".  I don't know why.
     setup_xfail "*-*-*"
-    info_func "operator\[\]("  "void foo::operator\[\]\[\]\[(\]+foo &\[)\]+;"
-
-    if $dem_passcount then {
-	pass "$dem_passcount correct rootname operator function lookups"
-    }
+    info_func "operator\\\[\\\](" "void foo::operator\\\[\\\]\\(foo &\\);"
+    # But this works, for some reason.
+    info_func ".perator\\\[\\\](" "void foo::operator\\\[\\\]\\(foo &\\);"
 }
 
 
 proc test_paddr_operator_functions {} {
-    global dem_passcount
-    global dem_failcount
-    global max_dem_failcount
-
-    set dem_passcount 0
-    set dem_failcount 0
+    global hex
 
     print_addr_of "foo::operator&&(foo &)"
     print_addr_of "foo::operator&=(foo &)"
@@ -236,12 +177,6 @@ proc test_paddr_operator_functions {} {
     print_addr_of "foo::operator delete(void *)"
     print_addr_of "foo::operator/(foo &)"
     print_addr_of "foo::operator==(foo &)"
-
-    if $dem_failcount>$max_dem_failcount then {
-	fail "remaining tests suppressed after $dem_failcount failures..."
-	return
-    }
-
     print_addr_of "foo::operator^(foo &)"
     print_addr_of "foo::operator>=(foo &)"
     print_addr_of "foo::operator>(foo &)"
@@ -254,7 +189,8 @@ proc test_paddr_operator_functions {} {
     print_addr_of "foo::operator--(int)"
     print_addr_of "foo::operator!=(foo &)"
     print_addr_of "foo::operator!(void)"
-    print_addr_of "foo::operator new"
+    test_print_accept "print &'foo::operator new'" \
+	".* $hex <foo::operator new\\(.*\\)>"
     print_addr_of "foo::operator||(foo &)"
     print_addr_of "foo::operator char *(void)"
     print_addr_of "foo::operator int(void)"
@@ -264,11 +200,7 @@ proc test_paddr_operator_functions {} {
     print_addr_of "foo::operator->(void)"
     print_addr_of "foo::operator->*(foo &)"
     print_addr_of "foo::operator>>(foo &)"
-    gdb_test "print &'foo::operator\\\[\\\](foo &)'" " = .*0x\[0-9a-f\]+ <foo::operator\\\[\\\]\\(foo &\\)>\r\n"
-
-    if $dem_passcount then {
-	pass "$dem_passcount correct fully qualified operator function lookups"
-    }
+    gdb_test "print &'foo::operator\[\](foo &)'" " = .*0x\[0-9a-f\]+ <foo::operator\\\[\\\]\\(foo &\\)>\r\n"
 }
 
 #
@@ -276,13 +208,6 @@ proc test_paddr_operator_functions {} {
 #
 
 proc test_paddr_overloaded_functions {} {
-    global dem_passcount
-    global dem_failcount
-    global max_dem_failcount
-
-    set dem_passcount 0
-    set dem_failcount 0
-
     print_addr_of "overload1arg(signed char)"
     print_addr_of "overload1arg(unsigned char)"
     print_addr_of "overload1arg(unsigned int)"
@@ -295,12 +220,6 @@ proc test_paddr_overloaded_functions {} {
     print_addr_of "overload1arg(long)"
     print_addr_of "overload1arg(short)"
     print_addr_of "overload1arg(void)"
-
-    if $dem_failcount>$max_dem_failcount then {
-	fail "remaining tests suppressed after $dem_failcount failures..."
-	return
-    }
-
     print_addr_of "overloadargs(int)"
     print_addr_of "overloadargs(int, int)"
     print_addr_of "overloadargs(int, int, int)"
@@ -312,20 +231,9 @@ proc test_paddr_overloaded_functions {} {
     print_addr_of "overloadargs(int, int, int, int, int, int, int, int, int)"
     print_addr_of "overloadargs(int, int, int, int, int, int, int, int, int, int)"
     print_addr_of "overloadargs(int, int, int, int, int, int, int, int, int, int, int)"
-
-    if $dem_passcount then {
-	pass "$dem_passcount correct fully qualified overloaded function lookups"
-    }
 }
 
 proc test_paddr_hairy_functions {} {
-    global dem_passcount
-    global dem_failcount
-    global max_dem_failcount
-
-    set dem_passcount 0
-    set dem_failcount 0
-
     print_addr_of "hairyfunc1(int)"
     print_addr_of "hairyfunc2(int (*)(char *))"
     print_addr_of "hairyfunc3(int (*)(short (*)(long *)))"
@@ -333,10 +241,6 @@ proc test_paddr_hairy_functions {} {
     print_addr_of "hairyfunc5(int (*(*)(char *))(long))"
     print_addr_of "hairyfunc6(int (*(*)(int *))(long))"
     print_addr_of "hairyfunc7(int (*(*)(int (*)(char *)))(long))"
-
-    if $dem_passcount then {
-	pass "$dem_passcount correct fully qualified hairy function lookups"
-    }
 }
 
 proc do_tests {} {

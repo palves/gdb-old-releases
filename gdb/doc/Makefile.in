@@ -296,6 +296,7 @@ gdb.mm: $(SFILES_LOCAL) links2roff rluser.texinfo inc-hist.texi
 	sed -e 's/---/\\(em/g' \
 	>gdb.mm 
 
+
 # GDB INTERNALS MANUAL: TeX dvi file
 gdbint.dvi : gdbint.texinfo
 	$(SET_TEXINPUTS) $(TEX) gdbint.texinfo

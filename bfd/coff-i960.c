@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 960 COFF files.
-   Copyright (C) 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92, 93, 94, 1995 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -31,7 +31,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 static bfd_reloc_status_type optcall_callback
   PARAMS ((bfd *, arelent *, asymbol *, PTR, asection *, bfd *, char **));
-       
+static bfd_reloc_status_type coff_i960_relocate
+  PARAMS ((bfd *, arelent *, asymbol *, PTR, asection *, bfd *, char **));
+
+#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (3)
+
 #define COFF_LONG_FILENAMES
 
 #define CALLS	 0x66003800	/* Template for 'calls' instruction	*/
@@ -105,18 +109,84 @@ optcall_callback (abfd, reloc_entry, symbol_in, data,
   return result;
 }
 
-static reloc_howto_type howto_rellong =
-  { (unsigned int) R_RELLONG, 0, 2, 32,false, 0,
-      complain_overflow_bitfield, 0,"rellong", true, 0xffffffff,
-      0xffffffff};
-static reloc_howto_type howto_iprmed =
-  {  R_IPRMED, 0, 2, 24,true,0, complain_overflow_signed,0,
-       "iprmed ", true, 0x00ffffff, 0x00ffffff};
-static reloc_howto_type howto_optcall =
-  {  R_OPTCALL, 0,2,24,true,0, complain_overflow_signed,
-       optcall_callback, "optcall", true, 0x00ffffff, 0x00ffffff};
+/* i960 COFF is used by VxWorks 5.1.  However, VxWorks 5.1 does not
+   appear to correctly handle a reloc against a symbol defined in the
+   same object file.  It appears to simply discard such relocs, rather
+   than adding their values into the object file.  We handle this here
+   by converting all relocs against defined symbols into relocs
+   against the section symbol, when generating a relocateable output
+   file.  */
 
-static const reloc_howto_type *
+static bfd_reloc_status_type 
+coff_i960_relocate (abfd, reloc_entry, symbol, data, input_section,
+		    output_bfd, error_message)
+     bfd *abfd;
+     arelent *reloc_entry;
+     asymbol *symbol;
+     PTR data;
+     asection *input_section;
+     bfd *output_bfd;
+     char **error_message;
+{
+  const char *sec_name;
+  asymbol **syms, **sym_end;
+
+  if (output_bfd == NULL)
+    {
+      /* Not generating relocateable output file.  */
+      return bfd_reloc_continue;
+    }
+
+  if (bfd_is_und_section (bfd_get_section (symbol)))
+    {
+      /* Symbol is not defined, so no need to worry about it.  */
+      return bfd_reloc_continue;
+    }
+
+  if (bfd_is_com_section (bfd_get_section (symbol)))
+    {
+      /* I don't really know what the right action is for a common
+         symbol.  */
+      return bfd_reloc_continue;
+    }
+
+  /* Convert the reloc to use the section symbol.  FIXME: This method
+     is ridiculous.  */
+  sec_name = bfd_get_section_name (output_bfd,
+				   bfd_get_section (symbol)->output_section);
+  syms = bfd_get_outsymbols (output_bfd);
+  sym_end = syms + bfd_get_symcount (output_bfd);
+  for (; syms < sym_end; syms++)
+    {
+      if (bfd_asymbol_name (*syms) != NULL
+	  && strcmp (bfd_asymbol_name (*syms), sec_name) == 0
+	  && (*syms)->value == 0)
+	{
+	  reloc_entry->sym_ptr_ptr = syms;
+	  break;
+	}
+    }
+
+  if (syms >= sym_end)
+    abort ();
+
+  /* Let bfd_perform_relocation do its thing, which will include
+     stuffing the symbol addend into the object file.  */
+  return bfd_reloc_continue;
+}
+
+static reloc_howto_type howto_rellong =
+  HOWTO ((unsigned int) R_RELLONG, 0, 2, 32,false, 0,
+	 complain_overflow_bitfield, coff_i960_relocate,"rellong", true,
+	 0xffffffff, 0xffffffff, 0);
+static reloc_howto_type howto_iprmed =
+  HOWTO (R_IPRMED, 0, 2, 24,true,0, complain_overflow_signed,
+	 coff_i960_relocate, "iprmed ", true, 0x00ffffff, 0x00ffffff, 0);
+static reloc_howto_type howto_optcall =
+  HOWTO (R_OPTCALL, 0,2,24,true,0, complain_overflow_signed,
+	 optcall_callback, "optcall", true, 0x00ffffff, 0x00ffffff, 0);
+
+static reloc_howto_type *
 coff_i960_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
@@ -146,7 +216,7 @@ coff_i960_reloc_type_lookup (abfd, code)
      case 27: howto_ptr = &howto_optcall; break;	\
      default: howto_ptr = 0; break;			\
      }							\
-   cache_ptr->howto = howto_ptr;			\
+   (cache_ptr)->howto = howto_ptr;			\
  }
 
 #include "coffcode.h"

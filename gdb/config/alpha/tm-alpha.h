@@ -90,10 +90,6 @@ alpha_saved_pc_after_call PARAMS ((struct frame_info *));
 
 #define ABOUT_TO_RETURN(pc) (read_memory_integer (pc, 4) == 0x6bfa8001)
 
-/* Return 1 if P points to an invalid floating point value. */
-
-#define INVALID_FLOAT(p,l) 0
-
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
    real way to know how big a register is.  */
@@ -251,9 +247,8 @@ alpha_store_return_value PARAMS ((struct type *, char *));
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer. */
 
-#define FRAME_CHAIN(thisframe) (FRAME_ADDR)alpha_frame_chain(thisframe)
-extern CORE_ADDR
-alpha_frame_chain PARAMS ((struct frame_info *));
+#define FRAME_CHAIN(thisframe) (CORE_ADDR) alpha_frame_chain (thisframe)
+extern CORE_ADDR alpha_frame_chain PARAMS ((struct frame_info *));
 
 /* Define other aspects of the stack frame.  */
 
@@ -426,8 +421,6 @@ init_extra_frame_info PARAMS ((struct frame_info *));
    multiple functions with the same SP that are at different stack levels. */
 
 #define SETUP_ARBITRARY_FRAME(argc, argv) setup_arbitrary_frame (argc, argv)
-/* FIXME:  Depends on equivalence between FRAME and "struct frame_info *",
-   and equivalence between CORE_ADDR and FRAME_ADDR. */
 extern struct frame_info *setup_arbitrary_frame PARAMS ((int, CORE_ADDR *));
 
 /* This is used by heuristic_proc_start.  It should be shot it the head.  */

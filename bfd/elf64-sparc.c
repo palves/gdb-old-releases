@@ -169,7 +169,7 @@ static CONST struct elf_reloc_map sparc_reloc_map[] =
   {BFD_RELOC_SPARC_LO7, R_SPARC_LO7},
 };
 
-static CONST struct reloc_howto_struct *
+static reloc_howto_type *
 bfd_elf64_bfd_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
@@ -197,5 +197,6 @@ elf_info_to_howto (abfd, cache_ptr, dst)
 #define TARGET_BIG_NAME	"elf64-sparc"
 #define ELF_ARCH	bfd_arch_sparc
 #define ELF_MACHINE_CODE EM_SPARC64
+#define ELF_MAXPAGESIZE 0x100000
 
 #include "elf64-target.h"

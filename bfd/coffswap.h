@@ -168,11 +168,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifndef NO_COFF_RELOCS
 
 static void
-bfd_swap_reloc_in (abfd, reloc_src, reloc_dst)
-     bfd            *abfd;
-     RELOC *reloc_src;
-     struct internal_reloc *reloc_dst;
+coff_swap_reloc_in (abfd, src, dst)
+     bfd *abfd;
+     PTR src;
+     PTR dst;
 {
+  RELOC *reloc_src = (RELOC *) src;
+  struct internal_reloc *reloc_dst = (struct internal_reloc *) dst;
+
   reloc_dst->r_vaddr = bfd_h_get_32(abfd, (bfd_byte *)reloc_src->r_vaddr);
   reloc_dst->r_symndx = bfd_h_get_signed_32(abfd, (bfd_byte *) reloc_src->r_symndx);
 

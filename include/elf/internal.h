@@ -93,9 +93,8 @@ typedef struct elf_internal_shdr {
   unsigned int	sh_addralign;		/* Section alignment */
 
   /* The internal rep also has some cached info associated with it. */
-  PTR		rawdata;		/* null if unused... */
-  PTR		contents;		/* null if unused... */
-  bfd_vma	size;			/* size of contents (0 if unused) */
+  asection *	bfd_section;		/* Associated BFD section.  */
+  PTR		contents;		/* Section contents.  */
 } Elf_Internal_Shdr;
 
 #define elf32_internal_shdr elf_internal_shdr

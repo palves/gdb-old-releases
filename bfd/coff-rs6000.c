@@ -44,6 +44,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* The main body of code is in coffcode.h.  */
 
+#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (3)
+
 /* The XCOFF reloc table.  Actually, XCOFF relocations specify the
    bitsize and whether they are signed or not, along with a
    conventional type.  This table is for the types, which are used for
@@ -422,10 +424,10 @@ rs6000coff_rtype2howto (relent, internal)
 
 #define coff_bfd_reloc_type_lookup rs6000coff_reloc_type_lookup
 
-static const struct reloc_howto_struct *rs6000coff_reloc_type_lookup
+static reloc_howto_type *rs6000coff_reloc_type_lookup
   PARAMS ((bfd *, bfd_reloc_code_real_type));
 
-static const struct reloc_howto_struct *
+static reloc_howto_type *
 rs6000coff_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
@@ -471,7 +473,10 @@ rs6000coff_reloc_type_lookup (abfd, code)
 
 #define rs6000coff_slurp_armap bfd_slurp_coff_armap
 #define rs6000coff_slurp_extended_name_table _bfd_slurp_extended_name_table
+#define rs6000coff_construct_extended_name_table \
+  _bfd_archive_coff_construct_extended_name_table
 #define rs6000coff_truncate_arname bfd_dont_truncate_arname
+#define rs6000coff_update_armap_timestamp bfd_true
 
 #undef	coff_mkarchive
 #define	coff_mkarchive			rs6000coff_mkarchive

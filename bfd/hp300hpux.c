@@ -183,7 +183,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define ARCH_SIZE 32
 
 /* aoutx.h requires definitions for BMAGIC and QMAGIC.  */
-#define BMAGIC 0415
+#define BMAGIC HPUX_DOT_O_MAGIC
 #define QMAGIC 0314
 
 #include "aoutx.h"
@@ -498,11 +498,6 @@ MY (slurp_symbol_table) (abfd)
   if (obj_aout_symbols (abfd) != (aout_symbol_type *) NULL)
     return true;
   symbol_bytes = exec_hdr (abfd)->a_syms;
-  if (symbol_bytes == 0)
-    {
-      bfd_set_error (bfd_error_no_symbols);
-      return false;
-    }
 
   strings = (char *) bfd_alloc (abfd,
 				symbol_bytes + SYM_EXTRA_BYTES);
@@ -535,10 +530,10 @@ MY (slurp_symbol_table) (abfd)
   /* now that we know the symbol count, update the bfd header */
   bfd_get_symcount (abfd) = num_syms + num_secondary;
 
-  cached = (aout_symbol_type *)
-    bfd_zalloc (abfd, (bfd_size_type) (bfd_get_symcount (abfd) *
-				       sizeof (aout_symbol_type)));
-  if (!cached)
+  cached = ((aout_symbol_type *)
+	    bfd_zalloc (abfd,
+			bfd_get_symcount (abfd) * sizeof (aout_symbol_type)));
+  if (cached == NULL && bfd_get_symcount (abfd) != 0)
     {
       bfd_set_error (bfd_error_no_memory);
       return false;
@@ -563,7 +558,7 @@ MY (slurp_symbol_table) (abfd)
 	cache_ptr->symbol.value = GET_SWORD (abfd, sym_pointer->e_value);
 	cache_ptr->desc = bfd_get_16 (abfd, sym_pointer->e_almod);
 	cache_ptr->type = bfd_get_8 (abfd, sym_pointer->e_type);
-	cache_ptr->symbol.udata = 0;
+	cache_ptr->symbol.udata.p = NULL;
 	length = bfd_get_8 (abfd, sym_pointer->e_length);
 	cache_ptr->other = length;	/* other not used, save length here */
 

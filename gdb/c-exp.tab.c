@@ -275,12 +275,12 @@ static const short yyrline[] = { 0,
    386,   390,   394,   398,   402,   406,   410,   414,   418,   422,
    426,   430,   434,   438,   442,   448,   455,   466,   473,   476,
    482,   488,   494,   501,   526,   533,   551,   562,   578,   591,
-   616,   617,   652,   710,   716,   717,   718,   720,   722,   726,
-   728,   730,   732,   734,   737,   739,   744,   751,   753,   757,
-   759,   763,   765,   777,   778,   783,   785,   787,   789,   791,
-   793,   795,   797,   799,   801,   803,   805,   807,   810,   813,
-   816,   819,   821,   823,   825,   827,   834,   835,   838,   839,
-   845,   851,   860,   865,   872,   873,   874,   875,   878,   879
+   616,   617,   651,   709,   715,   716,   717,   719,   721,   725,
+   727,   729,   731,   733,   736,   738,   743,   750,   752,   756,
+   758,   762,   764,   776,   777,   782,   784,   786,   788,   790,
+   792,   794,   796,   798,   800,   802,   804,   806,   809,   812,
+   815,   818,   820,   822,   824,   826,   833,   834,   837,   838,
+   844,   850,   859,   864,   871,   872,   873,   874,   877,   878
 };
 
 static const char * const yytname[] = {   "$","error","$illegal.","INT","FLOAT",
@@ -1417,8 +1417,7 @@ case 72:
 			      break;
 			    }
 
-			  msymbol = lookup_minimal_symbol (name,
-				      (struct objfile *) NULL);
+			  msymbol = lookup_minimal_symbol (name, NULL, NULL);
 			  if (msymbol != NULL)
 			    {
 			      write_exp_msymbol (msymbol,
@@ -1433,7 +1432,7 @@ case 72:
 			;
     break;}
 case 73:
-#line 653 "./c-exp.y"
+#line 652 "./c-exp.y"
 { struct symbol *sym = yyvsp[0].ssym.sym;
 
 			  if (sym)
@@ -1473,8 +1472,8 @@ case 73:
 			      struct minimal_symbol *msymbol;
 			      register char *arg = copy_name (yyvsp[0].ssym.stoken);
 
-			      msymbol = lookup_minimal_symbol (arg,
-					  (struct objfile *) NULL);
+			      msymbol =
+				lookup_minimal_symbol (arg, NULL, NULL);
 			      if (msymbol != NULL)
 				{
 				  write_exp_msymbol (msymbol,
@@ -1490,46 +1489,46 @@ case 73:
 			;
     break;}
 case 77:
-#line 719 "./c-exp.y"
+#line 718 "./c-exp.y"
 { yyval.tval = follow_types (yyvsp[-1].tval); ;
     break;}
 case 78:
-#line 721 "./c-exp.y"
+#line 720 "./c-exp.y"
 { yyval.tval = follow_types (yyvsp[-2].tval); ;
     break;}
 case 79:
-#line 723 "./c-exp.y"
+#line 722 "./c-exp.y"
 { yyval.tval = follow_types (yyvsp[-2].tval); ;
     break;}
 case 80:
-#line 727 "./c-exp.y"
+#line 726 "./c-exp.y"
 { push_type (tp_pointer); yyval.voidval = 0; ;
     break;}
 case 81:
-#line 729 "./c-exp.y"
+#line 728 "./c-exp.y"
 { push_type (tp_pointer); yyval.voidval = yyvsp[0].voidval; ;
     break;}
 case 82:
-#line 731 "./c-exp.y"
+#line 730 "./c-exp.y"
 { push_type (tp_reference); yyval.voidval = 0; ;
     break;}
 case 83:
-#line 733 "./c-exp.y"
+#line 732 "./c-exp.y"
 { push_type (tp_reference); yyval.voidval = yyvsp[0].voidval; ;
     break;}
 case 85:
-#line 738 "./c-exp.y"
+#line 737 "./c-exp.y"
 { yyval.voidval = yyvsp[-1].voidval; ;
     break;}
 case 86:
-#line 740 "./c-exp.y"
+#line 739 "./c-exp.y"
 {
 			  push_type_int (yyvsp[0].lval);
 			  push_type (tp_array);
 			;
     break;}
 case 87:
-#line 745 "./c-exp.y"
+#line 744 "./c-exp.y"
 {
 			  push_type_int (yyvsp[0].lval);
 			  push_type (tp_array);
@@ -1537,133 +1536,133 @@ case 87:
 			;
     break;}
 case 88:
-#line 752 "./c-exp.y"
+#line 751 "./c-exp.y"
 { push_type (tp_function); ;
     break;}
 case 89:
-#line 754 "./c-exp.y"
+#line 753 "./c-exp.y"
 { push_type (tp_function); ;
     break;}
 case 90:
-#line 758 "./c-exp.y"
+#line 757 "./c-exp.y"
 { yyval.lval = -1; ;
     break;}
 case 91:
-#line 760 "./c-exp.y"
+#line 759 "./c-exp.y"
 { yyval.lval = yyvsp[-1].typed_val.val; ;
     break;}
 case 92:
-#line 764 "./c-exp.y"
+#line 763 "./c-exp.y"
 { yyval.voidval = 0; ;
     break;}
 case 93:
-#line 766 "./c-exp.y"
+#line 765 "./c-exp.y"
 { free ((PTR)yyvsp[-1].tvec); yyval.voidval = 0; ;
     break;}
 case 95:
-#line 779 "./c-exp.y"
+#line 778 "./c-exp.y"
 { yyval.tval = lookup_member_type (builtin_type_int, yyvsp[-2].tval); ;
     break;}
 case 96:
-#line 784 "./c-exp.y"
+#line 783 "./c-exp.y"
 { yyval.tval = yyvsp[0].tsym.type; ;
     break;}
 case 97:
-#line 786 "./c-exp.y"
+#line 785 "./c-exp.y"
 { yyval.tval = builtin_type_int; ;
     break;}
 case 98:
-#line 788 "./c-exp.y"
+#line 787 "./c-exp.y"
 { yyval.tval = builtin_type_long; ;
     break;}
 case 99:
-#line 790 "./c-exp.y"
+#line 789 "./c-exp.y"
 { yyval.tval = builtin_type_short; ;
     break;}
 case 100:
-#line 792 "./c-exp.y"
+#line 791 "./c-exp.y"
 { yyval.tval = builtin_type_long; ;
     break;}
 case 101:
-#line 794 "./c-exp.y"
+#line 793 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long; ;
     break;}
 case 102:
-#line 796 "./c-exp.y"
+#line 795 "./c-exp.y"
 { yyval.tval = builtin_type_long_long; ;
     break;}
 case 103:
-#line 798 "./c-exp.y"
+#line 797 "./c-exp.y"
 { yyval.tval = builtin_type_long_long; ;
     break;}
 case 104:
-#line 800 "./c-exp.y"
+#line 799 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long_long; ;
     break;}
 case 105:
-#line 802 "./c-exp.y"
+#line 801 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_long_long; ;
     break;}
 case 106:
-#line 804 "./c-exp.y"
+#line 803 "./c-exp.y"
 { yyval.tval = builtin_type_short; ;
     break;}
 case 107:
-#line 806 "./c-exp.y"
+#line 805 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_short; ;
     break;}
 case 108:
-#line 808 "./c-exp.y"
+#line 807 "./c-exp.y"
 { yyval.tval = lookup_struct (copy_name (yyvsp[0].sval),
 					      expression_context_block); ;
     break;}
 case 109:
-#line 811 "./c-exp.y"
+#line 810 "./c-exp.y"
 { yyval.tval = lookup_struct (copy_name (yyvsp[0].sval),
 					      expression_context_block); ;
     break;}
 case 110:
-#line 814 "./c-exp.y"
+#line 813 "./c-exp.y"
 { yyval.tval = lookup_union (copy_name (yyvsp[0].sval),
 					     expression_context_block); ;
     break;}
 case 111:
-#line 817 "./c-exp.y"
+#line 816 "./c-exp.y"
 { yyval.tval = lookup_enum (copy_name (yyvsp[0].sval),
 					    expression_context_block); ;
     break;}
 case 112:
-#line 820 "./c-exp.y"
+#line 819 "./c-exp.y"
 { yyval.tval = lookup_unsigned_typename (TYPE_NAME(yyvsp[0].tsym.type)); ;
     break;}
 case 113:
-#line 822 "./c-exp.y"
+#line 821 "./c-exp.y"
 { yyval.tval = builtin_type_unsigned_int; ;
     break;}
 case 114:
-#line 824 "./c-exp.y"
+#line 823 "./c-exp.y"
 { yyval.tval = lookup_signed_typename (TYPE_NAME(yyvsp[0].tsym.type)); ;
     break;}
 case 115:
-#line 826 "./c-exp.y"
+#line 825 "./c-exp.y"
 { yyval.tval = builtin_type_int; ;
     break;}
 case 116:
-#line 828 "./c-exp.y"
+#line 827 "./c-exp.y"
 { yyval.tval = lookup_template_type(copy_name(yyvsp[-3].sval), yyvsp[-1].tval,
 						    expression_context_block);
 			;
     break;}
 case 117:
-#line 834 "./c-exp.y"
+#line 833 "./c-exp.y"
 { yyval.tval = yyvsp[0].tval; ;
     break;}
 case 118:
-#line 835 "./c-exp.y"
+#line 834 "./c-exp.y"
 { yyval.tval = yyvsp[0].tval; ;
     break;}
 case 120:
-#line 840 "./c-exp.y"
+#line 839 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "int";
 		  yyval.tsym.stoken.length = 3;
@@ -1671,7 +1670,7 @@ case 120:
 		;
     break;}
 case 121:
-#line 846 "./c-exp.y"
+#line 845 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "long";
 		  yyval.tsym.stoken.length = 4;
@@ -1679,7 +1678,7 @@ case 121:
 		;
     break;}
 case 122:
-#line 852 "./c-exp.y"
+#line 851 "./c-exp.y"
 {
 		  yyval.tsym.stoken.ptr = "short";
 		  yyval.tsym.stoken.length = 5;
@@ -1687,33 +1686,33 @@ case 122:
 		;
     break;}
 case 123:
-#line 861 "./c-exp.y"
+#line 860 "./c-exp.y"
 { yyval.tvec = (struct type **) xmalloc (sizeof (struct type *) * 2);
 		  yyval.ivec[0] = 1;	/* Number of types in vector */
 		  yyval.tvec[1] = yyvsp[0].tval;
 		;
     break;}
 case 124:
-#line 866 "./c-exp.y"
+#line 865 "./c-exp.y"
 { int len = sizeof (struct type *) * (++(yyvsp[-2].ivec[0]) + 1);
 		  yyval.tvec = (struct type **) xrealloc ((char *) yyvsp[-2].tvec, len);
 		  yyval.tvec[yyval.ivec[0]] = yyvsp[0].tval;
 		;
     break;}
 case 125:
-#line 872 "./c-exp.y"
+#line 871 "./c-exp.y"
 { yyval.sval = yyvsp[0].ssym.stoken; ;
     break;}
 case 126:
-#line 873 "./c-exp.y"
+#line 872 "./c-exp.y"
 { yyval.sval = yyvsp[0].ssym.stoken; ;
     break;}
 case 127:
-#line 874 "./c-exp.y"
+#line 873 "./c-exp.y"
 { yyval.sval = yyvsp[0].tsym.stoken; ;
     break;}
 case 128:
-#line 875 "./c-exp.y"
+#line 874 "./c-exp.y"
 { yyval.sval = yyvsp[0].ssym.stoken; ;
     break;}
 }
@@ -1914,7 +1913,7 @@ yyerrhandle:
   yystate = yyn;
   goto yynewstate;
 }
-#line 889 "./c-exp.y"
+#line 888 "./c-exp.y"
 
 
 /* Take care of parsing a number (anything that starts with a digit).
@@ -2392,9 +2391,17 @@ yylex ()
   namelen = 0;
   for (c = tokstart[namelen];
        (c == '_' || c == '$' || (c >= '0' && c <= '9')
-	|| (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
-       c = tokstart[++namelen])
-    ;
+	|| (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '<');)
+    {
+       if (c == '<')
+	 {
+	   int i = namelen;
+	   while (tokstart[++i] && tokstart[i] != '>');
+	   if (tokstart[i] == '>')
+	     namelen = i;
+	  }
+       c = tokstart[++namelen];
+     }
 
   /* The token "if" terminates the expression and is NOT 
      removed from the input stream.  */
@@ -2603,11 +2610,17 @@ yylex ()
 		      struct symbol *cur_sym;
 		      /* As big as the whole rest of the expression, which is
 			 at least big enough.  */
-		      char *tmp = alloca (strlen (namestart)+1);
+		      char *ncopy = alloca (strlen (tmp)+strlen (namestart)+3);
+		      char *tmp1;
 
-		      memcpy (tmp, namestart, p - namestart);
-		      tmp[p - namestart] = '\0';
-		      cur_sym = lookup_symbol (tmp, expression_context_block,
+		      tmp1 = ncopy;
+		      memcpy (tmp1, tmp, strlen (tmp));
+		      tmp1 += strlen (tmp);
+		      memcpy (tmp1, "::", 2);
+		      tmp1 += 2;
+		      memcpy (tmp1, namestart, p - namestart);
+		      tmp1[p - namestart] = '\0';
+		      cur_sym = lookup_symbol (ncopy, expression_context_block,
 					       VAR_NAMESPACE, (int *) NULL,
 					       (struct symtab **) NULL);
 		      if (cur_sym)

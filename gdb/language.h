@@ -34,6 +34,9 @@ struct objfile;
 #define	_LANG_c
 #define	_LANG_m2
 #define	_LANG_chill
+#define _LANG_fortran
+
+#define MAX_FORTRAN_DIMS  7   /* Maximum number of F77 array dims */ 
 
 /* range_mode ==
    range_mode_auto:   range_check set automatically to default of language.
@@ -149,10 +152,6 @@ struct language_defn
   int (*la_value_print) PARAMS ((struct value *, GDB_FILE *,
 				 int, enum val_prettyprint));
 
-  /* Longest floating point type */
-
-  struct type **la_longest_float;
-
   /* Base 2 (binary) formats. */
 
   struct language_format_info la_binary_format;
@@ -169,10 +168,20 @@ struct language_defn
 
   struct language_format_info la_hex_format;
 
-
   /* Table for printing expressions */
 
   const struct op_print *la_op_print_tab;
+
+  /* Zero if the language has first-class arrays.  True if there are no
+     array values, and array objects decay to pointers, as in C. */
+
+  char c_style_arrays;
+
+  /* Index to use for extracting the first element of a string. */
+  char string_lower_bound;
+
+  /* Type of elements of strings. */
+  struct type **string_char_type;
 
   /* Add fields above this point, so the magic number is always last. */
   /* Magic number for compat checking */
@@ -239,9 +248,6 @@ set_language PARAMS ((enum language));
    specific to languages.  Each of these functions is based on
    the current setting of working_lang, which the user sets
    with the "set language" command. */
-
-/* Returns some built-in types */
-#define	longest_float()		(*current_language->la_longest_float)
 
 #define create_fundamental_type(objfile,typeid) \
   (current_language->la_fund_type(objfile, typeid))

@@ -1,3 +1,68 @@
+Mon Jan 23 16:10:58 1995  Torbjorn Granlund  <tege@rtl.cygnus.com>
+
+	* interp.c (macw): Sign extend MACH at bit 10 for non-saturating case.
+
+Sun Jan 22 13:55:36 1995  Torbjorn Granlund  <tege@rtl.cygnus.com>
+
+	* gencode.c (op_tab): Make MAC.W call macw, not abort.
+	* interp.c (macw): New function.
+	(S): New #define.
+
+Sat Jan 21 15:52:30 1995  Torbjorn Granlund  <tege@rtl.cygnus.com>
+
+	* gencode.c (op_tab): New code for ADDV and SUBV.
+	Make MAC.L abort sicne it is not implemented.
+
+	* interp.c (dmul): Handle the signed case by adjusting after unsigned multiply.
+	Get rid of __GNUC__ conditional.
+
+aThu Jan 19 05:50:50 1995  Torbjorn Granlund  <tege@rtl.cygnus.com>
+
+	* gencode.c (op_tab): Also replace NEGC, and try again with SUBC.
+	Change ADDC for symmetry.
+
+	* gencode.c (op_tab): Replace code for ADDC and SUBC.
+
+Mon Jan  9 15:43:53 1995  Stu Grossman  (grossman@cygnus.com)
+
+	* interp.c:  Remove def of INLINE.  This comes from bfd.h.  Also,
+	declare IOMEM before using it.
+
+Wed Dec 28 21:25:31 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* interp.c (BUSERROR): New macro.
+	([r|w][bwl]at[little|big]) New functions.
+	(sim_resume): If GO32 check for interrupt every now
+	and again.  Decrement PC if SIGBUS seen.
+	* run.c (main):  Return result of simulated _exit.
+
+Mon Dec  5 21:59:51 1994  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (gencode): Allow build in different directory.
+
+Wed Nov 30 17:47:13 1994  Jim Wilson  <wilson@chestnut.cygnus.com>
+
+	* Makefile.in (gencode): Change $< to gencode.c for portability.
+
+Wed Nov 23 21:31:55 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* interp.c ([wr][bwl]at): New functions.
+	(trap): Cope with both byte modes.
+
+Thu Sep  8 17:35:07 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* gencode.c (tab): Simulate T bit after a negc insn right.
+	* interp.c (RSBAT): Sign extend the arg.
+	(ACE_FAST): New macro.
+	(sim_resume): Remove obsolete test of sim_timeout.
+	
+Fri Aug  5 14:12:31 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* interp.c (IOMEM): New function, simulates very basic I/O area of
+	the SH.
+	(WBAT, RBAT) : Call I/O functions.
+	* gencode.c (tab): Special case trapa #3.
+
 Mon Jun 27 18:04:54 1994  Steve Chamberlain  (sac@cirdan.cygnus.com)
 
 	* run.c (main): Specify the file type again.

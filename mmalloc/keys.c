@@ -31,7 +31,7 @@ Cambridge, MA 02139, USA.  */
    can be an unlimited number of keys, possibly using a multilevel access
    scheme of some sort. */
 
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 int
 mmalloc_setkey (md, keynum, key)

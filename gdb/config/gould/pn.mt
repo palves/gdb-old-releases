@@ -1,3 +1,3 @@
 # Target: Gould Powernode
-TDEPFILES= exec.o gould-pinsn.o
+TDEPFILES= gould-tdep.o
 TM_FILE= tm-pn.h

@@ -24,9 +24,12 @@ ie: aload hello /dev/ttya
 */
 
 #include <stdio.h>
-#include <fcntl.h>
+#include <stdarg.h>
+#include <errno.h>
 #include <termios.h>
 #include <unistd.h>
+#include <fcntl.h>
+
 #define min(A, B) (((A) < (B)) ? (A) : (B))
 
 #include <sys/types.h>
@@ -38,22 +41,39 @@ ie: aload hello /dev/ttya
 #define LOAD_ADDRESS 0x40000000
 #endif
 
-extern void *malloc();
+int quiet = 0;
 
 static void
-sys_error(msg)
-     char *msg;
+usage()
 {
-  perror(msg);
+  fprintf(stderr, "usage: aload [-q] file device\n");
+  exit (1);
+}
+
+static void
+sys_error(const char *msg, ...)
+{
+  int e = errno;
+  va_list args;
+
+  va_start(args, msg);
+  vfprintf(stderr, msg, args);
+  va_end(args);
+
+  fprintf(stderr, ": %s\n", strerror(e));
   exit(1);
 }
 
 static void
-error(msg)
-     char *msg;
+error(const char *msg, ...)
 {
-  fputs(msg, stdout);
-  fputc('\n', stdout);
+  va_list args;
+  
+  va_start(args, msg);
+  vfprintf(stderr, msg, args);
+  va_end(args);
+
+  fputc('\n', stderr);
   exit(1);
 }
 
@@ -98,14 +118,35 @@ main(argc, argv)
   bfd *pbfd;
   unsigned long entry;
 
-  pbfd = bfd_openr(argv[1], 0);
+  extern int optind;
+  int c;
+
+  while ((c = getopt(argc, argv, "q")) != EOF) 
+    {
+      switch (c) 
+	{
+	case 'q':
+	  quiet = 1;
+	  break;
+	default:
+	  usage();
+	}
+    }
+  argc -= optind;
+  argv += optind;
+
+  if (argc != 2) {
+    usage();
+  }
+
+  pbfd = bfd_openr(argv[0], 0);
 
   if (!pbfd)
     sys_error("Open of PROG failed");
 
 /* setup the tty.  Must be raw, no flow control, 9600 baud */
 
-  ttyf = fopen(argv[2], "r+");
+  ttyf = fopen(argv[1], "r+");
   if (!ttyf)
     sys_error("Open of TTY failed");
   setbuf(ttyf, NULL);		/* Strictly unbuffered */
@@ -129,7 +170,8 @@ main(argc, argv)
 
   sendex("", 1, "\xaa", 1, "alive?");
   sendex("\x55", 1, "\x55", 1, "alive");
-  printf("[SPARClite appears to be alive]\n");
+  if (!quiet)
+    printf("[SPARClite appears to be alive]\n");
 
   if (!bfd_check_format (pbfd, bfd_object)) 
     error ("It doesn't seem to be an object file");
@@ -151,10 +193,11 @@ main(argc, argv)
 	    section_address += LOAD_ADDRESS;
 	  section_size = bfd_section_size (pbfd, section);
 
-	  printf("[Loading section %s at %x (%d bytes)]\n",
-		 section_name,
-		 section_address,
-		 section_size);
+	  if (!quiet)
+	    printf("[Loading section %s at %x (%d bytes)]\n",
+		   section_name,
+		   section_address,
+		   section_size);
 
 	  if (bfd_get_section_flags (pbfd, section) & SEC_LOAD) /* Text, data or lit */
 	    {
@@ -179,8 +222,11 @@ main(argc, argv)
 		  for (i=0; i < count; i++)
 		    checksum += buffer[i];
 
-		  printf("\r%c", inds[k++ % 4]);
-		  fflush(stdout);
+		  if (!quiet) 
+		    {
+		      printf("\r%c", inds[k++ % 4]);
+		      fflush(stdout);
+		    }
 
 		  sendex("\001", 1, "\x5a", 1, "load command");
 		  sendex(&section_address, 4, NULL, 0, "load address");
@@ -193,14 +239,20 @@ main(argc, argv)
 		}
 	    }
 	  else			/* BSS */
-	    printf ("Not loading BSS \n");
+	    {
+	      if (!quiet)
+		printf ("Not loading BSS \n");
+	    }
 	}
     }
 
   entry = bfd_get_start_address (pbfd);
-  
-  printf("[Starting %s at 0x%x]\n", argv[1], entry);
+
+  if (!quiet) 
+    printf("[Starting %s at 0x%x]\n", argv[0], entry);
 
   sendex("\003", 1, NULL, 0, "exec command");
   sendex(&entry, 4, "\x55", 1, "program start");
+
+  exit(0);
 }

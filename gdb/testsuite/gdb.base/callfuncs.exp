@@ -31,7 +31,7 @@ set srcfile $binfile.c
 
 if ![file exists $objdir/$subdir/$binfile] then {
     perror "$objdir/$subdir/$binfile does not exist"
-    continue
+    return 0
 }
 
 # The a29k can't call functions, so don't even bother with this test.
@@ -121,15 +121,15 @@ proc do_function_calls {} {
 
     gdb_test "p t_string_values(string_val2,string_val1)" " = 0"
     gdb_test "p t_string_values(string_val1,string_val2)" " = 1"
-    gdb_test "p t_string_values(\\\"string 1\\\",\\\"string 2\\\")" " = 1"
-    gdb_test "p t_string_values(\\\"string 1\\\",string_val2)" " = 1"
-    gdb_test "p t_string_values(string_val1,\\\"string 2\\\")" " = 1"
+    gdb_test "p t_string_values(\"string 1\",\"string 2\")" " = 1"
+    gdb_test "p t_string_values(\"string 1\",string_val2)" " = 1"
+    gdb_test "p t_string_values(string_val1,\"string 2\")" " = 1"
 
     gdb_test "p t_char_array_values(char_array_val2,char_array_val1)" " = 0"
     gdb_test "p t_char_array_values(char_array_val1,char_array_val2)" " = 1"
-    gdb_test "p t_char_array_values(\\\"carray 1\\\",\\\"carray 2\\\")" " = 1"
-    gdb_test "p t_char_array_values(\\\"carray 1\\\",char_array_val2)" " = 1"
-    gdb_test "p t_char_array_values(char_array_val1,\\\"carray 2\\\")" " = 1"
+    gdb_test "p t_char_array_values(\"carray 1\",\"carray 2\")" " = 1"
+    gdb_test "p t_char_array_values(\"carray 1\",char_array_val2)" " = 1"
+    gdb_test "p t_char_array_values(char_array_val1,\"carray 2\")" " = 1"
 
     gdb_test "p doubleit(4)" " = 8"
     gdb_test "p add(4,5)" " = 9"

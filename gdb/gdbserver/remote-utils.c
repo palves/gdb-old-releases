@@ -76,12 +76,12 @@ remote_open (name)
       sockaddr.sin_port = htons(port);
       sockaddr.sin_addr.s_addr = INADDR_ANY;
 
-      if (bind (tmp_desc, &sockaddr, sizeof (sockaddr))
+      if (bind (tmp_desc, (struct sockaddr *)&sockaddr, sizeof (sockaddr))
 	  || listen (tmp_desc, 1))
 	perror_with_name ("Can't bind address");
 
       tmp = sizeof (sockaddr);
-      remote_desc = accept (tmp_desc, &sockaddr, &tmp);
+      remote_desc = accept (tmp_desc, (struct sockaddr *)&sockaddr, &tmp);
       if (remote_desc == -1)
 	perror_with_name ("Accept failed");
 
@@ -318,7 +318,7 @@ write_ok (buf)
      char *buf;
 {
   buf[0] = 'O';
-  buf[1] = 'k';
+  buf[1] = 'K';
   buf[2] = '\0';
 }
 
@@ -384,29 +384,45 @@ outreg(regno, buf)
 
 void
 prepare_resume_reply (buf, status, signal)
-     char *buf, status;
+     char *buf;
+     char status;
      unsigned char signal;
 {
   int nib;
   char ch;
 
-  *buf++ = 'T';
+  *buf++ = status;
 
   nib = ((signal & 0xf0) >> 4);
   *buf++ = tohex (nib);
   nib = signal & 0x0f;
   *buf++ = tohex (nib);
 
-  buf = outreg (PC_REGNUM, buf);
-  buf = outreg (FP_REGNUM, buf);
-  buf = outreg (SP_REGNUM, buf);
+  if (status == 'T')
+    {
+      buf = outreg (PC_REGNUM, buf);
+      buf = outreg (FP_REGNUM, buf);
+      buf = outreg (SP_REGNUM, buf);
 #ifdef NPC_REGNUM
-  buf = outreg (NPC_REGNUM, buf);
+      buf = outreg (NPC_REGNUM, buf);
 #endif
 #ifdef O7_REGNUM
-  buf = outreg (O7_REGNUM, buf);
+      buf = outreg (O7_REGNUM, buf);
 #endif
 
+      /* If the debugger hasn't used any thread features, don't burden it with
+	 threads.  If we didn't check this, GDB 4.13 and older would choke.  */
+      if (cont_thread != 0)
+	{
+	  if (old_thread_from_wait != thread_from_wait)
+	    {
+	      sprintf (buf, "thread:%x;", thread_from_wait);
+	      buf += strlen (buf);
+	      old_thread_from_wait = thread_from_wait;
+	    }
+	}
+    }
+  /* For W and X, we're done.  */
   *buf++ = 0;
 }
 

@@ -1,4 +1,4 @@
-# Copyright (C) 1992 Free Software Foundation, Inc.
+# Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,20 +30,18 @@ if $tracelevel then {
 proc test_print_si_members {} {
     global prompt
 
-    set passcount 0
-
     # Print all members of g_A using fully qualified form.
 
     send "print g_A.A::a\n"
     expect {
-	-re ".* = 1\r\n$prompt $" { incr passcount }
+	-re ".* = 1\r\n$prompt $" { pass "print g_A.A::a" }
 	-re ".*$prompt $" { fail "print g_A.A::a" }
 	timeout { fail "print g_A.A::a (timeout)" ; return }
     }
 
     send "print g_A.A::x\n"
     expect {
-	-re ".* = 2\r\n$prompt $" { incr passcount }
+	-re ".* = 2\r\n$prompt $" { pass "print g_A.A::x" }
 	-re ".*$prompt $" { fail "print g_A.A::x" }
 	timeout { fail "print g_A.A::x (timeout)" ; return }
     }
@@ -52,14 +50,14 @@ proc test_print_si_members {} {
 
     send "print g_A.a\n"
     expect {
-	-re ".* = 1\r\n$prompt $" { incr passcount }
+	-re ".* = 1\r\n$prompt $" { pass "print g_A.a" }
 	-re ".*$prompt $" { fail "print g_A.a" }
 	timeout { fail "print g_A.a (timeout)" ; return }
     }
 
     send "print g_A.x\n"
     expect {
-	-re ".* = 2\r\n$prompt $" { incr passcount }
+	-re ".* = 2\r\n$prompt $" { pass "print g_A.x" }
 	-re ".*$prompt $" { fail "print g_A.x" }
 	timeout { fail "print g_A.x (timeout)" ; return }
     }
@@ -68,28 +66,28 @@ proc test_print_si_members {} {
 
     send "print g_B.A::a\n"
     expect {
-	-re ".* = 3\r\n$prompt $" { incr passcount }
+	-re ".* = 3\r\n$prompt $" { pass "print g_B.A::a" }
 	-re ".*$prompt $" { fail "print g_B.A::a" }
 	timeout { fail "print g_B.A::a (timeout)" ; return }
     }
 
     send "print g_B.A::x\n"
     expect {
-	-re ".* = 4\r\n$prompt $" { incr passcount }
+	-re ".* = 4\r\n$prompt $" { pass "print g_B.A::x" }
 	-re ".*$prompt $" { fail "print g_B.A::x" }
 	timeout { fail "print g_B.A::x (timeout)" ; return }
     }
 
     send "print g_B.B::b\n"
     expect {
-	-re ".* = 5\r\n$prompt $" { incr passcount }
+	-re ".* = 5\r\n$prompt $" { pass "print g_B.B::b" }
 	-re ".*$prompt $" { fail "print g_B.B::b" }
 	timeout { fail "print g_B.B::b (timeout)" ; return }
     }
 
     send "print g_B.B::x\n"
     expect {
-	-re ".* = 6\r\n$prompt $" { incr passcount }
+	-re ".* = 6\r\n$prompt $" { pass "print g_B.B::x" }
 	-re ".*$prompt $" { fail "print g_B.B::x" }
 	timeout { fail "print g_B.B::x (timeout)" ; return }
     }
@@ -98,21 +96,21 @@ proc test_print_si_members {} {
 
     send "print g_B.a\n"
     expect {
-	-re ".* = 3\r\n$prompt $" { incr passcount }
+	-re ".* = 3\r\n$prompt $" { pass "print g_B.a" }
 	-re ".*$prompt $" { fail "print g_B.a" }
 	timeout { fail "print g_B.a (timeout)" ; return }
     }
 
     send "print g_B.b\n"
     expect {
-	-re ".* = 5\r\n$prompt $" { incr passcount }
+	-re ".* = 5\r\n$prompt $" { pass "print g_B.b" }
 	-re ".*$prompt $" { fail "print g_B.b" }
 	timeout { fail "print g_B.b (timeout)" ; return }
     }
 
     send "print g_B.x\n"
     expect {
-	-re ".* = 6\r\n$prompt $" { incr passcount }
+	-re ".* = 6\r\n$prompt $" { pass "print g_B.x" }
 	-re ".*$prompt $" { fail "print g_B.x" }
 	timeout { fail "print g_B.x (timeout)" ; return }
     }
@@ -121,28 +119,28 @@ proc test_print_si_members {} {
 
     send "print g_C.A::a\n"
     expect {
-	-re ".* = 7\r\n$prompt $" { incr passcount }
+	-re ".* = 7\r\n$prompt $" { pass "print g_C.A::a" }
 	-re ".*$prompt $" { fail "print g_C.A::a" }
 	timeout { fail "print g_C.A::a (timeout)" ; return }
     }
 
     send "print g_C.A::x\n"
     expect {
-	-re ".* = 8\r\n$prompt $" { incr passcount }
+	-re ".* = 8\r\n$prompt $" { pass "print g_C.A::x" }
 	-re ".*$prompt $" { fail "print g_C.A::x" }
 	timeout { fail "print g_C.A::x (timeout)" ; return }
     }
 
     send "print g_C.C::c\n"
     expect {
-	-re ".* = 9\r\n$prompt $" { incr passcount }
+	-re ".* = 9\r\n$prompt $" { pass "print g_C.C::c" }
 	-re ".*$prompt $" { fail "print g_C.C::c" }
 	timeout { fail "print g_C.C::c (timeout)" ; return }
     }
 
     send "print g_C.C::x\n"
     expect {
-	-re ".* = 10\r\n$prompt $" { incr passcount }
+	-re ".* = 10\r\n$prompt $" { pass "print g_C.C::x" }
 	-re ".*$prompt $" { fail "print g_C.C::x" }
 	timeout { fail "print g_C.C::x (timeout)" ; return }
     }
@@ -151,27 +149,23 @@ proc test_print_si_members {} {
 
     send "print g_C.a\n"
     expect {
-	-re ".* = 7\r\n$prompt $" { incr passcount }
+	-re ".* = 7\r\n$prompt $" { pass "print g_C.a" }
 	-re ".*$prompt $" { fail "print g_C.a" }
 	timeout { fail "print g_C.a (timeout)" ; return }
     }
 
     send "print g_C.c\n"
     expect {
-	-re ".* = 9\r\n$prompt $" { incr passcount }
+	-re ".* = 9\r\n$prompt $" { pass "print g_C.c" }
 	-re ".*$prompt $" { fail "print g_C.c" }
 	timeout { fail "print g_C.c (timeout)" ; return }
     }
 
     send "print g_C.x\n"
     expect {
-	-re ".* = 10\r\n$prompt $" { incr passcount }
+	-re ".* = 10\r\n$prompt $" { pass "print g_C.x" }
 	-re ".*$prompt $" { fail "print g_C.x" }
 	timeout { fail "print g_C.x (timeout)" ; return }
-    }
-
-    if $passcount then {
-	pass "$passcount correct si members printed"
     }
 }
 
@@ -182,14 +176,12 @@ proc test_print_si_members {} {
 proc test_ptype_si {} {
     global prompt
 
-    set passcount 0
-
     # Print class A as a type.
 
     send "ptype A\n"
     expect {
 	-re "type = class A \{\r\n.*\[ \]*int a;\r\n\[ \]*int x;\r\n.*\[ \]*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype A (FIXME)"
 	}
 	-re "type = struct A \{\r\n\[ \]*int a;\r\n\[ \]*int x;\r\n\[ \]*\}\r\n$prompt $" {
 	    setup_xfail "*-*-*"
@@ -204,7 +196,7 @@ proc test_ptype_si {} {
     send "ptype class A\n"
     expect {
 	-re "type = class A \{\r\n.*\[ \]*int a;\r\n\[ \]*int x;\r\n.*\[ \]*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class A (FIXME)"
 	}
 	-re "type = struct A \{\r\n\[ \]*int a;\r\n\[ \]*int x;\r\n\[ \]*\}\r\n$prompt $" {
 	    setup_xfail "*-*-*"
@@ -219,7 +211,7 @@ proc test_ptype_si {} {
     send "ptype g_A\n"
     expect {
 	-re "type = class A \{\r\n.*\[ \]*int a;\r\n\[ \]*int x;\r\n.*\[ \]*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_A (FIXME)"
 	}
 	-re "type = struct A \{\r\n\[ \]*int a;\r\n\[ \]*int x;\r\n\[ \]*\}\r\n$prompt $" {
 	    setup_xfail "*-*-*"
@@ -234,7 +226,7 @@ proc test_ptype_si {} {
     send "ptype B\n"
     expect {
 	-re "type = class B : public A \{\r\n\[ \]*public:\r\n\[ \]*int b;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype B"
 	}
 	-re ".*$prompt $" { fail "ptype B" }
 	timeout { fail "ptype B (timeout)" ; return }
@@ -245,7 +237,7 @@ proc test_ptype_si {} {
     send "ptype class B\n"
     expect {
 	-re "type = class B : public A \{\r\n\[ \]*public:\r\n\[ \]*int b;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class B"
 	}
 	-re ".*$prompt $" { fail "ptype class B" }
 	timeout { fail "ptype class B (timeout)" ; return }
@@ -256,7 +248,7 @@ proc test_ptype_si {} {
     send "ptype g_B\n"
     expect {
 	-re "type = class B : public A \{\r\n\[ \]*public:\r\n\[ \]*int b;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_B"
 	}
 	-re ".*$prompt $" { fail "ptype g_B" }
 	timeout { fail "ptype g_B (timeout)" ; return }
@@ -267,7 +259,7 @@ proc test_ptype_si {} {
     send "ptype C\n"
     expect {
 	-re "type = class C : public A \{\r\n\[ \]*public:\r\n\[ \]*int c;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype C"
 	}
 	-re ".*$prompt $" { fail "ptype C" }
 	timeout { fail "ptype C (timeout)" ; return }
@@ -278,7 +270,7 @@ proc test_ptype_si {} {
     send "ptype class C\n"
     expect {
 	-re "type = class C : public A \{\r\n\[ \]*public:\r\n\[ \]*int c;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class C"
 	}
 	-re ".*$prompt $" { fail "ptype class C" }
 	timeout { fail "ptype class C (timeout)" ; return }
@@ -289,7 +281,7 @@ proc test_ptype_si {} {
     send "ptype g_C\n"
     expect {
 	-re "type = class C : public A \{\r\n\[ \]*public:\r\n\[ \]*int c;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_C"
 	}
 	-re ".*$prompt $" { fail "ptype g_C" }
 	timeout { fail "ptype g_C (timeout)" ; return }
@@ -301,10 +293,6 @@ proc test_ptype_si {} {
 	"print tagless struct (known bug in gcc 2.4.5-2.5.8)"
     gdb_test "ptype v_tagless" "type = (struct|class).*\{.*int one;.*int two;.*\}" \
 	"ptype variable of type tagless struct (known bug in gcc 2.4.5-2.5.8)"
-
-    if $passcount then {
-	pass "$passcount correct si types printed"
-    }
 }
 
 #
@@ -314,14 +302,12 @@ proc test_ptype_si {} {
 proc test_print_si_classes {} {
     global prompt
 
-    set passcount 0
-
     # Print all members of g_A.
 
     send "print g_A\n"
     expect {
 	-re ".* = \{a = 1, x = 2\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_A"
 	}
 	-re ".*$prompt $" { fail "print g_A" }
 	timeout { fail "print g_A (timeout)" ; return }
@@ -332,7 +318,7 @@ proc test_print_si_classes {} {
     send "print g_B\n"
     expect {
 	-re ".* = \{\<A\> = \{a = 3, x = 4\}, b = 5, x = 6\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_B"
 	}
 	-re ".*$prompt $" { fail "print g_B" }
 	timeout { fail "print g_B (timeout)" ; return }
@@ -343,15 +329,37 @@ proc test_print_si_classes {} {
     send "print g_C\n"
     expect {
 	-re ".* = \{\<A\> = \{a = 7, x = 8\}, c = 9, x = 10\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_C"
 	}
 	-re ".*$prompt $" { fail "print g_C" }
 	timeout { fail "print g_C (timeout)" ; return }
     }
+}
 
-    if $passcount then {
-	pass "$passcount correct si classes printed"
+#
+# Single inheritance, print anonymous unions.
+# GDB versions prior to 4.14 entered an infinite loop when printing
+# the type of a class containing an anonymous union, and they were also
+# incapable of printing the member of an anonymous union.
+# We test the printing of the member first, and perform the other tests
+# only if the test succeeds, to avoid the infinite loop.
+#
+
+proc test_print_anon_union {} {
+    global prompt
+
+    send "print g_anon_union.a\n"
+    expect {
+	-re ".* = 2\r\n$prompt $" { pass "print anonymous union member" }
+	-re ".*$prompt $" { fail "print anonymous union member" ; return }
+	default { fail "print anonymous union member (timeout)" ; return }
     }
+    gdb_test "print g_anon_union" \
+	     ".* = .*\{one = 1,  = \{a = 2, b = .*\}\}" \
+	     "print anonymous union (known bug in gcc 2.4.5-2.5.8)"
+    gdb_test "ptype g_anon_union" \
+	     "type = (struct|class).*\{.*int one;.*union \{.*int a;.*(long|long int|int) b;" \
+	     "print type of anonymous union (known bug in gcc 2.4.5-2.5.8)"
 }
 
 #
@@ -361,20 +369,18 @@ proc test_print_si_classes {} {
 proc test_print_mi_members {} {
     global prompt
 
-    set passcount 0
-
     # Print all members of g_A.
 
     send "print g_A.A::a\n"
     expect {
-	-re ".* = 1\r\n$prompt $" { incr passcount }
+	-re ".* = 1\r\n$prompt $" { pass "print g_A.A::a" }
 	-re ".*$prompt $" { fail "print g_A.A::a" }
 	timeout { fail "print g_A.A::a (timeout)" ; return }
     }
     
     send "print g_A.A::x\n"
     expect {
-	-re ".* = 2\r\n$prompt $" { incr passcount }
+	-re ".* = 2\r\n$prompt $" { pass "print g_A.A::x" }
 	-re ".*$prompt $" { fail "print g_A.A::x" }
 	timeout { fail "print g_A.A::x (timeout)" ; return }
     }
@@ -383,28 +389,28 @@ proc test_print_mi_members {} {
 
     send "print g_B.A::a\n"
     expect {
-	-re ".* = 3\r\n$prompt $" { incr passcount }
+	-re ".* = 3\r\n$prompt $" { pass "print g_B.A::a" }
 	-re ".*$prompt $" { fail "print g_B.A::a" }
 	timeout { fail "print g_B.A::a (timeout)" ; return }
     }
 
     send "print g_B.A::x\n"
     expect {
-	-re ".* = 4\r\n$prompt $" { incr passcount }
+	-re ".* = 4\r\n$prompt $" { pass "print g_B.A::x" }
 	-re ".*$prompt $" { fail "print g_B.A::x" }
 	timeout { fail "print g_B.A::x (timeout)" ; return }
     }
 
     send "print g_B.B::b\n"
     expect {
-	-re ".* = 5\r\n$prompt $" { incr passcount }
+	-re ".* = 5\r\n$prompt $" { pass "print g_B.B::b" }
 	-re ".*$prompt $" { fail "print g_B.B::b" }
 	timeout { fail "print g_B.B::b (timeout)" ; return }
     }
 
     send "print g_B.B::x\n"
     expect {
-	-re ".* = 6\r\n$prompt $" { incr passcount }
+	-re ".* = 6\r\n$prompt $" { pass "print g_B.B::x" }
 	-re ".*$prompt $" { fail "print g_B.B::x" }
 	timeout { fail "print g_B.B::x (timeout)" ; return }
     }
@@ -413,28 +419,28 @@ proc test_print_mi_members {} {
 
     send "print g_C.A::a\n"
     expect {
-	-re ".* = 7\r\n$prompt $" { incr passcount }
+	-re ".* = 7\r\n$prompt $" { pass "print g_C.A::a" }
 	-re ".*$prompt $" { fail "print g_C.A::a" }
 	timeout { fail "print g_C.A::a (timeout)" ; return }
     }
 
     send "print g_C.A::x\n"
     expect {
-	-re ".* = 8\r\n$prompt $" { incr passcount }
+	-re ".* = 8\r\n$prompt $" { pass "print g_C.A::x" }
 	-re ".*$prompt $" { fail "print g_C.A::x" }
 	timeout { fail "print g_C.A::x (timeout)" ; return }
     }
 
     send "print g_C.C::c\n"
     expect {
-	-re ".* = 9\r\n$prompt $" { incr passcount }
+	-re ".* = 9\r\n$prompt $" { pass "print g_C.C::c" }
 	-re ".*$prompt $" { fail "print g_C.C::c" }
 	timeout { fail "print g_C.C::c (timeout)" ; return }
     }
 
     send "print g_C.C::x\n"
     expect {
-	-re ".* = 10\r\n$prompt $" { incr passcount }
+	-re ".* = 10\r\n$prompt $" { pass "print g_C.C::x" }
 	-re ".*$prompt $" { fail "print g_C.C::x" }
 	timeout { fail "print g_C.C::x (timeout)" ; return }
     }
@@ -477,42 +483,42 @@ proc test_print_mi_members {} {
 
     send "print g_D.B::b\n"
     expect {
-	-re ".* = 13\r\n$prompt $" { incr passcount }
+	-re ".* = 13\r\n$prompt $" { pass "print g_D.B::b" }
 	-re ".*$prompt $" { fail "print g_D.B::b" }
 	timeout { fail "print g_D.B::b (timeout)" ; return }
     }
 
     send "print g_D.B::x\n"
     expect {
-	-re ".* = 14\r\n$prompt $" { incr passcount }
+	-re ".* = 14\r\n$prompt $" { pass "print g_D.B::x" }
 	-re ".*$prompt $" { fail "print g_D.B::x" }
 	timeout { fail "print g_D.B::x (timeout)" ; return }
     }
 
     send "print g_D.C::c\n"
     expect {
-	-re ".* = 17\r\n$prompt $" { incr passcount }
+	-re ".* = 17\r\n$prompt $" { pass "print g_D.C::c" }
 	-re ".*$prompt $" { fail "print g_D.C::c" }
 	timeout { fail "print g_D.C::c (timeout)" ; return }
     }
 
     send "print g_D.C::x\n"
     expect {
-	-re ".* = 18\r\n$prompt $" { incr passcount }
+	-re ".* = 18\r\n$prompt $" { pass "print g_D.C::x" }
 	-re ".*$prompt $" { fail "print g_D.C::x" }
 	timeout { fail "print g_D.C::x (timeout)" ; return }
     }
 
     send "print g_D.D::d\n"
     expect {
-	-re ".* = 19\r\n$prompt $" { incr passcount }
+	-re ".* = 19\r\n$prompt $" { pass "print g_D.D::d" }
 	-re ".*$prompt $" { fail "print g_D.D::d" }
 	timeout { fail "print g_D.D::d (timeout)" ; return }
     }
 
     send "print g_D.D::x\n"
     expect {
-	-re ".* = 20\r\n$prompt $" { incr passcount }
+	-re ".* = 20\r\n$prompt $" { pass "print g_D.D::x" }
 	-re ".*$prompt $" { fail "print g_D.D::x" }
 	timeout { fail "print g_D.D::x (timeout)" ; return }
     }
@@ -555,62 +561,58 @@ proc test_print_mi_members {} {
 
     send "print g_E.B::b\n"
     expect {
-	-re ".* = 23\r\n$prompt $" { incr passcount }
+	-re ".* = 23\r\n$prompt $" { pass "print g_E.B::b" }
 	-re ".*$prompt $" { fail "print g_E.B::b" }
 	timeout { fail "print g_E.B::b (timeout)" ; return }
     }
 
     send "print g_E.B::x\n"
     expect {
-	-re ".* = 24\r\n$prompt $" { incr passcount }
+	-re ".* = 24\r\n$prompt $" { pass "print g_E.B::x" }
 	-re ".*$prompt $" { fail "print g_E.B::x" }
 	timeout { fail "print g_E.B::x (timeout)" ; return }
     }
 
     send "print g_E.C::c\n"
     expect {
-	-re ".* = 27\r\n$prompt $" { incr passcount }
+	-re ".* = 27\r\n$prompt $" { pass "print g_E.C::c" }
 	-re ".*$prompt $" { fail "print g_E.C::c" }
 	timeout { fail "print g_E.C::c (timeout)" ; return }
     }
 
     send "print g_E.C::x\n"
     expect {
-	-re ".* = 28\r\n$prompt $" { incr passcount }
+	-re ".* = 28\r\n$prompt $" { pass "print g_E.C::x" }
 	-re ".*$prompt $" { fail "print g_E.C::x" }
 	timeout { fail "print g_E.C::x (timeout)" ; return }
     }
 
     send "print g_E.D::d\n"
     expect {
-	-re ".* = 29\r\n$prompt $" { incr passcount }
+	-re ".* = 29\r\n$prompt $" { pass "print g_E.D::d" }
 	-re ".*$prompt $" { fail "print g_E.D::d" }
 	timeout { fail "print g_E.D::d (timeout)" ; return }
     }
 
     send "print g_E.D::x\n"
     expect {
-	-re ".* = 30\r\n$prompt $" { incr passcount }
+	-re ".* = 30\r\n$prompt $" { pass "print g_E.D::x" }
 	-re ".*$prompt $" { fail "print g_E.D::x" }
 	timeout { fail "print g_E.D::x (timeout)" ; return }
     }
 
     send "print g_E.E::e\n"
     expect {
-	-re ".* = 31\r\n$prompt $" { incr passcount }
+	-re ".* = 31\r\n$prompt $" { pass "print g_E.E::e" }
 	-re ".*$prompt $" { fail "print g_E.E::e" }
 	timeout { fail "print g_E.E::e (timeout)" ; return }
     }
 
     send "print g_E.E::x\n"
     expect {
-	-re ".* = 32\r\n$prompt $" { incr passcount }
+	-re ".* = 32\r\n$prompt $" { pass "print g_E.E::x" }
 	-re ".*$prompt $" { fail "print g_E.E::x" }
 	timeout { fail "print g_E.E::x (timeout)" ; return }
-    }
-
-    if $passcount then {
-	pass "$passcount correct mi members printed"
     }
 }
 
@@ -621,12 +623,10 @@ proc test_print_mi_members {} {
 proc test_ptype_mi {} {
     global prompt
 
-    set passcount 0
-
     send "ptype D\n"
     expect {
 	-re "type = class D : public B, public C \{\r\n\[ \]*public:\r\n\[ \]*int d;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype D"
 	}
 	-re ".*$prompt $" { fail "ptype D" }
 	timeout { fail "ptype D (timeout)" ; return }
@@ -635,7 +635,7 @@ proc test_ptype_mi {} {
     send "ptype class D\n"
     expect {
 	-re "type = class D : public B, public C \{\r\n\[ \]*public:\r\n\[ \]*int d;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class D"
 	}
 	-re ".*$prompt $" { fail "ptype class D" }
 	timeout { fail "ptype class D (timeout)" ; return }
@@ -644,7 +644,7 @@ proc test_ptype_mi {} {
     send "ptype g_D\n"
     expect {
 	-re "type = class D : public B, public C \{\r\n\[ \]*public:\r\n\[ \]*int d;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_D"
 	}
 	-re ".*$prompt $" { fail "ptype g_D" }
 	timeout { fail "ptype g_D (timeout)" ; return }
@@ -653,7 +653,7 @@ proc test_ptype_mi {} {
     send "ptype E\n"
     expect {
 	-re "type = class E : public D \{\r\n\[ \]*public:\r\n\[ \]*int e;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype E"
 	}
 	-re ".*$prompt $" { fail "ptype E" }
 	timeout { fail "ptype E (timeout)" ; return }
@@ -662,7 +662,7 @@ proc test_ptype_mi {} {
     send "ptype class E\n"
     expect {
 	-re "type = class E : public D \{\r\n\[ \]*public:\r\n\[ \]*int e;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class E"
 	}
 	-re ".*$prompt $" { fail "ptype class E" }
 	timeout { fail "ptype class E (timeout)" ; return }
@@ -671,14 +671,10 @@ proc test_ptype_mi {} {
     send "ptype g_E\n"
     expect {
 	-re "type = class E : public D \{\r\n\[ \]*public:\r\n\[ \]*int e;\r\n\[ \]*int x;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_E"
 	}
 	-re ".*$prompt $" { fail "ptype g_E" }
 	timeout { fail "ptype g_E (timeout)" ; return }
-    }
-
-    if $passcount then {
-	pass "$passcount correct mi types printed"
     }
 }
 
@@ -689,14 +685,12 @@ proc test_ptype_mi {} {
 proc test_print_mi_classes {} {
     global prompt
 
-    set passcount 0
-
     # Print all members of g_D.
 
     send "print g_D\n"
     expect {
 	-re ".* = \{\<B\> = \{\<A\> = \{a = 11, x = 12\}, b = 13, x = 14\}, \<C\> = \{\<A\> = \{a = 15, x = 16\}, c = 17, x = 18\}, d = 19, x = 20\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_D"
 	}
 	-re ".*$prompt $" { fail "print g_D" }
 	timeout { fail "print g_D (timeout)" ; return }
@@ -707,14 +701,10 @@ proc test_print_mi_classes {} {
     send "print g_E\n"
     expect {
 	-re ".* = \{\<D\> = \{\<B\> = \{\<A\> = \{a = 21, x = 22\}, b = 23, x = 24\}, \<C\> = \{\<A\> = \{a = 25, x = 26\}, c = 27, x = 28\}, d = 29, x = 30\}, e = 31, x = 32\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_E"
 	}
 	-re ".*$prompt $" { fail "print g_E" }
 	timeout { fail "print g_E (timeout)" ; return }
-    }
-
-    if $passcount then { 
-	pass "$passcount correct mi classes printed"
     }
 }
 
@@ -726,20 +716,18 @@ proc test_print_svi_members {} {
     global prompt
     global decimal
 
-    set passcount 0
-
     # Print all members of g_vA.
 
     send "print g_vA.vA::va\n"
     expect {
-	-re ".* = 1\r\n$prompt $" { incr passcount }
+	-re ".* = 1\r\n$prompt $" { pass "print g_vA.vA::va" }
 	-re ".*$prompt $" { fail "print g_vA.vA::va" }
 	timeout { fail "print g_vA.vA::va (timeout)" ; return }
     }
 
     send "print g_vA.vA::vx\n"
     expect {
-	-re ".* = 2\r\n$prompt $" { incr passcount }
+	-re ".* = 2\r\n$prompt $" { pass "print g_vA.vA::vx" }
 	-re ".*$prompt $" { fail "print g_vA.vA::vx" }
 	timeout { fail "print g_vA.vA::vx (timeout)" ; return }
     }
@@ -748,14 +736,14 @@ proc test_print_svi_members {} {
 
     send "print g_vA.va\n"
     expect {
-	-re ".* = 1\r\n$prompt $" { incr passcount }
+	-re ".* = 1\r\n$prompt $" { pass "print g_vA.va" }
 	-re ".*$prompt $" { fail "print g_vA.va" }
 	timeout { fail "print g_vA.va (timeout)" ; return }
     }
 
     send "print g_vA.vx\n"
     expect {
-	-re ".* = 2\r\n$prompt $" { incr passcount }
+	-re ".* = 2\r\n$prompt $" { pass "print g_vA.vx" }
 	-re ".*$prompt $" { fail "print g_vA.vx" }
 	timeout { fail "print g_vA.vx (timeout)" ; return }
     }
@@ -764,7 +752,7 @@ proc test_print_svi_members {} {
 
     send "print g_vB.vA::va\n"
     expect {
-	-re ".* = 3\r\n$prompt $" { incr passcount }
+	-re ".* = 3\r\n$prompt $" { pass "print g_vB.vA::va" }
 	-re ".*virtual baseclass botch.*$prompt $" {
 	    # Does not happen with gcc cygnus-2.4.5-930828
 	    fail "print g_vB.vA::va (known bug with gcc cygnus-2.4.5-930417)"
@@ -777,21 +765,21 @@ proc test_print_svi_members {} {
 
     send "print g_vB.vA::vx\n"
     expect {
-	-re ".* = 4\r\n$prompt $" { incr passcount }
+	-re ".* = 4\r\n$prompt $" { pass "print g_vB.vA::vx" }
 	-re ".*$prompt $" { fail "print g_vB.vA::vx" }
 	timeout { fail "print g_vB.vA::vx (timeout)" ; return }
     }
 
     send "print g_vB.vB::vb\n"
     expect {
-	-re ".* = 5\r\n$prompt $" { incr passcount }
+	-re ".* = 5\r\n$prompt $" { pass "print g_vB.vB::vb" }
 	-re ".*$prompt $" { fail "print g_vB.vB::vb" }
 	timeout { fail "print g_vB.vB::vb (timeout)" ; return }
     }
 
     send "print g_vB.vB::vx\n"
     expect {
-	-re ".* = 6\r\n$prompt $" { incr passcount }
+	-re ".* = 6\r\n$prompt $" { pass "print g_vB.vB::vx" }
 	-re ".*$prompt $" { fail "print g_vB.vB::vx" }
 	timeout { fail "print g_vB.vB::vx (timeout)" ; return }
     }
@@ -800,21 +788,21 @@ proc test_print_svi_members {} {
 
     send "print g_vB.va\n"
     expect {
-	-re ".* = 3\r\n$prompt $" { incr passcount }
+	-re ".* = 3\r\n$prompt $" { pass "print g_vB.va" }
 	-re ".*$prompt $" { fail "print g_vB.va" }
 	timeout { fail "print g_vB.va (timeout)" ; return }
     }
 
     send "print g_vB.vb\n"
     expect {
-	-re ".* = 5\r\n$prompt $" { incr passcount }
+	-re ".* = 5\r\n$prompt $" { pass "print g_vB.vb" }
 	-re ".*$prompt $" { fail "print g_vB.vb" }
 	timeout { fail "print g_vB.vb (timeout)" ; return }
     }
 
     send "print g_vB.vx\n"
     expect {
-	-re ".* = 6\r\n$prompt $" { incr passcount }
+	-re ".* = 6\r\n$prompt $" { pass "print g_vB.vx" }
 	-re ".*$prompt $" { fail "print g_vB.vx" }
 	timeout { fail "print g_vB.vx (timeout)" ; return }
     }
@@ -823,28 +811,28 @@ proc test_print_svi_members {} {
 
     send "print g_vC.vA::va\n"
     expect {
-	-re ".* = 7\r\n$prompt $" { incr passcount }
+	-re ".* = 7\r\n$prompt $" { pass "print g_vC.vA::va" }
 	-re ".*$prompt $" { fail "print g_vC.vA::va" }
 	timeout { fail "print g_vC.vA::va (timeout)" ; return }
     }
 
     send "print g_vC.vA::vx\n"
     expect {
-	-re ".* = 8\r\n$prompt $" { incr passcount }
+	-re ".* = 8\r\n$prompt $" { pass "print g_vC.vA::vx" }
 	-re ".*$prompt $" { fail "print g_vC.vA::vx" }
 	timeout { fail "print g_vC.vA::vx (timeout)" ; return }
     }
 
     send "print g_vC.vC::vc\n"
     expect {
-	-re ".* = 9\r\n$prompt $" { incr passcount }
+	-re ".* = 9\r\n$prompt $" { pass "print g_vC.vC::vc" }
 	-re ".*$prompt $" { fail "print g_vC.vC::vc" }
 	timeout { fail "print g_vC.vC::vc (timeout)" ; return }
     }
 
     send "print g_vC.vC::vx\n"
     expect {
-	-re ".* = 10\r\n$prompt $" { incr passcount }
+	-re ".* = 10\r\n$prompt $" { pass "print g_vC.vC::vx" }
 	-re ".*$prompt $" { fail "print g_vC.vC::vx" }
 	timeout { fail "print g_vC.vC::vx (timeout)" ; return }
     }
@@ -853,27 +841,23 @@ proc test_print_svi_members {} {
 
     send "print g_vC.va\n"
     expect {
-	-re ".* = 7\r\n$prompt $" { incr passcount }
+	-re ".* = 7\r\n$prompt $" { pass "print g_vC.va" }
 	-re ".*$prompt $" { fail "print g_vC.va" }
 	timeout { fail "print g_vC.va (timeout)" ; return }
     }
 
     send "print g_vC.vc\n"
     expect {
-	-re ".* = 9\r\n$prompt $" { incr passcount }
+	-re ".* = 9\r\n$prompt $" { pass "print g_vC.vc" }
 	-re ".*$prompt $" { fail "print g_vC.vc" }
 	timeout { fail "print g_vC.vc (timeout)" ; return }
     }
 
     send "print g_vC.vx\n"
     expect {
-	-re ".* = 10\r\n$prompt $" { incr passcount }
+	-re ".* = 10\r\n$prompt $" { pass "print g_vC.vx" }
 	-re ".*$prompt $" { fail "print g_vC.vx" }
 	timeout { fail "print g_vC.vx (timeout)" ; return }
-    }
-
-    if $passcount then {
-	pass "$passcount correct svi members printed"
     }
 }
 
@@ -884,17 +868,15 @@ proc test_print_svi_members {} {
 proc test_ptype_vi {} {
     global prompt
 
-    set passcount 0
-
     # This class does not use any C++-specific features, so it's fine for
     # it to print as "struct".
     send "ptype vA\n"
     expect {
 	-re "type = class vA \{\r\n\[ \]*public:\r\n\[ \]*int va;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype vA"
 	}
 	-re "type = struct vA \{\r\n\[ \]*int va;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype vA"
 	}
 	-re ".*$prompt $" { fail "ptype vA" }
 	timeout { fail "ptype vA (timeout)" ; return }
@@ -905,10 +887,10 @@ proc test_ptype_vi {} {
     send "ptype class vA\n"
     expect {
 	-re "type = class vA \{\r\n\[ \]*public:\r\n\[ \]*int va;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class vA"
 	}
 	-re "type = struct vA \{\r\n\[ \]*int va;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class vA"
 	}
 	-re ".*$prompt $" { fail "ptype class vA" }
 	timeout { fail "ptype class vA (timeout)" ; return }
@@ -919,10 +901,10 @@ proc test_ptype_vi {} {
     send "ptype g_vA\n"
     expect {
 	-re "type = class vA \{\r\n\[ \]*public:\r\n\[ \]*int va;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_vA"
 	}
 	-re "type = struct vA \{\r\n\[ \]*int va;\r\n\[ \]*int vx;\r\n\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_vA"
 	}
 	-re ".*$prompt $" { fail "ptype g_vA" }
 	timeout { fail "ptype g_vA (timeout)" ; return }
@@ -931,7 +913,7 @@ proc test_ptype_vi {} {
     send "ptype vB\n"
     expect {
 	-re "ptype vB\r\ntype = class vB : public virtual vA \{\r\n  private:\r\n\[ \]+vA \[*\]+_vb\[\\\$\.\]+vA;\r\n  public:\r\n\[ \]+int vb;\r\n\[ \]+int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype vB"
 	}
 	-re ".*$prompt $" { fail "ptype vB" }
 	timeout { fail "ptype vB (timeout)" ; return }
@@ -940,7 +922,7 @@ proc test_ptype_vi {} {
     send "ptype class vB\n"
     expect {
 	-re "type = class vB : public virtual vA \{\r\n\[ \]*private:\r\n\[ \]*vA \[*\]+_vb\[\\\$\.\]vA;\r\n\[ \]*public:\r\n\[ \]*int vb;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class vB"
 	}
 	-re ".*$prompt $" { fail "ptype class vB" }
 	timeout { fail "ptype class vB (timeout)" ; return }
@@ -949,7 +931,7 @@ proc test_ptype_vi {} {
     send "ptype g_vB\n"
     expect {
 	-re "type = class vB : public virtual vA \{\r\n\[ \]*private:\r\n\[ \]*vA \[*\]+_vb\[\\\$\.\]vA;\r\n\[ \]*public:\r\n\[ \]*int vb;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_vB"
 	}
 	-re ".*$prompt $" { fail "ptype g_vB" }
 	timeout { fail "ptype g_vB (timeout)" ; return }
@@ -978,10 +960,6 @@ proc test_ptype_vi {} {
 	-re ".*$prompt $" { fail "ptype g_vC" }
 	timeout { fail "ptype g_vC (timeout)" ; return }
     }
-
-    if $passcount then {
-	pass "$passcount correct svi types printed"
-    }
 }
 
 #
@@ -993,14 +971,12 @@ proc test_print_svi_classes {} {
     global hex
     global decimal
 
-    set passcount 0
-
     # Print all members of g_vA.
 
     send "print g_vA\n"
     expect {
 	-re ".* = \{va = 1, vx = 2\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_vA"
 	}
 	-re ".*$prompt $" { fail "print g_vA" }
 	timeout { fail "print g_vA (timeout)" ; return }
@@ -1011,7 +987,7 @@ proc test_print_svi_classes {} {
     send "print g_vB\n"
     expect {
 	-re ".* = \{\<vA\> = \{va = 3, vx = 4\}, _vb\[\\\$\.\]vA = $hex, vb = 5, vx = 6\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_vB"
 	}
 	-re ".*invalid address 0x0.*$prompt $" {
 	    # Does not happen with gcc cygnus-2.4.5-930828
@@ -1028,14 +1004,10 @@ proc test_print_svi_classes {} {
     send "print g_vC\n"
     expect {
 	-re ".* = \{\<vA\> = \{va = 7, vx = 8\}, _vb\[\\\$\.\]vA = $hex, vc = 9, vx = 10\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_vC"
 	}
 	-re ".*$prompt $" { fail "print g_vC" }
 	timeout { fail "print g_vC (timeout)" ; return }
-    }
-
-    if $passcount then {
-	pass "$passcount correct svi classes printed"
     }
 }
 
@@ -1047,13 +1019,11 @@ proc test_print_mvi_members {} {
     global prompt
     global decimal
 
-    set passcount 0
-
     # Print all members of g_vD.
 
     send "print g_vD.vA::va\n"
     expect {
-	-re ".* = 19\r\n$prompt $" { incr passcount }
+	-re ".* = 19\r\n$prompt $" { pass "print g_vD.vA::va" }
 	-re ".*virtual baseclass botch.*$prompt $" {
 	    # Does not happen with gcc cygnus-2.4.5-930828
 	    fail "print g_vD.vA::va (known bug with gcc cygnus-2.4.5-930417)"
@@ -1066,49 +1036,49 @@ proc test_print_mvi_members {} {
 
     send "print g_vD.vA::vx\n"
     expect {
-	-re ".* = 20\r\n$prompt $" { incr passcount }
+	-re ".* = 20\r\n$prompt $" { pass "print g_vD.vA::vx" }
 	-re ".*$prompt $" { fail "print g_vD.vA::vx" }
 	timeout { fail "print g_vD.vA::vx (timeout)" ; return }
     }
 
     send "print g_vD.vB::vb\n"
     expect {
-	-re ".* = 21\r\n$prompt $" { incr passcount }
+	-re ".* = 21\r\n$prompt $" { pass "print g_vD.vB::vb" }
 	-re ".*$prompt $" { fail "print g_vD.vB::vb" }
 	timeout { fail "print g_vD.vB::vb (timeout)" ; return }
     }
 
     send "print g_vD.vB::vx\n"
     expect {
-	-re ".* = 22\r\n$prompt $" { incr passcount }
+	-re ".* = 22\r\n$prompt $" { pass "print g_vD.vB::vx" }
 	-re ".*$prompt $" { fail "print g_vD.vB::vx" }
 	timeout { fail "print g_vD.vB::vx (timeout)" ; return }
     }
 
     send "print g_vD.vC::vc\n"
     expect {
-	-re ".* = 23\r\n$prompt $" { incr passcount }
+	-re ".* = 23\r\n$prompt $" { pass "print g_vD.vC::vc" }
 	-re ".*$prompt $" { fail "print g_vD.vC::vc" }
 	timeout { fail "print g_vD.vC::vc (timeout)" ; return }
     }
 
     send "print g_vD.vC::vx\n"
     expect {
-	-re ".* = 24\r\n$prompt $" { incr passcount }
+	-re ".* = 24\r\n$prompt $" { pass "print g_vD.vC::vx" }
 	-re ".*$prompt $" { fail "print g_vD.vC::vx" }
 	timeout { fail "print g_vD.vC::vx (timeout)" ; return }
     }
 
     send "print g_vD.vD::vd\n"
     expect {
-	-re ".* = 25\r\n$prompt $" { incr passcount }
+	-re ".* = 25\r\n$prompt $" { pass "print g_vD.vD::vd" }
 	-re ".*$prompt $" { fail "print g_vD.vD::vd" }
 	timeout { fail "print g_vD.vD::vd (timeout)" ; return }
     }
 
     send "print g_vD.vD::vx\n"
     expect {
-	-re ".* = 26\r\n$prompt $" { incr passcount }
+	-re ".* = 26\r\n$prompt $" { pass "print g_vD.vD::vx" }
 	-re ".*$prompt $" { fail "print g_vD.vD::vx" }
 	timeout { fail "print g_vD.vD::vx (timeout)" ; return }
     }
@@ -1117,76 +1087,72 @@ proc test_print_mvi_members {} {
 
     send "print g_vE.vA::va\n"
     expect {
-	-re ".* = 0\r\n$prompt $" { incr passcount }
+	-re ".* = 0\r\n$prompt $" { pass "print g_vE.vA::va" }
 	-re ".*$prompt $" { fail "print g_vE.vA::va" }
 	timeout { fail "print g_vE.vA::va (timeout)" ; return }
     }
 
     send "print g_vE.vA::vx\n"
     expect {
-	-re ".* = 0\r\n$prompt $" { incr passcount }
+	-re ".* = 0\r\n$prompt $" { pass "print g_vE.vA::vx" }
 	-re ".*$prompt $" { fail "print g_vE.vA::vx" }
 	timeout { fail "print g_vE.vA::vx (timeout)" ; return }
     }
 
     send "print g_vE.vB::vb\n"
     expect {
-	-re ".* = 0\r\n$prompt $" { incr passcount }
+	-re ".* = 0\r\n$prompt $" { pass "print g_vE.vB::vb" }
 	-re ".*$prompt $" { fail "print g_vE.vB::vb" }
 	timeout { fail "print g_vE.vB::vb (timeout)" ; return }
     }
 
     send "print g_vE.vB::vx\n"
     expect {
-	-re ".* = 0\r\n$prompt $" { incr passcount }
+	-re ".* = 0\r\n$prompt $" { pass "print g_vE.vB::vx" }
 	-re ".*$prompt $" { fail "print g_vE.vB::vx" }
 	timeout { fail "print g_vE.vB::vx (timeout)" ; return }
     }
 
     send "print g_vE.vC::vc\n"
     expect {
-	-re ".* = 0\r\n$prompt $" { incr passcount }
+	-re ".* = 0\r\n$prompt $" { pass "print g_vE.vC::vc" }
 	-re ".*$prompt $" { fail "print g_vE.vC::vc" }
 	timeout { fail "print g_vE.vC::vc (timeout)" ; return }
     }
 
     send "print g_vE.vC::vx\n"
     expect {
-	-re ".* = 0\r\n$prompt $" { incr passcount }
+	-re ".* = 0\r\n$prompt $" { pass "print g_vE.vC::vx" }
 	-re ".*$prompt $" { fail "print g_vE.vC::vx" }
 	timeout { fail "print g_vE.vC::vx (timeout)" ; return }
     }
 
     send "print g_vE.vD::vd\n"
     expect {
-	-re ".* = 0\r\n$prompt $" { incr passcount }
+	-re ".* = 0\r\n$prompt $" { pass "print g_vE.vD::vd" }
 	-re ".*$prompt $" { fail "print g_vE.vD::vd" }
 	timeout { fail "print g_vE.vD::vd (timeout)" ; return }
     }
 
     send "print g_vE.vD::vx\n"
     expect {
-	-re ".* = 0\r\n$prompt $" { incr passcount }
+	-re ".* = 0\r\n$prompt $" { pass "print g_vE.vD::vx" }
 	-re ".*$prompt $" { fail "print g_vE.vD::vx" }
 	timeout { fail "print g_vE.vD::vx (timeout)" ; return }
     }
 
     send "print g_vE.vE::ve\n"
     expect {
-	-re ".* = 27\r\n$prompt $" { incr passcount }
+	-re ".* = 27\r\n$prompt $" { pass "print g_vE.vE::ve" }
 	-re ".*$prompt $" { fail "print g_vE.vE::ve" }
 	timeout { fail "print g_vE.vE::ve (timeout)" ; return }
     }
 
     send "print g_vE.vE::vx\n"
     expect {
-	-re ".* = 28\r\n$prompt $" { incr passcount }
+	-re ".* = 28\r\n$prompt $" { pass "print g_vE.vE::vx" }
 	-re ".*$prompt $" { fail "print g_vE.vE::vx" }
 	timeout { fail "print g_vE.vE::vx (timeout)" ; return }
-    }
-
-    if $passcount then {
-	pass "$passcount correct mvi members printed"
     }
 }
 
@@ -1197,12 +1163,10 @@ proc test_print_mvi_members {} {
 proc test_ptype_mvi {} {
     global prompt
 
-    set passcount 0
-
     send "ptype vD\n"
     expect {
 	-re "type = class vD : public virtual vB, public virtual vC \{\r\n\[ \]*private:\r\n\[ \]*vC \[*\]+_vb\[\\\$\.\]vC;\r\n\[ \]*vB \[*\]+_vb\[\\\$\.\]vB;\r\n\[ \]*public:\r\n\[ \]*int vd;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype vD"
 	}
 	-re ".*$prompt $" { fail "ptype vD" }
 	timeout { fail "ptype vD (timeout)" ; return }
@@ -1211,7 +1175,7 @@ proc test_ptype_mvi {} {
     send "ptype class vD\n"
     expect {
 	-re "type = class vD : public virtual vB, public virtual vC \{\r\n\[ \]*private:\r\n\[ \]*vC \[*\]+_vb\[\\\$\.\]vC;\r\n\[ \]*vB \[*\]+_vb\[\\\$\.\]vB;\r\n\[ \]*public:\r\n\[ \]*int vd;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class vD"
 	}
 	-re ".*$prompt $" { fail "ptype class vD" }
 	timeout { fail "ptype class vD (timeout)" ; return }
@@ -1220,7 +1184,7 @@ proc test_ptype_mvi {} {
     send "ptype g_vD\n"
     expect {
 	-re "type = class vD : public virtual vB, public virtual vC \{\r\n\[ \]*private:\r\n\[ \]*vC \[*\]+_vb\[\\\$\.\]vC;\r\n\[ \]*vB \[*\]+_vb\[\\\$\.\]vB;\r\n\[ \]*public:\r\n\[ \]*int vd;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_vD"
 	}
 	-re ".*$prompt $" { fail "ptype g_vD" }
 	timeout { fail "ptype g_vD (timeout)" ; return }
@@ -1229,7 +1193,7 @@ proc test_ptype_mvi {} {
     send "ptype vE\n"
     expect {
 	-re "type = class vE : public virtual vD \{\r\n\[ \]*private:\r\n\[ \]*vD \[*\]+_vb\[\\\$\.\]vD;\r\n\[ \]*public:\r\n\[ \]*int ve;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype vE"
 	}
 	-re ".*$prompt $" { fail "ptype vE" }
 	timeout { fail "ptype vE (timeout)" ; return }
@@ -1238,7 +1202,7 @@ proc test_ptype_mvi {} {
     send "ptype class vE\n"
     expect {
 	-re "type = class vE : public virtual vD \{\r\n\[ \]*private:\r\n\[ \]*vD \[*\]+_vb\[\\\$\.\]vD;\r\n\[ \]*public:\r\n\[ \]*int ve;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype class vE"
 	}
 	-re ".*$prompt $" { fail "ptype class vE" }
 	timeout { fail "ptype class vE (timeout)" ; return }
@@ -1247,14 +1211,10 @@ proc test_ptype_mvi {} {
     send "ptype g_vE\n"
     expect {
 	-re "type = class vE : public virtual vD \{\r\n\[ \]*private:\r\n\[ \]*vD \[*\]+_vb\[\\\$\.\]vD;\r\n\[ \]*public:\r\n\[ \]*int ve;\r\n\[ \]*int vx;\r\n.*\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype g_vE"
 	}
 	-re ".*$prompt $" { fail "ptype g_vE" }
 	timeout { fail "ptype g_vE (timeout)" ; return }
-    }
-
-    if $passcount then {
-	pass "$passcount correct mvi types printed"
     }
 }
 
@@ -1267,14 +1227,12 @@ proc test_print_mvi_classes {} {
     global hex
     global decimal
 
-    set passcount 0
-
     # Print all members of g_vD.
 
     send "print g_vD\n"
     expect {
 	-re ".* = \{\<vB\> = \{\<vA\> = \{va = 19, vx = 20\}, _vb\[\\\$\.\]vA = $hex, vb = 21, vx = 22\}, \<vC\> = \{_vb\[\\\$\.\]vA = $hex, vc = 23, vx = 24\}, _vb\[\\\$\.\]vC = $hex, _vb\[\\\$\.\]vB = $hex, vd = 25, vx = 26\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_vD"
 	}
 	-re ".*invalid address 0x0.*$prompt $" {
 	    # Does not happen with gcc cygnus-2.4.5-930828
@@ -1291,14 +1249,10 @@ proc test_print_mvi_classes {} {
     send "print g_vE\n"
     expect {
 	-re ".* = \{\<vD\> = \{\<vB\> = \{\<vA\> = \{va = 0, vx = 0\}, _vb\[\\\$\.\]vA = $hex, vb = 0, vx = 0\}, \<vC\> = \{_vb\[\\\$\.\]vA = $hex, vc = 0, vx = 0\}, _vb\[\\\$\.\]vC = $hex, _vb\[\\\$\.\]vB = $hex, vd = 0, vx = 0\}, _vb\[\\\$\.\]vD = $hex, ve = 27, vx = 28\}\r\n$prompt $" {
-	    incr passcount
+	    pass "print g_vE"
 	}
 	-re ".*$prompt $" { fail "print g_vE" }
 	timeout { fail "print g_vE (timeout)" ; return }
-    }
-
-    if $passcount then {
-	pass "$passcount correct mvi classes printed"
     }
 }
 
@@ -1338,6 +1292,7 @@ proc do_tests {} {
 	test_print_si_classes
 	test_print_mi_members
 	test_print_mi_classes
+	test_print_anon_union
     }
 
     if [ runto 'inheritance4(void)' ] then {

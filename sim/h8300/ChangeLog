@@ -1,3 +1,11 @@
+Sun Jan 22 12:35:43 1995  Steve Chamberlain  <sac@splat>
+
+	* compile.c (sim_resume): Initialize cpu.mask.
+
+Thu Sep  8 16:53:00 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* inst.h (MPOWER): Bump simulated memory size to 2^18 bytes.
+
 Wed May 18 13:47:58 1994  Doug Evans  (dje@canuck.cygnus.com)
 
 	* compile.c: #include "bfd.h".

@@ -10,7 +10,7 @@ configdirs=""
 # per-host:
 
 case "${host}" in
-  i[34]86-ncr-sysv4*)	host_makefile_frag=config/mh-ncr3000 ;;
+  i[345]86-ncr-sysv4*)	host_makefile_frag=config/mh-ncr3000 ;;
   *-*-irix4*)		host_makefile_frag=config/mh-irix4 ;;
   *-*-solaris2*)	host_makefile_frag=config/mh-sysv4 ;;
   *-*-sunos4*)		host_makefile_frag=config/mh-sunos4 ;;

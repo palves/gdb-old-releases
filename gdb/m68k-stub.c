@@ -535,7 +535,7 @@ char * buffer;
   
   do {
     /* wait around for the start character, ignore all other characters */
-    while ((ch = getDebugChar()) != '$'); 
+    while ((ch = (getDebugChar() & 0x7f)) != '$'); 
     checksum = 0;
     xmitcsum = -1;
     
@@ -543,7 +543,7 @@ char * buffer;
     
     /* now, read until a # or end of buffer is found */
     while (count < BUFMAX) {
-      ch = getDebugChar();
+      ch = getDebugChar() & 0x7f;
       if (ch == '#') break;
       checksum = checksum + ch;
       buffer[count] = ch;
@@ -552,8 +552,8 @@ char * buffer;
     buffer[count] = 0;
 
     if (ch == '#') {
-      xmitcsum = hex(getDebugChar()) << 4;
-      xmitcsum += hex(getDebugChar());
+      xmitcsum = hex(getDebugChar() & 0x7f) << 4;
+      xmitcsum += hex(getDebugChar() & 0x7f);
       if ((remote_debug ) && (checksum != xmitcsum)) {
         fprintf (stderr,"bad checksum.  My count = 0x%x, sent=0x%x. buf=%s\n",
 						     checksum,xmitcsum,buffer);

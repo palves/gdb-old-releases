@@ -22,7 +22,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "aout/ar.h"
 /*#include "libaout.h"*/
 
-extern CONST struct reloc_howto_struct * NAME(aout,reloc_type_lookup) ();
+extern reloc_howto_type * NAME(aout,reloc_type_lookup) ();
 
 /* Set parameters about this a.out file that are machine-dependent.
    This routine is called from some_aout_object_p just before it returns.  */
@@ -199,7 +199,8 @@ MY_bfd_copy_private_section_data (ibfd, isec, obfd, osec)
      bfd *obfd;
      asection *osec;
 {
-  obj_aout_subformat (obfd) = obj_aout_subformat (ibfd);
+  if (bfd_get_flavour (obfd) == bfd_target_aout_flavour)
+    obj_aout_subformat (obfd) = obj_aout_subformat (ibfd);
   return true;
 }
 
@@ -261,6 +262,9 @@ MY(set_sizes) (abfd)
 
 #ifndef MY_backend_data
 
+#ifndef MY_zmagic_contiguous
+#define MY_zmagic_contiguous 0
+#endif
 #ifndef MY_text_includes_header
 #define MY_text_includes_header 0
 #endif
@@ -284,7 +288,7 @@ MY(set_sizes) (abfd)
 #endif
 
 static CONST struct aout_backend_data MY(backend_data) = {
-  0,				/* zmagic contiguous */
+  MY_zmagic_contiguous,
   MY_text_includes_header,
   MY_exec_hdr_flags,
   0,				/* text vma? */
@@ -351,11 +355,18 @@ MY_bfd_final_link (abfd, info)
 #ifndef	MY_slurp_extended_name_table
 #define	MY_slurp_extended_name_table	_bfd_slurp_extended_name_table
 #endif
+#ifndef MY_construct_extended_name_table
+#define MY_construct_extended_name_table \
+  _bfd_archive_bsd_construct_extended_name_table
+#endif
 #ifndef	MY_write_armap
 #define	MY_write_armap		bsd_write_armap
 #endif
 #ifndef	MY_truncate_arname
 #define	MY_truncate_arname		bfd_bsd_truncate_arname
+#endif
+#ifndef MY_update_armap_timestamp
+#define MY_update_armap_timestamp _bfd_archive_bsd_update_armap_timestamp
 #endif
 
 /* No core file defined here -- configure in trad-core.c separately.  */

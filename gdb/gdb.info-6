@@ -1,4 +1,4 @@
-This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
+This is Info file ./gdb.info, produced by Makeinfo-1.55 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
@@ -7,10 +7,10 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.13.
+Source-Level Debugger' for GDB Version 4.14.
 
-   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
-Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
+Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -29,7 +29,7 @@ versions.
 File: gdb.info,  Node: Bootstrapping,  Next: Debug Session,  Prev: Stub Contents,  Up: Remote Serial
 
 What you must do for the stub
------------------------------
+.............................
 
    The debugging stubs that come with GDB are set up for a particular
 chip architecture, but they have no information about the rest of your
@@ -109,7 +109,7 @@ subroutines which `gcc' generates as inline code.
 File: gdb.info,  Node: Debug Session,  Next: Protocol,  Prev: Bootstrapping,  Up: Remote Serial
 
 Putting it all together
------------------------
+.......................
 
    In summary, when your program is ready to debug, you must follow
 these steps.
@@ -188,7 +188,7 @@ to connect once more.)  If you type `n', GDB goes back to waiting.
 File: gdb.info,  Node: Protocol,  Next: Server,  Prev: Debug Session,  Up: Remote Serial
 
 Communication protocol
-----------------------
+......................
 
    The stub files provided with GDB implement the target side of the
 communication protocol, and the GDB side is implemented in the GDB
@@ -268,7 +268,7 @@ shows you its current state.
 File: gdb.info,  Node: Server,  Prev: Protocol,  Up: Remote Serial
 
 Using the `gdbserver' program
------------------------------
+.............................
 
    `gdbserver' is a control program for Unix-like systems, which allows
 you to connect your program with a remote GDB via `target remote'--but
@@ -382,7 +382,7 @@ tell GDB how to connect to the 960 in several ways:
 File: gdb.info,  Node: Nindy Startup,  Next: Nindy Options,  Up: i960-Nindy Remote
 
 Startup with Nindy
-------------------
+..................
 
    If you simply start `gdb' without using any command-line options,
 you are prompted for what serial port to use, *before* you reach the
@@ -400,7 +400,7 @@ use `target' (*note Commands for managing targets: Target Commands.).
 File: gdb.info,  Node: Nindy Options,  Next: Nindy Reset,  Prev: Nindy Startup,  Up: i960-Nindy Remote
 
 Options for Nindy
------------------
+.................
 
    These are the startup options for beginning your GDB session with a
 Nindy-960 board attached:
@@ -440,7 +440,7 @@ port.
 File: gdb.info,  Node: Nindy Reset,  Prev: Nindy Options,  Up: i960-Nindy Remote
 
 Nindy reset command
--------------------
+...................
 
 `reset'
      For a Nindy target, this command sends a "break" to the remote
@@ -493,7 +493,7 @@ assume you've hooked the cable between the PC's `COM1' port and
 File: gdb.info,  Node: Comms (EB29K),  Next: gdb-EB29K,  Up: EB29K Remote
 
 Communications setup
---------------------
+....................
 
    The next step is to set up the PC's port, by doing something like
 this in DOS on the PC:
@@ -581,7 +581,7 @@ Unix system to the PC; GDB does *not* download it over the serial line.
 File: gdb.info,  Node: gdb-EB29K,  Next: Remote Log,  Prev: Comms (EB29K),  Up: EB29K Remote
 
 EB29K cross-debugging
----------------------
+.....................
 
    Finally, `cd' to the directory containing an image of your 29K
 program on the Unix system, and start GDB--specifying as argument the
@@ -617,7 +617,7 @@ input to the main DOS console, and type `~.' to leave `tip' or `cu'.
 File: gdb.info,  Node: Remote Log,  Prev: gdb-EB29K,  Up: EB29K Remote
 
 Remote log
-----------
+..........
 
    The `target amd-eb' command creates a file `eb.log' in the current
 working directory, to help debug problems with the connection.
@@ -708,7 +708,7 @@ installation).
 File: gdb.info,  Node: VxWorks Connection,  Next: VxWorks Download,  Up: VxWorks Remote
 
 Connecting to VxWorks
----------------------
+.....................
 
    The GDB command `target' lets you connect to a VxWorks target on the
 network.  To connect to a target whose host name is "`tt'", type:
@@ -735,7 +735,7 @@ with the GDB command `path', and execute the `target' command again.
 File: gdb.info,  Node: VxWorks Download,  Next: VxWorks Attach,  Prev: VxWorks Connection,  Up: VxWorks Remote
 
 VxWorks download
-----------------
+................
 
    If you have connected to the VxWorks target and you want to debug an
 object that has not yet been loaded, you can use the GDB `load' command
@@ -774,7 +774,7 @@ structures that reference the target system's symbol table.)
 File: gdb.info,  Node: VxWorks Attach,  Prev: VxWorks Download,  Up: VxWorks Remote
 
 Running tasks
--------------
+.............
 
    You can also attach to an existing task using the `attach' command as
 follows:
@@ -815,7 +815,7 @@ or H8/500:
 File: gdb.info,  Node: Hitachi Boards,  Next: Hitachi ICE,  Up: Hitachi Remote
 
 Connecting to Hitachi boards
-----------------------------
+............................
 
    Use the special `gdb' command `device PORT' if you need to
 explicitly set the serial device.  The default PORT is the first
@@ -839,7 +839,7 @@ set up the serial port on the DOS side.
 File: gdb.info,  Node: Hitachi ICE,  Next: Hitachi Special,  Prev: Hitachi Boards,  Up: Hitachi Remote
 
 Using the E7000 in-circuit emulator
------------------------------------
+...................................
 
    You can use the E7000 in-circuit emulator to develop code for either
 the Hitachi SH or the H8/300H.  Use one of these forms of the `target
@@ -859,7 +859,7 @@ e7000' command to connect GDB to your E7000:
 File: gdb.info,  Node: Hitachi Special,  Prev: Hitachi ICE,  Up: Hitachi Remote
 
 Special GDB commands for Hitachi micros
----------------------------------------
+.......................................
 
    Some GDB commands are available only on the H8/300 or the H8/500
 configurations:
@@ -916,16 +916,28 @@ board:
 
 GDB also supports these special commands for MIPS targets:
 
-`set mipsfpu off'
+`set mipsfpu double'
+`set mipsfpu single'
+`set mipsfpu none'
 `show mipsfpu'
      If your target board does not support the MIPS floating point
-     coprocessor, you should use the command `set mipsfpu off' (if you
+     coprocessor, you should use the command `set mipsfpu none' (if you
      need this, you may wish to put the command in your .gdbinit file).
      This tells GDB how to find the return value of functions which
      return floating point values.  It also allows GDB to avoid saving
      the floating point registers when calling functions on the board.
-     (As usual, you can inquire about the `mipsfpu' variable with `show
-     mipsfpu'.)
+     If you are using a floating point coprocessor with only single
+     precision floating point support, as on the R4650 processor, use
+     the command `set mipsfpu single'.  The default double precision
+     floating point coprocessor may be selected using `set mipsfpu
+     double'.
+
+     In previous versions the only choices were double precision or no
+     floating point, so `set mipsfpu on' will select double precision
+     and `set mipsfpu off' will select no floating point.
+
+     As usual, you can inquire about the `mipsfpu' variable with `show
+     mipsfpu'.
 
 `set remotedebug N'
 `show remotedebug'

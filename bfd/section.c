@@ -582,7 +582,7 @@ bfd_make_section_anyway (abfd, name)
      useful for things like relocs which are relative to the base of a
      section.  */
   newsect->symbol = bfd_make_empty_symbol (abfd);
-  if (!newsect)
+  if (newsect->symbol == NULL)
     return NULL;
   newsect->symbol->name = name;
   newsect->symbol->value = 0;

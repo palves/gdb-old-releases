@@ -685,7 +685,8 @@ nindy_before_main_loop ()
   char ttyname[100];
   char *p, *p2;
 
-  while (current_target != &nindy_ops) { /* remote tty not specified yet */
+  while (target_stack->target_ops != &nindy_ops) /* What is this crap??? */
+    {				/* remote tty not specified yet */
 	if ( instream == stdin ){
 		printf_unfiltered("\nAttach /dev/ttyNN -- specify NN, or \"quit\" to quit:  ");
 		gdb_flush( gdb_stdout );
@@ -737,7 +738,8 @@ specified when you started GDB.",
 	nindy_fetch_registers, nindy_store_registers,
 	nindy_prepare_to_store,
 	nindy_xfer_inferior_memory, nindy_files_info,
-	0, 0, /* insert_breakpoint, remove_breakpoint, */
+	memory_insert_breakpoint,
+	memory_remove_breakpoint,
 	0, 0, 0, 0, 0,	/* Terminal crud */
 	nindy_kill,
 	generic_load,
@@ -746,6 +748,7 @@ specified when you started GDB.",
 	nindy_mourn_inferior,
 	0,		/* can_run */
 	0, /* notice_signals */
+	0,			/* to_stop */
 	process_stratum, 0, /* next */
 	1, 1, 1, 1, 1,	/* all mem, mem, stack, regs, exec */
 	0, 0,			/* Section pointers */

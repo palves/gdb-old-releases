@@ -58,79 +58,97 @@ static char *v9_priv_reg_names[] =
 };
 #endif
 
-/* FIXME--need to deal with byte order (probably using masking and
-   shifting rather than bitfields is easiest).  */
+/* Macros used to extract instruction fields.  Not all fields have
+   macros defined here, only those which are actually used.  */
 
-union sparc_insn
-  {
-    unsigned long int code;
-    struct
-      {
-	unsigned int anop:2;
-#define	op	ldst.anop
-	unsigned int anrd:5;
-#define	rd	ldst.anrd
-	unsigned int op3:6;
-	unsigned int anrs1:5;
-#define	rs1	ldst.anrs1
-	unsigned int i:1;
-	unsigned int anasi:8;
-#define	asi	ldst.anasi
-	unsigned int anrs2:5;
-#define	rs2	ldst.anrs2
-#define	shcnt	rs2
-      } ldst;
-    struct
-      {
-	unsigned int anop:2, anrd:5, op3:6, anrs1:5, i:1;
-	unsigned int IMM13:13;
-#define	imm13	IMM13.IMM13
-      } IMM13;
-    struct
-      {
-	unsigned int anop:2;
-	unsigned int a:1;
-	unsigned int cond:4;
-	unsigned int op2:3;
-	unsigned int DISP22:22;
-#define	disp22	branch.DISP22
-#define	imm22	disp22
-      } branch;
+#define X_RD(i) (((i) >> 25) & 0x1f)
+#define X_RS1(i) (((i) >> 14) & 0x1f)
+#define X_LDST_I(i) (((i) >> 13) & 1)
+#define X_ASI(i) (((i) >> 5) & 0xff)
+#define X_RS2(i) (((i) >> 0) & 0x1f)
+#define X_IMM13(i) (((i) >> 0) & 0x1fff)
+#define X_DISP22(i) (((i) >> 0) & 0x3fffff)
+#define X_IMM22(i) X_DISP22 (i)
+#define X_DISP30(i) (((i) >> 0) & 0x3fffffff)
+
 #ifndef NO_V9
-    struct
-      {
-	unsigned int anop:2;
-	unsigned int a:1;
-	unsigned int z:1;
-	unsigned int rcond:3;
-	unsigned int op2:3;
-	unsigned int DISP16HI:2;
-	unsigned int p:1;
-	unsigned int _rs1:5;
-	unsigned int DISP16LO:14;
-#define	disp16(x) (((x).branch16.DISP16HI << 14) | (x).branch16.DISP16LO)
-      } branch16;
-#endif /* NO_V9 */
-    struct
-      {
-	unsigned int anop:2;
-	unsigned int adisp30:30;
-#define	disp30	call.adisp30
-      } call;
-  };
+#define X_DISP16(i) (((((i) >> 20) & 3) << 14) | (((i) >> 0) & 0x3fff))
+#endif
+
+/* Here is the union which was used to extract instruction fields
+   before the shift and mask macros were written.
+
+   union sparc_insn
+     {
+       unsigned long int code;
+       struct
+	 {
+	   unsigned int anop:2;
+	   #define	op	ldst.anop
+	   unsigned int anrd:5;
+	   #define	rd	ldst.anrd
+	   unsigned int op3:6;
+	   unsigned int anrs1:5;
+	   #define	rs1	ldst.anrs1
+	   unsigned int i:1;
+	   unsigned int anasi:8;
+	   #define	asi	ldst.anasi
+	   unsigned int anrs2:5;
+	   #define	rs2	ldst.anrs2
+	   #define	shcnt	rs2
+	 } ldst;
+       struct
+	 {
+	   unsigned int anop:2, anrd:5, op3:6, anrs1:5, i:1;
+	   unsigned int IMM13:13;
+	   #define	imm13	IMM13.IMM13
+	 } IMM13;
+       struct
+	 {
+	   unsigned int anop:2;
+	   unsigned int a:1;
+	   unsigned int cond:4;
+	   unsigned int op2:3;
+	   unsigned int DISP22:22;
+	   #define	disp22	branch.DISP22
+	   #define	imm22	disp22
+	 } branch;
+	 #ifndef NO_V9
+       struct
+	 {
+	   unsigned int anop:2;
+	   unsigned int a:1;
+	   unsigned int z:1;
+	   unsigned int rcond:3;
+	   unsigned int op2:3;
+	   unsigned int DISP16HI:2;
+	   unsigned int p:1;
+	   unsigned int _rs1:5;
+	   unsigned int DISP16LO:14;
+	 } branch16;
+	 #endif
+       struct
+	 {
+	   unsigned int anop:2;
+	   unsigned int adisp30:30;
+	   #define	disp30	call.adisp30
+	 } call;
+     };
+
+   */
 
 /* Nonzero if INSN is the opcode for a delayed branch.  */
 static int
 is_delayed_branch (insn)
-     union sparc_insn insn;
+     unsigned long insn;
 {
   unsigned int i;
 
   for (i = 0; i < NUMOPCODES; ++i)
     {
       CONST struct sparc_opcode *opcode = &sparc_opcodes[i];
-      if ((opcode->match & insn.code) == opcode->match
-	  && (opcode->lose & insn.code) == 0)
+      if ((opcode->match & insn) == opcode->match
+	  && (opcode->lose & insn) == 0)
 	return (opcode->flags & F_DELAYED);
     }
   return 0;
@@ -153,8 +171,8 @@ print_insn_sparc (memaddr, info)
      disassemble_info *info;
 {
   FILE *stream = info->stream;
-  union sparc_insn insn;
-
+  bfd_byte buffer[4];
+  unsigned long insn;
   register unsigned int i;
 
   if (!opcodes_sorted)
@@ -166,13 +184,15 @@ print_insn_sparc (memaddr, info)
 
   {
     int status =
-      (*info->read_memory_func) (memaddr, (bfd_byte *) &insn, sizeof (insn), info);
+      (*info->read_memory_func) (memaddr, buffer, sizeof (buffer), info);
     if (status != 0)
       {
 	(*info->memory_error_func) (status, memaddr, info);
 	return -1;
       }
   }
+
+  insn = bfd_getb32 (buffer);
 
   info->insn_info_valid = 1;			/* We do return this info */
   info->insn_type = dis_nonbranch;		/* Assume non branch insn */
@@ -182,8 +202,8 @@ print_insn_sparc (memaddr, info)
   for (i = 0; i < NUMOPCODES; ++i)
     {
       CONST struct sparc_opcode *opcode = &sparc_opcodes[i];
-      if ((opcode->match & insn.code) == opcode->match
-	  && (opcode->lose & insn.code) == 0)
+      if ((opcode->match & insn) == opcode->match
+	  && (opcode->lose & insn) == 0)
 	{
 	  /* Nonzero means that we have found an instruction which has
 	     the effect of adding or or'ing the imm13 field to rs1.  */
@@ -200,10 +220,10 @@ print_insn_sparc (memaddr, info)
 	     as rsd, and which has the i bit set?  */
 	  if ((opcode->match == 0x80102000 || opcode->match == 0x80002000)
 	  /*			  (or)				 (add)  */
-	      && insn.rs1 == insn.rd)
+	      && X_RS1 (insn) == X_RD (insn))
 	    imm_added_to_rs1 = 1;
 
-	  if (insn.rs1 != insn.rd
+	  if (X_RS1 (insn) != X_RD (insn)
 	      && strchr (opcode->args, 'r') != 0)
 	      /* Can't do simple format if source and dest are different.  */
 	      continue;
@@ -263,70 +283,69 @@ print_insn_sparc (memaddr, info)
 #define	reg(n)	(*info->fprintf_func) (stream, "%%%s", reg_names[n])
 		  case '1':
 		  case 'r':
-		    reg (insn.rs1);
+		    reg (X_RS1 (insn));
 		    break;
 
 		  case '2':
-		    reg (insn.rs2);
+		    reg (X_RS2 (insn));
 		    break;
 
 		  case 'd':
-		    reg (insn.rd);
+		    reg (X_RD (insn));
 		    break;
 #undef	reg
 
 #define	freg(n)		(*info->fprintf_func) (stream, "%%%s", freg_names[n])
 #define	fregx(n)	(*info->fprintf_func) (stream, "%%%s", freg_names[((n) & ~1) | (((n) & 1) << 5)])
 		  case 'e':
-		    freg (insn.rs1);
+		    freg (X_RS1 (insn));
 		    break;
 		  case 'v':	/* double/even */
 		  case 'V':	/* quad/multiple of 4 */
-		    fregx (insn.rs1);
+		    fregx (X_RS1 (insn));
 		    break;
 
 		  case 'f':
-		    freg (insn.rs2);
+		    freg (X_RS2 (insn));
 		    break;
 		  case 'B':	/* double/even */
 		  case 'R':	/* quad/multiple of 4 */
-		    fregx (insn.rs2);
+		    fregx (X_RS2 (insn));
 		    break;
 
 		  case 'g':
-		    freg (insn.rd);
+		    freg (X_RD (insn));
 		    break;
 		  case 'H':	/* double/even */
 		  case 'J':	/* quad/multiple of 4 */
-		    fregx (insn.rd);
+		    fregx (X_RD (insn));
 		    break;
 #undef	freg
 #undef	fregx
 
 #define	creg(n)	(*info->fprintf_func) (stream, "%%c%u", (unsigned int) (n))
 		  case 'b':
-		    creg (insn.rs1);
+		    creg (X_RS1 (insn));
 		    break;
 
 		  case 'c':
-		    creg (insn.rs2);
+		    creg (X_RS2 (insn));
 		    break;
 
 		  case 'D':
-		    creg (insn.rd);
+		    creg (X_RD (insn));
 		    break;
 #undef	creg
 
 		  case 'h':
 		    (*info->fprintf_func) (stream, "%%hi(%#x)",
-					   0xFFFFFFFF & (int) insn.imm22 << 10);
+					   (0xFFFFFFFF
+					    & ((int) X_IMM22 (insn) << 10)));
 		    break;
 
 		  case 'i':
 		    {
-		      /* We cannot trust the compiler to sign-extend
-			 when extracting the bitfield, hence the shifts.  */
-		      int imm = SEX (insn.imm13, 13);
+		      int imm = SEX (X_IMM13 (insn), 13);
 
 		      /* Check to see whether we have a 1+i, and take
 			 note of that fact.
@@ -349,14 +368,12 @@ print_insn_sparc (memaddr, info)
 		  case 'I':	/* 11 bit immediate.  */
 		  case 'j':	/* 10 bit immediate.  */
 		    {
-		      /* We cannot trust the compiler to sign-extend
-			 when extracting the bitfield, hence the shifts.  */
 		      int imm;
 
 		      if (*s == 'I')
-			imm = SEX (insn.imm13, 11);
+			imm = SEX (X_IMM13 (insn), 11);
 		      else
-			imm = SEX (insn.imm13, 10);
+			imm = SEX (X_IMM13 (insn), 10);
 
 		      /* Check to see whether we have a 1+i, and take
 			 note of that fact.
@@ -376,12 +393,12 @@ print_insn_sparc (memaddr, info)
 		    break;
 
 		  case 'k':
-		    info->target = memaddr + (SEX (disp16 (insn), 16)) * 4;
+		    info->target = memaddr + (SEX (X_DISP16 (insn), 16)) * 4;
 		    (*info->print_address_func) (info->target, info);
 		    break;
 
 		  case 'G':
-		    info->target = memaddr + (SEX (insn.disp22, 19)) * 4;
+		    info->target = memaddr + (SEX (X_DISP22 (insn), 19)) * 4;
 		    (*info->print_address_func) (info->target, info);
 		    break;
 
@@ -421,17 +438,19 @@ print_insn_sparc (memaddr, info)
 		    break;
 
 		  case '?':
-		    if (insn.rs1 == 31)
+		    if (X_RS1 (insn) == 31)
 		      (*info->fprintf_func) (stream, "%%ver");
-		    else if ((unsigned) insn.rs1 < 16)
-		      (*info->fprintf_func) (stream, "%%%s", v9_priv_reg_names[insn.rs1]);
+		    else if ((unsigned) X_RS1 (insn) < 16)
+		      (*info->fprintf_func) (stream, "%%%s",
+					     v9_priv_reg_names[X_RS1 (insn)]);
 		    else
 		      (*info->fprintf_func) (stream, "%%reserved");
 		    break;
 
 		  case '!':
-		    if ((unsigned) insn.rd < 15)
-		      (*info->fprintf_func) (stream, "%%%s", v9_priv_reg_names[insn.rd]);
+		    if ((unsigned) X_RD (insn) < 15)
+		      (*info->fprintf_func) (stream, "%%%s",
+					     v9_priv_reg_names[X_RD (insn)]);
 		    else
 		      (*info->fprintf_func) (stream, "%%reserved");
 		    break;
@@ -439,30 +458,30 @@ print_insn_sparc (memaddr, info)
 #endif	/* NO_V9 */
 
 		  case 'M':
-		    (*info->fprintf_func) (stream, "%%asr%d", insn.rs1);
+		    (*info->fprintf_func) (stream, "%%asr%d", X_RS1 (insn));
 		    break;
 		    
 		  case 'm':
-		    (*info->fprintf_func) (stream, "%%asr%d", insn.rd);
+		    (*info->fprintf_func) (stream, "%%asr%d", X_RD (insn));
 		    break;
 		    
 		  case 'L':
-		    info->target = memaddr + insn.disp30 * 4;
+		    info->target = memaddr + X_DISP30 (insn) * 4;
 		    (*info->print_address_func) (info->target, info);
 		    break;
 
 		  case 'n':
 		    (*info->fprintf_func)
-		      (stream, "%#x", (SEX (insn.disp22, 22)));
+		      (stream, "%#x", (SEX (X_DISP22 (insn), 22)));
 		    break;
 
 		  case 'l':
-		    info->target = memaddr + (SEX (insn.disp22, 22)) * 4;
+		    info->target = memaddr + (SEX (X_DISP22 (insn), 22)) * 4;
 		    (*info->print_address_func) (info->target, info);
 		    break;
 
 		  case 'A':
-		    (*info->fprintf_func) (stream, "(%d)", (int) insn.asi);
+		    (*info->fprintf_func) (stream, "(%d)", X_ASI (insn));
 		    break;
 
 		  case 'C':
@@ -493,6 +512,12 @@ print_insn_sparc (memaddr, info)
 		    (*info->fprintf_func) (stream, "%%wim");
 		    break;
 
+		  case 'x':
+		    (*info->fprintf_func) (stream, "%d",
+					   ((X_LDST_I (insn) << 8)
+					    + X_ASI (insn)));
+		    break;
+
 		  case 'y':
 		    (*info->fprintf_func) (stream, "%%y");
 		    break;
@@ -508,13 +533,13 @@ print_insn_sparc (memaddr, info)
 	     and its symbolic value.  */
 	  if (imm_added_to_rs1)
 	    {
-	      union sparc_insn prev_insn;
+	      unsigned long prev_insn;
 	      int errcode;
 
 	      errcode =
 		(*info->read_memory_func)
-		  (memaddr - 4,
-		   (bfd_byte *)&prev_insn, sizeof (prev_insn), info);
+		  (memaddr - 4, buffer, sizeof (buffer), info);
+	      prev_insn = bfd_getb32 (buffer);
 
 	      if (errcode == 0)
 		{
@@ -528,9 +553,11 @@ print_insn_sparc (memaddr, info)
 		     */
 
 		  if (is_delayed_branch (prev_insn))
-		    errcode = (*info->read_memory_func)
-		      (memaddr - 8, (bfd_byte *)&prev_insn, sizeof (prev_insn),
-		       info);
+		    {
+		      errcode = (*info->read_memory_func)
+			(memaddr - 8, buffer, sizeof (buffer), info);
+		      prev_insn = bfd_getb32 (buffer);
+		    }
 		}
 
 	      /* If there was a problem reading memory, then assume
@@ -538,13 +565,13 @@ print_insn_sparc (memaddr, info)
 	      if (errcode == 0)
 		{
 		  /* Is it sethi to the same register?  */
-		  if ((prev_insn.code & 0xc1c00000) == 0x01000000
-		      && prev_insn.rd == insn.rs1)
+		  if ((prev_insn & 0xc1c00000) == 0x01000000
+		      && X_RD (prev_insn) == X_RS1 (insn))
 		    {
 		      (*info->fprintf_func) (stream, "\t! ");
 		      info->target = 
-			(0xFFFFFFFF & (int) prev_insn.imm22 << 10)
-			| SEX (insn.imm13, 13);
+			(0xFFFFFFFF & (int) X_IMM22 (prev_insn) << 10)
+			| SEX (X_IMM13 (insn), 13);
 		      (*info->print_address_func) (info->target, info);
 		      info->insn_type = dis_dref;
 		      info->data_size = 4;  /* FIXME!!! */
@@ -565,13 +592,13 @@ print_insn_sparc (memaddr, info)
 		info->branch_delay_insns = 1;
 	    }
 
-	  return sizeof (insn);
+	  return sizeof (buffer);
 	}
     }
 
   info->insn_type = dis_noninsn;	/* Mark as non-valid instruction */
-  (*info->fprintf_func) (stream, "%#8x", insn.code);
-  return sizeof (insn);
+  (*info->fprintf_func) (stream, "%#8x", insn);
+  return sizeof (buffer);
 }
 
 /* Compare opcodes A and B.  */

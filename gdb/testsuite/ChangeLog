@@ -1,13 +1,517 @@
-Mon Jul 25 17:05:51 1994  Stan Shebs  (shebs@andros.cygnus.com)
+Wed Feb  1 08:03:48 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
-	* gdb.base/help.exp: Update expected add-symbol-file, ignore, and
-	condition help.
+	* gdb.base/a1-selftest.exp: Invoke stty before starting inferior.
 
-Sat Jul 23 15:12:52 1994  Fred Fish  (fnf@cygnus.com)
+	* gdb.base/nodebug.exp: Add xfails for ultrix and irix5 (same
+	places as other ecoff systems).
+
+	* gdb.base/a1-selftest.exp (test_with_self): Don't invoke stty on
+	ultrix.
+
+Mon Jan 30 11:44:52 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.base/nodebug.c (inner): Use variables so AIX linker doesn't
+	remove them.
+	* gdb.base/nodebug.exp: Accept "function" in addition to "text
+	variable and "variable" in addition to "data variable".
+	* gdb.base/nodebug.exp: xfail datalocal and bsslocal tests for AIX.
+
+	* gdb.base/list.exp (test_forward_search): Set listsize to 4 not
+	2.
+	* gdb.base/list1.c (long_line): Add additional statement at start
+	of function.
+	* gdb.base/list.exp (test_forward_search): Update line number to
+	reflect new statement.
+
+Sun Jan 29 13:34:25 1995  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/signals.exp:  Reinitialize searched source directories
+	after gdb_start call.
+
+Sat Jan 28 01:34:44 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/Makefile.in (clean): Delete "errs" file.
+	* gdb.stabs/Makefile.in: Likewise.
+
+	* gdb.disasm/hppa.exp (all_fpu_comparison_tests): Revert last
+	change.  Instead split the tests into smaller pieces.
+	* gdb.disasm/hppa.s: Corresponding changes.
+
+Fri Jan 27 09:24:51 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.base/a1-selftest.exp (test_with_self), gdb.base/interrupt.exp:
+	Quote ^C when passing it to stty.  For some shells ^ is a pipe.
+
+	* gdb.base/funcargs.exp: Modify many tests so that every test
+	either passes or fails.  Make some test names unique.
+
+Thu Jan 26 19:20:34 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.base/a1-selftest.exp (test_with_self), gdb.base/interrupt.exp:
+	Call stty to set interrupt character.
+
+	* gdb.disasm/hppa.mt (hppa), gdb.stabs/hppa.mt (weird.o): Check
+	for HP assembler versus GNU assembler based on actual behavior of
+	$(CC), rather than assuming that $(AS) is always the GNU assembler.
+
+	* TODO: Suggest a few more stepping tests.
+
+Wed Jan 25 14:52:41 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.base/default.exp: xfail no-stack backtraces for h8300,
+	restart GDB for h8300 after a continue.
+	(return): Add pattern to match a29k-udi behavior.
+	* gdb.base/nodebug.exp: Remove obsolete comment.
+	* gdb.base/regs.exp: New file, testing of register displays.
+	* gdb.base/return.exp: Fix typo in reference to $objdir.
+	* gdb.base/whatis.exp: Always start with a fresh GDB.
+
+Wed Jan 25 11:12:07 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.disasm/hppa.exp (all_fpu_comparison_tests): Set timeout
+	higher, these tests generate a lot of output.
+
+Tue Jan 24 07:58:44 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* lib/gdb.exp (gdb_test): Remove catch from around the send.  The
+	code following the catch silently ignored some errors; without the
+	catch they should be thrown like any other tcl error.  Also, the
+	catch used "" instead of {} which meant all the callers who wanted
+	to include one of the characters "[]$ had to quote it an extra time.
+	* gdb.base/{callfuncs.exp,commands.exp,gdbvars.exp,printcmds.exp,
+	ptype.exp,signals.exp,watchpoint.exp}, gdb.c++/{cplusfuncs.exp,
+	demangle.exp}, gdb.chill/chexp.exp, gdb.fortran/exprs.exp:
+	Remove extra quoting.
+
+Mon Jan 23 21:57:54 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.base/commands.exp: Make test names unique; every test either
+	passes or fails.  Update some comments.
+
+	* gdb.disasm/hppa.exp (do_system_control_tests): Update.
+
+Sat Jan 21 15:34:52 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	The following fixes a FAIL caused by the fact that the alpha stabs
+	configuration didn't use the ".if alpha" code in weird.def.
+	* gdb.stabs/weird.def (v_comb): Use type attribute to specify 32
+	bit pointer, so the 32 bit version works even on the alpha.
+	* gdb.stabs/{alpha.mt,ecoff.mt,aout.sed,hppa.sed,xcoff.sed,weird.def}:
+	Remove the stuff which allowed us to have separate versions for
+	alpha and everything else.
+
+	* gdb.c++/cplusfuncs.exp (test_lookup_operator_functions): Fix
+	regexp which "info func operator\[\](" is supposed to match.  Fix
+	string to send to GDB.  Note that GDB still doesn't work right.  Add a
+	new test for "info func .perator\[\](" which GDB does handle correctly.
+
+	* gdb.base/nodebug.exp: xfail most of the new tests for ecoff systems.
+
+Fri Jan 20 12:14:23 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.c++/classes.exp, gdb.c++/cplusfuncs.exp,
+	gdb.c++/inherit.exp, gdb.c++/templates.exp, gdb.c++/virtfunc.exp,
+	gdb.fortran/exprs.exp, gdb.fortran/types.exp, gdb.chill/chexp.exp,
+	gdb.base/printcmds.exp: Remove passcount, failcount, etc., stuff;
+	it makes the tests harder to understand and confuses test-o-matic.
+	The preferred style is that each test provides a PASS or a FAIL,
+	and has a unique message (e.g. "continue #54" not just "continue")
+	which is the same for the pass and the fail.
+	* gdb.fortran/exprs.exp, gdb.fortran/types.exp,
+	gdb.chill/chexp.exp: Move test_print_accept and test_print_reject
+	to lib/gdb.exp.
+	* gdb.base/printcmds.exp: Use test_print_accept.  Remove
+	prt_accept which was basically the same thing.  Likewise for
+	test_print_reject and prt_reject.
+	* lib/gdb.exp (test_print_reject): Add some more error message
+	patterns to match from the former printcmds.exp (prt_reject).
+	* gdb.c++/classes.exp, gdb.base/scope.exp: Remove spurious xfails.
+	One defect of the passcount stuff is that some of it failed to
+	report XPASS where appropriate.
+	* gdb.c++/cplusfuncs.exp (print_addr_of): No longer accept extra
+	stuff before and after arg in expected pattern.
+	(test_paddr_operator_functions): Re-do test without print_addr_of;
+	this is the only test which seems to want extra stuff there.
+
+Tue Jan 17 10:47:53 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* gdb.base/nodebug.exp: Update new tests to reflect improved
+	wording of gdb output.
+
+	* gdb.base/nodebug.exp: Add tests to check that "print", "whatis"
+	and "ptype" work on variables in files compiled without -g.
+	Replaces commented out "maint print msymbol" tests.
+
+Mon Jan 16 12:13:28 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* gdb.base/setvar.c (dummy): Call malloc.
+
+	* gdb.stabs/aout.sed: Enclose comments within a sed command to avoid
+	losing with the irix4 sed.
+
+	* gdb.base/sigall.exp (test_one_sig): Add xfail for "get signal
+	ALRM" on irix4.
+
+Sun Jan 15 21:58:26 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* TODO: Remove items about corefile.exp testing new exec-file and
+	backtrace; both are now done.  Add items about printing enums.
+
+Sat Jan 14 11:25:28 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* gdb.base/sigall.exp (test_one_sig): Attempt to recover if
+	"get signal $thissig" test fails.
+
+	* gdb.base/setvar.exp: Check for and reject crazy expected type hacks.
+
+Thu Jan 12 01:14:53 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* gdb.base/sigall.c (gen_*): Pass argument to handle_* to avoid
+	compiler warning with dec alpha compiler.
+
+	* gdb.base/commands.exp (if_while_breakpoint_command_test): Remove
+	extra \n from gdb_test call (this explains why the prompt test
+	that I removed yesterday was there).
+	(user_defined_command_test): Remove extra \n and prompt test.
+
+	* gdb.base/sigall.c: If SIGABRT == SIGLOST, just act as if SIGLOST
+	doesn't exist.  Likewise if SIGIO == SIGPOLL, pretend SIGPOLL
+	doesn't exist.
+	* gdb.base/sigall.exp: Remove special handling for SIGIO and SIGPOLL.
+	Also remove alpha workaround, which turns out to be because
+	SIGABRT == SIGLOST.
+
+	* gdb.base/sigall.exp: Add workaround for alpha weirdness.
+
+	* gdb.base/help.exp: Don't test "help show".
+
+Wed Jan 11 14:37:04 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* gdb.base/commands.exp: Call gdb_exit and gdb_start so that
+	"set print address" is on.
+	* gdb.base/commands.exp (if_while_breakpoint_command_test): Don't
+	pass prompt to gdb_test; gdb_test already looks for the prompt.
+
+	* gdb.base/help.exp: Replace most of docstring for "define" with ".*".
+
+	* gdb.base/a1-selftest.exp: Don't test "maint dump-me".  That test
+	was a vestige of the manual TESTSTRATEGY, and the purpose of it
+	was to make sure that gdb can read a core file.  But (a) the "read
+	the corefile" part didn't make it to a1-selftest.exp, we just
+	delete the corefile after creating it, and (b) we test reading
+	corefiles in corefile.exp anyway.  Also, this test left around a
+	xgdb process on Solaris.
+
+	* gdb.base/corefile.exp: Also test backtrace.
+
+Wed Jan 11 00:14:40 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.base/commands.exp: Test a simple user defined command with
+	arguments and if/while statements; verify the full user command is
+	printed by "show user".
+
+	* gdb.base/commands.exp: Test if/while commands as part of a
+	breakpoint command list; verify they appear in breakpoint
+	information.
+
+Wed Jan 11 00:47:58 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* gdb.base/sigall.c (gen_FPE): Generate SIGFPE with kill() rather
+	than by dividing by zero.
+
+Tue Jan 10 21:38:05 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.base/watchpoint.exp: hppa*-*-*bsd* no longer has problems
+	performing an inferior call with watchpoints enabled.
+	* gdb.base/watchpoint.c (main): Delete second unnecessary read
+	call.
+
+Tue Jan 10 18:42:07 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* gdb.stabs/weird.exp: Allow spaces followed by backspaces in echo
+	of "file" command.
+
+	* gdb.c++/classes.exp (test_ptype_class_objects, ptype class Foo):
+	Add additional pattern for when "int operator int(void);" appears
+	in a different order.
+
+Mon Jan  9 16:22:46 1995  Jim Kingdon  <kingdon@lioth.cygnus.com>
+
+	* gdb.base/signals.exp: Call gdb_exit and gdb_start.
+
+	* gdb.base/help.exp: Replace most of docstrings for "info signals"
+	and "signal" with ".*".
+
+Wed Jan  4 11:35:19 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Add note about "handle all nostop".
+
+	* gdb.base/{sigall.c, sigall.exp}: New test.
+	* gdb.base/Makefile.in: Add it.
+
+Thu Jan  5 17:34:03 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* lib/gdb.exp, gdb.base/corefile.exp: Supply -nw as argument
+	when invoking GDB, suppresses any windowing interface.
+
+Mon Jan  2 17:40:21 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* config/sim-gdb: New file, simulator testing support.
+
+Wed Dec 28 12:21:50 1994  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.base/interrupt.exp: Test calling func1 twice.
+
+Wed Dec 21 12:51:37 1994  Jim Kingdon  <kingdon@deneb.cygnus.com>
+
+	* gdb.base/list.exp (test_forward_search): Set timeout higher
+	when we'll be getting lots of output from gdb.
+
+	* gdb.base/a1-selftest.exp: Move code that was inside expect -re
+	"init_malloc" to after the expect statement.  Run it if that
+	regexp is taken, but also for two others which happen if source
+	cannot be found.
+
+Tue Dec 20 12:35:21 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.base/printcmds.exp: New test, for printing register before
+	program is running.
+
+Mon Dec 19 00:32:55 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/list.exp:  Correct some alternate expect patterns
+	to reflect changes in list1.c.
+
+Sat Dec 17 14:20:03 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* TODO: Add item regarding large frames.
+
+	* gdb.base/{funcargs.exp, funcargs.c} (call_after_alloca): New test.
+
+	* TODO: Remove item about enabling return.exp; it
+	is enabled.  Suggest a few more "return" tests.
+
+Sat Dec 17 02:33:37 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.c++/misc.cc, gdb.c++/inherit.exp:  Add testcases for
+	anonymous unions.
+
+Tue Dec 13 11:26:00 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.chill/Makefile.in: Put all rule before rules for pr-4975.o
+	and pr-5646.o, so "make" is the same as "make all", not "make
+	pr-4975.o".
+
+Wed Dec  7 19:02:02 1994  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.base/list.exp: Adjust expectations to reflect changes in
+	list1.c.
+	(test_forward_search): New test proc.
+	* gdb.base/list1.c (long_line): New function, has long source line.
+
+Thu Dec  1 23:14:49 1994  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.base/a1-selftest.exp: Change initial stepping to know about
+	additional line of code that was added.
+
+Wed Nov 30 19:43:14 1994  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/hppa.s: Break the large branching tests into smaller
+	tests so as not to overflow expect's input buffers.
+	* gdb.disasm/hppa.exp: Corresponding changes.
+
+Fri Nov 25 13:37:10 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	Beginnings of template debugging tests.
+	* gdb.c++/templ-info.cc:  New file to test for template
+	debugging capability of the compiler.
+	* gdb.c++/Makefile.in:  Add rule to build templ-info.exp from
+	templ-info.cc.
+	* gdb.c++/templates.cc:  Add explicit template instantiations
+	to enable compiling with -fno-implicit-templates. Add destructor
+	and 'value' method to T5 class for template tests.
+	* gdb.c++/templates.exp:  Add testcases for printing of template
+	types, setting breakpoints on template methods and calling a
+	template method. 
+
+Sat Nov  5 00:20:17 1994  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/hppa.exp (branch_tests): Allow any symbol as the
+	branch target since some assemblers (gas-2.5)  may emit a
+	relocation for the branch instead of resolving it in the
+	assembler.
+
+Sat Oct 29 02:40:40 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/a1-selftest.exp:  Remove RS/6000 xfail for backtrace
+	through signal handler.
+
+Fri Oct 21 11:10:16 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* configure.in (*-*-netware): Use config/mt-netware.
+
+	* config/mt-netware: New file.
+	* config/mt-i386-netware: Removed, separate configs for different
+	  netware architectures are no longer needed now that we have
+	  --with-headers.
+
+Sat Oct 15 03:43:00 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/exprs.exp:  Remove xfail for alpha, it is fixed
+	by the recent changes to use ANSI C arithmetic conversions.
+
+Sun Oct  9 07:44:06 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.base/corefile.exp: Add (xfail'd) test for reinit_frame_cache
+	bug involving using inferior_pid to figure out whether to select a
+	frame.
+
+Wed Sep 28 23:12:02 1994  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.disasm/hppa.exp: Change arg[0..3] to r[26..23] to
+	match the current disassembler output.
+
+Fri Sep 16 11:42:41 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* gdb.fortran/exprs.exp: Expect VOID instead of void.
+	* gdb.fortran/types.exp: Escape the expected '*'s in Fortran
+	types, expect "int" as type of integer values (for now).
+
+Wed Sep  7 23:33:51 1994  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.base/commands.exp: New tests for if/while commands.
+
+Tue Sep  6 13:16:11 1994  Per Bothner  (bothner@kalessin.cygnus.com)
+
+	* lib/gdb.exp (runto):  Replace sub-pattern for hex value
+	by .*, since hex values have different syntax in Chill mode.
+
+Tue Sep  6 02:15:51 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.c++/demangle.exp (test_arm_style_demangling):  Remove
+	linefeed from expect pattern for repeated types with indices > 9.
+
+Mon Aug 29 14:20:44 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	First part of Fortran test suite.
+	* gdb.fortran: New directory.
+	* gdb.fortran/exprs.exp, gdb.fortran/types.exp: New files.
+
+Sat Aug 27 23:32:43 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/default.exp:  Update expect pattern for load command
+	without arguments.
+
+Wed Aug 24 13:15:02 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* configure.in: Change i386 to i[345]86.
+	* gdb.base/configure.in: Likewise.
+	* gdb.c++/configure.in: Likewise.
+	* gdb.chill/configure.in: Likewise.
+
+Tue Aug 23 19:14:06 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* lib/gdb.exp (gdb_run_cmd): Move comment out from between expect
+	patterns, since that is not a valid context for comments.
+
+Fri Aug 19 15:07:30 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* gdb.c++/demangle.exp (test_arm_style_demangling): Add tests for
+	repeated types and repeated types with indices > 9.
+
+Tue Aug 16 15:57:52 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* gdb.base/printcmds.exp: Remove all the a29k XFAILs tagged with
+	2417; old bug has been fixed.
+
+Fri Aug 12 19:35:41 1994  Jeff Law  (law@snake.cs.utah.edu)
+
+	* gdb.base/interrupt.exp: When trying to wake up the inferior,
+	send the newline ourselves instead of assuming gdb_test will do
+	so when passed an empty input string.
+
+	* gdb.stabs/hppa.mt: Use $(AS), not $(CC) to assemble the
+	stabs testcode.
+
+Fri Aug  5 17:01:07 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* lib/gdb.exp (gdb_test): Don't send anything if the first
+	  argument is an empty string.  This makes cases where we want to
+	  match output that is already in expect's buffers (for example,
+	  matching a breakpoint after gdb_run_cmd has been called) work
+	  reliably.
+
+Tue Aug  2 10:24:08 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* config/netware.exp: New file.
+
+Thu Jul 28 12:54:07 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* config/mt-slite (LDFLAGS): If using the newlib in the tree, set
+	  the -B and -L prefixes so we can find the debugging stub.
+
+	* Makefile.in (CC_FOR_TARGET, CXX_FOR_TARGET): Use newlib if it is
+	  there and we are using the gcc from the tree.
+
+	* gdb.base/types.c: Removed.
+
+	* gdb.base/configure.in: Look for makefile fragments in ../config.
+	  Recognize i386-*-netware.
+	* gdb.c++/configure.in: Likewise.
+
+Mon Jul 25 23:48:50 1994  Peter Schauer  (pes@regent.e-technik.tu-muenchen.de)
+
+	* gdb.base/corefile.exp:  Change `else if' to `elseif', which is
+	the correct TCL syntax.
+
+Mon Jul 25 15:35:56 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* gdb.base/opaque.exp: use runto instead of messing around with
+	  breakpoints.  Simplify by using gdb_test.
+
+	* gdb.base/bitfields.exp: restart between tests on netware targets
+	  because breakpoints aren't relocated after target death.  Run
+	  processes to completion.
+
+	* gdb.base/{opaque,watchpoint}.exp: Use gdb_run_cmd.
+
+Sun Jul 24 09:55:51 1994  Fred Fish  (fnf@cygnus.com)
 
 	* Makefile.in:  Remove extra tabs that confuse some versions
 	of "make".  Use the newly built gdb to test with by default,
 	rather than the first one in the tester's search path.
+
+Sat Jul 23 15:05:47 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* gdb.base/whatis.exp (v_signed_short_array): Fix a typo.
+
+	* gdb.base/help.exp: Update expected add-symbol-file, ignore, and
+	condition help.
+
+Tue Jul 19 10:26:32 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* lib/gdb.exp (runto): Rewrite in terms of gdb_run_cmd.
+
+	* lib/gdb.exp (gdb_run_cmd): New function, used to start program
+	  running.
+	* gdb.base/bitfields.exp: Use gdb_run_cmd to start program.
+	* gdb.base/funcargs.exp: Likewise.
+
+	* gdb.base/bitfields.exp: Simplify by using gdb_test.
+	* gdb.base/funcargs.exp: Likewise.
+
+	* lib/gdb.exp (gdb_test): if match times out, don't call fail if
+	  message is "".
+
+Mon Jul 18 12:18:07 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
+
+	* gdb.base/{a2-run,callfuncs,funcargs,interrupt,mips_pro,nodebug,
+	  return,signals,twice}.exp: Handle non-existant binaries
+	  consistantly.
+
+	* gdb.base/corefile.exp: Execute coremaker to generate core dump.
+	* gdb.base/Makefile.in: Don't try to generate a core dump, we
+	  might testing a cross development system.
 
 Thu Jul 14 18:13:56 1994  J.T. Conklin  (jtc@phishhead.cygnus.com)
 
@@ -1075,7 +1579,7 @@ Wed Aug 11 12:09:32 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
 Tue Aug 10 15:49:35 1993  Jim Kingdon  (kingdon@lioth.cygnus.com)
 
-	* gdb.t24/demangle.exp: Add lucid test for _vtbl__3foo__vt_cc_main_.
+	* gdb.t24/demangle.exp: Add lucid test for __vtbl__3foo__vt_cc_main_.
 
 Tue Aug 10 15:45:25 1993  Fred Fish  (fnf@deneb.cygnus.com)
 

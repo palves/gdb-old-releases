@@ -240,6 +240,34 @@ TAGS:
 
 ###
 
+### w65
+
+all-w65: force
+	@if [ -f ./w65/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		( cd ./w65 ; $(MAKE) $(FLAGS_TO_PASS) all) ; \
+	else \
+		true ; \
+	fi
+
+install-w65: force
+	@if [ -f ./w65/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+		( cd ./w65 ; $(MAKE) $(FLAGS_TO_PASS) install) ; \
+	else \
+		true ; \
+	fi
+
+clean-w65: force
+	@if [ -f ./w65/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		( cd ./w65 ; $(MAKE) $(FLAGS_TO_PASS) clean) ; \
+	else \
+		true ; \
+	fi
+
+
 force:
 
 

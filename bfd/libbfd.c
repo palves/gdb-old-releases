@@ -307,9 +307,9 @@ bfd_stat (abfd, statbuf)
 
 int
 bfd_seek (abfd, position, direction)
-     bfd * CONST abfd;
-     CONST file_ptr position;
-     CONST int direction;
+     bfd *abfd;
+     file_ptr position;
+     int direction;
 {
   int result;
   FILE *f;
@@ -382,59 +382,6 @@ bfd_seek (abfd, position, direction)
 #endif
     }
   return result;
-}
-
-/** Make a string table */
-
-/*>bfd.h<
- Add string to table pointed to by table, at location starting with free_ptr.
-   resizes the table if necessary (if it's NULL, creates it, ignoring
-   table_length).  Updates free_ptr, table, table_length */
-
-boolean
-bfd_add_to_string_table (table, new_string, table_length, free_ptr)
-     char **table;
-     char *new_string;
-     unsigned int *table_length;
-     char **free_ptr;
-{
-  size_t string_length = strlen (new_string) + 1; /* include null here */
-  char *base = *table;
-  size_t space_length = *table_length;
-  unsigned int offset = (base ? *free_ptr - base : 0);
-
-  if (base == NULL) {
-    /* Avoid a useless regrow if we can (but of course we still
-       take it next time).  */
-    space_length = (string_length < DEFAULT_STRING_SPACE_SIZE ?
-                    DEFAULT_STRING_SPACE_SIZE : string_length+1);
-    base = bfd_zmalloc ((bfd_size_type) space_length);
-
-    if (base == NULL) {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
-  }
-
-  if ((size_t)(offset + string_length) >= space_length) {
-    /* Make sure we will have enough space */
-    while ((size_t)(offset + string_length) >= space_length) 
-      space_length += space_length/2; /* grow by 50% */
-
-    base = (char *) realloc (base, space_length);
-    if (base == NULL) {
-      bfd_set_error (bfd_error_no_memory);
-      return false;
-    }
-
-  }
-
-  memcpy (base + offset, new_string, string_length);
-  *table = base;
-  *table_length = space_length;
-  *free_ptr = base + offset + string_length;
-  
-  return true;
 }
 
 /** The do-it-yourself (byte) sex-change kit */

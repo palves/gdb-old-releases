@@ -6,6 +6,9 @@
    interface, for making instruction-processing programs more independent
    of the instruction set being processed.  */
 
+#ifndef DIS_ASM_H
+#define DIS_ASM_H
+
 #include <stdio.h>
 #include "bfd.h"
 
@@ -84,10 +87,6 @@ typedef struct disassemble_info {
 
 } disassemble_info;
 
-
-
-
-
 
 /* Standard disassemblers.  Disassemble one instruction at the given
    target address.  Return number of bytes processed.  */
@@ -104,17 +103,20 @@ extern int print_insn_h8300		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_h8300h		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_h8500		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_alpha		PARAMS ((bfd_vma, disassemble_info*));
+extern int print_insn_arm		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_sparc		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_big_a29k		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_little_a29k	PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_i960		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_sh		PARAMS ((bfd_vma, disassemble_info*));
+extern int print_insn_shl		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_hppa		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_m88k		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_ns32k		PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_big_powerpc	PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_little_powerpc	PARAMS ((bfd_vma, disassemble_info*));
 extern int print_insn_rs6000		PARAMS ((bfd_vma, disassemble_info*));
+extern int print_insn_w65		PARAMS ((bfd_vma, disassemble_info*));
 
 /* Fetch the disassembler for a given BFD, if that support is available.  */
 extern disassembler_ftype disassembler	PARAMS ((bfd *));
@@ -133,7 +135,7 @@ extern int buffer_read_memory
 extern void perror_memory PARAMS ((int, bfd_vma, struct disassemble_info *));
 
 
-/* Just print the address is hex.  This is included for completeness even
+/* Just print the address in hex.  This is included for completeness even
    though both GDB and objdump provide their own (to print symbolic
    addresses).  */
 extern void generic_print_address
@@ -150,30 +152,4 @@ extern void generic_print_address
   (INFO).print_address_func = generic_print_address, \
   (INFO).insn_info_valid = 0
 
-
-
-
-/* This block of definitions is for calling the instruction decoders
-   from GDB.  */
-
-/* GDB--Like target_read_memory, but slightly different parameters.  */
-extern int
-dis_asm_read_memory PARAMS ((bfd_vma memaddr, bfd_byte *myaddr, int len,
-			     disassemble_info *info));
-
-/* GDB--Like memory_error with slightly different parameters.  */
-extern void
-dis_asm_memory_error
-  PARAMS ((int status, bfd_vma memaddr, disassemble_info *info));
-
-/* GDB--Like print_address with slightly different parameters.  */
-extern void
-dis_asm_print_address PARAMS ((bfd_vma addr, disassemble_info *info));
-
-#define GDB_INIT_DISASSEMBLE_INFO(INFO, STREAM) \
-  (INFO).fprintf_func = (fprintf_ftype)fprintf_filtered, \
-  (INFO).stream = (STREAM), \
-  (INFO).read_memory_func = dis_asm_read_memory, \
-  (INFO).memory_error_func = dis_asm_memory_error, \
-  (INFO).print_address_func = dis_asm_print_address, \
-  (INFO).insn_info_valid = 0
+#endif /* ! defined (DIS_ASM_H) */

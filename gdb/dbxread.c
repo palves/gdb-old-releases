@@ -1,5 +1,5 @@
 /* Read dbx symbol tables and convert to internal format, for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995
    Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -176,10 +176,7 @@ struct complaint lbrac_mismatch_complaint =
   {"N_LBRAC/N_RBRAC symbol mismatch at symtab pos %d", 0, 0};
 
 struct complaint repeated_header_complaint =
-  {"\"repeated\" header file not previously seen, at symtab pos %d", 0, 0};
-
-struct complaint repeated_header_name_complaint =
-  {"\"repeated\" header file not previously seen, named %s", 0, 0};
+  {"\"repeated\" header file %s not previously seen, at symtab pos %d", 0, 0};
 
 /* During initial symbol readin, we need to have a structure to keep
    track of which psymtabs have which bincls in them.  This structure
@@ -345,8 +342,7 @@ add_old_header_file (name, instance)
 	add_this_object_header_file (i);
 	return;
       }
-  complain (&repeated_header_complaint, symnum);
-  complain (&repeated_header_name_complaint, name);
+  complain (&repeated_header_complaint, name, symnum);
 }
 
 /* Add to this file a "new" header file: definitions for its types follow.
@@ -868,6 +864,7 @@ find_corresponding_bincl_psymtab (name, instance)
 	&& STREQ (name, bincl->name))
       return bincl->pst;
 
+  complain (&repeated_header_complaint, name, symnum);
   return (struct partial_symtab *) 0;
 }
 
@@ -901,6 +898,7 @@ read_dbx_dynamic_symtab (section_offsets, objfile)
   long dynrel_count;
   arelent **dynrels;
   CORE_ADDR sym_value;
+  char *name;
 
   /* Check that the symbol file has dynamic symbols that we know about.
      bfd_arch_unknown can happen if we are reading a sun3 symbol file
@@ -1016,10 +1014,12 @@ read_dbx_dynamic_symtab (section_offsets, objfile)
 	  continue;
 	}
 
-      prim_record_minimal_symbol (bfd_asymbol_name (*rel->sym_ptr_ptr),
-				  address,
-				  mst_solib_trampoline,
-				  objfile);
+      name = (char *) bfd_asymbol_name (*rel->sym_ptr_ptr);
+      prim_record_minimal_symbol
+	(obsavestring (name, strlen (name), &objfile -> symbol_obstack),
+	 address,
+	 mst_solib_trampoline,
+	 objfile);
     }
 
   do_cleanups (back_to);
@@ -1236,29 +1236,21 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
       LDSYMLEN(pst) = capping_symbol_offset - LDSYMOFF(pst);
   pst->texthigh = capping_text;
 
-#ifdef N_SO_ADDRESS_MAYBE_MISSING
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
   /* Under Solaris, the N_SO symbols always have a value of 0,
      instead of the usual address of the .o file.  Therefore,
      we have to do some tricks to fill in texthigh and textlow.
      The first trick is in partial-stab.h: if we see a static
      or global function, and the textlow for the current pst
      is still 0, then we use that function's address for 
-     the textlow of the pst.
+     the textlow of the pst.  */
 
-     Now, to fill in texthigh, we remember the last function seen
+  /* Now, to fill in texthigh, we remember the last function seen
      in the .o file (also in partial-stab.h).  Also, there's a hack in
      bfd/elf.c and gdb/elfread.c to pass the ELF st_size field
      to here via the misc_info field.  Therefore, we can fill in
      a reliable texthigh by taking the address plus size of the
-     last function in the file.
-
-     Unfortunately, that does not cover the case where the last function
-     in the file is static.  See the paragraph below for more comments
-     on this situation.
-
-     Finally, if we have a valid textlow for the current file, we run
-     down the partial_symtab_list filling in previous texthighs that
-     are still unknown.  */
+     last function in the file.  */
 
   if (pst->texthigh == 0 && last_function_name) {
     char *p;
@@ -1273,7 +1265,7 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
     strncpy (p, last_function_name, n);
     p[n] = 0;
     
-    minsym = lookup_minimal_symbol (p, objfile);
+    minsym = lookup_minimal_symbol (p, NULL, objfile);
 
     if (minsym) {
       pst->texthigh = SYMBOL_VALUE_ADDRESS (minsym) +
@@ -1305,7 +1297,7 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
   if (pst->textlow == 0)
     /* This loses if the text section really starts at address zero
        (generally true when we are debugging a .o file, for example).
-       That is why this whole thing is inside N_SO_ADDRESS_MAYBE_MISSING.  */
+       That is why this whole thing is inside SOFUN_ADDRESS_MAYBE_MISSING.  */
     pst->textlow = pst->texthigh;
 
   /* If we know our own starting text address, then walk through all other
@@ -1327,7 +1319,7 @@ end_psymtab (pst, include_list, num_includes, capping_symbol_offset,
   }
 
   /* End of kludge for patching Solaris textlow and texthigh.  */
-#endif /* N_SO_ADDRESS_MAYBE_MISSING.  */
+#endif /* SOFUN_ADDRESS_MAYBE_MISSING.  */
 
   pst->n_global_syms =
     objfile->global_psymbols.next - (objfile->global_psymbols.list + pst->globals_offset);
@@ -2066,6 +2058,30 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 	    case 'F':
 	      function_stab_type = type;
 
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+	      /* Deal with the SunPRO 3.0 compiler which omits the address
+                 from N_FUN symbols.  */
+	      if (type == N_FUN && valu == 0)
+		{
+		  struct minimal_symbol *msym;
+		  char *p;
+		  int n;
+
+		  p = strchr (name, ':');
+		  if (p == NULL)
+		    p = name;
+		  n = p - name;
+		  p = alloca (n + 1);
+		  strncpy (p, name, n);
+		  p[n] = 0;
+
+		  msym = lookup_minimal_symbol (p, last_source_file,
+						objfile);
+		  if (msym)
+		    valu = SYMBOL_VALUE_ADDRESS (msym);
+		}
+#endif
+
 #ifdef SUN_FIXED_LBRAC_BUG
 	      /* The Sun acc compiler, under SunOS4, puts out
 		 functions with N_GSYM or N_STSYM.  The problem is
@@ -2082,16 +2098,18 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 		 previous function. This means that we can use the
 		 minimal symbol table to get the address.  */
 
-	      /* On solaris up to 2.2, the N_FUN stab gets relocated.
-		 On Solaris 2.3, ld no longer relocates stabs (which
-		 is good), and the N_FUN's value is now always zero.
-		 The following code can't deal with this, because
-		 last_pc_address depends on getting the address from a
-		 N_SLINE or some such and in Solaris those are function
-		 relative.  Best fix is probably to create a Ttext.text symbol
-		 and handle this like Ddata.data and so on.  */
+	      /* Starting with release 3.0, the Sun acc compiler,
+		 under SunOS4, puts out functions with N_FUN and a value
+		 of zero. This gets relocated to the start of the text
+		 segment of the module, which is no good either.
+		 Under SunOS4 we can deal with this as N_SLINE and N_SO
+		 entries contain valid absolute addresses.
+		 Release 3.0 acc also puts out N_OPT entries, which makes
+		 it possible to discern acc from cc or gcc.  */
 
-	      if (type == N_GSYM || type == N_STSYM)
+	      if (type == N_GSYM || type == N_STSYM
+		  || (type == N_FUN
+		      && n_opt_found && !block_address_function_relative))
 		{
 		  struct minimal_symbol *m;
 		  int l = colon_pos - name;

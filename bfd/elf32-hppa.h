@@ -2,7 +2,7 @@
 
    This file contains ELF32/HPPA relocation support as specified
    in the Stratus FTX/Golf Object File Format (SED-1762) dated
-   November 19, 1992.
+   February 1994.
 
    Copyright (C) 1990, 91, 92, 93, 94 Free Software Foundation, Inc.
 

@@ -21,3 +21,7 @@
 #endif
 
 #define TRAD_CORE_DSIZE_INCLUDES_TSIZE
+
+/* The native cc under Dynix considers `shared' a reserved word.
+   Kludge around the use of `shared' in ../include/bfdlink.h.  */
+#define shared genshared

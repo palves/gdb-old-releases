@@ -270,13 +270,11 @@ get_hex_regs (n, regno)
       val = 0;
       for (j = 0; j < 4; j++)
 	{
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-	  get_hex_byte(&b);
-	  val = (val << 8) + b;
-#else
-	  get_hex_byte(&b);
-	  val = val + (b << (j*8));
-#endif
+	  get_hex_byte (&b);
+	  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+	    val = (val << 8) + b;
+	  else
+	    val = val + (b << (j*8));
 	}
       supply_register (regno++, (char *) &val);
     }
@@ -361,14 +359,17 @@ rombug_open(args, from_tty)
   push_monitor (&rombug_cmds);
   printf_monitor("\r");	/* CR wakes up monitor */
   expect_prompt(1);
-
   push_target (&rombug_ops);
+  attach_flag = 1;
+
   if (from_tty)
     printf("Remote %s connected to %s\n", target_shortname,
 	   dev_name);
 
-  attach_flag = 1;
   rombug_fetch_registers();
+
+  printf_monitor ("ov e \r");
+  expect_prompt(1);
   bufaddr = 0;
   buflen = 0;
 }
@@ -490,7 +491,8 @@ rombug_wait (pid, status)
   status->kind = TARGET_WAITKIND_EXITED;
   status->value.integer = 0;
 
-  timeout = 0;		/* Don't time out -- user program is running. */
+  timeout = -1;		/* Don't time out -- user program is running. */
+  expect ("eax:", 0);   /* output any message before register display */
   expect_prompt(1);     /* Wait for prompt, outputting extraneous text */
 
   status->kind = TARGET_WAITKIND_STOPPED;
@@ -577,13 +579,11 @@ rombug_fetch_registers ()
 	  val = 0;
 	  for (j = 0; j < 2; j++)
             {
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-              get_hex_byte(&b);
-              val = (val << 8) + b;
-#else
-              get_hex_byte(&b);
-              val = val + (b << (j*8));
-#endif
+              get_hex_byte (&b);
+	      if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+		val = (val << 8) + b;
+	      else
+		val = val + (b << (j*8));
             }
 
 	  if (regno == 8) i = 10;
@@ -640,13 +640,11 @@ rombug_fetch_register (regno)
 	  val = 0;
 	  for (j = 0; j < 2; j++)
             {
-#if TARGET_BYTE_ORDER == BIG_ENDIAN
-              get_hex_byte(&b);
-              val = (val << 8) + b;
-#else
-              get_hex_byte(&b);
-              val = val + (b << (j*8));
-#endif
+              get_hex_byte (&b);
+	      if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+		val = (val << 8) + b;
+	      else
+		val = val + (b << (j*8));
             }
 	  supply_register (regno, (char *) &val);
 	}
@@ -765,6 +763,8 @@ rombug_write_inferior_memory (memaddr, myaddr, len)
   is_trace_mode = 0;
   expect_prompt (1);
 
+  bufaddr = 0;
+  buflen = 0;
   return len;
 }
 
@@ -1164,6 +1164,7 @@ Specify the serial device it is connected to (e.g. /dev/ttya).",
   rombug_mourn_inferior,
   0,				/* can_run */
   0, 				/* notice_signals */
+  0,				/* to_stop */
   process_stratum,
   0,				/* next */
   1,

@@ -66,21 +66,22 @@ HOST_PREFIX_1 = loser-
 # We don't specify -g -O because many compilers don't support -g -O,
 # and/or -O is broken in and of itself.
 CFLAGS = -g
+LIBCFLAGS = $(CFLAGS)
+CFLAGS_FOR_TARGET = $(CFLAGS)
+LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
 
 CXX = gcc
 
-# Use -O to stress test the compiler.
-CXXFLAGS = -g -O -fexternal-templates
+# Use -O2 to stress test the compiler.
+CXXFLAGS = -g -O2
+LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
+CXXFLAGS_FOR_TARGET = $(CXXFLAGS)
+LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
 
 RANLIB = ranlib
 NM = nm
 # Not plain GZIP, since gzip looks there for extra command-line options.
 GZIPPROG = gzip
-
-BISON = bison -y
-LEX = `if [ -f $$r/flex/flex ] ; \
-	then echo $$r/flex/flex ; \
-	else echo flex ; fi`
 
 M4 = `if [ -f $$r/m4/m4 ] ; \
 	then echo $$r/m4/m4 ; \
@@ -135,7 +136,7 @@ CC_FOR_TARGET = ` \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(CC); \
     else \
-      t='$(program_transform_name)'; echo gcc | sed -e 's/brokensed/brokensed/' $$t; \
+      t='$(program_transform_name)'; echo gcc | sed -e 's/x/x/' $$t; \
     fi; \
   fi`
 
@@ -151,18 +152,18 @@ CXX_FOR_TARGET = ` \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(CXX); \
     else \
-      t='$(program_transform_name)'; echo gcc | sed -e 's/brokensed/brokensed/' $$t; \
+      t='$(program_transform_name)'; echo gcc | sed -e 's/x/x/' $$t; \
     fi; \
   fi`
 
 AS_FOR_TARGET = ` \
-  if [ -f $$r/gas/Makefile ] ; then \
+  if [ -f $$r/gas/as.new ] ; then \
     echo $$r/gas/as.new ; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(AS); \
     else \
-       t='$(program_transform_name)'; echo as | sed -e 's/brokensed/brokensed/' $$t ; \
+       t='$(program_transform_name)'; echo as | sed -e 's/x/x/' $$t ; \
     fi; \
   fi`
 
@@ -173,7 +174,7 @@ AR_FOR_TARGET = ` \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(AR); \
     else \
-       t='$(program_transform_name)'; echo ar | sed -e 's/brokensed/brokensed/' $$t ; \
+       t='$(program_transform_name)'; echo ar | sed -e 's/x/x/' $$t ; \
     fi; \
   fi`
 
@@ -184,21 +185,20 @@ RANLIB_FOR_TARGET = ` \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(RANLIB); \
     else \
-       t='$(program_transform_name)'; echo ranlib | sed -e 's/brokensed/brokensed/' $$t ; \
+       t='$(program_transform_name)'; echo ranlib | sed -e 's/x/x/' $$t ; \
     fi; \
   fi`
 
 NM_FOR_TARGET = ` \
-  if [ -f $$r/binutils/Makefile ] ; then \
+  if [ -f $$r/binutils/nm.new ] ; then \
     echo $$r/binutils/nm.new ; \
   else \
     if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
       echo $(NM); \
     else \
-       t='$(program_transform_name)'; echo nm | sed -e 's/brokensed/brokensed/' $$t ; \
+       t='$(program_transform_name)'; echo nm | sed -e 's/x/x/' $$t ; \
     fi; \
   fi`
-
 
 #### host and target specific makefile fragments come in here.
 ###
@@ -213,8 +213,10 @@ BASE_FLAGS_TO_PASS = \
 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
 	"CC_FOR_TARGET=$(CC_FOR_TARGET)" \
 	"CFLAGS=$(CFLAGS)" \
+	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
 	"CXX_FOR_BUILD=$(CXX_FOR_BUILD)" \
 	"CXXFLAGS=$(CXXFLAGS)" \
+	"CXXFLAGS_FOR_TARGET=$(CXXFLAGS_FOR_TARGET)" \
 	"CXX_FOR_TARGET=$(CXX_FOR_TARGET)" \
 	"GCC_FOR_TARGET=$(CC_FOR_TARGET)" \
 	"INSTALL=$(INSTALL)" \
@@ -223,6 +225,10 @@ BASE_FLAGS_TO_PASS = \
 	"INSTALL_XFORM=$(INSTALL_XFORM)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"LEX=$(LEX)" \
+	"LIBCFLAGS=$(LIBCFLAGS)" \
+	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \
+	"LIBCXXFLAGS=$(LIBCXXFLAGS)" \
+	"LIBCXXFLAGS_FOR_TARGET=$(LIBCXXFLAGS_FOR_TARGET)" \
 	"M4=$(M4)" \
 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
@@ -264,7 +270,11 @@ EXTRA_TARGET_FLAGS = \
 	'AR=$$(AR_FOR_TARGET)' \
 	'AS=$$(AS_FOR_TARGET)' \
 	'CC=$$(CC_FOR_TARGET)' \
+	'CFLAGS=$$(CFLAGS_FOR_TARGET)' \
 	'CXX=$$(CXX_FOR_TARGET)' \
+	'CXXFLAGS=$$(CXXFLAGS_FOR_TARGET)' \
+	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET)' \
+	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET)' \
 	'NM=$$(NM_FOR_TARGET)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)'
 
@@ -319,7 +329,6 @@ ALL_MODULES = \
 	all-make \
 	all-mmalloc \
 	all-opcodes \
-	all-pagas \
 	all-patch \
 	all-prms \
 	all-rcs \
@@ -376,7 +385,6 @@ CROSS_CHECK_MODULES = \
 	check-make \
 	check-mmcheckoc \
 	check-opcodes \
-	check-pagas \
 	check-patch \
 	check-prms \
 	check-rcs \
@@ -428,7 +436,6 @@ INSTALL_MODULES = \
 	install-make \
 	install-mmalloc \
 	install-opcodes \
-	install-pagas \
 	install-patch \
 	install-prms \
 	install-rcs \
@@ -479,14 +486,18 @@ INSTALL_X11_MODULES = \
 # using $(TARGET_FLAGS_TO_PASS).
 ALL_TARGET_MODULES = \
 	all-libio \
+	all-libstdc++ \
+	all-librx \
 	all-libg++ \
 	all-newlib \
+	all-libgloss \
 	all-xiberty
 
 # This is a list of the check targets for all of the modules which are
 # compiled using $(TARGET_FLAGS_TO_PASS).
 CHECK_TARGET_MODULES = \
 	check-libio \
+	check-libstdc++ \
 	check-libg++ \
 	check-newlib \
 	check-xiberty
@@ -495,13 +506,15 @@ CHECK_TARGET_MODULES = \
 # compiled using $(TARGET_FLAGS_TO_PASS).
 INSTALL_TARGET_MODULES = \
 	install-libio \
+	install-libstdc++ \
 	install-libg++ \
 	install-newlib \
+	install-libgloss \
 	install-xiberty
 
 # This is a shell case of all modules which are compiled using
 # $(TARGET_FLAGS_TO_PASS), used in the do-X rule.
-TARGET_LIBS = libio | libg++ | newlib | xiberty
+TARGET_LIBS = libio | libstdc++ | librx | libg++ | newlib | xiberty
 
 # The first rule in the file had better be this one.  Don't put any above it.
 all: all.normal
@@ -658,39 +671,34 @@ gcc-no-fixedincludes:
 # build a target all-X means to cd to X and make all.
 # all-glob is handled specially because it doesn't actually build.
 #
-# all-gui, all-libproc and all-librx are handled specially because
+# all-gui, and all-libproc are handled specially because
 # they are still experimental, and if they fail to build, that
 # shouldn't stop "make all".
-.PHONY: $(ALL_MODULES) all-glob all-gui all-libproc all-librx
-$(ALL_MODULES) all-glob all-gui all-libproc all-librx:
+.PHONY: $(ALL_MODULES) all-glob all-gui all-libproc
+$(ALL_MODULES) all-glob all-gui all-libproc:
 	@dir=`echo $@ | sed -e 's/all-//'`; \
-	if [ -d ./$${dir} ] ; then \
-	  if [ -f ./$${dir}/Makefile ] ; then \
-	    r=`pwd`; export r; \
-	    srcroot=`cd $(srcdir); pwd`; export srcroot; \
-	    (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) all); \
-	  else \
-	    true ; \
-	  fi; \
+	if [ -f ./$${dir}/Makefile ] ; then \
+	  r=`pwd`; export r; \
+	  srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	  (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) all); \
 	else \
 	  true; \
 	fi
 
-# This rule is used to check the modules which use FLAGS_TO_PASS.  To
-# build a target check-X means to cd to X and make all.
+# These rules are used to check the modules which use FLAGS_TO_PASS.
+# To build a target check-X means to cd to X and make check.  Some
+# modules are only tested in a native toolchain.
 
 .PHONY: $(CHECK_MODULES) $(NATIVE_CHECK_MODULES) $(CROSS_CHECK_MODULES)
 $(NATIVE_CHECK_MODULES):
 	@if [ "$(host_canonical)" = "$(target_canonical)" ] ; then \
 	  dir=`echo $@ | sed -e 's/check-//'`; \
-	  if [ -d ./$${dir} ] ; then \
-	    if [ -f ./$${dir}/Makefile ] ; then \
-	      r=`pwd`; export r; \
-	      srcroot=`cd $(srcdir); pwd`; export srcroot; \
-	      (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) check); \
-	    else \
-	      true; \
-	    fi ; \
+	  if [ -f ./$${dir}/Makefile ] ; then \
+	    r=`pwd`; export r; \
+	    srcroot=`cd $(srcdir); pwd`; export srcroot; \
+	    (cd $${dir}; $(MAKE) $(FLAGS_TO_PASS) check); \
+	  else \
+	    true; \
 	  fi; \
 	fi
 
@@ -851,7 +859,7 @@ install-dosrel-fake:
 # This is a list of inter-dependencies among modules.
 all-autoconf: all-m4
 all-bfd:
-all-binutils: all-libiberty all-opcodes all-bfd all-flex
+all-binutils: all-libiberty all-opcodes all-bfd all-flex all-byacc
 all-byacc:
 all-cvs:
 all-dejagnu: all-tcl all-expect all-tk
@@ -866,8 +874,8 @@ all-flex: all-libiberty all-byacc
 all-gas: all-libiberty all-opcodes all-bfd
 all-gash: all-tcl
 all-gawk:
-all-gcc: all-libiberty all-byacc all-binutils all-gas all-pagas
-all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-glob all-byacc all-sim
+all-gcc: all-libiberty all-byacc all-binutils all-gas
+all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-glob all-byacc all-sim all-gcc all-ld
 all-glob:
 all-gprof: all-libiberty all-bfd
 all-grep: all-libiberty
@@ -875,15 +883,16 @@ all-gui: all-gdb all-libproc all-librx
 all-gzip: all-libiberty
 all-hello: all-libiberty
 all-indent:
-all-ispell: all-emacs # all-emacs19 ??? is this needed?
+all-ispell: all-emacs19
 all-ld: all-libiberty all-bfd all-byacc all-flex
-all-libg++: all-gas all-pagas all-ld all-gcc all-xiberty all-newlib all-libio
-all-libio: all-gas all-pagas all-ld all-gcc all-xiberty all-newlib 
+all-libg++: all-gas all-ld all-gcc all-xiberty all-newlib all-libio all-librx
+all-libio: all-gas all-ld all-gcc all-xiberty all-newlib 
 all-libiberty:
+all-libstdc++: all-gas all-ld all-gcc all-xiberty all-newlib all-libio
 all-m4: all-libiberty
 all-make: all-libiberty
 all-mmalloc:
-all-newlib: all-binutils all-gas all-pagas all-gcc
+all-newlib: all-binutils all-gas all-gcc
 all-opcodes: all-bfd
 all-patch:
 all-prms: all-libiberty
@@ -904,7 +913,7 @@ all-tgas: all-libiberty all-bfd
 all-time:
 all-wdiff:
 all-uudecode: all-libiberty
-all-xiberty: all-gcc all-newlib
+all-xiberty: all-gcc all-ld all-newlib
 
 ### other supporting targets
 
@@ -972,16 +981,17 @@ DEVO_SUPPORT= README Makefile.in configure configure.in \
 # distribution (perhaps it would be better to include it anyway).
 ETC_SUPPORT= Makefile.in cfg-paper.texi configure.in configure.man \
 	configure.texi standards.texi make-stds.texi
+ETC_SUPPORT_PFX=configure.info standards.info cfg-paper.info
 
 # When you use `make setup-dirs' or `make taz' you should always redefine
 # this macro.
 SUPPORT_FILES = list-of-support-files-for-tool-in-question
 # Directories that might want `make diststuff' run.
-DISTSTUFFDIRS= ld gprof gdb libg++ binutils gnats
+DISTSTUFFDIRS= ld gprof gdb libg++ binutils gnats gas
 # Files where "byacc" (Cygnus version) should be changed to "bison -y" (FSF).
 DISTBISONFILES= binutils/Makefile.in gas/Makefile.in gdb/Makefile.in
 # Directories where "info" should be built.
-DISTDOCDIRS= ld gprof binutils gas bfd libg++ libio gdb gnats send-pr
+DISTDOCDIRS= ld gprof binutils gas bfd libg++ libio gdb gnats send-pr etc
 
 .PHONY: taz
 
@@ -1033,9 +1043,13 @@ taz: $(DEVO_SUPPORT) $(SUPPORT_FILES) \
 	$(MAKE) distclean
 	#
 	mkdir proto-toplev/etc
-	(cd proto-toplev/etc; for i in $(ETC_SUPPORT); do \
+	(cd proto-toplev/etc; \
+	 for i in $(ETC_SUPPORT); do \
 		ln -s ../../etc/$$i . ; \
-	done)
+	 done ; \
+	 for i in $(ETC_SUPPORT_PFX); do \
+		ln -s ../../etc/$$i* . ; \
+	 done)
 	#
 	# Take out texinfo and glob from configurable dirs
 	rm proto-toplev/configure.in
@@ -1066,19 +1080,19 @@ gas.tar.gz: $(DIST_SUPPORT) $(GAS_SUPPORT_DIRS) gas
 
 # The FSF "binutils" release includes gprof and ld.
 .PHONY: binutils.tar.gz
-BINUTILS_SUPPORT_DIRS= bfd include libiberty opcodes ld gprof
+BINUTILS_SUPPORT_DIRS= bfd gas include libiberty opcodes ld gprof
 binutils.tar.gz: $(DIST_SUPPORT) $(BINUTILS_SUPPORT_DIRS) binutils
 	$(MAKE) -f Makefile.in taz TOOL=binutils \
-		SUPPORT_FILES="$(BINUTILS_SUPPORT_DIRS)"
+		SUPPORT_FILES="$(BINUTILS_SUPPORT_DIRS) makeall.bat configure.bat"
 
 .PHONY: gas+binutils.tar.gz
 GASB_SUPPORT_DIRS= $(GAS_SUPPORT_DIRS) binutils ld gprof
 gas+binutils.tar.gz: $(DIST_SUPPORT) $(GASB_SUPPORT_DIRS) gas
 	$(MAKE) -f Makefile.in taz TOOL=gas \
-		SUPPORT_FILES="$(GASB_SUPPORT_DIRS)"
+		SUPPORT_FILES="$(GASB_SUPPORT_DIRS) makeall.bat configure.bat"
 
 .PHONY: libg++.tar.gz
-LIBGXX_SUPPORT_DIRS=include libio libiberty xiberty
+LIBGXX_SUPPORT_DIRS=include libstdc++ libio librx libiberty xiberty
 libg++.tar.gz: $(DIST_SUPPORT) libg++
 	$(MAKE) -f Makefile.in taz TOOL=libg++ \
 		SUPPORT_FILES="$(LIBGXX_SUPPORT_DIRS)"
@@ -1093,6 +1107,14 @@ GDB_SUPPORT_DIRS= bfd glob include libiberty mmalloc opcodes readline sim
 gdb.tar.gz: $(DIST_SUPPORT) $(GDB_SUPPORT_DIRS) gdb
 	$(MAKE) -f Makefile.in taz TOOL=gdb \
 		SUPPORT_FILES="$(GDB_SUPPORT_DIRS)"
+
+.PHONY: newlib.tar.gz
+NEWLIB_SUPPORT_DIRS=
+newlib.tar.gz: $(DIST_SUPPORT) $(NEWLIB_SUPPORT_DIRS) newlib
+	$(MAKE) -f Makefile.in taz TOOL=newlib \
+		SUPPORT_FILES="$(NEWLIB_SUPPORT_DIRS)" \
+		DEVO_SUPPORT="$(DEVO_SUPPORT) COPYING.NEWLIB" \
+		DISTDOCDIRS="$(DISTDOCDIRS) newlib"
 
 .NOEXPORT:
 MAKEOVERRIDES=

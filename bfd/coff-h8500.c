@@ -28,6 +28,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
+#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (1)
+
 static reloc_howto_type r_imm8 =
 HOWTO (R_H8500_IMM8, 0, 1, 8, false, 0,
        complain_overflow_bitfield, 0, "r_imm8", true, 0x000000ff, 0x000000ff, false);

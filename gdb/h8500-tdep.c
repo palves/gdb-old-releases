@@ -1,5 +1,5 @@
 /* Target-machine dependent code for Hitachi H8/500, for GDB.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright 1993, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -104,16 +104,6 @@ h8500_skip_prologue (start_pc)
   return start_pc;
 }
 
-int
-print_insn (memaddr, stream)
-     CORE_ADDR memaddr;
-     GDB_FILE *stream;
-{
-  disassemble_info info;
-  GDB_INIT_DISASSEMBLE_INFO (info, stream);
-  return print_insn_h8500 (memaddr, &info);
-}
-
 /* Given a GDB frame, determine the address of the calling function's frame.
    This will be used to create a new GDB frame struct, and then
    INIT_EXTRA_FRAME_INFO and INIT_FRAME_PC will be called for the new frame.
@@ -121,9 +111,9 @@ print_insn (memaddr, stream)
    For us, the frame address is its stack pointer value, so we look up
    the function prologue to determine the caller's sp value, and return it.  */
 
-FRAME_ADDR
+CORE_ADDR
 h8500_frame_chain (thisframe)
-     FRAME thisframe;
+     struct frame_info *thisframe;
 {
   if (!inside_entry_file (thisframe->pc))
     return (read_memory_integer (FRAME_FP (thisframe), PTR_SIZE));
@@ -166,9 +156,9 @@ NEXT_PROLOGUE_INSN (addr, lim, pword1)
 
 CORE_ADDR
 frame_saved_pc (frame)
-     FRAME frame;
+     struct frame_info *frame;
 {
-  return read_memory_integer ((frame)->frame + 2, PTR_SIZE);
+  return read_memory_integer (FRAME_FP (frame) + 2, PTR_SIZE);
 }
 
 CORE_ADDR
@@ -193,24 +183,16 @@ h8300_pop_frame ()
 {
   unsigned regnum;
   struct frame_saved_regs fsr;
-  struct frame_info *fi;
+  struct frame_info *frame = get_current_frame ();
 
-  FRAME frame = get_current_frame ();
-
-  fi = get_frame_info (frame);
-  get_frame_saved_regs (fi, &fsr);
+  get_frame_saved_regs (frame, &fsr);
 
   for (regnum = 0; regnum < 8; regnum++)
     {
       if (fsr.regs[regnum])
-	{
 	  write_register (regnum, read_memory_short (fsr.regs[regnum]));
-	}
 
       flush_cached_frames ();
-      set_current_frame (create_new_frame (read_register (FP_REGNUM),
-					   read_pc ()));
-
     }
 
 }
@@ -648,41 +630,48 @@ _initialize_h8500_tdep ()
 }
 
 CORE_ADDR
-target_read_sp ()
+h8500_read_sp ()
 {
   return read_register (PR7_REGNUM);
 }
 
 void
-target_write_sp (v)
+h8500_write_sp (v)
      CORE_ADDR v;
 {
   write_register (PR7_REGNUM, v);
 }
 
 CORE_ADDR
-target_read_pc ()
+h8500_read_pc (pid)
+     int pid;
 {
   return read_register (PC_REGNUM);
 }
 
 void
-target_write_pc (v)
+h8500_write_pc (v, pid)
      CORE_ADDR v;
+     int pid;
 {
   write_register (PC_REGNUM, v);
 }
 
 CORE_ADDR
-target_read_fp ()
+h8500_read_fp ()
 {
   return read_register (PR6_REGNUM);
 }
 
 void
-target_write_fp (v)
+h8500_write_fp (v)
      CORE_ADDR v;
 {
   write_register (PR6_REGNUM, v);
 }
 
+void
+_initialize_h8500_tdep ()
+{
+  tm_print_insn = gdb_print_insn_sh;
+}

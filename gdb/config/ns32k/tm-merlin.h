@@ -66,10 +66,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define ABOUT_TO_RETURN(pc) (read_memory_integer (pc, 1) == 0x12)
 
-/* Return 1 if P points to an invalid floating point value.  */
-
-#define INVALID_FLOAT(p, len) 0
-
 /* Define this to say that the "svc" insn is followed by
    codes in memory saying which kind of system call it is.  */
 
@@ -278,14 +274,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Discard from the stack the innermost frame, restoring all registers.  */
 
 #define POP_FRAME  \
-{ register FRAME frame = get_current_frame ();			 \
+{ register struct frame_info *frame = get_current_frame ();	 \
   register CORE_ADDR fp;					 \
   register int regnum;						 \
   struct frame_saved_regs fsr;					 \
   struct frame_info *fi;						 \
-  fi = get_frame_info (frame);					 \
-  fp = fi->frame;						 \
-  get_frame_saved_regs (fi, &fsr);				 \
+  fp = frame->frame;						 \
+  get_frame_saved_regs (frame, &fsr);				 \
   for (regnum = 0; regnum < 8; regnum++)			 \
     if (fsr.regs[regnum])					 \
       write_register (regnum, read_memory_integer (fsr.regs[regnum], 4)); \
@@ -293,8 +288,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   write_register (PC_REGNUM, read_memory_integer (fp + 4, 4));   \
   write_register (SP_REGNUM, fp + 8);				 \
   flush_cached_frames ();					 \
-  set_current_frame (create_new_frame (read_register (FP_REGNUM),\
-				       read_pc ()));		 \
 }
 
 /* This sequence of words is the instructions

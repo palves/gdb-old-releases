@@ -832,6 +832,7 @@ demangle_template (work, mangled, tname, trawname)
   int is_pointer;
   int is_real;
   int is_integral;
+  int is_char;
   int r;
   int need_comma = 0;
   int success = 0;
@@ -887,19 +888,24 @@ demangle_template (work, mangled, tname, trawname)
 	  is_pointer = 0;
 	  is_real = 0;
 	  is_integral = 0;
+          is_char = 0;
 	  done = 0;
 	  /* temp is initialized in do_type */
 	  success = do_type (work, mangled, &temp);
+/*
 	  if (success)
 	    {
 	      string_appends (tname, &temp);
 	    }
+*/
 	  string_delete(&temp);
 	  if (!success)
 	    {
 	      break;
 	    }
+/*
 	  string_append (tname, "=");
+*/
 	  while (*old_p && !done)
 	    {	
 	      switch (*old_p)
@@ -931,9 +937,11 @@ demangle_template (work, mangled, tname, trawname)
 		  case 'l':	/* long */
 		  case 'i':	/* int */
 		  case 's':	/* short */
-		  case 'c':	/* char */
 		  case 'w':	/* wchar_t */
 		    done = is_integral = 1;
+		    break;
+		  case 'c':	/* char */
+		    done = is_char = 1;
 		    break;
 		  case 'r':	/* long double */
 		  case 'd':	/* double */
@@ -959,6 +967,27 @@ demangle_template (work, mangled, tname, trawname)
 		  string_appendn (tname, *mangled, 1);
 		  (*mangled)++;
 		}
+	    }
+	  else if (is_char)
+	    {
+            char tmp[2];
+            int val;
+              if (**mangled == 'm')
+                {
+                  string_appendn (tname, "-", 1);
+                  (*mangled)++;
+                }
+	      string_appendn (tname, "'", 1);
+              val = consume_count(mangled);
+	      if (val == 0)
+		{
+		  success = 0;
+		  break;
+                }
+              tmp[0] = (char)val;
+              tmp[1] = '\0';
+              string_appendn (tname, &tmp[0], 1);
+	      string_appendn (tname, "'", 1);
 	    }
 	  else if (is_real)
 	    {
@@ -1222,12 +1251,16 @@ demangle_prefix (work, mangled, declp)
 	      /* it's a GNU global destructor to be executed at program exit */
 	      (*mangled) += 11;
 	      work->destructor = 2;
+	      if (gnu_special (work, mangled, declp))
+		return success;
 	    }
 	  else if ((*mangled)[9] == 'I')
 	    {
 	      /* it's a GNU global constructor to be executed at program init */
 	      (*mangled) += 11;
 	      work->constructor = 2;
+	      if (gnu_special (work, mangled, declp))
+		return success;
 	    }
 	}
     }
@@ -1702,6 +1735,8 @@ demangle_qualified (work, mangled, result, isfuncname, append)
 
   while (qualifiers-- > 0)
     {
+      if (*mangled[0] == '_') 
+	*mangled = *mangled + 1;
       if (*mangled[0] == 't')
 	{
 	  success = demangle_template(work, mangled, &temp, 0);
@@ -2343,9 +2378,26 @@ demangle_args (work, mangled, declp)
 	    {
 	      r = 1;
 	    }
-	  if (!get_count (mangled, &t))
+          if (ARM_DEMANGLING && work -> ntypes >= 10)
+            {
+              /* If we have 10 or more types we might have more than a 1 digit
+                 index so we'll have to consume the whole count here. This
+                 will loose if the next thing is a type name preceeded by a
+                 count but it's impossible to demangle that case properly
+                 anyway. Eg if we already have 12 types is T12Pc "(..., type1,
+                 anyway. Eg if we already have 12 types is T12Pc "(..., type1,
+                 Pc, ...)"  or "(..., type12, char *, ...)" */
+              if ((t = consume_count(mangled)) == 0)
+                {
+                  return (0);
+                }
+            }
+          else
 	    {
-	      return (0);
+	      if (!get_count (mangled, &t))
+	    	{
+	          return (0);
+	    	}
 	    }
 	  if (LUCID_DEMANGLING || ARM_DEMANGLING)
 	    {
@@ -2863,6 +2915,8 @@ main (argc, argv)
 		}
 	      else
 		fputs (mbuffer + skip_first, stdout);
+
+	      fflush (stdout);
 	    }
 	  if (c == EOF)
 	    break;

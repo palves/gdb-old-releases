@@ -1,5 +1,5 @@
 /* BFD back-end for oasys objects.
-   Copyright 1990, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support, <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -193,7 +193,7 @@ oasys_slurp_symbol_table (abfd)
 	      }
 	    dest->name = string_ptr;
 	    dest->the_bfd = abfd;
-	    dest->udata = (PTR) NULL;
+	    dest->udata.p = (PTR) NULL;
 	    dest->value = bfd_h_get_32 (abfd, record.symbol.value);
 
 #ifdef UNDERSCORE_HACK
@@ -1174,7 +1174,7 @@ oasys_write_data (abfd)
 		  if (relocs_to_go != 0)
 		    {
 		      arelent *r = *p;
-		      const reloc_howto_type *const how = r->howto;
+		      reloc_howto_type *const how = r->howto;
 		      /* There is a relocation, is it for this byte ? */
 		      if (r->address == current_byte_index)
 			{
@@ -1475,11 +1475,15 @@ oasys_sizeof_headers (abfd, exec)
 
 #define oasys_slurp_armap bfd_true
 #define oasys_slurp_extended_name_table bfd_true
+#define oasys_construct_extended_name_table \
+  ((boolean (*) PARAMS ((bfd *, char **, bfd_size_type *, const char **))) \
+   bfd_true)
 #define oasys_truncate_arname bfd_dont_truncate_arname
 #define oasys_write_armap \
   ((boolean (*) \
     PARAMS ((bfd *, unsigned int, struct orl *, unsigned int, int))) \
    bfd_true)
+#define oasys_update_armap_timestamp bfd_true
 
 #define oasys_bfd_is_local_label bfd_generic_is_local_label
 #define oasys_get_lineno _bfd_nosymbols_get_lineno

@@ -110,13 +110,13 @@ ptrace_unix_core_file_p (abfd)
     free ((void *)rawptr);
     return 0;
   }
-  core_datasec (abfd) = (asection *) bfd_zalloc (abfd, sizeof (asection));
+  core_datasec (abfd) = (asection *) bfd_zalloc (sizeof (asection));
   if (core_datasec (abfd) == NULL) {
   loser1:
     free ((void *)core_stacksec (abfd));
     goto loser;
   }
-  core_regsec (abfd) = (asection *) bfd_zalloc (abfd, sizeof (asection));
+  core_regsec (abfd) = (asection *) bfd_zalloc (sizeof (asection));
   if (core_regsec (abfd) == NULL) {
     free ((void *)core_datasec (abfd));
     goto loser1;

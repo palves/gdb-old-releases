@@ -1,3 +1,12 @@
+Wed Dec 28 21:30:09 1994  Steve Chamberlain  (sac@jonny.cygnus.com)
+
+	* inlines.h: Make INLINES static.
+	* mem.c (sitoptr): New instance.
+	* support.c (normal_flags_[32|16|8]): New functions.
+	(optimize_normal_flags): Use new functions.
+	* writecode.c (info_special): Handle sbc. (optimize_normal_flags):
+	Always recalc flags.
+
 Wed May 18 14:38:49 1994  Doug Evans  (dje@canuck.cygnus.com)
 
 	* support.c (sim_open): Delete from here.

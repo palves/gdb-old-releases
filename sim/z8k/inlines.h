@@ -37,21 +37,21 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
  static int is_cond_true PARAMS((sim_state_type *context, int c)); 
  static void makeflags PARAMS((sim_state_type *context, int mask)); 
 
-INLINE
+static INLINE
 long
 sitoptr (si)
 long si;
 {
   return ((si & 0xff000000) >> 8) | (si & 0xffff);
 }
-INLINE long
+static INLINE long
 ptrtosi (ptr)
 long ptr;
 {
   return ((ptr & 0xff0000) << 8) | (ptr & 0xffff);
 }
 
-INLINE
+static INLINE
 void 
 put_long_reg (context, reg, val)
      sim_state_type *context;
@@ -62,7 +62,7 @@ put_long_reg (context, reg, val)
   context->regs[reg + 1].word = val;
 }
 
-INLINE
+static INLINE
 void 
 put_quad_reg (context, reg, val1, val2)
      sim_state_type *context;
@@ -76,7 +76,7 @@ put_quad_reg (context, reg, val1, val2)
   context->regs[reg + 3].word = val1;
 }
 
-INLINE
+static INLINE
 void 
 put_word_reg (context, reg, val)
      sim_state_type *context;
@@ -86,7 +86,7 @@ put_word_reg (context, reg, val)
   context->regs[reg].word = val;
 }
 
-INLINE
+static INLINE
 SItype get_long_reg (context, reg)
      sim_state_type *context;
      int reg;
@@ -98,7 +98,7 @@ SItype get_long_reg (context, reg)
 }
 
 #ifdef __GNUC__
-INLINE
+static INLINE
 struct UDIstruct
 get_quad_reg (context, reg)
      sim_state_type *context;
@@ -115,7 +115,7 @@ get_quad_reg (context, reg)
 
 #endif
 
-INLINE
+static INLINE
 void 
 put_byte_reg (context, reg, val)
      sim_state_type *context;
@@ -134,7 +134,7 @@ put_byte_reg (context, reg, val)
   context->regs[reg & 0x7].word = old;      
 }
 
-INLINE
+static INLINE
 int 
 get_byte_reg (context, reg)
      sim_state_type *context;
@@ -146,7 +146,7 @@ get_byte_reg (context, reg)
     return  (context->regs[reg & 0x7].word >> 8) & 0xff;
 }
 
-INLINE
+static INLINE
 void 
 put_word_mem_da (context, addr, value)
      sim_state_type *context;
@@ -162,7 +162,7 @@ put_word_mem_da (context, addr, value)
   put_byte_mem_da(context, addr+1, value);
 }
 
-INLINE unsigned char
+static INLINE unsigned char
 get_byte_mem_da (context, addr)
      sim_state_type *context;
      int addr;
@@ -170,7 +170,7 @@ get_byte_mem_da (context, addr)
   return ((unsigned char *) (context->memory))[addr];
 }
 
-INLINE void
+static INLINE void
 put_byte_mem_da (context, addr, value)
      sim_state_type *context;
      int addr;
@@ -189,7 +189,7 @@ put_byte_mem_da (context, addr, value)
 
 #define get_word_reg(context,reg) (context)->regs[reg].word
 
-INLINE
+static INLINE
 SItype
 get_long_mem_da (context, addr)
      sim_state_type *context;
@@ -201,7 +201,7 @@ get_long_mem_da (context, addr)
   return (msw << 16) + lsw;
 }
 
-INLINE
+static INLINE
 void 
 put_long_mem_da (context, addr, value)
      sim_state_type *context;
@@ -212,7 +212,7 @@ put_long_mem_da (context, addr, value)
   put_word_mem_da(context,addr+2, value);
 }
 
-INLINE
+static INLINE
 int 
 get_word_mem_ir (context, reg)
      sim_state_type *context;
@@ -221,7 +221,7 @@ get_word_mem_ir (context, reg)
   return get_word_mem_da (context, get_word_reg (context, reg));
 }
 
-INLINE
+static INLINE
 void 
 put_word_mem_ir (context, reg, value)
      sim_state_type *context;
@@ -232,7 +232,7 @@ put_word_mem_ir (context, reg, value)
   put_word_mem_da (context, get_word_reg (context, reg), value);
 }
 
-INLINE
+static INLINE
 int 
 get_byte_mem_ir (context, reg)
      sim_state_type *context;
@@ -241,7 +241,7 @@ get_byte_mem_ir (context, reg)
   return get_byte_mem_da (context, get_word_reg (context, reg));
 }
 
-INLINE
+static INLINE
 void 
 put_byte_mem_ir (context, reg, value)
      sim_state_type *context;
@@ -251,7 +251,7 @@ put_byte_mem_ir (context, reg, value)
   put_byte_mem_da (context, get_word_reg (context, reg), value);
 }
 
-INLINE
+static INLINE
 int 
 get_long_mem_ir (context, reg)
      sim_state_type *context;
@@ -260,7 +260,7 @@ get_long_mem_ir (context, reg)
   return get_long_mem_da (context, get_word_reg (context, reg));
 }
 
-INLINE
+static INLINE
 void 
 put_long_mem_ir (context, reg, value)
      sim_state_type *context;
@@ -271,7 +271,7 @@ put_long_mem_ir (context, reg, value)
   put_long_mem_da (context, get_word_reg (context, reg), value);
 }
 
-INLINE
+static INLINE
 void 
 put_long_mem_x (context, base, reg, value)
      sim_state_type *context;
@@ -282,7 +282,7 @@ put_long_mem_x (context, base, reg, value)
   put_long_mem_da (context, get_word_reg (context, reg) + base, value);
 }
 
-INLINE
+static INLINE
 void 
 put_word_mem_x (context, base, reg, value)
      sim_state_type *context;
@@ -293,7 +293,7 @@ put_word_mem_x (context, base, reg, value)
   put_word_mem_da (context, get_word_reg (context, reg) + base, value);
 }
 
-INLINE
+static INLINE
 void 
 put_byte_mem_x (context, base, reg, value)
      sim_state_type *context;
@@ -304,7 +304,7 @@ put_byte_mem_x (context, base, reg, value)
   put_byte_mem_da (context, get_word_reg (context, reg) + base, value);
 }
 
-INLINE
+static INLINE
 int 
 get_word_mem_x (context, base, reg)
      sim_state_type *context;
@@ -314,7 +314,7 @@ get_word_mem_x (context, base, reg)
   return get_word_mem_da (context, base + get_word_reg (context, reg));
 }
 
-INLINE
+static INLINE
 int 
 get_byte_mem_x (context, base, reg)
      sim_state_type *context;
@@ -324,7 +324,7 @@ get_byte_mem_x (context, base, reg)
   return get_byte_mem_da (context, base + get_word_reg (context, reg));
 }
 
-INLINE
+static INLINE
 int 
 get_long_mem_x (context, base, reg)
      sim_state_type *context;
@@ -334,49 +334,6 @@ get_long_mem_x (context, base, reg)
   return get_long_mem_da (context, base + get_word_reg (context, reg));
 }
 
-static int
-is_cond_true (context, c)
-     sim_state_type *context;
-     int c;
-{
-  switch (c)
-    {
-    case T:
-      return 1;
-    case F:
-      return 0;			/* F */
-    case LE:
-      return (PSW_ZERO | (PSW_SIGN ^ PSW_OVERFLOW)) & 1;	/*LE */
-    case GT:
-      return (~(PSW_ZERO | (PSW_SIGN ^ PSW_OVERFLOW))) & 1;	/*GT */
-    case 0x5:
-      return (PSW_SIGN & 1);	/* sign */
-    case 0xd:
-      return (~(PSW_SIGN)) & 1;	/* not sign */
-    case 0x3:
-      return ((PSW_CARRY | PSW_ZERO) & 1);	/* ule*/
-    case UGT:
-      return ((~(PSW_CARRY | PSW_ZERO)) & 1);	/* ugt */
-    case 0x4:
-      return (PSW_OVERFLOW & 1);/* overflow */
-    case 0xc:
-      return (~(PSW_OVERFLOW)) & 1;	/* not overflow */
-    case LT:
-      return (PSW_SIGN ^ PSW_OVERFLOW) & 1;	/* LT */
-    case GE:
-      return (~(PSW_SIGN ^ PSW_OVERFLOW)) & 1;	/* GE */
-    case EQ:
-      return (PSW_ZERO) & 1;	/* zero */
-    case NE:
-      return ((~PSW_ZERO) & 1);	/* not zero */
-    case 0x7:
-      return (PSW_CARRY) & 1;	/* carry */
-    case 0xf:
-      return (~PSW_CARRY) & 1;	/* not carry */
-    default:
-      abort ();
-    }
-}
 
 static
 void
@@ -420,124 +377,36 @@ makeflags (context, mask)
 	}
       else
 	{
-	  /* carry is set when the result is smaller than the first source */
+	  /* carry is set when the result is smaller than a source */
 
-	  PSW_CARRY = (unsigned) context->dst > (unsigned) context->srca;
+
+	  PSW_CARRY =  (unsigned) context->dst > (unsigned) context->srca ;
+
 	}
     }
   context->broken_flags = 0;
 }
 
-INLINE
-int
-COND (context, c)
-     sim_state_type *context;
-     int c;
-{
-  if (c == 8)
-    return 1;
 
-  /* We can calculate what the flags would have been by
-     looking at the src and dst and size of the operation */
+/* There are two ways to calculate the flags.  We can
+   either always calculate them and so the cc will always
+   be correct, or we can only keep the arguments around and
+   calc the flags when they're actually going to be used. */
 
-  if (context->broken_flags)
-    {
-      int slow = 0;
-      int size;
-      int dst;
-      int srca;
-      int srcb;
-      int mask;
-      int ans;
+/* Right now we always calc the flags - I think it may be faster*/
 
-      /* see if we can short-cut the nasty flag calcs */
 
-      switch (size = context->size)
-	{
-	 default:
-	  abort();
-	  return 0;
-	case 8:
-	  srca = (char) (context->srca);
-	  srcb = (char) (context->srcb);
-	  dst = (char) (context->dst);
-	  mask = 0xff;
-	  break;
-	case 16:
-	  srca = (short) (context->srca);
-	  srcb = (short) (context->srcb);
-	  dst = (short) (context->dst);
-	  mask = 0xffff;
-	  break;
-	case 32:
-	  srca = (long) (context->srca);
-	  srcb = (long) (context->srcb);
-	  dst = (long) (context->dst);
-	  mask = 0xffffffff;
-	  break;
-	}
+#define NORMAL_FLAGS(c,s,d,sa,sb,sub) 	\
+    if (s == 8)                \
+      normal_flags_8(c,d,sa,sb,sub); \
+    else if (s == 16)                \
+      normal_flags_16(c,d,sa,sb,sub); \
+    else if (s == 32)                \
+      normal_flags_32(c,d,sa,sb,sub); 
 
-      switch (c)
-	{
-	case T:
-	  return 1;
-	case F:
-	  return 0;
-	case EQ:
-	  return !dst;
-	case NE:
-	  return dst;
-	case GT:
-	  ans = ((dst)) > 0;
-	  if (slow)
-	    {
-	      if (is_cond_true (context, c) != ans)
-		abort ();
-	    }
-	  return ans;
-	case LE:
-	  ans = ((dst)) <= 0;
-	  if (slow)
-	    {
-	      if (is_cond_true (context, c) != ans)
-		abort ();
-	    }
-	  return ans;
-	case GE:
-	  ans = ((dst)) >= 0;
-	  if (slow)
-	    {
-	      if (is_cond_true (context, c) != ans)
-		abort ();
-	    }
-	  return ans;
-	case LT:
-	  ans = ((dst)) < 0;
-	  if (slow)
-	    {
-	      if (is_cond_true (context, c) != ans)
-		abort ();
-	    }
-	  return ans;
-	default:
-	  break;
-	}
-
-      /* Can't fake it, we'll have to work out the flags the
-         hard way */
-
-      makeflags (context, mask);
-    }
-
-  /* don't know how to fake a test, inspect the flags
-     the hard way */
-
-  return is_cond_true (context, c);
-}
-
-INLINE
+static INLINE
 void 
-NORMAL_FLAGS (context, size, dst, srca, srcb)
+normal_flags (context, size, dst, srca, srcb)
      sim_state_type *context;
      int size;
      int dst;
@@ -551,7 +420,7 @@ NORMAL_FLAGS (context, size, dst, srca, srcb)
   context->broken_flags = CMP_FLAGS;
 }
 
-INLINE
+static INLINE
 void 
 TEST_NORMAL_FLAGS (context, size, dst)
      sim_state_type *context;
@@ -563,7 +432,7 @@ TEST_NORMAL_FLAGS (context, size, dst)
   context->broken_flags = TST_FLAGS;
 }
 
-INLINE
+static INLINE
 void 
 put_ptr_long_reg (context, reg, val)
      sim_state_type *context;
@@ -574,7 +443,7 @@ put_ptr_long_reg (context, reg, val)
   context->regs[reg + 1].word = val;
 }
 
-INLINE
+static INLINE
 long 
 get_ptr_long_reg (context, reg)
      sim_state_type *context;
@@ -586,7 +455,7 @@ get_ptr_long_reg (context, reg)
   return val;
 }
 
-INLINE
+static INLINE
 long 
 get_ptr_long_mem_ir (context, reg)
 sim_state_type *context;
@@ -595,7 +464,7 @@ int reg;
   return sitoptr (get_long_mem_da (context, get_ptr_long_reg (context, reg)));
 }
 
-INLINE
+static INLINE
 long 
 get_ptr_long_mem_da (context, addr)
 sim_state_type *context;
@@ -604,7 +473,7 @@ long addr;
   return sitoptr (get_long_mem_da (context, addr));
 }
 
-INLINE
+static INLINE
 void 
 put_ptr_long_mem_da (context, addr, ptr)
 sim_state_type *context;

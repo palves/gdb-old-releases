@@ -1,3 +1,105 @@
+Sun Jan 15 00:40:36 1995  Jeff Law  (law@snake.cs.utah.edu)
+
+	* Makefile.in (distclean): Delete xhost-mkfrag.
+
+Thu Jan 12 16:54:18 1995  Jason Merrill  <jason@phydeaux.cygnus.com>
+
+	* Makefile.in (lneeded-list): If alloca.o is needed, so is xmalloc.o.
+
+Wed Jan 11 22:39:56 1995  Ken Raeburn  <raeburn@cujo.cygnus.com>
+
+	* hex.c: New file.
+	* Makefile.in (REQUIRED_OFILES, CFILES): List it.
+	(hex.o): Add dependencies.
+
+	* cplus-dem.c (demangle_prefix): For GNU style constructor and
+	destructor names, try demangling the remainder of the string.
+
+Wed Dec 28 00:49:15 1994  Ian Lance Taylor  <ian@tweedledumb.cygnus.com>
+
+	* vasprintf.c (int_vasprintf): New static function.
+	(vasprintf): Use int_vasprintf.  Removes assumption that va_list
+	is assignment compatible.
+
+Sat Nov  5 19:29:12 1994  Jason Merrill  (jason@phydeaux.cygnus.com)
+
+	* Makefile.in (LIBCFLAGS): New variable.
+	(FLAGS_TO_PASS): Pass it.
+	(.c.o): Use it.
+
+Thu Nov  3 19:09:47 1994  Ken Raeburn  <raeburn@cujo.cygnus.com>
+
+	* getopt.c, getopt1.c: Do compile these functions under Linux,
+	since many native versions are based on glibc but are buggy.
+
+Mon Oct 24 15:16:46 1994  Per Bothner  <bothner@kalessin.cygnus.com>
+
+	* vasprintf.c:  Make 'format' arg be const, to avoid a mismatch
+	with prototype in GNU libc.  Support stdarg.h as well as varargs.h.
+
+Tue Oct 11 17:48:27 1994  Jason Merrill  (jason@phydeaux.cygnus.com)
+
+	* Makefile.in (REQUIRED_OFILES): Add vasprintf.o.
+	* functions.def: Remove vasprintf.
+
+Wed Sep 14 17:04:55 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* xmalloc.c (first_break): New static variable.
+	(xmalloc_set_program_name): Record sbrk (0) in first_break.
+	(xmalloc): If memory allocation fails, try to report how much
+	memory was allocated by the program up to this point.
+	(xrealloc): Likewise.
+
+Sun Sep 04 17:58:10 1994  Richard Earnshaw (rwe@pegasus.esprit.ec.org)
+
+	* Makefile.in (ERRORS_CC): New variable, defaulted to $(CC).  Use it
+	when linking dummy.
+	* config.table: Add host RISCiX Makefile frag.
+	* config/mh-riscix: New file.
+
+Thu Aug 25 17:29:44 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* Makefile.in (FLAGS_TO_PASS): Define.
+	($(RULE1)): Use $(FLAGS_TO_PASS).
+
+Wed Aug 24 17:08:47 1994  Ian Lance Taylor  (ian@sanguine.cygnus.com)
+
+	* vasprintf.c: Include <string.h>.
+	(vasprintf): Add casts to void for va_arg to avoid gcc warnings.
+	* xatexit.c: Declare malloc.
+
+Fri Aug 19 15:29:12 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* cplus-dem.c (demangle_args): Fix a bug in previous patch (the
+	one below).
+
+Thu Aug 18 14:37:14 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* cplus-dem.c (demangle args): Handle ARM repeat encoding where
+        the type index is greater than 9.
+
+Wed Aug 17 16:13:49 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* cplus-dem.c (demangle_qualified): accept optional '_' between
+	qualified name. This is baecause the template name may end with
+	numeric and can mixed up with the length of next qualified name.
+
+Wed Aug  3 05:52:14 1994  D. V. Henkel-Wallace  (gumby@cygnus.com)
+
+	* config/mt-sunos4: Use our standard location for cross-includes
+	and cross-libs when the target is also a "host" environment (ie no
+	newlib; includes and such don't belong to us).  This is specific
+	to the Cygnus Support environment.
+
+Tue Aug  2 15:25:12 1994  Kung Hsu  (kung@mexican.cygnus.com)        
+
+	* cplus-dem.c (demangle_template): demangle as xxx<'Q'> not 
+	xxx<ch=81>.
+
+Mon Aug  1 17:02:48 1994  Kung Hsu  (kung@mexican.cygnus.com)
+
+	* cplus-dem.c (main): flush stdout to make pipe work.
+
 Sat Jul 16 12:56:32 1994  Stan Shebs  (shebs@andros.cygnus.com)
 
 	* config.table (*-*-cxux7*):  Recognize.

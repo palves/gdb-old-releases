@@ -22,7 +22,7 @@ Cambridge, MA 02139, USA.
  The author may be reached (Email) at the address mike@ai.mit.edu,
  or (US mail) as Mike Haertel c/o Free Software Foundation. */
 
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 /* Default function to call when something awful happens.  The application
    can specify an alternate function to be called instead (and probably will

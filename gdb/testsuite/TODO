@@ -5,9 +5,6 @@ reliably without unexpected failures on the "standard" machines, etc.
 This list exists largely as "tests we can add when we are ready to
 risk destabilizing it again".
 
-return.exp--reenable test (there is nothing known to be wrong with the
-test, but it hasn't been tried on a wide range of architectures).
-
 nodebug.exp--test printing variables.
 
 Test printing of structures passed by value, for the 7th, 8th, and 9th
@@ -21,9 +18,6 @@ corefile.exp:
 1.  Print variables from the core file (data and stack), and text
 (from the exec file).  This tests whether the corefile sections are
 mapped to the right addresses.
-2.  Test what happens when we get a new exec file without explicitly
-getting rid of the core file (we at least must avoid core dumps and such).
-3.  Test backtrace in corefile.exp.
 4.  Test ability to run program when there is a core target, then go
 back to the core file when the program exits.
 
@@ -63,6 +57,11 @@ methods.  Test that we can call them.
 Test printing complicated types, including functions, pointers to
 arrays of pointers of functions, functions which return pointers to
 functions, etc.
+
+printcmd.exp--test printing enum values.  Test printing an enum
+variable whose value is out of range.  Test "p (int)enum_var", "p/x
+enum_var".  Test that in something like "enum {FOO, LAST_THING=FOO}"
+we print FOO, not LAST_THING.
 
 Test GDB expressions--test all operators (and overloaded operators for
 C++).  Test integer constants which are signed or unsigned int, long,
@@ -124,7 +123,10 @@ work even if the program is not being run.
 Write a test for the reentracy bug with rs6000_struct_return_address
 in rs6000-tdep.c.
 
-Test "return" from dummy frames.
+Test "return" from dummy frames.  Test "return" from non-innermost
+frame.  Test that "return" from a non-innermost frame restores
+registers which are saved not in that frame but in a frame more inner
+(I believe this currently works on few if any architectures).
 
 FORTRAN common blocks (a.out and xcoff--weird.exp has the start of
 one but it is not quite right as of 19 Nov 1993).
@@ -183,9 +185,26 @@ compiler dependencies.
 Test more obscure wait_for_inferior cases, expanding on the tests in
 watchpoint.exp, signals.exp, etc.
 
+Test stepping into functions which are one line long and functions
+which are on line 1 of the source file. (there is a class of bugs in
+which gdb doesn't find the line number information, and thus doesn't
+step into the function).
+
+Test "handle all nostop".  Right now this is buggy--it (a) prints "?"
+for "Unknown signal", (b) prints signal zero (bug or feature?), (c)
+dumps core when it is done.
+
 Test that the copyright year in the startup message matches the
 current year (would produce a single spurious FAIL on old GDB's, but
 probably still a good idea).
+
+Test that prologue recognition, backtrace, printing locals, etc.,
+still work in the presence of large frames (the point being that at
+some point immediate fields in RISC instructions will overflow and
+prologues will need to look different.  For sparc, the immediate field
+is 13 bits (signed), so I believe the threshold would be 4K bytes in a
+frame).
+
 
 (this is for editing this file with GNU emacs)
 Local Variables:

@@ -106,8 +106,16 @@ struct bfd_link_hash_entry
       /* bfd_link_hash_common.  */
       struct
 	{
-	  bfd_vma size;		/* Common symbol size.  */
-	  asection *section;	/* Symbol section.  */
+	  /* The linker needs to know three things about common
+             symbols: the size, the alignment, and the section in
+             which the symbol should be placed.  On the assumption
+             that a single common symbol will not take up incredible
+             amounts of memory, we pack the size and the alignment
+             into the space of a single integer.  The alignment is
+             stored as a power of two.  */
+	  unsigned int alignment_power : 6;	/* Alignment.  */
+	  unsigned int size : 26;		/* Common symbol size.  */
+	  asection *section;			/* Symbol section.  */
 	} c;
     } u;
 };
@@ -220,13 +228,15 @@ struct bfd_link_callbacks
 					  bfd_vma nval));
   /* A function which is called when a common symbol is defined
      multiple times.  NAME is the symbol appearing multiple times.
-     OBFD is the BFD of the existing symbol.  OTYPE is the type of the
-     existing symbol, either bfd_link_hash_defined or
-     bfd_link_hash_common.  If OTYPE is bfd_link_hash_common, OSIZE is
-     the size of the existing symbol.  NBFD is the BFD of the new
-     symbol.  NTYPE is the type of the new symbol, either
-     bfd_link_hash_defined or bfd_link_hash_common.  If NTYPE is
-     bfd_link_hash_common, NSIZE is the size of the new symbol.  */
+     OBFD is the BFD of the existing symbol; it may be NULL if this is
+     not known.  OTYPE is the type of the existing symbol, which may
+     be bfd_link_hash_defined, bfd_link_hash_common, or
+     bfd_link_hash_indirect.  If OTYPE is bfd_link_hash_common, OSIZE
+     is the size of the existing symbol.  NBFD is the BFD of the new
+     symbol.  NTYPE is the type of the new symbol, again one of
+     bfd_link_hash_defined, bfd_link_hash_common, or
+     bfd_link_hash_indirect.  If NTYPE is bfd_link_hash_common, NSIZE
+     is the size of the new symbol.  */
   boolean (*multiple_common) PARAMS ((struct bfd_link_info *,
 				      const char *name,
 				      bfd *obfd,

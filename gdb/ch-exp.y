@@ -247,18 +247,12 @@ yyerror PARAMS ((char *));
 %token <ivar>		GDB_VARIABLE	/* Convenience variable */
 %token <voidval>	GDB_ASSIGNMENT	/* Assign value to somewhere */
 
-%type <voidval>		location
 %type <voidval>		access_name
 %type <voidval>		primitive_value
-%type <voidval>		location_contents
 %type <voidval>		value_name
 %type <voidval>		literal
 %type <voidval>		tuple
-%type <voidval>		value_string_element
-%type <voidval>		value_string_slice
-%type <voidval>		value_array_element
-%type <voidval>		value_array_slice
-%type <voidval>		value_structure_field
+%type <voidval>		slice
 %type <voidval>		expression_conversion
 %type <voidval>		value_procedure_call
 %type <voidval>		value_built_in_routine_call
@@ -285,16 +279,7 @@ yyerror PARAMS ((char *));
 %type <voidval>		value_enumeration_name
 %type <voidval>		value_do_with_name
 %type <voidval>		value_receive_name
-%type <voidval>		string_primitive_value
-%type <voidval>		start_element
-%type <voidval>		left_element
-%type <voidval>		right_element
-%type <voidval>		slice_size
-%type <voidval>		array_primitive_value
 %type <voidval>		expression_list
-%type <voidval>		lower_element
-%type <voidval>		upper_element
-%type <voidval>		first_element
 %type <tval>		mode_argument
 %type <voidval>		upper_lower_argument
 %type <voidval>		length_argument
@@ -308,6 +293,7 @@ yyerror PARAMS ((char *));
 %type <voidval>		buffer_location
 %type <voidval>		single_assignment_action
 %type <tsym>		mode_name
+%type <lval>		rparen
 
 %%
 
@@ -333,15 +319,6 @@ value		:	expression
 undefined_value	:	FIXME_01
 			{
 			  $$ = 0;	/* FIXME */
-			}
-		;
-
-/* Z.200, 4.2.1 */
-
-location	:	access_name
-  		|	primitive_value POINTER
-			{
-			  write_exp_elt_opcode (UNOP_IND);
 			}
 		;
 
@@ -388,12 +365,37 @@ expression_list	:	expression
 			{
 			  arglist_len++;
 			}
+		;
+
 
 /* Z.200, 5.2.1 */
 
-primitive_value	:	location_contents
+primitive_value_lparen: primitive_value '('
+				/* This is to save the value of arglist_len
+				   being accumulated for each dimension. */
+				{ start_arglist (); }
+		;
+
+rparen		:	')'
+				{ $$ = end_arglist (); }
+		;
+
+primitive_value	:
+			access_name
+		|	primitive_value_lparen expression_list rparen
 			{
-			  $$ = 0;	/* FIXME */
+			  write_exp_elt_opcode (MULTI_SUBSCRIPT);
+			  write_exp_elt_longcst ($3);
+			  write_exp_elt_opcode (MULTI_SUBSCRIPT);
+			}
+		|	primitive_value FIELD_NAME
+			{ write_exp_elt_opcode (STRUCTOP_STRUCT);
+			  write_exp_string ($2);
+			  write_exp_elt_opcode (STRUCTOP_STRUCT);
+			}
+  		|	primitive_value POINTER
+			{
+			  write_exp_elt_opcode (UNOP_IND);
 			}
                 |	value_name
 			{
@@ -407,23 +409,7 @@ primitive_value	:	location_contents
 			{
 			  $$ = 0;	/* FIXME */
 			}
-                |	value_string_element
-			{
-			  $$ = 0;	/* FIXME */
-			}
-                |	value_string_slice
-			{
-			  $$ = 0;	/* FIXME */
-			}
-                |	value_array_element
-			{
-			  $$ = 0;	/* FIXME */
-			}
-                |	value_array_slice
-			{
-			  $$ = 0;	/* FIXME */
-			}
-                |	value_structure_field
+                |	slice
 			{
 			  $$ = 0;	/* FIXME */
 			}
@@ -448,14 +434,6 @@ primitive_value	:	location_contents
 			  $$ = 0;	/* FIXME */
 			}
                 |	parenthesised_expression
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-/* Z.200, 5.2.2 */
-
-location_contents:	location
 			{
 			  $$ = 0;	/* FIXME */
 			}
@@ -523,7 +501,12 @@ literal		:	INTEGER_LITERAL
 			}
 		|	EMPTINESS_LITERAL
 			{
-			  $$ = 0;	/* FIXME */
+			  struct type *void_ptr_type
+			    = lookup_pointer_type (builtin_type_void);
+			  write_exp_elt_opcode (OP_LONG);
+			  write_exp_elt_type (void_ptr_type);
+			  write_exp_elt_longcst (0);
+			  write_exp_elt_opcode (OP_LONG);
 			}
 		|	CHARACTER_STRING_LITERAL
 			{
@@ -541,65 +524,72 @@ literal		:	INTEGER_LITERAL
 
 /* Z.200, 5.2.5 */
 
-tuple		:	FIXME_04
+tuple_element	:	expression
+		|	named_record_element
+		;
+
+named_record_element:	FIELD_NAME ',' named_record_element
+			{ write_exp_elt_opcode (OP_LABELED);
+			  write_exp_string ($1);
+			  write_exp_elt_opcode (OP_LABELED);
+			}
+		|	FIELD_NAME ':' expression	
+			{ write_exp_elt_opcode (OP_LABELED);
+			  write_exp_string ($1);
+			  write_exp_elt_opcode (OP_LABELED);
+			}
+		;
+
+tuple_elements	:	tuple_element
 			{
-			  $$ = 0;	/* FIXME */
+			  arglist_len = 1;
+			}
+		|	tuple_elements ',' tuple_element
+			{
+			  arglist_len++;
+			}
+		;
+
+maybe_tuple_elements :	tuple_elements
+		| /* EMPTY */
+		;
+
+tuple	:	'['
+			{ start_arglist (); }
+		maybe_tuple_elements ']'
+			{
+			  write_exp_elt_opcode (OP_ARRAY);
+			  write_exp_elt_longcst ((LONGEST) 0);
+			  write_exp_elt_longcst ((LONGEST) end_arglist () - 1);
+			  write_exp_elt_opcode (OP_ARRAY);
+			}
+		|
+		mode_name '['
+			{ start_arglist (); }
+		maybe_tuple_elements ']'
+			{
+			  write_exp_elt_opcode (OP_ARRAY);
+			  write_exp_elt_longcst ((LONGEST) 0);
+			  write_exp_elt_longcst ((LONGEST) end_arglist () - 1);
+			  write_exp_elt_opcode (OP_ARRAY);
+
+			  write_exp_elt_opcode (UNOP_CAST);
+			  write_exp_elt_type ($1.type);
+			  write_exp_elt_opcode (UNOP_CAST);
 			}
 		;
 
 
 /* Z.200, 5.2.6 */
 
-value_string_element:	string_primitive_value '(' start_element ')'
+
+slice:	primitive_value_lparen expression ':' expression rparen
 			{
-			  $$ = 0;	/* FIXME */
+			  write_exp_elt_opcode (TERNOP_SLICE);
 			}
-		;
-
-/* Z.200, 5.2.7 */
-
-value_string_slice:	string_primitive_value '(' left_element ':' right_element ')'
+		|	primitive_value_lparen expression UP expression rparen
 			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	string_primitive_value '(' start_element UP slice_size ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-/* Z.200, 5.2.8 */
-
-value_array_element:	array_primitive_value '('
-				/* This is to save the value of arglist_len
-				   being accumulated for each dimension. */
-				{ start_arglist (); }
-			expression_list ')'
-			{
-			  write_exp_elt_opcode (MULTI_SUBSCRIPT);
-			  write_exp_elt_longcst ((LONGEST) end_arglist ());
-			  write_exp_elt_opcode (MULTI_SUBSCRIPT);
-			}
-		;
-
-/* Z.200, 5.2.9 */
-
-value_array_slice:	array_primitive_value '(' lower_element ':' upper_element ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		|	array_primitive_value '(' first_element UP slice_size ')'
-			{
-			  $$ = 0;	/* FIXME */
-			}
-		;
-
-/* Z.200, 5.2.10 */
-
-value_structure_field:	primitive_value FIELD_NAME
-			{ write_exp_elt_opcode (STRUCTOP_STRUCT);
-			  write_exp_string ($2);
-			  write_exp_elt_opcode (STRUCTOP_STRUCT);
+			  write_exp_elt_opcode (TERNOP_SLICE_COUNT);
 			}
 		;
 
@@ -673,7 +663,7 @@ conditional_expression : IF boolean_expression then_alternative else_alternative
 			{
 			  $$ = 0;	/* FIXME */
 			}
-		|	CASE case_selector_list OF value_case_alternative '[' ELSE sub_expression ']' ESAC
+		|	CASE case_selector_list OF value_case_alternative ELSE sub_expression ESAC
 			{
 			  $$ = 0;	/* FIXME */
 			}
@@ -848,7 +838,7 @@ operand_5	:	operand_6
 
 /* Z.200, 5.3.9 */
 
-operand_6	:	POINTER location
+operand_6	:	POINTER primitive_value
 			{
 			  write_exp_elt_opcode (UNOP_ADDR);
 			}
@@ -866,7 +856,7 @@ operand_6	:	POINTER location
 /* Z.200, 6.2 */
 
 single_assignment_action :
-			location GDB_ASSIGNMENT value
+			primitive_value GDB_ASSIGNMENT value
 			{
 			  write_exp_elt_opcode (BINOP_ASSIGN);
 			}
@@ -961,15 +951,6 @@ length_argument :	expression
 			}
 		;
 
-/* Z.200, 12.4.3 */
-
-array_primitive_value :	primitive_value
-			{
-			  $$ = 0;
-			}
-		;
-
-
 /* Things which still need productions... */
 
 array_mode_name	 	:	FIXME_08 { $$ = 0; }
@@ -979,14 +960,6 @@ synonym_name	 	:	FIXME_11 { $$ = 0; }
 value_enumeration_name 	:	FIXME_12 { $$ = 0; }
 value_do_with_name 	:	FIXME_13 { $$ = 0; }
 value_receive_name 	:	FIXME_14 { $$ = 0; }
-string_primitive_value 	:	FIXME_15 { $$ = 0; }
-start_element 		:	FIXME_16 { $$ = 0; }
-left_element 		:	FIXME_17 { $$ = 0; }
-right_element 		:	FIXME_18 { $$ = 0; }
-slice_size 		:	FIXME_19 { $$ = 0; }
-lower_element 		:	FIXME_20 { $$ = 0; }
-upper_element 		:	FIXME_21 { $$ = 0; }
-first_element 		:	FIXME_22 { $$ = 0; }
 boolean_expression 	:	FIXME_26 { $$ = 0; }
 case_selector_list 	:	FIXME_27 { $$ = 0; }
 subexpression 		:	FIXME_28 { $$ = 0; }
@@ -1496,14 +1469,15 @@ match_integer_literal ()
 static int
 match_bitstring_literal ()
 {
-  char *tokptr = lexptr;
-  int mask;
+  register char *tokptr = lexptr;
   int bitoffset = 0;
   int bitcount = 0;
-  int base;
+  int bits_per_char;
   int digit;
   
   tempbufindex = 0;
+  CHECKBUF (1);
+  tempbuf[0] = 0;
 
   /* Look for the required explicit base specifier. */
   
@@ -1511,21 +1485,21 @@ match_bitstring_literal ()
     {
     case 'b':
     case 'B':
-      base = 2;
+      bits_per_char = 1;
       break;
     case 'o':
     case 'O':
-      base = 8;
+      bits_per_char = 3;
       break;
     case 'h':
     case 'H':
-      base = 16;
+      bits_per_char = 4;
       break;
     default:
       return (0);
       break;
     }
-  
+
   /* Ensure that the character after the explicit base is a single quote. */
   
   if (*tokptr++ != '\'')
@@ -1555,29 +1529,33 @@ match_bitstring_literal ()
 	    return (0);
 	    break;
 	}
-      if (digit >= base)
+      if (digit >= 1 << bits_per_char)
 	{
 	  /* Found something not in domain for current base. */
 	  return (0);
 	}
       else
 	{
-	  /* Extract bits from digit, starting with the msbit appropriate for
-	     the current base, and packing them into the bitstring byte,
-	     starting at the lsbit. */
-	  for (mask = (base >> 1); mask > 0; mask >>= 1)
+	  /* Extract bits from digit, packing them into the bitstring byte. */
+	  int k = TARGET_BYTE_ORDER == BIG_ENDIAN ? bits_per_char - 1 : 0;
+	  for (; TARGET_BYTE_ORDER == BIG_ENDIAN ? k >= 0 : k < bits_per_char;
+	       TARGET_BYTE_ORDER == BIG_ENDIAN ? k-- : k++)
 	    {
 	      bitcount++;
-	      CHECKBUF (1);
-	      if (digit & mask)
+	      if (digit & (1 << k))
 		{
-		  tempbuf[tempbufindex] |= (1 << bitoffset);
+		  tempbuf[tempbufindex] |=
+		    (TARGET_BYTE_ORDER == BIG_ENDIAN)
+		      ? (1 << (HOST_CHAR_BIT - 1 - bitoffset))
+			: (1 << bitoffset);
 		}
 	      bitoffset++;
 	      if (bitoffset == HOST_CHAR_BIT)
 		{
 		  bitoffset = 0;
 		  tempbufindex++;
+		  CHECKBUF(1);
+		  tempbuf[tempbufindex] = 0;
 		}
 	    }
 	}
@@ -1751,7 +1729,9 @@ static const struct token idtokentab[] =
     { "xor", LOGXOR },
     { "and", LOGAND },
     { "in", IN },
-    { "or", LOGIOR }
+    { "or", LOGIOR },
+    { "up", UP },
+    { "null", EMPTINESS_LITERAL }
 };
 
 static const struct token tokentab2[] =
@@ -1889,11 +1869,12 @@ yylex ()
 
     if (inputname != NULL)
       {
-	char *simplename = (char*) alloca (strlen (inputname));
+	char *simplename = (char*) alloca (strlen (inputname) + 1);
 
 	char *dptr = simplename, *sptr = inputname;
 	for (; *sptr; sptr++)
 	  *dptr++ = isupper (*sptr) ? tolower(*sptr) : *sptr;
+	*dptr = '\0';
 
 	/* See if it is a reserved identifier. */
 	for (i = 0; i < sizeof (idtokentab) / sizeof (idtokentab[0]); i++)

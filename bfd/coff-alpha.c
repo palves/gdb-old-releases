@@ -1166,7 +1166,7 @@ alpha_ecoff_get_relocated_section_contents (abfd, link_info, link_order,
 
 /* Get the howto structure for a generic reloc type.  */
 
-static CONST struct reloc_howto_struct *
+static reloc_howto_type *
 alpha_bfd_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;
@@ -1230,7 +1230,7 @@ alpha_bfd_reloc_type_lookup (abfd, code)
       break;
 #endif
     default:
-      return (CONST struct reloc_howto_struct *) NULL;
+      return (reloc_howto_type *) NULL;
     }
 
   return &alpha_howto_table[alpha_type];
@@ -1946,13 +1946,14 @@ static const struct ecoff_backend_data alpha_ecoff_backend_data =
     (unsigned (*) PARAMS ((bfd *,PTR,PTR))) bfd_void, /* reloc_out */
     alpha_ecoff_swap_filehdr_out, alpha_ecoff_swap_aouthdr_out,
     alpha_ecoff_swap_scnhdr_out,
-    FILHSZ, AOUTSZ, SCNHSZ, 0, 0, 0, true,
+    FILHSZ, AOUTSZ, SCNHSZ, 0, 0, 0, 0, true,
     alpha_ecoff_swap_filehdr_in, alpha_ecoff_swap_aouthdr_in,
-    alpha_ecoff_swap_scnhdr_in, alpha_ecoff_bad_format_hook,
-    _bfd_ecoff_set_arch_mach_hook, alpha_ecoff_mkobject_hook,
-    _bfd_ecoff_styp_to_sec_flags, _bfd_ecoff_make_section_hook,
-    _bfd_ecoff_set_alignment_hook, _bfd_ecoff_slurp_symbol_table,
-    NULL, NULL
+    alpha_ecoff_swap_scnhdr_in, NULL,
+    alpha_ecoff_bad_format_hook, _bfd_ecoff_set_arch_mach_hook,
+    alpha_ecoff_mkobject_hook, _bfd_ecoff_styp_to_sec_flags,
+    _bfd_ecoff_make_section_hook, _bfd_ecoff_set_alignment_hook,
+    _bfd_ecoff_slurp_symbol_table,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL
   },
   /* Supported architecture.  */
   bfd_arch_alpha,
@@ -2041,8 +2042,7 @@ const bfd_target ecoffalpha_little_vec =
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
 
-  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* sect
-							    flags */
+  (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_CODE | SEC_DATA),
   0,				/* leading underscore */
   ' ',				/* ar_pad_char */
   15,				/* ar_max_namelen */

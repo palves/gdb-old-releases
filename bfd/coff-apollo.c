@@ -27,6 +27,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
+#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (3)
+
 #ifdef ONLY_DECLARE_RELOCS
 extern reloc_howto_type apollocoff_howto_table[];
 #else
@@ -51,7 +53,7 @@ reloc_howto_type apollocoff_howto_table[] =
 
 #ifdef ONLY_DECLARE_RELOCS
 extern void apollo_rtype2howto PARAMS ((arelent *internal, int relocentry));
-extern int apollo_howto2rtype PARAMS ((CONST struct reloc_howto_struct *));
+extern int apollo_howto2rtype PARAMS ((reloc_howto_type *));
 #else
 void
 apollo_rtype2howto(internal, relocentry)
@@ -72,7 +74,7 @@ apollo_rtype2howto(internal, relocentry)
 
 int 
 apollo_howto2rtype (internal)
-     CONST struct reloc_howto_struct *internal;
+     reloc_howto_type *internal;
 {
   if (internal->pc_relative) 
   {

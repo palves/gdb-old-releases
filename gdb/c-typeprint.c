@@ -1,5 +1,6 @@
 /* Support for printing C and C++ types for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1988, 1989, 1991, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -35,6 +36,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 
 static void
 c_type_print_args PARAMS ((struct type *, GDB_FILE *));
@@ -87,7 +89,14 @@ c_typedef_print (type, new, stream)
 #endif
 #ifdef _LANG_chill
    case language_chill:
-      error ("Missing Chill support in function c_typedef_print."); /*FIXME*/
+      fprintf_filtered(stream, "SYNMODE ");
+      if(!TYPE_NAME(SYMBOL_TYPE(new)) ||
+	 !STREQ (TYPE_NAME(SYMBOL_TYPE(new)), SYMBOL_NAME(new)))
+	fprintf_filtered(stream, "%s = ", SYMBOL_SOURCE_NAME(new));
+      else
+	 fprintf_filtered(stream, "<builtin> = ");
+      type_print(type,"",stream,0);
+      break;
 #endif
    default:
       error("Language not supported.");
@@ -130,7 +139,7 @@ c_print_type (type, varstring, stream, show, level)
   /* For demangled function names, we have the arglist as part of the name,
      so don't print an additional pair of ()'s */
 
-  demangled_args = varstring[strlen(varstring) - 1] == ')';
+  demangled_args = strchr(varstring, '(') != NULL;
   c_type_print_varspec_suffix (type, stream, show, 0, demangled_args);
 
 }
@@ -305,6 +314,7 @@ c_type_print_varspec_prefix (type, stream, show, passed_a_ptr)
     case TYPE_CODE_RANGE:
     case TYPE_CODE_STRING:
     case TYPE_CODE_BITSTRING:
+    case TYPE_CODE_COMPLEX:
       /* These types need no prefix.  They are listed here so that
 	 gcc -Wall will reveal any types that haven't been handled.  */
       break;
@@ -429,6 +439,7 @@ c_type_print_varspec_suffix (type, stream, show, passed_a_ptr, demangled_args)
     case TYPE_CODE_RANGE:
     case TYPE_CODE_STRING:
     case TYPE_CODE_BITSTRING:
+    case TYPE_CODE_COMPLEX:
       /* These types do not need a suffix.  They are listed so that
 	 gcc -Wall will report types that may not have been considered.  */
       break;
@@ -628,6 +639,14 @@ c_type_print_base (type, stream, show, level)
 	      int is_constructor = name && STREQ(method_name, name);
 	      for (j = 0; j < len2; j++)
 		{
+		  char *physname = TYPE_FN_FIELD_PHYSNAME (f, j);
+		  int is_full_physname_constructor = 
+		    ((physname[0]=='_' && physname[1]=='_' && 
+		      (isdigit(physname[2])
+		       || physname[2]=='Q'
+		       || physname[2]=='t'))
+		     || (strncmp(physname, "__ct__", 6) == 0));
+
 		  QUIT;
 		  if (TYPE_FN_FIELD_PROTECTED (f, j))
 		    {
@@ -667,10 +686,10 @@ c_type_print_base (type, stream, show, level)
 			       TYPE_FN_FIELD_PHYSNAME (f, j));
 		      break;
 		    }
-		  else if (!is_constructor)
+		  else if (!is_constructor && !is_full_physname_constructor)
 		    {
 		      type_print (TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)),
-				  "", stream, 0);
+				  "", stream, -1);
 		      fputs_filtered (" ", stream);
 		    }
 		  if (TYPE_FN_FIELD_STUB (f, j))

@@ -11,8 +11,3 @@ CFLAGS =
 
 AR_FLAGS = cq
 RANLIB = true
-
-# The /usr/ucb/install program is incompatible (complains about unknown
-# group staff).  Use good old cp...
-INSTALL = cp
-

@@ -23,7 +23,7 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 #ifndef	__GNU_LIBRARY__
 extern char *getenv ();

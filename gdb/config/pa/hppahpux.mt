@@ -1,3 +1,4 @@
-# TARGET: HP PA-RISC running hpux
-TDEPFILES= hppa-pinsn.o hppa-tdep.o exec.o
+# Target: HP PA-RISC running hpux
+TDEPFILES= hppa-tdep.o remote-pa.o
 TM_FILE= tm-hppah.h
+XDEPFILES= ser-tcp.o

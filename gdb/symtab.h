@@ -1,5 +1,5 @@
 /* Symbol table definitions for GDB.
-   Copyright 1986, 1989, 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -283,6 +283,11 @@ struct minimal_symbol
      of compatibility with older compilers.  This field is optional. */
 
   char *info;
+
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+  /* Which source file is this symbol in?  Only relevant for mst_file_*.  */
+  char *filename;
+#endif
 
   /* Classification types for this symbol.  These should be taken as "advisory
      only", since if gdb can't easily figure out a classification it simply
@@ -577,7 +582,7 @@ struct symbol
 
   /* Address class */
 
-  enum address_class class BYTE_BITFIELD;
+  enum address_class aclass BYTE_BITFIELD;
 
   /* Line number of definition.  FIXME:  Should we really make the assumption
      that nobody will try to debug files longer than 64K lines?  What about
@@ -597,7 +602,7 @@ struct symbol
 };
 
 #define SYMBOL_NAMESPACE(symbol)	(symbol)->namespace
-#define SYMBOL_CLASS(symbol)		(symbol)->class
+#define SYMBOL_CLASS(symbol)		(symbol)->aclass
 #define SYMBOL_TYPE(symbol)		(symbol)->type
 #define SYMBOL_LINE(symbol)		(symbol)->line
 #define SYMBOL_BASEREG(symbol)		(symbol)->aux_value.basereg
@@ -622,12 +627,12 @@ struct partial_symbol
 
   /* Address class (for info_symbols) */
 
-  enum address_class class BYTE_BITFIELD;
+  enum address_class aclass BYTE_BITFIELD;
 
 };
 
 #define PSYMBOL_NAMESPACE(psymbol)	(psymbol)->namespace
-#define PSYMBOL_CLASS(psymbol)		(psymbol)->class
+#define PSYMBOL_CLASS(psymbol)		(psymbol)->aclass
 
 
 /* Source-file information.  This describes the relation between source files,
@@ -1021,14 +1026,20 @@ extern void prim_record_minimal_symbol PARAMS ((const char *, CORE_ADDR,
 						enum minimal_symbol_type,
 						struct objfile *));
 
-extern void prim_record_minimal_symbol_and_info
+extern struct minimal_symbol *prim_record_minimal_symbol_and_info
   PARAMS ((const char *, CORE_ADDR,
 	   enum minimal_symbol_type,
 	   char *info, int section,
 	   struct objfile *));
 
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+extern CORE_ADDR find_stab_function_addr PARAMS ((char *,
+						  struct partial_symtab *,
+						  struct objfile *));
+#endif
+
 extern struct minimal_symbol *
-lookup_minimal_symbol PARAMS ((const char *, struct objfile *));
+lookup_minimal_symbol PARAMS ((const char *, const char *, struct objfile *));
 
 extern struct minimal_symbol *
 lookup_minimal_symbol_by_pc PARAMS ((CORE_ADDR));
@@ -1047,6 +1058,10 @@ discard_minimal_symbols PARAMS ((int));
 
 extern void
 install_minimal_symbols PARAMS ((struct objfile *));
+
+/* Sort all the minimal symbols in OBJFILE.  */
+
+extern void msymbols_sort PARAMS ((struct objfile *objfile));
 
 struct symtab_and_line
 {

@@ -50,7 +50,7 @@ struct ecoff_backend_data
   /* Bitsize of constructor entries.  */
   unsigned int constructor_bitsize;
   /* Reloc to use for constructor entries.  */
-  CONST struct reloc_howto_struct *constructor_reloc;
+  reloc_howto_type *constructor_reloc;
   /* How to swap debugging information.  */
   struct ecoff_debug_swap debug_swap;
   /* External reloc size.  */
@@ -124,6 +124,9 @@ typedef struct ecoff_tdata
   /* True if this BFD was written by the backend linker.  */
   boolean linker;
 
+  /* This buffers is used by the find_nearest_line entry point.  */
+  char *find_buffer;
+
 } ecoff_data_type;
 
 /* Each canonical asymbol really looks like this.  */
@@ -149,11 +152,11 @@ typedef struct ecoff_symbol_struct
    macro is only ever applied to an asymbol.  */
 #define ecoffsymbol(asymbol) ((ecoff_symbol_type *) (&((asymbol)->the_bfd)))
 
-/* This is a hack borrowed from coffcode.h; we need to save the index
-   of an external symbol when we write it out so that can set the
-   symbol index correctly when we write out the relocs.  */
-#define ecoff_get_sym_index(symbol) ((unsigned long) (symbol)->udata)
-#define ecoff_set_sym_index(symbol, idx) ((symbol)->udata = (PTR) (idx))
+/* We need to save the index of an external symbol when we write it
+   out so that can set the symbol index correctly when we write out
+   the relocs.  */
+#define ecoff_get_sym_index(symbol) ((symbol)->udata.i)
+#define ecoff_set_sym_index(symbol, idx) ((symbol)->udata.i = (idx))
 
 /* When generating MIPS embedded PIC code, the linker relaxes the code
    to turn PC relative branches into longer code sequences when the PC
@@ -244,12 +247,15 @@ extern boolean _bfd_ecoff_bfd_copy_private_bfd_data PARAMS ((bfd *, bfd *));
 
 extern boolean _bfd_ecoff_slurp_armap PARAMS ((bfd *abfd));
 #define _bfd_ecoff_slurp_extended_name_table _bfd_slurp_extended_name_table
+#define _bfd_ecoff_construct_extended_name_table \
+  _bfd_archive_bsd_construct_extended_name_table
 #define _bfd_ecoff_truncate_arname bfd_dont_truncate_arname
 extern boolean _bfd_ecoff_write_armap
   PARAMS ((bfd *, unsigned int, struct orl *, unsigned int, int));
 #define _bfd_ecoff_openr_next_archived_file \
   bfd_generic_openr_next_archived_file
 #define _bfd_ecoff_generic_stat_arch_elt bfd_generic_stat_arch_elt
+#define _bfd_ecoff_update_armap_timestamp bfd_true
 
 extern long _bfd_ecoff_get_symtab_upper_bound PARAMS ((bfd *abfd));
 extern long _bfd_ecoff_get_symtab PARAMS ((bfd *abfd, asymbol **alocation));
@@ -293,5 +299,6 @@ extern asection *_bfd_ecoff_make_section_hook PARAMS ((bfd *abfd, char *name));
 #define _bfd_ecoff_set_alignment_hook \
   ((void (*) PARAMS ((bfd *, asection *, PTR))) bfd_void)
 extern boolean _bfd_ecoff_set_arch_mach_hook PARAMS ((bfd *abfd, PTR filehdr));
-extern flagword _bfd_ecoff_styp_to_sec_flags PARAMS ((bfd *abfd, PTR hdr));
+extern flagword _bfd_ecoff_styp_to_sec_flags
+  PARAMS ((bfd *abfd, PTR hdr, const char *name));
 extern boolean _bfd_ecoff_slurp_symbol_table PARAMS ((bfd *abfd));

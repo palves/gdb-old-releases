@@ -1,5 +1,6 @@
 /* List lines of source files for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1988, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1991, 1992, 1993, 1994
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -42,35 +43,25 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Prototypes for local functions. */
 
-static int
-open_source_file PARAMS ((struct symtab *));
+static int open_source_file PARAMS ((struct symtab *));
 
-static int
-get_filename_and_charpos PARAMS ((struct symtab *, char **));
+static int get_filename_and_charpos PARAMS ((struct symtab *, char **));
 
-static void
-reverse_search_command PARAMS ((char *, int));
+static void reverse_search_command PARAMS ((char *, int));
 
-static void
-forward_search_command PARAMS ((char *, int));
+static void forward_search_command PARAMS ((char *, int));
 
-static void
-line_info PARAMS ((char *, int));
+static void line_info PARAMS ((char *, int));
 
-static void
-list_command PARAMS ((char *, int));
+static void list_command PARAMS ((char *, int));
 
-static void
-ambiguous_line_spec PARAMS ((struct symtabs_and_lines *));
+static void ambiguous_line_spec PARAMS ((struct symtabs_and_lines *));
 
-static void
-source_info PARAMS ((char *, int));
+static void source_info PARAMS ((char *, int));
 
-static void
-show_directories PARAMS ((char *, int));
+static void show_directories PARAMS ((char *, int));
 
-static void
-find_source_lines PARAMS ((struct symtab *, int));
+static void find_source_lines PARAMS ((struct symtab *, int));
 
 /* If we use this declaration, it breaks because of fucking ANSI "const" stuff
    on some systems.  We just have to not declare it at all, have it default
@@ -207,10 +198,9 @@ show_directories (ignore, from_tty)
   puts_filtered ("\n");
 }
 
-/* Forget what we learned about line positions in source files,
-   and which directories contain them;
-   must check again now since files may be found in
-   a different directory now.  */
+/* Forget what we learned about line positions in source files, and
+   which directories contain them; must check again now since files
+   may be found in a different directory now.  */
 
 void
 forget_cached_source_info ()
@@ -293,22 +283,25 @@ mod_path (dirname, which_path)
       struct stat st;
 
       {
-	char *colon = strchr (name, DIRNAME_SEPARATOR);
+	char *separator = strchr (name, DIRNAME_SEPARATOR);
 	char *space = strchr (name, ' ');
 	char *tab = strchr (name, '\t');
-	if (colon == 0 && space == 0 && tab ==  0)
+
+	if (separator == 0 && space == 0 && tab ==  0)
 	  p = dirname = name + strlen (name);
 	else
 	  {
 	    p = 0;
-	    if (colon != 0 && (p == 0 || colon < p))
-	      p = colon;
+	    if (separator != 0 && (p == 0 || separator < p))
+	      p = separator;
 	    if (space != 0 && (p == 0 || space < p))
 	      p = space;
 	    if (tab != 0 && (p == 0 || tab < p))
 	      p = tab;
 	    dirname = p + 1;
-	    while (*dirname == DIRNAME_SEPARATOR || *dirname == ' ' || *dirname == '\t')
+	    while (*dirname == DIRNAME_SEPARATOR
+		   || *dirname == ' '
+		   || *dirname == '\t')
 	      ++dirname;
 	  }
       }
@@ -387,7 +380,7 @@ mod_path (dirname, which_path)
 	      {
 		/* Found it in the search path, remove old copy */
 		if (p > *which_path)
-		  p--;			/* Back over leading colon */
+		  p--;			/* Back over leading separator */
 		if (prefix > p - *which_path)
 		  goto skip_dup;	/* Same dir twice in one cmd */
 		strcpy (p, &p[len+1]);	/* Copy from next \0 or  : */
@@ -551,24 +544,26 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
 
  done:
   if (filename_opened)
-    if (fd < 0)
-      *filename_opened = (char *) 0;
-    else if (filename[0] == '/')
-      *filename_opened = savestring (filename, strlen (filename));
-    else
-      {
-	/* Beware the // my son, the Emacs barfs, the botch that catch... */
-	   
-	*filename_opened = concat (current_directory, 
-	   '/' == current_directory[strlen(current_directory)-1]? "": "/",
-				   filename, NULL);
-      }
+    {
+      if (fd < 0)
+	*filename_opened = (char *) 0;
+      else if (filename[0] == '/')
+	*filename_opened = savestring (filename, strlen (filename));
+      else
+	{
+	  /* Beware the // my son, the Emacs barfs, the botch that catch... */
+	  
+	  *filename_opened = concat (current_directory, 
+				     '/' == current_directory[strlen(current_directory)-1]? "": "/",
+				     filename, NULL);
+        }
+    }
 
   return fd;
 }
 
-/* Open a source file given a symtab S.  Returns a file descriptor
-   or negative number for error.  */
+/* Open a source file given a symtab S.  Returns a file descriptor or
+   negative number for error.  */
 
 static int
 open_source_file (s)
@@ -598,16 +593,17 @@ open_source_file (s)
 	 which produces a "required warning" when assigned to a nonconst. */
       p = (char *)strstr (source_path, "$cdir");
       if (p && (p == path || p[-1] == DIRNAME_SEPARATOR)
-	    && (p[cdir_len] == DIRNAME_SEPARATOR || p[cdir_len] == '\0')) {
-	int len;
+	    && (p[cdir_len] == DIRNAME_SEPARATOR || p[cdir_len] == '\0'))
+	{
+	  int len;
 
-	path = (char *)
-	       alloca (strlen (source_path) + 1 + strlen (s->dirname) + 1);
-	len = p - source_path;
-	strncpy (path, source_path, len);		/* Before $cdir */
-	strcpy (path + len, s->dirname);		/* new stuff */
-	strcat (path + len, source_path + len + cdir_len); /* After $cdir */
-      }
+	  path = (char *)
+	    alloca (strlen (source_path) + 1 + strlen (s->dirname) + 1);
+	  len = p - source_path;
+	  strncpy (path, source_path, len);		/* Before $cdir */
+	  strcpy (path + len, s->dirname);		/* new stuff */
+	  strcat (path + len, source_path + len + cdir_len); /* After $cdir */
+	}
     }
 
   result = openp (path, 0, s->filename, O_RDONLY, 0, &s->fullname);
@@ -625,6 +621,35 @@ open_source_file (s)
       free (fullname);
     }
   return result;
+}
+
+/* Return the path to the source file associated with symtab.  Returns NULL
+   if no symtab.  */
+
+char *
+symtab_to_filename (s)
+     struct symtab *s;
+{
+  int fd;
+
+  if (!s)
+    return NULL;
+
+  /* If we've seen the file before, just return fullname. */
+
+  if (s->fullname)
+    return s->fullname;
+
+  /* Try opening the file to setup fullname */
+
+  fd = open_source_file (s);
+  if (fd < 0)
+    return s->filename;		/* File not found.  Just use short name */
+
+  /* Found the file.  Cleanup and return the full name */
+
+  close (fd);
+  return s->fullname;
 }
 
 
@@ -900,13 +925,11 @@ print_source_lines (s, line, stopline, noerror)
 
 
 
-/* 
-  C++
-  Print a list of files and line numbers which a user may choose from
-  in order to list a function which was specified ambiguously
-  (as with `list classname::overloadedfuncname', for example).
-  The vector in SALS provides the filenames and line numbers.
-  */
+/* Print a list of files and line numbers which a user may choose from
+  in order to list a function which was specified ambiguously (as with
+  `list classname::overloadedfuncname', for example).  The vector in
+  SALS provides the filenames and line numbers.  */
+
 static void
 ambiguous_line_spec (sals)
      struct symtabs_and_lines *sals;
@@ -917,7 +940,6 @@ ambiguous_line_spec (sals)
     printf_filtered("file: \"%s\", line number: %d\n",
 		    sals->sals[i].symtab->filename, sals->sals[i].line);
 }
-
 
 static void
 list_command (arg, from_tty)
@@ -1233,15 +1255,26 @@ forward_search_command (regex, from_tty)
   stream = fdopen (desc, FOPEN_RT);
   clearerr (stream);
   while (1) {
-/* FIXME!!!  We walk right off the end of buf if we get a long line!!! */
-    char buf[4096];		/* Should be reasonable??? */
-    register char *p = buf;
+    static char *buf = NULL;
+    register char *p;
+    int cursize, newsize;
+
+    cursize = 256;
+    buf = xmalloc (cursize);
+    p = buf;
 
     c = getc (stream);
     if (c == EOF)
       break;
     do {
       *p++ = c;
+      if (p - buf == cursize)
+	{
+	  newsize = cursize + cursize / 2;
+	  buf = xrealloc (buf, newsize);
+	  p = buf + cursize;
+	  cursize = newsize;
+	}
     } while (c != '\n' && (c = getc (stream)) >= 0);
 
     /* we now have a source line in buf, null terminate and match */
@@ -1250,8 +1283,7 @@ forward_search_command (regex, from_tty)
       {
 	/* Match! */
 	fclose (stream);
-	print_source_lines (current_source_symtab,
-			   line, line+1, 0);
+	print_source_lines (current_source_symtab, line, line+1, 0);
 	current_source_line = max (line - lines_to_list / 2, 1);
 	return;
       }
@@ -1373,16 +1405,17 @@ $cdir in the path means the compilation directory of the source file.",
 	    "Information about the current source file.");
 
   add_info ("line", line_info,
-	    "Core addresses of the code for a source line.\n\
+	    concat ("Core addresses of the code for a source line.\n\
 Line can be specified as\n\
   LINENUM, to list around that line in current file,\n\
   FILE:LINENUM, to list around that line in that file,\n\
   FUNCTION, to list around beginning of that function,\n\
   FILE:FUNCTION, to distinguish among like-named static functions.\n\
+", "\
 Default is to describe the last source line that was listed.\n\n\
 This sets the default address for \"x\" to the line's first instruction\n\
 so that \"x/i\" suffices to start examining the machine code.\n\
-The address is also stored as the value of \"$_\".");
+The address is also stored as the value of \"$_\".", NULL));
 
   add_com ("forward-search", class_files, forward_search_command,
 	   "Search for regular expression (see regex(3)) from last line listed.");
@@ -1392,18 +1425,20 @@ The address is also stored as the value of \"$_\".");
 	   "Search backward for regular expression (see regex(3)) from last line listed.");
 
   add_com ("list", class_files, list_command,
-	   "List specified function or line.\n\
+	   concat ("List specified function or line.\n\
 With no argument, lists ten more lines after or around previous listing.\n\
 \"list -\" lists the ten lines before a previous ten-line listing.\n\
 One argument specifies a line, and ten lines are listed around that line.\n\
 Two arguments with comma between specify starting and ending lines to list.\n\
+", "\
 Lines can be specified in these ways:\n\
   LINENUM, to list around that line in current file,\n\
   FILE:LINENUM, to list around that line in that file,\n\
   FUNCTION, to list around beginning of that function,\n\
   FILE:FUNCTION, to distinguish among like-named static functions.\n\
   *ADDRESS, to list around the line containing that address.\n\
-With two args if one is empty it stands for ten lines away from the other arg.");
+With two args if one is empty it stands for ten lines away from the other arg.", NULL));
+
   add_com_alias ("l", "list", class_files, 1);
 
   add_show_from_set

@@ -453,6 +453,33 @@ localvars_after_alloca (c, s, i, l)
   i = 6;
   l = 7;
 }
+
+void
+call_after_alloca_subr (c, s, i, l, uc, us, ui, ul)
+char c; int i; short s; long l; unsigned char uc; unsigned short us; unsigned long ul; unsigned int ui;
+{
+  c = 'a';
+  i = 7; s = 8; l = 7; uc = 44; us = 77;
+  ul = 43; ui = 33;
+}
+
+int
+call_after_alloca (c, s, i, l)
+     char c;
+     short s;
+     int i;
+     long l;
+{
+#ifdef HAVE_STACK_ALLOCA
+  /* No need to use the alloca.c alloca-on-top-of-malloc; it doesn't
+     test what we are looking for, so if we don't have an alloca which
+     allocates on the stack, just don't bother to call alloca at all.  */
+
+  char *z = alloca (s + 50);
+#endif
+  call_after_alloca_subr (c, s, i, l, 'b', 11, 12, 13);
+}
+
 
 
 /* The point behind this test is the PA will call this indirectly
@@ -533,6 +560,8 @@ main ()
   test_struct_args ();
 
   localvars_after_alloca (c, s, i, l);
+
+  call_after_alloca (c, s, i, l);
 
   /* This is for localvars_in_indirect_call.  */
   marker_indirect_call ();

@@ -121,10 +121,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define ABOUT_TO_RETURN(pc) \
     ((read_memory_integer (pc, 2) & 0xffe0) == 0x7c80)
 
-/* Return 1 if P points to an invalid floating point value. */
-
-#define INVALID_FLOAT(p,len)   0
-
 /* Say how long (ordinary) registers are.  This is a piece of bogosity
    used in push_word and a few other places; REGISTER_RAW_SIZE is the
    real way to know how big a register is.  */
@@ -252,7 +248,6 @@ extern struct value *value_of_trapped_internalvar ();
 /* Hooks to read data from soff exec and core files,
    and to describe the files.  */
 
-#define XFER_CORE_FILE
 #define FILES_INFO_HOOK print_maps
 
 /* Hook to call to print a typeless integer value, normally printed in decimal.
@@ -459,8 +454,6 @@ extern struct value *value_of_trapped_internalvar ();
     write_register_bytes (REGISTER_BYTE (regnum), buf, 8);}     \
   else write_register (SP_REGNUM, fp + 8);			\
   flush_cached_frames ();					\
-  set_current_frame (create_new_frame (read_register (FP_REGNUM), \
-				       read_pc ())); 		\
 } while (0)
 
 /* This sequence of words is the instructions

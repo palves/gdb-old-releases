@@ -521,7 +521,7 @@ _rl_move_cursor_relative (new, data)
      of moving backwards. */
   if (new + 1 < _rl_last_c_pos - new)
     {
-#ifdef __MSDOS__
+#if defined(__MSDOS__) ||defined(WIN32)
       putc('\r', rl_outstream);
 #else
       tputs (term_cr, 1, _rl_output_character_function);
@@ -571,14 +571,14 @@ _rl_move_vert (to)
   if (_rl_last_v_pos == to || to > screenheight)
     return;
 
-#if defined (__GO32__)
+#if defined (MINIMAL)
   {
     int row, col;
 
     ScreenGetCursor (&row, &col);
     ScreenSetCursor ((row + to - _rl_last_v_pos), col);
   }
-#else /* !__GO32__ */
+#else /* !MINIMAL */
 
   if ((delta = to - _rl_last_v_pos) > 0)
     {
@@ -593,7 +593,7 @@ _rl_move_vert (to)
 	for (i = 0; i < -delta; i++)
 	  tputs (term_up, 1, _rl_output_character_function);
     }
-#endif /* !__GO32__ */
+#endif /* !MINIMAL */
   _rl_last_v_pos = to;		/* Now TO is here */
 }
 
@@ -708,7 +708,7 @@ static void
 clear_to_eol (count)
      int count;
 {
-#if !defined (__GO32__)
+#if !defined (MINIMAL)
   if (term_clreol)
     {
       tputs (term_clreol, 1, _rl_output_character_function);
@@ -734,6 +734,9 @@ insert_some_chars (string, count)
      char *string;
      int count;
 {
+#if defined(WIN32)
+
+#else
 #if defined (__GO32__)
   int row, col, width;
   short *row_start;
@@ -780,6 +783,7 @@ insert_some_chars (string, count)
 	tputs (term_ei, 1, _rl_output_character_function);
     }
 #endif /* !__GO32__ */
+#endif
 }
 
 /* Delete COUNT characters from the display line. */
@@ -787,6 +791,9 @@ static void
 delete_chars (count)
      int count;
 {
+#if defined(WIN32)
+
+#else
 #if defined (__GO32__)
   int row, col, width;
   short *row_start;
@@ -815,4 +822,5 @@ delete_chars (count)
 	  tputs (term_dc, 1, _rl_output_character_function);
     }
 #endif /* !__GO32__ */
+#endif
 }

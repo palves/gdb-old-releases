@@ -46,8 +46,11 @@
    (especially if it is a shared library).  Rather than having every GNU
    program understand `configure --with-gnu-libc' and omit the object files,
    it is simpler to just do this in the source for each such file.  */
+/* Many versions of the Linux C library include older, broken versions
+   of these routines, which will break the linker's command-line
+   parsing.  */
 
-#if defined (_LIBC) || !defined (__GNU_LIBRARY__)
+#if defined (_LIBC) || !defined (__GNU_LIBRARY__) || defined (__linux__)
 
 
 /* This needs to come after some library #include

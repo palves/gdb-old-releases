@@ -1,5 +1,5 @@
 /* Read ELF (Executable and Linking Format) object files for GDB.
-   Copyright 1991, 1992, 1993, 1994 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.
 
 This file is part of GDB.
@@ -81,7 +81,7 @@ free_elfinfo PARAMS ((void *));
 static struct section_offsets *
 elf_symfile_offsets PARAMS ((struct objfile *, CORE_ADDR));
 
-static void
+static struct minimal_symbol *
 record_minimal_symbol_and_info PARAMS ((char *, CORE_ADDR,
 					enum minimal_symbol_type, char *,
 					struct objfile *));
@@ -171,7 +171,7 @@ elf_interpreter (abfd)
 
 #endif
 
-static void
+static struct minimal_symbol *
 record_minimal_symbol_and_info (name, address, ms_type, info, objfile)
      char *name;
      CORE_ADDR address;
@@ -206,8 +206,8 @@ record_minimal_symbol_and_info (name, address, ms_type, info, objfile)
     }
 
   name = obsavestring (name, strlen (name), &objfile -> symbol_obstack);
-  prim_record_minimal_symbol_and_info (name, address, ms_type, info, section,
-				       objfile);
+  return prim_record_minimal_symbol_and_info
+    (name, address, ms_type, info, section, objfile);
 }
 
 /*
@@ -258,6 +258,10 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
   /* If filesym is nonzero, it points to a file symbol, but we haven't
      seen any section info for it yet.  */
   asymbol *filesym = 0;
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+  /* Name of filesym, as saved on the symbol_obstack.  */
+  char *filesymname = obsavestring ("", 0, &objfile->symbol_obstack);
+#endif
   struct dbx_symfile_info *dbx = (struct dbx_symfile_info *)
 				 objfile->sym_stab_info;
   unsigned long size;
@@ -300,13 +304,39 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 	      continue;
 	    }
 
+	  if (sym -> section == &bfd_und_section
+	      && (sym -> flags & BSF_FUNCTION))
+	    {
+	      struct minimal_symbol *msym;
+
+	      /* Symbol is a reference to a function defined in
+		 a shared library.
+		 If its value is non zero then it is usually the address
+		 of the corresponding entry in the procedure linkage table,
+		 relative to the base address.
+		 If its value is zero then the dynamic linker has to resolve
+		 the symbol. We are unable to find any meaningful address
+		 for this symbol in the executable file, so we skip it.
+		 Irix 5 has a zero value for all shared library functions
+		 in the main symbol table, but the dynamic symbol table
+		 provides the right values.  */
+	      symaddr = sym -> value;
+	      if (symaddr == 0)
+		continue;
+	      symaddr += addr;
+	      msym = record_minimal_symbol_and_info
+		((char *) sym -> name, symaddr,
+		mst_solib_trampoline, NULL, objfile);
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+	      msym->filename = filesymname;
+#endif
+	      continue;
+	    }
+
 	  /* If it is a nonstripped executable, do not enter dynamic
 	     symbols, as the dynamic symbol table is usually a subset
-	     of the main symbol table.
-	     On Irix 5 however, the symbols for the procedure linkage
-	     table entries have meaningful values only in the dynamic
-	     symbol table, so we always examine undefined symbols.  */
-	  if (dynamic && !stripped && sym -> section != &bfd_und_section)
+	     of the main symbol table.  */
+	  if (dynamic && !stripped)
 	    continue;
 	  if (sym -> flags & BSF_FILE)
 	    {
@@ -319,9 +349,16 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 		  sectinfo = NULL;
 		}
 	      filesym = sym;
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+	      filesymname =
+		obsavestring ((char *)filesym->name, strlen (filesym->name),
+			      &objfile->symbol_obstack);
+#endif
 	    }
 	  else if (sym -> flags & (BSF_GLOBAL | BSF_LOCAL | BSF_WEAK))
 	    {
+	      struct minimal_symbol *msym;
+
 	      /* Select global/local/weak symbols.  Note that bfd puts abs
 		 symbols in their own section, so all symbols we are
 		 interested in will have a section. */
@@ -335,29 +372,7 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 	      /* For non-absolute symbols, use the type of the section
 		 they are relative to, to intuit text/data.  Bfd provides
 		 no way of figuring this out for absolute symbols. */
-	      if (sym -> section == &bfd_und_section
-		  && (sym -> flags & BSF_GLOBAL)
-		  && (sym -> flags & BSF_FUNCTION))
-		{
-		  /* Symbol is a reference to a function defined in
-		     a shared library.
-		     If its value is non zero then it is usually the
-		     absolute address of the corresponding entry in
-		     the procedure linkage table.
-		     If its value is zero then the dynamic linker has to
-		     resolve the symbol. We are unable to find any
-		     meaningful address for this symbol in the
-		     executable file, so we skip it.
-		     Irix 5 has a zero value for all shared library functions
-		     in the main symbol table, but the dynamic symbol table
-		     provides the right values.  */
-		  ms_type = mst_solib_trampoline;
-		  symaddr = sym -> value;
-		  if (symaddr == 0)
-		    continue;
-		  symaddr += addr;
-		}
-	      else if (sym -> section == &bfd_abs_section)
+	      if (sym -> section == &bfd_abs_section)
 		{
 		  /* This is a hack to get the minimal symbol type
 		     right for Irix 5, which has absolute adresses
@@ -499,8 +514,12 @@ elf_symtab_read (abfd, addr, objfile, dynamic)
 		}
 	      /* Pass symbol size field in via BFD.  FIXME!!!  */
 	      size = ((elf_symbol_type *) sym) -> internal_elf_sym.st_size;
-	      record_minimal_symbol_and_info ((char *) sym -> name, symaddr,
-					      ms_type, (PTR) size, objfile);
+	      msym = record_minimal_symbol_and_info
+		((char *) sym -> name, symaddr,
+		 ms_type, (PTR) size, objfile);
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+	      msym->filename = filesymname;
+#endif
 	    }
 	}
       do_cleanups (back_to);

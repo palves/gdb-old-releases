@@ -39,10 +39,10 @@ foreach i "b br bre brea" {
     gdb_test $i "No default breakpoint address now." "break \"$i\" abbreviation"
 	}
 
-setup_xfail "mips-idt-*" "a29k-*-udi"
+setup_xfail "mips-idt-*" "a29k-*-udi" "h8300-*-hms"
 gdb_test "backtrace" "No stack."
 foreach i "bt ba bac" {
-    setup_xfail "mips-idt-*" "a29k-*-udi"
+    setup_xfail "mips-idt-*" "a29k-*-udi" "h8300-*-hms"
     gdb_test $i "No stack." "backtrace \"$i\" abbreviation"
 }
 
@@ -196,6 +196,10 @@ gdb_test "detach" ""
 
 # FIXME: continue kills the udi connection
 if [istarget "a29k-*-udi"] then {
+    gdb_exit
+    gdb_start
+}
+if [istarget "h8300-*-hms"] then {
     gdb_exit
     gdb_start
 }
@@ -941,7 +945,9 @@ expect {
 
 
 #test load
-#the ``takes a file name'' case is for vxgdb
+# The ``takes a file name'' case is for vxgdb.
+# The ``Use the "file" command'' case is for newer GDB versions which try
+# to deduce the filename from the exec file.
 send "load\n"
 expect {
 	-re "You can't do that when your target is `None'.*$prompt $"\
@@ -949,6 +955,8 @@ expect {
 	-re "The load command takes a file name.*$prompt $"\
 			{ pass "load" }
 	-re "Must specify at least a file name with the load command.*$prompt $"\
+			{ pass "load" }
+	-re "Use the .file. or .exec-file. command.*$prompt $"\
 			{ pass "load" }
 	-re ".*$prompt $"	{ fail "load" }
 	timeout		{ fail "(timeout) load" }
@@ -1134,10 +1142,16 @@ expect {
 
 
 #test return
+# The middle case accommodates the a29k, where doing the "ni" above causes
+# an initial stack to be created.
 send "return\n"
 expect {
 	-re "No selected frame..*$prompt $"\
 			{ pass "return" }
+	-re "Make .* return now.*y or n. $" {
+	    send "y\n"
+	    exp_continue
+	}
 	-re ".*$prompt $"	{ fail "return" }
 	timeout		{ fail "(timeout) return" }
 	}

@@ -94,7 +94,7 @@ GDBFLAGS = -nx
 
 #### host, target, and site specific Makefile frags come in here.
 
-EXECUTABLES = misc cplusfuncs virtfunc templates
+EXECUTABLES = misc cplusfuncs virtfunc templates templ-info.exp
 
 all:	$(EXECUTABLES)
 
@@ -116,8 +116,14 @@ virtfunc: virtfunc.o
 virtfunc.o: virtfunc.cc
 	$(CXX) $(CXXFLAGS) -c $(srcdir)/virtfunc.cc
 
-templates: templates.o
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o templates templates.o $(LIBS)
+# We want to make sure templ-info.exp reflects the way that templates was
+# compiled; that's why this isn't a separate rule.
+
+templates templ-info.exp: templates.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o templates.tmp templates.o $(LIBS)
+	$(CXX) $(CXXFLAGS) -E $(srcdir)/templ-info.cc >templ-info.tmp
+	mv templ-info.tmp templ-info.exp
+	mv templates.tmp templates
 
 templates.o: templates.cc
 	$(CXX) $(CXXFLAGS) -c $(srcdir)/templates.cc

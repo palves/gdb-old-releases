@@ -182,21 +182,6 @@ chill_printstr (stream, string, length, force_ellipses)
     }
 }
 
-/* Return 1 if TYPE is a varying string or array. */
-
-int
-chill_is_varying_struct (type)
-     struct type *type;
-{
-  if (TYPE_CODE (type) != TYPE_CODE_STRUCT)
-    return 0;
-  if (TYPE_NFIELDS (type) != 2)
-    return 0;
-  if (strcmp (TYPE_FIELD_NAME (type, 0), "__var_length") != 0)
-    return 0;
-  return 1;
-}
-
 static struct type *
 chill_create_fundamental_type (objfile, typeid)
      struct objfile *objfile;
@@ -280,6 +265,8 @@ static const struct op_print chill_op_print_tab[] = {
     {"/",   BINOP_DIV, PREC_MUL, 0},
     {"//",  BINOP_CONCAT, PREC_PREFIX, 0},	/* FIXME: precedence? */
     {"-",   UNOP_NEG, PREC_PREFIX, 0},
+    {"->",  UNOP_IND, PREC_SUFFIX, 1},
+    {"->",  UNOP_ADDR, PREC_PREFIX, 0},
     {NULL,  0, 0, 0}
 };
 
@@ -316,12 +303,14 @@ const struct language_defn chill_language_defn = {
   chill_print_type,		/* Print a type using appropriate syntax */
   chill_val_print,		/* Print a value using appropriate syntax */
   chill_value_print,		/* Print a top-levl value */
-  &builtin_type_chill_real,	/* longest floating point type */
   {"",      "B'",  "",   ""},	/* Binary format info */
   {"O'%lo",  "O'",  "o",  ""},	/* Octal format info */
   {"D'%ld",  "D'",  "d",  ""},	/* Decimal format info */
   {"H'%lx",  "H'",  "x",  ""},	/* Hex format info */
   chill_op_print_tab,		/* expression operators for printing */
+  0,				/* arrays are first-class (not c-style) */
+  0,				/* String lower bound */
+  &builtin_type_chill_char,	/* Type of string elements */ 
   LANG_MAGIC
 };
 

@@ -34,13 +34,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "demangle.h"
 #include <sys/file.h>
 
-/* Size of n_value and n_strx fields in a stab symbol.  */
-#define BYTES_IN_WORD 4
-
-#if 0
-#include "aout/aout64.h"
-#endif
-
 /* Various things we might complain about... */
 
 static void
@@ -56,7 +49,8 @@ static void
 som_symfile_finish PARAMS ((struct objfile *));
 
 static void
-som_symtab_read PARAMS ((bfd *,  CORE_ADDR, struct objfile *));
+som_symtab_read PARAMS ((bfd *, struct objfile *,
+			 struct section_offsets *));
 
 static struct section_offsets *
 som_symfile_offsets PARAMS ((struct objfile *, CORE_ADDR));
@@ -85,8 +79,8 @@ LOCAL FUNCTION
 
 SYNOPSIS
 
-	void som_symtab_read (bfd *abfd, CORE_ADDR addr,
-			      struct objfile *objfile)
+	void som_symtab_read (bfd *abfd, struct objfile *objfile,
+			      struct section_offsets *section_offsets)
 
 DESCRIPTION
 
@@ -97,10 +91,10 @@ DESCRIPTION
 */
 
 static void
-som_symtab_read (abfd, addr, objfile)
+som_symtab_read (abfd, objfile, section_offsets)
      bfd *abfd;
-     CORE_ADDR addr;
      struct objfile *objfile;
+     struct section_offsets *section_offsets;
 {
   unsigned int number_of_symbols;
   int val, dynamic;
@@ -109,6 +103,11 @@ som_symtab_read (abfd, addr, objfile)
   struct symbol_dictionary_record *buf, *bufp, *endbufp;
   char *symname;
   CONST int symsize = sizeof (struct symbol_dictionary_record);
+  CORE_ADDR text_offset, data_offset;
+
+
+  text_offset = ANOFFSET (section_offsets, 0);
+  data_offset = ANOFFSET (section_offsets, 1);
 
   number_of_symbols = bfd_get_symcount (abfd);
 
@@ -159,6 +158,7 @@ som_symtab_read (abfd, addr, objfile)
 	    case ST_MILLICODE:
 	      symname = bufp->name.n_strx + stringtab;
 	      ms_type = mst_text;
+	      bufp->symbol_value += text_offset;
 #ifdef SMASH_TEXT_ADDRESS
 	      SMASH_TEXT_ADDRESS (bufp->symbol_value);
 #endif
@@ -173,6 +173,7 @@ som_symtab_read (abfd, addr, objfile)
 		ms_type = mst_solib_trampoline;
 	      else
 		ms_type = mst_text;
+	      bufp->symbol_value += text_offset;
 #ifdef SMASH_TEXT_ADDRESS
 	      SMASH_TEXT_ADDRESS (bufp->symbol_value);
 #endif
@@ -181,6 +182,7 @@ som_symtab_read (abfd, addr, objfile)
 	    case ST_STUB:
 	      symname = bufp->name.n_strx + stringtab;
 	      ms_type = mst_solib_trampoline;
+	      bufp->symbol_value += text_offset;
 #ifdef SMASH_TEXT_ADDRESS
 	      SMASH_TEXT_ADDRESS (bufp->symbol_value);
 #endif
@@ -188,6 +190,7 @@ som_symtab_read (abfd, addr, objfile)
 
 	    case ST_DATA:
 	      symname = bufp->name.n_strx + stringtab;
+	      bufp->symbol_value += data_offset;
 	      ms_type = mst_data;
 	      break;
 	    default:
@@ -209,6 +212,7 @@ som_symtab_read (abfd, addr, objfile)
 	    case ST_CODE:
 	      symname = bufp->name.n_strx + stringtab;
 	      ms_type = mst_file_text;
+	      bufp->symbol_value += text_offset;
 #ifdef SMASH_TEXT_ADDRESS
 	      SMASH_TEXT_ADDRESS (bufp->symbol_value);
 #endif
@@ -234,6 +238,7 @@ som_symtab_read (abfd, addr, objfile)
 	    case ST_MILLICODE:
 	      symname = bufp->name.n_strx + stringtab;
 	      ms_type = mst_file_text;
+	      bufp->symbol_value += text_offset;
 #ifdef SMASH_TEXT_ADDRESS
 	      SMASH_TEXT_ADDRESS (bufp->symbol_value);
 #endif
@@ -248,6 +253,7 @@ som_symtab_read (abfd, addr, objfile)
 		ms_type = mst_solib_trampoline;
 	      else
 		ms_type = mst_file_text;
+	      bufp->symbol_value += text_offset;
 #ifdef SMASH_TEXT_ADDRESS
 	      SMASH_TEXT_ADDRESS (bufp->symbol_value);
 #endif
@@ -256,6 +262,7 @@ som_symtab_read (abfd, addr, objfile)
 	    case ST_STUB:
 	      symname = bufp->name.n_strx + stringtab;
 	      ms_type = mst_solib_trampoline;
+	      bufp->symbol_value += text_offset;
 #ifdef SMASH_TEXT_ADDRESS
 	      SMASH_TEXT_ADDRESS (bufp->symbol_value);
 #endif
@@ -264,6 +271,7 @@ som_symtab_read (abfd, addr, objfile)
 
 	    case ST_DATA:
 	      symname = bufp->name.n_strx + stringtab;
+	      bufp->symbol_value += data_offset;
 	      ms_type = mst_file_data;
 	      goto check_strange_names;
 
@@ -323,27 +331,27 @@ som_symfile_read (objfile, section_offsets, mainline)
 {
   bfd *abfd = objfile->obfd;
   struct cleanup *back_to;
-  CORE_ADDR offset;
 
   init_minimal_symbol_collection ();
   back_to = make_cleanup (discard_minimal_symbols, 0);
 
-  /* FIXME, should take a section_offsets param, not just an offset.  */
-
-  offset = ANOFFSET (section_offsets, 0);
-
   /* Process the normal SOM symbol table first. */
 
-  som_symtab_read (abfd, offset, objfile);
+  som_symtab_read (abfd, objfile, section_offsets);
 
-  /* Now read information from the debugging sections.  */
+  /* Now read information from the stabs debug sections.  */
   stabsect_build_psymtabs (objfile, section_offsets, mainline,
 			   "$GDB_SYMBOLS$", "$GDB_STRINGS$", "$TEXT$");
+
+  /* Now read the native debug information.  */
+  hpread_build_psymtabs (objfile, section_offsets, mainline);
 
   /* Install any minimal symbols that have been collected as the current
      minimal symbols for this objfile.  */
   install_minimal_symbols (objfile);
 
+  /* Force hppa-tdep.c to re-read the unwind descriptors.  */
+  objfile->obj_private = NULL;
   do_cleanups (back_to);
 }
 
@@ -374,15 +382,17 @@ som_symfile_finish (objfile)
     {
       mfree (objfile -> md, objfile -> sym_stab_info);
     }
+  hpread_symfile_finish (objfile);
 }
 
 /* SOM specific initialization routine for reading symbols.
 
    Nothing SOM specific left to do anymore.  */
 static void
-som_symfile_init (ignore)
-     struct objfile *ignore;
+som_symfile_init (objfile)
+     struct objfile *objfile;
 {
+  hpread_symfile_init (objfile);
 }
 
 /* SOM specific parsing routine for section offsets.
@@ -403,8 +413,13 @@ som_symfile_offsets (objfile, addr)
 		   sizeof (struct section_offsets)
 		   + sizeof (section_offsets->offsets) * (SECT_OFF_MAX-1));
 
-  for (i = 0; i < SECT_OFF_MAX; i++)
-    ANOFFSET (section_offsets, i) = addr;
+  /* First see if we're a shared library.  If so, get the section
+     offsets from the library, else get them from addr.  */
+  if (!som_solib_section_offsets (objfile, section_offsets))
+    {
+      for (i = 0; i < SECT_OFF_MAX; i++)
+	ANOFFSET (section_offsets, i) = addr;
+    }
 
   return section_offsets;
 }

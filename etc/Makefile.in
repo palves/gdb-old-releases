@@ -51,7 +51,7 @@ uninstall:
 
 info: $(INFOFILES)
 
-install-info:
+install-info: info
 	if test ! -f configure.info ; then cd $(srcdir); fi; \
 	for i in configure.info* standards.info* cfg-paper.info*; do \
 	  $(INSTALL_DATA) $$i $(infodir)/$$i; \
@@ -91,7 +91,7 @@ realclean:   distclean
 	rm -f *.info*
 
 Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
-	./config.status
+	$(SHELL) ./config.status
 
 ## these last targets are for standards.texi conformance
 dist:

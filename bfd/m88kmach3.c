@@ -17,10 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#ifndef MACH
-#define MACH
-#endif
-
 #define	PAGE_SIZE	(4096*2)
 #define SEGMENT_SIZE	0x20000
 #define TEXT_START_ADDR	0

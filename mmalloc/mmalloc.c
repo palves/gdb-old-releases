@@ -24,7 +24,7 @@ Cambridge, MA 02139, USA.
 
 #include <string.h>	/* Prototypes for memcpy, memmove, memset, etc */
 
-#include "mmalloc.h"
+#include "mmprivate.h"
 
 /* Prototypes for local functions */
 

@@ -106,7 +106,8 @@ chill_type_print_base (type, stream, show, level)
       case TYPE_CODE_PTR:
 	if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_VOID)
 	  {
-	    fprintf_filtered (stream, "PTR");
+	    fprintf_filtered (stream,
+			      TYPE_NAME (type) ? TYPE_NAME (type) : "PTR");
 	    break;
 	  }
 	fprintf_filtered (stream, "REF ");
@@ -118,7 +119,8 @@ chill_type_print_base (type, stream, show, level)
 	   anyone ever fixes the compiler to give us the real names
 	   in the presence of the chill equivalent of typedef (assuming
 	   there is one).  */
-	fprintf_filtered (stream, "BOOL");
+	fprintf_filtered (stream,
+			  TYPE_NAME (type) ? TYPE_NAME (type) : "BOOL");
 	break;
 
       case TYPE_CODE_ARRAY:
@@ -141,7 +143,7 @@ chill_type_print_base (type, stream, show, level)
 
       case TYPE_CODE_SET:
         fputs_filtered ("POWERSET ", stream);
-	chill_print_type (TYPE_FIELD_TYPE (type, 0), "", stream,
+	chill_print_type (TYPE_INDEX_TYPE (type), "", stream,
 			  show - 1, level);
 	break;
 
@@ -164,11 +166,16 @@ chill_type_print_base (type, stream, show, level)
 	break;
       case TYPE_CODE_FUNC:
 	fprintf_filtered (stream, "PROC (?)");
-        chill_type_print_base (TYPE_TARGET_TYPE (type), stream, show, level);
+	if (TYPE_CODE (TYPE_TARGET_TYPE (type)) != TYPE_CODE_VOID)
+	  {
+	    fputs_filtered (" RETURNS (", stream);
+	    chill_type_print_base (TYPE_TARGET_TYPE (type), stream, show, level);
+	    fputs_filtered (")", stream);
+	  }
 	break;
 
       case TYPE_CODE_STRUCT:
-	if (chill_is_varying_struct (type))
+	if (chill_varying_type (type))
 	  {
 	    chill_type_print_base (TYPE_FIELD_TYPE (type, 1),
 				   stream, show, level);
@@ -243,25 +250,23 @@ chill_type_print_base (type, stream, show, level)
 	break;
 
       case TYPE_CODE_RANGE:
-	if (TYPE_DUMMY_RANGE (type))
-	  chill_type_print_base (TYPE_TARGET_TYPE (type),
-				 stream, show, level);
-	else if (TYPE_TARGET_TYPE (type))
+	if (TYPE_DUMMY_RANGE (type) > 0)
+	  chill_type_print_base (TYPE_TARGET_TYPE (type), stream, show, level);
+	else
 	  {
-	    chill_type_print_base (TYPE_TARGET_TYPE (type),
-				   stream, show, level);
+	    struct type *target = TYPE_TARGET_TYPE (type);
+	    if (target && TYPE_NAME (target))
+	      fputs_filtered (TYPE_NAME (target), stream);
+	    else
+	      fputs_filtered ("RANGE", stream);
+	    if (target == NULL)
+	      target = builtin_type_long;
 	    fputs_filtered (" (", stream);
-	    print_type_scalar (TYPE_TARGET_TYPE (type),
-			       TYPE_FIELD_BITPOS (type, 0), stream);
+	    print_type_scalar (target, TYPE_LOW_BOUND (type), stream);
 	    fputs_filtered (":", stream);
-	    print_type_scalar (TYPE_TARGET_TYPE (type),
-			       TYPE_FIELD_BITPOS (type, 1), stream);
+	    print_type_scalar (target, TYPE_HIGH_BOUND (type), stream);
 	    fputs_filtered (")", stream);
 	  }
-	else
-	  fprintf_filtered (stream, "RANGE? (%s : %d)",
-			    TYPE_FIELD_BITPOS (type, 0),
-			    TYPE_FIELD_BITPOS (type, 1));
 	break;
 
       case TYPE_CODE_ENUM:

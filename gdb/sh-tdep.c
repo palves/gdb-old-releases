@@ -34,7 +34,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 
-
 /* Prologue looks like
    [mov.l	<regs>,@-r15]...
    [sts.l	pr,@-r15]
@@ -47,21 +46,26 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define GET_PUSHED_REG(x)  	(((x) >> 4) & 0xf)
 #define IS_MOV_SP_FP(x)  	((x) == 0x6ef3)
 #define IS_ADD_SP(x) 		(((x) & 0xff00) == 0x7f00)
-
+#define IS_MOV_R3(x) 		(((x) & 0xff00) == 0x1a00)
+#define IS_SHLL_R3(x)		((x) == 0x4300)
+#define IS_ADD_R3SP(x)		((x) == 0x3f3c)
 
 /* Skip any prologue before the guts of a function */
 
 CORE_ADDR
 sh_skip_prologue (start_pc)
      CORE_ADDR start_pc;
-
 {
   int w;
 
   w = read_memory_integer (start_pc, 2);
   while (IS_STS (w)
 	 || IS_PUSH (w)
-	 || IS_MOV_SP_FP (w))
+	 || IS_MOV_SP_FP (w)
+	 || IS_MOV_R3 (w)
+	 || IS_ADD_R3SP (w)
+	 || IS_ADD_SP (w)
+	 || IS_SHLL_R3 (w))
     {
       start_pc += 2;
       w = read_memory_integer (start_pc, 2);
@@ -70,16 +74,17 @@ sh_skip_prologue (start_pc)
   return start_pc;
 }
 
-/* Disassemble an instruction */
+/* Disassemble an instruction.  */
 
 int
-print_insn (memaddr, stream)
-     CORE_ADDR memaddr;
-     GDB_FILE *stream;
+gdb_print_insn_sh (memaddr, info)
+     bfd_vma memaddr;
+     disassemble_info *info;
 {
-  disassemble_info info;
-  GDB_INIT_DISASSEMBLE_INFO (info, stream);
-  return print_insn_sh (memaddr, &info);
+  if (TARGET_BYTE_ORDER == BIG_ENDIAN)
+    return print_insn_sh (memaddr, info);
+  else
+    return print_insn_shl (memaddr, info);
 }
 
 /* Given a GDB frame, determine the address of the calling function's frame.
@@ -89,12 +94,12 @@ print_insn (memaddr, stream)
    For us, the frame address is its stack pointer value, so we look up
    the function prologue to determine the caller's sp value, and return it.  */
 
-FRAME_ADDR
-sh_frame_chain (thisframe)
-     FRAME thisframe;
+CORE_ADDR
+sh_frame_chain (frame)
+     struct frame_info *frame;
 {
-  if (!inside_entry_file (thisframe->pc))
-    return (read_memory_integer (FRAME_FP (thisframe), 4));
+  if (!inside_entry_file (frame->pc))
+    return read_memory_integer (FRAME_FP (frame) + frame->f_offset, 4);
   else
     return 0;
 }
@@ -118,10 +123,15 @@ frame_find_saved_regs (fi, fsr)
   int pc;
   int opc;
   int insn;
+  int hadf;
+  int r3_val = 0;
 
   opc = pc = get_pc_function_start (fi->pc);
 
   insn = read_memory_integer (pc, 2);
+
+  fi->leaf_function = 1;
+  fi->f_offset = 0;
 
   for (rn = 0; rn < NUM_REGS; rn++)
     where[rn] = -1;
@@ -146,7 +156,27 @@ frame_find_saved_regs (fi, fsr)
 	  pc += 2;
 	  where[PR_REGNUM] = depth;
 	  insn = read_memory_integer (pc, 2);
+	  /* If we're storing the pr then this isn't a leaf */
+	  fi->leaf_function = 0;
 	  depth += 4;
+	}
+      else if (IS_MOV_R3 (insn))
+	{
+	  r3_val = (char) (insn & 0xff);
+	  pc += 2;
+	  insn = read_memory_integer (pc, 2);
+	}
+      else if (IS_SHLL_R3 (insn))
+	{
+	  r3_val <<= 1;
+	  pc += 2;
+	  insn = read_memory_integer (pc, 2);
+	}
+      else if (IS_ADD_R3SP (insn))
+	{
+	  depth += -r3_val;
+	  pc += 2;
+	  insn = read_memory_integer (pc, 2);
 	}
       else if (IS_ADD_SP (insn))
 	{
@@ -184,17 +214,25 @@ frame_find_saved_regs (fi, fsr)
       fsr->regs[SP_REGNUM] = fi->frame - 4;
     }
 
-
+  fi->f_offset = depth - where[FP_REGNUM] - 4;
   /* Work out the return pc - either from the saved pr or the pr
      value */
-
-  if (fsr->regs[PR_REGNUM])
+  /* Just called, so dig out the real return */
+  if (fi->return_pc == 0)
     {
-      fi->return_pc = read_memory_integer (fsr->regs[PR_REGNUM], 4) + 4;
+      fi->return_pc = read_register (PR_REGNUM) + 4;
     }
   else
     {
-      fi->return_pc = read_register (PR_REGNUM) + 4;
+
+      if (fsr->regs[PR_REGNUM])
+	{
+	  fi->return_pc = read_memory_integer (fsr->regs[PR_REGNUM], 4) + 4;
+	}
+      else
+	{
+	  fi->return_pc = read_register (PR_REGNUM) + 4;
+	}
     }
 }
 
@@ -216,15 +254,13 @@ init_extra_frame_info (fromleaf, fi)
 void
 pop_frame ()
 {
-  register FRAME frame = get_current_frame ();
+  register struct frame_info *frame = get_current_frame ();
   register CORE_ADDR fp;
   register int regnum;
   struct frame_saved_regs fsr;
-  struct frame_info *fi;
 
-  fi = get_frame_info (frame);
-  fp = fi->frame;
-  get_frame_saved_regs (fi, &fsr);
+  fp = FRAME_FP (frame);
+  get_frame_saved_regs (frame, &fsr);
 
   /* Copy regs from where they were saved in the frame */
   for (regnum = 0; regnum < NUM_REGS; regnum++)
@@ -235,44 +271,43 @@ pop_frame ()
 	}
     }
 
-  write_register (PC_REGNUM, fi->return_pc);
+  write_register (PC_REGNUM, frame->return_pc);
   write_register (SP_REGNUM, fp + 4);
   flush_cached_frames ();
-  set_current_frame (create_new_frame (read_register (FP_REGNUM),
-				       read_pc ()));
 }
 
 /* Print the registers in a form similar to the E7000 */
+
 static void
 show_regs (args, from_tty)
-char *args;
-int from_tty;
+     char *args;
+     int from_tty;
 {
-  printf_filtered("PC=%08x SR=%08x PR=%08x MACH=%08x MACHL=%08x\n",
-		  read_register(PC_REGNUM),
-		  read_register(SR_REGNUM),
-		  read_register(PR_REGNUM),
-		  read_register(MACH_REGNUM),
-		  read_register(MACL_REGNUM));
+  printf_filtered ("PC=%08x SR=%08x PR=%08x MACH=%08x MACHL=%08x\n",
+		   read_register (PC_REGNUM),
+		   read_register (SR_REGNUM),
+		   read_register (PR_REGNUM),
+		   read_register (MACH_REGNUM),
+		   read_register (MACL_REGNUM));
 
-  printf_filtered("R0-R7  %08x %08x %08x %08x %08x %08x %08x %08x\n",
-		  read_register(0),
-		  read_register(1),
-		  read_register(2),
-		  read_register(3),
-		  read_register(4),
-		  read_register(5),
-		  read_register(6),
-		  read_register(7));
-  printf_filtered("R8-R15 %08x %08x %08x %08x %08x %08x %08x %08x\n",
-		  read_register(8),
-		  read_register(9),
-		  read_register(10),
-		  read_register(11),
-		  read_register(12),
-		  read_register(13),
-		  read_register(14),
-		  read_register(15));
+  printf_filtered ("R0-R7  %08x %08x %08x %08x %08x %08x %08x %08x\n",
+		   read_register (0),
+		   read_register (1),
+		   read_register (2),
+		   read_register (3),
+		   read_register (4),
+		   read_register (5),
+		   read_register (6),
+		   read_register (7));
+  printf_filtered ("R8-R15 %08x %08x %08x %08x %08x %08x %08x %08x\n",
+		   read_register (8),
+		   read_register (9),
+		   read_register (10),
+		   read_register (11),
+		   read_register (12),
+		   read_register (13),
+		   read_register (14),
+		   read_register (15));
 }
 
 
@@ -280,6 +315,9 @@ void
 _initialize_sh_tdep ()
 {
   extern int sim_memory_size;
+
+  tm_print_insn = gdb_print_insn_sh;
+
   /* FIXME, there should be a way to make a CORE_ADDR variable settable. */
   add_show_from_set
     (add_set_cmd ("memory_size", class_support, var_uinteger,
@@ -287,5 +325,5 @@ _initialize_sh_tdep ()
 		"Set simulated memory size of simulator target.", &setlist),
      &showlist);
 
-  add_com("regs", class_vars, show_regs, "Print all registers");
+  add_com ("regs", class_vars, show_regs, "Print all registers");
 }

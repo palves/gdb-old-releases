@@ -1,4 +1,4 @@
-This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
+This is Info file ./gdb.info, produced by Makeinfo-1.55 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
@@ -7,10 +7,10 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.13.
+Source-Level Debugger' for GDB Version 4.14.
 
-   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
-Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
+Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -178,7 +178,7 @@ kinds of information about the process running your program.
      Show all the above information about the process.
 
 
-File: gdb.info,  Node: Threads,  Prev: Process Information,  Up: Running
+File: gdb.info,  Node: Threads,  Next: Processes,  Prev: Process Information,  Up: Running
 
 Debugging programs with multiple threads
 ========================================
@@ -282,6 +282,30 @@ with multiple threads.
 watchpoints in programs with multiple threads.
 
 
+File: gdb.info,  Node: Processes,  Prev: Threads,  Up: Running
+
+Debugging programs with multiple processes
+==========================================
+
+   GDB has no special support for debugging programs which create
+additional processes using the `fork' function.  When a program forks,
+GDB will continue to debug the parent process and the child process
+will run unimpeded.  If you have set a breakpoint in any code which the
+child then executes, the child will get a `SIGTRAP' signal which
+(unless it catches the signal) will cause it to terminate.
+
+   However, if you want to debug the child process there is a workaround
+which isn't too painful.  Put a call to `sleep' in the code which the
+child process executes after the fork.  It may be useful to sleep only
+if a certain environment variable is set, or a certain file exists, so
+that the delay need not occur when you don't want to run GDB on the
+child.  While the child is sleeping, use the `ps' program to get its
+process ID.  Then tell GDB (a new invocation of GDB if you are also
+debugging the parent process) to attach to the child process (see *Note
+Attach::).  From that point on you can debug the child process just
+like any other process which you attached to.
+
+
 File: gdb.info,  Node: Stopping,  Next: Stack,  Prev: Running,  Up: Top
 
 Stopping and Continuing
@@ -307,7 +331,6 @@ any time.
 
 
 * Breakpoints::                 Breakpoints, watchpoints, and exceptions
-
 
 * Continuing and Stepping::     Resuming execution
 
@@ -544,6 +567,10 @@ this may happen.
    Watchpoints currently execute two orders of magnitude more slowly
 than other breakpoints, but this can be well worth it to catch errors
 where you have no clue what part of your program is the culprit.
+
+   Some processors provide special hardware to support watchpoint
+evaluation; GDB will use such hardware if it is available, and if the
+support code has been added for that configuration.
 
 `watch EXPR'
      Set a watchpoint for an expression.

@@ -541,3 +541,223 @@ tm_write_byte (x, y)
   x &= 0x3f00ffff;
   sim_write_byte (&the_state, x, y);
 }
+
+#define SIGN(x) ((x) & MASK)
+normal_flags_32(context,d,sa,sb,sub)
+sim_state_type *context;
+unsigned int d;
+unsigned int sa;
+unsigned int sb;
+unsigned int sub;
+{
+#define MASK (1<<31)
+  context->broken_flags = 0;	
+  if (sub)                        
+    PSW_CARRY = sa < sb; 		
+  else 				
+    PSW_CARRY = d < sa; 		
+  if (sub)
+    PSW_OVERFLOW = (SIGN(sa) != SIGN(sb)) && (SIGN(d) == SIGN(sb));
+  else
+    PSW_OVERFLOW = (SIGN(sa) == SIGN(sb)) && (SIGN(d) != SIGN(sb));
+
+  PSW_SIGN = ((int)d) <0; 
+  PSW_ZERO = d == 0;
+}
+
+normal_flags_16(context,d,sal,sbl,sub)
+sim_state_type *context;
+unsigned short int d;
+unsigned  int sal;
+unsigned  int sbl;
+unsigned short int sub;
+{
+unsigned short sa = sal;
+unsigned short sb = sbl;
+#define MASK (1<<15)
+  context->broken_flags = 0;	
+  if (sub)                        
+    PSW_CARRY = sal < sbl; 		
+  else 				
+    PSW_CARRY = d < sa; 		
+
+  if (sub)
+    PSW_OVERFLOW = (SIGN(sa) != SIGN(sb)) && (SIGN(d) == SIGN(sb));
+  else
+    PSW_OVERFLOW = (SIGN(sa) == SIGN(sb)) && (SIGN(d) != SIGN(sb));
+
+  PSW_SIGN = ((short int)d) <0; 
+  PSW_ZERO = d == 0;
+}
+
+normal_flags_8(context,d,sa,sb,sub)
+sim_state_type *context;
+unsigned char d;
+unsigned char sa;
+unsigned char sb;
+unsigned char sub;
+{
+#define MASK (1<<7)
+  context->broken_flags = 0;	
+  if (sub)                        
+    PSW_CARRY = sa < sb; 		
+  else 				
+    PSW_CARRY = d < sa; 		
+  if (sub)
+    PSW_OVERFLOW = (SIGN(sa) != SIGN(sb)) && (SIGN(d) == SIGN(sb));
+  else
+    PSW_OVERFLOW = (SIGN(sa) == SIGN(sb)) && (SIGN(d) != SIGN(sb));
+  PSW_SIGN = ((char)d) <0; 
+  PSW_ZERO = d == 0;
+}
+
+
+static int
+is_cond_true (context, c)
+     sim_state_type *context;
+     int c;
+{
+  switch (c)
+    {
+    case T:
+      return 1;
+    case F:
+      return 0;			/* F */
+    case LE:
+      return (PSW_ZERO | (PSW_SIGN ^ PSW_OVERFLOW)) & 1;	/*LE */
+    case GT:
+      return (~(PSW_ZERO | (PSW_SIGN ^ PSW_OVERFLOW))) & 1;	/*GT */
+    case 0x5:
+      return (PSW_SIGN & 1);	/* sign */
+    case 0xd:
+      return (~(PSW_SIGN)) & 1;	/* not sign */
+    case 0x3:
+      return ((PSW_CARRY | PSW_ZERO) & 1);	/* ule*/
+    case UGT:
+      return ((~(PSW_CARRY | PSW_ZERO)) & 1);	/* ugt */
+    case 0x4:
+      return (PSW_OVERFLOW & 1);/* overflow */
+    case 0xc:
+      return (~(PSW_OVERFLOW)) & 1;	/* not overflow */
+    case LT:
+      return (PSW_SIGN ^ PSW_OVERFLOW) & 1;	/* LT */
+    case GE:
+      return (~(PSW_SIGN ^ PSW_OVERFLOW)) & 1;	/* GE */
+    case EQ:
+      return (PSW_ZERO) & 1;	/* zero */
+    case NE:
+      return ((~PSW_ZERO) & 1);	/* not zero */
+    case 0x7:
+      return (PSW_CARRY) & 1;	/* carry */
+    case 0xf:
+      return (~PSW_CARRY) & 1;	/* not carry */
+    default:
+      abort ();
+    }
+}
+
+int
+COND (context, c)
+     sim_state_type *context;
+     int c;
+{
+  if (c == 8)
+    return 1;
+
+  /* We can calculate what the flags would have been by
+     looking at the src and dst and size of the operation */
+
+  if (context->broken_flags)
+    {
+      int slow = 0;
+      int size;
+      int dst;
+      int srca;
+      int srcb;
+      int mask;
+      int ans;
+
+      /* see if we can short-cut the nasty flag calcs */
+
+      switch (size = context->size)
+	{
+	 default:
+	  abort();
+	  return 0;
+	case 8:
+	  srca = (char) (context->srca);
+	  srcb = (char) (context->srcb);
+	  dst = (char) (context->dst);
+	  mask = 0xff;
+	  break;
+	case 16:
+	  srca = (short) (context->srca);
+	  srcb = (short) (context->srcb);
+	  dst = (short) (context->dst);
+	  mask = 0xffff;
+	  break;
+	case 32:
+	  srca = (long) (context->srca);
+	  srcb = (long) (context->srcb);
+	  dst = (long) (context->dst);
+	  mask = 0xffffffff;
+	  break;
+	}
+
+      switch (c)
+	{
+	case T:
+	  return 1;
+	case F:
+	  return 0;
+	case EQ:
+	  return !dst;
+	case NE:
+	  return dst;
+	case GT:
+	  ans = ((dst)) > 0;
+	  if (slow)
+	    {
+	      if (is_cond_true (context, c) != ans)
+		abort ();
+	    }
+	  return ans;
+	case LE:
+	  ans = ((dst)) <= 0;
+	  if (slow)
+	    {
+	      if (is_cond_true (context, c) != ans)
+		abort ();
+	    }
+	  return ans;
+	case GE:
+	  ans = ((dst)) >= 0;
+	  if (slow)
+	    {
+	      if (is_cond_true (context, c) != ans)
+		abort ();
+	    }
+	  return ans;
+	case LT:
+	  ans = ((dst)) < 0;
+	  if (slow)
+	    {
+	      if (is_cond_true (context, c) != ans)
+		abort ();
+	    }
+	  return ans;
+	default:
+	  break;
+	}
+
+      /* Can't fake it, we'll have to work out the flags the
+         hard way */
+
+      makeflags (context, mask);
+    }
+
+  /* don't know how to fake a test, inspect the flags
+     the hard way */
+
+  return is_cond_true (context, c);
+}

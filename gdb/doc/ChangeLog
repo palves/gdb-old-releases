@@ -1,3 +1,41 @@
+Thu Mar  2 17:03:10 1995  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdb.texinfo: Update copyright dates and versions, fix
+	the mention of hardware watchpoints.
+
+Wed Feb  1 20:26:36 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* stabs.texinfo (Source Files): Document N_SO used to mark the end
+	of a source file.
+
+Mon Jan 23 14:23:37 1995  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdb.texinfo (Processes): New node.
+
+Tue Jan 17 14:09:03 1995  Ian Lance Taylor  <ian@sanguine.cygnus.com>
+
+	* remote.texi: Update documentation of set/show mipsfpu.
+
+
+Sun Sep  4 16:47:21 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* gdbint.texinfo: Removed mentions of some incorrectly placed and
+	obsolete conditionals, described some others.
+
+Mon Aug  1 15:42:39 1994  Jim Kingdon  (kingdon@lioth.cygnus.com)
+
+	* gdbint.texinfo: Remove references to BROKEN_LARGE_ALLOCA and
+	SET_STACK_LIMIT_HUGE; they were removed from GDB 14 May 1994.
+
+Mon Aug  1 15:12:02 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* gdbint.texinfo: Put regex conditionals in their own table.
+
+Tue Jul 26 18:32:52 1994  Stan Shebs  (shebs@andros.cygnus.com)
+
+	* gdbint.texinfo: Removed mentions of many obsolete conditionals,
+	described or fixed the descriptions of many others.
+
 Sun Jul 17 14:14:03 1994  Stan Shebs  (shebs@andros.cygnus.com)
 
 	* gdb.texinfo: Add some more credits.

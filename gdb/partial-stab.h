@@ -80,7 +80,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	      || (namestring [(nsl = strlen (namestring)) - 1] == 'o'
 		  && namestring [nsl - 2] == '.')
 #ifdef GDB_TARGET_IS_HPPA
-              /* some cooperation from gcc to get around ld stupidity */
+              /* This braindamage is necessary for versions of GCC 2.6 and
+		 earlier; it will not be necessary for GCC 2.7.
+
+		 In a nutshell, we need a way to determine when we've hit
+		 the end of a file with debug symbols.  Most ports do this
+		 with a N_SO record with a NULL symbol name (as will GCC 2.7
+		 on the PA).  GCC 2.6 (and earlier) on the PA instead creates
+		 an N_TEXT symbol with the name "end_file."  */
               || (namestring[0] == 'e' && STREQ (namestring, "end_file."))
 #endif
 	      )
@@ -216,6 +223,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	  /* End the current partial symtab and start a new one */
 
 	  SET_NAMESTRING();
+
+	  /* Null name means end of .o file.  Don't start a new one. */
+	  if (*namestring == '\000')
+	    continue;
 
 	  /* Some compilers (including gcc) emit a pair of initial N_SOs.
 	     The first one is a directory name; the second the file name.
@@ -367,6 +378,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 	    {
 	    case 'S':
 	      CUR_SYMBOL_VALUE += ANOFFSET (section_offsets, SECT_OFF_DATA);
+#ifdef STATIC_TRANSFORM_NAME
+	      namestring = STATIC_TRANSFORM_NAME (namestring);
+#endif
 	      ADD_PSYMBOL_ADDR_TO_LIST (namestring, p - namestring,
 					VAR_NAMESPACE, LOC_STATIC,
 					objfile->static_psymbols,
@@ -500,10 +514,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifdef DBXREAD_ONLY
 	      /* Kludges for ELF/STABS with Sun ACC */
 	      last_function_name = namestring;
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
 	      /* Do not fix textlow==0 for .o or NLM files, as 0 is a legit
 		 value for the bottom of the text seg in those cases. */
 	      if (pst && pst->textlow == 0 && !symfile_relocatable)
-		pst->textlow = CUR_SYMBOL_VALUE;
+		pst->textlow =
+		  find_stab_function_addr (namestring, pst, objfile);
+#endif
 #if 0
 	      if (startup_file_end == 0)
 		startup_file_end = CUR_SYMBOL_VALUE;
@@ -524,10 +541,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #ifdef DBXREAD_ONLY
 	      /* Kludges for ELF/STABS with Sun ACC */
 	      last_function_name = namestring;
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
 	      /* Do not fix textlow==0 for .o or NLM files, as 0 is a legit
 		 value for the bottom of the text seg in those cases. */
 	      if (pst && pst->textlow == 0 && !symfile_relocatable)
-		pst->textlow = CUR_SYMBOL_VALUE;
+		pst->textlow =
+		  find_stab_function_addr (namestring, pst, objfile);
+#endif
 #if 0
 	      if (startup_file_end == 0)
 		startup_file_end = CUR_SYMBOL_VALUE;
@@ -630,9 +650,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 		  }
 	      }
-	    else
-	      error ("Invalid symbol data: \"repeated\" header file not previously seen, at symtab pos %d.",
-		     symnum);
 	  }
 #endif /* DBXREAD_ONLY */
 	  continue;

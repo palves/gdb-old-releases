@@ -243,7 +243,11 @@ bfd_h8_disassemble (addr, info, hmode)
 	      else if (looking_for & L_3)
 		{
 		  plen = 3;
-	      
+		  abs = thisnib;
+		}
+	      else if (looking_for & L_2)
+		{
+		  plen = 2;
 		  abs = thisnib;
 		}
 	      else if (looking_for == E)

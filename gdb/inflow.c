@@ -1,5 +1,5 @@
 /* Low level interface to ptrace, for GDB when running under Unix.
-   Copyright 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991, 1992, 1995 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -30,7 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <signal.h>
 #include <fcntl.h>
 
-#if !defined (HAVE_TERMIOS) && !defined (HAVE_TERMIO) && !defined (HAVE_SGTTY) && !defined (__GO32__)
+#if !defined (HAVE_TERMIOS) && !defined (HAVE_TERMIO) && !defined (HAVE_SGTTY) && !defined (__GO32__) && !defined(WIN32)
 #define HAVE_SGTTY
 #endif
 
@@ -483,7 +483,7 @@ new_tty ()
 
   if (inferior_thisrun_terminal == 0)
     return;
-#if !defined(__GO32__)
+#if !defined(__GO32__) && !defined(WIN32)
 #ifdef TIOCNOTTY
   /* Disconnect the child process from our controlling terminal.  On some
      systems (SVR4 for example), this may cause a SIGTTOU, so temporarily
@@ -522,7 +522,7 @@ new_tty ()
     { close (2); dup (tty); }
   if (tty > 2)
     close(tty);
-#endif /* !go32 */
+#endif /* !go32 && !win32*/
 }
 
 /* Kill the inferior process.  Make us have no inferior.  */
@@ -533,7 +533,10 @@ kill_command (arg, from_tty)
      char *arg;
      int from_tty;
 {
-  /* Shouldn't this be target_has_execution?  FIXME.  */
+  /* FIXME:  This should not really be inferior_pid (or target_has_execution).
+     It should be a distinct flag that indicates that a target is active, cuz
+     some targets don't have processes! */
+
   if (inferior_pid == 0)
     error ("The program is not being run.");
   if (!query ("Kill the program being debugged? "))
@@ -545,7 +548,7 @@ kill_command (arg, from_tty)
   /* Killing off the inferior can leave us with a core file.  If so,
      print the state we are left in.  */
   if (target_has_stack) {
-    printf_filtered ("In %s,\n", current_target->to_longname);
+    printf_filtered ("In %s,\n", target_longname);
     if (selected_frame == NULL)
       fputs_filtered ("No selected stack frame.\n", gdb_stdout);
     else
@@ -569,13 +572,19 @@ static void (*osig)();
 void
 set_sigint_trap()
 {
-  osig = (void (*) ()) signal (SIGINT, pass_signal);
+  if (attach_flag || inferior_thisrun_terminal)
+    {
+      osig = (void (*) ()) signal (SIGINT, pass_signal);
+    }
 }
 
 void
 clear_sigint_trap()
 {
-  signal (SIGINT, osig);
+  if (attach_flag || inferior_thisrun_terminal)
+    {
+      signal (SIGINT, osig);
+    }
 }
 
 #if defined (SIGIO) && defined (FASYNC) && defined (FD_SET) && defined (F_SETOWN)

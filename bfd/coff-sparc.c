@@ -26,6 +26,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "coff/internal.h"
 #include "libcoff.h"
 
+#define COFF_DEFAULT_SECTION_ALIGNMENT_POWER (3)
+
 #define BADMAG(x) ((x).f_magic != SPARCMAGIC && (x).f_magic != LYNXCOFFMAGIC)
 
 /* The page size is a guess based on ELF.  */
@@ -156,7 +158,7 @@ static CONST struct coff_reloc_map sparc_reloc_map[] =
   /*  { BFD_RELOC_SPARC_UA32, R_SPARC_UA32 }, not used?? */
 };
 
-static CONST struct reloc_howto_struct *
+static reloc_howto_type *
 coff_sparc_reloc_type_lookup (abfd, code)
      bfd *abfd;
      bfd_reloc_code_real_type code;

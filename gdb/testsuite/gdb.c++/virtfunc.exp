@@ -30,15 +30,13 @@ if $tracelevel then {
 proc test_ptype_of_classes {} {
     global prompt
 
-    set passcount 0
-
     # This used to be a fail if it printed "struct" not "class".  But
     # since this struct doesn't use any special C++ features, it is
     # considered right for GDB to print it as "struct".
     send "ptype VA\n"
     expect {
 	-re "type = (struct|class) VA \{(\[\r\n\t \]+public:|)\[\r\n\t \]+int va;(\[\r\n\t \]+VA\\(void\\);|)(\[\r\n\t \]+VA\\(VA const &\\);|)(\[\r\n\t \]+VA & operator=\\(VA const &\\);|)\[\r\n\t \]+\}.*$prompt $" {
-	    incr passcount
+	    pass "ptype VA"
 	}
 	-re ".*$prompt $" { fail "ptype VA" }
 	timeout { fail "ptype VA (timeout)" }
@@ -47,7 +45,7 @@ proc test_ptype_of_classes {} {
     send "ptype VB\n"
     expect {
 	-re "type = class VB \{\[\r\n\t \]+public:\[\r\n\t \]+int vb;(\[\r\n\t \]+VB\\(void\\);|)(\[\r\n\t \]+VB\\(VB const &\\);|)(\[\r\n\t \]+VB & operator=\\(VB const &\\);|)\[\r\n\t \]+int fvb.void.;\[\r\n\t \]+virtual int vvb.void.;\[\r\n\t \]+\}.*$prompt $" {
-	    incr passcount
+	    pass "ptype VB"
 	}
 	-re "type = struct VB \{\[\r\n\t \]+int vb;\[\r\n\t \]+\}\r\n$prompt $" {
 	    fail "ptype VB"
@@ -59,7 +57,7 @@ proc test_ptype_of_classes {} {
     send "ptype V\n"
     expect {
 	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype V"
 	}
 	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\}\r\n$prompt $" {
 	    fail "ptype V"
@@ -71,7 +69,7 @@ proc test_ptype_of_classes {} {
     send "ptype A\n"
     expect {
 	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb\[\\\$\.\]+V;\[\r\n\t \]+int a;\[\r\n\t \]+public:(\[\r\n\t \]+A\\(int\\);|)(\[\r\n\t \]+A\\(int, A const &\\);|)(\[\r\n\t \]+A & operator=\\(A const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype A"
 	}
 	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.FOO;\[\r\n\t \]+int a;\[\r\n\t \]+public:\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
 	    # This happens because the type is defined only after it is
@@ -90,7 +88,7 @@ proc test_ptype_of_classes {} {
     send "ptype B\n"
     expect {
 	-re "type = class B : public A \{\[\r\n\t \]+private:\[\r\n\t \]+int b;\[\r\n\t \]+public:(\[\r\n\t \]+B\\(int\\);|)(\[\r\n\t \]+B\\(int, B const &\\);|)(\[\r\n\t \]+B & operator=\\(B const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype B"
 	}
 	-re "type = struct B \{\[\r\n \t\]*struct A A;\[\r\n \t\]*int b;\[\r\n \t\]*\}\r\n$prompt $" {
 	    fail "ptype B"
@@ -104,7 +102,7 @@ proc test_ptype_of_classes {} {
     # the type.  Accept this as an expected fail.
     expect {
 	-re "type = class C : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int c;(\[\r\n\t \]+C\\(int\\);|)(\[\r\n\t \]+C\\(int, C const &\\);|)(\[\r\n\t \]+C & operator=\\(C const &\\);|)\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype C"
 	}
 	-re "type = struct C \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int c;\[\r\n \t\]*\}\r\n$prompt $" {
 	    fail "ptype C"
@@ -116,7 +114,7 @@ proc test_ptype_of_classes {} {
     send "ptype AD\n"
     expect {
 	-re "type = class AD \{\[\r\n\t \]+public:(\[\r\n\t \]+AD\\(void\\);|)(\[\r\n\t \]+AD\\(AD const &\\);|)(\[\r\n\t \]+AD & operator=\\(AD const &\\);|)\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype AD"
 	}
 	-re "type = struct AD \{\r\n\}\r\n$prompt $" {
 	    fail "ptype AD"
@@ -128,7 +126,7 @@ proc test_ptype_of_classes {} {
     send "ptype D\n"
     expect {
 	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype D"
 	}
 	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\}\r\n$prompt $" {
 	    fail "ptype D"
@@ -140,7 +138,7 @@ proc test_ptype_of_classes {} {
     send "ptype E\n"
     expect {
 	-re "type = class E : public B, public virtual V, public D, public C \{\[\r\n\t \]+public:\[\r\n\t \]+int e;(\[\r\n\t \]+E\\(int\\);|)(\[\r\n\t \]+E\\(int, E const &\\);|)(\[\r\n\t \]+E & operator=\\(E const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype E"
 	}
 	-re "type = struct E \{\[\r\n\t \]+struct B B;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct D D;\[\r\n\t \]+struct C C;\[\r\n\t \]+int e;\[\r\n\t \]+\}\r\n$prompt $" {
 	    fail "ptype E"
@@ -152,7 +150,7 @@ proc test_ptype_of_classes {} {
     send "ptype dd\n"
     expect {
 	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype dd"
 	}
 	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\}\r\n$prompt $" {
 	    fail "ptype dd"
@@ -164,7 +162,7 @@ proc test_ptype_of_classes {} {
     send "ptype ppd\n"
     expect {
 	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype ppd"
 	}
 	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
 	    fail "ptype ppd"
@@ -176,7 +174,7 @@ proc test_ptype_of_classes {} {
     send "ptype pAd\n"
     expect {
 	-re "type = class AD \{\[\r\n\t \]+public:(\[\r\n\t \]+AD\\(void\\);|)(\[\r\n\t \]+AD\\(AD const &\\);|)(\[\r\n\t \]+AD & operator=\\(AD const &\\);|)\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pAd"
 	}
 	-re "type = struct AD \{\r\n\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pAd"
@@ -188,7 +186,7 @@ proc test_ptype_of_classes {} {
     send "ptype a\n"
     expect {
 	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+int a;\[\r\n\t \]+public:(\[\r\n\t \]+A\\(int\\);|)(\[\r\n\t \]+A\\(int, A const &\\);|)(\[\r\n\t \]+A & operator=\\(A const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype a"
 	}
 	-re "type = struct A \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int a;\[\r\n \t\]*\}\r\n$prompt $" {
 	    fail "ptype a"
@@ -200,7 +198,7 @@ proc test_ptype_of_classes {} {
     send "ptype b\n"
     expect {
 	-re "type = class B : public A \{\[\r\n\t \]+private:\[\r\n\t \]+int b;\[\r\n\t \]+public:(\[\r\n\t \]+B\\(int\\);|)(\[\r\n\t \]+B\\(int, B const &\\);|)(\[\r\n\t \]+B & operator=\\(B const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype b"
 	}
 	-re "type = struct B \{\[\r\n \t\]*struct A A;\[\r\n \t\]*int b;\[\r\n \t\]*\}\r\n$prompt $" {
 	    fail "ptype b"
@@ -214,7 +212,7 @@ proc test_ptype_of_classes {} {
     # type type.  Accept this as an expected fail.
     expect {
 	-re "type = class C : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int c;(\[\r\n\t \]+C\\(int\\);|)(\[\r\n\t \]+C\\(int, C const &\\);|)(\[\r\n\t \]+C & operator=\\(C const &\\);|)\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype c"
 	}
 	-re "type = struct C \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int c;\[\r\n \t\]*\}\r\n$prompt $" {
 	    fail "ptype c"
@@ -226,7 +224,7 @@ proc test_ptype_of_classes {} {
     send "ptype d\n"
     expect {
 	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype d"
 	}
 	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\}\r\n$prompt $" {
 	    fail "ptype d"
@@ -238,7 +236,7 @@ proc test_ptype_of_classes {} {
     send "ptype e\n"
     expect {
 	-re "type = class E : public B, public virtual V, public D, public C \{\[\r\n\t \]+public:\[\r\n\t \]+int e;(\[\r\n\t \]+E\\(int\\);|)(\[\r\n\t \]+E\\(int, E const &\\);|)(\[\r\n\t \]+E & operator=\\(E const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype e"
 	}
 	-re "type = struct E \{\[\r\n\t \]+struct B B;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct D D;\[\r\n\t \]+struct C C;\[\r\n\t \]+int e;\[\r\n\t \]+\}\r\n$prompt $" {
 	    fail "ptype e"
@@ -250,7 +248,7 @@ proc test_ptype_of_classes {} {
     send "ptype v\n"
     expect {
 	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype v"
 	}
 	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\}\r\n$prompt $" {
 	    fail "ptype v"
@@ -262,7 +260,7 @@ proc test_ptype_of_classes {} {
     send "ptype vb\n"
     expect {
 	-re "type = class VB \{\[\r\n\t \]+public:\[\r\n\t \]+int vb;(\[\r\n\t \]+VB\\(void\\);|)(\[\r\n\t \]+VB\\(VB const &\\);|)(\[\r\n\t \]+VB & operator=\\(VB const &\\);|)\[\r\n\t \]+int fvb.void.;\[\r\n\t \]+virtual int vvb.void.;\[\r\n\t \]+\}\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype vb"
 	}
 	-re "type = struct VB \{\[\r\n\t \]+int vb;\[\r\n\t \]+\}\r\n$prompt $" {
 	    fail "ptype vb"
@@ -274,7 +272,7 @@ proc test_ptype_of_classes {} {
     send "ptype pAa\n"
     expect {
 	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+int a;\[\r\n\t \]+public:(\[\r\n\t \]+A\\(int\\);|)(\[\r\n\t \]+A\\(int, A const &\\);|)(\[\r\n\t \]+A & operator=\\(A const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pAa"
 	}
 	-re "type = struct A \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int a;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pAa"
@@ -286,7 +284,7 @@ proc test_ptype_of_classes {} {
     send "ptype pAe\n"
     expect {
 	-re "type = class A : public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+int a;\[\r\n\t \]+public:(\[\r\n\t \]+A\\(int\\);|)(\[\r\n\t \]+A\\(int, A const &\\);|)(\[\r\n\t \]+A & operator=\\(A const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pAe"
 	}
 	-re "type = struct A \{\[\r\n \t\]*struct V V;\[\r\n \t\]*struct V \[*\]+_vb.V;\[\r\n \t\]*int a;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pAe"
@@ -298,7 +296,7 @@ proc test_ptype_of_classes {} {
     send "ptype pBe\n"
     expect {
 	-re "type = class B : public A \{\[\r\n\t \]+private:\[\r\n\t \]+int b;\[\r\n\t \]+public:(\[\r\n\t \]+B\\(int\\);|)(\[\r\n\t \]+B\\(int, B const &\\);|)(\[\r\n\t \]+B & operator=\\(B const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pBe"
 	}
 	-re "type = struct B \{\[\r\n \t\]*struct A A;\[\r\n \t\]*int b;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pBe"
@@ -310,7 +308,7 @@ proc test_ptype_of_classes {} {
     send "ptype pDd\n"
     expect {
 	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pDd"
 	}
 	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pDd"
@@ -322,7 +320,7 @@ proc test_ptype_of_classes {} {
     send "ptype pDe\n"
     expect {
 	-re "type = class D : public AD, public virtual V \{\[\r\n\t \]+private:\[\r\n\t \]+V \[*\]+_vb.V;\[\r\n\t \]+public:\[\r\n\t \]+int d;(\[\r\n\t \]+D\\(int\\);|)(\[\r\n\t \]+D\\(int, D const &\\);|)(\[\r\n\t \]+D & operator=\\(D const &\\);|)\[\r\n\t \]+static void s.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vd.void.;\[\r\n\t \]+int fd.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pDe"
 	}
 	-re "type = struct D \{\[\r\n\t \]+struct AD AD;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct V \[*\]+_vb.V;\[\r\n\t \]+int d;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pDe"
@@ -334,7 +332,7 @@ proc test_ptype_of_classes {} {
     send "ptype pVa\n"
     expect {
 	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pVa"
 	}
 	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pVa"
@@ -346,7 +344,7 @@ proc test_ptype_of_classes {} {
     send "ptype pVv\n"
     expect {
 	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pVv"
 	}
 	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pVv"
@@ -358,7 +356,7 @@ proc test_ptype_of_classes {} {
     send "ptype pVe\n"
     expect {
 	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pVe"
 	}
 	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pVe"
@@ -370,7 +368,7 @@ proc test_ptype_of_classes {} {
     send "ptype pVd\n"
     expect {
 	-re "type = class V : public VA, public VB \{\[\r\n\t \]+public:\[\r\n\t \]+int w;(\[\r\n\t \]+V\\(void\\);|)(\[\r\n\t \]+V\\(V const &\\);|)(\[\r\n\t \]+V & operator=\\(V const &\\);|)\[\r\n\t \]+int f.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pVd"
 	}
 	-re "type = struct V \{\[\r\n \t\]*struct VA VA;\[\r\n \t\]*struct VB VB;\[\r\n \t\]*int w;\[\r\n \t\]*\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pVd"
@@ -382,7 +380,7 @@ proc test_ptype_of_classes {} {
     send "ptype pADe\n"
     expect {
 	-re "type = class AD \{\[\r\n\t \]+public:(\[\r\n\t \]+AD\\(void\\);|)(\[\r\n\t \]+AD\\(AD const &\\);|)(\[\r\n\t \]+AD & operator=\\(AD const &\\);|)\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pADe"
 	}
 	-re "type = struct AD \{\r\n\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pADe"
@@ -394,7 +392,7 @@ proc test_ptype_of_classes {} {
     send "ptype pEe\n"
     expect {
 	-re "type = class E : public B, public virtual V, public D, public C \{\[\r\n\t \]+public:\[\r\n\t \]+int e;(\[\r\n\t \]+E\\(int\\);|)(\[\r\n\t \]+E\\(int, E const &\\);|)(\[\r\n\t \]+E & operator=\\(E const &\\);|)\[\r\n\t \]+virtual int f.void.;\[\r\n\t \]+virtual int vg.void.;\[\r\n\t \]+virtual int vv.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pEe"
 	}
 	-re "type = struct E \{\[\r\n\t \]+struct B B;\[\r\n\t \]+struct V V;\[\r\n\t \]+struct D D;\[\r\n\t \]+struct C C;\[\r\n\t \]+int e;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pEe"
@@ -406,17 +404,13 @@ proc test_ptype_of_classes {} {
     send "ptype pVB\n"
     expect {
 	-re "type = class VB \{\[\r\n\t \]+public:\[\r\n\t \]+int vb;(\[\r\n\t \]+VB\\(void\\);|)(\[\r\n\t \]+VB\\(VB const &\\);|)(\[\r\n\t \]+VB & operator=\\(VB const &\\);|)\[\r\n\t \]+int fvb.void.;\[\r\n\t \]+virtual int vvb.void.;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
-	    incr passcount
+	    pass "ptype pVB"
 	}
 	-re "type = struct VB \{\[\r\n\t \]+int vb;\[\r\n\t \]+\} \[*\]+\r\n$prompt $" {
 	    fail "ptype pVB"
 	}
 	-re ".*$prompt $" { fail "ptype pVB" }
 	timeout { fail "ptype pVB (timeout)" }
-    }
-
-    if $passcount then {
-	pass "$passcount correct virtual function types printed"
     }
 }
 
@@ -432,18 +426,16 @@ proc test_virtual_calls {} {
     set otimeout $timeout
     set timeout 600
 
-    set passcount 0
-
     send "print pAe->f()\n"
     expect {
-	-re ".* = 20\r\n$prompt $" { incr passcount }
+	-re ".* = 20\r\n$prompt $" { pass "print pAe->f()" }
 	-re "Cannot invoke functions on this machine.*$prompt $" {
-	    fail "Cannot call functions on this machine"
+	    fail "print pAe->f() (cannot invoke functions, skipping virtual calls)"
 	    return 0
 	}
 	-re ".*Cannot access memory at address 0x8.*$prompt $" {
-	    fail "Calling virtual functions \
-(known failure with gcc cygnus-2.4.5-930417)"
+	    fail "print pAe->f() \
+(known failure with gcc cygnus-2.4.5-930417, skipping virtual calls)"
 	    return 0
 	}
 	-re ".*$prompt $" { fail "print pAe->f()" }
@@ -453,7 +445,7 @@ proc test_virtual_calls {} {
 
     send "print pAa->f()\n"
     expect {
-	-re ".* = 1\r\n$prompt $" { incr passcount }
+	-re ".* = 1\r\n$prompt $" { pass "print pAa->f()" }
 	-re ".*$prompt $" { fail "print pAa->f()" }
 	timeout { fail "print pAa->f() (timeout)" }
 	eof { fail "print pAa->f() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -462,7 +454,7 @@ proc test_virtual_calls {} {
     send "print pDe->vg()\n"
 #   setup_xfail "*-*-*"
     expect {
-	-re ".* = 202\r\n$prompt $" { incr passcount }
+	-re ".* = 202\r\n$prompt $" { pass "print pDe->vg()" }
 	-re ".*$prompt $" { fail "print pDe->vg()" }
 	timeout { fail "print pDe->vg() (timeout)" }
 	eof { fail "print pDe->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -470,7 +462,7 @@ proc test_virtual_calls {} {
 
     send "print pADe->vg()\n"
     expect {
-	-re ".* = 202\r\n$prompt $" { incr passcount }
+	-re ".* = 202\r\n$prompt $" { pass "print pADe->vg()" }
 	-re ".*$prompt $" { fail "print pADe->vg()" }
 	timeout { fail "print pADe->vg() (timeout)" }
 	eof { fail "print pADe->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -479,7 +471,7 @@ proc test_virtual_calls {} {
     send "print pDd->vg()\n"
 #   setup_xfail "*-*-*"
     expect {
-	-re ".* = 101\r\n$prompt $" { incr passcount }
+	-re ".* = 101\r\n$prompt $" { pass "print pDd->vg()" }
 	-re ".*$prompt $" { fail "print pDd->vg()" }
 	timeout { fail "print pDd->vg() (timeout)" }
 	eof { fail "print pDd->vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -488,7 +480,7 @@ proc test_virtual_calls {} {
     send "print pEe->vvb()\n"
 #   setup_xfail "*-*-*"
     expect {
-	-re ".* = 411\r\n$prompt $" { incr passcount }
+	-re ".* = 411\r\n$prompt $" { pass "print pEe->vvb()" }
 	-re ".*$prompt $" { fail "print pEe->vvb()" }
 	timeout { fail "print pEe->vvb() (timeout)" }
 	eof { fail "print pEe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -496,7 +488,7 @@ proc test_virtual_calls {} {
 
     send "print pVB->vvb()\n"
     expect {
-	-re ".* = 407\r\n$prompt $" { incr passcount }
+	-re ".* = 407\r\n$prompt $" { pass "print pVB->vvb()" }
 	-re ".*$prompt $" { fail "print pVB->vvb()" }
 	timeout { fail "print pVB->vvb() (timeout)" }
 	eof { fail "print pVB->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -505,7 +497,7 @@ proc test_virtual_calls {} {
     send "print pBe->vvb()\n"
 #   setup_xfail "*-*-*"
     expect {
-	-re ".* = 411\r\n$prompt $" { incr passcount }
+	-re ".* = 411\r\n$prompt $" { pass "print pBe->vvb()" }
 	-re ".*$prompt $" { fail "print pBe->vvb()" }
 	timeout { fail "print pBe->vvb() (timeout)" }
 	eof { fail "print pBe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -514,7 +506,7 @@ proc test_virtual_calls {} {
     send "print pDe->vvb()\n"
 #   setup_xfail "*-*-*"
     expect {
-	-re ".* = 411\r\n$prompt $" { incr passcount }
+	-re ".* = 411\r\n$prompt $" { pass "print pDe->vvb()" }
 	-re ".*$prompt $" { fail "print pDe->vvb()" }
 	timeout { fail "print pDe->vvb() (timeout)" }
 	eof { fail "print pDe->vvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -523,7 +515,7 @@ proc test_virtual_calls {} {
     send "print pEe->vd()\n"
 #   setup_xfail "*-*-*"
     expect {
-	-re ".* = 282\r\n$prompt $" { incr passcount }
+	-re ".* = 282\r\n$prompt $" { pass "print pEe->vd()" }
 	-re ".*$prompt $" { fail "print pEe->vd()" }
 	timeout { fail "print pEe->vd() (timeout)" }
 	eof { fail "print pEe->vd() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -532,7 +524,7 @@ proc test_virtual_calls {} {
     send "print pEe->fvb()\n"
 #   setup_xfail "*-*-*"
     expect {
-	-re ".* = 311\r\n$prompt $" { incr passcount }
+	-re ".* = 311\r\n$prompt $" { pass "print pEe->fvb()" }
 	-re ".*$prompt $" { fail "print pEe->fvb()" }
 	timeout { fail "print pEe->fvb() (timeout)" }
 	eof { fail "print pEe->fvb() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
@@ -541,17 +533,13 @@ proc test_virtual_calls {} {
     send "print pEe->D::vg()\n"
     setup_xfail "*-*-*"
     expect {
-	-re ".* = 102\r\n$prompt $" { incr passcount }
+	-re ".* = 102\r\n$prompt $" { pass "print pEe->D::vg()" }
 	-re ".*$prompt $" { fail "print pEe->D::vg()" }
 	timeout { fail "print pEe->D::vg() (timeout)" }
 	eof { fail "print pEe->D::vg() ($GDB dumped core) (FIXME)" ; gdb_start ; return }
     }
 
     set timeout $otimeout
-
-    if $passcount then {
-	pass "$passcount correct virtual function calls"
-    }
 }
 
 

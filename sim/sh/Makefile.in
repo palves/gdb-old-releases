@@ -63,21 +63,28 @@ CFLAGS = -g
 BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
-
+X=xstuff.o
+XL=-lX11
+X=
+XL=
 INCDIR = $(srcdir)/../../include 
 CSEARCH = -I. -I$(srcdir)  -I../../include  -I../../bfd -I$(INCDIR) -I$(srcdir)/../../bfd -I$(srcdir)/../../gdb
 DEP = mkdep
 
 #### host, target, and site specific Makefile frags come in here.
 
-all:	run
+all:	run libsim.a
 
 
-run:	interp.o run.o table.o
-	$(CC) $(CFLAGS) -o run interp.o table.o run.o ../../bfd/libbfd.a ../../libiberty/libiberty.a
+run:	interp.o $(X) run.o table.o
+	$(CC) $(CFLAGS) -o run $(X) interp.o table.o run.o ../../bfd/libbfd.a ../../libiberty/libiberty.a $(XL)
 
 interp.o:interp.c code.c table.c
 run.o:run.c 
+
+libsim.a:interp.o table.o
+	$(AR) $(ARFLAGS) libsim.a interp.o table.o
+	$(RANLIB) libsim.a
 
 code.c:gencode
 	./gencode -x >code.c
@@ -88,7 +95,7 @@ table.c:gencode
 #	indent table.c
 
 gencode:gencode.c
-	$(CC_FOR_BUILD) -o gencode $<
+	$(CC_FOR_BUILD) -o gencode $(srcdir)/gencode.c
 
 
 #### host and target dependent Makefile fragments come in here.

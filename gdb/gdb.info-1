@@ -1,4 +1,4 @@
-This is Info file ./gdb.info, produced by Makeinfo-1.52 from the input
+This is Info file ./gdb.info, produced by Makeinfo-1.55 from the input
 file gdb.texinfo.
 
 START-INFO-DIR-ENTRY
@@ -7,10 +7,10 @@ END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
    This is Edition 4.12, January 1994, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.13.
+Source-Level Debugger' for GDB Version 4.14.
 
-   Copyright (C) 1988, '89, '90, '91, '92, '93 Free Software
-Foundation, Inc.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995 Free
+Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -33,7 +33,7 @@ Debugging with GDB
 
    This file describes GDB, the GNU symbolic debugger.
 
-   This is Edition 4.12, January 1994, for GDB Version 4.13.
+   This is Edition 4.12, January 1994, for GDB Version 4.14.
 
 * Menu:
 
@@ -52,7 +52,6 @@ Debugging with GDB
 * Data::                        Examining data
 
 * Languages::                   Using GDB with different languages
-
 
 * Symbols::                     Examining the symbol table
 * Altering::                    Altering execution
@@ -156,12 +155,13 @@ regret, we cannot actually acknowledge everyone here.  The file
 
    So that they may not regard their long labor as thankless, we
 particularly thank those who shepherded GDB through major releases:
-Fred Fish (releases 4.12, 4.11, 4.10, and 4.9), Stu Grossman and John
-Gilmore (releases 4.8, 4.7, 4.6, 4.5, and 4.4), John Gilmore (releases
-4.3, 4.2, 4.1, 4.0, and 3.9); Jim Kingdon (releases 3.5, 3.4, and 3.3);
-and Randy Smith (releases 3.2, 3.1, and 3.0).  As major maintainer of
-GDB for some period, each contributed significantly to the structure,
-stability, and capabilities of the entire debugger.
+Stan Shebs (release 4.14), Fred Fish (releases 4.13, 4.12, 4.11, 4.10,
+and 4.9), Stu Grossman and John Gilmore (releases 4.8, 4.7, 4.6, 4.5,
+and 4.4), John Gilmore (releases 4.3, 4.2, 4.1, 4.0, and 3.9); Jim
+Kingdon (releases 3.5, 3.4, and 3.3); and Randy Smith (releases 3.2,
+3.1, and 3.0).  As major maintainer of GDB for some period, each
+contributed significantly to the structure, stability, and capabilities
+of the entire debugger.
 
    Richard Stallman, assisted at various times by Peter TerMaat, Chris
 Hanson, and Richard Mlynarik, handled releases through 2.8.
@@ -358,7 +358,7 @@ Let us use GDB to try to see what is going on.
       the conditions.
      There is absolutely no warranty for GDB; type "show warranty"
       for details.
-     GDB 4.13, Copyright 1993 Free Software Foundation, Inc...
+     GDB 4.14, Copyright 1995 Free Software Foundation, Inc...
      (gdb)
 
 GDB reads only enough symbol data to know where to find the rest when
@@ -593,7 +593,6 @@ sequential order.  The order makes a difference when the `-x' option is
 used.
 
 * Menu:
-
 
 
 * File Options::                Choosing files
@@ -1057,6 +1056,7 @@ child process.
 * Kill Process::                Killing the child process
 * Process Information::         Additional process information
 * Threads::			Debugging programs with multiple threads
+* Processes::                   Debugging programs with multiple processes
 
 
 File: gdb.info,  Node: Compilation,  Next: Starting,  Up: Running

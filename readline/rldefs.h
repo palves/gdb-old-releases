@@ -35,13 +35,19 @@
 #  endif
 #endif
 
+
 #define NEW_TTY_DRIVER
 #define HAVE_BSD_SIGNALS
 /* #define USE_XON_XOFF */
 
-#ifdef __MSDOS__
+#if defined(__MSDOS__) || defined(WIN32)
+#define NO_SYS_FILE
+#define SIGALRM 1234
 #undef NEW_TTY_DRIVER
 #undef HAVE_BSD_SIGNALS
+#undef NEW_TTY_DRIVER
+#undef HAVE_BSD_SIGNALS
+#define MINIMAL
 #endif
 
 #if defined (__linux__)
