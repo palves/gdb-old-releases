@@ -1,5 +1,5 @@
-/* IBM RS/6000 "XCOFF" back-end for BFD.
-   Copyright (C) 1990, 1991 Free Software Foundation, Inc.
+/* BFD back-end for IBM RS/6000 "XCOFF" files.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Metin G. Ozisik, Mimi Phûông-Thåo Võ, and John Gilmore.
    Archive support from Damon A. Permezel.
    Contributed by IBM Corporation and Cygnus Support.
@@ -171,7 +171,7 @@ rs6000coff_get_elt_at_filepos (archive, filepos)
   n_nfd = look_for_bfd_in_cache (archive, filepos);
   if (n_nfd) return n_nfd;
 
-  if (0 > bfd_seek (archive, filepos, SEEK_SET)) {
+  if (0 != bfd_seek (archive, filepos, SEEK_SET)) {
     bfd_error = system_call_error;
     return NULL;
   }
@@ -321,6 +321,7 @@ bfd_target rs6000coff_vec =
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT),
 
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+  0,				/* leading char */
   '/',				/* ar_pad_char */
   15,				/* ar_max_namelen??? FIXMEmgo */
   3,				/* default alignment power */

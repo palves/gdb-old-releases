@@ -214,13 +214,8 @@ skip_frestore:                                       \n\
 #define RESTORE_FP_REGS()
 #endif /* __HAVE_68881__ */
 
-#ifdef __STDC__
-void return_to_super(void);
-void return_to_user(void);
-#else
 void return_to_super();
 void return_to_user();
-#endif
 
 asm("
 .text
@@ -932,11 +927,8 @@ void handle_exception(int exceptionVector)
 }
 
 
-#ifdef __STDC__
-void initializeRemcomErrorFrame(void)
-#else
-void initializeRemcomErrorFrame()
-#endif
+void
+initializeRemcomErrorFrame()
 {
     lastFrame = ((Frame *) &gdbFrameStack[FRAMESIZE-1]) - 1;
     lastFrame->previous = lastFrame;

@@ -867,7 +867,7 @@ rl_vi_comment ()
 
 rl_vi_first_print ()
 {
-  rl_back_to_indent ();
+  rl_back_to_indent (0, 0);
 }
 
 rl_back_to_indent (ignore1, ignore2)

@@ -83,6 +83,12 @@ enum type_code
   TYPE_CODE_BOOL		/* Builtin Modula-2 BOOLEAN */
 };
 
+/* For now allow source to use TYPE_CODE_CLASS for C++ classes, as an
+   alias for TYPE_CODE_STRUCT.  Eventually these should probably be
+   officially distinct types within gdb. */
+
+#define TYPE_CODE_CLASS TYPE_CODE_STRUCT
+
 /* Some bits for the type's flags word. */
 
 /* Explicitly unsigned integer type */
@@ -171,6 +177,9 @@ struct type
      For range types, there are two "fields",
      the minimum and maximum values (both inclusive).
      For enum types, each possible value is described by one "field".
+     For C++ classes, there is one field for each base class (if it is
+     a derived class) plus one field for each class data member.  Member
+     functions are recorded elsewhere.
 
      Using a pointer to a separate array of fields
      allows all types to have the same size, which is useful
@@ -246,10 +255,31 @@ struct type
 
 struct cplus_struct_type
 {
-  /* For derived classes, the number of base classes is given by
-     n_baseclasses and virtual_field_bits is a bit vector containing one bit
-     per base class.
-     If the base class is virtual, the corresponding bit will be set. */
+  /* Number of base classes this type derives from. */
+
+  short n_baseclasses;
+
+  /* Number of methods with unique names.  All overloaded methods with
+     the same name count only once. */
+
+  short nfn_fields;
+
+  /* Number of methods described for this type plus all the
+     methods that it derives from.  */
+
+  int nfn_fields_total;
+
+  /* For derived classes, the number of base classes is given by n_baseclasses
+     and virtual_field_bits is a bit vector containing one bit per base class.
+     If the base class is virtual, the corresponding bit will be set.
+     I.E, given:
+
+	class A{};
+	class B{};
+	class C : public B, public virtual A {};
+
+     B is a baseclass of C; A is a virtual baseclass for C.
+     This is a C++ 2.0 language feature. */
 
   B_TYPE *virtual_field_bits;
 
@@ -267,23 +297,12 @@ struct cplus_struct_type
 
   B_TYPE *protected_field_bits;
 
-  /* Number of methods described for this type */
-
-  short nfn_fields;
-
-  /* Number of base classes this type derives from. */
-
-  short n_baseclasses;
-
-  /* Number of methods described for this type plus all the
-     methods that it derives from.  */
-
-  int nfn_fields_total;
-
   /* For classes, structures, and unions, a description of each field,
      which consists of an overloaded name, followed by the types of
      arguments that the method expects, and then the name after it
-     has been renamed to make it distinct.  */
+     has been renamed to make it distinct.
+
+     fn_fieldlists points to an array of nfn_fields of these. */
 
   struct fn_fieldlist
     {
@@ -301,6 +320,10 @@ struct cplus_struct_type
       struct fn_field
 	{
 
+	  /* The name after it has been processed */
+
+	  char *physname;
+
 	  /* The return value of the method */
 
 	  struct type *type;
@@ -309,14 +332,12 @@ struct cplus_struct_type
 
 	  struct type **args;
 
-	  /* The name after it has been processed */
-
-	  char *physname;
-
-	  /* For virtual functions.   */
-	  /* First baseclass that defines this virtual function.   */
+	  /* For virtual functions.
+	     First baseclass that defines this virtual function.   */
 
 	  struct type *fcontext;
+
+	  /* Attributes. */
 
 	  unsigned int is_const : 1;
 	  unsigned int is_volatile : 1;
@@ -328,7 +349,7 @@ struct cplus_struct_type
 	  /* Index into that baseclass's virtual function table,
 	     minus 2; else if static: VOFFSET_STATIC; else: 0.  */
 
-	  unsigned voffset : 24;
+	  unsigned int voffset : 24;
 
 #	  define VOFFSET_STATIC 1
 
@@ -336,9 +357,6 @@ struct cplus_struct_type
 
     } *fn_fieldlists;
 
-  unsigned char via_protected;
-
-  unsigned char via_public;
 };
 
 /* The default value of TYPE_CPLUS_SPECIFIC(T) points to the
@@ -426,17 +444,18 @@ allocate_cplus_struct_type PARAMS ((struct type *));
 #define TYPE_FN_FIELDLIST_LENGTH(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n].length
 
 #define TYPE_FN_FIELD(thisfn, n) (thisfn)[n]
-#define TYPE_FN_FIELD_NAME(thisfn, n) (thisfn)[n].name
+#define TYPE_FN_FIELD_PHYSNAME(thisfn, n) (thisfn)[n].physname
 #define TYPE_FN_FIELD_TYPE(thisfn, n) (thisfn)[n].type
 #define TYPE_FN_FIELD_ARGS(thisfn, n) TYPE_ARG_TYPES ((thisfn)[n].type)
-#define TYPE_FN_FIELD_PHYSNAME(thisfn, n) (thisfn)[n].physname
-#define TYPE_FN_FIELD_VIRTUAL_P(thisfn, n) ((thisfn)[n].voffset > 1)
-#define TYPE_FN_FIELD_STATIC_P(thisfn, n) ((thisfn)[n].voffset == VOFFSET_STATIC)
-#define TYPE_FN_FIELD_VOFFSET(thisfn, n) ((thisfn)[n].voffset-2)
-#define TYPE_FN_FIELD_FCONTEXT(thisfn, n) ((thisfn)[n].fcontext)
-#define TYPE_FN_FIELD_STUB(thisfn, n) ((thisfn)[n].is_stub)
+#define TYPE_FN_FIELD_CONST(thisfn, n) ((thisfn)[n].is_const)
+#define TYPE_FN_FIELD_VOLATILE(thisfn, n) ((thisfn)[n].is_volatile)
 #define TYPE_FN_FIELD_PRIVATE(thisfn, n) ((thisfn)[n].is_private)
 #define TYPE_FN_FIELD_PROTECTED(thisfn, n) ((thisfn)[n].is_protected)
+#define TYPE_FN_FIELD_STUB(thisfn, n) ((thisfn)[n].is_stub)
+#define TYPE_FN_FIELD_FCONTEXT(thisfn, n) ((thisfn)[n].fcontext)
+#define TYPE_FN_FIELD_VOFFSET(thisfn, n) ((thisfn)[n].voffset-2)
+#define TYPE_FN_FIELD_VIRTUAL_P(thisfn, n) ((thisfn)[n].voffset > 1)
+#define TYPE_FN_FIELD_STATIC_P(thisfn, n) ((thisfn)[n].voffset == VOFFSET_STATIC)
 
 extern struct type *builtin_type_void;
 extern struct type *builtin_type_char;
@@ -493,6 +512,20 @@ extern struct type *builtin_type_m2_bool;
 #define MIN_OF_TYPE(t)	\
    TYPE_UNSIGNED(t) ? UMIN_OF_SIZE(TYPE_LENGTH(t)) \
     : MIN_OF_SIZE(TYPE_LENGTH(t))
+
+/* Allocate space for storing data associated with a particular type.
+   We ensure that the space is allocated using the same mechanism that
+   was used to allocate the space for the type structure itself.  I.E.
+   if the type is on an objfile's type_obstack, then the space for data
+   associated with that type will also be allocated on the type_obstack.
+   If the type is not associated with any particular objfile (such as
+   builtin types), then the data space will be allocated with xmalloc,
+   the same as for the type structure. */
+
+#define TYPE_ALLOC(t,size)  \
+   (TYPE_OBJFILE (t) != NULL  \
+    ? obstack_alloc (&TYPE_OBJFILE (t) -> type_obstack, size) \
+    : xmalloc (size))
 
 extern struct type *
 alloc_type PARAMS ((struct objfile *));

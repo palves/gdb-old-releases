@@ -1,5 +1,5 @@
 /* Support for the generic parts of most COFF variants, for BFD.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -1084,6 +1084,22 @@ machine = 0;
     machine = 88100;
     break;
 #endif
+#ifdef Z8KMAGIC
+   case Z8KMAGIC:
+    arch = bfd_arch_z8k;
+    switch (internal_f->f_flags & F_MACHMASK) 
+{
+     case F_Z8001:
+      machine = bfd_mach_z8001;
+      break;
+     case F_Z8002:
+      machine = bfd_mach_z8002;
+      break;
+     default:
+      goto fail;
+    }
+    break;
+#endif
 #ifdef I960
 #ifdef I960ROMAGIC
   case I960ROMAGIC:
@@ -1121,6 +1137,13 @@ machine = 0;
   case U802TOCMAGIC:
     arch = bfd_arch_rs6000;
     machine = 6000;
+    break;
+#endif
+
+#ifdef WE32KMAGIC
+  case WE32KMAGIC:
+    arch = bfd_arch_we32k;
+    machine = 0;
     break;
 #endif
 
@@ -1207,7 +1230,7 @@ DEFUN(coff_object_p,(abfd),
   }
 
   /* Seek past the opt hdr stuff */
-  bfd_seek(abfd, internal_f.f_opthdr + FILHSZ, SEEK_SET);
+  bfd_seek(abfd, (file_ptr) (internal_f.f_opthdr + FILHSZ), SEEK_SET);
 
   /* if the optional header is NULL or not the correct size then
      quit; the only difference I can see between m88k dgux headers (MC88DMAGIC)
@@ -1359,7 +1382,8 @@ DEFUN(coff_renumber_symbols,(bfd_ptr),
     int i;
 
     newsyms = (asymbol **) bfd_alloc_by_size_t (bfd_ptr,
-						sizeof (asymbol *) * symbol_count);
+						sizeof (asymbol *)
+						* (symbol_count + 1));
     bfd_ptr->outsymbols = newsyms;
     for (i = 0; i < symbol_count; i++)
       if (symbol_ptr_ptr[i]->section != &bfd_und_section)
@@ -1367,6 +1391,7 @@ DEFUN(coff_renumber_symbols,(bfd_ptr),
     for (i = 0; i < symbol_count; i++)
       if (symbol_ptr_ptr[i]->section == &bfd_und_section)
 	*newsyms++ = symbol_ptr_ptr[i];
+    *newsyms = (asymbol *) NULL;
     symbol_ptr_ptr = bfd_ptr->outsymbols;
   }
 
@@ -1542,7 +1567,7 @@ unsigned int written)
   for (j = 0; j < native->u.syment.n_numaux;  j++)
   {
     AUXENT buf1;
-    bzero((PTR)&buf, AUXESZ);
+    memset((PTR)&buf, 0, AUXESZ);
     coff_swap_aux_out(abfd,
 		      &( (native + j + 1)->u.auxent), type, class, &buf1);
     bfd_write((PTR) (&buf1), 1, AUXESZ, abfd);
@@ -1790,16 +1815,6 @@ DEFUN(coff_write_relocs,(abfd),
       arelent        *q = p[i];
       memset((PTR)&n, 0, sizeof(n));
 
-
-#ifndef SWAP_OUT_RELOC_OFFSET
-      /* @@FIXME COFF relocs don't support addends.  Code should probably be
-	 in the target-independent code, using a target flag to decide whether
-	 to fold the addend into the section contents.  */
-
-      if (q->addend != 0)
-	abort ();
-#endif
-
       n.r_vaddr = q->address + s->vma;
       /* The 29k const/consth reloc pair is a real kludge - the consth
 	 part doesn't have a symbol - it has an offset. So rebuilt
@@ -2040,7 +2055,22 @@ DEFUN(coff_set_flags,(abfd, magicp, flagsp),
       unsigned short *flagsp)
 {
   switch (bfd_get_arch(abfd)) {
-
+#ifdef Z8KMAGIC
+   case bfd_arch_z8k:
+    *magicp = Z8KMAGIC;
+    switch (bfd_get_mach(abfd)) 
+    {
+     case bfd_mach_z8001:
+      *flagsp = F_Z8001;
+      break;
+     case bfd_mach_z8002:
+      *flagsp = F_Z8002;
+      break;
+     default:
+      return false;
+    }
+    return true;
+#endif
 #ifdef I960ROMAGIC
 
     case bfd_arch_i960:
@@ -2089,11 +2119,13 @@ DEFUN(coff_set_flags,(abfd, magicp, flagsp),
   case bfd_arch_i386:
     *magicp = I386MAGIC;
     return true;
+    break;
 #endif
 #ifdef MC68MAGIC
   case bfd_arch_m68k:
     *magicp = MC68MAGIC;
     return true;
+    break;
 #endif
 
 #ifdef MC88MAGIC
@@ -2118,9 +2150,17 @@ DEFUN(coff_set_flags,(abfd, magicp, flagsp),
       break;
 #endif
 
+#ifdef WE32KMAGIC
+  case bfd_arch_we32k:
+    *magicp = WE32KMAGIC;
+    return true;
+    break;
+#endif
+
 #ifdef U802TOCMAGIC
   case bfd_arch_rs6000:
     *magicp = U802TOCMAGIC;
+    return true;
     break;
 #endif
 
@@ -2223,15 +2263,10 @@ coff_section_symbol (abfd, name)
      bfd *abfd;
      char *name;
 {
-  asection *sec = bfd_get_section_by_name (abfd, name);
+  asection *sec = bfd_make_section_old_way (abfd, name);
   asymbol *sym;
   combined_entry_type *csym;
 
-  if (!sec)
-    {
-      /* create empty symbol */
-      abort ();
-    }
   sym = sec->symbol;
   if (coff_symbol_from (abfd, sym))
     csym = coff_symbol_from (abfd, sym)->native;
@@ -2247,7 +2282,7 @@ coff_section_symbol (abfd, name)
       };
       struct foo *f;
       f = (struct foo *) bfd_alloc_by_size_t (abfd, sizeof (*f));
-      bzero ((char *) f, sizeof (*f));
+      memset ((char *) f, 0, sizeof (*f));
       coff_symbol_from (abfd, sym)->native = csym = f->e;
     }
   csym[0].u.syment.n_sclass = C_STAT;
@@ -2280,27 +2315,30 @@ coff_add_missing_symbols (abfd)
   asymbol **sympp2;
   unsigned int i;
   int need_text = 1, need_data = 1, need_bss = 1, need_file = 1;
-  coff_data_type *cdata = coff_data (abfd);
 
   for (i = 0; i < nsyms; i++)
     {
       coff_symbol_type *csym = coff_symbol_from (abfd, sympp[i]);
       CONST char *name;
-
-      if (csym->native && csym->native->u.syment.n_sclass == C_FILE)
+      if (csym) 
+      {
+	/* only do this if there is a coff representation of the input
+	   symbol */
+	if (csym->native && csym->native->u.syment.n_sclass == C_FILE)
 	{
 	  need_file = 0;
 	  continue;
 	}
-      name = csym->symbol.name;
-      if (!name)
-	continue;
-      if (!strcmp (name, _TEXT))
-	need_text = 0;
-      else if (!strcmp (name, _DATA))
-	need_data = 0;
-      else if (!strcmp (name, _BSS))
-	need_bss = 0;
+	name = csym->symbol.name;
+	if (!name)
+	 continue;
+	if (!strcmp (name, _TEXT))
+	 need_text = 0;
+	else if (!strcmp (name, _DATA))
+	 need_data = 0;
+	else if (!strcmp (name, _BSS))
+	 need_bss = 0;
+      }
     }
   /* Now i == bfd_get_symcount (abfd).  */
   /* @@ For now, don't deal with .file symbol.  */
@@ -2365,10 +2403,6 @@ DEFUN(coff_write_object_contents,(abfd),
       current->target_index = count;
       count++;
   }
-  
-    
-
-
 
   if(abfd->output_has_begun == false) {
       coff_compute_section_file_positions(abfd);
@@ -2600,10 +2634,15 @@ DEFUN(coff_write_object_contents,(abfd),
   internal_a.magic = PAGEMAGICBCS;
 #endif				/* M88 */
 
-#if M68 || I386 || MIPS
+#if M68 || MIPS || WE32K
 #define __A_MAGIC_SET__
   /* Never was anything here for the 68k */
-#endif				/* M88 */
+#endif				/* M68 || MIPS || WE32K */
+
+#if I386
+# define __A_MAGIC_SET__
+  internal_a.magic = ZMAGIC;
+#endif /* I386 */
 
 #if RS6000COFF_C
 #define __A_MAGIC_SET__
@@ -2647,7 +2686,7 @@ DEFUN(coff_write_object_contents,(abfd),
   internal_f.f_nsyms =  bfd_get_symcount(abfd);
 
   /* now write them */
-  if (bfd_seek(abfd, 0L, SEEK_SET) != 0)
+  if (bfd_seek(abfd, (file_ptr) 0, SEEK_SET) != 0)
    return false;
 {
   FILHDR buff;
@@ -2997,7 +3036,7 @@ bfd            *abfd)
 		bfd_error = no_memory;
 		return (NULL);
 	      }			/* on error */
-	    bzero(newstring, i);
+	    memset(newstring, 0, i);
 	    strncpy(newstring, internal_ptr->u.syment._n._n_name, i-1);
 	    internal_ptr->u.syment._n._n_n._n_offset =  (int) newstring;
 	    internal_ptr->u.syment._n._n_n._n_zeroes = 0;
@@ -4105,9 +4144,13 @@ DEFUN(bfd_coff_get_relocated_section_contents,(in_abfd, seclet, data),
 	  dst_address+=2;
 	  src_address+=2;
 	  break;
-	
+#ifdef EXTRA_CASES
+	EXTRA_CASES
+#else
+
 	default:
 	  abort();
+#endif
 	}
       }    
     }

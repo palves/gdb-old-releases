@@ -1,5 +1,5 @@
 /* BFD back-end for Intel 960 b.out binaries.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -18,17 +18,18 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bout.c,v 1.33 1992/06/22 15:42:22 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
-
+#include "seclet.h"
 #include "bout.h"
 
 #include "aout/stab_gnu.h"
 #include "libaout.h"		/* BFD a.out internal data structures */
 
+
+extern bfd_error_vector_type bfd_error_vector;
 PROTO (static boolean, b_out_squirt_out_relocs,(bfd *abfd, asection *section));
 PROTO (static bfd_target *, b_out_callback, (bfd *));
 
@@ -65,6 +66,7 @@ DEFUN(bout_swap_exec_header_in,(abfd, raw_bytes, execp),
   execp->a_talign = bytes->e_talign[0];
   execp->a_dalign = bytes->e_dalign[0];
   execp->a_balign = bytes->e_balign[0];
+  execp->a_relaxable = bytes->e_relaxable[0];
 }
 
 /* Swaps the information in an internal exec header structure into the
@@ -96,7 +98,7 @@ DEFUN(bout_swap_exec_header_out,(abfd, execp, raw_bytes),
   bytes->e_talign[0] = execp->a_talign;
   bytes->e_dalign[0] = execp->a_dalign;
   bytes->e_balign[0] = execp->a_balign;
-  bytes->e_unused[0] = 0;		/* Clean structs are godly structs */
+  bytes->e_relaxable[0] = execp->a_relaxable;
 }
 
 
@@ -168,10 +170,12 @@ b_out_callback (abfd)
   obj_textsec (abfd)->rel_filepos = N_TROFF(*execp);
   obj_datasec (abfd)->rel_filepos =  N_DROFF(*execp);
 
-  adata(abfd).page_size = 1; /* Not applicable. */
+  adata(abfd).page_size = 1;	/* Not applicable. */
   adata(abfd).segment_size = 1; /* Not applicable. */
   adata(abfd).exec_bytes_size = EXEC_BYTES_SIZE;
 
+  if (execp->a_relaxable)
+   abfd->flags |= BFD_IS_RELAXABLE;
   return abfd->xvec;
 }
 
@@ -234,21 +238,20 @@ b_out_write_object_contents (abfd)
 
   bout_swap_exec_header_out (abfd, exec_hdr (abfd), &swapped_hdr);
 
-  bfd_seek (abfd, 0L, SEEK_SET);
+  bfd_seek (abfd, (file_ptr) 0, SEEK_SET);
   bfd_write ((PTR) &swapped_hdr, 1, EXEC_BYTES_SIZE, abfd);
 
   /* Now write out reloc info, followed by syms and strings */
   if (bfd_get_symcount (abfd) != 0) 
     {
-      bfd_seek (abfd,
-		(long)(N_SYMOFF(*exec_hdr(abfd))), SEEK_SET);
+      bfd_seek (abfd, (file_ptr)(N_SYMOFF(*exec_hdr(abfd))), SEEK_SET);
 
       aout_32_write_syms (abfd);
 
-      bfd_seek (abfd,	(long)(N_TROFF(*exec_hdr(abfd))), SEEK_SET);
+      bfd_seek (abfd, (file_ptr)(N_TROFF(*exec_hdr(abfd))), SEEK_SET);
 
       if (!b_out_squirt_out_relocs (abfd, obj_textsec (abfd))) return false;
-      bfd_seek (abfd, (long)(N_DROFF(*exec_hdr(abfd))), SEEK_SET);
+      bfd_seek (abfd, (file_ptr)(N_DROFF(*exec_hdr(abfd))), SEEK_SET);
 
       if (!b_out_squirt_out_relocs (abfd, obj_datasec (abfd))) return false;
     }
@@ -258,61 +261,147 @@ b_out_write_object_contents (abfd)
 /** Some reloc hackery */
 
 #define CALLS	 0x66003800	/* Template for 'calls' instruction	*/
-#define BAL	 0x0b000000	/* Template for 'bal' instruction	*/
+#define BAL	 0x0b000000	/* Template for 'bal' instruction */
+#define BALX	 0x85000000	/* Template for 'balx' instruction	*/
 #define BAL_MASK 0x00ffffff
-
+#define CALL     0x09000000
+#define PCREL13_MASK 0x1fff
+/* Magic to turn callx into calljx */
 static bfd_reloc_status_type 
-DEFUN (callj_callback, (abfd, reloc_entry, symbol_in, data,
-			input_section, output_bfd),
+DEFUN (calljx_callback, (abfd, reloc_entry,  src, dst, input_section),
        bfd *abfd AND
        arelent *reloc_entry AND
-       asymbol *symbol_in AND
-       PTR data AND
-       asection *input_section AND
-       bfd *output_bfd)
+       PTR src AND
+       PTR dst AND
+
+       asection *input_section)
 {
-  int  word = bfd_get_32(abfd, (bfd_byte *)data + reloc_entry->address);
+  int  word = bfd_get_32(abfd, src);
+  asymbol *symbol_in = *(reloc_entry->sym_ptr_ptr);
   aout_symbol_type  *symbol = aout_symbol(symbol_in);
 
-  if (IS_OTHER(symbol->other)) {
+  if (IS_CALLNAME(symbol->other)) 
+  {
+
+    aout_symbol_type *balsym = symbol+1;
+    int inst = bfd_get_32(abfd, (bfd_byte *) src-4);
+    /* The next symbol should be an N_BALNAME */
+    BFD_ASSERT(IS_BALNAME(balsym->other));
+    inst &= BAL_MASK;
+    inst |= BALX;
+    bfd_put_32(abfd, inst, (bfd_byte *) dst-4);
+    symbol = balsym;
+  }
+
+    word += symbol->symbol.section->output_offset +
+     symbol->symbol.section->output_section->vma +
+      symbol->symbol.value + reloc_entry->addend;
+
+  bfd_put_32(abfd, word, dst);
+  return bfd_reloc_ok;
+}
+
+
+/* Magic to turn call into callj */
+static bfd_reloc_status_type 
+DEFUN (callj_callback, (abfd, reloc_entry,  data, srcidx,dstidx, input_section),
+       bfd *abfd AND
+       arelent *reloc_entry AND
+       PTR data AND
+       unsigned int srcidx AND
+       unsigned int dstidx AND
+       asection *input_section )
+{
+  int  word = bfd_get_32(abfd, (bfd_byte *) data + srcidx);
+  asymbol *symbol_in = *(reloc_entry->sym_ptr_ptr);
+
+  aout_symbol_type  *symbol = aout_symbol(symbol_in);
+
+  if (IS_OTHER(symbol->other)) 
+  {
     /* Call to a system procedure - replace code with system
        procedure number */
     word = CALLS | (symbol->other - 1);
-    bfd_put_32(abfd, word, (bfd_byte *)data + reloc_entry->address); /* rplc */
-    return bfd_reloc_ok;
+
   }
 
-  if (IS_CALLNAME(symbol->other)) {
+  else  if (IS_CALLNAME(symbol->other)) 
+  {
     aout_symbol_type *balsym = symbol+1;
     /* The next symbol should be an N_BALNAME */
     BFD_ASSERT(IS_BALNAME(balsym->other));
 
     /* We are calling a leaf - so replace the call instruction
        with a bal */
-  
+
     word = BAL |
-      (((word & BAL_MASK) +
- 	balsym->symbol.section->output_offset +
- 	balsym->symbol.section->output_section->vma+
-	balsym->symbol.value + reloc_entry->addend - 
-	( input_section->output_section->vma + input_section->output_offset))
-       & BAL_MASK);
+     (((word & BAL_MASK) +
+       balsym->symbol.section->output_offset +
+       balsym->symbol.section->output_section->vma+
+       balsym->symbol.value + reloc_entry->addend - dstidx -
+       ( input_section->output_section->vma + input_section->output_offset))
+      & BAL_MASK);
 
-    bfd_put_32(abfd, word, (bfd_byte *) data + reloc_entry->address); /* rplc */
-    return bfd_reloc_ok;
+
   }
-  return bfd_reloc_continue;
+  else 
+  {
 
+    word = CALL |
+     (((word & BAL_MASK) + 
+       symbol->symbol.section->output_offset +
+       symbol->symbol.section->output_section->vma+
+       symbol->symbol.value + reloc_entry->addend - dstidx -
+       ( input_section->output_section->vma + input_section->output_offset))
+      & BAL_MASK);
+  }
+  bfd_put_32(abfd, word, (bfd_byte *) data + dstidx);
+  return bfd_reloc_ok;
 }
+
 /* type rshift size  bitsize  	pcrel	bitpos  absolute overflow check*/
 
+#define ABS32CODE 0
+#define ABS32CODE_SHRUNK 1 
+#define PCREL24 2
+#define CALLJ 3
+#define ABS32 4
+#define PCREL13 5
+#define ABS32_MAYBE_RELAXABLE 1
+#define ABS32_WAS_RELAXABLE 2
 
+#define ALIGNER 10
+#define ALIGNDONE 11
 static reloc_howto_type howto_reloc_callj =
-HOWTO( 3, 0, 2, 24, true, 0, true, true, callj_callback,"callj", true, 0x00ffffff, 0x00ffffff,false);
+HOWTO(CALLJ, 0, 2, 24, true, 0, true, true, 0,"callj", true, 0x00ffffff, 0x00ffffff,false);
 static  reloc_howto_type howto_reloc_abs32 =
-HOWTO(1, 0, 2, 32, false, 0, true, true,0,"abs32", true, 0xffffffff,0xffffffff,false);
+HOWTO(ABS32, 0, 2, 32, false, 0, true, true,0,"abs32", true, 0xffffffff,0xffffffff,false);
 static reloc_howto_type howto_reloc_pcrel24 =
-HOWTO(2, 0, 2, 24, true, 0, true, true,0,"pcrel24", true, 0x00ffffff,0x00ffffff,false);
+HOWTO(PCREL24, 0, 2, 24, true, 0, true, true,0,"pcrel24", true, 0x00ffffff,0x00ffffff,false);
+
+static reloc_howto_type howto_reloc_pcrel13 =
+HOWTO(PCREL13, 0, 2, 13, true, 0, true, true,0,"pcrel13", true, 0x00001fff,0x00001fff,false);
+
+
+static reloc_howto_type howto_reloc_abs32codeshrunk = 
+HOWTO(ABS32CODE_SHRUNK, 0, 2, 24, true, 0, true, true, 0,"callx->callj", true, 0x00ffffff, 0x00ffffff,false);
+
+static  reloc_howto_type howto_reloc_abs32code =
+HOWTO(ABS32CODE, 0, 2, 32, false, 0, true, true,0,"callx", true, 0xffffffff,0xffffffff,false);
+
+static reloc_howto_type howto_align_table[] = {
+  HOWTO (ALIGNER, 0, 0x1, 0, false, 0, false, false, 0, "align16", false, 0, 0, false),
+  HOWTO (ALIGNER, 0, 0x3, 0, false, 0, false, false, 0, "align32", false, 0, 0, false),
+  HOWTO (ALIGNER, 0, 0x7, 0, false, 0, false, false, 0, "align64", false, 0, 0, false),
+  HOWTO (ALIGNER, 0, 0xf, 0, false, 0, false, false, 0, "align128", false, 0, 0, false),
+};
+
+static reloc_howto_type howto_done_align_table[] = {
+  HOWTO (ALIGNDONE, 0x1, 0x1, 0, false, 0, false, false, 0, "donealign16", false, 0, 0, false),
+  HOWTO (ALIGNDONE, 0x3, 0x3, 0, false, 0, false, false, 0, "donealign32", false, 0, 0, false),
+  HOWTO (ALIGNDONE, 0x7, 0x7, 0, false, 0, false, false, 0, "donealign64", false, 0, 0, false),
+  HOWTO (ALIGNDONE, 0xf, 0xf, 0, false, 0, false, false, 0, "donealign128", false, 0, 0, false),
+};
 
 static reloc_howto_type *
 b_out_reloc_type_lookup (abfd, code)
@@ -343,8 +432,10 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
   register struct relocation_info *rptr;
   unsigned int counter ;
   arelent *cache_ptr ;
-  int extern_mask, pcrel_mask, callj_mask;
-
+  int extern_mask, pcrel_mask, callj_mask, length_shift;
+  int incode_mask;
+  int size_mask;
+  bfd_vma prev_addr = 0;
   unsigned int count;
   size_t  reloc_size;
   struct relocation_info *relocs;
@@ -354,54 +445,60 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
   if (!aout_32_slurp_symbol_table (abfd)) return false;
 
   if (asect == obj_datasec (abfd)) {
-      reloc_size = exec_hdr(abfd)->a_drsize;
-      goto doit;
-    }
+    reloc_size = exec_hdr(abfd)->a_drsize;
+    goto doit;
+  }
 
   if (asect == obj_textsec (abfd)) {
-      reloc_size = exec_hdr(abfd)->a_trsize;
-      goto doit;
-    }
+    reloc_size = exec_hdr(abfd)->a_trsize;
+    goto doit;
+  }
 
   bfd_error = invalid_operation;
   return false;
 
  doit:
-  bfd_seek (abfd, (long)(asect->rel_filepos),  SEEK_SET);
+  bfd_seek (abfd, (file_ptr)(asect->rel_filepos),  SEEK_SET);
   count = reloc_size / sizeof (struct relocation_info);
 
   relocs = (struct relocation_info *) bfd_xmalloc (reloc_size);
   if (!relocs) {
-      bfd_error = no_memory;
-      return false;
-    }
+    bfd_error = no_memory;
+    return false;
+  }
   reloc_cache = (arelent *) bfd_xmalloc ((count+1) * sizeof (arelent));
   if (!reloc_cache) {
-      free ((char*)relocs);
-      bfd_error = no_memory;
-      return false;
-    }
+    free ((char*)relocs);
+    bfd_error = no_memory;
+    return false;
+  }
 
   if (bfd_read ((PTR) relocs, 1, reloc_size, abfd) != reloc_size) {
-      bfd_error = system_call_error;
-      free (reloc_cache);
-      free (relocs);
-      return false;
-    }
+    bfd_error = system_call_error;
+    free (reloc_cache);
+    free (relocs);
+    return false;
+  }
 
 
   
   if (abfd->xvec->header_byteorder_big_p) {
-      /* big-endian bit field allocation order */
-      pcrel_mask  = 0x80;
-      extern_mask = 0x10;
-      callj_mask  = 0x02;
-    } else {
-	/* little-endian bit field allocation order */
-	pcrel_mask  = 0x01;
-	extern_mask = 0x08;
-	callj_mask  = 0x40;
-      }
+    /* big-endian bit field allocation order */
+    pcrel_mask  = 0x80;
+    extern_mask = 0x10;
+    incode_mask = 0x08;
+    callj_mask  = 0x02;
+    size_mask =   0x20;
+    length_shift = 5;
+  } else {
+    /* little-endian bit field allocation order */
+    pcrel_mask  = 0x01;
+    extern_mask = 0x08;
+    incode_mask = 0x10;
+    callj_mask  = 0x40;
+    size_mask   = 0x02;
+    length_shift = 1;
+  }
 
   for (rptr = relocs, cache_ptr = reloc_cache, counter = 0;
        counter < count;
@@ -410,6 +507,7 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
     unsigned char *raw = (unsigned char *)rptr;
     unsigned int symnum;
     cache_ptr->address = bfd_h_get_32 (abfd, raw + 0);
+    cache_ptr->howto = 0;
     if (abfd->xvec->header_byteorder_big_p) 
     {
       symnum = (raw[4] << 16) | (raw[5] << 8) | raw[6];
@@ -421,59 +519,116 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
 
     if (raw[7] & extern_mask) 
     {
-	/* if this is set then the r_index is a index into the symbol table;
-	 * if the bit is not set then r_index contains a section map.
-	 * we either fill in the sym entry with a pointer to the symbol,
-	 * or point to the correct section
-	 */
-	cache_ptr->sym_ptr_ptr = symbols + symnum;
-	cache_ptr->addend = 0;
-      } else 
+      /* if this is set then the r_index is a index into the symbol table;
+       * if the bit is not set then r_index contains a section map.
+       * we either fill in the sym entry with a pointer to the symbol,
+       * or point to the correct section
+       */
+      cache_ptr->sym_ptr_ptr = symbols + symnum;
+      cache_ptr->addend = 0;
+    } else 
+    {
+      /* in a.out symbols are relative to the beginning of the
+       * file rather than sections ?
+       * (look in translate_from_native_sym_flags)
+       * the reloc entry addend has added to it the offset into the
+       * file of the data, so subtract the base to make the reloc
+       * section relative */
+      int s;
       {
-	  /* in a.out symbols are relative to the beginning of the
-	   * file rather than sections ?
-	   * (look in translate_from_native_sym_flags)
-	   * the reloc entry addend has added to it the offset into the
-	   * file of the data, so subtract the base to make the reloc
-	   * section relative */
-	  cache_ptr->sym_ptr_ptr = (asymbol **)NULL;
-	  switch (symnum) 
+	/* sign-extend symnum from 24 bits to whatever host uses */
+	s = symnum;
+	if (s & (1 << 23))
+	  s |= (~0) << 24;
+      }
+      cache_ptr->sym_ptr_ptr = (asymbol **)NULL;
+      switch (s)
+      {
+       case N_TEXT:
+       case N_TEXT | N_EXT:
+	cache_ptr->sym_ptr_ptr = obj_textsec(abfd)->symbol_ptr_ptr;
+	cache_ptr->addend = - obj_textsec(abfd)->vma;
+	break;
+       case N_DATA:
+       case N_DATA | N_EXT:
+	cache_ptr->sym_ptr_ptr = obj_datasec(abfd)->symbol_ptr_ptr;
+	cache_ptr->addend = - obj_datasec(abfd)->vma;
+	break;
+       case N_BSS:
+       case N_BSS | N_EXT:
+	cache_ptr->sym_ptr_ptr = obj_bsssec(abfd)->symbol_ptr_ptr;
+	cache_ptr->addend =  - obj_bsssec(abfd)->vma;
+	break;
+       case N_ABS:
+       case N_ABS | N_EXT:
+	cache_ptr->sym_ptr_ptr = obj_bsssec(abfd)->symbol_ptr_ptr;
+	cache_ptr->addend = 0;
+	break;
+      case -2: /* .align */
+	if (raw[7] & pcrel_mask)
 	  {
-	    case N_TEXT:
-	    case N_TEXT | N_EXT:
-	      cache_ptr->sym_ptr_ptr = obj_textsec(abfd)->symbol_ptr_ptr;
-	      cache_ptr->addend = - obj_textsec(abfd)->vma;
-	      break;
-	    case N_DATA:
-	    case N_DATA | N_EXT:
-	      cache_ptr->sym_ptr_ptr = obj_datasec(abfd)->symbol_ptr_ptr;
-	      cache_ptr->addend = - obj_datasec(abfd)->vma;
-	      break;
-	    case N_BSS:
-	    case N_BSS | N_EXT:
-	      cache_ptr->sym_ptr_ptr = obj_bsssec(abfd)->symbol_ptr_ptr;
-	      cache_ptr->addend =  - obj_bsssec(abfd)->vma;
-	      break;
-	    case N_ABS:
-	    case N_ABS | N_EXT:
-	      cache_ptr->sym_ptr_ptr = obj_bsssec(abfd)->symbol_ptr_ptr;
-	      cache_ptr->addend = 0;
-	      break;
-	    default:
-	      BFD_ASSERT(0);
-	      break;
-	    }
+	    cache_ptr->howto = &howto_align_table[(raw[7] >> length_shift) & 3];
+	    cache_ptr->sym_ptr_ptr = &bfd_abs_symbol;
+	  }
+	else
+	  {
+	    /* .org? */
+	    abort ();
+	  }
+	cache_ptr->addend = 0;
+	break;
+       default:
+	BFD_ASSERT(0);
+	break;
+      }
 	
-	}
+    }
 
     /* the i960 only has a few relocation types:
        abs 32-bit and pcrel 24bit.   except for callj's!  */
-    if (raw[7] & callj_mask)
-     cache_ptr->howto = &howto_reloc_callj;
+    if (cache_ptr->howto != 0)
+      ;
+    else if (raw[7] & callj_mask)
+    {
+      cache_ptr->howto = &howto_reloc_callj;
+    }
     else if ( raw[7] & pcrel_mask)
-     cache_ptr->howto = &howto_reloc_pcrel24;
-    else
-     cache_ptr->howto = &howto_reloc_abs32;
+    {
+      if (raw[7] & size_mask)
+       cache_ptr->howto = &howto_reloc_pcrel13;
+      else
+       cache_ptr->howto = &howto_reloc_pcrel24;
+    }
+    else 
+    {
+      if (raw[7] & incode_mask) 
+      {
+	cache_ptr->howto = &howto_reloc_abs32code;
+      }
+      else 
+      {
+	cache_ptr->howto = &howto_reloc_abs32;
+      }
+    }
+    if (cache_ptr->address < prev_addr) 
+    {
+      /* Ouch! this reloc is out of order, insert into the right place
+       */
+      arelent tmp;
+      arelent *cursor = cache_ptr-1;
+      bfd_vma stop = cache_ptr->address;
+      tmp  = *cache_ptr;
+      while (cursor->address > stop && cursor >= reloc_cache)
+      {
+	cursor[1] = cursor[0];
+	cursor--;
+      } 
+      cursor[1] = tmp;
+    }
+    else 
+    {
+      prev_addr = cache_ptr->address;
+    }
   }
 
 
@@ -495,8 +650,8 @@ b_out_squirt_out_relocs (abfd, section)
   arelent **generic;
   int r_extern;
   int r_idx;
-  int r_addend;
-  
+  int incode_mask;  
+  int len_1;
   unsigned int count = section->reloc_count;
   struct relocation_info *native, *natptr;
   size_t natsize = count * sizeof (struct relocation_info);
@@ -505,9 +660,9 @@ b_out_squirt_out_relocs (abfd, section)
   generic   = section->orelocation;
   native = ((struct relocation_info *) bfd_xmalloc (natsize));
   if (!native) {
-      bfd_error = no_memory;
-      return false;
-    }
+    bfd_error = no_memory;
+    return false;
+  }
 
   if (abfd->xvec->header_byteorder_big_p) 
   {
@@ -515,15 +670,19 @@ b_out_squirt_out_relocs (abfd, section)
     pcrel_mask  = 0x80;
     extern_mask = 0x10;
     len_2       = 0x40;
+    len_1       = 0x20;
     callj_mask  = 0x02;
+    incode_mask = 0x08;
   } 
-else 
+  else 
   {
     /* Little-endian bit field allocation order */
     pcrel_mask  = 0x01;
     extern_mask = 0x08;
     len_2       = 0x04;
+    len_1       = 0x02;
     callj_mask  = 0x40;
+    incode_mask = 0x10;
   }
 
   for (natptr = native; count > 0; --count, ++natptr, ++generic) 
@@ -545,18 +704,38 @@ else
     }
     else if (g->howto == &howto_reloc_pcrel24) 
     {
-      raw[7] = pcrel_mask +len_2;
+      raw[7] = pcrel_mask + len_2;
+    }
+    else if (g->howto == &howto_reloc_pcrel13) 
+    {
+      raw[7] = pcrel_mask + len_1;
+    }
+    else if (g->howto == &howto_reloc_abs32code) 
+    {
+      raw[7] = len_2 + incode_mask;
     }
     else {
-	raw[7] = len_2;
-      }
+      raw[7] = len_2;
+    }
     if (output_section == &bfd_com_section 
 	|| output_section == &bfd_abs_section
 	|| output_section == &bfd_und_section) 
     {
-      /* Fill in symbol */
-      r_extern = 1;
-      r_idx =  stoi((*(g->sym_ptr_ptr))->flags);
+
+      if (bfd_abs_section.symbol == sym)
+      {
+	/* Whoops, looked like an abs symbol, but is really an offset
+	   from the abs section */
+	r_idx = 0;
+	r_extern = 0;
+       }
+      else 
+      {
+	/* Fill in symbol */
+
+	r_extern = 1;
+	r_idx =  stoi((*(g->sym_ptr_ptr))->flags);
+      }
     }
     else 
     {
@@ -566,22 +745,22 @@ else
     }
 
     if (abfd->xvec->header_byteorder_big_p) {
-	raw[4] = (unsigned char) (r_idx >> 16);
-	raw[5] = (unsigned char) (r_idx >>  8);
-	raw[6] = (unsigned char) (r_idx     );
-      } else {
-	  raw[6] = (unsigned char) (r_idx >> 16);
-	  raw[5] = (unsigned char) (r_idx>>  8);
-	  raw[4] = (unsigned char) (r_idx     );
-	}  
-if (r_extern)
-    raw[7] |= extern_mask; 
+      raw[4] = (unsigned char) (r_idx >> 16);
+      raw[5] = (unsigned char) (r_idx >>  8);
+      raw[6] = (unsigned char) (r_idx     );
+    } else {
+      raw[6] = (unsigned char) (r_idx >> 16);
+      raw[5] = (unsigned char) (r_idx>>  8);
+      raw[4] = (unsigned char) (r_idx     );
+    }  
+    if (r_extern)
+     raw[7] |= extern_mask; 
   }
 
   if (bfd_write ((PTR) native, 1, natsize, abfd) != natsize) {
-      free((PTR)native);
-      return false;
-    }
+    free((PTR)native);
+    return false;
+  }
   free ((PTR)native);
 
   return true;
@@ -701,6 +880,340 @@ DEFUN(b_out_sizeof_headers,(ignore_abfd, ignore),
 
 
 
+/************************************************************************/
+static bfd_vma 
+DEFUN(get_value,(reloc, seclet),
+      arelent  *reloc AND
+      bfd_seclet_type *seclet)
+{
+  bfd_vma value;
+  asymbol *symbol = *(reloc->sym_ptr_ptr);
+
+  /* A symbol holds a pointer to a section, and an offset from the
+     base of the section.  To relocate, we find where the section will
+     live in the output and add that in */
+
+  if (symbol->section == &bfd_und_section)
+  {
+    /* Ouch, this is an undefined symbol.. */
+    bfd_error_vector.undefined_symbol(reloc, seclet);
+    value = symbol->value;
+  }
+  else 
+  {
+    value = symbol->value +
+     symbol->section->output_offset +
+      symbol->section->output_section->vma;
+  }
+
+  /* Add the value contained in the relocation */
+  value += (short)((reloc->addend) & 0xffff);
+  
+  return value;
+}
+
+static void
+DEFUN(perform_slip,(s, slip, input_section, value),
+      asymbol **s AND
+      unsigned int slip AND
+      asection *input_section AND
+      bfd_vma value)
+{
+  
+  /* Find all symbols past this point, and make them know
+     what's happened */
+  while (*s) 
+  {
+    asymbol *p = *s;
+    if (p->section == input_section) 
+    {
+      /* This was pointing into this section, so mangle it */
+      if (p->value > value)
+      {
+	p->value -=slip;
+      }
+    }
+    s++;
+	
+  }    
+}
+#if 1
+/* This routine works out if the thing we want to get to can be
+   reached with a 24bit offset instead of a 32 bit one.
+   If it can, then it changes the amode */
+
+static int 
+DEFUN(abs32code,(input_section, symbols, r, shrink),
+      asection *input_section AND
+      asymbol **symbols AND
+      arelent *r AND
+      unsigned int shrink) 
+{
+  bfd_vma value = get_value(r,0);
+  bfd_vma dot = input_section->output_section->vma +  input_section->output_offset + r->address;	
+  bfd_vma gap;
+  
+  /* See if the address we're looking at within 2^23 bytes of where
+     we are, if so then we can use a small branch rather than the
+     jump we were going to */
+
+  gap = value - (dot - shrink);
+  
+
+  if (-1<<23 < (long)gap && (long)gap < 1<<23 )
+  { 
+    /* Change the reloc type from 32bitcode possible 24, to 24bit
+       possible 32 */
+
+    r->howto = &howto_reloc_abs32codeshrunk;
+    /* The place to relc moves back by four bytes */
+    r->address -=4;
+	  
+    /* This will be four bytes smaller in the long run */
+    shrink += 4 ;
+    perform_slip(symbols, 4, input_section, r->address-shrink +4);
+  }      
+  return shrink;      
+}
+
+static int 
+DEFUN(aligncode,(input_section, symbols, r, shrink),
+      asection *input_section AND
+      asymbol **symbols AND
+      arelent *r AND
+      unsigned int shrink) 
+{
+  bfd_vma dot = input_section->output_section->vma +  input_section->output_offset + r->address;	
+  bfd_vma gap;
+  bfd_vma old_end;
+  bfd_vma new_end;
+  int shrink_delta;
+  int size = r->howto->size;
+
+  /* Reduce the size of the alignment so that it's still aligned but
+     smaller  - the current size is already the same size as or bigger
+     than the alignment required.  */
+
+  /* calculate the first byte following the padding before we optimize */
+  old_end = ((dot + size ) & ~size) + size+1;
+  /* work out where the new end will be - remember that we're smaller
+     than we used to be */
+  new_end = ((dot - shrink + size) & ~size);
+
+  /* This is the new end */
+  gap = old_end - ((dot + size) & ~size);
+
+  shrink_delta = (old_end - new_end) - shrink;
+
+  if (shrink_delta)
+  { 
+    /* Change the reloc so that it knows how far to align to */
+    r->howto = howto_done_align_table + (r->howto - howto_align_table);
+
+    /* Encode the stuff into the addend - for future use we need to
+       know how big the reloc used to be */
+    r->addend = old_end ;
+
+    /* This will be N bytes smaller in the long run, adjust all the symbols */
+    perform_slip(symbols, shrink_delta, input_section, r->address - shrink );
+    shrink += shrink_delta;
+  }      
+  return shrink;      
+}
+
+
+static boolean 
+DEFUN(b_out_relax_section,(abfd, i, symbols),
+      bfd *abfd AND
+      asection *i AND
+      asymbol **symbols)
+{
+  
+  /* Get enough memory to hold the stuff */
+  bfd *input_bfd = i->owner;
+  asection *input_section = i;
+  int shrink = 0 ;
+  boolean new = false;
+  
+  bfd_size_type reloc_size = bfd_get_reloc_upper_bound(input_bfd,
+						       input_section);
+  arelent **reloc_vector = (arelent **)alloca(reloc_size);
+
+  /* Get the relocs and think about them */
+  if (bfd_canonicalize_reloc(input_bfd, 
+			     input_section,
+			     reloc_vector,
+			     symbols))
+  {
+    arelent **parent;
+    for (parent = reloc_vector; *parent; parent++) 
+    {
+      arelent *r = *parent;
+      switch (r->howto->type) {
+       case ALIGNER:
+	/* An alignment reloc */
+	shrink = aligncode(input_section, symbols, r,shrink);
+	new=true;
+	break;
+       case ABS32CODE:
+	/* A 32bit reloc in an addressing mode */
+	shrink = abs32code(input_section, symbols, r,shrink);
+	new=true;
+	break;
+       case ABS32CODE_SHRUNK:
+	shrink+=4;
+	break;
+      }
+    }
+  }
+  input_section->_cooked_size = input_section->_raw_size - shrink;  
+
+  return new;
+}
+
+#endif
+static bfd_byte *
+DEFUN(b_out_get_relocated_section_contents,(in_abfd, seclet, data),
+      bfd *in_abfd AND
+      bfd_seclet_type *seclet AND
+      bfd_byte *data)
+
+{
+  /* Get enough memory to hold the stuff */
+  bfd *input_bfd = seclet->u.indirect.section->owner;
+  asection *input_section = seclet->u.indirect.section;
+  bfd_size_type reloc_size = bfd_get_reloc_upper_bound(input_bfd,
+						       input_section);
+  arelent **reloc_vector = (arelent **)alloca(reloc_size);
+  
+  /* read in the section */
+  bfd_get_section_contents(input_bfd,
+			   input_section,
+			   data,
+			   0,
+			   input_section->_raw_size);
+  
+  
+  if (bfd_canonicalize_reloc(input_bfd, 
+			     input_section,
+			     reloc_vector,
+			     seclet->u.indirect.symbols) )
+  {
+    arelent **parent = reloc_vector;
+    arelent *reloc ;
+    
+
+
+    unsigned int dst_address = 0;
+    unsigned int src_address = 0;
+    unsigned int run;
+    unsigned int idx;
+    
+    /* Find how long a run we can do */
+    while (dst_address < seclet->size) 
+    {
+      
+      reloc = *parent;
+      if (reloc) 
+      {
+	/* Note that the relaxing didn't tie up the addresses in the
+	   relocation, so we use the original address to work out the
+	   run of non-relocated data */
+	run = reloc->address - src_address;
+	parent++;
+	
+      }
+      else 
+      {
+	run = seclet->size - dst_address;
+      }
+      /* Copy the bytes */
+      for (idx = 0; idx < run; idx++)
+      {
+	data[dst_address++] = data[src_address++];
+      }
+    
+      /* Now do the relocation */
+    
+      if (reloc) 
+      {
+	switch (reloc->howto->type) 
+	{
+	 case ABS32CODE:
+	  calljx_callback(in_abfd, reloc, src_address + data, dst_address+data, input_section);
+	  src_address+=4;
+	  dst_address+=4;
+	  break;
+	 case ABS32:
+	  bfd_put_32(in_abfd, get_value(reloc, seclet), data+dst_address);
+	  src_address+=4;
+	  dst_address+=4;
+	  break;
+	 case CALLJ:
+	  callj_callback(in_abfd, reloc ,data,src_address,dst_address,input_section);
+	  src_address+=4;
+	  dst_address+=4;
+	  break;
+	 case ALIGNDONE:
+	  src_address = reloc->addend;
+	  dst_address = (dst_address + reloc->howto->size) & ~reloc->howto->size;
+	  break;
+	 case ABS32CODE_SHRUNK: 
+	  /* This used to be a callx, but we've found out that a
+	     callj will reach, so do the right thing */
+	  callj_callback(in_abfd, reloc,data,src_address+4, dst_address,input_section);
+
+	  dst_address+=4;
+	  src_address+=8;
+	  break;
+	 case PCREL24:
+	 {
+	   long int word = bfd_get_32(in_abfd, data+src_address);
+	   asymbol *symbol = *(reloc->sym_ptr_ptr);
+	   word = (word & ~BAL_MASK) |
+	    (((word & BAL_MASK) +
+	      symbol->section->output_offset +
+	      symbol->section->output_section->vma+
+	      symbol->value + reloc->addend - dst_address -
+	      ( input_section->output_section->vma + input_section->output_offset))
+	     & BAL_MASK);
+
+	   bfd_put_32(in_abfd,word,  data+dst_address);
+	   dst_address+=4;
+	   src_address+=4;
+
+	 }
+	  break;
+
+	 case PCREL13:
+	 {
+	   long int word = bfd_get_32(in_abfd, data+src_address);
+	   asymbol *symbol = *(reloc->sym_ptr_ptr);
+	   word = (word & ~PCREL13_MASK) |
+	    (((word & PCREL13_MASK) +
+	      symbol->section->output_offset +
+	      symbol->section->output_section->vma+
+	      symbol->value + reloc->addend - dst_address -
+	      ( input_section->output_section->vma + input_section->output_offset))
+	     & PCREL13_MASK);
+
+	   bfd_put_32(in_abfd,word,  data+dst_address);
+	   dst_address+=4;
+	   src_address+=4;
+
+	 }
+	  break;
+
+	 default:
+
+	  abort();
+	}
+      }    
+    }
+  }
+  return data;
+}
+/***********************************************************************/
 
 /* Build the transfer vectors for Big and Little-Endian B.OUT files.  */
 
@@ -729,8 +1242,8 @@ DEFUN(b_out_sizeof_headers,(ignore_abfd, ignore),
 #define aout_32_bfd_debug_info_end		bfd_void
 #define aout_32_bfd_debug_info_accumulate	(PROTO(void,(*),(bfd*, struct sec *))) bfd_void
 
-#define aout_32_bfd_get_relocated_section_contents  bfd_generic_get_relocated_section_contents
-#define aout_32_bfd_relax_section                   bfd_generic_relax_section
+#define aout_32_bfd_get_relocated_section_contents  b_out_get_relocated_section_contents
+#define aout_32_bfd_relax_section                   b_out_relax_section
 
 bfd_target b_out_vec_big_host =
 {
@@ -742,18 +1255,19 @@ bfd_target b_out_vec_big_host =
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT ),
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+  '_',				/* symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
-     2,				/* minumum alignment power */
+  2,				/* minumum alignment power */
 
-_do_getl64, _do_putl64,  _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
-_do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
-    {_bfd_dummy_target, b_out_object_p, /* bfd_check_format */
-       bfd_generic_archive_p, _bfd_dummy_target},
-    {bfd_false, b_out_mkobject,	/* bfd_set_format */
-       _bfd_generic_mkarchive, bfd_false},
-    {bfd_false, b_out_write_object_contents,	/* bfd_write_contents */
-       _bfd_write_archive_contents, bfd_false},
+  _do_getl64, _do_putl64,  _do_getl32, _do_putl32, _do_getl16, _do_putl16, /* data */
+  _do_getb64, _do_putb64,  _do_getb32, _do_putb32, _do_getb16, _do_putb16, /* hdrs */
+ {_bfd_dummy_target, b_out_object_p, /* bfd_check_format */
+   bfd_generic_archive_p, _bfd_dummy_target},
+ {bfd_false, b_out_mkobject,	/* bfd_set_format */
+   _bfd_generic_mkarchive, bfd_false},
+ {bfd_false, b_out_write_object_contents, /* bfd_write_contents */
+   _bfd_write_archive_contents, bfd_false},
 
   JUMP_TABLE(aout_32),
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* COFF stuff?! */
@@ -771,6 +1285,7 @@ bfd_target b_out_vec_little_host =
    HAS_LINENO | HAS_DEBUG |
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT ),
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+    '_',			/* symbol leading char */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
      2,				/* minum align */

@@ -35,6 +35,15 @@
 #	CPU_TYPE-MANUFACTURER-OPERATING_SYSTEM
 # it is wrong to echo any other type of specification
 
+if [ x$1 = x ]
+then
+	echo Configuration name missing. 1>&2
+	echo "Usage: $0 CPU-MFR-OPSYS" 1>&2
+	echo "or     $0 ALIAS" 1>&2
+	echo where ALIAS is a recognized configuration type. 1>&2
+	exit 1
+fi
+
 # First pass through any local machine types.
 case $1 in
 	*local*)
@@ -59,13 +68,23 @@ case $os in
 	-unicom* | -ibm* | -next* | -hp | -isi* | -apollo | -altos* | \
 	-convergent* | -ncr* | -news | -32* | -3600* | -3100* | -osf* | \
 	-c[123]* | -convex* | -sun | -crds | -omron* | -dg | -ultra | -tti* | \
-	-harris)
+	-harris | -sim)
 		os=
 		basic_machine=$1
+		;;
+	-scout)
 		;;
 	-sco*)
 		os=-scosysv322
 		basic_machine=i386-unknown
+		;;
+	-OSE68k | -ose68k | -OSE | -ose | -es1800)
+		os=-ose
+		basic_machine=m68k-ericsson
+		;;
+	-OSE68000 | -ose68000)
+		os=-ose
+		basic_machine=m68000-ericsson
 		;;
 	-isc*)
 		os=-iscsysv
@@ -76,17 +95,19 @@ esac
 # Decode aliases for certain CPU-COMPANY combinations.
 case $basic_machine in
 	# Recognize the basic CPU types with without company name.
-	tahoe | i386 | i860 | m68k | m680[01234]0 | m88k | ns32k | arm | pyramid \
+	tahoe | i386 | i486 | i860 | m68k | m680[01234]0 | m683?2 \
+		| m88k | ns32k | arm | pyramid \
 		| tron | a29k | 580 | i960 | h8300 | hppa1.0 | hppa1.1 | we32k\
-		| v70)
+		| v70 | we32k | z8k)
 		basic_machine=$basic_machine-unknown
 		;;
 	# Recognize the basic CPU types with with company name.
-	vax-* | tahoe-* | i386-* | i860-* | m68k-* | m680[01234]0-* | m88k-* \
+	vax-* | tahoe-* | i386-* | i486-* | i860-* | m68k-* \
+	      | m680[01234]0-* | m683?2-* | m88k-* \
 	      | sparc-* | ns32k-* | alliant-* | arm-* | c[123]* \
 	      | mips-* | pyramid-* | tron-* | a29k-* | romp-* | rs6000-* \
 	      | none-* | 580-* | cray2-* | h8300-* | i960-* | xmp-* | ymp-* \
-	      | hppa1.0-* | hppa1.1-* | we32k-*)
+	      | hppa1.0-* | hppa1.1-* | we32k-* | z8k-*)
 		;;
 	# Recognize the various machine names and aliases which stand
 	# for a CPU type and a company and sometimes even an OS.
@@ -128,9 +149,21 @@ case $basic_machine in
 		basic_machine=i386-unknown
 		os=-sysv4
 		;;
+	i486v4*)
+		basic_machine=i486-unknown
+		os=-sysv4
+		;;
 	i386v)
 		basic_machine=i386-unknown
 		os=-sysv
+		;;
+	i486v)
+		basic_machine=i486-unknown
+		os=-sysv
+		;;
+	386bsd)
+		basic_machine=i386-unknown
+		os=-bsd
 		;;
 	spur)
 		basic_machine=spur-unknown
@@ -190,6 +223,10 @@ case $basic_machine in
 	3b1 | 7300 | 7300-att | att-7300 | pc7300 | safari | unixpc)
 		basic_machine=m68k-att
 		;;
+	3b* | we32k* )
+		basic_machine=we32k-att
+		os=-sysv
+		;;
 	delta | 3300 | motorola-3300 | motorola-delta \
 	      | 3300-motorola | delta-motorola)
 		basic_machine=m68k-motorola
@@ -236,11 +273,19 @@ case $basic_machine in
 		basic_machine=sparc-sun
 		os=-solaris2
 		;;
+	z8ksim)
+		basic_machine=z8k-unknown
+		os=-sim
+		;;
 	sun3)
 		basic_machine=m68k-sun
 		;;
 	sun4)
 		basic_machine=sparc-sun
+		;;
+	msdos)
+		basic_machine=i386-unknown	
+		os=-msdos
 		;;
 	pbd)
 		basic_machine=sparc-unicom
@@ -293,7 +338,7 @@ case $basic_machine in
 		os=-newsos
 		;;
 	st2000)
-		basic_machine=m68kmote-tandem
+		basic_machine=m68k-tandem
 		;;
 	decstation-dec | decstation | decstation-3100 | pmax | pmin | dec3100 | decstatn)
 		basic_machine=mips-dec
@@ -403,7 +448,7 @@ case $basic_machine in
 		os=-hpux
 		;;
 	ncr3000)
-		basic_machine=i386-ncr
+		basic_machine=i486-ncr
 		os=-sysv4
 		;;
 	necv70)
@@ -438,9 +483,13 @@ case $basic_machine in
 		basic_machine=m68k-wrs
 		os=-vxworks
 		;;
-	es1800)
+	es1800 | OSE68k | ose68k)
 		basic_machine=m68k-ericsson
-		os=-es1800
+		os=-ose
+		;;
+	OSE68000 | ose68000)
+		basic_machine=m68000-ericsson
+		os=-ose
 		;;
 	os68k)
 		basic_machine=m68k-none
@@ -449,6 +498,10 @@ case $basic_machine in
 	sparclite)
 		basic_machine=sparclite-fujitsu
 		os=-none
+		;;
+	sparclite-wrs)
+		basic_machine=sparclite-wrs
+		os=-vxworks
 		;;
 	sparcfrw)
 		basic_machine=sparcfrw-sun
@@ -465,6 +518,10 @@ case $basic_machine in
 	sparclitefrwcompat)
 		basic_machine=sparclitefrwcompat-fujitsu
 		os=-none
+		;;
+	adobe68k)
+		basic_machine=m68010-adobe
+		os=-scout
 		;;
 
 	none)
@@ -506,12 +563,13 @@ case $os in
 	# First accept the basic system types.
 	# The portable systems comes first.
 	# Each alternative must end in a *, to match a version number.
-	-bsd* | -sysv* | -mach* | -minix* | -genix* | -ultrix* | -aout \
+	-bsd* | -sysv* | -mach* | -minix* | -genix* | -ultrix* \
+	      | -aout | -coff | -elf \
 	      | -vms* | -sco* | -esix* | -isc* | -aix* | -sunos* | -hpux* \
 	      | -unos* | -osf* | -v88r* | -luna* | -dgux* | -solaris* | -sym* \
 	      | -newsos | -amigados* | -msdos* | -none* | -os68k* | -irix* \
 	      | -nindy* | -vxworks* | -ebmon* | -udi | -hms* | -xray \
-	      | -m88kbcs* | -go32 | -linux* | -es1800* )
+	      | -m88kbcs* | -go32 | -linux* | -sim | -es1800*)
 	;;
 
 # Note that readline checks for newsos
@@ -530,6 +588,9 @@ case $os in
 	-aos*)
 		os=-bsd
 		;;
+	-386bsd)
+		os=-bsd
+		;;
 	-ctix* | -uts*)
 		os=-sysv
 		;;
@@ -538,6 +599,12 @@ case $os in
 		;;
 	-svr3)
 		os=-sysv3
+		;;
+	-ose*)
+		os=-ose
+		;;
+	-es1800*)
+		os=-ose
 		;;
 	*)
 		# Get rid of the `-' at the beginning of $os.
@@ -626,6 +693,9 @@ case $basic_machine in
 				;;
 			-genix*)
 				vendor=ns
+				;;
+			-vxworks*)
+				vendor=wrs
 				;;
 		esac
 		basic_machine=`echo $basic_machine | sed "s/unknown/$vendor/"`

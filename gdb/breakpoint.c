@@ -317,11 +317,8 @@ commands_command (arg, from_tty)
     if (b->number == bnum)
       {
 	if (from_tty && input_from_terminal_p ())
-	  {
-	    printf_filtered ("Type commands for when breakpoint %d is hit, one per line.\n\
+	  printf_filtered ("Type commands for when breakpoint %d is hit, one per line.\n\
 End with a line saying just \"end\".\n", bnum);
-	    fflush (stdout);
-	  }
 	l = read_command_lines ();
 	free_command_lines (&b->commands);
 	b->commands = l;
@@ -796,7 +793,7 @@ bpstat_alloc (b, cbs)
 
 	Each element of the chain refers to a particular breakpoint or
 	watchpoint at which we have stopped.  (We may have stopped for
-	several reasons.)
+	several reasons concurrently.)
 
 	Each element of the chain has valid next, breakpoint_at,
 	commands, FIXME??? fields.
@@ -1290,7 +1287,10 @@ enable_longjmp_breakpoint()
 
   ALL_BREAKPOINTS (b)
     if (b->type == bp_longjmp)
-      b->enable = enabled;
+      {
+	b->enable = enabled;
+	check_duplicates (b->address);
+      }
 }
 
 void
@@ -1299,9 +1299,12 @@ disable_longjmp_breakpoint()
   register struct breakpoint *b;
 
   ALL_BREAKPOINTS (b)
-    if (b->type == bp_longjmp
+    if (   b->type == bp_longjmp
 	|| b->type == bp_longjmp_resume)
-      b->enable = disabled;
+      {
+	b->enable = disabled;
+	check_duplicates (b->address);
+      }
 }
 
 /* Call this after hitting the longjmp() breakpoint.  Use this to set a new
@@ -1327,6 +1330,7 @@ set_longjmp_resume_breakpoint(pc, frame)
 	  b->frame = FRAME_FP(frame);
 	else
 	  b->frame = 0;
+	check_duplicates (b->address);
 	return;
       }
 }
@@ -2227,8 +2231,6 @@ breakpoint_re_set_one (bint)
       free ((PTR)sals.sals);
       break;
     case bp_watchpoint:
-      /* FIXME!  This is the wrong thing to do.... */
-      delete_breakpoint (b);
       break;
     default:
       printf_filtered ("Deleting unknown breakpoint type %d\n", b->type);
@@ -2251,6 +2253,13 @@ breakpoint_re_set ()
   static char message1[] = "Error in re-setting breakpoint %d:\n";
   char message[sizeof (message1) + 30 /* slop */];
   
+  /* If we have no current source symtab, and we have any breakpoints,
+     go through the work of making a source context.  */
+  if (current_source_symtab == NULL && breakpoint_chain != 0)
+    {
+      select_source_symtab (NULL);
+    }
+
   ALL_BREAKPOINTS_SAFE (b, temp)
     {
       sprintf (message, message1, b->number);	/* Format possible error msg */
@@ -2701,7 +2710,7 @@ an expression changes.");
 	    "Synonym for ``info breakpoints''.");
 }
 
-#ifdef IBM6000_HOST
+#ifdef IBM6000_TARGET
 /* Where should this function go? It is used by AIX only. FIXME. */
 
 /* Breakpoint address relocation used to be done in breakpoint_re_set(). That
@@ -2723,7 +2732,6 @@ fixup_breakpoints (low, high, delta)
   CORE_ADDR delta;
 {
   struct breakpoint *b;
-  extern struct breakpoint *breakpoint_chain;
 
   ALL_BREAKPOINTS (b)
     {

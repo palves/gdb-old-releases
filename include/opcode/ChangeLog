@@ -1,3 +1,65 @@
+Tue Sep 22 14:08:14 1992  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* m68k.h: Added CPU32 support.
+
+Tue Sep 22 00:38:41 1992  John Gilmore  (gnu@cygnus.com)
+
+	* mips.h (break):  Disassemble the argument.  Patch from
+	jonathan@cs.stanford.edu (Jonathan Stone).
+
+Wed Sep  9 11:25:28 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* m68k.h: merged Motorola and MIT syntax.
+
+Thu Sep  3 09:33:22 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* m68k.h (pmove): make the tests less strict, the 68k book is
+	wrong.
+
+Tue Aug 25 23:25:19 1992  Ken Raeburn  (raeburn@cambridge.cygnus.com)
+
+	* m68k.h (m68ec030): Defined as alias for 68030.
+	(m68k_opcodes): New type characters "3" for 68030 MMU regs and "t"
+	for immediate 0-7 added.  Set up some opcodes (ptest, bkpt) to use
+	them.  Tightened description of "fmovex" to distinguish it from
+	some "pmove" encodings.  Added "pmove" for 68030 MMU regs, cleaned
+	up descriptions that claimed versions were available for chips not
+	supporting them.  Added "pmovefd".
+
+Mon Aug 24 12:04:51 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* m68k.h: fix where the . goes in divull
+
+Wed Aug 19 11:22:24 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* m68k.h: the cas2 instruction is supposed to be written with
+	indirection on the last two operands, which can be either data or
+	address registers.  Added a new operand type 'r' which accepts
+	either register type.  Added new cases for cas2l and cas2w which
+	use them.  Corrected masks for cas2 which failed to recognize use
+	of address register.
+
+Fri Aug 14 14:20:38 1992  Per Bothner  (bothner@cygnus.com)
+
+	* m68k.h:  Merged in patches (mostly m68040-specific) from
+	Colin Smith <colin@wrs.com>.
+
+	* m68k.h:  Merged m68kmri.h and m68k.h (using the former as a
+	base).  Also cleaned up duplicates, re-ordered instructions for
+	the sake of dis-assembling (so aliases come after standard names).
+	* m68kmri.h: Now just defines some macros, and #includes m68k.h.
+
+Wed Aug 12 16:38:15 1992  Steve Chamberlain  (sac@thepub.cygnus.com)
+
+	* m68kmri.h: added various opcodes. Moved jbxx to bxxes. Filled in
+	all missing .s
+
+Mon Aug 10 23:22:33 1992  Ken Raeburn  (raeburn@cygnus.com)
+
+	* sparc.h: Moved tables to BFD library.
+
+	* i386.h (i386_optab): Add fildq, fistpq aliases used by gcc.
+
 Sun Jun 28 13:29:03 1992  Fred Fish  (fnf@cygnus.com)
 
 	* h8300.h:  Finish filling in all the holes in the opcode table,

@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%% gdb-refcard.tex %%%%%%%%%%%%%%%%
 
 %This file is TeX source for a reference card describing GDB, the GNU debugger.
-%$Id: refcard.tex,v 1.95 1992/01/15 23:51:05 pesch Exp $
+%$Id: refcard.tex,v 1.96 1992/08/15 11:05:57 gnu Exp $
 %Copyright (C) 1991, 1992 Free Software Foundation, Inc.
 %Permission is granted to make and distribute verbatim copies of
 %this reference provided the copyright notices and permission notices
@@ -54,7 +54,7 @@
 %
 {%
 \def\$#1${{#1}}%   Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.95 $}%
+\xdef\manvers{\$Revision: 1.96 $}%
 }%
 %-------------------- Three column format -----------------------
 
@@ -277,8 +277,8 @@ info frame \opt{\it addr}&describe selected frame, or frame at
 {\it addr}\cr
 info args&arguments of selected frame\cr
 info locals&local variables of selected frame\cr
-info reg \opt{\it rn}\par
-info all-reg \opt{\it rn}&register values \opt{for reg {\it rn\/}} in
+info reg \opt{\it rn}$\ldots$\par
+info all-reg \opt{\it rn}&register values \opt{for regs {\it rn\/}} in
 selected frame; {\tt all-reg} includes floating point\cr
 info catch&exception handlers active in selected frame\cr
 \endsec

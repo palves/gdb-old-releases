@@ -1626,18 +1626,17 @@ print_frame_args (func, fi, num, stream)
 	continue;
       }
 
-      /* We have to re-look-up the symbol because arguments often have
+      /* If the symbol name is non-null, 
+	 we have to re-look-up the symbol because arguments often have
 	 two entries (one a parameter, one a register or local), and the one
 	 we want is the non-parm, which lookup_symbol will find for
-	 us.  After this, sym could be any SYMBOL_CLASS...  */
-#ifdef IBM6000_TARGET
-      /* AIX/RS6000 implements a concept of traceback tables, in which case
-         it creates nameless parameters. Looking for those parameter symbols
-	 will result in an error. */
+	 us.  After this, sym could be any SYMBOL_CLASS... 
 
-      if ( *SYMBOL_NAME (sym))
-#endif
-      sym = lookup_symbol (SYMBOL_NAME (sym),
+	 Null parameter names occur on the RS/6000, for traceback tables.
+	 FIXME, should we even print them?  */
+
+      if (*SYMBOL_NAME (sym))
+        sym = lookup_symbol (SYMBOL_NAME (sym),
 		    b, VAR_NAMESPACE, (int *)NULL, (struct symtab **)NULL);
 
       /* Print the current arg.  */

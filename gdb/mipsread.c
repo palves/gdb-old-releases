@@ -57,6 +57,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "objfiles.h"
 #include "obstack.h"
 #include "buildsym.h"
+#include "stabsread.h"
 
 #ifdef USG
 #include <sys/types.h>
@@ -182,12 +183,11 @@ struct complaint pdr_static_symbol_complaint =
 	(((a) == GLEVEL_3) ? ((b) < GLEVEL_3) :			\
 	 ((b) == GLEVEL_3) ? -1 : (int)((b) - (a)))
 
-/* When looking at .o files, avoid tripping over bad addresses */
+/* When looking at .o files, avoid tripping over zero pointers.
+   FIXME; places that use this should be fixed to convert from
+   external to internal format, rather than examining in-place. */
 
-#define SAFE_TEXT_ADDR 0x400000
-#define SAFE_DATA_ADDR 0x10000000
-
-#define UNSAFE_DATA_ADDR(p)	((unsigned)p < SAFE_DATA_ADDR || (unsigned)p > 2*SAFE_DATA_ADDR)
+#define	UNSAFE_DATA_ADDR(p)	((p) == 0)
 
 /* Things that really are local to this module */
 
@@ -229,7 +229,7 @@ struct type *builtin_type_string;
 /* Forward declarations */
 
 static void
-fixup_symtab PARAMS ((HDRR *, char *, int, bfd *));
+fixup_symtab PARAMS ((HDRR *, char *, file_ptr, bfd *));
 
 static void
 read_mips_symtab PARAMS ((struct objfile *, struct section_offsets *));
@@ -448,7 +448,7 @@ read_the_mips_symtab(abfd, end_of_text_segp)
 	CORE_ADDR	*end_of_text_segp;
 {
 	int             stsize, st_hdrsize;
-	unsigned        st_filptr;
+	file_ptr        st_filptr;
 	struct hdr_ext	hdr_ext;
 	HDRR            st_hdr;
 	/* Header for executable/object file we read symbols from */
@@ -456,7 +456,7 @@ read_the_mips_symtab(abfd, end_of_text_segp)
 	int val;
 
 	/* We need some info from the initial headers */
-	val = bfd_seek(abfd, 0L, L_SET);
+	val = bfd_seek(abfd, (file_ptr) 0, L_SET);
 	val = bfd_read((PTR)&filhdr, sizeof filhdr, 1, abfd);
 
 	if (end_of_text_segp)
@@ -513,7 +513,7 @@ static void
 fixup_symtab (hdr, data, f_ptr, abfd)
 	HDRR *hdr;
 	char *data;
-	int f_ptr;
+	file_ptr f_ptr;
 	bfd *abfd;
 {
 	int             f_idx, s_idx, i;
@@ -525,8 +525,9 @@ fixup_symtab (hdr, data, f_ptr, abfd)
 
 	/* This function depends on the external and internal forms
 	   of the MIPS symbol table taking identical space.  Check this
-	   assumption at compile-time.  */
-#if 0	/* FIXME: Unused */
+	   assumption at compile-time.  
+	   DO NOT DELETE THESE ENTRIES, OR COMMENT THEM OUT, JUST BECAUSE SOME
+	   "LINT" OR COMPILER THINKS THEY ARE UNUSED!  Thank you.  */
 	static check_hdr1[1 + sizeof (struct hdr_ext) - sizeof (HDRR)] = {0};
 	static check_hdr2[1 + sizeof (HDRR) - sizeof (struct hdr_ext)] = {0};
 	static check_fdr1[1 + sizeof (struct fdr_ext) - sizeof (FDR)] = {0};
@@ -539,7 +540,6 @@ fixup_symtab (hdr, data, f_ptr, abfd)
 	static check_ext2[1 + sizeof (EXTR) - sizeof (struct ext_ext)] = {0};
 	static check_rfd1[1 + sizeof (struct rfd_ext) - sizeof (RFDT)] = {0};
 	static check_rfd2[1 + sizeof (RFDT) - sizeof (struct rfd_ext)] = {0};
-#endif
 
 	/* Swap in the header record.  */
 	ecoff_swap_hdr_in (abfd, hdr, hdr);
@@ -553,18 +553,18 @@ fixup_symtab (hdr, data, f_ptr, abfd)
 	hdr->cbOptOffset = 0;
 
 #define FIX(off) \
-        if (hdr->off) hdr->off = (unsigned int)data + (hdr->off - f_ptr);
+	if (hdr->off) hdr->off = (unsigned int)data + (hdr->off - f_ptr);
 
-        FIX(cbLineOffset);
-        FIX(cbPdOffset);
-        FIX(cbSymOffset);
-        FIX(cbOptOffset);
-        FIX(cbAuxOffset);
-        FIX(cbSsOffset);
-        FIX(cbSsExtOffset);
-        FIX(cbFdOffset);
-        FIX(cbRfdOffset);
-        FIX(cbExtOffset);
+	FIX(cbLineOffset);
+	FIX(cbPdOffset);
+	FIX(cbSymOffset);
+	FIX(cbOptOffset);
+	FIX(cbAuxOffset);
+	FIX(cbSsOffset);
+	FIX(cbSsExtOffset);
+	FIX(cbFdOffset);
+	FIX(cbRfdOffset);
+	FIX(cbExtOffset);
 #undef	FIX
 
 	/* Fix all the RFD's.  */
@@ -657,7 +657,7 @@ fixup_symtab (hdr, data, f_ptr, abfd)
 			/* Relocate address */
 			if (!only_ext)
 				pr->adr += code_offset;
-		}		
+		}
 	}
 
 	/* External symbols: swap in, and fix string */
@@ -1132,7 +1132,7 @@ data:		/* Common code for symbols describing data */
 		    }
 		    else complain (&block_member_complaint, (char *)tsym->st);
 		  }
-		
+
 		/* In an stBlock, there is no way to distinguish structs,
 		   unions, and enums at this point.  This is a bug in the
 		   original design (that has been fixed with the
@@ -1172,7 +1172,7 @@ data:		/* Common code for symbols describing data */
 		      type_code = TYPE_CODE_UNION;
 		    else
 		      type_code = TYPE_CODE_STRUCT;
-		
+
 		/* If this type was expected, use its partial definition */
 		if (pend)
 		    t = is_pending_symbol(cur_fdr, sh)->t;
@@ -1184,9 +1184,8 @@ data:		/* Common code for symbols describing data */
 		TYPE_LENGTH(t) = sh->value;
 		TYPE_NFIELDS(t) = nfields;
 		TYPE_FIELDS(t) = f = (struct field*)
-		  obstack_alloc (&current_objfile -> type_obstack,
-				 nfields * sizeof (struct field));
-		
+		  TYPE_ALLOC (t, nfields * sizeof (struct field));
+
 		if (type_code == TYPE_CODE_ENUM) {
 		    /* This is a non-empty enum. */
 		    for (tsym = sh + 1; tsym->st == stMember; tsym++) {
@@ -1195,7 +1194,7 @@ data:		/* Common code for symbols describing data */
 			f->type = t;
 			f->name = (char*)tsym->iss;
 			f->bitsize = 0;
-			
+
 			enum_sym = (struct symbol *)
 			    obstack_alloc (&current_objfile->symbol_obstack,
 					   sizeof (struct symbol));
@@ -1206,7 +1205,7 @@ data:		/* Common code for symbols describing data */
 			SYMBOL_NAMESPACE (enum_sym) = VAR_NAMESPACE;
 			SYMBOL_VALUE (enum_sym) = tsym->value;
 			add_symbol(enum_sym, top_stack->cur_block);
-			
+
 			/* Skip the stMembers that we've handled. */
 			count++;
 			f++;
@@ -1253,7 +1252,7 @@ data:		/* Common code for symbols describing data */
 
 		    /* Make up special symbol to contain procedure specific
 		       info */
-		    s = new_symbol(".gdbinfo.");
+		    s = new_symbol(MIPS_EFI_SYMBOL_NAME);
 		    SYMBOL_NAMESPACE(s) = LABEL_NAMESPACE;
 		    SYMBOL_CLASS(s) = LOC_CONST;
 		    SYMBOL_TYPE(s) = builtin_type_void;
@@ -1284,6 +1283,10 @@ data:		/* Common code for symbols describing data */
 			   address of the end of this block. */
 			BLOCK_END(top_stack->cur_block) = sh->value + top_stack->procadr;
 			shrink_block(top_stack->cur_block, top_stack->cur_st);
+		} else if (sh->sc == scText && top_stack->blocktype == stFile) {
+			/* End of file.  Pop parse stack and ignore.  Higher
+			   level code deals with this.  */
+			;
 		} else complain (&stEnd_complaint, (char *)sh->sc);
 
 		pop_parse_stack();	/* restore previous lexical context */
@@ -1302,7 +1305,7 @@ data:		/* Common code for symbols describing data */
 		SYMBOL_NAMESPACE(s) = VAR_NAMESPACE;
 		SYMBOL_CLASS(s) = LOC_TYPEDEF;
 		SYMBOL_BLOCK_VALUE(s) = top_stack->cur_block;
-		add_symbol(s, top_stack->cur_block);			
+		add_symbol(s, top_stack->cur_block);
 		SYMBOL_TYPE(s) = parse_type(ax + sh->index, 0, bigend);
 		sh->value = (long) SYMBOL_TYPE(s);
 		break;
@@ -1389,7 +1392,7 @@ parse_type(ax, bs, bigend)
 		tp = *map_bt[t->bt];
 		fmt = "%s";
 	} else {
-	        tp = NULL;
+		tp = NULL;
 		/* Cannot use builtin types -- build our own */
 		switch (t->bt) {
 		    case btAdr:
@@ -1476,9 +1479,8 @@ parse_type(ax, bs, bigend)
 	/* Deal with range types */
 	if (t->bt == btRange) {
 		TYPE_NFIELDS (tp) = 2;
-		TYPE_FIELDS (tp) =
-		  (struct field *) obstack_alloc (&current_objfile -> type_obstack,
-						  2 * sizeof (struct field));
+		TYPE_FIELDS (tp) = (struct field *)
+		  TYPE_ALLOC (tp, 2 * sizeof (struct field));
 		TYPE_FIELD_NAME (tp, 0) = obsavestring ("Low", strlen ("Low"),
 							&current_objfile -> type_obstack);
 		TYPE_FIELD_BITPOS (tp, 0) = AUX_GET_DNLOW (bigend, ax);
@@ -1622,7 +1624,7 @@ upgrade_type(tpp, tq, ax, bigend)
 
 /* Parse a procedure descriptor record PR.  Note that the procedure
    is parsed _after_ the local symbols, now we just insert the extra
-   information we need into a special ".gdbinfo." symbol that has already
+   information we need into a MIPS_EFI_SYMBOL_NAME symbol that has already
    been placed in the procedure's main block.  Note also that images that
    have been partially stripped (ld -x) have been deprived
    of local symbols, and we have to cope with them here.
@@ -1658,7 +1660,7 @@ parse_procedure (pr, bound, have_stabs)
 	    complain (&pdr_for_nonsymbol_complaint, sh_name);
 #if 1
 	return;
-#else    
+#else
 /* FIXME -- delete.  We can't do symbol allocation now; it's all done.  */
 	    s = new_symbol(sh_name);
 	    SYMBOL_NAMESPACE(s) = VAR_NAMESPACE;
@@ -1677,7 +1679,7 @@ parse_procedure (pr, bound, have_stabs)
 #endif
     }
 
-    i = mylookup_symbol(".gdbinfo.", b, LABEL_NAMESPACE, LOC_CONST);
+    i = mylookup_symbol(MIPS_EFI_SYMBOL_NAME, b, LABEL_NAMESPACE, LOC_CONST);
 
     if (i)
       {
@@ -1868,7 +1870,7 @@ parse_partial_symbols (end_of_text_seg, objfile, section_offsets)
 	(struct partial_symtab **) alloca (dependencies_allocated *
 					   sizeof (struct partial_symtab *));
 
-    last_source_file = 0;
+    last_source_file = NULL;
 
     /*
      * Big plan:
@@ -1940,6 +1942,7 @@ parse_partial_symbols (end_of_text_seg, objfile, section_offsets)
     for (f_idx = 0; f_idx < hdr->ifdMax; f_idx++) {
 	struct partial_symtab *save_pst;
 	EXTR **ext_ptr;
+
 	cur_fdr = fh = f_idx + (FDR *)(cur_hdr->cbFdOffset);
 
 	if (fh->csym == 0) {
@@ -1958,23 +1961,15 @@ parse_partial_symbols (end_of_text_seg, objfile, section_offsets)
 	FDR_IDX(pst) = f_idx;
 	fdr_to_pst[f_idx].pst = pst;
 	fh->ioptBase = (int)pst;
-	
+
 	CUR_HDR(pst) = cur_hdr;
-	
+
 	/* The way to turn this into a symtab is to call... */
 	pst->read_symtab = mipscoff_psymtab_to_symtab;
-	
+
 	pst->texthigh = pst->textlow;
-	
-#if 0	    /* This is done in start_psymtab_common */
-	pst->globals_offset = global_psymbols.next - global_psymbols.list;
-	pst->statics_offset = static_psymbols.next - static_psymbols.list;
-	
-	pst->n_global_syms = 0;
-	pst->n_static_syms = 0;
-#endif
-	
-	/* The second symbol must be @stab.
+
+	/* For stabs-in-ecoff files, the second symbol must be @stab.
 	   This symbol is emitted by mips-tfile to signal
 	   that the current object file uses encapsulated stabs
 	   instead of mips ecoff for local symbols.
@@ -1983,6 +1978,7 @@ parse_partial_symbols (end_of_text_seg, objfile, section_offsets)
 	if (fh->csym >= 2
 	    && strcmp((char *)(((SYMR *)fh->isymBase)[1].iss),
 		      stabs_symbol) == 0) {
+	    processing_gcc_compilation = 2;
 	    for (cur_sdx = 2; cur_sdx < fh->csym; cur_sdx++) {
 		int type_code;
 		char *namestring;
@@ -2014,11 +2010,12 @@ parse_partial_symbols (end_of_text_seg, objfile, section_offsets)
 	    }
 	}
 	else {
+	    processing_gcc_compilation = 0;
 	    for (cur_sdx = 0; cur_sdx < fh->csym; ) {
 		char *name;
 		enum address_class class;
 		sh = cur_sdx + (SYMR *) fh->isymBase;
-		
+
 		if (MIPS_IS_STAB(sh)) {
 		    cur_sdx++;
 		    continue;
@@ -2030,9 +2027,9 @@ parse_partial_symbols (end_of_text_seg, objfile, section_offsets)
 		    cur_sdx++;
 		    continue;
 		}
-		
+
 		name = (char *)(sh->iss);
-		
+
 		switch (sh->st) {
 		    long high;
 		    long procaddr;
@@ -2100,6 +2097,12 @@ parse_partial_symbols (end_of_text_seg, objfile, section_offsets)
 		  case stFile:			/* File headers */
 		  case stLabel:			/* Labels */
 		  case stEnd:			/* Ends of files */
+		    goto skip;
+
+		  case stLocal:			/* Local variables */
+		    /* Normally these are skipped because we skip over
+		       all blocks we see.  However, these can occur
+		       as visible symbols in a .h file that contains code. */
 		    goto skip;
 
 		  default:
@@ -2354,7 +2357,10 @@ psymtab_to_symtab_1(pst, filename)
 	 */
 
 	PDR *pr;
-	
+
+	/* We indicate that this is a GCC compilation so that certain features
+	   will be enabled in stabsread/dbxread.  */
+	processing_gcc_compilation = 2;
 	/* Parse local symbols first */
 
 	if (fh->csym <= 2)	/* FIXME, this blows psymtab->symtab ptr */
@@ -2377,7 +2383,7 @@ psymtab_to_symtab_1(pst, filename)
 		      (struct mips_extra_func_info *)
 			obstack_alloc(&current_objfile->symbol_obstack,
 				      sizeof(struct mips_extra_func_info));
-		    struct symbol *s = new_symbol(".gdbinfo.");
+		    struct symbol *s = new_symbol(MIPS_EFI_SYMBOL_NAME);
 		    SYMBOL_NAMESPACE(s) = LABEL_NAMESPACE;
 		    SYMBOL_CLASS(s) = LOC_CONST;
 		    SYMBOL_TYPE(s) = builtin_type_void;
@@ -2392,6 +2398,7 @@ psymtab_to_symtab_1(pst, filename)
 	    else complain (&stab_unknown_complaint, (char *)sh->iss);
 	}
 	st = end_symtab (pst->texthigh, 0, 0, pst->objfile);
+	end_stabs ();
 
 	/* Sort the symbol table now, we are done adding symbols to it.
 	   We must do this before parse_procedure calls lookup_symbol.  */
@@ -2419,6 +2426,8 @@ psymtab_to_symtab_1(pst, filename)
 	int maxlines;
 	EXTR **ext_ptr;
 
+	processing_gcc_compilation = 0;
+
 	/* How many symbols will we need */
 	/* FIXME, this does not count enum values. */
 	f_max = pst->n_global_syms + pst->n_static_syms;
@@ -2440,7 +2449,7 @@ psymtab_to_symtab_1(pst, filename)
 	}
 
 	/* Get a new lexical context */
-	
+
 	push_parse_stack();
 	top_stack->cur_st = st;
 	top_stack->cur_block = BLOCKVECTOR_BLOCK(BLOCKVECTOR(st),
@@ -2461,7 +2470,7 @@ psymtab_to_symtab_1(pst, filename)
 
 	    for (cur_sdx = 0; cur_sdx < fh->csym; ) {
 		sh = (SYMR *) (fh->isymBase) + cur_sdx;
-		cur_sdx += parse_symbol(sh, (union aux_ent *)fh->iauxBase,
+		cur_sdx += parse_symbol(sh, (union aux_ext *)fh->iauxBase,
 					fh->fBigendian);
 	    }
 
@@ -3005,7 +3014,7 @@ fixup_sigtramp()
 				   (struct objfile *) NULL);
 	TYPE_TARGET_TYPE(SYMBOL_TYPE(s)) = builtin_type_void;
 
-	/* Need a block to allocate .gdbinfo. in */
+	/* Need a block to allocate MIPS_EFI_SYMBOL_NAME in */
 	b = new_block(1);
 	SYMBOL_BLOCK_VALUE(s) = b;
 	BLOCK_START(b) = sigtramp_address;
@@ -3015,7 +3024,7 @@ fixup_sigtramp()
 	add_block(b, st);
 	sort_blocks(st);
 
-	/* Make a .gdbinfo. for it */
+	/* Make a MIPS_EFI_SYMBOL_NAME entry for it */
 	{
 		struct mips_extra_func_info *e =
 			(struct mips_extra_func_info *)
@@ -3033,7 +3042,7 @@ fixup_sigtramp()
 		e->pdr.isym = (long)s;
 
 		current_objfile = st->objfile; /* Keep new_symbol happy */
-		s = new_symbol(".gdbinfo.");
+		s = new_symbol(MIPS_EFI_SYMBOL_NAME);
 		SYMBOL_VALUE(s) = (int) e;
 		SYMBOL_NAMESPACE(s) = LABEL_NAMESPACE;
 		SYMBOL_CLASS(s) = LOC_CONST;
@@ -3054,7 +3063,7 @@ mipscoff_symfile_offsets (objfile, addr)
 {
   struct section_offsets *section_offsets;
   int i;
- 
+
   section_offsets = (struct section_offsets *)
     obstack_alloc (&objfile -> psymbol_obstack,
 		   sizeof (struct section_offsets) +
@@ -3062,7 +3071,7 @@ mipscoff_symfile_offsets (objfile, addr)
 
   for (i = 0; i < SECT_OFF_MAX; i++)
     ANOFFSET (section_offsets, i) = addr;
-  
+
   return section_offsets;
 }
 

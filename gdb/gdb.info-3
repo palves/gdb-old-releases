@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.06, July 1992, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.6.
+   This is Edition 4.06, October 1992, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.7.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software Foundation,
 Inc.
@@ -28,102 +28,6 @@ manual into another language, under the above conditions for modified
 versions, except that the section entitled "GNU General Public License"
 may be included in a translation approved by the Free Software
 Foundation instead of in the original English.
-
-
-File: gdb.info,  Node: Frames,  Next: Backtrace,  Prev: Stack,  Up: Stack
-
-Stack Frames
-============
-
-   The call stack is divided up into contiguous pieces called "stack
-frames", or "frames" for short; each frame is the data associated with
-one call to one function.  The frame contains the arguments given to
-the function, the function's local variables, and the address at which
-the function is executing.
-
-   When your program is started, the stack has only one frame, that of
-the function `main'.  This is called the "initial" frame or the
-"outermost" frame.  Each time a function is called, a new frame is
-made.  Each time a function returns, the frame for that function
-invocation is eliminated.  If a function is recursive, there can be
-many frames for the same function.  The frame for the function in which
-execution is actually occurring is called the "innermost" frame.  This
-is the most recently created of all the stack frames that still exist.
-
-   Inside your program, stack frames are identified by their addresses.
- A stack frame consists of many bytes, each of which has its own
-address; each kind of computer has a convention for choosing one of
-those bytes whose address serves as the address of the frame.  Usually
-this address is kept in a register called the "frame pointer register"
-while execution is going on in that frame.
-
-   GDB assigns numbers to all existing stack frames, starting with zero
-for the innermost frame, one for the frame that called it, and so on
-upward.  These numbers do not really exist in your program; they are
-assigned by GDB to give you a way of designating stack frames in GDB
-commands.
-
-   Some compilers allow functions to be compiled so that they operate
-without stack frames.  (For example, the `gcc' option
-`-fomit-frame-pointer' will generate functions without a frame.) This
-is occasionally done with heavily used library functions to save the
-frame setup time.  GDB has limited facilities for dealing with these
-function invocations.  If the innermost function invocation has no
-stack frame, GDB will nevertheless regard it as though it had a
-separate frame, which is numbered zero as usual, allowing correct
-tracing of the function call chain.  However, GDB has no provision for
-frameless functions elsewhere in the stack.
-
-
-File: gdb.info,  Node: Backtrace,  Next: Selection,  Prev: Frames,  Up: Stack
-
-Backtraces
-==========
-
-   A backtrace is a summary of how your program got where it is.  It
-shows one line per frame, for many frames, starting with the currently
-executing frame (frame zero), followed by its caller (frame one), and
-on up the stack.
-
-`backtrace'
-`bt'
-     Print a backtrace of the entire stack: one line per frame for all
-     frames in the stack.
-
-     You can stop the backtrace at any time by typing the system
-     interrupt character, normally `C-c'.
-
-`backtrace N'
-`bt N'
-     Similar, but print only the innermost N frames.
-
-`backtrace -N'
-`bt -N'
-     Similar, but print only the outermost N frames.
-
-   The names `where' and `info stack' (abbreviated `info s') are
-additional aliases for `backtrace'.
-
-   Each line in the backtrace shows the frame number and the function
-name. The program counter value is also shown--unless you use `set
-print address off'.  The backtrace also shows the source file name and
-line number, as well as the arguments to the function.  The program
-counter value is omitted if it is at the beginning of the code for that
-line number.
-
-   Here is an example of a backtrace.  It was made with the command `bt
-3', so it shows the innermost three frames.
-
-     #0  m4_traceon (obs=0x24eb0, argc=1, argv=0x2b8c8)
-         at builtin.c:993
-     #1  0x6e38 in expand_macro (sym=0x2b600) at macro.c:242
-     #2  0x6840 in expand_token (obs=0x0, t=177664, td=0xf7fffb08)
-         at macro.c:71
-     (More stack frames follow...)
-
-The display for frame zero does not begin with a program counter value,
-indicating that your program has stopped at the beginning of the code
-for line `993' of `builtin.c'.
 
 
 File: gdb.info,  Node: Selection,  Next: Frame Info,  Prev: Backtrace,  Up: Stack
@@ -266,7 +170,7 @@ Emacs..
 * Machine Code::                Source and Machine Code
 
 
-File: gdb.info,  Node: List,  Next: Search,  Prev: Source,  Up: Source
+File: gdb.info,  Node: List,  Next: Search,  Up: Source
 
 Printing Source Lines
 =====================
@@ -492,19 +396,36 @@ variable `$_' (*note Convenience Variables: Convenience Vars.).
      range of addresses (first inclusive, second exclusive) to dump.
 
    We can use `disassemble' to inspect the object code range shown in
-the last `info line' example:
+the last `info line' example (the example shows SPARC machine
+instructions):
 
      (gdb) disas 0x63e4 0x6404
      Dump of assembler code from 0x63e4 to 0x6404:
-     0x63e4 builtin_init+5340:     ble 0x63f8 builtin_init+5360
-     0x63e8 builtin_init+5344:     sethi %hi(0x4c00), %o0
-     0x63ec builtin_init+5348:     ld [%i1+4], %o0
-     0x63f0 builtin_init+5352:     b 0x63fc builtin_init+5364
-     0x63f4 builtin_init+5356:     ld [%o0+4], %o0
-     0x63f8 builtin_init+5360:     or %o0, 0x1a4, %o0
-     0x63fc builtin_init+5364:     call 0x9288 path_search
-     0x6400 builtin_init+5368:     nop
+     0x63e4 <builtin_init+5340>:     ble 0x63f8 <builtin_init+5360>
+     0x63e8 <builtin_init+5344>:     sethi %hi(0x4c00), %o0
+     0x63ec <builtin_init+5348>:     ld [%i1+4], %o0
+     0x63f0 <builtin_init+5352>:     b 0x63fc <builtin_init+5364>
+     0x63f4 <builtin_init+5356>:     ld [%o0+4], %o0
+     0x63f8 <builtin_init+5360>:     or %o0, 0x1a4, %o0
+     0x63fc <builtin_init+5364>:     call 0x9288 <path_search>
+     0x6400 <builtin_init+5368>:     nop
      End of assembler dump.
+
+   For example, here is the beginning of the output for the disassembly
+of a function `fact':
+
+     (gdb) disas fact
+     Dump of assembler code for function fact:
+     to 0x808c:
+     0x802c <fact>: 6d f2		mov.w r2,@-r7
+     0x802e <fact+2>:  6d f3		mov.w r3,@-r7
+     0x8030 <fact+4>:  6d f6		mov.w r6,@-r7
+     0x8032 <fact+6>:  0d 76		mov.w r7,r6
+     0x8034 <fact+8>:  6f 70 00 08	mov.w @(0x8,r7),r0
+     0x8038 <fact+12>  19 11		sub.w	r1,r1
+      .
+      .
+      .
 
 
 File: gdb.info,  Node: Data,  Next: Languages,  Prev: Source,  Up: Top
@@ -513,7 +434,7 @@ Examining Data
 **************
 
    The usual way to examine data in your program is with the `print'
-command (abbreviated `p'), or its synonym `inspect'.  It evaluates and
+command (abbreviated `p'), or its synonym `inspect'. It evaluates and
 prints the value of an expression of the language your program is
 written in (*note Using GDB with Different Languages: Languages.).
 
@@ -554,7 +475,7 @@ rather than `print'. *Note Examining the Symbol Table: Symbols.
 * Floating Point Hardware::     Floating Point Hardware
 
 
-File: gdb.info,  Node: Expressions,  Next: Variables,  Prev: Data,  Up: Data
+File: gdb.info,  Node: Expressions,  Next: Variables,  Up: Data
 
 Expressions
 ===========
@@ -1254,5 +1175,123 @@ values likely to be useful.
      The variable `$__' is automatically set by the `x' command to the
      value found in the last address examined.  Its type is chosen to
      match the format in which the data was printed.
+
+
+File: gdb.info,  Node: Registers,  Next: Floating Point Hardware,  Prev: Convenience Vars,  Up: Data
+
+Registers
+=========
+
+   You can refer to machine register contents, in expressions, as
+variables with names starting with `$'.  The names of registers are
+different for each machine; use `info registers' to see the names used
+on your machine.
+
+`info registers'
+     Print the names and values of all registers except floating-point
+     registers (in the selected stack frame).
+
+`info all-registers'
+     Print the names and values of all registers, including
+     floating-point registers.
+
+`info registers REGNAME ...'
+     Print the relativized value of each specified register REGNAME.
+     REGNAME may be any register name valid on the machine you are
+     using, with or without the initial `$'.
+
+   GDB has four "standard" register names that are available (in
+expressions) on most machines--whenever they do not conflict with an
+architecture's canonical mnemonics for registers.  The register names
+`$pc' and `$sp' are used for the program counter register and the stack
+pointer.  `$fp' is used for a register that contains a pointer to the
+current stack frame, and `$ps' is used for a register that contains the
+processor status.  For example, you could print the program counter in
+hex with
+
+     p/x $pc
+
+or print the instruction to be executed next with
+
+     x/i $pc
+
+or add four to the stack pointer (1) with
+
+     set $sp += 4
+
+   Whenever possible, these four standard register names are available
+on your machine even though the machine has different canonical
+mnemonics, so long as there is no conflict.  The `info registers'
+command shows the canonical names.  For example, on the SPARC, `info
+registers' displays the processor status register as `$psr' but you can
+also refer to it as `$ps'.
+
+   GDB always considers the contents of an ordinary register as an
+integer when the register is examined in this way.  Some machines have
+special registers which can hold nothing but floating point; these
+registers are considered to have floating point values.  There is no way
+to refer to the contents of an ordinary register as floating point value
+(although you can *print* it as a floating point value with `print/f
+$REGNAME').
+
+   Some registers have distinct "raw" and "virtual" data formats.  This
+means that the data format in which the register contents are saved by
+the operating system is not the same one that your program normally
+sees.  For example, the registers of the 68881 floating point
+coprocessor are always saved in "extended" (raw) format, but all C
+programs expect to work with "double" (virtual) format.  In such cases,
+GDB normally works with the virtual format only (the format that makes
+sense for your program), but the `info registers' command prints the
+data in both formats.
+
+   Normally, register values are relative to the selected stack frame
+(*note Selecting a Frame: Selection.).  This means that you get the
+value that the register would contain if all stack frames farther in
+were exited and their saved registers restored.  In order to see the
+true contents of hardware registers, you must select the innermost
+frame (with `frame 0').
+
+   However, GDB must deduce where registers are saved, from the machine
+code generated by your compiler.  If some registers are not saved, or if
+GDB is unable to locate the saved registers, the selected stack frame
+will make no difference.
+
+`set rstack_high_address ADDRESS'
+     On AMD 29000 family processors, registers are saved in a separate
+     "register stack".  There is no way for GDB to determine the extent
+     of this stack.  Normally, GDB just assumes that the stack is "large
+     enough".  This may result in GDB referencing memory locations that
+     don't exist.  If necessary, you can get around this problem by
+     specifying the ending address of the register stack with the `set
+     rstack_high_address' command.  The argument should be an address,
+     which you will probably want to precede with `0x' to specify in
+     hexadecimal.
+
+`show rstack_high_address'
+     Display the current limit of the register stack, on AMD 29000
+     family processors.
+
+   ---------- Footnotes ----------
+
+   (1)  This is a way of removing one word from the stack, on machines
+where stacks grow downward in memory (most machines, nowadays).  This
+assumes that the innermost stack frame is selected; setting `$sp' is
+not allowed when other stack frames are selected.  To pop entire frames
+off the stack, regardless of machine architecture, use `return'; *note
+Returning from a Function: Returning..
+
+
+File: gdb.info,  Node: Floating Point Hardware,  Prev: Registers,  Up: Data
+
+Floating Point Hardware
+=======================
+
+   Depending on the host machine architecture, GDB may be able to give
+you more information about the status of the floating point hardware.
+
+`info float'
+     If available, provides hardware-dependent information about the
+     floating point unit.  The exact contents and layout vary depending
+     on the floating point chip.
 
 

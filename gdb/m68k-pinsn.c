@@ -46,7 +46,7 @@ print_insn_arg PARAMS ((char *, unsigned char *, unsigned char *, CORE_ADDR,
 
 const char * const fpcr_names[] = {
   "", "fpiar", "fpsr", "fpiar/fpsr", "fpcr",
-  "fpiar/fpcr", "fpsr/fpcr", "fpiar-fpcr"};
+  "fpiar/fpcr", "fpsr/fpcr", "fpiar/fpsr/fpcr"};
 
 /* Define accessors for 68K's 1, 2, and 4-byte signed quantities.
    The _SHIFT values move the quantity to the high order end of an
@@ -188,6 +188,30 @@ print_insn_arg (d, buffer, p, addr, stream)
 
   switch (*d)
     {
+    case 'c':		/* cache identifier */
+      {
+        static char *cacheFieldName[] = { "NOP", "dc", "ic", "bc" };
+        val = fetch_arg (buffer, place, 2);
+        fprintf_filtered (stream, cacheFieldName[val]);
+        break;
+      }
+
+    case 'a':		/* address register indirect only. Cf. case '+'. */
+      {
+        fprintf_filtered (stream,
+			  "%s@",
+			  reg_names [fetch_arg (buffer, place, 3) + 8]);
+        break;
+      }
+
+    case '_':		/* 32-bit absolute address for move16. */
+      {
+        val = NEXTLONG (p);
+        fprintf_filtered (stream, "@#");
+	print_address (val, stream);
+        break;
+      }
+
     case 'C':
       fprintf_filtered (stream, "ccr");
       break;
@@ -204,8 +228,11 @@ print_insn_arg (d, buffer, p, addr, stream)
       {
 	static struct { char *name; int value; } names[]
 	  = {{"sfc", 0x000}, {"dfc", 0x001}, {"cacr", 0x002},
+	     {"tc",  0x003}, {"itt0",0x004}, {"itt1", 0x005},
+             {"dtt0",0x006}, {"dtt1",0x007},
 	     {"usp", 0x800}, {"vbr", 0x801}, {"caar", 0x802},
-	     {"msp", 0x803}, {"isp", 0x804}};
+	     {"msp", 0x803}, {"isp", 0x804}, {"mmusr",0x805},
+             {"urp", 0x806}, {"srp", 0x807}};
 
 	val = fetch_arg (buffer, place, 12);
 	for (regno = sizeof names / sizeof names[0] - 1; regno >= 0; regno--)
@@ -250,6 +277,10 @@ print_insn_arg (d, buffer, p, addr, stream)
 
     case 'R':
       fprintf_filtered (stream, "%s", reg_names[fetch_arg (buffer, place, 4)]);
+      break;
+
+    case 'r':
+      fprintf_filtered (stream, "%s@", reg_names[fetch_arg (buffer, place, 4)]);
       break;
 
     case 'F':
@@ -372,6 +403,7 @@ print_insn_arg (d, buffer, p, addr, stream)
     case '?':
     case '/':
     case '&':
+    case '`':
 
       if (place == 'd')
 	{
@@ -466,10 +498,12 @@ print_insn_arg (d, buffer, p, addr, stream)
 		  flval = NEXTDOUBLE(p);
 		  break;
 
+#ifdef HAVE_68881
 		case 'x':
 		  ieee_extended_to_double (&ext_format_68881, p, &flval);
 		  p += 12;
 		  break;
+#endif
 
 		case 'p':
 		  p += 12;
@@ -653,12 +687,18 @@ fetch_arg (buffer, code, bits)
       val >>= 10;
       break;
 
+    case 'e':
+      val = (buffer[1] >> 6);
+      break;
+
     default:
       abort ();
     }
 
   switch (bits)
     {
+    case 2:
+      return val & 3;
     case 3:
       return val & 7;
     case 4:

@@ -184,6 +184,12 @@ struct internalvar
   value value;
 };
 
+/* Pointer to member function.  Depends on compiler implementation. */
+
+#define METHOD_PTR_IS_VIRTUAL(ADDR)  ((ADDR) & 0x80000000)
+#define METHOD_PTR_FROM_VOFFSET(OFFSET) (0x80000000 + (OFFSET))
+#define METHOD_PTR_TO_VOFFSET(ADDR) (~0x80000000 & (ADDR))
+
 
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -399,11 +405,12 @@ extern value
 value_x_unop PARAMS ((value arg1, enum exp_opcode op));
 
 extern value
-value_fn_field PARAMS ((struct fn_field *f, int j));
+value_fn_field PARAMS ((value *arg1p, struct fn_field *f, int j,
+			struct type* type, int offset));
 
 extern value
-value_virtual_fn_field PARAMS ((value arg1, struct fn_field *f, int j,
-				struct type *type));
+value_virtual_fn_field PARAMS ((value *arg1p, struct fn_field *f, int j,
+				struct type *type, int offset));
 
 extern int
 binop_user_defined_p PARAMS ((enum exp_opcode op, value arg1, value arg2));

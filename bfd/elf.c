@@ -1,9 +1,9 @@
 /* ELF executable support for BFD.
-   Copyright (C) 1991, 1992 Free Software Foundation, Inc.
+   Copyright 1991, 1992 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
    in "UNIX System V Release 4, Programmers Guide: ANSI C and
-   Programming Support Tools". Sufficient support for gdb.
+   Programming Support Tools".  Sufficient support for gdb.
 
    Rewritten by Mark Eichin @ Cygnus Support, from information
    published in "System V Application Binary Interface", chapters 4
@@ -323,7 +323,7 @@ DEFUN(elf_swap_reloca_out,(abfd, src, dst),
 static char *EXFUN(elf_read, (bfd *, long, int));
 static struct sec * EXFUN(section_from_elf_index, (bfd *, int));
 static int EXFUN(elf_section_from_bfd_section, (bfd *, struct sec *));
-static boolean EXFUN(elf_slurp_symbol_table, (bfd *, Elf_Internal_Shdr*));
+static boolean EXFUN(elf_slurp_symbol_table, (bfd *, asymbol **));
 static void EXFUN(elf_info_to_howto, (bfd *, arelent *, Elf_Internal_Rela *));
 static char *EXFUN(elf_get_str_section, (bfd *, unsigned int));
      
@@ -419,9 +419,11 @@ DEFUN(bfd_section_from_shdr, (abfd, shindex),
     elf_string_from_elf_strtab (abfd, hdr->sh_name) : "unnamed";
 
   switch(hdr->sh_type) {
+
   case SHT_NULL:
     /* inactive section. Throw it away. */
     return true;
+
   case SHT_PROGBITS:
   case SHT_NOBITS:
     /* Bits that get saved. This one is real. */
@@ -452,28 +454,16 @@ DEFUN(bfd_section_from_shdr, (abfd, shindex),
       }
     return true;
     break;
-  case SHT_SYMTAB:
-    /* we may be getting called by reference. Bring'em in... */
-    if (! hdr->rawdata) {
-      /* fetch our corresponding string table. */
-      bfd_section_from_shdr (abfd, hdr->sh_link);
 
-      /* start turning our elf symbols into bfd symbols. */
-      BFD_ASSERT (hdr->sh_entsize == sizeof (Elf_External_Sym));
-      elf_slurp_symbol_table (abfd, hdr);
-      abfd->flags |= HAS_SYMS;
-      
-    }
+  case SHT_SYMTAB:			/* A symbol table */
+    BFD_ASSERT (hdr->sh_entsize == sizeof (Elf_External_Sym));
+    elf_onesymtab (abfd) = shindex;
+    abfd->flags |= HAS_SYMS;
     return true;
-  case SHT_STRTAB:
-    /* we may be getting called by reference. Bring'em in... */
-    if (! hdr->rawdata)
-      {
-	/* we don't need to do anything, just make the data available. */
-	if (elf_get_str_section (abfd, shindex) == NULL)
-	  return false;
-      }
+
+  case SHT_STRTAB:			/* A string table */
     return true;
+
   case SHT_REL:
   case SHT_RELA:
     /* *these* do a lot of work -- but build no sections! */
@@ -486,12 +476,13 @@ DEFUN(bfd_section_from_shdr, (abfd, shindex),
        
     {
       asection		*target_sect;
-      unsigned int	idx;
       
       bfd_section_from_shdr (abfd, hdr->sh_link); /* symbol table */
       bfd_section_from_shdr (abfd, hdr->sh_info); /* target */
       target_sect = section_from_elf_index (abfd, hdr->sh_info);
-      
+      if (target_sect == NULL)
+	  return false;
+
 #if 0
       /* FIXME:  We are only prepared to read one symbol table, so
 	 do NOT read the dynamic symbol table since it is only a
@@ -505,9 +496,9 @@ DEFUN(bfd_section_from_shdr, (abfd, shindex),
       target_sect->relocation = 0;
       target_sect->rel_filepos = hdr->sh_offset;
       return true;
-
     }
     break;
+
   case SHT_HASH:
   case SHT_DYNAMIC:
   case SHT_DYNSYM:		/* could treat this like symtab... */
@@ -516,12 +507,14 @@ DEFUN(bfd_section_from_shdr, (abfd, shindex),
     abort ();
 #endif
     break;
+
   case SHT_NOTE:
 #if 0
     fprintf(stderr, "Note Sections not yet supported.\n");
     abort ();
 #endif
     break;
+
   case SHT_SHLIB:
 #if 0
     fprintf(stderr, "SHLIB Sections not supported (and non conforming.)\n");
@@ -535,7 +528,7 @@ DEFUN(bfd_section_from_shdr, (abfd, shindex),
   return (true);
 }
 
-      
+
 
 
 struct strtab {
@@ -787,7 +780,7 @@ DEFUN(bfd_prpsinfo,(abfd, descdata, descsz, filepos),
     {
       if ((core_prpsinfo (abfd) = bfd_alloc (abfd, descsz)) != NULL)
 	{
-	  bcopy (descdata, core_prpsinfo (abfd), descsz);
+	  memcpy (core_prpsinfo (abfd), descdata, descsz);
 	}
     }
 }
@@ -953,7 +946,7 @@ DEFUN(elf_corefile_note, (abfd, hdr),
 
   if (hdr -> p_filesz > 0
       && (buf = (char *) bfd_xmalloc (hdr -> p_filesz)) != NULL
-      && bfd_seek (abfd, hdr -> p_offset, SEEK_SET) != -1L
+      && bfd_seek (abfd, hdr -> p_offset, SEEK_SET) != -1
       && bfd_read ((PTR) buf, hdr -> p_filesz, 1, abfd) == hdr -> p_filesz)
     {
       x_note_p = (Elf_External_Note *) buf;
@@ -1053,7 +1046,6 @@ DEFUN (elf_object_p, (abfd), bfd *abfd)
   Elf_Internal_Shdr *i_shdrp;	/* Section header table, internal form */
   int shindex;
   char *shstrtab;		/* Internal copy of section header stringtab */
-  Elf_Off offset;		/* Temp place to stash file offsets */
   
   /* Read in the ELF header in external format.  */
 
@@ -1794,7 +1786,7 @@ DEFUN (elf_write_object_contents, (abfd), bfd *abfd)
 
   /* swap the header before spitting it out... */
   elf_swap_ehdr_out (abfd, i_ehdrp, &x_ehdr);
-  bfd_seek (abfd, 0L, SEEK_SET);
+  bfd_seek (abfd, (file_ptr) 0, SEEK_SET);
   bfd_write ((PTR) &x_ehdr, sizeof(x_ehdr), 1, abfd);
 
   outbase += i_ehdrp->e_shentsize * i_ehdrp->e_shnum;
@@ -1834,7 +1826,7 @@ DEFUN (elf_write_object_contents, (abfd), bfd *abfd)
     }
   
   /* sample use of bfd:
-   * bfd_seek (abfd, 0L, false);
+   * bfd_seek (abfd, (file_ptr) 0, SEEK_SET);
    * bfd_write ((PTR) &exec_bytes, 1, EXEC_BYTES_SIZE, abfd);
    * if (bfd_seek(abfd, scn_base, SEEK_SET) != 0)
    * return false;
@@ -1872,7 +1864,7 @@ DEFUN (section_from_elf_index, (abfd, index),
       return (struct sec *)hdr->rawdata;
       break;
     default:
-      return 0;
+      return (struct sec *)&bfd_abs_section;
     }
 }
 
@@ -1908,20 +1900,18 @@ DEFUN (elf_section_from_bfd_section, (abfd, asect),
 }
 
 static boolean
-DEFUN (elf_slurp_symbol_table, (abfd, hdr),
+DEFUN (elf_slurp_symbol_table, (abfd, symptrs),
        bfd		*abfd AND
-       Elf_Internal_Shdr *hdr)
+       asymbol		**symptrs)	/* Buffer for generated bfd symbols */
 {
+  Elf_Internal_Shdr *i_shdrp = elf_elfsections (abfd);
+  Elf_Internal_Shdr *hdr = i_shdrp + elf_onesymtab (abfd);
   int symcount;		/* Number of external ELF symbols */
   int i;
-  char *strtab;		/* Buffer for raw ELF string table section */
   asymbol *sym;		/* Pointer to current bfd symbol */
   asymbol *symbase;	/* Buffer for generated bfd symbols */
-  asymbol **vec;	/* Pointer to current bfd symbol pointer */
   Elf_Internal_Sym i_sym;
-  Elf_External_Sym x_sym;
   Elf_External_Sym *x_symp;
-  unsigned int *table_ptr;	/* bfd symbol translation table */
 
   /* this is only valid because there is only one symtab... */
   /* FIXME:  This is incorrect, there may also be a dynamic symbol
@@ -1940,10 +1930,9 @@ DEFUN (elf_slurp_symbol_table, (abfd, hdr),
 
      Note that we allocate the initial bfd canonical symbol buffer
      based on a one-to-one mapping of the ELF symbols to canonical
-     symbols.  However, it is likely that not all the ELF symbols will
-     be used, so there will be some space leftover at the end.  Once
-     we know how many symbols we actual generate, we realloc the buffer
-     to the correct size and then build the pointer vector. */
+     symbols.  We actually use all the ELF symbols, so there will be no
+     space left over at the end.  When we have all the symbols, we
+     build the caller's pointer vector. */
 
   if (bfd_seek (abfd, hdr->sh_offset, SEEK_SET) == -1)
     {
@@ -1952,14 +1941,16 @@ DEFUN (elf_slurp_symbol_table, (abfd, hdr),
     }
 
   symcount = hdr->sh_size / sizeof (Elf_External_Sym);
-  sym = symbase = (asymbol *) bfd_zalloc (abfd, symcount * sizeof (asymbol));
-  x_symp = (Elf_External_Sym *)
-    bfd_zalloc (abfd, symcount * sizeof (Elf_External_Sym));
-  /* FIXME, x_symp never gets freed!  -- gnu@cygnus.com  */
+  symbase = (asymbol *) bfd_zalloc (abfd, symcount * sizeof (asymbol));
+  sym = symbase;
+
+  /* Temporarily allocate room for the raw ELF symbols.  */
+  x_symp = (Elf_External_Sym *) malloc (symcount * sizeof (Elf_External_Sym));
 
   if (bfd_read ((PTR) x_symp, sizeof (Elf_External_Sym), symcount, abfd) 
       != symcount * sizeof (Elf_External_Sym))
     {
+      free ((PTR)x_symp);
       bfd_error = system_call_error;
       return (false);
     }
@@ -1996,6 +1987,8 @@ how Sun hacked stabs.   -- gnu@cygnus.com  */
 	{
 	  sym -> section = &bfd_und_section;
 	}
+      else
+	sym -> section = &bfd_abs_section;
       
       switch (ELF_ST_BIND (i_sym.st_info))
 	{
@@ -2022,15 +2015,22 @@ how Sun hacked stabs.   -- gnu@cygnus.com  */
       sym++;
     }
 
-  bfd_get_symcount(abfd) = symcount = sym - symbase;
-  sym = symbase = (asymbol *)
-    bfd_realloc (abfd, symbase, symcount * sizeof (asymbol));
-  bfd_get_outsymbols(abfd) = vec = (asymbol **)
-    bfd_alloc (abfd, symcount * sizeof (asymbol *));
+  /* We rely on the zalloc to clear out the final symbol entry.  */
 
-  while (symcount-- > 0)
+  /* We're now done with the raw symbols.  */
+  free ((PTR)x_symp);
+
+  bfd_get_symcount(abfd) = symcount = sym - symbase;
+  
+  /* Fill in the user's symbol pointer vector if needed.  */
+  if (symptrs)
     {
-      *vec++ = sym++;
+      sym = symbase;
+      while (symcount-- > 0)
+	{
+	  *symptrs++ = sym++;
+	}
+      *symptrs = 0;			/* Final null pointer */
     }
 
   return (true);
@@ -2039,17 +2039,19 @@ how Sun hacked stabs.   -- gnu@cygnus.com  */
 /* Return the number of bytes required to hold the symtab vector.
 
    Note that we base it on the count plus 1, since we will null terminate
-   the vector allocated based on this size. */
+   the vector allocated based on this size.  However, the ELF symbol table
+   always has a dummy entry as symbol #0, so it ends up even.  */
 
 static unsigned int
 DEFUN (elf_get_symtab_upper_bound, (abfd), bfd *abfd)
 {
-  unsigned int symtab_size = 0;
+  unsigned int symcount;
+  unsigned int symtab_size;
+  Elf_Internal_Shdr *i_shdrp = elf_elfsections (abfd);
+  Elf_Internal_Shdr *hdr = i_shdrp + elf_onesymtab (abfd);
 
-  /* if (elf_slurp_symbol_table (abfd, FIXME...)) */
-    {
-      symtab_size = (bfd_get_symcount (abfd) + 1) * (sizeof (asymbol));
-    }
+  symcount = hdr->sh_size / sizeof (Elf_External_Sym);
+  symtab_size = (symcount - 1 + 1) * (sizeof (asymbol));
   return (symtab_size);
 }
 
@@ -2171,8 +2173,6 @@ DEFUN(elf_slurp_reloca_table,(abfd, asect, symbols),
     return true;
   if (asect->flags & SEC_CONSTRUCTOR)
     return true;
-  /* if (!elf_slurp_symbol_table(abfd))
-    return false; -- should be done by now */
 
   bfd_seek (abfd, asect->rel_filepos, SEEK_SET);
   native_relocs = (Elf_External_Rela *)
@@ -2203,7 +2203,6 @@ DEFUN(elf_slurp_reloca_table,(abfd, asect, symbols),
       RELOC_PROCESSING(cache_ptr, &dst, symbols, abfd, asect);
 #else
       Elf_Internal_Rela dst;
-      asymbol        *ptr;
       Elf_External_Rela  *src;
 
       cache_ptr = reloc_cache + idx;
@@ -2224,7 +2223,6 @@ DEFUN(elf_slurp_reloca_table,(abfd, asect, symbols),
       /* ELF_R_SYM(dst.r_info) is the symbol table offset... */
       cache_ptr->sym_ptr_ptr = symbols + ELF_R_SYM(dst.r_info);
       cache_ptr->addend = dst.r_addend;
-      /* ptr = *(cache_ptr->sym_ptr_ptr); */
 
       /* Fill in the cache_ptr->howto field from dst.r_type */
       elf_info_to_howto(abfd, cache_ptr, &dst);
@@ -2266,22 +2264,11 @@ DEFUN (elf_get_symtab, (abfd, alocation),
        bfd            *abfd AND
        asymbol       **alocation)
 {
-  unsigned int symcount;
-  asymbol **vec;
 
-/*  if (!elf_slurp_symbol_table (abfd))
+  if (!elf_slurp_symbol_table (abfd, alocation))
     return (0);
-  else */
-    {
-      symcount = bfd_get_symcount (abfd);
-      vec = bfd_get_outsymbols (abfd);
-      while (symcount-- > 0)
-	{
-	  *alocation++ = *vec++;
-	}
-      *alocation++ = NULL;
-      return (bfd_get_symcount (abfd));
-    }
+  else
+    return (bfd_get_symcount (abfd));
 }
 
 static asymbol *
@@ -2490,6 +2477,11 @@ bfd_target elf_big_vec =
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
    SEC_CODE | SEC_DATA), 
 
+
+   /* leading_symbol_char: is the first char of a user symbol
+      predictable, and if so what is it */
+   0,
+
   /* ar_pad_char: pad character for filenames within an archive header
      FIXME:  this really has nothing to do with ELF, this is a characteristic
      of the archiver and/or os and should be independently tunable */
@@ -2561,6 +2553,10 @@ bfd_target elf_little_vec =
   /* section_flags: mask of all section flags */
   (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_READONLY |
    SEC_DATA), 
+
+   /* leading_symbol_char: is the first char of a user symbol
+      predictable, and if so what is it */
+   0,
 
   /* ar_pad_char: pad character for filenames within an archive header
      FIXME:  this really has nothing to do with ELF, this is a characteristic

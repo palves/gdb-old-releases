@@ -270,7 +270,7 @@ device is attached to the remote system (e.g. /dev/ttya).");
 
   if (baud_rate)
     {
-      if (1 != sscanf (baud_rate, "%d ", &a_rate))
+      if (sscanf (baud_rate, "%d", &a_rate) == 1)
 	{
 	  b_rate = damn_b (a_rate);
 	  baudrate_set = 1;
@@ -416,7 +416,8 @@ remote_wait (status)
   void (*ofunc)();
   unsigned char *p;
   int i;
-  char regs[REGISTER_RAW_SIZE (PC_REGNUM) + REGISTER_RAW_SIZE (FP_REGNUM)];
+  long regno;
+  char regs[MAX_REGISTER_RAW_SIZE];
 
   WSETEXIT ((*status), 0);
 
@@ -428,17 +429,36 @@ remote_wait (status)
     error ("Remote failure reply: %s", buf);
   if (buf[0] == 'T')
     {
-      /* Expedited reply, containing Signal, PC, and FP.  */
+      /* Expedited reply, containing Signal, {regno, reg} repeat */
+      /*  format is:  'Tssn...:r...;n...:r...;n...:r...;#cc', where
+	  ss = signal number
+	  n... = register number
+	  r... = register contents
+	  */
+
       p = &buf[3];		/* after Txx */
-      for (i = 0; i < sizeof (regs); i++)
+
+      while (*p)
 	{
-	  if (p[0] == 0 || p[1] == 0)
-	    error ("Remote reply is too short: %s", buf);
-	  regs[i] = fromhex (p[0]) * 16 + fromhex (p[1]);
-	  p += 2;
+	  regno = strtol (p, &p, 16); /* Read the register number */
+
+	  if (*p++ != ':'
+	      || regno >= NUM_REGS)
+	    error ("Remote sent bad register number %s", buf);
+
+	  for (i = 0; i < REGISTER_RAW_SIZE (regno); i++)
+	    {
+	      if (p[0] == 0 || p[1] == 0)
+		error ("Remote reply is too short: %s", buf);
+	      regs[i] = fromhex (p[0]) * 16 + fromhex (p[1]);
+	      p += 2;
+	    }
+
+	  if (*p++ != ';')
+	    error("Remote register badly formatted: %s", buf);
+
+	  supply_register (regno, regs);
 	}
-      supply_register (PC_REGNUM, &regs[0]);
-      supply_register (FP_REGNUM, &regs[REGISTER_RAW_SIZE (PC_REGNUM)]);
     }
   else if (buf[0] != 'S')
     error ("Invalid remote reply: %s", buf);
@@ -485,7 +505,8 @@ remote_fetch_registers (regno)
 static void 
 remote_prepare_to_store ()
 {
-  remote_fetch_registers (-1);
+  /* Make sure the entire registers array is valid.  */
+  read_register_bytes (0, (char *)NULL, REGISTER_BYTES);
 }
 
 /* Store the remote registers from the contents of the block REGISTERS. 
@@ -793,6 +814,8 @@ getpkt (buf)
   unsigned char csum;
   int c;
   unsigned char c1, c2;
+  int retries = 0;
+#define MAX_RETRIES	10
 
 #if 0
   /* Sorry, this will cause all hell to break loose, i.e. we'll end
@@ -839,9 +862,18 @@ getpkt (buf)
 	break;
       printf_filtered ("Bad checksum, sentsum=0x%x, csum=0x%x, buf=%s\n",
 	      (c1 << 4) + c2, csum & 0xff, buf);
+
       /* Try the whole thing again.  */
 whole:
-      write (remote_desc, "-", 1);
+      if (++retries < MAX_RETRIES)
+	{
+	  write (remote_desc, "-", 1);
+	}
+      else
+	{
+	  printf ("Ignoring packet error, continuing...\n");
+	  break;
+	}
     }
 
 #if 0
@@ -1023,8 +1055,6 @@ Specify the serial device it is connected to (e.g. /dev/ttya).",  /* to_doc */
   remote_fetch_registers,	/* to_fetch_registers */
   remote_store_registers,	/* to_store_registers */
   remote_prepare_to_store,	/* to_prepare_to_store */
-  NULL,				/* to_convert_to_virtual */
-  NULL,				/* to_convert_from_virtual */
   remote_xfer_memory,		/* to_xfer_memory */
   remote_files_info,		/* to_files_info */
   NULL,				/* to_insert_breakpoint */
@@ -1039,6 +1069,8 @@ Specify the serial device it is connected to (e.g. /dev/ttya).",  /* to_doc */
   NULL,				/* to_lookup_symbol */
   NULL,				/* to_create_inferior */
   NULL,				/* to_mourn_inferior */
+  0,				/* to_can_run */
+  0,				/* to_notice_signals */
   process_stratum,		/* to_stratum */
   NULL,				/* to_next */
   1,				/* to_has_all_memory */

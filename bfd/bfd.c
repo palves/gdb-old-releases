@@ -18,8 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bfd.c,v 1.48 1992/06/11 08:10:00 gnu Exp $ */
-
 /*
 SECTION
 	<<typedef bfd>>
@@ -156,6 +154,7 @@ CODE_FRAGMENT
 .      struct bout_data_struct *bout_data;
 .      struct sun_core_struct *sun_core_data;
 .      struct trad_core_struct *trad_core_data;
+.      struct hppa_data_struct *hppa_data;
 .      PTR any;
 .      } tdata;
 .  

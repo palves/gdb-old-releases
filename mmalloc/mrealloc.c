@@ -48,7 +48,9 @@ mrealloc (md, ptr, size)
       return (mmalloc (md, 0));
     }
   else if (ptr == NULL)
-    return (mmalloc (md, size));
+    {
+      return (mmalloc (md, size));
+    }
 
   mdp = MD_TO_MDP (md);
 
@@ -57,7 +59,7 @@ mrealloc (md, ptr, size)
       return ((*mdp -> mrealloc_hook) (md, ptr, size));
     }
 
-  block = BLOCK(ptr);
+  block = BLOCK (ptr);
 
   type = mdp -> heapinfo[block].busy.type;
   switch (type)
@@ -77,21 +79,22 @@ mrealloc (md, ptr, size)
 
       /* The new size is a large allocation as well;
 	 see if we can hold it in place. */
-      blocks = BLOCKIFY(size);
+      blocks = BLOCKIFY (size);
       if (blocks < mdp -> heapinfo[block].busy.info.size)
 	{
-	  /* The new size is smaller; return
-	     excess memory to the free list. */
+	  /* The new size is smaller; return excess memory to the free list. */
 	  mdp -> heapinfo[block + blocks].busy.type = 0;
 	  mdp -> heapinfo[block + blocks].busy.info.size
 	    = mdp -> heapinfo[block].busy.info.size - blocks;
 	  mdp -> heapinfo[block].busy.info.size = blocks;
-	  mfree (md, ADDRESS(block + blocks));
+	  mfree (md, ADDRESS (block + blocks));
 	  result = ptr;
 	}
       else if (blocks == mdp -> heapinfo[block].busy.info.size)
-	/* No size change necessary.  */
-	result = ptr;
+	{
+	  /* No size change necessary.  */
+	  result = ptr;
+	}
       else
 	{
 	  /* Won't fit, so allocate a new region that will.
@@ -120,16 +123,20 @@ mrealloc (md, ptr, size)
       /* Old size is a fragment; type is logarithm
 	 to base two of the fragment size.  */
       if (size > (size_t) (1 << (type - 1)) && size <= (size_t) (1 << type))
-	/* The new size is the same kind of fragment.  */
-	result = ptr;
+	{
+	  /* The new size is the same kind of fragment.  */
+	  result = ptr;
+	}
       else
 	{
 	  /* The new size is different; allocate a new space,
 	     and copy the lesser of the new size and the old. */
 	  result = mmalloc (md, size);
 	  if (result == NULL)
-	    return (NULL);
-	  memcpy (result, ptr, MIN(size, (size_t) 1 << type));
+	    {
+	      return (NULL);
+	    }
+	  memcpy (result, ptr, MIN (size, (size_t) 1 << type));
 	  mfree (md, ptr);
 	}
       break;

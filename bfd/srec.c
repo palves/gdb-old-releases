@@ -1,5 +1,5 @@
-/* BFD backend for s-record objects.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+/* BFD back-end for s-record objects.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Steve Chamberlain of Cygnus Support <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -43,7 +43,7 @@ DESCRIPTION
 	An s record looks like:
 	
 EXAMPLE
-	S<length><type><address><data><checksum>
+	S<type><length><address><data><checksum>
 	
 DESCRIPTION
 	Where
@@ -76,20 +76,20 @@ DESCRIPTION
 #include "sysdep.h"
 #include "libbfd.h"
 
-static char digs[] = "0123456789ABCDEF";
+/* Macros for converting between hex and binary */
 
-/* Horrible ascii dependent macros for converting between hex and
-   binary */
+static CONST char digs[] = "0123456789ABCDEF";
 
-#define CHARS_IN_SET 256
-static char hex_value[CHARS_IN_SET];
+static char hex_value[1 + (unsigned char)~0];
+
 #define NOT_HEX 20
-#define NIBBLE(x) hex_value[x]
+#define NIBBLE(x) hex_value[(unsigned char)(x)]
 #define HEX(buffer) ((NIBBLE((buffer)[0])<<4) + NIBBLE((buffer)[1]))
-#define TOHEX(d,x, ch) \
-d[1] = digs[(x) & 0xf]; \
-d[0] = digs[((x)>>4)&0xf]; ch += (x & 0xff);
-#define	ISHEX(x)  (hex_value[x] != NOT_HEX)
+#define TOHEX(d, x, ch) \
+	d[1] = digs[(x) & 0xf]; \
+	d[0] = digs[((x)>>4)&0xf]; \
+	ch += ((x) & 0xff);
+#define	ISHEX(x)  (hex_value[(unsigned char)(x)] != NOT_HEX)
 
 
 
@@ -104,7 +104,7 @@ DEFUN_VOID(srec_init)
 	
 	inited = true;
 	
-	for (i = 0; i < CHARS_IN_SET; i++) 
+	for (i = 0; i < sizeof (hex_value); i++) 
 	{
 	    hex_value[i] = NOT_HEX;
 	}
@@ -346,9 +346,12 @@ DEFUN(srec_set_section_contents,(abfd, section, location, offset, bytes_to_do),
       file_ptr offset AND
       bfd_size_type bytes_to_do)
 {
-    tdata_type  *tdata = abfd->tdata.srec_data;
-    srec_data_list_type *entry = (srec_data_list_type *)
-     bfd_alloc(abfd, sizeof(srec_data_list_type));
+  tdata_type  *tdata = abfd->tdata.srec_data;
+  srec_data_list_type *entry = (srec_data_list_type *)
+   bfd_alloc(abfd, sizeof(srec_data_list_type));
+  if ((section->flags & SEC_ALLOC)
+      && (section->flags & SEC_LOAD)) 
+  {
     unsigned  char *data = (unsigned char *) bfd_alloc(abfd, bytes_to_do);
     memcpy(data, location, bytes_to_do);
 
@@ -359,11 +362,11 @@ DEFUN(srec_set_section_contents,(abfd, section, location, offset, bytes_to_do),
     else if ((section->vma + offset + bytes_to_do) <= 0xffffff 
 	     && tdata->type < 2) 
     {
-	tdata->type = 2;
+      tdata->type = 2;
     }
     else 
     {
-	tdata->type = 3;
+      tdata->type = 3;
     }
 
     entry->data = data;
@@ -371,7 +374,8 @@ DEFUN(srec_set_section_contents,(abfd, section, location, offset, bytes_to_do),
     entry->size = bytes_to_do;
     entry->next = tdata->head;
     tdata->head = entry;
-    return true;    
+  }
+  return true;    
 }
 
 /* Write a record of type, of the supplied number of bytes. The
@@ -425,7 +429,6 @@ void DEFUN(srec_write_record,(abfd, type, address, data, end),
     {
 	TOHEX(dst, *src, check_sum);
 	dst+=2;
-
     }
 
     /* Fill in the length */
@@ -597,6 +600,7 @@ bfd_target srec_vec =
      HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
     (SEC_CODE|SEC_DATA|SEC_ROM|SEC_HAS_CONTENTS
      |SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+     0,				/* leading underscore */
     ' ',			/* ar_pad_char */
     16,				/* ar_max_namelen */
     1,				/* minimum alignment */

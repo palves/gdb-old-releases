@@ -2,5 +2,5 @@
 # Use a Berkeley environment.
 # sef@Cygnus.COM says this is how to compile on an apollo in the SysV
 # environment.
-CC=cc -g -A nansi -A cpu,3000 -A runtype,any -A systype,any -DSHORT_ENUM_BUG -DUSG -U__STDC__ -Dm68000=mc68000
+CC=cc -A nansi -A cpu,3000 -A runtype,any -A systype,any -DSHORT_ENUM_BUG -DUSG -U__STDC__ -Dm68000=mc68000
 RANLIB = echo

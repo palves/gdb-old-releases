@@ -1,5 +1,5 @@
-/* libbfd.c -- random BFD support routines, only used internally.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+/* Assorted BFD support routines, only used internally.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -17,8 +17,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
-
-/* $Id: libbfd.c,v 1.31 1992/05/26 03:43:09 raeburn Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -156,7 +154,6 @@ DEFUN(PTR bfd_xmalloc,(size),
   PTR ptr;
   if (size == 0) size = 1;
   ptr = (PTR)malloc(size);
-  if (ptr == NULL)
   if (!ptr)
     {
       write (2, no_memory_message, sizeof(no_memory_message)-1);
@@ -566,7 +563,7 @@ DEFUN(bfd_generic_get_section_contents, (abfd, section, location, offset, count)
     if (count == 0)
         return true;
     if ((bfd_size_type)(offset+count) > section->_raw_size
-        || bfd_seek(abfd,(file_ptr)( section->filepos + offset), SEEK_SET) == -1
+        || bfd_seek(abfd, (file_ptr)(section->filepos + offset), SEEK_SET) == -1
         || bfd_read(location, (bfd_size_type)1, count, abfd) != count)
         return (false); /* on error */
     return (true);

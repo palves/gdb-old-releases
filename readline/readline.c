@@ -371,6 +371,7 @@ static int defining_kbd_macro = 0;
 /* **************************************************************** */
 
 static void rl_prep_terminal (), rl_deprep_terminal ();
+static void clear_to_eol (), rl_generic_bind ();
 
 /* Read a line of input.  Prompt with PROMPT.  A NULL PROMPT means
    none.  A return value of NULL means that EOF was encountered. */
@@ -1355,7 +1356,7 @@ rl_digit_loop ()
   int key, c;
   while (1)
     {
-      rl_message ("(arg: %d) ", rl_arg_sign * rl_numeric_arg);
+      rl_message ("(arg: %d) ", rl_arg_sign * rl_numeric_arg, 0);
       key = c = rl_read_key ();
 
       if (keymap[c].type == ISFUNC &&
@@ -2100,7 +2101,7 @@ init_terminal_io (terminal_name)
   if (!term)
     term = "dumb";
 
-  if (tgetent (term_buffer, term) < 0)
+  if (tgetent (term_buffer, term) <= 0)
     {
       dumb_term = 1;
       screenwidth = 79;
@@ -2301,6 +2302,7 @@ crlf ()
 
 /* Clear to the end of the line.  COUNT is the minimum
    number of character spaces to clear, */
+static void
 clear_to_eol (count)
      int count;
 {
@@ -3882,7 +3884,7 @@ rl_complete_internal (what_to_do)
 		      /* Found an embedded word break character in a potential
 			 match, so need to prepend a quote character if we are
 			 replacing the completion string. */
-		      replacement = alloca (strlen (matches[0]) + 2);
+		      replacement = (char *)alloca (strlen (matches[0]) + 2);
 		      quote_char = *rl_completer_quote_characters;
 		      *replacement = quote_char;
 		      strcpy (replacement + 1, matches[0]);
@@ -5521,6 +5523,8 @@ rl_macro_bind (keyseq, macro, map)
    pointed to by DATA, right now this can be a function (ISFUNC),
    a macro (ISMACR), or a keymap (ISKMAP).  This makes new keymaps
    as necessary.  The initial place to do bindings is in MAP. */
+
+static void
 rl_generic_bind (type, keyseq, data, map)
      int type;
      char *keyseq, *data;
@@ -5656,7 +5660,7 @@ rl_named_function (string)
 /* Don't know what to do, but this is a guess */
 static char *last_readline_init_file = "/INPUTRC";
 #else
-static char *last_readline_init_file = "~/inputrc";
+static char *last_readline_init_file = "~/.inputrc";
 #endif
 
 /* Re-read the current keybindings file. */

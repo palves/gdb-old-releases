@@ -18,20 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-
-/* A successful ptrace(continue) might return errno != 0 in this particular port
-   of rs6000. I am not sure why. We will use this kludge and ignore it until
-   we figure out the real problem. */
-
-#define AIX_BUGGY_PTRACE_CONTINUE	\
-{ \
-  int ret = ptrace (PT_CONTINUE, inferior_pid, \
-		    (PTRACE_ARG3_TYPE) 1, signal, 0); \
-  if (errno) { \
-/*    printf ("ret: %d, errno: %d, signal: %d\n", ret, errno, signal); */ \
-    errno = 0; } \
-}
-
 extern int	symtab_relocated;
 
 /* Minimum possible text address in AIX */
@@ -98,6 +84,8 @@ struct aix_framedata {
   char	frameless;			/* true if frameless functions. */
 };
 
+void 
+function_frame_info PARAMS ((CORE_ADDR, struct aix_framedata *));
 
 /* Define the byte order of the machine.  */
 
@@ -133,12 +121,12 @@ struct aix_framedata {
    figured out where they go. But we want to do this relocation just
    once. */
 
-extern int aix_loadInfoTextIndex;
+extern int loadinfotextindex;
 
 #define	SOLIB_CREATE_INFERIOR_HOOK(PID)	\
   do {					\
-    if (aix_loadInfoTextIndex == 0)	\
-	aixcoff_relocate_symtab (PID);	\
+    if (loadinfotextindex == 0)	\
+	xcoff_relocate_symtab (PID);	\
   } while (0)
 	
 
@@ -164,7 +152,7 @@ extern int aix_loadInfoTextIndex;
    continue;				\
  }
 
-/* In aixcoff, we cannot process line numbers when we see them. This is
+/* In xcoff, we cannot process line numbers when we see them. This is
    mainly because we don't know the boundaries of the include files. So,
    we postpone that, and then enter and sort(?) the whole line table at
    once, when we are closing the current symbol table in end_symtab(). */
@@ -179,7 +167,7 @@ extern int aix_loadInfoTextIndex;
    load segments. */
 
 #define	SOLIB_ADD(a, b, c)	\
-   if (inferior_pid)	aixcoff_relocate_symtab (inferior_pid)
+   if (inferior_pid)	xcoff_relocate_symtab (inferior_pid)
 
 /* Immediately after a function call, return the saved pc.
    Can't go through the frames for this because on some machines
@@ -413,17 +401,6 @@ extern unsigned int rs6000_struct_return_address;
    as a CORE_ADDR (or an expression that can be used as one).  */
 
 #define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF)	rs6000_struct_return_address
-
-
-/* Do implement the attach and detach commands.  */
-
-#define ATTACH_DETACH
-
-/* infptrace.c requires those. */
-
-#define PTRACE_ATTACH 30
-#define	PTRACE_DETACH 31
-
 
 /* Describe the pointer in each stack frame to the previous stack frame
    (its caller).  */
@@ -502,43 +479,44 @@ extern unsigned int rs6000_struct_return_address;
 
 #define FRAME_FIND_SAVED_REGS(FRAME_INFO, FRAME_SAVED_REGS)		\
 {									\
-  int ii, frame_addr, func_start;					\
-  struct aix_framedata fdata;							\
-										\
-  /* find the start of the function and collect info about its frame. */	\
-										\
-  func_start = get_pc_function_start ((FRAME_INFO)->pc) + FUNCTION_START_OFFSET;\
-  function_frame_info (func_start, &fdata);					\
-  bzero (&(FRAME_SAVED_REGS), sizeof (FRAME_SAVED_REGS));			\
-										\
-  /* if there were any saved registers, figure out parent's stack pointer. */	\
-  frame_addr = 0;								\
-  /* the following is true only if the frame doesn't have a call to alloca(),	\
-      FIXME. */									\
-  if (fdata.saved_fpr >= 0 || fdata.saved_gpr >= 0) {				\
-    if ((FRAME_INFO)->prev && (FRAME_INFO)->prev->frame)			\
-      frame_addr = (FRAME_INFO)->prev->frame;					\
-    else									\
-      frame_addr = read_memory_integer ((FRAME_INFO)->frame, 4);		\
-  }										\
-										\
-  /* if != -1, fdata.saved_fpr is the smallest number of saved_fpr. All fpr's	\
-     from saved_fpr to fp31 are saved right underneath caller stack pointer,	\
-     starting from fp31 first. */						\
-										\
-  if (fdata.saved_fpr >= 0) {							\
-    for (ii=31; ii >= fdata.saved_fpr; --ii) 					\
-      (FRAME_SAVED_REGS).regs [FP0_REGNUM + ii] = frame_addr - ((32 - ii) * 8);	\
-    frame_addr -= (32 - fdata.saved_fpr) * 8;					\
-  }										\
-										\
-  /* if != -1, fdata.saved_gpr is the smallest number of saved_gpr. All gpr's	\
-     from saved_gpr to gpr31 are saved right under saved fprs, starting		\
-     from r31 first. */								\
-										\
-  if (fdata.saved_gpr >= 0)							\
-    for (ii=31; ii >= fdata.saved_gpr; --ii)					\
-      (FRAME_SAVED_REGS).regs [ii] = frame_addr - ((32 - ii) * 4);		\
+  int ii;								\
+  CORE_ADDR frame_addr, func_start;					\
+  struct aix_framedata fdata;						\
+									\
+  /* find the start of the function and collect info about its frame. */\
+									\
+  func_start = get_pc_function_start ((FRAME_INFO)->pc) + FUNCTION_START_OFFSET; \
+  function_frame_info (func_start, &fdata);				\
+  bzero (&(FRAME_SAVED_REGS), sizeof (FRAME_SAVED_REGS));		\
+									\
+  /* if there were any saved registers, figure out parent's stack pointer. */ \
+  frame_addr = 0;							\
+  /* the following is true only if the frame doesn't have a call to alloca(), \
+      FIXME. */								\
+  if (fdata.saved_fpr >= 0 || fdata.saved_gpr >= 0) {			\
+    if ((FRAME_INFO)->prev && (FRAME_INFO)->prev->frame)		\
+      frame_addr = (FRAME_INFO)->prev->frame;				\
+    else								\
+      frame_addr = read_memory_integer ((FRAME_INFO)->frame, 4);	\
+  }									\
+									\
+  /* if != -1, fdata.saved_fpr is the smallest number of saved_fpr. All fpr's \
+     from saved_fpr to fp31 are saved right underneath caller stack pointer, \
+     starting from fp31 first. */					\
+									\
+  if (fdata.saved_fpr >= 0) {						\
+    for (ii=31; ii >= fdata.saved_fpr; --ii) 				\
+      (FRAME_SAVED_REGS).regs [FP0_REGNUM + ii] = frame_addr - ((32 - ii) * 8); \
+    frame_addr -= (32 - fdata.saved_fpr) * 8;				\
+  }									\
+									\
+  /* if != -1, fdata.saved_gpr is the smallest number of saved_gpr. All gpr's \
+     from saved_gpr to gpr31 are saved right under saved fprs, starting	\
+     from r31 first. */							\
+									\
+  if (fdata.saved_gpr >= 0)						\
+    for (ii=31; ii >= fdata.saved_gpr; --ii)				\
+      (FRAME_SAVED_REGS).regs [ii] = frame_addr - ((32 - ii) * 4);	\
 }
 
 
@@ -638,3 +616,7 @@ aix_resizewindow ()				\
 
 /* Flag for machine-specific stuff in shared files.  FIXME */
 #define IBM6000_TARGET
+
+/* RS6000/AIX does not support PT_STEP.  Has to be simulated.  */
+
+#define NO_SINGLE_STEP

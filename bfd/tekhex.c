@@ -344,8 +344,8 @@ DEFUN(find_chunk,(abfd, vma),
     /* No chunk for this address, so make one up */
     d =(struct data_struct *)
       bfd_alloc(abfd, sizeof(struct data_struct));
-    bzero(d->chunk_init, CHUNK_MASK+1);
-    bzero(d->chunk_data, CHUNK_MASK+1);
+    memset(d->chunk_init, 0, CHUNK_MASK+1);
+    memset(d->chunk_data, 0, CHUNK_MASK+1);
     d->next =   abfd->tdata.tekhex_data->data ;
     d->vma = vma;
     abfd->tdata.tekhex_data->data = d;

@@ -36,12 +36,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <signal.h>
 #include <sys/ioctl.h>
 
-#ifdef sgi
-/* Must do it this way only for SGIs, as other mips platforms get their
-   JB_ symbols from machine/pcb.h (included via sys/user.h). */
-#include <setjmp.h>
-#endif
-
 #include "gdbcore.h"
 #include "symfile.h"
 #include "objfiles.h"
@@ -79,7 +73,7 @@ struct linked_proc_info
 {
   struct mips_extra_func_info info;
   struct linked_proc_info *next;
-} * linked_proc_desc_table = NULL;
+} *linked_proc_desc_table = NULL;
 
 
 #define READ_FRAME_REG(fi, regno) read_next_frame_reg((fi)->next, regno)
@@ -231,7 +225,7 @@ find_proc_desc(pc, next_frame)
   mips_extra_func_info_t proc_desc;
   struct block *b = block_for_pc(pc);
   struct symbol *sym =
-      b ? lookup_symbol(".gdbinfo.", b, LABEL_NAMESPACE, 0, NULL) : NULL;
+      b ? lookup_symbol(MIPS_EFI_SYMBOL_NAME, b, LABEL_NAMESPACE, 0, NULL) : NULL;
 
   if (sym)
     {
@@ -323,12 +317,12 @@ init_extra_frame_info(fci)
       int kernel_trap = PROC_REG_MASK(proc_desc) & 1;
 
       /* Fixup frame-pointer - only needed for top frame */
-      /* This may not be quite right, if procedure has a real frame register */
+      /* This may not be quite right, if proc has a real frame register */
       if (fci->pc == PROC_LOW_ADDR(proc_desc))
-	  fci->frame = read_register (SP_REGNUM);
+	fci->frame = read_register (SP_REGNUM);
       else
-	  fci->frame = READ_FRAME_REG(fci, PROC_FRAME_REG(proc_desc))
-	      + PROC_FRAME_OFFSET(proc_desc);
+	fci->frame = READ_FRAME_REG(fci, PROC_FRAME_REG(proc_desc))
+	              + PROC_FRAME_OFFSET(proc_desc);
 
       if (proc_desc == &temp_proc_desc)
 	  *fci->saved_regs = temp_saved_regs;
@@ -367,6 +361,30 @@ init_extra_frame_info(fci)
       fci->saved_regs->regs[PC_REGNUM] = fci->saved_regs->regs[RA_REGNUM];
     }
 }
+
+/* MIPS stack frames are almost impenetrable.  When execution stops,
+   we basically have to look at symbol information for the function
+   that we stopped in, which tells us *which* register (if any) is
+   the base of the frame pointer, and what offset from that register
+   the frame itself is at.  
+
+   This presents a problem when trying to examine a stack in memory
+   (that isn't executing at the moment), using the "frame" command.  We
+   don't have a PC, nor do we have any registers except SP.
+
+   This routine takes two arguments, SP and PC, and tries to make the
+   cached frames look as if these two arguments defined a frame on the
+   cache.  This allows the rest of info frame to extract the important
+   arguments without difficulty.  */
+
+FRAME
+setup_arbitrary_frame (stack, pc)
+     FRAME_ADDR stack;
+     CORE_ADDR pc;
+{
+  return create_new_frame (stack, pc);
+}
+
 
 CORE_ADDR
 mips_push_arguments(nargs, args, sp, struct_return, struct_addr)
@@ -449,7 +467,7 @@ mips_push_dummy_frame()
    *    Saved D18 (i.e. F19, F18)
    *    ...
    *    Saved D0 (i.e. F1, F0)
-   *	CALL_DUMMY (subroutine stub; see m-mips.h)
+   *	CALL_DUMMY (subroutine stub; see tm-mips.h)
    *	Parameter build area (not yet implemented)
    *  (low memory)
    */
@@ -498,42 +516,64 @@ mips_push_dummy_frame()
 
 void
 mips_pop_frame()
-{ register int regnum;
+{
+  register int regnum;
   FRAME frame = get_current_frame ();
   CORE_ADDR new_sp = frame->frame;
+
   mips_extra_func_info_t proc_desc = frame->proc_desc;
+
+  write_register (PC_REGNUM, FRAME_SAVED_PC(frame));
+  if (proc_desc)
+    {
+      for (regnum = 32; --regnum >= 0; )
+	if (PROC_REG_MASK(proc_desc) & (1 << regnum))
+	  write_register (regnum,
+			  read_memory_integer (frame->saved_regs->regs[regnum],
+					       4));
+      for (regnum = 32; --regnum >= 0; )
+	if (PROC_FREG_MASK(proc_desc) & (1 << regnum))
+	  write_register (regnum + FP0_REGNUM,
+			  read_memory_integer (frame->saved_regs->regs[regnum + FP0_REGNUM], 4));
+    }
+  write_register (SP_REGNUM, new_sp);
+  flush_cached_frames ();
+  /* We let mips_init_extra_frame_info figure out the frame pointer */
+  set_current_frame (create_new_frame (0, read_pc ()));
+
   if (PROC_DESC_IS_DUMMY(proc_desc))
     {
-      struct linked_proc_info **ptr = &linked_proc_desc_table;;
-      for (; &ptr[0]->info != proc_desc; ptr = &ptr[0]->next )
-	  if (ptr[0] == NULL) abort();
-      *ptr = ptr[0]->next;
-      free (ptr[0]);
+      struct linked_proc_info *pi_ptr, *prev_ptr;
+
+      for (pi_ptr = linked_proc_desc_table, prev_ptr = NULL;
+	   pi_ptr != NULL;
+	   prev_ptr = pi_ptr, pi_ptr = pi_ptr->next)
+	{
+	  if (&pi_ptr->info == proc_desc)
+	    break;
+	}
+
+      if (pi_ptr == NULL)
+	error ("Can't locate dummy extra frame info\n");
+
+      if (prev_ptr != NULL)
+	prev_ptr->next = pi_ptr->next;
+      else
+	linked_proc_desc_table = pi_ptr->next;
+
+      free (pi_ptr);
+
       write_register (HI_REGNUM, read_memory_integer(new_sp - 8, 4));
       write_register (LO_REGNUM, read_memory_integer(new_sp - 12, 4));
       write_register (FCRCS_REGNUM, read_memory_integer(new_sp - 16, 4));
     }
-  write_register (PC_REGNUM, FRAME_SAVED_PC(frame));
-  if (frame->proc_desc) {
-    for (regnum = 32; --regnum >= 0; )
-      if (PROC_REG_MASK(proc_desc) & (1 << regnum))
-	write_register (regnum,
-		  read_memory_integer (frame->saved_regs->regs[regnum], 4));
-    for (regnum = 32; --regnum >= 0; )
-      if (PROC_FREG_MASK(proc_desc) & (1 << regnum))
-	write_register (regnum + FP0_REGNUM,
-		  read_memory_integer (frame->saved_regs->regs[regnum + FP0_REGNUM], 4));
-  }
-  write_register (SP_REGNUM, new_sp);
-  flush_cached_frames ();
-  set_current_frame (create_new_frame (new_sp, read_pc ()));
 }
 
 static void
-mips_print_register(regnum, all)
+mips_print_register (regnum, all)
      int regnum, all;
 {
-      unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE];
+      unsigned char raw_buffer[MAX_REGISTER_RAW_SIZE * 2]; /* *2 for doubles */
       REGISTER_TYPE val;
 
       /* Get the data in raw format.  */
@@ -650,113 +690,6 @@ isa_NAN(p, len)
   else return 1;
 }
 
-/*
- * Implemented for Irix 4.x by Garrett A. Wollman
- */
-#ifdef USE_PROC_FS		/* Target-dependent /proc support */
-
-#include <sys/time.h>
-#include <sys/procfs.h>
-
-typedef unsigned int greg_t;	/* why isn't this defined? */
-
-/*
- * See the comment in m68k-tdep.c regarding the utility of these functions.
- */
-
-void 
-supply_gregset (gregsetp)
-     gregset_t *gregsetp;
-{
-  register int regno;
-  register greg_t *regp = (greg_t *)(gregsetp->gp_regs);
-
-  /* FIXME: somewhere, there should be a #define for the meaning
-     of this magic number 32; we should use that. */
-  for(regno = 0; regno < 32; regno++)
-    supply_register (regno, (char *)(regp + regno));
-
-  supply_register (PC_REGNUM, (char *)&(gregsetp->gp_pc));
-  supply_register (HI_REGNUM, (char *)&(gregsetp->gp_mdhi));
-  supply_register (LO_REGNUM, (char *)&(gregsetp->gp_mdlo));
-  supply_register (PS_REGNUM, (char *)&(gregsetp->gp_cause));
-}
-
-void
-fill_gregset (gregsetp, regno)
-     gregset_t *gregsetp;
-     int regno;
-{
-  int regi;
-  register greg_t *regp = (greg_t *)(gregsetp->gp_regs);
-  extern char registers[];
-
-  /* same FIXME as above wrt 32*/
-  for (regi = 0; regi < 32; regi++)
-    if ((regno == -1) || (regno == regi))
-      *(regp + regno) = *(greg_t *) &registers[REGISTER_BYTE (regi)];
-
-  if ((regno == -1) || (regno == PC_REGNUM))
-    gregsetp->gp_pc = *(greg_t *) &registers[REGISTER_BYTE (PC_REGNUM)];
-
-  if ((regno == -1) || (regno == PS_REGNUM))
-    gregsetp->gp_cause = *(greg_t *) &registers[REGISTER_BYTE (PS_REGNUM)];
-
-  if ((regno == -1) || (regno == HI_REGNUM))
-    gregsetp->gp_mdhi = *(greg_t *) &registers[REGISTER_BYTE (HI_REGNUM)];
-
-  if ((regno == -1) || (regno == LO_REGNUM))
-    gregsetp->gp_mdlo = *(greg_t *) &registers[REGISTER_BYTE (LO_REGNUM)];
-}
-
-/*
- * Now we do the same thing for floating-point registers.
- * We don't bother to condition on FP0_REGNUM since any
- * reasonable MIPS configuration has an R3010 in it.
- *
- * Again, see the comments in m68k-tdep.c.
- */
-
-void
-supply_fpregset (fpregsetp)
-     fpregset_t *fpregsetp;
-{
-  register int regno;
-
-  for (regno = 0; regno < 32; regno++)
-    supply_register (FP0_REGNUM + regno,
-		     (char *)&fpregsetp->fp_r.fp_regs[regno]);
-
-  supply_register (FCRCS_REGNUM, (char *)&fpregsetp->fp_csr);
-
-  /* FIXME: how can we supply FCRIR_REGNUM?  SGI doesn't tell us. */
-}
-
-void
-fill_fpregset (fpregsetp, regno)
-     fpregset_t *fpregsetp;
-     int regno;
-{
-  int regi;
-  char *from, *to;
-  extern char registers[];
-
-  for (regi = FP0_REGNUM; regi < FP0_REGNUM + 32; regi++)
-    {
-      if ((regno == -1) || (regno == regi))
-	{
-	  from = (char *) &registers[REGISTER_BYTE (regi)];
-	  to = (char *) &(fpregsetp->fp_r.fp_regs[regi]);
-	  bcopy(from, to, REGISTER_RAW_SIZE (regno));
-	}
-    }
-
-  if ((regno == -1) || (regno == FCRCS_REGNUM))
-    fpregsetp->fp_csr = *(unsigned *) &registers[REGISTER_BYTE(FCRCS_REGNUM)];
-}
-
-#endif /* USE_PROC_FS */
-
 /* To skip prologues, I use this predicate. Returns either PC
    itself if the code at PC does not look like a function prologue,
    PC+4 if it does (our caller does not need anything more fancy). */
@@ -789,7 +722,7 @@ mips_skip_prologue(pc)
     b = block_for_pc(pc);
     if (!b) return pc;
 
-    f = lookup_symbol(".gdbinfo.", b, LABEL_NAMESPACE, 0, NULL);
+    f = lookup_symbol(MIPS_EFI_SYMBOL_NAME, b, LABEL_NAMESPACE, 0, NULL);
     if (!f) return pc;
     /* Ideally, I would like to use the adjusted info
        from mips_frame_info(), but for all practical
@@ -802,26 +735,4 @@ mips_skip_prologue(pc)
 	return pc + 4;
 
     return pc;
-}
-
-/* Figure out where the longjmp will land.
-   We expect the first arg to be a pointer to the jmp_buf structure from which
-   we extract the pc (JB_PC) that we will land at.  The pc is copied into PC.
-   This routine returns true on success. */
-
-int
-get_longjmp_target(pc)
-     CORE_ADDR *pc;
-{
-  CORE_ADDR jb_addr;
-
-  jb_addr = read_register(A0_REGNUM);
-
-  if (target_read_memory(jb_addr + JB_PC * JB_ELEMENT_SIZE, pc,
-			 sizeof(CORE_ADDR)))
-    return 0;
-
-  SWAP_TARGET_AND_HOST(pc, sizeof(CORE_ADDR));
-
-  return 1;
 }

@@ -1,3 +1,12 @@
+Thu Oct  1 23:09:48 1992  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
+
+	* configure.in: now use cpu-vendor-os triple instead of nested cases
+
+Tue Aug 18 15:02:54 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+ 	* Makefile.in: changed CFLAGS to -g, added .c.o with old value of
+	CFLAGS.
+
 Thu Jun 25 16:11:56 1992  Stu Grossman  (grossman at cygnus.com)
 
 	* configure.in:  Make bsd based systems use sysdep-obsd.h.

@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.06, July 1992, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.6.
+   This is Edition 4.06, October 1992, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.7.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software Foundation,
 Inc.
@@ -28,156 +28,6 @@ manual into another language, under the above conditions for modified
 versions, except that the section entitled "GNU General Public License"
 may be included in a translation approved by the Free Software
 Foundation instead of in the original English.
-
-
-File: gdb.info,  Node: Arguments,  Next: Environment,  Prev: Starting,  Up: Running
-
-Your Program's Arguments
-========================
-
-   The arguments to your program can be specified by the arguments of
-the `run' command.  They are passed to a shell, which expands wildcard
-characters and performs redirection of I/O, and thence to your program.
-GDB uses the shell indicated by your environment variable `SHELL' if it
-exists; otherwise, GDB uses `/bin/sh'.
-
-   `run' with no arguments uses the same arguments used by the previous
-`run', or those set by the `set args' command.
-
-`set args'
-     Specify the arguments to be used the next time your program is
-     run.  If `set args' has no arguments, `run' will execute your
-     program with no arguments.  Once you have run your program with
-     arguments, using `set args' before the next `run' is the only way
-     to run it again without arguments.
-
-`show args'
-     Show the arguments to give your program when it is started.
-
-
-File: gdb.info,  Node: Environment,  Next: Working Directory,  Prev: Arguments,  Up: Running
-
-Your Program's Environment
-==========================
-
-   The "environment" consists of a set of environment variables and
-their values.  Environment variables conventionally record such things
-as your user name, your home directory, your terminal type, and your
-search path for programs to run.  Usually you set up environment
-variables with the shell and they are inherited by all the other
-programs you run.  When debugging, it can be useful to try running your
-program with a modified environment without having to start GDB over
-again.
-
-`path DIRECTORY'
-     Add DIRECTORY to the front of the `PATH' environment variable (the
-     search path for executables), for both GDB and your program. You
-     may specify several directory names, separated by `:' or
-     whitespace.  If DIRECTORY is already in the path, it is moved to
-     the front, so it will be searched sooner.
-
-     You can use the string `$cwd' to refer to whatever is the current
-     working directory at the time GDB searches the path.  If you use
-     `.' instead, it refers to the directory where you executed the
-     `path' command.  GDB fills in the current path where needed in the
-     DIRECTORY argument, before adding it to the search path.
-
-`show paths'
-     Display the list of search paths for executables (the `PATH'
-     environment variable).
-
-`show environment [VARNAME]'
-     Print the value of environment variable VARNAME to be given to
-     your program when it starts.  If you do not supply VARNAME, print
-     the names and values of all environment variables to be given to
-     your program.  You can abbreviate `environment' as `env'.
-
-`set environment VARNAME [=] VALUE'
-     Sets environment variable VARNAME to VALUE.  The value changes for
-     your program only, not for GDB itself.  VALUE may be any string;
-     the values of environment variables are just strings, and any
-     interpretation is supplied by your program itself.  The VALUE
-     parameter is optional; if it is eliminated, the variable is set to
-     a null value.
-
-     For example, this command:
-
-          set env USER = foo
-
-     tells a Unix program, when subsequently run, that its user is named
-     `foo'.  (The spaces around `=' are used for clarity here; they are
-     not actually required.)
-
-`unset environment VARNAME'
-     Remove variable VARNAME from the environment to be passed to your
-     program.  This is different from `set env VARNAME ='; `unset
-     environment' removes the variable from the environment, rather
-     than assigning it an empty value.
-
-
-File: gdb.info,  Node: Working Directory,  Next: Input/Output,  Prev: Environment,  Up: Running
-
-Your Program's Working Directory
-================================
-
-   Each time you start your program with `run', it inherits its working
-directory from the current working directory of GDB.  GDB's working
-directory is initially whatever it inherited from its parent process
-(typically the shell), but you can specify a new working directory in
-GDB with the `cd' command.
-
-   The GDB working directory also serves as a default for the commands
-that specify files for GDB to operate on.  *Note Commands to Specify
-Files: Files.
-
-`cd DIRECTORY'
-     Set GDB's working directory to DIRECTORY.
-
-`pwd'
-     Print GDB's working directory.
-
-
-File: gdb.info,  Node: Input/Output,  Next: Attach,  Prev: Working Directory,  Up: Running
-
-Your Program's Input and Output
-===============================
-
-   By default, the program you run under GDB does input and output to
-the same terminal that GDB uses.  GDB switches the terminal to its own
-terminal modes to interact with you, but it records the terminal modes
-your program was using and switches back to them when you continue
-running your program.
-
-`info terminal'
-     Displays GDB's recorded information about the terminal modes your
-     program is using.
-
-   You can redirect your program's input and/or output using shell
-redirection with the `run' command.  For example,
-
-     run > outfile
-
-starts your program, diverting its output to the file `outfile'.
-
-   Another way to specify where your program should do input and output
-is with the `tty' command.  This command accepts a file name as
-argument, and causes this file to be the default for future `run'
-commands.  It also resets the controlling terminal for the child
-process, for future `run' commands.  For example,
-
-     tty /dev/ttyb
-
-directs that processes started with subsequent `run' commands default
-to do input and output on the terminal `/dev/ttyb' and have that as
-their controlling terminal.
-
-   An explicit redirection in `run' overrides the `tty' command's
-effect on the input/output device, but not its effect on the controlling
-terminal.
-
-   When you use the `tty' command or redirect input in the `run'
-command, only the input *for your program* is affected.  The input for
-GDB still comes from your terminal.
 
 
 File: gdb.info,  Node: Attach,  Next: Kill Process,  Prev: Input/Output,  Up: Running
@@ -317,7 +167,7 @@ any time.
 * Signals::                     Signals
 
 
-File: gdb.info,  Node: Breakpoints,  Next: Continuing and Stepping,  Prev: Stopping,  Up: Stopping
+File: gdb.info,  Node: Breakpoints,  Next: Continuing and Stepping,  Up: Stopping
 
 Breakpoints, Watchpoints, and Exceptions
 ========================================
@@ -328,8 +178,8 @@ conditions to control in finer detail whether your program will stop.
 You can set breakpoints with the `break' command and its variants
 (*note Setting Breakpoints: Set Breaks.), to specify the place where
 your program should stop by line number, function name or exact address
-in the program.  In languages with exception handling (such as GNU
-C++), you can also set breakpoints where an exception is raised (*note
+in the program. In languages with exception handling (such as GNU C++),
+you can also set breakpoints where an exception is raised (*note
 Breakpoints and Exceptions: Exception Handling.).
 
    A "watchpoint" is a special breakpoint that stops your program when
@@ -359,7 +209,7 @@ effect on your program until you enable it again.
 * Error in Breakpoints::
 
 
-File: gdb.info,  Node: Set Breaks,  Next: Set Watchpoints,  Prev: Breakpoints,  Up: Breakpoints
+File: gdb.info,  Node: Set Breaks,  Next: Set Watchpoints,  Up: Breakpoints
 
 Setting Breakpoints
 -------------------
@@ -373,7 +223,7 @@ variables.
    You have several ways to say where the breakpoint should go.
 
 `break FUNCTION'
-     Set a breakpoint at entry to function FUNCTION.  When using source
+     Set a breakpoint at entry to function FUNCTION. When using source
      languages that permit overloading of symbols, such as C++,
      FUNCTION may refer to more than one possible place to break. *Note
      Breakpoint Menus::, for a discussion of that situation.
@@ -972,7 +822,7 @@ source code, or one machine instruction (depending on what particular
 command you use).  Either when continuing or when stepping, your
 program may stop even sooner, due to a breakpoint or to a signal.  (If
 due to a signal, you may want to use `handle', or use `signal 0' to
-resume execution.  *Note Signals: Signals.)
+resume execution. *Note Signals: Signals.)
 
 `continue [IGNORE-COUNT]'
      Resume program execution, at the address where your program last
@@ -1217,5 +1067,101 @@ executing frame and describes it briefly as the `frame' command does
 * Backtrace::                   Backtraces
 * Selection::                   Selecting a Frame
 * Frame Info::                  Information on a Frame
+
+
+File: gdb.info,  Node: Frames,  Next: Backtrace,  Up: Stack
+
+Stack Frames
+============
+
+   The call stack is divided up into contiguous pieces called "stack
+frames", or "frames" for short; each frame is the data associated with
+one call to one function.  The frame contains the arguments given to
+the function, the function's local variables, and the address at which
+the function is executing.
+
+   When your program is started, the stack has only one frame, that of
+the function `main'.  This is called the "initial" frame or the
+"outermost" frame.  Each time a function is called, a new frame is
+made.  Each time a function returns, the frame for that function
+invocation is eliminated.  If a function is recursive, there can be
+many frames for the same function.  The frame for the function in which
+execution is actually occurring is called the "innermost" frame.  This
+is the most recently created of all the stack frames that still exist.
+
+   Inside your program, stack frames are identified by their addresses.
+ A stack frame consists of many bytes, each of which has its own
+address; each kind of computer has a convention for choosing one of
+those bytes whose address serves as the address of the frame.  Usually
+this address is kept in a register called the "frame pointer register"
+while execution is going on in that frame.
+
+   GDB assigns numbers to all existing stack frames, starting with zero
+for the innermost frame, one for the frame that called it, and so on
+upward.  These numbers do not really exist in your program; they are
+assigned by GDB to give you a way of designating stack frames in GDB
+commands.
+
+   Some compilers allow functions to be compiled so that they operate
+without stack frames.  (For example, the `gcc' option
+`-fomit-frame-pointer' will generate functions without a frame.) This
+is occasionally done with heavily used library functions to save the
+frame setup time.  GDB has limited facilities for dealing with these
+function invocations.  If the innermost function invocation has no
+stack frame, GDB will nevertheless regard it as though it had a
+separate frame, which is numbered zero as usual, allowing correct
+tracing of the function call chain.  However, GDB has no provision for
+frameless functions elsewhere in the stack.
+
+
+File: gdb.info,  Node: Backtrace,  Next: Selection,  Prev: Frames,  Up: Stack
+
+Backtraces
+==========
+
+   A backtrace is a summary of how your program got where it is.  It
+shows one line per frame, for many frames, starting with the currently
+executing frame (frame zero), followed by its caller (frame one), and
+on up the stack.
+
+`backtrace'
+`bt'
+     Print a backtrace of the entire stack: one line per frame for all
+     frames in the stack.
+
+     You can stop the backtrace at any time by typing the system
+     interrupt character, normally `C-c'.
+
+`backtrace N'
+`bt N'
+     Similar, but print only the innermost N frames.
+
+`backtrace -N'
+`bt -N'
+     Similar, but print only the outermost N frames.
+
+   The names `where' and `info stack' (abbreviated `info s') are
+additional aliases for `backtrace'.
+
+   Each line in the backtrace shows the frame number and the function
+name. The program counter value is also shown--unless you use `set
+print address off'.  The backtrace also shows the source file name and
+line number, as well as the arguments to the function.  The program
+counter value is omitted if it is at the beginning of the code for that
+line number.
+
+   Here is an example of a backtrace.  It was made with the command `bt
+3', so it shows the innermost three frames.
+
+     #0  m4_traceon (obs=0x24eb0, argc=1, argv=0x2b8c8)
+         at builtin.c:993
+     #1  0x6e38 in expand_macro (sym=0x2b600) at macro.c:242
+     #2  0x6840 in expand_token (obs=0x0, t=177664, td=0xf7fffb08)
+         at macro.c:71
+     (More stack frames follow...)
+
+The display for frame zero does not begin with a program counter value,
+indicating that your program has stopped at the beginning of the code
+for line `993' of `builtin.c'.
 
 

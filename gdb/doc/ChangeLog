@@ -1,3 +1,81 @@
+Fri Oct 23 00:41:21 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdb.texinfo:  Add opcodes dir to GDB distribution description.
+
+Sat Oct 10 18:04:58 1992  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
+
+	* gdbint.texinfo: fixed a stray email address (needs @@),
+	added @table @code to node "Native Conditionals"
+
+Tue Sep 22 00:34:15 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Describe coding style of GDB.
+
+Mon Sep 21 19:32:16 1992  John Gilmore  (gnu@cygnus.com)
+
+	* stabs.texinfo:  Minor wording changes.
+
+Tue Sep 15 02:57:09 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Improve release doc slightly.
+
+Fri Sep 11 01:34:25 1992  John Gilmore  (gnu@sphagnum.cygnus.com)
+
+	* gdbint.texinfo:  Improve doc of GDB config macros.
+
+Wed Sep  9 16:52:06 1992  John Gilmore  (gnu@cygnus.com)
+
+	* stabs.texinfo:  Remove Bothner's changes for C++ nested types.
+	These will be reinserted when examined.
+
+Mon Aug 24 01:17:55 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Make a start at documenting all the #if macros
+	in GDB.  At least list them all, and start separating them into
+	host-specific and target-specific.
+
+Tue Aug 18 15:59:13 1992  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdbinv-s.m4.in: refrain from using @cartouche for just a few
+	examples (not consistent w others).  
+	gdb.texinfo: issue disclaimer paragraph on cmdline options only
+	for generic vn of doc
+
+Tue Aug 18 14:53:27 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* Makefile.in: always create installation directories.
+
+Tue Aug 18 14:11:50 1992  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo: in h8 config, do not describe searching commands.
+
+Mon Aug 17 18:07:59 1992  Roland H. Pesch  (pesch@fowanton.cygnus.com)
+
+	* gdb.texinfo, none.m4, h8.m4, gdbinv-s.m4.in: improve H8/300
+	  conditionals; introduce a few generic switches that may be
+	  useful for other cross-dev or dos-hosted configs.
+
+	* gdb.texinfo: fix typo in "info reg" description
+
+Sun Aug 16 01:16:18 1992  John Gilmore  (gnu@cygnus.com)
+
+	* stabs.texinfo:  Minor updates from running TeX over it.
+	* Makefile.in (stabs.dvi, stabs.ps):  Add.
+
+Sat Aug 15 20:52:24 1992  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* stabs.texinfo:  Stabs documentation, written by Julia Menapace.
+	First pass at converting it to texinfo.
+
+Sat Aug 15 03:14:59 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdb.texinfo, refcard.tex:  Document mult args on `info reg'.
+	* Makefile.in (refcard.ps, lrefcard.ps):  Add missing $(srdir).
+
+Fri Aug 14 21:08:47 1992  John Gilmore  (gnu@cygnus.com)
+
+	* gdbint.texinfo:  Add section on partial symbol tables.
+
 Sat Jun 20 16:31:10 1992  John Gilmore  (gnu at cygnus.com)
 
 	* gdb.texinfo:  document `set remotedebug' and `set

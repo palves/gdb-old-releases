@@ -27,7 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    Feel free to increase it.  It's just used in a few places to size
    arrays that should be independent of the target architecture.  */
 
-#define	BREAKPOINT_MAX	10
+#define	BREAKPOINT_MAX	16
 
 /* The follow stuff is an abstract data type "bpstat" ("breakpoint status").
    This provides the ability to determine whether we have stopped at a

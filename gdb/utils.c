@@ -52,9 +52,6 @@ prompt_for_continue PARAMS ((void));
 static void 
 set_width_command PARAMS ((char *, int, struct cmd_list_element *));
 
-static void
-vfprintf_filtered PARAMS ((FILE *, char *, va_list));
-
 /* If this definition isn't overridden by the header files, assume
    that isatty and fileno exist on this system.  */
 #ifndef ISATTY
@@ -699,6 +696,8 @@ query (va_alist)
 
   while (1)
     {
+      wrap_here ("");		/* Flush any buffered output */
+      fflush (stdout);
       va_start (args);
       ctlstr = va_arg (args, char *);
       vfprintf_filtered (stdout, ctlstr, args);
@@ -901,17 +900,29 @@ set_width_command (args, from_tty, c)
   wrap_pointer = wrap_buffer;	/* Start it at the beginning */
 }
 
+/* Wait, so the user can read what's on the screen.  Prompt the user
+   to continue by pressing RETURN.  */
+
 static void
 prompt_for_continue ()
 {
   char *ignore;
 
+  /* We must do this *before* we call gdb_readline, else it will eventually
+     call us -- thinking that we're trying to print beyond the end of the 
+     screen.  */
+  reinitialize_more_filter ();
+
   immediate_quit++;
   ignore = gdb_readline ("---Type <return> to continue---");
   if (ignore)
     free (ignore);
-  chars_printed = lines_printed = 0;
   immediate_quit--;
+
+  /* Now we have to do this again, so that GDB will know that it doesn't
+     need to save the ---Type <return>--- line at the top of the screen.  */
+  reinitialize_more_filter ();
+
   dont_repeat ();		/* Forget prev cmd -- CR won't repeat it. */
 }
 
@@ -1152,7 +1163,7 @@ fputs_demangled (linebuffer, stream, arg_mode)
 
 /* Print a variable number of ARGS using format FORMAT.  If this
    information is going to put the amount written (since the last call
-   to INITIALIZE_MORE_FILTER or the last page break) over the page size,
+   to REINITIALIZE_MORE_FILTER or the last page break) over the page size,
    print out a pause message and do a gdb_readline to get the users
    permision to continue.
 
@@ -1173,35 +1184,25 @@ fputs_demangled (linebuffer, stream, arg_mode)
    (since prompt_for_continue may do so) so this routine should not be
    called when cleanups are not in place.  */
 
-static void
+#define	MIN_LINEBUF	255
+
+void
 vfprintf_filtered (stream, format, args)
      FILE *stream;
      char *format;
      va_list args;
 {
-  static char *linebuffer = (char *) 0;
-  static int line_size;
+  char line_buf[MIN_LINEBUF+10];
+  char *linebuffer = line_buf;
   int format_length;
 
   format_length = strlen (format);
 
-  /* Allocated linebuffer for the first time.  */
-  if (!linebuffer)
-    {
-      linebuffer = (char *) xmalloc (255);
-      line_size = 255;
-    }
-
   /* Reallocate buffer to a larger size if this is necessary.  */
-  if (format_length * 2 > line_size)
+  if (format_length * 2 > MIN_LINEBUF)
     {
-      line_size = format_length * 2;
-
-      /* You don't have to copy.  */
-      free (linebuffer);
-      linebuffer = (char *) xmalloc (line_size);
+      linebuffer = alloca (10 + format_length * 2);
     }
-
 
   /* This won't blow up if the restrictions described above are
      followed.   */
@@ -1215,13 +1216,38 @@ void
 fprintf_filtered (va_alist)
      va_dcl
 {
+  va_list args;
   FILE *stream;
   char *format;
-  va_list args;
 
   va_start (args);
   stream = va_arg (args, FILE *);
   format = va_arg (args, char *);
+
+  /* This won't blow up if the restrictions described above are
+     followed.   */
+  vfprintf_filtered (stream, format, args);
+  va_end (args);
+}
+
+/* Like fprintf_filtered, but prints it's result indent.
+   Called as fprintfi_filtered (spaces, format, arg1, arg2, ...); */
+
+/* VARARGS */
+void
+fprintfi_filtered (va_alist)
+     va_dcl
+{
+  va_list args;
+  int spaces;
+  FILE *stream;
+  char *format;
+
+  va_start (args);
+  spaces = va_arg (args, int);
+  stream = va_arg (args, FILE *);
+  format = va_arg (args, char *);
+  print_spaces_filtered (spaces, stream);
 
   /* This won't blow up if the restrictions described above are
      followed.   */
@@ -1264,7 +1290,10 @@ printfi_filtered (va_alist)
   va_end (args);
 }
 
-/* Easy */
+/* Easy -- but watch out!
+
+   This routine is *not* a replacement for puts()!  puts() appends a newline.
+   This one doesn't, and had better not!  */
 
 void
 puts_filtered (string)
@@ -1345,7 +1374,12 @@ fprint_symbol (stream, name)
 
 /* Do a strcmp() type operation on STRING1 and STRING2, ignoring any
    differences in whitespace.  Returns 0 if they match, non-zero if they
-   don't (slightly different than strcmp()'s range of return values). */
+   don't (slightly different than strcmp()'s range of return values).
+   
+   As an extra hack, string1=="FOO(ARGS)" matches string2=="FOO".
+   This "feature" is useful for demangle_and_match(), which is used
+   when searching for matching C++ function names (such as if the
+   user types 'break FOO', where FOO is a mangled C++ function). */
 
 int
 strcmp_iw (string1, string2)
@@ -1372,7 +1406,7 @@ strcmp_iw (string1, string2)
 	  string2++;
 	}
     }
-  return (!((*string1 == '\0') && (*string2 == '\0')));
+  return (*string1 != '\0' && *string1 != '(') || (*string2 != '\0');
 }
 
 /* Demangle NAME and compare the result with LOOKFOR, ignoring any differences

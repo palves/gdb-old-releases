@@ -41,7 +41,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define L_INCR 1
 #endif
 
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
 /* We don't want to use HP-UX's nlists. */
 #define _NLIST_INCLUDED
 #endif
@@ -59,7 +59,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "gdbcore.h"		/* for bfd stuff */
 #include "libbfd.h"		/* FIXME Secret internal BFD stuff (bfd_read) */
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
 #include "libhppa.h"
 #include "syms.h"
 #else
@@ -68,6 +68,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "symfile.h"
 #include "objfiles.h"
 #include "buildsym.h"
+#include "stabsread.h"
 #include "gdb-stabs.h"
 #include "demangle.h"
 
@@ -463,7 +464,7 @@ dbx_symfile_read (objfile, section_offsets, mainline)
   if (mainline || objfile->global_psymbols.size == 0 || objfile->static_psymbols.size == 0)
     init_psymbol_list (objfile);
 
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   symbol_size = obj_dbx_symbol_entry_size (sym_bfd);
 #else
   symbol_size = DBX_SYMBOL_SIZE (objfile);
@@ -503,6 +504,7 @@ static void
 dbx_new_init (ignore)
      struct objfile *ignore;
 {
+  stabsread_new_init ();
   buildsym_new_init ();
   init_header_files ();
 }
@@ -535,7 +537,7 @@ dbx_symfile_init (objfile)
     xmmalloc (objfile -> md, sizeof (struct dbx_symfile_info));
 
   /* FIXME POKING INSIDE BFD DATA STRUCTURES */
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
 #define STRING_TABLE_OFFSET  (sym_bfd->origin + obj_dbx_str_filepos (sym_bfd))
 #define SYMBOL_TABLE_OFFSET  (sym_bfd->origin + obj_dbx_sym_filepos (sym_bfd))
 #define HP_STRING_TABLE_OFFSET  (sym_bfd->origin + obj_hp_str_filepos (sym_bfd))
@@ -551,7 +553,7 @@ dbx_symfile_init (objfile)
   if (!DBX_TEXT_SECT (objfile))
     error ("Can't find .text section in symbol file");
 
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   HP_SYMCOUNT (objfile) = obj_hp_sym_count (sym_bfd);
   DBX_SYMCOUNT (objfile) = obj_dbx_sym_count (sym_bfd);
 #else
@@ -572,7 +574,7 @@ dbx_symfile_init (objfile)
      however at least check to see if the size is zero or some negative
      value. */
 
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   DBX_STRINGTAB_SIZE (objfile) = obj_dbx_stringtab_size (sym_bfd);
   HP_STRINGTAB_SIZE (objfile) = obj_hp_stringtab_size (sym_bfd);
 #else
@@ -594,7 +596,7 @@ dbx_symfile_init (objfile)
   DBX_STRINGTAB (objfile) =
     (char *) obstack_alloc (&objfile -> psymbol_obstack,
 			    DBX_STRINGTAB_SIZE (objfile));
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   if (HP_STRINGTAB_SIZE (objfile) <= 0)
     error ("ridiculous string table size (%d bytes).",
 	   HP_STRINGTAB_SIZE (objfile));
@@ -613,7 +615,7 @@ dbx_symfile_init (objfile)
 		  sym_bfd);
   if (val != DBX_STRINGTAB_SIZE (objfile))
     perror_with_name (name);
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   val = bfd_seek (sym_bfd, HP_STRING_TABLE_OFFSET, L_SET);
   if (val < 0)
     perror_with_name (name);
@@ -622,7 +624,7 @@ dbx_symfile_init (objfile)
   if (val != HP_STRINGTAB_SIZE (objfile))
     perror_with_name (name);
 #endif
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   HP_SYMTAB_OFFSET (objfile) = HP_SYMBOL_TABLE_OFFSET;
 #endif
 }
@@ -678,7 +680,7 @@ fill_symbuf (sym_bfd)
   symbuf_end = nbytes / symbol_size;
   symbuf_idx = 0;
 }
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
 /* same as above for the HP symbol table */
 
 static struct symbol_dictionary_record hp_symbuf[4096];
@@ -744,7 +746,7 @@ init_psymbol_list (objfile)
   /* Current best guess is that there are approximately a twentieth
      of the total symbols (in a debugging file) are global or static
      oriented symbols */
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   objfile -> global_psymbols.size = (DBX_SYMCOUNT (objfile) + 
 				     HP_SYMCOUNT (objfile)) / 10;
   objfile -> static_psymbols.size = (DBX_SYMCOUNT (objfile) +
@@ -844,7 +846,7 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
   CORE_ADDR last_o_file_start = 0;
   struct cleanup *old_chain;
   bfd *abfd;
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   /* HP stuff */
   struct symbol_dictionary_record *hp_bufp;
   int hp_symnum;
@@ -873,7 +875,7 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
   file_string_table_offset = 0;
   next_file_string_table_offset = 0;
 
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   stringtab_global = HP_STRINGTAB (objfile);
 #else
   stringtab_global = DBX_STRINGTAB (objfile);
@@ -898,7 +900,7 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
   init_bincl_list (20, objfile);
   make_cleanup (free_bincl_list, objfile);
 
-  last_source_file = 0;
+  last_source_file = NULL;
 
 #ifdef END_OF_TEXT_DEFAULT
   end_of_text_addr = END_OF_TEXT_DEFAULT;
@@ -912,12 +914,12 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
   symbuf_end = symbuf_idx = 0;
   next_symbol_text_func = dbx_next_symbol_text;
 
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   /* On pa machines, the global symbols are all in the regular HP-UX
      symbol table. Read them in first. */
 
   hp_symbuf_end = hp_symbuf_idx = 0;
-  bfd_seek (abfd, HP_SYMTAB_OFFSET (objfile), 0);
+  bfd_seek (abfd, HP_SYMTAB_OFFSET (objfile), L_SET);
 
   for (hp_symnum = 0; hp_symnum < HP_SYMCOUNT (objfile); hp_symnum++)
     {
@@ -978,7 +980,7 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
 				 objfile);
         }
     }
-  bfd_seek (abfd, DBX_SYMTAB_OFFSET (objfile), 0);
+  bfd_seek (abfd, DBX_SYMTAB_OFFSET (objfile), L_SET);
 #endif
 
   for (symnum = 0; symnum < DBX_SYMCOUNT (objfile); symnum++)
@@ -1034,7 +1036,7 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
     }
 
   /* If there's stuff to be cleaned up, clean it up.  */
-#ifndef hp9000s800
+#ifndef GDB_TARGET_IS_HPPA
   if (DBX_SYMCOUNT (objfile) > 0			/* We have some syms */
 /*FIXME, does this have a bug at start address 0? */
       && last_o_file_start
@@ -1048,7 +1050,7 @@ read_dbx_symtab (section_offsets, objfile, text_addr, text_size)
 
   if (pst)
     {
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
       end_psymtab (pst, psymtab_include_list, includes_used,
 		   symnum * symbol_size, dbsubc_addr,
 		   dependency_list, dependencies_used);
@@ -1340,11 +1342,12 @@ dbx_psymtab_to_symtab_1 (pst)
   if (LDSYMLEN(pst))		/* Otherwise it's a dummy */
     {
       /* Init stuff necessary for reading in symbols */
+      stabsread_init ();
       buildsym_init ();
       old_chain = make_cleanup (really_free_pendings, 0);
       file_string_table_offset = FILE_STRING_OFFSET (pst);
-#ifdef hp9000s800
-      symbol_size = obj_dbx_symbol_entry_size (sym_bfd);
+#ifdef GDB_TARGET_IS_HPPA
+      symbol_size = obj_dbx_symbol_entry_size (pst->objfile->obfd);
 #else
       symbol_size = SYMBOL_SIZE (pst);
 #endif
@@ -1434,16 +1437,17 @@ read_ofile_symtab (objfile, sym_offset, sym_size, text_offset, text_size,
   unsigned char type;
   unsigned max_symnum;
   register bfd *abfd;
+  struct symtab *rtn;
 
   current_objfile = objfile;
-  subfile_stack = 0;
+  subfile_stack = NULL;
 
-#ifdef hp9000s800
+#ifdef GDB_TARGET_IS_HPPA
   stringtab_global = HP_STRINGTAB (objfile);
 #else
   stringtab_global = DBX_STRINGTAB (objfile);
 #endif
-  last_source_file = 0;
+  last_source_file = NULL;
 
   abfd = objfile->obfd;
   symfile_bfd = objfile->obfd;	/* Implicit param to next_text_symbol */
@@ -1464,18 +1468,22 @@ read_ofile_symtab (objfile, sym_offset, sym_size, text_offset, text_size,
 
       SET_NAMESTRING ();
 
-      processing_gcc_compilation =
-	(bufp->n_type == N_TEXT
-	 && (strcmp (namestring, GCC_COMPILED_FLAG_SYMBOL) == 0
-	     || strcmp(namestring, GCC2_COMPILED_FLAG_SYMBOL) == 0));
+      processing_gcc_compilation = 0;
+      if (bufp->n_type == N_TEXT)
+	{
+	  if (strcmp (namestring, GCC_COMPILED_FLAG_SYMBOL) == 0)
+	    processing_gcc_compilation = 1;
+	  else if (strcmp (namestring, GCC2_COMPILED_FLAG_SYMBOL) == 0)
+	    processing_gcc_compilation = 2;
+	}
 
       /* Try to select a C++ demangling based on the compilation unit
 	 producer. */
 
       if (processing_gcc_compilation)
 	{
-#if 0	  /* Works, but is disabled for now.  -fnf */
-	  if (current_demangling_style == auto_demangling)
+#if 1	  /* Works, but is experimental.  -fnf */
+	  if (AUTO_DEMANGLING)
 	    {
 	      set_demangling_style (GNU_DEMANGLING_STYLE_STRING);
 	    }
@@ -1519,18 +1527,21 @@ read_ofile_symtab (objfile, sym_offset, sym_size, text_offset, text_size,
       }
       /* We skip checking for a new .o or -l file; that should never
          happen in this routine. */
-      else if (type == N_TEXT
-	       && (strcmp (namestring, GCC_COMPILED_FLAG_SYMBOL) == 0
-		   || strcmp (namestring, GCC2_COMPILED_FLAG_SYMBOL) == 0))
+      else if (type == N_TEXT)
 	{
 	  /* I don't think this code will ever be executed, because
 	     the GCC_COMPILED_FLAG_SYMBOL usually is right before
 	     the N_SO symbol which starts this source file.
 	     However, there is no reason not to accept
 	     the GCC_COMPILED_FLAG_SYMBOL anywhere.  */
-	  processing_gcc_compilation = 1;
-#if 0	  /* Works, but is disabled for now.  -fnf */
-	  if (current_demangling_style == auto_demangling)
+
+	  if (strcmp (namestring, GCC_COMPILED_FLAG_SYMBOL) == 0)
+	    processing_gcc_compilation = 1;
+	  else if (strcmp (namestring, GCC2_COMPILED_FLAG_SYMBOL) == 0)
+	    processing_gcc_compilation = 2;
+
+#if 1	  /* Works, but is experimental.  -fnf */
+	  if (AUTO_DEMANGLING)
 	    {
 	      set_demangling_style (GNU_DEMANGLING_STYLE_STRING);
 	    }
@@ -1560,7 +1571,9 @@ read_ofile_symtab (objfile, sym_offset, sym_size, text_offset, text_size,
   if (last_source_start_addr == 0)
     last_source_start_addr = text_offset;
 
-  return end_symtab (text_offset + text_size, 0, 0, objfile);
+  rtn = end_symtab (text_offset + text_size, 0, 0, objfile);
+  end_stabs ();
+  return (rtn);
 }
 
 /* This handles a single symbol from the symbol-file, building symbols
@@ -1603,7 +1616,7 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
   /* Something is wrong if we see real data before
      seeing a source file name.  */
 
-  if (last_source_file == 0 && type != (unsigned char)N_SO)
+  if (last_source_file == NULL && type != (unsigned char)N_SO)
     {
       /* Currently this ignores N_ENTRY on Gould machines, N_NSYM on machines
 	 where that code is defined.  */
@@ -1799,19 +1812,13 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
 	     Patch things up. */	   
 	  if (previous_stab_code == N_SO)
 	    {
-	      if (current_subfile && current_subfile->dirname == NULL
-		  && current_subfile->name != NULL
-		  && current_subfile->name[strlen(current_subfile->name)-1] == '/')
-		{
-		  current_subfile->dirname = current_subfile->name;
-		  current_subfile->name =
-		    obsavestring (name, strlen (name),
-				  &objfile -> symbol_obstack);
-		}
+	      patch_subfile_names (current_subfile, name);
 	      break;		/* Ignore repeated SOs */
 	    }
 	  end_symtab (valu, 0, 0, objfile);
+	  end_stabs ();
 	}
+      start_stabs ();
       start_symtab (name, NULL, valu);
       break;
 
@@ -1958,11 +1965,11 @@ process_one_symbol (type, desc, valu, name, section_offsets, objfile)
     case N_OPT:			/* Solaris 2:  Compiler options */
       if (name)
 	{
-	  if (!strcmp (name, GCC2_COMPILED_FLAG_SYMBOL))
+	  if (strcmp (name, GCC2_COMPILED_FLAG_SYMBOL) == 0)
 	    {
-	      processing_gcc_compilation = 1;
-#if 0	      /* Works, but is disabled for now.  -fnf */
-	      if (current_demangling_style == auto_demangling)
+	      processing_gcc_compilation = 2;
+#if 1	      /* Works, but is experimental.  -fnf */
+	      if (AUTO_DEMANGLING)
 		{
 		  set_demangling_style (GNU_DEMANGLING_STYLE_STRING);
 		}
@@ -2045,16 +2052,16 @@ copy_pending (beg, begi, end)
    adjusted for elf details. */
 
 void
-DEFUN(elfstab_build_psymtabs, (objfile, section_offsets, mainline, 
+elfstab_build_psymtabs (objfile, section_offsets, mainline, 
 			       staboffset, stabsize,
-			       stabstroffset, stabstrsize),
-      struct objfile *objfile AND
-      struct section_offsets *section_offsets AND
-      int mainline AND
-      unsigned int staboffset AND
-      unsigned int stabsize AND
-      unsigned int stabstroffset AND
-      unsigned int stabstrsize)
+			       stabstroffset, stabstrsize)
+      struct objfile *objfile;
+      struct section_offsets *section_offsets;
+      int mainline;
+      file_ptr staboffset;
+      unsigned int stabsize;
+      file_ptr stabstroffset;
+      unsigned int stabstrsize;
 {
   int val;
   bfd *sym_bfd = objfile->obfd;
@@ -2089,6 +2096,7 @@ DEFUN(elfstab_build_psymtabs, (objfile, section_offsets, mainline,
   if (val != stabstrsize)
     perror_with_name (name);
 
+  stabsread_new_init ();
   buildsym_new_init ();
   free_header_files ();
   init_header_files ();

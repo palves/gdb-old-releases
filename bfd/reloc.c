@@ -45,7 +45,8 @@ SECTION
 #include "sysdep.h"
 #include "libbfd.h"
 #include "seclet.h"
-/*doc*
+/*
+DOCDD
 INODE
 	typedef arelent, howto manager, Relocations, Relocations
 
@@ -131,10 +132,13 @@ DESCRIPTION
         will be relative to this point - for example, a relocation
         type which modifies the bottom two bytes of a four byte word
         would not touch the first byte pointed to in a big endian
-        world. @item addend The addend is a value provided by the back
-        end to be added (!) to the relocation offset. Its
-        interpretation is dependent upon the howto. For example, on
-        the 68k the code:
+        world.
+	
+	o addend
+
+	The addend is a value provided by the back end to be added (!)
+	to the relocation offset. Its interpretation is dependent upon
+	the howto. For example, on the 68k the code:
 
 
 |        char foo[];
@@ -264,8 +268,9 @@ CODE_FRAGMENT
 .  unsigned int rightshift;
 .
 .       {*  The size of the item to be relocated - 0, is one byte, 1 is 2
-.           bytes, 3 is four bytes. *}
-.  unsigned int size;
+.           bytes, 3 is four bytes.  A -ve value indicates that the
+.	    result is to be subtracted from the data*}
+.  int size;
 .
 .       {*  Now obsolete *}
 .  unsigned int bitsize;
@@ -625,6 +630,15 @@ DEFUN(bfd_perform_relocation,(abfd,
       bfd_put_32(abfd,x,    (bfd_byte *)data + addr);
     }      
      break;
+    case -2:
+    {
+      long  x = bfd_get_32(abfd, (bfd_byte *) data + addr);
+      relocation = -relocation;
+      DOIT(x);
+      bfd_put_32(abfd,x,    (bfd_byte *)data + addr);
+    }      
+     break;
+
     case 3:
 
      /* Do nothing */
@@ -639,6 +653,7 @@ DEFUN(bfd_perform_relocation,(abfd,
 
 
 /*
+DOCDD
 INODE
 	howto manager,  , typedef arelent, Relocations
 
@@ -661,6 +676,7 @@ DESCRIPTION
 CODE_FRAGMENT
 .
 .typedef enum bfd_reloc_code_real 
+.
 .{
 .       {* 16 bits wide, simple reloc *}
 .  BFD_RELOC_16,        

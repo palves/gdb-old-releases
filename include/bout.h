@@ -67,7 +67,7 @@ struct external_exec {
 	unsigned char e_talign[1];	/* Alignment of text segment */
 	unsigned char e_dalign[1];	/* Alignment of data segment */
 	unsigned char e_balign[1];	/* Alignment of bss segment */
-	unsigned char e_unused[1];	/* (make struct size a multiple of 4) */
+	unsigned char e_relaxable[1];	/* Assembled with enough info to allow linker to relax */
 };
 
 #define	EXEC_BYTES_SIZE	(sizeof (struct external_exec))
@@ -170,12 +170,13 @@ struct relocation_info {
 				 */
 		r_length:2,	/* Number of bytes to relocate:
 				 *	0 => 1 byte
-				 *	1 => 2 bytes
-				 *	2 => 4 bytes -- only value used for i960
+				 *	1 => 2 bytes -- used for 13 bit pcrel
+				 *	2 => 4 bytes 
 				 */
 		r_extern:1,
 		r_bsr:1,	/* Something for the GNU NS32K assembler */
 		r_disp:1,	/* Something for the GNU NS32K assembler */
 		r_callj:1,	/* 1 if relocation target is an i960 'callj' */
-		nuthin:1;	/* Unused				*/
+		r_relaxable:1;	/* 1 if enough info is left to relax
+				   the data */
 };

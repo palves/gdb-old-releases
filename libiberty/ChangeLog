@@ -1,3 +1,111 @@
+Thu Oct 15 15:18:22 1992  Per Bothner  (bothner@cygnus.com)
+
+	* strsignal.c:  Add appropriate 'const' to sys_siglist
+	extern declaration (if __STDC__).  (Needed for Linux.)
+	* strsignal.c (strsignal): Add cast to remove const-ness.
+
+Fri Oct  9 03:22:55 1992  John Gilmore  (gnu@cygnus.com)
+
+	* Makefile.in (needed.awk, needed2.awk):  Remove erroneous \'s
+	before "'s, diagnosed by BSD 4.4 awk.
+
+Thu Oct  8 15:25:12 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* Makefile.in: create config.h and needed-list through $(CONFIG_H)
+	and $(NEEDED_LIST), to give some hooks for xiberty.
+
+Thu Oct  1 23:31:42 1992  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
+
+	* configure.in: use cpu-vendor-triple instead of nested cases
+
+Wed Sep 30 11:26:59 1992  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* Makefile.in, argv.c, basename.c, bcmp.c, bcopy.c, bzero.c,
+	concat.c, cplus-dem.c, fdmatch.c, getcwd.c, getopt.c, getopt1.c,
+	getpagesize.c, insque.c, memcmp.c, memcpy.c, memmove.c, memset.c,
+	obstack.c, sigsetmask.c, spaces.c, strchr.c, strerror.c,
+	strrchr.c, strsignal.c, strstr.c, vfork.c, vsprintf.c:
+	Convert from using GPL to LGPL.
+
+Sat Sep 26 04:01:30 1992  John Gilmore  (gnu@cygnus.com)
+
+	* Makefile.in (errors):  Leave dummy.o and dummy around so that
+	we can see how the needed list was generated (it's sometimes wrong).
+	(mostlyclean):  Remove them.
+
+Mon Sep 21 14:50:42 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* getcwd.c: supply a default if MAXPATHLEN is not defined.
+
+	* config/mh-irix4: set EXTRA_OFILES to alloca.o, from WRS.
+
+Wed Sep  9 12:41:48 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* Makefile.in: Use XTRAFLAGS when compiling, so that xiberty works
+	when cross-compiling.
+
+Thu Sep  3 13:29:39 1992  K. Richard Pixley  (rich@sendai.cygnus.com)
+
+	* cplus-dem.c: (demangle_prefix): reduction in strength of strstr
+	  as a time optimization.
+
+	* cplus-dem.c (cplus_demangle): remove strpbrk test.  Appears to
+	  be more expensive than simply demangling.
+
+	* cplus-dem.c (cplus_match): new function.
+
+Tue Sep  1 15:24:04 1992  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* cplus-dem.c:  #include <stdio.h>, to define NULL.
+	Define current_demangling_style.
+
+Sun Aug 30 17:58:19 1992  Per Bothner  (bothner@rtl.cygnus.com)
+
+	* cplus-dem.c:  New file, moved from ../gdb.
+	* cplus-dem.c (set_cplus_marker_for_demangling):  New exported
+	function, to avoid compiling in target-dependency for CPLUS_MARKER.
+	* cplus-dem.c (cplus_demangle):  Allow demangling style option
+	to be passed as a parameter, but using the global variable
+	current_demangling_style as a default.
+	* Makefile.in:  Update for cplus-dem.c
+
+Sat Aug 29 10:44:09 1992  Fred Fish  (fnf@cygnus.com)
+
+	* obstack.c:  Merge in comment changes from FSF version.  Now
+	matches the FSF version exactly.
+
+Fri Aug 28 18:39:08 1992  John Gilmore  (gnu@cygnus.com)
+
+	* obstack.c (CALL_FREEFUN):  Can't use ?: with void values (at
+	least on losing DECstations!); use if-then-else instead.
+
+Wed Aug 19 14:40:34 1992  Ian Lance Taylor  (ian@cygnus.com)
+
+	* Makefile.in: always create installation directories.
+
+Mon Aug 10 17:33:40 1992  david d `zoo' zuhn  (zoo at cirdan.cygnus.com)
+
+       * Makefile.in: clean up definition of CFILES, more comments
+
+Sat Aug  8 23:10:59 1992  Fred Fish  (fnf@cygnus.com)
+
+	* getopt.c (my_index):  Make first arg const to match strchr,
+	which it sometimes is remapped to.
+
+Sat Aug  1 13:48:50 1992  Fred Fish  (fnf@cygnus.com)
+
+	* obstack.c (DEFAULT_ALIGNMENT):  Update to match FSF version.
+	* obstack.c (_obstack_begin):  Initialize use_extra_arg.
+	* obstack.c (_obstack_begin_1):  New, from FSF version.
+
+Mon Jul 20 21:07:58 1992  Fred Fish  (fnf@cygnus.com)
+
+	* obstack.c (CALL_CHECKFUN, CALL_FREEFUN):  Use use_extra_arg and
+	extra_arg.
+	* obstack.c (_obstack_begin):  Remove area_id and flags arguments
+	(previously added for mmalloc support, interface has changed).
+	Also convert flags usage to use use_extra_arg and maybe_empty_object.
+
 Fri Jul 10 00:41:53 1992  Fred Fish  (fnf@cygnus.com)
 
 	* argv.c:  Move expandargv inline and eliminate static variables.

@@ -1,5 +1,7 @@
 /******************************************************************/
-/* 		Copyright (c) 1990, Intel Corporation
+	Copyright 1990, 1992 Free Software Foundation, Inc.
+
+	This code was donated by Intel Corp.
 
    Intel hereby grants you permission to copy, modify, and 
    distribute this software and its documentation.  Intel grants

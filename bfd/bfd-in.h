@@ -1,5 +1,5 @@
 /* A -*- C -*- header file for the bfd library
-   Copyright 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -52,7 +52,7 @@ here.  */
 #	endif
 #endif
 
-#define BFD_VERSION "1.97"
+#define BFD_VERSION "2.0"
 
 /* forward declaration */
 typedef struct _bfd bfd;
@@ -65,8 +65,15 @@ typedef struct _bfd bfd;
 /* Yup, SVR4 has a "typedef enum boolean" in <sys/types.h>  -fnf */
 typedef enum bfd_boolean {false, true} boolean;
 
-/* Try to avoid breaking stuff */
-typedef  long int file_ptr;
+/* A pointer to a position in a file.  */
+/* FIXME:  This should be using off_t from <sys/types.h>.
+   For now, try to avoid breaking stuff by not including <sys/types.h> here.
+   This will break on systems with 64-bit file offsets (e.g. 4.4BSD).
+   Probably the best long-term answer is to avoid using file_ptr AND off_t 
+   in this header file, and to handle this in the BFD implementation
+   rather than in its interface.  */
+/* typedef off_t	file_ptr; */
+typedef long int file_ptr;
 
 /* Support for different sizes of target format ints and addresses */
 
@@ -106,17 +113,17 @@ typedef enum bfd_format {
          bfd_format;
 
 /* Object file flag values */
-#define NO_FLAGS    0
-#define HAS_RELOC   001
-#define EXEC_P      002
-#define HAS_LINENO  004
-#define HAS_DEBUG   010
-#define HAS_SYMS    020
-#define HAS_LOCALS  040
-#define DYNAMIC     0100
-#define WP_TEXT     0200
-#define D_PAGED     0400
-
+#define NO_FLAGS    	0x00
+#define HAS_RELOC   	0x01
+#define EXEC_P      	0x02
+#define HAS_LINENO  	0x04
+#define HAS_DEBUG   	0x08
+#define HAS_SYMS    	0x10
+#define HAS_LOCALS  	0x20
+#define DYNAMIC     	0x40
+#define WP_TEXT     	0x80
+#define D_PAGED     	0x100
+#define BFD_IS_RELAXABLE 0x200
 
 /* symbols and relocation */
 
@@ -327,7 +334,7 @@ extern CONST short _bfd_host_big_endian;
 #define bfd_get_architecture(abfd) ((abfd)->obj_arch)
 #define bfd_get_machine(abfd) ((abfd)->obj_machine)
 
-
+#define bfd_get_symbol_leading_char(abfd) ((abfd)->xvec->symbol_leading_char)
 
 #define BYTE_SIZE 1
 #define SHORT_SIZE 2

@@ -1,5 +1,5 @@
 /* BFD back-end for i386 a.out binaries.
-   Copyright (C) 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -22,10 +22,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    These numbers make BFD work with that. If your aout 386 system
    doesn't work with these, we'll have to split them into different
    files.  Send me (sac@cygnus.com) the runes to make it work on your
-   system, and I'll stick it in for the next release.
+   system, and I'll stick it in for the next release.  */
 
- */
-#define TARGET_IS_LITTLE_ENDIAN_P
 #define N_HEADER_IN_TEXT(x) 0
 #define BYTES_IN_WORD 4
 #define ARCH 32
@@ -51,4 +49,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 #include "libaout.h"
+static boolean MY(set_sizes)();
+#define MY_backend_data &MY(backend_data)
+static CONST struct aout_backend_data MY(backend_data) = {
+  0,				/* zmagic contiguous */
+  1,				/* text incl header */
+  0,				/* text vma? */
+  MY(set_sizes),
+  1,				/* exec header not counted */
+};
+
 #include "aout-target.h"

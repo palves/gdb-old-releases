@@ -2,19 +2,21 @@
 # Makefile
 #   Copyright (C) 1990, 1991, 1992 Free Software Foundation
 #
-# This file is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-# 
-# This program is distributed in the hope that it will be useful,
+# This file is part of the libiberty library.
+# Libiberty is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Library General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# Libiberty is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Library General Public License for more details.
+#
+# You should have received a copy of the GNU Library General Public
+# License along with libiberty; see the file COPYING.LIB.  If
+# not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+# Cambridge, MA 02139, USA.
 #
 
 # This file was written, and is maintained by K. Richard Pixley
@@ -62,7 +64,12 @@ BISON = bison
 MAKEINFO = makeinfo
 RANLIB = ranlib
 
+XTRAFLAGS =
+
 TARGETLIB = libiberty.a
+
+CONFIG_H = lconfig.h
+NEEDED_LIST = lneeded-list
 
 # HOST_OFILES contains the list of objects that should be in the
 # library (in addition to the REQUIRED_OFILES and EXTRA_OFILES).
@@ -88,42 +95,61 @@ check:
 ###
 
 .c.o:
-	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $<
+	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) $<
 
 # The default target just invokes make recursively.
 # However, the automatic configuration (in config/mh_default).
 # first causes it to figure out the objects missing in libc.
 info install-info clean-info:
 
-# NOTE: If you add new files to the library, edit 'functions.def'.
-CFILES = basename.c bcmp.c bcopy.c bzero.c getopt.c getopt1.c getpagesize.c \
-	getcwd.c index.c insque.c obstack.c random.c rindex.c spaces.c \
-	memcmp.c memcpy.c memmove.c memset.c strchr.c strrchr.c \
-	strdup.c strerror.c strstr.c strtol.c strtoul.c vfork.c \
-	vfprintf.c vprintf.c vsprintf.c sigsetmask.c concat.c fdmatch.c \
-	argv.c alloca.c strsignal.c
+# NOTE: If you add new files to the library, edit 'functions.def'
+#       and add them to this list (alphabetical order please)
+CFILES = alloca.c argv.c basename.c bcmp.c bcopy.c bzero.c concat.c \
+	 cplus-dem.c fdmatch.c getcwd.c getopt.c getopt1.c getpagesize.c \
+         index.c insque.c memcmp.c memcpy.c memmove.c memset.c \
+         obstack.c random.c rindex.c sigsetmask.c spaces.c \
+         strchr.c strdup.c strerror.c strrchr.c strsignal.c \
+         strstr.c strtol.c strtoul.c vfork.c vfprintf.c vprintf.c vsprintf.c
 # These are always included in the library.
-REQUIRED_OFILES = basename.o getopt.o getopt1.o obstack.o spaces.o concat.o \
-	fdmatch.o argv.o strerror.o strsignal.o
+REQUIRED_OFILES = argv.o basename.o concat.o cplus-dem.o fdmatch.o \
+	getopt.o getopt1.o obstack.o spaces.o strerror.o strsignal.o
 
 # Do we want/need any config overrides?
 #	 
 
 STAGESTUFF = $(TARGETLIB) *.o
 
-install: all
+INSTALL_DEST = libdir
+install: install_to_$(INSTALL_DEST)
+
+install_to_libdir: all
+	-parent=`echo $(libdir)|sed -e 's@/[^/]*$$@@'`; \
+	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
+	-if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi
 	$(INSTALL_DATA) $(TARGETLIB) $(libdir)/$(TARGETLIB).n
 	$(RANLIB) $(libdir)/$(TARGETLIB).n
 	mv -f $(libdir)/$(TARGETLIB).n $(libdir)/$(TARGETLIB)
+
+install_to_tooldir: all
+	-parent=`echo $(tooldir)|sed -e 's@/[^/]*$$@@'`; \
+	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
+	-if [ -d $(tooldir) ] ; then true ; else mkdir $(tooldir) ; fi
+	-if [ -d $(tooldir)/lib ] ; then true ; else mkdir $(tooldir)/lib ; fi
+	$(INSTALL_DATA) $(TARGETLIB) $(tooldir)/lib/$(TARGETLIB).n
+	$(RANLIB) $(tooldir)/lib/$(TARGETLIB).n
+	mv -f $(tooldir)/lib/$(TARGETLIB).n $(tooldir)/lib/$(TARGETLIB)
 
 # The default configuration adds to libiberty all those functions that are
 # missing in libc.  More precisely, it includes whatever $(CC) fails to find.
 # Then a sed+awk combination translates the ld error messages into
 # a list of .o files.
 
-needed-list: $(EXTRA_OFILES) needed.awk errors
-	awk -f needed.awk <errors >needed-list
-	echo $(EXTRA_OFILES) >>needed-list
+needed-list: $(NEEDED_LIST)
+	cp $(NEEDED_LIST) needed-list
+
+lneeded-list: $(EXTRA_OFILES) needed.awk errors
+	awk -f needed.awk <errors >lneeded-list
+	echo $(EXTRA_OFILES) >>lneeded-list
 
 # Generate an awk script that looks for functions in functions.def
 
@@ -131,13 +157,16 @@ needed.awk: $(srcdir)/functions.def Makefile
 	echo "# !Automatically generated from $(srcdir)/functions.def"\
 	  "- DO NOT EDIT!" >needed.awk
 	grep '^DEF(' < $(srcdir)/functions.def \
-	    | sed -e '/DEF/s|DEF.\([^,]*\).*|/\1/ { printf \"\1\.o " }|' \
+	    | sed -e '/DEF/s|DEF.\([^,]*\).*|/\1/ { printf "\1.o " }|' \
 	    >>needed.awk
 
-config.h: needed2.awk errors
+config.h: $(CONFIG_H)
+	cp $(CONFIG_H) config.h
+
+lconfig.h: needed2.awk errors
 	echo "/* !Automatically generated from $(srcdir)/functions.def"\
-	  "- DO NOT EDIT! */" >config.h
-	awk -f needed2.awk <errors >>config.h
+	  "- DO NOT EDIT! */" >lconfig.h
+	awk -f needed2.awk <errors >>lconfig.h
 
 # Generate an awk script that looks for variables in functions.def
 
@@ -145,25 +174,27 @@ needed2.awk: $(srcdir)/functions.def Makefile
 	echo "# !Automatically generated from $(srcdir)/functions.def"\
 	  "- DO NOT EDIT!" >needed2.awk
 	grep '^DEFVAR(' < $(srcdir)/functions.def \
-	 | sed -e '/DEFVAR/s|DEFVAR.\([^,]*\).*|/\1/ { printf \"#ifndef NEED_\1\\n#define NEED_\1\\n#endif\\n" }|' \
+	 | sed -e '/DEFVAR/s|DEFVAR.\([^,]*\).*|/\1/ { printf "#ifndef NEED_\1\\n#define NEED_\1\\n#endif\\n" }|' \
 	 >>needed2.awk
 	grep '^DEFFUNC(' < $(srcdir)/functions.def \
-	 | sed -e '/DEFFUNC/s|DEFFUNC.\([^,]*\).*|/\1/ { printf \"#ifndef NEED_\1\\n#define NEED_\1\\n#endif\\n" }|' \
+	 | sed -e '/DEFFUNC/s|DEFFUNC.\([^,]*\).*|/\1/ { printf "#ifndef NEED_\1\\n#define NEED_\1\\n#endif\\n" }|' \
 	 >>needed2.awk
 
-errors: $(srcdir)/dummy.c $(EXTRA_OFILES)
-	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(srcdir)/dummy.c
-	-($(CC) $(LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
-	-rm -f a.out dummy.o
+dummy.o: $(srcdir)/dummy.c
+	$(CC) -c $(CFLAGS) -I. -I$(srcdir)/../include $(HDEFINES) $(XTRAFLAGS) $(srcdir)/dummy.c
+
+errors: dummy.o $(EXTRA_OFILES)
+	-($(CC) -o dummy $(LDFLAGS) dummy.o $(EXTRA_OFILES) $(LOADLIBES)) >errors 2>&1 || true
 
 $(HOST_OFILES) $(REQUIRED_OFILES) : config.h
 
 RULE1 = $(TARGETLIB)
 $(RULE1): $(REQUIRED_OFILES) $(DO_ALSO) .always.
 	@$(MAKE) RULE1=not-used RULE2=$(TARGETLIB) \
-	     HOST_OFILES="$(HOST_OFILES)"\
+	     HOST_OFILES="$(HOST_OFILES)" \
 	    "CC=$(CC)" "CFLAGS=$(CFLAGS)" \
-	    "AR=$(AR)" "AR_FLAGS=$(AR_FLAGS)" "RANLIB=$(RANLIB)"
+	    "AR=$(AR)" "AR_FLAGS=$(AR_FLAGS)" "RANLIB=$(RANLIB)" \
+	    "XTRAFLAGS=$(XTRAFLAGS)"
 
 # Rule invoked by recursive make in $(RULE1).
 RULE2 = not-used
@@ -183,6 +214,12 @@ etags tags: TAGS
 TAGS: $(CFILES)
 	etags $(HFILES) $(CFILES)
 
+# Create a standalone demangler if so desired ("make demangle").
+
+demangle: ${srcdir}/${DEMANGLER}.c
+	${CC} -o $@ -DMAIN ${INTERNAL_CFLAGS} \
+	  `echo ${srcdir}/${DEMANGLER}.c | sed 's,^\./,,'`
+
 ls:
 	@echo Makefile $(HFILES) $(CFILES)
 
@@ -190,7 +227,8 @@ ls:
 
 mostlyclean:
 	rm -f *.o core errs \#* *.E a.out
-	rm -f needed.awk needed2.awk errors needed-list config.h
+	rm -f needed.awk needed2.awk errors dummy needed-list config.h
+	rm -f $(CONFIG_H) $(NEEDED_LIST)
 clean: mostlyclean
 	rm -f *.a
 distclean: clean

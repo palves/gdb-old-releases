@@ -461,6 +461,10 @@ frame_info (addr_exp, from_tty)
   if (s)
      printf_filtered(" source language %s.\n", language_str(s->language));
 
+#ifdef PRINT_EXTRA_FRAME_INFO
+  PRINT_EXTRA_FRAME_INFO (fi);
+#endif
+
   {
     /* Address of the argument list for this frame, or 0.  */
     CORE_ADDR arg_list = FRAME_ARGS_ADDRESS_CORRECT (fi);
@@ -1239,6 +1243,7 @@ This is useful in command scripts.");
 	   "Select and print stack frame called by this one.\n\
 An argument says how many frames down to go.");
   add_com_alias ("do", "down", class_stack, 1);
+  add_com_alias ("dow", "down", class_stack, 1);
   add_com ("down-silently", class_support, down_silently_command,
 	   "Same as the `down' command, but does not print anything.\n\
 This is useful in command scripts.");

@@ -978,7 +978,7 @@ executable as it exists on the remote computer.  For example,\n\
 	eb_open, eb_close, 
 	0, eb_detach, eb_resume, eb_wait,
 	eb_fetch_register, eb_store_register,
-	eb_prepare_to_store, 0, 0, 	/* conv_to, conv_from */
+	eb_prepare_to_store,
 	eb_xfer_inferior_memory, eb_files_info,
 	0, 0,	/* Breakpoints */
 	0, 0, 0, 0, 0,	/* Terminal handling */
@@ -987,6 +987,8 @@ executable as it exists on the remote computer.  For example,\n\
 	0, /* lookup_symbol */
 	eb_create_inferior,
 	eb_mourn_inferior,
+  	0,	/* can_run */
+  	0, /* notice_signals */
 	process_stratum, 0, /* next */
 	1, 1, 1, 1, 1,	/* all mem, mem, stack, regs, exec */
 	0, 0,			/* Section pointers */

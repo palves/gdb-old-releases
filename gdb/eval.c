@@ -296,39 +296,34 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	  arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
 
 	  fnptr = longest_to_int (value_as_long (arg1));
-	  /* FIXME-tiemann: this is way obsolete.  */
-	  if (fnptr < 128)
+
+	  if (METHOD_PTR_IS_VIRTUAL(fnptr))
 	    {
+	      int fnoffset = METHOD_PTR_TO_VOFFSET(fnptr);
 	      struct type *basetype;
+	      struct type *domain_type =
+		  TYPE_DOMAIN_TYPE (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)));
 	      int i, j;
 	      basetype = TYPE_TARGET_TYPE (VALUE_TYPE (arg2));
-	      basetype = TYPE_VPTR_BASETYPE (basetype);
+	      if (domain_type != basetype)
+		  arg2 = value_cast(lookup_pointer_type (domain_type), arg2);
+	      basetype = TYPE_VPTR_BASETYPE (domain_type);
 	      for (i = TYPE_NFN_FIELDS (basetype) - 1; i >= 0; i--)
 		{
 		  struct fn_field *f = TYPE_FN_FIELDLIST1 (basetype, i);
 		  /* If one is virtual, then all are virtual.  */
 		  if (TYPE_FN_FIELD_VIRTUAL_P (f, 0))
 		    for (j = TYPE_FN_FIELDLIST_LENGTH (basetype, i) - 1; j >= 0; --j)
-		      if (TYPE_FN_FIELD_VOFFSET (f, j) == fnptr)
+		      if (TYPE_FN_FIELD_VOFFSET (f, j) == fnoffset)
 			{
-			  value vtbl;
-			  value base = value_ind (arg2);
-			  struct type *fntype = lookup_pointer_type (TYPE_FN_FIELD_TYPE (f, j));
-
-			  if (TYPE_VPTR_FIELDNO (basetype) < 0)
-			    fill_in_vptr_fieldno (basetype);
-
-			  VALUE_TYPE (base) = basetype;
-			  vtbl = value_field (base, TYPE_VPTR_FIELDNO (basetype));
-			  VALUE_TYPE (vtbl) = lookup_pointer_type (fntype);
-			  VALUE_TYPE (arg1) = builtin_type_int;
-			  arg1 = value_subscript (vtbl, arg1);
-			  VALUE_TYPE (arg1) = fntype;
+			  value temp = value_ind (arg2);
+			  arg1 = value_virtual_fn_field (&temp, f, j, domain_type, 0);
+			  arg2 = value_addr (temp);
 			  goto got_it;
 			}
 		}
 	      if (i < 0)
-		error ("virtual function at index %d not found", fnptr);
+		error ("virtual function at index %d not found", fnoffset);
 	    }
 	  else
 	    {
@@ -437,7 +432,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
 	return value_zero (lookup_struct_elt_type (VALUE_TYPE (arg1),
 						   &exp->elts[pc + 1].string,
-						   1),
+						   0),
 			   lval_memory);
       else
 	{
@@ -456,7 +451,7 @@ evaluate_subexp (expect_type, exp, pos, noside)
 	return value_zero (lookup_struct_elt_type (TYPE_TARGET_TYPE
 						   (VALUE_TYPE (arg1)),
 						   &exp->elts[pc + 1].string,
-						   1),
+						   0),
 			   lval_memory);
       else
 	{
@@ -564,8 +559,18 @@ evaluate_subexp (expect_type, exp, pos, noside)
       if (noside == EVAL_SKIP)
 	goto nosideret;
       if (noside == EVAL_AVOID_SIDE_EFFECTS)
-	return value_zero (TYPE_TARGET_TYPE (VALUE_TYPE (arg1)),
-			   VALUE_LVAL (arg1));
+	{
+	  /* If the user attempts to subscript something that has no target
+	     type (like a plain int variable for example), then report this
+	     as an error. */
+
+	  type = TYPE_TARGET_TYPE (VALUE_TYPE (arg1));
+	  if (type)
+	    return value_zero (type, VALUE_LVAL (arg1));
+	  else
+	    error ("cannot subscript something of type `%s'",
+		   TYPE_NAME (VALUE_TYPE (arg1)));
+	}
 			   
       if (binop_user_defined_p (op, arg1, arg2))
 	return value_x_binop (arg1, arg2, op, OP_NULL);

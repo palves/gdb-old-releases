@@ -22,6 +22,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "inferior.h"
 #include "target.h"
 
+#include "nm.h"
+
 #ifdef USG
 #include <sys/types.h>
 #endif
@@ -30,9 +32,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/dir.h>
 #include <signal.h>
 #include <sys/ioctl.h>
-#ifndef USG
+
+#ifndef NO_PTRACE_H
+#ifdef PTRACE_IN_WRONG_PLACE
+#include <ptrace.h>
+#else
 #include <sys/ptrace.h>
 #endif
+#endif /* NO_PTRACE_H */
 
 #if !defined (PT_KILL)
 #define PT_KILL 8
@@ -85,21 +92,16 @@ call_ptrace (request, pid, addr, data)
 #define ptrace call_ptrace
 #endif
 
-/* This is used when GDB is exiting.  It gives less chance of error.*/
-
-void
-kill_inferior_fast ()
-{
-  if (inferior_pid == 0)
-    return;
-  ptrace (PT_KILL, inferior_pid, (PTRACE_ARG3_TYPE) 0, 0);
-  wait ((int *)0);
-}
-
 void
 kill_inferior ()
 {
-  kill_inferior_fast ();
+  if (inferior_pid == 0)
+    return;
+  /* ptrace PT_KILL only works if process is stopped!!!  So stop it with
+     a real signal first, if we can.  */
+  kill (inferior_pid, SIGKILL);
+  ptrace (PT_KILL, inferior_pid, (PTRACE_ARG3_TYPE) 0, 0);
+  wait ((int *)0);
   target_mourn_inferior ();
 }
 
@@ -116,20 +118,17 @@ child_resume (step, signal)
 
   /* An address of (PTRACE_ARG3_TYPE)1 tells ptrace to continue from where
      it was.  (If GDB wanted it to start some other way, we have already
-     written a new PC value to the child.)  */
+     written a new PC value to the child.)
+
+     If this system does not support PT_STEP, a higher level function will
+     have called single_step() to transmute the step request into a
+     continue request (by setting breakpoints on all possible successor
+     instructions), so we don't have to worry about that here.  */
 
   if (step)
-#ifdef NO_SINGLE_STEP
-    single_step (signal);
-#else    
-    ptrace (PT_STEP, inferior_pid, (PTRACE_ARG3_TYPE) 1, signal);
-#endif
+    ptrace (PT_STEP,     inferior_pid, (PTRACE_ARG3_TYPE) 1, signal);
   else
-#ifdef AIX_BUGGY_PTRACE_CONTINUE
-    AIX_BUGGY_PTRACE_CONTINUE;
-#else
     ptrace (PT_CONTINUE, inferior_pid, (PTRACE_ARG3_TYPE) 1, signal);
-#endif
 
   if (errno)
     perror_with_name ("ptrace");

@@ -47,8 +47,11 @@ quit PARAMS ((void));
 
 #define QUIT { if (quit_flag) quit (); }
 
-/* Notes on classes: class_alias is for alias commands which are not
-   abbreviations of the original command.  */
+/* Command classes are top-level categories into which commands are broken
+   down for "help" purposes.  
+   Notes on classes: class_alias is for alias commands which are not
+   abbreviations of the original command.  class-pseudo is for commands
+   which are not really commands nor help topics ("stop").  */
 
 enum command_class
 {
@@ -57,7 +60,8 @@ enum command_class
   /* Classes of commands */
   no_class = -1, class_run = 0, class_vars, class_stack,
   class_files, class_support, class_info, class_breakpoint,
-  class_alias, class_obscure, class_user, class_maintenance
+  class_alias, class_obscure, class_user, class_maintenance,
+  class_pseudo
 };
 
 /* the cleanup list records things that have to be undone
@@ -195,7 +199,13 @@ extern void
 puts_filtered PARAMS ((char *));
 
 extern void
+vfprintf_filtered ();
+
+extern void
 fprintf_filtered ();
+
+extern void
+fprintfi_filtered ();
 
 extern void
 printf_filtered ();
@@ -587,7 +597,7 @@ extern char *
 basename PARAMS ((char *));
 
 extern char *
-getenv PARAMS ((CONST char *));
+getenv PARAMS ((const char *));
 
 extern char **
 buildargv PARAMS ((char *));

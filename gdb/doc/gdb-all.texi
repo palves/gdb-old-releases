@@ -1,4 +1,5 @@
 
+
 \input texinfo      @c -*-texinfo-*-
 @c Copyright (c) 1988 1989 1990 1991 1992 Free Software Foundation, Inc.
 @c %**start of header 
@@ -21,7 +22,7 @@
 @c This revision number *not* the same as the Edition number.
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 2.110 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 2.123 $}  % For use in headers, footers too
 @end tex
 
 @c GDB CHANGELOG CONSULTED BETWEEN:
@@ -42,9 +43,9 @@ END-INFO-DIR-ENTRY
 This file documents the GNU debugger GDB.
 
 @c !!set edition, date, version
-This is Edition 4.06, July 1992, 
+This is Edition 4.06, October 1992, 
 of @cite{Debugging with GDB: the GNU Source-Level Debugger}
-for GDB Version 4.6.
+for GDB Version 4.7.
 
 Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
 
@@ -78,8 +79,8 @@ instead of in the original English.
 @subtitle The GNU Source-Level Debugger
 @sp 1
 @c !!set edition, date, version
-@subtitle Edition 4.06, for GDB version 4.6
-@subtitle July 1992
+@subtitle Edition 4.06, for GDB version 4.7
+@subtitle October 1992
 @author by Richard M. Stallman and Roland H. Pesch
 @page
 @tex
@@ -113,13 +114,13 @@ instead of in the original English.
 @page
 
 @ifinfo
-@node Top, Summary, (dir), (dir)
+@node Top
 @top Debugging with GDB
 
 This file describes GDB, the GNU symbolic debugger.
 
 @c !!set edition, date, version
-This is Edition 4.06, July 1992, for GDB Version 4.6.
+This is Edition 4.06, October 1992, for GDB Version 4.7.
 @end ifinfo
 
 @menu
@@ -147,204 +148,9 @@ This is Edition 4.06, July 1992, for GDB Version 4.6.
 * Installing GDB::              Installing GDB
 * Copying::                     GNU GENERAL PUBLIC LICENSE
 * Index::                       Index
-
- --- The Detailed Node Listing ---
-
-Summary of GDB
-
-* Free Software::               Freely redistributable software
-* Contributors::                Contributors to GDB
-
-Getting In and Out of GDB
-
-* Invoking GDB::                How to start GDB
-* Leaving GDB::                 How to quit GDB
-* Shell Commands::              How to use shell commands inside GDB
-
-Starting GDB
-
-* File Options::                Choosing Files
-* Mode Options::                Choosing Modes
-
-GDB Commands
-
-* Command Syntax::              Command Syntax
-* Completion::                  Command Completion
-* Help::                        Getting Help
-
-Running Programs Under GDB
-
-* Compilation::                 Compiling for Debugging
-* Starting::                    Starting your Program
-* Arguments::                   Your Program's Arguments
-* Environment::                 Your Program's Environment
-* Working Directory::           Your Program's Working Directory
-* Input/Output::                Your Program's Input and Output
-* Attach::                      Debugging an Already-Running Process
-* Kill Process::                Killing the Child Process
-* Process Information::         Additional Process Information
-
-Stopping and Continuing
-
-* Breakpoints::                 Breakpoints, Watchpoints, and Exceptions
-* Continuing and Stepping::     Resuming Execution
-* Signals::                     Signals
-
-Breakpoints, Watchpoints, and Exceptions
-
-* Set Breaks::                  Setting Breakpoints
-* Set Watchpoints::             Setting Watchpoints
-* Exception Handling::          Breakpoints and Exceptions
-* Delete Breaks::               Deleting Breakpoints
-* Disabling::                   Disabling Breakpoints
-* Conditions::                  Break Conditions
-* Break Commands::              Breakpoint Command Lists
-* Breakpoint Menus::            Breakpoint Menus
-* Error in Breakpoints::        ``Cannot insert breakpoints''
-
-Examining the Stack
-
-* Frames::                      Stack Frames
-* Backtrace::                   Backtraces
-* Selection::                   Selecting a Frame
-* Frame Info::                  Information on a Frame
-
-Examining Source Files
-
-* List::                        Printing Source Lines
-* Search::                      Searching Source Files
-* Source Path::                 Specifying Source Directories
-* Machine Code::                Source and Machine Code
-
-Examining Data
-
-* Expressions::                 Expressions
-* Variables::                   Program Variables
-* Arrays::                      Artificial Arrays
-* Output formats::              Output formats
-* Memory::                      Examining Memory
-* Auto Display::                Automatic Display
-* Print Settings::              Print Settings
-* Value History::               Value History
-* Convenience Vars::            Convenience Variables
-* Registers::                   Registers
-* Floating Point Hardware::     Floating Point Hardware
-
-Using GDB with Different Languages
-
-* Setting::                     Switching between source languages
-* Show::                        Displaying the language
-* Checks::                      Type and Range checks
-* Support::                     Supported languages
-
-Switching between source languages
-
-* Manually::                    Setting the working language manually
-* Automatically::               Having GDB infer the source language
-
-Type and range Checking
-
-* Type Checking::               An overview of type checking
-* Range Checking::              An overview of range checking
-
-Supported Languages
-
-* C::                           C and C++
-* Modula-2::                    Modula-2
-
-C and C++
-
-* C Operators::                 C and C++ Operators
-* C Constants::                 C and C++ Constants
-* Cplusplus expressions::       C++ Expressions
-* C Defaults::                  Default settings for C and C++
-* C Checks::                    C and C++ Type and Range Checks
-* Debugging C::                 GDB and C
-* Debugging C plus plus::       Special features for C++
-
-Modula-2
-
-* M2 Operators::                Built-in operators
-* Built-In Func/Proc::           Built-in Functions and Procedures
-* M2 Constants::                Modula-2 Constants
-* M2 Defaults::                 Default settings for Modula-2
-* Deviations::                  Deviations from standard Modula-2
-* M2 Checks::                   Modula-2 Type and Range Checks
-* M2 Scope::                    The scope operators @code{::} and @code{.}
-* GDB/M2::                      GDB and Modula-2
-
-Altering Execution
-
-* Assignment::                  Assignment to Variables
-* Jumping::                     Continuing at a Different Address
-* Signaling::                   Giving your program a Signal
-* Returning::                   Returning from a Function
-* Calling::                     Calling your Program's Functions
-* Patching::                    Patching your Program
-
-GDB's Files
-
-* Files::                       Commands to Specify Files
-* Symbol Errors::               Errors Reading Symbol Files
-
-Specifying a Debugging Target
-
-* Active Targets::              Active Targets
-* Target Commands::             Commands for Managing Targets
-* Remote::                      Remote Debugging
-
-Remote Debugging
-
-* i960-Nindy Remote::           GDB with a Remote i960 (Nindy)
-* EB29K Remote::                GDB with a Remote EB29K
-* VxWorks Remote::              GDB and VxWorks
-
-GDB with a Remote i960 (Nindy)
-
-* Nindy Startup::               Startup with Nindy
-* Nindy Options::               Options for Nindy
-* Nindy reset::                 Nindy Reset Command
-
-GDB with a Remote EB29K
-
-* Comms (EB29K)::               Communications Setup
-* gdb-EB29K::                   EB29K cross-debugging
-* Remote Log::                  Remote Log
-
-GDB and VxWorks
-
-* VxWorks connection::          Connecting to VxWorks
-* VxWorks download::            VxWorks Download
-* VxWorks attach::              Running Tasks
-
-Controlling GDB
-
-* Prompt::                      Prompt
-* Editing::                     Command Editing
-* History::                     Command History
-* Screen Size::                 Screen Size
-* Numbers::                     Numbers
-* Messages/Warnings::           Optional Warnings and Messages
-
-Canned Sequences of Commands
-
-* Define::                      User-Defined Commands
-* Command Files::               Command Files
-* Output::                      Commands for Controlled Output
-
-Reporting Bugs in GDB
-
-* Bug Criteria::                Have You Found a Bug?
-* Bug Reporting::               How to Report Bugs
-
-Installing GDB
-
-* Separate Objdir::             Compiling GDB in another directory
-* Config Names::                Specifying names for hosts and targets
-* configure Options::           Summary of options for configure
 @end menu
 
-@node Summary, New Features, Top, Top
+@node Summary
 @unnumbered Summary of GDB
 
 The purpose of a debugger such as GDB is to allow you to see what is
@@ -377,7 +183,7 @@ Fortran support will be added when a GNU Fortran compiler is ready.
 * Contributors::                Contributors to GDB
 @end menu
 
-@node Free Software, Contributors, Summary, Summary
+@node Free Software
 @unnumberedsec Free Software
 
 GDB is @dfn{free software}, protected by the GNU General Public License
@@ -394,7 +200,7 @@ from anyone else.
 
 For full details, @pxref{Copying, ,GNU GENERAL PUBLIC LICENSE}.
 
-@node Contributors,  , Free Software, Summary
+@node Contributors
 @unnumberedsec Contributors to GDB
 
 Richard Stallman was the original author of GDB, and of many other GNU
@@ -470,7 +276,7 @@ manual.
 Fred Fish wrote most of the support for Unix System Vr4, and enhanced
 the command-completion support to cover C++ overloaded symbols.
 
-@node New Features, Sample Session, Summary, Top
+@node New Features
 @unnumbered New Features since GDB version 3.5
 
 @table @emph
@@ -479,12 +285,12 @@ Using the new command @code{target}, you can select at runtime whether
 you are debugging local files, local processes, standalone systems over
 a serial port, realtime systems over a TCP/IP connection, etc.  The
 command @code{load} can download programs into a remote system.  Serial
-stubs are available for Motorola 680x0 and Intel 80386 remote systems;
-GDB also supports debugging realtime processes running under
+stubs are available for Motorola 680x0, Intel 80386, and Sparc remote
+systems; GDB also supports debugging realtime processes running under
 VxWorks, using SunRPC Remote Procedure Calls over TCP/IP to talk to a
-debugger stub on the target system.  Internally, GDB now uses a
-function vector to mediate access to different targets; if you need to
-add your own support for a remote protocol, this makes it much easier.
+debugger stub on the target system.  Internally, GDB now uses a function
+vector to mediate access to different targets; if you need to add your
+own support for a remote protocol, this makes it much easier.
 
 @item Watchpoints
 GDB now sports watchpoints as well as breakpoints.  You can use a
@@ -555,7 +361,7 @@ Kernel debugging for BSD and Mach systems; Tahoe and HPPA architecture
 support.
 @end table
 
-@node Sample Session, Invocation, New Features, Top
+@node Sample Session
 @chapter A Sample GDB Session
 
 You can use this manual at your leisure to read all about GDB.
@@ -611,7 +417,7 @@ GDB is free software and you are welcome to distribute copies
  the conditions.
 There is absolutely no warranty for GDB; type "show warranty" 
 for details.
-GDB 4.6, Copyright 1992 Free Software Foundation, Inc...
+GDB 4.7, Copyright 1992 Free Software Foundation, Inc...
 (gdb)
 @end smallexample
 
@@ -824,7 +630,7 @@ session with the GDB @code{quit} command.
 (gdb) @b{quit}
 @end smallexample
 
-@node Invocation, Commands, Sample Session, Top
+@node Invocation
 @chapter Getting In and Out of GDB
 
 This chapter discusses how to start GDB, and how to get out of it.
@@ -837,10 +643,14 @@ or @kbd{C-d} to exit.)
 * Shell Commands::              Shell Commands
 @end menu
 
-@node Invoking GDB, Leaving GDB, Invocation, Invocation
+@node Invoking GDB
 @section Starting GDB
 
-Start GDB with the shell command @code{gdb}.  Once it's running,
+For details on starting up gdb as a
+remote debugger attached to a Hitachi H8/300 board, see @ref{Hitachi
+H8/300 Remote,,GDB and the Hitachi H8/300}.
+
+Start GDB by running the program @code{gdb}.  Once it's running,
 GDB reads commands from the terminal until you tell it to exit.
 
 You can also run @code{gdb} with a variety of arguments and options,
@@ -850,9 +660,8 @@ The command-line options described here are designed
 to cover a variety of situations; in some environments, some of these
 options may effectively be unavailable.  
 
-
-The most usual way to start GDB is with one argument or two,
-specifying an executable program as the argument:
+The most usual way to start GDB is with one argument,
+specifying an executable program:
 
 @example
 gdb @var{program}
@@ -906,7 +715,8 @@ in sequential order.  The order makes a difference when the
 * Mode Options::                Choosing Modes
 @end menu
 
-@node File Options, Mode Options, Invoking GDB, Invoking GDB
+
+@node File Options
 @subsection Choosing Files
 
 When GDB starts, it reads any arguments other than options as
@@ -984,7 +794,7 @@ use is:
 	gdb -batch -nx -mapped -readnow programname
 @end example
 
-@node Mode Options,  , File Options, Invoking GDB
+@node Mode Options
 @subsection Choosing Modes
 
 You can run GDB in various alternative modes---for example, in
@@ -1046,7 +856,7 @@ Run using @var{device} for your program's standard input and output.
 @c FIXME: kingdon thinks there is more to -tty.  Investigate.
 @end table
 
-@node Leaving GDB, Shell Commands, Invoking GDB, Invocation
+@node Leaving GDB
 @section Leaving GDB
 @cindex exiting GDB
 
@@ -1069,7 +879,7 @@ If you have been using GDB to control an attached process or device, you
 can release it with the @code{detach} command; @pxref{Attach,
 ,Debugging an Already-Running Process}..
 
-@node Shell Commands,  , Leaving GDB, Invocation
+@node Shell Commands
 @section Shell Commands
 
 If you need to execute occasional shell commands during your
@@ -1097,7 +907,7 @@ Causes GDB to execute an inferior @code{make} program with the specified
 arguments.  This is equivalent to @samp{shell make @var{make-args}}.
 @end table
 
-@node Commands, Running, Invocation, Top
+@node Commands
 @chapter GDB Commands
 
 You can abbreviate a GDB command to the first few letters of the command
@@ -1112,7 +922,7 @@ show you the alternatives available, if there's more than one possibility).
 * Help::                        Getting Help
 @end menu
 
-@node Command Syntax, Completion, Commands, Commands
+@node Command Syntax
 @section Command Syntax
 
 A GDB command is a single line of input.  There is no limit on how long
@@ -1154,7 +964,7 @@ that generates this sort of display.
 A line of input starting with @kbd{#} is a comment; it does nothing.
 This is useful mainly in command files (@pxref{Command Files}).
 
-@node Completion, Help, Command Syntax, Commands
+@node Completion
 @section Command Completion
 
 @cindex completion
@@ -1221,9 +1031,11 @@ command.
 
 If you just want to see the list of alternatives in the first place, you
 can press @kbd{M-?} rather than pressing @key{TAB} twice. @kbd{M-?}
-means @kbd{@key{META} ?}.  You can type this either by holding down a
+means @kbd{@key{META} ?}.  You can type this
+either by holding down a
 key designated as the @key{META} shift on your keyboard (if there is
-one) while typing @kbd{?}, or by typing @key{ESC} followed by @kbd{?}.
+one) while typing @kbd{?}, or
+as @key{ESC} followed by @kbd{?}.
 
 @cindex quotes in commands
 @cindex completion of quoted strings
@@ -1267,7 +1079,7 @@ you have not yet started typing the argument list when you ask for
 completion on an overloaded symbol.
 
 
-@node Help,  , Completion, Commands
+@node Help
 @section Getting Help
 @cindex online documentation
 @kindex help
@@ -1390,7 +1202,7 @@ Display information about permission for copying GDB.
 Display the GNU ``NO WARRANTY'' statement.
 @end table
 
-@node Running, Stopping, Commands, Top
+@node Running
 @chapter Running Programs Under GDB
 
 To debug a program, you must run it under GDB.
@@ -1407,7 +1219,7 @@ To debug a program, you must run it under GDB.
 * Process Information::         Additional Process Information
 @end menu
 
-@node Compilation, Starting, Running, Running
+@node Compilation
 @section Compiling for Debugging
 
 In order to debug a program effectively, you need to generate
@@ -1463,7 +1275,7 @@ option or use shorter file names.  Alternatively, use a version of GNU
 @code{ar} dated more recently than August 1989.
 @end ignore
 
-@node Starting, Arguments, Compilation, Running
+@node Starting
 @section Starting your Program
 @cindex starting
 @cindex running
@@ -1529,21 +1341,18 @@ program; if you attempt this, GDB is likely to wind up debugging the
 wrong program.
 @end table
 
-@c FIXME: Rewrite following paragraph, especially its third sentence.
 When you issue the @code{run} command, your program begins to execute
-immediately.  @xref{Stopping, ,Stopping and Continuing}, for
-discussion of how to arrange for your program to stop.  Once your
-program has been started by the @code{run} command (and then stopped),
-you may evaluate expressions that involve calls to functions in your 
-program, using the @code{print} or @code{call} commands.  @xref{Data,
-,Examining Data}.
+immediately.  @xref{Stopping, ,Stopping and Continuing}, for discussion
+of how to arrange for your program to stop.  Once your program has
+stopped, you may calls functions in your program, using the @code{print}
+or @code{call} commands.  @xref{Data, ,Examining Data}.
 
 If the modification time of your symbol file has changed since the
 last time GDB read its symbols, GDB will discard its symbol table and
 re-read it.  When it does this, GDB tries to retain your current
 breakpoints.
 
-@node Arguments, Environment, Starting, Running
+@node Arguments
 @section Your Program's Arguments
 
 @cindex arguments (to your program)
@@ -1570,7 +1379,7 @@ it again without arguments.
 Show the arguments to give your program when it is started.
 @end table
 
-@node Environment, Working Directory, Arguments, Running
+@node Environment
 @section Your Program's Environment
 
 @cindex environment (of your program)
@@ -1641,7 +1450,7 @@ program.  This is different from @samp{set env @var{varname} =};
 rather than assigning it an empty value.
 @end table
 
-@node Working Directory, Input/Output, Environment, Running
+@node Working Directory
 @section Your Program's Working Directory
 
 @cindex working directory (of your program)
@@ -1665,7 +1474,7 @@ Set GDB's working directory to @var{directory}.
 Print GDB's working directory.
 @end table
 
-@node Input/Output, Attach, Working Directory, Running
+@node Input/Output
 @section Your Program's Input and Output
 
 @cindex redirection
@@ -1719,7 +1528,7 @@ When you use the @code{tty} command or redirect input in the @code{run}
 command, only the input @emph{for your program} is affected.  The input
 for GDB still comes from your terminal.
 
-@node Attach, Kill Process, Input/Output, Running
+@node Attach
 @section Debugging an Already-Running Process
 @kindex attach
 @cindex attach
@@ -1772,7 +1581,7 @@ confirmation if you try to do either of these things; you can control
 whether or not you need to confirm by using the @code{set confirm} command
 (@pxref{Messages/Warnings, ,Optional Warnings and Messages}).
 
-@node Kill Process, Process Information, Attach, Running
+@node Kill Process
 @c @group
 @section Killing the Child Process
 
@@ -1799,7 +1608,7 @@ next type @code{run}, GDB will notice that the file has changed, and
 will re-read the symbol table (while trying to preserve your current
 breakpoint settings).
 
-@node Process Information, , Kill Process, Running
+@node Process Information
 @section Additional Process Information
 
 @kindex /proc
@@ -1840,7 +1649,7 @@ received.
 Show all the above information about the process.
 @end table
 
-@node Stopping, Stack, Running, Top
+@node Stopping
 @chapter Stopping and Continuing
 
 The principal purpose of using a debugger is so that you can stop your
@@ -1868,7 +1677,7 @@ running or not, what process it is, and why it stopped.
 * Signals::                     Signals
 @end menu
 
-@node Breakpoints, Continuing and Stepping, Stopping, Stopping
+@node Breakpoints
 @section Breakpoints, Watchpoints, and Exceptions
 
 @cindex breakpoints
@@ -1878,9 +1687,10 @@ conditions to control in finer detail whether your program will stop.
 You can set breakpoints with the @code{break} command and its variants
 (@pxref{Set Breaks, ,Setting Breakpoints}), to specify the place where
 your program should stop by line number, function name or exact address
-in the program.  In languages with exception handling (such as GNU
-C++), you can also set breakpoints where an exception is raised
-(@pxref{Exception Handling, ,Breakpoints and Exceptions}).
+in the program.  
+In languages with exception handling (such as GNU C++), you can also set
+breakpoints where an exception is raised (@pxref{Exception Handling,
+,Breakpoints and Exceptions}).
 
 @cindex watchpoints
 @cindex memory tracing
@@ -1914,7 +1724,7 @@ no effect on your program until you enable it again.
 * Error in Breakpoints::
 @end menu
 
-@node Set Breaks, Set Watchpoints, Breakpoints, Breakpoints
+@node Set Breaks
 @subsection Setting Breakpoints
 
 @c FIXME LMB what does GDB do if no code on line of breakpt?  
@@ -1936,9 +1746,9 @@ You have several ways to say where the breakpoint should go.
 
 @table @code
 @item break @var{function}
-Set a breakpoint at entry to function @var{function}.  When using source
-languages that permit overloading of symbols, such as C++,
-@var{function} may refer to more than one possible place to break.
+Set a breakpoint at entry to function @var{function}.  
+When using source languages that permit overloading of symbols, such as
+C++, @var{function} may refer to more than one possible place to break.
 @xref{Breakpoint Menus}, for a discussion of that situation.
 
 @item break +@var{offset}
@@ -2098,7 +1908,7 @@ Temporary internal breakpoint used by the GDB @code{finish} command.
 @end table
 
 
-@node Set Watchpoints, Exception Handling, Set Breaks, Breakpoints
+@node Set Watchpoints
 @subsection Setting Watchpoints
 @cindex setting watchpoints
 
@@ -2123,7 +1933,7 @@ This command prints a list of watchpoints and breakpoints; it is the
 same as @code{info break}.
 @end table
 
-@node Exception Handling, Delete Breaks, Set Watchpoints, Breakpoints
+@node Exception Handling
 @subsection Breakpoints and Exceptions
 @cindex exception handlers
 
@@ -2190,7 +2000,7 @@ a specific exception is raised.  You can use multiple conditional
 breakpoints to stop your program when any of a number of exceptions are
 raised.
 
-@node Delete Breaks, Disabling, Exception Handling, Breakpoints
+@node Delete Breaks
 @subsection Deleting Breakpoints
 
 @cindex clearing breakpoints, watchpoints
@@ -2235,7 +2045,7 @@ asks confirmation, unless you have @code{set confirm off}).  You
 can abbreviate this command as @code{d}.
 @end table
 
-@node Disabling, Conditions, Delete Breaks, Breakpoints
+@node Disabling
 @subsection Disabling Breakpoints
 
 @cindex disabled breakpoints
@@ -2305,7 +2115,7 @@ use one of the commands above.  (The command @code{until} can set and
 delete a breakpoint of its own, but it will not change the state of
 your other breakpoints; see @ref{Continuing and Stepping, ,Continuing and Stepping}.)
 
-@node Conditions, Break Commands, Disabling, Breakpoints
+@node Conditions
 @subsection Break Conditions
 @cindex conditional breakpoints
 @cindex breakpoint conditions
@@ -2418,7 +2228,7 @@ as @w{@samp{$foo-- <= 0}} using a debugger convenience variable that
 is decremented each time.  @xref{Convenience Vars, ,Convenience
 Variables}.
 
-@node Break Commands, Breakpoint Menus, Conditions, Breakpoints
+@node Break Commands
 @subsection Breakpoint Command Lists
 
 @cindex breakpoint commands
@@ -2521,7 +2331,7 @@ break conditions without changing the terminal modes.  When you want
 to have nontrivial conditions for performing the side effects, the
 operators @samp{&&}, @samp{||} and @samp{?@dots{}:} may be useful.
 
-@node Breakpoint Menus, Error in Breakpoints, Break Commands, Breakpoints
+@node Breakpoint Menus
 @subsection Breakpoint Menus
 @cindex overloading
 @cindex symbol overloading
@@ -2564,7 +2374,7 @@ Use the "delete" command to delete unwanted breakpoints.
 (gdb)
 @end example
 
-@node Error in Breakpoints,  , Breakpoint Menus, Breakpoints
+@node Error in Breakpoints
 @subsection ``Cannot Insert Breakpoints''
 
 @c FIXME: "cannot insert breakpoints" error, v unclear.
@@ -2597,7 +2407,7 @@ linker option @samp{-N}.  The operating system limitation may not apply
 to nonsharable executables.
 @end enumerate
 
-@node Continuing and Stepping, Signals, Breakpoints, Stopping
+@node Continuing and Stepping
 @section Continuing and Stepping
 
 @cindex stepping
@@ -2608,9 +2418,10 @@ completes normally.  In contrast, @dfn{stepping} means executing just
 one more ``step'' of your program, where ``step'' may mean either one
 line of source code, or one machine instruction (depending on what
 particular command you use).  Either when continuing
-or when stepping, your program may stop even sooner, due to a breakpoint
-or to a signal.  (If due to a signal, you may want to use @code{handle},
-or use @samp{signal 0} to resume execution.  @xref{Signals, ,Signals}.)
+or when stepping, your program may stop even sooner, due to 
+a breakpoint or to a signal.  (If due to a signal, you may want to use
+@code{handle}, or use @samp{signal 0} to resume execution.
+@xref{Signals, ,Signals}.)
 
 @table @code
 @item continue @r{[}@var{ignore-count}@r{]}
@@ -2754,7 +2565,7 @@ proceed until the function returns.
 An argument is a repeat count, as in @code{next}.
 @end table
 
-@node Signals,  , Continuing and Stepping, Stopping
+@node Signals
 @section Signals
 @cindex signals
 
@@ -2846,7 +2657,7 @@ a result of the fatal signal once it saw the signal.  To prevent this,
 you can continue with @samp{signal 0}.  @xref{Signaling, ,Giving your
 Program a Signal}. 
 
-@node Stack, Source, Stopping, Top
+@node Stack
 @chapter Examining the Stack
 
 When your program has stopped, the first thing you need to know is where it
@@ -2881,7 +2692,7 @@ frame and describes it briefly as the @code{frame} command does
 * Frame Info::                  Information on a Frame
 @end menu
 
-@node Frames, Backtrace, Stack, Stack
+@node Frames
 @section Stack Frames
 
 @cindex frame
@@ -2931,7 +2742,7 @@ separate frame, which is numbered zero as usual, allowing correct
 tracing of the function call chain.  However, GDB has no provision
 for frameless functions elsewhere in the stack.
 
-@node Backtrace, Selection, Frames, Stack
+@node Backtrace
 @section Backtraces
 
 A backtrace is a summary of how your program got where it is.  It shows one
@@ -2991,7 +2802,7 @@ The display for frame zero does not begin with a program counter
 value, indicating that your program has stopped at the beginning of the
 code for line @code{993} of @code{builtin.c}.
 
-@node Selection, Frame Info, Backtrace, Stack
+@node Selection
 @section Selecting a Frame
 
 Most commands for examining the stack and other data in your program work on
@@ -3070,7 +2881,7 @@ in GDB command scripts, where the output might be unnecessary and
 distracting.
 @end table
 
-@node Frame Info,  , Selection, Stack
+@node Frame Info
 @section Information About a Frame
 
 There are several other commands to print information about the selected
@@ -3126,7 +2937,7 @@ exception handlers, visit the associated frame (using the @code{up},
 @xref{Exception Handling, ,Breakpoints and Exceptions}.
 @end table
 
-@node Source, Data, Stack, Top
+@node Source
 @chapter Examining Source Files
 
 GDB can print parts of your program's source, since the debugging
@@ -3148,7 +2959,7 @@ Emacs}.
 * Machine Code::                Source and Machine Code
 @end menu
 
-@node List, Search, Source, Source
+@node List
 @section Printing Source Lines
 
 @kindex list
@@ -3267,7 +3078,7 @@ Specifies the line containing the program address @var{address}.
 @var{address} may be any expression.
 @end table
 
-@node Search, Source Path, List, Source
+@node Search
 @section Searching Source Files
 @cindex searching
 @kindex reverse-search
@@ -3293,7 +3104,7 @@ for @var{regexp}.  It lists the line that is found.  You can abbreviate
 this command as @code{rev}.
 @end table
 
-@node Source Path, Machine Code, Search, Source
+@node Source Path
 @section Specifying Source Directories
 
 @cindex source path
@@ -3362,7 +3173,7 @@ directories you want in the source path.  You can add all the
 directories in one command.
 @end enumerate
 
-@node Machine Code,  , Source Path, Source
+@node Machine Code
 @section Source and Machine Code
 
 You can use the command @code{info line} to map source lines to program
@@ -3415,23 +3226,47 @@ inclusive, second exclusive) to dump.
 @end table
 
 We can use @code{disassemble} to inspect the object code
-range shown in the last @code{info line} example:
+range shown in the last @code{info line} example (the example
+shows SPARC machine instructions):
+
 
 @smallexample
 (gdb) disas 0x63e4 0x6404
 Dump of assembler code from 0x63e4 to 0x6404:
-0x63e4 builtin_init+5340:     ble 0x63f8 builtin_init+5360
-0x63e8 builtin_init+5344:     sethi %hi(0x4c00), %o0
-0x63ec builtin_init+5348:     ld [%i1+4], %o0
-0x63f0 builtin_init+5352:     b 0x63fc builtin_init+5364
-0x63f4 builtin_init+5356:     ld [%o0+4], %o0
-0x63f8 builtin_init+5360:     or %o0, 0x1a4, %o0
-0x63fc builtin_init+5364:     call 0x9288 path_search
-0x6400 builtin_init+5368:     nop
+0x63e4 <builtin_init+5340>:     ble 0x63f8 <builtin_init+5360>
+0x63e8 <builtin_init+5344>:     sethi %hi(0x4c00), %o0
+0x63ec <builtin_init+5348>:     ld [%i1+4], %o0
+0x63f0 <builtin_init+5352>:     b 0x63fc <builtin_init+5364>
+0x63f4 <builtin_init+5356>:     ld [%o0+4], %o0
+0x63f8 <builtin_init+5360>:     or %o0, 0x1a4, %o0
+0x63fc <builtin_init+5364>:     call 0x9288 <path_search>
+0x6400 <builtin_init+5368>:     nop
 End of assembler dump.
 @end smallexample
 
-@node Data, Languages, Source, Top
+
+For example, here is the beginning of the output for the
+disassembly of a function @code{fact}:
+
+
+@smallexample
+(gdb) disas fact
+Dump of assembler code for function fact:
+to 0x808c:
+0x802c <fact>: 6d f2		mov.w r2,@@-r7
+0x802e <fact+2>:  6d f3		mov.w r3,@@-r7
+0x8030 <fact+4>:  6d f6		mov.w r6,@@-r7
+0x8032 <fact+6>:  0d 76		mov.w r7,r6
+0x8034 <fact+8>:  6f 70 00 08	mov.w @@(0x8,r7),r0
+0x8038 <fact+12>  19 11		sub.w	r1,r1
+ .
+ .
+ . 
+@end smallexample
+
+
+
+@node Data
 @chapter Examining Data
 
 @cindex printing data
@@ -3442,10 +3277,10 @@ End of assembler dump.
 @c document because it is nonstandard...  Under Epoch it displays in a
 @c different window or something like that.
 The usual way to examine data in your program is with the @code{print}
-command (abbreviated @code{p}), or its synonym @code{inspect}.  It
-evaluates and prints the value of an expression of the language your
+command (abbreviated @code{p}), or its synonym @code{inspect}.  
+It evaluates and prints the value of an expression of the language your
 program is written in (@pxref{Languages, ,Using GDB with Different
-Languages}).  
+Languages}).
 
 @table @code
 @item print @var{exp}
@@ -3484,7 +3319,7 @@ command rather than @code{print}. @xref{Symbols, ,Examining the Symbol Table}.
 * Floating Point Hardware::     Floating Point Hardware
 @end menu
 
-@node Expressions, Variables, Data, Data
+@node Expressions
 @section Expressions
 
 @cindex expressions
@@ -3528,7 +3363,7 @@ a cast).  This construct is allowed regardless of what kind of data is
 normally supposed to reside at @var{addr}.
 @end table
 
-@node Variables, Arrays, Expressions, Data
+@node Variables
 @section Program Variables
 
 The most common kind of expression to use is the name of a variable
@@ -3608,7 +3443,7 @@ through that group of instructions, local variable definitions may be
 gone.
 @end quotation
 
-@node Arrays, Output formats, Variables, Data
+@node Arrays
 @section Artificial Arrays
 
 @cindex artificial array
@@ -3663,7 +3498,7 @@ p dtab[$i++]->fv
 @dots{}
 @end example
 
-@node Output formats, Memory, Arrays, Data
+@node Output formats
 @section Output formats
 
 @cindex formatted output
@@ -3728,7 +3563,7 @@ To reprint the last value in the value history with a different format,
 you can use the @code{print} command with just a format and no
 expression.  For example, @samp{p/x} reprints the last value in hex.
 
-@node Memory, Auto Display, Output formats, Data
+@node Memory
 @section Examining Memory
 
 You can use the command @code{x} (for ``examine'') to examine memory in
@@ -3832,7 +3667,7 @@ If the @code{x} command has a repeat count, the address and contents saved
 are from the last memory unit printed; this is not the same as the last
 address printed if several units were printed on the last line of output.
 
-@node Auto Display, Print Settings, Memory, Data
+@node Auto Display
 @section Automatic Display
 @cindex automatic display
 @cindex display of expressions
@@ -3928,7 +3763,7 @@ there is no variable @code{last_char}---display is disabled.  The next time
 your program stops where @code{last_char} is meaningful, you can enable the
 display expression once again.
 
-@node Print Settings, Value History, Auto Display, Data
+@node Print Settings
 @section Print Settings
 
 @cindex format options
@@ -4152,7 +3987,7 @@ Do not pretty print C++ virtual function tables.
 Show whether C++ virtual function tables are pretty printed, or not.
 @end table
 
-@node Value History, Convenience Vars, Print Settings, Data
+@node Value History
 @section Value History
 
 @cindex value history
@@ -4227,7 +4062,7 @@ values are available, produces no display.
 Pressing @key{RET} to repeat @code{show values @var{n}} has exactly the
 same effect as @samp{show values +}.
 
-@node Convenience Vars, Registers, Value History, Data
+@node Convenience Vars
 @section Convenience Variables
 
 @cindex convenience variables
@@ -4301,7 +4136,7 @@ to the value found in the last address examined.  Its type is chosen
 to match the format in which the data was printed.
 @end table
 
-@node Registers, Floating Point Hardware, Convenience Vars, Data
+@node Registers
 @section Registers
 
 @cindex registers
@@ -4322,9 +4157,9 @@ registers (in the selected stack frame).
 Print the names and values of all registers, including floating-point
 registers.
 
-@item info registers @var{regname}
-Print the relativized value of register @var{regname}.  @var{regname}
-may be any register name valid on the machine you are using, with
+@item info registers @var{regname} @dots{}
+Print the relativized value of each specified register @var{regname}.  
+@var{regname} may be any register name valid on the machine you are using, with
 or without the initial @samp{$}.
 @end table
 
@@ -4419,7 +4254,7 @@ Display the current limit of the register stack, on AMD 29000 family
 processors.
 @end table
 
-@node Floating Point Hardware,  , Registers, Data
+@node Floating Point Hardware
 @section Floating Point Hardware
 @cindex floating point
 
@@ -4438,7 +4273,7 @@ floating point chip.
 @c FIXME... m4 macros to isolate general statements from hardware-dep,
 @c FIXME... at that point.
 
-@node Languages, Symbols, Data, Top
+@node Languages
 @chapter Using GDB with Different Languages
 @cindex languages
 
@@ -4465,7 +4300,7 @@ automatically.
 * Support::                     Supported languages
 @end menu
 
-@node Setting, Show, Languages, Languages
+@node Setting
 @section Switching between source languages
 
 There are two ways to control the working language---either have GDB
@@ -4478,7 +4313,7 @@ defaults to setting the language automatically.
 * Automatically::               Having GDB infer the source language
 @end menu
 
-@node Manually, Automatically, Setting, Setting
+@node Manually
 @subsection Setting the working language
 
 @kindex set language
@@ -4508,7 +4343,7 @@ If you allow GDB to set the language automatically, then
 you can count on expressions evaluating the same way in your debugging
 session and in your program.
 
-@node Automatically,  , Manually, Setting
+@node Automatically
 @subsection Having GDB infer the source language
 
 To have GDB set the working language automatically, use @samp{set
@@ -4542,7 +4377,7 @@ written in one source language can be used by a main program written in
 a different source language.  Using @samp{set language auto} in this
 case frees you from having to set the working language manually.
 
-@node Show, Checks, Setting, Languages
+@node Show
 @section Displaying the language
 
 The following commands will help you find out which language is the
@@ -4568,7 +4403,7 @@ Among the other information listed here (@pxref{Symbols, ,Examining the
 Symbol Table}) is the source language of this source file.
 @end table
 
-@node Checks, Support, Show, Languages
+@node Checks
 @section Type and range Checking
 
 @quotation
@@ -4601,7 +4436,7 @@ for the default settings of supported languages.
 
 @cindex type checking
 @cindex checks, type
-@node Type Checking, Range Checking, Checks, Checks
+@node Type Checking
 @subsection An overview of type checking
 
 Some languages, such as Modula-2, are strongly typed, meaning that the
@@ -4671,7 +4506,7 @@ setting it automatically.
 
 @cindex range checking
 @cindex checks, range
-@node Range Checking,  , Type Checking, Checks
+@node Range Checking
 @subsection An overview of Range Checking
 
 In some languages (such as Modula-2), it is an error to exceed the
@@ -4730,7 +4565,7 @@ Show the current setting of the range checker, and whether or not it is
 being set automatically by GDB.
 @end table
 
-@node Support,  , Checks, Languages
+@node Support
 @section Supported Languages
 
 GDB 4 supports C, C++, and Modula-2.  Some GDB
@@ -4752,11 +4587,11 @@ look to these for a language reference or tutorial.
 * Modula-2::                    Modula-2
 @end menu
 
-@node C, Modula-2, Support, Support
+@node C
 @subsection C and C++
 @cindex C and C++
-
 @cindex expressions in C or C++
+
 Since C and C++ are so closely related, many features of GDB apply
 to both languages.  Whenever this is the case, we discuss both languages
 together.
@@ -4768,7 +4603,6 @@ The C++ debugging facilities are jointly implemented by the GNU C++
 compiler and GDB.  Therefore, to debug your C++ code effectively,
 you must compile your C++ programs with the GNU C++ compiler,
 @code{g++}.
-
 @menu
 * C Operators::                 C and C++ Operators
 * C Constants::                 C and C++ Constants
@@ -4780,13 +4614,14 @@ you must compile your C++ programs with the GNU C++ compiler,
 @end menu
 
 @cindex C and C++ operators
-@node C Operators, C Constants, C, C
+@node C Operators
 @subsubsection C and C++ Operators
 
 Operators must be defined on values of specific types.  For instance,
 @code{+} is defined on numbers, but not on structures.  Operators are
-often defined on groups of types.  For the purposes of C and C++, the
-following definitions hold:
+often defined on groups of types.  
+
+For the purposes of C and C++, the following definitions hold:
 
 @itemize @bullet
 @item
@@ -4900,6 +4735,7 @@ Logical negation.  Defined on integral types.  Same precedence as
 Bitwise complement operator.  Defined on integral types.  Same precedence as
 @code{++}.
 
+
 @item .@r{, }->
 Structure member, and pointer-to-structure member.  For convenience,
 GDB regards the two as equivalent, choosing whether to dereference a
@@ -4918,12 +4754,12 @@ C++ scope resolution operator.  Defined on
 @code{struct}, @code{union}, and @code{class} types.
 
 @item ::
-The GDB scope operator (@pxref{Expressions, ,Expressions}).  Same precedence as
-@code{::}, above.
+The GDB scope operator (@pxref{Expressions, ,Expressions}).  
+Same precedence as @code{::}, above.
 @end table
 
 @cindex C and C++ constants
-@node C Constants, Cplusplus expressions, C Operators, C
+@node C Constants
 @subsubsection C and C++ Constants
 
 GDB allows you to express the constants of C and C++ in the
@@ -4966,7 +4802,7 @@ by double quotes (@code{"}).
 Pointer constants are an integral value.
 @end itemize
 
-@node Cplusplus expressions, C Defaults, C Constants, C
+@node Cplusplus expressions
 @subsubsection C++ Expressions
 
 @cindex expressions in C++
@@ -5045,7 +4881,7 @@ resolving name scope by reference to source files, in both C and C++
 debugging (@pxref{Variables, ,Program Variables}).
 @end enumerate
 
-@node C Defaults, C Checks, Cplusplus expressions, C
+@node C Defaults
 @subsubsection C and C++ Defaults
 @cindex C and C++ defaults
 
@@ -5060,7 +4896,7 @@ whose name ends with @file{.c}, @file{.C}, or @file{.cc}.
 @xref{Automatically, ,Having GDB infer the source language}, for
 further details.
 
-@node C Checks, Debugging C, C Defaults, C
+@node C Checks
 @subsubsection C and C++ Type and Range Checks
 @cindex C and C++ checks
 
@@ -5097,7 +4933,7 @@ Range checking, if turned on, is done on mathematical operations.  Array
 indices are not checked, since they are often used to index a pointer
 that is not itself an array.
 
-@node Debugging C, Debugging C plus plus, C Checks, C
+@node Debugging C
 @subsubsection GDB and C
 
 The @code{set print union} and @code{show print union} commands apply to
@@ -5108,7 +4944,7 @@ Otherwise, it will appear as @samp{@{...@}}.
 The @code{@@} operator aids in the debugging of dynamic arrays, formed
 with pointers and a memory allocation function.  (@pxref{Expressions, ,Expressions})
 
-@node Debugging C plus plus,  , Debugging C, C
+@node Debugging C plus plus
 @subsubsection GDB Features for C++
 
 @cindex commands for C++
@@ -5169,7 +5005,7 @@ available choices, or to finish the type list for you.
 @xref{Completion,, Command Completion}, for details on how to do this.
 @end table
 
-@node Modula-2,  , C, Support
+@node Modula-2
 @subsection Modula-2
 @cindex Modula-2
 
@@ -5191,7 +5027,7 @@ as GDB reads in the executable's symbol table.
 * GDB/M2::                      GDB and Modula-2
 @end menu
 
-@node M2 Operators, Built-In Func/Proc, Modula-2, Modula-2
+@node M2 Operators
 @subsubsection Operators
 @cindex Modula-2 operators
 
@@ -5315,7 +5151,7 @@ will treat the use of the operator @code{IN}, or the use of operators
 @end quotation
 
 @cindex Modula-2 built-ins
-@node Built-In Func/Proc, M2 Constants, M2 Operators, Modula-2
+@node Built-In Func/Proc
 @subsubsection Built-in Functions and Procedures
 
 Modula-2 also makes available several built-in procedures and functions.
@@ -5427,7 +5263,7 @@ an error.
 @end quotation
 
 @cindex Modula-2 constants
-@node M2 Constants, M2 Defaults, Built-In Func/Proc, Modula-2
+@node M2 Constants
 @subsubsection Constants
 
 GDB allows you to express the constants of Modula-2 in the following
@@ -5476,7 +5312,7 @@ Pointer constants consist of integral values only.
 Set constants are not yet supported.
 @end itemize
 
-@node M2 Defaults, Deviations, M2 Constants, Modula-2
+@node M2 Defaults
 @subsubsection Modula-2 Defaults
 @cindex Modula-2 defaults
 
@@ -5490,7 +5326,7 @@ code compiled from a file whose name ends with @file{.mod} will set the
 working language to Modula-2. @xref{Automatically, ,Having GDB set
 the language automatically}, for further details.
 
-@node Deviations, M2 Checks, M2 Defaults, Modula-2
+@node Deviations
 @subsubsection Deviations from Standard Modula-2
 @cindex Modula-2, deviations from
 
@@ -5520,7 +5356,7 @@ argument.
 All built-in procedures both modify @emph{and} return their argument.
 @end itemize
 
-@node M2 Checks, M2 Scope, Deviations, Modula-2
+@node M2 Checks
 @subsubsection Modula-2 Type and Range Checks
 @cindex Modula-2 checks
 
@@ -5548,7 +5384,7 @@ whose types are not equivalent is an error.
 Range checking is done on all mathematical operations, assignment, array
 index bounds, and all built-in functions and procedures.
 
-@node M2 Scope, GDB/M2, M2 Checks, Modula-2
+@node M2 Scope
 @subsubsection The scope operators @code{::} and @code{.}
 @cindex scope
 @kindex .
@@ -5588,7 +5424,7 @@ an error if the identifier @var{id} was not imported from definition
 module @var{module}, or if @var{id} is not an identifier in
 @var{module}.
 
-@node GDB/M2,  , M2 Scope, Modula-2
+@node GDB/M2
 @subsubsection GDB and Modula-2
 
 Some GDB commands have little use when debugging Modula-2 programs.
@@ -5609,7 +5445,8 @@ address can be specified by an integral constant, the construct
 In GDB scripts, the Modula-2 inequality operator @code{#} is
 interpreted as the beginning of a comment.  Use @code{<>} instead.
 
-@node Symbols, Altering, Languages, Top
+
+@node Symbols
 @chapter Examining the Symbol Table
 
 The commands described in this section allow you to inquire about the
@@ -5785,7 +5622,7 @@ symbols; both @code{info source} and @code{symbol-file} are described in
 @ref{Files, ,Commands to Specify Files}.
 @end table
 
-@node Altering, GDB Files, Symbols, Top
+@node Altering
 @chapter Altering Execution
 
 Once you think you have found an error in your program, you might want to
@@ -5807,7 +5644,7 @@ or even return prematurely from a function to its caller.
 * Patching::                    Patching your Program
 @end menu
 
-@node Assignment, Jumping, Altering, Altering
+@node Assignment
 @section Assignment to Variables
 
 @cindex assignment
@@ -5821,9 +5658,9 @@ print x=4
 
 @noindent
 stores the value 4 into the variable @code{x}, and then prints the
-value of the assignment expression (which is 4).  @xref{Languages,
-,Using GDB with Different Languages}, for more information on
-operators in supported languages.
+value of the assignment expression (which is 4).  
+@xref{Languages, ,Using GDB with Different Languages}, for more
+information on operators in supported languages.
 
 @kindex set variable
 @cindex variables, setting
@@ -5878,7 +5715,7 @@ set @{int@}0x83040 = 4
 @noindent
 stores the value 4 into that memory location.
 
-@node Jumping, Signaling, Assignment, Altering
+@node Jumping
 @section Continuing at a Different Address
 
 Ordinarily, when you continue your program, you do so at the place where
@@ -5925,7 +5762,7 @@ The most common occasion to use the @code{jump} command is to back up,
 perhaps with more breakpoints set, over a portion of a program that has
 already executed, in order to examine its execution in more detail.
 
-@node Signaling, Returning, Jumping, Altering
+@node Signaling
 @c @group
 @section Giving your program a Signal
 
@@ -5946,7 +5783,7 @@ after executing the command.
 @end table
 @c @end group
 
-@node Returning, Calling, Signaling, Altering
+@node Returning
 @section Returning from a Function
 
 @table @code
@@ -5977,7 +5814,7 @@ returned.  In contrast, the @code{finish} command (@pxref{Continuing
 and Stepping, ,Continuing and Stepping}) resumes execution until the
 selected stack frame returns naturally.
 
-@node     Calling, Patching, Returning, Altering
+@node Calling
 @section Calling your Program's Functions
 
 @cindex calling functions
@@ -5993,7 +5830,7 @@ execute a function from your program, but without cluttering the output
 with @code{void} returned values.  The result is printed and saved in
 the value history, if it is not void.
 
-@node Patching,  , Calling, Altering
+@node Patching
 @section Patching your Program
 @cindex patching binaries
 @cindex writing into executables
@@ -6013,8 +5850,9 @@ repairs.
 @item set write on
 @itemx set write off
 @kindex set write
-If you specify @samp{set write on}, GDB will open executable and
-core files for both reading and writing; if you specify @samp{set write
+If you specify @samp{set write on}, GDB will open executable 
+and core
+files for both reading and writing; if you specify @samp{set write
 off} (the default), GDB will open them read-only.
 
 If you have already loaded a file, you must load it
@@ -6023,34 +5861,35 @@ changing @code{set write}, for your new setting to take effect.
 
 @item show write
 @kindex show write
-Display whether executable files and core files will be opened for
-writing as well as reading.
+Display whether executable files 
+and core files 
+will be opened for writing as well as reading.
 @end table
 
-@node GDB Files, Targets, Altering, Top
+@node GDB Files
 @chapter GDB's Files
 
 GDB needs to know the file name of the program to be debugged, both in
-order to read its symbol table and in order to start your program.  To
-debug a core dump of a previous run, GDB must be told the file name of
-the core dump.
+order to read its symbol table and in order to start your program.  
+To debug a core dump of a previous run, GDB must be told the file
+name of the core dump.
 
 @menu
 * Files::                       Commands to Specify Files
 * Symbol Errors::               Errors Reading Symbol Files
 @end menu
 
-@node Files, Symbol Errors, GDB Files, GDB Files
+@node Files
 @section Commands to Specify Files
-@cindex core dump file
 @cindex symbol table
 
+@cindex core dump file
 The usual way to specify executable and core dump file names is with
 the command arguments given when you start GDB, (@pxref{Invocation,
 ,Getting In and Out of GDB}.
 
 Occasionally it is necessary to change to a different file during a
-GDB session.  Or you may run GDB and forget to specify the files you
+GDB session.  Or you may run GDB and forget to specify a file you
 want to use.  In these situations the GDB commands to specify new files
 are useful.
 
@@ -6208,6 +6047,13 @@ With the Nindy interface to an Intel 960 board, @code{load} will
 download @var{filename} to the 960 as well as adding its symbols in
 GDB.
 
+@cindex download to H8/300
+@cindex H8/300 download
+When you select remote debugging to a Hitachi H8/300 board (@pxref{Hitachi
+H8/300 Remote,,GDB and the Hitachi H8/300}), the
+@code{load} command downloads your program to the H8/300 and also opens
+it as the current executable target for GDB on your host (like the
+@code{file} command).  
 
 @code{load} will not repeat if you press @key{RET} again after using it.
 
@@ -6231,7 +6077,7 @@ use the @code{symbol-file} command.
 
 You can use the @samp{-mapped} and @samp{-readnow} options just as with
 the @code{symbol-file} command, to change how GDB manages the symbol
-tabl einformation for @var{filename}.
+table information for @var{filename}.
 
 @item info files
 @itemx info target
@@ -6251,7 +6097,6 @@ as arguments.  GDB always converts the file name to an absolute path
 name and remembers it that way.
 
 @cindex shared libraries
-
 GDB supports SunOS, SVR4, and IBM RS/6000 shared libraries.
 GDB automatically loads symbol definitions from shared libraries
 when you use the @code{run} command, or when you examine a core file.
@@ -6280,7 +6125,7 @@ typing @code{run}.  If @var{regex} is omitted all shared libraries
 required by your program are loaded.
 @end table
 
-@node Symbol Errors,  , Files, GDB Files
+@node Symbol Errors
 @section Errors Reading Symbol Files
 
 While reading a symbol file, GDB will occasionally encounter problems,
@@ -6367,7 +6212,7 @@ for it.
 GDB could not parse a type specification output by the compiler.
 @end table
 
-@node     Targets, Controlling GDB, GDB Files, Top
+@node Targets
 @chapter Specifying a Debugging Target
 @cindex debugging target
 @kindex target
@@ -6378,9 +6223,10 @@ that case, the debugging target is specified as a side effect when you
 use the @code{file} or @code{core} commands.  When you need more
 flexibility---for example, running GDB on a physically separate
 host, or controlling a standalone system over a serial port or a
-realtime system over a TCP/IP connection---you can use the @code{target}
-command to specify one of the target types configured for GDB
-(@pxref{Target Commands, ,Commands for Managing Targets}).
+realtime system over a TCP/IP connection---you 
+can use the @code{target} command to specify one of the target types
+configured for GDB (@pxref{Target Commands, ,Commands for Managing
+Targets}).
 
 @menu
 * Active Targets::              Active Targets
@@ -6388,7 +6234,7 @@ command to specify one of the target types configured for GDB
 * Remote::                      Remote Debugging
 @end menu
 
-@node Active Targets, Target Commands, Targets, Targets
+@node Active Targets
 @section Active Targets
 @cindex stacking targets
 @cindex active targets
@@ -6412,8 +6258,9 @@ executable files contain only the program text and initialized data.)
 
 When you type @code{run}, your executable file becomes an active process
 target as well.  When a process target is active, all GDB commands
-requesting memory addresses refer to that target; addresses in an active
-core file or executable file target are obscured while the process
+requesting memory addresses refer to that target; addresses in an 
+active core file or 
+executable file target are obscured while the process
 target is active.
 
 Use the @code{core-file} and @code{exec-file} commands to select a
@@ -6422,7 +6269,7 @@ Files}).  To specify as a target a process that is already running, use
 the @code{attach} command (@pxref{Attach, ,Debugging an
 Already-Running Process}.).
 
-@node Target Commands, Remote, Active Targets, Targets
+@node Target Commands
 @section Commands for Managing Targets
 
 @table @code
@@ -6479,11 +6326,26 @@ Remote PC-resident AMD EB29K board, attached over serial lines.
 name of the program to be debugged, as it appears to DOS on the PC.
 @xref{EB29K Remote, ,GDB with a Remote EB29K}.
 
+@item target hms
+@kindex target hms
+A Hitachi H8/300 board, attached via serial line to your host.  Use
+special commands @code{device} and @code{speed} to control the serial
+line and the communications speed used. @xref{Hitachi H8/300
+Remote,,GDB and the Hitachi H8/300}.
+
 @item target nindy @var{devicename}
 @kindex target nindy
 An Intel 960 board controlled by a Nindy Monitor.  @var{devicename} is
 the name of the serial device to use for the connection, e.g.
 @file{/dev/ttya}.  @xref{i960-Nindy Remote, ,GDB with a Remote i960 (Nindy)}.
+
+@item target st2000 @var{dev} @var{speed}
+@kindex target st2000
+A Tandem ST2000 phone switch, running Tandem's STDBUG protocol.  @var{dev}
+is the name of the device attached to the ST2000 serial line;
+@var{speed} is the communication line speed.  The arguments are not used
+if GDB is configured to connect to the ST2000 using TCP or Telnet.
+@xref{ST2000 Remote,,GDB with a Tandem ST2000}.
 
 @item target vxworks @var{machinename}
 @kindex target vxworks
@@ -6495,7 +6357,7 @@ is the target system's machine name or IP address.
 Different targets are available on different configurations of GDB; your
 configuration may have more or fewer targets.
 
-@node Remote,  , Target Commands, Targets
+@node Remote
 @section Remote Debugging
 @cindex remote debugging
 
@@ -6512,34 +6374,336 @@ not specific to any particular target system) which you can use if you
 write the remote stubs---the code that will run on the remote system to
 communicate with GDB.
 
-To use the GDB remote serial protocol, the program to be debugged on
-the remote machine needs to contain a debugging stub which talks to
-GDB over the serial line.  Several working remote stubs are
-distributed with GDB; see the @file{README} file in the GDB
-distribution for more information.
+Other remote targets may be available in your
+configuration of GDB; use @code{help targets} to list them.
 
-For details of this communication protocol, see the comments in the
-GDB source file @file{remote.c}.
+@menu
+* Remote Serial::               GDB remote serial protocol
+* i960-Nindy Remote::		GDB with a remote i960 (Nindy)
+* EB29K Remote::		GDB with a remote EB29K
+* VxWorks Remote::		GDB and VxWorks
+* ST2000 Remote::               GDB with a Tandem ST2000
+* Hitachi H8/300 Remote::       GDB and the Hitachi H8/300
+ 
+@end menu
+@node Remote Serial
+@subsection The GDB remote serial protocol
 
-To start remote debugging, first run GDB and specify as an executable file
-the program that is running in the remote machine.  This tells GDB how
-to find your program's symbols and the contents of its pure text.  Then
-establish communication using the @code{target remote} command with a device
-name as an argument.  For example:
+@cindex remote serial debugging, overview
+To debug a program running on another machine (the debugging
+@dfn{target} machine), you must first arrange for all the usual
+prerequisites for the program to run by itself.  For example, for a C
+program, you need
+
+@enumerate
+@item
+A startup routine to set up the C runtime environment; these usually
+have a name like @file{crt0}.  The startup routine may be supplied by
+your hardware supplier, or you may have to write your own.
+
+@item 
+You probably need a C subroutine library to support your program's
+subroutine calls, notably managing input and output.
+
+@item
+A way of getting your program to the other machine---for example, a
+download program.  These are often supplied by the hardware
+manufacturer, but you may have to write your own from hardware
+documentation.
+@end enumerate
+
+The next step is to arrange for your program to use a serial port to
+communicate with the machine where GDB is running (the @dfn{host}
+machine).  In general terms, the scheme looks like this:
+
+@table @emph
+@item On the host,
+GDB already understands how to use this protocol; when everything
+else is set up, you can simply use the @samp{target remote} command
+(@pxref{Targets,,Specifying a Debugging Target}).
+
+@item On the target,
+you must link with your program a few special-purpose subroutines that
+implement the GDB remote serial protocol.  The file containing these
+subroutines is called  a @dfn{debugging stub}.
+@end table
+
+The debugging stub is specific to the architecture of the remote
+machine; for example, use @file{sparc-stub.c} to debug programs on
+@sc{sparc} boards.
+
+@cindex remote serial stub list
+These working remote stubs are distributed with GDB:
+
+@c FIXME! verify these...
+@table @code
+@item sparc-stub.c
+@kindex sparc-stub.c
+For @sc{sparc} architectures.
+
+@item m68k-stub.c
+@kindex m68-stub.c
+For Motorola 680x0 architectures.
+
+@item i386-stub.c
+@kindex i36-stub.c
+For Intel 386 and compatible architectures.
+@end table
+
+The @file{README} file in the GDB distribution may list other
+recently added stubs.
+
+@menu
+* stub contents::       What the stub can do for you
+* bootstrapping::       What you must do for the stub
+* debug session::       Putting it all together
+* protocol::            Outline of the communication protocol
+@end menu
+
+@node stub contents
+@subsubsection What the stub can do for you
+
+@cindex remote serial stub
+The debugging stub for your architecture supplies these three
+subroutines:
+
+@table @code
+@item set_debug_traps
+@kindex set_debug_traps
+@cindex remote serial stub, initialization
+This routine arranges to transfer control to @code{handle_exception}
+when your program stops.  You must call this subroutine explicitly near
+the beginning of your program.
+
+@item handle_exception
+@kindex handle_exception
+@cindex remote serial stub, main routine
+This is the central workhorse, but your program never calls it
+explicitly---the setup code arranges for @code{handle_exception} to
+run when a trap is triggered.
+
+@code{handle_exception} takes control when your program stops during
+execution (for example, on a breakpoint), and mediates communications
+with GDB on the host machine.  This is where the communications
+protocol is implemented; @code{handle_exception} acts as the GDB
+representative on the target machine; it begins by sending summary
+information on the state of your program, then continues to execute,
+retrieving and transmitting any information GDB needs, until you
+execute a GDB command that makes your program resume; at that point,
+@code{handle_exception} returns control to your own code on the target
+machine. 
+
+@item breakpoint
+@cindex @code{breakpoint} subroutine, remote
+Use this auxiliary subroutine to make your program contain a
+breakpoint.  Depending on the particular situation, this may be the only
+way for GDB to get control.  For instance, if your target
+machine has some sort of interrupt button, you won't need to call this;
+pressing the interrupt button will transfer control to
+@code{handle_exception}---in efect, to GDB.  On some machines,
+simply receiving characters on the serial port may also trigger a trap;
+again, in that situation, you don't need to call @code{breakpoint} from
+your own program---simply running @samp{target remote} from the host
+GDB session will get control.  
+
+Call @code{breakpoint} if none of these is true, or if you simply want
+to make certain your program stops at a predetermined point for the
+start of your debugging session.
+@end table
+
+@node bootstrapping
+@subsubsection What you must do for the stub
+
+@cindex remote stub, support routines
+The debugging stubs that come with GDB are set up for a particular
+chip architecture, but they have no information about the rest of your
+debugging target machine.  To allow the stub to work, you must supply
+these special low-level subroutines:
+
+@table @code
+@item int getDebugChar()
+@kindex getDebugChar
+Write this subroutine to read a single character from the serial port.
+It may be identical to @code{getchar} for your target system; a
+different name is used to allow you to distinguish the two if you wish.
+
+@item void putDebugChar(int)
+@kindex putDebugChar
+Write this subroutine to write a single character to the serial port.
+It may be identical to @code{putchar} for your target system; a 
+different name is used to allow you to distinguish the two if you wish.
+
+@item void flush_i_cache()
+@kindex flush_i_cache
+Write this subroutine to flush the instruction cache, if any, on your
+target machine.  If there is no instruction cache, this subroutine may
+be a no-op.
+
+On target machines that have instruction caches, GDB requires this
+function to make certain that the state of your program is stable.
+@end table
+
+@noindent
+You must also make sure this library routine is available:
+
+@table @code
+@item void *memset(void *, int, int)
+@kindex memset
+This is the standard library function @code{memset} that sets an area of
+memory to a known value.  If you have one of the free versions of
+@code{libc.a}, @code{memset} can be found there; otherwise, you must
+either obtain it from your hardware manufacturer, or write your own.
+@end table
+
+If you do not use the GNU C compiler, you may need other standard
+library subroutines as well; this will vary from one stub to another,
+but in general the stubs are likely to use any of the common library
+subroutines which @code{gcc} generates as inline code.
+
+
+@node debug session
+@subsubsection Putting it all together
+
+@cindex remote serial debugging summary
+In summary, when your program is ready to debug, you must follow these
+steps.
+
+@enumerate
+@item
+Make sure you have the supporting low-level routines:
+@code{getDebugChar}, @code{putDebugChar}, @code{flush_i_cache},
+@code{memset}.
+
+@item
+Insert these lines near the top of your program:
+
+@example
+set_debug_traps();
+breakpoint();
+@end example
+
+@item
+Compile and link together: your program, the GDB debugging stub for
+your target architecture, and the supporting subroutines.
+
+@item
+Make sure you have a serial connection between your target machine and
+the GDB host, and identify the serial port used for this on the host.
+
+@item
+Download your program to your target machine (or get it there by
+whatever means the manufacturer provides), and start it.
+
+@item
+To start remote debugging, run GDB on the host machine, and specify
+as an executable file the program that is running in the remote machine.
+This tells GDB how to find your program's symbols and the contents
+of its pure text.
+
+Then establish communication using the @code{target remote} command.
+Its argument is the name of the device you're using to control the
+target machine.  For example:
 
 @example
 target remote /dev/ttyb
 @end example
 
 @noindent
-if the serial line is connected to the device named @file{/dev/ttyb}.  This
-will stop the remote machine if it is not already stopped.
+if the serial line is connected to the device named @file{/dev/ttyb}.  
+@ignore
+@c this is from the old text, but it doesn't seem to make sense now that I've
+@c seen an example...  pesch 4sep1992
+This will stop the remote machine if it is not already stopped.
+@end ignore
+
+@end enumerate
 
 Now you can use all the usual commands to examine and change data and to
 step and continue the remote program.
 
 To resume the remote program and stop debugging it, use the @code{detach}
 command.
+
+@node protocol
+@subsubsection Outline of the communication protocol
+
+@cindex debugging stub, example
+@cindex remote stub, example
+@cindex stub example, remote debugging
+The stub files provided with GDB implement the target side of the
+communication protocol, and the GDB side is implemented in the
+GDB source file @file{remote.c}.  Normally, you can simply allow
+these subroutines to communicate, and ignore the details.  (If you're
+implementing your own stub file, you can still ignore the details: start
+with one of the existing stub files.  @file{sparc-stub.c} is the best
+organized, and therefore the easiest to read.)
+
+However, there may be occasions when you need to know something about
+the protocol---for example, if there is only one serial port to your
+target machine, you might want your program to do something special if
+it recognizes a packet meant for GDB.
+
+@cindex protocol, GDB remote serial
+@cindex serial protocol, GDB remote
+@cindex remote serial protocol
+All GDB commands and responses (other than acknowledgements, which
+are single characters) are sent as a packet which includes a
+checksum.  A packet is introduced with the character @samp{$}, and ends
+with the character @samp{#} followed by a two-digit checksum:
+
+@example
+$@var{packet info}#@var{checksum}
+@end example
+
+@cindex checksum, for GDB remote
+@noindent
+@var{checksum} is computed as the modulo 256 sum of the @var{packet
+info} characters.
+
+When either the host or the target machine receives a packet, the first
+response expected is an acknowledgement: a single character, either
+@samp{+} (to indicate the package was received correctly) or @samp{-}
+(to request retransmission).
+
+The host (GDB) sends commands, and the target (the debugging stub
+incorporated in your program) sends data in response.  The target also
+sends data when your program stops.
+
+Command packets are distinguished by their first character, which
+identifies the kind of command.
+
+These are the commands currently supported:
+
+@table @code
+@item g
+Requests the values of CPU registers.
+
+@item G
+Sets the values of CPU registers.
+
+@item m@var{addr},@var{count}
+Read @var{count} bytes at location @var{addr}.
+
+@item M@var{addr},@var{count}:@dots{}
+Write @var{count} bytes at location @var{addr}.
+
+@item c
+@itemx c@var{addr}
+Resume execution at the current address (or at @var{addr} if supplied).
+
+@item s
+@itemx s@var{addr}
+Step the target program for one instruction, from either the current
+program counter or from @var{addr} if supplied.
+
+@item k
+Kill the target program.
+
+@item ?
+Report the most recent signal.  To allow you to take advantage of the
+GDB signal handling commands, one of the functions of the debugging
+stub is to report CPU traps as the corresponding POSIX signal values.
+@end table
 
 @kindex set remotedebug
 @kindex show remotedebug
@@ -6552,16 +6716,7 @@ packet-debugging information is printed on the GDB standard output
 stream.  @code{set remotedebug off} turns it off, and @code{show
 remotedebug} will show you its current state.
 
-Other remote targets may be available in your
-configuration of GDB; use @code{help targets} to list them.
-
-@menu
-* i960-Nindy Remote::		GDB with a Remote i960 (Nindy)
-* EB29K Remote::		GDB with a Remote EB29K
-* VxWorks Remote::		GDB and VxWorks
- 
-@end menu
-@node i960-Nindy Remote, EB29K Remote, Remote, Remote
+@node i960-Nindy Remote
 @subsection GDB with a Remote i960 (Nindy)
 
 @cindex Nindy
@@ -6590,7 +6745,7 @@ session.  @xref{Target Commands, ,Commands for Managing Targets}.
 * Nindy reset::                 Nindy Reset Command
 @end menu
 
-@node Nindy Startup, Nindy Options, i960-Nindy Remote, i960-Nindy Remote
+@node Nindy Startup
 @subsubsection Startup with Nindy
 
 If you simply start @code{gdb} without using any command-line
@@ -6608,7 +6763,7 @@ simply start up with no Nindy connection by responding to the prompt
 with an empty line.  If you do this, and later wish to attach to Nindy,
 use @code{target} (@pxref{Target Commands, ,Commands for Managing Targets}).
 
-@node Nindy Options, Nindy reset, Nindy Startup, i960-Nindy Remote
+@node Nindy Options
 @subsubsection Options for Nindy
 
 These are the startup options for beginning your GDB session with a
@@ -6651,7 +6806,7 @@ The standard @samp{-b} option controls the line speed used on the serial
 port.
 
 @c @group
-@node Nindy reset,  , Nindy Options, i960-Nindy Remote
+@node Nindy reset
 @subsubsection Nindy Reset Command
 
 @table @code
@@ -6664,7 +6819,7 @@ a break is detected.
 @end table
 @c @end group
 
-@node EB29K Remote, VxWorks Remote, i960-Nindy Remote, Remote
+@node EB29K Remote
 @subsection GDB with a Remote EB29K
 
 @cindex EB29K board
@@ -6682,7 +6837,7 @@ you've hooked the cable between the PC's @file{COM1} port and
 * Remote Log::                  Remote Log
 @end menu
 
-@node Comms (EB29K), gdb-EB29K, EB29K Remote, EB29K Remote
+@node Comms (EB29K)
 @subsubsection Communications Setup
 
 The next step is to set up the PC's port, by doing something like the
@@ -6794,7 +6949,7 @@ other way---perhaps floppy-disk transfer---of getting the 29K program
 from the Unix system to the PC; GDB will @emph{not} download it over the
 serial line.
 
-@node gdb-EB29K, Remote Log, Comms (EB29K), EB29K Remote
+@node gdb-EB29K
 @subsubsection EB29K cross-debugging
 
 Finally, @code{cd} to the directory containing an image of your 29K
@@ -6837,7 +6992,7 @@ once again, after your GDB session has concluded, to attach to
 Type @code{CTTY con} to return command input to the main DOS console,
 and type @kbd{~.} to leave @code{tip} or @code{cu}.
 
-@node Remote Log,  , gdb-EB29K, EB29K Remote
+@node Remote Log
 @subsubsection Remote Log
 @kindex eb.log
 @cindex log file for EB29K
@@ -6849,7 +7004,50 @@ of the commands sent to it.  Running @samp{tail -f} on this file in
 another window often helps to understand trouble with @code{EBMON}, or
 unexpected events on the PC side of the connection.
 
-@node VxWorks Remote,  , EB29K Remote, Remote
+
+@node ST2000 Remote
+@subsection GDB with a Tandem ST2000
+
+To connect your ST2000 to the host system, see the manufacturer's
+manual.  Once the ST2000 is physically attached, you can run
+
+@example
+target st2000 @var{dev} @var{speed}
+@end example
+
+@noindent
+to establish it as your debugging environment.  
+
+The @code{load} and @code{attach} commands are @emph{not} defined for
+this target; you must load your program into the ST2000 as you normally
+would for standalone operation.  GDB will read debugging information
+(such as symbols) from a separate, debugging version of the program
+available on your host computer.
+@c FIXME!! This is terribly vague; what little content is here is
+@c basically hearsay.
+
+@cindex ST2000 auxiliary commands
+These auxiliary GDB commands are available to help you with the ST2000
+environment:
+
+@table @code
+@item st2000 @var{command}
+@kindex st2000 @var{cmd}
+@cindex STDBUG commands (ST2000)
+@cindex commands to STDBUG (ST2000)
+Send a @var{command} to the STDBUG monitor.  See the manufacturer's
+manual for available commands.
+
+@item connect
+@cindex connect (to STDBUG)
+Connect the controlling terminal to the STDBUG command monitor.  When
+you are done interacting with STDBUG, typing either of two character
+sequences will get you back to the GDB command prompt:
+@kbd{@key{RET}~.} (Return, followed by tilde and period) or
+@kbd{@key{RET}~@key{C-d}} (Return, followed by tilde and control-D).
+@end table
+
+@node VxWorks Remote
 @subsection GDB and VxWorks
 @cindex VxWorks
 
@@ -6895,7 +7093,7 @@ GDB will come up showing the prompt:
 * VxWorks attach::              Running Tasks
 @end menu
 
-@node VxWorks connection, VxWorks download, VxWorks Remote, VxWorks Remote
+@node VxWorks connection
 @subsubsection Connecting to VxWorks
 
 The GDB command @code{target} lets you connect to a VxWorks target on the
@@ -6926,7 +7124,7 @@ you should add the appropriate directory to the search path, with the
 GDB command @code{path}, and execute the @code{target} command
 again.
 
-@node VxWorks download, VxWorks attach, VxWorks connection, VxWorks Remote
+@node VxWorks download
 @subsubsection VxWorks Download
 
 @cindex download to VxWorks
@@ -6967,7 +7165,7 @@ history.  (This is necessary in order to preserve the integrity of
 debugger data structures that reference the target system's symbol
 table.)
 
-@node VxWorks attach,  , VxWorks download, VxWorks Remote
+@node VxWorks attach
 @subsubsection Running Tasks
 
 @cindex running VxWorks tasks
@@ -6983,8 +7181,136 @@ where @var{task} is the VxWorks hexadecimal task ID.  The task can be running
 or suspended when you attach to it.  If running, it will be suspended at
 the time of attachment.
 
+@node Hitachi H8/300 Remote
+@subsection GDB and the Hitachi H8/300
+GDB needs to know these things to talk to your H8/300: 
 
-@node Controlling GDB, Sequences, Targets, Top
+@enumerate
+@item
+that you want to use @samp{target hms}, the remote debugging
+interface for the H8/300 (this is the default when
+GDB is configured specifically for the H8/300);
+
+@item
+what serial device connects your host to your H8/300 (the first serial
+device available on your host is the default);
+
+@ignore
+@c this is only for Unix hosts, not currently of interest.
+@item
+what speed to use over the serial device.
+@end ignore
+@end enumerate
+
+@kindex device
+@cindex serial device for H8/300
+@ignore
+@c only for Unix hosts
+Use the special @code{gdb83} command @samp{device @var{port}} if you
+need to explicitly set the serial device.  The default @var{port} is the
+first available port on your host.  This is only necessary on Unix
+hosts, where it is typically something like @file{/dev/ttya}.
+
+@kindex speed
+@cindex serial line speed for H8/300
+@code{gdb83} has another special command to set the communications speed
+for the H8/300: @samp{speed @var{bps}}.  This command also is only used
+from Unix hosts; on DOS hosts, set the line speed as usual from outside
+GDB with the DOS @kbd{mode} command (for instance, @w{@samp{mode
+com2:9600,n,8,1,p}} for a 9600 bps connection).
+@end ignore
+
+GDB depends on an auxiliary terminate-and-stay-resident program
+called @code{asynctsr} to communicate with the H8/300 development board
+through a PC serial port.  You must also use the DOS @code{mode} command
+to set up the serial port on the DOS side.
+
+The following sample session illustrates the steps needed to start a
+program under GDB control on your H8/300.  The example uses a sample
+H8/300 program called @file{t.x}.
+
+First hook up your H8/300 development board.  In this example, we use a
+board attached to serial port @code{COM2}; if you use a different serial
+port, substitute its name in the argument of the @code{mode} command.
+When you call @code{asynctsr}, the auxiliary comms program used by the
+degugger, you give it just the numeric part of the serial port's name;
+for example, @samp{asyncstr 2} below runs @code{asyncstr} on
+@code{COM2}.
+
+@smallexample
+(eg-C:\H8300\TEST) mode com2:9600,n,8,1,p
+
+Resident portion of MODE loaded
+
+COM2: 9600, n, 8, 1, p
+
+(eg-C:\H8300\TEST) asynctsr 2
+@end smallexample
+
+@quotation
+@emph{Warning:} We have noticed a bug in PC-NFS that conflicts with
+@code{asynctsr}.  If you also run PC-NFS on your DOS host, you may need to
+disable it, or even boot without it, to use @code{asynctsr} to control
+your H8/300 board.
+@end quotation
+
+Now that serial communications are set up, and the H8/300 is connected,
+you can start up GDB.  Call @code{gdb} with the name of your
+program as the argument.  @code{gdb} prompts you, as usual, with the
+prompt @samp{(gdb)}.  Use two special commands to begin your debugging
+session: @samp{target hms} to specify cross-debugging to the Hitachi board,
+and the @code{load} command to download your program to the board.
+@code{load} displays the names of the
+program's sections, and a @samp{*} for each 2K of data downloaded.  (If
+you want to refresh GDB data on symbols or on the executable file
+without downloading, use the GDB commands @code{file} or
+@code{symbol-file}.  These commands, and @code{load} itself, are
+described in @ref{Files,,Commands to Specify Files}.)
+
+@smallexample
+(eg-C:\H8300\TEST) gdb t.x
+GDB is free software and you are welcome to distribute copies
+ of it under certain conditions; type "show copying" to see 
+ the conditions.
+There is absolutely no warranty for GDB; type "show warranty" 
+for details.
+GDB 4.7, Copyright 1992 Free Software Foundation, Inc...
+(gdb) target hms
+Connected to remote H8/300 HMS system.
+(gdb) load t.x
+.text   : 0x8000 .. 0xabde ***********
+.data   : 0xabde .. 0xad30 *
+.stack  : 0xf000 .. 0xf014 *
+@end smallexample
+
+At this point, you're ready to run or debug your program.  From here on,
+you can use all the usual GDB commands.  The @code{break} command
+sets breakpoints; the @code{run} command starts your program;
+@code{print} or @code{x} display data; the @code{continue} command
+resumes execution after stopping at a breakpoint.  You can use the
+@code{help} command at any time to find out more about GDB commands.
+
+Remember, however, that @emph{operating system} facilities aren't
+available on your H8/300; for example, if your program hangs, you can't
+send an interrupt---but you can press the @sc{reset} switch!  
+
+Use the @sc{reset} button on the H8/300 board
+@itemize @bullet
+@item
+to interrupt your program (don't use @kbd{ctl-C} on the DOS host---it has
+no way to pass an interrupt signal to the H8/300); and
+
+@item
+to return to the GDB command prompt after your program finishes
+normally.  The communications protocol provides no other way for GDB
+to detect program completion.
+@end itemize
+
+In either case, GDB will see the effect of a @sc{reset} on the
+H8/300 board as a ``normal exit'' of your program.
+
+
+@node Controlling GDB
 @chapter Controlling GDB
 
 You can alter many aspects of GDB's interaction with you by using
@@ -7000,7 +7326,7 @@ data, @pxref{Print Settings, ,Print Settings}; other settings are described here
 * Messages/Warnings::           Optional Warnings and Messages
 @end menu
 
-@node Prompt, Editing, Controlling GDB, Controlling GDB
+@node Prompt
 @section Prompt
 @cindex prompt
 
@@ -7020,7 +7346,7 @@ Directs GDB to use @var{newprompt} as its prompt string henceforth.
 Prints a line of the form: @samp{Gdb's prompt is: @var{your-prompt}}
 @end table
 
-@node Editing, History, Prompt, Controlling GDB
+@node Editing
 @section Command Editing
 @cindex readline
 @cindex command line editing
@@ -7050,7 +7376,7 @@ Disable command line editing.
 Show whether command line editing is enabled.
 @end table
 
-@node History, Screen Size, Editing, Controlling GDB
+@node History
 @section Command History
 
 @table @code
@@ -7140,7 +7466,7 @@ Print ten commands centered on command number @var{n}.
 Print ten commands just after the commands last printed.
 @end table
 
-@node Screen Size, Numbers, History, Controlling GDB
+@node Screen Size
 @section Screen Size
 @cindex size of screen
 @cindex pauses in output
@@ -7177,7 +7503,7 @@ no matter how long the output is.  This is useful if output is to a file
 or to an editor buffer.
 @end table
 
-@node Numbers, Messages/Warnings, Screen Size, Controlling GDB
+@node Numbers
 @section Numbers
 @cindex number representation
 @cindex entering numbers
@@ -7214,7 +7540,7 @@ will leave the radix unchanged no matter what it was.
 Display the current default base for numeric input and display.
 @end table
 
-@node Messages/Warnings,  , Numbers, Controlling GDB
+@node Messages/Warnings
 @section Optional Warnings and Messages
 
 By default, GDB is silent about its inner workings.  If you are running
@@ -7256,7 +7582,7 @@ complaints from being suppressed.
 Displays how many symbol complaints GDB is permitted to produce.
 @end table
 
-By default, GDB is cautious, and asks what sometimes seem to be a
+By default, GDB is cautious, and asks what sometimes seems to be a
 lot of stupid questions to confirm certain commands.  For example, if
 you try to run a program which is already running:
 
@@ -7312,7 +7638,7 @@ different directories or libraries) with the same name.
 Show the current @code{on} or @code{off} setting.
 @end table
 
-@node Sequences, Emacs, Controlling GDB, Top
+@node Sequences
 @chapter Canned Sequences of Commands
 
 Aside from breakpoint commands (@pxref{Break Commands, ,Breakpoint
@@ -7321,11 +7647,12 @@ for execution as a unit: user-defined commands and command files.
 
 @menu
 * Define::                      User-Defined Commands
+* Hooks::			User-Defined Command Hooks
 * Command Files::               Command Files
 * Output::                      Commands for Controlled Output
 @end menu
 
-@node Define, Command Files, Sequences, Sequences
+@node Define
 @section User-Defined Commands
 
 @cindex user-defined command
@@ -7378,7 +7705,48 @@ without asking when used inside a user-defined command.  Many GDB commands
 that normally print messages to say what they are doing omit the messages
 when used in a user-defined command.
 
-@node Command Files, Output, Define, Sequences
+@node Hooks
+@section User-Defined Command Hooks
+@cindex command files
+
+You may define @emph{hooks}, which are a special kind of user-defined
+command.  Whenever you run the command @samp{foo}, if the user-defined
+command @samp{hook-foo} exists, it is executed (with no arguments)
+before that command.
+
+In addition, a pseudo-command, @samp{stop} exists.  Hooking this command
+will cause your hook to be executed every time execution stops in the
+inferior program, before breakpoint commands are run, displays are
+printed, or the stack frame is printed.
+
+For example, to cause @code{SIGALRM} signals to be ignored while
+single-stepping, but cause them to be resumed during normal execution,
+you could do:
+
+@example
+define hook-stop
+handle SIGALRM nopass
+end
+
+define hook-run
+handle SIGALRM pass
+end
+
+define hook-continue
+handle SIGLARM pass
+end
+@end example
+
+Any single-word command in GDB can be hooked.  Aliases for other commands
+cannot be hooked (you should hook the basic command name, e.g. @code{backtrace}
+rather than @code{bt}).  If an error occurs during the execution of your
+hook, execution of GDB commands stops and you are returned to the GDB
+prompt (before the command that you actually typed had a chance to run).
+
+If you try to define a hook which doesn't match any known command, you
+will get a warning from the @code{define} command.
+
+@node Command Files
 @section Command Files
 
 @cindex command files
@@ -7412,7 +7780,7 @@ without asking when used in a command file.  Many GDB commands that
 normally print messages to say what they are doing omit the messages
 when called from command files.
 
-@node Output,  , Command Files, Sequences
+@node Output
 @section Commands for Controlled Output
 
 During the execution of a command file or a user-defined command, normal
@@ -7487,7 +7855,7 @@ string are the simple ones that consist of backslash followed by a
 letter.
 @end table
 
-@node Emacs, GDB Bugs, Sequences, Top
+@node Emacs
 @chapter Using GDB under GNU Emacs
 
 @cindex emacs
@@ -7658,7 +8026,8 @@ environment.  Users of this environment can use a new command,
 each value is printed in its own window.
 @end ignore
 
-@node GDB Bugs, Renamed Commands, Emacs, Top
+
+@node GDB Bugs
 @chapter Reporting Bugs in GDB
 @cindex Bugs in GDB
 @cindex Reporting Bugs in GDB
@@ -7678,7 +8047,7 @@ information that enables us to fix the bug.
 * Bug Reporting::               How to Report Bugs
 @end menu
 
-@node Bug Criteria, Bug Reporting, GDB Bugs, GDB Bugs
+@node Bug Criteria
 @section Have You Found a Bug?
 @cindex Bug Criteria
 
@@ -7686,13 +8055,13 @@ If you are not sure whether you have found a bug, here are some guidelines:
 
 @itemize @bullet
 @item
-@cindex Fatal Signal
-@cindex Core Dump
+@cindex fatal signal
+@cindex core dump
 If the debugger gets a fatal signal, for any input whatever, that is a
 GDB bug.  Reliable debuggers never crash.
 
 @item
-@cindex error on Valid Input
+@cindex error on valid input
 If GDB produces an error message for valid input, that is a bug.
 
 @item
@@ -7707,10 +8076,10 @@ If you are an experienced user of debugging tools, your suggestions
 for improvement of GDB are welcome in any case.
 @end itemize
 
-@node Bug Reporting,  , Bug Criteria, GDB Bugs
+@node Bug Reporting
 @section How to Report Bugs
-@cindex Bug Reports
-@cindex GDB Bugs, Reporting
+@cindex bug reports
+@cindex GDB bugs, reporting
 
 A number of companies and individuals offer support for GNU products.
 If you obtained GDB from a support organization, we recommend you
@@ -7891,7 +8260,7 @@ things without first using the debugger to find the facts.
 @include inc-hist.texi
 @end iftex
 
-@node Renamed Commands, Formatting Documentation, GDB Bugs, Top
+@node Renamed Commands
 @appendix Renamed Commands
 
 The following commands were renamed in GDB 4, in order to make the
@@ -8008,7 +8377,7 @@ unset                     &&\rm(No longer an alias for delete)\cr
 @end tex
 @c END TEXI2ROFF-KILL
 
-@node Formatting Documentation, Installing GDB, Renamed Commands, Top
+@node Formatting Documentation
 @appendix Formatting the Documentation
 
 @cindex GDB reference card
@@ -8016,7 +8385,7 @@ unset                     &&\rm(No longer an alias for delete)\cr
 The GDB 4 release includes an already-formatted reference card, ready
 for printing with PostScript or GhostScript, in the @file{gdb}
 subdirectory of the main source directory---in
-@file{gdb-4.6/gdb/refcard.ps} of the version 4.6 release.
+@file{gdb-4.7/gdb/refcard.ps} of the version 4.7 release.
 If you can use PostScript or GhostScript with your printer, you can
 print the reference card immediately with @file{refcard.ps}.
 
@@ -8055,7 +8424,7 @@ Info formatting programs, such as @code{texinfo-format-buffer} or
 @code{makeinfo}.
 
 If you have @code{makeinfo} installed, and are in the top level GDB
-source directory (@file{gdb-4.6}, in the case of version 4.6), you can
+source directory (@file{gdb-4.7}, in the case of version 4.7), you can
 make the Info file by typing:
 
 @example
@@ -8085,13 +8454,13 @@ directory.
 If you have @TeX{} and a @sc{dvi} printer program installed, you can
 typeset and print this manual.  First switch to the the @file{gdb}
 subdirectory of the main source directory (for example, to
-@file{gdb-4.6/gdb}) and then type:
+@file{gdb-4.7/gdb}) and then type:
 
 @example
 make gdb.dvi
 @end example
 
-@node Installing GDB, Copying, Formatting Documentation, Top
+@node Installing GDB
 @appendix Installing GDB
 @cindex configuring GDB
 @cindex installation
@@ -8100,7 +8469,7 @@ make gdb.dvi
 @c irrelevant in info file; it's as current as the code it lives with.
 @quotation
 @emph{Warning:} These installation instructions are current as of
-GDB version 4.6.  If you're installing a more recent release
+GDB version 4.7.  If you're installing a more recent release
 of GDB, we may have improved the installation procedures since
 printing this manual; see the @file{README} file included in your
 release for the most recent instructions.
@@ -8115,38 +8484,41 @@ The GDB distribution includes all the source code you need for GDB in
 a single directory, whose name is usually composed by appending the
 version number to @samp{gdb}.
 
-For example, the GDB version 4.6 distribution is in the @file{gdb-4.6}
+For example, the GDB version 4.7 distribution is in the @file{gdb-4.7}
 directory.  That directory contains:
 
 @table @code
-@item gdb-4.6/configure @r{(and supporting files)}
+@item gdb-4.7/configure @r{(and supporting files)}
 script for configuring GDB and all its supporting libraries.
 
-@item gdb-4.6/gdb
+@item gdb-4.7/gdb
 the source specific to GDB itself
 
-@item gdb-4.6/bfd
+@item gdb-4.7/bfd
 source for the Binary File Descriptor library
 
-@item gdb-4.6/include
+@item gdb-4.7/include
 GNU include files
 
-@item gdb-4.6/libiberty
+@item gdb-4.7/libiberty
 source for the @samp{-liberty} free software library
 
-@item gdb-4.6/readline
+@item gdb-4.7/opcodes
+source for the library of opcode tables and disassemblers
+
+@item gdb-4.7/readline
 source for the GNU command-line interface
 
-@item gdb-4.6/glob
+@item gdb-4.7/glob
 source for the GNU filename pattern-matching subroutine
 
-@item gdb-4.6/mmalloc
+@item gdb-4.7/mmalloc
 source for the GNU memory-mapped malloc package
 @end table
 
 The simplest way to configure and build GDB is to run @code{configure}
 from the @file{gdb-@var{version-number}} source directory, which in
-this example is the @file{gdb-4.6} directory.
+this example is the @file{gdb-4.7} directory.
 
 First switch to the @file{gdb-@var{version-number}} source directory
 if you are not already in it; then run @code{configure}.  Pass the
@@ -8156,7 +8528,7 @@ argument.
 For example:
 
 @example
-cd gdb-4.6
+cd gdb-4.7
 ./configure @var{host}
 make
 @end example
@@ -8180,7 +8552,7 @@ sh configure @var{host}
 
 If you run @code{configure} from a directory that contains source
 directories for multiple libraries or programs, such as the
-@file{gdb-4.6} source directory for version 4.6, @code{configure}
+@file{gdb-4.7} source directory for version 4.7, @code{configure}
 creates configuration files for every directory level underneath (unless
 you tell it not to, with the @samp{--norecursion} option).
 
@@ -8188,12 +8560,12 @@ You can run the @code{configure} script from any of the
 subordinate directories in the GDB distribution, if you only want to
 configure that subdirectory; but be sure to specify a path to it.
 
-For example, with version 4.6, type the following to configure only
+For example, with version 4.7, type the following to configure only
 the @code{bfd} subdirectory:
 
 @example
 @group
-cd gdb-4.6/bfd
+cd gdb-4.7/bfd
 ../configure @var{host}
 @end group
 @end example
@@ -8210,7 +8582,7 @@ let GDB debug child processes whose programs are not readable.
 * configure Options::           Summary of options for configure
 @end menu
 
-@node Separate Objdir, Config Names, Installing GDB, Installing GDB
+@node Separate Objdir
 @section Compiling GDB in Another Directory
 
 If you want to run GDB versions for several host or target machines,
@@ -8229,15 +8601,15 @@ itself from your working directory.  If the path to @code{configure}
 would be the same as the argument to @samp{--srcdir}, you can leave out
 the @samp{--srcdir} option; it will be assumed.)
 
-For example, with version 4.6, you can build GDB in a separate
+For example, with version 4.7, you can build GDB in a separate
 directory for a Sun 4 like this:
 
 @example
 @group
-cd gdb-4.6
+cd gdb-4.7
 mkdir ../gdb-sun4
 cd ../gdb-sun4
-../gdb-4.6/configure sun4
+../gdb-4.7/configure sun4
 make
 @end group
 @end example
@@ -8261,8 +8633,8 @@ called @code{configure} (or one of its subdirectories).
 
 The @code{Makefile} generated by @code{configure} for each source
 directory also runs recursively.  If you type @code{make} in a source
-directory such as @file{gdb-4.6} (or in a separate configured
-directory configured with @samp{--srcdir=@var{path}/gdb-4.6}), you
+directory such as @file{gdb-4.7} (or in a separate configured
+directory configured with @samp{--srcdir=@var{path}/gdb-4.7}), you
 will build all the required libraries, then build GDB.
 
 When you have multiple hosts or targets configured in separate
@@ -8270,7 +8642,7 @@ directories, you can run @code{make} on them in parallel (for example,
 if they are NFS-mounted on each of the hosts); they will not interfere
 with each other.
 
-@node Config Names, configure Options, Separate Objdir, Installing GDB
+@node Config Names
 @section Specifying Names for Hosts and Targets
 
 The specifications used for hosts and targets in the @code{configure}
@@ -8310,9 +8682,9 @@ Invalid configuration `i786v': machine `i786v' not recognized
 
 @noindent
 @code{config.sub} is also distributed in the GDB source
-directory (@file{gdb-4.6}, for version 4.6).
+directory (@file{gdb-4.7}, for version 4.7).
 
-@node configure Options, , Config Names, Installing GDB
+@node configure Options
 @section @code{configure} Options
 
 Here is a summary of the @code{configure} options and arguments that
@@ -8387,7 +8759,7 @@ There is no convenient way to generate a list of all available hosts.
 configuring other GNU tools recursively; but these are the only
 options that affect GDB or its supporting libraries.
 
-@node Copying, Index, Installing GDB, Top
+@node Copying
 @unnumbered GNU GENERAL PUBLIC LICENSE
 @center Version 2, June 1991
 
@@ -8782,7 +9154,7 @@ consider it more useful to permit linking proprietary applications with the
 library.  If this is what you want to do, use the GNU Library General
 Public License instead of this License.
 
-@node Index,  , Copying, Top
+@node Index
 @unnumbered Index
 
 @printindex cp

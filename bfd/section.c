@@ -134,7 +134,8 @@ SUBSECTION
 #include "libbfd.h"
 
 
-/*doc*
+/*
+DOCDD
 INODE
 typedef asection, section prototypes, Section Output, Sections
 SUBSECTION
@@ -375,8 +376,8 @@ static CONST asymbol global_syms[] = {
 
 #define STD_SECTION(SEC,SYM,NAME, IDX)	\
   asymbol *SYM = (asymbol *) &global_syms[IDX]; \
-  asection SEC = { NAME, 0, 0, 0, 0, 0, 0, 0, 0, &SEC, 0, 0, 0, 0, 0, 0, 0, 0, \
-		     0, 0, 0, 0, 0, 0, 0, 0, 0, \
+  asection SEC = { NAME, 0, 0, 0, 0, (boolean) 0, 0, 0, 0, &SEC,\
+		    0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0, (boolean) 0, \
 		     (asymbol *) &global_syms[IDX], &SYM, }
 
 STD_SECTION (bfd_com_section, bfd_com_symbol, BFD_COM_SECTION_NAME, 0);
@@ -385,6 +386,7 @@ STD_SECTION (bfd_abs_section, bfd_abs_symbol, BFD_ABS_SECTION_NAME, 2);
 #undef STD_SECTION
 
 /*
+DOCDD
 INODE
 section prototypes,  , typedef asection, Sections
 SUBSECTION
@@ -439,9 +441,9 @@ DESCRIPTION
 	before is was rewritten...
 
 	Possible errors are:
-	o invalid_operation
+	o invalid_operation -
 	If output has already started for this BFD.
-	o no_memory
+	o no_memory -
 	If obstack alloc fails.
 
 */
@@ -566,7 +568,7 @@ DESCRIPTION
 	supplied to the value. Returns true on success, false on
 	error. Possible error returns are:
 
-	o invalid operation
+	o invalid operation -
 	The section cannot have one or more of the attributes
 	requested. For example, a .bss section in <<a.out>> may not
 	have the <<SEC_HAS_CONTENTS>> field set.
@@ -579,10 +581,17 @@ DEFUN(bfd_set_section_flags,(abfd, section, flags),
      sec_ptr section AND
      flagword flags)
 {
+#if 0
+  /* If you try to copy a text section from an input file (where it
+     has the SEC_CODE flag set) to an output file, this loses big if
+     the bfd_applicable_section_flags (abfd) doesn't have the SEC_CODE
+     set - which it doesn't, at least not for a.out.  FIXME */
+
   if ((flags & bfd_applicable_section_flags (abfd)) != flags) {
     bfd_error = invalid_operation;
     return false;
   }
+#endif
 
   section->flags = flags;
   return true;
@@ -649,7 +658,7 @@ DESCRIPTION
 	ok, then <<true>> is returned, else <<false>>. 
 
 	Possible error returns:
-	o invalid_operation
+	o invalid_operation -
 	Writing has started to the BFD, so setting the size is invalid
 
 */
@@ -697,7 +706,7 @@ DESCRIPTION
 
 	Normally <<true>> is returned, else <<false>>. Possible error
 	returns are:
-	o no_contents
+	o no_contents -
 	The output section does not have the <<SEC_HAS_CONTENTS>>
 	attribute, so nothing can be written to it.
 	o and some more too

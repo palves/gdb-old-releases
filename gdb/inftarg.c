@@ -1,6 +1,5 @@
-/* Subroutines for handling an "inferior" (child) process as a target
-   for debugging, in GDB.
-   Copyright 1990, 1991 Free Software Foundation, Inc.
+/* Target-vector operations for controlling Unix child processes, for GDB.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
 This file is part of GDB.
@@ -25,7 +24,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "target.h"
 #include "wait.h"
 #include "gdbcore.h"
-#include "ieee-float.h"		/* Required by REGISTER_CONVERT_TO_XXX */
+#include "terminal.h"		/* For #ifdef TIOCGPGRP and new_tty */
+
+#include <signal.h>
 
 static void
 child_prepare_to_store PARAMS ((void));
@@ -42,6 +43,26 @@ child_files_info PARAMS ((struct target_ops *));
 static void
 child_detach PARAMS ((char *, int));
 
+static void
+child_attach PARAMS ((char *, int));
+
+static void
+ptrace_me PARAMS ((void));
+
+static void
+ptrace_him PARAMS ((int));
+
+static void
+child_create_inferior PARAMS ((char *, char *, char **));
+
+static void
+child_mourn_inferior PARAMS ((void));
+
+static int
+child_can_run PARAMS ((void));
+
+extern char **environ;
+
 /* Forward declaration */
 extern struct target_ops child_ops;
 
@@ -55,11 +76,7 @@ child_wait (status)
   int pid;
 
   do {
-#ifdef USE_PROC_FS
-    pid = proc_wait (status);
-#else
     pid = wait (status);
-#endif
     if (pid == -1)		/* No more children to wait for */
       {
 	fprintf (stderr, "Child process unexpectedly missing.\n");
@@ -71,16 +88,53 @@ child_wait (status)
 }
 
 
-/*
- * child_detach()
- * takes a program previously attached to and detaches it.
- * The program resumes execution and will no longer stop
- * on signals, etc.  We better not have left any breakpoints
- * in the program or it'll die when it hits one.  For this
- * to work, it may be necessary for the process to have been
- * previously attached.  It *might* work if the program was
- * started via the normal ptrace (PTRACE_TRACEME).
- */
+/* Attach to process PID, then initialize for debugging it.  */
+
+static void
+child_attach (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  char *exec_file;
+  int pid;
+
+  if (!args)
+    error_no_arg ("process-id to attach");
+
+#ifndef ATTACH_DETACH
+  error ("Can't attach to a process on this machine.");
+#else
+  pid = atoi (args);
+
+  if (pid == getpid())		/* Trying to masturbate? */
+    error ("I refuse to debug myself!");
+
+  if (from_tty)
+    {
+      exec_file = (char *) get_exec_file (0);
+
+      if (exec_file)
+	printf ("Attaching program `%s', pid %d\n", exec_file, pid);
+      else
+	printf ("Attaching pid %d\n", pid);
+
+      fflush (stdout);
+    }
+
+  attach (pid);
+  inferior_pid = pid;
+  push_target (&child_ops);
+#endif  /* ATTACH_DETACH */
+}
+
+
+/* Take a program previously attached to and detaches it.
+   The program resumes execution and will no longer stop
+   on signals, etc.  We'd better not have left any breakpoints
+   in the program or it'll die when it hits one.  For this
+   to work, it may be necessary for the process to have been
+   previously attached.  It *might* work if the program was
+   started via the normal ptrace (PTRACE_TRACEME).  */
 
 static void
 child_detach (args, from_tty)
@@ -124,33 +178,6 @@ child_prepare_to_store ()
 #endif
 }
 
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-
-/* Some machines won't need to use regnum.  */
-/* ARGSUSED */
-void
-host_convert_to_virtual (regnum, from, to)
-     int regnum;
-     char *from;
-     char *to;
-{
-  REGISTER_CONVERT_TO_VIRTUAL (regnum, from, to);
-}
-
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-
-/* ARGSUSED */
-void
-host_convert_from_virtual (regnum, from, to)
-     int regnum;
-     char *from;
-     char *to;
-{
-  REGISTER_CONVERT_TO_RAW (regnum, from, to);
-}
-
 /* Print status information about what we're accessing.  */
 
 static void
@@ -170,6 +197,56 @@ child_open (arg, from_tty)
   error ("Use the \"run\" command to start a Unix child process.");
 }
 
+/* Stub function which causes the inferior that runs it, to be ptrace-able
+   by its parent process.  */
+
+static void
+ptrace_me ()
+{
+  /* "Trace me, Dr. Memory!" */
+  call_ptrace (0, 0, (PTRACE_ARG3_TYPE) 0, 0);
+}
+
+/* Stub function which causes the GDB that runs it, to start ptrace-ing
+   the child process.  */
+
+static void
+ptrace_him (pid)
+     int pid;
+{
+  push_target (&child_ops);
+}
+
+/* Start an inferior Unix child process and sets inferior_pid to its pid.
+   EXEC_FILE is the file to run.
+   ALLARGS is a string containing the arguments to the program.
+   ENV is the environment vector to pass.  Errors reported with error().  */
+
+static void
+child_create_inferior (exec_file, allargs, env)
+     char *exec_file;
+     char *allargs;
+     char **env;
+{
+  fork_inferior (exec_file, allargs, env, ptrace_me, ptrace_him);
+  /* We are at the first instruction we care about.  */
+  /* Pedal to the metal... */
+  proceed ((CORE_ADDR) -1, 0, 0);
+}
+
+static void
+child_mourn_inferior ()
+{
+  unpush_target (&child_ops);
+  generic_mourn_inferior ();
+}
+
+static int
+child_can_run ()
+{
+  return(1);
+}
+
 struct target_ops child_ops = {
   "child",			/* to_shortname */
   "Unix child process",		/* to_longname */
@@ -183,8 +260,6 @@ struct target_ops child_ops = {
   fetch_inferior_registers,	/* to_fetch_registers */
   store_inferior_registers,	/* to_store_registers */
   child_prepare_to_store,	/* to_prepare_to_store */
-  host_convert_to_virtual,	/* to_convert_to_virtual */
-  host_convert_from_virtual,	/* to_convert_from_virtual */
   child_xfer_memory,		/* to_xfer_memory */
   child_files_info,		/* to_files_info */
   memory_insert_breakpoint,	/* to_insert_breakpoint */
@@ -199,6 +274,8 @@ struct target_ops child_ops = {
   0,				/* to_lookup_symbol */
   child_create_inferior,	/* to_create_inferior */
   child_mourn_inferior,		/* to_mourn_inferior */
+  child_can_run,		/* to_can_run */
+  0, 				/* to_notice_signals */
   process_stratum,		/* to_stratum */
   0,				/* to_next */
   1,				/* to_has_all_memory */

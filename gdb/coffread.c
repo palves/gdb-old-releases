@@ -130,9 +130,9 @@ struct coff_pending
 
 struct coff_pending *coff_file_symbols;	/* static at top level, and types */
 
-struct coff_pending *coff_global_symbols;	/* global functions and variables */
+struct coff_pending *coff_global_symbols;  /* global functions and variables */
 
-struct coff_pending *coff_local_symbols;	/* everything local to lexical context */
+struct coff_pending *coff_local_symbols;  /* everything local to lexical context */
 
 /* List of unclosed lexical contexts
    (that will become blocks, eventually).  */
@@ -522,7 +522,7 @@ coff_start_symtab ()
   coff_global_symbols = 0;
   coff_context_stack = 0;
   within_function = 0;
-  last_source_file = 0;
+  last_source_file = NULL;
 
   /* Initialize the source file line number information for this file.  */
 
@@ -591,7 +591,7 @@ coff_end_symtab (objfile)
       free ((PTR)line_vector);
       line_vector = 0;
       line_vector_length = -1;
-      last_source_file = 0;
+      last_source_file = NULL;
       return;
     }
 
@@ -654,7 +654,7 @@ coff_end_symtab (objfile)
   /* Reinitialize for beginning of new file. */
   line_vector = 0;
   line_vector_length = -1;
-  last_source_file = 0;
+  last_source_file = NULL;
 }
 
 static void
@@ -917,7 +917,7 @@ read_coff_symtab (symtab_offset, nsyms, objfile)
   current_objfile = objfile;
   nlist_stream_global = stream;
   nlist_nsyms_global = nsyms;
-  last_source_file = 0;
+  last_source_file = NULL;
   memset (opaque_type_chain, 0, sizeof opaque_type_chain);
 
   if (type_vector)			/* Get rid of previous one */
@@ -1481,8 +1481,7 @@ patch_type (type, real_type)
 
   TYPE_LENGTH (target) = TYPE_LENGTH (real_target);
   TYPE_NFIELDS (target) = TYPE_NFIELDS (real_target);
-  TYPE_FIELDS (target) = (struct field *)
-    obstack_alloc (&current_objfile -> type_obstack, field_size);
+  TYPE_FIELDS (target) = (struct field *) TYPE_ALLOC (target, field_size);
 
   memcpy (TYPE_FIELDS (target), TYPE_FIELDS (real_target), field_size);
 
@@ -1789,11 +1788,7 @@ decode_type (cs, c_type, aux)
 	    *dim = *(dim + 1);
 	  *dim = 0;
 
-	  type = (struct type *)
-	    obstack_alloc (&current_objfile -> type_obstack,
-			   sizeof (struct type));
-	  memset (type, 0, sizeof (struct type));
-	  TYPE_OBJFILE (type) = current_objfile;
+	  type = alloc_type (current_objfile);
 
 	  base_type = decode_type (cs, new_c_type, aux);
 
@@ -2045,8 +2040,7 @@ coff_read_struct_type (index, length, lastsym)
 
   TYPE_NFIELDS (type) = nfields;
   TYPE_FIELDS (type) = (struct field *)
-    obstack_alloc (&current_objfile -> type_obstack,
-		   sizeof (struct field) * nfields);
+    TYPE_ALLOC (type, sizeof (struct field) * nfields);
 
   /* Copy the saved-up fields into the field vector.  */
 
@@ -2128,8 +2122,7 @@ coff_read_enum_type (index, length, lastsym)
   TYPE_CODE (type) = TYPE_CODE_ENUM;
   TYPE_NFIELDS (type) = nsyms;
   TYPE_FIELDS (type) = (struct field *)
-    obstack_alloc (&current_objfile -> type_obstack,
-		   sizeof (struct field) * nsyms);
+    TYPE_ALLOC (type, sizeof (struct field) * nsyms);
 
   /* Find the symbols for the values and put them into the type.
      The symbols can be found in the symlist that we put them on

@@ -186,7 +186,8 @@ lookup_symtab_1 (name)
  got_psymtab:
 
   if (ps -> readin)
-    error ("Internal: readin pst for `%s' found when no symtab found.", name);
+    error ("Internal: readin %s pst for `%s' found when no symtab found.",
+	   ps -> filename, name);
 
   s = PSYMTAB_TO_SYMTAB (ps);
 
@@ -565,7 +566,8 @@ found:
 
 	  ALL_MSYMBOLS (objfile, msymbol)
 	    {
-	      demangled = demangle_and_match (msymbol -> name, name, 0);
+	      demangled = demangle_and_match (msymbol -> name, name,
+					      DMGL_PARAMS | DMGL_ANSI);
 	      if (demangled != NULL)
 		{
 		  free (demangled);
@@ -623,7 +625,7 @@ found_msym:
 	  block = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
 	  sym = lookup_block_symbol (block, name, namespace);
 	  if (!sym)
-	    error ("Internal: global symbol `%s' found in psymtab but not in symtab", name);
+	    error ("Internal: global symbol `%s' found in %s psymtab but not in symtab", name, ps->filename);
 	  if (symtab != NULL)
 	    *symtab = s;
 	  return sym;
@@ -657,7 +659,7 @@ found_msym:
 	  block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
 	  sym = lookup_block_symbol (block, name, namespace);
 	  if (!sym)
-	    error ("Internal: static symbol `%s' found in psymtab but not in symtab", name);
+	    error ("Internal: static symbol `%s' found in %s psymtab but not in symtab", name, ps->filename);
 	  if (symtab != NULL)
 	    *symtab = s;
 	  return sym;
@@ -692,7 +694,7 @@ found_msym:
 	      block = BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
 	      sym = lookup_demangled_block_symbol (block, name);
 	      if (!sym)
-		error ("Internal: mangled static symbol `%s' found in psymtab but not in symtab", name);
+		error ("Internal: mangled static symbol `%s' found in %s psymtab but not in symtab", name, ps->filename);
 	      if (symtab != NULL)
 		*symtab = s;
 	      return sym;
@@ -724,7 +726,8 @@ lookup_demangled_block_symbol (block, name)
       sym = BLOCK_SYM (block, bot);
       if (SYMBOL_NAMESPACE (sym) == VAR_NAMESPACE)
 	{
-	  demangled = demangle_and_match (SYMBOL_NAME (sym), name, 0);
+	  demangled = demangle_and_match (SYMBOL_NAME (sym), name,
+					  DMGL_PARAMS | DMGL_ANSI);
 	  if (demangled != NULL)
 	    {
 	      free (demangled);
@@ -756,7 +759,8 @@ lookup_demangled_partial_symbol (pst, name)
     {
       if (SYMBOL_NAMESPACE (psym) == VAR_NAMESPACE)
 	{
-	  demangled = demangle_and_match (SYMBOL_NAME (psym), name, 0);
+	  demangled = demangle_and_match (SYMBOL_NAME (psym), name,
+					  DMGL_PARAMS | DMGL_ANSI);
 	  if (demangled != NULL)
 	    {
 	      free (demangled);
@@ -832,6 +836,8 @@ lookup_partial_symbol (pst, name, global, namespace)
 }
 
 /* Find the psymtab containing main(). */
+/* FIXME:  What about languages without main() or specially linked
+   executables that have no main() ? */
 
 struct partial_symtab *
 find_main_psymtab ()
@@ -1480,7 +1486,36 @@ decode_line_1 (argptr, funfirstline, default_symtab, default_line)
      int default_line;
 {
   struct symtabs_and_lines values;
+#ifdef HPPA_COMPILER_BUG
+  /* FIXME: The native HP 9000/700 compiler has a bug which appears
+     when optimizing this file with target i960-vxworks.  I haven't
+     been able to construct a simple test case.  The problem is that
+     in the second call to SKIP_PROLOGUE below, the compiler somehow
+     does not realize that the statement val = find_pc_line (...) will
+     change the values of the fields of val.  It extracts the elements
+     into registers at the top of the block, and does not update the
+     registers after the call to find_pc_line.  You can check this by
+     inserting a printf at the end of find_pc_line to show what values
+     it is returning for val.pc and val.end and another printf after
+     the call to see what values the function actually got (remember,
+     this is compiling with cc -O, with this patch removed).  You can
+     also examine the assembly listing: search for the second call to
+     skip_prologue; the LDO statement before the next call to
+     find_pc_line loads the address of the structure which
+     find_pc_line will return; if there is a LDW just before the LDO,
+     which fetches an element of the structure, then the compiler
+     still has the bug.
+
+     Setting val to volatile avoids the problem.  We must undef
+     volatile, because the HPPA native compiler does not define
+     __STDC__, although it does understand volatile, and so volatile
+     will have been defined away in defs.h.  */
+#undef volatile
+  volatile struct symtab_and_line val;
+#define volatile /*nothing*/
+#else
   struct symtab_and_line val;
+#endif
   register char *p, *p1;
   char *q, *q1;
   register struct symtab *s;
@@ -2453,35 +2488,50 @@ completion_list_add_symbol (symname, text, text_len)
 {
   char *demangled;
   int newsize;
+  int i;
 
-  /* First see if SYMNAME is a C++ mangled name, and if so, use the
-     demangled name instead, including any parameters. */
+  /* clip symbols that cannot match */
+
+  if (!cplus_match (symname, text, text_len)) {
+    return;
+  }
+
+  /* matches mangled, may match unmangled.  now clip any symbol names
+     that we've already considered.  (This is a time optimization)  */
+
+  for (i = 0; i < return_val_index; ++i) {
+    if (strcmp (symname, return_val[i]) == 0) {
+      return;
+    }
+  }
+  
+  /* See if SYMNAME is a C++ mangled name, and if so, use the
+     demangled name instead, including any parameters.  */
 
   if ((demangled = cplus_demangle (symname, DMGL_PARAMS | DMGL_ANSI)) != NULL)
     {
+      if (strncmp (demangled, text, text_len) != 0) {
+	return;
+      }	/* demangled, but didn't match so clip it */
+
       symname = demangled;
+    } else {
+      symname = savestring (symname, strlen (symname));
     }
 
   /* If we have a match for a completion, then add SYMNAME to the current
-     list of matches. Note that we always make a copy of the string, even
-     if it is one that was returned from cplus_demangle and is already
-     in malloc'd memory. */
+     list of matches. Note that the name is in freshly malloc'd space;
+     either from cplus_demangle or from savestring above.  */
 
-  if (strncmp (symname, text, text_len) == 0)
+  if (return_val_index + 3 > return_val_size)
     {
-      if (return_val_index + 3 > return_val_size)
-	{
-	  newsize = (return_val_size *= 2) * sizeof (char *);
-	  return_val = (char **) xrealloc ((char *) return_val, newsize);
-	}
-      return_val[return_val_index++] = savestring (symname, strlen (symname));
-      return_val[return_val_index] = NULL;
+      newsize = (return_val_size *= 2) * sizeof (char *);
+      return_val = (char **) xrealloc ((char *) return_val, newsize);
     }
+  return_val[return_val_index++] = symname;
+  return_val[return_val_index] = NULL;
 
-  if (demangled != NULL)
-    {
-      free (demangled);
-    }
+  return;
 }
 
 /* Return a NULL terminated array of all symbols (regardless of class) which

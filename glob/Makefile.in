@@ -61,7 +61,10 @@ RANLIB = ranlib
 #### Host, target, and site specific Makefile fragments come in here.
 ###
 
-CFLAGS = $(H_CFLAGS) -I.
+.c.o:
+	$(CC) -c $(CFLAGS) $(H_CFLAGS) -I. $<
+
+CFLAGS = -g
 RM = rm -f
 
 #all:	libglob.a

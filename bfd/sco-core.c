@@ -1,7 +1,7 @@
-/* BFD back end for SCO System V 3.2 Unix core files
+/* BFD back-end for SCO System V 3.2 Unix core files.
    This was based on trad-core.c, which was written by John Gilmore of
         Cygnus Support.
-   Copyright (C) 1988, 1989, 1991 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991, 1992 Free Software Foundation, Inc.
    Written by Scott Michel, IntelliMED Corporation. scottm%intime@uunet
 
    NB: This does work with SCO System V 3.2 Unix and ODT. However, it
@@ -49,15 +49,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <errno.h>
 
-  struct trad_core_struct 
-    {
-      asection *data_section;
-      asection *stack_section;
-      asection *reg_section;
+/* This struct is just for allocating two things with one zalloc, so
+   they will be freed together, without violating alignment constraints. */
 
-      struct user		u;
-    } *rawptr;
+struct trad_core_struct 
+  {
+    asection *data_section;
+    asection *stack_section;
+    asection *reg_section;
 
+    struct user		u;
+  } *rawptr;
 
 #define core_upage(bfd) (&((bfd)->tdata.trad_core_data->u))
 #define core_datasec(bfd) ((bfd)->tdata.trad_core_data->data_section)
@@ -74,11 +76,8 @@ sco_core_file_p (abfd)
 {
   int val;
   struct user u;
-  /* This struct is just for allocating two things with one zalloc, so
-     they will be freed together, without violating alignment constraints. */
 
-
-  bfd_seek(abfd, 0, SEEK_SET);
+  bfd_seek(abfd, (file_ptr) 0, SEEK_SET);
   val = bfd_read ((void *)&u, 1, sizeof u, abfd);
   if (val != sizeof u)
     return 0;			/* Too small to be a core file */
@@ -89,7 +88,8 @@ sco_core_file_p (abfd)
 
   /* Allocate both the upage and the struct core_data at once, so
      a single free() will free them both.  */
-  rawptr = (struct trad_core_struct *)bfd_zalloc (abfd, sizeof (struct trad_core_struct));
+  rawptr = (struct trad_core_struct *)
+	   bfd_zalloc (abfd, sizeof (struct trad_core_struct));
   if (rawptr == NULL) {
     bfd_error = no_memory;
     return 0;
@@ -97,7 +97,7 @@ sco_core_file_p (abfd)
   
   abfd->tdata.trad_core_data = rawptr;
 
-  rawptr->u = u; /*Copy the uarea into the tdata part of the bfd */
+  rawptr->u = u; /* Copy the uarea into the tdata part of the bfd */
 
   /* Create the sections.  This is raunchy, but bfd_close wants to free
      them separately.  */

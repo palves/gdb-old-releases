@@ -1,11 +1,15 @@
+: DOCDD
+	skip_past_newline
+	get_stuff_in_command kill_bogus_lines catstr
+	;
+
 : ENDDD
 	skip_past_newline
 	;
 
 : EXAMPLE
 	skip_past_newline	
-
-	get_stuff_in_command kill_bogus_lines translatecomments 
+	get_stuff_in_command kill_bogus_lines do_fancy_stuff translatecomments 
 	courierize catstr
 
 	;
@@ -56,9 +60,9 @@
 
 : bodytext
 	get_stuff_in_command 
+	bulletize
 	kill_bogus_lines
 	do_fancy_stuff
-	bulletize
 	courierize
 	catstr
 	"@*\n" catstr
@@ -108,5 +112,3 @@
 
 : TYPEDEF
 	FUNCTION ;
-
-

@@ -1,1 +1,1 @@
-HDEFINES=-DHOST_SYS=HPPABSD_SYS
+# HPPA host running BSD.

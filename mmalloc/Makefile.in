@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1992 Cygnus Support
+#   Copyright 1992 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -92,6 +92,9 @@ install-info:
 check:
 
 install:	all
+		-parent=`echo $(libdir)|sed -e 's@/[^/]*$$@@'`; \
+		if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
+		-if [ -d $(libdir) ] ; then true ; else mkdir $(libdir) ; fi
 		$(INSTALL_DATA) $(TARGETLIB) $(libdir)/$(TARGETLIB).n
 		$(RANLIB) $(libdir)/$(TARGETLIB).n
 		mv -f $(libdir)/$(TARGETLIB).n $(libdir)/$(TARGETLIB)

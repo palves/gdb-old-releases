@@ -79,9 +79,8 @@ struct cmd_list_element
        Entire string should also end with a period, not a newline.  */
     char *doc;
 
-    /* Auxiliary information.
-       It is up to the calling program to decide what this means.  */
-    char *aux;
+    /* Hook for another command to be executed before this command.  */
+    struct cmd_list_element *hook;
 
     /* Nonzero identifies a prefix command.  For them, the address
        of the variable containing the list of subcommands.  */
@@ -121,6 +120,14 @@ struct cmd_list_element
 
     /* Pointer to command strings of user-defined commands */
     struct command_line *user_commands;
+
+    /* Pointer to command that is hooked by this one,
+       so the hook can be removed when this one is deleted.  */
+    struct cmd_list_element *hookee;
+
+    /* Pointer to command that is aliased by this one, so the
+       aliased command can be located in case it has been hooked.  */
+    struct cmd_list_element *cmd_pointer;
   };
 
 /* Forward-declarations of the entry-points of command.c.  */
@@ -207,5 +214,12 @@ error_no_arg PARAMS ((char *));
 
 extern void
 dont_repeat PARAMS ((void));
+
+/* Used to mark commands that don't do anything.  If we just leave the
+   function field NULL, the command is interpreted as a help topic, or
+   as a class of commands.  */
+
+extern void
+not_just_help_class_command PARAMS ((char *, int));
 
 #endif /* !defined (COMMAND_H) */

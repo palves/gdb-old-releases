@@ -65,8 +65,6 @@ struct target_ops
   void 	      (*to_fetch_registers) PARAMS ((int));
   void 	      (*to_store_registers) PARAMS ((int));
   void 	      (*to_prepare_to_store) PARAMS ((void));
-  void 	      (*to_convert_to_virtual) PARAMS ((int, char *, char *));
-  void 	      (*to_convert_from_virtual) PARAMS ((int, char *, char *));
   int  	      (*to_xfer_memory) PARAMS ((CORE_ADDR, char *, int, int,
 					 struct target_ops *));
   void 	      (*to_files_info) PARAMS ((struct target_ops *));
@@ -82,6 +80,8 @@ struct target_ops
   int 	      (*to_lookup_symbol) PARAMS ((char *, CORE_ADDR *));
   void 	      (*to_create_inferior) PARAMS ((char *, char *, char **));
   void 	      (*to_mourn_inferior) PARAMS ((void));
+  int	      (*to_can_run) PARAMS ((void));
+  void	      (*to_notice_signals) PARAMS ((void));
   enum strata   to_stratum;
   struct target_ops
     	       *to_next;
@@ -130,7 +130,13 @@ extern struct target_ops	*current_target;
 #define	target_close(quitting)	\
 	(*current_target->to_close) (quitting)
 
-/* Attaches to a process on the target side.  */
+/* Attaches to a process on the target side.  Arguments are as passed
+   to the `attach' command by the user.  This routine can be called
+   when the target is not on the target-stack, if the target_can_run
+   routine returns 1; in that case, it must push itself onto the stack.  
+   Upon exit, the target should be ready for normal operations, and
+   should be ready to deliver the status of the process immediately 
+   (without waiting) to an upcoming target_wait call.  */
 
 #define	target_attach(args, from_tty)	\
 	(*current_target->to_attach) (args, from_tty)
@@ -178,18 +184,6 @@ extern struct target_ops	*current_target;
 
 #define	target_prepare_to_store()	\
 	(*current_target->to_prepare_to_store) ()
-
-/* Convert data from raw format for register REGNUM
-   to virtual format for register REGNUM.  */
-
-#define	target_convert_to_virtual(regnum, from, to)	\
-	(*current_target->to_convert_to_virtual) (regnum, from, to)
-	
-/* Convert data from virtual format for register REGNUM
-   to raw format for register REGNUM.  */
-
-#define	target_convert_from_virtual(regnum, from, to)	\
-	(*current_target->to_convert_from_virtual) (regnum, from, to)
 
 /* Reading and writing memory actually happens through a glue
    function which iterates across the various targets.  Result is
@@ -313,6 +307,16 @@ print_section_info PARAMS ((struct target_ops *, bfd *));
 #define	target_mourn_inferior()	\
 	(*current_target->to_mourn_inferior) ()
 
+/* Does target have enough data to do a run or attach command? */
+
+#define target_can_run(t) \
+  	((t)->to_can_run) ()
+
+/* post process changes to signal handling in the inferior.  */
+
+#define target_notice_signals() \
+  	(*current_target->to_notice_signals) ()
+
 /* Pointer to next target in the chain, e.g. a core file and an exec file.  */
 
 #define	target_next \
@@ -395,14 +399,6 @@ extern int
 build_section_table PARAMS ((bfd *, struct section_table **,
 			     struct section_table **));
 
-/* From inftarg.c */
-
-extern void
-host_convert_from_virtual PARAMS ((int, char *, char *));
-
-extern void
-host_convert_to_virtual PARAMS ((int, char *, char *));
-
 /* From mem-break.c */
 
 extern int
@@ -415,5 +411,14 @@ memory_insert_breakpoint PARAMS ((CORE_ADDR, char *));
 
 void
 noprocess PARAMS ((void));
+
+void
+find_default_attach PARAMS ((char *, int));
+
+void
+find_default_create_inferior PARAMS ((char *, char *, char **));
+
+struct target_ops *
+find_core_target PARAMS ((void));
 
 #endif	/* !defined (TARGET_H) */

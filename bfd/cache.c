@@ -1,6 +1,5 @@
-
 /* BFD library -- caching of file descriptors.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Hacked by Steve Chamberlain of Cygnus Support (steve@cygnus.com).
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -35,8 +34,6 @@ SECTION
 	handle. 
 
 */
-
-/* $Id: cache.c,v 1.18 1992/05/26 22:12:18 raeburn Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -93,7 +90,7 @@ bfd *bfd_last_cache;
  *
  */
 
-static void bfd_cache_delete();
+static void EXFUN(bfd_cache_delete,(bfd *));
 
 
 static void

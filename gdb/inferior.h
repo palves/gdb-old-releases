@@ -96,9 +96,6 @@ extern void
 kill_inferior PARAMS ((void));
 
 extern void
-kill_inferior_fast PARAMS ((void));
-
-extern void
 generic_mourn_inferior PARAMS ((void));
 
 extern void
@@ -125,6 +122,11 @@ close_exec_file PARAMS ((void));
 extern void
 reopen_exec_file PARAMS ((void));
 
+/* The `resume' routine should only be called in special circumstances.
+   Normally, use `proceed', which handles a lot of bookkeeping.  */
+extern void
+resume PARAMS ((int, int));
+
 /* From misc files */
 
 extern void
@@ -135,9 +137,6 @@ fetch_inferior_registers PARAMS ((int));
 
 extern void 
 solib_create_inferior_hook PARAMS ((void));
-
-extern void
-child_mourn_inferior PARAMS ((void));
 
 extern void
 child_terminal_info PARAMS ((char *, int));
@@ -154,7 +153,7 @@ terminal_inferior PARAMS ((void));
 extern void
 terminal_init_inferior PARAMS ((void));
 
-/* From infptrace.c or procfs.c */
+/* From infptrace.c */
 
 extern int
 attach PARAMS ((int));
@@ -174,24 +173,15 @@ call_ptrace PARAMS ((int, int, PTRACE_ARG3_TYPE, int));
 
 /* From procfs.c */
 
-#ifdef USE_PROC_FS
-
 extern int
 proc_iterate_over_mappings PARAMS ((int (*) (int, CORE_ADDR)));
 
-extern int
-proc_wait PARAMS ((int *));
+/* From fork-child.c */
 
 extern void
-inferior_proc_init PARAMS ((int));
-
-extern void
-proc_signal_handling_change PARAMS ((void));
-
-extern void
-proc_set_exec_trap PARAMS ((void));
-
-#endif
+fork_inferior PARAMS ((char *, char *, char **,
+		       void (*) (void),
+		       void (*) (int)));
 
 /* From inflow.c */
 
@@ -202,12 +192,6 @@ new_tty_prefork PARAMS ((char *));
 
 extern void
 start_remote PARAMS ((void));
-
-extern void
-child_create_inferior PARAMS ((char *, char *, char **));
-
-extern void
-child_attach PARAMS ((char *, int));
 
 extern void
 normal_stop PARAMS ((void));
@@ -333,13 +317,13 @@ extern int attach_flag;
 extern CORE_ADDR text_end;
 #define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
   ((pc) >= text_end - CALL_DUMMY_LENGTH         \
-   && (pc) < text_end + DECR_PC_AFTER_BREAK)
+   && (pc) <= text_end + DECR_PC_AFTER_BREAK)
 #else /* Not before text_end.  */
 #if CALL_DUMMY_LOCATION == AFTER_TEXT_END
 extern CORE_ADDR text_end;
 #define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
   ((pc) >= text_end   \
-   && (pc) < text_end + CALL_DUMMY_LENGTH + DECR_PC_AFTER_BREAK)
+   && (pc) <= text_end + CALL_DUMMY_LENGTH + DECR_PC_AFTER_BREAK)
 #else /* On stack.  */
 #define PC_IN_CALL_DUMMY(pc, sp, frame_address) \
   ((sp) INNER_THAN (pc) && (pc) INNER_THAN (frame_address))

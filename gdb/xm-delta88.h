@@ -1,5 +1,6 @@
 /* Host machine description for Motorola Delta 88 system, for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992
+   Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -32,10 +33,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define NBPG NBPC
 #define UPAGES USIZE
 
-/* Get rid of any system-imposed stack limit if possible.  */
-
-/*#define SET_STACK_LIMIT_HUGE*/
-
 /* This is the amount to subtract from u.u_ar0
    to get the offset in the core file of the register values.  */
 
@@ -45,11 +42,3 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define KERNEL_U_ADDR 0
 
-#define REGISTER_U_ADDR(addr, blockend, regno) \
-        (addr) = m88k_register_u_addr ((blockend),(regno));
-
-#define FETCH_INFERIOR_REGISTERS
-
-/* Address of end of stack space (in core files).  */
-
-#define STACK_END_ADDR 0xF0000000

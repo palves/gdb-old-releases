@@ -322,6 +322,27 @@ get_prev_frame_info (next_frame)
   prev->frame = address;
   prev->next_frame = prev->next ? prev->next->frame : 0;
 
+/* This change should not be needed, FIXME!  We should
+   determine whether any targets *need* INIT_FRAME_PC to happen
+   after INIT_EXTRA_FRAME_INFO and come up with a simple way to
+   express what goes on here.
+
+      INIT_EXTRA_FRAME_INFO is called from two places: create_new_frame
+      		(where the PC is already set up) and here (where it isn't).
+      INIT_FRAME_PC is only called from here, always after
+      		INIT_EXTRA_FRAME_INFO.
+   
+   The catch is the MIPS, where INIT_EXTRA_FRAME_INFO requires the PC
+   value (which hasn't been set yet).  Some other machines appear to
+   require INIT_EXTRA_FRAME_INFO before they can do INIT_FRAME_PC.  Phoo.
+
+   We shouldn't need INIT_FRAME_PC_FIRST to add more complication to
+   an already overcomplicated part of GDB.   gnu@cygnus.com, 15Sep92.  */
+
+#ifdef INIT_FRAME_PC_FIRST
+  INIT_FRAME_PC_FIRST (fromleaf, prev);
+#endif
+
 #ifdef INIT_EXTRA_FRAME_INFO
   INIT_EXTRA_FRAME_INFO(fromleaf, prev);
 #endif

@@ -80,6 +80,17 @@ BIT_FIELDS_4(
   short delta : 16)
 };
 
+struct op_brk_fmt
+{
+  BIT_FIELDS_4(
+  unsigned op: 6,
+  unsigned code: 10,
+ /* Kane states the breakpoint-code code field in BREAK is 20 bits.  Yet MIPS 
+    assemblers and debuggers only use ten bits.  */
+  unsigned illdefined: 10,
+  unsigned spec: 6)
+};
+
 struct fop_r_fmt
 {
 BIT_FIELDS_6(
@@ -106,10 +117,12 @@ struct mips_opcode
    "t" rt: target register
    "i" immediate
    "a" target address
+   "b" branch target address
    "c" branch condition
    "d" rd: destination register specifier
    "h" shamt: shift amount
    "f" funct: function field
+   "B" breakpoint code
 
   for fpu
    "S" fs source 1 register
@@ -145,7 +158,7 @@ struct mips_opcode mips_opcodes[] =
   {"jr",	op_func(0, 8),	op_func(0x3f, 0x1fffff),	"s", 1},
   {"jalr",	op_func(0, 9),	op_func(0x3f, 0x1f07ff),	"d,s", 1},
   {"syscall",	op_func(0, 12),	op_func(0x3f, 0x3f),		"", 0},
-  {"break",	op_func(0, 13),	op_func(0x3f, 0x3f),		"", 0},
+  {"break",	op_func(0, 13),	op_func(0x3f, 0x3f),		"B", 0},
   {"mfhi",      op_func(0, 16), op_func(0x3f, 0x03ff07ff),      "d", 0},
   {"mthi",      op_func(0, 17), op_func(0x3f, 0x1fffff),        "s", 0},
   {"mflo",      op_func(0, 18), op_func(0x3f, 0x03ff07ff),      "d", 0},

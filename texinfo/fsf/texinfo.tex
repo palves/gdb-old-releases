@@ -1,6 +1,6 @@
 %% TeX macros to handle texinfo files
 
-%   Copyright (C) 1985, 1986, 1988, 1990, 1991 Free Software Foundation, Inc.
+%   Copyright (C) 1985, 86, 88, 90, 91, 92 Free Software Foundation, Inc.
 
 %This texinfo.tex file is free software; you can redistribute it and/or
 %modify it under the terms of the GNU General Public License as
@@ -22,7 +22,7 @@
 %You are forbidden to forbid anyone else to use, share and improve
 %what you give them.   Help stamp out software-hoarding!
 
-\def\texinfoversion{2.72}
+\def\texinfoversion{2.84}
 \message{Loading texinfo package [Version \texinfoversion]:}
 \message{}
 
@@ -53,6 +53,10 @@
 % If this character appears in an error message or help string, it
 % starts a new line in the output.
 \newlinechar = `^^J
+
+% Ignore a token.
+% 
+\def\gobble#1{}
 
 \hyphenation{ap-pen-dix}
 \hyphenation{mini-buf-fer mini-buf-fers}
@@ -160,27 +164,83 @@
 \def\nsbot{\vbox
   {\hrule height\cornerlong depth\cornerthick width\cornerthick}}
 
-% Parse an argument, then pass it to #1.
-% The argument can be delimited with [...] or with "..." or braces
-% or it can be a whole line.
-% #1 should be a macro which expects
-% an ordinary undelimited TeX argument.
+% Parse an argument, then pass it to #1.  The argument is the rest of
+% the input line (except we remove a trailing comment).  #1 should be a
+% macro which expects an ordinary undelimited TeX argument.
+%
+\def\parsearg#1{%
+  \let\next = #1%
+  \begingroup
+    \obeylines
+    \futurelet\temp\parseargx
+}
 
-\def\parsearg #1{\let\next=#1\begingroup\obeylines\futurelet\temp\parseargx}
-
+% If the next token is an obeyed space (from an @example environment or
+% the like), remove it and recurse.  Otherwise, we're done.
 \def\parseargx{%
-\ifx \obeyedspace\temp \aftergroup\parseargdiscardspace \else%
-\aftergroup \parseargline %
-\fi \endgroup}
+  \ifx\obeyedspace\temp
+    \expandafter\parseargdiscardspace
+  \else
+    \expandafter\parseargline
+  \fi
+}
 
+% Remove a single space (as the delimiter token to the macro call).
 {\obeyspaces %
-\gdef\parseargdiscardspace {\begingroup\obeylines\futurelet\temp\parseargx}}
+ \gdef\parseargdiscardspace {\futurelet\temp\parseargx}}
 
 \gdef\obeyedspace{\ }
 
-\def\parseargline{\begingroup \obeylines \parsearglinex}
 {\obeylines %
-\gdef\parsearglinex #1^^M{\endgroup \next {#1}}}
+  \gdef\parseargline#1^^M{%
+    \endgroup % End of the group started in \parsearg.
+    %
+    % First remove any @c comment, then any @comment.
+    % Result of each macro is put in \toks0.
+    \argremovec #1\c\relax %
+    \expandafter\argremovecomment \the\toks0 \comment\relax %
+    %
+    % Call the caller's macro, saved as \next in \parsearg.
+    \expandafter\next\expandafter{\the\toks0}%
+  }%
+}
+
+% Since all \c{,omment} does is throw away the argument, we can let TeX
+% do that for us.  The \relax here is matched by the \relax in the call
+% in \parseargline; it could be more or less anything, its purpose is
+% just to delimit the argument to the \c.
+\def\argremovec#1\c#2\relax{\toks0 = {#1}}
+\def\argremovecomment#1\comment#2\relax{\toks0 = {#1}}
+
+% \argremovec{,omment} might leave us with trailing spaces, though; e.g.,
+%    @end itemize  @c foo
+% will have two active spaces as part of the argument with the
+% `itemize'.  Here we remove all active spaces from #1, and assign the
+% result to \toks0.
+%
+% This loses if there are any *other* active characters besides spaces
+% in the argument -- _ ^ +, for example -- since they get expanded.
+% Fortunately, Texinfo does not define any such commands.  (If it ever
+% does, the catcode of the characters in questionwill have to be changed
+% here.)  But this means we cannot call \removeactivespaces as part of
+% \argremovec{,omment}, since @c uses \parsearg, and thus the argument
+% that \parsearg gets might well have any character at all in it.
+% 
+\def\removeactivespaces#1{%
+  \begingroup
+    \ignoreactivespaces
+    \edef\temp{#1}%
+    \global\toks0 = \expandafter{\temp}%
+  \endgroup
+}
+
+% Change the active space to expand to nothing.
+% 
+\begingroup
+  \obeyspaces
+  \gdef\ignoreactivespaces{\obeyspaces\let =\empty}
+\endgroup
+
 
 \def\flushcr{\ifx\par\lisppar \def\next##1{}\else \let\next=\relax \fi \next}
 
@@ -192,7 +252,7 @@
 \endgroup\fi} % This is not perfect, but it should reduce lossage
 
 % @begin foo  is the same as @foo, for now.
-\newhelp\EMsimple{Type <Return> to continue}
+\newhelp\EMsimple{Type <Return> to continue.}
 
 \outer\def\begin{\parsearg\beginxxx}
 
@@ -201,19 +261,29 @@
 {\errhelp=\EMsimple \errmessage{Undefined command @begin #1}}\else
 \csname #1\endcsname\fi}
 
-%% @end foo executes the definition of \Efoo.
-%% foo can be delimited by doublequotes or brackets.
-
+% @end foo executes the definition of \Efoo.
+%
 \def\end{\parsearg\endxxx}
-
 \def\endxxx #1{%
-\expandafter\ifx\csname E#1\endcsname\relax
-\expandafter\ifx\csname #1\endcsname\relax
-\errmessage{Undefined command @end #1}\else
-\errorE{#1}\fi\fi
-\csname E#1\endcsname}
-\def\errorE#1{
-{\errhelp=\EMsimple \errmessage{@end #1 not within #1 environment}}}
+  \removeactivespaces{#1}%
+  \edef\endthing{\the\toks0}%
+  %
+  \expandafter\ifx\csname E\endthing\endcsname\relax
+    \expandafter\ifx\csname \endthing\endcsname\relax
+      % There's no \foo, i.e., no ``environment'' foo.
+      \errhelp = \EMsimple
+      \errmessage{Undefined command `@end \endthing'}%
+    \else
+      % There is an environment foo, but it hasn't been started.
+      \errhelp = \EMsimple
+      \errmessage{This `@end \endthing' doesn't have a matching `@\endthing'}%
+    \fi
+  \else
+    % Everything's ok; the right environment has been started.
+    \csname E\endthing\endcsname
+  \fi
+}
+
 
 % Single-spacing is done by various environments.
 
@@ -230,10 +300,12 @@
 % Kludge this until the fonts are right (grr).
 \def\@{{\tt \char '100}}
 
-% Define @` and @' to be the same as ` and '
-% but suppressing ligatures.
-\def\`{{`}}
-\def\'{{'}}
+% This is turned off because it was never documented
+% and you can use @w{...} around a quote to suppress ligatures.
+%% Define @` and @' to be the same as ` and '
+%% but suppressing ligatures.
+%\def\`{{`}}
+%\def\'{{'}}
 
 % Used to generate quoted braces.
 
@@ -269,8 +341,26 @@
     \errhelp = \groupinvalidhelp
     \errmessage{@group invalid in context where filling is enabled}%
   \fi
-  \def\Egroup{\egroup\endgroup}%
+  %
+  % If we don't do the \strut ... \nointerlineskip, we wind up with a
+  % box with a large depth, and hence get (typically) \lineskip leading
+  % (1pt), instead of the usual interline space (\baselineskip).  See
+  % p.82 of the TeXbook.
+  \def\Egroup{%
+    \strut            % Put in the normal leading.
+    \egroup           % End the \vtop.
+    \endgroup         % End the \group.
+    \nointerlineskip  % We inserted our own leading.
+  }%
+  %
   \vtop\bgroup
+    % We do @comment here in case we are called inside an environment,
+    % such as @example, where each end-of-line in the input causes an
+    % end-of-line in the output.  We don't want the end-of-line after
+    % the `@group' to put extra space in the output.  Since @group
+    % should appear on a line by itself (according to the Texinfo
+    % manual), we don't worry about eating any user text.
+    \comment
 }
 %
 % TeX puts in an \escapechar (i.e., `@') at the beginning of the help
@@ -433,32 +523,51 @@ where each line of input produces a line of output.}
 \def\ifset{\begingroup\ignoresections\parsearg\ifsetxxx}
 
 \def\ifsetxxx #1{\endgroup
-\expandafter\ifx\csname IF#1\endcsname\relax \let\temp=\ifsetfail
+\expandafter\ifx\csname SET#1\endcsname\relax \let\temp=\ifsetfail
 \else \let\temp=\relax \fi
 \temp}
 \def\Eifset{}
-\def\ifsetfail{\begingroup\ignoresections\ifsetfailxxx}
+\def\ifsetfail{\begingroup\ignoresections
+% Make sure that spaces turn into tokens that match what \ifsetfailxxx wants.
+\catcode32=10
+\ifsetfailxxx}
 \long\def\ifsetfailxxx #1\end ifset{\endgroup\ignorespaces}
 
 \def\ifclear{\begingroup\ignoresections\parsearg\ifclearxxx}
 
 \def\ifclearxxx #1{\endgroup
-\expandafter\ifx\csname IF#1\endcsname\relax \let\temp=\relax
+\expandafter\ifx\csname SET#1\endcsname\relax \let\temp=\relax
 \else \let\temp=\ifclearfail \fi
 \temp}
 \def\Eifclear{}
-\def\ifclearfail{\begingroup\ignoresections\ifclearfailxxx}
+\def\ifclearfail{\begingroup\ignoresections
+% Make sure that spaces turn into tokens that match what \ifclearfailxxx wants.
+\catcode32=10
+\ifclearfailxxx}
 \long\def\ifclearfailxxx #1\end ifclear{\endgroup\ignorespaces}
 
-% @set foo     to set the flag named foo.
+% @set foo
+%       to set the flag named foo to a default value (empty)
+% @set foo REST-OF-LINE
+%	to set the flag named foo to a text string REST-OF-LINE
 % @clear foo   to clear the flag named foo.
+% @value{foo} to set the text saved in foo
+%
+% @set command, work macro \setyyy
+%
+\def\setyyy#1 #2\endsetyyy{\expandafter\xdef\csname SET#1\endcsname{#2\unskip}}
+%
+\def\setxxx#1{\setyyy#1 \endsetyyy}
 \def\set{\parsearg\setxxx}
-\def\setxxx #1{
-\expandafter\let\csname IF#1\endcsname=\set}
 
 \def\clear{\parsearg\clearxxx}
 \def\clearxxx #1{
-\expandafter\let\csname IF#1\endcsname=\relax}
+\expandafter\let\csname SET#1\endcsname=\relax}
+
+\def\value#1{\expandafter
+		\ifx\csname SET#1\endcsname\relax
+			{\{No value for ``#1''\}}
+		\else \csname SET#1\endcsname \fi}
 
 % Some texinfo constructs that are trivial in tex
 
@@ -1522,15 +1631,29 @@ July\or August\or September\or October\or November\or December\fi
 \def\entry #1#2{\begingroup
   \parfillskip=0in \parskip=0in \parindent=0in
   %
-  % \hangindent is only relevant when the page number and the entry text
-  % don't fit on one line.  In that case, bob suggests starting the dots
-  % pretty far over on the line.
-  % \hangafter is reset to 1 at the start of each paragraph.
-  \hangindent=.75\hsize
+  % Do not prefer a separate line ending with a hyphen to fewer lines.
+  \finalhyphendemerits = 0
+  %
+  % \hangindent is only relevant when the entry text and page number
+  % don't both fit on one line.  In that case, bob suggests starting the
+  % dots pretty far over on the line.  Unfortunately, a large
+  % indentation looks wrong when the entry text itself is broken across
+  % lines.  So we use a small indentation and put up with long leaders.
+  % 
+  % \hangafter is reset to 1 (which is the value we want) at the start
+  % of each paragraph, so we need not do anything with that.
+  \hangindent=2em
+  %
+  % When the entry text needs to be broken, just fill out the first line
+  % with blank space.
+  \rightskip = 0pt plus1fil
+  %
+  % Start a ``paragraph'' for the index entry so the line breaking
+  % parameters we've set above will have an effect.
   \noindent
   %
-  % Don't break the text of the index entry.
-  \hbox{#1}%
+  % Insert the text of the index entry.  TeX will do line-breaking on it.
+  #1%
   %
   % If we must, put the page number on a line of its own, and fill out
   % this line with blank space.  (The \hfil is overwhelmed with the
@@ -1539,7 +1662,8 @@ July\or August\or September\or October\or November\or December\fi
   \null\nobreak\indexdotfill % Have leaders before the page number.
   %
   % The `\ ' here is removed by the implicit \unskip that TeX does as
-  % part of (the primitive) \par.  Without, a spurious underfull \hbox ensues.
+  % part of (the primitive) \par.  Without it, a spurious underfull
+  % \hbox ensues.
   \ #2% The page number ends the paragraph.
   \par
 \endgroup}
@@ -1559,20 +1683,49 @@ July\or August\or September\or October\or November\or December\fi
 }}
 
 %% Define two-column mode, which is used in indexes.
-%% Adapted from the TeXBook, page 416
+%% Adapted from the TeXbook, page 416.
 \catcode `\@=11
 
 \newbox\partialpage
 
-\newdimen\doublecolumnhsize  \doublecolumnhsize = 3.11in
-\newdimen\doublecolumnvsize  \doublecolumnvsize = 19.1in
+\newdimen\doublecolumnhsize
 \newdimen\availdimen@
 
 \def\begindoublecolumns{\begingroup
-  \output={\global\setbox\partialpage=
-    \vbox{\unvbox255\kern -\topskip \kern \baselineskip}}\eject
+  % Grab any single-column material above us.
+  \output = {\global\setbox\partialpage
+    =\vbox{\unvbox255\kern -\topskip \kern \baselineskip}}%
+  \eject
+  %
+  % Now switch to the double-column output routine.
   \output={\doublecolumnout}%
-  \hsize=\doublecolumnhsize \vsize=\doublecolumnvsize}
+  %
+  % Change the page size parameters.  We could do this once outside this
+  % routine, in each of @smallbook, @afourpaper, and the default 8.5x11
+  % format, but then we repeat the same computation.  Repeating a couple
+  % of assignments once per index is clearly meaningless for the
+  % execution time, so we may as well do it once.
+  % 
+  % First we halve the line length, less a little for the gutter between
+  % the columns.  We compute the gutter based on the line length, so it
+  % changes automatically with the paper format.  The magic constant
+  % below is chosen so that the gutter has the same value (well, +- <
+  % 1pt) as it did when we hard-coded it.
+  % 
+  % We put the result in a separate register, \doublecolumhsize, so we
+  % can restore it in \pagesofar, after \hsize itself has (potentially)
+  % been clobbered.
+  % 
+  \doublecolumnhsize = \hsize
+    \advance\doublecolumnhsize by -.04154\hsize
+    \divide\doublecolumnhsize by 2
+  \hsize = \doublecolumnhsize
+  %
+  % Double the \vsize as well.  (We don't need a separate register here,
+  % since nobody clobbers \vsize.)
+  \vsize = 2\vsize
+}
+
 \def\enddoublecolumns{\output={\balancecolumns}\eject
   \endgroup \pagegoal=\vsize}
 
@@ -2029,11 +2182,11 @@ July\or August\or September\or October\or November\or December\fi
 
 \newskip\contentsrightmargin \contentsrightmargin=1in
 \def\startcontents#1{%
+   \pagealignmacro
+   \immediate\closeout \contentsfile
    \ifnum \pageno>0
       \pageno = -1		% Request roman numbered pages.
    \fi
-   \pagealignmacro
-   \immediate\closeout \contentsfile
    % Don't need to put `Contents' or `Short Contents' in the headline. 
    % It is abundantly clear what they are.
    \unnumbchapmacro{#1}\def\thischapter{}%
@@ -2087,7 +2240,29 @@ July\or August\or September\or October\or November\or December\fi
 \def\shortchapentry#1#2#3{%
    \vbox{\hyphenpenalty=10000\tolerance=5000
     \parindent=0pt\strut\raggedright
-    {#2\labelspace #1}\dotfill\doshortpageno{#3}}%
+    {\shortchaplabel{#2}\labelspace #1}\dotfill\doshortpageno{#3}}%
+}
+
+% Typeset the label for a chapter or appendix for the short contents.
+% The arg is, e.g. `Appendix A' for an appendix, or `3' for a chapter.
+% We could simplify the code here by writing out an \appendixentry
+% command in the toc file for appendices, instead of using \chapentry
+% for both, but it doesn't seem worth it.
+\setbox0 = \hbox{\shortcontrm Appendix }
+\newdimen\shortappendixwidth \shortappendixwidth = \wd0
+
+\def\shortchaplabel#1{%
+  % We typeset #1 in a box of constant width, regardless of the text of
+  % #1, so the chapter titles will come out aligned.
+  \setbox0 = \hbox{#1}%
+  \dimen0 = \ifdim\wd0 > \shortappendixwidth \shortappendixwidth \else 0pt \fi
+  %
+  % This space should be plenty, since a single number is .5em, and the
+  % widest letter (M) is 1em, at least in the Computer Modern fonts.
+  % (This space doesn't include the extra space that gets added after
+  % the label; that gets put in in \shortchapentry above.)
+  \advance\dimen0 by 1.1em
+  \hbox to \dimen0{#1\hfil}%
 }
 
 \def\unnumbchapentry#1#2{\dochapentry{#1}{#2}}
@@ -2263,13 +2438,15 @@ July\or August\or September\or October\or November\or December\fi
 {\obeyspaces %
 \gdef\sepspaces{\def {\ }}}
 
-\newskip\aboveenvskipamount \aboveenvskipamount= 0pt
-\def\aboveenvbreak{{\advance\aboveenvskipamount by \parskip
-\endgraf \ifdim\lastskip<\aboveenvskipamount
-\removelastskip \penalty-50 \vskip\aboveenvskipamount \fi}}
+% This space is always present above and below environments.
+\newskip\envskipamount \envskipamount = 0pt
 
-\def\afterenvbreak{\endgraf \ifdim\lastskip<\aboveenvskipamount
-\removelastskip \penalty-50 \vskip\aboveenvskipamount \fi}
+% Make spacing and below environment symmetrical.
+\def\aboveenvbreak{{\advance\envskipamount by \parskip
+\endgraf \ifdim\lastskip<\envskipamount
+\removelastskip \penalty-50 \vskip\envskipamount \fi}}
+
+\let\afterenvbreak = \aboveenvbreak
 
 % \nonarrowing is a flag.  If "set", @lisp etc don't narrow margins.
 \let\nonarrowing=\relax
@@ -2356,14 +2533,17 @@ July\or August\or September\or October\or November\or December\fi
 \fi
 \parindent=0pt
 \obeyspaces \obeylines \tt \rawbackslash
-\def\next##1{}\next}
+\gobble
+}
 
-
-\let\example=\lisp
-\def\Eexample{\Elisp}
-
-\let\smallexample=\lisp
-\def\Esmallexample{\Elisp}
+% Define the \E... control sequence only if we are inside the
+% environment, so the error checking in \end will work.
+% 
+% We must call \lisp last in the definition, since it reads the
+% return following the @example (or whatever) command.
+%
+\def\example{\begingroup \def\Eexample{\Elisp\endgroup}\lisp}
+\def\smallexample{\begingroup \def\Esmallexample{\Elisp\endgroup}\lisp}
 
 % Macro for 9 pt. examples, necessary to print with 5" lines.
 % From Pavel@xerox.  This is not really used unless the
@@ -2502,7 +2682,18 @@ July\or August\or September\or October\or November\or December\fi
 \def\activeparens{%
 \catcode`\(=\active \catcode`\)=\active \catcode`\&=\active
 \catcode`\[=\active \catcode`\]=\active}
+
+% Make control sequences which act like normal parenthesis chars.
+\let\lparen = ( \let\rparen = )
+
 {\activeparens % Now, smart parens don't turn on until &foo (see \amprm)
+
+% Be sure that we always have a definition for `(', etc.  For example,
+% if the fn name has parens in it, \boldbrax will not be in effect yet,
+% so TeX would otherwise complain about undefined control sequence.
+\global\let(=\lparen \global\let)=\rparen
+\global\let[=\lbrack \global\let]=\rbrack
+
 \gdef\functionparens{\boldbrax\let&=\amprm\parencount=0 }
 \gdef\boldbrax{\let(=\opnr\let)=\clnr\let[=\lbrb\let]=\rbrb}
 
@@ -3080,6 +3271,8 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \catcode `\$=\other
 \catcode `\#=\other
 \catcode `\&=\other
+% `\+ does not work, so use 43.
+\catcode 43=\other
 % the aux file uses ' as the escape.
 % Turn off \ as an escape so we do not lose on
 % entries which were dumped with control sequences in their names.
@@ -3131,6 +3324,60 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 
 }%end \catcode `\@=11
 
+% Set the baselineskip to #1, and the lineskip and strut size
+% correspondingly.  There is no deep meaning behind these magic numbers
+% used as factors; they just match (closely enough) what Knuth defined.
+% 
+\def\lineskipfactor{.1}
+\def\strutheightpercent{.71}
+\def\strutdepthpercent{.29}
+%
+\def\setleading#1{%
+  \baselineskip = #1\relax
+  \normalbaselineskip = \baselineskip
+  \lineskip = \lineskipfactor\baselineskip
+  \setbox\strutbox =\hbox{%
+    \vrule width0pt height\strutheightpercent\baselineskip
+                    depth \strutdepthpercent \baselineskip
+  }%
+}
+
+% @| inserts a changebar to the left of the current line.  It should
+% surround any changed text.  This approach does *not* work if the
+% change spans more than two lines of output.  To handle that, we would
+% have adopt a much more difficult approach (putting marks into the main
+% vertical list for the beginning and end of each change).
+% 
+\def\|{%
+  % \vadjust can only be used in horizontal mode.
+  \leavevmode
+  %
+  % Append this vertical mode material after the current line in the output.
+  \vadjust{%
+    % We want to insert a rule with the height and depth of the current
+    % leading; that is exactly what \strutbox is supposed to record.
+    \vskip-\baselineskip
+    %
+    % \vadjust-items are inserted at the left edge of the type.  So
+    % the \llap here moves out into the left-hand margin.
+    \llap{%
+      %
+      % For a thicker or thinner bar, change the `1pt'.
+      \vrule height\baselineskip width1pt
+      %
+      % This is the space between the bar and the text.
+      \hskip 12pt
+    }%
+  }%
+}
+
+% For a final copy, take out the rectangles
+% that mark overfull boxes (in case you have decided
+% that the text looks ok even though it passes the margin).
+% 
+\def\finalout{\overfullrule=0pt}
+
+
 % End of control word definitions.
 
 \message{and turning on texinfo input format.}
@@ -3150,7 +3397,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \newdimen\defaultparindent \defaultparindent = 15pt
 \parindent = \defaultparindent
 \parskip 18pt plus 1pt
-\baselineskip 15pt
+\setleading{15pt}
 \advance\topskip by 1.2cm
 
 % Prevent underfull vbox error messages.
@@ -3172,12 +3419,17 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 
 % Use @smallbook to reset parameters for 7x9.5 format  (or else 7x9.25)
 \def\smallbook{
+
+% These values for secheadingskip and subsecheadingskip are
+% experiments.  RJC 7 Aug 1992
+\global\secheadingskip = 17pt plus 6pt minus 3pt
+\global\subsecheadingskip = 14pt plus 6pt minus 3pt
+
 \global\lispnarrowing = 0.3in
-\global\baselineskip 12pt
+\setleading{12pt}
 \advance\topskip by -1cm
 \global\parskip 3pt plus 1pt
 \global\hsize = 5in
-\global\doublecolumnhsize=2.4in \global\doublecolumnvsize=15.0in
 \global\vsize=7.5in
 \global\tolerance=700
 \global\hfuzz=1pt
@@ -3195,7 +3447,7 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \def\afourpaper{
 \global\tolerance=700
 \global\hfuzz=1pt
-\global\baselineskip=12pt
+\setleading{12pt}
 \global\parskip 15pt plus 1pt
 
 \global\vsize= 53\baselineskip
@@ -3206,21 +3458,10 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \global\advance\outerhsize by 0.5in
 \global\outervsize=\vsize
 \global\advance\outervsize by 0.6in
-\global\doublecolumnhsize=\hsize
-\global\divide\doublecolumnhsize by 2
-\global\advance\doublecolumnhsize by -0.1in
-\global\doublecolumnvsize=\vsize
-\global\multiply\doublecolumnvsize by 2
-\global\advance\doublecolumnvsize by 0.1in
 
 \global\pagewidth=\hsize
 \global\pageheight=\vsize
 }
-
-%% For a final copy, take out the rectangles
-%% that mark overfull boxes (in case you have decided
-%% that the text looks ok even though it passes the margin).
-\def\finalout{\overfullrule=0pt}
 
 % Define macros to output various characters with catcode for normal text.
 \catcode`\"=\other

@@ -145,8 +145,18 @@ static int have_regs = 0;	/* 1 iff regs read since i960 last halted */
 static int regs_changed = 0;	/* 1 iff regs were modified since last read */
 
 extern char *exists();
-static void dcache_flush (), dcache_poke (), dcache_init();
-static int dcache_fetch ();
+
+static void
+dcache_flush (), dcache_poke (), dcache_init();
+
+static int
+dcache_fetch ();
+
+static void
+nindy_fetch_registers PARAMS ((int));
+
+static void
+nindy_store_registers PARAMS ((int));
 
 /* FIXME, we can probably use the normal terminal_inferior stuff here.
    We have to do terminal_inferior and then set up the passthrough
@@ -276,40 +286,40 @@ nindy_load( filename, from_tty )
     char *filename;
     int from_tty;
 {
-  char *tmpfile;
-  struct cleanup *old_chain;
-  char *scratch_pathname;
-  int scratch_chan;
+  asection *s;
+  /* Can't do unix style forking on a VMS system, so we'll use bfd to do
+     all the work for us 
+     */
 
-  if (!filename)
-    filename = get_exec_file (1);
-
-  filename = tilde_expand (filename);
-  make_cleanup (free, filename);
-
-  scratch_chan = openp (getenv ("PATH"), 1, filename, O_RDONLY, 0,
-			&scratch_pathname);
-  if (scratch_chan < 0)
-    perror_with_name (filename);
-  close (scratch_chan);		/* Slightly wasteful FIXME */
-
-  have_regs = regs_changed = 0;
-  mark_breakpoints_out();
-  inferior_pid = 0;
-  dcache_flush();
-
-  tmpfile = coffstrip(scratch_pathname);
-  if ( tmpfile ){
-	  old_chain = make_cleanup (unlink,tmpfile);
-	  immediate_quit++;
-	  ninDownload( tmpfile, !from_tty );
-/* FIXME, don't we want this merged in here? */
-	  immediate_quit--;
-	  do_cleanups (old_chain);
+  bfd *file = bfd_openr(filename,0);
+  if (!file) 
+  {
+    perror_with_name(filename);
+    return;
   }
+  
+  if (!bfd_check_format(file, bfd_object)) 
+  {
+    error("can't prove it's an object file\n");
+    return;
+  }
+  
+  for ( s = file->sections; s; s=s->next) 
+  {
+    if (s->flags & SEC_LOAD) 
+    {
+      char *buffer = xmalloc(s->_raw_size);
+      bfd_get_section_contents(file, s, buffer, 0, s->_raw_size);
+      printf("Loading section %s, size %x vma %x\n",
+	     s->name, 
+	     s->_raw_size,
+	     s->vma);
+      ninMemPut(s->vma, buffer, s->_raw_size);
+      free(buffer);
+    }
+  }
+  bfd_close(file);
 }
-
-
 
 /* Return the number of characters in the buffer before the first DLE character.
  */
@@ -355,7 +365,7 @@ nindy_resume (step, siggnal)
  * Return to caller, storing status in 'status' just as `wait' would.
  */
 
-void
+static int
 nindy_wait( status )
     WAITTYPE *status;
 {
@@ -456,6 +466,7 @@ nindy_wait( status )
 		}
 		WSETSTOP( (*status), stop_code );
 	}
+	return inferior_pid;
 }
 
 /* Read the remote registers into the block REGS.  */
@@ -470,7 +481,7 @@ struct nindy_regs {
   char	fp_as_double[4 * 8];
 };
 
-static int
+static void
 nindy_fetch_registers(regno)
      int regno;
 {
@@ -497,16 +508,16 @@ nindy_fetch_registers(regno)
   }
 
   registers_fetched ();
-  return 0;
 }
 
 static void
 nindy_prepare_to_store()
 {
-  nindy_fetch_registers(-1);
+  /* Fetch all regs if they aren't already here.  */
+  read_register_bytes (0, NULL, REGISTER_BYTES);
 }
 
-static int
+static void
 nindy_store_registers(regno)
      int regno;
 {
@@ -536,7 +547,6 @@ nindy_store_registers(regno)
   immediate_quit++;
   ninRegsPut( (char *) &nindy_regs );
   immediate_quit--;
-  return 0;
 }
 
 /* Read a word from remote address ADDR and return it.
@@ -933,7 +943,7 @@ specified when you started GDB.",
 	nindy_open, nindy_close,
 	0, nindy_detach, nindy_resume, nindy_wait,
 	nindy_fetch_registers, nindy_store_registers,
-	nindy_prepare_to_store, 0, 0, /* conv_from, conv_to */
+	nindy_prepare_to_store,
 	nindy_xfer_inferior_memory, nindy_files_info,
 	0, 0, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0,	/* Terminal crud */
@@ -942,6 +952,8 @@ specified when you started GDB.",
 	0, /* lookup_symbol */
 	nindy_create_inferior,
 	nindy_mourn_inferior,
+	0,		/* can_run */
+	0, /* notice_signals */
 	process_stratum, 0, /* next */
 	1, 1, 1, 1, 1,	/* all mem, mem, stack, regs, exec */
 	0, 0,			/* Section pointers */

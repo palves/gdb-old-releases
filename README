@@ -18,8 +18,5 @@ be configured here, do:
 
 	./configure -v myhosttype
 
-(Note that the currently distributed versions of most tools do not yet
- fit into this structure -- just GDB for now.  Others are on the way.)
-
-See cfg-paper.texi, and/or the README files in various subdirectories,
-for more details.
+See cfg-paper.texi, configure.texi, and/or the README files in various
+subdirectories, for more details.

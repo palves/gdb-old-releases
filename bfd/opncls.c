@@ -18,8 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: opncls.c,v 1.42 1992/05/12 21:42:43 sac Exp $ */
-
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
@@ -193,12 +191,13 @@ DEFUN(bfd_fdopenr,(filename, target, fd),
 #if defined(VMS) || defined(__GO32__)
   nbfd->iostream = (char *)fopen(filename, FOPEN_RB);
 #else
-#ifdef FASCIST_FDOPEN
-  nbfd->iostream = (char *) fdopen (fd, FOPEN_RB); 
-#else
-  /* if the fd were open for read only, this still would not hurt: */
-  nbfd->iostream = (char *) fdopen (fd, FOPEN_RUB); 
-#endif
+  /* (O_ACCMODE) parens are to avoid Ultrix header file bug */
+  switch (fdflags & (O_ACCMODE)) {
+  case O_RDONLY: nbfd->iostream = (char *) fdopen (fd, FOPEN_RB);   break;
+  case O_WRONLY: nbfd->iostream = (char *) fdopen (fd, FOPEN_RUB);  break;
+  case O_RDWR:   nbfd->iostream = (char *) fdopen (fd, FOPEN_RUB);  break;
+  default: abort ();
+  }
 #endif
   if (nbfd->iostream == NULL) {
     (void) obstack_free (&nbfd->memory, (PTR)0);

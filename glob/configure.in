@@ -12,37 +12,33 @@ configdirs=""
 files=sysdep-norm.h
 links=sysdep.h
 
-case "${host_os}" in
-aix*)
-	my_host=aix
-	case "${host_cpu}" in
-	rs6000)	files=sysdep-aix.h;;
-	esac
-	;;
-
-irix*)
-	files=sysdep-irix.h
-	;;
-
-newsos* | mach* | bsd*)
-	files=sysdep-obsd.h
-	;;
-
-sysv4*)
-	my_host=sysv4
-	;;
-
-sysv*)
-	case "${host_vendor}" in
-	sco*) 	files=sysdep-sco.h;;
-	apollo*)	files=sysdep-a68v.h
-			my_host=apollo68v ;;
-	esac
-	;;
-
-m88kbcs)
-	my_host=delta88
-	;;
+case "${host}" in
+  rs6000-ibm-aix) 
+    files=sysdep-aix.h
+    my_host=aix
+    ;;
+  *-*-aix*)
+    my_host=aix
+    ;;
+  mips-sgi-irix*)
+    files=sysdep-irix.h
+    ;;
+  m68k-sony-news* | *-*-mach* | *-*-bsd*)
+    files=sysdep-obsd.h
+    ;;
+  *-*-sysv4*)
+    my_host=sysv4 
+    ;;
+  *-*-sco*)
+    files=sysdep-sco.h 
+    ;;
+  *-apollo-sysv*)
+    files=sysdep-a68v.h
+    my_host=apollo68v 
+    ;;
+  m88k-motorola-m88kbcs)
+    my_host=delta88
+    ;;
 esac
 
 host_makefile_frag=config/mh-${my_host}

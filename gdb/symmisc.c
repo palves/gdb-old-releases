@@ -258,11 +258,12 @@ dump_psymtab (objfile, psymtab, outfile)
 
   /* FIXME, we need to be able to print the relocation stuff. */
   /* This prints some garbage for anything but stabs right now.  FIXME.  */
-  fprintf_filtered (outfile, "  Relocate symbols by 0x%x, 0x%x, 0x%x, 0x%x.\n",
-		    ANOFFSET (psymtab->section_offsets, 0),
-		    ANOFFSET (psymtab->section_offsets, 1),
-		    ANOFFSET (psymtab->section_offsets, 2),
-		    ANOFFSET (psymtab->section_offsets, 3));
+  if (psymtab->section_offsets)
+    fprintf_filtered (outfile, "  Relocate symbols by 0x%x, 0x%x, 0x%x, 0x%x.\n",
+		      ANOFFSET (psymtab->section_offsets, 0),
+		      ANOFFSET (psymtab->section_offsets, 1),
+		      ANOFFSET (psymtab->section_offsets, 2),
+		      ANOFFSET (psymtab->section_offsets, 3));
 
   fprintf_filtered (outfile, "  Symbols cover text addresses 0x%x-0x%x\n",
 		    psymtab -> textlow, psymtab -> texthigh);
@@ -325,6 +326,8 @@ dump_symtab (objfile, symtab, outfile)
 	fprintf (outfile, " (under 0x%x)", (unsigned int) BLOCK_SUPERBLOCK (b));
       if (BLOCK_FUNCTION (b))
 	fprintf (outfile, " %s", SYMBOL_NAME (BLOCK_FUNCTION (b)));
+      if (BLOCK_GCC_COMPILED(b))
+	fprintf (outfile, " gcc%d compiled", BLOCK_GCC_COMPILED(b));
       fputc ('\n', outfile);
       blen = BLOCK_NSYMS (b);
       for (j = 0; j < blen; j++)
@@ -823,10 +826,3 @@ add_psymbol_addr_to_list (name, namelength, namespace, class, listp, psymval)
 }
 
 #endif /* DEBUG */
-
-void
-_initialize_symmisc ()
-{
-  /* Nothing to do... */
-}
-

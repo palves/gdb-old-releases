@@ -106,4 +106,14 @@ extern CORE_ADDR kernel_u_addr;
 #define KERNEL_U_ADDR kernel_u_addr
 #endif
 
+/* The target vector for core files */
+extern struct target_ops core_ops;
+
+ /* target vector functions called directly from elsewhere */
+void
+core_open PARAMS ((char *, int));
+
+void
+core_detach PARAMS ((char *, int));
+
 #endif	/* !defined (GDBCORE_H) */

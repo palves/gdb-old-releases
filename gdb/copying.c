@@ -6,14 +6,14 @@
 #include "gdbcmd.h"
 
 static void
-copying_info PARAMS ((char *, int));
+show_copying_command PARAMS ((char *, int));
 
 static void
-warranty_info PARAMS ((char *, int));
+show_warranty_command PARAMS ((char *, int));
 
 extern int immediate_quit;
 static void
-copying_info (ignore, from_tty)
+show_copying_command (ignore, from_tty)
      char *ignore;
      int from_tty;
 {
@@ -279,7 +279,7 @@ copying_info (ignore, from_tty)
 }
 
 static void
-warranty_info (ignore, from_tty)
+show_warranty_command (ignore, from_tty)
      char *ignore;
      int from_tty;
 {
@@ -312,14 +312,16 @@ warranty_info (ignore, from_tty)
 void
 _initialize_copying ()
 {
-  add_info ("copying", copying_info,
-	    "Conditions for redistributing copies of GDB.");
-  add_info ("warranty", warranty_info,
-	    "Various kinds of warranty you do not have.");
-  add_cmd ("copying", no_class, copying_info,
+  add_cmd ("copying", no_class, show_copying_command,
 	   "Conditions for redistributing copies of GDB.",
 	   &showlist);
-  add_cmd ("warranty", no_class, warranty_info,
+  add_cmd ("warranty", no_class, show_warranty_command,
 	   "Various kinds of warranty you do not have.",
 	   &showlist);
+
+  /* For old-timers, allow "info copying", etc.  */
+  add_info ("copying", show_copying_command,
+	    "Conditions for redistributing copies of GDB.");
+  add_info ("warranty", show_warranty_command,
+	    "Various kinds of warranty you do not have.");
 }

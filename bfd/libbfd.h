@@ -71,6 +71,7 @@ PROTO(PTR, bfd_zalloc,(bfd *abfd, bfd_size_type size));
 PROTO(PTR, bfd_realloc,(bfd *abfd, PTR orig, bfd_size_type new));
 PROTO(void, bfd_alloc_grow,(bfd *abfd, PTR thing, bfd_size_type size));
 PROTO(PTR, bfd_alloc_finish,(bfd *abfd));
+PROTO(PTR, bfd_alloc_by_size_t,(bfd *abfd, size_t wanted));
 
 #define bfd_release(x,y) (void) obstack_free(&(x->memory),y)
 

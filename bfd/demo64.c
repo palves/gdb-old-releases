@@ -18,8 +18,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: demo64.c,v 1.6 1992/06/11 08:10:02 gnu Exp $ */
-
 /* Can only compile this if there is a 64 bit int type */
 #ifdef HOST_64_BIT
 #define ARCH_SIZE 64

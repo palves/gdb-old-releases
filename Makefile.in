@@ -26,6 +26,8 @@ bindir = $(exec_prefix)/bin
 libdir = $(exec_prefix)/lib
 tooldir = $(libdir)
 
+program_transform_name =
+
 datadir = $(prefix)/lib
 mandir = $(prefix)/man
 man1dir = $(mandir)/man1
@@ -47,24 +49,31 @@ INSTALL = install -c
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL)
 
+AS = as
 AR = ar
 AR_FLAGS = qc
 CFLAGS = -g
 RANLIB = ranlib
+NM = nm
 
-BISON = `if [ -d $${rootme}/byacc ] ; \
-	then echo $${rootme}/byacc/byacc ; \
-	else echo byacc ; fi`
+BISON = `if [ -f $${rootme}/byacc/byacc ] ; \
+	    then echo $${rootme}/byacc/byacc ; \
+	    else echo bison -y ; \
+	fi`
 
-LEX = `if [ -d $${rootme}/flex ] ; \
-	then echo $${rootme}/flex/flex -S$${rootme}/flex/flex.skel ; \
+LEX = `if [ -f $${rootme}/flex/flex ] ; \
+	then echo $${rootme}/flex/flex ; \
 	else echo flex ; fi`
 
-MAKEINFO = `if [ -d $${rootme}/texinfo/C ] ; \
+MAKEINFO = `if [ -f $${rootme}/texinfo/C/makeinfo ] ; \
 	then echo $${rootme}/texinfo/C/makeinfo ; \
 	else echo makeinfo ; fi`
 
-SUBDIRS = libiberty mmalloc readline bfd gdb binutils ld gas gcc libg++ libgcc clib newlib
+# C compiler to use to create programs which must be run in the build
+# environment.
+CC_FOR_BUILD = $(CC)
+
+SUBDIRS = libiberty mmalloc readline opcodes bfd gdb  binutils ld gas tgas gcc libg++ newlib
 OTHERS = 
 
 ALL = all.normal
@@ -73,17 +82,76 @@ INSTALL_TARGET = install.all
 ### for debugging
 #GCCVERBOSE=-v
 
-GXX = `if [ -d $${rootme}/gcc ] ; \
-	then echo $${rootme}/gcc/gcc -B$${rootme}/gcc/ ; \
-	else echo gcc ; fi`
+CC_FOR_TARGET = ` \
+  if [ -f $${rootme}/gcc/Makefile ] ; then \
+    echo $${rootme}/gcc/gcc -B$${rootme}/gcc/; \
+  else \
+    if [ "$(host_cpu)-$(host_vendor)-$(host_os)" = "$(target_cpu)-$(target_vendor)-$(target_os)" ] ; then \
+      echo $(CC); \
+    else \
+      t='$(program_transform_name)'; echo gcc | sed -e '' $$t; \
+    fi; \
+  fi`
 
-XTRAFLAGS = `if [ -d $${rootme}/gcc ] ; \
-	then echo -I$${rootme}/gcc/include ; \
-	else echo ; fi`
+AS_FOR_TARGET = ` \
+  if [ -f $${rootme}/gas/Makefile ] ; then \
+    echo $${rootme}/gas/as.new ; \
+  else \
+    if [ "$(host_cpu)-$(host_vendor)-$(host_os)" = "$(target_cpu)-$(target_vendor)-$(target_os)" ] ; then \
+      echo $(AS); \
+    else \
+       t='$(program_transform_name)'; echo as | sed -e '' $$t ; \
+    fi \
+  fi`
+
+AR_FOR_TARGET = ` \
+  if [ -f $${rootme}/binutils/Makefile ] ; then \
+    echo $${rootme}/binutils/ar ; \
+  else \
+    if [ "$(host_cpu)-$(host_vendor)-$(host_os)" = "$(target_cpu)-$(target_vendor)-$(target_os)" ] ; then \
+      echo $(AR); \
+    else \
+       t='$(program_transform_name)'; echo ar | sed -e '' $$t ; \
+    fi \
+  fi`
+
+RANLIB_FOR_TARGET = ` \
+  if [ -f $${rootme}/binutils/Makefile ] ; then \
+    echo $${rootme}/binutils/ranlib ; \
+  else \
+    if [ "$(host_cpu)-$(host_vendor)-$(host_os)" = "$(target_cpu)-$(target_vendor)-$(target_os)" ] ; then \
+      echo $(RANLIB); \
+    else \
+       t='$(program_transform_name)'; echo ranlib | sed -e '' $$t ; \
+    fi \
+  fi`
+
+NM_FOR_TARGET = ` \
+  if [ -f $${rootme}/binutils/Makefile ] ; then \
+    echo $${rootme}/binutils/nm ; \
+  else \
+    if [ "$(host_cpu)-$(host_vendor)-$(host_os)" = "$(target_cpu)-$(target_vendor)-$(target_os)" ] ; then \
+      echo $(NM); \
+    else \
+       t='$(program_transform_name)'; echo nm | sed -e '' $$t ; \
+    fi \
+  fi`
+
+XTRAFLAGS = ` \
+  if [ -f $${rootme}/gcc/Makefile ] ; then \
+    if [ -f $${rootme}/newlib/Makefile ] ; then \
+      echo -I$${rootme}/newlib/targ-include -I$${srcroot}/newlib/libc/include -I$${rootme}/gcc/include -nostdinc ; \
+    else \
+      echo -I$${rootme}/gcc/include ; \
+    fi ; \
+  else \
+     echo ; \
+  fi`
 
 #### host and target specific makefile fragments come in here.
 ###
 
+# Flags to pass down to sub-makes
 FLAGS_TO_PASS = \
 	"prefix=$(prefix)" \
 	"exec_prefix=$(exec_prefix)" \
@@ -100,119 +168,197 @@ FLAGS_TO_PASS = \
 	"MAKEINFO=$(MAKEINFO)" \
 	"INSTALL=$(INSTALL)" \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
-	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)"
+	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
+	"CC_FOR_BUILD=$(CC_FOR_BUILD)"
+
+# Flags to pass down to makes which are built with the target
+# environment (e.g. libg++, xiberty, newlib).
+TARGET_FLAGS_TO_PASS = \
+	"prefix=$(prefix)" \
+	"exec_prefix=$(exec_prefix)" \
+	"tooldir=$(tooldir)" \
+	"AR_FLAGS=$(AR_FLAGS)" \
+	"CFLAGS=$(CFLAGS)" \
+	"LOADLIBES=$(LOADLIBES)" \
+	"LDFLAGS=$(LDFLAGS)" \
+	"BISON=$(BISON)" \
+	"LEX=$(LEX)" \
+	"MAKEINFO=$(MAKEINFO)" \
+	"INSTALL=$(INSTALL)" \
+	"INSTALL_DATA=$(INSTALL_DATA)" \
+	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
+	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
+	"CC=$(CC_FOR_TARGET)" \
+	"AS=$(AS_FOR_TARGET)" \
+	"AR=$(AR_FOR_TARGET)" \
+	"RANLIB=$(RANLIB_FOR_TARGET)" \
+	"NM=$(NM_FOR_TARGET)" \
+	"XTRAFLAGS=$(XTRAFLAGS)"
+
+# The first rule in the file had better be this one.  Don't put any above it.
+all:	$(ALL)
 
 .PHONY: all info install-info clean-info
 .NOEXPORT:
 
-all:	$(ALL)
+info:	
+	@rootme=`pwd` ; export rootme ; $(MAKE) $(FLAGS_TO_PASS) subdir_do DO=info "DODIRS=$(SUBDIRS)" 
 
-info:	cfg-paper.info configure.info standards.info
-	@rootme=`pwd` ; export rootme ; $(MAKE) subdir_do DO=info "DODIRS=$(SUBDIRS)" $(FLAGS_TO_PASS)
-
-# Note libg++ has to be handled specially (we can't compile it with CC=cc).
 check:
-	@rootme=`pwd` ; export rootme ; $(MAKE) subdir_do DO=check \
-	  "DODIRS=`echo $(SUBDIRS) | sed -e \"s/libg\+\+//\"" $(FLAGS_TO_PASS)
-	@rootme=`pwd` ; export rootme ; $(MAKE) subdir_do DO=check \
-	  "DODIRS=libg++" $(FLAGS_TO_PASS) "CC=${GXX}" "XTRAFLAGS=${XTRAFLAGS}"
+	@rootme=`pwd` ; export rootme ; $(MAKE) $(FLAGS_TO_PASS) DO=check "DODIRS=$(SUBDIRS)" subdir_do
 
 clean-info:
-	@$(MAKE) subdir_do DO=clean-info "DODIRS=$(SUBDIRS)"
-	rm -f *.info*
-
-cfg-paper.info: cfg-paper.texi
-	rootme=`pwd` ; export rootme ; $(MAKEINFO) -o cfg-paper.info $(srcdir)/cfg-paper.texi
-
-configure.info: configure.texi
-	rootme=`pwd` ; export rootme ; $(MAKEINFO) -o configure.info $(srcdir)/configure.texi
-
-standards.info: standards.texi
-	rootme=`pwd` ; export rootme ; $(MAKEINFO) -o standards.info $(srcdir)/standards.texi
+	@rootme='pwd' ; export rootme ; $(MAKE) $(FLAGS_TO_PASS) DO=clean-info "DODIRS=$(SUBDIRS)" subdir_do
 
 install-info: install-info-dirs force
-	[ -d $(infodir) ] || mkdir $(infodir)
-	@$(MAKE) subdir_do DO=install-info "DODIRS=$(SUBDIRS)"
-	$(INSTALL_DATA) cfg-paper.info $(infodir)/cfg-paper.info
-	$(INSTALL_DATA) configure.info $(infodir)/configure.info
-	$(INSTALL_DATA) standards.info $(infodir)/standards.info
-	@$(MAKE) dir.info install-dir.info
+	-parent=`echo $(infodir)|sed -e 's@/[^/]*$$@@'`; \
+	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
+	-if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
+	@rootme='pwd' ; export rootme ; $(MAKE) $(FLAGS_TO_PASS) DO=install-info "DODIRS=$(SUBDIRS)" subdir_do
+	@rootme='pwd' ; export rootme ; $(MAKE) $(FLAGS_TO_PASS) dir.info install-dir.info
 
 install-dir.info:
+	-parent=`echo $(infodir)|sed -e 's@/[^/]*$$@@'`; \
+	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
+	-if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
 	$(INSTALL_DATA) dir.info $(infodir)/dir.info
 
 all.normal: all-autoconf all-libiberty all-mmalloc \
-	all-bison all-byacc all-flex all-bfd all-ld all-gas all-gcc \
-	all-binutils all-libg++ all-readline all-gdb \
+	all-byacc all-flex all-opcodes all-bfd all-ld all-gas all-tgas \
+	all-gcc all-binutils  all-libg++ all-readline all-gdb \
 	all-make all-rcs all-cvs all-diff all-grep \
-	all-patch all-emacs all-ispell \
-	all-newlib all-gprof all-send_pr
+	all-patch all-emacs all-ispell all-etc \
+	all-newlib all-gprof all-send_pr all-libm
 
-all.cross: all-libiberty all-mmalloc all-gas all-byacc all-ld \
-	all-bfd all-libgcc all-readline all-gdb all-newlib
-#	$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS) $(OTHERS)"
+all.cross: all-libiberty all-mmalloc all-gas all-byacc all-flex all-ld \
+	 all-opcodes all-bfd all-readline all-gdb all-binutils all-gcc \
+	all-newlib
 
 clean: clean-autoconf clean-libiberty clean-mmalloc \
 	clean-bfd clean-newlib clean-binutils clean-flex \
-	clean-bison clean-byacc clean-ld clean-gas \
-	clean-gcc clean-libgcc clean-readline clean-glob clean-gdb \
+	clean-byacc clean-ld clean-gas clean-etc clean-opcodes \
+	clean-gcc clean-readline clean-glob clean-gdb \
 	clean-make clean-diff clean-grep clean-rcs \
 	clean-cvs clean-patch clean-emacs clean-ispell \
-	clean-libg++ clean-gprof clean-send_pr
+	clean-libg++ clean-gprof clean-send_pr clean-libm clean-xiberty
 	-rm -rf *.a TEMP errs core *.o *~ \#* TAGS *.E
 
 clean-stamps:
 	-rm -f all-*
 
-install: $(INSTALL_TARGET) $(srcdir)/configure.man
-	$(INSTALL_DATA) $(srcdir)/configure.man $(man1dir)/configure.1
+install: $(INSTALL_TARGET) 
+	-parent=`echo $(man1dir)|sed -e 's@/[^/]*$$@@'`; \
+	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
+	-if [ -d $(man1dir) ] ; then true ; else mkdir $(man1dir) ; fi
 
+install.all: install-no-fixedincludes
+	@if [ -f ./gcc/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./gcc; \
+		$(MAKE) $(FLAGS_TO_PASS) install-headers) ; \
+	else \
+		true ; \
+	fi
 
-install.all: install-dirs install-autoconf \
-	install-mmalloc install-libiberty install-bfd install-binutils \
-	install-bison install-byacc install-flex install-ld \
-	install-gas install-gcc install-gprof install-libgcc \
-	install-readline install-glob install-gdb install-make \
-	install-cvs install-patch install-emacs install-ispell \
-	install-libg++ install-newlib \
-	install-send_pr
+install-no-fixedincludes: install-dirs gcc-no-fixedincludes \
+	install-autoconf \
+	install-bfd \
+	install-binutils \
+	install-opcodes \
+	install-byacc \
+	install-cvs \
+	install-diff \
+	install-emacs \
+	install-etc \
+	install-flex \
+	install-gas \
+	install-gdb \
+	install-glob \
+	install-gprof \
+	install-grep \
+	install-ispell \
+	install-ld \
+	install-libg++ \
+	install-libiberty \
+	install-libm \
+	install-make \
+	install-mmalloc \
+	install-newlib \
+	install-patch \
+	install-rcs \
+	install-readline \
+	install-send_pr \
+	install-texinfo 
+	
+gcc-no-fixedincludes:
+	@if [ -f ./gcc/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./gcc; \
+		$(MAKE) $(FLAGS_TO_PASS) install install-man \
+			"INSTALL_HEADERS=install-common-headers install-float-h install-limits-h") ; \
+	else \
+		true ; \
+	fi
 
 install.cross: install-dirs install-libiberty install-mmalloc \
-        install-binutils install-bison install-byacc install-flex \
-        install-ld install-gas install-libgcc install-readline \
-        install-glob install-gdb install-mmalloc install-gprof install-newlib install-gcc
+        install-binutils install-opcodes install-byacc install-flex \
+        install-ld install-gas install-readline \
+        install-glob install-gdb install-mmalloc \
+        install-newlib install-gcc install-etc
 
 ### autoconf
 all-autoconf: force
-	@if [ -d ./autoconf ] ; then \
+	@if [ -f ./autoconf/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
-		(cd ./autoconf; \
-		$(MAKE) $(FLAGS_TO_PASS) all) ; \
+		(cd ./autoconf; $(MAKE) $(FLAGS_TO_PASS) all) ; \
 	else \
 		true ; \
 	fi
 
 clean-autoconf: force
-	@if [ -d ./autoconf ] ; then \
+	@if [ -f ./autoconf/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
-		(cd ./autoconf; \
-		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
+		(cd ./autoconf;	$(MAKE) $(FLAGS_TO_PASS) clean) ; \
 	else \
 		true ; \
 	fi
 
 install-autoconf: force
-	@if [ -d ./autoconf ] ; then \
+	@if [ -f ./autoconf/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
-		(cd ./autoconf; \
-		$(MAKE) $(FLAGS_TO_PASS) install) ; \
+		(cd ./autoconf;	$(MAKE) $(FLAGS_TO_PASS) install) ; \
+	else \
+		true ; \
+	fi
+
+### etc
+all-etc: force
+	@if [ -f ./etc/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./etc; $(MAKE) $(FLAGS_TO_PASS) all) ; \
+	else \
+		true ; \
+	fi
+
+clean-etc: force
+	@if [ -f ./etc/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./etc; $(MAKE) $(FLAGS_TO_PASS) clean) ; \
+	else \
+		true ; \
+	fi
+
+install-etc: force
+	@if [ -f ./etc/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./etc; $(MAKE) $(FLAGS_TO_PASS) install) ; \
 	else \
 		true ; \
 	fi
 
 ### libiberty
 all-libiberty: force
-	@if [ -d ./libiberty ] ; then \
+	@if [ -f ./libiberty/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./libiberty; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -221,7 +367,7 @@ all-libiberty: force
 	fi
 
 clean-libiberty: force
-	@if [ -d ./libiberty ] ; then \
+	@if [ -f ./libiberty/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./libiberty; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -230,7 +376,7 @@ clean-libiberty: force
 	fi
 
 install-libiberty: force
-	@if [ -d ./libiberty ] ; then \
+	@if [ -f ./libiberty/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./libiberty; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -238,9 +384,40 @@ install-libiberty: force
 		true ; \
 	fi
 
+### xiberty
+all-xiberty: all-gcc all-newlib
+	@if [ -f ./xiberty/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd`; export srcroot ; \
+		(cd ./xiberty; \
+		$(MAKE) $(FLAGS_TO_PASS) all) ; \
+	else \
+		true ; \
+	fi
+
+clean-xiberty: force
+	@if [ -f ./xiberty/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd`; export srcroot ; \
+		(cd ./xiberty; \
+		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
+	else \
+		true ; \
+	fi
+
+install-xiberty: force
+	@if [ -f ./xiberty/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd`; export srcroot ; \
+		(cd ./xiberty; \
+		$(MAKE) $(FLAGS_TO_PASS) install) ; \
+	else \
+		true ; \
+	fi
+
 ### mmalloc
 all-mmalloc: force
-	@if [ -d ./mmalloc ] ; then \
+	@if [ -f ./mmalloc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./mmalloc; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -249,7 +426,7 @@ all-mmalloc: force
 	fi
 
 clean-mmalloc: force
-	@if [ -d ./mmalloc ] ; then \
+	@if [ -f ./mmalloc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./mmalloc; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -258,7 +435,7 @@ clean-mmalloc: force
 	fi
 
 install-mmalloc: force
-	@if [ -d ./mmalloc ] ; then \
+	@if [ -f ./mmalloc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./mmalloc; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -268,8 +445,7 @@ install-mmalloc: force
 
 ### texinfo
 all-texinfo: all-libiberty
-	@if [ -d ./texinfo ] ; then \
-		rootme=`pwd` ; export rootme ; \
+	@if [ -f ./texinfo/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./texinfo; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -278,7 +454,7 @@ all-texinfo: all-libiberty
 	fi
 
 clean-texinfo: force
-	@if [ -d ./texinfo ] ; then \
+	@if [ -f ./texinfo/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./texinfo; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -287,7 +463,7 @@ clean-texinfo: force
 	fi
 
 install-texinfo: force
-	@if [ -d ./texinfo ] ; then \
+	@if [ -f ./texinfo/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./texinfo; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -297,7 +473,7 @@ install-texinfo: force
 
 ### bfd
 all-bfd: force
-	@if [ -d ./bfd ] ; then \
+	@if [ -f ./bfd/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./bfd; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -306,7 +482,7 @@ all-bfd: force
 	fi
 
 clean-bfd: force
-	@if [ -d ./bfd ] ; then \
+	@if [ -f ./bfd/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./bfd; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -315,7 +491,7 @@ clean-bfd: force
 	fi
 
 install-bfd: force
-	@if [ -d ./bfd ] ; then \
+	@if [ -f ./bfd/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./bfd; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -323,9 +499,38 @@ install-bfd: force
 		true ; \
 	fi
 
+
+### opcodes
+all-opcodes: force
+	@if [ -f ./opcodes/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./opcodes; \
+		$(MAKE) $(FLAGS_TO_PASS) all) ; \
+	else \
+		true ; \
+	fi
+
+clean-opcodes: force
+	@if [ -f ./opcodes/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./opcodes; \
+		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
+	else \
+		true ; \
+	fi
+
+install-opcodes: force
+	@if [ -f ./opcodes/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./opcodes; \
+		$(MAKE) $(FLAGS_TO_PASS) install) ; \
+	else \
+		true ; \
+	fi
+
 ### binutils
-all-binutils: all-libiberty all-bfd all-flex
-	@if [ -d ./binutils ] ; then \
+all-binutils: all-opcodes all-libiberty all-bfd all-flex
+	@if [ -f ./binutils/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./binutils; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -334,7 +539,7 @@ all-binutils: all-libiberty all-bfd all-flex
 	fi
 
 clean-binutils: force
-	@if [ -d ./binutils ] ; then \
+	@if [ -f ./binutils/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./binutils; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -343,7 +548,7 @@ clean-binutils: force
 	fi
 
 install-binutils: force
-	@if [ -d ./binutils ] ; then \
+	@if [ -f ./binutils/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./binutils; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -352,36 +557,39 @@ install-binutils: force
 	fi
 
 ### newlib
-all-newlib: force
-	@if [ -d ./newlib ] ; then \
+all-newlib: all-binutils all-ld all-gas all-gcc
+	@if [ -f ./newlib/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd` ; export srcroot ; \
 		(cd ./newlib; \
-		$(MAKE) $(FLAGS_TO_PASS) all) ; \
+		$(MAKE) $(TARGET_FLAGS_TO_PASS) all) ; \
 	else \
 		true ; \
 	fi
 
 clean-newlib: force
-	@if [ -d ./newlib ] ; then \
+	@if [ -f ./newlib/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd` ; export srcroot ; \
 		(cd ./newlib; \
-		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
+		$(MAKE) $(TARGET_FLAGS_TO_PASS) clean) ; \
 	else \
 		true ; \
 	fi
 
 install-newlib: force
-	@if [ -d ./newlib ] ; then \
+	@if [ -f ./newlib/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd` ; export srcroot ; \
 		(cd ./newlib; \
-		$(MAKE)  install) ; \
+		$(MAKE) $(TARGET_FLAGS_TO_PASS) install) ; \
 	else \
 		true ; \
 	fi
 
 ### gprof
 all-gprof: all-libiberty all-bfd
-	@if [ -d ./gprof ] ; then \
+	@if [ -f ./gprof/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gprof; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -390,7 +598,7 @@ all-gprof: all-libiberty all-bfd
 	fi
 
 clean-gprof: force
-	@if [ -d ./gprof ] ; then \
+	@if [ -f ./gprof/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gprof; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -399,7 +607,7 @@ clean-gprof: force
 	fi
 
 install-gprof: force
-	@if [ -d ./gprof ] ; then \
+	@if [ -f ./gprof/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gprof; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -409,7 +617,7 @@ install-gprof: force
 
 ### byacc
 all-byacc: force
-	@if [ -d ./byacc ] ; then \
+	@if [ -f ./byacc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./byacc; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -418,7 +626,7 @@ all-byacc: force
 	fi
 
 clean-byacc: force
-	@if [ -d ./byacc ] ; then \
+	@if [ -f ./byacc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./byacc; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -427,7 +635,7 @@ clean-byacc: force
 	fi
 
 install-byacc: force
-	@if [ -d ./byacc ] ; then \
+	@if [ -f ./byacc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./byacc; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -435,37 +643,9 @@ install-byacc: force
 		true ; \
 	fi
 
-### bison
-all-bison: all-libiberty
-	@if [ -d ./bison ] ; then \
-		rootme=`pwd` ; export rootme ; \
-		(cd ./bison; \
-		$(MAKE) $(FLAGS_TO_PASS) all) ; \
-	else \
-		true ; \
-	fi
-
-clean-bison: force
-	@if [ -d ./bison ] ; then \
-		rootme=`pwd` ; export rootme ; \
-		(cd ./bison; \
-		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
-	else \
-		true ; \
-	fi
-
-install-bison: force
-	@if [ -d ./bison ] ; then \
-		rootme=`pwd` ; export rootme ; \
-		(cd ./bison; \
-		$(MAKE) $(FLAGS_TO_PASS) install) ; \
-	else \
-		true ; \
-	fi
-
 ### flex
 all-flex: all-libiberty
-	@if [ -d ./flex ] ; then \
+	@if [ -f ./flex/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./flex; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -474,7 +654,7 @@ all-flex: all-libiberty
 	fi
 
 clean-flex: force
-	@if [ -d ./flex ] ; then \
+	@if [ -f ./flex/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./flex; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -483,7 +663,7 @@ clean-flex: force
 	fi
 
 install-flex: force
-	@if [ -d ./flex ] ; then \
+	@if [ -f ./flex/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./flex; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -492,7 +672,7 @@ install-flex: force
 	fi
 ### gcc
 all-gcc: all-libiberty all-byacc
-	@if [ -d ./gcc ] ; then \
+	@if [ -f ./gcc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gcc; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -501,7 +681,7 @@ all-gcc: all-libiberty all-byacc
 	fi
 
 clean-gcc: force
-	@if [ -d ./gcc ] ; then \
+	@if [ -f ./gcc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gcc; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -510,7 +690,7 @@ clean-gcc: force
 	fi
 
 install-gcc: force
-	@if [ -d ./gcc ] ; then \
+	@if [ -f ./gcc/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gcc; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -520,7 +700,7 @@ install-gcc: force
 
 ### readline
 all-readline: force
-	@if [ -d ./readline ] ; then \
+	@if [ -f ./readline/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./readline; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -529,7 +709,7 @@ all-readline: force
 	fi
 
 clean-readline: force
-	@if [ -d ./readline ] ; then \
+	@if [ -f ./readline/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./readline; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -538,7 +718,7 @@ clean-readline: force
 	fi
 
 install-readline: force
-	@if [ -d ./readline ] ; then \
+	@if [ -f ./readline/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./readline; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -548,7 +728,7 @@ install-readline: force
 
 ### glob
 all-glob: force
-	@if [ -d ./glob ] ; then \
+	@if [ -f ./glob/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./glob; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -557,7 +737,7 @@ all-glob: force
 	fi
 
 clean-glob: force
-	@if [ -d ./glob ] ; then \
+	@if [ -f ./glob/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./glob; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -566,7 +746,7 @@ clean-glob: force
 	fi
 
 install-glob: force
-	@if [ -d ./glob ] ; then \
+	@if [ -f ./glob/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./glob; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -575,8 +755,8 @@ install-glob: force
 	fi
 
 ### gas
-all-gas: all-libiberty all-bfd
-	@if [ -d ./gas ] ; then \
+all-gas: all-libiberty all-opcodes all-bfd
+	@if [ -f ./gas/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gas; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -585,7 +765,7 @@ all-gas: all-libiberty all-bfd
 	fi
 
 clean-gas: force
-	@if [ -d ./gas ] ; then \
+	@if [ -f ./gas/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gas; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -594,7 +774,7 @@ clean-gas: force
 	fi
 
 install-gas: force
-	@if [ -d ./gas ] ; then \
+	@if [ -f ./gas/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gas; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -602,9 +782,20 @@ install-gas: force
 		true ; \
 	fi
 
+### gas
+all-tgas: all-libiberty all-bfd
+	@if [ -f ./tgas/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./tgas; \
+		$(MAKE) $(FLAGS_TO_PASS) all) ; \
+	else \
+		true ; \
+	fi
+
+
 ### ld
 all-ld: all-libiberty all-bfd all-byacc all-flex
-	@if [ -d ./ld ] ; then \
+	@if [ -f ./ld/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./ld; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -613,7 +804,7 @@ all-ld: all-libiberty all-bfd all-byacc all-flex
 	fi
 
 clean-ld: force
-	@if [ -d ./ld ] ; then \
+	@if [ -f ./ld/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./ld; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -622,7 +813,7 @@ clean-ld: force
 	fi
 
 install-ld: force
-	@if [ -d ./ld ] ; then \
+	@if [ -f ./ld/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./ld; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -630,59 +821,9 @@ install-ld: force
 		true ; \
 	fi
 
-### libgcc (and libgcc1)
-all-libgcc1: all-gas all-binutils
-	@if [ -d ./libgcc ] ; then \
-		rootme=`pwd` ; export rootme ; \
-		(cd ./libgcc; \
-		$(MAKE) $(FLAGS_TO_PASS) libgcc1.a) ; \
-	else \
-		true ; \
-	fi
-
-clean-libgcc1: force
-	@if [ -d ./libgcc ] ; then \
-		rootme=`pwd` ; export rootme ; \
-		(cd ./libgcc; \
-		$(MAKE) $(FLAGS_TO_PASS) clean-libgcc1) ; \
-	else \
-		true ; \
-	fi
-
-install-libgcc1: force
-	echo libgcc1 is a component, not an installable target
-
-all-libgcc: all-gas all-gcc all-binutils
-	true
-	@if [ -d ./libgcc ] ; then \
-		rootme=`pwd` ; export rootme ; \
-		(cd ./libgcc; \
-		$(MAKE) $(FLAGS_TO_PASS) all) ; \
-	else \
-		true ; \
-	fi
-
-clean-libgcc: force
-	@if [ -d ./libgcc ] ; then \
-		rootme=`pwd` ; export rootme ; \
-		(cd ./libgcc; \
-		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
-	else \
-		true ; \
-	fi
-
-install-libgcc: force
-	@if [ -d ./libgcc ] ; then \
-		rootme=`pwd` ; export rootme ; \
-		(cd ./libgcc; \
-		$(MAKE) $(FLAGS_TO_PASS) install) ; \
-	else \
-		true ; \
-	fi
-
 ### gdb
-all-gdb: all-bfd all-libiberty all-mmalloc all-readline all-glob all-byacc
-	@if [ -d ./gdb ] ; then \
+all-gdb: all-bfd all-opcodes all-libiberty all-mmalloc all-readline all-glob all-byacc
+	@if [ -f ./gdb/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gdb; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -691,7 +832,7 @@ all-gdb: all-bfd all-libiberty all-mmalloc all-readline all-glob all-byacc
 	fi
 
 clean-gdb: force
-	@if [ -d ./gdb ] ; then \
+	@if [ -f ./gdb/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gdb; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -700,7 +841,7 @@ clean-gdb: force
 	fi
 
 install-gdb: force
-	@if [ -d ./gdb ] ; then \
+	@if [ -f ./gdb/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./gdb; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -710,7 +851,7 @@ install-gdb: force
 
 ### make
 all-make: all-libiberty
-	@if [ -d ./make ] ; then \
+	@if [ -f ./make/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./make; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -719,7 +860,7 @@ all-make: all-libiberty
 	fi
 
 clean-make: force
-	@if [ -d ./make ] ; then \
+	@if [ -f ./make/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./make; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -728,7 +869,7 @@ clean-make: force
 	fi
 
 install-make: force
-	@if [ -d ./make ] ; then \
+	@if [ -f ./make/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./make; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -738,7 +879,7 @@ install-make: force
 
 ### diff
 all-diff: force
-	@if [ -d ./diff ] ; then \
+	@if [ -f ./diff/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./diff; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -747,7 +888,7 @@ all-diff: force
 	fi
 
 clean-diff: force
-	@if [ -d ./diff ] ; then \
+	@if [ -f ./diff/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./diff; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -756,7 +897,7 @@ clean-diff: force
 	fi
 
 install-diff: force
-	@if [ -d ./diff ] ; then \
+	@if [ -f ./diff/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./diff/; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -766,7 +907,7 @@ install-diff: force
 
 ### grep
 all-grep: force
-	@if [ -d ./grep ] ; then \
+	@if [ -f ./grep/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./grep; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -775,7 +916,7 @@ all-grep: force
 	fi
 
 clean-grep: force
-	@if [ -d ./grep ] ; then \
+	@if [ -f ./grep/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./grep; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -784,7 +925,7 @@ clean-grep: force
 	fi
 
 install-grep: force
-	@if [ -d ./grep ] ; then \
+	@if [ -f ./grep/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./grep; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -794,7 +935,7 @@ install-grep: force
 
 ### rcs
 all-rcs: force
-	@if [ -d ./rcs ] ; then \
+	@if [ -f ./rcs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./rcs; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -803,7 +944,7 @@ all-rcs: force
 	fi
 
 clean-rcs: force
-	@if [ -d ./rcs ] ; then \
+	@if [ -f ./rcs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./rcs; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -812,7 +953,7 @@ clean-rcs: force
 	fi
 
 install-rcs: force
-	@if [ -d ./rcs ] ; then \
+	@if [ -f ./rcs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./rcs; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -822,7 +963,7 @@ install-rcs: force
 
 ### cvs
 all-cvs: force
-	@if [ -d ./cvs ] ; then \
+	@if [ -f ./cvs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./cvs; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -831,7 +972,7 @@ all-cvs: force
 	fi
 
 clean-cvs: force
-	@if [ -d ./cvs ] ; then \
+	@if [ -f ./cvs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./cvs; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -840,7 +981,7 @@ clean-cvs: force
 	fi
 
 install-cvs: force
-	@if [ -d ./cvs ] ; then \
+	@if [ -f ./cvs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./cvs; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -850,7 +991,7 @@ install-cvs: force
 
 ### patch
 all-patch: force
-	@if [ -d ./patch ] ; then \
+	@if [ -f ./patch/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./patch; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -859,7 +1000,7 @@ all-patch: force
 	fi
 
 clean-patch: force
-	@if [ -d ./patch ] ; then \
+	@if [ -f ./patch/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./patch; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -868,7 +1009,7 @@ clean-patch: force
 	fi
 
 install-patch: force
-	@if [ -d ./patch ] ; then \
+	@if [ -f ./patch/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./patch; \
 		$(MAKE) $(FLAGS_TO_PASS) \
@@ -880,7 +1021,7 @@ install-patch: force
 
 ### emacs
 all-emacs: force
-	@if [ -d ./emacs ] ; then \
+	@if [ -f ./emacs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./emacs; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -889,7 +1030,7 @@ all-emacs: force
 	fi
 
 clean-emacs: force
-	@if [ -d ./emacs ] ; then \
+	@if [ -f ./emacs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./emacs; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -898,7 +1039,7 @@ clean-emacs: force
 	fi
 
 install-emacs: force
-	@if [ -d ./emacs ] ; then \
+	@if [ -f ./emacs/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./emacs; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -908,7 +1049,7 @@ install-emacs: force
 
 ### ispell
 all-ispell: all-emacs
-	@if [ -d ./ispell ] ; then \
+	@if [ -f ./ispell/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./ispell; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -917,7 +1058,7 @@ all-ispell: all-emacs
 	fi
 
 clean-ispell: force
-	@if [ -d ./ispell ] ; then \
+	@if [ -f ./ispell/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./ispell; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -926,7 +1067,7 @@ clean-ispell: force
 	fi
 
 install-ispell: force
-	@if [ -d ./ispell ] ; then \
+	@if [ -f ./ispell/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./ispell; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
@@ -936,7 +1077,7 @@ install-ispell: force
 
 ### send_pr
 all-send_pr: force
-	@if [ -d ./send_pr ] ; then \
+	@if [ -f ./send_pr/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./send_pr; \
 		$(MAKE) $(FLAGS_TO_PASS) all) ; \
@@ -945,7 +1086,7 @@ all-send_pr: force
 	fi
 
 clean-send_pr: force
-	@if [ -d ./send_pr ] ; then \
+	@if [ -f ./send_pr/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./send_pr; \
 		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
@@ -954,9 +1095,37 @@ clean-send_pr: force
 	fi
 
 install-send_pr: force
-	@if [ -d ./send_pr ] ; then \
+	@if [ -f ./send_pr/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
 		(cd ./send_pr; \
+		$(MAKE) $(FLAGS_TO_PASS) install) ; \
+	else \
+		true ; \
+	fi
+
+### libm
+all-libm: force
+	@if [ -f ./libm/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./libm; \
+		$(MAKE) $(FLAGS_TO_PASS) all) ; \
+	else \
+		true ; \
+	fi
+
+clean-libm: force
+	@if [ -f ./libm/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./libm; \
+		$(MAKE) $(FLAGS_TO_PASS) clean) ; \
+	else \
+		true ; \
+	fi
+
+install-libm: force
+	@if [ -f ./libm/Makefile ] ; then \
+		rootme=`pwd` ; export rootme ; \
+		(cd ./libm; \
 		$(MAKE) $(FLAGS_TO_PASS) install) ; \
 	else \
 		true ; \
@@ -965,28 +1134,31 @@ install-send_pr: force
 ### libg++
 
 all-libg++: all-gas all-ld all-gcc
-	@if [ -d ./libg++ ] ; then \
+	@if [ -f ./libg++/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd` ; export srcroot ; \
 		(cd ./libg++; \
-		$(MAKE) $(FLAGS_TO_PASS) "CC=${GXX}" all) ; \
+		$(MAKE) $(TARGET_FLAGS_TO_PASS) all) ; \
 	else \
 		true ; \
 	fi
 
 clean-libg++: force
-	@if [ -d ./libg++ ] ; then \
+	@if [ -f ./libg++/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd` ; export srcroot ; \
 		(cd ./libg++; \
-		$(MAKE) $(FLAGS_TO_PASS) "CC=${GXX}" clean) ; \
+		$(MAKE) $(TARGET_FLAGS_TO_PASS) clean) ; \
 	else \
 		true ; \
 	fi
 
 install-libg++: force
-	@if [ -d ./libg++ ] ; then \
+	@if [ -f ./libg++/Makefile ] ; then \
 		rootme=`pwd` ; export rootme ; \
+		srcroot=`cd $(srcdir); pwd` ; export srcroot ; \
 		(cd ./libg++; \
-		$(MAKE) $(FLAGS_TO_PASS) "CC=${GXX}" install) ; \
+		$(MAKE) $(TARGET_FLAGS_TO_PASS) install) ; \
 	else \
 		true ; \
 	fi
@@ -994,22 +1166,29 @@ install-libg++: force
 ### other supporting targets
 # this is a bad hack.
 all.xclib:	all.normal
-	if [ -d clib ] ; then \
+	if [ -f clib/Makefile ] ; then \
 		(cd clib ; $(MAKE) $(FLAGS_TO_PASS)) ; \
 	fi
 
 subdir_do:
 	@for i in $(DODIRS); do \
-		if [ -f ./$$i/localenv ] ; then \
-			if (rootme=`pwd` ; export rootme ; cd ./$$i; \
-				$(MAKE) $(FLAGS_TO_PASS) $(DO)) ; then true ; \
-				else exit 1 ; fi ; \
-		else if [ -d ./$$i ] ; then \
-			if (rootme=`pwd` ; export rootme ; cd ./$$i; \
-				$(MAKE) $(FLAGS_TO_PASS) $(DO)) ; then true ; \
-			else exit 1 ; fi ; \
-		else true ; fi ; \
-	fi ; \
+	  if [ -f ./$$i/localenv ] || [ -f ./$$i/Makefile ] ; then \
+	    case $$i in \
+	    libg++ | xiberty | newlib) \
+	      if (rootme=`pwd` ; export rootme ; \
+		  srcroot=`cd $(srcdir); pwd` ; export srcroot ; \
+		  cd ./$$i ; \
+		  $(MAKE) $(TARGET_FLAGS_TO_PASS) $(DO)) ; then true ; \
+	      else exit 1 ; fi \
+	      ;; \
+	    *) \
+	      if (rootme=`pwd` ; export rootme ; \
+		  cd ./$$i ; \
+		  $(MAKE) $(FLAGS_TO_PASS) $(DO)) ; then true ; \
+	      else exit 1 ; fi \
+	      ;; \
+	    esac ; \
+	  else true ; fi ; \
 	done
 
 # The "else true" stuff is for Ultrix; the shell returns the exit code
@@ -1019,15 +1198,16 @@ subdir_do:
 MAKEDIRS= \
 	$(prefix) \
 	$(exec_prefix) \
-	$(bindir) \
-	$(libdir) \
-	$(tooldir) \
-	$(includedir) \
-	$(datadir) \
-	$(docdir) \
-	$(mandir) \
-	$(man1dir) \
-	$(man5dir)
+	$(tooldir)
+
+#	$(bindir) \
+#	$(libdir) \
+#	$(includedir) \
+#	$(datadir) \
+#	$(docdir) \
+#	$(mandir) \
+#	$(man1dir) \
+#	$(man5dir)
 
 #	$(man2dir) \
 #	$(man3dir) \
@@ -1039,6 +1219,8 @@ MAKEDIRS= \
 install-dirs:
 	for i in $(MAKEDIRS) ; do \
 		echo Making $$i... ; \
+		parent=`echo $$i|sed -e 's@/[^/]*$$@@'`; \
+		if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi ; \
 		if [ ! -d $$i ] ; then \
 			if mkdir $$i ; then \
 				true ; \
@@ -1051,16 +1233,17 @@ install-dirs:
 	done
 
 MAKEINFODIRS= \
-	$(prefix) \
-	$(infodir)
+	$(prefix)
+
+#	$(infodir)
 
 install-info-dirs:
 	if [ -d $(prefix) ] ; then true ; else mkdir $(prefix) ; fi
-	if [ -d $(datadir) ] ; then true ; else mkdir $(datadir) ; fi
-	if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
+#	if [ -d $(datadir) ] ; then true ; else mkdir $(datadir) ; fi
+#	if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
 
 dir.info:
-	$(srcdir)/texinfo/gen-info-dir $(infodir) > dir.info.new
+	$(srcdir)/texinfo/gen-info-dir $(infodir) $(srcdir)/texinfo/dir.info-template > dir.info.new
 	mv -f dir.info.new dir.info
 
 etags tags: TAGS
@@ -1092,8 +1275,9 @@ Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
 # Build GDB distributions that contain BFD, Include, Libiberty, Readline, etc
 
 DEVO_SUPPORT= README cfg-paper.texi Makefile.in configure configure.in \
-	config.sub config configure.man move-if-change
-GDB_SUPPORT_DIRS= bfd include libiberty mmalloc readline glob
+	config.sub config configure.man configure.texi move-if-change \
+	COPYING.LIB
+GDB_SUPPORT_DIRS= bfd include libiberty mmalloc opcodes readline glob
 GDB_SUPPORT_FILES= $(GDB_SUPPORT_DIRS) texinfo/fsf/texinfo.tex
 
 setup-dirs: force_update
@@ -1101,11 +1285,6 @@ setup-dirs: force_update
 	make clean
 	./configure -rm sun4
 	chmod og=u `find $(DEVO_SUPPORT) $(GDB_SUPPORT_FILES) -print`
-
-bfd.ilrt.tar.Z: setup-dirs
-	rm -f bfd.ilrt.tar.Z
-	tar cf - $(DEVO_SUPPORT) $(GDB_SUPPORT_FILES) \
-		| compress -v >bfd.ilrt.tar.Z
 
 gdb.tar.Z: setup-dirs
 	(cd gdb; $(MAKE) -f Makefile.in make-proto-gdb.dir)

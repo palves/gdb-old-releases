@@ -66,9 +66,11 @@ norecursion=
 prefix=/usr/local
 progname=
 program_prefix=
-program_prefix_option=
+program_prefixoption=
 program_suffix=
-program_suffix_option=
+program_suffixoption=
+program_transform_name=
+program_transform_nameoption=
 redirect=">/dev/null"
 removing=
 site=
@@ -80,7 +82,7 @@ subdirs=
 target_alias=
 target_makefile_frag=
 undefinedargs=
-version="$Revision: 1.129 $"
+version="$Revision: 1.134 $"
 x11=default
 
 NO_EDIT="This file was generated automatically by configure.  Do not edit."
@@ -95,6 +97,8 @@ NO_EDIT="This file was generated automatically by configure.  Do not edit."
 ##
 
 progname=$0
+# if PWD already has a value, it is probably wrong.
+if [ -n "$PWD" ]; then PWD=`pwd`; fi
 
 case "${progname}" in
 /*) ;;
@@ -123,6 +127,11 @@ do
 		program_suffix=${arg}
 		program_suffixoption="-program_suffix=${program_suffix}"
 		next_program_suffix=
+	elif [ -n "${next_program_transform_name}" ] ; then
+		# Double any backslashes or dollar signs in the argument
+		program_transform_name="${program_transform_name} -e `echo ${arg} | sed -e 's/\\\\/\\\\\\\\/g' -e 's/\\\$/$$/g'`"
+		program_transform_nameoption="${program_transform_nameoption} -program_transform_name='${arg}'"
+		next_program_transform_name=
 	elif [ -n "${next_target}" ] ; then
 		next_target=
 		case "${target_alias}" in
@@ -190,8 +199,16 @@ do
 			program_suffix=`echo ${arg} | sed 's/^[-a-z_]*=//'`
 			program_suffixoption=${arg}
 			;;
-		-program_suffix | --program_suffix | --program_suffi | --program_suff | --program_suf | --program_su | --program_s)
+		-program_suffix | --program_suffix | --program_suffi | --program_suff | --program_suf | --program_su | --program_s )
 			next_program_suffix=yes
+			;;
+		-program_transform_name=* | --program_transform_name=* | --program_transform_nam=* | --program_transform_na=* | --program_transform_n=* | --program_transform_=* | --program_transform=* | --program_transfor=* | --program_transfo=* | --program_transf=* | --program_trans=* | --program_tran=* | --program_tra=* | --program_tr=* | --program_t=*)
+			# Double any \ or $ in the argument
+			program_transform_name="${program_transform_name} -e `echo ${arg} | sed -e 's/^[-a-z_]*=//' -e 's/\\\\/\\\\\\\\/g' -e 's/\\\$/$$/g'`"
+			program_transform_nameoption="${program_transform_nameoption} -program_transform_name='`echo ${arg} | sed 's/^[-a-z_]*=//'`'"
+			;;
+		-program_transform_name | --program_transform_name | --program_transform_nam | --program_transform_na | --program_transform_n | --program_transform_ | --program_transform | --program_transfor | --program_transfo | --program_transf | --program_trans | --program_tran | --program_tra | --program_tr | --program_t)
+			next_program_transform_name=yes
 			;;
 		-site=* | --site=* | --sit=* | --si=*)
 			site_option=${arg}
@@ -317,6 +334,7 @@ if [ -n "${fatal}" -o "${host_alias}" = "help" ] ; then
 	echo " -prefix=MYDIR		configure for installation of host dependent files into MYDIR. [\"/usr/local\"]" ;
 	echo " -program_prefix=FOO	install programs with FOO prepended to their names. [ \"\" ]" ;
 	echo " -program_suffix=FOO	install programs with FOO appended to their names. [ \"\" ]" ;
+	echo " -program_transform_name=FOO	install programs with names transformed by sed pattern FOO. [ \"\" ]" ;
 	echo " -site=SITE		configure with site specific makefile for SITE" ;
 	echo " -srcdir=DIR		find the sources in DIR. [\".\" or \"..\"]" ;
 	echo " -target=TARGET		configure for TARGET.  [TARGET = HOST]" ;
@@ -472,6 +490,28 @@ if [ ! -r ${srcdir}/${srctrigger} ] ; then
 
 	echo '***' \(At least ${srctrigger} is missing.\) 1>&2
 	exit 1
+fi
+
+tooldir="\$(libdir)/${target_alias}"
+
+if [ "${host_alias}" != "${target_alias}" ] ; then
+    if [ "${program_prefix}" = "" ] ; then
+	if [ "${program_suffix}" = "" ] ; then 
+	    if [ "${program_transform_name}" = "" ] ; then
+		program_prefix=${target_alias}- ;
+	    fi
+	fi
+    fi
+fi
+
+# Merge program_prefix and program_suffix onto program_transform_name
+# Use a double $ so that make ignores it
+if [ "${program_suffix}" != "" ] ; then
+    program_transform_name="-e s/\$\$/${program_suffix}/ ${program_transform_name}"
+fi
+
+if [ "${program_prefix}" != "" ] ; then
+    program_transform_name="-e s/^/${program_prefix}/ ${program_transform_name}"
 fi
 
 for subdir in . ${subdirs} ; do
@@ -663,20 +703,11 @@ EOF
 	# Define macro CROSS_COMPILE in compilation if this is a cross-compiler.
 	case "${host_alias}" in
 	"${target_alias}")
-		tooldir='$(libdir)'
 		echo "ALL=all.internal" >> ${Makefile}
 		;;
 	*)
 		echo "CROSS=-DCROSS_COMPILE" >> ${Makefile}
 		echo "ALL=all.cross" >> ${Makefile}
-		case "${program_prefix}" in
-		"")     if [ "${program_suffix}" = "" ] ; then 
-			program_prefix=${target_alias}- ;
-			fi ;;
-		*)	;;
-		esac
-
-		tooldir="\$(libdir)/${target_alias}"
 		;;
 	esac
 
@@ -687,6 +718,7 @@ EOF
 	    sed -e "s:^SUBDIRS[ 	]*=.*$:SUBDIRS = ${configdirs}:" \
 		-e "s:^NONSUBDIRS[ 	]*=.*$:NONSUBDIRS = ${noconfigdirs}:" \
 		${subdir}/Makefile.tem > ${subdir}/Makefile.tem2
+	    rm -f ${subdir}/Makefile.tem
 	    mv ${subdir}/Makefile.tem2 ${subdir}/Makefile.tem
 	fi
 	sed -e "s:^prefix[ 	]*=.*$:prefix = ${prefix}:" \
@@ -695,6 +727,7 @@ EOF
 		-e "s///" \
 		-e "s:^program_prefix[ 	]*=.*$:program_prefix = ${program_prefix}:" \
 		-e "s:^program_suffix[ 	]*=.*$:program_suffix = ${program_suffix}:" \
+		-e "s:^program_transform_name[ 	]*=.*$:program_transform_name = ${program_transform_name}:" \
 		-e "s:^tooldir[ 	]*=.*$:tooldir = ${tooldir}:" \
 		${subdir}/Makefile.tem >> ${Makefile}
 	# final copy now in ${Makefile}
@@ -801,7 +834,7 @@ if [ -z "${norecursion}" -a -n "${configdirs}" ] ; then
 ### The recursion line is here.
 			if eval ${recprog} ${verbose} ${host_alias} -target=${target_alias} \
 				${prefixoption} ${tmpdiroption} ${exec_prefixoption} \
-				${srcdiroption} ${program_prefixoption} ${program_suffixoption} ${site_option} ${removing} ${redirect} ; then
+				${srcdiroption} ${program_prefixoption} ${program_suffixoption} ${program_transform_nameoption} ${site_option} ${removing} ${redirect} ; then
 				true
 			else
 				exit 1

@@ -22,10 +22,10 @@ struct external_filehdr {
 #define	M68MAGIC	0210
 #define	M68TVMAGIC	0211
 
+#define OMAGIC M68MAGIC
 #define M68KBADMAG(x) (((x).f_magic!=MC68MAGIC) && ((x).f_magic!=MC68KWRMAGIC) && ((x).f_magic!=MC68TVMAGIC) && \
   ((x).f_magic!=MC68KROMAGIC) && ((x).f_magic!=MC68KPGMAGIC) && ((x).f_magic!=M68MAGIC) && ((x).f_magic!=M68TVMAGIC) )
 
-#define OMAGIC M68MAGIC			
 
 #define	FILHDR	struct external_filehdr
 #define	FILHSZ	sizeof(FILHDR)
@@ -188,11 +188,16 @@ struct external_reloc {
   char r_vaddr[4];
   char r_symndx[4];
   char r_type[2];
+#ifdef M68K_COFF_OFFSET
+  char r_offset[4];
+#endif
+
 };
 
 
 #define RELOC struct external_reloc
-#define RELSZ 10
+
+#define RELSZ sizeof(struct external_reloc)
 
 #define DEFAULT_DATA_SECTION_ALIGNMENT 4
 #define DEFAULT_BSS_SECTION_ALIGNMENT 4

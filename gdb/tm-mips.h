@@ -190,7 +190,10 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 
-#define REGISTER_VIRTUAL_TYPE(N) builtin_type_int
+#define REGISTER_VIRTUAL_TYPE(N) \
+	(((N) >= FP0_REGNUM && (N) < FP0_REGNUM+32)  \
+	 ? builtin_type_float : builtin_type_int) \
+
 /* Store the address of the place in which to copy the structure the
    subroutine will return.  This is called from call_function. */
 
@@ -315,6 +318,20 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   (((int*)dummyname)[11] |= (((unsigned long)(fun)) >> 16), \
    ((int*)dummyname)[12] |= (unsigned short)(fun))
 
+/* There's a mess in stack frame creation.  See comments in blockframe.c
+   near reference to INIT_FRAME_PC_FIRST.  */
+
+#define	INIT_FRAME_PC(fromleaf, prev) /* nada */
+
+#define INIT_FRAME_PC_FIRST(fromleaf, prev) \
+  (prev)->pc = ((fromleaf) ? SAVED_PC_AFTER_CALL ((prev)->next) : \
+	      (prev)->next ? FRAME_SAVED_PC ((prev)->next) : read_pc ());
+
+/* Special symbol found in blocks associated with routines.  We can hang
+   mips_extra_func_info_t's off of this.  */
+
+#define MIPS_EFI_SYMBOL_NAME "__GDB_EFI_INFO__"
+
 /* Specific information about a procedure.
    This overlays the MIPS's PDR records, 
    mipsread.c (ab)uses this to save memory */
@@ -331,17 +348,23 @@ typedef struct mips_extra_func_info {
 
 #define INIT_EXTRA_FRAME_INFO(fromleaf, fci) init_extra_frame_info(fci)
 
+#define	PRINT_EXTRA_FRAME_INFO(fi) \
+  { \
+    if (fi && fi->proc_desc && fi->proc_desc->pdr.framereg < NUM_REGS) \
+      printf_filtered (" frame pointer is at %s+%d\n", \
+                       reg_names[fi->proc_desc->pdr.framereg], \
+                                 fi->proc_desc->pdr.frameoffset); \
+  }
+
+/* It takes two values to specify a frame (at least!) on the MIPS.  Sigh.
+
+   In fact, at the moment, the *PC* is the primary value that sets up
+   a frame.  The PC is looked up to see what function it's in; symbol
+   information from that function tells us which register is the frame
+   pointer base, and what offset from there is the "virtual frame pointer".
+   (This is usually an offset from SP.)  FIXME -- this should be cleaned
+   up so that the primary value is the SP, and the PC is used to disambiguate
+   multiple functions with the same SP that are at different stack levels. */
+#define	FRAME_SPECIFICATION_DYADIC
+
 #define STAB_REG_TO_REGNUM(num) ((num) < 32 ? (num) : (num)+FP0_REGNUM-32)
-
-/* Size of elements in jmpbuf */
-
-#define JB_ELEMENT_SIZE 4
-
-/* Figure out where the longjmp will land.  We expect that we have just entered
-   longjmp and haven't yet setup the stack frame, so the args are still in the
-   argument regs.  a0 (CALL_ARG0) points at the jmp_buf structure from which we
-   extract the pc (JB_PC) that we will land at.  The pc is copied into ADDR.
-   This routine returns true on success */
-
-/* Note that caller must #include <setjmp.h> in order to get def of JB_* */
-#define GET_LONGJMP_TARGET(ADDR) get_longjmp_target(ADDR)

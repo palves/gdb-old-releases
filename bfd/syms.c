@@ -134,7 +134,9 @@ SUBSECTION
 */
 
 
+
 /*
+DOCDD
 INODE
 typedef asymbol, symbol handling functions, Writing Symbols, Symbols
 
@@ -262,10 +264,12 @@ CODE_FRAGMENT
 
 #include "bfd.h"
 #include "sysdep.h"
+
 #include "libbfd.h"
 #include "aout/stab_gnu.h"
  
 /*
+DOCDD
 INODE
 symbol handling functions,  , typedef asymbol, Symbols
 SUBSECTION

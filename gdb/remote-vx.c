@@ -33,11 +33,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/time.h>
 #include <sys/socket.h>
+#define malloc bogon_malloc	/* Sun claims "char *malloc()" not void * */
 #define free bogon_free		/* Sun claims "int free()" not void */
+#define realloc bogon_realloc	/* Sun claims "char *realloc()", not void * */
 #include <rpc/rpc.h>
+#undef malloc
 #undef free
+#undef realloc
 #include <sys/time.h>		/* UTek's <rpc/rpc.h> doesn't #incl this */
 #include <netdb.h>
 #include "vx-share/ptrace.h"
@@ -51,8 +54,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 extern void symbol_file_command ();
 extern int stop_soon_quietly;		/* for wait_for_inferior */
-extern void host_convert_to_virtual ();
-extern void host_convert_from_virtual ();
 
 static int net_ptrace_clnt_call ();	/* Forward decl */
 static enum clnt_stat net_clnt_call ();	/* Forward decl */
@@ -472,7 +473,8 @@ vx_read_register (regno)
 static void
 vx_prepare_to_store ()
 {
-  vx_read_register (-1);
+  /* Fetch all registers, if any of them are not yet fetched.  */
+  read_register_bytes (0, NULL, REGISTER_BYTES);
 }
 
 
@@ -1123,8 +1125,7 @@ vx_open (args, from_tty)
   clnt_freeres (pClient, xdr_ldtabl, &loadTable);
 }
 
-/* attach_command --
-   takes a task started up outside of gdb and ``attaches'' to it.
+/* Takes a task started up outside of gdb and ``attaches'' to it.
    This stops it cold in its tracks and allows us to start tracing it.  */
 
 static void
@@ -1137,8 +1138,6 @@ vx_attach (args, from_tty)
   Rptrace ptrace_in;
   Ptrace_return ptrace_out;
   int status;
-
-  dont_repeat();
 
   if (!args)
     error_no_arg ("process-id to attach");
@@ -1167,23 +1166,6 @@ vx_attach (args, from_tty)
   push_target (&vx_run_ops);
   inferior_pid = pid;
   vx_running = 0;
-
-  mark_breakpoints_out ();
-
-  /* Set up the "saved terminal modes" of the inferior
-     based on what modes we are starting it with.  */
-  target_terminal_init ();
-
-  /* Install inferior's terminal modes.  */
-  target_terminal_inferior ();
-
-  /* We will get a task spawn event immediately.  */
-  init_wait_for_inferior ();
-  clear_proceed_status ();
-  stop_soon_quietly = 1;
-  wait_for_inferior ();
-  stop_soon_quietly = 0;
-  normal_stop ();
 }
 
 
@@ -1328,7 +1310,7 @@ Specify the name of the machine to connect to.",
 	vx_open, vx_close, vx_attach, 0, /* vx_detach, */
 	0, 0, /* resume, wait */
 	0, 0, /* read_reg, write_reg */
-	0, host_convert_to_virtual, host_convert_from_virtual,  /* prep_to_store, */
+	0, /* prep_to_store, */
 	vx_xfer_memory, vx_files_info,
 	0, 0, /* insert_breakpoint, remove_breakpoint */
 	0, 0, 0, 0, 0,	/* terminal stuff */
@@ -1336,6 +1318,8 @@ Specify the name of the machine to connect to.",
 	vx_load_command,
 	vx_lookup_symbol,
 	vx_create_inferior, 0,  /* mourn_inferior */
+	0, /* can_run */
+	0, /* notice_signals */
 	core_stratum, 0, /* next */
 	1, 1, 0, 0, 0,	/* all mem, mem, stack, regs, exec */
 	0, 0,			/* Section pointers */
@@ -1350,7 +1334,7 @@ struct target_ops vx_run_ops = {
 	vx_proc_open, vx_proc_close, 0, vx_detach, /* vx_attach */
 	vx_resume, vx_wait,
 	vx_read_register, vx_write_register,
-	vx_prepare_to_store, host_convert_to_virtual, host_convert_from_virtual,
+	vx_prepare_to_store,
 	vx_xfer_memory, vx_run_files_info,
 	vx_insert_breakpoint, vx_remove_breakpoint,
 	0, 0, 0, 0, 0,	/* terminal stuff */
@@ -1358,6 +1342,8 @@ struct target_ops vx_run_ops = {
 	vx_load_command,
 	vx_lookup_symbol,
 	0, vx_mourn_inferior,
+	0,  /* can_run */
+	0, /* notice_signals */
 	process_stratum, 0, /* next */
 	0, 1, 1, 1, 1,	/* all mem, mem, stack, regs, exec */
 			/* all_mem is off to avoid spurious msg in "i files" */

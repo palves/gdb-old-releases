@@ -2,4 +2,4 @@
 SYSV = -DSYSV
 RANLIB = true
 BISON = yacc -Sm10400
-CC = gcc -posix
+CC = gcc -D_POSIX_SOURCE=1

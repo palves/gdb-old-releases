@@ -1,3 +1,4 @@
+
 _divert__(-1)
 
 Switches:
@@ -8,6 +9,9 @@ _define__(<_ALL_ARCH__>,<0>)           (Meant as most inclusive; file turning
 					"_GENERIC__")
 _define__(<_GENERIC__>,<1>)            (may not be quite all configs; 
 					meant for "most vanilla" manual)
+_define__(<_AGGLOMERATION__>,<0>)       is manual part of an agglomeration,
+                                        with GPL formatted separately?
+_define__(<_PRECONFIGURED__>,<0>)       is manual *only* for preconfigured sw?
 _define__(<_FSF__>,<1>)                 set to zero to include things
                                         FSF won't take which Cygnus may want.
 _define__(<_INTERNALS__>,<0>)
@@ -19,12 +23,23 @@ _define__(<_ELF__>,<0>)
 
 _define__(<_LUCID__>,<0>)		A programming environment.
 
+_define__(<_BARE__>,<0>)                Turn on to indicate no OS facilities
+					(like shells, user prog args, program
+					environment, corefiles)
+
+_define__(<_DOSHOST__>,<0>)		Is this GDB DOS-hosted?
+
+_define__(<_CONLY__>,<0>)		Mention only C debugging if
+					turned on.  
+
+_define__(<_REMOTESTUB__>,<1>)		Generic remote serial stub
 _define__(<_AMD29K__>,<0>)		Specific architectures.  Note none
 _define__(<_H8__>,<0>)
 _define__(<_I80386__>,<0>)		starts out on.
 _define__(<_I960__>,<0>)
 _define__(<_M680X0__>,<0>)
 _define__(<_SPARC__>,<0>)
+_define__(<_ST2000__>,<0>)
 _define__(<_VAX__>,<0>)
 _define__(<_VXWORKS__>,<0>)
 

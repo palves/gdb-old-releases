@@ -1,5 +1,5 @@
 /* Generic target-file-type support for the BFD library.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -17,8 +17,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
-
-/* $Id: targets.c,v 1.64 1992/06/23 01:05:38 bothner Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -50,7 +48,9 @@ DESCRIPTION
 
 	o If the target string is still NULL, or the target string is
 	<<default>>, then the first item in the target vector is used
-	as the target type. @xref{bfd_target}.
+	as the target type, and <<target_defaulted>> is set to
+	cause <<bfd_check_format>> to loop through all the targets.
+	@xref{bfd_target}.  @xref{Formats}.
 
 	o Otherwise, the elements in the target vector are inspected
 	one by one, until a match on target name is found. When found,
@@ -64,7 +64,9 @@ DESCRIPTION
 
 	Once the BFD has been opened and the target selected, the file
 	format may be determined. This is done by calling
-	<<bfd_check_format>> on the BFD with a suggested format. The
+	<<bfd_check_format>> on the BFD with a suggested format. 
+	If <<target_defaulted>> has been set, each possible target
+	type is tried to see if it recognizes the specified format.  The
 	routine returns <<true>> when the application guesses right.
 @menu
 @* bfd_target::
@@ -76,7 +78,7 @@ DESCRIPTION
 
 INODE
 	bfd_target,  , Targets, Targets
-
+DOCDD
 SUBSECTION
 	bfd_target
 
@@ -163,6 +165,11 @@ This is a mask of all the flags which a section may have set - from
 the set <<SEC_NO_FLAGS>>, <<SEC_ALLOC>>, ...<<SET_NEVER_LOAD>>.
 
 .  flagword section_flags;
+
+The character normally found at the front of a symbol 
+(if any), perhaps _.
+
+.  char symbol_leading_char;
 
 The pad character for filenames within an archive header.
 
@@ -377,6 +384,7 @@ extern bfd_target sunos_big_vec;
 extern bfd_target demo_64_vec;
 extern bfd_target srec_vec;
 extern bfd_target tekhex_vec;
+extern bfd_target a_out_adobe_vec;
 extern bfd_target b_out_vec_little_host;
 extern bfd_target b_out_vec_big_host;
 extern bfd_target icoff_little_vec;
@@ -394,6 +402,8 @@ extern bfd_target a29kcoff_big_vec;
 extern bfd_target trad_core_vec;
 extern bfd_target rs6000coff_vec;
 extern bfd_target h8300coff_vec;
+extern bfd_target z8kcoff_vec;
+extern bfd_target we32kcoff_vec;
 #ifdef hp9000s800
 extern bfd_target hppa_vec;
 #endif
@@ -422,10 +432,12 @@ bfd_target *target_vector[] = {
 	&ecoff_little_vec,
 	&ecoff_big_vec,
 	&ieee_vec,
-#if 1
+#if 0
 	/* We have no oasys tools anymore, so we can't test any of this
 	   anymore. If you want to test the stuff yourself, go ahead...
-	   steve@cygnus.com */
+	   steve@cygnus.com
+	   Worse, since there is no magic number for archives, there
+	   can annoying target mis-matches.  */
 	&oasys_vec,
 #endif
 	&sunos_big_vec,
@@ -433,6 +445,7 @@ bfd_target *target_vector[] = {
 	&demo_64_vec,	/* Only compiled if host has long-long support */
 #endif
 	&h8300coff_vec,
+	&z8kcoff_vec,
 	&m88kbcs_vec,
 	&srec_vec,
 /*	&tekhex_vec,*/
@@ -440,6 +453,7 @@ bfd_target *target_vector[] = {
 	&icoff_big_vec,
 	&elf_little_vec,
 	&elf_big_vec,
+	&a_out_adobe_vec,
 	&b_out_vec_little_host,
 	&b_out_vec_big_host,
 	&m68kcoff_vec,
@@ -448,6 +462,7 @@ bfd_target *target_vector[] = {
 #ifdef hp9000s800
         &hppa_vec,
 #endif
+	&we32kcoff_vec,
 
 #ifdef	TRAD_CORE
 	&trad_core_vec,
@@ -535,7 +550,12 @@ CONST char **
 DEFUN_VOID(bfd_target_list)
 {
   int vec_length= 0;
-  bfd_target **target;
+#ifdef NATIVE_HPPAHPUX_COMPILER
+  /* The native compiler on the HP9000/700 has a bug which causes it
+     to loop endlessly when compiling this file.  This avoids it.  */
+  volatile
+#endif
+    bfd_target **target;
   CONST  char **name_list, **name_ptr;
 
   for (target = &target_vector[0]; *target != NULL; target++)

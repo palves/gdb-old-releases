@@ -85,12 +85,15 @@ CONFIG=all
 
 all install:
 
-info: gdb.info gdbint.info
+info: gdb.info gdbint.info stabs.info
 all-doc: gdb.info gdb.dvi refcard.dvi gdb-internals gdbint.dvi
 clean-info:
 	-rm -f *.info*
 
 install-info: info
+	-parent=`echo $(infodir)|sed -e 's@/[^/]*$$@@'`; \
+	if [ -d $$parent ] ; then true ; else mkdir $$parent ; fi
+	-if [ -d $(infodir) ] ; then true ; else mkdir $(infodir) ; fi
 	for i in *.info* ; do \
 		$(INSTALL_DATA) $$i $(infodir)/$$i ; \
 	done
@@ -139,14 +142,14 @@ refcard.dvi : $(srcdir)/refcard.tex
 
 # GDB QUICK REFERENCE (PostScript output, common PS fonts)
 refcard.ps : $(srcdir)/refcard.tex $(srcdir)/psrc.sed
-	sed -f $(srcdir)/psrc.sed refcard.tex >psref.tex
+	sed -f $(srcdir)/psrc.sed $(srcdir)/refcard.tex >psref.tex
 	TEXINPUTS=$(srcdir):.:$$TEXINPUTS tex psref.tex
 	dvips -t landscape psref -o; mv psref.ps refcard.ps
 	rm -f psref.dvi psref.log
 
 # GDB QUICK REFERENCE (PostScript output, common PS fonts w/long names)
 lrefcard.ps : $(srcdir)/refcard.tex $(srcdir)/lpsrc.sed
-	sed -f $(srcdir)/lpsrc.sed refcard.tex >psref.tex
+	sed -f $(srcdir)/lpsrc.sed $(srcdir)/refcard.tex >psref.tex
 	TEXINPUTS=$(srcdir):.:$$TEXINPUTS tex psref.tex
 	dvips -t landscape psref -o; mv psref.ps lrefcard.ps
 	rm -f psref.dvi psref.log
@@ -293,6 +296,20 @@ gdb-internals: gdbint.info
 
 gdbint.info: gdbint.texinfo
 	$(MAKEINFO) -o gdbint.info $(srcdir)/gdbint.texinfo
+
+stabs.info: stabs.texinfo
+	$(MAKEINFO) -o stabs.info $(srcdir)/stabs.texinfo
+
+# STABS DOCUMENTATION: TeX dvi file
+stabs.dvi : stabs.texinfo
+	TEXINPUTS=${TEXIDIR}:.:$(srcdir):$$TEXINPUTS tex stabs.texinfo
+	texindex stabs.??
+	TEXINPUTS=${TEXIDIR}:.:$(srcdir):$$TEXINPUTS tex stabs.texinfo
+	rm -f stabs.?? stabs.aux stabs.cps stabs.fns stabs.kys \
+		stabs.log stabs.pgs stabs.toc stabs.tps stabs.vrs
+
+stabs.ps: stabs.dvi
+	dvips -o stabs.ps stabs
 
 force:
 

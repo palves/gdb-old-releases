@@ -34,8 +34,6 @@ regardless of whether or not the actual target has floating point hardware.
 
 #include "defs.h"
 
-#ifdef USE_PROC_FS	/* Entire file goes away if not using /proc */
-
 #include <time.h>
 #include <sys/procfs.h>
 #include <fcntl.h>
@@ -45,12 +43,17 @@ regardless of whether or not the actual target has floating point hardware.
 #include "inferior.h"
 #include "target.h"
 #include "command.h"
+#include "gdbcore.h"
+
+#include "nm.h"
 
 #define MAX_SYSCALLS	256	/* Maximum number of syscalls for table */
 
 #ifndef PROC_NAME_FMT
 #define PROC_NAME_FMT "/proc/%05d"
 #endif
+
+extern struct target_ops procfs_ops;		/* Forward declaration */
 
 #if 1	/* FIXME: Gross and ugly hack to resolve coredep.c global */
 CORE_ADDR kernel_u_addr;
@@ -406,6 +409,18 @@ lookupname PARAMS ((struct trans *, unsigned int, char *));
 static char *
 lookupdesc PARAMS ((struct trans *, unsigned int));
 
+static int
+do_attach PARAMS ((int pid));
+
+static void
+do_detach PARAMS ((int siggnal));
+
+static void
+procfs_create_inferior PARAMS ((char *, char *, char **));
+
+static void
+procfs_notice_signals PARAMS ((void));
+
 /* External function prototypes that can't be easily included in any
    header file because the args are typedefs in system include files. */
 
@@ -545,7 +560,8 @@ sigcodename (sip)
   return (name);
 }
 
-static char *sigcodedesc (sip)
+static char *
+sigcodedesc (sip)
      siginfo_t *sip;
 {
   struct sigcode *scp;
@@ -1031,46 +1047,13 @@ ptrace (request, pid, arg3, arg4)
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	kill_inferior_fast -- kill inferior while gdb is exiting
-
-SYNOPSIS
-
-	void kill_inferior_fast (void)
-
-DESCRIPTION
-
-	This is used when GDB is exiting.  It gives less chance of error.
-
-NOTES
-
-	Don't attempt to kill attached inferiors since we may be called
-	when gdb is in the process of aborting, and killing the attached
-	inferior may be very anti-social.  This is particularly true if we
-	were attached just so we could use the /proc facilities to get
-	detailed information about it's status.
-
-*/
-
-void
-kill_inferior_fast ()
-{
-  if (inferior_pid != 0 && !attach_flag)
-    {
-      unconditionally_kill_inferior ();
-    }
-}
-
-/*
-
-GLOBAL FUNCTION
-
-	kill_inferior - kill any currently inferior
+	procfs_kill_inferior - kill any currently inferior
 
 SYNOPSIS
 
-	void kill_inferior (void)
+	void procfs_kill_inferior (void)
 
 DESCRIPTION
 
@@ -1084,8 +1067,8 @@ NOTES
 
 */
 
-void
-kill_inferior ()
+static void
+procfs_kill_inferior ()
 {
   if (inferior_pid != 0)
     {
@@ -1130,13 +1113,13 @@ unconditionally_kill_inferior ()
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	child_xfer_memory -- copy data to or from inferior memory space
+	procfs_xfer_memory -- copy data to or from inferior memory space
 
 SYNOPSIS
 
-	int child_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
+	int procfs_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
 		int dowrite, struct target_ops target)
 
 DESCRIPTION
@@ -1146,7 +1129,7 @@ DESCRIPTION
 	if DOWRITE is zero or to inferior if DOWRITE is nonzero.
   
 	Returns the length copied, which is either the LEN argument or
-	zero.  This xfer function does not do partial moves, since child_ops
+	zero.  This xfer function does not do partial moves, since procfs_ops
 	doesn't allow memory operations to cross below us in the target stack
 	anyway.
 
@@ -1155,9 +1138,8 @@ NOTES
 	The /proc interface makes this an almost trivial task.
  */
 
-
-int
-child_xfer_memory (memaddr, myaddr, len, dowrite, target)
+static int
+procfs_xfer_memory (memaddr, myaddr, len, dowrite, target)
      CORE_ADDR memaddr;
      char *myaddr;
      int len;
@@ -1186,13 +1168,13 @@ child_xfer_memory (memaddr, myaddr, len, dowrite, target)
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	store_inferior_registers -- copy register values back to inferior
+	procfs_store_registers -- copy register values back to inferior
 
 SYNOPSIS
 
-	void store_inferior_registers (int regno)
+	void procfs_store_registers (int regno)
 
 DESCRIPTION
 
@@ -1222,8 +1204,8 @@ NOTES
 
  */
 
-void
-store_inferior_registers (regno)
+static void
+procfs_store_registers (regno)
      int regno;
 {
   if (regno != -1)
@@ -1252,13 +1234,13 @@ store_inferior_registers (regno)
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	inferior_proc_init - initialize access to a /proc entry
+	procfs_init_inferior - initialize access to a /proc entry
 
 SYNOPSIS
 
-	void inferior_proc_init (int pid)
+	void procfs_init_inferior (int pid)
 
 DESCRIPTION
 
@@ -1275,10 +1257,13 @@ NOTES
 
  */
 
-void
-inferior_proc_init (pid)
+static void
+procfs_init_inferior (pid)
      int pid;
 {
+
+  push_target (&procfs_ops);
+
   if (!open_proc_file (pid, &pi, O_RDWR))
     {
       proc_init_failed ("can't open process file");
@@ -1287,7 +1272,7 @@ inferior_proc_init (pid)
     {
       memset ((char *) &pi.prrun, 0, sizeof (pi.prrun));
       prfillset (&pi.prrun.pr_trace);
-      proc_signal_handling_change ();
+      procfs_notice_signals ();
       prfillset (&pi.prrun.pr_fault);
       prdelset (&pi.prrun.pr_fault, FLTPAGE);
       if (ioctl (pi.fd, PIOCWSTOP, &pi.prstatus) < 0)
@@ -1305,11 +1290,11 @@ inferior_proc_init (pid)
 
 GLOBAL FUNCTION
 
-	proc_signal_handling_change
+	procfs_notice_signals
 
 SYNOPSIS
 
-	void proc_signal_handling_change (void);
+	static void procfs_notice_signals (void);
 
 DESCRIPTION
 
@@ -1326,8 +1311,8 @@ DESCRIPTION
 	involved.
  */
 
-void
-proc_signal_handling_change ()
+static void
+procfs_notice_signals ()
 {
   int signo;
 
@@ -1355,7 +1340,7 @@ proc_signal_handling_change ()
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
 	proc_set_exec_trap -- arrange for exec'd child to halt at startup
 
@@ -1384,7 +1369,7 @@ NOTE
 	tracing flags cleared.
  */
 
-void
+static void
 proc_set_exec_trap ()
 {
   sysset_t exitset;
@@ -1498,6 +1483,7 @@ proc_iterate_over_mappings (func)
   return (funcstat);
 }
 
+#if 0	/* Currently unused */
 /*
 
 GLOBAL FUNCTION
@@ -1518,9 +1504,6 @@ DESCRIPTION
 	where we are stopped, and need to know the base address of the
 	segment containing that address.
 */
-
-
-#if 0	/* Currently unused */
 
 CORE_ADDR
 proc_base_address (addr)
@@ -1594,17 +1577,117 @@ proc_address_to_fd (addr, complain)
 }
 
 
-#ifdef ATTACH_DETACH
+/* Attach to process PID, then initialize for debugging it
+   and wait for the trace-trap that results from attaching.  */
+
+static void
+procfs_attach (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  char *exec_file;
+  int pid;
+
+  if (!args)
+    error_no_arg ("process-id to attach");
+
+  pid = atoi (args);
+
+  if (pid == getpid())		/* Trying to masturbate? */
+    error ("I refuse to debug myself!");
+
+  if (from_tty)
+    {
+      exec_file = (char *) get_exec_file (0);
+
+      if (exec_file)
+	printf ("Attaching program `%s', pid %d\n", exec_file, pid);
+      else
+	printf ("Attaching pid %d\n", pid);
+
+      fflush (stdout);
+    }
+
+  do_attach (pid);
+  inferior_pid = pid;
+  push_target (&procfs_ops);
+}
+
+
+/* Take a program previously attached to and detaches it.
+   The program resumes execution and will no longer stop
+   on signals, etc.  We'd better not have left any breakpoints
+   in the program or it'll die when it hits one.  For this
+   to work, it may be necessary for the process to have been
+   previously attached.  It *might* work if the program was
+   started via the normal ptrace (PTRACE_TRACEME).  */
+
+static void
+procfs_detach (args, from_tty)
+     char *args;
+     int from_tty;
+{
+  int siggnal = 0;
+
+  if (from_tty)
+    {
+      char *exec_file = get_exec_file (0);
+      if (exec_file == 0)
+	exec_file = "";
+      printf ("Detaching program: %s pid %d\n",
+	      exec_file, inferior_pid);
+      fflush (stdout);
+    }
+  if (args)
+    siggnal = atoi (args);
+  
+  do_detach (siggnal);
+  inferior_pid = 0;
+  unpush_target (&procfs_ops);		/* Pop out of handling an inferior */
+}
+
+/* Get ready to modify the registers array.  On machines which store
+   individual registers, this doesn't need to do anything.  On machines
+   which store all the registers in one fell swoop, this makes sure
+   that registers contains all the registers from the program being
+   debugged.  */
+
+static void
+procfs_prepare_to_store ()
+{
+#ifdef CHILD_PREPARE_TO_STORE
+  CHILD_PREPARE_TO_STORE ();
+#endif
+}
+
+/* Print status information about what we're accessing.  */
+
+static void
+procfs_files_info (ignore)
+     struct target_ops *ignore;
+{
+  printf ("\tUsing the running image of %s process %d via /proc.\n",
+	  attach_flag? "attached": "child", inferior_pid);
+}
+
+/* ARGSUSED */
+static void
+procfs_open (arg, from_tty)
+     char *arg;
+     int from_tty;
+{
+  error ("Use the \"run\" command to start a Unix child process.");
+}
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	attach -- attach to an already existing process
+	do_attach -- attach to an already existing process
 
 SYNOPSIS
 
-	int attach (int pid)
+	int do_attach (int pid)
 
 DESCRIPTION
 
@@ -1621,8 +1704,8 @@ NOTES
 
 */
 
-int
-attach (pid)
+static int
+do_attach (pid)
      int pid;
 {
   int result;
@@ -1697,7 +1780,7 @@ attach (pid)
   
   memset (&pi.prrun, 0, sizeof (pi.prrun));
   prfillset (&pi.prrun.pr_trace);
-  proc_signal_handling_change ();
+  procfs_notice_signals ();
   prfillset (&pi.prrun.pr_fault);
   prdelset (&pi.prrun.pr_fault, FLTPAGE);
   if (ioctl (pi.fd, PIOCSFAULT, &pi.prrun.pr_fault))
@@ -1714,13 +1797,13 @@ attach (pid)
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	detach -- detach from an attached-to process
+	do_detach -- detach from an attached-to process
 
 SYNOPSIS
 
-	void detach (int signal)
+	void do_detach (int signal)
 
 DESCRIPTION
 
@@ -1741,8 +1824,8 @@ DESCRIPTION
 	be the ideal situation.  (FIXME).
  */
 
-void
-detach (signal)
+static void
+do_detach (signal)
      int signal;
 {
   int result;
@@ -1819,17 +1902,18 @@ detach (signal)
   attach_flag = 0;
 }
 
-#endif	/* ATTACH_DETACH */
-
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	proc_wait -- emulate wait() as much as possible
+	procfs_wait -- emulate wait() as much as possible
+	Wait for child to do something.  Return pid of child, or -1 in case
+	of error; store status through argument pointer STATUS.
+
 
 SYNOPSIS
 
-	int proc_wait (int *statloc)
+	int procfs_wait (int *statloc)
 
 DESCRIPTION
 
@@ -1858,8 +1942,8 @@ NOTES
 
  */
 
-int
-proc_wait (statloc)
+static int
+procfs_wait (statloc)
      int *statloc;
 {
   short what;
@@ -1886,6 +1970,7 @@ proc_wait (statloc)
 	  rtnval = wait (&statval);
 	  if (rtnval != inferior_pid)
 	    {
+	      print_sys_errmsg (pi.pathname, errno);
 	      error ("PIOCWSTOP, wait failed, returned %d", rtnval);
 	      /* NOTREACHED */
 	    }
@@ -1974,10 +2059,19 @@ proc_wait (statloc)
 	     pi.prstatus.pr_flags);
 	  /* NOTREACHED */
     }
+
   if (statloc)
     {
       *statloc = statval;
     }
+
+  if (rtnval == -1)		/* No more children to wait for */
+    {
+      fprintf (stderr, "Child process unexpectedly missing.\n");
+      *statloc = 42;	/* Claim it exited with signal 42 */
+      return rtnval;
+    }
+
   return (rtnval);
 }
 
@@ -2053,13 +2147,13 @@ set_proc_siginfo (pip, signo)
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	child_resume -- resume execution of the inferior process
+	procfs_resume -- resume execution of the inferior process
 
 SYNOPSIS
 
-	void child_resume (int step, int signo)
+	void procfs_resume (int step, int signo)
 
 DESCRIPTION
 
@@ -2087,8 +2181,8 @@ NOTE
 	an inferior to continue running at the same time as gdb.  (FIXME?)
  */
 
-void
-child_resume (step, signo)
+static void
+procfs_resume (step, signo)
      int step;
      int signo;
 {
@@ -2127,13 +2221,13 @@ child_resume (step, signo)
 
 /*
 
-GLOBAL FUNCTION
+LOCAL FUNCTION
 
-	fetch_inferior_registers -- fetch current registers from inferior
+	procfs_fetch_registers -- fetch current registers from inferior
 
 SYNOPSIS
 
-	void fetch_inferior_registers (int regno)
+	void procfs_fetch_registers (int regno)
 
 DESCRIPTION
 
@@ -2143,8 +2237,8 @@ DESCRIPTION
 
 */
 
-void
-fetch_inferior_registers (regno)
+static void
+procfs_fetch_registers (regno)
      int regno;
 {
   if (ioctl (pi.fd, PIOCGREG, &pi.gregset) != -1)
@@ -2805,7 +2899,9 @@ DESCRIPTION
 	info proc mappings	(prints address mappings)
 	info proc times		(prints process/children times)
 	info proc id		(prints pid, ppid, gid, sid, etc)
+		FIXME:  i proc id not implemented.
 	info proc status	(prints general process state info)
+		FIXME:  i proc status not implemented.
 	info proc signals	(prints info about signal handling)
 	info proc all		(prints all info)
 
@@ -2968,15 +3064,87 @@ info_proc (args, from_tty)
   do_cleanups (old_chain);
 }
 
+/* Fork an inferior process, and start debugging it with /proc.  */
+
+static void
+procfs_create_inferior (exec_file, allargs, env)
+     char *exec_file;
+     char *allargs;
+     char **env;
+{
+  fork_inferior (exec_file, allargs, env,
+		 proc_set_exec_trap, procfs_init_inferior);
+  /* We are at the first instruction we care about.  */
+  /* Pedal to the metal... */
+  proceed ((CORE_ADDR) -1, 0, 0);
+}
+
+/* Clean up after the inferior dies.  */
+
+static void
+procfs_mourn_inferior ()
+{
+  unpush_target (&procfs_ops);
+  generic_mourn_inferior ();
+}
+
+/* Mark our target-struct as eligible for stray "run" and "attach" commands.  */
+static int
+procfs_can_run ()
+{
+  return(1);
+}
+
+struct target_ops procfs_ops = {
+  "procfs",			/* to_shortname */
+  "Unix /proc child process",	/* to_longname */
+  "Unix /proc child process (started by the \"run\" command).",	/* to_doc */
+  procfs_open,			/* to_open */
+  0,				/* to_close */
+  procfs_attach,			/* to_attach */
+  procfs_detach, 		/* to_detach */
+  procfs_resume,			/* to_resume */
+  procfs_wait,			/* to_wait */
+  procfs_fetch_registers,	/* to_fetch_registers */
+  procfs_store_registers,	/* to_store_registers */
+  procfs_prepare_to_store,	/* to_prepare_to_store */
+  procfs_xfer_memory,		/* to_xfer_memory */
+  procfs_files_info,		/* to_files_info */
+  memory_insert_breakpoint,	/* to_insert_breakpoint */
+  memory_remove_breakpoint,	/* to_remove_breakpoint */
+  terminal_init_inferior,	/* to_terminal_init */
+  terminal_inferior, 		/* to_terminal_inferior */
+  terminal_ours_for_output,	/* to_terminal_ours_for_output */
+  terminal_ours,		/* to_terminal_ours */
+  child_terminal_info,		/* to_terminal_info */
+  procfs_kill_inferior,		/* to_kill */
+  0,				/* to_load */
+  0,				/* to_lookup_symbol */
+  procfs_create_inferior,	/* to_create_inferior */
+  procfs_mourn_inferior,	/* to_mourn_inferior */
+  procfs_can_run,		/* to_can_run */
+  procfs_notice_signals,	/* to_notice_signals */
+  process_stratum,		/* to_stratum */
+  0,				/* to_next */
+  1,				/* to_has_all_memory */
+  1,				/* to_has_memory */
+  1,				/* to_has_stack */
+  1,				/* to_has_registers */
+  1,				/* to_has_execution */
+  0,				/* sections */
+  0,				/* sections_end */
+  OPS_MAGIC			/* to_magic */
+};
+
 /*
 
 GLOBAL FUNCTION
 
-	_initialize_proc_fs -- initialize the process file system stuff
+	_initialize_procfs -- initialize the process file system stuff
 
 SYNOPSIS
 
-	void _initialize_proc_fs (void)
+	void _initialize_procfs (void)
 
 DESCRIPTION
 
@@ -2985,19 +3153,18 @@ DESCRIPTION
 
 */
 
-static char *proc_desc =
+void
+_initialize_procfs ()
+{
+  add_target (&procfs_ops);
+
+  add_info ("proc", info_proc, 
 "Show process status information using /proc entry.\n\
 Specify process id or use current inferior by default.\n\
 Specify keywords for detailed information; default is summary.\n\
 Keywords are: `all', `faults', `flags', `id', `mappings', `signals',\n\
 `status', `syscalls', and `times'.\n\
-Unambiguous abbreviations may be used.";
+Unambiguous abbreviations may be used.");
 
-void
-_initialize_proc_fs ()
-{
-  add_info ("proc", info_proc, proc_desc);
   init_syscall_table ();
 }
-
-#endif	/* USE_PROC_FS */

@@ -199,7 +199,7 @@ value_of_register (regnum)
   get_saved_register (raw_buffer, &optim, &addr,
 		      selected_frame, regnum, &lval);
 
-  target_convert_to_virtual (regnum, raw_buffer, virtual_buffer);
+  REGISTER_CONVERT_TO_VIRTUAL (regnum, raw_buffer, virtual_buffer);
   val = allocate_value (REGISTER_VIRTUAL_TYPE (regnum));
   memcpy (VALUE_CONTENTS_RAW (val), virtual_buffer,
 	  REGISTER_VIRTUAL_SIZE (regnum));
@@ -354,6 +354,12 @@ supply_register (regno, val)
 {
   register_valid[regno] = 1;
   memcpy (&registers[REGISTER_BYTE (regno)], val, REGISTER_RAW_SIZE (regno));
+
+  /* On some architectures, e.g. HPPA, there are a few stray bits in some
+     registers, that the rest of the code would like to ignore.  */
+#ifdef CLEAN_UP_REGISTER_VALUE
+  CLEAN_UP_REGISTER_VALUE(regno, &registers[REGISTER_BYTE(regno)]);
+#endif
 }
 
 /* Given a struct symbol for a variable,
@@ -623,7 +629,7 @@ value_from_register (type, regnum, frame)
   /* Convert the raw contents to virtual contents.
      (Just copy them if the formats are the same.)  */
   
-  target_convert_to_virtual (regnum, raw_buffer, virtual_buffer);
+  REGISTER_CONVERT_TO_VIRTUAL (regnum, raw_buffer, virtual_buffer);
   
   if (REGISTER_CONVERTIBLE (regnum))
     {

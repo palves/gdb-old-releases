@@ -1,5 +1,5 @@
-/* A.out "format 1" file handling code
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+/* A.out "format 1" file handling code for BFD.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -141,7 +141,6 @@ DEFUN(NAME(aout,sunos4_write_object_contents),
       (abfd),
       bfd *abfd)
 {
-  bfd_size_type data_pad = 0;
   struct external_exec exec_bytes;
   struct internal_exec *execp = exec_hdr (abfd);
     
@@ -393,7 +392,7 @@ DEFUN(sunos4_core_file_p,(abfd),
   if (core_size > 20000)
     return 0;
 
-  if (bfd_seek (abfd, 0L, false) < 0) return 0;
+  if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) < 0) return 0;
 
   mergem = (struct mergem *)bfd_zalloc (abfd, core_size + sizeof (struct mergem));
   if (mergem == NULL) {
@@ -552,7 +551,30 @@ DEFUN (sunos4_reloc_type_lookup, (abfd, code),
     }
 }
 
-static CONST struct aout_backend_data sunos4_aout_backend = { 0, 1 };
+static boolean
+DEFUN (sunos4_set_sizes, (abfd),
+       bfd *abfd)
+{
+  switch (bfd_get_arch (abfd))
+    {
+    default:
+      return false;
+    case bfd_arch_sparc:
+      adata(abfd).page_size = 0x2000;
+      adata(abfd).segment_size = 0x2000;
+      adata(abfd).exec_bytes_size = EXEC_BYTES_SIZE;
+      return true;
+    case bfd_arch_m68k:
+      adata(abfd).page_size = 0x2000;
+      adata(abfd).segment_size = 0x20000;
+      adata(abfd).exec_bytes_size = EXEC_BYTES_SIZE;
+      return true;
+    }
+}
+
+static CONST struct aout_backend_data sunos4_aout_backend = {
+  0, 1, 0, sunos4_set_sizes, 0,
+};
 
 #define	MY_core_file_failing_command 	sunos4_core_file_failing_command
 #define	MY_core_file_failing_signal	sunos4_core_file_failing_signal
@@ -563,7 +585,6 @@ static CONST struct aout_backend_data sunos4_aout_backend = { 0, 1 };
 #define MY_bfd_debug_info_accumulate	(PROTO(void,(*),(bfd*, struct sec *))) bfd_void
 #define MY_core_file_p sunos4_core_file_p
 #define MY_write_object_contents NAME(aout,sunos4_write_object_contents)
-#define MY_reloc_howto_type_lookup	sunos4_reloc_type_lookup
 #define MY_backend_data			&sunos4_aout_backend
 
 #define TARGET_IS_BIG_ENDIAN_P

@@ -177,7 +177,11 @@ struct internal_scnhdr {
 #define STYP_LIB	 (0x0800) /* for .lib: same as INFO */
 #define STYP_MERGE	 (0x2000) /* merge section -- combines with text, data or bss sections only */
 #define STYP_REVERSE_PAD (0x4000) /* section will be padded with no-op instructions wherever padding is necessary and there is a
-				     word of contiguous bytes beginning on a word boundary. */
+
+				     word of contiguous bytes
+				     beginning on a word boundary. */
+
+#define STYP_LIT	0x8020	/* Literal data (like STYP_TEXT) */
 /********************** LINE NUMBERS **********************/
 
 /* 1 line number entry for every "breakpointable" source line in a section.
@@ -441,3 +445,26 @@ struct internal_reloc
 #define R_JMP1     0x43    /* Special h8 16bit jmp which could be
 			      pcrel */
 #define R_JMP2 0x44 /* a branch which used to be a jmp */
+#define R_RELLONG_NEG  0x45
+
+
+/* Z8k modes */
+#define R_DA	  0x01	/* 16 bit Absolute direct address */
+#define R_JR	  0x02	/* jr  8 bit disp */
+#define R_IMM4L   0x23  /* low nibble */
+
+
+#define R_CALL    R_DA /* Absolute address which could be a callr */
+#define R_JP	  R_DA  /* Absolute address which could be a jp */
+
+#define R_REL16   0x04  /* 16 bit PC rel */
+#define R_CALLR	  0x05	/* callr 12 bit disp */
+
+#define R_SEG     0x10  /* set if in segmented mode */
+
+
+#define R_IMM32   0x21  /* 32 bit abs */
+#define R_IMM8    0x22  /* 8 bit abs */
+
+#define R_IMM4H   0x24  /* high nibble */
+

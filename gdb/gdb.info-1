@@ -6,8 +6,8 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
    This file documents the GNU debugger GDB.
 
-   This is Edition 4.06, July 1992, of `Debugging with GDB: the GNU
-Source-Level Debugger' for GDB Version 4.6.
+   This is Edition 4.06, October 1992, of `Debugging with GDB: the GNU
+Source-Level Debugger' for GDB Version 4.7.
 
    Copyright (C) 1988, 1989, 1990, 1991, 1992 Free Software Foundation,
 Inc.
@@ -30,14 +30,14 @@ may be included in a translation approved by the Free Software
 Foundation instead of in the original English.
 
 
-File: gdb.info,  Node: Top,  Next: Summary,  Prev: (dir),  Up: (dir)
+File: gdb.info,  Node: Top,  Next: Summary,  Prev: (DIR),  Up: (DIR)
 
 Debugging with GDB
 ******************
 
    This file describes GDB, the GNU symbolic debugger.
 
-   This is Edition 4.06, July 1992, for GDB Version 4.6.
+   This is Edition 4.06, October 1992, for GDB Version 4.7.
 
 * Menu:
 
@@ -65,201 +65,6 @@ Debugging with GDB
 * Installing GDB::              Installing GDB
 * Copying::                     GNU GENERAL PUBLIC LICENSE
 * Index::                       Index
-
- -- The Detailed Node Listing --
-
-Summary of GDB
-
-* Free Software::               Freely redistributable software
-* Contributors::                Contributors to GDB
-
-Getting In and Out of GDB
-
-* Invoking GDB::                How to start GDB
-* Leaving GDB::                 How to quit GDB
-* Shell Commands::              How to use shell commands inside GDB
-
-Starting GDB
-
-* File Options::                Choosing Files
-* Mode Options::                Choosing Modes
-
-GDB Commands
-
-* Command Syntax::              Command Syntax
-* Completion::                  Command Completion
-* Help::                        Getting Help
-
-Running Programs Under GDB
-
-* Compilation::                 Compiling for Debugging
-* Starting::                    Starting your Program
-* Arguments::                   Your Program's Arguments
-* Environment::                 Your Program's Environment
-* Working Directory::           Your Program's Working Directory
-* Input/Output::                Your Program's Input and Output
-* Attach::                      Debugging an Already-Running Process
-* Kill Process::                Killing the Child Process
-* Process Information::         Additional Process Information
-
-Stopping and Continuing
-
-* Breakpoints::                 Breakpoints, Watchpoints, and Exceptions
-* Continuing and Stepping::     Resuming Execution
-* Signals::                     Signals
-
-Breakpoints, Watchpoints, and Exceptions
-
-* Set Breaks::                  Setting Breakpoints
-* Set Watchpoints::             Setting Watchpoints
-* Exception Handling::          Breakpoints and Exceptions
-* Delete Breaks::               Deleting Breakpoints
-* Disabling::                   Disabling Breakpoints
-* Conditions::                  Break Conditions
-* Break Commands::              Breakpoint Command Lists
-* Breakpoint Menus::            Breakpoint Menus
-* Error in Breakpoints::        "Cannot insert breakpoints"
-
-Examining the Stack
-
-* Frames::                      Stack Frames
-* Backtrace::                   Backtraces
-* Selection::                   Selecting a Frame
-* Frame Info::                  Information on a Frame
-
-Examining Source Files
-
-* List::                        Printing Source Lines
-* Search::                      Searching Source Files
-* Source Path::                 Specifying Source Directories
-* Machine Code::                Source and Machine Code
-
-Examining Data
-
-* Expressions::                 Expressions
-* Variables::                   Program Variables
-* Arrays::                      Artificial Arrays
-* Output formats::              Output formats
-* Memory::                      Examining Memory
-* Auto Display::                Automatic Display
-* Print Settings::              Print Settings
-* Value History::               Value History
-* Convenience Vars::            Convenience Variables
-* Registers::                   Registers
-* Floating Point Hardware::     Floating Point Hardware
-
-Using GDB with Different Languages
-
-* Setting::                     Switching between source languages
-* Show::                        Displaying the language
-* Checks::                      Type and Range checks
-* Support::                     Supported languages
-
-Switching between source languages
-
-* Manually::                    Setting the working language manually
-* Automatically::               Having GDB infer the source language
-
-Type and range Checking
-
-* Type Checking::               An overview of type checking
-* Range Checking::              An overview of range checking
-
-Supported Languages
-
-* C::                           C and C++
-* Modula-2::                    Modula-2
-
-C and C++
-
-* C Operators::                 C and C++ Operators
-* C Constants::                 C and C++ Constants
-* Cplusplus expressions::       C++ Expressions
-* C Defaults::                  Default settings for C and C++
-* C Checks::                    C and C++ Type and Range Checks
-* Debugging C::                 GDB and C
-* Debugging C plus plus::       Special features for C++
-
-Modula-2
-
-* M2 Operators::                Built-in operators
-* Built-In Func/Proc::           Built-in Functions and Procedures
-* M2 Constants::                Modula-2 Constants
-* M2 Defaults::                 Default settings for Modula-2
-* Deviations::                  Deviations from standard Modula-2
-* M2 Checks::                   Modula-2 Type and Range Checks
-* M2 Scope::                    The scope operators `::' and `.'
-* GDB/M2::                      GDB and Modula-2
-
-Altering Execution
-
-* Assignment::                  Assignment to Variables
-* Jumping::                     Continuing at a Different Address
-* Signaling::                   Giving your program a Signal
-* Returning::                   Returning from a Function
-* Calling::                     Calling your Program's Functions
-* Patching::                    Patching your Program
-
-GDB's Files
-
-* Files::                       Commands to Specify Files
-* Symbol Errors::               Errors Reading Symbol Files
-
-Specifying a Debugging Target
-
-* Active Targets::              Active Targets
-* Target Commands::             Commands for Managing Targets
-* Remote::                      Remote Debugging
-
-Remote Debugging
-
-* i960-Nindy Remote::           GDB with a Remote i960 (Nindy)
-* EB29K Remote::                GDB with a Remote EB29K
-* VxWorks Remote::              GDB and VxWorks
-
-GDB with a Remote i960 (Nindy)
-
-* Nindy Startup::               Startup with Nindy
-* Nindy Options::               Options for Nindy
-* Nindy reset::                 Nindy Reset Command
-
-GDB with a Remote EB29K
-
-* Comms (EB29K)::               Communications Setup
-* gdb-EB29K::                   EB29K cross-debugging
-* Remote Log::                  Remote Log
-
-GDB and VxWorks
-
-* VxWorks connection::          Connecting to VxWorks
-* VxWorks download::            VxWorks Download
-* VxWorks attach::              Running Tasks
-
-Controlling GDB
-
-* Prompt::                      Prompt
-* Editing::                     Command Editing
-* History::                     Command History
-* Screen Size::                 Screen Size
-* Numbers::                     Numbers
-* Messages/Warnings::           Optional Warnings and Messages
-
-Canned Sequences of Commands
-
-* Define::                      User-Defined Commands
-* Command Files::               Command Files
-* Output::                      Commands for Controlled Output
-
-Reporting Bugs in GDB
-
-* Bug Criteria::                Have You Found a Bug?
-* Bug Reporting::               How to Report Bugs
-
-Installing GDB
-
-* Separate Objdir::             Compiling GDB in another directory
-* Config Names::                Specifying names for hosts and targets
-* configure Options::           Summary of options for configure
 
 
 File: gdb.info,  Node: Summary,  Next: New Features,  Prev: Top,  Up: Top
@@ -293,7 +98,7 @@ Fortran support will be added when a GNU Fortran compiler is ready.
 * Contributors::                Contributors to GDB
 
 
-File: gdb.info,  Node: Free Software,  Next: Contributors,  Prev: Summary,  Up: Summary
+File: gdb.info,  Node: Free Software,  Next: Contributors,  Up: Summary
 
 Free Software
 =============
@@ -399,13 +204,13 @@ New Features since GDB version 3.5
      you are debugging local files, local processes, standalone systems
      over a serial port, realtime systems over a TCP/IP connection,
      etc.  The command `load' can download programs into a remote
-     system.  Serial stubs are available for Motorola 680x0 and Intel
-     80386 remote systems; GDB also supports debugging realtime
-     processes running under VxWorks, using SunRPC Remote Procedure
-     Calls over TCP/IP to talk to a debugger stub on the target system.
-      Internally, GDB now uses a function vector to mediate access to
-     different targets; if you need to add your own support for a
-     remote protocol, this makes it much easier.
+     system.  Serial stubs are available for Motorola 680x0, Intel
+     80386, and Sparc remote systems; GDB also supports debugging
+     realtime processes running under VxWorks, using SunRPC Remote
+     Procedure Calls over TCP/IP to talk to a debugger stub on the
+     target system.  Internally, GDB now uses a function vector to
+     mediate access to different targets; if you need to add your own
+     support for a remote protocol, this makes it much easier.
 
 *Watchpoints*
      GDB now sports watchpoints as well as breakpoints.  You can use a
@@ -522,7 +327,7 @@ Let's use GDB to try to see what's going on.
       the conditions.
      There is absolutely no warranty for GDB; type "show warranty"
      for details.
-     GDB 4.6, Copyright 1992 Free Software Foundation, Inc...
+     GDB 4.7, Copyright 1992 Free Software Foundation, Inc...
      (gdb)
 
 GDB reads only enough symbol data to know where to find the rest when
@@ -703,12 +508,16 @@ exit.)
 * Shell Commands::              Shell Commands
 
 
-File: gdb.info,  Node: Invoking GDB,  Next: Leaving GDB,  Prev: Invocation,  Up: Invocation
+File: gdb.info,  Node: Invoking GDB,  Next: Leaving GDB,  Up: Invocation
 
 Starting GDB
 ============
 
-   Start GDB with the shell command `gdb'.  Once it's running, GDB
+   For details on starting up gdb as a remote debugger attached to a
+Hitachi H8/300 board, see *Note GDB and the Hitachi H8/300: Hitachi
+H8/300 Remote.
+
+   Start GDB by running the program `gdb'.  Once it's running, GDB
 reads commands from the terminal until you tell it to exit.
 
    You can also run `gdb' with a variety of arguments and options, to
@@ -718,8 +527,8 @@ specify more of your debugging environment at the outset.
 variety of situations; in some environments, some of these options may
 effectively be unavailable.
 
-   The most usual way to start GDB is with one argument or two,
-specifying an executable program as the argument:
+   The most usual way to start GDB is with one argument, specifying an
+executable program:
 
      gdb PROGRAM
 
@@ -761,7 +570,7 @@ used.
 * Mode Options::                Choosing Modes
 
 
-File: gdb.info,  Node: File Options,  Next: Mode Options,  Prev: Invoking GDB,  Up: Invoking GDB
+File: gdb.info,  Node: File Options,  Next: Mode Options,  Up: Invoking GDB
 
 Choosing Files
 --------------
@@ -955,7 +764,7 @@ the alternatives available, if there's more than one possibility).
 * Help::                        Getting Help
 
 
-File: gdb.info,  Node: Command Syntax,  Next: Completion,  Prev: Commands,  Up: Commands
+File: gdb.info,  Node: Command Syntax,  Next: Completion,  Up: Commands
 
 Command Syntax
 ==============
@@ -1047,8 +856,8 @@ input (`b make_' in the example) so you can finish the command.
    If you just want to see the list of alternatives in the first place,
 you can press `M-?' rather than pressing TAB twice. `M-?' means `META
 ?'.  You can type this either by holding down a key designated as the
-META shift on your keyboard (if there is one) while typing `?', or by
-typing ESC followed by `?'.
+META shift on your keyboard (if there is one) while typing `?', or as
+ESC followed by `?'.
 
    Sometimes the string you need, while logically a "word", may contain
 parentheses or other characters that GDB normally excludes from its
@@ -1204,7 +1013,7 @@ Running Programs Under GDB
 * Process Information::         Additional Process Information
 
 
-File: gdb.info,  Node: Compilation,  Next: Starting,  Prev: Running,  Up: Running
+File: gdb.info,  Node: Compilation,  Next: Starting,  Up: Running
 
 Compiling for Debugging
 =======================
@@ -1303,14 +1112,163 @@ The *standard input and output.*
 
    When you issue the `run' command, your program begins to execute
 immediately.  *Note Stopping and Continuing: Stopping, for discussion
-of how to arrange for your program to stop.  Once your program has been
-started by the `run' command (and then stopped), you may evaluate
-expressions that involve calls to functions in your program, using the
-`print' or `call' commands.  *Note Examining Data: Data.
+of how to arrange for your program to stop.  Once your program has
+stopped, you may calls functions in your program, using the `print' or
+`call' commands.  *Note Examining Data: Data.
 
    If the modification time of your symbol file has changed since the
 last time GDB read its symbols, GDB will discard its symbol table and
 re-read it.  When it does this, GDB tries to retain your current
 breakpoints.
+
+
+File: gdb.info,  Node: Arguments,  Next: Environment,  Prev: Starting,  Up: Running
+
+Your Program's Arguments
+========================
+
+   The arguments to your program can be specified by the arguments of
+the `run' command.  They are passed to a shell, which expands wildcard
+characters and performs redirection of I/O, and thence to your program.
+GDB uses the shell indicated by your environment variable `SHELL' if it
+exists; otherwise, GDB uses `/bin/sh'.
+
+   `run' with no arguments uses the same arguments used by the previous
+`run', or those set by the `set args' command.
+
+`set args'
+     Specify the arguments to be used the next time your program is
+     run.  If `set args' has no arguments, `run' will execute your
+     program with no arguments.  Once you have run your program with
+     arguments, using `set args' before the next `run' is the only way
+     to run it again without arguments.
+
+`show args'
+     Show the arguments to give your program when it is started.
+
+
+File: gdb.info,  Node: Environment,  Next: Working Directory,  Prev: Arguments,  Up: Running
+
+Your Program's Environment
+==========================
+
+   The "environment" consists of a set of environment variables and
+their values.  Environment variables conventionally record such things
+as your user name, your home directory, your terminal type, and your
+search path for programs to run.  Usually you set up environment
+variables with the shell and they are inherited by all the other
+programs you run.  When debugging, it can be useful to try running your
+program with a modified environment without having to start GDB over
+again.
+
+`path DIRECTORY'
+     Add DIRECTORY to the front of the `PATH' environment variable (the
+     search path for executables), for both GDB and your program. You
+     may specify several directory names, separated by `:' or
+     whitespace.  If DIRECTORY is already in the path, it is moved to
+     the front, so it will be searched sooner.
+
+     You can use the string `$cwd' to refer to whatever is the current
+     working directory at the time GDB searches the path.  If you use
+     `.' instead, it refers to the directory where you executed the
+     `path' command.  GDB fills in the current path where needed in the
+     DIRECTORY argument, before adding it to the search path.
+
+`show paths'
+     Display the list of search paths for executables (the `PATH'
+     environment variable).
+
+`show environment [VARNAME]'
+     Print the value of environment variable VARNAME to be given to
+     your program when it starts.  If you do not supply VARNAME, print
+     the names and values of all environment variables to be given to
+     your program.  You can abbreviate `environment' as `env'.
+
+`set environment VARNAME [=] VALUE'
+     Sets environment variable VARNAME to VALUE.  The value changes for
+     your program only, not for GDB itself.  VALUE may be any string;
+     the values of environment variables are just strings, and any
+     interpretation is supplied by your program itself.  The VALUE
+     parameter is optional; if it is eliminated, the variable is set to
+     a null value.
+
+     For example, this command:
+
+          set env USER = foo
+
+     tells a Unix program, when subsequently run, that its user is named
+     `foo'.  (The spaces around `=' are used for clarity here; they are
+     not actually required.)
+
+`unset environment VARNAME'
+     Remove variable VARNAME from the environment to be passed to your
+     program.  This is different from `set env VARNAME ='; `unset
+     environment' removes the variable from the environment, rather
+     than assigning it an empty value.
+
+
+File: gdb.info,  Node: Working Directory,  Next: Input/Output,  Prev: Environment,  Up: Running
+
+Your Program's Working Directory
+================================
+
+   Each time you start your program with `run', it inherits its working
+directory from the current working directory of GDB.  GDB's working
+directory is initially whatever it inherited from its parent process
+(typically the shell), but you can specify a new working directory in
+GDB with the `cd' command.
+
+   The GDB working directory also serves as a default for the commands
+that specify files for GDB to operate on.  *Note Commands to Specify
+Files: Files.
+
+`cd DIRECTORY'
+     Set GDB's working directory to DIRECTORY.
+
+`pwd'
+     Print GDB's working directory.
+
+
+File: gdb.info,  Node: Input/Output,  Next: Attach,  Prev: Working Directory,  Up: Running
+
+Your Program's Input and Output
+===============================
+
+   By default, the program you run under GDB does input and output to
+the same terminal that GDB uses.  GDB switches the terminal to its own
+terminal modes to interact with you, but it records the terminal modes
+your program was using and switches back to them when you continue
+running your program.
+
+`info terminal'
+     Displays GDB's recorded information about the terminal modes your
+     program is using.
+
+   You can redirect your program's input and/or output using shell
+redirection with the `run' command.  For example,
+
+     run > outfile
+
+starts your program, diverting its output to the file `outfile'.
+
+   Another way to specify where your program should do input and output
+is with the `tty' command.  This command accepts a file name as
+argument, and causes this file to be the default for future `run'
+commands.  It also resets the controlling terminal for the child
+process, for future `run' commands.  For example,
+
+     tty /dev/ttyb
+
+directs that processes started with subsequent `run' commands default
+to do input and output on the terminal `/dev/ttyb' and have that as
+their controlling terminal.
+
+   An explicit redirection in `run' overrides the `tty' command's
+effect on the input/output device, but not its effect on the controlling
+terminal.
+
+   When you use the `tty' command or redirect input in the `run'
+command, only the input *for your program* is affected.  The input for
+GDB still comes from your terminal.
 
 

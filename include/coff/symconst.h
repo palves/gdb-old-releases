@@ -10,7 +10,7 @@
  * | maintained in the copy.                                   |
  * |-----------------------------------------------------------|
  */
-/* $Header: /local/cvsfiles/devo/include/coff/symconst.h,v 1.5 1992/06/13 06:00:35 gnu Exp $ */
+/* $Header: /local/cvsfiles/devo/include/coff/symconst.h,v 1.6 1992/08/27 22:12:38 brendan Exp $ */
 
 /* (C) Copyright 1984 by Third Eye Software, Inc.
  *
@@ -167,4 +167,4 @@
 #define otInline	4	/* inline procedure */
 #define otEnd		5	/* whatever you started */
 #define otMax		6	/* KEEP UP TO DATE */
-#endif (_MFG == _MIPS)
+#endif /* (_MFG == _MIPS) */

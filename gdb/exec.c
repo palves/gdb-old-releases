@@ -408,16 +408,18 @@ struct target_ops exec_ops = {
 	"Use an executable file as a target.\n\
 Specify the filename of the executable file.",
 	exec_file_command, exec_close, /* open, close */
-	child_attach, 0, 0, 0, /* attach, detach, resume, wait, */
+	find_default_attach, 0, 0, 0, /* attach, detach, resume, wait, */
 	0, 0, /* fetch_registers, store_registers, */
-	0, 0, 0, /* prepare_to_store, conv_to, conv_from, */
+	0, /* prepare_to_store, */
 	xfer_memory, exec_files_info,
 	0, 0, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0, /* terminal stuff */
 	0, 0, /* kill, load */
 	0, /* lookup sym */
-	child_create_inferior,
+	find_default_create_inferior,
 	0, /* mourn_inferior */
+	0, /* can_run */
+	0, /* notice_signals */
 	file_stratum, 0, /* next */
 	0, 1, 0, 0, 0,	/* all mem, mem, stack, regs, exec */
 	0, 0,			/* section pointers */

@@ -52,7 +52,7 @@ alloc_type (objfile)
       type  = (struct type *) obstack_alloc (&objfile -> type_obstack,
 					     sizeof (struct type));
     }
-  memset ((char *)type, 0, sizeof (struct type));
+  memset ((char *) type, 0, sizeof (struct type));
 
   /* Initialize the fields that might not be zero. */
 
@@ -97,7 +97,7 @@ make_pointer_type (type, typeptr)
     {
       ntype = *typeptr;
       objfile = TYPE_OBJFILE (ntype);
-      memset ((char *)ntype, 0, sizeof (struct type));
+      memset ((char *) ntype, 0, sizeof (struct type));
       TYPE_OBJFILE (ntype) = objfile;
     }
 
@@ -162,7 +162,7 @@ make_reference_type (type, typeptr)
     {
       ntype = *typeptr;
       objfile = TYPE_OBJFILE (ntype);
-      memset ((char *)ntype, 0, sizeof (struct type));
+      memset ((char *) ntype, 0, sizeof (struct type));
       TYPE_OBJFILE (ntype) = objfile;
     }
 
@@ -224,7 +224,7 @@ make_function_type (type, typeptr)
     {
       ntype = *typeptr;
       objfile = TYPE_OBJFILE (ntype);
-      memset ((char *)ntype, 0, sizeof (struct type));
+      memset ((char *) ntype, 0, sizeof (struct type));
       TYPE_OBJFILE (ntype) = objfile;
     }
 
@@ -314,8 +314,7 @@ create_array_type (element_type, number)
   TYPE_LENGTH (result_type) = number * TYPE_LENGTH (element_type);
   TYPE_NFIELDS (result_type) = 1;
   TYPE_FIELDS (result_type) = (struct field *)
-    obstack_alloc (&TYPE_OBJFILE (result_type) -> type_obstack,
-		   sizeof (struct field));
+    TYPE_ALLOC (result_type, sizeof (struct field));
 
   {
     /* Create range type.  */
@@ -328,8 +327,7 @@ create_array_type (element_type, number)
 
     TYPE_NFIELDS (range_type) = 2;
     TYPE_FIELDS (range_type) = (struct field *)
-      obstack_alloc (&TYPE_OBJFILE (range_type) -> type_obstack,
-		     2 * sizeof (struct field));
+      TYPE_ALLOC (range_type, 2 * sizeof (struct field));
     TYPE_FIELD_BITPOS (range_type, 0) = 0; /* FIXME */
     TYPE_FIELD_BITPOS (range_type, 1) = number-1; /* FIXME */
     TYPE_FIELD_TYPE (range_type, 0) = builtin_type_int; /* FIXME */
@@ -362,7 +360,7 @@ smash_to_member_type (type, domain, to_type)
 
   objfile = TYPE_OBJFILE (type);
 
-  memset ((char *)type, 0, sizeof (struct type));
+  memset ((char *) type, 0, sizeof (struct type));
   TYPE_OBJFILE (type) = objfile;
   TYPE_TARGET_TYPE (type) = to_type;
   TYPE_DOMAIN_TYPE (type) = domain;
@@ -388,7 +386,7 @@ smash_to_method_type (type, domain, to_type, args)
 
   objfile = TYPE_OBJFILE (type);
 
-  memset ((char *)type, 0, sizeof (struct type));
+  memset ((char *) type, 0, sizeof (struct type));
   TYPE_OBJFILE (type) = objfile;
   TYPE_TARGET_TYPE (type) = to_type;
   TYPE_DOMAIN_TYPE (type) = domain;
@@ -797,8 +795,7 @@ check_stub_method (type, i, j)
      NULL [...] or void [end of arglist].  */
 
   argtypes = (struct type **)
-    obstack_alloc (&TYPE_OBJFILE (type) -> type_obstack,
-		   (argcount+2) * sizeof (struct type *));
+    TYPE_ALLOC (type, (argcount + 2) * sizeof (struct type *));
   p = argtypetext;
   argtypes[0] = lookup_pointer_type (type);
   argcount = 1;
@@ -829,13 +826,13 @@ check_stub_method (type, i, j)
 	}
     }
 
-  if (p[-2] != '.')			/* ... */
+  if (p[-2] != '.')			/* Not '...' */
     {
-      argtypes[argcount] = builtin_type_void;	/* Ellist terminator */
+      argtypes[argcount] = builtin_type_void;	/* List terminator */
     }
   else
     {
-      argtypes[argcount] = NULL;		/* List terminator */
+      argtypes[argcount] = NULL;		/* Ellist terminator */
     }
 
   free (demangled_name);
@@ -860,8 +857,7 @@ allocate_cplus_struct_type (type)
   if (!HAVE_CPLUS_STRUCT (type))
     {
       TYPE_CPLUS_SPECIFIC (type) = (struct cplus_struct_type *)
-	obstack_alloc (&current_objfile -> type_obstack,
-		       sizeof (struct cplus_struct_type));
+	TYPE_ALLOC (type, sizeof (struct cplus_struct_type));
       *(TYPE_CPLUS_SPECIFIC(type)) = cplus_struct_default;
     }
 }
@@ -951,7 +947,7 @@ lookup_fundamental_type (objfile, typeid)
 	  nbytes = FT_NUM_MEMBERS * sizeof (struct type *);
 	  objfile -> fundamental_types = (struct type **)
 	    obstack_alloc (&objfile -> type_obstack, nbytes);
-	  memset ((char *)objfile -> fundamental_types, 0, nbytes);
+	  memset ((char *) objfile -> fundamental_types, 0, nbytes);
 	}
       typep = objfile -> fundamental_types + typeid;
       if ((type = *typep) == NULL)
@@ -1152,6 +1148,82 @@ print_bit_vector (bits, nbits)
     }
 }
 
+/* The args list is a strange beast.  It is either terminated by a NULL
+   pointer for varargs functions, or by a pointer to a TYPE_CODE_VOID
+   type for normal fixed argcount functions.  (FIXME someday)
+   Also note the first arg should be the "this" pointer, we may not want to
+   include it since we may get into a infinitely recursive situation. */
+
+static void
+print_arg_types (args, spaces)
+     struct type **args;
+     int spaces;
+{
+  if (args != NULL)
+    {
+      while (*args != NULL)
+	{
+	  recursive_dump_type (*args, spaces + 2);
+	  if ((*args++) -> code == TYPE_CODE_VOID)
+	    {
+	      break;
+	    }
+	}
+    }
+}
+
+static void
+dump_fn_fieldlists (type, spaces)
+     struct type *type;
+     int spaces;
+{
+  int method_idx;
+  int overload_idx;
+  struct fn_field *f;
+
+  printfi_filtered (spaces, "fn_fieldlists 0x%x\n",
+		    TYPE_FN_FIELDLISTS (type));
+  for (method_idx = 0; method_idx < TYPE_NFN_FIELDS (type); method_idx++)
+    {
+      f = TYPE_FN_FIELDLIST1 (type, method_idx);
+      printfi_filtered (spaces + 2, "[%d] name '%s' (0x%x) length %d\n",
+			method_idx,
+			TYPE_FN_FIELDLIST_NAME (type, method_idx),
+			TYPE_FN_FIELDLIST_NAME (type, method_idx),
+			TYPE_FN_FIELDLIST_LENGTH (type, method_idx));
+      for (overload_idx = 0;
+	   overload_idx < TYPE_FN_FIELDLIST_LENGTH (type, method_idx);
+	   overload_idx++)
+	{
+	  printfi_filtered (spaces + 4, "[%d] physname '%s' (0x%x)\n",
+			    overload_idx,
+			    TYPE_FN_FIELD_PHYSNAME (f, overload_idx),
+			    TYPE_FN_FIELD_PHYSNAME (f, overload_idx));
+	  printfi_filtered (spaces + 8, "type 0x%x\n",
+			    TYPE_FN_FIELD_TYPE (f, overload_idx));
+	  recursive_dump_type (TYPE_FN_FIELD_TYPE (f, overload_idx),
+			       spaces + 8 + 2);
+	  printfi_filtered (spaces + 8, "args 0x%x\n",
+			    TYPE_FN_FIELD_ARGS (f, overload_idx));
+	  print_arg_types (TYPE_FN_FIELD_ARGS (f, overload_idx), spaces);
+	  printfi_filtered (spaces + 8, "fcontext 0x%x\n",
+			    TYPE_FN_FIELD_FCONTEXT (f, overload_idx));
+	  printfi_filtered (spaces + 8, "is_const %d\n",
+			    TYPE_FN_FIELD_CONST (f, overload_idx));
+	  printfi_filtered (spaces + 8, "is_volatile %d\n",
+			    TYPE_FN_FIELD_VOLATILE (f, overload_idx));
+	  printfi_filtered (spaces + 8, "is_private %d\n",
+			    TYPE_FN_FIELD_PRIVATE (f, overload_idx));
+	  printfi_filtered (spaces + 8, "is_protected %d\n",
+			    TYPE_FN_FIELD_PROTECTED (f, overload_idx));
+	  printfi_filtered (spaces + 8, "is_stub %d\n",
+			    TYPE_FN_FIELD_STUB (f, overload_idx));
+	  printfi_filtered (spaces + 8, "voffset %u\n",
+			    TYPE_FN_FIELD_VOFFSET (f, overload_idx));
+	}
+    }
+}
+
 static void
 print_cplus_stuff (type, spaces)
      struct type *type;
@@ -1159,13 +1231,15 @@ print_cplus_stuff (type, spaces)
 {
   int bitno;
 
-  printfi_filtered (spaces, "cplus_stuff: @ 0x%x\n",
-		    TYPE_CPLUS_SPECIFIC (type));
-  printfi_filtered (spaces, "n_baseclasses: %d\n",
+  printfi_filtered (spaces, "n_baseclasses %d\n",
 		    TYPE_N_BASECLASSES (type));
+  printfi_filtered (spaces, "nfn_fields %d\n",
+		    TYPE_NFN_FIELDS (type));
+  printfi_filtered (spaces, "nfn_fields_total %d\n",
+		    TYPE_NFN_FIELDS_TOTAL (type));
   if (TYPE_N_BASECLASSES (type) > 0)
     {
-      printfi_filtered (spaces, "virtual_field_bits: %d @ 0x%x:",
+      printfi_filtered (spaces, "virtual_field_bits (%d bits at *0x%x)",
 			TYPE_N_BASECLASSES (type),
 			TYPE_FIELD_VIRTUAL_BITS (type));
       print_bit_vector (TYPE_FIELD_VIRTUAL_BITS (type),
@@ -1176,7 +1250,7 @@ print_cplus_stuff (type, spaces)
     {
       if (TYPE_FIELD_PRIVATE_BITS (type) != NULL)
 	{
-	  printfi_filtered (spaces, "private_field_bits: %d @ 0x%x:",
+	  printfi_filtered (spaces, "private_field_bits (%d bits at *0x%x)",
 			    TYPE_NFIELDS (type),
 			    TYPE_FIELD_PRIVATE_BITS (type));
 	  print_bit_vector (TYPE_FIELD_PRIVATE_BITS (type),
@@ -1185,13 +1259,17 @@ print_cplus_stuff (type, spaces)
 	}
       if (TYPE_FIELD_PROTECTED_BITS (type) != NULL)
 	{
-	  printfi_filtered (spaces, "protected_field_bits: %d @ 0x%x:",
+	  printfi_filtered (spaces, "protected_field_bits (%d bits at *0x%x)",
 			    TYPE_NFIELDS (type),
 			    TYPE_FIELD_PROTECTED_BITS (type));
 	  print_bit_vector (TYPE_FIELD_PROTECTED_BITS (type),
 			    TYPE_NFIELDS (type));
 	  puts_filtered ("\n");
 	}
+    }
+  if (TYPE_NFN_FIELDS (type) > 0)
+    {
+      dump_fn_fieldlists (type, spaces);
     }
 }
 
@@ -1202,88 +1280,88 @@ recursive_dump_type (type, spaces)
 {
   int idx;
 
-  printfi_filtered (spaces, "type node @ 0x%x\n", type);
-  printfi_filtered (spaces, "name: @ 0x%x '%s'\n", TYPE_NAME (type),
+  printfi_filtered (spaces, "type node 0x%x\n", type);
+  printfi_filtered (spaces, "name '%s' (0x%x)\n", TYPE_NAME (type),
 		    TYPE_NAME (type) ? TYPE_NAME (type) : "<NULL>");
-  printfi_filtered (spaces, "code: 0x%x ", TYPE_CODE (type));
+  printfi_filtered (spaces, "code 0x%x ", TYPE_CODE (type));
   switch (TYPE_CODE (type))
     {
       case TYPE_CODE_UNDEF:
-        printf_filtered ("TYPE_CODE_UNDEF");
+        printf_filtered ("(TYPE_CODE_UNDEF)");
 	break;
       case TYPE_CODE_PTR:
-	printf_filtered ("TYPE_CODE_PTR");
+	printf_filtered ("(TYPE_CODE_PTR)");
 	break;
       case TYPE_CODE_ARRAY:
-	printf_filtered ("TYPE_CODE_ARRAY");
+	printf_filtered ("(TYPE_CODE_ARRAY)");
 	break;
       case TYPE_CODE_STRUCT:
-	printf_filtered ("TYPE_CODE_STRUCT");
+	printf_filtered ("(TYPE_CODE_STRUCT)");
 	break;
       case TYPE_CODE_UNION:
-	printf_filtered ("TYPE_CODE_UNION");
+	printf_filtered ("(TYPE_CODE_UNION)");
 	break;
       case TYPE_CODE_ENUM:
-	printf_filtered ("TYPE_CODE_ENUM");
+	printf_filtered ("(TYPE_CODE_ENUM)");
 	break;
       case TYPE_CODE_FUNC:
-	printf_filtered ("TYPE_CODE_FUNC");
+	printf_filtered ("(TYPE_CODE_FUNC)");
 	break;
       case TYPE_CODE_INT:
-	printf_filtered ("TYPE_CODE_INT");
+	printf_filtered ("(TYPE_CODE_INT)");
 	break;
       case TYPE_CODE_FLT:
-	printf_filtered ("TYPE_CODE_FLT");
+	printf_filtered ("(TYPE_CODE_FLT)");
 	break;
       case TYPE_CODE_VOID:
-	printf_filtered ("TYPE_CODE_VOID");
+	printf_filtered ("(TYPE_CODE_VOID)");
 	break;
       case TYPE_CODE_SET:
-	printf_filtered ("TYPE_CODE_SET");
+	printf_filtered ("(TYPE_CODE_SET)");
 	break;
       case TYPE_CODE_RANGE:
-	printf_filtered ("TYPE_CODE_RANGE");
+	printf_filtered ("(TYPE_CODE_RANGE)");
 	break;
       case TYPE_CODE_PASCAL_ARRAY:
-	printf_filtered ("TYPE_CODE_PASCAL_ARRAY");
+	printf_filtered ("(TYPE_CODE_PASCAL_ARRAY)");
 	break;
       case TYPE_CODE_ERROR:
-	printf_filtered ("TYPE_CODE_ERROR");
+	printf_filtered ("(TYPE_CODE_ERROR)");
 	break;
       case TYPE_CODE_MEMBER:
-	printf_filtered ("TYPE_CODE_MEMBER");
+	printf_filtered ("(TYPE_CODE_MEMBER)");
 	break;
       case TYPE_CODE_METHOD:
-	printf_filtered ("TYPE_CODE_METHOD");
+	printf_filtered ("(TYPE_CODE_METHOD)");
 	break;
       case TYPE_CODE_REF:
-	printf_filtered ("TYPE_CODE_REF");
+	printf_filtered ("(TYPE_CODE_REF)");
 	break;
       case TYPE_CODE_CHAR:
-	printf_filtered ("TYPE_CODE_CHAR");
+	printf_filtered ("(TYPE_CODE_CHAR)");
 	break;
       case TYPE_CODE_BOOL:
-	printf_filtered ("TYPE_CODE_BOOL");
+	printf_filtered ("(TYPE_CODE_BOOL)");
 	break;
       default:
-	printf_filtered ("<UNKNOWN TYPE CODE>");
+	printf_filtered ("(UNKNOWN TYPE CODE)");
 	break;
     }
   puts_filtered ("\n");
-  printfi_filtered (spaces, "length: %d\n", TYPE_LENGTH (type));
-  printfi_filtered (spaces, "objfile: @ 0x%x\n", TYPE_OBJFILE (type));
-  printfi_filtered (spaces, "target_type: @ 0x%x\n", TYPE_TARGET_TYPE (type));
+  printfi_filtered (spaces, "length %d\n", TYPE_LENGTH (type));
+  printfi_filtered (spaces, "objfile 0x%x\n", TYPE_OBJFILE (type));
+  printfi_filtered (spaces, "target_type 0x%x\n", TYPE_TARGET_TYPE (type));
   if (TYPE_TARGET_TYPE (type) != NULL)
     {
       recursive_dump_type (TYPE_TARGET_TYPE (type), spaces + 2);
     }
-  printfi_filtered (spaces, "pointer_type: @ 0x%x\n",
+  printfi_filtered (spaces, "pointer_type 0x%x\n",
 		    TYPE_POINTER_TYPE (type));
-  printfi_filtered (spaces, "reference_type: @ 0x%x\n",
+  printfi_filtered (spaces, "reference_type 0x%x\n",
 		    TYPE_REFERENCE_TYPE (type));
-  printfi_filtered (spaces, "function_type: @ 0x%x\n",
+  printfi_filtered (spaces, "function_type 0x%x\n",
 		    TYPE_FUNCTION_TYPE (type));
-  printfi_filtered (spaces, "flags: 0x%x", TYPE_FLAGS (type));
+  printfi_filtered (spaces, "flags 0x%x", TYPE_FLAGS (type));
   if (TYPE_FLAGS (type) & TYPE_FLAG_UNSIGNED)
     {
       puts_filtered (" TYPE_FLAG_UNSIGNED");
@@ -1297,12 +1375,12 @@ recursive_dump_type (type, spaces)
       puts_filtered (" TYPE_FLAG_STUB");
     }
   puts_filtered ("\n");
-  printfi_filtered (spaces, "nfields: %d @ 0x%x\n", TYPE_NFIELDS (type),
+  printfi_filtered (spaces, "nfields %d 0x%x\n", TYPE_NFIELDS (type),
 		    TYPE_FIELDS (type));
   for (idx = 0; idx < TYPE_NFIELDS (type); idx++)
     {
       printfi_filtered (spaces + 2,
-			"[%d] bitpos %d bitsize %d type 0x%x name 0x%x '%s'\n",
+			"[%d] bitpos %d bitsize %d type 0x%x name '%s' (0x%x)\n",
 			idx, TYPE_FIELD_BITPOS (type, idx),
 			TYPE_FIELD_BITSIZE (type, idx),
 			TYPE_FIELD_TYPE (type, idx),
@@ -1315,24 +1393,40 @@ recursive_dump_type (type, spaces)
 	  recursive_dump_type (TYPE_FIELD_TYPE (type, idx), spaces + 4);
 	}
     }
-  printfi_filtered (spaces, "vptr_basetype: @ 0x%x\n",
+  printfi_filtered (spaces, "vptr_basetype 0x%x\n",
 		    TYPE_VPTR_BASETYPE (type));
   if (TYPE_VPTR_BASETYPE (type) != NULL)
     {
       recursive_dump_type (TYPE_VPTR_BASETYPE (type), spaces + 2);
     }
-  printfi_filtered (spaces, "vptr_fieldno: %d\n", TYPE_VPTR_FIELDNO (type));
+  printfi_filtered (spaces, "vptr_fieldno %d\n", TYPE_VPTR_FIELDNO (type));
   switch (TYPE_CODE (type))
     {
       case TYPE_CODE_METHOD:
       case TYPE_CODE_FUNC:
-	printfi_filtered (spaces, "arg_types: @ 0x%x\n",
-			  TYPE_ARG_TYPES (type));
+	printfi_filtered (spaces, "arg_types 0x%x\n", TYPE_ARG_TYPES (type));
+	print_arg_types (TYPE_ARG_TYPES (type), spaces);
 	break;
 
       case TYPE_CODE_STRUCT:
+	printfi_filtered (spaces, "cplus_stuff 0x%x\n",
+			  TYPE_CPLUS_SPECIFIC (type));
 	print_cplus_stuff (type, spaces);
 	break;
+
+      default:
+	/* We have to pick one of the union types to be able print and test
+	   the value.  Pick cplus_struct_type, even though we know it isn't
+	   any particular one. */
+	printfi_filtered (spaces, "type_specific 0x%x",
+			  TYPE_CPLUS_SPECIFIC (type));
+	if (TYPE_CPLUS_SPECIFIC (type) != NULL)
+	  {
+	    printf_filtered (" (unknown data form)");
+	  }
+	printf_filtered ("\n");
+	break;
+
     }
 }
 

@@ -24,18 +24,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define GDB_TARGET_IS_SUN3 1
 
-/* Define this if the C compiler puts an underscore at the front
-   of external names before giving them to the linker.  */
-
-#define NAMES_HAVE_UNDERSCORE
-
-/* Address of the end of stack space.  We get this from the system
-   include files. */
-
-#include <sys/types.h>
-#include <machine/vmparam.h>
-#define STACK_END_ADDR USRSTACK
-
 #include "tm-68k.h"
 
 /* Offsets (in target ints) into jmp_buf.  Not defined by Sun, but at least
@@ -73,7 +61,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 struct frame_info;
 #endif
 
-extern CORE_ADDR sun3_saved_pc_after_call PARAMS ((struct frame_info *));
+extern CORE_ADDR m68k_saved_pc_after_call PARAMS ((struct frame_info *));
 
 #define SAVED_PC_AFTER_CALL(frame) \
-  sun3_saved_pc_after_call(frame)
+  m68k_saved_pc_after_call(frame)

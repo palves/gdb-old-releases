@@ -2,7 +2,9 @@ HDEFINES = -DUSG -D__IEEE_BIG_ENDIAN
 RANLIB=true
 INSTALL=cp
 
-# AIX very cleverly put modf in libc.a, where modf calls copysign.
-# However, copysign is not in libc.a - it is in libm.a.
-# For the sake of libg++ and its users, we add copysign here.
+# Most releases of AIX 3.1 include an incorrect internal version of copysign
+# in libc.a for use by some libc public functions including modf.  The public
+# version of copysign in libm.a is usable.  For the sake of libg++ (which
+# uses modf), we add copysign here.  Supposedly, this problem is fixed in AIX
+# 3.1.8 and above, including all releases of AIX 3.2.
 EXTRA_OFILES = copysign.o

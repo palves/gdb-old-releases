@@ -86,7 +86,7 @@ DESCRIPTION
 .  bfd_arch_sparc,     {* SPARC *}
 .  bfd_arch_mips,      {* MIPS Rxxxx *}
 .  bfd_arch_i386,      {* Intel 386 *}
-.  bfd_arch_ns32k,     {* National Semiconductor 32xxx *}
+.  bfd_arch_we32k,     {* AT&T WE32xxx *}
 .  bfd_arch_tahoe,     {* CCI/Harris Tahoe *}
 .  bfd_arch_i860,      {* Intel 860 *}
 .  bfd_arch_romp,      {* IBM ROMP PC/RT *}
@@ -97,15 +97,14 @@ DESCRIPTION
 .  bfd_arch_h8300,     {* Hitachi H8/300 *}
 .  bfd_arch_rs6000,    {* IBM RS/6000 *}
 .  bfd_arch_hppa,      {* HP PA RISC *}
+.  bfd_arch_z8k,       {* Zilog Z8000 *}
+.#define bfd_mach_z8001		1
+.#define bfd_mach_z8002		2
 .  bfd_arch_last
 .  };
 
 
 */
-
-
-
-/* $Id: archures.c,v 1.26 1992/06/22 15:42:20 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -140,9 +139,6 @@ DESCRIPTION
 .  boolean EXFUN((*scan),(CONST struct bfd_arch_info *,CONST char *));
 .  unsigned int EXFUN((*disassemble),(bfd_vma addr, CONST char *data,
 .				     PTR stream));
-.
-.  unsigned int segment_size;
-.  unsigned int page_size;
 .
 .  struct bfd_arch_info *next;
 .} bfd_arch_info_type;
@@ -413,6 +409,8 @@ extern void EXFUN(bfd_mips_arch,(void));
 extern void EXFUN(bfd_i386_arch,(void));
 extern void EXFUN(bfd_rs6000_arch,(void));
 extern void EXFUN(bfd_hppa_arch,(void));
+extern void EXFUN(bfd_z8k_arch,(void));
+extern void EXFUN(bfd_we32k_arch,(void));
 
 
 
@@ -432,6 +430,8 @@ static void EXFUN((*archures_init_table[]),()) =
   bfd_vax_arch,
   bfd_rs6000_arch,
   bfd_hppa_arch,
+  bfd_z8k_arch,
+  bfd_we32k_arch,
 #endif
   0
   };
@@ -585,15 +585,12 @@ CONST char *string)
 	arch = bfd_arch_a29k;
 	break;
 
-      case 32016:
-      case 32032:
-      case 32132:
-      case 32232:
-      case 32332:
-      case 32432:
-      case 32532:  
-      case 32000: 
-	arch = bfd_arch_ns32k; 
+       case 8000:
+	arch = bfd_arch_z8k;
+	break;
+
+      case 32000:
+	arch = bfd_arch_we32k;
 	break;
 
       case 860:

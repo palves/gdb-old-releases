@@ -468,6 +468,7 @@ static const template i386_optab[] = {
 {"fldl", 1, 0xd9c0, _, ShortForm, FloatReg, 0, 0}, /* register */
 {"fild", 1, 0xdf, 0, Modrm, Mem, 0, 0},		/* %st0 <-- mem word (16) */
 {"fildl", 1, 0xdb, 0, Modrm, Mem, 0, 0},	/* %st0 <-- mem dword (32) */
+{"fildq",1, 0xdf, 5, Modrm, Mem, 0, 0},		/* %st0 <-- mem qword (64) */
 {"fildll",1, 0xdf, 5, Modrm, Mem, 0, 0},	/* %st0 <-- mem qword (64) */
 {"fldt", 1, 0xdb, 5, Modrm, Mem, 0, 0},		/* %st0 <-- mem efloat */
 {"fbld", 1, 0xdf, 4, Modrm, Mem, 0, 0},		/* %st0 <-- mem bcd */
@@ -487,6 +488,7 @@ static const template i386_optab[] = {
 {"fstpl", 1, 0xddd8, _, ShortForm, FloatReg, 0, 0}, /* register */
 {"fistp", 1, 0xdf, 3, Modrm, Mem, 0, 0},	/* %st0 --> mem word (16) */
 {"fistpl",1, 0xdb, 3, Modrm, Mem, 0, 0},	/* %st0 --> mem dword (32) */
+{"fistpq",1, 0xdf, 7, Modrm, Mem, 0, 0},	/* %st0 --> mem qword (64) */
 {"fistpll",1,0xdf, 7, Modrm, Mem, 0, 0},	/* %st0 --> mem qword (64) */
 {"fstpt", 1, 0xdb, 7, Modrm, Mem, 0, 0},	/* %st0 --> mem efloat */
 {"fbstp", 1, 0xdf, 6, Modrm, Mem, 0, 0},	/* %st0 --> mem bcd */

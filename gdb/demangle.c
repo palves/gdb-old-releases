@@ -28,14 +28,17 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "demangle.h"
 #include <string.h>
 
-#ifndef DEMANGLING_STYLE
-# define DEMANGLING_STYLE GNU_DEMANGLING_STYLE_STRING
+/* Select the default C++ demangling style to use.  The default is "auto",
+   which allows gdb to attempt to pick an appropriate demangling style for
+   the executable it has loaded.  It can be set to a specific style ("gnu",
+   "lucid", "cfront", etc.) in which case gdb will never attempt to do auto
+   selection of the style unless you do an explicit "set demangle auto".
+   To select one of these as the default, set DEFAULT_DEMANGLING_STYLE in
+   the appropriate target configuration file. */
+
+#ifndef DEFAULT_DEMANGLING_STYLE
+# define DEFAULT_DEMANGLING_STYLE AUTO_DEMANGLING_STYLE_STRING
 #endif
-
-/* The current demangling style in affect.  Global so that the demangler
-   can read it (FIXME:  change the interface) */
-
-enum demangling_styles current_demangling_style;
 
 /* String name for the current demangling style.  Set by the "set demangling"
    command, printed as part of the output by the "show demangling" command. */
@@ -64,7 +67,7 @@ static const struct demangler
   {CFRONT_DEMANGLING_STYLE_STRING,
      cfront_demangling,
      "ARM (cfront) style demangling"},
-  {NULL, 0, NULL}
+  {NULL, unknown_demangling, NULL}
 };
 
 /* show current demangling style. */
@@ -181,5 +184,6 @@ _initialize_demangler ()
    show -> function.cfunc = show_demangling_command;
 
    /* Set the default demangling style chosen at compilation time. */
-   set_demangling_style (DEMANGLING_STYLE);
+   set_demangling_style (DEFAULT_DEMANGLING_STYLE);
+   set_cplus_marker_for_demangling (CPLUS_MARKER);
 }

@@ -1,6 +1,6 @@
-/* bfd backend for oasys objects.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
-   Written by Steve Chamberlain of Cygnus Support <steve@cygnus.com>.
+/* BFD back-end for oasys objects.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
+   Written by Steve Chamberlain of Cygnus Support, <sac@cygnus.com>.
 
 This file is part of BFD, the Binary File Descriptor library.
 
@@ -17,8 +17,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
-
-/* $Id: oasys.c,v 1.43 1992/05/12 21:42:40 sac Exp $ */
 
 #define UNDERSCORE_HACK 1
 #include "bfd.h"
@@ -284,7 +282,7 @@ DEFUN(oasys_archive_p,(abfd),
 
       filepos = header.mod_tbl_offset;
       for (i = 0; i < header.mod_count; i++) {
-        bfd_seek(abfd , filepos, SEEK_SET);
+        bfd_seek(abfd, filepos, SEEK_SET);
 
 	/* There are two ways of specifying the archive header */
 
@@ -1324,6 +1322,7 @@ bfd_target oasys_vec =
    HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
   (SEC_CODE|SEC_DATA|SEC_ROM|SEC_HAS_CONTENTS
    |SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+   0,				/* leading underscore */
   ' ',				/* ar_pad_char */
   16,				/* ar_max_namelen */
   1,				/* minimum alignment */

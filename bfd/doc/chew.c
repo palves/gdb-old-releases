@@ -198,7 +198,8 @@ DEFUN(skip_white_and_stars,(src, idx),
       unsigned int idx)
 {
     while (isspace(at(src,idx)) 
-	   || (at(src,idx) == '*' && at(src,idx +1) !='/')) 
+	   || (at(src,idx) == '*' && at(src,idx +1) !='/'
+	       && at(src,idx -1) != '\n')) 
      idx++;
     return idx;
     
@@ -524,6 +525,7 @@ WORD(courierize)
 {
     string_type out;
     unsigned int idx = 0;
+    int command = 0;
     
     init_string(&out);
     
@@ -550,18 +552,22 @@ WORD(courierize)
 			cattext(&out,"*/");
 			idx+=2;
 		    }
-	            else if (at(tos,idx) == '{')
+	            else if (at(tos,idx) == '{' && !command)
 		    {
 			cattext(&out,"@{");
 			idx++;
 		    }
-	            else if (at(tos,idx) == '}')
+	            else if (at(tos,idx) == '}' && !command)
 		    {
 			cattext(&out,"@}");
 			idx++;
 		    }
 		    else 
 		    {
+			if (at(tos,idx) == '@')
+			    command = 1;
+			else if (isspace(at(tos,idx)) || at(tos,idx) == '}')
+			    command = 0;
 			catchar(&out, at(tos, idx));
 			idx++;
 		    }
@@ -618,12 +624,19 @@ else
 		    on = 1;
 		    
 		}
-		cattext(&out,"@item ");
+		cattext(&out,"\n@item\n");
 		idx+=3;
 	    }
 	    else 
 	    {
 		catchar(&out, at(tos, idx));
+		if (on && at(tos, idx) == '\n' &&
+		    at(tos, idx+1) == '\n' &&
+		    at(tos, idx+2) != 'o')
+		{
+		    cattext(&out, "@end itemize");
+		    on = 0;
+		}
 		idx++;
 		
 	    }
@@ -775,7 +788,7 @@ WORD(kill_bogus_lines)
 	    && at(tos,c+1) == '\n'
 	    && at(tos,c+2) == '.') 
 	{
-	    /* Ignore two linelines before  a dot*/
+	    /* Ignore two newlines before a dot*/
 	    c++;
 	}
 	else if (at(tos,c) == '.' && sl)
@@ -1341,6 +1354,3 @@ char *av[])
   write_buffer(stack+0);
   return 0;
 }
-
-
-

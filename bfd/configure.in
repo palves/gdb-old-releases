@@ -10,122 +10,7 @@ target_dependent=true
 
 # per-host:
 
-case "${host_cpu}" in
-
-rs6000)	my_host=rs6000
-	;;
-
-mips)
-	case "${host_vendor}" in
-	dec)	my_host=decstation ;;
-	sgi)
-		case "${host_os}" in
-		irix3)	my_host=irix3 ;;
-		irix4)	my_host=irix4 ;;
-		esac
-		;;
-	esac
-	;;
-
-m88k)
-	case "${host_vendor}" in
-	motorola)
-		my_host=delta88 ;;
-	harris)
-		my_host=harris ;;
-	*)
-		case "${host_os}" in
-		dgux)	my_host=dgux ;;
-		esac
-		;;
-	esac
-	;;
-
-m68k|m680[01234]0)
-	case "${host_vendor}" in
-	cbm)
-		case ${host_os} in
-		amigados)	my_host=amigados ;;
-		sysv4*)		my_host=amix ;;
-		esac
-		;;
-	hp)	
-		case "${host_os}" in
-		hpux)	my_host=hp9000 ;;
-		bsd)	my_host=hp300bsd ;;
-		esac
-		;;
-	sony)	my_host=news ;;
-	sun)	my_host=sun3 ;;
-	apollo*)
-		case "${host_os}" in
-		sysv*)	my_host=apollov68 ;;
- 		bsd*)	my_host=apollo68 ;;
-		esac
-		;;
-	esac
-	;;
-
-i860)	my_host=stratus
-	;;
-
-i386)
-	case "${host_vendor}" in
-	ncr*)
-		case "${host_os}" in
-		sysv4*)	my_host=ncr3000 ;;
-		esac
-		;;
-	*)
-		case "${host_os}" in
-		go32) my_host=go32 ;;
-		sysv4*)	my_host=i386v4 ;;
-		sysv* | scosysv*) my_host=i386v ;;
-		mach*)	my_host=i386mach ;;
-		msdos*)	my_host=dose ;;
-		linux)	my_host=i386linux ;;
-		esac
-		;;
-	esac
-	;;
-
-sparc)
-	case "${host_os}" in
-	sunos64)	my_host=sparc-ll ;;
-	sysv4)		my_host=sysv4 ;;
-	solaris2)	my_host=solaris2 ;;
-	sysv64)		my_host=sysv4-ll ;;
-	*)		my_host=sparc ;;
-	esac
-	;;
-
-romp)	my_host=rtbsd
-	;;
-
-a29k)	my_host=ultra3
-	;;
-
-tahoe)
-	my_host=tahoe
-	;;
-
-vax)
-	case "${host_os}" in
-	ultrix*) my_host=vaxult ;;
-	*) my_host=vaxbsd ;;
-	esac
-	;;
-hppa)
-	case "${host_vendor}" in
-	hp)
-		case "${host_os}" in
-		hpux)	my_host=hppahpux ;;
-		bsd)	my_host=hppabsd ;;
-		esac
-		;;
-	esac
-	;;
-esac
+. ${srcdir}/configure.host
 
 # Set up to make a link between the host's include file and "sysdep.h".
 files="hosts/${my_host}.h"
@@ -133,9 +18,9 @@ links="sysdep.h"
 
 if [ ! -f ${srcdir}/${files} ] ; then
 	if [ -n "${my_host}" ] ; then
-		echo '***' No file ${srcdir}/${files}
+		echo '***' No file ${srcdir}/${files} 1>&2
 	fi
-	echo '***' ${srcname} does not support host ${host}
+	echo '***' ${srcname} does not support host ${host} 1>&2
 	exit 1
 fi
 
@@ -146,91 +31,74 @@ fi
 
 # per-target:
 
+# WHEN ADDING ENTRIES TO THIS MATRIX:
+#  Make sure that the left side always has two dashes.  Otherwise you
+#  can get spurious matches.  Even for unambiguous cases, do this as a
+#  convention, else the table becomes a real mess to understand and maintain.
+
 case "${target}" in
+  a29k-*-ebmon)		bfd_target=a29k-coff ;;
+  a29k-*-udi)		bfd_target=a29k-coff ;;
+  a29k-*-aout)		bfd_target=a29k-aout ;;
+  a29k-*-coff)		bfd_target=a29k-coff ;;
+  a29k-*-sym1)		bfd_target=a29k-coff ;;
+  h8300-*-*)		bfd_target=h8300-coff ;;
+  hppa*-*-bsd)		bfd_target=hppabsd ;;
+  hppa*-*-hpux)		bfd_target=hppahpux ;;
+  i[34]86-*-sysv4*)	bfd_target=i386-elf ;;
+  i[34]86-*-sysv*)	bfd_target=i386-coff ;;
+  i[34]86-*-sco*)	bfd_target=i386-coff ;;
+  i[34]86-*-bsd*)	bfd_target=i386-bsd ;;
+  i[34]86-none-*)	bfd_target=i386-coff ;;
+  i960-*-vxworks)	bfd_target=i960-bout ;;
+  i960-*-aout)		bfd_target=i960-bout ;;
+  i960-*-bout)		bfd_target=i960-bout ;;
+  m68*-hp-bsd)		bfd_target=hp300bsd ;;
+  m68*-*-aout)		bfd_target=m68k-aout ;;
+  m68*-*-coff)		bfd_target=m68k-coff ;;
+  m68*-*-hpux)		bfd_target=hp300 ;;
+  m68*-*-os68k)		bfd_target=m68k-aout ;;
+  m68*-*-sunos*)	bfd_target=m68k-aout ;;
+  m68*-*-vxworks*)	bfd_target=m68k-aout ;;
+  m68*-ericsson-*)	bfd_target=m68k-aout ;;
+  m68*-netx-*)		bfd_target=m68k-aout ;;
+  m88k-*-*)		bfd_target=m88k-coff ;;
+  mips-big-*)		bfd_target=irix3 ;;
+  mips-dec-*)		bfd_target=decstation ;;
+  mips-sgi-*)		bfd_target=irix3 ;;
+  rs6000-*-*)		bfd_target=rs6000 ;;
+  sparc-*-solaris2*)	bfd_target=sparc-elf ;;
+  sparc-*-sysv4*)	bfd_target=sparc-elf ;;
+  sparc*-*-*)		bfd_target=sparc-aout ;;
+  tahoe-*-*)		bfd_target=tahoe ;;
+  vax-*-*)		bfd_target=vax ;;
+  we32k-*-*)		bfd_target=we32k ;;
+  z8k*-*-*)		bfd_target=z8k-coff ;;
 
-rs6000-ibm-*		) bfd_target=rs6000 ;;
+  *-*-aout)		bfd_target=${target_cpu}-aout ;;
+  *-*-bsd)		bfd_target=${target_cpu}-aout ;;
+  *-*-sysv4*)		bfd_target=${target_cpu}-elf ;;
+  *-*-solaris2*)	bfd_target=${target_cpu}-elf ;;
+  *-*-go32)		bfd_target=${target_cpu}-aout ;;
+  *-*-linux*)		bfd_target=${target_cpu}-linux ;;
+  *-*-sysv*)		bfd_target=${target_cpu}-coff ;;
+  *-*-scosysv*)		bfd_target=${target_cpu}-coff ;;
 
-a29k-amd-ebmon		) bfd_target=a29k-coff ;;
-a29k-amd-udi		) bfd_target=a29k-coff ;;
-a29k-amd-*		) bfd_target=a29k-aout ;;
-
-h8300-hitachi-*		) bfd_target=h8300-coff ;;
-*-hitachi-*		) echo "bad hitachi cpu"; exit 1 ;;
-
-i960-wrs-*		) bfd_target=i960-bout ;;
-m68k-wrs-*		) bfd_target=m68k-aout ;;
-m680[01234]0-wrs-*	) bfd_target=m68k-aout ;;
-
-m68k-ericsson-*		) bfd_target=m68k-aout ;;
-
-m68k-sun-*		) bfd_target=m68k-aout ;;
-m680[01234]0-sun-*	) bfd_target=m68k-aout ;;
-sparc-sun-sysv4		) bfd_target=sparc-elf ;;
-sparc-sun-solaris2*	) bfd_target=sparc-elf ;;
-sparc-sun-*		) bfd_target=sparc-aout ;;
-
-mips-dec-*		) bfd_target=decstation ;;
-vax-dec-*		) bfd_target=vax ;;
-
-m68k-hp-hpux		) bfd_target=hp9000 ;;
-m680[01234]0-hp-hpux	) bfd_target=hp9000 ;;
-m68k-hp-bsd		) bfd_target=hp300bsd ;;
-m60[01234]0-hp-bsd	) bfd_target=hp300bsd ;;
-
-mips-sgi-*		) bfd_target=irix3 ;;
-mips-big-*		) bfd_target=irix3 ;;
-	
-*-tandem-*		) bfd_target=st2000 ;;
-
-m68k-none-os68k		) bfd_target=m68k-aout ;;
-m680[01234]0-none-os68k	) bfd_target=m68k-aout ;;
-i386-sco-*		) bfd_target=i386-coff ;;
-
-a29k-none-aout		) bfd_target=a29k-aout ;;
-a29k-none-coff		) bfd_target=a29k-coff ;;
-a29k-nyu-sym1		) bfd_target=a29k-coff ;;
-
-m88k-harris-*		) bfd_target=m88k-coff ;;
-m88k-motorola-*		) bfd_target=m88k-coff ;;
-
-vax-*-*			) bfd_target=vax ;;
-tahoe-*-*		) bfd_target=tahoe ;;
-
-hppa-hp-hpux		) bfd_target=hppahpux ;;
-hppa-hp-bsd		) bfd_target=hppabsd ;;
-
-*-*-aout		) bfd_target=${target_cpu}-aout ;;
-*-*-bsd			) bfd_target=${target_cpu}-aout ;;
-*-*-sysv4*		) bfd_target=${target_cpu}-elf ;;
-*-*-solaris2*		) bfd_target=${target_cpu}-elf ;;
-*-*-go32		) bfd_target=${target_cpu}-aout ;;		
-*-*-linux*		) bfd_target=${target_cpu}-linux ;;
-*-*-sysv*		) bfd_target=${target_cpu}-coff ;;
-*-*-scosysv*		) bfd_target=${target_cpu}-coff ;;
-tahoe-*-none		) bfd_target=${target_cpu} ;;
-vax-*-none		) bfd_target=${target_cpu} ;;
-
-# These are obsolete and should be removed.  FIXME.   -- gnu
-*-aout-*		) bfd_target=${target_cpu}-aout ;;
-*-bout-*		) bfd_target=${target_cpu}-bout ;;
-*-coff-*		) bfd_target=${target_cpu}-coff ;;
-*-elf-*			) bfd_target=${target_cpu}-elf ;;
-
-i386-none-*		) bfd_target=i386-coff ;;
-*-sony-*		) bfd_target=news ;;
-*-intel-*		) bfd_target=${target_cpu}-coff ;;	
-*-stratus-*		) bfd_target=${target_cpu}-elf ;;
-*-cbm-*			) bfd_target=${target_cpu}-elf ;;
-*-ncr-*			) bfd_target=${target_cpu}-elf ;;
-
+  *-adobe-*)		bfd_target=adobe ;;
+  *-sony-*)		bfd_target=news ;;
+  *-intel-*)		bfd_target=${target_cpu}-coff ;;
+  *-stratus-*)		bfd_target=${target_cpu}-elf ;;
+  *-cbm-*)		bfd_target=${target_cpu}-elf ;;
+  *-ncr-*)		bfd_target=${target_cpu}-elf ;;
+  *-tandem-*)		bfd_target=st2000 ;;
 esac
 
 if [ ! -f ${srcdir}/config/${bfd_target}.mt ] ; then
 	if [ -n "${bfd_target}" ] ; then
-		echo '***' No file ${srcdir}/config/${bfd_target}.mt
+		echo '***' No file ${srcdir}/config/${bfd_target}.mt 1>&2
 	fi
-	echo '***' BFD does not support target ${target}
-	echo '***' Look in bfd/configure.in for supported targets
+	echo '***' BFD does not support target ${target} 1>&2
+	echo '***' Look in bfd/configure.in for supported targets 1>&2
 	exit 1
 fi
 target_makefile_frag=config/${bfd_target}.mt

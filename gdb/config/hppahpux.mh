@@ -1,7 +1,8 @@
 # Host: Hewlett-Packard PA-RISC machine, running HPUX 
-XDEPFILES= hppahpux-xdep.o hppa-coredep.o
-XM_FILE= xm-hppahpux.h
+TERMCAP = -lcurses
+XDEPFILES= 
+XM_FILE= xm-hppah.h
+NAT_FILE= nm-hppah.h
+NATDEPFILES= exec.o coredep.o corelow.o
 REGEX=regex.o
 REGEX1=regex.o
-ALLOCA=alloca.o
-ALLOCA1=alloca.o

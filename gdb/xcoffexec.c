@@ -63,7 +63,6 @@ extern int info_verbose;
 bfd *exec_bfd;			/* needed by core.c	*/
 
 extern char *getenv();
-extern void child_create_inferior (), child_attach ();
 extern void add_syms_addr_command ();
 extern void symbol_file_command ();
 static void exec_files_info();
@@ -445,16 +444,6 @@ struct stat *vip;
     }
 
   if (vp->tstart != old_start) {
-
-#if 0
-  We don't have a valid `objfile' at this point. This is moved into the
-  previous statement; ALL_OBJFILES() for-loop.
-
-    ALL_MSYMBOLS (objfile, msymbol)
-      if (msymbol->address < TEXT_SEGMENT_BASE)
-	msymbol -> address += vp->tstart - old_start;
-#endif /* 0 */
-
     /* breakpoints need to be relocated as well. */
     fixup_breakpoints (0, TEXT_SEGMENT_BASE, vp->tstart - old_start);
   }
@@ -565,7 +554,7 @@ register struct ld_info *ldi; {
 	register char *mem, *objname;
 
 	/* This ldi structure was allocated using alloca() in 
-	   aixcoff_relocate_symtab(). Now we need to have persistent object 
+	   xcoff_relocate_symtab(). Now we need to have persistent object 
 	   and member names, so we should save them. */
 
 	mem = ldi->ldinfo_filename + strlen(ldi->ldinfo_filename) + 1;
@@ -999,16 +988,18 @@ struct target_ops exec_ops = {
 	"Use an executable file as a target.\n\
 Specify the filename of the executable file.",
 	exec_file_command, exec_close, /* open, close */
-	child_attach, 0, 0, 0, /* attach, detach, resume, wait, */
+	find_default_attach, 0, 0, 0, /* attach, detach, resume, wait, */
 	0, 0, /* fetch_registers, store_registers, */
-	0, 0, 0, /* prepare_to_store, conv_to, conv_from, */
+	0, /* prepare_to_store */
 	xfer_memory, exec_files_info,
 	0, 0, /* insert_breakpoint, remove_breakpoint, */
 	0, 0, 0, 0, 0, /* terminal stuff */
 	0, 0, /* kill, load */
 	0, /* lookup sym */
-	child_create_inferior,
+	find_default_create_inferior,
 	0, /* mourn_inferior */
+	0, /* can_run */
+	0, /* notice_signals */
 	file_stratum, 0, /* next */
 	0, 1, 0, 0, 0,	/* all mem, mem, stack, regs, exec */
 	0, 0,			/* section pointers */

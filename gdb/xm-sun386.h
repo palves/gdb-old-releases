@@ -1,5 +1,5 @@
-/* Parameters for execution on a Sun 386i, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+/* Host support for Sun 386i, for GDB, the GNU debugger.
+   Copyright (C) 1986, 1987, 1989, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -30,12 +30,5 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Enable use of alternate code for Sun's format of core dump file.  */
 
 #define NEW_SUN_CORE
-
-/* Do implement the attach and detach commands.  */
-
-#define ATTACH_DETACH
-
-/* Override copies of {fetch,store}_inferior_registers in infptrace.c.  */
-#define FETCH_INFERIOR_REGISTERS
 
 #define PREPARE_TO_STORE() read_register_bytes (0, NULL, REGISTER_BYTES)

@@ -1,4 +1,8 @@
-/* This is a coff version of a.out.h to support 80960 debugging from
+/*  Copyright 1990, 1992 Free Software Foundation, Inc.
+ *
+ *   This code was donated by Intel Corp.
+ *
+ * This is a coff version of a.out.h to support 80960 debugging from
  * a Unix (possibly BSD) host.  It's used by:
  *	o gdb960 to symbols in code generated with Intel (non-GNU) tools.
  *	o comm960 to convert a b.out file to a coff file for download.

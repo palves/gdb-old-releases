@@ -42,8 +42,6 @@ kill_command PARAMS ((char *, int));
 static void
 terminal_ours_1 PARAMS ((int));
 
-extern struct target_ops child_ops;
-
 /* Nonzero if we are debugging an attached outside process
    rather than an inferior.  */
 
@@ -72,8 +70,16 @@ static struct ltchars ltc_ours;
 #endif
 
 #ifdef TIOCLGET
+/* The line discipline flags.  Note that even when gdb_has_a_terminal
+   is true, the ioctl's to get and set the line discipline flags may
+   fail.  An example is running gdb under "script" using the streams
+   based interface under SVR4.  So we keep track of whether or not
+   the flags we get are valid by setting the *_valid flag, and don't
+   try to reset them unless they are valid. */
 static int lmode_inferior;
+static int lmode_inferior_valid;
 static int lmode_ours;
+static int lmode_ours_valid;
 #endif
 
 #ifdef TIOCGPGRP
@@ -128,6 +134,7 @@ terminal_init_inferior ()
 
 #ifdef TIOCLGET
   lmode_inferior = lmode_ours;
+  lmode_inferior_valid = lmode_ours_valid;
 #endif
 
 #ifdef TIOCGPGRP
@@ -162,9 +169,12 @@ terminal_inferior ()
       result = ioctl (0, TIOCSLTC, &ltc_inferior);
       OOPSY ("ioctl TIOCSLTC");
 #endif
-#ifdef TIOCLGET
-      result = ioctl (0, TIOCLSET, &lmode_inferior);
-      OOPSY ("ioctl TIOCLSET");
+#ifdef TIOCLSET
+      if (lmode_inferior_valid)
+	{
+	  result = ioctl (0, TIOCLSET, &lmode_inferior);
+	  OOPSY ("ioctl TIOCLSET");
+	}
 #endif
 
 #ifdef TIOCGPGRP
@@ -253,6 +263,7 @@ terminal_ours_1 (output_only)
 #endif
 #ifdef TIOCLGET
       result = ioctl (0, TIOCLGET, &lmode_inferior);
+      lmode_inferior_valid = (result == 0);
 #endif
     }
 
@@ -277,7 +288,10 @@ terminal_ours_1 (output_only)
   result = ioctl (0, TIOCSLTC, &ltc_ours);
 #endif
 #ifdef TIOCLGET
-  result = ioctl (0, TIOCLSET, &lmode_ours);
+  if (lmode_ours_valid)
+    {
+      result = ioctl (0, TIOCLSET, &lmode_ours);
+    }
 #endif
 
 #ifdef HAVE_TERMIO
@@ -479,12 +493,6 @@ generic_mourn_inferior ()
   breakpoint_clear_ignore_counts ();
 }
 
-void
-child_mourn_inferior ()
-{
-  unpush_target (&child_ops);
-  generic_mourn_inferior ();
-}
 
 #if 0 
 /* This function is just for testing, and on some systems (Sony NewsOS
@@ -561,7 +569,8 @@ Report which ones can be written.");
     ioctl (0, TIOCGLTC, &ltc_ours);
 #endif
 #ifdef TIOCLGET
-    ioctl (0, TIOCLGET, &lmode_ours);
+    result = ioctl (0, TIOCLGET, &lmode_ours);
+    lmode_ours_valid = (result == 0);
 #endif
 #ifdef TIOCGPGRP
     ioctl (0, TIOCGPGRP, &pgrp_ours);

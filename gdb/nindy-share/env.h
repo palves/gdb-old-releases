@@ -1,4 +1,7 @@
-/* 
+/* Copyright 1990, 1992 Free Software Foundation, Inc.
+ *
+ * This code was donated by Intel Corp.
+ * 
  * GNU/960 tool runtime environment
  */
 

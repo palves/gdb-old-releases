@@ -1,4 +1,5 @@
-/* Parameters for SPARC target machines, for GDB, the GNU debugger.
+/* Target machine sub-parameters for SPARC, for GDB, the GNU debugger.
+   This is included by other tm-*.h files to define SPARC cpu-related info.
    Copyright 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@mcc.com)
 
@@ -23,24 +24,19 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Floating point is IEEE compatible.  */
 #define IEEE_FLOAT
 
-/* Define this if the C compiler puts an underscore at the front
-   of external names before giving them to the linker.  */
-
-#define NAMES_HAVE_UNDERSCORE
-
 /* When passing a structure to a function, Sun cc passes the address
    in a register, not the structure itself.  It (under SunOS4) creates
    two symbols, so we get a LOC_ARG saying the address is on the stack
    (a lie, and a serious one since we don't know which register to
    use), and a LOC_REGISTER saying that the struct is in a register
    (sort of a lie, but fixable with REG_STRUCT_HAS_ADDR).  Gcc version
-   two (as of 1.92) behaves like sun cc, but I don't know how we can
-   distinguish between gcc version 1 and gcc version 2.
+   two (as of 1.92) behaves like sun cc.  REG_STRUCT_HAS_ADDR is smart
+   enough to distinguish between Sun cc, gcc version 1 and gcc version 2.
 
    This still doesn't work if the argument is not one passed in a
    register (i.e. it's the 7th or later argument).  */
-#define REG_STRUCT_HAS_ADDR(gcc_p) (!(gcc_p))
-#define STRUCT_ARG_SYM_GARBAGE(gcc_p) (!(gcc_p))
+#define REG_STRUCT_HAS_ADDR(gcc_p) (gcc_p != 1)
+#define STRUCT_ARG_SYM_GARBAGE(gcc_p) (gcc_p != 1)
 
 /* If Pcc says that a parameter is a short, it's a short.  This is
    because the parameter does get passed in in a register as an int,
@@ -569,3 +565,18 @@ extern void single_step ();
       print_floating (doublereg, builtin_type_double, stdout);	\
     }					\
   }
+
+/* Optimization for storing registers to the inferior.  The hook
+   DO_DEFERRED_STORES
+   actually executes any deferred stores.  It is called any time
+   we are going to proceed the child, or read its registers.
+   The hook CLEAR_DEFERRED_STORES is called when we want to throw
+   away the inferior process, e.g. when it dies or we kill it.
+   FIXME, this does not handle remote debugging cleanly.  */
+
+extern int deferred_stores;
+#define	DO_DEFERRED_STORES	\
+  if (deferred_stores)		\
+    target_store_registers (-2);
+#define	CLEAR_DEFERRED_STORES	\
+  deferred_stores = 0;

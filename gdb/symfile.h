@@ -232,10 +232,8 @@ allocate_psymtab PARAMS ((char *, struct objfile *));
 /* From dwarfread.c */
 
 extern void
-dwarf_build_psymtabs PARAMS ((int, char *, struct section_offsets *, int,
-			      unsigned int,
-			      unsigned int, unsigned int, unsigned int,
-			      struct objfile *));
+dwarf_build_psymtabs PARAMS ((struct objfile *, struct section_offsets *, int,
+			      file_ptr, unsigned int, file_ptr, unsigned int));
 
 /* From dbxread.c */
 
@@ -243,7 +241,12 @@ extern void
 elfstab_build_psymtabs PARAMS ((struct objfile *objfile,
 	struct section_offsets *section_offsets,
 	int mainline,
-	unsigned int staboff, unsigned int stabsize,
-	unsigned int stabstroffset, unsigned int stabstrsize));
+	file_ptr staboff, unsigned int stabsize,
+	file_ptr stabstroffset, unsigned int stabstrsize));
+
+/* From demangle.c */
+
+extern void
+set_demangling_style PARAMS ((char *));
 
 #endif	/* !defined(SYMFILE_H) */

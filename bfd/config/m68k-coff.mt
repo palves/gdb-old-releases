@@ -1,2 +1,2 @@
 # Target:  Motorola 68000 using COFF
-# Nothing to do for now.
+TDEFAULTS = -DDEFAULT_VECTOR=m68kcoff_vec

@@ -10,7 +10,6 @@
 #include <sys/file.h>
 #include <stdlib.h>
 
-#define FASCIST_FDOPEN
 #define	NO_CORE_COMMAND
 
 #undef	ALIGN			/* They use it, we use it too */

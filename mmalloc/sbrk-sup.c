@@ -53,14 +53,35 @@ sbrk_morecore (mdp, size)
 }
 
 /* Initialize the default malloc descriptor if this is the first time
-   a request has been made to use the default sbrk'd region. */
+   a request has been made to use the default sbrk'd region.
+
+   Since no alignment guarantees are made about the initial value returned
+   by sbrk, test the initial value and (if necessary) sbrk enough additional
+   memory to start off with alignment to BLOCKSIZE.  We actually only need
+   it aligned to an alignment suitable for any object, so this is overkill.
+   But at most it wastes just part of one BLOCKSIZE chunk of memory and
+   minimizes portability problems by avoiding us having to figure out
+   what the actual minimal alignment is.  The rest of the malloc code
+   avoids this as well, by always aligning to the minimum of the requested
+   size rounded up to a power of two, or to BLOCKSIZE.
+
+   Note that we are going to use some memory starting at this initial sbrk
+   address for the sbrk region malloc descriptor, which is a struct, so the
+   base address must be suitably aligned. */
 
 struct mdesc *
 __mmalloc_sbrk_init ()
 {
   PTR base;
+  unsigned int adj;
 
   base = sbrk (0);
+  adj = RESIDUAL (base, BLOCKSIZE);
+  if (adj != 0)
+    {
+      sbrk (BLOCKSIZE - adj);
+      base = sbrk (0);
+    }
   __mmalloc_default_mdp = (struct mdesc *) sbrk (sizeof (struct mdesc));
   memset ((char *) __mmalloc_default_mdp, 0, sizeof (struct mdesc));
   __mmalloc_default_mdp -> morecore = sbrk_morecore;

@@ -36,7 +36,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/param.h>
 #include <sys/dir.h>
 #include <signal.h>
-#include <machine/reg.h>
 
 #include <sys/user.h>		/* After a.out.h  */
 #include <sys/file.h>
@@ -267,6 +266,7 @@ bfd_target trad_core_vec =
      HAS_LINENO | HAS_DEBUG |
      HAS_SYMS | HAS_LOCALS | DYNAMIC | WP_TEXT | D_PAGED),
     (SEC_HAS_CONTENTS | SEC_ALLOC | SEC_LOAD | SEC_RELOC), /* section flags */
+    '_',		                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */
     16,							   /* ar_max_namelen */
     3,							   /* minimum alignment power */

@@ -490,11 +490,6 @@ char * buffer;
 						     checksum,xmitcsum,buffer);
       }
 
-#if 1
-/* Humans shouldn't have to figure out checksums to type to it. */
-      putDebugChar ('+');
-      return;
-#endif
       if (checksum != xmitcsum) putDebugChar('-');  /* failed checksum */
       else {
 	 putDebugChar('+');  /* successful transfer */

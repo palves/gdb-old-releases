@@ -1,4 +1,8 @@
 /******************************************************************************
+ * Copyright 1990, 1992 Free Software Foundation, Inc.
+ *
+ * This code was donated by Intel Corp.
+ *
  * This include file provides BSD/USG-compatible tty control for a host utility
  * that interacts with NINDY.  As of this writing, it is used by the gdb960
  * remote communications module (remote.c) and the comm960 utility.

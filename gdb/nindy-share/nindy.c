@@ -1,5 +1,7 @@
 /*****************************************************************************
- * 		Copyright (c) 1990, Intel Corporation
+ * Copyright 1990, 1992 Free Software Foundation, Inc.
+ *
+ * This code was donated by Intel Corp.
  *
  * Intel hereby grants you permission to copy, modify, and 
  * distribute this software and its documentation.  Intel grants
@@ -774,7 +776,9 @@ autobaud( fd, brp )
  *	been created and closed); NULL on error.
  *****************************************************************************/
 
+#if 0
 #define STRIP	"bfd_strip"	/* Name of bfd strip utility	*/
+#endif
 #define NINDY_OBJ	"coff-Intel-little"
 
 char *
@@ -796,6 +800,7 @@ coffstrip( fn )
 	strcpy (newfile, template);
 	tempfile = mktemp( newfile );
 
+#if 0
 	/* Make sure the strip utility is findable.
 	 */
 	if ( ((strip = exists("G960BIN",STRIP,NULL,NULL,1)) == NULL)
@@ -808,12 +813,13 @@ coffstrip( fn )
 		fprintf(stderr,"Check env variables G960BIN and G960BASE\n");
 		return NULL;
 	}
+#endif
 
 	success = 0;
 	sprintf( buf, "cp %s %s", fn, tempfile );
 	printf ("%s\n", buf);
 	if ( system(buf) == 0 ){
-		sprintf( buf, "%s %s -T %s", strip, tempfile, NINDY_OBJ );
+		sprintf(buf, "%s -d %s %s", STRIP, NINDY_OBJ, tempfile);
 		printf ("%s\n", buf);
 		if ( system(buf) == 0 ){
 			return tempfile;

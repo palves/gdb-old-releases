@@ -8,7 +8,6 @@
 #include <sys/file.h>
 #include <stdlib.h>
 
-#define FASCIST_FDOPEN		/* fdopen(,"w") on read-only, fails */
 #define	NO_CORE_COMMAND		/* No command name in core file */
 
 #ifndef O_ACCMODE

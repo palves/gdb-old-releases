@@ -2,5 +2,7 @@
 
 SYSV = -DSYSV
 RANLIB = true
-INSTALL = /usr/ucb/install -c
-CFLAGS = -g -xs
+INSTALL = cp
+CFLAGS = -g 
+
+# if you're using Sun's C compiler, add -xs to the CFLAGS line

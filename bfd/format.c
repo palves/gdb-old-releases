@@ -65,23 +65,25 @@ DESCRIPTION
 	call, only the named target and format combination will be
 	checked. If the target has not been set, or has been set to
 	<<default>> then all the known target backends will be
-	interrogated to determine a match. 
+	interrogated to determine a match.  If the default target
+	matches, it is used.  If not, exactly one target must recognize
+	the file, or an error results.
 
 	The function returns <<true>> on success, otherwise <<false>>
 	with one of the following error codes:  
 
-	o invalid_operation
-	if <<format>> is not one of <<bfd_object>>, <<bfd_archive>>or
+	o invalid_operation -
+	if <<format>> is not one of <<bfd_object>>, <<bfd_archive>> or
 	<<bfd_core>>.
 
-	o system_call_error
-	if an error occured during a read -  even some file mismatches
-	can cause system_call_errros
+	o system_call_error -
+	if an error occured during a read - even some file mismatches
+	can cause system_call_errors
 
-	o file_not_recognised
+	o file_not_recognised -
 	none of the backends recognised the file format
 
-	o file_ambiguously_recognized 
+	o file_ambiguously_recognized -
 	more than one backend recognised the file format.
 
 */

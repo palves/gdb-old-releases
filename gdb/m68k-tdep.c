@@ -236,12 +236,12 @@ void
 supply_gregset (gregsetp)
 gregset_t *gregsetp;
 {
-  register int regno;
+  register int regi;
   register greg_t *regp = (greg_t *) gregsetp;
 
-  for (regno = 0 ; regno < R_PC ; regno++)
+  for (regi = 0 ; regi < R_PC ; regi++)
     {
-      supply_register (regno, (char *) (regp + regno));
+      supply_register (regi, (char *) (regp + regi));
     }
   supply_register (PS_REGNUM, (char *) (regp + R_PS));
   supply_register (PC_REGNUM, (char *) (regp + R_PC));
@@ -252,7 +252,7 @@ fill_gregset (gregsetp, regno)
 gregset_t *gregsetp;
 int regno;
 {
-  int regi;
+  register int regi;
   register greg_t *regp = (greg_t *) gregsetp;
   extern char registers[];
 
@@ -260,7 +260,7 @@ int regno;
     {
       if ((regno == -1) || (regno == regi))
 	{
-	  *(regp + regno) = *(int *) &registers[REGISTER_BYTE (regi)];
+	  *(regp + regi) = *(int *) &registers[REGISTER_BYTE (regi)];
 	}
     }
   if ((regno == -1) || (regno == PS_REGNUM))
@@ -317,7 +317,7 @@ int regno;
 	{
 	  from = (char *) &registers[REGISTER_BYTE (regi)];
 	  to = (char *) &(fpregsetp -> f_fpregs[regi-FP0_REGNUM][0]);
-	  bcopy (from, to, REGISTER_RAW_SIZE (regno));
+	  bcopy (from, to, REGISTER_RAW_SIZE (regi));
 	}
     }
   if ((regno == -1) || (regno == FPC_REGNUM))
@@ -370,17 +370,16 @@ get_longjmp_target(pc)
 }
 #endif /* GET_LONGJMP_TARGET */
 
-#ifdef sun
-
 /* Immediately after a function call, return the saved pc before the frame
-   is setup.  We check for the common case of being inside of a system call,
-   and if so, we know that Sun pushes the call # on the stack prior to doing
-   the trap. */
+   is setup.  For sun3's, we check for the common case of being inside of a
+   system call, and if so, we know that Sun pushes the call # on the stack
+   prior to doing the trap. */
 
 CORE_ADDR
-sun3_saved_pc_after_call(frame)
+m68k_saved_pc_after_call(frame)
      struct frame_info *frame;
 {
+#ifdef GDB_TARGET_IS_SUN3
   int op;
 
   op = read_memory_integer (frame->pc, 2);
@@ -389,6 +388,6 @@ sun3_saved_pc_after_call(frame)
   if (op == P_TRAP)
     return read_memory_integer (read_register (SP_REGNUM) + 4, 4);
   else
+#endif /* GDB_TARGET_IS_SUN3 */
     return read_memory_integer (read_register (SP_REGNUM), 4);
 }
-#endif /* sun */

@@ -1,17 +1,344 @@
 _dnl__								-*- Texinfo -*-
 _dnl__ Copyright (c) 1990 1991 1992 Free Software Foundation, Inc.
 _dnl__ This file is part of the source for the GDB manual.
-_dnl__ M4 FRAGMENT $Id: gdbinv-s.m4.in,v 2.5 1992/05/15 00:20:43 pesch Exp $
+_dnl__ M4 FRAGMENT $Id: gdbinv-s.m4.in,v 2.13 1992/10/23 08:50:19 grossman Exp $
 _dnl__ This text diverted to "Remote Debugging" section in general case;
 _dnl__ however, if we're doing a manual specifically for one of these, it
 _dnl__ belongs up front (in "Getting In and Out" chapter).
+_if__(_REMOTESTUB__)
+@node Remote Serial
+@subsection The _GDBN__ remote serial protocol
+
+@cindex remote serial debugging, overview
+To debug a program running on another machine (the debugging
+@dfn{target} machine), you must first arrange for all the usual
+prerequisites for the program to run by itself.  For example, for a C
+program, you need
+
+@enumerate
+@item
+A startup routine to set up the C runtime environment; these usually
+have a name like @file{crt0}.  The startup routine may be supplied by
+your hardware supplier, or you may have to write your own.
+
+@item 
+You probably need a C subroutine library to support your program's
+subroutine calls, notably managing input and output.
+
+@item
+A way of getting your program to the other machine---for example, a
+download program.  These are often supplied by the hardware
+manufacturer, but you may have to write your own from hardware
+documentation.
+@end enumerate
+
+The next step is to arrange for your program to use a serial port to
+communicate with the machine where _GDBN__ is running (the @dfn{host}
+machine).  In general terms, the scheme looks like this:
+
+@table @emph
+@item On the host,
+_GDBN__ already understands how to use this protocol; when everything
+else is set up, you can simply use the @samp{target remote} command
+(@pxref{Targets,,Specifying a Debugging Target}).
+
+@item On the target,
+you must link with your program a few special-purpose subroutines that
+implement the _GDBN__ remote serial protocol.  The file containing these
+subroutines is called  a @dfn{debugging stub}.
+@end table
+
+The debugging stub is specific to the architecture of the remote
+machine; for example, use @file{sparc-stub.c} to debug programs on
+@sc{sparc} boards.
+
+@cindex remote serial stub list
+These working remote stubs are distributed with _GDBN__:
+
+@c FIXME! verify these...
+@table @code
+@item sparc-stub.c
+@kindex sparc-stub.c
+For @sc{sparc} architectures.
+
+@item m68k-stub.c
+@kindex m68-stub.c
+For Motorola 680x0 architectures.
+
+@item i386-stub.c
+@kindex i36-stub.c
+For Intel 386 and compatible architectures.
+@end table
+
+The @file{README} file in the _GDBN__ distribution may list other
+recently added stubs.
+
+@menu
+* stub contents::       What the stub can do for you
+* bootstrapping::       What you must do for the stub
+* debug session::       Putting it all together
+* protocol::            Outline of the communication protocol
+@end menu
+
+@node stub contents
+@subsubsection What the stub can do for you
+
+@cindex remote serial stub
+The debugging stub for your architecture supplies these three
+subroutines:
+
+@table @code
+@item set_debug_traps
+@kindex set_debug_traps
+@cindex remote serial stub, initialization
+This routine arranges to transfer control to @code{handle_exception}
+when your program stops.  You must call this subroutine explicitly near
+the beginning of your program.
+
+@item handle_exception
+@kindex handle_exception
+@cindex remote serial stub, main routine
+This is the central workhorse, but your program never calls it
+explicitly---the setup code arranges for @code{handle_exception} to
+run when a trap is triggered.
+
+@code{handle_exception} takes control when your program stops during
+execution (for example, on a breakpoint), and mediates communications
+with _GDBN__ on the host machine.  This is where the communications
+protocol is implemented; @code{handle_exception} acts as the _GDBN__
+representative on the target machine; it begins by sending summary
+information on the state of your program, then continues to execute,
+retrieving and transmitting any information _GDBN__ needs, until you
+execute a _GDBN__ command that makes your program resume; at that point,
+@code{handle_exception} returns control to your own code on the target
+machine. 
+
+@item breakpoint
+@cindex @code{breakpoint} subroutine, remote
+Use this auxiliary subroutine to make your program contain a
+breakpoint.  Depending on the particular situation, this may be the only
+way for _GDBN__ to get control.  For instance, if your target
+machine has some sort of interrupt button, you won't need to call this;
+pressing the interrupt button will transfer control to
+@code{handle_exception}---in efect, to _GDBN__.  On some machines,
+simply receiving characters on the serial port may also trigger a trap;
+again, in that situation, you don't need to call @code{breakpoint} from
+your own program---simply running @samp{target remote} from the host
+_GDBN__ session will get control.  
+
+Call @code{breakpoint} if none of these is true, or if you simply want
+to make certain your program stops at a predetermined point for the
+start of your debugging session.
+@end table
+
+@node bootstrapping
+@subsubsection What you must do for the stub
+
+@cindex remote stub, support routines
+The debugging stubs that come with _GDBN__ are set up for a particular
+chip architecture, but they have no information about the rest of your
+debugging target machine.  To allow the stub to work, you must supply
+these special low-level subroutines:
+
+@table @code
+@item int getDebugChar()
+@kindex getDebugChar
+Write this subroutine to read a single character from the serial port.
+It may be identical to @code{getchar} for your target system; a
+different name is used to allow you to distinguish the two if you wish.
+
+@item void putDebugChar(int)
+@kindex putDebugChar
+Write this subroutine to write a single character to the serial port.
+It may be identical to @code{putchar} for your target system; a 
+different name is used to allow you to distinguish the two if you wish.
+
+@item void flush_i_cache()
+@kindex flush_i_cache
+Write this subroutine to flush the instruction cache, if any, on your
+target machine.  If there is no instruction cache, this subroutine may
+be a no-op.
+
+On target machines that have instruction caches, _GDBN__ requires this
+function to make certain that the state of your program is stable.
+@end table
+
+@noindent
+You must also make sure this library routine is available:
+
+@table @code
+@item void *memset(void *, int, int)
+@kindex memset
+This is the standard library function @code{memset} that sets an area of
+memory to a known value.  If you have one of the free versions of
+@code{libc.a}, @code{memset} can be found there; otherwise, you must
+either obtain it from your hardware manufacturer, or write your own.
+@end table
+
+If you do not use the GNU C compiler, you may need other standard
+library subroutines as well; this will vary from one stub to another,
+but in general the stubs are likely to use any of the common library
+subroutines which @code{gcc} generates as inline code.
+
+
+@node debug session
+@subsubsection Putting it all together
+
+@cindex remote serial debugging summary
+In summary, when your program is ready to debug, you must follow these
+steps.
+
+@enumerate
+@item
+Make sure you have the supporting low-level routines:
+@code{getDebugChar}, @code{putDebugChar}, @code{flush_i_cache},
+@code{memset}.
+
+@item
+Insert these lines near the top of your program:
+
+@example
+set_debug_traps();
+breakpoint();
+@end example
+
+@item
+Compile and link together: your program, the _GDBN__ debugging stub for
+your target architecture, and the supporting subroutines.
+
+@item
+Make sure you have a serial connection between your target machine and
+the _GDBN__ host, and identify the serial port used for this on the host.
+
+@item
+Download your program to your target machine (or get it there by
+whatever means the manufacturer provides), and start it.
+
+@item
+To start remote debugging, run _GDBN__ on the host machine, and specify
+as an executable file the program that is running in the remote machine.
+This tells _GDBN__ how to find your program's symbols and the contents
+of its pure text.
+
+Then establish communication using the @code{target remote} command.
+Its argument is the name of the device you're using to control the
+target machine.  For example:
+
+@example
+target remote /dev/ttyb
+@end example
+
+@noindent
+if the serial line is connected to the device named @file{/dev/ttyb}.  
+@ignore
+@c this is from the old text, but it doesn't seem to make sense now that I've
+@c seen an example...  pesch 4sep1992
+This will stop the remote machine if it is not already stopped.
+@end ignore
+
+@end enumerate
+
+Now you can use all the usual commands to examine and change data and to
+step and continue the remote program.
+
+To resume the remote program and stop debugging it, use the @code{detach}
+command.
+
+@node protocol
+@subsubsection Outline of the communication protocol
+
+@cindex debugging stub, example
+@cindex remote stub, example
+@cindex stub example, remote debugging
+The stub files provided with _GDBN__ implement the target side of the
+communication protocol, and the _GDBN__ side is implemented in the
+_GDBN__ source file @file{remote.c}.  Normally, you can simply allow
+these subroutines to communicate, and ignore the details.  (If you're
+implementing your own stub file, you can still ignore the details: start
+with one of the existing stub files.  @file{sparc-stub.c} is the best
+organized, and therefore the easiest to read.)
+
+However, there may be occasions when you need to know something about
+the protocol---for example, if there is only one serial port to your
+target machine, you might want your program to do something special if
+it recognizes a packet meant for _GDBN__.
+
+@cindex protocol, _GDBN__ remote serial
+@cindex serial protocol, _GDBN__ remote
+@cindex remote serial protocol
+All _GDBN__ commands and responses (other than acknowledgements, which
+are single characters) are sent as a packet which includes a
+checksum.  A packet is introduced with the character @samp{$}, and ends
+with the character @samp{#} followed by a two-digit checksum:
+
+@example
+$@var{packet info}#@var{checksum}
+@end example
+
+@cindex checksum, for _GDBN__ remote
+@noindent
+@var{checksum} is computed as the modulo 256 sum of the @var{packet
+info} characters.
+
+When either the host or the target machine receives a packet, the first
+response expected is an acknowledgement: a single character, either
+@samp{+} (to indicate the package was received correctly) or @samp{-}
+(to request retransmission).
+
+The host (_GDBN__) sends commands, and the target (the debugging stub
+incorporated in your program) sends data in response.  The target also
+sends data when your program stops.
+
+Command packets are distinguished by their first character, which
+identifies the kind of command.
+
+These are the commands currently supported:
+
+@table @code
+@item g
+Requests the values of CPU registers.
+
+@item G
+Sets the values of CPU registers.
+
+@item m@var{addr},@var{count}
+Read @var{count} bytes at location @var{addr}.
+
+@item M@var{addr},@var{count}:@dots{}
+Write @var{count} bytes at location @var{addr}.
+
+@item c
+@itemx c@var{addr}
+Resume execution at the current address (or at @var{addr} if supplied).
+
+@item s
+@itemx s@var{addr}
+Step the target program for one instruction, from either the current
+program counter or from @var{addr} if supplied.
+
+@item k
+Kill the target program.
+
+@item ?
+Report the most recent signal.  To allow you to take advantage of the
+_GDBN__ signal handling commands, one of the functions of the debugging
+stub is to report CPU traps as the corresponding POSIX signal values.
+@end table
+
+@kindex set remotedebug
+@kindex show remotedebug
+@cindex packets, reporting on stdout
+@cindex serial connections, debugging
+If you have trouble with the serial connection, you can use the command
+@code{set remotedebug}.  This makes _GDBN__ report on all packets sent
+back and forth across the serial line to the remote machine.  The
+packet-debugging information is printed on the _GDBN__ standard output
+stream.  @code{set remotedebug off} turns it off, and @code{show
+remotedebug} will show you its current state.
+_fi__(_REMOTESTUB__)
+
 _if__(_I960__)
-_if__(!_GENERIC__)
-@node i960-Nindy Remote, EB29K Remote, Mode Options, Starting _GDBN__
-_fi__(!_GENERIC__)
-_if__(_GENERIC__)
-@node i960-Nindy Remote, EB29K Remote, Remote, Remote
-_fi__(_GENERIC__)
+@node i960-Nindy Remote
 @subsection _GDBN__ with a Remote i960 (Nindy)
 
 @cindex Nindy
@@ -40,7 +367,7 @@ session.  @xref{Target Commands, ,Commands for Managing Targets}.
 * Nindy reset::                 Nindy Reset Command
 @end menu
 
-@node Nindy Startup, Nindy Options, i960-Nindy Remote, i960-Nindy Remote
+@node Nindy Startup
 @subsubsection Startup with Nindy
 
 If you simply start @code{_GDBP__} without using any command-line
@@ -58,7 +385,7 @@ simply start up with no Nindy connection by responding to the prompt
 with an empty line.  If you do this, and later wish to attach to Nindy,
 use @code{target} (@pxref{Target Commands, ,Commands for Managing Targets}).
 
-@node Nindy Options, Nindy reset, Nindy Startup, i960-Nindy Remote
+@node Nindy Options
 @subsubsection Options for Nindy
 
 These are the startup options for beginning your _GDBN__ session with a
@@ -101,7 +428,7 @@ The standard @samp{-b} option controls the line speed used on the serial
 port.
 
 @c @group
-@node Nindy reset,  , Nindy Options, i960-Nindy Remote
+@node Nindy reset
 @subsubsection Nindy Reset Command
 
 @table @code
@@ -116,12 +443,7 @@ a break is detected.
 _fi__(_I960__)
 
 _if__(_AMD29K__)
-_if__(!_GENERIC__)
-@node EB29K Remote, VxWorks Remote, i960-Nindy Remote, Starting _GDBN__
-_fi__(!_GENERIC__)
-_if__(_GENERIC__)
-@node EB29K Remote, VxWorks Remote, i960-Nindy Remote, Remote
-_fi__(_GENERIC__)
+@node EB29K Remote
 @subsection _GDBN__ with a Remote EB29K
 
 @cindex EB29K board
@@ -139,7 +461,7 @@ you've hooked the cable between the PC's @file{COM1} port and
 * Remote Log::                  Remote Log
 @end menu
 
-@node Comms (EB29K), _GDBP__-EB29K, EB29K Remote, EB29K Remote
+@node Comms (EB29K)
 @subsubsection Communications Setup
 
 The next step is to set up the PC's port, by doing something like the
@@ -251,7 +573,7 @@ other way---perhaps floppy-disk transfer---of getting the 29K program
 from the Unix system to the PC; _GDBN__ will @emph{not} download it over the
 serial line.
 
-@node _GDBP__-EB29K, Remote Log, Comms (EB29K), EB29K Remote
+@node _GDBP__-EB29K
 @subsubsection EB29K cross-debugging
 
 Finally, @code{cd} to the directory containing an image of your 29K
@@ -294,7 +616,7 @@ once again, after your _GDBN__ session has concluded, to attach to
 Type @code{CTTY con} to return command input to the main DOS console,
 and type @kbd{~.} to leave @code{tip} or @code{cu}.
 
-@node Remote Log,  , _GDBP__-EB29K, EB29K Remote
+@node Remote Log
 @subsubsection Remote Log
 @kindex eb.log
 @cindex log file for EB29K
@@ -305,15 +627,55 @@ current working directory, to help debug problems with the connection.
 of the commands sent to it.  Running @samp{tail -f} on this file in
 another window often helps to understand trouble with @code{EBMON}, or
 unexpected events on the PC side of the connection.
+
 _fi__(_AMD29K__)
 
+_if__(_ST2000__)
+@node ST2000 Remote
+@subsection _GDBN__ with a Tandem ST2000
+
+To connect your ST2000 to the host system, see the manufacturer's
+manual.  Once the ST2000 is physically attached, you can run
+
+@example
+target st2000 @var{dev} @var{speed}
+@end example
+
+@noindent
+to establish it as your debugging environment.  
+
+The @code{load} and @code{attach} commands are @emph{not} defined for
+this target; you must load your program into the ST2000 as you normally
+would for standalone operation.  _GDBN__ will read debugging information
+(such as symbols) from a separate, debugging version of the program
+available on your host computer.
+@c FIXME!! This is terribly vague; what little content is here is
+@c basically hearsay.
+
+@cindex ST2000 auxiliary commands
+These auxiliary _GDBN__ commands are available to help you with the ST2000
+environment:
+
+@table @code
+@item st2000 @var{command}
+@kindex st2000 @var{cmd}
+@cindex STDBUG commands (ST2000)
+@cindex commands to STDBUG (ST2000)
+Send a @var{command} to the STDBUG monitor.  See the manufacturer's
+manual for available commands.
+
+@item connect
+@cindex connect (to STDBUG)
+Connect the controlling terminal to the STDBUG command monitor.  When
+you are done interacting with STDBUG, typing either of two character
+sequences will get you back to the _GDBN__ command prompt:
+@kbd{@key{RET}~.} (Return, followed by tilde and period) or
+@kbd{@key{RET}~@key{C-d}} (Return, followed by tilde and control-D).
+@end table
+_fi__(_ST2000__)
+
 _if__(_VXWORKS__)
-_if__(!_GENERIC__)
-@node VxWorks Remote,  , EB29K Remote, Starting _GDBN__
-_fi__(!_GENERIC__)
-_if__(_GENERIC__)
-@node VxWorks Remote,  , EB29K Remote, Remote
-_fi__(_GENERIC__)
+@node VxWorks Remote
 @subsection _GDBN__ and VxWorks
 @cindex VxWorks
 
@@ -364,7 +726,7 @@ _GDBN__ will come up showing the prompt:
 * VxWorks attach::              Running Tasks
 @end menu
 
-@node VxWorks connection, VxWorks download, VxWorks Remote, VxWorks Remote
+@node VxWorks connection
 @subsubsection Connecting to VxWorks
 
 The _GDBN__ command @code{target} lets you connect to a VxWorks target on the
@@ -395,7 +757,7 @@ you should add the appropriate directory to the search path, with the
 _GDBN__ command @code{path}, and execute the @code{target} command
 again.
 
-@node VxWorks download, VxWorks attach, VxWorks connection, VxWorks Remote
+@node VxWorks download
 @subsubsection VxWorks Download
 
 @cindex download to VxWorks
@@ -436,7 +798,7 @@ history.  (This is necessary in order to preserve the integrity of
 debugger data structures that reference the target system's symbol
 table.)
 
-@node VxWorks attach,  , VxWorks download, VxWorks Remote
+@node VxWorks attach
 @subsubsection Running Tasks
 
 @cindex running VxWorks tasks
@@ -452,41 +814,37 @@ where @var{task} is the VxWorks hexadecimal task ID.  The task can be running
 or suspended when you attach to it.  If running, it will be suspended at
 the time of attachment.
 _fi__(_VXWORKS__)
+
 _if__(_H8__)
-_if__(!_GENERIC__)
-@node Hitachi H8/300 Remote,  , VxWorks Remote, Starting _GDBN__
-_fi__(!_GENERIC__)
-_if__(_GENERIC__)
-@node Hitachi H8/300 Remote,  , VxWorks Remote, Remote
-_fi__(_GENERIC__)
+@node Hitachi H8/300 Remote
 @subsection _GDBN__ and the Hitachi H8/300
-_GDBN__ needs to know three things to talk to your H8/300: 
+_GDBN__ needs to know these things to talk to your H8/300: 
 
 @enumerate
 @item
 that you want to use @samp{target hms}, the remote debugging
-interface for the H8/300 (this is the default for @code{gdb83}, the
-version of GDB configured specifically for the H8/300);
+interface for the H8/300 (this is the default when
+GDB is configured specifically for the H8/300);
 
 @item
 what serial device connects your host to your H8/300 (the first serial
 device available on your host is the default);
 
+@ignore
+@c this is only for Unix hosts, not currently of interest.
 @item
 what speed to use over the serial device.
+@end ignore
 @end enumerate
 
 @kindex device
 @cindex serial device for H8/300
+@ignore
+@c only for Unix hosts
 Use the special @code{gdb83} command @samp{device @var{port}} if you
 need to explicitly set the serial device.  The default @var{port} is the
 first available port on your host.  This is only necessary on Unix
 hosts, where it is typically something like @file{/dev/ttya}.
-
-On DOS hosts, communication with the serial device is handled by an
-auxiliary program, @code{asynctsr}.  For example, to use @code{COM2} as
-the serial device from a DOS host, execute @samp{asynctsr 2}
-@emph{before} starting GDB.
 
 @kindex speed
 @cindex serial line speed for H8/300
@@ -495,53 +853,94 @@ for the H8/300: @samp{speed @var{bps}}.  This command also is only used
 from Unix hosts; on DOS hosts, set the line speed as usual from outside
 GDB with the DOS @kbd{mode} command (for instance, @w{@samp{mode
 com2:9600,n,8,1,p}} for a 9600 bps connection).
+@end ignore
 
-For example, you might start an H8/300 debugging session at 19200 bps
-like this (exploiting the default target and device):
+_GDBN__ depends on an auxiliary terminate-and-stay-resident program
+called @code{asynctsr} to communicate with the H8/300 development board
+through a PC serial port.  You must also use the DOS @code{mode} command
+to set up the serial port on the DOS side.
+
+The following sample session illustrates the steps needed to start a
+program under _GDBN__ control on your H8/300.  The example uses a sample
+H8/300 program called @file{t.x}.
+
+First hook up your H8/300 development board.  In this example, we use a
+board attached to serial port @code{COM2}; if you use a different serial
+port, substitute its name in the argument of the @code{mode} command.
+When you call @code{asynctsr}, the auxiliary comms program used by the
+degugger, you give it just the numeric part of the serial port's name;
+for example, @samp{asyncstr 2} below runs @code{asyncstr} on
+@code{COM2}.
 
 @smallexample
-$ gdb83
-@c FIXME: this falsifies the linebreaks in the exact text played out, to
-@c FIXME... permit smallbook format to come out better.
-GDB is free software and you are welcome to distribute copies
- of it  under certain conditions; type "show copying" to see 
- the conditions.
-There is absolutely no warranty for GDB; type "show warranty" for details.
-GDB _GDB_VN__, Copyright 1992 Free Software Foundation, Inc.
-(gdb83) speed 19200
-Remote debugging on an H8/300 HMS via /dev/ttya.
-Checking target is in sync
-Sending commands to set target to 19200
-(gdb83) 
+(eg-C:\H8300\TEST) mode com2:9600,n,8,1,p
+
+Resident portion of MODE loaded
+
+COM2: 9600, n, 8, 1, p
+
+(eg-C:\H8300\TEST) asynctsr 2
 @end smallexample
 
-@noindent
-To download your program and make it the current _GDBN__ target, use the
-@code{load} command:
+@quotation
+@emph{Warning:} We have noticed a bug in PC-NFS that conflicts with
+@code{asynctsr}.  If you also run PC-NFS on your DOS host, you may need to
+disable it, or even boot without it, to use @code{asynctsr} to control
+your H8/300 board.
+@end quotation
 
-@example
-(gdb83) load smain
-.text: 8000 .. 9d92  ****
-.data: 9d92 .. 9e34  *
-(gdb83) 
-@end example
+Now that serial communications are set up, and the H8/300 is connected,
+you can start up _GDBN__.  Call @code{_GDBP__} with the name of your
+program as the argument.  @code{_GDBP__} prompts you, as usual, with the
+prompt @samp{(_GDBP__)}.  Use two special commands to begin your debugging
+session: @samp{target hms} to specify cross-debugging to the Hitachi board,
+and the @code{load} command to download your program to the board.
+@code{load} displays the names of the
+program's sections, and a @samp{*} for each 2K of data downloaded.  (If
+you want to refresh _GDBN__ data on symbols or on the executable file
+without downloading, use the _GDBN__ commands @code{file} or
+@code{symbol-file}.  These commands, and @code{load} itself, are
+described in @ref{Files,,Commands to Specify Files}.)
 
-@noindent
-While downloading the program (@samp{smain} in this example), _GDBN__
-displays the names of the program's sections, and a @samp{*} for each 2K
-of data downloaded.  (If you want to refresh _GDBN__ data on symbols or
-on the executable file without downloading, use the _GDBN__ commands
-@code{file} or @code{symbol-file}.  These commands, and @code{load}
-itself, are described in @ref{Files,,Commands to Specify Files}.)
+@smallexample
+(eg-C:\H8300\TEST) _GDBP__ t.x
+GDB is free software and you are welcome to distribute copies
+ of it under certain conditions; type "show copying" to see 
+ the conditions.
+There is absolutely no warranty for GDB; type "show warranty" 
+for details.
+GDB _GDB_VN__, Copyright 1992 Free Software Foundation, Inc...
+(gdb) target hms
+Connected to remote H8/300 HMS system.
+(gdb) load t.x
+.text   : 0x8000 .. 0xabde ***********
+.data   : 0xabde .. 0xad30 *
+.stack  : 0xf000 .. 0xf014 *
+@end smallexample
 
-All the standard _GDBN__ facilities are at your disposal for controlling
-the program on the H8/300; you can start the program with @code{run},
-set breakpoints with @code{break}, display data with @code{print} or
-@code{x}, and so on.
+At this point, you're ready to run or debug your program.  From here on,
+you can use all the usual _GDBN__ commands.  The @code{break} command
+sets breakpoints; the @code{run} command starts your program;
+@code{print} or @code{x} display data; the @code{continue} command
+resumes execution after stopping at a breakpoint.  You can use the
+@code{help} command at any time to find out more about _GDBN__ commands.
 
 Remember, however, that @emph{operating system} facilities aren't
 available on your H8/300; for example, if your program hangs, you can't
-send an interrupt---but you can press the @sc{reset} switch!  _GDBN__
-will see the effect of a @sc{reset} on the H8/300 board as a ``normal
-exit'' of your program.
+send an interrupt---but you can press the @sc{reset} switch!  
+
+Use the @sc{reset} button on the H8/300 board
+@itemize @bullet
+@item
+to interrupt your program (don't use @kbd{ctl-C} on the DOS host---it has
+no way to pass an interrupt signal to the H8/300); and
+
+@item
+to return to the _GDBN__ command prompt after your program finishes
+normally.  The communications protocol provides no other way for _GDBN__
+to detect program completion.
+@end itemize
+
+In either case, _GDBN__ will see the effect of a @sc{reset} on the
+H8/300 board as a ``normal exit'' of your program.
 _fi__(_H8__)

@@ -1,5 +1,5 @@
 /* BFD back-end for archive files (libraries).
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Cygnus Support.  Mostly Gumby Henkel-Wallace's fault.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -93,13 +93,16 @@ DESCRIPTION
    front, and need to touch every entry to do so.  C'est la vie.
 */
 
-/* $Id: archive.c,v 1.49 1992/07/08 23:28:15 sac Exp $ */
-
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
 #include "aout/ar.h"
 #include "aout/ranlib.h"
+#include <errno.h>
+
+#ifndef errno
+extern int errno;
+#endif
 
 #ifdef GNU960
 #define BFD_GNU960_ARMAG(abfd)	(BFD_COFF_FILE_P((abfd)) ? ARMAG : ARMAGB)
@@ -267,9 +270,6 @@ get_extended_arelt_filename (arch, name)
      bfd *arch;
      char *name;
 {
-#ifndef errno
-  extern int errno;
-#endif
   unsigned long index = 0;
 
   /* Should extract string so that I can guarantee not to overflow into
@@ -562,7 +562,7 @@ bfd_slurp_bsd_armap (abfd)
        but fail for any other size... */
     if (bfd_read ((PTR)nextname, 1, 16, abfd) == 16) {
 	    /* The archive has at least 16 bytes in it */
-	    bfd_seek (abfd, -16L, SEEK_CUR);
+	    bfd_seek (abfd, (file_ptr) -16, SEEK_CUR);
 
 	    /* This should be using RANLIBMAG, but at least it can be grepped for
 	       in this comment.  */
@@ -585,11 +585,20 @@ bfd_slurp_bsd_armap (abfd)
 	    if (bfd_read ((PTR)raw_armap, 1, mapdata->parsed_size, abfd) !=
 		mapdata->parsed_size) {
 		    bfd_error = malformed_archive;
+		  byebyebye:
 		    bfd_release (abfd, (PTR)raw_armap);
 		    goto byebye;
 		}
 
 	    ardata->symdef_count = bfd_h_get_32(abfd, (PTR)raw_armap) / sizeof (struct symdef);
+
+	    if (ardata->symdef_count * sizeof (struct symdef)
+		> mapdata->parsed_size - sizeof (*raw_armap)) {
+	            /* Probably we're using the wrong byte ordering.  */
+	            bfd_error = wrong_format;
+		    goto byebyebye;
+		  }
+
 	    ardata->cache = 0;
 	    rbase = raw_armap+1;
 	    ardata->symdefs = (carsym *) rbase;
@@ -628,7 +637,7 @@ bfd_slurp_coff_armap (abfd)
   bfd_vma (*swap)();
   
   result = bfd_read ((PTR)&nextname, 1, 1, abfd);
-  bfd_seek (abfd, -1L, SEEK_CUR);
+  bfd_seek (abfd, (file_ptr) -1, SEEK_CUR);
 
   if (result != 1 || nextname != '/') {
     /* Actually I think this is an error for a COFF archive */
@@ -667,7 +676,7 @@ bfd_slurp_coff_armap (abfd)
   stringsize 
    = mapdata->parsed_size - (4 * (_do_getb32((PTR)raw_armap))) - 4;
   /* Except that some archive formats are broken, and it may be our
-     fault - the i960 little endian coff sometimes has bit and sometimes
+     fault - the i960 little endian coff sometimes has big and sometimes
      little, because our tools changed.  Here's a horrible hack to clean
      up the crap
      */
@@ -746,7 +755,7 @@ _bfd_slurp_extended_name_table (abfd)
      we probably don't want to return true.  */
   if (bfd_read ((PTR)nextname, 1, 16, abfd) == 16) {
 
-    bfd_seek (abfd, -16L, SEEK_CUR);
+    bfd_seek (abfd, (file_ptr) -16, SEEK_CUR);
 
     if (strncmp (nextname, "ARFILENAMES/    ", 16) != 0 &&
 	strncmp (nextname, "//              ", 16) != 0) 
@@ -832,10 +841,10 @@ DEFUN(normalize,(file),
 
 #else
 static
-char *normalize(file)
-char *file;
+CONST char *normalize(file)
+CONST char *file;
 {
-  char *    filename = strrchr(file, '/');
+  CONST char *    filename = strrchr(file, '/');
 
   if (filename != (char *)NULL) {
       filename ++;
@@ -1163,7 +1172,7 @@ _bfd_write_archive_contents (arch)
   if (!bfd_construct_extended_name_table (arch, &etable, &elength))
     return false;
 
-  bfd_seek (arch, 0, SEEK_SET);
+  bfd_seek (arch, (file_ptr) 0, SEEK_SET);
 #ifdef GNU960
   bfd_write (BFD_GNU960_ARMAG(arch), 1, SARMAG, arch);
 #else
@@ -1203,14 +1212,20 @@ _bfd_write_archive_contents (arch)
 	bfd_error = system_call_error;
 	return false;
       }
-    if (bfd_seek (current, 0L, SEEK_SET) != 0L) goto syserr;
+    if (bfd_seek (current, (file_ptr) 0, SEEK_SET) != 0) goto syserr;
     while (remaining) 
 	{
 	  unsigned int amt = DEFAULT_BUFFERSIZE;
 	  if (amt > remaining) {
 	    amt = remaining;
 	  }
-	  if (bfd_read (buffer, amt, 1, current) != amt) goto syserr;
+	  errno = 0;
+	  if (bfd_read (buffer, amt, 1, current) != amt) {
+	      if (errno) goto syserr;
+	      /* Looks like a truncated archive. */
+	      bfd_error = malformed_archive;
+	      return false;
+	  }
 	  if (bfd_write (buffer, amt, 1, arch)   != amt) goto syserr;
 	  remaining -= amt;
 	}

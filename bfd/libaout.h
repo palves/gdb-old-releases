@@ -1,5 +1,5 @@
 /* BFD back-end data structures for a.out (and similar) files.
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991, 1992 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -21,8 +21,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* We try to encapsulate the differences in the various a.out file
    variants in a few routines, and otherwise share large masses of code.
    This means we only have to fix bugs in one place, most of the time.  */
-
-/* $Id: libaout.h,v 1.27 1992/06/17 21:05:52 grossman Exp $ */
 
 #ifdef __STDC__
 #define CAT3(a,b,c) a##b##c
@@ -72,6 +70,15 @@ struct aout_backend_data
      reasonable for a format that handles multiple CPUs with different
      load addresses for each?  */
   bfd_vma default_text_vma;
+
+  /* Callback for setting the page and segment sizes, if they can't be
+     trivially determined from the architecture.  */
+  boolean (*set_sizes) PARAMS ((bfd *));
+
+  /* zmagic files only. For go32, the length of the exec header contributes
+     to the size of the text section in the file for alignment purposes but
+     does *not* get counted in the length of the text section. */
+  unsigned char exec_header_not_counted;
 };
 #define aout_backend_info(abfd) \
 	((CONST struct aout_backend_data *)((abfd)->xvec->backend_data))
@@ -98,6 +105,7 @@ struct internal_exec
     unsigned char a_talign;	/* Alignment of text segment */
     unsigned char a_dalign;	/* Alignment of data segment */
     unsigned char a_balign;	/* Alignment of bss segment */
+    char a_relaxable;           /* Enough info for linker relax */
 };
 
 /* Magic number is written 
@@ -243,12 +251,13 @@ PROTO (boolean,	NAME(aout,find_nearest_line), (bfd *abfd, asection *section,
       asymbol **symbols, bfd_vma offset, CONST char **filename_ptr,
       CONST char **functionname_ptr, unsigned int *line_ptr));
 PROTO (int,	NAME(aout,sizeof_headers), (bfd *abfd, boolean exec));
+PROTO (boolean, NAME(aout,adjust_sizes_and_vmas), (bfd *abfd,
+       bfd_size_type *text_size, file_ptr *text_end));
 
 PROTO (void,	NAME(aout,swap_exec_header_in), (bfd *abfd,
-			 struct external_exec *raw_bytes, struct internal_exec *execp));
-
-PROTO (void,	NAME(aout,swap_exec_header_out),(bfd *abfd, struct internal_exec *execp,
-			 struct external_exec *raw_bytes));
+       struct external_exec *raw_bytes, struct internal_exec *execp));
+PROTO (void,	NAME(aout,swap_exec_header_out),(bfd *abfd,
+       struct internal_exec *execp, struct external_exec *raw_bytes));
 
 /* Prototypes for functions in stab-syms.c. */
 
@@ -282,21 +291,20 @@ PROTO(char *, aout_stab_name, (int code));
 			   obj_reloc_entry_size (abfd));		      \
 	NAME(aout,swap_exec_header_out) (abfd, execp, &exec_bytes);	      \
 									      \
-	bfd_seek (abfd, 0L, false);					      \
+	bfd_seek (abfd, (file_ptr) 0, SEEK_SET);			      \
 	bfd_write ((PTR) &exec_bytes, 1, EXEC_BYTES_SIZE, abfd);	      \
 	/* Now write out reloc info, followed by syms and strings */	      \
   									      \
 	if (bfd_get_symcount (abfd) != 0) 				      \
 	    {								      \
-	      bfd_seek (abfd,						      \
-			(long)(N_SYMOFF(*execp)), false);		      \
+	      bfd_seek (abfd, (file_ptr)(N_SYMOFF(*execp)), SEEK_SET);	      \
 									      \
 	      NAME(aout,write_syms)(abfd);				      \
 									      \
-	      bfd_seek (abfd,	(long)(N_TRELOFF(*execp)), false);	      \
+	      bfd_seek (abfd, (file_ptr)(N_TRELOFF(*execp)), SEEK_SET);	      \
 									      \
 	      if (!NAME(aout,squirt_out_relocs) (abfd, obj_textsec (abfd))) return false; \
-	      bfd_seek (abfd, (long)(N_DRELOFF(*execp)), false);	      \
+	      bfd_seek (abfd, (file_ptr)(N_DRELOFF(*execp)), SEEK_SET);	      \
 									      \
 	      if (!NAME(aout,squirt_out_relocs)(abfd, obj_datasec (abfd))) return false; \
 	    }								      \

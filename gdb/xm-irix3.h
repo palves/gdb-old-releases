@@ -20,8 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define HAVE_TERMIO
 
-#define U_REGS_OFFSET 0
-
 #include "xm-bigmips.h"
 
 /* Override register locations in upage for SGI machines */
@@ -32,5 +30,3 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
   else							\
       addr = regno + NSIG_HNDLRS; /* Skip over signal handlers */
 
-/* Don't need special routines for the SGI -- we can use infptrace.c */
-#undef FETCH_INFERIOR_REGISTERS

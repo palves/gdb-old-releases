@@ -513,7 +513,7 @@ read_register_stack (memaddr, myaddr, actual_mem_addr, lval)
   /* If we don't do this 'info register' stops in the middle. */
   if (memaddr >= rstack_high_address) 
     {
-      int val=-1;			/* a bogus value */
+      int val = -1;			/* a bogus value */
       /* It's in a local register, but off the end of the stack.  */
       int regnum = (memaddr - rsp) / 4 + LR0_REGNUM;
       if (myaddr != NULL)
@@ -810,6 +810,8 @@ reginv_com (args, fromtty)
 void
 _initialize_29k()
 {
+  extern CORE_ADDR text_end;
+
   add_com ("reginv ", class_obscure, reginv_com, 
         "Invalidate gdb's internal register cache.");
 
@@ -820,5 +822,13 @@ _initialize_29k()
 		  "Set top address in memory of the register stack.\n\
 Attempts to access registers saved above this address will be ignored\n\
 or will produce the value -1.", &setlist),
+     &showlist);
+
+  /* FIXME, there should be a way to make a CORE_ADDR variable settable. */
+  add_show_from_set
+    (add_set_cmd ("call_scratch_address", class_support, var_uinteger,
+		  (char *)&text_end,
+"Set address in memory where small amounts of RAM can be used when\n\
+making function calls into the inferior.", &setlist),
      &showlist);
 }

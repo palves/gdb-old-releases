@@ -1,5 +1,5 @@
 /* Definitions to make GDB run on Mach on an Intel 386
-   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1991, 1992 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -34,12 +34,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define KERNEL_U_ADDR (0x80000000 - (UPAGES * NBPG))
 
 #define BROKEN_LARGE_ALLOCA
-
-/* Do implement the attach and detach commands.  */
-/* #define ATTACH_DETACH	1 */
-
-/* Override copies of {fetch,store}_inferior_registers in infptrace.c.  */
-#define FETCH_INFERIOR_REGISTERS
 
 #define PREPARE_TO_STORE() read_register_bytes (0, NULL, REGISTER_BYTES)
 
