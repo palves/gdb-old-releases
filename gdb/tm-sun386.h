@@ -1,5 +1,5 @@
 /* Parameters for execution on a Sun 386i, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -31,16 +31,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #ifdef COFF_ENCAPSULATE
 #define NAMES_HAVE_UNDERSCORE
-/* Avoid conflicts between "a.out.gnu.h" and <sys/exec.h> */
+/* Avoid conflicts between our include files and <sys/exec.h>
+   (maybe not needed anymore).  */
 #define _EXEC_
 #endif
 
 /* sun386 ptrace seems unable to change the frame pointer */
 #define PTRACE_FP_BUG
-
-/* Debugger information will be in DBX format.  */
-
-#define READ_DBX_FORMAT
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -224,12 +221,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer.
 
-   FRAME_CHAIN_COMBINE takes the chain pointer and the frame's nominal address
-   and produces the nominal address of the caller frame.
-
    However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.
-   In that case, FRAME_CHAIN_COMBINE is not used.  */
+   it means the given frame is the outermost one and has no caller.  */
 
 #define FRAME_CHAIN(thisframe) \
   (outside_startup_file ((thisframe)->pc) ? \
@@ -238,8 +231,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define FRAME_CHAIN_VALID(chain, thisframe) \
   (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
-
-#define FRAME_CHAIN_COMBINE(chain, thisframe) (chain)
 
 /* Define other aspects of the stack frame.  */
 

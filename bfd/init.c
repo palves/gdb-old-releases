@@ -24,16 +24,21 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 static boolean initialized = false;
 
-/*doc*
-@section Initialization
+/*
+SECTION
+	Initialization
 */
 
-/*proto* bfd_init
+/*
+FUNCTION
+	bfd_init
 
-This routine must be called before any other bfd function to initialize
-magical internal data structures.
+FUNCTION
+	This routine must be called before any other bfd function to
+	initialize magical internal data structures.
 
-*; void EXFUN(bfd_init,(void));
+SYNOPSIS
+	void bfd_init(void);
 */
 
 void DEFUN_VOID(bfd_init)
@@ -46,14 +51,18 @@ void DEFUN_VOID(bfd_init)
 }
 
 
-/*proto-internal* bfd_check_init
+/*
+INTERNAL FUNCTION
+	bfd_check_init
 
-This routine is called before any other bfd function using initialized
-data is used to ensure that the structures have been initialized.
-Soon this function will go away, and the bfd library will assume that
-bfd_init has been called.
+DESCRIPTION
+	This routine is called before any other bfd function using
+	initialized data is used to ensure that the structures have
+	been initialized. Soon this function will go away, and the bfd
+	library will assume that bfd_init has been called.
 
-*; void EXFUN(bfd_check_init,(void));
+SYNOPSIS
+	void bfd_check_init(void);
 */
 
 void DEFUN_VOID(bfd_check_init)

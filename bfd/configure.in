@@ -3,6 +3,7 @@
 # appropriate for this directory.  For more information, check any
 # existing configure script.
 
+configdirs="doc"
 srctrigger=libbfd.c
 srcname="BFD"
 
@@ -22,6 +23,10 @@ mips)
 
 m88k)
 	case "${host_vendor}" in
+	motorola)
+		my_host=delta88 ;;
+	harris)
+		my_host=harris ;;
 	*)
 		case "${host_os}" in
 		dgux)	my_host=dgux ;;
@@ -53,9 +58,10 @@ i386)
 	case "${host_vendor}" in
 	*)
 		case "${host_os}" in
-		sysv)	my_host=i386v ;;
-		mach)	my_host=i386mach ;;
-		msdos)	my_host=dose ;;
+		sysv*)	my_host=i386v ;;
+		svr4*)	my_host=i386v4 ;;
+		mach*)	my_host=i386mach ;;
+		msdos*)	my_host=dose ;;
 		esac
 		;;
 	esac
@@ -99,17 +105,23 @@ if [ ! -f ${files} ] ; then
 fi
 
 host_makefile_frag=
-if [ -f config/h-${my_host} ] ; then
-	host_makefile_frag=config/h-${my_host}
+if [ -f config/mh-${my_host} ] ; then
+	host_makefile_frag=config/mh-${my_host}
 fi
 
 # per-target:
 
 case "${target_vendor}" in
 aout | coff | bout | elf) bfd_target=${target_cpu}-${target_vendor} ;;
-sony)	bfd_target=news ;;
-intel)	bfd_target=${target_cpu}-coff ;;	
-cbm)	bfd_target=${target_cpu}-elf ;;
+sony)		bfd_target=news ;;
+intel)		bfd_target=${target_cpu}-coff ;;	
+cbm | ncr)	bfd_target=${target_cpu}-elf ;;
+
+ibm)	my_host=rs6000
+	case "${target_cpu}" in
+	rs6000)	bfd_target=rs6000 ;;
+	esac
+	;;
 
 amd)
 	case "${target_os}"  in
@@ -120,7 +132,7 @@ amd)
 
 hitachi)
 	case "${target_cpu}" in
-	h8300) bfd_target=h8300-ieee ;;
+	h8300) bfd_target=h8300-coff ;;
 	*) echo "bad hitachi cpu" ;;
 	esac
 	;;
@@ -172,6 +184,17 @@ none|nyu|sco)
 	tahoe | vax) bfd_target=${target_cpu} ;;
 	esac
 	;;
+harris)
+	case "${target_cpu}" in
+		m88k) bfd_target=m88k-coff ;;
+		esac
+	;;
+
+motorola)
+	case "${target_cpu}" in
+		m88k) bfd_target=m88k-coff ;;
+		esac
+	;;
 *)
 	case "${target_cpu}" in
 	tahoe | vax) bfd_target=${target_cpu} ;;
@@ -179,15 +202,15 @@ none|nyu|sco)
 	;;
 esac
 
-if [ ! -f config/t-${bfd_target} ] ; then
+if [ ! -f config/mt-${bfd_target} ] ; then
 	if [ -n "${bfd_target}" ] ; then
-		echo '***' No file config/t-${bfd_target}
+		echo '***' No file config/mt-${bfd_target}
 	fi
 	echo '***' BFD does not support target ${target}
+	echo '***' Look in bfd/configure.in for supported targets
 	exit 1
 fi
-
-target_makefile_frag=config/t-${bfd_target}
+target_makefile_frag=config/mt-${bfd_target}
 
 # We don't do any links based on the target system, just very minor makefile
 # config.

@@ -22,6 +22,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
+
+
+
 static bfd_arch_info_type arch_info_struct = 
   {
     32,	/* 32 bits in a word */
@@ -31,11 +34,12 @@ static bfd_arch_info_type arch_info_struct =
     88100,	/* only 1 machine */
     "m88k",
     "m88k:88100",
+    3,
     true, /* the one and only */
     bfd_default_compatible, 
     bfd_default_scan ,
-    0,
-    0,
+    0, /* disassemble */
+    bfd_default_reloc_type_lookup,
   };
 
 void DEFUN_VOID(bfd_m88k_arch)

@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "value.h"
 #include "expression.h"
@@ -1051,4 +1050,24 @@ evaluate_subexp_for_sizeof (exp, pos)
       return value_from_longest (builtin_type_int,
 			      (LONGEST) TYPE_LENGTH (VALUE_TYPE (val)));
     }
+}
+
+/* Parse a type expression in the string [P..P+LENGTH). */
+
+struct type *
+parse_and_eval_type (p, length)
+     char *p;
+     int length;
+{
+    char *tmp = (char *)alloca (length + 4);
+    struct expression *expr;
+    tmp[0] = '(';
+    bcopy (p, tmp+1, length);
+    tmp[length+1] = ')';
+    tmp[length+2] = '0';
+    tmp[length+3] = '\0';
+    expr = parse_expression (tmp);
+    if (expr->elts[0].opcode != UNOP_CAST)
+	error ("Internal error in eval_type.");
+    return expr->elts[1].type;
 }

@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: libbfd.c,v 1.23 1991/10/11 10:08:30 gnu Exp $ */
+/* $Id: libbfd.c,v 1.28 1991/11/30 22:33:58 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -124,6 +124,39 @@ DEFUN(zalloc,(size),
   return ptr;
 }
 #endif
+
+/*
+INTERNAL 
+FUNCTION
+	bfd_xmalloc
+
+DESCRIPTION
+	Like malloc, but exit if no more memory.
+
+SYNOPSIS
+	PTR  bfd_xmalloc( bfd_size_type size);
+*/
+
+/** There is major inconsistency in how running out of memory is handled.
+  Some routines return a NULL, and set bfd_error to no_memory.
+  However, obstack routines can't do this ... */
+
+
+DEFUN(PTR bfd_xmalloc,(size),
+      bfd_size_type size)
+{
+  static char no_memory_message[] = "Virtual memory exhausted!\n";
+  PTR ptr;
+  if (size == 0) size = 1;
+  ptr = (PTR)malloc(size);
+  if (ptr == NULL)
+  if (!ptr)
+    {
+      write (2, no_memory_message, sizeof(no_memory_message)-1);
+      exit (-1);
+    }
+  return ptr;
+}
 
 /* Some IO code */
 
@@ -162,6 +195,29 @@ DEFUN(bfd_write,(ptr, size, nitems, abfd),
       bfd *abfd)
 {
   return fwrite (ptr, 1, (int)(size*nitems), bfd_cache_lookup(abfd));
+}
+
+/*
+INTERNAL 
+FUNCTION
+	bfd_write_bigendian_4byte_int
+
+DESCRIPTION
+	Writes a 4 byte integer to the outputing bfd, in big endian
+	mode regardless of what else is going on.  This is usefull in
+	archives.
+
+SYNOPSIS
+	void bfd_write_bigendian_4byte_int(bfd *abfd,  int i);
+*/
+void
+DEFUN(bfd_write_bigendian_4byte_int,(abfd, i),
+      bfd *abfd AND
+      int i)
+{
+  bfd_byte buffer[4];
+  _do_putb32(i, buffer);
+  bfd_write((PTR)buffer, 4, 1, abfd);
 }
 
 int
@@ -268,60 +324,69 @@ DEFUN(bfd_add_to_string_table,(table, new_string, table_length, free_ptr),
                              functions in swap.h #ifdef __GNUC__. 
                              Gprof them later and find out.  */
 
-/*proto*
-*i bfd_put_size
-*i bfd_get_size
-These macros as used for reading and writing raw data in sections;
-each access (except for bytes) is vectored through the target format
-of the BFD and mangled accordingly. The mangling performs any
-necessary endian translations and removes alignment restrictions.
-*+
-#define bfd_put_8(abfd, val, ptr) \
-                (*((char *)ptr) = (char)val)
-#define bfd_get_8(abfd, ptr) \
-                (*((char *)ptr))
-#define bfd_put_16(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_putx16, (val,ptr))
-#define bfd_get_16(abfd, ptr) \
-                BFD_SEND(abfd, bfd_getx16, (ptr))
-#define bfd_put_32(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_putx32, (val,ptr))
-#define bfd_get_32(abfd, ptr) \
-                BFD_SEND(abfd, bfd_getx32, (ptr))
-#define bfd_put_64(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_putx64, (val, ptr))
-#define bfd_get_64(abfd, ptr) \
-                BFD_SEND(abfd, bfd_getx64, (ptr))
-*-
-*-*/ 
+/*
+FUNCTION
+	bfd_put_size
+FUNCTION
+	bfd_get_size
 
-/*proto*
-*i bfd_h_put_size
-*i bfd_h_get_size
-These macros have the same function as their @code{bfd_get_x}
-bretherin, except that they are used for removing information for the
-header records of object files. Believe it or not, some object files
-keep their header records in big endian order, and their data in little
-endan order.
-*+
-#define bfd_h_put_8(abfd, val, ptr) \
-                (*((char *)ptr) = (char)val)
-#define bfd_h_get_8(abfd, ptr) \
-                (*((char *)ptr))
-#define bfd_h_put_16(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_h_putx16,(val,ptr))
-#define bfd_h_get_16(abfd, ptr) \
-                BFD_SEND(abfd, bfd_h_getx16,(ptr))
-#define bfd_h_put_32(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_h_putx32,(val,ptr))
-#define bfd_h_get_32(abfd, ptr) \
-                BFD_SEND(abfd, bfd_h_getx32,(ptr))
-#define bfd_h_put_64(abfd, val, ptr) \
-                BFD_SEND(abfd, bfd_h_putx64,(val, ptr))
-#define bfd_h_get_64(abfd, ptr) \
-                BFD_SEND(abfd, bfd_h_getx64,(ptr))
-*-
-*-*/ 
+DESCRIPTION
+	These macros as used for reading and writing raw data in
+	sections; each access (except for bytes) is vectored through
+	the target format of the BFD and mangled accordingly. The
+	mangling performs any necessary endian translations and
+	removes alignment restrictions. 
+
+.#define bfd_put_8(abfd, val, ptr) \
+.                (*((char *)ptr) = (char)val)
+.#define bfd_get_8(abfd, ptr) \
+.                (*((char *)ptr))
+.#define bfd_put_16(abfd, val, ptr) \
+.                BFD_SEND(abfd, bfd_putx16, (val,ptr))
+.#define bfd_get_16(abfd, ptr) \
+.                BFD_SEND(abfd, bfd_getx16, (ptr))
+.#define bfd_put_32(abfd, val, ptr) \
+.                BFD_SEND(abfd, bfd_putx32, (val,ptr))
+.#define bfd_get_32(abfd, ptr) \
+.                BFD_SEND(abfd, bfd_getx32, (ptr))
+.#define bfd_put_64(abfd, val, ptr) \
+.                BFD_SEND(abfd, bfd_putx64, (val, ptr))
+.#define bfd_get_64(abfd, ptr) \
+.                BFD_SEND(abfd, bfd_getx64, (ptr))
+
+*/ 
+
+/*
+FUNCTION
+	bfd_h_put_size
+FUNCTION
+	bfd_h_get_size
+
+DESCRIPTION
+	These macros have the same function as their <<bfd_get_x>>
+	bretherin, except that they are used for removing information
+	for the header records of object files. Believe it or not,
+	some object files keep their header records in big endian
+	order, and their data in little endan order.
+
+.#define bfd_h_put_8(abfd, val, ptr) \
+.                (*((char *)ptr) = (char)val)
+.#define bfd_h_get_8(abfd, ptr) \
+.                (*((char *)ptr))
+.#define bfd_h_put_16(abfd, val, ptr) \
+.                BFD_SEND(abfd, bfd_h_putx16,(val,ptr))
+.#define bfd_h_get_16(abfd, ptr) \
+.                BFD_SEND(abfd, bfd_h_getx16,(ptr))
+.#define bfd_h_put_32(abfd, val, ptr) \
+.                BFD_SEND(abfd, bfd_h_putx32,(val,ptr))
+.#define bfd_h_get_32(abfd, ptr) \
+.                BFD_SEND(abfd, bfd_h_getx32,(ptr))
+.#define bfd_h_put_64(abfd, val, ptr) \
+.                BFD_SEND(abfd, bfd_h_putx64,(val, ptr))
+.#define bfd_h_get_64(abfd, ptr) \
+.                BFD_SEND(abfd, bfd_h_getx64,(ptr))
+
+*/ 
 
 bfd_vma
 DEFUN(_do_getb16,(addr),
@@ -521,12 +586,17 @@ DEFUN(bfd_generic_set_section_contents, (abfd, section, location, offset, count)
     return (true);
 }
 
-/*proto-internal*
-*i bfd_log2
-Return the log base 2 of the value supplied, rounded up. eg an arg
-of 1025 would return 11.
-*; PROTO(bfd_vma, bfd_log2,(bfd_vma x));
-*-*/
+/*
+INTERNAL FUNCTION
+	bfd_log2
+
+DESCRIPTION
+	Return the log base 2 of the value supplied, rounded up. eg an
+	arg of 1025 would return 11.
+
+SYNOPSIS
+	bfd_vma bfd_log2(bfd_vma x);
+*/
 
 bfd_vma bfd_log2(x)
 bfd_vma x;

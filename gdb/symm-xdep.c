@@ -22,7 +22,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "frame.h"
 #include "inferior.h"
 #include "symtab.h"
@@ -232,7 +231,7 @@ printf("u.u_tsize= %#x, u.u_dsize= %#x, u.u_ssize= %#x, stack_off= %#x\n",
 	corefile = savestring (filename, strlen (filename));
       else
 	{
-	  corefile = concat (current_directory, "/", filename);
+	  corefile = concat (current_directory, "/", filename, NULL);
 	}
 
       set_current_frame(create_new_frame(read_register(FP_REGNUM),

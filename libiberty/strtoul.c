@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include "ansidecl.h"
 
-#define	ULONG_MAX	0xFFFFFFFF
+#ifndef ULONG_MAX
+#define	ULONG_MAX	((unsigned long)(~0L))		/* 0xFFFFFFFF */
+#endif
 
 extern int errno;
 
@@ -85,6 +87,6 @@ strtoul(s, ptr, base)
       s++;
     }
   if (ptr != NULL)
-    *ptr = (char *) ((did_conversion) ? (char *)s : start);
+    *ptr = (char *) ((did_conversion) ? (char *)s : (char *)start);
   return (total);
 }

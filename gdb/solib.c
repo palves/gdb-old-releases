@@ -1,4 +1,5 @@
-/* Copyright (C) 1990 Free Software Foundation, Inc.
+/* Handle SunOS (and maybe SVR4) shared libraries for GDB, the GNU Debugger.
+   Copyright 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -26,7 +27,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <fcntl.h>
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "gdbcore.h"
 #include "command.h"
@@ -236,7 +236,6 @@ solib_add (arg_string, from_tty, target)
   register struct so_list *so = 0;   	/* link map state variable */
   char *val;
   int count, old;
-  struct section_table *sec;
 
   if (arg_string == 0)
       re_comp (".");

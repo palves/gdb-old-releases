@@ -12,8 +12,6 @@
 #define SEEK_SET 0
 #define SEEK_CUR 1
 
-#define	MISSING_VFPRINTF
-
 extern PROTO(int, abort,(void));
 extern PROTO(int, close,(int));
 extern PROTO(int, fcntl,(int des, int cmd, int e));
@@ -27,7 +25,7 @@ extern PROTO(void, bcopy,(char*,char*,int));
 extern PROTO(int, bcmp,(char *, char *, int));
 extern PROTO(void, bzero,(char *, int));
 extern char * strchr();
-extern PROTO(void, perror,(char *));
+extern PROTO(void, perror,(CONST char *));
 extern char *getenv();
 extern char *memchr();
 extern char *strrchr();
@@ -41,7 +39,6 @@ extern int strtol();
 void free();
 char *malloc();
 char *realloc();
-PROTO (void, perror, (char *s));
 extern char *strrchr();
 extern char *ctime();
 extern int _flsbuf();

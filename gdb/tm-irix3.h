@@ -1,4 +1,5 @@
-/* Copyright (C) 1990 Free Software Foundation, Inc.
+/* Target machine description for SGI Iris under Irix, for GDB.
+   Copyright 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -25,14 +26,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    of external names before giving them to the linker.  */
 
 /*#define NAMES_HAVE_UNDERSCORE*/
-
-/* Debugger information will be in mips' format */
-
-#define READ_MIPS_FORMAT
-
-/* File format is coff, but with additions */
-
-#define COFF_FORMAT
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -208,19 +201,13 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer.
 
-   FRAME_CHAIN_COMBINE takes the chain pointer and the frame's nominal address
-   and produces the nominal address of the caller frame.
-
    However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.
-   In that case, FRAME_CHAIN_COMBINE is not used.  */
+   it means the given frame is the outermost one and has no caller.  */
 
 #define FRAME_CHAIN(thisframe) (FRAME_ADDR)mips_frame_chain(thisframe)
 
 #define FRAME_CHAIN_VALID(chain, thisframe) \
   (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
-
-#define FRAME_CHAIN_COMBINE(chain, thisframe) (chain)
 
 /* Define other aspects of the stack frame.  */
 
@@ -335,4 +322,4 @@ typedef struct mips_extra_func_info {
   int num_args;\
   struct frame_saved_regs *saved_regs;
 
-#define INIT_EXTRA_FRAME_INFO(fci) init_extra_frame_info(fci)
+#define INIT_EXTRA_FRAME_INFO(fromleaf, fci) init_extra_frame_info(fci)

@@ -1,6 +1,6 @@
 /* Read a symbol table in MIPS' format (Third-Eye).
-   Copyright (C) 1986, 1987, 1989-1991 Free Software Foundation, Inc.
-   Contributed by Alessandro Forin (af@cs.cmu.edu) at CMU
+   Copyright 1986, 1987, 1989, 1990, 1991 Free Software Foundation, Inc.
+   Contributed by Alessandro Forin (af@cs.cmu.edu) at CMU.
 
 This file is part of GDB.
 
@@ -34,15 +34,14 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    a pointer in the psymtab to do this.  */
 
 #include <stdio.h>
-#include "param.h"
-#include "obstack.h"
-#include <sys/param.h>
-#include <sys/file.h>
-#include <sys/stat.h>
 #include "defs.h"
 #include "symtab.h"
 #include "gdbcore.h"
 #include "symfile.h"
+#include "obstack.h"
+#include <sys/param.h>
+#include <sys/file.h>
+#include <sys/stat.h>
 #ifdef	CMUCS
 #include <mips/syms.h>
 #else /* not CMUCS */
@@ -50,11 +49,27 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sym.h>
 #endif /* not CMUCS */
 
-#include "ecoff.h"
+#include "coff/mips.h"
 
 struct coff_exec {
 	struct external_filehdr f;
 	struct external_aouthdr a;
+};
+
+/* Each partial symbol table entry contains a pointer to private data for the
+   read_symtab() function to use when expanding a partial symbol table entry
+   to a full symbol table entry.
+
+   For mipsread this structure contains the index of the FDR that this psymtab
+   represents and a pointer to the symbol table header HDRR from the symbol
+   file that the psymtab was created from.  */
+
+#define FDR_IDX(p) (((struct symloc *)((p)->read_symtab_private))->fdr_idx)
+#define CUR_HDR(p) (((struct symloc *)((p)->read_symtab_private))->cur_hdr)
+
+struct symloc {
+  int fdr_idx;
+  HDRR *cur_hdr;
 };
 
 /* Things we import explicitly from other modules */
@@ -146,15 +161,6 @@ struct type *builtin_type_fixed_dec;
 struct type *builtin_type_float_dec;
 struct type *builtin_type_string;
 
-/* Template types */
-
-static struct type *builtin_type_ptr;
-static struct type *builtin_type_struct;
-static struct type *builtin_type_union;
-static struct type *builtin_type_enum;
-static struct type *builtin_type_range;
-static struct type *builtin_type_set;
-
 /* Forward declarations */
 
 static struct symbol	*new_symbol();
@@ -167,6 +173,7 @@ static struct blockvector *new_bvect();
 
 static struct type	*parse_type();
 static struct type	*make_type();
+static struct type	*make_struct_type();
 static struct symbol	*mylookup_symbol();
 static struct block	*shrink_block();
 
@@ -195,8 +202,6 @@ CORE_ADDR sigtramp_address, sigtramp_end;
 
 /* The entry point (starting address) of the file, if it is an executable.  */
 
-static CORE_ADDR entry_point;
-
 extern CORE_ADDR startup_file_start;	/* From blockframe.c */
 extern CORE_ADDR startup_file_end;	/* From blockframe.c */
 
@@ -213,26 +218,7 @@ void
 mipscoff_symfile_init (sf)
      struct sym_fns *sf;
 {
-  bfd *abfd = sf->sym_bfd;
   sf->sym_private = NULL;
-
-  /* Save startup file's range of PC addresses to help blockframe.c
-     decide where the bottom of the stack is.  */
-  if (bfd_get_file_flags (abfd) & EXEC_P)
-    {
-      /* Executable file -- record its entry point so we'll recognize
-	 the startup file because it contains the entry point.  */
-      entry_point = bfd_get_start_address (abfd);
-    }
-  else
-    {
-      /* Examination of non-executable.o files.  Short-circuit this stuff.  */
-      /* ~0 will not be in any file, we hope.  */
-      entry_point = ~0;
-      /* set the startup file to be an empty range.  */
-      startup_file_start = 0;
-      startup_file_end = 0;
-    }
 }
 
 void
@@ -242,15 +228,12 @@ mipscoff_symfile_read(sf, addr, mainline)
      int mainline;
 {
   struct coff_symfile_info *info = (struct coff_symfile_info *)sf->sym_private;
-  bfd *abfd = sf->sym_bfd;
+  bfd *abfd = sf->objfile->obfd;
   char *name = bfd_get_filename (abfd);
   int desc;
   register int val;
   int symtab_offset;
   int stringtab_offset;
-
-  /* Initialize a variable that we couldn't do at _initialize_ time. */
-  builtin_type_ptr = lookup_pointer_type (builtin_type_void);
 
 /* WARNING WILL ROBINSON!  ACCESSING BFD-PRIVATE DATA HERE!  FIXME!  */
    desc = fileno ((FILE *)(abfd->iostream));	/* Raw file descriptor */
@@ -267,7 +250,7 @@ mipscoff_symfile_read(sf, addr, mainline)
   /* Now that the executable file is positioned at symbol table,
      process it and define symbols accordingly.  */
 
-  read_mips_symtab(abfd, desc);
+  read_mips_symtab(sf->objfile, desc);
 
   /* Go over the misc symbol bunches and install them in vector.  */
 
@@ -305,8 +288,7 @@ mipscoff_psymtab_to_symtab(pst)
 		fflush(stdout);
 	}
 	/* Restore the header and list of pending typedefs */
-	/* FIXME, we should use private data that is a proper pointer. */
-	cur_hdr = (HDRR *) pst->ldsymlen;
+	cur_hdr = CUR_HDR(pst);
 
 	psymtab_to_symtab_1(pst, pst->filename);
 
@@ -384,7 +366,7 @@ read_the_mips_symtab(abfd, fsym, end_of_text_segp)
 
 	return;
 readerr:
-	error("Short read on %s", symfile);
+	error("Short read on %s", bfd_get_filename (abfd));
 }
 
 
@@ -550,15 +532,15 @@ fdr_name(name)
    FIXME:  INCREMENTAL is currently always zero, though it should not be. */
 
 static
-read_mips_symtab (abfd, desc)
-	bfd *abfd;
+read_mips_symtab (objfile, desc)
+	struct objfile *objfile;
 	int desc;
 {
 	CORE_ADDR end_of_text_seg;
 
-	read_the_mips_symtab(abfd, desc, &end_of_text_seg);
+	read_the_mips_symtab(objfile->obfd, desc, &end_of_text_seg);
 
-	parse_partial_symbols(end_of_text_seg);
+	parse_partial_symbols(end_of_text_seg, objfile);
 
 	/*
 	 * Check to make sure file was compiled with -g.
@@ -566,8 +548,11 @@ read_mips_symtab (abfd, desc)
 	 */
 	if (compare_glevel(max_glevel, GLEVEL_2) < 0) {
 		if (max_gdbinfo == 0)
-			printf("\n%s not compiled with -g, debugging support is limited.", symfile);
-		printf("\nYou should compile with -g2 or -g3 for best debugging support.\n");
+			printf (
+"\n%s not compiled with -g, debugging support is limited.\n",
+				objfile->name);
+		printf(
+"You should compile with -g2 or -g3 for best debugging support.\n");
 		fflush(stdout);
 	}
 }
@@ -1070,7 +1055,8 @@ static struct type *parse_type(ax, sh, bs)
 
 	TIR            *t;
 	struct type    *tp = 0, *tp1;
-	char           *fmt = "%s";
+	char           *fmt;
+	int             i;
 
 	/* Procedures start off by one */
 	if (sh->st == stProc || sh->st == stStaticProc)
@@ -1083,38 +1069,43 @@ static struct type *parse_type(ax, sh, bs)
 
 	/* Use aux as a type information record, map its basic type */
 	t = &ax->ti;
-	if (t->bt > 26 || t->bt == btPicture) {
+	if (t->bt > (sizeof (map_bt)/sizeof (*map_bt))) {
 		complain (&basic_type_complaint, t->bt);
 		return builtin_type_int;
 	}
-	if (map_bt[t->bt])
+	if (map_bt[t->bt]) {
 		tp = *map_bt[t->bt];
-	else {
-		/* Cannot use builtin types, use templates */
-		tp = make_type(TYPE_CODE_VOID, 0, 0, 0);
+		fmt = "%s";
+	} else {
+		/* Cannot use builtin types -- build our own */
 		switch (t->bt) {
 		    case btAdr:
-			*tp = *builtin_type_ptr;
+			tp = lookup_pointer_type (builtin_type_void);
+			fmt = "%s";
 			break;
 		    case btStruct:
-			*tp = *builtin_type_struct;
+			tp = make_struct_type(TYPE_CODE_STRUCT, 0, 0, 0);
 			fmt = "struct %s";
 			break;
 		    case btUnion:
-			*tp = *builtin_type_union;
+			tp = make_struct_type(TYPE_CODE_UNION, 0, 0, 0);
 			fmt = "union %s";
 			break;
 		    case btEnum:
-			*tp = *builtin_type_enum;
+			tp = make_type(TYPE_CODE_ENUM, 0, 0, 0);
 			fmt = "enum %s";
 			break;
 		    case btRange:
-			*tp = *builtin_type_range;
+			tp = make_type(TYPE_CODE_RANGE, 0, 0, 0);
+			fmt = "%s";
 			break;
 		    case btSet:
-			*tp = *builtin_type_set;
+			tp = make_type(TYPE_CODE_SET, 0, 0, 0);
 			fmt = "set %s";
 			break;
+		    default:
+			complain (&basic_type_complaint, t->bt);
+			return builtin_type_int;
 		}
 	}
 
@@ -1160,11 +1151,15 @@ static struct type *parse_type(ax, sh, bs)
 			 */
 			TYPE_CODE(tp1) = TYPE_CODE(tp);
 			TYPE_NAME(tp1) = obsavestring(name, strlen(name));
-			if (TYPE_CODE(tp1) == TYPE_CODE_ENUM) {
-				int             i;
+			TYPE_TYPE_SPECIFIC(tp1) = TYPE_TYPE_SPECIFIC(tp);
 
+			/* Now do cleanup based on the final type.  */
+			switch (TYPE_CODE (tp1)) {
+			case TYPE_CODE_ENUM:
 				for (i = 0; i < TYPE_NFIELDS(tp1); i++)
-					make_enum_constant(&TYPE_FIELD(tp1,i), tp1);
+					make_enum_constant(&TYPE_FIELD(tp1,i),
+							   tp1);
+				break;
 			}
 		}
 		if (tp1 != tp) {
@@ -1554,8 +1549,9 @@ parse_one_file(fh, f_idx, bound)
    the symtab we are reading.  */
 
 static
-parse_partial_symbols(end_of_text_seg)
+parse_partial_symbols(end_of_text_seg, objfile)
 	int end_of_text_seg;
+	struct objfile *objfile;
 {
 	int             f_idx, s_idx, h_max, stat_idx;
 	HDRR		*hdr;
@@ -1585,14 +1581,14 @@ parse_partial_symbols(end_of_text_seg)
 	fdr_to_pst = (struct pst_map *)xzalloc((hdr->ifdMax+1) * sizeof *fdr_to_pst);
 	fdr_to_pst++;
 	{
-		struct partial_symtab * pst = new_psymtab("");
+		struct partial_symtab * pst = new_psymtab("", objfile);
 		fdr_to_pst[-1].pst = pst;
-		pst->ldsymoff = -1;
+		FDR_IDX(pst) = -1;
 	}
 
 	/* Now scan the FDRs, mostly for dependencies */
 	for (f_idx = 0; f_idx < hdr->ifdMax; f_idx++)
-		(void) parse_fdr(f_idx, 1);
+		(void) parse_fdr(f_idx, 1, objfile);
 
 	/* Take a good guess at how many symbols we might ever need */
 	h_max = hdr->iextMax;
@@ -1704,7 +1700,8 @@ parse_partial_symbols(end_of_text_seg)
 
 			sh = s_idx + (SYMR *) fh->isymBase;
 
-			if (sh->sc == scUndefined || sh->sc == scNil) {
+			if (sh->sc == scUndefined || sh->sc == scNil ||
+			    sh->index == 0xfffff) {
 				/* FIXME, premature? */
 				s_idx++;
 				continue;
@@ -1804,8 +1801,10 @@ parse_partial_symbols(end_of_text_seg)
    of recursion we are called (to pretty up debug traces) */
 
 static struct partial_symtab *
-parse_fdr(f_idx, lev)
+parse_fdr(f_idx, lev, objfile)
 	int f_idx;
+	int lev;
+	struct objfile *objfile;
 {
 	register FDR *fh;
 	register struct partial_symtab *pst;
@@ -1822,7 +1821,7 @@ parse_fdr(f_idx, lev)
 		max_glevel = fh->glevel;
 
 	/* Make a new partial_symtab */
-	pst = new_psymtab(fh->rss);
+	pst = new_psymtab(fh->rss, objfile);
 	if (fh->cpd == 0){
 		pst->textlow = 0;
 		pst->texthigh = 0;
@@ -1832,7 +1831,7 @@ parse_fdr(f_idx, lev)
 	}
 
 	/* Make everything point to everything. */
-	pst->ldsymoff = f_idx;
+	FDR_IDX(pst) = f_idx;
 	fdr_to_pst[f_idx].pst = pst;
 	fh->ioptBase = (int)pst;
 
@@ -1859,7 +1858,7 @@ parse_fdr(f_idx, lev)
 	for (s_idx = s_id0; s_idx < fh->crfd; s_idx++) {
 		RFDT *rh = (RFDT *) (fh->rfdBase) + s_idx;
 
-		pst->dependencies[s_idx-s_id0] = parse_fdr(*rh, lev+1);
+		pst->dependencies[s_idx-s_id0] = parse_fdr(*rh, lev+1, objfile);
 	}
 
 	return pst;
@@ -1895,13 +1894,14 @@ psymtab_to_symtab_1(pst, filename)
 	/* How many symbols will we need */
 	/* FIXME, this does not count enum values. */
 	f_max = pst->n_global_syms + pst->n_static_syms;
-	if (pst->ldsymoff == -1) {
+	if (FDR_IDX(pst) == -1) {
 		fh = 0;
-		st = new_symtab( "unknown", f_max, 0);
+		st = new_symtab ("unknown", f_max, 0, pst->objfile);
 	} else {
-		fh = (FDR *) (cur_hdr->cbFdOffset) + pst->ldsymoff;
+		fh = (FDR *) (cur_hdr->cbFdOffset) + FDR_IDX(pst);
 		f_max += fh->csym + fh->cpd;
-		st = new_symtab(pst->filename, 2 * f_max, 2 * fh->cline);
+		st = new_symtab (pst->filename, 2 * f_max, 2 * fh->cline,
+				 pst->objfile);
 	}
 
 	/* Read in all partial symbtabs on which this one is dependent.
@@ -1929,7 +1929,7 @@ psymtab_to_symtab_1(pst, filename)
 
 	/* Now read the symbols for this symtab */
 
-	cur_fd = pst->ldsymoff;
+	cur_fd = FDR_IDX(pst);
 	cur_fdr = fh;
 	cur_stab = st;
 
@@ -2356,10 +2356,10 @@ reorder_psymtabs()
 
 static
 struct symtab *
-new_symtab(name, maxsyms, maxlines)
+new_symtab(name, maxsyms, maxlines, objfile)
 	char *name;
 {
-	struct symtab *s = allocate_symtab (name);
+	struct symtab *s = allocate_symtab (name, objfile);
 
 	LINETABLE(s) = new_linetable(maxlines);
 
@@ -2382,8 +2382,9 @@ new_symtab(name, maxsyms, maxlines)
 /* Allocate a new partial_symtab NAME */
 
 static struct partial_symtab *
-new_psymtab(name)
+new_psymtab(name, objfile)
 	char *name;
+	struct objfile *objfile;
 {
 	struct partial_symtab *pst;
 
@@ -2396,12 +2397,18 @@ new_psymtab(name)
 	else
 		pst->filename = name;
 
+	/* Chain it to its object file */
+	pst->objfile = objfile;
+	pst->objfile_chain = objfile->psymtabs;
+	objfile->psymtabs = pst;
+	
 	pst->next = partial_symtab_list;
 	partial_symtab_list = pst;
 
 	/* Keep a backpointer to the file's symbols */
-	/* FIXME, we should use private data that is a proper pointer. */
-	pst->ldsymlen = (int)cur_hdr;
+	pst->read_symtab_private = (char *) obstack_alloc (psymbol_obstack,
+						  sizeof (struct symloc));
+	CUR_HDR(pst) = cur_hdr;
 
 	/* The way to turn this into a symtab is to call... */
 	pst->read_symtab = mipscoff_psymtab_to_symtab;
@@ -2507,6 +2514,9 @@ new_symbol(name)
 		obstack_alloc (symbol_obstack, sizeof (struct symbol));
 
 	bzero (s, sizeof (*s));
+	/* Special GNU C++ names.  */
+	if (name[0] == CPLUS_MARKER && name[1] == 't' && name[2] == 0)
+	    name = "this";
 	SYMBOL_NAME(s) = name;
 	return s;
 }
@@ -2540,6 +2550,7 @@ make_type(code, length, uns, name)
 {
 	register struct type *type;
 
+	/* FIXME, I don't think this ever gets freed.  */
 	type = (struct type *) xzalloc(sizeof(struct type));
 	TYPE_CODE(type) = code;
 	TYPE_LENGTH(type) = length;
@@ -2547,6 +2558,25 @@ make_type(code, length, uns, name)
 	TYPE_NAME(type) = name;
 	TYPE_VPTR_FIELDNO (type) = -1;
 
+	return type;
+}
+
+/* Create and initialize a new struct or union type, a la make_type.  */
+
+static
+struct type *
+make_struct_type(code, length, uns, name)
+     enum type_code code;
+     int length, uns;
+     char *name;
+{
+	register struct type *type;
+
+	type = make_type (code, length, uns, name);
+	
+	/* FIXME, I don't think this ever gets freed.  */
+	TYPE_CPLUS_SPECIFIC (type) = (struct cplus_struct_type *)
+	  xzalloc (sizeof (struct cplus_struct_type));
 	return type;
 }
 
@@ -2599,7 +2629,7 @@ make_enum_constant(f,t)
 
 /* Things used for calling functions in the inferior.
    These functions are exported to our companion
-   mips-dep.c file and are here because they play
+   mips-tdep.c file and are here because they play
    with the symbol-table explicitly. */
 
 #if 0
@@ -2787,15 +2817,4 @@ _initialize_mipsread ()
 					   0, "fixed_decimal");
 	builtin_type_float_dec = make_type(TYPE_CODE_FLT, sizeof(double),
 					   0, "floating_decimal");
-
-	/* Templates types */
-	builtin_type_struct = make_type(TYPE_CODE_STRUCT, 0, 0, 0);
-	builtin_type_union = make_type(TYPE_CODE_UNION, 0, 0, 0);
-	builtin_type_enum = make_type(TYPE_CODE_ENUM, 0, 0, 0);
-	builtin_type_range = make_type(TYPE_CODE_RANGE, 0, 0, 0);
-	builtin_type_set = make_type(TYPE_CODE_SET, 0, 0, 0);
-
-	/* We can't do this now because builtin_type_void may not
-	   be set yet.  Do it at symbol reading time.  */
-	/* builtin_type_ptr = lookup_pointer_type (builtin_type_void); */
 }

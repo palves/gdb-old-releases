@@ -1,5 +1,5 @@
 /* Find a variable's value in memory, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "frame.h"
 #include "value.h"
@@ -402,14 +401,6 @@ read_var_value (var, frame)
       addr = SYMBOL_VALUE_ADDRESS (var);
       break;
 
-/* Nonzero if a struct which is located in a register or a LOC_ARG
-   really contains
-   the address of the struct, not the struct itself.  GCC_P is nonzero
-   if the function was compiled with GCC.  */
-#if !defined (REG_STRUCT_HAS_ADDR)
-#define REG_STRUCT_HAS_ADDR(gcc_p) 0
-#endif
-
     case LOC_ARG:
       fi = get_frame_info (frame);
       if (fi == NULL)
@@ -460,8 +451,17 @@ read_var_value (var, frame)
 	
 	v = value_from_register (type, SYMBOL_VALUE (var), frame);
 
+	/* Nonzero if a struct which is located in a register or a LOC_ARG
+	   really contains
+	   the address of the struct, not the struct itself.  GCC_P is nonzero
+	   if the function was compiled with GCC.  */
+#if !defined (REG_STRUCT_HAS_ADDR)
+#define REG_STRUCT_HAS_ADDR(gcc_p) 0
+#endif
+
 	if (REG_STRUCT_HAS_ADDR (BLOCK_GCC_COMPILED (b))
-	    && TYPE_CODE (type) == TYPE_CODE_STRUCT)
+	    && (   (TYPE_CODE (type) == TYPE_CODE_STRUCT)
+	        || (TYPE_CODE (type) == TYPE_CODE_UNION)))
 	  addr = *(CORE_ADDR *)VALUE_CONTENTS (v);
 	else
 	  return v;

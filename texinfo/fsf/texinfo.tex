@@ -22,7 +22,7 @@
 %You are forbidden to forbid anyone else to use, share and improve
 %what you give them.   Help stamp out software-hoarding!
 
-\def\texinfoversion{2.53}
+\def\texinfoversion{2.55}
 \message{Loading texinfo package [Version \texinfoversion]:}
 \message{}
 
@@ -355,7 +355,7 @@
 
 % Conditionals to test whether a flag is set.
 
-\outer\def\ifset{\begingroup\ignoresections\parsearg\ifsetxxx}
+\def\ifset{\begingroup\ignoresections\parsearg\ifsetxxx}
 
 \def\ifsetxxx #1{\endgroup
 \expandafter\ifx\csname IF#1\endcsname\relax \let\temp=\ifsetfail
@@ -365,7 +365,7 @@
 \def\ifsetfail{\begingroup\ignoresections\ifsetfailxxx}
 \long\def\ifsetfailxxx #1\end ifset{\endgroup\ignorespaces}
 
-\outer\def\ifclear{\begingroup\ignoresections\parsearg\ifclearxxx}
+\def\ifclear{\begingroup\ignoresections\parsearg\ifclearxxx}
 
 \def\ifclearxxx #1{\endgroup
 \expandafter\ifx\csname IF#1\endcsname\relax \let\temp=\relax
@@ -457,18 +457,26 @@
 \let\li = \sf % Sometimes we call it \li, not \sf.
 
 %% Try out Computer Modern fonts at \magstephalf
-\font\textrm=cmr10 scaled \magstephalf
-\font\texttt=cmtt10 scaled \magstephalf
+\let\mainmagstep=\magstephalf
+
+\ifx\bigger\relax
+\let\mainmagstep=\magstep1
+\font\textrm=cmr12
+\font\texttt=cmtt12
+\else
+\font\textrm=cmr10 scaled \mainmagstep
+\font\texttt=cmtt10 scaled \mainmagstep
+\fi
 % Instead of cmb10, you many want to use cmbx10.
 % cmbx10 is a prettier font on its own, but cmb10
 % looks better when embedded in a line with cmr10.
-\font\textbf=cmb10 scaled \magstephalf 
-\font\textit=cmti10 scaled \magstephalf
-\font\textsl=cmsl10 scaled \magstephalf
-\font\textsf=cmss10 scaled \magstephalf
-\font\textsc=cmcsc10 scaled \magstephalf
-\font\texti=cmmi10 scaled \magstephalf
-\font\textsy=cmsy10 scaled \magstephalf
+\font\textbf=cmb10 scaled \mainmagstep 
+\font\textit=cmti10 scaled \mainmagstep
+\font\textsl=cmsl10 scaled \mainmagstep
+\font\textsf=cmss10 scaled \mainmagstep
+\font\textsc=cmcsc10 scaled \mainmagstep
+\font\texti=cmmi10 scaled \mainmagstep
+\font\textsy=cmsy10 scaled \mainmagstep
 
 % A few fonts for @defun, etc.
 \font\defbf=cmbx10 scaled \magstep1 %was 1314
@@ -1030,13 +1038,17 @@ July\or August\or September\or October\or November\or December\fi
 a\or b\or c\or d\or e\or f\or g\or h\or i\or j\or k\or l\or m\or n\or o\or
 p\or q\or r\or s\or t\or u\or v\or w\or x\or y\or z\else
 \errmessage{More than 26 items in @alphaenumerate; get a bigger alphabet.}\fi.}%
-\Ealphaenumerate\flushcr}
+\Eenumerate\flushcr}
 
 \def\capsenumerate{\itemizey{\ifcase\itemno\or
 A\or B\or C\or D\or E\or F\or G\or H\or I\or J\or K\or L\or M\or N\or O\or
 P\or Q\or R\or S\or T\or U\or V\or W\or X\or Y\or Z\else
 \errmessage{More than 26 items in @capsenumerate; get a bigger alphabet.}\fi.}%
-\Ecapsenumerate\flushcr}
+\Eenumerate\flushcr}
+
+% Allow all natural ways of terminating enumerates to work.
+\def\Ealphaenumerate{\Eenumerate}
+\def\Ecapsenumerate{\Eenumerate}
 
 % Definition of @item while inside @itemize.
 
@@ -2917,10 +2929,23 @@ Section\xreftie'char\the\appendixno.\the\secno.\the\subsecno.\the\subsubsecno %
 \def\afourpaper{
 \global\tolerance=700
 \global\hfuzz=1pt
+\global\baselineskip=12pt
+\global\parskip 15pt plus 1pt
 
 \global\vsize= 53\baselineskip
 \advance\vsize by \topskip
-\global\hsize=   5.85in     % A4 wide 10pt
+%\global\hsize=   5.85in     % A4 wide 10pt
+\global\hsize=  6.5
+\global\outerhsize=\hsize
+\global\advance\outerhsize by 0.5in
+\global\outervsize=\vsize
+\global\advance\outervsize by 0.6in
+\global\doublecolumnhsize=\hsize
+\global\divide\doublecolumnhsize by 2
+\global\advance\doublecolumnhsize by -0.1in
+\global\doublecolumnvsize=\vsize
+\global\multiply\doublecolumnvsize by 2
+\global\advance\doublecolumnvsize by 0.1in
 
 \global\pagewidth=\hsize
 \global\pageheight=\vsize

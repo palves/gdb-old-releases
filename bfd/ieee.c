@@ -1104,7 +1104,7 @@ DEFUN(ieee_object_p,(abfd),
   processor = ieee->mb.processor = read_id(&(ieee->h));
   if (strcmp(processor,"LIBRARY") == 0) goto fail;
   ieee->mb.module_name = read_id(&(ieee->h));
-  if (abfd->filename == (char *)NULL) {
+  if (abfd->filename == (CONST char *)NULL) {
     abfd->filename =  ieee->mb.module_name;
   }
   /* Determine the architecture and machine type of the object file.
@@ -1189,10 +1189,11 @@ DEFUN(ieee_print_symbol,(ignore_abfd, afile,  symbol, how),
 #endif
     BFD_FAIL();
     break;
+  case bfd_print_symbol_nm:
   case bfd_print_symbol_all:
       {
 	CONST char *section_name = symbol->section == (asection *)NULL ?
-	  "*abs" : symbol->section->name;
+	  (CONST char *)"*abs" : symbol->section->name;
 	if (symbol->name[0] == ' ') {
 	  fprintf(file,"* empty table entry ");
 	}
@@ -2905,7 +2906,7 @@ DEFUN(ieee_bfd_debug_info_accumulate,(abfd, section),
 #define ieee_slurp_armap bfd_true
 #define ieee_slurp_extended_name_table bfd_true
 #define ieee_truncate_arname (void (*)())bfd_nullvoidptr
-#define ieee_write_armap  (FOO( boolean, (*),(bfd *, unsigned int, struct orl *, int, int))) bfd_nullvoidptr
+#define ieee_write_armap  (FOO( boolean, (*),(bfd *, unsigned int, struct orl *, unsigned int, int))) bfd_nullvoidptr
 #define ieee_get_lineno (struct lineno_cache_entry *(*)())bfd_nullvoidptr
 #define	ieee_close_and_cleanup		bfd_generic_close_and_cleanup
 #define ieee_set_arch_mach bfd_default_set_arch_mach

@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "frame.h"
 #include "inferior.h"
 #include "target.h"
@@ -56,9 +55,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 #include "gdbcore.h"
-#include <sys/user.h>		/* After a.out.h  */
 #include <sys/file.h>
 #include <sys/stat.h>
+
+#if !defined (FETCH_INFERIOR_REGISTERS)
+#include <sys/user.h>		/* Probably need to poke the user structure */
+#if defined (KERNEL_U_ADDR_BSD)
+#include <a.out.h>		/* For struct nlist */
+#endif /* KERNEL_U_ADDR_BSD.  */
+#endif /* !FETCH_INFERIOR_REGISTERS */
 
 /* This function simply calls ptrace with the given arguments.  
    It exists so that all calls to ptrace are isolated in this 
@@ -161,7 +166,6 @@ detach (signal)
 #if defined (KERNEL_U_ADDR_BSD)
 /* Get kernel_u_addr using BSD-style nlist().  */
 CORE_ADDR kernel_u_addr;
-#include <a.out.gnu.h>		/* For struct nlist */
 
 void
 _initialize_kernel_u_addr ()
@@ -194,7 +198,6 @@ static struct hpnlist nl[] = {{ "_u", -1, }, { (char *) 0, }};
 /* read the value of the u area from the hp-ux kernel */
 void _initialize_kernel_u_addr ()
 {
-    struct user u;
     nlist ("/hp-ux", &nl);
     kernel_u_addr = nl[0].n_value;
 }

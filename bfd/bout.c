@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bout.c,v 1.17 1991/10/16 18:40:24 gnu Exp $ */
+/* $Id: bout.c,v 1.20 1991/12/04 18:16:40 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -26,7 +26,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "bout.h"
 
-#include "stab.gnu.h"
+#include "aout/stab_gnu.h"
 #include "libaout.h"		/* BFD a.out internal data structures */
 
 PROTO (static boolean, b_out_squirt_out_relocs,(bfd *abfd, asection *section));
@@ -153,6 +153,10 @@ b_out_callback (abfd)
   /* The starting addresses of the sections.  */
   obj_textsec (abfd)->vma = execp->a_tload;
   obj_datasec (abfd)->vma = execp->a_dload;
+
+  /* And reload the sizes, since the aout module zaps them */
+  obj_textsec (abfd)->size = execp->a_text;
+
   bss_start = execp->a_dload + execp->a_data; /* BSS = end of data section */
   obj_bsssec (abfd)->vma = align_power (bss_start, execp->a_balign);
 
@@ -343,12 +347,12 @@ b_out_slurp_reloc_table (abfd, asect, symbols)
   bfd_seek (abfd, (long)(asect->rel_filepos), SEEK_SET);
   count = reloc_size / sizeof (struct relocation_info);
 
-  relocs = (struct relocation_info *) malloc (reloc_size);
+  relocs = (struct relocation_info *) bfd_xmalloc (reloc_size);
   if (!relocs) {
     bfd_error = no_memory;
     return false;
   }
-  reloc_cache = (arelent *) malloc ((count+1) * sizeof (arelent));
+  reloc_cache = (arelent *) bfd_xmalloc ((count+1) * sizeof (arelent));
   if (!reloc_cache) {
     free ((char*)relocs);
     bfd_error = no_memory;
@@ -466,7 +470,7 @@ b_out_squirt_out_relocs (abfd, section)
   int extern_mask, pcrel_mask,  len_2, callj_mask;
   if (count == 0) return true;
   generic   = section->orelocation;
-  native = ((struct relocation_info *) malloc (natsize));
+  native = ((struct relocation_info *) bfd_xmalloc (natsize));
   if (!native) {
     bfd_error = no_memory;
     return false;

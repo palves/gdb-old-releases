@@ -1,4 +1,0 @@
-# Target: CCI Tahoe running BSD Unix.
-# ONLY works native.
-TDEFINES = -DDEFAULT_VECTOR=host_aout_big_vec
-TDEPFILES= host-aout.o

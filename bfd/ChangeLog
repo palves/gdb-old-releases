@@ -1,3 +1,394 @@
+Sat Dec  7 07:22:09 1991  John Gilmore  (gnu at cygnus.com)
+
+	* coffcode.h, srec.c:  Lint.
+
+Wed Dec  4 10:14:17 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* aoutf1.h (sunos_<size>_object_p, sunos4_callback): moved the
+	computation of arch and machine type so it's worked out before
+	some_aout_object_p is called. 
+	* aoutx.h: (some_aout_object_p): don't set arch and mach to
+	unknown.
+	* archures.c: add extra field 'section_align_power' to hold
+	default section alignment in object files.
+	* cpu-a29k.c, cpu-h8300.c, cpu-i386.c, cpu-i960.c, cpu-m68k.c,
+	cpu-m88k.c, cpu-mips.c, cpu-rs6000.c, cpu-sparc.c, cpu-vax.c:
+	initialize the new field.
+	* bout.c (b_out_callback): replace the text size, since aout
+	fries them.
+	* aoutx.h: Documentation in the new style
+
+Wed Dec  4 02:00:30 1991  John Gilmore  (gnu at cygnus.com)
+
+	* bfd.c (bfd_get_mtime):  Don't cache mtime any more; only
+	use the saved value if mtime_set is already set (intended
+	for archive files, though apparently not used yet).
+
+Tue Dec  3 22:54:50 1991  John Gilmore  (gnu at cygnus.com)
+
+	* targets.c:  Revise comments about how to configure the target
+	vector, to match reality.  Remove mention of obsolete methods.
+	Remove long lists of capitalized macros that turn into the same
+	thing in lowercase.  Normal vector simply lists all known
+	lowercase xvec names; all other cases are handled by SELECT_VECS.
+
+	* config/mt-i386-coff:  Set DEFAULT_VECTOR to real identifier,
+	not macro name.
+
+	* config/mt-i960-{coff,bout}:  Use SELECT_VECS to make a short
+	list of supported targets.
+
+Tue Dec  3 14:06:15 1991  Per Bothner  (bothner at cygnus.com)
+
+	* archive.c (bsd_write_armap):  The pad byte sometimes added to
+	the string table in a __.SYMDEF member is now
+	counted as part of the size of the string table.
+	This is compatible with the old ranlib, as well as Sun's.
+
+Tue Dec  3 10:53:30 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* srec.c: Rewrote to fix many bugs; now gets the record type
+	right, doesn't choke on input, sets the start address in an S9 and
+	fills in the filename on an S0.
+
+Sat Nov 30 21:19:15 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* cpu-h8300.c: Add support for MEMIND addressing mode
+
+	* coff-a29k.c: defined RELOC_PROCESSING to take the #ifdef out of
+	coffcode.h
+	* coffcode.h: use the new macro if available
+
+	* elf.c (elf_corefile_note): cast malloc to avoid warning.
+	* Makefile.in: Fixed dependencies due to file rename
+
+	* aout-encap.c, aoutf1.h, aoutx.h, archive.c, bout.c, coff-a29k.c,
+	coff-h8300.c, coff-i386.c, coff-i960.c, coff-m68k.c, coff-m88k.c,
+	coff-mips.c, coff-rs6000.c, cpu-h300.c, elf.c, i386aout.c,
+	newos3.c, stab-syms.c, syms.c: All these files have had their
+	#includes altered to point to the new places.
+
+Fri Nov 29 20:04:49 1991  Fred Fish  (fnf at cygnus.com)
+
+	* config/mh-i386v4, config/mh-i386-elf, hosts/h-i386v4.h:  New files.
+
+	* configure.in:  Add vendor "ncr" as supported per-target vendor.
+	Add svr4 case for i386 per-host case.
+
+	* elf.c (elf_object_p, elf_core_file_p):  Add missing "break" to
+	ELFDATA2LSB cases.
+
+Fri Nov 29 12:16:51 1991  Per Bothner  (bothner at cygnus.com)
+
+	* syms.c (bfd_decode_symclass):  Return 'A'
+	for symbols that are both absolute and global.
+	* archive.c (bfd_special_undocumented_glue):  Return NULL
+	if bfd_ar_hdr_from_filesystem returns NULL.
+
+Tue Nov 26 09:10:55 1991  Steve Chamberlain  (sac at cygnus.com)
+
+	* Makefile.in: added coff-h8300
+	* configure.in: now h8 is a coff target
+	* cpu-h8300.c: fix various disassembly problems
+	* libcoff.h: took out some code which has been #0ed for a long
+	time.
+	* targets.c: added h8 coff 
+	* coff-a29k.c, coff-i386.c, coff-i960.c, coff-m68k.c, coff-m88k.c
+	added new macro RTYPE2HOWTO to take a load of #ifdefs out of
+	coffcode.h
+	* coffcode.h: Started to change the way machine dependencies are
+	handled, from the nest of #ifdefs to macros defined in the
+	including coff-<foo>.c
+
+Fri Nov 22 08:11:42 1991  John Gilmore  (gnu at cygnus.com)
+
+	* aoutx.h (some_aout_object_p):  Set the `executable' bit
+	if the entry point is contained in the text segment, even if the
+	text segment is at location 0.
+
+	* coff-mips.c, coffcode.h:  Peter Schauer's patch to kludge in
+	nonstandard MIPS sections (.rdata, .sdata, etc).
+
+	* aoutx.h, bfd.c, coffcode.h, ieee.c, oasys.c, targets.c: CONST lint.
+	* libbfd-in.h, libbfd.h, aoutx.h, coffcode.h, elf.c, libaout.h:
+	Rename ALIGN to BFD_ALIGN to avoid conflict with BSD <sys/param.h>.
+	* libbfd.c:  Lint.
+	* host-aout.c, trad-core.c:  Fix write_armap prototypes.  Lint.
+
+Thu Nov 21 19:56:40 1991  Per Bothner  (bothner at cygnus.com)
+
+	* stab-syms.c, syms.c:  Moved bfd_stab_name() and bfd_stab_names[]
+	from syms.c to new file stab-syms.c.  Also, since GNU extended
+	type codes such as N_SETT are no longer in ../include/stab.def,
+	include them manually.
+	* stab-syms.c, aoutx.h: Renamed bfd_stab_name() and
+	bfd_stab_names[] to aout_stab_name() and aout_stab_names[].
+	* libaout.h: Added prototype for aout_stab_name().
+	* Makefile.in:  Update Makefile for new stab-syms.[co].
+
+Thu Nov 21 11:50:49 1991  John Gilmore  (gnu at cygnus.com)
+
+	* libaout.h (WORK_OUT_FILE_POSITIONS):  One more try at this
+	rather complicated seeming problem.  Eliminate LOGICAL_ versions,
+	just make N_XXX work by excluding the header from the text segment.
+	* aoutx.h:  Fix comments to match.
+
+Tue Nov 19 18:49:01 1991  Per Bothner  (bothner at cygnus.com)
+
+	* libaout.h (WORK_OUT_FILE_POSITIONS):  Use new LOGICAL_TXTADDR,
+	LOGICAL_TXTOFF, LOGICAL_TXTSIZE macros to figure out numbers
+	for the "logical" text segment (i.e. never consider the exec
+	header to be part of the text segment).  This change is
+	needed for consistency with various other parts of bfd and ld.
+	* aoutx.h (NAME(aout,soe_aout_object_p)):  Fix comment,
+	and move calculation of obj_textsec(abfd)->size to libaout.h.
+	* bfd-in.h:  Removed bogus ';'.
+
+	* Makefile.in:  Add MINIMIZE flag to select lean
+	or bloated target_vector.
+	* targets.c:  Use new MINIMIZE macro, and add trad_core if needed.
+	* newsos3.c:  Fixes to ../include/aout64.h remove need
+	for special N_TXTOFF macro, but require N_HEADER_IN_TEXT.
+
+Mon Nov 18 12:00:59 1991  Per Bothner  (bothner at cygnus.com)
+
+	* aout-target.h, aoutf1.h, newsos3.c:  Make aout-target.h
+	handle both little and big-endian targets, with little
+	the default unless TARGET_IS_BIG_ENDIAN_P is defined.
+	* host-aout.c:  Add FIXME note.
+
+Sun Nov 17 13:29:39 1991  Per Bothner  (bothner at cygnus.com)
+
+	* targets.c:  Make the default target_vector contain
+	just &DEFAULT_VECTOR.  This makes executables a lot smaller.
+	Old behavior can be gotten by defining ALL_TARGETS.
+	* aoutf1.h, demo64.c, i386aout.c, newsos3.c, sunos.c:
+	Factored out common code into new file aout-target.h.
+	Saves a lot of duplicate code for a.out variants.
+
+Fri Nov 15 13:00:43 1991  Per Bothner  (bothner at cygnus.com)
+
+	Get 'make headers' to work when configured with +subdirs.
+	* Makefile.in: Add $(subdir) to docdir path.
+	* doc/Makefile.in (protos): Add $(srcdir) prefix
+	to name of sed scripts.
+
+Thu Nov 14 19:49:10 1991  Per Bothner  (bothner at cygnus.com)
+
+	* aoutx.h (NAME(aout,print_symbol)):  Fix thinko.
+	* syms.c (bfd_stab_names):  Turn on new GNU_EXTRA_STABS macro
+	to include names of N_SETT etc.
+
+Thu Nov 14 19:11:13 1991  Fred Fish  (fnf at cygnus.com)
+
+    	* elf.c:  Add minimal support for ELF symbol tables.  Generates
+	canonical bfd symbol tables from ELF symbol tables.  Change the
+	name of some functions from bfd_<name> to elf_<name>.
+
+	* syms.c:  Trivial fix to comment to remove a redundant "to".
+
+Wed Nov 13 17:02:01 1991  John Gilmore  (gnu at cygnus.com)
+
+	* coff-{i386,m68k,m88k}.c:  Change name of file format to standard
+	form that GDB recognizes as COFF.
+
+Wed Nov 13 09:09:41 1991  Steve Chamberlain  (sac at cygnus.com)
+
+	* ieee.c (ieee_object_p):  cast NULL correctly.
+	* configure.in: added harris host
+
+	* coff-a29k.c: Lots of changes, most from David Wood.
+
+Tue Nov 12 07:21:41 1991  John Gilmore  (gnu at cygnus.com)
+
+	* coff-m88k.c (coff_write_armap):  Just #undef it.
+
+Mon Nov 11 20:30:18 1991  Steve Chamberlain  (sac at cygnus.com)
+
+	* Makefile.in: standardize on MINUS_G to disable debugging
+	* coff-m88k.c: create coff armaps instead of bsd ones.
+	* opncls.c (bfd_close_all_done), (bfd_close): Mask out random bits
+	when calling chmod.
+
+Mon Nov 11 19:07:32 1991  Fred Fish  (fnf at cygnus.com)
+
+	* elf.c:  Additions to support ELF format core files.
+	* config/mh-amix:  Add -DHAVE_PROCFS to HDEFINES, since host
+	has support for /proc (all the include files in particular).
+
+Mon Nov 11 18:36:47 1991  Per Bothner  (bothner at cygnus.com)
+
+	* aoutx.h (NAME(aout,find_nearest_line)):  Handle the case
+	of two N_SO stabs, one for directory, and one for filename.
+
+	* bfd-in.h (print_vma):  Factor out duplicate definition.
+
+	Exit a little more gracefully when malloc returns NULL.
+	* libbfd.c: New function bfd_xmalloc (malloc wrapper).
+	* opncls.c, syms.c, bout.c, aoutx.h:  Replace malloc by bfd_xmalloc.
+	* libbfd.h: Rre-generated due to libbfd.c update.
+
+Sat Nov  9 13:45:01 1991  Fred Fish  (fnf at cygnus.com)
+
+	* config/mt-m68k-elf:  Define DEFAULT_VECTOR as elf_big_vec.
+
+	* elf.c (elf_object_p):  Don't try to create a bfd section for
+	the first ELF section header.  It is just a placeholder.
+
+Sat Nov  9 03:04:26 1991  John Gilmore  (gnu at cygnus.com)
+
+	* coff-rs6000.c, config/mh-rs6000:  Make it work on archive and
+	core files, when compiling native.
+	* hosts/h-rs6000.h:  Define FASCIST_FDOPEN for bfd_fdopenr.
+
+	FIXME:  The aoutf1.h change below needs to be reversed back
+	to the way it was.
+
+Thu Nov  7 11:03:55 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* coffcode.h: Defined new macros [PUT|GET]LINENO_LNNO for
+	manipulation of lnno fields in lineno structs in a coff-<f>.h
+	independent way. Override it in coff-<f>.h to your favourite
+	number if you don't have a 16bit lnno field. (coff_swap_lineno_in)
+	(coff_swap_lineno_out): modified to use the new macros.
+
+Mon Nov  4 11:38:33 1991  Steve Chamberlain  (sac at cygnus.com)
+
+	* aoutf1.h (sunos4_callback): Now defaults to 68020 rather than
+	unknown arch when the magic number doesn't specify the
+	architecture, since some OSs (eg old sun3s) don't set the number, and
+	020 is probably the right answer anyway.
+
+Sun Nov  3 12:07:08 1991  Per Bothner  (bothner at cygnus.com)
+
+	* hosts/h-news.h, hosts/h-rtbsd.h:
+	Get rid of MISSING_VFPRINTF, since libiberty provides one.
+	* bfd-in.h (bfd_print_symbol_type_hopw enum):   Add new option
+	bfd_print_symbol_nm, for use by nm.
+	* aoutx.h (NAME(aout,print_symbol)):  Add code for new
+	bfd_print_symbol_nm option, to print in nm format.
+	* coffcode.h (coff_print_symbol), ieee.c (ieee_print_symbol)
+	oasys.c (oasys_print_symbol):  Provide stub implementations
+	for bfd_print_symbol_nm.
+	* syms.c:  New function bfd_decode_symclass, used by nm printer.
+	New function bfd_stab_name to look up string name of stab code.
+
+Sat Nov  2 14:26:03 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* Makefile.in: Added ctor.c 
+	* archures.c (bfd_default_arch_struct) added
+	bfd_default_reloc_type_lookup.
+	* coffcode.h: removed a load of #if 0ed code.
+	(coff_compute_file_section_positions): now works out the section
+	alignment and size correctly in all cases.
+	(coff_get_symtab): looks for constructor symbols and calls the
+	right function when they're found. (coff_canonicalize_reloc):
+	knows when a section is full of constructors and does the right
+	thing. 
+	* cpu-m88k.c: Added default_reloc_type lookup to the architecture
+	description.
+	* libbfd-in.h: (bfd_default_reloc_type_lookup) defun  added.
+	* libcoff.h: removed #if 0ed code
+	* reloc.c: (bfd_reloc_code_real_type) added BFD_RELOC_CTOR for
+	arch independent constructor relocation type.
+	(bfd_reloc_type_lookup): removed the comment "this will go away"
+	since it won't. (bfd_howto_32): stolen from 88k, this is a 32bit
+	reloc which is used when BFD_RELOC_CTOR falls through to give a
+	default 32bit reloc for constructors.
+	(bfd_default_reloc_type_lookup): added.
+	* aoutf1.h: fixed SEGMENT_SIZE typo.
+
+Thu Oct 31 18:23:06 1991  John Gilmore  (gnu at cygnus.com)
+
+	* coff-rs6000.c:  Change name to "aixcoff-rs6000", to avoid
+	matching prefix "coff".
+	* coffcode.h (coff_swap_aux_in, coff_swap_aux_out):  Handle
+	rs/6000 csect records.
+
+Sun Oct 27 16:56:58 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* coff-m88k.c, targets.c: change name of m88k_bcs to m88kbcs
+	* configure.in: add motorola delta88 cases
+	* libbfd.h, libbfd-in.h, archive.c, ieee.c, elf.c, srec.c: fix
+	write_armap prototype
+	* libbfd.c: add doc on bfd_write_bigendian_4byte_int
+
+Fri Oct 25 02:48:19 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Rename COFF-related files in `coff-ARCH.c' form.
+	coff-a29k.c, coff-i386.c, coff-i960.c, coff-m68k.c, coff-m88k.c,
+	coff-mips.c, coff-rs6000.c to be exact.
+
+	* Makefile.in:  Only supply TARGET_DEFAULTS to targets.c, reducing
+	make output clutter.
+	* config/mt-*:  Ditto.
+
+Thu Oct 24 22:40:07 1991  John Gilmore  (gnu at cygnus.com)
+
+	RS/6000 support, by Metin G. Ozisik, Mimi Phûông-Thåo Võ, and
+	John Gilmore.  Archive support from Damon A. Permezel.
+
+	* Makefile.in:  Add cpu-rs6000.c and rs6000coff.c.
+	* configure.in:  Add rs6000 case.
+	* targets.c:  Add rs6000 vector.
+	* archures.c:  Add rs6000, fix comment on romp.
+	* bfd-in.h (enum bfd_error):  Add no_debug_section error.
+	* libcoff-in.h (struct coff_tdata):  Remove unused string_table.
+	* bfd.c (bfd_errmsgs):  Add no_debug_section error message.
+	* section.c (bfd_make_section):  Return NULL on attempt to create
+	a section twice.
+	* coffcode.h (bfd_swap_reloc_in):  Handle r_type and r_size.
+	(bfd_swap_aouthdr_in):  Handle lots more members.
+	(make_a_section_from_file):  If section has already been seen,
+	just return false rather than overwriting it.
+	(coff_real_object_p):  Understand incoming magic numbers.
+	(coff_set_flags):  Understand outgoing magic numbers.
+	(coff_compute_section_file_positions):  outgoing aouthdr magic #.
+	(build_debug_section):  Add fn for reading debug string section.
+	(get_normalized_symtab):  Handle symbol names in debug string section.
+	Remove unused obj_string_table.
+	(coff_slurp_symbol_table):  Handle rs6000-specific storage classes.
+	* aoutx.h (translate_from_native_sym_flags, N_SET*):  Check for
+	existing section before making one.
+	* cpu-rs6000.c:  New file.
+	* rs6000coff.c:  New file.
+
+Thu Oct 24 02:03:24 1991  Fred Fish  (fnf at cygnus.com)
+
+	* elf.c: Add partial support for ELF format corefiles. Still needs
+	support for extracting registers from corefiles.
+
+	* config/t-m68k-elf:  Set DEFAULT_VECTOR to elf_big_vec.
+
+	* config/{h-amix,h-dgux,h-irix3,h-ultra3}: For systems where
+	RANLIB is defined as echo, send the output to /dev/null to help
+	reduce clutter in the output from doing a make.
+
+Mon Oct 21 17:48:48 1991  John Gilmore  (gnu at cygnus.com)
+
+	* hosts/h-vaxult.h:  Remove malloc/free decls covered in stdlib.h.
+	Fix HOST_PAGE_SIZE and HOST_SEGMENT_SIZE.  From David Taylor.
+
+Mon Oct 21 09:34:11 1991  Steve Chamberlain  (steve at rtl.cygnus.com)
+
+	* coffcode.h (coff_compute_section_file_positions): make it pad
+	section size out if there are alignment restrictions so that the
+	image will be ok on a system where section positions are worked
+	out by accumulating sizes rather than from the section headers.
+	* targets.c (proto write_armap). Changed orl_count to unsigned.
+	* opncls.c (bfd_close_all_done). Added so that generative
+	programs like gas can close a bfd without causing bfd confusion.
+	* libbfd.h (changed becuase of protos)
+	* amdcoff.c: messed with the way that jmp displacements are
+	calcualated. This may not yet be totally correct.
+	* archive.c (coff_write_armap): rewrote the way that ranlibs are
+	written out.
+	* coffcode.h (fixup_symbol_value): now doesn't core dump if a non
+	abs symbol has no section (like a register symbol).
+	(coff_write_symbol) now zeros auxent before filling it up to help
+	with sensitive applications.
+	* libbfd.c (bfd_write_bigendian_4byte_int): added.
+	
 Wed Oct 16 22:58:45 1991  John Gilmore  (gnu at cygnus.com)
 
 	* bfd.c:  Make sure we don't get a macro strerror().

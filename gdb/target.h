@@ -377,7 +377,7 @@ extern int target_xfer_memory();
 	(current_target->to_has_registers)
 
 /* Does the target have execution?  Can we make it jump (through hoops),
-   or pop its stack a few times, or set breakpoints?  */
+   or pop its stack a few times?  */
 
 #define	target_has_execution	\
 	(current_target->to_has_execution)

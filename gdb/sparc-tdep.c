@@ -1,7 +1,5 @@
-/* Machine-dependent code which would otherwise be in inflow.c and core.c,
-   for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
-   This code is for the sparc cpu.
+/* Target-dependent code for the SPARC for GDB, the GNU debugger.
+   Copyright 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -21,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "frame.h"
 #include "inferior.h"
 #include "obstack.h"

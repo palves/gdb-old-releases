@@ -1,4 +1,5 @@
-/* Copyright (C) 1988, 1989 Free Software Foundation, Inc.
+/* Target-dependent code for the Acorn Risc Machine, for GDB, the GNU Debugger.
+   Copyright 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -17,7 +18,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "defs.h"
-#include "param.h"
 #include "frame.h"
 #include "inferior.h"
 #include "arm-opcode.h"

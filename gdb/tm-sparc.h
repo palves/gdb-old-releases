@@ -1,6 +1,7 @@
 /* Parameters for target machine of Sun 4, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@mcc.com)
+
 This file is part of GDB.
 
 This program is free software; you can redistribute it and/or modify
@@ -26,10 +27,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    of external names before giving them to the linker.  */
 
 #define NAMES_HAVE_UNDERSCORE
-
-/* Debugger information will be in DBX format.  */
-
-#define READ_DBX_FORMAT
 
 /* When passing a structure to a function, Sun cc passes the address
    in a register, not the structure itself.  It (under SunOS4) creates
@@ -89,11 +86,7 @@ extern CORE_ADDR sparc_pc_adjust();
 
 #define SAVED_PC_AFTER_CALL(frame) PC_ADJUST (read_register (RP_REGNUM))
 
-/* Address of the end of stack space.  We get this from the system
-   include files. */
-#include <sys/types.h>
-#include <machine/vmparam.h>
-#define STACK_END_ADDR USRSTACK
+/* Stack grows downward.  */
 
 #define INNER_THAN <
 
@@ -267,7 +260,9 @@ extern CORE_ADDR sparc_pc_adjust();
 	       (VALBUF), TYPE_LENGTH(TYPE));		       		   \
       }							       		   \
     else						       		   \
-      bcopy (((int *)(REGBUF))+8, (VALBUF), TYPE_LENGTH (TYPE));           \
+      bcopy ((char *)(REGBUF) + 4 * 8 +					   \
+	             (TYPE_LENGTH(TYPE) >= 4 ? 0 : 4 - TYPE_LENGTH(TYPE)), \
+	     (VALBUF), TYPE_LENGTH(TYPE));				   \
   }
 
 /* Write into appropriate registers a function return value
@@ -309,12 +304,8 @@ CORE_ADDR sparc_extract_struct_value_address (
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer.
 
-   FRAME_CHAIN_COMBINE takes the chain pointer and the frame's nominal address
-   and produces the nominal address of the caller frame.
-
    However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.
-   In that case, FRAME_CHAIN_COMBINE is not used.  */
+   it means the given frame is the outermost one and has no caller.  */
 
 /* In the case of the Sun 4, the frame-chain's nominal address
    is held in the frame pointer register.
@@ -337,7 +328,7 @@ CORE_ADDR sparc_extract_struct_value_address (
    Otherwise the bottom of this frame is the top of the next frame.  */
 
 #define EXTRA_FRAME_INFO	FRAME_ADDR bottom;
-#define INIT_EXTRA_FRAME_INFO(fci)  \
+#define INIT_EXTRA_FRAME_INFO(fromleaf, fci)  \
   (fci)->bottom =					\
    ((fci)->next ?					\
     ((fci)->frame == (fci)->next_frame ?		\
@@ -349,8 +340,6 @@ CORE_ADDR sparc_frame_chain ();
 
 #define FRAME_CHAIN_VALID(chain, thisframe) \
   (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
-
-#define FRAME_CHAIN_COMBINE(chain, thisframe) (chain)
 
 /* Define other aspects of the stack frame.  */
 

@@ -31,6 +31,7 @@ static bfd_arch_info_type arch_info_struct =
     0,	/* only 1 machine */
     "vax",
     "vax",
+    3,
     true, /* the one and only */
     bfd_default_compatible, 
     bfd_default_scan ,

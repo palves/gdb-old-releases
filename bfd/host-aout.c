@@ -18,6 +18,8 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+/* FIXME:  Re-write to use aout-target.h (or remove entirely...). */
+
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
@@ -25,7 +27,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	ARCH_SIZE	32
 
 #include "libaout.h"           /* BFD a.out internal data structures */
-#include "aout64.h"
+#include "aout/aout64.h"
 
 /* If the host has short headers on ZMAGIC files (like SunOS), then the
    text segment offset is 0 (as specified in aout64.h).  If it doesn't
@@ -180,8 +182,8 @@ DEFUN(NAME(host_aout,write_object_contents), (abfd),
 #define	aout_32_slurp_armap			bfd_false
 #define	aout_32_slurp_extended_name_table	bfd_true
 #define	aout_32_write_armap			(PROTO (boolean, (*),	\
-     (bfd *arch, unsigned int elength, struct orl *map, int orl_count,	\
-      int stridx))) bfd_false
+     (bfd *arch, unsigned int elength, struct orl *map, \
+      unsigned int orl_count, int stridx))) bfd_false
 #define	aout_32_truncate_arname			bfd_dont_truncate_arname
 
 /* No core file defined here -- configure in trad-core.c separately.  */

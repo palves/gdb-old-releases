@@ -1,5 +1,5 @@
 /* Parameters for targeting on a Gould NP1, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -77,9 +77,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Define this if the C compiler puts an underscore at the front
    of external names before giving them to the linker.  */
 #define NAMES_HAVE_UNDERSCORE
-
-/* Debugger information will be in DBX format.  */
-#define READ_DBX_FORMAT
 
 /* Address of blocks in N_LBRAC and N_RBRAC symbols are absolute addresses,
    not relative to start of source address.  */
@@ -329,12 +326,8 @@ extern struct type *builtin_type_np1_vector;
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer.
 
-   FRAME_CHAIN_COMBINE takes the chain pointer and the frame's nominal address
-   and produces the nominal address of the caller frame.
-
    However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.
-   In that case, FRAME_CHAIN_COMBINE is not used.  */
+   it means the given frame is the outermost one and has no caller.  */
 
 /* In the case of the NPL, the frame's norminal address is Br2 and the 
    previous routines frame is up the stack X bytes, where X is the
@@ -343,9 +336,6 @@ extern struct type *builtin_type_np1_vector;
 
 #define FRAME_CHAIN_VALID(chain, thisframe) \
         (chain != 0 && chain != (thisframe)->frame)
-
-#define FRAME_CHAIN_COMBINE(chain, thisframe) \
-	(chain)
 
 /* Define other aspects of the stack frame on NPL.  */
 #define FRAME_SAVED_PC(FRAME) \

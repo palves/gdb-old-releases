@@ -18,9 +18,9 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: sunos.c,v 1.21 1991/07/31 16:58:01 gnu Exp $ */
+/* $Id: sunos.c,v 1.22 1991/11/17 21:38:01 bothner Exp $ */
 
 #define ARCH 32
 #define TARGETNAME "a.out-sunos-big"
-#define VECNAME sunos_big_vec
+#define MY(OP) CAT(sunos_big_,OP)
 #include "aoutf1.h"

@@ -252,6 +252,7 @@ value evaluate_expression ();
 value evaluate_type ();
 value parse_and_eval ();
 value parse_to_comma_and_eval ();
+struct type *parse_and_eval_type ();
 extern CORE_ADDR parse_and_eval_address ();
 extern CORE_ADDR parse_and_eval_address_1 ();
 

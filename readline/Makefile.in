@@ -2,25 +2,19 @@
 # Makefile for readline and history libraries.			   #
 #								   #
 
-
 srcdir = .
-destdir = /usr/local
-
+ddestdir = /usr/local
+idestdir = /usr/local
 INSTALL_PROG = install -c
 INSTALL_FILE = $(INSTALL_PROG)
 
 #### host and target dependent Makefile fragments come in here.
 ##
 
-# Here is a rule for making .o files from .c files that doesn't force
-# the type of the machine (like -sun3) into the flags.
-.c.o:
-	$(CC) -c $(CFLAGS) $(LOCAL_INCLUDES) $(CPPFLAGS) $(READLINE_DEFINES) $<
-
 # Destination installation directory.  The libraries are copied to DESTDIR
 # when you do a `make install', and the header files to INCDIR/readline/*.h.
-DESTDIR = $(destdir)/lib
-INCDIR = $(destdir)/include
+DESTDIR = $(ddestdir)/lib
+INCDIR = $(ddestdir)/include
 
 # Define TYPES as -DVOID_SIGHANDLER if your operating system uses
 # a return type of "void" for signal handlers.
@@ -36,14 +30,14 @@ TYPES = -DVOID_SIGHANDLER
 # the vi line editing mode and features.
 READLINE_DEFINES = $(TYPES) -DVI_MODE
 
-DEBUG_FLAGS = -g
+MINUS_G=-g
+DEBUG_FLAGS = $(MINUS_G)
 LDFLAGS = $(DEBUG_FLAGS) 
-CFLAGS = $(DEBUG_FLAGS) $(SYSV) -I.
+CFLAGS = $(DEBUG_FLAGS) $(USG) -I. $(LOCAL_INCLUDES) $(CPPFLAGS) $(READLINE_DEFINES)
 
 # A good alternative is gcc -traditional.
 #CC = gcc -traditional
-CC = cc
-RANLIB = /bin/ranlib
+RANLIB = ranlib
 AR = ar
 AR_FLAGS = clq
 RM = rm
@@ -57,8 +51,8 @@ CSOURCES = readline.c history.c funmap.c keymaps.c vi_mode.c \
 HSOURCES = readline.h chardefs.h history.h keymaps.h
 SOURCES  = $(CSOURCES) $(HSOURCES)
 
-DOCUMENTATION = readline.texinfo inc-readline.texinfo \
-		history.texinfo inc-history.texinfo
+DOCUMENTATION = readline.texi inc-read.texi \
+		history.texi inc-hist.texi
 
 SUPPORT = COPYING Makefile $(DOCUMENTATION) ChangeLog
 
@@ -70,23 +64,34 @@ STAGESTUFF = *.o
 
 all: libreadline.a
 
-libreadline.a:	readline.o history.o funmap.o keymaps.o
-		$(RM) -f libreadline.a
-		$(AR) $(AR_FLAGS) libreadline.a readline.o history.o funmap.o keymaps.o
-		$(RANLIB) libreadline.a
+all-info: history.info readline.info
+
+history.info: history.texi
+	$(MAKEINFO) -o history.info $(srcdir)/history.texi
+
+readline.info: readline.texi inc-read.texi
+	$(MAKEINFO) -o readline.info $(srcdir)/readline.texi
+
+libreadline.a:	readline.o history.o funmap.o keymaps.o tilde.o vi_mode.o
+	$(RM) -f libreadline.a
+	$(AR) $(AR_FLAGS) libreadline.a readline.o history.o funmap.o keymaps.o tilde.o vi_mode.o
+	$(RANLIB) libreadline.a
 
 readline.o:	readline.h chardefs.h  keymaps.h history.h readline.c vi_mode.c
 history.o:	history.c history.h
 funmap.o:	readline.h
 keymaps.o:	emacs_keymap.c vi_keymap.c keymaps.h chardefs.h keymaps.c
 
-libtest:	libreadline.a libtest.c
-		$(CC) -o libtest $(CFLAGS) $(CPPFLAGS) -L. libtest.c -lreadline -ltermcap
+tilde.o:	$(srcdir)/../glob/tilde.c
+	$(CC) -c $(CFLAGS) $(srcdir)/../glob/tilde.c
 
-readline: readline.c history.o keymaps.o funmap.o readline.h chardefs.h
+libtest:	libreadline.a libtest.c
+	$(CC) -o libtest $(CFLAGS) $(CPPFLAGS) -L. libtest.c -lreadline -ltermcap
+
+readline: readline.c history.o keymaps.o funmap.o readline.h chardefs.h vi_mode.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(READLINE_DEFINES) \
 		$(LOCAL_INCLUDES) -DTEST -o readline readline.c funmap.o \
-		 keymaps.o history.o -L. -ltermcap
+		 keymaps.o history.o vi_mode.o -L. -ltermcap
 
 readline.tar:	$(THINGS_TO_TAR)
 		tar -cf readline.tar $(THINGS_TO_TAR)
@@ -94,7 +99,16 @@ readline.tar:	$(THINGS_TO_TAR)
 readline.tar.Z:	readline.tar
 		compress -f readline.tar
 
-install:	$(DESTDIR)/libreadline.a includes
+install:	includes
+		$(INSTALL_PROG) libreadline.a $(DESTDIR)/libreadline.an
+		-mv $(DESTDIR)/libreadline.an $(DESTDIR)/libreadline.a
+		$(RANLIB) $(DESTDIR)/libreadline.a
+
+install-info: all-info
+		for i in *.info* ; do \
+			echo Installing $$i... ; \
+			cp $$i $(idestdir)/info/$$i ; \
+		done
 
 includes:
 		if [ ! -r $(INCDIR)/readline ]; then\
@@ -105,12 +119,10 @@ includes:
 		$(INSTALL_FILE) $(srcdir)/keymaps.h $(INCDIR)/readline/
 		$(INSTALL_FILE) $(srcdir)/chardefs.h $(INCDIR)/readline/
 clean:
-		rm -f $(STAGESTUFF) *.a *.log *.cp *.tp *.vr *.fn *.aux *.pg *.toc
+		rm -f $(STAGESTUFF) *.a *.log *.cp *.tp *.vr *.fn
+		rm -f *.aux *.pg *.toc *.info*
 
 $(DESTDIR)/libreadline.a: libreadline.a
-		-mv $(DESTDIR)/libreadline.a $(DESTDIR)/libreadline.old
-		$(INSTALL_PROG) libreadline.a $(DESTDIR)/libreadline.a
-		$(RANLIB) $(DESTDIR)/libreadline.a
 
 # Copy the object files from a particular stage into a subdirectory.
 stage1: force

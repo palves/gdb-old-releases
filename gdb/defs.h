@@ -1,4 +1,4 @@
-/* Basic definitions for GDB, the GNU debugger.
+/* Basic, host-specific, and target-specific definitions for GDB.
    Copyright (C) 1986, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
@@ -29,58 +29,6 @@ typedef unsigned int CORE_ADDR;
 /* The character C++ uses to build identifiers that must be unique from
    the program's identifiers (such as $this and $$vptr).  */
 #define CPLUS_MARKER '$'	/* May be overridden to '.' for SysV */
-
-/*
- * Allow things in gdb to be declared "const".  If compiling ANSI, it
- * just works.  If compiling with gcc but non-ansi, redefine to __const__.
- * If non-ansi, non-gcc, then eliminate "const" entirely, making those
- * objects be read-write rather than read-only.
- */
-#ifndef const
-#ifndef __STDC__
-# ifdef __GNUC__
-#  define const __const__
-# else
-#  define const /*nothing*/
-# endif /* GNUC */
-#endif /* STDC */
-#endif /* const */
-
-#ifndef volatile
-#ifndef __STDC__
-# ifdef __GNUC__
-#  define volatile __volatile__
-# else
-#  define volatile /*nothing*/
-# endif /* GNUC */
-#endif /* STDC */
-#endif /* volatile */
-
-extern char *savestring ();
-extern char *strsave ();
-extern char *concat ();
-#ifdef __STDC__
-extern void *xmalloc (), *xrealloc ();
-#else
-extern char *xmalloc (), *xrealloc ();
-#endif
-extern void free ();
-extern int parse_escape ();
-extern char *reg_names[];
-/* Indicate that these routines do not return to the caller.  */
-extern volatile void error(), fatal();
-
-/* Various possibilities for alloca.  */
-#ifndef alloca
-# ifdef __GNUC__
-#  define alloca __builtin_alloca
-# else
-#  ifdef sparc
-#   include <alloca.h>
-#  endif
-   extern char *alloca ();
-# endif
-#endif
 
 extern int errno;			/* System call error return status */
 
@@ -185,48 +133,6 @@ extern unsigned output_radix;
 /* Baud rate specified for communication with serial target systems.  */
 char *baud_rate;
 
-#if !defined (UINT_MAX)
-#define UINT_MAX 0xffffffff
-#endif
-
-#if !defined (LONG_MAX)
-#define LONG_MAX 0x7fffffff
-#endif
-
-#if !defined (INT_MAX)
-#define INT_MAX 0x7fffffff
-#endif
-
-#if !defined (INT_MIN)
-/* Two's complement, 32 bit.  */
-#define INT_MIN -0x80000000
-#endif
-
-/* Just like CHAR_BIT in <limits.h> but describes the target machine.  */
-#if !defined (TARGET_CHAR_BIT)
-#define TARGET_CHAR_BIT 8
-#endif
-
-/* Number of bits in a long long or unsigned long long
-   for the target machine.  */
-#if !defined (TARGET_LONG_LONG_BIT)
-#define TARGET_LONG_LONG_BIT 64
-#endif
-
-/* Convert a LONGEST to an int.  This is used in contexts (e.g. number
-   of arguments to a function, number in a value history, register
-   number, etc.) where the value must not be larger than can fit
-   in an int.  */
-#if !defined (longest_to_int)
-#if defined (LONG_LONG)
-#define longest_to_int(x) (((x) > INT_MAX || (x) < INT_MIN) \
-			   ? error ("Value out of range.") : (int) (x))
-#else /* No LONG_LONG.  */
-/* Assume sizeof (int) == sizeof (long).  */
-#define longest_to_int(x) ((int) (x))
-#endif /* No LONG_LONG.  */
-#endif /* No longest_to_int.  */
-
 /* Languages represented in the symbol table and elsewhere. */
 
 enum language 
@@ -234,6 +140,7 @@ enum language
    language_unknown, 		/* Language not known */
    language_auto,		/* Placeholder for automatic setting */
    language_c, 			/* C */
+   language_cplus, 		/* C++ */
    language_m2,			/* Modula-2 */
 };
 
@@ -252,5 +159,220 @@ char *local_hex_format_custom();		/* language.c */
 
 char *local_hex_string ();			/* language.c */
 char *local_hex_string_custom ();		/* language.c */
+
+/* Host machine definition.  This will be a symlink to one of the
+   xm-*.h files, built by the `configure' script.  */
+
+#include "xm.h"
+
+/*
+ * Allow things in gdb to be declared "const".  If compiling ANSI, it
+ * just works.  If compiling with gcc but non-ansi, redefine to __const__.
+ * If non-ansi, non-gcc, then eliminate "const" entirely, making those
+ * objects be read-write rather than read-only.
+ */
+
+#ifndef const
+#ifndef __STDC__
+# ifdef __GNUC__
+#  define const __const__
+# else
+#  define const /*nothing*/
+# endif /* GNUC */
+#endif /* STDC */
+#endif /* const */
+
+#ifndef volatile
+#ifndef __STDC__
+# ifdef __GNUC__
+#  define volatile __volatile__
+# else
+#  define volatile /*nothing*/
+# endif /* GNUC */
+#endif /* STDC */
+#endif /* volatile */
+
+/* Defaults for system-wide constants (if not defined by xm.h, we fake it).  */
+
+#if !defined (UINT_MAX)
+#define UINT_MAX 0xffffffff
+#endif
+
+#if !defined (LONG_MAX)
+#define LONG_MAX 0x7fffffff
+#endif
+
+#if !defined (INT_MAX)
+#define INT_MAX 0x7fffffff
+#endif
+
+#if !defined (INT_MIN)
+/* Two's complement, 32 bit.  */
+#define INT_MIN -0x80000000
+#endif
+
+/* Number of bits in a char or unsigned char for the target machine.
+   Just like CHAR_BIT in <limits.h> but describes the target machine.  */
+#if !defined (TARGET_CHAR_BIT)
+#define TARGET_CHAR_BIT 8
+#endif
+
+/* Number of bits in a short or unsigned short for the target machine. */
+#if !defined (TARGET_SHORT_BIT)
+#define TARGET_SHORT_BIT (sizeof (short) * TARGET_CHAR_BIT)
+#endif
+
+/* Number of bits in an int or unsigned int for the target machine. */
+#if !defined (TARGET_INT_BIT)
+#define TARGET_INT_BIT (sizeof (int) * TARGET_CHAR_BIT)
+#endif
+
+/* Number of bits in a long or unsigned long for the target machine. */
+#if !defined (TARGET_LONG_BIT)
+#define TARGET_LONG_BIT (sizeof (long) * TARGET_CHAR_BIT)
+#endif
+
+/* Number of bits in a long long or unsigned long long for the target machine. */
+#if !defined (TARGET_LONG_LONG_BIT)
+#define TARGET_LONG_LONG_BIT (2 * TARGET_LONG_BIT)
+#endif
+
+/* Number of bits in a float for the target machine. */
+#if !defined (TARGET_FLOAT_BIT)
+#define TARGET_FLOAT_BIT (sizeof (float) * TARGET_CHAR_BIT)
+#endif
+
+/* Number of bits in a double for the target machine. */
+#if !defined (TARGET_DOUBLE_BIT)
+#define TARGET_DOUBLE_BIT (sizeof (double) * TARGET_CHAR_BIT)
+#endif
+
+/* Number of bits in a long double for the target machine. */
+#if !defined (TARGET_LONG_DOUBLE_BIT)
+#define TARGET_LONG_DOUBLE_BIT (2 * TARGET_DOUBLE_BIT)
+#endif
+
+/* Number of bits in a "complex" for the target machine. */
+#if !defined (TARGET_COMPLEX_BIT)
+#define TARGET_COMPLEX_BIT (2 * TARGET_FLOAT_BIT)
+#endif
+
+/* Number of bits in a "double complex" for the target machine. */
+#if !defined (TARGET_DOUBLE_COMPLEX_BIT)
+#define TARGET_DOUBLE_COMPLEX_BIT (2 * TARGET_DOUBLE_BIT)
+#endif
+
+/* Convert a LONGEST to an int.  This is used in contexts (e.g. number
+   of arguments to a function, number in a value history, register
+   number, etc.) where the value must not be larger than can fit
+   in an int.  */
+#if !defined (longest_to_int)
+#if defined (LONG_LONG)
+#define longest_to_int(x) (((x) > INT_MAX || (x) < INT_MIN) \
+			   ? error ("Value out of range.") : (int) (x))
+#else /* No LONG_LONG.  */
+/* Assume sizeof (int) == sizeof (long).  */
+#define longest_to_int(x) ((int) (x))
+#endif /* No LONG_LONG.  */
+#endif /* No longest_to_int.  */
+
+/* Assorted functions we can declare, now that const and volatile are 
+   defined.  */
+extern char *savestring ();
+extern char *strsave ();
+extern char *concat ();
+#ifdef __STDC__
+extern void *xmalloc (), *xrealloc ();
+#else
+extern char *xmalloc (), *xrealloc ();
+#endif
+extern void free ();
+extern int parse_escape ();
+extern char *reg_names[];
+/* Indicate that these routines do not return to the caller.  */
+extern volatile void error(), fatal();
+extern void warning_setup(), warning();
+
+/* Various possibilities for alloca.  */
+#ifndef alloca
+# ifdef __GNUC__
+#  define alloca __builtin_alloca
+# else
+#  ifdef sparc
+#   include <alloca.h>
+#  endif
+   extern char *alloca ();
+# endif
+#endif
+
+/* TARGET_BYTE_ORDER and HOST_BYTE_ORDER should be defined to one of these.  */
+
+#if !defined (BIG_ENDIAN)
+#define BIG_ENDIAN 4321
+#endif
+
+#if !defined (LITTLE_ENDIAN)
+#define LITTLE_ENDIAN 1234
+#endif
+
+/* Target-system-dependent parameters for GDB.
+
+   The standard thing is to include defs.h.  However, files that are
+   specific to a particular target can define TM_FILE_OVERRIDE before
+   including defs.h, then can include any particular tm-file they desire.  */
+
+/* Target machine definition.  This will be a symlink to one of the
+   tm-*.h files, built by the `configure' script.  */
+
+#ifndef TM_FILE_OVERRIDE
+#include "tm.h"
+#endif
+
+/* The bit byte-order has to do just with numbering of bits in
+   debugging symbols and such.  Conceptually, it's quite separate
+   from byte/word byte order.  */
+
+#if !defined (BITS_BIG_ENDIAN)
+#if TARGET_BYTE_ORDER == BIG_ENDIAN
+#define BITS_BIG_ENDIAN 1
+#endif /* Big endian.  */
+
+#if TARGET_BYTE_ORDER == LITTLE_ENDIAN
+#define BITS_BIG_ENDIAN 0
+#endif /* Little endian.  */
+#endif /* BITS_BIG_ENDIAN not defined.  */
+
+/* Swap LEN bytes at BUFFER between target and host byte-order.  */
+#if TARGET_BYTE_ORDER == HOST_BYTE_ORDER
+#define SWAP_TARGET_AND_HOST(buffer,len)
+#else /* Target and host byte order differ.  */
+#define SWAP_TARGET_AND_HOST(buffer,len) \
+  {	       	       	       	       	       	       	       	       	 \
+    char tmp;								 \
+    char *p = (char *)(buffer);						 \
+    char *q = ((char *)(buffer)) + len - 1;		   		 \
+    for (; p < q; p++, q--)				 		 \
+      {									 \
+        tmp = *q;							 \
+        *q = *p;							 \
+        *p = tmp;							 \
+      }									 \
+  }
+#endif /* Target and host byte order differ.  */
+
+/* On some machines there are bits in addresses which are not really
+   part of the address, but are used by the kernel, the hardware, etc.
+   for special purposes.  ADDR_BITS_REMOVE takes out any such bits
+   so we get a "real" address such as one would find in a symbol
+   table.  ADDR_BITS_SET sets those bits the way the system wants
+   them.  */
+#if !defined (ADDR_BITS_REMOVE)
+#define ADDR_BITS_REMOVE(addr) (addr)
+#define ADDR_BITS_SET(addr) (addr)
+#endif /* No ADDR_BITS_REMOVE.  */
+
+#if !defined (SYS_SIGLIST_MISSING)
+#define SYS_SIGLIST_MISSING defined (USG)
+#endif /* No SYS_SIGLIST_MISSING */
 
 #endif /* no DEFS_H */

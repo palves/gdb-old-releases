@@ -1,0 +1,42 @@
+# Makefile for glob source is in -*- text -*- mode.
+
+srcdir = .
+
+ddestdir = /usr/local
+idestdir = $(ddestdir)
+
+AR = ar
+AR_FLAGS = clq
+RANLIB = ranlib
+
+#### host, target, and site specific Makefile frags come in here.
+###
+
+CFLAGS = $(H_CFLAGS) -g
+RM = rm -f
+
+#all:	libglob.a
+all:
+	@echo "Glob doesn't get built yet."
+	@echo "It is here because readline uses a piece of its source."
+
+libglob.a: glob.o tilde.o
+	$(RM) -f $@
+	$(AR) $(AR_FLAGS) $@ glob.o tilde.o
+	-if [ -f "$(RANLIB)" ]; then $(RANLIB) libglob.a; fi
+
+glob.o:	glob.c
+tilde.o:	tilde.c
+
+install:
+
+tilde-test: tilde.c
+	$(CC) $(CFLAGS) -o tilde-test -DTEST tilde.c
+clean:
+	$(RM) *.o *.a
+
+# with the gnu make, this is done automatically.
+
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+	$(SHELL) ./config.status
+

@@ -1,3 +1,978 @@
+Sat Dec  7 04:12:35 1991  John Gilmore  (gnu at cygnus.com)
+
+	GDB-4.3 release!
+
+	* Makefile.in:  Roll VERSION to 4.3
+	* README, TODO, WHATS.NEW, depend:  Update.
+
+	* inflow.c (terminal_inferior):  Avoid error msg if attached.
+
+	* gmalloc.c:  Fix bug that causes malloc & free to
+	fail on systems where pointers have the high bit set (0x800efcf0
+	for example).  The problem is that the difference between two
+	pointers is a signed integer, so the computation
+
+	        (char *) 0x800efcf0 - (char *) 0
+
+	yields a negative value.  The sign of the result of the modulus
+	operator is machine dependent for negative operands, thus it is
+	possible for it to end up negative.  From Fred Fish.
+
+Fri Dec  6 08:30:36 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread.c (enum_type, struct_type):  Fixes for opaque and
+	anonymous enumerations, structures, and unions.  Now passes all
+	the current gdb test suite tests.
+
+Thu Dec  5 21:53:21 1991  John Gilmore  (gnu at cygnus.com)
+
+	* symtab.c (decode_line_1):  If SKIP_PROLOGUE leaves us in
+	mid-line, be more careful about possibly advancing to the next line.
+
+Thu Dec  5 18:59:51 1991  Michael Tiemann  (tiemann at cygnus.com)
+
+	* cplus-dem.c (cplus_demangle): Call `string_need' when
+	null-terminating a partially-computed string.
+
+Thu Dec  5 18:19:43 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread.c (enum_type):  Build a correct TYPE_NAME, add a
+	symbol to the symbol table for each member of the enum.
+
+	* dwarfread.c (struct_type):  Build a correct TYPE_NAME.
+
+	* dwarfread.c (add_enum_psymbol):  New function to extract enum
+	member names and add them to the partial symbol table while
+	building partial symbol tables.
+
+Thu Dec  5 17:31:05 1991  John Gilmore  (gnu at cygnus.com)
+
+	* symtab.c (check_stub_method):  Must allocate two extra argument
+	slots (one for `this', one for arglist terminator).
+
+Thu Dec  5 10:51:05 1991  Fred Fish  (fnf at cygnus.com)
+
+	* inflow.c (child_terminal_info): Supply missing '"' character.
+
+	* buildsym.c (define_symbol):  Supply missing parenthesis.
+
+Thu Dec  5 03:34:21 1991  John Gilmore  (gnu at cygnus.com)
+
+	* coredep.c (fetch_core_registers):  Fencepost error.  Fixed by
+	Jay Lepreau <lepreau@cs.utah.edu>.
+
+	* inflow.c:  Remember whether GDB has a terminal.  Avoid switching
+	terminals back and forth if we don't have one.
+
+	* c-exp.y (parse_number):  Zero is not an unsigned int constant!
+	* dbxread.c (read_dbx_symtab):  Enum type numbers can be in (1,2) form.
+
+	Improve type parsing.
+	* buildsym.c (define_symbol, read_range_type): Add
+	long_kludge_name that passes the names of range types being
+	defined, down to where we must choose between 'int' and 'long'
+	variants.  This fails on Sun C anyway since the compiler itself is
+	confused between int and long.
+	(read_array_type, cleanup_undefined_types):  Correct the size of
+	array type whose element-type size isn't immediately known.
+
+	Early preparation to blow away many builtin types, building them
+	on the fly as needed.  Don't compare types to builtin types with
+	==; examine the relevant fields instead.
+	* coffread.c (process_coff_symbol: C_ARG, C_REGPARM):  Avoid ==.
+	* buildsym.c (define_symbol, case 'p'):  Avoid ==.
+	* valops.c (value_arg_coerce):  Avoid ==.  Don't assume host and
+	target types are the same.
+	* valprint.c (val_print):  I finally understand arrays, remove FIXME.
+
+	* symmisc.c (printpsyms_command):  Reduce redundancy, and put all
+	addresses in GDB itself into parens for easy cleanup and diffing.
+
+Wed Dec  4 21:05:30 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread (enum_type):  Arrange for the order of enumeration
+	members to match the source code order; not the order in the
+	Dwarf information, which is explicitly reverse order.
+
+Wed Dec  4 18:24:39 1991  John Gilmore  (gnu at cygnus.com)
+
+	* main.c (input_from_terminal_p):  Check whether GDB has a
+	terminal at all.
+	(initialize_main):  Revise doc for `set editing'.
+
+Wed Dec  4 15:36:39 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread.c (struct_type):  Handle structures and unions which
+	contain DIE's other than just member dies.
+
+Wed Dec  4 01:59:05 1991  John Gilmore  (gnu at cygnus.com)
+
+	* symfile.c (reread_symbols):  Avoid kludging mtime_set, now that
+	BFD is fixed.
+
+Tue Dec  3 17:24:57 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  VERSION 4.2.96.
+
+	* main.c (initialize_main):  Revise command descriptions.
+	* command.c (show_user):  `info user' -> `show user'.	
+	* symtab.c (_initialize_symtab):  Typo in `info types' desc.
+
+	* coffread.c (coff_symfile_read):  Avoid select_source_symtab,
+	since it is not needed and can cause errors when examining ".o"s.
+	(read_coff_symtab, decode_base_type):  Use complain, not printf.
+	Print symbol name, not its number.
+	Remove "#if defined(clipper) #define BELIEVE_PCC_PROMOTION", which
+	someday should go in a clipper target config file.
+
+	* symfile.c (compact_misc_function_vector):  Handle empty vector.
+	(complain, clear_complaints, syms_from_objfile):  Fix complaint
+	formatting.
+	* xcoffexec.c:  Change syms_from_objfile caller.
+
+	* sparc-xdep.c:  Force tm-file as tm-sparc.h, to make it compile
+	when configured for cross debugging.  FIXME, this needs a more
+	general solution.
+
+Mon Dec  2 11:04:05 1991  Per Bothner  (bothner at cygnus.com)
+
+	* mips-tdep.c (init_extra_frame_info):  Float register
+	'i' has gdb-internal number 'FP0+i', not '32+i'.
+	* mipsread.c (new_symbol):  Translate g++ special
+	symbol "$t" to "this".
+
+Sat Nov 30 21:29:55 1991  Steve Chamberlain  (sac at cygnus.com)
+	Changes due to include file renaming:
+
+	* xcoffread.c:	internalcoff.h	->coff/internal.c,
+	  		coff-rs6000.h	->coff/rs6000.h
+	* mipsread.c:	coff-mips.h	->coff/mips.h
+	* elfread.c:    elf-common.h	->elf/common.h 
+			elf-external.h	->elf/external.h,
+			elf-internal.h	->elf/internal.h
+	* dwarfread.c	dwarf.h		->elf/dwarf.h
+	* dbxread.c:	aout64.h	->aout/aout64.h
+			stab.gnu.h	->aout/stab_gnu.h
+		   
+	* coffread.c:   internalcoff.h	->coff/internal.h
+	* buildsym.c:   stab.gnu.h	->aout/stab_gnu.h
+	* depend        Updated to take the above into account.
+
+Fri Nov 29 16:59:25 1991  Fred Fish  (fnf at cygnus.com)
+
+	* configure.in:  Add SVR4 i386 configurations.
+
+	* config/mh-i386v4, config/mt-i386v4, tm-i386v4.h, xm-i386v4.h:
+	New files for i386/SVR4.
+
+	* tm-i386v.h:  Allow START_INFERIOR_TRAPS_EXPECTED and
+	DECR_PC_AFTER_BREAK to be predefined by files including 
+	tm-i386v.h.
+
+	* i386-tdep.c:  Add supply_gregset(), fill_gregset(),
+	supply_fpregset(), and fill_fpregset() functions, which are
+	target dependent support functions for the SVR4 /proc register
+	interface.
+
+	* dwarfread.c (enum_type, struct_type):  Expand recognized
+	compiler generated tags to include symbols beginning with '.' as
+	well as '~'.
+
+	* symtab.c (sources_info):  Change simple printf of error message
+	to call to error().
+
+Fri Nov 29 16:04:21 1991  Roland H. Pesch  (pesch at cygnus.com)
+
+	* doc/gdb.texinfo: remove leading comments that survived M4 but
+        described its role in the doc; add one more font to colophon;
+        strengthen disclaimer about unsupported configs.
+
+Wed Nov 27 01:23:41 1991  John Gilmore  (gnu at cygnus.com)
+
+	Fix bugs in C++ debugging.
+
+	* symtab.h:  target_type is not used in record types.
+	Eliminate TYPE_MAIN_VARIANT and TYPE_NEXT_VARIANT.  Eliminate
+	lookup_method_type.  Add TYPE_TYPE_SPECIFIC macro.
+
+	* symtab.c (lookup_member_type):  Don't chain them up, just
+	allocate one in symbol_obstack when we need one.
+	(allocate_stub_method):  Build stub in symbol_obstack.
+	(check_stub_method):  Move here from values.c.  Don't deallocate
+	stub; overwrite it.
+	(lookup_method_type):  Gone now.
+
+	* buildsym.c: Handle g++ v1 stabs a little bit better.
+	Change some C++ parsing error()s to complain()ts.
+	* buildsym.c, findvar.c, printcmd.c, symtab.c:  Make unions and
+	structs have the same representation and work the same as far as
+	C++ is concerned. 
+	* buildsym.c, symtab.c, values.c: Remove all references to
+	TYPE_MAIN_VARIANT and TYPE_NEXT_VARIANT.
+
+	* valops.c:  Improve comments and indentation.  Only call
+	check_stub_method when the stub flag is on.
+	* valprint.c:  Fix or mark minor bugs and unportabilities.
+	
+	* coffread.c (anonymous unions):  Allocate a cplus structure.
+
+	* mipsread.c:  Eliminate "template" types.  Build new, real
+	types whenever we need them.  Allocate cplus structures as needed.
+	Bulletproof the type parsing a bit more.  Mark storage leaks.
+	(parse_type):  Copy TYPE_TYPE_SPECIFIC when copying a real type
+	on top of a partial type.
+
+Fri Nov 22 16:39:57 1991  John Gilmore  (gnu at cygnus.com)
+
+	* inflow.c (terminal_inferior):  Check the results of ioctl's, and
+	print a message if any of them fail.
+	(terminal_ours_1):  Store result of ioctl's for debugging, but
+	don't print (the terminal isn't ours...).
+
+	* tm-tahoe.h (FRAME_ARGS_ADDRESS):  No need to offset from frame
+	pointer.
+
+	* m2-exp.y (MAX, MIN):  Rename to MAX_FUNC, MIN_FUNC to avoid
+	conflicts with system header files.
+
+Fri Nov 22 08:27:40 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Roll VERSION to 4.2.95.
+
+	* buildsym.c, coredep.c, mem-break.c, xcoffread.c:  Put <stdio.h>
+	first, before defs.h.
+	* config/mh-i386sco: Override compiler to gcc, print warning.
+	* configure.in:  Handle i386-none-aout rather than i386-aout-none.
+	* infptrace.c, language.h, utils.c:  Lint.
+	* m2-exp.y:  #undef MAX and MIN in case system includes set them.
+	* xm-tahoe.h:  Set HOST_BYTE_ORDER.  Include system versions of
+	{BIG,LITTLE}_ENDIAN and the INT_MAX family first, to avoid
+	redefinition warnings.
+	* defs.h:  Reorder things so that the xm-file gets first crack
+	at #define's, followed by defs.h and then the tm-file.
+	* Makefile.in:  Remove spaces after 'ignore exit code' - flags.
+	Late-model BSD 'make's don't cope with them.
+
+Thu Nov 21 23:48:56 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Roll new files into various lists.
+
+Thu Nov 21 18:26:11 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread.c (struct_type):  Must initialize the c++ specific
+	portion of union types as well as struct types, since gdb attempts
+	to reference the c++ specific info for both types.
+
+Thu Nov 21 10:23:52 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in: Roll VERSION to 4.2.90.
+
+	* defs.h:  Incorporate param.h into defs.h.  All users changed.
+	* param-no-tm.h:  Change users to define TM_FILE_OVERRIDE instead.
+	* param.h, param-no-tm.h:  Removed.
+	* Update copyrights in all changed files.
+	* dbxread.c, dwarfread.c, inflow.c, infrun.c, m2-exp.y, putenv.c,
+	solib.c, symtab.h, tm-umax.h, valprint.c:  Lint.
+	* tm-convex.h, tm-hp300hpux.h, tm-merlin.h, tm-sparc.h,
+	xm-merlin.h:  Avoid host include files in target descriptions.
+	* getpagesize.h:  Removed, libiberty copes now.
+	* Makefile.in:  Remove getpagesize.h, param.h, param-no-tm.h.
+
+	* exec.c (exec_files_info):  If `verbose' is set, show file offset
+	as well.
+
+	* main.c:  Use getcwd rather than getwd.
+	* standalone.c:  Fake getcwd rather than getwd.
+	* xm-*.h:  Remove fake values of MAXPATHLEN.
+
+	* xcoffexec.c:  Add /* */ to #if 0'd thing to help ANSI.
+
+Wed Nov 20 18:35:56 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Remove gdb/hp-include.  Support for HP a.out oddities should be
+	in BFD, not in GDB.  Move gdb/hp-include/a.out.h to include/a.out.hp.h.
+
+	* infptrace.c, tm-sun386.h:  Cashier <a.out.gnu.h>, remove refs.
+
+	* configure.in, xconfig, tconfig, Makefile.in, doc/gdbint.texinfo:
+	Makefile fragments for various hosts and targets now come from
+	gdb/config/mh-* and gdb/config/mt-*.  This is for consistency with
+	other config setups.
+
+	* rs6000-pinsn.c, rs6k-opcode.h:  Clean up.
+	* rs6k-opcode.def:  Delete.
+
+Wed Nov 20 05:04:40 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread.c:  Recognize obsolete form of AT_element_list
+	attribute still used by at least one AT&T compiler, and possibly
+	more.
+
+Tue Nov 19 07:53:55 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread.c (enum_type, struct_type):  Ignore names invented by
+	helpful compilers for anonymous structs, unions, and enums.
+
+	* c-exp.y, m2-exp.y:  Add defines for yymaxdepth, yy_yys, and
+	yy_yyv, so multiple parsers produced by SVR4 versions of yacc
+	can coexist in the same executable without collision.
+
+	* symtab.h:  Add declaration for lookup_template_type() to kill
+	compiler warnings about conversions from int to pointer.
+
+Mon Nov 18 17:45:18 1991  Fred Fish  (fnf at cygnus.com)
+
+	* procfs.c:  Move inclusion of defs.h to before param.h, as in
+	all the other source files that include both.  This is required
+	to supply some typedefs that are used in files included by param.h.
+
+	* m68k-tdep.c (m68k_skip_prologue):  Add generic m68k support for
+	skipping function prologues, ala the other cpu families (i386,
+	mips, m88k, etc).  Add the ability to skip movm and fmovm
+	instructions in the prologues.  Still needs support for profile
+	(-p compiled) prologue sequences (FIXME).
+
+	* tm-68k.h:  Change SKIP_PROLOGUE macro to use the new generic
+	m68k prologue skipping function by default.
+
+	* tm-altos.h, tm-isi.h:  Continue to use the old definition of
+	SKIP_PROLOGUE.
+
+Mon Nov 18 15:12:45 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Remove tdesc stuff, and extra blanks before colons.
+	* blockframe.c:  Remove tdesc-related code.  Default
+	FRAME_CHAIN_COMBINE.
+	* infrun.c:  Remove tdesc-related code.
+	* m88k-tdep.c (frame_chain_combine, init_frame_pc):  Remove copies
+	of defaultable things.
+	* tm-m88k.h:  New file, common to all Moto 88k target configs.
+	Derived from tm-delta88.h.
+	* tm-delta88.h:  Use it.
+	* xm-m88k.h:  Common file for 88K hosts.  Remove obsolete stuff.
+	* xm-delta88.h:  Use it.
+	* tm-*.h:  Remove FRAME_CHAIN_COMBINE macros, since all are
+	default.
+	* coffread.c:  Remove tdesc stuff.
+	* tconfig/delta88, tconfig/m88k:  Remove tdesc stuff.
+	* xconfig/m88k:  Rename tm-88k.h to tm-m88k.h.
+
+Mon Nov 18 13:51:37 1991  Per Bothner  (bothner at cygnus.com)
+
+	* source.c (open_source_file):  If openp fails, try again
+	using just the base (non-directory) part of the filename.
+	This solves various annoying problems, such as when the
+	source was compiled with an absolute pathname - and the
+	source files have moved.  Or if the source was compiled
+	using a relative pathname, it can be more convenient
+	to just specific the source directory to the dir command.
+
+Mon Nov 18 00:04:41 1991  Fred Fish  (fnf at cygnus.com)
+
+	* cplus-dem.c (munge_function_name):  Add missing third arg to
+	instance of call to do_type().
+
+	* dwarfread.c:  Changes to match new dwarf.h.  Remove 
+	AT_deriv_list, AT_loclist, AT_incomplete, AT_const_data,
+	and AT_is_external.
+
+Sun Nov 17 16:20:53 1991  Michael Tiemann  (tiemann at rtl.cygnus.com)
+
+	* symtab.h (struct type): Moved C++-specific fields into new type
+	`struct cplus_struct_type'.  Now takes 10% less memory.  Many
+	macros changed.
+	* symtab.c (init_type): Don't set fields belonging to
+	TYPE_CPLUS_SPECIFIC unless TYPE is TYPE_CODE_STRUCT.
+	* buildsym.c (read_type): Allocate TYPE_CPLUS_SPECIFIC for
+	TYPE_CODE_STRUCT.
+	(read_struct_type): Ditto.  Also, add comments about how we can
+	deduce TYPE_VPTR_FIELDNO from inheritance info and fieldname info.
+	* coffread.c (decode_base_type): Allocate TYPE_CPLUS_SPECIFIC for
+	TYPE_CODE_STRUCT.
+	(read_struct_type): Ditto.
+	* dwarfread.c (struct_type): Ditto.
+
+	* symtab.c (read_range_type): Don't set TYPE_MAIN_VARIANT.
+	(lookup_pointer_type): Don't use or set TYPE_MAIN_VARIANT.
+	(lookup_reference_type): Ditto.
+
+	* cplus-dem.c: Many changes made to handle decoding of
+	ANSI-mangled names.
+	* symtab.c (gdb_mangle_name): Mangle/demangle ANSI-mangled names
+	as well.
+
+Fri Nov 15 17:57:59 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* mipsread.c (parse_partial_symbols):  patch to keep DEC C
+	compiler from making gdb bomb out.  Thanks to Ed Santiago!
+
+Thu Nov 14 19:27:30 1991  Fred Fish  (fnf at cygnus.com)
+
+	* symfile.c:  Add function compact_misc_function_vector() to
+	remove duplicate misc function vector entries.  See comments
+	in source for why this is necessary/desirable.
+
+	* dwarfread.c:  Add misc function type parameter to internal
+	record_misc_function().  Remove calls to init_misc_bunches()
+	and condense_misc_bunches(), these are now done in elfread.c.
+
+	* elfread.c:  Add support for reading bfd canonical symbol tables
+	and generating misc function vector entries for global and
+	absolute symbols.  Do calls to init_misc_bunches() and
+	condense_misc_bunches() where they will enclose all calls to
+	record_misc_function(), including those in dwarfread.c.
+
+Thu Nov 14 17:02:11 1991  Roland H. Pesch  (pesch at cygnus.com)
+
+	* doc/Makefile.in: new targets gdb.me, gdb.ms, gdb.mm
+	(roffable documentation).
+	* doc/gdb.texinfo: embedded hints (as comments) for better
+	texi2roff conversion.
+
+Thu Nov 14 13:18:25 1991  John Gilmore  (gnu at cygnus.com)
+
+	* m88k-tdep.c (examine_prologue):  Deal with OR instructions
+	that shuffle parameters into other regs.
+	* symtab.c (decode_line_1):  Fix bug introduced in Per's change
+	of Nov 12th.
+
+Wed Nov 13 19:51:11 1991  Steve Chamberlain  (sac at cygnus.com)
+
+	* Makefile.in, xconfig/delta88 made it install a sysV manual page;
+	gdb.z into the right place.
+
+Wed Nov 13 16:45:13 1991  John Gilmore  (gnu at cygnus.com)
+
+	Motorola 88000 port without tears, I mean without tdescs.
+
+	* m88k-tdep.c:  Blow away all tdesc stuff.
+	Provide functions for all the frame-related macros in
+	tm-delta88.h.  Adopt i960-style EXTRA_FRAME_INFO.
+	(examine_prologue, frame_find_saved_regs, skip_prologue):  borrow
+	from i960-tdep.c and adapt to the function prologues on the 88k.
+	(read_next_frame_reg):  Borrow from mips-tdep.c.
+	FIXME:  frame_locals_address should go away.
+
+	* tm-delta88.h:  Dump all the tdesc stuff.
+	Macros for all frame-related stuff call fns of same name.
+	Remove duplicated definitions.  FP_REGNUM becomes same as
+	SP_REGNUM.  
+
+	* xm-88k.h:  Eliminate lots of library dependencies, now handled
+	in libiberty.  Eliminate KDB nonsupport.
+
+	* doc/gdbint.texinfo:  Add rudiments on frames.  FIXME, add more.
+
+
+	* stack.c (frame_info):  Mark frameless functions.
+	Print locals address (FIXME, remove if same).
+	* blockframe.c:  Comment changes, FIXME after.
+	* coffread.c:  Even without TDESC, need to zap "@" symbols.
+	Don't register for wierd format names; change the names in BFD.
+
+	* alloca.c, language.c, tdesc.c:  Lint.
+	* tdesc.c, tdesc-lib: FIXME:  remove these.
+
+Tue Nov 12 19:30:22 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Add tdesc library support.  Fixups to lint,
+	copying.c rules.
+
+Tue Nov 12 13:43:26 1991  Per Bothner  (bothner at cygnus.com)
+
+	* symtab.c (decode_line_1):  Remove spurious call to operator_chars.
+
+	Allow setting breakpoints on C++ destructors.
+	* valops.c (destructor_name_p):  Don't check TYPE_HAS_DESTRUCTOR,
+	since it lies.  Rely on callers to catch missing destructors.
+	* symtab.c (decode_line_1):  For example (see above), here.
+	* buildsym.c, symtab.h:  Remove TYPE_FLAGS_HAS{CON,DE}STRUCTOR
+	flags since they are no longer used.
+
+	Fixes to support C++ methods with functional parameters.
+	* c-exp.y (func_mod rule):  Allow (and ignore) list of parameter
+	types in a function type.
+	* eval.c (parse_and_eval_type), value.h:  New function,
+	parse_and_eval_type, is based on old code from check_stub_method.
+	But don't actually evaluate the cast, since that calls
+	value_cast(), whcih may fail.  Just extract the type
+	from the parsed expression.
+	* values.c (check_stub_method):  While looping through the
+	arguments, adjust depth *after* parameter has been handled.
+	Replace call and setup of parse_and_eval with new function
+	parse_and_eval_type.
+
+Tue Nov 12 09:40:07 1991  Fred Fish  (fnf at cygnus.com)
+
+	* utils.c, rem-multi.shar:  Remove fixed arg count version of
+	concat().
+
+	* altos-xdep.c, arm-xdep.c, coffread.c, command.c, convex-xdep.c,
+	core.c, dwarfread.c, gould-xdep.c, infcmd.c, language.c,
+	m88k-xdep.c, main.c, printcmd.c, pyr-xdep.c, source.c,
+	sun386-xdep.c, symm-xdep.c, umax-xdep.c, values.c, xcoffread.c:
+	Change all instances of use of fixed args concat() to variable
+	args concat() now located in libiberty.
+
+Tue Nov 12 07:23:46 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  Add xcoffread.c, xcoffexec.c.
+	* xcoffread.c:  New file for handling AIX mangled-coff files.
+	* xconfig/rs6000, tconfig/rs6000:  New files.
+	* buildsym.c:  Add hooks for xcoffread.c.
+	* rs6000-pinsn.c, rs6000-tdep.c, rs6000-xdep.c, tm-rs6000.h,
+	xm-rs6000.h, rs6k-opcode.def, rs6k-opcode.h:  New files.
+	* xcoffexec.c:  New file for handling AIX shared libraries.
+
+Mon Nov 11 19:14:31 1991  Fred Fish  (fnf at cygnus.com)
+
+	* core.c:  Minor rewording of message to user containing name of
+	(and possibly arguments to) the program that generated a core
+	file.
+
+	* elfread.c:  Remove the register_addr() stub now that it is no
+	longer needed.
+
+	* procfs.c:  Move misplaced #endif for ATTACH_DETACH.  Add new
+	fetch_core_registers() function for core file support.
+
+Sat Nov  9 13:37:57 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread.c (dwarf_psymtab_to_symtab):  Remove leftover call
+	to do_cleanups() which resulted from a previous change.
+
+	* elfread.c:  Re-enable compilation of register_addr() stub
+	whenever it is not supplied by coredep.c
+
+Sat Nov  9 00:40:32 1991  John Gilmore  (gnu at cygnus.com)
+
+	Add tracking of object files (that contain symbols) to gdb.
+	This includes a "struct objfile" that owns symtabs and psymtabs
+	that were read in from that binary file.
+
+	* symfile.h:  Add struct objfile.  Add pointer to the objfile
+	into the struct sym_fns.
+	Replace global `symfile' and `symfile_mtime' with
+	`symfile_objfile'.  Add global object_files chain.
+
+	* symfile.c:  Move param.h above symtab.h.
+	(sort_misc_function_vector):  Add.
+	(syms_from_objfile):  Was syms_from_bfd.
+	(symfile_open):  Now returns objfile.
+	(allocate_objfile):  New.
+	(free_objfile):  New, replacing free_all_.*symtabs.
+	(symfile_init):  Takes objfile arg, puts it in sym_fns result.
+	(reread_symbols):  Searches whole chain of objfiles.
+	(allocate_symtab):  Takes objfile as new parameter, chains them.
+	Handle INIT_EXTRA_SYMTAB_INFO.
+	(free_all_psymtabs, free_all_symtabs):  Move here from symmisc.c.
+
+	* dbxread.c:  Make more errors into complaints.
+	(push_subfile, pop_subfile):  Move to buildsym.c.
+	(dbx_symfile_read, dbx_symfile_init, fill_symbuf, read_dbx_symtab,
+	start_psymtab, psymtab_to_symtab_1, read_ofile_symtab,
+	dbx_psymtab_to_symtab, ):  Use bfd ops, don't use file descriptor.
+	Pass objfile.  Change callers.
+	(fill_symbuf, SWAP_SYMBOL):  Take bfd as arg.
+	(read_dbx_symtab):  Just wipe out new symbols, not all, on error.
+	(end_psymtab):  Blow away psymtab if empty.
+	(process_symbol_pair):  Swallow into read_ofile_symtab.
+	(process_one_symbol):  Use push_context and pop_context.
+	(virtual_context):  Delete #if 0'd obsolete stuff.
+
+	* buildsym.c (end_symtab):  Pass objfile.
+	(dbx_lookup_type):  Handle null typevector.
+	(dbx_alloc_type):  Check file number, not sym number, for -1.
+	(find_symbol_in_list):  Add for xcoffread.
+	(start_symtab):  Default typevector is empty.  Keep reusing same
+	context_stack.
+	(end_symtab):  Take objfile argument and pass it to
+	allocate_symtab.  Don't make a symtab if no blocks or symbols.
+	Handle empty typevector.
+	(push_context):  New function for context stack nesting.
+	(read_type):  Mark FIXME where we need to reintroduce type smashing.
+
+	* buildsym.h (pop_context):  Macro, paired with push_context.
+	(subfile_stack):  Move here from dbxread.c.
+
+	* coffread.c (end_symtab, read_coff_symtab):  Take and use objfile arg.
+	(read_coff_symtab):  Cleanup by freeing objfile, not all symtabs.
+
+	* mipsread.c (read_mips_symtab, parse_partial_symbols, parse_fdr,
+	new_psymtab, new_symtab):  Take and use objfile arg.
+
+	* dwarfread.c (scan_compilation_units, start_psymtab,
+	process_dies, end_symtab, dwarf_build_psymtabs,
+	read_lexical_block_scope, read_func_scope, read_file_scope):  Take
+	and use objfile argument.
+	(psymtab_to_symtab_1, read_ofile_symtab):  Don't take or use file
+	descriptor.  Use BFD internal functions instead.
+	(end_symtab):  Call global allocate_symtab.
+
+	* elfread.c, target.c:  Minor changes to accommodate objfiles.
+	* symtab.h:  partial_symbol_table has no symfile_name member now.
+	(fn_fieldlists voffset):  avoid non-int bitfield.
+	(struct symtab):  Add objfile * and objfile_chain * of symtabs.
+	(struct partial_symtab):  Add objfile * and objfile_chain * of
+	psymtabs.  Remove symfile_name.
+
+	* symmisc.c:  Lose free_all_symtabs, free_all_psymtabs.
+	(printsyms_command):  Rename from print_symtabs.  Add selective
+	listing if 2nd argument given.  Print objfile info.
+	(printpsyms_command):  Rename from print_partial_symtabs.  Ditto all.
+	(printobjfiles_command):  New; prints objfiles lists, and checks
+	for consistency of symtab, psymtab, and objfile lists.
+
+	* symfile.h, symfile.c, symtab.h:  Lint
+
+Fri Nov  8 23:38:48 1991  John Gilmore  (gnu at cygnus.com)
+
+	* command.c:  Include param.h.
+	* defs.h (warning_setup, warning):  Declare.
+	* expprint.c (print_subexp, UNOP_MEMVAL case):  Lint.
+	* inflow.c (new_tty):  Use USE_O_NOCTTY #define.
+	* language.c, printcmd.c (print_scalar_formatted), signame.c,
+	stack.c:  lint.
+
+Thu Nov  7 18:26:15 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* Makefile.in: link with libiberty after libreadline, since
+	readline might want something in libiberty.
+	* m88k-xdep.c: Fixed the register offsets in the ptrace_user
+	struct for BCS 88k machines.
+	* xm-m88k.h: don't define USIZE if already defined.
+	* configure.in: Added delta88 target.
+
+Thu Nov  7 04:51:19 1991  John Gilmore  (gnu at cygnus.com)
+
+	* am29k-pinsn.c, am29k-opcode.h:  Fix decoding of mtacc, dmac, fmac.
+
+	* tm-*.h:  Remove READ_DBX_FORMAT, COFF_FORMAT, and
+	READ_MIPS_FORMAT, which have been unused since BFD.  Still
+	remaining is COFF_NO_LONG_FILE_NAMES.
+	* tm-sun3.h, tm-altos.h:  Remove detritus accidentally left from
+	function calling code moved to m68k-tdep.c.
+
+Wed Nov  6 17:21:59 1991  John Gilmore  (gnu at cygnus.com)
+
+	* coffread.c:  Eliminate c_nsyms in favor of c_naux.
+	Complain if no auxents on .bf and .ef FCN symbols, and assume
+	lots of line numbers.
+	(init_linenos, enter_linenos):  Use a sentinel at the end of the
+	read-in linenos, to make for a fast, safe loop-end test.
+
+Wed Nov  6 02:54:08 1991  Steve Chamberlain  (sac at cygnus.com)
+
+	* coffread.c (read_coff_symtab): coffread used to rely on the
+	x_sym.x_misc.x_lnsz.x_lnno field giving the # of linnos in a
+	function. Two of the formats I'm using (29k and 88k) don't seem to
+	set it. Ths patch to fcn_last_line and (enter_linenos) is an
+	attempt to use the actual size of the linno table in the file to set
+	the number of linenos to process.
+
+Tue Nov  5 22:47:46 1991  Steve Chamberlain  (sac at cygnus.com)
+
+	* Makefile.in: put a - infront of the mv y.tab.c c-exp.tab.c and
+	mv y.tab.c m2-exp.tab.c, so that if bison is used, and the files
+	are created in place, so the mv fails, then the make continues.
+
+Tue Nov  5 16:47:47 1991  Per Bothner  (bothner at cygnus.com)
+
+	Add C++ as a separate language.
+	* defs.h (enum language): Add language_cplus.
+	* dwarfread.c (end_symtab):  Support language_cplus.
+	* c-exp.y:  Add new struct language_defn cplus_language_defn.
+	Don't set c to be the default language (see main.c).
+	* c-exp.y (yylex):  Only look for field of this if
+	language is C++.  (First difference from C!)
+	* language.c:  Add case branches for C++ (currently, all
+	the same as C).  Also, add c++ to "usage" note for "set lang".
+	* valprint.c (typedef_print).  Add case branches for C++. 
+	* main.c (main):  New way to set initial language:  Look at
+	file extension of psymtab containing main().  (Same as we
+	do for symtabs, but avoid loading the symtab yet.)
+	* symtab.c: New routine find_main_psymtab(), used by main()
+	to set initial language.
+	* symfile.c (allocate_symtab):  Move code for mapping file
+	extensions-> languages to new deduce_language_from_filename().
+
+	Fix a C++ problem when looking for methods in super-classes.
+	There was confusion between base and derived types.
+	* valops.c (value_fn_field):  Change function interface.
+	* values.c:  Use new value_fn_field interface.
+
+Mon Nov  4 10:49:33 1991  Per Bothner  (bothner at cygnus.com)
+
+	* infrun.c:  Fixed typo in comment.
+	* utils.c:  All the v*fprintf emulation is now in libiberty,
+	so we can get rid of some junk.
+	* xm-sun3os4.h, xm-sun4os4.h, xconfig/decstation, xconfig/i386sco,
+	xconfig/sun3os4, xconfig/sun4os4: Don`t need HAVE_STRSTR any more.
+	* m68k-pinsn.c (print_insn_arg):  Support BB/BW/BL
+	type operands, as used by branch instructions.
+	* gmalloc.c: Fix prototype of memcpy.
+	* elfread.c: Comment out register_addr, since it conflicts
+	with the one in coredep.c.
+	* buildsym.h:  Remove extern declarations of two functions
+	that are really static in buildsym.c.
+	* tm-mips.h: Add symbolic names for more registers.
+	* mips-xdep.c (store_inferior_registers): Use new register names.
+	* xm-mips.h: Simplify REGISTER_U_ADDR, since it is now
+	only used for core files, not ptrace.  Therefore,
+	the KERNEL_U_ADDR hack is no longer needed.
+	The mapping to ptrace number is now in in mips-xdep.c.
+	* mips-xdep.c:  Define REGISTER_PTRACE_ADDR (using the
+	mapping from the old REGISTER_U_ADDR), and use it
+	in {fetch,store}_inferior_registers.
+	* mipsread.c: Rename #include ecoff.h to new name coff-mips.h.
+	* mips-tdep.c (mips_push_dummy_frame, mips_pop_frame):
+	Save/restore FP regs correctly (?).
+	* dbxread.c: Remove duplicate define_symbol and type_synonym_name
+	(these had been previously moved to buildsym.c).
+	Hence, define_symbol becomes extern instead of static.
+	* buildsym.c (read_struct_type):  Comment out bogus handling
+	of C++ operator methods.  Minor hacking of reading of class
+	contexts. Make define_symbol non-static, so dbxread.c can call it.
+
+Fri Nov  1 11:05:47 1991  John Gilmore  (gnu at cygnus.com)
+
+	* mipsread.c (read_mips_symtab, read_the_mips_symtab):  Use real
+	filename with error messages.
+	* stack.c (frame_select_command):  Rename to select_frame_command
+	to avoid "fr" and "fra" having nonunique completions.
+	* symfile.c (sort_symtab_syms):  Ignore sort of zero symtab *.
+	(symfile_init):  Print file format name when unable to handle it.
+	(free_named_symtabs):  Use BLOCKVECTOR rather than obsolete BLOCKLIST.
+	* symmisc.c (free_symtab):  Only free linetable if nonzero.
+	* symtab.h:  Remove obsolete BLOCKLIST macros.
+
+Thu Oct 31 18:12:43 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* infrun.c (wait_for_inferior):  another stepi/nexti fix.  Ensure
+	that stop_step is 1 at bottom of main loop.  I don't know why this
+	needs to be done, but it helps me sleep better at night.
+
+Sun Oct 27 18:18:39 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* main.c (initialize_history):  Read history after reading all
+	init files.
+
+Sun Oct 27 14:09:25 1991  John Gilmore  (gnu at cygnus.com)
+
+	* buildsym.c:  Break out initial malloc sizes.
+	(record_line):  Record directly in a subfile.  Alloc on demand.
+	(compare_line_numbers):  Add from xcoffread.c.
+	(end_symtab):  New params say whether to sort pendings and
+	linetable.  Patch block stabs if defined.  Shrink linetable before
+	allocating the symtab.
+	* buildsym.h:  Delete line_vector* and prev_line_number.  Add 
+	global_stabs and file_stabs for xcoffread.
+	* dbxread.c (start_subfile):  Move to buildsym.  Change above calls.
+	* symtab.h:  LINETABLE(symtab) can now be null.  Zap LINELIST.
+	* symmisc.c, symtab.c:  Cope with null LINETABLEs.
+
+	* blockframe.c:  Pass fromleaf to INIT_EXTRA_FRAME_INFO.
+	* tm-29k.h, tm-88k.h, tm-i960.h, tm-irix3.h, tm-mips.h, tm-pyr.h,
+	tm-sparc.h:  Accept fromleaf parameter.
+	* c-exp.y (yyerror):  Pass error message if given.
+	* configure.in:  Add rs6000 host and target.
+	* inflow.c (new_tty):  O_NOCTTY kludge for RS/6000.
+	* symfile.h (entry_point):  Add.
+
+Sat Oct 26 00:16:32 1991  John Gilmore  (gnu at cygus.com)
+
+	* buildsym.c:  New file.  Breaks out symbol-table-building routines
+	from dbxread.c, so they can be shared with xcoffread.c.
+	* buildsym.h:  New file.  Declarations for buildsym.c users.
+	* dbxread.c:  Remove large chunks into buildsym.c.
+	* Makefile.in:  Add buildsym.c and buildsym.h.
+
+	* symfile.c (syms_from_bfd):  New routine.
+	(add_symbol_file):  Call it to do the real work.
+	(syms_from_bfd):  Initialize entry_point before calling symfile_init.
+	* symtab.h, symfile.c, coffread.c, mipsread.c, dwarfread.c:
+	Avoid declaring or setting entry_point (symfile.h & symfile.c cope).
+
+Fri Oct 25 10:58:16 1991  Mark Eichin  (eichin at cygnus.com)
+
+	* cplus-dem.c (cplus-demangle): added support for templates, static
+	data, and the new (correct) mangling for destructors.
+
+	* dwarfread.c: (dwarfwarn): created a varargs version of
+	dwarfwarn, for non __STDC__ compilers.
+
+	* c-exp.y: (yylex): added match for "template" token.
+	(typebase): added TEMPLATE name '<' type '>' clause, for explicit
+	specification of template types.
+
+	* symtab.c: (lookup_template_type): new function for finding
+	templates in symbol table.
+	(type_name_no_tag): changed to explicitly check for s/u/e at the
+	beginning of the symbol - if it is a template, none of these will
+	be there (but the name will still contain spaces.)
+
+Fri Oct 25 18:59:32 1991  Per Bothner  (bothner at cygnus.com)
+
+	Various fixes to improve g++ debugging.
+	* symtab.h:  Add is_const and is_volatile flags for each method.
+	These are bit fields - take their space from voffset,
+	which shrinks to 30 bits.  Since voffset is now a bitfield,
+	make it unsigned for portability.  This changes its interpretation
+	slightly:  Static methods now have voffset 1 instead of -1,
+	and virtual offsets start at 2, not 1.
+	* symtab.c:  Renamed gdb_mangle_typename to gdb_mangle_name,
+	since it now returns an entire magled method name, not just
+	the type part.  This avoids some duplication.
+	It also allows us to correctly mangle const and volatile
+	methods (using the new is_const and is_volatile bit fields
+	mentioned above).
+	* valprint.c (type_print_base), values.c (check_stub_method):
+	Simplify by using new gdb_mangle_name.
+	* values.c (value_headof):  Fix to correctly handle single
+	inheritance (actually two fixes, either of which suffices).
+	* dbxread.c (read_struct_type):  Handle const and volatile
+	method specifiers.
+	* dbxread.c (read_struct_type):  Yet one more place where
+	we must handle '\\' continuations.
+	* valprint.c (vtbl_ptr_name): Add final '\0'.
+
+Fri Oct 25 16:06:38 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* tm-sparc.h, tm-68k.h (EXTRACT_RETURN_VALUE):  fix output of
+	short return values for sparc and 68k.  Patch from Paul Eggert.
+
+	* coffread.c, coredep.c, i386-xdep.c:  install patches for
+	SysV/386 3.2 from Mauro DePalma.
+
+Fri Oct 25 02:02:13 1991  John Gilmore  (gnu at cygnus.com)
+
+	* core.c (core_file_info), exec.c (exec_file_info):  Print file
+	type.  Use printf_filtered.
+
+	* valops.c (value_fetch_lazy):  Avoid 0-length fetches.
+
+Thu Oct 24 23:06:40 1991  Fred Fish  (fnf at cygnus.com)
+
+	* dwarfread.c:  Add casts to remove compiler warnings.
+
+	* tm-3b1.h, tm-68k.h, tm-altos.h, tm-amix.h, tm-hp300bsd.h,
+	tm-hp300hpux.h, tm-isi.h, tm-news.h, tm-pn.h, tm-sun2.h,
+	tm-sun3.h:  Remove locally duplicated code for calling functions
+	in the inferior.  The only differences were in the specific trap
+	vectors used and whether or not an fpu was present.  These are
+	now handled by appropriate definitions of BPT_VECTOR and
+	HAVE_68881 respectively.  Other minor obvious cleanups.
+
+	* valops.c:  Correct a minor misspelling.
+
+	* utils.c:  Remove local BSD/USG hacks that are now in libiberty.
+
+	* dwarfread.c:  Remove prototype for dwarfwarn.  Does not work
+	with <varargs.h>.
+
+Thu Oct 24 09:33:44 1991  John Gilmore  (gnu at cygnus.com)
+
+	* stack.c (frame_command):  Always print.  Use new
+	frame_select_command to select a frame without printing.	
+
+	* dwarfread.c:  Use <varargs.h>, since <stdarg.h> is not portable.
+
+Thu Oct 24 01:32:51 1991  Fred Fish  (fnf at cygnus.com)
+
+        * dwarfread.c: New file for DWARF debugging format support.
+
+	* elfread.c: New file for ELF object file format support.
+
+	* procfs.c: New file for SVR4 /proc (process file system) support.
+
+	* tm-amix.h, xm-amix.h, tconfig/amix, xconfig/amix: New files for
+	Amiga UNIX support.
+
+	* xm-svr4.h, tm-svr4.h: New files for SVR4 support.
+
+	* xm-m68k.h: New file for host machines with m68k cpu.
+
+	* Makefile.in: Add elfread.c and dwarfread.c to SFILES_MAINDIR.
+	Add elfread.o and dwarfread.o to OBS.
+
+	* symfile.h: Add "elf" to list of supported formats in comment.
+
+	* c-exp.y, defs.h, symtab.h, valprint.c:  Add three new builtin
+	types to gdb, builtin_type_long_double, builtin_type_complex, and
+	builtin_type_double_complex.  Add and use new TARGET_SHORT_BIT,
+	TARGET_INT_BIT, TARGET_LONG_BIT, TARGET_FLOAT_BIT,
+	TARGET_DOUBLE_BIT, TARGET_LONG_DOUBLE_BIT, TARGET_COMPLEX_BIT, and
+	TARGET_DOUBLE_COMPLEX_BIT, as the sizes in bits of the indicated
+	types on the target machine (ala the existing TARGET_LONG_LONG_BIT).
+
+	* infrun.c:  When using SVR4 /proc interface instead of ptrace(),
+	call proc_set_exec_trap() to setup child to stop at first instruction.
+
+	* inftarg.c: When using SVR4 /proc interface, call proc_wait()
+	rather than wait().
+
+	* m68k-tdep.c: Add new routines supply_gregset(), fill_gregset(),
+	supply_fpregset(), and fill_fpregset(), which are machine
+	dependent support routines for SVR4 /proc interface.
+
+	* utils.c: Add warning_setup() and warning().  Warning() behaves
+	the same as error() except that it returns normally rather than
+	jumping back to command level.  Modules that don't want to call
+	warning() for some reason, but want to produce their own warnings,
+	can call warning_setup() to ensure compatibility with the way
+	warning() and error() deal with the terminal.
+
+	* symtab.c: Make internal errors produce more useful messages.
+
+	* tm-68k.h: Move code that is duplicated in almost every single
+	m68k based machine's configuration files to this common file.
+	Duplications in the configuration files still need to be removed
+	(FIXME).
+
+	* infrun.c (child_create_inferior): System V versions must call
+	setpgrp() with no arguments, to comply with prototyping typically
+	in <unistd.h>.
+
+	* munch: Add support for SVR4 style nm output.
+
+	* dbxread.c, mipsread.c symmisc.c, symtab.c:  Remove the object
+	file specific fields from the partial symbol table structure and
+	replace them with a pointer to private data for each different
+	flavor of object file reader to initialize appropriately.
+
+Wed Oct 23 09:38:20 1991  John Gilmore  (gnu at cygnus.com)
+
+	* xconfig/sun[34]os4:  Add note about strstr botch on sunos4.0.3c
+	and previous.
+
+	* mipsread.c (fixup_undef_type):  New function.  If a struct /
+	union / enum is defined in a header file but nowhere else used,
+	(by typedefing, pointer referencing or declaration) the mipsread code
+	builds the complete tree for the structure but leaves its code as
+	TYPE_CODE_UNDEF as it doesn't know what kind of aggregate it is.
+	Guess its type based on the details of the members.
+
+Tue Oct 22 18:04:32 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* infrun.c (wait_for_inferior):  Check return value from
+	find_pc_line.
+
+Mon Oct 21 17:47:03 1991  Stu Grossman  (grossman at cygnus.com)
+
+	* infrun.c (wait_for_inferior):  fix stepi/nexti that was broken
+	by my last edit to this routine.
+
+Mon Oct 21 14:27:43 1991  John Gilmore  (gnu at cygnus.com)
+
+	* tm-sun3.h (FIX_CALL_DUMMY): problem with cross debugging.
+	FIX_CALL_DUMMY does unaligned accesses and/or forgets to byte swap
+	the values before putting them into the dummy code.  (From Peter
+	Schauer)
+
+Mon Oct 21 10:04:39 1991  Steve Chamberlain  (steve at rtl.cygnus.com)
+
+	* configure.in: added ebmon target.
+
 Wed Oct 16 22:49:58 1991  John Gilmore  (gnu at cygnus.com)
 
 	GDB-4.2 release!

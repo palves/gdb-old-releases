@@ -22,7 +22,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    variants in a few routines, and otherwise share large masses of code.
    This means we only have to fix bugs in one place, most of the time.  */
 
-/* $Id: libaout.h,v 1.17 1991/10/16 19:50:06 bothner Exp $ */
+/* $Id: libaout.h,v 1.21 1991/11/22 16:45:05 gnu Exp $ */
 
 #ifdef __STDC__
 #define CAT3(a,b,c) a##b##c
@@ -216,6 +216,10 @@ PROTO (void,	NAME(aout,swap_exec_header_in), (bfd *abfd,
 PROTO (void,	NAME(aout,swap_exec_header_out),(bfd *abfd, struct internal_exec *execp,
 			 struct external_exec *raw_bytes));
 
+/* Prototypes for functions in stab-syms.c. */
+
+PROTO(char *, aout_stab_name, (int code));
+
 /* A.out uses the generic versions of these routines... */
 
 #define	aout_32_get_section_contents	bfd_generic_get_section_contents
@@ -226,10 +230,12 @@ PROTO (void,	NAME(aout,swap_exec_header_out),(bfd *abfd, struct internal_exec *e
 
 /* Calculate the file positions of the parts of a newly read aout header */
 #define WORK_OUT_FILE_POSITIONS(abfd, execp)				\
+  obj_textsec (abfd)->size = N_TXTSIZE(*execp);				\
+  									\
   /* The virtual memory addresses of the sections */			\
-  obj_datasec (abfd)->vma = N_DATADDR(*execp);			 	\
-  obj_bsssec (abfd)->vma = N_BSSADDR(*execp);				\
   obj_textsec (abfd)->vma = N_TXTADDR(*execp);				\
+  obj_datasec (abfd)->vma = N_DATADDR(*execp);			 	\
+  obj_bsssec  (abfd)->vma = N_BSSADDR(*execp);				\
   									\
   /* The file offsets of the sections */				\
   obj_textsec (abfd)->filepos = N_TXTOFF (*execp);			\
@@ -265,7 +271,7 @@ PROTO (void,	NAME(aout,swap_exec_header_out),(bfd *abfd, struct internal_exec *e
 	    }								      \
 	if (abfd->flags & D_PAGED) 					      \
 	    {								      \
-	      data_pad = ALIGN(obj_datasec(abfd)->size, PAGE_SIZE)	      \
+	      data_pad = BFD_ALIGN(obj_datasec(abfd)->size, PAGE_SIZE)	      \
 		  - obj_datasec(abfd)->size;				      \
 	  								      \
 	      if (data_pad > obj_bsssec(abfd)->size)			      \

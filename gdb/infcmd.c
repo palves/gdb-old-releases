@@ -1,5 +1,5 @@
-/* Memory-access and commands for inferior process, for GDB.
-   Copyright (C) 1986, 1987, 1988, 1989 Free Software Foundation, Inc.
+/* Memory-access and commands for "inferior" (child) process, for GDB.
+   Copyright 1986, 1987, 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -22,7 +22,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/param.h>
 #include <string.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "frame.h"
 #include "inferior.h"
@@ -161,7 +160,7 @@ Start it from the beginning? "))
   if (args)
     {
       char *cmd;
-      cmd = concat ("set args ", args, "");
+      cmd = concat ("set args ", args, NULL);
       make_cleanup (free, cmd);
       execute_command (cmd, from_tty);
     }

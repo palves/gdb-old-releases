@@ -1,5 +1,5 @@
 /* Everything about breakpoints, for GDB.
-   Copyright (C) 1986, 1987, 1989, 1990 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include <ctype.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "frame.h"
 #include "breakpoint.h"

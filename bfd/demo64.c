@@ -18,13 +18,12 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: demo64.c,v 1.4 1991/07/31 16:57:35 gnu Exp $ */
+/* $Id: demo64.c,v 1.5 1991/11/17 21:37:57 bothner Exp $ */
 
 /* Can only compile this if there is a 64 bit int type */
 #ifdef HOST_64_BIT
 #define ARCH_SIZE 64
+#define MY(OP) CAT(demo_64_,OP)
 #define TARGETNAME  "demo64"
-#define VECNAME demo_64_vec
 #include "aoutf1.h"
-
 #endif

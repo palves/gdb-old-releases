@@ -1,5 +1,6 @@
-/* Simulate breakpoints by patching locations in the target system.
-   Copyright (C) 1990 Free Software Foundation, Inc.
+/* Simulate breakpoints by patching locations in the target system, for GDB.
+   Copyright 1990, 1991 Free Software Foundation, Inc.
+   Contributed by Cygnus Support.  Written by John Gilmore.
 
 This file is part of GDB.
 
@@ -17,13 +18,12 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <stdio.h>
 #include "defs.h"
-#include "param.h"
 
 #ifdef BREAKPOINT
 /* This file is only useful if BREAKPOINT is set.  If not, we punt.  */
 
-#include <stdio.h>
 #include "breakpoint.h"
 #include "inferior.h"
 #include "target.h"

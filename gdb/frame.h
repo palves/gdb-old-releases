@@ -1,5 +1,5 @@
 /* Definitions for dealing with stack frames, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1989 Free Software Foundation, Inc.
+   Copyright 1986, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if !defined (FRAME_H)
 #define FRAME_H 1
-#include "param.h"
 
 /*
  * FRAME is the type of the identifier of a specific stack frame.  It

@@ -18,32 +18,39 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/*doc*
-@section File Caching
-The file caching mechanism is embedded within BFD and allows the application to open as many
-BFDs as it wants without regard to the underlying operating system's
-file descriptor limit (often as low as 20 open files).
+/*
+SECTION
+	File Caching
 
-The module in @code{cache.c} maintains a least recently used list of
-@code{BFD_CACHE_MAX_OPEN} files, and exports the name
-@code{bfd_cache_lookup} which runs around and makes sure that the
-required BFD is open. If not, then it chooses a file to close, closes
-it and opens the one wanted, returning its file handle.
+DESCRIPTION
+	The file caching mechanism is embedded within BFD and allows
+	the application to open as many BFDs as it wants without
+	regard to the underlying operating system's file descriptor
+	limit (often as low as 20 open files).  The module in
+	<<cache.c>> maintains a least recently used list of
+	<<BFD_CACHE_MAX_OPEN>> files, and exports the name
+	<<bfd_cache_lookup>> which runs around and makes sure that
+	the required BFD is open. If not, then it chooses a file to
+	close, closes it and opens the one wanted, returning its file
+	handle. 
 
 */
 
-/* $Id: cache.c,v 1.11 1991/10/11 10:05:24 gnu Exp $ */
+/* $Id: cache.c,v 1.12 1991/11/30 22:33:23 sac Exp $ */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
 
-/*proto-internal* BFD_CACHE_MAX_OPEN
-The maxiumum number of files which the cache will keep open at one
-time.
-*+
-#define BFD_CACHE_MAX_OPEN 10
-*-
+/*
+INTERNAL FUNCTION
+	BFD_CACHE_MAX_OPEN
+
+DESCRIPTION
+	The maxiumum number of files which the cache will keep open at
+	one time.
+
+.#define BFD_CACHE_MAX_OPEN 10
 
 */
 
@@ -53,32 +60,38 @@ static int open_files;
 static bfd *cache_sentinel;	/* Chain of BFDs with active fds we've
 				   opened */
 
-/*proto-internal*  bfd_last_cache
-Zero, or a pointer to the topmost BFD on the chain.  This is used by
-the @code{bfd_cache_lookup} macro in @file{libbfd.h} to determine when
-it can avoid a function call.
-*+
-extern bfd *bfd_last_cache;
-*-
+/*
+INTERNAL FUNCTION
+	bfd_last_cache
+
+DESCRIPTION
+	Zero, or a pointer to the topmost BFD on the chain.  This is
+	used by the <<bfd_cache_lookup>> macro in @file{libbfd.h} to
+	determine when it can avoid a function call.
+
+.extern bfd *bfd_last_cache;
 
 */
 
 bfd *bfd_last_cache;
 
-/*proto-internal*  bfd_cache_lookup
-Checks to see if the required BFD is the same as the last one looked
-up. If so then it can use the iostream in the BFD with impunity, since
-it can't have changed since the last lookup, otherwise it has to
-perform the complicated lookup function
-*+
-#define bfd_cache_lookup(x) \
-     ((x)==bfd_last_cache? \
-        (FILE*)(bfd_last_cache->iostream): \
-         bfd_cache_lookup_worker(x))
-
-*-
-
-*/
+/*
+ * INTERNAL FUNCTION
+ * 	bfd_cache_lookup
+ *
+ * DESCRIPTION
+ *	Checks to see if the required BFD is the same as the last one
+ *	looked up. If so then it can use the iostream in the BFD with
+ *	impunity, since it can't have changed since the last lookup,
+ *	otherwise it has to perform the complicated lookup function 
+ *
+ * .#define bfd_cache_lookup(x) \
+ * .    ((x)==bfd_last_cache? \
+ * .      (FILE*)(bfd_last_cache->iostream): \
+ * .       bfd_cache_lookup_worker(x))
+ *
+ *
+ */
 
 static void bfd_cache_delete();
 
@@ -142,11 +155,16 @@ DEFUN(insert,(x,y),
 }
 
 
-/*proto-internal*
-*i bfd_cache_init
-Initialize a BFD by putting it on the cache LRU.
-*; PROTO(void, bfd_cache_init, (bfd *));
-*-*/
+/*
+INTERNAL FUNCTION
+	bfd_cache_init
+
+DESCRIPTION
+	Initialize a BFD by putting it on the cache LRU.
+
+SYNOPSIS
+	void  bfd_cache_init (bfd *);
+*/
 
 void
 DEFUN(bfd_cache_init,(abfd),
@@ -156,11 +174,17 @@ DEFUN(bfd_cache_init,(abfd),
 }
 
 
-/*proto-internal*
-*i bfd_cache_close
-Remove the BFD from the cache. If the attached file is open, then close it too.
-*; PROTO(void, bfd_cache_close, (bfd *));
-*-*/
+/*
+INTERNAL FUNCTION
+	bfd_cache_close
+
+DESCRIPTION
+	Remove the BFD from the cache. If the attached file is open,
+	then close it too.
+
+SYNOPSIS
+	void bfd_cache_close (bfd *);
+*/
 void
 DEFUN(bfd_cache_close,(abfd),
       bfd *abfd)
@@ -172,15 +196,21 @@ DEFUN(bfd_cache_close,(abfd),
     }
 }
 
-/*proto-internal*
-*i bfd_open_file
-Call the OS to open a file for this BFD.  Returns the FILE *
-(possibly null) that results from this operation.  Sets up the
-BFD so that future accesses know the file is open. If the FILE *
-returned is null, then there is won't have been put in the cache, so
-it won't have to be removed from it.
-*; PROTO(FILE *, bfd_open_file, (bfd *));
-*-*/
+/*
+INTERNAL FUNCTION
+	bfd_open_file
+
+DESCRIPTION
+	Call the OS to open a file for this BFD.  Returns the FILE *
+	(possibly null) that results from this operation.  Sets up the
+	BFD so that future accesses know the file is open. If the FILE
+	* returned is null, then there is won't have been put in the
+	cache, so it won't have to be removed from it.
+
+SYNOPSIS
+	FILE* bfd_open_file(bfd *);
+*/
+
 FILE *
 DEFUN(bfd_open_file, (abfd),
       bfd *abfd)
@@ -216,15 +246,21 @@ DEFUN(bfd_open_file, (abfd),
   return (FILE *)(abfd->iostream);
 }
 
-/*proto-internal*
-*i bfd_cache_lookup_worker
-Called when the macro @code{bfd_cache_lookup} fails to find a quick
-answer. Finds a file descriptor for this BFD.  If necessary, it open it.
-If there are already more than BFD_CACHE_MAX_OPEN files open, it trys to close
-one first, to avoid running out of file descriptors. 
-*; PROTO(FILE *, bfd_cache_lookup_worker, (bfd *));
+/*
+INTERNAL FUNCTION
+	bfd_cache_lookup_worker
 
-*-*/
+DESCRIPTION
+	Called when the macro <<bfd_cache_lookup>> fails to find a
+	quick answer. Finds a file descriptor for this BFD.  If
+	necessary, it open it. If there are already more than
+	BFD_CACHE_MAX_OPEN files open, it trys to close one first, to
+	avoid running out of file descriptors.  
+
+SYNOPSIS
+	FILE *bfd_cache_lookup_worker(bfd *);
+
+*/
 
 FILE *
 DEFUN(bfd_cache_lookup_worker,(abfd),

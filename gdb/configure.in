@@ -1,6 +1,6 @@
+configdirs="doc"
 srcname="GDB"
 srctrigger=main.c
-
 # per-host:
 
 # map host info into gdb names.
@@ -86,6 +86,7 @@ i386)
 		case "${host_os}" in
 		sysv)	gdb_host=i386v ;;
 		sysv32)	gdb_host=i386v32 ;;
+		svr4)	gdb_host=i386v4 ;;
 		mach)	gdb_host=i386mach ;;
 		esac
 		;;
@@ -104,11 +105,24 @@ romp)
 	gdb_host=rtbsd
 	;;
 
+rs6000)
+	gdb_host=rs6000
+	;;
+
 a29k)
 	gdb_host=ultra3
 	;;
 
-arm | vax | m88k | merlin | none | np1 | pn | pyramid | tahoe)
+m88k)
+	case "${host_vendor}" in
+	motorola)
+		gdb_host=delta88 ;;
+	*)	
+		gdb_host=m88k ;;
+	esac
+	;;
+
+arm | vax | merlin | none | np1 | pn | pyramid | tahoe)
 	gdb_host=${host_cpu}
 	;;
 
@@ -119,13 +133,14 @@ arm | vax | m88k | merlin | none | np1 | pn | pyramid | tahoe)
 
 esac
 
-if [ ! -f xconfig/${gdb_host} ]; then
+
+if [ ! -f config/mh-${gdb_host} ]; then
 	echo '***' "Gdb does not support host ${host}" 1>&2
 	exit 1
 fi
 
 #  We really shouldn't depend on there being a space after XM_FILE= ...
-hostfile=`awk '$1 == "XM_FILE=" { print $2 }' <xconfig/${gdb_host}`
+hostfile=`awk '$1 == "XM_FILE=" { print $2 }' <config/mh-${gdb_host}`
 
 # per-target:
 
@@ -177,14 +192,21 @@ m68030)
 	esac
 	;;
 
-none | arm | tahoe | vax | np1 | pn | np1 | pn | pyramid | merlin | m88k)
+none | arm | tahoe | vax | np1 | pn | np1 | pn | pyramid | merlin)
 	gdb_target=${target_cpu} ;;
 
+m88k)
+	case "${target_vendor}" in
+	motorola) gdb_target=delta88 ;;
+	*) gdb_target=dgux ;;
+	esac
+	;;
 a29k)
 	case "${target_os}" in
 	none|aout|coff)	gdb_target=a29k ;;
 	sym1)	gdb_target=ultra3 ;;
 	kern)	gdb_target=a29k-kern ;;
+	ebmon)  gdb_target=a29k;;
 	esac
 	;;
 	
@@ -217,13 +239,14 @@ i386)
 	sco)	gdb_target=i386sco ;;
 	sun)	gdb_target=sun386 ;;
 	sequent)	gdb_target=symmetry ;;
-	coff)	gdb_target=i386v ;;
-	aout)	gdb_target=i386v ;;
 	*)
 		case "${target_os}" in
 		sysv)	gdb_target=i386v ;;
 		sysv32)	gdb_target=i386v32 ;;
+		svr4)	gdb_target=i386v4 ;;
 		mach)	gdb_target=i386mach ;;
+		coff)	gdb_target=i386v ;;
+		aout)	gdb_target=i386aout ;;
 		esac
 	esac
 	;;
@@ -241,6 +264,10 @@ ns32k)
 	esac
 	;;
 
+rs6000)
+	gdb_target=rs6000
+	;;
+
 ### unhandled targets
 # altosgas
 # i386v-g
@@ -248,21 +275,21 @@ ns32k)
 
 esac
 
-if [ ! -f tconfig/${gdb_target} ]; then
+if [ ! -f config/mt-${gdb_target} ]; then
 	echo '***' "Gdb does not support target ${target}" 1>&2
 	exit 1
 fi
 
 if [ -z "${removing}" ] ; then
-	cat xconfig/${gdb_host} tconfig/${gdb_target} | awk '$1 == "#msg" {
+	cat config/mh-${gdb_host} config/mt-${gdb_target} | awk '$1 == "#msg" {
 		print substr($0,6)}'
 fi
 
 #  We really shouldn't depend on there being a space after TM_FILE= ...
-targetfile=`awk '$1 == "TM_FILE=" { print $2 }' <tconfig/${gdb_target}`
+targetfile=`awk '$1 == "TM_FILE=" { print $2 }' <config/mt-${gdb_target}`
 
-host_makefile_frag=xconfig/${gdb_host}
-target_makefile_frag=tconfig/${gdb_target}
+host_makefile_frag=config/mh-${gdb_host}
+target_makefile_frag=config/mt-${gdb_target}
 
 # If hostfile (XM_FILE) and/or targetfile (TM_FILE) is not set in the
 # ?config/* file, we don't make the corresponding links.  But we have

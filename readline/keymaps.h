@@ -49,5 +49,3 @@ Keymap rl_copy_keymap ();
 Keymap rl_make_keymap ();
 
 #endif /* _KEYMAPS_H_ */
-
-

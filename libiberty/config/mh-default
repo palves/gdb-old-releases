@@ -1,0 +1,12 @@
+# The ../Makefile.in is specially written so that the following
+# magic "list" of ofiles will do the right thing:  I.e. first
+# generate the list of files we need to include (because $(CC)
+# complained it didn't find their functions in the libraries
+# it normally searches); then always recursively invoke make.
+
+HOST_OFILES = needed-list .always.
+NEEDED_OBJECTS=`cat needed-list`
+
+# A configuration can specify extra .o that should be included,
+# even if they are in libc (they might be buggy).
+EXTRA_OFILES =

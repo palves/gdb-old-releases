@@ -1,7 +1,5 @@
-/* Machine-dependent code which would otherwise be in inflow.c and core.c,
-   for GDB, the GNU debugger, for SPARC host systems.
-
-   Copyright (C) 1986, 1987, 1989, 1990  Free Software Foundation, Inc.
+/* Host-dependent code for SPARC host systems, for GDB, the GNU debugger.
+   Copyright 1986, 1987, 1989, 1990, 1991  Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,15 +18,17 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
+
+/* This code only compiles when we have the definitions in tm-sparc.h.  */
+
+#define	TM_FILE_OVERRIDE
 #include "defs.h"
 #include "tm-sparc.h"
-#include "param-no-tm.h"
+
 #include "inferior.h"
 #include "target.h"
 
 #include <sys/param.h>
-#include <sys/file.h>		/* For L_SET */
-
 #include <sys/ptrace.h>
 #include <machine/reg.h>
 

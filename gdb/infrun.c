@@ -25,7 +25,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 		  Current and previous sp.
 		  Current and previous start of current function.
 
-   If the start's of the functions don't match, then
+   If the starts of the functions don't match, then
 
    	a) We did a subroutine call.
 
@@ -119,7 +119,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include <string.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "frame.h"
 #include "inferior.h"
@@ -150,6 +149,8 @@ extern int original_stack_limit;
 extern char *getenv ();
 extern char **environ;
 
+extern void new_tty_prefork ();		/* In inflow.c */
+
 extern struct target_ops child_ops;	/* In inftarg.c */
 
 
@@ -167,12 +168,6 @@ extern struct target_ops child_ops;	/* In inftarg.c */
 #if !defined (IN_SIGTRAMP)
 #define IN_SIGTRAMP(pc, name) \
   (name && !strcmp ("_sigtramp", name))
-#endif
-
-#ifdef TDESC
-#include "tdesc.h"
-int safe_to_init_tdesc_context = 0;
-extern dc_dcontext_t current_context;
 #endif
 
 /* Tables of how to react to signals; the user sets them.  */
@@ -534,7 +529,11 @@ child_create_inferior (exec_file, allargs, env)
 
 #ifdef TIOCGPGRP
       /* Run inferior in a separate process group.  */
+#ifdef USG
+      debug_setpgrp = setpgrp ();
+#else
       debug_setpgrp = setpgrp (getpid (), getpid ());
+#endif
       if (debug_setpgrp == -1)
 	 perror("setpgrp failed in child");
 #endif /* TIOCGPGRP */
@@ -561,7 +560,11 @@ child_create_inferior (exec_file, allargs, env)
 	 initialize_signals for how we get the right signal handlers
 	 for the inferior.  */
 
+#ifdef USE_PROC_FS
+      proc_set_exec_trap ();		/* Use SVR4 /proc interface */
+#else
       call_ptrace (0, 0, 0, 0);		/* "Trace me, Dr. Memory!" */
+#endif
 
       /* There is no execlpe call, so we have to set the environment
 	 for our child in the global variable.  If we've vforked, this
@@ -766,9 +769,6 @@ wait_for_inferior ()
   int stop_step_resume_break;
   struct symtab_and_line sal;
   int remove_breakpoints_on_following_step = 0;
-#ifdef TDESC
-  extern dc_handle_t tdesc_handle;
-#endif
   int current_line;
 
 #if 0
@@ -797,9 +797,6 @@ wait_for_inferior ()
       if (WIFEXITED (w))
 	{
 	  target_terminal_ours ();	/* Must do this before mourn anyway */
-#ifdef TDESC 
-          safe_to_init_tdesc_context = 0;
-#endif
 	  if (WEXITSTATUS (w))
 	    printf ("\nProgram exited with code 0%o.\n", 
 		     (unsigned int)WEXITSTATUS (w));
@@ -820,9 +817,6 @@ wait_for_inferior ()
 	  stop_signal = WTERMSIG (w);
 	  target_terminal_ours ();	/* Must do this before mourn anyway */
 	  target_kill ((char *)0, 0);	/* kill mourns as well */
-#ifdef TDESC
-          safe_to_init_tdesc_context = 0;
-#endif
 #ifdef PRINT_RANDOM_SIGNAL
 	  printf ("\nProgram terminated: ");
 	  PRINT_RANDOM_SIGNAL (stop_signal);
@@ -847,14 +841,6 @@ wait_for_inferior ()
 #endif /* NO_SINGLE_STEP */
       
       stop_pc = read_pc ();
-#ifdef TDESC
-      if (safe_to_init_tdesc_context)   
-        {
-	  current_context = init_dcontext();
-          set_current_frame ( create_new_frame (get_frame_base (read_pc()),read_pc()));
-        }
-      else
-#endif /* TDESC */
       set_current_frame ( create_new_frame (read_register (FP_REGNUM),
 					    read_pc ()));
       
@@ -1243,8 +1229,10 @@ wait_for_inferior ()
 		 step_range_start and step_range_end, and just continue. */
 	      sal = find_pc_line(stop_pc, 0);
 	      
-	      if (current_line != sal.line
-		  && stop_pc == sal.pc) {
+	      if (step_range_end == 1 || /* Don't do this for stepi/nexti */
+		  sal.line == 0 ||       /* Stop now if no line # info */
+		  (current_line != sal.line
+		   && stop_pc == sal.pc)) {
 		stop_step = 1;
 		break;
 	      } else {
@@ -1317,14 +1305,6 @@ wait_for_inferior ()
 	     to one-proceed past a breakpoint.  */
 	  /* If we've just finished a special step resume and we don't
 	     want to hit a breakpoint, pull em out.  */
-#ifdef TDESC
-          if (!tdesc_handle)
-            {
-	      init_tdesc();
-              safe_to_init_tdesc_context = 1;
-            }
-#endif
-
 	  if (!step_resume_break_address &&
 	      remove_breakpoints_on_following_step)
 	    {

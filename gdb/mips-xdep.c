@@ -26,7 +26,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <mips/inst.h>
 #endif
 #include "defs.h"
-#include "param.h"
 #include "frame.h"
 #include "inferior.h"
 #include "symtab.h"
@@ -73,6 +72,19 @@ store_inferior_registers (regno)
 
 #else
 
+/* Map gdb internal register number to ptrace address. */
+
+#define REGISTER_PTRACE_ADDR(regno) \
+ (regno < 32 ? regno 		\
+  : regno == PC_REGNUM ? 96	\
+  : regno == CAUSE_REGNUM ? 97	\
+  : regno == HI_REGNUM ? 98	\
+  : regno == LO_REGNUM ? 99	\
+  : regno == FCRCS_REGNUM ? 100	\
+  : regno == FCRIR_REGNUM ? 101	\
+  : regno >= FP0_REGNUM ? regno - (FP0_REGNUM-32)\
+  : 0)
+
 /* Get all registers from the inferior */
 
 void
@@ -87,7 +99,7 @@ fetch_inferior_registers ()
 
   for (regno = 1; regno < NUM_REGS; regno++)
     {
-      regaddr = register_addr (regno, 1);
+      regaddr = REGISTER_PTRACE_ADDR (regno);
       for (i = 0; i < REGISTER_RAW_SIZE (regno); i += sizeof (int))
  	{
  	  *(int *) &buf[i] = ptrace (3, inferior_pid, regaddr, 0);
@@ -113,7 +125,7 @@ store_inferior_registers (regno)
 
   if (regno > 0)
     {
-      regaddr = register_addr (regno, 1);
+      regaddr = REGISTER_PTRACE_ADDR (regno);
       errno = 0;
       ptrace (6, inferior_pid, regaddr, read_register (regno));
       if (errno != 0)
@@ -124,10 +136,11 @@ store_inferior_registers (regno)
     }
   else
     {
-      for (regno = 1; regno < NUM_REGS; regno++)
+      for (regno = 0; regno < NUM_REGS; regno++)
 	{
-	  if (regno == 32 || regno == 35 || regno == 36
-	      || regno == 71 || regno == FP_REGNUM)
+	  if (regno == ZERO_REGNUM || regno == PS_REGNUM
+	      || regno == BADVADDR_REGNUM || regno == CAUSE_REGNUM
+	      || regno == FCRIR_REGNUM || regno == FP_REGNUM)
 	    continue;
 	  regaddr = register_addr (regno, 1);
 	  errno = 0;

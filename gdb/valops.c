@@ -1,5 +1,5 @@
 /* Perform non-arithmetic operations on values, for GDB.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "value.h"
 #include "frame.h"
@@ -70,7 +69,7 @@ value_cast (type, arg2)
 	     offset the pointer rather than just change its type.  */
 	  struct type *t1 = TYPE_TARGET_TYPE (type);
 	  struct type *t2 = TYPE_TARGET_TYPE (VALUE_TYPE (arg2));
-	  if (TYPE_CODE (t1) == TYPE_CODE_STRUCT
+	  if (   TYPE_CODE (t1) == TYPE_CODE_STRUCT
 	      && TYPE_CODE (t2) == TYPE_CODE_STRUCT
 	      && TYPE_NAME (t1) != 0) /* if name unknown, can't have supercl */
 	    {
@@ -163,6 +162,9 @@ value_at_lazy (type, addr)
    data from the user's process, and clears the lazy flag to indicate
    that the data in the buffer is valid.
 
+   If the value is zero-length, we avoid calling read_memory, which would
+   abort.  We mark the value as fetched anyway -- all 0 bytes of it.
+
    This function returns a value because it is used in the VALUE_CONTENTS
    macro as part of an expression, where a void would not work.  The
    value is ignored.  */
@@ -173,8 +175,9 @@ value_fetch_lazy (val)
 {
   CORE_ADDR addr = VALUE_ADDRESS (val) + VALUE_OFFSET (val);
 
-  read_memory (addr, VALUE_CONTENTS_RAW (val), 
-	       TYPE_LENGTH (VALUE_TYPE (val)));
+  if (TYPE_LENGTH (VALUE_TYPE (val)))
+    read_memory (addr, VALUE_CONTENTS_RAW (val), 
+	         TYPE_LENGTH (VALUE_TYPE (val)));
   VALUE_LAZY (val) = 0;
   return 0;
 }
@@ -562,10 +565,11 @@ value_arg_coerce (arg)
   type = VALUE_TYPE (arg);
 
   if (TYPE_CODE (type) == TYPE_CODE_INT
-      && TYPE_LENGTH (type) < sizeof (int))
+      && TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_int))
     return value_cast (builtin_type_int, arg);
 
-  if (type == builtin_type_float)
+  if (TYPE_CODE (type) == TYPE_CODE_FLT
+      && TYPE_LENGTH (type) < TYPE_LENGTH (builtin_type_double))
     return value_cast (builtin_type_double, arg);
 
   return arg;
@@ -659,7 +663,7 @@ call_function_by_hand (function, nargs, args)
   register int i;
   CORE_ADDR start_sp;
   /* CALL_DUMMY is an array of words (REGISTER_TYPE), but each word
-     in in host byte order.  It is switched to target byte order before calling
+     is in host byte order.  It is switched to target byte order before calling
      FIX_CALL_DUMMY.  */
   static REGISTER_TYPE dummy[] = CALL_DUMMY;
   REGISTER_TYPE dummy1[sizeof dummy / sizeof (REGISTER_TYPE)];
@@ -946,7 +950,7 @@ value_string (ptr, len)
 
 /* Helper function used by value_struct_elt to recurse through baseclasses.
    Look for a field NAME in ARG1. Adjust the address of ARG1 by OFFSET bytes,
-   and treat the result as having type TYPE.
+   and search in it assuming it has (class) type TYPE.
    If found, return value, else return NULL.
 
    If LOOKING_FOR_BASECLASS, then instead of looking for struct fields,
@@ -1016,7 +1020,7 @@ search_struct_field (name, arg1, offset, type, looking_for_baseclass)
 
 /* Helper function used by value_struct_elt to recurse through baseclasses.
    Look for a field NAME in ARG1. Adjust the address of ARG1 by OFFSET bytes,
-   and treat the result as having type TYPE.
+   and search in it assuming it has (class) type TYPE.
    If found, return value, else return NULL. */
 
 static value
@@ -1050,7 +1054,7 @@ search_struct_method (name, arg1, args, offset, static_memfuncp, type)
 		    return (value)value_virtual_fn_field (arg1, f, j, type);
 		  if (TYPE_FN_FIELD_STATIC_P (f, j) && static_memfuncp)
 		    *static_memfuncp = 1;
-		  return (value)value_fn_field (arg1, i, j);
+		  return (value)value_fn_field (f, j);
 		}
 	      j--;
 	    }
@@ -1124,7 +1128,7 @@ value_struct_elt (argp, args, name, static_memfuncp, err)
   if (TYPE_CODE (t) == TYPE_CODE_MEMBER)
     error ("not implemented: member type in value_struct_elt");
 
-  if (TYPE_CODE (t) != TYPE_CODE_STRUCT
+  if (   TYPE_CODE (t) != TYPE_CODE_STRUCT
       && TYPE_CODE (t) != TYPE_CODE_UNION)
     error ("Attempt to extract a component of a value that is not a %s.", err);
 
@@ -1165,7 +1169,7 @@ value_struct_elt (argp, args, name, static_memfuncp, err)
       if (!args[1])
 	{
 	  /* destructors are a special case.  */
-	  return (value)value_fn_field (*argp, 0,
+	  return (value)value_fn_field (TYPE_FN_FIELDLIST1 (t, 0),
 					TYPE_FN_FIELDLIST_LENGTH (t, 0));
 	}
       else
@@ -1202,9 +1206,6 @@ destructor_name_p (name, type)
   if (name[0] == '~')
     {
       char *dname = type_name_no_tag (type);
-
-      if (! TYPE_HAS_DESTRUCTOR (type))
-	error ("type `%s' does not have destructor defined", dname);
       if (strcmp (dname, name+1))
 	error ("name of destructor must equal name of class");
       else
@@ -1275,7 +1276,7 @@ check_field (arg1, name)
   if (TYPE_CODE (t) == TYPE_CODE_MEMBER)
     error ("not implemented: member type in check_field");
 
-  if (TYPE_CODE (t) != TYPE_CODE_STRUCT
+  if (   TYPE_CODE (t) != TYPE_CODE_STRUCT
       && TYPE_CODE (t) != TYPE_CODE_UNION)
     error ("Internal error: `this' is not an aggregate");
 
@@ -1283,10 +1284,11 @@ check_field (arg1, name)
 }
 
 /* C++: Given an aggregate type DOMAIN, and a member name NAME,
-   return the address of this member as a pointer to member
+   return the address of this member as a "pointer to member"
    type.  If INTYPE is non-null, then it will be the type
    of the member we are looking for.  This will help us resolve
-   pointers to member functions.  */
+   "pointers to member functions".  This function is only used
+   to resolve user expressions of the form "&class::member".  */
 
 value
 value_struct_elt_for_address (domain, intype, name)
@@ -1299,7 +1301,7 @@ value_struct_elt_for_address (domain, intype, name)
 
   struct type *baseclass;
 
-  if (TYPE_CODE (t) != TYPE_CODE_STRUCT
+  if (   TYPE_CODE (t) != TYPE_CODE_STRUCT
       && TYPE_CODE (t) != TYPE_CODE_UNION)
     error ("Internal error: non-aggregate type to value_struct_elt_for_address");
 
@@ -1310,6 +1312,7 @@ value_struct_elt_for_address (domain, intype, name)
       for (i = TYPE_NFIELDS (t) - 1; i >= TYPE_N_BASECLASSES (t); i--)
 	{
 	  char *t_field_name = TYPE_FIELD_NAME (t, i);
+
 	  if (t_field_name && !strcmp (t_field_name, name))
 	    {
 	      if (TYPE_FIELD_STATIC (t, i))
@@ -1317,7 +1320,10 @@ value_struct_elt_for_address (domain, intype, name)
 		  char *phys_name = TYPE_FIELD_STATIC_PHYSNAME (t, i);
 		  struct symbol *sym =
 		      lookup_symbol (phys_name, 0, VAR_NAMESPACE, 0, NULL);
-		  if (! sym) error ("Internal error: could not find physical static variable named %s", phys_name);
+		  if (! sym)
+		    error (
+	"Internal error: could not find physical static variable named %s",
+			   phys_name);
 		  return value_from_longest (
 			lookup_pointer_type (TYPE_FIELD_TYPE (t, i)),
 				      (LONGEST)SYMBOL_BLOCK_VALUE (sym));
@@ -1345,7 +1351,7 @@ value_struct_elt_for_address (domain, intype, name)
   /* Destructors are a special case.  */
   if (destructor_name_p (name, t))
     {
-      error ("pointers to destructors not implemented yet");
+      error ("member pointers to destructors not implemented yet");
     }
 
   /* Perform all necessary dereferencing.  */
@@ -1374,7 +1380,8 @@ value_struct_elt_for_address (domain, intype, name)
 	      else
 		j = 0;
 
-	      check_stub_method (t, i, j);
+	      if (TYPE_FLAGS (TYPE_FN_FIELD_TYPE (f, j)) & TYPE_FLAG_STUB)
+	        check_stub_method (t, i, j);
 	      if (TYPE_FN_FIELD_VIRTUAL_P (f, j))
 		{
 		  return value_from_longest (
@@ -1388,7 +1395,9 @@ value_struct_elt_for_address (domain, intype, name)
 		  struct symbol *s = lookup_symbol (TYPE_FN_FIELD_PHYSNAME (f, j),
 						    0, VAR_NAMESPACE, 0, NULL);
 		  v = locate_var_value (s, 0);
-	          VALUE_TYPE (v) = lookup_pointer_type (lookup_member_type (TYPE_FN_FIELD_TYPE (f, j), baseclass));
+	          VALUE_TYPE (v) = lookup_pointer_type (
+			lookup_member_type (TYPE_FN_FIELD_TYPE (f, j),
+					    baseclass));
 	          return v;
 		}
 	    }

@@ -1,0 +1,6 @@
+Sat Nov 30 20:43:59 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* common.h, dwarf.h, external.h, internal.h, ChangeLog; moved from
+	../elf-<foo>
+
+

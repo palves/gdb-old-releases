@@ -1,32 +1,27 @@
 /* Demangler for GNU C++ 
-   Copyright (C) 1989 Free Software Foundation, Inc.
+   Copyright 1989, 1991 Free Software Foundation, Inc.
    written by James Clark (jjc@jclark.uucp)
    
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* This is for g++ 1.36.1 (November 6 version). It will probably
-   require changes for any other version.
-
-   Modified for g++ 1.36.2 (November 18 version).
-
-   Modified for g++ 1.90.06 (December 31 version).  */
+/* This is for g++ 1.95.03 (November 13 verison).  */
 
 /* This file exports one function
 
    char *cplus_demangle (const char *name, int mode)
-   
+
    If NAME is a mangled function name produced by GNU C++, then
    a pointer to a malloced string giving a C++ representation
    of the name will be returned; otherwise NULL will be returned.
@@ -59,7 +54,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* GDB-specific, FIXME.  */
 #include "defs.h"
-#include "param.h"
 
 #ifdef USG
 #include <memory.h>
@@ -108,44 +102,81 @@ static int typevec_size = 0;
 const static struct optable {
   const char *in;
   const char *out;
+  int ansi;
 } optable[] = {
-  "nw", " new",			/* new (1.92) */
-  "dl", " delete",		/* new (1.92) */
-  "new", " new",		/* old (1.91, and 1.x) */
-  "delete", " delete",		/* old (1.91, and 1.x) */
-  "ne", "!=",
-  "eq", "==",
-  "ge", ">=",
-  "gt", ">",
-  "le", "<=",
-  "lt", "<",
-  "plus", "+",
-  "minus", "-",
-  "mult", "*",
-  "convert", "+",	/* unary + */
-  "negate", "-",	/* unary - */
-  "trunc_mod", "%",
-  "trunc_div", "/",
-  "truth_andif", "&&",
-  "truth_orif", "||",
-  "truth_not", "!",
-  "postincrement", "++",
-  "postdecrement", "--",
-  "bit_ior", "|",
-  "bit_xor", "^",
-  "bit_and", "&",
-  "bit_not", "~",
-  "call", "()",
-  "cond", "?:",
-  "alshift", "<<",
-  "arshift", ">>",
-  "component", "->",
-  "indirect", "*",
-  "method_call", "->()",
-  "addr", "&",		/* unary & */
-  "array", "[]",
-  "compound", ",",
-  "nop", "",			/* for operator= */
+  "nw", " new",	1,		/* new (1.92, ansi) */
+  "dl", " delete", 1,		/* new (1.92, ansi) */
+  "new", " new", 0,		/* old (1.91, and 1.x) */
+  "delete", " delete", 0,	/* old (1.91, and 1.x) */
+  "as", "=", 1,			/* ansi */
+  "ne", "!=", 1,		/* old, ansi */
+  "eq", "==", 1,		/* old, ansi */
+  "ge", ">=", 1,		/* old, ansi */
+  "gt", ">", 1,			/* old, ansi */
+  "le", "<=", 1,		/* old, ansi */
+  "lt", "<", 1,			/* old, ansi */
+  "plus", "+", 0,		/* old */
+  "pl", "+", 1,			/* ansi */
+  "apl", "+=", 1,		/* ansi */
+  "minus", "-", 0,		/* old */
+  "mi", "-", 1,			/* ansi */
+  "ami", "-=", 1,		/* ansi */
+  "mult", "*", 0,		/* old */
+  "ml", "*", 1,			/* ansi */
+  "aml", "*=", 1,		/* ansi */
+  "convert", "+", 0,		/* old (unary +) */
+  "negate", "-", 0,		/* old (unary -) */
+  "trunc_mod", "%", 0,		/* old */
+  "md", "%", 1,			/* ansi */
+  "amd", "%=", 1,		/* ansi */
+  "trunc_div", "/", 0,		/* old */
+  "dv", "/", 1,			/* ansi */
+  "adv", "/=", 1,		/* ansi */
+  "truth_andif", "&&", 0,	/* old */
+  "aa", "&&", 1,		/* ansi */
+  "truth_orif", "||", 0,	/* old */
+  "oo", "||", 1,		/* ansi */
+  "truth_not", "!", 0,		/* old */
+  "nt", "!", 1,			/* ansi */
+  "postincrement", "++", 0,	/* old */
+  "pp", "++", 1,		/* ansi */
+  "postdecrement", "--", 0,	/* old */
+  "mm", "--", 1,		/* ansi */
+  "bit_ior", "|", 0,		/* old */
+  "or", "|", 1,			/* ansi */
+  "aor", "|=", 1,		/* ansi */
+  "bit_xor", "^", 0,		/* old */
+  "er", "^", 1,			/* ansi */
+  "aer", "^=", 1,		/* ansi */
+  "bit_and", "&", 0,		/* old */
+  "ad", "&", 1,			/* ansi */
+  "aad", "&=", 1,		/* ansi */
+  "bit_not", "~", 0,		/* old */
+  "co", "~", 1,			/* ansi */
+  "call", "()", 0,		/* old */
+  "cl", "()", 1,		/* ansi */
+  "alshift", "<<", 0,		/* old */
+  "ls", "<<", 1,		/* ansi */
+  "als", "<<=", 1,		/* ansi */
+  "arshift", ">>", 0,		/* old */
+  "rs", ">>", 1,		/* ansi */
+  "ars", ">>=", 1,		/* ansi */
+  "component", "->", 0,		/* old */
+  "rf", "->", 1,		/* ansi */
+  "indirect", "*", 0,		/* old */
+  "method_call", "->()", 0,	/* old */
+  "addr", "&", 0,		/* old (unary &) */
+  "array", "[]", 0,		/* old */
+  "vc", "[]", 1,		/* ansi */
+  "compound", ",", 0,		/* old */
+  "cm", ",", 1,			/* ansi */
+  "cond", "?:", 0,		/* old */
+  "cn", "?:", 1,		/* psuedo-ansi */
+  "max", ">?", 0,		/* old */
+  "mx", ">?", 1,		/* psuedo-ansi */
+  "min", "<?", 0,		/* old */
+  "mn", "<?", 1,		/* psuedo-ansi */
+  "nop", "", 0,			/* old (for operator=) */
 };
 
 /* Beware: these aren't '\0' terminated. */
@@ -200,16 +231,24 @@ static void remember_type ();
 #endif
 
 /* Takes operator name as e.g. "++" and returns mangled
-   operator name (e.g. "postincrement_expr"), or NULL if not found.  */
+   operator name (e.g. "postincrement_expr"), or NULL if not found.
+
+   If ARG_MODE == 1, return the ANSI name;
+   if ARG_MODE == 0 return the old GNU name.  */
 char *
-cplus_mangle_opname (opname)
+cplus_mangle_opname (opname, arg_mode)
      char *opname;
+     int arg_mode;
 {
   int i, len = strlen (opname);
+
+  if (arg_mode != 0 && arg_mode != 1)
+    error ("invalid arg_mode");
 
   for (i = 0; i < sizeof (optable)/sizeof (optable[0]); i++)
     {
       if (strlen (optable[i].out) == len
+	  && arg_mode == optable[i].ansi
 	  && memcmp (optable[i].out, opname, len) == 0)
 	return (char *)optable[i].in;
     }
@@ -225,6 +264,8 @@ cplus_demangle (type, arg_mode)
   int n;
   int success = 0;
   int constructor = 0;
+  int destructor = 0;
+  int static_type = 0;
   int const_flag = 0;
   int i;
   const char *p;
@@ -249,26 +290,30 @@ cplus_demangle (type, arg_mode)
       /* destructor */
       if (type[0] == '_' && type[1] == CPLUS_MARKER && type[2] == '_')
 	{
-	  char *tem = (char *) xmalloc ((strlen (type) - 3)*2 + 3 + 2 + 1);
+	  int n = (strlen (type) - 3)*2 + 3 + 2 + 1;
+	  char *tem = (char *) xmalloc (n);
 	  strcpy (tem, type + 3);
 	  strcat (tem, "::~");
 	  strcat (tem, type + 3);
-	  strcat (tem, "()");
+	  if (print_arg_types)
+	    strcat (tem, "()");
 	  return tem;
 	}
       /* static data member */
       if (*type != '_' && (p = strchr (type, CPLUS_MARKER)) != NULL)
 	{
-	  char *tem = (char *) xmalloc (strlen (type) + 2);
+	  int n = strlen (type) + 2;
+	  char *tem = (char *) xmalloc (n);
 	  memcpy (tem, type, p - type);
 	  strcpy (tem + (p - type), "::");
 	  strcpy (tem + (p - type) + 2, p + 1);
 	  return tem;
 	}
-      /* virtual table "_vt$" */
+      /* virtual table "_vt$"  */
       if (type[0] == '_' && type[1] == 'v' && type[2] == 't' && type[3] == CPLUS_MARKER)
 	{
-	  char *tem = (char *) xmalloc (strlen (type + 4) + 14 + 1);
+	  int n = strlen (type + 4) + 14 + 1;
+	  char *tem = (char *) xmalloc (n);
 	  strcpy (tem, type + 4);
 	  strcat (tem, " virtual table");
 	  return tem;
@@ -278,21 +323,47 @@ cplus_demangle (type, arg_mode)
 
   string_init (&decl);
 
-  if (p == type)
+  if (static_type)
     {
-      if (!isdigit (p[2]))
+      if (!isdigit (p[0]) && ('t' != p[0]))
 	{
 	  string_delete (&decl);
 	  return NULL;
 	}
-      constructor = 1;
+    }
+  else if (p == type)
+    {
+      if (!isdigit (p[2]) && ('t' != p[2]))
+	{
+	  p += 1;
+	  while (*p != '\0' && !(*p == '_' && p[1] == '_'))
+	    p++;
+	  string_appendn (&decl, type, p - type);
+	  string_need (&decl, 1);
+	  *(decl.p) = '\0';
+	  munge_function_name (&decl, 1);
+	  if (decl.b[0] == '_')
+	    {
+	      string_delete (&decl);
+	      return NULL;
+	    }
+	  else
+	    p += 2;
+	}
+      else
+	{
+	  constructor = 1;
+	  p += 2;
+	}
     }
   else
     {
       string_appendn (&decl, type, p - type);
+      string_need (&decl, 1);
+      *(decl.p) = '\0';
       munge_function_name (&decl, arg_mode);
+      p += 2;
     }
-  p += 2;
 
 #ifndef LONGERNAMES
   premangle = p;
@@ -332,10 +403,12 @@ cplus_demangle (type, arg_mode)
 	  string_delete (&decl);
 	  return NULL;
 	}
-      if (constructor)
+      if (constructor || destructor)
 	{
 	  string_appendn (&decl, p, n);
 	  string_append (&decl, "::");
+	  if (destructor)
+	    string_append(&decl, "~");
 	  string_appendn (&decl, p, n);
 	}
       else
@@ -347,7 +420,14 @@ cplus_demangle (type, arg_mode)
 #ifndef LONGERNAMES
       remember_type (premangle, p - premangle);
 #endif
-      success = do_args (&p, &decl, arg_mode);
+      if (static_type)
+	{
+	  string_append(&decl, p+1);
+	  p += strlen(p);
+	  success = 1;
+	}
+      else
+	success = do_args (&p, &decl, arg_mode);
       if (const_flag && print_arg_types)
 	string_append (&decl, " const");
       break;
@@ -355,6 +435,191 @@ cplus_demangle (type, arg_mode)
       p += 1;
       success = do_args (&p, &decl, arg_mode);
       break;
+    /* template additions */
+    case 't':
+      p += 1;
+      {
+	int r, i;
+	int non_empty = 0;
+	string tname;
+	string trawname;
+	
+	string temp;
+	int need_comma = 0;
+	
+	string_init(&tname);
+	string_init(&trawname);
+	
+	/* get template name */
+	if (!get_count (&p, &r))
+	  return 0;
+	string_appendn (&tname, p, r);
+	string_appendn (&trawname, p, r);
+	string_appendn (&trawname, "", 1);
+	p += r;
+	string_append (&tname, "<");
+	/* get size of template parameter list */
+	if (!get_count (&p, &r))
+	  return 0;
+	for (i = 0; i < r; i++)
+	  {
+	    if (need_comma)
+	      string_append (&tname, ", ");
+	    /* Z for type parameters */
+	    if (*p == 'Z')
+	      {
+		p += 1;
+		
+		success = do_type (&p, &temp, arg_mode);
+		string_appendn (&temp, "", 1);
+		if (success)
+		  string_append (&tname, temp.b);
+		string_delete(&temp);
+		if (!success)
+		  break;
+	      }
+	    /* otherwise, value parameter */
+	    else
+	      {
+		const char *old_p  = p;
+		int is_pointer = 0;
+		int is_real = 0;
+		int is_integral = 0;
+		int done = 0;
+
+		success = do_type (&p, &temp, arg_mode);
+		string_appendn (&temp, "", 1);
+		if (success)
+		  string_append (&tname, temp.b);
+		string_delete(&temp);
+		if (!success)
+		  break;
+		string_append (&tname, "=");
+		while (*old_p && !done)
+		  {	
+		    switch (*old_p)
+		      {
+		      case 'P':
+		      case 'R':
+			done = is_pointer = 1;
+			break;
+		      case 'C':	/* const */
+		      case 'U':	/* unsigned */
+		      case 'V':	/* volatile */
+		      case 'F':	/* function */
+		      case 'M':	/* member function */
+		      case 'O':	/* ??? */
+			old_p++;
+			continue;
+		      case 'Q':	/* repetition of following */
+		      case 'T':	/* remembered type */
+			abort();
+			break;
+		      case 'v':	/* void */
+			abort();
+			break;
+		      case 'x':	/* long long */
+		      case 'l':	/* long */
+		      case 'i':	/* int */
+		      case 's':	/* short */
+		      case 'c':	/* char */
+			done = is_integral = 1;
+			break;
+		      case 'r':	/* long double */
+		      case 'd':	/* double */
+		      case 'f':	/* float */
+			done = is_real = 1;
+			break;
+		      default:
+			abort();
+		      }
+		  }
+		if (is_integral)
+		  {
+		    if (*p == 'm')
+		      {
+			string_appendn (&tname, "-", 1);
+			p++;
+		      }
+		    while (isdigit (*p))	
+		      {
+			string_appendn (&tname, p, 1);
+			p++;
+		      }
+		  }
+		else if (is_real)
+		  {
+		    if (*p == 'm')
+		      {
+			string_appendn (&tname, "-", 1);
+			p++;
+		      }
+		    while (isdigit (*p))	
+		      {
+			string_appendn (&tname, p, 1);
+			p++;
+		      }
+		    if (*p == '.') /* fraction */
+		      {
+			string_appendn (&tname, ".", 1);
+			p++;
+			while (isdigit (*p))	
+			  {
+			    string_appendn (&tname, p, 1);
+			    p++;
+			  }
+		      }
+		    if (*p == 'e') /* exponent */
+		      {
+			string_appendn (&tname, "e", 1);
+			p++;
+			while (isdigit (*p))	
+			  {
+			    string_appendn (&tname, p, 1);
+			    p++;
+			  }
+		      }
+		  }
+		else if (is_pointer)
+		  {
+		    int symbol_len;
+		    
+		    if (!get_count (&p, &symbol_len))
+		      {
+			success = 0;
+			break;
+		      }
+		    string_appendn (&tname, p, symbol_len);
+		    p += symbol_len;
+		  }
+	      }
+	    need_comma = 1;
+	  }
+	string_append (&tname, ">::");
+	if (destructor)
+	  string_append(&tname, "~");
+	if (constructor || destructor) {
+	  string_append (&tname, trawname.b);
+	}
+	string_delete(&trawname);
+	
+	if (!success) {
+	  string_delete(&tname);
+	  return 0;
+	}
+	string_prepend (&decl, tname.b);
+	string_delete(&tname);
+
+	if (static_type)
+	  {
+	    string_append(&decl, p+1);
+	    p += strlen(p);
+	    success = 1;
+	  }
+	else
+	  success = do_args (&p, &decl, arg_mode);
+	break;
+      }
     }
 
   for (i = 0; i < ntypes; i++)
@@ -850,7 +1115,10 @@ munge_function_name (name, arg_mode)
      string *name;
      int arg_mode;
 {
-  if (!string_empty (name) && name->p - name->b >= 3 
+  if (string_empty (name))
+    return;
+
+  if (name->p - name->b >= 3 
       && name->b[0] == 'o' && name->b[1] == 'p' && name->b[2] == CPLUS_MARKER)
     {
       int i;
@@ -889,8 +1157,7 @@ munge_function_name (name, arg_mode)
 	}
       return;
     }
-  else if (!string_empty (name) && name->p - name->b >= 5
-	   && memcmp (name->b, "type$", 5) == 0)
+  else if (name->p - name->b >= 5 && memcmp (name->b, "type$", 5) == 0)
     {
       /* type conversion operator */
       string type;
@@ -902,6 +1169,60 @@ munge_function_name (name, arg_mode)
 	  string_appends (name, &type);
 	  string_delete (&type);
 	  return;
+	}
+    }
+  /* ANSI.  */
+  else if (name->b[2] == 'o' && name->b[3] == 'p')
+    {
+      /* type conversion operator.  */
+      string type;
+      const char *tem = name->b + 4;
+      if (do_type (&tem, &type, arg_mode))
+	{
+	  string_clear (name);
+	  string_append (name, "operator ");
+	  string_appends (name, &type);
+	  string_delete (&type);
+	  return;
+	}
+    }
+  else if (name->b[0] == '_' && name->b[1] == '_'
+	   && name->b[2] >= 'a' && name->b[2] <= 'z'
+	   && name->b[3] >= 'a' && name->b[3] <= 'z')
+    {
+      int i;
+
+      if (name->b[4] == '\0')
+	{
+	  /* Operator.  */
+	  for (i = 0; i < sizeof (optable)/sizeof (optable[0]); i++)
+	    {
+	      if (strlen (optable[i].in) == 2
+		  && memcmp (optable[i].in, name->b + 2, 2) == 0)
+		{
+		  string_clear (name);
+		  string_append (name, "operator");
+		  string_append (name, optable[i].out);
+		  return;
+		}
+	    }
+	}
+      else
+	{
+	  if (name->b[2] != 'a' || name->b[5] != '\0')
+	    return;
+	  /* Assignment.  */
+	  for (i = 0; i < sizeof (optable)/sizeof (optable[0]); i++)
+	    {
+	      if (strlen (optable[i].in) == 3
+		  && memcmp (optable[i].in, name->b + 2, 3) == 0)
+		{
+		  string_clear (name);
+		  string_append (name, "operator");
+		  string_append (name, optable[i].out);
+		  return;
+		}
+	    }
 	}
     }
 }

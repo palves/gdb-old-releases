@@ -1,0 +1,10 @@
+Sat Nov 30 20:40:51 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* a29k.h, arm.h, h8300.h,  i386.h,  i860.h, i960.h , m68k.h, 
+	m88k.h, mips.h , np1.h, ns32k.h, pn.h, pyr.h, sparc.h, tahoe.h,
+	vax.h, ChangeLog: renamed from ../<foo>-opcode.h
+
+
+	
+
+

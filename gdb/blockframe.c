@@ -1,6 +1,6 @@
 /* Get info from stack frames;
    convert between frames, blocks, functions and pc values.
-   Copyright (C) 1986, 1987, 1988, 1989 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,16 +20,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "frame.h"
 #include "gdbcore.h"
 #include "value.h"		/* for read_register */
 #include "target.h"		/* for target_has_stack */
-
-/* Required by INIT_EXTRA_FRAME_INFO on 88k.  */
-#include <setjmp.h>
-#include <obstack.h>
 
 CORE_ADDR read_pc ();		/* In infcmd.c */
 
@@ -177,7 +172,7 @@ create_new_frame (addr, pc)
   fci->pc = pc;
 
 #ifdef INIT_EXTRA_FRAME_INFO
-  INIT_EXTRA_FRAME_INFO (fci);
+  INIT_EXTRA_FRAME_INFO (0, fci);
 #endif
 
   return fci;
@@ -281,10 +276,16 @@ frameless_look_for_prologue (frame)
     return 0;
 }
 
+/* Default a few macros that people seldom redefine.  */
+
 #if !defined (INIT_FRAME_PC)
 #define INIT_FRAME_PC(fromleaf, prev) \
   prev->pc = (fromleaf ? SAVED_PC_AFTER_CALL (prev->next) : \
 	      prev->next ? FRAME_SAVED_PC (prev->next) : read_pc ());
+#endif
+
+#ifndef FRAME_CHAIN_COMBINE
+#define	FRAME_CHAIN_COMBINE(chain, thisframe) (chain)
 #endif
 
 /* Return a structure containing various interesting information
@@ -369,12 +370,12 @@ get_prev_frame_info (next_frame)
   prev->next_frame = prev->next ? prev->next->frame : 0;
 
 #ifdef INIT_EXTRA_FRAME_INFO
-  INIT_EXTRA_FRAME_INFO(prev);
+  INIT_EXTRA_FRAME_INFO(fromleaf, prev);
 #endif
 
   /* This entry is in the frame queue now, which is good since
      FRAME_SAVED_PC may use that queue to figure out it's value
-     (see m-sparc.h).  We want the pc saved in the inferior frame. */
+     (see tm-sparc.h).  We want the pc saved in the inferior frame. */
   INIT_FRAME_PC(fromleaf, prev);
 
   return prev;

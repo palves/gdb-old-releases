@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include "defs.h"
 #include "symtab.h"
-#include "param.h"
 #include "expression.h"
 #include "value.h"
 #include "language.h"
@@ -216,7 +215,7 @@ print_subexp (exp, pos, stream, prec)
 	   its type; print the value in the type of the MEMVAL.  */
 	(*pos) += 4;
 	val = value_at_lazy (exp->elts[pc + 1].type,
-			     exp->elts[pc + 5].longconst);
+			     (CORE_ADDR) exp->elts[pc + 5].longconst);
 	value_print (val, stream, 0, Val_no_prettyprint);
       } else {
 	fputs_filtered ("{", stream);

@@ -1,5 +1,5 @@
-/* Low level packing and unpacking of values for GDB.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+/* Low level packing and unpacking of values for GDB, the GNU Debugger.
+   Copyright 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include <string.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "value.h"
 #include "gdbcore.h"
@@ -29,7 +28,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "gdbcmd.h"
 
 extern char *cplus_demangle ();
-extern char *cplus_mangle_opname ();
 
 /* The value-history records all the values printed
    by print commands during this session.  Each chunk
@@ -385,7 +383,7 @@ lookup_internalvar (name)
       return var;
 
   var = (struct internalvar *) xmalloc (sizeof (struct internalvar));
-  var->name = concat (name, "", "");
+  var->name = concat (name, NULL);
   var->value = allocate_value (builtin_type_void);
   release_value (var->value);
   var->next = internalvars;
@@ -880,21 +878,23 @@ value_field (arg1, fieldno)
   return value_primitive_field (arg1, 0, fieldno, VALUE_TYPE (arg1));
 }
 
+/* Return a non-virtual function as a value.
+   F is the list of member functions which contains the desired method.
+   J is an index into F which provides the desired method. */
+
 value
-value_fn_field (arg1, fieldno, subfieldno)
-     register value arg1;
-     register int fieldno;
-     int subfieldno;
+value_fn_field (f, j)
+     struct fn_field *f;
+     int j;
 {
   register value v;
-  struct fn_field *f = TYPE_FN_FIELDLIST1 (VALUE_TYPE (arg1), fieldno);
-  register struct type *type = TYPE_FN_FIELD_TYPE (f, subfieldno);
+  register struct type *type = TYPE_FN_FIELD_TYPE (f, j);
   struct symbol *sym;
 
-  sym = lookup_symbol (TYPE_FN_FIELD_PHYSNAME (f, subfieldno),
+  sym = lookup_symbol (TYPE_FN_FIELD_PHYSNAME (f, j),
 		       0, VAR_NAMESPACE, 0, NULL);
   if (! sym) error ("Internal error: could not find physical method named %s",
-		    TYPE_FN_FIELD_PHYSNAME (f, subfieldno));
+		    TYPE_FN_FIELD_PHYSNAME (f, j));
   
   v = allocate_value (type);
   VALUE_ADDRESS (v) = BLOCK_START (SYMBOL_BLOCK_VALUE (sym));
@@ -995,7 +995,6 @@ value_headof (arg, btype, dtype)
   struct symbol *sym;
   CORE_ADDR pc_for_sym;
   char *demangled_name;
-
   btype = TYPE_VPTR_BASETYPE (dtype);
   check_stub_type (btype);
   if (btype != dtype)
@@ -1006,7 +1005,7 @@ value_headof (arg, btype, dtype)
 
   /* Check that VTBL looks like it points to a virtual function table.  */
   i = find_pc_misc_function (VALUE_ADDRESS (vtbl));
-  if (i < 0 || ! VTBL_PREFIX_P (misc_function_vector[i].name))
+  if (i < 0 || ! VTBL_PREFIX_P (demangled_name = misc_function_vector[i].name))
     {
       /* If we expected to find a vtable, but did not, let the user
 	 know that we aren't happy, but don't throw an error.
@@ -1026,27 +1025,40 @@ value_headof (arg, btype, dtype)
       entry = value_subscript (vtbl, value_from_longest (builtin_type_int, 
 						      (LONGEST) i));
       offset = longest_to_int (value_as_long (value_field (entry, 0)));
-      if (offset < best_offset)
+      /* If we use '<=' we can handle single inheritance
+       * where all offsets are zero - just use the first entry found. */
+      if (offset <= best_offset)
 	{
 	  best_offset = offset;
 	  best_entry = entry;
 	}
     }
-  if (best_entry == 0)
-    return arg;
-
   /* Move the pointer according to BEST_ENTRY's offset, and figure
      out what type we should return as the new pointer.  */
-  pc_for_sym = value_as_pointer (value_field (best_entry, 2));
-  sym = find_pc_function (pc_for_sym);
-  demangled_name = cplus_demangle (SYMBOL_NAME (sym), -1);
-  *(strchr (demangled_name, ':')) = '\0';
+  if (best_entry == 0)
+    {
+      /* An alternative method (which should no longer be necessary).
+       * But we leave it in for future use, when we will hopefully
+       * have optimizes the vtable to use thunks instead of offsets. */
+      /* Use the name of vtable itself to extract a base type. */
+      demangled_name += 4;  /* Skip _vt$ prefix. */
+    }
+  else
+    {
+      pc_for_sym = value_as_pointer (value_field (best_entry, 2));
+      sym = find_pc_function (pc_for_sym);
+      demangled_name = cplus_demangle (SYMBOL_NAME (sym), -1);
+      *(strchr (demangled_name, ':')) = '\0';
+    }
   sym = lookup_symbol (demangled_name, 0, VAR_NAMESPACE, 0, 0);
   if (sym == 0)
     error ("could not find type declaration for `%s'", SYMBOL_NAME (sym));
-  free (demangled_name);
-  arg = value_add (value_cast (builtin_type_int, arg),
-		   value_field (best_entry, 0));
+  if (best_entry)
+    {
+      free (demangled_name);
+      arg = value_add (value_cast (builtin_type_int, arg),
+		       value_field (best_entry, 0));
+    }
   VALUE_TYPE (arg) = lookup_pointer_type (SYMBOL_TYPE (sym));
   return arg;
 }
@@ -1135,7 +1147,7 @@ value_static_field (type, fieldname, fieldno)
 }
 
 /* Compute the address of the baseclass which is
-   the INDEXth baseclass of TYPE.  The TYPE base
+   the INDEXth baseclass of class TYPE.  The TYPE base
    of the object is at VALADDR.
 
    If ERRP is non-NULL, set *ERRP to be the errno code of any error,
@@ -1162,9 +1174,6 @@ baseclass_addr (type, index, valaddr, valuep, errp)
       register int i, len = TYPE_NFIELDS (type);
       register int n_baseclasses = TYPE_N_BASECLASSES (type);
       char *vbase_name, *type_name = type_name_no_tag (basetype);
-
-      if (TYPE_MAIN_VARIANT (basetype))
-	basetype = TYPE_MAIN_VARIANT (basetype);
 
       vbase_name = (char *)alloca (strlen (type_name) + 8);
       sprintf (vbase_name, "_vb$%s", type_name);
@@ -1225,116 +1234,6 @@ baseclass_addr (type, index, valaddr, valuep, errp)
   if (valuep)
     *valuep = 0;
   return valaddr + TYPE_BASECLASS_BITPOS (type, index) / 8;
-}
-
-/* Ugly hack to convert method stubs into method types.
-
-   He ain't kiddin'.  This demangles the name of the method into a string
-   including argument types, parses out each argument type, generates
-   a string casting a zero to that type, evaluates the string, and stuffs
-   the resulting type into an argtype vector!!!  Then it knows the type
-   of the whole function (including argument types for overloading),
-   which info used to be in the stab's but was removed to hack back
-   the space required for them.  */
-void
-check_stub_method (type, i, j)
-     struct type *type;
-     int i, j;
-{
-  extern char *gdb_mangle_typename (), *strchr ();
-  struct fn_field *f = TYPE_FN_FIELDLIST1 (type, i);
-  char *field_name = TYPE_FN_FIELDLIST_NAME (type, i);
-  char *inner_name = gdb_mangle_typename (type);
-  int mangled_name_len = (strlen (field_name)
-			  + strlen (inner_name)
-			  + strlen (TYPE_FN_FIELD_PHYSNAME (f, j))
-			  + 1);
-  char *mangled_name;
-  char *demangled_name;
-  char *argtypetext, *p;
-  int depth = 0, argcount = 1;
-  struct type **argtypes;
-
-  if (OPNAME_PREFIX_P (field_name))
-    {
-      char *opname = cplus_mangle_opname (field_name + 3);
-      if (opname == NULL)
-	error ("No mangling for \"%s\"", field_name);
-      mangled_name_len += strlen (opname);
-      mangled_name = (char *)xmalloc (mangled_name_len);
-
-      strncpy (mangled_name, field_name, 3);
-      mangled_name[3] = '\0';
-      strcat (mangled_name, opname);
-    }
-  else
-    {
-      mangled_name = (char *)xmalloc (mangled_name_len);
-      strcpy (mangled_name, TYPE_FN_FIELDLIST_NAME (type, i));
-    }
-  strcat (mangled_name, inner_name);
-  strcat (mangled_name, TYPE_FN_FIELD_PHYSNAME (f, j));
-  demangled_name = cplus_demangle (mangled_name, 0);
-
-  /* Now, read in the parameters that define this type.  */
-  argtypetext = strchr (demangled_name, '(') + 1;
-  p = argtypetext;
-  while (*p)
-    {
-      if (*p == '(')
-	depth += 1;
-      else if (*p == ')')
-	depth -= 1;
-      else if (*p == ',' && depth == 0)
-	argcount += 1;
-
-      p += 1;
-    }
-  /* We need one more slot for the void [...] or NULL [end of arglist] */
-  argtypes = (struct type **)xmalloc ((argcount+1) * sizeof (struct type *));
-  p = argtypetext;
-  argtypes[0] = lookup_pointer_type (type);
-  argcount = 1;
-
-  if (*p != ')')			/* () means no args, skip while */
-    {
-      while (*p)
-	{
-	  if (*p == '(')
-	    depth += 1;
-	  else if (*p == ')')
-	    depth -= 1;
-
-	  if (depth <= 0 && (*p == ',' || *p == ')'))
-	    {
-	      char *tmp = (char *)alloca (p - argtypetext + 4);
-	      value val;
-	      tmp[0] = '(';
-	      bcopy (argtypetext, tmp+1, p - argtypetext);
-	      tmp[p-argtypetext+1] = ')';
-	      tmp[p-argtypetext+2] = '0';
-	      tmp[p-argtypetext+3] = '\0';
-	      val = parse_and_eval (tmp);
-	      argtypes[argcount] = VALUE_TYPE (val);
-	      argcount += 1;
-	      argtypetext = p + 1;
-	    }
-	  p += 1;
-	}
-    }
-
-  if (p[-2] != '.')			/* ... */
-    argtypes[argcount] = builtin_type_void;	/* Ellist terminator */
-  else
-    argtypes[argcount] = NULL;		/* List terminator */
-
-  free (demangled_name);
-
-  type = lookup_method_type (type, TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)), argtypes);
-  /* Free the stub type...it's no longer needed.  */
-  free (TYPE_FN_FIELD_TYPE (f, j));
-  TYPE_FN_FIELD_PHYSNAME (f, j) = mangled_name;
-  TYPE_FN_FIELD_TYPE (f, j) = type;
 }
 
 long
@@ -1568,9 +1467,9 @@ set_return_value (val)
   if (code == TYPE_CODE_ERROR)
     error ("Function return type unknown.");
 
-  if (code == TYPE_CODE_STRUCT
-      || code == TYPE_CODE_UNION)
-    error ("Specifying a struct or union return value is not supported.");
+  if (   code == TYPE_CODE_STRUCT
+      || code == TYPE_CODE_UNION)	/* FIXME, implement struct return.  */
+    error ("GDB does not support specifying a struct or union return value.");
 
   /* FIXME, this is bogus.  We don't know what the return conventions
      are, or how values should be promoted.... */

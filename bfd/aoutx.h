@@ -18,72 +18,87 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/*doc*
-@section a.out backends
+/*
+SECTION
+	a.out backends
 
-BFD supports a number of different flavours of a.out format, though
-the major differences are only the sizes of the structures on disk,
-and the shape of the relocation information. 
 
-The support is split into a basic support file @code{aoutx.h} and
-other files which derive functions from the base. One derivation file
-is @code{aoutf1.h} (for a.out flavour 1), and adds to the basic a.out
-functions support for sun3, sun4, 386 and 29k a.out files, to create a
-target jump vector for a specific target.
+DESCRIPTION
 
-This information is further split out into more specific files for each
-machine, including @code{sunos.c} for sun3 and sun4, @code{newsos3.c} for
-the Sony NEWS, and @code{demo64.c} for a demonstration of a 64 bit a.out
-format.
+	BFD supports a number of different flavours of a.out format,
+	though the major differences are only the sizes of the
+	structures on disk, and the shape of the relocation
+	information. 
 
-The base file @code{aoutx.h} defines general mechanisms for reading
-and writing records to and from disk, and various other methods which
-BFD requires. It is included by @code{aout32.c} and @code{aout64.c} to
-form the names aout_32_swap_exec_header_in,
-aout_64_swap_exec_header_in, etc.
+	The support is split into a basic support file @code{aoutx.h}
+	and other files which derive functions from the base. One
+	derivation file is @code{aoutf1.h} (for a.out flavour 1), and
+	adds to the basic a.out functions support for sun3, sun4, 386
+	and 29k a.out files, to create a target jump vector for a
+	specific target. 
 
-As an example, this is what goes on to make the back end for a sun4, from aout32.c
+	This information is further split out into more specific files
+	for each machine, including @code{sunos.c} for sun3 and sun4,
+	@code{newsos3.c} for the Sony NEWS, and @code{demo64.c} for a
+	demonstration of a 64 bit a.out format.
 
-@example
+	The base file @code{aoutx.h} defines general mechanisms for
+	reading and writing records to and from disk, and various
+	other methods which BFD requires. It is included by
+	@code{aout32.c} and @code{aout64.c} to form the names
+	aout_32_swap_exec_header_in, aout_64_swap_exec_header_in, etc.
+
+	As an example, this is what goes on to make the back end for a
+	sun4, from aout32.c 
+
+EXAMPLE
+
    #define ARCH_SIZE 32
    #include "aoutx.h"
-@end example
 
-Which exports names:
-@example
+DESCRIPTION
+
+	Which exports names:
+
+EXAMPLE
     ...
    aout_32_canonicalize_reloc
    aout_32_find_nearest_line
    aout_32_get_lineno
    aout_32_get_reloc_upper_bound
      ...
-@end example
 
-from sunos.c
+DESCRIPTION
 
-@example   
+	from sunos.c
+
+EXAMPLE
     #define ARCH 32
     #define TARGET_NAME "a.out-sunos-big"
     #define VECNAME    sunos_big_vec
     #include "aoutf1.h"
-@end example
-requires all the names from aout32.c, and produces the jump vector
+DESCRIPTION
 
-@example
+	requires all the names from aout32.c, and produces the jump vector
+
+EXAMPLE
     sunos_big_vec
-@end example
 
-The file host-aout.c is a special case.  It is for a large set of hosts
-that use ``more or less standard'' a.out files, and for which cross-debugging
-is not interesting.  It uses the standard 32-bit a.out support routines,
-but determines the file offsets and addresses of the text, data,
-and BSS sections, the machine architecture and machine type,
-and the entry point address, in a host-dependent manner.  Once these
-values have been determined, generic code is used to handle the 
-object file.
+DESCRIPTION
 
-When porting it to run on a new system, you must supply:
+	The file host-aout.c is a special case.  It is for a large set
+	of hosts that use ``more or less standard'' a.out files, and
+	for which cross-debugging is not interesting.  It uses the
+	standard 32-bit a.out support routines, but determines the
+	file offsets and addresses of the text, data, and BSS
+	sections, the machine architecture and machine type, and the
+	entry point address, in a host-dependent manner.  Once these
+	values have been determined, generic code is used to handle
+	the  object file. 
 
+	When porting it to run on a new system, you must supply:
+
+EXAMPLE
         HOST_PAGE_SIZE
         HOST_SEGMENT_SIZE
         HOST_MACHINE_ARCH       (optional)
@@ -91,18 +106,22 @@ When porting it to run on a new system, you must supply:
         HOST_TEXT_START_ADDR
         HOST_STACK_END_ADDR
 
-in the file ../include/sys/h-XXX.h (for your host).  These values, plus
-the structures and macros defined in <a.out.h> on your host system, will
-produce a BFD target that will access ordinary a.out files on your host.
+DESCRIPTION
 
-To configure a new machine to use host-aout.c, specify:
+	in the file ../include/sys/h-XXX.h (for your host).  These
+	values, plus the structures and macros defined in <a.out.h> on
+	your host system, will produce a BFD target that will access
+	ordinary a.out files on your host. To configure a new machine
+	to use host-aout.c, specify: 
 
-TDEFINES = -DDEFAULT_VECTOR=host_aout_big_vec
-TDEPFILES= host-aout.o trad-core.o
+EXAMPLE
+	TDEFAULTS = -DDEFAULT_VECTOR=host_aout_big_vec
+	TDEPFILES= host-aout.o trad-core.o
 
-in the config/t-XXX file, and modify configure.in to use the
-t-XXX file (by setting "bfd_target=XXX") when your configuration is
-selected.
+DESCIPTION
+	in the config/mt-XXX file, and modify configure.in to use the
+	mt-XXX file (by setting "bfd_target=XXX") when your
+	configuration is selected.
 
 */
 
@@ -116,20 +135,25 @@ selected.
 struct external_exec;
 #include "libaout.h"
 #include "libbfd.h"
-#include "aout64.h"
-#include "stab.gnu.h"
-#include "ar.h"
+#include "aout/aout64.h"
+#include "aout/stab_gnu.h"
+#include "aout/ar.h"
 
 void (*bfd_error_trap)();
 
-/*doc*
-@subsection relocations
-The file @code{aoutx.h} caters for both the @emph{standard} and
-@emph{extended} forms of a.out relocation records.
+/*
+SUBSECTION
+	relocations
 
-The standard records are characterised by containing only an address,
-a symbol index and a type field. The extended records (used on 29ks
-and sparcs) also have a full integer for an addend. 
+DESCRIPTION
+	The file @code{aoutx.h} caters for both the @emph{standard}
+	and @emph{extended} forms of a.out relocation records.
+
+	The standard records are characterised by containing only an
+	address, a symbol index and a type field. The extended records
+	(used on 29ks and sparcs) also have a full integer for an
+	addend. 
+
 */
 #define CTOR_TABLE_RELOC_IDX 2
 
@@ -180,21 +204,31 @@ HOWTO( 7,	       0,  3, 	64, true,  0, false, true,0,"DISP64",   true, 0xfeedfac
 
 bfd_error_vector_type bfd_error_vector;
 
-/*doc*
-@subsection Internal Entry Points
-@code{aoutx.h} exports several routines for accessing the contents of
-an a.out file, which are gathered and exported in turn by various
-format specific files (eg sunos.c).
+/*
+SUBSECTION
+	Internal Entry Points
+
+DESCRIPTION
+	@code{aoutx.h} exports several routines for accessing the
+	contents of an a.out file, which are gathered and exported in
+	turn by various format specific files (eg sunos.c).
+
 */
 
-/*doc*
-*i aout_<size>_swap_exec_header_in
-Swaps the information in an executable header taken from a raw byte stream memory image,
-into the internal exec_header structure.
-*; PROTO(void, aout_<size>_swap_exec_header_in,
-      (bfd *abfd,
-      struct external_exec *raw_bytes,
-      struct internal_exec *execp));
+/*
+FUNCTION
+	 aout_<size>_swap_exec_header_in
+
+DESCRIPTION
+	Swaps the information in an executable header taken from a raw
+	byte stream memory image, into the internal exec_header
+	structure.
+
+EXAMPLE
+	void aout_<size>_swap_exec_header_in,
+           (bfd *abfd,
+            struct external_exec *raw_bytes,
+            struct internal_exec *execp);
 */
 	 
 void
@@ -216,14 +250,19 @@ DEFUN(NAME(aout,swap_exec_header_in),(abfd, raw_bytes, execp),
   execp->a_drsize = GET_WORD (abfd, bytes->e_drsize);
 }
 
-/*doc*
-*i aout_<size>_swap_exec_header_out
-Swaps the information in an internal exec header structure into the
-supplied buffer ready for writing to disk.
-*; PROTO(void, aout_<size>_swap_exec_header_out,
+/*
+FUNCTION
+	aout_<size>_swap_exec_header_out
+
+DESCRIPTION
+	Swaps the information in an internal exec header structure
+	into the supplied buffer ready for writing to disk.
+
+EXAMPLE
+	void aout_<size>_swap_exec_header_out
 	  (bfd *abfd,
 	   struct internal_exec *execp,
-	   struct external_exec *raw_bytes));
+	   struct external_exec *raw_bytes);
 */
 void
 DEFUN(NAME(aout,swap_exec_header_out),(abfd, execp, raw_bytes),
@@ -250,17 +289,21 @@ struct container {
 };
 
 
-/*doc*
-*i aout_<size>_some_aout_object_p
+/*
+FUNCTION
+	aout_<size>_some_aout_object_p
 
-Some A.OUT variant thinks that the file whose format we're checking
-is an a.out file.  Do some more checking, and set up for access if
-it really is.  Call back to the calling environments "finish up"
-function just before returning, to handle any last-minute setup.  
+DESCRIPTION
+	Some A.OUT variant thinks that the file whose format we're
+	checking is an a.out file.  Do some more checking, and set up
+	for access if it really is.  Call back to the calling
+	environments "finish up" function just before returning, to
+	handle any last-minute setup.  
 
-*; PROTO(bfd_target *, aout_<size>_some_aout_object_p,
+EXAMPLE
+	bfd_target *aout_<size>_some_aout_object_p
 	 (bfd *abfd,
-	  bfd_target *(*callback_to_real_object_p)()));
+	  bfd_target *(*callback_to_real_object_p)());
 */
  
 bfd_target *
@@ -270,6 +313,7 @@ DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
       bfd_target *(*callback_to_real_object_p) ())
 {
   struct container *rawptr;
+  bfd_target *result;
 
   rawptr = (struct container *) bfd_zalloc (abfd, sizeof (struct container));
   if (rawptr == NULL) {
@@ -286,8 +330,7 @@ DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
   abfd->flags = NO_FLAGS;
   if (execp->a_drsize || execp->a_trsize)
     abfd->flags |= HAS_RELOC;
-  if (execp->a_entry) 
-    abfd->flags |= EXEC_P;
+  /* Setting of EXEC_P has been deferred to the bottom of this function */
   if (execp->a_syms) 
     abfd->flags |= HAS_LINENO | HAS_DEBUG | HAS_SYMS | HAS_LOCALS;
 
@@ -298,11 +341,6 @@ DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
 
   obj_aout_symbols (abfd) = (aout_symbol_type *)NULL;
   bfd_get_symcount (abfd) = execp->a_syms / sizeof (struct external_nlist);
-
-  /* Set the default architecture and machine type.  These can be
-     overridden in the callback routine.  */
-
-  bfd_default_set_arch_mach(abfd, bfd_arch_unknown, 0);
 
   /* The default relocation entry size is that of traditional V7 Unix.  */
   obj_reloc_entry_size (abfd) = RELOC_STD_SIZE;
@@ -325,7 +363,6 @@ DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
 
   obj_datasec (abfd)->size = execp->a_data;
   obj_bsssec (abfd)->size = execp->a_bss;
-  obj_textsec (abfd)->size = execp->a_text;
 
   obj_textsec (abfd)->flags = (execp->a_trsize != 0 ?
 		       (SEC_ALLOC | SEC_LOAD | SEC_RELOC | SEC_HAS_CONTENTS) :
@@ -336,16 +373,25 @@ DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
   obj_bsssec (abfd)->flags = SEC_ALLOC;
 
 #ifdef THIS_IS_ONLY_DOCUMENTATION
+  /* The common code can't fill in these things because they depend
+     on either the start address of the text segment, the rounding
+     up of virtual addersses between segments, or the starting file 
+     position of the text segment -- all of which varies among different
+     versions of a.out.  */
+
   /* Call back to the format-dependent code to fill in the rest of the 
      fields and do any further cleanup.  Things that should be filled
      in by the callback:  */
 
   struct exec *execp = exec_hdr (abfd);
 
+  obj_textsec (abfd)->size = N_TXTSIZE(*execp);
+  /* data and bss are already filled in since they're so standard */
+
   /* The virtual memory addresses of the sections */
-  obj_datasec (abfd)->vma = N_DATADDR(*execp);
-  obj_bsssec (abfd)->vma = N_BSSADDR(*execp);
   obj_textsec (abfd)->vma = N_TXTADDR(*execp);
+  obj_datasec (abfd)->vma = N_DATADDR(*execp);
+  obj_bsssec  (abfd)->vma = N_BSSADDR(*execp);
 
   /* The file offsets of the sections */
   obj_textsec (abfd)->filepos = N_TXTOFF(*execp);
@@ -358,12 +404,6 @@ DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
   /* The file offsets of the string table and symbol table.  */
   obj_str_filepos (abfd) = N_STROFF (*execp);
   obj_sym_filepos (abfd) = N_SYMOFF (*execp);
-
-  /* This common code can't fill in those things because they depend
-     on either the start address of the text segment, the rounding
-     up of virtual addersses between segments, or the starting file 
-     position of the text segment -- all of which varies among different
-     versions of a.out.  */
 
   /* Determine the architecture and machine type of the object file.  */
   switch (N_MACHTYPE (*exec_hdr (abfd))) {
@@ -397,16 +437,31 @@ DEFUN(NAME(aout,some_aout_object_p),(abfd, execp, callback_to_real_object_p),
      header, should cope with them in this callback as well.  */
 #endif				/* DOCUMENTATION */
 
+  result = (*callback_to_real_object_p)(abfd);
 
-  return (*callback_to_real_object_p)(abfd);
+  /* Now that the segment addresses have been worked out, take a better
+     guess at whether the file is executable.  If the entry point
+     is within the text segment, assume it is.  (This makes files
+     executable even if their entry point address is 0, as long as
+     their text starts at zero.)  
+
+     At some point we should probably break down and stat the file and
+     declare it executable if (one of) its 'x' bits are on...  */
+  if ((execp->a_entry >= obj_textsec(abfd)->vma) &&
+      (execp->a_entry < obj_textsec(abfd)->vma + obj_textsec(abfd)->size))
+    abfd->flags |= EXEC_P;
+  return result;
 }
 
-/*doc*
-*i aout_<size>_mkobject
+/*
+FUNCTION
+	aout_<size>_mkobject
 
-This routine initializes a BFD for use with a.out files.
+DESCRIPTION
+	This routine initializes a BFD for use with a.out files.
 
-*; PROTO(boolean, aout_<size>_mkobject, (bfd *));
+EXAMPLE
+	boolean aout_<size>_mkobject, (bfd *);
 */
 
 boolean
@@ -441,17 +496,21 @@ DEFUN(NAME(aout,mkobject),(abfd),
 }
 
 
-/*doc*
-*i aout_<size>_machine_type
+/*
+FUNCTION
+	aout_<size>_machine_type
 
-Keep track of machine architecture and machine type for a.out's.
-Return the machine_type for a particular arch&machine, or M_UNKNOWN
-if that exact arch&machine can't be represented in a.out format.
+DESCRIPTION
+	Keep track of machine architecture and machine type for
+	a.out's. Return the machine_type for a particular
+	arch&machine, or M_UNKNOWN if that exact arch&machine can't be
+	represented in a.out format. 
 
-If the architecture is understood, machine type 0 (default) should
-always be understood.  
+	If the architecture is understood, machine type 0 (default)
+	should always be understood.  
 
-*; PROTO(enum machine_type, aout_<size>_machine_type,
+EXAMPLE
+	enum machine_type  aout_<size>_machine_type
 	 (enum bfd_architecture arch,
 	  unsigned long machine));
 */
@@ -496,14 +555,17 @@ DEFUN(NAME(aout,machine_type),(arch, machine),
 }
 
 
-/*doc*
-*i aout_<size>_set_arch_mach
+/*
+FUNCTION
+	aout_<size>_set_arch_mach
 
-Sets the architecture and the machine of the BFD to those values
-supplied. Verifies that the format can support the architecture
-required.
+DESCRIPTION
+	Sets the architecture and the machine of the BFD to those
+	values supplied. Verifies that the format can support the
+	architecture required.
 
-*; PROTO(boolean, aout_<size>_set_arch_mach,
+EXAMPLE
+	boolean aout_<size>_set_arch_mach,
 	 (bfd *,
 	  enum bfd_architecture,
 	  unsigned long machine));
@@ -522,41 +584,48 @@ DEFUN(NAME(aout,set_arch_mach),(abfd, arch, machine),
   return true;			/* We're easy ... */
 }
 
-/*doc*
-  *i aout_<size>new_section_hook
+/*
+FUNCTION
+	aout_<size>new_section_hook
   
-  Called by the BFD in response to a @code{bfd_make_section} request.
-  *; PROTO(boolean, aout_<size>_new_section_hook,
+DESCRIPTION
+	Called by the BFD in response to a @code{bfd_make_section}
+	request.
+
+EXAMPLE
+        boolean aout_<size>_new_section_hook,
 	   (bfd *abfd,
 	    asection *newsect));
 */
 boolean
-  DEFUN(NAME(aout,new_section_hook),(abfd, newsect),
+DEFUN(NAME(aout,new_section_hook),(abfd, newsect),
 	bfd *abfd AND
 	asection *newsect)
 {
-  /* align to double at least */
-  newsect->alignment_power = 3;
+    /* align to double at least */
+    newsect->alignment_power = bfd_get_arch_info(abfd)->section_align_power;
+
     
-  if (bfd_get_format (abfd) == bfd_object) {
-    if (obj_textsec(abfd) == NULL && !strcmp(newsect->name, ".text")) {
-      obj_textsec(abfd)= newsect;
-      return true;
-    }
+    if (bfd_get_format (abfd) == bfd_object) 
+    {
+	if (obj_textsec(abfd) == NULL && !strcmp(newsect->name, ".text")) {
+		obj_textsec(abfd)= newsect;
+		return true;
+	    }
       
-    if (obj_datasec(abfd) == NULL && !strcmp(newsect->name, ".data")) {
-      obj_datasec(abfd) = newsect;
-      return true;
-    }
+	if (obj_datasec(abfd) == NULL && !strcmp(newsect->name, ".data")) {
+		obj_datasec(abfd) = newsect;
+		return true;
+	    }
       
-    if (obj_bsssec(abfd) == NULL && !strcmp(newsect->name, ".bss")) {
-      obj_bsssec(abfd) = newsect;
-      return true;
+	if (obj_bsssec(abfd) == NULL && !strcmp(newsect->name, ".bss")) {
+		obj_bsssec(abfd) = newsect;
+		return true;
+	    }
     }
-  }
     
-  /* We allow more than three sections internally */
-  return true;
+    /* We allow more than three sections internally */
+    return true;
 }
 
 boolean
@@ -618,7 +687,8 @@ boolean
 	      if (abfd->flags & (D_PAGED|WP_TEXT))
 		{
 		  bfd_size_type text_pad =
-		      ALIGN(text_size, adata(abfd)->segment_size) - text_size;
+		      BFD_ALIGN(text_size, adata(abfd)->segment_size)
+			 - text_size;
 	          text_end += text_pad;
 		  obj_textsec(abfd)->size += text_pad;
 		}
@@ -686,9 +756,9 @@ boolean
   
 static void
 DEFUN(translate_from_native_sym_flags,(sym_pointer, cache_ptr, abfd),
-struct external_nlist *sym_pointer AND
-aout_symbol_type *cache_ptr AND
-bfd *abfd)
+      struct external_nlist *sym_pointer AND
+      aout_symbol_type *cache_ptr AND
+      bfd *abfd)
 {
   switch (cache_ptr->type & N_TYPE) {
   case N_SETA:
@@ -700,7 +770,10 @@ bfd *abfd)
 	asection *section ;
 	arelent_chain *reloc = (arelent_chain *)bfd_alloc(abfd, sizeof(arelent_chain));
 	strcpy(copy, cache_ptr->symbol.name);
-	section = bfd_make_section(abfd,copy);
+	section = bfd_get_section_by_name (abfd, copy);
+	if (!section)
+	  section = bfd_make_section(abfd,copy);
+
 	switch ( (cache_ptr->type  & N_TYPE) ) {
 	case N_SETA:
 	  section->flags = SEC_CONSTRUCTOR;
@@ -942,7 +1015,7 @@ DEFUN(NAME(aout,slurp_symbol_table),(abfd),
 
   /* malloc this, so we can free it if simply. The symbol caching
      might want to allocate onto the bfd's obstack  */
-  syms = (struct external_nlist *) malloc(symbol_size);
+  syms = (struct external_nlist *) bfd_xmalloc(symbol_size);
   bfd_seek (abfd, obj_sym_filepos (abfd), SEEK_SET);
   if (bfd_read ((PTR)syms, 1, symbol_size, abfd) != symbol_size) {
   bailout:
@@ -1601,7 +1674,7 @@ DEFUN(NAME(aout,print_symbol),(ignore_abfd, afile, symbol, how),
   case bfd_print_symbol_all:
     {
    CONST char *section_name = symbol->section == (asection *)NULL ?
-	"*abs" : symbol->section->name;
+	(CONST char *)"*abs" : symbol->section->name;
 
       bfd_print_symbol_vandf((PTR)file,symbol);
 
@@ -1610,6 +1683,37 @@ DEFUN(NAME(aout,print_symbol),(ignore_abfd, afile, symbol, how),
 	      (unsigned)(aout_symbol(symbol)->desc & 0xffff),
 	      (unsigned)(aout_symbol(symbol)->other & 0xff),
 	      (unsigned)(aout_symbol(symbol)->type  & 0xff));
+      if (symbol->name)
+        fprintf(file," %s", symbol->name);
+    }
+    break;
+  case bfd_print_symbol_nm:
+    {
+      int section_code = bfd_decode_symclass  (symbol);
+
+      if (section_code == 'U')
+	fprintf(file, "        ");
+      else if (symbol->section != (asection *)NULL)
+	fprintf_vma(file, symbol->value+symbol->section->vma);
+      else 
+	fprintf_vma(file, symbol->value);
+      if (section_code == '?')
+	{
+	  int type_code = aout_symbol(symbol)->type  & 0xff;
+	  char *stab_name = aout_stab_name(type_code);
+	  char buf[10];
+	  if (stab_name == NULL)
+	    {
+	      sprintf(buf, "(%d)", type_code);
+	      stab_name = buf;
+	    }
+	  fprintf(file," - %02x %04x %5s",
+		  (unsigned)(aout_symbol(symbol)->other & 0xff),
+		  (unsigned)(aout_symbol(symbol)->desc & 0xffff),
+		  stab_name);
+        }
+      else
+	fprintf(file," %c", section_code);
       if (symbol->name)
         fprintf(file," %s", symbol->name);
     }
@@ -1642,6 +1746,7 @@ DEFUN(NAME(aout,find_nearest_line),(abfd,
   /* Run down the file looking for the filename, function and linenumber */
   asymbol **p;
   static  char buffer[100];
+  static  char filename_buffer[200];
   bfd_vma high_line_vma = ~0;
   bfd_vma low_func_vma = 0;
   asymbol *func = 0;
@@ -1651,9 +1756,28 @@ DEFUN(NAME(aout,find_nearest_line),(abfd,
   if (symbols != (asymbol **)NULL) {
     for (p = symbols; *p; p++) {
       aout_symbol_type  *q = (aout_symbol_type *)(*p);
+    next:
       switch (q->type){
       case N_SO:
 	*filename_ptr = q->symbol.name;
+	/* Look ahead to next symbol to check if that too is an N_SO. */
+	p++;
+	if (*p == NULL)
+	  break;
+	q = (aout_symbol_type *)(*p);
+	if (q->type != N_SO)
+	  goto next;
+
+	/* Found a second N_SO  First is directory; second is filename. */
+	if (q->symbol.name[0] == '/')
+	  *filename_ptr = q->symbol.name;
+	else
+	  {
+	    sprintf(filename_buffer, "%.140s%.50s",
+		    *filename_ptr, q->symbol.name);
+	    *filename_ptr = filename_buffer;
+	  }
+	
 	if (obj_textsec(abfd) != section) {
 	  return true;
 	}

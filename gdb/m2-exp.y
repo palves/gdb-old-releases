@@ -32,7 +32,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include <string.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "frame.h"
 #include "expression.h"
@@ -42,6 +41,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* These MUST be included in any grammar file!!!!
    Please choose unique names! */
+#define	yymaxdepth m2_maxdepth
 #define	yyparse	m2_parse
 #define	yylex	m2_lex
 #define	yyerror	m2_error
@@ -61,9 +61,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yyps	m2_ps
 #define	yypv	m2_pv
 #define	yys	m2_s
+#define	yy_yys	m2_yys
 #define	yystate	m2_state
 #define	yytmp	m2_tmp
 #define	yyv	m2_v
+#define	yy_yyv	m2_yyv
 #define	yyval	m2_val
 #define	yylloc	m2_lloc
 
@@ -129,7 +131,7 @@ char *make_qualname();
 %token <sval> NAME BLOCKNAME IDENT CONST VARNAME
 %token <sval> TYPENAME
 
-%token SIZE CAP ORD HIGH ABS MIN MAX FLOAT_FUNC VAL CHR ODD TRUNC
+%token SIZE CAP ORD HIGH ABS MIN_FUNC MAX_FUNC FLOAT_FUNC VAL CHR ODD TRUNC
 %token INC DEC INCL EXCL
 
 /* The GDB scope operator */
@@ -209,13 +211,13 @@ exp	: 	HIGH '(' exp ')'
 			{ write_exp_elt_opcode (UNOP_HIGH); }
 	;
 
-exp 	:	MIN '(' type ')'
+exp 	:	MIN_FUNC '(' type ')'
 			{ write_exp_elt_opcode (UNOP_MIN);
 			  write_exp_elt_type ($3);
 			  write_exp_elt_opcode (UNOP_MIN); }
 	;
 
-exp	: 	MAX '(' type ')'
+exp	: 	MAX_FUNC '(' type ')'
 			{ write_exp_elt_opcode (UNOP_MAX);
 			  write_exp_elt_type ($3);
 			  write_exp_elt_opcode (UNOP_MIN); }
@@ -574,10 +576,25 @@ variable:	NAME
 				case LOC_REGISTER:
 				case LOC_ARG:
 				case LOC_LOCAL:
+				case LOC_REF_ARG:
+				case LOC_REGPARM:
+				case LOC_LOCAL_ARG:
 				  if (innermost_block == 0 ||
 				      contained_in (block_found,
 						    innermost_block))
 				    innermost_block = block_found;
+				  break;
+
+				case LOC_UNDEF:
+				case LOC_CONST:
+				case LOC_STATIC:
+				case LOC_TYPEDEF:
+				case LOC_LABEL:	/* maybe should go above? */
+				case LOC_BLOCK:
+				case LOC_CONST_BYTES:
+				  /* These are listed so gcc -Wall will reveal
+				     un-handled cases.  */
+				  break;
 				}
 			      write_exp_elt_opcode (OP_VAR_VALUE);
 			      write_exp_elt_sym (sym);
@@ -782,8 +799,8 @@ static struct keyword keytab[] =
     {"NOT",   NOT	 },
     {"DIV",   DIV    	 },
     {"INC",   INC	 },
-    {"MAX",   MAX	 },
-    {"MIN",   MIN	 },
+    {"MAX",   MAX_FUNC	 },
+    {"MIN",   MIN_FUNC	 },
     {"MOD",   MOD	 },
     {"ODD",   ODD	 },
     {"CAP",   CAP	 },

@@ -136,7 +136,7 @@ DEFUN(compatible,(a,b),
 
 int bfd_default_scan_num_mach();
 #define N(a,b,d) \
-{ 32, 32, 8,bfd_arch_i960,a,"i960",b,d,compatible,scan_960_mach,0,}
+{ 32, 32, 8,bfd_arch_i960,a,"i960",b,3,d,compatible,scan_960_mach,0,}
 
 static bfd_arch_info_type arch_info_struct[] = 
 { 

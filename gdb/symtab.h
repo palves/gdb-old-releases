@@ -19,7 +19,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #if !defined (SYMTAB_H)
 #define SYMTAB_H 1
-#include <obstack.h>
+#include "obstack.h"
 
 /* An obstack to hold objects that should be freed
    when we load a new symbol table.
@@ -32,12 +32,6 @@ extern struct obstack *psymbol_obstack;
 /* Some definitions and declarations to go with use of obstacks.  */
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
-#ifdef __STDC__
-extern void *xmalloc ();
-#else
-extern char *xmalloc ();
-#endif
-extern void free ();
 
 /* Some macros for char-based bitfields.  */
 #define B_SET(a,x) (a[x>>3] |= (1 << (x&7)))
@@ -122,10 +116,6 @@ enum type_code
    someone referenced a type that wasn't definined in a source file
    via (struct sir_not_appearing_in_this_film *)).  */
 #define TYPE_FLAG_STUB 8
-/* Set when a class has a constructor defined */
-#define	TYPE_FLAG_HAS_CONSTRUCTOR	256
-/* Set when a class has a destructor defined */
-#define	TYPE_FLAG_HAS_DESTRUCTOR	512
 
 struct type
 {
@@ -143,6 +133,7 @@ struct type
      For a range type, describes the type of the full range.
      Unused otherwise.  */
   struct type *target_type;
+
   /* Type that is a pointer to this type.
      Zero if no such pointer-to type is known yet.
      The debugger may add the address of such a type
@@ -150,26 +141,11 @@ struct type
   struct type *pointer_type;
   /* C++: also need a reference type.  */
   struct type *reference_type;
-  struct type **arg_types;
-  
   /* Type that is a function returning this type.
      Zero if no such function type is known here.
      The debugger may add the address of such a type
      if it has to construct one later.  */
   struct type *function_type;
-
-/* Handling of pointers to members:
-   TYPE_MAIN_VARIANT is used for pointer and pointer
-   to member types.  Normally it the value of the address of its
-   containing type.  However, for pointers to members, we must be
-   able to allocate pointer to member types and look them up
-   from some place of reference.
-   NEXT_VARIANT is the next element in the chain.
-
-   A long time ago (Jul 88; GDB 2.5) Tiemann said that main_variant
-   may no longer be necessary and that he might eliminate it.  I don't
-   know whether this is still true (or ever was).  */
-  struct type *main_variant, *next_variant;
 
   /* Flags about this type.  */
   short flags;
@@ -206,7 +182,32 @@ struct type
       char *name;
     } *fields;
 
-  /* C++ */
+  /* For types with virtual functions, VPTR_BASETYPE is the base class which
+     defined the virtual function table pointer.  VPTR_FIELDNO is
+     the field number of that pointer in the structure.
+
+     For types that are pointer to member types, VPTR_BASETYPE
+     is the type that this pointer is a member of.
+
+     Unused otherwise.  */
+  struct type *vptr_basetype;
+
+  int vptr_fieldno;
+
+  /* Slot to point to additional language-specific fields of this type.  */
+  union type_specific
+    {
+      /* ARG_TYPES is for TYPE_CODE_METHOD and TYPE_CODE_FUNCTION.  */
+      struct type **arg_types;
+      /* CPLUS_STUFF is for TYPE_CODE_STRUCT.  */
+      struct cplus_struct_type *cplus_stuff;
+    } type_specific;
+};
+
+/* C++ language-specific information for TYPE_CODE_STRUCT and TYPE_CODE_UNION
+   nodes.  */
+struct cplus_struct_type
+{
   B_TYPE *virtual_field_bits; /* if base class is virtual */
   B_TYPE *private_field_bits;
   B_TYPE *protected_field_bits;
@@ -233,10 +234,6 @@ struct type
       /* The list of methods.  */
       struct fn_field
 	{
-#if 0
-	  /* The overloaded name */
-	  char *name;
-#endif
 	  /* The return value of the method */
 	  struct type *type;
 	  /* The argument list */
@@ -247,10 +244,12 @@ struct type
 	  /* For virtual functions.   */
 	  /* First baseclass that defines this virtual function.   */
 	  struct type *fcontext;
+	  unsigned int is_const : 1;
+	  unsigned int is_volatile : 1;
 	  /* Index into that baseclass's virtual function table,
-	     minus 1; else if static: VOFFSET_STATIC; else: 0.  */
-	  int voffset;
-#	  define VOFFSET_STATIC (-1)
+	     minus 2; else if static: VOFFSET_STATIC; else: 0.  */
+	  unsigned voffset : 30;
+#	  define VOFFSET_STATIC 1
 	} *fn_fields;
 
       B_TYPE *private_fn_field_bits;
@@ -260,18 +259,6 @@ struct type
 
   unsigned char via_protected;
   unsigned char via_public;
-
-  /* For types with virtual functions, VPTR_BASETYPE is the base class which
-     defined the virtual function table pointer.  VPTR_FIELDNO is
-     the field number of that pointer in the structure.
-
-     For types that are pointer to member types, VPTR_BASETYPE
-     ifs the type that this pointer is a member of.
-
-     Unused otherwise.  */
-  struct type *vptr_basetype;
-
-  int vptr_fieldno;
 };
 
 /* All of the name-scope contours of the program
@@ -512,7 +499,8 @@ struct symtab
     struct symtab *next;
     /* List of all symbol scope blocks for this symtab.  */
     struct blockvector *blockvector;
-    /* Table mapping core addresses to line numbers for this file.  */
+    /* Table mapping core addresses to line numbers for this file.
+       Can be NULL if none.  */
     struct linetable *linetable;
     /* Name of this source file.  */
     char *filename;
@@ -540,6 +528,11 @@ struct symtab
        0 if not yet known.  */
     char *fullname;
 
+    /* Object file from which this symbol information was read.  */
+    struct objfile *objfile;
+    /* Chain of all symtabs owned by that objfile.  */
+    struct symtab *objfile_chain;
+
     /* Anything extra for this symtab.  This is for target machines
        with special debugging info of some sort (which cannot just
        be represented in a normal symtab).  */
@@ -565,30 +558,15 @@ struct partial_symtab
   /* Name of the source file which this partial_symtab defines */
   char *filename;
 
-  /* Name of the symbol file from which symbols should be read.  */
-  char *symfile_name;
+  /* Information about the object file from which symbols should be read.  */
+  struct objfile *objfile;
+  /* Chain of psymtabs owned by this objfile */
+  struct partial_symtab *objfile_chain;
+
   /* Address relative to which the symbols in this file are.  Need to
      relocate by this amount when reading in symbols from the symbol
      file.  */
   CORE_ADDR addr;
-
-  /* Information that lets *read_symtab (below) locate the part of the
-     symbol table that this psymtab corresponds to.  This information
-     is private to the format-dependent symbol reading routines.
-
-     For dbxread: Offset within file symbol table of first local symbol for
-     this file, and length (in bytes) of the section of the symbol table
-     devoted to this file's symbols (actually, the section bracketed
-     may contain more than just this file's symbols).
-     If ldsymlen is 0, the only reason for this thing's existence is
-     the dependency list below.  Nothing else will happen when it is
-     read in.
-
-     For mipsread:  ldsymoff is the index of the FDR that this psymtab
-     represents; ldsymlen points to the symbol table header HDRR from
-     the symbol file that the psymtab was created from.  */
-  int ldsymoff, ldsymlen;
-
   /* Range of text addresses covered by this file; texthigh is the
      beginning of the next section. */
   CORE_ADDR textlow, texthigh;
@@ -617,6 +595,12 @@ struct partial_symtab
   /* Pointer to function which will read in the symtab corresponding to
      this psymtab.  */
   void (*read_symtab) ();
+  /* Information that lets read_symtab() locate the part of the symbol table
+     that this psymtab corresponds to.  This information is private to the
+     format-dependent symbol reading routines.  For further detail examine
+     the various symbol reading modules.  Should really be (void *) but is
+     (char *) as with other such gdb variables.  (FIXME) */
+  char *read_symtab_private;
   /* Non-zero if the symtab corresponding to this psymtab has been
      readin */
   unsigned char readin;
@@ -643,16 +627,12 @@ struct symtab *current_source_symtab;
 
 int current_source_line;
 
-#define BLOCKLIST(symtab) (symtab)->blockvector
 #define BLOCKVECTOR(symtab) (symtab)->blockvector
 
-#define LINELIST(symtab) (symtab)->linetable
 #define LINETABLE(symtab) (symtab)->linetable
 
 /* Macros normally used to access components of symbol table structures.  */
 
-#define BLOCKLIST_NBLOCKS(blocklist) (blocklist)->nblocks
-#define BLOCKLIST_BLOCK(blocklist,n) (blocklist)->block[n]
 #define BLOCKVECTOR_NBLOCKS(blocklist) (blocklist)->nblocks
 #define BLOCKVECTOR_BLOCK(blocklist,n) (blocklist)->block[n]
 
@@ -683,8 +663,6 @@ int current_source_line;
 #define TYPE_POINTER_TYPE(thistype) (thistype)->pointer_type
 #define TYPE_REFERENCE_TYPE(thistype) (thistype)->reference_type
 #define TYPE_FUNCTION_TYPE(thistype) (thistype)->function_type
-#define TYPE_MAIN_VARIANT(thistype) (thistype)->main_variant
-#define TYPE_NEXT_VARIANT(thistype) (thistype)->next_variant
 #define TYPE_LENGTH(thistype) (thistype)->length
 #define TYPE_FLAGS(thistype) (thistype)->flags
 #define TYPE_UNSIGNED(thistype) ((thistype)->flags & TYPE_FLAG_UNSIGNED)
@@ -695,16 +673,19 @@ int current_source_line;
 #define TYPE_VPTR_BASETYPE(thistype) (thistype)->vptr_basetype
 #define TYPE_DOMAIN_TYPE(thistype) (thistype)->vptr_basetype
 #define TYPE_VPTR_FIELDNO(thistype) (thistype)->vptr_fieldno
-#define TYPE_FN_FIELDS(thistype) (thistype)->fn_fields
-#define TYPE_NFN_FIELDS(thistype) (thistype)->nfn_fields
-#define TYPE_NFN_FIELDS_TOTAL(thistype) (thistype)->nfn_fields_total
-#define TYPE_ARG_TYPES(thistype) (thistype)->arg_types
+#define TYPE_FN_FIELDS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->fn_fields
+#define TYPE_NFN_FIELDS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->nfn_fields
+#define TYPE_NFN_FIELDS_TOTAL(thistype) TYPE_CPLUS_SPECIFIC(thistype)->nfn_fields_total
+#define	TYPE_TYPE_SPECIFIC(thistype) (thistype)->type_specific
+#define TYPE_ARG_TYPES(thistype) (thistype)->type_specific.arg_types
+#define TYPE_CPLUS_SPECIFIC(thistype) (thistype)->type_specific.cplus_stuff
 #define TYPE_BASECLASS(thistype,index) (thistype)->fields[index].type
-#define TYPE_N_BASECLASSES(thistype) (thistype)->n_baseclasses
+#define TYPE_N_BASECLASSES(thistype) TYPE_CPLUS_SPECIFIC(thistype)->n_baseclasses
 #define TYPE_BASECLASS_NAME(thistype,index) (thistype)->fields[index].name
 #define TYPE_BASECLASS_BITPOS(thistype,index) (thistype)->fields[index].bitpos
 #define BASETYPE_VIA_PUBLIC(thistype, index) (!TYPE_FIELD_PRIVATE(thistype, index))
-#define BASETYPE_VIA_VIRTUAL(thistype, index) B_TST((thistype)->virtual_field_bits, (index))
+#define BASETYPE_VIA_VIRTUAL(thistype, index) \
+  B_TST(TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits, (index))
 
 #define TYPE_FIELD(thistype, n) (thistype)->fields[n]
 #define TYPE_FIELD_TYPE(thistype, n) (thistype)->fields[n].type
@@ -714,44 +695,50 @@ int current_source_line;
 #define TYPE_FIELD_BITSIZE(thistype, n) (thistype)->fields[n].bitsize
 #define TYPE_FIELD_PACKED(thistype, n) (thistype)->fields[n].bitsize
 
-#define TYPE_FIELD_PRIVATE_BITS(thistype) (thistype)->private_field_bits
-#define TYPE_FIELD_PROTECTED_BITS(thistype) (thistype)->protected_field_bits
-#define TYPE_FIELD_VIRTUAL_BITS(thistype) (thistype)->virtual_field_bits
-#define SET_TYPE_FIELD_PRIVATE(thistype, n) B_SET ((thistype)->private_field_bits, (n))
-#define SET_TYPE_FIELD_PROTECTED(thistype, n) B_SET ((thistype)->protected_field_bits, (n))
-#define SET_TYPE_FIELD_VIRTUAL(thistype, n) B_SET ((thistype)->virtual_field_bits, (n))
-#define TYPE_FIELD_PRIVATE(thistype, n) B_TST((thistype)->private_field_bits, (n))
-#define TYPE_FIELD_PROTECTED(thistype, n) B_TST((thistype)->protected_field_bits, (n))
-#define TYPE_FIELD_VIRTUAL(thistype, n) B_TST((thistype)->virtual_field_bits, (n))
-
-#define TYPE_HAS_DESTRUCTOR(thistype) ((thistype)->flags & TYPE_FLAG_HAS_DESTRUCTOR)
-#define TYPE_HAS_CONSTRUCTOR(thistype) ((thistype)->flags & TYPE_FLAG_HAS_CONSTRUCTOR)
+#define TYPE_FIELD_PRIVATE_BITS(thistype) \
+  TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits
+#define TYPE_FIELD_PROTECTED_BITS(thistype) \
+  TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits
+#define TYPE_FIELD_VIRTUAL_BITS(thistype) \
+  TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits
+#define SET_TYPE_FIELD_PRIVATE(thistype, n) \
+  B_SET (TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits, (n))
+#define SET_TYPE_FIELD_PROTECTED(thistype, n) \
+  B_SET (TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits, (n))
+#define SET_TYPE_FIELD_VIRTUAL(thistype, n) \
+  B_SET (TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits, (n))
+#define TYPE_FIELD_PRIVATE(thistype, n) \
+  B_TST(TYPE_CPLUS_SPECIFIC(thistype)->private_field_bits, (n))
+#define TYPE_FIELD_PROTECTED(thistype, n) \
+B_TST(TYPE_CPLUS_SPECIFIC(thistype)->protected_field_bits, (n))
+#define TYPE_FIELD_VIRTUAL(thistype, n) \
+       B_TST(TYPE_CPLUS_SPECIFIC(thistype)->virtual_field_bits, (n))
 
 #define TYPE_FIELD_STATIC(thistype, n) ((thistype)->fields[n].bitpos == -1)
 #define TYPE_FIELD_STATIC_PHYSNAME(thistype, n) ((char *)(thistype)->fields[n].bitsize)
 
-#define TYPE_FN_FIELDLISTS(thistype) (thistype)->fn_fieldlists
-#define TYPE_FN_FIELDLIST(thistype, n) (thistype)->fn_fieldlists[n]
-#define TYPE_FN_FIELDLIST1(thistype, n) (thistype)->fn_fieldlists[n].fn_fields
-#define TYPE_FN_FIELDLIST_NAME(thistype, n) (thistype)->fn_fieldlists[n].name
-#define TYPE_FN_FIELDLIST_LENGTH(thistype, n) (thistype)->fn_fieldlists[n].length
+#define TYPE_FN_FIELDLISTS(thistype) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists
+#define TYPE_FN_FIELDLIST(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n]
+#define TYPE_FN_FIELDLIST1(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n].fn_fields
+#define TYPE_FN_FIELDLIST_NAME(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n].name
+#define TYPE_FN_FIELDLIST_LENGTH(thistype, n) TYPE_CPLUS_SPECIFIC(thistype)->fn_fieldlists[n].length
 
-#define TYPE_FN_FIELD(thistype, n) (thistype)[n]
-#define TYPE_FN_FIELD_NAME(thistype, n) (thistype)[n].name
-#define TYPE_FN_FIELD_TYPE(thistype, n) (thistype)[n].type
-#define TYPE_FN_FIELD_ARGS(thistype, n) TYPE_ARG_TYPES ((thistype)[n].type)
-#define TYPE_FN_FIELD_PHYSNAME(thistype, n) (thistype)[n].physname
-#define TYPE_FN_FIELD_VIRTUAL_P(thistype, n) ((thistype)[n].voffset > 0)
-#define TYPE_FN_FIELD_STATIC_P(thistype, n) ((thistype)[n].voffset == VOFFSET_STATIC)
-#define TYPE_FN_FIELD_VOFFSET(thistype, n) ((thistype)[n].voffset-1)
-#define TYPE_FN_FIELD_FCONTEXT(thistype, n) ((thistype)[n].fcontext)
+#define TYPE_FN_FIELD(thisfn, n) (thisfn)[n]
+#define TYPE_FN_FIELD_NAME(thisfn, n) (thisfn)[n].name
+#define TYPE_FN_FIELD_TYPE(thisfn, n) (thisfn)[n].type
+#define TYPE_FN_FIELD_ARGS(thisfn, n) TYPE_ARG_TYPES ((thisfn)[n].type)
+#define TYPE_FN_FIELD_PHYSNAME(thisfn, n) (thisfn)[n].physname
+#define TYPE_FN_FIELD_VIRTUAL_P(thisfn, n) ((thisfn)[n].voffset > 1)
+#define TYPE_FN_FIELD_STATIC_P(thisfn, n) ((thisfn)[n].voffset == VOFFSET_STATIC)
+#define TYPE_FN_FIELD_VOFFSET(thisfn, n) ((thisfn)[n].voffset-2)
+#define TYPE_FN_FIELD_FCONTEXT(thisfn, n) ((thisfn)[n].fcontext)
 
-#define TYPE_FN_PRIVATE_BITS(thistype) (thistype).private_fn_field_bits
-#define TYPE_FN_PROTECTED_BITS(thistype) (thistype).protected_fn_field_bits
-#define SET_TYPE_FN_PRIVATE(thistype, n) B_SET ((thistype).private_fn_field_bits, n)
-#define SET_TYPE_FN_PROTECTED(thistype, n) B_SET ((thistype).protected_fn_field_bits, n)
-#define TYPE_FN_PRIVATE(thistype, n) B_TST ((thistype).private_fn_field_bits, n)
-#define TYPE_FN_PROTECTED(thistype, n) B_TST ((thistype).protected_fn_field_bits, n)
+#define TYPE_FN_PRIVATE_BITS(thisfn) (thisfn).private_fn_field_bits
+#define TYPE_FN_PROTECTED_BITS(thisfn) (thisfn).protected_fn_field_bits
+#define SET_TYPE_FN_PRIVATE(thisfn, n) B_SET ((thisfn).private_fn_field_bits, n)
+#define SET_TYPE_FN_PROTECTED(thisfn, n) B_SET ((thisfn).protected_fn_field_bits, n)
+#define TYPE_FN_PRIVATE(thisfn, n) B_TST ((thisfn).private_fn_field_bits, n)
+#define TYPE_FN_PROTECTED(thisfn, n) B_TST ((thisfn).protected_fn_field_bits, n)
 
 /* The virtual function table is now an array of structures
    which have the form { int16 offset, delta; void *pfn; }. 
@@ -793,7 +780,6 @@ extern struct type *lookup_enum ();
 extern struct type *lookup_struct_elt_type ();
 extern struct type *lookup_pointer_type ();
 extern struct type *lookup_function_type ();
-extern struct type *lookup_basetype_type ();
 extern struct type *create_array_type ();
 extern struct symbol *block_function ();
 extern struct symbol *find_pc_function ();
@@ -809,10 +795,9 @@ extern char *type_name_no_tag ();
 extern int contained_in();
 
 /* C++ stuff.  */
+extern struct type *lookup_template_type ();
 extern struct type *lookup_reference_type ();
 extern struct type *lookup_member_type ();
-extern struct type *lookup_method_type ();
-extern struct type *lookup_class ();
 extern void smash_to_method_type ();
 void smash_to_member_type (
 #ifdef __STDC__
@@ -822,9 +807,6 @@ void smash_to_member_type (
 extern struct type *allocate_stub_method ();
 /* end of C++ stuff.  */
 
-extern void free_all_symtabs ();
-extern void free_all_psymtabs ();
-extern void free_inclink_symtabs ();
 extern void reread_symbols ();
 
 extern struct type *builtin_type_void;
@@ -838,6 +820,9 @@ extern struct type *builtin_type_unsigned_int;
 extern struct type *builtin_type_unsigned_long;
 extern struct type *builtin_type_float;
 extern struct type *builtin_type_double;
+extern struct type *builtin_type_long_double;
+extern struct type *builtin_type_complex;
+extern struct type *builtin_type_double_complex;
 /* This type represents a type that was unrecognized in symbol
    read-in.  */
 extern struct type *builtin_type_error;
@@ -922,9 +907,6 @@ void select_source_symtab (
 			   );
 
 char **make_symbol_completion_list ();
-
-/* The entry point of a file we are reading.  */
-extern CORE_ADDR entry_point;
 
 /* Maximum and minimum values of built-in types */
 #define	MAX_OF_TYPE(t)	\

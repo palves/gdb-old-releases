@@ -26,7 +26,7 @@ int bfd_default_scan_num_mach();
 
 
 #define N(name, print,d)  \
-{  32, 32, 8, bfd_arch_m68k, name, "m68k",print,d,bfd_default_compatible,bfd_default_scan, }
+{  32, 32, 8, bfd_arch_m68k, name, "m68k",print,2,d,bfd_default_compatible,bfd_default_scan, }
 
 static bfd_arch_info_type arch_info_struct[] =
 { 

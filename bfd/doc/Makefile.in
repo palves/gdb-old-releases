@@ -1,0 +1,229 @@
+srcdir = .
+
+ddestdir = /usr/local
+idestdir = $(ddestdir)
+MKDOC=$(srcdir)/chew
+SHELL = /bin/sh
+
+MAKEINFO = makeinfo
+
+# main GDB source directory
+
+DOCFILES = aoutx.texi  archive.texi archures.texi \
+	bfd.texi  cache.texi coffcode.texi \
+	core.texi  format.texi  libbfd.texi  \
+	opncls.texi  reloc.texi  section.texi  \
+	syms.texi  targets.texi init.texi ctor.texi
+
+PROTOS = archive.p archures.p bfd.p \
+	 core.p format.p \
+	libbfd.p opncls.p reloc.p \
+	section.p syms.p targets.p  \
+	format.p  core.p init.p
+
+IPROTOS = cache.ip libbfd.ip reloc.ip init.ip archures.ip ctor.ip coffcode.ip
+
+# SRCDOC, SRCPROT, SRCIPROT only used to sidestep Sun Make bug in interaction 
+# between VPATH and suffix rules.  If you use GNU Make, perhaps other Makes,
+# you don't need these three:
+SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
+	$(srcdir)/../archures.c $(srcdir)/../bfd.c \
+	$(srcdir)/../cache.c $(srcdir)/../coffcode.h \
+	$(srcdir)/../core.c  $(srcdir)/../format.c \
+	$(srcdir)/../libbfd.c $(srcdir)/../opncls.c \
+	$(srcdir)/../reloc.c  $(srcdir)/../section.c \
+	$(srcdir)/../syms.c  $(srcdir)/../targets.c \
+	$(srcdir)/../init.c
+
+SRCPROT = $(srcdir)/../archive.c $(srcdir)/../archures.c \
+	$(srcdir)/../bfd.c $(srcdir)/../coffcode.h $(srcdir)/../core.c \
+	$(srcdir)/../format.c $(srcdir)/../libbfd.c \
+	$(srcdir)/../opncls.c $(srcdir)/../reloc.c \
+	$(srcdir)/../section.c $(srcdir)/../syms.c \
+	$(srcdir)/../targets.c $(srcdir)/../init.c    
+
+SRCIPROT = $(srcdir)/../cache.c $(srcdir)/../libbfd.c \
+	$(srcdir)/../reloc.c $(srcdir)/../cpu-h8300.c \
+	$(srcdir)/../cpu-i960.c $(srcdir)/../archures.c \
+	$(srcdir)/../init.c $(srcdir)/../ctor.c
+
+STAGESTUFF = $(DOCFILES) *.info*
+
+all install:
+
+all-info: bfd.info
+
+install-info: all-info
+	for i in *.info* ; do \
+		echo Installing $$i... ; \
+		(cp $$i $(idestdir)/info/$$i.new \
+			&& mv -f $(idestdir)/info/$$i.new $(idestdir)/info/$$i) \
+		|| exit 1 ; \
+	done
+
+docs: chew protos bfd.info bfd.dvi bfd.ps
+
+chew:chew.c
+	gcc -o chew -I$(srcdir)/.. -I$(srcdir)/../../include chew.c
+
+protos: libbfd.h libcoff.h bfd.h
+
+aoutx.texi: $(MKDOC) $(srcdir)/../aoutx.h
+	$(MKDOC) -d <$(srcdir)/../aoutx.h >aoutx.texi
+
+archive.texi: $(MKDOC) $(srcdir)/../archive.c
+	$(MKDOC) -d <$(srcdir)/../archive.c >archive.texi 
+
+archures.texi:  $(srcdir)/../archures.c
+	$(MKDOC) -d < $(srcdir)/../archures.c >archures.texi 
+
+bfd.texi: $(MKDOC) $(srcdir)/../bfd.c
+	$(MKDOC) -d < $(srcdir)/../bfd.c >bfd.texi
+
+cache.texi: $(MKDOC) $(srcdir)/../cache.c
+	$(MKDOC) -d < $(srcdir)/../cache.c >cache.texi
+
+coffcode.texi:	$(MKDOC) $(srcdir)/../coffcode.h
+	$(MKDOC) -d <$(srcdir)/../coffcode.h >coffcode.texi
+
+core.texi: $(MKDOC) $(srcdir)/../core.c
+	$(MKDOC) -d <$(srcdir)/../core.c >core.texi
+
+format.texi: $(MKDOC) $(srcdir)/../format.c
+	$(MKDOC) -d <$(srcdir)/../format.c >format.texi
+
+libbfd.texi: $(MKDOC) $(srcdir)/../libbfd.c
+	$(MKDOC) -d < $(srcdir)/../libbfd.c >libbfd.texi 
+
+opncls.texi:	$(srcdir)/chew $(srcdir)/../opncls.c
+	$(MKDOC) -d  <$(srcdir)/../opncls.c >opncls.texi
+
+reloc.texi : $(MKDOC) $(srcdir)/../reloc.c
+	$(MKDOC) -d <$(srcdir)/../reloc.c >reloc.texi 
+
+section.texi: $(MKDOC) $(srcdir)/../section.c
+	$(MKDOC) -d <$(srcdir)/../section.c >section.texi 
+
+syms.texi : $(MKDOC) $(srcdir)/../syms.c
+	$(MKDOC) -d <$(srcdir)/../syms.c >syms.texi
+
+targets.texi: $(MKDOC) $(srcdir)/../targets.c
+	$(MKDOC) -d <$(srcdir)/../targets.c >targets.texi
+
+init.texi: $(MKDOC) $(srcdir)/../init.c
+	$(MKDOC) -d <$(srcdir)/../init.c >init.texi
+
+ctor.texi: $(MKDOC) $(srcdir)/../ctor.c
+	$(MKDOC) -d <$(srcdir)/../ctor.c >ctor.texi
+
+
+libbfd.h: $(srcdir)/../libbfd-in.h	\
+	$(srcdir)/../init.c		\
+	$(srcdir)/../libbfd.c		\
+	$(srcdir)/../init.c		\
+	$(srcdir)/../libbfd.c		\
+	$(srcdir)/../cache.c		\
+	$(srcdir)/../ctor.c		\
+	$(srcdir)/../reloc.c		\
+	$(srcdir)/../cpu-h8300.c	\
+	$(srcdir)/../cpu-i960.c		\
+	$(srcdir)/../archures.c		\
+	$(srcdir)/chew
+	cat $(srcdir)/../libbfd-in.h >libbfd.h 
+	$(MKDOC) -i < $(srcdir)/../init.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../libbfd.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../init.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../libbfd.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../cache.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../ctor.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../reloc.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../cpu-h8300.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../cpu-i960.c >>libbfd.h
+	$(MKDOC) -i < $(srcdir)/../archures.c >>libbfd.h
+
+libcoff.h: $(srcdir)/../libcoff-in.h	\
+	$(srcdir)/../coffcode.h \
+	$(srcdir)/chew
+	cat $(srcdir)/../libcoff-in.h >libcoff.h
+	$(MKDOC) -i < $(srcdir)/../coffcode.h >>libcoff.h
+
+bfd.h: $(srcdir)/../bfd-in.h 		\
+	$(srcdir)/../init.c 		\
+	$(srcdir)/../opncls.c 		\
+	$(srcdir)/../libbfd.c 		\
+	$(srcdir)/../section.c 		\
+	$(srcdir)/../archures.c		\
+	$(srcdir)/../reloc.c		\
+	$(srcdir)/../syms.c		\
+	$(srcdir)/../archive.c		\
+	$(srcdir)/../core.c		\
+	$(srcdir)/../targets.c		\
+	$(srcdir)/../format.c		\
+	$(srcdir)/chew
+	cat $(srcdir)/../bfd-in.h >bfd.h
+	$(MKDOC) -g<$(srcdir)/../init.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../opncls.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../libbfd.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../section.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../archures.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../reloc.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../syms.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../bfd.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../archive.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../core.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../targets.c >>bfd.h
+	$(MKDOC) -g<$(srcdir)/../format.c >>bfd.h	
+	echo "#endif" >>bfd.h
+
+
+clean:
+	rm -f $(STAGESTUFF) *.p *.ip  bfd.dvi bfd.ps *~* *# bfd.?? bfd.??? chew
+
+bfd.info: $(DOCFILES) bfd.texinfo
+	$(MAKEINFO) -o bfd.info $(srcdir)/bfd.texinfo
+
+bfd.dvi: $(DOCFILES) bfd.texinfo
+	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex bfd.texinfo
+	texindex bfd.??
+	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex bfd.texinfo
+
+bfd.ps: bfd.dvi
+	dvips bfd -o
+	
+quickdoc: $(DOCFILES) bfd.texinfo
+	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex bfd.texinfo
+
+stage1: force
+	- mkdir stage1
+	- mv -f $(STAGESTUFF) stage1
+
+stage2: force
+	- mkdir stage2
+	- mv -f $(STAGESTUFF) stage2
+
+stage3: force
+	- mkdir stage3
+	- mv -f $(STAGESTUFF) stage3
+
+against=stage2
+
+comparison: force
+	for i in $(STAGESTUFF) ; do cmp $$i $(against)/$$i || exit 1 ; done
+
+de-stage1: force
+	- (cd stage1 ; mv -f $(STAGESTUFF) ..)
+	- rmdir stage1
+
+de-stage2: force
+	- (cd stage2 ; mv -f $(STAGESTUFF) ..)
+	- rmdir stage2
+
+de-stage3: force
+	- (cd stage3 ; mv -f $(STAGESTUFF) ..)
+	- rmdir stage3
+
+force:
+
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+	$(SHELL) ./config.status
+

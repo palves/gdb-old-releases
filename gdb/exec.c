@@ -1,5 +1,5 @@
 /* Work with executable files, for GDB. 
-   Copyright (C) 1988, 1989 Free Software Foundation, Inc.
+   Copyright 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "frame.h"
 #include "inferior.h"
 #include "target.h"
@@ -41,6 +40,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 extern char *getenv();
 extern void child_create_inferior (), child_attach ();
 extern void symbol_file_command ();
+
+extern int info_verbose;
 
 /* The Binary File Descriptor handle for the executable file.  */
 
@@ -295,12 +296,17 @@ exec_files_info ()
 {
   struct section_table *p;
 
-  printf ("\tExecutable file `%s'.\n", bfd_get_filename(exec_bfd));
+  printf_filtered ("\t`%s', ", bfd_get_filename(exec_bfd));
+  wrap_here ("        ");
+  printf_filtered ("file type %s.\n", bfd_get_target(exec_bfd));
 
   for (p = exec_ops.sections; p < exec_ops.sections_end; p++) {
-    printf("\t%s", local_hex_string_custom (p->addr, "08"));
-    printf(" - %s is %s\n", local_hex_string_custom (p->endaddr, "08"),
-	bfd_section_name (exec_bfd, p->sec_ptr));
+    printf_filtered ("\t%s", local_hex_string_custom (p->addr, "08"));
+    printf_filtered (" - %s", local_hex_string_custom (p->endaddr, "08"));
+    if (info_verbose)
+      printf_filtered (" @ %s",
+		       local_hex_string_custom (p->sec_ptr->filepos, "08"));
+    printf_filtered (" is %s\n", bfd_section_name (exec_bfd, p->sec_ptr));
   }
 }
 

@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: oasys.c,v 1.38 1991/10/11 10:11:30 gnu Exp $ */
+/* $Id: oasys.c,v 1.40 1991/11/22 19:08:59 gnu Exp $ */
 
 #define UNDERSCORE_HACK 1
 #include "bfd.h"
@@ -476,9 +476,10 @@ DEFUN(oasys_print_symbol,(ignore_abfd, afile, symbol, how),
     fprintf(file,"%s", symbol->name);
     break;
   case bfd_print_symbol_all:
+  case bfd_print_symbol_nm:
     {
-CONST      char *section_name = symbol->section == (asection *)NULL ?
-	"*abs" : symbol->section->name;
+      CONST char *section_name = symbol->section == (asection *)NULL ?
+	(CONST char *) "*abs" : symbol->section->name;
 
       bfd_print_symbol_vandf((PTR)file,symbol);
 

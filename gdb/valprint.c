@@ -1,5 +1,5 @@
-/* Print values for GNU debugger gdb.
-   Copyright (C) 1986, 1988, 1989 Free Software Foundation, Inc.
+/* Print values for GDB, the GNU debugger.
+   Copyright 1986, 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include <string.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "value.h"
 #include "gdbcore.h"
@@ -407,9 +406,9 @@ static int
 is_vtbl_ptr_type(type)
      struct type *type;
 {
-  char *typename = TYPE_NAME(type);
+  char *typename = type_name_no_tag (type);
   static const char vtbl_ptr_name[] =
-    { CPLUS_MARKER,'v','t','b','l','_','p','t','r','_','t','y','p','e' };
+    { CPLUS_MARKER,'v','t','b','l','_','p','t','r','_','t','y','p','e', 0 };
 
   return (typename != NULL && !strcmp(typename, vtbl_ptr_name));
 }
@@ -672,11 +671,7 @@ val_print (type, valaddr, address, stream, format,
   switch (TYPE_CODE (type))
     {
     case TYPE_CODE_ARRAY:
-      /* FIXME: TYPE_LENGTH (type) is unsigned and therefore always
-	 >= 0.  Is "> 0" meant? I'm not sure what an "array of
-	 unspecified length" (mentioned in the comment for the else-part
-	 of this if) is.  */
-      if (TYPE_LENGTH (type) >= 0
+      if (TYPE_LENGTH (type) > 0
 	  && TYPE_LENGTH (TYPE_TARGET_TYPE (type)) > 0)
 	{
 	  elttype = TYPE_TARGET_TYPE (type);
@@ -773,7 +768,7 @@ val_print (type, valaddr, address, stream, format,
 
 	  addr = unpack_pointer (lookup_pointer_type (builtin_type_void),
 				valaddr);
-	  if (addr < 128)
+	  if (addr < 128)			/* FIXME!  What is this 128? */
 	    {
 	      len = TYPE_NFN_FIELDS (domain);
 	      for (i = 0; i < len; i++)
@@ -855,7 +850,7 @@ val_print (type, valaddr, address, stream, format,
 		  /* Somehow pointing into a field.  */
 		  i -= 1;
 		  extra = (val - TYPE_FIELD_BITPOS (domain, i));
-		  if (extra & 0x3)
+		  if (extra & 0x7)
 		    bits = 1;
 		  else
 		    extra >>= 3;
@@ -1237,6 +1232,7 @@ typedef_print (type, new, stream)
    {
 #ifdef _LANG_c
    case language_c:
+   case language_cplus:
       fprintf_filtered(stream, "typedef ");
       type_print(type,"",stream,0);
       if(TYPE_NAME ((SYMBOL_TYPE (new))) == 0
@@ -1463,6 +1459,7 @@ type_print_varspec_prefix (type, stream, show, passed_a_ptr)
 				 0);
       if (passed_a_ptr)
 	fprintf_filtered (stream, "(");
+      break;
 
     case TYPE_CODE_UNDEF:
     case TYPE_CODE_STRUCT:
@@ -1472,6 +1469,8 @@ type_print_varspec_prefix (type, stream, show, passed_a_ptr)
     case TYPE_CODE_FLT:
     case TYPE_CODE_VOID:
     case TYPE_CODE_ERROR:
+    case TYPE_CODE_CHAR:
+    case TYPE_CODE_BOOL:
       /* These types need no prefix.  They are listed here so that
 	 gcc -Wall will reveal any types that haven't been handled.  */
       break;
@@ -1568,6 +1567,8 @@ type_print_varspec_suffix (type, stream, show, passed_a_ptr)
     case TYPE_CODE_FLT:
     case TYPE_CODE_VOID:
     case TYPE_CODE_ERROR:
+    case TYPE_CODE_CHAR:
+    case TYPE_CODE_BOOL:
       /* These types do not need a suffix.  They are listed so that
 	 gcc -Wall will report types that may not have been considered.  */
       break;
@@ -1718,18 +1719,9 @@ type_print_base (type, stream, show, level)
 		  if (TYPE_FLAGS (TYPE_FN_FIELD_TYPE (f, j)) & TYPE_FLAG_STUB)
 		    {
 		      /* Build something we can demangle.  */
-		      char *strchr (), *gdb_mangle_typename ();
-		      char *inner_name = gdb_mangle_typename (type);
-		      char *mangled_name
-			= (char *)xmalloc (strlen (TYPE_FN_FIELDLIST_NAME (type, i))
-					  + strlen (inner_name)
-					  + strlen (TYPE_FN_FIELD_PHYSNAME (f, j))
-					  + 1);
-		      char *demangled_name, *cplus_demangle ();
-		      strcpy (mangled_name, TYPE_FN_FIELDLIST_NAME (type, i));
-		      strcat (mangled_name, inner_name);
-		      strcat (mangled_name, TYPE_FN_FIELD_PHYSNAME (f, j));
-		      demangled_name = cplus_demangle (mangled_name, 1);
+		      char *strchr (), *gdb_mangle_name (), *cplus_demangle ();
+		      char *mangled_name = gdb_mangle_name (type, i, j);
+		      char *demangled_name = cplus_demangle (mangled_name, 1);
 		      if (demangled_name == 0)
 			fprintf_filtered (stream, " <badly mangled name %s>",
 			    mangled_name);
@@ -2027,35 +2019,36 @@ _initialize_valprint ()
 
   print_max = 200;
 
-  /* FIXME!  This assumes that these sizes and types are the same on the
-     host and target machines!  */
-  unsigned_type_table
-    = (char **) xmalloc ((1 + sizeof (unsigned LONGEST)) * sizeof (char *));
-  bzero (unsigned_type_table, (1 + sizeof (unsigned LONGEST)));
-  unsigned_type_table[sizeof (unsigned char)] = "unsigned char";
-  unsigned_type_table[sizeof (unsigned short)] = "unsigned short";
-  unsigned_type_table[sizeof (unsigned long)] = "unsigned long";
-  unsigned_type_table[sizeof (unsigned int)] = "unsigned int";
-#ifdef LONG_LONG
-  unsigned_type_table[TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT] =
-						"unsigned long long";
-#endif
+  /* Initialize the names of the various types based on their lengths on
+     the target, in bits.  Note that ordering is important, so that for example,
+     if ints and longs are the same size, that size will default to "int". */
 
-  signed_type_table
-    = (char **) xmalloc ((1 + sizeof (LONGEST)) * sizeof (char *));
-  bzero (signed_type_table, (1 + sizeof (LONGEST)));
-  signed_type_table[sizeof (char)] = "char";
-  signed_type_table[sizeof (short)] = "short";
-  signed_type_table[sizeof (long)] = "long";
-  signed_type_table[sizeof (int)] = "int";
-#ifdef LONG_LONG
+  unsigned_type_table = (char **)
+    xmalloc ((1 + (TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT)) * sizeof (char *));
+  bzero (unsigned_type_table, (1 + (TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT)));
+  unsigned_type_table[TARGET_CHAR_BIT/TARGET_CHAR_BIT] = "unsigned char";
+  unsigned_type_table[TARGET_SHORT_BIT/TARGET_CHAR_BIT] = "unsigned short";
+  unsigned_type_table[TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT] = "unsigned long long";
+  unsigned_type_table[TARGET_LONG_BIT/TARGET_CHAR_BIT] = "unsigned long";
+  unsigned_type_table[TARGET_INT_BIT/TARGET_CHAR_BIT] = "unsigned int";
+
+  signed_type_table = (char **)
+    xmalloc ((1 + (TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT)) * sizeof (char *));
+  bzero (signed_type_table, (1 + (TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT)));
+  signed_type_table[TARGET_CHAR_BIT/TARGET_CHAR_BIT] = "char";
+  signed_type_table[TARGET_SHORT_BIT/TARGET_CHAR_BIT] = "short";
   signed_type_table[TARGET_LONG_LONG_BIT/TARGET_CHAR_BIT] = "long long";
-#endif
+  signed_type_table[TARGET_LONG_BIT/TARGET_CHAR_BIT] = "long";
+  signed_type_table[TARGET_INT_BIT/TARGET_CHAR_BIT] = "int";
 
-  float_type_table
-    = (char **) xmalloc ((1 + sizeof (double)) * sizeof (char *));
-  bzero (float_type_table, (1 + sizeof (double)));
-  float_type_table[sizeof (float)] = "float";
-  float_type_table[sizeof (double)] = "double";
+  float_type_table = (char **)
+    xmalloc ((1 + (TARGET_LONG_DOUBLE_BIT/TARGET_CHAR_BIT)) * sizeof (char *));
+  bzero (float_type_table, (1 + (TARGET_LONG_DOUBLE_BIT/TARGET_CHAR_BIT)));
+  float_type_table[TARGET_FLOAT_BIT/TARGET_CHAR_BIT] = "float";
+  float_type_table[TARGET_DOUBLE_COMPLEX_BIT/TARGET_CHAR_BIT] = "double complex";
+  float_type_table[TARGET_COMPLEX_BIT/TARGET_CHAR_BIT] = "complex";
+  float_type_table[TARGET_LONG_DOUBLE_BIT/TARGET_CHAR_BIT] = "long double";
+  float_type_table[TARGET_DOUBLE_BIT/TARGET_CHAR_BIT] = "double";
+
   obstack_begin (&dont_print_obstack, 32 * sizeof (struct type *));
 }

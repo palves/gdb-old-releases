@@ -1,0 +1,30 @@
+/*
+ * List of function definitions that may *optionally* be included
+ * in libiberty.a.  The function names must match the filenames,
+ * e.g. bzero() is defined in bzero.c.  (While each file can contain
+ * extra functions, do not list them.)
+ *
+ * In the default libiberty configuration, these object files
+ * (e.g bzero.o) are included if and only if cc fails to find
+ * the corresponding function in libc.  See config/mh-default.
+ */
+
+DEF(bcmp, int, ())
+DEF(bcopy, void, ())
+DEF(bzero, void, ())
+DEF(getopt, int, ())
+DEF(getpagesize, int , ())
+DEF(getcwd, char*, ())
+DEF(index, char*, ())
+DEF(insque, void, ())
+DEF(rindex, char*, ())
+DEF(strdup, char*, ())
+DEF(strerror, char*, ())
+DEF(strstr, char*, ())
+DEF(strtol, long, ())
+DEF(strtoul, long, ())
+DEF(vfork, int, ())
+DEF(vfprintf, int, ())
+DEF(vprintf, int, ())
+DEF(vsprintf, int, ())
+DEF(sigsetmask, int, ())

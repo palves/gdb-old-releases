@@ -23,7 +23,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "libbfd.h"
 
 #define DEFINE_TABLE 
-#include "h8300-opcode.h"
+#include "opcode/h8300.h"
 
 #define MAXSAME 14
 
@@ -130,11 +130,12 @@ FILE *stream)
 	rdisp = thisnib; 
 	break;
       case KBIT:
-	abs = thisnib == 0x80 ? 2:1;
+	abs = thisnib == 0x8 ? 2:1;
 	break;
       case IMM8:
       case ABS8SRC:
       case ABS8DST:
+      case MEMIND:
       case DISP8:
 	abs= data[len>>1];
 	len++;
@@ -167,7 +168,7 @@ FILE *stream)
     ;
 
   }
-  fprintf(stream, "%02x %02x        .word\tH'%x,H'%x\n",
+  fprintf(stream, "%02x %02x        .word\tH'%x,H'%x",
 	  data[0], data[1],
 	  data[0], data[1]);
   return 2;
@@ -193,39 +194,55 @@ FILE *stream)
 	case IMM16:
 	case IMM8:
 	case IMM3:
-	  fprintf(stream, "#H'%x", (unsigned)abs); break;
+	  fprintf(stream, "#0x%x", (unsigned)abs); 
+	  break;
 	case RD8:
-	  fprintf(stream, "%s", regnames[rd]); break;
+	  fprintf(stream, "%s", regnames[rd]); 
+	  break;
 	case RS8:
-	  fprintf(stream, "%s",regnames[rs]); break;
+	  fprintf(stream, "%s",regnames[rs]);
+	  break;
 	case RD16:
-	  fprintf(stream, "r%d", rd& 0x7); break;
+	  fprintf(stream, "r%d", rd& 0x7);
+	  break;
 	case RS16:
-	  fprintf(stream, "r%d", rs & 0x7); break;
+	  fprintf(stream, "r%d", rs & 0x7);
+	  break;
 	case RSINC:
-	  fprintf(stream, "@r%d+", rs & 0x7); break;
+	  fprintf(stream, "@r%d+", rs & 0x7);
+	  break;
 	case RDDEC:
-	  fprintf(stream, "@-r%d", rd & 0x7); break;
+	  fprintf(stream, "@-r%d", rd & 0x7);
+	  break;
 	case RDIND: 
-	  fprintf(stream, "@r%d", rd & 0x7); break;
+	  fprintf(stream, "@r%d", rd & 0x7);
+	  break;
 	case RSIND:
-	  fprintf(stream, "@r%d",rs & 0x7); break;
+	  fprintf(stream, "@r%d",rs & 0x7);
+	  break;
 	case ABS8SRC:
 	case ABS16SRC:
 	case ABS16DST:
 	case ABS8DST:
-	  fprintf(stream, "@H'%x", (unsigned)abs); break;
+	  fprintf(stream, "@0x%x", (unsigned)abs);
+	  break;
+	case MEMIND:
+	  fprintf(stream, "@@%d (%x)",abs, abs);
+	  break;
 	case DISP8:
 	  fprintf(stream, ".%s%d (%x)",(char)abs>0 ? "+" :"", (char)abs,
 		  addr + (char)abs);
 	  break;
 	case DISPSRC:
 	case DISPDST:
-	  fprintf(stream, "@(%d,r%d)", abs, rdisp & 0x7); break;
+	  fprintf(stream, "@(0x%x,r%d)", abs, rdisp & 0x7); 
+	  break;
 	case CCR:
-	  fprintf(stream, "ccr"); break;
+	  fprintf(stream, "ccr"); 
+	  break;
 	case KBIT:
-	  fprintf(stream, "#%d",abs); break;
+	  fprintf(stream, "#%d",abs); 
+	  break;
 	default:
 	  abort();
 	}
@@ -394,6 +411,7 @@ static bfd_arch_info_type arch_info_struct =
     0,	/* only 1 machine */
     "H8/300", /* arch_name  */
     "H8/300", /* printable name */
+    1,
     true,	/* the default machine */
     bfd_default_compatible,
     h8300_scan,

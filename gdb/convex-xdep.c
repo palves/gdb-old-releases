@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "command.h"
 #include "symtab.h"
 #include "value.h"
@@ -913,7 +912,7 @@ core_file_command (filename, from_tty)
       if (filename[0] == '/')
 	corefile = savestring (filename, strlen (filename));
       else
-	corefile = concat (current_directory, "/", filename);
+	corefile = concat (current_directory, "/", filename, NULL);
 
       printf_filtered ("Program %s ", u.u_comm);
 

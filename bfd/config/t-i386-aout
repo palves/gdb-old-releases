@@ -1,1 +1,0 @@
-TDEFINES = -DDEFAULT_VECTOR=i386aout_vec

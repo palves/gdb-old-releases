@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-# $Id: configure,v 1.59 1991/10/16 19:53:31 gnu Exp $
+# $Id: configure,v 1.74 1991/12/04 10:51:27 gnu Exp $
 
 # Please email any bugs, comments, and/or additions to this file to:
 # configure@cygnus.com
@@ -54,10 +54,19 @@ ansi=
 arguments=$*
 commontargets=
 configdirs=
+ddestdir=
 defaulttargets=
 destdir=
 fatal=
 hostsubdir=
+idestdir=
+next_ddestdir=
+next_destdir=
+next_idestdir=
+next_objdir=
+next_site=
+next_target=
+next_tmpdir=
 norecursion=
 objdir=
 objdiroption=
@@ -70,83 +79,144 @@ target=
 targets=
 targetsubdir=
 verbose=
-
+# or maybe grab from gcc/version.c
+version_path=
+next_version_path=
 for arg in $*;
 do
-	case ${arg} in
-	-ansi | +a*)
-		ansi=true
-		clib=clib
-		;;
-	-destdir=* | +destdir=* | +destdi=* | +destd=* | +dest=* | +des=* | +de=* | +d=*)
-		destdir=`echo ${arg} | sed 's/[+-]d[a-z]*=//'`
-		;;
-	-languages=* | +languages=* | +language=* | +languag=* \
-		| +langua=* | +langu=* | +lang=* | +lan=* | +la=* \
-		| +l=*)
-		languages="${languages} `echo ${arg} | sed 's/[+-]l[a-z]*=//'`"
-		;;
-	-gas | +g*)
-		gas=yes
-		;;
-	-help | +h*)
-		fatal=true
-		;;
-	-nfp | +nf*)
-		nfp=yes
-		;;
-	-norecursion | +no*)
-		norecursion=true
-		;;
-	-objdir=* | +objdir=* | +objdi=* | +objd=* | +obj=* | +ob=* | +o=*)
-		objdiroption=${arg}
-		objdir=`echo ${arg} | sed 's/[+-]o[a-z]*=//'`
-		;;
-	-recurring | +recurring | +recurrin | +recurri | +recurr | +recur | +recu | +rec | +re)
-		recurring=true
-		;;
-	-rm | +rm)
-		removing=${arg}
-		;;
-	-site=* | +site=* | +sit=* | +si=*)
-		site=`echo ${arg} | sed 's/[+-]s[a-z]*=//'`
-		;;
-#	-srcdir=* | +srcdir=* | +srcdi=* | +srcd=* | +src=* | +sr=*)
-#		srcdir=`echo ${arg} | sed 's/[+-]s[a-z]*=//'`
-#		;;
-	-subdirs | +su*)
-		subdirs=${arg}
-		;;
-	-target=* | +target=* | +targe=* | +targ=* | +tar=* | +ta=*)
+	# handle things that might have args following as separate words
+	if [ -n "${next_ddestdir}" ] ; then ddestdir=${arg} ; next_ddestdir=
+	elif [ -n "${next_destdir}" ] ; then destdir=${arg} ; next_destdir= ; ddestdir=${destdir} ; idestdir=${destdir}
+	elif [ -n "${next_idestdir}" ] ; then idestdir=${arg} ; next_idestdir=
+	elif [ -n "${next_objdir}" ] ; then objdir=${arg} ; next_objdir=
+	elif [ -n "${next_version_path}" ] ; then version_path=${arg} ; next_version_path=
+	elif [ -n "${next_site}" ] ; then site=${arg} ; next_site=
+	elif [ -n "${next_target}" ] ; then
+		next_target=
 		if [ -n "${targets}" ] ; then
 			subdirs="+subdirs"
 		fi
 
-		newtargets="${targets} `echo ${arg} | sed 's/[+-]t[a-z]*=//'`"
+		newtargets="${targets} ${arg}"
 		targets="${newtargets}"
-		;;
-	-tmpdir=* | +tmpdir=* | +tmpdi=* | +tmpd=* | +tmp=* | +tm=*)
-		tmpdiroption=${arg}
-		TMPDIR=`echo ${arg} | sed 's/[+-]t[a-z]*=//'`
-		;;
-	-v | -verbose | +v*)
-		verbose=${arg}
-		;;
-	-* | +*)
-		(echo ;
-		echo "Unrecognized option: \"${arg}\"". ;
-		echo) 1>&2
-		fatal=true
-		;;
-	*)
-		if [ -n "${hosts}" ] ; then
-			subdirs="+subdirs"
-		fi
 
-		newhosts="${hosts} ${arg}"
-		hosts=${newhosts}
-		;;
-	esac
+	elif [ -n "${next_tmpdir}" ] ; then
+		next_tmpdir=
+		tmpdiroption="+tmpdir=${arg}"
+		TMPDIR=${arg}
+
+	else
+		case ${arg} in
+		-ansi | +a*)
+			ansi=true
+			clib=clib
+			;;
+		-version_path= | +version_path= )
+			next_version_path=yes
+			;;
+		-version_path=* | +version_path=* )
+			version_path=`echo ${arg} | sed 's/[+-]v[a-z_]*=//'`
+			;;
+		-ddestdir=* | +ddestdir=* | +ddestdi=* | +ddestd=* | +ddest=* | +ddes=* | +dde=* | +dd=*)
+			ddestdir=`echo ${arg} | sed 's/[+-]dd[a-z]*=//'`
+			;;
+		-ddestdir | +ddestdir | +ddestdi | +ddestd | +ddest | +ddes | +dde | +dd)
+			next_ddestdir=yes
+			;;
+		-destdir=* | +destdir=* | +destdi=* | +destd=* | +dest=* | +des=* | +de=*)
+			destdir=`echo ${arg} | sed 's/[+-]d[a-z]*=//'`
+			ddestdir=${destdir}
+			idestdir=${destdir}
+			;;
+		-destdir | +destdir | +destdi | +destd | +dest | +des | +de)
+			next_destdir=yes
+			;;
+		-gas | +g*)
+			gas=yes
+			;;
+		-help | +h*)
+			fatal=true
+			;;
+		-idestdir=* | +idestdir=* | +idestdi=* | +idestd=* | +idest=* | +ides=* | +ide=* | +id=*)
+			idestdir=`echo ${arg} | sed 's/[+-]id[a-z]*=//'`
+			;;
+		-idestdir | +idestdir | +idestdi | +idestd | +idest | +ides | +ide | +id)
+			next_idestdir=yes
+			;;
+		-languages=* | +languages=* | +language=* | +languag=* \
+			| +langua=* | +langu=* | +lang=* | +lan=* | +la=* \
+			| +l=*)
+			languages="${languages} `echo ${arg} | sed 's/[+-]l[a-z]*=//'`"
+			;;
+		-nfp | +nf*)
+			nfp=yes
+			;;
+		-norecursion | +no*)
+			norecursion=true
+			;;
+		-objdir=* | +objdir=* | +objdi=* | +objd=* | +obj=* | +ob=* | +o=*)
+			objdiroption=${arg}
+			objdir=`echo ${arg} | sed 's/[+-]o[a-z]*=//'`
+			;;
+		-objdir | +objdir | +objdi | +objd | +obj | +ob | +o)
+			next_objdir=yes
+			;;
+		-recurring | +recurring | +recurrin | +recurri | +recurr | +recur | +recu | +rec | +re)
+			recurring=true
+			arguments=`echo ${arguments} | sed "s:${arg}::"`
+			;;
+		-rm | +rm)
+			removing=${arg}
+			;;
+		-site=* | +site=* | +sit=* | +si=*)
+			site=`echo ${arg} | sed 's/[+-]s[a-z]*=//'`
+			;;
+		-site | +site | +sit | +si)
+			next_site=yes
+			;;
+	#	-srcdir=* | +srcdir=* | +srcdi=* | +srcd=* | +src=* | +sr=*)
+	#		srcdir=`echo ${arg} | sed 's/[+-]s[a-z]*=//'`
+	#		;;
+		-subdirs | +su*)
+			subdirs=${arg}
+			;;
+		-target=* | +target=* | +targe=* | +targ=* | +tar=* | +ta=*)
+			if [ -n "${targets}" ] ; then
+				subdirs="+subdirs"
+			fi
+
+			newtargets="${targets} `echo ${arg} | sed 's/[+-]t[a-z]*=//'`"
+			targets="${newtargets}"
+			;;
+		-target | +target | +targe | +targ | +tar | +ta)
+			next_target=yes
+			;;
+		-tmpdir=* | +tmpdir=* | +tmpdi=* | +tmpd=* | +tmp=* | +tm=*)
+			tmpdiroption=${arg}
+			TMPDIR=`echo ${arg} | sed 's/[+-]t[a-z]*=//'`
+			;;
+		-tmpdir | +tmpdir | +tmpdi | +tmpd | +tmp | +tm)
+			next_tmpdir=yes
+			;;
+		-v | -verbose | +v)
+			verbose=${arg}
+			;;
+		-* | +*)
+			(echo ;
+			echo "Unrecognized option: \"${arg}\"". ;
+			echo) 1>&2
+			fatal=true
+			;;
+		*)
+			if [ -n "${hosts}" ] ; then
+				subdirs="+subdirs"
+			fi
+
+			newhosts="${hosts} ${arg}"
+			hosts=${newhosts}
+			;;
+		esac
+	fi
 done
 
 if [ -n "${verbose}" ] ; then
@@ -201,7 +271,12 @@ if [ -n "${fatal}" -o "${hosts}" = "help" ] ; then
 	echo ;
 	echo "Options: [defaults in brackets]" ;
 	echo " +ansi		configure w/ANSI library. [no ansi lib]" ;
-	echo " +destdir=MYDIR	configure for installation into MYDIR. [\"/usr/local\"]" ;
+	echo " +ddestdir=MYDIR	configure for installation host dependent files" ;
+	echo "			into MYDIR. [\"/usr/local\"]" ;
+	echo " +idestdir=MYDIR	configure for installation host independent files" ;
+	echo "			into MYDIR. [\"/usr/local\"]" ;
+	echo " +destdir=MYDIR	configure for installation of both host dependent and" ;
+	echo "			host independent files into MYDIR. [\"/usr/local\"]" ;
 	echo " +gas		configure the compilers for use with gas. [native as]" ;
 	echo " +help		print this message. [normal config]" ;
 	echo " +lang=LANG	configure to build LANG. [gcc]" ;
@@ -244,6 +319,7 @@ if [ -r configure.in ] ; then
 
 	# keep this filename short for &%*%$*# 14 char file names
 	tmpfile=${TMPDIR}/cONf$$
+	trap "rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos" 0
 
 	# split configure.in into common, per-host, per-target,
 	# and post-target parts.  Post-target is optional.
@@ -286,7 +362,11 @@ for host in ${hosts} ; do
 	host_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
 	host_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
 	host=${host_cpu}-${host_vendor}-${host_os}
-	host_makefile_frag=config/hmake-${host}
+	host_makefile_frag=config/mh-${host}
+	if [ ! -f ${host_makefile_frag} ]
+	then
+		host_makefile_frag=config/mh-${host_alias}
+	fi
 
 	. ${tmpfile}.hst
 
@@ -298,11 +378,14 @@ for host in ${hosts} ; do
 		target_vendor=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\2/'`
 		target_os=`echo $result | sed 's/^\(.*\)-\(.*\)-\(.*\)$/\3/'`
 		target=${target_cpu}-${target_vendor}-${target_os}
-		target_makefile_frag=config/tmake-${target}
+		target_makefile_frag=config/mt-${target}
+		if [ ! -f ${target_makefile_frag} ]
+		then
+			target_makefile_frag=config/mt-${target_alias}
+		fi
 
 		. ${tmpfile}.tgt
 
-		# Temporarily, we support only direct subdir builds.
 		hostsubdir=H-${host_alias}
 		targetsubdir=T-${target_alias}
 
@@ -360,7 +443,7 @@ for host in ${hosts} ; do
 				fi
 			else
 				# if not subdir builds, then make sure none exist.
-				if [ -n "`(ls .) 2>&1 | (grep H- ; true)`" ] ; then
+				if [ "`echo H-*`" != "H-*" ] ; then
 					echo '***' "Configured subdirs exist.  `pwd` not configured." 1>&2
 					exit 1
 				else
@@ -452,7 +535,7 @@ for host in ${hosts} ; do
 			echo "host_cpu = ${host_cpu}" >> ${Makefile}
 			echo "host_vendor = ${host_vendor}" >> ${Makefile}
 			echo "host_os = ${host_os}" >> ${Makefile}
-
+			echo "version_path = ${version_path}" >> ${Makefile}
 			echo "target_alias = ${target_alias}" >> ${Makefile}
 			echo "target_cpu = ${target_cpu}" >> ${Makefile}
 			echo "target_vendor = ${target_vendor}" >> ${Makefile}
@@ -472,38 +555,59 @@ for host in ${hosts} ; do
 			# add "Makefile.in" (or whatever it's called)
 			cat ${srcdir}/${Makefile_in} >> ${Makefile}
 
-			# Conditionalize the makefile for this host.
-			if [ -f ${srcdir}/${host_makefile_frag} ] ; then
-				(echo "host_makefile_frag = ${srcdir}/${host_makefile_frag}" ; 
-					sed -e "/^####/  r ${srcdir}/${host_makefile_frag}" ${Makefile}) > Makefile.tem
+			# Conditionalize the makefile for this site.
+			if [ -n "${site}" ] ; then
+				site_makefile_frag=config/ms-${site}
+
+				if [ -f ${srcdir}/${site_makefile_frag} ] ; then
+					(echo "site_makefile_frag = ${srcdir}/${site_makefile_frag}" ; 
+						sed -e "/^####/  r ${srcdir}/${site_makefile_frag}" ${Makefile}) > Makefile.tem
+				else
+					(echo "site_makefile_frag =" ; 
+						cat ${Makefile}) > Makefile.tem
+				fi
 				mv Makefile.tem ${Makefile}
 			fi
+
+			# Conditionalize the makefile for this host.
+			if [ -f ${srcdir}/${host_makefile_frag} ] ; then
+				(echo "host_makefile_frag = ${srcdir}/${host_makefile_frag}" ;
+					sed -e "/^####/  r ${srcdir}/${host_makefile_frag}" ${Makefile}) > Makefile.tem
+			else
+				(echo "host_makefile_frag =" ;
+					cat ${Makefile}) > Makefile.tem
+			fi
+			mv Makefile.tem ${Makefile}
 
 			# Conditionalize the makefile for this target.
 			if [ -f ${srcdir}/${target_makefile_frag} ] ; then
 				(echo "target_makefile_frag = ${srcdir}/${target_makefile_frag}" ; 
 					sed -e "/^####/  r ${srcdir}/${target_makefile_frag}" ${Makefile}) > Makefile.tem
-				mv Makefile.tem ${Makefile}
+			else
+				(echo "target_makefile_frag =" ; 
+					cat ${Makefile}) > Makefile.tem
 			fi
-
-			# Conditionalize the makefile for this site.
-			if [ -n "${site}" ] ; then
-				site_makefile_frag=smake-${site}
-
-				if [ -f ${srcdir}/${site_makefile_frag} ] ; then
-					(echo "site_makefile_frag = ${srcdir}/${site_makefile_frag}" ; 
-						sed -e "/^####/  r ${srcdir}/${site_makefile_frag}" ${Makefile}) > Makefile.tem
-					mv Makefile.tem ${Makefile}
-				fi
-			fi
+			mv Makefile.tem ${Makefile}
 
 			# set srcdir
 			sed "s@^srcdir = \.@srcdir = ${srcdir}@" ${Makefile} > Makefile.tem
 			mv Makefile.tem ${Makefile}
 
-			# set destdir
-			if [ -n "${destdir}" ] ; then
-				sed "s:^destdir =.*$:destdir = ${destdir}:" ${Makefile} > Makefile.tem
+			# set ddestdir
+			if [ -n "${ddestdir}" ] ; then
+				sed "s:^ddestdir =.*$:ddestdir = ${ddestdir}:" ${Makefile} > Makefile.tem
+				mv Makefile.tem ${Makefile}
+			fi
+			# set versionpath
+			if [ -n "${version_path}" ] ; then
+				sed "s:^version_path =.*$:version_path = ${version_path}:" ${Makefile} > Makefile.tem
+				mv Makefile.tem ${Makefile}
+			fi
+
+
+			# set idestdir
+			if [ -n "${idestdir}" ] ; then
+				sed "s:^idestdir =.*$:idestdir = ${idestdir}:" ${Makefile} > Makefile.tem
 				mv Makefile.tem ${Makefile}
 			fi
 
@@ -572,7 +676,7 @@ for host in ${hosts} ; do
 					cd ${configdir} 
 
 					if (${progname} +recurring ${host_alias} +target=${target_alias} \
-						${verbose} ${subdirs} ${removing} +destdir=${destdir} \
+						${verbose} ${subdirs} ${removing} +ddestdir=${ddestdir} +idestdir=${idestdir} \
 						`if [ -n "${objdir}" ] ; then echo +objdir=${objdir}/${configdir} ; fi` \
 						${tmpdiroption}) ; then
 						true
@@ -622,13 +726,73 @@ done # for each host
 
 ### clean up.
 
-rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos
+# trap cmd above handles this now:
+#rm -f ${tmpfile}.com ${tmpfile}.tgt ${tmpfile}.hst ${tmpfile}.pos
 
 exit 0
 
 #
 #
 # $Log: configure,v $
+# Revision 1.74  1991/12/04  10:51:27  gnu
+# Use the "trap" command to remove our files from /tmp even if we exit
+# abnormally.
+#
+# Revision 1.73  1991/11/21  00:34:19  bothner
+# Fix parsing of +version_path flag.
+# Also, improve checking for existing subdirs by using
+# echo instead of ls|grep.  In addition to being (presumably)
+# faster, it also now only matches H-*, instead of *H-*.
+#
+# Revision 1.72  1991/11/14  03:11:15  sac
+# Made no version path the default.
+# This is only temporary. I'll fix it all when the release is done.
+#
+#
+# Steve
+#
+# Revision 1.71  1991/11/13  20:56:11  sac
+# Passes down version_path for things which install themselves into
+# libsubdir.
+#
+# Revision 1.70  1991/11/13  19:49:17  sac
+# The +noversion flag will make an installation happen to the machine/..
+# directory rather than the machine/version/.. directory.
+#
+# Steve
+#
+# Revision 1.69  1991/11/12  04:41:21  rich
+# allow +foo bar options.  stolen from texinfo configure
+#
+# Revision 1.68  1991/11/09  11:34:52  rich
+# correct a comment
+#
+# Revision 1.67  1991/11/06  22:28:08  rich
+# pass +idestdir and +ddestdir
+#
+# Revision 1.66  1991/11/05  04:02:14  rich
+# don't allow +recurring to reach config.status
+#
+# Revision 1.65  1991/11/01  00:25:28  rich
+# new install theme
+#
+# Revision 1.64  1991/10/30  06:55:25  rich
+# suck in site makefile frags first
+#
+# Revision 1.63  1991/10/25  02:07:18  steve
+# More name changing
+#
+# Revision 1.62  1991/10/24  11:59:03  rich
+# add null definitions for makefile_frag_foo
+#
+# Revision 1.61  1991/10/24  00:23:59  hgs
+# Allow for using tmake-sun4
+#
+# Revision 1.60  1991/10/23  21:48:28  rich
+# Makefiles should include the makefile frag names even if the makefile
+# frag doesn't exist in *this* directory.  Otherwise we inherit the
+# variable setting from our parent Makefile.
+#
 # Revision 1.59  1991/10/16  19:53:31  gnu
 # Update for SCO problems.
 #

@@ -1,25 +1,21 @@
 /* Getopt for GNU.
-   Copyright (C) 1987, 1989, 1990 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 90, 91 Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#ifdef __STDC__
-#define CONST const
-#else
-#define CONST
-#endif
+#include "alloca-conf.h"	/* RS/6K AIX requires this to be first */
 
 /* This version of `getopt' appears to the caller like standard Unix `getopt'
    but it behaves differently for the user, since it allows the user
@@ -37,40 +33,26 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 
-/* If compiled with GNU C, use the built-in alloca */
-#ifdef __GNUC__
-#define alloca __builtin_alloca
-#else /* not __GNUC__ */
-#ifdef sparc
-#include <alloca.h>
-#else
-char *alloca ();
-#endif
-#endif /* not __GNUC__ */
-
 #if defined(STDC_HEADERS) || defined(__GNU_LIBRARY__)
 #include <stdlib.h>
-#include <string.h>
-#define bcopy(s, d, n) memcpy ((d), (s), (n))
-#define index strchr
-#else
-
-#ifdef USG
-#include <string.h>
-#define bcopy(s, d, n) memcpy ((d), (s), (n))
-#define index strchr
-#else
-#ifdef VMS
-#include <string.h>
-#else
-#include <strings.h>
-#endif
-void bcopy ();
-#endif
-
+#else /* STDC_HEADERS or __GNU_LIBRARY__ */
 char *getenv ();
 char *malloc ();
-#endif
+#endif /* STDC_HEADERS or __GNU_LIBRARY__ */
+
+#if defined(USG) || defined(NeXT) || defined(hpux) || defined(STDC_HEADERS) || defined(__GNU_LIBRARY__)
+#include <string.h>
+#define bcopy(s, d, n) memcpy ((d), (s), (n))
+#define index strchr
+#else /* USG or NeXT or hpux or STDC_HEADERS or __GNU_LIBRARY__ */
+#ifdef VMS
+#include <string.h>
+#else /* VMS */
+#include <strings.h>
+#endif /* VMS */
+/* Declaring bcopy causes errors on systems whose declarations are different.
+   If the declaration is omitted, everything works fine.  */
+#endif /* USG or NeXT or hpux or STDC_HEADERS or __GNU_LIBRARY__ */
 
 /* For communication from `getopt' to the caller.
    When `getopt' finds an option that takes an argument,
@@ -118,7 +100,7 @@ int opterr = 1;
    stop option processing when the first non-option is seen.
    This is what Unix does.
    This mode of operation is selected by either setting the environment
-   variable _POSIX_OPTION_ORDER, or using `+' as the first character
+   variable POSIX_ME_HARDER, or using `+' as the first character
    of the list of option characters.
 
    PERMUTE is the default.  We permute the contents of ARGV as we scan,
@@ -156,7 +138,13 @@ struct option
   int val;
 };
 
-CONST struct option *_getopt_long_options;
+#ifndef __STDC__
+#ifndef const
+#define const
+#endif
+#endif
+
+const struct option *_getopt_long_options;
 
 int _getopt_long_only = 0;
 
@@ -249,7 +237,7 @@ int
 getopt (argc, argv, optstring)
      int argc;
      char **argv;
-     CONST char *optstring;
+     const char *optstring;
 {
   optarg = 0;
 
@@ -276,7 +264,7 @@ getopt (argc, argv, optstring)
 	  ordering = REQUIRE_ORDER;
 	  ++optstring;
 	}
-      else if (getenv ("_POSIX_OPTION_ORDER") != 0)
+      else if (getenv ("POSIX_ME_HARDER") != 0)
 	ordering = REQUIRE_ORDER;
       else
 	ordering = PERMUTE;
@@ -361,11 +349,11 @@ getopt (argc, argv, optstring)
 	  || (_getopt_long_only && argv[optind][0] == '-'))
     )
     {
-      CONST struct option *p;
+      const struct option *p;
       char *s = nextchar;
       int exact = 0;
       int ambig = 0;
-      CONST struct option *pfound = 0;
+      const struct option *pfound = 0;
       int indfound;
 
       while (*s && *s != '=')

@@ -1,28 +1,35 @@
-Info file gdb.info, produced by Makeinfo, -*- Text -*- from input
-file gdb-all.texi.
+Info file gdb.info, produced by Makeinfo, -*- Text -*- from input file
+gdb-all.texi.
+
+   gdb.info
+
+START-INFO-DIR-ENTRY
+* Gdb: (gdb).                   The GNU debugger.
+END-INFO-DIR-ENTRY
 
    This file documents the GNU debugger GDB.
+
+   This is Edition 4.00, December 1991, of `Using GDB: A Guide to the
+GNU Source-Level Debugger' for GDB Version 4.3.
 
    Copyright (C) 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of
-this
-manual provided the copyright notice and this permission notice are
-preserved on all copies.
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
 
    Permission is granted to copy and distribute modified versions of
-this
-manual under the conditions for verbatim copying, provided also that
-the section entitled "GNU General Public License" is included
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "GNU General Public License" is included
 exactly as in the original, and provided that the entire resulting
 derived work is distributed under the terms of a permission notice
 identical to this one.
 
    Permission is granted to copy and distribute translations of this
-manual into another language, under the above conditions for
-modified versions, except that the section entitled "GNU General
-Public License" may be included in a translation approved by the
-Free Software Foundation instead of in the original English.
+manual into another language, under the above conditions for modified
+versions, except that the section entitled "GNU General Public
+License" may be included in a translation approved by the Free
+Software Foundation instead of in the original English.
 
 
 File: gdb.info,  Node: Index,  Prev: Copying,  Up: Top
@@ -37,7 +44,6 @@ Index
 * $__:                                  Convenience Vars.
 * .:                                    M2 Scope.
 * :::                                   M2 Scope.
-* :::                                   Variables.
 * @:                                    Arrays.
 * # in Modula-2:                        GDB/M2.
 * $$:                                   Value History.
@@ -69,9 +75,9 @@ Index
 * INCLUDE_RDB:                          VxWorks Remote.
 * Invalid Input:                        Bug Criteria.
 * Modula-2:                             Modula-2.
-* Modula-2 builtins:                    M2 Operators.
+* Modula-2 built-ins:                   M2 Operators.
 * Modula-2 checks:                      M2 Checks.
-* Modula-2 constants:                   Builtin Func/Proc.
+* Modula-2 constants:                   Built-In Func/Proc.
 * Modula-2 defaults:                    M2 Defaults.
 * Modula-2 operators:                   M2 Operators.
 * Modula-2, deviations from:            Deviations.

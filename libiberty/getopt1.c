@@ -1,27 +1,31 @@
 /* Getopt for GNU.
-   Copyright (C) 1987, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 90, 91 Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
-
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
 #include "getopt.h"
 
-#ifdef __STDC__
-#define CONST const
-#else
-#define CONST
+#ifndef __STDC__
+#define const
 #endif
+
+#if defined(STDC_HEADERS) || defined(__GNU_LIBRARY__)
+#include <stdlib.h>
+#else /* STDC_HEADERS or __GNU_LIBRARY__ */
+char *getenv ();
+#endif /* STDC_HEADERS or __GNU_LIBRARY__ */
 
 #if !defined (NULL)
 #define NULL 0
@@ -31,13 +35,15 @@ int
 getopt_long (argc, argv, options, long_options, opt_index)
      int argc;
      char **argv;
-     CONST char *options;
-     CONST struct option *long_options;
+     const char *options;
+     const struct option *long_options;
      int *opt_index;
 {
   int val;
 
-  _getopt_long_options = long_options;
+  /* For strict POSIX compatibility, we must turn off long options.  */
+  if (getenv ("POSIX_ME_HARDER") == 0)
+    _getopt_long_options = long_options;
   val = getopt (argc, argv, options);
   if (val == 0 && opt_index != NULL)
     *opt_index = option_index;
@@ -53,8 +59,8 @@ int
 getopt_long_only (argc, argv, options, long_options, opt_index)
      int argc;
      char **argv;
-     CONST char *options;
-     CONST struct option *long_options;
+     const char *options;
+     const struct option *long_options;
      int *opt_index;
 {
   int val;

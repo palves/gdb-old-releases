@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include "defs.h"
 #include "symtab.h"
-#include "param.h"
 #include "language.h"
 #include "command.h"
 #include "gdbcmd.h"
@@ -43,6 +42,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* extern char *strstr(); */
 
 extern void set_next_address ();
+extern char *basename ();
 
 /* Path of directories to search for source files.
    Same format as the PATH environment variable's value.  */
@@ -293,7 +293,7 @@ mod_path (dirname, which_path)
       if (name[0] == '~')
 	name = tilde_expand (name);
       else if (name[0] != '/' && name[0] != '$')
-	name = concat (current_directory, "/", name);
+	name = concat (current_directory, "/", name, NULL);
       else
 	name = savestring (name, p - name);
       make_cleanup (free, name);
@@ -338,15 +338,15 @@ mod_path (dirname, which_path)
 
 		c = old[prefix];
 		old[prefix] = '\0';
-		temp = concat (old, ":", name);
+		temp = concat (old, ":", name, NULL);
 		old[prefix] = c;
-		*which_path = concat (temp, "", &old[prefix]);
+		*which_path = concat (temp, "", &old[prefix], NULL);
 		prefix = strlen (temp);
 		free (temp);
 	      }
 	    else
 	      {
-		*which_path = concat (name, (old[0]? ":" : old), old);
+		*which_path = concat (name, (old[0]? ":" : old), old, NULL);
 		prefix = strlen (name);
 	      }
 	    free (old);
@@ -478,7 +478,7 @@ openp (path, try_cwd_first, string, mode, prot, filename_opened)
 	   
 	*filename_opened = concat (current_directory, 
 	   '/' == current_directory[strlen(current_directory)-1]? "": "/",
-				   filename);
+				   filename, NULL);
       }
 
   return fd;
@@ -525,7 +525,15 @@ open_source_file (s)
       }
     }
 
-  return openp (path, 0, s->filename, O_RDONLY, 0, &s->fullname);
+  result = openp (path, 0, s->filename, O_RDONLY, 0, &s->fullname);
+  if (result < 0)
+    {
+      /* Didn't work.  Try using just the basename. */
+      p = basename (s->filename);
+      if (p != s->filename)
+	result = openp(path, 0, p, O_RDONLY,0, &s->fullname);
+    }
+  return result;
 }
 
 

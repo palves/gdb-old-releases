@@ -1,3 +1,18 @@
+target_makefile_frag =
+host_makefile_frag =
+ALL=all.internal
+host_alias = none
+host_cpu = none
+host_vendor = none
+host_os = none
+version_path = 
+target_alias = none
+target_cpu = none
+target_vendor = none
+target_os = none
+subdir =
+unsubdir = .
+VPATH = .
 ##Copyright (C) 1991 Free Software Foundation, Inc.
 
 # Makefile for GDB documentation.
@@ -17,8 +32,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+srcdir = .
+
+ddestdir = /usr/local
+idestdir = $(ddestdir)
+
+SHELL = /bin/sh
+
 # main GDB source directory
-srcdir = ..
+gdbdir = ..
 
 # Documentation (gdb.dvi) needs either GNU m4 or SysV m4; 
 # Berkeley/Sun don't have quite enough. 
@@ -26,24 +48,74 @@ srcdir = ..
 M4=gm4
 
 # where to find texinfo; GDB dist should include a recent one
-TEXIDIR=${srcdir}/../texinfo/fsf
+TEXIDIR=$(srcdir)/${gdbdir}/../texinfo/fsf
 
 # where to find makeinfo, preferably one designed for texinfo-2
 MAKEINFO=makeinfo
 
+# where to find texi2roff, ditto
+TEXI2ROFF=texi2roff
+
 # Where is the source dir for the READLINE library?  Traditionally in .. or .
 # (For the binary library built from it, we use ${READLINE_DIR}${subdir}.)
-READLINE_DIR = ${srcdir}/../readline
+READLINE_DIR = $(srcdir)/${gdbdir}/../readline
 
 # Main GDB manual's source files
 SFILES_DOCDIR = \
-	gdb.texinfo pretex.m4 none.m4 all.m4 gdbinv-m.m4 gdbinv-s.m4 gdbVN.m4
+	$(srcdir)/gdb.texinfo $(srcdir)/pretex.m4 $(srcdir)/none.m4 \
+	$(srcdir)/all.m4 gdbinv-m.m4 gdbinv-s.m4 gdbVN.m4
 
-all: gdb.info gdb.dvi refcard.dvi gdb-internals gdbint.dvi
+# Which version of GDB manual? default includes everything
+CONFIG=all
+
+all install:
+
+all-info: gdb.info gdbint.info
+#all: gdb.info gdb.dvi refcard.dvi gdb-internals gdbint.dvi
+
+install-info: all-info
+	for i in *.info* ; do \
+		echo Installing $$i... ; \
+		(cp $$i $(idestdir)/info/$$i.n \
+			&& mv -f $(idestdir)/info/$$i.n $(idestdir)/info/$$i) \
+		|| exit 1 ; \
+	done
+
+STAGESTUFF = *.info* gdb-all.texi gdbVN.m4
+
+# Copy the object files from a particular stage into a subdirectory.
+stage1: force
+	-mkdir stage1
+	-mv $(STAGESTUFF) stage1
+
+stage2: force
+	-mkdir stage2
+	-mv $(STAGESTUFF) stage2
+
+stage3: force
+	-mkdir stage3
+	-mv $(STAGESTUFF) stage3
+
+against=stage2
+
+comparison: force
+	for i in $(STAGESTUFF) ; do cmp $$i $(against)/$$i ; done
+
+de-stage1: force
+	- (cd stage1 ; mv -f * ..)
+	- rmdir stage1
+
+de-stage2: force
+	- (cd stage2 ; mv -f * ..)
+	- rmdir stage2
+
+de-stage3: force
+	- (cd stage3 ; mv -f * ..)
+	- rmdir stage3
 
 clean:
 	rm -f gdb.dvi rdl-apps.texi gdb-all* gdb.info* gdbVN.m4
-	rm -f gdb-internals gdbint.?? gdbint.???
+	rm -f gdb-internals gdbint.?? gdbint.??? gdbint.info
 	rm -f refcard.ps refcard.dvi rcfonts.tex refcard.log *~
 
 # GDB QUICK REFERENCE (TeX dvi file, CM fonts)
@@ -60,39 +132,102 @@ refcard.ps : refcard.tex
 	rm -f rcfonts.tex
 
 # Cover file for "Readline" appendices
-rdl-apps.texi: ${READLINE_DIR}/inc-readline.texinfo \
-			${READLINE_DIR}/inc-history.texinfo
+rdl-apps.texi: ${READLINE_DIR}/doc/rluser.texinfo \
+			${READLINE_DIR}/doc/inc-hist.texi
 	rm -f rdl-apps.texi
-	echo "@include ${READLINE_DIR}/inc-readline.texinfo" >rdl-apps.texi
-	echo "@include ${READLINE_DIR}/inc-history.texinfo" >>rdl-apps.texi
+	echo "@include ${READLINE_DIR}/doc/rluser.texinfo" >rdl-apps.texi
+	echo "@include ${READLINE_DIR}/doc/inc-hist.texi" >>rdl-apps.texi
 
 # File to record current GDB version number (copied from main dir Makefile.in)
-gdbVN.m4 : ${srcdir}/Makefile.in
-	( VER=`sed <${srcdir}/Makefile.in -n 's/VERSION = //p'` ;\
+gdbVN.m4 : ${gdbdir}/Makefile.in
+	( VER=`sed <$(srcdir)/${gdbdir}/Makefile.in -n 's/VERSION = //p'` ;\
 	echo "_define__(<_GDB_VN__>,$$VER)" > gdbVN.m4 )
 
 # GDB MANUAL: texinfo source, created by preprocessing w/m4
+# If you want other configs in the makefile, add or modify instructions for 
+# building source here, then change CONFIG (that way you get info, dvi, 
+# roff targets automatically for your config).
 # Be sure to not create a bad gdb-all.texi if ${M4} is missing or aborts...
 gdb-all.texi: ${SFILES_DOCDIR}
 	rm -f foobus.texinfo
-	${M4} pretex.m4 none.m4 all.m4 gdb.texinfo  >foobus.texinfo
+	${M4} $(srcdir)/pretex.m4 $(srcdir)/none.m4 $(srcdir)/all.m4 $(srcdir)/gdb.texinfo  >foobus.texinfo
 	rm -f gdb-all.texi
 	mv foobus.texinfo gdb-all.texi
 
 # GDB MANUAL: TeX dvi file
-gdb.dvi : gdb-all.texi rdl-apps.texi
-	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex gdb-all.texi
-	texindex gdb-all.??
-	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex gdb-all.texi
-	mv gdb-all.dvi gdb.dvi
-	rm -f gdb-all.?? gdb-all.???
+gdb.dvi : gdb-${CONFIG}.texi rdl-apps.texi
+	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex gdb-${CONFIG}.texi
+	texindex gdb-${CONFIG}.??
+	TEXINPUTS=${TEXIDIR}:.:$$TEXINPUTS tex gdb-${CONFIG}.texi
+	mv gdb-${CONFIG}.dvi gdb.dvi
+	rm -f gdb-${CONFIG}.?? gdb-${CONFIG}.???
 
 # GDB MANUAL: info file
 # We're using texinfo2, and older makeinfo's may not be able to
 # cope with all the markup.  In the meantime, we distribute the info
 # files 
-gdb.info: gdb-all.texi
-	${MAKEINFO} gdb-all.texi
+gdb.info: gdb-${CONFIG}.texi
+	$(MAKEINFO) -o gdb.info gdb-${CONFIG}.texi
+
+# GDB MANUAL: roff translations
+# Try to use a recent texi2roff.  v2 was put on prep in jan91.
+# If you want an index, see texi2roff doc for postprocessing 
+# and add -i to texi2roff invocations below.
+# Workarounds for texi2roff-2 (probably fixed in later texi2roff's, delete
+#    correspondint -e lines when later texi2roff's are current)
+# + @ifinfo's deleted explicitly due to texi2roff-2 bug w nested constructs.
+# + @c's deleted explicitly because texi2roff sees texinfo commands in them
+# + @   (that's at-BLANK) not recognized by texi2roff, turned into blank
+# + @alphaenumerate is ridiculously new, turned into @enumerate
+
+
+# gdb manual suitable for [tn]roff -mm
+# '@noindent's removed due to texi2roff-2 mm bug; if yours is newer, 
+#   try leaving them in
+gdb.mm: gdb-${CONFIG}.texi
+	sed -e '/\\input texinfo/d' \
+		-e '/@c TEXI2ROFF-KILL/,/@c END TEXI2ROFF-KILL/d' \
+		-e '/^@ifinfo/,/^@end ifinfo/d' \
+		-e '/^@c/d' \
+		-e 's/{.*,,/{/' \
+		-e '/@noindent/d' \
+		-e 's/@ / /g' \
+		-e 's/^@alphaenumerate/@enumerate/g' \
+		-e 's/^@end alphaenumerate/@end enumerate/g' \
+		gdb-${CONFIG}.texi | \
+	$(TEXI2ROFF) -mm | \
+	sed -e 's/---/\\(em/g' \
+	>gdb.mm 
+
+# gdb manual suitable for [gtn]roff -me
+gdb.me: gdb-${CONFIG}.texi
+	sed -e '/\\input texinfo/d' \
+		-e '/@c TEXI2ROFF-KILL/,/@c END TEXI2ROFF-KILL/d' \
+		-e '/^@ifinfo/,/^@end ifinfo/d' \
+		-e '/^@c/d' \
+		-e 's/{.*,,/{/' \
+		-e 's/@ / /g' \
+		-e 's/^@alphaenumerate/@enumerate/g' \
+		-e 's/^@end alphaenumerate/@end enumerate/g' \
+		gdb-${CONFIG}.texi | \
+	$(TEXI2ROFF) -me | \
+	sed -e 's/---/\\(em/g' \
+	>gdb.me 
+
+# gdb manual suitable for [gtn]roff -ms
+gdb.ms: gdb-${CONFIG}.texi
+	sed -e '/\\input texinfo/d' \
+		-e '/@c TEXI2ROFF-KILL/,/@c END TEXI2ROFF-KILL/d' \
+		-e '/^@ifinfo/,/^@end ifinfo/d' \
+		-e '/^@c/d' \
+		-e 's/{.*,,/{/' \
+		-e 's/@ / /g' \
+		-e 's/^@alphaenumerate/@enumerate/g' \
+		-e 's/^@end alphaenumerate/@end enumerate/g' \
+		gdb-${CONFIG}.texi | \
+	$(TEXI2ROFF) -ms | \
+	sed -e 's/---/\\(em/g' \
+	>gdb.ms 
 
 # GDB INTERNALS MANUAL: TeX dvi file
 gdbint.dvi : gdbint.texinfo
@@ -103,9 +238,12 @@ gdbint.dvi : gdbint.texinfo
 		gdbint.log gdbint.pgs gdbint.toc gdbint.tps gdbint.vrs
 
 # GDB INTERNALS MANUAL: info file
-gdb-internals : gdbint.texinfo
-	${MAKEINFO} gdbint.texinfo
+gdb-internals: gdbint.info
 
+gdbint.info: gdbint.texinfo
+	$(MAKEINFO) -o gdbint.info $(srcdir)/gdbint.texinfo
 
+force:
 
-
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
+	$(SHELL) ./config.status

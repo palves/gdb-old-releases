@@ -16,41 +16,77 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #
-# Last Mod Thu Oct 10 00:24:41 PDT 1991, by rich@cygnus.com
+# Last Mod Thu Nov 14 03:17:05 PST 1991, by rich@cygnus.com
 #
-# $Id: Makefile.in,v 1.43 1991/10/16 19:54:30 gnu Exp $
+# $Id: Makefile.in,v 1.74 1991/11/22 21:47:07 gnu Exp $
 
 srcdir = .
-destdir = /usr/local
+
+idestdir = /usr/local
+ddestdir = $(idestdir)
 
 SHELL=/bin/sh
-
-#CC = gcc -b$(target) # -B$(srcdir)/../gas/Host-$(host)/Target-$(target)/
-#CFLAGS = -g -nostdinc -nostdlib -I- -I/usr/local/lib/gcc/$(target)/1.92/include -I$(srcdir) -I$(srcdir)/../include -I$(OSINCLUDE)
 
 RANLIB = ranlib
 AR = ar
 AR_FLAGS = cq
-BISONPATH = 
 
 BISON = `if [ -d $(unsubdir)/../bison ] ; \
-	then echo \`pwd\`/$(unsubdir)/../bison$(subdir)/bison -L \`pwd\`/$(unsubdir)/../bison/ ; \
+	then echo \`pwd\`/$(unsubdir)/../bison$(subdir)/bison -y -L \`pwd\`/$(unsubdir)/../bison$(subdir)/ ; \
 	else echo yacc ; fi`
 
-SUBDIRS = libiberty readline bfd gdb binutils ld gas gcc gnulib
+MAKEINFO = `if [ -d $(unsubdir)/../texinfo/C ] ; \
+	then echo \`pwd\`/$(unsubdir)/../texinfo/C$(subdir)/makeinfo ; \
+	else echo echo ; fi`
+
+#\`(cd $(srcdir)/bison ; \\`pwd\\`)\`
+SUBDIRS = libiberty readline bfd gdb binutils ld gas gcc gnulib clib
 OTHERS = 
+
+ALL = all.normal
+INSTALL_HEADERS = install-headers
+INSTALL_FIXED_INCLUDES = install-fixed-includes
+
+### for debugging
+#GCCVERBOSE=-v
 
 #### host and target specific makefile fragments come in here.
 ###
 
-all:
+all:	$(ALL)
+all-info: force
+	$(MAKE) subdir_do DO=all-info "DODIRS=$(SUBDIRS)"
+
+install-info: dir.info install-info-dirs force
+	$(MAKE) subdir_do DO=install-info "DODIRS=$(SUBDIRS)"
+	$(MAKE) install-dir.info
+
+all.normal:
 	$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS) $(OTHERS)"
+
+./fixed-includes:
+	if [ -d ./fixed-includes ] ; then rm -rf ./fixed-includes ; else true ; fi
+	mkdir ./fixed-includes
+	$(srcdir)/gcc/fixincludes `pwd`/fixed-includes
+
+# this is a bad hack.
+all.xclib:	all.normal
+	if [ -d clib ] ; then \
+		(cd clib ; $(MAKE)) ; \
+	fi
 
 subdir_do: force
 	for i in $(DODIRS); do \
-		if [ -d $(unsubdir)/$$i -o -d $(unsubdir)/$$i.$(target) ] ; then \
-			if (cd $(unsubdir)/$$i`if [ -d $(unsubdir)/$$i.$(target) ] ; \
-				then echo .$(target) ; fi`$(subdir); \
+		if [ -f $(unsubdir)/$$i/localenv ] ; then \
+			if (cd $(unsubdir)/$$i$(subdir); \
+				$(MAKE) \
+					"against=$(against)" \
+					"BISON=$(BISON)" \
+					"MAKEINFO=$(MAKEINFO)" \
+					$(DO)) ; then true ; \
+				else exit 1 ; fi ; \
+		else if [ -d $(unsubdir)/$$i ] ; then \
+			if (cd $(unsubdir)/$$i$(subdir); \
 				$(MAKE) \
 					"against=$(against)" \
 					"AR=$(AR)" \
@@ -59,65 +95,59 @@ subdir_do: force
 					"RANLIB=$(RANLIB)" \
 					"LOADLIBES=$(LOADLIBES)" \
 					"LDFLAGS=$(LDFLAGS)" \
-					"BISON=$(BISON)" $(DO)) ; then true ; \
+					"BISON=$(BISON)" \
+					"MAKEINFO=$(MAKEINFO)" \
+					$(DO)) ; then true ; \
 			else exit 1 ; fi ; \
 		else true ; fi ; \
+	fi ; \
 	done
 
-bootstrap:
-	$(MAKE) all
+bootstrap: ./fixed-includes
+	$(MAKE) all all-info
 	$(MAKE) stage1
 	$(MAKE) pass "stagepass=stage1"
 	$(MAKE) stage2
 	$(MAKE) pass "stagepass=stage2"
 	$(MAKE) comparison
 
-bootstrap2:
+bootstrap2: ./fixed-includes
 	$(MAKE) pass "stagepass=stage1"
 	$(MAKE) stage2
 	$(MAKE) pass "stagepass=stage2"
 	$(MAKE) comparison
 
-bootstrap3:
+bootstrap3: ./fixed-includes
 	$(MAKE) pass "stagepass=stage2"
 	$(MAKE) comparison
 
-pass:
-	cp $(unsubdir)/gcc`if [ -d $(unsubdir)/gcc.$(target) ] ; \
-                then echo .$(target) ; fi`/gstdarg.h $(unsubdir)/gas/stdarg.h
-	$(MAKE) subdir_do DO=all "DODIRS=$(SUBDIRS)" \
-		"CC=`pwd`/$(unsubdir)/gcc`if [ -d $(unsubdir)/gcc.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/gcc \
-		-O \
-		-B`pwd`/$(unsubdir)/gcc`if [ -d $(unsubdir)/gcc.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/ \
-		-B`pwd`/$(unsubdir)/gas`if [ -d $(unsubdir)/gas.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/ \
-		-B`pwd`/$(unsubdir)/ld`if [ -d $(unsubdir)/ld.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/" \
-		"AR=`pwd`/$(unsubdir)/binutils`if [ -d $(unsubdir)/binutils.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/ar" \
-		"RANLIB=`pwd`/$(unsubdir)/binutils`if [ -d $(unsubdir)/binutils.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/ranlib" \
-		"LOADLIBES=`pwd`/$(unsubdir)/gnulib`if [ -d $(unsubdir)/binutils.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/gnulib.a /lib/libc.a" \
+pass: ./fixed-includes
+	cp $(srcdir)/gcc/gstdarg.h $(unsubdir)/gas$(subdir)/stdarg.h
+	$(MAKE) subdir_do "DO=all all-info" "DODIRS=$(SUBDIRS)" \
+		"CC=`pwd`/$(unsubdir)/gcc$(subdir)/$(stagepass)/gcc \
+		-O $(GCCVERBOSE) -I`pwd`/fixed-includes \
+		-B`pwd`/$(unsubdir)/gcc$(subdir)/$(stagepass)/ \
+		-B`pwd`/$(unsubdir)/gas$(subdir)/$(stagepass)/ \
+		-B`pwd`/$(unsubdir)/ld$(subdir)/$(stagepass)/" \
+		"AR=`pwd`/$(unsubdir)/binutils$(subdir)/$(stagepass)/ar" \
+		"LD=`pwd`/$(unsubdir)/gcc$(subdir)/$(stagepass)/gcc $(GCCVERBOSE)" \
+		"RANLIB=`pwd`/$(unsubdir)/binutils$(subdir)/$(stagepass)/ranlib" \
+		"LOADLIBES=`pwd`/$(unsubdir)/gnulib$(subdir)/$(stagepass)/gnulib.a /lib/libc.a" \
 		"LDFLAGS=-nostdlib /lib/crt0.o \
-		-L`pwd`/$(unsubdir)/gnulib`if [ -d $(unsubdir)/gnulib.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/ \
-		-B`pwd`/$(unsubdir)/ld`if [ -d $(unsubdir)/ld.$(target) ] ; \
-		then echo .$(target) ; fi`$(subdir)/$(stagepass)/"
+		-L`pwd`/$(unsubdir)/gnulib$(subdir)/$(stagepass)/ \
+		-B`pwd`/$(unsubdir)/ld$(subdir)/$(stagepass)/"
 
 
-stage1:
+stage1: ./fixed-includes
 	$(MAKE) subdir_do DO=stage1 "DODIRS=$(SUBDIRS)"
 
-stage2:
+stage2: ./fixed-includes
 	$(MAKE) subdir_do DO=stage2 "DODIRS=$(SUBDIRS)"
 
-stage3:
+stage3: ./fixed-includes
 	$(MAKE) subdir_do DO=stage3 "DODIRS=$(SUBDIRS)"
 
-stage4:
+stage4: ./fixed-includes
 	$(MAKE) subdir_do DO=stage4 "DODIRS=$(SUBDIRS)"
 
 against=stage2
@@ -133,49 +163,66 @@ clean:
 	rm -rf *.a TEMP errs core *.o *~ \#* TAGS *.E
 	$(MAKE) subdir_do DO=clean "DODIRS=$(SUBDIRS) $(OTHERS)"
 
-install: install-dirs install-fixed-includes
+install: install-no-fixincludes $(INSTALL_FIXED_INCLUDES)
+
+install-no-fixincludes: install-dirs $(INSTALL_HEADERS)
 	$(MAKE) subdir_do DO=install "DODIRS=$(SUBDIRS) $(OTHERS)"
 
 # The "else true" stuff is for Ultrix; the shell returns the exit code
 # of the "if" command, if no commands are run in the "then" or "else" part,
 # causing Make to quit.
+
+MAKEDIRS= \
+	$(ddestdir) \
+	$(ddestdir)/bin \
+	$(ddestdir)/include \
+	$(ddestdir)/lib \
+	$(ddestdir)/lib/emacs \
+	$(idestdir) \
+	$(idestdir)/lib \
+	$(idestdir)/doc \
+	$(idestdir)/man \
+	$(idestdir)/man/man1 \
+	$(idestdir)/man/man5
+
 install-dirs: force
-	- mkdir $(destdir)
-	- mkdir $(destdir)/H-$(host_alias)
-	- mkdir $(destdir)/H-$(host_alias)/T-independent
-	- mkdir $(destdir)/H-$(host_alias)/T-independent/bin
-	- mkdir $(destdir)/H-$(host_alias)/T-independent/lib
-	- mkdir $(destdir)/H-$(host_alias)/T-$(target_alias)
-	- mkdir $(destdir)/H-$(host_alias)/T-$(target_alias)/bin
-	- mkdir $(destdir)/H-$(host_alias)/T-$(target_alias)/lib
-	- mkdir $(destdir)/H-independent
-	- mkdir $(destdir)/H-independent/include
-	- mkdir $(destdir)/H-independent/doc
-	- mkdir $(destdir)/H-independent/man
-	- mkdir $(destdir)/H-independent/man/man1
-	- mkdir $(destdir)/H-independent/man/man2
-	- mkdir $(destdir)/H-independent/man/man3
-	- mkdir $(destdir)/H-independent/man/man4
-	- mkdir $(destdir)/H-independent/man/man5
-	- mkdir $(destdir)/H-independent/man/man6
-	- mkdir $(destdir)/H-independent/man/man7
-	- mkdir $(destdir)/H-independent/man/man8
-	if [ -d $(unsubdir)/gcc`if [ -d $(unsubdir)/gcc.$(target) ] ; \
-                then echo .$(target) ; fi`$(subdir) ] ; then \
-		(cd  $(unsubdir)/gcc`if [ -d $(unsubdir)/gcc.$(target) ] ; \
-	                then echo .$(target) ; fi`$(subdir) ; \
+	for i in $(MAKEDIRS) ; do \
+		echo Making $$i... ; \
+		if [ -d $$i ] ; then true ; else mkdir $$i ; fi ; \
+	done
+
+MAKEINFODIRS= \
+	$(idestdir) \
+	$(idestdir)/info
+
+install-info-dirs: force
+	for i in $(MAKEINFODIRS) ; do \
+		echo Making $$i... ; \
+		if [ -d $$i ] ; then true ; else mkdir $$i ; fi ; \
+	done
+
+install-headers:
+	if [ -d $(unsubdir)/gcc$(subdir) ] ; then \
+		(cd  $(unsubdir)/gcc$(subdir) ; \
 				$(MAKE) install-dir) ; \
 	else true; \
 	fi
 
 install-fixed-includes: force
-	if [ -d $(unsubdir)/gcc`if [ -d $(unsubdir)/gcc.$(target) ] ; \
-                then echo .$(target) ; fi`$(subdir) ] ; then \
-		(cd  $(unsubdir)/gcc`if [ -d $(unsubdir)/gcc.$(target) ] ; \
-	                then echo .$(target) ; fi`$(subdir) ; \
+	if [ -d $(unsubdir)/gcc$(subdir) ] ; then \
+		(cd  $(unsubdir)/gcc$(subdir) ; \
 				$(MAKE) install-fixed-includes) ; \
 	else true; \
 	fi
+
+install-dir.info-in-place: force
+	rdir=`cd $(srcdir)/texinfo ; pwd` \
+	&& cd $(idestdir)/info \
+	&& ($${rdir}/gen-info-dir `pwd`) > dir
+
+dir.info: force
+	$(srcdir)/texinfo/gen-info-dir . > dir.info.new
+	mv -f dir.info.new dir.info
 
 etags tags: TAGS
 
@@ -205,9 +252,9 @@ Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) $(target_makefile_frag)
 #
 # Build GDB distributions that contain BFD, Include, Libiberty, Readline, etc
 
-DEVO_SUPPORT= README README.configure Makefile.in configure configure.in \
+DEVO_SUPPORT= README DOC.configure Makefile.in configure configure.in \
 	config.sub config
-GDB_SUPPORT_DIRS= bfd include libiberty readline
+GDB_SUPPORT_DIRS= bfd include libiberty readline glob
 GDB_SUPPORT_FILES= $(GDB_SUPPORT_DIRS) texinfo/fsf/texinfo.tex
 
 setup-dirs: force_update
@@ -231,6 +278,19 @@ make-gdb.tar.Z: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/fsf/texinfo.tex
 	(cd proto-toplev; for i in $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS); do \
 		ln -s ../$$i . ; \
 	done)
+	# Put only one copy (four hard links) of COPYING in the tar file.
+	rm 			    proto-toplev/bfd/COPYING
+	ln proto-toplev/gdb/COPYING proto-toplev/bfd/COPYING
+	rm 			    proto-toplev/include/COPYING
+	ln proto-toplev/gdb/COPYING proto-toplev/include/COPYING
+	rm 			    proto-toplev/readline/COPYING
+	ln proto-toplev/gdb/COPYING proto-toplev/readline/COPYING
+	# Take out texinfo from configurable dirs
+	rm proto-toplev/configure.in
+	sed '/^configdirs=/s/texinfo //' <configure.in >proto-toplev/configure.in
+	# Take out glob from buildable dirs
+	rm proto-toplev/Makefile.in
+	sed '/^SUBDIRS =/s/glob //' <Makefile.in >proto-toplev/Makefile.in
 	mkdir proto-toplev/texinfo
 	mkdir proto-toplev/texinfo/fsf
 	ln -s ../../../texinfo/fsf/texinfo.tex proto-toplev/texinfo/fsf/
@@ -242,5 +302,7 @@ make-gdb.tar.Z: $(DEVO_SUPPORT) $(GDB_SUPPORT_DIRS) gdb texinfo/fsf/texinfo.tex
 		| compress -v >gdb-$$VER.tar.Z)
 
 force_update:
+
+nothing:
 
 # end of Makefile.in

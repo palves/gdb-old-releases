@@ -1,3 +1,117 @@
+Fri Nov 22 19:15:29 1991  John Gilmore  (gnu at cygnus.com)
+
+	* Makefile.in:  find-needed.awk does not fit in 14 chars.
+
+	* Makefile.in:  Suppress error checking when compiling the test
+	program, because Ultrix make/sh aborts there due to a bug.
+
+Fri Nov 22 12:23:17 1991  Per Bothner  (bothner at cygnus.com)
+
+	* Makefile.in:  Re-did how EXTRA_OFILES is used to be more useful.
+	* README:  Explained how the auto-configuration works,
+	and how to add new files and/or configurations.
+
+Fri Nov 22 09:45:23 1991  John Gilmore  (gnu at cygnus.com)
+
+	* strtoul.c:  Avoid defining ULONG_MAX if already defined;
+	cast a const char * to char * for pedants.
+
+	* getopt.c:  Only define "const" after local include files get to,
+	and only if they haven't defined it.
+
+Thu Nov 21 16:58:53 1991  John Gilmore  (gnu at cygnus.com)
+
+	* getcwd.c (remove getwd.c): GNU code should call getcwd().  We
+	emulate it with getwd() if available.  This avoids callers having
+	to find a MAXPATHLEN or PATH_MAX value from somewhere.
+	* Makefile.in, functions.def:  getwd->getcwd.
+	* configure.in:  Use generic case for every system.
+	* config/mh-{delta88,mach,rs6000,svr4}:  Remove.
+	* config/mh-sysv:  Use default handling, just add -DUSG.
+
+Thu Nov 14 10:58:05 1991  Per Bothner  (bothner at cygnus.com)
+
+	* Makefile.in, config/mh-default: Re-do make magic
+	so that for the default ("automatic") mode we only
+	compile the files we actually need.  Do this using
+	a recursive make:  The top-level generates the list
+	of needed files (loosely, the ones missing in libc),
+	and then passes that list to the recursive make.
+	* config/mh-mach:  Remove obsolete STRERROR-{C,O} macros.
+
+Tue Nov 12 19:10:57 1991  John Gilmore  (gnu at cygnus.com)
+
+	RS/6000 host support (grumble).
+
+	* configure.in:  Build alloca-conf.h file from alloca-norm.h
+	(everything else) or alloca-botch.h (rs/6000).
+	* Makefile.in:  Include . on the include path.
+	* getopt.c:  Use alloca-conf.h.
+	* alloca-norm.h:  How to declare alloca on reasonable machines.
+	* alloca-botch.h: How to declare alloca on braindead machines.
+
+Tue Nov 12 09:21:48 1991  Fred Fish  (fnf at cygnus.com)
+
+	* concat.c :  New file, like concat() in gdb but can take a
+	variable number of arguments rather than fixed at 3 args.  For
+	now, client applications must supply an xmalloc(), which is a
+	front end function to malloc() that deals with out-of-memory
+	conditions.
+
+	* Makefile.in:  Add concat.c and concat.o to appropriate macros.
+
+Sat Nov  9 13:29:59 1991  Fred Fish  (fnf at cygnus.com)
+
+	* config/mh-svr4:  Add sigsetmask to list of required functions.
+
+Sun Nov  3 11:57:56 1991  Per Bothner  (bothner at cygnus.com)
+
+	* vsprintf.c:  New file.
+	* functions.def, Makefile.in:  Add vsprintf.
+
+Sun Oct 27 16:31:22 1991  John Gilmore  (gnu at cygnus.com)
+
+	* configure.in, config/mh-rs6000:  Add rs/6000 host support.
+	* Makefile.in:  Compile with debug info.
+
+Fri Oct 25 17:01:12 1991  Per Bothner  (bothner at cygnus.com)
+
+	* Makefile.in, configure.in, and new files: dummy.c, functions.def,
+	config/mf-default:  Added a default configuration mode,
+	which includes into libiberty.a functions that are "missing" in libc.
+	* strdup.c, vprintf.c, vfprintf.c: New files.
+
+Thu Oct 24 02:29:26 1991  Fred Fish  (fnf at cygnus.com)
+
+	* config/hmake-svr4: New file.
+
+	* config/hmake-sysv: Add HOST_CFILES and HOST_OFILES.
+
+	* basename.c, bcmp.c, bcopy.c, bzero.c, getpagesize.c getwd.c,
+	index.c, insque.c, rindex.c, spaces.c, strstr.c, vfork.c: New
+	files containing either portable C versions or emulations using
+	native library calls.
+
+	* strerror.c:  Add copyright, internal documentation, etc.
+
+	* strtol.c:  Replace hardwired hex constants with some more
+	portable macros.  Remove illegal (according to gcc) cast.
+
+	* strtoul.c: Replace hardwired hex constant with more portable
+	macro.
+
+	* Makefile.in: Move TARGETLIB and CFLAGS where makefile fragments
+	can override them.  Add new source and object file names to CFILES
+	and OFILES respectively.
+
+	* configure.in: Add support for SVR4 makefile fragments.
+
+Tue Oct 22 19:00:23 1991  Steve Chamberlain  (steve at cygnus.com)
+
+	* Makefile.in: Move RANLIB, AR and AR_FLAGS to where they can be
+	over-ridden by config/hmake-*
+	* configure.in: added m88kcvs to sysv list
+
 Fri Oct  4 01:29:08 1991  John Gilmore  (gnu at cygnus.com)
 
 	* Makefile.in:  Most hosts need strerror, but one or two don't,

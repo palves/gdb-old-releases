@@ -216,7 +216,7 @@ extern PTR EXFUN(realloc, (PTR, size_t));
 #include <stddef.h>
 #endif
 
-extern PTR EXFUN(memcpy, (PTR, PTR, size_t));
+extern PTR EXFUN(memcpy, (PTR, CONST PTR, size_t));
 extern PTR EXFUN(memset, (PTR, int, size_t));
 #define memmove memcpy
 
@@ -559,7 +559,7 @@ DEFUN(__free, (ptr), PTR ptr)
 	  prev = (struct list *) ptr;
 	  _heapinfo[block].busy.info.frag.nfree = 1;
 	  _heapinfo[block].busy.info.frag.first = (unsigned int)
-	    (((char *) ptr - (char *) NULL) % BLOCKSIZE >> type);
+	    (((unsigned int)((char *) ptr - (char *) NULL)) % BLOCKSIZE >> type);
 	  prev->next = _fraghead[type].next;
 	  prev->prev = &_fraghead[type];
 	  prev->prev->next = prev;
@@ -656,7 +656,7 @@ DEFUN(align, (size), size_t size)
   unsigned int adj;
 
   result = (*__morecore)(size);
-  adj = (unsigned int) ((char *) result - (char *) NULL) % BLOCKSIZE;
+  adj = (unsigned int) ((unsigned int)((char *) result - (char *) NULL)) % BLOCKSIZE;
   if (adj != 0)
     {
       adj = BLOCKSIZE - adj;
@@ -770,7 +770,7 @@ DEFUN(malloc, (size), size_t size)
 	  block = BLOCK(result);
 	  if (--_heapinfo[block].busy.info.frag.nfree != 0)
 	    _heapinfo[block].busy.info.frag.first = (unsigned int)
-	      (((char *) next->next - (char *) NULL) % BLOCKSIZE) >> log;
+	      (((unsigned int)((char *) next->next - (char *) NULL)) % BLOCKSIZE) >> log;
 
 	  /* Update the statistics.  */
 	  ++_chunks_used;
@@ -1093,17 +1093,15 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdlib.h>
 #endif /* __ONEFILE */
 
-#if 0
+#if defined(M_UNIX)
+/*
+ * M_UNIX is defined by the SCO compilers, including the port of gcc.
+ */
+
 /* On SunOS 4.1.1, <sys/param.h> typedefs size_t, which is bad since
    we typedef it above.  Maybe it's better just to have people compile
    -Dgetpagesize()=4096.  */
 /* Deal with page size.  */
-#ifdef BSD
-#ifndef BSD4_1
-#define HAVE_GETPAGESIZE
-#endif
-#endif
-
 #ifndef HAVE_GETPAGESIZE
 
 #include <sys/param.h>
@@ -1129,7 +1127,7 @@ DEFUN_VOID(__getpagesize)
   return PAGESIZE;
 }
 #endif /* not HAVE_GETPAGESIZE */
-#endif /* 0 */
+#endif /* M_UNIX */
 
 extern size_t EXFUN(__getpagesize, (NOARGS));
 
@@ -1147,7 +1145,7 @@ DEFUN(valloc, (size), size_t size)
   result = malloc(size + pagesize);
   if (result == NULL)
     return NULL;
-  adj = (unsigned int) ((char *) result - (char *) NULL) % pagesize;
+  adj = (unsigned int) ((unsigned int)((char *) result - (char *) NULL)) % pagesize;
   if (adj != 0)
     result = (char *) result + pagesize - adj;
   return result;

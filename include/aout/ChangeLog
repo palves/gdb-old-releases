@@ -1,0 +1,9 @@
+Sat Nov 30 20:34:52 1991  Steve Chamberlain  (sac at rtl.cygnus.com)
+
+	* ChangeLog, aout64.h, ar.h, encap.h, host.h, hp.h, ranlib.h,
+	reloc.h, stab.def, stab_gnu.h, sun4.h: All moved from the
+	devo/include directory
+
+
+	
+

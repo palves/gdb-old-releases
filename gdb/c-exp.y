@@ -31,7 +31,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include <string.h>
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "frame.h"
 #include "expression.h"
@@ -41,6 +40,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* These MUST be included in any grammar file!!!! 
    Please choose unique names! */
+#define	yymaxdepth c_maxdepth
 #define	yyparse	c_parse
 #define	yylex	c_lex
 #define	yyerror	c_error
@@ -60,9 +60,11 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define	yyps	c_ps
 #define	yypv	c_pv
 #define	yys	c_s
+#define	yy_yys	c_yys
 #define	yystate	c_state
 #define	yytmp	c_tmp
 #define	yyv	c_v
+#define	yy_yyv	c_yyv
 #define	yyval	c_val
 #define	yylloc	c_lloc
 
@@ -135,6 +137,7 @@ int yyparse ();
 %token <ssym> NAME_OR_INT NAME_OR_UINT
 
 %token STRUCT UNION ENUM SIZEOF UNSIGNED COLONCOLON
+%token TEMPLATE
 %token ERROR
 
 /* Special type cases, put in to allow the parser to distinguish different
@@ -771,6 +774,8 @@ array_mod:	'[' ']'
 
 func_mod:	'(' ')'
 			{ $$ = 0; }
+	|	'(' nonempty_typelist ')'
+			{ free ($2); $$ = 0; }
 	;
 
 type	:	ptype
@@ -829,6 +834,10 @@ typebase
 			{ $$ = $2.type; }
 	|	SIGNED
 			{ $$ = builtin_type_int; }
+	|	TEMPLATE name '<' type '>'
+			{ $$ = lookup_template_type(copy_name($2), $4,
+						    expression_context_block);
+			}
 	;
 
 typename:	TYPENAME
@@ -968,10 +977,11 @@ parse_number (p, len, parsed_float, putithere)
 	}
       if (i >= base)
 	return ERROR;		/* Invalid digit in this base */
-      if(!unsigned_p && (prevn >= n))
+      /* Portably test for overflow (only works for nonzero values, so make
+	 a second check for zero).  */
+      if((prevn >= n) && n != 0)
 	 unsigned_p=1;		/* Try something unsigned */
-      /* Don't do the range check if n==i and i==0, since that special
-	 case will give an overflow error. */
+      /* If range checking enabled, portably test for unsigned overflow.  */
       if(RANGE_CHECK && n!=0)
       {	
 	 if((unsigned_p && (unsigned)prevn >= (unsigned)n))
@@ -1287,6 +1297,8 @@ yylex ()
     case 8:
       if (!strncmp (tokstart, "unsigned", 8))
 	return UNSIGNED;
+      if (!strncmp (tokstart, "template", 8))
+	return TEMPLATE;
       break;
     case 6:
       if (!strncmp (tokstart, "struct", 6))
@@ -1348,7 +1360,10 @@ yylex ()
     int hextype;
 
     sym = lookup_symbol (tmp, expression_context_block,
-			 VAR_NAMESPACE, &is_a_field_of_this, NULL);
+			 VAR_NAMESPACE,
+			 current_language->la_language == language_cplus
+			 ? &is_a_field_of_this : NULL,
+			 NULL);
     if ((sym && SYMBOL_CLASS (sym) == LOC_BLOCK) ||
         lookup_partial_symtab (tmp))
       {
@@ -1398,7 +1413,7 @@ void
 yyerror (msg)
      char *msg;
 {
-  error ("Invalid syntax in expression.");
+  error (msg ? msg : "Invalid syntax in expression.");
 }
 
 /* Table mapping opcodes into strings for printing operators
@@ -1455,6 +1470,9 @@ struct type *builtin_type_unsigned_long;
 struct type *builtin_type_unsigned_long_long;
 struct type *builtin_type_float;
 struct type *builtin_type_double;
+struct type *builtin_type_long_double;
+struct type *builtin_type_complex;
+struct type *builtin_type_double_complex;
 
 struct type ** const (c_builtin_types[]) = 
 {
@@ -1471,10 +1489,11 @@ struct type ** const (c_builtin_types[]) =
   &builtin_type_unsigned_int,
   &builtin_type_unsigned_long,
   &builtin_type_unsigned_long_long,
+  &builtin_type_long_double,
+  &builtin_type_complex,
+  &builtin_type_double_complex,
   0
 };
-
-/* FIXME:  Eventually do a separate defintion for C++.  */
 
 const struct language_defn c_language_defn = {
   "c",				/* Language name */
@@ -1486,7 +1505,24 @@ const struct language_defn c_language_defn = {
   c_error,
   &BUILTIN_TYPE_LONGEST,	 /* longest signed   integral type */
   &BUILTIN_TYPE_UNSIGNED_LONGEST,/* longest unsigned integral type */
-  &builtin_type_double,		/* longest floating point type */
+  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
+  "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
+  "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
+  c_op_print_tab,		/* expression operators for printing */
+  LANG_MAGIC
+};
+
+const struct language_defn cplus_language_defn = {
+  "c++",				/* Language name */
+  language_cplus,
+  c_builtin_types,
+  range_check_off,
+  type_check_off,
+  c_parse,
+  c_error,
+  &BUILTIN_TYPE_LONGEST,	 /* longest signed   integral type */
+  &BUILTIN_TYPE_UNSIGNED_LONGEST,/* longest unsigned integral type */
+  &builtin_type_double,		/* longest floating point type */ /*FIXME*/
   "0x%x", "0x%", "x",		/* Hex   format, prefix, suffix */
   "0%o",  "0%",  "o",		/* Octal format, prefix, suffix */
   c_op_print_tab,		/* expression operators for printing */
@@ -1496,31 +1532,55 @@ const struct language_defn c_language_defn = {
 void
 _initialize_c_exp ()
 {
-  /* FIXME:  The code below assumes that the sizes of the basic data
-     types are the same on the host and target machines!!!  */
-
-  builtin_type_void = init_type (TYPE_CODE_VOID, 1, 0, "void");
-
-  builtin_type_float = init_type (TYPE_CODE_FLT, sizeof (float), 0, "float");
-  builtin_type_double = init_type (TYPE_CODE_FLT, sizeof (double), 0, "double");
-
-  builtin_type_char = init_type (TYPE_CODE_INT, sizeof (char), 0, "char");
-  builtin_type_short = init_type (TYPE_CODE_INT, sizeof (short), 0, "short");
-  builtin_type_long = init_type (TYPE_CODE_INT, sizeof (long), 0, "long");
-  builtin_type_int = init_type (TYPE_CODE_INT, sizeof (int), 0, "int");
-
-  builtin_type_unsigned_char = init_type (TYPE_CODE_INT, sizeof (char), 1, "unsigned char");
-  builtin_type_unsigned_short = init_type (TYPE_CODE_INT, sizeof (short), 1, "unsigned short");
-  builtin_type_unsigned_long = init_type (TYPE_CODE_INT, sizeof (long), 1, "unsigned long");
-  builtin_type_unsigned_int = init_type (TYPE_CODE_INT, sizeof (int), 1, "unsigned int");
-
+  builtin_type_void =
+    init_type (TYPE_CODE_VOID, 1, 0,
+	       "void");
+  builtin_type_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT, 0,
+	       "char");
+  builtin_type_unsigned_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT, 1,
+	       "unsigned char");
+  builtin_type_short =
+    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT, 0,
+	       "short");
+  builtin_type_unsigned_short =
+    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT, 1,
+	       "unsigned short");
+  builtin_type_int =
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT, 0,
+	       "int");
+  builtin_type_unsigned_int =
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT, 1,
+	       "unsigned int");
+  builtin_type_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT, 0,
+	       "long");
+  builtin_type_unsigned_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT, 1,
+	       "unsigned long");
   builtin_type_long_long =
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-	       0, "long long");
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT, 0,
+	       "long long");
   builtin_type_unsigned_long_long = 
-    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
-	       1, "unsigned long long");
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT, 1,
+	       "unsigned long long");
+  builtin_type_float =
+    init_type (TYPE_CODE_FLT, TARGET_FLOAT_BIT / TARGET_CHAR_BIT, 0,
+	       "float");
+  builtin_type_double =
+    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_BIT / TARGET_CHAR_BIT, 0,
+	       "double");
+  builtin_type_long_double =
+    init_type (TYPE_CODE_FLT, TARGET_LONG_DOUBLE_BIT / TARGET_CHAR_BIT, 0,
+	       "long double");
+  builtin_type_complex =
+    init_type (TYPE_CODE_FLT, TARGET_COMPLEX_BIT / TARGET_CHAR_BIT, 0,
+	       "complex");
+  builtin_type_double_complex =
+    init_type (TYPE_CODE_FLT, TARGET_DOUBLE_COMPLEX_BIT / TARGET_CHAR_BIT, 0,
+	       "double complex");
 
   add_language (&c_language_defn);
-  set_language (language_c);		/* Make C the default language */
+  add_language (&cplus_language_defn);
 }

@@ -1,8 +1,8 @@
-		README for gdb-4.2 release
-	John Gilmore	 		16 Oct 91
+		README for gdb-4.3 release
+	John Gilmore	 		7 Dec 1991
 
 This is GDB, the GNU source-level debugger, presently running under un*x.
-A summary of features new since gdb-3.5 is in the file `WHATS.NEW'.
+A summary of new features is in the file `WHATS.NEW'.
 
 
 Unpacking and Installation -- quick overview
@@ -11,22 +11,21 @@ Unpacking and Installation -- quick overview
 In this release, the GDB debugger sources, the generic GNU include
 files, the BFD ("binary file description") library, the readline library,
 and a miscellaneous library all have directories of their own underneath
-the gdb-4.2 directory.  The idea is that a variety of GNU tools can
+the gdb-4.3 directory.  The idea is that a variety of GNU tools can
 share a common copy of these things.  Configuration scripts and
 makefiles exist to cruise up and down this directory tree and
 automatically build all the pieces in the right order.
 
-When you unpack the gdb-4.2.tar.Z file, you'll get a directory called
-`gdb-4.2', which contains:
+When you unpack the gdb-4.3.tar.Z file, you'll get a directory called
+`gdb-4.3', which contains:
 
-  Makefile.in       config/           gdb/              texinfo/
-  README            config.sub*       include/
-  README.configure  configure*        libiberty/
-  bfd/              configure.in      readline/
+  DOC.configure  bfd/           configure*     glob/          readline/
+  Makefile.in    config/        configure.in   include/       texinfo/
+  README         config.sub*    gdb/           libiberty/
 
 To build GDB, you can just do:
 
-	cd gdb-4.2
+	cd gdb-4.3
 	./configure HOSTTYPE		(e.g. sun4, decstation)
 	make
 	cp gdb/gdb /usr/local/bin/gdb	(or wherever you want)
@@ -42,22 +41,22 @@ while debugging a program running on a machine of another type.  See below.
 More Documentation
 ==================
 
-   The GDB 4.2 release includes an already-formatted reference card,
-ready for printing on a PostScript printer, as `gdb-4.2/gdb/refcard.ps'.
-It uses the most common PostScript fonts:  the Times family, Courier,
-and Symbol.  If you have a PostScript printer, you can print the
-reference card by just sending `refcard.ps' to the printer.
+   The GDB 4.3 release includes an already-formatted reference card,
+ready for printing on a PostScript printer, as
+`gdb-4.3/gdb/refcard.ps'.  It uses the most common PostScript fonts:
+the Times family, Courier, and Symbol.  If you have a PostScript
+printer, you can print the reference card by just sending `refcard.ps'
+to the printer.
 
    The release also includes the online Info version of this manual
-already formatted: the main Info file is `gdb-4.2/gdb/gdb.info', and
-it refers to subordinate files matching `gdb.info*' in the same
-directory.
+already formatted: the main Info file is `gdb-4.3/gdb/gdb.info', and it
+refers to subordinate files matching `gdb.info*' in the same directory.
 
-   If you want to make these Info files yourself from the GDB
-manual's source, you need the GNU `makeinfo' program.  Once you have
-it, you can type
+   If you want to make these Info files yourself from the GDB manual's
+source, you need the GNU `makeinfo' program.  Once you have it, you
+can type
 
-     cd gdb-4.2/gdb
+     cd gdb-4.3/gdb
      make gdb.info
 
 to make the Info file.
@@ -69,35 +68,35 @@ several things:
      Knuth, must be installed on your system and available through
      your execution path.
 
-   * `gdb-4.2/texinfo': TeX macros defining the GNU Documentation
+   * `gdb-4.3/texinfo': TeX macros defining the GNU Documentation
      Format.
 
-   * *A DVI output program.*  TeX doesn't actually make marks on
-     paper; it produces output files called DVI files.  If your
-     system has TeX installed, chances are it has a program for
-     printing out these files; one popular example is `dvips', which
-     can print DVI files on PostScript printers.
+   * *A DVI output program.*  TeX does not actually make marks on
+     paper; it produces output files called DVI files.  If your system
+     has TeX installed, chances are it has a program for printing out
+     these files; one popular example is `dvips', which can print DVI
+     files on PostScript printers.
 
 Once you have these things, you can type
 
-     cd gdb-4.2/gdb
+     cd gdb-4.3/gdb
      make gdb.dvi
 
 to format the text of this manual, and print it with the usual output
 method for TeX DVI files at your site.
 
-   If you want to print the reference card, but don't have a
-PostScript printer, or you want to use Computer Modern fonts
-instead, you can still print it if you have TeX.  Format the
-reference card by typing
+   If you want to print the reference card, but do not have a
+PostScript printer, or you want to use Computer Modern fonts instead,
+you can still print it if you have TeX.  Format the reference card by
+typing
 
-     cd gdb-4.2/gdb
+     cd gdb-4.3/gdb
      make refcard.dvi
 
 The GDB reference card is designed to print in landscape mode on US
-"letter" size paper; that is, on a sheet 11 inches wide by 8.5
-inches high.  You will need to specify this form of printing as an
-option to your DVI output program.
+"letter" size paper; that is, on a sheet 11 inches wide by 8.5 inches
+high.  You will need to specify this form of printing as an option to
+your DVI output program.
 
 
 Installing GDB
@@ -108,54 +107,55 @@ preparing GDB for installation; you can then use `make' to build the
 `gdb' program.
 
    The gdb distribution includes all the source code you need for gdb
-in a single directory `gdb-4.2'.  That directory in turn contains:
+in a single directory `gdb-4.3'.  That directory in turn contains:
 
-`gdb-4.2/configure (and supporting files)'
+`gdb-4.3/configure (and supporting files)'
      script for configuring GDB and all its supporting libraries.
 
-`gdb-4.2/gdb'
+`gdb-4.3/gdb'
      the source specific to GDB itself
 
-`gdb-4.2/bfd'
+`gdb-4.3/bfd'
      source for the Binary File Descriptor Library
 
-`gdb-4.2/include'
+`gdb-4.3/include'
      GNU include files
 
-`gdb-4.2/libiberty'
+`gdb-4.3/libiberty'
      source for the `-liberty' free software library
 
-`gdb-4.2/readline'
+`gdb-4.3/readline'
      source for the GNU command-line interface
 
-It is most convenient to run `configure' from the `gdb-4.2'
-directory.  The simplest way to configure and build GDB is the
-following:
+It is most convenient to run `configure' from the `gdb-4.3' directory.
+ The simplest way to configure and build GDB is the following:
 
-     cd gdb-4.2
+     cd gdb-4.3
      ./configure HOST
      make
 
 where HOST is something like `sun4' or `decstation', that identifies
 the platform where GDB will run.  This builds the three libraries
-`bfd', `readline', and `libiberty', then `gdb' itself.  The
-configured source files, and the binaries, are left in the
-corresponding source directories.
+`bfd', `readline', and `libiberty', then `gdb' itself.  The configured
+source files, and the binaries, are left in the corresponding source
+directories.
 
    `configure' is a Bourne-shell (`/bin/sh') script; if your system
-doesn't recognize this automatically when you run a different shell,
-you may need to run `sh' on it explicitly:  `sh configure HOST'.
+does not recognize this automatically when you run a different shell,
+you may need to run `sh' on it explicitly: `sh configure HOST'.
 
    You can *run* the `configure' script from any of the subordinate
 directories in the GDB distribution (if you only want to configure
-that subdirectory); but be sure to specify a path to it.  For
-example, to configure only the `bfd' subdirectory,
+that subdirectory); but be sure to specify a path to it.  For example,
+to configure only the `bfd' subdirectory,
 
-     cd gdb-4.2/bfd
+     cd gdb-4.3/bfd
      ../configure HOST
 
-   You can install `gdb' anywhere; it has no hardwired paths. 
-However, you should make sure that the shell on your path (named by
+   You can install `gdb' anywhere; it has no hardwired paths.  Simply
+copy `gdb/gdb' to the desired directory.
+
+   However, you should make sure that the shell on your path (named by
 the `SHELL' environment variable) is publicly readable; some systems
 refuse to let GDB debug child processes whose programs are not
 readable, and GDB uses the shell to start your program.
@@ -164,53 +164,54 @@ readable, and GDB uses the shell to start your program.
 Configuration Subdirectories
 ============================
 
-   If you want to run GDB versions for several host or target
-machines, you'll need a different gdb compiled for each combination
-of host and target.  `configure' is designed to make this easy by
-allowing you to generate each configuration in a separate
-subdirectory.  If your `make' program handles the `VPATH' feature
-(GNU `make' does), running `make' in each of these directories then
-builds the gdb program specified there.
+   If you want to run GDB versions for several host or target machines,
+you'll need a different gdb compiled for each combination of host and
+target.  `configure' is designed to make this easy by allowing you to
+generate each configuration in a separate subdirectory.  If your
+`make' program handles the `VPATH' feature (GNU `make' does), running
+`make' in each of these directories then builds the gdb program
+specified there.
 
    `configure' creates these subdirectories for you when you
-simultaneously specify several configurations; but it's a good habit
+simultaneously specify several configurations; but it is a good habit
 even for a single configuration.  You can specify the use of
-subdirectories using the `+subdirs' option (abbreviated `+sub'). 
-For example, you can build GDB this way on a Sun 4 as follows:
+subdirectories using the `+subdirs' option (abbreviated `+sub').  For
+example, you can build GDB this way on a Sun 4 as follows:
 
-     cd gdb-4.2
+     cd gdb-4.3
      ./configure +sub sun4
      cd H-sun4/T-sun4
      make
 
-   When `configure' uses subdirectories to build programs or libraries,
-it creates nested directories `H-HOST/T-TARGET'.  `configure' uses
-these two directory levels because GDB can be configured for
-cross-compiling: GDB can run on one machine (the host) while debugging
-programs that run on another machine (the target).  You specify
-cross-debugging targets by giving the `+target=TARGET' option to
-`configure'.  Specifying only hosts still gives you two levels of
-subdirectory for each host, with the same configuration suffix on both;
-that is, if you give any number of hosts but no targets, GDB will be
-configured for native debugging on each host.  On the other hand,
-whenever you specify both hosts and targets on the same command line,
-`configure' creates all combinations of the hosts and targets you list.
+   When `configure' uses subdirectories to build programs or
+libraries, it creates nested directories `H-HOST/T-TARGET'. 
+`configure' uses these two directory levels because GDB can be
+configured for cross-compiling: GDB can run on one machine (the host)
+while debugging programs that run on another machine (the target). 
+You specify cross-debugging targets by giving the `+target=TARGET'
+option to `configure'.  Specifying only hosts still gives you two
+levels of subdirectory for each host, with the same configuration
+suffix on both; that is, if you give any number of hosts but no
+targets, GDB will be configured for native debugging on each host.  On
+the other hand, whenever you specify both hosts and targets on the
+same command line, `configure' creates all combinations of the hosts
+and targets you list.
 
-   If you run `configure' from a directory (notably, `gdb-4.2') that
+   If you run `configure' from a directory (notably, `gdb-4.3') that
 contains source directories for multiple libraries or programs,
 `configure' creates the `H-HOST/T-TARGET' subdirectories in each
 library or program's source directory.  For example, typing:
 
-     cd gdb-4.2
+     cd gdb-4.3
      configure sun4 +target=vxworks960
 
 creates the following directories:
 
-     gdb-4.2/H-sun4/T-vxworks960
-     gdb-4.2/bfd/H-sun4/T-vxworks960
-     gdb-4.2/gdb/H-sun4/T-vxworks960
-     gdb-4.2/libiberty/H-sun4/T-vxworks960
-     gdb-4.2/readline/H-sun4/T-vxworks960
+     gdb-4.3/H-sun4/T-vxworks960
+     gdb-4.3/bfd/H-sun4/T-vxworks960
+     gdb-4.3/gdb/H-sun4/T-vxworks960
+     gdb-4.3/libiberty/H-sun4/T-vxworks960
+     gdb-4.3/readline/H-sun4/T-vxworks960
 
    When you run `make' to build a program or library, you must run it
 in a configured directory.  If you made a single configuration,
@@ -219,8 +220,8 @@ have `H-HOST/T-TARGET' subdirectories, run `make' in those
 subdirectories.
 
    The `Makefile' generated by `configure' for each source directory
-runs recursively, so that typing `make' in `gdb-4.2' (or in a
-`gdb-4.2/H-HOST/T-TARGET' subdirectory) builds all the required
+runs recursively, so that typing `make' in `gdb-4.3' (or in a
+`gdb-4.3/H-HOST/T-TARGET' subdirectory) builds all the required
 libraries, then GDB.
 
    When you have multiple hosts or targets configured, you can run
@@ -228,8 +229,8 @@ libraries, then GDB.
 each of the hosts); they will not interfere with each other.
 
    You can also use the `+objdir=ALTROOT' option to have the
-configured files placed in a parallel directory structure rather
-than alongside the source files; *note configure Options::..
+configured files placed in a parallel directory structure rather than
+alongside the source files; *note configure Options::..
 
 
 Specifying Names for Hosts and Targets
@@ -237,8 +238,8 @@ Specifying Names for Hosts and Targets
 
    The specifications used for hosts and targets in the `configure'
 script are based on a three-part naming scheme, but some short
-predefined aliases are also supported.  The full naming scheme
-encodes three pieces of information in the following pattern:
+predefined aliases are also supported.  The full naming scheme encodes
+three pieces of information in the following pattern:
 
      ARCHITECTURE-VENDOR-OS
 
@@ -247,59 +248,48 @@ a `+target=TARGET' option, but the equivalent full name is
 `sparc-sun-sunos4'.
 
    The following table shows all the architectures, hosts, and OS
-prefixes that `configure' recognizes in GDB 4.2.  Entries in the "OS
+prefixes that `configure' recognizes in GDB 4.3.  Entries in the "OS
 prefix" column ending in a `*' may be followed by a release number.
 
 
-     ARCHITECTURE  VENDOR        OS prefix
-     ------------+------------+-------------
-                 |            |
-      580        | altos      | aix*    
-      a29k       | amd        | amigados
-      alliant    | amdahl     | aout    
-      arm        | aout       | bout    
-      c1         | apollo     | bsd*    
-      c2         | att        | coff    
-      cray2      | bcs        | ctix*   
-      h8300      | bout       | dgux*   
-      i386       | bull       | dynix*  
-      i860       | cbm        | ebmon   
-      i960       | coff       | esix*   
-      m68000     | convergent | hds     
-      m68k       | convex     | hpux*   
-      m88k       | cray       | irix*   
-      mips       | dec        | isc*    
-      ns32k      | encore     | kern    
-      pyramid    | gould      | mach*   
-      romp       | hitachi    | msdos*  
-      rs6000     | hp         | newsos* 
-      sparc      | ibm        | nindy*  
-      tahoe      | intel      | osf*    
-      tron       | isi        | sco*    
-      vax        | little     | sunos*  
-      xmp        | mips       | svr4    
-      ymp        | motorola   | sym*    
-                 | ncr        | sysv*   
-                 | next       | ultrix* 
-                 | nyu        | unicos* 
-                 | sco        | unos*   
-                 | sequent    | uts     
-                 | sgi        | v88r*   
-                 | sony       | vms*    
-                 | sun        | vxworks*
-                 | unicom     |
-                 | utek       |
-                 | wrs        |
+     ARCHITECTURE  VENDOR                     OS prefix
+     ------------+--------------------------+---------------------------
+                 |                          |
+      580        | altos        hp          | aix*          msdos*
+      a29k       | amd          ibm         | amigados      newsos*
+      alliant    | amdahl       intel       | aout          nindy*
+      arm        | aout         isi         | bout          osf*
+      c1         | apollo       little      | bsd*          sco*
+      c2         | att          mips        | coff          sunos*
+      cray2      | bcs          motorola    | ctix*         svr4
+      h8300      | bout         ncr         | dgux*         sym*
+      i386       | bull         next        | dynix*        sysv*
+      i860       | cbm          nyu         | ebmon         ultrix*
+      i960       | coff         sco         | esix*         unicos*
+      m68000     | convergent   sequent     | hds           unos*
+      m68k       | convex       sgi         | hpux*         uts
+      m88k       | cray         sony        | irix*         v88r*
+      mips       | dec          sun         | isc*          vms*
+      ns32k      | encore       unicom      | kern          vxworks*
+      pyramid    | gould        utek        | mach*
+      romp       | hitachi      wrs         |
+      rs6000     |                          |
+      sparc      |                          |
+      tahoe      |                          |
+      tron       |                          |
+      vax        |                          |
+      xmp        |                          |
+      ymp        |                          |
 
-     *Warning:* Many combinations of architecture, vendor, and OS are
-     untested.
+          *Warning:* `configure' can represent a very large number of
+     combinations of architecture, vendor, and OS.  There is by no
+     means support available for all possible combinations!
 
-   The `configure' script accompanying GDB 4.2 does not provide any
-query facility to list all supported host and target names or
-aliases.  `configure' calls the Bourne shell script `config.sub' to
-map abbreviations to full names; you can read the script, if you
-wish, or you can use it to test your guesses on abbreviations--for
-example:
+   The `configure' script accompanying GDB 4.3 does not provide any
+query facility to list all supported host and target names or aliases.
+ `configure' calls the Bourne shell script `config.sub' to map
+abbreviations to full names; you can read the script, if you wish, or
+you can use it to test your guesses on abbreviations--for example:
 
      % sh config.sub sun4
      sparc-sun-sunos4
@@ -314,14 +304,14 @@ example:
      % sh config.sub i486v
      *** Configuration "i486v" not recognized
 
-`config.sub' is also distributed in the directory `gdb-4.2'.
+`config.sub' is also distributed in the directory `gdb-4.3'.
 
 
 `configure' Options
 ===================
 
-   Here is a summary of all the `configure' options and arguments
-that you might use for building GDB:
+   Here is a summary of all the `configure' options and arguments that
+you might use for building GDB:
 
      configure [+destdir=DIR] [+subdirs]
                [+objdir=ALTROOT] [+norecursion] [+rm]
@@ -333,7 +323,6 @@ you prefer; but you may abbreviate option names if you use `+'.
 `+destdir=DIR'
      DIR is an installation directory *path prefix*.  After you
      configure with this option, `make install' will install GDB as
-    
      `DIR/bin/gdb', and the libraries in `DIR/lib'.  If you specify
      `+destdir=/usr/local', for example, `make install' creates
      `/usr/local/bin/gdb'.
@@ -343,25 +332,25 @@ you prefer; but you may abbreviate option names if you use `+'.
 
           H-HOST/T-TARGET
 
-     (and configure the `Makefile' to generate object code in
-     subdirectories of this form as well).  Without this option, if
-     you specify only one configuration for GDB, `configure' will
-     use the same directory for source, configured files, and
-     binaries.  This option is used automatically if you specify
-     more than one HOST or more than one `+target=TARGET' option on
-     the `configure' command line.
+          (and configure the `Makefile' to generate object code in
+     subdirectories of this form as well).  Without this option, if you
+     specify only one configuration for GDB, `configure' will use the
+     same directory for source, configured files, and binaries.  This
+     option is used automatically if you specify more than one HOST or
+     more than one `+target=TARGET' option on the `configure' command
+     line.
 
 `+norecursion'
-     Configure only the directory where `configure' is executed; do
-     not propagate configuration to subdirectories.
+     Configure only the directory where `configure' is executed; do not
+     propagate configuration to subdirectories.
 
 `+objdir=ALTROOT'
      ALTROOT is an alternative directory used as the root for
      configured files.  `configure' will create directories under
      ALTROOT in parallel to the source directories.  If you use
      `+objdir=ALTROOT' with `+subdirs', `configure' also builds the
-     `H-HOST/T-TARGET' subdirectories in the directory tree rooted
-     in ALTROOT.
+     `H-HOST/T-TARGET' subdirectories in the directory tree rooted in
+     ALTROOT.
 
 `+rm'
      Remove the configuration that the other arguments specify.
@@ -429,21 +418,20 @@ VxWorks realtime kernel, which communicates over TCP using the Sun
 RPC library.  This would be a useful starting point for other remote-
 via-ethernet back ends.
 
-[This section seems to be out of date, I have never seen the "rapp"
-program, though I would like to.  FIXME.]
-`rapp' runs under unix and acts as a remote stub (like rem-multi.shar
-distributed with GDB version 3).  Currently it just works over UDP
-(network), not over a serial line.  To get it running
-* Compile GDB on the host machine as usual
-* Compile rapp on the target machine, giving for both host and target
-  the type of the target machine
-* Install "gdb" in /etc/services on both machines.
-
 
 		Reporting Bugs
 
 The correct address for reporting bugs found in gdb is
 "bug-gdb@prep.ai.mit.edu".  Please email all bugs to that address.
+Please include the GDB version number (e.g. gdb-4.3), and how
+you configured it (e.g. "sun4" or "mach386 host, i586-intel-synopsys
+target").
+
+A known bug:
+
+  * If you run with a watchpoint enabled, breakpoints will become
+    erratic and might not stop the program.  Disabling or deleting the
+    watchpoint will fix the problem.
 
 GDB can produce warnings about symbols that it does not understand.  By
 default, these warnings are disabled.  You can enable them by executing
@@ -455,10 +443,13 @@ between the object file and GDB's symbol reading code.  In many cases,
 it's a mismatch between the specs for the object file format, and what
 the compiler actually outputs or the debugger actually understands.
 
-If you port gdb to a new machine, please send the required changes
-to bug-gdb@prep.ai.mit.edu.  If your changes are more than a few
-lines, obtain and send in a copyright assignment from gnu@prep.ai.mit.edu,
-as described in the section `Writing Code for GDB'.
+If you port gdb to a new machine, please send the required changes to
+bug-gdb@prep.ai.mit.edu.  There's lots of information about doing your
+own port in the file gdb-4.3/gdb/doc/gdbint.texinfo, which you can
+print out, or read with `info' (see the Makefile.in there).  If your
+changes are more than a few lines, obtain and send in a copyright
+assignment from gnu@prep.ai.mit.edu, as described in the section
+`Writing Code for GDB'.
 
 
 		X Windows versus GDB

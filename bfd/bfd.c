@@ -18,144 +18,148 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-/* $Id: bfd.c,v 1.30 1991/10/17 06:05:18 gnu Exp $ */
+/* $Id: bfd.c,v 1.35 1991/12/04 10:01:47 gnu Exp $ */
 
-/*proto*
-@section @code{typedef bfd}
+/*
+SECTION
+	<<typedef bfd>>
 
-A BFD is has type @code{bfd}; objects of this type are the cornerstone
-of any application using @code{libbfd}. References though the BFD and
-to data in the BFD give the entire BFD functionality.
+DESCRIPTION
+	A BFD is has type <<bfd>>; objects of this type are the
+	cornerstone of any application using <<libbfd>>. References
+	though the BFD and to data in the BFD give the entire BFD
+	functionality.
 
-Here is the struct used to define the type @code{bfd}.  This contains
-the major data about the file, and contains pointers to the rest of
-the data.
+	Here is the struct used to define the type <<bfd>>.  This
+	contains he major data about the file, and contains pointers
+	to the rest of the data.
 
-*+++
+.struct _bfd 
+.{
+	The filename the application opened the BFD with.
 
-$struct _bfd 
-${
-  The filename the application opened the BFD with.
+.  CONST char *filename;                
 
-$  CONST char *filename;                
+	A pointer to the target jump table.
 
-A pointer to the target jump table.
+.  struct bfd_target *xvec;
 
-$  struct bfd_target *xvec;
+	To avoid dragging too many header files into every file that
+	includes @file{bfd.h}, IOSTREAM has been declared as a "char
+	*", and MTIME as a "long".  Their correct types, to which they
+	are cast when used, are "FILE *" and "time_t".    The iostream
+	is the result of an fopen on the filename. 
 
-
-To avoid dragging too many header files into every file that
-includes @file{bfd.h}, IOSTREAM has been declared as a "char *", and MTIME
-as a "long".  Their correct types, to which they are cast when used,
-are "FILE *" and "time_t".  
-
-The iostream is the result of an fopen on the filename.
-
-$  char *iostream;
+.  char *iostream;
 
 Is the file being cached @xref{File Caching}.
 
-$  boolean cacheable;
+.  boolean cacheable;
 
-Marks whether there was a default target specified when the BFD was
-opened. This is used to select what matching algorithm to use to chose
-the back end.
+	Marks whether there was a default target specified when the
+	BFD was opened. This is used to select what matching algorithm
+	to use to chose the back end.
 
-$  boolean target_defaulted;
+.  boolean target_defaulted;
 
-The caching routines use these to maintain a least-recently-used list of
-BFDs (@pxref{File Caching}).
+	The caching routines use these to maintain a
+	least-recently-used list of BFDs (@pxref{File Caching}).
 
-$  struct _bfd *lru_prev, *lru_next;
+.  struct _bfd *lru_prev, *lru_next;
 
-When a file is closed by the caching routines, BFD retains state
-information on the file here:
+	When a file is closed by the caching routines, BFD retains
+	state information on the file here:
 
-$  file_ptr where;              
+.  file_ptr where;              
 
-and here:
+	and here:
 
-$  boolean opened_once;
+.  boolean opened_once;
 
-$  boolean mtime_set;
-File modified time 
+	Set if we have a locally maintained mtime value, rather than
+	getting it from the file each time:
 
-$  long mtime;          
+.  boolean mtime_set;
 
-Reserved for an unimplemented file locking extension.
+	File modified time, if mtime_set is true: 
 
-$int ifd;
+.  long mtime;          
 
-The format which belongs to the BFD.
+	Reserved for an unimplemented file locking extension.
 
-$  bfd_format format;
+.  int ifd;
 
-The direction the BFD was opened with
+	The format which belongs to the BFD.
 
-$  enum bfd_direction {no_direction = 0,
-$                       read_direction = 1,
-$                       write_direction = 2,
-$                       both_direction = 3} direction;
+.  bfd_format format;
 
-Format_specific flags
+	The direction the BFD was opened with
 
-$  flagword flags;              
+.  enum bfd_direction {no_direction = 0,
+.                       read_direction = 1,
+.                       write_direction = 2,
+.                       both_direction = 3} direction;
 
-Currently my_archive is tested before adding origin to anything. I
-believe that this can become always an add of origin, with origin set
-to 0 for non archive files.  
+	Format_specific flags
 
-$  file_ptr origin;             
+.  flagword flags;              
 
-Remember when output has begun, to stop strange things happening.
+	Currently my_archive is tested before adding origin to
+	anything. I believe that this can become always an add of
+	origin, with origin set to 0 for non archive files.  
 
-$  boolean output_has_begun;
+.  file_ptr origin;             
 
-Pointer to linked list of sections
+	Remember when output has begun, to stop strange things happening.
 
-$  struct sec  *sections;
+.  boolean output_has_begun;
 
-The number of sections 
+	Pointer to linked list of sections
 
-$  unsigned int section_count;
+.  struct sec  *sections;
 
-Stuff only useful for object files:
-The start address.
+	The number of sections 
 
-$  bfd_vma start_address;
-Used for input and output
+.  unsigned int section_count;
 
-$  unsigned int symcount;
-Symbol table for output BFD
+	Stuff only useful for object files: 
+	The start address.
 
-$  struct symbol_cache_entry  **outsymbols;             
+.  bfd_vma start_address;
 
-Pointer to structure which contains architecture information
+	Used for input and output
 
-$  struct bfd_arch_info *arch_info;
+.  unsigned int symcount;
 
-Stuff only useful for archives:
+	Symbol table for output BFD
 
-$  PTR arelt_data;              
-$  struct _bfd *my_archive;     
-$  struct _bfd *next;           
-$  struct _bfd *archive_head;   
-$  boolean has_armap;           
+.  struct symbol_cache_entry  **outsymbols;             
 
-Used by the back end to hold private data.
+	Pointer to structure which contains architecture information
 
-$  PTR tdata;
+.  struct bfd_arch_info *arch_info;
 
-Used by the application to hold private data
+	Stuff only useful for archives:
 
-$  PTR usrdata;
+.  PTR arelt_data;              
+.  struct _bfd *my_archive;     
+.  struct _bfd *next;           
+.  struct _bfd *archive_head;   
+.  boolean has_armap;           
 
-Where all the allocated stuff under this BFD goes (@pxref{Memory Usage}).
+	Used by the back end to hold private data.
 
-$  struct obstack memory;
-$};
+.  PTR tdata;
 
-*---
+	Used by the application to hold private data
+
+.  PTR usrdata;
+
+	Where all the allocated stuff under this BFD goes
+	(@pxref{Memory Usage}).
+
+.  struct obstack memory;
+.};
 
 */
 #include "bfd.h"
@@ -166,7 +170,7 @@ $};
 extern char *strerror();
 
 
-short _bfd_host_big_endian = 0x0100;
+CONST short _bfd_host_big_endian = 0x0100;
         /* Accessing the above as (*(char*)&_bfd_host_big_endian), will
            return 1 if the host is big-endian, 0 otherwise.
            (assuming that a short is two bytes long!!!  FIXME)
@@ -197,6 +201,7 @@ char *bfd_errmsgs[] = { "No error",
                         "File format is ambiguous",
                         "Section has no contents",
                         "Nonrepresentable section on output",
+			"Symbol needs debug section which does not exist",
                         "#<Invalid error code>"
                        };
 
@@ -278,18 +283,17 @@ get_reloc_upper_bound (abfd, asect)
 }
 
 unsigned int
-bfd_canonicalize_reloc (abfd, asect, location, symbols)
-     bfd *abfd;
-     sec_ptr asect;
-     arelent **location;
-     asymbol **symbols;
+DEFUN(bfd_canonicalize_reloc,(abfd, asect, location, symbols),
+     bfd *abfd AND
+     sec_ptr asect AND
+     arelent **location AND
+     asymbol **symbols)
 {
-  if (abfd->format != bfd_object) {
-    bfd_error = invalid_operation;
-    return 0;
-  }
-
-  return BFD_SEND (abfd, _bfd_canonicalize_reloc, (abfd, asect, location, symbols));
+    if (abfd->format != bfd_object) {
+	bfd_error = invalid_operation;
+	return 0;
+    }
+    return BFD_SEND (abfd, _bfd_canonicalize_reloc, (abfd, asect, location, symbols));
 }
 
 
@@ -338,12 +342,19 @@ int line;
 }
 
 
-/*proto* bfd_set_start_address
+/*
+FUNCTION
+	bfd_set_start_address
 
-Marks the entry point of an output BFD. Returns @code{true} on
-success, @code{false} otherwise.
+DESCRIPTION
 
-*; PROTO(boolean, bfd_set_start_address,(bfd *, bfd_vma));
+	Marks the entry point of an output BFD.
+
+RETURNS
+	Returns <<true>> on success, <<false>> otherwise.
+
+SYNOPSIS
+ 	boolean bfd_set_start_address(bfd *, bfd_vma);
 */
 
 boolean
@@ -356,14 +367,16 @@ bfd_vma vma;
 }
 
 
-/*proto*  bfd_get_mtime
+/*
+FUNCTION
+	bfd_get_mtime
 
-Return cached file modification time (e.g. as read from archive header
-for archive members, or from file system if we have been called
-before); else determine modify time, cache it, and return it.  
+DESCRIPTION
+	Return file modification time (as read from file system, or
+	from archive header for archive members).
 
-*; PROTO(long, bfd_get_mtime, (bfd *));
-
+SYNOPSIS
+	long bfd_get_mtime(bfd *);
 */
 
 long
@@ -380,68 +393,68 @@ bfd_get_mtime (abfd)
   if (0 != fstat (fileno (fp), &buf))
     return 0;
 
-  abfd->mtime_set = true;
-  abfd->mtime = buf.st_mtime;
-  return abfd->mtime;
+  abfd->mtime = buf.st_mtime;		/* Save value in case anyone wants it */
+  return buf.st_mtime;
 }
 
-/*proto* stuff
+/*
+FUNCTION
+	stuff
 
-*+
+DESCRIPTION
+	stuff which should be documented
 
-#define bfd_sizeof_headers(abfd, reloc) \
-     BFD_SEND (abfd, _bfd_sizeof_headers, (abfd, reloc))
-
-#define bfd_find_nearest_line(abfd, section, symbols, offset, filename_ptr, func, line_ptr) \
-     BFD_SEND (abfd, _bfd_find_nearest_line,  (abfd, section, symbols, offset, filename_ptr, func, line_ptr))
-
-#define bfd_debug_info_start(abfd) \
-        BFD_SEND (abfd, _bfd_debug_info_start, (abfd))
-
-#define bfd_debug_info_end(abfd) \
-        BFD_SEND (abfd, _bfd_debug_info_end, (abfd))
-
-#define bfd_debug_info_accumulate(abfd, section) \
-        BFD_SEND (abfd, _bfd_debug_info_accumulate, (abfd, section))
-
-#define bfd_stat_arch_elt(abfd, stat) \
-        BFD_SEND (abfd, _bfd_stat_arch_elt,(abfd, stat))
-
-#define bfd_coff_swap_aux_in(a,e,t,c,i) \
-        BFD_SEND (a, _bfd_coff_swap_aux_in, (a,e,t,c,i))
-
-#define bfd_coff_swap_sym_in(a,e,i) \
-        BFD_SEND (a, _bfd_coff_swap_sym_in, (a,e,i))
-
-#define bfd_coff_swap_lineno_in(a,e,i) \
-        BFD_SEND ( a, _bfd_coff_swap_lineno_in, (a,e,i))
-
-#define bfd_set_arch_mach(abfd, arch, mach)\
-        BFD_SEND ( abfd, _bfd_set_arch_mach, (abfd, arch, mach))
-
-#define bfd_coff_swap_reloc_out(abfd, i, o) \
-        BFD_SEND (abfd, _bfd_coff_swap_reloc_out, (abfd, i, o))
-
-#define bfd_coff_swap_lineno_out(abfd, i, o) \
-        BFD_SEND (abfd, _bfd_coff_swap_lineno_out, (abfd, i, o))
-
-#define bfd_coff_swap_aux_out(abfd, i, t,c,o) \
-        BFD_SEND (abfd, _bfd_coff_swap_aux_out, (abfd, i,t,c, o))
-
-#define bfd_coff_swap_sym_out(abfd, i,o) \
-        BFD_SEND (abfd, _bfd_coff_swap_sym_out, (abfd, i, o))
-
-#define bfd_coff_swap_scnhdr_out(abfd, i,o) \
-        BFD_SEND (abfd, _bfd_coff_swap_scnhdr_out, (abfd, i, o))
-
-#define bfd_coff_swap_filehdr_out(abfd, i,o) \
-        BFD_SEND (abfd, _bfd_coff_swap_filehdr_out, (abfd, i, o))
-
-#define bfd_coff_swap_aouthdr_out(abfd, i,o) \
-        BFD_SEND (abfd, _bfd_coff_swap_aouthdr_out, (abfd, i, o))
-
-*-
-
+.#define bfd_sizeof_headers(abfd, reloc) \
+.     BFD_SEND (abfd, _bfd_sizeof_headers, (abfd, reloc))
+.
+.#define bfd_find_nearest_line(abfd, section, symbols, offset, filename_ptr, func, line_ptr) \
+.     BFD_SEND (abfd, _bfd_find_nearest_line,  (abfd, section, symbols, offset, filename_ptr, func, line_ptr))
+.
+.#define bfd_debug_info_start(abfd) \
+.        BFD_SEND (abfd, _bfd_debug_info_start, (abfd))
+.
+.#define bfd_debug_info_end(abfd) \
+.        BFD_SEND (abfd, _bfd_debug_info_end, (abfd))
+.
+.#define bfd_debug_info_accumulate(abfd, section) \
+.        BFD_SEND (abfd, _bfd_debug_info_accumulate, (abfd, section))
+.
+.#define bfd_stat_arch_elt(abfd, stat) \
+.        BFD_SEND (abfd, _bfd_stat_arch_elt,(abfd, stat))
+.
+.#define bfd_coff_swap_aux_in(a,e,t,c,i) \
+.        BFD_SEND (a, _bfd_coff_swap_aux_in, (a,e,t,c,i))
+.
+.#define bfd_coff_swap_sym_in(a,e,i) \
+.        BFD_SEND (a, _bfd_coff_swap_sym_in, (a,e,i))
+.
+.#define bfd_coff_swap_lineno_in(a,e,i) \
+.        BFD_SEND ( a, _bfd_coff_swap_lineno_in, (a,e,i))
+.
+.#define bfd_set_arch_mach(abfd, arch, mach)\
+.        BFD_SEND ( abfd, _bfd_set_arch_mach, (abfd, arch, mach))
+.
+.#define bfd_coff_swap_reloc_out(abfd, i, o) \
+.        BFD_SEND (abfd, _bfd_coff_swap_reloc_out, (abfd, i, o))
+.
+.#define bfd_coff_swap_lineno_out(abfd, i, o) \
+.        BFD_SEND (abfd, _bfd_coff_swap_lineno_out, (abfd, i, o))
+.
+.#define bfd_coff_swap_aux_out(abfd, i, t,c,o) \
+.        BFD_SEND (abfd, _bfd_coff_swap_aux_out, (abfd, i,t,c, o))
+.
+.#define bfd_coff_swap_sym_out(abfd, i,o) \
+.        BFD_SEND (abfd, _bfd_coff_swap_sym_out, (abfd, i, o))
+.
+.#define bfd_coff_swap_scnhdr_out(abfd, i,o) \
+.        BFD_SEND (abfd, _bfd_coff_swap_scnhdr_out, (abfd, i, o))
+.
+.#define bfd_coff_swap_filehdr_out(abfd, i,o) \
+.        BFD_SEND (abfd, _bfd_coff_swap_filehdr_out, (abfd, i, o))
+.
+.#define bfd_coff_swap_aouthdr_out(abfd, i,o) \
+.        BFD_SEND (abfd, _bfd_coff_swap_aouthdr_out, (abfd, i, o))
+.
 */
 
 

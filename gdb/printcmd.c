@@ -1,5 +1,5 @@
 /* Print values for GNU debugger GDB.
-   Copyright (C) 1986-1991 Free Software Foundation, Inc.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 #include <string.h>
 #include "defs.h"
-#include "param.h"
 #include "frame.h"
 #include "symtab.h"
 #include "value.h"
@@ -249,16 +248,20 @@ print_scalar_formatted (valaddr, type, format, size, stream)
     {
       /* ok, we're going to have to get fancy here.  Assumption: a
          long is four bytes.  FIXME.  */
-      unsigned long v1, v2, tmp;
+      unsigned long v1, v2;
 
       v1 = unpack_long (builtin_type_long, valaddr);
       v2 = unpack_long (builtin_type_long, valaddr + 4);
 
 #if TARGET_BYTE_ORDER == LITTLE_ENDIAN
       /* Swap the two for printing */
-      tmp = v1;
-      v1 = v2;
-      v2 = tmp;
+      {
+        unsigned long tmp;
+
+        tmp = v1;
+        v1 = v2;
+        v2 = tmp;
+      }
 #endif
   
       switch (format)
@@ -646,9 +649,10 @@ print_command_1 (exp, inspect, voidprint)
       type = VALUE_TYPE (val);
 
       if (objectprint
-	  && (TYPE_CODE (type) == TYPE_CODE_PTR
+	  && (   TYPE_CODE (type) == TYPE_CODE_PTR
 	      || TYPE_CODE (type) == TYPE_CODE_REF)
-	  && TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_STRUCT)
+	  && (   TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_STRUCT
+	      || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_UNION))
 	{
 	  value v;
 
@@ -1990,7 +1994,7 @@ where FOO is stored, etc.  FOO must be an expression whose value\n\
 resides in memory.\n",
 		   "\n\
 EXP may be preceded with /FMT, where FMT is a format letter\n\
-but no count or size letter (see \"x\" command)."));
+but no count or size letter (see \"x\" command).", NULL));
   add_com_alias ("p", "print", class_vars, 1);
 
   add_com ("inspect", class_vars, inspect_command,

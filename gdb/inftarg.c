@@ -21,7 +21,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "frame.h"  /* required by inferior.h */
 #include "inferior.h"
 #include "target.h"
@@ -55,7 +54,11 @@ child_wait (status)
   int pid;
 
   do {
+#ifdef USE_PROC_FS
+    pid = proc_wait (status);
+#else
     pid = wait (status);
+#endif
     if (pid == -1)		/* No more children to wait for */
       {
 	fprintf (stderr, "Child process unexpectedly missing.\n");

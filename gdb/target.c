@@ -471,8 +471,8 @@ target_info (args, from_tty)
   struct target_ops *t;
   int has_all_mem = 0;
   
-  if (symfile != 0)
-    printf ("Symbols from \"%s\".\n", symfile);
+  if (symfile_objfile != 0)
+    printf ("Symbols from \"%s\".\n", symfile_objfile->name);
 
 #ifdef FILES_INFO_HOOK
   if (FILES_INFO_HOOK ())

@@ -1,7 +1,16 @@
-\input texinfo
+\input texinfo.tex
 @setfilename bfd.info
-@c $Id: bfd.texinfo,v 1.4 1991/10/08 18:51:19 pesch Exp $
+@c $Id: bfd.texinfo,v 1.10 1991/12/03 22:44:32 sac Exp $
 @synindex fn cp
+
+@ifinfo
+@format
+START-INFO-DIR-ENTRY
+* Bfd: (bfd).			The Binary File Descriptor library.
+END-INFO-DIR-ENTRY
+@end format
+@end ifinfo
+
 @ifinfo
 This file documents the BFD library.
 
@@ -44,7 +53,7 @@ into another language, under the above conditions for modified versions.
 
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\$Revision: 1.4 $}  % For use in headers, footers too
+\xdef\manvers{\$Revision: 1.10 $}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill steve\@cygnus.com\par
@@ -334,6 +343,7 @@ between formats (COFF, IEEE and Oasys).
 * Targets::
 * Architectures::
 * Opening and Closing::
+* Constructors::
 * Internal::
 * File Caching::
 @end menu
@@ -387,10 +397,13 @@ operation and reopen the BFD again, to get a fresh copy of the data structures.
 @node Architectures, Opening and Closing, Targets, BFD front end
 @include  archures.texi
 
-@node Opening and Closing, Internal, Architectures, BFD front end
+@node Opening and Closing, Constructors, Architectures, BFD front end
 @include  opncls.texi
 
-@node Internal, File Caching, Opening and Closing, BFD front end
+@node Constructors, Internal, Opening and Closing, BFD front end
+@include  ctor.texi
+
+@node Internal, File Caching, Constructors, BFD front end
 @include  libbfd.texi
 
 @node File Caching,  , Internal, BFD front end

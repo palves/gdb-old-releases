@@ -1,7 +1,6 @@
-
 /* libbfd.h -- Declarations used by bfd library *implementation*.
    (This include file is not for users of the library.)
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -23,7 +22,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Align an address upward to a boundary, expressed as a number of bytes.
    E.g. align to an 8-byte boundary with argument of 8.  */
-#define ALIGN(this, boundary) \
+#define BFD_ALIGN(this, boundary) \
   ((( (this) + ((boundary) -1)) & (~((boundary)-1))))
 
 /* If you want to read and write large blocks, you might want to do it
@@ -134,10 +133,10 @@ PROTO (void, bfd_gnu_truncate_arname, (bfd *abfd, CONST char *filename,
 					char *hdr));
 
 PROTO (boolean, bsd_write_armap, (bfd *arch, unsigned int elength,
-				  struct orl *map, int orl_count, int stridx));
+				  struct orl *map, unsigned int orl_count, int stridx));
 
 PROTO (boolean, coff_write_armap, (bfd *arch, unsigned int elength,
-				   struct orl *map, int orl_count, int stridx));
+				   struct orl *map, unsigned int orl_count, int stridx));
 
 PROTO (bfd *, bfd_generic_openr_next_archived_file, (bfd *archive,
 						     bfd *last_file));
@@ -187,21 +186,5 @@ extern bfd *bfd_last_cache;
 /* Generic routine for close_and_cleanup is really just bfd_true.  */
 #define	bfd_generic_close_and_cleanup	bfd_true
 
-/* THE FOLLOWING IS EXTRACTED FROM THE SOURCE*/
-
-/*:init.c*/
-
-/*:libbfd.c*/
-
-/*:cache.c*/
-
-/*:reloc.c*/
-
-/*:cpu-h8300.c*/
-
-/*:cpu-i960.c*/
-
-/*:cpu-empty.c*/
-
-/*:archures.c*/
+/* And more follows */
 

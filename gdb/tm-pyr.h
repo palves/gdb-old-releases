@@ -1,5 +1,5 @@
-/* Definitions to make GDB run on a Pyramidax under OSx 4.0 (4.2bsd).
-   Copyright (C) 1988, 1989 Free Software Foundation, Inc.
+/* Definitions to make GDB run on a Pyramid under OSx 4.0 (4.2bsd).
+   Copyright (C) 1988, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -47,10 +47,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
    of external names before giving them to the linker.  */
 
 #define NAMES_HAVE_UNDERSCORE
-
-/* Debugger information will be in DBX format.  */
-
-#define READ_DBX_FORMAT
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -293,7 +289,7 @@ extern unsigned int last_frame_offset;
 	CORE_ADDR frame_cfp;	\
 	CORE_ADDR frame_window_addr;
 
-#define INIT_EXTRA_FRAME_INFO(fci)  \
+#define INIT_EXTRA_FRAME_INFO(fromleaf, fci)  \
 do {								\
   (fci)->frame_window_addr = (fci)->frame;			\
   (fci)->bottom =						\
@@ -311,12 +307,8 @@ do {								\
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer.
 
-   FRAME_CHAIN_COMBINE takes the chain pointer and the frame's nominal address
-   and produces the nominal address of the caller frame.
-
    However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.
-   In that case, FRAME_CHAIN_COMBINE is not used.  */
+   it means the given frame is the outermost one and has no caller.  */
 
 /* In the case of the pyr, the frame's nominal address is the address
    of parameter register 0.  The previous frame is found 32 words up.   */
@@ -328,8 +320,6 @@ do {								\
   (chain != 0 && (outside_startup_file (FRAME_SAVED_PC (thisframe))))
 
  /*((thisframe) >= CONTROL_STACK_ADDR))*/
-
-#define FRAME_CHAIN_COMBINE(chain, thisframe) (chain)
 
 /* Define other aspects of the stack frame.  */
 

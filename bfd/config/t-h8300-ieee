@@ -1,4 +1,0 @@
-# Hitachi H8/300 using IEEE-695 object file format
-# Avoid dragging in a lot of other architectures and formats.
-TDEFINES=-DSELECT_ARCHITECTURES=bfd_h8300_arch -DSELECT_VECS='&ieee_vec,&srec_vec'
-

@@ -19,7 +19,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdio.h>
 #include "defs.h"
-#include "param.h"
 #include "frame.h"
 #include "inferior.h"
 
@@ -126,7 +125,7 @@ core_file_command (filename, from_tty)
 	corefile = savestring (filename, strlen (filename));
       else
 	{
-	  corefile = concat (current_directory, "/", filename);
+	  corefile = concat (current_directory, "/", filename, NULL);
 	}
 
       set_current_frame ( create_new_frame (read_register (FP_REGNUM),

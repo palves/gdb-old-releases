@@ -1,7 +1,6 @@
-
 /* libbfd.h -- Declarations used by bfd library *implementation*.
    (This include file is not for users of the library.)
-   Copyright (C) 1990-1991 Free Software Foundation, Inc.
+   Copyright 1990, 1991 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -23,7 +22,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 /* Align an address upward to a boundary, expressed as a number of bytes.
    E.g. align to an 8-byte boundary with argument of 8.  */
-#define ALIGN(this, boundary) \
+#define BFD_ALIGN(this, boundary) \
   ((( (this) + ((boundary) -1)) & (~((boundary)-1))))
 
 /* If you want to read and write large blocks, you might want to do it
@@ -134,10 +133,10 @@ PROTO (void, bfd_gnu_truncate_arname, (bfd *abfd, CONST char *filename,
 					char *hdr));
 
 PROTO (boolean, bsd_write_armap, (bfd *arch, unsigned int elength,
-				  struct orl *map, int orl_count, int stridx));
+				  struct orl *map, unsigned int orl_count, int stridx));
 
 PROTO (boolean, coff_write_armap, (bfd *arch, unsigned int elength,
-				   struct orl *map, int orl_count, int stridx));
+				   struct orl *map, unsigned int orl_count, int stridx));
 
 PROTO (bfd *, bfd_generic_openr_next_archived_file, (bfd *archive,
 						     bfd *last_file));
@@ -187,165 +186,32 @@ extern bfd *bfd_last_cache;
 /* Generic routine for close_and_cleanup is really just bfd_true.  */
 #define	bfd_generic_close_and_cleanup	bfd_true
 
-/* THE FOLLOWING IS EXTRACTED FROM THE SOURCE*/
+/* And more follows */
 
-/*:init.c*/
-/* bfd_check_init
-
-This routine is called before any other bfd function using initialized
-data is used to ensure that the structures have been initialized.
-Soon this function will go away, and the bfd library will assume that
-bfd_init has been called.
-*/
-
- void EXFUN(bfd_check_init,(void));
-
-/*
-*/
-
-/*:libbfd.c*/
-/* *i bfd_log2
-Return the log base 2 of the value supplied, rounded up. eg an arg
-of 1025 would return 11.
-*/
- PROTO(bfd_vma, bfd_log2,(bfd_vma x));
-
-/*
-*/
-
-/*:cache.c*/
-/* BFD_CACHE_MAX_OPEN
-The maxiumum number of files which the cache will keep open at one
-time.
-*/
+void EXFUN(bfd_check_init, (void));
+bfd_vma EXFUN(bfd_log2, (bfd_vma x));
 #define BFD_CACHE_MAX_OPEN 10
-
-/*
-
-  bfd_last_cache
-Zero, or a pointer to the topmost BFD on the chain.  This is used by
-the @code{bfd_cache_lookup} macro in @file{libbfd.h} to determine when
-it can avoid a function call.
-*/
 extern bfd *bfd_last_cache;
-
-/*
-
-  bfd_cache_lookup
-Checks to see if the required BFD is the same as the last one looked
-up. If so then it can use the iostream in the BFD with impunity, since
-it can't have changed since the last lookup, otherwise it has to
-perform the complicated lookup function
-*/
 #define bfd_cache_lookup(x) \
-     ((x)==bfd_last_cache? \
-        (FILE*)(bfd_last_cache->iostream): \
-         bfd_cache_lookup_worker(x))
-
-/*
-
-*i bfd_cache_init
-Initialize a BFD by putting it on the cache LRU.
-*/
- PROTO(void, bfd_cache_init, (bfd *));
-
-/*
-
-*i bfd_cache_close
-Remove the BFD from the cache. If the attached file is open, then close it too.
-*/
- PROTO(void, bfd_cache_close, (bfd *));
-
-/*
-
-*i bfd_open_file
-Call the OS to open a file for this BFD.  Returns the FILE *
-(possibly null) that results from this operation.  Sets up the
-BFD so that future accesses know the file is open. If the FILE *
-returned is null, then there is won't have been put in the cache, so
-it won't have to be removed from it.
-*/
- PROTO(FILE *, bfd_open_file, (bfd *));
-
-/*
-
-*i bfd_cache_lookup_worker
-Called when the macro @code{bfd_cache_lookup} fails to find a quick
-answer. Finds a file descriptor for this BFD.  If necessary, it open it.
-If there are already more than BFD_CACHE_MAX_OPEN files open, it trys to close
-one first, to avoid running out of file descriptors. 
-*/
- PROTO(FILE *, bfd_cache_lookup_worker, (bfd *));
-
-/*
-*/
-
-
-/*:reloc.c*/
-
-/*:cpu-h8300.c*/
-
-/*:cpu-i960.c*/
-
-/*:cpu-empty.c*/
-
-/*:archures.c*/
-/* bfd_default_arch_struct
-
-What bfds are seeded with 
-*/
-
-extern bfd_arch_info_type bfd_default_arch_struct;
-
-/*
- bfd_default_set_arch_mach
-
-Set the architecture and machine type in a bfd. This finds the correct
-pointer to structure and inserts it into the arch_info pointer. 
-*/
-
-  boolean EXFUN(bfd_default_set_arch_mach,(bfd *abfd,
-          enum bfd_architecture arch,
-	 unsigned long mach));
-
-/*
-
-This routine initializes the architecture dispatch table by calling
-all installed architecture packages and getting them to poke around.
-*/
-
- PROTO(void, bfd_arch_init,(void));
-
-/*
-
- bfd_arch_linkin
-
-Link the provided arch info structure into the list
-*/
-
- void EXFUN(bfd_arch_linkin,(bfd_arch_info_type *));
-
-/*
-
- bfd_default_compatible
-
-The default function for testing for compatibility 
-*/
-
- CONST bfd_arch_info_type *EXFUN(bfd_default_compatible,
-     (CONST bfd_arch_info_type *a,
-     CONST bfd_arch_info_type *b));
-
-/*
-
- bfd_default_scan
-The default function for working out whether this is an architecture
-hit and a machine hit 
-*/
-
- boolean EXFUN(bfd_default_scan,(CONST struct bfd_arch_info *, CONST char *));
-
-/*
-*/
-
-
+    ((x)==bfd_last_cache? \
+      (FILE*)(bfd_last_cache->iostream): \
+       bfd_cache_lookup_worker(x))
+void  EXFUN(bfd_cache_init , (bfd *));
+void EXFUN(bfd_cache_close , (bfd *));
+FILE* EXFUN(bfd_open_file, (bfd *));
+FILE *EXFUN(bfd_cache_lookup_worker, (bfd *));
+void EXFUN(bfd_constructor_entry, (bfd *abfd, 
+asymbol **symbol_ptr_ptr,
+CONST char*type));
+CONST struct reloc_howto_struct *EXFUN(bfd_default_reloc_type_lookup
+, (CONST struct bfd_arch_info *,
+bfd_reloc_code_type  code));
+boolean EXFUN(bfd_default_set_arch_mach, (bfd *abfd,
+enum bfd_architecture arch,
+unsigned long mach));
+void  EXFUN(bfd_arch_init, (void));
+void EXFUN(bfd_arch_linkin, (bfd_arch_info_type *));
+CONST bfd_arch_info_type *EXFUN(bfd_default_compatible
+, (CONST bfd_arch_info_type *a,
+CONST bfd_arch_info_type *b));
+boolean EXFUN(bfd_default_scan, (CONST struct bfd_arch_info *, CONST char *));

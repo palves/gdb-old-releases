@@ -66,7 +66,6 @@ trad_unix_core_file_p (abfd)
 {
   int val;
   struct user u;
-  unsigned int reg_offset, fp_reg_offset;
   /* This struct is just for allocating two things with one zalloc, so
      they will be freed together, without violating alignment constraints. */
   struct core_user {
@@ -116,7 +115,6 @@ loser1:
   }
   core_regsec (abfd) = (asection *) zalloc (sizeof (asection));
   if (core_regsec (abfd) == NULL) {
-loser2:
     free ((void *)core_datasec (abfd));
     goto loser1;
   }
@@ -208,8 +206,8 @@ trad_unix_core_file_matches_executable_p  (core_bfd, exec_bfd)
 #define	trad_unix_slurp_armap			bfd_false
 #define	trad_unix_slurp_extended_name_table	bfd_true
 #define	trad_unix_write_armap			(PROTO (boolean, (*),	\
-     (bfd *arch, unsigned int elength, struct orl *map, int orl_count,	\
-      int stridx))) bfd_false
+     (bfd *arch, unsigned int elength, struct orl *map, \
+      unsigned int orl_count, int stridx))) bfd_false
 #define	trad_unix_truncate_arname		bfd_dont_truncate_arname
 #define	aout_32_openr_next_archived_file	bfd_generic_openr_next_archived_file
 

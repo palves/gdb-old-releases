@@ -26,7 +26,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <string.h>
 
 #include "defs.h"
-#include "param.h"
 #include "signals.h"
 #include "gdbcmd.h"
 #include "terminal.h"
@@ -45,40 +44,6 @@ extern char *realloc();
 #ifndef ISATTY
 #define ISATTY(FP)	(isatty (fileno (FP)))
 #endif
-
-#ifdef MISSING_VPRINTF
-#ifdef __GNU_LIBRARY
-#undef MISSING_VPRINTF
-#else  /* !__GNU_LIBRARY */
-
-#ifndef vfprintf
-/* Can't #define it since language.c needs it (though FIXME it shouldn't) */
-void
-vfprintf (file, format, ap)
-     FILE *file;
-     char *format;
-     va_list ap;
-{
-  _doprnt (format, ap, file);
-}
-#endif /* vfprintf */
-
-#ifndef vprintf
-/* Can't #define it since printcmd.c needs it */
-void
-vprintf (format, ap)
-     char *format;
-     va_list ap;
-{
-  vfprintf (stdout, format, ap);
-}
-#endif /* vprintf */
-
-#endif /* GNU_LIBRARY */
-#endif /* MISSING_VPRINTF */
-
-void error ();
-void fatal ();
 
 /* Chain of cleanup actions established with make_cleanup,
    to be executed if an error happens.  */
@@ -114,6 +79,7 @@ int sevenbit_strings = 0;
 /* String to be printed before error messages, if any.  */
 
 char *error_pre_print;
+char *warning_pre_print;
 
 /* Add a new cleanup to the cleanup_chain,
    and return the previous chain pointer
@@ -201,6 +167,44 @@ free_current_contents (location)
   free (*location);
 }
 
+/* Provide a hook for modules wishing to print their own warning messages
+   to set up the terminal state in a compatible way, without them having
+   to import all the target_<...> macros. */
+
+void
+warning_setup ()
+{
+  target_terminal_ours ();
+  wrap_here("");			/* Force out any buffered output */
+  fflush (stdout);
+}
+
+/* Print a warning message.
+   The first argument STRING is the warning message, used as a fprintf string,
+   and the remaining args are passed as arguments to it.
+   The primary difference between warnings and errors is that a warning
+   does not force the return to command level. */
+
+/* VARARGS */
+void
+warning (va_alist)
+     va_dcl
+{
+  va_list args;
+  char *string;
+
+  va_start (args);
+  target_terminal_ours ();
+  wrap_here("");			/* Force out any buffered output */
+  fflush (stdout);
+  if (warning_pre_print)
+    fprintf (stderr, warning_pre_print);
+  string = va_arg (args, char *);
+  vfprintf (stderr, string, args);
+  fprintf (stderr, "\n");
+  va_end (args);
+}
+
 /* Print an error message and return to command level.
    The first argument STRING is the error message, used as a fprintf string,
    and the remaining args are passed as arguments to it.  */
@@ -474,18 +478,6 @@ strsave (ptr)
      const char *ptr;
 {
   return savestring (ptr, strlen (ptr));
-}
-
-char *
-concat (s1, s2, s3)
-     char *s1, *s2, *s3;
-{
-  register int len = strlen (s1) + strlen (s2) + strlen (s3) + 1;
-  register char *val = (char *) xmalloc (len);
-  strcpy (val, s1);
-  strcat (val, s2);
-  strcat (val, s3);
-  return val;
 }
 
 void
@@ -993,14 +985,10 @@ fputs_demangled (linebuffer, stream, arg_mode)
    (since prompt_for_continue may do so) so this routine should not be
    called when cleanups are not in place.  */
 
-#if !defined(MISSING_VPRINTF) || defined (vsprintf)
 /* VARARGS */
 void
 vfprintf_filtered (stream, format, args)
      va_list args;
-#else
-void fprintf_filtered (stream, format, arg1, arg2, arg3, arg4, arg5, arg6)
-#endif
      FILE *stream;
      char *format;
 {
@@ -1030,16 +1018,11 @@ void fprintf_filtered (stream, format, arg1, arg2, arg3, arg4, arg5, arg6)
 
   /* This won't blow up if the restrictions described above are
      followed.   */
-#if !defined(MISSING_VPRINTF) || defined (vsprintf)
   (void) vsprintf (linebuffer, format, args);
-#else
-  (void) sprintf (linebuffer, format, arg1, arg2, arg3, arg4, arg5, arg6);
-#endif
 
   fputs_filtered (linebuffer, stream);
 }
 
-#if !defined(MISSING_VPRINTF) || defined (vsprintf)
 /* VARARGS */
 void
 fprintf_filtered (va_alist)
@@ -1073,15 +1056,6 @@ printf_filtered (va_alist)
   (void) vfprintf_filtered (stdout, format, args);
   va_end (args);
 }
-#else
-void
-printf_filtered (format, arg1, arg2, arg3, arg4, arg5, arg6)
-     char *format;
-     int arg1, arg2, arg3, arg4, arg5, arg6;
-{
-  fprintf_filtered (stdout, format, arg1, arg2, arg3, arg4, arg5, arg6);
-}
-#endif
 
 /* Easy */
 
@@ -1143,99 +1117,6 @@ fprint_symbol (stream, name)
       free (demangled);
     }
 }
-
-#if !defined (USG_UTILS)
-#define USG_UTILS defined (USG)
-#endif
-
-#if USG_UTILS
-bcopy (from, to, count)
-char *from, *to;
-{
-	memcpy (to, from, count);
-}
-
-bcmp (from, to, count)
-{
-	return (memcmp (to, from, count));
-}
-
-bzero (to, count)
-char *to;
-{
-	while (count--)
-		*to++ = 0;
-}
-
-getwd (buf)
-char *buf;
-{
-  getcwd (buf, MAXPATHLEN);
-}
-
-char *
-index (s, c)
-     char *s;
-{
-  char *strchr ();
-  return strchr (s, c);
-}
-
-char *
-rindex (s, c)
-     char *s;
-{
-  char *strrchr ();
-  return strrchr (s, c);
-}
-#endif /* USG_UTILS.  */
-
-#if !defined (QUEUE_MISSING)
-#define QUEUE_MISSING defined (USG)
-#endif
-
-#if QUEUE_MISSING
-/* Queue routines */
-
-struct queue {
-	struct queue *forw;
-	struct queue *back;
-};
-
-insque (item, after)
-struct queue *item;
-struct queue *after;
-{
-	item->forw = after->forw;
-	after->forw->back = item;
-
-	item->back = after;
-	after->forw = item;
-}
-
-remque (item)
-struct queue *item;
-{
-	item->forw->back = item->back;
-	item->back->forw = item->forw;
-}
-#endif /* QUEUE_MISSING */
-
-#ifndef HAVE_STRSTR
-/* Simple implementation of strstr, since some implementations lack it. */
-const char *
-strstr (in, find)
-     const char *in, *find;
-{
-  register const char *p = in - 1;
-
-  while (0 != (p = strchr (p+1, *find))) {
-    if (strcmp (p, find))
-      return p;
-  }
-  return 0;
-}
-#endif /* do not HAVE_STRSTR */
 
 void
 _initialize_utils ()

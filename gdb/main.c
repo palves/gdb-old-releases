@@ -1,5 +1,5 @@
-/* Top level for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1988, 1989, 1990 Free Software Foundation, Inc.
+/* Top level `main' program for GDB, the GNU debugger.
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -21,7 +21,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 int fclose ();
 #include "defs.h"
 #include "gdbcmd.h"
-#include "param.h"
 #include "symtab.h"
 #include "inferior.h"
 #include "signals.h"
@@ -83,6 +82,10 @@ extern char *error_pre_print;
 
 extern char lang_frame_mismatch_warn[];		/* language.c */
 
+/* Whether GDB's stdin is on a terminal.  */
+
+extern int gdb_has_a_terminal;			/* inflow.c */
+
 /* Flag for whether we want all the "from_tty" gubbish printed.  */
 
 int caution = 1;			/* Default is yes, sigh. */
@@ -142,7 +145,7 @@ FILE *instream;
 char *current_directory;
 
 /* The directory name is actually stored here (usually).  */
-static char dirbuf[MAXPATHLEN];
+static char dirbuf[1024];
 
 /* Function to call before reading a command, if nonzero.
    The function receives two args: an input stream,
@@ -170,6 +173,7 @@ extern void init_malloc ();
 void free_command_lines ();
 char *gdb_readline ();
 char *command_line_input ();
+static void initialize_history ();
 static void initialize_main ();
 static void initialize_cmd_lists ();
 static void init_signals ();
@@ -358,7 +362,7 @@ main (argc, argv)
   line[0] = '\0';		/* Terminate saved (now empty) cmd line */
   instream = stdin;
 
-  getwd (dirbuf);
+  getcwd (dirbuf, sizeof (dirbuf));
   current_directory = dirbuf;
 
 #ifdef SET_STACK_LIMIT_HUGE
@@ -603,6 +607,27 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
     printf_filtered ("\n");
   error_pre_print = "\n";
 
+  /* Set the initial language. */
+  {
+    extern enum language deduce_language_from_filename ();
+    extern struct partial_symtab *find_main_psymtab ();
+    struct partial_symtab *pst = find_main_psymtab ();
+    enum language lang = language_unknown;  	
+    if (pst == NULL) ;
+#if 0
+    /* A better solution would set the language when reading the psymtab.
+       This would win for symbol file formats that encode the langauge,
+       such as dwarf.  But, we don't do that yet. FIXME */
+    else if (pst->language != language_unknown)
+	lang = pst->language;
+#endif
+    else if (pst->filename != NULL)
+      lang = deduce_language_from_filename (pst->filename);
+    if (lang == language_unknown) /* Make C the default language */
+	lang = language_c;
+    set_language (lang);
+  }
+
   if (corearg != NULL)
     if (!setjmp (to_top_level))
       core_file_command (corearg, !batch);
@@ -676,6 +701,9 @@ GDB manual (available as on-line info or a printed manual).\n", stderr);
 	do_cleanups (ALL_CLEANUPS);
       }
   free (cmdarg);
+
+  /* Read in the old history after all the command files have been read. */
+  initialize_history();
 
   if (batch)
     {
@@ -1635,10 +1663,13 @@ quit_command (args, from_tty)
   exit (0);
 }
 
+/* Returns whether GDB is running on a terminal and whether the user
+   desires that questions be asked of them on that terminal.  */
+
 int
 input_from_terminal_p ()
 {
-  return (instream == stdin) & caution;
+  return gdb_has_a_terminal && (instream == stdin) & caution;
 }
 
 /* ARGSUSED */
@@ -1648,7 +1679,7 @@ pwd_command (args, from_tty)
      int from_tty;
 {
   if (args) error ("The \"pwd\" command does not take an argument: %s", args);
-  getwd (dirbuf);
+  getcwd (dirbuf, sizeof (dirbuf));
 
   if (strcmp (dirbuf, current_directory))
     printf ("Working directory %s\n (canonically %s).\n",
@@ -1681,7 +1712,7 @@ cd_command (dir, from_tty)
     current_directory = dir;
   else
     {
-      current_directory = concat (current_directory, "/", dir);
+      current_directory = concat (current_directory, "/", dir, NULL);
       free (dir);
     }
 
@@ -1819,21 +1850,6 @@ show_commands (args, from_tty)
   struct _hist_entry *history_get();
   extern int history_base;
 
-#if 0
-  /* This is all reported by individual "show" commands.  */
-  printf_filtered ("Interactive command editing is %s.\n",
-	  command_editing_p ? "on" : "off");
-
-  printf_filtered ("History expansion of command input is %s.\n",
-	  history_expansion_p ? "on" : "off");
-  printf_filtered ("Writing of a history record upon exit is %s.\n",
-	  write_history_p ? "enabled" : "disabled");
-  printf_filtered ("The size of the history list (number of stored commands) is %d.\n",
-	  history_size);
-  printf_filtered ("The name of the history record is \"%s\".\n\n",
-	  history_filename ? history_filename : "");
-#endif /* 0 */
-
   /* Print out some of the commands from the command history.  */
   /* First determine the length of the history list.  */
   hist_len = history_size;
@@ -1855,7 +1871,7 @@ show_commands (args, from_tty)
 	/* "info editing <exp>" should print around command number <exp>.  */
 	num = (parse_and_eval_address (args) - history_base) - Hist_print / 2;
     }
-  /* "info editing" means print the last Hist_print commands.  */
+  /* "show commands" means print the last Hist_print commands.  */
   else
     {
       num = hist_len - Hist_print;
@@ -1873,14 +1889,6 @@ show_commands (args, from_tty)
 	num = 0;
     }
 
-#if 0
-  /* No need for a header now that "info editing" only prints one thing.  */
-  if (num == hist_len - Hist_print)
-    printf_filtered ("The list of the last %d commands is:\n\n", Hist_print);
-  else
-    printf_filtered ("Some of the stored commands are:\n\n");
-#endif /* 0 */
-
   for (offset = num; offset < num + Hist_print && offset < hist_len; offset++)
     {
       printf_filtered ("%5d  %s\n", history_base + offset,
@@ -1892,8 +1900,8 @@ show_commands (args, from_tty)
   num += Hist_print;
   
   /* If the user repeats this command with return, it should do what
-     "info editing +" does.  This is unnecessary if arg is null,
-     because "info editing +" is not useful after "info editing".  */
+     "show commands +" does.  This is unnecessary if arg is null,
+     because "show commands +" is not useful after "show commands".  */
   if (from_tty && args)
     {
       args[0] = '+';
@@ -1993,12 +2001,39 @@ initialize_cmd_lists ()
   unsethistlist = (struct cmd_list_element *) 0;
 }
 
+/* Init the history buffer.  Note that we are called after the init file(s)
+ * have been read so that the user can change the history file via his
+ * .gdbinit file (for instance).  The GDBHISTFILE environment variable
+ * overrides all of this.
+ */
+
+static void
+initialize_history()
+{
+  char *tmpenv;
+
+  if (tmpenv = getenv ("HISTSIZE"))
+    history_size = atoi (tmpenv);
+  else if (!history_size)
+    history_size = 256;
+
+  stifle_history (history_size);
+
+  if (tmpenv = getenv ("GDBHISTFILE"))
+    history_filename = savestring (tmpenv, strlen(tmpenv));
+  else if (!history_filename) {
+    /* We include the current directory so that if the user changes
+       directories the file written will be the same as the one
+       that was read.  */
+    history_filename = concat (current_directory, "/.gdb_history", NULL);
+  }
+  read_history (history_filename);
+}
+
 static void
 initialize_main ()
 {
   struct cmd_list_element *c;
-  
-  char *tmpenv;
   
 #ifdef DEFAULT_PROMPT
   prompt = savestring (DEFAULT_PROMPT, strlen(DEFAULT_PROMPT));
@@ -2011,23 +2046,6 @@ initialize_main ()
   history_expansion_p = 0;
   write_history_p = 0;
   
-  if (tmpenv = getenv ("HISTSIZE"))
-    history_size = atoi (tmpenv);
-  else
-    history_size = 256;
-
-  stifle_history (history_size);
-
-  if (tmpenv = getenv ("GDBHISTFILE"))
-    history_filename = savestring (tmpenv, strlen(tmpenv));
-  else
-    /* We include the current directory so that if the user changes
-       directories the file written will be the same as the one
-       that was read.  */
-    history_filename = concat (current_directory, "/.gdb_history", "");
-
-  read_history (history_filename);
-
   /* Setup important stuff for command line editing.  */
   rl_completion_entry_function = (int (*)()) symbol_completion_function;
   rl_completer_word_break_characters = gdb_completer_word_break_characters;
@@ -2119,9 +2137,10 @@ when gdb is started.");
 
   add_show_from_set
     (add_set_cmd ("editing", class_support, var_boolean, (char *)&command_editing_p,
-	   "Set command line editing.\n\
+	   "Set editing of command lines as they are typed.\n\
 Use \"on\" to enable to enable the editing, and \"off\" to disable it.\n\
-Without an argument, command line editing is enabled.", &setlist),
+Without an argument, command line editing is enabled.  To edit, use\n\
+EMACS-like or VI-like commands like control-P or ESC.", &setlist),
      &showlist);
 
   add_prefix_cmd ("history", class_support, set_history,
@@ -2164,19 +2183,22 @@ ie. the number of previous commands to keep a record of.", &sethistlist);
      &showlist);
 
   add_prefix_cmd ("info", class_info, info_command,
-		  "Generic command for printing status.",
+        "Generic command for showing things about the program being debugged.",
 		  &infolist, "info ", 0, &cmdlist);
   add_com_alias ("i", "info", class_info, 1);
 
   add_prefix_cmd ("show", class_info, show_command,
-		  "Generic command for showing things set with \"set\".",
+		  "Generic command for showing things about the debugger.",
 		  &showlist, "show ", 0, &cmdlist);
   /* Another way to get at the same thing.  */
   add_info ("set", show_command, "Show all GDB settings.");
 
-  add_cmd ("commands", no_class, show_commands, "Status of command editor.",
+  add_cmd ("commands", no_class, show_commands,
+	   "Show the the history of commands you typed.\n\
+You can supply a command number to start with, or a `+' to start after\n\
+the previous command number shown.",
 	   &showlist);
 
   add_cmd ("version", no_class, show_version,
-	   "Report what version of GDB this is.", &showlist);
+	   "Show what version of GDB this is.", &showlist);
 }

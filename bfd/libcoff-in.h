@@ -34,28 +34,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #else
 #define obj_symbol_slew(bfd) 0
 #endif
-#define obj_string_table(bfd)	(coff_data(bfd)->string_table)
 
-#if 0
-typedef struct coff_ptr_struct
-{
-  unsigned int offset;
-  char fix_tag;
-  char fix_end;
-  union {
-    union internal_auxent auxent;
-    struct internal_syment syment;
-  } u;
-} combined_entry_type;
-
-
-typedef struct 
-{
-  asymbol symbol;
-  combined_entry_type *native;
-  struct lineno_cache_entry *lineno;
-} coff_symbol_type;
-#endif
 
 /* `Tdata' information kept for COFF files.  */
 
@@ -71,7 +50,6 @@ typedef struct coff_tdata
   struct coff_ptr_struct *raw_syments;
   struct lineno *raw_linenos;
   unsigned int raw_syment_count;
-  char *string_table;
   unsigned short flags;
 
   /* These are only valid once writing has begun */
@@ -95,7 +73,5 @@ typedef struct coff_tdata
 
 
 
-/*THE FOLLOWING IS EXTRACTED FROM THE SOURCE*/
-
-/*:coffcode.h*/
+/* And more taken from the source .. */
 

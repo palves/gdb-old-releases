@@ -1,5 +1,5 @@
 /* Parameters for targe of a Gould Powernode, for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -78,9 +78,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Define this if the C compiler puts an underscore at the front
    of external names before giving them to the linker.  */
 #define NAMES_HAVE_UNDERSCORE
-
-/* Debugger information will be in DBX format.  */
-#define READ_DBX_FORMAT
 
 /* Offset from address of function to start of its code.
    Zero on most machines.  */
@@ -303,12 +300,8 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* FRAME_CHAIN takes a frame's nominal address
    and produces the frame's chain-pointer.
 
-   FRAME_CHAIN_COMBINE takes the chain pointer and the frame's nominal address
-   and produces the nominal address of the caller frame.
-
    However, if FRAME_CHAIN_VALID returns zero,
-   it means the given frame is the outermost one and has no caller.
-   In that case, FRAME_CHAIN_COMBINE is not used.  */
+   it means the given frame is the outermost one and has no caller.  */
 
 /* In the case of the NPL, the frame's norminal address is Br2 and the 
    previous routines frame is up the stack X bytes, where X is the
@@ -317,9 +310,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define FRAME_CHAIN_VALID(chain, thisframe) \
         (chain != 0 && chain != (thisframe)->frame)
-
-#define FRAME_CHAIN_COMBINE(chain, thisframe) \
-	(chain)
 
 /* Define other aspects of the stack frame on NPL.  */
 #define FRAME_SAVED_PC(frame) \
@@ -418,6 +408,9 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
    Setup our stack frame, load argumemts, call and then restore registers.
 */
+
+/* FIXME:  The below defines an m68k CALL_DUMMY, which looks nothing like what
+   is documented above. */
 
 #define CALL_DUMMY {0xf227e0ff, 0x48e7fffc, 0x426742e7, 0x4eb93232, 0x3232dffc, 0x69696969, 0x4e4f4e71}
 

@@ -1,5 +1,5 @@
-/* Print m68k instructions for GDB, the GNU debugger.
-   Copyright (C) 1986, 1987, 1989 Free Software Foundation, Inc.
+/* Print Motorola 68k instructions for GDB, the GNU debugger.
+   Copyright 1986, 1987, 1989, 1991 Free Software Foundation, Inc.
 
 This file is part of GDB.
 
@@ -20,7 +20,6 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <stdio.h>
 
 #include "defs.h"
-#include "param.h"
 #include "symtab.h"
 #include "m68k-opcode.h"
 #include "gdbcore.h"
@@ -306,9 +305,11 @@ print_insn_arg (d, buffer, p, addr, stream)
     case 'B':
       if (place == 'b')
 	val = NEXTBYTE (p);
-      else if (place == 'w')
+      else if (place == 'B')
+	val = buffer[1];
+      else if (place == 'w' || place == 'W')
 	val = NEXTWORD (p);
-      else if (place == 'l')
+      else if (place == 'l' || place == 'L')
 	val = NEXTLONG (p);
       else if (place == 'g')
 	{

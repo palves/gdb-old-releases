@@ -14,18 +14,13 @@
 #define SEEK_SET 0
 #define SEEK_CUR 1
 
-extern char *malloc();
-extern void free();
-
 #include <machine/param.h>
 #include <machine/vmparam.h>
-#define	HOST_PAGE_SIZE		NBPG
-#define	HOST_SEGMENT_SIZE	NBPG /* Data seg start addr rounds to NBPG */
+#define	HOST_PAGE_SIZE		(NBPG*CLSIZE)
 #define	HOST_MACHINE_ARCH	bfd_arch_vax
-/* #define	HOST_MACHINE_MACHINE	 */
 
-#define	HOST_TEXT_START_ADDR		USRTEXT
-#define	HOST_STACK_END_ADDR		USRSTACK
+#define	HOST_TEXT_START_ADDR	USRTEXT
+#define	HOST_STACK_END_ADDR	USRSTACK
 
 /* EXACT TYPES */
 typedef char int8e_type;
